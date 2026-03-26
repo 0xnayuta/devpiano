@@ -1,5 +1,7 @@
 #include "AudioEngine.h"
 
+#include "Plugin/PluginHost.h"
+
 #include <cmath>
 
 class AudioEngine::SimpleSineSound final : public juce::SynthesiserSound
@@ -91,16 +93,29 @@ AudioEngine::AudioEngine()
     rebuildSynth();
 }
 
+void AudioEngine::setPluginHost(PluginHost* host) noexcept
+{
+    pluginHost = host;
+}
+
 void AudioEngine::prepareToPlay(int samplesPerBlockExpected, double sampleRate)
 {
+    currentSampleRate = sampleRate;
+    currentBlockSize = samplesPerBlockExpected;
+
     synth.setCurrentPlaybackSampleRate(sampleRate);
     midiCollector.reset(sampleRate);
     midiBuffer.clear();
+    pluginBuffer.setSize(2, juce::jmax(1, samplesPerBlockExpected), false, false, true);
+    pluginBuffer.clear();
 
     const auto bytes = static_cast<size_t>(juce::jlimit(256, 65536, samplesPerBlockExpected * 16));
     midiBuffer.ensureSize(bytes);
 
     updateAdsrOnVoices();
+
+    if (pluginHost != nullptr && pluginHost->hasLoadedPlugin())
+        pluginHost->prepareToPlay(sampleRate, samplesPerBlockExpected);
 }
 
 void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill)
@@ -113,14 +128,48 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
     midiBuffer.clear();
     midiCollector.removeNextBlockOfMessages(midiBuffer, bufferToFill.numSamples);
     keyboardState.processNextMidiBuffer(midiBuffer,
-                                        bufferToFill.startSample,
+                                        0,
                                         bufferToFill.numSamples,
                                         true);
 
-    synth.renderNextBlock(*bufferToFill.buffer,
-                          midiBuffer,
-                          bufferToFill.startSample,
-                          bufferToFill.numSamples);
+    auto renderedByPlugin = false;
+
+    if (pluginHost != nullptr && pluginHost->hasLoadedPlugin())
+    {
+        if (! pluginHost->isPrepared())
+            pluginHost->prepareToPlay(currentSampleRate, currentBlockSize);
+
+        if (auto* instance = pluginHost->getInstance(); instance != nullptr && pluginHost->isPrepared())
+        {
+            const auto requiredChannels = juce::jmax(1,
+                                                     juce::jmax(instance->getTotalNumInputChannels(),
+                                                                instance->getTotalNumOutputChannels()));
+            if (pluginBuffer.getNumChannels() < requiredChannels || pluginBuffer.getNumSamples() < bufferToFill.numSamples)
+                pluginBuffer.setSize(requiredChannels, bufferToFill.numSamples, false, false, true);
+
+            pluginBuffer.clear();
+            instance->processBlock(pluginBuffer, midiBuffer);
+
+            const auto outputChannels = juce::jmin(bufferToFill.buffer->getNumChannels(), instance->getTotalNumOutputChannels());
+            for (auto channel = 0; channel < outputChannels; ++channel)
+                bufferToFill.buffer->copyFrom(channel,
+                                              bufferToFill.startSample,
+                                              pluginBuffer,
+                                              channel,
+                                              0,
+                                              bufferToFill.numSamples);
+
+            renderedByPlugin = true;
+        }
+    }
+
+    if (! renderedByPlugin)
+    {
+        synth.renderNextBlock(*bufferToFill.buffer,
+                              midiBuffer,
+                              bufferToFill.startSample,
+                              bufferToFill.numSamples);
+    }
 
     bufferToFill.buffer->applyGain(bufferToFill.startSample, bufferToFill.numSamples, masterGain);
 }
@@ -128,6 +177,9 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
 void AudioEngine::releaseResources()
 {
     synth.allNotesOff(0, false);
+
+    if (pluginHost != nullptr)
+        pluginHost->releaseResources();
 }
 
 void AudioEngine::setMasterGain(float newGain)
