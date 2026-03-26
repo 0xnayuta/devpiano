@@ -40,6 +40,7 @@ private:
     void applyUiStateToAudioEngine();
     void syncUiFromSettings();
     void syncSettingsFromUi();
+    void suppressTextInputMethods();
     void restoreKeyboardFocus();
     void initialiseAudioDevice();
     void captureAudioDeviceState();
@@ -47,6 +48,11 @@ private:
     void showSettingsDialog();
     void updateMidiStatusLabel();
     void updatePluginStatusLabel();
+    void updatePluginSelectionList();
+    double getCurrentRuntimeSampleRate() const;
+    int getCurrentRuntimeBlockSize() const;
+    void loadSelectedPlugin();
+    void unloadCurrentPlugin();
     void scanPlugins();
 
     AudioEngine audioEngine;
@@ -61,6 +67,7 @@ private:
     juce::Label midiStatusLabel;
     juce::Label pluginStatusLabel;
     juce::Label pluginPathLabel;
+    juce::Label pluginSelectionLabel;
     juce::Label pluginListLabel;
     juce::Label volumeLabel;
     juce::Label attackLabel;
@@ -76,7 +83,10 @@ private:
 
     juce::TextButton settingsButton { "Settings" };
     juce::TextButton scanPluginsButton { "Scan VST3" };
+    juce::TextButton loadPluginButton { "Load" };
+    juce::TextButton unloadPluginButton { "Unload" };
     juce::TextEditor pluginPathEditor;
+    juce::ComboBox pluginSelector;
     juce::TextEditor pluginListEditor;
     juce::MidiKeyboardComponent keyboardComponent;
     std::unique_ptr<juce::DialogWindow> settingsWindow;

@@ -48,6 +48,7 @@ target_sources(devpiano PRIVATE
     Source/Audio/AudioEngine.h
     Source/Input/KeyboardMidiMapper.cpp
     Source/Input/KeyboardMidiMapper.h
+    Source/Core/KeyMapTypes.h
     Source/Midi/MidiRouter.cpp
     Source/Midi/MidiRouter.h
     Source/Plugin/PluginHost.cpp

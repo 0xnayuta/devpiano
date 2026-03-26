@@ -15,8 +15,8 @@
 
 下一阶段的主目标聚焦于四件事：
 
-- [ ] 清理当前结构中的重复与歧义
-- [ ] 建立统一核心模型层
+- [~] 清理当前结构中的重复与歧义
+- [~] 建立统一核心模型层
 - [ ] 将键盘映射升级为可配置系统
 - [ ] 将插件扫描升级为真正可发声的插件宿主主链路
 
@@ -25,17 +25,17 @@
 ## 2. 阶段划分总览
 
 ### 阶段 A：结构清障
-- [ ] 清理重复文件与过渡实现
-- [ ] 降低后续重构风险
+- [x] 清理重复文件与过渡实现
+- [x] 降低后续重构风险
 
 ### 阶段 B：核心模型层建设
-- [ ] 建立强类型、跨平台的数据结构
+- [~] 建立强类型、跨平台的数据结构
 
 ### 阶段 C：键盘映射系统升级
-- [ ] 从硬编码映射升级为可配置映射
+- [~] 从硬编码映射升级为可配置映射
 
 ### 阶段 D：插件宿主主链路落地
-- [ ] 从“仅扫描”升级到“可实例化并发声”
+- [~] 从“仅扫描”升级到“可实例化并发声”
 
 ### 阶段 E：UI 与状态接线
 - [ ] 将上面能力接入当前界面与持久化系统
@@ -49,26 +49,33 @@
 
 ## 阶段 A：结构清障
 
+### 阶段状态
+- [x] 已完成（A-1、A-2 已完成）
+
 ### A-1. 审核并处理未参与当前构建的遗留文件
 
 #### 状态
-- [ ] 未开始
+- [x] 已完成
 
 #### 文件
-- `Source/AudioEngine.h`
-- `Source/AudioEngine.cpp`
-- `Source/MidiRouter.h`
-- `Source/MidiRouter.cpp`
-- `Source/SongEngine.h`
-- `Source/SongEngine.cpp`
+- `Source/AudioEngine.h` -> `Source/Legacy/UnusedPrototypes/AudioEngine.h`
+- `Source/AudioEngine.cpp` -> `Source/Legacy/UnusedPrototypes/AudioEngine.cpp`
+- `Source/MidiRouter.h` -> `Source/Legacy/UnusedPrototypes/MidiRouter.h`
+- `Source/MidiRouter.cpp` -> `Source/Legacy/UnusedPrototypes/MidiRouter.cpp`
+- `Source/SongEngine.h` -> `Source/Legacy/UnusedPrototypes/SongEngine.h`
+- `Source/SongEngine.cpp` -> `Source/Legacy/UnusedPrototypes/SongEngine.cpp`
+- 新增说明：`Source/Legacy/UnusedPrototypes/README.md`
 
 #### 任务
-- [ ] 确认这些文件是否仍需保留
-- [ ] 若仅为历史过渡实现，移入 `Legacy/` / `Scratch/` 或明确标记为未启用
-- [ ] 避免与当前主实现重名并存
+- [x] 确认这些文件不参与当前主构建
+- [x] 将历史过渡实现移入 `Source/Legacy/UnusedPrototypes/`
+- [x] 避免与当前主实现重名并存在 `Source/` 根目录
+- [x] 为遗留原型补充目录说明文档
 
 #### 输出结果
-- [ ] `Source/` 下只保留当前有效主实现，或至少通过命名/目录明确区分
+- [x] `Source/` 根目录已不再混放这些旧原型文件
+- [x] 当前有效主实现路径更清晰：`Source/Audio/*`、`Source/Midi/*`
+- [x] Debug 构建复验通过
 
 #### 优先级
 高
@@ -78,20 +85,21 @@
 ### A-2. 为旧版参考源码补充使用边界说明
 
 #### 状态
-- [ ] 未开始
+- [x] 已完成
 
 #### 文件
 - `README.md`
-- 可选新增：`Doc/LegacyCodeNotes.md`
+- 新增：`Doc/LegacyCodeNotes.md`
 
 #### 任务
-- [ ] 在 README 中说明 `freepiano-src/` 仅供迁移参考
-- [ ] 在 README 中说明 `freepiano-src/` 不参与当前主构建
-- [ ] 在 README 中说明不应直接复制平台相关旧实现
-- [ ] 如有必要，新增 `Doc/LegacyCodeNotes.md` 记录旧模块与新模块映射关系
+- [x] 在 README 中说明 `freepiano-src/` 仅供迁移参考
+- [x] 在 README 中说明 `freepiano-src/` 不参与当前主构建
+- [x] 在 README 中说明不应直接复制平台相关旧实现
+- [x] 新增 `Doc/LegacyCodeNotes.md` 记录旧模块与新模块映射关系
 
 #### 输出结果
-- [ ] 降低误读旧代码的风险
+- [x] 降低误读旧代码的风险
+- [x] 为后续从旧代码提炼逻辑提供结构化说明
 
 #### 优先级
 中高
@@ -100,20 +108,23 @@
 
 ## 阶段 B：核心模型层建设
 
+### 阶段状态
+- [~] 进行中（B-1、B-2 已完成，B-3、B-4 未开始）
+
 ### B-1. 新建核心类型目录
 
 #### 状态
-- [ ] 未开始
+- [x] 已完成
 
 #### 新增目录
 - `Source/Core/`
 
 #### 任务
-- [ ] 在 CMake 中纳入新目录下的头文件/源文件
-- [ ] 将核心数据类型集中到 `Source/Core/`
+- [x] 在 CMake 中纳入新目录下的头文件/源文件
+- [x] 将核心数据类型集中到 `Source/Core/`
 
 #### 输出结果
-- [ ] 项目形成清晰的 Core / Input / Audio / Plugin / Settings 分层
+- [x] 项目已开始形成更清晰的 Core / Input / Audio / Plugin / Settings 分层
 
 #### 优先级
 高
@@ -123,21 +134,21 @@
 ### B-2. 建立键位映射核心类型
 
 #### 状态
-- [ ] 未开始
+- [x] 已完成第一版
 
 #### 建议新增文件
 - `Source/Core/KeyMapTypes.h`
 
 #### 任务
-- [ ] 定义 `KeyBinding`
-- [ ] 定义 `KeyboardLayout`
-- [ ] 定义 `MappedAction` / `KeyAction`
-- [ ] 定义默认布局生成函数
-- [ ] 设计物理键标识或稳定 key code 表示方式
-- [ ] 纳入 MIDI note / channel / velocity / 触发方式等字段
+- [x] 定义 `KeyBinding`
+- [x] 定义 `KeyboardLayout`
+- [x] 定义 `KeyAction`
+- [x] 定义默认布局生成函数
+- [x] 设计基于稳定 key code 的键位表示方式
+- [x] 纳入 MIDI note / channel / velocity / 触发方式等字段
 
 #### 输出结果
-- [ ] 键位映射不再只是 `unordered_map<int, int>`
+- [~] 已建立独立键位模型，后续 C-1 将把 `KeyboardMidiMapper` 切换到这套模型
 
 #### 优先级
 最高
@@ -192,25 +203,29 @@
 
 ## 阶段 C：键盘映射系统升级
 
+### 阶段状态
+- [~] 进行中（C-1、C-2、C-3 已完成，C-4 未完成）
+
 ### C-1. 改造 KeyboardMidiMapper 的内部模型
 
 #### 状态
-- [ ] 未开始
+- [x] 已完成第一轮改造
 
 #### 文件
 - `Source/Input/KeyboardMidiMapper.h`
 - `Source/Input/KeyboardMidiMapper.cpp`
 
 #### 任务
-- [ ] 去掉对固定字符映射的强依赖
-- [ ] 支持可注入映射表
-- [ ] 接入 `Source/Core/KeyMapTypes.h`
-- [ ] 增加 `setLayout(...)`
-- [ ] 增加 `getLayout()`
-- [ ] 增加 `resetToDefaultLayout()`
+- [x] 去掉对固定 `unordered_map<int, int>` 内部模型的依赖
+- [x] 支持可注入映射表
+- [x] 接入 `Source/Core/KeyMapTypes.h`
+- [x] 增加 `setLayout(...)`
+- [x] 增加 `getLayout()`
+- [x] 增加 `resetToDefaultLayout()`
 
 #### 输出结果
-- [ ] `KeyboardMidiMapper` 从硬编码工具类演进为真正的状态化模块
+- [x] `KeyboardMidiMapper` 已从硬编码工具类演进为基于 `KeyboardLayout` 的状态化模块
+- [~] 仍保留少量字符归一化逻辑，后续 C-3 继续收敛输入捕获方式
 
 #### 优先级
 最高
@@ -220,7 +235,7 @@
 ### C-2. 将 SettingsModel.keyMap 与 KeyboardMidiMapper 接线
 
 #### 状态
-- [ ] 未开始
+- [x] 已完成第一轮接线
 
 #### 文件
 - `Source/Settings/SettingsModel.h`
@@ -230,13 +245,14 @@
 - `Source/MainComponent.cpp`
 
 #### 任务
-- [ ] 定义 `SettingsModel.keyMap` 与新布局模型之间的转换关系
-- [ ] 程序启动时从设置恢复布局并注入 `KeyboardMidiMapper`
-- [ ] 程序退出或保存时将当前布局写回设置
-- [ ] 验证默认布局与保存布局之间的覆盖顺序
+- [x] 定义 `SettingsModel.keyMap` 与新布局模型之间的转换关系
+- [x] 程序启动时从设置恢复布局并注入 `KeyboardMidiMapper`
+- [x] 程序退出或保存时将当前布局写回设置
+- [x] 默认布局为空时回退到内建默认布局
 
 #### 输出结果
-- [ ] 当前键位映射可真正持久化
+- [x] 当前键位映射已具备基础持久化闭环
+- [~] 目前仍复用 legacy `keyMap` 存储形态，后续可再升级为完整布局序列化
 
 #### 优先级
 最高
@@ -246,21 +262,21 @@
 ### C-3. 修正输入捕获方式，减少字符布局依赖
 
 #### 状态
-- [ ] 未开始
+- [x] 已完成第一轮收敛
 
 #### 文件
 - `Source/Input/KeyboardMidiMapper.cpp`
-- `Source/MainComponent.cpp`
+- `Source/Core/KeyMapTypes.h`
 
 #### 任务
-- [ ] 评估当前 `key.getTextCharacter()` 的局限
-- [ ] 优先改用更稳定的 key code 方案
-- [ ] 保留必要的规范化逻辑
-- [ ] 验证按键释放检测逻辑是否稳定
-- [ ] 验证焦点切换后 held key 状态是否残留
+- [x] 评估当前 `key.getTextCharacter()` 的局限
+- [x] 改用更稳定的 `key.getKeyCode()` 方案作为主路径
+- [x] 保留必要的 key code 规范化逻辑
+- [~] 按键释放检测逻辑已保留现有稳定路径，仍需后续手工测试验证
+- [ ] 焦点切换后 held key 状态残留问题仍待专项验证
 
 #### 输出结果
-- [ ] 基础映射在不同输入法/大小写状态下更可靠
+- [~] 基础映射对输入法/字符文本的依赖已降低，后续仍需结合手工测试继续验证
 
 #### 优先级
 最高
@@ -291,27 +307,31 @@
 
 ## 阶段 D：插件宿主主链路落地
 
+### 阶段状态
+- [~] 进行中（D-1、D-2、D-3、D-5 已完成，D-4 已完成第一轮，D-6 未完成）
+
 ### D-1. 扩展 PluginHost，使其支持插件实例化
 
 #### 状态
-- [ ] 未开始
+- [x] 已完成第一轮
 
 #### 文件
 - `Source/Plugin/PluginHost.h`
 - `Source/Plugin/PluginHost.cpp`
 
 #### 任务
-- [ ] 根据 `KnownPluginList` 中的 `PluginDescription` 创建插件实例
-- [ ] 管理当前活动插件实例
-- [ ] 提供当前插件名称/状态查询接口
-- [ ] 增加 `loadPluginByName(...)`
-- [ ] 增加 `loadPluginByDescription(...)`
-- [ ] 增加 `unloadPlugin()`
-- [ ] 增加 `hasLoadedPlugin() const`
-- [ ] 增加 `getInstance()`
+- [x] 根据 `KnownPluginList` 中的 `PluginDescription` 创建插件实例
+- [x] 管理当前活动插件实例
+- [x] 提供当前插件名称/状态查询接口
+- [x] 增加 `loadPluginByName(...)`
+- [x] 增加 `loadPluginByDescription(...)`
+- [x] 增加 `unloadPlugin()`
+- [x] 增加 `hasLoadedPlugin() const`
+- [x] 增加 `getInstance()`
 
 #### 输出结果
-- [ ] `PluginHost` 从扫描器升级为最小宿主控制层
+- [x] `PluginHost` 已从纯扫描器升级为最小宿主控制层
+- [~] 当前仍未接入 `prepareToPlay` / `releaseResources` / `processBlock`，这些将在 D-2 / D-3 中完成
 
 #### 优先级
 最高
@@ -321,21 +341,22 @@
 ### D-2. 在 PluginHost 中加入生命周期管理接口
 
 #### 状态
-- [ ] 未开始
+- [x] 已完成第一轮
 
 #### 文件
 - `Source/Plugin/PluginHost.h`
 - `Source/Plugin/PluginHost.cpp`
 
 #### 任务
-- [ ] 为当前插件实例增加 `prepareToPlay(double sampleRate, int blockSize)`
-- [ ] 增加 `releaseResources()`
-- [ ] 处理 bus/layout 初始化
-- [ ] 加入加载失败时的错误信息记录
-- [ ] 明确重复加载/卸载时的状态切换逻辑
+- [x] 为当前插件实例增加 `prepareToPlay(double sampleRate, int blockSize)`
+- [x] 增加 `releaseResources()`
+- [x] 处理基础 bus/layout 初始化
+- [x] 加入加载失败时的错误信息记录
+- [x] 明确重复加载/卸载时的状态切换逻辑
 
 #### 输出结果
-- [ ] 插件实例能正确进入音频处理状态
+- [x] 插件实例已具备基础生命周期管理接口
+- [~] 真正的音频处理接线仍需在 D-3 中完成
 
 #### 优先级
 最高
@@ -345,21 +366,22 @@
 ### D-3. 在 AudioEngine 中接入插件处理链路
 
 #### 状态
-- [ ] 未开始
+- [x] 已完成第一轮接入
 
 #### 文件
 - `Source/Audio/AudioEngine.h`
 - `Source/Audio/AudioEngine.cpp`
 
 #### 任务
-- [ ] 让 `AudioEngine` 支持注入插件宿主引用
-- [ ] 优先把 MIDI 喂给已加载插件实例
-- [ ] 将插件输出写入目标 buffer
-- [ ] 无插件时保留 fallback 发声或静音
-- [ ] 明确插件模式与 fallback 模式切换逻辑
+- [x] 让 `AudioEngine` 支持注入插件宿主引用
+- [x] 优先把 MIDI 喂给已加载插件实例
+- [x] 将插件输出写入目标 buffer
+- [x] 无插件时保留 fallback 发声路径
+- [x] 明确插件模式与 fallback 模式切换逻辑
 
 #### 输出结果
-- [ ] 音频主链路具备插件驱动能力
+- [x] 音频主链路已具备插件驱动能力的第一轮实现
+- [~] 仍需通过实际插件加载与手工演奏验证效果
 
 #### 优先级
 最高
@@ -369,7 +391,7 @@
 ### D-4. 处理 MIDI 到插件的音频线程链路
 
 #### 状态
-- [ ] 未开始
+- [~] 已完成第一轮链路加固，待手工验证
 
 #### 文件
 - `Source/Audio/AudioEngine.cpp`
@@ -377,15 +399,17 @@
 - `Source/MainComponent.cpp`
 
 #### 任务
-- [ ] 打通 `KeyboardMidiMapper -> MidiMessageCollector -> AudioEngine -> PluginInstance->processBlock`
-- [ ] 打通 `MidiRouter -> MidiMessageCollector -> AudioEngine -> PluginInstance->processBlock`
-- [ ] 检查 `MidiBuffer` 生命周期
-- [ ] 检查 block 内消息收集方式
-- [ ] 检查 `processBlock` 调用时机
-- [ ] 检查 buffer 清理策略
+- [x] 打通 `KeyboardMidiMapper -> MidiMessageCollector -> AudioEngine -> PluginInstance->processBlock`
+- [x] 打通 `MidiRouter -> MidiMessageCollector -> AudioEngine -> PluginInstance->processBlock`
+- [x] 检查 `MidiBuffer` 生命周期
+- [x] 检查 block 内消息收集方式
+- [x] 检查 `processBlock` 调用时机
+- [x] 检查 buffer 清理策略
+- [x] 加入运行时 sample rate / block size 获取逻辑用于插件加载
+- [x] 在 UI 中补充已加载插件的 prepared 状态反馈
 
 #### 输出结果
-- [ ] 外部 MIDI 与电脑键盘输入都能驱动插件
+- [~] 代码路径已具备外部 MIDI 与电脑键盘驱动插件的能力，仍需结合真实插件做手工验证
 
 #### 优先级
 最高
@@ -395,21 +419,22 @@
 ### D-5. 选择最小插件加载 UI 方案
 
 #### 状态
-- [ ] 未开始
+- [x] 已完成第一轮
 
 #### 文件
 - `Source/MainComponent.h`
 - `Source/MainComponent.cpp`
 
 #### 任务
-- [ ] 在当前扫描结果基础上增加插件选择控件
-- [ ] 增加加载插件按钮
-- [ ] 增加卸载插件按钮
-- [ ] 显示当前插件加载状态
-- [ ] 评估使用 `ComboBox + Load/Unload Button` 的最小方案
+- [x] 在当前扫描结果基础上增加插件选择控件
+- [x] 增加加载插件按钮
+- [x] 增加卸载插件按钮
+- [x] 显示当前插件加载状态
+- [x] 使用 `ComboBox + Load/Unload Button` 完成最小方案
 
 #### 输出结果
-- [ ] 用户无需手动看文本框猜测插件状态
+- [x] 用户已无需只看文本框猜测插件状态
+- [~] 仍需结合真实插件加载做手工验证
 
 #### 优先级
 高
@@ -566,18 +591,19 @@
 # 4. 建议执行顺序
 
 ## 第一组：必须先做
-- [ ] A-1 清理重复/遗留文件
-- [ ] B-1 新建 `Source/Core/`
-- [ ] B-2 建立键位映射核心类型
-- [ ] C-1 改造 `KeyboardMidiMapper`
-- [ ] C-2 接入 `SettingsModel.keyMap`
-- [ ] D-1 扩展 `PluginHost` 支持实例化
-- [ ] D-2 增加插件 prepare/release 生命周期
-- [ ] D-3 在 `AudioEngine` 接入插件链路
-- [ ] D-4 打通 MIDI 到插件的主音频链路
+- [x] A-1 清理重复/遗留文件
+- [x] A-2 为旧版参考源码补充使用边界说明
+- [x] B-1 新建 `Source/Core/`
+- [x] B-2 建立键位映射核心类型
+- [x] C-1 改造 `KeyboardMidiMapper`
+- [x] C-2 接入 `SettingsModel.keyMap`
+- [x] D-1 扩展 `PluginHost` 支持实例化
+- [x] D-2 增加插件 prepare/release 生命周期
+- [x] D-3 在 `AudioEngine` 接入插件链路
+- [~] D-4 打通 MIDI 到插件的主音频链路
 
 ## 第二组：紧随其后
-- [ ] D-5 增加最小插件加载 UI
+- [x] D-5 增加最小插件加载 UI
 - [ ] E-1 扩展插件状态持久化
 - [ ] E-2 完善 UI 状态反馈
 - [ ] F-1 更新 README
