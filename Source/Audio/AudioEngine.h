@@ -2,11 +2,15 @@
 
 #include <JuceHeader.h>
 
+class PluginHost;
+
 class AudioEngine
 {
 public:
     AudioEngine();
     ~AudioEngine() = default;
+
+    void setPluginHost(PluginHost* host) noexcept;
 
     void prepareToPlay(int samplesPerBlockExpected, double sampleRate);
     void getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill);
@@ -25,13 +29,17 @@ private:
     void rebuildSynth();
     void updateAdsrOnVoices();
 
+    PluginHost* pluginHost = nullptr;
     juce::Synthesiser synth;
     juce::MidiMessageCollector midiCollector;
     juce::MidiKeyboardState keyboardState;
     juce::MidiBuffer midiBuffer;
+    juce::AudioBuffer<float> pluginBuffer;
 
     juce::ADSR::Parameters adsrParameters;
     float masterGain = 0.8f;
+    double currentSampleRate = 44100.0;
+    int currentBlockSize = 512;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AudioEngine)
 };

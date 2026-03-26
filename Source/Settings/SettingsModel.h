@@ -1,6 +1,10 @@
 #pragma once
+
 #include <JuceHeader.h>
+
 #include <unordered_map>
+
+#include "Core/KeyMapTypes.h"
 
 struct SettingsModel
 {
@@ -18,16 +22,15 @@ struct SettingsModel
     float adsrSustain = 0.80f;
     float adsrRelease = 0.30f;
 
-    // Physical key to MIDI note map (stores KeyPress keyCodes to midi notes)
-    std::unordered_map<int,int> keyMap;
+    // Physical key to MIDI note map (legacy persistence shape, still used as current on-disk format)
+    std::unordered_map<int, int> keyMap;
 
-    // Convert keyMap to a ValueTree for persistence
-    static juce::ValueTree keyMapToValueTree(const std::unordered_map<int,int>& m)
+    static juce::ValueTree keyMapToValueTree(const std::unordered_map<int, int>& m)
     {
-        juce::ValueTree t{"keymap"};
-        for (auto& kv : m)
+        juce::ValueTree t { "keymap" };
+        for (const auto& kv : m)
         {
-            juce::ValueTree n{"k"};
+            juce::ValueTree n { "k" };
             n.setProperty("code", kv.first, nullptr);
             n.setProperty("note", kv.second, nullptr);
             t.appendChild(n, nullptr);
@@ -35,17 +38,57 @@ struct SettingsModel
         return t;
     }
 
-    static std::unordered_map<int,int> valueTreeToKeyMap(const juce::ValueTree& t)
+    static std::unordered_map<int, int> valueTreeToKeyMap(const juce::ValueTree& t)
     {
-        std::unordered_map<int,int> m;
-        if (! t.isValid()) return m;
+        std::unordered_map<int, int> m;
+        if (! t.isValid())
+            return m;
+
         for (int i = 0; i < t.getNumChildren(); ++i)
         {
             auto c = t.getChild(i);
-            int code = (int) c.getProperty("code", 0);
-            int note = (int) c.getProperty("note", -1);
-            if (note >= 0) m[code] = note;
+            const auto code = static_cast<int>(c.getProperty("code", 0));
+            const auto note = static_cast<int>(c.getProperty("note", -1));
+            if (note >= 0)
+                m[code] = note;
         }
+
         return m;
+    }
+
+    static std::unordered_map<int, int> layoutToKeyMap(const devpiano::core::KeyboardLayout& layout)
+    {
+        std::unordered_map<int, int> map;
+
+        for (const auto& binding : layout.bindings)
+        {
+            if (binding.action.type != devpiano::core::KeyActionType::note)
+                continue;
+
+            if (binding.action.trigger != devpiano::core::KeyTrigger::keyDown)
+                continue;
+
+            map[binding.keyCode] = binding.action.midiNote;
+        }
+
+        return map;
+    }
+
+    static devpiano::core::KeyboardLayout keyMapToLayout(const std::unordered_map<int, int>& map)
+    {
+        auto layout = devpiano::core::makeDefaultKeyboardLayout();
+        if (map.empty())
+            return layout;
+
+        for (auto& binding : layout.bindings)
+        {
+            if (binding.action.type != devpiano::core::KeyActionType::note)
+                continue;
+
+            if (const auto it = map.find(binding.keyCode); it != map.end())
+                binding.action.midiNote = it->second;
+        }
+
+        return layout;
     }
 };

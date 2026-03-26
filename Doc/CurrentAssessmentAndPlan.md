@@ -145,11 +145,12 @@ cmake --build Build/vs2026-x64 --config Debug
 ### 3.2 尚未完成的核心能力
 
 #### 插件宿主主链路
-- [ ] 创建 `AudioPluginInstance`
-- [ ] 加载指定 VST3 乐器
-- [ ] 将 MIDI 输入送入插件
-- [ ] 通过插件 `processBlock` 输出音频
-- [ ] 插件生命周期管理
+- [x] 创建 `AudioPluginInstance` 的最小宿主接口已接入
+- [x] 已支持按名称或描述加载指定 VST3 乐器的第一轮能力
+- [x] `AudioEngine` 已具备将 MIDI 送入插件实例的主路径
+- [x] `AudioEngine` 已具备通过插件 `processBlock` 输出音频的第一轮实现
+- [x] 插件生命周期管理已完成第一轮接入
+- [~] 主链路代码已接通并完成第一轮加固，仍待真实插件手工验证
 - [ ] 插件 editor 嵌入显示
 
 #### 键盘映射系统
@@ -159,7 +160,7 @@ cmake --build Build/vs2026-x64 --config Debug
 - [ ] 设置与映射逻辑打通
 
 #### 状态模型统一
-- [ ] `SettingsModel.keyMap` 驱动 `KeyboardMidiMapper`
+- [x] `SettingsModel.keyMap` 已完成第一轮驱动 `KeyboardMidiMapper`
 - [ ] 插件路径、插件选择、扫描缓存的统一持久化
 
 #### 录制与导出
@@ -218,7 +219,7 @@ cmake --build Build/vs2026-x64 --config Debug
 - 后续 include 与命名冲突概率升高
 
 处理状态：
-- [ ] 尚未处理
+- [x] 已完成第一轮处理：未参与构建的 `Source/AudioEngine.*`、`Source/MidiRouter.*`、`Source/SongEngine.*` 已移入 `Source/Legacy/UnusedPrototypes/`，并补充目录说明文档
 
 #### 风险 B：当前发声链路仍是临时实现
 当前实际链路为：
@@ -242,10 +243,10 @@ cmake --build Build/vs2026-x64 --config Debug
 - [ ] 尚未重构
 
 #### 风险 D：插件宿主仅有扫描功能
-当前没有实例化、prepare、processBlock、恢复机制、editor 管理。
+当前已完成第一轮实例化与基础生命周期接入，但仍没有 processBlock 主链路、完整恢复机制、editor 管理。
 
 处理状态：
-- [ ] 尚未重构
+- [~] 已完成 D-1、D-2，后续继续推进 D-3 / D-6
 
 ### 5.2 中高风险项
 
@@ -288,45 +289,55 @@ cmake --build Build/vs2026-x64 --config Debug
 
 #### 风险 I：README 信息不足
 处理状态：
-- [ ] 尚未补充
+- [x] 已完成第一轮补充，并新增 `Doc/LegacyCodeNotes.md` 说明旧代码迁移边界
 
 ---
 
 ## 6. 对照 OverallGoal 的阶段性判断
 
 ### 第 1 步：重构核心数据结构
-- [~] 部分开始，尚未系统完成
+- [~] 已进入第一轮实现，尚未系统完成
 
 说明：
 - 已有 `SettingsModel`
-- 尚无统一的核心枚举、常量、事件模型层
+- 已新增 `Source/Core/KeyMapTypes.h` 作为第一版核心键位模型
+- 尚无完整统一的核心枚举、常量、事件模型层
 
 ### 第 2 步：重构按键映射逻辑
-- [~] 已完成最小可运行版本
+- [~] 已完成最小可运行版本、第一轮内部模型重构、基础设置接线与输入捕获收敛
 
 说明：
-- 有基础 `KeyboardMidiMapper`
-- 但不是完整可配置 KeyMapper
+- `KeyboardMidiMapper` 已接入 `Source/Core/KeyMapTypes.h`
+- 已支持 `setLayout()` / `getLayout()` / `resetToDefaultLayout()`
+- 已与 `SettingsModel.keyMap` 打通基础持久化闭环
+- 当前已改为优先使用 `key.getKeyCode()`，不再依赖 `getTextCharacter()` 作为主路径
+- 焦点切换与极端输入场景仍需手工测试验证
 
 ### 第 3 步：重构音频与 VST 宿主层
-- [~] 只完成插件扫描
+- [~] 已完成扫描、实例化、基础生命周期管理、音频接线与最小加载 UI
 
 说明：
 - `PluginHost` 可扫描 VST3
-- 但还未完成插件实例化与音频处理
+- 已支持 `loadPluginByName()` / `loadPluginByDescription()` / `unloadPlugin()`
+- 已支持 `prepareToPlay()` / `releaseResources()` 与基础 bus 配置
+- `AudioEngine` 已优先尝试走插件 `processBlock()`，无插件时 fallback 到内置 synth
+- `MainComponent` 已提供最小插件选择/加载/卸载 UI
+- 仍需通过真实插件加载与手工验证确认主链路稳定性
 
 ### 第 4 步：串联事件循环让程序发声
-- [~] 部分完成，但未达目标
+- [~] 主链路代码已基本接通，等待真实插件验证
 
 说明：
-- 程序确实能发声
-- 但声音来自内置正弦波，不是 VST 乐器
+- 程序当前一定可以通过内置正弦波发声
+- 代码已优先尝试使用已加载 VST 插件发声
+- 仍需通过真实插件加载与手工试弹确认最终效果
 
 ### 第 5 步：重构 UI
-- [~] 已完成初步界面雏形
+- [~] 已完成初步界面雏形，并补齐最小插件加载操作区
 
 说明：
-- 已有钢琴键盘与基础控制区域
+- 已有钢琴键盘、基础控制区域、插件扫描区
+- 已增加插件选择 / Load / Unload 最小操作区
 - 但整体仍偏调试面板
 
 ### 第 6 步：高阶功能恢复
@@ -342,16 +353,16 @@ cmake --build Build/vs2026-x64 --config Debug
 ## 7.1 阶段 0：结构清障
 
 ### 阶段状态
-- [ ] 未开始
+- [x] 已完成（A-1、A-2 已完成）
 
 ### 目标
 清理当前仓库中的重复、过渡和歧义结构，为后续重构降低风险。
 
 ### 建议动作
-- [ ] 明确标记或移走未参与构建的过渡文件
-- [ ] 保证 `Source/` 中主实现路径唯一清晰
-- [ ] 为 `freepiano-src/` 增加“只读参考”说明
-- [ ] 补充 `README.md` 基础说明
+- [x] 明确标记或移走未参与构建的过渡文件
+- [x] 保证 `Source/` 根目录中的主实现路径更清晰
+- [x] 为 `freepiano-src/` 增加“只读参考”说明
+- [x] 补充 `README.md` 基础说明
 
 ### 预期输出
 - 更干净的源码树
@@ -362,48 +373,48 @@ cmake --build Build/vs2026-x64 --config Debug
 ## 7.2 阶段 1：建立核心模型层
 
 ### 阶段状态
-- [ ] 未开始
+- [~] 进行中（`Source/Core/` 与 `KeyMapTypes.h` 已创建）
 
 ### 目标
 建立平台无关、现代化的核心类型层，替代旧项目中的宏与裸值。
 
 ### 建议新增目录
-- [ ] `Source/Core/`
+- [x] `Source/Core/`
 
 ### 建议新增文件方向
 - [ ] `Source/Core/Constants.h`
 - [ ] `Source/Core/MidiTypes.h`
-- [ ] `Source/Core/KeyMapTypes.h`
+- [x] `Source/Core/KeyMapTypes.h`
 - [ ] `Source/Core/AppState.h`
 
 ### 计划内容
 - [ ] 定义音符、通道、八度等强类型结构
-- [ ] 定义键位绑定数据结构
+- [x] 定义键位绑定数据结构
 - [ ] 定义应用状态数据模型
 - [ ] 明确序列化格式
 
 ### 验收标准
-- [ ] 各模块不再直接依赖裸 `int`/宏常量表达关键业务语义
+- [~] 已开始减少键位领域对裸 `int`/简单 map 的直接依赖，后续仍需扩展到更多核心领域
 
 ---
 
 ## 7.3 阶段 2：重构键盘映射系统
 
 ### 阶段状态
-- [ ] 未开始
+- [~] 进行中（已完成模型切换、基础设置接线与输入捕获第一轮收敛）
 
 ### 目标
 将当前硬编码字符映射升级为可配置、可持久化、可切换布局的键盘映射系统。
 
 ### 计划内容
-- [ ] 将 `KeyboardMidiMapper` 改造为真正的 `KeyMapper`
-- [ ] 从稳定 key code/物理键角度建模
-- [ ] 将 `SettingsModel.keyMap` 接入业务
-- [ ] 支持默认布局、保存布局、加载布局
+- [x] 将 `KeyboardMidiMapper` 改造为基于 `KeyboardLayout` 的状态化模块
+- [~] 从稳定 key code/物理键角度建模
+- [x] 将 `SettingsModel.keyMap` 接入业务
+- [~] 支持默认布局、保存布局、加载布局
 
 ### 验收标准
-- [ ] 映射不再依赖输入法和字符布局
-- [ ] 当前映射可保存并恢复
+- [~] 主路径已不再依赖字符文本，后续仍需手工验证输入法/焦点场景
+- [x] 当前映射已具备基础保存并恢复能力
 - [ ] 键盘与虚拟钢琴联动稳定
 
 ---
@@ -510,7 +521,7 @@ cmake --build Build/vs2026-x64 --config Debug
 ## 8. 推荐优先级排序
 
 ### 第一优先级
-- [ ] 结构清障
+- [x] 结构清障
 - [ ] 重构键盘映射系统
 - [ ] 升级插件宿主到可实例化
 - [ ] 完成插件主发声链路
