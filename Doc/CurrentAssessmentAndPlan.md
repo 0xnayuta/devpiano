@@ -150,8 +150,8 @@ cmake --build Build/vs2026-x64 --config Debug
 - [x] `AudioEngine` 已具备将 MIDI 送入插件实例的主路径
 - [x] `AudioEngine` 已具备通过插件 `processBlock` 输出音频的第一轮实现
 - [x] 插件生命周期管理已完成第一轮接入
-- [~] 主链路代码已接通并完成第一轮加固，仍待真实插件手工验证
-- [ ] 插件 editor 嵌入显示
+- [x] 轻量插件主链路已完成手工验证（以 Surge XT 为主）
+- [x] 已支持打开并操作插件 editor 窗口
 
 #### 键盘映射系统
 - [ ] 基于稳定物理键的映射
@@ -243,10 +243,10 @@ cmake --build Build/vs2026-x64 --config Debug
 - [ ] 尚未重构
 
 #### 风险 D：插件宿主仅有扫描功能
-当前已完成第一轮实例化与基础生命周期接入，但仍没有 processBlock 主链路、完整恢复机制、editor 管理。
+当前已完成扫描、实例化、基础生命周期、音频主链路与插件 editor 第一轮接入；但在特定插件/系统注入环境下，Debug 退出阶段仍可能出现 leak detector 告警。
 
 处理状态：
-- [~] 已完成 D-1、D-2，后续继续推进 D-3 / D-6
+- [~] 已完成 D-1 / D-2 / D-3 / D-5 / D-6，后续主要收尾为状态持久化与退出阶段调试告警观察
 
 ### 5.2 中高风险项
 
@@ -314,7 +314,7 @@ cmake --build Build/vs2026-x64 --config Debug
 - 焦点切换与极端输入场景仍需手工测试验证
 
 ### 第 3 步：重构音频与 VST 宿主层
-- [~] 已完成扫描、实例化、基础生命周期管理、音频接线与最小加载 UI
+- [~] 已完成扫描、实例化、基础生命周期管理、音频接线、最小加载 UI 与插件 editor 支持
 
 说明：
 - `PluginHost` 可扫描 VST3
@@ -322,7 +322,8 @@ cmake --build Build/vs2026-x64 --config Debug
 - 已支持 `prepareToPlay()` / `releaseResources()` 与基础 bus 配置
 - `AudioEngine` 已优先尝试走插件 `processBlock()`，无插件时 fallback 到内置 synth
 - `MainComponent` 已提供最小插件选择/加载/卸载 UI
-- 仍需通过真实插件加载与手工验证确认主链路稳定性
+- 已能打开并操作 Surge XT 的插件 editor
+- Debug 退出阶段在特定插件/系统注入环境下仍可能出现 leak detector 告警，但当前不影响核心功能验证
 
 ### 第 4 步：串联事件循环让程序发声
 - [~] 主链路代码已基本接通，等待真实插件验证
@@ -333,11 +334,11 @@ cmake --build Build/vs2026-x64 --config Debug
 - 仍需通过真实插件加载与手工试弹确认最终效果
 
 ### 第 5 步：重构 UI
-- [~] 已完成初步界面雏形，并补齐最小插件加载操作区
+- [~] 已完成初步界面雏形，并补齐最小插件加载与 editor 操作区
 
 说明：
 - 已有钢琴键盘、基础控制区域、插件扫描区
-- 已增加插件选择 / Load / Unload 最小操作区
+- 已增加插件选择 / Load / Unload / Open Editor 最小操作区
 - 但整体仍偏调试面板
 
 ### 第 6 步：高阶功能恢复
