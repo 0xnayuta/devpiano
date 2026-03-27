@@ -49,10 +49,25 @@ target_sources(devpiano PRIVATE
     Source/Input/KeyboardMidiMapper.cpp
     Source/Input/KeyboardMidiMapper.h
     Source/Core/KeyMapTypes.h
+    Source/Core/MidiTypes.h
+    Source/Core/AppState.h
+    Source/Core/AppStateBuilder.h
     Source/Midi/MidiRouter.cpp
     Source/Midi/MidiRouter.h
     Source/Plugin/PluginHost.cpp
     Source/Plugin/PluginHost.h
+    Source/UI/PluginPanel.cpp
+    Source/UI/PluginPanel.h
+    Source/UI/PluginPanelStateBuilder.cpp
+    Source/UI/PluginPanelStateBuilder.h
+    Source/UI/ControlsPanel.cpp
+    Source/UI/ControlsPanel.h
+    Source/UI/HeaderPanel.cpp
+    Source/UI/HeaderPanel.h
+    Source/UI/HeaderPanelStateBuilder.cpp
+    Source/UI/HeaderPanelStateBuilder.h
+    Source/UI/KeyboardPanel.cpp
+    Source/UI/KeyboardPanel.h
     Source/Settings/SettingsModel.h
     Source/Settings/SettingsStore.cpp
     Source/Settings/SettingsStore.h

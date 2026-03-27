@@ -109,7 +109,7 @@
 ## 阶段 B：核心模型层建设
 
 ### 阶段状态
-- [~] 进行中（B-1、B-2 已完成，B-3、B-4 未开始）
+- [~] 进行中（B-1、B-2 已完成，B-4 已进入第一轮落地，B-3 未开始）
 
 ### B-1. 新建核心类型目录
 
@@ -158,20 +158,20 @@
 ### B-3. 建立 MIDI 相关基础类型
 
 #### 状态
-- [ ] 未开始
+- [~] 进行中（已完成第一版轻量类型头文件）
 
 #### 建议新增文件
 - `Source/Core/MidiTypes.h`
 
 #### 任务
-- [ ] 定义 `MidiNoteNumber`
-- [ ] 定义 `MidiChannel`
-- [ ] 定义 `Velocity`
-- [ ] 定义 `NoteRange`
-- [ ] 让类型保持轻量，不做过度设计
+- [x] 定义 `MidiNoteNumber`
+- [x] 定义 `MidiChannel`
+- [x] 定义 `Velocity`
+- [x] 定义 `NoteRange`
+- [x] 让类型保持轻量，不做过度设计
 
 #### 输出结果
-- [ ] 减少代码中散落的裸 `int` / `float`
+- [~] 已建立第一版轻量 MIDI 强类型入口，且 `Source/Core/KeyMapTypes.h` 已开始以兼容方式轻量接入这些类型；`KeyboardMidiMapper` 的最小取值路径与 `SettingsModel` 的布局转换辅助也已开始优先使用强类型 helper；后续可逐步替换代码中散落的裸 `int` / `float`
 
 #### 优先级
 中高
@@ -181,20 +181,29 @@
 ### B-4. 建立应用状态聚合模型
 
 #### 状态
-- [ ] 未开始
+- [~] 进行中（已完成第一版轻量聚合头文件与快照入口）
 
 #### 建议新增文件
 - `Source/Core/AppState.h`
 
 #### 任务
-- [ ] 设计音频设置聚合结构
-- [ ] 设计插件选择状态结构
-- [ ] 设计键盘布局状态结构
-- [ ] 设计演奏参数状态结构
-- [ ] 明确后续与 `SettingsModel` 的迁移关系
+- [x] 设计音频设置聚合结构
+- [x] 设计插件选择状态结构
+- [x] 设计键盘布局状态结构
+- [x] 设计演奏参数状态结构
+- [~] 明确后续与 `SettingsModel` 的迁移关系
 
 #### 输出结果
-- [ ] 为后续 UI / 引擎 / 设置三方同步做准备
+- [~] 已新增 `Source/Core/AppState.h`，并由 `MainComponent::createAppStateSnapshot()` 提供第一轮快照入口，为后续 UI / 引擎 / 设置三方同步做准备
+- [~] `HeaderPanel` 的 MIDI 状态已开始优先经由 AppState 快照驱动，作为第一块消费 AppState 的 UI 区域
+- [x] `AppState::PluginState` 已补齐第一轮插件展示字段，并已开始驱动 `PluginPanel` 的只读展示状态
+- [x] `PluginPanelStateBuilder` 已增加基于 `AppState` / `PluginState` 的构造入口
+- [x] 已新增轻量 `AppStateBuilder`，开始明确区分 persisted settings 基线与 runtime overlays
+- [x] 已补充 `SettingsModel` / `AppState` / `AppStateBuilder` 的职责边界注释与结构说明
+- [x] 已在 `SettingsModel` 内完成轻量逻辑分区 view（audio / performance / plugin recovery / input mapping）第一轮整理，且不改持久化键名与序列化格式
+- [x] `MainComponent` 中少量 persisted 读取路径（插件恢复路径、性能参数恢复、音频基线 fallback、启动布局恢复）已开始优先走 grouped view
+- [x] `SettingsModel` 已新增轻量 grouped write helper，`syncSettingsFromUi()`、`prepareToPlay()`、启动恢复与扫描相关的少量 persisted 写路径，以及音频设备序列化状态写入已开始优先走分区/helper 写入口
+- [x] 已新增基于单次 AppState 快照的只读 UI 应用入口，用于统一分发 `HeaderPanel` / `PluginPanel` 状态
 
 #### 优先级
 中
@@ -308,7 +317,7 @@
 ## 阶段 D：插件宿主主链路落地
 
 ### 阶段状态
-- [~] 进行中（D-1、D-2、D-3、D-5 已完成，D-4 已完成第一轮，D-6 未完成）
+- [~] 进行中（D-1、D-2、D-3、D-4、D-5 已完成，D-6 已完成第一轮）
 
 ### D-1. 扩展 PluginHost，使其支持插件实例化
 
@@ -391,7 +400,7 @@
 ### D-4. 处理 MIDI 到插件的音频线程链路
 
 #### 状态
-- [~] 已完成第一轮链路加固，待手工验证
+- [~] 已完成第一轮链路加固，并补充外部 MIDI 活动反馈；因暂时无外部 MIDI 设备，功能项暂无法手工验证
 
 #### 文件
 - `Source/Audio/AudioEngine.cpp`
@@ -409,7 +418,7 @@
 - [x] 在 UI 中补充已加载插件的 prepared 状态反馈
 
 #### 输出结果
-- [~] 代码路径已具备外部 MIDI 与电脑键盘驱动插件的能力，仍需结合真实插件做手工验证
+- [~] 代码路径已具备外部 MIDI 与电脑键盘驱动插件的能力，并已补充活动状态反馈；因暂时无外部 MIDI 设备，功能项暂无法手工验证
 
 #### 优先级
 最高
@@ -444,21 +453,23 @@
 ### D-6. 评估并接入插件 editor（可选第二步）
 
 #### 状态
-- [ ] 未开始
+- [x] 已完成第一轮
 
 #### 文件
-- `Source/Plugin/PluginHost.h`
 - `Source/Plugin/PluginHost.cpp`
+- `Source/MainComponent.h`
 - `Source/MainComponent.cpp`
 
 #### 任务
-- [ ] 在插件实例稳定加载后评估 `createEditorIfNeeded()`
-- [ ] 设计 editor 窗口托管方式
-- [ ] 增加 editor 打开/关闭操作
-- [ ] 验证 editor 生命周期与插件卸载一致性
+- [x] 评估并改用支持 editor 的默认插件格式注册路径
+- [x] 设计 editor 独立窗口托管方式
+- [x] 增加 editor 打开/关闭操作
+- [x] 验证 editor 生命周期与插件卸载一致性（第一轮）
+- [x] 验证轻量插件 Surge XT editor 可正常弹出并操作
 
 #### 输出结果
-- [ ] 插件 UI 可打开
+- [x] 插件 UI 已可打开并操作
+- [~] Debug 退出阶段在特定插件/系统注入环境下仍可能出现 leak detector 告警，暂记为已知调试告警
 
 #### 优先级
 中
@@ -470,20 +481,22 @@
 ### E-1. 扩展 SettingsModel，纳入插件相关状态
 
 #### 状态
-- [ ] 未开始
+- [x] 已完成第一轮
 
 #### 文件
 - `Source/Settings/SettingsModel.h`
 - `Source/Settings/SettingsStore.cpp`
 
 #### 任务
-- [ ] 增加最近使用的插件搜索路径字段
-- [ ] 增加上次加载的插件名或唯一标识字段
-- [ ] 增加最近使用的布局名称或布局标识字段
-- [ ] 完成对应持久化读写逻辑
+- [x] 增加最近使用的插件搜索路径字段
+- [x] 增加上次加载的插件名字段
+- [x] 增加最近使用的布局标识字段
+- [x] 完成对应持久化读写逻辑
 
 #### 输出结果
-- [ ] 插件与布局使用状态可恢复
+- [x] 插件与布局使用状态已具备基础恢复能力
+- [x] 启动时可自动恢复上次插件扫描路径与最近一次插件选择/加载尝试
+- [x] 已支持恢复上次插件扫描路径与上次插件选择/加载的第一轮自动恢复
 
 #### 优先级
 高
@@ -493,21 +506,22 @@
 ### E-2. 将插件路径与扫描结果状态纳入 UI 同步
 
 #### 状态
-- [ ] 未开始
+- [x] 已完成第一轮
 
 #### 文件
 - `Source/MainComponent.cpp`
 - `Source/MainComponent.h`
 
 #### 任务
-- [ ] 初始化时恢复插件扫描路径
-- [ ] 扫描后更新状态标签
-- [ ] 加载插件后更新当前插件状态
-- [ ] 出错时显示清晰错误信息
-- [ ] 明确扫描成功、加载成功、加载失败三类提示文案
+- [x] 初始化时恢复插件扫描路径
+- [x] 扫描后更新状态标签
+- [x] 加载插件后更新当前插件状态
+- [x] 出错时显示清晰错误信息
+- [x] 明确扫描成功、加载成功、加载失败三类提示文案（第一轮）
 
 #### 输出结果
-- [ ] UI 反馈不再只停留在“扫描完成”层面
+- [x] UI 反馈已超出“仅扫描完成”层面，并同步最近插件/编辑器状态
+- [x] 启动阶段已接入自动扫描与恢复最近插件状态的第一轮逻辑- [x] 启动时已支持自动扫描上次路径并尝试恢复上次插件
 
 #### 优先级
 高
@@ -517,22 +531,40 @@
 ### E-3. 拆分 MainComponent 的局部职责（第一步）
 
 #### 状态
-- [ ] 未开始
+- [x] 已完成第四轮（插件区 + 参数区 + 头部状态区 + 键盘区）
 
 #### 文件
 - `Source/MainComponent.h`
 - `Source/MainComponent.cpp`
-- 可选新增：
+- 新增：
   - `Source/UI/PluginPanel.h`
-  - `Source/UI/PerformancePanel.h`
+  - `Source/UI/PluginPanel.cpp`
+  - `Source/UI/ControlsPanel.h`
+  - `Source/UI/ControlsPanel.cpp`
+  - `Source/UI/HeaderPanel.h`
+  - `Source/UI/HeaderPanel.cpp`
+  - `Source/UI/KeyboardPanel.h`
+  - `Source/UI/KeyboardPanel.cpp`
 
 #### 任务
-- [ ] 把插件区逻辑单独封装
-- [ ] 把参数控制区逻辑单独封装
-- [ ] 降低 `MainComponent` 中的事件处理与 UI 绑定复杂度
+- [x] 把插件区逻辑单独封装
+- [x] 把参数控制区逻辑单独封装
+- [x] 把头部状态区与设置入口单独封装
+- [x] 把键盘区单独封装
+- [x] 降低 `MainComponent` 中的插件事件处理与 UI 绑定复杂度
 
 #### 输出结果
-- [ ] `MainComponent` 体积与职责开始下降
+- [x] `MainComponent` 体积与职责已开始下降
+- [x] 插件区、参数区、头部状态区与键盘区已完成第一轮组件化拆分
+- [x] MIDI / 插件状态展示更新逻辑已开始向 `HeaderPanel` / `PluginPanel` 收敛
+- [x] 插件区刷新已统一为单一入口，减少重复的状态刷新调用
+- [x] 插件区状态组装已抽离到轻量 `PluginPanelStateBuilder`
+- [x] 头部 MIDI 状态组装已抽离到轻量 `HeaderPanelStateBuilder`
+- [x] 设置收集 / 立即保存 / 延迟保存路径已完成第一轮轻量收敛
+- [x] 运行时音频设备重建前后的状态抓取 / shutdown / reinit 路径已完成第一轮轻量收敛
+- [x] 插件相关 UI 收尾动作（保存 / 刷新 / 焦点恢复）已完成第一轮轻量收敛
+- [x] 插件操作主流程（运行时参数获取 / 设备重建 / 插件动作）已完成第一轮轻量收敛
+- [x] 启动阶段的插件扫描 / 恢复上次插件路径已完成第一轮轻量收敛
 
 #### 优先级
 中高

@@ -63,9 +63,9 @@ bool KeyboardMidiMapper::handleKeyStateChanged(juce::MidiKeyboardState& keyboard
         {
             if (binding.action.type == KeyActionType::note)
             {
-                const auto midiChannel = juce::jlimit(1, 16, binding.action.midiChannel);
-                const auto midiNote = juce::jlimit(0, 127, binding.action.midiNote);
-                const auto velocity = juce::jlimit(0.0f, 1.0f, binding.action.velocity);
+                const auto midiChannel = binding.action.getMidiChannel().value;
+                const auto midiNote = binding.action.getMidiNoteNumber().value;
+                const auto velocity = binding.action.getVelocity().value;
                 keyboardState.noteOff(midiChannel, midiNote, velocity);
                 consumed = true;
             }
@@ -97,9 +97,9 @@ bool KeyboardMidiMapper::triggerBinding(const KeyBinding& binding,
     if (binding.action.type != KeyActionType::note)
         return false;
 
-    const auto midiChannel = juce::jlimit(1, 16, binding.action.midiChannel);
-    const auto midiNote = juce::jlimit(0, 127, binding.action.midiNote);
-    const auto velocity = juce::jlimit(0.0f, 1.0f, binding.action.velocity);
+    const auto midiChannel = binding.action.getMidiChannel().value;
+    const auto midiNote = binding.action.getMidiNoteNumber().value;
+    const auto velocity = binding.action.getVelocity().value;
 
     if (isKeyDownEvent)
         keyboardState.noteOn(midiChannel, midiNote, velocity);

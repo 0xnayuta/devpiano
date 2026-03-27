@@ -130,6 +130,7 @@ cmake --build Build/vs2026-x64 --config Debug
 - [x] 电脑键盘可触发 MIDI note on/off
 - [x] 虚拟钢琴键盘可显示按键状态
 - [x] 外部 MIDI 输入可进入音频引擎
+- [x] 已增加外部 MIDI 活动状态反馈
 - [x] 可通过滑块控制 ADSR 与主音量
 
 #### 插件相关
@@ -152,6 +153,8 @@ cmake --build Build/vs2026-x64 --config Debug
 - [x] 插件生命周期管理已完成第一轮接入
 - [x] 轻量插件主链路已完成手工验证（以 Surge XT 为主）
 - [x] 已支持打开并操作插件 editor 窗口
+- [~] 外部 MIDI 到插件的代码通路与活动反馈已具备；因暂时无外部 MIDI 设备，功能项暂无法手工验证最终发声
+- [~] Debug 退出阶段在特定插件/系统注入环境下仍可能出现 `VST3HostContextHeadless` / `AsyncUpdater` leak detector 告警，但当前不影响程序正常退出与核心功能验证
 
 #### 键盘映射系统
 - [ ] 基于稳定物理键的映射
@@ -161,7 +164,9 @@ cmake --build Build/vs2026-x64 --config Debug
 
 #### 状态模型统一
 - [x] `SettingsModel.keyMap` 已完成第一轮驱动 `KeyboardMidiMapper`
-- [ ] 插件路径、插件选择、扫描缓存的统一持久化
+- [x] 插件路径与上次插件选择已完成第一轮持久化
+- [x] 启动时已支持自动恢复上次插件扫描路径并尝试恢复上次插件
+- [~] 已新增轻量 `Source/Core/AppState.h` 与 `MainComponent::createAppStateSnapshot()` 作为后续 UI / 设置 / 引擎状态聚合入口；`HeaderPanel` 的 MIDI 状态已开始优先经由 AppState 快照驱动，且 `AppState::PluginState` 已补齐第一轮插件展示字段，`PluginPanel` 的只读展示状态也已开始优先经由 AppState 快照驱动
 
 #### 录制与导出
 - [ ] 演奏录制
@@ -256,18 +261,23 @@ cmake --build Build/vs2026-x64 --config Debug
 - UI 状态与引擎状态未来可能分裂
 
 处理状态：
-- [ ] 尚未统一
+- [~] 已开始第一轮统一：轻量 `AppState` 已落地，`HeaderPanel` 与 `PluginPanel` 的只读展示状态已开始优先经由 AppState 快照驱动，并新增 `AppStateBuilder` 明确区分 persisted settings 基线与 runtime overlays；本轮已补充 `SettingsModel` / `AppState` / `AppStateBuilder` 的职责边界注释说明，并在 `SettingsModel` 内完成轻量逻辑分区 view 的第一轮整理；更多启动恢复与 persisted fallback 读取路径已开始优先走 grouped view，且 `syncSettingsFromUi()` / `prepareToPlay()` / 启动与扫描相关的少量 persisted 写路径，以及音频设备序列化状态写入，也已开始优先走 grouped/helper 写入口
 
 #### 风险 F：MainComponent 职责过重
-当前 `MainComponent` 同时承担：
-- UI 布局
+当前 `MainComponent` 仍承担：
+- 主界面装配
 - 音频设备管理
 - 键盘输入处理
-- 插件扫描触发
 - 设置同步
 
+但插件区、参数区、头部状态区与键盘区已分别完成第一轮拆分到：
+- `Source/UI/PluginPanel.*`
+- `Source/UI/ControlsPanel.*`
+- `Source/UI/HeaderPanel.*`
+- `Source/UI/KeyboardPanel.*`
+
 处理状态：
-- [ ] 尚未拆分
+- [~] 已完成插件区、参数区、头部状态区与键盘区第一轮拆分，并将插件区刷新统一为单一入口、将插件区与头部 MIDI 状态组装抽到轻量 builder，同时对设置保存路径、运行时音频设备重建路径、插件相关 UI 收尾动作、插件操作主流程、启动阶段的插件扫描与恢复路径，以及轻量 AppState 聚合入口做了第一轮实现；其中 `HeaderPanel` 的 MIDI 状态与 `PluginPanel` 的只读展示状态已开始优先经由 AppState 快照驱动，`MainComponent` 也已增加基于单次 AppState 快照的只读 UI 应用入口，`AppState::PluginState` 也已补齐第一轮插件展示字段，后续仍可继续拆更细的状态装配职责
 
 #### 风险 G：录制/导出路径缺少现代设计
 旧项目有复杂历史实现，新项目若不先定义新数据模型，容易再次复制旧的宏式设计。
@@ -300,14 +310,18 @@ cmake --build Build/vs2026-x64 --config Debug
 
 说明：
 - 已有 `SettingsModel`
-- 已新增 `Source/Core/KeyMapTypes.h` 作为第一版核心键位模型
-- 尚无完整统一的核心枚举、常量、事件模型层
+- 已新增 `Source/Core/KeyMapTypes.h` 作为第一版核心键位模型，并已开始以兼容方式轻量接入 `Source/Core/MidiTypes.h`
+- 已新增 `Source/Core/MidiTypes.h` 作为第一版轻量 MIDI 强类型入口
+- 尚无完整统一的核心枚举、常量、事件模型层，但已新增轻量 `Source/Core/AppState.h` 作为状态聚合入口，并通过 `Source/Core/AppStateBuilder.h` 开始明确区分 persisted settings 与 runtime app state
 
 ### 第 2 步：重构按键映射逻辑
 - [~] 已完成最小可运行版本、第一轮内部模型重构、基础设置接线与输入捕获收敛
 
 说明：
 - `KeyboardMidiMapper` 已接入 `Source/Core/KeyMapTypes.h`
+- `KeyAction` 已增加 MIDI 强类型 helper，后续可逐步减少对裸 note/channel/velocity 的直接访问
+- `KeyboardMidiMapper` 生成 `MidiMessage` 的最小路径已开始优先使用 MIDI 强类型 helper
+- `SettingsModel` 的布局转换辅助也已开始优先使用 MIDI 强类型 helper
 - 已支持 `setLayout()` / `getLayout()` / `resetToDefaultLayout()`
 - 已与 `SettingsModel.keyMap` 打通基础持久化闭环
 - 当前已改为优先使用 `key.getKeyCode()`，不再依赖 `getTextCharacter()` 作为主路径
@@ -334,11 +348,26 @@ cmake --build Build/vs2026-x64 --config Debug
 - 仍需通过真实插件加载与手工试弹确认最终效果
 
 ### 第 5 步：重构 UI
-- [~] 已完成初步界面雏形，并补齐最小插件加载与 editor 操作区
+- [~] 已完成初步界面雏形，并补齐最小插件加载、editor 与基础状态恢复操作区
 
 说明：
 - 已有钢琴键盘、基础控制区域、插件扫描区
 - 已增加插件选择 / Load / Unload / Open Editor 最小操作区
+- 已验证 Surge XT editor 可正常弹出并操作
+- 已支持恢复上次插件搜索路径，并在启动时尝试恢复上次插件
+- 已完成插件区第一轮组件化拆分（`Source/UI/PluginPanel.*`）
+- 已完成参数区第一轮组件化拆分（`Source/UI/ControlsPanel.*`）
+- 已完成头部状态区第一轮组件化拆分（`Source/UI/HeaderPanel.*`）
+- 已完成键盘区第一轮组件化拆分（`Source/UI/KeyboardPanel.*`）
+- 已开始将 MIDI / 插件状态展示更新逻辑收敛到 `HeaderPanel` / `PluginPanel`
+- 已将插件区刷新统一为单一入口，减少 `MainComponent` 内部重复刷新调用
+- 已将插件区状态组装逻辑抽离到 `Source/UI/PluginPanelStateBuilder.*`
+- 已将头部 MIDI 状态组装逻辑抽离到 `Source/UI/HeaderPanelStateBuilder.*`
+- 已将设置收集 / 立即保存 / 延迟保存收敛为更统一的调用路径
+- 已将运行时音频设备重建前后的状态抓取 / shutdown / reinit 收敛为更统一的调用路径
+- 已将插件相关 UI 收尾动作（保存 / 刷新 / 焦点恢复）收敛为更统一的调用路径
+- 已将插件操作主流程中的运行时参数获取 + 设备重建 + 插件动作收敛为更统一的调用路径
+- 已将启动阶段的插件扫描 + 恢复上次插件路径收敛为更统一的调用路径
 - 但整体仍偏调试面板
 
 ### 第 6 步：高阶功能恢复
