@@ -6,7 +6,7 @@ class PluginHost
 {
 public:
     PluginHost();
-    ~PluginHost() = default;
+    ~PluginHost();
 
     juce::AudioPluginFormatManager& getFormatManager() noexcept { return formatManager; }
     juce::String getAvailableFormatsDescription() const;

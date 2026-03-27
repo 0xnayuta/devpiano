@@ -53,6 +53,7 @@ private:
     int getCurrentRuntimeBlockSize() const;
     void loadSelectedPlugin();
     void unloadCurrentPlugin();
+    void togglePluginEditor();
     void scanPlugins();
 
     AudioEngine audioEngine;
@@ -85,11 +86,13 @@ private:
     juce::TextButton scanPluginsButton { "Scan VST3" };
     juce::TextButton loadPluginButton { "Load" };
     juce::TextButton unloadPluginButton { "Unload" };
+    juce::TextButton openEditorButton { "Open Editor" };
     juce::TextEditor pluginPathEditor;
     juce::ComboBox pluginSelector;
     juce::TextEditor pluginListEditor;
     juce::MidiKeyboardComponent keyboardComponent;
     std::unique_ptr<juce::DialogWindow> settingsWindow;
+    std::unique_ptr<juce::DocumentWindow> pluginEditorWindow;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
 };

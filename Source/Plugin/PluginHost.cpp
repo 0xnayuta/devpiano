@@ -2,7 +2,12 @@
 
 PluginHost::PluginHost()
 {
-    juce::addHeadlessDefaultFormatsToManager(formatManager);
+    juce::addDefaultFormatsToManager(formatManager);
+}
+
+PluginHost::~PluginHost()
+{
+    unloadPlugin();
 }
 
 juce::String PluginHost::getAvailableFormatsDescription() const

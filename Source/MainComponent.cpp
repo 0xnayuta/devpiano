@@ -70,6 +70,9 @@ MainComponent::MainComponent()
     addAndMakeVisible(unloadPluginButton);
     unloadPluginButton.onClick = [this] { unloadCurrentPlugin(); };
 
+    addAndMakeVisible(openEditorButton);
+    openEditorButton.onClick = [this] { togglePluginEditor(); };
+
     pluginPathEditor.setMultiLine(false);
     pluginPathEditor.setReturnKeyStartsNewLine(false);
     pluginPathEditor.setText(pluginHost.getDefaultVst3SearchPath().toString(), juce::dontSendNotification);
@@ -124,8 +127,11 @@ MainComponent::~MainComponent()
     settingsStore.save(appSettings);
 
     midiRouter.closeInputs();
-    settingsWindow.reset();
+
     shutdownAudio();
+    pluginEditorWindow.reset();
+    pluginHost.unloadPlugin();
+    settingsWindow.reset();
 }
 
 void MainComponent::prepareToPlay(int samplesPerBlockExpected, double sampleRate)
@@ -172,6 +178,7 @@ void MainComponent::resized()
 
     auto selectorRow = area.removeFromTop(28);
     pluginSelectionLabel.setBounds(selectorRow.removeFromLeft(80));
+    openEditorButton.setBounds(selectorRow.removeFromRight(110));
     unloadPluginButton.setBounds(selectorRow.removeFromRight(90));
     loadPluginButton.setBounds(selectorRow.removeFromRight(90));
     pluginSelector.setBounds(selectorRow.reduced(6, 0));
@@ -461,6 +468,8 @@ void MainComponent::updatePluginSelectionList()
 
     loadPluginButton.setEnabled(! names.isEmpty());
     unloadPluginButton.setEnabled(pluginHost.hasLoadedPlugin());
+    openEditorButton.setEnabled(pluginHost.hasLoadedPlugin());
+    openEditorButton.setButtonText(pluginEditorWindow != nullptr ? "Close Editor" : "Open Editor");
 }
 
 double MainComponent::getCurrentRuntimeSampleRate() const
@@ -502,6 +511,8 @@ void MainComponent::loadSelectedPlugin()
 
     captureAudioDeviceState();
     shutdownAudio();
+    pluginEditorWindow.reset();
+
     const auto success = pluginHost.loadPluginByName(pluginName, sampleRate, blockSize);
     juce::ignoreUnused(success);
     initialiseAudioDevice();
@@ -513,6 +524,7 @@ void MainComponent::loadSelectedPlugin()
 
 void MainComponent::unloadCurrentPlugin()
 {
+    pluginEditorWindow.reset();
     captureAudioDeviceState();
     shutdownAudio();
     pluginHost.unloadPlugin();
@@ -520,6 +532,85 @@ void MainComponent::unloadCurrentPlugin()
     updatePluginSelectionList();
     updatePluginStatusLabel();
     restoreKeyboardFocus();
+}
+
+void MainComponent::togglePluginEditor()
+{
+    if (pluginEditorWindow != nullptr)
+    {
+        pluginEditorWindow.reset();
+        updatePluginSelectionList();
+        restoreKeyboardFocus();
+        return;
+    }
+
+    auto* instance = pluginHost.getInstance();
+    if (instance == nullptr || ! instance->hasEditor())
+    {
+        updatePluginStatusLabel();
+        restoreKeyboardFocus();
+        return;
+    }
+
+    auto editor = std::unique_ptr<juce::AudioProcessorEditor>(instance->createEditorAndMakeActive());
+    if (editor == nullptr)
+    {
+        updatePluginStatusLabel();
+        restoreKeyboardFocus();
+        return;
+    }
+
+    class PluginEditorWindow final : public juce::DocumentWindow
+    {
+    public:
+        PluginEditorWindow(const juce::String& title,
+                           std::function<void()> onClose)
+            : juce::DocumentWindow(title,
+                                   juce::Desktop::getInstance().getDefaultLookAndFeel()
+                                       .findColour(juce::ResizableWindow::backgroundColourId),
+                                   juce::DocumentWindow::closeButton),
+              closeCallback(std::move(onClose))
+        {
+        }
+
+        void closeButtonPressed() override
+        {
+            if (closeCallback)
+                closeCallback();
+        }
+
+    private:
+        std::function<void()> closeCallback;
+    };
+
+    auto closeEditorWindow = [safe = juce::Component::SafePointer<MainComponent>(this)]
+    {
+        juce::MessageManager::callAsync([safe]
+        {
+            if (safe == nullptr)
+                return;
+
+            safe->pluginEditorWindow.reset();
+            safe->updatePluginSelectionList();
+            safe->restoreKeyboardFocus();
+        });
+    };
+
+    auto title = pluginHost.getCurrentPluginName();
+    if (title.isEmpty())
+        title = "Plugin Editor";
+    else
+        title << " Editor";
+
+    pluginEditorWindow = std::make_unique<PluginEditorWindow>(title, closeEditorWindow);
+    pluginEditorWindow->setUsingNativeTitleBar(true);
+    pluginEditorWindow->setResizable(editor->isResizable(), true);
+    pluginEditorWindow->setContentOwned(editor.release(), true);
+    pluginEditorWindow->centreAroundComponent(this,
+                                              pluginEditorWindow->getContentComponent()->getWidth(),
+                                              pluginEditorWindow->getContentComponent()->getHeight());
+    pluginEditorWindow->setVisible(true);
+    updatePluginSelectionList();
 }
 
 void MainComponent::scanPlugins()
