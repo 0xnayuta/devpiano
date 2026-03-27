@@ -5,6 +5,8 @@
 #include <cctype>
 #include <vector>
 
+#include "Core/MidiTypes.h"
+
 namespace devpiano::core
 {
 enum class KeyActionType
@@ -22,9 +24,42 @@ struct KeyAction
 {
     KeyActionType type = KeyActionType::note;
     KeyTrigger trigger = KeyTrigger::keyDown;
+
+    // 保持当前裸字段以兼容现有序列化与调用路径。
+    // 后续模块可优先通过下方强类型 helper 访问这些值。
     int midiNote = 60;
     int midiChannel = 1;
     float velocity = 1.0f;
+
+    [[nodiscard]] MidiNoteNumber getMidiNoteNumber() const noexcept
+    {
+        return MidiNoteNumber::fromClamped(midiNote);
+    }
+
+    [[nodiscard]] MidiChannel getMidiChannel() const noexcept
+    {
+        return MidiChannel::fromClamped(midiChannel);
+    }
+
+    [[nodiscard]] Velocity getVelocity() const noexcept
+    {
+        return Velocity::fromClamped(velocity);
+    }
+
+    void setMidiNoteNumber(MidiNoteNumber note) noexcept
+    {
+        midiNote = note.value;
+    }
+
+    void setMidiChannel(MidiChannel channel) noexcept
+    {
+        midiChannel = channel.value;
+    }
+
+    void setVelocity(Velocity newVelocity) noexcept
+    {
+        velocity = newVelocity.value;
+    }
 };
 
 struct KeyBinding
@@ -74,9 +109,26 @@ struct KeyboardLayout
     binding.displayText = juce::String::charToString(character);
     binding.action.type = KeyActionType::note;
     binding.action.trigger = trigger;
-    binding.action.midiNote = midiNote;
-    binding.action.midiChannel = midiChannel;
-    binding.action.velocity = velocity;
+    binding.action.setMidiNoteNumber(MidiNoteNumber::fromClamped(midiNote));
+    binding.action.setMidiChannel(MidiChannel::fromClamped(midiChannel));
+    binding.action.setVelocity(Velocity::fromClamped(velocity));
+    return binding;
+}
+
+[[nodiscard]] inline KeyBinding makeNoteBinding(char character,
+                                                MidiNoteNumber midiNote,
+                                                MidiChannel midiChannel = MidiChannel::fromClamped(1),
+                                                Velocity velocity = Velocity::fromClamped(1.0f),
+                                                KeyTrigger trigger = KeyTrigger::keyDown)
+{
+    KeyBinding binding;
+    binding.keyCode = makeAlphaNumericKeyCode(character);
+    binding.displayText = juce::String::charToString(character);
+    binding.action.type = KeyActionType::note;
+    binding.action.trigger = trigger;
+    binding.action.setMidiNoteNumber(midiNote);
+    binding.action.setMidiChannel(midiChannel);
+    binding.action.setVelocity(velocity);
     return binding;
 }
 

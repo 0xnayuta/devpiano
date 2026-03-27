@@ -4,12 +4,18 @@
 #include <memory>
 
 #include "Audio/AudioEngine.h"
+#include "Core/AppState.h"
+#include "Core/AppStateBuilder.h"
 #include "Input/KeyboardMidiMapper.h"
 #include "Midi/MidiRouter.h"
 #include "Plugin/PluginHost.h"
 #include "Settings/SettingsComponent.h"
 #include "Settings/SettingsModel.h"
 #include "Settings/SettingsStore.h"
+#include "UI/ControlsPanel.h"
+#include "UI/HeaderPanel.h"
+#include "UI/KeyboardPanel.h"
+#include "UI/PluginPanel.h"
 
 class MainComponent final : public juce::AudioAppComponent
 {
@@ -29,14 +35,6 @@ public:
     bool keyStateChanged(bool isKeyDown) override;
 
 private:
-    void configureSlider(juce::Slider& slider,
-                         juce::Label& label,
-                         const juce::String& text,
-                         double minimum,
-                         double maximum,
-                         double initialValue,
-                         double interval = 0.001);
-
     void applyUiStateToAudioEngine();
     void syncUiFromSettings();
     void syncSettingsFromUi();
@@ -44,13 +42,24 @@ private:
     void restoreKeyboardFocus();
     void initialiseAudioDevice();
     void captureAudioDeviceState();
+    void prepareForAudioDeviceRebuild();
+    void finishAudioDeviceRebuild();
+    void collectCurrentSettingsState();
+    void saveSettingsNow();
     void saveSettingsSoon();
     void showSettingsDialog();
     void updateMidiStatusLabel();
-    void updatePluginStatusLabel();
-    void updatePluginSelectionList();
+    void refreshPluginPanel();
+    void applyReadOnlyUiState(const devpiano::core::AppState& appState);
+    void refreshReadOnlyUiState();
+    void finishPluginUiAction(bool shouldSaveSettings);
+    [[nodiscard]] devpiano::core::AppState createAppStateSnapshot() const;
+    void restorePluginStateOnStartup();
+    void restorePluginScanAndLoadState();
     double getCurrentRuntimeSampleRate() const;
     int getCurrentRuntimeBlockSize() const;
+    void runPluginActionWithAudioDeviceRebuild(const std::function<void(double, int)>& action);
+    void runPluginActionWithAudioDeviceRebuild(const std::function<void()>& action);
     void loadSelectedPlugin();
     void unloadCurrentPlugin();
     void togglePluginEditor();
@@ -63,34 +72,13 @@ private:
     SettingsModel appSettings;
     SettingsStore settingsStore;
 
-    juce::Label titleLabel;
-    juce::Label hintLabel;
-    juce::Label midiStatusLabel;
-    juce::Label pluginStatusLabel;
-    juce::Label pluginPathLabel;
-    juce::Label pluginSelectionLabel;
-    juce::Label pluginListLabel;
-    juce::Label volumeLabel;
-    juce::Label attackLabel;
-    juce::Label decayLabel;
-    juce::Label sustainLabel;
-    juce::Label releaseLabel;
+    int externalMidiMessageCount = 0;
+    juce::String lastExternalMidiMessage;
 
-    juce::Slider volumeSlider;
-    juce::Slider attackSlider;
-    juce::Slider decaySlider;
-    juce::Slider sustainSlider;
-    juce::Slider releaseSlider;
-
-    juce::TextButton settingsButton { "Settings" };
-    juce::TextButton scanPluginsButton { "Scan VST3" };
-    juce::TextButton loadPluginButton { "Load" };
-    juce::TextButton unloadPluginButton { "Unload" };
-    juce::TextButton openEditorButton { "Open Editor" };
-    juce::TextEditor pluginPathEditor;
-    juce::ComboBox pluginSelector;
-    juce::TextEditor pluginListEditor;
-    juce::MidiKeyboardComponent keyboardComponent;
+    HeaderPanel headerPanel;
+    PluginPanel pluginPanel;
+    ControlsPanel controlsPanel;
+    KeyboardPanel keyboardPanel;
     std::unique_ptr<juce::DialogWindow> settingsWindow;
     std::unique_ptr<juce::DocumentWindow> pluginEditorWindow;
 
