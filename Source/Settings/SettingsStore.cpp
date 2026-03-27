@@ -10,6 +10,9 @@ namespace {
     const char* kKeyD = "adsrDecay";
     const char* kKeyS = "adsrSustain";
     const char* kKeyR = "adsrRelease";
+    const char* kKeyPluginSearchPath = "pluginSearchPath";
+    const char* kKeyLastPluginName = "lastPluginName";
+    const char* kKeyLastLayoutId = "lastLayoutId";
     const char* kKeyMap = "keymapVT"; // stored as ValueTree XML
 }
 
@@ -54,6 +57,10 @@ void SettingsStore::readNow(SettingsModel& m)
     m.adsrSustain= (float) f.getDoubleValue(kKeyS, m.adsrSustain);
     m.adsrRelease= (float) f.getDoubleValue(kKeyR, m.adsrRelease);
 
+    m.pluginSearchPath = f.getValue(kKeyPluginSearchPath, m.pluginSearchPath);
+    m.lastPluginName = f.getValue(kKeyLastPluginName, m.lastPluginName);
+    m.lastLayoutId = f.getValue(kKeyLastLayoutId, m.lastLayoutId);
+
     // keymap as ValueTree XML
     if (auto keyXml = f.getXmlValue(kKeyMap))
     {
@@ -77,6 +84,10 @@ void SettingsStore::writeNow(const SettingsModel& m)
     f.setValue(kKeyD, m.adsrDecay);
     f.setValue(kKeyS, m.adsrSustain);
     f.setValue(kKeyR, m.adsrRelease);
+
+    f.setValue(kKeyPluginSearchPath, m.pluginSearchPath);
+    f.setValue(kKeyLastPluginName, m.lastPluginName);
+    f.setValue(kKeyLastLayoutId, m.lastLayoutId);
 
     // keymap serialize to ValueTree XML
     {
