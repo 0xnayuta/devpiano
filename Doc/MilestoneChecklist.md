@@ -7,6 +7,11 @@
 > - [ ] 未通过 / 未开始验证
 > - [~] 部分通过 / 待补充验证
 
+## 构建基线（统一）
+- 配置：`cmake --preset ninja-x64`
+- Debug 构建：`cmake --build --preset ninja-debug`
+- Release 构建：`cmake --build --preset ninja-release`
+
 ---
 
 ## 1. 当前里程碑总览
@@ -63,14 +68,14 @@
 确保当前主干具备稳定开发基础。
 
 ### 验收项
-- [x] `cmake --build Build/vs2026-x64 --config Debug` 构建成功
+- [x] `cmake --preset ninja-x64 && cmake --build --preset ninja-debug` 构建成功
 - [x] 生成 `DevPiano.exe`
 - [x] 程序启动后主窗口正常显示
 - [x] 没有因缺失 JUCE 子模块导致构建失败
 
 ### 验收记录
 - 当前状态：已通过
-- 备注：可作为后续迭代的基础基线
+- 备注：当前构建基线已统一为 CMake + Ninja（`ninja-x64` / `ninja-debug`），可作为后续迭代的基础基线
 
 ---
 
@@ -190,7 +195,7 @@
 
 ### 验收记录
 - 当前状态：部分通过
-- 备注：最小可用 UI 与插件 editor 路径已成型；当前已完成插件区、参数区、头部状态区与键盘区拆分，并已将插件区刷新统一为单一入口、将插件区与头部 MIDI 状态组装抽离到轻量 builder，同时完成设置保存路径、运行时音频设备重建路径、插件相关 UI 收尾动作、插件操作主流程、启动阶段扫描恢复路径，以及轻量 AppState 聚合入口的第一轮实现；其中 `HeaderPanel` 的 MIDI 状态与 `PluginPanel` 的只读展示状态已开始优先经由 AppState 快照驱动，并通过 `AppStateBuilder` 开始明确区分 persisted settings 基线与 runtime overlays；本轮已补充相关职责边界注释说明，在 `SettingsModel` 内完成轻量逻辑分区 view 的第一轮整理，并让更多 persisted 读取路径（含启动布局恢复与启动插件恢复）开始优先走 grouped view，同时让 `syncSettingsFromUi()`、`prepareToPlay()`、启动恢复与扫描相关的少量 persisted 写路径，以及音频设备序列化状态写入开始优先走 grouped/helper 写入口；此外已新增 `Source/Core/MidiTypes.h` 作为第一版轻量 MIDI 强类型入口，并让 `Source/Core/KeyMapTypes.h` 开始以兼容方式轻量接入这些类型，`KeyboardMidiMapper` 的最小取值路径与 `SettingsModel` 的布局转换辅助也已开始优先使用 MIDI 强类型 helper；同时 `MainComponent` 已增加基于单次 AppState 快照的只读 UI 应用入口。下一步重点是状态持久化与进一步减少 `MainComponent` 状态装配负担
+- 备注：最小可用 UI 与插件 editor 路径已成型；当前已完成插件区、参数区、头部状态区与键盘区拆分，并已将插件区刷新统一为单一入口、将插件区与头部 MIDI 状态组装抽离到轻量 builder，同时完成设置保存路径、运行时音频设备重建路径、插件相关 UI 收尾动作、插件操作主流程、启动阶段扫描恢复路径，以及轻量 AppState 聚合入口的第一轮实现；其中 `HeaderPanel` 的 MIDI 状态与 `PluginPanel` 的只读展示状态已开始优先经由 AppState 快照驱动，并通过 `AppStateBuilder` 开始明确区分 persisted settings 基线与 runtime overlays；本轮已补充相关职责边界注释说明，在 `SettingsModel` 内完成轻量逻辑分区 view 的第一轮整理，并让更多 persisted 读取路径（含启动布局恢复与启动插件恢复）开始优先走 grouped view，同时让 `syncSettingsFromUi()`、`prepareToPlay()`、启动恢复与扫描相关的少量 persisted 写路径，以及音频设备序列化状态写入开始优先走 grouped/helper 写入口；此外已新增 `Source/Core/MidiTypes.h` 作为第一版轻量 MIDI 强类型入口，并让 `Source/Core/KeyMapTypes.h` 开始以兼容方式轻量接入这些类型，`KeyboardMidiMapper` 的最小取值路径与 `SettingsModel` 的布局转换辅助也已开始优先使用 MIDI 强类型 helper；同时 `MainComponent` 已增加基于单次 AppState 快照的只读 UI 应用入口，`SettingsDialog` 相关保存/关闭流程与 `ControlsPanel` 演奏参数读写流程也已开始收口为更明确的 helper。下一步重点是状态持久化与进一步减少 `MainComponent` 状态装配负担
 
 ---
 
@@ -283,3 +288,21 @@
 - 下一步：
   - 优先考虑 E-1 / E-2：插件状态持久化与 UI 状态同步
   - 或继续推进 `MainComponent` 职责拆分（如键盘区）
+
+## Iteration 2026-03-30
+- 目标：在不改变功能行为的前提下，继续小步收敛 `MainComponent` 装配复杂度。
+- 完成：
+  - 将构造函数中的输入映射恢复逻辑抽离为 `initialiseInputMappingFromSettings()`
+  - 将构造函数中的 UI 组件装配与回调绑定抽离为 `initialiseUi()`
+  - 将构造函数中的 MIDI 路由初始化抽离为 `initialiseMidiRouting()`
+  - 将启动阶段插件恢复路径继续拆分为 `restorePluginScanPathOnStartup()` / `restoreLastPluginOnStartup()`，并收敛扫描路径解析入口 `resolvePluginScanPath()`
+  - 保持插件扫描/加载/发声/editor 与键盘/IME 已有行为不变
+  - 执行 `cmake --build --preset ninja-debug` 验证通过
+- 未完成：
+  - 外部 MIDI 实机发声验证仍待设备条件
+  - `MainComponent` 后续仍需继续拆分状态装配与流程控制
+- 风险：
+  - 当前改动为结构性重排，低风险；但后续继续拆分时需持续防止生命周期时序回归
+- 下一步：
+  - 继续压缩 `MainComponent` 中插件扫描/恢复与 UI 刷新流程耦合
+  - 在有外部设备后补齐外部 MIDI 驱动插件发声手工验收

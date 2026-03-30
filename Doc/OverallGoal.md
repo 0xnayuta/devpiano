@@ -1,3 +1,8 @@
+## 构建基线（统一）
+- 配置：`cmake --preset ninja-x64`
+- Debug 构建：`cmake --build --preset ninja-debug`
+- Release 构建：`cmake --build --preset ninja-release`
+
 第 1 步：重构核心数据结构（枚举与常量）  
 原项目中有大量关于音符、八度、键盘状态的基础定义。在开始复杂逻辑前，先提取这些“静态字典”。  
 重构目标：剥离旧代码中的平台特定宏定义（如 Windows），将音频配置、按键状态等统一转换为强类型的现代 C++ 枚举（如使用 juce::Enumeration 和 juce::EnumValue）。  

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <JuceHeader.h>
+#include "JuceHeader.h"
 #include <memory>
 
 #include "Audio/AudioEngine.h"
@@ -35,6 +35,13 @@ public:
     bool keyStateChanged(bool isKeyDown) override;
 
 private:
+    void initialiseInputMappingFromSettings();
+    void initialiseUi();
+    void initialiseMidiRouting();
+    [[nodiscard]] SettingsModel::PerformanceSettingsView getPerformanceSettingsFromUi() const;
+    void applyPerformanceSettingsToUi(const SettingsModel::PerformanceSettingsView& performance);
+    void applyPerformanceSettingsToAudioEngine(const SettingsModel::PerformanceSettingsView& performance);
+    void handlePerformanceUiChanged();
     void applyUiStateToAudioEngine();
     void syncUiFromSettings();
     void syncSettingsFromUi();
@@ -48,14 +55,23 @@ private:
     void saveSettingsNow();
     void saveSettingsSoon();
     void showSettingsDialog();
+    [[nodiscard]] bool isSettingsWindowDirty() const;
+    void closeSettingsWindow();
+    void closeSettingsWindowAsync();
+    void saveAndCloseSettingsWindow();
     void updateMidiStatusLabel();
     void refreshPluginPanel();
     void applyReadOnlyUiState(const devpiano::core::AppState& appState);
     void refreshReadOnlyUiState();
     void finishPluginUiAction(bool shouldSaveSettings);
+    [[nodiscard]] devpiano::core::RuntimePluginState createRuntimePluginStateSnapshot() const;
+    [[nodiscard]] devpiano::core::RuntimeInputState createRuntimeInputStateSnapshot() const;
     [[nodiscard]] devpiano::core::AppState createAppStateSnapshot() const;
     void restorePluginStateOnStartup();
     void restorePluginScanAndLoadState();
+    void restorePluginScanPathOnStartup();
+    void restoreLastPluginOnStartup();
+    [[nodiscard]] juce::FileSearchPath resolvePluginScanPath() const;
     double getCurrentRuntimeSampleRate() const;
     int getCurrentRuntimeBlockSize() const;
     void runPluginActionWithAudioDeviceRebuild(const std::function<void(double, int)>& action);

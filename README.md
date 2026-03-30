@@ -72,9 +72,12 @@
 
 ## 构建方式
 
+> 说明：项目已从 CMake+MSBuild 迁移到 CMake+Ninja，当前仅维护 Ninja 预设。
+
 ### 依赖
-- Visual Studio 2026
+- Ninja 1.11+
 - CMake 3.22+
+- Visual Studio 2026（仅作为 MSVC 工具链来源，建议在 x64 Native Tools 命令行中执行）
 - 已初始化 JUCE 子模块
 
 ### 常用命令
@@ -82,19 +85,19 @@
 配置工程：
 
 ```bash
-cmake --preset vs2026-x64
+cmake --preset ninja-x64
 ```
 
 构建 Debug：
 
 ```bash
-cmake --build Build/vs2026-x64 --config Debug
+cmake --build --preset ninja-debug
 ```
 
 构建 Release：
 
 ```bash
-cmake --build Build/vs2026-x64 --config Release
+cmake --build --preset ninja-release
 ```
 
 ---

@@ -7,6 +7,11 @@
 > - [ ] 未通过 / 未开始验证
 > - [~] 部分通过 / 待补充验证
 
+## 构建基线（统一）
+- 配置：`cmake --preset ninja-x64`
+- Debug 构建：`cmake --build --preset ninja-debug`
+- Release 构建：`cmake --build --preset ninja-release`
+
 ---
 
 ## 1. 测试目标
@@ -26,6 +31,7 @@
 
 ### 环境前提
 - [x] 项目可成功构建并启动
+- [x] 构建命令基线（Ninja）已可用：`cmake --preset ninja-x64 && cmake --build --preset ninja-debug`
 - [x] 主窗口可见
 - [x] 音频设备已正确初始化
 - [x] 程序当前可以发声（内置正弦波或插件均可）

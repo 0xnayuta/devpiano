@@ -7,6 +7,11 @@
 > - [ ] 未开始 / 未完成
 > - [~] 进行中 / 部分完成
 
+## 构建基线（统一）
+- 配置：`cmake --preset ninja-x64`
+- Debug 构建：`cmake --build --preset ninja-debug`
+- Release 构建：`cmake --build --preset ninja-release`
+
 ---
 
 ## 1. 项目概况
@@ -14,6 +19,8 @@
 `devpiano` 当前处于从旧版 Windows FreePiano 向基于 JUCE 的现代 C++ 音频应用迁移的中前期阶段。
 
 ### 当前主干基础能力状态
+
+- [x] 构建系统已切换为 CMake + Ninja（MSVC 工具链）
 
 - [x] JUCE GUI 应用可正常启动
 - [x] 音频设备可初始化
@@ -28,10 +35,11 @@
 ### 已验证构建命令
 
 ```bash
-cmake --build Build/vs2026-x64 --config Debug
+cmake --preset ninja-x64
+cmake --build --preset ninja-debug
 ```
 
-构建结果：成功生成 `Build/vs2026-x64/devpiano_artefacts/Debug/DevPiano.exe`
+构建结果：成功生成 `Build/ninja-x64/devpiano_artefacts/Debug/DevPiano.exe`
 
 ---
 
@@ -183,7 +191,7 @@ cmake --build Build/vs2026-x64 --config Debug
 - [x] C++20
 - [x] JUCE
 - [x] CMake 3.22+
-- [x] Visual Studio 2026
+- [x] Ninja + MSVC（Visual Studio 2026 工具链）
 - [x] `AudioDeviceManager`
 - [x] `AudioPluginFormatManager`
 - [x] `KnownPluginList`
@@ -277,7 +285,7 @@ cmake --build Build/vs2026-x64 --config Debug
 - `Source/UI/KeyboardPanel.*`
 
 处理状态：
-- [~] 已完成插件区、参数区、头部状态区与键盘区第一轮拆分，并将插件区刷新统一为单一入口、将插件区与头部 MIDI 状态组装抽到轻量 builder，同时对设置保存路径、运行时音频设备重建路径、插件相关 UI 收尾动作、插件操作主流程、启动阶段的插件扫描与恢复路径，以及轻量 AppState 聚合入口做了第一轮实现；其中 `HeaderPanel` 的 MIDI 状态与 `PluginPanel` 的只读展示状态已开始优先经由 AppState 快照驱动，`MainComponent` 也已增加基于单次 AppState 快照的只读 UI 应用入口，`AppState::PluginState` 也已补齐第一轮插件展示字段，后续仍可继续拆更细的状态装配职责
+- [~] 已完成插件区、参数区、头部状态区与键盘区第一轮拆分，并将插件区刷新统一为单一入口、将插件区与头部 MIDI 状态组装抽到轻量 builder，同时对设置保存路径、运行时音频设备重建路径、插件相关 UI 收尾动作、插件操作主流程、启动阶段的插件扫描与恢复路径，以及轻量 AppState 聚合入口做了第一轮实现；其中 `HeaderPanel` 的 MIDI 状态与 `PluginPanel` 的只读展示状态已开始优先经由 AppState 快照驱动，`MainComponent` 也已增加基于单次 AppState 快照的只读 UI 应用入口，`SettingsDialog` 相关保存/关闭流程也已收口为更明确的 helper，`ControlsPanel` 的演奏参数读写也已开始收口为性能设置 helper，`AppState::PluginState` 也已补齐第一轮插件展示字段；本轮进一步将 `MainComponent` 构造阶段的输入映射恢复、UI 初始化、MIDI 路由初始化拆分为独立 helper（`initialiseInputMappingFromSettings` / `initialiseUi` / `initialiseMidiRouting`），并把启动阶段插件恢复流程继续拆分为 `restorePluginScanPathOnStartup` / `restoreLastPluginOnStartup` 与统一路径解析 helper，后续仍可继续拆更细的状态装配职责
 
 #### 风险 G：录制/导出路径缺少现代设计
 旧项目有复杂历史实现，新项目若不先定义新数据模型，容易再次复制旧的宏式设计。
