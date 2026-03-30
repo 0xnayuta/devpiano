@@ -2,8 +2,8 @@
 
 #include <JuceHeader.h>
 
-#include "Core/AppState.h"
-#include "Settings/SettingsModel.h"
+#include "AppState.h"
+#include "../Settings/SettingsModel.h"
 
 namespace devpiano::core
 {
@@ -86,5 +86,16 @@ inline void applyRuntimeInputState(AppState& appState, const RuntimeInputState& 
     appState.input.openMidiInputCount = runtime.openMidiInputCount;
     appState.input.midiActivityCount = runtime.midiActivityCount;
     appState.input.lastMidiMessage = runtime.lastMidiMessage;
+}
+
+// 一次性组装 persisted + runtime 的完整 AppState 快照。
+[[nodiscard]] inline AppState buildAppState(const SettingsModel& settings,
+                                            const RuntimePluginState& pluginRuntime,
+                                            const RuntimeInputState& inputRuntime)
+{
+    auto appState = createPersistedAppState(settings);
+    applyRuntimePluginState(appState, pluginRuntime);
+    applyRuntimeInputState(appState, inputRuntime);
+    return appState;
 }
 }

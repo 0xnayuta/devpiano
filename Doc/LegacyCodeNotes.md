@@ -2,6 +2,11 @@
 
 > 用途：说明 `freepiano-src/` 中旧模块在新 JUCE 架构中的定位、迁移边界与推荐替代方向。
 
+## 构建基线（统一）
+- 配置：`cmake --preset ninja-x64`
+- Debug 构建：`cmake --build --preset ninja-debug`
+- Release 构建：`cmake --build --preset ninja-release`
+
 ---
 
 ## 1. 文档目的
