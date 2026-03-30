@@ -7,6 +7,11 @@
 > - [ ] 未开始 / 未完成
 > - [~] 进行中 / 部分完成
 
+## 构建基线（统一）
+- 配置：`cmake --preset ninja-x64`
+- Debug 构建：`cmake --build --preset ninja-debug`
+- Release 构建：`cmake --build --preset ninja-release`
+
 ---
 
 ## 1. 目标说明
@@ -41,6 +46,7 @@
 - [ ] 将上面能力接入当前界面与持久化系统
 
 ### 阶段 F：文档与验收基线补充
+- [x] 构建系统迁移：已切换为 CMake + Ninja 预设（`ninja-x64` / `ninja-debug` / `ninja-release`）
 - [ ] 补全文档与阶段验收标准
 
 ---
@@ -204,6 +210,7 @@
 - [x] `MainComponent` 中少量 persisted 读取路径（插件恢复路径、性能参数恢复、音频基线 fallback、启动布局恢复）已开始优先走 grouped view
 - [x] `SettingsModel` 已新增轻量 grouped write helper，`syncSettingsFromUi()`、`prepareToPlay()`、启动恢复与扫描相关的少量 persisted 写路径，以及音频设备序列化状态写入已开始优先走分区/helper 写入口
 - [x] 已新增基于单次 AppState 快照的只读 UI 应用入口，用于统一分发 `HeaderPanel` / `PluginPanel` 状态
+- [x] `SettingsDialog` 保存/关闭流程已开始收口为更明确的 helper
 
 #### 优先级
 中
@@ -565,6 +572,9 @@
 - [x] 插件相关 UI 收尾动作（保存 / 刷新 / 焦点恢复）已完成第一轮轻量收敛
 - [x] 插件操作主流程（运行时参数获取 / 设备重建 / 插件动作）已完成第一轮轻量收敛
 - [x] 启动阶段的插件扫描 / 恢复上次插件路径已完成第一轮轻量收敛
+- [x] `ControlsPanel` 的演奏参数读写已开始收口为性能设置 helper，`onValuesChanged` 路径重复同步已减少
+- [x] `MainComponent` 构造流程已进一步拆分为输入映射恢复 / UI 初始化 / MIDI 路由初始化三个 helper，降低单函数装配复杂度
+- [x] 启动阶段的插件恢复流程已进一步拆分为“扫描路径恢复”和“上次插件恢复”两个 helper，并收敛扫描路径解析入口，降低启动链路阅读与改动风险
 
 #### 优先级
 中高

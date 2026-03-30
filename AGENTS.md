@@ -1,6 +1,6 @@
 # Project: FreePiano-JUCE
 你正在协助我将老旧的 Windows FreePiano 项目重构为基于 JUCE 框架的现代 C++ 音频应用。
-开发环境：Visual Studio 2026 + CMake。
+开发环境：CMake + Ninja（使用 Visual Studio 2026 的 MSVC 工具链）。
 
 ## 目录结构说明：
 - `/JUCE/`：JUCE 框架的 git 子模块，不要修改里面的任何代码。

@@ -30,12 +30,45 @@ MainComponent::MainComponent()
     : keyboardPanel(audioEngine.getKeyboardState())
 {
     settingsStore.load(appSettings);
+    initialiseInputMappingFromSettings();
+    audioEngine.setPluginHost(&pluginHost);
+
+    initialiseUi();
+    syncUiFromSettings();
+    applyUiStateToAudioEngine();
+
+    initialiseAudioDevice();
+    suppressTextInputMethods();
+
+    initialiseMidiRouting();
+    restorePluginStateOnStartup();
+    refreshReadOnlyUiState();
+
+    restoreKeyboardFocus();
+}
+
+MainComponent::~MainComponent()
+{
+    saveSettingsNow();
+
+    midiRouter.closeInputs();
+
+    shutdownAudio();
+    pluginEditorWindow.reset();
+    pluginHost.unloadPlugin();
+    settingsWindow.reset();
+}
+
+void MainComponent::initialiseInputMappingFromSettings()
+{
     const auto inputMapping = appSettings.getInputMappingSettingsView();
     keyboardMidiMapper.setLayout(SettingsModel::keyMapToLayout(inputMapping.keyMap));
     appSettings.applyInputMappingSettingsView({ .layoutId = keyboardMidiMapper.getLayout().id,
                                                 .keyMap = SettingsModel::layoutToKeyMap(keyboardMidiMapper.getLayout()) });
-    audioEngine.setPluginHost(&pluginHost);
+}
 
+void MainComponent::initialiseUi()
+{
     setSize(980, 620);
     setWantsKeyboardFocus(true);
 
@@ -48,27 +81,20 @@ MainComponent::MainComponent()
     pluginPanel.onLoadRequested = [this] { loadSelectedPlugin(); };
     pluginPanel.onUnloadRequested = [this] { unloadCurrentPlugin(); };
     pluginPanel.onToggleEditorRequested = [this] { togglePluginEditor(); };
+
     const auto pluginRecovery = appSettings.getPluginRecoverySettingsView();
     pluginPanel.setPluginPathText(pluginRecovery.pluginSearchPath.isNotEmpty()
                                       ? pluginRecovery.pluginSearchPath
                                       : pluginHost.getDefaultVst3SearchPath().toString());
 
     addAndMakeVisible(controlsPanel);
-    controlsPanel.onValuesChanged = [this]
-    {
-        applyUiStateToAudioEngine();
-        syncSettingsFromUi();
-        saveSettingsSoon();
-    };
+    controlsPanel.onValuesChanged = [this] { handlePerformanceUiChanged(); };
 
     addAndMakeVisible(keyboardPanel);
+}
 
-    syncUiFromSettings();
-    applyUiStateToAudioEngine();
-
-    initialiseAudioDevice();
-    suppressTextInputMethods();
-
+void MainComponent::initialiseMidiRouting()
+{
     midiRouter.setCollector(&audioEngine.getMidiCollector());
     midiRouter.setMessageCallback([safe = juce::Component::SafePointer<MainComponent>(this)](const juce::MidiMessage& message)
     {
@@ -96,22 +122,6 @@ MainComponent::MainComponent()
         });
     });
     midiRouter.openAllInputs();
-    restorePluginStateOnStartup();
-    refreshReadOnlyUiState();
-
-    restoreKeyboardFocus();
-}
-
-MainComponent::~MainComponent()
-{
-    saveSettingsNow();
-
-    midiRouter.closeInputs();
-
-    shutdownAudio();
-    pluginEditorWindow.reset();
-    pluginHost.unloadPlugin();
-    settingsWindow.reset();
 }
 
 void MainComponent::prepareToPlay(int samplesPerBlockExpected, double sampleRate)
@@ -182,18 +192,17 @@ bool MainComponent::keyStateChanged(bool isKeyDown)
     return handled;
 }
 
-void MainComponent::applyUiStateToAudioEngine()
+SettingsModel::PerformanceSettingsView MainComponent::getPerformanceSettingsFromUi() const
 {
-    audioEngine.setMasterGain(controlsPanel.getMasterGain());
-    audioEngine.setAdsr(controlsPanel.getAttack(),
-                        controlsPanel.getDecay(),
-                        controlsPanel.getSustain(),
-                        controlsPanel.getRelease());
+    return { .masterGain = controlsPanel.getMasterGain(),
+             .adsrAttack = controlsPanel.getAttack(),
+             .adsrDecay = controlsPanel.getDecay(),
+             .adsrSustain = controlsPanel.getSustain(),
+             .adsrRelease = controlsPanel.getRelease() };
 }
 
-void MainComponent::syncUiFromSettings()
+void MainComponent::applyPerformanceSettingsToUi(const SettingsModel::PerformanceSettingsView& performance)
 {
-    const auto performance = appSettings.getPerformanceSettingsView();
     controlsPanel.setValues(performance.masterGain,
                             performance.adsrAttack,
                             performance.adsrDecay,
@@ -201,13 +210,34 @@ void MainComponent::syncUiFromSettings()
                             performance.adsrRelease);
 }
 
+void MainComponent::applyPerformanceSettingsToAudioEngine(const SettingsModel::PerformanceSettingsView& performance)
+{
+    audioEngine.setMasterGain(performance.masterGain);
+    audioEngine.setAdsr(performance.adsrAttack,
+                        performance.adsrDecay,
+                        performance.adsrSustain,
+                        performance.adsrRelease);
+}
+
+void MainComponent::handlePerformanceUiChanged()
+{
+    applyPerformanceSettingsToAudioEngine(getPerformanceSettingsFromUi());
+    saveSettingsSoon();
+}
+
+void MainComponent::applyUiStateToAudioEngine()
+{
+    applyPerformanceSettingsToAudioEngine(getPerformanceSettingsFromUi());
+}
+
+void MainComponent::syncUiFromSettings()
+{
+    applyPerformanceSettingsToUi(appSettings.getPerformanceSettingsView());
+}
+
 void MainComponent::syncSettingsFromUi()
 {
-    appSettings.applyPerformanceSettingsView({ .masterGain = controlsPanel.getMasterGain(),
-                                               .adsrAttack = controlsPanel.getAttack(),
-                                               .adsrDecay = controlsPanel.getDecay(),
-                                               .adsrSustain = controlsPanel.getSustain(),
-                                               .adsrRelease = controlsPanel.getRelease() });
+    appSettings.applyPerformanceSettingsView(getPerformanceSettingsFromUi());
 
     appSettings.applyPluginRecoverySettingsView({ .pluginSearchPath = pluginPanel.getPluginPathText().trim(),
                                                   .lastPluginName = pluginHost.hasLoadedPlugin() ? pluginHost.getCurrentPluginName()
@@ -321,36 +351,14 @@ void MainComponent::showSettingsDialog()
 
     auto closeWindow = [safe = juce::Component::SafePointer<MainComponent>(this)]
     {
-        if (safe == nullptr)
-            return;
-
-        auto shouldSave = false;
-        if (safe->settingsWindow != nullptr)
-            if (auto* settingsContent = dynamic_cast<SettingsComponent*>(safe->settingsWindow->getContentComponent()))
-                shouldSave = settingsContent->isDirty();
-
-        if (shouldSave)
-            safe->saveSettingsNow();
-
-        juce::MessageManager::callAsync([safe]
-        {
-            if (safe == nullptr)
-                return;
-
-            if (safe->settingsWindow != nullptr)
-                safe->settingsWindow->setVisible(false);
-
-            safe->settingsWindow.reset();
-            safe->restoreKeyboardFocus();
-        });
+        if (safe != nullptr)
+            safe->closeSettingsWindow();
     };
 
-    contentPtr->onSaveRequested = [safe = juce::Component::SafePointer<MainComponent>(this), closeWindow]
+    contentPtr->onSaveRequested = [safe = juce::Component::SafePointer<MainComponent>(this)]
     {
         if (safe != nullptr)
-            safe->saveSettingsNow();
-
-        closeWindow();
+            safe->saveAndCloseSettingsWindow();
     };
 
     settingsWindow = std::make_unique<SettingsDialogWindow>("Audio Settings", backgroundColour, closeWindow);
@@ -359,6 +367,46 @@ void MainComponent::showSettingsDialog()
     settingsWindow->centreAroundComponent(this, 620, 420);
     settingsWindow->setResizable(true, true);
     settingsWindow->setVisible(true);
+}
+
+bool MainComponent::isSettingsWindowDirty() const
+{
+    if (settingsWindow == nullptr)
+        return false;
+
+    if (auto* settingsContent = dynamic_cast<SettingsComponent*>(settingsWindow->getContentComponent()))
+        return settingsContent->isDirty();
+
+    return false;
+}
+
+void MainComponent::closeSettingsWindowAsync()
+{
+    juce::MessageManager::callAsync([safe = juce::Component::SafePointer<MainComponent>(this)]
+    {
+        if (safe == nullptr)
+            return;
+
+        if (safe->settingsWindow != nullptr)
+            safe->settingsWindow->setVisible(false);
+
+        safe->settingsWindow.reset();
+        safe->restoreKeyboardFocus();
+    });
+}
+
+void MainComponent::closeSettingsWindow()
+{
+    if (isSettingsWindowDirty())
+        saveSettingsNow();
+
+    closeSettingsWindowAsync();
+}
+
+void MainComponent::saveAndCloseSettingsWindow()
+{
+    saveSettingsNow();
+    closeSettingsWindowAsync();
 }
 
 void MainComponent::applyReadOnlyUiState(const devpiano::core::AppState& appState)
@@ -391,31 +439,35 @@ void MainComponent::finishPluginUiAction(bool shouldSaveSettings)
     restoreKeyboardFocus();
 }
 
+devpiano::core::RuntimePluginState MainComponent::createRuntimePluginStateSnapshot() const
+{
+    return { .currentPluginName = pluginHost.getCurrentPluginName(),
+             .availablePluginNames = pluginHost.getKnownPluginNames(),
+             .pluginListText = pluginHost.getPluginListDescription(),
+             .availableFormatsDescription = pluginHost.getAvailableFormatsDescription(),
+             .lastScanSummary = pluginHost.getLastScanSummary(),
+             .lastLoadError = pluginHost.getLastLoadError(),
+             .preparedSampleRate = pluginHost.getPreparedSampleRate(),
+             .preparedBlockSize = pluginHost.getPreparedBlockSize(),
+             .supportsVst3 = pluginHost.supportsVst3(),
+             .hasLoadedPlugin = pluginHost.hasLoadedPlugin(),
+             .isPrepared = pluginHost.isPrepared(),
+             .isEditorOpen = pluginEditorWindow != nullptr };
+}
+
+devpiano::core::RuntimeInputState MainComponent::createRuntimeInputStateSnapshot() const
+{
+    return { .keyboardLayout = keyboardMidiMapper.getLayout(),
+             .openMidiInputCount = midiRouter.getOpenInputCount(),
+             .midiActivityCount = externalMidiMessageCount,
+             .lastMidiMessage = lastExternalMidiMessage };
+}
+
 devpiano::core::AppState MainComponent::createAppStateSnapshot() const
 {
-    auto appState = devpiano::core::createPersistedAppState(appSettings);
-
-    devpiano::core::applyRuntimePluginState(appState,
-                                            { .currentPluginName = pluginHost.getCurrentPluginName(),
-                                              .availablePluginNames = pluginHost.getKnownPluginNames(),
-                                              .pluginListText = pluginHost.getPluginListDescription(),
-                                              .availableFormatsDescription = pluginHost.getAvailableFormatsDescription(),
-                                              .lastScanSummary = pluginHost.getLastScanSummary(),
-                                              .lastLoadError = pluginHost.getLastLoadError(),
-                                              .preparedSampleRate = pluginHost.getPreparedSampleRate(),
-                                              .preparedBlockSize = pluginHost.getPreparedBlockSize(),
-                                              .supportsVst3 = pluginHost.supportsVst3(),
-                                              .hasLoadedPlugin = pluginHost.hasLoadedPlugin(),
-                                              .isPrepared = pluginHost.isPrepared(),
-                                              .isEditorOpen = pluginEditorWindow != nullptr });
-
-    devpiano::core::applyRuntimeInputState(appState,
-                                           { .keyboardLayout = keyboardMidiMapper.getLayout(),
-                                             .openMidiInputCount = midiRouter.getOpenInputCount(),
-                                             .midiActivityCount = externalMidiMessageCount,
-                                             .lastMidiMessage = lastExternalMidiMessage });
-
-    return appState;
+    return devpiano::core::buildAppState(appSettings,
+                                         createRuntimePluginStateSnapshot(),
+                                         createRuntimeInputStateSnapshot());
 }
 
 void MainComponent::restorePluginStateOnStartup()
@@ -425,10 +477,14 @@ void MainComponent::restorePluginStateOnStartup()
 
 void MainComponent::restorePluginScanAndLoadState()
 {
+    restorePluginScanPathOnStartup();
+    restoreLastPluginOnStartup();
+}
+
+void MainComponent::restorePluginScanPathOnStartup()
+{
     const auto pluginRecovery = appSettings.getPluginRecoverySettingsView();
-    const auto pathText = pluginPanel.getPluginPathText().trim();
-    const auto path = pathText.isNotEmpty() ? juce::FileSearchPath(pathText)
-                                            : pluginHost.getDefaultVst3SearchPath();
+    const auto path = resolvePluginScanPath();
 
     if (path.toString().trim().isEmpty())
         return;
@@ -436,7 +492,11 @@ void MainComponent::restorePluginScanAndLoadState()
     pluginHost.scanVst3Plugins(path, true);
     appSettings.applyPluginRecoverySettingsView({ .pluginSearchPath = path.toString(),
                                                   .lastPluginName = pluginRecovery.lastPluginName });
+}
 
+void MainComponent::restoreLastPluginOnStartup()
+{
+    const auto pluginRecovery = appSettings.getPluginRecoverySettingsView();
     if (pluginRecovery.lastPluginName.isEmpty())
         return;
 
@@ -445,6 +505,13 @@ void MainComponent::restorePluginScanAndLoadState()
         const auto loaded = pluginHost.loadPluginByName(pluginRecovery.lastPluginName, sampleRate, blockSize);
         juce::ignoreUnused(loaded);
     });
+}
+
+juce::FileSearchPath MainComponent::resolvePluginScanPath() const
+{
+    const auto pathText = pluginPanel.getPluginPathText().trim();
+    return pathText.isNotEmpty() ? juce::FileSearchPath(pathText)
+                                 : pluginHost.getDefaultVst3SearchPath();
 }
 
 double MainComponent::getCurrentRuntimeSampleRate() const
@@ -594,9 +661,7 @@ void MainComponent::togglePluginEditor()
 
 void MainComponent::scanPlugins()
 {
-    const auto text = pluginPanel.getPluginPathText().trim();
-    const auto path = text.isNotEmpty() ? juce::FileSearchPath(text)
-                                        : pluginHost.getDefaultVst3SearchPath();
+    const auto path = resolvePluginScanPath();
 
     pluginHost.scanVst3Plugins(path, true);
     appSettings.applyPluginRecoverySettingsView({ .pluginSearchPath = path.toString(),
