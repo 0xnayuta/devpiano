@@ -6,6 +6,7 @@ class ControlsPanel final : public juce::Component
 {
 public:
     ControlsPanel();
+    ~ControlsPanel() override;
 
     void resized() override;
 
@@ -22,6 +23,9 @@ public:
     [[nodiscard]] float getRelease() const;
 
     std::function<void()> onValuesChanged;
+    std::function<void(const juce::String&)> onLayoutChanged;
+
+    void setLayouts(const juce::StringArray& layoutIds, const juce::String& currentLayoutId);
 
 private:
     void configureSlider(juce::Slider& slider,
@@ -36,12 +40,14 @@ private:
     juce::Label decayLabel;
     juce::Label sustainLabel;
     juce::Label releaseLabel;
+    juce::Label layoutLabel;
 
     juce::Slider volumeSlider;
     juce::Slider attackSlider;
     juce::Slider decaySlider;
     juce::Slider sustainSlider;
     juce::Slider releaseSlider;
+    juce::ComboBox layoutComboBox;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ControlsPanel)
 };

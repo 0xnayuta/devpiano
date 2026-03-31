@@ -337,13 +337,15 @@
 - 下一步：
   - 转向更有功能收益的目标，如：完善录制回放模型、进一步重做/完善键盘布局映射模型（解决焦点状态残留等测试问题）或外部 MIDI 发声实测等。
 
-## Iteration 2026-03-31 (下午)
-- 目标：开展高阶功能的先期预研，如录制与回放模型。
+## Iteration 2026-03-31 (晚间)
+- 目标：键盘布局切换 UI 闭环，补充布局选择与 Full Piano Layout 预设。
 - 完成：
-  - 确认目前键盘映射的 Q/W/E/R 与 Z/X/C/V 均已在默认布局中覆盖。
+  - 在 `KeyMapTypes.h` 增加 `makeFullPianoLayout()` 提供 C3-C6 扩展键位。
+  - 在 `ControlsPanel` 增加 Layout ComboBox 用于选择键盘布局。
+  - 将布局切换信号 `handleLayoutChanged` 接回 `MainComponent` 并触发 `appSettings` 保存与 `keyboardMidiMapper` 的布局更新。
 - 未完成：
-  - 真正录制功能尚未开始编码。
+  - Windows 系统环境下的焦点/held keys 残留彻底测试仍待补充专项自动化或侦听器。
 - 风险：
   - （无新风险）。
 - 下一步：
-  - 开始设计录制系统的核心数据结构与 UI 集成。
+  - 正式启动录制/回放模型数据结构的定义。
