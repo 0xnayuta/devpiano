@@ -58,6 +58,8 @@ target_sources(devpiano PRIVATE
     Source/Plugin/PluginHost.h
     Source/UI/PluginPanel.cpp
     Source/UI/PluginPanel.h
+    Source/UI/PluginEditorWindow.cpp
+    Source/UI/PluginEditorWindow.h
     Source/UI/PluginPanelStateBuilder.cpp
     Source/UI/PluginPanelStateBuilder.h
     Source/UI/ControlsPanel.cpp

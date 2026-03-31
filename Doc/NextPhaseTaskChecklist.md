@@ -538,7 +538,7 @@
 ### E-3. 拆分 MainComponent 的局部职责（第一步）
 
 #### 状态
-- [x] 已完成第四轮（插件区 + 参数区 + 头部状态区 + 键盘区）
+- [x] 已完成第一轮拆分与 helper 收敛阶段（插件区 + 参数区 + 头部状态区 + 键盘区 + AppState 接线 + 生命周期/插件恢复 helper 收口）
 
 #### 文件
 - `Source/MainComponent.h`
@@ -575,6 +575,24 @@
 - [x] `ControlsPanel` 的演奏参数读写已开始收口为性能设置 helper，`onValuesChanged` 路径重复同步已减少
 - [x] `MainComponent` 构造流程已进一步拆分为输入映射恢复 / UI 初始化 / MIDI 路由初始化三个 helper，降低单函数装配复杂度
 - [x] 启动阶段的插件恢复流程已进一步拆分为“扫描路径恢复”和“上次插件恢复”两个 helper，并收敛扫描路径解析入口，降低启动链路阅读与改动风险
+- [x] 插件相关状态写回 settings 的重复逻辑已收口为轻量 helper，减少插件扫描 / 启动恢复 / 手动加载路径中的重复字段拼装
+- [x] 插件恢复 settings 的读取 + fallback 逻辑已抽到轻量 helper，减少默认路径回退规则的分散实现
+- [x] 插件操作后的“状态写回 + UI 收尾”已开始收口到统一 helper，减少 scan/load 路径重复收尾调用
+- [x] `loadSelectedPlugin()` 已按“选择名解析 + 实际加载提交”两段式 helper 轻量拆分，降低单函数分支复杂度
+- [x] `togglePluginEditor()` 已按“editor 可创建性检查 + 窗口构建”两段式 helper 轻量拆分，降低早退分支密度
+- [x] `unloadCurrentPlugin()` 已通过 `unloadPluginAndCommitState()` 收口为统一路径，与 scan/load 的状态提交风格对齐
+- [x] `scanPlugins()` 已拆分为“路径解析 + `scanPluginsAtPathAndCommitState(...)` 扫描提交”两段式 helper，降低函数职责耦合
+- [x] 启动恢复路径中的扫描逻辑已复用 `scanPluginsAtPathAndApplyRecoveryState(...)`，减少启动/手动扫描重复实现
+- [x] 插件扫描空路径保护已统一收口为 `isUsablePluginScanPath(...)`，减少启动恢复与手动扫描分散判定
+- [x] `runPluginActionWithAudioDeviceRebuild(void)` 已复用带 `RuntimeAudioConfig` 的主实现，减少设备重建包裹重复代码
+- [x] `restoreLastPluginOnStartup()` 已按“恢复名称读取 + 实际恢复加载”两段式 helper 拆分，统一 last plugin name 读取命名
+- [x] `PluginRecoverySettingsView` 的若干结构体字面量已开始收口为轻量 builder/helper，减少路径与 last plugin name 字段重复拼装
+- [x] `getPluginRecoverySettingsWithFallback()` 已复用 `makePluginRecoverySettings(...)`，进一步统一 recovery settings 构造入口
+- [x] plugin editor 窗口托管已下沉到 `Source/UI/PluginEditorWindow.*`，`MainComponent` 不再内嵌窗口类实现
+- [x] plugin editor 标题生成逻辑已下沉到 `PluginEditorWindow`，`MainComponent` 不再拼接 editor 窗口标题
+- [x] plugin editor close 后的异步收尾已收口为 `MainComponent::handlePluginEditorWindowClosedAsync()`，进一步缩短 `openPluginEditorWindow()`
+- [x] plugin editor 打开后的只读展示刷新已统一改走 `refreshReadOnlyUiState()`，减少 `MainComponent` 直接刷新 `PluginPanel` 展示细节
+- [x] 已完成一轮 `MainComponent` 收敛阶段整理：插件恢复 / 扫描 / load / unload / editor / recovery settings / editor window 托管 等相关 helper 路径已形成较清晰边界，后续可转入其他更有功能收益的目标
 
 #### 优先级
 中高
@@ -652,10 +670,10 @@
 - [ ] F-2 建立阶段验收清单
 
 ## 第三组：后续优化
-- [ ] E-3 局部拆分 `MainComponent`
-- [ ] D-6 接入插件 editor
-- [ ] C-4 键盘映射测试文档
-- [ ] 录制/回放/导出功能设计与实现
+- [ ] E-3 局部拆分 `MainComponent` (进一步优化)
+- [ ] D-6 接入插件 editor (进一步细化)
+- [ ] C-4 键盘映射测试文档 (实测与完成)
+- [ ] 录制/回放/导出功能设计与实现 (预研中)
 
 ---
 

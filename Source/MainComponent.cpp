@@ -82,10 +82,8 @@ void MainComponent::initialiseUi()
     pluginPanel.onUnloadRequested = [this] { unloadCurrentPlugin(); };
     pluginPanel.onToggleEditorRequested = [this] { togglePluginEditor(); };
 
-    const auto pluginRecovery = appSettings.getPluginRecoverySettingsView();
-    pluginPanel.setPluginPathText(pluginRecovery.pluginSearchPath.isNotEmpty()
-                                      ? pluginRecovery.pluginSearchPath
-                                      : pluginHost.getDefaultVst3SearchPath().toString());
+    const auto pluginRecovery = getPluginRecoverySettingsWithFallback();
+    pluginPanel.setPluginPathText(pluginRecovery.pluginSearchPath);
 
     addAndMakeVisible(controlsPanel);
     controlsPanel.onValuesChanged = [this] { handlePerformanceUiChanged(); };
@@ -201,6 +199,41 @@ SettingsModel::PerformanceSettingsView MainComponent::getPerformanceSettingsFrom
              .adsrRelease = controlsPanel.getRelease() };
 }
 
+juce::String MainComponent::getLastPluginNameForRecoveryStateFromUi() const
+{
+    return pluginHost.hasLoadedPlugin() ? pluginHost.getCurrentPluginName()
+                                        : pluginPanel.getSelectedPluginName().trim();
+}
+
+juce::String MainComponent::getPersistedPluginSearchPath() const
+{
+    return appSettings.getPluginRecoverySettingsView().pluginSearchPath;
+}
+
+SettingsModel::PluginRecoverySettingsView MainComponent::makePluginRecoverySettings(juce::String pluginSearchPath,
+                                                                                    juce::String lastPluginName) const
+{
+    return { .pluginSearchPath = std::move(pluginSearchPath),
+             .lastPluginName = std::move(lastPluginName) };
+}
+
+SettingsModel::PluginRecoverySettingsView MainComponent::getPluginRecoverySettingsFromUi() const
+{
+    return makePluginRecoverySettings(pluginPanel.getPluginPathText().trim(),
+                                      getLastPluginNameForRecoveryStateFromUi());
+}
+
+SettingsModel::PluginRecoverySettingsView MainComponent::getPluginRecoverySettingsWithFallback() const
+{
+    auto pluginRecovery = appSettings.getPluginRecoverySettingsView();
+    auto pluginSearchPath = pluginRecovery.pluginSearchPath;
+    if (pluginSearchPath.trim().isEmpty())
+        pluginSearchPath = pluginHost.getDefaultVst3SearchPath().toString();
+
+    return makePluginRecoverySettings(std::move(pluginSearchPath),
+                                      std::move(pluginRecovery.lastPluginName));
+}
+
 void MainComponent::applyPerformanceSettingsToUi(const SettingsModel::PerformanceSettingsView& performance)
 {
     controlsPanel.setValues(performance.masterGain,
@@ -217,6 +250,18 @@ void MainComponent::applyPerformanceSettingsToAudioEngine(const SettingsModel::P
                         performance.adsrDecay,
                         performance.adsrSustain,
                         performance.adsrRelease);
+}
+
+void MainComponent::applyPluginRecoverySettings(const SettingsModel::PluginRecoverySettingsView& pluginRecovery)
+{
+    appSettings.applyPluginRecoverySettingsView(pluginRecovery);
+}
+
+void MainComponent::commitPluginRecoveryStateAndFinishUi(const SettingsModel::PluginRecoverySettingsView& pluginRecovery,
+                                                         bool shouldSaveSettings)
+{
+    applyPluginRecoverySettings(pluginRecovery);
+    finishPluginUiAction(shouldSaveSettings);
 }
 
 void MainComponent::handlePerformanceUiChanged()
@@ -239,9 +284,7 @@ void MainComponent::syncSettingsFromUi()
 {
     appSettings.applyPerformanceSettingsView(getPerformanceSettingsFromUi());
 
-    appSettings.applyPluginRecoverySettingsView({ .pluginSearchPath = pluginPanel.getPluginPathText().trim(),
-                                                  .lastPluginName = pluginHost.hasLoadedPlugin() ? pluginHost.getCurrentPluginName()
-                                                                                                 : pluginPanel.getSelectedPluginName().trim() });
+    applyPluginRecoverySettings(getPluginRecoverySettingsFromUi());
 
     appSettings.applyInputMappingSettingsView({ .layoutId = keyboardMidiMapper.getLayout().id,
                                                 .keyMap = SettingsModel::layoutToKeyMap(keyboardMidiMapper.getLayout()) });
@@ -425,11 +468,6 @@ void MainComponent::updateMidiStatusLabel()
     headerPanel.updateMidiStatus(buildHeaderPanelMidiStatus(createAppStateSnapshot()));
 }
 
-void MainComponent::refreshPluginPanel()
-{
-    pluginPanel.updateState(buildPluginPanelState(createAppStateSnapshot()));
-}
-
 void MainComponent::finishPluginUiAction(bool shouldSaveSettings)
 {
     if (shouldSaveSettings)
@@ -483,26 +521,36 @@ void MainComponent::restorePluginScanAndLoadState()
 
 void MainComponent::restorePluginScanPathOnStartup()
 {
-    const auto pluginRecovery = appSettings.getPluginRecoverySettingsView();
-    const auto path = resolvePluginScanPath();
+    const auto pluginRecovery = getPluginRecoverySettingsWithFallback();
+    const auto path = juce::FileSearchPath(pluginRecovery.pluginSearchPath);
 
-    if (path.toString().trim().isEmpty())
+    if (! isUsablePluginScanPath(path))
         return;
 
-    pluginHost.scanVst3Plugins(path, true);
-    appSettings.applyPluginRecoverySettingsView({ .pluginSearchPath = path.toString(),
-                                                  .lastPluginName = pluginRecovery.lastPluginName });
+    scanPluginsAtPathAndApplyRecoveryState(path, pluginRecovery.lastPluginName);
+}
+
+juce::String MainComponent::getLastPluginNameForStartupRestore() const
+{
+    return getPluginRecoverySettingsWithFallback().lastPluginName;
 }
 
 void MainComponent::restoreLastPluginOnStartup()
 {
-    const auto pluginRecovery = appSettings.getPluginRecoverySettingsView();
-    if (pluginRecovery.lastPluginName.isEmpty())
+    const auto pluginName = getLastPluginNameForStartupRestore();
+    if (pluginName.isEmpty())
         return;
 
-    runPluginActionWithAudioDeviceRebuild([this, pluginRecovery](double sampleRate, int blockSize)
+    restorePluginByNameOnStartup(pluginName);
+}
+
+void MainComponent::restorePluginByNameOnStartup(const juce::String& pluginName)
+{
+    runPluginActionWithAudioDeviceRebuild([this, pluginName](const RuntimeAudioConfig& config)
     {
-        const auto loaded = pluginHost.loadPluginByName(pluginRecovery.lastPluginName, sampleRate, blockSize);
+        const auto loaded = pluginHost.loadPluginByName(pluginName,
+                                                        config.sampleRate,
+                                                        config.blockSize);
         juce::ignoreUnused(loaded);
     });
 }
@@ -538,50 +586,112 @@ int MainComponent::getCurrentRuntimeBlockSize() const
     return appSettings.getAudioSettingsView().bufferSize;
 }
 
-void MainComponent::runPluginActionWithAudioDeviceRebuild(const std::function<void(double, int)>& action)
+MainComponent::RuntimeAudioConfig MainComponent::getCurrentRuntimeAudioConfig() const
 {
-    const auto sampleRate = getCurrentRuntimeSampleRate();
-    const auto blockSize = getCurrentRuntimeBlockSize();
+    return { .sampleRate = getCurrentRuntimeSampleRate(),
+             .blockSize = getCurrentRuntimeBlockSize() };
+}
+
+void MainComponent::runPluginActionWithAudioDeviceRebuild(const std::function<void(const RuntimeAudioConfig&)>& action)
+{
+    const auto runtimeAudioConfig = getCurrentRuntimeAudioConfig();
 
     prepareForAudioDeviceRebuild();
-    action(sampleRate, blockSize);
+    action(runtimeAudioConfig);
     finishAudioDeviceRebuild();
 }
 
 void MainComponent::runPluginActionWithAudioDeviceRebuild(const std::function<void()>& action)
 {
-    prepareForAudioDeviceRebuild();
-    action();
-    finishAudioDeviceRebuild();
+    runPluginActionWithAudioDeviceRebuild([&action](const RuntimeAudioConfig&)
+    {
+        action();
+    });
+}
+
+juce::String MainComponent::getSelectedPluginNameForLoad() const
+{
+    return pluginPanel.getSelectedPluginName().trim();
+}
+
+void MainComponent::loadPluginByNameAndCommitState(const juce::String& pluginName)
+{
+    runPluginActionWithAudioDeviceRebuild([this, pluginName](const RuntimeAudioConfig& config)
+    {
+        const auto success = pluginHost.loadPluginByName(pluginName,
+                                                         config.sampleRate,
+                                                         config.blockSize);
+        juce::ignoreUnused(success);
+    });
+
+    commitPluginRecoveryStateAndFinishUi(makePluginRecoverySettings(getPersistedPluginSearchPath(), pluginName),
+                                          true);
 }
 
 void MainComponent::loadSelectedPlugin()
 {
-    const auto pluginName = pluginPanel.getSelectedPluginName().trim();
+    const auto pluginName = getSelectedPluginNameForLoad();
     if (pluginName.isEmpty())
     {
         finishPluginUiAction(false);
         return;
     }
 
-    runPluginActionWithAudioDeviceRebuild([this, pluginName](double sampleRate, int blockSize)
-    {
-        const auto success = pluginHost.loadPluginByName(pluginName, sampleRate, blockSize);
-        juce::ignoreUnused(success);
-    });
-
-    appSettings.applyPluginRecoverySettingsView({ .pluginSearchPath = appSettings.getPluginRecoverySettingsView().pluginSearchPath,
-                                                  .lastPluginName = pluginName });
-    finishPluginUiAction(true);
+    loadPluginByNameAndCommitState(pluginName);
 }
 
-void MainComponent::unloadCurrentPlugin()
+void MainComponent::unloadPluginAndCommitState()
 {
     runPluginActionWithAudioDeviceRebuild([this]
     {
         pluginHost.unloadPlugin();
     });
-    finishPluginUiAction(true);
+
+    commitPluginRecoveryStateAndFinishUi(appSettings.getPluginRecoverySettingsView(), true);
+}
+
+void MainComponent::unloadCurrentPlugin()
+{
+    unloadPluginAndCommitState();
+}
+
+std::unique_ptr<juce::AudioProcessorEditor> MainComponent::tryCreatePluginEditor() const
+{
+    auto* instance = pluginHost.getInstance();
+    if (instance == nullptr || ! instance->hasEditor())
+        return nullptr;
+
+    return std::unique_ptr<juce::AudioProcessorEditor>(instance->createEditorAndMakeActive());
+}
+
+void MainComponent::handlePluginEditorWindowClosedAsync()
+{
+    juce::MessageManager::callAsync([safe = juce::Component::SafePointer<MainComponent>(this)]
+    {
+        if (safe == nullptr)
+            return;
+
+        safe->pluginEditorWindow.reset();
+        safe->finishPluginUiAction(false);
+    });
+}
+
+void MainComponent::openPluginEditorWindow(std::unique_ptr<juce::AudioProcessorEditor> editor)
+{
+    auto closeEditorWindow = [safe = juce::Component::SafePointer<MainComponent>(this)]
+    {
+        if (safe != nullptr)
+            safe->handlePluginEditorWindowClosedAsync();
+    };
+
+    pluginEditorWindow = std::make_unique<PluginEditorWindow>(pluginHost.getCurrentPluginName(),
+                                                               std::move(editor),
+                                                               closeEditorWindow);
+    pluginEditorWindow->centreAroundComponent(this,
+                                              pluginEditorWindow->getContentComponent()->getWidth(),
+                                              pluginEditorWindow->getContentComponent()->getHeight());
+    pluginEditorWindow->setVisible(true);
+    refreshReadOnlyUiState();
 }
 
 void MainComponent::togglePluginEditor()
@@ -593,78 +703,43 @@ void MainComponent::togglePluginEditor()
         return;
     }
 
-    auto* instance = pluginHost.getInstance();
-    if (instance == nullptr || ! instance->hasEditor())
-    {
-        finishPluginUiAction(false);
-        return;
-    }
-
-    auto editor = std::unique_ptr<juce::AudioProcessorEditor>(instance->createEditorAndMakeActive());
+    auto editor = tryCreatePluginEditor();
     if (editor == nullptr)
     {
         finishPluginUiAction(false);
         return;
     }
 
-    class PluginEditorWindow final : public juce::DocumentWindow
-    {
-    public:
-        PluginEditorWindow(const juce::String& title,
-                           std::function<void()> onClose)
-            : juce::DocumentWindow(title,
-                                   juce::Desktop::getInstance().getDefaultLookAndFeel()
-                                       .findColour(juce::ResizableWindow::backgroundColourId),
-                                   juce::DocumentWindow::closeButton),
-              closeCallback(std::move(onClose))
-        {
-        }
+    openPluginEditorWindow(std::move(editor));
+}
 
-        void closeButtonPressed() override
-        {
-            if (closeCallback)
-                closeCallback();
-        }
+bool MainComponent::isUsablePluginScanPath(const juce::FileSearchPath& path) const
+{
+    return path.toString().trim().isNotEmpty();
+}
 
-    private:
-        std::function<void()> closeCallback;
-    };
+void MainComponent::scanPluginsAtPathAndApplyRecoveryState(const juce::FileSearchPath& path,
+                                                           const juce::String& lastPluginName)
+{
+    pluginHost.scanVst3Plugins(path, true);
+    applyPluginRecoverySettings(makePluginRecoverySettings(path.toString(), lastPluginName));
+}
 
-    auto closeEditorWindow = [safe = juce::Component::SafePointer<MainComponent>(this)]
-    {
-        juce::MessageManager::callAsync([safe]
-        {
-            if (safe == nullptr)
-                return;
-
-            safe->pluginEditorWindow.reset();
-            safe->finishPluginUiAction(false);
-        });
-    };
-
-    auto title = pluginHost.getCurrentPluginName();
-    if (title.isEmpty())
-        title = "Plugin Editor";
-    else
-        title << " Editor";
-
-    pluginEditorWindow = std::make_unique<PluginEditorWindow>(title, closeEditorWindow);
-    pluginEditorWindow->setUsingNativeTitleBar(true);
-    pluginEditorWindow->setResizable(editor->isResizable(), true);
-    pluginEditorWindow->setContentOwned(editor.release(), true);
-    pluginEditorWindow->centreAroundComponent(this,
-                                              pluginEditorWindow->getContentComponent()->getWidth(),
-                                              pluginEditorWindow->getContentComponent()->getHeight());
-    pluginEditorWindow->setVisible(true);
-    refreshPluginPanel();
+void MainComponent::scanPluginsAtPathAndCommitState(const juce::FileSearchPath& path)
+{
+    const auto lastPluginName = appSettings.getPluginRecoverySettingsView().lastPluginName;
+    scanPluginsAtPathAndApplyRecoveryState(path, lastPluginName);
+    finishPluginUiAction(true);
 }
 
 void MainComponent::scanPlugins()
 {
     const auto path = resolvePluginScanPath();
+    if (! isUsablePluginScanPath(path))
+    {
+        finishPluginUiAction(false);
+        return;
+    }
 
-    pluginHost.scanVst3Plugins(path, true);
-    appSettings.applyPluginRecoverySettingsView({ .pluginSearchPath = path.toString(),
-                                                  .lastPluginName = appSettings.getPluginRecoverySettingsView().lastPluginName });
-    finishPluginUiAction(true);
+    scanPluginsAtPathAndCommitState(path);
 }
