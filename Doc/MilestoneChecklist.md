@@ -296,6 +296,22 @@
   - 将构造函数中的 UI 组件装配与回调绑定抽离为 `initialiseUi()`
   - 将构造函数中的 MIDI 路由初始化抽离为 `initialiseMidiRouting()`
   - 将启动阶段插件恢复路径继续拆分为 `restorePluginScanPathOnStartup()` / `restoreLastPluginOnStartup()`，并收敛扫描路径解析入口 `resolvePluginScanPath()`
+  - 将插件相关 settings 写回收口为 `applyPluginRecoverySettings()` / `getPluginRecoverySettingsFromUi()`，减少扫描、启动恢复与手动加载路径中的重复字段拼装
+  - 将插件恢复 settings 的读取 + fallback 收口为 `getPluginRecoverySettingsWithFallback()`，统一默认路径回退规则
+  - 将插件操作后的状态写回 + UI 收尾收口为 `commitPluginRecoveryStateAndFinishUi(...)`，减少 scan/load 路径重复收尾代码
+  - 将 `loadSelectedPlugin()` 轻量拆分为 `getSelectedPluginNameForLoad()` + `loadPluginByNameAndCommitState(...)`，降低单函数分支复杂度
+  - 将 `togglePluginEditor()` 轻量拆分为 `tryCreatePluginEditor()` + `openPluginEditorWindow(...)`，降低早退分支密度
+  - 将 `unloadCurrentPlugin()` 收口为 `unloadPluginAndCommitState()`，使 unload 与 scan/load 的状态提交路径保持一致
+  - 将 `scanPlugins()` 轻量拆分为 `resolvePluginScanPath()` + `scanPluginsAtPathAndCommitState(...)`，降低路径解析与状态提交耦合
+  - 将启动恢复扫描逻辑复用到 `scanPluginsAtPathAndApplyRecoveryState(...)`，减少启动与手动扫描路径的重复实现
+  - 将插件扫描空路径保护统一到 `isUsablePluginScanPath(...)`，减少启动恢复与手动扫描分散判定
+  - 将 `runPluginActionWithAudioDeviceRebuild(void)` 复用到带 `RuntimeAudioConfig` 的主实现，减少设备重建包裹重复代码
+  - 将 `restoreLastPluginOnStartup()` 轻量拆分为 `getLastPluginNameForStartupRestore()` + `restorePluginByNameOnStartup(...)`，统一 last plugin name 恢复命名
+  - 将部分 `PluginRecoverySettingsView` 结构体字面量收口为 `makePluginRecoverySettings(...)` / `getPersistedPluginSearchPath()` 等 helper，减少字段重复拼装
+  - 将 `getPluginRecoverySettingsWithFallback()` 复用到 `makePluginRecoverySettings(...)`，进一步统一 recovery settings 构造入口
+  - 将 plugin editor 窗口托管下沉到 `Source/UI/PluginEditorWindow.*`，进一步缩短 `MainComponent` 中的 editor 窗口实现体积
+  - 将 plugin editor 标题生成逻辑下沉到 `PluginEditorWindow`，`MainComponent` 不再负责 editor 窗口标题拼接
+  - 将 plugin editor close 后的异步收尾收口为 `handlePluginEditorWindowClosedAsync()`，进一步缩短 `openPluginEditorWindow()`
   - 保持插件扫描/加载/发声/editor 与键盘/IME 已有行为不变
   - 执行 `cmake --build --preset ninja-debug` 验证通过
 - 未完成：
@@ -305,4 +321,29 @@
   - 当前改动为结构性重排，低风险；但后续继续拆分时需持续防止生命周期时序回归
 - 下一步：
   - 继续压缩 `MainComponent` 中插件扫描/恢复与 UI 刷新流程耦合
+  - 视情况继续下沉插件 UI 状态同步与 settings 写回边界
   - 在有外部设备后补齐外部 MIDI 驱动插件发声手工验收
+
+## Iteration 2026-03-31 (上午)
+- 目标：总结 `MainComponent` 收敛进展，并进行阶段收尾。
+- 完成：
+  - 将 plugin editor 打开后的只读展示更新统一到 `AppState / PluginPanelStateBuilder` 路径（`refreshReadOnlyUiState()`）。
+  - 在文档中确认 `MainComponent` 的多项收敛（包含：状态展示分离、初始化辅助函数提取、流程状态提交辅助函数提取、设置写入收口、插件 editor 托管拆分）。
+  - 更新项目任务清单，将 `E-3 拆分 MainComponent 的局部职责（第一步）` 及相关文档节点标记为 `已完成`（作为当前这轮小步重构的阶段收尾）。
+- 未完成：
+  - （无特定未完成项，本阶段主要为代码和结构清理、职责收敛）。
+- 风险：
+  - （无新风险）。
+- 下一步：
+  - 转向更有功能收益的目标，如：完善录制回放模型、进一步重做/完善键盘布局映射模型（解决焦点状态残留等测试问题）或外部 MIDI 发声实测等。
+
+## Iteration 2026-03-31 (下午)
+- 目标：开展高阶功能的先期预研，如录制与回放模型。
+- 完成：
+  - 确认目前键盘映射的 Q/W/E/R 与 Z/X/C/V 均已在默认布局中覆盖。
+- 未完成：
+  - 真正录制功能尚未开始编码。
+- 风险：
+  - （无新风险）。
+- 下一步：
+  - 开始设计录制系统的核心数据结构与 UI 集成。
