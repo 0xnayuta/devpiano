@@ -14,6 +14,17 @@ namespace
 {
 const auto backgroundColour = juce::Colour(0xff202225);
 
+juce::String makeSafeUiText(juce::String text)
+{
+    text = text.replaceCharacters("\r\n\t", "   ");
+
+    constexpr auto maxLen = 1024;
+    if (text.length() > maxLen)
+        text = text.substring(0, maxLen);
+
+    return text;
+}
+
 #if JUCE_WINDOWS
 void suppressImeForPeer(juce::ComponentPeer* peer)
 {
@@ -49,6 +60,9 @@ MainComponent::MainComponent()
 
 MainComponent::~MainComponent()
 {
+    controlsPanel.onValuesChanged = {};
+    controlsPanel.onLayoutChanged = {};
+
     saveSettingsNow();
 
     midiRouter.closeInputs();
@@ -62,7 +76,7 @@ MainComponent::~MainComponent()
 void MainComponent::initialiseInputMappingFromSettings()
 {
     const auto inputMapping = appSettings.getInputMappingSettingsView();
-    keyboardMidiMapper.setLayout(SettingsModel::keyMapToLayout(inputMapping.keyMap));
+    keyboardMidiMapper.setLayout(SettingsModel::keyMapToLayout(inputMapping.keyMap, inputMapping.layoutId));
     appSettings.applyInputMappingSettingsView({ .layoutId = keyboardMidiMapper.getLayout().id,
                                                 .keyMap = SettingsModel::layoutToKeyMap(keyboardMidiMapper.getLayout()) });
 }
@@ -83,10 +97,11 @@ void MainComponent::initialiseUi()
     pluginPanel.onToggleEditorRequested = [this] { togglePluginEditor(); };
 
     const auto pluginRecovery = getPluginRecoverySettingsWithFallback();
-    pluginPanel.setPluginPathText(pluginRecovery.pluginSearchPath);
+    pluginPanel.setPluginPathText(makeSafeUiText(pluginRecovery.pluginSearchPath));
 
     addAndMakeVisible(controlsPanel);
     controlsPanel.onValuesChanged = [this] { handlePerformanceUiChanged(); };
+    controlsPanel.onLayoutChanged = [this](const juce::String& newId) { handleLayoutChanged(newId); };
 
     addAndMakeVisible(keyboardPanel);
 }
@@ -154,7 +169,7 @@ void MainComponent::resized()
     pluginPanel.setBounds(area.removeFromTop(210));
     area.removeFromTop(12);
 
-    controlsPanel.setBounds(area.removeFromTop(180));
+    controlsPanel.setBounds(area.removeFromTop(200));
     area.removeFromTop(8);
 
     keyboardPanel.setBounds(area.removeFromBottom(110));
@@ -270,6 +285,24 @@ void MainComponent::handlePerformanceUiChanged()
     saveSettingsSoon();
 }
 
+void MainComponent::handleLayoutChanged(const juce::String& newLayoutId)
+{
+    const auto nextLayoutId = newLayoutId.trim();
+    if (nextLayoutId.isEmpty() || nextLayoutId == keyboardMidiMapper.getLayout().id)
+    {
+        restoreKeyboardFocus();
+        return;
+    }
+
+    auto inputMapping = appSettings.getInputMappingSettingsView();
+    inputMapping.layoutId = nextLayoutId;
+    keyboardMidiMapper.setLayout(SettingsModel::keyMapToLayout(inputMapping.keyMap, nextLayoutId));
+    appSettings.applyInputMappingSettingsView({ .layoutId = keyboardMidiMapper.getLayout().id,
+                                                .keyMap = SettingsModel::layoutToKeyMap(keyboardMidiMapper.getLayout()) });
+    saveSettingsSoon();
+    restoreKeyboardFocus();
+}
+
 void MainComponent::applyUiStateToAudioEngine()
 {
     applyPerformanceSettingsToAudioEngine(getPerformanceSettingsFromUi());
@@ -278,6 +311,9 @@ void MainComponent::applyUiStateToAudioEngine()
 void MainComponent::syncUiFromSettings()
 {
     applyPerformanceSettingsToUi(appSettings.getPerformanceSettingsView());
+    
+    juce::StringArray layoutIds = { "default.freepiano.minimal", "default.freepiano.full" };
+    controlsPanel.setLayouts(layoutIds, appSettings.getInputMappingSettingsView().layoutId);
 }
 
 void MainComponent::syncSettingsFromUi()

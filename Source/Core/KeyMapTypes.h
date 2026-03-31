@@ -189,4 +189,66 @@ struct KeyboardLayout
 
     return layout;
 }
+
+[[nodiscard]] inline KeyboardLayout makeFullPianoLayout()
+{
+    // A wider range layout for demonstration
+    constexpr int baseC123Row = 96; // C6
+    constexpr int baseCQweRow = 84; // C5
+    constexpr int baseCAsdRow = 72; // C4
+    constexpr int baseCZxcRow = 60; // C3
+
+    KeyboardLayout layout;
+    layout.id = "default.freepiano.full";
+    layout.name = "Full Piano Layout";
+    auto& bindings = layout.bindings;
+    bindings.reserve(36);
+
+    const auto c5 = baseC123Row;
+    bindings.push_back(makeNoteBinding('1', c5 + 0));
+    bindings.push_back(makeNoteBinding('2', c5 + 2));
+    bindings.push_back(makeNoteBinding('3', c5 + 4));
+    bindings.push_back(makeNoteBinding('4', c5 + 5));
+    bindings.push_back(makeNoteBinding('5', c5 + 7));
+    bindings.push_back(makeNoteBinding('6', c5 + 9));
+    bindings.push_back(makeNoteBinding('7', c5 + 11));
+    bindings.push_back(makeNoteBinding('8', c5 + 12));
+    bindings.push_back(makeNoteBinding('9', c5 + 14));
+    bindings.push_back(makeNoteBinding('0', c5 + 16));
+
+    const auto c4 = baseCQweRow;
+    bindings.push_back(makeNoteBinding('Q', c4 + 0));
+    bindings.push_back(makeNoteBinding('W', c4 + 2));
+    bindings.push_back(makeNoteBinding('E', c4 + 4));
+    bindings.push_back(makeNoteBinding('R', c4 + 5));
+    bindings.push_back(makeNoteBinding('T', c4 + 7));
+    bindings.push_back(makeNoteBinding('Y', c4 + 9));
+    bindings.push_back(makeNoteBinding('U', c4 + 11));
+    bindings.push_back(makeNoteBinding('I', c5 + 0));
+    bindings.push_back(makeNoteBinding('O', c5 + 2));
+    bindings.push_back(makeNoteBinding('P', c5 + 4));
+
+    const auto c3 = baseCAsdRow;
+    bindings.push_back(makeNoteBinding('A', c3 + 0));
+    bindings.push_back(makeNoteBinding('S', c3 + 2));
+    bindings.push_back(makeNoteBinding('D', c3 + 4));
+    bindings.push_back(makeNoteBinding('F', c3 + 5));
+    bindings.push_back(makeNoteBinding('G', c3 + 7));
+    bindings.push_back(makeNoteBinding('H', c3 + 9));
+    bindings.push_back(makeNoteBinding('J', c3 + 11));
+    bindings.push_back(makeNoteBinding('K', c4 + 0));
+    bindings.push_back(makeNoteBinding('L', c4 + 2));
+
+    const auto c2 = baseCZxcRow;
+    bindings.push_back(makeNoteBinding('Z', c2 + 0));
+    bindings.push_back(makeNoteBinding('X', c2 + 2));
+    bindings.push_back(makeNoteBinding('C', c2 + 4));
+    bindings.push_back(makeNoteBinding('V', c2 + 5));
+    bindings.push_back(makeNoteBinding('B', c2 + 7));
+    bindings.push_back(makeNoteBinding('N', c2 + 9));
+    bindings.push_back(makeNoteBinding('M', c2 + 11));
+
+    return layout;
+}
+
 }

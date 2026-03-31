@@ -181,9 +181,10 @@ struct SettingsModel
         return map;
     }
 
-    static devpiano::core::KeyboardLayout keyMapToLayout(const std::unordered_map<int, int>& map)
+    static devpiano::core::KeyboardLayout keyMapToLayout(const std::unordered_map<int, int>& map, const juce::String& layoutId)
     {
-        auto layout = devpiano::core::makeDefaultKeyboardLayout();
+        auto layout = (layoutId == "default.freepiano.full") ? devpiano::core::makeFullPianoLayout() 
+                                                             : devpiano::core::makeDefaultKeyboardLayout();
         if (map.empty())
             return layout;
 

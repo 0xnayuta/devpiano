@@ -58,7 +58,7 @@ struct RuntimeInputState
              .plugin = { .searchPath = plugin.pluginSearchPath,
                          .lastPluginName = plugin.lastPluginName },
              .input = { .layoutId = input.layoutId,
-                        .keyboardLayout = SettingsModel::keyMapToLayout(input.keyMap) } };
+                        .keyboardLayout = SettingsModel::keyMapToLayout(input.keyMap, input.layoutId) } };
 }
 
 // 叠加运行时插件宿主状态。
