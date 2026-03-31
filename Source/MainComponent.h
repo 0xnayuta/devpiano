@@ -58,6 +58,7 @@ private:
     void commitPluginRecoveryStateAndFinishUi(const SettingsModel::PluginRecoverySettingsView& pluginRecovery,
                                               bool shouldSaveSettings);
     void handlePerformanceUiChanged();
+    void handleLayoutChanged(const juce::String& newLayoutId);
     void applyUiStateToAudioEngine();
     void syncUiFromSettings();
     void syncSettingsFromUi();
