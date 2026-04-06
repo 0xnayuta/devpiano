@@ -89,8 +89,8 @@
 - `freepiano-src/config.*`
 
 ### 新架构替代方向
-- `Source/Input/KeyboardMidiMapper.*`
-- 后续建议新增：`Source/Core/KeyMapTypes.h`
+- `source/Input/KeyboardMidiMapper.*`
+- 后续建议新增：`source/Core/KeyMapTypes.h`
 - JUCE `KeyPress` / `KeyListener` / `Component` 焦点机制
 
 ### 迁移建议
@@ -106,7 +106,7 @@
 - `freepiano-src/midi.*`
 
 ### 新架构替代方向
-- `Source/Midi/MidiRouter.*`
+- `source/Midi/MidiRouter.*`
 - JUCE `MidiInput`
 - JUCE `MidiMessageCollector`
 - JUCE `MidiBuffer`
@@ -124,8 +124,8 @@
 - `freepiano-src/display.*`
 
 ### 新架构替代方向
-- `Source/MainComponent.*`
-- 后续建议拆分到 `Source/UI/*`
+- `source/MainComponent.*`
+- 后续建议拆分到 `source/UI/*`
 - JUCE `Component` 树
 - JUCE `MidiKeyboardComponent`
 
@@ -143,8 +143,8 @@
 - `freepiano-src/json_loader.*`
 
 ### 新架构替代方向
-- `Source/Settings/SettingsModel.h`
-- `Source/Settings/SettingsStore.*`
+- `source/Settings/SettingsModel.h`
+- `source/Settings/SettingsStore.*`
 - JUCE `ApplicationProperties`
 - JUCE `ValueTree`
 
@@ -164,7 +164,7 @@
 - `freepiano-src/export_mp4.*`
 
 ### 新架构替代方向
-- 当前仅有过渡雏形：`Source/Legacy/UnusedPrototypes/SongEngine.*`
+- 当前仅有过渡雏形：`source/Legacy/UnusedPrototypes/SongEngine.*`
 - 后续建议使用：
   - 自定义现代事件模型，或
   - JUCE `MidiMessageSequence` / `MidiFile`
@@ -181,11 +181,11 @@
 | 旧模块 | 当前/目标新模块 | 说明 |
 |---|---|---|
 | `output_wasapi.* / output_asio.* / output_dsound.*` | `AudioDeviceManager` | 统一音频设备管理 |
-| `synthesizer_vst.*` | `Source/Plugin/PluginHost.*` | 已完成最小可用宿主：扫描、实例化、生命周期与 editor 第一轮接入 |
-| `keyboard.*` | `Source/Input/KeyboardMidiMapper.*` | 已完成最小可用映射与基础持久化，后续继续增强可配置性 |
-| `midi.*` | `Source/Midi/MidiRouter.*` | 已有基础输入路由，并已接入当前音频/插件链路 |
-| `gui.* / display.*` | `Source/MainComponent.*` / `Source/UI/*` | UI 已完成第一轮组件拆分，后续继续收敛 |
-| `config.*` | `Source/Settings/*` | 状态管理已形成第一轮分层，后续继续统一模型 |
+| `synthesizer_vst.*` | `source/Plugin/PluginHost.*` | 已完成最小可用宿主：扫描、实例化、生命周期与 editor 第一轮接入 |
+| `keyboard.*` | `source/Input/KeyboardMidiMapper.*` | 已完成最小可用映射与基础持久化，后续继续增强可配置性 |
+| `midi.*` | `source/Midi/MidiRouter.*` | 已有基础输入路由，并已接入当前音频/插件链路 |
+| `gui.* / display.*` | `source/MainComponent.*` / `source/UI/*` | UI 已完成第一轮组件拆分，后续继续收敛 |
+| `config.*` | `source/UI/*` | 状态管理已形成第一轮分层，后续继续统一模型 |
 | `song.*` | 后续重建 | 当前只有早期原型，不参与主构建 |
 
 ---
@@ -194,12 +194,12 @@
 
 除 `freepiano-src/` 外，当前仓库还保留了一组不参与主构建的过渡原型代码：
 
-- `Source/Legacy/UnusedPrototypes/AudioEngine.*`
-- `Source/Legacy/UnusedPrototypes/MidiRouter.*`
-- `Source/Legacy/UnusedPrototypes/SongEngine.*`
+- `source/Legacy/UnusedPrototypes/AudioEngine.*`
+- `source/Legacy/UnusedPrototypes/MidiRouter.*`
+- `source/Legacy/UnusedPrototypes/SongEngine.*`
 
 说明：
-- 这些代码已从 `Source/` 根目录移出，避免与当前主实现混淆
+- 这些代码已从 `source/` 根目录移出，避免与当前主实现混淆
 - 它们仅用于历史保留与迁移参考
 - 若未来需要重新使用，应优先考虑“重建设计”，而不是直接恢复旧原型
 

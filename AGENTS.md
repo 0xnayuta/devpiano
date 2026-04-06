@@ -4,7 +4,7 @@
 
 ## 目录结构说明：
 - `/JUCE/`：JUCE 框架的 git 子模块，不要修改里面的任何代码。
-- `/Source/`：所有的源代码（.cpp, .h）必须存放在这个目录下。
+- `/source/`：所有的源代码（.cpp, .h）必须存放在这个目录下。
 - 根目录：用于存放顶层 `CMakeLists.txt` 和构建脚本。
 
 ## 核心架构要求：
@@ -16,7 +16,7 @@
 ## 高优先级行动规则：
 - 保持代码极简、现代 (C++20/23)。
 - 绝对不要修改 `/JUCE/` 子模块内的代码。
-- 新增和重构后的业务代码只放在 `/Source/`。
+- 新增和重构后的业务代码只放在 `/source/`。
 - 优先小步修改、小范围验证，不要一次性大改整个系统。
 - 优先使用 `read` 和 `edit` 逐步提取和迁移旧逻辑，不要一次性读取过多旧代码。
 - 在关键修改后使用 `bash` 执行 `cmake --build .` 验证编译。
@@ -25,7 +25,7 @@
 
 ### 1. `pi-lsp`
 - 把 `lsp` 作为当前 JUCE/C++ 重构任务的首选工具。
-- 修改 `Source/*.h`、`Source/*.cpp` 后，先用 `lsp` 检查：`diagnostics`、`workspace-diagnostics`、`definition`、`references`、`symbols`、`rename`、`codeAction`。
+- 修改 `source/*.h`、`source/*.cpp` 后，先用 `lsp` 检查：`diagnostics`、`workspace-diagnostics`、`definition`、`references`、`symbols`、`rename`、`codeAction`。
 - 做局部重构、类型排错、符号跳转、引用分析时，先用 `lsp`，不要只依赖全文搜索。
 - 需要理解某个类、方法、成员的来源、类型或调用链时，先做 `lsp` 查询。
 - 先看 `lsp` 结果，再决定是否运行完整编译。

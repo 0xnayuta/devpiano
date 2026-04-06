@@ -63,7 +63,7 @@ struct SettingsModel
     float adsrSustain = 0.80f;
     float adsrRelease = 0.30f;
 
-    // Persisted plugin/UI recovery state.
+    // Persisted ,UI recovery state.
     juce::String pluginSearchPath;
     juce::String lastPluginName;
     juce::String lastLayoutId { "default.freepiano.minimal" };

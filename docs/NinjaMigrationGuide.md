@@ -47,8 +47,8 @@ cmake --build --preset ninja-release
 
 产物：
 
-- `Build/ninja-x64/devpiano_artefacts/Debug/DevPiano.exe`
-- `Build/ninja-x64/devpiano_artefacts/Release/DevPiano.exe`
+- `build/ninja-x64/devpiano_artefacts/Debug/DevPiano.exe`
+- `build/ninja-x64/devpiano_artefacts/Release/DevPiano.exe`
 
 ---
 
@@ -66,7 +66,7 @@ cmake --build --preset ninja-release
 
 - `CMAKE_EXPORT_COMPILE_COMMANDS=ON`
   - 便于 clangd/LSP 工具读取编译参数
-- `CMAKE_INSTALL_PREFIX=${sourceDir}/Build/install`
+- `CMAKE_INSTALL_PREFIX=${sourceDir}/build/install`
   - 保持安装目录语义稳定
 
 ---
@@ -121,8 +121,8 @@ cmake --build --preset ninja-release
 
 ### 5.2 不要混用构建目录
 
-- Ninja 构建目录：`Build/ninja-x64`
-- 旧 VS 构建目录：`Build/vs2026-x64`
+- Ninja 构建目录：`build/ninja-x64`
+- 旧 VS 构建目录：`build/vs2026-x64`
 
 不要交叉复用中间产物，避免奇怪的增量编译问题。
 
@@ -148,7 +148,7 @@ cmake --build --preset ninja-release
 若团队短期需要回退：
 
 1. 恢复旧 `CMakePresets.json`（Visual Studio Generator）
-2. 使用旧目录重新配置：`Build/vs2026-x64`
+2. 使用旧目录重新配置：`build/vs2026-x64`
 3. 仅作为临时应急，不建议长期双轨维护
 
 ---

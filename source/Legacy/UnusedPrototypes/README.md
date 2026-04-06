@@ -12,7 +12,7 @@
 
 - 这些文件不是当前 JUCE 主实现的一部分
 - 当前主实现请使用：
-  - `Source/Audio/AudioEngine.*`
-  - `Source/Midi/MidiRouter.*`
+  - `source/Audio/AudioEngine.*`
+  - `source/Midi/MidiRouter.*`
 - `SongEngine` 目前仍是未接线的早期雏形，仅保留作后续录制/回放设计参考
 - 如需重新启用其中任何原型，应先评估是否与当前架构冲突，再决定是迁移、重写还是删除

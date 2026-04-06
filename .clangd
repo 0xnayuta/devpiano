@@ -1,2 +1,2 @@
     CompileFlags:
-        CompilationDatabase: Build/ninja-x64
+        CompilationDatabase: build/ninja-x64
