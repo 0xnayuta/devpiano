@@ -145,7 +145,7 @@
 
 ### 验收记录
 - 当前状态：基本通过
-- 备注：轻量插件已完成成功加载与发声验证；外部 MIDI 驱动插件的代码路径与活动反馈已具备，但仍建议继续用更多真实设备与插件场景补充手工验证。与插件扫描、加载、卸载、editor、设备重建、退出稳定性相关的高风险回归，请优先参考 `Doc/PluginHostLifecycleTestCases.md`。
+- 备注：轻量插件已完成成功加载与发声验证；外部 MIDI 驱动插件的代码路径与活动反馈已具备，但仍建议继续用更多真实设备与插件场景补充手工验证。与插件扫描、加载、卸载、editor、设备重建、退出稳定性相关的高风险回归，请优先参考 `docs/PluginHostLifecycleTestCases.md`。
 
 ---
 
@@ -197,7 +197,7 @@
 
 ### 验收记录
 - 当前状态：部分通过
-- 备注：最小可用 UI 与插件 editor 路径已成型；当前已完成插件区、参数区、头部状态区与键盘区拆分，并已将插件区刷新统一为单一入口、将插件区与头部 MIDI 状态组装抽离到轻量 builder，同时完成设置保存路径、运行时音频设备重建路径、插件相关 UI 收尾动作、插件操作主流程、启动阶段扫描恢复路径，以及轻量 AppState 聚合入口的第一轮实现。当前下一步重点已从“是否具备最小 UI”转向“状态持久化细节、错误提示完善、以及继续减少 `MainComponent` 状态装配负担”。涉及 editor、scan/load/unload 组合路径与退出稳定性的回归验证，请同步参考 `Doc/PluginHostLifecycleTestCases.md`。
+- 备注：最小可用 UI 与插件 editor 路径已成型；当前已完成插件区、参数区、头部状态区与键盘区拆分，并已将插件区刷新统一为单一入口、将插件区与头部 MIDI 状态组装抽离到轻量 builder，同时完成设置保存路径、运行时音频设备重建路径、插件相关 UI 收尾动作、插件操作主流程、启动阶段扫描恢复路径，以及轻量 AppState 聚合入口的第一轮实现。当前下一步重点已从“是否具备最小 UI”转向“状态持久化细节、错误提示完善、以及继续减少 `MainComponent` 状态装配负担”。涉及 editor、scan/load/unload 组合路径与退出稳定性的回归验证，请同步参考 `docs/PluginHostLifecycleTestCases.md`。
 
 ---
 
@@ -243,7 +243,7 @@
 - [x] 中文输入法激活时仍可发声，且不弹出候选词栏
 
 补充说明：
-- 若本轮重点是插件宿主稳定性，而非单纯功能可用性，请将 `Doc/PluginHostLifecycleTestCases.md` 作为并行验收基线一并执行。
+- 若本轮重点是插件宿主稳定性，而非单纯功能可用性，请将 `docs/PluginHostLifecycleTestCases.md` 作为并行验收基线一并执行。
 
 ---
 
@@ -314,7 +314,7 @@
   - 将 `restoreLastPluginOnStartup()` 轻量拆分为 `getLastPluginNameForStartupRestore()` + `restorePluginByNameOnStartup(...)`，统一 last plugin name 恢复命名
   - 将部分 `PluginRecoverySettingsView` 结构体字面量收口为 `makePluginRecoverySettings(...)` / `getPersistedPluginSearchPath()` 等 helper，减少字段重复拼装
   - 将 `getPluginRecoverySettingsWithFallback()` 复用到 `makePluginRecoverySettings(...)`，进一步统一 recovery settings 构造入口
-  - 将 plugin editor 窗口托管下沉到 `Source/UI/PluginEditorWindow.*`，进一步缩短 `MainComponent` 中的 editor 窗口实现体积
+  - 将 plugin editor 窗口托管下沉到 `source/UI/PluginEditorWindow.*`，进一步缩短 `MainComponent` 中的 editor 窗口实现体积
   - 将 plugin editor 标题生成逻辑下沉到 `PluginEditorWindow`，`MainComponent` 不再负责 editor 窗口标题拼接
   - 将 plugin editor close 后的异步收尾收口为 `handlePluginEditorWindowClosedAsync()`，进一步缩短 `openPluginEditorWindow()`
   - 保持插件扫描/加载/发声/editor 与键盘/IME 已有行为不变

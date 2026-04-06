@@ -41,7 +41,7 @@ cmake --preset ninja-x64
 cmake --build --preset ninja-debug
 ```
 
-构建结果：成功生成 `Build/ninja-x64/devpiano_artefacts/Debug/DevPiano.exe`
+构建结果：成功生成 `build/ninja-x64/devpiano_artefacts/Debug/DevPiano.exe`
 
 ---
 
@@ -49,52 +49,52 @@ cmake --build --preset ninja-debug
 
 ### 2.1 顶层目录职责
 
-- `Source/`：当前 JUCE 主代码目录
+- `source/`：当前 JUCE 主代码目录
 - `freepiano-src/`：旧版 FreePiano 参考源码，不参与当前主构建
 - `JUCE/`：JUCE 子模块，禁止修改
-- `Doc/`：规划与说明文档
+- `docs/`：规划与说明文档
 - 根目录：CMake、预设、仓库说明文件
 
 ### 2.2 Source 当前模块划分
 
 #### 应用入口
-- `Source/Main.cpp`
+- `source/Main.cpp`
   - JUCEApplication 启动入口
   - 创建主窗口并承载 `MainComponent`
 
 #### 主界面与应用装配
-- `Source/MainComponent.h`
-- `Source/MainComponent.cpp`
+- `source/MainComponent.h`
+- `source/MainComponent.cpp`
   - 负责 UI 布局
   - 初始化音频设备
   - 连接音频、MIDI、插件扫描、设置存储
   - 当前承担过多职责
 
 #### 音频引擎
-- `Source/Audio/AudioEngine.h`
-- `Source/Audio/AudioEngine.cpp`
+- `source/Audio/AudioEngine.h`
+- `source/Audio/AudioEngine.cpp`
   - 通过 `MidiMessageCollector` 与 `MidiKeyboardState` 汇总 MIDI
   - 优先驱动已加载插件实例的 `processBlock`
   - 无插件时回退到内置 `SimpleSineVoice` 作为 fallback 发声器
   - 当前已经接入最小可用的 VST3 发声路径
 
 #### 电脑键盘映射
-- `Source/Input/KeyboardMidiMapper.h`
-- `Source/Input/KeyboardMidiMapper.cpp`
+- `source/Input/KeyboardMidiMapper.h`
+- `source/Input/KeyboardMidiMapper.cpp`
   - 实现最小固定按键映射
   - 基于字符而非稳定物理键/扫描码
   - 仅覆盖基础白键布局
 
 #### MIDI 输入路由
-- `Source/Midi/MidiRouter.h`
-- `Source/Midi/MidiRouter.cpp`
+- `source/Midi/MidiRouter.h`
+- `source/Midi/MidiRouter.cpp`
   - 打开全部可用 MIDI 输入
   - 将消息送入 `MidiMessageCollector`
   - 可附加消息回调
 
 #### 插件宿主层
-- `Source/Plugin/PluginHost.h`
-- `Source/Plugin/PluginHost.cpp`
+- `source/Plugin/PluginHost.h`
+- `source/Plugin/PluginHost.cpp`
   - 注册插件格式
   - 扫描 VST3
   - 维护 `KnownPluginList`
@@ -103,10 +103,10 @@ cmake --build --preset ninja-debug
   - 提供最小可用的插件宿主能力，但后续仍可继续拆分扫描与实例生命周期职责
 
 #### 设置与持久化
-- `Source/Settings/SettingsModel.h`
-- `Source/Settings/SettingsStore.h`
-- `Source/Settings/SettingsStore.cpp`
-- `Source/Settings/SettingsComponent.h`
+- `source/Settings/SettingsModel.h`
+- `source/Settings/SettingsStore.h`
+- `source/Settings/SettingsStore.cpp`
+- `source/Settings/SettingsComponent.h`
   - 保存音频设备 XML
   - 保存采样率、缓冲区大小、ADSR、主音量
   - 预留 `keyMap` 持久化能力
@@ -183,7 +183,7 @@ cmake --build --preset ninja-debug
 - [x] `SettingsModel.keyMap` 已完成第一轮驱动 `KeyboardMidiMapper`
 - [x] 插件路径与上次插件选择已完成第一轮持久化
 - [x] 启动时已支持自动恢复上次插件扫描路径并尝试恢复上次插件
-- [~] 已新增轻量 `Source/Core/AppState.h` 与 `MainComponent::createAppStateSnapshot()` 作为后续 UI / 设置 / 引擎状态聚合入口；`HeaderPanel` 的 MIDI 状态已开始优先经由 AppState 快照驱动，且 `AppState::PluginState` 已补齐第一轮插件展示字段，`PluginPanel` 的只读展示状态也已开始优先经由 AppState 快照驱动
+- [~] 已新增轻量 `source/Core/AppState.h` 与 `MainComponent::createAppStateSnapshot()` 作为后续 UI / 设置 / 引擎状态聚合入口；`HeaderPanel` 的 MIDI 状态已开始优先经由 AppState 快照驱动，且 `AppState::PluginState` 已补齐第一轮插件展示字段，`PluginPanel` 的只读展示状态也已开始优先经由 AppState 快照驱动
 
 #### 录制与导出
 - [ ] 演奏录制
@@ -229,11 +229,11 @@ cmake --build --preset ninja-debug
 ### 5.1 高风险项
 
 #### 风险 A：新旧实现并存，容易造成结构混乱
-当前 `Source/` 下仍存在未参与构建的旧/过渡文件：
+当前 `source/` 下仍存在未参与构建的旧/过渡文件：
 
-- `Source/AudioEngine.*`
-- `Source/MidiRouter.*`
-- `Source/SongEngine.*`
+- `source/Audio/AudioEngine.*`
+- `source/Midi/MidiRouter.*`
+- `source/Legacy/UnusedPrototypes/SongEngine.*`
 
 风险：
 - IDE 跳转和搜索混淆
@@ -241,7 +241,7 @@ cmake --build --preset ninja-debug
 - 后续 include 与命名冲突概率升高
 
 处理状态：
-- [x] 已完成第一轮处理：未参与构建的 `Source/AudioEngine.*`、`Source/MidiRouter.*`、`Source/SongEngine.*` 已移入 `Source/Legacy/UnusedPrototypes/`，并补充目录说明文档
+- [x] 已完成第一轮处理：未参与构建的 `source/Audio/AudioEngine.*`、`source/Midi/MidiRouter.*`、`source/Legacy/UnusedPrototypes/SongEngine.*` 已移入 `source/Legacy/UnusedPrototypes/`，并补充目录说明文档
 
 #### 风险 B：当前发声链路仍包含 fallback 实现
 当前实际链路为：
@@ -290,13 +290,13 @@ cmake --build --preset ninja-debug
 - 设置同步
 
 但插件区、参数区、头部状态区与键盘区已分别完成第一轮拆分到：
-- `Source/UI/PluginPanel.*`
-- `Source/UI/ControlsPanel.*`
-- `Source/UI/HeaderPanel.*`
-- `Source/UI/KeyboardPanel.*`
+- `source/UI/PluginPanel.*`
+- `source/UI/ControlsPanel.*`
+- `source/UI/HeaderPanel.*`
+- `source/UI/KeyboardPanel.*`
 
 处理状态：
-- [x] 已完成插件区、参数区、头部状态区与键盘区第一轮拆分，并将插件区刷新统一为单一入口、将插件区与头部 MIDI 状态组装抽到轻量 builder，同时对设置保存路径、运行时音频设备重建路径、插件相关 UI 收尾动作、插件操作主流程、启动阶段的插件扫描与恢复路径，以及轻量 AppState 聚合入口做了第一轮实现；其中 `HeaderPanel` 的 MIDI 状态与 `PluginPanel` 的只读展示状态已开始优先经由 AppState 快照驱动，`MainComponent` 也已增加基于单次 AppState 快照的只读 UI 应用入口，`SettingsDialog` 相关保存/关闭流程也已收口为更明确的 helper，`ControlsPanel` 的演奏参数读写也已开始收口为性能设置 helper，`AppState::PluginState` 也已补齐第一轮插件展示字段；本轮进一步将 `MainComponent` 构造阶段的输入映射恢复、UI 初始化、MIDI 路由初始化拆分为独立 helper（`initialiseInputMappingFromSettings` / `initialiseUi` / `initialiseMidiRouting`），并把启动阶段插件恢复流程继续拆分为 `restorePluginScanPathOnStartup` / `restoreLastPluginOnStartup` 与统一路径解析 helper，同时将插件相关 settings 写回重复逻辑、插件恢复 settings 读取 + fallback 逻辑、插件操作后的状态写回 + UI 收尾调用，以及 `loadSelectedPlugin()` / `togglePluginEditor()` / `unloadCurrentPlugin()` / `scanPlugins()` 的流程分支都收口为轻量 helper；本轮又将启动扫描与手动扫描的公共扫描+状态写回逻辑进一步收口为共享 helper，并将空路径保护统一为单点判定 helper，同时把插件动作的设备重建包裹逻辑继续收口到带 `RuntimeAudioConfig` 的单点实现，并将 last plugin name 的启动恢复读取/执行路径命名进一步对齐；此外，`PluginRecoverySettingsView` 的若干结构体字面量也已开始收口为更明确的 builder/helper，且 `getPluginRecoverySettingsWithFallback()` 已复用统一 builder 入口；本轮继续将 plugin editor 窗口托管职责下沉到 `Source/UI/PluginEditorWindow.*`，并把 editor 标题生成逻辑、close 后异步收尾调用，以及 editor open/close 的只读展示刷新路径继续收口到统一入口，形成了一个相对完整的 `MainComponent` 收敛阶段小结。后续建议从继续细拆 `MainComponent` 转向更有功能收益的小目标
+- [x] 已完成插件区、参数区、头部状态区与键盘区第一轮拆分，并将插件区刷新统一为单一入口、将插件区与头部 MIDI 状态组装抽到轻量 builder，同时对设置保存路径、运行时音频设备重建路径、插件相关 UI 收尾动作、插件操作主流程、启动阶段的插件扫描与恢复路径，以及轻量 AppState 聚合入口做了第一轮实现；其中 `HeaderPanel` 的 MIDI 状态与 `PluginPanel` 的只读展示状态已开始优先经由 AppState 快照驱动，`MainComponent` 也已增加基于单次 AppState 快照的只读 UI 应用入口，`SettingsDialog` 相关保存/关闭流程也已收口为更明确的 helper，`ControlsPanel` 的演奏参数读写也已开始收口为性能设置 helper，`AppState::PluginState` 也已补齐第一轮插件展示字段；本轮进一步将 `MainComponent` 构造阶段的输入映射恢复、UI 初始化、MIDI 路由初始化拆分为独立 helper（`initialiseInputMappingFromSettings` / `initialiseUi` / `initialiseMidiRouting`），并把启动阶段插件恢复流程继续拆分为 `restorePluginScanPathOnStartup` / `restoreLastPluginOnStartup` 与统一路径解析 helper，同时将插件相关 settings 写回重复逻辑、插件恢复 settings 读取 + fallback 逻辑、插件操作后的状态写回 + UI 收尾调用，以及 `loadSelectedPlugin()` / `togglePluginEditor()` / `unloadCurrentPlugin()` / `scanPlugins()` 的流程分支都收口为轻量 helper；本轮又将启动扫描与手动扫描的公共扫描+状态写回逻辑进一步收口为共享 helper，并将空路径保护统一为单点判定 helper，同时把插件动作的设备重建包裹逻辑继续收口到带 `RuntimeAudioConfig` 的单点实现，并将 last plugin name 的启动恢复读取/执行路径命名进一步对齐；此外，`PluginRecoverySettingsView` 的若干结构体字面量也已开始收口为更明确的 builder/helper，且 `getPluginRecoverySettingsWithFallback()` 已复用统一 builder 入口；本轮继续将 plugin editor 窗口托管职责下沉到 `source/UI/PluginEditorWindow.*`，并把 editor 标题生成逻辑、close 后异步收尾调用，以及 editor open/close 的只读展示刷新路径继续收口到统一入口，形成了一个相对完整的 `MainComponent` 收敛阶段小结。后续建议从继续细拆 `MainComponent` 转向更有功能收益的小目标
 
 #### 风险 G：录制/导出路径缺少现代设计
 旧项目有复杂历史实现，新项目若不先定义新数据模型，容易再次复制旧的宏式设计。
@@ -318,7 +318,7 @@ cmake --build --preset ninja-debug
 
 #### 风险 I：README 信息不足
 处理状态：
-- [x] 已完成第一轮补充，并新增 `Doc/LegacyCodeNotes.md` 说明旧代码迁移边界
+- [x] 已完成第一轮补充，并新增 `docs/LegacyCodeNotes.md` 说明旧代码迁移边界
 
 ---
 
@@ -329,15 +329,15 @@ cmake --build --preset ninja-debug
 
 说明：
 - 已有 `SettingsModel`
-- 已新增 `Source/Core/KeyMapTypes.h` 作为第一版核心键位模型，并已开始以兼容方式轻量接入 `Source/Core/MidiTypes.h`
-- 已新增 `Source/Core/MidiTypes.h` 作为第一版轻量 MIDI 强类型入口
-- 尚无完整统一的核心枚举、常量、事件模型层，但已新增轻量 `Source/Core/AppState.h` 作为状态聚合入口，并通过 `Source/Core/AppStateBuilder.h` 开始明确区分 persisted settings 与 runtime app state
+- 已新增 `source/Core/KeyMapTypes.h` 作为第一版核心键位模型，并已开始以兼容方式轻量接入 `source/Core/MidiTypes.h`
+- 已新增 `source/Core/MidiTypes.h` 作为第一版轻量 MIDI 强类型入口
+- 尚无完整统一的核心枚举、常量、事件模型层，但已新增轻量 `source/Core/AppState.h` 作为状态聚合入口，并通过 `source/Core/AppStateBuilder.h` 开始明确区分 persisted settings 与 runtime app state
 
 ### 第 2 步：重构按键映射逻辑
 - [~] 已完成最小可运行版本、第一轮内部模型重构、基础设置接线与输入捕获收敛
 
 说明：
-- `KeyboardMidiMapper` 已接入 `Source/Core/KeyMapTypes.h`
+- `KeyboardMidiMapper` 已接入 `source/Core/KeyMapTypes.h`
 - `KeyAction` 已增加 MIDI 强类型 helper，后续可逐步减少对裸 note/channel/velocity 的直接访问
 - `KeyboardMidiMapper` 生成 `MidiMessage` 的最小路径已开始优先使用 MIDI 强类型 helper
 - `SettingsModel` 的布局转换辅助也已开始优先使用 MIDI 强类型 helper
@@ -374,14 +374,14 @@ cmake --build --preset ninja-debug
 - 已增加插件选择 / Load / Unload / Open Editor 最小操作区
 - 已验证 Surge XT editor 可正常弹出并操作
 - 已支持恢复上次插件搜索路径，并在启动时尝试恢复上次插件
-- 已完成插件区第一轮组件化拆分（`Source/UI/PluginPanel.*`）
-- 已完成参数区第一轮组件化拆分（`Source/UI/ControlsPanel.*`）
-- 已完成头部状态区第一轮组件化拆分（`Source/UI/HeaderPanel.*`）
-- 已完成键盘区第一轮组件化拆分（`Source/UI/KeyboardPanel.*`）
+- 已完成插件区第一轮组件化拆分（`source/UI/PluginPanel.*`）
+- 已完成参数区第一轮组件化拆分（`source/UI/ControlsPanel.*`）
+- 已完成头部状态区第一轮组件化拆分（`source/UI/HeaderPanel.*`）
+- 已完成键盘区第一轮组件化拆分（`source/UI/KeyboardPanel.*`）
 - 已开始将 MIDI / 插件状态展示更新逻辑收敛到 `HeaderPanel` / `PluginPanel`
 - 已将插件区刷新统一为单一入口，减少 `MainComponent` 内部重复刷新调用
-- 已将插件区状态组装逻辑抽离到 `Source/UI/PluginPanelStateBuilder.*`
-- 已将头部 MIDI 状态组装逻辑抽离到 `Source/UI/HeaderPanelStateBuilder.*`
+- 已将插件区状态组装逻辑抽离到 `source/UI/PluginPanelStateBuilder.*`
+- 已将头部 MIDI 状态组装逻辑抽离到 `source/UI/HeaderPanelStateBuilder.*`
 - 已将设置收集 / 立即保存 / 延迟保存收敛为更统一的调用路径
 - 已将运行时音频设备重建前后的状态抓取 / shutdown / reinit 收敛为更统一的调用路径
 - 已将插件相关 UI 收尾动作（保存 / 刷新 / 焦点恢复）收敛为更统一的调用路径
@@ -409,7 +409,7 @@ cmake --build --preset ninja-debug
 
 ### 建议动作
 - [x] 明确标记或移走未参与构建的过渡文件
-- [x] 保证 `Source/` 根目录中的主实现路径更清晰
+- [x] 保证 `source/` 根目录中的主实现路径更清晰
 - [x] 为 `freepiano-src/` 增加“只读参考”说明
 - [x] 补充 `README.md` 基础说明
 
@@ -422,19 +422,19 @@ cmake --build --preset ninja-debug
 ## 7.2 阶段 1：建立核心模型层
 
 ### 阶段状态
-- [~] 进行中（`Source/Core/` 与 `KeyMapTypes.h` 已创建）
+- [~] 进行中（`source/Core/` 与 `KeyMapTypes.h` 已创建）
 
 ### 目标
 建立平台无关、现代化的核心类型层，替代旧项目中的宏与裸值。
 
 ### 建议新增目录
-- [x] `Source/Core/`
+- [x] `source/Core/`
 
 ### 建议新增文件方向
-- [ ] `Source/Core/Constants.h`
-- [ ] `Source/Core/MidiTypes.h`
-- [x] `Source/Core/KeyMapTypes.h`
-- [ ] `Source/Core/AppState.h`
+- [ ] `source/Core/Constants.h`
+- [ ] `source/Core/MidiTypes.h`
+- [x] `source/Core/KeyMapTypes.h`
+- [ ] `source/Core/AppState.h`
 
 ### 计划内容
 - [ ] 定义音符、通道、八度等强类型结构

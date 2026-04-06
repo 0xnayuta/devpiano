@@ -10,9 +10,9 @@
       "name": "ninja-x64",
       "displayName": "Ninja Multi-Config x64",
       "generator": "Ninja Multi-Config",
-      "binaryDir": "${sourceDir}/Build/ninja-x64",
+      "binaryDir": "${sourceDir}/build/ninja-x64",
       "cacheVariables": {
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/Build/install",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/install",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
     }
