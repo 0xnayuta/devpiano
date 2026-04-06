@@ -181,11 +181,11 @@
 | 旧模块 | 当前/目标新模块 | 说明 |
 |---|---|---|
 | `output_wasapi.* / output_asio.* / output_dsound.*` | `AudioDeviceManager` | 统一音频设备管理 |
-| `synthesizer_vst.*` | `Source/Plugin/PluginHost.*` | 目前仅完成扫描，后续接入实例化 |
-| `keyboard.*` | `Source/Input/KeyboardMidiMapper.*` | 当前仅最小映射，后续需重构 |
-| `midi.*` | `Source/Midi/MidiRouter.*` | 已有基础输入路由 |
-| `gui.* / display.*` | `Source/MainComponent.*` / 后续 `Source/UI/*` | UI 正在重建 |
-| `config.*` | `Source/Settings/*` | 状态管理已开始，但未统一 |
+| `synthesizer_vst.*` | `Source/Plugin/PluginHost.*` | 已完成最小可用宿主：扫描、实例化、生命周期与 editor 第一轮接入 |
+| `keyboard.*` | `Source/Input/KeyboardMidiMapper.*` | 已完成最小可用映射与基础持久化，后续继续增强可配置性 |
+| `midi.*` | `Source/Midi/MidiRouter.*` | 已有基础输入路由，并已接入当前音频/插件链路 |
+| `gui.* / display.*` | `Source/MainComponent.*` / `Source/UI/*` | UI 已完成第一轮组件拆分，后续继续收敛 |
+| `config.*` | `Source/Settings/*` | 状态管理已形成第一轮分层，后续继续统一模型 |
 | `song.*` | 后续重建 | 当前只有早期原型，不参与主构建 |
 
 ---

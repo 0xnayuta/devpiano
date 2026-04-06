@@ -59,6 +59,8 @@ private:
                                               bool shouldSaveSettings);
     void handlePerformanceUiChanged();
     void handleLayoutChanged(const juce::String& newLayoutId);
+    void handleSaveLayoutRequested();
+    void handleResetLayoutToDefaultRequested();
     void applyUiStateToAudioEngine();
     void syncUiFromSettings();
     void syncSettingsFromUi();
@@ -99,6 +101,7 @@ private:
     void loadPluginByNameAndCommitState(const juce::String& pluginName);
     [[nodiscard]] std::unique_ptr<juce::AudioProcessorEditor> tryCreatePluginEditor() const;
     void handlePluginEditorWindowClosedAsync();
+    void closePluginEditorWindow();
     void openPluginEditorWindow(std::unique_ptr<juce::AudioProcessorEditor> editor);
     void unloadPluginAndCommitState();
     [[nodiscard]] bool isUsablePluginScanPath(const juce::FileSearchPath& path) const;
