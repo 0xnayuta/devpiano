@@ -80,7 +80,7 @@
 
 #### 输出结果
 - [x] `source/` 根目录已不再混放这些旧原型文件
-- [x] 当前有效主实现路径更清晰：`source/UI/*`、`source/UI/*`
+- [x] 当前有效主实现路径更清晰：`source/Audio/*`、`source/Midi/*`
 - [x] Debug 构建复验通过
 
 #### 优先级

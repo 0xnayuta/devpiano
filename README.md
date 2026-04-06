@@ -52,17 +52,17 @@
   - JUCE 应用入口与主窗口创建
 - `source/MainComponent.*`
   - 主装配层，负责连接音频设备、输入、插件、设置与各 UI 面板
-- `source/Core/`
+- `source/Audio/`
   - `AudioEngine`：处理 MIDI 汇总、插件音频处理与 fallback 内置合成器
-- `source/Core/`
+- `source/Plugin/`
   - `PluginHost`：负责插件格式管理、VST3 扫描、实例加载、prepare/release 与卸载
-- `source/Core/`
+- `source/Input/`
   - `KeyboardMidiMapper`：将电脑键盘输入转换为 MIDI note on/off
-- `source/Core/`
+- `source/Midi/`
   - `MidiRouter`：打开外部 MIDI 输入并转发到 `MidiMessageCollector`
-- `source/Core/`
+- `source/UI/`
   - `HeaderPanel`、`PluginPanel`、`ControlsPanel`、`KeyboardPanel`、`PluginEditorWindow`
-- `source/Core/`
+- `source/Settings/`
   - `SettingsModel`、`SettingsStore`、`SettingsComponent`：负责设置建模、持久化与设置界面
 - `source/Core/`
   - 放置轻量核心类型与状态聚合结构，如键位模型、MIDI 类型、AppState
