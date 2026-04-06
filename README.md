@@ -48,23 +48,23 @@
 
 当前主干可以粗略分为以下几层：
 
-- `Source/Main.cpp`
+- `source/Main.cpp`
   - JUCE 应用入口与主窗口创建
-- `Source/MainComponent.*`
+- `source/MainComponent.*`
   - 主装配层，负责连接音频设备、输入、插件、设置与各 UI 面板
-- `Source/Audio/`
+- `source/Core/`
   - `AudioEngine`：处理 MIDI 汇总、插件音频处理与 fallback 内置合成器
-- `Source/Plugin/`
+- `source/Core/`
   - `PluginHost`：负责插件格式管理、VST3 扫描、实例加载、prepare/release 与卸载
-- `Source/Input/`
+- `source/Core/`
   - `KeyboardMidiMapper`：将电脑键盘输入转换为 MIDI note on/off
-- `Source/Midi/`
+- `source/Core/`
   - `MidiRouter`：打开外部 MIDI 输入并转发到 `MidiMessageCollector`
-- `Source/UI/`
+- `source/Core/`
   - `HeaderPanel`、`PluginPanel`、`ControlsPanel`、`KeyboardPanel`、`PluginEditorWindow`
-- `Source/Settings/`
+- `source/Core/`
   - `SettingsModel`、`SettingsStore`、`SettingsComponent`：负责设置建模、持久化与设置界面
-- `Source/Core/`
+- `source/Core/`
   - 放置轻量核心类型与状态聚合结构，如键位模型、MIDI 类型、AppState
 
 当前主音频路径为：
@@ -81,7 +81,7 @@
 ## 目录结构
 
 ### 当前主代码
-- `Source/`
+- `source/`
   - 当前 JUCE 主实现目录
   - 所有新的 `.cpp/.h` 应优先放在这里
 
@@ -97,11 +97,11 @@
   - **不要直接复制其中平台相关实现到新架构中**
 
 ### 文档目录
-- `Doc/`
+- `docs/`
   - 项目目标、评估、规划、任务清单、测试用例、里程碑清单等文档
 
 ### 旧原型与过渡代码
-- `Source/Legacy/UnusedPrototypes/`
+- `source/Legacy/UnusedPrototypes/`
   - 当前不参与主构建的旧版/过渡版原型代码
   - 仅用于历史保留与迁移参考
 
@@ -143,7 +143,7 @@ cmake --build --preset ninja-release
 当前 Debug 可执行文件默认位于：
 
 ```text
-Build/ninja-x64/devpiano_artefacts/Debug/DevPiano.exe
+build/ninja-x64/devpiano_artefacts/Debug/DevPiano.exe
 ```
 
 ---
@@ -172,7 +172,7 @@ Build/ninja-x64/devpiano_artefacts/Debug/DevPiano.exe
 
 更多映射说明见：
 
-- `Doc/LegacyCodeNotes.md`
+- `docs/LegacyCodeNotes.md`
 
 ---
 
@@ -180,19 +180,19 @@ Build/ninja-x64/devpiano_artefacts/Debug/DevPiano.exe
 
 如果要了解项目当前规划，建议按以下顺序阅读：
 
-1. `Doc/OverallGoal.md`
-2. `Doc/CurrentAssessmentAndPlan.md`
-3. `Doc/NextPhaseTaskChecklist.md`
-4. `Doc/MilestoneChecklist.md`
-5. `Doc/KeyboardMappingTestCases.md`
-6. `Doc/PluginHostLifecycleTestCases.md`
+1. `docs/OverallGoal.md`
+2. `docs/CurrentAssessmentAndPlan.md`
+3. `docs/NextPhaseTaskChecklist.md`
+4. `docs/MilestoneChecklist.md`
+5. `docs/KeyboardMappingTestCases.md`
+6. `docs/PluginHostLifecycleTestCases.md`
 
 ---
 
 ## 开发注意事项
 
 - 保持代码极简、现代、跨平台
-- 新代码放入 `Source/` 结构化子目录中
+- 新代码放入 `source/` 结构化子目录中
 - 不修改 `JUCE/` 中的任何代码
 - 修改后尽量通过 CMake 构建验证
 - 迁移旧逻辑时优先“提炼行为”，不要直接搬运平台绑定实现

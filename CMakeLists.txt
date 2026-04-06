@@ -41,43 +41,43 @@ endif()
 # 4. 添加源代码
 # ========================================================
 target_sources(devpiano PRIVATE
-    Source/Main.cpp
-    Source/MainComponent.cpp
-    Source/MainComponent.h
-    Source/Audio/AudioEngine.cpp
-    Source/Audio/AudioEngine.h
-    Source/Input/KeyboardMidiMapper.cpp
-    Source/Input/KeyboardMidiMapper.h
-    Source/Core/KeyMapTypes.h
-    Source/Core/MidiTypes.h
-    Source/Core/AppState.h
-    Source/Core/AppStateBuilder.h
-    Source/Midi/MidiRouter.cpp
-    Source/Midi/MidiRouter.h
-    Source/Plugin/PluginHost.cpp
-    Source/Plugin/PluginHost.h
-    Source/UI/PluginPanel.cpp
-    Source/UI/PluginPanel.h
-    Source/UI/PluginEditorWindow.cpp
-    Source/UI/PluginEditorWindow.h
-    Source/UI/PluginPanelStateBuilder.cpp
-    Source/UI/PluginPanelStateBuilder.h
-    Source/UI/ControlsPanel.cpp
-    Source/UI/ControlsPanel.h
-    Source/UI/HeaderPanel.cpp
-    Source/UI/HeaderPanel.h
-    Source/UI/HeaderPanelStateBuilder.cpp
-    Source/UI/HeaderPanelStateBuilder.h
-    Source/UI/KeyboardPanel.cpp
-    Source/UI/KeyboardPanel.h
-    Source/Settings/SettingsModel.h
-    Source/Settings/SettingsStore.cpp
-    Source/Settings/SettingsStore.h
-    Source/Settings/SettingsComponent.h
+    source/Main.cpp
+    source/MainComponent.cpp
+    source/MainComponent.h
+    source/Audio/AudioEngine.cpp
+    source/Audio/AudioEngine.h
+    source/Input/KeyboardMidiMapper.cpp
+    source/Input/KeyboardMidiMapper.h
+    source/Core/KeyMapTypes.h
+    source/Core/MidiTypes.h
+    source/Core/AppState.h
+    source/Core/AppStateBuilder.h
+    source/Midi/MidiRouter.cpp
+    source/Midi/MidiRouter.h
+    source/Plugin/PluginHost.cpp
+    source/Plugin/PluginHost.h
+    source/UI/PluginPanel.cpp
+    source/UI/PluginPanel.h
+    source/UI/PluginEditorWindow.cpp
+    source/UI/PluginEditorWindow.h
+    source/UI/PluginPanelStateBuilder.cpp
+    source/UI/PluginPanelStateBuilder.h
+    source/UI/ControlsPanel.cpp
+    source/UI/ControlsPanel.h
+    source/UI/HeaderPanel.cpp
+    source/UI/HeaderPanel.h
+    source/UI/HeaderPanelStateBuilder.cpp
+    source/UI/HeaderPanelStateBuilder.h
+    source/UI/KeyboardPanel.cpp
+    source/UI/KeyboardPanel.h
+    source/Settings/SettingsModel.h
+    source/Settings/SettingsStore.cpp
+    source/Settings/SettingsStore.h
+    source/Settings/SettingsComponent.h
 )
 
-# 包含 Source 目录作为头文件查找路径，这样代码里可以通过 #include "xxx.h" 直接引用
-target_include_directories(devpiano PRIVATE Source)
+# 包含 source 目录作为头文件查找路径，这样代码里可以通过 #include "xxx.h" 直接引用
+target_include_directories(devpiano PRIVATE source)
 
 juce_generate_juce_header(devpiano)
 

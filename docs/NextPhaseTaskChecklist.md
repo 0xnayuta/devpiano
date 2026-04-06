@@ -64,23 +64,23 @@
 - [x] 已完成
 
 #### 文件
-- `Source/AudioEngine.h` -> `Source/Legacy/UnusedPrototypes/AudioEngine.h`
-- `Source/AudioEngine.cpp` -> `Source/Legacy/UnusedPrototypes/AudioEngine.cpp`
-- `Source/MidiRouter.h` -> `Source/Legacy/UnusedPrototypes/MidiRouter.h`
-- `Source/MidiRouter.cpp` -> `Source/Legacy/UnusedPrototypes/MidiRouter.cpp`
-- `Source/SongEngine.h` -> `Source/Legacy/UnusedPrototypes/SongEngine.h`
-- `Source/SongEngine.cpp` -> `Source/Legacy/UnusedPrototypes/SongEngine.cpp`
-- 新增说明：`Source/Legacy/UnusedPrototypes/README.md`
+- `source/Audio/AudioEngine.h` -> `source/Legacy/UnusedPrototypes/AudioEngine.h`
+- `source/Audio/AudioEngine.cpp` -> `source/Legacy/UnusedPrototypes/AudioEngine.cpp`
+- `source/Midi/MidiRouter.h` -> `source/Legacy/UnusedPrototypes/MidiRouter.h`
+- `source/Midi/MidiRouter.cpp` -> `source/Legacy/UnusedPrototypes/MidiRouter.cpp`
+- `source/Legacy/UnusedPrototypes/SongEngine.h` -> `source/Legacy/UnusedPrototypes/SongEngine.h`
+- `source/Legacy/UnusedPrototypes/SongEngine.cpp` -> `source/Legacy/UnusedPrototypes/SongEngine.cpp`
+- 新增说明：`source/Legacy/UnusedPrototypes/README.md`
 
 #### 任务
 - [x] 确认这些文件不参与当前主构建
-- [x] 将历史过渡实现移入 `Source/Legacy/UnusedPrototypes/`
-- [x] 避免与当前主实现重名并存在 `Source/` 根目录
+- [x] 将历史过渡实现移入 `source/Legacy/UnusedPrototypes/`
+- [x] 避免与当前主实现重名并存在 `source/` 根目录
 - [x] 为遗留原型补充目录说明文档
 
 #### 输出结果
-- [x] `Source/` 根目录已不再混放这些旧原型文件
-- [x] 当前有效主实现路径更清晰：`Source/Audio/*`、`Source/Midi/*`
+- [x] `source/` 根目录已不再混放这些旧原型文件
+- [x] 当前有效主实现路径更清晰：`source/UI/*`、`source/UI/*`
 - [x] Debug 构建复验通过
 
 #### 优先级
@@ -95,13 +95,13 @@
 
 #### 文件
 - `README.md`
-- 新增：`Doc/LegacyCodeNotes.md`
+- 新增：`docs/LegacyCodeNotes.md`
 
 #### 任务
 - [x] 在 README 中说明 `freepiano-src/` 仅供迁移参考
 - [x] 在 README 中说明 `freepiano-src/` 不参与当前主构建
 - [x] 在 README 中说明不应直接复制平台相关旧实现
-- [x] 新增 `Doc/LegacyCodeNotes.md` 记录旧模块与新模块映射关系
+- [x] 新增 `docs/LegacyCodeNotes.md` 记录旧模块与新模块映射关系
 
 #### 输出结果
 - [x] 降低误读旧代码的风险
@@ -123,11 +123,11 @@
 - [x] 已完成
 
 #### 新增目录
-- `Source/Core/`
+- `source/Core/`
 
 #### 任务
 - [x] 在 CMake 中纳入新目录下的头文件/源文件
-- [x] 将核心数据类型集中到 `Source/Core/`
+- [x] 将核心数据类型集中到 `source/Core/`
 
 #### 输出结果
 - [x] 项目已开始形成更清晰的 Core / Input / Audio / Plugin / Settings 分层
@@ -143,7 +143,7 @@
 - [x] 已完成第一版
 
 #### 建议新增文件
-- `Source/Core/KeyMapTypes.h`
+- `source/Core/KeyMapTypes.h`
 
 #### 任务
 - [x] 定义 `KeyBinding`
@@ -167,7 +167,7 @@
 - [~] 进行中（已完成第一版轻量类型头文件）
 
 #### 建议新增文件
-- `Source/Core/MidiTypes.h`
+- `source/Core/MidiTypes.h`
 
 #### 任务
 - [x] 定义 `MidiNoteNumber`
@@ -177,7 +177,7 @@
 - [x] 让类型保持轻量，不做过度设计
 
 #### 输出结果
-- [~] 已建立第一版轻量 MIDI 强类型入口，且 `Source/Core/KeyMapTypes.h` 已开始以兼容方式轻量接入这些类型；`KeyboardMidiMapper` 的最小取值路径与 `SettingsModel` 的布局转换辅助也已开始优先使用强类型 helper；后续可逐步替换代码中散落的裸 `int` / `float`
+- [~] 已建立第一版轻量 MIDI 强类型入口，且 `source/Core/KeyMapTypes.h` 已开始以兼容方式轻量接入这些类型；`KeyboardMidiMapper` 的最小取值路径与 `SettingsModel` 的布局转换辅助也已开始优先使用强类型 helper；后续可逐步替换代码中散落的裸 `int` / `float`
 
 #### 优先级
 中高
@@ -190,7 +190,7 @@
 - [~] 进行中（已完成第一版轻量聚合头文件与快照入口）
 
 #### 建议新增文件
-- `Source/Core/AppState.h`
+- `source/Core/AppState.h`
 
 #### 任务
 - [x] 设计音频设置聚合结构
@@ -200,7 +200,7 @@
 - [~] 明确后续与 `SettingsModel` 的迁移关系
 
 #### 输出结果
-- [~] 已新增 `Source/Core/AppState.h`，并由 `MainComponent::createAppStateSnapshot()` 提供第一轮快照入口，为后续 UI / 引擎 / 设置三方同步做准备
+- [~] 已新增 `source/Core/AppState.h`，并由 `MainComponent::createAppStateSnapshot()` 提供第一轮快照入口，为后续 UI / 引擎 / 设置三方同步做准备
 - [~] `HeaderPanel` 的 MIDI 状态已开始优先经由 AppState 快照驱动，作为第一块消费 AppState 的 UI 区域
 - [x] `AppState::PluginState` 已补齐第一轮插件展示字段，并已开始驱动 `PluginPanel` 的只读展示状态
 - [x] `PluginPanelStateBuilder` 已增加基于 `AppState` / `PluginState` 的构造入口
@@ -228,13 +228,13 @@
 - [x] 已完成第一轮改造
 
 #### 文件
-- `Source/Input/KeyboardMidiMapper.h`
-- `Source/Input/KeyboardMidiMapper.cpp`
+- `source/Input/KeyboardMidiMapper.h`
+- `source/Input/KeyboardMidiMapper.cpp`
 
 #### 任务
 - [x] 去掉对固定 `unordered_map<int, int>` 内部模型的依赖
 - [x] 支持可注入映射表
-- [x] 接入 `Source/Core/KeyMapTypes.h`
+- [x] 接入 `source/Core/KeyMapTypes.h`
 - [x] 增加 `setLayout(...)`
 - [x] 增加 `getLayout()`
 - [x] 增加 `resetToDefaultLayout()`
@@ -254,11 +254,11 @@
 - [x] 已完成第一轮接线
 
 #### 文件
-- `Source/Settings/SettingsModel.h`
-- `Source/Settings/SettingsStore.cpp`
-- `Source/Input/KeyboardMidiMapper.h`
-- `Source/Input/KeyboardMidiMapper.cpp`
-- `Source/MainComponent.cpp`
+- `source/Settings/SettingsModel.h`
+- `source/Settings/SettingsStore.cpp`
+- `source/Input/KeyboardMidiMapper.h`
+- `source/Input/KeyboardMidiMapper.cpp`
+- `source/MainComponent.cpp`
 
 #### 任务
 - [x] 定义 `SettingsModel.keyMap` 与新布局模型之间的转换关系
@@ -281,8 +281,8 @@
 - [x] 已完成第一轮收敛
 
 #### 文件
-- `Source/Input/KeyboardMidiMapper.cpp`
-- `Source/Core/KeyMapTypes.h`
+- `source/Input/KeyboardMidiMapper.cpp`
+- `source/Core/KeyMapTypes.h`
 
 #### 任务
 - [x] 评估当前 `key.getTextCharacter()` 的局限
@@ -305,7 +305,7 @@
 - [~] 进行中（已补充布局保存/恢复默认布局相关用例）
 
 #### 建议新增文件
-- `Doc/KeyboardMappingTestCases.md`
+- `docs/KeyboardMappingTestCases.md`
 
 #### 任务
 - [ ] 列出 A/S/D/F 的 note on/off 验收用例
@@ -332,8 +332,8 @@
 - [x] 已完成第一轮
 
 #### 文件
-- `Source/Plugin/PluginHost.h`
-- `Source/Plugin/PluginHost.cpp`
+- `source/Plugin/PluginHost.h`
+- `source/Plugin/PluginHost.cpp`
 
 #### 任务
 - [x] 根据 `KnownPluginList` 中的 `PluginDescription` 创建插件实例
@@ -360,8 +360,8 @@
 - [x] 已完成第一轮
 
 #### 文件
-- `Source/Plugin/PluginHost.h`
-- `Source/Plugin/PluginHost.cpp`
+- `source/Plugin/PluginHost.h`
+- `source/Plugin/PluginHost.cpp`
 
 #### 任务
 - [x] 为当前插件实例增加 `prepareToPlay(double sampleRate, int blockSize)`
@@ -385,8 +385,8 @@
 - [x] 已完成第一轮接入
 
 #### 文件
-- `Source/Audio/AudioEngine.h`
-- `Source/Audio/AudioEngine.cpp`
+- `source/Audio/AudioEngine.h`
+- `source/Audio/AudioEngine.cpp`
 
 #### 任务
 - [x] 让 `AudioEngine` 支持注入插件宿主引用
@@ -410,9 +410,9 @@
 - [~] 已完成第一轮链路加固，并补充外部 MIDI 活动反馈；因暂时无外部 MIDI 设备，功能项暂无法手工验证
 
 #### 文件
-- `Source/Audio/AudioEngine.cpp`
-- `Source/Midi/MidiRouter.cpp`
-- `Source/MainComponent.cpp`
+- `source/Audio/AudioEngine.cpp`
+- `source/Midi/MidiRouter.cpp`
+- `source/MainComponent.cpp`
 
 #### 任务
 - [x] 打通 `KeyboardMidiMapper -> MidiMessageCollector -> AudioEngine -> PluginInstance->processBlock`
@@ -438,8 +438,8 @@
 - [x] 已完成第一轮
 
 #### 文件
-- `Source/MainComponent.h`
-- `Source/MainComponent.cpp`
+- `source/MainComponent.h`
+- `source/MainComponent.cpp`
 
 #### 任务
 - [x] 在当前扫描结果基础上增加插件选择控件
@@ -463,9 +463,9 @@
 - [x] 已完成第一轮
 
 #### 文件
-- `Source/Plugin/PluginHost.cpp`
-- `Source/MainComponent.h`
-- `Source/MainComponent.cpp`
+- `source/Plugin/PluginHost.cpp`
+- `source/MainComponent.h`
+- `source/MainComponent.cpp`
 
 #### 任务
 - [x] 评估并改用支持 editor 的默认插件格式注册路径
@@ -491,8 +491,8 @@
 - [x] 已完成第一轮
 
 #### 文件
-- `Source/Settings/SettingsModel.h`
-- `Source/Settings/SettingsStore.cpp`
+- `source/Settings/SettingsModel.h`
+- `source/Settings/SettingsStore.cpp`
 
 #### 任务
 - [x] 增加最近使用的插件搜索路径字段
@@ -516,8 +516,8 @@
 - [x] 已完成第一轮
 
 #### 文件
-- `Source/MainComponent.cpp`
-- `Source/MainComponent.h`
+- `source/MainComponent.cpp`
+- `source/MainComponent.h`
 
 #### 任务
 - [x] 初始化时恢复插件扫描路径
@@ -541,17 +541,17 @@
 - [x] 已完成第一轮拆分与 helper 收敛阶段（插件区 + 参数区 + 头部状态区 + 键盘区 + AppState 接线 + 生命周期/插件恢复 helper 收口）
 
 #### 文件
-- `Source/MainComponent.h`
-- `Source/MainComponent.cpp`
+- `source/MainComponent.h`
+- `source/MainComponent.cpp`
 - 新增：
-  - `Source/UI/PluginPanel.h`
-  - `Source/UI/PluginPanel.cpp`
-  - `Source/UI/ControlsPanel.h`
-  - `Source/UI/ControlsPanel.cpp`
-  - `Source/UI/HeaderPanel.h`
-  - `Source/UI/HeaderPanel.cpp`
-  - `Source/UI/KeyboardPanel.h`
-  - `Source/UI/KeyboardPanel.cpp`
+  - `source/UI/PluginPanel.h`
+  - `source/UI/PluginPanel.cpp`
+  - `source/UI/ControlsPanel.h`
+  - `source/UI/ControlsPanel.cpp`
+  - `source/UI/HeaderPanel.h`
+  - `source/UI/HeaderPanel.cpp`
+  - `source/UI/KeyboardPanel.h`
+  - `source/UI/KeyboardPanel.cpp`
 
 #### 任务
 - [x] 把插件区逻辑单独封装
@@ -588,7 +588,7 @@
 - [x] `restoreLastPluginOnStartup()` 已按“恢复名称读取 + 实际恢复加载”两段式 helper 拆分，统一 last plugin name 读取命名
 - [x] `PluginRecoverySettingsView` 的若干结构体字面量已开始收口为轻量 builder/helper，减少路径与 last plugin name 字段重复拼装
 - [x] `getPluginRecoverySettingsWithFallback()` 已复用 `makePluginRecoverySettings(...)`，进一步统一 recovery settings 构造入口
-- [x] plugin editor 窗口托管已下沉到 `Source/UI/PluginEditorWindow.*`，`MainComponent` 不再内嵌窗口类实现
+- [x] plugin editor 窗口托管已下沉到 `source/UI/PluginEditorWindow.*`，`MainComponent` 不再内嵌窗口类实现
 - [x] plugin editor 标题生成逻辑已下沉到 `PluginEditorWindow`，`MainComponent` 不再拼接 editor 窗口标题
 - [x] plugin editor close 后的异步收尾已收口为 `MainComponent::handlePluginEditorWindowClosedAsync()`，进一步缩短 `openPluginEditorWindow()`
 - [x] plugin editor 打开后的只读展示刷新已统一改走 `refreshReadOnlyUiState()`，减少 `MainComponent` 直接刷新 `PluginPanel` 展示细节
@@ -633,7 +633,7 @@
 - [x] 已完成第一轮建立，并已持续更新
 
 #### 建议新增文件
-- `Doc/MilestoneChecklist.md`
+- `docs/MilestoneChecklist.md`
 
 #### 任务
 - [x] 定义“能扫描到 VST3”的验收项
@@ -657,7 +657,7 @@
 - [x] 已完成第一轮建立
 
 #### 新增文件
-- `Doc/PluginHostLifecycleTestCases.md`
+- `docs/PluginHostLifecycleTestCases.md`
 
 #### 任务
 - [x] 定义 scan / load / unload 的高风险组合场景
@@ -678,7 +678,7 @@
 ## 第一组：必须先做
 - [x] A-1 清理重复/遗留文件
 - [x] A-2 为旧版参考源码补充使用边界说明
-- [x] B-1 新建 `Source/Core/`
+- [x] B-1 新建 `source/Core/`
 - [x] B-2 建立键位映射核心类型
 - [x] C-1 改造 `KeyboardMidiMapper`
 - [x] C-2 接入 `SettingsModel.keyMap`
@@ -707,23 +707,23 @@
 如果下一轮开发希望控制范围、快速见效，建议只聚焦以下文件。
 
 ## 第一批重点文件
-- [x] `Source/Input/KeyboardMidiMapper.h`
-- [x] `Source/Input/KeyboardMidiMapper.cpp`
-- [x] `Source/Plugin/PluginHost.h`
-- [x] `Source/Plugin/PluginHost.cpp`
-- [x] `Source/Audio/AudioEngine.h`
-- [x] `Source/Audio/AudioEngine.cpp`
-- [x] `Source/MainComponent.h`
-- [x] `Source/MainComponent.cpp`
-- [x] `Source/Settings/SettingsModel.h`
-- [x] `Source/Settings/SettingsStore.cpp`
+- [x] `source/Input/KeyboardMidiMapper.h`
+- [x] `source/Input/KeyboardMidiMapper.cpp`
+- [x] `source/Plugin/PluginHost.h`
+- [x] `source/Plugin/PluginHost.cpp`
+- [x] `source/Audio/AudioEngine.h`
+- [x] `source/Audio/AudioEngine.cpp`
+- [x] `source/MainComponent.h`
+- [x] `source/MainComponent.cpp`
+- [x] `source/Settings/SettingsModel.h`
+- [x] `source/Settings/SettingsStore.cpp`
 - [x] `CMakeLists.txt`
 
 ## 第一批重点新增文件
-- [x] `Source/Core/KeyMapTypes.h`
-- [x] `Source/Core/MidiTypes.h`
-- [x] `Doc/MilestoneChecklist.md`
-- [~] `Doc/KeyboardMappingTestCases.md`
+- [x] `source/Core/KeyMapTypes.h`
+- [x] `source/Core/MidiTypes.h`
+- [x] `docs/MilestoneChecklist.md`
+- [~] `docs/KeyboardMappingTestCases.md`
 
 ---
 
