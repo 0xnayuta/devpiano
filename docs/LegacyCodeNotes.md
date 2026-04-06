@@ -185,7 +185,7 @@
 | `keyboard.*` | `source/Input/KeyboardMidiMapper.*` | 已完成最小可用映射与基础持久化，后续继续增强可配置性 |
 | `midi.*` | `source/Midi/MidiRouter.*` | 已有基础输入路由，并已接入当前音频/插件链路 |
 | `gui.* / display.*` | `source/MainComponent.*` / `source/UI/*` | UI 已完成第一轮组件拆分，后续继续收敛 |
-| `config.*` | `source/UI/*` | 状态管理已形成第一轮分层，后续继续统一模型 |
+| `config.*` | `source/Settings/*` | 状态管理已形成第一轮分层，后续继续统一模型 |
 | `song.*` | 后续重建 | 当前只有早期原型，不参与主构建 |
 
 ---
