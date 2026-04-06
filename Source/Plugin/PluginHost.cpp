@@ -157,6 +157,9 @@ bool PluginHost::prepareToPlay(double sampleRate, int blockSize)
         return false;
     }
 
+    pluginInstance->suspendProcessing(true);
+    releaseResources();
+
     if (! configureDefaultBuses(*pluginInstance))
     {
         prepared = false;
@@ -166,12 +169,17 @@ bool PluginHost::prepareToPlay(double sampleRate, int blockSize)
 
     pluginInstance->setRateAndBufferSizeDetails(preparedSampleRate, preparedBlockSize);
     pluginInstance->prepareToPlay(preparedSampleRate, preparedBlockSize);
+    pluginInstance->reset();
+    pluginInstance->suspendProcessing(false);
     prepared = true;
     return true;
 }
 
 void PluginHost::releaseResources()
 {
+    if (pluginInstance != nullptr)
+        pluginInstance->suspendProcessing(true);
+
     if (pluginInstance != nullptr && prepared)
         pluginInstance->releaseResources();
 

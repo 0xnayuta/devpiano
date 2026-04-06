@@ -20,24 +20,61 @@
 
 ## 当前状态
 
-当前主干已经具备以下基础能力：
+当前主干已经具备以下能力：
 
-- JUCE GUI 应用可正常启动
-- 音频设备可初始化
+- JUCE GUI 应用可构建并启动
+- 已使用 JUCE 音频设备管理流程初始化输出设备
 - 电脑键盘可触发基础 MIDI note
-- 可打开外部 MIDI 输入
-- 可调整基础音量与 ADSR 参数
+- 可打开外部 MIDI 输入并转发到引擎
+- 可调整主音量与 ADSR 参数
 - 可显示虚拟钢琴键盘
 - 可扫描 VST3 目录并列出插件名称
-- 基础设置可持久化
+- 可加载已扫描的 VST3 插件实例并参与音频处理
+- 可打开插件编辑器窗口（若插件提供 editor）
+- 基础设置可持久化，包括音频设备状态、性能参数、输入映射与插件恢复信息
+- 已提供最小布局操作入口：布局切换、保存当前布局、恢复当前布局默认映射
 
-当前仍未完成的核心能力：
+当前仍在持续完善的能力：
 
-- 真实的 VST3 插件实例加载与发声
-- 完整可配置的键盘映射系统
-- 布局切换 / Preset
+- 更完整的键盘映射编辑能力
+- 更完善的布局 Preset / 导入导出体系
 - 录制 / 回放 / 导出
-- 更清晰的正式 UI 分层
+- 更清晰的正式 UI 分层与交互细节
+- 更系统化的稳定性验证与回归测试
+
+---
+
+## 当前实现架构概览
+
+当前主干可以粗略分为以下几层：
+
+- `Source/Main.cpp`
+  - JUCE 应用入口与主窗口创建
+- `Source/MainComponent.*`
+  - 主装配层，负责连接音频设备、输入、插件、设置与各 UI 面板
+- `Source/Audio/`
+  - `AudioEngine`：处理 MIDI 汇总、插件音频处理与 fallback 内置合成器
+- `Source/Plugin/`
+  - `PluginHost`：负责插件格式管理、VST3 扫描、实例加载、prepare/release 与卸载
+- `Source/Input/`
+  - `KeyboardMidiMapper`：将电脑键盘输入转换为 MIDI note on/off
+- `Source/Midi/`
+  - `MidiRouter`：打开外部 MIDI 输入并转发到 `MidiMessageCollector`
+- `Source/UI/`
+  - `HeaderPanel`、`PluginPanel`、`ControlsPanel`、`KeyboardPanel`、`PluginEditorWindow`
+- `Source/Settings/`
+  - `SettingsModel`、`SettingsStore`、`SettingsComponent`：负责设置建模、持久化与设置界面
+- `Source/Core/`
+  - 放置轻量核心类型与状态聚合结构，如键位模型、MIDI 类型、AppState
+
+当前主音频路径为：
+
+```text
+电脑键盘 / 外部 MIDI -> MidiMessageCollector / MidiKeyboardState
+-> AudioEngine
+-> 已加载 VST3 插件（优先）或内置 Sine Synth（fallback）
+-> JUCE 音频设备输出
+```
 
 ---
 
@@ -82,7 +119,7 @@
 
 ### 常用命令
 
-配置工程：
+首次配置工程：
 
 ```bash
 cmake --preset ninja-x64
@@ -98,6 +135,15 @@ cmake --build --preset ninja-debug
 
 ```bash
 cmake --build --preset ninja-release
+```
+
+> 注意：仓库根目录默认不是已配置的构建目录，因此通常不要直接执行 `cmake --build .`。
+> 请优先使用上面的 preset 命令。
+
+当前 Debug 可执行文件默认位于：
+
+```text
+Build/ninja-x64/devpiano_artefacts/Debug/DevPiano.exe
 ```
 
 ---
@@ -139,6 +185,7 @@ cmake --build --preset ninja-release
 3. `Doc/NextPhaseTaskChecklist.md`
 4. `Doc/MilestoneChecklist.md`
 5. `Doc/KeyboardMappingTestCases.md`
+6. `Doc/PluginHostLifecycleTestCases.md`
 
 ---
 

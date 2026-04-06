@@ -1,5 +1,16 @@
 #include "ControlsPanel.h"
 
+juce::String ControlsPanel::makeLayoutDisplayName(const juce::String& layoutId)
+{
+    if (layoutId == "default.freepiano.minimal")
+        return "FreePiano Minimal";
+
+    if (layoutId == "default.freepiano.full")
+        return "FreePiano Full";
+
+    return layoutId;
+}
+
 ControlsPanel::ControlsPanel()
 {
     configureSlider(volumeSlider, volumeLabel, "Volume", 0.0, 1.0);
@@ -13,14 +24,32 @@ ControlsPanel::ControlsPanel()
     addAndMakeVisible(layoutLabel);
 
     addAndMakeVisible(layoutComboBox);
-    layoutComboBox.setTextWhenNothingSelected("default.freepiano.minimal");
+    layoutComboBox.setTextWhenNothingSelected("FreePiano Minimal");
     layoutComboBox.onChange = [this]
     {
         const auto selectedId = layoutComboBox.getSelectedId();
         if (selectedId <= 0 || ! onLayoutChanged)
             return;
 
-        onLayoutChanged(layoutComboBox.getItemText(selectedId - 1));
+        const auto index = selectedId - 1;
+        if (! juce::isPositiveAndBelow(index, availableLayoutIds.size()))
+            return;
+
+        onLayoutChanged(availableLayoutIds[index]);
+    };
+
+    addAndMakeVisible(saveLayoutButton);
+    saveLayoutButton.onClick = [this]
+    {
+        if (onSaveLayoutRequested)
+            onSaveLayoutRequested();
+    };
+
+    addAndMakeVisible(resetLayoutButton);
+    resetLayoutButton.onClick = [this]
+    {
+        if (onResetLayoutRequested)
+            onResetLayoutRequested();
     };
 }
 
@@ -32,6 +61,8 @@ ControlsPanel::~ControlsPanel()
     sustainSlider.onValueChange = nullptr;
     releaseSlider.onValueChange = nullptr;
     layoutComboBox.onChange = nullptr;
+    saveLayoutButton.onClick = nullptr;
+    resetLayoutButton.onClick = nullptr;
 }
 
 void ControlsPanel::resized()
@@ -56,6 +87,10 @@ void ControlsPanel::resized()
     auto row = area.removeFromTop(rowHeight);
     layoutLabel.setBounds(row.removeFromLeft(80));
     layoutComboBox.setBounds(row.removeFromLeft(200));
+    row.removeFromLeft(8);
+    saveLayoutButton.setBounds(row.removeFromLeft(120));
+    row.removeFromLeft(8);
+    resetLayoutButton.setBounds(row.removeFromLeft(140));
 }
 
 void ControlsPanel::setValues(float masterGain,
@@ -73,9 +108,11 @@ void ControlsPanel::setValues(float masterGain,
 
 void ControlsPanel::setLayouts(const juce::StringArray& layoutIds, const juce::String& currentLayoutId)
 {
+    availableLayoutIds = layoutIds;
+
     layoutComboBox.clear(juce::dontSendNotification);
     for (int i = 0; i < layoutIds.size(); ++i)
-        layoutComboBox.addItem(layoutIds[i], i + 1);
+        layoutComboBox.addItem(makeLayoutDisplayName(layoutIds[i]), i + 1);
 
     const auto index = layoutIds.indexOf(currentLayoutId);
     const auto selectedId = index >= 0 ? (index + 1) : 1;
