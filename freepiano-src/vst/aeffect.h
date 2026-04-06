@@ -7,7 +7,7 @@
 // Created by   : Steinberg Media Technologies
 // Description  : Definition of AEffect structure
 //
-// © 2006, Steinberg Media Technologies, All Rights Reserved
+// ï¿½ 2006, Steinberg Media Technologies, All Rights Reserved
 //-------------------------------------------------------------------------------------------------------
 
 #ifndef __aeffect__
