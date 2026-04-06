@@ -62,13 +62,22 @@ MainComponent::~MainComponent()
 {
     controlsPanel.onValuesChanged = {};
     controlsPanel.onLayoutChanged = {};
+    controlsPanel.onSaveLayoutRequested = {};
+    controlsPanel.onResetLayoutRequested = {};
+    headerPanel.onSettingsRequested = {};
+    pluginPanel.onScanRequested = {};
+    pluginPanel.onLoadRequested = {};
+    pluginPanel.onUnloadRequested = {};
+    pluginPanel.onToggleEditorRequested = {};
 
     saveSettingsNow();
 
+    midiRouter.setMessageCallback({});
+    midiRouter.setCollector(nullptr);
     midiRouter.closeInputs();
 
+    closePluginEditorWindow();
     shutdownAudio();
-    pluginEditorWindow.reset();
     pluginHost.unloadPlugin();
     settingsWindow.reset();
 }
@@ -102,6 +111,8 @@ void MainComponent::initialiseUi()
     addAndMakeVisible(controlsPanel);
     controlsPanel.onValuesChanged = [this] { handlePerformanceUiChanged(); };
     controlsPanel.onLayoutChanged = [this](const juce::String& newId) { handleLayoutChanged(newId); };
+    controlsPanel.onSaveLayoutRequested = [this] { handleSaveLayoutRequested(); };
+    controlsPanel.onResetLayoutRequested = [this] { handleResetLayoutToDefaultRequested(); };
 
     addAndMakeVisible(keyboardPanel);
 }
@@ -294,11 +305,35 @@ void MainComponent::handleLayoutChanged(const juce::String& newLayoutId)
         return;
     }
 
-    auto inputMapping = appSettings.getInputMappingSettingsView();
-    inputMapping.layoutId = nextLayoutId;
-    keyboardMidiMapper.setLayout(SettingsModel::keyMapToLayout(inputMapping.keyMap, nextLayoutId));
+    audioEngine.getKeyboardState().allNotesOff(1);
+    keyboardMidiMapper.setLayout(SettingsModel::keyMapToLayout({}, nextLayoutId));
     appSettings.applyInputMappingSettingsView({ .layoutId = keyboardMidiMapper.getLayout().id,
                                                 .keyMap = SettingsModel::layoutToKeyMap(keyboardMidiMapper.getLayout()) });
+    syncUiFromSettings();
+    saveSettingsSoon();
+    restoreKeyboardFocus();
+}
+
+void MainComponent::handleSaveLayoutRequested()
+{
+    appSettings.applyInputMappingSettingsView({ .layoutId = keyboardMidiMapper.getLayout().id,
+                                                .keyMap = SettingsModel::layoutToKeyMap(keyboardMidiMapper.getLayout()) });
+    syncUiFromSettings();
+    saveSettingsNow();
+    restoreKeyboardFocus();
+}
+
+void MainComponent::handleResetLayoutToDefaultRequested()
+{
+    const auto currentLayoutId = keyboardMidiMapper.getLayout().id.trim();
+    const auto layoutId = currentLayoutId.isNotEmpty() ? currentLayoutId
+                                                       : appSettings.getInputMappingSettingsView().layoutId;
+
+    audioEngine.getKeyboardState().allNotesOff(1);
+    keyboardMidiMapper.setLayout(SettingsModel::keyMapToLayout({}, layoutId));
+    appSettings.applyInputMappingSettingsView({ .layoutId = keyboardMidiMapper.getLayout().id,
+                                                .keyMap = SettingsModel::layoutToKeyMap(keyboardMidiMapper.getLayout()) });
+    syncUiFromSettings();
     saveSettingsSoon();
     restoreKeyboardFocus();
 }
@@ -370,8 +405,8 @@ void MainComponent::captureAudioDeviceState()
 void MainComponent::prepareForAudioDeviceRebuild()
 {
     captureAudioDeviceState();
+    closePluginEditorWindow();
     shutdownAudio();
-    pluginEditorWindow.reset();
 }
 
 void MainComponent::finishAudioDeviceRebuild()
@@ -630,11 +665,19 @@ MainComponent::RuntimeAudioConfig MainComponent::getCurrentRuntimeAudioConfig() 
 
 void MainComponent::runPluginActionWithAudioDeviceRebuild(const std::function<void(const RuntimeAudioConfig&)>& action)
 {
+    struct AudioDeviceRebuildGuard final
+    {
+        explicit AudioDeviceRebuildGuard(MainComponent& ownerIn) : owner(ownerIn) {}
+        ~AudioDeviceRebuildGuard() { owner.finishAudioDeviceRebuild(); }
+
+        MainComponent& owner;
+    };
+
     const auto runtimeAudioConfig = getCurrentRuntimeAudioConfig();
 
     prepareForAudioDeviceRebuild();
+    const AudioDeviceRebuildGuard rebuildGuard(*this);
     action(runtimeAudioConfig);
-    finishAudioDeviceRebuild();
 }
 
 void MainComponent::runPluginActionWithAudioDeviceRebuild(const std::function<void()>& action)
@@ -707,9 +750,14 @@ void MainComponent::handlePluginEditorWindowClosedAsync()
         if (safe == nullptr)
             return;
 
-        safe->pluginEditorWindow.reset();
+        safe->closePluginEditorWindow();
         safe->finishPluginUiAction(false);
     });
+}
+
+void MainComponent::closePluginEditorWindow()
+{
+    pluginEditorWindow.reset();
 }
 
 void MainComponent::openPluginEditorWindow(std::unique_ptr<juce::AudioProcessorEditor> editor)
@@ -734,7 +782,7 @@ void MainComponent::togglePluginEditor()
 {
     if (pluginEditorWindow != nullptr)
     {
-        pluginEditorWindow.reset();
+        closePluginEditorWindow();
         finishPluginUiAction(false);
         return;
     }
@@ -757,8 +805,11 @@ bool MainComponent::isUsablePluginScanPath(const juce::FileSearchPath& path) con
 void MainComponent::scanPluginsAtPathAndApplyRecoveryState(const juce::FileSearchPath& path,
                                                            const juce::String& lastPluginName)
 {
-    pluginHost.scanVst3Plugins(path, true);
-    applyPluginRecoverySettings(makePluginRecoverySettings(path.toString(), lastPluginName));
+    runPluginActionWithAudioDeviceRebuild([this, &path, &lastPluginName]
+    {
+        pluginHost.scanVst3Plugins(path, true);
+        applyPluginRecoverySettings(makePluginRecoverySettings(path.toString(), lastPluginName));
+    });
 }
 
 void MainComponent::scanPluginsAtPathAndCommitState(const juce::FileSearchPath& path)

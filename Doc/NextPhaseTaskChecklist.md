@@ -20,10 +20,10 @@
 
 下一阶段的主目标聚焦于四件事：
 
-- [~] 清理当前结构中的重复与歧义
+- [x] 清理当前结构中的重复与歧义
 - [~] 建立统一核心模型层
-- [ ] 将键盘映射升级为可配置系统
-- [ ] 将插件扫描升级为真正可发声的插件宿主主链路
+- [~] 将键盘映射升级为可配置系统
+- [~] 在最小可用插件宿主基础上继续提升稳定性、职责拆分与手工验证覆盖
 
 ---
 
@@ -43,11 +43,11 @@
 - [~] 从“仅扫描”升级到“可实例化并发声”
 
 ### 阶段 E：UI 与状态接线
-- [ ] 将上面能力接入当前界面与持久化系统
+- [~] 已完成第一轮主接线，后续继续收敛 UI 状态同步与设置写回
 
 ### 阶段 F：文档与验收基线补充
 - [x] 构建系统迁移：已切换为 CMake + Ninja 预设（`ninja-x64` / `ninja-debug` / `ninja-release`）
-- [ ] 补全文档与阶段验收标准
+- [~] 文档与阶段验收标准已完成第一轮补充，后续继续滚动维护
 
 ---
 
@@ -302,7 +302,7 @@
 ### C-4. 为键盘映射补充最小测试思路文档
 
 #### 状态
-- [~] 进行中
+- [~] 进行中（已补充布局保存/恢复默认布局相关用例）
 
 #### 建议新增文件
 - `Doc/KeyboardMappingTestCases.md`
@@ -347,7 +347,7 @@
 
 #### 输出结果
 - [x] `PluginHost` 已从纯扫描器升级为最小宿主控制层
-- [~] 当前仍未接入 `prepareToPlay` / `releaseResources` / `processBlock`，这些将在 D-2 / D-3 中完成
+- [x] 后续已完成 `prepareToPlay` / `releaseResources` 接线，并在 `AudioEngine` 中接入插件处理主路径
 
 #### 优先级
 最高
@@ -604,21 +604,23 @@
 ### F-1. 更新 README
 
 #### 状态
-- [ ] 未开始
+- [x] 已完成第一轮更新
 
 #### 文件
 - `README.md`
 
 #### 任务
-- [ ] 补充项目目标
-- [ ] 补充当前已实现能力
-- [ ] 补充当前未实现能力
-- [ ] 补充构建命令
-- [ ] 补充 JUCE 子模块说明
-- [ ] 补充 `freepiano-src/` 的定位说明
+- [x] 补充项目目标
+- [x] 补充当前已实现能力
+- [x] 补充当前未实现能力
+- [x] 补充构建命令
+- [x] 补充 JUCE 子模块说明
+- [x] 补充 `freepiano-src/` 的定位说明
+- [x] 补充当前实现架构概览
+- [x] 补充当前可执行文件输出路径与 preset 使用说明
 
 #### 输出结果
-- [ ] 仓库对外说明更完整
+- [x] 仓库对外说明已更完整，并与当前实现更一致
 
 #### 优先级
 中
@@ -628,20 +630,43 @@
 ### F-2. 建立阶段验收清单
 
 #### 状态
-- [ ] 未开始
+- [x] 已完成第一轮建立，并已持续更新
 
 #### 建议新增文件
 - `Doc/MilestoneChecklist.md`
 
 #### 任务
-- [ ] 定义“能扫描到 VST3”的验收项
-- [ ] 定义“能加载一个 VST3 乐器”的验收项
-- [ ] 定义“A/S/D/F 可触发插件发声”的验收项
-- [ ] 定义“外部 MIDI 输入可驱动插件”的验收项
-- [ ] 定义“映射与音频设置重启后可恢复”的验收项
+- [x] 定义“能扫描到 VST3”的验收项
+- [x] 定义“能加载一个 VST3 乐器”的验收项
+- [x] 定义“A/S/D/F 可触发插件发声”的验收项
+- [x] 定义“外部 MIDI 输入可驱动插件”的验收项
+- [x] 定义“映射与音频设置重启后可恢复”的验收项
+- [x] 结合当前实现状态持续修正各里程碑通过情况
 
 #### 输出结果
-- [ ] 每次迭代有明确验收标准
+- [x] 每次迭代已有明确验收标准，后续继续滚动维护
+
+#### 优先级
+中
+
+---
+
+### F-3. 补充插件宿主生命周期测试清单
+
+#### 状态
+- [x] 已完成第一轮建立
+
+#### 新增文件
+- `Doc/PluginHostLifecycleTestCases.md`
+
+#### 任务
+- [x] 定义 scan / load / unload 的高风险组合场景
+- [x] 定义 editor 打开/关闭/卸载组合场景
+- [x] 定义音频设备重建相关场景
+- [x] 定义程序退出稳定性场景
+
+#### 输出结果
+- [x] 插件宿主与退出阶段已有独立手工验证基线
 
 #### 优先级
 中
@@ -664,10 +689,10 @@
 
 ## 第二组：紧随其后
 - [x] D-5 增加最小插件加载 UI
-- [ ] E-1 扩展插件状态持久化
-- [ ] E-2 完善 UI 状态反馈
-- [ ] F-1 更新 README
-- [ ] F-2 建立阶段验收清单
+- [x] E-1 扩展插件状态持久化
+- [x] E-2 完善 UI 状态反馈
+- [x] F-1 更新 README
+- [x] F-2 建立阶段验收清单
 
 ## 第三组：后续优化
 - [ ] E-3 局部拆分 `MainComponent` (进一步优化)
@@ -682,23 +707,23 @@
 如果下一轮开发希望控制范围、快速见效，建议只聚焦以下文件。
 
 ## 第一批重点文件
-- [ ] `Source/Input/KeyboardMidiMapper.h`
-- [ ] `Source/Input/KeyboardMidiMapper.cpp`
-- [ ] `Source/Plugin/PluginHost.h`
-- [ ] `Source/Plugin/PluginHost.cpp`
-- [ ] `Source/Audio/AudioEngine.h`
-- [ ] `Source/Audio/AudioEngine.cpp`
-- [ ] `Source/MainComponent.h`
-- [ ] `Source/MainComponent.cpp`
-- [ ] `Source/Settings/SettingsModel.h`
-- [ ] `Source/Settings/SettingsStore.cpp`
-- [ ] `CMakeLists.txt`
+- [x] `Source/Input/KeyboardMidiMapper.h`
+- [x] `Source/Input/KeyboardMidiMapper.cpp`
+- [x] `Source/Plugin/PluginHost.h`
+- [x] `Source/Plugin/PluginHost.cpp`
+- [x] `Source/Audio/AudioEngine.h`
+- [x] `Source/Audio/AudioEngine.cpp`
+- [x] `Source/MainComponent.h`
+- [x] `Source/MainComponent.cpp`
+- [x] `Source/Settings/SettingsModel.h`
+- [x] `Source/Settings/SettingsStore.cpp`
+- [x] `CMakeLists.txt`
 
 ## 第一批重点新增文件
-- [ ] `Source/Core/KeyMapTypes.h`
-- [ ] `Source/Core/MidiTypes.h`
-- [ ] `Doc/MilestoneChecklist.md`
-- [ ] `Doc/KeyboardMappingTestCases.md`
+- [x] `Source/Core/KeyMapTypes.h`
+- [x] `Source/Core/MidiTypes.h`
+- [x] `Doc/MilestoneChecklist.md`
+- [~] `Doc/KeyboardMappingTestCases.md`
 
 ---
 

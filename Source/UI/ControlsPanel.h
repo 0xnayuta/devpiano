@@ -24,16 +24,22 @@ public:
 
     std::function<void()> onValuesChanged;
     std::function<void(const juce::String&)> onLayoutChanged;
+    std::function<void()> onSaveLayoutRequested;
+    std::function<void()> onResetLayoutRequested;
 
     void setLayouts(const juce::StringArray& layoutIds, const juce::String& currentLayoutId);
 
 private:
+    [[nodiscard]] static juce::String makeLayoutDisplayName(const juce::String& layoutId);
+
     void configureSlider(juce::Slider& slider,
                          juce::Label& label,
                          const juce::String& text,
                          double minimum,
                          double maximum,
                          double interval = 0.001);
+
+    juce::StringArray availableLayoutIds;
 
     juce::Label volumeLabel;
     juce::Label attackLabel;
@@ -48,6 +54,8 @@ private:
     juce::Slider sustainSlider;
     juce::Slider releaseSlider;
     juce::ComboBox layoutComboBox;
+    juce::TextButton saveLayoutButton { "Save Layout" };
+    juce::TextButton resetLayoutButton { "Reset Current Layout" };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ControlsPanel)
 };

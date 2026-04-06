@@ -29,6 +29,8 @@
 - [x] 可调整基础音量与 ADSR 参数
 - [x] 可显示虚拟钢琴键盘
 - [x] 可扫描 VST3 目录并列出插件名称
+- [x] 可加载已扫描的 VST3 插件实例并参与音频处理
+- [x] 可打开插件 editor 窗口（若插件提供）
 - [x] 基础设置可持久化
 - [x] Debug 构建已验证通过
 
@@ -71,10 +73,10 @@ cmake --build --preset ninja-debug
 #### 音频引擎
 - `Source/Audio/AudioEngine.h`
 - `Source/Audio/AudioEngine.cpp`
-  - 当前基于 `juce::Synthesiser`
-  - 内置 `SimpleSineVoice` 作为临时发声器
-  - 通过 `MidiMessageCollector` 与 `MidiKeyboardState` 处理 MIDI
-  - 目前尚未接入真正的 VST 乐器实例
+  - 通过 `MidiMessageCollector` 与 `MidiKeyboardState` 汇总 MIDI
+  - 优先驱动已加载插件实例的 `processBlock`
+  - 无插件时回退到内置 `SimpleSineVoice` 作为 fallback 发声器
+  - 当前已经接入最小可用的 VST3 发声路径
 
 #### 电脑键盘映射
 - `Source/Input/KeyboardMidiMapper.h`
@@ -90,13 +92,15 @@ cmake --build --preset ninja-debug
   - 将消息送入 `MidiMessageCollector`
   - 可附加消息回调
 
-#### 插件宿主扫描层
+#### 插件宿主层
 - `Source/Plugin/PluginHost.h`
 - `Source/Plugin/PluginHost.cpp`
   - 注册插件格式
   - 扫描 VST3
   - 维护 `KnownPluginList`
-  - 目前仅是“扫描器”，不是完整插件宿主
+  - 创建并持有 `AudioPluginInstance`
+  - 负责 `prepareToPlay` / `releaseResources` / `unloadPlugin`
+  - 提供最小可用的插件宿主能力，但后续仍可继续拆分扫描与实例生命周期职责
 
 #### 设置与持久化
 - `Source/Settings/SettingsModel.h`
@@ -140,11 +144,15 @@ cmake --build --preset ninja-debug
 - [x] 外部 MIDI 输入可进入音频引擎
 - [x] 已增加外部 MIDI 活动状态反馈
 - [x] 可通过滑块控制 ADSR 与主音量
+- [x] 已提供最小布局操作入口：切换布局、保存当前布局、恢复默认布局
 
 #### 插件相关
 - [x] 可枚举插件格式
 - [x] 可扫描 VST3 搜索路径
 - [x] 可显示扫描到的插件名称列表
+- [x] 可创建并加载 `AudioPluginInstance`
+- [x] 已将 MIDI 与音频主路径接入插件实例
+- [x] 可打开插件 editor 窗口（若插件支持）
 
 #### 设置
 - [x] 可保存基础音频设备状态
@@ -167,8 +175,9 @@ cmake --build --preset ninja-debug
 #### 键盘映射系统
 - [ ] 基于稳定物理键的映射
 - [ ] 用户自定义映射
-- [ ] 布局切换
-- [ ] 设置与映射逻辑打通
+- [x] 布局切换
+- [x] 设置与映射逻辑基础打通
+- [~] 已提供最小布局操作入口（切换 / 保存当前布局 / 恢复默认布局），但仍缺少完整布局编辑能力
 
 #### 状态模型统一
 - [x] `SettingsModel.keyMap` 已完成第一轮驱动 `KeyboardMidiMapper`
@@ -211,7 +220,7 @@ cmake --build --preset ninja-debug
 
 结论：
 - [x] 技术方向总体正确
-- [ ] 核心宿主链路已经完整落地
+- [~] 核心宿主链路已完成最小可用落地，后续重点转向稳定性、职责拆分与更多手工验证
 
 ---
 
@@ -234,17 +243,19 @@ cmake --build --preset ninja-debug
 处理状态：
 - [x] 已完成第一轮处理：未参与构建的 `Source/AudioEngine.*`、`Source/MidiRouter.*`、`Source/SongEngine.*` 已移入 `Source/Legacy/UnusedPrototypes/`，并补充目录说明文档
 
-#### 风险 B：当前发声链路仍是临时实现
+#### 风险 B：当前发声链路仍包含 fallback 实现
 当前实际链路为：
 
-`键盘 -> MIDI -> 内置正弦波 Synth -> 音频输出`
+`键盘 / 外部 MIDI -> MIDI 汇总 -> VST 插件实例（优先）或内置正弦波 Synth（fallback） -> 音频输出`
 
-目标链路应为：
+风险点在于：
 
-`键盘 -> MIDI -> VST 插件实例 -> 音频输出`
+- 内置正弦波仍作为无插件时的保底路径存在
+- 插件主链路虽已接入，但仍需更多真实插件与设备场景验证
+- 运行期切换、异常插件、退出阶段资源释放仍需持续观察
 
 处理状态：
-- [ ] 尚未切换到插件主链路
+- [~] 已完成插件主链路第一轮切换，当前重点为稳定性验证与 fallback 定位收敛
 
 #### 风险 C：按键映射实现过于简化
 当前映射基于字符输入：
@@ -348,12 +359,12 @@ cmake --build --preset ninja-debug
 - Debug 退出阶段在特定插件/系统注入环境下仍可能出现 leak detector 告警，但当前不影响核心功能验证
 
 ### 第 4 步：串联事件循环让程序发声
-- [~] 主链路代码已基本接通，等待真实插件验证
+- [~] 主链路代码已接通，并已进入真实插件手工验证阶段
 
 说明：
-- 程序当前一定可以通过内置正弦波发声
+- 程序当前可通过内置正弦波 fallback 发声
 - 代码已优先尝试使用已加载 VST 插件发声
-- 仍需通过真实插件加载与手工试弹确认最终效果
+- 当前重点已从“是否接通”转为“更多插件/设备场景下是否稳定可靠”
 
 ### 第 5 步：重构 UI
 - [~] 已完成初步界面雏形，并补齐最小插件加载、editor 与基础状态恢复操作区
@@ -460,70 +471,72 @@ cmake --build --preset ninja-debug
 ## 7.4 阶段 3：升级插件宿主
 
 ### 阶段状态
-- [ ] 未开始
+- [~] 进行中
 
 ### 目标
-把当前 `PluginHost` 从“扫描器”升级为真正的插件宿主。
+在现有最小可用插件宿主基础上，继续提升职责划分、健壮性与可维护性。
 
 ### 建议拆分
 - [ ] `PluginScanner`：负责扫描与插件列表
 - [ ] `PluginInstanceHost`：负责实例创建、prepare、processBlock、销毁
 
 ### 计划内容
-- [ ] 允许用户从扫描列表中选择插件
-- [ ] 创建 `AudioPluginInstance`
-- [ ] 处理插件生命周期
-- [ ] 将 MIDI 送入插件
-- [ ] 将插件输出接入音频回调
-- [ ] 视条件支持插件 editor
+- [x] 允许用户从扫描列表中选择插件
+- [x] 创建 `AudioPluginInstance`
+- [x] 处理插件生命周期
+- [x] 将 MIDI 送入插件
+- [x] 将插件输出接入音频回调
+- [x] 视条件支持插件 editor
+- [ ] 进一步拆分扫描与实例宿主职责
+- [ ] 加强异常插件、资源释放与退出阶段稳定性处理
 
 ### 验收标准
-- [ ] 至少能够加载一个 VST3 乐器并正常发声
+- [~] 已达到“最小可用宿主”标准；后续验收重点转向稳定性与更多插件兼容性
 
 ---
 
 ## 7.5 阶段 4：重构主音频链路
 
 ### 阶段状态
-- [ ] 未开始
+- [~] 进行中
 
 ### 目标
-将主发声链路改为插件驱动，而不是内置正弦波。
+保持插件驱动为主路径，同时逐步将内置正弦波明确收敛为 fallback/debug 能力。
 
 ### 计划内容
-- [ ] 保留 `AudioEngine` 作为总协调层
-- [ ] 将插件实例音频处理接入 `getNextAudioBlock`
-- [ ] 将 `SimpleSineVoice` 下沉为 fallback/debug 功能
+- [x] 保留 `AudioEngine` 作为总协调层
+- [x] 将插件实例音频处理接入 `getNextAudioBlock`
+- [~] 将 `SimpleSineVoice` 明确收敛为 fallback/debug 功能
 
 ### 验收标准
-- [ ] `A/S/D/F` 等按键可驱动选中的 VST3 乐器发声
-- [ ] 外部 MIDI 输入同样可驱动插件发声
+- [~] 代码路径已支持 `A/S/D/F` 等按键驱动选中的 VST3 乐器；仍需更多手工验证
+- [~] 代码路径已支持外部 MIDI 输入驱动插件；仍需更多手工验证
 
 ---
 
 ## 7.6 阶段 5：UI 重构与组件拆分
 
 ### 阶段状态
-- [ ] 未开始
+- [~] 进行中
 
 ### 目标
 从调试面板演进为结构清晰的正式界面。
 
 ### 建议拆分方向
 - [ ] `StatusBar`
-- [ ] `PluginPanel`
-- [ ] `KeyboardPanel`
-- [ ] `PerformancePanel`
-- [ ] `SettingsPanel`
+- [x] `PluginPanel`
+- [x] `KeyboardPanel`
+- [x] `PerformancePanel`
+- [~] `SettingsPanel`
 
 ### 计划内容
-- [ ] 插件扫描、选择、加载、editor 控制独立成区
-- [ ] 演奏参数与虚拟键盘独立成区
-- [ ] 状态显示更明确
-- [ ] 减轻 `MainComponent` 负担
+- [x] 插件扫描、选择、加载、editor 控制独立成区
+- [x] 演奏参数与虚拟键盘独立成区
+- [~] 状态显示更明确
+- [~] 减轻 `MainComponent` 负担
 
 ### 验收标准
-- [ ] `MainComponent` 主要负责装配，不再承载所有细节逻辑
+- [~] `MainComponent` 已明显收敛，但仍不是纯装配层
 
 ---
 
@@ -561,8 +574,8 @@ cmake --build --preset ninja-debug
 ### 第一优先级
 - [x] 结构清障
 - [ ] 重构键盘映射系统
-- [ ] 升级插件宿主到可实例化
-- [ ] 完成插件主发声链路
+- [~] 升级插件宿主到更稳定、可维护的实例化架构
+- [~] 完成插件主发声链路的稳定性验证与收尾
 
 ### 第二优先级
 - [ ] 统一状态模型
@@ -579,12 +592,12 @@ cmake --build --preset ninja-debug
 
 ## 9. 结论与近期突破口
 
-当前 `devpiano` 已经不是空项目，而是一个能够运行、能够发声、能够扫描插件的 JUCE 重构骨架。
+当前 `devpiano` 已经不是空项目，而是一个能够运行、能够发声、能够扫描并加载插件的 JUCE 重构早期可用版本。
 
-但从总体目标来看，项目仍处于“骨架已搭好、核心宿主链路尚未完成”的阶段。当前最关键的突破口是：
+但从总体目标来看，项目仍处于“核心链路已接通、产品化细节仍需完善”的阶段。当前最关键的突破口是：
 
-- [ ] 用更稳定的方式重做键盘映射系统
-- [ ] 把插件扫描升级为真正的插件实例宿主
-- [ ] 让主音频链路从“内置正弦波”切换到“VST 乐器驱动”
+- [ ] 用更稳定的方式继续完善键盘映射系统
+- [ ] 继续提升插件宿主的职责拆分、异常处理与退出稳定性
+- [ ] 用更多真实插件与设备场景完成主链路手工验证
 
-只要这三点落地，项目就会跨过最关键的里程碑，进入可替代旧 FreePiano 核心体验的阶段。
+这三点继续推进后，项目会更接近可稳定替代旧 FreePiano 核心体验的阶段。
