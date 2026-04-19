@@ -7,11 +7,10 @@
 > - [ ] 未通过 / 未开始验证
 > - [~] 部分通过 / 待补充验证
 
-## 构建基线（统一）
-- 环境自检：`./scripts/dev.sh self-check`
-- WSL 配置/刷新编译数据库：`./scripts/dev.sh wsl-build --configure-only`
-- WSL 本地构建：`./scripts/dev.sh wsl-build`
-- Windows MSVC 验证：`./scripts/dev.sh win-build`
+## 工作流与构建入口（引用）
+- 当前统一工作流、脚本入口、WSL/Windows 双工作树说明：`docs/dev-workflow-wsl-windows-msvc.md`
+- 快速恢复环境与常用命令：`docs/quickstart-dev.md`
+- 插件宿主阶段验收可结合：`docs/MilestoneChecklist.md`
 
 ---
 

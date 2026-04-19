@@ -1,5 +1,7 @@
 # devpiano: WSL 主工作树 + Windows 镜像树 + MSVC 验证工作流
 
+> 如需更短的恢复说明，请优先看：`docs/quickstart-dev.md`
+
 ## 目标
 
 - **WSL 工作树**：唯一主源码来源，负责日常编辑、grep/rg、脚本、clangd/LSP。
