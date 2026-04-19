@@ -221,14 +221,15 @@ Windows MSVC 验证构建：
 
 如果要了解项目当前规划，建议按以下顺序阅读：
 
-1. `docs/quickstart-dev.md`
-2. `docs/dev-workflow-wsl-windows-msvc.md`
-3. `docs/OverallGoal.md`
-4. `docs/CurrentAssessmentAndPlan.md`
-5. `docs/NextPhaseTaskChecklist.md`
-6. `docs/MilestoneChecklist.md`
-7. `docs/KeyboardMappingTestCases.md`
-8. `docs/PluginHostLifecycleTestCases.md`
+- 快速恢复：`docs/quickstart-dev.md`
+- 详细工作流：`docs/dev-workflow-wsl-windows-msvc.md`
+- 项目目标：`docs/OverallGoal.md`
+- 现状与规划：`docs/CurrentAssessmentAndPlan.md`
+- 执行清单：`docs/NextPhaseTaskChecklist.md`
+- 验收标准：`docs/MilestoneChecklist.md`
+- 专项测试：
+  - `docs/KeyboardMappingTestCases.md`
+  - `docs/PluginHostLifecycleTestCases.md`
 
 ---
 
