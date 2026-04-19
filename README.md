@@ -133,8 +133,8 @@
 
 更多细节见：
 
-- `docs/dev-workflow-wsl-windows-msvc.md`
-- `docs/quickstart-dev.md`
+- [docs/dev-workflow-wsl-windows-msvc.md](docs/dev-workflow-wsl-windows-msvc.md)
+- [docs/quickstart-dev.md](docs/quickstart-dev.md)
 
 ## 构建方式
 
@@ -184,8 +184,8 @@ Windows MSVC 验证构建：
 
 ### 相关文档
 
-- `docs/dev-workflow-wsl-windows-msvc.md`
-- `docs/quickstart-dev.md`
+- [docs/dev-workflow-wsl-windows-msvc.md](docs/dev-workflow-wsl-windows-msvc.md)
+- [docs/quickstart-dev.md](docs/quickstart-dev.md)
 
 ---
 
@@ -213,7 +213,7 @@ Windows MSVC 验证构建：
 
 更多映射说明见：
 
-- `docs/LegacyCodeNotes.md`
+- [docs/LegacyCodeNotes.md](docs/LegacyCodeNotes.md)
 
 ---
 
@@ -221,15 +221,15 @@ Windows MSVC 验证构建：
 
 如果要了解项目当前规划，建议按以下顺序阅读：
 
-- 快速恢复：`docs/quickstart-dev.md`
-- 详细工作流：`docs/dev-workflow-wsl-windows-msvc.md`
-- 项目目标：`docs/OverallGoal.md`
-- 现状与规划：`docs/CurrentAssessmentAndPlan.md`
-- 执行清单：`docs/NextPhaseTaskChecklist.md`
-- 验收标准：`docs/MilestoneChecklist.md`
+- 快速恢复：[docs/quickstart-dev.md](docs/quickstart-dev.md)
+- 详细工作流：[docs/dev-workflow-wsl-windows-msvc.md](docs/dev-workflow-wsl-windows-msvc.md)
+- 项目目标：[docs/OverallGoal.md](docs/OverallGoal.md)
+- 现状与规划：[docs/CurrentAssessmentAndPlan.md](docs/CurrentAssessmentAndPlan.md)
+- 执行清单：[docs/NextPhaseTaskChecklist.md](docs/NextPhaseTaskChecklist.md)
+- 验收标准：[docs/MilestoneChecklist.md](docs/MilestoneChecklist.md)
 - 专项测试：
-  - `docs/KeyboardMappingTestCases.md`
-  - `docs/PluginHostLifecycleTestCases.md`
+  - [docs/KeyboardMappingTestCases.md](docs/KeyboardMappingTestCases.md)
+  - [docs/PluginHostLifecycleTestCases.md](docs/PluginHostLifecycleTestCases.md)
 
 ---
 
