@@ -7,6 +7,30 @@
   },
   "configurePresets": [
     {
+      "name": "linux-clang-debug",
+      "displayName": "Linux Clang Debug",
+      "description": "Primary WSL/Linux development preset with compile_commands.json enabled for clangd.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-wsl-clang",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++"
+      }
+    },
+    {
+      "name": "windows-msvc-debug",
+      "displayName": "Windows MSVC Debug",
+      "description": "Windows mirror-tree validation preset for Visual Studio Developer Command Prompt + Ninja.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-win-msvc",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "OFF"
+      }
+    },
+    {
       "name": "ninja-x64",
       "displayName": "Ninja Multi-Config x64",
       "generator": "Ninja Multi-Config",
@@ -18,6 +42,14 @@
     }
   ],
   "buildPresets": [
+    {
+      "name": "linux-clang-debug",
+      "configurePreset": "linux-clang-debug"
+    },
+    {
+      "name": "windows-msvc-debug",
+      "configurePreset": "windows-msvc-debug"
+    },
     {
       "name": "ninja-debug",
       "configurePreset": "ninja-x64",

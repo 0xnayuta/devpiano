@@ -1,2 +1,2 @@
-    CompileFlags:
-        CompilationDatabase: build/ninja-x64
+CompileFlags:
+  CompilationDatabase: build-wsl-clang
