@@ -1,5 +1,7 @@
 # devpiano
 
+[中文](README.md) | [English](README_en.md)
+
 基于 **JUCE + CMake + C++20** 的 FreePiano 现代化重构项目。
 
 目标是将老旧的 Windows FreePiano 重构为一个更简洁、现代、可持续演进的音频/MIDI 应用，并逐步替换旧项目中的：
