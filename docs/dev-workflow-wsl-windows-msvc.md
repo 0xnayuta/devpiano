@@ -19,7 +19,7 @@
 - `scripts/dev.sh`：统一入口，便于从一个命令分发 WSL 构建 / Windows 同步 / Windows 验证
 - `docs/quickstart-dev.md`：快速恢复环境与常用命令速查
 - `tools/sync-to-win.ps1`：Windows 侧 robocopy 同步脚本（保留镜像树下的 `build-win-msvc`，避免每次同步清空 Windows 构建缓存）
-- `tools/build-windows.ps1`：Windows 侧 DevCmd + CMake + Ninja 构建脚本
+- `tools/build-windows.ps1`：Windows 侧 Developer PowerShell for VS + CMake + Ninja 构建脚本
 
 ## CMake Presets
 
@@ -28,7 +28,7 @@
   - 打开 `CMAKE_EXPORT_COMPILE_COMMANDS=ON`
 - `windows-msvc-debug`
   - 生成目录：`build-win-msvc`
-  - 预期在 Windows 的 Visual Studio Developer Command 环境中执行
+  - 预期在 Windows 的 Visual Studio Developer PowerShell 环境中执行
 
 ## 环境变量
 
@@ -36,7 +36,7 @@
 
 ```bash
 export WIN_MIRROR_DIR='G:\source\projects\devpiano'
-# 如果自动探测不到 VS DevCmd，可额外在 Windows 环境变量中设置：
+# 如果自动探测不到 Visual Studio 安装，可额外在 Windows 环境变量中设置：
 # VS_DEVCMD_PATH=C:\Program Files\Microsoft Visual Studio\2026\...\Common7\Tools\VsDevCmd.bat
 ```
 
@@ -132,7 +132,7 @@ export WIN_MIRROR_DIR='G:\source\projects\devpiano'
 
 1. 已安装 Visual Studio 2026（含 MSVC 工具链）
 2. 已安装 CMake
-3. 已安装 Ninja，并能在 DevCmd 环境中使用
+3. 已安装 Ninja，并能在 Developer PowerShell for VS 环境中使用
 4. `vswhere.exe` 可用，或手动设置 `VS_DEVCMD_PATH`
 5. `WIN_MIRROR_DIR` 指向一个普通 Windows 目录，而不是 WSL 源码目录
 

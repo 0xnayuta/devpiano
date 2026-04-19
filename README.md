@@ -138,42 +138,54 @@
 
 ## 构建方式
 
-> 说明：项目已从 CMake+MSBuild 迁移到 CMake+Ninja，当前仅维护 Ninja 预设。
+> 说明：当前项目采用 **WSL 主工作树 + Windows 镜像树 + MSVC 验证** 的混合工作流。
 
 ### 依赖
-- Ninja 1.11+
-- CMake 3.22+
-- Visual Studio 2026（仅作为 MSVC 工具链来源，建议在 x64 Native Tools 命令行中执行）
+- WSL：CMake 3.22+、Ninja、Clang/clangd
+- Windows：Visual Studio 2026、MSVC、CMake、Ninja、PowerShell 7（推荐）
 - 已初始化 JUCE 子模块
 
-### 常用命令
+### 推荐命令
 
-首次配置工程：
-
-```bash
-cmake --preset ninja-x64
-```
-
-构建 Debug：
+先自检当前环境：
 
 ```bash
-cmake --build --preset ninja-debug
+./scripts/dev.sh self-check
 ```
 
-构建 Release：
+仅刷新 WSL configure / `compile_commands.json`：
 
 ```bash
-cmake --build --preset ninja-release
+./scripts/dev.sh wsl-build --configure-only
 ```
 
-> 注意：仓库根目录默认不是已配置的构建目录，因此通常不要直接执行 `cmake --build .`。
-> 请优先使用上面的 preset 命令。
+WSL 本地构建：
 
-当前 Debug 可执行文件默认位于：
-
-```text
-build/ninja-x64/devpiano_artefacts/Debug/DevPiano.exe
+```bash
+./scripts/dev.sh wsl-build
 ```
+
+同步到 Windows 镜像树：
+
+```bash
+./scripts/dev.sh win-sync
+```
+
+Windows MSVC 验证构建：
+
+```bash
+./scripts/dev.sh win-build
+```
+
+### 当前主要产物路径
+
+- WSL：`build-wsl-clang/devpiano_artefacts/Debug/DevPiano`
+- Windows：`G:\source\projects\devpiano\build-win-msvc\devpiano_artefacts\Debug\DevPiano.exe`
+
+### 相关文档
+
+- `docs/dev-workflow-wsl-windows-msvc.md`
+- `docs/quickstart-dev.md`
 
 ---
 

@@ -1,7 +1,8 @@
 ## 构建基线（统一）
-- 配置：`cmake --preset ninja-x64`
-- Debug 构建：`cmake --build --preset ninja-debug`
-- Release 构建：`cmake --build --preset ninja-release`
+- 环境自检：`./scripts/dev.sh self-check`
+- WSL 配置/刷新编译数据库：`./scripts/dev.sh wsl-build --configure-only`
+- WSL 本地构建：`./scripts/dev.sh wsl-build`
+- Windows MSVC 验证：`./scripts/dev.sh win-build`
 
 ## 当前阶段进展注记（2026-04）
 

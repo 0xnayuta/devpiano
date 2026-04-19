@@ -8,9 +8,10 @@
 > - [~] 部分通过 / 待补充验证
 
 ## 构建基线（统一）
-- 配置：`cmake --preset ninja-x64`
-- Debug 构建：`cmake --build --preset ninja-debug`
-- Release 构建：`cmake --build --preset ninja-release`
+- 环境自检：`./scripts/dev.sh self-check`
+- WSL 配置/刷新编译数据库：`./scripts/dev.sh wsl-build --configure-only`
+- WSL 本地构建：`./scripts/dev.sh wsl-build`
+- Windows MSVC 验证：`./scripts/dev.sh win-build`
 
 ---
 
@@ -32,7 +33,8 @@
 
 ### 环境前提
 - [x] 项目可成功构建并启动
-- [x] 构建命令基线（Ninja）已可用：`cmake --preset ninja-x64 && cmake --build --preset ninja-debug`
+- [x] 构建命令基线已可用：`./scripts/dev.sh wsl-build`
+- [x] Windows 验证基线已可用：`./scripts/dev.sh win-build`
 - [x] 主窗口可见
 - [x] 音频设备已正确初始化
 - [x] 程序当前可以发声（内置正弦波或插件均可）
