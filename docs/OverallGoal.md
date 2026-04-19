@@ -1,8 +1,7 @@
-## 构建基线（统一）
-- 环境自检：`./scripts/dev.sh self-check`
-- WSL 配置/刷新编译数据库：`./scripts/dev.sh wsl-build --configure-only`
-- WSL 本地构建：`./scripts/dev.sh wsl-build`
-- Windows MSVC 验证：`./scripts/dev.sh win-build`
+## 工作流与构建入口（引用）
+- 当前统一工作流、脚本入口、WSL/Windows 双工作树说明：`docs/dev-workflow-wsl-windows-msvc.md`
+- 快速恢复环境与常用命令：`docs/quickstart-dev.md`
+- 详细现状评估与执行拆解：`docs/CurrentAssessmentAndPlan.md`
 
 ## 当前阶段进展注记（2026-04）
 
