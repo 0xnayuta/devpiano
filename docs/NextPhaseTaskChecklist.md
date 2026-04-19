@@ -8,9 +8,10 @@
 > - [~] 进行中 / 部分完成
 
 ## 构建基线（统一）
-- 配置：`cmake --preset ninja-x64`
-- Debug 构建：`cmake --build --preset ninja-debug`
-- Release 构建：`cmake --build --preset ninja-release`
+- 环境自检：`./scripts/dev.sh self-check`
+- WSL 配置/刷新编译数据库：`./scripts/dev.sh wsl-build --configure-only`
+- WSL 本地构建：`./scripts/dev.sh wsl-build`
+- Windows MSVC 验证：`./scripts/dev.sh win-build`
 
 ---
 
@@ -46,7 +47,7 @@
 - [~] 已完成第一轮主接线，后续继续收敛 UI 状态同步与设置写回
 
 ### 阶段 F：文档与验收基线补充
-- [x] 构建系统迁移：已切换为 CMake + Ninja 预设（`ninja-x64` / `ninja-debug` / `ninja-release`）
+- [x] 构建工作流已切换为 WSL 主工作树 + Windows 镜像树 + `scripts/dev.sh` 统一入口
 - [~] 文档与阶段验收标准已完成第一轮补充，后续继续滚动维护
 
 ---

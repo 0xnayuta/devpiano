@@ -8,9 +8,10 @@
 > - [~] 部分通过 / 待补充验证
 
 ## 构建基线（统一）
-- 配置：`cmake --preset ninja-x64`
-- Debug 构建：`cmake --build --preset ninja-debug`
-- Release 构建：`cmake --build --preset ninja-release`
+- 环境自检：`./scripts/dev.sh self-check`
+- WSL 配置/刷新编译数据库：`./scripts/dev.sh wsl-build --configure-only`
+- WSL 本地构建：`./scripts/dev.sh wsl-build`
+- Windows MSVC 验证：`./scripts/dev.sh win-build`
 
 ---
 
@@ -70,14 +71,15 @@
 确保当前主干具备稳定开发基础。
 
 ### 验收项
-- [x] `cmake --preset ninja-x64 && cmake --build --preset ninja-debug` 构建成功
+- [x] `./scripts/dev.sh wsl-build` 构建成功
+- [x] `./scripts/dev.sh win-build` 验证成功
 - [x] 生成 `DevPiano.exe`
 - [x] 程序启动后主窗口正常显示
 - [x] 没有因缺失 JUCE 子模块导致构建失败
 
 ### 验收记录
 - 当前状态：已通过
-- 备注：当前构建基线已统一为 CMake + Ninja（`ninja-x64` / `ninja-debug`），可作为后续迭代的基础基线
+- 备注：当前构建基线已统一为 WSL 主工作树 + Windows 镜像树 + MSVC 验证工作流，可作为后续迭代的基础基线
 
 ---
 
@@ -318,7 +320,7 @@
   - 将 plugin editor 标题生成逻辑下沉到 `PluginEditorWindow`，`MainComponent` 不再负责 editor 窗口标题拼接
   - 将 plugin editor close 后的异步收尾收口为 `handlePluginEditorWindowClosedAsync()`，进一步缩短 `openPluginEditorWindow()`
   - 保持插件扫描/加载/发声/editor 与键盘/IME 已有行为不变
-  - 执行 `cmake --build --preset ninja-debug` 验证通过
+  - 执行 `./scripts/dev.sh wsl-build` 验证通过
 - 未完成：
   - 外部 MIDI 实机发声验证仍待设备条件
   - `MainComponent` 后续仍需继续拆分状态装配与流程控制
