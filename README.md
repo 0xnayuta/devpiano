@@ -1,6 +1,6 @@
 # devpiano
 
-[中文](README.md) | [English](README_en.md)
+中文 | [English](README_en.md)
 
 基于 **JUCE + CMake + C++20** 的 FreePiano 现代化重构项目。
 
