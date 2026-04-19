@@ -107,6 +107,35 @@
 
 ---
 
+## 开发入口（WSL + Windows MSVC 混合工作流）
+
+日常开发建议：
+
+- 在 **WSL 主工作树**中编辑、搜索、运行脚本
+- 用 `build-wsl-clang` 生成 `compile_commands.json` 供 clangd 使用
+- 同步到 Windows 镜像树 `G:\source\projects\devpiano`
+- 再用 Windows 的 **Developer PowerShell for VS** 环境做 MSVC 验证构建
+
+推荐入口命令：
+
+```bash
+# 自检当前开发环境
+./scripts/dev.sh self-check
+
+# WSL 本地 configure / build
+./scripts/dev.sh wsl-build --configure-only
+./scripts/dev.sh wsl-build
+
+# 同步到 Windows + MSVC 验证
+./scripts/dev.sh win-sync
+./scripts/dev.sh win-build
+```
+
+更多细节见：
+
+- `docs/dev-workflow-wsl-windows-msvc.md`
+- `docs/quickstart-dev.md`
+
 ## 构建方式
 
 > 说明：项目已从 CMake+MSBuild 迁移到 CMake+Ninja，当前仅维护 Ninja 预设。
