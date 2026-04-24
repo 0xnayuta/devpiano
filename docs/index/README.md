@@ -2,7 +2,7 @@
 
 本目录放置文档导航类内容，不承载项目状态或实现细节。
 
-- `doc-map.md`：按读者目标整理的文档地图。
+- [`doc-map.md`](doc-map.md)：按读者目标整理的文档地图。
 - 术语表：后续需要时再新增。
 
-当前项目状态以 `../roadmap/roadmap.md` 为准。
+当前项目状态以 [`../roadmap/roadmap.md`](../roadmap/roadmap.md) 为准。

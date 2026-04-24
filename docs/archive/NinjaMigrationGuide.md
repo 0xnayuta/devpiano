@@ -66,5 +66,5 @@ CMake + Ninja 迁移已经完成，项目当前的标准开发方式是：
 
 请优先参考：
 
-- `docs/dev-workflow-wsl-windows-msvc.md`
-- `docs/quickstart-dev.md`
+- [`docs/dev-workflow-wsl-windows-msvc.md`](../development/wsl-windows-msvc-workflow.md)
+- [`docs/quickstart-dev.md`](../getting-started/quickstart.md)

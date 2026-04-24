@@ -8,25 +8,25 @@
 
 ### 新开发者
 
-1. `getting-started/quickstart.md`：快速恢复环境与常用命令。
-2. `architecture/overview.md`：理解当前 JUCE 架构与模块职责。
-3. `roadmap/roadmap.md`：了解当前状态、阶段路线与近期重点。
+1. [`getting-started/quickstart.md`](getting-started/quickstart.md)：快速恢复环境与常用命令。
+2. [`architecture/overview.md`](architecture/overview.md)：理解当前 JUCE 架构与模块职责。
+3. [`roadmap/roadmap.md`](roadmap/roadmap.md)：了解当前状态、阶段路线与近期重点。
 
 ### 日常开发
 
-- `getting-started/quickstart.md`：命令速查。
-- `development/wsl-windows-msvc-workflow.md`：WSL 主工作树 + Windows 镜像树 + MSVC 验证的详细工作流。
-- `roadmap/current-iteration.md`：当前正在推进的任务。
+- [`getting-started/quickstart.md`](getting-started/quickstart.md)：命令速查。
+- [`development/wsl-windows-msvc-workflow.md`](development/wsl-windows-msvc-workflow.md)：WSL 主工作树 + Windows 镜像树 + MSVC 验证的详细工作流。
+- [`roadmap/current-iteration.md`](roadmap/current-iteration.md)：当前正在推进的任务。
 
 ### 测试与验收
 
-- `testing/acceptance.md`：阶段性验收标准。
-- `testing/keyboard-mapping.md`：键盘映射专项手工测试。
-- `testing/plugin-host-lifecycle.md`：插件宿主生命周期与退出稳定性专项测试。
+- [`testing/acceptance.md`](testing/acceptance.md)：阶段性验收标准。
+- [`testing/keyboard-mapping.md`](testing/keyboard-mapping.md)：键盘映射专项手工测试。
+- [`testing/plugin-host-lifecycle.md`](testing/plugin-host-lifecycle.md)：插件宿主生命周期与退出稳定性专项测试。
 
 ### 旧代码迁移
 
-- `architecture/legacy-migration.md`：旧 FreePiano 源码的迁移边界与新旧模块对应关系。
+- [`architecture/legacy-migration.md`](architecture/legacy-migration.md)：旧 FreePiano 源码的迁移边界与新旧模块对应关系。
 
 ### 历史资料
 
@@ -48,8 +48,8 @@
 
 ## 文档职责原则
 
-- `roadmap/roadmap.md` 是唯一的项目状态与路线图来源。
-- `roadmap/current-iteration.md` 只记录当前正在做的任务。
-- `architecture/overview.md` 只描述当前架构，不混入任务清单。
+- [`roadmap/roadmap.md`](roadmap/roadmap.md) 是唯一的项目状态与路线图来源。
+- [`roadmap/current-iteration.md`](roadmap/current-iteration.md) 只记录当前正在做的任务。
+- [`architecture/overview.md`](architecture/overview.md) 只描述当前架构，不混入任务清单。
 - `testing/` 下只放验收与测试，不混入开发规划。
 - `archive/` 中的内容只作为历史参考，当前信息以现行文档为准。

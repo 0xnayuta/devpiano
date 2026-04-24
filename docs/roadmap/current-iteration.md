@@ -8,7 +8,7 @@
 
 当前活跃迭代：**MainComponent 职责收敛与键盘映射完善前置重构**。
 
-上一轮已完成：`docs/` 最小重组。记录已归档到：`../archive/docs-restructure-2026-04.md`。
+上一轮已完成：`docs/` 最小重组。记录已归档到：[`../archive/docs-restructure-2026-04.md`](../archive/docs-restructure-2026-04.md)。
 
 ## 本轮目标
 
@@ -25,14 +25,14 @@
 
 ### 1. 键盘映射默认布局回归
 
-对应文档：`../testing/keyboard-mapping.md`、`../features/keyboard-mapping.md`。
+对应文档：[`../testing/keyboard-mapping.md`](../testing/keyboard-mapping.md)、[`../features/keyboard-mapping.md`](../features/keyboard-mapping.md)。
 
 当前进展：
 
-- [x] 已完成默认布局代码级 / 静态映射校验，并记录到 `../testing/keyboard-mapping.md` 的 `Test Run 2026-04-24`。
+- [x] 已完成默认布局代码级 / 静态映射校验，并记录到 [`../testing/keyboard-mapping.md`](../testing/keyboard-mapping.md) 的 `Test Run 2026-04-24`。
 - [x] 默认可见音区下，Q、A、Z、数字行已通过手工发声、高亮、note on/off、Shift / Caps Lock / 中文输入法回归。
 - [x] 已定位并修复虚拟键盘翻页后 JUCE 内置 QWERTY 映射与项目映射叠加的问题。
-- [x] 已完成 `../testing/keyboard-mapping.md` 的 6.3 Windows 侧人工回归，翻页后所有行按键均无明显问题。
+- [x] 已完成 [`../testing/keyboard-mapping.md`](../testing/keyboard-mapping.md) 的 6.3 Windows 侧人工回归，翻页后所有行按键均无明显问题。
 
 优先执行并更新以下未验证项：
 
@@ -47,7 +47,7 @@
 
 ### 2. 插件生命周期基线回归
 
-对应文档：`../testing/plugin-host-lifecycle.md`、`../features/plugin-hosting.md`。
+对应文档：[`../testing/plugin-host-lifecycle.md`](../testing/plugin-host-lifecycle.md)、[`../features/plugin-hosting.md`](../features/plugin-hosting.md)。
 
 优先执行并更新以下高风险场景：
 
@@ -81,7 +81,7 @@
 
 ### 4. 录制 / 回放仅做模型预研，不接入主链路
 
-对应后续方向：`../roadmap/roadmap.md` 的 M6。
+对应后续方向：[`../roadmap/roadmap.md`](../roadmap/roadmap.md) 的 M6。
 
 本轮不实现录制、回放、MIDI/WAV 导出。若有余力，仅允许做轻量设计草案：
 
@@ -119,10 +119,10 @@
   - JUCE 音频后端决策。
   - VST3-first 插件宿主决策。
 - 按需补充轻量文档入口：
-  - `../index/glossary.md`：术语表。
-  - `../testing/known-issues.md`：已知问题与待验证风险。
-  - `../getting-started/overview.md`：项目概览。
-  - `../getting-started/current-status.md`：当前状态摘要。
-  - `../development/troubleshooting.md`：开发环境与构建问题排查。
-  - `../development/agent-collaboration.md`：从根目录 `../../AGENTS.md` 提炼的人类可读协作规则摘要。
+  - [`../index/glossary.md`](../index/glossary.md)：术语表。
+  - [`../testing/known-issues.md`](../testing/known-issues.md)：已知问题与待验证风险。
+  - [`../getting-started/overview.md`](../getting-started/overview.md)：项目概览。
+  - [`../getting-started/current-status.md`](../getting-started/current-status.md)：当前状态摘要。
+  - [`../development/troubleshooting.md`](../development/troubleshooting.md)：开发环境与构建问题排查。
+  - [`../development/agent-collaboration.md`](../development/agent-collaboration.md)：从根目录 [`../../AGENTS.md`](../../AGENTS.md) 提炼的人类可读协作规则摘要。
 - 后续如架构文档继续增长，再拆分音频链路、插件宿主、键盘映射、状态模型等专题。

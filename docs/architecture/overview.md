@@ -198,4 +198,4 @@ SettingsModel + runtime state
 
 `freepiano-src/` 只用于理解旧行为，例如默认键位、录制回放功能边界、旧插件宿主预期等。
 
-禁止直接把旧的 Windows 平台实现、旧 VST SDK 风格接口、GDI GUI 或原生音频后端复制进新架构。旧模块迁移规则见 `legacy-migration.md`。
+禁止直接把旧的 Windows 平台实现、旧 VST SDK 风格接口、GDI GUI 或原生音频后端复制进新架构。旧模块迁移规则见 [`legacy-migration.md`](legacy-migration.md)。

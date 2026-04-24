@@ -4,7 +4,7 @@
 > 读者：开发者、测试者、阶段验收者。  
 > 更新时机：阶段验收标准变化或状态发生明确变化时。
 
-说明：本文件只描述阶段验收，不承担长期规划职责。项目状态与路线图以 `../roadmap/roadmap.md` 为准。
+说明：本文件只描述阶段验收，不承担长期规划职责。项目状态与路线图以 [`../roadmap/roadmap.md`](../roadmap/roadmap.md) 为准。
 
 ## 状态标记
 
@@ -70,7 +70,7 @@
 - [x] 可打开支持 editor 的插件窗口。
 - [~] 外部 MIDI 输入通路已接通，但仍待真实设备验证。
 
-专项生命周期回归见：`plugin-host-lifecycle.md`。
+专项生命周期回归见：[`plugin-host-lifecycle.md`](plugin-host-lifecycle.md)。
 
 ## M4：键盘映射系统可配置
 
@@ -88,7 +88,7 @@
 - [~] 默认布局全量回归仍需继续补齐。
 - [ ] 完整自定义布局编辑能力尚未完成。
 
-专项键盘回归见：`keyboard-mapping.md`。
+专项键盘回归见：[`keyboard-mapping.md`](keyboard-mapping.md)。
 
 ## M5：UI 进入正式可用阶段
 
@@ -141,5 +141,5 @@
 - [ ] `A/S/D/F` 可触发 note on / note off。
 - [ ] 虚拟键盘高亮与释放正常。
 - [ ] 如修改插件相关代码：可扫描、加载、卸载一个 VST3 插件。
-- [ ] 如修改键盘相关代码：执行 `keyboard-mapping.md` 中优先测试包。
-- [ ] 如修改插件生命周期相关代码：执行 `plugin-host-lifecycle.md` 中优先测试包。
+- [ ] 如修改键盘相关代码：执行 [`keyboard-mapping.md`](keyboard-mapping.md) 中优先测试包。
+- [ ] 如修改插件生命周期相关代码：执行 [`plugin-host-lifecycle.md`](plugin-host-lifecycle.md) 中优先测试包。

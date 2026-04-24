@@ -1,8 +1,8 @@
 # 插件宿主功能说明
 
 > 用途：说明当前 VST3 插件扫描、加载、处理、editor 和生命周期相关功能行为。  
-> 相关测试：`../testing/plugin-host-lifecycle.md`。  
-> 当前状态来源：`../roadmap/roadmap.md`、`../testing/plugin-host-lifecycle.md`、`../architecture/overview.md`、`../architecture/legacy-migration.md`。
+> 相关测试：[`../testing/plugin-host-lifecycle.md`](../testing/plugin-host-lifecycle.md)。  
+> 当前状态来源：[`../roadmap/roadmap.md`](../roadmap/roadmap.md)、[`../testing/plugin-host-lifecycle.md`](../testing/plugin-host-lifecycle.md)、[`../architecture/overview.md`](../architecture/overview.md)、[`../architecture/legacy-migration.md`](../architecture/legacy-migration.md)。
 
 ## 当前能力
 
@@ -70,7 +70,7 @@ Computer keyboard / external MIDI
 - 加载插件后切换音频设备设置。
 - 加载插件或打开 editor 后直接退出程序。
 
-详见：`../testing/plugin-host-lifecycle.md`。
+详见：[`../testing/plugin-host-lifecycle.md`](../testing/plugin-host-lifecycle.md)。
 
 ## 当前限制和风险
 
@@ -93,7 +93,7 @@ Computer keyboard / external MIDI
 - `PluginDirectoryScanner`
 - `AudioPluginInstance`
 
-更多迁移边界见：`../architecture/legacy-migration.md`。
+更多迁移边界见：[`../architecture/legacy-migration.md`](../architecture/legacy-migration.md)。
 
 ## 后续方向
 

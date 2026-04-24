@@ -146,15 +146,15 @@
 | 键盘映射边界多 | 中高 | 保持专项键盘测试，逐步完善布局模型和 Preset。 |
 | `MainComponent` 职责回流 | 中 | 新功能优先下沉到独立模块或 helper，不把状态展示逻辑塞回主组件。 |
 | 录制 / 导出尚无现代模型 | 中 | 先设计数据模型，不直接复制旧 `song.*` 内部表示。 |
-| 文档状态漂移 | 中 | 本文件作为唯一 roadmap；当前任务只写入 `current-iteration.md`。 |
+| 文档状态漂移 | 中 | 本文件作为唯一 roadmap；当前任务只写入 [`current-iteration.md`](current-iteration.md)。 |
 
 ## 6. 完成标准参考
 
 阶段性验收标准见：
 
-- `../testing/acceptance.md`
+- [`../testing/acceptance.md`](../testing/acceptance.md)
 
 专项测试见：
 
-- `../testing/keyboard-mapping.md`
-- `../testing/plugin-host-lifecycle.md`
+- [`../testing/keyboard-mapping.md`](../testing/keyboard-mapping.md)
+- [`../testing/plugin-host-lifecycle.md`](../testing/plugin-host-lifecycle.md)

@@ -45,6 +45,6 @@
 
 ## 当前实践
 
-现行详细工作流见：`../development/wsl-windows-msvc-workflow.md`。
+现行详细工作流见：[`../development/wsl-windows-msvc-workflow.md`](../development/wsl-windows-msvc-workflow.md)。
 
-快速恢复入口见：`../getting-started/quickstart.md`。
+快速恢复入口见：[`../getting-started/quickstart.md`](../getting-started/quickstart.md)。
