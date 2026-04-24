@@ -1,4 +1,4 @@
-# devpiano 旧代码迁移说明（Legacy Code Notes）
+# devpiano 旧代码迁移说明
 
 > 用途：说明 `freepiano-src/` 中旧模块在新 JUCE 架构中的定位、迁移边界与推荐替代方向。  
 > 读者：需要阅读旧 FreePiano 源码并迁移行为的开发者。  
@@ -92,7 +92,7 @@
 
 ### 新架构替代方向
 - `source/Input/KeyboardMidiMapper.*`
-- 后续建议新增：`source/Core/KeyMapTypes.h`
+- `source/Core/KeyMapTypes.h`
 - JUCE `KeyPress` / `KeyListener` / `Component` 焦点机制
 
 ### 迁移建议
@@ -127,7 +127,7 @@
 
 ### 新架构替代方向
 - `source/MainComponent.*`
-- 后续建议拆分到 `source/UI/*`
+- `source/UI/*`
 - JUCE `Component` 树
 - JUCE `MidiKeyboardComponent`
 
