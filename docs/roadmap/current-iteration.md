@@ -6,11 +6,114 @@
 
 ## 当前状态
 
-当前无活跃迭代。
+当前活跃迭代：**MainComponent 职责收敛与键盘映射完善前置重构**。
 
 上一轮已完成：`docs/` 最小重组。记录已归档到：`../archive/docs-restructure-2026-04.md`。
 
-## 下一轮候选任务
+## 本轮目标
+
+本轮以小步重构和验证收敛为主，不引入录制 / 回放等新主功能。
+
+核心目标：
+
+- 在不改变现有演奏、插件加载和设置恢复行为的前提下，继续削薄 `source/MainComponent.*`。
+- 优先收敛插件扫描 / 加载 / 卸载 / 恢复流程的职责边界，为后续拆分 `PluginScanner`、插件实例生命周期宿主或 controller 做准备。
+- 补齐默认键盘布局的未验证项，降低后续布局编辑 / Preset 功能的回归风险。
+- 继续使用现有 `AppState` / UI state builder / Settings model 边界承载状态，不把新状态直接堆回 `MainComponent`。
+
+## 本轮优先任务
+
+### 1. 键盘映射默认布局回归
+
+对应文档：`../testing/keyboard-mapping.md`、`../features/keyboard-mapping.md`。
+
+当前进展：
+
+- [x] 已完成默认布局代码级 / 静态映射校验，并记录到 `../testing/keyboard-mapping.md` 的 `Test Run 2026-04-24`。
+- [x] 默认可见音区下，Q、A、Z、数字行已通过手工发声、高亮、note on/off、Shift / Caps Lock / 中文输入法回归。
+- [x] 已定位并修复虚拟键盘翻页后 JUCE 内置 QWERTY 映射与项目映射叠加的问题。
+- [x] 已完成 `../testing/keyboard-mapping.md` 的 6.3 Windows 侧人工回归，翻页后所有行按键均无明显问题。
+
+优先执行并更新以下未验证项：
+
+- Q 行默认映射：`Q/W/E/R/T/Y/U/I/O/P`。
+- Z 行默认映射：`Z/X/C/V/B/N/M`。
+- 数字行默认映射：`1/2/3/4/5/6/7/8/9/0`。
+- 多键组合中尚未完整验证的 Q 行组合。
+- Shift / Caps Lock / 中文输入法场景下，默认布局是否仍稳定。
+- fallback synth 与 VST3 插件两种发声模式下，键盘映射是否一致可用。
+
+验收结果只更新测试文档；若发现功能缺陷，再进入代码修复。
+
+### 2. 插件生命周期基线回归
+
+对应文档：`../testing/plugin-host-lifecycle.md`、`../features/plugin-hosting.md`。
+
+优先执行并更新以下高风险场景：
+
+- 扫描后加载插件并试弹。
+- 连续加载 / 卸载同一插件 3~5 次。
+- 已加载插件状态下重新扫描。
+- 打开 editor 后卸载插件。
+- 打开 editor 后重新扫描。
+- 打开 editor 或已加载插件后直接退出程序。
+- 加载插件后切换音频设备设置。
+
+本轮先获得明确基线，不急于扩大插件能力。若发现稳定复现的问题，再针对 `PluginHost` / editor window / audio device rebuild 路径做小步修复。
+
+### 3. `MainComponent` 插件流程职责收敛
+
+对应代码：`source/MainComponent.*`、`source/Plugin/PluginHost.*`，后续如需要可新增 `source/Plugin/` 下的轻量协作类。
+
+本轮建议只做低风险拆分：
+
+- 先梳理插件相关方法的边界：扫描路径解析、启动恢复、加载、卸载、editor 窗口、音频设备重建。
+- 优先抽离不直接依赖 UI 组件的插件流程 helper / controller。
+- 暂时保留 `MainComponent` 对按钮回调、只读 UI 刷新、设置保存和 editor 窗口拥有权的协调职责。
+- 避免一次性拆分 `PluginHost` 内部扫描与实例生命周期；先用生命周期测试结果决定是否需要拆。
+
+完成标准：
+
+- 现有插件扫描、选择、加载、卸载、editor 打开行为不回退。
+- `MainComponent.cpp` 插件相关流程代码减少或边界更清晰。
+- LSP diagnostics 无新增错误。
+- WSL 构建通过。
+
+### 4. 录制 / 回放仅做模型预研，不接入主链路
+
+对应后续方向：`../roadmap/roadmap.md` 的 M6。
+
+本轮不实现录制、回放、MIDI/WAV 导出。若有余力，仅允许做轻量设计草案：
+
+- 现代演奏事件模型的职责边界。
+- 键盘输入、外部 MIDI、插件发声与录制事件之间的关系。
+- 与旧 `song.*` 的行为参考边界。
+
+不得直接复制旧实现，也不要把未实现能力写成已完成。
+
+## 本轮计划验证命令
+
+代码修改后优先执行：
+
+```bash
+./scripts/dev.sh wsl-build
+```
+
+如修改影响 CMake / 编译数据库，先执行：
+
+```bash
+./scripts/dev.sh wsl-build --configure-only
+```
+
+涉及插件生命周期、Windows 行为或 MSVC 兼容性时执行：
+
+```bash
+./scripts/dev.sh win-build
+```
+
+## 后续候选文档任务
+
+以下不是本轮代码重构的优先项，仅在需要时补充：
 
 - 继续提炼 ADR：
   - JUCE 音频后端决策。
