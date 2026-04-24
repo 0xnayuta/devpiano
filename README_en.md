@@ -135,8 +135,8 @@ Recommended entry commands:
 
 For more details, see:
 
-- [docs/dev-workflow-wsl-windows-msvc.md](docs/dev-workflow-wsl-windows-msvc.md)
-- [docs/quickstart-dev.md](docs/quickstart-dev.md)
+- [docs/development/wsl-windows-msvc-workflow.md](docs/development/wsl-windows-msvc-workflow.md)
+- [docs/getting-started/quickstart.md](docs/getting-started/quickstart.md)
 
 ## Build Workflow
 
@@ -186,8 +186,8 @@ Run Windows MSVC validation build:
 
 ### Related Documents
 
-- [docs/dev-workflow-wsl-windows-msvc.md](docs/dev-workflow-wsl-windows-msvc.md)
-- [docs/quickstart-dev.md](docs/quickstart-dev.md)
+- [docs/development/wsl-windows-msvc-workflow.md](docs/development/wsl-windows-msvc-workflow.md)
+- [docs/getting-started/quickstart.md](docs/getting-started/quickstart.md)
 
 ---
 
@@ -215,7 +215,7 @@ Typical replacement directions:
 
 For more mapping details, see:
 
-- [docs/legacy-migration.md](docs/legacy-migration.md)
+- [docs/architecture/legacy-migration.md](docs/architecture/legacy-migration.md)
 
 ---
 
@@ -225,11 +225,11 @@ The full documentation index is available at: [docs/README.md](docs/README.md).
 
 If you want to understand the current project plan, the recommended reading order is:
 
-- Quick start / environment recovery: [docs/quickstart-dev.md](docs/quickstart-dev.md)
-- Detailed workflow: [docs/dev-workflow-wsl-windows-msvc.md](docs/dev-workflow-wsl-windows-msvc.md)
-- Current architecture: [docs/architecture.md](docs/architecture.md)
-- Roadmap and project status: [docs/roadmap.md](docs/roadmap.md)
-- Current iteration tasks: [docs/current-iteration.md](docs/current-iteration.md)
+- Quick start / environment recovery: [docs/getting-started/quickstart.md](docs/getting-started/quickstart.md)
+- Detailed workflow: [docs/development/wsl-windows-msvc-workflow.md](docs/development/wsl-windows-msvc-workflow.md)
+- Current architecture: [docs/architecture/overview.md](docs/architecture/overview.md)
+- Roadmap and project status: [docs/roadmap/roadmap.md](docs/roadmap/roadmap.md)
+- Current iteration tasks: [docs/roadmap/current-iteration.md](docs/roadmap/current-iteration.md)
 - Acceptance criteria: [docs/testing/acceptance.md](docs/testing/acceptance.md)
 - Specialized test docs:
   - [docs/testing/keyboard-mapping.md](docs/testing/keyboard-mapping.md)

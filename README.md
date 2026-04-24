@@ -135,8 +135,8 @@
 
 更多细节见：
 
-- [docs/dev-workflow-wsl-windows-msvc.md](docs/dev-workflow-wsl-windows-msvc.md)
-- [docs/quickstart-dev.md](docs/quickstart-dev.md)
+- [docs/development/wsl-windows-msvc-workflow.md](docs/development/wsl-windows-msvc-workflow.md)
+- [docs/getting-started/quickstart.md](docs/getting-started/quickstart.md)
 
 ## 构建方式
 
@@ -186,8 +186,8 @@ Windows MSVC 验证构建：
 
 ### 相关文档
 
-- [docs/dev-workflow-wsl-windows-msvc.md](docs/dev-workflow-wsl-windows-msvc.md)
-- [docs/quickstart-dev.md](docs/quickstart-dev.md)
+- [docs/development/wsl-windows-msvc-workflow.md](docs/development/wsl-windows-msvc-workflow.md)
+- [docs/getting-started/quickstart.md](docs/getting-started/quickstart.md)
 
 ---
 
@@ -215,7 +215,7 @@ Windows MSVC 验证构建：
 
 更多映射说明见：
 
-- [docs/legacy-migration.md](docs/legacy-migration.md)
+- [docs/architecture/legacy-migration.md](docs/architecture/legacy-migration.md)
 
 ---
 
@@ -225,11 +225,11 @@ Windows MSVC 验证构建：
 
 如果要了解项目当前规划，建议按以下顺序阅读：
 
-- 快速恢复：[docs/quickstart-dev.md](docs/quickstart-dev.md)
-- 详细工作流：[docs/dev-workflow-wsl-windows-msvc.md](docs/dev-workflow-wsl-windows-msvc.md)
-- 当前架构：[docs/architecture.md](docs/architecture.md)
-- 路线图与项目状态：[docs/roadmap.md](docs/roadmap.md)
-- 当前迭代任务：[docs/current-iteration.md](docs/current-iteration.md)
+- 快速恢复：[docs/getting-started/quickstart.md](docs/getting-started/quickstart.md)
+- 详细工作流：[docs/development/wsl-windows-msvc-workflow.md](docs/development/wsl-windows-msvc-workflow.md)
+- 当前架构：[docs/architecture/overview.md](docs/architecture/overview.md)
+- 路线图与项目状态：[docs/roadmap/roadmap.md](docs/roadmap/roadmap.md)
+- 当前迭代任务：[docs/roadmap/current-iteration.md](docs/roadmap/current-iteration.md)
 - 阶段验收标准：[docs/testing/acceptance.md](docs/testing/acceptance.md)
 - 专项测试：
   - [docs/testing/keyboard-mapping.md](docs/testing/keyboard-mapping.md)

@@ -1,15 +1,13 @@
 # devpiano 旧代码迁移说明（Legacy Code Notes）
 
-> 用途：说明 `freepiano-src/` 中旧模块在新 JUCE 架构中的定位、迁移边界与推荐替代方向。
-
 > 用途：说明 `freepiano-src/` 中旧模块在新 JUCE 架构中的定位、迁移边界与推荐替代方向。  
 > 读者：需要阅读旧 FreePiano 源码并迁移行为的开发者。  
 > 更新时机：旧模块迁移边界或新旧模块对应关系变化时。
 
 相关文档：
 
-- 当前架构：`architecture.md`
-- 路线图与项目状态：`roadmap.md`
+- 当前架构：`overview.md`
+- 路线图与项目状态：`../roadmap/roadmap.md`
 
 ---
 

@@ -11,7 +11,7 @@
 
 相关文档：
 - 阶段验收：`acceptance.md`
-- 项目路线图：`../roadmap.md`
+- 项目路线图：`../roadmap/roadmap.md`
 
 ---
 
