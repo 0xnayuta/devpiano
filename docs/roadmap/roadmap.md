@@ -152,9 +152,9 @@
 
 阶段性验收标准见：
 
-- `testing/acceptance.md`
+- `../testing/acceptance.md`
 
 专项测试见：
 
-- `testing/keyboard-mapping.md`
-- `testing/plugin-host-lifecycle.md`
+- `../testing/keyboard-mapping.md`
+- `../testing/plugin-host-lifecycle.md`

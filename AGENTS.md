@@ -74,8 +74,8 @@
 
 ## 工作流文档优先级：
 - 涉及当前 WSL/Windows 混合开发、同步、MSVC 验证、环境恢复、自检命令时，优先参考：
-  - `docs/dev-workflow-wsl-windows-msvc.md`
-  - `docs/quickstart-dev.md`
+  - `docs/development/wsl-windows-msvc-workflow.md`
+  - `docs/getting-started/quickstart.md`
 
 ## 推荐工作流：
 1. 先用 `understand` 理解旧逻辑、模块关系和迁移路径。

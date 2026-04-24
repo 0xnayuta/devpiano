@@ -1,6 +1,6 @@
 # devpiano: WSL 主工作树 + Windows 镜像树 + MSVC 验证工作流
 
-> 如需更短的恢复说明，请优先看：`docs/quickstart-dev.md`
+> 如需更短的恢复说明，请优先看：`../getting-started/quickstart.md`
 
 ## 目标
 
@@ -19,7 +19,7 @@
 - `scripts/sync_to_win.sh`：从 WSL 调用 Windows PowerShell + robocopy，同步到 Windows 镜像树
 - `scripts/build_msvc_from_wsl.sh`：从 WSL 触发“同步 + Windows MSVC 验证构建”
 - `scripts/dev.sh`：统一入口，便于从一个命令分发 WSL 构建 / Windows 同步 / Windows 验证
-- `docs/quickstart-dev.md`：快速恢复环境与常用命令速查
+- `../getting-started/quickstart.md`：快速恢复环境与常用命令速查
 - `tools/sync-to-win.ps1`：Windows 侧 robocopy 同步脚本（保留镜像树下的 `build-win-msvc`，避免每次同步清空 Windows 构建缓存）
 - `tools/build-windows.ps1`：Windows 侧 Developer PowerShell for VS + CMake + Ninja 构建脚本
 
