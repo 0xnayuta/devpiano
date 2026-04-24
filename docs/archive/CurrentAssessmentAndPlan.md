@@ -8,8 +8,8 @@
 > - [~] 进行中 / 部分完成
 
 ## 工作流与构建入口（引用）
-- 当前统一工作流、脚本入口、WSL/Windows 双工作树说明：`docs/dev-workflow-wsl-windows-msvc.md`
-- 快速恢复环境与常用命令：`docs/quickstart-dev.md`
+- 当前统一工作流、脚本入口、WSL/Windows 双工作树说明：[`docs/dev-workflow-wsl-windows-msvc.md`](../development/wsl-windows-msvc-workflow.md)
+- 快速恢复环境与常用命令：[`docs/quickstart-dev.md`](../getting-started/quickstart.md)
 - 典型命令入口：`./scripts/dev.sh self-check`、`./scripts/dev.sh wsl-build`、`./scripts/dev.sh win-build`
 
 ---
@@ -263,7 +263,7 @@
 当前映射基于字符输入：
 - 受系统键盘布局影响
 - 不利于恢复旧版复杂布局
-- 与 `OverallGoal.md` 的重构目标不完全一致
+- 与 [`OverallGoal.md`](OverallGoal.md) 的重构目标不完全一致
 
 处理状态：
 - [ ] 尚未重构
@@ -320,7 +320,7 @@
 
 #### 风险 I：README 信息不足
 处理状态：
-- [x] 已完成第一轮补充，并新增 `docs/LegacyCodeNotes.md` 说明旧代码迁移边界
+- [x] 已完成第一轮补充，并新增 [`docs/LegacyCodeNotes.md`](../architecture/legacy-migration.md) 说明旧代码迁移边界
 
 ---
 
@@ -413,7 +413,7 @@
 - [x] 明确标记或移走未参与构建的过渡文件
 - [x] 保证 `source/` 根目录中的主实现路径更清晰
 - [x] 为 `freepiano-src/` 增加“只读参考”说明
-- [x] 补充 `README.md` 基础说明
+- [x] 补充 [`README.md`](../../README.md) 基础说明
 
 ### 预期输出
 - 更干净的源码树

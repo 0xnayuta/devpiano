@@ -1,8 +1,8 @@
 # 键盘映射功能说明
 
 > 用途：说明电脑键盘到 MIDI note 的当前功能行为、已知边界和后续方向。  
-> 相关测试：`../testing/keyboard-mapping.md`。  
-> 当前状态来源：`../roadmap/roadmap.md`、`../testing/keyboard-mapping.md`、`../architecture/legacy-migration.md`。
+> 相关测试：[`../testing/keyboard-mapping.md`](../testing/keyboard-mapping.md)。  
+> 当前状态来源：[`../roadmap/roadmap.md`](../roadmap/roadmap.md)、[`../testing/keyboard-mapping.md`](../testing/keyboard-mapping.md)、[`../architecture/legacy-migration.md`](../architecture/legacy-migration.md)。
 
 ## 当前能力
 
@@ -46,7 +46,7 @@ JUCE KeyPress / KeyListener
 - 中文输入法激活时仍可发声，且不弹出候选词栏。
 - 键盘映射可驱动已加载 VST3 插件发声。
 
-详见：`../testing/keyboard-mapping.md`。
+详见：[`../testing/keyboard-mapping.md`](../testing/keyboard-mapping.md)。
 
 ## 当前限制
 
@@ -69,7 +69,7 @@ JUCE KeyPress / KeyListener
 
 新实现不直接沿用旧扫描码处理和平台绑定输入逻辑，而是基于 JUCE 输入事件和项目内布局模型重建。
 
-更多迁移边界见：`../architecture/legacy-migration.md`。
+更多迁移边界见：[`../architecture/legacy-migration.md`](../architecture/legacy-migration.md)。
 
 ## 后续方向
 

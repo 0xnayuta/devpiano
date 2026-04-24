@@ -39,6 +39,6 @@
 
 ## 当前实践
 
-旧模块到新架构的映射和迁移边界见：`../architecture/legacy-migration.md`。
+旧模块到新架构的映射和迁移边界见：[`../architecture/legacy-migration.md`](../architecture/legacy-migration.md)。
 
-当前架构总览见：`../architecture/overview.md`。
+当前架构总览见：[`../architecture/overview.md`](../architecture/overview.md)。

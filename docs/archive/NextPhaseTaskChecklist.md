@@ -8,9 +8,9 @@
 > - [~] 进行中 / 部分完成
 
 ## 工作流与构建入口（引用）
-- 当前统一工作流、脚本入口、WSL/Windows 双工作树说明：`docs/dev-workflow-wsl-windows-msvc.md`
-- 快速恢复环境与常用命令：`docs/quickstart-dev.md`
-- 现状评估与整体规划：`docs/CurrentAssessmentAndPlan.md`
+- 当前统一工作流、脚本入口、WSL/Windows 双工作树说明：[`docs/dev-workflow-wsl-windows-msvc.md`](../development/wsl-windows-msvc-workflow.md)
+- 快速恢复环境与常用命令：[`docs/quickstart-dev.md`](../getting-started/quickstart.md)
+- 现状评估与整体规划：[`docs/CurrentAssessmentAndPlan.md`](CurrentAssessmentAndPlan.md)
 
 ---
 
@@ -70,7 +70,7 @@
 - `source/Midi/MidiRouter.cpp` -> `source/Legacy/UnusedPrototypes/MidiRouter.cpp`
 - `source/Legacy/UnusedPrototypes/SongEngine.h` -> `source/Legacy/UnusedPrototypes/SongEngine.h`
 - `source/Legacy/UnusedPrototypes/SongEngine.cpp` -> `source/Legacy/UnusedPrototypes/SongEngine.cpp`
-- 新增说明：`source/Legacy/UnusedPrototypes/README.md`
+- 新增说明：[`source/Legacy/UnusedPrototypes/README.md`](../../source/Legacy/UnusedPrototypes/README.md)
 
 #### 任务
 - [x] 确认这些文件不参与当前主构建
@@ -94,14 +94,14 @@
 - [x] 已完成
 
 #### 文件
-- `README.md`
-- 新增：`docs/LegacyCodeNotes.md`
+- [`README.md`](../../README.md)
+- 新增：[`docs/LegacyCodeNotes.md`](../architecture/legacy-migration.md)
 
 #### 任务
 - [x] 在 README 中说明 `freepiano-src/` 仅供迁移参考
 - [x] 在 README 中说明 `freepiano-src/` 不参与当前主构建
 - [x] 在 README 中说明不应直接复制平台相关旧实现
-- [x] 新增 `docs/LegacyCodeNotes.md` 记录旧模块与新模块映射关系
+- [x] 新增 [`docs/LegacyCodeNotes.md`](../architecture/legacy-migration.md) 记录旧模块与新模块映射关系
 
 #### 输出结果
 - [x] 降低误读旧代码的风险
@@ -305,7 +305,7 @@
 - [~] 进行中（已补充布局保存/恢复默认布局相关用例）
 
 #### 建议新增文件
-- `docs/KeyboardMappingTestCases.md`
+- [`docs/KeyboardMappingTestCases.md`](../testing/keyboard-mapping.md)
 
 #### 任务
 - [ ] 列出 A/S/D/F 的 note on/off 验收用例
@@ -607,7 +607,7 @@
 - [x] 已完成第一轮更新
 
 #### 文件
-- `README.md`
+- [`README.md`](../../README.md)
 
 #### 任务
 - [x] 补充项目目标
@@ -633,7 +633,7 @@
 - [x] 已完成第一轮建立，并已持续更新
 
 #### 建议新增文件
-- `docs/MilestoneChecklist.md`
+- [`docs/MilestoneChecklist.md`](MilestoneChecklist.md)
 
 #### 任务
 - [x] 定义“能扫描到 VST3”的验收项
@@ -657,7 +657,7 @@
 - [x] 已完成第一轮建立
 
 #### 新增文件
-- `docs/PluginHostLifecycleTestCases.md`
+- [`docs/PluginHostLifecycleTestCases.md`](../testing/plugin-host-lifecycle.md)
 
 #### 任务
 - [x] 定义 scan / load / unload 的高风险组合场景
@@ -722,8 +722,8 @@
 ## 第一批重点新增文件
 - [x] `source/Core/KeyMapTypes.h`
 - [x] `source/Core/MidiTypes.h`
-- [x] `docs/MilestoneChecklist.md`
-- [~] `docs/KeyboardMappingTestCases.md`
+- [x] [`docs/MilestoneChecklist.md`](MilestoneChecklist.md)
+- [~] [`docs/KeyboardMappingTestCases.md`](../testing/keyboard-mapping.md)
 
 ---
 

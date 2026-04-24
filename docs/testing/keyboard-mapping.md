@@ -10,8 +10,8 @@
 - [~] 部分通过 / 待补充验证
 
 相关文档：
-- 阶段验收：`acceptance.md`
-- 项目路线图：`../roadmap/roadmap.md`
+- 阶段验收：[`acceptance.md`](acceptance.md)
+- 项目路线图：[`../roadmap/roadmap.md`](../roadmap/roadmap.md)
 
 ---
 
@@ -559,7 +559,7 @@
 
 ## Test Run 2026-04-24
 - 变更内容：
-  - 本轮按 `current-iteration.md` 开始执行“键盘映射默认布局回归”。
+  - 本轮按 [`current-iteration.md`](../roadmap/current-iteration.md) 开始执行“键盘映射默认布局回归”。
   - 先完成当前环境可执行的代码级 / 静态校验，不把未执行的 GUI 发声验证标记为通过。
 - 执行用例：
   - 3.0 默认布局代码级一致性检查。

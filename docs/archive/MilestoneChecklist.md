@@ -8,9 +8,9 @@
 > - [~] 部分通过 / 待补充验证
 
 ## 工作流与构建入口（引用）
-- 当前统一工作流、脚本入口、WSL/Windows 双工作树说明：`docs/dev-workflow-wsl-windows-msvc.md`
-- 快速恢复环境与常用命令：`docs/quickstart-dev.md`
-- 下一阶段执行拆解：`docs/NextPhaseTaskChecklist.md`
+- 当前统一工作流、脚本入口、WSL/Windows 双工作树说明：[`docs/dev-workflow-wsl-windows-msvc.md`](../development/wsl-windows-msvc-workflow.md)
+- 快速恢复环境与常用命令：[`docs/quickstart-dev.md`](../getting-started/quickstart.md)
+- 下一阶段执行拆解：[`docs/NextPhaseTaskChecklist.md`](NextPhaseTaskChecklist.md)
 
 ---
 
@@ -146,7 +146,7 @@
 
 ### 验收记录
 - 当前状态：基本通过
-- 备注：轻量插件已完成成功加载与发声验证；外部 MIDI 驱动插件的代码路径与活动反馈已具备，但仍建议继续用更多真实设备与插件场景补充手工验证。与插件扫描、加载、卸载、editor、设备重建、退出稳定性相关的高风险回归，请优先参考 `docs/PluginHostLifecycleTestCases.md`。
+- 备注：轻量插件已完成成功加载与发声验证；外部 MIDI 驱动插件的代码路径与活动反馈已具备，但仍建议继续用更多真实设备与插件场景补充手工验证。与插件扫描、加载、卸载、editor、设备重建、退出稳定性相关的高风险回归，请优先参考 [`docs/PluginHostLifecycleTestCases.md`](../testing/plugin-host-lifecycle.md)。
 
 ---
 
@@ -198,7 +198,7 @@
 
 ### 验收记录
 - 当前状态：部分通过
-- 备注：最小可用 UI 与插件 editor 路径已成型；当前已完成插件区、参数区、头部状态区与键盘区拆分，并已将插件区刷新统一为单一入口、将插件区与头部 MIDI 状态组装抽离到轻量 builder，同时完成设置保存路径、运行时音频设备重建路径、插件相关 UI 收尾动作、插件操作主流程、启动阶段扫描恢复路径，以及轻量 AppState 聚合入口的第一轮实现。当前下一步重点已从“是否具备最小 UI”转向“状态持久化细节、错误提示完善、以及继续减少 `MainComponent` 状态装配负担”。涉及 editor、scan/load/unload 组合路径与退出稳定性的回归验证，请同步参考 `docs/PluginHostLifecycleTestCases.md`。
+- 备注：最小可用 UI 与插件 editor 路径已成型；当前已完成插件区、参数区、头部状态区与键盘区拆分，并已将插件区刷新统一为单一入口、将插件区与头部 MIDI 状态组装抽离到轻量 builder，同时完成设置保存路径、运行时音频设备重建路径、插件相关 UI 收尾动作、插件操作主流程、启动阶段扫描恢复路径，以及轻量 AppState 聚合入口的第一轮实现。当前下一步重点已从“是否具备最小 UI”转向“状态持久化细节、错误提示完善、以及继续减少 `MainComponent` 状态装配负担”。涉及 editor、scan/load/unload 组合路径与退出稳定性的回归验证，请同步参考 [`docs/PluginHostLifecycleTestCases.md`](../testing/plugin-host-lifecycle.md)。
 
 ---
 
@@ -244,7 +244,7 @@
 - [x] 中文输入法激活时仍可发声，且不弹出候选词栏
 
 补充说明：
-- 若本轮重点是插件宿主稳定性，而非单纯功能可用性，请将 `docs/PluginHostLifecycleTestCases.md` 作为并行验收基线一并执行。
+- 若本轮重点是插件宿主稳定性，而非单纯功能可用性，请将 [`docs/PluginHostLifecycleTestCases.md`](../testing/plugin-host-lifecycle.md) 作为并行验收基线一并执行。
 
 ---
 

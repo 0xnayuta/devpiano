@@ -9,11 +9,11 @@
 - [ ] 未通过 / 未开始验证
 - [~] 部分通过 / 待补充验证
 
-说明：本文件记录专项生命周期回归测试，不等同于“插件功能是否已经可用”。即使 `../roadmap/roadmap.md` 中插件发声已通过，本文件中的组合压力场景仍可能未完整执行。
+说明：本文件记录专项生命周期回归测试，不等同于“插件功能是否已经可用”。即使 [`../roadmap/roadmap.md`](../roadmap/roadmap.md) 中插件发声已通过，本文件中的组合压力场景仍可能未完整执行。
 
 相关文档：
-- 阶段验收：`acceptance.md`
-- 项目路线图：`../roadmap/roadmap.md`
+- 阶段验收：[`acceptance.md`](acceptance.md)
+- 项目路线图：[`../roadmap/roadmap.md`](../roadmap/roadmap.md)
 
 ---
 

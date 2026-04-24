@@ -4,8 +4,8 @@
 
 当前 ADR：
 
-- `0001-wsl-primary-windows-mirror-workflow.md`：采用 WSL 主工作树 + Windows 镜像树 + MSVC 验证工作流。
-- `0002-legacy-code-as-reference-only.md`：旧 FreePiano 源码只作为迁移参考，不直接复刻平台绑定实现。
+- [`0001-wsl-primary-windows-mirror-workflow.md`](0001-wsl-primary-windows-mirror-workflow.md)：采用 WSL 主工作树 + Windows 镜像树 + MSVC 验证工作流。
+- [`0002-legacy-code-as-reference-only.md`](0002-legacy-code-as-reference-only.md)：旧 FreePiano 源码只作为迁移参考，不直接复刻平台绑定实现。
 
 后续建议补充：
 
