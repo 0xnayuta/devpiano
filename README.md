@@ -215,23 +215,25 @@ Windows MSVC 验证构建：
 
 更多映射说明见：
 
-- [docs/LegacyCodeNotes.md](docs/LegacyCodeNotes.md)
+- [docs/legacy-migration.md](docs/legacy-migration.md)
 
 ---
 
 ## 当前推荐阅读顺序
 
+完整文档入口见：[docs/README.md](docs/README.md)。
+
 如果要了解项目当前规划，建议按以下顺序阅读：
 
 - 快速恢复：[docs/quickstart-dev.md](docs/quickstart-dev.md)
 - 详细工作流：[docs/dev-workflow-wsl-windows-msvc.md](docs/dev-workflow-wsl-windows-msvc.md)
-- 项目目标：[docs/OverallGoal.md](docs/OverallGoal.md)
-- 现状与规划：[docs/CurrentAssessmentAndPlan.md](docs/CurrentAssessmentAndPlan.md)
-- 执行清单：[docs/NextPhaseTaskChecklist.md](docs/NextPhaseTaskChecklist.md)
-- 验收标准：[docs/MilestoneChecklist.md](docs/MilestoneChecklist.md)
+- 当前架构：[docs/architecture.md](docs/architecture.md)
+- 路线图与项目状态：[docs/roadmap.md](docs/roadmap.md)
+- 当前迭代任务：[docs/current-iteration.md](docs/current-iteration.md)
+- 阶段验收标准：[docs/testing/acceptance.md](docs/testing/acceptance.md)
 - 专项测试：
-  - [docs/KeyboardMappingTestCases.md](docs/KeyboardMappingTestCases.md)
-  - [docs/PluginHostLifecycleTestCases.md](docs/PluginHostLifecycleTestCases.md)
+  - [docs/testing/keyboard-mapping.md](docs/testing/keyboard-mapping.md)
+  - [docs/testing/plugin-host-lifecycle.md](docs/testing/plugin-host-lifecycle.md)
 
 ---
 
