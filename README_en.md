@@ -215,23 +215,25 @@ Typical replacement directions:
 
 For more mapping details, see:
 
-- [docs/LegacyCodeNotes.md](docs/LegacyCodeNotes.md)
+- [docs/legacy-migration.md](docs/legacy-migration.md)
 
 ---
 
 ## Recommended Documentation Reading Order
 
+The full documentation index is available at: [docs/README.md](docs/README.md).
+
 If you want to understand the current project plan, the recommended reading order is:
 
 - Quick start / environment recovery: [docs/quickstart-dev.md](docs/quickstart-dev.md)
 - Detailed workflow: [docs/dev-workflow-wsl-windows-msvc.md](docs/dev-workflow-wsl-windows-msvc.md)
-- Project goals: [docs/OverallGoal.md](docs/OverallGoal.md)
-- Current status and planning: [docs/CurrentAssessmentAndPlan.md](docs/CurrentAssessmentAndPlan.md)
-- Execution checklist: [docs/NextPhaseTaskChecklist.md](docs/NextPhaseTaskChecklist.md)
-- Acceptance criteria: [docs/MilestoneChecklist.md](docs/MilestoneChecklist.md)
+- Current architecture: [docs/architecture.md](docs/architecture.md)
+- Roadmap and project status: [docs/roadmap.md](docs/roadmap.md)
+- Current iteration tasks: [docs/current-iteration.md](docs/current-iteration.md)
+- Acceptance criteria: [docs/testing/acceptance.md](docs/testing/acceptance.md)
 - Specialized test docs:
-  - [docs/KeyboardMappingTestCases.md](docs/KeyboardMappingTestCases.md)
-  - [docs/PluginHostLifecycleTestCases.md](docs/PluginHostLifecycleTestCases.md)
+  - [docs/testing/keyboard-mapping.md](docs/testing/keyboard-mapping.md)
+  - [docs/testing/plugin-host-lifecycle.md](docs/testing/plugin-host-lifecycle.md)
 
 ---
 
