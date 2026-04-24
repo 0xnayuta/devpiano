@@ -1,94 +1,243 @@
 # Project: FreePiano-JUCE
-你正在协助我将老旧的 Windows FreePiano 项目重构为基于 JUCE 框架的现代 C++ 音频应用。
-开发环境：WSL2 主工作树 + Windows 镜像树 + CMake + Ninja（Windows 侧使用 Visual Studio 2026 的 MSVC 工具链做验证构建）。
 
-## 目录结构说明：
-- `/JUCE/`：JUCE 框架的 git 子模块，不要修改里面的任何代码。
-- `/source/`：所有的源代码（.cpp, .h）必须存放在这个目录下。
-- `/freepiano-src/`：原 FreePiano 旧版本源码，仅作为迁移参考。
+你正在协助将老旧的 FreePiano 项目重构为基于 JUCE 的现代 C++ 音频/MIDI 应用。
+
+开发环境采用：**WSL 主工作树 + Windows 镜像树 + CMake + Ninja + Windows/MSVC 验证构建**。
+
+---
+
+## 1. 项目边界与目录职责
+
+### 主源码与构建目录
+
+- `/source/`
+  - 当前 JUCE 主实现目录。
+  - 所有新增和重构后的业务源码（`.cpp` / `.h`）必须放在这里。
+- `/JUCE/`
+  - JUCE 框架 git 子模块。
+  - **绝对不要修改其中任何代码**。
+- `/freepiano-src/`
+  - 旧 FreePiano 源码，仅作为迁移参考。
   - 不参与当前 JUCE 主构建。
-  - 可用于理解旧系统行为、模块关系与迁移路径。
-  - 不要直接复制其中的平台相关实现到新架构；应优先提炼行为后用 JUCE 抽象重建。
-- 根目录：用于存放顶层 `CMakeLists.txt`、构建脚本与工作流文档。
-- WSL 主构建目录：`/root/repos/devpiano/build-wsl-clang`
-- Windows 镜像目录：默认 `G:\source\projects\devpiano`（可由环境变量 `WIN_MIRROR_DIR` 覆盖）
-- Windows 验证构建目录：镜像树下的 `build-win-msvc`
+  - 只用于理解历史行为、默认布局、功能边界和旧模块关系。
+  - 不要直接复制平台相关实现；应提炼行为后用 JUCE 抽象重建。
+- `/build-wsl-clang/`
+  - WSL 本地构建目录。
+  - clangd / LSP 编译数据库来源：`build-wsl-clang/compile_commands.json`。
+- Windows 镜像目录
+  - 默认：`G:\source\projects\devpiano`
+  - 可由环境变量 `WIN_MIRROR_DIR` 覆盖。
+- Windows 验证构建目录
+  - 镜像树下：`build-win-msvc`。
 
-## 核心架构要求：
-1. 音频/MIDI 后端：使用 JUCE 的 `AudioDeviceManager` 替代原有的原生 WASAPI/ASIO 代码。
-2. 插件宿主：使用 JUCE 的 `AudioPluginFormatManager` (支持 VST3/VST) 替代旧的 VST 加载逻辑。
-3. 键盘输入：利用 JUCE 的 `KeyListener` 捕获电脑键盘事件，映射为 `MidiMessage`。
-4. UI：使用 JUCE 的 `Component` 树替代原 Windows GDI/原生控件。
+### 文档目录
 
-## 高优先级行动规则：
-- 保持代码极简、现代 (C++20/23)。
-- 绝对不要修改 `/JUCE/` 子模块内的代码。
-- 新增和重构后的业务代码只放在 `/source/`。
+当前 docs 结构已重组，阅读和维护时按以下职责区分：
+
+- `docs/README.md`：文档总入口。
+- `docs/index/doc-map.md`：按读者目标组织的文档地图。
+- `docs/getting-started/quickstart.md`：快速恢复环境与常用命令。
+- `docs/development/wsl-windows-msvc-workflow.md`：WSL / Windows 镜像 / MSVC 验证详细工作流。
+- `docs/architecture/overview.md`：当前系统架构、模块职责与主要链路。
+- `docs/architecture/legacy-migration.md`：旧 FreePiano 源码迁移边界与新旧模块映射。
+- `docs/features/keyboard-mapping.md`：键盘映射功能说明。
+- `docs/features/plugin-hosting.md`：插件宿主功能说明。
+- `docs/testing/acceptance.md`：阶段验收标准。
+- `docs/testing/keyboard-mapping.md`：键盘映射专项测试。
+- `docs/testing/plugin-host-lifecycle.md`：插件宿主生命周期专项测试。
+- `docs/decisions/`：ADR，记录已确定的架构/工程决策。
+- `docs/roadmap/roadmap.md`：唯一项目状态、阶段路线与近期重点来源。
+- `docs/roadmap/current-iteration.md`：当前迭代入口。
+- `docs/archive/`：历史资料，内容只作参考，当前信息以现行文档为准。
+
+---
+
+## 2. 核心架构要求
+
+1. 音频 / MIDI 后端：使用 JUCE `AudioDeviceManager` 替代旧原生 WASAPI / ASIO / DirectSound 路径。
+2. 插件宿主：使用 JUCE `AudioPluginFormatManager` / `AudioPluginInstance` / VST3 主路径替代旧 VST 加载逻辑。
+3. 键盘输入：使用 JUCE `KeyListener` / `KeyPress` 捕获电脑键盘事件，并映射为 `MidiMessage`。
+4. UI：使用 JUCE `Component` 树替代旧 Windows GDI / 原生控件。
+5. 配置与状态：优先使用 JUCE `ApplicationProperties` / `ValueTree` 与项目内状态模型。
+6. 录制 / 回放 / 导出等高级功能应先定义现代数据模型，不直接继承旧 `song.*` 内部表示。
+
+---
+
+## 3. 高优先级行动规则
+
+- 保持代码极简、现代、可维护，使用 C++20/23 风格。
+- **不要修改 `/JUCE/` 子模块**。
+- **新增业务代码只放在 `/source/` 下的合适子目录**。
 - 优先小步修改、小范围验证，不要一次性大改整个系统。
-- 优先使用 `read` 和 `edit` 逐步提取和迁移旧逻辑，不要一次性读取过多旧代码。
-- 理解历史功能或迁移旧模块时，可阅读 `freepiano-src/`；但日常主搜索、编辑、重构、构建验证仍应以 `source/` 和 WSL 主工作树为准。
-- **WSL 主工作树是唯一主源码来源**；日常编辑、grep/rg、clangd/LSP、脚本执行都应以 WSL 主树为准。
-- **不要让 Windows/MSVC 直接跨边界在 WSL 主工作树上长期构建**；Windows 侧只使用镜像树做验证。
-- WSL 构建与 Windows 构建必须分离：
+- 理解旧逻辑时可以阅读 `/freepiano-src/`，但日常搜索、编辑、重构、构建验证都以 WSL 主工作树和 `/source/` 为准。
+- **WSL 主工作树是唯一主源码来源**。
+- **不要让 Windows/MSVC 直接跨边界在 WSL 主工作树上长期构建**；Windows 只使用镜像树做验证。
+- WSL 构建和 Windows 构建必须分离：
   - WSL：`build-wsl-clang`
   - Windows：镜像树下 `build-win-msvc`
-- 在关键修改后优先使用项目脚本验证，而不是 `cmake --build .`：
-  - WSL 本地：`./scripts/dev.sh wsl-build`
-  - 仅刷新编译数据库：`./scripts/dev.sh wsl-build --configure-only`
-  - Windows MSVC 验证：`./scripts/dev.sh win-build`
-- 需要快速检查环境是否满足当前工作流时，先运行：`./scripts/dev.sh self-check`
+- 关键修改后优先使用项目脚本验证，而不是直接手写 `cmake --build .`。
+- 需要快速检查环境时，先运行：
 
-## 已安装 Pi 扩展的行动指令：
+```bash
+./scripts/dev.sh self-check
+```
 
-### 1. `pi-lsp`
+---
+
+## 4. 推荐开发命令
+
+```bash
+# 环境自检
+./scripts/dev.sh self-check
+
+# 仅刷新 WSL configure / compile_commands.json
+./scripts/dev.sh wsl-build --configure-only
+
+# WSL 本地构建
+./scripts/dev.sh wsl-build
+
+# 同步到 Windows 镜像树
+./scripts/dev.sh win-sync
+
+# Windows MSVC 验证构建
+./scripts/dev.sh win-build
+```
+
+常用 Windows 验证选项：
+
+```bash
+./scripts/dev.sh win-build --no-sync
+./scripts/dev.sh win-build --reconfigure
+./scripts/dev.sh win-build --clean-win-build
+```
+
+涉及环境恢复、同步、MSVC 验证、路径问题时，优先参考：
+
+- `docs/getting-started/quickstart.md`
+- `docs/development/wsl-windows-msvc-workflow.md`
+- ADR：`docs/decisions/0001-wsl-primary-windows-mirror-workflow.md`
+
+---
+
+## 5. 文档维护规则
+
+- 项目状态和长期路线只写入：`docs/roadmap/roadmap.md`。
+- 当前任务只写入：`docs/roadmap/current-iteration.md`。
+- 架构说明写入：`docs/architecture/`。
+- 功能行为说明写入：`docs/features/`。
+- 测试、验收、手工回归写入：`docs/testing/`。
+- 已确定的重要工程/架构决策写入：`docs/decisions/`。
+- 旧文档和过期规划进入：`docs/archive/`。
+- 不要在多个文档中重复维护同一份“当前状态”；以 `docs/roadmap/roadmap.md` 为准。
+- 不要把未实现能力写成已实现能力。
+- 移动或重命名文档后，检查 README、doc-map、相关引用和 archive 替代关系。
+
+---
+
+## 6. 旧代码迁移规则
+
+旧源码目录：`/freepiano-src/`。
+
+允许：
+
+- 阅读旧代码以理解历史行为。
+- 提取业务规则、默认键位、消息语义和功能边界。
+- 对照旧模块验证新架构是否覆盖关键行为。
+
+禁止或避免：
+
+- 直接复制旧 Windows 平台实现。
+- 重新引入以 `windows.h` 为中心的依赖链作为核心架构。
+- 原样复刻旧 WASAPI / ASIO / DSound 后端。
+- 原样复刻旧 VST SDK 风格宿主。
+- 原样复刻旧 GDI GUI。
+- 延续旧宏式、全局函数式设计。
+
+迁移原则：**旧代码用于提炼行为，不用于直接复刻实现。**
+
+参考：
+
+- `docs/architecture/legacy-migration.md`
+- ADR：`docs/decisions/0002-legacy-code-as-reference-only.md`
+
+---
+
+## 7. JUCE/C++ 专项指令
+
+- 优先保持 UI、音频/MIDI、插件宿主、设置/状态模型解耦。
+- 修改 UI 时，保持 `Component` 层级清晰、职责单一。
+- 修改 MIDI / 音频 / 插件宿主时，保持后端逻辑独立于 UI。
+- 新状态优先通过 `AppState` / builder / UI 子组件边界表达，避免 `MainComponent` 再次膨胀。
+- 插件相关改动重点关注：scan / load / unload / editor / audio device rebuild / exit 生命周期组合。
+- 键盘相关改动重点关注：note on/off 成对、长按、连按、焦点切换、输入法、修饰键。
+- 对大范围重命名或结构调整，先小步重构，再使用 LSP 和构建验证。
+
+相关功能与测试文档：
+
+- 键盘映射功能：`docs/features/keyboard-mapping.md`
+- 键盘映射测试：`docs/testing/keyboard-mapping.md`
+- 插件宿主功能：`docs/features/plugin-hosting.md`
+- 插件宿主生命周期测试：`docs/testing/plugin-host-lifecycle.md`
+- 阶段验收：`docs/testing/acceptance.md`
+
+---
+
+## 8. 已安装 Pi 扩展的行动指令
+
+### 8.1 `pi-lsp`
+
 - 把 `lsp` 作为当前 JUCE/C++ 重构任务的首选工具。
-- 修改 `source/*.h`、`source/*.cpp` 后，先用 `lsp` 检查：`diagnostics`、`workspace-diagnostics`、`definition`、`references`、`symbols`、`rename`、`codeAction`。
+- 修改 `source/*.h`、`source/*.cpp` 后，先用 `lsp` 检查 diagnostics / workspace-diagnostics。
 - 做局部重构、类型排错、符号跳转、引用分析时，先用 `lsp`，不要只依赖全文搜索。
 - 需要理解某个类、方法、成员的来源、类型或调用链时，先做 `lsp` 查询。
 - 先看 `lsp` 结果，再决定是否运行完整编译。
-- 优先让 `clangd` / 编译数据库暴露真实问题；不要在没有诊断支撑时盲改 C++ 代码。
-- 当前 clangd / 编译数据库基于 WSL 构建目录：`build-wsl-clang/compile_commands.json`。
-- 如编译数据库缺失或怀疑过期，先执行：`./scripts/dev.sh wsl-build --configure-only`
+- 当前 clangd / 编译数据库基于：`build-wsl-clang/compile_commands.json`。
+- 如编译数据库缺失或怀疑过期，先执行：
 
-### 2. `context-mode`
-- 在长会话、多文件修改、多轮构建修错场景下，控制上下文体积。
-- 避免一次性读入或回传大量原始输出；先筛选、总结、分批处理。
-- 始终明确并持续维护：当前目标、已修改文件、待验证步骤、下一步计划。
-- 需要诊断上下文或会话问题时，再建议用户使用 context-mode 的相关命令；不要假设自己一定能直接调用这些命令。
+```bash
+./scripts/dev.sh wsl-build --configure-only
+```
 
-### 3. `Understand-Anything`
+### 8.2 `Understand-Anything`
+
 - 在“理解旧系统”“梳理架构”“分析模块关系”“规划迁移路径”时，优先使用 `understand` 系列技能。
-- 在开始迁移旧模块前、分析旧 FreePiano 主流程前、复盘当前 JUCE 架构前，优先做一次阶段性 `understand` 分析。
+- 在开始迁移旧模块前、分析旧 FreePiano 主流程前、复盘当前 JUCE 架构前，优先做阶段性 `understand` 分析。
 - 不要在每次小改动后都调用 `understand`；只在阶段性、大粒度分析时使用。
 
-## JUCE/C++ 项目专项指令：
-- 优先保持 UI、音频/MIDI、插件宿主逻辑解耦。
-- 优先把平台相关旧逻辑迁移到 JUCE 抽象之上，不要把旧 Windows 细节直接搬进新架构。
-- 优先使用 JUCE 的 `AudioDeviceManager`、`AudioPluginFormatManager`、`KeyListener`、`Component` 树实现对应能力。
-- 修改 UI 代码时，优先保持 `Component` 层级清晰、职责单一。
-- 修改 MIDI / 音频 / 插件宿主代码时，优先保持后端逻辑独立于 UI。
-- 对大范围重命名或结构调整，先做小步重构，再用 `lsp` 和编译验证。
-- 如有 `compile_commands.json` 或等效编译数据库，优先利用其配合 `lsp` 定位问题。
-- 不要把 Windows 镜像树或 `build-win-msvc` 当作日常搜索、索引或上下文理解重点目录。
-- Windows 侧验证的目的是确认 MSVC / CMake / Ninja 在镜像树上可通过，不是替代 WSL 主工作流。
+---
 
-## 工作流文档优先级：
-- 涉及当前 WSL/Windows 混合开发、同步、MSVC 验证、环境恢复、自检命令时，优先参考：
-  - `docs/development/wsl-windows-msvc-workflow.md`
-  - `docs/getting-started/quickstart.md`
+## 9. 推荐工作流
 
-## 推荐工作流：
-1. 先用 `understand` 理解旧逻辑、模块关系和迁移路径。
-2. 再用 `lsp` 配合 `read` / `edit` 在 **WSL 主工作树**实施具体 C++ / JUCE 修改。
-3. 在长时间多轮修改与多次构建修错过程中，按 context-mode 的工作方式保持状态清晰、输出精简。
-4. 在关键修改后优先运行：
-   - `./scripts/dev.sh wsl-build`
-   - 必要时 `./scripts/dev.sh wsl-build --configure-only` 刷新 clangd / compile_commands
-5. 需要只同步到 Windows 镜像树时，可运行：
-   - `./scripts/dev.sh win-sync`
-6. 需要做 Windows/MSVC 验证时，再运行：
-   - `./scripts/dev.sh win-build`
-   - 或按需使用 `--no-sync` / `--reconfigure` / `--clean-win-build`
-7. 遇到环境或路径问题时，先运行：
-   - `./scripts/dev.sh self-check`
-8. 必要时再结合 `lsp diagnostics` 定位残余错误。
+1. 明确任务目标和涉及范围。
+2. 如涉及旧系统行为或迁移路径，先阅读：
+   - `docs/architecture/legacy-migration.md`
+   - 必要时阅读 `/freepiano-src/` 相关旧模块。
+3. 如涉及当前架构或功能边界，先阅读：
+   - `docs/architecture/overview.md`
+   - `docs/features/keyboard-mapping.md`
+   - `docs/features/plugin-hosting.md`
+4. 使用 `lsp` + `read` / `edit` 在 WSL 主工作树中小步修改。
+5. 修改 `source/*.h` / `source/*.cpp` 后，先用 LSP diagnostics 检查。
+6. 关键修改后运行：
+
+```bash
+./scripts/dev.sh wsl-build
+```
+
+7. 需要刷新 clangd 编译数据库时运行：
+
+```bash
+./scripts/dev.sh wsl-build --configure-only
+```
+
+8. 需要 Windows/MSVC 验证时运行：
+
+```bash
+./scripts/dev.sh win-build
+```
+
+9. 涉及环境或路径问题时，先运行：
+
+```bash
+./scripts/dev.sh self-check
+```
