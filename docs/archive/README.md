@@ -11,3 +11,4 @@
 | `NextPhaseTaskChecklist.md` | `../roadmap/current-iteration.md`，后续可拆为 backlog |
 | `NinjaMigrationGuide.md` | `../development/wsl-windows-msvc-workflow.md`、`../getting-started/quickstart.md` |
 | `OverallGoal.md` | `../roadmap/roadmap.md`、`../getting-started/README.md`、`../architecture/overview.md` |
+| `docs-restructure-2026-04.md` | `../README.md`、`../index/doc-map.md`、`../roadmap/current-iteration.md` |
