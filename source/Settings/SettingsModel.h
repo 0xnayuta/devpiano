@@ -5,6 +5,7 @@
 #include <unordered_map>
 
 #include "Core/KeyMapTypes.h"
+#include "Layout/LayoutDirectoryScanner.h"
 
 // Persisted settings model.
 //
@@ -183,8 +184,15 @@ struct SettingsModel
 
     static devpiano::core::KeyboardLayout keyMapToLayout(const std::unordered_map<int, int>& map, const juce::String& layoutId)
     {
-        auto layout = (layoutId == "default.freepiano.full") ? devpiano::core::makeFullPianoLayout() 
-                                                             : devpiano::core::makeDefaultKeyboardLayout();
+        auto layout = (layoutId == "default.freepiano.full") ? devpiano::core::makeFullPianoLayout()
+                                                              : devpiano::core::makeDefaultKeyboardLayout();
+
+        if (!layoutId.isEmpty() && !layoutId.startsWith("default."))
+        {
+            if (auto userLayout = devpiano::layout::loadUserLayoutById(layoutId); userLayout.has_value())
+                layout = *userLayout;
+        }
+
         if (map.empty())
             return layout;
 

@@ -19,6 +19,7 @@
 #include "UI/KeyboardPanel.h"
 #include "UI/PluginEditorWindow.h"
 #include "UI/PluginPanel.h"
+#include "Layout/LayoutDirectoryScanner.h"
 
 class MainComponent final : public juce::AudioAppComponent
 {
@@ -61,6 +62,9 @@ private:
     void handleLayoutChanged(const juce::String& newLayoutId);
     void handleSaveLayoutRequested();
     void handleResetLayoutToDefaultRequested();
+    void handleImportLayoutRequested();
+    void handleRenameLayoutRequested();
+    void handleDeleteLayoutRequested();
     void applyUiStateToAudioEngine();
     void syncUiFromSettings();
     void syncSettingsFromUi();
@@ -127,6 +131,8 @@ private:
     ControlsPanel controlsPanel;
     KeyboardPanel keyboardPanel;
     std::unique_ptr<juce::DialogWindow> settingsWindow;
+    std::unique_ptr<juce::FileChooser> saveLayoutChooser;
+    std::unique_ptr<juce::FileChooser> importLayoutChooser;
     std::unique_ptr<PluginEditorWindow> pluginEditorWindow;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)

@@ -76,6 +76,10 @@ target_sources(devpiano PRIVATE
     source/Settings/SettingsStore.cpp
     source/Settings/SettingsStore.h
     source/Settings/SettingsComponent.h
+    source/Layout/LayoutPreset.cpp
+    source/Layout/LayoutPreset.h
+    source/Layout/LayoutDirectoryScanner.cpp
+    source/Layout/LayoutDirectoryScanner.h
 )
 
 # 包含 source 目录作为头文件查找路径，这样代码里可以通过 #include "xxx.h" 直接引用

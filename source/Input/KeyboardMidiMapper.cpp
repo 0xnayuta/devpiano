@@ -13,6 +13,11 @@ void KeyboardMidiMapper::setLayout(KeyboardLayout newLayout)
     heldKeys.clear();
 }
 
+void KeyboardMidiMapper::setLayoutDisplayName(juce::String newDisplayName)
+{
+    layout.name = std::move(newDisplayName);
+}
+
 const KeyboardLayout& KeyboardMidiMapper::getLayout() const noexcept
 {
     return layout;

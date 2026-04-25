@@ -26,11 +26,19 @@ public:
     std::function<void(const juce::String&)> onLayoutChanged;
     std::function<void()> onSaveLayoutRequested;
     std::function<void()> onResetLayoutRequested;
+    std::function<void()> onImportLayoutRequested;
+    std::function<void()> onRenameLayoutRequested;
+    std::function<void()> onDeleteLayoutRequested;
 
-    void setLayouts(const juce::StringArray& layoutIds, const juce::String& currentLayoutId);
+    void setLayouts(const juce::StringArray& layoutIds,
+                const juce::String& currentLayoutId,
+                const juce::StringArray& layoutDisplayNames);
+
+    [[nodiscard]] juce::String getSelectedLayoutId() const;
 
 private:
     [[nodiscard]] static juce::String makeLayoutDisplayName(const juce::String& layoutId);
+    void updateLayoutActionButtons();
 
     void configureSlider(juce::Slider& slider,
                          juce::Label& label,
@@ -56,6 +64,9 @@ private:
     juce::ComboBox layoutComboBox;
     juce::TextButton saveLayoutButton { "Save Layout" };
     juce::TextButton resetLayoutButton { "Reset Current Layout" };
+    juce::TextButton importLayoutButton { "Import" };
+    juce::TextButton renameLayoutButton { "Rename" };
+    juce::TextButton deleteLayoutButton { "Delete" };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ControlsPanel)
 };

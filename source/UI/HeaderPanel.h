@@ -23,7 +23,6 @@ public:
 
     void setHintText(const juce::String& text);
     void updateMidiStatus(const MidiStatus& status);
-    void updateAudioStatus(const AudioStatus& status);
 
     std::function<void()> onSettingsRequested;
 
@@ -31,7 +30,6 @@ private:
     juce::Label titleLabel;
     juce::Label hintLabel;
     juce::Label midiStatusLabel;
-    juce::Label audioStatusLabel;
     juce::TextButton settingsButton { "Settings" };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(HeaderPanel)

@@ -12,6 +12,7 @@ public:
     KeyboardMidiMapper();
 
     void setLayout(devpiano::core::KeyboardLayout newLayout);
+    void setLayoutDisplayName(juce::String newDisplayName);
     [[nodiscard]] const devpiano::core::KeyboardLayout& getLayout() const noexcept;
     void resetToDefaultLayout();
 

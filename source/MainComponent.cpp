@@ -1,6 +1,7 @@
 #include "MainComponent.h"
 #include "UI/HeaderPanelStateBuilder.h"
 #include "UI/PluginPanelStateBuilder.h"
+#include "Layout/LayoutPreset.h"
 
 #if JUCE_WINDOWS
 struct HWND__;
@@ -23,6 +24,29 @@ juce::String makeSafeUiText(juce::String text)
         text = text.substring(0, maxLen);
 
     return text;
+}
+
+[[nodiscard]] std::optional<std::pair<juce::File, devpiano::core::KeyboardLayout>> findUserLayoutFileById(const juce::String& layoutId)
+{
+    if (layoutId.isEmpty() || layoutId.startsWith("default."))
+        return std::nullopt;
+
+    auto dir = devpiano::layout::getUserLayoutDirectory();
+    for (const auto& entry : dir.findChildFiles(juce::File::TypesOfFileToFind::findFiles, false, "*.freepiano.layout"))
+    {
+        auto loaded = devpiano::layout::loadLayoutPreset(entry);
+        if (!loaded.has_value())
+            continue;
+
+        loaded->id = devpiano::layout::getUserLayoutIdForFile(entry);
+        if (loaded->name.trim().isEmpty())
+            loaded->name = devpiano::layout::getLayoutPresetDisplayNameForFile(entry);
+
+        if (loaded->id == layoutId)
+            return std::make_pair(entry, *loaded);
+    }
+
+    return std::nullopt;
 }
 
 #if JUCE_WINDOWS
@@ -64,6 +88,9 @@ MainComponent::~MainComponent()
     controlsPanel.onLayoutChanged = {};
     controlsPanel.onSaveLayoutRequested = {};
     controlsPanel.onResetLayoutRequested = {};
+    controlsPanel.onImportLayoutRequested = {};
+    controlsPanel.onRenameLayoutRequested = {};
+    controlsPanel.onDeleteLayoutRequested = {};
     headerPanel.onSettingsRequested = {};
     pluginPanel.onScanRequested = {};
     pluginPanel.onLoadRequested = {};
@@ -113,6 +140,9 @@ void MainComponent::initialiseUi()
     controlsPanel.onLayoutChanged = [this](const juce::String& newId) { handleLayoutChanged(newId); };
     controlsPanel.onSaveLayoutRequested = [this] { handleSaveLayoutRequested(); };
     controlsPanel.onResetLayoutRequested = [this] { handleResetLayoutToDefaultRequested(); };
+    controlsPanel.onImportLayoutRequested = [this] { handleImportLayoutRequested(); };
+    controlsPanel.onRenameLayoutRequested = [this] { handleRenameLayoutRequested(); };
+    controlsPanel.onDeleteLayoutRequested = [this] { handleDeleteLayoutRequested(); };
 
     addAndMakeVisible(keyboardPanel);
 }
@@ -304,11 +334,33 @@ void MainComponent::handleLayoutChanged(const juce::String& newLayoutId)
 
 void MainComponent::handleSaveLayoutRequested()
 {
-    appSettings.applyInputMappingSettingsView({ .layoutId = keyboardMidiMapper.getLayout().id,
-                                                .keyMap = SettingsModel::layoutToKeyMap(keyboardMidiMapper.getLayout()) });
-    syncUiFromSettings();
-    saveSettingsNow();
-    restoreKeyboardFocus();
+    saveLayoutChooser = std::make_unique<juce::FileChooser>("Save Layout", devpiano::layout::getUserLayoutDirectory(), "*.freepiano.layout");
+    saveLayoutChooser->launchAsync(juce::FileBrowserComponent::saveMode, [this](const juce::FileChooser& fc)
+    {
+        auto file = fc.getResult();
+        auto path = file.getFullPathName();
+        if (path.isEmpty())
+            return;
+
+        auto currentLayout = keyboardMidiMapper.getLayout();
+        const auto targetLayoutId = devpiano::layout::getUserLayoutIdForFile(file);
+        currentLayout.id = targetLayoutId;
+        if (currentLayout.name.trim().isEmpty())
+            currentLayout.name = devpiano::layout::getLayoutPresetDisplayNameForFile(file);
+
+        auto saved = devpiano::layout::saveLayoutPreset(currentLayout, file);
+        juce::Logger::writeToLog(saved ? "Layout saved: " + file.getFullPathName() : "Layout save FAILED: " + file.getFullPathName());
+        if (saved)
+        {
+            audioEngine.getKeyboardState().allNotesOff(1);
+            keyboardMidiMapper.setLayout(currentLayout);
+            appSettings.applyInputMappingSettingsView({ .layoutId = keyboardMidiMapper.getLayout().id,
+                                                        .keyMap = SettingsModel::layoutToKeyMap(keyboardMidiMapper.getLayout()) });
+            syncUiFromSettings();
+            saveSettingsSoon();
+            restoreKeyboardFocus();
+        }
+    });
 }
 
 void MainComponent::handleResetLayoutToDefaultRequested()
@@ -326,6 +378,143 @@ void MainComponent::handleResetLayoutToDefaultRequested()
     restoreKeyboardFocus();
 }
 
+void MainComponent::handleImportLayoutRequested()
+{
+    importLayoutChooser = std::make_unique<juce::FileChooser>("Import Layout", juce::File{}, "*.freepiano.layout");
+    importLayoutChooser->launchAsync(juce::FileBrowserComponent::openMode, [this](const juce::FileChooser& fc)
+    {
+        auto file = fc.getResult();
+        if (!file.exists())
+            return;
+
+        auto optLayout = devpiano::layout::loadLayoutPreset(file);
+        if (!optLayout.has_value())
+            return;
+
+        auto layout = *optLayout;
+        auto userDir = devpiano::layout::getUserLayoutDirectory();
+
+        auto originalName = file.getFileName();
+        auto destFile = userDir.getChildFile(originalName);
+        layout.id = devpiano::layout::getUserLayoutIdForFile(destFile);
+        if (layout.name.trim().isEmpty())
+            layout.name = devpiano::layout::getLayoutPresetDisplayNameForFile(destFile);
+
+        if (!devpiano::layout::saveLayoutPreset(layout, destFile))
+            return;
+
+        audioEngine.getKeyboardState().allNotesOff(1);
+        keyboardMidiMapper.setLayout(layout);
+        appSettings.applyInputMappingSettingsView({ .layoutId = keyboardMidiMapper.getLayout().id,
+                                                    .keyMap = SettingsModel::layoutToKeyMap(keyboardMidiMapper.getLayout()) });
+        syncUiFromSettings();
+        saveSettingsSoon();
+        restoreKeyboardFocus();
+    });
+}
+
+void MainComponent::handleRenameLayoutRequested()
+{
+    const auto layoutId = controlsPanel.getSelectedLayoutId().trim();
+    if (layoutId.isEmpty() || layoutId.startsWith("default."))
+        return;
+
+    auto layoutFile = findUserLayoutFileById(layoutId);
+    if (!layoutFile.has_value())
+        return;
+
+    const auto& [fileToRename, loadedLayout] = *layoutFile;
+    auto currentDisplayName = loadedLayout.name.trim();
+    if (currentDisplayName.isEmpty())
+        currentDisplayName = devpiano::layout::getLayoutPresetDisplayNameForFile(fileToRename);
+
+    auto* renameWindow = new juce::AlertWindow("Rename Layout",
+                                               "Set the display name shown in the layout dropdown.",
+                                               juce::AlertWindow::NoIcon);
+    renameWindow->addTextEditor("displayName", currentDisplayName, "Display Name:");
+    renameWindow->addButton("Rename", 1, juce::KeyPress(juce::KeyPress::returnKey));
+    renameWindow->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+
+    auto safeThis = juce::Component::SafePointer<MainComponent>(this);
+    juce::Component::SafePointer<juce::AlertWindow> safeWindow(renameWindow);
+    renameWindow->enterModalState(true,
+                                  juce::ModalCallbackFunction::create([safeThis, safeWindow, layoutId](int result)
+                                  {
+                                      if (result != 1 || safeThis == nullptr || safeWindow == nullptr)
+                                          return;
+
+                                      auto updatedDisplayName = safeWindow->getTextEditorContents("displayName").trim();
+                                      if (updatedDisplayName.isEmpty())
+                                          return;
+
+                                      auto layoutFileToUpdate = findUserLayoutFileById(layoutId);
+                                      if (!layoutFileToUpdate.has_value())
+                                          return;
+
+                                      auto [resolvedFile, layout] = *layoutFileToUpdate;
+                                      layout.name = updatedDisplayName;
+                                      if (!devpiano::layout::saveLayoutPreset(layout, resolvedFile))
+                                          return;
+
+                                      if (safeThis->keyboardMidiMapper.getLayout().id == layoutId)
+                                      {
+                                          safeThis->keyboardMidiMapper.setLayoutDisplayName(updatedDisplayName);
+                                          safeThis->appSettings.applyInputMappingSettingsView({ .layoutId = layoutId,
+                                                                                               .keyMap = SettingsModel::layoutToKeyMap(safeThis->keyboardMidiMapper.getLayout()) });
+                                      }
+
+                                      safeThis->syncUiFromSettings();
+                                      safeThis->saveSettingsSoon();
+                                      safeThis->restoreKeyboardFocus();
+                                  }),
+                                  true);
+}
+
+void MainComponent::handleDeleteLayoutRequested()
+{
+    auto layoutId = controlsPanel.getSelectedLayoutId();
+    if (layoutId.isEmpty() || layoutId.startsWith("default."))
+        return;
+    auto layoutName = layoutId;
+    juce::File fileToDelete;
+    if (auto layoutFile = findUserLayoutFileById(layoutId); layoutFile.has_value())
+    {
+        layoutName = layoutFile->second.name.isNotEmpty() ? layoutFile->second.name : layoutId;
+        fileToDelete = layoutFile->first;
+    }
+
+    auto safeThis = juce::Component::SafePointer<MainComponent>(this);
+    auto capturedLayoutId = layoutId;
+    auto capturedFileToDelete = fileToDelete;
+
+    juce::AlertWindow::showAsync(
+        juce::MessageBoxOptions::makeOptionsOkCancel(
+            juce::AlertWindow::WarningIcon,
+            "Delete Layout",
+            "Are you sure you want to delete \"" + layoutName + "\"?\nThis action cannot be undone.",
+            "Delete",
+            "Cancel"),
+        [safeThis, capturedLayoutId, capturedFileToDelete](int result)
+        {
+            if (result != 1 || safeThis == nullptr)
+                return;
+
+            if (capturedFileToDelete.exists())
+                capturedFileToDelete.deleteFile();
+
+            if (safeThis->keyboardMidiMapper.getLayout().id == capturedLayoutId)
+            {
+                safeThis->audioEngine.getKeyboardState().allNotesOff(1);
+                safeThis->keyboardMidiMapper.setLayout(devpiano::core::makeDefaultKeyboardLayout());
+                safeThis->appSettings.applyInputMappingSettingsView({ .layoutId = safeThis->keyboardMidiMapper.getLayout().id,
+                                                            .keyMap = SettingsModel::layoutToKeyMap(safeThis->keyboardMidiMapper.getLayout()) });
+            }
+            safeThis->syncUiFromSettings();
+            safeThis->saveSettingsSoon();
+            safeThis->restoreKeyboardFocus();
+        });
+}
+
 void MainComponent::applyUiStateToAudioEngine()
 {
     applyPerformanceSettingsToAudioEngine(getPerformanceSettingsFromUi());
@@ -334,9 +523,18 @@ void MainComponent::applyUiStateToAudioEngine()
 void MainComponent::syncUiFromSettings()
 {
     applyPerformanceSettingsToUi(appSettings.getPerformanceSettingsView());
-    
+
     juce::StringArray layoutIds = { "default.freepiano.minimal", "default.freepiano.full" };
-    controlsPanel.setLayouts(layoutIds, appSettings.getInputMappingSettingsView().layoutId);
+    juce::StringArray layoutDisplayNames = { "FreePiano Minimal", "FreePiano Full" };
+
+    auto userLayouts = devpiano::layout::scanUserLayoutDirectory();
+    for (const auto& layout : userLayouts)
+    {
+        layoutIds.add(layout.id);
+        layoutDisplayNames.add(layout.name.isNotEmpty() ? layout.name : layout.id);
+    }
+
+    controlsPanel.setLayouts(layoutIds, appSettings.getInputMappingSettingsView().layoutId, layoutDisplayNames);
 }
 
 void MainComponent::syncSettingsFromUi()
@@ -520,7 +718,6 @@ void MainComponent::saveAndCloseSettingsWindow()
 void MainComponent::applyReadOnlyUiState(const devpiano::core::AppState& appState)
 {
     headerPanel.updateMidiStatus(buildHeaderPanelMidiStatus(appState));
-    headerPanel.updateAudioStatus(buildHeaderPanelAudioStatus(appState));
     pluginPanel.updateState(buildPluginPanelState(appState));
 }
 
