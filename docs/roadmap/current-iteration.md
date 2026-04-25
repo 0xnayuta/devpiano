@@ -6,13 +6,13 @@
 
 ## 当前状态
 
-当前活跃迭代：**MainComponent 职责收敛与键盘映射完善前置重构 + 录制/回放模型预研**。
+当前活跃迭代：**MainComponent 职责收敛与键盘映射完善前置重构 + 录制/回放模型预研 + 布局 Preset 模型预研**。
 
 上一轮已完成：`docs/` 最小重组。记录已归档到：[`../archive/docs-restructure-2026-04.md`](../archive/docs-restructure-2026-04.md)。
 
 ## 本轮目标
 
-本轮以前半段收敛重构为主，后半段以录制/回放预研为辅，不引入新主功能。
+前半段以收敛重构为主，中间段以录制/回放和布局 Preset 预研为辅，不引入新主功能。
 
 前半段核心目标：
 
@@ -111,9 +111,23 @@
 
 - [x] 已阅读旧 `freepiano-src/song.*` 提炼录制/回放历史行为（事件模型、录制机制、回放机制、导出行为、旧设计问题）。
 - [x] 已阅读 `source/Legacy/UnusedPrototypes/SongEngine.*`，确认为旧代码直译移植，未重新设计，不参与主构建。
-- [x] 已在 [`../features/recording-playback.md`](../features/recording-playback.md) 记录完整草案：旧行为参考、当前原型状态、现代设计考虑（分层事件模型、时间基础、回放模型、与插件关系、导出格式）、待明确问题。
+- [x] 已在 [`../features/recording-playback.md`](../features/recording-playback.md) 记录完整草案：旧行为参考、当前原型状态、现代设计考虑（分层事件模型、时间基础、回放模型、与插件关系、导出格式）。
+- [x] 已明确 7 项设计决策（录制范围、多轨、文件格式、编辑能力、实时回放、导出格式、回放时插件状态）。
 
-本轮仅建模，不实现，不接入主链路，不修改 `source/`。
+**预研已收尾。** 后续实现时直接参考该文档，无需重新讨论这些决策。
+
+### 5. 布局 Preset 模型预研，不接入主链路
+
+对应后续方向：键盘映射完善（M3）后的延伸方向；对应文档：[`../features/layout-presets.md`](../features/layout-presets.md)。
+
+当前进展：
+
+- [x] 已阅读旧 `freepiano-src/config.*` / `song.*` 提炼布局管理历史行为（旧 key_bind_t 模型、`.lyt` 二进制格式、多设置组、平台绑定问题）。
+- [x] 已阅读当前 `KeyMapTypes.h`、`SettingsModel.h`、`ControlsPanel.cpp`，确认当前布局模型（`KeyboardLayout` + `KeyBinding`）、内置 preset（minimal / full）、持久化方式（`layoutId` + `keyMap`）和 UI 切换机制。
+- [x] 已在 [`../features/layout-presets.md`](../features/layout-presets.md) 记录完整草案：旧行为参考、当前实现状态、现代设计考虑（JSON preset 格式、preset 与演奏设置分离、preset 发现机制）、MVP 范围。
+- [x] 已明确 5 项设计决策（preset 存储位置、ID 冲突、内置 preset 数量、导入/导出 UI、per-key label/color）。
+
+**预研已收尾。** 后续实现时直接参考该文档，无需重新讨论这些决策。
 
 ## 本轮计划验证命令
 
