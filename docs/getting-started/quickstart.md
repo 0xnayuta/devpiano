@@ -76,17 +76,13 @@ source ~/.bashrc
 ./scripts/dev.sh wsl-build
 ```
 
-### 3. 同步到 Windows 镜像树
-
-```bash
-./scripts/dev.sh win-sync
-```
-
-### 4. Windows MSVC 验证构建
+### 3. Windows MSVC 验证构建（内置同步，不需要单独 win-sync）
 
 ```bash
 ./scripts/dev.sh win-build
 ```
+
+### 4. 其他常用命令
 
 ## 常用命令
 
@@ -109,7 +105,7 @@ source ~/.bashrc
 # 清空 WSL 构建树后重建
 ./scripts/dev.sh wsl-build --clean
 
-# 仅同步到 Windows
+# 仅在需要单独同步时（一般不需要）
 ./scripts/dev.sh win-sync
 
 # 正常 Windows MSVC 验证

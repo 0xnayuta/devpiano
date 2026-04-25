@@ -24,8 +24,6 @@
 - 优先使用项目脚本入口：
   - `./scripts/dev.sh self-check`
   - `./scripts/dev.sh wsl-build --configure-only`
-  - `./scripts/dev.sh wsl-build`
-  - `./scripts/dev.sh win-sync`
   - `./scripts/dev.sh win-build`
 
 ## 影响

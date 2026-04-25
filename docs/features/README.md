@@ -6,6 +6,7 @@
 
 - [`keyboard-mapping.md`](keyboard-mapping.md)：电脑键盘到 MIDI note 的映射能力、当前边界和后续方向。
 - [`plugin-hosting.md`](plugin-hosting.md)：VST3 插件扫描、加载、处理、editor 和生命周期相关功能行为。
+- [`recording-playback.md`](recording-playback.md)：录制/回放旧行为参考与现代设计草案（预研阶段，不实现）。
 
 相关入口：
 
@@ -17,7 +18,6 @@
 后续可按真实实现进展逐步补充：
 
 - [`layout-presets.md`](layout-presets.md)
-- [`recording-playback.md`](recording-playback.md)
 - [`runtime-language-switching.md`](runtime-language-switching.md)
 
 未明确实现的功能不应在本目录中写成已完成能力。

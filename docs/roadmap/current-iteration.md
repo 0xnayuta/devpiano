@@ -6,18 +6,25 @@
 
 ## 当前状态
 
-当前活跃迭代：**MainComponent 职责收敛与键盘映射完善前置重构**。
+当前活跃迭代：**MainComponent 职责收敛与键盘映射完善前置重构 + 录制/回放模型预研**。
 
 上一轮已完成：`docs/` 最小重组。记录已归档到：[`../archive/docs-restructure-2026-04.md`](../archive/docs-restructure-2026-04.md)。
 
 ## 本轮目标
 
-本轮以小步重构和验证收敛为主，不引入录制 / 回放等新主功能。
+本轮以前半段收敛重构为主，后半段以录制/回放预研为辅，不引入新主功能。
 
-核心目标：
+前半段核心目标：
 
 - 在不改变现有演奏、插件加载和设置恢复行为的前提下，继续削薄 `source/MainComponent.*`。
-- 优先收敛插件扫描 / 加载 / 卸载 / 恢复流程的职责边界，为后续拆分 `PluginScanner`、插件实例生命周期宿主或 controller 做准备。
+- 优先收敛插件扫描 / 加载 / 卸载 / 恢复流程的职责边界。
+- 补齐键盘映射默认布局的未验证项。
+
+后半段核心目标：
+
+- 阅读旧 `freepiano-src/song.*` 提炼录制/回放历史行为。
+- 在 [`../features/recording-playback.md`](../features/recording-playback.md) 中记录现代设计草案。
+- 不实现，不接入主链路，仅建模。
 - 补齐默认键盘布局的未验证项，降低后续布局编辑 / Preset 功能的回归风险。
 - 继续使用现有 `AppState` / UI state builder / Settings model 边界承载状态，不把新状态直接堆回 `MainComponent`。
 
@@ -96,36 +103,31 @@
   - `scanPluginsAtPathAndApplyRecoveryState` 改用 `restorePluginsAtPath` 组合，代码更简洁。
   - `MainComponent` 仍持有 `applyPluginRecoverySettings` 调用权（需要 `appSettings`），所有 `PluginFlowSupport` 辅助函数均以 callback 形式注入此能力。
 
-### 4. 录制 / 回放仅做模型预研，不接入主链路
+### 4. 录制 / 回放模型预研，不接入主链路
 
-对应后续方向：[`../roadmap/roadmap.md`](../roadmap/roadmap.md) 的 M6。
+对应后续方向：[`../roadmap/roadmap.md`](../roadmap/roadmap.md) 的 M6；对应文档：[`../features/recording-playback.md`](../features/recording-playback.md)。
 
-本轮不实现录制、回放、MIDI/WAV 导出。若有余力，仅允许做轻量设计草案：
+当前进展：
 
-- 现代演奏事件模型的职责边界。
-- 键盘输入、外部 MIDI、插件发声与录制事件之间的关系。
-- 与旧 `song.*` 的行为参考边界。
+- [x] 已阅读旧 `freepiano-src/song.*` 提炼录制/回放历史行为（事件模型、录制机制、回放机制、导出行为、旧设计问题）。
+- [x] 已阅读 `source/Legacy/UnusedPrototypes/SongEngine.*`，确认为旧代码直译移植，未重新设计，不参与主构建。
+- [x] 已在 [`../features/recording-playback.md`](../features/recording-playback.md) 记录完整草案：旧行为参考、当前原型状态、现代设计考虑（分层事件模型、时间基础、回放模型、与插件关系、导出格式）、待明确问题。
 
-不得直接复制旧实现，也不要把未实现能力写成已完成。
+本轮仅建模，不实现，不接入主链路，不修改 `source/`。
 
 ## 本轮计划验证命令
 
 代码修改后优先执行：
 
 ```bash
-./scripts/dev.sh wsl-build
-```
-
-如修改影响 CMake / 编译数据库，先执行：
-
-```bash
 ./scripts/dev.sh wsl-build --configure-only
+./scripts/dev.sh win-build
 ```
 
-涉及插件生命周期、Windows 行为或 MSVC 兼容性时执行：
+涉及环境或路径问题时执行：
 
 ```bash
-./scripts/dev.sh win-build
+./scripts/dev.sh self-check
 ```
 
 ## 后续候选文档任务
