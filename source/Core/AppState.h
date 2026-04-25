@@ -23,6 +23,12 @@ struct AudioState
     double sampleRate = 44100.0;
     int bufferSize = 512;
     bool hasSerializedDeviceState = false;
+    bool hasLiveDevice = false;
+    juce::String backendName;
+    juce::String deviceName;
+    juce::String availableBufferSizesText;
+    juce::String restoreOutcome;
+    juce::String mismatchReasons;
 };
 
 struct PerformanceState

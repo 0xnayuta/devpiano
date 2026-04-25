@@ -49,7 +49,16 @@
 
 对应文档：[`../testing/plugin-host-lifecycle.md`](../testing/plugin-host-lifecycle.md)、[`../features/plugin-hosting.md`](../features/plugin-hosting.md)。
 
-优先执行并更新以下高风险场景：
+当前进展：
+
+- [x] 已完成基础插件生命周期测试：扫描后加载、连续加载 / 卸载、已加载状态下重扫，均未发现明显问题。
+- [x] 已完成 plugin editor 生命周期测试：打开 / 关闭 editor、打开 editor 后卸载、打开 editor 后重扫，均未发现明显问题。
+- [x] 已完成 `5.2` 连续执行 load / unload / scan，当前未发现明显问题。
+- [x] 已完成 `6.1` 与 `6.2` 退出路径验证，当前未发现明显问题。
+- [~] `5.1` 音频设备设置切换路径部分验证通过：窗口可打开、保存、关闭，插件链路未异常，但 `buffer size` 选项当前无法选择除 `10 ms` 以外的其他值，需继续调查。
+- [ ] `6.3` 因缺少外部 MIDI 设备暂未验证。
+
+本轮已覆盖并记录以下高风险场景：
 
 - 扫描后加载插件并试弹。
 - 连续加载 / 卸载同一插件 3~5 次。
@@ -59,7 +68,11 @@
 - 打开 editor 或已加载插件后直接退出程序。
 - 加载插件后切换音频设备设置。
 
-本轮先获得明确基线，不急于扩大插件能力。若发现稳定复现的问题，再针对 `PluginHost` / editor window / audio device rebuild 路径做小步修复。
+本轮已基本建立插件生命周期基线；当前剩余重点转为：
+
+- 继续确认 `buffer size` 选项受当前 Windows / JUCE 音频后端限制，还是项目设置恢复 / fallback 路径带来的体验问题。
+- 在具备外部 MIDI 设备后补齐 `6.3` 退出场景。
+- 若后续出现稳定复现的问题，再针对 `PluginHost` / editor window / audio device rebuild 路径做小步修复。
 
 ### 3. `MainComponent` 插件流程职责收敛
 

@@ -4,6 +4,7 @@
 #include <memory>
 
 #include "Audio/AudioEngine.h"
+#include "Audio/AudioDeviceDiagnostics.h"
 #include "Core/AppState.h"
 #include "Core/AppStateBuilder.h"
 #include "Input/KeyboardMidiMapper.h"
@@ -79,9 +80,11 @@ private:
     void closeSettingsWindowAsync();
     void saveAndCloseSettingsWindow();
     void updateMidiStatusLabel();
+    void logCurrentAudioDeviceDiagnostics(const juce::String& context) const;
     void applyReadOnlyUiState(const devpiano::core::AppState& appState);
     void refreshReadOnlyUiState();
     void finishPluginUiAction(bool shouldSaveSettings);
+    [[nodiscard]] devpiano::core::RuntimeAudioState createRuntimeAudioStateSnapshot() const;
     [[nodiscard]] devpiano::core::RuntimePluginState createRuntimePluginStateSnapshot() const;
     [[nodiscard]] devpiano::core::RuntimeInputState createRuntimeInputStateSnapshot() const;
     [[nodiscard]] devpiano::core::AppState createAppStateSnapshot() const;

@@ -12,6 +12,9 @@ HeaderPanel::HeaderPanel()
     midiStatusLabel.setColour(juce::Label::textColourId, juce::Colours::lightgreen);
     addAndMakeVisible(midiStatusLabel);
 
+    audioStatusLabel.setColour(juce::Label::textColourId, juce::Colours::lightblue);
+    addAndMakeVisible(audioStatusLabel);
+
     addAndMakeVisible(settingsButton);
     settingsButton.onClick = [this]
     {
@@ -30,6 +33,7 @@ void HeaderPanel::resized()
 
     hintLabel.setBounds(area.removeFromTop(24));
     midiStatusLabel.setBounds(area.removeFromTop(22));
+    audioStatusLabel.setBounds(area.removeFromTop(22));
 }
 
 void HeaderPanel::setHintText(const juce::String& text)
@@ -50,4 +54,9 @@ void HeaderPanel::updateMidiStatus(const MidiStatus& status)
     }
 
     midiStatusLabel.setText(text, juce::dontSendNotification);
+}
+
+void HeaderPanel::updateAudioStatus(const AudioStatus& status)
+{
+    audioStatusLabel.setText(status.summary, juce::dontSendNotification);
 }

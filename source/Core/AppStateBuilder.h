@@ -30,6 +30,18 @@ struct RuntimePluginState
     bool isEditorOpen = false;
 };
 
+struct RuntimeAudioState
+{
+    bool hasLiveDevice = false;
+    double sampleRate = 0.0;
+    int bufferSize = 0;
+    juce::String backendName;
+    juce::String deviceName;
+    juce::String availableBufferSizesText;
+    juce::String restoreOutcome;
+    juce::String mismatchReasons;
+};
+
 struct RuntimeInputState
 {
     KeyboardLayout keyboardLayout = makeDefaultKeyboardLayout();
@@ -48,17 +60,38 @@ struct RuntimeInputState
     const auto input = settings.getInputMappingSettingsView();
 
     return { .audio = { .sampleRate = audio.sampleRate,
-                        .bufferSize = audio.bufferSize,
-                        .hasSerializedDeviceState = audio.hasSerializedDeviceState },
-             .performance = { .masterGain = performance.masterGain,
-                              .adsrAttack = performance.adsrAttack,
-                              .adsrDecay = performance.adsrDecay,
-                              .adsrSustain = performance.adsrSustain,
-                              .adsrRelease = performance.adsrRelease },
-             .plugin = { .searchPath = plugin.pluginSearchPath,
-                         .lastPluginName = plugin.lastPluginName },
-             .input = { .layoutId = input.layoutId,
-                        .keyboardLayout = SettingsModel::keyMapToLayout(input.keyMap, input.layoutId) } };
+                         .bufferSize = audio.bufferSize,
+                         .hasSerializedDeviceState = audio.hasSerializedDeviceState,
+                         .hasLiveDevice = false,
+                         .backendName = {},
+                         .deviceName = {},
+                         .availableBufferSizesText = {},
+                         .restoreOutcome = {},
+                         .mismatchReasons = {} },
+              .performance = { .masterGain = performance.masterGain,
+                               .adsrAttack = performance.adsrAttack,
+                               .adsrDecay = performance.adsrDecay,
+                               .adsrSustain = performance.adsrSustain,
+                               .adsrRelease = performance.adsrRelease },
+              .plugin = { .searchPath = plugin.pluginSearchPath,
+                          .lastPluginName = plugin.lastPluginName,
+                          .currentPluginName = {},
+                          .availablePluginNames = {},
+                          .pluginListText = {},
+                          .availableFormatsDescription = {},
+                          .lastScanSummary = {},
+                          .lastLoadError = {},
+                          .preparedSampleRate = 0.0,
+                          .preparedBlockSize = 0,
+                          .supportsVst3 = false,
+                          .hasLoadedPlugin = false,
+                          .isPrepared = false,
+                          .isEditorOpen = false },
+              .input = { .layoutId = input.layoutId,
+                         .keyboardLayout = SettingsModel::keyMapToLayout(input.keyMap, input.layoutId),
+                         .openMidiInputCount = 0,
+                         .midiActivityCount = 0,
+                         .lastMidiMessage = {} } };
 }
 
 // 叠加运行时插件宿主状态。
@@ -78,6 +111,20 @@ inline void applyRuntimePluginState(AppState& appState, const RuntimePluginState
     appState.plugin.isEditorOpen = runtime.isEditorOpen;
 }
 
+inline void applyRuntimeAudioState(AppState& appState, const RuntimeAudioState& runtime)
+{
+    appState.audio.hasLiveDevice = runtime.hasLiveDevice;
+    if (runtime.sampleRate > 0.0)
+        appState.audio.sampleRate = runtime.sampleRate;
+    if (runtime.bufferSize > 0)
+        appState.audio.bufferSize = runtime.bufferSize;
+    appState.audio.backendName = runtime.backendName;
+    appState.audio.deviceName = runtime.deviceName;
+    appState.audio.availableBufferSizesText = runtime.availableBufferSizesText;
+    appState.audio.restoreOutcome = runtime.restoreOutcome;
+    appState.audio.mismatchReasons = runtime.mismatchReasons;
+}
+
 // 叠加运行时输入活动状态。
 inline void applyRuntimeInputState(AppState& appState, const RuntimeInputState& runtime)
 {
@@ -90,10 +137,12 @@ inline void applyRuntimeInputState(AppState& appState, const RuntimeInputState& 
 
 // 一次性组装 persisted + runtime 的完整 AppState 快照。
 [[nodiscard]] inline AppState buildAppState(const SettingsModel& settings,
+                                            const RuntimeAudioState& audioRuntime,
                                             const RuntimePluginState& pluginRuntime,
                                             const RuntimeInputState& inputRuntime)
 {
     auto appState = createPersistedAppState(settings);
+    applyRuntimeAudioState(appState, audioRuntime);
     applyRuntimePluginState(appState, pluginRuntime);
     applyRuntimeInputState(appState, inputRuntime);
     return appState;
