@@ -27,6 +27,8 @@ ControlsPanel::ControlsPanel()
     layoutComboBox.setTextWhenNothingSelected("FreePiano Minimal");
     layoutComboBox.onChange = [this]
     {
+        updateLayoutActionButtons();
+
         const auto selectedId = layoutComboBox.getSelectedId();
         if (selectedId <= 0 || ! onLayoutChanged)
             return;
@@ -37,6 +39,7 @@ ControlsPanel::ControlsPanel()
 
         onLayoutChanged(availableLayoutIds[index]);
     };
+    layoutComboBox.addMouseListener(this, true);
 
     addAndMakeVisible(saveLayoutButton);
     saveLayoutButton.onClick = [this]
@@ -51,6 +54,29 @@ ControlsPanel::ControlsPanel()
         if (onResetLayoutRequested)
             onResetLayoutRequested();
     };
+
+    addAndMakeVisible(importLayoutButton);
+    importLayoutButton.onClick = [this]
+    {
+        if (onImportLayoutRequested)
+            onImportLayoutRequested();
+    };
+
+    addAndMakeVisible(renameLayoutButton);
+    renameLayoutButton.onClick = [this]
+    {
+        if (onRenameLayoutRequested)
+            onRenameLayoutRequested();
+    };
+
+    addAndMakeVisible(deleteLayoutButton);
+    deleteLayoutButton.onClick = [this]
+    {
+        if (onDeleteLayoutRequested)
+            onDeleteLayoutRequested();
+    };
+
+    updateLayoutActionButtons();
 }
 
 ControlsPanel::~ControlsPanel()
@@ -63,6 +89,9 @@ ControlsPanel::~ControlsPanel()
     layoutComboBox.onChange = nullptr;
     saveLayoutButton.onClick = nullptr;
     resetLayoutButton.onClick = nullptr;
+    importLayoutButton.onClick = nullptr;
+    renameLayoutButton.onClick = nullptr;
+    deleteLayoutButton.onClick = nullptr;
 }
 
 void ControlsPanel::resized()
@@ -88,9 +117,15 @@ void ControlsPanel::resized()
     layoutLabel.setBounds(row.removeFromLeft(80));
     layoutComboBox.setBounds(row.removeFromLeft(200));
     row.removeFromLeft(8);
-    saveLayoutButton.setBounds(row.removeFromLeft(120));
+    saveLayoutButton.setBounds(row.removeFromLeft(90));
     row.removeFromLeft(8);
-    resetLayoutButton.setBounds(row.removeFromLeft(140));
+    resetLayoutButton.setBounds(row.removeFromLeft(110));
+    row.removeFromLeft(8);
+    importLayoutButton.setBounds(row.removeFromLeft(60));
+    row.removeFromLeft(8);
+    renameLayoutButton.setBounds(row.removeFromLeft(70));
+    row.removeFromLeft(8);
+    deleteLayoutButton.setBounds(row.removeFromLeft(60));
 }
 
 void ControlsPanel::setValues(float masterGain,
@@ -106,17 +141,31 @@ void ControlsPanel::setValues(float masterGain,
     releaseSlider.setValue(release, juce::dontSendNotification);
 }
 
-void ControlsPanel::setLayouts(const juce::StringArray& layoutIds, const juce::String& currentLayoutId)
+void ControlsPanel::setLayouts(const juce::StringArray& layoutIds,
+                               const juce::String& currentLayoutId,
+                               const juce::StringArray& layoutDisplayNames)
 {
     availableLayoutIds = layoutIds;
 
     layoutComboBox.clear(juce::dontSendNotification);
     for (int i = 0; i < layoutIds.size(); ++i)
-        layoutComboBox.addItem(makeLayoutDisplayName(layoutIds[i]), i + 1);
+    {
+        auto displayName = (i < layoutDisplayNames.size()) ? layoutDisplayNames[i] : makeLayoutDisplayName(layoutIds[i]);
+        layoutComboBox.addItem(displayName, i + 1);
+    }
 
     const auto index = layoutIds.indexOf(currentLayoutId);
     const auto selectedId = index >= 0 ? (index + 1) : 1;
     layoutComboBox.setSelectedId(selectedId, juce::dontSendNotification);
+    updateLayoutActionButtons();
+}
+
+void ControlsPanel::updateLayoutActionButtons()
+{
+    const auto selectedLayoutId = getSelectedLayoutId();
+    const auto isUserLayout = selectedLayoutId.isNotEmpty() && !selectedLayoutId.startsWith("default.");
+    renameLayoutButton.setEnabled(isUserLayout);
+    deleteLayoutButton.setEnabled(isUserLayout);
 }
 
 float ControlsPanel::getMasterGain() const
@@ -142,6 +191,17 @@ float ControlsPanel::getSustain() const
 float ControlsPanel::getRelease() const
 {
     return static_cast<float>(releaseSlider.getValue());
+}
+
+juce::String ControlsPanel::getSelectedLayoutId() const
+{
+    const auto selectedId = layoutComboBox.getSelectedId();
+    if (selectedId <= 0)
+        return {};
+    const auto index = selectedId - 1;
+    if (!juce::isPositiveAndBelow(index, availableLayoutIds.size()))
+        return {};
+    return availableLayoutIds[index];
 }
 
 void ControlsPanel::configureSlider(juce::Slider& slider,

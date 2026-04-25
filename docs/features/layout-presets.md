@@ -196,13 +196,54 @@ layout preset 与录制独立：
 
 ## 4. 当前迭代立场
 
-**本迭代（预研阶段）已完成，待后续迭代正式实现。**
+M7-1（JSON preset 文件格式）和 M7-2（Preset 读写工具）已完成实现。
 
-当前不接入主链路，不修改任何 `source/` 代码，不改变构建配置。
+M7-3（用户目录 Preset 自动发现）正在推进：`LayoutDirectoryScanner` 已建立，`scanUserLayoutDirectory()` 在 `syncUiFromSettings()` 时被调用，内置 preset + 用户 preset 聚合逻辑已生效。
+
+M7-4（Preset 加载）和 M7-5（Preset 保存）待实现。
 
 ---
 
-## 5. 已确认的设计决策
+## 5. 已实现细节（实现时间：M7-2/M7-3）
+
+### 5.1 文件格式
+
+JSON schema（与草案一致，无变更）：
+
+```json
+{
+  "version": 1,
+  "id": "my-custom-layout",
+  "name": "My Custom Layout",
+  "bindings": [
+    {
+      "keyCode": 65,
+      "displayText": "A",
+      "action": { "type": "note", "trigger": "keyDown", "midiNote": 60, "midiChannel": 1, "velocity": 1.0 }
+    }
+  ]
+}
+```
+
+文件扩展名：`.freepiano.layout`。
+
+### 5.2 目录结构
+
+用户 layout 目录：`~/Library/Application Support/DevPiano/Layouts/`（macOS），`%APPDATA%\DevPiano\Layouts\`（Windows）。
+
+### 5.3 发现机制
+
+`MainComponent::syncUiFromSettings()` 调用 `devpiano::layout::scanUserLayoutDirectory()`，扫描用户配置目录下所有 `.freepiano.layout` 文件，加载为 `KeyboardLayout` 后将 ID 追加到 layout 列表。
+
+### 5.4 实现文件
+
+- `source/Layout/LayoutPreset.h/.cpp`：`loadLayoutPreset()` / `saveLayoutPreset()`
+- `source/Layout/LayoutDirectoryScanner.h/.cpp`：`getUserLayoutDirectory()` / `scanUserLayoutDirectory()`
+- `source/MainComponent.cpp`：`syncUiFromSettings()` 中聚合内置 + 用户 preset
+
+---
+
+## 6. 已确认的设计决策
 
 以下问题已在本预研阶段明确，后续实现须遵循：
 
