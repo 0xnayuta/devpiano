@@ -236,28 +236,16 @@ juce::String MainComponent::getPersistedPluginSearchPath() const
     return appSettings.getPluginRecoverySettingsView().pluginSearchPath;
 }
 
-SettingsModel::PluginRecoverySettingsView MainComponent::makePluginRecoverySettings(juce::String pluginSearchPath,
-                                                                                    juce::String lastPluginName) const
-{
-    return { .pluginSearchPath = std::move(pluginSearchPath),
-             .lastPluginName = std::move(lastPluginName) };
-}
-
 SettingsModel::PluginRecoverySettingsView MainComponent::getPluginRecoverySettingsFromUi() const
 {
-    return makePluginRecoverySettings(pluginPanel.getPluginPathText().trim(),
-                                      getLastPluginNameForRecoveryStateFromUi());
+    return devpiano::plugin::makePluginRecoverySettings(pluginPanel.getPluginPathText().trim(),
+                                                        getLastPluginNameForRecoveryStateFromUi());
 }
 
 SettingsModel::PluginRecoverySettingsView MainComponent::getPluginRecoverySettingsWithFallback() const
 {
-    auto pluginRecovery = appSettings.getPluginRecoverySettingsView();
-    auto pluginSearchPath = pluginRecovery.pluginSearchPath;
-    if (pluginSearchPath.trim().isEmpty())
-        pluginSearchPath = pluginHost.getDefaultVst3SearchPath().toString();
-
-    return makePluginRecoverySettings(std::move(pluginSearchPath),
-                                      std::move(pluginRecovery.lastPluginName));
+    return devpiano::plugin::withPluginRecoveryPathFallback(appSettings.getPluginRecoverySettingsView(),
+                                                            pluginHost.getDefaultVst3SearchPath());
 }
 
 void MainComponent::applyPerformanceSettingsToUi(const SettingsModel::PerformanceSettingsView& performance)
@@ -609,34 +597,36 @@ devpiano::core::AppState MainComponent::createAppStateSnapshot() const
 
 void MainComponent::restorePluginStateOnStartup()
 {
-    restorePluginScanAndLoadState();
-}
+    const auto plan = devpiano::plugin::buildStartupPluginRestorePlan(appSettings.getPluginRecoverySettingsView(),
+                                                                      pluginHost.getDefaultVst3SearchPath());
 
-void MainComponent::restorePluginScanAndLoadState()
-{
-    restorePluginScanPathOnStartup();
-    restoreLastPluginOnStartup();
-}
-
-void MainComponent::restorePluginScanPathOnStartup()
-{
-    const auto pluginRecovery = getPluginRecoverySettingsWithFallback();
-    const auto path = juce::FileSearchPath(pluginRecovery.pluginSearchPath);
-
-    if (! isUsablePluginScanPath(path))
+    if (! plan.shouldScan)
         return;
 
-    scanPluginsAtPathAndApplyRecoveryState(path, pluginRecovery.lastPluginName);
+    restorePluginScanPathOnStartup(plan);
+
+    if (plan.shouldLoadLastPlugin)
+        restoreLastPluginOnStartup(plan);
 }
 
-juce::String MainComponent::getLastPluginNameForStartupRestore() const
+void MainComponent::restorePluginScanPathOnStartup(const devpiano::plugin::StartupPluginRestorePlan& plan)
 {
-    return getPluginRecoverySettingsWithFallback().lastPluginName;
+    const auto path = juce::FileSearchPath(plan.recovery.pluginSearchPath);
+    if (! devpiano::plugin::isUsablePluginScanPath(path))
+        return;
+
+    devpiano::plugin::restorePluginsAtPath(pluginHost,
+                                           path,
+                                           plan.recovery,
+                                           [this](const SettingsModel::PluginRecoverySettingsView& settings)
+    {
+        applyPluginRecoverySettings(settings);
+    });
 }
 
-void MainComponent::restoreLastPluginOnStartup()
+void MainComponent::restoreLastPluginOnStartup(const devpiano::plugin::StartupPluginRestorePlan& plan)
 {
-    const auto pluginName = getLastPluginNameForStartupRestore();
+    const auto& pluginName = plan.recovery.lastPluginName;
     if (pluginName.isEmpty())
         return;
 
@@ -731,7 +721,7 @@ void MainComponent::loadPluginByNameAndCommitState(const juce::String& pluginNam
         juce::ignoreUnused(success);
     });
 
-    commitPluginRecoveryStateAndFinishUi(makePluginRecoverySettings(getPersistedPluginSearchPath(), pluginName),
+    commitPluginRecoveryStateAndFinishUi(devpiano::plugin::makePluginRecoverySettings(getPersistedPluginSearchPath(), pluginName),
                                           true);
 }
 
@@ -825,18 +815,19 @@ void MainComponent::togglePluginEditor()
     openPluginEditorWindow(std::move(editor));
 }
 
-bool MainComponent::isUsablePluginScanPath(const juce::FileSearchPath& path) const
-{
-    return path.toString().trim().isNotEmpty();
-}
-
 void MainComponent::scanPluginsAtPathAndApplyRecoveryState(const juce::FileSearchPath& path,
                                                            const juce::String& lastPluginName)
 {
-    runPluginActionWithAudioDeviceRebuild([this, &path, &lastPluginName]
+    const auto settings = devpiano::plugin::makePluginRecoverySettings(path.toString(), lastPluginName);
+    runPluginActionWithAudioDeviceRebuild([this, &path, &settings]
     {
-        pluginHost.scanVst3Plugins(path, true);
-        applyPluginRecoverySettings(makePluginRecoverySettings(path.toString(), lastPluginName));
+        devpiano::plugin::restorePluginsAtPath(pluginHost,
+                                               path,
+                                               settings,
+                                               [this](const SettingsModel::PluginRecoverySettingsView& s)
+        {
+            applyPluginRecoverySettings(s);
+        });
     });
 }
 
@@ -850,7 +841,7 @@ void MainComponent::scanPluginsAtPathAndCommitState(const juce::FileSearchPath& 
 void MainComponent::scanPlugins()
 {
     const auto path = resolvePluginScanPath();
-    if (! isUsablePluginScanPath(path))
+    if (! devpiano::plugin::isUsablePluginScanPath(path))
     {
         finishPluginUiAction(false);
         return;

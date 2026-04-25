@@ -56,6 +56,8 @@ target_sources(devpiano PRIVATE
     source/Midi/MidiRouter.h
     source/Plugin/PluginHost.cpp
     source/Plugin/PluginHost.h
+    source/Plugin/PluginFlowSupport.cpp
+    source/Plugin/PluginFlowSupport.h
     source/UI/PluginPanel.cpp
     source/UI/PluginPanel.h
     source/UI/PluginEditorWindow.cpp

@@ -53,9 +53,9 @@
 
 - [x] 已完成基础插件生命周期测试：扫描后加载、连续加载 / 卸载、已加载状态下重扫，均未发现明显问题。
 - [x] 已完成 plugin editor 生命周期测试：打开 / 关闭 editor、打开 editor 后卸载、打开 editor 后重扫，均未发现明显问题。
+- [x] 已完成 `5.1` 音频设备设置切换路径验证：窗口可打开、保存、关闭，插件链路可继续发声；不同 `Audio device type` 下的 `buffer size` / `sample rate` 可调范围已确认为当前 Windows / JUCE 后端语义差异，不构成产品缺陷。
 - [x] 已完成 `5.2` 连续执行 load / unload / scan，当前未发现明显问题。
 - [x] 已完成 `6.1` 与 `6.2` 退出路径验证，当前未发现明显问题。
-- [~] `5.1` 音频设备设置切换路径部分验证通过：窗口可打开、保存、关闭，插件链路未异常，但 `buffer size` 选项当前无法选择除 `10 ms` 以外的其他值，需继续调查。
 - [ ] `6.3` 因缺少外部 MIDI 设备暂未验证。
 
 本轮已覆盖并记录以下高风险场景：
@@ -70,13 +70,12 @@
 
 本轮已基本建立插件生命周期基线；当前剩余重点转为：
 
-- 继续确认 `buffer size` 选项受当前 Windows / JUCE 音频后端限制，还是项目设置恢复 / fallback 路径带来的体验问题。
 - 在具备外部 MIDI 设备后补齐 `6.3` 退出场景。
 - 若后续出现稳定复现的问题，再针对 `PluginHost` / editor window / audio device rebuild 路径做小步修复。
 
 ### 3. `MainComponent` 插件流程职责收敛
 
-对应代码：`source/MainComponent.*`、`source/Plugin/PluginHost.*`，后续如需要可新增 `source/Plugin/` 下的轻量协作类。
+对应代码：`source/MainComponent.*`、`source/Plugin/PluginHost.*`、`source/Plugin/PluginFlowSupport.*`。
 
 本轮建议只做低风险拆分：
 
@@ -91,6 +90,16 @@
 - `MainComponent.cpp` 插件相关流程代码减少或边界更清晰。
 - LSP diagnostics 无新增错误。
 - WSL 构建通过。
+- Windows MSVC 构建通过。
+
+当前进展：
+
+- [x] **Step 1**（第一层提取）：新增 `source/Plugin/PluginFlowSupport.h/.cpp`，将 `buildStartupPluginRestorePlan`、`withPluginRecoveryPathFallback`、`isUsablePluginScanPath`、`makePluginRecoverySettings` 从 `MainComponent` 提取为 `devpiano::plugin` 命名空间纯函数；`MainComponent` 仍保留启动恢复编排权，但决策逻辑已下沉。
+- [x] **Step 2**（第二层提取）：
+  - 新增 `restorePluginsAtPath(pluginHost, path, recovery, applySettingsCallback)` 到 `PluginFlowSupport`，将"scan + applySettings"序列封装为独立原子操作。
+  - `restorePluginScanPathOnStartup` 和 `restoreLastPluginOnStartup` 改为接收 `const StartupPluginRestorePlan&`，直接使用 plan 中已解析的 `plan.recovery`（pluginSearchPath / lastPluginName），消除了启动路径中重复调用 `getPluginRecoverySettingsWithFallback()` 的冗余。
+  - `scanPluginsAtPathAndApplyRecoveryState` 改用 `restorePluginsAtPath` 组合，代码更简洁。
+  - `MainComponent` 仍持有 `applyPluginRecoverySettings` 调用权（需要 `appSettings`），所有 `PluginFlowSupport` 辅助函数均以 callback 形式注入此能力。
 
 ### 4. 录制 / 回放仅做模型预研，不接入主链路
 

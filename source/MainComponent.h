@@ -10,6 +10,7 @@
 #include "Input/KeyboardMidiMapper.h"
 #include "Midi/MidiRouter.h"
 #include "Plugin/PluginHost.h"
+#include "Plugin/PluginFlowSupport.h"
 #include "Settings/SettingsComponent.h"
 #include "Settings/SettingsModel.h"
 #include "Settings/SettingsStore.h"
@@ -49,8 +50,6 @@ private:
     [[nodiscard]] SettingsModel::PerformanceSettingsView getPerformanceSettingsFromUi() const;
     [[nodiscard]] juce::String getLastPluginNameForRecoveryStateFromUi() const;
     [[nodiscard]] juce::String getPersistedPluginSearchPath() const;
-    [[nodiscard]] SettingsModel::PluginRecoverySettingsView makePluginRecoverySettings(juce::String pluginSearchPath,
-                                                                                       juce::String lastPluginName) const;
     [[nodiscard]] SettingsModel::PluginRecoverySettingsView getPluginRecoverySettingsFromUi() const;
     [[nodiscard]] SettingsModel::PluginRecoverySettingsView getPluginRecoverySettingsWithFallback() const;
     void applyPerformanceSettingsToUi(const SettingsModel::PerformanceSettingsView& performance);
@@ -89,10 +88,8 @@ private:
     [[nodiscard]] devpiano::core::RuntimeInputState createRuntimeInputStateSnapshot() const;
     [[nodiscard]] devpiano::core::AppState createAppStateSnapshot() const;
     void restorePluginStateOnStartup();
-    void restorePluginScanAndLoadState();
-    void restorePluginScanPathOnStartup();
-    [[nodiscard]] juce::String getLastPluginNameForStartupRestore() const;
-    void restoreLastPluginOnStartup();
+    void restorePluginScanPathOnStartup(const devpiano::plugin::StartupPluginRestorePlan& plan);
+    void restoreLastPluginOnStartup(const devpiano::plugin::StartupPluginRestorePlan& plan);
     void restorePluginByNameOnStartup(const juce::String& pluginName);
     [[nodiscard]] juce::FileSearchPath resolvePluginScanPath() const;
     double getCurrentRuntimeSampleRate() const;
@@ -107,7 +104,6 @@ private:
     void closePluginEditorWindow();
     void openPluginEditorWindow(std::unique_ptr<juce::AudioProcessorEditor> editor);
     void unloadPluginAndCommitState();
-    [[nodiscard]] bool isUsablePluginScanPath(const juce::FileSearchPath& path) const;
     void scanPluginsAtPathAndApplyRecoveryState(const juce::FileSearchPath& path,
                                                 const juce::String& lastPluginName);
     void scanPluginsAtPathAndCommitState(const juce::FileSearchPath& path);
