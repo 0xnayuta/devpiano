@@ -126,10 +126,9 @@ Recommended entry commands:
 
 # local WSL configure / build
 ./scripts/dev.sh wsl-build --configure-only
-./scripts/dev.sh wsl-build
+./scripts/dev.sh wsl-build --configure-only
 
-# sync to Windows + MSVC validation
-./scripts/dev.sh win-sync
+# Windows MSVC validation build (sync built-in, no separate win-sync needed)
 ./scripts/dev.sh win-build
 ```
 
@@ -167,13 +166,7 @@ Build locally in WSL:
 ./scripts/dev.sh wsl-build
 ```
 
-Sync to the Windows mirror tree:
-
-```bash
-./scripts/dev.sh win-sync
-```
-
-Run Windows MSVC validation build:
+Run Windows MSVC validation build (sync built-in, no separate win-sync needed):
 
 ```bash
 ./scripts/dev.sh win-build

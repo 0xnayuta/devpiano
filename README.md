@@ -126,10 +126,9 @@
 
 # WSL 本地 configure / build
 ./scripts/dev.sh wsl-build --configure-only
-./scripts/dev.sh wsl-build
+./scripts/dev.sh wsl-build --configure-only
 
-# 同步到 Windows + MSVC 验证
-./scripts/dev.sh win-sync
+# Windows MSVC 验证构建（内置同步，不需要单独 win-sync）
 ./scripts/dev.sh win-build
 ```
 
@@ -167,13 +166,7 @@ WSL 本地构建：
 ./scripts/dev.sh wsl-build
 ```
 
-同步到 Windows 镜像树：
-
-```bash
-./scripts/dev.sh win-sync
-```
-
-Windows MSVC 验证构建：
+Windows MSVC 验证构建（内置同步，不需要单独 win-sync）：
 
 ```bash
 ./scripts/dev.sh win-build

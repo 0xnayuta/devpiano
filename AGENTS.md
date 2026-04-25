@@ -90,22 +90,21 @@
 # 环境自检
 ./scripts/dev.sh self-check
 
-# 仅刷新 WSL configure / compile_commands.json
+# 仅刷新 WSL configure / compile_commands.json（clangd/LSP 依赖此文件）
 ./scripts/dev.sh wsl-build --configure-only
 
-# 同步到 Windows 镜像树
-./scripts/dev.sh win-sync
-
-# Windows MSVC 验证构建
+# Windows MSVC 验证构建（内置同步，一般不需要单独 win-sync）
 ./scripts/dev.sh win-build
 ```
 
 常用 Windows 验证选项：
 
 ```bash
-./scripts/dev.sh win-build --no-sync
-./scripts/dev.sh win-build --reconfigure
-./scripts/dev.sh win-build --clean-win-build
+# 仅刷新 WSL configure / compile_commands.json（clangd/LSP 依赖此文件）
+./scripts/dev.sh wsl-build --configure-only
+
+# Windows MSVC 验证构建（内置同步，一般不需要单独 win-sync）
+./scripts/dev.sh win-build
 ```
 
 涉及环境恢复、同步、MSVC 验证、路径问题时，优先参考：
@@ -221,19 +220,13 @@
 ./scripts/dev.sh wsl-build --configure-only
 ```
 
-7. 同步到 Windows 镜像树：
-
-```bash
-./scripts/dev.sh win-sync
-```
-
-8. Windows MSVC 验证构建：
+7. Windows MSVC 验证构建：
 
 ```bash
 ./scripts/dev.sh win-build
 ```
 
-9. 涉及环境或路径问题时，先运行：
+8. 涉及环境或路径问题时，先运行：
 
 ```bash
 ./scripts/dev.sh self-check

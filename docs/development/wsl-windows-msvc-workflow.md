@@ -53,14 +53,11 @@ export WIN_MIRROR_DIR='G:\source\projects\devpiano'
 # WSL 侧正常构建
 ./scripts/dev.sh wsl-build
 
-# 仅同步到 Windows 镜像树
-./scripts/dev.sh win-sync
-
-# Windows MSVC 正常验证
+# Windows MSVC 正常验证（内置同步，不需要单独 win-sync）
 ./scripts/dev.sh win-build
 
-# Windows 镜像已最新时，跳过同步直接验证
-./scripts/dev.sh win-build --no-sync
+# 需要单独同步时（如只想检查同步结果）
+./scripts/dev.sh win-sync
 
 # CMake / 工具链变化后，强制重新配置 Windows 构建树
 ./scripts/dev.sh win-build --reconfigure
