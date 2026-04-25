@@ -29,21 +29,16 @@
 
 当前进展：
 
-- [x] 已完成默认布局代码级 / 静态映射校验，并记录到 [`../testing/keyboard-mapping.md`](../testing/keyboard-mapping.md) 的 `Test Run 2026-04-24`。
+- [x] 已完成默认布局代码级 / 静态映射校验，并记录到 `Test Run 2026-04-24`。
 - [x] 默认可见音区下，Q、A、Z、数字行已通过手工发声、高亮、note on/off、Shift / Caps Lock / 中文输入法回归。
 - [x] 已定位并修复虚拟键盘翻页后 JUCE 内置 QWERTY 映射与项目映射叠加的问题。
-- [x] 已完成 [`../testing/keyboard-mapping.md`](../testing/keyboard-mapping.md) 的 6.3 Windows 侧人工回归，翻页后所有行按键均无明显问题。
+- [x] 已完成 6.3 Windows 侧人工回归，翻页后所有行按键均无明显问题。
+- [x] 已补测 4.2 Q+E+T 三和弦多键组合，通过。
+- [x] 已补测 8.1 默认映射启动一致性，关闭再重启后映射行为一致。
 
-优先执行并更新以下未验证项：
+**Task 1 已全部完成。** 剩余未验证项（8.2/8.3/8.4 布局保存恢复）依赖自定义布局编辑 UI，9.2 外部 MIDI 混合输入依赖硬件，均非当前迭代范围。
 
-- Q 行默认映射：`Q/W/E/R/T/Y/U/I/O/P`。
-- Z 行默认映射：`Z/X/C/V/B/N/M`。
-- 数字行默认映射：`1/2/3/4/5/6/7/8/9/0`。
-- 多键组合中尚未完整验证的 Q 行组合。
-- Shift / Caps Lock / 中文输入法场景下，默认布局是否仍稳定。
-- fallback synth 与 VST3 插件两种发声模式下，键盘映射是否一致可用。
-
-验收结果只更新测试文档；若发现功能缺陷，再进入代码修复。
+验收结果已更新到 [`../testing/keyboard-mapping.md`](../testing/keyboard-mapping.md) 的 `Test Run 2026-04-25`。
 
 ### 2. 插件生命周期基线回归
 
