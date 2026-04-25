@@ -2,7 +2,7 @@
 
 你正在协助将老旧的 FreePiano 项目重构为基于 JUCE 的现代 C++ 音频/MIDI 应用。
 
-开发环境采用：**WSL 主工作树 + Windows 镜像树 + CMake + Ninja + Windows/MSVC 验证构建**。
+开发环境采用：**WSL 主工作树 + Windows 镜像树 + CMake + Ninja + Windows/MSVC 构建验证**。
 
 ---
 
@@ -69,12 +69,12 @@
 - **不要修改 `/JUCE/` 子模块**。
 - **新增业务代码只放在 `/source/` 下的合适子目录**。
 - 优先小步修改、小范围验证，不要一次性大改整个系统。
-- 理解旧逻辑时可以阅读 `/freepiano-src/`，但日常搜索、编辑、重构、构建验证都以 WSL 主工作树和 `/source/` 为准。
-- **WSL 主工作树是唯一主源码来源**。
+- 理解旧逻辑时可以阅读 `/freepiano-src/`，但日常搜索、编辑、重构都以 WSL 主工作树和 `/source/` 为准。
+- **WSL 主工作树是唯一主源码来源，仅用于编辑代码和刷新 `compile_commands.json`**，所有构建验证和软件测试在 Windows 侧进行。
 - **不要让 Windows/MSVC 直接跨边界在 WSL 主工作树上长期构建**；Windows 只使用镜像树做验证。
 - WSL 构建和 Windows 构建必须分离：
-  - WSL：`build-wsl-clang`
-  - Windows：镜像树下 `build-win-msvc`
+  - WSL（仅用于编辑代码 + 刷新 compile_commands.json）：`build-wsl-clang`
+  - Windows（构建验证 + 软件测试）：镜像树下 `build-win-msvc`
 - 关键修改后优先使用项目脚本验证，而不是直接手写 `cmake --build .`。
 - 需要快速检查环境时，先运行：
 
@@ -92,9 +92,6 @@
 
 # 仅刷新 WSL configure / compile_commands.json
 ./scripts/dev.sh wsl-build --configure-only
-
-# WSL 本地构建
-./scripts/dev.sh wsl-build
 
 # 同步到 Windows 镜像树
 ./scripts/dev.sh win-sync
@@ -218,19 +215,19 @@
    - `docs/features/plugin-hosting.md`
 4. 使用 `lsp` + `read` / `edit` 在 WSL 主工作树中小步修改。
 5. 修改 `source/*.h` / `source/*.cpp` 后，先用 LSP diagnostics 检查。
-6. 关键修改后运行：
-
-```bash
-./scripts/dev.sh wsl-build
-```
-
-7. 需要刷新 clangd 编译数据库时运行：
+6. 需要刷新 clangd 编译数据库时运行：
 
 ```bash
 ./scripts/dev.sh wsl-build --configure-only
 ```
 
-8. 需要 Windows/MSVC 验证时运行：
+7. 同步到 Windows 镜像树：
+
+```bash
+./scripts/dev.sh win-sync
+```
+
+8. Windows MSVC 验证构建：
 
 ```bash
 ./scripts/dev.sh win-build
