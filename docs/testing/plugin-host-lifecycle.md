@@ -216,17 +216,18 @@
 ### 测试步骤
 - [x] 加载一个插件
 - [x] 打开设置窗口
-- [~] 修改音频设备、buffer size 或 sample rate（若环境允许）
+- [x] 修改音频设备、buffer size 或 sample rate（若环境允许）
 - [x] 保存并关闭设置
 - [x] 再次试弹
 
 ### 预期结果
 - [x] 程序无崩溃
 - [x] 设置关闭后音频恢复正常
-- [~] `buffer size` 选项当前无法选择除 `10 ms` 以外的其他值；插件仍可继续发声
+- [x] 插件仍可继续发声或给出清晰失败状态
+- [x] 已确认不同 `Audio device type` 下的 `buffer size` / `sample rate` 可调范围受当前 Windows / JUCE 音频后端模式影响；`Windows Audio` 与 `Windows Audio (Low Latency Mode)` 下出现 `480 samples (10 ms)` 固定值属于当前后端语义范围内的正常现象
 
 ### 状态
-- [~] 部分验证：音频设置窗口可打开、保存、关闭且不会导致插件链路异常，但 `buffer size` 选项当前无法选择除 `10 ms` 以外的其他值，后续需继续调查
+- [x] 已验证
 
 ---
 
@@ -332,7 +333,7 @@
 
 ### 优先测试包 C：长期回归
 - [x] 3.2 连续加载同一插件
-- [~] 5.1 加载插件后切换音频设备设置（`buffer size` 选项仍待调查）
+- [x] 5.1 加载插件后切换音频设备设置
 - [x] 5.2 连续执行 load / unload / scan
 
 ---
@@ -402,15 +403,15 @@
 - 通过项：
   - 3 节基础插件生命周期测试均未发现明显问题。
   - 4 节 plugin editor 生命周期测试均未发现明显问题。
+  - 5.1 音频设备设置切换路径可稳定保存、关闭并恢复发声，当前观察到的 `buffer size` 差异已确认与所选 Windows 音频后端模式有关，不构成产品缺陷。
   - 5.2 连续执行 load / unload / scan 未发现明显问题。
   - 6.1 / 6.2 退出路径未发现明显问题。
 - 失败项：
-  - 5.1 中设置窗口里的 `buffer size` 选项当前无法选择除 `10 ms` 以外的其他值。
+  - 无稳定复现的产品缺陷。
 - Debug 告警：
   - 本轮未记录到必须单独追踪的稳定 Debug 告警。
 - 复现条件：
-  - `buffer size` 选项问题出现在插件已加载、打开设置窗口并尝试修改音频设置的场景下。
+  - 已复核 `Windows Audio`、`Windows Audio (Exclusive Mode)`、`Windows Audio (Low Latency Mode)`、`Direct Sound` 的后端差异；可调范围与当前后端模式一致。
   - 6.3 因缺少外部 MIDI 设备，当前无法补齐退出阶段验证。
 - 后续修复建议：
-  - 继续调查 `buffer size` 选项受当前 Windows / JUCE 音频后端限制，还是项目设置恢复路径导致的体验问题。
   - 在具备外部 MIDI 设备后补齐 6.3 手工回归。
