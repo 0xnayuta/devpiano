@@ -174,10 +174,10 @@ void MainComponent::resized()
 {
     auto area = getLocalBounds().reduced(16);
 
-    headerPanel.setBounds(area.removeFromTop(76));
+    headerPanel.setBounds(area.removeFromTop(98));
     area.removeFromTop(10);
 
-    pluginPanel.setBounds(area.removeFromTop(210));
+    pluginPanel.setBounds(area.removeFromTop(188));
     area.removeFromTop(12);
 
     controlsPanel.setBounds(area.removeFromTop(200));
@@ -391,9 +391,14 @@ void MainComponent::initialiseAudioDevice()
 
     const auto audioSettings = appSettings.getAudioSettingsView();
     if (audioSettings.hasSerializedDeviceState && appSettings.audioDeviceState != nullptr)
-        deviceManager.initialise(0, 2, appSettings.audioDeviceState.get(), true);
+    {
+        const auto result = deviceManager.initialise(0, 2, appSettings.audioDeviceState.get(), true);
+        if (result.isNotEmpty())
+            juce::Logger::writeToLog("[AudioDevice] initialise restore result: " + result);
+    }
 
     captureAudioDeviceState();
+    logCurrentAudioDeviceDiagnostics("initialiseAudioDevice");
 }
 
 void MainComponent::captureAudioDeviceState()
@@ -424,6 +429,7 @@ void MainComponent::saveSettingsNow()
 {
     collectCurrentSettingsState();
     settingsStore.save(appSettings);
+    logCurrentAudioDeviceDiagnostics("saveSettingsNow");
 }
 
 void MainComponent::saveSettingsSoon()
@@ -460,7 +466,7 @@ void MainComponent::showSettingsDialog()
         std::function<void()> closeCallback;
     };
 
-    auto content = std::make_unique<SettingsComponent>(deviceManager);
+    auto content = std::make_unique<SettingsComponent>(deviceManager, appSettings.audioDeviceState.get());
     auto* contentPtr = content.get();
 
     auto closeWindow = [safe = juce::Component::SafePointer<MainComponent>(this)]
@@ -478,7 +484,7 @@ void MainComponent::showSettingsDialog()
     settingsWindow = std::make_unique<SettingsDialogWindow>("Audio Settings", backgroundColour, closeWindow);
     settingsWindow->setUsingNativeTitleBar(true);
     settingsWindow->setContentOwned(content.release(), true);
-    settingsWindow->centreAroundComponent(this, 620, 420);
+    settingsWindow->centreAroundComponent(this, 620, 560);
     settingsWindow->setResizable(true, true);
     settingsWindow->setVisible(true);
 }
@@ -526,6 +532,7 @@ void MainComponent::saveAndCloseSettingsWindow()
 void MainComponent::applyReadOnlyUiState(const devpiano::core::AppState& appState)
 {
     headerPanel.updateMidiStatus(buildHeaderPanelMidiStatus(appState));
+    headerPanel.updateAudioStatus(buildHeaderPanelAudioStatus(appState));
     pluginPanel.updateState(buildPluginPanelState(appState));
 }
 
@@ -546,6 +553,26 @@ void MainComponent::finishPluginUiAction(bool shouldSaveSettings)
 
     refreshReadOnlyUiState();
     restoreKeyboardFocus();
+}
+
+void MainComponent::logCurrentAudioDeviceDiagnostics(const juce::String& context) const
+{
+    const auto diagnostics = devpiano::audio::buildAudioDeviceDiagnostics(appSettings.audioDeviceState.get(), deviceManager);
+    juce::Logger::writeToLog("[AudioDevice] " + context + "\n" + diagnostics.detailedSummary);
+}
+
+devpiano::core::RuntimeAudioState MainComponent::createRuntimeAudioStateSnapshot() const
+{
+    const auto diagnostics = devpiano::audio::buildAudioDeviceDiagnostics(appSettings.audioDeviceState.get(), deviceManager);
+
+    return { .hasLiveDevice = diagnostics.live.hasLiveDevice,
+             .sampleRate = diagnostics.live.sampleRate,
+             .bufferSize = diagnostics.live.bufferSize,
+             .backendName = diagnostics.live.backendName,
+             .deviceName = diagnostics.live.deviceName,
+             .availableBufferSizesText = devpiano::audio::formatBufferSizes(diagnostics.live.availableBufferSizes),
+             .restoreOutcome = diagnostics.restoreOutcome,
+             .mismatchReasons = diagnostics.mismatchReasons };
 }
 
 devpiano::core::RuntimePluginState MainComponent::createRuntimePluginStateSnapshot() const
@@ -575,6 +602,7 @@ devpiano::core::RuntimeInputState MainComponent::createRuntimeInputStateSnapshot
 devpiano::core::AppState MainComponent::createAppStateSnapshot() const
 {
     return devpiano::core::buildAppState(appSettings,
+                                         createRuntimeAudioStateSnapshot(),
                                          createRuntimePluginStateSnapshot(),
                                          createRuntimeInputStateSnapshot());
 }

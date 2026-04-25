@@ -1,12 +1,18 @@
 #pragma once
 #include <JuceHeader.h>
 
+#include "Audio/AudioDeviceDiagnostics.h"
+
 class SettingsComponent : public juce::Component, private juce::ChangeListener
 {
 public:
-    explicit SettingsComponent(juce::AudioDeviceManager& dm)
+    explicit SettingsComponent(juce::AudioDeviceManager& dm,
+                               const juce::XmlElement* savedAudioDeviceState)
         : deviceManager(dm)
     {
+        if (savedAudioDeviceState != nullptr)
+            savedStateSnapshot = std::make_unique<juce::XmlElement>(*savedAudioDeviceState);
+
         selector = std::make_unique<juce::AudioDeviceSelectorComponent>(
             deviceManager,
             0, 2,
@@ -30,8 +36,18 @@ public:
             }
         };
 
+        diagnosticsEditor.setMultiLine(true);
+        diagnosticsEditor.setReadOnly(true);
+        diagnosticsEditor.setScrollbarsShown(true);
+        diagnosticsEditor.setCaretVisible(false);
+        diagnosticsEditor.setPopupMenuEnabled(true);
+        diagnosticsEditor.setWantsKeyboardFocus(false);
+        diagnosticsEditor.setMouseClickGrabsKeyboardFocus(false);
+        addAndMakeVisible(diagnosticsEditor);
+
         deviceManager.addChangeListener(this);
-        setSize(560, 420);
+        updateDiagnostics();
+        setSize(560, 520);
     }
 
     ~SettingsComponent() override
@@ -42,8 +58,10 @@ public:
     void resized() override
     {
         auto area = getLocalBounds().reduced(8);
-        auto bottom = area.removeFromBottom(36);
-        saveButton.setBounds(bottom.removeFromRight(120).reduced(4));
+        auto bottomArea = area.removeFromBottom(120);
+        auto buttonRow = bottomArea.removeFromBottom(36);
+        diagnosticsEditor.setBounds(bottomArea);
+        saveButton.setBounds(buttonRow.removeFromRight(120).reduced(4));
         selector->setBounds(area);
     }
 
@@ -57,11 +75,20 @@ private:
     juce::AudioDeviceManager& deviceManager;
     std::unique_ptr<juce::AudioDeviceSelectorComponent> selector;
     juce::TextButton saveButton;
+    juce::TextEditor diagnosticsEditor;
+    std::unique_ptr<juce::XmlElement> savedStateSnapshot;
 
     bool dirty = false;
+
+    void updateDiagnostics()
+    {
+        const auto diagnostics = devpiano::audio::buildAudioDeviceDiagnostics(savedStateSnapshot.get(), deviceManager);
+        diagnosticsEditor.setText(diagnostics.detailedSummary, juce::dontSendNotification);
+    }
 
     void changeListenerCallback(juce::ChangeBroadcaster*) override
     {
         dirty = true;
+        updateDiagnostics();
     }
 };

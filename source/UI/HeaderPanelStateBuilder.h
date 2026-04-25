@@ -10,3 +10,5 @@
                                                                  const juce::String& lastMessage);
 [[nodiscard]] HeaderPanel::MidiStatus buildHeaderPanelMidiStatus(const devpiano::core::InputState& inputState);
 [[nodiscard]] HeaderPanel::MidiStatus buildHeaderPanelMidiStatus(const devpiano::core::AppState& appState);
+[[nodiscard]] HeaderPanel::AudioStatus buildHeaderPanelAudioStatus(const devpiano::core::AudioState& audioState);
+[[nodiscard]] HeaderPanel::AudioStatus buildHeaderPanelAudioStatus(const devpiano::core::AppState& appState);
