@@ -126,12 +126,16 @@
 
 ### 录制 / 回放
 
+设计参考见：[`../features/recording-playback.md`](../features/recording-playback.md)。
+
 - [ ] 可开始录制。
 - [ ] 可停止录制。
 - [ ] 可回放录制结果。
 - [ ] 回放期间事件时间顺序正确。
 
 ### 导出
+
+设计参考见：[`../features/recording-playback.md`](../features/recording-playback.md)。
 
 - [ ] 可导出 MIDI。
 - [ ] 可导出 WAV。
