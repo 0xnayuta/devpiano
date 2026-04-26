@@ -96,7 +96,7 @@
 - [x] 已提供最小布局操作入口（切换 / 保存 / 恢复默认）。
 - [x] 默认布局全量手工验证已完成（Q/A/Z/数字行、多键组合、启动一致性均通过）。
 - [x] 虚拟键盘翻页后映射稳定性问题已修复并验证。
-- [~] 自定义 Preset 加载/保存/导入/导出（见 M7）。
+- [x] 自定义 Preset 加载/保存/导入/重命名/删除与启动恢复已完成（见 M7）。
 - [~] 图形化布局编辑器（当前无 UI，不在近期范围）。
 
 ### M5：UI 进入正式可用阶段
@@ -124,29 +124,32 @@
 
 ### M7：布局 Preset 系统
 
-状态：预研完成，待实现。
+状态：核心能力已完成，专项回归清单已建立。
 
 - [x] 预研阶段已完成，5 项设计决策已锁定（见 [`../features/layout-presets.md`](../features/layout-presets.md)）。
-- [ ] 实现 JSON preset 格式（`.freepiano.layout`）。
-- [ ] 实现用户目录 preset 自动发现（`ControlsPanel` 列表聚合内置 + 用户 preset）。
-- [ ] 实现 Preset 加载（原生文件对话框选择任意位置）。
-- [ ] 实现 Preset 保存（默认到用户配置目录）。
-- [ ] 实现 Preset 删除（内置不可删）。
-- [ ] ID 冲突时提醒用户重新命名。
+- [x] 实现 JSON preset 格式（`.freepiano.layout`，含 `version` / `id` / `name` / `displayName` / `bindings`）。
+- [x] 实现用户目录 preset 自动发现（`ControlsPanel` 列表聚合内置 + 用户 preset）。
+- [x] 实现 Preset 导入（原生文件对话框选择任意位置，复制到用户布局目录并应用）。
+- [x] 实现 Preset 保存（保存到文件对话框选择的目标路径；保存到用户目录时可被后续扫描恢复）。
+- [x] 实现 Preset 重命名显示名称（不改变文件名和稳定 `layoutId`）。
+- [x] 实现 Preset 删除（内置不可删；删除当前用户 preset 时回退到 `FreePiano Minimal`）。
+- [x] 实现启动恢复（按持久化 `layoutId` 恢复内置或用户 preset，并叠加 `keyMap`）。
+- [~] ID 冲突当前通过“用户 preset id 由文件名派生 + 导入同名文件覆盖”处理，尚无单独冲突提醒 UI。
+- [x] 已补充功能说明与专项测试：[`../features/layout-presets.md`](../features/layout-presets.md)、[`../testing/layout-presets.md`](../testing/layout-presets.md)。
 
 ## 4. 当前近期重点
 
-录制/回放（M6）和布局 Preset（M7）的设计草案已完成，后续可直接从 backlog 取用。
+布局 Preset（M7）核心能力已完成；录制/回放（M6）的设计草案已完成，仍待实现。
 
 优先级从高到低：
 
-1. **M7 布局 Preset**（实现风险低，收益明确）
-   - 从 JSON preset 格式和 preset 发现机制开始。
-   - 逐步实现 load / save / delete UI。
-
-2. **M6 录制/回放**（模型已锁定，实现需谨慎）
+1. **M6 录制/回放**（模型已锁定，实现需谨慎）
    - 从演奏事件模型和时钟基础开始。
    - 录制 UI → 回放逻辑 → MIDI 导出 → WAV 渲染（按序推进）。
+
+2. **M7 布局 Preset 持续打磨**（核心能力已完成）
+   - 按 [`../testing/layout-presets.md`](../testing/layout-presets.md) 做专项回归。
+   - 后续只保留低优先级增强，如冲突提示、图形化布局编辑器、per-key label/color。
 
 3. **M3 插件宿主持续稳定**
    - 外部 MIDI 设备可用后补齐退出场景 `6.3` 验证。
@@ -161,10 +164,10 @@
 | 风险 | 当前判断 | 应对方向 |
 |---|---|---|
 | 插件生命周期复杂 | 中 | 维护专项生命周期测试，重点覆盖 editor、卸载、重扫、退出。 |
-| 键盘映射边界多 | 低中 | 基础映射已全量验证，M7 实现 preset 时注意不破坏现有行为。 |
+| 键盘映射边界多 | 低中 | 基础映射已全量验证；布局 preset 已补充专项回归清单，后续改动按清单回归。 |
 | `MainComponent` 职责回流 | 低 | 已通过两轮收敛建立了 `PluginFlowSupport` 边界，后续保持纪律。 |
 | 录制/回放实现风险 | 中 | 已完成设计预研，实现时按 M6-1 到 M6-6 顺序小步推进。 |
-| 布局 Preset 实现风险 | 低中 | 设计草案已锁定，实现风险低。 |
+| 布局 Preset 实现风险 | 低 | 核心能力已完成并补充功能/测试文档；后续主要是低优先级体验增强。 |
 | 文档状态漂移 | 中 | 本文件作为唯一 roadmap；当前任务只写入 [`current-iteration.md`](current-iteration.md)。 |
 
 ## 6. 完成标准参考
@@ -176,13 +179,14 @@
 专项测试见：
 
 - [`../testing/keyboard-mapping.md`](../testing/keyboard-mapping.md)
+- [`../testing/layout-presets.md`](../testing/layout-presets.md)
 - [`../testing/plugin-host-lifecycle.md`](../testing/plugin-host-lifecycle.md)
 
 ---
 
 ## 7. 实现 Backlog
 
-以下条目均来自 M6 / M7，已按实现顺序排列。可直接取用作为下一轮迭代的任务单元。
+以下条目来自 M6 / M7，已按实现顺序排列。M7 核心条目已完成，后续新工作优先从 M6 取用。
 
 每个条目格式：`目标 — 关键约束 — 前置条件`
 
@@ -194,31 +198,43 @@
 - 目标：定义 `.freepiano.layout` JSON schema，含 version、id、name、bindings（含 keyCode/displayText/action）
 - 关键约束：使用 JUCE keyCode，不含 velocity/transpose 等演奏参数
 - 前置条件：无
+- 状态：已完成（当前还包含 `displayName` 字段）
 
 **M7-2：Preset 读写工具函数**
 - 目标：在 `source/` 下新建 `LayoutPreset.h/.cpp`，提供 `loadLayoutPreset(path)` → `KeyboardLayout`、`saveLayoutPreset(layout, path)` → `bool`
 - 关键约束：使用 JUCE `File` / `JSON` API，不引入新外部依赖
 - 前置条件：M7-1 完成
+- 状态：已完成
 
 **M7-3：用户目录 Preset 自动发现**
 - 目标：`ControlsPanel` 启动时扫描用户配置目录，聚合内置 preset + `.freepiano.layout` 文件到 layout 列表
 - 关键约束：用户 preset 只在目录中可见，内置 preset 不可被删除
 - 前置条件：M7-2 完成
+- 状态：已完成
 
 **M7-4：Preset 加载（文件对话框）**
 - 目标：`ControlsPanel` 或 `PluginPanel` 提供"导入"入口，通过原生文件对话框选择任意位置的 `.freepiano.layout` 并应用
 - 关键约束：复用已有 `KeyboardMidiMapper::setLayout()` 路径，不新增独立加载逻辑
 - 前置条件：M7-2 完成
+- 状态：已完成（当前入口位于 `ControlsPanel`，导入后复制到用户布局目录并应用）
 
-**M7-5：Preset 保存（默认目录）**
-- 目标：`ControlsPanel` 提供"导出"或"另存为"入口，将当前 `KeyboardLayout` 保存为 JSON 到用户配置目录
-- 关键约束：默认路径为用户配置目录；ID 冲突时提醒用户重新命名
+**M7-5：Preset 保存（Save Layout）**
+- 目标：`ControlsPanel` 提供"另存为"入口，将当前 `KeyboardLayout` 保存为 JSON
+- 关键约束：保存到文件对话框选择的目标路径；保存到用户布局目录时可被后续扫描恢复
 - 前置条件：M7-2、M7-3 完成
+- 状态：已完成
 
 **M7-6：Preset 删除**
-- 目标：在 `ControlsPanel` layout 列表中支持右键删除用户 preset（内置不可删）
+- 目标：在 `ControlsPanel` 中支持删除用户 preset（内置不可删）
 - 关键约束：只删文件，不动内置 preset
 - 前置条件：M7-3 完成
+- 状态：已完成（当前为独立 `Delete` 按钮 + 确认对话框）
+
+**M7-7：Preset 重命名显示名称**
+- 目标：支持修改用户 preset 在下拉菜单中的显示名称
+- 关键约束：只改 JSON `name` / `displayName`，不改文件名和稳定 `layoutId`
+- 前置条件：M7-3 完成
+- 状态：已完成（当前为独立 `Rename` 按钮）
 
 ---
 
