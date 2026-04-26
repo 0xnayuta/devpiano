@@ -22,6 +22,7 @@
 
 - [`testing/acceptance.md`](testing/acceptance.md)：阶段性验收标准。
 - [`testing/keyboard-mapping.md`](testing/keyboard-mapping.md)：键盘映射专项手工测试。
+- [`testing/layout-presets.md`](testing/layout-presets.md)：布局 preset 的保存、导入、重命名、删除与启动恢复专项手工测试。
 - [`testing/plugin-host-lifecycle.md`](testing/plugin-host-lifecycle.md)：插件宿主生命周期与退出稳定性专项测试。
 
 ### 旧代码迁移

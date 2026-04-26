@@ -7,12 +7,13 @@
 - [`keyboard-mapping.md`](keyboard-mapping.md)：电脑键盘到 MIDI note 的映射能力、当前边界和后续方向。
 - [`plugin-hosting.md`](plugin-hosting.md)：VST3 插件扫描、加载、处理、editor 和生命周期相关功能行为。
 - [`recording-playback.md`](recording-playback.md)：录制/回放旧行为参考与现代设计草案（预研阶段，不实现）。
-- [`layout-presets.md`](layout-presets.md)：布局 preset 旧行为参考与现代设计草案（预研阶段，不实现）。
+- [`layout-presets.md`](layout-presets.md)：布局 preset 当前行为、文件格式、导入/保存/重命名/删除与恢复说明。
 
 相关入口：
 
 - 当前状态与计划：[`../roadmap/roadmap.md`](../roadmap/roadmap.md)
 - 键盘映射测试：[`../testing/keyboard-mapping.md`](../testing/keyboard-mapping.md)
+- 布局 preset 测试：[`../testing/layout-presets.md`](../testing/layout-presets.md)
 - 插件宿主生命周期测试：[`../testing/plugin-host-lifecycle.md`](../testing/plugin-host-lifecycle.md)
 - 旧功能迁移边界：[`../architecture/legacy-migration.md`](../architecture/legacy-migration.md)
 
