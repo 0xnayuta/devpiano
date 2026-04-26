@@ -111,8 +111,8 @@
 
 - [x] 已阅读旧 `freepiano-src/song.*` 提炼录制/回放历史行为（事件模型、录制机制、回放机制、导出行为、旧设计问题）。
 - [x] 已阅读 `source/Legacy/UnusedPrototypes/SongEngine.*`，确认为旧代码直译移植，未重新设计，不参与主构建。
-- [x] 已在 [`../features/recording-playback.md`](../features/recording-playback.md) 记录完整草案：旧行为参考、当前原型状态、现代设计考虑（分层事件模型、时间基础、回放模型、与插件关系、导出格式）。
-- [x] 已明确 7 项设计决策（录制范围、多轨、文件格式、编辑能力、实时回放、导出格式、回放时插件状态）。
+- [x] 已在 [`../features/recording-playback.md`](../features/recording-playback.md) 记录完整草案：当前 MIDI/keyboard/audio 主链路、旧行为参考、第一版目标、sample-based 事件模型、录制/回放接入点、导出边界与线程安全约束。
+- [x] 已明确 8 项设计决策（录制内容、事件格式、sample-based 时间线、回放路径、插件关系、多轨能力、编辑能力、导出优先级）。
 
 **预研已收尾。** 后续实现时直接参考该文档，无需重新讨论这些决策。
 
