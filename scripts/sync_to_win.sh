@@ -28,6 +28,29 @@ fail() {
   exit 1
 }
 
+usage() {
+  printf 'Usage: %s [--check]\n' "$SCRIPT_NAME"
+  printf '  --check    List changes without copying or deleting any files\n'
+  exit 1
+}
+
+CHECK_ONLY=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --check)
+      CHECK_ONLY="-CheckOnly"
+      shift
+      ;;
+    -h|--help)
+      usage
+      ;;
+    *)
+      printf '%s ERROR: Unknown argument: %s\n' "$SCRIPT_NAME" "$1" >&2
+      usage
+      ;;
+  esac
+done
+
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 TOOLS_DIR="${ROOT_DIR}/tools"
@@ -79,8 +102,15 @@ log "source (Windows view): ${WIN_SOURCE_DIR}"
 log "mirror dir: ${WIN_MIRROR_DIR_VALUE}"
 log "windows shell: ${WINDOWS_POWERSHELL}"
 
-"${WINDOWS_POWERSHELL}" -NoProfile -ExecutionPolicy Bypass -File "${WIN_PS_SCRIPT}" \
-  -SourceDir "${WIN_SOURCE_DIR}" \
-  -MirrorDir "${WIN_MIRROR_DIR_VALUE}"
-
-success 'sync complete'
+if [[ -n "${CHECK_ONLY:-}" ]]; then
+  "${WINDOWS_POWERSHELL}" -NoProfile -ExecutionPolicy Bypass -File "${WIN_PS_SCRIPT}" \
+    -SourceDir "${WIN_SOURCE_DIR}" \
+    -MirrorDir "${WIN_MIRROR_DIR_VALUE}" \
+    -CheckOnly
+  success 'check complete — no files were modified'
+else
+  "${WINDOWS_POWERSHELL}" -NoProfile -ExecutionPolicy Bypass -File "${WIN_PS_SCRIPT}" \
+    -SourceDir "${WIN_SOURCE_DIR}" \
+    -MirrorDir "${WIN_MIRROR_DIR_VALUE}"
+  success 'sync complete'
+fi

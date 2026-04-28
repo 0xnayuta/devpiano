@@ -6,7 +6,7 @@
 
 - [`keyboard-mapping.md`](keyboard-mapping.md)：电脑键盘到 MIDI note 的映射能力、当前边界和后续方向。
 - [`plugin-hosting.md`](plugin-hosting.md)：VST3 插件扫描、加载、处理、editor 和生命周期相关功能行为。
-- [`recording-playback.md`](recording-playback.md)：录制 / 回放 / 导出的第一版设计草案（尚未实现）。
+- [`recording-playback.md`](recording-playback.md)：录制 / 回放 / 导出的第一版设计草案（M6-1 模型骨架与 M6-2 AudioEngine 最小录制边界已实现）。
 - [`layout-presets.md`](layout-presets.md)：布局 preset 当前行为、文件格式、导入/保存/重命名/删除与恢复说明。
 
 相关入口：

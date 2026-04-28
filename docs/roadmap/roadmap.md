@@ -112,10 +112,14 @@
 
 ### M6：录制 / 回放 / 导出
 
-状态：预研完成，待实现。
+状态：模型、AudioEngine 最小录制边界、owner/preallocation 规则、无 UI 内部启停入口、无 UI 内部回放入口与 M6-4 最小 UI（Record/Stop/Play 按钮）已接入，导出待实现。
 
 - [x] 预研阶段已完成，8 项设计决策已锁定（见 [`../features/recording-playback.md`](../features/recording-playback.md)）。
-- [ ] 实现演奏事件模型（`PerformanceEvent` + sample-based timeline）。
+- [x] 实现演奏事件模型骨架（`PerformanceEvent` + sample-based timeline）。
+- [x] 实现 `AudioEngine::setRecordingEngine(...)` 与 pre-render `MidiBuffer` 最小录制边界。
+- [x] 明确 owner / detach / preallocation / overflow 规则（`MainComponent` 持有，`AudioEngine` 非拥有引用，容量耗尽时丢弃新事件并计数）。
+- [x] 实现无 UI 内部录制启停入口（暂停 audio callback 后执行 reserve/start 或 stop）。
+- [x] 实现无 UI 内部回放启停入口（`startInternalPlayback` / `stopInternalPlayback`，stop 时 all-notes-off）。
 - [ ] 实现录制 UI（录制/停止按钮，录音状态显示）。
 - [ ] 实现回放逻辑（事件时间线推进，事件重路由到 `AudioEngine`）。
 - [ ] 实现 MIDI 文件导出（`juce::MidiFile`）。
@@ -139,12 +143,12 @@
 
 ## 4. 当前近期重点
 
-布局 Preset（M7）核心能力已完成；录制/回放（M6）的设计草案已完成，仍待实现。
+布局 Preset（M7）核心能力已完成；录制/回放（M6）已完成模型骨架、AudioEngine 最小录制边界、owner/preallocation 规则、无 UI 内部启停入口、无 UI 内部回放入口与 M6-4 最小 UI，仍待导出。
 
 优先级从高到低：
 
 1. **M6 录制/回放**（模型已锁定，实现需谨慎）
-   - 从演奏事件模型和 sample-based timeline 开始。
+   - 下一步通过内部入口验证录制时间线。
    - 录制 UI → 回放逻辑 → MIDI 导出 → WAV 渲染（按序推进）。
 
 2. **M7 布局 Preset 持续打磨**（核心能力已完成）
@@ -244,11 +248,13 @@
 - 目标：定义 `PerformanceEvent { timestampSamples, source, MidiMessage }` 与 `RecordingTake { sampleRate, lengthSamples, events }`
 - 关键约束：不复制旧 `song_event_t` 字节数组；内部优先使用 sample-based timeline，进入 `MidiBuffer` 时转换为 block-local sample offset
 - 前置条件：无
+- 状态：已完成最小模型骨架（尚未接入 `AudioEngine`）
 
-**M6-2：RecordingState 与录制生命周期**
-- 目标：定义 `RecordingEngine` / `RecordingState { idle, recording, playing, stopped }`，在 `AudioEngine` 的 block-local `MidiBuffer` 边界记录实时 MIDI 事件
-- 关键约束：录制的是 MIDI 演奏事件，不是音频；不新增第二套 MIDI 监听链路；audio callback 中不做文件 IO、UI 或阻塞操作
+**M6-2：AudioEngine MIDI block 边界**
+- 目标：在 `AudioEngine::getNextAudioBlock()` 中确定 block-local `MidiBuffer` 的录制 handoff 边界，并用 `RecordingEngine::recordMidiBufferBlock()` 表达事件时间戳转换方式
+- 关键约束：录制的是交给插件 / fallback synth 前的 pre-render `MidiBuffer` 演奏事件，不是音频；不新增第二套 MIDI 监听链路；第一版把混合后的 block MIDI 标记为 `realtimeMidiBuffer`；`timestampSamples` 是唯一权威时间线；audio callback 中不做文件 IO、UI 或阻塞操作
 - 前置条件：M6-1 完成
+- 状态：边界设计、辅助 API、`AudioEngine::setRecordingEngine(...)` 最小注入、owner/preallocation 规则和无 UI 内部启停入口已完成；尚未接 UI
 
 **M6-3：录制 UI（录制/停止按钮，录音状态显示）**
 - 目标：在 `ControlsPanel` 或 `HeaderPanel` 添加录制/停止按钮和录音状态指示
@@ -259,11 +265,13 @@
 - 目标：实现 `PlaybackState { idle, playing }`，按当前 audio block 将到期事件写入 `MidiBuffer`
 - 关键约束：回放不走 `KeyboardMidiMapper`（避免键盘映射不一致）；回放事件进入现有 plugin / fallback synth 发声路径；播放完毕自动停止并清理悬挂音
 - 前置条件：M6-1、M6-2 完成
+- 状态：已完成。M6-4 最小 UI（Record/Stop/Play 按钮）已完成并接入 MainComponent。
 
 **M6-5：MIDI 文件导出（`juce::MidiFile`）**
 - 目标：将 `PerformanceEvent` 序列化为标准 MIDI Type 1 文件
 - 关键约束：使用 JUCE `MidiFile`，兼容任何 DAW
 - 前置条件：M6-1、M6-2 完成
+- 状态：已完成。`MidiFileExporter::exportTakeAsMidiFile()` + `ControlsPanel` Export MIDI 按钮已接入。
 
 **M6-6：WAV 离线渲染**
 - 目标：将 MIDI 文件通过离线音频链路（不经过实时音频设备）渲染为 WAV 文件

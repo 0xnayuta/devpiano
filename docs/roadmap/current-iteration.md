@@ -113,6 +113,13 @@
 - [x] 已阅读 `source/Legacy/UnusedPrototypes/SongEngine.*`，确认为旧代码直译移植，未重新设计，不参与主构建。
 - [x] 已在 [`../features/recording-playback.md`](../features/recording-playback.md) 记录完整草案：当前 MIDI/keyboard/audio 主链路、旧行为参考、第一版目标、sample-based 事件模型、录制/回放接入点、导出边界与线程安全约束。
 - [x] 已明确 8 项设计决策（录制内容、事件格式、sample-based 时间线、回放路径、插件关系、多轨能力、编辑能力、导出优先级）。
+- [x] 已新增 `source/Recording/RecordingEngine.*`，完成 M6-1 最小模型与生命周期骨架；当前不接 UI、不接 `AudioEngine` 主链路。
+- [x] 已明确 M6-2 `AudioEngine::getNextAudioBlock()` handoff 边界：`keyboardState.processNextMidiBuffer(..., true)` 之后、插件 / fallback synth 消费 `MidiBuffer` 之前；已新增 `recordMidiBufferBlock()` 辅助 API，并完成 `AudioEngine::setRecordingEngine(...)` 最小注入（尚未接 UI）。
+- [x] 已明确 owner / lifetime / preallocation 规则：`MainComponent` 持有 `RecordingEngine`，`AudioEngine` 仅保存非拥有指针；析构时先 `shutdownAudio()` 再 `setRecordingEngine(nullptr)`；容量耗尽时丢弃新事件并计数。
+- [x] 已新增无 UI 内部录制启停入口：`startInternalRecording(expectedEventCapacity)` / `stopInternalRecording()`，通过暂停 audio callback 后执行 reserve/start 或 stop，避免当前阶段引入跨线程状态竞争。
+- [x] 已新增无 UI 内部回放启停入口：`startInternalPlayback(take)` / `stopInternalPlayback()`，`stopInternalPlayback()` 返回 `RecordingTake` 快照并发送 `allNotesOff(1)`；回放通过 `AudioEngine::getNextAudioBlock()` 中的 `renderPlaybackEventsIfNeeded()` 注入 playback 事件。
+- [x] 已实现 M6-4 最小 UI：`ControlsPanel` 新增 Record / Stop / Play 按钮与 `recordStatusLabel`（Idle / Recording / Playing），`MainComponent` 对应 handler，`currentTake` 存储最近一次录制用于回放。
+- [x] 已实现 M6-5 MIDI 导出：`MidiFileExporter::exportTakeAsMidiFile()` 将 `RecordingTake` 转换为 `juce::MidiFile` 输出 `.mid`（960 PPQ，无 tempo map）；`ControlsPanel` 新增 "Export MIDI" 按钮；`handleExportMidiClicked()` 使用 `FileChooser` 保存对话框，文件名 `recording_<ISO8601>.mid`。
 
 **预研已收尾。** 后续实现时直接参考该文档，无需重新讨论这些决策。
 
