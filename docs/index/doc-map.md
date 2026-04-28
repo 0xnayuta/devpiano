@@ -23,5 +23,6 @@
 - 项目状态与路线图：[`../roadmap/roadmap.md`](../roadmap/roadmap.md)
 - 当前任务：[`../roadmap/current-iteration.md`](../roadmap/current-iteration.md)
 - 阶段验收：[`../testing/acceptance.md`](../testing/acceptance.md)
-- 录制 / 回放 / 导出设计：[`../features/recording-playback.md`](../features/recording-playback.md)
+- 录制 / 回放 / MIDI 导出设计：[`../features/recording-playback.md`](../features/recording-playback.md)
+- 录制 / 回放 / MIDI 导出测试：[`../testing/recording-playback.md`](../testing/recording-playback.md)
 - WSL / Windows 混合工作流：[`../development/wsl-windows-msvc-workflow.md`](../development/wsl-windows-msvc-workflow.md)

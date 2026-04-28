@@ -23,13 +23,14 @@
 - [`testing/acceptance.md`](testing/acceptance.md)：阶段性验收标准。
 - [`testing/keyboard-mapping.md`](testing/keyboard-mapping.md)：键盘映射专项手工测试。
 - [`testing/layout-presets.md`](testing/layout-presets.md)：布局 preset 的保存、导入、重命名、删除与启动恢复专项手工测试。
+- [`testing/recording-playback.md`](testing/recording-playback.md)：录制、回放与 MIDI 导出专项手工测试。
 - [`testing/plugin-host-lifecycle.md`](testing/plugin-host-lifecycle.md)：插件宿主生命周期与退出稳定性专项测试。
 
 ### 功能设计
 
 - [`features/keyboard-mapping.md`](features/keyboard-mapping.md)：电脑键盘到 MIDI note 的映射能力与边界。
 - [`features/layout-presets.md`](features/layout-presets.md)：布局 preset 的文件格式、导入/保存/重命名/删除与恢复行为。
-- [`features/recording-playback.md`](features/recording-playback.md)：录制 / 回放 / 导出的第一版设计草案。
+- [`features/recording-playback.md`](features/recording-playback.md)：录制 / 回放 / MIDI 导出的第一版设计与当前 MVP 行为。
 - [`features/plugin-hosting.md`](features/plugin-hosting.md)：VST3 插件扫描、加载、处理、editor 和生命周期行为。
 
 ### 旧代码迁移
