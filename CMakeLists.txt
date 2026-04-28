@@ -58,6 +58,10 @@ target_sources(devpiano PRIVATE
     source/Plugin/PluginHost.h
     source/Plugin/PluginFlowSupport.cpp
     source/Plugin/PluginFlowSupport.h
+    source/Recording/RecordingEngine.cpp
+    source/Recording/RecordingEngine.h
+    source/Recording/MidiFileExporter.cpp
+    source/Recording/MidiFileExporter.h
     source/UI/PluginPanel.cpp
     source/UI/PluginPanel.h
     source/UI/PluginEditorWindow.cpp

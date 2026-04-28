@@ -11,6 +11,7 @@
 #include "Midi/MidiRouter.h"
 #include "Plugin/PluginHost.h"
 #include "Plugin/PluginFlowSupport.h"
+#include "Recording/RecordingEngine.h"
 #include "Settings/SettingsComponent.h"
 #include "Settings/SettingsModel.h"
 #include "Settings/SettingsStore.h"
@@ -35,8 +36,14 @@ public:
     void resized() override;
     void visibilityChanged() override;
 
+    void restoreKeyboardFocus();
+
     bool keyPressed(const juce::KeyPress& key) override;
     bool keyStateChanged(bool isKeyDown) override;
+
+protected:
+    void focusGained(juce::Component::FocusChangeType cause) override;
+    void focusLost(juce::Component::FocusChangeType cause) override;
 
 private:
     struct RuntimeAudioConfig
@@ -65,11 +72,14 @@ private:
     void handleImportLayoutRequested();
     void handleRenameLayoutRequested();
     void handleDeleteLayoutRequested();
+    void handleRecordClicked();
+    void handlePlayClicked();
+    void handleStopClicked();
+    void handleExportMidiClicked();
     void applyUiStateToAudioEngine();
     void syncUiFromSettings();
     void syncSettingsFromUi();
     void suppressTextInputMethods();
-    void restoreKeyboardFocus();
     void initialiseAudioDevice();
     void captureAudioDeviceState();
     void prepareForAudioDeviceRebuild();
@@ -99,6 +109,10 @@ private:
     double getCurrentRuntimeSampleRate() const;
     int getCurrentRuntimeBlockSize() const;
     [[nodiscard]] RuntimeAudioConfig getCurrentRuntimeAudioConfig() const;
+    void startInternalRecording(std::size_t expectedEventCapacity);
+    [[nodiscard]] devpiano::recording::RecordingTake stopInternalRecording();
+    void startInternalPlayback(const devpiano::recording::RecordingTake& take);
+    [[nodiscard]] devpiano::recording::RecordingTake stopInternalPlayback();
     void runPluginActionWithAudioDeviceRebuild(const std::function<void(const RuntimeAudioConfig&)>& action);
     void runPluginActionWithAudioDeviceRebuild(const std::function<void()>& action);
     [[nodiscard]] juce::String getSelectedPluginNameForLoad() const;
@@ -116,7 +130,10 @@ private:
     void togglePluginEditor();
     void scanPlugins();
 
+    devpiano::recording::RecordingEngine recordingEngine;
+    devpiano::recording::RecordingTake currentTake;
     AudioEngine audioEngine;
+    ControlsPanel::RecordingState currentRecordingState = ControlsPanel::RecordingState::idle;
     KeyboardMidiMapper keyboardMidiMapper;
     MidiRouter midiRouter;
     PluginHost pluginHost;
@@ -133,6 +150,7 @@ private:
     std::unique_ptr<juce::DialogWindow> settingsWindow;
     std::unique_ptr<juce::FileChooser> saveLayoutChooser;
     std::unique_ptr<juce::FileChooser> importLayoutChooser;
+    std::unique_ptr<juce::FileChooser> exportMidiChooser;
     std::unique_ptr<PluginEditorWindow> pluginEditorWindow;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)

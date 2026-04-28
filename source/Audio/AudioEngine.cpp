@@ -1,6 +1,7 @@
 #include "AudioEngine.h"
 
 #include "Plugin/PluginHost.h"
+#include "Recording/RecordingEngine.h"
 
 #include <cmath>
 
@@ -98,6 +99,11 @@ void AudioEngine::setPluginHost(PluginHost* host) noexcept
     pluginHost = host;
 }
 
+void AudioEngine::setRecordingEngine(devpiano::recording::RecordingEngine* engine) noexcept
+{
+    recordingEngine = engine;
+}
+
 void AudioEngine::prepareToPlay(int samplesPerBlockExpected, double sampleRate)
 {
     currentSampleRate = sampleRate;
@@ -131,6 +137,9 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
                                         0,
                                         bufferToFill.numSamples,
                                         true);
+    recordRealtimeMidiBufferIfNeeded(bufferToFill.numSamples);
+    renderPlaybackEventsIfNeeded(recordingEngine != nullptr ? recordingEngine->getPlaybackPositionSamples() : 0,
+                                  bufferToFill.numSamples);
 
     auto renderedByPlugin = false;
 
@@ -213,4 +222,25 @@ void AudioEngine::updateAdsrOnVoices()
     for (auto index = 0; index < synth.getNumVoices(); ++index)
         if (auto* voice = dynamic_cast<SimpleSineVoice*>(synth.getVoice(index)))
             voice->setAdsrParameters(adsrParameters);
+}
+
+void AudioEngine::recordRealtimeMidiBufferIfNeeded(int numSamples)
+{
+    if (recordingEngine == nullptr || !recordingEngine->isRecording())
+        return;
+
+    const auto blockStartSamples = recordingEngine->getCurrentPositionSamples();
+    recordingEngine->recordMidiBufferBlock(midiBuffer,
+                                           devpiano::recording::RecordingEventSource::realtimeMidiBuffer,
+                                           blockStartSamples);
+    recordingEngine->advanceRecordingPosition(numSamples);
+}
+
+void AudioEngine::renderPlaybackEventsIfNeeded(std::int64_t blockStartSamples, int numSamples)
+{
+    if (recordingEngine == nullptr || !recordingEngine->isPlaying())
+        return;
+
+    recordingEngine->renderPlaybackBlock(midiBuffer, blockStartSamples, numSamples);
+    recordingEngine->advancePlaybackPosition(numSamples);
 }

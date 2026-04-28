@@ -76,6 +76,39 @@ ControlsPanel::ControlsPanel()
             onDeleteLayoutRequested();
     };
 
+    recordStatusLabel.setJustificationType(juce::Justification::centredLeft);
+    addAndMakeVisible(recordStatusLabel);
+
+    addAndMakeVisible(recordButton);
+    recordButton.onClick = [this]
+    {
+        if (onRecordClicked)
+            onRecordClicked();
+    };
+
+    addAndMakeVisible(playButton);
+    playButton.onClick = [this]
+    {
+        if (onPlayClicked)
+            onPlayClicked();
+    };
+
+    addAndMakeVisible(stopButton);
+    stopButton.onClick = [this]
+    {
+        if (onStopClicked)
+            onStopClicked();
+    };
+
+    addAndMakeVisible(exportMidiButton);
+    exportMidiButton.onClick = [this]
+    {
+        if (onExportMidiClicked)
+            onExportMidiClicked();
+    };
+
+    setRecordingState(RecordingState::idle);
+
     updateLayoutActionButtons();
 }
 
@@ -92,6 +125,10 @@ ControlsPanel::~ControlsPanel()
     importLayoutButton.onClick = nullptr;
     renameLayoutButton.onClick = nullptr;
     deleteLayoutButton.onClick = nullptr;
+    recordButton.onClick = nullptr;
+    playButton.onClick = nullptr;
+    stopButton.onClick = nullptr;
+    exportMidiButton.onClick = nullptr;
 }
 
 void ControlsPanel::resized()
@@ -126,6 +163,67 @@ void ControlsPanel::resized()
     renameLayoutButton.setBounds(row.removeFromLeft(70));
     row.removeFromLeft(8);
     deleteLayoutButton.setBounds(row.removeFromLeft(60));
+
+    area.removeFromTop(12);
+
+    auto buttonRow = area.removeFromTop(rowHeight);
+    recordStatusLabel.setBounds(buttonRow.removeFromLeft(80));
+    buttonRow.removeFromLeft(6);
+    recordButton.setBounds(buttonRow.removeFromLeft(60));
+    buttonRow.removeFromLeft(6);
+    playButton.setBounds(buttonRow.removeFromLeft(50));
+    buttonRow.removeFromLeft(6);
+    stopButton.setBounds(buttonRow.removeFromLeft(50));
+    buttonRow.removeFromLeft(6);
+    exportMidiButton.setBounds(buttonRow.removeFromLeft(90));
+}
+
+void ControlsPanel::setRecordingState(RecordingState state)
+{
+    recordingState = state;
+    juce::String statusText;
+    auto recordEnabled = true;
+    auto playEnabled = hasTake;
+    auto stopEnabled = false;
+    auto exportEnabled = hasTake;
+
+    switch (state)
+    {
+        case RecordingState::idle:
+            statusText = "Idle";
+            playEnabled = hasTake;
+            exportEnabled = hasTake;
+            break;
+        case RecordingState::recording:
+            statusText = "Recording";
+            recordEnabled = false;
+            playEnabled = false;
+            exportEnabled = false;
+            stopEnabled = true;
+            break;
+        case RecordingState::playing:
+            statusText = "Playing";
+            recordEnabled = false;
+            playEnabled = false;
+            exportEnabled = false;
+            stopEnabled = true;
+            break;
+    }
+
+    recordStatusLabel.setText(statusText, juce::dontSendNotification);
+    recordButton.setEnabled(recordEnabled);
+    playButton.setEnabled(playEnabled);
+    stopButton.setEnabled(stopEnabled);
+    exportMidiButton.setEnabled(exportEnabled);
+}
+
+void ControlsPanel::setHasTake(bool value)
+{
+    hasTake = value;
+    if (recordingState == RecordingState::idle)
+        exportMidiButton.setEnabled(hasTake);
+    if (recordingState != RecordingState::recording && recordingState != RecordingState::playing)
+        playButton.setEnabled(hasTake);
 }
 
 void ControlsPanel::setValues(float masterGain,

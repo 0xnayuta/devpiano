@@ -55,6 +55,7 @@ bool KeyboardMidiMapper::handleKeyStateChanged(juce::MidiKeyboardState& keyboard
             continue;
 
         const auto isCurrentlyDown = juce::KeyPress::isKeyCurrentlyDown(keyCode);
+
         const auto wasHeld = heldKeys.contains(keyCode);
 
         if (isCurrentlyDown && ! wasHeld)
