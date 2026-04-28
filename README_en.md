@@ -34,13 +34,14 @@ The current main branch already provides the following capabilities:
 - scanned VST3 plugin instances can be loaded and participate in audio processing
 - plugin editor windows can be opened when a plugin provides an editor
 - basic settings are persisted, including audio device state, performance parameters, input mapping, and plugin restore information
-- minimal layout operations are already available: switch layout, save current layout, restore default mapping for the current layout
+- layout presets can be saved, imported, renamed, deleted, and restored on startup
+- the recording / stop / playback / MIDI export MVP loop is available
 
 Areas still being improved:
 
 - more complete keyboard mapping editing
-- a more complete layout preset / import / export system
-- recording / playback / export
+- layout preset enhancements such as conflict warnings and graphical editing
+- M6+ advanced features such as WAV offline rendering, editing, and tempo maps
 - clearer formal UI layering and interaction details
 - more systematic stability validation and regression testing
 
@@ -56,6 +57,8 @@ The current main branch can be roughly divided into the following layers:
   - the main composition layer that connects audio devices, input, plugins, settings, and UI panels
 - `source/Audio/`
   - `AudioEngine`: handles MIDI aggregation, plugin audio processing, and the built-in fallback synth
+- `source/Recording/`
+  - `RecordingEngine` / `MidiFileExporter`: handle performance event recording, playback scheduling, and MIDI file export
 - `source/Plugin/`
   - `PluginHost`: manages plugin formats, VST3 scanning, instance loading, prepare/release, and unloading
 - `source/Input/`
@@ -226,6 +229,8 @@ If you want to understand the current project plan, the recommended reading orde
 - Acceptance criteria: [docs/testing/acceptance.md](docs/testing/acceptance.md)
 - Specialized test docs:
   - [docs/testing/keyboard-mapping.md](docs/testing/keyboard-mapping.md)
+  - [docs/testing/layout-presets.md](docs/testing/layout-presets.md)
+  - [docs/testing/recording-playback.md](docs/testing/recording-playback.md)
   - [docs/testing/plugin-host-lifecycle.md](docs/testing/plugin-host-lifecycle.md)
 
 ---

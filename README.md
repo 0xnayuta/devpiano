@@ -34,13 +34,14 @@
 - 可加载已扫描的 VST3 插件实例并参与音频处理
 - 可打开插件编辑器窗口（若插件提供 editor）
 - 基础设置可持久化，包括音频设备状态、性能参数、输入映射与插件恢复信息
-- 已提供最小布局操作入口：布局切换、保存当前布局、恢复当前布局默认映射
+- 已支持布局 Preset 保存、导入、重命名、删除与启动恢复
+- 已支持录制、停止、回放与 MIDI 文件导出 MVP 闭环
 
 当前仍在持续完善的能力：
 
 - 更完整的键盘映射编辑能力
-- 更完善的布局 Preset / 导入导出体系
-- 录制 / 回放 / 导出
+- 布局 Preset 的冲突提示、图形化编辑等体验增强
+- WAV 离线渲染、复杂编辑、tempo map 等 M6+ 高级功能
 - 更清晰的正式 UI 分层与交互细节
 - 更系统化的稳定性验证与回归测试
 
@@ -56,6 +57,8 @@
   - 主装配层，负责连接音频设备、输入、插件、设置与各 UI 面板
 - `source/Audio/`
   - `AudioEngine`：处理 MIDI 汇总、插件音频处理与 fallback 内置合成器
+- `source/Recording/`
+  - `RecordingEngine` / `MidiFileExporter`：处理演奏事件录制、回放调度与 MIDI 文件导出
 - `source/Plugin/`
   - `PluginHost`：负责插件格式管理、VST3 扫描、实例加载、prepare/release 与卸载
 - `source/Input/`
@@ -226,6 +229,8 @@ Windows MSVC 验证构建（内置同步，不需要单独 win-sync）：
 - 阶段验收标准：[docs/testing/acceptance.md](docs/testing/acceptance.md)
 - 专项测试：
   - [docs/testing/keyboard-mapping.md](docs/testing/keyboard-mapping.md)
+  - [docs/testing/layout-presets.md](docs/testing/layout-presets.md)
+  - [docs/testing/recording-playback.md](docs/testing/recording-playback.md)
   - [docs/testing/plugin-host-lifecycle.md](docs/testing/plugin-host-lifecycle.md)
 
 ---
