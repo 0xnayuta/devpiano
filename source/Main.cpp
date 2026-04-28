@@ -10,6 +10,84 @@
 #include "MainComponent.h"
 
 //==============================================================================
+#if defined(JUCE_WINDOWS) && JUCE_WINDOWS
+
+#include <windows.h>
+
+// WNDPROC hook state
+static WNDPROC g_originalWndProc = nullptr;
+static HWND g_hwnd = nullptr;
+static MainComponent* g_mainComponent = nullptr;
+static bool g_focusRestorePending = false;
+
+static void scheduleKeyboardFocusRestore(const char* reason)
+{
+    if (g_mainComponent == nullptr)
+        return;
+
+    if (g_focusRestorePending)
+        return;
+
+    g_focusRestorePending = true;
+
+    auto safeMainComponent = juce::Component::SafePointer<MainComponent>(g_mainComponent);
+    const juce::String restoreReason(reason);
+
+    juce::MessageManager::callAsync([safeMainComponent, restoreReason]
+    {
+        g_focusRestorePending = false;
+
+        if (safeMainComponent == nullptr)
+            return;
+
+        juce::ignoreUnused(restoreReason);
+        safeMainComponent->restoreKeyboardFocus();
+    });
+}
+
+static LRESULT CALLBACK DevPianoWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    if (msg == WM_SETFOCUS)
+    {
+        scheduleKeyboardFocusRestore("WM_SETFOCUS");
+    }
+    if (msg == WM_ACTIVATE && LOWORD(wParam) != WA_INACTIVE)
+    {
+        scheduleKeyboardFocusRestore("WM_ACTIVATE");
+    }
+    if (msg == WM_KEYDOWN || msg == WM_KEYUP || msg == WM_SYSKEYDOWN || msg == WM_SYSKEYUP)
+    {
+        juce::ignoreUnused(hwnd, wParam);
+    }
+    return CallWindowProc(g_originalWndProc, hwnd, msg, wParam, lParam);
+}
+
+static void installWndProcHook(juce::ComponentPeer* peer)
+{
+    if (peer == nullptr || g_originalWndProc != nullptr)
+        return;
+    HWND hwnd = reinterpret_cast<HWND>(peer->getNativeHandle());
+    if (hwnd == nullptr)
+        return;
+    g_hwnd = hwnd;
+    g_originalWndProc = reinterpret_cast<WNDPROC>(
+        SetWindowLongPtrW(hwnd, GWLP_WNDPROC,
+                          reinterpret_cast<LONG_PTR>(&DevPianoWndProc)));
+}
+
+static void uninstallWndProcHook()
+{
+    if (g_hwnd != nullptr && g_originalWndProc != nullptr)
+    {
+        SetWindowLongPtrW(g_hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(g_originalWndProc));
+        g_originalWndProc = nullptr;
+        g_hwnd = nullptr;
+    }
+}
+
+#endif // JUCE_WINDOWS
+
+//==============================================================================
 class DevPianoApplication  : public juce::JUCEApplication
 {
 public:
@@ -29,16 +107,16 @@ public:
 
     void shutdown() override
     {
-        // Add your application's shutdown code here..
-
-        mainWindow = nullptr; // (deletes our window)
+#if defined(JUCE_WINDOWS) && JUCE_WINDOWS
+        g_mainComponent = nullptr;
+        uninstallWndProcHook();
+#endif
+        mainWindow = nullptr;
     }
 
     //==============================================================================
     void systemRequestedQuit() override
     {
-        // This is called when the app is being asked to quit: you can ignore this
-        // request and let the app carry on running, or call quit() to allow the app to close.
         quit();
     }
 
@@ -48,11 +126,8 @@ public:
     }
 
     //==============================================================================
-    /*
-        This class implements the desktop window that contains an instance of
-        our MainComponent class.
-    */
-    class MainWindow    : public juce::DocumentWindow
+    class MainWindow    : public juce::DocumentWindow,
+                          private juce::Timer
     {
     public:
         MainWindow (juce::String name)
@@ -63,6 +138,9 @@ public:
         {
             setUsingNativeTitleBar (true);
             setContentOwned (new MainComponent(), true);
+#if defined(JUCE_WINDOWS) && JUCE_WINDOWS
+            g_mainComponent = dynamic_cast<MainComponent*> (getContentComponent());
+#endif
 
            #if JUCE_IOS || JUCE_ANDROID
             setFullScreen (true);
@@ -72,22 +150,49 @@ public:
            #endif
 
             setVisible (true);
+
+#if defined(JUCE_WINDOWS) && JUCE_WINDOWS
+            startTimer (100);
+#endif
+        }
+
+        ~MainWindow() override
+        {
+#if defined(JUCE_WINDOWS) && JUCE_WINDOWS
+            if (g_mainComponent == getContentComponent())
+                g_mainComponent = nullptr;
+#endif
+        }
+
+        void timerCallback() override
+        {
+            stopTimer();
+#if defined(JUCE_WINDOWS) && JUCE_WINDOWS
+            installWndProcHook (getPeer());
+#endif
         }
 
         void closeButtonPressed() override
         {
-            // This is called when the user tries to close this window. Here, we'll just
-            // ask the app to quit when this happens, but you can change this to do
-            // whatever you need.
             JUCEApplication::getInstance()->systemRequestedQuit();
         }
 
-        /* Note: Be careful if you override any DocumentWindow methods - the base
-           class uses a lot of them, so by overriding you might break its functionality.
-           It's best to do all your work in your content component instead, but if
-           you really have to override any DocumentWindow methods, make sure your
-           subclass also calls the superclass's method.
-        */
+        void activeWindowStatusChanged() override
+        {
+            DocumentWindow::activeWindowStatusChanged();
+
+            if (! isActiveWindow())
+                return;
+
+            if (auto* mainComponent = dynamic_cast<MainComponent*>(getContentComponent()))
+            {
+#if defined(JUCE_WINDOWS) && JUCE_WINDOWS
+                scheduleKeyboardFocusRestore("activeWindowStatusChanged");
+#else
+                mainComponent->restoreKeyboardFocus();
+#endif
+            }
+        }
 
     private:
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainWindow)
@@ -98,5 +203,4 @@ private:
 };
 
 //==============================================================================
-// This macro generates the main() routine that launches the app.
 START_JUCE_APPLICATION (DevPianoApplication)

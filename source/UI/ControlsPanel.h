@@ -29,12 +29,20 @@ public:
     std::function<void()> onImportLayoutRequested;
     std::function<void()> onRenameLayoutRequested;
     std::function<void()> onDeleteLayoutRequested;
+    std::function<void()> onRecordClicked;
+    std::function<void()> onPlayClicked;
+    std::function<void()> onStopClicked;
+    std::function<void()> onExportMidiClicked;
 
     void setLayouts(const juce::StringArray& layoutIds,
                 const juce::String& currentLayoutId,
                 const juce::StringArray& layoutDisplayNames);
 
     [[nodiscard]] juce::String getSelectedLayoutId() const;
+
+    enum class RecordingState { idle, recording, playing };
+    void setRecordingState(RecordingState state);
+    void setHasTake(bool hasTake);
 
 private:
     [[nodiscard]] static juce::String makeLayoutDisplayName(const juce::String& layoutId);
@@ -67,6 +75,15 @@ private:
     juce::TextButton importLayoutButton { "Import" };
     juce::TextButton renameLayoutButton { "Rename" };
     juce::TextButton deleteLayoutButton { "Delete" };
+
+    juce::Label recordStatusLabel;
+    juce::TextButton recordButton { "Record" };
+    juce::TextButton playButton { "Play" };
+    juce::TextButton stopButton { "Stop" };
+    juce::TextButton exportMidiButton { "Export MIDI" };
+
+    bool hasTake = false;
+    RecordingState recordingState = RecordingState::idle;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ControlsPanel)
 };

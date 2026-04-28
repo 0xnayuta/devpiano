@@ -1,4 +1,5 @@
 #include "MainComponent.h"
+#include "Recording/MidiFileExporter.h"
 #include "UI/HeaderPanelStateBuilder.h"
 #include "UI/PluginPanelStateBuilder.h"
 #include "Layout/LayoutPreset.h"
@@ -14,6 +15,8 @@ extern "C" HIMC __stdcall ImmAssociateContext(HWND, HIMC);
 namespace
 {
 const auto backgroundColour = juce::Colour(0xff202225);
+constexpr std::size_t defaultRecordingEventsPerSecond = 100;
+constexpr std::size_t defaultRecordingCapacitySeconds = 30 * 60;
 
 juce::String makeSafeUiText(juce::String text)
 {
@@ -67,6 +70,7 @@ MainComponent::MainComponent()
     settingsStore.load(appSettings);
     initialiseInputMappingFromSettings();
     audioEngine.setPluginHost(&pluginHost);
+    audioEngine.setRecordingEngine(&recordingEngine);
 
     initialiseUi();
     syncUiFromSettings();
@@ -105,6 +109,7 @@ MainComponent::~MainComponent()
 
     closePluginEditorWindow();
     shutdownAudio();
+    audioEngine.setRecordingEngine(nullptr);
     pluginHost.unloadPlugin();
     settingsWindow.reset();
 }
@@ -143,6 +148,10 @@ void MainComponent::initialiseUi()
     controlsPanel.onImportLayoutRequested = [this] { handleImportLayoutRequested(); };
     controlsPanel.onRenameLayoutRequested = [this] { handleRenameLayoutRequested(); };
     controlsPanel.onDeleteLayoutRequested = [this] { handleDeleteLayoutRequested(); };
+    controlsPanel.onRecordClicked = [this] { handleRecordClicked(); };
+    controlsPanel.onPlayClicked = [this] { handlePlayClicked(); };
+    controlsPanel.onStopClicked = [this] { handleStopClicked(); };
+    controlsPanel.onExportMidiClicked = [this] { handleExportMidiClicked(); };
 
     addAndMakeVisible(keyboardPanel);
 }
@@ -210,7 +219,7 @@ void MainComponent::resized()
     pluginPanel.setBounds(area.removeFromTop(188));
     area.removeFromTop(12);
 
-    controlsPanel.setBounds(area.removeFromTop(200));
+    controlsPanel.setBounds(area.removeFromTop(260));
     area.removeFromTop(8);
 
     keyboardPanel.setBounds(area.removeFromBottom(110));
@@ -244,6 +253,23 @@ bool MainComponent::keyStateChanged(bool isKeyDown)
         suppressTextInputMethods();
 
     return handled;
+}
+
+void MainComponent::focusGained(juce::Component::FocusChangeType cause)
+{
+    juce::AudioAppComponent::focusGained(cause);
+
+    // Windows may have already given us focus via WM_SETFOCUS before grabKeyboardFocus ran,
+    // causing takeKeyboardFocus's early-return check to fire. Call grabKeyboardFocus() to
+    // synchronize the global state. The early-return in takeKeyboardFocus will safely fire
+    // (because currentlyFocusedComponent will already be set after the first call).
+    if (juce::Component::getCurrentlyFocusedComponent() != this)
+        grabKeyboardFocus();
+}
+
+void MainComponent::focusLost(juce::Component::FocusChangeType cause)
+{
+    juce::AudioAppComponent::focusLost(cause);
 }
 
 SettingsModel::PerformanceSettingsView MainComponent::getPerformanceSettingsFromUi() const
@@ -561,14 +587,10 @@ void MainComponent::suppressTextInputMethods()
 
 void MainComponent::restoreKeyboardFocus()
 {
-    juce::MessageManager::callAsync([safe = juce::Component::SafePointer<MainComponent>(this)]
-    {
-        if (safe != nullptr && safe->isShowing() && ! safe->hasKeyboardFocus(true))
-            safe->grabKeyboardFocus();
+    if (isShowing() && juce::Component::getCurrentlyFocusedComponent() != this)
+        grabKeyboardFocus();
 
-        if (safe != nullptr)
-            safe->suppressTextInputMethods();
-    });
+    suppressTextInputMethods();
 }
 
 void MainComponent::initialiseAudioDevice()
@@ -603,6 +625,7 @@ void MainComponent::prepareForAudioDeviceRebuild()
 void MainComponent::finishAudioDeviceRebuild()
 {
     initialiseAudioDevice();
+    restoreKeyboardFocus();
 }
 
 void MainComponent::collectCurrentSettingsState()
@@ -878,6 +901,71 @@ MainComponent::RuntimeAudioConfig MainComponent::getCurrentRuntimeAudioConfig() 
              .blockSize = getCurrentRuntimeBlockSize() };
 }
 
+void MainComponent::startInternalRecording(std::size_t expectedEventCapacity)
+{
+    const auto capacity = expectedEventCapacity > 0
+                              ? expectedEventCapacity
+                              : defaultRecordingEventsPerSecond * defaultRecordingCapacitySeconds;
+
+    runPluginActionWithAudioDeviceRebuild([this, capacity](const RuntimeAudioConfig& config)
+    {
+        recordingEngine.reserveEvents(capacity);
+        recordingEngine.startRecording(config.sampleRate);
+    });
+
+    juce::Logger::writeToLog("[Recording] Internal recording started; reserved events=" + juce::String(static_cast<int>(recordingEngine.getReservedEventCapacity())));
+}
+
+devpiano::recording::RecordingTake MainComponent::stopInternalRecording()
+{
+    devpiano::recording::RecordingTake take;
+
+    runPluginActionWithAudioDeviceRebuild([this, &take](const RuntimeAudioConfig&)
+    {
+        take = recordingEngine.stopRecording();
+    });
+
+    juce::Logger::writeToLog("[Recording] Internal recording stopped; events="
+                             + juce::String(static_cast<int>(take.events.size()))
+                             + ", dropped="
+                             + juce::String(static_cast<int>(recordingEngine.getDroppedEventCount())));
+    return take;
+}
+
+void MainComponent::startInternalPlayback(const devpiano::recording::RecordingTake& take)
+{
+    if (take.isEmpty())
+    {
+        juce::Logger::writeToLog("[Playback] startInternalPlayback called with empty take - ignoring");
+        return;
+    }
+
+    runPluginActionWithAudioDeviceRebuild([this, &take](const RuntimeAudioConfig& config)
+    {
+        recordingEngine.startPlayback(take, config.sampleRate);
+    });
+
+    juce::Logger::writeToLog("[Playback] Internal playback started; take events="
+                             + juce::String(static_cast<int>(take.events.size()))
+                             + ", sampleRate="
+                             + juce::String(take.sampleRate));
+}
+
+devpiano::recording::RecordingTake MainComponent::stopInternalPlayback()
+{
+    devpiano::recording::RecordingTake take;
+
+    runPluginActionWithAudioDeviceRebuild([this, &take](const RuntimeAudioConfig&)
+    {
+        take = recordingEngine.getCurrentTake();
+        recordingEngine.stopPlayback();
+        audioEngine.getKeyboardState().allNotesOff(1);
+    });
+
+    juce::Logger::writeToLog("[Playback] Internal playback stopped");
+    return take;
+}
+
 void MainComponent::runPluginActionWithAudioDeviceRebuild(const std::function<void(const RuntimeAudioConfig&)>& action)
 {
     struct AudioDeviceRebuildGuard final
@@ -1025,6 +1113,101 @@ void MainComponent::scanPluginsAtPathAndApplyRecoveryState(const juce::FileSearc
         {
             applyPluginRecoverySettings(s);
         });
+    });
+}
+
+void MainComponent::handleRecordClicked()
+{
+    if (currentRecordingState != ControlsPanel::RecordingState::idle)
+        return;
+
+    recordingEngine.clear();
+    controlsPanel.setHasTake(false);
+    startInternalRecording(0);
+    currentRecordingState = ControlsPanel::RecordingState::recording;
+    controlsPanel.setRecordingState(currentRecordingState);
+    restoreKeyboardFocus();
+}
+
+void MainComponent::handlePlayClicked()
+{
+    if (currentRecordingState != ControlsPanel::RecordingState::idle)
+        return;
+
+    if (recordingEngine.hasTake())
+    {
+        currentTake = recordingEngine.getCurrentTake();
+        recordingEngine.setOnPlaybackEnded([this]
+        {
+            juce::MessageManager::callAsync([this]
+            {
+                const auto stoppedTake = stopInternalPlayback();
+                juce::ignoreUnused(stoppedTake);
+                currentRecordingState = ControlsPanel::RecordingState::idle;
+                controlsPanel.setRecordingState(currentRecordingState);
+            });
+        });
+        startInternalPlayback(currentTake);
+        currentRecordingState = ControlsPanel::RecordingState::playing;
+        controlsPanel.setRecordingState(currentRecordingState);
+        restoreKeyboardFocus();
+    }
+}
+
+void MainComponent::handleStopClicked()
+{
+    if (currentRecordingState == ControlsPanel::RecordingState::recording)
+    {
+        currentTake = stopInternalRecording();
+        controlsPanel.setHasTake(!currentTake.isEmpty());
+        currentRecordingState = ControlsPanel::RecordingState::idle;
+        controlsPanel.setRecordingState(currentRecordingState);
+        restoreKeyboardFocus();
+    }
+    else if (currentRecordingState == ControlsPanel::RecordingState::playing)
+    {
+        recordingEngine.setOnPlaybackEnded({});
+        const auto stoppedTake = stopInternalPlayback();
+        juce::ignoreUnused(stoppedTake);
+        currentRecordingState = ControlsPanel::RecordingState::idle;
+        controlsPanel.setRecordingState(currentRecordingState);
+        restoreKeyboardFocus();
+    }
+}
+
+void MainComponent::handleExportMidiClicked()
+{
+    if (currentTake.isEmpty())
+    {
+        juce::Logger::writeToLog("[Export] Export skipped: currentTake is empty");
+        return;
+    }
+
+    juce::File defaultFile = juce::File::getCurrentWorkingDirectory()
+                                .getChildFile("recording_"
+                                              + juce::Time::getCurrentTime().toISO8601(false).replaceCharacters(":", "-")
+                                              + ".mid");
+
+    exportMidiChooser = std::make_unique<juce::FileChooser>("Export MIDI Recording", defaultFile, "*.mid");
+    exportMidiChooser->launchAsync(juce::FileBrowserComponent::saveMode
+                                       | juce::FileBrowserComponent::canSelectFiles
+                                       | juce::FileBrowserComponent::warnAboutOverwriting,
+                                   [this](const juce::FileChooser& fc)
+    {
+        auto file = fc.getResult();
+
+        if (file == juce::File())
+        {
+            juce::Logger::writeToLog("[Export] Export cancelled by user");
+            return;
+        }
+
+        if (devpiano::exporting::exportTakeAsMidiFile(currentTake, file))
+            juce::Logger::writeToLog("[Export] MIDI exported: " + file.getFullPathName());
+        else
+            juce::Logger::writeToLog("[Export] MIDI export FAILED: " + file.getFullPathName());
+
+        exportMidiChooser.reset();
     });
 }
 
