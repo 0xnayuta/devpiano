@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [string]$SourceDir,
-    [string]$MirrorDir = $(if ($env:WIN_MIRROR_DIR) { $env:WIN_MIRROR_DIR } else { 'G:\source\projects\devpiano' })
+    [string]$MirrorDir = $(if ($env:WIN_MIRROR_DIR) { $env:WIN_MIRROR_DIR } else { 'G:\source\projects\devpiano' }),
+    [switch]$CheckOnly
 )
 
 $ErrorActionPreference = 'Stop'
@@ -26,6 +27,9 @@ Write-Log "preserve mirror build dir: $(Join-Path $MirrorDir 'build-win-msvc')"
 New-Item -ItemType Directory -Force -Path $MirrorDir | Out-Null
 
 $excludeDirPaths = @(
+    # IDE / editor local state — must be excluded on BOTH sides
+    # Source side: avoid scanning WSL-side editor dirs
+    # Mirror side: avoid treating Windows-local IDE files as "extra" to delete
     (Join-Path $SourceDir '.git'),
     (Join-Path $SourceDir '.vs'),
     (Join-Path $SourceDir '.idea'),
@@ -37,7 +41,12 @@ $excludeDirPaths = @(
     (Join-Path $SourceDir '.cache'),
     (Join-Path $SourceDir '__pycache__'),
     (Join-Path $SourceDir 'CMakeFiles'),
-    (Join-Path $MirrorDir 'build-win-msvc')
+    # Mirror-local build output
+    (Join-Path $MirrorDir 'build-win-msvc'),
+    # Mirror-local IDE / editor state (VS, JetBrains, etc.)
+    (Join-Path $MirrorDir '.vs'),
+    (Join-Path $MirrorDir '.idea'),
+    (Join-Path $MirrorDir '.vscode')
 )
 
 Get-ChildItem -Path $SourceDir -Directory -Filter 'build-*' -ErrorAction SilentlyContinue |
@@ -46,8 +55,12 @@ Get-ChildItem -Path $SourceDir -Directory -Filter 'build-*' -ErrorAction Silentl
 $excludeFiles = @(
     'CMakeCache.txt',
     'compile_commands.json',
+    # IDE / editor state files
     '*.suo', '*.user', '*.userosscache', '*.rsuser',
     '*.vcxproj.user', '*.VC.db', '*.VC.opendb', '*.opendb', '*.opensdf', '*.sdf', '*.ipch',
+    # SQLite WAL / journal files (Browse.VC.db, CodeChunks.db, SemanticSymbols.db, etc.)
+    '*.db-shm', '*.db-wal', '*.db-journal', '*.db-corrupt',
+    # Build artifacts
     '*.obj', '*.iobj', '*.pch', '*.pdb', '*.ilk', '*.idb', '*.exp', '*.lib', '*.dll', '*.exe',
     '*.a', '*.so', '*.dylib', '*.app', '*.out', '*.o', '*.lo', '*.la',
     '*.cache', '*.tmp', '*.log', '*.binlog'
@@ -67,7 +80,14 @@ $roboArgs = @(
     '/XD'
 ) + $excludeDirPaths + @('/XF') + $excludeFiles
 
-Write-Log ('robocopy args: ' + ($roboArgs -join ' '))
+if ($CheckOnly) {
+    $roboArgs += '/L'
+    Write-Log ('[CHECK ONLY] listing changes — no files will be copied or deleted')
+    Write-Log ('robocopy args: ' + ($roboArgs -join ' '))
+} else {
+    Write-Log ('robocopy args: ' + ($roboArgs -join ' '))
+}
+
 & robocopy @roboArgs
 $exitCode = $LASTEXITCODE
 

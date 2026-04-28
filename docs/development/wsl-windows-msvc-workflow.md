@@ -11,6 +11,24 @@
   - Windows 镜像：`build-win-msvc`
 - **默认同步方向**：WSL -> Windows
 - **不同步内容**：`.git`、IDE 私有缓存、构建目录、CMake 缓存、MSVC 中间产物/二进制产物。
+  具体排除的目录和文件由 `tools/sync-to-win.ps1` 中的 `$excludeDirPaths` 和 `$excludeFiles` 控制，当前包括：
+
+  **排除的目录（源端 + 镜像端）**
+  - `.git`、`.vs`、`.idea`、`.vscode`
+  - `build`、`build-*`、`out`、`bin`、`obj`、`CMakeFiles`
+  - `.cache`、`__pycache__`
+  - 镜像端：`build-win-msvc`
+
+  **排除的文件**
+  - `CMakeCache.txt`、`compile_commands.json`
+  - `*.suo`、`*.user`、`*.userosscache`、`*.rsuser`、`*.vcxproj.user`
+  - `*.VC.db`、`*.VC.opendb`、`*.opendb`、`*.opensdf`、`*.sdf`、`*.ipch`
+  - `*.db-shm`、`*.db-wal`、`*.db-journal`（SQLite WAL 模式文件，Browse.VC.db、CopilotIndices 等会生成）
+  - `*.obj`、`*.iobj`、`*.pch`、`*.pdb`、`*.ilk`、`*.idb`、`*.exp`、`*.lib`、`*.dll`、`*.exe`
+  - `*.a`、`*.so`、`*.dylib`、`*.app`、`*.out`、`*.o`、`*.lo`、`*.la`
+  - `*.cache`、`*.tmp`、`*.log`、`*.binlog`
+
+  > **注意**：IDE 状态目录（`.vs`、`.idea`、`.vscode`）在源端和镜像端**双方**都会被排除——这确保 robocopy `/MIR` 不会把镜像端 Windows 本地 IDE 生成的工作文件误认为"多余"而删除它。
 
 ## 目录/脚本
 
@@ -56,7 +74,8 @@ export WIN_MIRROR_DIR='G:\source\projects\devpiano'
 # Windows MSVC 正常验证（内置同步，不需要单独 win-sync）
 ./scripts/dev.sh win-build
 
-# 需要单独同步时（如只想检查同步结果）
+# 需要单独同步时（先预览变更）
+./scripts/dev.sh win-sync --check  # 零写入预览
 ./scripts/dev.sh win-sync
 
 # CMake / 工具链变化后，强制重新配置 Windows 构建树
@@ -101,6 +120,10 @@ export WIN_MIRROR_DIR='G:\source\projects\devpiano'
 ./scripts/sync_to_win.sh
 # 或
 ./scripts/dev.sh win-sync
+
+# 预览模式：不复制/不删除任何文件，仅列出待同步变更（零写入）
+./scripts/sync_to_win.sh --check
+./scripts/dev.sh win-sync --check
 ```
 
 ### 4. 触发 Windows MSVC 验证构建
@@ -158,3 +181,5 @@ export WIN_MIRROR_DIR='G:\source\projects\devpiano'
 `scripts/build_msvc_from_wsl.sh` 支持：`--no-sync`、`--sync-only`、`--reconfigure`、`--clean-win-build`，用于更细粒度地控制 Windows 侧验证流程。
 
 `scripts/dev.sh` 提供统一入口：`wsl-configure`、`wsl-build`、`win-sync`、`win-build`。
+
+`scripts/sync_to_win.sh` / `scripts/dev.sh win-sync` 支持 `--check` 参数，以 `robocopy /L` 零写入模式列出待同步变更，不实际复制或删除任何文件。

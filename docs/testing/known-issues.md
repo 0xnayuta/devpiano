@@ -8,7 +8,7 @@
 
 - 键盘映射待验证风险
 - 插件宿主生命周期待验证风险
-- WSL / Windows 镜像构建环境问题
+- WSL / Windows 镜像构建环境问题：见 [`../development/troubleshooting.md`](../development/troubleshooting.md)
 
 ## 当前已知问题 / 待确认风险
 

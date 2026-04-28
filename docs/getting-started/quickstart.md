@@ -91,7 +91,6 @@ source ~/.bashrc
 ./scripts/dev.sh self-check
 ```
 
-
 ```bash
 # WSL 本地构建
 ./scripts/dev.sh wsl-build
@@ -107,6 +106,7 @@ source ~/.bashrc
 
 # 仅在需要单独同步时（一般不需要）
 ./scripts/dev.sh win-sync
+./scripts/dev.sh win-sync --check  # 零写入预览
 
 # 正常 Windows MSVC 验证
 ./scripts/dev.sh win-build
