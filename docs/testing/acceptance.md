@@ -109,7 +109,7 @@
 
 ## M6：高级功能恢复
 
-状态：部分通过。
+状态：MVP 已通过；WAV 离线渲染、MP4 导出、复杂编辑与 tempo map 等为后续增强。
 
 验收项：
 
@@ -128,18 +128,21 @@
 
 设计参考见：[`../features/recording-playback.md`](../features/recording-playback.md)。
 
-- [ ] 可开始录制。
-- [ ] 可停止录制。
-- [ ] 可回放录制结果。
-- [ ] 回放期间事件时间顺序正确。
+- [x] 可开始录制。
+- [x] 可停止录制。
+- [x] 可回放录制结果。
+- [x] 回放事件重新进入当前插件 / fallback synth 发声路径。
+- [~] 回放期间事件时间顺序已由 sample-based timeline 设计覆盖，仍需按专项清单持续人工回归。
+
+专项录制 / 回放回归见：[`recording-playback.md`](recording-playback.md)。
 
 ### 导出
 
 设计参考见：[`../features/recording-playback.md`](../features/recording-playback.md)。
 
-- [ ] 可导出 MIDI。
+- [x] 可导出 MIDI。
 - [ ] 可导出 WAV。
-- [ ] 导出失败时有清晰错误提示。
+- [~] 导出失败时有基础错误处理，仍需按专项清单验证无 take、取消保存、无权限路径等边界。
 
 ## 建议最小回归集合
 
@@ -152,3 +155,4 @@
 - [ ] 如修改插件相关代码：可扫描、加载、卸载一个 VST3 插件。
 - [ ] 如修改键盘相关代码：执行 [`keyboard-mapping.md`](keyboard-mapping.md) 中优先测试包。
 - [ ] 如修改插件生命周期相关代码：执行 [`plugin-host-lifecycle.md`](plugin-host-lifecycle.md) 中优先测试包。
+- [ ] 如修改录制、回放或 MIDI 导出相关代码：执行 [`recording-playback.md`](recording-playback.md) 中优先测试包。
