@@ -6,13 +6,13 @@
 
 ## 当前状态
 
-当前活跃迭代：**MainComponent 职责收敛与键盘映射完善前置重构 + 录制/回放模型预研 + 布局 Preset 模型预研**。
+当前活跃迭代：**MainComponent 职责收敛、键盘映射完善、布局 Preset 与 M6 高级功能 MVP 恢复的阶段性收尾**。
 
 上一轮已完成：`docs/` 最小重组。记录已归档到：[`../archive/docs-restructure-2026-04.md`](../archive/docs-restructure-2026-04.md)。
 
 ## 本轮目标
 
-前半段以收敛重构为主，中间段以录制/回放和布局 Preset 预研为辅，不引入新主功能。
+前半段以收敛重构为主，中间段完成录制/回放和布局 Preset 预研，后半段已推进到布局 Preset、录制、回放与 MIDI 导出 MVP 实现；当前收尾重点是让路线图、验收标准和专项测试文档对齐真实状态。
 
 前半段核心目标：
 
@@ -23,8 +23,8 @@
 后半段核心目标：
 
 - 阅读旧 `freepiano-src/song.*` 提炼录制/回放历史行为。
-- 在 [`../features/recording-playback.md`](../features/recording-playback.md) 中记录现代设计草案。
-- 不实现，不接入主链路，仅建模。
+- 在 [`../features/recording-playback.md`](../features/recording-playback.md) 中记录现代设计与当前 MVP 行为。
+- 完成录制 / 停止 / 回放 / MIDI 导出的 MVP 主链路，并补齐阶段收尾文档。
 - 补齐默认键盘布局的未验证项，降低后续布局编辑 / Preset 功能的回归风险。
 - 继续使用现有 `AppState` / UI state builder / Settings model 边界承载状态，不把新状态直接堆回 `MainComponent`。
 
@@ -103,7 +103,7 @@
   - `scanPluginsAtPathAndApplyRecoveryState` 改用 `restorePluginsAtPath` 组合，代码更简洁。
   - `MainComponent` 仍持有 `applyPluginRecoverySettings` 调用权（需要 `appSettings`），所有 `PluginFlowSupport` 辅助函数均以 callback 形式注入此能力。
 
-### 4. 录制 / 回放模型预研，不接入主链路
+### 4. 录制 / 回放 / MIDI 导出 MVP 收尾
 
 对应后续方向：[`../roadmap/roadmap.md`](../roadmap/roadmap.md) 的 M6；对应文档：[`../features/recording-playback.md`](../features/recording-playback.md)。
 
@@ -113,15 +113,16 @@
 - [x] 已阅读 `source/Legacy/UnusedPrototypes/SongEngine.*`，确认为旧代码直译移植，未重新设计，不参与主构建。
 - [x] 已在 [`../features/recording-playback.md`](../features/recording-playback.md) 记录完整草案：当前 MIDI/keyboard/audio 主链路、旧行为参考、第一版目标、sample-based 事件模型、录制/回放接入点、导出边界与线程安全约束。
 - [x] 已明确 8 项设计决策（录制内容、事件格式、sample-based 时间线、回放路径、插件关系、多轨能力、编辑能力、导出优先级）。
-- [x] 已新增 `source/Recording/RecordingEngine.*`，完成 M6-1 最小模型与生命周期骨架；当前不接 UI、不接 `AudioEngine` 主链路。
-- [x] 已明确 M6-2 `AudioEngine::getNextAudioBlock()` handoff 边界：`keyboardState.processNextMidiBuffer(..., true)` 之后、插件 / fallback synth 消费 `MidiBuffer` 之前；已新增 `recordMidiBufferBlock()` 辅助 API，并完成 `AudioEngine::setRecordingEngine(...)` 最小注入（尚未接 UI）。
+- [x] 已新增 `source/Recording/RecordingEngine.*`，完成 M6-1 最小模型与生命周期骨架，并在后续切片接入 `AudioEngine` 与最小 UI 主链路。
+- [x] 已明确 M6-2 `AudioEngine::getNextAudioBlock()` handoff 边界：`keyboardState.processNextMidiBuffer(..., true)` 之后、插件 / fallback synth 消费 `MidiBuffer` 之前；已新增 `recordMidiBufferBlock()` 辅助 API，并完成 `AudioEngine::setRecordingEngine(...)` 注入，随后已接入最小 UI。
 - [x] 已明确 owner / lifetime / preallocation 规则：`MainComponent` 持有 `RecordingEngine`，`AudioEngine` 仅保存非拥有指针；析构时先 `shutdownAudio()` 再 `setRecordingEngine(nullptr)`；容量耗尽时丢弃新事件并计数。
 - [x] 已新增无 UI 内部录制启停入口：`startInternalRecording(expectedEventCapacity)` / `stopInternalRecording()`，通过暂停 audio callback 后执行 reserve/start 或 stop，避免当前阶段引入跨线程状态竞争。
 - [x] 已新增无 UI 内部回放启停入口：`startInternalPlayback(take)` / `stopInternalPlayback()`，`stopInternalPlayback()` 返回 `RecordingTake` 快照并发送 `allNotesOff(1)`；回放通过 `AudioEngine::getNextAudioBlock()` 中的 `renderPlaybackEventsIfNeeded()` 注入 playback 事件。
 - [x] 已实现 M6-4 最小 UI：`ControlsPanel` 新增 Record / Stop / Play 按钮与 `recordStatusLabel`（Idle / Recording / Playing），`MainComponent` 对应 handler，`currentTake` 存储最近一次录制用于回放。
 - [x] 已实现 M6-5 MIDI 导出：`MidiFileExporter::exportTakeAsMidiFile()` 将 `RecordingTake` 转换为 `juce::MidiFile` 输出 `.mid`（960 PPQ，无 tempo map）；`ControlsPanel` 新增 "Export MIDI" 按钮；`handleExportMidiClicked()` 使用 `FileChooser` 保存对话框，文件名 `recording_<ISO8601>.mid`。
+- [x] 本轮阶段性收尾目标：补齐路线图、验收标准、README 入口和 [`../testing/recording-playback.md`](../testing/recording-playback.md) 专项回归清单。
 
-**预研已收尾。** 后续实现时直接参考该文档，无需重新讨论这些决策。
+**M6 MVP 已恢复。** 后续不再把 Record / Stop / Play / Export MIDI 作为待实现主功能；下一步重点是专项回归、稳定性修复和 WAV 离线渲染等 M6+ 增强。
 
 ### 5. 布局 Preset 模型预研，不接入主链路
 

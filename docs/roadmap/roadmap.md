@@ -38,7 +38,7 @@
 - 键盘映射系统完善。
 - 插件宿主稳定性增强。
 - UI 与状态模型继续收敛。
-- 录制 / 回放 / 导出等高级功能设计与恢复。
+- 录制 / 回放 / MIDI 导出等高级功能 MVP 稳定化。
 
 最近一轮插件生命周期人工回归已补齐大部分高风险组合路径：scan / load / unload / editor / 重扫 / 直接退出、音频设备设置切换均已完成一轮验证；当前主要剩余问题是外部 MIDI 打开状态下退出程序仍待真实设备验证。
 
@@ -110,9 +110,9 @@
 - [x] `MainComponent` 插件流程职责已完成两轮收敛（`PluginFlowSupport` 提取，startup restore plan 驱动）。
 - [~] 错误提示、空状态提示、正式产品 UI 细节仍需完善（低优先级）。
 
-### M6：录制 / 回放 / 导出
+### M6：高级功能恢复（布局 Preset + 录制 / 回放 / MIDI 导出）
 
-状态：模型、AudioEngine 最小录制边界、owner/preallocation 规则、无 UI 内部启停入口、无 UI 内部回放入口与 M6-4 最小 UI（Record/Stop/Play 按钮）已接入，导出待实现。
+状态：MVP 已恢复。布局 Preset 保存/加载/导入/重命名/删除/启动恢复已完成；录制 / 停止 / 回放 / MIDI 导出最小闭环已接入。WAV 离线渲染、MP4 导出、复杂编辑、tempo map 等仍为后续增强。
 
 - [x] 预研阶段已完成，8 项设计决策已锁定（见 [`../features/recording-playback.md`](../features/recording-playback.md)）。
 - [x] 实现演奏事件模型骨架（`PerformanceEvent` + sample-based timeline）。
@@ -120,9 +120,9 @@
 - [x] 明确 owner / detach / preallocation / overflow 规则（`MainComponent` 持有，`AudioEngine` 非拥有引用，容量耗尽时丢弃新事件并计数）。
 - [x] 实现无 UI 内部录制启停入口（暂停 audio callback 后执行 reserve/start 或 stop）。
 - [x] 实现无 UI 内部回放启停入口（`startInternalPlayback` / `stopInternalPlayback`，stop 时 all-notes-off）。
-- [ ] 实现录制 UI（录制/停止按钮，录音状态显示）。
-- [ ] 实现回放逻辑（事件时间线推进，事件重路由到 `AudioEngine`）。
-- [ ] 实现 MIDI 文件导出（`juce::MidiFile`）。
+- [x] 实现录制 UI（Record / Stop / Play 按钮，Idle / Recording / Playing 状态显示）。
+- [x] 实现回放逻辑（事件时间线推进，事件重路由到 `AudioEngine`）。
+- [x] 实现 MIDI 文件导出（`juce::MidiFile`，Export MIDI 按钮）。
 - [ ] 实现 WAV 离线渲染（MIDI → 离线音频链路 → WAV 文件）。
 - [ ] MP4 导出不作为近期主目标。
 
@@ -143,13 +143,13 @@
 
 ## 4. 当前近期重点
 
-布局 Preset（M7）核心能力已完成；录制/回放（M6）已完成模型骨架、AudioEngine 最小录制边界、owner/preallocation 规则、无 UI 内部启停入口、无 UI 内部回放入口与 M6-4 最小 UI，仍待导出。
+布局 Preset（M7）核心能力已完成；M6 高级功能 MVP 已恢复：布局 Preset、录制、停止、回放和 MIDI 导出均已有主链路入口。当前重点从“继续补齐 MVP 功能”转为“阶段收尾、专项回归与后续增强排序”。
 
 优先级从高到低：
 
-1. **M6 录制/回放**（模型已锁定，实现需谨慎）
-   - 下一步通过内部入口验证录制时间线。
-   - 录制 UI → 回放逻辑 → MIDI 导出 → WAV 渲染（按序推进）。
+1. **M6 高级功能恢复阶段收尾**（MVP 已恢复）
+   - 按 [`../testing/recording-playback.md`](../testing/recording-playback.md) 做 Record / Stop / Play / Export MIDI 专项回归。
+   - 暂不把 WAV 离线渲染、MP4 导出、复杂编辑、tempo map 纳入 MVP 完成条件。
 
 2. **M7 布局 Preset 持续打磨**（核心能力已完成）
    - 按 [`../testing/layout-presets.md`](../testing/layout-presets.md) 做专项回归。
@@ -170,7 +170,7 @@
 | 插件生命周期复杂 | 中 | 维护专项生命周期测试，重点覆盖 editor、卸载、重扫、退出。 |
 | 键盘映射边界多 | 低中 | 基础映射已全量验证；布局 preset 已补充专项回归清单，后续改动按清单回归。 |
 | `MainComponent` 职责回流 | 低 | 已通过两轮收敛建立了 `PluginFlowSupport` 边界，后续保持纪律。 |
-| 录制/回放实现风险 | 中 | 已完成设计预研，实现时按 M6-1 到 M6-6 顺序小步推进。 |
+| 录制/回放实现风险 | 低中 | MVP 主链路已接入；后续通过专项回归覆盖录制时间线、回放 note off、导出文件可用性。 |
 | 布局 Preset 实现风险 | 低 | 核心能力已完成并补充功能/测试文档；后续主要是低优先级体验增强。 |
 | 文档状态漂移 | 中 | 本文件作为唯一 roadmap；当前任务只写入 [`current-iteration.md`](current-iteration.md)。 |
 
@@ -184,6 +184,7 @@
 
 - [`../testing/keyboard-mapping.md`](../testing/keyboard-mapping.md)
 - [`../testing/layout-presets.md`](../testing/layout-presets.md)
+- [`../testing/recording-playback.md`](../testing/recording-playback.md)
 - [`../testing/plugin-host-lifecycle.md`](../testing/plugin-host-lifecycle.md)
 
 ---
@@ -248,18 +249,19 @@
 - 目标：定义 `PerformanceEvent { timestampSamples, source, MidiMessage }` 与 `RecordingTake { sampleRate, lengthSamples, events }`
 - 关键约束：不复制旧 `song_event_t` 字节数组；内部优先使用 sample-based timeline，进入 `MidiBuffer` 时转换为 block-local sample offset
 - 前置条件：无
-- 状态：已完成最小模型骨架（尚未接入 `AudioEngine`）
+- 状态：已完成并接入 `AudioEngine` 录制 / 回放主链路
 
 **M6-2：AudioEngine MIDI block 边界**
 - 目标：在 `AudioEngine::getNextAudioBlock()` 中确定 block-local `MidiBuffer` 的录制 handoff 边界，并用 `RecordingEngine::recordMidiBufferBlock()` 表达事件时间戳转换方式
 - 关键约束：录制的是交给插件 / fallback synth 前的 pre-render `MidiBuffer` 演奏事件，不是音频；不新增第二套 MIDI 监听链路；第一版把混合后的 block MIDI 标记为 `realtimeMidiBuffer`；`timestampSamples` 是唯一权威时间线；audio callback 中不做文件 IO、UI 或阻塞操作
 - 前置条件：M6-1 完成
-- 状态：边界设计、辅助 API、`AudioEngine::setRecordingEngine(...)` 最小注入、owner/preallocation 规则和无 UI 内部启停入口已完成；尚未接 UI
+- 状态：已完成。边界设计、辅助 API、`AudioEngine::setRecordingEngine(...)` 注入、owner/preallocation 规则、UI 入口和回放入口均已接入
 
 **M6-3：录制 UI（录制/停止按钮，录音状态显示）**
 - 目标：在 `ControlsPanel` 或 `HeaderPanel` 添加录制/停止按钮和录音状态指示
 - 关键约束：复用已有 `AudioEngine` / `MidiRouter` 路由，不新增 MIDI 监听链路
 - 前置条件：M6-2 完成
+- 状态：已完成。`ControlsPanel` 已提供 Record / Stop / Play / Export MIDI 与状态文本
 
 **M6-4：回放逻辑**
 - 目标：实现 `PlaybackState { idle, playing }`，按当前 audio block 将到期事件写入 `MidiBuffer`
