@@ -1,14 +1,15 @@
-# 录制 / 回放功能设计（第一版草案）
+# 录制 / 回放 / MIDI 导出功能说明
 
-> 用途：说明 DevPiano 录制、回放与导出的第一版现代化设计边界。
+> 用途：说明 DevPiano 录制、回放与 MIDI 导出的第一版现代化设计边界与当前 MVP 行为。
 > 当前状态：**设计草案已收口；M6-1 模型骨架、M6-2 AudioEngine 最小录制边界、M6-3 最小回放（内部无 UI 入口）、M6-4 最小 UI（Record/Stop/Play 按钮与状态文本）与 M6-5 MIDI 导出已实现**。
-> 读者：后续实现 M6 录制 / 回放 / 导出功能的开发者。
+> 读者：维护 M6 录制 / 回放 / MIDI 导出功能的开发者。
 > 更新时机：录制模型、回放调度、导出格式或实现状态发生变化时。
 
 相关文档：
 
 - 路线图：[`../roadmap/roadmap.md`](../roadmap/roadmap.md)
 - 阶段验收：[`../testing/acceptance.md`](../testing/acceptance.md)
+- 专项测试：[`../testing/recording-playback.md`](../testing/recording-playback.md)
 - 键盘映射：[`keyboard-mapping.md`](keyboard-mapping.md)
 - 插件宿主：[`plugin-hosting.md`](plugin-hosting.md)
 - 旧代码迁移边界：[`../architecture/legacy-migration.md`](../architecture/legacy-migration.md)
