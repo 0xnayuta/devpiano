@@ -107,6 +107,13 @@ ControlsPanel::ControlsPanel()
             onExportMidiClicked();
     };
 
+    addAndMakeVisible(exportWavButton);
+    exportWavButton.onClick = [this]
+    {
+        if (onExportWavClicked)
+            onExportWavClicked();
+    };
+
     setRecordingState(RecordingState::idle);
 
     updateLayoutActionButtons();
@@ -129,6 +136,7 @@ ControlsPanel::~ControlsPanel()
     playButton.onClick = nullptr;
     stopButton.onClick = nullptr;
     exportMidiButton.onClick = nullptr;
+    exportWavButton.onClick = nullptr;
 }
 
 void ControlsPanel::resized()
@@ -176,6 +184,8 @@ void ControlsPanel::resized()
     stopButton.setBounds(buttonRow.removeFromLeft(50));
     buttonRow.removeFromLeft(6);
     exportMidiButton.setBounds(buttonRow.removeFromLeft(90));
+    buttonRow.removeFromLeft(6);
+    exportWavButton.setBounds(buttonRow.removeFromLeft(90));
 }
 
 void ControlsPanel::setRecordingState(RecordingState state)
@@ -215,13 +225,17 @@ void ControlsPanel::setRecordingState(RecordingState state)
     playButton.setEnabled(playEnabled);
     stopButton.setEnabled(stopEnabled);
     exportMidiButton.setEnabled(exportEnabled);
+    exportWavButton.setEnabled(exportEnabled);
 }
 
 void ControlsPanel::setHasTake(bool value)
 {
     hasTake = value;
     if (recordingState == RecordingState::idle)
+    {
         exportMidiButton.setEnabled(hasTake);
+        exportWavButton.setEnabled(hasTake);
+    }
     if (recordingState != RecordingState::recording && recordingState != RecordingState::playing)
         playButton.setEnabled(hasTake);
 }

@@ -79,6 +79,7 @@ private:
     void handlePlayClicked();
     void handleStopClicked();
     void handleExportMidiClicked();
+    void handleExportWavClicked();
     void applyUiStateToAudioEngine();
     void syncUiFromSettings();
     void syncSettingsFromUi();
@@ -155,6 +156,7 @@ private:
     std::unique_ptr<juce::FileChooser> saveLayoutChooser;
     std::unique_ptr<juce::FileChooser> importLayoutChooser;
     std::unique_ptr<juce::FileChooser> exportMidiChooser;
+    std::unique_ptr<juce::FileChooser> exportWavChooser;
     std::unique_ptr<PluginEditorWindow> pluginEditorWindow;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)

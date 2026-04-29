@@ -33,6 +33,7 @@ public:
     std::function<void()> onPlayClicked;
     std::function<void()> onStopClicked;
     std::function<void()> onExportMidiClicked;
+    std::function<void()> onExportWavClicked;
 
     void setLayouts(const juce::StringArray& layoutIds,
                 const juce::String& currentLayoutId,
@@ -81,6 +82,7 @@ private:
     juce::TextButton playButton { "Play" };
     juce::TextButton stopButton { "Stop" };
     juce::TextButton exportMidiButton { "Export MIDI" };
+    juce::TextButton exportWavButton { "Export WAV" };
 
     bool hasTake = false;
     RecordingState recordingState = RecordingState::idle;
