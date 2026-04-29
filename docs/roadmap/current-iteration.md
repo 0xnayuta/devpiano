@@ -42,10 +42,10 @@
 
 重点：
 
-- [ ] 复核 audio callback 中访问 `RecordingEngine` 的边界，避免文件 IO、UI 操作、阻塞等待或非受控分配进入实时路径。
-- [ ] 将回放结束通知收敛为轻量状态传递；避免 audio thread 直接触发复杂 UI / `std::function` 逻辑。
-- [ ] 复核采样率变化时的回放时间缩放与播放结束判断。
-- [ ] 更新 `RecordingEngine.h` 中关于 “Minimal skeleton / not thread-safe” 的注释，使其准确描述当前 MVP 状态和剩余约束。
+- [x] 复核 audio callback 中访问 `RecordingEngine` 的边界，避免文件 IO、UI 操作、阻塞等待或非受控分配进入实时路径。
+- [x] 将回放结束通知收敛为轻量状态传递；避免 audio thread 直接触发复杂 UI / `std::function` 逻辑。
+- [x] 复核采样率变化时的回放时间缩放与播放结束判断。
+- [x] 更新 `RecordingEngine.h` 中关于 “Minimal skeleton / not thread-safe” 的注释，使其准确描述当前 MVP 状态和剩余约束。
 - [ ] 对空 take、容量耗尽、note on/off 成对、Stop 清理悬挂音等边界做代码级检查或补充轻量测试入口。
 
 完成标准：
