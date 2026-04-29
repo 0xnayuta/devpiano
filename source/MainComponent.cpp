@@ -1,5 +1,6 @@
 #include "MainComponent.h"
 #include "Recording/MidiFileExporter.h"
+#include "Recording/WavFileExporter.h"
 #include "UI/HeaderPanelStateBuilder.h"
 #include "UI/PluginPanelStateBuilder.h"
 #include "Layout/LayoutPreset.h"
@@ -98,6 +99,11 @@ MainComponent::~MainComponent()
     controlsPanel.onImportLayoutRequested = {};
     controlsPanel.onRenameLayoutRequested = {};
     controlsPanel.onDeleteLayoutRequested = {};
+    controlsPanel.onRecordClicked = {};
+    controlsPanel.onPlayClicked = {};
+    controlsPanel.onStopClicked = {};
+    controlsPanel.onExportMidiClicked = {};
+    controlsPanel.onExportWavClicked = {};
     headerPanel.onSettingsRequested = {};
     pluginPanel.onScanRequested = {};
     pluginPanel.onLoadRequested = {};
@@ -155,6 +161,7 @@ void MainComponent::initialiseUi()
     controlsPanel.onPlayClicked = [this] { handlePlayClicked(); };
     controlsPanel.onStopClicked = [this] { handleStopClicked(); };
     controlsPanel.onExportMidiClicked = [this] { handleExportMidiClicked(); };
+    controlsPanel.onExportWavClicked = [this] { handleExportWavClicked(); };
 
     addAndMakeVisible(keyboardPanel);
 }
@@ -1223,6 +1230,59 @@ void MainComponent::handleExportMidiClicked()
             juce::Logger::writeToLog("[Export] MIDI export FAILED: " + file.getFullPathName());
 
         exportMidiChooser.reset();
+    });
+}
+
+void MainComponent::handleExportWavClicked()
+{
+    if (currentTake.isEmpty())
+    {
+        juce::Logger::writeToLog("[Export] WAV export skipped: currentTake is empty");
+        return;
+    }
+
+    juce::File defaultFile = juce::File::getCurrentWorkingDirectory()
+                                .getChildFile("recording_"
+                                              + juce::Time::getCurrentTime().toISO8601(false).replaceCharacters(":", "-")
+                                              + ".wav");
+
+    exportWavChooser = std::make_unique<juce::FileChooser>("Export WAV Recording", defaultFile, "*.wav");
+    exportWavChooser->launchAsync(juce::FileBrowserComponent::saveMode
+                                      | juce::FileBrowserComponent::canSelectFiles
+                                      | juce::FileBrowserComponent::warnAboutOverwriting,
+                                  [this](const juce::FileChooser& fc)
+    {
+        auto file = fc.getResult();
+
+        if (file == juce::File())
+        {
+            juce::Logger::writeToLog("[Export] WAV export cancelled by user");
+            exportWavChooser.reset();
+            return;
+        }
+
+        const auto performance = getPerformanceSettingsFromUi();
+        const auto runtimeSampleRate = getCurrentRuntimeSampleRate();
+        const auto exportSampleRate = runtimeSampleRate > 0.0
+                                          ? runtimeSampleRate
+                                          : (currentTake.sampleRate > 0.0 ? currentTake.sampleRate : 44100.0);
+
+        devpiano::exporting::WavExportOptions options;
+        options.sampleRate = exportSampleRate;
+        options.numChannels = 2;
+        options.blockSize = juce::jmax(1, getCurrentRuntimeBlockSize());
+        options.masterGain = performance.masterGain;
+        options.adsr.attack = performance.adsrAttack;
+        options.adsr.decay = performance.adsrDecay;
+        options.adsr.sustain = performance.adsrSustain;
+        options.adsr.release = performance.adsrRelease;
+
+        if (devpiano::exporting::exportTakeAsWavFile(currentTake, file, options))
+            juce::Logger::writeToLog("[Export] WAV exported: " + file.getFullPathName());
+        else
+            juce::Logger::writeToLog("[Export] WAV export FAILED: " + file.getFullPathName());
+
+        exportWavChooser.reset();
     });
 }
 

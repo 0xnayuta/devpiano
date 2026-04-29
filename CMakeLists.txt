@@ -62,6 +62,8 @@ target_sources(devpiano PRIVATE
     source/Recording/RecordingEngine.h
     source/Recording/MidiFileExporter.cpp
     source/Recording/MidiFileExporter.h
+    source/Recording/WavFileExporter.cpp
+    source/Recording/WavFileExporter.h
     source/UI/PluginPanel.cpp
     source/UI/PluginPanel.h
     source/UI/PluginEditorWindow.cpp

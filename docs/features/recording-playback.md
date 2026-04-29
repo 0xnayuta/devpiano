@@ -447,6 +447,8 @@ bool exportTakeAsWavFile(const RecordingTake& take,
                          const WavExportOptions& options);
 ```
 
+当前 M6-6a 已建立该 API 与最小 writer 创建边界；后续 M6-6b 再接入真实 fallback synth 离线渲染。
+
 `MainComponent` 的职责只应是：
 
 - 判断是否有有效 take。
@@ -573,24 +575,25 @@ VST3 插件离线渲染放到 M6-6 第二阶段再评估，原因：
 建议实现切片：
 
 1. **M6-6a：导出模型与空实现边界**
-   - 新增 `source/Recording/WavFileExporter.h/.cpp`。
-   - 定义 `WavExportOptions` 和 `exportTakeAsWavFile(...)`。
-   - 暂只做参数校验、文件 writer 创建和失败返回，不接 UI。
+   - [x] 新增 `source/Recording/WavFileExporter.h/.cpp`。
+   - [x] 定义 `WavExportOptions` 和 `exportTakeAsWavFile(...)`。
+   - [x] 暂只做参数校验、文件 writer 创建和失败返回，不接 UI。
 
 2. **M6-6b：fallback synth 离线渲染核心**
-   - 构建与实时 fallback synth 等价的离线 `juce::Synthesiser`。
-   - 按 block 将 `RecordingTake` 事件写入 `MidiBuffer`。
-   - 渲染到 `AudioBuffer<float>` 并写入 WAV。
-   - 应用 master gain / ADSR。
+   - [x] 构建与实时 fallback synth 等价的离线 `juce::Synthesiser`。
+   - [x] 按 block 将 `RecordingTake` 事件写入 `MidiBuffer`。
+   - [x] 渲染到 `AudioBuffer<float>` 并写入 WAV。
+   - [x] 应用 master gain / ADSR。
 
 3. **M6-6c：UI 接入**
-   - `ControlsPanel` 增加 `Export WAV` 按钮，启用条件与 `Export MIDI` 一致。
-   - `MainComponent` 只负责文件选择、导出选项收集和调用导出函数。
-   - 导出成功 / 失败先写 Logger；后续再补正式 UI 提示。
+   - [x] `ControlsPanel` 增加 `Export WAV` 按钮，启用条件与 `Export MIDI` 一致。
+   - [x] `MainComponent` 只负责文件选择、导出选项收集和调用导出函数。
+   - [x] 导出成功 / 失败先写 Logger；后续再补正式 UI 提示。
 
 4. **M6-6d：专项测试与边界修复**
-   - 新增或扩展 `docs/testing/recording-playback.md` 的 WAV 导出测试包。
-   - 覆盖 fallback synth 导出、空 take 禁用、取消保存、无权限路径、导出文件可被播放器 / DAW 打开。
+   - [x] 新增或扩展 `docs/testing/recording-playback.md` 的 WAV 导出测试包（包 E，9 项）。
+   - [x] 覆盖 fallback synth 导出、空 take 禁用、取消保存、无权限路径、导出文件可被播放器 / DAW 打开。
+   - [x] 人工验证 E.1–E.9 全部通过，未发现明显 bug。
 
 5. **M6-6e：插件离线渲染预研（后置，不阻塞 MVP）**
    - 评估是否创建独立插件实例用于离线渲染。

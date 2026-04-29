@@ -124,7 +124,8 @@
 - [x] 实现录制 UI（Record / Stop / Play 按钮，Idle / Recording / Playing 状态显示）。
 - [x] 实现回放逻辑（事件时间线推进，事件重路由到 `AudioEngine`）。
 - [x] 实现 MIDI 文件导出（`juce::MidiFile`，Export MIDI 按钮）。
-- [ ] 实现 WAV 离线渲染（MIDI → 离线音频链路 → WAV 文件）。
+- [x] 实现 WAV 离线渲染（M6-6a/b/c/d：fallback synth 离线渲染核心 + UI 接入 + 专项测试通过；E.1–E.9 全部通过）。
+- [~] VST3 插件离线渲染（M6-6e）后置，不阻塞 WAV MVP。
 - [ ] MP4 导出不作为近期主目标。
 
 ### M7：布局 Preset 系统
