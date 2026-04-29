@@ -397,16 +397,107 @@ RecordingTake
 - 外部 MIDI 输入中的标准 channel voice 消息，如 CC、pitch bend、program change，可按实现成本逐步纳入。
 - 不导出插件状态、音频、布局文件或 UI 状态。
 
-### 8.2 WAV 导出（后续）
+### 8.2 WAV 导出（M6-6 MVP）
 
-WAV 导出需要离线渲染能力，风险高于 MIDI 导出：
+WAV 导出需要离线渲染能力，风险高于 MIDI 导出。当前阶段只设计并实现最小闭环，不恢复旧 FreePiano 的 MP4 / 视频导出，也不引入工程文件、多轨、tempo map 或复杂编辑模型。
 
-- 需要构建离线 audio render loop。
-- 需要处理插件是否支持离线 / 非实时渲染。
-- 需要明确使用当前插件状态还是导出前冻结状态。
-- 需要处理导出期间 UI 线程、音频设备和插件 editor 的关系。
+#### MVP 目标
 
-因此 WAV 导出不应与第一版录制 / 回放混在同一最小切片中完成。
+第一版 WAV 导出只覆盖：
+
+- 输入：内存中的当前 `RecordingTake`。
+- 输出：一个标准 `.wav` 文件。
+- 渲染源：项目内 fallback synth。
+- 声道：stereo。
+- 采样率：优先使用当前音频设备采样率；若当前设备采样率不可用，则使用 `RecordingTake::sampleRate`；仍不可用时回退到 `44100 Hz`。
+- 参数：应用当前 master gain / ADSR 设置，使导出结果与无插件时的实时回放尽量一致。
+- 文件写入：使用 JUCE `WavAudioFormat` / `AudioFormatWriter`。
+
+第一版明确不做：
+
+- 不导出当前已加载 VST3 插件的声音。
+- 不冻结、保存或恢复插件状态。
+- 不依赖实时 `AudioDeviceManager` 输出设备。
+- 不在 audio callback 中做导出或文件 IO。
+- 不导出 MP4 / 视频。
+- 不做 tempo map、metronome、loop、多轨、钢琴卷帘或事件编辑。
+
+#### 建议模块边界
+
+建议新增独立导出模块，避免把离线渲染流程堆入 `MainComponent`：
+
+```text
+source/Recording/WavFileExporter.h/.cpp
+```
+
+建议第一版 API 形态：
+
+```cpp
+struct WavExportOptions
+{
+    double sampleRate = 44100.0;
+    int numChannels = 2;
+    int blockSize = 512;
+    float masterGain = 0.8f;
+    juce::ADSR::Parameters adsr;
+};
+
+bool exportTakeAsWavFile(const RecordingTake& take,
+                         const juce::File& destination,
+                         const WavExportOptions& options);
+```
+
+`MainComponent` 的职责只应是：
+
+- 判断是否有有效 take。
+- 收集当前导出选项（采样率、ADSR、master gain）。
+- 打开保存文件对话框。
+- 调用导出函数并显示 / 记录结果。
+
+离线渲染、MIDI 事件调度、音频 buffer 写入和失败处理应留在 `WavFileExporter` 内部。
+
+#### 离线渲染链路
+
+建议 MVP 渲染链路：
+
+```text
+RecordingTake
+  -> 按目标 sampleRate 缩放 PerformanceEvent::timestampSamples
+  -> 分 block 填充 juce::MidiBuffer
+  -> fallback synth renderNextBlock
+  -> apply master gain
+  -> juce::AudioFormatWriter 写入 WAV
+```
+
+关键规则：
+
+- `PerformanceEvent::timestampSamples` 仍是录制时间线的唯一来源。
+- 若导出采样率与 take 采样率不同，使用 `targetSampleRate / take.sampleRate` 缩放事件时间和总长度。
+- 导出总长度应至少覆盖 `RecordingTake::lengthSamples` 缩放后的长度，并额外保留一个短尾音窗口（例如 1-2 秒）让 ADSR release 自然结束。
+- 每个 block 内只把落入 `[blockStart, blockEnd)` 的事件加入 `MidiBuffer`。
+- 导出结束前追加 all-notes-off / all-sound-off 兜底，避免尾部悬挂音。
+- 第一版可以线性扫描事件；若长 take 导出性能不足，再升级为事件游标。
+
+#### 失败与边界策略
+
+导出函数应以 `bool` 或后续 `Result` 返回失败结果，至少覆盖：
+
+- 空 take：不导出。
+- 目标文件无法创建或无写权限：失败，不覆盖原文件状态不明的路径。
+- 采样率 / 声道 / block size 非法：使用安全默认值或失败。
+- 写入中途失败：关闭 writer 并返回失败。
+- 用户取消保存：由 UI 层处理，不调用导出函数。
+
+#### 插件离线渲染后置
+
+VST3 插件离线渲染放到 M6-6 第二阶段再评估，原因：
+
+- 需要明确插件实例是否复用当前实时实例，还是创建独立离线实例。
+- 需要处理插件 editor 打开、设备重建、插件状态冻结和线程边界。
+- 部分插件可能不支持预期的非实时渲染行为。
+- 失败策略和用户提示比 fallback synth 路径复杂。
+
+因此 M6-6 第一阶段只要求 fallback synth WAV 导出可用；插件 WAV 导出不得阻塞该 MVP。
 
 ---
 
@@ -472,12 +563,39 @@ WAV 导出需要离线渲染能力，风险高于 MIDI 导出：
 
 ### M6-6：WAV 离线渲染预研 / 实现
 
-- [ ] 单独设计离线渲染链路。
-- [ ] 第一切片优先支持 fallback synth 离线渲染。
-- [ ] 第二切片再评估已加载 VST3 插件的离线渲染。
-- [ ] 明确导出期间 UI、实时音频设备、插件 editor 和当前插件状态的边界。
-- [ ] 明确失败策略：插件不支持离线渲染、目标路径无权限、空 take、用户取消保存。
+- [x] 单独设计离线渲染链路。
+- [x] 第一切片优先支持 fallback synth 离线渲染。
+- [x] 第二切片再评估已加载 VST3 插件的离线渲染。
+- [x] 明确导出期间 UI、实时音频设备、插件 editor 和当前插件状态的边界。
+- [x] 明确失败策略：插件不支持离线渲染、目标路径无权限、空 take、用户取消保存。
 - [x] 不阻塞 M6-1 到 M6-5 的上线。
+
+建议实现切片：
+
+1. **M6-6a：导出模型与空实现边界**
+   - 新增 `source/Recording/WavFileExporter.h/.cpp`。
+   - 定义 `WavExportOptions` 和 `exportTakeAsWavFile(...)`。
+   - 暂只做参数校验、文件 writer 创建和失败返回，不接 UI。
+
+2. **M6-6b：fallback synth 离线渲染核心**
+   - 构建与实时 fallback synth 等价的离线 `juce::Synthesiser`。
+   - 按 block 将 `RecordingTake` 事件写入 `MidiBuffer`。
+   - 渲染到 `AudioBuffer<float>` 并写入 WAV。
+   - 应用 master gain / ADSR。
+
+3. **M6-6c：UI 接入**
+   - `ControlsPanel` 增加 `Export WAV` 按钮，启用条件与 `Export MIDI` 一致。
+   - `MainComponent` 只负责文件选择、导出选项收集和调用导出函数。
+   - 导出成功 / 失败先写 Logger；后续再补正式 UI 提示。
+
+4. **M6-6d：专项测试与边界修复**
+   - 新增或扩展 `docs/testing/recording-playback.md` 的 WAV 导出测试包。
+   - 覆盖 fallback synth 导出、空 take 禁用、取消保存、无权限路径、导出文件可被播放器 / DAW 打开。
+
+5. **M6-6e：插件离线渲染预研（后置，不阻塞 MVP）**
+   - 评估是否创建独立插件实例用于离线渲染。
+   - 明确插件状态冻结、editor 生命周期和失败提示。
+   - 不在 fallback synth MVP 中实现。
 
 ### M6-7：录制 / 回放稳定化
 
@@ -501,6 +619,10 @@ WAV 导出需要离线渲染能力，风险高于 MIDI 导出：
 - 停止回放不会留下悬挂音。
 - 设备 sample rate / buffer size 变化后的基本行为。
 - MIDI 导出文件可被 DAW 或 MIDI 工具打开。
+- WAV 导出文件可被常见播放器或 DAW 打开。
+- WAV 导出内容与 fallback synth 实时回放的音符顺序、相对时长基本一致。
+- WAV 导出不依赖实时音频设备，不在 audio callback 中做文件 IO。
+- WAV 导出取消保存、空 take、无权限路径不会崩溃，并有日志或 UI 反馈。
 
 ---
 
@@ -514,3 +636,5 @@ WAV 导出需要离线渲染能力，风险高于 MIDI 导出：
 6. **多轨能力**：第一版不做多轨，所有事件在同一时间线上。
 7. **编辑能力**：第一版不做事件编辑、量化、裁剪或拼接。
 8. **导出优先级**：优先 MIDI 文件导出；WAV 离线渲染后续独立推进；不恢复旧 MP4 导出。
+9. **WAV MVP 范围**：第一版 WAV 只导出当前 `RecordingTake` 的 fallback synth 音频，使用 stereo、当前设备采样率优先、当前 master gain / ADSR；不导出插件音频。
+10. **WAV 插件导出后置**：VST3 插件离线渲染需要单独处理插件实例、状态冻结、editor 生命周期和失败策略，不阻塞 fallback synth WAV MVP。
