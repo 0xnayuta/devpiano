@@ -266,6 +266,14 @@
 
 - [~] 7.1 外部 MIDI 录制（暂无真实外部 MIDI 设备，暂缓验证）。
 
+### 包 D：下一阶段 M6 稳定化回归
+
+- [ ] 回放结束路径不会从 audio thread 直接执行复杂 UI / 文件 / 设置逻辑。
+- [ ] 设备 sample rate 变化后，旧 take 回放速度、结束时机和 Stop 状态正常。
+- [ ] 回放中途 Stop 后无悬挂音，且可再次 Play 同一 take。
+- [ ] 长时间录制或容量接近上限时，不崩溃、不阻塞 audio callback，并能记录 dropped event 状态。
+- [ ] Export MIDI 的取消保存、无权限路径、覆盖文件等失败 / 边界路径有可理解反馈或日志。
+
 ---
 
 ## 9. Test Run 记录

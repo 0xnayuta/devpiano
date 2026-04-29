@@ -33,12 +33,13 @@
 - [x] 基础设置、插件恢复信息与布局标识具备持久化能力。
 - [x] UI 已形成 `HeaderPanel` / `PluginPanel` / `ControlsPanel` / `KeyboardPanel` 的基础组件分层。
 
-当前项目不再处于“从零接通主链路”的阶段，而是进入：
+当前项目不再处于“从零接通主链路”的阶段，也已完成布局 Preset 与录制 / 回放 / MIDI 导出 MVP 恢复。当前进入：
 
-- 键盘映射系统完善。
-- 插件宿主稳定性增强。
-- UI 与状态模型继续收敛。
-- 录制 / 回放 / MIDI 导出等高级功能 MVP 稳定化。
+- M6 录制 / 回放实时边界稳定化。
+- 外部 MIDI 硬件依赖回归补齐。
+- WAV 离线渲染 MVP 设计与后续实现准备。
+- 插件宿主与 UI 的产品化增强排期。
+- `MainComponent` 与状态模型继续小步收敛。
 
 最近一轮插件生命周期人工回归已补齐大部分高风险组合路径：scan / load / unload / editor / 重扫 / 直接退出、音频设备设置切换均已完成一轮验证；当前主要剩余问题是外部 MIDI 打开状态下退出程序仍待真实设备验证。
 
@@ -143,23 +144,34 @@
 
 ## 4. 当前近期重点
 
-布局 Preset（M7）核心能力已完成；M6 高级功能 MVP 已恢复：布局 Preset、录制、停止、回放和 MIDI 导出均已有主链路入口。当前重点从“继续补齐 MVP 功能”转为“阶段收尾、专项回归与后续增强排序”。
+布局 Preset（M7）核心能力已完成；M6 高级功能 MVP 已恢复：布局 Preset、录制、停止、回放和 MIDI 导出均已有主链路入口。当前重点从“继续补齐 MVP 功能”转为“录制 / 回放稳定化、外部 MIDI 回归补齐和 WAV 离线渲染准备”。
 
 优先级从高到低：
 
-1. **M6 高级功能恢复阶段收尾**（MVP 已恢复）
-   - 按 [`../testing/recording-playback.md`](../testing/recording-playback.md) 做 Record / Stop / Play / Export MIDI 专项回归。
-   - 暂不把 WAV 离线渲染、MP4 导出、复杂编辑、tempo map 纳入 MVP 完成条件。
+1. **M6 录制 / 回放稳定化**（MVP 已恢复）
+   - 收紧 `RecordingEngine` / `AudioEngine` / `MainComponent` 之间的实时音频线程边界。
+   - 复核回放结束通知、采样率变化下的时间缩放、Stop 清理悬挂音等路径。
+   - 按 [`../testing/recording-playback.md`](../testing/recording-playback.md) 持续回归 Record / Stop / Play / Export MIDI。
 
-2. **M7 布局 Preset 持续打磨**（核心能力已完成）
+2. **外部 MIDI 硬件依赖回归补齐**
+   - 补齐外部 MIDI 录制 / 回放验证。
+   - 外部 MIDI 设备可用后补齐插件生命周期退出场景 `6.3`。
+   - 如暂时没有真实硬件，可先用虚拟 MIDI loopback 做替代验证，并在测试记录中标明。
+
+3. **WAV 离线渲染 MVP 准备**
+   - 先设计 `RecordingTake -> offline render loop -> WAV file` 的最小链路。
+   - 第一切片优先 fallback synth，之后再评估已加载 VST3 插件离线渲染。
+   - MP4 导出、复杂编辑、tempo map 仍不纳入近期范围。
+
+4. **M7 布局 Preset 持续打磨**（核心能力已完成）
    - 按 [`../testing/layout-presets.md`](../testing/layout-presets.md) 做专项回归。
    - 后续只保留低优先级增强，如冲突提示、图形化布局编辑器、per-key label/color。
 
-3. **M3 插件宿主持续稳定**
-   - 外部 MIDI 设备可用后补齐退出场景 `6.3` 验证。
+5. **M3 插件宿主持续稳定与产品化增强**
+   - 记录扫描失败文件、多目录扫描表现、扫描结果持久化等增强进入后续 backlog。
    - 低优先级持续观察退出阶段 Debug 告警。
 
-4. **保持架构健康**
+6. **保持架构健康**
    - 避免 `MainComponent` 再次膨胀。
    - 新状态优先通过 `AppState` / builder / UI 子组件边界表达。
 
@@ -170,7 +182,7 @@
 | 插件生命周期复杂 | 中 | 维护专项生命周期测试，重点覆盖 editor、卸载、重扫、退出。 |
 | 键盘映射边界多 | 低中 | 基础映射已全量验证；布局 preset 已补充专项回归清单，后续改动按清单回归。 |
 | `MainComponent` 职责回流 | 低 | 已通过两轮收敛建立了 `PluginFlowSupport` 边界，后续保持纪律。 |
-| 录制/回放实现风险 | 低中 | MVP 主链路已接入；后续通过专项回归覆盖录制时间线、回放 note off、导出文件可用性。 |
+| 录制/回放实现风险 | 中 | MVP 主链路已接入；下一阶段优先收紧实时音频线程边界、回放结束通知、采样率缩放与 Stop 清理悬挂音路径。 |
 | 布局 Preset 实现风险 | 低 | 核心能力已完成并补充功能/测试文档；后续主要是低优先级体验增强。 |
 | 文档状态漂移 | 中 | 本文件作为唯一 roadmap；当前任务只写入 [`current-iteration.md`](current-iteration.md)。 |
 
@@ -279,3 +291,4 @@
 - 目标：将 MIDI 文件通过离线音频链路（不经过实时音频设备）渲染为 WAV 文件
 - 关键约束：离线渲染，不影响实时播放；需单独处理插件离线渲染、当前插件状态和导出期间 UI / 音频设备边界
 - 前置条件：M6-5 完成
+- 状态：下一阶段准备；先完成 M6 稳定化和离线渲染 MVP 设计，第一切片优先 fallback synth，后续再评估插件路径

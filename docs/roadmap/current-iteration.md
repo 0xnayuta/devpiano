@@ -6,136 +6,142 @@
 
 ## 当前状态
 
-当前活跃迭代：**MainComponent 职责收敛、键盘映射完善、布局 Preset 与 M6 高级功能 MVP 恢复的阶段性收尾**。
+当前活跃迭代：**M6 录制 / 回放稳定化、外部 MIDI 验证补齐、WAV 离线渲染准备**。
 
-上一轮已完成：`docs/` 最小重组。记录已归档到：[`../archive/docs-restructure-2026-04.md`](../archive/docs-restructure-2026-04.md)。
+上一轮已完成：MainComponent 插件流程初步收敛、键盘映射默认布局回归、布局 Preset 核心能力、录制 / 回放 / MIDI 导出 MVP 和对应阶段文档收尾。
+
+当前项目已经从“主链路打通 / MVP 恢复”进入“稳定化、硬件依赖回归和下一项高级功能设计”的阶段。
 
 ## 本轮目标
 
-前半段以收敛重构为主，中间段完成录制/回放和布局 Preset 预研，后半段已推进到布局 Preset、录制、回放与 MIDI 导出 MVP 实现；当前收尾重点是让路线图、验收标准和专项测试文档对齐真实状态。
+本轮不扩大功能面，优先把已恢复的 M6 主链路变得更稳，再启动 WAV 离线渲染的最小设计。
 
-前半段核心目标：
+核心目标：
 
-- 在不改变现有演奏、插件加载和设置恢复行为的前提下，继续削薄 `source/MainComponent.*`。
-- 优先收敛插件扫描 / 加载 / 卸载 / 恢复流程的职责边界。
-- 补齐键盘映射默认布局的未验证项。
-
-后半段核心目标：
-
-- 阅读旧 `freepiano-src/song.*` 提炼录制/回放历史行为。
-- 在 [`../features/recording-playback.md`](../features/recording-playback.md) 中记录现代设计与当前 MVP 行为。
-- 完成录制 / 停止 / 回放 / MIDI 导出的 MVP 主链路，并补齐阶段收尾文档。
-- 补齐默认键盘布局的未验证项，降低后续布局编辑 / Preset 功能的回归风险。
-- 继续使用现有 `AppState` / UI state builder / Settings model 边界承载状态，不把新状态直接堆回 `MainComponent`。
+- 收紧 `RecordingEngine`、`AudioEngine` 与 `MainComponent` 之间的实时音频线程边界。
+- 补齐外部 MIDI 相关验证，包括录制 / 回放和插件生命周期退出路径。
+- 在不引入旧 `song.*` 结构、不做 MP4 / 多轨 / 复杂编辑的前提下，设计 WAV 离线渲染 MVP。
+- 继续避免 `MainComponent` 膨胀；新增录制 / 导出状态优先通过小型 helper / coordinator、`AppState` / builder 或 UI 子组件边界表达。
+- 同步维护路线图、功能说明、验收和专项测试文档，避免“已完成 / 待验证 / 后续增强”口径漂移。
 
 ## 本轮优先任务
 
-### 1. 键盘映射默认布局回归
+### 1. M6 录制 / 回放稳定化
 
-对应文档：[`../testing/keyboard-mapping.md`](../testing/keyboard-mapping.md)、[`../features/keyboard-mapping.md`](../features/keyboard-mapping.md)。
+对应代码：
 
-当前进展：
+- `source/Recording/RecordingEngine.*`
+- `source/Audio/AudioEngine.*`
+- `source/MainComponent.*`
+- `source/UI/ControlsPanel.*`
 
-- [x] 已完成默认布局代码级 / 静态映射校验，并记录到 `Test Run 2026-04-24`。
-- [x] 默认可见音区下，Q、A、Z、数字行已通过手工发声、高亮、note on/off、Shift / Caps Lock / 中文输入法回归。
-- [x] 已定位并修复虚拟键盘翻页后 JUCE 内置 QWERTY 映射与项目映射叠加的问题。
-- [x] 已完成 6.3 Windows 侧人工回归，翻页后所有行按键均无明显问题。
-- [x] 已补测 4.2 Q+E+T 三和弦多键组合，通过。
-- [x] 已补测 8.1 默认映射启动一致性，关闭再重启后映射行为一致。
+对应文档：
 
-**Task 1 已全部完成。** 剩余未验证项（8.2/8.3/8.4 布局保存恢复）依赖自定义布局编辑 UI，9.2 外部 MIDI 混合输入依赖硬件，均非当前迭代范围。
+- [`../features/recording-playback.md`](../features/recording-playback.md)
+- [`../testing/recording-playback.md`](../testing/recording-playback.md)
 
-验收结果已更新到 [`../testing/keyboard-mapping.md`](../testing/keyboard-mapping.md) 的 `Test Run 2026-04-25`。
+重点：
 
-### 2. 插件生命周期基线回归
-
-对应文档：[`../testing/plugin-host-lifecycle.md`](../testing/plugin-host-lifecycle.md)、[`../features/plugin-hosting.md`](../features/plugin-hosting.md)。
-
-当前进展：
-
-- [x] 已完成基础插件生命周期测试：扫描后加载、连续加载 / 卸载、已加载状态下重扫，均未发现明显问题。
-- [x] 已完成 plugin editor 生命周期测试：打开 / 关闭 editor、打开 editor 后卸载、打开 editor 后重扫，均未发现明显问题。
-- [x] 已完成 `5.1` 音频设备设置切换路径验证：窗口可打开、保存、关闭，插件链路可继续发声；不同 `Audio device type` 下的 `buffer size` / `sample rate` 可调范围已确认为当前 Windows / JUCE 后端语义差异，不构成产品缺陷。
-- [x] 已完成 `5.2` 连续执行 load / unload / scan，当前未发现明显问题。
-- [x] 已完成 `6.1` 与 `6.2` 退出路径验证，当前未发现明显问题。
-- [ ] `6.3` 因缺少外部 MIDI 设备暂未验证。
-
-本轮已覆盖并记录以下高风险场景：
-
-- 扫描后加载插件并试弹。
-- 连续加载 / 卸载同一插件 3~5 次。
-- 已加载插件状态下重新扫描。
-- 打开 editor 后卸载插件。
-- 打开 editor 后重新扫描。
-- 打开 editor 或已加载插件后直接退出程序。
-- 加载插件后切换音频设备设置。
-
-本轮已基本建立插件生命周期基线；当前剩余重点转为：
-
-- 在具备外部 MIDI 设备后补齐 `6.3` 退出场景。
-- 若后续出现稳定复现的问题，再针对 `PluginHost` / editor window / audio device rebuild 路径做小步修复。
-
-### 3. `MainComponent` 插件流程职责收敛
-
-对应代码：`source/MainComponent.*`、`source/Plugin/PluginHost.*`、`source/Plugin/PluginFlowSupport.*`。
-
-本轮建议只做低风险拆分：
-
-- 先梳理插件相关方法的边界：扫描路径解析、启动恢复、加载、卸载、editor 窗口、音频设备重建。
-- 优先抽离不直接依赖 UI 组件的插件流程 helper / controller。
-- 暂时保留 `MainComponent` 对按钮回调、只读 UI 刷新、设置保存和 editor 窗口拥有权的协调职责。
-- 避免一次性拆分 `PluginHost` 内部扫描与实例生命周期；先用生命周期测试结果决定是否需要拆。
+- [ ] 复核 audio callback 中访问 `RecordingEngine` 的边界，避免文件 IO、UI 操作、阻塞等待或非受控分配进入实时路径。
+- [ ] 将回放结束通知收敛为轻量状态传递；避免 audio thread 直接触发复杂 UI / `std::function` 逻辑。
+- [ ] 复核采样率变化时的回放时间缩放与播放结束判断。
+- [ ] 更新 `RecordingEngine.h` 中关于 “Minimal skeleton / not thread-safe” 的注释，使其准确描述当前 MVP 状态和剩余约束。
+- [ ] 对空 take、容量耗尽、note on/off 成对、Stop 清理悬挂音等边界做代码级检查或补充轻量测试入口。
 
 完成标准：
 
-- 现有插件扫描、选择、加载、卸载、editor 打开行为不回退。
-- `MainComponent.cpp` 插件相关流程代码减少或边界更清晰。
-- LSP diagnostics 无新增错误。
-- WSL 构建通过。
-- Windows MSVC 构建通过。
+- audio callback 与 UI / 文件 / 设置写入边界清晰。
+- 回放结束、停止回放、采样率变化路径没有明显悬挂音或状态错乱风险。
+- 文档中的线程安全约束与代码实现一致。
+- WSL configure 和 Windows MSVC 验证构建通过。
 
-当前进展：
+### 2. 外部 MIDI 硬件依赖回归补齐
 
-- [x] **Step 1**（第一层提取）：新增 `source/Plugin/PluginFlowSupport.h/.cpp`，将 `buildStartupPluginRestorePlan`、`withPluginRecoveryPathFallback`、`isUsablePluginScanPath`、`makePluginRecoverySettings` 从 `MainComponent` 提取为 `devpiano::plugin` 命名空间纯函数；`MainComponent` 仍保留启动恢复编排权，但决策逻辑已下沉。
-- [x] **Step 2**（第二层提取）：
-  - 新增 `restorePluginsAtPath(pluginHost, path, recovery, applySettingsCallback)` 到 `PluginFlowSupport`，将"scan + applySettings"序列封装为独立原子操作。
-  - `restorePluginScanPathOnStartup` 和 `restoreLastPluginOnStartup` 改为接收 `const StartupPluginRestorePlan&`，直接使用 plan 中已解析的 `plan.recovery`（pluginSearchPath / lastPluginName），消除了启动路径中重复调用 `getPluginRecoverySettingsWithFallback()` 的冗余。
-  - `scanPluginsAtPathAndApplyRecoveryState` 改用 `restorePluginsAtPath` 组合，代码更简洁。
-  - `MainComponent` 仍持有 `applyPluginRecoverySettings` 调用权（需要 `appSettings`），所有 `PluginFlowSupport` 辅助函数均以 callback 形式注入此能力。
+对应文档：
 
-### 4. 录制 / 回放 / MIDI 导出 MVP 收尾
+- [`../testing/recording-playback.md`](../testing/recording-playback.md)
+- [`../testing/plugin-host-lifecycle.md`](../testing/plugin-host-lifecycle.md)
+- [`../features/plugin-hosting.md`](../features/plugin-hosting.md)
 
-对应后续方向：[`../roadmap/roadmap.md`](../roadmap/roadmap.md) 的 M6；对应文档：[`../features/recording-playback.md`](../features/recording-playback.md)。
+重点：
 
-当前进展：
+- [ ] 使用真实外部 MIDI 设备验证录制 / 停止 / 回放。
+- [ ] 如暂时没有真实设备，先用虚拟 MIDI loopback 做替代验证，并在测试记录中明确标注。
+- [ ] 补齐插件生命周期测试 `6.3`：外部 MIDI 打开状态下退出程序。
+- [ ] 验证外部 MIDI + 已加载插件 + editor 打开时的 Play / Stop / 退出组合路径。
 
-- [x] 已阅读旧 `freepiano-src/song.*` 提炼录制/回放历史行为（事件模型、录制机制、回放机制、导出行为、旧设计问题）。
-- [x] 已阅读 `source/Legacy/UnusedPrototypes/SongEngine.*`，确认为旧代码直译移植，未重新设计，不参与主构建。
-- [x] 已在 [`../features/recording-playback.md`](../features/recording-playback.md) 记录完整草案：当前 MIDI/keyboard/audio 主链路、旧行为参考、第一版目标、sample-based 事件模型、录制/回放接入点、导出边界与线程安全约束。
-- [x] 已明确 8 项设计决策（录制内容、事件格式、sample-based 时间线、回放路径、插件关系、多轨能力、编辑能力、导出优先级）。
-- [x] 已新增 `source/Recording/RecordingEngine.*`，完成 M6-1 最小模型与生命周期骨架，并在后续切片接入 `AudioEngine` 与最小 UI 主链路。
-- [x] 已明确 M6-2 `AudioEngine::getNextAudioBlock()` handoff 边界：`keyboardState.processNextMidiBuffer(..., true)` 之后、插件 / fallback synth 消费 `MidiBuffer` 之前；已新增 `recordMidiBufferBlock()` 辅助 API，并完成 `AudioEngine::setRecordingEngine(...)` 注入，随后已接入最小 UI。
-- [x] 已明确 owner / lifetime / preallocation 规则：`MainComponent` 持有 `RecordingEngine`，`AudioEngine` 仅保存非拥有指针；析构时先 `shutdownAudio()` 再 `setRecordingEngine(nullptr)`；容量耗尽时丢弃新事件并计数。
-- [x] 已新增无 UI 内部录制启停入口：`startInternalRecording(expectedEventCapacity)` / `stopInternalRecording()`，通过暂停 audio callback 后执行 reserve/start 或 stop，避免当前阶段引入跨线程状态竞争。
-- [x] 已新增无 UI 内部回放启停入口：`startInternalPlayback(take)` / `stopInternalPlayback()`，`stopInternalPlayback()` 返回 `RecordingTake` 快照并发送 `allNotesOff(1)`；回放通过 `AudioEngine::getNextAudioBlock()` 中的 `renderPlaybackEventsIfNeeded()` 注入 playback 事件。
-- [x] 已实现 M6-4 最小 UI：`ControlsPanel` 新增 Record / Stop / Play 按钮与 `recordStatusLabel`（Idle / Recording / Playing），`MainComponent` 对应 handler，`currentTake` 存储最近一次录制用于回放。
-- [x] 已实现 M6-5 MIDI 导出：`MidiFileExporter::exportTakeAsMidiFile()` 将 `RecordingTake` 转换为 `juce::MidiFile` 输出 `.mid`（960 PPQ，无 tempo map）；`ControlsPanel` 新增 "Export MIDI" 按钮；`handleExportMidiClicked()` 使用 `FileChooser` 保存对话框，文件名 `recording_<ISO8601>.mid`。
-- [x] 本轮阶段性收尾目标：补齐路线图、验收标准、README 入口和 [`../testing/recording-playback.md`](../testing/recording-playback.md) 专项回归清单。
+完成标准：
 
-**M6 MVP 已恢复。** 后续不再把 Record / Stop / Play / Export MIDI 作为待实现主功能；下一步重点是专项回归、稳定性修复和 WAV 离线渲染等 M6+ 增强。
+- 外部 MIDI 录制 / 回放结果记录到专项测试文档。
+- 插件生命周期 `6.3` 不再是未验证项，或明确记录替代验证方式和剩余硬件限制。
 
-### 5. 布局 Preset 模型预研，不接入主链路
+### 3. WAV 离线渲染 MVP 设计
 
-对应后续方向：键盘映射完善（M3）后的延伸方向；对应文档：[`../features/layout-presets.md`](../features/layout-presets.md)。
+对应后续方向：[`roadmap.md`](roadmap.md) 的 M6-6。
 
-当前进展：
+对应文档：
 
-- [x] 已阅读旧 `freepiano-src/config.*` / `song.*` 提炼布局管理历史行为（旧 key_bind_t 模型、`.lyt` 二进制格式、多设置组、平台绑定问题）。
-- [x] 已阅读当前 `KeyMapTypes.h`、`SettingsModel.h`、`ControlsPanel.cpp`，确认当前布局模型（`KeyboardLayout` + `KeyBinding`）、内置 preset（minimal / full）、持久化方式（`layoutId` + `keyMap`）和 UI 切换机制。
-- [x] 已在 [`../features/layout-presets.md`](../features/layout-presets.md) 记录完整草案：旧行为参考、当前实现状态、现代设计考虑（JSON preset 格式、preset 与演奏设置分离、preset 发现机制）、MVP 范围。
-- [x] 已明确 5 项设计决策（preset 存储位置、ID 冲突、内置 preset 数量、导入/导出 UI、per-key label/color）。
+- [`../features/recording-playback.md`](../features/recording-playback.md)
+- [`../testing/acceptance.md`](../testing/acceptance.md)
 
-**预研已收尾。** 后续实现时直接参考该文档，无需重新讨论这些决策。
+本轮只做设计收口和最小切片拆分；实现可以在稳定化完成后开始。
+
+建议范围：
+
+- [ ] 定义 `RecordingTake -> offline render loop -> WAV file` 的最小链路。
+- [ ] 第一切片优先支持 fallback synth 离线渲染。
+- [ ] 第二切片再评估当前已加载 VST3 插件的离线渲染。
+- [ ] 明确导出期间 UI、实时音频设备、插件 editor 和当前插件状态的边界。
+- [ ] 明确失败策略：插件不支持离线渲染、目标路径无权限、空 take、用户取消保存。
+
+明确不做：
+
+- [ ] 不做 MP4 / 视频导出。
+- [ ] 不做复杂编辑、钢琴卷帘、多轨工程、tempo map。
+- [ ] 不复刻旧 FreePiano `song.*` / `export.*` 的平台相关结构。
+
+完成标准：
+
+- 形成可执行的 M6-6 实现切片。
+- 验收文档中 WAV 导出仍标记为未完成，但其后续路径和边界清晰。
+
+### 4. 插件扫描产品化增强排期
+
+对应文档：
+
+- [`../features/plugin-hosting.md`](../features/plugin-hosting.md)
+- [`../testing/plugin-host-lifecycle.md`](../testing/plugin-host-lifecycle.md)
+- [`roadmap.md`](roadmap.md) 的 M2 / M3 后续增强。
+
+本轮不优先实现大改，只做排期和小步准备：
+
+- [ ] 记录扫描失败文件，而不只是失败数量。
+- [ ] 明确多目录扫描的输入格式、UI 表达和持久化方式。
+- [ ] 评估 `KnownPluginList` / 扫描结果持久化，降低启动恢复对同步扫描的依赖。
+- [ ] 补充空状态、失败状态和恢复失败提示的 UI 需求。
+
+完成标准：
+
+- 插件扫描增强进入 backlog，且不阻塞 M6 稳定化与 WAV 设计。
+
+### 5. MainComponent 职责继续收敛
+
+对应代码：
+
+- `source/MainComponent.*`
+- `source/Plugin/PluginFlowSupport.*`
+- 后续可能新增 `source/Recording/*Flow*` 或等价轻量 helper。
+
+重点：
+
+- [ ] 优先抽离录制 / 回放 / 导出状态流，而不是大规模重写 `MainComponent`。
+- [ ] 保留 `MainComponent` 对 UI 组件拥有权、窗口生命周期和顶层装配职责。
+- [ ] 新增 WAV 导出时不得把完整离线渲染流程直接堆入 `MainComponent`。
+
+完成标准：
+
+- 新增流程有清晰边界。
+- 现有键盘演奏、插件加载、录制 / 回放 / MIDI 导出行为不回退。
 
 ## 本轮计划验证命令
 
@@ -154,16 +160,13 @@
 
 ## 后续候选文档任务
 
-以下不是本轮代码重构的优先项，仅在需要时补充：
+以下不是本轮代码实现的优先项，仅在需要时补充：
 
 - 继续提炼 ADR：
   - JUCE 音频后端决策。
   - VST3-first 插件宿主决策。
+  - WAV 离线渲染边界决策。
 - 按需补充轻量文档入口：
-  - [`../index/glossary.md`](../index/glossary.md)：术语表。
   - [`../testing/known-issues.md`](../testing/known-issues.md)：已知问题与待验证风险。
-  - [`../getting-started/overview.md`](../getting-started/overview.md)：项目概览。
-  - [`../getting-started/current-status.md`](../getting-started/current-status.md)：当前状态摘要。
   - [`../development/troubleshooting.md`](../development/troubleshooting.md)：开发环境与构建问题排查。
-  - [`../development/agent-collaboration.md`](../development/agent-collaboration.md)：从根目录 [`../../AGENTS.md`](../../AGENTS.md) 提炼的人类可读协作规则摘要。
-- 后续如架构文档继续增长，再拆分音频链路、插件宿主、键盘映射、状态模型等专题。
+- 后续如架构文档继续增长，再拆分音频链路、插件宿主、录制 / 导出、状态模型等专题。
