@@ -137,6 +137,7 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
                                         0,
                                         bufferToFill.numSamples,
                                         true);
+    injectPendingAllNotesOffIfNeeded();
     recordRealtimeMidiBufferIfNeeded(bufferToFill.numSamples);
     renderPlaybackEventsIfNeeded(recordingEngine != nullptr ? recordingEngine->getPlaybackPositionSamples() : 0,
                                   bufferToFill.numSamples);
@@ -191,6 +192,11 @@ void AudioEngine::releaseResources()
         pluginHost->releaseResources();
 }
 
+void AudioEngine::requestAllNotesOff() noexcept
+{
+    allNotesOffPending.store(true, std::memory_order_release);
+}
+
 void AudioEngine::setMasterGain(float newGain)
 {
     masterGain = juce::jlimit(0.0f, 1.0f, newGain);
@@ -222,6 +228,22 @@ void AudioEngine::updateAdsrOnVoices()
     for (auto index = 0; index < synth.getNumVoices(); ++index)
         if (auto* voice = dynamic_cast<SimpleSineVoice*>(synth.getVoice(index)))
             voice->setAdsrParameters(adsrParameters);
+}
+
+void AudioEngine::injectPendingAllNotesOffIfNeeded()
+{
+    if (! allNotesOffPending.exchange(false, std::memory_order_acq_rel))
+        return;
+
+    for (auto channel = 1; channel <= 16; ++channel)
+    {
+        keyboardState.allNotesOff(channel);
+        midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 64, 0), 0);   // sustain pedal off
+        midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 120, 0), 0);  // all sound off
+        midiBuffer.addEvent(juce::MidiMessage::allNotesOff(channel), 0);
+    }
+
+    synth.allNotesOff(0, false);
 }
 
 void AudioEngine::recordRealtimeMidiBufferIfNeeded(int numSamples)

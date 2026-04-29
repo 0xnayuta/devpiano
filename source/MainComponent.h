@@ -22,7 +22,8 @@
 #include "UI/PluginPanel.h"
 #include "Layout/LayoutDirectoryScanner.h"
 
-class MainComponent final : public juce::AudioAppComponent
+class MainComponent final : public juce::AudioAppComponent,
+                            private juce::Timer
 {
 public:
     MainComponent();
@@ -51,6 +52,8 @@ private:
         double sampleRate = 44100.0;
         int blockSize = 512;
     };
+
+    void timerCallback() override;
 
     void initialiseInputMappingFromSettings();
     void initialiseUi();
@@ -89,6 +92,7 @@ private:
     void saveSettingsSoon();
     void showSettingsDialog();
     [[nodiscard]] bool isSettingsWindowDirty() const;
+    [[nodiscard]] bool isSettingsWindowOpen() const;
     void closeSettingsWindow();
     void closeSettingsWindowAsync();
     void saveAndCloseSettingsWindow();

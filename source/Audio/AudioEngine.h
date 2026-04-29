@@ -2,6 +2,8 @@
 
 #include <JuceHeader.h>
 
+#include <atomic>
+
 class PluginHost;
 
 namespace devpiano::recording
@@ -21,6 +23,7 @@ public:
     void prepareToPlay(int samplesPerBlockExpected, double sampleRate);
     void getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill);
     void releaseResources();
+    void requestAllNotesOff() noexcept;
 
     void setMasterGain(float newGain);
     void setAdsr(float attackSeconds, float decaySeconds, float sustainLevel, float releaseSeconds);
@@ -34,6 +37,7 @@ private:
 
     void rebuildSynth();
     void updateAdsrOnVoices();
+    void injectPendingAllNotesOffIfNeeded();
     void recordRealtimeMidiBufferIfNeeded(int numSamples);
     void renderPlaybackEventsIfNeeded(std::int64_t blockStartSamples, int numSamples);
 
@@ -49,6 +53,7 @@ private:
     float masterGain = 0.8f;
     double currentSampleRate = 44100.0;
     int currentBlockSize = 512;
+    std::atomic_bool allNotesOffPending { false };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AudioEngine)
 };

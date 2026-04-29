@@ -481,10 +481,10 @@ WAV 导出需要离线渲染能力，风险高于 MIDI 导出：
 
 ### M6-7：录制 / 回放稳定化
 
-- [ ] 复核 audio callback 中访问 `RecordingEngine` 的边界，避免文件 IO、UI 操作、阻塞等待或非受控分配进入实时路径。
-- [ ] 将回放结束通知收敛为轻量状态传递；避免 audio thread 直接触发复杂 UI / `std::function` 逻辑。
-- [ ] 复核采样率变化时的回放时间缩放与播放结束判断。
-- [ ] 更新 `RecordingEngine.h` 中关于 “Minimal skeleton / not thread-safe” 的注释，使其准确描述当前 MVP 状态和剩余约束。
+- [x] 复核 audio callback 中访问 `RecordingEngine` 的边界，避免文件 IO、UI 操作、阻塞等待或非受控分配进入实时路径。
+- [x] 将回放结束通知收敛为轻量状态传递；audio thread 只置位轻量结束标记，message thread 轮询后更新 UI / 状态。
+- [x] 复核采样率变化时的回放时间缩放与播放结束判断，结束阈值改为按当前回放采样率比例缩放后的 take 长度。
+- [x] 更新 `RecordingEngine.h` 中关于 “Minimal skeleton / not thread-safe” 的注释，使其准确描述当前 MVP 状态和剩余约束。
 
 ---
 

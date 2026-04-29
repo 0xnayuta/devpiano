@@ -83,11 +83,14 @@ MainComponent::MainComponent()
     restorePluginStateOnStartup();
     refreshReadOnlyUiState();
 
+    startTimerHz(30);
     restoreKeyboardFocus();
 }
 
 MainComponent::~MainComponent()
 {
+    stopTimer();
+
     controlsPanel.onValuesChanged = {};
     controlsPanel.onLayoutChanged = {};
     controlsPanel.onSaveLayoutRequested = {};
@@ -124,7 +127,7 @@ void MainComponent::initialiseInputMappingFromSettings()
 
 void MainComponent::initialiseUi()
 {
-    setSize(980, 620);
+    setSize(1120, 760);
     setWantsKeyboardFocus(true);
 
     addAndMakeVisible(headerPanel);
@@ -204,6 +207,22 @@ void MainComponent::releaseResources()
     audioEngine.releaseResources();
 }
 
+void MainComponent::timerCallback()
+{
+    if (! recordingEngine.consumePlaybackEndedFlag())
+        return;
+
+    if (currentRecordingState != ControlsPanel::RecordingState::playing)
+        return;
+
+    const auto stoppedTake = stopInternalPlayback();
+    juce::ignoreUnused(stoppedTake);
+
+    currentRecordingState = ControlsPanel::RecordingState::idle;
+    controlsPanel.setRecordingState(currentRecordingState);
+    restoreKeyboardFocus();
+}
+
 void MainComponent::paint(juce::Graphics& g)
 {
     g.fillAll(backgroundColour);
@@ -222,7 +241,7 @@ void MainComponent::resized()
     controlsPanel.setBounds(area.removeFromTop(260));
     area.removeFromTop(8);
 
-    keyboardPanel.setBounds(area.removeFromBottom(110));
+    keyboardPanel.setBounds(area.removeFromBottom(128));
 }
 
 void MainComponent::visibilityChanged()
@@ -258,6 +277,9 @@ bool MainComponent::keyStateChanged(bool isKeyDown)
 void MainComponent::focusGained(juce::Component::FocusChangeType cause)
 {
     juce::AudioAppComponent::focusGained(cause);
+
+    if (isSettingsWindowOpen())
+        return;
 
     // Windows may have already given us focus via WM_SETFOCUS before grabKeyboardFocus ran,
     // causing takeKeyboardFocus's early-return check to fire. Call grabKeyboardFocus() to
@@ -587,6 +609,9 @@ void MainComponent::suppressTextInputMethods()
 
 void MainComponent::restoreKeyboardFocus()
 {
+    if (isSettingsWindowOpen())
+        return;
+
     if (isShowing() && juce::Component::getCurrentlyFocusedComponent() != this)
         grabKeyboardFocus();
 
@@ -696,6 +721,7 @@ void MainComponent::showSettingsDialog()
     settingsWindow->centreAroundComponent(this, 620, 560);
     settingsWindow->setResizable(true, true);
     settingsWindow->setVisible(true);
+    settingsWindow->toFront(true);
 }
 
 bool MainComponent::isSettingsWindowDirty() const
@@ -707,6 +733,11 @@ bool MainComponent::isSettingsWindowDirty() const
         return settingsContent->isDirty();
 
     return false;
+}
+
+bool MainComponent::isSettingsWindowOpen() const
+{
+    return settingsWindow != nullptr && settingsWindow->isShowing();
 }
 
 void MainComponent::closeSettingsWindowAsync()
@@ -953,14 +984,9 @@ void MainComponent::startInternalPlayback(const devpiano::recording::RecordingTa
 
 devpiano::recording::RecordingTake MainComponent::stopInternalPlayback()
 {
-    devpiano::recording::RecordingTake take;
-
-    runPluginActionWithAudioDeviceRebuild([this, &take](const RuntimeAudioConfig&)
-    {
-        take = recordingEngine.getCurrentTake();
-        recordingEngine.stopPlayback();
-        audioEngine.getKeyboardState().allNotesOff(1);
-    });
+    auto take = recordingEngine.getCurrentTake();
+    recordingEngine.stopPlayback();
+    audioEngine.requestAllNotesOff();
 
     juce::Logger::writeToLog("[Playback] Internal playback stopped");
     return take;
@@ -1137,16 +1163,6 @@ void MainComponent::handlePlayClicked()
     if (recordingEngine.hasTake())
     {
         currentTake = recordingEngine.getCurrentTake();
-        recordingEngine.setOnPlaybackEnded([this]
-        {
-            juce::MessageManager::callAsync([this]
-            {
-                const auto stoppedTake = stopInternalPlayback();
-                juce::ignoreUnused(stoppedTake);
-                currentRecordingState = ControlsPanel::RecordingState::idle;
-                controlsPanel.setRecordingState(currentRecordingState);
-            });
-        });
         startInternalPlayback(currentTake);
         currentRecordingState = ControlsPanel::RecordingState::playing;
         controlsPanel.setRecordingState(currentRecordingState);
@@ -1166,7 +1182,6 @@ void MainComponent::handleStopClicked()
     }
     else if (currentRecordingState == ControlsPanel::RecordingState::playing)
     {
-        recordingEngine.setOnPlaybackEnded({});
         const auto stoppedTake = stopInternalPlayback();
         juce::ignoreUnused(stoppedTake);
         currentRecordingState = ControlsPanel::RecordingState::idle;

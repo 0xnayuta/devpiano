@@ -2,6 +2,7 @@
 
 #include <JuceHeader.h>
 
+#include <atomic>
 #include <cstdint>
 #include <vector>
 
@@ -43,12 +44,12 @@ struct RecordingTake
 class RecordingEngine
 {
 public:
-    // Minimal M6-1 lifecycle/model skeleton.
-    // This class is not thread-safe. Future audio-thread integration must provide
-    // an explicit ownership/synchronisation boundary and preallocate event storage
-    // before calling recordEvent*() from any realtime path. Preallocation only
-    // avoids vector growth while capacity is sufficient; large MIDI messages may
-    // still allocate when copied into juce::MidiMessage.
+    // M6 MVP recording/playback model. Message-thread code owns structural changes
+    // such as start/stop/clear/reserve while audio-thread code may record or render
+    // preallocated MIDI events during active recording/playback.
+    // Keep the audio-thread path bounded: no file IO, UI calls, waits, or vector
+    // growth. Playback completion is reported via a lightweight atomic flag and
+    // must be consumed from the message thread.
     [[nodiscard]] RecordingState getState() const noexcept;
     [[nodiscard]] bool isRecording() const noexcept;
     [[nodiscard]] bool hasTake() const noexcept;
@@ -85,24 +86,26 @@ public:
     // Renders playback events whose scaled timestamp falls within [blockStartSamples, blockStartSamples + numSamples).
     // Uses the same midiBuffer that AudioEngine will then pass to plugin/synth rendering.
     void renderPlaybackBlock(juce::MidiBuffer& midiBuffer,
-                            std::int64_t blockStartSamples,
-                            int numSamples);
+                             std::int64_t blockStartSamples,
+                             int numSamples);
     void advancePlaybackPosition(std::int64_t numSamples) noexcept;
+    [[nodiscard]] bool consumePlaybackEndedFlag() noexcept;
     [[nodiscard]] bool isPlaying() const noexcept;
     [[nodiscard]] std::int64_t getPlaybackPositionSamples() const noexcept;
 
-    void setOnPlaybackEnded(std::function<void()> callback);
-
 private:
+    [[nodiscard]] std::int64_t getScaledPlaybackLengthSamples() const noexcept;
+
     RecordingTake currentTake;
-    RecordingState state = RecordingState::idle;
+    std::atomic<RecordingState> state { RecordingState::idle };
     std::int64_t currentPositionSamples = 0;
     std::size_t droppedEventCount = 0;
 
     // Playback state
     RecordingTake playbackTake;
     double playbackSampleRateRatio = 1.0;
+    std::int64_t scaledPlaybackLengthSamples = 0;
     std::int64_t playbackPositionSamples = 0;
-    std::function<void()> onPlaybackEnded;
+    std::atomic_bool playbackEndedPending { false };
 };
 } // namespace devpiano::recording

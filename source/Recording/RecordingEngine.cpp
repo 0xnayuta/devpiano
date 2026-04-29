@@ -1,6 +1,7 @@
 #include "Recording/RecordingEngine.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace devpiano::recording
 {
@@ -24,12 +25,12 @@ double RecordingTake::durationSeconds() const noexcept
 
 RecordingState RecordingEngine::getState() const noexcept
 {
-    return state;
+    return state.load(std::memory_order_acquire);
 }
 
 bool RecordingEngine::isRecording() const noexcept
 {
-    return state == RecordingState::recording;
+    return state.load(std::memory_order_acquire) == RecordingState::recording;
 }
 
 bool RecordingEngine::hasTake() const noexcept
@@ -84,7 +85,8 @@ void RecordingEngine::startRecording(double sampleRate)
     currentTake.lengthSamples = 0;
     currentPositionSamples = 0;
     droppedEventCount = 0;
-    state = RecordingState::recording;
+    playbackEndedPending.store(false, std::memory_order_release);
+    state.store(RecordingState::recording, std::memory_order_release);
 }
 
 RecordingTake RecordingEngine::stopRecording()
@@ -92,7 +94,7 @@ RecordingTake RecordingEngine::stopRecording()
     if (isRecording())
         currentTake.lengthSamples = std::max(currentTake.lengthSamples, currentPositionSamples);
 
-    state = RecordingState::stopped;
+    state.store(RecordingState::stopped, std::memory_order_release);
     return currentTake;
 }
 
@@ -103,7 +105,8 @@ void RecordingEngine::clear()
     currentTake.lengthSamples = 0;
     currentPositionSamples = 0;
     droppedEventCount = 0;
-    state = RecordingState::idle;
+    playbackEndedPending.store(false, std::memory_order_release);
+    state.store(RecordingState::idle, std::memory_order_release);
 }
 
 void RecordingEngine::advanceRecordingPosition(std::int64_t numSamples) noexcept
@@ -170,16 +173,18 @@ void RecordingEngine::startPlayback(const RecordingTake& take, double currentSam
 {
     playbackTake = take;
     playbackSampleRateRatio = (take.sampleRate > 0.0 && currentSampleRate > 0.0)
-                                  ? (currentSampleRate / take.sampleRate)
-                                  : 1.0;
+                                   ? (currentSampleRate / take.sampleRate)
+                                   : 1.0;
+    scaledPlaybackLengthSamples = getScaledPlaybackLengthSamples();
     playbackPositionSamples = 0;
-    state = RecordingState::playing;
+    playbackEndedPending.store(false, std::memory_order_release);
+    state.store(RecordingState::playing, std::memory_order_release);
 }
 
 void RecordingEngine::stopPlayback()
 {
-    state = RecordingState::stopped;
-    playbackPositionSamples = 0;
+    state.store(RecordingState::stopped, std::memory_order_release);
+    playbackEndedPending.store(false, std::memory_order_release);
 }
 
 void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer,
@@ -210,17 +215,22 @@ void RecordingEngine::advancePlaybackPosition(std::int64_t numSamples) noexcept
         return;
 
     playbackPositionSamples += numSamples;
-    if (playbackPositionSamples >= playbackTake.lengthSamples && onPlaybackEnded)
+    if (playbackPositionSamples >= scaledPlaybackLengthSamples)
     {
-        state = RecordingState::stopped;
-        playbackPositionSamples = playbackTake.lengthSamples;
-        onPlaybackEnded();
+        state.store(RecordingState::stopped, std::memory_order_release);
+        playbackPositionSamples = scaledPlaybackLengthSamples;
+        playbackEndedPending.store(true, std::memory_order_release);
     }
+}
+
+bool RecordingEngine::consumePlaybackEndedFlag() noexcept
+{
+    return playbackEndedPending.exchange(false, std::memory_order_acq_rel);
 }
 
 bool RecordingEngine::isPlaying() const noexcept
 {
-    return state == RecordingState::playing;
+    return state.load(std::memory_order_acquire) == RecordingState::playing;
 }
 
 std::int64_t RecordingEngine::getPlaybackPositionSamples() const noexcept
@@ -228,8 +238,15 @@ std::int64_t RecordingEngine::getPlaybackPositionSamples() const noexcept
     return playbackPositionSamples;
 }
 
-void RecordingEngine::setOnPlaybackEnded(std::function<void()> callback)
+std::int64_t RecordingEngine::getScaledPlaybackLengthSamples() const noexcept
 {
-    onPlaybackEnded = std::move(callback);
+    if (playbackTake.lengthSamples <= 0)
+        return 0;
+
+    const auto scaledLength = static_cast<double>(playbackTake.lengthSamples) * playbackSampleRateRatio;
+    if (scaledLength <= 0.0)
+        return playbackTake.lengthSamples;
+
+    return std::max<std::int64_t>(1, static_cast<std::int64_t>(std::ceil(scaledLength)));
 }
 } // namespace devpiano::recording
