@@ -440,7 +440,8 @@ WAV 导出需要离线渲染能力，风险高于 MIDI 导出：
 - [x] `AudioEngine` 已提供 `setRecordingEngine(...)`，并在录制状态下调用该边界。
 - [x] 建立 owner / detach / preallocation / overflow 规则：`MainComponent` 持有，`AudioEngine` 非拥有引用，容量耗尽时丢弃新事件并计数。
 - [x] 增加无 UI 的内部 start/stop helper，用于后续手工触发或测试接入录制时间线。
-- [ ] 验证电脑键盘与外部 MIDI 都能进入同一录制时间线。
+- [x] 验证电脑键盘能进入录制时间线。
+- [~] 外部 MIDI 进入同一录制时间线仍待真实硬件或虚拟 MIDI loopback 验证。
 
 ### M6-3：最小回放
 
@@ -448,9 +449,10 @@ WAV 导出需要离线渲染能力，风险高于 MIDI 导出：
 - [x] `AudioEngine::getNextAudioBlock()` 在 `recordRealtimeMidiBufferIfNeeded()` 之后、插件 / synth 渲染之前调用 `renderPlaybackEventsIfNeeded()`。
 - [x] `MainComponent` 新增 `startInternalPlayback(take)` / `stopInternalPlayback()` 内部入口，stop 时发送 `allNotesOff(1)`。
 - [x] 回放事件通过采样率比例换算，与实时 MIDI 共享同一 `MidiBuffer` 路径。
-- [ ] 验证回放顺序与相对时间正确（手工）。
-- [ ] 验证回放驱动已加载插件 / fallback synth。
-- [ ] 验证停止回放不留下悬挂音。
+- [x] 已完成回放顺序与相对时间手工回归。
+- [x] 已完成已加载插件 / fallback synth 回放路径手工回归。
+- [x] 已完成停止回放不留下悬挂音的基础手工回归。
+- [~] 采样率变化、长时间录制、容量耗尽和回放结束通知仍作为下一阶段稳定化重点。
 
 ### M6-4：最小 UI
 
@@ -470,8 +472,19 @@ WAV 导出需要离线渲染能力，风险高于 MIDI 导出：
 
 ### M6-6：WAV 离线渲染预研 / 实现
 
-- 单独设计离线渲染链路。
-- 不阻塞 M6-1 到 M6-5 的上线。
+- [ ] 单独设计离线渲染链路。
+- [ ] 第一切片优先支持 fallback synth 离线渲染。
+- [ ] 第二切片再评估已加载 VST3 插件的离线渲染。
+- [ ] 明确导出期间 UI、实时音频设备、插件 editor 和当前插件状态的边界。
+- [ ] 明确失败策略：插件不支持离线渲染、目标路径无权限、空 take、用户取消保存。
+- [x] 不阻塞 M6-1 到 M6-5 的上线。
+
+### M6-7：录制 / 回放稳定化
+
+- [ ] 复核 audio callback 中访问 `RecordingEngine` 的边界，避免文件 IO、UI 操作、阻塞等待或非受控分配进入实时路径。
+- [ ] 将回放结束通知收敛为轻量状态传递；避免 audio thread 直接触发复杂 UI / `std::function` 逻辑。
+- [ ] 复核采样率变化时的回放时间缩放与播放结束判断。
+- [ ] 更新 `RecordingEngine.h` 中关于 “Minimal skeleton / not thread-safe” 的注释，使其准确描述当前 MVP 状态和剩余约束。
 
 ---
 
