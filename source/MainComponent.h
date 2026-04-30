@@ -80,6 +80,7 @@ private:
     void handleStopClicked();
     void handleExportMidiClicked();
     void handleExportWavClicked();
+    void handleImportMidiClicked();
     void applyUiStateToAudioEngine();
     void syncUiFromSettings();
     void syncSettingsFromUi();
@@ -137,6 +138,7 @@ private:
 
     devpiano::recording::RecordingEngine recordingEngine;
     devpiano::recording::RecordingTake currentTake;
+    bool currentTakeCanBeExported = false;
     AudioEngine audioEngine;
     ControlsPanel::RecordingState currentRecordingState = ControlsPanel::RecordingState::idle;
     KeyboardMidiMapper keyboardMidiMapper;
@@ -157,6 +159,7 @@ private:
     std::unique_ptr<juce::FileChooser> importLayoutChooser;
     std::unique_ptr<juce::FileChooser> exportMidiChooser;
     std::unique_ptr<juce::FileChooser> exportWavChooser;
+    std::unique_ptr<juce::FileChooser> importMidiChooser;
     std::unique_ptr<PluginEditorWindow> pluginEditorWindow;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)

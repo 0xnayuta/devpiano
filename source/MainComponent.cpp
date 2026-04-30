@@ -1,6 +1,7 @@
 #include "MainComponent.h"
 #include "Export/ExportFlowSupport.h"
 #include "Recording/MidiFileExporter.h"
+#include "Recording/MidiFileImporter.h"
 #include "Recording/RecordingFlowSupport.h"
 #include "Recording/WavFileExporter.h"
 #include "UI/HeaderPanelStateBuilder.h"
@@ -140,6 +141,7 @@ MainComponent::~MainComponent()
     controlsPanel.onStopClicked = {};
     controlsPanel.onExportMidiClicked = {};
     controlsPanel.onExportWavClicked = {};
+    controlsPanel.onImportMidiClicked = {};
     headerPanel.onSettingsRequested = {};
     pluginPanel.onScanRequested = {};
     pluginPanel.onLoadRequested = {};
@@ -198,6 +200,7 @@ void MainComponent::initialiseUi()
     controlsPanel.onStopClicked = [this] { handleStopClicked(); };
     controlsPanel.onExportMidiClicked = [this] { handleExportMidiClicked(); };
     controlsPanel.onExportWavClicked = [this] { handleExportWavClicked(); };
+    controlsPanel.onImportMidiClicked = [this] { handleImportMidiClicked(); };
 
     addAndMakeVisible(keyboardPanel);
 }
@@ -1020,6 +1023,11 @@ void MainComponent::startInternalPlayback(const devpiano::recording::RecordingTa
         return;
     }
 
+    // Ensure any notes left active by a previous playback pass are released before
+    // the next take starts. The AudioEngine injects these messages before rendering
+    // playback events in the next audio block.
+    audioEngine.requestAllNotesOff();
+
     runPluginActionWithAudioDeviceRebuild([this, &take](const RuntimeAudioConfig& config)
     {
         recordingEngine.startPlayback(take, config.sampleRate);
@@ -1192,11 +1200,14 @@ void MainComponent::handleRecordClicked()
     using namespace devpiano::recording;
 
     const auto command = chooseRecordingFlowCommand(RecordingFlowIntent::record,
-                                                   makeRecordingFlowStatus(currentRecordingState, recordingEngine.hasTake()));
+                                                   makeRecordingFlowStatus(currentRecordingState, !currentTake.isEmpty()));
     if (command != RecordingFlowCommand::startRecording)
         return;
 
     recordingEngine.clear();
+    currentTake = {};
+    currentTakeCanBeExported = false;
+    controlsPanel.setCanExportTake(false);
     controlsPanel.setHasTake(false);
     startInternalRecording(0);
     currentRecordingState = toControlsPanelRecordingState(getStateAfterCommand(command,
@@ -1211,11 +1222,10 @@ void MainComponent::handlePlayClicked()
     using namespace devpiano::recording;
 
     const auto command = chooseRecordingFlowCommand(RecordingFlowIntent::play,
-                                                   makeRecordingFlowStatus(currentRecordingState, recordingEngine.hasTake()));
+                                                   makeRecordingFlowStatus(currentRecordingState, !currentTake.isEmpty()));
     if (command != RecordingFlowCommand::startPlayback)
         return;
 
-    currentTake = recordingEngine.getCurrentTake();
     startInternalPlayback(currentTake);
     currentRecordingState = toControlsPanelRecordingState(getStateAfterCommand(command,
                                                                                toRecordingFlowState(currentRecordingState)));
@@ -1229,11 +1239,13 @@ void MainComponent::handleStopClicked()
     using namespace devpiano::recording;
 
     const auto command = chooseRecordingFlowCommand(RecordingFlowIntent::stop,
-                                                   makeRecordingFlowStatus(currentRecordingState, recordingEngine.hasTake()));
+                                                   makeRecordingFlowStatus(currentRecordingState, !currentTake.isEmpty()));
 
     if (command == RecordingFlowCommand::stopRecording)
     {
         currentTake = stopInternalRecording();
+        currentTakeCanBeExported = !currentTake.isEmpty();
+        controlsPanel.setCanExportTake(currentTakeCanBeExported);
         controlsPanel.setHasTake(!currentTake.isEmpty());
     }
     else if (command == RecordingFlowCommand::stopPlayback)
@@ -1257,10 +1269,10 @@ void MainComponent::handleExportMidiClicked()
 {
     using devpiano::exporting::ExportFileType;
 
-    if (! devpiano::exporting::canExportTake(currentTake))
+    if (! currentTakeCanBeExported || ! devpiano::exporting::canExportTake(currentTake))
     {
         juce::Logger::writeToLog(devpiano::exporting::makeExportLogPrefix(ExportFileType::midi)
-                                 + " export skipped: currentTake is empty");
+                                 + " export skipped: currentTake is empty or not exportable");
         return;
     }
 
@@ -1296,10 +1308,10 @@ void MainComponent::handleExportWavClicked()
 {
     using devpiano::exporting::ExportFileType;
 
-    if (! devpiano::exporting::canExportTake(currentTake))
+    if (! currentTakeCanBeExported || ! devpiano::exporting::canExportTake(currentTake))
     {
         juce::Logger::writeToLog(devpiano::exporting::makeExportLogPrefix(ExportFileType::wav)
-                                 + " export skipped: currentTake is empty");
+                                 + " export skipped: currentTake is empty or not exportable");
         return;
     }
 
@@ -1334,6 +1346,89 @@ void MainComponent::handleExportWavClicked()
                                      + " export FAILED: " + file.getFullPathName());
 
         exportWavChooser.reset();
+    });
+}
+
+void MainComponent::handleImportMidiClicked()
+{
+    if (currentRecordingState == ControlsPanel::RecordingState::recording)
+    {
+        juce::Logger::writeToLog("[MIDI Import] import skipped while recording");
+        restoreKeyboardFocus();
+        return;
+    }
+
+    if (currentRecordingState == ControlsPanel::RecordingState::playing)
+    {
+        const auto stoppedTake = stopInternalPlayback();
+        juce::ignoreUnused(stoppedTake);
+        currentRecordingState = ControlsPanel::RecordingState::idle;
+        controlsPanel.setRecordingState(currentRecordingState);
+        juce::Logger::writeToLog("[MIDI Import] stopped current playback before opening importer");
+    }
+
+    const auto startDir = [this]() -> juce::File
+    {
+        if (appSettings.lastMidiImportPath.isNotEmpty())
+        {
+            auto f = juce::File(appSettings.lastMidiImportPath);
+            if (f.exists())
+                return f.getParentDirectory();
+        }
+        return juce::File {};
+    }();
+
+    importMidiChooser = std::make_unique<juce::FileChooser>("Import MIDI File", startDir, "*.mid;*.midi");
+    importMidiChooser->launchAsync(juce::FileBrowserComponent::openMode
+                                       | juce::FileBrowserComponent::canSelectFiles,
+                                   [this](const juce::FileChooser& fc)
+    {
+        auto file = fc.getResult();
+        if (!file.exists())
+        {
+            importMidiChooser.reset();
+            return;
+        }
+
+        appSettings.lastMidiImportPath = file.getFullPathName();
+        saveSettingsSoon();
+
+        const auto sampleRate = getCurrentRuntimeSampleRate();
+        auto take = devpiano::recording::importMidiFile(file, sampleRate);
+
+        if (!take.has_value() || take->isEmpty())
+        {
+            juce::Logger::writeToLog("[MIDI Import] import failed or produced empty take: " + file.getFullPathName());
+            importMidiChooser.reset();
+            return;
+        }
+
+        if (currentRecordingState == ControlsPanel::RecordingState::playing)
+        {
+            const auto stoppedTake = stopInternalPlayback();
+            juce::ignoreUnused(stoppedTake);
+            currentRecordingState = ControlsPanel::RecordingState::idle;
+            controlsPanel.setRecordingState(currentRecordingState);
+            juce::Logger::writeToLog("[MIDI Import] stopped current playback before replacing take");
+        }
+
+        currentTake = std::move(*take);
+        currentTakeCanBeExported = false;
+        controlsPanel.setCanExportTake(false);
+        controlsPanel.setHasTake(!currentTake.isEmpty());
+        currentRecordingState = ControlsPanel::RecordingState::idle;
+        controlsPanel.setRecordingState(currentRecordingState);
+
+        // Immediately start playback so user can hear the imported MIDI
+        startInternalPlayback(currentTake);
+        currentRecordingState = ControlsPanel::RecordingState::playing;
+        controlsPanel.setRecordingState(currentRecordingState);
+
+        juce::Logger::writeToLog("[MIDI Import] imported: " + file.getFullPathName()
+                                 + ", events=" + juce::String(static_cast<int>(currentTake.events.size())));
+
+        importMidiChooser.reset();
+        restoreKeyboardFocus();
     });
 }
 

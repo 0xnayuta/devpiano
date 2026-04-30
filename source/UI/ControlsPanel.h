@@ -34,6 +34,7 @@ public:
     std::function<void()> onStopClicked;
     std::function<void()> onExportMidiClicked;
     std::function<void()> onExportWavClicked;
+    std::function<void()> onImportMidiClicked;
 
     void setLayouts(const juce::StringArray& layoutIds,
                 const juce::String& currentLayoutId,
@@ -44,6 +45,7 @@ public:
     enum class RecordingState { idle, recording, playing };
     void setRecordingState(RecordingState state);
     void setHasTake(bool hasTake);
+    void setCanExportTake(bool canExportTake);
 
 private:
     [[nodiscard]] static juce::String makeLayoutDisplayName(const juce::String& layoutId);
@@ -83,8 +85,10 @@ private:
     juce::TextButton stopButton { "Stop" };
     juce::TextButton exportMidiButton { "Export MIDI" };
     juce::TextButton exportWavButton { "Export WAV" };
+    juce::TextButton importMidiButton { "Import MIDI" };
 
     bool hasTake = false;
+    bool canExportTake = false;
     RecordingState recordingState = RecordingState::idle;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ControlsPanel)
