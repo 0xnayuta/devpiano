@@ -15,6 +15,8 @@ namespace {
     const char* kKeyKnownPluginListXml = "knownPluginListXml";
     const char* kKeyLastLayoutId = "lastLayoutId";
     const char* kKeyMap = "keymapVT"; // stored as ValueTree XML
+    const char* kKeyLastMidiImportPath = "lastMidiImportPath";
+    const char* kKeyLastMidiExportPath = "lastMidiExportPath";
 }
 
 SettingsStore::SettingsStore() = default;
@@ -63,6 +65,10 @@ void SettingsStore::readNow(SettingsModel& m)
     m.knownPluginListState = f.getXmlValue(kKeyKnownPluginListXml);
     m.lastLayoutId = f.getValue(kKeyLastLayoutId, m.lastLayoutId);
 
+    // MIDI import/export paths
+    m.lastMidiImportPath = f.getValue(kKeyLastMidiImportPath, m.lastMidiImportPath);
+    m.lastMidiExportPath = f.getValue(kKeyLastMidiExportPath, m.lastMidiExportPath);
+
     // keymap as ValueTree XML
     if (auto keyXml = f.getXmlValue(kKeyMap))
     {
@@ -92,6 +98,10 @@ void SettingsStore::writeNow(const SettingsModel& m)
     if (m.knownPluginListState)
         f.setValue(kKeyKnownPluginListXml, m.knownPluginListState->toString());
     f.setValue(kKeyLastLayoutId, m.lastLayoutId);
+
+    // MIDI import/export paths
+    f.setValue(kKeyLastMidiImportPath, m.lastMidiImportPath);
+    f.setValue(kKeyLastMidiExportPath, m.lastMidiExportPath);
 
     // keymap serialize to ValueTree XML
     {

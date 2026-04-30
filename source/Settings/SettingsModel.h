@@ -74,6 +74,10 @@ struct SettingsModel
     // 运行态请优先使用 KeyboardLayout / AppState.input.keyboardLayout。
     std::unordered_map<int, int> keyMap;
 
+    // Persisted last MIDI import/export paths for FileChooser defaults.
+    juce::String lastMidiImportPath;
+    juce::String lastMidiExportPath;
+
     [[nodiscard]] AudioSettingsView getAudioSettingsView() const
     {
         return { .sampleRate = sampleRate,
