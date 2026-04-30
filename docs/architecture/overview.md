@@ -50,6 +50,17 @@
 
 - 已不再是纯单体 UI；插件区、参数区、头部状态区和键盘区已拆入 `source/UI/`。
 - 仍承担一定流程控制职责，例如插件扫描、加载、卸载、恢复和音频设备重建协调。
+- 下一步收敛方向是小步提取流程 helper，而不是重写 `MainComponent`：
+  - `RecordingFlowSupport`：录制 / 回放 UI 状态转换与顶层控制策略。
+  - `ExportFlowSupport`：MIDI / WAV 导出的默认文件名、空 take 判断和导出选项构建。
+  - `PluginFlowSupport`：继续收敛扫描路径规范化、缓存恢复、启动恢复计划等插件流程。
+  - 只读状态刷新边界：继续保持 `SettingsModel + runtime -> AppStateBuilder -> PanelStateBuilder -> UI`，当前命名已收敛为 `build*Snapshot()`、`renderReadOnlyUiState()` 和 `refresh*FromCurrentSnapshot()`。
+
+边界纪律：
+
+- `MainComponent` 保留 UI 组件拥有权、JUCE 生命周期入口、窗口生命周期、键盘焦点恢复和顶层装配。
+- 新 helper 不直接拥有 JUCE `Component`，不进入 audio callback，不做文件对话框生命周期管理。
+- 每个切片必须保持键盘演奏、插件加载、录制 / 回放、MIDI / WAV 导出行为不回退。
 
 ### Core
 

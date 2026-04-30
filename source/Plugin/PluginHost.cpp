@@ -39,6 +39,8 @@ juce::FileSearchPath PluginHost::getDefaultVst3SearchPath() const
 
 int PluginHost::scanVst3Plugins(const juce::FileSearchPath& searchPath, bool recursive)
 {
+    lastScanFailedFiles.clear();
+
     auto* format = getVst3Format();
     if (format == nullptr)
     {
@@ -67,9 +69,28 @@ int PluginHost::scanVst3Plugins(const juce::FileSearchPath& searchPath, bool rec
     {
     }
 
-    const auto failedCount = scanner.getFailedFiles().size();
-    lastScanSummary = "VST3 scan complete: " + juce::String(knownPluginList.getNumTypes())
-                    + " plugin(s), " + juce::String(failedCount) + " failed.";
+    lastScanFailedFiles = scanner.getFailedFiles();
+
+    for (const auto& failedFile : lastScanFailedFiles)
+        juce::Logger::writeToLog("[PluginScan] Failed file: " + failedFile);
+
+    const auto failedCount = lastScanFailedFiles.size();
+    const auto pluginCount = knownPluginList.getNumTypes();
+    if (pluginCount > 0)
+    {
+        lastScanSummary = "VST3 scan complete: " + juce::String(pluginCount)
+                        + " plugin(s), " + juce::String(failedCount) + " failed"
+                        + (failedCount > 0 ? " (see log)." : ".");
+    }
+    else if (failedCount > 0)
+    {
+        lastScanSummary = "VST3 scan found no plugins; " + juce::String(failedCount)
+                        + " failed (see log).";
+    }
+    else
+    {
+        lastScanSummary = "VST3 scan complete: no plugins found.";
+    }
 
     return knownPluginList.getNumTypes();
 }
@@ -90,7 +111,12 @@ juce::String PluginHost::getPluginListDescription() const
 {
     const auto names = getKnownPluginNames();
     if (names.isEmpty())
-        return "No plugins scanned.";
+    {
+        if (lastScanSummary == "VST3 scan not run yet.")
+            return "No plugins scanned yet.";
+
+        return "No plugins available. " + lastScanSummary;
+    }
 
     return names.joinIntoString("\n");
 }
@@ -98,6 +124,40 @@ juce::String PluginHost::getPluginListDescription() const
 juce::String PluginHost::getLastScanSummary() const
 {
     return lastScanSummary;
+}
+
+juce::StringArray PluginHost::getLastScanFailedFiles() const
+{
+    return lastScanFailedFiles;
+}
+
+std::unique_ptr<juce::XmlElement> PluginHost::createKnownPluginListXml() const
+{
+    return knownPluginList.createXml();
+}
+
+bool PluginHost::restoreKnownPluginListFromXml(const juce::XmlElement& xml)
+{
+    knownPluginList.recreateFromXml(xml);
+    lastScanFailedFiles.clear();
+
+    const auto count = knownPluginList.getNumTypes();
+    if (count <= 0)
+    {
+        lastScanSummary = "Cached plugin list was empty.";
+        return false;
+    }
+
+    lastScanSummary = "Loaded cached plugin list: " + juce::String(count) + " plugin(s).";
+    return true;
+}
+
+void PluginHost::markPluginScanSkipped(juce::String reason)
+{
+    knownPluginList.clear();
+    lastScanFailedFiles.clear();
+    lastScanSummary = reason.trim().isNotEmpty() ? std::move(reason)
+                                                  : juce::String("VST3 scan skipped.");
 }
 
 bool PluginHost::loadPluginByName(const juce::String& pluginName,
