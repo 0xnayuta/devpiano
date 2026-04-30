@@ -33,16 +33,14 @@
 - [x] 基础设置、插件恢复信息与布局标识具备持久化能力。
 - [x] UI 已形成 `HeaderPanel` / `PluginPanel` / `ControlsPanel` / `KeyboardPanel` 的基础组件分层。
 
-当前项目不再处于“从零接通主链路”的阶段，也已完成布局 Preset 与录制 / 回放 / MIDI 导出 MVP 恢复。当前进入：
+当前项目不再处于"从零接通主链路"的阶段，也已完成布局 Preset 与录制 / 回放 / MIDI 导出 MVP 恢复和 MainComponent 录制/回放/导出状态流收敛（MC-1..MC-4）。当前进入：
 
 - M6 录制 / 回放实时边界稳定化。
-- 外部 MIDI 硬件依赖回归补齐。
-- WAV 离线渲染 MVP 设计与后续实现准备。
-- 插件宿主与 UI 的产品化增强排期。
-- `MainComponent` 与状态模型继续小步收敛。
+- 外部 MIDI 硬件依赖回归补齐（搁置，待硬件条件恢复）。
+- 插件宿主与 UI 的产品化增强排期（M3-P1..P4 已完成）。
+- 下一阶段重点是录制 / 回放稳定化和外部 MIDI 硬件验证补齐。
 
-最近一轮插件生命周期人工回归已补齐大部分高风险组合路径：scan / load / unload / editor / 重扫 / 直接退出、音频设备设置切换均已完成一轮验证；当前主要剩余问题是外部 MIDI 打开状态下退出程序仍待真实设备验证。
-
+最近一轮插件生命周期人工回归已补齐大部分高风险组合路径：scan / load / unload / editor / 重扫 / 直接退出、音频设备设置切换、M3-P1..P4 插件扫描产品化增强均已完成一轮验证；当前主要剩余问题是外部 MIDI 硬件依赖验证因无设备暂缓，状态已记录至 [`known-issues.md`](../testing/known-issues.md)。
 ## 3. 阶段路线图
 
 ### M0：工程骨架可运行
@@ -65,16 +63,16 @@
 
 ### M2：最小插件扫描能力成立
 
-状态：基本通过。
+状态：已通过。
 
 - [x] VST3 格式可用。
 - [x] 可扫描默认或指定目录。
 - [x] 可显示扫描到的插件列表。
-- [~] 扫描失败记录、多目录扫描、扫描结果持久化仍可继续完善。
+- [x] 扫描失败文件明细、多目录扫描输入、扫描结果持久化（M3-P1..P4）均已完成并通过人工验证。
 
 ### M3：插件实例化并发声
 
-状态：基本通过。
+状态：已通过。
 
 - [x] 可选择并加载 VST3 乐器。
 - [x] 键盘输入可驱动插件发声。
@@ -83,12 +81,12 @@
 - [x] 可打开并操作插件 editor。
 - [x] scan / load / unload / editor / 重扫 / 直接退出等主要生命周期组合路径已完成一轮人工回归。
 - [x] 加载插件后切换音频设备设置路径已完成人工回归；不同 `Audio device type` 下的 `buffer size` / `sample rate` 可调范围差异已确认属于后端模式语义范围内的正常现象。
-- [~] 外部 MIDI 输入到插件的通路已具备，但退出场景 `6.3` 因无硬件暂未验证。
+- [~] 外部 MIDI 输入到插件的通路已具备，但退出场景 `6.3` 因无硬件暂未验证（详见 [`known-issues.md`](../testing/known-issues.md) §1）。
 - [~] 特定插件 / Debug 注入环境下退出阶段可能仍有 JUCE / VST3 调试告警，低优先级持续观察。
 
 ### M4：键盘映射系统可配置
 
-状态：基本通过。
+状态：已通过。
 
 - [x] 映射主路径不再强依赖字符输入，使用 JUCE 稳定 keyCode。
 - [x] 已建立 `KeyboardLayout` / `KeyBinding` 等核心类型。
@@ -102,13 +100,13 @@
 
 ### M5：UI 进入正式可用阶段
 
-状态：基本通过。
+状态：已通过。
 
 - [x] 插件扫描、选择、加载、卸载路径完整。
 - [x] 插件状态、MIDI 状态、fallback / plugin 发声来源已有基础展示。
 - [x] 插件 editor 窗口已独立托管。
 - [x] UI 已拆分为头部、插件、参数、键盘等区域。
-- [x] `MainComponent` 插件流程职责已完成两轮收敛（`PluginFlowSupport` 提取，startup restore plan 驱动）。
+- [x] `MainComponent` 插件流程职责已完成两轮收敛（`PluginFlowSupport` 提取，startup restore plan 驱动）加上 MC-1..MC-4 状态流收敛（RecordingFlowSupport / ExportFlowSupport / PluginFlowSupport 收敛 / 状态函数命名清理）。
 - [~] 错误提示、空状态提示、正式产品 UI 细节仍需完善（低优先级）。
 
 ### M6：高级功能恢复（布局 Preset + 录制 / 回放 / MIDI 导出）
@@ -170,9 +168,10 @@
 
 | 风险 | 当前判断 | 应对方向 |
 |---|---|---|
-| 插件生命周期复杂 | 中 | 维护专项生命周期测试，重点覆盖 editor、卸载、重扫、退出。 |
+| 插件生命周期复杂 | 中 | 维护专项生命周期测试，重点覆盖 editor、卸载、重扫、退出；退出场景 6.3 因硬件条件暂缓。 |
+| 外部 MIDI 硬件依赖 | 中 | 外部 MIDI 录制/回放/退出场景 6.3 均因无硬件暂缓；状态已记录至 [`known-issues.md`](../testing/known-issues.md)。 |
 | 键盘映射边界多 | 低中 | 基础映射已全量验证；布局 preset 已补充专项回归清单，后续改动按清单回归。 |
-| `MainComponent` 职责回流 | 低 | 已通过两轮收敛建立了 `PluginFlowSupport` 边界；下一步按 MC-1..MC-4 小步提取 Recording / Export / Plugin flow helper。 |
+| `MainComponent` 职责回流 | 低 | 已通过 MC-1..MC-4 四轮收敛建立了 RecordingFlowSupport / ExportFlowSupport / PluginFlowSupport 边界；`MainComponent` 只保留 UI 组件拥有权、JUCE 生命周期入口、窗口生命周期和顶层装配。 |
 | 录制/回放实现风险 | 中 | MVP 主链路已接入；下一阶段优先收紧实时音频线程边界、回放结束通知、采样率缩放与 Stop 清理悬挂音路径。 |
 | 布局 Preset 实现风险 | 低 | 核心能力已完成并补充功能/测试文档；后续主要是低优先级体验增强。 |
 | 文档状态漂移 | 中 | 本文件作为唯一 roadmap；当前任务只写入 [`current-iteration.md`](current-iteration.md)。 |
