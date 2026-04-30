@@ -113,7 +113,7 @@
 
 状态：MVP 已恢复。布局 Preset 保存/加载/导入/重命名/删除/启动恢复已完成；录制 / 停止 / 回放 / MIDI 导出最小闭环已接入。WAV 离线渲染、MP4 导出、复杂编辑、tempo map 等仍为后续增强。
 
-- [x] 预研阶段已完成，8 项设计决策已锁定（见 [`../features/recording-playback.md`](../features/recording-playback.md)）。
+- [x] 预研阶段已完成，8 项设计决策已锁定（见 [`../features/M6-recording-playback.md`](../features/M6-recording-playback.md)）。
 - [x] 实现演奏事件模型骨架（`PerformanceEvent` + sample-based timeline）。
 - [x] 实现 `AudioEngine::setRecordingEngine(...)` 与 pre-render `MidiBuffer` 最小录制边界。
 - [x] 明确 owner / detach / preallocation / overflow 规则（`MainComponent` 持有，`AudioEngine` 非拥有引用，容量耗尽时丢弃新事件并计数）。
@@ -130,7 +130,7 @@
 
 状态：核心能力已完成，专项回归清单已建立。
 
-- [x] 预研阶段已完成，5 项设计决策已锁定（见 [`../features/layout-presets.md`](../features/layout-presets.md)）。
+- [x] 预研阶段已完成，5 项设计决策已锁定（见 [`../features/M7-layout-presets.md`](../features/M7-layout-presets.md)）。
 - [x] 实现 JSON preset 格式（`.freepiano.layout`，含 `version` / `id` / `name` / `displayName` / `bindings`）。
 - [x] 实现用户目录 preset 自动发现（`ControlsPanel` 列表聚合内置 + 用户 preset）。
 - [x] 实现 Preset 导入（原生文件对话框选择任意位置，复制到用户布局目录并应用）。
@@ -139,7 +139,7 @@
 - [x] 实现 Preset 删除（内置不可删；删除当前用户 preset 时回退到 `FreePiano Minimal`）。
 - [x] 实现启动恢复（按持久化 `layoutId` 恢复内置或用户 preset，并叠加 `keyMap`）。
 - [~] ID 冲突当前通过“用户 preset id 由文件名派生 + 导入同名文件覆盖”处理，尚无单独冲突提醒 UI。
-- [x] 已补充功能说明与专项测试：[`../features/layout-presets.md`](../features/layout-presets.md)、[`../testing/layout-presets.md`](../testing/layout-presets.md)。
+- [x] 已补充功能说明与专项测试：[`../features/M7-layout-presets.md`](../features/M7-layout-presets.md)、[`../testing/layout-presets.md`](../testing/layout-presets.md)。
 
 ## 4. 当前近期重点
 

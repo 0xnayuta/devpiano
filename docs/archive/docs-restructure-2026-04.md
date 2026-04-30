@@ -40,6 +40,6 @@
 
 ## 后续建议
 
-- 从 [`roadmap/roadmap.md`](../roadmap/roadmap.md)、[`testing/keyboard-mapping.md`](../testing/keyboard-mapping.md)、[`testing/plugin-host-lifecycle.md`](../testing/plugin-host-lifecycle.md) 中逐步提炼 [`features/keyboard-mapping.md`](../features/keyboard-mapping.md) 与 [`features/plugin-hosting.md`](../features/plugin-hosting.md)。
+- 从 [`roadmap/roadmap.md`](../roadmap/roadmap.md)、[`testing/keyboard-mapping.md`](../testing/keyboard-mapping.md)、[`testing/plugin-host-lifecycle.md`](../testing/plugin-host-lifecycle.md) 中逐步提炼 [`features/M4-keyboard-mapping.md`](../features/M4-keyboard-mapping.md) 与 [`features/M3-plugin-hosting.md`](../features/M3-plugin-hosting.md)。
 - 从现有工作流和迁移边界中提炼 ADR：WSL 主工作树决策、旧代码只作参考、JUCE 音频后端、VST3-first 插件宿主。
 - 后续如架构文档继续增长，再拆分音频链路、插件宿主、键盘映射、状态模型等专题。

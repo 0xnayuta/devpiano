@@ -38,7 +38,7 @@
 
 对应文档：
 
-- [`../features/recording-playback.md`](../features/recording-playback.md)
+- [`../features/M6-recording-playback.md`](../features/M6-recording-playback.md)
 - [`../testing/acceptance.md`](../testing/acceptance.md)
 
 **状态**：M6-6a/b/c/d 全部完成，E.1–E.9 全部通过。VST3 插件离线渲染（M6-6e）后置。
@@ -69,11 +69,11 @@
 
 对应文档：
 
-- [`../features/plugin-hosting.md`](../features/plugin-hosting.md)
+- [`../features/M3-plugin-hosting.md`](../features/M3-plugin-hosting.md)
 - [`../testing/plugin-host-lifecycle.md`](../testing/plugin-host-lifecycle.md)
 - [`roadmap.md`](roadmap.md) 的 M2 / M3 后续增强。
 
-本轮不优先实现大改，只做排期和小步准备。排期已落到 [`../features/plugin-hosting.md`](../features/plugin-hosting.md) 的“插件扫描产品化 backlog（排期）”：
+本轮不优先实现大改，只做排期和小步准备。排期已落到 [`../features/M3-plugin-hosting.md`](../features/M3-plugin-hosting.md) 的“插件扫描产品化 backlog（排期）”：
 
 - [x] M3-P1：记录扫描失败文件，而不只是失败数量。（已实现：失败路径写入 Logger，UI 摘要提示 see log）
 - [x] M3-P2：明确多目录扫描的输入格式、UI 表达和持久化方式。（已实现：复用路径输入框，按 `FileSearchPath` 分隔，过滤无效目录并持久化规范化路径）

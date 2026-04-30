@@ -36,7 +36,7 @@
 
 详见：
 
-- [`../features/recording-playback.md`](../features/recording-playback.md)（M6-6e 设计备注）
+- [`../features/M6-recording-playback.md`](../features/M6-recording-playback.md)（M6-6e 设计备注）
 - [`../roadmap/roadmap.md`](../roadmap/roadmap.md)（M6 当前状态）
 
 ---
@@ -82,7 +82,7 @@
 
 详见：
 
-- [`../features/layout-presets.md`](../features/layout-presets.md)
+- [`../features/M7-layout-presets.md`](../features/M7-layout-presets.md)
 - [`../testing/layout-presets.md`](../testing/layout-presets.md)
 
 ---

@@ -10,8 +10,8 @@
 - 路线图：[`../roadmap/roadmap.md`](../roadmap/roadmap.md)
 - 阶段验收：[`../testing/acceptance.md`](../testing/acceptance.md)
 - 专项测试：[`../testing/recording-playback.md`](../testing/recording-playback.md)
-- 键盘映射：[`keyboard-mapping.md`](keyboard-mapping.md)
-- 插件宿主：[`plugin-hosting.md`](plugin-hosting.md)
+- 键盘映射：[`M4-keyboard-mapping.md`](M4-keyboard-mapping.md)
+- 插件宿主：[`M3-plugin-hosting.md`](M3-plugin-hosting.md)
 - 旧代码迁移边界：[`../architecture/legacy-migration.md`](../architecture/legacy-migration.md)
 
 ---
@@ -597,7 +597,7 @@ VST3 插件离线渲染放到 M6-6 第二阶段再评估，原因：
 
 5. **M6-6e：VST3 插件离线渲染预研（已完成评估）**
    - 评估结果：推荐「独立离线实例 + 重置状态 + 无 editor」路径
-   - 详见：[`plugin-offline-rendering.md`](plugin-offline-rendering.md)
+   - 详见：[`plugin-offline-rendering.md`](M6-6e-plugin-offline-rendering.md)
    - 关键结论：离线实例与实时已加载实例解耦，重置为插件默认状态，离线实例不创建 editor，失败时降级到 fallback synth
    - 当前状态：设计评估已完成，待在真实 VST3 插件环境下验证「实施前的验证项」后再推进实现
 

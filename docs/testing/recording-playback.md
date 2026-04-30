@@ -13,7 +13,7 @@
 相关文档：
 
 - 阶段验收：[`acceptance.md`](acceptance.md)
-- 功能说明：[`../features/recording-playback.md`](../features/recording-playback.md)
+- 功能说明：[`../features/M6-recording-playback.md`](../features/M6-recording-playback.md)
 - 项目路线图：[`../roadmap/roadmap.md`](../roadmap/roadmap.md)
 
 ---

@@ -126,11 +126,11 @@
 - [x] 可删除用户布局，内置布局不可删除。
 - [x] 可恢复当前布局的默认映射。
 
-专项布局 preset 回归见：[`layout-presets.md`](layout-presets.md)。
+专项布局 preset 回归见：[`M7-layout-presets.md`](M7-layout-presets.md)。
 
 ### 录制 / 回放
 
-设计参考见：[`../features/recording-playback.md`](../features/recording-playback.md)。
+设计参考见：[`../features/M6-recording-playback.md`](../features/M6-recording-playback.md)。
 
 - [x] 可开始录制。
 - [x] 可停止录制。
@@ -143,7 +143,7 @@
 
 ### 导出
 
-设计参考见：[`../features/recording-playback.md`](../features/recording-playback.md)。
+设计参考见：[`../features/M6-recording-playback.md`](../features/M6-recording-playback.md)。
 
 - [x] 可导出 MIDI。
 - [x] 可导出 WAV（fallback synth 离线渲染；VST3 插件离线渲染后置为 M6-6e）。
