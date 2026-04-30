@@ -6,9 +6,9 @@
 
 相关文档：
 
-- 功能说明：[`recording-playback.md`](recording-playback.md)
+- 功能说明：[`recording-playback.md`](M6-recording-playback.md)
 - 测试文档：[`../testing/recording-playback.md`](../testing/recording-playback.md)
-- 插件宿主：[`../features/plugin-hosting.md`](../features/plugin-hosting.md)
+- 插件宿主：[`../features/M3-plugin-hosting.md`](../features/M3-plugin-hosting.md)
 - 路线图：[`../roadmap/roadmap.md`](../roadmap/roadmap.md)
 
 ---

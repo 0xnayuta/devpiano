@@ -8,7 +8,7 @@
 相关文档：
 
 - 旧代码迁移边界：[`../architecture/legacy-migration.md`](../architecture/legacy-migration.md)
-- 键盘映射功能说明：[`keyboard-mapping.md`](keyboard-mapping.md)
+- 键盘映射功能说明：[`M4-keyboard-mapping.md`](M4-keyboard-mapping.md)
 - 专项手工测试：[`../testing/layout-presets.md`](../testing/layout-presets.md)
 - 路线图：[`../roadmap/roadmap.md`](../roadmap/roadmap.md)
 
