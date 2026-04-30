@@ -73,16 +73,16 @@
 - [`../testing/plugin-host-lifecycle.md`](../testing/plugin-host-lifecycle.md)
 - [`roadmap.md`](roadmap.md) 的 M2 / M3 后续增强。
 
-本轮不优先实现大改，只做排期和小步准备：
+本轮不优先实现大改，只做排期和小步准备。排期已落到 [`../features/plugin-hosting.md`](../features/plugin-hosting.md) 的“插件扫描产品化 backlog（排期）”：
 
-- [ ] 记录扫描失败文件，而不只是失败数量。
-- [ ] 明确多目录扫描的输入格式、UI 表达和持久化方式。
-- [ ] 评估 `KnownPluginList` / 扫描结果持久化，降低启动恢复对同步扫描的依赖。
-- [ ] 补充空状态、失败状态和恢复失败提示的 UI 需求。
+- [x] M3-P1：记录扫描失败文件，而不只是失败数量。
+- [x] M3-P2：明确多目录扫描的输入格式、UI 表达和持久化方式。
+- [x] M3-P3：评估 `KnownPluginList` / 扫描结果持久化，降低启动恢复对同步扫描的依赖。
+- [x] M3-P4：补充空状态、失败状态和恢复失败提示的 UI 需求。
 
 完成标准：
 
-- 插件扫描增强进入 backlog，且不阻塞当前迭代目标。
+- [x] 插件扫描增强进入 backlog，且不阻塞当前迭代目标。
 
 ### 5. MainComponent 职责继续收敛
 
