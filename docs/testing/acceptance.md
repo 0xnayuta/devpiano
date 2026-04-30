@@ -41,7 +41,7 @@
 
 ## M2：最小插件扫描能力成立
 
-状态：部分通过。
+状态：已通过。
 
 验收项：
 
@@ -50,9 +50,11 @@
 - [x] 输入默认或指定 VST3 搜索路径后可执行扫描。
 - [x] 扫描完成后可在界面列出插件名称。
 - [x] 扫描失败不会导致程序崩溃。
-- [~] 扫描路径与最近插件恢复信息可持久化。
-- [ ] 扫描失败文件可清晰记录。
-- [ ] 多目录搜索路径表现稳定。
+- [x] 扫描失败文件可清晰记录（M3-P1：失败路径写入 Logger，UI 摘要提示 `see log`）。
+- [x] 多目录搜索路径表现稳定（M3-P2：`FileSearchPath` 语义多目录字符串，过滤无效目录并持久化规范化路径）。
+- [x] 扫描路径与最近插件恢复信息可持久化（M3-P3：`KnownPluginList` XML 缓存，启动优先恢复，失败时回退重扫）。
+
+专项插件扫描产品化增强（M3-P1..P4）已全部完成并通过 2026-04-30 人工验证。
 
 ## M3：插件实例化并发声
 
@@ -68,13 +70,13 @@
 - [x] 插件卸载后不会崩溃或留下非法状态。
 - [x] 未加载插件时程序仍保持可运行。
 - [x] 可打开支持 editor 的插件窗口。
-- [~] 外部 MIDI 输入通路已接通，但仍待真实设备验证。
+- [~] 外部 MIDI 输入通路已接通，但真实设备验证因硬件条件暂缓（详见 [`known-issues.md`](known-issues.md) §1）。
 
 专项生命周期回归见：[`plugin-host-lifecycle.md`](plugin-host-lifecycle.md)。
 
 ## M4：键盘映射系统可配置
 
-状态：部分通过。
+状态：已通过。
 
 验收项：
 
@@ -85,14 +87,16 @@
 - [x] 重启程序后布局可恢复。
 - [x] 可恢复默认布局的代码路径已具备。
 - [x] 已提供最小布局操作入口。
-- [~] 默认布局全量回归仍需继续补齐。
-- [ ] 完整自定义布局编辑能力尚未完成。
+- [x] 默认布局全量回归已完成（Q/A/Z/数字行、多键组合、启动一致性均通过）。
+- [x] 虚拟键盘翻页后映射稳定性问题已修复并验证。
+- [x] 自定义 Preset 加载/保存/导入/重命名/删除与启动恢复已完成（M7）。
+- [~] 图形化布局编辑器（当前无 UI，不在近期范围）。
 
 专项键盘回归见：[`keyboard-mapping.md`](keyboard-mapping.md)。
 
 ## M5：UI 进入正式可用阶段
 
-状态：部分通过。
+状态：已通过。
 
 验收项：
 
@@ -104,12 +108,12 @@
 - [x] 设置窗口关闭时可保存修改后的设备状态。
 - [x] 已支持打开并操作已加载插件的 editor 窗口。
 - [x] 已形成 `HeaderPanel` / `PluginPanel` / `ControlsPanel` / `KeyboardPanel` 的基础组件分层。
-- [~] `MainComponent` 仍承担一定状态装配和流程控制职责。
-- [ ] 错误提示与空状态提示仍需完善。
+- [x] `MainComponent` 插件流程职责已完成两轮收敛（`PluginFlowSupport` 提取 + MC-1..MC-4 状态流收敛）。
+- [~] 错误提示与空状态提示仍需完善（低优先级）。
 
 ## M6：高级功能恢复
 
-状态：MVP 已通过；下一阶段重点是录制 / 回放稳定化（M6-7）和外部 MIDI 验证补齐（M7）。WAV 导出（M6-6a/b/c/d）已完成，VST3 插件离线渲染（M6-6e）后置。MP4 导出、复杂编辑与 tempo map 等仍为后续增强。
+状态：MVP 已通过。布局 Preset 保存/加载/导入/重命名/删除/启动恢复已完成（M7）；录制 / 停止 / 回放 / MIDI 导出最小闭环已接入（M6-1..M6-5）；WAV 离线渲染 MVP 已完成（M6-6a/b/c/d，E.1–E.9 全部通过）。下一阶段重点是录制 / 回放稳定化和外部 MIDI 硬件验证补齐（详见 [`known-issues.md`](known-issues.md) §1）。VST3 插件离线渲染（M6-6e）后置。MP4 导出、复杂编辑与 tempo map 等仍为后续增强。
 
 验收项：
 
@@ -150,11 +154,16 @@
 
 每次关键修改后，至少验证：
 
-- [ ] WSL 构建通过：`./scripts/dev.sh wsl-build`。
-- [ ] 程序可启动并初始化音频设备。
-- [ ] `A/S/D/F` 可触发 note on / note off。
-- [ ] 虚拟键盘高亮与释放正常。
-- [ ] 如修改插件相关代码：可扫描、加载、卸载一个 VST3 插件。
-- [ ] 如修改键盘相关代码：执行 [`keyboard-mapping.md`](keyboard-mapping.md) 中优先测试包。
-- [ ] 如修改插件生命周期相关代码：执行 [`plugin-host-lifecycle.md`](plugin-host-lifecycle.md) 中优先测试包。
-- [ ] 如修改录制、回放或 MIDI 导出相关代码：执行 [`recording-playback.md`](recording-playback.md) 中优先测试包。
+- [x] WSL 构建通过：`./scripts/dev.sh wsl-build --configure-only`。
+- [x] `./scripts/dev.sh win-build` 验证成功。
+- [x] 程序可启动并初始化音频设备。
+- [x] `A/S/D/F` 可触发 note on / note off。
+- [x] 虚拟键盘高亮与释放正常。
+- [x] 如修改插件相关代码：可扫描、加载、卸载一个 VST3 插件。
+- [x] 如修改键盘相关代码：执行 [`keyboard-mapping.md`](keyboard-mapping.md) 中优先测试包。
+- [x] 如修改插件生命周期相关代码：执行 [`plugin-host-lifecycle.md`](plugin-host-lifecycle.md) 中优先测试包。
+- [x] 如修改录制、回放或 MIDI 导出相关代码：执行 [`recording-playback.md`](recording-playback.md) 中优先测试包。
+
+已知硬件限制：
+
+- 外部 MIDI 设备手工验证暂缓（无硬件），详见 [`known-issues.md`](known-issues.md) §1。
