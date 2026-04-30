@@ -12,6 +12,7 @@ namespace {
     const char* kKeyR = "adsrRelease";
     const char* kKeyPluginSearchPath = "pluginSearchPath";
     const char* kKeyLastPluginName = "lastPluginName";
+    const char* kKeyKnownPluginListXml = "knownPluginListXml";
     const char* kKeyLastLayoutId = "lastLayoutId";
     const char* kKeyMap = "keymapVT"; // stored as ValueTree XML
 }
@@ -59,6 +60,7 @@ void SettingsStore::readNow(SettingsModel& m)
 
     m.pluginSearchPath = f.getValue(kKeyPluginSearchPath, m.pluginSearchPath);
     m.lastPluginName = f.getValue(kKeyLastPluginName, m.lastPluginName);
+    m.knownPluginListState = f.getXmlValue(kKeyKnownPluginListXml);
     m.lastLayoutId = f.getValue(kKeyLastLayoutId, m.lastLayoutId);
 
     // keymap as ValueTree XML
@@ -87,6 +89,8 @@ void SettingsStore::writeNow(const SettingsModel& m)
 
     f.setValue(kKeyPluginSearchPath, m.pluginSearchPath);
     f.setValue(kKeyLastPluginName, m.lastPluginName);
+    if (m.knownPluginListState)
+        f.setValue(kKeyKnownPluginListXml, m.knownPluginListState->toString());
     f.setValue(kKeyLastLayoutId, m.lastLayoutId);
 
     // keymap serialize to ValueTree XML

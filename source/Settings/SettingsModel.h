@@ -67,6 +67,7 @@ struct SettingsModel
     // Persisted ,UI recovery state.
     juce::String pluginSearchPath;
     juce::String lastPluginName;
+    std::unique_ptr<juce::XmlElement> knownPluginListState;
     juce::String lastLayoutId { "default.freepiano.minimal" };
 
     // Persisted keyboard layout in legacy on-disk shape.

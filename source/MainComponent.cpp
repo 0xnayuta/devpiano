@@ -1,5 +1,7 @@
 #include "MainComponent.h"
+#include "Export/ExportFlowSupport.h"
 #include "Recording/MidiFileExporter.h"
+#include "Recording/RecordingFlowSupport.h"
 #include "Recording/WavFileExporter.h"
 #include "UI/HeaderPanelStateBuilder.h"
 #include "UI/PluginPanelStateBuilder.h"
@@ -12,6 +14,40 @@ struct HIMC__;
 using HIMC = HIMC__*;
 extern "C" HIMC __stdcall ImmAssociateContext(HWND, HIMC);
 #endif
+
+namespace
+{
+[[nodiscard]] devpiano::recording::RecordingFlowState toRecordingFlowState(ControlsPanel::RecordingState state) noexcept
+{
+    switch (state)
+    {
+        case ControlsPanel::RecordingState::idle: return devpiano::recording::RecordingFlowState::idle;
+        case ControlsPanel::RecordingState::recording: return devpiano::recording::RecordingFlowState::recording;
+        case ControlsPanel::RecordingState::playing: return devpiano::recording::RecordingFlowState::playing;
+    }
+
+    return devpiano::recording::RecordingFlowState::idle;
+}
+
+[[nodiscard]] ControlsPanel::RecordingState toControlsPanelRecordingState(devpiano::recording::RecordingFlowState state) noexcept
+{
+    switch (state)
+    {
+        case devpiano::recording::RecordingFlowState::idle: return ControlsPanel::RecordingState::idle;
+        case devpiano::recording::RecordingFlowState::recording: return ControlsPanel::RecordingState::recording;
+        case devpiano::recording::RecordingFlowState::playing: return ControlsPanel::RecordingState::playing;
+    }
+
+    return ControlsPanel::RecordingState::idle;
+}
+
+[[nodiscard]] devpiano::recording::RecordingFlowStatus makeRecordingFlowStatus(ControlsPanel::RecordingState state,
+                                                                               bool hasTake) noexcept
+{
+    return { .currentState = toRecordingFlowState(state),
+             .hasTake = hasTake };
+}
+} // namespace
 
 namespace
 {
@@ -82,7 +118,7 @@ MainComponent::MainComponent()
 
     initialiseMidiRouting();
     restorePluginStateOnStartup();
-    refreshReadOnlyUiState();
+    refreshReadOnlyUiStateFromCurrentSnapshot();
 
     startTimerHz(30);
     restoreKeyboardFocus();
@@ -191,7 +227,7 @@ void MainComponent::initialiseMidiRouting()
             else
                 safe->lastExternalMidiMessage = message.getDescription();
 
-            safe->updateMidiStatusLabel();
+            safe->refreshMidiStatusFromCurrentSnapshot();
         });
     });
     midiRouter.openAllInputs();
@@ -776,20 +812,20 @@ void MainComponent::saveAndCloseSettingsWindow()
     closeSettingsWindowAsync();
 }
 
-void MainComponent::applyReadOnlyUiState(const devpiano::core::AppState& appState)
+void MainComponent::renderReadOnlyUiState(const devpiano::core::AppState& appState)
 {
     headerPanel.updateMidiStatus(buildHeaderPanelMidiStatus(appState));
     pluginPanel.updateState(buildPluginPanelState(appState));
 }
 
-void MainComponent::refreshReadOnlyUiState()
+void MainComponent::refreshReadOnlyUiStateFromCurrentSnapshot()
 {
-    applyReadOnlyUiState(createAppStateSnapshot());
+    renderReadOnlyUiState(buildCurrentAppStateSnapshot());
 }
 
-void MainComponent::updateMidiStatusLabel()
+void MainComponent::refreshMidiStatusFromCurrentSnapshot()
 {
-    headerPanel.updateMidiStatus(buildHeaderPanelMidiStatus(createAppStateSnapshot()));
+    headerPanel.updateMidiStatus(buildHeaderPanelMidiStatus(buildCurrentAppStateSnapshot()));
 }
 
 void MainComponent::finishPluginUiAction(bool shouldSaveSettings)
@@ -797,7 +833,7 @@ void MainComponent::finishPluginUiAction(bool shouldSaveSettings)
     if (shouldSaveSettings)
         saveSettingsSoon();
 
-    refreshReadOnlyUiState();
+    refreshReadOnlyUiStateFromCurrentSnapshot();
     restoreKeyboardFocus();
 }
 
@@ -807,7 +843,7 @@ void MainComponent::logCurrentAudioDeviceDiagnostics(const juce::String& context
     juce::Logger::writeToLog("[AudioDevice] " + context + "\n" + diagnostics.detailedSummary);
 }
 
-devpiano::core::RuntimeAudioState MainComponent::createRuntimeAudioStateSnapshot() const
+devpiano::core::RuntimeAudioState MainComponent::buildRuntimeAudioStateSnapshot() const
 {
     const auto diagnostics = devpiano::audio::buildAudioDeviceDiagnostics(appSettings.audioDeviceState.get(), deviceManager);
 
@@ -821,7 +857,7 @@ devpiano::core::RuntimeAudioState MainComponent::createRuntimeAudioStateSnapshot
              .mismatchReasons = diagnostics.mismatchReasons };
 }
 
-devpiano::core::RuntimePluginState MainComponent::createRuntimePluginStateSnapshot() const
+devpiano::core::RuntimePluginState MainComponent::buildRuntimePluginStateSnapshot() const
 {
     return { .currentPluginName = pluginHost.getCurrentPluginName(),
              .availablePluginNames = pluginHost.getKnownPluginNames(),
@@ -837,7 +873,7 @@ devpiano::core::RuntimePluginState MainComponent::createRuntimePluginStateSnapsh
              .isEditorOpen = pluginEditorWindow != nullptr };
 }
 
-devpiano::core::RuntimeInputState MainComponent::createRuntimeInputStateSnapshot() const
+devpiano::core::RuntimeInputState MainComponent::buildRuntimeInputStateSnapshot() const
 {
     return { .keyboardLayout = keyboardMidiMapper.getLayout(),
              .openMidiInputCount = midiRouter.getOpenInputCount(),
@@ -845,18 +881,28 @@ devpiano::core::RuntimeInputState MainComponent::createRuntimeInputStateSnapshot
              .lastMidiMessage = lastExternalMidiMessage };
 }
 
-devpiano::core::AppState MainComponent::createAppStateSnapshot() const
+devpiano::core::AppState MainComponent::buildCurrentAppStateSnapshot() const
 {
     return devpiano::core::buildAppState(appSettings,
-                                         createRuntimeAudioStateSnapshot(),
-                                         createRuntimePluginStateSnapshot(),
-                                         createRuntimeInputStateSnapshot());
+                                         buildRuntimeAudioStateSnapshot(),
+                                         buildRuntimePluginStateSnapshot(),
+                                         buildRuntimeInputStateSnapshot());
 }
 
 void MainComponent::restorePluginStateOnStartup()
 {
     const auto plan = devpiano::plugin::buildStartupPluginRestorePlan(appSettings.getPluginRecoverySettingsView(),
                                                                       pluginHost.getDefaultVst3SearchPath());
+
+    if (devpiano::plugin::tryRestoreCachedPluginList(pluginHost, appSettings, plan))
+    {
+        refreshReadOnlyUiStateFromCurrentSnapshot();
+
+        if (plan.shouldLoadLastPlugin)
+            restoreLastPluginOnStartup(plan);
+
+        return;
+    }
 
     if (! plan.shouldScan)
         return;
@@ -873,13 +919,10 @@ void MainComponent::restorePluginScanPathOnStartup(const devpiano::plugin::Start
     if (! devpiano::plugin::isUsablePluginScanPath(path))
         return;
 
-    devpiano::plugin::restorePluginsAtPath(pluginHost,
-                                           path,
-                                           plan.recovery,
-                                           [this](const SettingsModel::PluginRecoverySettingsView& settings)
-    {
-        applyPluginRecoverySettings(settings);
-    });
+    devpiano::plugin::scanPluginsAtPathAndUpdateRecovery(pluginHost,
+                                                         appSettings,
+                                                         path,
+                                                         plan.recovery.lastPluginName);
 }
 
 void MainComponent::restoreLastPluginOnStartup(const devpiano::plugin::StartupPluginRestorePlan& plan)
@@ -904,9 +947,8 @@ void MainComponent::restorePluginByNameOnStartup(const juce::String& pluginName)
 
 juce::FileSearchPath MainComponent::resolvePluginScanPath() const
 {
-    const auto pathText = pluginPanel.getPluginPathText().trim();
-    return pathText.isNotEmpty() ? juce::FileSearchPath(pathText)
-                                 : pluginHost.getDefaultVst3SearchPath();
+    return devpiano::plugin::normalisePluginScanPath(juce::FileSearchPath(pluginPanel.getPluginPathText().trim()),
+                                                     pluginHost.getDefaultVst3SearchPath());
 }
 
 double MainComponent::getCurrentRuntimeSampleRate() const
@@ -1111,7 +1153,7 @@ void MainComponent::openPluginEditorWindow(std::unique_ptr<juce::AudioProcessorE
                                               pluginEditorWindow->getContentComponent()->getWidth(),
                                               pluginEditorWindow->getContentComponent()->getHeight());
     pluginEditorWindow->setVisible(true);
-    refreshReadOnlyUiState();
+    refreshReadOnlyUiStateFromCurrentSnapshot();
 }
 
 void MainComponent::togglePluginEditor()
@@ -1136,79 +1178,93 @@ void MainComponent::togglePluginEditor()
 void MainComponent::scanPluginsAtPathAndApplyRecoveryState(const juce::FileSearchPath& path,
                                                            const juce::String& lastPluginName)
 {
-    const auto settings = devpiano::plugin::makePluginRecoverySettings(path.toString(), lastPluginName);
-    runPluginActionWithAudioDeviceRebuild([this, &path, &settings]
+    runPluginActionWithAudioDeviceRebuild([this, &path, lastPluginName]
     {
-        devpiano::plugin::restorePluginsAtPath(pluginHost,
-                                               path,
-                                               settings,
-                                               [this](const SettingsModel::PluginRecoverySettingsView& s)
-        {
-            applyPluginRecoverySettings(s);
-        });
+        devpiano::plugin::scanPluginsAtPathAndUpdateRecovery(pluginHost,
+                                                             appSettings,
+                                                             path,
+                                                             lastPluginName);
     });
 }
 
 void MainComponent::handleRecordClicked()
 {
-    if (currentRecordingState != ControlsPanel::RecordingState::idle)
+    using namespace devpiano::recording;
+
+    const auto command = chooseRecordingFlowCommand(RecordingFlowIntent::record,
+                                                   makeRecordingFlowStatus(currentRecordingState, recordingEngine.hasTake()));
+    if (command != RecordingFlowCommand::startRecording)
         return;
 
     recordingEngine.clear();
     controlsPanel.setHasTake(false);
     startInternalRecording(0);
-    currentRecordingState = ControlsPanel::RecordingState::recording;
+    currentRecordingState = toControlsPanelRecordingState(getStateAfterCommand(command,
+                                                                               toRecordingFlowState(currentRecordingState)));
     controlsPanel.setRecordingState(currentRecordingState);
-    restoreKeyboardFocus();
+    if (shouldRestoreKeyboardFocus(command))
+        restoreKeyboardFocus();
 }
 
 void MainComponent::handlePlayClicked()
 {
-    if (currentRecordingState != ControlsPanel::RecordingState::idle)
+    using namespace devpiano::recording;
+
+    const auto command = chooseRecordingFlowCommand(RecordingFlowIntent::play,
+                                                   makeRecordingFlowStatus(currentRecordingState, recordingEngine.hasTake()));
+    if (command != RecordingFlowCommand::startPlayback)
         return;
 
-    if (recordingEngine.hasTake())
-    {
-        currentTake = recordingEngine.getCurrentTake();
-        startInternalPlayback(currentTake);
-        currentRecordingState = ControlsPanel::RecordingState::playing;
-        controlsPanel.setRecordingState(currentRecordingState);
+    currentTake = recordingEngine.getCurrentTake();
+    startInternalPlayback(currentTake);
+    currentRecordingState = toControlsPanelRecordingState(getStateAfterCommand(command,
+                                                                               toRecordingFlowState(currentRecordingState)));
+    controlsPanel.setRecordingState(currentRecordingState);
+    if (shouldRestoreKeyboardFocus(command))
         restoreKeyboardFocus();
-    }
 }
 
 void MainComponent::handleStopClicked()
 {
-    if (currentRecordingState == ControlsPanel::RecordingState::recording)
+    using namespace devpiano::recording;
+
+    const auto command = chooseRecordingFlowCommand(RecordingFlowIntent::stop,
+                                                   makeRecordingFlowStatus(currentRecordingState, recordingEngine.hasTake()));
+
+    if (command == RecordingFlowCommand::stopRecording)
     {
         currentTake = stopInternalRecording();
         controlsPanel.setHasTake(!currentTake.isEmpty());
-        currentRecordingState = ControlsPanel::RecordingState::idle;
-        controlsPanel.setRecordingState(currentRecordingState);
-        restoreKeyboardFocus();
     }
-    else if (currentRecordingState == ControlsPanel::RecordingState::playing)
+    else if (command == RecordingFlowCommand::stopPlayback)
     {
         const auto stoppedTake = stopInternalPlayback();
         juce::ignoreUnused(stoppedTake);
-        currentRecordingState = ControlsPanel::RecordingState::idle;
-        controlsPanel.setRecordingState(currentRecordingState);
-        restoreKeyboardFocus();
     }
+    else
+    {
+        return;
+    }
+
+    currentRecordingState = toControlsPanelRecordingState(getStateAfterCommand(command,
+                                                                               toRecordingFlowState(currentRecordingState)));
+    controlsPanel.setRecordingState(currentRecordingState);
+    if (shouldRestoreKeyboardFocus(command))
+        restoreKeyboardFocus();
 }
 
 void MainComponent::handleExportMidiClicked()
 {
-    if (currentTake.isEmpty())
+    using devpiano::exporting::ExportFileType;
+
+    if (! devpiano::exporting::canExportTake(currentTake))
     {
-        juce::Logger::writeToLog("[Export] Export skipped: currentTake is empty");
+        juce::Logger::writeToLog(devpiano::exporting::makeExportLogPrefix(ExportFileType::midi)
+                                 + " export skipped: currentTake is empty");
         return;
     }
 
-    juce::File defaultFile = juce::File::getCurrentWorkingDirectory()
-                                .getChildFile("recording_"
-                                              + juce::Time::getCurrentTime().toISO8601(false).replaceCharacters(":", "-")
-                                              + ".mid");
+    const auto defaultFile = devpiano::exporting::makeDefaultRecordingExportFile(ExportFileType::midi);
 
     exportMidiChooser = std::make_unique<juce::FileChooser>("Export MIDI Recording", defaultFile, "*.mid");
     exportMidiChooser->launchAsync(juce::FileBrowserComponent::saveMode
@@ -1220,14 +1276,17 @@ void MainComponent::handleExportMidiClicked()
 
         if (file == juce::File())
         {
-            juce::Logger::writeToLog("[Export] Export cancelled by user");
+            juce::Logger::writeToLog(devpiano::exporting::makeExportLogPrefix(ExportFileType::midi)
+                                     + " export cancelled by user");
             return;
         }
 
         if (devpiano::exporting::exportTakeAsMidiFile(currentTake, file))
-            juce::Logger::writeToLog("[Export] MIDI exported: " + file.getFullPathName());
+            juce::Logger::writeToLog(devpiano::exporting::makeExportLogPrefix(ExportFileType::midi)
+                                     + " exported: " + file.getFullPathName());
         else
-            juce::Logger::writeToLog("[Export] MIDI export FAILED: " + file.getFullPathName());
+            juce::Logger::writeToLog(devpiano::exporting::makeExportLogPrefix(ExportFileType::midi)
+                                     + " export FAILED: " + file.getFullPathName());
 
         exportMidiChooser.reset();
     });
@@ -1235,16 +1294,16 @@ void MainComponent::handleExportMidiClicked()
 
 void MainComponent::handleExportWavClicked()
 {
-    if (currentTake.isEmpty())
+    using devpiano::exporting::ExportFileType;
+
+    if (! devpiano::exporting::canExportTake(currentTake))
     {
-        juce::Logger::writeToLog("[Export] WAV export skipped: currentTake is empty");
+        juce::Logger::writeToLog(devpiano::exporting::makeExportLogPrefix(ExportFileType::wav)
+                                 + " export skipped: currentTake is empty");
         return;
     }
 
-    juce::File defaultFile = juce::File::getCurrentWorkingDirectory()
-                                .getChildFile("recording_"
-                                              + juce::Time::getCurrentTime().toISO8601(false).replaceCharacters(":", "-")
-                                              + ".wav");
+    const auto defaultFile = devpiano::exporting::makeDefaultRecordingExportFile(ExportFileType::wav);
 
     exportWavChooser = std::make_unique<juce::FileChooser>("Export WAV Recording", defaultFile, "*.wav");
     exportWavChooser->launchAsync(juce::FileBrowserComponent::saveMode
@@ -1256,31 +1315,23 @@ void MainComponent::handleExportWavClicked()
 
         if (file == juce::File())
         {
-            juce::Logger::writeToLog("[Export] WAV export cancelled by user");
+            juce::Logger::writeToLog(devpiano::exporting::makeExportLogPrefix(ExportFileType::wav)
+                                     + " export cancelled by user");
             exportWavChooser.reset();
             return;
         }
 
-        const auto performance = getPerformanceSettingsFromUi();
-        const auto runtimeSampleRate = getCurrentRuntimeSampleRate();
-        const auto exportSampleRate = runtimeSampleRate > 0.0
-                                          ? runtimeSampleRate
-                                          : (currentTake.sampleRate > 0.0 ? currentTake.sampleRate : 44100.0);
-
-        devpiano::exporting::WavExportOptions options;
-        options.sampleRate = exportSampleRate;
-        options.numChannels = 2;
-        options.blockSize = juce::jmax(1, getCurrentRuntimeBlockSize());
-        options.masterGain = performance.masterGain;
-        options.adsr.attack = performance.adsrAttack;
-        options.adsr.decay = performance.adsrDecay;
-        options.adsr.sustain = performance.adsrSustain;
-        options.adsr.release = performance.adsrRelease;
+        const auto options = devpiano::exporting::buildWavExportOptions(currentTake,
+                                                                        getPerformanceSettingsFromUi(),
+                                                                        getCurrentRuntimeSampleRate(),
+                                                                        getCurrentRuntimeBlockSize());
 
         if (devpiano::exporting::exportTakeAsWavFile(currentTake, file, options))
-            juce::Logger::writeToLog("[Export] WAV exported: " + file.getFullPathName());
+            juce::Logger::writeToLog(devpiano::exporting::makeExportLogPrefix(ExportFileType::wav)
+                                     + " exported: " + file.getFullPathName());
         else
-            juce::Logger::writeToLog("[Export] WAV export FAILED: " + file.getFullPathName());
+            juce::Logger::writeToLog(devpiano::exporting::makeExportLogPrefix(ExportFileType::wav)
+                                     + " export FAILED: " + file.getFullPathName());
 
         exportWavChooser.reset();
     });
@@ -1290,6 +1341,7 @@ void MainComponent::scanPluginsAtPathAndCommitState(const juce::FileSearchPath& 
 {
     const auto lastPluginName = appSettings.getPluginRecoverySettingsView().lastPluginName;
     scanPluginsAtPathAndApplyRecoveryState(path, lastPluginName);
+    pluginPanel.setPluginPathText(makeSafeUiText(path.toString()));
     finishPluginUiAction(true);
 }
 
@@ -1298,6 +1350,7 @@ void MainComponent::scanPlugins()
     const auto path = resolvePluginScanPath();
     if (! devpiano::plugin::isUsablePluginScanPath(path))
     {
+        pluginHost.markPluginScanSkipped("No usable VST3 scan directories. Check the path field.");
         finishPluginUiAction(false);
         return;
     }

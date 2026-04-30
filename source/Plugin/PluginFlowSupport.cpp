@@ -4,6 +4,34 @@
 
 namespace devpiano::plugin
 {
+namespace
+{
+juce::FileSearchPath filterExistingDirectories(const juce::FileSearchPath& path)
+{
+    juce::FileSearchPath filtered;
+
+    for (auto index = 0; index < path.getNumPaths(); ++index)
+    {
+        const auto directory = path[index];
+        if (directory.isDirectory())
+        {
+            filtered.addIfNotAlreadyThere(directory);
+            continue;
+        }
+
+        const auto rawPath = path.getRawString(index).trim();
+        juce::Logger::writeToLog("[PluginScan] Ignoring invalid scan directory: "
+                                 + (rawPath.isNotEmpty() ? rawPath : directory.getFullPathName()));
+    }
+
+    filtered.removeRedundantPaths();
+    return filtered;
+}
+} // namespace
+
+juce::FileSearchPath normalisePluginScanPath(const juce::FileSearchPath& requestedPath,
+                                             const juce::FileSearchPath& defaultSearchPath);
+
 void restorePluginsAtPath(PluginHost& pluginHost,
                           const juce::FileSearchPath& path,
                           const SettingsModel::PluginRecoverySettingsView& recovery,
@@ -11,6 +39,31 @@ void restorePluginsAtPath(PluginHost& pluginHost,
 {
     pluginHost.scanVst3Plugins(path, true);
     applySettingsCallback(recovery);
+}
+
+bool tryRestoreCachedPluginList(PluginHost& pluginHost,
+                                SettingsModel& settings,
+                                const StartupPluginRestorePlan& plan)
+{
+    if (settings.knownPluginListState == nullptr)
+        return false;
+
+    if (! pluginHost.restoreKnownPluginListFromXml(*settings.knownPluginListState))
+        return false;
+
+    settings.applyPluginRecoverySettingsView(plan.recovery);
+    return true;
+}
+
+void scanPluginsAtPathAndUpdateRecovery(PluginHost& pluginHost,
+                                        SettingsModel& settings,
+                                        const juce::FileSearchPath& path,
+                                        const juce::String& lastPluginName)
+{
+    const auto recovery = makePluginRecoverySettings(path.toString(), lastPluginName);
+    pluginHost.scanVst3Plugins(path, true);
+    settings.applyPluginRecoverySettingsView(recovery);
+    settings.knownPluginListState = pluginHost.createKnownPluginListXml();
 }
 
 SettingsModel::PluginRecoverySettingsView makePluginRecoverySettings(juce::String pluginSearchPath,
@@ -21,19 +74,28 @@ SettingsModel::PluginRecoverySettingsView makePluginRecoverySettings(juce::Strin
 }
 
 SettingsModel::PluginRecoverySettingsView withPluginRecoveryPathFallback(const SettingsModel::PluginRecoverySettingsView& recovery,
-                                                                         const juce::FileSearchPath& defaultSearchPath)
+                                                                          const juce::FileSearchPath& defaultSearchPath)
 {
-    auto pluginSearchPath = recovery.pluginSearchPath;
-    if (pluginSearchPath.trim().isEmpty())
-        pluginSearchPath = defaultSearchPath.toString();
+    const auto pluginSearchPath = normalisePluginScanPath(juce::FileSearchPath(recovery.pluginSearchPath),
+                                                          defaultSearchPath)
+                                      .toString();
 
-    return makePluginRecoverySettings(std::move(pluginSearchPath),
-                                      recovery.lastPluginName);
+    return makePluginRecoverySettings(pluginSearchPath,
+                                       recovery.lastPluginName);
+}
+
+juce::FileSearchPath normalisePluginScanPath(const juce::FileSearchPath& requestedPath,
+                                             const juce::FileSearchPath& defaultSearchPath)
+{
+    const auto sourcePath = requestedPath.toString().trim().isNotEmpty() ? requestedPath
+                                                                         : defaultSearchPath;
+
+    return filterExistingDirectories(sourcePath);
 }
 
 bool isUsablePluginScanPath(const juce::FileSearchPath& path)
 {
-    return path.toString().trim().isNotEmpty();
+    return path.getNumPaths() > 0 && path.toString().trim().isNotEmpty();
 }
 
 StartupPluginRestorePlan buildStartupPluginRestorePlan(const SettingsModel::PluginRecoverySettingsView& persistedRecovery,

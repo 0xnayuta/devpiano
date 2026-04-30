@@ -22,11 +22,23 @@ void restorePluginsAtPath(PluginHost& pluginHost,
                           const SettingsModel::PluginRecoverySettingsView& recovery,
                           const std::function<void(const SettingsModel::PluginRecoverySettingsView&)>& applySettingsCallback);
 
+[[nodiscard]] bool tryRestoreCachedPluginList(PluginHost& pluginHost,
+                                              SettingsModel& settings,
+                                              const StartupPluginRestorePlan& plan);
+
+void scanPluginsAtPathAndUpdateRecovery(PluginHost& pluginHost,
+                                        SettingsModel& settings,
+                                        const juce::FileSearchPath& path,
+                                        const juce::String& lastPluginName);
+
 [[nodiscard]] SettingsModel::PluginRecoverySettingsView makePluginRecoverySettings(juce::String pluginSearchPath,
                                                                                    juce::String lastPluginName);
 
 [[nodiscard]] SettingsModel::PluginRecoverySettingsView withPluginRecoveryPathFallback(const SettingsModel::PluginRecoverySettingsView& recovery,
-                                                                                       const juce::FileSearchPath& defaultSearchPath);
+                                                                                        const juce::FileSearchPath& defaultSearchPath);
+
+[[nodiscard]] juce::FileSearchPath normalisePluginScanPath(const juce::FileSearchPath& requestedPath,
+                                                           const juce::FileSearchPath& defaultSearchPath);
 
 [[nodiscard]] bool isUsablePluginScanPath(const juce::FileSearchPath& path);
 

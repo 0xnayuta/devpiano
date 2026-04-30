@@ -17,6 +17,10 @@ public:
     juce::StringArray getKnownPluginNames() const;
     juce::String getPluginListDescription() const;
     juce::String getLastScanSummary() const;
+    juce::StringArray getLastScanFailedFiles() const;
+    std::unique_ptr<juce::XmlElement> createKnownPluginListXml() const;
+    bool restoreKnownPluginListFromXml(const juce::XmlElement& xml);
+    void markPluginScanSkipped(juce::String reason);
 
     bool loadPluginByName(const juce::String& pluginName,
                           double initialSampleRate = 44100.0,
@@ -44,6 +48,7 @@ private:
     juce::AudioPluginFormatManager formatManager;
     juce::KnownPluginList knownPluginList;
     juce::String lastScanSummary { "VST3 scan not run yet." };
+    juce::StringArray lastScanFailedFiles;
     juce::String lastLoadError { "No plugin load attempted yet." };
     std::unique_ptr<juce::AudioPluginInstance> pluginInstance;
     std::unique_ptr<juce::PluginDescription> loadedPluginDescription;

@@ -172,7 +172,7 @@
 |---|---|---|
 | 插件生命周期复杂 | 中 | 维护专项生命周期测试，重点覆盖 editor、卸载、重扫、退出。 |
 | 键盘映射边界多 | 低中 | 基础映射已全量验证；布局 preset 已补充专项回归清单，后续改动按清单回归。 |
-| `MainComponent` 职责回流 | 低 | 已通过两轮收敛建立了 `PluginFlowSupport` 边界，后续保持纪律。 |
+| `MainComponent` 职责回流 | 低 | 已通过两轮收敛建立了 `PluginFlowSupport` 边界；下一步按 MC-1..MC-4 小步提取 Recording / Export / Plugin flow helper。 |
 | 录制/回放实现风险 | 中 | MVP 主链路已接入；下一阶段优先收紧实时音频线程边界、回放结束通知、采样率缩放与 Stop 清理悬挂音路径。 |
 | 布局 Preset 实现风险 | 低 | 核心能力已完成并补充功能/测试文档；后续主要是低优先级体验增强。 |
 | 文档状态漂移 | 中 | 本文件作为唯一 roadmap；当前任务只写入 [`current-iteration.md`](current-iteration.md)。 |
@@ -292,22 +292,50 @@
 - 目标：记录 `PluginDirectoryScanner::getFailedFiles()` 中的具体失败文件路径，而不是只显示失败数量
 - 关键约束：先进入 Logger / 状态摘要，不在 audio callback 中做日志或 UI；扫描失败不应导致崩溃
 - 前置条件：现有 `PluginHost::scanVst3Plugins()` 保持可用
-- 状态：已排期，待实现
+- 状态：已完成。`PluginHost` 保留 `lastScanFailedFiles`，扫描失败路径写入 Logger，UI 摘要提示 `see log`
 
 **M3-P2：多目录扫描输入与持久化**
 - 目标：明确多个 VST3 搜索目录的输入格式、UI 表达和 `juce::FileSearchPath` 持久化语义
 - 关键约束：保留默认搜索路径 fallback；无效目录不阻塞其他有效目录；路径输入框可先继续承载多目录字符串
 - 前置条件：M3-P1 可独立实施，不互相阻塞
-- 状态：已排期，待实现
+- 状态：已完成。路径输入框支持 `FileSearchPath` 多目录字符串；扫描前过滤不存在的目录，空路径回退默认路径，扫描后持久化规范化路径
 
 **M3-P3：扫描结果持久化 / 启动恢复优化**
 - 目标：评估并实现 `KnownPluginList` 缓存，降低启动恢复对同步扫描的依赖
 - 关键约束：缓存失效时安全回退重扫；插件文件不存在或格式不匹配时不崩溃；不改变当前手动扫描主路径
 - 前置条件：现有启动恢复计划与插件列表 UI 稳定
-- 状态：已排期，待实现
+- 状态：已完成。扫描后保存 `KnownPluginList::createXml()` 到设置；启动时优先 `recreateFromXml()` 恢复缓存，缓存缺失或为空时回退重扫
 
 **M3-P4：扫描空状态 / 失败状态 / 恢复失败提示**
 - 目标：区分“尚未扫描”“扫描成功但无插件”“扫描失败”“上次插件恢复失败”等用户可见状态
 - 关键约束：避免状态文本过长；细节先写 Logger；不以阻塞弹窗作为主反馈
 - 前置条件：M3-P1 / M3-P2 可提供更完整上下文，但本项可先小步实现
-- 状态：已排期，待实现
+- 状态：已完成。插件状态文本可区分未扫描、无可用目录、扫描成功但无插件、扫描有失败文件、缓存为空和上次插件加载失败
+
+---
+
+### MC：MainComponent 职责收敛
+
+**MC-1：RecordingFlowSupport 录制 / 回放 UI 流程 helper**
+- 目标：抽离 `Record / Stop / Play` 的状态转换和按钮状态更新策略
+- 关键约束：不移动 audio callback 逻辑；不改变 `RecordingEngine` 数据模型；保持现有手工回归行为
+- 前置条件：M6 录制 / 回放 MVP 稳定
+- 状态：已完成。新增 `source/Recording/RecordingFlowSupport.*`，承载 Record / Play / Stop intent 到 command / next-state 的纯流程决策
+
+**MC-2：ExportFlowSupport 导出选项与默认文件名 helper**
+- 目标：抽离 MIDI / WAV 默认文件名、空 take 判断、WAV options 构建和导出日志前缀
+- 关键约束：`FileChooser` 生命周期仍由 `MainComponent` 持有；不改变 `MidiFileExporter` / `WavFileExporter` 核心实现
+- 前置条件：M6-5 MIDI 导出与 M6-6 WAV 导出已完成
+- 状态：已完成。新增 `source/Export/ExportFlowSupport.*`，`MainComponent` 导出 handler 只保留 FileChooser 生命周期和导出函数调用
+
+**MC-3：PluginFlowSupport 继续收敛 scan / restore / cache 流程**
+- 目标：把启动缓存恢复、scan path normalise、KnownPluginList cache 更新等流程继续从 `MainComponent` 收到 `PluginFlowSupport`
+- 关键约束：不移动 plugin editor window 拥有权；不改变 `PluginHost` 实例生命周期
+- 前置条件：M3-P1..P4 已完成并通过人工验证
+- 状态：已完成。`PluginFlowSupport` 已接管 cached plugin list 恢复、扫描后 recovery 更新和 `KnownPluginList` cache 写回
+
+**MC-4：ReadOnlyStateRefresh 边界命名清理**
+- 目标：统一 `createRuntime*StateSnapshot()` / `applyReadOnlyUiState()` / `refreshReadOnlyUiState()` 的命名和调用时机
+- 关键约束：不引入复杂状态管理框架；`AppState` 仍是快照模型，不变成全局可变 store
+- 前置条件：MC-1..MC-3 至少完成一部分后再做，避免过早抽象
+- 状态：已完成。状态函数命名已收敛为 `build*Snapshot()`、`renderReadOnlyUiState()`、`refreshReadOnlyUiStateFromCurrentSnapshot()` 和 `refreshMidiStatusFromCurrentSnapshot()`
