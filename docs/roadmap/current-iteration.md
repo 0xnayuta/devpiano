@@ -49,13 +49,14 @@ M8 MIDI 文件导入与回放兼容性增强已收尾：M8-1 / M8-1b / M8-1c / M
 
 ## 本轮计划切片
 
-### AH-1：录制会话状态结构化
+### AH-1：录制会话状态结构化（已完成）
 
 - **目标**：将 `currentTake` + `currentRecordingState` + `currentTakeCanBeExported` 合并为单一 `RecordingSession` 结构体，减少状态分散。
-- **修改范围**：`source/MainComponent.h`（新增 `RecordingSession` 或等价结构）、`source/MainComponent.cpp`（替换分散字段）。
+- **修改范围**：`source/MainComponent.h`（新增 `RecordingSession` 结构体）、`source/MainComponent.cpp`（替换分散字段，新增 `syncRecordingSessionToUi()`）。
 - **不做**：不改变录制/回放行为；不改变 RecordingFlowSupport 接口；不改变 ControlsPanel 按钮逻辑。
 - **完成标准**：录制相关状态从 3 个独立字段收敛为 1 个结构体；行为不回退。
 - **风险**：低——纯内部重构，不改变外部接口。
+- **状态**：已完成（2026-05-01）。`RecordingSession` 结构体包含 `take`、`canExport`、`state` 三个字段和 `hasTake()`、`isRecording()`、`isPlaying()`、`isIdle()` 便捷方法；`syncRecordingSessionToUi()` 统一同步到 ControlsPanel；WSL configure 和 Windows MSVC build 均通过。
 
 ### AH-2：导出流程统一
 
@@ -107,7 +108,7 @@ M8 MIDI 文件导入与回放兼容性增强已收尾：M8-1 / M8-1b / M8-1c / M
 
 ## 完成标准
 
-- [ ] AH-1 完成：录制会话状态从 3 个字段收敛为 1 个结构体。
+- [x] AH-1 完成：录制会话状态从 3 个字段收敛为 1 个结构体。（2026-05-01）
 - [ ] AH-2 完成：导出 handler 重复代码减少 15+ 行。
 - [ ] AH-3 完成：布局 CRUD handler 从约 200 行收敛到约 80 行。
 - [ ] AH-4 完成：设置窗口管理从约 100 行收敛到约 30 行。
