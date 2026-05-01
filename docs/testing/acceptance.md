@@ -181,6 +181,7 @@
 - [x] 程序可启动并初始化音频设备。
 - [x] `A/S/D/F` 可触发 note on / note off。
 - [x] 虚拟键盘高亮与释放正常。
+- [x] 启动或音频重建后立即弹奏首音稳定；当前通过 `25ms` audio warmup 避免早期音高异常。
 - [x] 如修改插件相关代码：可扫描、加载、卸载一个 VST3 插件。
 - [x] 如修改键盘相关代码：执行 [`keyboard-mapping.md`](keyboard-mapping.md) 中优先测试包。
 - [x] 如修改插件生命周期相关代码：执行 [`plugin-host-lifecycle.md`](plugin-host-lifecycle.md) 中优先测试包。

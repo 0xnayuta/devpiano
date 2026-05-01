@@ -5,6 +5,19 @@
 
 #include <cmath>
 
+namespace
+{
+constexpr auto warmupSeconds = 0.025;
+
+int calculateWarmupBlocks(double sampleRate, int blockSize)
+{
+    if (sampleRate <= 0.0 || blockSize <= 0)
+        return 1;
+
+    return juce::jmax(1, static_cast<int>(std::ceil(warmupSeconds * sampleRate / static_cast<double>(blockSize))));
+}
+}
+
 class AudioEngine::SimpleSineSound final : public juce::SynthesiserSound
 {
 public:
@@ -122,6 +135,9 @@ void AudioEngine::prepareToPlay(int samplesPerBlockExpected, double sampleRate)
 
     if (pluginHost != nullptr && pluginHost->hasLoadedPlugin())
         pluginHost->prepareToPlay(sampleRate, samplesPerBlockExpected);
+
+    discardWarmupInputState();
+    warmupBlocksRemaining.store(calculateWarmupBlocks(sampleRate, samplesPerBlockExpected), std::memory_order_release);
 }
 
 void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill)
@@ -130,6 +146,9 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
         return;
 
     bufferToFill.buffer->clear(bufferToFill.startSample, bufferToFill.numSamples);
+
+    if (consumeWarmupBlockIfNeeded())
+        return;
 
     midiBuffer.clear();
     midiCollector.removeNextBlockOfMessages(midiBuffer, bufferToFill.numSamples);
@@ -186,6 +205,8 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
 
 void AudioEngine::releaseResources()
 {
+    warmupBlocksRemaining.store(0, std::memory_order_release);
+    discardWarmupInputState();
     synth.allNotesOff(0, false);
 
     if (pluginHost != nullptr)
@@ -228,6 +249,25 @@ void AudioEngine::updateAdsrOnVoices()
     for (auto index = 0; index < synth.getNumVoices(); ++index)
         if (auto* voice = dynamic_cast<SimpleSineVoice*>(synth.getVoice(index)))
             voice->setAdsrParameters(adsrParameters);
+}
+
+void AudioEngine::discardWarmupInputState()
+{
+    keyboardState.reset();
+    midiBuffer.clear();
+    playbackVisualMidiBuffer.clear();
+    midiCollector.reset(currentSampleRate);
+    synth.allNotesOff(0, false);
+}
+
+bool AudioEngine::consumeWarmupBlockIfNeeded()
+{
+    if (warmupBlocksRemaining.load(std::memory_order_acquire) <= 0)
+        return false;
+
+    warmupBlocksRemaining.fetch_sub(1, std::memory_order_acq_rel);
+    discardWarmupInputState();
+    return true;
 }
 
 void AudioEngine::injectPendingAllNotesOffIfNeeded()

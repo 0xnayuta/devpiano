@@ -25,11 +25,12 @@
 
 ---
 
-## 2. 启动 / 音频重建早期首音音高异常（待修复）
+## 2. 启动 / 音频重建早期首音音高异常（已修复，保留回归项）
 
 > 触发条件：程序启动后尽快弹奏，或手动加载 / 卸载插件导致音频设备重建后立即弹奏。  
 > 影响范围：无外部 MIDI 设备时也可复现；鼠标点击虚拟键盘、实体电脑键盘、内置 fallback synth、VST3 插件、Windows Audio / DirectSound 均受影响。  
-> 当前观察环境：live audio device 为 `48000 Hz / 480 samples`。
+> 当前观察环境：live audio device 为 `48000 Hz / 480 samples`。  
+> 修复状态：已通过多轮人工验证；正式保留 `25ms` audio warmup。
 
 ### 现象
 
@@ -37,22 +38,51 @@
 - 等待数秒后再演奏，音高恢复稳定且正确。
 - 手动加载 / 卸载插件后，类似异常会再次出现。
 
-### 当前判断
+### 根因判断与修复结论
 
 外部 MIDI pitch wheel / controller 脏状态已基本排除：当前无外部 MIDI 设备，且内置 synth 与 VST3 插件均可复现。
 
-最可疑根因是 `MainComponent::initialiseAudioDevice()` 中的双阶段初始化：
+本 bug 的共同触发点不是具体输入来源或具体发声引擎，而是**音频设备启动 / 重建后的最早几个 audio blocks**：
+
+- 虚拟键盘和实体电脑键盘最终都会向同一个 `MidiKeyboardState` 写入 note on / off。
+- `AudioEngine::getNextAudioBlock()` 会在每个 audio block 开头把 `MidiKeyboardState` 中的 pending note 注入到当前 `MidiBuffer`，然后立刻交给 VST3 插件或内置 synth 渲染。
+- 程序启动、自动恢复插件、手动 load / unload 插件都会触发音频设备或音频处理链路重新 prepare。
+- 如果用户在 prepare 后极早期弹奏，首批 note 会进入尚未完全稳定的音频输出路径；此时可能叠加驱动 / 后端缓冲、JUCE `MidiMessageCollector` 时间基线、`MidiKeyboardState` wall-clock 事件缩放、插件 / synth 首批处理状态等 transient，表现为音高异常或怪音。
+
+因此，同一个问题会同时出现在虚拟键盘、实体键盘、VST3 插件和内置 synth 上；这也是最终判断其根因在 audio lifecycle 早期窗口，而不是键盘映射、外部 MIDI 或某个特定插件。
+
+调查过程中曾修正 `MainComponent::initialiseAudioDevice()` 双阶段初始化：
 
 1. 先调用 `setAudioChannels(0, 2)`，JUCE 会初始化音频设备、注册 audio callback 并触发 `prepareToPlay()`。
 2. 如果存在保存的 audio device XML，又直接调用 `deviceManager.initialise(0, 2, xml, true)`，导致设备在 callback 已挂载后再次初始化。
 3. 启动 / 重建早期可能经历临时 sample rate / buffer，例如默认 `44100 / 512`，随后才进入最终 live 配置 `48000 / 480`。
 4. 内置 `SimpleSineVoice::startNote()` 使用 voice 的 sample rate 计算 oscillator increment；VST3 插件也依赖 prepare sample rate。若首音跨越临时 / 最终 sample rate，听感会表现为音高偏移或怪音。
 
-次要风险是音频停止 / 重启期间 UI 仍可向 `MidiKeyboardState` 写入 note 事件。JUCE `MidiKeyboardState::noteOn()` 使用 wall-clock timestamp，下一次 `processNextMidiBuffer()` 会把积累事件缩放到当前 audio block；若音频正处于重建窗口，首批事件可能延迟、压缩或集中触发。
+但人工测试显示，单独移除双初始化后异常更明显，说明双初始化不是主因，而是曾偶然提供额外预热时间。
 
-### 推荐修复顺序
+最终有效修复为：在 `AudioEngine::prepareToPlay()` 后启动短暂 warmup；warmup 期间输出静音并清理 pending keyboard / MIDI state。500ms、250ms、100ms 和 25ms 均经人工验证稳定；正式值保留为 `25ms`，约等于 `48000 / 480` 环境下 2-3 个 audio blocks，用户体感不可察觉且保留必要启动余量。
 
-1. **修正音频设备双初始化（第一优先级）**
+### 修复原理
+
+`25ms` warmup 的作用不是改变音高计算，也不是延迟整个程序启动，而是在每次 `AudioEngine::prepareToPlay()` 后建立一个很短的“不可听稳定窗口”：
+
+1. **让音频设备 / 回调先跑过几个空 block**  
+   在 `48000 Hz / 480 samples` 下，一个 block 约 `10ms`，`25ms` 约覆盖 2-3 个 blocks。这样可以避开设备刚启动、后端缓冲刚填充、插件 / synth 刚 prepare 后的 transient。
+
+2. **丢弃 warmup 窗口内的 pending 输入事件**  
+   warmup 期间持续清理 `MidiKeyboardState`、`MidiMessageCollector`、实时 / playback MIDI buffer，避免用户极早期按下的 note 被压缩到首个可听 block，或携带音频重建前后的旧时间基线进入渲染。
+
+3. **保持输出静音并清理发声状态**  
+   warmup 期间 `getNextAudioBlock()` 在清空输出后直接返回，并执行 `synth.allNotesOff()`。因此异常 transient 不会进入声卡输出，也不会留下 hanging note。
+
+4. **覆盖所有相关生命周期入口**  
+   由于启动、插件自动恢复、手动加载 / 卸载、音频设备重建最终都会重新触发 `AudioEngine::prepareToPlay()`，warmup 放在 `AudioEngine` 层可以同时覆盖 VST3 和内置 synth 两条发声路径。
+
+`25ms` 被选为正式值的原因：它明显大于单个 10ms block，能提供最小必要余量；同时远低于用户可明显感知的演奏延迟窗口。人工验证显示 500ms、250ms、100ms、25ms 均稳定，因此不再继续压到 10ms，避免只剩 1 个 block 的容错导致不同后端或负载下偶发复现。
+
+### 已实施修复
+
+1. **修正音频设备双初始化**
    - 文件：`source/MainComponent.cpp`
    - 函数：`MainComponent::initialiseAudioDevice()`
    - 做法：将保存的 XML 直接传给 `setAudioChannels(0, 2, state)`，删除后续手动 `deviceManager.initialise(...)`。
@@ -72,17 +102,13 @@
    }
    ```
 
-2. **加日志确认 sample-rate / prepare 时序**
-   - 观察点：`MainComponent::prepareToPlay()`、`AudioEngine::prepareToPlay()`、`PluginHost::prepareToPlay()`、`SimpleSineVoice::startNote()`。
-   - 重点确认启动和手动 load / unload 后是否只剩最终 `48000 / 480` prepare，是否仍出现 `44100 -> 48000` 或多次 prepare transient。
+2. **增加 25ms audio warmup**
+   - 文件：`source/Audio/AudioEngine.h/.cpp`
+   - 函数：`AudioEngine::prepareToPlay()` / `AudioEngine::getNextAudioBlock()`
+   - 做法：`prepareToPlay()` 后设置 `warmupBlocksRemaining`；`getNextAudioBlock()` 在 warmup 期间保持输出静音，清理 `MidiKeyboardState`、`MidiMessageCollector`、实时 / playback MIDI buffer，并执行 `synth.allNotesOff()`。
+   - 正式参数：`warmupSeconds = 0.025`。
 
-3. **若仍复现，再加输入 ready-gate / warmup**
-   - `AudioEngine` 增加 ready 状态：`prepareToPlay()` 完成后允许输入，`releaseResources()` / rebuild 前禁止输入。
-   - `MainComponent::keyPressed()` / `keyStateChanged()` 在 audio not ready 时不向 `MidiKeyboardState` 发 note。
-   - 虚拟键盘在 audio not ready 时禁用鼠标输入。
-   - 可选：`prepareToPlay()` 后丢弃前 3-5 个 warmup blocks，并清理 pending keyboard events。
-
-### 修复后回归
+### 已通过人工回归
 
 - 无 VST，启动后立即点击虚拟键盘：首音稳定。
 - 无 VST，启动后立即按实体键盘：首音稳定。
@@ -175,6 +201,7 @@
 - **Phase 5-3**：PluginFlowSupport scan / restore / cache 收敛。
 - **Phase 5-4**：MainComponent 状态刷新边界命名清理。
 - **Phase 5**：Phase 5-1..5-4 全部完成，人工回归通过。
+- **启动 / 音频重建早期首音音高异常**：已通过音频设备初始化顺序修正 + `25ms` audio warmup 修复，并完成启动、虚拟键盘、实体键盘、VST load/unload、Windows Audio / DirectSound 人工回归。
 
 详见：
 

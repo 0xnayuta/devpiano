@@ -8,7 +8,7 @@
 
 当前活跃阶段：**Phase 5：架构收敛与 MainComponent 瘦身**
 
-当前插入优先事项：**启动 / 音频重建早期首音音高异常修复**。该问题影响虚拟键盘、实体电脑键盘、内置 fallback synth 与 VST3 插件；应先修复音频设备生命周期，再继续 5.8c-5.8e 瘦身。
+当前插入缺陷 **启动 / 音频重建早期首音音高异常** 已修复并通过人工验证；保留 `25ms` audio warmup。下一步可继续 5.8c-5.8e 瘦身。
 
 Phase 5.1-5.7 已完成（2026-05-01）：MainComponent 职责下沉，包括录制会话状态结构化、导出流程统一、布局 CRUD 收敛、设置窗口收敛、AppState 清理、ControlsPanel 按钮状态统一、MIDI 导入流程下沉。
 
@@ -20,7 +20,7 @@ Phase 5.1-5.7 已完成（2026-05-01）：MainComponent 职责下沉，包括录
 
 ---
 
-## 当前插入缺陷：启动 / 音频重建早期首音音高异常
+## 已完成插入缺陷：启动 / 音频重建早期首音音高异常
 
 ### 现象
 
@@ -30,31 +30,33 @@ Phase 5.1-5.7 已完成（2026-05-01）：MainComponent 职责下沉，包括录
 - 手动加载 / 卸载插件后也会再次出现。
 - Windows Audio / DirectSound 均可复现；当前观察到 live device 为 `48000 Hz / 480 samples`。
 
-### 当前根因判断
+### 根因判断与修复结论
 
-外部 MIDI pitch wheel / controller 脏状态已基本排除。当前最可疑根因是 `MainComponent::initialiseAudioDevice()` 双阶段初始化：
+外部 MIDI pitch wheel / controller 脏状态已基本排除。调查中先修正了 `MainComponent::initialiseAudioDevice()` 双阶段初始化：
 
 1. `setAudioChannels(0, 2)` 已经会初始化音频设备、注册 audio callback 并触发 `prepareToPlay()`。
 2. 随后如果存在保存的 audio device XML，又调用 `deviceManager.initialise(0, 2, xml, true)`，导致音频设备在 callback 已挂载后再次初始化。
 3. 启动 / 重建早期可能短暂经过默认 sample rate / buffer，再切换到最终 live 配置。
 4. 内置 synth 和 VST3 插件都依赖 prepare sample rate，因此同一生命周期问题可同时影响两条发声路径。
 
-次要风险：音频停止 / 重启期间 UI 仍可能向 `MidiKeyboardState` 写入 note 事件；这些事件使用 wall-clock timestamp，音频恢复后可能被压缩到首个 block。
+单独移除双初始化后异常更明显，说明旧双初始化并非根因，而是曾偶然提供额外预热时间。最终有效修复是在 `AudioEngine::prepareToPlay()` 后保留短暂 warmup：warmup 期间输出静音并清理 pending keyboard / MIDI state。
+
+已人工验证 500ms、250ms、100ms、25ms 均稳定；正式值保留 `25ms`，约等于当前 `48000 Hz / 480 samples` 环境下 2-3 个 audio blocks。
+
+修复原理：首音异常来自音频 prepare 后最早几个 blocks 的生命周期 transient，而不是具体输入设备或发声引擎。`25ms` warmup 让音频回调先跑过 2-3 个静音 blocks，并丢弃这段窗口内的 pending note / MIDI state，避免极早期输入被压缩到首个可听 block 或进入尚未稳定的 audio path。
 
 详细问题记录与修复方案见：[`../testing/known-issues.md`](../testing/known-issues.md) §2。
 
-### 推荐修复顺序
+### 已实施修复
 
-1. **先修 `MainComponent::initialiseAudioDevice()` 双初始化**
+1. **修正 `MainComponent::initialiseAudioDevice()` 双初始化**
    - 将保存的 XML 作为第三个参数传给 `setAudioChannels(0, 2, state)`。
    - 删除后续手动 `deviceManager.initialise(...)`。
-2. **加最小日志确认启动 / 手动 load-unload 后 prepare 时序**
-   - 观察 `MainComponent::prepareToPlay()`、`AudioEngine::prepareToPlay()`、`PluginHost::prepareToPlay()`、`SimpleSineVoice::startNote()`。
-3. **若仍复现，再加 input ready-gate / warmup blocks**
-   - audio not ready 时阻止实体键盘和虚拟键盘写入 `MidiKeyboardState`。
-   - `prepareToPlay()` 后可丢弃前 3-5 个 warmup blocks，并清理 pending keyboard events。
+2. **在 `AudioEngine` 中保留 `25ms` warmup**
+   - `prepareToPlay()` 后设置 warmup block 数。
+   - `getNextAudioBlock()` 在 warmup 期间输出静音，并清理 `MidiKeyboardState`、`MidiMessageCollector` 与 MIDI buffer。
 
-### 修复后最小回归
+### 已通过最小回归
 
 - 无 VST：启动后立即点击虚拟键盘，首音稳定。
 - 无 VST：启动后立即按实体键盘，首音稳定。
