@@ -55,6 +55,18 @@ private:
         int blockSize = 512;
     };
 
+    struct RecordingSession
+    {
+        devpiano::recording::RecordingTake take;
+        bool canExport = false;
+        ControlsPanel::RecordingState state = ControlsPanel::RecordingState::idle;
+
+        [[nodiscard]] bool hasTake() const noexcept { return ! take.isEmpty(); }
+        [[nodiscard]] bool isRecording() const noexcept { return state == ControlsPanel::RecordingState::recording; }
+        [[nodiscard]] bool isPlaying() const noexcept { return state == ControlsPanel::RecordingState::playing; }
+        [[nodiscard]] bool isIdle() const noexcept { return state == ControlsPanel::RecordingState::idle; }
+    };
+
     void timerCallback() override;
 
     void initialiseInputMappingFromSettings();
@@ -123,6 +135,7 @@ private:
     [[nodiscard]] devpiano::recording::RecordingTake stopInternalRecording();
     void startInternalPlayback(const devpiano::recording::RecordingTake& take);
     [[nodiscard]] devpiano::recording::RecordingTake stopInternalPlayback();
+    void syncRecordingSessionToUi();
     void runPluginActionWithAudioDeviceRebuild(const std::function<void(const RuntimeAudioConfig&)>& action);
     void runPluginActionWithAudioDeviceRebuild(const std::function<void()>& action);
     [[nodiscard]] juce::String getSelectedPluginNameForLoad() const;
@@ -141,10 +154,8 @@ private:
     void scanPlugins();
 
     devpiano::recording::RecordingEngine recordingEngine;
-    devpiano::recording::RecordingTake currentTake;
-    bool currentTakeCanBeExported = false;
+    RecordingSession recordingSession;
     AudioEngine audioEngine;
-    ControlsPanel::RecordingState currentRecordingState = ControlsPanel::RecordingState::idle;
     KeyboardMidiMapper keyboardMidiMapper;
     MidiRouter midiRouter;
     PluginHost pluginHost;
