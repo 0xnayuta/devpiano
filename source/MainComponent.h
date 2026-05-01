@@ -114,6 +114,8 @@ private:
     void handleExportMidiClicked();
     void handleExportWavClicked();
     void handleImportMidiClicked();
+    [[nodiscard]] std::optional<devpiano::recording::RecordingTake> tryImportMidiFile(const juce::File& file) const;
+    void replaceTakeAndStartPlayback(devpiano::recording::RecordingTake take);
     void applyUiStateToAudioEngine();
     void syncUiFromSettings();
     void syncSettingsFromUi();

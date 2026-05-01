@@ -40,13 +40,13 @@
 - `docs/development/wsl-windows-msvc-workflow.md`：WSL / Windows 镜像 / MSVC 验证详细工作流。
 - `docs/architecture/overview.md`：当前系统架构、模块职责与主要链路。
 - `docs/architecture/legacy-migration.md`：旧 FreePiano 源码迁移边界与新旧模块映射。
-- [`docs/features/M4-keyboard-mapping.md`](docs/features/M4-keyboard-mapping.md)：电脑键盘到 MIDI note 的映射能力与边界。
-- [`docs/features/M3-plugin-hosting.md`](docs/features/M3-plugin-hosting.md)：VST3 插件扫描、加载、处理、editor 和生命周期行为。
+- [`docs/features/phase2-keyboard-mapping.md`](docs/features/phase2-keyboard-mapping.md)：电脑键盘到 MIDI note 的映射能力与边界。
+- [`docs/features/phase2-plugin-hosting.md`](docs/features/phase2-plugin-hosting.md)：VST3 插件扫描、加载、处理、editor 和生命周期行为。
 - `docs/testing/acceptance.md`：阶段验收标准。
-- `docs/testing/keyboard-mapping.md`：键盘映射专项测试。
-- `docs/testing/plugin-host-lifecycle.md`：插件宿主生命周期专项测试。
-- [`docs/features/M8-midi-file-and-freepiano-gap.md`](docs/features/M8-midi-file-and-freepiano-gap.md)：MIDI 文件导入、回放兼容性、剩余边界与 FreePiano 差距。
-- [`docs/testing/midi-file-import.md`](docs/testing/midi-file-import.md)：M8 MIDI 文件导入、回放、自动选轨与后续增强验收测试。
+- `docs/testing/phase2-keyboard-mapping.md`：键盘映射专项测试。
+- `docs/testing/phase2-plugin-host-lifecycle.md`：插件宿主生命周期专项测试。
+- [`docs/features/phase4-midi-file-import.md`](docs/features/phase4-midi-file-import.md)：MIDI 文件导入、回放兼容性、剩余边界与 FreePiano 差距。
+- [`docs/testing/phase4-midi-file-import.md`](docs/testing/phase4-midi-file-import.md)：M8 MIDI 文件导入、回放、自动选轨与后续增强验收测试。
 - `docs/decisions/`：ADR，记录已确定的架构/工程决策。
 - `docs/roadmap/roadmap.md`：唯一项目状态、阶段路线与近期重点来源。
 - `docs/roadmap/current-iteration.md`：当前迭代入口。
@@ -172,12 +172,12 @@
 
 相关功能与测试文档：
 
-- 键盘映射功能：[`docs/features/M4-keyboard-mapping.md`](docs/features/M4-keyboard-mapping.md)
-- 键盘映射测试：[`docs/testing/keyboard-mapping.md`](docs/testing/keyboard-mapping.md)
-- 插件宿主功能：[`docs/features/M3-plugin-hosting.md`](docs/features/M3-plugin-hosting.md)
-- 插件宿主生命周期测试：`docs/testing/plugin-host-lifecycle.md`
-- MIDI 文件导入功能：[`docs/features/M8-midi-file-and-freepiano-gap.md`](docs/features/M8-midi-file-and-freepiano-gap.md)
-- MIDI 文件导入测试：[`docs/testing/midi-file-import.md`](docs/testing/midi-file-import.md)
+- 键盘映射功能：[`docs/features/phase2-keyboard-mapping.md`](docs/features/phase2-keyboard-mapping.md)
+- 键盘映射测试：[`docs/testing/phase2-keyboard-mapping.md`](docs/testing/phase2-keyboard-mapping.md)
+- 插件宿主功能：[`docs/features/phase2-plugin-hosting.md`](docs/features/phase2-plugin-hosting.md)
+- 插件宿主生命周期测试：`docs/testing/phase2-plugin-host-lifecycle.md`
+- MIDI 文件导入功能：[`docs/features/phase4-midi-file-import.md`](docs/features/phase4-midi-file-import.md)
+- MIDI 文件导入测试：[`docs/testing/phase4-midi-file-import.md`](docs/testing/phase4-midi-file-import.md)
 - 阶段验收：`docs/testing/acceptance.md`
 
 ---
@@ -208,9 +208,9 @@
    - 必要时阅读 `/freepiano-src/` 相关旧模块。
 3. 如涉及当前架构或功能边界，先阅读：
    - `docs/architecture/overview.md`
-   - [`docs/features/M4-keyboard-mapping.md`](docs/features/M4-keyboard-mapping.md)
-   - [`docs/features/M3-plugin-hosting.md`](docs/features/M3-plugin-hosting.md)
-   - [`docs/features/M8-midi-file-and-freepiano-gap.md`](docs/features/M8-midi-file-and-freepiano-gap.md)
+   - [`docs/features/phase2-keyboard-mapping.md`](docs/features/phase2-keyboard-mapping.md)
+   - [`docs/features/phase2-plugin-hosting.md`](docs/features/phase2-plugin-hosting.md)
+   - [`docs/features/phase4-midi-file-import.md`](docs/features/phase4-midi-file-import.md)
 4. 使用 `lsp` + `read` / `edit` 在 WSL 主工作树中小步修改。
 5. 修改 `source/*.h` / `source/*.cpp` 后，先用 LSP diagnostics 检查。
 6. 需要刷新 clangd 编译数据库时运行：

@@ -9,9 +9,9 @@
 
 - 路线图：[`../roadmap/roadmap.md`](../roadmap/roadmap.md)
 - 阶段验收：[`../testing/acceptance.md`](../testing/acceptance.md)
-- 专项测试：[`../testing/recording-playback.md`](../testing/recording-playback.md)
-- 键盘映射：[`M4-keyboard-mapping.md`](M4-keyboard-mapping.md)
-- 插件宿主：[`M3-plugin-hosting.md`](M3-plugin-hosting.md)
+- 专项测试：[`../testing/phase3-recording-playback.md`](../testing/phase3-recording-playback.md)
+- 键盘映射：[`phase2-keyboard-mapping.md`](phase2-keyboard-mapping.md)
+- 插件宿主：[`phase2-plugin-hosting.md`](phase2-plugin-hosting.md)
 - 旧代码迁移边界：[`../architecture/legacy-migration.md`](../architecture/legacy-migration.md)
 
 ---
@@ -591,7 +591,7 @@ VST3 插件离线渲染放到 M6-6 第二阶段再评估，原因：
    - [x] 导出成功 / 失败先写 Logger；后续再补正式 UI 提示。
 
 4. **M6-6d：专项测试与边界修复**
-   - [x] 新增或扩展 `docs/testing/recording-playback.md` 的 WAV 导出测试包（包 E，9 项）。
+   - [x] 新增或扩展 `docs/testing/phase3-recording-playback.md` 的 WAV 导出测试包（包 E，9 项）。
    - [x] 覆盖 fallback synth 导出、空 take 禁用、取消保存、无权限路径、导出文件可被播放器 / DAW 打开。
    - [x] 人工验证 E.1–E.9 全部通过，未发现明显 bug。
 

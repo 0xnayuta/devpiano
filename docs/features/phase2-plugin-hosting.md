@@ -1,8 +1,8 @@
 # 插件宿主功能说明
 
 > 用途：说明当前 VST3 插件扫描、加载、处理、editor 和生命周期相关功能行为。  
-> 相关测试：[`../testing/plugin-host-lifecycle.md`](../testing/plugin-host-lifecycle.md)。  
-> 当前状态来源：[`../roadmap/roadmap.md`](../roadmap/roadmap.md)、[`../testing/plugin-host-lifecycle.md`](../testing/plugin-host-lifecycle.md)、[`../architecture/overview.md`](../architecture/overview.md)、[`../architecture/legacy-migration.md`](../architecture/legacy-migration.md)。
+> 相关测试：[`../testing/phase2-plugin-host-lifecycle.md`](../testing/phase2-plugin-host-lifecycle.md)。  
+> 当前状态来源：[`../roadmap/roadmap.md`](../roadmap/roadmap.md)、[`../testing/phase2-plugin-host-lifecycle.md`](../testing/phase2-plugin-host-lifecycle.md)、[`../architecture/overview.md`](../architecture/overview.md)、[`../architecture/legacy-migration.md`](../architecture/legacy-migration.md)。
 
 ## 当前能力
 
@@ -80,7 +80,7 @@ Computer keyboard / external MIDI
 
 - 外部 MIDI 打开状态下直接退出程序：因当前缺少外部 MIDI 设备，尚未完成手工验证。
 
-详见：[`../testing/plugin-host-lifecycle.md`](../testing/plugin-host-lifecycle.md)。
+详见：[`../testing/phase2-plugin-host-lifecycle.md`](../testing/phase2-plugin-host-lifecycle.md)。
 
 ## 当前限制和风险
 
@@ -136,7 +136,7 @@ Computer keyboard / external MIDI
    - 约束：不引入阻塞式弹窗作为主反馈；避免让状态文本过长。
    - 验证：空目录、无权限目录、插件恢复失败、手动取消 / 修改路径等路径都有可理解反馈。
 
-> 2026-04-30：M3-P1..P4 已完成 Windows 人工验证，未发现明显问题。详见 [`../testing/plugin-host-lifecycle.md`](../testing/plugin-host-lifecycle.md)。
+> 2026-04-30：M3-P1..P4 已完成 Windows 人工验证，未发现明显问题。详见 [`../testing/phase2-plugin-host-lifecycle.md`](../testing/phase2-plugin-host-lifecycle.md)。
 
 ### 其他后续方向
 

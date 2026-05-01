@@ -10,7 +10,7 @@
 - [~] 部分通过 / 待补充验证
 
 相关文档：
-- 功能说明：[`../features/M7-layout-presets.md`](../features/M7-layout-presets.md)
+- 功能说明：[`../features/phase3-layout-presets.md`](../features/phase3-layout-presets.md)
 - 阶段验收：[`acceptance.md`](acceptance.md)
 - 项目路线图：[`../roadmap/roadmap.md`](../roadmap/roadmap.md)
 

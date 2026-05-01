@@ -21,19 +21,19 @@
 ### 测试与验收
 
 - [`testing/acceptance.md`](testing/acceptance.md)：阶段性验收标准。
-- [`testing/keyboard-mapping.md`](testing/keyboard-mapping.md)：键盘映射专项手工测试。
-- [`testing/layout-presets.md`](testing/layout-presets.md)：布局 preset 的保存、导入、重命名、删除与启动恢复专项手工测试。
-- [`testing/recording-playback.md`](testing/recording-playback.md)：录制、回放与 MIDI 导出专项手工测试。
-- [`testing/midi-file-import.md`](testing/midi-file-import.md)：M8 MIDI 文件导入、回放、自动选轨与后续增强验收测试。
-- [`testing/plugin-host-lifecycle.md`](testing/plugin-host-lifecycle.md)：插件宿主生命周期与退出稳定性专项测试。
+- [`testing/phase2-keyboard-mapping.md`](testing/phase2-keyboard-mapping.md)：键盘映射专项手工测试。
+- [`testing/phase2-plugin-host-lifecycle.md`](testing/phase2-plugin-host-lifecycle.md)：插件宿主生命周期与退出稳定性专项测试。
+- [`testing/phase3-layout-presets.md`](testing/phase3-layout-presets.md)：布局 preset 的保存、导入、重命名、删除与启动恢复专项手工测试。
+- [`testing/phase3-recording-playback.md`](testing/phase3-recording-playback.md)：录制、回放与 MIDI 导出专项手工测试。
+- [`testing/phase4-midi-file-import.md`](testing/phase4-midi-file-import.md)：MIDI 文件导入、回放、自动选轨与后续增强验收测试。
 
 ### 功能设计
 
-- [`features/M4-keyboard-mapping.md`](features/M4-keyboard-mapping.md)：电脑键盘到 MIDI note 的映射能力与边界。
-- [`features/M8-midi-file-and-freepiano-gap.md`](features/M8-midi-file-and-freepiano-gap.md)：MIDI 文件导入、回放兼容性、剩余边界与 FreePiano 差距。
-- [`features/M7-layout-presets.md`](features/M7-layout-presets.md)：布局 preset 的文件格式、导入/保存/重命名/删除与恢复行为。
-- [`features/M6-recording-playback.md`](features/M6-recording-playback.md)：录制 / 回放 / MIDI 导出的第一版设计与当前 MVP 行为。
-- [`features/M3-plugin-hosting.md`](features/M3-plugin-hosting.md)：VST3 插件扫描、加载、处理、editor 和生命周期行为。
+- [`features/phase2-keyboard-mapping.md`](features/phase2-keyboard-mapping.md)：电脑键盘到 MIDI note 的映射能力与边界。
+- [`features/phase2-plugin-hosting.md`](features/phase2-plugin-hosting.md)：VST3 插件扫描、加载、处理、editor 和生命周期行为。
+- [`features/phase3-recording-playback.md`](features/phase3-recording-playback.md)：录制 / 回放 / MIDI 导出的第一版设计与当前 MVP 行为。
+- [`features/phase3-layout-presets.md`](features/phase3-layout-presets.md)：布局 preset 的文件格式、导入/保存/重命名/删除与恢复行为。
+- [`features/phase4-midi-file-import.md`](features/phase4-midi-file-import.md)：MIDI 文件导入、回放兼容性、剩余边界与 FreePiano 差距。
 
 ### 旧代码迁移
 

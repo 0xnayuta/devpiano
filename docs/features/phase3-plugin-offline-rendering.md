@@ -1,21 +1,21 @@
-# M6-6e：VST3 插件离线渲染评估与设计
+# Phase 3-5：VST3 插件离线渲染评估与设计
 
 > 用途：评估 VST3 插件离线渲染的技术路径与设计边界，为后续实现提供决策依据。
-> 读者：准备实现 M6-6e 或需要理解插件离线渲染设计选择的开发者。
-> 状态：评估阶段，不阻塞当前 WAV MVP（M6-6a/b/c/d）。
+> 读者：准备实现 Phase 3-5 或需要理解插件离线渲染设计选择的开发者。
+> 状态：评估阶段，不阻塞当前 WAV MVP（Phase 3-4）。
 
 相关文档：
 
-- 功能说明：[`recording-playback.md`](M6-recording-playback.md)
-- 测试文档：[`../testing/recording-playback.md`](../testing/recording-playback.md)
-- 插件宿主：[`../features/M3-plugin-hosting.md`](../features/M3-plugin-hosting.md)
+- 功能说明：[`phase3-recording-playback.md`](phase3-recording-playback.md)
+- 测试文档：[`../testing/phase3-recording-playback.md`](../testing/phase3-recording-playback.md)
+- 插件宿主：[`phase2-plugin-hosting.md`](phase2-plugin-hosting.md)
 - 路线图：[`../roadmap/roadmap.md`](../roadmap/roadmap.md)
 
 ---
 
 ## 1. 背景与问题
 
-当前 WAV 导出（M6-6a/b/c/d）仅支持 fallback synth 音色。用户加载了 VST3 插件（如钢琴音色）后点击"Export WAV"，导出的仍是 fallback synth 音色，而不是当前已加载插件的音色。
+当前 WAV 导出（Phase 3-4）仅支持 fallback synth 音色。用户加载了 VST3 插件（如钢琴音色）后点击"Export WAV"，导出的仍是 fallback synth 音色，而不是当前已加载插件的音色。
 
 **核心问题**：离线渲染链路中如何让已加载的 VST3 插件参与渲染，而不影响实时音频设备状态和插件 editor 窗口。
 
@@ -52,7 +52,7 @@
 
 - 插件不支持离线渲染（`offlineRenderingSupported()` 返回 false）时如何处理。
 - 插件加载或 prepare 失败时的降级方案（fallback synth 或报错）。
-- 目标路径无权限、用户取消、空 take 等常规失败已在 M6-6a 处理。
+- 目标路径无权限、用户取消、空 take 等常规失败已在 Phase 3-4 处理。
 
 ---
 
