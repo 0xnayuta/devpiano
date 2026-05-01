@@ -11,6 +11,7 @@
 #include "Midi/MidiRouter.h"
 #include "Plugin/PluginHost.h"
 #include "Plugin/PluginFlowSupport.h"
+#include "Plugin/PluginOperationController.h"
 #include "Recording/RecordingEngine.h"
 #include "Recording/RecordingSessionController.h"
 #include "Settings/SettingsComponent.h"
@@ -29,6 +30,7 @@ class MainComponent final : public juce::AudioAppComponent,
 {
     friend class devpiano::layout::LayoutFlowSupport;
     friend class devpiano::recording::RecordingSessionController;
+    friend class devpiano::plugin::PluginOperationController;
 public:
     MainComponent();
     ~MainComponent() override;
@@ -67,14 +69,11 @@ private:
     void initialiseMidiRouting();
     [[nodiscard]] SettingsModel::PerformanceSettingsView getPerformanceSettingsFromUi() const;
     [[nodiscard]] juce::String getLastPluginNameForRecoveryStateFromUi() const;
-    [[nodiscard]] juce::String getPersistedPluginSearchPath() const;
     [[nodiscard]] SettingsModel::PluginRecoverySettingsView getPluginRecoverySettingsFromUi() const;
     [[nodiscard]] SettingsModel::PluginRecoverySettingsView getPluginRecoverySettingsWithFallback() const;
     void applyPerformanceSettingsToUi(const SettingsModel::PerformanceSettingsView& performance);
     void applyPerformanceSettingsToAudioEngine(const SettingsModel::PerformanceSettingsView& performance);
     void applyPluginRecoverySettings(const SettingsModel::PluginRecoverySettingsView& pluginRecovery);
-    void commitPluginRecoveryStateAndFinishUi(const SettingsModel::PluginRecoverySettingsView& pluginRecovery,
-                                              bool shouldSaveSettings);
     void handlePerformanceUiChanged();
     void applyUiStateToAudioEngine();
     void syncUiFromSettings();
@@ -103,30 +102,11 @@ private:
     [[nodiscard]] devpiano::core::RuntimePluginState buildRuntimePluginStateSnapshot() const;
     [[nodiscard]] devpiano::core::RuntimeInputState buildRuntimeInputStateSnapshot() const;
     [[nodiscard]] devpiano::core::AppState buildCurrentAppStateSnapshot() const;
-    void restorePluginStateOnStartup();
-    void restorePluginScanPathOnStartup(const devpiano::plugin::StartupPluginRestorePlan& plan);
-    void restoreLastPluginOnStartup(const devpiano::plugin::StartupPluginRestorePlan& plan);
-    void restorePluginByNameOnStartup(const juce::String& pluginName);
-    [[nodiscard]] juce::FileSearchPath resolvePluginScanPath() const;
     double getCurrentRuntimeSampleRate() const;
     int getCurrentRuntimeBlockSize() const;
     [[nodiscard]] RuntimeAudioConfig getCurrentRuntimeAudioConfig() const;
     void runPluginActionWithAudioDeviceRebuild(const std::function<void(const RuntimeAudioConfig&)>& action);
     void runPluginActionWithAudioDeviceRebuild(const std::function<void()>& action);
-    [[nodiscard]] juce::String getSelectedPluginNameForLoad() const;
-    void loadPluginByNameAndCommitState(const juce::String& pluginName);
-    [[nodiscard]] std::unique_ptr<juce::AudioProcessorEditor> tryCreatePluginEditor() const;
-    void handlePluginEditorWindowClosedAsync();
-    void closePluginEditorWindow();
-    void openPluginEditorWindow(std::unique_ptr<juce::AudioProcessorEditor> editor);
-    void unloadPluginAndCommitState();
-    void scanPluginsAtPathAndApplyRecoveryState(const juce::FileSearchPath& path,
-                                                const juce::String& lastPluginName);
-    void scanPluginsAtPathAndCommitState(const juce::FileSearchPath& path);
-    void loadSelectedPlugin();
-    void unloadCurrentPlugin();
-    void togglePluginEditor();
-    void scanPlugins();
 
     devpiano::recording::RecordingEngine recordingEngine;
     AudioEngine audioEngine;
@@ -146,7 +126,7 @@ private:
     std::unique_ptr<juce::DialogWindow> settingsWindow;
     std::unique_ptr<devpiano::layout::LayoutFlowSupport> layoutFlowSupport;
     std::unique_ptr<devpiano::recording::RecordingSessionController> recordingSessionController;
-    std::unique_ptr<PluginEditorWindow> pluginEditorWindow;
+    std::unique_ptr<devpiano::plugin::PluginOperationController> pluginOperationController;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
 };

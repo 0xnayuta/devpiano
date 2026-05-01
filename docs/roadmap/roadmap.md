@@ -23,7 +23,7 @@
 - Phase 5.1-5.7（架构收敛）：MainComponent 职责下沉，Phase 5-5..5-11 已完成。
 
 **当前阶段：**
-- Phase 5.8：继续 MainComponent 瘦身，5.8a+5.8b 已完成（1587→930 行），已低于 1200 行目标。
+- Phase 5.8：继续 MainComponent 瘦身，5.8a+5.8b+5.8c 已完成（1587→711 行），远低于 1200 行目标。
 - 当前插入缺陷“启动 / 音频重建早期首音音高异常”已修复并通过人工验证；保留 `25ms` audio warmup，详见 [`../testing/known-issues.md`](../testing/known-issues.md) §2。
 
 **搁置项：**
@@ -71,7 +71,7 @@
 
 ### Phase 5：架构收敛与 MainComponent 瘦身
 
-状态：进行中（5.1-5.7 已完成，5.8a+5.8b 已完成，5.8c-5.8e 待执行）。
+状态：进行中（5.1-5.7 已完成，5.8a+5.8b+5.8c 已完成，5.8d-5.8e 待执行）。
 
 **目标：** 将 `MainComponent.cpp` 从约 1587 行降至 1200 行以下，通过提取 helper 收敛职责。
 
@@ -80,12 +80,13 @@
 - 设置窗口生命周期收敛、AppState 清理、ControlsPanel 按钮状态统一。
 - MIDI 导入流程下沉。
 
-**已完成（5.8a+5.8b）：**
+**已完成（5.8a+5.8b+5.8c）：**
 - 布局管理 handlers 提取到 `Layout/LayoutFlowSupport`（MainComponent 1587→1349 行，减少 238 行）。
 - 录制/回放/MIDI 导入编排提取到 `Recording/RecordingSessionController`（MainComponent 1349→930 行，减少 419 行）。
-- 累计减少 657 行，已低于 1200 行目标。
+- 插件操作提取到 `Plugin/PluginOperationController`（MainComponent 930→711 行，减少 219 行）。
+- 累计减少 876 行，远低于 1200 行目标。
 
-**已规划（5.8c-5.8e）：**
+**已规划（5.8d-5.8e）：**
 - 5.8a：布局管理 handlers 提取到 `Layout/LayoutFlowSupport`（~215 行 → MainComponent -180 行）。
 - 5.8b：录制/回放/MIDI 导入编排提取到 `Recording/RecordingSessionController`（~229 行 → MainComponent -200 行）。
 - 5.8c：插件操作提取到 `Plugin/PluginOperationController`（~175 行 → MainComponent -150 行）。
