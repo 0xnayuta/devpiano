@@ -488,25 +488,17 @@ void MainComponent::handleLayoutChanged(const juce::String& newLayoutId)
         return;
     }
 
-    audioEngine.getKeyboardState().allNotesOff(1);
-    keyboardMidiMapper.setLayout(SettingsModel::keyMapToLayout({}, nextLayoutId));
-    appSettings.applyInputMappingSettingsView({ .layoutId = keyboardMidiMapper.getLayout().id,
-                                                .keyMap = SettingsModel::layoutToKeyMap(keyboardMidiMapper.getLayout()) });
-    syncUiFromSettings();
-    saveSettingsSoon();
-    restoreKeyboardFocus();
+    applyLayoutAndCommit(SettingsModel::keyMapToLayout({}, nextLayoutId));
 }
 
 void MainComponent::handleSaveLayoutRequested()
 {
-    saveLayoutChooser = std::make_unique<juce::FileChooser>("Save Layout", devpiano::layout::getUserLayoutDirectory(), "*.freepiano.layout");
-    saveLayoutChooser->launchAsync(juce::FileBrowserComponent::saveMode, [this](const juce::FileChooser& fc)
+    runLayoutFileChooser("Save Layout",
+                         devpiano::layout::getUserLayoutDirectory(),
+                         juce::FileBrowserComponent::saveMode,
+                         saveLayoutChooser,
+                         [this](const juce::File& file)
     {
-        auto file = fc.getResult();
-        auto path = file.getFullPathName();
-        if (path.isEmpty())
-            return;
-
         auto currentLayout = keyboardMidiMapper.getLayout();
         const auto targetLayoutId = devpiano::layout::getUserLayoutIdForFile(file);
         currentLayout.id = targetLayoutId;
@@ -516,15 +508,7 @@ void MainComponent::handleSaveLayoutRequested()
         auto saved = devpiano::layout::saveLayoutPreset(currentLayout, file);
         juce::Logger::writeToLog(saved ? "Layout saved: " + file.getFullPathName() : "Layout save FAILED: " + file.getFullPathName());
         if (saved)
-        {
-            audioEngine.getKeyboardState().allNotesOff(1);
-            keyboardMidiMapper.setLayout(currentLayout);
-            appSettings.applyInputMappingSettingsView({ .layoutId = keyboardMidiMapper.getLayout().id,
-                                                        .keyMap = SettingsModel::layoutToKeyMap(keyboardMidiMapper.getLayout()) });
-            syncUiFromSettings();
-            saveSettingsSoon();
-            restoreKeyboardFocus();
-        }
+            applyLayoutAndCommit(currentLayout);
     });
 }
 
@@ -534,24 +518,17 @@ void MainComponent::handleResetLayoutToDefaultRequested()
     const auto layoutId = currentLayoutId.isNotEmpty() ? currentLayoutId
                                                        : appSettings.getInputMappingSettingsView().layoutId;
 
-    audioEngine.getKeyboardState().allNotesOff(1);
-    keyboardMidiMapper.setLayout(SettingsModel::keyMapToLayout({}, layoutId));
-    appSettings.applyInputMappingSettingsView({ .layoutId = keyboardMidiMapper.getLayout().id,
-                                                .keyMap = SettingsModel::layoutToKeyMap(keyboardMidiMapper.getLayout()) });
-    syncUiFromSettings();
-    saveSettingsSoon();
-    restoreKeyboardFocus();
+    applyLayoutAndCommit(SettingsModel::keyMapToLayout({}, layoutId));
 }
 
 void MainComponent::handleImportLayoutRequested()
 {
-    importLayoutChooser = std::make_unique<juce::FileChooser>("Import Layout", juce::File{}, "*.freepiano.layout");
-    importLayoutChooser->launchAsync(juce::FileBrowserComponent::openMode, [this](const juce::FileChooser& fc)
+    runLayoutFileChooser("Import Layout",
+                         juce::File{},
+                         juce::FileBrowserComponent::openMode,
+                         importLayoutChooser,
+                         [this](const juce::File& file)
     {
-        auto file = fc.getResult();
-        if (!file.exists())
-            return;
-
         auto optLayout = devpiano::layout::loadLayoutPreset(file);
         if (!optLayout.has_value())
             return;
@@ -568,13 +545,7 @@ void MainComponent::handleImportLayoutRequested()
         if (!devpiano::layout::saveLayoutPreset(layout, destFile))
             return;
 
-        audioEngine.getKeyboardState().allNotesOff(1);
-        keyboardMidiMapper.setLayout(layout);
-        appSettings.applyInputMappingSettingsView({ .layoutId = keyboardMidiMapper.getLayout().id,
-                                                    .keyMap = SettingsModel::layoutToKeyMap(keyboardMidiMapper.getLayout()) });
-        syncUiFromSettings();
-        saveSettingsSoon();
-        restoreKeyboardFocus();
+        applyLayoutAndCommit(layout);
     });
 }
 
@@ -593,6 +564,59 @@ void MainComponent::handleRenameLayoutRequested()
     if (currentDisplayName.isEmpty())
         currentDisplayName = devpiano::layout::getLayoutPresetDisplayNameForFile(fileToRename);
 
+    runLayoutRenameDialog(layoutId, fileToRename, currentDisplayName);
+}
+
+void MainComponent::handleDeleteLayoutRequested()
+{
+    auto layoutId = controlsPanel.getSelectedLayoutId();
+    if (layoutId.isEmpty() || layoutId.startsWith("default."))
+        return;
+
+    auto layoutName = layoutId;
+    juce::File fileToDelete;
+    if (auto layoutFile = findUserLayoutFileById(layoutId); layoutFile.has_value())
+    {
+        layoutName = layoutFile->second.name.isNotEmpty() ? layoutFile->second.name : layoutId;
+        fileToDelete = layoutFile->first;
+    }
+
+    runLayoutDeleteDialog(layoutId, fileToDelete, layoutName);
+}
+
+void MainComponent::applyLayoutAndCommit(const devpiano::core::KeyboardLayout& layout)
+{
+    audioEngine.getKeyboardState().allNotesOff(1);
+    keyboardMidiMapper.setLayout(layout);
+    appSettings.applyInputMappingSettingsView({ .layoutId = keyboardMidiMapper.getLayout().id,
+                                                .keyMap = SettingsModel::layoutToKeyMap(keyboardMidiMapper.getLayout()) });
+    syncUiFromSettings();
+    saveSettingsSoon();
+    restoreKeyboardFocus();
+}
+
+void MainComponent::runLayoutFileChooser(const juce::String& title,
+                                         const juce::File& startingDir,
+                                         juce::FileBrowserComponent::FileChooserFlags chooserFlags,
+                                         std::unique_ptr<juce::FileChooser>& chooser,
+                                         std::function<void(const juce::File&)> onResult)
+{
+    chooser = std::make_unique<juce::FileChooser>(title, startingDir, "*.freepiano.layout");
+    chooser->launchAsync(chooserFlags, [this, &chooser, onResult = std::move(onResult)](const juce::FileChooser& fc)
+    {
+        auto file = fc.getResult();
+        if (file == juce::File())
+            return;
+
+        onResult(file);
+        chooser.reset();
+    });
+}
+
+void MainComponent::runLayoutRenameDialog(const juce::String& layoutId,
+                                          const juce::File& /*file*/,
+                                          const juce::String& currentDisplayName)
+{
     auto* renameWindow = new juce::AlertWindow("Rename Layout",
                                                "Set the display name shown in the layout dropdown.",
                                                juce::AlertWindow::NoIcon);
@@ -635,28 +659,19 @@ void MainComponent::handleRenameLayoutRequested()
                                   true);
 }
 
-void MainComponent::handleDeleteLayoutRequested()
+void MainComponent::runLayoutDeleteDialog(const juce::String& layoutId,
+                                          const juce::File& file,
+                                          const juce::String& displayName)
 {
-    auto layoutId = controlsPanel.getSelectedLayoutId();
-    if (layoutId.isEmpty() || layoutId.startsWith("default."))
-        return;
-    auto layoutName = layoutId;
-    juce::File fileToDelete;
-    if (auto layoutFile = findUserLayoutFileById(layoutId); layoutFile.has_value())
-    {
-        layoutName = layoutFile->second.name.isNotEmpty() ? layoutFile->second.name : layoutId;
-        fileToDelete = layoutFile->first;
-    }
-
     auto safeThis = juce::Component::SafePointer<MainComponent>(this);
     auto capturedLayoutId = layoutId;
-    auto capturedFileToDelete = fileToDelete;
+    auto capturedFileToDelete = file;
 
     juce::AlertWindow::showAsync(
         juce::MessageBoxOptions::makeOptionsOkCancel(
             juce::AlertWindow::WarningIcon,
             "Delete Layout",
-            "Are you sure you want to delete \"" + layoutName + "\"?\nThis action cannot be undone.",
+            "Are you sure you want to delete \"" + displayName + "\"?\nThis action cannot be undone.",
             "Delete",
             "Cancel"),
         [safeThis, capturedLayoutId, capturedFileToDelete](int result)
