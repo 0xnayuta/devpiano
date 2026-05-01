@@ -146,6 +146,12 @@ public:
             setFullScreen (true);
            #else
             setResizable (true, true);
+            if (auto* mainComponent = dynamic_cast<MainComponent*> (getContentComponent()))
+            {
+                const auto limits = MainComponent::getMainContentResizeLimits();
+                setResizeLimits (limits.getX(), limits.getY(), limits.getWidth(), limits.getHeight());
+                mainComponent->persistMainContentSize (mainComponent->getWidth(), mainComponent->getHeight());
+            }
             centreWithSize (getWidth(), getHeight());
            #endif
 
@@ -175,6 +181,17 @@ public:
         void closeButtonPressed() override
         {
             JUCEApplication::getInstance()->systemRequestedQuit();
+        }
+
+        void resized() override
+        {
+            DocumentWindow::resized();
+
+            if (! isVisible())
+                return;
+
+            if (auto* mainComponent = dynamic_cast<MainComponent*> (getContentComponent()))
+                mainComponent->persistMainContentSize (mainComponent->getWidth(), mainComponent->getHeight());
         }
 
         void activeWindowStatusChanged() override

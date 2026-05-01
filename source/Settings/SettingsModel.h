@@ -78,6 +78,10 @@ struct SettingsModel
     juce::String lastMidiImportPath;
     juce::String lastMidiExportPath;
 
+    // Persisted main content size. Zero means unset; startup will use preferred size.
+    int mainWindowWidth = 0;
+    int mainWindowHeight = 0;
+
     [[nodiscard]] AudioSettingsView getAudioSettingsView() const
     {
         return { .sampleRate = sampleRate,
