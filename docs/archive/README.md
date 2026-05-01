@@ -6,3 +6,5 @@
 
 | 归档文档 | 当前替代文档 |
 |---|---|
+| `phase5-architecture-convergence.md` | `docs/roadmap/current-iteration.md`、`docs/architecture/overview.md` |
+| `phase2-3-implementation-backlog.md` | `docs/roadmap/roadmap.md` |
