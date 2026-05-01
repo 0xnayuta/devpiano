@@ -8,6 +8,8 @@
 
 当前活跃阶段：**Phase 5：架构收敛与 MainComponent 瘦身**
 
+当前插入优先事项：**启动 / 音频重建早期首音音高异常修复**。该问题影响虚拟键盘、实体电脑键盘、内置 fallback synth 与 VST3 插件；应先修复音频设备生命周期，再继续 5.8c-5.8e 瘦身。
+
 Phase 5.1-5.7 已完成（2026-05-01）：MainComponent 职责下沉，包括录制会话状态结构化、导出流程统一、布局 CRUD 收敛、设置窗口收敛、AppState 清理、ControlsPanel 按钮状态统一、MIDI 导入流程下沉。
 
 当前 `MainComponent.cpp` 930 行（5.8a+5.8b 完成后），已低于 1200 行目标。
@@ -15,6 +17,53 @@ Phase 5.1-5.7 已完成（2026-05-01）：MainComponent 职责下沉，包括录
 ---
 
 **搁置说明**：外部 MIDI 硬件依赖验证和 VST3 插件离线渲染（Phase 3-5）因当前条件暂无法测试，状态已记录至 `docs/testing/phase3-recording-playback.md`。
+
+---
+
+## 当前插入缺陷：启动 / 音频重建早期首音音高异常
+
+### 现象
+
+- 程序启动后立即弹奏，首个音或启动后数秒内多个音会出现音高变化和异常音色。
+- 等待数秒后再演奏，音高恢复稳定且正确。
+- 无外部 MIDI 设备时仍复现；鼠标点击虚拟键盘、实体电脑键盘、内置 fallback synth、VST3 插件均受影响。
+- 手动加载 / 卸载插件后也会再次出现。
+- Windows Audio / DirectSound 均可复现；当前观察到 live device 为 `48000 Hz / 480 samples`。
+
+### 当前根因判断
+
+外部 MIDI pitch wheel / controller 脏状态已基本排除。当前最可疑根因是 `MainComponent::initialiseAudioDevice()` 双阶段初始化：
+
+1. `setAudioChannels(0, 2)` 已经会初始化音频设备、注册 audio callback 并触发 `prepareToPlay()`。
+2. 随后如果存在保存的 audio device XML，又调用 `deviceManager.initialise(0, 2, xml, true)`，导致音频设备在 callback 已挂载后再次初始化。
+3. 启动 / 重建早期可能短暂经过默认 sample rate / buffer，再切换到最终 live 配置。
+4. 内置 synth 和 VST3 插件都依赖 prepare sample rate，因此同一生命周期问题可同时影响两条发声路径。
+
+次要风险：音频停止 / 重启期间 UI 仍可能向 `MidiKeyboardState` 写入 note 事件；这些事件使用 wall-clock timestamp，音频恢复后可能被压缩到首个 block。
+
+详细问题记录与修复方案见：[`../testing/known-issues.md`](../testing/known-issues.md) §2。
+
+### 推荐修复顺序
+
+1. **先修 `MainComponent::initialiseAudioDevice()` 双初始化**
+   - 将保存的 XML 作为第三个参数传给 `setAudioChannels(0, 2, state)`。
+   - 删除后续手动 `deviceManager.initialise(...)`。
+2. **加最小日志确认启动 / 手动 load-unload 后 prepare 时序**
+   - 观察 `MainComponent::prepareToPlay()`、`AudioEngine::prepareToPlay()`、`PluginHost::prepareToPlay()`、`SimpleSineVoice::startNote()`。
+3. **若仍复现，再加 input ready-gate / warmup blocks**
+   - audio not ready 时阻止实体键盘和虚拟键盘写入 `MidiKeyboardState`。
+   - `prepareToPlay()` 后可丢弃前 3-5 个 warmup blocks，并清理 pending keyboard events。
+
+### 修复后最小回归
+
+- 无 VST：启动后立即点击虚拟键盘，首音稳定。
+- 无 VST：启动后立即按实体键盘，首音稳定。
+- 自动恢复 VST：启动后立即弹奏，首音稳定。
+- 手动加载 VST 后立即弹奏，首音稳定。
+- 手动卸载回内置 synth 后立即弹奏，首音稳定。
+- Windows Audio 与 DirectSound 下均稳定。
+
+---
 
 ## Phase 5.8 瘦身分析
 
