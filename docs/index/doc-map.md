@@ -25,4 +25,5 @@
 - 阶段验收：[`../testing/acceptance.md`](../testing/acceptance.md)
 - 录制 / 回放 / MIDI 导出设计：[`../features/M6-recording-playback.md`](../features/M6-recording-playback.md)
 - 录制 / 回放 / MIDI 导出测试：[`../testing/recording-playback.md`](../testing/recording-playback.md)
+- MIDI 文件导入与回放测试（M8）：[`../testing/midi-file-import.md`](../testing/midi-file-import.md)
 - WSL / Windows 混合工作流：[`../development/wsl-windows-msvc-workflow.md`](../development/wsl-windows-msvc-workflow.md)

@@ -6,11 +6,11 @@
 
 ## 当前状态
 
-当前活跃迭代：**M6 录制 / 回放 / MIDI 导出 MVP（含 WAV 离线渲染 M6-6a/b/c/d）全部完成，Section 5 MainComponent 录制/回放/导出状态流收敛（MC-1..MC-4）全部完成，下一目标待定**。
+当前活跃迭代：**M8 MIDI 文件导入与回放兼容性增强**。M6 录制 / 回放 / MIDI 导出 MVP（含 WAV 离线渲染 M6-6a/b/c/d）和 Section 5 MainComponent 录制/回放/导出状态流收敛（MC-1..MC-4）已完成。
 
 上一轮已完成：MainComponent 插件流程初步收敛、键盘映射默认布局回归、布局 Preset 核心能力、录制 / 停止 / 回放 / MIDI 导出 / WAV 离线渲染（M6-6a/b/c/d）全部收尾，E.1–E.9 全部通过。
 
-当前项目已经从"主链路打通 / MVP 恢复"进入下一阶段。
+当前项目已经从"主链路打通 / MVP 恢复"进入 M8 MIDI 文件能力补齐阶段。
 
 ---
 
@@ -18,12 +18,25 @@
 
 ## 本轮目标
 
-本轮已完成 M6 录制 / 回放 / MIDI 导出 MVP（含 WAV 离线渲染 M6-6a/b/c/d），E.1–E.9 全部通过。
+本轮聚焦 M8 MIDI 文件导入 MVP 与外部 MIDI 兼容性增强。
+
+已完成：
+
+- [x] M8-1：Import MIDI 按钮、MIDI 文件导入为 `RecordingTake`、导入后回放、最近导入路径记忆。
+- [x] M8-1b：自动选择含 note 最多的轨道（兼容性修正），2026-05-01 人工验收通过。
+
+M8-1b 人工验收记录（2026-05-01）：
+
+- [x] track 0 只有 tempo/meta、track 1+ 有 note 的 MIDI 文件可自动选择有 note 的轨道并回放。
+- [x] Logger 输出总轨数、每轨 note 事件数、选中的 track index、被忽略轨道数。
+- [x] 所有轨道都没有 note 时安全返回失败并写 Logger，不崩溃。
+- [x] 本程序导出的单轨 MIDI 文件仍正常导入回放。
 
 剩余方向：
 
-- Section 4：插件扫描产品化增强排期（不阻塞当前迭代）。
-- Section 5：MainComponent 录制 / 回放 / 导出状态流收敛（小步进行，不大规模重写）。
+- M8-6：MIDI playback 虚拟键盘可视化（M8-later，可选）。
+- M8-7：主窗口尺寸自适应与恢复（M8-later，可选）。
+- M8-5：合并所有轨道 note 到单一 timeline（后续增强，暂不默认启用）。
 
 已搁置（待硬件条件恢复）：
 
