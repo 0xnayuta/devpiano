@@ -62,12 +62,15 @@
 - [x] 回放结束后 UI 状态回到 idle。
 - [x] Import MIDI 后 Stop，Export MIDI / Export WAV 保持 disabled，不把导入 playback take 当作可导出录制 take。
 - [x] 播放 A.mid 时导入 B.mid，旧 playback 音符会被停止，不产生持续残留音。
+- [x] Recording 期间 Import MIDI 按钮禁用，避免录制 take 与导入 playback take 状态冲突。
+- [x] Playing 期间 Import MIDI 按钮保持可用，选择 B.mid 时会先停止 A.mid playback，再导入并播放 B.mid。
 
 回归重点：
 
 - 导入失败路径必须安全返回。
 - 切换导入文件时必须释放旧播放中的 active notes。
 - 导入 playback take 不应开启导出按钮。
+- 录制期间只允许 Stop 等安全操作，Import MIDI 不应可点击。
 
 ## 5. M8-1b：自动选择含 note 最多的轨道
 
@@ -88,7 +91,7 @@
 
 ## 6. M8-2：MIDI import playback 边界 + 多轨/tempo 处理
 
-状态：边界已定义 / 部分由 M8-1b 覆盖。
+状态：边界已定义并通过 2026-05-01 人工验收；多轨、非 960 PPQ、tempo meta event 和复杂 tempo map 限制均未发现明显问题。
 
 决定：导入的 MIDI playback take 禁止再次导出为 MIDI。用户已有原始 `.mid` 文件，没有“导入后再导出 MIDI”的需求；导入 MIDI 后允许导出 WAV 的需求归入 M6-6e 后续计划，当前暂时搁置。
 
@@ -97,10 +100,10 @@
 - [x] 单轨 `.mid`：导入 → 回放正常；Stop 后 Export MIDI / Export WAV 保持 disabled。
 - [x] 导入 `.mid` 后不提供“再导出 MIDI”的用户路径；这是预期边界而非缺陷。
 - [~] 导入 `.mid` 后导出 WAV：后续需求，归入 M6-6e 并暂时搁置。
-- [ ] 多轨 `.mid`：Logger 清晰提示选中轨道和忽略轨道，不崩溃。
-- [ ] 非 960 PPQ `.mid`：导入后播放速度不因强制 PPQ 覆盖而明显错误。
-- [ ] 有 tempo meta event 的 `.mid`：导入后事件时间线基本符合原文件。
-- [ ] 复杂 tempo map 的限制已在 Logger 或文档中明确，不误写为完整支持。
+- [x] 多轨 `.mid`：Logger 清晰提示选中轨道和忽略轨道，不崩溃。
+- [x] 非 960 PPQ `.mid`：导入后播放速度不因强制 PPQ 覆盖而明显错误。
+- [x] 有 tempo meta event 的 `.mid`：导入后事件时间线基本符合原文件。
+- [x] 复杂 tempo map 的限制已在 Logger 或文档中明确，不误写为完整支持。
 
 ## 7. M8-3：最近路径记忆 + 回放控制小增强
 
@@ -156,6 +159,7 @@
 - [ ] Type 1 / track 0 meta-only 文件可自动选择 note-rich track。
 - [ ] 空文件或无 note MIDI 安全失败。
 - [ ] 播放中导入另一个 MIDI 不留下旧音符持续发声。
+- [ ] Record 期间 Import MIDI 按钮禁用；Stop 回到 Idle 后恢复可用。
 - [ ] Import MIDI 后 Stop，Export MIDI / WAV 仍 disabled。
 - [ ] `./scripts/dev.sh wsl-build --configure-only` 通过。
 - [ ] `./scripts/dev.sh win-build` 通过。

@@ -24,6 +24,8 @@
 
 - [x] M8-1：Import MIDI 按钮、MIDI 文件导入为 `RecordingTake`、导入后回放、最近导入路径记忆。
 - [x] M8-1b：自动选择含 note 最多的轨道（兼容性修正），2026-05-01 人工验收通过。
+- [x] M8-1c：Import MIDI 按钮状态纳入录制 / 回放统一管理，Recording 期间禁用、Playing 期间保持可安全替换 playback，2026-05-01 人工验收通过。
+- [x] M8-2：MIDI import playback 边界 + 多轨/tempo 处理，2026-05-01 人工验收未发现明显问题。
 - [x] M8-6：MIDI playback 虚拟键盘可视化，2026-05-01 人工验收通过。
 - [x] M8-7：主窗口尺寸自适应与恢复（UI polish），2026-05-01 人工验收通过。
 
@@ -33,6 +35,13 @@ M8-1b 人工验收记录（2026-05-01）：
 - [x] Logger 输出总轨数、每轨 note 事件数、选中的 track index、被忽略轨道数。
 - [x] 所有轨道都没有 note 时安全返回失败并写 Logger，不崩溃。
 - [x] 本程序导出的单轨 MIDI 文件仍正常导入回放。
+
+M8-1c 人工验收记录（2026-05-01）：
+
+- [x] 点击 Record 后，Import MIDI 按钮禁用。
+- [x] 点击 Stop 回到 Idle 后，Import MIDI 按钮恢复可用。
+- [x] MIDI playback 期间，Import MIDI 按钮保持可用；选择另一个 MIDI 文件时会先停止当前 playback，再导入并播放新文件。
+- [x] Record / Play / Stop / Back / Import MIDI / Export MIDI / Export WAV 已统一通过 `ControlsPanel` 的录制 / 回放按钮状态刷新逻辑管理。
 
 M8-7 人工验收记录（2026-05-01）：
 
@@ -61,18 +70,19 @@ M8-6 人工验收记录（2026-05-01）：
 
 ## 本轮优先任务
 
-### M8 中途审查结论（2026-05-01）
+### M8 收尾审查结论（2026-05-01）
 
-- [x] M8-1 / M8-1b / M8-3 / M8-6 / M8-7 已实现并通过人工验收。
-- [x] M8-2 语义已收敛：导入 playback take 禁止再次导出 MIDI；用户已有原始 `.mid` 文件，不需要“导入 → MIDI 再导出”路径。导入 MIDI 后允许导出 WAV 归入 M6-6e，暂时搁置。
+- [x] M8-1 / M8-1b / M8-1c / M8-2 / M8-3 / M8-6 / M8-7 已实现并通过人工验收。
+- [x] M8-2 已实现并通过人工验收：导入 playback take 禁止再次导出 MIDI；用户已有原始 `.mid` 文件，不需要“导入 → MIDI 再导出”路径。多轨、非 960 PPQ、tempo meta event 和复杂 tempo map 限制均未发现明显问题。导入 MIDI 后允许导出 WAV 归入 M6-6e，暂时搁置。
 - [x] M8-3 已实现并通过人工验收：最近导入/导出路径记忆已接入；播放中点击 `Back` 可从当前 take 开头重新播放。
 - [~] M8-5 已搁置：仍保持 note-rich 单轨导入，不合并所有轨道；这是当前推荐模式。
 
 推荐剩余顺序：
 
-1. 保持 M8-2 当前边界：导入 MIDI 可播放但不可再导出 MIDI；导入后 WAV 导出转入 M6-6e backlog。
-2. 继续搁置 M8-5 merge-all；当前保留 note-rich 单轨选择为默认模式。
-3. 后续仅在需要时补低风险体验项或专项回归。
+1. 执行 M8 收尾：确认 git diff、保留 M8-5 / M6-6e 搁置边界、按需提交本轮文档与代码修改。
+2. 保持 M8-2 当前边界：导入 MIDI 可播放但不可再导出 MIDI；导入后 WAV 导出转入 M6-6e backlog。
+3. 继续搁置 M8-5 merge-all；当前保留 note-rich 单轨选择为默认模式。
+4. 后续仅在需要时补低风险体验项或专项回归。
 
 以下 Section 3–5 为 M6/MC 历史完成记录，当前 M8 任务状态以上方清单为准。
 

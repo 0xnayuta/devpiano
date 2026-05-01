@@ -211,20 +211,28 @@ void ControlsPanel::resized()
 void ControlsPanel::setRecordingState(RecordingState state)
 {
     recordingState = state;
+
+    updateRecordingActionButtons();
+}
+
+void ControlsPanel::updateRecordingActionButtons()
+{
     juce::String statusText;
     auto recordEnabled = true;
     auto playEnabled = hasTake;
     auto stopEnabled = false;
     auto backToStartEnabled = hasTake;
     auto exportEnabled = hasTake && canExportTake;
+    auto importMidiEnabled = true;
 
-    switch (state)
+    switch (recordingState)
     {
         case RecordingState::idle:
             statusText = "Idle";
             playEnabled = hasTake;
             backToStartEnabled = hasTake;
             exportEnabled = hasTake && canExportTake;
+            importMidiEnabled = true;
             break;
         case RecordingState::recording:
             statusText = "Recording";
@@ -232,6 +240,7 @@ void ControlsPanel::setRecordingState(RecordingState state)
             playEnabled = false;
             backToStartEnabled = false;
             exportEnabled = false;
+            importMidiEnabled = false;
             stopEnabled = true;
             break;
         case RecordingState::playing:
@@ -240,6 +249,7 @@ void ControlsPanel::setRecordingState(RecordingState state)
             playEnabled = false;
             backToStartEnabled = hasTake;
             exportEnabled = false;
+            importMidiEnabled = true;
             stopEnabled = true;
             break;
     }
@@ -249,6 +259,7 @@ void ControlsPanel::setRecordingState(RecordingState state)
     playButton.setEnabled(playEnabled);
     stopButton.setEnabled(stopEnabled);
     backToStartButton.setEnabled(backToStartEnabled);
+    importMidiButton.setEnabled(importMidiEnabled);
     exportMidiButton.setEnabled(exportEnabled);
     exportWavButton.setEnabled(exportEnabled);
 }
@@ -256,25 +267,13 @@ void ControlsPanel::setRecordingState(RecordingState state)
 void ControlsPanel::setHasTake(bool value)
 {
     hasTake = value;
-    if (recordingState == RecordingState::idle)
-    {
-        exportMidiButton.setEnabled(hasTake && canExportTake);
-        exportWavButton.setEnabled(hasTake && canExportTake);
-    }
-    if (recordingState != RecordingState::recording && recordingState != RecordingState::playing)
-        playButton.setEnabled(hasTake);
-    if (recordingState != RecordingState::recording)
-        backToStartButton.setEnabled(hasTake);
+    updateRecordingActionButtons();
 }
 
 void ControlsPanel::setCanExportTake(bool value)
 {
     canExportTake = value;
-    if (recordingState == RecordingState::idle)
-    {
-        exportMidiButton.setEnabled(hasTake && canExportTake);
-        exportWavButton.setEnabled(hasTake && canExportTake);
-    }
+    updateRecordingActionButtons();
 }
 
 void ControlsPanel::setValues(float masterGain,

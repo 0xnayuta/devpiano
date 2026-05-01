@@ -50,6 +50,7 @@ public:
 
 private:
     [[nodiscard]] static juce::String makeLayoutDisplayName(const juce::String& layoutId);
+    void updateRecordingActionButtons();
     void updateLayoutActionButtons();
 
     void configureSlider(juce::Slider& slider,
