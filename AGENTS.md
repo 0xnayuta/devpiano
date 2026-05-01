@@ -198,12 +198,6 @@
 ./scripts/dev.sh wsl-build --configure-only
 ```
 
-### 8.2 `Understand-Anything`
-
-- 在“理解旧系统”“梳理架构”“分析模块关系”“规划迁移路径”时，优先使用 `understand` 系列技能。
-- 在开始迁移旧模块前、分析旧 FreePiano 主流程前、复盘当前 JUCE 架构前，优先做阶段性 `understand` 分析。
-- 不要在每次小改动后都调用 `understand`；只在阶段性、大粒度分析时使用。
-
 ---
 
 ## 9. 推荐工作流
