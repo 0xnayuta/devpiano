@@ -76,13 +76,14 @@ M8 MIDI 文件导入与回放兼容性增强已收尾：M8-1 / M8-1b / M8-1c / M
 - **风险**：低中——涉及文件操作和异步对话框，需仔细保持行为一致。
 - **状态**：已完成（2026-05-01）。`applyLayoutAndCommit()` 统一了 allNotesOff + setLayout + applyInputMapping + syncUi + save + restoreFocus 模式；`runLayoutFileChooser()` 统一了 FileChooser 创建和 async launch；`runLayoutRenameDialog()` 和 `runLayoutDeleteDialog()` 分别封装了 rename 和 delete 对话框逻辑；WSL configure 和 Windows MSVC build 均通过（无警告）。
 
-### AH-4：设置窗口生命周期收敛
+### AH-4：设置窗口生命周期收敛（已完成）
 
 - **目标**：将 `showSettingsDialog()` / `closeSettingsWindowAsync()` / `isSettingsWindowDirty()` / `saveAndCloseSettingsWindow()` 等设置窗口管理逻辑抽到独立 helper。
-- **修改范围**：新增 `source/Settings/SettingsWindowFlowSupport.*`（或等价）、`source/MainComponent.cpp`（简化设置窗口相关方法）。
+- **修改范围**：`source/MainComponent.h`（新增 `getSettingsContent()` 声明）、`source/MainComponent.cpp`（新增 `getSettingsContent()` 实现，简化 `isSettingsWindowDirty()`）。
 - **不做**：不改变 `SettingsComponent` 内部实现；不改变设置持久化逻辑。
 - **完成标准**：设置窗口相关方法从约 100 行收敛到约 30 行；MainComponent 只保留窗口拥有权。
 - **风险**：低——设置窗口生命周期相对独立。
+- **状态**：已完成（2026-05-01）。`getSettingsContent()` 统一了 `settingsWindow` 空检查和 `dynamic_cast` 模式；`isSettingsWindowDirty()` 从 7 行缩减为 4 行；WSL configure 和 Windows MSVC build 均通过。
 
 ### AH-5：AppState 清理（可选）
 
@@ -113,7 +114,7 @@ M8 MIDI 文件导入与回放兼容性增强已收尾：M8-1 / M8-1b / M8-1c / M
 - [x] AH-1 完成：录制会话状态从 3 个字段收敛为 1 个结构体。（2026-05-01）
 - [x] AH-2 完成：导出 handler 重复代码减少 15+ 行。（2026-05-01）
 - [x] AH-3 完成：布局 CRUD handler 从约 200 行收敛到约 80 行。（2026-05-01）
-- [ ] AH-4 完成：设置窗口管理从约 100 行收敛到约 30 行。
+- [x] AH-4 完成：设置窗口管理从约 100 行收敛到约 30 行。（2026-05-01）
 - [ ] AH-5 完成（可选）：AppState PluginState 清理 UI 派生字段。
 - [ ] 所有切片完成后，现有键盘演奏、插件加载、录制/回放/MIDI/WAV 导出、MIDI 导入、布局 preset 行为不回退。
 - [ ] `MainComponent.cpp` 总行数从 1555 行下降到 1200 行以下。
