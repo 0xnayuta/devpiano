@@ -25,7 +25,76 @@
 
 ---
 
-## 2. VST3 插件离线渲染（Phase 3-5，后置）
+## 2. 启动 / 音频重建早期首音音高异常（待修复）
+
+> 触发条件：程序启动后尽快弹奏，或手动加载 / 卸载插件导致音频设备重建后立即弹奏。  
+> 影响范围：无外部 MIDI 设备时也可复现；鼠标点击虚拟键盘、实体电脑键盘、内置 fallback synth、VST3 插件、Windows Audio / DirectSound 均受影响。  
+> 当前观察环境：live audio device 为 `48000 Hz / 480 samples`。
+
+### 现象
+
+- 打开 devpiano 后，立即按下的第一个音，或启动后数秒内按下的多个音，音调会改变并伴随异常音色。
+- 等待数秒后再演奏，音高恢复稳定且正确。
+- 手动加载 / 卸载插件后，类似异常会再次出现。
+
+### 当前判断
+
+外部 MIDI pitch wheel / controller 脏状态已基本排除：当前无外部 MIDI 设备，且内置 synth 与 VST3 插件均可复现。
+
+最可疑根因是 `MainComponent::initialiseAudioDevice()` 中的双阶段初始化：
+
+1. 先调用 `setAudioChannels(0, 2)`，JUCE 会初始化音频设备、注册 audio callback 并触发 `prepareToPlay()`。
+2. 如果存在保存的 audio device XML，又直接调用 `deviceManager.initialise(0, 2, xml, true)`，导致设备在 callback 已挂载后再次初始化。
+3. 启动 / 重建早期可能经历临时 sample rate / buffer，例如默认 `44100 / 512`，随后才进入最终 live 配置 `48000 / 480`。
+4. 内置 `SimpleSineVoice::startNote()` 使用 voice 的 sample rate 计算 oscillator increment；VST3 插件也依赖 prepare sample rate。若首音跨越临时 / 最终 sample rate，听感会表现为音高偏移或怪音。
+
+次要风险是音频停止 / 重启期间 UI 仍可向 `MidiKeyboardState` 写入 note 事件。JUCE `MidiKeyboardState::noteOn()` 使用 wall-clock timestamp，下一次 `processNextMidiBuffer()` 会把积累事件缩放到当前 audio block；若音频正处于重建窗口，首批事件可能延迟、压缩或集中触发。
+
+### 推荐修复顺序
+
+1. **修正音频设备双初始化（第一优先级）**
+   - 文件：`source/MainComponent.cpp`
+   - 函数：`MainComponent::initialiseAudioDevice()`
+   - 做法：将保存的 XML 直接传给 `setAudioChannels(0, 2, state)`，删除后续手动 `deviceManager.initialise(...)`。
+
+   ```cpp
+   void MainComponent::initialiseAudioDevice()
+   {
+       const auto audioSettings = appSettings.getAudioSettingsView();
+       const auto* state = (audioSettings.hasSerializedDeviceState && appSettings.audioDeviceState != nullptr)
+                           ? appSettings.audioDeviceState.get()
+                           : nullptr;
+
+       setAudioChannels(0, 2, state);
+
+       captureAudioDeviceState();
+       logCurrentAudioDeviceDiagnostics("initialiseAudioDevice");
+   }
+   ```
+
+2. **加日志确认 sample-rate / prepare 时序**
+   - 观察点：`MainComponent::prepareToPlay()`、`AudioEngine::prepareToPlay()`、`PluginHost::prepareToPlay()`、`SimpleSineVoice::startNote()`。
+   - 重点确认启动和手动 load / unload 后是否只剩最终 `48000 / 480` prepare，是否仍出现 `44100 -> 48000` 或多次 prepare transient。
+
+3. **若仍复现，再加输入 ready-gate / warmup**
+   - `AudioEngine` 增加 ready 状态：`prepareToPlay()` 完成后允许输入，`releaseResources()` / rebuild 前禁止输入。
+   - `MainComponent::keyPressed()` / `keyStateChanged()` 在 audio not ready 时不向 `MidiKeyboardState` 发 note。
+   - 虚拟键盘在 audio not ready 时禁用鼠标输入。
+   - 可选：`prepareToPlay()` 后丢弃前 3-5 个 warmup blocks，并清理 pending keyboard events。
+
+### 修复后回归
+
+- 无 VST，启动后立即点击虚拟键盘：首音稳定。
+- 无 VST，启动后立即按实体键盘：首音稳定。
+- 自动恢复 VST 后立即弹奏：首音稳定。
+- 手动加载 VST 后立即弹奏：首音稳定。
+- 手动卸载回内置 synth 后立即弹奏：首音稳定。
+- Windows Audio 与 DirectSound 下均不再出现启动早期音高异常。
+- 快速连续按多个音：不压缩、不乱触发、不丢 note-off。
+
+---
+
+## 3. VST3 插件离线渲染（Phase 3-5，后置）
 
 > 触发条件：用户期望用已加载的 VST3 插件音色导出 WAV。
 > 影响范围：当前 WAV 导出仅支持 fallback synth。
@@ -41,7 +110,7 @@
 
 ---
 
-## 3. 录制 / 回放下一阶段重点
+## 4. 录制 / 回放下一阶段重点
 
 > 触发条件：Phase 3 MVP 主链路已接入，但实时音频线程边界、回放结束通知、采样率缩放和 Stop 清理悬挂音路径仍是下一阶段稳定化重点。
 
@@ -57,7 +126,7 @@
 
 ---
 
-## 4. 插件生命周期退出告警（低优先级持续观察）
+## 5. 插件生命周期退出告警（低优先级持续观察）
 
 > 触发条件：特定插件或 Debug 注入环境下退出阶段可能出现 JUCE / VST3 调试告警。
 
@@ -72,7 +141,7 @@
 
 ---
 
-## 5. 布局 Preset ID 冲突（低优先级）
+## 6. 布局 Preset ID 冲突（低优先级）
 
 > 触发条件：用户导入同名 preset 文件时。
 
@@ -87,13 +156,13 @@
 
 ---
 
-## 6. 构建与环境
+## 7. 构建与环境
 
 > WSL / Windows 镜像构建环境问题见 [`../development/troubleshooting.md`](../development/troubleshooting.md)。
 
 ---
 
-## 7. 已完成验证项（不作为风险）
+## 8. 已完成验证项（不作为风险）
 
 以下条目已通过 2026-04-30 人工验证，无已知明显问题：
 
