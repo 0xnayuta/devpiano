@@ -18,37 +18,37 @@ Phase 5.1-5.7 已完成（2026-05-01）：MainComponent 职责下沉，包括录
 
 ## Phase 5.1-5.7 完成记录
 
-### 5.1：录制会话状态结构化（原 AH-1）
+### 5.1：录制会话状态结构化（Phase 5-5）
 
 - **目标**：将 `currentTake` + `currentRecordingState` + `currentTakeCanBeExported` 合并为单一 `RecordingSession` 结构体。
 - **状态**：已完成（2026-05-01）。`RecordingSession` 结构体包含 `take`、`canExportMidi`、`state` 三个字段和便捷方法。
 
-### 5.2：导出流程统一（原 AH-2）
+### 5.2：导出流程统一（Phase 5-6）
 
 - **目标**：将 `handleExportMidiClicked()` 和 `handleExportWavClicked()` 中的重复模式统一为 `runExportRecordingFlow()`。
 - **状态**：已完成（2026-05-01）。两个导出 handler 各缩减为约 10 行。
 
-### 5.3：布局 CRUD 流程收敛（原 AH-3）
+### 5.3：布局 CRUD 流程收敛（Phase 5-7）
 
 - **目标**：将布局 handler 中的流程性逻辑抽到 `applyLayoutAndCommit()`、`runLayoutFileChooser()` 等 helper。
 - **状态**：已完成（2026-05-01）。布局相关 handler 从约 200 行收敛到约 80 行。
 
-### 5.4：设置窗口生命周期收敛（原 AH-4）
+### 5.4：设置窗口生命周期收敛（Phase 5-8）
 
 - **目标**：将设置窗口管理逻辑抽到 `getSettingsContent()` 等 helper。
 - **状态**：已完成（2026-05-01）。设置窗口相关方法从约 100 行收敛到约 30 行。
 
-### 5.5：AppState 清理（原 AH-5）
+### 5.5：AppState 清理（Phase 5-9）
 
 - **目标**：移除 `PluginState` / `RuntimePluginState` 中的 UI 派生字段。
 - **状态**：已完成（2026-05-01）。移除 `pluginListText`、`availableFormatsDescription` 两个字段。
 
-### 5.6：ControlsPanel 按钮状态统一（原 AH-6）
+### 5.6：ControlsPanel 按钮状态统一（Phase 5-10）
 
 - **目标**：将录制/回放/导入导出按钮的 enabled 状态收敛为单一 `RecordingControlsState`。
 - **状态**：已完成（2026-05-01）。`syncRecordingSessionToUi()` 改为单一 `setRecordingControlsState()` 入口。
 
-### 5.7：MIDI 导入流程下沉（原 AH-7）
+### 5.7：MIDI 导入流程下沉（Phase 5-11）
 
 - **目标**：将 `handleImportMidiClicked()` 收敛为 FileChooser 生命周期 + 顶层编排。
 - **状态**：已完成（2026-05-01）。抽出 `getLastMidiImportDirectory()`、`tryImportMidiFile()`、`replaceTakeAndStartPlayback()` 三个 helper。

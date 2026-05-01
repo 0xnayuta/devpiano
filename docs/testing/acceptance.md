@@ -12,7 +12,7 @@
 - [ ] 未通过 / 未开始验证
 - [~] 部分通过 / 待补充验证
 
-## M0：工程骨架可运行
+## Phase 1-1：工程骨架可运行
 
 状态：已通过。
 
@@ -25,7 +25,7 @@
 - [x] 音频设备能初始化。
 - [x] 没有因缺失 JUCE 子模块导致构建失败。
 
-## M1：最小演奏链路成立
+## Phase 1-2：最小演奏链路成立
 
 状态：已通过。
 
@@ -39,7 +39,7 @@
 - [x] 长按按键时不会异常重复触发。
 - [x] 切换窗口焦点后 held key 不残留。
 
-## M2：最小插件扫描能力成立
+## Phase 2：最小插件扫描能力成立
 
 状态：已通过。
 
@@ -50,13 +50,13 @@
 - [x] 输入默认或指定 VST3 搜索路径后可执行扫描。
 - [x] 扫描完成后可在界面列出插件名称。
 - [x] 扫描失败不会导致程序崩溃。
-- [x] 扫描失败文件可清晰记录（M3-P1：失败路径写入 Logger，UI 摘要提示 `see log`）。
-- [x] 多目录搜索路径表现稳定（M3-P2：`FileSearchPath` 语义多目录字符串，过滤无效目录并持久化规范化路径）。
-- [x] 扫描路径与最近插件恢复信息可持久化（M3-P3：`KnownPluginList` XML 缓存，启动优先恢复，失败时回退重扫）。
+- [x] 扫描失败文件可清晰记录（Phase 2-1：失败路径写入 Logger，UI 摘要提示 `see log`）。
+- [x] 多目录搜索路径表现稳定（Phase 2-2：`FileSearchPath` 语义多目录字符串，过滤无效目录并持久化规范化路径）。
+- [x] 扫描路径与最近插件恢复信息可持久化（Phase 2-3：`KnownPluginList` XML 缓存，启动优先恢复，失败时回退重扫）。
 
-专项插件扫描产品化增强（M3-P1..P4）已全部完成并通过 2026-04-30 人工验证。
+专项插件扫描产品化增强（Phase 2-1..2-4）已全部完成并通过 2026-04-30 人工验证。
 
-## M3：插件实例化并发声
+## Phase 2：插件实例化并发声
 
 状态：基本通过。
 
@@ -74,7 +74,7 @@
 
 专项生命周期回归见：[`plugin-host-lifecycle.md`](plugin-host-lifecycle.md)。
 
-## M4：键盘映射系统可配置
+## Phase 2：键盘映射系统可配置
 
 状态：已通过。
 
@@ -89,12 +89,12 @@
 - [x] 已提供最小布局操作入口。
 - [x] 默认布局全量回归已完成（Q/A/Z/数字行、多键组合、启动一致性均通过）。
 - [x] 虚拟键盘翻页后映射稳定性问题已修复并验证。
-- [x] 自定义 Preset 加载/保存/导入/重命名/删除与启动恢复已完成（M7）。
+- [x] 自定义 Preset 加载/保存/导入/重命名/删除与启动恢复已完成（Phase 3）。
 - [~] 图形化布局编辑器（当前无 UI，不在近期范围）。
 
 专项键盘回归见：[`keyboard-mapping.md`](keyboard-mapping.md)。
 
-## M5：UI 进入正式可用阶段
+## Phase 3：UI 进入正式可用阶段
 
 状态：已通过。
 
@@ -108,12 +108,12 @@
 - [x] 设置窗口关闭时可保存修改后的设备状态。
 - [x] 已支持打开并操作已加载插件的 editor 窗口。
 - [x] 已形成 `HeaderPanel` / `PluginPanel` / `ControlsPanel` / `KeyboardPanel` 的基础组件分层。
-- [x] `MainComponent` 插件流程职责已完成两轮收敛（`PluginFlowSupport` 提取 + MC-1..MC-4 状态流收敛）。
+- [x] `MainComponent` 插件流程职责已完成两轮收敛（`PluginFlowSupport` 提取 + Phase 5-1..5-4 状态流收敛）。
 - [~] 错误提示与空状态提示仍需完善（低优先级）。
 
-## M6：高级功能恢复
+## Phase 3：高级功能恢复
 
-状态：MVP 已通过。布局 Preset 保存/加载/导入/重命名/删除/启动恢复已完成（M7）；录制 / 停止 / 回放 / MIDI 导出最小闭环已接入（M6-1..M6-5）；WAV 离线渲染 MVP 已完成（M6-6a/b/c/d，E.1–E.9 全部通过）。下一阶段重点是录制 / 回放稳定化和外部 MIDI 硬件验证补齐（详见 [`known-issues.md`](known-issues.md) §1）。VST3 插件离线渲染（M6-6e）后置。MP4 导出、复杂编辑与 tempo map 等仍为后续增强。
+状态：MVP 已通过。布局 Preset 保存/加载/导入/重命名/删除/启动恢复已完成（Phase 3）；录制 / 停止 / 回放 / MIDI 导出最小闭环已接入（Phase 3-3..3-7）；WAV 离线渲染 MVP 已完成（Phase 3-1a..3-1d，E.1–E.9 全部通过）。下一阶段重点是录制 / 回放稳定化和外部 MIDI 硬件验证补齐（详见 [`known-issues.md`](known-issues.md) §1）。VST3 插件离线渲染（Phase 3-2）后置。MP4 导出、复杂编辑与 tempo map 等仍为后续增强。
 
 验收项：
 
@@ -146,13 +146,13 @@
 设计参考见：[`../features/phase3-recording-playback.md`](../features/phase3-recording-playback.md)。
 
 - [x] 可导出 MIDI。
-- [x] 可导出 WAV（fallback synth 离线渲染；VST3 插件离线渲染后置为 M6-6e）。
+- [x] 可导出 WAV（fallback synth 离线渲染；VST3 插件离线渲染后置为 Phase 3-2）。
 - [x] 导出失败时有基础错误处理，已按专项清单验证无 take、取消保存、无权限路径等边界。
-- [x] WAV 离线渲染 MVP 设计与实现切片已完成（M6-6a/b/c/d）；E.1–E.9 全部通过。
+- [x] WAV 离线渲染 MVP 设计与实现切片已完成（Phase 3-1a..3-1d）；E.1–E.9 全部通过。
 
-## M8：MIDI 文件导入与回放兼容性
+## Phase 4：MIDI 文件导入与回放兼容性
 
-状态：核心能力已通过。M8-1、M8-1b、M8-1c、M8-2、M8-3、M8-6、M8-7 已实现并通过 2026-05-01 人工验收；M8-5 已搁置。
+状态：核心能力已通过。Phase 4-1、Phase 4-2、Phase 4-3、Phase 4-4、Phase 4-5、Phase 4-7、Phase 4-8 已实现并通过 2026-05-01 人工验收；Phase 4-6 已搁置。
 
 验收项：
 
@@ -167,8 +167,8 @@
 - [x] 最近导入路径已持久化；最近导出路径已接入 Export MIDI / Export WAV FileChooser。
 - [x] 播放中点击 `Back` 可从当前 take 开头重新播放。
 - [x] PPQ/timeFormat 修正、轨道诊断和自动选轨已覆盖主要 playback/边界测试；导入 playback take 禁止再次导出 MIDI 是预期边界。
-- [x] 导入 MIDI 后允许导出 WAV；VST3 插件音色离线渲染仍归 M6-6e 后续计划。
-- [~] 合并所有轨道 note 到单一 timeline（M8-5）未实现且已搁置；当前保留 note-rich 单轨选择为推荐模式。
+- [x] 导入 MIDI 后允许导出 WAV；VST3 插件音色离线渲染仍归 Phase 3-2 后续计划。
+- [~] 合并所有轨道 note 到单一 timeline（Phase 4-6）未实现且已搁置；当前保留 note-rich 单轨选择为推荐模式。
 
 专项 MIDI 文件导入回归见：[`midi-file-import.md`](midi-file-import.md)。
 

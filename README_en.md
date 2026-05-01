@@ -39,7 +39,7 @@ The current main branch already provides the following capabilities:
 - MIDI file import, automatic track selection, imported playback, and playback boundary stabilization are available
 - unified recording/playback button state management is available; Import MIDI is disabled during Recording and remains available during Playing to safely replace playback with another MIDI file
 - MIDI playback visualization on the virtual keyboard and main window size persistence are available
-- M8 is now stabilized; M8-5 merge-all is deferred and M6-6e remains a future backlog item
+- Phase 4 is now stabilized; Phase 4-6 merge-all is deferred and Phase 3-2 remains a future backlog item
 
 Areas still being improved:
 
@@ -48,7 +48,7 @@ Areas still being improved:
 - M6+ advanced features such as WAV offline rendering, editing, and tempo maps
 - clearer formal UI layering and interaction details
 - more systematic stability validation and regression testing
-- M8 backlog items such as M6-6e VST3 offline rendering and external MIDI hardware validation
+- Phase 4 backlog items such as Phase 3-2 VST3 offline rendering and external MIDI hardware validation
 
 ---
 
@@ -255,4 +255,4 @@ If you want to understand the current project plan, the recommended reading orde
 - do not modify anything inside `JUCE/`
 - validate changes through the build workflow whenever possible
 - when migrating legacy logic, prioritize extracting behavior rather than directly copying platform-specific implementations
-- M8 is now stabilized: MIDI file import, automatic track selection, imported playback, Import MIDI button state convergence, playback boundaries, and main window size restoration have all passed manual validation; M8-5 merge-all is deferred and M6-6e remains a future backlog item
+- Phase 4 is now stabilized: MIDI file import, automatic track selection, imported playback, Import MIDI button state convergence, playback boundaries, and main window size restoration have all passed manual validation; Phase 4-6 merge-all is deferred and Phase 3-2 remains a future backlog item

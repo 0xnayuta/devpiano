@@ -39,7 +39,7 @@
 - 已支持 MIDI 文件导入、自动选轨、导入后回放与 playback 边界收敛
 - 已支持录制/回放相关按钮状态统一管理，Recording 期间禁用 Import MIDI，Playing 期间仍可安全导入另一个 MIDI 替换 playback
 - 已支持 MIDI playback 时虚拟键盘实时联动，以及主窗口尺寸持久化恢复
-- 当前 M8 已收尾，M8-5 merge-all 已搁置，M6-6e 作为后续 backlog
+- 当前 Phase 4 已收尾，Phase 4-6 merge-all 已搁置，Phase 3-2 作为后续 backlog
 
 当前仍在持续完善的能力：
 
@@ -48,7 +48,7 @@
 - WAV 离线渲染、复杂编辑、tempo map 等 M6+ 高级功能
 - 更清晰的正式 UI 分层与交互细节
 - 更系统化的稳定性验证与回归测试
-- M8 后续 backlog，例如 M6-6e VST3 离线渲染与外部 MIDI 硬件验证
+- Phase 4 后续 backlog，例如 Phase 3-2 VST3 离线渲染与外部 MIDI 硬件验证
 
 ---
 
@@ -255,4 +255,4 @@ Windows MSVC 验证构建（内置同步，不需要单独 win-sync）：
 - 不修改 `JUCE/` 中的任何代码
 - 修改后尽量通过 CMake 构建验证
 - 迁移旧逻辑时优先“提炼行为”，不要直接搬运平台绑定实现
-- 当前 M8 已收尾：MIDI 文件导入、自动选轨、导入后回放、Import MIDI 按钮状态收敛、playback 边界与主窗口尺寸恢复均已通过人工验收；M8-5 merge-all 已搁置，M6-6e 作为后续 backlog
+- 当前 Phase 4 已收尾：MIDI 文件导入、自动选轨、导入后回放、Import MIDI 按钮状态收敛、playback 边界与主窗口尺寸恢复均已通过人工验收；Phase 4-6 merge-all 已搁置，Phase 3-2 作为后续 backlog

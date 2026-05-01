@@ -19,45 +19,45 @@
 ## 2. 当前状态摘要
 
 **已完成阶段：**
-- Phase 1-4（功能开发）：M0-M8 全部完成，核心功能已可用。
-- Phase 5.1-5.7（架构收敛）：MainComponent 职责下沉，AH-1..AH-7 已完成。
+- Phase 1-4（功能开发）：Phase 1-1-Phase 4 全部完成，核心功能已可用。
+- Phase 5.1-5.7（架构收敛）：MainComponent 职责下沉，Phase 5-5..5-11 已完成。
 
 **当前阶段：**
 - Phase 5.8+：继续 MainComponent 瘦身，目标从约 1587 行降至 1200 行以下。
 
 **搁置项：**
 - 外部 MIDI 硬件依赖验证（待硬件条件恢复）。
-- VST3 插件离线渲染（M6-6e）后置。
+- VST3 插件离线渲染（Phase 3-2）后置。
 
 ## 3. 阶段路线图
 
-### Phase 1：工程骨架与最小演奏（M0-M1）
+### Phase 1：工程骨架与最小演奏（Phase 1-1-Phase 1-2）
 
 状态：已完成。
 
-**M0：工程骨架可运行**
+**Phase 1-1：工程骨架可运行**
 - [x] JUCE GUI 程序可启动。
 - [x] Debug 构建可通过。
 - [x] 主窗口可显示。
 - [x] 音频设备可初始化。
 
-**M1：最小演奏链路成立**
+**Phase 1-2：最小演奏链路成立**
 - [x] 电脑键盘可触发 note on / note off。
 - [x] 虚拟钢琴键盘可联动显示。
 - [x] 程序可发声，来源为内置 fallback synth 或已加载插件。
 - [x] 长按、快速连按、焦点切换等基础场景已完成一轮验证。
 
-### Phase 2：插件系统与键盘映射（M2-M4）
+### Phase 2：插件系统与键盘映射（Phase 2）
 
 状态：已完成。
 
-**M2：最小插件扫描能力成立**
+**Phase 2：最小插件扫描能力成立**
 - [x] VST3 格式可用。
 - [x] 可扫描默认或指定目录。
 - [x] 可显示扫描到的插件列表。
-- [x] 扫描失败文件明细、多目录扫描输入、扫描结果持久化（M3-P1..P4）均已完成并通过人工验证。
+- [x] 扫描失败文件明细、多目录扫描输入、扫描结果持久化（Phase 2-1..2-4）均已完成并通过人工验证。
 
-**M3：插件实例化并发声**
+**Phase 2：插件实例化并发声**
 - [x] 可选择并加载 VST3 乐器。
 - [x] 键盘输入可驱动插件发声。
 - [x] 插件处理链路接入 `processBlock`。
@@ -67,7 +67,7 @@
 - [x] 加载插件后切换音频设备设置路径已完成人工回归。
 - [~] 外部 MIDI 输入到插件的通路已具备，但退出场景 `6.3` 因无硬件暂未验证。
 
-**M4：键盘映射系统可配置**
+**Phase 2：键盘映射系统可配置**
 - [x] 映射主路径不再强依赖字符输入，使用 JUCE 稳定 keyCode。
 - [x] 已建立 `KeyboardLayout` / `KeyBinding` 等核心类型。
 - [x] 默认布局可加载。
@@ -77,11 +77,11 @@
 - [x] 自定义 Preset 加载/保存/导入/重命名/删除与启动恢复已完成（见 Phase 3）。
 - [~] 图形化布局编辑器（当前无 UI，不在近期范围）。
 
-### Phase 3：UI 与高级功能（M5-M7）
+### Phase 3：UI 与高级功能（Phase 3）
 
 状态：已完成。
 
-**M5：UI 进入正式可用阶段**
+**Phase 3：UI 进入正式可用阶段**
 - [x] 插件扫描、选择、加载、卸载路径完整。
 - [x] 插件状态、MIDI 状态、fallback / plugin 发声来源已有基础展示。
 - [x] 插件 editor 窗口已独立托管。
@@ -89,7 +89,7 @@
 - [x] `MainComponent` 插件流程职责已完成两轮收敛。
 - [~] 错误提示、空状态提示、正式产品 UI 细节仍需完善（低优先级）。
 
-**M6：高级功能恢复（布局 Preset + 录制 / 回放 / MIDI 导出）**
+**Phase 3：高级功能恢复（布局 Preset + 录制 / 回放 / MIDI 导出）**
 - [x] 预研阶段已完成，8 项设计决策已锁定。
 - [x] 实现演奏事件模型骨架（`PerformanceEvent` + sample-based timeline）。
 - [x] 实现 `AudioEngine::setRecordingEngine(...)` 与 pre-render `MidiBuffer` 最小录制边界。
@@ -99,9 +99,9 @@
 - [x] 实现回放逻辑（事件时间线推进，事件重路由到 `AudioEngine`）。
 - [x] 实现 MIDI 文件导出（`juce::MidiFile`，Export MIDI 按钮）。
 - [x] 实现 WAV 离线渲染（fallback synth 离线渲染核心 + UI 接入 + 专项测试通过）。
-- [~] VST3 插件离线渲染（M6-6e）后置，不阻塞 WAV MVP。
+- [~] VST3 插件离线渲染（Phase 3-2）后置，不阻塞 WAV MVP。
 
-**M7：布局 Preset 系统**
+**Phase 3：布局 Preset 系统**
 - [x] 预研阶段已完成，5 项设计决策已锁定。
 - [x] 实现 JSON preset 格式（`.freepiano.layout`）。
 - [x] 实现用户目录 preset 自动发现。
@@ -109,19 +109,19 @@
 - [x] 实现启动恢复（按持久化 `layoutId` 恢复）。
 - [x] 已补充功能说明与专项测试。
 
-### Phase 4：MIDI 文件导入（M8）
+### Phase 4：MIDI 文件导入（Phase 4）
 
 状态：已完成。
 
-**M8：MIDI 文件导入与回放兼容性**
-- [x] M8-1：MIDI 文件导入核心（Import MIDI、导入为 `RecordingTake`、导入后回放、错误路径安全返回）。
-- [x] M8-1b：自动选择含 note 最多的轨道。
-- [x] M8-1c：Import MIDI 按钮状态收敛。
-- [x] M8-2：MIDI import playback 边界 + 多轨/tempo 处理。
-- [x] M8-3：最近路径记忆 + 回放控制小增强。
-- [~] M8-5：合并所有轨道 note 到单一 timeline（已搁置）。
-- [x] M8-6：MIDI playback 虚拟键盘可视化。
-- [x] M8-7：主窗口尺寸自适应与恢复。
+**Phase 4：MIDI 文件导入与回放兼容性**
+- [x] Phase 4-1：MIDI 文件导入核心（Import MIDI、导入为 `RecordingTake`、导入后回放、错误路径安全返回）。
+- [x] Phase 4-2：自动选择含 note 最多的轨道。
+- [x] Phase 4-3：Import MIDI 按钮状态收敛。
+- [x] Phase 4-4：MIDI import playback 边界 + 多轨/tempo 处理。
+- [x] Phase 4-5：最近路径记忆 + 回放控制小增强。
+- [~] Phase 4-6：合并所有轨道 note 到单一 timeline（已搁置）。
+- [x] Phase 4-7：MIDI playback 虚拟键盘可视化。
+- [x] Phase 4-8：主窗口尺寸自适应与恢复。
 
 功能与测试文档：[`../features/phase4-midi-file-import.md`](../features/phase4-midi-file-import.md)、[`../testing/phase4-midi-file-import.md`](../testing/phase4-midi-file-import.md)。
 
@@ -131,25 +131,25 @@
 
 **目标：** 将 `MainComponent.cpp` 从约 1587 行降至 1200 行以下，通过提取 helper 收敛职责。
 
-**5.1：录制会话状态结构化**（原 AH-1，已完成）
+**5.1：录制会话状态结构化**（Phase 5-5，已完成）
 - 将 `currentTake` + `currentRecordingState` + `currentTakeCanBeExported` 合并为单一 `RecordingSession` 结构体。
 
-**5.2：导出流程统一**（原 AH-2，已完成）
+**5.2：导出流程统一**（Phase 5-6，已完成）
 - 将 `handleExportMidiClicked()` 和 `handleExportWavClicked()` 中的重复模式统一为 `runExportRecordingFlow()`。
 
-**5.3：布局 CRUD 流程收敛**（原 AH-3，已完成）
+**5.3：布局 CRUD 流程收敛**（Phase 5-7，已完成）
 - 将布局 handler 中的流程性逻辑抽到 `applyLayoutAndCommit()`、`runLayoutFileChooser()` 等 helper。
 
-**5.4：设置窗口生命周期收敛**（原 AH-4，已完成）
+**5.4：设置窗口生命周期收敛**（Phase 5-8，已完成）
 - 将设置窗口管理逻辑抽到 `getSettingsContent()` 等 helper。
 
-**5.5：AppState 清理**（原 AH-5，已完成）
+**5.5：AppState 清理**（Phase 5-9，已完成）
 - 移除 `PluginState` / `RuntimePluginState` 中的 UI 派生字段。
 
-**5.6：ControlsPanel 按钮状态统一**（原 AH-6，已完成）
+**5.6：ControlsPanel 按钮状态统一**（Phase 5-10，已完成）
 - 将录制/回放/导入导出按钮的 enabled 状态收敛为单一 `RecordingControlsState`。
 
-**5.7：MIDI 导入流程下沉**（原 AH-7，已完成）
+**5.7：MIDI 导入流程下沉**（Phase 5-11，已完成）
 - 将 `handleImportMidiClicked()` 收敛为 FileChooser 生命周期 + 顶层编排，抽出 `getLastMidiImportDirectory()`、`tryImportMidiFile()`、`replaceTakeAndStartPlayback()` 三个 helper。
 
 **5.8+：待规划**
@@ -167,16 +167,16 @@
    - 目标：从约 1587 行降至 1200 行以下。
    - 详见 [`current-iteration.md`](current-iteration.md)。
 
-2. **M8 边界稳定**
-   - 保持 M8-2 边界：导入 playback take 禁止 MIDI 再导出；导入后允许 WAV 导出。
-   - 继续搁置 M8-5 merge-all。
+2. **Phase 4 边界稳定**
+   - 保持 Phase 4-4 边界：导入 playback take 禁止 MIDI 再导出；导入后允许 WAV 导出。
+   - 继续搁置 Phase 4-6 merge-all。
 
-3. **M3 插件宿主持续稳定**
+3. **Phase 2 插件宿主持续稳定**
    - 低优先级持续观察退出阶段 Debug 告警。
 
 4. **搁置项（待条件恢复）**
    - 外部 MIDI 硬件依赖验证。
-   - VST3 插件离线渲染（M6-6e）。
+   - VST3 插件离线渲染（Phase 3-2）。
 
 ## 5. 主要风险
 

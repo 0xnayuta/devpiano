@@ -11,7 +11,7 @@
 
 - [`phase3-recording-playback.md`](phase3-recording-playback.md)：录制 / 回放 / MIDI 导出的第一版设计与当前 MVP 行为说明。
 - [`phase3-layout-presets.md`](phase3-layout-presets.md)：布局 preset 当前行为、文件格式、导入/保存/重命名/删除与恢复说明。
-- [`phase3-plugin-offline-rendering.md`](phase3-plugin-offline-rendering.md)：VST3 插件离线渲染评估与设计（M6-6e，后置）。
+- [`phase3-plugin-offline-rendering.md`](phase3-plugin-offline-rendering.md)：VST3 插件离线渲染评估与设计（Phase 3-2，后置）。
 
 ## Phase 4：MIDI 文件导入
 
