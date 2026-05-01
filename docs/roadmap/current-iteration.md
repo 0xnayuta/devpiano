@@ -6,155 +6,98 @@
 
 ## 当前状态
 
-当前活跃迭代：**M8 MIDI 文件导入与回放兼容性增强**。M6 录制 / 回放 / MIDI 导出 MVP（含 WAV 离线渲染 M6-6a/b/c/d）和 Section 5 MainComponent 录制/回放/导出状态流收敛（MC-1..MC-4）已完成。
+当前活跃迭代：**架构健康迭代**（M8 收尾与 M9 启动之间的过渡轮，不编号为 M 阶段）。
 
-上一轮已完成：MainComponent 插件流程初步收敛、键盘映射默认布局回归、布局 Preset 核心能力、录制 / 停止 / 回放 / MIDI 导出 / WAV 离线渲染（M6-6a/b/c/d）全部收尾，E.1–E.9 全部通过。
+M8 MIDI 文件导入与回放兼容性增强已收尾：M8-1 / M8-1b / M8-1c / M8-2 / M8-3 / M8-6 / M8-7 均已实现并通过 2026-05-01 人工验收；M8-5 merge-all 已搁置；M6-6e 作为后续 backlog。
 
-当前项目已经从"主链路打通 / MVP 恢复"进入 M8 MIDI 文件能力补齐阶段。
+本轮不是功能迭代，而是架构维护：在启动下一个能力里程碑（M9）之前，先巩固 `MainComponent` 职责边界、减少状态管理分散、防止架构回流膨胀。
 
 ---
 
-**搁置说明**：M6 录制/回放稳定化（见本轮 Section 1 最后 1 项边界检查）和外部 MIDI 硬件依赖验证（见 Section 2）因当前无真实外部 MIDI 设备，暂无法测试。已将状态记录至 `docs/testing/recording-playback.md`（包 C、7.1、已知限制）。这两个方向暂从本迭代移除，恢复时间取决于硬件条件。
+**搁置说明**：M6 录制/回放稳定化和外部 MIDI 硬件依赖验证因当前无真实外部 MIDI 设备，暂无法测试。状态已记录至 `docs/testing/recording-playback.md`。这两个方向暂从本迭代移除，恢复时间取决于硬件条件。
 
 ## 本轮目标
 
-本轮聚焦 M8 MIDI 文件导入 MVP 与外部 MIDI 兼容性增强。
+巩固架构健康，为 M9 做准备。聚焦三个方向：
 
-已完成：
+1. **MainComponent 职责继续收敛**：将仍留在 MainComponent 的流程性职责继续下沉到 helper。
+2. **状态管理整理**：减少录制会话状态分散、清理 AppState 中的 UI 派生字段。
+3. **ControlsPanel 按钮状态统一**：将分散的按钮状态更新收敛为单一状态源。
 
-- [x] M8-1：Import MIDI 按钮、MIDI 文件导入为 `RecordingTake`、导入后回放、最近导入路径记忆。
-- [x] M8-1b：自动选择含 note 最多的轨道（兼容性修正），2026-05-01 人工验收通过。
-- [x] M8-1c：Import MIDI 按钮状态纳入录制 / 回放统一管理，Recording 期间禁用、Playing 期间保持可安全替换 playback，2026-05-01 人工验收通过。
-- [x] M8-2：MIDI import playback 边界 + 多轨/tempo 处理，2026-05-01 人工验收未发现明显问题。
-- [x] M8-6：MIDI playback 虚拟键盘可视化，2026-05-01 人工验收通过。
-- [x] M8-7：主窗口尺寸自适应与恢复（UI polish），2026-05-01 人工验收通过。
+### 当前 MainComponent 分析（1555 行）
 
-M8-1b 人工验收记录（2026-05-01）：
+**已下沉到 helper 的职责**：
+- RecordingFlowSupport：录制/回放命令判定与状态推进
+- ExportFlowSupport：导出能力判定、默认文件名、WAV options 构建
+- PluginFlowSupport：启动缓存恢复、扫描后 recovery 更新
 
-- [x] track 0 只有 tempo/meta、track 1+ 有 note 的 MIDI 文件可自动选择有 note 的轨道并回放。
-- [x] Logger 输出总轨数、每轨 note 事件数、选中的 track index、被忽略轨道数。
-- [x] 所有轨道都没有 note 时安全返回失败并写 Logger，不崩溃。
-- [x] 本程序导出的单轨 MIDI 文件仍正常导入回放。
+**仍留在 MainComponent 的职责**：
+- 录制/回放实际切换与状态缓存（`currentTake`、`currentRecordingState`、`currentTakeCanBeExported`）
+- MIDI 导入完整用户流程（chooser、停止播放、导入、立即回放，80 行）
+- 导出 MIDI/WAV 的 chooser、路径记忆、日志（重复模式明显）
+- 布局文件 CRUD（save/import/rename/delete，共约 200 行）
+- 设置窗口生命周期与 dirty 管理（约 100 行）
+- 插件 editor window 生命周期管理
+- 音频设备重建胶水逻辑
 
-M8-1c 人工验收记录（2026-05-01）：
+**潜在膨胀点**：
+- `handleImportMidiClicked()`（80 行）：职责混合
+- `handleRenameLayoutRequested()`（55 行）：异步 modal + 文件操作 + UI 同步
+- `handleDeleteLayoutRequested()`（43 行）：确认 + 删除 + 回退 + UI 同步
+- `showSettingsDialog()`（50 行）：Window 定义 + 关闭回调 + 内容创建
+- `handleExportMidiClicked()` / `handleExportWavClicked()`：重复模式
 
-- [x] 点击 Record 后，Import MIDI 按钮禁用。
-- [x] 点击 Stop 回到 Idle 后，Import MIDI 按钮恢复可用。
-- [x] MIDI playback 期间，Import MIDI 按钮保持可用；选择另一个 MIDI 文件时会先停止当前 playback，再导入并播放新文件。
-- [x] Record / Play / Stop / Back / Import MIDI / Export MIDI / Export WAV 已统一通过 `ControlsPanel` 的录制 / 回放按钮状态刷新逻辑管理。
+## 本轮计划切片
 
-M8-7 人工验收记录（2026-05-01）：
+### AH-1：录制会话状态结构化
 
-- [x] 首次启动或无保存状态时，窗口默认尺寸能完整呈现当前主要 UI 内容。
-- [x] 用户手动调整窗口大小并关闭程序后，下次启动能恢复该窗口尺寸。
-- [x] 保存的异常尺寸不会导致窗口不可见或小到不可操作。
-- [x] 不高频写盘；窗口尺寸保存使用已有 settings 保存节流或关闭时保存。
+- **目标**：将 `currentTake` + `currentRecordingState` + `currentTakeCanBeExported` 合并为单一 `RecordingSession` 结构体，减少状态分散。
+- **修改范围**：`source/MainComponent.h`（新增 `RecordingSession` 或等价结构）、`source/MainComponent.cpp`（替换分散字段）。
+- **不做**：不改变录制/回放行为；不改变 RecordingFlowSupport 接口；不改变 ControlsPanel 按钮逻辑。
+- **完成标准**：录制相关状态从 3 个独立字段收敛为 1 个结构体；行为不回退。
+- **风险**：低——纯内部重构，不改变外部接口。
 
-M8-6 人工验收记录（2026-05-01）：
+### AH-2：导出流程统一
 
-- [x] Import MIDI 后播放时，虚拟键盘能随播放音符实时按下和松开。
-- [x] Stop、播放结束、导入另一个 MIDI、关闭插件或重建音频设备时，虚拟键盘不会残留按下状态。
-- [x] 用户手动按电脑键盘演奏时，既有虚拟键盘显示行为不回退。
-- [x] 不在 audio callback 中直接调用 UI 方法或分配大量内存。
-- [x] 大量 note 事件播放时 UI 仍保持可用，不明显卡顿。
+- **目标**：将 `handleExportMidiClicked()` 和 `handleExportWavClicked()` 中的重复模式（chooser 创建、路径更新、保存设置、导出调用、日志）统一为通用辅助层。
+- **修改范围**：`source/Export/ExportFlowSupport.*`（新增通用导出编排 helper）、`source/MainComponent.cpp`（简化两个 handler）。
+- **不做**：不改变 `MidiFileExporter` / `WavFileExporter` 核心实现；不改变 FileChooser 生命周期归属。
+- **完成标准**：两个导出 handler 各减少 15+ 行重复代码；行为不回退。
+- **风险**：低——已有 ExportFlowSupport 作为基础。
 
-剩余方向：
+### AH-3：布局 CRUD 流程收敛
 
-- M8-3：最近导出路径和 `Back` 回到开头已实现，并于 2026-05-01 人工验收通过。
-- M6-6e：导入 MIDI 后允许导出 WAV 的需求归入该后续计划，当前搁置。
+- **目标**：将 `handleSaveLayoutRequested()` / `handleImportLayoutRequested()` / `handleRenameLayoutRequested()` / `handleDeleteLayoutRequested()` 中的流程性逻辑抽到 `LayoutFlowSupport` 或等价 helper。
+- **修改范围**：新增 `source/Layout/LayoutFlowSupport.*`（或扩展现有 `LayoutPreset.*`）、`source/MainComponent.cpp`（简化各 handler）。
+- **不做**：不改变布局文件格式；不改变 ControlsPanel 布局相关回调接口；不引入新的 UI 组件。
+- **完成标准**：布局相关 handler 从约 200 行收敛到约 80 行；MainComponent 只保留 chooser 生命周期和顶层编排。
+- **风险**：低中——涉及文件操作和异步对话框，需仔细保持行为一致。
 
-已搁置（待硬件条件恢复）：
+### AH-4：设置窗口生命周期收敛
 
-- M6 录制/回放稳定化最后 1 项边界检查。
-- 外部 MIDI 硬件依赖验证（已记录至 `docs/testing/recording-playback.md`）。
+- **目标**：将 `showSettingsDialog()` / `closeSettingsWindowAsync()` / `isSettingsWindowDirty()` / `saveAndCloseSettingsWindow()` 等设置窗口管理逻辑抽到独立 helper。
+- **修改范围**：新增 `source/Settings/SettingsWindowFlowSupport.*`（或等价）、`source/MainComponent.cpp`（简化设置窗口相关方法）。
+- **不做**：不改变 `SettingsComponent` 内部实现；不改变设置持久化逻辑。
+- **完成标准**：设置窗口相关方法从约 100 行收敛到约 30 行；MainComponent 只保留窗口拥有权。
+- **风险**：低——设置窗口生命周期相对独立。
 
-## 本轮优先任务
+### AH-5：AppState 清理（可选）
 
-### M8 收尾审查结论（2026-05-01）
+- **目标**：将 `PluginState` 中的 UI 派生字段（`pluginListText`、`availableFormatsDescription`）下沉到 `PluginPanelStateBuilder`，让 `AppState` 只保留业务事实字段。
+- **修改范围**：`source/Core/AppState.h`、`source/UI/PluginPanelStateBuilder.*`。
+- **不做**：不引入新的状态管理框架；不改变 AppState 快照机制。
+- **完成标准**：`PluginState` 字段减少 2-3 个 UI 派生字段；builder 承担文案生成。
+- **风险**：低——纯字段迁移。
 
-- [x] M8-1 / M8-1b / M8-1c / M8-2 / M8-3 / M8-6 / M8-7 已实现并通过人工验收。
-- [x] M8-2 已实现并通过人工验收：导入 playback take 禁止再次导出 MIDI；用户已有原始 `.mid` 文件，不需要“导入 → MIDI 再导出”路径。多轨、非 960 PPQ、tempo meta event 和复杂 tempo map 限制均未发现明显问题。导入 MIDI 后允许导出 WAV 归入 M6-6e，暂时搁置。
-- [x] M8-3 已实现并通过人工验收：最近导入/导出路径记忆已接入；播放中点击 `Back` 可从当前 take 开头重新播放。
-- [~] M8-5 已搁置：仍保持 note-rich 单轨导入，不合并所有轨道；这是当前推荐模式。
+## 推荐执行顺序
 
-推荐剩余顺序：
+1. **AH-1**：最独立，风险最低，先建立状态结构化基础。
+2. **AH-2**：导出统一，复用已有 ExportFlowSupport。
+3. **AH-3**：布局 CRUD 收敛，涉及文件操作需仔细验证。
+4. **AH-4**：设置窗口收敛，相对独立。
+5. **AH-5**：AppState 清理，可选，视前 4 项进展决定是否执行。
 
-1. 执行 M8 收尾：确认 git diff、保留 M8-5 / M6-6e 搁置边界、按需提交本轮文档与代码修改。
-2. 保持 M8-2 当前边界：导入 MIDI 可播放但不可再导出 MIDI；导入后 WAV 导出转入 M6-6e backlog。
-3. 继续搁置 M8-5 merge-all；当前保留 note-rich 单轨选择为默认模式。
-4. 后续仅在需要时补低风险体验项或专项回归。
-
-以下 Section 3–5 为 M6/MC 历史完成记录，当前 M8 任务状态以上方清单为准。
-
-### 3. WAV 离线渲染 MVP 设计
-
-对应后续方向：[`roadmap.md`](roadmap.md) 的 M6-6。
-
-对应文档：
-
-- [`../features/M6-recording-playback.md`](../features/M6-recording-playback.md)
-- [`../testing/acceptance.md`](../testing/acceptance.md)
-
-**状态**：M6-6a/b/c/d 全部完成，E.1–E.9 全部通过。VST3 插件离线渲染（M6-6e）后置。
-
-已完成范围：
-
-- [x] 定义 `RecordingTake -> offline render loop -> WAV file` 的最小链路。
-- [x] 第一切片支持 fallback synth 离线渲染（M6-6b）。
-- [x] UI 接入 Export WAV 按钮 + FileChooser + 选项收集（M6-6c）。
-- [x] 专项测试包 E（9 项）全部通过（M6-6d）。
-
-后置（M6-6e）：
-
-- [~] 第二切片：当前已加载 VST3 插件的离线渲染（暂不阻塞 MVP）。
-
-明确不做：
-
-- [x] 不做 MP4 / 视频导出。
-- [x] 不做复杂编辑、钢琴卷帘、多轨工程、tempo map。
-- [x] 不复刻旧 FreePiano `song.*` / `export.*` 的平台相关结构。
-
-完成标准：
-
-- [x] 形成可执行的 M6-6 实现切片。
-- [x] 验收文档中 WAV 导出已标记为 `[x]` 完成。
-
-### 4. 插件扫描产品化增强排期
-
-对应文档：
-
-- [`../features/M3-plugin-hosting.md`](../features/M3-plugin-hosting.md)
-- [`../testing/plugin-host-lifecycle.md`](../testing/plugin-host-lifecycle.md)
-- [`roadmap.md`](roadmap.md) 的 M2 / M3 后续增强。
-
-本轮不优先实现大改，只做排期和小步准备。排期已落到 [`../features/M3-plugin-hosting.md`](../features/M3-plugin-hosting.md) 的“插件扫描产品化 backlog（排期）”：
-
-- [x] M3-P1：记录扫描失败文件，而不只是失败数量。（已实现：失败路径写入 Logger，UI 摘要提示 see log）
-- [x] M3-P2：明确多目录扫描的输入格式、UI 表达和持久化方式。（已实现：复用路径输入框，按 `FileSearchPath` 分隔，过滤无效目录并持久化规范化路径）
-- [x] M3-P3：评估 `KnownPluginList` / 扫描结果持久化，降低启动恢复对同步扫描的依赖。（已实现：保存 `KnownPluginList` XML，启动优先恢复缓存，失败时回退重扫）
-- [x] M3-P4：补充空状态、失败状态和恢复失败提示的 UI 需求。（已实现：状态文本区分未扫描、无目录、无插件、失败文件、缓存为空和加载失败）
-
-完成标准：
-
-- [x] 插件扫描增强进入 backlog，且不阻塞当前迭代目标。
-- [x] M3-P1..P4 已完成实现并通过 2026-04-30 人工验证，未发现明显问题。
-
-### 5. MainComponent 职责继续收敛
-
-对应代码：
-
-- `source/MainComponent.*`
-- `source/Plugin/PluginFlowSupport.*`
-- 后续计划新增 `source/Recording/RecordingFlowSupport.*` 或等价轻量 helper。
-- 后续计划新增 `source/Export/ExportFlowSupport.*` 或继续放在 `source/Recording/*Exporter*` 周边的导出 helper。
-
-重点：
-
-- [x] 优先抽离录制 / 回放 / 导出状态流，而不是大规模重写 `MainComponent`。（MC-1..MC-4 全部完成）
-- [x] 保留 `MainComponent` 对 UI 组件拥有权、窗口生命周期和顶层装配职责。（MC-1..MC-4 全部保持此约束）
-- [x] 新增 WAV 导出时不得把完整离线渲染流程直接堆入 `MainComponent`。（已按 M6-6c 执行）
-
-#### 5.1 收敛原则
+## 收敛原则
 
 - 不做大规模重写；每次只抽一个边界，保持可构建、可回归。
 - `MainComponent` 保留：UI 组件拥有权、JUCE 生命周期入口、窗口生命周期、键盘焦点恢复、顶层装配。
@@ -162,48 +105,15 @@ M8-6 人工验收记录（2026-05-01）：
 - 音频线程边界仍以 `AudioEngine` / `RecordingEngine` 为准；helper 不进入 audio callback。
 - 每个切片完成后至少跑 `./scripts/dev.sh wsl-build --configure-only` 和 `./scripts/dev.sh win-build`。
 
-#### 5.2 建议切片
+## 完成标准
 
-1. **MC-1：RecordingFlowSupport 录制 / 回放 UI 流程 helper**（已实现）
-   - 目标：抽离 `Record / Stop / Play` 的状态转换和按钮状态更新策略。
-   - 候选职责：根据当前 `ControlsPanel::RecordingState`、`RecordingTake`、`RecordingEngine` 状态决定下一步动作。
-   - 不做：不移动 audio callback 逻辑；不改变 `RecordingEngine` 数据模型；不改变现有按钮文案。
-   - 完成标准：`MainComponent::handleRecordClicked()` / `handlePlayClicked()` / `handleStopClicked()` 变薄，行为不回退。
-   - 状态：已新增 `source/Recording/RecordingFlowSupport.*`，承载 Record / Play / Stop intent 到 command / next-state 的纯流程决策。
-
-2. **MC-2：ExportFlowSupport 导出选项与默认文件名 helper**（已实现）
-   - 目标：抽离 MIDI / WAV 导出的默认文件名、空 take 判断、WAV options 构建。
-   - 候选职责：生成 `recording_<ISO8601>.mid/.wav`、构建 `WavExportOptions`、统一导出日志前缀。
-   - 不做：不把 `FileChooser` 生命周期移出 `MainComponent`；不改变 `MidiFileExporter` / `WavFileExporter` 核心实现。
-   - 完成标准：`handleExportMidiClicked()` / `handleExportWavClicked()` 只负责 FileChooser 与调用导出函数。
-   - 状态：已新增 `source/Export/ExportFlowSupport.*`，承载默认文件名、空 take 判断、WAV options 构建和导出日志前缀。
-
-3. **MC-3：PluginFlowSupport 继续收敛 scan / restore / cache 流程**（已实现）
-   - 目标：把启动缓存恢复、scan path normalise、KnownPluginList cache 更新等流程继续从 `MainComponent` 收到 `PluginFlowSupport`。
-   - 候选职责：构建 restore plan、尝试缓存恢复、扫描并应用 recovery、更新 cache。
-   - 不做：不移动 plugin editor window 拥有权；不改变 `PluginHost` 实例生命周期。
-   - 完成标准：`restorePluginStateOnStartup()` 和 `scanPluginsAtPathAndApplyRecoveryState()` 只表达顶层时序。
-   - 状态：`PluginFlowSupport` 已接管 cached plugin list 恢复、扫描后 recovery 更新和 `KnownPluginList` cache 写回。
-
-4. **MC-4：ReadOnlyStateRefresh 边界命名清理**（已实现）
-   - 目标：统一 `createRuntime*StateSnapshot()` / `applyReadOnlyUiState()` / `refreshReadOnlyUiState()` 的命名和调用时机。
-   - 候选职责：明确哪些路径必须刷新只读 UI，哪些路径只需保存设置。
-   - 不做：不引入复杂状态管理框架；不把 `AppState` 变成可变全局 store。
-   - 完成标准：状态快照链路仍为 `SettingsModel + runtime -> AppStateBuilder -> PanelStateBuilder -> UI`，但调用点更少、更明确。
-   - 状态：已将状态函数命名收敛为 `build*Snapshot()`、`renderReadOnlyUiState()`、`refreshReadOnlyUiStateFromCurrentSnapshot()` 和 `refreshMidiStatusFromCurrentSnapshot()`。
-
-#### 5.3 推荐执行顺序
-
-1. MC-2：导出 helper 最独立，风险最低。
-2. MC-1：录制 / 回放 UI 流程 helper，覆盖当前 M6 主链路。
-3. MC-3：插件流程继续收敛，依赖 M3-P1..P4 已稳定。
-4. MC-4：最后做命名与刷新边界清理，避免过早抽象。
-
-完成标准：
-
-- [x] 新增流程有清晰边界。（RecordingFlowSupport、ExportFlowSupport、PluginFlowSupport 收敛、状态函数命名收敛）
-- [x] 现有键盘演奏、插件加载、录制 / 回放 / MIDI / WAV 导出行为不回退。（2026-04-30 人工验证通过）
-- [x] Section 5 计划已写入文档；MC-1..MC-4 全部完成，逐项勾选。
+- [ ] AH-1 完成：录制会话状态从 3 个字段收敛为 1 个结构体。
+- [ ] AH-2 完成：导出 handler 重复代码减少 15+ 行。
+- [ ] AH-3 完成：布局 CRUD handler 从约 200 行收敛到约 80 行。
+- [ ] AH-4 完成：设置窗口管理从约 100 行收敛到约 30 行。
+- [ ] AH-5 完成（可选）：AppState PluginState 清理 UI 派生字段。
+- [ ] 所有切片完成后，现有键盘演奏、插件加载、录制/回放/MIDI/WAV 导出、MIDI 导入、布局 preset 行为不回退。
+- [ ] `MainComponent.cpp` 总行数从 1555 行下降到 1200 行以下。
 
 ## 本轮计划验证命令
 
@@ -220,73 +130,28 @@ M8-6 人工验收记录（2026-05-01）：
 ./scripts/dev.sh self-check
 ```
 
-## 后续候选文档任务
+---
 
-以下不是本轮代码实现的优先项，仅在需要时补充：
+## M8 历史完成记录
 
-- 继续提炼 ADR：
-  - JUCE 音频后端决策。
-  - VST3-first 插件宿主决策。
-  - WAV 离线渲染边界决策。
-- 按需补充轻量文档入口：
-  - [`../testing/known-issues.md`](../testing/known-issues.md)：已知问题与待验证风险。
-  - [`../development/troubleshooting.md`](../development/troubleshooting.md)：开发环境与构建问题排查。
-- 后续如架构文档继续增长，再拆分音频链路、插件宿主、录制 / 导出、状态模型等专题。
+> 以下为 M8 收尾状态快照，当前 M8 任务已全部完成。
 
-## MC-1..MC-4 人工回归记录（2026-04-30）
+### M8 收尾审查结论（2026-05-01）
 
-> Section 5 全部完成后整理。每项均已通过人工验证。
+- [x] M8-1 / M8-1b / M8-1c / M8-2 / M8-3 / M8-6 / M8-7 已实现并通过人工验收。
+- [x] M8-2 已实现并通过人工验收：导入 playback take 禁止再次导出 MIDI；多轨、非 960 PPQ、tempo meta event 和复杂 tempo map 限制均未发现明显问题。导入 MIDI 后允许导出 WAV 归入 M6-6e，暂时搁置。
+- [x] M8-3 已实现并通过人工验收：最近导入/导出路径记忆已接入；播放中点击 `Back` 可从当前 take 开头重新播放。
+- [~] M8-5 已搁置：仍保持 note-rich 单轨导入，不合并所有轨道；这是当前推荐模式。
 
-### MC-1：RecordingFlowSupport（录制 / 回放 UI 流程）
+### MC-1..MC-4 历史完成记录（2026-04-30）
 
-- `source/Recording/RecordingFlowSupport.h` / `.cpp` 新增
-- 承载 Record / Play / Stop intent → command → next-state 的纯流程决策
-- 关键文件：`source/Recording/RecordingFlowSupport.h`（`RecordingFlowState`/`Intent`/`Command`/`Status`、`chooseRecordingFlowCommand`、`getStateAfterCommand`、`shouldRestoreKeyboardFocus`）
+- [x] MC-1：RecordingFlowSupport 录制/回放 UI 流程 helper。
+- [x] MC-2：ExportFlowSupport 导出选项与默认文件名 helper。
+- [x] MC-3：PluginFlowSupport 继续收敛 scan/restore/cache 流程。
+- [x] MC-4：ReadOnlyStateRefresh 边界命名清理。
 
-人工回归（2026-04-30）：
-- [x] 启动后点击 Record → 状态转为 recording
-- [x] recording 中点击 Stop → 停止录制，回放按钮可点击
-- [x] 有 take 时点击 Play → 开始回放
-- [x] 回放中途点击 Stop → 停止回放
-- [x] 点击 Export MIDI / Export WAV → 正常触发 FileChooser
-- [x] 录制中关闭 plugin editor → 焦点正确恢复到键盘
-- [x] 焦点切换后恢复键盘输入 → 无回归问题
+### M6/M7 历史完成记录
 
-### MC-2：ExportFlowSupport（导出选项与默认文件名）
-
-- `source/Export/ExportFlowSupport.h` / `.cpp` 新增
-- 承载默认文件名生成、空 take 判断、WAV options 构建、导出日志前缀
-- 关键文件：`source/Export/ExportFlowSupport.h`（`makeDefaultRecordingExportFile`、`canExportTake`、`buildWavExportOptions`、`makeExportLogPrefix`）
-
-人工回归（2026-04-30）：
-- [x] 空 take 时 Export MIDI / Export WAV 按钮禁用
-- [x] 有 take 时 Export MIDI → FileChooser 出现，默认名为 `recording_<ISO8601>.mid`
-- [x] 有 take 时 Export WAV → FileChooser 出现，默认名为 `recording_<ISO8601>.wav`
-- [x] WAV FileChooser 有选项面板（44100Hz / 16bit / stereo）
-- [x] 导出完成后状态栏正确显示日志前缀
-- [x] 使用 fallback synth 做离线渲染 → 正常生成 WAV
-
-### MC-3：PluginFlowSupport（scan / restore / cache 收敛）
-
-- `source/Plugin/PluginFlowSupport.h` / `.cpp` 更新
-- 接管 cached plugin list 恢复、扫描后 recovery 更新和 `KnownPluginList` cache 写回
-- 关键文件：`source/Plugin/PluginFlowSupport.h`（`tryRestoreCachedPluginList`、`scanPluginsAtPathAndUpdateRecovery`）
-
-人工回归（2026-04-30）：
-- [x] 首次扫描无效目录 → 状态文本显示"无可用目录"，Logger 有记录
-- [x] 扫描含无效路径 → 过滤后正常扫描有效路径，失败路径写入 Logger
-- [x] 扫描成功后已知插件列表已缓存 → 关闭应用，重启后启动阶段直接恢复缓存列表
-- [x] 缓存恢复失败后回退重扫 → 状态文本显示"loaded cached list: N plugins"或回退重扫
-- [x] 失败插件列表有内容时 → UI 显示"部分插件加载失败（见日志）"
-
-### MC-4：状态刷新边界命名清理
-
-- `MainComponent` 状态函数命名收敛
-- 关键变更：`build*Snapshot()` / `renderReadOnlyUiState()` / `refreshReadOnlyUiStateFromCurrentSnapshot()` / `refreshMidiStatusFromCurrentSnapshot()`
-
-人工回归（2026-04-30）：
-- [x] 启动后插件列表 / MIDI 状态正常显示
-- [x] 外部 MIDI 设备接入时 → Header MIDI 状态刷新（注：当前无外部 MIDI 设备，已记录至 `docs/testing/recording-playback.md`）
-- [x] 键盘演奏时 → Header MIDI 状态实时更新
-- [x] Scan / Load / Unload 插件后 → PluginPanel 状态更新
-- [x] 打开 / 关闭插件 editor 后 → 状态仍正确刷新
+- [x] M6-6a/b/c/d：WAV 离线渲染 MVP，E.1–E.9 全部通过。
+- [x] M3-P1..P4：插件扫描产品化增强，2026-04-30 人工验证通过。
+- [x] M7：布局 Preset 核心能力已完成。

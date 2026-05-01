@@ -35,10 +35,8 @@
 
 当前项目不再处于"从零接通主链路"的阶段，也已完成布局 Preset、录制 / 回放 / MIDI 导出 MVP、WAV fallback 离线渲染、MainComponent 录制/回放/导出状态流收敛（MC-1..MC-4）以及 M8 MIDI 文件导入核心能力。当前进入：
 
-- M8 MIDI 文件导入与回放兼容性收敛。
-- M8-2 import playback / tempo / 多轨边界语义已确认并通过人工验收：导入 playback take 禁止再次导出 MIDI；导入后 WAV 导出归 M6-6e 搁置。
-- M8-3 最近路径与小型回放控制增强补齐。
-- M8-5 merge-all 单 timeline 已搁置；当前保留 note-rich 单轨选择为推荐模式。
+- M8 已收尾：M8-1 / M8-1b / M8-1c / M8-2 / M8-3 / M8-6 / M8-7 均已通过人工验收；M8-5 merge-all 已搁置。
+- 架构健康迭代（M8 收尾与 M9 启动之间的过渡轮）：继续收敛 MainComponent 职责，目标从 1555 行降至 1200 行以下。
 - 外部 MIDI 硬件依赖回归补齐（搁置，待硬件条件恢复）。
 
 最近一轮 M8 人工回归已确认 M8-1b、M8-1c、M8-2、M8-6、M8-7 无明显问题。插件生命周期人工回归也已补齐大部分高风险组合路径：scan / load / unload / editor / 重扫 / 直接退出、音频设备设置切换、M3-P1..P4 插件扫描产品化增强均已完成一轮验证；外部 MIDI 硬件依赖验证仍因无设备暂缓，状态已记录至 [`known-issues.md`](../testing/known-issues.md)。
@@ -159,17 +157,18 @@
 
 ## 4. 当前近期重点
 
-布局 Preset（M7）核心能力已完成；M6 高级功能 MVP 已恢复；M8 MIDI 文件导入核心能力、note-rich 自动选轨、Import MIDI 按钮状态收敛、M8-2 playback / tempo / 多轨边界、playback 虚拟键盘可视化和主窗口尺寸恢复均已完成。当前重点转为保持 M8 边界稳定与架构健康。
+M8 MIDI 文件导入与回放兼容性已收尾（M8-1 / M8-1b / M8-1c / M8-2 / M8-3 / M8-6 / M8-7 均已通过人工验收；M8-5 已搁置）。M7 布局 Preset 核心能力已完成；M6 高级功能 MVP 已恢复。当前进入 M8 收尾与 M9 启动之间的**架构健康迭代**。
 
 优先级从高到低：
 
-1. **M8 边界稳定**
+1. **架构健康迭代**（当前活跃）
+   - 继续收敛 `MainComponent` 职责，目标从 1555 行降至 1200 行以下。
+   - 录制会话状态结构化（AH-1）、导出流程统一（AH-2）、布局 CRUD 收敛（AH-3）、设置窗口收敛（AH-4）、AppState 清理（AH-5）。
+   - 详见 [`current-iteration.md`](current-iteration.md)。
+
+2. **M8 边界稳定**
    - 保持 M8-2 边界：导入 playback take 禁止 MIDI 再导出；导入后 WAV 导出进入 M6-6e backlog。
    - 继续搁置 M8-5 merge-all，避免默认合并带来嘈杂/鼓轨/多音色问题。
-
-2. **保持架构健康**
-   - 避免 `MainComponent` 再次膨胀。
-   - 新状态优先通过 `AppState` / builder / UI 子组件边界表达。
 
 3. **M3 插件宿主持续稳定与产品化增强**
    - M3-P1..P4 已完成，低优先级持续观察退出阶段 Debug 告警。
@@ -190,7 +189,7 @@
 | 插件生命周期复杂 | 中 | 维护专项生命周期测试，重点覆盖 editor、卸载、重扫、退出；退出场景 6.3 因硬件条件暂缓。 |
 | 外部 MIDI 硬件依赖 | 中 | 外部 MIDI 录制/回放/退出场景 6.3 均因无硬件暂缓；状态已记录至 [`known-issues.md`](../testing/known-issues.md)。 |
 | 键盘映射边界多 | 低中 | 基础映射已全量验证；布局 preset 已补充专项回归清单，后续改动按清单回归。 |
-| `MainComponent` 职责回流 | 低 | 已通过 MC-1..MC-4 四轮收敛建立了 RecordingFlowSupport / ExportFlowSupport / PluginFlowSupport 边界；`MainComponent` 只保留 UI 组件拥有权、JUCE 生命周期入口、窗口生命周期和顶层装配。 |
+| `MainComponent` 职责回流 | 低中 | 已通过 MC-1..MC-4 四轮收敛和 M8-1c 按钮状态统一；当前架构健康迭代（AH-1..AH-5）继续收敛，目标从 1555 行降至 1200 行以下。 |
 | 录制/回放实现风险 | 中 | MVP 主链路已接入；下一阶段优先收紧实时音频线程边界、回放结束通知、采样率缩放与 Stop 清理悬挂音路径。 |
 | 布局 Preset 实现风险 | 低 | 核心能力已完成并补充功能/测试文档；后续主要是低优先级体验增强。 |
 | 文档状态漂移 | 中 | 本文件作为唯一 roadmap；当前任务只写入 [`current-iteration.md`](current-iteration.md)。 |
