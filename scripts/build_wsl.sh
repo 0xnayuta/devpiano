@@ -98,6 +98,36 @@ log "project root: ${ROOT_DIR}"
 log "configure preset: ${CONFIGURE_PRESET}"
 cmake --preset "${CONFIGURE_PRESET}" -S "${ROOT_DIR}"
 
+# Generate JuceHeader.h so clangd/LSP can resolve it without a full build.
+# JuceHeader.h is normally generated during the build step by juceaide.
+# Running it here makes --configure-only sufficient for clangd to work.
+generate_juce_header() {
+  local juceaide
+  juceaide="$(find "${BUILD_DIR}" -name juceaide -type f -executable 2>/dev/null | head -1)"
+  if [[ -z "${juceaide}" ]]; then
+    warn "juceaide not found in ${BUILD_DIR}; skipping JuceHeader.h generation"
+    return 0
+  fi
+
+  local defs_file
+  defs_file="$(find "${BUILD_DIR}" -path "*/JuceLibraryCode/*/Defs.txt" 2>/dev/null | head -1)"
+  if [[ -z "${defs_file}" ]]; then
+    warn "Defs.txt not found in ${BUILD_DIR}; skipping JuceHeader.h generation"
+    return 0
+  fi
+
+  local header_dir
+  header_dir="$(dirname "${defs_file}")"
+  # Defs.txt is in a config subdirectory (e.g. Debug/); header goes one level up
+  header_dir="$(dirname "${header_dir}")"
+  local header_file="${header_dir}/JuceHeader.h"
+
+  "${juceaide}" header "${defs_file}" "${header_file}"
+  log "generated: ${header_file}"
+}
+
+generate_juce_header
+
 if [[ "${CONFIGURE_ONLY}" == "1" ]]; then
   success 'configure-only mode complete'
   exit 0
