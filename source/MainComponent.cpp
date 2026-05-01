@@ -92,6 +92,18 @@ juce::String makeSafeUiText(juce::String text)
     return juce::File::getCurrentWorkingDirectory();
 }
 
+[[nodiscard]] juce::File getLastMidiImportDirectory(const SettingsModel& settings)
+{
+    if (settings.lastMidiImportPath.isNotEmpty())
+    {
+        const auto lastFile = juce::File(settings.lastMidiImportPath);
+        if (lastFile.exists())
+            return lastFile.getParentDirectory();
+    }
+
+    return juce::File {};
+}
+
 [[nodiscard]] juce::File makeDefaultMidiExportFile(const SettingsModel& settings,
                                                    devpiano::exporting::ExportFileType type)
 {
@@ -1483,16 +1495,7 @@ void MainComponent::handleImportMidiClicked()
         juce::Logger::writeToLog("[MIDI Import] stopped current playback before opening importer");
     }
 
-    const auto startDir = [this]() -> juce::File
-    {
-        if (appSettings.lastMidiImportPath.isNotEmpty())
-        {
-            auto f = juce::File(appSettings.lastMidiImportPath);
-            if (f.exists())
-                return f.getParentDirectory();
-        }
-        return juce::File {};
-    }();
+    const auto startDir = getLastMidiImportDirectory(appSettings);
 
     importMidiChooser = std::make_unique<juce::FileChooser>("Import MIDI File", startDir, "*.mid;*.midi");
     importMidiChooser->launchAsync(juce::FileBrowserComponent::openMode
@@ -1509,34 +1512,14 @@ void MainComponent::handleImportMidiClicked()
         appSettings.lastMidiImportPath = file.getFullPathName();
         saveSettingsSoon();
 
-        const auto sampleRate = getCurrentRuntimeSampleRate();
-        auto take = devpiano::recording::importMidiFile(file, sampleRate);
-
-        if (!take.has_value() || take->isEmpty())
+        auto take = tryImportMidiFile(file);
+        if (!take.has_value())
         {
-            juce::Logger::writeToLog("[MIDI Import] import failed or produced empty take: " + file.getFullPathName());
             importMidiChooser.reset();
             return;
         }
 
-        if (recordingSession.isPlaying())
-        {
-            const auto stoppedTake = stopInternalPlayback();
-            juce::ignoreUnused(stoppedTake);
-            recordingSession.state = ControlsPanel::RecordingState::idle;
-            syncRecordingSessionToUi();
-            juce::Logger::writeToLog("[MIDI Import] stopped current playback before replacing take");
-        }
-
-        recordingSession.take = std::move(*take);
-        recordingSession.canExportMidi = false;
-        recordingSession.state = ControlsPanel::RecordingState::idle;
-        syncRecordingSessionToUi();
-
-        // Immediately start playback so user can hear the imported MIDI
-        startInternalPlayback(recordingSession.take);
-        recordingSession.state = ControlsPanel::RecordingState::playing;
-        syncRecordingSessionToUi();
+        replaceTakeAndStartPlayback(std::move(*take));
 
         juce::Logger::writeToLog("[MIDI Import] imported: " + file.getFullPathName()
                                  + ", events=" + juce::String(static_cast<int>(recordingSession.take.events.size())));
@@ -1544,6 +1527,42 @@ void MainComponent::handleImportMidiClicked()
         importMidiChooser.reset();
         restoreKeyboardFocus();
     });
+}
+
+std::optional<devpiano::recording::RecordingTake> MainComponent::tryImportMidiFile(const juce::File& file) const
+{
+    const auto sampleRate = getCurrentRuntimeSampleRate();
+    auto take = devpiano::recording::importMidiFile(file, sampleRate);
+
+    if (!take.has_value() || take->isEmpty())
+    {
+        juce::Logger::writeToLog("[MIDI Import] import failed or produced empty take: " + file.getFullPathName());
+        return std::nullopt;
+    }
+
+    return take;
+}
+
+void MainComponent::replaceTakeAndStartPlayback(devpiano::recording::RecordingTake take)
+{
+    if (recordingSession.isPlaying())
+    {
+        const auto stoppedTake = stopInternalPlayback();
+        juce::ignoreUnused(stoppedTake);
+        recordingSession.state = ControlsPanel::RecordingState::idle;
+        syncRecordingSessionToUi();
+        juce::Logger::writeToLog("[MIDI Import] stopped current playback before replacing take");
+    }
+
+    recordingSession.take = std::move(take);
+    recordingSession.canExportMidi = false;
+    recordingSession.state = ControlsPanel::RecordingState::idle;
+    syncRecordingSessionToUi();
+
+    // Immediately start playback so user can hear the imported MIDI
+    startInternalPlayback(recordingSession.take);
+    recordingSession.state = ControlsPanel::RecordingState::playing;
+    syncRecordingSessionToUi();
 }
 
 void MainComponent::scanPluginsAtPathAndCommitState(const juce::FileSearchPath& path)

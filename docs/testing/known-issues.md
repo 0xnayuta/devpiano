@@ -19,25 +19,25 @@
 
 详见：
 
-- [`recording-playback.md`](recording-playback.md) §7（外部 MIDI 输入）
-- [`plugin-host-lifecycle.md`](plugin-host-lifecycle.md) §6.3
-- [`keyboard-mapping.md`](keyboard-mapping.md) §9.2（混合输入）
+- [`recording-playback.md`](phase3-recording-playback.md) §7（外部 MIDI 输入）
+- [`plugin-host-lifecycle.md`](phase2-plugin-host-lifecycle.md) §6.3
+- [`keyboard-mapping.md`](phase2-keyboard-mapping.md) §9.2（混合输入）
 
 ---
 
-## 2. VST3 插件离线渲染（M6-6e 后置）
+## 2. VST3 插件离线渲染（Phase 3-5，后置）
 
 > 触发条件：用户期望用已加载的 VST3 插件音色导出 WAV。
 > 影响范围：当前 WAV 导出仅支持 fallback synth。
 
-- **现状**：WAV 离线渲染 MVP（M6-6a/b/c/d）已完成，fallback synth 导出和 UI 接入均已验证通过。
-- **限制**：WAV 导出不支持已加载 VST3 插件音色；VST3 插件离线渲染（M6-6e）暂不阻塞 MVP，已排入后续 backlog。
+- **现状**：WAV 离线渲染 MVP（Phase 3-4）已完成，fallback synth 导出和 UI 接入均已验证通过。
+- **限制**：WAV 导出不支持已加载 VST3 插件音色；VST3 插件离线渲染（Phase 3-5）暂不阻塞 MVP，已排入后续 backlog。
 - **影响**：需要插件音色的用户暂时无法使用 WAV 导出功能。
 
 详见：
 
-- [`../features/M6-recording-playback.md`](../features/M6-recording-playback.md)（M6-6e 设计备注）
-- [`../roadmap/roadmap.md`](../roadmap/roadmap.md)（M6 当前状态）
+- [`../features/phase3-recording-playback.md`](../features/phase3-recording-playback.md)（Phase 3-5 设计备注）
+- [`../roadmap/roadmap.md`](../roadmap/roadmap.md)（Phase 3 当前状态）
 
 ---
 
@@ -52,8 +52,8 @@
 
 详见：
 
-- [`recording-playback.md`](recording-playback.md)（包 A–E 测试结果）
-- [`../roadmap/roadmap.md`](../roadmap/roadmap.md)（M6 当前状态与近期重点）
+- [`recording-playback.md`](phase3-recording-playback.md)（包 A–E 测试结果）
+- [`../roadmap/roadmap.md`](../roadmap/roadmap.md)（Phase 3 当前状态与近期重点）
 
 ---
 
@@ -67,8 +67,8 @@
 
 详见：
 
-- [`plugin-host-lifecycle.md`](plugin-host-lifecycle.md)（专项生命周期测试）
-- [`../roadmap/roadmap.md`](../roadmap/roadmap.md)（M3 当前状态）
+- [`plugin-host-lifecycle.md`](phase2-plugin-host-lifecycle.md)（专项生命周期测试）
+- [`../roadmap/roadmap.md`](../roadmap/roadmap.md)（Phase 2 当前状态）
 
 ---
 
@@ -82,8 +82,8 @@
 
 详见：
 
-- [`../features/M7-layout-presets.md`](../features/M7-layout-presets.md)
-- [`../testing/layout-presets.md`](../testing/layout-presets.md)
+- [`../features/phase3-layout-presets.md`](../features/phase3-layout-presets.md)
+- [`../testing/phase3-layout-presets.md`](../testing/phase3-layout-presets.md)
 
 ---
 
@@ -97,17 +97,17 @@
 
 以下条目已通过 2026-04-30 人工验证，无已知明显问题：
 
-- **M3-P1**：扫描失败文件记录（`lastScanFailedFiles` + Logger 写入 + UI 摘要提示）。
-- **M3-P2**：多目录扫描输入格式与持久化（`FileSearchPath` 分隔 + 过滤无效目录）。
-- **M3-P3**：扫描结果持久化（`KnownPluginList` XML 缓存 + 启动优先恢复）。
-- **M3-P4**：空 / 失败 / 恢复失败状态 UI（区分 6 种状态文本）。
-- **MC-1**：RecordingFlowSupport 录制 / 回放 UI 流程。
-- **MC-2**：ExportFlowSupport 导出选项与默认文件名。
-- **MC-3**：PluginFlowSupport scan / restore / cache 收敛。
-- **MC-4**：MainComponent 状态刷新边界命名清理。
-- **Section 5**：MC-1..MC-4 全部完成，人工回归通过。
+- **Phase 2-1**：扫描失败文件记录（`lastScanFailedFiles` + Logger 写入 + UI 摘要提示）。
+- **Phase 2-2**：多目录扫描输入格式与持久化（`FileSearchPath` 分隔 + 过滤无效目录）。
+- **Phase 2-3**：扫描结果持久化（`KnownPluginList` XML 缓存 + 启动优先恢复）。
+- **Phase 2-4**：空 / 失败 / 恢复失败状态 UI（区分 6 种状态文本）。
+- **Phase 5-1**：RecordingFlowSupport 录制 / 回放 UI 流程。
+- **Phase 5-2**：ExportFlowSupport 导出选项与默认文件名。
+- **Phase 5-3**：PluginFlowSupport scan / restore / cache 收敛。
+- **Phase 5-4**：MainComponent 状态刷新边界命名清理。
+- **Phase 5**：Phase 5-1..5-4 全部完成，人工回归通过。
 
 详见：
 
-- [`../roadmap/current-iteration.md`](../roadmap/current-iteration.md)（MC-1..MC-4 人工回归记录）
-- [`plugin-host-lifecycle.md`](plugin-host-lifecycle.md)（M3-P1..P4 测试结果）
+- [`../roadmap/current-iteration.md`](../roadmap/current-iteration.md)（Phase 5-1..5-4 人工回归记录）
+- [`phase2-plugin-host-lifecycle.md`](phase2-plugin-host-lifecycle.md)（Phase 2-1..2-4 测试结果）

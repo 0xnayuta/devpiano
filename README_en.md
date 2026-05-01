@@ -191,8 +191,8 @@ Run Windows MSVC validation build (sync built-in, no separate win-sync needed):
 
 - [docs/development/wsl-windows-msvc-workflow.md](docs/development/wsl-windows-msvc-workflow.md)
 - [docs/getting-started/quickstart.md](docs/getting-started/quickstart.md)
-- [docs/features/M8-midi-file-and-freepiano-gap.md](docs/features/M8-midi-file-and-freepiano-gap.md)
-- [docs/testing/midi-file-import.md](docs/testing/midi-file-import.md)
+- [docs/features/phase4-midi-file-import.md](docs/features/phase4-midi-file-import.md)
+- [docs/testing/phase4-midi-file-import.md](docs/testing/phase4-midi-file-import.md)
 
 ---
 
@@ -221,7 +221,7 @@ Typical replacement directions:
 For more mapping details, see:
 
 - [docs/architecture/legacy-migration.md](docs/architecture/legacy-migration.md)
-- [docs/features/M8-midi-file-and-freepiano-gap.md](docs/features/M8-midi-file-and-freepiano-gap.md)
+- [docs/features/phase4-midi-file-import.md](docs/features/phase4-midi-file-import.md)
 
 ---
 
@@ -237,14 +237,14 @@ If you want to understand the current project plan, the recommended reading orde
 - Roadmap and project status: [docs/roadmap/roadmap.md](docs/roadmap/roadmap.md)
 - Current iteration tasks: [docs/roadmap/current-iteration.md](docs/roadmap/current-iteration.md)
 - Acceptance criteria: [docs/testing/acceptance.md](docs/testing/acceptance.md)
-- MIDI file import and playback boundaries: [docs/features/M8-midi-file-and-freepiano-gap.md](docs/features/M8-midi-file-and-freepiano-gap.md)
-- MIDI file import specialized tests: [docs/testing/midi-file-import.md](docs/testing/midi-file-import.md)
+- MIDI file import and playback boundaries: [docs/features/phase4-midi-file-import.md](docs/features/phase4-midi-file-import.md)
+- MIDI file import specialized tests: [docs/testing/phase4-midi-file-import.md](docs/testing/phase4-midi-file-import.md)
 - Specialized test docs:
-  - [docs/testing/keyboard-mapping.md](docs/testing/keyboard-mapping.md)
-  - [docs/testing/layout-presets.md](docs/testing/layout-presets.md)
-  - [docs/testing/recording-playback.md](docs/testing/recording-playback.md)
-  - [docs/testing/midi-file-import.md](docs/testing/midi-file-import.md)
-  - [docs/testing/plugin-host-lifecycle.md](docs/testing/plugin-host-lifecycle.md)
+  - [docs/testing/phase2-keyboard-mapping.md](docs/testing/phase2-keyboard-mapping.md)
+  - [docs/testing/phase3-layout-presets.md](docs/testing/phase3-layout-presets.md)
+  - [docs/testing/phase3-recording-playback.md](docs/testing/phase3-recording-playback.md)
+  - [docs/testing/phase4-midi-file-import.md](docs/testing/phase4-midi-file-import.md)
+  - [docs/testing/phase2-plugin-host-lifecycle.md](docs/testing/phase2-plugin-host-lifecycle.md)
 
 ---
 
