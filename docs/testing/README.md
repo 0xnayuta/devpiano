@@ -4,7 +4,7 @@
 
 当前文档：
 
-- [`acceptance.md`](acceptance.md)：M0-M6 阶段验收标准。
+- [`acceptance.md`](acceptance.md)：阶段验收标准。
 - [`keyboard-mapping.md`](keyboard-mapping.md)：键盘映射专项手工测试。
 - [`layout-presets.md`](layout-presets.md)：布局 preset 的保存、导入、重命名、删除与启动恢复手工测试。
 - [`recording-playback.md`](recording-playback.md)：录制、回放与 MIDI 导出专项手工测试。

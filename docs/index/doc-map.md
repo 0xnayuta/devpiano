@@ -23,6 +23,7 @@
 - 项目状态与路线图：[`../roadmap/roadmap.md`](../roadmap/roadmap.md)
 - 当前任务：[`../roadmap/current-iteration.md`](../roadmap/current-iteration.md)
 - 阶段验收：[`../testing/acceptance.md`](../testing/acceptance.md)
+- MIDI 文件导入与回放功能（M8）：[`../features/M8-midi-file-and-freepiano-gap.md`](../features/M8-midi-file-and-freepiano-gap.md)
 - 录制 / 回放 / MIDI 导出设计：[`../features/M6-recording-playback.md`](../features/M6-recording-playback.md)
 - 录制 / 回放 / MIDI 导出测试：[`../testing/recording-playback.md`](../testing/recording-playback.md)
 - MIDI 文件导入与回放测试（M8）：[`../testing/midi-file-import.md`](../testing/midi-file-import.md)

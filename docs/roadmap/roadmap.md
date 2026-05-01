@@ -33,14 +33,15 @@
 - [x] 基础设置、插件恢复信息与布局标识具备持久化能力。
 - [x] UI 已形成 `HeaderPanel` / `PluginPanel` / `ControlsPanel` / `KeyboardPanel` 的基础组件分层。
 
-当前项目不再处于"从零接通主链路"的阶段，也已完成布局 Preset 与录制 / 回放 / MIDI 导出 MVP 恢复和 MainComponent 录制/回放/导出状态流收敛（MC-1..MC-4）。当前进入：
+当前项目不再处于"从零接通主链路"的阶段，也已完成布局 Preset、录制 / 回放 / MIDI 导出 MVP、WAV fallback 离线渲染、MainComponent 录制/回放/导出状态流收敛（MC-1..MC-4）以及 M8 MIDI 文件导入核心能力。当前进入：
 
-- M6 录制 / 回放实时边界稳定化。
+- M8 MIDI 文件导入与回放兼容性收敛。
+- M8-2 roundtrip / tempo / 多轨边界语义确认。
+- M8-3 最近路径与小型回放控制增强补齐。
+- M8-5 merge-all 单 timeline 是否作为可选导入模式的评估。
 - 外部 MIDI 硬件依赖回归补齐（搁置，待硬件条件恢复）。
-- 插件宿主与 UI 的产品化增强排期（M3-P1..P4 已完成）。
-- 下一阶段重点是录制 / 回放稳定化和外部 MIDI 硬件验证补齐。
 
-最近一轮插件生命周期人工回归已补齐大部分高风险组合路径：scan / load / unload / editor / 重扫 / 直接退出、音频设备设置切换、M3-P1..P4 插件扫描产品化增强均已完成一轮验证；当前主要剩余问题是外部 MIDI 硬件依赖验证因无设备暂缓，状态已记录至 [`known-issues.md`](../testing/known-issues.md)。
+最近一轮 M8 人工回归已确认 M8-1b、M8-6、M8-7 无明显问题。插件生命周期人工回归也已补齐大部分高风险组合路径：scan / load / unload / editor / 重扫 / 直接退出、音频设备设置切换、M3-P1..P4 插件扫描产品化增强均已完成一轮验证；外部 MIDI 硬件依赖验证仍因无设备暂缓，状态已记录至 [`known-issues.md`](../testing/known-issues.md)。
 ## 3. 阶段路线图
 
 ### M0：工程骨架可运行
@@ -141,26 +142,44 @@
 - [~] ID 冲突当前通过“用户 preset id 由文件名派生 + 导入同名文件覆盖”处理，尚无单独冲突提醒 UI。
 - [x] 已补充功能说明与专项测试：[`../features/M7-layout-presets.md`](../features/M7-layout-presets.md)、[`../testing/layout-presets.md`](../testing/layout-presets.md)。
 
+### M8：MIDI 文件导入与回放兼容性
+
+状态：核心导入与多项体验增强已完成；roundtrip / 最近导出路径 / merge-all 仍待决策或实现。
+
+- [x] M8-1：MIDI 文件导入核心（Import MIDI、导入为 `RecordingTake`、导入后回放、错误路径安全返回）。
+- [x] M8-1b：自动选择含 note 最多的轨道，解决常见 Type 1 MIDI track 0 只有 tempo/meta 导致无声的问题。
+- [~] M8-2：MIDI roundtrip 验证 + 多轨/tempo 边界处理。PPQ/timeFormat 修正、轨道诊断和自动选轨已具备；导入 → 导出 roundtrip 用户路径尚未开放。
+- [~] M8-3：最近路径记忆 + 回放控制小增强。最近导入路径已实现；最近导出路径和“回到开头”未实现。
+- [ ] M8-5：合并所有轨道 note 到单一 timeline。当前未实现，后续如做建议作为可选导入模式。
+- [x] M8-6：MIDI playback 虚拟键盘可视化，已通过人工验收。
+- [x] M8-7：主窗口尺寸自适应与恢复，已通过人工验收。
+
+功能与测试文档：[`../features/M8-midi-file-and-freepiano-gap.md`](../features/M8-midi-file-and-freepiano-gap.md)、[`../testing/midi-file-import.md`](../testing/midi-file-import.md)。
+
 ## 4. 当前近期重点
 
-布局 Preset（M7）核心能力已完成；M6 高级功能 MVP 已恢复：布局 Preset、录制、停止、回放、MIDI 导出和 fallback synth WAV 导出均已有主链路入口。当前重点从“继续补齐 MVP 功能”转为“插件扫描产品化增强排期、MainComponent 职责收敛，以及等待硬件条件恢复后的外部 MIDI 回归”。
+布局 Preset（M7）核心能力已完成；M6 高级功能 MVP 已恢复；M8 MIDI 文件导入核心能力、note-rich 自动选轨、playback 虚拟键盘可视化和主窗口尺寸恢复均已完成。当前重点转为收敛 M8 剩余边界与保持架构健康。
 
 优先级从高到低：
 
-1. **M3 插件宿主持续稳定与产品化增强**
-   - 扫描失败文件明细、多目录扫描输入、扫描结果持久化、空/失败/恢复失败状态提示已拆入 M3-P1..P4 backlog。
-   - 低优先级持续观察退出阶段 Debug 告警。
+1. **M8 剩余边界收敛**
+   - 先重新定义 M8-2 roundtrip 验收语义（导入 playback take 是否允许再导出）。
+   - 再补齐 M8-3 最近导出路径等低风险体验项。
+   - 最后评估 M8-5 merge-all 是否作为可选导入模式，避免默认合并带来嘈杂/鼓轨/多音色问题。
 
 2. **保持架构健康**
    - 避免 `MainComponent` 再次膨胀。
    - 新状态优先通过 `AppState` / builder / UI 子组件边界表达。
 
-3. **M6 / 外部 MIDI 硬件依赖项（搁置，待条件恢复）**
+3. **M3 插件宿主持续稳定与产品化增强**
+   - M3-P1..P4 已完成，低优先级持续观察退出阶段 Debug 告警。
+
+4. **M6 / 外部 MIDI 硬件依赖项（搁置，待条件恢复）**
    - M6 录制 / 回放稳定化最后一项边界检查暂搁置。
    - 外部 MIDI 录制 / 回放验证、插件生命周期退出场景 `6.3` 暂搁置。
    - 状态已持久化记录在 [`../testing/recording-playback.md`](../testing/recording-playback.md)。
 
-4. **M7 布局 Preset 持续打磨**（核心能力已完成）
+5. **M7 布局 Preset 持续打磨**（核心能力已完成）
    - 按 [`../testing/layout-presets.md`](../testing/layout-presets.md) 做专项回归。
    - 后续只保留低优先级增强，如冲突提示、图形化布局编辑器、per-key label/color。
 
@@ -187,6 +206,7 @@
 - [`../testing/keyboard-mapping.md`](../testing/keyboard-mapping.md)
 - [`../testing/layout-presets.md`](../testing/layout-presets.md)
 - [`../testing/recording-playback.md`](../testing/recording-playback.md)
+- [`../testing/midi-file-import.md`](../testing/midi-file-import.md)
 - [`../testing/plugin-host-lifecycle.md`](../testing/plugin-host-lifecycle.md)
 
 ---
