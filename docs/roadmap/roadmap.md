@@ -146,8 +146,8 @@
 
 - [x] M8-1：MIDI 文件导入核心（Import MIDI、导入为 `RecordingTake`、导入后回放、错误路径安全返回）。
 - [x] M8-1b：自动选择含 note 最多的轨道，解决常见 Type 1 MIDI track 0 只有 tempo/meta 导致无声的问题。
-- [x] M8-1c：Import MIDI 按钮状态收敛。Record / Play / Stop / Back / Import MIDI / Export MIDI / Export WAV 已纳入统一录制 / 回放按钮状态刷新；Recording 期间禁用 Import MIDI，Playing 期间允许安全导入另一个 MIDI 替换 playback。已通过人工验收。
-- [x] M8-2：MIDI import playback 边界 + 多轨/tempo 处理。PPQ/timeFormat 修正、轨道诊断和自动选轨已具备；导入 playback take 禁止再次导出 MIDI。多轨、非 960 PPQ、tempo meta event 和复杂 tempo map 限制人工验收未发现明显问题。导入 MIDI 后允许导出 WAV 归入 M6-6e，暂时搁置。
+- [x] M8-1c：Import MIDI 按钮状态收敛。Record / Play / Stop / Back / Import MIDI / Export MIDI / Export WAV 已纳入统一录制 / 回放按钮状态刷新；Recording / Playing 期间禁用 Import MIDI。已通过人工验收。
+- [x] M8-2：MIDI import playback 边界 + 多轨/tempo 处理。PPQ/timeFormat 修正、轨道诊断和自动选轨已具备；导入 playback take 禁止再次导出 MIDI，但允许导出 WAV。多轨、非 960 PPQ、tempo meta event 和复杂 tempo map 限制人工验收未发现明显问题。VST3 插件音色离线渲染仍归 M6-6e，暂时搁置。
 - [x] M8-3：最近路径记忆 + 回放控制小增强。最近导入/导出路径已实现；播放中点击 `Back` 可从当前 take 开头重新播放。已通过人工验收。
 - [~] M8-5：合并所有轨道 note 到单一 timeline。当前未实现且已搁置；继续保留 note-rich 单轨选择为推荐模式，merge-all 以后再考虑。
 - [x] M8-6：MIDI playback 虚拟键盘可视化，已通过人工验收。
@@ -157,17 +157,17 @@
 
 ## 4. 当前近期重点
 
-M8 MIDI 文件导入与回放兼容性已收尾（M8-1 / M8-1b / M8-1c / M8-2 / M8-3 / M8-6 / M8-7 均已通过人工验收；M8-5 已搁置）。M7 布局 Preset 核心能力已完成；M6 高级功能 MVP 已恢复。当前进入 M8 收尾与 M9 启动之间的**架构健康迭代**。
+M8 MIDI 文件导入与回放兼容性已收尾（M8-1 / M8-1b / M8-1c / M8-2 / M8-3 / M8-6 / M8-7 均已通过人工验收；M8-5 已搁置）。M7 布局 Preset 核心能力已完成；M6 高级功能 MVP 已恢复。M8 收尾与 M9 启动之间的**架构健康迭代**已完成 AH-1..AH-6，当前进入收尾判定。
 
 优先级从高到低：
 
-1. **架构健康迭代**（当前活跃）
-   - 继续收敛 `MainComponent` 职责，目标从 1555 行降至 1200 行以下。
-   - 录制会话状态结构化（AH-1）、导出流程统一（AH-2）、布局 CRUD 收敛（AH-3）、设置窗口收敛（AH-4）、AppState 清理（AH-5）。
+1. **架构健康迭代收尾**（当前活跃）
+   - AH-1..AH-6 已完成：录制会话状态结构化、导出流程统一、布局 CRUD 收敛、设置窗口收敛、AppState 清理、ControlsPanel 按钮状态统一。
+   - `MainComponent.cpp` 仍约 1568 行；继续收敛不作为本轮阻塞项，建议后续单独规划更大切片（首选 MIDI 导入流程下沉）。
    - 详见 [`current-iteration.md`](current-iteration.md)。
 
 2. **M8 边界稳定**
-   - 保持 M8-2 边界：导入 playback take 禁止 MIDI 再导出；导入后 WAV 导出进入 M6-6e backlog。
+   - 保持 M8-2 边界：导入 playback take 禁止 MIDI 再导出；导入后允许 WAV 导出；VST3 插件音色离线渲染仍进入 M6-6e backlog。
    - 继续搁置 M8-5 merge-all，避免默认合并带来嘈杂/鼓轨/多音色问题。
 
 3. **M3 插件宿主持续稳定与产品化增强**

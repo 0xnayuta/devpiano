@@ -1077,9 +1077,10 @@ MainComponent::RuntimeAudioConfig MainComponent::getCurrentRuntimeAudioConfig() 
 
 void MainComponent::syncRecordingSessionToUi()
 {
-    controlsPanel.setRecordingState(recordingSession.state);
-    controlsPanel.setHasTake(recordingSession.hasTake());
-    controlsPanel.setCanExportTake(recordingSession.canExport);
+    controlsPanel.setRecordingControlsState({ .state = recordingSession.state,
+                                              .hasTake = recordingSession.hasTake(),
+                                              .canExportMidiTake = recordingSession.canExportMidi,
+                                              .canExportWavTake = recordingSession.hasTake() });
 }
 
 void MainComponent::runExportRecordingFlow(devpiano::exporting::ExportFileType type,
@@ -1088,7 +1089,12 @@ void MainComponent::runExportRecordingFlow(devpiano::exporting::ExportFileType t
                                            const juce::String& filePattern,
                                            std::function<bool(const juce::File&)> doExport)
 {
-    if (! recordingSession.canExport || ! devpiano::exporting::canExportTake(recordingSession.take))
+    const auto hasExportableTake = devpiano::exporting::canExportTake(recordingSession.take);
+    const auto canExportRequestedType = type == devpiano::exporting::ExportFileType::midi
+                                            ? recordingSession.canExportMidi
+                                            : hasExportableTake;
+
+    if (! canExportRequestedType || ! hasExportableTake)
     {
         juce::Logger::writeToLog(devpiano::exporting::makeExportLogPrefix(type)
                                  + " export skipped: recordingSession.take is empty or not exportable");
@@ -1349,7 +1355,7 @@ void MainComponent::handleRecordClicked()
 
     recordingEngine.clear();
     recordingSession.take = {};
-    recordingSession.canExport = false;
+    recordingSession.canExportMidi = false;
     startInternalRecording(0);
     recordingSession.state = toControlsPanelRecordingState(getStateAfterCommand(command,
                                                                                 toRecordingFlowState(recordingSession.state)));
@@ -1385,7 +1391,7 @@ void MainComponent::handleStopClicked()
     if (command == RecordingFlowCommand::stopRecording)
     {
         recordingSession.take = stopInternalRecording();
-        recordingSession.canExport = recordingSession.hasTake();
+        recordingSession.canExportMidi = recordingSession.hasTake();
     }
     else if (command == RecordingFlowCommand::stopPlayback)
     {
@@ -1523,7 +1529,7 @@ void MainComponent::handleImportMidiClicked()
         }
 
         recordingSession.take = std::move(*take);
-        recordingSession.canExport = false;
+        recordingSession.canExportMidi = false;
         recordingSession.state = ControlsPanel::RecordingState::idle;
         syncRecordingSessionToUi();
 
