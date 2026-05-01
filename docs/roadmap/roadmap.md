@@ -36,12 +36,12 @@
 当前项目不再处于"从零接通主链路"的阶段，也已完成布局 Preset、录制 / 回放 / MIDI 导出 MVP、WAV fallback 离线渲染、MainComponent 录制/回放/导出状态流收敛（MC-1..MC-4）以及 M8 MIDI 文件导入核心能力。当前进入：
 
 - M8 MIDI 文件导入与回放兼容性收敛。
-- M8-2 import playback / tempo / 多轨边界语义已确认：导入 playback take 禁止再次导出 MIDI；导入后 WAV 导出归 M6-6e 搁置。
+- M8-2 import playback / tempo / 多轨边界语义已确认并通过人工验收：导入 playback take 禁止再次导出 MIDI；导入后 WAV 导出归 M6-6e 搁置。
 - M8-3 最近路径与小型回放控制增强补齐。
 - M8-5 merge-all 单 timeline 已搁置；当前保留 note-rich 单轨选择为推荐模式。
 - 外部 MIDI 硬件依赖回归补齐（搁置，待硬件条件恢复）。
 
-最近一轮 M8 人工回归已确认 M8-1b、M8-6、M8-7 无明显问题。插件生命周期人工回归也已补齐大部分高风险组合路径：scan / load / unload / editor / 重扫 / 直接退出、音频设备设置切换、M3-P1..P4 插件扫描产品化增强均已完成一轮验证；外部 MIDI 硬件依赖验证仍因无设备暂缓，状态已记录至 [`known-issues.md`](../testing/known-issues.md)。
+最近一轮 M8 人工回归已确认 M8-1b、M8-1c、M8-2、M8-6、M8-7 无明显问题。插件生命周期人工回归也已补齐大部分高风险组合路径：scan / load / unload / editor / 重扫 / 直接退出、音频设备设置切换、M3-P1..P4 插件扫描产品化增强均已完成一轮验证；外部 MIDI 硬件依赖验证仍因无设备暂缓，状态已记录至 [`known-issues.md`](../testing/known-issues.md)。
 ## 3. 阶段路线图
 
 ### M0：工程骨架可运行
@@ -144,11 +144,12 @@
 
 ### M8：MIDI 文件导入与回放兼容性
 
-状态：核心导入与多项体验增强已完成；M8-2 roundtrip 语义已收敛；M8-3 已通过人工验收；merge-all 已搁置。
+状态：核心导入与多项体验增强已完成；Import MIDI 按钮状态、M8-2 playback / tempo / 多轨边界、M8-3、M8-6、M8-7 均已通过人工验收；merge-all 已搁置。
 
 - [x] M8-1：MIDI 文件导入核心（Import MIDI、导入为 `RecordingTake`、导入后回放、错误路径安全返回）。
 - [x] M8-1b：自动选择含 note 最多的轨道，解决常见 Type 1 MIDI track 0 只有 tempo/meta 导致无声的问题。
-- [x] M8-2：MIDI import playback 边界 + 多轨/tempo 处理。PPQ/timeFormat 修正、轨道诊断和自动选轨已具备；导入 playback take 禁止再次导出 MIDI。导入 MIDI 后允许导出 WAV 归入 M6-6e，暂时搁置。
+- [x] M8-1c：Import MIDI 按钮状态收敛。Record / Play / Stop / Back / Import MIDI / Export MIDI / Export WAV 已纳入统一录制 / 回放按钮状态刷新；Recording 期间禁用 Import MIDI，Playing 期间允许安全导入另一个 MIDI 替换 playback。已通过人工验收。
+- [x] M8-2：MIDI import playback 边界 + 多轨/tempo 处理。PPQ/timeFormat 修正、轨道诊断和自动选轨已具备；导入 playback take 禁止再次导出 MIDI。多轨、非 960 PPQ、tempo meta event 和复杂 tempo map 限制人工验收未发现明显问题。导入 MIDI 后允许导出 WAV 归入 M6-6e，暂时搁置。
 - [x] M8-3：最近路径记忆 + 回放控制小增强。最近导入/导出路径已实现；播放中点击 `Back` 可从当前 take 开头重新播放。已通过人工验收。
 - [~] M8-5：合并所有轨道 note 到单一 timeline。当前未实现且已搁置；继续保留 note-rich 单轨选择为推荐模式，merge-all 以后再考虑。
 - [x] M8-6：MIDI playback 虚拟键盘可视化，已通过人工验收。
@@ -158,11 +159,11 @@
 
 ## 4. 当前近期重点
 
-布局 Preset（M7）核心能力已完成；M6 高级功能 MVP 已恢复；M8 MIDI 文件导入核心能力、note-rich 自动选轨、playback 虚拟键盘可视化和主窗口尺寸恢复均已完成。当前重点转为收敛 M8 剩余边界与保持架构健康。
+布局 Preset（M7）核心能力已完成；M6 高级功能 MVP 已恢复；M8 MIDI 文件导入核心能力、note-rich 自动选轨、Import MIDI 按钮状态收敛、M8-2 playback / tempo / 多轨边界、playback 虚拟键盘可视化和主窗口尺寸恢复均已完成。当前重点转为保持 M8 边界稳定与架构健康。
 
 优先级从高到低：
 
-1. **M8 剩余边界收敛**
+1. **M8 边界稳定**
    - 保持 M8-2 边界：导入 playback take 禁止 MIDI 再导出；导入后 WAV 导出进入 M6-6e backlog。
    - 继续搁置 M8-5 merge-all，避免默认合并带来嘈杂/鼓轨/多音色问题。
 
