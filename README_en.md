@@ -36,6 +36,10 @@ The current main branch already provides the following capabilities:
 - basic settings are persisted, including audio device state, performance parameters, input mapping, and plugin restore information
 - layout presets can be saved, imported, renamed, deleted, and restored on startup
 - the recording / stop / playback / MIDI export MVP loop is available
+- MIDI file import, automatic track selection, imported playback, and playback boundary stabilization are available
+- unified recording/playback button state management is available; Import MIDI is disabled during Recording and remains available during Playing to safely replace playback with another MIDI file
+- MIDI playback visualization on the virtual keyboard and main window size persistence are available
+- M8 is now stabilized; M8-5 merge-all is deferred and M6-6e remains a future backlog item
 
 Areas still being improved:
 
@@ -44,6 +48,7 @@ Areas still being improved:
 - M6+ advanced features such as WAV offline rendering, editing, and tempo maps
 - clearer formal UI layering and interaction details
 - more systematic stability validation and regression testing
+- M8 backlog items such as M6-6e VST3 offline rendering and external MIDI hardware validation
 
 ---
 
@@ -58,7 +63,7 @@ The current main branch can be roughly divided into the following layers:
 - `source/Audio/`
   - `AudioEngine`: handles MIDI aggregation, plugin audio processing, and the built-in fallback synth
 - `source/Recording/`
-  - `RecordingEngine` / `MidiFileExporter`: handle performance event recording, playback scheduling, and MIDI file export
+  - `RecordingEngine` / `MidiFileExporter` / `MidiFileImporter`: handle performance event recording, playback scheduling, MIDI file export, and MIDI file import
 - `source/Plugin/`
   - `PluginHost`: manages plugin formats, VST3 scanning, instance loading, prepare/release, and unloading
 - `source/Input/`
@@ -67,6 +72,7 @@ The current main branch can be roughly divided into the following layers:
   - `MidiRouter`: opens external MIDI input and forwards it to `MidiMessageCollector`
 - `source/UI/`
   - `HeaderPanel`, `PluginPanel`, `ControlsPanel`, `KeyboardPanel`, `PluginEditorWindow`
+  - `ControlsPanel` now provides unified button state management for Record / Play / Stop / Back / Import MIDI / Export MIDI / Export WAV
 - `source/Settings/`
   - `SettingsModel`, `SettingsStore`, `SettingsComponent`: responsible for settings modeling, persistence, and settings UI
 - `source/Core/`
@@ -89,6 +95,7 @@ Computer keyboard / external MIDI -> MidiMessageCollector / MidiKeyboardState
 - `source/`
   - the current JUCE main implementation directory
   - all new `.cpp/.h` files should be placed here first
+  - currently covers keyboard input, plugin hosting, recording/playback/export, MIDI file import, and UI panel layering
 
 ### JUCE Submodule
 - `JUCE/`
@@ -103,7 +110,8 @@ Computer keyboard / external MIDI -> MidiMessageCollector / MidiKeyboardState
 
 ### Documentation
 - `docs/`
-  - project goals, assessments, plans, task lists, test cases, milestone checklists, and related docs
+  - project goals, assessments, plans, task lists, test cases, milestone checklists, M8 MIDI file import and playback boundaries, and related docs
+  - M8 is now stabilized; authoritative status is maintained in `docs/roadmap/roadmap.md` and `docs/roadmap/current-iteration.md`
 
 ### Legacy Prototypes and Transitional Code
 - `source/Legacy/UnusedPrototypes/`
@@ -128,7 +136,6 @@ Recommended entry commands:
 ./scripts/dev.sh self-check
 
 # local WSL configure / build
-./scripts/dev.sh wsl-build --configure-only
 ./scripts/dev.sh wsl-build --configure-only
 
 # Windows MSVC validation build (sync built-in, no separate win-sync needed)
@@ -184,6 +191,8 @@ Run Windows MSVC validation build (sync built-in, no separate win-sync needed):
 
 - [docs/development/wsl-windows-msvc-workflow.md](docs/development/wsl-windows-msvc-workflow.md)
 - [docs/getting-started/quickstart.md](docs/getting-started/quickstart.md)
+- [docs/features/M8-midi-file-and-freepiano-gap.md](docs/features/M8-midi-file-and-freepiano-gap.md)
+- [docs/testing/midi-file-import.md](docs/testing/midi-file-import.md)
 
 ---
 
@@ -212,6 +221,7 @@ Typical replacement directions:
 For more mapping details, see:
 
 - [docs/architecture/legacy-migration.md](docs/architecture/legacy-migration.md)
+- [docs/features/M8-midi-file-and-freepiano-gap.md](docs/features/M8-midi-file-and-freepiano-gap.md)
 
 ---
 
@@ -227,10 +237,13 @@ If you want to understand the current project plan, the recommended reading orde
 - Roadmap and project status: [docs/roadmap/roadmap.md](docs/roadmap/roadmap.md)
 - Current iteration tasks: [docs/roadmap/current-iteration.md](docs/roadmap/current-iteration.md)
 - Acceptance criteria: [docs/testing/acceptance.md](docs/testing/acceptance.md)
+- MIDI file import and playback boundaries: [docs/features/M8-midi-file-and-freepiano-gap.md](docs/features/M8-midi-file-and-freepiano-gap.md)
+- MIDI file import specialized tests: [docs/testing/midi-file-import.md](docs/testing/midi-file-import.md)
 - Specialized test docs:
   - [docs/testing/keyboard-mapping.md](docs/testing/keyboard-mapping.md)
   - [docs/testing/layout-presets.md](docs/testing/layout-presets.md)
   - [docs/testing/recording-playback.md](docs/testing/recording-playback.md)
+  - [docs/testing/midi-file-import.md](docs/testing/midi-file-import.md)
   - [docs/testing/plugin-host-lifecycle.md](docs/testing/plugin-host-lifecycle.md)
 
 ---
@@ -242,3 +255,4 @@ If you want to understand the current project plan, the recommended reading orde
 - do not modify anything inside `JUCE/`
 - validate changes through the build workflow whenever possible
 - when migrating legacy logic, prioritize extracting behavior rather than directly copying platform-specific implementations
+- M8 is now stabilized: MIDI file import, automatic track selection, imported playback, Import MIDI button state convergence, playback boundaries, and main window size restoration have all passed manual validation; M8-5 merge-all is deferred and M6-6e remains a future backlog item

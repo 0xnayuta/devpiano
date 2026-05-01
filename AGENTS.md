@@ -45,6 +45,8 @@
 - `docs/testing/acceptance.md`：阶段验收标准。
 - `docs/testing/keyboard-mapping.md`：键盘映射专项测试。
 - `docs/testing/plugin-host-lifecycle.md`：插件宿主生命周期专项测试。
+- [`docs/features/M8-midi-file-and-freepiano-gap.md`](docs/features/M8-midi-file-and-freepiano-gap.md)：MIDI 文件导入、回放兼容性、剩余边界与 FreePiano 差距。
+- [`docs/testing/midi-file-import.md`](docs/testing/midi-file-import.md)：M8 MIDI 文件导入、回放、自动选轨与后续增强验收测试。
 - `docs/decisions/`：ADR，记录已确定的架构/工程决策。
 - `docs/roadmap/roadmap.md`：唯一项目状态、阶段路线与近期重点来源。
 - `docs/roadmap/current-iteration.md`：当前迭代入口。
@@ -174,6 +176,8 @@
 - 键盘映射测试：[`docs/testing/keyboard-mapping.md`](docs/testing/keyboard-mapping.md)
 - 插件宿主功能：[`docs/features/M3-plugin-hosting.md`](docs/features/M3-plugin-hosting.md)
 - 插件宿主生命周期测试：`docs/testing/plugin-host-lifecycle.md`
+- MIDI 文件导入功能：[`docs/features/M8-midi-file-and-freepiano-gap.md`](docs/features/M8-midi-file-and-freepiano-gap.md)
+- MIDI 文件导入测试：[`docs/testing/midi-file-import.md`](docs/testing/midi-file-import.md)
 - 阶段验收：`docs/testing/acceptance.md`
 
 ---
@@ -212,6 +216,7 @@
    - `docs/architecture/overview.md`
    - [`docs/features/M4-keyboard-mapping.md`](docs/features/M4-keyboard-mapping.md)
    - [`docs/features/M3-plugin-hosting.md`](docs/features/M3-plugin-hosting.md)
+   - [`docs/features/M8-midi-file-and-freepiano-gap.md`](docs/features/M8-midi-file-and-freepiano-gap.md)
 4. 使用 `lsp` + `read` / `edit` 在 WSL 主工作树中小步修改。
 5. 修改 `source/*.h` / `source/*.cpp` 后，先用 LSP diagnostics 检查。
 6. 需要刷新 clangd 编译数据库时运行：
