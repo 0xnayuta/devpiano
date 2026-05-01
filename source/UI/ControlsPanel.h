@@ -76,7 +76,7 @@ private:
     juce::Slider releaseSlider;
     juce::ComboBox layoutComboBox;
     juce::TextButton saveLayoutButton { "Save Layout" };
-    juce::TextButton resetLayoutButton { "Reset Current Layout" };
+    juce::TextButton resetLayoutButton { "Reset" };
     juce::TextButton importLayoutButton { "Import" };
     juce::TextButton renameLayoutButton { "Rename" };
     juce::TextButton deleteLayoutButton { "Delete" };

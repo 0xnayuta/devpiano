@@ -47,8 +47,6 @@ struct PluginState
     juce::String lastPluginName;
     juce::String currentPluginName;
     juce::StringArray availablePluginNames;
-    juce::String pluginListText;
-    juce::String availableFormatsDescription;
     juce::String lastScanSummary;
     juce::String lastLoadError;
     double preparedSampleRate = 0.0;

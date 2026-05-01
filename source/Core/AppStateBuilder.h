@@ -18,8 +18,6 @@ struct RuntimePluginState
 {
     juce::String currentPluginName;
     juce::StringArray availablePluginNames;
-    juce::String pluginListText;
-    juce::String availableFormatsDescription;
     juce::String lastScanSummary;
     juce::String lastLoadError;
     double preparedSampleRate = 0.0;
@@ -77,8 +75,6 @@ struct RuntimeInputState
                           .lastPluginName = plugin.lastPluginName,
                           .currentPluginName = {},
                           .availablePluginNames = {},
-                          .pluginListText = {},
-                          .availableFormatsDescription = {},
                           .lastScanSummary = {},
                           .lastLoadError = {},
                           .preparedSampleRate = 0.0,
@@ -99,8 +95,6 @@ inline void applyRuntimePluginState(AppState& appState, const RuntimePluginState
 {
     appState.plugin.currentPluginName = runtime.currentPluginName;
     appState.plugin.availablePluginNames = runtime.availablePluginNames;
-    appState.plugin.pluginListText = runtime.pluginListText;
-    appState.plugin.availableFormatsDescription = runtime.availableFormatsDescription;
     appState.plugin.lastScanSummary = runtime.lastScanSummary;
     appState.plugin.lastLoadError = runtime.lastLoadError;
     appState.plugin.preparedSampleRate = runtime.preparedSampleRate;
