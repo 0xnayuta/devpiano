@@ -6,7 +6,6 @@
 #include "Recording/WavFileExporter.h"
 #include "UI/HeaderPanelStateBuilder.h"
 #include "UI/PluginPanelStateBuilder.h"
-#include "Layout/LayoutPreset.h"
 
 #if JUCE_WINDOWS
 struct HWND__;
@@ -110,29 +109,6 @@ juce::String makeSafeUiText(juce::String text)
     return devpiano::exporting::makeDefaultRecordingExportFile(type, getLastMidiExportDirectory(settings));
 }
 
-[[nodiscard]] std::optional<std::pair<juce::File, devpiano::core::KeyboardLayout>> findUserLayoutFileById(const juce::String& layoutId)
-{
-    if (layoutId.isEmpty() || layoutId.startsWith("default."))
-        return std::nullopt;
-
-    auto dir = devpiano::layout::getUserLayoutDirectory();
-    for (const auto& entry : dir.findChildFiles(juce::File::TypesOfFileToFind::findFiles, false, "*.freepiano.layout"))
-    {
-        auto loaded = devpiano::layout::loadLayoutPreset(entry);
-        if (!loaded.has_value())
-            continue;
-
-        loaded->id = devpiano::layout::getUserLayoutIdForFile(entry);
-        if (loaded->name.trim().isEmpty())
-            loaded->name = devpiano::layout::getLayoutPresetDisplayNameForFile(entry);
-
-        if (loaded->id == layoutId)
-            return std::make_pair(entry, *loaded);
-    }
-
-    return std::nullopt;
-}
-
 #if JUCE_WINDOWS
 void suppressImeForPeer(juce::ComponentPeer* peer)
 {
@@ -152,6 +128,8 @@ MainComponent::MainComponent()
     initialiseInputMappingFromSettings();
     audioEngine.setPluginHost(&pluginHost);
     audioEngine.setRecordingEngine(&recordingEngine);
+
+    layoutFlowSupport = std::make_unique<devpiano::layout::LayoutFlowSupport>(*this);
 
     initialiseUi();
     syncUiFromSettings();
@@ -233,12 +211,12 @@ void MainComponent::initialiseUi()
 
     addAndMakeVisible(controlsPanel);
     controlsPanel.onValuesChanged = [this] { handlePerformanceUiChanged(); };
-    controlsPanel.onLayoutChanged = [this](const juce::String& newId) { handleLayoutChanged(newId); };
-    controlsPanel.onSaveLayoutRequested = [this] { handleSaveLayoutRequested(); };
-    controlsPanel.onResetLayoutRequested = [this] { handleResetLayoutToDefaultRequested(); };
-    controlsPanel.onImportLayoutRequested = [this] { handleImportLayoutRequested(); };
-    controlsPanel.onRenameLayoutRequested = [this] { handleRenameLayoutRequested(); };
-    controlsPanel.onDeleteLayoutRequested = [this] { handleDeleteLayoutRequested(); };
+    controlsPanel.onLayoutChanged = [this](const juce::String& newId) { layoutFlowSupport->handleLayoutChanged(newId); };
+    controlsPanel.onSaveLayoutRequested = [this] { layoutFlowSupport->handleSaveLayoutRequested(); };
+    controlsPanel.onResetLayoutRequested = [this] { layoutFlowSupport->handleResetLayoutToDefaultRequested(); };
+    controlsPanel.onImportLayoutRequested = [this] { layoutFlowSupport->handleImportLayoutRequested(); };
+    controlsPanel.onRenameLayoutRequested = [this] { layoutFlowSupport->handleRenameLayoutRequested(); };
+    controlsPanel.onDeleteLayoutRequested = [this] { layoutFlowSupport->handleDeleteLayoutRequested(); };
     controlsPanel.onRecordClicked = [this] { handleRecordClicked(); };
     controlsPanel.onPlayClicked = [this] { handlePlayClicked(); };
     controlsPanel.onStopClicked = [this] { handleStopClicked(); };
@@ -489,222 +467,6 @@ void MainComponent::handlePerformanceUiChanged()
 {
     applyPerformanceSettingsToAudioEngine(getPerformanceSettingsFromUi());
     saveSettingsSoon();
-}
-
-void MainComponent::handleLayoutChanged(const juce::String& newLayoutId)
-{
-    const auto nextLayoutId = newLayoutId.trim();
-    if (nextLayoutId.isEmpty() || nextLayoutId == keyboardMidiMapper.getLayout().id)
-    {
-        restoreKeyboardFocus();
-        return;
-    }
-
-    applyLayoutAndCommit(SettingsModel::keyMapToLayout({}, nextLayoutId));
-}
-
-void MainComponent::handleSaveLayoutRequested()
-{
-    runLayoutFileChooser("Save Layout",
-                         devpiano::layout::getUserLayoutDirectory(),
-                         juce::FileBrowserComponent::saveMode,
-                         saveLayoutChooser,
-                         [this](const juce::File& file)
-    {
-        auto currentLayout = keyboardMidiMapper.getLayout();
-        const auto targetLayoutId = devpiano::layout::getUserLayoutIdForFile(file);
-        currentLayout.id = targetLayoutId;
-        if (currentLayout.name.trim().isEmpty())
-            currentLayout.name = devpiano::layout::getLayoutPresetDisplayNameForFile(file);
-
-        auto saved = devpiano::layout::saveLayoutPreset(currentLayout, file);
-        juce::Logger::writeToLog(saved ? "Layout saved: " + file.getFullPathName() : "Layout save FAILED: " + file.getFullPathName());
-        if (saved)
-            applyLayoutAndCommit(currentLayout);
-    });
-}
-
-void MainComponent::handleResetLayoutToDefaultRequested()
-{
-    const auto currentLayoutId = keyboardMidiMapper.getLayout().id.trim();
-    const auto layoutId = currentLayoutId.isNotEmpty() ? currentLayoutId
-                                                       : appSettings.getInputMappingSettingsView().layoutId;
-
-    applyLayoutAndCommit(SettingsModel::keyMapToLayout({}, layoutId));
-}
-
-void MainComponent::handleImportLayoutRequested()
-{
-    runLayoutFileChooser("Import Layout",
-                         juce::File{},
-                         juce::FileBrowserComponent::openMode,
-                         importLayoutChooser,
-                         [this](const juce::File& file)
-    {
-        auto optLayout = devpiano::layout::loadLayoutPreset(file);
-        if (!optLayout.has_value())
-            return;
-
-        auto layout = *optLayout;
-        auto userDir = devpiano::layout::getUserLayoutDirectory();
-
-        auto originalName = file.getFileName();
-        auto destFile = userDir.getChildFile(originalName);
-        layout.id = devpiano::layout::getUserLayoutIdForFile(destFile);
-        if (layout.name.trim().isEmpty())
-            layout.name = devpiano::layout::getLayoutPresetDisplayNameForFile(destFile);
-
-        if (!devpiano::layout::saveLayoutPreset(layout, destFile))
-            return;
-
-        applyLayoutAndCommit(layout);
-    });
-}
-
-void MainComponent::handleRenameLayoutRequested()
-{
-    const auto layoutId = controlsPanel.getSelectedLayoutId().trim();
-    if (layoutId.isEmpty() || layoutId.startsWith("default."))
-        return;
-
-    auto layoutFile = findUserLayoutFileById(layoutId);
-    if (!layoutFile.has_value())
-        return;
-
-    const auto& [fileToRename, loadedLayout] = *layoutFile;
-    auto currentDisplayName = loadedLayout.name.trim();
-    if (currentDisplayName.isEmpty())
-        currentDisplayName = devpiano::layout::getLayoutPresetDisplayNameForFile(fileToRename);
-
-    runLayoutRenameDialog(layoutId, fileToRename, currentDisplayName);
-}
-
-void MainComponent::handleDeleteLayoutRequested()
-{
-    auto layoutId = controlsPanel.getSelectedLayoutId();
-    if (layoutId.isEmpty() || layoutId.startsWith("default."))
-        return;
-
-    auto layoutName = layoutId;
-    juce::File fileToDelete;
-    if (auto layoutFile = findUserLayoutFileById(layoutId); layoutFile.has_value())
-    {
-        layoutName = layoutFile->second.name.isNotEmpty() ? layoutFile->second.name : layoutId;
-        fileToDelete = layoutFile->first;
-    }
-
-    runLayoutDeleteDialog(layoutId, fileToDelete, layoutName);
-}
-
-void MainComponent::applyLayoutAndCommit(const devpiano::core::KeyboardLayout& layout)
-{
-    audioEngine.getKeyboardState().allNotesOff(1);
-    keyboardMidiMapper.setLayout(layout);
-    appSettings.applyInputMappingSettingsView({ .layoutId = keyboardMidiMapper.getLayout().id,
-                                                .keyMap = SettingsModel::layoutToKeyMap(keyboardMidiMapper.getLayout()) });
-    syncUiFromSettings();
-    saveSettingsSoon();
-    restoreKeyboardFocus();
-}
-
-void MainComponent::runLayoutFileChooser(const juce::String& title,
-                                         const juce::File& startingDir,
-                                         juce::FileBrowserComponent::FileChooserFlags chooserFlags,
-                                         std::unique_ptr<juce::FileChooser>& chooser,
-                                         std::function<void(const juce::File&)> onResult)
-{
-    chooser = std::make_unique<juce::FileChooser>(title, startingDir, "*.freepiano.layout");
-    chooser->launchAsync(chooserFlags, [this, &chooser, onResult = std::move(onResult)](const juce::FileChooser& fc)
-    {
-        auto file = fc.getResult();
-        if (file == juce::File())
-            return;
-
-        onResult(file);
-        chooser.reset();
-    });
-}
-
-void MainComponent::runLayoutRenameDialog(const juce::String& layoutId,
-                                          const juce::File& /*file*/,
-                                          const juce::String& currentDisplayName)
-{
-    auto* renameWindow = new juce::AlertWindow("Rename Layout",
-                                               "Set the display name shown in the layout dropdown.",
-                                               juce::AlertWindow::NoIcon);
-    renameWindow->addTextEditor("displayName", currentDisplayName, "Display Name:");
-    renameWindow->addButton("Rename", 1, juce::KeyPress(juce::KeyPress::returnKey));
-    renameWindow->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
-
-    auto safeThis = juce::Component::SafePointer<MainComponent>(this);
-    juce::Component::SafePointer<juce::AlertWindow> safeWindow(renameWindow);
-    renameWindow->enterModalState(true,
-                                  juce::ModalCallbackFunction::create([safeThis, safeWindow, layoutId](int result)
-                                  {
-                                      if (result != 1 || safeThis == nullptr || safeWindow == nullptr)
-                                          return;
-
-                                      auto updatedDisplayName = safeWindow->getTextEditorContents("displayName").trim();
-                                      if (updatedDisplayName.isEmpty())
-                                          return;
-
-                                      auto layoutFileToUpdate = findUserLayoutFileById(layoutId);
-                                      if (!layoutFileToUpdate.has_value())
-                                          return;
-
-                                      auto [resolvedFile, layout] = *layoutFileToUpdate;
-                                      layout.name = updatedDisplayName;
-                                      if (!devpiano::layout::saveLayoutPreset(layout, resolvedFile))
-                                          return;
-
-                                      if (safeThis->keyboardMidiMapper.getLayout().id == layoutId)
-                                      {
-                                          safeThis->keyboardMidiMapper.setLayoutDisplayName(updatedDisplayName);
-                                          safeThis->appSettings.applyInputMappingSettingsView({ .layoutId = layoutId,
-                                                                                               .keyMap = SettingsModel::layoutToKeyMap(safeThis->keyboardMidiMapper.getLayout()) });
-                                      }
-
-                                      safeThis->syncUiFromSettings();
-                                      safeThis->saveSettingsSoon();
-                                      safeThis->restoreKeyboardFocus();
-                                  }),
-                                  true);
-}
-
-void MainComponent::runLayoutDeleteDialog(const juce::String& layoutId,
-                                          const juce::File& file,
-                                          const juce::String& displayName)
-{
-    auto safeThis = juce::Component::SafePointer<MainComponent>(this);
-    auto capturedLayoutId = layoutId;
-    auto capturedFileToDelete = file;
-
-    juce::AlertWindow::showAsync(
-        juce::MessageBoxOptions::makeOptionsOkCancel(
-            juce::AlertWindow::WarningIcon,
-            "Delete Layout",
-            "Are you sure you want to delete \"" + displayName + "\"?\nThis action cannot be undone.",
-            "Delete",
-            "Cancel"),
-        [safeThis, capturedLayoutId, capturedFileToDelete](int result)
-        {
-            if (result != 1 || safeThis == nullptr)
-                return;
-
-            if (capturedFileToDelete.exists())
-                capturedFileToDelete.deleteFile();
-
-            if (safeThis->keyboardMidiMapper.getLayout().id == capturedLayoutId)
-            {
-                safeThis->audioEngine.getKeyboardState().allNotesOff(1);
-                safeThis->keyboardMidiMapper.setLayout(devpiano::core::makeDefaultKeyboardLayout());
-                safeThis->appSettings.applyInputMappingSettingsView({ .layoutId = safeThis->keyboardMidiMapper.getLayout().id,
-                                                            .keyMap = SettingsModel::layoutToKeyMap(safeThis->keyboardMidiMapper.getLayout()) });
-            }
-            safeThis->syncUiFromSettings();
-            safeThis->saveSettingsSoon();
-            safeThis->restoreKeyboardFocus();
-        });
 }
 
 void MainComponent::applyUiStateToAudioEngine()
