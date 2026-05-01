@@ -47,6 +47,7 @@ private:
     juce::MidiMessageCollector midiCollector;
     juce::MidiKeyboardState keyboardState;
     juce::MidiBuffer midiBuffer;
+    juce::MidiBuffer playbackVisualMidiBuffer;
     juce::AudioBuffer<float> pluginBuffer;
 
     juce::ADSR::Parameters adsrParameters;
