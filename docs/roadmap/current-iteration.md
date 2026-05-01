@@ -24,7 +24,7 @@ M8 MIDI 文件导入与回放兼容性增强已收尾：M8-1 / M8-1b / M8-1c / M
 2. **状态管理整理**：减少录制会话状态分散、清理 AppState 中的 UI 派生字段。
 3. **ControlsPanel 按钮状态统一**：将分散的按钮状态更新收敛为单一状态源。
 
-### 当前 MainComponent 分析（1555 行）
+### 当前 MainComponent 分析（约 1560 行）
 
 **已下沉到 helper 的职责**：
 - RecordingFlowSupport：录制/回放命令判定与状态推进
@@ -85,13 +85,23 @@ M8 MIDI 文件导入与回放兼容性增强已收尾：M8-1 / M8-1b / M8-1c / M
 - **风险**：低——设置窗口生命周期相对独立。
 - **状态**：已完成（2026-05-01）。`getSettingsContent()` 统一了 `settingsWindow` 空检查和 `dynamic_cast` 模式；`isSettingsWindowDirty()` 从 7 行缩减为 4 行；WSL configure 和 Windows MSVC build 均通过。
 
-### AH-5：AppState 清理（可选）
+### AH-5：AppState 清理（已完成）
 
-- **目标**：将 `PluginState` 中的 UI 派生字段（`pluginListText`、`availableFormatsDescription`）下沉到 `PluginPanelStateBuilder`，让 `AppState` 只保留业务事实字段。
-- **修改范围**：`source/Core/AppState.h`、`source/UI/PluginPanelStateBuilder.*`。
-- **不做**：不引入新的状态管理框架；不改变 AppState 快照机制。
-- **完成标准**：`PluginState` 字段减少 2-3 个 UI 派生字段；builder 承担文案生成。
-- **风险**：低——纯字段迁移。
+- **可行性结论**：方向可行；按“展示文案下沉、事实字段保留”的限定边界执行。
+- **问题修正**：
+  - `PluginState` 中明确可移除的 UI 派生字段只有 2 个：`pluginListText`、`availableFormatsDescription`，不是“2-3 个”。
+  - 实际影响范围不止 `source/Core/AppState.h` 和 `source/UI/PluginPanelStateBuilder.*`，还会涉及 `source/Core/AppStateBuilder.h`、`source/MainComponent.cpp` 的 runtime plugin snapshot 构建，以及可能涉及 `source/UI/PluginPanelStateBuilder.h`。
+  - `availableFormatsDescription` 当前来自 `PluginHost::getAvailableFormatsDescription()`，不能只凭 `PluginState` 中的 `supportsVst3` 无损还原完整文案；若要完全下沉到 builder，需要明确 builder 是否允许直接依赖 `PluginHost` 或新增更事实化的格式字段。
+- **目标**：仅移除 `PluginState` / `RuntimePluginState` 中的 `pluginListText`、`availableFormatsDescription` 两个展示文案字段；保留 `availablePluginNames`、`lastScanSummary`、`lastLoadError`、`supportsVst3`、`currentPluginName` 等业务/运行时事实字段。
+- **推荐实现边界**：
+  - 让 `PluginPanelStateBuilder` 基于 `PluginHost` 构建 `PluginPanel::State` 中的 `pluginListText` 和 `availableFormatsDescription` 展示文案。
+  - `PluginPanel` 不直接依赖 `PluginHost`；依赖只停留在 state builder 层。
+  - `AppState` 继续承担运行时事实快照；不要把插件扫描、加载、editor、prepared 等生命周期事实字段移出 `AppState`。
+  - 接受插件面板状态构建不再完全由纯 `AppState` 快照还原；这是本切片为清理 UI 派生字段付出的边界代价。
+- **不做**：不引入新的状态管理框架；不重写 AppState 快照机制；不迁移插件扫描、加载、editor 生命周期字段；不改变 `PluginPanel::State` 的 UI 展示字段。
+- **完成标准**：`PluginState` 和 `RuntimePluginState` 移除上述 2 个 UI 文案字段；插件列表文本和格式描述仍能与当前行为等价显示；插件扫描、启动恢复、加载失败提示、editor 状态不回退。
+- **风险**：中低——字段本身是 UI 派生值，但会触碰 AppStateBuilder、MainComponent snapshot 与 PluginPanelStateBuilder 的边界；需要小步修改并跑 WSL configure + Windows MSVC build。
+- **状态**：已完成（2026-05-01）。`PluginState` / `RuntimePluginState` 已移除 `pluginListText`、`availableFormatsDescription`；`PluginPanelStateBuilder` 通过 `PluginHost` 构建这两个展示文案；`PluginPanel` 未直接依赖 `PluginHost`；WSL configure 和 Windows MSVC build 均通过。
 
 ## 推荐执行顺序
 
@@ -115,9 +125,9 @@ M8 MIDI 文件导入与回放兼容性增强已收尾：M8-1 / M8-1b / M8-1c / M
 - [x] AH-2 完成：导出 handler 重复代码减少 15+ 行。（2026-05-01）
 - [x] AH-3 完成：布局 CRUD handler 从约 200 行收敛到约 80 行。（2026-05-01）
 - [x] AH-4 完成：设置窗口管理从约 100 行收敛到约 30 行。（2026-05-01）
-- [ ] AH-5 完成（可选）：AppState PluginState 清理 UI 派生字段。
+- [x] AH-5 完成：按修正后的边界清理 AppState PluginState 中的 2 个 UI 派生字段。（2026-05-01）
 - [ ] 所有切片完成后，现有键盘演奏、插件加载、录制/回放/MIDI/WAV 导出、MIDI 导入、布局 preset 行为不回退。
-- [ ] `MainComponent.cpp` 总行数从 1555 行下降到 1200 行以下。
+- [ ] 记录 `MainComponent.cpp` 仍未降到 1200 行以下；该目标不再作为 AH-5 完成条件，后续需单独规划更大切片。
 
 ## 本轮计划验证命令
 

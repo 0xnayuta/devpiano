@@ -909,7 +909,9 @@ SettingsComponent* MainComponent::getSettingsContent() const
 void MainComponent::renderReadOnlyUiState(const devpiano::core::AppState& appState)
 {
     headerPanel.updateMidiStatus(buildHeaderPanelMidiStatus(appState));
-    pluginPanel.updateState(buildPluginPanelState(appState));
+    pluginPanel.updateState(buildPluginPanelState(pluginHost,
+                                                 appState.plugin.lastPluginName,
+                                                 appState.plugin.isEditorOpen));
 }
 
 void MainComponent::refreshReadOnlyUiStateFromCurrentSnapshot()
@@ -955,8 +957,6 @@ devpiano::core::RuntimePluginState MainComponent::buildRuntimePluginStateSnapsho
 {
     return { .currentPluginName = pluginHost.getCurrentPluginName(),
              .availablePluginNames = pluginHost.getKnownPluginNames(),
-             .pluginListText = pluginHost.getPluginListDescription(),
-             .availableFormatsDescription = pluginHost.getAvailableFormatsDescription(),
              .lastScanSummary = pluginHost.getLastScanSummary(),
              .lastLoadError = pluginHost.getLastLoadError(),
              .preparedSampleRate = pluginHost.getPreparedSampleRate(),
