@@ -58,13 +58,14 @@ M8 MIDI 文件导入与回放兼容性增强已收尾：M8-1 / M8-1b / M8-1c / M
 - **风险**：低——纯内部重构，不改变外部接口。
 - **状态**：已完成（2026-05-01）。`RecordingSession` 结构体包含 `take`、`canExport`、`state` 三个字段和 `hasTake()`、`isRecording()`、`isPlaying()`、`isIdle()` 便捷方法；`syncRecordingSessionToUi()` 统一同步到 ControlsPanel；WSL configure 和 Windows MSVC build 均通过。
 
-### AH-2：导出流程统一
+### AH-2：导出流程统一（已完成）
 
 - **目标**：将 `handleExportMidiClicked()` 和 `handleExportWavClicked()` 中的重复模式（chooser 创建、路径更新、保存设置、导出调用、日志）统一为通用辅助层。
-- **修改范围**：`source/Export/ExportFlowSupport.*`（新增通用导出编排 helper）、`source/MainComponent.cpp`（简化两个 handler）。
+- **修改范围**：`source/MainComponent.h`（新增 `runExportRecordingFlow()` 声明和 `ExportFileType` 前向声明）、`source/MainComponent.cpp`（新增 `runExportRecordingFlow()` 实现，简化两个 handler）。
 - **不做**：不改变 `MidiFileExporter` / `WavFileExporter` 核心实现；不改变 FileChooser 生命周期归属。
 - **完成标准**：两个导出 handler 各减少 15+ 行重复代码；行为不回退。
 - **风险**：低——已有 ExportFlowSupport 作为基础。
+- **状态**：已完成（2026-05-01）。`runExportRecordingFlow()` 统一了 guard clause、FileChooser 创建、async launch、cancel handling、path save、export call、logging、chooser reset；两个 handler 各缩减为约 10 行；WSL configure 和 Windows MSVC build 均通过。
 
 ### AH-3：布局 CRUD 流程收敛
 
@@ -109,7 +110,7 @@ M8 MIDI 文件导入与回放兼容性增强已收尾：M8-1 / M8-1b / M8-1c / M
 ## 完成标准
 
 - [x] AH-1 完成：录制会话状态从 3 个字段收敛为 1 个结构体。（2026-05-01）
-- [ ] AH-2 完成：导出 handler 重复代码减少 15+ 行。
+- [x] AH-2 完成：导出 handler 重复代码减少 15+ 行。（2026-05-01）
 - [ ] AH-3 完成：布局 CRUD handler 从约 200 行收敛到约 80 行。
 - [ ] AH-4 完成：设置窗口管理从约 100 行收敛到约 30 行。
 - [ ] AH-5 完成（可选）：AppState PluginState 清理 UI 派生字段。

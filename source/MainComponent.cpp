@@ -1062,6 +1062,51 @@ void MainComponent::syncRecordingSessionToUi()
     controlsPanel.setCanExportTake(recordingSession.canExport);
 }
 
+void MainComponent::runExportRecordingFlow(devpiano::exporting::ExportFileType type,
+                                           std::unique_ptr<juce::FileChooser>& chooser,
+                                           const juce::String& dialogTitle,
+                                           const juce::String& filePattern,
+                                           std::function<bool(const juce::File&)> doExport)
+{
+    if (! recordingSession.canExport || ! devpiano::exporting::canExportTake(recordingSession.take))
+    {
+        juce::Logger::writeToLog(devpiano::exporting::makeExportLogPrefix(type)
+                                 + " export skipped: recordingSession.take is empty or not exportable");
+        return;
+    }
+
+    const auto defaultFile = makeDefaultMidiExportFile(appSettings, type);
+
+    chooser = std::make_unique<juce::FileChooser>(dialogTitle, defaultFile, filePattern);
+    chooser->launchAsync(juce::FileBrowserComponent::saveMode
+                             | juce::FileBrowserComponent::canSelectFiles
+                             | juce::FileBrowserComponent::warnAboutOverwriting,
+                         [this, type, &chooser, doExport = std::move(doExport)](const juce::FileChooser& fc)
+    {
+        auto file = fc.getResult();
+
+        if (file == juce::File())
+        {
+            juce::Logger::writeToLog(devpiano::exporting::makeExportLogPrefix(type)
+                                     + " export cancelled by user");
+            chooser.reset();
+            return;
+        }
+
+        appSettings.lastMidiExportPath = file.getFullPathName();
+        saveSettingsSoon();
+
+        if (doExport(file))
+            juce::Logger::writeToLog(devpiano::exporting::makeExportLogPrefix(type)
+                                     + " exported: " + file.getFullPathName());
+        else
+            juce::Logger::writeToLog(devpiano::exporting::makeExportLogPrefix(type)
+                                     + " export FAILED: " + file.getFullPathName());
+
+        chooser.reset();
+    });
+}
+
 void MainComponent::startInternalRecording(std::size_t expectedEventCapacity)
 {
     const auto capacity = expectedEventCapacity > 0
@@ -1366,42 +1411,13 @@ void MainComponent::handleExportMidiClicked()
 {
     using devpiano::exporting::ExportFileType;
 
-    if (! recordingSession.canExport || ! devpiano::exporting::canExportTake(recordingSession.take))
+    runExportRecordingFlow(ExportFileType::midi,
+                           exportMidiChooser,
+                           "Export MIDI Recording",
+                           "*.mid",
+                           [this](const juce::File& file)
     {
-        juce::Logger::writeToLog(devpiano::exporting::makeExportLogPrefix(ExportFileType::midi)
-                                 + " export skipped: recordingSession.take is empty or not exportable");
-        return;
-    }
-
-    const auto defaultFile = makeDefaultMidiExportFile(appSettings, ExportFileType::midi);
-
-    exportMidiChooser = std::make_unique<juce::FileChooser>("Export MIDI Recording", defaultFile, "*.mid");
-    exportMidiChooser->launchAsync(juce::FileBrowserComponent::saveMode
-                                       | juce::FileBrowserComponent::canSelectFiles
-                                       | juce::FileBrowserComponent::warnAboutOverwriting,
-                                   [this](const juce::FileChooser& fc)
-    {
-        auto file = fc.getResult();
-
-        if (file == juce::File())
-        {
-            juce::Logger::writeToLog(devpiano::exporting::makeExportLogPrefix(ExportFileType::midi)
-                                     + " export cancelled by user");
-            exportMidiChooser.reset();
-            return;
-        }
-
-        appSettings.lastMidiExportPath = file.getFullPathName();
-        saveSettingsSoon();
-
-        if (devpiano::exporting::exportTakeAsMidiFile(recordingSession.take, file))
-            juce::Logger::writeToLog(devpiano::exporting::makeExportLogPrefix(ExportFileType::midi)
-                                     + " exported: " + file.getFullPathName());
-        else
-            juce::Logger::writeToLog(devpiano::exporting::makeExportLogPrefix(ExportFileType::midi)
-                                     + " export FAILED: " + file.getFullPathName());
-
-        exportMidiChooser.reset();
+        return devpiano::exporting::exportTakeAsMidiFile(recordingSession.take, file);
     });
 }
 
@@ -1409,47 +1425,17 @@ void MainComponent::handleExportWavClicked()
 {
     using devpiano::exporting::ExportFileType;
 
-    if (! recordingSession.canExport || ! devpiano::exporting::canExportTake(recordingSession.take))
+    runExportRecordingFlow(ExportFileType::wav,
+                           exportWavChooser,
+                           "Export WAV Recording",
+                           "*.wav",
+                           [this](const juce::File& file)
     {
-        juce::Logger::writeToLog(devpiano::exporting::makeExportLogPrefix(ExportFileType::wav)
-                                 + " export skipped: recordingSession.take is empty or not exportable");
-        return;
-    }
-
-    const auto defaultFile = makeDefaultMidiExportFile(appSettings, ExportFileType::wav);
-
-    exportWavChooser = std::make_unique<juce::FileChooser>("Export WAV Recording", defaultFile, "*.wav");
-    exportWavChooser->launchAsync(juce::FileBrowserComponent::saveMode
-                                      | juce::FileBrowserComponent::canSelectFiles
-                                      | juce::FileBrowserComponent::warnAboutOverwriting,
-                                  [this](const juce::FileChooser& fc)
-    {
-        auto file = fc.getResult();
-
-        if (file == juce::File())
-        {
-            juce::Logger::writeToLog(devpiano::exporting::makeExportLogPrefix(ExportFileType::wav)
-                                     + " export cancelled by user");
-            exportWavChooser.reset();
-            return;
-        }
-
-        appSettings.lastMidiExportPath = file.getFullPathName();
-        saveSettingsSoon();
-
         const auto options = devpiano::exporting::buildWavExportOptions(recordingSession.take,
                                                                         getPerformanceSettingsFromUi(),
                                                                         getCurrentRuntimeSampleRate(),
                                                                         getCurrentRuntimeBlockSize());
-
-        if (devpiano::exporting::exportTakeAsWavFile(recordingSession.take, file, options))
-            juce::Logger::writeToLog(devpiano::exporting::makeExportLogPrefix(ExportFileType::wav)
-                                     + " exported: " + file.getFullPathName());
-        else
-            juce::Logger::writeToLog(devpiano::exporting::makeExportLogPrefix(ExportFileType::wav)
-                                     + " export FAILED: " + file.getFullPathName());
-
-        exportWavChooser.reset();
+        return devpiano::exporting::exportTakeAsWavFile(recordingSession.take, file, options);
     });
 }
 
