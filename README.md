@@ -36,6 +36,10 @@
 - 基础设置可持久化，包括音频设备状态、性能参数、输入映射与插件恢复信息
 - 已支持布局 Preset 保存、导入、重命名、删除与启动恢复
 - 已支持录制、停止、回放与 MIDI 文件导出 MVP 闭环
+- 已支持 MIDI 文件导入、自动选轨、导入后回放与 playback 边界收敛
+- 已支持录制/回放相关按钮状态统一管理，Recording 期间禁用 Import MIDI，Playing 期间仍可安全导入另一个 MIDI 替换 playback
+- 已支持 MIDI playback 时虚拟键盘实时联动，以及主窗口尺寸持久化恢复
+- 当前 M8 已收尾，M8-5 merge-all 已搁置，M6-6e 作为后续 backlog
 
 当前仍在持续完善的能力：
 
@@ -44,6 +48,7 @@
 - WAV 离线渲染、复杂编辑、tempo map 等 M6+ 高级功能
 - 更清晰的正式 UI 分层与交互细节
 - 更系统化的稳定性验证与回归测试
+- M8 后续 backlog，例如 M6-6e VST3 离线渲染与外部 MIDI 硬件验证
 
 ---
 
@@ -58,7 +63,7 @@
 - `source/Audio/`
   - `AudioEngine`：处理 MIDI 汇总、插件音频处理与 fallback 内置合成器
 - `source/Recording/`
-  - `RecordingEngine` / `MidiFileExporter`：处理演奏事件录制、回放调度与 MIDI 文件导出
+  - `RecordingEngine` / `MidiFileExporter` / `MidiFileImporter`：处理演奏事件录制、回放调度、MIDI 文件导出与 MIDI 文件导入
 - `source/Plugin/`
   - `PluginHost`：负责插件格式管理、VST3 扫描、实例加载、prepare/release 与卸载
 - `source/Input/`
@@ -67,6 +72,7 @@
   - `MidiRouter`：打开外部 MIDI 输入并转发到 `MidiMessageCollector`
 - `source/UI/`
   - `HeaderPanel`、`PluginPanel`、`ControlsPanel`、`KeyboardPanel`、`PluginEditorWindow`
+  - 当前 `ControlsPanel` 已统一管理 Record / Play / Stop / Back / Import MIDI / Export MIDI / Export WAV 按钮状态
 - `source/Settings/`
   - `SettingsModel`、`SettingsStore`、`SettingsComponent`：负责设置建模、持久化与设置界面
 - `source/Core/`
@@ -89,6 +95,7 @@
 - `source/`
   - 当前 JUCE 主实现目录
   - 所有新的 `.cpp/.h` 应优先放在这里
+  - 当前已覆盖键盘输入、插件宿主、录制/回放/导出、MIDI 文件导入与 UI 面板分层
 
 ### JUCE 子模块
 - `JUCE/`
@@ -103,7 +110,8 @@
 
 ### 文档目录
 - `docs/`
-  - 项目目标、评估、规划、任务清单、测试用例、里程碑清单等文档
+  - 项目目标、评估、规划、任务清单、测试用例、里程碑清单、M8 MIDI 文件导入与回放边界等文档
+  - 当前 M8 已收尾，权威状态以 `docs/roadmap/roadmap.md` 与 `docs/roadmap/current-iteration.md` 为准
 
 ### 旧原型与过渡代码
 - `source/Legacy/UnusedPrototypes/`
@@ -128,7 +136,6 @@
 ./scripts/dev.sh self-check
 
 # WSL 本地 configure / build
-./scripts/dev.sh wsl-build --configure-only
 ./scripts/dev.sh wsl-build --configure-only
 
 # Windows MSVC 验证构建（内置同步，不需要单独 win-sync）
@@ -184,6 +191,8 @@ Windows MSVC 验证构建（内置同步，不需要单独 win-sync）：
 
 - [docs/development/wsl-windows-msvc-workflow.md](docs/development/wsl-windows-msvc-workflow.md)
 - [docs/getting-started/quickstart.md](docs/getting-started/quickstart.md)
+- [docs/features/M8-midi-file-and-freepiano-gap.md](docs/features/M8-midi-file-and-freepiano-gap.md)
+- [docs/testing/midi-file-import.md](docs/testing/midi-file-import.md)
 
 ---
 
@@ -212,6 +221,7 @@ Windows MSVC 验证构建（内置同步，不需要单独 win-sync）：
 更多映射说明见：
 
 - [docs/architecture/legacy-migration.md](docs/architecture/legacy-migration.md)
+- [docs/features/M8-midi-file-and-freepiano-gap.md](docs/features/M8-midi-file-and-freepiano-gap.md)
 
 ---
 
@@ -227,10 +237,13 @@ Windows MSVC 验证构建（内置同步，不需要单独 win-sync）：
 - 路线图与项目状态：[docs/roadmap/roadmap.md](docs/roadmap/roadmap.md)
 - 当前迭代任务：[docs/roadmap/current-iteration.md](docs/roadmap/current-iteration.md)
 - 阶段验收标准：[docs/testing/acceptance.md](docs/testing/acceptance.md)
+- MIDI 文件导入与回放边界：[docs/features/M8-midi-file-and-freepiano-gap.md](docs/features/M8-midi-file-and-freepiano-gap.md)
+- MIDI 文件导入专项测试：[docs/testing/midi-file-import.md](docs/testing/midi-file-import.md)
 - 专项测试：
   - [docs/testing/keyboard-mapping.md](docs/testing/keyboard-mapping.md)
   - [docs/testing/layout-presets.md](docs/testing/layout-presets.md)
   - [docs/testing/recording-playback.md](docs/testing/recording-playback.md)
+  - [docs/testing/midi-file-import.md](docs/testing/midi-file-import.md)
   - [docs/testing/plugin-host-lifecycle.md](docs/testing/plugin-host-lifecycle.md)
 
 ---
@@ -242,3 +255,4 @@ Windows MSVC 验证构建（内置同步，不需要单独 win-sync）：
 - 不修改 `JUCE/` 中的任何代码
 - 修改后尽量通过 CMake 构建验证
 - 迁移旧逻辑时优先“提炼行为”，不要直接搬运平台绑定实现
+- 当前 M8 已收尾：MIDI 文件导入、自动选轨、导入后回放、Import MIDI 按钮状态收敛、playback 边界与主窗口尺寸恢复均已通过人工验收；M8-5 merge-all 已搁置，M6-6e 作为后续 backlog
