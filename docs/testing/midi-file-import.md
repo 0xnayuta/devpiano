@@ -10,9 +10,9 @@
 
 - M8-1：MIDI 文件导入核心。
 - M8-1b：自动选择含 note 最多的轨道。
-- M8-2：MIDI roundtrip 验证 + 多轨/tempo 边界处理。
+- M8-2：MIDI import playback 边界 + 多轨/tempo 处理。
 - M8-3：最近路径记忆 + 回放控制小增强。
-- M8-5：合并所有轨道 note 到单一 timeline（计划中）。
+- M8-5：合并所有轨道 note 到单一 timeline（已搁置）。
 - M8-6：MIDI playback 虚拟键盘可视化。
 - M8-7：主窗口尺寸自适应与恢复。
 
@@ -42,7 +42,7 @@
 1. **DevPiano 自导出单轨 MIDI**：由本程序录制后 Export MIDI 生成。
 2. **空文件或无 note MIDI**：用于验证错误路径。
 3. **Type 1：track 0 只有 tempo/meta，track 1 有 notes**：用于验证 M8-1b 自动选轨。
-4. **Type 1：多个 track 都有 notes**：用于验证 note-rich track 选择和后续 M8-5。
+4. **Type 1：多个 track 都有 notes**：用于验证 note-rich track 选择；M8-5 merge-all 已搁置。
 5. **非 960 PPQ MIDI**：用于验证不覆盖原始 `timeFormat`。
 6. **包含 tempo meta event 的 MIDI**：用于验证时间转换。
 7. **大量 note 的 MIDI**：用于观察播放稳定性和 UI 可用性。
@@ -86,13 +86,17 @@
 - 自动选择策略应选择 note 事件最多的轨道。
 - 应保留原始 channel、note number、velocity。
 
-## 6. M8-2：MIDI roundtrip 验证 + 多轨/tempo 边界处理
+## 6. M8-2：MIDI import playback 边界 + 多轨/tempo 处理
 
-状态：计划中 / 部分由 M8-1b 覆盖。
+状态：边界已定义 / 部分由 M8-1b 覆盖。
+
+决定：导入的 MIDI playback take 禁止再次导出为 MIDI。用户已有原始 `.mid` 文件，没有“导入后再导出 MIDI”的需求；导入 MIDI 后允许导出 WAV 的需求归入 M6-6e 后续计划，当前暂时搁置。
 
 验收项：
 
-- [ ] 单轨 `.mid`：导入 → 回放 → 导出 → DAW 打开后 note 个数、channel、velocity 范围基本一致。
+- [x] 单轨 `.mid`：导入 → 回放正常；Stop 后 Export MIDI / Export WAV 保持 disabled。
+- [x] 导入 `.mid` 后不提供“再导出 MIDI”的用户路径；这是预期边界而非缺陷。
+- [~] 导入 `.mid` 后导出 WAV：后续需求，归入 M6-6e 并暂时搁置。
 - [ ] 多轨 `.mid`：Logger 清晰提示选中轨道和忽略轨道，不崩溃。
 - [ ] 非 960 PPQ `.mid`：导入后播放速度不因强制 PPQ 覆盖而明显错误。
 - [ ] 有 tempo meta event 的 `.mid`：导入后事件时间线基本符合原文件。
@@ -108,16 +112,18 @@
 - [ ] Export MIDI 时 FileChooser 默认定位到上次导出目录。
 - [ ] Playback 中点击“回到开头”后 position 重置（可选，当前未实现）。
 
-## 8. M8-5：合并所有轨道 note 到单一 timeline（后续增强）
+## 8. M8-5：合并所有轨道 note 到单一 timeline（已搁置）
 
-状态：未实现 / 计划中。
+状态：未实现 / 已搁置。
+
+决定：当前继续使用 M8-1b 的“自动选择 note 最多的单轨”作为默认和推荐模式。merge-all 可能在单乐器播放链路中带来嘈杂、鼓轨和多音色问题，后续再考虑是否作为显式可选导入模式。
 
 验收项：
 
-- [ ] 多轨 MIDI 文件导入后能听到多个轨道的 note 内容。
-- [ ] 合并后事件顺序稳定，不产生明显 stuck note。
-- [ ] Logger 输出 merge-all 模式、总轨数、每轨 note 数、合并后事件数和时长。
-- [ ] 当前单乐器播放链路下的嘈杂、鼓轨和多音色限制已明确提示或记录。
+- [ ] 暂不执行：多轨 MIDI 文件导入后能听到多个轨道的 note 内容。
+- [ ] 暂不执行：合并后事件顺序稳定，不产生明显 stuck note。
+- [ ] 暂不执行：Logger 输出 merge-all 模式、总轨数、每轨 note 数、合并后事件数和时长。
+- [x] 当前单乐器播放链路下的嘈杂、鼓轨和多音色限制已明确记录，M8-5 因此搁置。
 
 ## 9. M8-6：MIDI playback 虚拟键盘可视化（后续增强）
 
@@ -156,8 +162,8 @@
 
 ## 12. 已知限制
 
-- M8-1b 默认只选择一个 note 最多的轨道，不合并所有轨道。
+- M8-1b 默认只选择一个 note 最多的轨道，不合并所有轨道；这是当前推荐模式。
 - Program change、CC、pitch bend、sustain pedal 等非 note 事件暂未导入。
 - 当前不是完整 GM 播放器；外部 GM MIDI 可能听起来与原文件不同。
 - fallback synth 声部数有限，大型 MIDI 编曲可能出现拥挤或缺音。
-- 完整 tempo map roundtrip、完整多轨模型和 MIDI 编辑器均为后续阶段范围。
+- 完整 tempo map roundtrip、完整多轨模型、merge-all 导入和 MIDI 编辑器均为后续阶段范围。
