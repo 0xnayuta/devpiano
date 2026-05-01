@@ -6,11 +6,11 @@
 
 ## 当前状态
 
-当前活跃迭代：**架构健康迭代**（M8 收尾与 M9 启动之间的过渡轮，不编号为 M 阶段）。
+当前活跃迭代：**架构健康迭代已完成，进入收尾判定**（M8 收尾与 M9 启动之间的过渡轮，不编号为 M 阶段）。
 
 M8 MIDI 文件导入与回放兼容性增强已收尾：M8-1 / M8-1b / M8-1c / M8-2 / M8-3 / M8-6 / M8-7 均已实现并通过 2026-05-01 人工验收；M8-5 merge-all 已搁置；M6-6e 作为后续 backlog。
 
-本轮不是功能迭代，而是架构维护：在启动下一个能力里程碑（M9）之前，先巩固 `MainComponent` 职责边界、减少状态管理分散、防止架构回流膨胀。
+本轮不是功能迭代，而是架构维护：在启动下一个能力里程碑（M9）之前，先巩固 `MainComponent` 职责边界、减少状态管理分散、防止架构回流膨胀。AH-1..AH-6 已完成并通过构建验证与人工回归；本轮可收尾。
 
 ---
 
@@ -24,7 +24,7 @@ M8 MIDI 文件导入与回放兼容性增强已收尾：M8-1 / M8-1b / M8-1c / M
 2. **状态管理整理**：减少录制会话状态分散、清理 AppState 中的 UI 派生字段。
 3. **ControlsPanel 按钮状态统一**：将分散的按钮状态更新收敛为单一状态源。
 
-### 当前 MainComponent 分析（约 1560 行）
+### 当前 MainComponent 分析（约 1568 行）
 
 **已下沉到 helper 的职责**：
 - RecordingFlowSupport：录制/回放命令判定与状态推进
@@ -32,20 +32,18 @@ M8 MIDI 文件导入与回放兼容性增强已收尾：M8-1 / M8-1b / M8-1c / M
 - PluginFlowSupport：启动缓存恢复、扫描后 recovery 更新
 
 **仍留在 MainComponent 的职责**：
-- 录制/回放实际切换与状态缓存（`currentTake`、`currentRecordingState`、`currentTakeCanBeExported`）
-- MIDI 导入完整用户流程（chooser、停止播放、导入、立即回放，80 行）
-- 导出 MIDI/WAV 的 chooser、路径记忆、日志（重复模式明显）
-- 布局文件 CRUD（save/import/rename/delete，共约 200 行）
-- 设置窗口生命周期与 dirty 管理（约 100 行）
+- 录制/回放实际切换与状态缓存（已收敛为 `RecordingSession`，但启动/停止/回放编排仍在 MainComponent）
+- MIDI 导入完整用户流程（chooser、停止播放、导入、立即回放，约 80 行）
+- 导出 MIDI/WAV 的 chooser 生命周期、路径记忆与日志（已通过 `runExportRecordingFlow()` 收敛，仍由 MainComponent 顶层编排）
+- 布局文件 CRUD 顶层编排（save/import/rename/delete 已通过 helper 收敛，仍保留 FileChooser / modal 生命周期）
+- 设置窗口生命周期与 dirty 管理（已局部收敛，仍由 MainComponent 拥有窗口）
 - 插件 editor window 生命周期管理
 - 音频设备重建胶水逻辑
 
 **潜在膨胀点**：
-- `handleImportMidiClicked()`（80 行）：职责混合
-- `handleRenameLayoutRequested()`（55 行）：异步 modal + 文件操作 + UI 同步
-- `handleDeleteLayoutRequested()`（43 行）：确认 + 删除 + 回退 + UI 同步
-- `showSettingsDialog()`（50 行）：Window 定义 + 关闭回调 + 内容创建
-- `handleExportMidiClicked()` / `handleExportWavClicked()`：重复模式
+- `handleImportMidiClicked()`：chooser + 导入 + take 替换 + 立即回放仍可单独下沉
+- 插件 editor window 生命周期：可作为较小后续切片
+- 音频设备重建胶水：与插件加载/卸载/恢复相关，风险较高，应独立规划
 
 ## 本轮计划切片
 
@@ -56,7 +54,7 @@ M8 MIDI 文件导入与回放兼容性增强已收尾：M8-1 / M8-1b / M8-1c / M
 - **不做**：不改变录制/回放行为；不改变 RecordingFlowSupport 接口；不改变 ControlsPanel 按钮逻辑。
 - **完成标准**：录制相关状态从 3 个独立字段收敛为 1 个结构体；行为不回退。
 - **风险**：低——纯内部重构，不改变外部接口。
-- **状态**：已完成（2026-05-01）。`RecordingSession` 结构体包含 `take`、`canExport`、`state` 三个字段和 `hasTake()`、`isRecording()`、`isPlaying()`、`isIdle()` 便捷方法；`syncRecordingSessionToUi()` 统一同步到 ControlsPanel；WSL configure 和 Windows MSVC build 均通过。
+- **状态**：已完成（2026-05-01）。`RecordingSession` 结构体包含 `take`、`canExportMidi`、`state` 三个字段和 `hasTake()`、`isRecording()`、`isPlaying()`、`isIdle()` 便捷方法；`syncRecordingSessionToUi()` 统一同步到 ControlsPanel；WSL configure 和 Windows MSVC build 均通过。
 
 ### AH-2：导出流程统一（已完成）
 
@@ -103,6 +101,19 @@ M8 MIDI 文件导入与回放兼容性增强已收尾：M8-1 / M8-1b / M8-1c / M
 - **风险**：中低——字段本身是 UI 派生值，但会触碰 AppStateBuilder、MainComponent snapshot 与 PluginPanelStateBuilder 的边界；需要小步修改并跑 WSL configure + Windows MSVC build。
 - **状态**：已完成（2026-05-01）。`PluginState` / `RuntimePluginState` 已移除 `pluginListText`、`availableFormatsDescription`；`PluginPanelStateBuilder` 通过 `PluginHost` 构建这两个展示文案；`PluginPanel` 未直接依赖 `PluginHost`；WSL configure 和 Windows MSVC build 均通过。
 
+### AH-6：ControlsPanel 按钮状态统一（已完成）
+
+- **目标**：将 `ControlsPanel` 中录制/回放/导入导出按钮的 enabled 状态与状态文案收敛为单一 `State` / `ActionState` 输入，减少 `setRecordingState()`、`setHasTake()`、`setCanExportTake()` 多入口分别触发 UI 更新带来的分散状态。
+- **修改范围**：`source/UI/ControlsPanel.h`、`source/UI/ControlsPanel.cpp`、`source/MainComponent.cpp` 中 `syncRecordingSessionToUi()` 调用点。
+- **推荐实现边界**：
+  - 在 `ControlsPanel` 内新增轻量状态结构，集中包含 `recordingState`、`hasTake`、`canExportMidiTake`、`canExportWavTake`。
+  - 提供单一入口（例如 `updateRecordingControlsState(...)`）统一刷新录制、播放、停止、Back、Import MIDI、Export MIDI/WAV 按钮状态和状态标签。
+  - 保留 `ControlsPanel` 内部按钮 enabled 推导逻辑，不把按钮细节泄漏到 `MainComponent`。
+- **不做**：不改变录制/回放流程命令；不改 `RecordingFlowSupport`；不调整布局按钮逻辑；不改变按钮文案和现有交互行为。
+- **完成标准**：`syncRecordingSessionToUi()` 只通过一个入口同步 ControlsPanel 录制控制状态；按钮 enabled 规则与现状等价；录制、播放、停止、Back、导入 MIDI、导出 MIDI/WAV 行为不回退。
+- **风险**：低中——主要是 UI 状态入口收敛，但需覆盖 idle / recording / playing、空 take、导入 MIDI 可导出 WAV 但不可再导出 MIDI 等组合。
+- **状态**：已完成（2026-05-01）。`ControlsPanel::RecordingControlsState` 统一了承载 `recordingState`、`hasTake`、`canExportMidiTake`、`canExportWavTake`；`syncRecordingSessionToUi()` 改为单一 `setRecordingControlsState()` 入口；旧的 `setRecordingState()` / `setHasTake()` / `setCanExportTake()` 分散入口已移除；人工回归后补充修正：playing 期间 Import MIDI 禁用，导入 MIDI 停止后允许 Export WAV、继续禁止 Export MIDI；WSL configure 和 Windows MSVC build 均通过；修正后人工验证未发现明显问题。
+
 ## 推荐执行顺序
 
 1. **AH-1**：最独立，风险最低，先建立状态结构化基础。
@@ -110,6 +121,7 @@ M8 MIDI 文件导入与回放兼容性增强已收尾：M8-1 / M8-1b / M8-1c / M
 3. **AH-3**：布局 CRUD 收敛，涉及文件操作需仔细验证。
 4. **AH-4**：设置窗口收敛，相对独立。
 5. **AH-5**：AppState 清理，可选，视前 4 项进展决定是否执行。
+6. **AH-6**：ControlsPanel 按钮状态统一，作为本轮剩余架构健康切片。
 
 ## 收敛原则
 
@@ -126,8 +138,25 @@ M8 MIDI 文件导入与回放兼容性增强已收尾：M8-1 / M8-1b / M8-1c / M
 - [x] AH-3 完成：布局 CRUD handler 从约 200 行收敛到约 80 行。（2026-05-01）
 - [x] AH-4 完成：设置窗口管理从约 100 行收敛到约 30 行。（2026-05-01）
 - [x] AH-5 完成：按修正后的边界清理 AppState PluginState 中的 2 个 UI 派生字段。（2026-05-01）
-- [ ] 所有切片完成后，现有键盘演奏、插件加载、录制/回放/MIDI/WAV 导出、MIDI 导入、布局 preset 行为不回退。
-- [ ] 记录 `MainComponent.cpp` 仍未降到 1200 行以下；该目标不再作为 AH-5 完成条件，后续需单独规划更大切片。
+- [x] AH-6 完成：ControlsPanel 录制控制按钮状态统一为单一状态入口。（2026-05-01）
+- [x] AH-1..AH-5 完成后人工回归：现有键盘演奏、插件加载、录制/回放/MIDI/WAV 导出、MIDI 导入、布局 preset 未发现明显回退。（2026-05-01）
+- [x] AH-6 补充人工回归：导入 MIDI 播放中 Import MIDI 禁用；Stop 后 Export MIDI 禁用、Export WAV 可用；正常录制 Stop 后 Export MIDI / Export WAV 均可用，未发现明显问题。（2026-05-01）
+- [x] 本轮架构健康迭代可收尾：AH-1..AH-6 已完成，构建验证与人工回归均无明显问题。（2026-05-01）
+- [~] `MainComponent.cpp` 的继续收敛不作为本轮阻塞项，后续单独规划更大切片。
+
+## 后续建议切片（不纳入本轮完成条件）
+
+### AH-next：MIDI 导入流程下沉（建议作为下一轮首选）
+
+- **目标**：将 `handleImportMidiClicked()` 中的 FileChooser 默认目录选择、导入结果处理、take 替换、立即回放编排拆成小 helper，降低 MainComponent 尾部流程复杂度。
+- **建议范围**：优先只抽纯流程 helper 和小型 guard/helper；保留 FileChooser 拥有权、播放控制调用和顶层 UI 同步在 MainComponent。
+- **不做**：不改变 MIDI importer；不改变导入后立即回放行为；不改变 MIDI/WAV 导出边界；不引入完整 song/project 模型。
+- **风险**：中低——涉及异步 FileChooser 和 playback 状态切换，必须保持取消、空文件、无 note、播放中/停止后状态一致。
+
+### 其他可选后续切片
+
+- 插件 editor window 生命周期收敛：较小、独立，但收益低于 MIDI 导入流程下沉。
+- 音频设备重建胶水收敛：收益高但风险较高，建议等插件生命周期测试更充分后再做。
 
 ## 本轮计划验证命令
 
@@ -153,7 +182,7 @@ M8 MIDI 文件导入与回放兼容性增强已收尾：M8-1 / M8-1b / M8-1c / M
 ### M8 收尾审查结论（2026-05-01）
 
 - [x] M8-1 / M8-1b / M8-1c / M8-2 / M8-3 / M8-6 / M8-7 已实现并通过人工验收。
-- [x] M8-2 已实现并通过人工验收：导入 playback take 禁止再次导出 MIDI；多轨、非 960 PPQ、tempo meta event 和复杂 tempo map 限制均未发现明显问题。导入 MIDI 后允许导出 WAV 归入 M6-6e，暂时搁置。
+- [x] M8-2 已实现并通过人工验收：导入 playback take 禁止再次导出 MIDI，但允许导出 WAV；多轨、非 960 PPQ、tempo meta event 和复杂 tempo map 限制均未发现明显问题。VST3 插件音色离线渲染仍归 M6-6e，暂时搁置。
 - [x] M8-3 已实现并通过人工验收：最近导入/导出路径记忆已接入；播放中点击 `Back` 可从当前 take 开头重新播放。
 - [~] M8-5 已搁置：仍保持 note-rich 单轨导入，不合并所有轨道；这是当前推荐模式。
 

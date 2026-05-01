@@ -159,15 +159,15 @@
 - [x] 可通过 Import MIDI 打开标准 `.mid` 文件并在当前播放链路回放。
 - [x] Record 期间 Import MIDI 禁用，避免录制与导入状态冲突。
 - [x] 导入空文件、读取失败文件或无 note 文件时写 Logger，不崩溃。
-- [x] 导入播放内容 Stop 后，Export MIDI / WAV 保持 disabled，不把导入 playback take 当作可导出录制 take。
-- [x] 播放 A.mid 时导入 B.mid，旧 playback 音符会被停止，不产生持续残留音。
+- [x] 导入播放内容 Stop 后，Export MIDI 保持 disabled，Export WAV 可用。
+- [x] Playing 期间 Import MIDI 禁用；需先 Stop 再导入另一个 MIDI，避免异步替换 playback 状态竞争。
 - [x] 自动选择含 note 最多的轨道；track 0 只有 tempo/meta 时可选择后续有 note 的轨道。
 - [x] MIDI playback 时虚拟键盘可随 note on/off 实时显示按下与松开。
 - [x] 主窗口首次尺寸合适，用户手动调整后可持久化恢复。
 - [x] 最近导入路径已持久化；最近导出路径已接入 Export MIDI / Export WAV FileChooser。
 - [x] 播放中点击 `Back` 可从当前 take 开头重新播放。
 - [x] PPQ/timeFormat 修正、轨道诊断和自动选轨已覆盖主要 playback/边界测试；导入 playback take 禁止再次导出 MIDI 是预期边界。
-- [~] 导入 MIDI 后允许导出 WAV 归入 M6-6e 后续计划，当前搁置。
+- [x] 导入 MIDI 后允许导出 WAV；VST3 插件音色离线渲染仍归 M6-6e 后续计划。
 - [~] 合并所有轨道 note 到单一 timeline（M8-5）未实现且已搁置；当前保留 note-rich 单轨选择为推荐模式。
 
 专项 MIDI 文件导入回归见：[`midi-file-import.md`](midi-file-import.md)。

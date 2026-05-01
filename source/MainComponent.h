@@ -63,7 +63,7 @@ private:
     struct RecordingSession
     {
         devpiano::recording::RecordingTake take;
-        bool canExport = false;
+        bool canExportMidi = false;
         ControlsPanel::RecordingState state = ControlsPanel::RecordingState::idle;
 
         [[nodiscard]] bool hasTake() const noexcept { return ! take.isEmpty(); }

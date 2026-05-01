@@ -44,9 +44,15 @@ public:
     [[nodiscard]] juce::String getSelectedLayoutId() const;
 
     enum class RecordingState { idle, recording, playing };
-    void setRecordingState(RecordingState state);
-    void setHasTake(bool hasTake);
-    void setCanExportTake(bool canExportTake);
+    struct RecordingControlsState
+    {
+        RecordingState state = RecordingState::idle;
+        bool hasTake = false;
+        bool canExportMidiTake = false;
+        bool canExportWavTake = false;
+    };
+
+    void setRecordingControlsState(RecordingControlsState state);
 
 private:
     [[nodiscard]] static juce::String makeLayoutDisplayName(const juce::String& layoutId);
@@ -90,9 +96,7 @@ private:
     juce::TextButton exportWavButton { "Export WAV" };
     juce::TextButton importMidiButton { "Import MIDI" };
 
-    bool hasTake = false;
-    bool canExportTake = false;
-    RecordingState recordingState = RecordingState::idle;
+    RecordingControlsState recordingControlsState;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ControlsPanel)
 };
