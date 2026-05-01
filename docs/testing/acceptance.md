@@ -152,7 +152,7 @@
 
 ## M8：MIDI 文件导入与回放兼容性
 
-状态：核心能力已通过。M8-1、M8-1b、M8-6、M8-7 已实现并通过 2026-05-01 人工验收；M8-2、M8-3、M8-5 仍有未完成项。
+状态：核心能力已通过。M8-1、M8-1b、M8-6、M8-7 已实现并通过 2026-05-01 人工验收；M8-2 语义已收敛；M8-3 仍有低风险体验项；M8-5 已搁置。
 
 验收项：
 
@@ -164,8 +164,9 @@
 - [x] MIDI playback 时虚拟键盘可随 note on/off 实时显示按下与松开。
 - [x] 主窗口首次尺寸合适，用户手动调整后可持久化恢复。
 - [~] 最近导入路径已持久化；最近导出路径尚未接入导出 FileChooser。
-- [~] PPQ/timeFormat 修正、轨道诊断和自动选轨已覆盖部分 roundtrip/边界测试；导入 → 导出 roundtrip 用户路径尚未开放。
-- [ ] 合并所有轨道 note 到单一 timeline（M8-5）未实现。
+- [x] PPQ/timeFormat 修正、轨道诊断和自动选轨已覆盖主要 playback/边界测试；导入 playback take 禁止再次导出 MIDI 是预期边界。
+- [~] 导入 MIDI 后允许导出 WAV 归入 M6-6e 后续计划，当前搁置。
+- [~] 合并所有轨道 note 到单一 timeline（M8-5）未实现且已搁置；当前保留 note-rich 单轨选择为推荐模式。
 
 专项 MIDI 文件导入回归见：[`midi-file-import.md`](midi-file-import.md)。
 
