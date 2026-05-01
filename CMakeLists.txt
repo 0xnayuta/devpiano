@@ -58,6 +58,8 @@ target_sources(devpiano PRIVATE
     source/Plugin/PluginHost.h
     source/Plugin/PluginFlowSupport.cpp
     source/Plugin/PluginFlowSupport.h
+    source/Plugin/PluginOperationController.cpp
+    source/Plugin/PluginOperationController.h
     source/Export/ExportFlowSupport.cpp
     source/Export/ExportFlowSupport.h
     source/Recording/RecordingEngine.cpp
