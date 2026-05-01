@@ -64,6 +64,8 @@ target_sources(devpiano PRIVATE
     source/Recording/RecordingEngine.h
     source/Recording/RecordingFlowSupport.cpp
     source/Recording/RecordingFlowSupport.h
+    source/Recording/RecordingSessionController.cpp
+    source/Recording/RecordingSessionController.h
     source/Recording/MidiFileExporter.cpp
     source/Recording/MidiFileExporter.h
     source/Recording/MidiFileImporter.cpp

@@ -23,7 +23,7 @@
 - Phase 5.1-5.7（架构收敛）：MainComponent 职责下沉，Phase 5-5..5-11 已完成。
 
 **当前阶段：**
-- Phase 5.8+：继续 MainComponent 瘦身，5.8a 已完成（1587→1349 行），目标降至 1200 行以下。
+- Phase 5.8：继续 MainComponent 瘦身，5.8a+5.8b 已完成（1587→930 行），已低于 1200 行目标。
 
 **搁置项：**
 - 外部 MIDI 硬件依赖验证（待硬件条件恢复）。
@@ -70,7 +70,7 @@
 
 ### Phase 5：架构收敛与 MainComponent 瘦身
 
-状态：进行中（5.1-5.7 已完成，5.8a 已完成，5.8b-5.8e 待执行）。
+状态：进行中（5.1-5.7 已完成，5.8a+5.8b 已完成，5.8c-5.8e 待执行）。
 
 **目标：** 将 `MainComponent.cpp` 从约 1587 行降至 1200 行以下，通过提取 helper 收敛职责。
 
@@ -79,10 +79,12 @@
 - 设置窗口生命周期收敛、AppState 清理、ControlsPanel 按钮状态统一。
 - MIDI 导入流程下沉。
 
-**已完成（5.8a）：**
+**已完成（5.8a+5.8b）：**
 - 布局管理 handlers 提取到 `Layout/LayoutFlowSupport`（MainComponent 1587→1349 行，减少 238 行）。
+- 录制/回放/MIDI 导入编排提取到 `Recording/RecordingSessionController`（MainComponent 1349→930 行，减少 419 行）。
+- 累计减少 657 行，已低于 1200 行目标。
 
-**已规划（5.8b-5.8e）：**
+**已规划（5.8c-5.8e）：**
 - 5.8a：布局管理 handlers 提取到 `Layout/LayoutFlowSupport`（~215 行 → MainComponent -180 行）。
 - 5.8b：录制/回放/MIDI 导入编排提取到 `Recording/RecordingSessionController`（~229 行 → MainComponent -200 行）。
 - 5.8c：插件操作提取到 `Plugin/PluginOperationController`（~175 行 → MainComponent -150 行）。
@@ -97,7 +99,7 @@
 
 优先级从高到低：
 
-1. **Phase 5.8+：MainComponent 继续瘦身**
+1. **Phase 5.8：MainComponent 继续瘦身**
    - 目标：从约 1587 行降至 1200 行以下。
    - 详见 [`current-iteration.md`](current-iteration.md)。
 

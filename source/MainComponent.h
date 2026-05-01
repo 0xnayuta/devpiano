@@ -12,6 +12,7 @@
 #include "Plugin/PluginHost.h"
 #include "Plugin/PluginFlowSupport.h"
 #include "Recording/RecordingEngine.h"
+#include "Recording/RecordingSessionController.h"
 #include "Settings/SettingsComponent.h"
 #include "Settings/SettingsModel.h"
 #include "Settings/SettingsStore.h"
@@ -23,15 +24,11 @@
 #include "Layout/LayoutDirectoryScanner.h"
 #include "Layout/LayoutFlowSupport.h"
 
-namespace devpiano::exporting
-{
-enum class ExportFileType;
-}
-
 class MainComponent final : public juce::AudioAppComponent,
                             private juce::Timer
 {
     friend class devpiano::layout::LayoutFlowSupport;
+    friend class devpiano::recording::RecordingSessionController;
 public:
     MainComponent();
     ~MainComponent() override;
@@ -62,18 +59,6 @@ private:
         int blockSize = 512;
     };
 
-    struct RecordingSession
-    {
-        devpiano::recording::RecordingTake take;
-        bool canExportMidi = false;
-        ControlsPanel::RecordingState state = ControlsPanel::RecordingState::idle;
-
-        [[nodiscard]] bool hasTake() const noexcept { return ! take.isEmpty(); }
-        [[nodiscard]] bool isRecording() const noexcept { return state == ControlsPanel::RecordingState::recording; }
-        [[nodiscard]] bool isPlaying() const noexcept { return state == ControlsPanel::RecordingState::playing; }
-        [[nodiscard]] bool isIdle() const noexcept { return state == ControlsPanel::RecordingState::idle; }
-    };
-
     void timerCallback() override;
 
     void initialiseInputMappingFromSettings();
@@ -91,15 +76,6 @@ private:
     void commitPluginRecoveryStateAndFinishUi(const SettingsModel::PluginRecoverySettingsView& pluginRecovery,
                                               bool shouldSaveSettings);
     void handlePerformanceUiChanged();
-    void handleRecordClicked();
-    void handlePlayClicked();
-    void handleStopClicked();
-    void handleBackToStartClicked();
-    void handleExportMidiClicked();
-    void handleExportWavClicked();
-    void handleImportMidiClicked();
-    [[nodiscard]] std::optional<devpiano::recording::RecordingTake> tryImportMidiFile(const juce::File& file) const;
-    void replaceTakeAndStartPlayback(devpiano::recording::RecordingTake take);
     void applyUiStateToAudioEngine();
     void syncUiFromSettings();
     void syncSettingsFromUi();
@@ -135,16 +111,6 @@ private:
     double getCurrentRuntimeSampleRate() const;
     int getCurrentRuntimeBlockSize() const;
     [[nodiscard]] RuntimeAudioConfig getCurrentRuntimeAudioConfig() const;
-    void startInternalRecording(std::size_t expectedEventCapacity);
-    [[nodiscard]] devpiano::recording::RecordingTake stopInternalRecording();
-    void startInternalPlayback(const devpiano::recording::RecordingTake& take);
-    [[nodiscard]] devpiano::recording::RecordingTake stopInternalPlayback();
-    void syncRecordingSessionToUi();
-    void runExportRecordingFlow(devpiano::exporting::ExportFileType type,
-                                std::unique_ptr<juce::FileChooser>& chooser,
-                                const juce::String& dialogTitle,
-                                const juce::String& filePattern,
-                                std::function<bool(const juce::File&)> doExport);
     void runPluginActionWithAudioDeviceRebuild(const std::function<void(const RuntimeAudioConfig&)>& action);
     void runPluginActionWithAudioDeviceRebuild(const std::function<void()>& action);
     [[nodiscard]] juce::String getSelectedPluginNameForLoad() const;
@@ -163,7 +129,6 @@ private:
     void scanPlugins();
 
     devpiano::recording::RecordingEngine recordingEngine;
-    RecordingSession recordingSession;
     AudioEngine audioEngine;
     KeyboardMidiMapper keyboardMidiMapper;
     MidiRouter midiRouter;
@@ -180,9 +145,7 @@ private:
     KeyboardPanel keyboardPanel;
     std::unique_ptr<juce::DialogWindow> settingsWindow;
     std::unique_ptr<devpiano::layout::LayoutFlowSupport> layoutFlowSupport;
-    std::unique_ptr<juce::FileChooser> exportMidiChooser;
-    std::unique_ptr<juce::FileChooser> exportWavChooser;
-    std::unique_ptr<juce::FileChooser> importMidiChooser;
+    std::unique_ptr<devpiano::recording::RecordingSessionController> recordingSessionController;
     std::unique_ptr<PluginEditorWindow> pluginEditorWindow;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
