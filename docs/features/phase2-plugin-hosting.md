@@ -2,7 +2,7 @@
 
 > 用途：说明当前 VST3 插件扫描、加载、处理、editor 和生命周期相关功能行为。  
 > 相关测试：[`../testing/phase2-plugin-host-lifecycle.md`](../testing/phase2-plugin-host-lifecycle.md)。  
-> 当前状态来源：[`../roadmap/roadmap.md`](../roadmap/roadmap.md)、[`../testing/phase2-plugin-host-lifecycle.md`](../testing/phase2-plugin-host-lifecycle.md)、[`../architecture/overview.md`](../architecture/overview.md)、[`../architecture/legacy-migration.md`](../architecture/legacy-migration.md)。
+> 当前状态来源：[`../roadmap/roadmap.md`](../roadmap/roadmap.md)、[`../testing/phase2-plugin-host-lifecycle.md`](../testing/phase2-plugin-host-lifecycle.md)、[`../architecture/overview.md`](../architecture/overview.md)。
 
 ## 当前能力
 
@@ -103,8 +103,6 @@ Computer keyboard / external MIDI
 - `KnownPluginList`
 - `PluginDirectoryScanner`
 - `AudioPluginInstance`
-
-更多迁移边界见：[`../architecture/legacy-migration.md`](../architecture/legacy-migration.md)。
 
 ## 后续方向
 

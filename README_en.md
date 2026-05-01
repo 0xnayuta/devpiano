@@ -113,11 +113,6 @@ Computer keyboard / external MIDI -> MidiMessageCollector / MidiKeyboardState
   - project goals, assessments, plans, task lists, test cases, milestone checklists, M8 MIDI file import and playback boundaries, and related docs
   - M8 is now stabilized; authoritative status is maintained in `docs/roadmap/roadmap.md` and `docs/roadmap/current-iteration.md`
 
-### Legacy Prototypes and Transitional Code
-- `source/Legacy/UnusedPrototypes/`
-  - old/transitional prototype code that does not participate in the current main build
-  - kept only for historical retention and migration reference
-
 ---
 
 ## Development Entry (WSL + Windows MSVC Hybrid Workflow)
@@ -220,7 +215,6 @@ Typical replacement directions:
 
 For more mapping details, see:
 
-- [docs/architecture/legacy-migration.md](docs/architecture/legacy-migration.md)
 - [docs/features/phase4-midi-file-import.md](docs/features/phase4-midi-file-import.md)
 
 ---

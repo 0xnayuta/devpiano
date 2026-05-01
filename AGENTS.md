@@ -39,7 +39,6 @@
 - `docs/getting-started/quickstart.md`：快速恢复环境与常用命令。
 - `docs/development/wsl-windows-msvc-workflow.md`：WSL / Windows 镜像 / MSVC 验证详细工作流。
 - `docs/architecture/overview.md`：当前系统架构、模块职责与主要链路。
-- `docs/architecture/legacy-migration.md`：旧 FreePiano 源码迁移边界与新旧模块映射。
 - [`docs/features/phase2-keyboard-mapping.md`](docs/features/phase2-keyboard-mapping.md)：电脑键盘到 MIDI note 的映射能力与边界。
 - [`docs/features/phase2-plugin-hosting.md`](docs/features/phase2-plugin-hosting.md)：VST3 插件扫描、加载、处理、editor 和生命周期行为。
 - `docs/testing/acceptance.md`：阶段验收标准。
@@ -155,7 +154,6 @@
 
 参考：
 
-- `docs/architecture/legacy-migration.md`
 - ADR：`docs/decisions/0002-legacy-code-as-reference-only.md`
 
 ---
@@ -204,7 +202,6 @@
 
 1. 明确任务目标和涉及范围。
 2. 如涉及旧系统行为或迁移路径，先阅读：
-   - `docs/architecture/legacy-migration.md`
    - 必要时阅读 `/freepiano-src/` 相关旧模块。
 3. 如涉及当前架构或功能边界，先阅读：
    - `docs/architecture/overview.md`

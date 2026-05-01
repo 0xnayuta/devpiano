@@ -12,8 +12,6 @@
 - 专项测试：[`../testing/phase3-recording-playback.md`](../testing/phase3-recording-playback.md)
 - 键盘映射：[`phase2-keyboard-mapping.md`](phase2-keyboard-mapping.md)
 - 插件宿主：[`phase2-plugin-hosting.md`](phase2-plugin-hosting.md)
-- 旧代码迁移边界：[`../architecture/legacy-migration.md`](../architecture/legacy-migration.md)
-
 ---
 
 ## 1. 当前主链路

@@ -29,6 +29,5 @@
 - 布局 preset 测试：[`../testing/phase3-layout-presets.md`](../testing/phase3-layout-presets.md)
 - 录制 / 回放 / MIDI 导出测试：[`../testing/phase3-recording-playback.md`](../testing/phase3-recording-playback.md)
 - MIDI 文件导入测试：[`../testing/phase4-midi-file-import.md`](../testing/phase4-midi-file-import.md)
-- 旧功能迁移边界：[`../architecture/legacy-migration.md`](../architecture/legacy-migration.md)
 
 未明确实现的功能不应在本目录中写成已完成能力。

@@ -113,11 +113,6 @@
   - 项目目标、评估、规划、任务清单、测试用例、里程碑清单、M8 MIDI 文件导入与回放边界等文档
   - 当前 M8 已收尾，权威状态以 `docs/roadmap/roadmap.md` 与 `docs/roadmap/current-iteration.md` 为准
 
-### 旧原型与过渡代码
-- `source/Legacy/UnusedPrototypes/`
-  - 当前不参与主构建的旧版/过渡版原型代码
-  - 仅用于历史保留与迁移参考
-
 ---
 
 ## 开发入口（WSL + Windows MSVC 混合工作流）
@@ -220,7 +215,6 @@ Windows MSVC 验证构建（内置同步，不需要单独 win-sync）：
 
 更多映射说明见：
 
-- [docs/architecture/legacy-migration.md](docs/architecture/legacy-migration.md)
 - [docs/features/phase4-midi-file-import.md](docs/features/phase4-midi-file-import.md)
 
 ---
