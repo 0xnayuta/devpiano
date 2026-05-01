@@ -24,6 +24,7 @@
 - [`testing/keyboard-mapping.md`](testing/keyboard-mapping.md)：键盘映射专项手工测试。
 - [`testing/layout-presets.md`](testing/layout-presets.md)：布局 preset 的保存、导入、重命名、删除与启动恢复专项手工测试。
 - [`testing/recording-playback.md`](testing/recording-playback.md)：录制、回放与 MIDI 导出专项手工测试。
+- [`testing/midi-file-import.md`](testing/midi-file-import.md)：M8 MIDI 文件导入、回放、自动选轨与后续增强验收测试。
 - [`testing/plugin-host-lifecycle.md`](testing/plugin-host-lifecycle.md)：插件宿主生命周期与退出稳定性专项测试。
 
 ### 功能设计
