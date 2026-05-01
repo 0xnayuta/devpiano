@@ -104,13 +104,13 @@
 
 ## 7. M8-3：最近路径记忆 + 回放控制小增强
 
-状态：部分已实现（最近导入路径），其他为可选增强。
+状态：已实现，2026-05-01 人工验收通过。
 
 验收项：
 
 - [x] Import MIDI 时 FileChooser 默认定位到上次导入目录。
-- [ ] Export MIDI 时 FileChooser 默认定位到上次导出目录。
-- [ ] Playback 中点击“回到开头”后 position 重置（可选，当前未实现）。
+- [x] Export MIDI / Export WAV 时 FileChooser 默认定位到上次导出目录。
+- [x] Playback 中点击 `Back` 后从当前 take 开头重新播放。
 
 ## 8. M8-5：合并所有轨道 note 到单一 timeline（已搁置）
 

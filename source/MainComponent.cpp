@@ -73,6 +73,31 @@ juce::String makeSafeUiText(juce::String text)
     return text;
 }
 
+[[nodiscard]] juce::File getLastMidiExportDirectory(const SettingsModel& settings)
+{
+    if (settings.lastMidiExportPath.isNotEmpty())
+    {
+        const auto lastFile = juce::File(settings.lastMidiExportPath);
+        if (lastFile.existsAsFile())
+            return lastFile.getParentDirectory();
+
+        if (lastFile.isDirectory())
+            return lastFile;
+
+        const auto parent = lastFile.getParentDirectory();
+        if (parent.isDirectory())
+            return parent;
+    }
+
+    return juce::File::getCurrentWorkingDirectory();
+}
+
+[[nodiscard]] juce::File makeDefaultMidiExportFile(const SettingsModel& settings,
+                                                   devpiano::exporting::ExportFileType type)
+{
+    return devpiano::exporting::makeDefaultRecordingExportFile(type, getLastMidiExportDirectory(settings));
+}
+
 [[nodiscard]] std::optional<std::pair<juce::File, devpiano::core::KeyboardLayout>> findUserLayoutFileById(const juce::String& layoutId)
 {
     if (layoutId.isEmpty() || layoutId.startsWith("default."))
@@ -145,6 +170,7 @@ MainComponent::~MainComponent()
     controlsPanel.onRecordClicked = {};
     controlsPanel.onPlayClicked = {};
     controlsPanel.onStopClicked = {};
+    controlsPanel.onBackToStartClicked = {};
     controlsPanel.onExportMidiClicked = {};
     controlsPanel.onExportWavClicked = {};
     controlsPanel.onImportMidiClicked = {};
@@ -204,6 +230,7 @@ void MainComponent::initialiseUi()
     controlsPanel.onRecordClicked = [this] { handleRecordClicked(); };
     controlsPanel.onPlayClicked = [this] { handlePlayClicked(); };
     controlsPanel.onStopClicked = [this] { handleStopClicked(); };
+    controlsPanel.onBackToStartClicked = [this] { handleBackToStartClicked(); };
     controlsPanel.onExportMidiClicked = [this] { handleExportMidiClicked(); };
     controlsPanel.onExportWavClicked = [this] { handleExportWavClicked(); };
     controlsPanel.onImportMidiClicked = [this] { handleImportMidiClicked(); };
@@ -1309,6 +1336,29 @@ void MainComponent::handleStopClicked()
         restoreKeyboardFocus();
 }
 
+void MainComponent::handleBackToStartClicked()
+{
+    if (currentTake.isEmpty() || currentRecordingState == ControlsPanel::RecordingState::recording)
+        return;
+
+    if (currentRecordingState == ControlsPanel::RecordingState::playing)
+    {
+        const auto stoppedTake = stopInternalPlayback();
+        juce::ignoreUnused(stoppedTake);
+        startInternalPlayback(currentTake);
+        currentRecordingState = ControlsPanel::RecordingState::playing;
+        controlsPanel.setRecordingState(currentRecordingState);
+        juce::Logger::writeToLog("[Playback] Restarted from beginning");
+    }
+    else
+    {
+        audioEngine.requestAllNotesOff();
+        juce::Logger::writeToLog("[Playback] Already at beginning");
+    }
+
+    restoreKeyboardFocus();
+}
+
 void MainComponent::handleExportMidiClicked()
 {
     using devpiano::exporting::ExportFileType;
@@ -1320,7 +1370,7 @@ void MainComponent::handleExportMidiClicked()
         return;
     }
 
-    const auto defaultFile = devpiano::exporting::makeDefaultRecordingExportFile(ExportFileType::midi);
+    const auto defaultFile = makeDefaultMidiExportFile(appSettings, ExportFileType::midi);
 
     exportMidiChooser = std::make_unique<juce::FileChooser>("Export MIDI Recording", defaultFile, "*.mid");
     exportMidiChooser->launchAsync(juce::FileBrowserComponent::saveMode
@@ -1334,8 +1384,12 @@ void MainComponent::handleExportMidiClicked()
         {
             juce::Logger::writeToLog(devpiano::exporting::makeExportLogPrefix(ExportFileType::midi)
                                      + " export cancelled by user");
+            exportMidiChooser.reset();
             return;
         }
+
+        appSettings.lastMidiExportPath = file.getFullPathName();
+        saveSettingsSoon();
 
         if (devpiano::exporting::exportTakeAsMidiFile(currentTake, file))
             juce::Logger::writeToLog(devpiano::exporting::makeExportLogPrefix(ExportFileType::midi)
@@ -1359,7 +1413,7 @@ void MainComponent::handleExportWavClicked()
         return;
     }
 
-    const auto defaultFile = devpiano::exporting::makeDefaultRecordingExportFile(ExportFileType::wav);
+    const auto defaultFile = makeDefaultMidiExportFile(appSettings, ExportFileType::wav);
 
     exportWavChooser = std::make_unique<juce::FileChooser>("Export WAV Recording", defaultFile, "*.wav");
     exportWavChooser->launchAsync(juce::FileBrowserComponent::saveMode
@@ -1376,6 +1430,9 @@ void MainComponent::handleExportWavClicked()
             exportWavChooser.reset();
             return;
         }
+
+        appSettings.lastMidiExportPath = file.getFullPathName();
+        saveSettingsSoon();
 
         const auto options = devpiano::exporting::buildWavExportOptions(currentTake,
                                                                         getPerformanceSettingsFromUi(),
