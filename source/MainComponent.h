@@ -22,6 +22,11 @@
 #include "UI/PluginPanel.h"
 #include "Layout/LayoutDirectoryScanner.h"
 
+namespace devpiano::exporting
+{
+enum class ExportFileType;
+}
+
 class MainComponent final : public juce::AudioAppComponent,
                             private juce::Timer
 {
@@ -136,6 +141,11 @@ private:
     void startInternalPlayback(const devpiano::recording::RecordingTake& take);
     [[nodiscard]] devpiano::recording::RecordingTake stopInternalPlayback();
     void syncRecordingSessionToUi();
+    void runExportRecordingFlow(devpiano::exporting::ExportFileType type,
+                                std::unique_ptr<juce::FileChooser>& chooser,
+                                const juce::String& dialogTitle,
+                                const juce::String& filePattern,
+                                std::function<bool(const juce::File&)> doExport);
     void runPluginActionWithAudioDeviceRebuild(const std::function<void(const RuntimeAudioConfig&)>& action);
     void runPluginActionWithAudioDeviceRebuild(const std::function<void()>& action);
     [[nodiscard]] juce::String getSelectedPluginNameForLoad() const;
