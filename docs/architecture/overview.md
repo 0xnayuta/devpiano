@@ -49,7 +49,7 @@
 当前状态：
 
 - 已不再是纯单体 UI；插件区、参数区、头部状态区和键盘区已拆入 `source/UI/`。
-- 插件流程、录制/回放状态流、导出选项、只读 UI 刷新边界已通过 MC-1..MC-4 完成收敛：
+- 插件流程、录制/回放状态流、导出选项、只读 UI 刷新边界已通过 Phase 5-1..5-4 完成收敛：
   - `RecordingFlowSupport`（`source/Recording/RecordingFlowSupport.*`）：录制 / 回放 UI 状态转换与顶层控制策略。
   - `ExportFlowSupport`（`source/Export/ExportFlowSupport.*`）：MIDI / WAV 导出的默认文件名、空 take 判断和导出选项构建。
   - `PluginFlowSupport`（`source/Plugin/PluginFlowSupport.*`）：扫描路径规范化、缓存恢复、启动恢复计划等插件流程已收敛。

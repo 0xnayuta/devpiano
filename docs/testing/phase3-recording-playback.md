@@ -1,6 +1,6 @@
 # devpiano 录制 / 回放 / MIDI 导出测试用例
 
-> 用途：定义 M6 高级功能恢复 MVP 的专项手工回归清单。  
+> 用途：定义 Phase 3 高级功能恢复 MVP 的专项手工回归清单。  
 > 读者：修改 `source/Recording/`、`source/Audio/AudioEngine.*`、`source/MainComponent.*` 或 `source/UI/ControlsPanel.*` 的开发者。  
 > 更新时机：录制模型、回放调度、导出格式或 UI 控制发生变化时。
 
@@ -20,7 +20,7 @@
 
 ## 1. 测试目标
 
-本测试文档覆盖 M6 MVP 已恢复能力：
+本测试文档覆盖 Phase 3 MVP 已恢复能力：
 
 - Record / Stop / Play 基础闭环。
 - 电脑键盘与外部 MIDI 经由同一 `AudioEngine` pre-render `MidiBuffer` 录制边界。
@@ -28,7 +28,7 @@
 - Export MIDI 输出 `.mid` 文件。
 - 录制、回放、导出与键盘焦点、插件宿主、布局 Preset 的基本协同。
 
-当前不作为 M6 MVP 验收目标：
+当前不作为 Phase 3 MVP 验收目标：
 
 - WAV 离线渲染。
 - MP4 / 视频导出。
@@ -253,7 +253,7 @@
 
 ## 8. 优先测试包
 
-### 包 A：M6 MVP 快速回归
+### 包 A：Phase 3 MVP 快速回归
 
 - [x] 3.1 Record 状态切换。
 - [x] 3.2 电脑键盘录制。
@@ -272,7 +272,7 @@
 
 - [~] 7.1 外部 MIDI 录制（暂缓：当前无真实外部 MIDI 设备；虚拟 MIDI loopback 方案待后续有设备时补测；插件生命周期测试 `6.3` 同样待硬件补齐）。
 
-### 包 D：下一阶段 M6 稳定化回归
+### 包 D：下一阶段 Phase 3 稳定化回归
 
 - [x] 回放结束路径不会从 audio thread 直接执行复杂 UI / 文件 / 设置逻辑。
 - [x] 设备 sample rate 变化后，旧 take 回放速度、结束时机和 Stop 状态正常。
@@ -280,9 +280,9 @@
 - [~] 长时间录制或容量接近上限时，不崩溃、不阻塞 audio callback，并能记录 dropped event 状态。（当前无法准确触发容量上限，暂缓确认。）
 - [x] Export MIDI 的取消保存、无权限路径、覆盖文件等失败 / 边界路径有可理解反馈或日志。
 
-### 包 E：WAV 导出回归（M6-6d）
+### 包 E：WAV 导出回归（Phase 3-1d）
 
-> M6-6c 已完成 UI 接入（Export WAV 按钮 + FileChooser + 调用 WavFileExporter）。  
+> Phase 3-1c 已完成 UI 接入（Export WAV 按钮 + FileChooser + 调用 WavFileExporter）。  
 > 本包覆盖 fallback synth WAV 导出的手工验证。
 
 #### E.1 空 take 时 Export WAV 按钮禁用
@@ -416,7 +416,7 @@
 
 - 构建：未记录。
 - 平台：Windows 手工验证。
-- 模式：M6 MVP 录制 / 回放 / MIDI 导出专项回归。
+- 模式：Phase 3 MVP 录制 / 回放 / MIDI 导出专项回归。
 - 结果：除外部 MIDI 硬件依赖项暂缓外，其余已执行项均通过，未发现明显问题。
 - 备注：
   - `5.1` 中“未录制 take 时导出”的预期已修正为当前真实行为：未录制有效 take 时，`Play` 和 `Export MIDI` 按钮保持灰色禁用；该项已通过。
@@ -426,7 +426,7 @@
 
 - 构建：Windows MSVC 验证构建已通过。
 - 平台：Windows 手工验证。
-- 模式：包 D 下一阶段 M6 稳定化回归。
+- 模式：包 D 下一阶段 Phase 3 稳定化回归。
 - 结果：
   - 包 D 第 2 项：未发现明显问题。
   - 包 D 第 3 项：发现明显问题；回放中途 Stop 后有较大概率出现悬挂音，特别是在播放有声音的一瞬间点击 Stop 时容易复现；再次 Play 同一 take 正常。
@@ -439,10 +439,10 @@
 
 - 构建：Windows MSVC 验证构建已通过。
 - 平台：Windows 手工验证。
-- 模式：M6-6d WAV 导出专项回归（包 E）。
+- 模式：Phase 3-1d WAV 导出专项回归（包 E）。
 - 结果：包 E 全部 9 项（E.1–E.9）均通过，未发现明显 bug。
 - 备注：
   - 所有测试项均未出现明显 bug，E.1–E.9 已全部验证通过。
   - E.8 对比 WAV 与 MIDI 音符顺序一致，WAV 的 release tail 符合预期。
-  - 当前 WAV 导出仅支持 fallback synth 音色，暂不支持已加载 VST3 插件音色（M6-6e 后置）。
+  - 当前 WAV 导出仅支持 fallback synth 音色，暂不支持已加载 VST3 插件音色（Phase 3-2 后置）。
   - 插件离线渲染意向已记录为未来工作项，暂不阻塞当前 MVP。

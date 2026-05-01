@@ -134,7 +134,7 @@
 
 ## 6. 与 fallback synth WAV MVP 的差异
 
-| 维度 | fallback synth（M6-6b） | VST3 插件离线渲染（M6-6e） |
+| 维度 | fallback synth（Phase 3-1） | VST3 插件离线渲染（Phase 3-2） |
 |---|---|---|
 | 发声体 | `juce::Synthesiser` 离线构建 | 独立 `AudioPluginInstance` |
 | 状态 | 内置 ADSR / gain | 插件自身处理链 |
@@ -158,4 +158,4 @@
 
 - 确认路径 B（独立离线实例 + 重置状态 + 无 editor）是否可接受。
 - 在有真实 VST3 插件环境下验证"实施前的验证项"。
-- 若验证通过，再拆分为 M6-6e 实现切片（参考 M6-6a/b/c/d 的切片方式）。
+- 若验证通过，再拆分为 Phase 3-2 实现切片（参考 Phase 3-1 的切片方式）。

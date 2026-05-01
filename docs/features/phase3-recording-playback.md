@@ -1,8 +1,8 @@
 # 录制 / 回放 / MIDI 导出功能说明
 
 > 用途：说明 DevPiano 录制、回放与 MIDI 导出的第一版现代化设计边界与当前 MVP 行为。
-> 当前状态：**设计草案已收口；M6-1 模型骨架、M6-2 AudioEngine 最小录制边界、M6-3 最小回放（内部无 UI 入口）、M6-4 最小 UI（Record/Stop/Play 按钮与状态文本）与 M6-5 MIDI 导出已实现**。
-> 读者：维护 M6 录制 / 回放 / MIDI 导出功能的开发者。
+> 当前状态：**设计草案已收口；Phase 3-3 模型骨架、Phase 3-4 AudioEngine 最小录制边界、Phase 3-5 最小回放（内部无 UI 入口）、Phase 3-6 最小 UI（Record/Stop/Play 按钮与状态文本）与 Phase 3-7 MIDI 导出已实现**。
+> 读者：维护 Phase 3 录制 / 回放 / MIDI 导出功能的开发者。
 > 更新时机：录制模型、回放调度、导出格式或实现状态发生变化时。
 
 相关文档：
@@ -206,15 +206,15 @@ source/Recording/RecordingEngine.cpp
 - 在停止录制时产出不可变或可复制的 `RecordingTake`。
 - 暴露轻量状态给 UI，例如是否正在录制、是否有可回放片段、录制时长。
 
-### 5.1 M6-2 AudioEngine 边界
+### 5.1 Phase 3-4 AudioEngine 边界
 
-当前最安全的 M6-2 观察点位于 `AudioEngine::getNextAudioBlock()`：
+当前最安全的 Phase 3-4 观察点位于 `AudioEngine::getNextAudioBlock()`：
 
 ```text
 midiBuffer.clear()
 midiCollector.removeNextBlockOfMessages(midiBuffer, numSamples)
 keyboardState.processNextMidiBuffer(midiBuffer, 0, numSamples, true)
-// M6-2 recording handoff boundary lives here
+// Phase 3-4 recording handoff boundary lives here
 plugin processBlock(...) or fallback synth.renderNextBlock(...)
 ```
 
@@ -232,7 +232,7 @@ plugin processBlock(...) or fallback synth.renderNextBlock(...)
 - `RecordingEngine::recordMidiBufferBlock()` 会把符合第一版大小门限的 `MidiMessageMetadata` 转为拥有数据的 `juce::MidiMessage`，并写入 `std::vector<PerformanceEvent>`；容量耗尽或超过大小门限的消息会被丢弃并计数。
 - `recordMidiBufferBlock()` 会把复制出的 `juce::MidiMessage` timestamp 归零；后续回放 / 导出只能使用 `PerformanceEvent::timestampSamples` 作为权威时间线。
 
-M6-2 推荐调用语义：
+Phase 3-4 推荐调用语义：
 
 ```text
 const auto blockStart = recordingEngine.getCurrentPositionSamples()
@@ -397,7 +397,7 @@ RecordingTake
 - 外部 MIDI 输入中的标准 channel voice 消息，如 CC、pitch bend、program change，可按实现成本逐步纳入。
 - 不导出插件状态、音频、布局文件或 UI 状态。
 
-### 8.2 WAV 导出（M6-6 MVP）
+### 8.2 WAV 导出（Phase 3-1 MVP）
 
 WAV 导出需要离线渲染能力，风险高于 MIDI 导出。当前阶段只设计并实现最小闭环，不恢复旧 FreePiano 的 MP4 / 视频导出，也不引入工程文件、多轨、tempo map 或复杂编辑模型。
 
@@ -447,7 +447,7 @@ bool exportTakeAsWavFile(const RecordingTake& take,
                          const WavExportOptions& options);
 ```
 
-当前 M6-6a 已建立该 API 与最小 writer 创建边界；后续 M6-6b 再接入真实 fallback synth 离线渲染。
+当前 Phase 3-1a 已建立该 API 与最小 writer 创建边界；后续 Phase 3-1b 再接入真实 fallback synth 离线渲染。
 
 `MainComponent` 的职责只应是：
 
@@ -492,14 +492,14 @@ RecordingTake
 
 #### 插件离线渲染后置
 
-VST3 插件离线渲染放到 M6-6 第二阶段再评估，原因：
+VST3 插件离线渲染放到 Phase 3-2 再评估，原因：
 
 - 需要明确插件实例是否复用当前实时实例，还是创建独立离线实例。
 - 需要处理插件 editor 打开、设备重建、插件状态冻结和线程边界。
 - 部分插件可能不支持预期的非实时渲染行为。
 - 失败策略和用户提示比 fallback synth 路径复杂。
 
-因此 M6-6 第一阶段只要求 fallback synth WAV 导出可用；插件 WAV 导出不得阻塞该 MVP。
+因此 Phase 3-1 只要求 fallback synth WAV 导出可用；插件 WAV 导出不得阻塞该 MVP。
 
 ---
 
@@ -518,16 +518,16 @@ VST3 插件离线渲染放到 M6-6 第二阶段再评估，原因：
 
 ## 10. 实现切片建议
 
-### M6-1：录制模型与状态
+### Phase 3-3：录制模型与状态
 
 - [x] 新增 `source/Recording/RecordingEngine.*`。
 - [x] 定义 `PerformanceEvent`、`RecordingTake` 和状态枚举。
 - [x] 提供 start / stop / clear / hasTake / getSnapshot 等基础接口。
 - [x] 明确当前 `RecordingEngine` 是单线程模型骨架，后续 audio-thread 接入前必须补齐同步和预分配策略。
 
-### M6-2：接入实时 MIDI 录制
+### Phase 3-4：接入实时 MIDI 录制
 
-- [x] 明确 `AudioEngine::getNextAudioBlock()` 中的 M6-2 handoff 边界：`keyboardState.processNextMidiBuffer(..., true)` 之后、插件 / fallback synth 消费 `MidiBuffer` 之前。
+- [x] 明确 `AudioEngine::getNextAudioBlock()` 中的 Phase 3-4 handoff 边界：`keyboardState.processNextMidiBuffer(..., true)` 之后、插件 / fallback synth 消费 `MidiBuffer` 之前。
 - [x] 增加 `RecordingEngine::recordMidiBufferBlock()` 边界辅助 API，用 block-local sample offset 生成绝对 `timestampSamples`。
 - [x] 明确混合后的 block MIDI 第一版记录为 `RecordingEventSource::realtimeMidiBuffer`，不猜测原始来源。
 - [x] `AudioEngine` 已提供 `setRecordingEngine(...)`，并在录制状态下调用该边界。
@@ -536,7 +536,7 @@ VST3 插件离线渲染放到 M6-6 第二阶段再评估，原因：
 - [x] 验证电脑键盘能进入录制时间线。
 - [~] 外部 MIDI 进入同一录制时间线仍待真实硬件或虚拟 MIDI loopback 验证。
 
-### M6-3：最小回放
+### Phase 3-5：最小回放
 
 - [x] `RecordingEngine` 新增 `startPlayback(take, currentSampleRate)`、`stopPlayback()`、`renderPlaybackBlock()`、`advancePlaybackPosition()`、`isPlaying()`、`getPlaybackPositionSamples()`。
 - [x] `AudioEngine::getNextAudioBlock()` 在 `recordRealtimeMidiBufferIfNeeded()` 之后、插件 / synth 渲染之前调用 `renderPlaybackEventsIfNeeded()`。
@@ -547,14 +547,14 @@ VST3 插件离线渲染放到 M6-6 第二阶段再评估，原因：
 - [x] 已完成停止回放不留下悬挂音的基础手工回归。
 - [~] 采样率变化、长时间录制、容量耗尽和回放结束通知仍作为下一阶段稳定化重点。
 
-### M6-4：最小 UI
+### Phase 3-6：最小 UI
 
 - [x] `ControlsPanel` 新增 `recordStatusLabel`（显示 Idle / Recording / Playing）、`recordButton`（"Record"）、`playButton`（"Play"）、`stopButton`（"Stop"）。
 - [x] `setRecordingState(RecordingState)` 根据状态控制按钮 enabled / disabled：Idle 时 Record 可用、Play 检查 hasTake；Recording 时 Record 不可用、Stop 可用；Playing 时 Record/Play 不可用、Stop 可用。
 - [x] `MainComponent` 新增 `handleRecordClicked()` / `handlePlayClicked()` / `handleStopClicked()` 处理录音/回放/停止逻辑。
 - [x] `currentTake` 存储最近一次录制的 `RecordingTake`，用于回放。
 
-### M6-5：MIDI 导出
+### Phase 3-7：MIDI 导出
 
 - [x] `source/Recording/MidiFileExporter.h/.cpp` 新增 `exportTakeAsMidiFile(take, destination, ppq)`。
 - [x] 转换链路：`RecordingTake.events[]` → `juce::MidiMessageSequence`（`setTimeStamp(seconds)` 用秒级时间戳）→ `juce::MidiFile`（`setTicksPerQuarterNote(ppq)`） → `writeTo(FileOutputStream)` 输出 `.mid`。
@@ -563,45 +563,45 @@ VST3 插件离线渲染放到 M6-6 第二阶段再评估，原因：
 - [x] `MainComponent::handleExportMidiClicked()` 使用 `juce::FileChooser::launchAsync(saveMode)` 保存文件，文件名格式 `recording_<ISO8601>.mid`。
 - [x] 导出成功 / 失败写入 Logger 日志。
 
-### M6-6：WAV 离线渲染预研 / 实现
+### Phase 3-1：WAV 离线渲染预研 / 实现
 
 - [x] 单独设计离线渲染链路。
 - [x] 第一切片优先支持 fallback synth 离线渲染。
 - [x] 第二切片再评估已加载 VST3 插件的离线渲染。
 - [x] 明确导出期间 UI、实时音频设备、插件 editor 和当前插件状态的边界。
 - [x] 明确失败策略：插件不支持离线渲染、目标路径无权限、空 take、用户取消保存。
-- [x] 不阻塞 M6-1 到 M6-5 的上线。
+- [x] 不阻塞 Phase 3-3 到 Phase 3-7 的上线。
 
 建议实现切片：
 
-1. **M6-6a：导出模型与空实现边界**
+1. **Phase 3-1a：导出模型与空实现边界**
    - [x] 新增 `source/Recording/WavFileExporter.h/.cpp`。
    - [x] 定义 `WavExportOptions` 和 `exportTakeAsWavFile(...)`。
    - [x] 暂只做参数校验、文件 writer 创建和失败返回，不接 UI。
 
-2. **M6-6b：fallback synth 离线渲染核心**
+2. **Phase 3-1b：fallback synth 离线渲染核心**
    - [x] 构建与实时 fallback synth 等价的离线 `juce::Synthesiser`。
    - [x] 按 block 将 `RecordingTake` 事件写入 `MidiBuffer`。
    - [x] 渲染到 `AudioBuffer<float>` 并写入 WAV。
    - [x] 应用 master gain / ADSR。
 
-3. **M6-6c：UI 接入**
+3. **Phase 3-1c：UI 接入**
    - [x] `ControlsPanel` 增加 `Export WAV` 按钮，启用条件与 `Export MIDI` 一致。
    - [x] `MainComponent` 只负责文件选择、导出选项收集和调用导出函数。
    - [x] 导出成功 / 失败先写 Logger；后续再补正式 UI 提示。
 
-4. **M6-6d：专项测试与边界修复**
+4. **Phase 3-1d：专项测试与边界修复**
    - [x] 新增或扩展 `docs/testing/phase3-recording-playback.md` 的 WAV 导出测试包（包 E，9 项）。
    - [x] 覆盖 fallback synth 导出、空 take 禁用、取消保存、无权限路径、导出文件可被播放器 / DAW 打开。
    - [x] 人工验证 E.1–E.9 全部通过，未发现明显 bug。
 
-5. **M6-6e：VST3 插件离线渲染预研（已完成评估）**
+5. **Phase 3-2：VST3 插件离线渲染预研（已完成评估）**
    - 评估结果：推荐「独立离线实例 + 重置状态 + 无 editor」路径
-   - 详见：[`plugin-offline-rendering.md`](M6-6e-plugin-offline-rendering.md)
+   - 详见：[`phase3-plugin-offline-rendering.md`](phase3-plugin-offline-rendering.md)
    - 关键结论：离线实例与实时已加载实例解耦，重置为插件默认状态，离线实例不创建 editor，失败时降级到 fallback synth
    - 当前状态：设计评估已完成，待在真实 VST3 插件环境下验证「实施前的验证项」后再推进实现
 
-### M6-7：录制 / 回放稳定化
+### Phase 3-8：录制 / 回放稳定化
 
 - [x] 复核 audio callback 中访问 `RecordingEngine` 的边界，避免文件 IO、UI 操作、阻塞等待或非受控分配进入实时路径。
 - [x] 将回放结束通知收敛为轻量状态传递；audio thread 只置位轻量结束标记，message thread 轮询后更新 UI / 状态。
