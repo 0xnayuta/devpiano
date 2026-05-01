@@ -171,3 +171,4 @@
 - 当前不是完整 GM 播放器；外部 GM MIDI 可能听起来与原文件不同。
 - fallback synth 声部数有限，大型 MIDI 编曲可能出现拥挤或缺音。
 - 完整 tempo map roundtrip、完整多轨模型、merge-all 导入和 MIDI 编辑器均为后续阶段范围。
+- **MIDI 导入播放首音无声**：当导入的 MIDI 文件首个音符起始时间接近 0 秒时，该音符几乎无声，但虚拟键盘可视化正常。详见 [`known-issues.md`](known-issues.md) §8。
