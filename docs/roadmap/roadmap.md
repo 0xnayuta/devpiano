@@ -144,12 +144,12 @@
 
 ### M8：MIDI 文件导入与回放兼容性
 
-状态：核心导入与多项体验增强已完成；M8-2 roundtrip 语义已收敛；最近导出路径仍可后续补齐；merge-all 已搁置。
+状态：核心导入与多项体验增强已完成；M8-2 roundtrip 语义已收敛；M8-3 已通过人工验收；merge-all 已搁置。
 
 - [x] M8-1：MIDI 文件导入核心（Import MIDI、导入为 `RecordingTake`、导入后回放、错误路径安全返回）。
 - [x] M8-1b：自动选择含 note 最多的轨道，解决常见 Type 1 MIDI track 0 只有 tempo/meta 导致无声的问题。
 - [x] M8-2：MIDI import playback 边界 + 多轨/tempo 处理。PPQ/timeFormat 修正、轨道诊断和自动选轨已具备；导入 playback take 禁止再次导出 MIDI。导入 MIDI 后允许导出 WAV 归入 M6-6e，暂时搁置。
-- [~] M8-3：最近路径记忆 + 回放控制小增强。最近导入路径已实现；最近导出路径和“回到开头”未实现。
+- [x] M8-3：最近路径记忆 + 回放控制小增强。最近导入/导出路径已实现；播放中点击 `Back` 可从当前 take 开头重新播放。已通过人工验收。
 - [~] M8-5：合并所有轨道 note 到单一 timeline。当前未实现且已搁置；继续保留 note-rich 单轨选择为推荐模式，merge-all 以后再考虑。
 - [x] M8-6：MIDI playback 虚拟键盘可视化，已通过人工验收。
 - [x] M8-7：主窗口尺寸自适应与恢复，已通过人工验收。
@@ -163,7 +163,6 @@
 优先级从高到低：
 
 1. **M8 剩余边界收敛**
-   - 补齐 M8-3 最近导出路径等低风险体验项。
    - 保持 M8-2 边界：导入 playback take 禁止 MIDI 再导出；导入后 WAV 导出进入 M6-6e backlog。
    - 继续搁置 M8-5 merge-all，避免默认合并带来嘈杂/鼓轨/多音色问题。
 

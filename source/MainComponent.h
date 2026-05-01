@@ -81,6 +81,7 @@ private:
     void handleRecordClicked();
     void handlePlayClicked();
     void handleStopClicked();
+    void handleBackToStartClicked();
     void handleExportMidiClicked();
     void handleExportWavClicked();
     void handleImportMidiClicked();

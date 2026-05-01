@@ -32,6 +32,7 @@ public:
     std::function<void()> onRecordClicked;
     std::function<void()> onPlayClicked;
     std::function<void()> onStopClicked;
+    std::function<void()> onBackToStartClicked;
     std::function<void()> onExportMidiClicked;
     std::function<void()> onExportWavClicked;
     std::function<void()> onImportMidiClicked;
@@ -83,6 +84,7 @@ private:
     juce::TextButton recordButton { "Record" };
     juce::TextButton playButton { "Play" };
     juce::TextButton stopButton { "Stop" };
+    juce::TextButton backToStartButton { "Back" };
     juce::TextButton exportMidiButton { "Export MIDI" };
     juce::TextButton exportWavButton { "Export WAV" };
     juce::TextButton importMidiButton { "Import MIDI" };
