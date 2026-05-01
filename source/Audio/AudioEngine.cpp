@@ -263,6 +263,18 @@ void AudioEngine::renderPlaybackEventsIfNeeded(std::int64_t blockStartSamples, i
     if (recordingEngine == nullptr || !recordingEngine->isPlaying())
         return;
 
-    recordingEngine->renderPlaybackBlock(midiBuffer, blockStartSamples, numSamples);
+    playbackVisualMidiBuffer.clear();
+    recordingEngine->renderPlaybackBlock(playbackVisualMidiBuffer, blockStartSamples, numSamples);
+
+    // Playback events are generated inside the audio callback after the keyboard
+    // state has already processed realtime input for this block. Feed only the
+    // playback events into MidiKeyboardState for virtual-keyboard visualisation,
+    // without injecting any additional keyboard-generated MIDI events back into
+    // the stream. UI listeners must remain passive; this path only updates state.
+    keyboardState.processNextMidiBuffer(playbackVisualMidiBuffer,
+                                        0,
+                                        numSamples,
+                                        false);
+    midiBuffer.addEvents(playbackVisualMidiBuffer, 0, numSamples, 0);
     recordingEngine->advancePlaybackPosition(numSamples);
 }
