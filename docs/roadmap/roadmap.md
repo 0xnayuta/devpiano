@@ -79,12 +79,14 @@
 - 设置窗口生命周期收敛、AppState 清理、ControlsPanel 按钮状态统一。
 - MIDI 导入流程下沉。
 
-**待规划（5.8+）：**
-- 设置窗口管理提取（约 100 行）。
-- 布局管理继续收敛（约 100 行）。
-- 插件操作提取（约 130 行）。
-- 录制/回放编排提取（约 100 行）。
-- 插件 editor window 生命周期提取（约 50 行）。
+**已规划（5.8）：**
+- 5.8a：布局管理 handlers 提取到 `Layout/LayoutFlowSupport`（~215 行 → MainComponent -180 行）。
+- 5.8b：录制/回放/MIDI 导入编排提取到 `Recording/RecordingSessionController`（~229 行 → MainComponent -200 行）。
+- 5.8c：插件操作提取到 `Plugin/PluginOperationController`（~175 行 → MainComponent -150 行）。
+- 5.8d：设置窗口管理提取到 `Settings/SettingsWindowManager`（~101 行 → MainComponent -80 行）。
+- 5.8e：状态快照构建提取到 `Core/AppStateBuilder`（~76 行 → MainComponent -70 行）。
+
+5.8a + 5.8b 完成后即可达到 1200 行目标。详细计划见 [`current-iteration.md`](current-iteration.md)。
 
 详细完成记录见：[`../archive/phase5-architecture-convergence.md`](../archive/phase5-architecture-convergence.md)。
 
