@@ -21,6 +21,7 @@
 #include "UI/PluginEditorWindow.h"
 #include "UI/PluginPanel.h"
 #include "Layout/LayoutDirectoryScanner.h"
+#include "Layout/LayoutFlowSupport.h"
 
 namespace devpiano::exporting
 {
@@ -30,6 +31,7 @@ enum class ExportFileType;
 class MainComponent final : public juce::AudioAppComponent,
                             private juce::Timer
 {
+    friend class devpiano::layout::LayoutFlowSupport;
 public:
     MainComponent();
     ~MainComponent() override;
@@ -89,24 +91,6 @@ private:
     void commitPluginRecoveryStateAndFinishUi(const SettingsModel::PluginRecoverySettingsView& pluginRecovery,
                                               bool shouldSaveSettings);
     void handlePerformanceUiChanged();
-    void handleLayoutChanged(const juce::String& newLayoutId);
-    void handleSaveLayoutRequested();
-    void handleResetLayoutToDefaultRequested();
-    void handleImportLayoutRequested();
-    void handleRenameLayoutRequested();
-    void handleDeleteLayoutRequested();
-    void applyLayoutAndCommit(const devpiano::core::KeyboardLayout& layout);
-    void runLayoutFileChooser(const juce::String& title,
-                              const juce::File& startingDir,
-                              juce::FileBrowserComponent::FileChooserFlags flags,
-                              std::unique_ptr<juce::FileChooser>& chooser,
-                              std::function<void(const juce::File&)> onResult);
-    void runLayoutRenameDialog(const juce::String& layoutId,
-                               const juce::File& file,
-                               const juce::String& currentDisplayName);
-    void runLayoutDeleteDialog(const juce::String& layoutId,
-                               const juce::File& file,
-                               const juce::String& displayName);
     void handleRecordClicked();
     void handlePlayClicked();
     void handleStopClicked();
@@ -195,8 +179,7 @@ private:
     ControlsPanel controlsPanel;
     KeyboardPanel keyboardPanel;
     std::unique_ptr<juce::DialogWindow> settingsWindow;
-    std::unique_ptr<juce::FileChooser> saveLayoutChooser;
-    std::unique_ptr<juce::FileChooser> importLayoutChooser;
+    std::unique_ptr<devpiano::layout::LayoutFlowSupport> layoutFlowSupport;
     std::unique_ptr<juce::FileChooser> exportMidiChooser;
     std::unique_ptr<juce::FileChooser> exportWavChooser;
     std::unique_ptr<juce::FileChooser> importMidiChooser;

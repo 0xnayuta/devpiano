@@ -10,7 +10,7 @@
 
 Phase 5.1-5.7 已完成（2026-05-01）：MainComponent 职责下沉，包括录制会话状态结构化、导出流程统一、布局 CRUD 收敛、设置窗口收敛、AppState 清理、ControlsPanel 按钮状态统一、MIDI 导入流程下沉。
 
-当前 `MainComponent.cpp` 1587 行，目标降至 1200 行以下。
+当前 `MainComponent.cpp` 1349 行（5.8a 完成后），目标降至 1200 行以下。
 
 ---
 
@@ -219,13 +219,13 @@ Phase 5.1-5.7 已完成（2026-05-01）：MainComponent 职责下沉，包括录
 | 提取项 | MainComponent 减少行数 | 累计减少 |
 |---|---|---|
 | 当前 | — | 1587 行 |
-| 5.8a 布局管理 | -180 | 1407 行 |
-| 5.8b 录制编排 | -200 | 1207 行 |
-| 5.8c 插件操作 | -150 | 1057 行 |
-| 5.8d 设置窗口 | -80 | 977 行 |
-| 5.8e 状态快照 | -70 | 907 行 |
+| 5.8a 布局管理 | -238 ✅ | 1349 行 |
+| 5.8b 录制编排 | -200 | 1149 行 |
+| 5.8c 插件操作 | -150 | 999 行 |
+| 5.8d 设置窗口 | -80 | 919 行 |
+| 5.8e 状态快照 | -70 | 849 行 |
 
-**5.8a + 5.8b 完成后即可达到 1200 行目标**。5.8c-5.8e 为额外收敛。
+**5.8a 完成后已降至 1349 行。5.8b 完成后即可达到 1200 行目标**。5.8c-5.8e 为额外收敛。
 
 ---
 
@@ -239,7 +239,7 @@ Phase 5.1-5.7 已完成（2026-05-01）：MainComponent 职责下沉，包括录
 
 ## 完成标准
 
-- [ ] Phase 5.8a 完成：布局管理 handlers 提取到 `Layout/LayoutFlowSupport`，MainComponent 减少 ~180 行。
+- [x] Phase 5.8a 完成：布局管理 handlers 提取到 `Layout/LayoutFlowSupport`，MainComponent 从 1587 行降至 1349 行（减少 238 行）。（2026-05-01）
 - [ ] Phase 5.8b 完成：录制编排提取到 `Recording/RecordingSessionController`，MainComponent 减少 ~200 行。
 - [ ] Phase 5.8c 完成：插件操作提取到 `Plugin/PluginOperationController`，MainComponent 减少 ~150 行。
 - [ ] Phase 5.8d 完成：设置窗口管理提取到 `Settings/SettingsWindowManager`，MainComponent 减少 ~80 行。
