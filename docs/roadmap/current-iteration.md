@@ -6,19 +6,19 @@
 
 ## 当前状态
 
-当前活跃迭代：**架构健康迭代已完成，进入收尾判定**（M8 收尾与 M9 启动之间的过渡轮，不编号为 M 阶段）。
+当前活跃迭代：**AH-7：MIDI 导入流程下沉**（架构健康迭代的后续小切片，M8 收尾与 M9 启动之间的过渡轮，不编号为 M 阶段）。
 
 M8 MIDI 文件导入与回放兼容性增强已收尾：M8-1 / M8-1b / M8-1c / M8-2 / M8-3 / M8-6 / M8-7 均已实现并通过 2026-05-01 人工验收；M8-5 merge-all 已搁置；M6-6e 作为后续 backlog。
 
-本轮不是功能迭代，而是架构维护：在启动下一个能力里程碑（M9）之前，先巩固 `MainComponent` 职责边界、减少状态管理分散、防止架构回流膨胀。AH-1..AH-6 已完成并通过构建验证与人工回归；本轮可收尾。
+上一轮架构健康迭代 AH-1..AH-6 已完成并通过构建验证与人工回归，已收尾。本轮继续做一个小范围架构切片：只分析并规划 `handleImportMidiClicked()` 的流程下沉，暂不修改源码。
 
 ---
 
 **搁置说明**：M6 录制/回放稳定化和外部 MIDI 硬件依赖验证因当前无真实外部 MIDI 设备，暂无法测试。状态已记录至 `docs/testing/recording-playback.md`。这两个方向暂从本迭代移除，恢复时间取决于硬件条件。
 
-## 本轮目标
+## 已完成架构健康迭代目标（AH-1..AH-6）
 
-巩固架构健康，为 M9 做准备。聚焦三个方向：
+上一轮已完成以下三个方向：
 
 1. **MainComponent 职责继续收敛**：将仍留在 MainComponent 的流程性职责继续下沉到 helper。
 2. **状态管理整理**：减少录制会话状态分散、清理 AppState 中的 UI 派生字段。
@@ -45,7 +45,7 @@ M8 MIDI 文件导入与回放兼容性增强已收尾：M8-1 / M8-1b / M8-1c / M
 - 插件 editor window 生命周期：可作为较小后续切片
 - 音频设备重建胶水：与插件加载/卸载/恢复相关，风险较高，应独立规划
 
-## 本轮计划切片
+## 已完成计划切片
 
 ### AH-1：录制会话状态结构化（已完成）
 
@@ -114,7 +114,69 @@ M8 MIDI 文件导入与回放兼容性增强已收尾：M8-1 / M8-1b / M8-1c / M
 - **风险**：低中——主要是 UI 状态入口收敛，但需覆盖 idle / recording / playing、空 take、导入 MIDI 可导出 WAV 但不可再导出 MIDI 等组合。
 - **状态**：已完成（2026-05-01）。`ControlsPanel::RecordingControlsState` 统一了承载 `recordingState`、`hasTake`、`canExportMidiTake`、`canExportWavTake`；`syncRecordingSessionToUi()` 改为单一 `setRecordingControlsState()` 入口；旧的 `setRecordingState()` / `setHasTake()` / `setCanExportTake()` 分散入口已移除；人工回归后补充修正：playing 期间 Import MIDI 禁用，导入 MIDI 停止后允许 Export WAV、继续禁止 Export MIDI；WSL configure 和 Windows MSVC build 均通过；修正后人工验证未发现明显问题。
 
-## 推荐执行顺序
+## AH-7：MIDI 导入流程下沉（规划中）
+
+### 当前代码分析
+
+- 入口：`source/MainComponent.cpp:1468` 的 `handleImportMidiClicked()` 仍承担完整用户流程。
+- 关联状态：`source/MainComponent.h:63` 的 `RecordingSession` 保存当前 take、`canExportMidi` 和 `ControlsPanel::RecordingState`。
+- UI 同步：`source/MainComponent.cpp:1078` 的 `syncRecordingSessionToUi()` 把 `RecordingSession` 同步到 `ControlsPanel`。
+- 导入核心：`source/Recording/MidiFileImporter.*` 已是独立转换层，只负责 `.mid` → `RecordingTake`，不应再扩大职责。
+- 持久化字段：`SettingsModel::lastMidiImportPath` 和 `SettingsStore` 负责最近导入路径读写。
+
+### 当前耦合点
+
+- FileChooser 起始目录直接从 `appSettings.lastMidiImportPath` 推导。
+- FileChooser async callback 中同时处理：取消、路径记忆、导入、失败日志、播放中二次 stop、替换 take、UI 同步、自动播放、焦点恢复。
+- `recordingSession` 与 `RecordingEngine` 的状态切换由 MainComponent 直接编排。
+- 导入成功后 MIDI 导出禁用、WAV 导出可用的边界通过 `recordingSession.canExportMidi = false` 和 `syncRecordingSessionToUi()` 表达。
+
+### 推荐目标
+
+- 将 `handleImportMidiClicked()` 从“完整业务流程”收敛为“FileChooser 生命周期 + 顶层编排”。
+- 抽出导入路径、导入结果处理、session 替换/自动播放的局部 helper，降低 MainComponent 尾部复杂度。
+- 保持 `MidiFileImporter` 纯净，不把 UI、settings、播放状态写入 importer。
+
+### 推荐切片
+
+1. **AH-7-1：导入路径 helper**
+   - 抽出最近导入路径到 FileChooser 起始目录的推导逻辑。
+   - 抽出成功选择文件后的 `lastMidiImportPath` 更新和 `saveSettingsSoon()` 调用。
+   - 风险低；行为应完全等价。
+2. **AH-7-2：导入结果处理 helper**
+   - 抽出“调用 `importMidiFile()`、处理空/失败 take、记录失败日志”的流程。
+   - 建议返回轻量结果对象或 `std::optional<RecordingTake>`，避免 helper 直接操作 UI。
+   - 风险低中；需保持失败/空文件路径不改变 session。
+3. **AH-7-3：替换 take 并自动播放 helper**
+   - 抽出成功导入后的 `recordingSession.take` 替换、`canExportMidi=false`、状态同步、`startInternalPlayback()` 和播放状态同步。
+   - 风险中；需重点保持按钮状态、自动播放、Export MIDI/WAV 边界。
+
+### 建议保留在 MainComponent 的职责
+
+- `std::unique_ptr<juce::FileChooser>` 拥有权和 `launchAsync()` 生命周期。
+- `recordingSession` 的最终状态写入和 `syncRecordingSessionToUi()` 调用。
+- `startInternalPlayback()` / `stopInternalPlayback()` 这类依赖 `RecordingEngine` 与 audio all-notes-off 的顶层编排。
+- `restoreKeyboardFocus()` 与具体 UI 收尾。
+
+### 不做
+
+- 不改变 MIDI importer 行为、轨道选择策略、tempo/PPQ 处理。
+- 不改变导入后立即回放行为。
+- 不改变导入 MIDI 后禁止 Export MIDI、允许 Export WAV 的边界。
+- 不引入完整 song/project 模型。
+- 不移动 FileChooser 拥有权到非 UI helper。
+
+### 风险与验证点
+
+- 风险：异步 FileChooser lambda 捕获与 chooser reset 时机；导入失败/取消路径；播放中/停止后状态一致性；导入后按钮状态边界。
+- 验证：取消导入不改状态；无效/空/no-note 文件安全返回；导入成功自动播放；播放中 Import MIDI 仍禁用；Stop 后 Export MIDI 禁用、Export WAV 可用；正常录制 Stop 后 MIDI/WAV 均可导出。
+
+### 当前状态
+
+- **状态**：规划完成，尚未修改源码。
+- **下一步**：执行 AH-7-1 / AH-7-2 小切片；每个切片后运行 `./scripts/dev.sh wsl-build --configure-only` 和 `./scripts/dev.sh win-build`。
+
+## AH-1..AH-6 推荐执行顺序（历史）
 
 1. **AH-1**：最独立，风险最低，先建立状态结构化基础。
 2. **AH-2**：导出统一，复用已有 ExportFlowSupport。
@@ -144,16 +206,7 @@ M8 MIDI 文件导入与回放兼容性增强已收尾：M8-1 / M8-1b / M8-1c / M
 - [x] 本轮架构健康迭代可收尾：AH-1..AH-6 已完成，构建验证与人工回归均无明显问题。（2026-05-01）
 - [~] `MainComponent.cpp` 的继续收敛不作为本轮阻塞项，后续单独规划更大切片。
 
-## 后续建议切片（不纳入本轮完成条件）
-
-### AH-next：MIDI 导入流程下沉（建议作为下一轮首选）
-
-- **目标**：将 `handleImportMidiClicked()` 中的 FileChooser 默认目录选择、导入结果处理、take 替换、立即回放编排拆成小 helper，降低 MainComponent 尾部流程复杂度。
-- **建议范围**：优先只抽纯流程 helper 和小型 guard/helper；保留 FileChooser 拥有权、播放控制调用和顶层 UI 同步在 MainComponent。
-- **不做**：不改变 MIDI importer；不改变导入后立即回放行为；不改变 MIDI/WAV 导出边界；不引入完整 song/project 模型。
-- **风险**：中低——涉及异步 FileChooser 和 playback 状态切换，必须保持取消、空文件、无 note、播放中/停止后状态一致。
-
-### 其他可选后续切片
+## 其他可选后续切片（不纳入 AH-7 完成条件）
 
 - 插件 editor window 生命周期收敛：较小、独立，但收益低于 MIDI 导入流程下沉。
 - 音频设备重建胶水收敛：收益高但风险较高，建议等插件生命周期测试更充分后再做。

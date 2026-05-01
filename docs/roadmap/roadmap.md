@@ -157,13 +157,13 @@
 
 ## 4. 当前近期重点
 
-M8 MIDI 文件导入与回放兼容性已收尾（M8-1 / M8-1b / M8-1c / M8-2 / M8-3 / M8-6 / M8-7 均已通过人工验收；M8-5 已搁置）。M7 布局 Preset 核心能力已完成；M6 高级功能 MVP 已恢复。M8 收尾与 M9 启动之间的**架构健康迭代**已完成 AH-1..AH-6，当前进入收尾判定。
+M8 MIDI 文件导入与回放兼容性已收尾（M8-1 / M8-1b / M8-1c / M8-2 / M8-3 / M8-6 / M8-7 均已通过人工验收；M8-5 已搁置）。M7 布局 Preset 核心能力已完成；M6 高级功能 MVP 已恢复。M8 收尾与 M9 启动之间的架构健康迭代已完成 AH-1..AH-6，当前进入 **AH-7：MIDI 导入流程下沉** 小切片规划。
 
 优先级从高到低：
 
-1. **架构健康迭代收尾**（当前活跃）
+1. **AH-7：MIDI 导入流程下沉**（当前活跃）
    - AH-1..AH-6 已完成：录制会话状态结构化、导出流程统一、布局 CRUD 收敛、设置窗口收敛、AppState 清理、ControlsPanel 按钮状态统一。
-   - `MainComponent.cpp` 仍约 1568 行；继续收敛不作为本轮阻塞项，建议后续单独规划更大切片（首选 MIDI 导入流程下沉）。
+   - 当前只规划 `handleImportMidiClicked()` 的小步下沉：导入路径 helper、导入结果处理 helper、替换 take 并自动播放 helper；暂不改变 MIDI importer、FileChooser 拥有权或导入/导出语义边界。
    - 详见 [`current-iteration.md`](current-iteration.md)。
 
 2. **M8 边界稳定**
