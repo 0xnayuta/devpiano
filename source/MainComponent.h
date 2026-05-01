@@ -38,6 +38,8 @@ public:
     void visibilityChanged() override;
 
     void restoreKeyboardFocus();
+    static juce::Rectangle<int> getMainContentResizeLimits();
+    void persistMainContentSize(int width, int height);
 
     bool keyPressed(const juce::KeyPress& key) override;
     bool keyStateChanged(bool isKeyDown) override;
@@ -57,6 +59,7 @@ private:
 
     void initialiseInputMappingFromSettings();
     void initialiseUi();
+    [[nodiscard]] juce::Rectangle<int> getInitialMainContentBounds() const;
     void initialiseMidiRouting();
     [[nodiscard]] SettingsModel::PerformanceSettingsView getPerformanceSettingsFromUi() const;
     [[nodiscard]] juce::String getLastPluginNameForRecoveryStateFromUi() const;

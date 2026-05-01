@@ -55,6 +55,12 @@ namespace
 const auto backgroundColour = juce::Colour(0xff202225);
 constexpr std::size_t defaultRecordingEventsPerSecond = 100;
 constexpr std::size_t defaultRecordingCapacitySeconds = 30 * 60;
+constexpr int preferredMainContentWidth = 1120;
+constexpr int preferredMainContentHeight = 760;
+constexpr int minimumMainContentWidth = 980;
+constexpr int minimumMainContentHeight = 700;
+constexpr int maximumMainContentWidth = 3840;
+constexpr int maximumMainContentHeight = 2160;
 
 juce::String makeSafeUiText(juce::String text)
 {
@@ -171,7 +177,7 @@ void MainComponent::initialiseInputMappingFromSettings()
 
 void MainComponent::initialiseUi()
 {
-    setSize(1120, 760);
+    setBounds(getInitialMainContentBounds());
     setWantsKeyboardFocus(true);
 
     addAndMakeVisible(headerPanel);
@@ -203,6 +209,44 @@ void MainComponent::initialiseUi()
     controlsPanel.onImportMidiClicked = [this] { handleImportMidiClicked(); };
 
     addAndMakeVisible(keyboardPanel);
+}
+
+juce::Rectangle<int> MainComponent::getMainContentResizeLimits()
+{
+    return { minimumMainContentWidth,
+             minimumMainContentHeight,
+             maximumMainContentWidth,
+             maximumMainContentHeight };
+}
+
+juce::Rectangle<int> MainComponent::getInitialMainContentBounds() const
+{
+    const auto limits = getMainContentResizeLimits();
+    const auto savedWidth = appSettings.mainWindowWidth;
+    const auto savedHeight = appSettings.mainWindowHeight;
+
+    const auto width = juce::jlimit(limits.getX(),
+                                   limits.getWidth(),
+                                   savedWidth > 0 ? savedWidth : preferredMainContentWidth);
+    const auto height = juce::jlimit(limits.getY(),
+                                    limits.getHeight(),
+                                    savedHeight > 0 ? savedHeight : preferredMainContentHeight);
+
+    return { 0, 0, width, height };
+}
+
+void MainComponent::persistMainContentSize(int width, int height)
+{
+    const auto limits = getMainContentResizeLimits();
+    const auto clampedWidth = juce::jlimit(limits.getX(), limits.getWidth(), width);
+    const auto clampedHeight = juce::jlimit(limits.getY(), limits.getHeight(), height);
+
+    if (appSettings.mainWindowWidth == clampedWidth && appSettings.mainWindowHeight == clampedHeight)
+        return;
+
+    appSettings.mainWindowWidth = clampedWidth;
+    appSettings.mainWindowHeight = clampedHeight;
+    saveSettingsSoon();
 }
 
 void MainComponent::initialiseMidiRouting()
