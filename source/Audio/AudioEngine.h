@@ -37,6 +37,8 @@ private:
 
     void rebuildSynth();
     void updateAdsrOnVoices();
+    void discardWarmupInputState();
+    bool consumeWarmupBlockIfNeeded();
     void injectPendingAllNotesOffIfNeeded();
     void recordRealtimeMidiBufferIfNeeded(int numSamples);
     void renderPlaybackEventsIfNeeded(std::int64_t blockStartSamples, int numSamples);
@@ -55,6 +57,7 @@ private:
     double currentSampleRate = 44100.0;
     int currentBlockSize = 512;
     std::atomic_bool allNotesOffPending { false };
+    std::atomic<int> warmupBlocksRemaining { 0 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AudioEngine)
 };

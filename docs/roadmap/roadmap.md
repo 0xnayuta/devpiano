@@ -24,7 +24,7 @@
 
 **当前阶段：**
 - Phase 5.8：继续 MainComponent 瘦身，5.8a+5.8b 已完成（1587→930 行），已低于 1200 行目标。
-- 当前插入优先事项：启动 / 音频重建早期首音音高异常修复；该问题影响内置 synth、VST3、虚拟键盘与实体键盘，详见 [`../testing/known-issues.md`](../testing/known-issues.md) §2。
+- 当前插入缺陷“启动 / 音频重建早期首音音高异常”已修复并通过人工验证；保留 `25ms` audio warmup，详见 [`../testing/known-issues.md`](../testing/known-issues.md) §2。
 
 **搁置项：**
 - 外部 MIDI 硬件依赖验证（待硬件条件恢复）。
@@ -102,7 +102,7 @@
 
 1. **Phase 5.8：MainComponent 继续瘦身**
    - 目标：从约 1587 行降至 1200 行以下。
-   - 当前先插入处理启动 / 音频重建早期首音音高异常，再继续 5.8c-5.8e。
+   - 启动 / 音频重建早期首音音高异常已完成修复，可继续 5.8c-5.8e。
    - 详见 [`current-iteration.md`](current-iteration.md)。
 
 2. **Phase 4 边界稳定**
@@ -120,7 +120,7 @@
 
 | 风险 | 当前判断 | 应对方向 |
 |---|---|---|
-| 启动 / 音频重建早期首音音高异常 | 高 | 优先修正 `initialiseAudioDevice()` 双初始化；验证 sample-rate / prepare 时序；必要时增加 input ready-gate 与 warmup blocks。 |
+| 启动 / 音频重建早期首音音高异常 | 已缓解 | 已修正音频设备初始化顺序，并保留 `25ms` audio warmup；继续作为回归项观察。 |
 | 插件生命周期复杂 | 中 | 维护专项生命周期测试，重点覆盖 editor、卸载、重扫、退出。 |
 | 外部 MIDI 硬件依赖 | 中 | 外部 MIDI 录制/回放/退出场景因无硬件暂缓；状态已记录至 [`known-issues.md`](../testing/known-issues.md)。 |
 | 键盘映射边界多 | 低中 | 基础映射已全量验证；布局 preset 已补充专项回归清单。 |

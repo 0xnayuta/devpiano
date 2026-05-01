@@ -439,15 +439,12 @@ void MainComponent::restoreKeyboardFocus()
 
 void MainComponent::initialiseAudioDevice()
 {
-    setAudioChannels(0, 2);
-
     const auto audioSettings = appSettings.getAudioSettingsView();
-    if (audioSettings.hasSerializedDeviceState && appSettings.audioDeviceState != nullptr)
-    {
-        const auto result = deviceManager.initialise(0, 2, appSettings.audioDeviceState.get(), true);
-        if (result.isNotEmpty())
-            juce::Logger::writeToLog("[AudioDevice] initialise restore result: " + result);
-    }
+    const auto* savedState = (audioSettings.hasSerializedDeviceState && appSettings.audioDeviceState != nullptr)
+                               ? appSettings.audioDeviceState.get()
+                               : nullptr;
+
+    setAudioChannels(0, 2, savedState);
 
     captureAudioDeviceState();
     logCurrentAudioDeviceDiagnostics("initialiseAudioDevice");
