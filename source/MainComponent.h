@@ -95,6 +95,18 @@ private:
     void handleImportLayoutRequested();
     void handleRenameLayoutRequested();
     void handleDeleteLayoutRequested();
+    void applyLayoutAndCommit(const devpiano::core::KeyboardLayout& layout);
+    void runLayoutFileChooser(const juce::String& title,
+                              const juce::File& startingDir,
+                              juce::FileBrowserComponent::FileChooserFlags flags,
+                              std::unique_ptr<juce::FileChooser>& chooser,
+                              std::function<void(const juce::File&)> onResult);
+    void runLayoutRenameDialog(const juce::String& layoutId,
+                               const juce::File& file,
+                               const juce::String& currentDisplayName);
+    void runLayoutDeleteDialog(const juce::String& layoutId,
+                               const juce::File& file,
+                               const juce::String& displayName);
     void handleRecordClicked();
     void handlePlayClicked();
     void handleStopClicked();
