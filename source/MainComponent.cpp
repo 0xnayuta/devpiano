@@ -858,10 +858,7 @@ void MainComponent::showSettingsDialog()
 
 bool MainComponent::isSettingsWindowDirty() const
 {
-    if (settingsWindow == nullptr)
-        return false;
-
-    if (auto* settingsContent = dynamic_cast<SettingsComponent*>(settingsWindow->getContentComponent()))
+    if (auto* settingsContent = getSettingsContent())
         return settingsContent->isDirty();
 
     return false;
@@ -899,6 +896,14 @@ void MainComponent::saveAndCloseSettingsWindow()
 {
     saveSettingsNow();
     closeSettingsWindowAsync();
+}
+
+SettingsComponent* MainComponent::getSettingsContent() const
+{
+    if (settingsWindow == nullptr)
+        return nullptr;
+
+    return dynamic_cast<SettingsComponent*>(settingsWindow->getContentComponent());
 }
 
 void MainComponent::renderReadOnlyUiState(const devpiano::core::AppState& appState)

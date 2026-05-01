@@ -131,6 +131,7 @@ private:
     void closeSettingsWindow();
     void closeSettingsWindowAsync();
     void saveAndCloseSettingsWindow();
+    [[nodiscard]] SettingsComponent* getSettingsContent() const;
     void refreshMidiStatusFromCurrentSnapshot();
     void logCurrentAudioDeviceDiagnostics(const juce::String& context) const;
     void renderReadOnlyUiState(const devpiano::core::AppState& appState);
