@@ -35,10 +35,6 @@
 - [`features/phase3-layout-presets.md`](features/phase3-layout-presets.md)：布局 preset 的文件格式、导入/保存/重命名/删除与恢复行为。
 - [`features/phase4-midi-file-import.md`](features/phase4-midi-file-import.md)：MIDI 文件导入、回放兼容性、剩余边界与 FreePiano 差距。
 
-### 旧代码迁移
-
-- [`architecture/legacy-migration.md`](architecture/legacy-migration.md)：旧 FreePiano 源码的迁移边界与新旧模块对应关系。
-
 ### 历史资料
 
 - `archive/`：历史迁移记录、旧规划文档与过期资料。

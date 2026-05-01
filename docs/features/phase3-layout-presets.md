@@ -7,7 +7,6 @@
 
 相关文档：
 
-- 旧代码迁移边界：[`../architecture/legacy-migration.md`](../architecture/legacy-migration.md)
 - 键盘映射功能说明：[`phase2-keyboard-mapping.md`](phase2-keyboard-mapping.md)
 - 专项手工测试：[`../testing/phase3-layout-presets.md`](../testing/phase3-layout-presets.md)
 - 路线图：[`../roadmap/roadmap.md`](../roadmap/roadmap.md)

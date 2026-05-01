@@ -66,7 +66,6 @@ Phase 3（录制/回放/MIDI导出）主链路已完成，Phase 3-2 已搁置，
 - `docs/testing/acceptance.md`（Phase 1–3 验收状态）
 - `docs/testing/known-issues.md`（已知限制与待验证项）
 - `docs/architecture/overview.md`（当前模块边界与主链路）
-- `docs/architecture/legacy-migration.md`（迁移边界）
 - `docs/decisions/0002-legacy-code-as-reference-only.md`（旧代码使用原则）
 - `docs/features/phase3-layout-presets.md`（Phase 3 preset 系统现状）
 
