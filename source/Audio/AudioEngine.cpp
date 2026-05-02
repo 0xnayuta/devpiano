@@ -8,13 +8,24 @@
 namespace
 {
 constexpr auto warmupSeconds = 0.025;
+constexpr auto playbackStartPreRollSeconds = 0.025;
 
-int calculateWarmupBlocks(double sampleRate, int blockSize)
+int calculateBlocksForDuration(double seconds, double sampleRate, int blockSize)
 {
     if (sampleRate <= 0.0 || blockSize <= 0)
         return 1;
 
-    return juce::jmax(1, static_cast<int>(std::ceil(warmupSeconds * sampleRate / static_cast<double>(blockSize))));
+    return juce::jmax(1, static_cast<int>(std::ceil(seconds * sampleRate / static_cast<double>(blockSize))));
+}
+
+int calculateWarmupBlocks(double sampleRate, int blockSize)
+{
+    return calculateBlocksForDuration(warmupSeconds, sampleRate, blockSize);
+}
+
+int calculatePlaybackStartPreRollBlocks(double sampleRate, int blockSize)
+{
+    return calculateBlocksForDuration(playbackStartPreRollSeconds, sampleRate, blockSize);
 }
 }
 
@@ -128,7 +139,7 @@ void AudioEngine::prepareToPlay(int samplesPerBlockExpected, double sampleRate)
     pluginBuffer.setSize(2, juce::jmax(1, samplesPerBlockExpected), false, false, true);
     pluginBuffer.clear();
 
-    const auto bytes = static_cast<size_t>(juce::jlimit(256, 65536, samplesPerBlockExpected * 16));
+    const auto bytes = static_cast<size_t>(juce::jlimit(4096, 65536, samplesPerBlockExpected * 16));
     midiBuffer.ensureSize(bytes);
 
     updateAdsrOnVoices();
@@ -158,8 +169,9 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
                                         true);
     injectPendingAllNotesOffIfNeeded();
     recordRealtimeMidiBufferIfNeeded(bufferToFill.numSamples);
-    renderPlaybackEventsIfNeeded(recordingEngine != nullptr ? recordingEngine->getPlaybackPositionSamples() : 0,
-                                  bufferToFill.numSamples);
+    if (! consumePlaybackStartPreRollBlockIfNeeded())
+        renderPlaybackEventsIfNeeded(recordingEngine != nullptr ? recordingEngine->getPlaybackPositionSamples() : 0,
+                                     bufferToFill.numSamples);
 
     auto renderedByPlugin = false;
 
@@ -206,6 +218,7 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
 void AudioEngine::releaseResources()
 {
     warmupBlocksRemaining.store(0, std::memory_order_release);
+    playbackStartPreRollBlocksRemaining.store(0, std::memory_order_release);
     discardWarmupInputState();
     synth.allNotesOff(0, false);
 
@@ -216,6 +229,12 @@ void AudioEngine::releaseResources()
 void AudioEngine::requestAllNotesOff() noexcept
 {
     allNotesOffPending.store(true, std::memory_order_release);
+}
+
+void AudioEngine::armPlaybackStartPreRoll(double sampleRate, int blockSize) noexcept
+{
+    playbackStartPreRollBlocksRemaining.store(calculatePlaybackStartPreRollBlocks(sampleRate, blockSize),
+                                              std::memory_order_release);
 }
 
 void AudioEngine::setMasterGain(float newGain)
@@ -267,6 +286,25 @@ bool AudioEngine::consumeWarmupBlockIfNeeded()
 
     warmupBlocksRemaining.fetch_sub(1, std::memory_order_acq_rel);
     discardWarmupInputState();
+    return true;
+}
+
+bool AudioEngine::consumePlaybackStartPreRollBlockIfNeeded()
+{
+    if (recordingEngine == nullptr || ! recordingEngine->isPlaying())
+    {
+        playbackStartPreRollBlocksRemaining.store(0, std::memory_order_release);
+        return false;
+    }
+
+    if (playbackStartPreRollBlocksRemaining.load(std::memory_order_acquire) <= 0)
+        return false;
+
+    // Let plugin/synth render a few post-warmup blocks before timestamp-0 playback
+    // events are scheduled. Do not advance RecordingEngine playback position here:
+    // this is wall-clock arming time, not part of the imported MIDI timeline.
+    playbackStartPreRollBlocksRemaining.fetch_sub(1, std::memory_order_acq_rel);
+    playbackVisualMidiBuffer.clear();
     return true;
 }
 

@@ -24,6 +24,7 @@ public:
     void getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill);
     void releaseResources();
     void requestAllNotesOff() noexcept;
+    void armPlaybackStartPreRoll(double sampleRate, int blockSize) noexcept;
 
     void setMasterGain(float newGain);
     void setAdsr(float attackSeconds, float decaySeconds, float sustainLevel, float releaseSeconds);
@@ -40,6 +41,7 @@ private:
     void discardWarmupInputState();
     bool consumeWarmupBlockIfNeeded();
     void injectPendingAllNotesOffIfNeeded();
+    bool consumePlaybackStartPreRollBlockIfNeeded();
     void recordRealtimeMidiBufferIfNeeded(int numSamples);
     void renderPlaybackEventsIfNeeded(std::int64_t blockStartSamples, int numSamples);
 
@@ -58,6 +60,7 @@ private:
     int currentBlockSize = 512;
     std::atomic_bool allNotesOffPending { false };
     std::atomic<int> warmupBlocksRemaining { 0 };
+    std::atomic<int> playbackStartPreRollBlocksRemaining { 0 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AudioEngine)
 };
