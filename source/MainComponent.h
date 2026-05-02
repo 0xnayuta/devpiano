@@ -14,9 +14,9 @@
 #include "Plugin/PluginOperationController.h"
 #include "Recording/RecordingEngine.h"
 #include "Recording/RecordingSessionController.h"
-#include "Settings/SettingsComponent.h"
 #include "Settings/SettingsModel.h"
 #include "Settings/SettingsStore.h"
+#include "Settings/SettingsWindowManager.h"
 #include "UI/ControlsPanel.h"
 #include "UI/HeaderPanel.h"
 #include "UI/KeyboardPanel.h"
@@ -87,12 +87,7 @@ private:
     void saveSettingsNow();
     void saveSettingsSoon();
     void showSettingsDialog();
-    [[nodiscard]] bool isSettingsWindowDirty() const;
     [[nodiscard]] bool isSettingsWindowOpen() const;
-    void closeSettingsWindow();
-    void closeSettingsWindowAsync();
-    void saveAndCloseSettingsWindow();
-    [[nodiscard]] SettingsComponent* getSettingsContent() const;
     void refreshMidiStatusFromCurrentSnapshot();
     void logCurrentAudioDeviceDiagnostics(const juce::String& context) const;
     void renderReadOnlyUiState(const devpiano::core::AppState& appState);
@@ -123,7 +118,7 @@ private:
     PluginPanel pluginPanel;
     ControlsPanel controlsPanel;
     KeyboardPanel keyboardPanel;
-    std::unique_ptr<juce::DialogWindow> settingsWindow;
+    std::unique_ptr<devpiano::settings::SettingsWindowManager> settingsWindowManager;
     std::unique_ptr<devpiano::layout::LayoutFlowSupport> layoutFlowSupport;
     std::unique_ptr<devpiano::recording::RecordingSessionController> recordingSessionController;
     std::unique_ptr<devpiano::plugin::PluginOperationController> pluginOperationController;

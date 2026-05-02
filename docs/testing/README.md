@@ -5,6 +5,7 @@
 当前文档：
 
 - [`acceptance.md`](acceptance.md)：阶段验收标准。
+- [`known-issues.md`](known-issues.md)：已知问题、已修复风险的回归项与长期设计约束。
 - [`phase2-keyboard-mapping.md`](phase2-keyboard-mapping.md)：键盘映射专项手工测试。
 - [`phase2-plugin-host-lifecycle.md`](phase2-plugin-host-lifecycle.md)：插件扫描、加载、卸载、editor 与退出稳定性专项测试。
 - [`phase3-layout-presets.md`](phase3-layout-presets.md)：布局 preset 的保存、导入、重命名、删除与启动恢复手工测试。
@@ -18,4 +19,5 @@
 - 修改布局 preset 文件格式、发现机制、Save / Import / Rename / Delete / Startup Restore 逻辑后，优先执行 [`phase3-layout-presets.md`](phase3-layout-presets.md)。
 - 修改录制、回放、MIDI 导出或 `AudioEngine` 录制边界后，优先执行 [`phase3-recording-playback.md`](phase3-recording-playback.md)。
 - 修改 MIDI 文件导入、导入后回放、自动选轨或 playback 切换逻辑后，优先执行 [`phase4-midi-file-import.md`](phase4-midi-file-import.md)。
+- 修改主窗口焦点恢复、settings / plugin editor 或新增顶层辅助窗口后，优先检查 [`known-issues.md`](known-issues.md) §9 的焦点冲突约束与回归步骤。
 - 关键阶段验收以 [`acceptance.md`](acceptance.md) 为准。

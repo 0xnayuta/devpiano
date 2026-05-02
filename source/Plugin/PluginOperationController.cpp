@@ -202,11 +202,11 @@ void PluginOperationController::openPluginEditorWindow(std::unique_ptr<juce::Aud
     };
 
     pluginEditorWindow = std::make_unique<PluginEditorWindow>(pluginHost.getCurrentPluginName(),
-                                                               std::move(editor),
-                                                               closeEditorWindow);
+                                                                std::move(editor),
+                                                                closeEditorWindow);
     pluginEditorWindow->centreAroundComponent(&owner,
-                                              pluginEditorWindow->getContentComponent()->getWidth(),
-                                              pluginEditorWindow->getContentComponent()->getHeight());
+                                               pluginEditorWindow->getContentComponent()->getWidth(),
+                                               pluginEditorWindow->getContentComponent()->getHeight());
     pluginEditorWindow->setVisible(true);
     owner.refreshReadOnlyUiStateFromCurrentSnapshot();
 }

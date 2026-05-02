@@ -292,7 +292,105 @@
 
 ---
 
-## 9. 已完成验证项（不作为风险）
+## 9. 辅助窗口与主窗口键盘焦点恢复冲突（已修复，保留架构约束）
+
+> 触发条件：程序打开独立顶层辅助窗口，例如插件 editor、settings dialog、未来的 preset manager / about window / browser-like 窗口等。  
+> 影响范围：Windows 下主窗口为了支持电脑键盘演奏，会在 `WM_ACTIVATE` / `WM_SETFOCUS` / JUCE active window 变化后异步恢复 `MainComponent` 键盘焦点。若辅助窗口打开期间仍执行 `grabKeyboardFocus()`，主窗口可能重新成为前台窗口，把辅助窗口顶到后面。  
+> 当前状态：插件 editor 被主窗口顶到后面的 bug 已按最小修复处理；settings / plugin editor 打开时均会跳过主窗口焦点恢复。该条目保留为后续新增窗口的设计约束。
+
+### 现象
+
+- 用户加载 VST3 音源后点击 `Open Editor`。
+- 插件 editor 窗口刚打开时短暂位于最前端。
+- 约数百毫秒后，主窗口自动跳到最前端，插件 editor 被压到后面。
+- 该问题与此前 settings 窗口打开后被主窗口顶到后端的问题同源。
+
+### 已确认根因
+
+主窗口存在一套主动恢复键盘焦点的机制，目的是让电脑键盘输入持续用于演奏：
+
+1. Windows 主窗口收到 `WM_ACTIVATE` / `WM_SETFOCUS`，或 JUCE `MainWindow::activeWindowStatusChanged()` 认为主窗口 active。
+2. 代码通过 `MessageManager::callAsync(...)` 异步调度 `MainComponent::restoreKeyboardFocus()`。
+3. 插件 editor 创建期间，主窗口可能先排队一个焦点恢复任务。
+4. editor 已经 `setVisible(true)` 并成为 active window 后，先前排队的异步任务才执行。
+5. 如果 `restoreKeyboardFocus()` 没有识别当前有辅助窗口打开，就会调用 `grabKeyboardFocus()`。
+6. Windows 会随之重新激活主窗口，导致辅助窗口被顶到后面。
+
+人工诊断日志曾确认以下关键链路：
+
+```text
+PluginEditorWindow activeWindowStatusChanged, active=true
+MainWindow activeWindowStatusChanged, active=false
+scheduleKeyboardFocusRestore executing, reason=WM_ACTIVATE
+MainComponent restoreKeyboardFocus enter, pluginEditorOpen=true
+MainComponent restoreKeyboardFocus calling grabKeyboardFocus
+PluginEditorWindow activeWindowStatusChanged, active=false
+MainWindow activeWindowStatusChanged, active=true
+```
+
+### 已实施最小修复
+
+- `MainComponent::restoreKeyboardFocus()`：当 settings 窗口或插件 editor 窗口打开时，直接跳过 `grabKeyboardFocus()`。
+- `MainComponent::focusGained()`：当 settings 窗口或插件 editor 窗口打开时，同样跳过二次 `grabKeyboardFocus()` 同步。
+- 修复后人工验证：打开插件 editor 后，主窗口不再自动顶到 editor 前面。
+
+### 长期设计约束
+
+后续任何“打开独立顶层窗口”的功能，都不应只在局部窗口代码中处理前置行为，而必须纳入统一的主窗口键盘焦点恢复策略。否则同类 bug 可能在新窗口上复现。
+
+建议将焦点恢复判断集中成一个语义明确的 helper，例如：
+
+```cpp
+bool MainComponent::shouldRestoreMainKeyboardFocus() const;
+```
+
+该 helper 至少应覆盖：
+
+- 主窗口是否正在显示。
+- settings 窗口是否打开。
+- 插件 editor 窗口是否打开。
+- 是否存在其他由应用创建、预期保持前台或接收键盘输入的辅助顶层窗口。
+- 当前 active window 是否确实是主窗口，而不是辅助窗口。
+- 本次焦点恢复是否来自用户主动回到主窗口，而不是打开辅助窗口时遗留的异步 `WM_ACTIVATE` / `WM_SETFOCUS`。
+
+推荐抽象方向：
+
+1. **集中判断**：`restoreKeyboardFocus()` / `focusGained()` 不再各自散落窗口判断，而是统一调用 `shouldRestoreMainKeyboardFocus()`。
+2. **窗口注册**：新增辅助窗口时，将其纳入“阻止主窗口抢焦点”的状态来源；可以先用各 manager 暴露的 `isOpen()`，后续再抽象为统一窗口/焦点 guard。
+3. **异步任务防陈旧**：对 `scheduleKeyboardFocusRestore()` 排队的任务，在执行时重新检查当前窗口状态；不要假设排队时的 active 状态仍然有效。
+4. **只在主窗口确实 active 时恢复**：焦点恢复应服务于“用户回到主窗口后继续电脑键盘演奏”，不应在辅助窗口刚打开或正在交互时抢回焦点。
+
+### 新增窗口时的检查清单
+
+新增任何顶层窗口前，必须检查：
+
+- 该窗口打开后是否应保持在前台。
+- 该窗口是否需要接收键盘输入，例如搜索、文本框、快捷键、插件 UI。
+- 打开期间是否允许电脑键盘继续演奏；若不允许，应阻止主窗口 `grabKeyboardFocus()`。
+- 关闭窗口后是否需要恢复主窗口键盘焦点；若需要，应只在关闭后显式恢复。
+- Windows 侧手工测试是否覆盖：打开窗口、等待 1 秒、点击窗口内部、切回主窗口、关闭窗口、再次演奏。
+
+### 回归建议
+
+修改以下代码时应重新验证该项：
+
+- `Main.cpp` 中 Windows WndProc hook、`scheduleKeyboardFocusRestore()`、`activeWindowStatusChanged()`。
+- `MainComponent::restoreKeyboardFocus()` / `focusGained()` / `focusLost()`。
+- settings 窗口、插件 editor 窗口或任何新增顶层窗口。
+- 键盘映射、IME 抑制、主窗口焦点恢复策略。
+
+最小人工回归：
+
+1. 启动程序并加载一个带 editor 的 VST3 插件。
+2. 点击 `Open Editor`。
+3. 确认 editor 打开后保持在最前端，等待至少 1 秒主窗口不会自动顶上来。
+4. 在 editor 内点击或操作控件，确认主窗口不会抢焦点。
+5. 关闭 editor 后，确认主窗口可恢复电脑键盘演奏。
+6. 打开 settings 窗口重复同类检查。
+
+---
+
+## 10. 已完成验证项（不作为风险）
 
 以下条目已通过 2026-04-30 人工验证，无已知明显问题：
 
@@ -307,6 +405,7 @@
 - **Phase 5**：Phase 5-1..5-4 全部完成，人工回归通过。
 - **启动 / 音频重建早期首音音高异常**：已通过音频设备初始化顺序修正 + `25ms` audio warmup 修复，并完成启动、虚拟键盘、实体键盘、VST load/unload、Windows Audio / DirectSound 人工回归。
 - **MIDI 导入播放首音无声**：已通过 playback-start pre-roll / arming 修复，人工验证测试样本均不再复现。
+- **插件 editor 被主窗口顶到后面**：已通过辅助窗口打开时跳过主窗口 `grabKeyboardFocus()` 修复，人工验证不再复现；长期约束见 §9。
 
 详见：
 
