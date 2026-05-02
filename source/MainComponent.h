@@ -93,9 +93,6 @@ private:
     void renderReadOnlyUiState(const devpiano::core::AppState& appState);
     void refreshReadOnlyUiStateFromCurrentSnapshot();
     void finishPluginUiAction(bool shouldSaveSettings);
-    [[nodiscard]] devpiano::core::RuntimeAudioState buildRuntimeAudioStateSnapshot() const;
-    [[nodiscard]] devpiano::core::RuntimePluginState buildRuntimePluginStateSnapshot() const;
-    [[nodiscard]] devpiano::core::RuntimeInputState buildRuntimeInputStateSnapshot() const;
     [[nodiscard]] devpiano::core::AppState buildCurrentAppStateSnapshot() const;
     double getCurrentRuntimeSampleRate() const;
     int getCurrentRuntimeBlockSize() const;
