@@ -90,6 +90,7 @@
 - 累计减少 981 行，远低于 1200 行目标。
 
 **剩余事项：**
+- Phase 5.8f：AppStateBuilder 分层清理，runtime snapshot 构建移到 `App/AppStateSnapshotBuilder`，`Core` 层恢复纯状态职责。
 - Phase 5.8 人工回归：键盘演奏、插件加载/卸载/editor、录制/回放/MIDI/WAV 导出、MIDI 导入、布局 preset、设置窗口。
 
 5.8a-5.8e 已使 `MainComponent.cpp` 降至 606 行，已达成 1200 行以下目标。详细计划见 [`current-iteration.md`](current-iteration.md)。
@@ -102,7 +103,7 @@
 
 1. **Phase 5.8：MainComponent 继续瘦身**
    - 目标：从约 1587 行降至 1200 行以下；当前已降至 606 行。
-   - 5.8a-5.8e 已完成，下一步做人工回归与后续机会评估。
+   - 5.8a-5.8e 已完成，下一步做 5.8f 分层清理与人工回归。
    - 详见 [`current-iteration.md`](current-iteration.md)。
 
 2. **Phase 4 边界稳定**
