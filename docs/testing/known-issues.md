@@ -268,6 +268,17 @@
 - 多个测试样本重复导入 / 播放：未再出现首音无声。
 - 修复没有改写 MIDI 导入时间线，`timestampSamples == 0` 仍是合法 playback 事件。
 
+### 后续观察
+
+该问题已修复，但凡是后续改动触及 MIDI import / playback 启动链路，都应重新执行 Phase 4 MIDI import 测试文档 §11.1。重点关注：
+
+- MIDI 导入时间转换、事件过滤、事件排序或 `RecordingTake` 构建。
+- playback start / stop / restart、playback position 推进和 block 调度。
+- audio warmup、playback-start pre-roll / arming、all-notes-off、音频设备 rebuild。
+- VST3 load / unload 后立即播放导入 MIDI 的路径。
+
+观察目标是确认首个 `timestampSamples == 0` 或近 0 秒 note 仍能稳定发声，且不会与启动清理用 all-notes-off 在同一个可听 block 内互相抵消。
+
 ### 验证注意事项
 
 - 测试素材应保证首个 note 速度正常、持续时间足够长，排除“低 velocity / 超短音符本来就听不清”的干扰。
