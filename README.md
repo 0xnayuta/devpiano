@@ -130,11 +130,17 @@
 # 自检当前开发环境
 ./scripts/dev.sh self-check
 
-# WSL 本地 configure / build
+# WSL 本地 configure / build（Debug）
 ./scripts/dev.sh wsl-build --configure-only
 
-# Windows MSVC 验证构建（内置同步，不需要单独 win-sync）
+# WSL 本地 configure / build（Release）
+./scripts/dev.sh wsl-build --release --configure-only
+
+# Windows MSVC 验证构建（Debug，内置同步）
 ./scripts/dev.sh win-build
+
+# Windows MSVC 验证构建（Release，内置同步）
+./scripts/dev.sh win-build --release
 ```
 
 更多细节见：
@@ -177,10 +183,19 @@ Windows MSVC 验证构建（内置同步，不需要单独 win-sync）：
 ./scripts/dev.sh win-build
 ```
 
+Release 构建（WSL / Windows）：
+
+```bash
+./scripts/dev.sh wsl-build --release
+./scripts/dev.sh win-build --release
+```
+
 ### 当前主要产物路径
 
-- WSL：`build-wsl-clang/devpiano_artefacts/Debug/DevPiano`
-- Windows：`G:\source\projects\devpiano\build-win-msvc\devpiano_artefacts\Debug\DevPiano.exe`
+- WSL Debug：`build-wsl-clang/devpiano_artefacts/Debug/DevPiano`
+- WSL Release：`build-wsl-clang-release/devpiano_artefacts/Release/DevPiano`
+- Windows Debug：`G:\source\projects\devpiano\build-win-msvc\devpiano_artefacts\Debug\DevPiano.exe`
+- Windows Release：`G:\source\projects\devpiano\build-win-msvc-release\devpiano_artefacts\Release\DevPiano.exe`
 
 ### 相关文档
 

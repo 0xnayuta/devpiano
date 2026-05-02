@@ -39,11 +39,12 @@ usage() {
 Usage: ./scripts/build_msvc_from_wsl.sh [options]
 
 Options:
-  --no-sync         Skip WSL -> Windows sync before build
-  --sync-only       Only sync to Windows mirror, do not build
-  --reconfigure     Remove Windows build cache before configure/build
-  --clean-win-build Delete Windows build directory before configure/build
-  -h, --help        Show this help
+  --release             Use windows-msvc-release preset (default: windows-msvc-debug)
+  --no-sync             Skip WSL -> Windows sync before build
+  --sync-only           Only sync to Windows mirror, do not build
+  --reconfigure         Remove Windows build cache before configure/build
+  --clean-win-build     Delete Windows build directory before configure/build
+  -h, --help            Show this help
 EOF
 }
 
@@ -53,15 +54,17 @@ TOOLS_DIR="${ROOT_DIR}/tools"
 SYNC_SCRIPT="${ROOT_DIR}/scripts/sync_to_win.sh"
 PS_BUILD_SCRIPT="${TOOLS_DIR}/build-windows.ps1"
 WIN_MIRROR_DIR_VALUE="${WIN_MIRROR_DIR:-G:\\source\\projects\\devpiano}"
-BUILD_PRESET="${WINDOWS_CMAKE_BUILD_PRESET:-windows-msvc-debug}"
-CONFIGURE_PRESET="${WINDOWS_CMAKE_CONFIGURE_PRESET:-windows-msvc-debug}"
 SKIP_SYNC="${SKIP_SYNC_TO_WIN:-0}"
 SYNC_ONLY=0
 RECONFIGURE=0
 CLEAN_WIN_BUILD=0
+USE_RELEASE=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --release)
+      USE_RELEASE=1
+      ;;
     --no-sync)
       SKIP_SYNC=1
       ;;
@@ -84,6 +87,16 @@ while [[ $# -gt 0 ]]; do
   esac
   shift
 done
+
+if [[ "${USE_RELEASE}" == "1" ]]; then
+  BUILD_PRESET="${WINDOWS_CMAKE_BUILD_PRESET:-windows-msvc-release}"
+  CONFIGURE_PRESET="${WINDOWS_CMAKE_CONFIGURE_PRESET:-windows-msvc-release}"
+  WIN_BUILD_DIR_NAME="build-win-msvc-release"
+else
+  BUILD_PRESET="${WINDOWS_CMAKE_BUILD_PRESET:-windows-msvc-debug}"
+  CONFIGURE_PRESET="${WINDOWS_CMAKE_CONFIGURE_PRESET:-windows-msvc-debug}"
+  WIN_BUILD_DIR_NAME="build-win-msvc"
+fi
 
 if [[ "${SYNC_ONLY}" == "1" && ( "${RECONFIGURE}" == "1" || "${CLEAN_WIN_BUILD}" == "1" ) ]]; then
   fail '--sync-only cannot be combined with --reconfigure or --clean-win-build'
@@ -139,7 +152,7 @@ if [[ "${SYNC_ONLY}" == "1" ]]; then
 fi
 
 WIN_MIRROR_DIR_WSL="$(wslpath -u "${WIN_MIRROR_DIR_VALUE}")"
-WIN_BUILD_DIR_WSL="${WIN_MIRROR_DIR_WSL%/}/build-win-msvc"
+WIN_BUILD_DIR_WSL="${WIN_MIRROR_DIR_WSL%/}/${WIN_BUILD_DIR_NAME}"
 WIN_PS_BUILD_SCRIPT="$(wslpath -w "${PS_BUILD_SCRIPT}")"
 
 if [[ "${CLEAN_WIN_BUILD}" == "1" ]]; then

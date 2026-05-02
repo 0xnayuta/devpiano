@@ -130,11 +130,17 @@ Recommended entry commands:
 # self-check the current development environment
 ./scripts/dev.sh self-check
 
-# local WSL configure / build
+# local WSL configure / build (Debug)
 ./scripts/dev.sh wsl-build --configure-only
 
-# Windows MSVC validation build (sync built-in, no separate win-sync needed)
+# local WSL configure / build (Release)
+./scripts/dev.sh wsl-build --release --configure-only
+
+# Windows MSVC validation build (Debug, sync built-in)
 ./scripts/dev.sh win-build
+
+# Windows MSVC validation build (Release, sync built-in)
+./scripts/dev.sh win-build --release
 ```
 
 For more details, see:
@@ -177,10 +183,19 @@ Run Windows MSVC validation build (sync built-in, no separate win-sync needed):
 ./scripts/dev.sh win-build
 ```
 
+Release builds (WSL / Windows):
+
+```bash
+./scripts/dev.sh wsl-build --release
+./scripts/dev.sh win-build --release
+```
+
 ### Main Output Paths
 
-- WSL: `build-wsl-clang/devpiano_artefacts/Debug/DevPiano`
-- Windows: `G:\source\projects\devpiano\build-win-msvc\devpiano_artefacts\Debug\DevPiano.exe`
+- WSL Debug: `build-wsl-clang/devpiano_artefacts/Debug/DevPiano`
+- WSL Release: `build-wsl-clang-release/devpiano_artefacts/Release/DevPiano`
+- Windows Debug: `G:\source\projects\devpiano\build-win-msvc\devpiano_artefacts\Debug\DevPiano.exe`
+- Windows Release: `G:\source\projects\devpiano\build-win-msvc-release\devpiano_artefacts\Release\DevPiano.exe`
 
 ### Related Documents
 

@@ -39,6 +39,7 @@ usage() {
 Usage: ./scripts/build_wsl.sh [options]
 
 Options:
+  --release         Use linux-clang-release preset (default: linux-clang-debug)
   --configure-only  Only run CMake configure, do not build
   --reconfigure     Remove WSL CMake cache before configure/build
   --clean           Delete the entire WSL build directory before configure/build
@@ -48,15 +49,16 @@ EOF
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
-BUILD_PRESET="${CMAKE_BUILD_PRESET:-linux-clang-debug}"
-CONFIGURE_PRESET="${CMAKE_CONFIGURE_PRESET:-linux-clang-debug}"
-BUILD_DIR="${ROOT_DIR}/build-wsl-clang"
 CONFIGURE_ONLY=0
 RECONFIGURE=0
 CLEAN=0
+USE_RELEASE=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --release)
+      USE_RELEASE=1
+      ;;
     --configure-only)
       CONFIGURE_ONLY=1
       ;;
@@ -76,6 +78,16 @@ while [[ $# -gt 0 ]]; do
   esac
   shift
 done
+
+if [[ "${USE_RELEASE}" == "1" ]]; then
+  BUILD_PRESET="${CMAKE_BUILD_PRESET:-linux-clang-release}"
+  CONFIGURE_PRESET="${CMAKE_CONFIGURE_PRESET:-linux-clang-release}"
+  BUILD_DIR="${ROOT_DIR}/build-wsl-clang-release"
+else
+  BUILD_PRESET="${CMAKE_BUILD_PRESET:-linux-clang-debug}"
+  CONFIGURE_PRESET="${CMAKE_CONFIGURE_PRESET:-linux-clang-debug}"
+  BUILD_DIR="${ROOT_DIR}/build-wsl-clang"
+fi
 
 if [[ "${CONFIGURE_ONLY}" == "1" && "${CLEAN}" == "1" ]]; then
   warn 'configure-only + clean requested'
