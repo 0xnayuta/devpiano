@@ -176,6 +176,30 @@
 - [x] 启动清理用 all-notes-off 不会与首个 playback note-on 在同一个可听 block 内互相抵消。
 - [x] 内置 fallback synth 与至少一个 VST3 乐器路径均通过；首音响度和 attack 与后续同 velocity 音符无明显异常差异。
 
+后续观察要求：凡是后续改动涉及 MIDI import / playback 启动链路，都应重新执行本节回归。重点触发范围包括：
+
+- `MidiFileImporter` 的时间转换、事件过滤、事件排序或 take 构建。
+- `RecordingEngine::startPlayback()`、`renderPlaybackBlock()`、`advancePlaybackPosition()`。
+- `RecordingSessionController::startInternalPlayback()`、`replaceTakeAndStartPlayback()`。
+- `AudioEngine::prepareToPlay()`、`getNextAudioBlock()`、`renderPlaybackEventsIfNeeded()`。
+- audio warmup、playback pre-roll / arming、all-notes-off、音频设备 rebuild。
+- VST3 加载 / 卸载后立即播放导入 MIDI 的路径。
+
+代码审查时重点确认：
+
+- `timestampSamples == 0` 仍是合法 playback 事件，不被裁剪或整体平移。
+- playback-start pre-roll 不推进 `RecordingEngine` playback position。
+- pending all-notes-off 仍先于首个 playback note 被 drain，不与首个 note-on 同 sample 进入同一个可听 block。
+- 首个 playback note 不会重新成为设备重建后的第一个渲染事件。
+
+人工回归最小样本：
+
+- 首个 note 在 0 秒的单轨 MIDI。
+- 首个 note 非常接近 0 秒的单轨 MIDI。
+- 0 秒和弦 MIDI。
+
+若出现“虚拟键盘按下但首音无声”、“首音明显弱于后续同 velocity 音”、“加载插件后首次 import 更容易吞首音”或“0 秒和弦只响一部分音”，应视为该回归项可能受影响并重新调查。
+
 ## 12. 已知限制
 
 - Phase 4-2 默认只选择一个 note 最多的轨道，不合并所有轨道；这是当前推荐模式。
