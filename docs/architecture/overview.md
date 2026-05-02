@@ -46,7 +46,7 @@
 - 初始化音频设备、MIDI 路由、插件宿主和设置。
 - 协调键盘输入、插件操作、状态保存与只读 UI 刷新。
 
-当前状态（约 1587 行，目标降至 1200 行以下）：
+当前状态（`MainComponent.cpp` 约 711 行，已低于 1200 行目标）：
 
 - 已不再是纯单体 UI；插件区、参数区、头部状态区和键盘区已拆入 `source/UI/`。
 - 插件流程、录制/回放状态流、导出选项、只读 UI 刷新边界已通过 Phase 5-1..5-7 完成收敛：
@@ -55,30 +55,26 @@
   - `PluginFlowSupport`（`source/Plugin/PluginFlowSupport.*`）：扫描路径规范化、缓存恢复、启动恢复计划等插件流程已收敛。
   - 只读状态刷新边界：状态函数命名已收敛为 `build*Snapshot()`、`renderReadOnlyUiState()`、`refreshReadOnlyUiStateFromCurrentSnapshot()` 和 `refreshMidiStatusFromCurrentSnapshot()`。
   - MIDI 导入流程：导入路径推导、导入结果处理、替换 take 并自动播放已收敛为 3 个 helper。
-- `MainComponent` 现在只保留 UI 组件拥有权、JUCE 生命周期入口、窗口生命周期、键盘焦点恢复和顶层装配。
+- Phase 5.8a+5.8b+5.8c 已进一步下沉布局管理、录制/回放/MIDI 导入编排和插件操作：
+  - `LayoutFlowSupport`（`source/Layout/LayoutFlowSupport.*`）：布局 preset CRUD、文件选择和确认流程。
+  - `RecordingSessionController`（`source/Recording/RecordingSessionController.*`）：录制/回放/MIDI 导入/导出编排与会话状态。
+  - `PluginOperationController`（`source/Plugin/PluginOperationController.*`）：插件扫描、加载/卸载、editor 和启动恢复编排。
+- `MainComponent` 现在主要保留 UI 组件拥有权、JUCE 生命周期入口、音频设备重建胶水、设置窗口生命周期、键盘焦点恢复和顶层装配。
 
 **仍留在 MainComponent 的职责**：
-- 录制/回放实际切换与状态缓存（已收敛为 `RecordingSession`，但启动/停止/回放编排仍在 MainComponent）
-- MIDI 导入 FileChooser 生命周期与顶层编排（已收敛为约 50 行）
-- 导出 MIDI/WAV 的 chooser 生命周期、路径记忆与日志（已通过 `runExportRecordingFlow()` 收敛）
-- 布局文件 CRUD 顶层编排（已通过 helper 收敛，仍保留 FileChooser / modal 生命周期）
 - 设置窗口生命周期与 dirty 管理（已局部收敛，仍由 MainComponent 拥有窗口）
-- 插件 editor window 生命周期管理
 - 音频设备重建胶水逻辑
+- 顶层 UI 事件绑定、只读 UI 刷新和窗口焦点恢复
 
-**Phase 5.8 待规划提取目标**：
-- 设置窗口管理提取（约 100 行）
-- 布局管理继续收敛（约 100 行）
-- 插件操作提取（约 130 行）
-- 录制/回放编排提取（约 100 行）
-- 插件 editor window 生命周期提取（约 50 行）
+**Phase 5.8 剩余提取目标**：
+- 设置窗口管理提取到 `Settings/SettingsWindowManager`（约 100 行）。
+- 状态快照构建提取到 `Core/AppStateBuilder`（约 70 行）。
 
 边界纪律与收敛原则：
 
-- `MainComponent` 保留 UI 组件拥有权、JUCE 生命周期入口、窗口生命周期、键盘焦点恢复和顶层装配。
-- 新 helper 不直接拥有 JUCE `Component`，不进入 audio callback，不做文件对话框生命周期管理。
-- Helper 只承载纯流程/状态转换，不直接拥有 JUCE `Component`。
-- 音频线程边界仍以 `AudioEngine` / `RecordingEngine` 为准；helper 不进入 audio callback。
+- `MainComponent` 保留主 UI 组件拥有权、JUCE 生命周期入口、键盘焦点恢复和顶层装配。
+- 流程 controller / manager 可以按职责拥有短生命周期对象（如 `FileChooser`、插件 editor window、设置窗口），但必须通过清晰回调边界与 `MainComponent` 交互。
+- Helper / controller 不进入 audio callback；音频线程边界仍以 `AudioEngine` / `RecordingEngine` 为准。
 - 不做大规模重写；每次只抽一个边界，保持可构建、可回归。
 - 每个切片完成后至少跑 `./scripts/dev.sh wsl-build --configure-only` 和 `./scripts/dev.sh win-build`。
 - 每个切片必须保持键盘演奏、插件加载、录制 / 回放、MIDI / WAV 导出行为不回退。

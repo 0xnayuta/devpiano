@@ -25,6 +25,7 @@
 **当前阶段：**
 - Phase 5.8：继续 MainComponent 瘦身，5.8a+5.8b+5.8c 已完成（1587→711 行），远低于 1200 行目标。
 - 当前插入缺陷“启动 / 音频重建早期首音音高异常”已修复并通过人工验证；保留 `25ms` audio warmup，详见 [`../testing/known-issues.md`](../testing/known-issues.md) §2。
+- 插入缺陷“MIDI 导入播放首音无声”已通过 playback-start pre-roll / arming 修复并完成人工回归；后续作为 Phase 4 MIDI import 回归项观察，详见 [`../testing/known-issues.md`](../testing/known-issues.md) §8。
 
 **搁置项：**
 - 外部 MIDI 硬件依赖验证（待硬件条件恢复）。
@@ -86,14 +87,11 @@
 - 插件操作提取到 `Plugin/PluginOperationController`（MainComponent 930→711 行，减少 219 行）。
 - 累计减少 876 行，远低于 1200 行目标。
 
-**已规划（5.8d-5.8e）：**
-- 5.8a：布局管理 handlers 提取到 `Layout/LayoutFlowSupport`（~215 行 → MainComponent -180 行）。
-- 5.8b：录制/回放/MIDI 导入编排提取到 `Recording/RecordingSessionController`（~229 行 → MainComponent -200 行）。
-- 5.8c：插件操作提取到 `Plugin/PluginOperationController`（~175 行 → MainComponent -150 行）。
+**剩余规划（5.8d-5.8e）：**
 - 5.8d：设置窗口管理提取到 `Settings/SettingsWindowManager`（~101 行 → MainComponent -80 行）。
 - 5.8e：状态快照构建提取到 `Core/AppStateBuilder`（~76 行 → MainComponent -70 行）。
 
-5.8a + 5.8b 完成后即可达到 1200 行目标。详细计划见 [`current-iteration.md`](current-iteration.md)。
+5.8a + 5.8b + 5.8c 已使 `MainComponent.cpp` 降至 711 行，已达成 1200 行以下目标；5.8d-5.8e 作为额外职责收敛继续推进。详细计划见 [`current-iteration.md`](current-iteration.md)。
 
 详细完成记录见：[`../archive/phase5-architecture-convergence.md`](../archive/phase5-architecture-convergence.md)。
 
@@ -102,8 +100,8 @@
 优先级从高到低：
 
 1. **Phase 5.8：MainComponent 继续瘦身**
-   - 目标：从约 1587 行降至 1200 行以下。
-   - 启动 / 音频重建早期首音音高异常已完成修复，可继续 5.8c-5.8e。
+   - 目标：从约 1587 行降至 1200 行以下；当前已降至 711 行。
+   - 5.8a+5.8b+5.8c 已完成，下一步继续 5.8d-5.8e。
    - 详见 [`current-iteration.md`](current-iteration.md)。
 
 2. **Phase 4 边界稳定**
@@ -122,10 +120,11 @@
 | 风险 | 当前判断 | 应对方向 |
 |---|---|---|
 | 启动 / 音频重建早期首音音高异常 | 已缓解 | 已修正音频设备初始化顺序，并保留 `25ms` audio warmup；继续作为回归项观察。 |
+| MIDI 导入播放首音无声 | 已修复 | 已增加 playback-start pre-roll / arming；后续触及 MIDI import / playback 启动链路时执行 Phase 4 §11.1 回归。 |
 | 插件生命周期复杂 | 中 | 维护专项生命周期测试，重点覆盖 editor、卸载、重扫、退出。 |
 | 外部 MIDI 硬件依赖 | 中 | 外部 MIDI 录制/回放/退出场景因无硬件暂缓；状态已记录至 [`known-issues.md`](../testing/known-issues.md)。 |
 | 键盘映射边界多 | 低中 | 基础映射已全量验证；布局 preset 已补充专项回归清单。 |
-| `MainComponent` 职责回流 | 低中 | 已通过 Phase 5.1-5.7 架构收敛；MIDI 导入流程已下沉为 3 个 helper。 |
+| `MainComponent` 职责回流 | 低中 | 已通过 Phase 5.1-5.8c 架构收敛；布局、录制/回放/MIDI 导入和插件操作已下沉到专门模块。 |
 | 录制/回放实现风险 | 中 | MVP 主链路已接入；下一阶段优先收紧实时音频线程边界。 |
 | 布局 Preset 实现风险 | 低 | 核心能力已完成并补充功能/测试文档。 |
 | 文档状态漂移 | 中 | 本文件作为唯一 roadmap；当前任务只写入 [`current-iteration.md`](current-iteration.md)。 |

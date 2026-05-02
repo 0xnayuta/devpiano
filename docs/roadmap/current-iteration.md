@@ -8,7 +8,11 @@
 
 当前活跃阶段：**Phase 5：架构收敛与 MainComponent 瘦身**
 
-当前插入缺陷 **启动 / 音频重建早期首音音高异常** 已修复并通过人工验证；保留 `25ms` audio warmup。下一步可继续 5.8c-5.8e 瘦身。
+当前插入缺陷 **启动 / 音频重建早期首音音高异常** 已修复并通过人工验证；保留 `25ms` audio warmup。
+
+插入缺陷 **MIDI 导入播放首音无声** 已通过 playback-start pre-roll / arming 修复并完成人工回归；后续触及 MIDI import / playback 启动链路时执行 Phase 4 §11.1 回归。
+
+下一步可继续 Phase 5.8d-5.8e 瘦身。
 
 Phase 5.1-5.7 已完成（2026-05-01）：MainComponent 职责下沉，包括录制会话状态结构化、导出流程统一、布局 CRUD 收敛、设置窗口收敛、AppState 清理、ControlsPanel 按钮状态统一、MIDI 导入流程下沉。
 
@@ -69,32 +73,24 @@ Phase 5.1-5.7 已完成（2026-05-01）：MainComponent 职责下沉，包括录
 
 ## Phase 5.8 瘦身分析
 
-### 当前 MainComponent.cpp 行数分布
+### 当前 MainComponent.cpp 剩余关注点
 
-| 职责域 | 行范围 | 约行数 | 占比 |
-|---|---|---|---|
-| 匿名 namespace（工具函数） | 19-146 | 128 | 8% |
-| 构造/析构/初始化 | 148-251 | 104 | 7% |
-| 音频回调 + Timer + UI 基础 | 322-404 | 83 | 5% |
-| 性能/插件恢复设置 helper | 426-492 | 67 | 4% |
-| **布局管理 handlers** | 494-708 | **215** | **14%** |
-| UI 同步 + 设置持久化 | 710-818 | 109 | 7% |
-| **设置窗口管理** | 819-919 | **101** | **6%** |
-| **状态快照构建 + UI 刷新** | 921-996 | **76** | **5%** |
-| **插件启动恢复** | 998-1052 | **55** | **3%** |
-| 运行时音频配置 helper | 1054-1088 | 35 | 2% |
-| **录制会话同步 + 导出** | 1090-1146 | **57** | **4%** |
-| **录制/回放内部操作** | 1148-1236 | **89** | **6%** |
-| **插件加载/卸载/editor/扫描** | 1238-1357 | **120** | **8%** |
-| **录制/回放/MIDI 导入 handlers** | 1359-1587 | **229** | **14%** |
+当前 `MainComponent.cpp` 为 711 行；5.8a+5.8b+5.8c 已将布局、录制/回放/MIDI 导入和插件操作三个大块下沉。剩余 5.8 关注点：
 
-### 提取优先级排序
+| 职责域 | 当前位置 | 后续处理 |
+|---|---|---|
+| 设置窗口生命周期 | `showSettingsDialog()`、`isSettingsWindowDirty()`、`closeSettingsWindow*()`、`saveAndCloseSettingsWindow()`、`getSettingsContent()` | 5.8d：提取到 `Settings/SettingsWindowManager` |
+| 状态快照构建 | `buildRuntimeAudioStateSnapshot()`、`buildRuntimePluginStateSnapshot()`、`buildRuntimeInputStateSnapshot()`、`buildCurrentAppStateSnapshot()` | 5.8e：提取到 `Core/AppStateBuilder` |
+| 音频设备生命周期胶水 | `initialiseAudioDevice()`、`prepareForAudioDeviceRebuild()`、`finishAudioDeviceRebuild()`、`runPluginActionWithAudioDeviceRebuild()` | 5.8+ 后续机会 |
+| 匿名 namespace 工具函数 | `makeSafeUiText()`、`suppressImeForPeer()` 等 | 5.8+ 后续按域分散 |
+
+### 提取优先级排序（历史分析，5.8a-5.8c 已完成）
 
 按**自包含度 × 行数收益**排序：
 
-1. **布局管理 handlers（~215 行）** — 最自包含，仅依赖 `keyboardMidiMapper`、`appSettings`、`controlsPanel`、`audioEngine`，无音频线程交互。
-2. **录制/回放/MIDI 导入 handlers（~229 行）** — 依赖 `recordingSession`、`recordingEngine`、`audioEngine`、`appSettings`，但逻辑清晰，已有 `RecordingFlowSupport` 基础。
-3. **插件操作（~175 行）** — 依赖 `pluginHost`、`pluginPanel`、`pluginEditorWindow`、`appSettings`，已有 `PluginFlowSupport` 基础。
+1. **布局管理 handlers（~215 行）** — 已完成，提取到 `Layout/LayoutFlowSupport`。
+2. **录制/回放/MIDI 导入 handlers（~229 行）** — 已完成，提取到 `Recording/RecordingSessionController`。
+3. **插件操作（~175 行）** — 已完成，提取到 `Plugin/PluginOperationController`。
 4. **设置窗口管理（~101 行）** — 依赖 `settingsWindow`、`deviceManager`、`appSettings`，自包含度高但行数较少。
 5. **状态快照构建（~76 行）** — 纯读取函数，依赖多但无副作用，提取收益中等。
 
@@ -102,7 +98,7 @@ Phase 5.1-5.7 已完成（2026-05-01）：MainComponent 职责下沉，包括录
 
 ## Phase 5.8 任务计划
 
-### 5.8a：布局管理 handlers 提取
+### 5.8a：布局管理 handlers 提取（已完成）
 
 **目标**：将布局 CRUD + 文件对话框 + 确认对话框逻辑提取到 `Layout/LayoutFlowSupport`。
 
@@ -129,7 +125,7 @@ Phase 5.1-5.7 已完成（2026-05-01）：MainComponent 职责下沉，包括录
 
 ---
 
-### 5.8b：录制/回放/MIDI 导入 handlers 提取
+### 5.8b：录制/回放/MIDI 导入 handlers 提取（已完成）
 
 **目标**：将录制编排逻辑提取到 `Recording/RecordingSessionController`。
 
@@ -165,7 +161,7 @@ Phase 5.1-5.7 已完成（2026-05-01）：MainComponent 职责下沉，包括录
 
 ---
 
-### 5.8c：插件操作提取
+### 5.8c：插件操作提取（已完成）
 
 **目标**：将插件加载/卸载/editor/扫描编排逻辑提取到 `Plugin/PluginOperationController`。
 
@@ -293,8 +289,6 @@ Phase 5.1-5.7 已完成（2026-05-01）：MainComponent 职责下沉，包括录
 - [x] Phase 5.8a 完成：布局管理 handlers 提取到 `Layout/LayoutFlowSupport`，MainComponent 从 1587 行降至 1349 行（减少 238 行）。（2026-05-01）
 - [x] Phase 5.8b 完成：录制/回放/MIDI 导入编排提取到 `Recording/RecordingSessionController`，MainComponent 从 1349 行降至 930 行（减少 419 行）。（2026-05-01）
 - [x] Phase 5.8c 完成：插件操作提取到 `Plugin/PluginOperationController`，MainComponent 从 930 行降至 711 行（减少 219 行）。（2026-05-02）
-- [ ] Phase 5.8b 完成：录制编排提取到 `Recording/RecordingSessionController`，MainComponent 减少 ~200 行。
-- [ ] Phase 5.8c 完成：插件操作提取到 `Plugin/PluginOperationController`，MainComponent 减少 ~150 行。
 - [ ] Phase 5.8d 完成：设置窗口管理提取到 `Settings/SettingsWindowManager`，MainComponent 减少 ~80 行。
 - [ ] Phase 5.8e 完成：状态快照构建提取到 `Core/AppStateBuilder`，MainComponent 减少 ~70 行。
 - [ ] Phase 5.8 总验证：MainComponent.cpp ≤ 1200 行，WSL 构建通过，Windows MSVC 构建通过。
