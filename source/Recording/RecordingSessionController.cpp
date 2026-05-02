@@ -336,6 +336,7 @@ void RecordingSessionController::startInternalPlayback(const RecordingTake& take
     owner.runPluginActionWithAudioDeviceRebuild([this, &take](const MainComponent::RuntimeAudioConfig& config)
     {
         recordingEngine.startPlayback(take, config.sampleRate);
+        audioEngine.armPlaybackStartPreRoll(config.sampleRate, config.blockSize);
     });
 
     juce::Logger::writeToLog("[Playback] Internal playback started; take events="
