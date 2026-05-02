@@ -38,10 +38,12 @@ Commands:
 Examples:
   ./scripts/dev.sh self-check
   ./scripts/dev.sh wsl-build --configure-only
+  ./scripts/dev.sh wsl-build --release --configure-only
   ./scripts/dev.sh wsl-build --clean
   ./scripts/dev.sh win-sync
   ./scripts/dev.sh win-sync --check    # preview changes without copying/deleting
   ./scripts/dev.sh win-build --no-sync
+  ./scripts/dev.sh win-build --release --no-sync
   ./scripts/dev.sh win-build --reconfigure
 EOF
 }

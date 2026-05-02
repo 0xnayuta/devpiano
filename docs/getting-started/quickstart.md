@@ -82,8 +82,6 @@ source ~/.bashrc
 ./scripts/dev.sh win-build
 ```
 
-### 4. 其他常用命令
-
 ## 常用命令
 
 ```bash
@@ -92,41 +90,44 @@ source ~/.bashrc
 ```
 
 ```bash
-# WSL 本地构建
+# ── WSL 本地构建（Debug，默认） ──
 ./scripts/dev.sh wsl-build
-
-# 仅刷新 compile_commands.json
 ./scripts/dev.sh wsl-build --configure-only
-
-# 重新配置 WSL 构建树
 ./scripts/dev.sh wsl-build --reconfigure
-
-# 清空 WSL 构建树后重建
 ./scripts/dev.sh wsl-build --clean
 
+# ── WSL 本地构建（Release） ──
+./scripts/dev.sh wsl-build --release
+./scripts/dev.sh wsl-build --release --configure-only
+./scripts/dev.sh wsl-build --release --reconfigure
+./scripts/dev.sh wsl-build --release --clean
+
+# ── 同步 ──
 # 仅在需要单独同步时（一般不需要）
 ./scripts/dev.sh win-sync
 ./scripts/dev.sh win-sync --check  # 零写入预览
 
-# 正常 Windows MSVC 验证
+# ── Windows MSVC 验证（Debug，默认） ──
 ./scripts/dev.sh win-build
-
-# 镜像已最新时跳过同步
 ./scripts/dev.sh win-build --no-sync
-
-# 强制重新配置 Windows 构建树
 ./scripts/dev.sh win-build --reconfigure
-
-# 清空 Windows 构建树后重建
 ./scripts/dev.sh win-build --clean-win-build
+
+# ── Windows MSVC 验证（Release） ──
+./scripts/dev.sh win-build --release
+./scripts/dev.sh win-build --release --no-sync
+./scripts/dev.sh win-build --release --reconfigure
+./scripts/dev.sh win-build --release --clean-win-build
 ```
 
 ## 关键目录
 
 - WSL 主工作树：`/root/repos/devpiano`
-- WSL 构建目录：`/root/repos/devpiano/build-wsl-clang`
+- WSL Debug 构建目录：`/root/repos/devpiano/build-wsl-clang`
+- WSL Release 构建目录：`/root/repos/devpiano/build-wsl-clang-release`
 - Windows 镜像树：`G:\source\projects\devpiano`
-- Windows 构建目录：`G:\source\projects\devpiano\build-win-msvc`
+- Windows Debug 构建目录：`G:\source\projects\devpiano\build-win-msvc`
+- Windows Release 构建目录：`G:\source\projects\devpiano\build-win-msvc-release`
 
 ## clangd
 
@@ -141,6 +142,8 @@ source ~/.bashrc
 ```
 
 clangd 就能自动读取新的 `compile_commands.json`。
+
+> **注意**：Release 构建（`--release`）同样会生成 `compile_commands.json`（位于 `build-wsl-clang-release`），但 `.clangd` 默认指向 Debug 目录。如需 clangd 索引 Release 配置，可临时修改 `.clangd` 或手动指定 `--compile-commands-dir`。
 
 ## 说明
 

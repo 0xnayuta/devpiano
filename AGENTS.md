@@ -22,13 +22,17 @@
   - 只用于理解历史行为、默认布局、功能边界和旧模块关系。
   - 不要直接复制平台相关实现；应提炼行为后用 JUCE 抽象重建。
 - `/build-wsl-clang/`
-  - WSL 本地构建目录。
+  - WSL 本地 Debug 构建目录。
   - clangd / LSP 编译数据库来源：`build-wsl-clang/compile_commands.json`。
+- `/build-wsl-clang-release/`
+  - WSL 本地 Release 构建目录。
+  - **默认不使用**，仅在用户明确要求时才进行 Release 构建。
 - Windows 镜像目录
   - 默认：`G:\source\projects\devpiano`
   - 可由环境变量 `WIN_MIRROR_DIR` 覆盖。
 - Windows 验证构建目录
-  - 镜像树下：`build-win-msvc`。
+  - Debug：镜像树下 `build-win-msvc`（默认）。
+  - Release：镜像树下 `build-win-msvc-release`（**默认不使用**，仅在用户明确要求时才进行 Release 构建）。
 
 ### 文档目录
 
@@ -76,6 +80,7 @@
 - WSL 构建和 Windows 构建必须分离：
   - WSL（仅用于编辑代码 + 刷新 compile_commands.json）：`build-wsl-clang`
   - Windows（构建验证 + 软件测试）：镜像树下 `build-win-msvc`
+- **默认仅使用 Debug 构建**。Release 构建（`--release`）仅在用户明确要求时才执行，或由用户手动进行。不要主动发起 Release 构建。
 - 关键修改后优先使用项目脚本验证，而不是直接手写 `cmake --build .`。
 - 需要快速检查环境时，先运行：
 
@@ -98,15 +103,7 @@
 ./scripts/dev.sh win-build
 ```
 
-常用 Windows 验证选项：
-
-```bash
-# 仅刷新 WSL configure / compile_commands.json（clangd/LSP 依赖此文件）
-./scripts/dev.sh wsl-build --configure-only
-
-# Windows MSVC 验证构建（内置同步，一般不需要单独 win-sync）
-./scripts/dev.sh win-build
-```
+> **注意**：以上命令默认使用 Debug 构建。如需 Release 构建，用户会明确指示或自行执行 `--release` 参数，不要主动使用。
 
 涉及环境恢复、同步、MSVC 验证、路径问题时，优先参考：
 

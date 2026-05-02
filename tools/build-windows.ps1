@@ -1,14 +1,24 @@
 [CmdletBinding()]
 param(
     [string]$MirrorDir = $(if ($env:WIN_MIRROR_DIR) { $env:WIN_MIRROR_DIR } else { 'G:\source\projects\devpiano' }),
-    [string]$ConfigurePreset = 'windows-msvc-debug',
-    [string]$BuildPreset = 'windows-msvc-debug',
+    [string]$ConfigurePreset = '',
+    [string]$BuildPreset = '',
+    [switch]$Release,
     [string]$VsInstallPath = $env:VSINSTALLDIR,
     [string]$VsDevCmdPath = $env:VS_DEVCMD_PATH
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+
+# Resolve presets: -Release flag overrides defaults
+if ($Release) {
+    if (-not $ConfigurePreset) { $ConfigurePreset = 'windows-msvc-release' }
+    if (-not $BuildPreset) { $BuildPreset = 'windows-msvc-release' }
+} else {
+    if (-not $ConfigurePreset) { $ConfigurePreset = 'windows-msvc-debug' }
+    if (-not $BuildPreset) { $BuildPreset = 'windows-msvc-debug' }
+}
 
 function Write-Log {
     param([string]$Message)
