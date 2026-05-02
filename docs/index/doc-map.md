@@ -23,6 +23,7 @@
 - 项目状态与路线图：[`../roadmap/roadmap.md`](../roadmap/roadmap.md)
 - 当前任务：[`../roadmap/current-iteration.md`](../roadmap/current-iteration.md)
 - 阶段验收：[`../testing/acceptance.md`](../testing/acceptance.md)
+- 已知问题、回归风险与长期约束：[`../testing/known-issues.md`](../testing/known-issues.md)
 - MIDI 文件导入与回放功能（Phase 4）：[`../features/phase4-midi-file-import.md`](../features/phase4-midi-file-import.md)
 - 录制 / 回放 / MIDI 导出设计（Phase 3）：[`../features/phase3-recording-playback.md`](../features/phase3-recording-playback.md)
 - 录制 / 回放 / MIDI 导出测试：[`../testing/phase3-recording-playback.md`](../testing/phase3-recording-playback.md)

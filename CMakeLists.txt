@@ -92,6 +92,8 @@ target_sources(devpiano PRIVATE
     source/Settings/SettingsStore.cpp
     source/Settings/SettingsStore.h
     source/Settings/SettingsComponent.h
+    source/Settings/SettingsWindowManager.cpp
+    source/Settings/SettingsWindowManager.h
     source/Layout/LayoutPreset.cpp
     source/Layout/LayoutPreset.h
     source/Layout/LayoutDirectoryScanner.cpp

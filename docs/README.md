@@ -21,6 +21,7 @@
 ### 测试与验收
 
 - [`testing/acceptance.md`](testing/acceptance.md)：阶段性验收标准。
+- [`testing/known-issues.md`](testing/known-issues.md)：已知问题、已修复风险的回归项与长期设计约束。
 - [`testing/phase2-keyboard-mapping.md`](testing/phase2-keyboard-mapping.md)：键盘映射专项手工测试。
 - [`testing/phase2-plugin-host-lifecycle.md`](testing/phase2-plugin-host-lifecycle.md)：插件宿主生命周期与退出稳定性专项测试。
 - [`testing/phase3-layout-presets.md`](testing/phase3-layout-presets.md)：布局 preset 的保存、导入、重命名、删除与启动恢复专项手工测试。

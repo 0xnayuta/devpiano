@@ -46,7 +46,7 @@
 - 初始化音频设备、MIDI 路由、插件宿主和设置。
 - 协调键盘输入、插件操作、状态保存与只读 UI 刷新。
 
-当前状态（`MainComponent.cpp` 约 711 行，已低于 1200 行目标）：
+当前状态（`MainComponent.cpp` 约 631 行，已低于 1200 行目标）：
 
 - 已不再是纯单体 UI；插件区、参数区、头部状态区和键盘区已拆入 `source/UI/`。
 - 插件流程、录制/回放状态流、导出选项、只读 UI 刷新边界已通过 Phase 5-1..5-7 完成收敛：
@@ -55,19 +55,18 @@
   - `PluginFlowSupport`（`source/Plugin/PluginFlowSupport.*`）：扫描路径规范化、缓存恢复、启动恢复计划等插件流程已收敛。
   - 只读状态刷新边界：状态函数命名已收敛为 `build*Snapshot()`、`renderReadOnlyUiState()`、`refreshReadOnlyUiStateFromCurrentSnapshot()` 和 `refreshMidiStatusFromCurrentSnapshot()`。
   - MIDI 导入流程：导入路径推导、导入结果处理、替换 take 并自动播放已收敛为 3 个 helper。
-- Phase 5.8a+5.8b+5.8c 已进一步下沉布局管理、录制/回放/MIDI 导入编排和插件操作：
+- Phase 5.8a+5.8b+5.8c+5.8d 已进一步下沉布局管理、录制/回放/MIDI 导入编排、插件操作和设置窗口管理：
   - `LayoutFlowSupport`（`source/Layout/LayoutFlowSupport.*`）：布局 preset CRUD、文件选择和确认流程。
   - `RecordingSessionController`（`source/Recording/RecordingSessionController.*`）：录制/回放/MIDI 导入/导出编排与会话状态。
   - `PluginOperationController`（`source/Plugin/PluginOperationController.*`）：插件扫描、加载/卸载、editor 和启动恢复编排。
-- `MainComponent` 现在主要保留 UI 组件拥有权、JUCE 生命周期入口、音频设备重建胶水、设置窗口生命周期、键盘焦点恢复和顶层装配。
+  - `SettingsWindowManager`（`source/Settings/SettingsWindowManager.*`）：设置窗口、`SettingsComponent`、dirty/save/close 生命周期。
+- `MainComponent` 现在主要保留 UI 组件拥有权、JUCE 生命周期入口、音频设备重建胶水、键盘焦点恢复和顶层装配。
 
 **仍留在 MainComponent 的职责**：
-- 设置窗口生命周期与 dirty 管理（已局部收敛，仍由 MainComponent 拥有窗口）
 - 音频设备重建胶水逻辑
 - 顶层 UI 事件绑定、只读 UI 刷新和窗口焦点恢复
 
 **Phase 5.8 剩余提取目标**：
-- 设置窗口管理提取到 `Settings/SettingsWindowManager`（约 100 行）。
 - 状态快照构建提取到 `Core/AppStateBuilder`（约 70 行）。
 
 边界纪律与收敛原则：

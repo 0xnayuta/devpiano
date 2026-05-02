@@ -7,11 +7,48 @@
   },
   "configurePresets": [
     {
+      "name": "windows-msvc-debug",
+      "displayName": "Windows MSVC Debug",
+      "description": "Windows mirror-tree validation preset for Visual Studio Developer Command Prompt + Ninja.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-win-msvc",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "OFF"
+      }
+    },
+    {
+      "name": "windows-msvc-release",
+      "displayName": "Windows MSVC Release",
+      "description": "Windows mirror-tree release preset with optimizations enabled.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-win-msvc-release",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "OFF"
+      }
+    },
+    {
       "name": "linux-clang-debug",
       "displayName": "Linux Clang Debug",
       "description": "Primary WSL/Linux development preset with compile_commands.json enabled for clangd.",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build-wsl-clang",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
@@ -25,33 +62,16 @@
       "description": "WSL/Linux release preset with optimizations enabled.",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build-wsl-clang-release",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "CMAKE_C_COMPILER": "clang",
         "CMAKE_CXX_COMPILER": "clang++"
-      }
-    },
-    {
-      "name": "windows-msvc-debug",
-      "displayName": "Windows MSVC Debug",
-      "description": "Windows mirror-tree validation preset for Visual Studio Developer Command Prompt + Ninja.",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build-win-msvc",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "OFF"
-      }
-    },
-    {
-      "name": "windows-msvc-release",
-      "displayName": "Windows MSVC Release",
-      "description": "Windows mirror-tree release preset with optimizations enabled.",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build-win-msvc-release",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "OFF"
       }
     }
   ],

@@ -56,6 +56,7 @@ MainComponent::MainComponent()
         *this, recordingEngine, audioEngine, appSettings, controlsPanel);
     pluginOperationController = std::make_unique<devpiano::plugin::PluginOperationController>(
         *this, pluginHost, appSettings, pluginPanel);
+    settingsWindowManager = std::make_unique<devpiano::settings::SettingsWindowManager>();
 
     initialiseUi();
     syncUiFromSettings();
@@ -102,7 +103,7 @@ MainComponent::~MainComponent()
     shutdownAudio();
     audioEngine.setRecordingEngine(nullptr);
     pluginHost.unloadPlugin();
-    settingsWindow.reset();
+    settingsWindowManager.reset();
 }
 
 void MainComponent::initialiseInputMappingFromSettings()
@@ -299,6 +300,9 @@ void MainComponent::focusGained(juce::Component::FocusChangeType cause)
     if (isSettingsWindowOpen())
         return;
 
+    if (pluginOperationController != nullptr && pluginOperationController->hasEditorWindowOpen())
+        return;
+
     // Windows may have already given us focus via WM_SETFOCUS before grabKeyboardFocus ran,
     // causing takeKeyboardFocus's early-return check to fire. Call grabKeyboardFocus() to
     // synchronize the global state. The early-return in takeKeyboardFocus will safely fire
@@ -417,6 +421,9 @@ void MainComponent::restoreKeyboardFocus()
     if (isSettingsWindowOpen())
         return;
 
+    if (pluginOperationController != nullptr && pluginOperationController->hasEditorWindowOpen())
+        return;
+
     if (isShowing() && juce::Component::getCurrentlyFocusedComponent() != this)
         grabKeyboardFocus();
 
@@ -477,104 +484,24 @@ void MainComponent::saveSettingsSoon()
 
 void MainComponent::showSettingsDialog()
 {
-    class SettingsDialogWindow final : public juce::DialogWindow
-    {
-    public:
-        SettingsDialogWindow(const juce::String& title,
-                             juce::Colour background,
-                             std::function<void()> onClose)
-            : juce::DialogWindow(title, background, true), closeCallback(std::move(onClose))
-        {
-        }
-
-        void closeButtonPressed() override
-        {
-            if (closeCallback)
-                closeCallback();
-        }
-
-        bool escapeKeyPressed() override
-        {
-            closeButtonPressed();
-            return true;
-        }
-
-    private:
-        std::function<void()> closeCallback;
-    };
-
-    auto content = std::make_unique<SettingsComponent>(deviceManager, appSettings.audioDeviceState.get());
-    auto* contentPtr = content.get();
-
-    auto closeWindow = [safe = juce::Component::SafePointer<MainComponent>(this)]
-    {
-        if (safe != nullptr)
-            safe->closeSettingsWindow();
-    };
-
-    contentPtr->onSaveRequested = [safe = juce::Component::SafePointer<MainComponent>(this)]
-    {
-        if (safe != nullptr)
-            safe->saveAndCloseSettingsWindow();
-    };
-
-    settingsWindow = std::make_unique<SettingsDialogWindow>("Audio Settings", backgroundColour, closeWindow);
-    settingsWindow->setUsingNativeTitleBar(true);
-    settingsWindow->setContentOwned(content.release(), true);
-    settingsWindow->centreAroundComponent(this, 620, 560);
-    settingsWindow->setResizable(true, true);
-    settingsWindow->setVisible(true);
-    settingsWindow->toFront(true);
-}
-
-bool MainComponent::isSettingsWindowDirty() const
-{
-    if (auto* settingsContent = getSettingsContent())
-        return settingsContent->isDirty();
-
-    return false;
+    settingsWindowManager->show({ .parent = *this,
+                                  .deviceManager = deviceManager,
+                                  .savedAudioDeviceState = appSettings.audioDeviceState.get(),
+                                  .onSaveRequested = [safe = juce::Component::SafePointer<MainComponent>(this)]
+                                  {
+                                      if (safe != nullptr)
+                                          safe->saveSettingsNow();
+                                  },
+                                  .onClosed = [safe = juce::Component::SafePointer<MainComponent>(this)]
+                                  {
+                                      if (safe != nullptr)
+                                          safe->restoreKeyboardFocus();
+                                  } });
 }
 
 bool MainComponent::isSettingsWindowOpen() const
 {
-    return settingsWindow != nullptr && settingsWindow->isShowing();
-}
-
-void MainComponent::closeSettingsWindowAsync()
-{
-    juce::MessageManager::callAsync([safe = juce::Component::SafePointer<MainComponent>(this)]
-    {
-        if (safe == nullptr)
-            return;
-
-        if (safe->settingsWindow != nullptr)
-            safe->settingsWindow->setVisible(false);
-
-        safe->settingsWindow.reset();
-        safe->restoreKeyboardFocus();
-    });
-}
-
-void MainComponent::closeSettingsWindow()
-{
-    if (isSettingsWindowDirty())
-        saveSettingsNow();
-
-    closeSettingsWindowAsync();
-}
-
-void MainComponent::saveAndCloseSettingsWindow()
-{
-    saveSettingsNow();
-    closeSettingsWindowAsync();
-}
-
-SettingsComponent* MainComponent::getSettingsContent() const
-{
-    if (settingsWindow == nullptr)
-        return nullptr;
-
-    return dynamic_cast<SettingsComponent*>(settingsWindow->getContentComponent());
+    return settingsWindowManager != nullptr && settingsWindowManager->isOpen();
 }
 
 void MainComponent::renderReadOnlyUiState(const devpiano::core::AppState& appState)
@@ -708,4 +635,3 @@ void MainComponent::runPluginActionWithAudioDeviceRebuild(const std::function<vo
         action();
     });
 }
-
