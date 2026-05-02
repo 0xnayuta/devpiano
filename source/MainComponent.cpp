@@ -537,48 +537,17 @@ void MainComponent::logCurrentAudioDeviceDiagnostics(const juce::String& context
     juce::Logger::writeToLog("[AudioDevice] " + context + "\n" + diagnostics.detailedSummary);
 }
 
-devpiano::core::RuntimeAudioState MainComponent::buildRuntimeAudioStateSnapshot() const
-{
-    const auto diagnostics = devpiano::audio::buildAudioDeviceDiagnostics(appSettings.audioDeviceState.get(), deviceManager);
-
-    return { .hasLiveDevice = diagnostics.live.hasLiveDevice,
-             .sampleRate = diagnostics.live.sampleRate,
-             .bufferSize = diagnostics.live.bufferSize,
-             .backendName = diagnostics.live.backendName,
-             .deviceName = diagnostics.live.deviceName,
-             .availableBufferSizesText = devpiano::audio::formatBufferSizes(diagnostics.live.availableBufferSizes),
-             .restoreOutcome = diagnostics.restoreOutcome,
-             .mismatchReasons = diagnostics.mismatchReasons };
-}
-
-devpiano::core::RuntimePluginState MainComponent::buildRuntimePluginStateSnapshot() const
-{
-    return { .currentPluginName = pluginHost.getCurrentPluginName(),
-             .availablePluginNames = pluginHost.getKnownPluginNames(),
-             .lastScanSummary = pluginHost.getLastScanSummary(),
-             .lastLoadError = pluginHost.getLastLoadError(),
-             .preparedSampleRate = pluginHost.getPreparedSampleRate(),
-             .preparedBlockSize = pluginHost.getPreparedBlockSize(),
-             .supportsVst3 = pluginHost.supportsVst3(),
-             .hasLoadedPlugin = pluginHost.hasLoadedPlugin(),
-             .isPrepared = pluginHost.isPrepared(),
-             .isEditorOpen = pluginOperationController->hasEditorWindowOpen() };
-}
-
-devpiano::core::RuntimeInputState MainComponent::buildRuntimeInputStateSnapshot() const
-{
-    return { .keyboardLayout = keyboardMidiMapper.getLayout(),
-             .openMidiInputCount = midiRouter.getOpenInputCount(),
-             .midiActivityCount = externalMidiMessageCount,
-             .lastMidiMessage = lastExternalMidiMessage };
-}
-
 devpiano::core::AppState MainComponent::buildCurrentAppStateSnapshot() const
 {
-    return devpiano::core::buildAppState(appSettings,
-                                         buildRuntimeAudioStateSnapshot(),
-                                         buildRuntimePluginStateSnapshot(),
-                                         buildRuntimeInputStateSnapshot());
+    return devpiano::core::buildCurrentAppStateSnapshot(appSettings,
+                                                        deviceManager,
+                                                        pluginHost,
+                                                        pluginOperationController != nullptr
+                                                            && pluginOperationController->hasEditorWindowOpen(),
+                                                        keyboardMidiMapper,
+                                                        midiRouter,
+                                                        externalMidiMessageCount,
+                                                        lastExternalMidiMessage);
 }
 
 double MainComponent::getCurrentRuntimeSampleRate() const

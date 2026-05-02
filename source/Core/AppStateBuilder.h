@@ -5,6 +5,10 @@
 #include "AppState.h"
 #include "../Settings/SettingsModel.h"
 
+class KeyboardMidiMapper;
+class MidiRouter;
+class PluginHost;
+
 namespace devpiano::core
 {
 // Bridge layer between persisted settings and runtime aggregate state.
@@ -13,7 +17,7 @@ namespace devpiano::core
 // - createPersistedAppState(): 只从 SettingsModel 提取“可持久化基线”
 // - applyRuntime*State(): 再叠加本次运行期间才存在的覆盖层
 //
-// 当前先保持为轻量 header-only helper，避免过早引入额外类型迁移成本。
+// Header 中保留 persisted/runtime overlay 小型 helper；跨模块 runtime snapshot 构建在 .cpp 中实现。
 struct RuntimePluginState
 {
     juce::String currentPluginName;
@@ -141,4 +145,25 @@ inline void applyRuntimeInputState(AppState& appState, const RuntimeInputState& 
     applyRuntimeInputState(appState, inputRuntime);
     return appState;
 }
+
+// Runtime snapshot helpers read live app objects and are intended for message-thread UI refresh paths.
+[[nodiscard]] RuntimeAudioState buildRuntimeAudioStateSnapshot(const SettingsModel& settings,
+                                                               const juce::AudioDeviceManager& deviceManager);
+
+[[nodiscard]] RuntimePluginState buildRuntimePluginStateSnapshot(const PluginHost& pluginHost,
+                                                                 bool isEditorOpen);
+
+[[nodiscard]] RuntimeInputState buildRuntimeInputStateSnapshot(const KeyboardMidiMapper& keyboardMidiMapper,
+                                                               const MidiRouter& midiRouter,
+                                                               int midiActivityCount,
+                                                               const juce::String& lastMidiMessage);
+
+[[nodiscard]] AppState buildCurrentAppStateSnapshot(const SettingsModel& settings,
+                                                    const juce::AudioDeviceManager& deviceManager,
+                                                    const PluginHost& pluginHost,
+                                                    bool isEditorOpen,
+                                                    const KeyboardMidiMapper& keyboardMidiMapper,
+                                                    const MidiRouter& midiRouter,
+                                                    int midiActivityCount,
+                                                    const juce::String& lastMidiMessage);
 }

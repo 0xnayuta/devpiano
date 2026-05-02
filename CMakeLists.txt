@@ -51,6 +51,7 @@ target_sources(devpiano PRIVATE
     source/Core/KeyMapTypes.h
     source/Core/MidiTypes.h
     source/Core/AppState.h
+    source/Core/AppStateBuilder.cpp
     source/Core/AppStateBuilder.h
     source/Midi/MidiRouter.cpp
     source/Midi/MidiRouter.h

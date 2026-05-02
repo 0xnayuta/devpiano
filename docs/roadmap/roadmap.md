@@ -23,7 +23,7 @@
 - Phase 5.1-5.7（架构收敛）：MainComponent 职责下沉，Phase 5-5..5-11 已完成。
 
 **当前阶段：**
-- Phase 5.8：继续 MainComponent 瘦身，5.8a+5.8b+5.8c+5.8d 已完成（1587→631 行），远低于 1200 行目标。
+- Phase 5.8：MainComponent 瘦身已完成 5.8a-5.8e（1587→606 行），远低于 1200 行目标。
 - 当前插入缺陷“启动 / 音频重建早期首音音高异常”已修复并通过人工验证；保留 `25ms` audio warmup，详见 [`../testing/known-issues.md`](../testing/known-issues.md) §2。
 - 插入缺陷“MIDI 导入播放首音无声”已通过 playback-start pre-roll / arming 修复并完成人工回归；后续作为 Phase 4 MIDI import 回归项观察，详见 [`../testing/known-issues.md`](../testing/known-issues.md) §8。
 
@@ -72,7 +72,7 @@
 
 ### Phase 5：架构收敛与 MainComponent 瘦身
 
-状态：进行中（5.1-5.7 已完成，5.8a+5.8b+5.8c+5.8d 已完成，5.8e 待执行）。
+状态：实现完成（5.1-5.7 已完成，5.8a-5.8e 已完成；剩余人工回归）。
 
 **目标：** 将 `MainComponent.cpp` 从约 1587 行降至 1200 行以下，通过提取 helper 收敛职责。
 
@@ -86,12 +86,13 @@
 - 录制/回放/MIDI 导入编排提取到 `Recording/RecordingSessionController`（MainComponent 1349→930 行，减少 419 行）。
 - 插件操作提取到 `Plugin/PluginOperationController`（MainComponent 930→711 行，减少 219 行）。
 - 设置窗口管理提取到 `Settings/SettingsWindowManager`（MainComponent 711→631 行，减少 80 行）。
-- 累计减少 956 行，远低于 1200 行目标。
+- 状态快照构建提取到 `Core/AppStateBuilder`（MainComponent 631→606 行，减少 25 行；主要收益是边界收敛）。
+- 累计减少 981 行，远低于 1200 行目标。
 
-**剩余规划（5.8e）：**
-- 5.8e：状态快照构建提取到 `Core/AppStateBuilder`（~76 行 → MainComponent -70 行）。
+**剩余事项：**
+- Phase 5.8 人工回归：键盘演奏、插件加载/卸载/editor、录制/回放/MIDI/WAV 导出、MIDI 导入、布局 preset、设置窗口。
 
-5.8a + 5.8b + 5.8c + 5.8d 已使 `MainComponent.cpp` 降至 631 行，已达成 1200 行以下目标；5.8e 作为额外职责收敛继续推进。详细计划见 [`current-iteration.md`](current-iteration.md)。
+5.8a-5.8e 已使 `MainComponent.cpp` 降至 606 行，已达成 1200 行以下目标。详细计划见 [`current-iteration.md`](current-iteration.md)。
 
 详细完成记录见：[`../archive/phase5-architecture-convergence.md`](../archive/phase5-architecture-convergence.md)。
 
@@ -100,8 +101,8 @@
 优先级从高到低：
 
 1. **Phase 5.8：MainComponent 继续瘦身**
-   - 目标：从约 1587 行降至 1200 行以下；当前已降至 631 行。
-   - 5.8a+5.8b+5.8c+5.8d 已完成，下一步继续 5.8e。
+   - 目标：从约 1587 行降至 1200 行以下；当前已降至 606 行。
+   - 5.8a-5.8e 已完成，下一步做人工回归与后续机会评估。
    - 详见 [`current-iteration.md`](current-iteration.md)。
 
 2. **Phase 4 边界稳定**
@@ -124,7 +125,7 @@
 | 插件生命周期复杂 | 中 | 维护专项生命周期测试，重点覆盖 editor、卸载、重扫、退出。 |
 | 外部 MIDI 硬件依赖 | 中 | 外部 MIDI 录制/回放/退出场景因无硬件暂缓；状态已记录至 [`known-issues.md`](../testing/known-issues.md)。 |
 | 键盘映射边界多 | 低中 | 基础映射已全量验证；布局 preset 已补充专项回归清单。 |
-| `MainComponent` 职责回流 | 低中 | 已通过 Phase 5.1-5.8d 架构收敛；布局、录制/回放/MIDI 导入、插件操作和设置窗口管理已下沉到专门模块。 |
+| `MainComponent` 职责回流 | 低中 | 已通过 Phase 5.1-5.8e 架构收敛；布局、录制/回放/MIDI 导入、插件操作、设置窗口管理和状态快照构建已下沉到专门模块。 |
 | 录制/回放实现风险 | 中 | MVP 主链路已接入；下一阶段优先收紧实时音频线程边界。 |
 | 布局 Preset 实现风险 | 低 | 核心能力已完成并补充功能/测试文档。 |
 | 文档状态漂移 | 中 | 本文件作为唯一 roadmap；当前任务只写入 [`current-iteration.md`](current-iteration.md)。 |
