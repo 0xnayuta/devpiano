@@ -60,14 +60,15 @@
   - `RecordingSessionController`（`source/Recording/RecordingSessionController.*`）：录制/回放/MIDI 导入/导出编排与会话状态。
   - `PluginOperationController`（`source/Plugin/PluginOperationController.*`）：插件扫描、加载/卸载、editor 和启动恢复编排。
   - `SettingsWindowManager`（`source/Settings/SettingsWindowManager.*`）：设置窗口、`SettingsComponent`、dirty/save/close 生命周期。
-  - `AppStateBuilder`（`source/Core/AppStateBuilder.*`）：持久化状态基线与 runtime audio/plugin/input snapshot 组装。
+  - `AppStateBuilder`（`source/Core/AppStateBuilder.*`）：持久化状态基线与 runtime audio/plugin/input snapshot 组装。**注意**：当前 runtime snapshot 构建依赖运行时模块，计划通过 Phase 5.8f 移到 `App/AppStateSnapshotBuilder` 以恢复 `Core` 层纯状态职责。
 - `MainComponent` 现在主要保留 UI 组件拥有权、JUCE 生命周期入口、音频设备重建胶水、键盘焦点恢复和顶层装配。
 
 **仍留在 MainComponent 的职责**：
 - 音频设备重建胶水逻辑
 - 顶层 UI 事件绑定、只读 UI 刷新和窗口焦点恢复
 
-**Phase 5.8 后续验证目标**：
+**Phase 5.8 后续目标**：
+- Phase 5.8f：将 runtime snapshot 构建从 `Core/AppStateBuilder` 移到 `App/AppStateSnapshotBuilder`，恢复 `Core` 层纯状态职责。
 - 执行键盘演奏、插件加载/卸载/editor、录制/回放/MIDI/WAV 导出、MIDI 导入、布局 preset、设置窗口人工回归。
 
 边界纪律与收敛原则：
