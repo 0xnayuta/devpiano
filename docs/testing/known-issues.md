@@ -188,11 +188,11 @@
 
 ---
 
-## 8. MIDI 导入播放首音无声（待调查）
+## 8. MIDI 导入播放首音无声（待修复）
 
 > 触发条件：导入的 MIDI 文件首个音符起始时间接近 0 秒（如 0 秒）时。
 > 影响范围：MIDI 文件导入后播放，首个音符几乎无声，但虚拟键盘可视化显示按键已按下。
-> 当前状态：已记录，待调查根因。
+> 当前状态：已完成初步根因调查，待按 playback-start pre-roll / warmup 方向修复。
 
 ### 现象
 
@@ -214,6 +214,55 @@
 ### 实际行为
 
 - 首个音符几乎无声，但虚拟键盘可视化正常。
+
+### 初步根因判断
+
+高置信度判断：问题主要暴露在 **MIDI import playback 启动边界**，不是导入器丢失首个 note。
+
+证据链：
+
+1. `MidiFileImporter` 保留 MIDI 文件原始时间线，将首个 note-on 的时间转换为 `RecordingTake` 事件；首个音在 0 秒时会得到 `timestampSamples == 0`。
+2. `RecordingSessionController::startInternalPlayback()` 在开始播放前会请求 `all-notes-off`，并通过 `runPluginActionWithAudioDeviceRebuild()` 包裹 `recordingEngine.startPlayback(...)`。
+3. `runPluginActionWithAudioDeviceRebuild()` 会先 `shutdownAudio()`，执行播放启动动作，再重新 `initialiseAudioDevice()`，从而触发 `AudioEngine::prepareToPlay()`。
+4. `AudioEngine::prepareToPlay()` 会设置约 `25ms` 的 audio warmup；warmup block 期间 `getNextAudioBlock()` 直接静音返回，不调用 `renderPlaybackEventsIfNeeded()`，因此 playback position 不前进。
+5. warmup 结束后的第一个可渲染 block 仍从 playback sample `0` 开始；`RecordingEngine::renderPlaybackBlock()` 会把 `timestampSamples == 0` 的首个 note-on 放在该 block 的 sample offset `0`。
+6. 虚拟键盘可视化能显示按键被按下，说明首个 note-on 已被 playback scheduler 取出，并已进入 `MidiKeyboardState`；故障点更可能位于之后的 audio MIDI buffer / synth / plugin 渲染路径。
+
+因此，当前 `25ms` warmup 解决的是音频设备早期 transient 外泄问题，但对导入播放来说，它没有让 synth/plugin 在真正接收首个 playback note 前完成一段“空 MIDI 渲染预热”；首个 0 秒 note 仍会成为 rebuild 后第一个进入渲染链路的播放事件。
+
+中等置信度的附加风险：`startInternalPlayback()` 提前调用的 `requestAllNotesOff()` 可能在 warmup 后第一个可听 block 中与首个 playback note-on 同时落在 sample offset `0`。不同插件或渲染路径对同 sample 的 all-notes-off / note-on 排序处理可能不同，可能进一步放大首音被吞或几乎无声的问题。该点仍需实测验证，不应先写死为唯一根因。
+
+低置信度判断：导入器本身丢弃首个 note 的可能性较低，因为 UI 可视化已证明首个 note-on 进入了 playback visual path。不过，“接近 0 秒”的事件经采样转换后可能被截断到 sample `0`，这是合法时间戳，但会触发上述启动边界。
+
+### 修复计划（待实施，先不改代码）
+
+推荐修复方向：在 audio/session playback 启动层增加安全 pre-roll / arming 机制，而不是修改导入后的 MIDI 事件时间。
+
+1. **保留导入时间线语义**
+   - 不在 `MidiFileImporter` 中强行给所有事件加固定偏移。
+   - `timestampSamples == 0` 应保持合法，避免破坏 MIDI 文件的音乐时间线。
+
+2. **在播放启动层增加 playback-start safety margin**
+   - 让音频设备 / synth / plugin 在首个 playback note 被调度前先跑过一小段空 MIDI 渲染窗口。
+   - 该窗口应是播放链路的启动 pre-roll / arming 行为，而不是修改 `RecordingTake` 数据。
+
+3. **处理 pending all-notes-off 与首个 note 的同 sample 冲突**
+   - 确保 playback 首个 note-on 进入 MIDI buffer 前，启动清理用的 all-notes-off 已被 drain 或隔离。
+   - 避免 all-notes-off 与首个导入 note-on 同时出现在第一个可听 block 的 sample offset `0`。
+
+4. **保持 `RecordingEngine` 的事件调度语义**
+   - `RecordingEngine::renderPlaybackBlock()` 中 `[blockStartSamples, blockEndSamples)` 的事件选择逻辑应继续支持 `timestampSamples == 0`。
+   - 修复重点应放在 playback 启动前的音频链路稳定与事件 arming，而不是改变事件选择条件。
+
+5. **增加诊断与回归覆盖**
+   - 修复时可临时记录首个 playback event timestamp、首个可渲染 block 的 playback position、pending all-notes-off 注入时机，用于验证是否确实避开同 sample 冲突。
+   - 修复后补充专项人工回归，见 Phase 4 MIDI import 测试文档。
+
+### 验证注意事项
+
+- 测试素材应保证首个 note 速度正常、持续时间足够长，排除“低 velocity / 超短音符本来就听不清”的干扰。
+- 需要分别覆盖内置 fallback synth 和至少一个 VST3 乐器；部分插件可能有慢 attack、首次 preset 初始化或 first-block 行为差异。
+- 虚拟键盘可视化只能证明 engine-side note scheduling 正常，不能证明插件已经发声。
 
 ### 关联文档
 

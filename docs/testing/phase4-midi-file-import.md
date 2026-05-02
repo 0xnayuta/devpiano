@@ -164,6 +164,18 @@
 - [ ] `./scripts/dev.sh wsl-build --configure-only` 通过。
 - [ ] `./scripts/dev.sh win-build` 通过。
 
+### 11.1 MIDI 导入播放首音回归（待修复后执行）
+
+针对 [`known-issues.md`](known-issues.md) §8 记录的“首个音符接近 0 秒时几乎无声”问题，修复后至少验证：
+
+- [ ] 单轨 MIDI，首个 note-on 恰好在 tick/time `0`：导入后首音可听，虚拟键盘显示一致。
+- [ ] 单轨 MIDI，首个 note-on 非常接近 0 秒（例如 1 sample 或约 1ms）：导入后首音可听。
+- [ ] 零时刻和弦：所有和弦音都可听，所有对应虚拟按键都按下。
+- [ ] 连续 Stop → Import/Play 或 Back/restart 多次：首音稳定可听，不出现 stuck note。
+- [ ] 加载 / 卸载 VST3 插件或音频设备重建后立即导入播放：首个导入音符不被吞掉。
+- [ ] 启动清理用 all-notes-off 不会与首个 playback note-on 在同一个可听 block 内互相抵消。
+- [ ] 内置 fallback synth 与至少一个 VST3 乐器路径均通过；首音响度和 attack 与后续同 velocity 音符无明显异常差异。
+
 ## 12. 已知限制
 
 - Phase 4-2 默认只选择一个 note 最多的轨道，不合并所有轨道；这是当前推荐模式。
@@ -171,4 +183,4 @@
 - 当前不是完整 GM 播放器；外部 GM MIDI 可能听起来与原文件不同。
 - fallback synth 声部数有限，大型 MIDI 编曲可能出现拥挤或缺音。
 - 完整 tempo map roundtrip、完整多轨模型、merge-all 导入和 MIDI 编辑器均为后续阶段范围。
-- **MIDI 导入播放首音无声**：当导入的 MIDI 文件首个音符起始时间接近 0 秒时，该音符几乎无声，但虚拟键盘可视化正常。详见 [`known-issues.md`](known-issues.md) §8。
+- **MIDI 导入播放首音无声**：当导入的 MIDI 文件首个音符起始时间接近 0 秒时，该音符几乎无声，但虚拟键盘可视化正常。初步判断问题位于 playback 启动 / audio warmup / all-notes-off 边界，修复方向是 playback-start pre-roll / arming，而不是改写导入时间线。详见 [`known-issues.md`](known-issues.md) §8。
