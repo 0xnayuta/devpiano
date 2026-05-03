@@ -70,9 +70,9 @@ void LayoutFlowSupport::handleSaveLayoutRequested()
 
         auto saved = devpiano::layout::saveLayoutPreset(currentLayout, file);
         if (saved)
-            DP_LOG_INFO(("[Layout] saved: " + file.getFullPathName()).toRawUTF8());
+            DP_LOG_INFO("[Layout] saved: " + file.getFullPathName());
         else
-            DP_LOG_ERROR(("[Layout] save FAILED: " + file.getFullPathName()).toRawUTF8());
+            DP_LOG_ERROR("[Layout] save FAILED: " + file.getFullPathName());
         if (saved)
             applyLayoutAndCommit(currentLayout);
     });

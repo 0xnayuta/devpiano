@@ -99,7 +99,7 @@
 
 ### Phase 6：演奏数据持久化与播放体验增强
 
-状态：进行中（6-1 和 6-6 已完成）。
+状态：进行中（6-1、6-2、6-6 已完成）。
 
 **目标：** 填补 FreePiano 核心功能差距——录制后能保存、保存后能打开、打开后能调速播放。
 
@@ -110,6 +110,13 @@
   - ControlsPanel Save/Open 按钮 + FileChooser 流程。
   - `RecordingSessionController` 接入 `PerformanceFile` API。
   - UI 布局待美化（Phase 6-2 范围）。
+- **Phase 6-2：播放速度控制** ✅
+  - ControlsPanel 增加速度显示（`1.00x`）和 `-`/`+` 按钮。
+  - `RecordingEngine.playbackSpeedMultiplier` + `setPlaybackSpeedMultiplier()`。
+  - `renderPlaybackBlock()` 使用 `combinedRatio` 实时缩放时间戳，不修改原始数据。
+  - `SettingsModel.playbackSpeed` 持久化，启动时自动恢复。
+  - 速度变更实时生效（播放中切换立即影响回放速率）。
+  - `.devpiano` 和 `.mid` 共用同一回放链路，无需差异化处理。
 - **Phase 6-6：Diagnostics 最小层**✅
   - `source/Diagnostics/`（4 个文件）：`DebugLog.h/.cpp`、`MidiTrace.h/.cpp`。
   - 接口：`DP_LOG_INFO/WARN/ERROR`、`DP_DEBUG_LOG`、`DP_TRACE_MIDI`。
@@ -122,6 +129,7 @@
 - **Phase 6-2：播放速度控制**
   - 0.5x ~ 2.0x 速度调节，ControlsPanel 增加速度显示 + 增减按钮。
   - 用户价值：高——练琴刚需，FreePiano 有此功能。
+  - ✅ 已完成（实时倍率，持久化，下一session恢复）。
 - **Phase 6-3：最近文件列表 + 拖拽打开**
   - 最近打开的演奏文件/MIDI 文件列表（最多 10 条）。
   - 拖拽 `.devpiano` / `.mid` 文件到窗口触发打开。

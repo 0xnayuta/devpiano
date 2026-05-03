@@ -101,8 +101,8 @@ RecordingTake RecordingEngine::stopRecording()
 
     state.store(RecordingState::stopped, std::memory_order_release);
 
-    DP_DEBUG_LOG(("[RecordingEngine] recording STOPPED: " + juce::String(currentTake.events.size())
-                  + " events, duration=" + juce::String(currentTake.durationSeconds(), 2) + "s").toRawUTF8());
+    DP_DEBUG_LOG("[RecordingEngine] recording STOPPED: " + juce::String(currentTake.events.size())
+                 + " events, duration=" + juce::String(currentTake.durationSeconds(), 2) + "s");
 
     return currentTake;
 }
@@ -192,15 +192,34 @@ void RecordingEngine::startPlayback(const RecordingTake& take, double currentSam
     playbackEndedPending.store(false, std::memory_order_release);
     state.store(RecordingState::playing, std::memory_order_release);
 
-    DP_DEBUG_LOG(("[RecordingEngine] playback STARTED: " + juce::String(take.events.size())
-                  + " events, ratio=" + juce::String(playbackSampleRateRatio)
-                  + ", scaledLen=" + juce::String(scaledPlaybackLengthSamples)).toRawUTF8());
+    DP_DEBUG_LOG("[RecordingEngine] playback STARTED: " + juce::String(take.events.size())
+                 + " events, ratio=" + juce::String(playbackSampleRateRatio)
+                 + ", speed=" + juce::String(playbackSpeedMultiplier)
+                 + ", scaledLen=" + juce::String(scaledPlaybackLengthSamples));
 }
 
 void RecordingEngine::stopPlayback()
 {
     state.store(RecordingState::stopped, std::memory_order_release);
     playbackEndedPending.store(false, std::memory_order_release);
+}
+
+void RecordingEngine::setPlaybackSpeedMultiplier(double multiplier) noexcept
+{
+    const auto clamped = std::clamp(multiplier, 0.5, 2.0);
+    playbackSpeedMultiplier = clamped;
+
+    if (isPlaying())
+    {
+        scaledPlaybackLengthSamples = getScaledPlaybackLengthSamples();
+        DP_DEBUG_LOG("[RecordingEngine] playback speed updated to " + juce::String(clamped)
+                     + ", scaledLen=" + juce::String(scaledPlaybackLengthSamples));
+    }
+}
+
+double RecordingEngine::getPlaybackSpeedMultiplier() const noexcept
+{
+    return playbackSpeedMultiplier;
 }
 
 void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer,
@@ -210,12 +229,13 @@ void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer,
     if (!isPlaying())
         return;
 
+    const auto combinedRatio = playbackSampleRateRatio * playbackSpeedMultiplier;
     const auto blockEndSamples = blockStartSamples + static_cast<std::int64_t>(numSamples);
 
     for (const auto& event : playbackTake.events)
     {
         const auto scaledTimestamp = static_cast<std::int64_t>(
-            static_cast<double>(event.timestampSamples) * playbackSampleRateRatio);
+            static_cast<double>(event.timestampSamples) * combinedRatio);
 
         if (scaledTimestamp < blockStartSamples || scaledTimestamp >= blockEndSamples)
             continue;
@@ -230,17 +250,16 @@ void RecordingEngine::advancePlaybackPosition(std::int64_t numSamples) noexcept
     if (!isPlaying() || numSamples <= 0)
         return;
 
-    const auto wasPlaying = isPlaying();
     playbackPositionSamples += numSamples;
     if (playbackPositionSamples >= scaledPlaybackLengthSamples)
     {
         state.store(RecordingState::stopped, std::memory_order_release);
         playbackPositionSamples = scaledPlaybackLengthSamples;
         playbackEndedPending.store(true, std::memory_order_release);
-        DP_LOG_INFO(("[RecordingEngine] playback ENDED: pos="
-                     + juce::String(playbackPositionSamples)
-                     + " >= scaledLen=" + juce::String(scaledPlaybackLengthSamples)
-                     + " (ratio=" + juce::String(playbackSampleRateRatio) + ")").toRawUTF8());
+        DP_LOG_INFO("[RecordingEngine] playback ENDED: pos="
+                    + juce::String(playbackPositionSamples)
+                    + " >= scaledLen=" + juce::String(scaledPlaybackLengthSamples)
+                    + " (ratio=" + juce::String(playbackSampleRateRatio) + ")");
     }
 }
 

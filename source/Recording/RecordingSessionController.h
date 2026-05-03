@@ -53,6 +53,7 @@ public:
     void handleImportMidiClicked();
     void handleSavePerformanceClicked();
     void handleOpenPerformanceClicked();
+    void handlePlaybackSpeedChange(double speed);
 
     // Called from MainComponent::timerCallback() to check if playback ended.
     void checkPlaybackEnded();

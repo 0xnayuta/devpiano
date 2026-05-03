@@ -83,6 +83,10 @@ public:
 
     void startPlayback(const RecordingTake& take, double currentSampleRate);
     void stopPlayback();
+    // Sets the playback speed multiplier. Affects the next startPlayback or immediately
+    // if playback is active. Values: 0.5, 0.75, 1.0, 1.25, 1.5, 2.0.
+    void setPlaybackSpeedMultiplier(double multiplier) noexcept;
+    [[nodiscard]] double getPlaybackSpeedMultiplier() const noexcept;
     // Renders playback events whose scaled timestamp falls within [blockStartSamples, blockStartSamples + numSamples).
     // Uses the same midiBuffer that AudioEngine will then pass to plugin/synth rendering.
     void renderPlaybackBlock(juce::MidiBuffer& midiBuffer,
@@ -104,6 +108,7 @@ private:
     // Playback state
     RecordingTake playbackTake;
     double playbackSampleRateRatio = 1.0;
+    double playbackSpeedMultiplier = 1.0;
     std::int64_t scaledPlaybackLengthSamples = 0;
     std::int64_t playbackPositionSamples = 0;
     std::atomic_bool playbackEndedPending { false };

@@ -74,7 +74,7 @@ int PluginHost::scanVst3Plugins(const juce::FileSearchPath& searchPath, bool rec
     lastScanFailedFiles = scanner.getFailedFiles();
 
     for (const auto& failedFile : lastScanFailedFiles)
-        DP_LOG_WARN(("[PluginScan] Failed file: " + failedFile).toRawUTF8());
+        DP_LOG_WARN("[PluginScan] Failed file: " + failedFile);
 
     const auto failedCount = lastScanFailedFiles.size();
     const auto pluginCount = knownPluginList.getNumTypes();
@@ -84,15 +84,15 @@ int PluginHost::scanVst3Plugins(const juce::FileSearchPath& searchPath, bool rec
         lastScanSummary = "VST3 scan complete: " + juce::String(pluginCount)
                         + " plugin(s), " + juce::String(failedCount) + " failed"
                         + (failedCount > 0 ? " (see log)." : ".");
-        DP_LOG_INFO(("VST3 scan complete: " + juce::String(pluginCount)
-                     + " plugin(s), " + juce::String(failedCount) + " failed").toRawUTF8());
+        DP_LOG_INFO("VST3 scan complete: " + juce::String(pluginCount)
+                    + " plugin(s), " + juce::String(failedCount) + " failed");
     }
     else if (failedCount > 0)
     {
         lastScanSummary = "VST3 scan found no plugins; " + juce::String(failedCount)
                         + " failed (see log).";
-        DP_LOG_WARN(("VST3 scan found no plugins: " + juce::String(failedCount)
-                     + " failed files").toRawUTF8());
+        DP_LOG_WARN("VST3 scan found no plugins: " + juce::String(failedCount)
+                    + " failed files");
     }
     else
     {
@@ -198,12 +198,12 @@ bool PluginHost::loadPluginByDescription(const juce::PluginDescription& descript
         lastLoadError = errorMessage.isNotEmpty() ? errorMessage
                                                   : "Unknown plugin load failure.";
         loadedPluginDescription.reset();
-        DP_LOG_ERROR(("[PluginHost] Plugin load failed: " + lastLoadError).toRawUTF8());
+        DP_LOG_ERROR("[PluginHost] Plugin load failed: " + lastLoadError);
         return false;
     }
 
     loadedPluginDescription = std::make_unique<juce::PluginDescription>(description);
-    DP_LOG_INFO(("[PluginHost] Plugin loaded: " + description.name).toRawUTF8());
+    DP_LOG_INFO("[PluginHost] Plugin loaded: " + description.name);
 
     if (! prepareToPlay(initialSampleRate, initialBufferSize))
     {
@@ -243,8 +243,8 @@ bool PluginHost::prepareToPlay(double sampleRate, int blockSize)
     pluginInstance->suspendProcessing(false);
     prepared = true;
 
-    DP_LOG_INFO(("[PluginHost] Plugin prepared: rate=" + juce::String(preparedSampleRate)
-                  + "Hz, block=" + juce::String(preparedBlockSize)).toRawUTF8());
+    DP_LOG_INFO("[PluginHost] Plugin prepared: rate=" + juce::String(preparedSampleRate)
+                + "Hz, block=" + juce::String(preparedBlockSize));
 
     return true;
 }
@@ -270,7 +270,7 @@ void PluginHost::unloadPlugin()
     loadedPluginDescription.reset();
 
     if (hadPlugin)
-        DP_LOG_INFO(("[PluginHost] Plugin unloaded: " + pluginName).toRawUTF8());
+        DP_LOG_INFO("[PluginHost] Plugin unloaded: " + pluginName);
 }
 
 bool PluginHost::hasLoadedPlugin() const noexcept

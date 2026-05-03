@@ -52,7 +52,7 @@ void MidiRouter::handleIncomingMidiMessage(juce::MidiInput* source, const juce::
 {
     juce::ignoreUnused(source);
 
-    DP_TRACE_MIDI(devpiano::diagnostics::describeMidiMessage(message).toRawUTF8(), "MidiRouter");
+    DP_TRACE_MIDI(devpiano::diagnostics::describeMidiMessage(message), "MidiRouter");
 
     if (collector != nullptr)
         collector->addMessageToQueue(message);

@@ -38,6 +38,7 @@ public:
     std::function<void()> onImportMidiClicked;
     std::function<void()> onSavePerformanceClicked;
     std::function<void()> onOpenPerformanceClicked;
+    std::function<void(double)> onPlaybackSpeedChange;
 
     void setLayouts(const juce::StringArray& layoutIds,
                 const juce::String& currentLayoutId,
@@ -55,11 +56,13 @@ public:
     };
 
     void setRecordingControlsState(RecordingControlsState state);
+    void setPlaybackSpeed(double speed);
 
 private:
     [[nodiscard]] static juce::String makeLayoutDisplayName(const juce::String& layoutId);
     void updateRecordingActionButtons();
     void updateLayoutActionButtons();
+    [[nodiscard]] double getCurrentPlaybackSpeed() const;
 
     void configureSlider(juce::Slider& slider,
                          juce::Label& label,
@@ -99,6 +102,13 @@ private:
     juce::TextButton importMidiButton { "Import MIDI" };
     juce::TextButton savePerformanceButton { "Save" };
     juce::TextButton openPerformanceButton { "Open" };
+
+    juce::Label playbackSpeedLabel { "Speed" };
+    juce::TextButton speedDownButton { "-" };
+    juce::TextButton speedUpButton { "+" };
+    juce::Label playbackSpeedValueLabel { "1.00x" };
+
+    double currentPlaybackSpeed = 1.0;
 
     RecordingControlsState recordingControlsState;
 

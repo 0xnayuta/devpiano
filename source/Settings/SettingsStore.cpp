@@ -17,8 +17,41 @@ namespace {
     const char* kKeyMap = "keymapVT"; // stored as ValueTree XML
     const char* kKeyLastMidiImportPath = "lastMidiImportPath";
     const char* kKeyLastMidiExportPath = "lastMidiExportPath";
+    const char* kKeyPlaybackSpeed = "playbackSpeed";
     const char* kKeyMainWindowWidth = "mainWindowWidth";
     const char* kKeyMainWindowHeight = "mainWindowHeight";
+
+    [[nodiscard]] SettingsModel::PerformanceSettingsView makeDefaultPerformanceSettings() noexcept
+    {
+        return {};
+    }
+
+    void readPerformanceSettings(juce::PropertiesFile& file, SettingsModel& model)
+    {
+        auto performance = SettingsModel::PerformanceSettingsView {
+            .masterGain = static_cast<float>(file.getDoubleValue(kKeyGain, model.masterGain)),
+            .adsrAttack = static_cast<float>(file.getDoubleValue(kKeyA, model.adsrAttack)),
+            .adsrDecay = static_cast<float>(file.getDoubleValue(kKeyD, model.adsrDecay)),
+            .adsrSustain = static_cast<float>(file.getDoubleValue(kKeyS, model.adsrSustain)),
+            .adsrRelease = static_cast<float>(file.getDoubleValue(kKeyR, model.adsrRelease))
+        };
+
+        const auto looksLikeCorruptedZeroState = performance.masterGain == 0.0f
+                                             && performance.adsrAttack == 0.0f
+                                             && performance.adsrDecay == 0.0f
+                                             && performance.adsrSustain == 0.0f
+                                             && performance.adsrRelease == 0.0f;
+        if (looksLikeCorruptedZeroState)
+            performance = makeDefaultPerformanceSettings();
+
+        performance.masterGain = juce::jlimit(0.0f, 1.0f, performance.masterGain);
+        performance.adsrAttack = juce::jlimit(0.001f, 2.0f, performance.adsrAttack);
+        performance.adsrDecay = juce::jlimit(0.001f, 2.0f, performance.adsrDecay);
+        performance.adsrSustain = juce::jlimit(0.0f, 1.0f, performance.adsrSustain);
+        performance.adsrRelease = juce::jlimit(0.001f, 3.0f, performance.adsrRelease);
+
+        model.applyPerformanceSettingsView(performance);
+    }
 }
 
 SettingsStore::SettingsStore() = default;
@@ -56,11 +89,7 @@ void SettingsStore::readNow(SettingsModel& m)
     m.sampleRate = f.getDoubleValue(kKeySampleRate, m.sampleRate);
     m.bufferSize = f.getIntValue(kKeyBufferSize, m.bufferSize);
 
-    m.masterGain = (float) f.getDoubleValue(kKeyGain, m.masterGain);
-    m.adsrAttack = (float) f.getDoubleValue(kKeyA, m.adsrAttack);
-    m.adsrDecay  = (float) f.getDoubleValue(kKeyD, m.adsrDecay);
-    m.adsrSustain= (float) f.getDoubleValue(kKeyS, m.adsrSustain);
-    m.adsrRelease= (float) f.getDoubleValue(kKeyR, m.adsrRelease);
+    readPerformanceSettings(f, m);
 
     m.pluginSearchPath = f.getValue(kKeyPluginSearchPath, m.pluginSearchPath);
     m.lastPluginName = f.getValue(kKeyLastPluginName, m.lastPluginName);
@@ -70,6 +99,11 @@ void SettingsStore::readNow(SettingsModel& m)
     // MIDI import/export paths
     m.lastMidiImportPath = f.getValue(kKeyLastMidiImportPath, m.lastMidiImportPath);
     m.lastMidiExportPath = f.getValue(kKeyLastMidiExportPath, m.lastMidiExportPath);
+
+    // Playback speed
+    m.playbackSpeed = f.getDoubleValue(kKeyPlaybackSpeed, m.playbackSpeed);
+    if (m.playbackSpeed <= 0.0)
+        m.playbackSpeed = 1.0;
 
     // Main content size
     m.mainWindowWidth = f.getIntValue(kKeyMainWindowWidth, m.mainWindowWidth);
@@ -108,6 +142,9 @@ void SettingsStore::writeNow(const SettingsModel& m)
     // MIDI import/export paths
     f.setValue(kKeyLastMidiImportPath, m.lastMidiImportPath);
     f.setValue(kKeyLastMidiExportPath, m.lastMidiExportPath);
+
+    // Playback speed
+    f.setValue(kKeyPlaybackSpeed, m.playbackSpeed);
 
     // Main content size
     f.setValue(kKeyMainWindowWidth, m.mainWindowWidth);

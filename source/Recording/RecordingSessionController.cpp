@@ -260,8 +260,8 @@ void RecordingSessionController::handleImportMidiClicked()
 
         replaceTakeAndStartPlayback(std::move(*take));
 
-        DP_LOG_INFO(("[MIDI Import] imported: " + file.getFullPathName()
-                          + ", events=" + juce::String(static_cast<int>(recordingSession.take.events.size()))).toRawUTF8());
+        DP_LOG_INFO("[MIDI Import] imported: " + file.getFullPathName()
+                    + ", events=" + juce::String(static_cast<int>(recordingSession.take.events.size())));
 
         importMidiChooser.reset();
         owner.restoreKeyboardFocus();
@@ -302,9 +302,9 @@ void RecordingSessionController::handleSavePerformanceClicked()
         };
 
         if (devpiano::recording::savePerformanceFile(recordingSession.take, file, metadata))
-            DP_LOG_INFO(("[Performance File] saved: " + file.getFullPathName()).toRawUTF8());
+            DP_LOG_INFO("[Performance File] saved: " + file.getFullPathName());
         else
-            DP_LOG_ERROR(("[Performance File] save FAILED: " + file.getFullPathName()).toRawUTF8());
+            DP_LOG_ERROR("[Performance File] save FAILED: " + file.getFullPathName());
 
         performanceFileChooser.reset();
     });
@@ -344,7 +344,7 @@ void RecordingSessionController::handleOpenPerformanceClicked()
         auto take = devpiano::recording::loadPerformanceFile(file);
         if (! take.has_value() || take->isEmpty())
         {
-            DP_LOG_ERROR(("[Performance File] load failed or produced empty take: " + file.getFullPathName()).toRawUTF8());
+            DP_LOG_ERROR("[Performance File] load failed or produced empty take: " + file.getFullPathName());
             performanceFileChooser.reset();
             return;
         }
@@ -357,11 +357,20 @@ void RecordingSessionController::handleOpenPerformanceClicked()
         recordingSession.state = ControlsPanel::RecordingState::playing;
         syncRecordingSessionToUi();
 
-        DP_LOG_INFO(("[Performance File] opened: " + file.getFullPathName()
-                          + ", events=" + juce::String(static_cast<int>(recordingSession.take.events.size()))).toRawUTF8());
+        DP_LOG_INFO("[Performance File] opened: " + file.getFullPathName()
+                    + ", events=" + juce::String(static_cast<int>(recordingSession.take.events.size())));
 
         performanceFileChooser.reset();
     });
+}
+
+void RecordingSessionController::handlePlaybackSpeedChange(double speed)
+{
+    recordingEngine.setPlaybackSpeedMultiplier(speed);
+    appSettings.playbackSpeed = speed;
+    owner.saveSettingsSoon();
+    controlsPanel.setPlaybackSpeed(speed);
+    DP_DEBUG_LOG("[Playback] speed changed to " + juce::String(speed, 2) + "x");
 }
 
 void RecordingSessionController::checkPlaybackEnded()
@@ -402,7 +411,7 @@ void RecordingSessionController::startInternalRecording(std::size_t expectedEven
         recordingEngine.startRecording(config.sampleRate);
     });
 
-    DP_LOG_INFO(("[Recording] Internal recording started; reserved events=" + juce::String(static_cast<int>(recordingEngine.getReservedEventCapacity()))).toRawUTF8());
+    DP_LOG_INFO("[Recording] Internal recording started; reserved events=" + juce::String(static_cast<int>(recordingEngine.getReservedEventCapacity())));
 }
 
 RecordingTake RecordingSessionController::stopInternalRecording()
@@ -414,10 +423,10 @@ RecordingTake RecordingSessionController::stopInternalRecording()
         take = recordingEngine.stopRecording();
     });
 
-    DP_LOG_INFO(("[Recording] Internal recording stopped; events="
-                       + juce::String(static_cast<int>(take.events.size()))
-                       + ", dropped="
-                       + juce::String(static_cast<int>(recordingEngine.getDroppedEventCount()))).toRawUTF8());
+    DP_LOG_INFO("[Recording] Internal recording stopped; events="
+                + juce::String(static_cast<int>(take.events.size()))
+                + ", dropped="
+                + juce::String(static_cast<int>(recordingEngine.getDroppedEventCount())));
     return take;
 }
 
@@ -437,10 +446,10 @@ void RecordingSessionController::startInternalPlayback(const RecordingTake& take
         audioEngine.armPlaybackStartPreRoll(config.sampleRate, config.blockSize);
     });
 
-    DP_LOG_INFO(("[Playback] Internal playback started; take events="
-                       + juce::String(static_cast<int>(take.events.size()))
-                       + ", sampleRate="
-                       + juce::String(take.sampleRate)).toRawUTF8());
+    DP_LOG_INFO("[Playback] Internal playback started; take events="
+                + juce::String(static_cast<int>(take.events.size()))
+                + ", sampleRate="
+                + juce::String(take.sampleRate));
 }
 
 RecordingTake RecordingSessionController::stopInternalPlayback()
@@ -475,8 +484,8 @@ void RecordingSessionController::runExportRecordingFlow(devpiano::exporting::Exp
 
     if (! canExportRequestedType || ! hasExportableTake)
     {
-        DP_LOG_INFO((devpiano::exporting::makeExportLogPrefix(type)
-                     + " export skipped: recordingSession.take is empty or not exportable").toRawUTF8());
+        DP_LOG_INFO(devpiano::exporting::makeExportLogPrefix(type)
+                    + " export skipped: recordingSession.take is empty or not exportable");
         return;
     }
 
@@ -492,8 +501,8 @@ void RecordingSessionController::runExportRecordingFlow(devpiano::exporting::Exp
 
         if (file == juce::File())
         {
-            DP_LOG_INFO((devpiano::exporting::makeExportLogPrefix(type)
-                         + " export cancelled by user").toRawUTF8());
+            DP_LOG_INFO(devpiano::exporting::makeExportLogPrefix(type)
+                        + " export cancelled by user");
             chooser.reset();
             return;
         }
@@ -502,11 +511,11 @@ void RecordingSessionController::runExportRecordingFlow(devpiano::exporting::Exp
         owner.saveSettingsSoon();
 
         if (doExport(file))
-            DP_LOG_INFO((devpiano::exporting::makeExportLogPrefix(type)
-                         + " exported: " + file.getFullPathName()).toRawUTF8());
+            DP_LOG_INFO(devpiano::exporting::makeExportLogPrefix(type)
+                        + " exported: " + file.getFullPathName());
         else
-            DP_LOG_ERROR((devpiano::exporting::makeExportLogPrefix(type)
-                          + " export FAILED: " + file.getFullPathName()).toRawUTF8());
+            DP_LOG_ERROR(devpiano::exporting::makeExportLogPrefix(type)
+                         + " export FAILED: " + file.getFullPathName());
 
         chooser.reset();
     });
@@ -519,7 +528,7 @@ std::optional<RecordingTake> RecordingSessionController::tryImportMidiFile(const
 
     if (!take.has_value() || take->isEmpty())
     {
-        DP_LOG_ERROR(("[MIDI Import] import failed or produced empty take: " + file.getFullPathName()).toRawUTF8());
+        DP_LOG_ERROR("[MIDI Import] import failed or produced empty take: " + file.getFullPathName());
         return std::nullopt;
     }
 

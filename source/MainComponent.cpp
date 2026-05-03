@@ -151,6 +151,15 @@ void MainComponent::initialiseUi()
     controlsPanel.onImportMidiClicked = [this] { recordingSessionController->handleImportMidiClicked(); };
     controlsPanel.onSavePerformanceClicked = [this] { recordingSessionController->handleSavePerformanceClicked(); };
     controlsPanel.onOpenPerformanceClicked = [this] { recordingSessionController->handleOpenPerformanceClicked(); };
+    controlsPanel.onPlaybackSpeedChange = [this](double speed) { recordingSessionController->handlePlaybackSpeedChange(speed); };
+
+    // Initialize playback speed from persisted settings without triggering a settings save.
+    // The generic speed-change handler persists immediately; during startup the ADSR/Gain
+    // sliders have not necessarily been restored yet, so using that path here can write
+    // slider default values back into DevPiano.settings.
+    const auto initialSpeed = appSettings.playbackSpeed > 0.0 ? appSettings.playbackSpeed : 1.0;
+    controlsPanel.setPlaybackSpeed(initialSpeed);
+    recordingEngine.setPlaybackSpeedMultiplier(initialSpeed);
 
     addAndMakeVisible(keyboardPanel);
 }
@@ -538,7 +547,7 @@ void MainComponent::finishPluginUiAction(bool shouldSaveSettings)
 void MainComponent::logCurrentAudioDeviceDiagnostics(const juce::String& context) const
 {
     const auto diagnostics = devpiano::audio::buildAudioDeviceDiagnostics(appSettings.audioDeviceState.get(), deviceManager);
-    DP_LOG_INFO(("[AudioDevice] " + context + "\n" + diagnostics.detailedSummary).toRawUTF8());
+    DP_LOG_INFO("[AudioDevice] " + context + "\n" + diagnostics.detailedSummary);
 }
 
 devpiano::core::AppState MainComponent::buildCurrentAppStateSnapshot() const

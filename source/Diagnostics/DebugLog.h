@@ -5,9 +5,15 @@
 namespace devpiano::diagnostics
 {
 
-void logInfo(const char* message);
-void logWarn(const char* message);
-void logError(const char* message);
+void logInfo(const juce::String& message);
+void logWarn(const juce::String& message);
+void logError(const juce::String& message);
+
+// Compatibility overloads for string literals and UTF-8 byte strings.
+// Project code should prefer passing juce::String values directly.
+void logInfo(const char* utf8Message);
+void logWarn(const char* utf8Message);
+void logError(const char* utf8Message);
 
 } // namespace devpiano::diagnostics
 
@@ -46,6 +52,7 @@ namespace devpiano::diagnostics
 
 //! Formats and traces a MIDI message with a user-provided stage label.
 //! Only active in Debug builds; a no-op in Release.
-void traceMidi(const char* message, const char* stage);
+void traceMidi(const juce::String& message, const juce::String& stage);
+void traceMidi(const char* utf8Message, const char* utf8Stage);
 
 } // namespace devpiano::diagnostics

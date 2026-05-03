@@ -142,6 +142,50 @@ ControlsPanel::ControlsPanel()
             onOpenPerformanceClicked();
     };
 
+    playbackSpeedLabel.setJustificationType(juce::Justification::centredLeft);
+    addAndMakeVisible(playbackSpeedLabel);
+
+    addAndMakeVisible(speedDownButton);
+    speedDownButton.onClick = [this]
+    {
+        if (! onPlaybackSpeedChange)
+            return;
+        const auto current = currentPlaybackSpeed;
+        if (current <= 0.5)
+            return;
+        const auto speeds = std::array { 0.5, 0.75, 1.0, 1.25, 1.5, 2.0 };
+        for (std::size_t i = speeds.size(); i-- > 0; )
+        {
+            if (speeds[i] < current)
+            {
+                onPlaybackSpeedChange(speeds[i]);
+                break;
+            }
+        }
+    };
+
+    addAndMakeVisible(speedUpButton);
+    speedUpButton.onClick = [this]
+    {
+        if (! onPlaybackSpeedChange)
+            return;
+        const auto current = currentPlaybackSpeed;
+        if (current >= 2.0)
+            return;
+        const auto speeds = std::array { 0.5, 0.75, 1.0, 1.25, 1.5, 2.0 };
+        for (const auto speed : speeds)
+        {
+            if (speed > current)
+            {
+                onPlaybackSpeedChange(speed);
+                break;
+            }
+        }
+    };
+
+    playbackSpeedValueLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(playbackSpeedValueLabel);
+
     setRecordingControlsState({});
 
     updateLayoutActionButtons();
@@ -169,6 +213,8 @@ ControlsPanel::~ControlsPanel()
     importMidiButton.onClick = nullptr;
     savePerformanceButton.onClick = nullptr;
     openPerformanceButton.onClick = nullptr;
+    speedDownButton.onClick = nullptr;
+    speedUpButton.onClick = nullptr;
 }
 
 void ControlsPanel::resized()
@@ -226,6 +272,14 @@ void ControlsPanel::resized()
     exportMidiButton.setBounds(buttonRow.removeFromLeft(90));
     buttonRow.removeFromLeft(6);
     exportWavButton.setBounds(buttonRow.removeFromLeft(90));
+    buttonRow.removeFromLeft(10);
+    playbackSpeedLabel.setBounds(buttonRow.removeFromLeft(50));
+    buttonRow.removeFromLeft(4);
+    speedDownButton.setBounds(buttonRow.removeFromLeft(30));
+    buttonRow.removeFromLeft(2);
+    playbackSpeedValueLabel.setBounds(buttonRow.removeFromLeft(50));
+    buttonRow.removeFromLeft(2);
+    speedUpButton.setBounds(buttonRow.removeFromLeft(30));
 }
 
 void ControlsPanel::setRecordingControlsState(RecordingControlsState state)
@@ -372,6 +426,18 @@ juce::String ControlsPanel::getSelectedLayoutId() const
     if (!juce::isPositiveAndBelow(index, availableLayoutIds.size()))
         return {};
     return availableLayoutIds[index];
+}
+
+void ControlsPanel::setPlaybackSpeed(double speed)
+{
+    currentPlaybackSpeed = std::clamp(speed, 0.5, 2.0);
+    playbackSpeedValueLabel.setText(juce::String(currentPlaybackSpeed, 2) + "x",
+                                    juce::dontSendNotification);
+}
+
+double ControlsPanel::getCurrentPlaybackSpeed() const
+{
+    return currentPlaybackSpeed;
 }
 
 void ControlsPanel::configureSlider(juce::Slider& slider,

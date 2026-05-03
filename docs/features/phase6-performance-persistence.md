@@ -1,7 +1,7 @@
 # Phase 6：演奏数据持久化与播放体验增强
 
 > 用途：说明 Phase 6 各子阶段的功能设计、文件格式、行为边界与验收标准。
-> 当前状态：**进行中，Phase 6-1/6-6/6-7 已完成，Phase 6-2 暂缓（尽快做），其余暂缓。**
+> 当前状态：**进行中，Phase 6-1/6-2/6-6/6-7 已完成，Phase 6-3~6-5 暂缓。**
 > 读者：维护 Phase 6 功能的开发者、规划者。
 > 更新时机：Phase 6 各子阶段设计变化、实现状态变化、验收结果更新时。
 
@@ -49,6 +49,12 @@ Phase 6-6 已完成，包含以下内容：
 - `DP_DEBUG_LOG` 和 `DP_TRACE_MIDI` 在 `JUCE_DEBUG` 或 `DEBUG` 条件下启用，Release 下为空宏或空实现（零副作用）。
 - `DP_LOG_INFO/WARN/ERROR` 在 Debug 下同时写 `DBG`（调试器输出窗口）和 `juce::Logger`；Release 下只写 `Logger`。
 - `traceMidi()` 在 Release 下调用 `juce::ignoreUnused` 保证无副作用。
+
+**字符串编码边界：**
+
+- Diagnostics API 以 `juce::String` 为主接口，`const char*` overload 仅作为兼容层并按 UTF-8 解释。
+- 业务代码应直接传 `juce::String` 或字符串字面量给 `DP_LOG_*` / `DP_TRACE_MIDI`。
+- 业务代码不应再通过 `.toRawUTF8()` 把 `juce::String` 降级为裸 `const char*` 后交给 Diagnostics，避免 JUCE Debug 下把 UTF-8 误判为 ASCII 触发 `juce::String(const char*)` 断言。
 
 **散落 debug 清理：**
 
@@ -413,7 +419,7 @@ events[].message            →    events[].midiData (raw bytes)
 
 ---
 
-## 5. Phase 6-2：播放速度控制
+## 5. Phase 6-2：播放速度控制 ✅ 已完成
 
 ### 5.1 目标
 
@@ -423,14 +429,17 @@ events[].message            →    events[].midiData (raw bytes)
 
 - 速度范围：0.5x、0.75x、1.0x（默认）、1.25x、1.5x、2.0x。
 - ControlsPanel 增加速度显示 + 增减按钮（`-` / `+`）。
-- 速度变更实时生效（播放中调整立即改变回放速率）。
-- 速度值持久化到 `SettingsModel`，下次启动恢复。
+- 速度变更**实时生效**（播放中调整立即改变回放速率）。
+- 速度值持久化到 `SettingsModel.playbackSpeed`，下次启动恢复。
 
 ### 5.3 实现要点
 
-- `RecordingEngine::startPlayback()` 已支持 `playbackSampleRateRatio`，速度控制通过调整此比率实现。
-- `renderPlaybackBlock()` 中事件时间戳按比率缩放，无需修改 `RecordingTake` 数据。
-- UI 速度显示格式：`1.00x`。
+- `RecordingEngine.playbackSpeedMultiplier`：成员变量，类型 `double`，默认值 `1.0`。
+- `RecordingEngine.setPlaybackSpeedMultiplier(double)`：设置倍率并立即更新 `scaledPlaybackLengthSamples`（播放中亦可调用）。
+- `RecordingEngine.getPlaybackSpeedMultiplier()`：返回当前倍率。
+- `renderPlaybackBlock()` 中用 `combinedRatio = playbackSampleRateRatio * playbackSpeedMultiplier` 缩放时间戳，不修改原始事件。
+- 速度变更通过 `RecordingSessionController.handlePlaybackSpeedChange()` 同步到 engine + UI + 持久化。
+- `MainComponent` 初始化时从 `appSettings.playbackSpeed` 恢复速度。
 
 ### 5.4 不做范围
 
@@ -440,12 +449,12 @@ events[].message            →    events[].midiData (raw bytes)
 
 ### 5.5 验收标准
 
-- [ ] ControlsPanel 显示当前播放速度，默认 `1.00x`。
-- [ ] 点击 `-` / `+` 按钮可调整速度，范围 0.50x–2.00x。
-- [ ] 播放中调整速度，回放速率立即变化。
-- [ ] 速度值下次启动自动恢复。
-- [ ] 0.5x 慢速播放时音符间隔明显拉长，无卡顿。
-- [ ] 2.0x 快速播放时音符间隔明显缩短，无爆音。
+- [x] ControlsPanel 显示当前播放速度，默认 `1.00x`。
+- [x] 点击 `-` / `+` 按钮可调整速度，范围 0.50x–2.00x。
+- [x] 播放中调整速度，回放速率立即变化。
+- [x] 速度值下次启动自动恢复。
+- [x] 0.5x 慢速播放时音符间隔明显拉长，无卡顿。
+- [x] 2.0x 快速播放时音符间隔明显缩短，无爆音。
 
 ---
 

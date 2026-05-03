@@ -17,6 +17,16 @@
   - **调试插曲**：首次调试时出现 `WeakReference` 访问冲突崩溃，根因是 Windows MSVC 侧 CMake 缓存未追踪源文件变更，导致新旧目标文件混链接。快速修复：删除 `build-win-msvc/CMakeCache.txt` 后重新 `win-build`。已记录至 [`../development/troubleshooting.md`](../development/troubleshooting.md)。
   - 详细说明见 [`roadmap.md`](roadmap.md) Phase 6 章节。
 
+**Phase 6-2 已完成**：播放速度控制 ✅
+  - ControlsPanel 增加速度显示（`1.00x`）和 `-`/`+` 按钮，位于播放控制行下方。
+  - `RecordingEngine.playbackSpeedMultiplier`（默认 `1.0`，范围 `0.5–2.0`）。
+  - `setPlaybackSpeedMultiplier(double)` 在播放中实时更新 `scaledPlaybackLengthSamples` 和 `combinedRatio`。
+  - `renderPlaybackBlock()` 中用 `playbackSampleRateRatio * playbackSpeedMultiplier` 缩放时间戳，不修改原始 `RecordingTake` 数据。
+  - `SettingsModel.playbackSpeed` 持久化，启动时自动恢复。
+  - `.devpiano` 打开后和 `.mid` 导入后均默认 `1.0x`，不受之前播放速度影响。
+  - MIDI 导出使用原始 timeline，速度设置不影响导出时间戳。
+  - `RecordingSessionController.handlePlaybackSpeedChange()` 同步 engine + UI + 持久化。
+
 **Phase 6-6 已完成**：Diagnostics 最小层 ✅
   - `source/Diagnostics/`（4 文件）：`DebugLog.h/.cpp`、`MidiTrace.h/.cpp`。
   - 接口：`DP_LOG_INFO/WARN/ERROR`、`DP_DEBUG_LOG`、`DP_TRACE_MIDI`。
@@ -25,7 +35,7 @@
   - 散落 `Logger::writeToLog` 已全部替换为 `DP_LOG_*` 系列宏。
   - 为 Phase 6-5 MIDI 导入增强及后续播放体验任务建立统一诊断基础设施。
 
-**Phase 6-5 下一阶段**：MIDI 导入增强（sustain CC64、pitch bend、program change）。
+**Phase 6-3 下一阶段**：最近文件列表 + 拖拽打开（`lastPerformanceOpenPath`/`lastPerformanceSavePath` 路径记忆 + 最近 10 条文件列表）。
 
 ---
 

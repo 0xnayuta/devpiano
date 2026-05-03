@@ -22,13 +22,13 @@ bool readMidiFile(juce::MidiFile& midiFile, const juce::File& file)
     std::unique_ptr<juce::FileInputStream> stream { file.createInputStream() };
     if (!stream)
     {
-        DP_LOG_ERROR(("MidiFileImporter: could not open file for reading: " + file.getFullPathName()).toRawUTF8());
+        DP_LOG_ERROR("MidiFileImporter: could not open file for reading: " + file.getFullPathName());
         return false;
     }
 
     if (!midiFile.readFrom(*stream, true))
     {
-        DP_LOG_ERROR(("MidiFileImporter: failed to read file: " + file.getFullPathName()).toRawUTF8());
+        DP_LOG_ERROR("MidiFileImporter: failed to read file: " + file.getFullPathName());
         return false;
     }
 
@@ -116,11 +116,11 @@ void logTrackNoteStats(const std::vector<TrackNoteStats>& stats)
 {
     for (const auto& trackStats : stats)
     {
-        DP_LOG_INFO(("MidiFileImporter: track " + juce::String(trackStats.trackIndex)
-                         + " notes=" + juce::String(trackStats.totalNoteEvents())
-                         + " (on=" + juce::String(trackStats.noteOnCount)
-                         + ", off=" + juce::String(trackStats.noteOffCount)
-                         + ", zero-velocity-on=" + juce::String(trackStats.zeroVelocityNoteOnCount) + ")").toRawUTF8());
+        DP_LOG_INFO("MidiFileImporter: track " + juce::String(trackStats.trackIndex)
+                    + " notes=" + juce::String(trackStats.totalNoteEvents())
+                    + " (on=" + juce::String(trackStats.noteOnCount)
+                    + ", off=" + juce::String(trackStats.noteOffCount)
+                    + ", zero-velocity-on=" + juce::String(trackStats.zeroVelocityNoteOnCount) + ")");
     }
 }
 
@@ -141,13 +141,13 @@ std::optional<RecordingTake> importMidiFile(const juce::File& midiFile,
 {
     if (!midiFile.exists())
     {
-        DP_LOG_ERROR(("MidiFileImporter: file does not exist: " + midiFile.getFullPathName()).toRawUTF8());
+        DP_LOG_ERROR("MidiFileImporter: file does not exist: " + midiFile.getFullPathName());
         return std::nullopt;
     }
 
     if (midiFile.getSize() == 0)
     {
-        DP_LOG_ERROR(("MidiFileImporter: file is empty: " + midiFile.getFullPathName()).toRawUTF8());
+        DP_LOG_ERROR("MidiFileImporter: file is empty: " + midiFile.getFullPathName());
         return std::nullopt;
     }
 
@@ -155,18 +155,18 @@ std::optional<RecordingTake> importMidiFile(const juce::File& midiFile,
     if (!readMidiFile(file, midiFile))
         return std::nullopt;
 
-    DP_TRACE_MIDI(("MidiFile imported: " + midiFile.getFileName() + ", tracks=" + juce::String(file.getNumTracks())).toRawUTF8(), "MidiImporter");
+    DP_TRACE_MIDI("MidiFile imported: " + midiFile.getFileName() + ", tracks=" + juce::String(file.getNumTracks()), "MidiImporter");
     const auto timeFormat = file.getTimeFormat();
     if (timeFormat < 0)
     {
         const auto fps = -(timeFormat >> 8);
         const auto subframes = timeFormat & 0xff;
-        DP_DEBUG_LOG(("MidiFileImporter: SMPTE timing detected: " + juce::String(fps)
-                         + " fps, " + juce::String(subframes) + " subframes/frame").toRawUTF8());
+        DP_DEBUG_LOG("MidiFileImporter: SMPTE timing detected: " + juce::String(fps)
+                     + " fps, " + juce::String(subframes) + " subframes/frame");
     }
     else
     {
-        DP_DEBUG_LOG(("MidiFileImporter: PPQ = " + juce::String(timeFormat)).toRawUTF8());
+        DP_DEBUG_LOG("MidiFileImporter: PPQ = " + juce::String(timeFormat));
     }
 
     // Do NOT override timeFormat - readFrom() has already set it correctly from the
@@ -187,8 +187,8 @@ std::optional<RecordingTake> importMidiFile(const juce::File& midiFile,
 
     const auto trackStats = collectTrackNoteStats(file);
     const auto totalNoteEventsAllTracks = getTotalNoteEvents(trackStats);
-    DP_LOG_INFO(("MidiFileImporter: " + juce::String(numTracks) + " tracks, "
-                         + juce::String(totalNoteEventsAllTracks) + " total note events across all tracks").toRawUTF8());
+    DP_LOG_INFO("MidiFileImporter: " + juce::String(numTracks) + " tracks, "
+                + juce::String(totalNoteEventsAllTracks) + " total note events across all tracks");
     logTrackNoteStats(trackStats);
 
     const auto selectedTrackIndex = chooseNoteRichTrack(trackStats, options.preferTrack);
@@ -199,17 +199,17 @@ std::optional<RecordingTake> importMidiFile(const juce::File& midiFile,
     }
 
     if (options.preferTrack != selectedTrackIndex)
-        DP_LOG_INFO(("MidiFileImporter: auto-selected track " + juce::String(selectedTrackIndex)
-                          + " instead of preferred track " + juce::String(options.preferTrack)).toRawUTF8());
+        DP_LOG_INFO("MidiFileImporter: auto-selected track " + juce::String(selectedTrackIndex)
+                    + " instead of preferred track " + juce::String(options.preferTrack));
 
     if (numTracks > 1 && options.ignoreOtherTracks)
-        DP_LOG_INFO(("MidiFileImporter: imported track " + juce::String(selectedTrackIndex)
-                          + ", " + juce::String(numTracks - 1) + " other tracks ignored").toRawUTF8());
+        DP_LOG_INFO("MidiFileImporter: imported track " + juce::String(selectedTrackIndex)
+                    + ", " + juce::String(numTracks - 1) + " other tracks ignored");
 
     const auto* track = file.getTrack(selectedTrackIndex);
     if (track == nullptr)
     {
-        DP_LOG_ERROR(("MidiFileImporter: selected track " + juce::String(selectedTrackIndex) + " not found").toRawUTF8());
+        DP_LOG_ERROR("MidiFileImporter: selected track " + juce::String(selectedTrackIndex) + " not found");
         return std::nullopt;
     }
 
@@ -237,7 +237,7 @@ std::optional<RecordingTake> importMidiFile(const juce::File& midiFile,
         if (!isNoteOnWithVelocityNonZero && !isNoteOffEvent)
         {
             // Trace non-note events (CC, pitch bend, etc.) for Phase 6-5 MIDI import diagnostics
-            DP_TRACE_MIDI(devpiano::diagnostics::describeMidiMessage(midiMsg).toRawUTF8(), "MidiImporter");
+            DP_TRACE_MIDI(devpiano::diagnostics::describeMidiMessage(midiMsg), "MidiImporter");
             continue;
         }
 
@@ -263,13 +263,13 @@ std::optional<RecordingTake> importMidiFile(const juce::File& midiFile,
         events.push_back(std::move(ev));
     }
 
-    DP_LOG_INFO(("MidiFileImporter: track " + juce::String(selectedTrackIndex) + " collected " + juce::String(noteOnCount)
-                          + " note-on, " + juce::String(noteOffCount) + " note-off, "
-                          + juce::String(zeroVelocityNoteOnCount) + " zero-velocity note-on -> note-off").toRawUTF8());
+    DP_LOG_INFO("MidiFileImporter: track " + juce::String(selectedTrackIndex) + " collected " + juce::String(noteOnCount)
+                + " note-on, " + juce::String(noteOffCount) + " note-off, "
+                + juce::String(zeroVelocityNoteOnCount) + " zero-velocity note-on -> note-off");
 
     if (events.empty())
     {
-        DP_LOG_ERROR(("MidiFileImporter: no note events found in selected track " + juce::String(selectedTrackIndex)).toRawUTF8());
+        DP_LOG_ERROR("MidiFileImporter: no note events found in selected track " + juce::String(selectedTrackIndex));
         return std::nullopt;
     }
 
@@ -278,9 +278,9 @@ std::optional<RecordingTake> importMidiFile(const juce::File& midiFile,
     take.lengthSamples = lastTimestampSamples;
     take.events = std::move(events);
 
-    DP_LOG_INFO(("MidiFileImporter: imported successfully, "
-                          + juce::String(static_cast<int>(take.events.size())) + " events, "
-                          + "duration = " + juce::String(take.durationSeconds(), 2) + " seconds").toRawUTF8());
+    DP_LOG_INFO("MidiFileImporter: imported successfully, "
+                + juce::String(static_cast<int>(take.events.size())) + " events, "
+                + "duration = " + juce::String(take.durationSeconds(), 2) + " seconds");
 
     return take;
 }
