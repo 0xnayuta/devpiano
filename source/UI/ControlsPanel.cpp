@@ -128,6 +128,20 @@ ControlsPanel::ControlsPanel()
             onImportMidiClicked();
     };
 
+    addAndMakeVisible(savePerformanceButton);
+    savePerformanceButton.onClick = [this]
+    {
+        if (onSavePerformanceClicked)
+            onSavePerformanceClicked();
+    };
+
+    addAndMakeVisible(openPerformanceButton);
+    openPerformanceButton.onClick = [this]
+    {
+        if (onOpenPerformanceClicked)
+            onOpenPerformanceClicked();
+    };
+
     setRecordingControlsState({});
 
     updateLayoutActionButtons();
@@ -153,6 +167,8 @@ ControlsPanel::~ControlsPanel()
     exportMidiButton.onClick = nullptr;
     exportWavButton.onClick = nullptr;
     importMidiButton.onClick = nullptr;
+    savePerformanceButton.onClick = nullptr;
+    openPerformanceButton.onClick = nullptr;
 }
 
 void ControlsPanel::resized()
@@ -192,6 +208,10 @@ void ControlsPanel::resized()
 
     auto buttonRow = area.removeFromTop(rowHeight);
     recordStatusLabel.setBounds(buttonRow.removeFromLeft(80));
+    buttonRow.removeFromLeft(6);
+    savePerformanceButton.setBounds(buttonRow.removeFromLeft(50));
+    buttonRow.removeFromLeft(6);
+    openPerformanceButton.setBounds(buttonRow.removeFromLeft(50));
     buttonRow.removeFromLeft(6);
     recordButton.setBounds(buttonRow.removeFromLeft(60));
     buttonRow.removeFromLeft(6);

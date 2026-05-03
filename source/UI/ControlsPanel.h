@@ -36,6 +36,8 @@ public:
     std::function<void()> onExportMidiClicked;
     std::function<void()> onExportWavClicked;
     std::function<void()> onImportMidiClicked;
+    std::function<void()> onSavePerformanceClicked;
+    std::function<void()> onOpenPerformanceClicked;
 
     void setLayouts(const juce::StringArray& layoutIds,
                 const juce::String& currentLayoutId,
@@ -95,6 +97,8 @@ private:
     juce::TextButton exportMidiButton { "Export MIDI" };
     juce::TextButton exportWavButton { "Export WAV" };
     juce::TextButton importMidiButton { "Import MIDI" };
+    juce::TextButton savePerformanceButton { "Save" };
+    juce::TextButton openPerformanceButton { "Open" };
 
     RecordingControlsState recordingControlsState;
 

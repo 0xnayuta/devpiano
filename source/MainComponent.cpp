@@ -147,6 +147,8 @@ void MainComponent::initialiseUi()
     controlsPanel.onExportMidiClicked = [this] { recordingSessionController->handleExportMidiClicked(); };
     controlsPanel.onExportWavClicked = [this] { recordingSessionController->handleExportWavClicked(); };
     controlsPanel.onImportMidiClicked = [this] { recordingSessionController->handleImportMidiClicked(); };
+    controlsPanel.onSavePerformanceClicked = [this] { recordingSessionController->handleSavePerformanceClicked(); };
+    controlsPanel.onOpenPerformanceClicked = [this] { recordingSessionController->handleOpenPerformanceClicked(); };
 
     addAndMakeVisible(keyboardPanel);
 }

@@ -99,16 +99,21 @@
 
 ### Phase 6：演奏数据持久化与播放体验增强
 
-状态：规划中。
+状态：进行中（6-1 核心功能已完成）。
 
 **目标：** 填补 FreePiano 核心功能差距——录制后能保存、保存后能打开、打开后能调速播放。
 
+**已完成：**
+
+- **Phase 6-1：演奏文件保存/打开**（核心）✅
+  - `RecordingTake` JSON 序列化（`.devpiano` 格式），包含 events、sampleRate、lengthSamples、元数据。
+  - ControlsPanel Save/Open 按钮 + FileChooser 流程。
+  - `RecordingSessionController` 接入 `PerformanceFile` API。
+  - UI 布局待美化（Phase 6-2 范围）。
+
 **规划内容：**
 
-- **Phase 6-1：演奏文件保存/打开**（核心）
-  - 保存 `RecordingTake` 为 JSON（`.devpiano` 扩展名），包含 events、sampleRate、lengthSamples、元数据。
-  - Open 按钮 + FileChooser + 最近路径记忆。
-  - 用户价值：最高——当前录制完即丢失。
+- **Phase 6-2：播放速度控制**
 - **Phase 6-2：播放速度控制**
   - 0.5x ~ 2.0x 速度调节，ControlsPanel 增加速度显示 + 增减按钮。
   - 用户价值：高——练琴刚需，FreePiano 有此功能。

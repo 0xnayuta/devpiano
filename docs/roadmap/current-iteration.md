@@ -6,11 +6,17 @@
 
 ## 当前状态
 
-当前活跃阶段：**Phase 5 已完成，Phase 6 规划中**
+当前活跃阶段：**Phase 6 进行中**
 
 **Phase 5 已完成**（5.1-5.8 + 人工回归均通过）。`MainComponent.cpp` 从 1587 行降至 606 行，远低于 1200 行目标。详细完成记录见 [`../archive/phase5-architecture-convergence.md`](../archive/phase5-architecture-convergence.md)。
 
-**Phase 6 规划中**：演奏数据持久化与播放体验增强。详见 [`roadmap.md`](roadmap.md) Phase 6 章节。
+**Phase 6-1 已完成**：演奏文件 Save/Open 核心功能。
+  - `PerformanceFile.h/.cpp` JSON 序列化/反序列化。
+  - ControlsPanel Save/Open 按钮（布局待美化）。
+  - `RecordingSessionController` 接入 Save/Open 流程。
+  - 详细说明见 [`roadmap.md`](roadmap.md) Phase 6 章节。
+
+**Phase 6-2 下一阶段**：播放速度控制（0.5x ~ 2.0x）。
 
 ---
 

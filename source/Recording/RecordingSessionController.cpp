@@ -5,6 +5,7 @@
 #include "MainComponent.h"
 #include "Recording/MidiFileExporter.h"
 #include "Recording/MidiFileImporter.h"
+#include "Recording/PerformanceFile.h"
 #include "Recording/RecordingFlowSupport.h"
 #include "Recording/WavFileExporter.h"
 
@@ -266,9 +267,105 @@ void RecordingSessionController::handleImportMidiClicked()
     });
 }
 
+void RecordingSessionController::handleSavePerformanceClicked()
+{
+    if (! recordingSession.hasTake())
+    {
+        juce::Logger::writeToLog("[Performance File] save skipped: no take available");
+        return;
+    }
+
+    const auto defaultDir = juce::File::getCurrentWorkingDirectory();
+    const juce::String defaultFileName { "performance.devpiano" };
+    const auto defaultFile = defaultDir.getChildFile(defaultFileName);
+
+    performanceFileChooser = std::make_unique<juce::FileChooser>("Save Performance", defaultFile, "*.devpiano");
+    performanceFileChooser->launchAsync(juce::FileBrowserComponent::saveMode
+                                            | juce::FileBrowserComponent::canSelectFiles
+                                            | juce::FileBrowserComponent::warnAboutOverwriting,
+                                        [this](const juce::FileChooser& fc)
+    {
+        auto file = fc.getResult();
+        if (file == juce::File())
+        {
+            juce::Logger::writeToLog("[Performance File] save cancelled by user");
+            performanceFileChooser.reset();
+            return;
+        }
+
+        const juce::String timestamp = juce::Time::getCurrentTime().toISO8601(true);
+        const PerformanceFileMetadata metadata {
+            .createdAt = timestamp,
+            .title = {},
+            .notes = {}
+        };
+
+        if (devpiano::recording::savePerformanceFile(recordingSession.take, file, metadata))
+            juce::Logger::writeToLog("[Performance File] saved: " + file.getFullPathName());
+        else
+            juce::Logger::writeToLog("[Performance File] save FAILED: " + file.getFullPathName());
+
+        performanceFileChooser.reset();
+    });
+}
+
+void RecordingSessionController::handleOpenPerformanceClicked()
+{
+    if (recordingSession.isRecording())
+    {
+        juce::Logger::writeToLog("[Performance File] open skipped while recording");
+        return;
+    }
+
+    if (recordingSession.isPlaying())
+    {
+        const auto stoppedTake = stopInternalPlayback();
+        juce::ignoreUnused(stoppedTake);
+        recordingSession.state = ControlsPanel::RecordingState::idle;
+        syncRecordingSessionToUi();
+        juce::Logger::writeToLog("[Performance File] stopped current playback before opening");
+    }
+
+    const auto startDir = juce::File::getCurrentWorkingDirectory();
+
+    performanceFileChooser = std::make_unique<juce::FileChooser>("Open Performance", startDir, "*.devpiano");
+    performanceFileChooser->launchAsync(juce::FileBrowserComponent::openMode
+                                            | juce::FileBrowserComponent::canSelectFiles,
+                                        [this](const juce::FileChooser& fc)
+    {
+        auto file = fc.getResult();
+        if (! file.exists())
+        {
+            performanceFileChooser.reset();
+            return;
+        }
+
+        auto take = devpiano::recording::loadPerformanceFile(file);
+        if (! take.has_value() || take->isEmpty())
+        {
+            juce::Logger::writeToLog("[Performance File] load failed or produced empty take: " + file.getFullPathName());
+            performanceFileChooser.reset();
+            return;
+        }
+
+        recordingSession.take = std::move(*take);
+        recordingSession.canExportMidi = false;
+        recordingSession.state = ControlsPanel::RecordingState::idle;
+        syncRecordingSessionToUi();
+
+        startInternalPlayback(recordingSession.take);
+        recordingSession.state = ControlsPanel::RecordingState::playing;
+        syncRecordingSessionToUi();
+
+        juce::Logger::writeToLog("[Performance File] opened: " + file.getFullPathName()
+                                 + ", events=" + juce::String(static_cast<int>(recordingSession.take.events.size())));
+
+        performanceFileChooser.reset();
+    });
+}
+
 void RecordingSessionController::checkPlaybackEnded()
 {
-    if (! recordingEngine.consumePlaybackEndedFlag())
         return;
 
     if (! recordingSession.isPlaying())

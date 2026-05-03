@@ -51,6 +51,8 @@ public:
     void handleExportMidiClicked();
     void handleExportWavClicked();
     void handleImportMidiClicked();
+    void handleSavePerformanceClicked();
+    void handleOpenPerformanceClicked();
 
     // Called from MainComponent::timerCallback() to check if playback ended.
     void checkPlaybackEnded();
@@ -85,6 +87,7 @@ private:
     std::unique_ptr<juce::FileChooser> exportMidiChooser;
     std::unique_ptr<juce::FileChooser> exportWavChooser;
     std::unique_ptr<juce::FileChooser> importMidiChooser;
+    std::unique_ptr<juce::FileChooser> performanceFileChooser;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(RecordingSessionController)
 };
