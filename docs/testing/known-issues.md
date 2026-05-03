@@ -409,5 +409,5 @@ bool MainComponent::shouldRestoreMainKeyboardFocus() const;
 
 详见：
 
-- [`../roadmap/current-iteration.md`](../roadmap/current-iteration.md)（Phase 5-1..5-4 人工回归记录）
+- [`../archive/phase5-architecture-convergence.md`](../archive/phase5-architecture-convergence.md)（Phase 5 完成记录）
 - [`phase2-plugin-host-lifecycle.md`](phase2-plugin-host-lifecycle.md)（Phase 2-1..2-4 测试结果）

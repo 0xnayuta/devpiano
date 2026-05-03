@@ -90,10 +90,10 @@
 - 累计减少 981 行，远低于 1200 行目标。
 
 **后续 tech debt（低优先级，暂不执行）：**
-- Phase 5.8f：AppStateBuilder 分层清理 — 已评估为低优先级 tech debt，暂不执行。详见 [`current-iteration.md`](current-iteration.md)。
+- Phase 5.8f：AppStateBuilder 分层清理 — 已评估为低优先级 tech debt，暂不执行。详见 [`../archive/phase5-architecture-convergence.md`](../archive/phase5-architecture-convergence.md)。
 - 5.8+ 后续机会（音频设备 helper、设置 flow helper、匿名 namespace 分散）— 已评估，不建议继续拆分，长期搁置到 MainComponent 再次膨胀。
 
-5.8a-5.8e 已使 `MainComponent.cpp` 降至 606 行，已达成 1200 行以下目标。人工回归已通过，无明显回退。详细计划见 [`current-iteration.md`](current-iteration.md)。
+5.8a-5.8e 已使 `MainComponent.cpp` 降至 606 行，已达成 1200 行以下目标。人工回归已通过，无明显回退。详细计划见 [`../archive/phase5-architecture-convergence.md`](../archive/phase5-architecture-convergence.md)。
 
 详细完成记录见：[`../archive/phase5-architecture-convergence.md`](../archive/phase5-architecture-convergence.md)。
 
