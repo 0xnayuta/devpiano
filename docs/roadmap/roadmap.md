@@ -99,7 +99,7 @@
 
 ### Phase 6：演奏数据持久化与播放体验增强
 
-状态：进行中（6-1 核心功能已完成）。
+状态：进行中（6-1 和 6-6 已完成）。
 
 **目标：** 填补 FreePiano 核心功能差距——录制后能保存、保存后能打开、打开后能调速播放。
 
@@ -110,10 +110,15 @@
   - ControlsPanel Save/Open 按钮 + FileChooser 流程。
   - `RecordingSessionController` 接入 `PerformanceFile` API。
   - UI 布局待美化（Phase 6-2 范围）。
+- **Phase 6-6：Diagnostics 最小层**✅
+  - `source/Diagnostics/`（4 个文件）：`DebugLog.h/.cpp`、`MidiTrace.h/.cpp`。
+  - 接口：`DP_LOG_INFO/WARN/ERROR`、`DP_DEBUG_LOG`、`DP_TRACE_MIDI`。
+  - Debug-only 宏在 Release 下无输出或零副作用。
+  - 已接入 8 个业务文件，散落 `Logger::writeToLog` 已全部替换。
+  - 为 Phase 6-5 MIDI 导入增强及后续播放体验任务建立统一诊断基础设施。
 
 **规划内容：**
 
-- **Phase 6-2：播放速度控制**
 - **Phase 6-2：播放速度控制**
   - 0.5x ~ 2.0x 速度调节，ControlsPanel 增加速度显示 + 增减按钮。
   - 用户价值：高——练琴刚需，FreePiano 有此功能。

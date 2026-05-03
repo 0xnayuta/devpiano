@@ -1,62 +1,69 @@
 # Phase 6：演奏数据持久化与播放体验增强
 
-> **⚠️ 当前最紧急任务：Phase 6-6（见下文）**
->
-> Phase 6-6 是 Phase 6 所有后续任务的前置工程任务，**立即执行**。
-
 > 用途：说明 Phase 6 各子阶段的功能设计、文件格式、行为边界与验收标准。
-> 当前状态：**进行中，Phase 6-6 已实现。后续接入策略已更新。**
+> 当前状态：**进行中，Phase 6-6 已完成。**
 > 读者：维护 Phase 6 功能的开发者、规划者。
 > 更新时机：Phase 6 各子阶段设计变化、实现状态变化、验收结果更新时。
 
 ---
 
-## Phase 6-6：Diagnostics 最小层（最紧急，立即执行）
+## Phase 6-6：Diagnostics 最小层 ✅ 已完成
 
-> **状态：Phase 6-6 已实现。后续接入策略已记录（见 §11）。**
+### 实现状态
 
-### 1. 任务定位
+Phase 6-6 已完成，包含以下内容：
 
-- Phase 6-6 是 Phase 6 的**前置工程任务**，不是新用户功能。
-- 目标：建立后续排错基础设施，服务于 MIDI 导入增强、演奏数据保存/打开、回放控制、MIDI roundtrip、虚拟 MIDI loopback 等任务。
-- 核心价值：避免 pi-agent 在排错时反复把临时 debug / logger 代码散落写入 `source/` 各业务 cpp 中。
-- 建立 Debug/Release 隔离、可长期维护、集中可控的最小 Diagnostics 机制。
+**新增文件（4 个）：**
 
-### 2. 背景问题
+| 文件 | 职责 |
+|------|------|
+| `source/Diagnostics/DebugLog.h` | 日志宏定义（`DP_LOG_INFO`、`DP_LOG_WARN`、`DP_LOG_ERROR`、`DP_DEBUG_LOG`、`DP_TRACE_MIDI`） |
+| `source/Diagnostics/DebugLog.cpp` | 日志宏实现，Debug/Release 条件编译 |
+| `source/Diagnostics/MidiTrace.h` | MIDI 消息描述函数声明（`describeMidiMessage`） |
+| `source/Diagnostics/MidiTrace.cpp` | MIDI 消息解析实现（note on/off、CC、pitch bend、program change、channel pressure、aftertouch、sysEx、meta、fallback） |
 
-当前痛点：
+**接口说明：**
 
-- bug 排查时经常需要临时日志；直接在业务代码中反复插入 `DBG`、`std::cout`、`Logger::writeToLog`、临时变量输出，效率低。
-- 修复后再删除临时 debug 代码，容易遗漏，也不利于回归。
-- 临时日志散落在 MainComponent、AudioEngine、MidiRouter、Playback、Import/Export 等业务文件中，会污染核心逻辑。
-- Debug 与 Release 边界不清晰。
-- 后续 MIDI 导入和演奏数据持久化涉及文件解析、时间轴转换、note on/off 配对、velocity/channel/sustain/tempo 等，若没有统一诊断层，排错成本会迅速上升。
+| 接口 | 级别 | Debug 行为 | Release 行为 |
+|------|------|-----------|-------------|
+| `DP_LOG_INFO(message)` | 运行日志 | DBG + Logger | Logger |
+| `DP_LOG_WARN(message)` | 运行日志 | DBG + Logger | Logger |
+| `DP_LOG_ERROR(message)` | 运行日志 | DBG + Logger | Logger |
+| `DP_DEBUG_LOG(message)` | Debug-only | DBG + Logger | **无输出** |
+| `DP_TRACE_MIDI(message, stage)` | Debug-only | DBG 带 stage 标签 | **无输出** |
+| `describeMidiMessage(const MidiMessage&)` | 工具函数 | 格式化字符串 | 同左 |
 
-### 3. 目标
+**已接入的关键路径：**
 
-- 建立最小 Diagnostics / DebugLog 层的设计方案。
-- 后续实现时集中提供 `DP_LOG_INFO`、`DP_LOG_WARN`、`DP_LOG_ERROR`、`DP_DEBUG_LOG`、`DP_TRACE_MIDI` 等接口。
-- Debug-only 日志在 Release 下关闭或无副作用。
-- MIDI 消息描述逻辑集中到 MidiTrace，而不是散落在业务代码中。
-- 为 MIDI 导入、MIDI roundtrip、录制回放、外部 MIDI 输入、插件链路等排错提供统一入口。
-- 为后续 bug 修复建立调试纪律：保留有价值的日志、断言、测试或复现步骤，删除无价值临时输出。
+| 文件 | 接入点 | 宏 |
+|------|--------|----|
+| `MidiRouter.cpp` | 外部 MIDI 入口 | `DP_TRACE_MIDI` |
+| `MidiFileImporter.cpp` | 文件读取 + non-note 事件 | `DP_TRACE_MIDI`, `DP_LOG_INFO/WARN/ERROR`, `DP_DEBUG_LOG` |
+| `RecordingEngine.cpp` | 录制/回放状态 + 丢弃告警 | `DP_DEBUG_LOG`, `DP_LOG_INFO` |
+| `RecordingSessionController.cpp` | Save/Open/Import/Export/Record/Playback 全流程 | `DP_LOG_INFO/WARN/ERROR` |
+| `PluginHost.cpp` | scan / load / prepare / unload | `DP_LOG_INFO/WARN/ERROR` |
+| `LayoutFlowSupport.cpp` | 布局保存结果 | `DP_LOG_INFO/ERROR` |
+| `PluginFlowSupport.cpp` | 无效扫描目录 | `DP_LOG_WARN` |
+| `MainComponent.cpp` | 音频设备诊断 | `DP_LOG_INFO` |
 
-### 4. 非目标
+**Debug / Release 边界：**
 
-明确本阶段暂不做：
+- `DP_DEBUG_LOG` 和 `DP_TRACE_MIDI` 在 `JUCE_DEBUG` 或 `DEBUG` 条件下启用，Release 下为空宏或空实现（零副作用）。
+- `DP_LOG_INFO/WARN/ERROR` 在 Debug 下同时写 `DBG`（调试器输出窗口）和 `juce::Logger`；Release 下只写 `Logger`。
+- `traceMidi()` 在 Release 下调用 `juce::ignoreUnused` 保证无副作用。
 
-- 不实现完整日志系统。
-- 不引入 spdlog、glog、Boost.Log 等第三方日志库。
-- 不做 GUI 日志面板。
-- 不做异步日志队列。
-- 不做日志文件轮转。
-- 不大规模替换现有业务代码。
-- 不重构 MainComponent、AudioEngine、MidiRouter、Recording/Playback。
-- 不新增 MIDI 导入功能。
-- 不修改 Phase 6-5 逻辑。
-- 不运行完整 Windows 构建作为本任务前置要求。
+**散落 debug 清理：**
 
-### 5. 建议后续实现范围
+已将以下文件中的 `juce::Logger::writeToLog` 全部替换为 `DP_LOG_*` 系列宏：
+- `MidiFileImporter.cpp`（17 处）
+- `RecordingSessionController.cpp`（25 处）
+- `LayoutFlowSupport.cpp`（1 处）
+- `PluginFlowSupport.cpp`（1 处）
+- `MainComponent.cpp`（1 处）
+
+---
+
+## 1. 背景与目标
 
 后续实现时建议新增的最小文件：
 
@@ -196,7 +203,7 @@ Phase 6 包含六个子阶段：
 
 | 子阶段 | 目标 | 用户价值 | 备注 |
 |--------|------|---------|------|
-| **Phase 6-6** | **Diagnostics 最小层** | **高（工程基础设施）** | **最紧急，立即执行。前置于所有 Phase 6 后续任务。** |
+| **Phase 6-6** | **Diagnostics 最小层** | **高（工程基础设施）** | **✅ 已完成。已接入 8 个业务文件，散落 Logger 已全部替换。** |
 | Phase 6-1 | 演奏文件保存/打开（`.devpiano`） | 最高——当前录制完即丢失 | |
 | Phase 6-2 | 播放速度控制（0.5x–2.0x） | 高——练琴刚需 | |
 | Phase 6-3 | 最近文件列表 + 拖拽打开 | 中——体验增强 | |

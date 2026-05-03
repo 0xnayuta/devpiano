@@ -17,7 +17,15 @@
   - **调试插曲**：首次调试时出现 `WeakReference` 访问冲突崩溃，根因是 Windows MSVC 侧 CMake 缓存未追踪源文件变更，导致新旧目标文件混链接。快速修复：删除 `build-win-msvc/CMakeCache.txt` 后重新 `win-build`。已记录至 [`../development/troubleshooting.md`](../development/troubleshooting.md)。
   - 详细说明见 [`roadmap.md`](roadmap.md) Phase 6 章节。
 
-**Phase 6-2 下一阶段**：播放速度控制（0.5x ~ 2.0x）。
+**Phase 6-6 已完成**：Diagnostics 最小层 ✅
+  - `source/Diagnostics/`（4 文件）：`DebugLog.h/.cpp`、`MidiTrace.h/.cpp`。
+  - 接口：`DP_LOG_INFO/WARN/ERROR`、`DP_DEBUG_LOG`、`DP_TRACE_MIDI`。
+  - Debug-only 宏在 Release 下无输出或零副作用。
+  - 已接入 8 个业务文件（MidiRouter、MidiFileImporter、RecordingEngine、RecordingSessionController、PluginHost、LayoutFlowSupport、PluginFlowSupport、MainComponent）。
+  - 散落 `Logger::writeToLog` 已全部替换为 `DP_LOG_*` 系列宏。
+  - 为 Phase 6-5 MIDI 导入增强及后续播放体验任务建立统一诊断基础设施。
+
+**Phase 6-5 下一阶段**：MIDI 导入增强（sustain CC64、pitch bend、program change）。
 
 ---
 
