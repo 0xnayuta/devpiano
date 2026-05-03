@@ -1,0 +1,453 @@
+# Phase 6：演奏数据持久化与播放体验增强
+
+> 用途：说明 Phase 6 各子阶段的功能设计、文件格式、行为边界与验收标准。
+> 当前状态：**规划中，未开始实现**。
+> 读者：维护 Phase 6 功能的开发者、规划者。
+> 更新时机：Phase 6 各子阶段设计变化、实现状态变化、验收结果更新时。
+
+相关文档：
+
+- 路线图：[`../roadmap/roadmap.md`](../roadmap/roadmap.md)
+- 阶段验收：[`../testing/acceptance.md`](../testing/acceptance.md)
+- 专项测试：[`../testing/phase6-performance-persistence.md`](../testing/phase6-performance-persistence.md)
+- 录制/回放功能：[`phase3-recording-playback.md`](phase3-recording-playback.md)
+- MIDI 文件导入：[`phase4-midi-file-import.md`](phase4-midi-file-import.md)
+
+---
+
+## 1. 背景与目标
+
+### 1.1 当前缺口
+
+Phase 3 实现了录制/回放/MIDI 导出/WAV 导出的 MVP 闭环，但存在一个核心缺口：
+
+**录制完即丢失。**
+
+用户录制一段演奏后，`RecordingTake` 仅存在于内存中。关掉程序，数据消失。唯一间接保存方式是导出为 `.mid` 文件，但那是有损转换（sample-accurate 时间戳 → MIDI tick → 再转回 sample），且丢失 devpiano 内部元数据。
+
+### 1.2 Phase 6 目标
+
+填补 FreePiano 核心功能差距——录制后能保存、保存后能打开、打开后能调速播放。
+
+Phase 6 包含五个子阶段：
+
+| 子阶段 | 目标 | 用户价值 |
+|--------|------|---------|
+| Phase 6-1 | 演奏文件保存/打开（`.devpiano`） | 最高——当前录制完即丢失 |
+| Phase 6-2 | 播放速度控制（0.5x–2.0x） | 高——练琴刚需 |
+| Phase 6-3 | 最近文件列表 + 拖拽打开 | 中——体验增强 |
+| Phase 6-4 | 基础 MIDI 编辑（delete notes） | 中——最小编辑能力 |
+| Phase 6-5 | MIDI 导入增强（sustain/pitch bend/program change） | 中——提升回放保真度 |
+
+---
+
+## 2. 当前能力摘要
+
+### 已有能力
+
+| 能力 | 状态 | 依据 |
+|------|------|------|
+| 录制 | 已实现 | `RecordingEngine` + `RecordingFlowSupport` |
+| 回放 | 已实现 | `RecordingEngine::startPlayback()` / `renderPlaybackBlock()` |
+| MIDI 导出 | 已实现 | `MidiFileExporter::exportTakeAsMidiFile()`，标准 MIDI Type 1，960 PPQ |
+| WAV 导出 | 已实现 | `WavFileExporter`，fallback synth 离线渲染 |
+| MIDI 导入 | 已实现 | `MidiFileImporter`，自动选轨，回放 |
+| 最近导入/导出路径 | 已实现 | `SettingsModel::lastMidiImportPath` / `lastMidiExportPath` |
+
+### 缺失能力
+
+| 能力 | 状态 | 影响 |
+|------|------|------|
+| 演奏文件保存 | 未实现 | 录制数据无法持久化 |
+| 演奏文件打开 | 未实现 | 无法恢复之前的录制 |
+| 播放速度控制 | 未实现 | 无法变速回放 |
+| 最近文件列表 | 未实现 | 无法快速打开最近文件 |
+| 拖拽打开 | 未实现 | 需通过按钮+FileChooser |
+| 基础编辑 | 未实现 | 录制后无法修改 |
+| 非 note 事件导入 | 未实现 | 外部 MIDI 回放保真度有限 |
+
+---
+
+## 3. `.devpiano` 文件格式设计
+
+### 3.1 定位
+
+`.devpiano` 是 devpiano 的**私有原生格式**，用于无损保存和恢复演奏数据。
+
+与 `.mid` 的定位对比：
+
+| | `.devpiano` | `.mid` |
+|---|---|---|
+| 定位 | 内部保存/恢复 | 外部交换 |
+| 精度 | 无损（sample-accurate） | 有损（tick-based 往返转换） |
+| 受众 | devpiano 自身 | 任何 DAW/播放器 |
+| 元数据 | 保留 devpiano 内部语义 | 仅标准 MIDI 语义 |
+| 可扩展性 | 不受 MIDI 规范限制 | 受 MIDI 规范约束 |
+
+### 3.2 格式选择
+
+使用 JSON 文本格式，理由：
+
+- 可读性好，便于调试
+- JUCE 内置 JSON 支持（`juce::JSON`、`juce::DynamicObject`）
+- 无需额外依赖（如 protobuf、flatbuffers）
+- 版本演进友好（新增字段向后兼容）
+- 文件体积可接受（演奏事件量级通常在万级以下）
+
+### 3.3 JSON Schema
+
+```json
+{
+  "version": 1,
+  "format": "devpiano-performance",
+  "sampleRate": 44100.0,
+  "lengthSamples": 2646000,
+  "metadata": {
+    "createdAt": "2026-05-03T12:00:00Z",
+    "title": "",
+    "notes": ""
+  },
+  "events": [
+    {
+      "timestampSamples": 44100,
+      "source": "computerKeyboard",
+      "midiData": [144, 60, 127]
+    },
+    {
+      "timestampSamples": 88200,
+      "source": "computerKeyboard",
+      "midiData": [128, 60, 0]
+    }
+  ]
+}
+```
+
+### 3.4 字段说明
+
+#### 顶层字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `version` | int | 格式版本号，当前为 `1`。未来格式变更时递增。 |
+| `format` | string | 固定值 `"devpiano-performance"`，用于文件类型识别。 |
+| `sampleRate` | double | 录制时的音频采样率（Hz）。回放时若设备采样率不同，需按比例换算。 |
+| `lengthSamples` | int64 | 录制总长度（samples）。 |
+| `metadata` | object | 元数据，见下表。 |
+| `events` | array | 演奏事件数组，按 `timestampSamples` 升序排列。 |
+
+#### metadata 字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `createdAt` | string | ISO 8601 创建时间。 |
+| `title` | string | 用户可选标题，默认为空。 |
+| `notes` | string | 用户可选备注，默认为空。 |
+
+#### events[] 字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `timestampSamples` | int64 | 事件发生的绝对 sample 位置（相对于录制开始）。 |
+| `source` | string | 事件来源，映射 `RecordingEventSource` 枚举。 |
+| `midiData` | array[int] | MIDI 消息原始字节（`juce::MidiMessage::getRawData()` + `getRawDataSize()`）。 |
+
+#### source 枚举映射
+
+| `RecordingEventSource` | JSON 字符串 |
+|------------------------|-------------|
+| `computerKeyboard` | `"computerKeyboard"` |
+| `externalMidi` | `"externalMidi"` |
+| `realtimeMidiBuffer` | `"realtimeMidiBuffer"` |
+| `playback` | `"playback"` |
+
+### 3.5 与 RecordingTake 的映射
+
+```text
+RecordingTake                    .devpiano JSON
+─────────────                    ──────────────
+sampleRate                  →    sampleRate
+lengthSamples               →    lengthSamples
+events[].timestampSamples   →    events[].timestampSamples
+events[].source             →    events[].source (enum → string)
+events[].message            →    events[].midiData (raw bytes)
+```
+
+序列化方向：`RecordingTake` → JSON → 文件
+反序列化方向：文件 → JSON → `RecordingTake`
+
+### 3.6 版本策略
+
+- `version: 1` 为初始版本。
+- 未来新增字段（如 tempo map、多轨）通过新增可选字段实现，不改变 version。
+- 若事件结构发生不兼容变更（如 `midiData` 编码方式变化），version 递增。
+- 读取时检查 `version`，不支持的版本提示用户升级程序。
+
+---
+
+## 4. Phase 6-1：演奏文件保存/打开
+
+### 4.1 目标
+
+实现 `RecordingTake` 的持久化保存和恢复，形成"录制 → 保存 → 打开 → 回放"闭环。
+
+### 4.2 保存行为
+
+- 用户点击 **Save** 按钮 → FileChooser 打开，默认文件名基于当前时间戳（如 `performance-20260503-120000.devpiano`）。
+- 默认目录为上次保存路径（`SettingsModel::lastPerformanceSavePath`）。
+- 将当前 `RecordingTake` 序列化为 JSON 并写入 `.devpiano` 文件。
+- 保存完成后 Logger 输出文件路径和事件数。
+- 无录制数据时 Save 按钮 disabled。
+
+### 4.3 打开行为
+
+- 用户点击 **Open** 按钮 → FileChooser 打开，文件过滤器为 `*.devpiano`。
+- 默认目录为上次打开路径（`SettingsModel::lastPerformanceOpenPath`）。
+- 读取文件 → 解析 JSON → 构建 `RecordingTake` → 设置为当前 take。
+- 打开成功后自动开始回放（与 MIDI 导入行为一致）。
+- 打开失败（格式错误、版本不支持、文件损坏）时 Logger 输出错误信息，不崩溃。
+
+### 4.4 按钮状态
+
+| 按钮 | 条件 | 状态 |
+|------|------|------|
+| Save | 有录制 take 且非 playing/recording 状态 | enabled |
+| Save | 无 take 或 playing/recording 中 | disabled |
+| Open | 非 playing/recording 状态 | enabled |
+| Open | playing/recording 中 | disabled |
+
+### 4.5 路径记忆
+
+- `SettingsModel` 新增 `lastPerformanceSavePath` 和 `lastPerformanceOpenPath` 字段。
+- `SettingsStore` 负责读写。
+- 与现有 `lastMidiImportPath` / `lastMidiExportPath` 模式一致。
+
+### 4.6 不做范围
+
+- 不做自动保存。
+- 不做文件加密或压缩。
+- 不做 `.devpiano` 文件的拖拽打开（Phase 6-3）。
+- 不做最近文件列表（Phase 6-3）。
+- 不做 `.fpm` 旧格式兼容。
+- 不在 `.devpiano` 中保存插件状态、布局或音频设备配置（Phase 7 完整工程文件）。
+
+### 4.7 验收标准
+
+- [ ] 有录制 take 时，Save 按钮 enabled；点击后 FileChooser 打开。
+- [ ] 保存的 `.devpiano` 文件可被任何文本编辑器打开，内容为合法 JSON。
+- [ ] 保存的 JSON 包含 `version`、`format`、`sampleRate`、`lengthSamples`、`events` 字段。
+- [ ] 打开之前保存的 `.devpiano` 文件后，回放内容与原始录制一致。
+- [ ] 打开后 Logger 输出文件路径和事件数。
+- [ ] 打开损坏或格式错误的 `.devpiano` 文件时，Logger 输出错误信息，不崩溃。
+- [ ] 无录制数据时 Save 按钮 disabled。
+- [ ] Recording / Playing 期间 Save 和 Open 按钮均 disabled。
+- [ ] 保存后再次打开，路径记忆生效（FileChooser 默认定位到上次目录）。
+
+---
+
+## 5. Phase 6-2：播放速度控制
+
+### 5.1 目标
+
+支持 0.5x–2.0x 速度调节，满足练琴场景的慢速回放需求。
+
+### 5.2 设计
+
+- 速度范围：0.5x、0.75x、1.0x（默认）、1.25x、1.5x、2.0x。
+- ControlsPanel 增加速度显示 + 增减按钮（`-` / `+`）。
+- 速度变更实时生效（播放中调整立即改变回放速率）。
+- 速度值持久化到 `SettingsModel`，下次启动恢复。
+
+### 5.3 实现要点
+
+- `RecordingEngine::startPlayback()` 已支持 `playbackSampleRateRatio`，速度控制通过调整此比率实现。
+- `renderPlaybackBlock()` 中事件时间戳按比率缩放，无需修改 `RecordingTake` 数据。
+- UI 速度显示格式：`1.00x`。
+
+### 5.4 不做范围
+
+- 不做连续变速滑块（只做离散档位）。
+- 不做 pitch correction（变速同时变调是预期行为）。
+- 不做 loop / A-B 循环。
+
+### 5.5 验收标准
+
+- [ ] ControlsPanel 显示当前播放速度，默认 `1.00x`。
+- [ ] 点击 `-` / `+` 按钮可调整速度，范围 0.50x–2.00x。
+- [ ] 播放中调整速度，回放速率立即变化。
+- [ ] 速度值下次启动自动恢复。
+- [ ] 0.5x 慢速播放时音符间隔明显拉长，无卡顿。
+- [ ] 2.0x 快速播放时音符间隔明显缩短，无爆音。
+
+---
+
+## 6. Phase 6-3：最近文件列表 + 拖拽打开
+
+### 6.1 目标
+
+提供最近打开的演奏文件/MIDI 文件列表（最多 10 条），并支持拖拽文件到窗口触发打开。
+
+### 6.2 最近文件列表
+
+- 记录最近打开的 `.devpiano` 和 `.mid` 文件路径，最多 10 条。
+- 列表持久化到 `SettingsModel` / `SettingsStore`。
+- UI 入口：菜单栏 File 菜单下的 Recent Files 子菜单，或 ControlsPanel 的下拉列表。
+- 点击列表项直接打开对应文件。
+- 列表中的文件不存在时，点击后提示并从列表移除。
+
+### 6.3 拖拽打开
+
+- 支持拖拽 `.devpiano` 和 `.mid` 文件到主窗口。
+- 拖拽 `.devpiano` → 打开演奏文件（Phase 6-1 逻辑）。
+- 拖拽 `.mid` → 导入 MIDI 文件（Phase 4 逻辑）。
+- 拖拽其他文件类型 → 忽略或提示不支持。
+
+### 6.4 不做范围
+
+- 不做播放列表管理。
+- 不做文件分类/标签。
+- 不做拖拽到非窗口区域。
+
+### 6.5 验收标准
+
+- [ ] 打开 `.devpiano` 或 `.mid` 文件后，最近文件列表更新。
+- [ ] 最近文件列表最多显示 10 条。
+- [ ] 点击最近文件列表项可打开对应文件。
+- [ ] 列表中文件不存在时，点击后提示并移除该项。
+- [ ] 拖拽 `.devpiano` 文件到窗口可打开。
+- [ ] 拖拽 `.mid` 文件到窗口可导入。
+- [ ] 拖拽不支持的文件类型时无反应或提示。
+
+---
+
+## 7. Phase 6-4：基础 MIDI 编辑（delete notes）
+
+### 7.1 目标
+
+提供最小编辑能力：选中音符 → 删除。
+
+### 7.2 设计
+
+- 将 `RecordingTake.events` 从 `const vector` 改为可变结构（或提供删除接口）。
+- UI：虚拟键盘面板支持点击选中音符（高亮显示），或提供简单的事件列表视图。
+- 选中后按 Delete 键或点击 Delete 按钮删除对应事件。
+- 删除操作不可撤销（MVP 阶段不做 undo/redo）。
+
+### 7.3 不做范围
+
+- 不做添加/移动/量化音符。
+- 不做钢琴卷帘编辑器（Phase 8）。
+- 不做 undo/redo。
+- 不做多选/批量删除。
+
+### 7.4 验收标准
+
+- [ ] 打开或录制的演奏数据中，可选中单个音符。
+- [ ] 选中音符后可删除，删除后回放不再包含该音符。
+- [ ] 删除操作不破坏其他事件的时间线。
+- [ ] 删除后可正常保存为 `.devpiano` 文件。
+
+---
+
+## 8. Phase 6-5：MIDI 导入增强
+
+### 8.1 目标
+
+导入外部 MIDI 文件时，除 note on/off 外，还导入 sustain CC64、pitch bend、program change 等安全的 channel voice 消息，提升回放保真度。
+
+### 8.2 设计
+
+- 扩展 `MidiFileImporter`，在收集 note on/off 的同时收集：
+  - Control Change（CC64 sustain pedal、CC1 mod wheel 等常用 CC）
+  - Pitch Bend
+  - Program Change
+- 这些事件作为 `PerformanceEvent` 存入 `RecordingTake.events`，与 note 事件共享同一时间线。
+- 回放时这些事件通过 `AudioEngine` 的 MIDI 链路送入插件/fallback synth。
+
+### 8.3 不做范围
+
+- 不导入 SysEx 消息。
+- 不导入 meta 事件（tempo、time signature 等）。
+- 不导入 RPN/NRPN。
+- 不做 GM 音色映射。
+
+### 8.4 验收标准
+
+- [ ] 导入包含 sustain CC64 的 MIDI 文件后，回放时延音踏板效果可听。
+- [ ] 导入包含 pitch bend 的 MIDI 文件后，回放时弯音效果可听。
+- [ ] 导入包含 program change 的 MIDI 文件后，回放时音色变化可听（依赖插件支持）。
+- [ ] 导入不含这些事件的 MIDI 文件时，行为与 Phase 4 一致，无回退。
+- [ ] Logger 输出导入的非 note 事件数量。
+
+---
+
+## 9. 风险与边界
+
+### 9.1 Phase 6-1 风险
+
+| 风险 | 等级 | 应对 |
+|------|------|------|
+| JSON 序列化大文件性能 | 低 | 演奏事件量级通常在万级以下，JSON 解析开销可接受 |
+| 文件格式版本兼容 | 低 | 初始版本号为 1，新增可选字段不升版本 |
+| `juce::MidiMessage` 序列化边界 | 中 | 需确认 `getRawData()` 对所有消息类型（sysex 等）的行为 |
+
+### 9.2 Phase 6-2 风险
+
+| 风险 | 等级 | 应对 |
+|------|------|------|
+| 极端速度下的音频质量 | 低 | 0.5x/2.0x 范围有限，fallback synth 和插件通常可处理 |
+| 速度变更时的 glitch | 中 | 变速时可能有微小跳变，可接受 |
+
+### 9.3 Phase 6-3 风险
+
+| 风险 | 等级 | 应对 |
+|------|------|------|
+| 最近文件列表持久化体积 | 低 | 10 条路径，体积极小 |
+| 拖拽与现有 UI 交互冲突 | 中 | 需处理焦点和 drop 位置边界 |
+
+### 9.4 Phase 6-4 风险
+
+| 风险 | 等级 | 应对 |
+|------|------|------|
+| 数据模型变更影响回放/导出 | 中 | 需确保删除操作不破坏事件排序和时间线 |
+| UI 选中交互复杂度 | 中 | MVP 阶段只做简单选中+删除，不做复杂编辑 |
+
+### 9.5 Phase 6-5 风险
+
+| 风险 | 等级 | 应对 |
+|------|------|------|
+| 非 note 事件增加文件体积 | 低 | CC/pitch bend 事件量远少于 note 事件 |
+| fallback synth 不响应 CC/pitch bend | 低 | 依赖插件支持；fallback synth 可忽略不支持的事件 |
+
+---
+
+## 10. 验收标准总览
+
+### Phase 6-1：演奏文件保存/打开
+
+- [ ] Save 按钮：有 take 且非录制/播放中时 enabled。
+- [ ] 保存的 `.devpiano` 文件为合法 JSON，包含完整事件数据。
+- [ ] Open 按钮：非录制/播放中时 enabled。
+- [ ] 打开 `.devpiano` 文件后回放内容与原始录制一致。
+- [ ] 打开损坏文件时不崩溃，Logger 输出错误。
+- [ ] 路径记忆：Save/Open 均记住上次目录。
+
+### Phase 6-2：播放速度控制
+
+- [ ] 速度显示 + 增减按钮可用，范围 0.50x–2.00x。
+- [ ] 播放中变速立即生效。
+- [ ] 速度值持久化恢复。
+
+### Phase 6-3：最近文件列表 + 拖拽打开
+
+- [ ] 最近文件列表最多 10 条，点击可打开。
+- [ ] 拖拽 `.devpiano` / `.mid` 文件到窗口可打开。
+
+### Phase 6-4：基础 MIDI 编辑
+
+- [ ] 可选中并删除单个音符。
+- [ ] 删除后回放和保存均正确。
+
+### Phase 6-5：MIDI 导入增强
+
+- [ ] 导入 sustain CC64、pitch bend、program change 并回放。
+- [ ] 不含这些事件的 MIDI 文件行为无回退。

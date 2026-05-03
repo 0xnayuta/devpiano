@@ -121,7 +121,9 @@
 - **Phase 6-5：MIDI 导入增强**
   - 导入 sustain CC64、pitch bend、program change，提升外部 MIDI 回放保真度。
 
-详细功能候选与差距分析见：[`../features/phase4-midi-file-import.md`](../features/phase4-midi-file-import.md)。
+详细功能设计与验收标准见：[`../features/phase6-performance-persistence.md`](../features/phase6-performance-persistence.md)。
+专项测试见：[`../testing/phase6-performance-persistence.md`](../testing/phase6-performance-persistence.md)。
+功能候选与差距分析见：[`../features/phase4-midi-file-import.md`](../features/phase4-midi-file-import.md)。
 
 ### Phase 7：完整工程文件与多轨支持（粗略规划）
 
@@ -191,6 +193,7 @@
 - [`../testing/phase3-layout-presets.md`](../testing/phase3-layout-presets.md)
 - [`../testing/phase3-recording-playback.md`](../testing/phase3-recording-playback.md)
 - [`../testing/phase4-midi-file-import.md`](../testing/phase4-midi-file-import.md)
+- [`../testing/phase6-performance-persistence.md`](../testing/phase6-performance-persistence.md)
 - [`../testing/phase2-plugin-host-lifecycle.md`](../testing/phase2-plugin-host-lifecycle.md)
 
 ## 7. 历史实现 Backlog

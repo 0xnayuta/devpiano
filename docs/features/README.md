@@ -17,6 +17,10 @@
 
 - [`phase4-midi-file-import.md`](phase4-midi-file-import.md)：MIDI 文件导入、回放兼容性、剩余边界与 FreePiano 差距。
 
+## Phase 6：演奏数据持久化与播放体验增强
+
+- [`phase6-performance-persistence.md`](phase6-performance-persistence.md)：演奏文件保存/打开（`.devpiano`）、播放速度控制、最近文件列表、基础编辑、MIDI 导入增强。
+
 ## 其他
 
 - [`runtime-language-switching.md`](runtime-language-switching.md)：运行时语言切换（占位文档，功能细节后续补充）。
@@ -29,5 +33,6 @@
 - 布局 preset 测试：[`../testing/phase3-layout-presets.md`](../testing/phase3-layout-presets.md)
 - 录制 / 回放 / MIDI 导出测试：[`../testing/phase3-recording-playback.md`](../testing/phase3-recording-playback.md)
 - MIDI 文件导入测试：[`../testing/phase4-midi-file-import.md`](../testing/phase4-midi-file-import.md)
+- 演奏数据持久化测试：[`../testing/phase6-performance-persistence.md`](../testing/phase6-performance-persistence.md)
 
 未明确实现的功能不应在本目录中写成已完成能力。
