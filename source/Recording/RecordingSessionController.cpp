@@ -276,7 +276,7 @@ void RecordingSessionController::handleSavePerformanceClicked()
     }
 
     const auto defaultDir = juce::File::getCurrentWorkingDirectory();
-    const juce::String defaultFileName { "performance.devpiano" };
+    const juce::String defaultFileName { "performance-" + juce::Time::getCurrentTime().formatted("%Y%m%d-%H%M%S") + ".devpiano" };
     const auto defaultFile = defaultDir.getChildFile(defaultFileName);
 
     performanceFileChooser = std::make_unique<juce::FileChooser>("Save Performance", defaultFile, "*.devpiano");
@@ -349,7 +349,6 @@ void RecordingSessionController::handleOpenPerformanceClicked()
         }
 
         recordingSession.take = std::move(*take);
-        recordingSession.canExportMidi = false;
         recordingSession.state = ControlsPanel::RecordingState::idle;
         syncRecordingSessionToUi();
 
@@ -366,6 +365,7 @@ void RecordingSessionController::handleOpenPerformanceClicked()
 
 void RecordingSessionController::checkPlaybackEnded()
 {
+    if (! recordingEngine.consumePlaybackEndedFlag())
         return;
 
     if (! recordingSession.isPlaying())
@@ -445,8 +445,9 @@ void RecordingSessionController::startInternalPlayback(const RecordingTake& take
 RecordingTake RecordingSessionController::stopInternalPlayback()
 {
     auto take = recordingEngine.getCurrentTake();
-    recordingEngine.stopPlayback();
+    juce::Logger::writeToLog("[Playback] stopInternalPlayback: calling requestAllNotesOff then stopPlayback");
     audioEngine.requestAllNotesOff();
+    recordingEngine.stopPlayback();
 
     juce::Logger::writeToLog("[Playback] Internal playback stopped");
     return take;
@@ -456,7 +457,7 @@ void RecordingSessionController::syncRecordingSessionToUi()
 {
     controlsPanel.setRecordingControlsState({ .state = recordingSession.state,
                                               .hasTake = recordingSession.hasTake(),
-                                              .canExportMidiTake = recordingSession.canExportMidi,
+                                              .canExportMidiTake = recordingSession.hasTake(),
                                               .canExportWavTake = recordingSession.hasTake() });
 }
 
@@ -468,7 +469,7 @@ void RecordingSessionController::runExportRecordingFlow(devpiano::exporting::Exp
 {
     const auto hasExportableTake = devpiano::exporting::canExportTake(recordingSession.take);
     const auto canExportRequestedType = type == devpiano::exporting::ExportFileType::midi
-                                            ? recordingSession.canExportMidi
+                                            ? recordingSession.hasTake()
                                             : hasExportableTake;
 
     if (! canExportRequestedType || ! hasExportableTake)

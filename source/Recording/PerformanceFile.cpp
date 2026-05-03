@@ -70,12 +70,10 @@ std::optional<juce::MidiMessage> varToMidiMessage(const juce::var& v)
         buffer.push_back(static_cast<juce::uint8>(intVal));
     }
 
-    int numBytesUsed = 0;
-    auto msg = juce::MidiMessage(buffer.data(),
-                                 static_cast<int>(buffer.size()),
-                                 numBytesUsed);
-
-    if (numBytesUsed <= 0)
+    // Use MidiMessage(data, numBytes, timestamp) constructor directly.
+    // Timestamp is irrelevant for deserialised messages (loaded from file).
+    auto msg = juce::MidiMessage(buffer.data(), static_cast<int>(buffer.size()), 0);
+    if (msg.getRawDataSize() == 0)
         return std::nullopt;
 
     return msg;

@@ -214,12 +214,17 @@ void RecordingEngine::advancePlaybackPosition(std::int64_t numSamples) noexcept
     if (!isPlaying() || numSamples <= 0)
         return;
 
+    const auto wasPlaying = isPlaying();
     playbackPositionSamples += numSamples;
     if (playbackPositionSamples >= scaledPlaybackLengthSamples)
     {
         state.store(RecordingState::stopped, std::memory_order_release);
         playbackPositionSamples = scaledPlaybackLengthSamples;
         playbackEndedPending.store(true, std::memory_order_release);
+        juce::Logger::writeToLog("[RecordingEngine] playback ENDED: pos="
+                                 + juce::String(playbackPositionSamples)
+                                 + " >= scaledLen=" + juce::String(scaledPlaybackLengthSamples)
+                                 + " (ratio=" + juce::String(playbackSampleRateRatio) + ")");
     }
 }
 

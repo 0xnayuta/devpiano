@@ -245,6 +245,8 @@ void ControlsPanel::updateRecordingActionButtons()
     auto exportMidiEnabled = recordingControlsState.hasTake && recordingControlsState.canExportMidiTake;
     auto exportWavEnabled = recordingControlsState.hasTake && recordingControlsState.canExportWavTake;
     auto importMidiEnabled = true;
+    auto saveEnabled = false;
+    auto openEnabled = false;
 
     switch (recordingControlsState.state)
     {
@@ -255,6 +257,8 @@ void ControlsPanel::updateRecordingActionButtons()
             exportMidiEnabled = recordingControlsState.hasTake && recordingControlsState.canExportMidiTake;
             exportWavEnabled = recordingControlsState.hasTake && recordingControlsState.canExportWavTake;
             importMidiEnabled = true;
+            saveEnabled = recordingControlsState.hasTake;
+            openEnabled = true;
             break;
         case RecordingState::recording:
             statusText = "Recording";
@@ -265,6 +269,8 @@ void ControlsPanel::updateRecordingActionButtons()
             exportWavEnabled = false;
             importMidiEnabled = false;
             stopEnabled = true;
+            saveEnabled = false;
+            openEnabled = false;
             break;
         case RecordingState::playing:
             statusText = "Playing";
@@ -275,6 +281,8 @@ void ControlsPanel::updateRecordingActionButtons()
             exportWavEnabled = false;
             importMidiEnabled = false;
             stopEnabled = true;
+            saveEnabled = false;
+            openEnabled = false;
             break;
     }
 
@@ -286,6 +294,8 @@ void ControlsPanel::updateRecordingActionButtons()
     importMidiButton.setEnabled(importMidiEnabled);
     exportMidiButton.setEnabled(exportMidiEnabled);
     exportWavButton.setEnabled(exportWavEnabled);
+    savePerformanceButton.setEnabled(saveEnabled);
+    openPerformanceButton.setEnabled(openEnabled);
 }
 
 void ControlsPanel::setValues(float masterGain,

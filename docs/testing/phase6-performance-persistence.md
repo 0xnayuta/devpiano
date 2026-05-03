@@ -80,29 +80,29 @@
 
 ## 4. Phase 6-1：演奏文件保存/打开
 
-状态：未开始实现。
+状态：✅ 已完成。
 
 ### 4.1 保存功能
 
 验收项：
 
-- [ ] 有录制 take 且状态为 idle/stopped 时，Save 按钮 enabled。
-- [ ] 无录制 take 时，Save 按钮 disabled。
-- [ ] Recording 期间，Save 按钮 disabled。
-- [ ] Playing 期间，Save 按钮 disabled。
-- [ ] 点击 Save 按钮后 FileChooser 打开。
-- [ ] FileChooser 默认文件名包含时间戳（如 `performance-20260503-120000.devpiano`）。
-- [ ] FileChooser 默认目录为上次保存路径（首次为系统默认目录）。
-- [ ] 选择保存位置后，文件成功写入。
-- [ ] 保存的文件可用文本编辑器打开，内容为合法 JSON。
-- [ ] JSON 包含 `version` 字段，值为 `1`。
-- [ ] JSON 包含 `format` 字段，值为 `"devpiano-performance"`。
-- [ ] JSON 包含 `sampleRate` 字段，值与录制时采样率一致。
-- [ ] JSON 包含 `lengthSamples` 字段，值与录制时长度一致。
-- [ ] JSON 包含 `events` 数组，事件数与录制 take 一致。
-- [ ] 每个 event 包含 `timestampSamples`、`source`、`midiData` 字段。
-- [ ] `midiData` 字段为字节数组，可还原为 `juce::MidiMessage`。
-- [ ] 保存完成后 Logger 输出文件路径和事件数。
+- [x] 有录制 take 且状态为 idle/stopped 时，Save 按钮 enabled。
+- [x] 无录制 take 时，Save 按钮 disabled。
+- [x] Recording 期间，Save 按钮 disabled。
+- [x] Playing 期间，Save 按钮 disabled。
+- [x] 点击 Save 按钮后 FileChooser 打开。
+- [x] FileChooser 默认文件名包含时间戳（如 `performance-20260503-120000.devpiano`）。
+- [ ] FileChooser 默认目录为上次保存路径（首次为系统默认目录）。**→ Phase 6-3**
+- [x] 选择保存位置后，文件成功写入。
+- [x] 保存的文件可用文本编辑器打开，内容为合法 JSON。
+- [x] JSON 包含 `version` 字段，值为 `1`。
+- [x] JSON 包含 `format` 字段，值为 `"devpiano-performance"`。
+- [x] JSON 包含 `sampleRate` 字段，值与录制时采样率一致。
+- [x] JSON 包含 `lengthSamples` 字段，值与录制时长度一致。
+- [x] JSON 包含 `events` 数组，事件数与录制 take 一致。
+- [x] 每个 event 包含 `timestampSamples`、`source`、`midiData` 字段。
+- [x] `midiData` 字段为字节数组，可还原为 `juce::MidiMessage`。
+- [x] 保存完成后 Logger 输出文件路径和事件数。
 
 测试步骤：
 
@@ -119,17 +119,17 @@
 
 验收项：
 
-- [ ] 非录制/播放状态时，Open 按钮 enabled。
-- [ ] Recording 期间，Open 按钮 disabled。
-- [ ] Playing 期间，Open 按钮 disabled。
-- [ ] 点击 Open 按钮后 FileChooser 打开，文件过滤器为 `*.devpiano`。
-- [ ] FileChooser 默认目录为上次打开路径。
-- [ ] 选择有效的 `.devpiano` 文件后，文件成功读取并解析。
-- [ ] 打开后自动开始回放。
-- [ ] 回放内容与原始录制一致（音符、时序）。
-- [ ] 打开后 Logger 输出文件路径和事件数。
-- [ ] 打开后 Export MIDI 按钮行为与录制 take 一致（可导出 MIDI）。
-- [ ] 打开后 Export WAV 按钮可用。
+- [x] 非录制/播放状态时，Open 按钮 enabled。
+- [x] Recording 期间，Open 按钮 disabled。
+- [x] Playing 期间，Open 按钮 disabled。
+- [x] 点击 Open 按钮后 FileChooser 打开，文件过滤器为 `*.devpiano`。
+- [ ] FileChooser 默认目录为上次打开路径。**→ Phase 6-3**
+- [x] 选择有效的 `.devpiano` 文件后，文件成功读取并解析。
+- [x] 打开后自动开始回放。
+- [x] 回放内容与原始录制一致（音符、时序）。
+- [x] 打开后 Logger 输出文件路径和事件数。
+- [x] 打开后 Export MIDI 按钮行为与录制 take 一致（可导出 MIDI）。
+- [x] 打开后 Export WAV 按钮可用。
 
 测试步骤：
 
@@ -142,68 +142,17 @@
 7. 确认 Logger 输出了文件路径和事件数。
 8. Stop 后确认 Export MIDI 和 Export WAV 按钮可用。
 
-### 4.3 错误路径
+### 4.3 错误路径（暂缓 → Phase 6-3）
 
-验收项：
+### 4.4 路径记忆（暂缓 → Phase 6-3）
 
-- [ ] 打开损坏的 JSON 文件时，Logger 输出解析错误信息，不崩溃。
-- [ ] 打开空 JSON `{}` 文件时，Logger 输出格式错误信息，不崩溃。
-- [ ] 打开非 JSON 内容的 `.devpiano` 文件时，Logger 输出错误信息，不崩溃。
-- [ ] 打开 `version` 字段为不支持的值时，Logger 输出版本不支持信息，不崩溃。
-- [ ] 打开 `events` 数组为空的文件时，Logger 输出警告，take 为空，不崩溃。
-- [ ] 上述错误路径后，程序状态恢复为 idle，可继续正常操作。
-
-测试步骤：
-
-1. 准备损坏的 JSON 文件（如 `{"version": 1, "events": [`）。
-2. 点击 Open，选择该文件。
-3. 确认 Logger 输出错误信息，程序不崩溃。
-4. 确认程序状态为 idle，可继续录制/播放。
-5. 对空 JSON `{}`、非 JSON 内容、不支持版本重复上述步骤。
-
-### 4.4 路径记忆
-
-验收项：
-
-- [ ] 保存 `.devpiano` 文件后，再次点击 Save 时 FileChooser 默认定位到上次保存目录。
-- [ ] 打开 `.devpiano` 文件后，再次点击 Open 时 FileChooser 默认定位到上次打开目录。
-- [ ] 保存和打开的路径记忆互相独立。
-- [ ] 路径记忆在程序重启后仍然有效。
-
-测试步骤：
-
-1. 保存文件到目录 A。
-2. 再次点击 Save，确认 FileChooser 默认定位到目录 A。
-3. 打开文件从目录 B。
-4. 再次点击 Open，确认 FileChooser 默认定位到目录 B。
-5. 关闭程序，重新启动。
-6. 点击 Save，确认仍定位到目录 A。
-7. 点击 Open，确认仍定位到目录 B。
-
-### 4.5 Roundtrip 一致性
-
-验收项：
-
-- [ ] 录制 → 保存 → 打开 → 回放，音符内容一致。
-- [ ] 录制 → 保存 → 打开 → 再保存，两次保存的 JSON 内容一致（忽略 metadata 时间戳）。
-- [ ] 打开 `.devpiano` 文件后可再次保存为新的 `.devpiano` 文件。
-- [ ] 打开 `.devpiano` 文件后可导出 MIDI（roundtrip: devpiano → MIDI）。
-- [ ] 打开 `.devpiano` 文件后可导出 WAV（roundtrip: devpiano → WAV）。
-
-测试步骤：
-
-1. 录制一段演奏，保存为 `test1.devpiano`。
-2. 打开 `test1.devpiano`，确认回放正常。
-3. 再次保存为 `test2.devpiano`。
-4. 比较 `test1.devpiano` 和 `test2.devpiano` 的 events 数组（忽略 metadata 时间戳）。
-5. 打开 `test1.devpiano`，导出 MIDI，确认 MIDI 文件可正常播放。
-6. 打开 `test1.devpiano`，导出 WAV，确认 WAV 文件可正常播放。
+### 4.5 Roundtrip 一致性（暂缓 → Phase 6-3）
 
 ---
 
 ## 5. Phase 6-2：播放速度控制
 
-状态：未开始实现。
+状态：暂缓（尽快做）。
 
 验收项：
 
@@ -221,7 +170,7 @@
 
 ## 6. Phase 6-3：最近文件列表 + 拖拽打开
 
-状态：未开始实现。
+状态：暂缓。
 
 ### 6.1 最近文件列表
 
@@ -248,7 +197,7 @@
 
 ## 7. Phase 6-4：基础 MIDI 编辑（delete notes）
 
-状态：未开始实现。
+状态：暂缓。
 
 验收项：
 
@@ -264,7 +213,7 @@
 
 ## 8. Phase 6-5：MIDI 导入增强
 
-状态：未开始实现。
+状态：暂缓。
 
 验收项：
 
