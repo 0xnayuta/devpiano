@@ -48,4 +48,33 @@
 
 ## MSVC 验证构建问题
 
-> 待补充
+### CMake 缓存未追踪源文件变更，导致旧目标文件未重新编译
+
+**现象**：源文件已修改，但 `win-build` 报告 "ninja: no work to do"；调试时出现 `WeakReference::SharedPointer::get()` 访问冲突（`this == 0x100000000`），程序启动即崩溃。
+
+**原因**：CMake 缓存（`build-win-msvc/CMakeCache.txt`）在某些情况下未正确记录源文件的修改时间戳，导致 Ninja 判断目标文件已是最新的，不再触发重新编译。链接时新旧目标文件混用，产生不一致状态（如 `JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR` 宏展开与实际类定义不匹配）。
+
+**影响范围**：此问题与具体代码无关，是构建系统缓存问题。任何源文件变更后若缓存失效不完整，都可能出现类似症状。
+
+**处理方法**：
+
+1. **快速修复**（推荐每次）：删除 CMake 缓存后重新构建
+   ```bash
+   # 在 Windows 侧删除缓存
+   powershell.exe -Command "Remove-Item -Path 'G:\source\projects\devpiano\build-win-msvc\CMakeCache.txt' -Force"
+   ./scripts/dev.sh win-build
+   ```
+
+2. **验证是否解决了问题**：重新编译的文件数应接近全部编译单元数（55 个左右），而不是只有 1-3 个。
+
+3. **预防**：在 `win-build` 之后，务必确认输出中编译的文件数是否符合预期。若改动涉及 UI 文件（`.h`/`.cpp`）且只编译了零星几个文件，应按上述方法删除缓存后重新构建。
+
+**诊断信号**：
+- `ninja: no work to do` 但实际上源文件已修改
+- 调试时出现 `WeakReference`、`SharedPointer` 相关的空指针/无效指针访问
+- 崩溃堆栈指向 JUCE 内部 `Component::addChildComponent` / `internalHierarchyChanged` 等组件树构建阶段
+- 崩溃仅出现在 Windows MSVC 侧，WSL clang 侧正常
+
+**根因补充**：Windows MSVC 侧使用 UNC 路径（`\\wsl.localhost\Ubuntu\...`）访问 WSL 源文件，CMake 的文件指纹机制在跨文件系统（WSL/NTFS）场景下可能存在精度问题，导致缓存失效不完全。
+
+**关联条目**：本问题属于构建系统环境问题，与 Phase 6-1 代码无关，但因调试 Phase 6-1 时暴露，故记录于此。

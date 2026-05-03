@@ -14,6 +14,7 @@
   - `PerformanceFile.h/.cpp` JSON 序列化/反序列化。
   - ControlsPanel Save/Open 按钮（布局待美化）。
   - `RecordingSessionController` 接入 Save/Open 流程。
+  - **调试插曲**：首次调试时出现 `WeakReference` 访问冲突崩溃，根因是 Windows MSVC 侧 CMake 缓存未追踪源文件变更，导致新旧目标文件混链接。快速修复：删除 `build-win-msvc/CMakeCache.txt` 后重新 `win-build`。已记录至 [`../development/troubleshooting.md`](../development/troubleshooting.md)。
   - 详细说明见 [`roadmap.md`](roadmap.md) Phase 6 章节。
 
 **Phase 6-2 下一阶段**：播放速度控制（0.5x ~ 2.0x）。

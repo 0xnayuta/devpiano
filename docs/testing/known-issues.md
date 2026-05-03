@@ -186,6 +186,8 @@
 
 > WSL / Windows 镜像构建环境问题见 [`../development/troubleshooting.md`](../development/troubleshooting.md)。
 
+**补充（Phase 6-1 发现）**：Windows MSVC 侧 CMake 缓存未追踪源文件变更，导致旧目标文件未重新编译，运行时出现 `WeakReference::SharedPointer::get()` 访问冲突。快速修复：删除 `build-win-msvc/CMakeCache.txt` 后重新 `./scripts/dev.sh win-build`。详见 [`../development/troubleshooting.md`](../development/troubleshooting.md) §MSVC 验证构建问题。
+
 ---
 
 ## 8. MIDI 导入播放首音无声（已修复，保留回归项）
