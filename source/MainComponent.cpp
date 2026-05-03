@@ -1,4 +1,6 @@
 #include "MainComponent.h"
+
+#include "Diagnostics/DebugLog.h"
 #include "UI/HeaderPanelStateBuilder.h"
 #include "UI/PluginPanelStateBuilder.h"
 
@@ -536,7 +538,7 @@ void MainComponent::finishPluginUiAction(bool shouldSaveSettings)
 void MainComponent::logCurrentAudioDeviceDiagnostics(const juce::String& context) const
 {
     const auto diagnostics = devpiano::audio::buildAudioDeviceDiagnostics(appSettings.audioDeviceState.get(), deviceManager);
-    juce::Logger::writeToLog("[AudioDevice] " + context + "\n" + diagnostics.detailedSummary);
+    DP_LOG_INFO(("[AudioDevice] " + context + "\n" + diagnostics.detailedSummary).toRawUTF8());
 }
 
 devpiano::core::AppState MainComponent::buildCurrentAppStateSnapshot() const

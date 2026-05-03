@@ -1,5 +1,7 @@
 #include "PluginFlowSupport.h"
 
+#include "Diagnostics/DebugLog.h"
+
 #include "Plugin/PluginHost.h"
 
 namespace devpiano::plugin
@@ -20,8 +22,8 @@ juce::FileSearchPath filterExistingDirectories(const juce::FileSearchPath& path)
         }
 
         const auto rawPath = path.getRawString(index).trim();
-        juce::Logger::writeToLog("[PluginScan] Ignoring invalid scan directory: "
-                                 + (rawPath.isNotEmpty() ? rawPath : directory.getFullPathName()));
+        DP_LOG_WARN(("[PluginScan] Ignoring invalid scan directory: "
+                             + (rawPath.isNotEmpty() ? rawPath : directory.getFullPathName())).toRawUTF8());
     }
 
     filtered.removeRedundantPaths();

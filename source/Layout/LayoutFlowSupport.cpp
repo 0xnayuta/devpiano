@@ -1,5 +1,7 @@
 #include "LayoutFlowSupport.h"
 
+#include "Diagnostics/DebugLog.h"
+
 #include "Layout/LayoutDirectoryScanner.h"
 #include "Layout/LayoutPreset.h"
 #include "MainComponent.h"
@@ -67,7 +69,10 @@ void LayoutFlowSupport::handleSaveLayoutRequested()
             currentLayout.name = devpiano::layout::getLayoutPresetDisplayNameForFile(file);
 
         auto saved = devpiano::layout::saveLayoutPreset(currentLayout, file);
-        juce::Logger::writeToLog(saved ? "Layout saved: " + file.getFullPathName() : "Layout save FAILED: " + file.getFullPathName());
+        if (saved)
+            DP_LOG_INFO(("[Layout] saved: " + file.getFullPathName()).toRawUTF8());
+        else
+            DP_LOG_ERROR(("[Layout] save FAILED: " + file.getFullPathName()).toRawUTF8());
         if (saved)
             applyLayoutAndCommit(currentLayout);
     });

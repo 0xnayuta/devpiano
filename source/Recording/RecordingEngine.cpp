@@ -1,5 +1,8 @@
 #include "Recording/RecordingEngine.h"
 
+#include "Diagnostics/DebugLog.h"
+#include "Diagnostics/MidiTrace.h"
+
 #include <algorithm>
 #include <cmath>
 
@@ -87,6 +90,8 @@ void RecordingEngine::startRecording(double sampleRate)
     droppedEventCount = 0;
     playbackEndedPending.store(false, std::memory_order_release);
     state.store(RecordingState::recording, std::memory_order_release);
+
+    DP_DEBUG_LOG("[RecordingEngine] recording STARTED");
 }
 
 RecordingTake RecordingEngine::stopRecording()
@@ -95,6 +100,10 @@ RecordingTake RecordingEngine::stopRecording()
         currentTake.lengthSamples = std::max(currentTake.lengthSamples, currentPositionSamples);
 
     state.store(RecordingState::stopped, std::memory_order_release);
+
+    DP_DEBUG_LOG(("[RecordingEngine] recording STOPPED: " + juce::String(currentTake.events.size())
+                  + " events, duration=" + juce::String(currentTake.durationSeconds(), 2) + "s").toRawUTF8());
+
     return currentTake;
 }
 
@@ -107,6 +116,8 @@ void RecordingEngine::clear()
     droppedEventCount = 0;
     playbackEndedPending.store(false, std::memory_order_release);
     state.store(RecordingState::idle, std::memory_order_release);
+
+    DP_DEBUG_LOG("[RecordingEngine] take CLEARED");
 }
 
 void RecordingEngine::advanceRecordingPosition(std::int64_t numSamples) noexcept
@@ -130,6 +141,7 @@ void RecordingEngine::recordEvent(const juce::MidiMessage& message,
     {
         ++droppedEventCount;
         currentTake.lengthSamples = std::max(currentTake.lengthSamples, clampedTimestamp);
+        DP_DEBUG_LOG("[RecordingEngine] event DROPPED: capacity exhausted");
         return;
     }
 
@@ -179,6 +191,10 @@ void RecordingEngine::startPlayback(const RecordingTake& take, double currentSam
     playbackPositionSamples = 0;
     playbackEndedPending.store(false, std::memory_order_release);
     state.store(RecordingState::playing, std::memory_order_release);
+
+    DP_DEBUG_LOG(("[RecordingEngine] playback STARTED: " + juce::String(take.events.size())
+                  + " events, ratio=" + juce::String(playbackSampleRateRatio)
+                  + ", scaledLen=" + juce::String(scaledPlaybackLengthSamples)).toRawUTF8());
 }
 
 void RecordingEngine::stopPlayback()
@@ -221,10 +237,10 @@ void RecordingEngine::advancePlaybackPosition(std::int64_t numSamples) noexcept
         state.store(RecordingState::stopped, std::memory_order_release);
         playbackPositionSamples = scaledPlaybackLengthSamples;
         playbackEndedPending.store(true, std::memory_order_release);
-        juce::Logger::writeToLog("[RecordingEngine] playback ENDED: pos="
-                                 + juce::String(playbackPositionSamples)
-                                 + " >= scaledLen=" + juce::String(scaledPlaybackLengthSamples)
-                                 + " (ratio=" + juce::String(playbackSampleRateRatio) + ")");
+        DP_LOG_INFO(("[RecordingEngine] playback ENDED: pos="
+                     + juce::String(playbackPositionSamples)
+                     + " >= scaledLen=" + juce::String(scaledPlaybackLengthSamples)
+                     + " (ratio=" + juce::String(playbackSampleRateRatio) + ")").toRawUTF8());
     }
 }
 

@@ -1,5 +1,8 @@
 #include "MidiRouter.h"
 
+#include "Diagnostics/DebugLog.h"
+#include "Diagnostics/MidiTrace.h"
+
 MidiRouter::~MidiRouter()
 {
     closeInputs();
@@ -48,6 +51,8 @@ int MidiRouter::getOpenInputCount() const noexcept
 void MidiRouter::handleIncomingMidiMessage(juce::MidiInput* source, const juce::MidiMessage& message)
 {
     juce::ignoreUnused(source);
+
+    DP_TRACE_MIDI(devpiano::diagnostics::describeMidiMessage(message).toRawUTF8(), "MidiRouter");
 
     if (collector != nullptr)
         collector->addMessageToQueue(message);
