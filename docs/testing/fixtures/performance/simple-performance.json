@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "format": "devpiano-performance",
+  "sampleRate": 44100.0,
+  "lengthSamples": 132300,
+  "metadata": {
+    "createdAt": "2026-05-03T12:00:00Z",
+    "title": "Simple Test Performance",
+    "notes": "Two notes (C4, E4) for fixture validation"
+  },
+  "events": [
+    {
+      "timestampSamples": 0,
+      "source": "computerKeyboard",
+      "midiData": [
+        144,
+        60,
+        100
+      ]
+    },
+    {
+      "timestampSamples": 22050,
+      "source": "computerKeyboard",
+      "midiData": [
+        128,
+        60,
+        0
+      ]
+    },
+    {
+      "timestampSamples": 44100,
+      "source": "computerKeyboard",
+      "midiData": [
+        144,
+        64,
+        80
+      ]
+    },
+    {
+      "timestampSamples": 66150,
+      "source": "computerKeyboard",
+      "midiData": [
+        128,
+        64,
+        0
+      ]
+    }
+  ]
+}

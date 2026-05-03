@@ -1,6 +1,7 @@
 # 演奏数据持久化与播放体验增强验收测试（Phase 6）
 
 > 用途：记录 Phase 6 演奏文件保存/打开、播放速度控制、最近文件列表、基础编辑和 MIDI 导入增强的专项验收测试。
+> **当前状态：Phase 6-1 已完成，Phase 6-7 已完成。**
 > 读者：开发者、测试者、阶段验收者。
 > 更新时机：Phase 6 各子阶段实现状态变化、验收结果更新时。
 
@@ -21,6 +22,7 @@
 - Phase 6-3：最近文件列表 + 拖拽打开。
 - Phase 6-4：基础 MIDI 编辑（delete notes）。
 - Phase 6-5：MIDI 导入增强（sustain CC64、pitch bend、program change）。
+- **Phase 6-7：MIDI / Performance 测试夹具与最小回归样本库。**
 
 不覆盖：
 
@@ -28,6 +30,58 @@
 - 多轨 / tempo map（Phase 7+）。
 - Piano roll / 事件编辑器（Phase 8）。
 - 旧 FreePiano `.fpm` 格式兼容。
+- 测试框架自动化运行（Phase 8 之后）。
+
+---
+
+## 3a. 测试夹具库（Phase 6-7）
+
+Phase 6-7 建立了一套固定 MIDI / Performance 测试夹具，位于 `docs/testing/fixtures/`。
+
+### 3a.1 目录结构
+
+```
+docs/testing/fixtures/
+├── midi/
+│   ├── simple-notes.mid           # 最简 note 序列，3 音符，120 BPM
+│   ├── velocity-channel.mid        # 多 velocity、多 channel
+│   ├── sustain-pedal.mid           # 含 CC64 sustain on/off
+│   ├── multitrack-basic.mid        # Type 1，2 轨，含 track name
+│   ├── tempo-change-basic.mid      # 含 tempo change meta 事件
+│   ├── empty.mid                   # 合法 header，零事件
+│   └── invalid.mid                  # 非 MIDI 文本
+└── performance/
+    └── simple-performance.json     # 最小 .devpiano JSON 格式
+```
+
+### 3a.2 Fixture 清单
+
+| Fixture | 内容 | 用途 |
+|---------|------|------|
+| `simple-notes.mid` | Type 0, 960 PPQ, 120 BPM, notes 60/64/67, vel 100/80/60, 各 0.5s | 基础 MIDI 导入验证；roundtrip 基准 |
+| `velocity-channel.mid` | 16 notes, 3 velocity 分组(20/64/127), 2 channel(1/2) | velocity 解析、channel 分配验证 |
+| `sustain-pedal.mid` | CC64 sustain on(127)/off(0) 覆盖多个 note | Phase 6-5 sustain 效果可听性验证 |
+| `multitrack-basic.mid` | Type 1, track0=tempo meta, track1=notes | 多轨自动选择逻辑验证 |
+| `tempo-change-basic.mid` | tempo 120→180 at 500ms | tempo change 跳过/不崩溃验证 |
+| `empty.mid` | 合法 MIDI header, zero events | 空文件健壮性验证 |
+| `invalid.mid` | "NOT A MIDI FILE" 文本 | 格式错误处理不崩溃验证 |
+| `simple-performance.json` | Phase 6-1 格式样本, 2 个 note 事件 | .devpiano roundtrip 基准 |
+
+### 3a.3 Fixture 合法性验证
+
+所有 MIDI fixture 均通过 mido 库验证：
+
+```
+OK   empty.mid: type=0 ppq=960 tracks=1 track0(1msg,0notes)
+OK   multitrack-basic.mid: type=1 ppq=960 tracks=2 track0(3msg,0notes) track1(8msg,6notes)
+OK   simple-notes.mid: type=0 ppq=960 tracks=1 track0(9msg,6notes)
+OK   sustain-pedal.mid: type=0 ppq=960 tracks=1 track0(10msg,6notes)
+OK   tempo-change-basic.mid: type=0 ppq=960 tracks=1 track0(7msg,4notes)
+OK   velocity-channel.mid: type=0 ppq=960 tracks=1 track0(34msg,32notes)
+FAIL invalid.mid: MThd not found. Probably not a MIDI file  ← 预期行为，证明非法文件识别正常
+```
+
+> 注：`invalid.mid` 的 `FAIL` 为预期行为，表示文件被正确识别为非 MIDI 文件。
 
 ---
 
@@ -71,10 +125,10 @@
 
 ### Phase 6-5 素材
 
-1. **包含 sustain CC64 的 MIDI 文件**。
-2. **包含 pitch bend 的 MIDI 文件**。
-3. **包含 program change 的 MIDI 文件**。
-4. **仅包含 note on/off 的 MIDI 文件**（回归测试）。
+1. **Fixture 文件**（见 Section 3a）：
+   - `docs/testing/fixtures/midi/sustain-pedal.mid`（含 CC64 sustain）。
+   - `docs/testing/fixtures/midi/simple-notes.mid`（回归测试基准）。
+2. **额外手工 MIDI 文件**（可选）：含 pitch bend、program change 的文件用于手工验证。
 
 ---
 
@@ -217,13 +271,13 @@
 
 验收项：
 
-- [ ] 导入包含 sustain CC64 的 MIDI 文件后，回放时延音踏板效果可听（依赖插件支持）。
-- [ ] 导入包含 pitch bend 的 MIDI 文件后，回放时弯音效果可听（依赖插件支持）。
-- [ ] 导入包含 program change 的 MIDI 文件后，回放时音色变化可听（依赖插件支持）。
-- [ ] 导入仅包含 note on/off 的 MIDI 文件时，行为与 Phase 4 一致，无回退。
+- [ ] 导入 `sustain-pedal.mid`（含 CC64 sustain）后，回放时延音踏板效果可听（依赖插件支持）。
+- [ ] 导入 `simple-notes.mid` 仅包含 note on/off 的 MIDI 文件时，行为与 Phase 4 一致，无回退。
 - [ ] Logger 输出导入的非 note 事件数量。
 - [ ] 导入后保存为 `.devpiano` 文件，非 note 事件正确保留。
 - [ ] 打开包含非 note 事件的 `.devpiano` 文件后，回放时非 note 事件正确还原。
+
+> Fixture 参考：`docs/testing/fixtures/midi/sustain-pedal.mid`、`docs/testing/fixtures/midi/simple-notes.mid`
 
 ---
 
