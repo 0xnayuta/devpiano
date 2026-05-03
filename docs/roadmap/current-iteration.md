@@ -6,17 +6,15 @@
 
 ## 当前状态
 
-当前活跃阶段：**Phase 5：架构收敛与 MainComponent 瘦身**
+当前活跃阶段：**Phase 5 已完成，Phase 6 规划中**
+
+**Phase 5 已完成**（5.1-5.8 + 人工回归均通过）。`MainComponent.cpp` 从 1587 行降至 606 行，远低于 1200 行目标。
+
+**Phase 6 规划中**：演奏数据持久化与播放体验增强。详见 `docs/roadmap/roadmap.md` Phase 6 章节。
 
 当前插入缺陷 **启动 / 音频重建早期首音音高异常** 已修复并通过人工验证；保留 `25ms` audio warmup。
 
 插入缺陷 **MIDI 导入播放首音无声** 已通过 playback-start pre-roll / arming 修复并完成人工回归；后续触及 MIDI import / playback 启动链路时执行 Phase 4 §11.1 回归。
-
-Phase 5.8e 已完成；下一步做 Phase 5.8 人工回归，然后执行 Phase 5.8f 分层清理。
-
-Phase 5.1-5.7 已完成（2026-05-01）：MainComponent 职责下沉，包括录制会话状态结构化、导出流程统一、布局 CRUD 收敛、设置窗口收敛、AppState 清理、ControlsPanel 按钮状态统一、MIDI 导入流程下沉。
-
-当前 `MainComponent.cpp` 606 行（5.8a-5.8e 完成后），远低于 1200 行目标。
 
 ---
 
@@ -79,10 +77,8 @@ Phase 5.1-5.7 已完成（2026-05-01）：MainComponent 职责下沉，包括录
 
 | 职责域 | 当前位置 | 后续处理 |
 |---|---|---|
-| Phase 5.8 人工回归 | 键盘演奏、插件加载/卸载/editor、录制/回放/MIDI/WAV 导出、MIDI 导入、布局 preset、设置窗口 | 执行回归并记录结果 |
-| AppStateBuilder 分层清理 | `Core/AppStateBuilder.cpp` 依赖运行时模块 | 5.8f：移到 `App/AppStateSnapshotBuilder` |
-| 音频设备生命周期胶水 | `initialiseAudioDevice()`、`prepareForAudioDeviceRebuild()`、`finishAudioDeviceRebuild()`、`runPluginActionWithAudioDeviceRebuild()` | 5.8+ 后续机会 |
-| 匿名 namespace 工具函数 | `makeSafeUiText()`、`suppressImeForPeer()` 等 | 5.8+ 后续按域分散 |
+| 音频设备生命周期胶水 | `initialiseAudioDevice()`、`prepareForAudioDeviceRebuild()`、`finishAudioDeviceRebuild()`、`runPluginActionWithAudioDeviceRebuild()` | 已评估：不建议继续拆分，长期搁置到 MainComponent 再次膨胀 |
+| 匿名 namespace 工具函数 | `makeSafeUiText()`、`suppressImeForPeer()` 等 | 已评估：不建议继续拆分，长期搁置到 MainComponent 再次膨胀 |
 
 ### 提取优先级排序（历史分析，5.8a-5.8c 已完成）
 
@@ -241,36 +237,15 @@ Phase 5.1-5.7 已完成（2026-05-01）：MainComponent 职责下沉，包括录
 
 ---
 
-### 5.8f：AppStateBuilder 分层清理（待执行）
+### 5.8f：AppStateBuilder 分层清理（低优先级 tech debt，暂不执行）
 
-**目标**：将跨模块 runtime snapshot 构建从 `Core/AppStateBuilder` 移到 `App/AppStateSnapshotBuilder`，恢复 `Core` 层的纯状态/设置职责。
+**状态**：已评估，暂不执行。
 
-**背景**：5.8e 完成后，`Core/AppStateBuilder.cpp` 依赖了 `AudioDeviceManager`、`PluginHost`、`MidiRouter`、`KeyboardMidiMapper` 等运行时模块，使 `Core` 从纯状态层变成了 app-composition 层。当前无行为问题，但依赖方向不理想，应尽早修正。
+**内容**：将 `Core/AppStateBuilder.cpp` 中的 runtime snapshot 构建（依赖 `AudioDeviceManager`、`PluginHost`、`MidiRouter`、`KeyboardMidiMapper`）移到 `App/AppStateSnapshotBuilder`，恢复 `Core` 层纯状态职责。
 
-**提取内容**：
+**不执行原因**：当前无行为问题，`Core` 层的跨模块依赖仅影响一个很小的 snapshot 组装点且只被 `MainComponent` 使用。进一步拆分需要引入新的间接层，收益不足以 justify 额外的维护成本。属于架构洁癖而非实际问题。
 
-从 `Core/AppStateBuilder.{h,cpp}` 移到 `App/AppStateSnapshotBuilder.{h,cpp}`：
-- `buildRuntimeAudioStateSnapshot()` — 读取 `AudioDeviceManager` + `SettingsModel`
-- `buildRuntimePluginStateSnapshot()` — 读取 `PluginHost`
-- `buildRuntimeInputStateSnapshot()` — 读取 `KeyboardMidiMapper` + `MidiRouter`
-- `buildCurrentAppStateSnapshot()` — 组合函数
-
-**保留在 `Core/AppStateBuilder`**：
-- `RuntimeAudioState`、`RuntimePluginState`、`RuntimeInputState` 结构体
-- `createPersistedAppState()` — 纯 settings 读取
-- `applyRuntime*State()` — 纯 overlay helper
-- `buildAppState()` — 纯组合函数
-
-**设计模式**：`App/AppStateSnapshotBuilder` 作为 app-composition 层，依赖 `Core/AppStateBuilder` 的类型和纯函数，同时读取运行时模块。`Core` 层不再依赖 `Audio/Input/Midi/Plugin`。
-
-**预期 MainComponent 变化**：仅更新 `#include` 路径，行数不变。
-
-**完成标准**：
-- `Core/AppStateBuilder.h/.cpp` 不再 include `AudioDeviceDiagnostics.h`、`PluginHost.h`、`MidiRouter.h`、`KeyboardMidiMapper.h`。
-- `App/AppStateSnapshotBuilder.{h,cpp}` 包含 4 个 runtime snapshot 函数。
-- `MainComponent.cpp` include 从 `Core/AppStateBuilder.h` 改为 `App/AppStateSnapshotBuilder.h`。
-- WSL configure 通过，Windows MSVC Debug 构建通过。
-- 行为不变：只读 UI 刷新、MIDI 状态显示、插件状态显示无回退。
+**触发条件**：如果 `Core/AppStateBuilder` 的跨模块依赖开始被其他模块误用，或 `MainComponent` 再次膨胀到需要重新评估职责边界时，再执行此清理。
 
 ---
 
@@ -282,10 +257,9 @@ Phase 5.1-5.7 已完成（2026-05-01）：MainComponent 职责下沉，包括录
 5.8c（插件） ──┤
 5.8d（设置） ──┤
 5.8e（快照） ──┘
-5.8f（分层清理） ── 依赖 5.8e 完成
 ```
 
-建议执行顺序：**5.8a → 5.8b → 5.8c → 5.8d → 5.8e → 5.8f**
+执行顺序：**5.8a → 5.8b → 5.8c → 5.8d → 5.8e**（全部已完成）
 
 理由：
 - 5.8a 最自包含，风险最低，先做建立模式。
@@ -310,11 +284,13 @@ Phase 5.1-5.7 已完成（2026-05-01）：MainComponent 职责下沉，包括录
 
 ---
 
-## Phase 5.8+ 后续机会（5.8 完成后评估）
+## Phase 5.8+ 后续机会（已评估，不建议继续）
 
-- **音频设备管理 helper**（~55 行）：`initialiseAudioDevice()`、`captureAudioDeviceState()`、`prepareForAudioDeviceRebuild()`、`finishAudioDeviceRebuild()`、`runPluginActionWithAudioDeviceRebuild()` 可提取为 `Audio/AudioDeviceLifecycleHelper`。
-- **性能/插件恢复设置 helper**（~67 行）：`getPerformanceSettingsFromUi()`、`applyPerformanceSettingsToUi()`、`applyPerformanceSettingsToAudioEngine()` 等可提取为 `Settings/SettingsFlowSupport`。
-- **匿名 namespace 工具函数**（~128 行）：`makeSafeUiText()`、`getLastMidiExportDirectory()`、`getLastMidiImportDirectory()`、`makeDefaultMidiExportFile()`、`suppressImeForPeer()` 可按域分散到对应模块。
+以下提取机会已评估，当前 `MainComponent.cpp` 606 行、职责边界清晰，进一步拆分的收益不足以 justify 额外间接层成本。**长期搁置到 MainComponent 再次膨胀时重新评估。**
+
+- **音频设备管理 helper**（~55 行）：`initialiseAudioDevice()`、`captureAudioDeviceState()`、`prepareForAudioDeviceRebuild()`、`finishAudioDeviceRebuild()`、`runPluginActionWithAudioDeviceRebuild()` 可提取为 `Audio/AudioDeviceLifecycleHelper`。**不执行原因**：这些函数天然属于主窗口组件的音频生命周期入口，拆分后需要引入额外的回调/接口。
+- **性能/插件恢复设置 helper**（~67 行）：`getPerformanceSettingsFromUi()`、`applyPerformanceSettingsToUi()`、`applyPerformanceSettingsToAudioEngine()` 等可提取为 `Settings/SettingsFlowSupport`。**不执行原因**：行数少、逻辑简单，拆分收益低。
+- **匿名 namespace 工具函数**（~128 行）：`makeSafeUiText()`、`suppressImeForPeer()` 等可按域分散到对应模块。**不执行原因**：这些函数已被各模块使用，分散后会增加 include 依赖而不会改善可维护性。
 
 ---
 
@@ -325,9 +301,9 @@ Phase 5.1-5.7 已完成（2026-05-01）：MainComponent 职责下沉，包括录
 - [x] Phase 5.8c 完成：插件操作提取到 `Plugin/PluginOperationController`，MainComponent 从 930 行降至 711 行（减少 219 行）。（2026-05-02）
 - [x] Phase 5.8d 完成：设置窗口管理提取到 `Settings/SettingsWindowManager`，MainComponent 从 711 行降至 631 行（减少 80 行）。（2026-05-02）
 - [x] Phase 5.8e 完成：状态快照构建提取到 `Core/AppStateBuilder`，MainComponent 从 631 行降至 606 行（减少 25 行）。（2026-05-02）
-- [ ] Phase 5.8f 完成：AppStateBuilder 分层清理，runtime snapshot 构建移到 `App/AppStateSnapshotBuilder`，`Core` 层恢复纯状态职责。
 - [x] Phase 5.8 总验证：MainComponent.cpp ≤ 1200 行，WSL 构建通过，Windows MSVC 构建通过。
-- [ ] Phase 5.8 回归：键盘演奏、插件加载/卸载/editor、录制/回放/MIDI/WAV 导出、MIDI 导入、布局 preset、设置窗口未发现明显回退。
+- [x] Phase 5.8 回归：键盘演奏、插件加载/卸载/editor、录制/回放/MIDI/WAV 导出、MIDI 导入、布局 preset、设置窗口未发现明显回退。（2026-05-02）
+- [~] Phase 5.8f：AppStateBuilder 分层清理 — 已评估为低优先级 tech debt，暂不执行。详见 5.8f 章节。
 
 ## 本轮计划验证命令
 

@@ -72,7 +72,7 @@
 
 ### Phase 5：架构收敛与 MainComponent 瘦身
 
-状态：实现完成（5.1-5.7 已完成，5.8a-5.8e 已完成；剩余人工回归）。
+状态：已完成（5.1-5.7 已完成，5.8a-5.8e 已完成，人工回归通过）。
 
 **目标：** 将 `MainComponent.cpp` 从约 1587 行降至 1200 行以下，通过提取 helper 收敛职责。
 
@@ -89,22 +89,70 @@
 - 状态快照构建提取到 `Core/AppStateBuilder`（MainComponent 631→606 行，减少 25 行；主要收益是边界收敛）。
 - 累计减少 981 行，远低于 1200 行目标。
 
-**剩余事项：**
-- Phase 5.8f：AppStateBuilder 分层清理，runtime snapshot 构建移到 `App/AppStateSnapshotBuilder`，`Core` 层恢复纯状态职责。
-- Phase 5.8 人工回归：键盘演奏、插件加载/卸载/editor、录制/回放/MIDI/WAV 导出、MIDI 导入、布局 preset、设置窗口。
+**后续 tech debt（低优先级，暂不执行）：**
+- Phase 5.8f：AppStateBuilder 分层清理 — 已评估为低优先级 tech debt，暂不执行。详见 [`current-iteration.md`](current-iteration.md)。
+- 5.8+ 后续机会（音频设备 helper、设置 flow helper、匿名 namespace 分散）— 已评估，不建议继续拆分，长期搁置到 MainComponent 再次膨胀。
 
-5.8a-5.8e 已使 `MainComponent.cpp` 降至 606 行，已达成 1200 行以下目标。详细计划见 [`current-iteration.md`](current-iteration.md)。
+5.8a-5.8e 已使 `MainComponent.cpp` 降至 606 行，已达成 1200 行以下目标。人工回归已通过，无明显回退。详细计划见 [`current-iteration.md`](current-iteration.md)。
 
 详细完成记录见：[`../archive/phase5-architecture-convergence.md`](../archive/phase5-architecture-convergence.md)。
+
+### Phase 6：演奏数据持久化与播放体验增强
+
+状态：规划中。
+
+**目标：** 填补 FreePiano 核心功能差距——录制后能保存、保存后能打开、打开后能调速播放。
+
+**规划内容：**
+
+- **Phase 6-1：演奏文件保存/打开**（核心）
+  - 保存 `RecordingTake` 为 JSON（`.devpiano` 扩展名），包含 events、sampleRate、lengthSamples、元数据。
+  - Open 按钮 + FileChooser + 最近路径记忆。
+  - 用户价值：最高——当前录制完即丢失。
+- **Phase 6-2：播放速度控制**
+  - 0.5x ~ 2.0x 速度调节，ControlsPanel 增加速度显示 + 增减按钮。
+  - 用户价值：高——练琴刚需，FreePiano 有此功能。
+- **Phase 6-3：最近文件列表 + 拖拽打开**
+  - 最近打开的演奏文件/MIDI 文件列表（最多 10 条）。
+  - 拖拽 `.devpiano` / `.mid` 文件到窗口触发打开。
+- **Phase 6-4：基础 MIDI 编辑（delete notes）**
+  - 选中音符 → 删除。需将 `RecordingTake.events` 改为可变结构。
+  - 最小编辑能力：只做删除，不做添加/移动/量化。
+- **Phase 6-5：MIDI 导入增强**
+  - 导入 sustain CC64、pitch bend、program change，提升外部 MIDI 回放保真度。
+
+详细功能候选与差距分析见：[`../features/phase4-midi-file-import.md`](../features/phase4-midi-file-import.md)。
+
+### Phase 7：完整工程文件与多轨支持（粗略规划）
+
+状态：未开始，粗略规划。
+
+**可能包含：**
+- 完整工程文件（`.devpiano-project`）：包含演奏数据 + layout preset + 插件状态 + 音频设备配置。
+- 多轨数据模型：`RecordingTake` 引入 track 概念。
+- Tempo map 支持：导入/编辑/保存 tempo 变化。
+- VST3 插件离线渲染（Phase 3-2 搁置项恢复）。
+- Setting groups：多组独立的八度/移调/力度/通道配置。
+
+### Phase 8：高级编辑与国际化（粗略规划）
+
+状态：未开始，粗略规划。
+
+**可能包含：**
+- Piano roll / 事件编辑器 UI。
+- 量化 / snap-to-grid。
+- 多语言 UI（英文/中文）。
+- MP4 视频导出。
+- 自动延音踏板（auto pedal）。
+- Key fade 动画、GUI 透明度等装饰功能。
 
 ## 4. 当前近期重点
 
 优先级从高到低：
 
-1. **Phase 5.8：MainComponent 继续瘦身**
-   - 目标：从约 1587 行降至 1200 行以下；当前已降至 606 行。
-   - 5.8a-5.8e 已完成，下一步做 5.8f 分层清理与人工回归。
-   - 详见 [`current-iteration.md`](current-iteration.md)。
+1. **Phase 6：演奏数据持久化与播放体验增强** — 规划中。
+   - 核心：演奏文件保存/打开、播放速度控制、最近文件列表、拖拽打开、基础 MIDI 编辑。
+   - 详见上方 Phase 6 章节。
 
 2. **Phase 4 边界稳定**
    - 保持 Phase 4-4 边界：导入 playback take 禁止 MIDI 再导出；导入后允许 WAV 导出。
