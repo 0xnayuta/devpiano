@@ -367,8 +367,6 @@ void RecordingSessionController::handleOpenPerformanceClicked()
 void RecordingSessionController::handlePlaybackSpeedChange(double speed)
 {
     recordingEngine.setPlaybackSpeedMultiplier(speed);
-    appSettings.playbackSpeed = speed;
-    owner.saveSettingsSoon();
     controlsPanel.setPlaybackSpeed(speed);
     DP_DEBUG_LOG("[Playback] speed changed to " + juce::String(speed, 2) + "x");
 }

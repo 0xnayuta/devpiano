@@ -17,7 +17,6 @@ namespace {
     const char* kKeyMap = "keymapVT"; // stored as ValueTree XML
     const char* kKeyLastMidiImportPath = "lastMidiImportPath";
     const char* kKeyLastMidiExportPath = "lastMidiExportPath";
-    const char* kKeyPlaybackSpeed = "playbackSpeed";
     const char* kKeyMainWindowWidth = "mainWindowWidth";
     const char* kKeyMainWindowHeight = "mainWindowHeight";
 
@@ -100,11 +99,6 @@ void SettingsStore::readNow(SettingsModel& m)
     m.lastMidiImportPath = f.getValue(kKeyLastMidiImportPath, m.lastMidiImportPath);
     m.lastMidiExportPath = f.getValue(kKeyLastMidiExportPath, m.lastMidiExportPath);
 
-    // Playback speed
-    m.playbackSpeed = f.getDoubleValue(kKeyPlaybackSpeed, m.playbackSpeed);
-    if (m.playbackSpeed <= 0.0)
-        m.playbackSpeed = 1.0;
-
     // Main content size
     m.mainWindowWidth = f.getIntValue(kKeyMainWindowWidth, m.mainWindowWidth);
     m.mainWindowHeight = f.getIntValue(kKeyMainWindowHeight, m.mainWindowHeight);
@@ -142,9 +136,6 @@ void SettingsStore::writeNow(const SettingsModel& m)
     // MIDI import/export paths
     f.setValue(kKeyLastMidiImportPath, m.lastMidiImportPath);
     f.setValue(kKeyLastMidiExportPath, m.lastMidiExportPath);
-
-    // Playback speed
-    f.setValue(kKeyPlaybackSpeed, m.playbackSpeed);
 
     // Main content size
     f.setValue(kKeyMainWindowWidth, m.mainWindowWidth);

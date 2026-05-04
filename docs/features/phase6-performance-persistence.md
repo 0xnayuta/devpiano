@@ -430,29 +430,32 @@ events[].message            →    events[].midiData (raw bytes)
 - 速度范围：0.5x、0.75x、1.0x（默认）、1.25x、1.5x、2.0x。
 - ControlsPanel 增加速度显示 + 增减按钮（`-` / `+`）。
 - 速度变更**实时生效**（播放中调整立即改变回放速率）。
-- 速度值持久化到 `SettingsModel.playbackSpeed`，下次启动恢复。
+- 每次启动默认 1.0x，不持久化速度值。
 
 ### 5.3 实现要点
 
-- `RecordingEngine.playbackSpeedMultiplier`：成员变量，类型 `double`，默认值 `1.0`。
-- `RecordingEngine.setPlaybackSpeedMultiplier(double)`：设置倍率并立即更新 `scaledPlaybackLengthSamples`（播放中亦可调用）。
-- `RecordingEngine.getPlaybackSpeedMultiplier()`：返回当前倍率。
-- `renderPlaybackBlock()` 中用 `combinedRatio = playbackSampleRateRatio * playbackSpeedMultiplier` 缩放时间戳，不修改原始事件。
-- 速度变更通过 `RecordingSessionController.handlePlaybackSpeedChange()` 同步到 engine + UI + 持久化。
-- `MainComponent` 初始化时从 `appSettings.playbackSpeed` 恢复速度。
+- `RecordingEngine.playbackSpeedMultiplier`：`std::atomic<double>`，默认值 `1.0`，范围 `0.5–2.0`。
+- `RecordingEngine.scaledPlaybackLengthSamples` / `playbackPositionSamples`：均为 `std::atomic<std::int64_t>`，跨 audio 线程安全。
+- `RecordingEngine.setPlaybackSpeedMultiplier(double)`：播放中切换时，先重校准 `playbackPositionSamples`（`pos × oldSpeed / newSpeed`），再更新 `scaledPlaybackLengthSamples`。
+- `RecordingEngine.getPlaybackSpeedMultiplier()`：返回 `.load()` 值。
+- `renderPlaybackBlock()` 中用 `combinedRatio = playbackSampleRateRatio / playbackSpeedMultiplier` 缩放时间戳，不修改原始事件；block 边界使用 `[start, end)` 半开区间，`>=` 上界是刻意的防御性守卫。
+- 速度变更通过 `RecordingSessionController.handlePlaybackSpeedChange()` 同步到 engine + UI，不写 settings。
+- `MainComponent` 初始化时硬编码 1.0，不从持久化存储恢复。
+- ControlsPanel 速度按钮在 `recording` / `playing` 状态下自动禁用（`setEnabled(false)`）。
 
 ### 5.4 不做范围
 
 - 不做连续变速滑块（只做离散档位）。
 - 不做 pitch correction（变速同时变调是预期行为）。
 - 不做 loop / A-B 循环。
+- **不做速度值持久化**（每次启动均为 1.0x）。
 
 ### 5.5 验收标准
 
 - [x] ControlsPanel 显示当前播放速度，默认 `1.00x`。
 - [x] 点击 `-` / `+` 按钮可调整速度，范围 0.50x–2.00x。
 - [x] 播放中调整速度，回放速率立即变化。
-- [x] 速度值下次启动自动恢复。
+- [x] 每次启动默认 1.0x，不受上次退出时速度影响。
 - [x] 0.5x 慢速播放时音符间隔明显拉长，无卡顿。
 - [x] 2.0x 快速播放时音符间隔明显缩短，无爆音。
 

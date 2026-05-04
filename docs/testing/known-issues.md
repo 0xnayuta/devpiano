@@ -409,6 +409,32 @@ bool MainComponent::shouldRestoreMainKeyboardFocus() const;
 - **MIDI 导入播放首音无声**：已通过 playback-start pre-roll / arming 修复，人工验证测试样本均不再复现。
 - **插件 editor 被主窗口顶到后面**：已通过辅助窗口打开时跳过主窗口 `grabKeyboardFocus()` 修复，人工验证不再复现；长期约束见 §9。
 
+### 11. Phase 6-2 播放速度控制 — 已修复
+
+#### 11.1 倍率公式反用（音符间隔反向）
+
+> 触发条件：播放中切换速度，无论调大或调小，音符间隔均反方向变化（0.5x 变快、2.0x 变慢）。
+
+- **根因**：`renderPlaybackBlock()` 中 `combinedRatio = playbackSampleRateRatio * playbackSpeedMultiplier`（乘法）；0.5x 时 `ratio × 0.5` 反而压缩时间轴，音符更密；2.0x 时 `ratio × 2.0` 反而拉长时间轴，音符更疏。
+- **修复**：`combinedRatio = playbackSampleRateRatio / playbackSpeedMultiplier`（除法）；0.5x → 时间轴拉长 2×（慢放），2.0x → 时间轴压缩 0.5×（快放）。同步修正 `getScaledPlaybackLengthSamples()` 中的公式。
+- **文件**：`source/Recording/RecordingEngine.cpp`
+
+#### 11.2 速度切换时音长时间悬停（note-off 吞没）
+
+> 触发条件：播放中切换速度，恰好在某个音 note-on 的时刻点击速度按钮，该音会一直持续到下次该音被再次触发。
+
+- **根因**：速度切换后 `combinedRatio` 立即更新，但 `playbackPositionSamples` 未重新校准。`combinedRatio` 改变导致该事件的 `scaledTimestamp` 落在 block 区间之外（note-on 被 skip，note-off 被正常处理），音无头悬停。
+- **修复**：`setPlaybackSpeedMultiplier()` 在 playing 状态下，先重校准 `playbackPositionSamples`（`pos × oldSpeed / newSpeed`），再更新 `scaledPlaybackLengthSamples`。保证速度切换前后 take 时间轴位置不变。
+- **文件**：`source/Recording/RecordingEngine.cpp`
+
+#### 11.3 播放状态三成员跨线程数据竞争
+
+> 触发条件：音频回调（high-priority audio thread）与 UI 消息线程并发访问 `playbackSpeedMultiplier` / `scaledPlaybackLengthSamples` / `playbackPositionSamples`。在 C++11+ 下构成未定义行为。
+
+- **根因**：三者均为裸 `double` / `std::int64_t`，无同步机制。
+- **修复**：三者均改为 `std::atomic<>`（`playbackSpeedMultiplier` → `std::atomic<double>`，`scaledPlaybackLengthSamples` / `playbackPositionSamples` → `std::atomic<std::int64_t>`），所有读写通过 `.load()` / `.store()` / `.fetch_add()` 接口。`.store()` 默认顺序一致性对 JUCE audio 回调场景足够。
+- **文件**：`source/Recording/RecordingEngine.h`（声明侧）、`source/Recording/RecordingEngine.cpp`（所有调用点）
+
 详见：
 
 - [`../archive/phase5-architecture-convergence.md`](../archive/phase5-architecture-convergence.md)（Phase 5 完成记录）

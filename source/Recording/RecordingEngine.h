@@ -108,9 +108,9 @@ private:
     // Playback state
     RecordingTake playbackTake;
     double playbackSampleRateRatio = 1.0;
-    double playbackSpeedMultiplier = 1.0;
-    std::int64_t scaledPlaybackLengthSamples = 0;
-    std::int64_t playbackPositionSamples = 0;
+    std::atomic<double> playbackSpeedMultiplier { 1.0 };
+    std::atomic<std::int64_t> scaledPlaybackLengthSamples { 0 };
+    std::atomic<std::int64_t> playbackPositionSamples { 0 };
     std::atomic_bool playbackEndedPending { false };
 };
 } // namespace devpiano::recording

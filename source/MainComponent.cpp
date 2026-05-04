@@ -153,13 +153,9 @@ void MainComponent::initialiseUi()
     controlsPanel.onOpenPerformanceClicked = [this] { recordingSessionController->handleOpenPerformanceClicked(); };
     controlsPanel.onPlaybackSpeedChange = [this](double speed) { recordingSessionController->handlePlaybackSpeedChange(speed); };
 
-    // Initialize playback speed from persisted settings without triggering a settings save.
-    // The generic speed-change handler persists immediately; during startup the ADSR/Gain
-    // sliders have not necessarily been restored yet, so using that path here can write
-    // slider default values back into DevPiano.settings.
-    const auto initialSpeed = appSettings.playbackSpeed > 0.0 ? appSettings.playbackSpeed : 1.0;
-    controlsPanel.setPlaybackSpeed(initialSpeed);
-    recordingEngine.setPlaybackSpeedMultiplier(initialSpeed);
+    // Initialize playback speed to 1.0x (never persisted — default on every launch).
+    controlsPanel.setPlaybackSpeed(1.0);
+    recordingEngine.setPlaybackSpeedMultiplier(1.0);
 
     addAndMakeVisible(keyboardPanel);
 }

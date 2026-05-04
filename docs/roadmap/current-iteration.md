@@ -18,14 +18,15 @@
   - 详细说明见 [`roadmap.md`](roadmap.md) Phase 6 章节。
 
 **Phase 6-2 已完成**：播放速度控制 ✅
-  - ControlsPanel 增加速度显示（`1.00x`）和 `-`/`+` 按钮，位于播放控制行下方。
-  - `RecordingEngine.playbackSpeedMultiplier`（默认 `1.0`，范围 `0.5–2.0`）。
-  - `setPlaybackSpeedMultiplier(double)` 在播放中实时更新 `scaledPlaybackLengthSamples` 和 `combinedRatio`。
-  - `renderPlaybackBlock()` 中用 `playbackSampleRateRatio * playbackSpeedMultiplier` 缩放时间戳，不修改原始 `RecordingTake` 数据。
-  - `SettingsModel.playbackSpeed` 持久化，启动时自动恢复。
-  - `.devpiano` 打开后和 `.mid` 导入后均默认 `1.0x`，不受之前播放速度影响。
+  - ControlsPanel 增加速度显示（`1.00x`）和 `-`/`+` 按钮，位于播放控制行 Export WAV 按钮右侧，recording/playing 状态下自动禁用。
+  - `RecordingEngine.playbackSpeedMultiplier`（`std::atomic<double>`，默认 `1.0`，范围 `0.5–2.0`）。
+  - `RecordingEngine.scaledPlaybackLengthSamples` / `playbackPositionSamples` 均为 `std::atomic<std::int64_t>`，跨 audio 线程安全。
+  - `setPlaybackSpeedMultiplier(double)` 在播放中切换时，先重校准 `playbackPositionSamples`（`pos × oldSpeed / newSpeed`），再更新 `scaledPlaybackLengthSamples`。
+  - `renderPlaybackBlock()` 中用 `combinedRatio = playbackSampleRateRatio / playbackSpeedMultiplier` 缩放时间戳，不修改原始 `RecordingTake` 数据。
+  - 每次启动默认 1.0x，不持久化速度值。
+  - `.devpiano` 打开后和 `.mid` 导入后均默认 `1.0x`，不受上次播放速度影响。
   - MIDI 导出使用原始 timeline，速度设置不影响导出时间戳。
-  - `RecordingSessionController.handlePlaybackSpeedChange()` 同步 engine + UI + 持久化。
+  - `RecordingSessionController.handlePlaybackSpeedChange()` 同步 engine + UI，不写 settings。
 
 **Phase 6-6 已完成**：Diagnostics 最小层 ✅
   - `source/Diagnostics/`（4 文件）：`DebugLog.h/.cpp`、`MidiTrace.h/.cpp`。
@@ -44,6 +45,12 @@
 **启动 / 音频重建早期首音音高异常**：已修复并通过人工验证；保留 `25ms` audio warmup。详细记录见 [`../testing/known-issues.md`](../testing/known-issues.md) §2。
 
 **MIDI 导入播放首音无声**：已通过 playback-start pre-roll / arming 修复并完成人工回归；后续触及 MIDI import / playback 启动链路时执行 Phase 4 §11.1 回归。详细记录见 [`../testing/known-issues.md`](../testing/known-issues.md) §8。
+
+**Phase 6-2 播放速度倍率反用（音符间隔反向）**：已修复。`renderPlaybackBlock()` 中 `combinedRatio = playbackSampleRateRatio / playbackSpeedMultiplier`（原为 `*`，导致 0.5x 时音符反而压缩、2.0x 时音符反而拉长）。详细记录见 [`../testing/known-issues.md`](../testing/known-issues.md) §11.1。
+
+**Phase 6-2 速度切换时音长时间悬停（note-off 吞没）**：已修复。`setPlaybackSpeedMultiplier()` 在切换时增加 `playbackPositionSamples` 重校准（`pos × oldSpeed / newSpeed`），保证 take 时间轴位置不变。详细记录见 [`../testing/known-issues.md`](../testing/known-issues.md) §11.2。
+
+**Phase 6-2 播放状态三成员跨线程数据竞争**：已修复。`playbackSpeedMultiplier`（`double` → `std::atomic<double>`）、`scaledPlaybackLengthSamples` 和 `playbackPositionSamples`（`std::int64_t` → `std::atomic<std::int64_t>`）。详细记录见 [`../testing/known-issues.md`](../testing/known-issues.md) §11.3。
 
 ---
 

@@ -301,6 +301,8 @@ void ControlsPanel::updateRecordingActionButtons()
     auto importMidiEnabled = true;
     auto saveEnabled = false;
     auto openEnabled = false;
+    auto speedDownEnabled = true;
+    auto speedUpEnabled = true;
 
     switch (recordingControlsState.state)
     {
@@ -325,6 +327,8 @@ void ControlsPanel::updateRecordingActionButtons()
             stopEnabled = true;
             saveEnabled = false;
             openEnabled = false;
+            speedDownEnabled = false;
+            speedUpEnabled = false;
             break;
         case RecordingState::playing:
             statusText = "Playing";
@@ -337,6 +341,8 @@ void ControlsPanel::updateRecordingActionButtons()
             stopEnabled = true;
             saveEnabled = false;
             openEnabled = false;
+            speedDownEnabled = false;
+            speedUpEnabled = false;
             break;
     }
 
@@ -350,6 +356,8 @@ void ControlsPanel::updateRecordingActionButtons()
     exportWavButton.setEnabled(exportWavEnabled);
     savePerformanceButton.setEnabled(saveEnabled);
     openPerformanceButton.setEnabled(openEnabled);
+    speedDownButton.setEnabled(speedDownEnabled);
+    speedUpButton.setEnabled(speedUpEnabled);
 }
 
 void ControlsPanel::setValues(float masterGain,

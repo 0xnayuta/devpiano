@@ -114,7 +114,7 @@
   - ControlsPanel 增加速度显示（`1.00x`）和 `-`/`+` 按钮。
   - `RecordingEngine.playbackSpeedMultiplier` + `setPlaybackSpeedMultiplier()`。
   - `renderPlaybackBlock()` 使用 `combinedRatio` 实时缩放时间戳，不修改原始数据。
-  - `SettingsModel.playbackSpeed` 持久化，启动时自动恢复。
+  - 每次启动默认 1.0x，不持久化速度值。
   - 速度变更实时生效（播放中切换立即影响回放速率）。
   - `.devpiano` 和 `.mid` 共用同一回放链路，无需差异化处理。
 - **Phase 6-6：Diagnostics 最小层**✅
@@ -129,7 +129,7 @@
 - **Phase 6-2：播放速度控制**
   - 0.5x ~ 2.0x 速度调节，ControlsPanel 增加速度显示 + 增减按钮。
   - 用户价值：高——练琴刚需，FreePiano 有此功能。
-  - ✅ 已完成（实时倍率，持久化，下一session恢复）。
+  - ✅ 已完成（实时倍率 / 速度切换重校准 / 线程安全 / 录音和播放中禁用速度按钮 / 1.0x 默认启动不持久化）。
 - **Phase 6-3：最近文件列表 + 拖拽打开**
   - 最近打开的演奏文件/MIDI 文件列表（最多 10 条）。
   - 拖拽 `.devpiano` / `.mid` 文件到窗口触发打开。

@@ -187,15 +187,15 @@ void RecordingEngine::startPlayback(const RecordingTake& take, double currentSam
     playbackSampleRateRatio = (take.sampleRate > 0.0 && currentSampleRate > 0.0)
                                    ? (currentSampleRate / take.sampleRate)
                                    : 1.0;
-    scaledPlaybackLengthSamples = getScaledPlaybackLengthSamples();
-    playbackPositionSamples = 0;
+    scaledPlaybackLengthSamples.store(getScaledPlaybackLengthSamples());
+    playbackPositionSamples.store(0);
     playbackEndedPending.store(false, std::memory_order_release);
     state.store(RecordingState::playing, std::memory_order_release);
 
     DP_DEBUG_LOG("[RecordingEngine] playback STARTED: " + juce::String(take.events.size())
                  + " events, ratio=" + juce::String(playbackSampleRateRatio)
-                 + ", speed=" + juce::String(playbackSpeedMultiplier)
-                 + ", scaledLen=" + juce::String(scaledPlaybackLengthSamples));
+                 + ", speed=" + juce::String(playbackSpeedMultiplier.load())
+                 + ", scaledLen=" + juce::String(scaledPlaybackLengthSamples.load()));
 }
 
 void RecordingEngine::stopPlayback()
@@ -207,19 +207,23 @@ void RecordingEngine::stopPlayback()
 void RecordingEngine::setPlaybackSpeedMultiplier(double multiplier) noexcept
 {
     const auto clamped = std::clamp(multiplier, 0.5, 2.0);
-    playbackSpeedMultiplier = clamped;
+    const auto oldSpeed = playbackSpeedMultiplier.load();
+    playbackSpeedMultiplier.store(clamped);
 
     if (isPlaying())
     {
-        scaledPlaybackLengthSamples = getScaledPlaybackLengthSamples();
+        // Re-align playbackPositionSamples so the take-time position stays the same
+        playbackPositionSamples.store(static_cast<std::int64_t>(
+            static_cast<double>(playbackPositionSamples.load()) * oldSpeed / clamped));
+        scaledPlaybackLengthSamples.store(getScaledPlaybackLengthSamples());
         DP_DEBUG_LOG("[RecordingEngine] playback speed updated to " + juce::String(clamped)
-                     + ", scaledLen=" + juce::String(scaledPlaybackLengthSamples));
+                     + ", scaledLen=" + juce::String(scaledPlaybackLengthSamples.load()));
     }
 }
 
 double RecordingEngine::getPlaybackSpeedMultiplier() const noexcept
 {
-    return playbackSpeedMultiplier;
+    return playbackSpeedMultiplier.load();
 }
 
 void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer,
@@ -229,7 +233,7 @@ void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer,
     if (!isPlaying())
         return;
 
-    const auto combinedRatio = playbackSampleRateRatio * playbackSpeedMultiplier;
+    const auto combinedRatio = playbackSampleRateRatio / playbackSpeedMultiplier.load();
     const auto blockEndSamples = blockStartSamples + static_cast<std::int64_t>(numSamples);
 
     for (const auto& event : playbackTake.events)
@@ -237,6 +241,10 @@ void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer,
         const auto scaledTimestamp = static_cast<std::int64_t>(
             static_cast<double>(event.timestampSamples) * combinedRatio);
 
+        // Half-open interval [blockStartSamples, blockEndSamples) for block membership.
+        // The >= on the upper bound is intentional: events whose scaledTimestamp reaches
+        // or passes blockEndSamples belong to the next block (or are past playback end).
+        // Playback naturally ends when advancePlaybackPosition sees position >= scaledLength.
         if (scaledTimestamp < blockStartSamples || scaledTimestamp >= blockEndSamples)
             continue;
 
@@ -250,15 +258,15 @@ void RecordingEngine::advancePlaybackPosition(std::int64_t numSamples) noexcept
     if (!isPlaying() || numSamples <= 0)
         return;
 
-    playbackPositionSamples += numSamples;
-    if (playbackPositionSamples >= scaledPlaybackLengthSamples)
+    playbackPositionSamples.fetch_add(numSamples);
+    if (playbackPositionSamples.load() >= scaledPlaybackLengthSamples.load())
     {
         state.store(RecordingState::stopped, std::memory_order_release);
-        playbackPositionSamples = scaledPlaybackLengthSamples;
+        playbackPositionSamples.store(scaledPlaybackLengthSamples.load());
         playbackEndedPending.store(true, std::memory_order_release);
         DP_LOG_INFO("[RecordingEngine] playback ENDED: pos="
-                    + juce::String(playbackPositionSamples)
-                    + " >= scaledLen=" + juce::String(scaledPlaybackLengthSamples)
+                    + juce::String(playbackPositionSamples.load())
+                    + " >= scaledLen=" + juce::String(scaledPlaybackLengthSamples.load())
                     + " (ratio=" + juce::String(playbackSampleRateRatio) + ")");
     }
 }
@@ -283,7 +291,7 @@ std::int64_t RecordingEngine::getScaledPlaybackLengthSamples() const noexcept
     if (playbackTake.lengthSamples <= 0)
         return 0;
 
-    const auto scaledLength = static_cast<double>(playbackTake.lengthSamples) * playbackSampleRateRatio;
+    const auto scaledLength = static_cast<double>(playbackTake.lengthSamples) * playbackSampleRateRatio / playbackSpeedMultiplier;
     if (scaledLength <= 0.0)
         return playbackTake.lengthSamples;
 
