@@ -38,12 +38,15 @@ public:
     std::function<void()> onToggleEditorRequested;
 
 private:
+    juce::File getInitialBrowseDirectory() const;
+    void setupBrowseButton();
     juce::Label pluginStatusLabel;
     juce::Label pluginPathLabel;
     juce::Label pluginSelectionLabel;
     juce::Label pluginListLabel;
 
     juce::TextButton scanPluginsButton { "Scan VST3" };
+    juce::TextButton browseButton { "..." };
     juce::TextButton loadPluginButton { "Load" };
     juce::TextButton unloadPluginButton { "Unload" };
     juce::TextButton openEditorButton { "Open Editor" };

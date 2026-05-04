@@ -21,6 +21,9 @@ PluginPanel::PluginPanel()
             onScanRequested();
     };
 
+    addAndMakeVisible(browseButton);
+    setupBrowseButton();
+
     addAndMakeVisible(loadPluginButton);
     loadPluginButton.onClick = [this]
     {
@@ -44,6 +47,11 @@ PluginPanel::PluginPanel()
 
     pluginPathEditor.setMultiLine(false);
     pluginPathEditor.setReturnKeyStartsNewLine(false);
+    pluginPathEditor.onReturnKey = [this]
+    {
+        if (onScanRequested)
+            onScanRequested();
+    };
     addAndMakeVisible(pluginPathEditor);
 
     pluginSelector.setTextWhenNothingSelected("Select a scanned plugin...");
@@ -70,6 +78,7 @@ void PluginPanel::resized()
     auto pathRow = area.removeFromTop(28);
     pluginPathLabel.setBounds(pathRow.removeFromLeft(80));
     scanPluginsButton.setBounds(pathRow.removeFromRight(120));
+    browseButton.setBounds(pathRow.removeFromRight(40));
     pluginPathEditor.setBounds(pathRow.reduced(6, 0));
 
     area.removeFromTop(8);
@@ -162,5 +171,38 @@ juce::String PluginPanel::getPluginPathText() const
 juce::String PluginPanel::getSelectedPluginName() const
 {
     return pluginSelector.getText();
+}
+
+juce::File PluginPanel::getInitialBrowseDirectory() const
+{
+    auto path = pluginPathEditor.getText();
+    if (path.isNotEmpty())
+        return juce::File(path);
+    return {};
+}
+
+void PluginPanel::setupBrowseButton()
+{
+    browseButton.onClick = [this]
+    {
+        auto startDir = getInitialBrowseDirectory();
+        auto* chooser = new juce::FileChooser("Select VST3 Plugin Folder",
+                                               startDir,
+                                               "",
+                                               true);
+        chooser->launchAsync(juce::FileBrowserComponent::openMode
+                                | juce::FileBrowserComponent::canSelectDirectories,
+                             [this, chooser](const juce::FileChooser& fc)
+        {
+            auto folder = fc.getResult();
+            if (folder.exists())
+            {
+                pluginPathEditor.setText(folder.getFullPathName(), juce::dontSendNotification);
+                if (onScanRequested)
+                    onScanRequested();
+            }
+            delete chooser;
+        });
+    };
 }
 

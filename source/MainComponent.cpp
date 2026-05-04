@@ -283,6 +283,13 @@ void MainComponent::visibilityChanged()
 
 bool MainComponent::keyPressed(const juce::KeyPress& key)
 {
+    // If focus is on a child component (e.g. TextEditor), don't intercept piano keys
+    if (auto* focused = juce::Component::getCurrentlyFocusedComponent())
+    {
+        if (focused != this && isParentOf(focused))
+            return false;
+    }
+
     const auto handled = keyboardMidiMapper.handleKeyPressed(key, audioEngine.getKeyboardState());
 
     if (handled)
@@ -294,6 +301,14 @@ bool MainComponent::keyPressed(const juce::KeyPress& key)
 bool MainComponent::keyStateChanged(bool isKeyDown)
 {
     juce::ignoreUnused(isKeyDown);
+
+    // If focus is on a child component (e.g. TextEditor), don't intercept piano keys
+    if (auto* focused = juce::Component::getCurrentlyFocusedComponent())
+    {
+        if (focused != this && isParentOf(focused))
+            return false;
+    }
+
     const auto handled = keyboardMidiMapper.handleKeyStateChanged(audioEngine.getKeyboardState());
 
     if (handled)
