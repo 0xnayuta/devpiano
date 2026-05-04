@@ -439,6 +439,9 @@ void ControlsPanel::setPlaybackSpeed(double speed)
     currentPlaybackSpeed = std::clamp(speed, 0.5, 2.0);
     playbackSpeedValueLabel.setText(juce::String(currentPlaybackSpeed, 2) + "x",
                                     juce::dontSendNotification);
+    // Disable speedDown at lower boundary, speedUp at upper boundary
+    speedDownButton.setEnabled(currentPlaybackSpeed > 0.5);
+    speedUpButton.setEnabled(currentPlaybackSpeed < 2.0);
 }
 
 double ControlsPanel::getCurrentPlaybackSpeed() const
