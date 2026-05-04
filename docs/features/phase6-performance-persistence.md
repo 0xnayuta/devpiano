@@ -441,7 +441,7 @@ events[].message            →    events[].midiData (raw bytes)
 - `renderPlaybackBlock()` 中用 `combinedRatio = playbackSampleRateRatio / playbackSpeedMultiplier` 缩放时间戳，不修改原始事件；block 边界使用 `[start, end)` 半开区间，`>=` 上界是刻意的防御性守卫。
 - 速度变更通过 `RecordingSessionController.handlePlaybackSpeedChange()` 同步到 engine + UI，不写 settings。
 - `MainComponent` 初始化时硬编码 1.0，不从持久化存储恢复。
-- ControlsPanel 速度按钮在 `recording` / `playing` 状态下自动禁用（`setEnabled(false)`）。
+- ControlsPanel 速度按钮在 `recording` 状态下自动禁用（`setEnabled(false)`），`playing` 状态下保持可操作。
 
 ### 5.4 不做范围
 

@@ -18,7 +18,7 @@
   - 详细说明见 [`roadmap.md`](roadmap.md) Phase 6 章节。
 
 **Phase 6-2 已完成**：播放速度控制 ✅
-  - ControlsPanel 增加速度显示（`1.00x`）和 `-`/`+` 按钮，位于播放控制行 Export WAV 按钮右侧，recording/playing 状态下自动禁用。
+  - ControlsPanel 增加速度显示（`1.00x`）和 `-`/`+` 按钮，位于播放控制行 Export WAV 按钮右侧，recording 状态下自动禁用，playing 状态下保持可操作。
   - `RecordingEngine.playbackSpeedMultiplier`（`std::atomic<double>`，默认 `1.0`，范围 `0.5–2.0`）。
   - `RecordingEngine.scaledPlaybackLengthSamples` / `playbackPositionSamples` 均为 `std::atomic<std::int64_t>`，跨 audio 线程安全。
   - `setPlaybackSpeedMultiplier(double)` 在播放中切换时，先重校准 `playbackPositionSamples`（`pos × oldSpeed / newSpeed`），再更新 `scaledPlaybackLengthSamples`。

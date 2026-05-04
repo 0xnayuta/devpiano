@@ -341,8 +341,6 @@ void ControlsPanel::updateRecordingActionButtons()
             stopEnabled = true;
             saveEnabled = false;
             openEnabled = false;
-            speedDownEnabled = false;
-            speedUpEnabled = false;
             break;
     }
 
