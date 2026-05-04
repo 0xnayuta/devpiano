@@ -136,26 +136,28 @@ Computer keyboard / external MIDI
 
 > 2026-04-30：Phase 2-1..2-4 已完成 Windows 人工验证，未发现明显问题。详见 [`../testing/phase2-plugin-host-lifecycle.md`](../testing/phase2-plugin-host-lifecycle.md)。
 
-### Phase 2-5：扫描 UX 增强（规划中）
+### Phase 2-5：扫描 UX 增强（已实现）
 
-以下条目为插件扫描体验增强，已规划待实现：
+以下条目为插件扫描体验增强，已实现：
 
-1. **扫描进度状态反馈**
-   - 目标：扫描大量插件时（约 5-20 秒），在 UI 状态栏实时显示正在扫描的插件名称或进度指示，避免用户误以为程序卡死。
-   - 策略：利用 `PluginDirectoryScanner` 扫描回调，在状态 label 上更新 "Scanning: {pluginBeingScanned}"。
-   - 约束：不在 audio callback 中写 UI；扫描状态区分"空闲/扫描中/完成"。
+1. **扫描进度状态反馈** ✅
+   - 实现方式：采用JUCE `AsyncUpdater` 驱动的消息线程分片扫描（chunked scan session）。
+   - `PluginHost` 新增 `beginVst3ScanSession()` / `advanceVst3ScanStep()` / `cancelVst3ScanSession()` API，`PluginDirectoryScanner` 由同步阻塞 loop 改为每 tick 推进一个插件。
+   - UI 状态栏实时显示 `Scanning: {pluginName}.vst3...`。
+   - 限制：单个插件探测本身仍可能短暂阻塞 UI，但多插件扫描时可逐项更新进度。
 
-2. **扫描前清空旧列表，区分扫描中阶段**
-   - 目标：重新扫描时主动清空 `pluginSelector` 和 `pluginListEditor`，明确区分"扫描中"与"上次扫描结果"。
-   - 策略：`scanPlugins()` 入口处先重置列表状态，再启动扫描。
+2. **扫描前清空旧列表，区分扫描中阶段** ✅
+   - `PluginHost::beginVst3ScanSession()` 开头执行 `knownPluginList.clear()`，确保重新扫描时列表干净。
+   - UI 在 `isCurrentlyScanning=true` 时清空 `pluginSelector` 和 `pluginListEditor`，明确区分"扫描中"状态。
 
-3. **插件列表支持 Enter 键直接加载**
-   - 目标：选中插件后按 Enter 键即可触发加载，减少一次鼠标操作。
-   - 策略：在 `pluginSelector`（ComboBox）上绑定 `onChange` 或键盘 Enter 处理。
+3. **插件列表支持 Enter 键直接加载（onChange 自动加载）** ✅
+   - `PluginSelector.onChange` 绑定到 `onLoadRequested`，选中插件自动触发加载，无需额外点击 Load 按钮。
 
-4. **扫描失败文件列表可发现性提升**
-   - 目标：有失败文件时在状态 label 提示数量，并提供查看详情的方式（例如点击状态栏或提供日志路径）。
-   - 策略：已有 `lastScanFailedFiles`，只需在 UI 上增加可见提示。
+4. **扫描失败文件列表可发现性提升** ✅
+   - 已有 `lastScanFailedFiles`，UI 状态栏显示失败数量及 `(see log)` 提示，Logger 中记录每个失败文件路径。
+
+此外，`PluginOperationController` 在扫描期间对以下操作进行 guard 保护，防止状态机混乱：
+- Load / Unload / Open Editor / 重复 Scan 均在扫描中直接 return。
 
 ### 其他后续方向
 

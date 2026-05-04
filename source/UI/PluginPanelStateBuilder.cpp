@@ -20,5 +20,7 @@ PluginPanel::State buildPluginPanelState(const PluginHost& pluginHost,
              .supportsVst3 = pluginHost.supportsVst3(),
              .hasLoadedPlugin = pluginHost.hasLoadedPlugin(),
              .isPrepared = pluginHost.isPrepared(),
-             .isEditorOpen = isEditorOpen };
+             .isEditorOpen = isEditorOpen,
+             .isCurrentlyScanning = pluginHost.isCurrentlyScanning(),
+             .scanningPluginName = pluginHost.getScanningPluginName() };
 }

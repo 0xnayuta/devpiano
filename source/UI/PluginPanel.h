@@ -21,6 +21,8 @@ public:
         bool hasLoadedPlugin = false;
         bool isPrepared = false;
         bool isEditorOpen = false;
+        bool isCurrentlyScanning = false;
+        juce::String scanningPluginName;
     };
 
     PluginPanel();
@@ -33,6 +35,7 @@ public:
     [[nodiscard]] juce::String getSelectedPluginName() const;
 
     std::function<void()> onScanRequested;
+    std::function<void()> onScanStarted;
     std::function<void()> onLoadRequested;
     std::function<void()> onUnloadRequested;
     std::function<void()> onToggleEditorRequested;

@@ -41,40 +41,70 @@ juce::FileSearchPath PluginHost::getDefaultVst3SearchPath() const
 
 int PluginHost::scanVst3Plugins(const juce::FileSearchPath& searchPath, bool recursive)
 {
+    if (! beginVst3ScanSession(searchPath, recursive))
+        return 0;
+
+    while (advanceVst3ScanStep())
+    {
+    }
+
+    return knownPluginList.getNumTypes();
+}
+
+bool PluginHost::beginVst3ScanSession(const juce::FileSearchPath& searchPath, bool recursive)
+{
     lastScanFailedFiles.clear();
+    isScanning = true;
+    scanningPluginName = "Preparing...";
 
     auto* format = getVst3Format();
     if (format == nullptr)
     {
         lastScanSummary = "VST3 format unavailable.";
-        return 0;
+        isScanning = false;
+        return false;
     }
 
     if (! format->canScanForPlugins())
     {
         lastScanSummary = "Current VST3 format cannot scan for plugins.";
-        return 0;
+        isScanning = false;
+        return false;
     }
 
     unloadPlugin();
     knownPluginList.clear();
 
-    juce::PluginDirectoryScanner scanner(knownPluginList,
-                                         *format,
-                                         searchPath,
-                                         recursive,
-                                         getDeadMansPedalFile(),
-                                         false);
+    activeScanPath = searchPath;
+    activeScanRecursive = recursive;
+    activeScanner = std::make_unique<juce::PluginDirectoryScanner>(knownPluginList,
+                                                                   *format,
+                                                                   searchPath,
+                                                                   recursive,
+                                                                   getDeadMansPedalFile(),
+                                                                   false);
 
-    juce::String pluginBeingScanned;
-    while (scanner.scanNextFile(true, pluginBeingScanned))
-    {
-    }
+    lastScanSummary = "VST3 scan in progress...";
+    return true;
+}
 
-    lastScanFailedFiles = scanner.getFailedFiles();
+bool PluginHost::advanceVst3ScanStep()
+{
+    if (! isScanning || activeScanner == nullptr)
+        return false;
 
+    scanningPluginName = "...";
+    const bool hasMore = activeScanner->scanNextFile(true, scanningPluginName);
+
+    if (hasMore)
+        return true;
+
+    // Scan complete — capture failed files then destroy scanner
+    lastScanFailedFiles = activeScanner->getFailedFiles();
     for (const auto& failedFile : lastScanFailedFiles)
         DP_LOG_WARN("[PluginScan] Failed file: " + failedFile);
+
+    activeScanner.reset();
 
     const auto failedCount = lastScanFailedFiles.size();
     const auto pluginCount = knownPluginList.getNumTypes();
@@ -100,7 +130,17 @@ int PluginHost::scanVst3Plugins(const juce::FileSearchPath& searchPath, bool rec
         DP_LOG_INFO("VST3 scan complete: no plugins found.");
     }
 
-    return knownPluginList.getNumTypes();
+    isScanning = false;
+    scanningPluginName.clear();
+    return false;
+}
+
+void PluginHost::cancelVst3ScanSession()
+{
+    activeScanner.reset();
+    isScanning = false;
+    scanningPluginName.clear();
+    lastScanSummary = "VST3 scan cancelled.";
 }
 
 juce::StringArray PluginHost::getKnownPluginNames() const

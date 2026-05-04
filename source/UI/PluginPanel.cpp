@@ -56,6 +56,11 @@ PluginPanel::PluginPanel()
 
     pluginSelector.setTextWhenNothingSelected("Select a scanned plugin...");
     pluginSelector.setWantsKeyboardFocus(false);
+    pluginSelector.onChange = [this]
+    {
+        if (onLoadRequested && pluginSelector.getSelectedItemIndex() >= 0)
+            onLoadRequested();
+    };
     addAndMakeVisible(pluginSelector);
 
     pluginListEditor.setMultiLine(true);
@@ -98,39 +103,71 @@ void PluginPanel::resized()
 
 void PluginPanel::updateState(const State& state)
 {
-    pluginSelector.clear(juce::dontSendNotification);
-
-    auto itemId = 1;
-    auto selectedIndex = -1;
-    for (const auto& name : state.availablePluginNames)
+    if (state.isCurrentlyScanning)
     {
-        pluginSelector.addItem(name, itemId);
+        pluginSelector.clear(juce::dontSendNotification);
+        pluginSelector.setTextWhenNothingSelected("Scanning...");
 
-        if (name.equalsIgnoreCase(state.preferredSelection))
-            selectedIndex = itemId - 1;
+        auto scanText = juce::String("Scanning VST3 plugins...\n");
+        if (state.scanningPluginName.isNotEmpty())
+            scanText << state.scanningPluginName;
+        else
+            scanText << "Preparing...";
 
-        ++itemId;
+        pluginListEditor.setText(scanText, juce::dontSendNotification);
+
+        scanPluginsButton.setEnabled(false);
+        browseButton.setEnabled(false);
+        loadPluginButton.setEnabled(false);
+        unloadPluginButton.setEnabled(false);
+        openEditorButton.setEnabled(false);
+        pluginPathEditor.setEnabled(false);
     }
-
-    if (state.availablePluginNames.isEmpty())
-        pluginSelector.setSelectedItemIndex(-1, juce::dontSendNotification);
-    else if (selectedIndex >= 0)
-        pluginSelector.setSelectedItemIndex(selectedIndex, juce::dontSendNotification);
     else
-        pluginSelector.setSelectedItemIndex(0, juce::dontSendNotification);
+    {
+        pluginSelector.clear(juce::dontSendNotification);
 
-    pluginListEditor.setText(state.pluginListText, juce::dontSendNotification);
+        auto itemId = 1;
+        auto selectedIndex = -1;
+        for (const auto& name : state.availablePluginNames)
+        {
+            pluginSelector.addItem(name, itemId);
 
-    loadPluginButton.setEnabled(! state.availablePluginNames.isEmpty());
-    unloadPluginButton.setEnabled(state.hasLoadedPlugin);
-    openEditorButton.setEnabled(state.hasLoadedPlugin);
-    openEditorButton.setButtonText(state.isEditorOpen ? "Close Editor" : "Open Editor");
+            if (name.equalsIgnoreCase(state.preferredSelection))
+                selectedIndex = itemId - 1;
+
+            ++itemId;
+        }
+
+        if (state.availablePluginNames.isEmpty())
+            pluginSelector.setSelectedItemIndex(-1, juce::dontSendNotification);
+        else if (selectedIndex >= 0)
+            pluginSelector.setSelectedItemIndex(selectedIndex, juce::dontSendNotification);
+        else
+            pluginSelector.setSelectedItemIndex(0, juce::dontSendNotification);
+
+        pluginListEditor.setText(state.pluginListText, juce::dontSendNotification);
+
+        scanPluginsButton.setEnabled(true);
+        browseButton.setEnabled(true);
+        loadPluginButton.setEnabled(! state.availablePluginNames.isEmpty());
+        unloadPluginButton.setEnabled(state.hasLoadedPlugin);
+        openEditorButton.setEnabled(state.hasLoadedPlugin);
+        pluginPathEditor.setEnabled(true);
+    }
 
     auto text = state.availableFormatsDescription;
     if (state.supportsVst3)
         text << " [VST3 ready]";
 
-    text << " | " << state.lastScanSummary;
+    if (state.isCurrentlyScanning)
+    {
+        text << " | Scanning: " << state.scanningPluginName << "...";
+    }
+    else
+    {
+        text << " | " << state.lastScanSummary;
+    }
 
     if (state.hasLoadedPlugin)
     {

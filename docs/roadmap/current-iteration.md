@@ -53,6 +53,14 @@
 
 **Phase 6-3 下一阶段**：最近文件列表 + 拖拽打开。
 
+**Phase 2-5 已完成**：插件扫描 UX 增强（本次迭代中途插入并完成）。
+  - 采用 JUCE `AsyncUpdater` 消息线程分片扫描替代原同步阻塞 loop。
+  - 新增 `PluginHost::beginVst3ScanSession()` / `advanceVst3ScanStep()` / `cancelVst3ScanSession()` API。
+  - `PluginOperationController` 继承 `AsyncUpdater`，分片推进扫描并逐 tick 刷新 UI。
+  - 扫描中禁用全部操作按钮，状态栏实时显示 `Scanning: {pluginName}...`。
+  - `load/unload/editor/scan` 扫描中 guards，析构时取消 session。
+  - 详见 [`../features/phase2-plugin-hosting.md`](../features/phase2-plugin-hosting.md) Phase 2-5 节。
+
 ---
 
 ## 已修复缺陷（保留回归项）

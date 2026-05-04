@@ -541,6 +541,11 @@ void MainComponent::refreshReadOnlyUiStateFromCurrentSnapshot()
     renderReadOnlyUiState(buildCurrentAppStateSnapshot());
 }
 
+void MainComponent::refreshPluginUiState()
+{
+    renderReadOnlyUiState(buildCurrentAppStateSnapshot());
+}
+
 void MainComponent::refreshMidiStatusFromCurrentSnapshot()
 {
     headerPanel.updateMidiStatus(buildHeaderPanelMidiStatus(buildCurrentAppStateSnapshot()));

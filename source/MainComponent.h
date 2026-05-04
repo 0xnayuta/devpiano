@@ -92,6 +92,7 @@ private:
     void logCurrentAudioDeviceDiagnostics(const juce::String& context) const;
     void renderReadOnlyUiState(const devpiano::core::AppState& appState);
     void refreshReadOnlyUiStateFromCurrentSnapshot();
+    void refreshPluginUiState();
     void finishPluginUiAction(bool shouldSaveSettings);
     [[nodiscard]] devpiano::core::AppState buildCurrentAppStateSnapshot() const;
     double getCurrentRuntimeSampleRate() const;

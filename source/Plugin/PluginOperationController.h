@@ -21,7 +21,7 @@ struct StartupPluginRestorePlan;
 namespace devpiano::plugin
 {
 
-class PluginOperationController final
+class PluginOperationController final : private juce::AsyncUpdater
 {
 public:
     PluginOperationController(MainComponent& owner,
@@ -61,12 +61,19 @@ private:
     void commitPluginRecoveryStateAndFinishUi(const SettingsModel::PluginRecoverySettingsView& pluginRecovery,
                                               bool shouldSaveSettings);
 
+    void handleAsyncUpdate() override;
+    void finishScanSessionAndCommitState();
+
     MainComponent& owner;
     PluginHost& pluginHost;
     SettingsModel& appSettings;
     PluginPanel& pluginPanel;
 
     std::unique_ptr<PluginEditorWindow> pluginEditorWindow;
+
+    juce::FileSearchPath pendingScanPath;
+    juce::String pendingScanLastPluginName;
+    bool scanStepInProgress = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginOperationController)
 };

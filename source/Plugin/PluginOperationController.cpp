@@ -20,7 +20,10 @@ PluginOperationController::PluginOperationController(MainComponent& ownerIn,
 {
 }
 
-PluginOperationController::~PluginOperationController() = default;
+PluginOperationController::~PluginOperationController()
+{
+    pluginHost.cancelVst3ScanSession();
+}
 
 void PluginOperationController::restorePluginStateOnStartup()
 {
@@ -48,6 +51,9 @@ void PluginOperationController::restorePluginStateOnStartup()
 
 void PluginOperationController::loadSelectedPlugin()
 {
+    if (pluginHost.isCurrentlyScanning())
+        return;
+
     const auto pluginName = getSelectedPluginNameForLoad();
     if (pluginName.isEmpty())
     {
@@ -60,11 +66,16 @@ void PluginOperationController::loadSelectedPlugin()
 
 void PluginOperationController::unloadCurrentPlugin()
 {
+    if (pluginHost.isCurrentlyScanning())
+        return;
+
     unloadPluginAndCommitState();
 }
 
 void PluginOperationController::togglePluginEditor()
 {
+    if (pluginHost.isCurrentlyScanning())
+        return;
     if (pluginEditorWindow != nullptr)
     {
         closePluginEditorWindow();
@@ -92,7 +103,24 @@ void PluginOperationController::scanPlugins()
         return;
     }
 
-    scanPluginsAtPathAndCommitState(path);
+    if (pluginHost.isCurrentlyScanning())
+        return;
+
+    pendingScanPath = path;
+    pendingScanLastPluginName = appSettings.getPluginRecoverySettingsView().lastPluginName;
+
+    if (! pluginHost.beginVst3ScanSession(path, true))
+    {
+        owner.finishPluginUiAction(false);
+        return;
+    }
+
+    pluginPanel.setPluginPathText(path.toString());
+
+    owner.refreshReadOnlyUiStateFromCurrentSnapshot();
+
+    pendingScanLastPluginName = appSettings.getPluginRecoverySettingsView().lastPluginName;
+    triggerAsyncUpdate();
 }
 
 bool PluginOperationController::hasEditorWindowOpen() const noexcept
@@ -231,8 +259,47 @@ void PluginOperationController::scanPluginsAtPathAndCommitState(const juce::File
     owner.finishPluginUiAction(true);
 }
 
+void PluginOperationController::handleAsyncUpdate()
+{
+    if (! pluginHost.isCurrentlyScanning())
+    {
+        finishScanSessionAndCommitState();
+        return;
+    }
+
+    if (scanStepInProgress)
+        return;
+
+    scanStepInProgress = true;
+
+    const bool hasMore = pluginHost.advanceVst3ScanStep();
+
+    scanStepInProgress = false;
+
+    owner.refreshReadOnlyUiStateFromCurrentSnapshot();
+
+    if (! hasMore)
+    {
+        finishScanSessionAndCommitState();
+        return;
+    }
+
+    triggerAsyncUpdate();
+}
+
+void PluginOperationController::finishScanSessionAndCommitState()
+{
+    const auto recovery = makePluginRecoverySettings(pendingScanPath.toString(),
+                                                    pendingScanLastPluginName);
+
+    appSettings.applyPluginRecoverySettingsView(recovery);
+    appSettings.knownPluginListState = pluginHost.createKnownPluginListXml();
+
+    owner.finishPluginUiAction(true);
+}
+
 void PluginOperationController::commitPluginRecoveryStateAndFinishUi(const SettingsModel::PluginRecoverySettingsView& pluginRecovery,
-                                                                     bool shouldSaveSettings)
+                                                                      bool shouldSaveSettings)
 {
     appSettings.applyPluginRecoverySettingsView(pluginRecovery);
     owner.finishPluginUiAction(shouldSaveSettings);
