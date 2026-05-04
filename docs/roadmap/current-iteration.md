@@ -43,7 +43,15 @@
   - 为 Phase 6-5 MIDI 导入增强（sustain CC64/pitch bend/program change）提供 fixture 验证基准。
   - 详见 [`../features/phase6-performance-persistence.md`](../features/phase6-performance-persistence.md)。
 
-**Phase 6-5 下一阶段**：MIDI 导入增强（sustain CC64、pitch bend、program change），fixture `sustain-pedal.mid` 已就绪。
+**Phase 6-5 已完成**：MIDI 导入增强 ✅
+  - `MidiFileImporter.cpp` 修改：遍历 track 事件时，对非 note 事件先判断是否为 CC/pitch bend/program change，是则收集为 `PerformanceEvent`，否则仅 trace 诊断后跳过。
+  - 新增计数器：`ccCount`、`pitchBendCount`、`programChangeCount`。
+  - CC/pitch bend/program change 与 note 事件共用同一时间线转换逻辑，更新 `lastTimestampSamples` 以正确计算 `RecordingTake.lengthSamples`。
+  - Logger 输出更新：导入成功后输出 note-on/off 与 CC/pitch-bend/program-change 的分类计数。
+  - fixture `sustain-pedal.mid`（含 CC64 on/off）已就绪。
+  - 详见 [`../features/phase6-performance-persistence.md`](../features/phase6-performance-persistence.md)。
+
+**Phase 6-3 下一阶段**：最近文件列表 + 拖拽打开。
 
 ---
 

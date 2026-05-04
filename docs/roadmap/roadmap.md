@@ -99,7 +99,7 @@
 
 ### Phase 6：演奏数据持久化与播放体验增强
 
-状态：进行中（6-1、6-2、6-6、6-7 已完成）。
+状态：进行中（6-1、6-2、6-5、6-6、6-7 已完成）。
 
 **目标：** 填补 FreePiano 核心功能差距——录制后能保存、保存后能打开、打开后能调速播放。
 
@@ -129,6 +129,12 @@
   - 覆盖 MIDI 导入、MIDI roundtrip、错误处理、回放行为验证的统一输入基准。
   - 包含：`simple-notes.mid`、`velocity-channel.mid`、`sustain-pedal.mid`、`multitrack-basic.mid`、`tempo-change-basic.mid`、`empty.mid`、`invalid.mid`。
   - 所有合法 MIDI 文件已通过 mido 库验证；`invalid.mid` 正确识别为非 MIDI（预期行为）。
+- **Phase 6-5：MIDI 导入增强**✅
+  - 扩展 `MidiFileImporter` 收集 CC（CC64 sustain 等）、pitch bend、program change 事件。
+  - 新增计数器：`ccCount`、`pitchBendCount`、`programChangeCount`。
+  - CC/pitch bend/program change 与 note 事件共用同一时间线，共享 `lastTimestampSamples` 计算。
+  - Logger 输出更新：导入成功后输出 note-on/off 与 CC/pitch-bend/program-change 的分类计数。
+  - fixture `sustain-pedal.mid` 已用于手工验证。
 
 **规划内容：**
 
@@ -138,9 +144,6 @@
 - **Phase 6-4：基础 MIDI 编辑（delete notes）**
   - 选中音符 → 删除。需将 `RecordingTake.events` 改为可变结构。
   - 最小编辑能力：只做删除，不做添加/移动/量化。
-- **Phase 6-5：MIDI 导入增强**
-  - 导入 sustain CC64、pitch bend、program change，提升外部 MIDI 回放保真度。
-  - Fixture 验证：`docs/testing/fixtures/midi/sustain-pedal.mid`（已就绪）。
 
 详细功能设计与验收标准见：[`../features/phase6-performance-persistence.md`](../features/phase6-performance-persistence.md)。
 专项测试见：[`../testing/phase6-performance-persistence.md`](../testing/phase6-performance-persistence.md)。

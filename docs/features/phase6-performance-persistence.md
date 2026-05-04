@@ -1,7 +1,7 @@
 # Phase 6：演奏数据持久化与播放体验增强
 
 > 用途：说明 Phase 6 各子阶段的功能设计、文件格式、行为边界与验收标准。
-> 当前状态：**进行中，Phase 6-1/6-2/6-6/6-7 已完成，Phase 6-3~6-5 暂缓。**
+> 当前状态：**进行中，Phase 6-1/6-2/6-5/6-6/6-7 已完成，Phase 6-3~6-4 暂缓。**
 > 读者：维护 Phase 6 功能的开发者、规划者。
 > 更新时机：Phase 6 各子阶段设计变化、实现状态变化、验收结果更新时。
 
@@ -529,7 +529,7 @@ events[].message            →    events[].midiData (raw bytes)
 
 ---
 
-## 8. Phase 6-5：MIDI 导入增强
+## 8. Phase 6-5：MIDI 导入增强 ✅ 已完成
 
 ### 8.1 目标
 
@@ -544,20 +544,27 @@ events[].message            →    events[].midiData (raw bytes)
 - 这些事件作为 `PerformanceEvent` 存入 `RecordingTake.events`，与 note 事件共享同一时间线。
 - 回放时这些事件通过 `AudioEngine` 的 MIDI 链路送入插件/fallback synth。
 
-### 8.3 不做范围
+### 8.3 实现
+
+- `MidiFileImporter.cpp` 修改：在遍历 track 事件时，对非 note 事件先判断是否为 CC/pitch bend/program change，是则收集为 `PerformanceEvent`，否则仅 trace 诊断后跳过。
+- 新增计数器：`ccCount`、`pitchBendCount`、`programChangeCount`。
+- 收集到的 CC/pitch bend/program change 事件与 note 事件共用同一时间线转换逻辑（`timestampSeconds → timestampSamples`），并更新 `lastTimestampSamples` 以正确计算 `RecordingTake.lengthSamples`。
+- Logger 输出更新：导入成功后输出 note-on/off 与 CC/pitch-bend/program-change 的分类计数。
+
+### 8.4 不做范围
 
 - 不导入 SysEx 消息。
 - 不导入 meta 事件（tempo、time signature 等）。
 - 不导入 RPN/NRPN。
 - 不做 GM 音色映射。
 
-### 8.4 验收标准
+### 8.5 验收标准
 
-- [ ] 导入包含 sustain CC64 的 MIDI 文件后，回放时延音踏板效果可听。
-- [ ] 导入包含 pitch bend 的 MIDI 文件后，回放时弯音效果可听。
-- [ ] 导入包含 program change 的 MIDI 文件后，回放时音色变化可听（依赖插件支持）。
-- [ ] 导入不含这些事件的 MIDI 文件时，行为与 Phase 4 一致，无回退。
-- [ ] Logger 输出导入的非 note 事件数量。
+- [x] 导入包含 sustain CC64 的 MIDI 文件后，回放时延音踏板效果可听。
+- [x] 导入包含 pitch bend 的 MIDI 文件后，回放时弯音效果可听。
+- [x] 导入包含 program change 的 MIDI 文件后，回放时音色变化可听（依赖插件支持）。
+- [x] 导入不含这些事件的 MIDI 文件时，行为与 Phase 4 一致，无回退。
+- [x] Logger 输出导入的非 note 事件数量。
 
 ---
 

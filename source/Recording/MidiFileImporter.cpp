@@ -220,6 +220,9 @@ std::optional<RecordingTake> importMidiFile(const juce::File& midiFile,
     int noteOnCount = 0;
     int noteOffCount = 0;
     int zeroVelocityNoteOnCount = 0;
+    int ccCount = 0;
+    int pitchBendCount = 0;
+    int programChangeCount = 0;
 
     for (int i = 0; i < track->getNumEvents(); ++i)
     {
@@ -236,8 +239,57 @@ std::optional<RecordingTake> importMidiFile(const juce::File& midiFile,
 
         if (!isNoteOnWithVelocityNonZero && !isNoteOffEvent)
         {
-            // Trace non-note events (CC, pitch bend, etc.) for Phase 6-5 MIDI import diagnostics
-            DP_TRACE_MIDI(devpiano::diagnostics::describeMidiMessage(midiMsg), "MidiImporter");
+            // Phase 6-5: collect CC (including CC64 sustain), pitch bend, and program change
+            if (midiMsg.isController())
+            {
+                ++ccCount;
+                const auto ts = midiMsg.getTimeStamp();
+                if (ts >= 0.0)
+                {
+                    const auto tsSamples = static_cast<int64_t>(ts * targetSampleRate);
+                    lastTimestampSamples = std::max(lastTimestampSamples, tsSamples);
+                    PerformanceEvent ev;
+                    ev.timestampSamples = tsSamples;
+                    ev.source = RecordingEventSource::playback;
+                    ev.message = midiMsg;
+                    events.push_back(std::move(ev));
+                }
+            }
+            else if (midiMsg.isPitchWheel())
+            {
+                ++pitchBendCount;
+                const auto ts = midiMsg.getTimeStamp();
+                if (ts >= 0.0)
+                {
+                    const auto tsSamples = static_cast<int64_t>(ts * targetSampleRate);
+                    lastTimestampSamples = std::max(lastTimestampSamples, tsSamples);
+                    PerformanceEvent ev;
+                    ev.timestampSamples = tsSamples;
+                    ev.source = RecordingEventSource::playback;
+                    ev.message = midiMsg;
+                    events.push_back(std::move(ev));
+                }
+            }
+            else if (midiMsg.isProgramChange())
+            {
+                ++programChangeCount;
+                const auto ts = midiMsg.getTimeStamp();
+                if (ts >= 0.0)
+                {
+                    const auto tsSamples = static_cast<int64_t>(ts * targetSampleRate);
+                    lastTimestampSamples = std::max(lastTimestampSamples, tsSamples);
+                    PerformanceEvent ev;
+                    ev.timestampSamples = tsSamples;
+                    ev.source = RecordingEventSource::playback;
+                    ev.message = midiMsg;
+                    events.push_back(std::move(ev));
+                }
+            }
+            else
+            {
+                // Trace other non-note events (SysEx, meta, etc.) for diagnostics
+                DP_TRACE_MIDI(devpiano::diagnostics::describeMidiMessage(midiMsg), "MidiImporter");
+            }
             continue;
         }
 
@@ -263,9 +315,11 @@ std::optional<RecordingTake> importMidiFile(const juce::File& midiFile,
         events.push_back(std::move(ev));
     }
 
-    DP_LOG_INFO("MidiFileImporter: track " + juce::String(selectedTrackIndex) + " collected " + juce::String(noteOnCount)
-                + " note-on, " + juce::String(noteOffCount) + " note-off, "
-                + juce::String(zeroVelocityNoteOnCount) + " zero-velocity note-on -> note-off");
+    DP_LOG_INFO("MidiFileImporter: track " + juce::String(selectedTrackIndex) + " collected "
+                + juce::String(noteOnCount) + " note-on, " + juce::String(noteOffCount) + " note-off, "
+                + juce::String(zeroVelocityNoteOnCount) + " zero-velocity note-on -> note-off, "
+                + juce::String(ccCount) + " CC, " + juce::String(pitchBendCount) + " pitch-bend, "
+                + juce::String(programChangeCount) + " program-change");
 
     if (events.empty())
     {
