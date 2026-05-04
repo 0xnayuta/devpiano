@@ -36,7 +36,14 @@
   - 散落 `Logger::writeToLog` 已全部替换为 `DP_LOG_*` 系列宏。
   - 为 Phase 6-5 MIDI 导入增强及后续播放体验任务建立统一诊断基础设施。
 
-**Phase 6-3 下一阶段**：最近文件列表 + 拖拽打开（`lastPerformanceOpenPath`/`lastPerformanceSavePath` 路径记忆 + 最近 10 条文件列表）。
+**Phase 6-7 已完成**：MIDI / Performance 测试夹具与最小回归样本库 ✅
+  - `docs/testing/fixtures/midi/`（7 个 MIDI fixture）。
+  - `docs/testing/fixtures/performance/simple-performance.json`（`.devpiano` JSON 格式）。
+  - 所有合法 MIDI fixture 已通过 mido 库验证，`invalid.mid` 正确识别为非 MIDI 文件（预期行为）。
+  - 为 Phase 6-5 MIDI 导入增强（sustain CC64/pitch bend/program change）提供 fixture 验证基准。
+  - 详见 [`../features/phase6-performance-persistence.md`](../features/phase6-performance-persistence.md)。
+
+**Phase 6-5 下一阶段**：MIDI 导入增强（sustain CC64、pitch bend、program change），fixture `sustain-pedal.mid` 已就绪。
 
 ---
 

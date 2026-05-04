@@ -99,7 +99,7 @@
 
 ### Phase 6：演奏数据持久化与播放体验增强
 
-状态：进行中（6-1、6-2、6-6 已完成）。
+状态：进行中（6-1、6-2、6-6、6-7 已完成）。
 
 **目标：** 填补 FreePiano 核心功能差距——录制后能保存、保存后能打开、打开后能调速播放。
 
@@ -123,13 +123,15 @@
   - Debug-only 宏在 Release 下无输出或零副作用。
   - 已接入 8 个业务文件，散落 `Logger::writeToLog` 已全部替换。
   - 为 Phase 6-5 MIDI 导入增强及后续播放体验任务建立统一诊断基础设施。
+- **Phase 6-7：MIDI / Performance 测试夹具与最小回归样本库**✅
+  - `docs/testing/fixtures/midi/`（7 个 MIDI fixture 文件）。
+  - `docs/testing/fixtures/performance/simple-performance.json`（`.devpiano` 格式样本）。
+  - 覆盖 MIDI 导入、MIDI roundtrip、错误处理、回放行为验证的统一输入基准。
+  - 包含：`simple-notes.mid`、`velocity-channel.mid`、`sustain-pedal.mid`、`multitrack-basic.mid`、`tempo-change-basic.mid`、`empty.mid`、`invalid.mid`。
+  - 所有合法 MIDI 文件已通过 mido 库验证；`invalid.mid` 正确识别为非 MIDI（预期行为）。
 
 **规划内容：**
 
-- **Phase 6-2：播放速度控制**
-  - 0.5x ~ 2.0x 速度调节，ControlsPanel 增加速度显示 + 增减按钮。
-  - 用户价值：高——练琴刚需，FreePiano 有此功能。
-  - ✅ 已完成（实时倍率 / 速度切换重校准 / 线程安全 / 录音和播放中禁用速度按钮 / 1.0x 默认启动不持久化）。
 - **Phase 6-3：最近文件列表 + 拖拽打开**
   - 最近打开的演奏文件/MIDI 文件列表（最多 10 条）。
   - 拖拽 `.devpiano` / `.mid` 文件到窗口触发打开。
@@ -138,6 +140,7 @@
   - 最小编辑能力：只做删除，不做添加/移动/量化。
 - **Phase 6-5：MIDI 导入增强**
   - 导入 sustain CC64、pitch bend、program change，提升外部 MIDI 回放保真度。
+  - Fixture 验证：`docs/testing/fixtures/midi/sustain-pedal.mid`（已就绪）。
 
 详细功能设计与验收标准见：[`../features/phase6-performance-persistence.md`](../features/phase6-performance-persistence.md)。
 专项测试见：[`../testing/phase6-performance-persistence.md`](../testing/phase6-performance-persistence.md)。
