@@ -133,7 +133,7 @@ git log --oneline -5
 
 如本版本修改了特定功能，还应执行对应专项测试文档中的相关回归项。
 
-## 6. 打包约定
+## 6. 打包流程
 
 当前正式发布产物仅包含 Windows x64 zip：
 
@@ -142,20 +142,72 @@ DevPiano-vX.Y.Z-win-x64.zip
 DevPiano-vX.Y.Z-win-x64.sha256
 ```
 
-zip 内容建议包含：
+zip 内容包含：
 
 ```text
 DevPiano.exe
-RELEASE-NOTES.txt 或同等说明
-LICENSE / third-party notice（如适用）
-运行时需要的默认 layout / preset / 资源文件（如适用）
+CHANGELOG.md
 ```
 
-如果当前版本没有额外运行时资源依赖，可以先只包含 `DevPiano.exe` 和简短说明文件。
+### 6.1 环境变量
 
-生成校验值时，建议在 Windows 或 WSL 中对最终 zip 文件计算 SHA-256，并将结果保存到 `.sha256` 文件。
+在 WSL 中设置以下变量（假设 Windows 镜像目录为 `G:\source\projects\devpiano`）：
 
-### 6.1 后续 package 脚本 TODO
+```bash
+export VERSION="X.Y.Z"
+export WIN_MIRROR_DIR='G:\source\projects\devpiano'
+export WIN_MIRROR_DIR_WSL="$(wslpath -u "${WIN_MIRROR_DIR}")"
+export RELEASE_ARTIFACTS_DIR="${WIN_MIRROR_DIR_WSL}/build-win-msvc-release/devpiano_artefacts/Release"
+export DIST_DIR="${WIN_MIRROR_DIR_WSL}/dist/v${VERSION}"
+```
+
+验证环境：
+
+```bash
+echo "镜像目录: ${WIN_MIRROR_DIR_WSL}"
+echo "产物目录: ${RELEASE_ARTIFACTS_DIR}"
+ls "${RELEASE_ARTIFACTS_DIR}/DevPiano.exe" 2>/dev/null || echo "DevPiano.exe 尚不存在（需要先构建）"
+```
+
+### 6.2 打包命令
+
+冒烟测试通过后，在 WSL 中执行：
+
+```bash
+# 创建分发目录
+mkdir -p "${DIST_DIR}"
+
+# 复制产物
+cp "${RELEASE_ARTIFACTS_DIR}/DevPiano.exe" "${DIST_DIR}/"
+
+# 复制 CHANGELOG.md
+cp "${WIN_MIRROR_DIR_WSL}/CHANGELOG.md" "${DIST_DIR}/"
+
+# 打包 zip
+cd "${DIST_DIR}"
+zip "DevPiano-v${VERSION}-win-x64.zip" DevPiano.exe CHANGELOG.md
+
+# 生成 SHA256 校验文件
+sha256sum "DevPiano-v${VERSION}-win-x64.zip" > "DevPiano-v${VERSION}-win-x64.sha256"
+
+# 验证
+echo "=== 打包结果 ==="
+ls -lh "${DIST_DIR}/"
+echo "=== SHA256 ==="
+cat "DevPiano-v${VERSION}-win-x64.sha256"
+```
+
+产物目录结构：
+
+```text
+<WIN_MIRROR_DIR>\dist\vX.Y.Z\
+├── DevPiano.exe
+├── CHANGELOG.md
+├── DevPiano-vX.Y.Z-win-x64.zip
+└── DevPiano-vX.Y.Z-win-x64.sha256
+```
+
+### 6.3 后续 package 脚本 TODO
 
 当前阶段保持手工打包，不实现自动化脚本。后续若手工流程稳定、重复发布需求增加，可再考虑新增 package 脚本。
 
@@ -170,12 +222,18 @@ LICENSE / third-party notice（如适用）
 - 明确不创建 git tag、不 push、不上传 GitHub/GitLab Release。
 - Linux 打包在正式支持 Linux release 前不纳入脚本默认路径。
 
-## 7. Release notes 建议格式
+## 7. Release notes 格式
 
-每个版本准备一段简短说明：
+项目使用单文件 `CHANGELOG.md`，遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 格式：
 
 ```markdown
-## DevPiano vX.Y.Z
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+## [X.Y.Z] - YYYY-MM-DD
 
 ### Added
 - ...
@@ -192,6 +250,7 @@ LICENSE / third-party notice（如适用）
 
 注意：
 
+- 新版本条目追加在 `# Changelog` 标题下方、旧版本之上（最新版本在最顶部）。
 - 只描述本版本变化和已知问题。
 - 不复制长期路线图内容。
 - 不把未实现能力写成已实现能力。
@@ -200,28 +259,49 @@ LICENSE / third-party notice（如适用）
 
 推荐顺序：
 
-1. 确认工作树和版本号。
-2. 准备 release notes。
-3. 执行 Windows Release 构建。
-4. 完成 Windows 手工冒烟测试。
-5. 生成 zip 和 sha256。
-6. 创建 annotated tag。
-7. push commit 和 tag。
-8. 在 GitHub / GitLab Release 页面上传 zip、sha256 和 release notes。
+1. 确认工作树和版本号（`CMakeLists.txt` 版本与 tag 对齐）。
+2. 在 `CHANGELOG.md` 顶部追加新版本条目。
+3. 执行 Windows Release 构建（[第 4 节](#4-发布前检查)）。
+4. 完成 Windows 手工冒烟测试（[第 5 节](#5-windows-手工冒烟测试)）。
+5. 生成 zip 和 sha256（[第 6 节](#6-打包流程)）。
+6. 创建 annotated tag，push commit 和 tag。
+7. 在 GitHub 创建 Release，上传产物。
 
-示例命令：
+### 8.1 创建 tag 并推送
 
 ```bash
 git tag -a vX.Y.Z -m "Release vX.Y.Z"
-git push origin <branch>
+git push origin main
 git push origin vX.Y.Z
 ```
 
-推送 tag 前可检查：
+推送前可检查：
 
 ```bash
 git show vX.Y.Z
 ```
+
+### 8.2 创建 GitHub Release
+
+使用 GitHub CLI（推荐）：
+
+```bash
+gh release create "v${VERSION}" \
+  --repo 0xnayuta/devpiano \
+  --title "DevPiano v${VERSION}" \
+  --notes-file "${WIN_MIRROR_DIR_WSL}/CHANGELOG.md" \
+  "${DIST_DIR}/DevPiano-v${VERSION}-win-x64.zip" \
+  "${DIST_DIR}/DevPiano-v${VERSION}-win-x64.sha256"
+```
+
+或手动操作：
+
+1. 打开 https://github.com/0xnayuta/devpiano/releases/new 。
+2. 选择 tag `vX.Y.Z`。
+3. 标题填 `DevPiano vX.Y.Z`。
+4. 内容从 `CHANGELOG.md` 对应版本段落复制。
+5. 上传 `DevPiano-vX.Y.Z-win-x64.zip` 和 `.sha256` 文件。
+6. 点击 Publish release。
 
 ## 9. 修复策略
 
