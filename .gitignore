@@ -37,6 +37,7 @@ bld/
 /build-*/
 /build-wsl-clang/
 /build-win-msvc/
+/dist/
 [Ll]og/
 [Ll]ogs/
 
