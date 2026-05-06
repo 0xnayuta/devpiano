@@ -156,6 +156,7 @@ std::optional<RecordingTake> importMidiFile(const juce::File& midiFile,
         return std::nullopt;
 
     DP_TRACE_MIDI("MidiFile imported: " + midiFile.getFileName() + ", tracks=" + juce::String(file.getNumTracks()), "MidiImporter");
+#if defined(JUCE_DEBUG) || defined(DEBUG)
     const auto timeFormat = file.getTimeFormat();
     if (timeFormat < 0)
     {
@@ -168,6 +169,7 @@ std::optional<RecordingTake> importMidiFile(const juce::File& midiFile,
     {
         DP_DEBUG_LOG("MidiFileImporter: PPQ = " + juce::String(timeFormat));
     }
+#endif
 
     // Do NOT override timeFormat - readFrom() has already set it correctly from the
     // MIDI file header. The timeFormat encodes either PPQ (positive) or SMPTE
