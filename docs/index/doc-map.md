@@ -29,3 +29,4 @@
 - 录制 / 回放 / MIDI 导出测试：[`../testing/phase3-recording-playback.md`](../testing/phase3-recording-playback.md)
 - MIDI 文件导入与回放测试（Phase 4）：[`../testing/phase4-midi-file-import.md`](../testing/phase4-midi-file-import.md)
 - WSL / Windows 混合工作流：[`../development/wsl-windows-msvc-workflow.md`](../development/wsl-windows-msvc-workflow.md)
+- 手工 release / tag / 打包流程：[`../development/release-workflow.md`](../development/release-workflow.md)

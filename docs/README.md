@@ -16,6 +16,7 @@
 
 - [`getting-started/quickstart.md`](getting-started/quickstart.md)：命令速查。
 - [`development/wsl-windows-msvc-workflow.md`](development/wsl-windows-msvc-workflow.md)：WSL 主工作树 + Windows 镜像树 + MSVC 验证的详细工作流。
+- [`development/release-workflow.md`](development/release-workflow.md)：手工 release、tag 与 zip 打包 checklist。
 - [`roadmap/current-iteration.md`](roadmap/current-iteration.md)：当前正在推进的任务。
 
 ### 测试与验收
