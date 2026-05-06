@@ -155,6 +155,21 @@ LICENSE / third-party notice（如适用）
 
 生成校验值时，建议在 Windows 或 WSL 中对最终 zip 文件计算 SHA-256，并将结果保存到 `.sha256` 文件。
 
+### 6.1 后续 package 脚本 TODO
+
+当前阶段保持手工打包，不实现自动化脚本。后续若手工流程稳定、重复发布需求增加，可再考虑新增 package 脚本。
+
+候选目标：
+
+- 增加 `./scripts/dev.sh package --version vX.Y.Z` 或独立 `scripts/package_release.sh`。
+- 默认只打包 Windows x64 正式产物。
+- 从 Windows 镜像树 Release 输出目录收集 `DevPiano.exe`。
+- 校验 `CMakeLists.txt` 版本、release notes 文件名和传入版本号一致。
+- 生成 `dist/vX.Y.Z/DevPiano-vX.Y.Z-win-x64.zip`。
+- 生成对应 `.sha256` 文件。
+- 明确不创建 git tag、不 push、不上传 GitHub/GitLab Release。
+- Linux 打包在正式支持 Linux release 前不纳入脚本默认路径。
+
 ## 7. Release notes 建议格式
 
 每个版本准备一段简短说明：
