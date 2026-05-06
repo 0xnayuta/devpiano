@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.22)
 
 # 定义项目名称与版本
-project(devpiano VERSION 0.1.0)
+project(devpiano VERSION 0.1.1)
 
 # ========================================================
 # 1. 引入 JUCE 框架
