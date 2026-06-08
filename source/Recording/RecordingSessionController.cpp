@@ -465,7 +465,7 @@ void RecordingSessionController::syncRecordingSessionToUi()
 {
     controlsPanel.setRecordingControlsState({ .state = recordingSession.state,
                                               .hasTake = recordingSession.hasTake(),
-                                              .canExportMidiTake = recordingSession.hasTake(),
+                                              .canExportMidiTake = recordingSession.canExportMidi,
                                               .canExportWavTake = recordingSession.hasTake() });
 }
 
@@ -477,7 +477,7 @@ void RecordingSessionController::runExportRecordingFlow(devpiano::exporting::Exp
 {
     const auto hasExportableTake = devpiano::exporting::canExportTake(recordingSession.take);
     const auto canExportRequestedType = type == devpiano::exporting::ExportFileType::midi
-                                            ? recordingSession.hasTake()
+                                            ? recordingSession.canExportMidi
                                             : hasExportableTake;
 
     if (! canExportRequestedType || ! hasExportableTake)

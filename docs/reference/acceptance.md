@@ -4,7 +4,7 @@
 > 读者：开发者、测试者、阶段验收者。  
 > 更新时机：阶段验收标准变化或状态发生明确变化时。
 
-说明：本文件只描述阶段验收，不承担长期规划职责。项目状态与路线图以 [`../roadmap/roadmap.md`](../roadmap/roadmap.md) 为准。
+说明：本文件只描述阶段验收，不承担长期规划职责。项目状态与路线图以 [`../../roadmap/roadmap.md`](../../roadmap/roadmap.md) 为准。
 
 ## 状态标记
 
@@ -70,9 +70,9 @@
 - [x] 插件卸载后不会崩溃或留下非法状态。
 - [x] 未加载插件时程序仍保持可运行。
 - [x] 可打开支持 editor 的插件窗口。
-- [~] 外部 MIDI 输入通路已接通，但真实设备验证因硬件条件暂缓（详见 [`known-issues.md`](known-issues.md) §1）。
+- [~] 外部 MIDI 输入通路已接通，但真实设备验证因硬件条件暂缓（详见 [`known-issues.md`](../issues/known-issues.md) §1）。
 
-专项生命周期回归见：[`plugin-host-lifecycle.md`](plugin-host-lifecycle.md)。
+专项生命周期回归见：[`plugin-host-lifecycle.md`](./features/plugin-hosting.md)。
 
 ## Phase 2：键盘映射系统可配置
 
@@ -92,7 +92,7 @@
 - [x] 自定义 Preset 加载/保存/导入/重命名/删除与启动恢复已完成（Phase 3）。
 - [~] 图形化布局编辑器（当前无 UI，不在近期范围）。
 
-专项键盘回归见：[`keyboard-mapping.md`](keyboard-mapping.md)。
+专项键盘回归见：[`keyboard-mapping.md`](./features/keyboard-mapping.md)。
 
 ## Phase 3：UI 进入正式可用阶段
 
@@ -113,7 +113,7 @@
 
 ## Phase 3：高级功能恢复
 
-状态：MVP 已通过。布局 Preset 保存/加载/导入/重命名/删除/启动恢复已完成（Phase 3）；录制 / 停止 / 回放 / MIDI 导出最小闭环已接入（Phase 3-3..3-7）；WAV 离线渲染 MVP 已完成（Phase 3-1a..3-1d，E.1–E.9 全部通过）。下一阶段重点是录制 / 回放稳定化和外部 MIDI 硬件验证补齐（详见 [`known-issues.md`](known-issues.md) §1）。VST3 插件离线渲染（Phase 3-2）后置。MP4 导出、复杂编辑与 tempo map 等仍为后续增强。
+状态：MVP 已通过。布局 Preset 保存/加载/导入/重命名/删除/启动恢复已完成（Phase 3）；录制 / 停止 / 回放 / MIDI 导出最小闭环已接入（Phase 3-3..3-7）；WAV 离线渲染 MVP 已完成（Phase 3-1a..3-1d，E.1–E.9 全部通过）。下一阶段重点是录制 / 回放稳定化和外部 MIDI 硬件验证补齐（详见 [`known-issues.md`](../issues/known-issues.md) §1）。VST3 插件离线渲染（Phase 3-2）后置。MP4 导出、复杂编辑与 tempo map 等仍为后续增强。
 
 验收项：
 
@@ -126,11 +126,11 @@
 - [x] 可删除用户布局，内置布局不可删除。
 - [x] 可恢复当前布局的默认映射。
 
-专项布局 preset 回归见：[`phase3-layout-presets.md`](phase3-layout-presets.md)。
+专项布局 preset 回归见：[`phase3-layout-presets.md`](./features/layout-presets.md)。
 
 ### 录制 / 回放
 
-设计参考见：[`../features/phase3-recording-playback.md`](../features/phase3-recording-playback.md)。
+设计参考见：[`./features/recording-playback.md`](./features/recording-playback.md)。
 
 - [x] 可开始录制。
 - [x] 可停止录制。
@@ -139,11 +139,11 @@
 - [~] 回放期间事件时间顺序已由 sample-based timeline 设计覆盖，仍需按专项清单持续人工回归。
 - [~] 实时音频线程边界、回放结束通知、采样率变化和 Stop 清理悬挂音路径仍作为下一阶段稳定化重点。
 
-专项录制 / 回放回归见：[`recording-playback.md`](recording-playback.md)。
+专项录制 / 回放回归见：[`recording-playback.md`](./features/recording-playback.md)。
 
 ### 导出
 
-设计参考见：[`../features/phase3-recording-playback.md`](../features/phase3-recording-playback.md)。
+设计参考见：[`./features/recording-playback.md`](./features/recording-playback.md)。
 
 - [x] 可导出 MIDI。
 - [x] 可导出 WAV（fallback synth 离线渲染；VST3 插件离线渲染后置为 Phase 3-2）。
@@ -170,11 +170,11 @@
 - [x] 导入 MIDI 后允许导出 WAV；VST3 插件音色离线渲染仍归 Phase 3-2 后续计划。
 - [~] 合并所有轨道 note 到单一 timeline（Phase 4-6）未实现且已搁置；当前保留 note-rich 单轨选择为推荐模式。
 
-专项 MIDI 文件导入回归见：[`midi-file-import.md`](midi-file-import.md)。
+专项 MIDI 文件导入回归见：[`midi-file-import.md`](./features/midi-file-import.md)。
 
 ## Phase 6：演奏数据持久化与播放体验增强
 
-状态：规划中，未开始实现。
+状态：进行中，Phase 6-1/6-2/6-5/6-6/6-7 已完成，Phase 6-3/6-4 暂缓。
 
 验收项：
 
@@ -189,7 +189,7 @@
 - [ ] 可选中并删除单个音符，删除后回放和保存正确。
 - [ ] 导入 MIDI 时可收集 sustain CC64、pitch bend、program change 并回放。
 
-专项测试见：[`phase6-performance-persistence.md`](phase6-performance-persistence.md)。
+专项测试见：[`phase6-performance-persistence.md`](./features/performance-persistence.md)。
 
 ## 建议最小回归集合
 
@@ -202,12 +202,12 @@
 - [x] 虚拟键盘高亮与释放正常。
 - [x] 启动或音频重建后立即弹奏首音稳定；当前通过 `25ms` audio warmup 避免早期音高异常。
 - [x] 如修改插件相关代码：可扫描、加载、卸载一个 VST3 插件。
-- [x] 如修改键盘相关代码：执行 [`keyboard-mapping.md`](keyboard-mapping.md) 中优先测试包。
-- [x] 如修改插件生命周期相关代码：执行 [`plugin-host-lifecycle.md`](plugin-host-lifecycle.md) 中优先测试包。
-- [x] 如修改录制、回放或 MIDI 导出相关代码：执行 [`recording-playback.md`](recording-playback.md) 中优先测试包。
-- [x] 如修改 MIDI 文件导入、导入后回放、自动选轨或 playback 切换逻辑：执行 [`midi-file-import.md`](midi-file-import.md) 中建议最小回归集合。
-- [ ] 如修改演奏文件保存/打开、播放速度、最近文件列表或基础编辑相关代码：执行 [`phase6-performance-persistence.md`](phase6-performance-persistence.md) 中建议最小回归集合。
+- [x] 如修改键盘相关代码：执行 [`keyboard-mapping.md`](./features/keyboard-mapping.md) 中优先测试包。
+- [x] 如修改插件生命周期相关代码：执行 [`plugin-host-lifecycle.md`](./features/plugin-hosting.md) 中优先测试包。
+- [x] 如修改录制、回放或 MIDI 导出相关代码：执行 [`recording-playback.md`](./features/recording-playback.md) 中优先测试包。
+- [x] 如修改 MIDI 文件导入、导入后回放、自动选轨或 playback 切换逻辑：执行 [`midi-file-import.md`](./features/midi-file-import.md) 中建议最小回归集合。
+- [ ] 如修改演奏文件保存/打开、播放速度、最近文件列表或基础编辑相关代码：执行 [`phase6-performance-persistence.md`](./features/performance-persistence.md) 中建议最小回归集合。
 
 已知硬件限制：
 
-- 外部 MIDI 设备手工验证暂缓（无硬件），详见 [`known-issues.md`](known-issues.md) §1。
+- 外部 MIDI 设备手工验证暂缓（无硬件），详见 [`known-issues.md`](../issues/known-issues.md) §1。

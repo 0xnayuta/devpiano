@@ -67,124 +67,15 @@ Phase 6-6 已完成，包含以下内容：
 
 ---
 
-## Phase 6-7：MIDI / Performance 测试夹具与最小回归样本库
+## Phase 6-7：MIDI / Performance 测试夹具与最小回归样本库 ✅ 已完成
 
-### 任务定位
+Phase 6-7 已建立固定 MIDI fixture 样本库与 performance fixture 样本，位于 [`../../tests/fixtures/`](../../tests/fixtures/)。
 
-Phase 6-7 是 Phase 6 后续各阶段（6-1 演奏文件保存/打开、6-2 播放速度控制、6-5 MIDI 导入增强）以及整体 MIDI roundtrip 的**工程基础设施**。它不实现业务功能，而是为这些阶段提供统一的测试输入基准。
+详细清单与用途说明见 [`fixture-inventory.md`](fixture-inventory.md)。
 
-**前置关系：** 建议在 Phase 6-1、6-2、6-5 之前或并行完成。Phase 6-6（Diagnostics 最小层）是 Phase 6-7 的依赖基础——fixture 验证过程中产生的诊断输出依赖 `DP_LOG_*` / `DP_TRACE_MIDI` 宏。
+Phase 6-7 的目标是用固定 fixture 样本库取代临时文件和口头复现，为 Phase 6-1（演奏文件保存/打开）、Phase 6-2（播放速度控制）和 Phase 6-5（MIDI 导入增强）提供统一的测试输入基准。
 
-### 背景问题
-
-当前 Phase 6 各阶段的开发和手工验收面临以下问题：
-
-1. **依赖临时文件**：每次验证 MIDI 导入、roundtrip、错误处理都需要手动准备 MIDI 文件或临时敲键盘录制，无法稳定复现。
-2. **无基准样本**：不同开发者使用不同的 MIDI 文件，导入行为的判断标准不统一。
-3. **口头复现**：bug 报告依赖"我用一个 MIDI 文件试了，不行"这类描述，无法快速定位是文件问题还是代码问题。
-4. **smoke test 缺失**：每次发版或合入前没有统一的最小回归集。
-
-Phase 6-7 的目标就是用**固定 fixture 样本库**取代临时文件和口头复现。
-
-### 目标
-
-- 建立固定 MIDI fixture 样本库，涵盖主流场景和边界情况。
-- 建立固定 PerformanceEvent / 演奏数据 fixture（JSON 格式）。
-- 为 MIDI 导入、导出、roundtrip、错误处理、回放行为提供稳定输入。
-- 让后续 smoke test 和手工验收有统一依据。
-- 避免每次 bug 排查都依赖临时文件和口头复现。
-
-### 非目标
-
-- **不实现测试代码框架**（Phase 8 之后才考虑单元测试基础设施）。
-- **不实现自动化测试运行**（无 test runner、无 CI 脚本）。
-- **不创建 mock 插件或 mock 音频设备**。
-- **不实现 fixture 的运行时加载逻辑**（那是 Phase 6-1/6-5 的任务）。
-- **不修改 source/、CMakeLists.txt 或任何业务代码**。本阶段只产出现有文档（本文档）。
-
-### 建议目录结构
-
-```
-docs/testing/fixtures/
-├── midi/
-│   ├── simple-notes.mid          # 最简 note on/off 序列
-│   ├── velocity-channel.mid       # 多 velocity、多 channel
-│   ├── sustain-pedal.mid          # 含 CC64 sustain on/off
-│   ├── multitrack-basic.mid       # 多轨（Type 1），含 track names
-│   ├── tempo-change-basic.mid     # 含 meta tempo change 事件
-│   ├── empty.mid                  # 零事件空文件
-│   └── invalid.mid                 # 损坏/非法 MIDI 文件
-└── performance/
-    └── simple-performance.json    # 最小 .devpiano 结构样本（Phase 6-1 之后才有意义）
-```
-
-> **注意**：本轮不创建任何文件。仅记录未来应创建的 fixture 清单及用途。
-
-### 建议 fixture 清单
-
-#### MIDI fixtures
-
-| 文件名 | 内容描述 | 预期用途 |
-|--------|----------|----------|
-| `simple-notes.mid` | 单轨，60/64/67 三个音符依次发声，velocity 100/80/60，时长各 0.5s，120 BPM，960 PPQ | MIDI 导入基础验证；roundtrip 往返对比基准 |
-| `velocity-channel.mid` | 单轨，16 个音符跨不同 velocity(20/64/127) 和 2 个 channel(1/2) | 验证 velocity 解析、channel 分配是否正确 |
-| `sustain-pedal.mid` | 单轨，含 CC64 sustain on(127) / sustain off(0)，覆盖多个音符 | Phase 6-5 增强导入验证；sustain 效果可听性 |
-| `multitrack-basic.mid` | Type 1，2 个 track，track 0 含 tempo meta，track 1 含 note 事件 | 验证多轨选择逻辑（自动选有 note 的轨） |
-| `tempo-change-basic.mid` | 单轨，0ms 设 tempo 120，500ms 后切换为 tempo 180 | 验证 tempo change 事件被正确跳过或不崩溃 |
-| `empty.mid` | 合法 MIDI 文件头，但零 track、零事件 | 验证空文件导入不崩溃，Logger 输出警告 |
-| `invalid.mid` | 非 MIDI 数据（如随机字节、"not a midi file" 文本） | 验证文件解析错误处理不崩溃，Logger 输出错误 |
-
-#### Performance fixture
-
-| 文件名 | 内容描述 | 预期用途 |
-|--------|----------|----------|
-| `simple-performance.json` | Phase 6-1 之后的最小 `.devpiano` 格式样本，含 2-3 个 note 事件 | 验证保存/打开 roundtrip 的最小基准 |
-
-### 每个 fixture 的预期用途
-
-| Fixture | 用途 |
-|---------|------|
-| `simple-notes.mid` | Phase 6-5 之前 MIDI 导入的基础验证；作为 `DP_TRACE_MIDI` 输出对照基准（ Debug 下 MIDI trace 输出 vs 预期 note 序列） |
-| `sustain-pedal.mid` | Phase 6-5 增强导入的目标 fixture；手工验证延音踏板效果是否可听 |
-| `multitrack-basic.mid` | 自动选轨逻辑验证；手工确认选中的轨是含 note 的轨而非 tempo track |
-| `tempo-change-basic.mid` | 验证 phase4-midi-file-import.md 中"跳过 meta 事件"行为是否稳定；导入过程不因 tempo change 事件而出错 |
-| `empty.mid` | 错误处理边界验证；空文件不崩溃的最小保证 |
-| `invalid.mid` | 健壮性验证；损坏文件不崩溃，Logger 正确输出错误 |
-| `velocity-channel.mid` | 验证 CC、velocity、channel 解析的完整性 |
-| `simple-performance.json` | Phase 6-1 保存/打开 roundtrip 的最小输入；后续可在此基础上扩展 smoke test |
-
-### 验收标准
-
-- [ ] 文档中清晰列出 8 个 MIDI fixture + 1 个 performance fixture 的名称、描述和用途。
-- [ ] 每个 fixture 的预期用途与 Phase 6-5、Phase 6-1 的功能边界对应。
-- [ ] fixture 清单与 Phase 6-5 验收标准中的"导入 xxx 事件"形成一一映射。
-- [ ] 明确说明本轮不创建任何 fixture 文件，仅做规划记录。
-- [ ] Phase 6-7 与 Phase 6-6（Diagnostics）和 Phase 6-5（MIDI 导入增强）的关系清晰。
-
-### 风险与边界
-
-| 风险 | 等级 | 应对 |
-|------|------|------|
-| fixture 文件格式不符合预期导致验收失效 | 中 | 本轮只规划，下轮创建时需对照 JUCE `MidiFile` 解析行为验证格式 |
-| fixture 覆盖不足导致边界情况漏测 | 低 | MVP 阶段只覆盖最高频场景；边界情况后续按需补充 |
-| 规划过度，实际创建时发现不合理 | 低 | fixture 结构极简（MIDI 是标准格式，JSON 是 human-readable），不易有结构性错误 |
-| 成为拖延 Phase 6-1/6-5 的借口 | 中 | 本轮仅文档更新，下轮实现时 fixture 创建和业务代码实现可并行推进 |
-
-### 与 Phase 6-5 MIDI 导入增强、Phase 6-6 Diagnostics 最小层的关系
-
-```
-Phase 6-6 (Diagnostics)        Phase 6-7 (Fixtures)          Phase 6-5 (MIDI Import)
-      │                              │                                │
-      │  DP_TRACE_MIDI               │  固定输入基准                  │  新增事件类型
-      │  输出对照                    │                                │
-      └──────────────────────────────┴────────────────────────────────┘
-                                     │
-                      fixture 验证时用 DP_TRACE_MIDI
-                      对比 MIDI 导入的实际行为
-
-Phase 6-7 同时也是 Phase 6-1 (Save/Open) 和 Phase 6-2 (Speed) 的基础设施：
-fixture 的 PerformanceEvent 数据结构是 Phase 6-1 保存/打开的直接操作对象。
-```
+与 Phase 6-6（Diagnostics）和 Phase 6-5（MIDI 导入增强）的关系见 [`fixture-inventory.md`](fixture-inventory.md)。
 
 ---
 
@@ -207,7 +98,7 @@ Phase 6 包含六个子阶段：
 | 子阶段 | 目标 | 用户价值 | 备注 |
 |--------|------|---------|------|
 | **Phase 6-6** | **Diagnostics 最小层** | **高（工程基础设施）** | **✅ 已完成。已接入 8 个业务文件，散落 Logger 已全部替换。** |
-| **Phase 6-7** | **MIDI/Performance 测试夹具** | **高（工程基础设施）** | **✅ 已完成（文档已就绪，fixture 样本待按需创建）。** |
+| **Phase 6-7** | **MIDI/Performance 测试夹具** | **高（工程基础设施）** | **✅ 已完成（清单见 [`fixture-inventory.md`](fixture-inventory.md)）。** |
 | **Phase 6-1** | **演奏文件保存/打开（`.devpiano`）** | **最高——当前录制完即丢失** | **✅ 已完成。** |
 | **Phase 6-2** | **播放速度控制（0.5x–2.0x）** | **高——练琴刚需** | **✅ 已完成（实时倍率、速度切换重校准、线程安全、边界按钮状态、1.0x 默认不持久化）。** |
 | Phase 6-3 | 最近文件列表 + 拖拽打开 | 中——体验增强 | 暂缓 |
@@ -235,7 +126,7 @@ Phase 6 包含六个子阶段：
 |------|------|------|
 | 演奏文件保存 | ✅ 已实现 | 录制数据可持久化为 `.devpiano` |
 | 演奏文件打开 | ✅ 已实现 | 可恢复之前的录制 |
-| 播放速度控制 | 未实现 | 无法变速回放 |
+| 播放速度控制 | ✅ 已实现 | 实时倍率 0.5x–2.0x，播放中变速立即生效 |
 | 最近文件列表 | 未实现 | 无法快速打开最近文件 |
 | 拖拽打开 | 未实现 | 需通过按钮+FileChooser |
 | 基础编辑 | 未实现 | 录制后无法修改 |
@@ -640,10 +531,273 @@ events[].message            →    events[].midiData (raw bytes)
 - [ ] 导入 sustain CC64、pitch bend、program change 并回放。
 - [ ] 不含这些事件的 MIDI 文件行为无回退。
 
-### Phase 6-7：MIDI / Performance 测试夹具
+### Phase 6-7：MIDI / Performance 测试夹具 ✅ 已完成
 
-- [ ] `docs/testing/fixtures/midi/` 目录下有 7 个 MIDI fixture 文件（`simple-notes.mid`、`velocity-channel.mid`、`sustain-pedal.mid`、`multitrack-basic.mid`、`tempo-change-basic.mid`、`empty.mid`、`invalid.mid`）。
-- [ ] `docs/testing/fixtures/performance/` 目录下有 `simple-performance.json`（Phase 6-1 完成后才有完整结构意义）。
-- [ ] 每个 fixture 文件格式合法，可被 JUCE `MidiFile` 正确读取。
-- [ ] `invalid.mid` 被正确识别为非法 MIDI 文件，不导致程序崩溃。
-- [ ] fixture 清单覆盖 Phase 6-5 验收标准中的所有新增事件类型（sustain CC64、pitch bend、program change）。
+所有 MIDI/Performance 测试夹具的完整清单、目录结构、预期用途及验收标准见 [`fixture-inventory.md`](fixture-inventory.md)。
+Fixtures 实际存放于 [`../../tests/fixtures/`](../../tests/fixtures/)。
+
+---
+# 演奏数据持久化与播放体验增强验收测试（Phase 6）
+
+> 用途：记录 Phase 6 演奏文件保存/打开、播放速度控制、最近文件列表、基础编辑和 MIDI 导入增强的专项验收测试。
+> **当前状态：Phase 6-1 已完成，Phase 6-2 已完成，Phase 6-7 已完成。**
+> 读者：开发者、测试者、阶段验收者。
+> 更新时机：Phase 6 各子阶段实现状态变化、验收结果更新时。
+
+相关文档：
+
+- 功能说明：[`./performance-persistence.md`](./performance-persistence.md)
+- 路线图：[`../roadmap/roadmap.md`](../roadmap/roadmap.md)
+- 阶段验收：[`../acceptance.md`](../acceptance.md)
+
+---
+
+## 1. 测试范围
+
+覆盖：
+
+- Phase 6-1：演奏文件保存/打开（`.devpiano` 格式）。
+- Phase 6-2：播放速度控制（0.5x–2.0x）。
+- Phase 6-3：最近文件列表 + 拖拽打开。
+- Phase 6-4：基础 MIDI 编辑（delete notes）。
+- Phase 6-5：MIDI 导入增强（sustain CC64、pitch bend、program change）。
+- **Phase 6-7：MIDI / Performance 测试夹具与最小回归样本库**（清单见 [`fixture-inventory.md`](fixture-inventory.md)）。
+
+不覆盖：
+
+- 完整工程文件（`.devpiano-project`，Phase 7）。
+- 多轨 / tempo map（Phase 7+）。
+- Piano roll / 事件编辑器（Phase 8）。
+- 旧 FreePiano `.fpm` 格式兼容。
+- 测试框架自动化运行（Phase 8 之后）。
+
+---
+
+## 3a. 测试夹具库（Phase 6-7）✅ 已完成
+
+Phase 6-7 已建立一套固定 MIDI / Performance 测试夹具，位于 [`../../tests/fixtures/`](../../tests/fixtures/)。
+
+完整 fixture 清单、目录结构、预期用途见 [`fixture-inventory.md`](fixture-inventory.md)。
+
+所有 MIDI fixture 均通过 mido 库验证：
+
+```
+OK   empty.mid: type=0 ppq=960 tracks=1 track0(1msg,0notes)
+OK   multitrack-basic.mid: type=1 ppq=960 tracks=2 track0(3msg,0notes) track1(8msg,6notes)
+OK   simple-notes.mid: type=0 ppq=960 tracks=1 track0(9msg,6notes)
+OK   sustain-pedal.mid: type=0 ppq=960 tracks=1 track0(10msg,6notes)
+OK   tempo-change-basic.mid: type=0 ppq=960 tracks=1 track0(7msg,4notes)
+OK   velocity-channel.mid: type=0 ppq=960 tracks=1 track0(34msg,32notes)
+FAIL invalid.mid: MThd not found. Probably not a MIDI file  ← 预期行为，证明非法文件识别正常
+```
+
+> 注：`invalid.mid` 的 `FAIL` 为预期行为，表示文件被正确识别为非 MIDI 文件。
+---
+
+## 2. 测试环境
+
+- 在 Windows 镜像树中运行 `DevPiano.exe`。
+- 构建验证优先使用：
+
+```bash
+./scripts/dev.sh wsl-build --configure-only
+./scripts/dev.sh win-build
+```
+
+- 如链接失败并提示 `DevPiano.exe` 无法写入，先关闭正在运行的程序后重试。
+
+---
+
+## 3. 测试素材建议
+
+### Phase 6-1 素材
+
+1. **新录制的 take**：录制几秒电脑键盘演奏，用于保存测试。
+2. **已保存的 `.devpiano` 文件**：由本程序保存生成，用于打开测试。
+3. **损坏的 `.devpiano` 文件**：手动编辑 JSON 破坏结构，用于错误路径测试。
+4. **空 JSON 文件**：内容为 `{}`，用于边界测试。
+5. **非 JSON 文件**：扩展名改为 `.devpiano` 的文本文件，用于格式错误测试。
+
+### Phase 6-2 素材
+
+1. **任意已录制或已导入的 take**：用于播放速度测试。
+
+### Phase 6-3 素材
+
+1. **多个 `.devpiano` 文件**：用于最近文件列表测试。
+2. **多个 `.mid` 文件**：用于混合最近列表测试。
+3. **用于拖拽测试的 `.devpiano` 和 `.mid` 文件**。
+
+### Phase 6-4 素材
+
+1. **包含多个音符的录制 take**：用于选中和删除测试。
+
+### Phase 6-5 素材
+
+1. **Fixture 文件**（清单见 [`fixture-inventory.md`](fixture-inventory.md)）：
+   - `../../tests/fixtures/midi/sustain-pedal.mid`（含 CC64 sustain）。
+   - `../../tests/fixtures/midi/simple-notes.mid`（回归测试基准）。
+2. **额外手工 MIDI 文件**（可选）：含 pitch bend、program change 的文件用于手工验证。
+
+---
+
+## 4. Phase 6-1：演奏文件保存/打开
+
+状态：✅ 已完成。
+
+### 4.1 保存功能
+
+验收项：
+
+- [x] 有录制 take 且状态为 idle/stopped 时，Save 按钮 enabled。
+- [x] 无录制 take 时，Save 按钮 disabled。
+- [x] Recording 期间，Save 按钮 disabled。
+- [x] Playing 期间，Save 按钮 disabled。
+- [x] 点击 Save 按钮后 FileChooser 打开。
+- [x] FileChooser 默认文件名包含时间戳（如 `performance-20260503-120000.devpiano`）。
+- [ ] FileChooser 默认目录为上次保存路径（首次为系统默认目录）。**→ Phase 6-3**
+- [x] 选择保存位置后，文件成功写入。
+- [x] 保存的文件可用文本编辑器打开，内容为合法 JSON。
+- [x] JSON 包含 `version` 字段，值为 `1`。
+- [x] JSON 包含 `format` 字段，值为 `"devpiano-performance"`。
+- [x] JSON 包含 `sampleRate` 字段，值与录制时采样率一致。
+- [x] JSON 包含 `lengthSamples` 字段，值与录制时长度一致。
+- [x] JSON 包含 `events` 数组，事件数与录制 take 一致。
+- [x] 每个 event 包含 `timestampSamples`、`source`、`midiData` 字段。
+- [x] `midiData` 字段为字节数组，可还原为 `juce::MidiMessage`。
+- [x] 保存完成后 Logger 输出文件路径和事件数。
+
+测试步骤：
+
+1. 启动 DevPiano。
+2. 点击 Record，用电脑键盘演奏几个音符（如 C-E-G-C），点击 Stop。
+3. 确认 Save 按钮 enabled。
+4. 点击 Save，FileChooser 打开。
+5. 确认默认文件名包含时间戳。
+6. 选择保存位置，确认保存。
+7. 用文本编辑器打开保存的文件，检查 JSON 结构。
+8. 确认 Logger 输出了文件路径和事件数。
+
+### 4.2 打开功能
+
+验收项：
+
+- [x] 非录制/播放状态时，Open 按钮 enabled。
+- [x] Recording 期间，Open 按钮 disabled。
+- [x] Playing 期间，Open 按钮 disabled。
+- [x] 点击 Open 按钮后 FileChooser 打开，文件过滤器为 `*.devpiano`。
+- [ ] FileChooser 默认目录为上次打开路径。**→ Phase 6-3**
+- [x] 选择有效的 `.devpiano` 文件后，文件成功读取并解析。
+- [x] 打开后自动开始回放。
+- [x] 回放内容与原始录制一致（音符、时序）。
+- [x] 打开后 Logger 输出文件路径和事件数。
+- [x] 打开后 Export MIDI 按钮行为与录制 take 一致（可导出 MIDI）。
+- [x] 打开后 Export WAV 按钮可用。
+
+测试步骤：
+
+1. 使用 4.1 中保存的 `.devpiano` 文件。
+2. 启动 DevPiano（或先录制一段再停止，确保有初始状态）。
+3. 点击 Open，FileChooser 打开。
+4. 确认文件过滤器为 `*.devpiano`。
+5. 选择之前保存的文件，确认打开。
+6. 确认自动开始回放，音符内容与原始录制一致。
+7. 确认 Logger 输出了文件路径和事件数。
+8. Stop 后确认 Export MIDI 和 Export WAV 按钮可用。
+
+### 4.3 错误路径（暂缓 → Phase 6-3）
+
+### 4.4 路径记忆（暂缓 → Phase 6-3）
+
+### 4.5 Roundtrip 一致性（暂缓 → Phase 6-3）
+
+---
+
+## 5. Phase 6-2：播放速度控制
+
+状态：✅ 已完成（2026-05-04）。
+
+验收项：
+
+- [x] ControlsPanel 显示当前播放速度，默认 `1.00x`。
+- [x] `-` 按钮可降低速度，最低到 `0.50x`。
+- [x] `+` 按钮可提高速度，最高到 `2.00x`。
+- [x] 速度到达边界时对应按钮 disabled（`setPlaybackSpeed()` 中同步更新 `setEnabled()`）。
+- [x] 播放中调整速度，回放速率立即变化。
+- [x] 0.50x 慢速播放时音符间隔明显拉长，无卡顿。
+- [x] 2.00x 快速播放时音符间隔明显缩短，无爆音。
+- [x] 每次启动默认 1.0x（不持久化速度值）。
+- [x] 打开 `.devpiano` 文件或导入 `.mid` 文件后，速度控制同样生效。
+
+---
+
+## 6. Phase 6-3：最近文件列表 + 拖拽打开
+
+状态：暂缓。
+
+### 6.1 最近文件列表
+
+验收项：
+
+- [ ] 打开 `.devpiano` 文件后，最近文件列表更新。
+- [ ] 导入 `.mid` 文件后，最近文件列表更新。
+- [ ] 最近文件列表最多显示 10 条。
+- [ ] 同一文件重复打开时，列表中只保留一条（移到最前）。
+- [ ] 点击最近文件列表项可打开对应文件。
+- [ ] 列表中文件不存在时，点击后提示文件不存在并从列表移除。
+- [ ] 最近文件列表在程序重启后仍然有效。
+
+### 6.2 拖拽打开
+
+验收项：
+
+- [ ] 拖拽 `.devpiano` 文件到主窗口，触发打开演奏文件。
+- [ ] 拖拽 `.mid` 文件到主窗口，触发 MIDI 导入。
+- [ ] 拖拽不支持的文件类型时，无反应或提示不支持。
+- [ ] Recording / Playing 期间拖拽文件，忽略或提示。
+
+---
+
+## 7. Phase 6-4：基础 MIDI 编辑（delete notes）
+
+状态：暂缓。
+
+验收项：
+
+- [ ] 打开或录制的演奏数据中，可选中单个音符。
+- [ ] 选中的音符有视觉高亮。
+- [ ] 按 Delete 键或点击 Delete 按钮可删除选中音符。
+- [ ] 删除后回放不再包含该音符。
+- [ ] 删除操作不破坏其他事件的时间线和顺序。
+- [ ] 删除后可正常保存为 `.devpiano` 文件，保存的文件不含已删除事件。
+- [ ] 删除后可正常导出 MIDI 和 WAV。
+
+---
+
+## 8. Phase 6-5：MIDI 导入增强
+
+状态：暂缓。
+
+验收项：
+
+- [ ] 导入 `sustain-pedal.mid`（含 CC64 sustain）后，回放时延音踏板效果可听（依赖插件支持）。
+- [ ] 导入 `simple-notes.mid` 仅包含 note on/off 的 MIDI 文件时，行为与 Phase 4 一致，无回退。
+- [ ] Logger 输出导入的非 note 事件数量。
+- [ ] 导入后保存为 `.devpiano` 文件，非 note 事件正确保留。
+- [ ] 打开包含非 note 事件的 `.devpiano` 文件后，回放时非 note 事件正确还原。
+
+> Fixture 参考：[`fixture-inventory.md`](fixture-inventory.md) — `../../tests/fixtures/midi/sustain-pedal.mid`、`../../tests/fixtures/midi/simple-notes.mid`
+
+---
+
+## 9. 回归项
+
+以下为 Phase 6 各子阶段实现后需持续关注的回归项：
+
+- [ ] Phase 3 录制/回放/MIDI 导出/WAV 导出主链路不受影响。
+- [ ] Phase 4 MIDI 导入/回放/自动选轨行为不受影响。
+- [ ] Phase 4 导入 playback take 禁止 MIDI 再导出的边界不受影响。
+- [ ] Phase 5 架构收敛后的模块职责边界不受影响。
+- [ ] 插件加载/卸载/editor 窗口行为不受影响。
+- [ ] 键盘映射和虚拟键盘显示行为不受影响。
+- [ ] 布局 Preset 保存/加载/恢复行为不受影响。

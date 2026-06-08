@@ -6,10 +6,10 @@
 
 相关文档：
 
-- 功能说明：[`phase3-recording-playback.md`](phase3-recording-playback.md)
-- 测试文档：[`../testing/phase3-recording-playback.md`](../testing/phase3-recording-playback.md)
-- 插件宿主：[`phase2-plugin-hosting.md`](phase2-plugin-hosting.md)
-- 路线图：[`../roadmap/roadmap.md`](../roadmap/roadmap.md)
+- 功能说明：[`./recording-playback.md`](./recording-playback.md)
+- 测试文档：[`./recording-playback.md`](./recording-playback.md)
+- 插件宿主：[`./plugin-hosting.md`](./plugin-hosting.md)
+- 路线图：[`../../roadmap/roadmap.md`](../../roadmap/roadmap.md)
 
 ---
 

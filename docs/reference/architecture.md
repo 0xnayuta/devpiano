@@ -46,7 +46,7 @@
 - 初始化音频设备、MIDI 路由、插件宿主和设置。
 - 协调键盘输入、插件操作、状态保存与只读 UI 刷新。
 
-当前状态（`MainComponent.cpp` 约 606 行，已低于 1200 行目标）：
+当前状态（`MainComponent.cpp` 约 635 行，已低于 1200 行目标）：
 
 - 已不再是纯单体 UI；插件区、参数区、头部状态区和键盘区已拆入 `source/UI/`。
 - 插件流程、录制/回放状态流、导出选项、只读 UI 刷新边界已通过 Phase 5-1..5-7 完成收敛：
@@ -69,7 +69,7 @@
 
 **Phase 5.8 已完成**：
 - 5.8a-5.8e 已完成，人工回归已通过，无明显回退。
-- `MainComponent.cpp` 从 1587 行降至 606 行，远低于 1200 行目标。
+- `MainComponent.cpp` 从 1587 行降至 635 行，远低于 1200 行目标。
 - 5.8f（AppStateBuilder 分层清理）和 5.8+ 后续机会已评估为低优先级 tech debt，暂不执行，长期搁置到 MainComponent 再次膨胀。
 
 边界纪律与收敛原则：
@@ -152,6 +152,8 @@
 - `source/Settings/SettingsStore.h`
 - `source/Settings/SettingsStore.cpp`
 - `source/Settings/SettingsComponent.h`
+- `source/Settings/SettingsWindowManager.h`
+- `source/Settings/SettingsWindowManager.cpp`
 
 职责：
 

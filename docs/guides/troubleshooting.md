@@ -1,6 +1,6 @@
 # 开发环境与构建问题排查
 
-> 当前推荐恢复入口见 [`../getting-started/quickstart.md`](../getting-started/quickstart.md)，详细 WSL / Windows / MSVC 工作流见 [`wsl-windows-msvc-workflow.md`](wsl-windows-msvc-workflow.md)。
+> 当前推荐恢复入口见 [`quickstart.md`](quickstart.md)，详细 WSL / Windows / MSVC 工作流见 [`wsl-windows-msvc-workflow.md`](wsl-windows-msvc-workflow.md)。
 
 ---
 

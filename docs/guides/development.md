@@ -10,7 +10,7 @@
 
 相关入口：
 
-- 快速开始：[`../getting-started/quickstart.md`](../getting-started/quickstart.md)
+- 快速开始：[`quickstart.md`](quickstart.md)
 - Agent 协作规则：仓库根目录 [`../../AGENTS.md`](../../AGENTS.md)
 
 后续可按需补充：

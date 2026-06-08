@@ -3,7 +3,7 @@
 > 状态：轻量风险清单；详细项目状态以路线图和当前迭代文档为准。
 > 更新时机：发现新问题、完成验证、搁置项恢复时。
 
-当前项目状态与风险以 [`../roadmap/roadmap.md`](../roadmap/roadmap.md) 为准；阶段验收见 [`acceptance.md`](acceptance.md)。
+当前项目状态与风险以 [`../../roadmap/roadmap.md`](../../roadmap/roadmap.md) 为准；阶段验收见 [`acceptance.md`](../reference/acceptance.md)。
 
 ---
 
@@ -19,9 +19,9 @@
 
 详见：
 
-- [`recording-playback.md`](phase3-recording-playback.md) §7（外部 MIDI 输入）
-- [`plugin-host-lifecycle.md`](phase2-plugin-host-lifecycle.md) §6.3
-- [`keyboard-mapping.md`](phase2-keyboard-mapping.md) §9.2（混合输入）
+- [`recording-playback.md`](../reference/features/recording-playback.md) §7（外部 MIDI 输入）
+- [`plugin-host-lifecycle.md`](../reference/features/plugin-hosting.md) §6.3
+- [`keyboard-mapping.md`](../reference/features/keyboard-mapping.md) §9.2（混合输入）
 
 ---
 
@@ -131,8 +131,8 @@
 
 详见：
 
-- [`../features/phase3-recording-playback.md`](../features/phase3-recording-playback.md)（Phase 3-5 设计备注）
-- [`../roadmap/roadmap.md`](../roadmap/roadmap.md)（Phase 3 当前状态）
+- [`../reference/features/recording-playback.md`](../reference/features/recording-playback.md)（Phase 3-5 设计备注）
+- [`../../roadmap/roadmap.md`](../../roadmap/roadmap.md)（Phase 3 当前状态）
 
 ---
 
@@ -147,8 +147,8 @@
 
 详见：
 
-- [`recording-playback.md`](phase3-recording-playback.md)（包 A–E 测试结果）
-- [`../roadmap/roadmap.md`](../roadmap/roadmap.md)（Phase 3 当前状态与近期重点）
+- [`recording-playback.md`](../reference/features/recording-playback.md)（包 A–E 测试结果）
+- [`../../roadmap/roadmap.md`](../../roadmap/roadmap.md)（Phase 3 当前状态与近期重点）
 
 ---
 
@@ -162,8 +162,8 @@
 
 详见：
 
-- [`plugin-host-lifecycle.md`](phase2-plugin-host-lifecycle.md)（专项生命周期测试）
-- [`../roadmap/roadmap.md`](../roadmap/roadmap.md)（Phase 2 当前状态）
+- [`plugin-host-lifecycle.md`](../reference/features/plugin-hosting.md)（专项生命周期测试）
+- [`../../roadmap/roadmap.md`](../../roadmap/roadmap.md)（Phase 2 当前状态）
 
 ---
 
@@ -177,16 +177,16 @@
 
 详见：
 
-- [`../features/phase3-layout-presets.md`](../features/phase3-layout-presets.md)
-- [`../testing/phase3-layout-presets.md`](../testing/phase3-layout-presets.md)
+- [`../reference/features/layout-presets.md`](../reference/features/layout-presets.md)
+- [`../reference/features/layout-presets.md`](../reference/features/layout-presets.md)
 
 ---
 
 ## 7. 构建与环境
 
-> WSL / Windows 镜像构建环境问题见 [`../development/troubleshooting.md`](../development/troubleshooting.md)。
+> WSL / Windows 镜像构建环境问题见 [`../guides/troubleshooting.md`](../guides/troubleshooting.md)。
 
-**补充（Phase 6-1 发现）**：Windows MSVC 侧 CMake 缓存未追踪源文件变更，导致旧目标文件未重新编译，运行时出现 `WeakReference::SharedPointer::get()` 访问冲突。快速修复：删除 `build-win-msvc/CMakeCache.txt` 后重新 `./scripts/dev.sh win-build`。详见 [`../development/troubleshooting.md`](../development/troubleshooting.md) §MSVC 验证构建问题。
+**补充（Phase 6-1 发现）**：Windows MSVC 侧 CMake 缓存未追踪源文件变更，导致旧目标文件未重新编译，运行时出现 `WeakReference::SharedPointer::get()` 访问冲突。快速修复：删除 `build-win-msvc/CMakeCache.txt` 后重新 `./scripts/dev.sh win-build`。详见 [`../guides/troubleshooting.md`](../guides/troubleshooting.md) §MSVC 验证构建问题。
 
 ---
 
@@ -289,8 +289,8 @@
 
 ### 关联文档
 
-- [`phase4-midi-file-import.md`](phase4-midi-file-import.md)（Phase 4 测试）
-- [`../features/phase4-midi-file-import.md`](../features/phase4-midi-file-import.md)（Phase 4 功能）
+- [`phase4-midi-file-import.md`](../reference/features/midi-file-import.md)（Phase 4 测试）
+- [`../reference/features/midi-file-import.md`](../reference/features/midi-file-import.md)（Phase 4 功能）
 
 ---
 
@@ -438,4 +438,4 @@ bool MainComponent::shouldRestoreMainKeyboardFocus() const;
 详见：
 
 - [`../archive/phase5-architecture-convergence.md`](../archive/phase5-architecture-convergence.md)（Phase 5 完成记录）
-- [`phase2-plugin-host-lifecycle.md`](phase2-plugin-host-lifecycle.md)（Phase 2-1..2-4 测试结果）
+- [`phase2-plugin-host-lifecycle.md`](../reference/features/plugin-hosting.md)（Phase 2-1..2-4 测试结果）
