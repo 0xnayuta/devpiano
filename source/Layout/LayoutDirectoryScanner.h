@@ -4,8 +4,7 @@
 
 #include "Core/KeyMapTypes.h"
 
-namespace devpiano::layout
-{
+namespace devpiano::layout {
 [[nodiscard]] juce::File getUserLayoutDirectory();
 
 [[nodiscard]] std::vector<devpiano::core::KeyboardLayout> scanUserLayoutDirectory();

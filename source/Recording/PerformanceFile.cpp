@@ -4,31 +4,26 @@
 
 #include <sstream>
 
-namespace devpiano::recording
-{
-namespace
-{
+namespace devpiano::recording {
+namespace {
 // --- Source enum <-> string ---
 
-juce::String sourceToString(RecordingEventSource source)
-{
-    switch (source)
-    {
-        case RecordingEventSource::computerKeyboard:
-            return performance_file::sourceComputerKeyboard;
-        case RecordingEventSource::externalMidi:
-            return performance_file::sourceExternalMidi;
-        case RecordingEventSource::realtimeMidiBuffer:
-            return performance_file::sourceRealtimeMidiBuffer;
-        case RecordingEventSource::playback:
-            return performance_file::sourcePlayback;
-        default:
-            return performance_file::sourceComputerKeyboard;
+juce::String sourceToString(RecordingEventSource source) {
+    switch (source) {
+    case RecordingEventSource::computerKeyboard:
+        return performance_file::sourceComputerKeyboard;
+    case RecordingEventSource::externalMidi:
+        return performance_file::sourceExternalMidi;
+    case RecordingEventSource::realtimeMidiBuffer:
+        return performance_file::sourceRealtimeMidiBuffer;
+    case RecordingEventSource::playback:
+        return performance_file::sourcePlayback;
+    default:
+        return performance_file::sourceComputerKeyboard;
     }
 }
 
-RecordingEventSource stringToSource(const juce::String& str)
-{
+RecordingEventSource stringToSource(const juce::String& str) {
     if (str == performance_file::sourceExternalMidi)
         return RecordingEventSource::externalMidi;
     if (str == performance_file::sourceRealtimeMidiBuffer)
@@ -40,8 +35,7 @@ RecordingEventSource stringToSource(const juce::String& str)
 
 // --- MidiMessage <-> var ---
 
-juce::var midiMessageToVar(const juce::MidiMessage& msg)
-{
+juce::var midiMessageToVar(const juce::MidiMessage& msg) {
     juce::Array<juce::var> bytes;
     auto* raw = msg.getRawData();
     auto size = msg.getRawDataSize();
@@ -50,9 +44,8 @@ juce::var midiMessageToVar(const juce::MidiMessage& msg)
     return juce::var(bytes);
 }
 
-std::optional<juce::MidiMessage> varToMidiMessage(const juce::var& v)
-{
-    if (! v.isArray())
+std::optional<juce::MidiMessage> varToMidiMessage(const juce::var& v) {
+    if (!v.isArray())
         return std::nullopt;
 
     auto* arr = v.getArray();
@@ -62,8 +55,7 @@ std::optional<juce::MidiMessage> varToMidiMessage(const juce::var& v)
     // Build raw byte buffer
     std::vector<juce::uint8> buffer;
     buffer.reserve(static_cast<size_t>(arr->size()));
-    for (const auto& elem : *arr)
-    {
+    for (const auto& elem : *arr) {
         auto intVal = static_cast<int>(elem);
         if (intVal < 0 || intVal > 255)
             return std::nullopt;
@@ -81,21 +73,16 @@ std::optional<juce::MidiMessage> varToMidiMessage(const juce::var& v)
 
 // --- PerformanceEvent <-> var ---
 
-juce::var eventToVar(const PerformanceEvent& event)
-{
+juce::var eventToVar(const PerformanceEvent& event) {
     juce::DynamicObject::Ptr obj = new juce::DynamicObject();
-    obj->setProperty(performance_file::keyTimestampSamples,
-                     static_cast<juce::int64>(event.timestampSamples));
-    obj->setProperty(performance_file::keySource,
-                     sourceToString(event.source));
-    obj->setProperty(performance_file::keyMidiData,
-                     midiMessageToVar(event.message));
+    obj->setProperty(performance_file::keyTimestampSamples, static_cast<juce::int64>(event.timestampSamples));
+    obj->setProperty(performance_file::keySource, sourceToString(event.source));
+    obj->setProperty(performance_file::keyMidiData, midiMessageToVar(event.message));
     return obj.get();
 }
 
-std::optional<PerformanceEvent> varToEvent(const juce::var& v)
-{
-    if (! v.isObject())
+std::optional<PerformanceEvent> varToEvent(const juce::var& v) {
+    if (!v.isObject())
         return std::nullopt;
 
     auto* obj = v.getDynamicObject();
@@ -103,13 +90,12 @@ std::optional<PerformanceEvent> varToEvent(const juce::var& v)
         return std::nullopt;
 
     PerformanceEvent event;
-    event.timestampSamples = static_cast<std::int64_t>(
-        static_cast<juce::int64>(obj->getProperty(performance_file::keyTimestampSamples)));
-    event.source = stringToSource(
-        obj->getProperty(performance_file::keySource).toString());
+    event.timestampSamples
+        = static_cast<std::int64_t>(static_cast<juce::int64>(obj->getProperty(performance_file::keyTimestampSamples)));
+    event.source = stringToSource(obj->getProperty(performance_file::keySource).toString());
 
     auto msg = varToMidiMessage(obj->getProperty(performance_file::keyMidiData));
-    if (! msg.has_value())
+    if (!msg.has_value())
         return std::nullopt;
 
     event.message = *msg;
@@ -118,8 +104,7 @@ std::optional<PerformanceEvent> varToEvent(const juce::var& v)
 
 // --- Metadata <-> var ---
 
-juce::var metadataToVar(const PerformanceFileMetadata& metadata)
-{
+juce::var metadataToVar(const PerformanceFileMetadata& metadata) {
     juce::DynamicObject::Ptr obj = new juce::DynamicObject();
     obj->setProperty(performance_file::keyCreatedAt, metadata.createdAt);
     obj->setProperty(performance_file::keyTitle, metadata.title);
@@ -127,17 +112,14 @@ juce::var metadataToVar(const PerformanceFileMetadata& metadata)
     return obj.get();
 }
 
-PerformanceFileMetadata varToMetadata(const juce::var& v)
-{
+PerformanceFileMetadata varToMetadata(const juce::var& v) {
     PerformanceFileMetadata metadata;
-    if (v.isObject())
-    {
+    if (v.isObject()) {
         auto* obj = v.getDynamicObject();
-        if (obj != nullptr)
-        {
+        if (obj != nullptr) {
             metadata.createdAt = obj->getProperty(performance_file::keyCreatedAt).toString();
-            metadata.title     = obj->getProperty(performance_file::keyTitle).toString();
-            metadata.notes     = obj->getProperty(performance_file::keyNotes).toString();
+            metadata.title = obj->getProperty(performance_file::keyTitle).toString();
+            metadata.notes = obj->getProperty(performance_file::keyNotes).toString();
         }
     }
     return metadata;
@@ -145,8 +127,7 @@ PerformanceFileMetadata varToMetadata(const juce::var& v)
 
 // --- ISO 8601 timestamp ---
 
-juce::String currentIso8601()
-{
+juce::String currentIso8601() {
     return juce::Time::getCurrentTime().toISO8601(true);
 }
 
@@ -154,19 +135,13 @@ juce::String currentIso8601()
 
 // --- Public API: serialise ---
 
-juce::String serialiseTakeToJson(const RecordingTake& take,
-                                 const PerformanceFileMetadata& metadata)
-{
+juce::String serialiseTakeToJson(const RecordingTake& take, const PerformanceFileMetadata& metadata) {
     juce::DynamicObject::Ptr root = new juce::DynamicObject();
 
-    root->setProperty(performance_file::keyVersion,
-                      performance_file::currentVersion);
-    root->setProperty(performance_file::keyFormat,
-                      juce::String(performance_file::formatIdentifier));
-    root->setProperty(performance_file::keySampleRate,
-                      take.sampleRate);
-    root->setProperty(performance_file::keyLengthSamples,
-                      static_cast<juce::int64>(take.lengthSamples));
+    root->setProperty(performance_file::keyVersion, performance_file::currentVersion);
+    root->setProperty(performance_file::keyFormat, juce::String(performance_file::formatIdentifier));
+    root->setProperty(performance_file::keySampleRate, take.sampleRate);
+    root->setProperty(performance_file::keyLengthSamples, static_cast<juce::int64>(take.lengthSamples));
 
     // Metadata: fill createdAt if empty
     auto meta = metadata;
@@ -186,10 +161,9 @@ juce::String serialiseTakeToJson(const RecordingTake& take,
 
 // --- Public API: deserialise ---
 
-std::optional<RecordingTake> deserialiseTakeFromJson(const juce::String& json)
-{
+std::optional<RecordingTake> deserialiseTakeFromJson(const juce::String& json) {
     auto parsed = juce::JSON::parse(json);
-    if (! parsed.isObject())
+    if (!parsed.isObject())
         return std::nullopt;
 
     auto* root = parsed.getDynamicObject();
@@ -209,15 +183,15 @@ std::optional<RecordingTake> deserialiseTakeFromJson(const juce::String& json)
     // Read take fields
     RecordingTake take;
     take.sampleRate = static_cast<double>(root->getProperty(performance_file::keySampleRate));
-    take.lengthSamples = static_cast<std::int64_t>(
-        static_cast<juce::int64>(root->getProperty(performance_file::keyLengthSamples)));
+    take.lengthSamples
+        = static_cast<std::int64_t>(static_cast<juce::int64>(root->getProperty(performance_file::keyLengthSamples)));
 
     if (take.sampleRate <= 0.0)
         return std::nullopt;
 
     // Read events
     auto eventsVar = root->getProperty(performance_file::keyEvents);
-    if (! eventsVar.isArray())
+    if (!eventsVar.isArray())
         return std::nullopt;
 
     auto* eventsArray = eventsVar.getArray();
@@ -225,10 +199,9 @@ std::optional<RecordingTake> deserialiseTakeFromJson(const juce::String& json)
         return std::nullopt;
 
     take.events.reserve(static_cast<size_t>(eventsArray->size()));
-    for (const auto& elem : *eventsArray)
-    {
+    for (const auto& elem : *eventsArray) {
         auto event = varToEvent(elem);
-        if (! event.has_value())
+        if (!event.has_value())
             return std::nullopt;
         take.events.push_back(*event);
     }
@@ -238,24 +211,21 @@ std::optional<RecordingTake> deserialiseTakeFromJson(const juce::String& json)
 
 // --- Public API: file I/O ---
 
-bool savePerformanceFile(const RecordingTake& take,
-                         const juce::File& destinationFile,
-                         const PerformanceFileMetadata& metadata)
-{
+bool savePerformanceFile(const RecordingTake& take, const juce::File& destinationFile,
+                         const PerformanceFileMetadata& metadata) {
     if (take.isEmpty() || take.sampleRate <= 0.0)
         return false;
 
     auto json = serialiseTakeToJson(take, metadata);
 
-    if (! destinationFile.getParentDirectory().createDirectory())
+    if (!destinationFile.getParentDirectory().createDirectory())
         return false;
 
     return destinationFile.replaceWithText(json);
 }
 
-std::optional<RecordingTake> loadPerformanceFile(const juce::File& sourceFile)
-{
-    if (! sourceFile.existsAsFile())
+std::optional<RecordingTake> loadPerformanceFile(const juce::File& sourceFile) {
+    if (!sourceFile.existsAsFile())
         return std::nullopt;
 
     auto json = sourceFile.loadFileAsString();

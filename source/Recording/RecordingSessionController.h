@@ -14,34 +14,35 @@ class AudioEngine;
 class MainComponent;
 struct SettingsModel;
 
-namespace devpiano::exporting
-{
+namespace devpiano::exporting {
 enum class ExportFileType;
 }
 
-namespace devpiano::recording
-{
+namespace devpiano::recording {
 
-class RecordingSessionController final
-{
+class RecordingSessionController final {
 public:
-    struct RecordingSession
-    {
+    struct RecordingSession {
         RecordingTake take;
         bool canExportMidi = false;
         ControlsPanel::RecordingState state = ControlsPanel::RecordingState::idle;
 
-        [[nodiscard]] bool hasTake() const noexcept { return ! take.isEmpty(); }
-        [[nodiscard]] bool isRecording() const noexcept { return state == ControlsPanel::RecordingState::recording; }
-        [[nodiscard]] bool isPlaying() const noexcept { return state == ControlsPanel::RecordingState::playing; }
-        [[nodiscard]] bool isIdle() const noexcept { return state == ControlsPanel::RecordingState::idle; }
+        [[nodiscard]] bool hasTake() const noexcept {
+            return !take.isEmpty();
+        }
+        [[nodiscard]] bool isRecording() const noexcept {
+            return state == ControlsPanel::RecordingState::recording;
+        }
+        [[nodiscard]] bool isPlaying() const noexcept {
+            return state == ControlsPanel::RecordingState::playing;
+        }
+        [[nodiscard]] bool isIdle() const noexcept {
+            return state == ControlsPanel::RecordingState::idle;
+        }
     };
 
-    RecordingSessionController(MainComponent& owner,
-                               RecordingEngine& recordingEngine,
-                               AudioEngine& audioEngine,
-                               SettingsModel& appSettings,
-                               ControlsPanel& controlsPanel);
+    RecordingSessionController(MainComponent& owner, RecordingEngine& recordingEngine, AudioEngine& audioEngine,
+                               SettingsModel& appSettings, ControlsPanel& controlsPanel);
     ~RecordingSessionController();
 
     void handleRecordClicked();
@@ -68,10 +69,8 @@ private:
     [[nodiscard]] RecordingTake stopInternalPlayback();
     void syncRecordingSessionToUi();
 
-    void runExportRecordingFlow(devpiano::exporting::ExportFileType type,
-                                std::unique_ptr<juce::FileChooser>& chooser,
-                                const juce::String& dialogTitle,
-                                const juce::String& filePattern,
+    void runExportRecordingFlow(devpiano::exporting::ExportFileType type, std::unique_ptr<juce::FileChooser>& chooser,
+                                const juce::String& dialogTitle, const juce::String& filePattern,
                                 std::function<bool(const juce::File&)> doExport);
 
     [[nodiscard]] std::optional<RecordingTake> tryImportMidiFile(const juce::File& file) const;

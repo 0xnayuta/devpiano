@@ -6,8 +6,7 @@
 
 #include "Core/KeyMapTypes.h"
 
-class KeyboardMidiMapper
-{
+class KeyboardMidiMapper {
 public:
     KeyboardMidiMapper();
 
@@ -21,8 +20,7 @@ public:
 
 private:
     [[nodiscard]] int normaliseKeyCode(const juce::KeyPress& key) const;
-    bool triggerBinding(const devpiano::core::KeyBinding& binding,
-                        juce::MidiKeyboardState& keyboardState,
+    bool triggerBinding(const devpiano::core::KeyBinding& binding, juce::MidiKeyboardState& keyboardState,
                         bool isKeyDownEvent);
 
     devpiano::core::KeyboardLayout layout;

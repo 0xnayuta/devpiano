@@ -2,15 +2,14 @@
 
 #include <JuceHeader.h>
 
-#include "AppState.h"
 #include "../Settings/SettingsModel.h"
+#include "AppState.h"
 
 class KeyboardMidiMapper;
 class MidiRouter;
 class PluginHost;
 
-namespace devpiano::core
-{
+namespace devpiano::core {
 // Bridge layer between persisted settings and runtime aggregate state.
 //
 // 设计意图：
@@ -18,8 +17,7 @@ namespace devpiano::core
 // - applyRuntime*State(): 再叠加本次运行期间才存在的覆盖层
 //
 // Header 中保留 persisted/runtime overlay 小型 helper；跨模块 runtime snapshot 构建在 .cpp 中实现。
-struct RuntimePluginState
-{
+struct RuntimePluginState {
     juce::String currentPluginName;
     juce::StringArray availablePluginNames;
     juce::String lastScanSummary;
@@ -32,8 +30,7 @@ struct RuntimePluginState
     bool isEditorOpen = false;
 };
 
-struct RuntimeAudioState
-{
+struct RuntimeAudioState {
     bool hasLiveDevice = false;
     double sampleRate = 0.0;
     int bufferSize = 0;
@@ -44,8 +41,7 @@ struct RuntimeAudioState
     juce::String mismatchReasons;
 };
 
-struct RuntimeInputState
-{
+struct RuntimeInputState {
     KeyboardLayout keyboardLayout = makeDefaultKeyboardLayout();
     int openMidiInputCount = 0;
     int midiActivityCount = 0;
@@ -54,49 +50,47 @@ struct RuntimeInputState
 
 // 从 persisted settings 创建 AppState 基线。
 // 不读取 PluginHost / MidiRouter / EditorWindow 等运行态对象。
-[[nodiscard]] inline AppState createPersistedAppState(const SettingsModel& settings)
-{
+[[nodiscard]] inline AppState createPersistedAppState(const SettingsModel& settings) {
     const auto audio = settings.getAudioSettingsView();
     const auto performance = settings.getPerformanceSettingsView();
     const auto plugin = settings.getPluginRecoverySettingsView();
     const auto input = settings.getInputMappingSettingsView();
 
     return { .audio = { .sampleRate = audio.sampleRate,
-                         .bufferSize = audio.bufferSize,
-                         .hasSerializedDeviceState = audio.hasSerializedDeviceState,
-                         .hasLiveDevice = false,
-                         .backendName = {},
-                         .deviceName = {},
-                         .availableBufferSizesText = {},
-                         .restoreOutcome = {},
-                         .mismatchReasons = {} },
-              .performance = { .masterGain = performance.masterGain,
-                               .adsrAttack = performance.adsrAttack,
-                               .adsrDecay = performance.adsrDecay,
-                               .adsrSustain = performance.adsrSustain,
-                               .adsrRelease = performance.adsrRelease },
-              .plugin = { .searchPath = plugin.pluginSearchPath,
-                          .lastPluginName = plugin.lastPluginName,
-                          .currentPluginName = {},
-                          .availablePluginNames = {},
-                          .lastScanSummary = {},
-                          .lastLoadError = {},
-                          .preparedSampleRate = 0.0,
-                          .preparedBlockSize = 0,
-                          .supportsVst3 = false,
-                          .hasLoadedPlugin = false,
-                          .isPrepared = false,
-                          .isEditorOpen = false },
-              .input = { .layoutId = input.layoutId,
-                         .keyboardLayout = SettingsModel::keyMapToLayout(input.keyMap, input.layoutId),
-                         .openMidiInputCount = 0,
-                         .midiActivityCount = 0,
-                         .lastMidiMessage = {} } };
+                        .bufferSize = audio.bufferSize,
+                        .hasSerializedDeviceState = audio.hasSerializedDeviceState,
+                        .hasLiveDevice = false,
+                        .backendName = {},
+                        .deviceName = {},
+                        .availableBufferSizesText = {},
+                        .restoreOutcome = {},
+                        .mismatchReasons = {} },
+             .performance = { .masterGain = performance.masterGain,
+                              .adsrAttack = performance.adsrAttack,
+                              .adsrDecay = performance.adsrDecay,
+                              .adsrSustain = performance.adsrSustain,
+                              .adsrRelease = performance.adsrRelease },
+             .plugin = { .searchPath = plugin.pluginSearchPath,
+                         .lastPluginName = plugin.lastPluginName,
+                         .currentPluginName = {},
+                         .availablePluginNames = {},
+                         .lastScanSummary = {},
+                         .lastLoadError = {},
+                         .preparedSampleRate = 0.0,
+                         .preparedBlockSize = 0,
+                         .supportsVst3 = false,
+                         .hasLoadedPlugin = false,
+                         .isPrepared = false,
+                         .isEditorOpen = false },
+             .input = { .layoutId = input.layoutId,
+                        .keyboardLayout = SettingsModel::keyMapToLayout(input.keyMap, input.layoutId),
+                        .openMidiInputCount = 0,
+                        .midiActivityCount = 0,
+                        .lastMidiMessage = {} } };
 }
 
 // 叠加运行时插件宿主状态。
-inline void applyRuntimePluginState(AppState& appState, const RuntimePluginState& runtime)
-{
+inline void applyRuntimePluginState(AppState& appState, const RuntimePluginState& runtime) {
     appState.plugin.currentPluginName = runtime.currentPluginName;
     appState.plugin.availablePluginNames = runtime.availablePluginNames;
     appState.plugin.lastScanSummary = runtime.lastScanSummary;
@@ -109,8 +103,7 @@ inline void applyRuntimePluginState(AppState& appState, const RuntimePluginState
     appState.plugin.isEditorOpen = runtime.isEditorOpen;
 }
 
-inline void applyRuntimeAudioState(AppState& appState, const RuntimeAudioState& runtime)
-{
+inline void applyRuntimeAudioState(AppState& appState, const RuntimeAudioState& runtime) {
     appState.audio.hasLiveDevice = runtime.hasLiveDevice;
     if (runtime.sampleRate > 0.0)
         appState.audio.sampleRate = runtime.sampleRate;
@@ -124,8 +117,7 @@ inline void applyRuntimeAudioState(AppState& appState, const RuntimeAudioState& 
 }
 
 // 叠加运行时输入活动状态。
-inline void applyRuntimeInputState(AppState& appState, const RuntimeInputState& runtime)
-{
+inline void applyRuntimeInputState(AppState& appState, const RuntimeInputState& runtime) {
     appState.input.layoutId = runtime.keyboardLayout.id;
     appState.input.keyboardLayout = runtime.keyboardLayout;
     appState.input.openMidiInputCount = runtime.openMidiInputCount;
@@ -134,11 +126,9 @@ inline void applyRuntimeInputState(AppState& appState, const RuntimeInputState& 
 }
 
 // 一次性组装 persisted + runtime 的完整 AppState 快照。
-[[nodiscard]] inline AppState buildAppState(const SettingsModel& settings,
-                                            const RuntimeAudioState& audioRuntime,
+[[nodiscard]] inline AppState buildAppState(const SettingsModel& settings, const RuntimeAudioState& audioRuntime,
                                             const RuntimePluginState& pluginRuntime,
-                                            const RuntimeInputState& inputRuntime)
-{
+                                            const RuntimeInputState& inputRuntime) {
     auto appState = createPersistedAppState(settings);
     applyRuntimeAudioState(appState, audioRuntime);
     applyRuntimePluginState(appState, pluginRuntime);
@@ -150,20 +140,16 @@ inline void applyRuntimeInputState(AppState& appState, const RuntimeInputState& 
 [[nodiscard]] RuntimeAudioState buildRuntimeAudioStateSnapshot(const SettingsModel& settings,
                                                                const juce::AudioDeviceManager& deviceManager);
 
-[[nodiscard]] RuntimePluginState buildRuntimePluginStateSnapshot(const PluginHost& pluginHost,
-                                                                 bool isEditorOpen);
+[[nodiscard]] RuntimePluginState buildRuntimePluginStateSnapshot(const PluginHost& pluginHost, bool isEditorOpen);
 
 [[nodiscard]] RuntimeInputState buildRuntimeInputStateSnapshot(const KeyboardMidiMapper& keyboardMidiMapper,
-                                                               const MidiRouter& midiRouter,
-                                                               int midiActivityCount,
+                                                               const MidiRouter& midiRouter, int midiActivityCount,
                                                                const juce::String& lastMidiMessage);
 
 [[nodiscard]] AppState buildCurrentAppStateSnapshot(const SettingsModel& settings,
                                                     const juce::AudioDeviceManager& deviceManager,
-                                                    const PluginHost& pluginHost,
-                                                    bool isEditorOpen,
+                                                    const PluginHost& pluginHost, bool isEditorOpen,
                                                     const KeyboardMidiMapper& keyboardMidiMapper,
-                                                    const MidiRouter& midiRouter,
-                                                    int midiActivityCount,
+                                                    const MidiRouter& midiRouter, int midiActivityCount,
                                                     const juce::String& lastMidiMessage);
 }

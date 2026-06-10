@@ -1,15 +1,12 @@
 #include "DebugLog.h"
 
-namespace
-{
+namespace {
 
-[[nodiscard]] juce::String fromUtf8(const char* text)
-{
+[[nodiscard]] juce::String fromUtf8(const char* text) {
     return juce::String(juce::CharPointer_UTF8(text != nullptr ? text : ""));
 }
 
-void outputLine(const juce::String& prefix, const juce::String& message)
-{
+void outputLine(const juce::String& prefix, const juce::String& message) {
     // Use JUCE's Logger for Release-capable output; DBG additionally writes
     // to the debugger output window in Debug builds.
 #if defined(JUCE_DEBUG) || defined(DEBUG)
@@ -20,41 +17,33 @@ void outputLine(const juce::String& prefix, const juce::String& message)
 
 } // anonymous namespace
 
-namespace devpiano::diagnostics
-{
+namespace devpiano::diagnostics {
 
-void logInfo(const juce::String& message)
-{
+void logInfo(const juce::String& message) {
     outputLine("[DP INFO] ", message);
 }
 
-void logWarn(const juce::String& message)
-{
+void logWarn(const juce::String& message) {
     outputLine("[DP WARN] ", message);
 }
 
-void logError(const juce::String& message)
-{
+void logError(const juce::String& message) {
     outputLine("[DP ERROR] ", message);
 }
 
-void logInfo(const char* utf8Message)
-{
+void logInfo(const char* utf8Message) {
     logInfo(fromUtf8(utf8Message));
 }
 
-void logWarn(const char* utf8Message)
-{
+void logWarn(const char* utf8Message) {
     logWarn(fromUtf8(utf8Message));
 }
 
-void logError(const char* utf8Message)
-{
+void logError(const char* utf8Message) {
     logError(fromUtf8(utf8Message));
 }
 
-void traceMidi(const juce::String& message, const juce::String& stage)
-{
+void traceMidi(const juce::String& message, const juce::String& stage) {
 #if defined(JUCE_DEBUG) || defined(DEBUG)
     juce::String output = "[DP MIDI:";
     output += stage;
@@ -67,8 +56,7 @@ void traceMidi(const juce::String& message, const juce::String& stage)
     juce::ignoreUnused(message, stage);
 }
 
-void traceMidi(const char* utf8Message, const char* utf8Stage)
-{
+void traceMidi(const char* utf8Message, const char* utf8Stage) {
     traceMidi(fromUtf8(utf8Message), fromUtf8(utf8Stage));
 }
 

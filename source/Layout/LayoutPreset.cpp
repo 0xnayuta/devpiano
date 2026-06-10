@@ -1,33 +1,27 @@
 #include "Layout/LayoutPreset.h"
 
-namespace
-{
+namespace {
 constexpr auto kLayoutFileExtension = ".freepiano.layout";
 
-[[nodiscard]] juce::String stripLayoutPresetExtension(const juce::String& fileName)
-{
+[[nodiscard]] juce::String stripLayoutPresetExtension(const juce::String& fileName) {
     if (fileName.endsWithIgnoreCase(kLayoutFileExtension))
         return fileName.dropLastCharacters(juce::String(kLayoutFileExtension).length());
 
     return juce::File::createLegalFileName(fileName).upToLastOccurrenceOf(".", false, false);
 }
 
-[[nodiscard]] juce::String sanitiseUserLayoutToken(juce::String value)
-{
+[[nodiscard]] juce::String sanitiseUserLayoutToken(juce::String value) {
     juce::String token;
     auto previousWasSeparator = false;
 
-    for (const auto character : value)
-    {
-        if (juce::CharacterFunctions::isLetterOrDigit(character))
-        {
+    for (const auto character : value) {
+        if (juce::CharacterFunctions::isLetterOrDigit(character)) {
             token << juce::CharacterFunctions::toLowerCase(character);
             previousWasSeparator = false;
             continue;
         }
 
-        if (! previousWasSeparator)
-        {
+        if (!previousWasSeparator) {
             token << '.';
             previousWasSeparator = true;
         }
@@ -42,32 +36,27 @@ constexpr auto kLayoutFileExtension = ".freepiano.layout";
     return token.isNotEmpty() ? token : "layout";
 }
 
-[[nodiscard]] juce::var keyActionToVar(const devpiano::core::KeyAction& action)
-{
+[[nodiscard]] juce::var keyActionToVar(const devpiano::core::KeyAction& action) {
     juce::DynamicObject::Ptr obj = new juce::DynamicObject();
     obj->setProperty("type", action.type == devpiano::core::KeyActionType::note ? "note" : "unknown");
-    obj->setProperty("trigger",
-                     action.trigger == devpiano::core::KeyTrigger::keyDown ? "keyDown" : "keyUp");
+    obj->setProperty("trigger", action.trigger == devpiano::core::KeyTrigger::keyDown ? "keyDown" : "keyUp");
     obj->setProperty("midiNote", action.midiNote);
     obj->setProperty("midiChannel", action.midiChannel);
     obj->setProperty("velocity", action.velocity);
     return obj.get();
 }
 
-[[nodiscard]] devpiano::core::KeyAction varToKeyAction(const juce::var& v)
-{
+[[nodiscard]] devpiano::core::KeyAction varToKeyAction(const juce::var& v) {
     devpiano::core::KeyAction action;
-    if (v.isObject())
-    {
+    if (v.isObject()) {
         auto* obj = v.getDynamicObject();
-        if (obj != nullptr)
-        {
+        if (obj != nullptr) {
             auto typeStr = obj->getProperty("type").toString();
-            action.type = (typeStr == "note") ? devpiano::core::KeyActionType::note
-                                              : devpiano::core::KeyActionType::note;
+            action.type
+                = (typeStr == "note") ? devpiano::core::KeyActionType::note : devpiano::core::KeyActionType::note;
             auto triggerStr = obj->getProperty("trigger").toString();
-            action.trigger = (triggerStr == "keyDown") ? devpiano::core::KeyTrigger::keyDown
-                                                      : devpiano::core::KeyTrigger::keyUp;
+            action.trigger
+                = (triggerStr == "keyDown") ? devpiano::core::KeyTrigger::keyDown : devpiano::core::KeyTrigger::keyUp;
             action.midiNote = static_cast<int>(obj->getProperty("midiNote"));
             action.midiChannel = static_cast<int>(obj->getProperty("midiChannel"));
             action.velocity = static_cast<float>(obj->getProperty("velocity"));
@@ -76,8 +65,7 @@ constexpr auto kLayoutFileExtension = ".freepiano.layout";
     return action;
 }
 
-[[nodiscard]] juce::var keyBindingToVar(const devpiano::core::KeyBinding& binding)
-{
+[[nodiscard]] juce::var keyBindingToVar(const devpiano::core::KeyBinding& binding) {
     juce::DynamicObject::Ptr obj = new juce::DynamicObject();
     obj->setProperty("keyCode", binding.keyCode);
     obj->setProperty("displayText", binding.displayText);
@@ -85,14 +73,11 @@ constexpr auto kLayoutFileExtension = ".freepiano.layout";
     return obj.get();
 }
 
-[[nodiscard]] devpiano::core::KeyBinding varToKeyBinding(const juce::var& v)
-{
+[[nodiscard]] devpiano::core::KeyBinding varToKeyBinding(const juce::var& v) {
     devpiano::core::KeyBinding binding;
-    if (v.isObject())
-    {
+    if (v.isObject()) {
         auto* obj = v.getDynamicObject();
-        if (obj != nullptr)
-        {
+        if (obj != nullptr) {
             binding.keyCode = static_cast<int>(obj->getProperty("keyCode"));
             binding.displayText = obj->getProperty("displayText").toString();
             binding.action = varToKeyAction(obj->getProperty("action"));
@@ -102,21 +87,17 @@ constexpr auto kLayoutFileExtension = ".freepiano.layout";
 }
 } // anonymous namespace
 
-namespace devpiano::layout
-{
-juce::String getLayoutPresetDisplayNameForFile(const juce::File& path)
-{
+namespace devpiano::layout {
+juce::String getLayoutPresetDisplayNameForFile(const juce::File& path) {
     auto displayName = stripLayoutPresetExtension(path.getFileName());
     return displayName.isNotEmpty() ? displayName : "User Layout";
 }
 
-juce::String getUserLayoutIdForFile(const juce::File& path)
-{
+juce::String getUserLayoutIdForFile(const juce::File& path) {
     return "user.layout." + sanitiseUserLayoutToken(getLayoutPresetDisplayNameForFile(path));
 }
 
-std::optional<devpiano::core::KeyboardLayout> loadLayoutPreset(const juce::File& path)
-{
+std::optional<devpiano::core::KeyboardLayout> loadLayoutPreset(const juce::File& path) {
     if (!path.existsAsFile())
         return std::nullopt;
 
@@ -155,8 +136,7 @@ std::optional<devpiano::core::KeyboardLayout> loadLayoutPreset(const juce::File&
     return layout;
 }
 
-bool saveLayoutPreset(const devpiano::core::KeyboardLayout& layout, const juce::File& path)
-{
+bool saveLayoutPreset(const devpiano::core::KeyboardLayout& layout, const juce::File& path) {
     juce::DynamicObject::Ptr obj = new juce::DynamicObject();
     obj->setProperty("version", presetFormatVersion);
     obj->setProperty("id", layout.id);
@@ -177,8 +157,7 @@ bool saveLayoutPreset(const devpiano::core::KeyboardLayout& layout, const juce::
         targetFile = targetFile.withFileExtension(".freepiano.layout");
 
     auto dir = targetFile.getParentDirectory();
-    if (!dir.exists() && !dir.createDirectory())
-    {
+    if (!dir.exists() && !dir.createDirectory()) {
         return false;
     }
 

@@ -2,44 +2,33 @@
 
 #include "Recording/RecordingEngine.h"
 
-namespace devpiano::exporting
-{
-namespace
-{
-[[nodiscard]] juce::String getExtension(ExportFileType type)
-{
-    switch (type)
-    {
-        case ExportFileType::midi: return ".mid";
-        case ExportFileType::wav: return ".wav";
+namespace devpiano::exporting {
+namespace {
+[[nodiscard]] juce::String getExtension(ExportFileType type) {
+    switch (type) {
+    case ExportFileType::midi:
+        return ".mid";
+    case ExportFileType::wav:
+        return ".wav";
     }
 
     return {};
 }
 } // namespace
 
-juce::File makeDefaultRecordingExportFile(ExportFileType type,
-                                          juce::File directory,
-                                          juce::Time now)
-{
-    return directory.getChildFile("recording_"
-                                  + now.toISO8601(false).replaceCharacters(":", "-")
-                                  + getExtension(type));
+juce::File makeDefaultRecordingExportFile(ExportFileType type, juce::File directory, juce::Time now) {
+    return directory.getChildFile("recording_" + now.toISO8601(false).replaceCharacters(":", "-") + getExtension(type));
 }
 
-bool canExportTake(const devpiano::recording::RecordingTake& take)
-{
-    return ! take.isEmpty();
+bool canExportTake(const devpiano::recording::RecordingTake& take) {
+    return !take.isEmpty();
 }
 
 WavExportOptions buildWavExportOptions(const devpiano::recording::RecordingTake& take,
                                        const SettingsModel::PerformanceSettingsView& performance,
-                                       double runtimeSampleRate,
-                                       int runtimeBlockSize)
-{
-    const auto exportSampleRate = runtimeSampleRate > 0.0
-                                      ? runtimeSampleRate
-                                      : (take.sampleRate > 0.0 ? take.sampleRate : 44100.0);
+                                       double runtimeSampleRate, int runtimeBlockSize) {
+    const auto exportSampleRate
+        = runtimeSampleRate > 0.0 ? runtimeSampleRate : (take.sampleRate > 0.0 ? take.sampleRate : 44100.0);
 
     WavExportOptions options;
     options.sampleRate = exportSampleRate;
@@ -53,12 +42,12 @@ WavExportOptions buildWavExportOptions(const devpiano::recording::RecordingTake&
     return options;
 }
 
-juce::String makeExportLogPrefix(ExportFileType type)
-{
-    switch (type)
-    {
-        case ExportFileType::midi: return "[Export] MIDI";
-        case ExportFileType::wav: return "[Export] WAV";
+juce::String makeExportLogPrefix(ExportFileType type) {
+    switch (type) {
+    case ExportFileType::midi:
+        return "[Export] MIDI";
+    case ExportFileType::wav:
+        return "[Export] WAV";
     }
 
     return "[Export]";

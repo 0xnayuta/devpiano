@@ -2,11 +2,9 @@
 
 #include <JuceHeader.h>
 
-class PluginPanel final : public juce::Component
-{
+class PluginPanel final : public juce::Component {
 public:
-    struct State
-    {
+    struct State {
         juce::StringArray availablePluginNames;
         juce::String preferredSelection;
         juce::String pluginListText;

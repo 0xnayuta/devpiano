@@ -5,11 +5,9 @@
 #include <functional>
 #include <memory>
 
-class PluginEditorWindow final : public juce::DocumentWindow
-{
+class PluginEditorWindow final : public juce::DocumentWindow {
 public:
-    PluginEditorWindow(const juce::String& pluginName,
-                       std::unique_ptr<juce::AudioProcessorEditor> editor,
+    PluginEditorWindow(const juce::String& pluginName, std::unique_ptr<juce::AudioProcessorEditor> editor,
                        std::function<void()> onClose);
 
     void closeButtonPressed() override;

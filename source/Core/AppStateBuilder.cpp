@@ -5,22 +5,19 @@
 #include "Midi/MidiRouter.h"
 #include "Plugin/PluginHost.h"
 
-namespace devpiano::core
-{
-namespace
-{
-void assertMessageThreadSnapshotAccess()
-{
+namespace devpiano::core {
+namespace {
+void assertMessageThreadSnapshotAccess() {
     jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
 }
 } // namespace
 
 RuntimeAudioState buildRuntimeAudioStateSnapshot(const SettingsModel& settings,
-                                                 const juce::AudioDeviceManager& deviceManager)
-{
+                                                 const juce::AudioDeviceManager& deviceManager) {
     assertMessageThreadSnapshotAccess();
 
-    const auto diagnostics = devpiano::audio::buildAudioDeviceDiagnostics(settings.audioDeviceState.get(), deviceManager);
+    const auto diagnostics
+        = devpiano::audio::buildAudioDeviceDiagnostics(settings.audioDeviceState.get(), deviceManager);
 
     return { .hasLiveDevice = diagnostics.live.hasLiveDevice,
              .sampleRate = diagnostics.live.sampleRate,
@@ -32,8 +29,7 @@ RuntimeAudioState buildRuntimeAudioStateSnapshot(const SettingsModel& settings,
              .mismatchReasons = diagnostics.mismatchReasons };
 }
 
-RuntimePluginState buildRuntimePluginStateSnapshot(const PluginHost& pluginHost, bool isEditorOpen)
-{
+RuntimePluginState buildRuntimePluginStateSnapshot(const PluginHost& pluginHost, bool isEditorOpen) {
     assertMessageThreadSnapshotAccess();
 
     return { .currentPluginName = pluginHost.getCurrentPluginName(),
@@ -49,10 +45,8 @@ RuntimePluginState buildRuntimePluginStateSnapshot(const PluginHost& pluginHost,
 }
 
 RuntimeInputState buildRuntimeInputStateSnapshot(const KeyboardMidiMapper& keyboardMidiMapper,
-                                                 const MidiRouter& midiRouter,
-                                                 int midiActivityCount,
-                                                 const juce::String& lastMidiMessage)
-{
+                                                 const MidiRouter& midiRouter, int midiActivityCount,
+                                                 const juce::String& lastMidiMessage) {
     assertMessageThreadSnapshotAccess();
 
     return { .keyboardLayout = keyboardMidiMapper.getLayout(),
@@ -61,22 +55,14 @@ RuntimeInputState buildRuntimeInputStateSnapshot(const KeyboardMidiMapper& keybo
              .lastMidiMessage = lastMidiMessage };
 }
 
-AppState buildCurrentAppStateSnapshot(const SettingsModel& settings,
-                                      const juce::AudioDeviceManager& deviceManager,
-                                      const PluginHost& pluginHost,
-                                      bool isEditorOpen,
-                                      const KeyboardMidiMapper& keyboardMidiMapper,
-                                      const MidiRouter& midiRouter,
-                                      int midiActivityCount,
-                                      const juce::String& lastMidiMessage)
-{
-    return buildAppState(settings,
-                         buildRuntimeAudioStateSnapshot(settings, deviceManager),
-                         buildRuntimePluginStateSnapshot(pluginHost, isEditorOpen),
-                         buildRuntimeInputStateSnapshot(keyboardMidiMapper,
-                                                        midiRouter,
-                                                        midiActivityCount,
-                                                        lastMidiMessage));
+AppState buildCurrentAppStateSnapshot(const SettingsModel& settings, const juce::AudioDeviceManager& deviceManager,
+                                      const PluginHost& pluginHost, bool isEditorOpen,
+                                      const KeyboardMidiMapper& keyboardMidiMapper, const MidiRouter& midiRouter,
+                                      int midiActivityCount, const juce::String& lastMidiMessage) {
+    return buildAppState(
+        settings, buildRuntimeAudioStateSnapshot(settings, deviceManager),
+        buildRuntimePluginStateSnapshot(pluginHost, isEditorOpen),
+        buildRuntimeInputStateSnapshot(keyboardMidiMapper, midiRouter, midiActivityCount, lastMidiMessage));
 }
 
 } // namespace devpiano::core

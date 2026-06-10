@@ -1,7 +1,6 @@
 #include "HeaderPanel.h"
 
-HeaderPanel::HeaderPanel()
-{
+HeaderPanel::HeaderPanel() {
     titleLabel.setText("devpiano", juce::dontSendNotification);
     titleLabel.setFont(juce::FontOptions(22.0f, juce::Font::bold));
     addAndMakeVisible(titleLabel);
@@ -13,15 +12,13 @@ HeaderPanel::HeaderPanel()
     addAndMakeVisible(midiStatusLabel);
 
     addAndMakeVisible(settingsButton);
-    settingsButton.onClick = [this]
-    {
+    settingsButton.onClick = [this] {
         if (onSettingsRequested)
             onSettingsRequested();
     };
 }
 
-void HeaderPanel::resized()
-{
+void HeaderPanel::resized() {
     auto area = getLocalBounds();
 
     auto topRow = area.removeFromTop(30);
@@ -32,17 +29,14 @@ void HeaderPanel::resized()
     midiStatusLabel.setBounds(area);
 }
 
-void HeaderPanel::setHintText(const juce::String& text)
-{
+void HeaderPanel::setHintText(const juce::String& text) {
     hintLabel.setText(text, juce::dontSendNotification);
 }
 
-void HeaderPanel::updateMidiStatus(const MidiStatus& status)
-{
+void HeaderPanel::updateMidiStatus(const MidiStatus& status) {
     auto text = "MIDI Inputs: " + juce::String(status.openInputCount);
 
-    if (status.activityCount > 0)
-    {
+    if (status.activityCount > 0) {
         text << " | Activity: " << juce::String(status.activityCount);
 
         if (status.lastMessage.isNotEmpty())

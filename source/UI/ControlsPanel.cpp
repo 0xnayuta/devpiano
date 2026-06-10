@@ -1,7 +1,6 @@
 #include "ControlsPanel.h"
 
-juce::String ControlsPanel::makeLayoutDisplayName(const juce::String& layoutId)
-{
+juce::String ControlsPanel::makeLayoutDisplayName(const juce::String& layoutId) {
     if (layoutId == "default.freepiano.minimal")
         return "FreePiano Minimal";
 
@@ -11,8 +10,7 @@ juce::String ControlsPanel::makeLayoutDisplayName(const juce::String& layoutId)
     return layoutId;
 }
 
-ControlsPanel::ControlsPanel()
-{
+ControlsPanel::ControlsPanel() {
     configureSlider(volumeSlider, volumeLabel, "Volume", 0.0, 1.0);
     configureSlider(attackSlider, attackLabel, "Attack", 0.001, 2.0);
     configureSlider(decaySlider, decayLabel, "Decay", 0.001, 2.0);
@@ -25,16 +23,15 @@ ControlsPanel::ControlsPanel()
 
     addAndMakeVisible(layoutComboBox);
     layoutComboBox.setTextWhenNothingSelected("FreePiano Minimal");
-    layoutComboBox.onChange = [this]
-    {
+    layoutComboBox.onChange = [this] {
         updateLayoutActionButtons();
 
         const auto selectedId = layoutComboBox.getSelectedId();
-        if (selectedId <= 0 || ! onLayoutChanged)
+        if (selectedId <= 0 || !onLayoutChanged)
             return;
 
         const auto index = selectedId - 1;
-        if (! juce::isPositiveAndBelow(index, availableLayoutIds.size()))
+        if (!juce::isPositiveAndBelow(index, availableLayoutIds.size()))
             return;
 
         onLayoutChanged(availableLayoutIds[index]);
@@ -42,36 +39,31 @@ ControlsPanel::ControlsPanel()
     layoutComboBox.addMouseListener(this, true);
 
     addAndMakeVisible(saveLayoutButton);
-    saveLayoutButton.onClick = [this]
-    {
+    saveLayoutButton.onClick = [this] {
         if (onSaveLayoutRequested)
             onSaveLayoutRequested();
     };
 
     addAndMakeVisible(resetLayoutButton);
-    resetLayoutButton.onClick = [this]
-    {
+    resetLayoutButton.onClick = [this] {
         if (onResetLayoutRequested)
             onResetLayoutRequested();
     };
 
     addAndMakeVisible(importLayoutButton);
-    importLayoutButton.onClick = [this]
-    {
+    importLayoutButton.onClick = [this] {
         if (onImportLayoutRequested)
             onImportLayoutRequested();
     };
 
     addAndMakeVisible(renameLayoutButton);
-    renameLayoutButton.onClick = [this]
-    {
+    renameLayoutButton.onClick = [this] {
         if (onRenameLayoutRequested)
             onRenameLayoutRequested();
     };
 
     addAndMakeVisible(deleteLayoutButton);
-    deleteLayoutButton.onClick = [this]
-    {
+    deleteLayoutButton.onClick = [this] {
         if (onDeleteLayoutRequested)
             onDeleteLayoutRequested();
     };
@@ -80,64 +72,55 @@ ControlsPanel::ControlsPanel()
     addAndMakeVisible(recordStatusLabel);
 
     addAndMakeVisible(recordButton);
-    recordButton.onClick = [this]
-    {
+    recordButton.onClick = [this] {
         if (onRecordClicked)
             onRecordClicked();
     };
 
     addAndMakeVisible(playButton);
-    playButton.onClick = [this]
-    {
+    playButton.onClick = [this] {
         if (onPlayClicked)
             onPlayClicked();
     };
 
     addAndMakeVisible(stopButton);
-    stopButton.onClick = [this]
-    {
+    stopButton.onClick = [this] {
         if (onStopClicked)
             onStopClicked();
     };
 
     addAndMakeVisible(backToStartButton);
-    backToStartButton.onClick = [this]
-    {
+    backToStartButton.onClick = [this] {
         if (onBackToStartClicked)
             onBackToStartClicked();
     };
 
     addAndMakeVisible(exportMidiButton);
-    exportMidiButton.onClick = [this]
-    {
+    exportMidiButton.onClick = [this] {
         if (onExportMidiClicked)
             onExportMidiClicked();
     };
 
     addAndMakeVisible(exportWavButton);
-    exportWavButton.onClick = [this]
-    {
+    exportWavButton.onClick = [this] {
         if (onExportWavClicked)
             onExportWavClicked();
     };
 
     addAndMakeVisible(importMidiButton);
-    importMidiButton.onClick = [this]
-    {
+    importMidiButton.onClick = [this] {
         if (onImportMidiClicked)
             onImportMidiClicked();
     };
 
     addAndMakeVisible(savePerformanceButton);
-    savePerformanceButton.onClick = [this]
-    {
+    savePerformanceButton.onClick = [this] {
         if (onSavePerformanceClicked)
             onSavePerformanceClicked();
     };
 
     addAndMakeVisible(openPerformanceButton);
-    openPerformanceButton.onClick = [this]
-    {
+    openPerformanceButton.onClick = [this] {
         if (onOpenPerformanceClicked)
             onOpenPerformanceClicked();
     };
@@ -146,18 +129,15 @@ ControlsPanel::ControlsPanel()
     addAndMakeVisible(playbackSpeedLabel);
 
     addAndMakeVisible(speedDownButton);
-    speedDownButton.onClick = [this]
-    {
-        if (! onPlaybackSpeedChange)
+    speedDownButton.onClick = [this] {
+        if (!onPlaybackSpeedChange)
             return;
         const auto current = currentPlaybackSpeed;
         if (current <= 0.5)
             return;
         const auto speeds = std::array { 0.5, 0.75, 1.0, 1.25, 1.5, 2.0 };
-        for (std::size_t i = speeds.size(); i-- > 0; )
-        {
-            if (speeds[i] < current)
-            {
+        for (std::size_t i = speeds.size(); i-- > 0;) {
+            if (speeds[i] < current) {
                 onPlaybackSpeedChange(speeds[i]);
                 break;
             }
@@ -165,18 +145,15 @@ ControlsPanel::ControlsPanel()
     };
 
     addAndMakeVisible(speedUpButton);
-    speedUpButton.onClick = [this]
-    {
-        if (! onPlaybackSpeedChange)
+    speedUpButton.onClick = [this] {
+        if (!onPlaybackSpeedChange)
             return;
         const auto current = currentPlaybackSpeed;
         if (current >= 2.0)
             return;
         const auto speeds = std::array { 0.5, 0.75, 1.0, 1.25, 1.5, 2.0 };
-        for (const auto speed : speeds)
-        {
-            if (speed > current)
-            {
+        for (const auto speed : speeds) {
+            if (speed > current) {
                 onPlaybackSpeedChange(speed);
                 break;
             }
@@ -191,8 +168,7 @@ ControlsPanel::ControlsPanel()
     updateLayoutActionButtons();
 }
 
-ControlsPanel::~ControlsPanel()
-{
+ControlsPanel::~ControlsPanel() {
     volumeSlider.onValueChange = nullptr;
     attackSlider.onValueChange = nullptr;
     decaySlider.onValueChange = nullptr;
@@ -217,13 +193,11 @@ ControlsPanel::~ControlsPanel()
     speedUpButton.onClick = nullptr;
 }
 
-void ControlsPanel::resized()
-{
+void ControlsPanel::resized() {
     auto area = getLocalBounds();
     const auto rowHeight = 28;
 
-    auto layoutSliderRow = [&](juce::Slider& slider, juce::Label& label)
-    {
+    auto layoutSliderRow = [&](juce::Slider& slider, juce::Label& label) {
         auto row = area.removeFromTop(rowHeight);
         label.setBounds(row.removeFromLeft(80));
         slider.setBounds(row);
@@ -282,15 +256,13 @@ void ControlsPanel::resized()
     speedUpButton.setBounds(buttonRow.removeFromLeft(30));
 }
 
-void ControlsPanel::setRecordingControlsState(RecordingControlsState state)
-{
+void ControlsPanel::setRecordingControlsState(RecordingControlsState state) {
     recordingControlsState = state;
 
     updateRecordingActionButtons();
 }
 
-void ControlsPanel::updateRecordingActionButtons()
-{
+void ControlsPanel::updateRecordingActionButtons() {
     juce::String statusText;
     auto recordEnabled = true;
     auto playEnabled = recordingControlsState.hasTake;
@@ -304,44 +276,43 @@ void ControlsPanel::updateRecordingActionButtons()
     auto speedDownEnabled = true;
     auto speedUpEnabled = true;
 
-    switch (recordingControlsState.state)
-    {
-        case RecordingState::idle:
-            statusText = "Idle";
-            playEnabled = recordingControlsState.hasTake;
-            backToStartEnabled = recordingControlsState.hasTake;
-            exportMidiEnabled = recordingControlsState.hasTake && recordingControlsState.canExportMidiTake;
-            exportWavEnabled = recordingControlsState.hasTake && recordingControlsState.canExportWavTake;
-            importMidiEnabled = true;
-            saveEnabled = recordingControlsState.hasTake;
-            openEnabled = true;
-            break;
-        case RecordingState::recording:
-            statusText = "Recording";
-            recordEnabled = false;
-            playEnabled = false;
-            backToStartEnabled = false;
-            exportMidiEnabled = false;
-            exportWavEnabled = false;
-            importMidiEnabled = false;
-            stopEnabled = true;
-            saveEnabled = false;
-            openEnabled = false;
-            speedDownEnabled = false;
-            speedUpEnabled = false;
-            break;
-        case RecordingState::playing:
-            statusText = "Playing";
-            recordEnabled = false;
-            playEnabled = false;
-            backToStartEnabled = recordingControlsState.hasTake;
-            exportMidiEnabled = false;
-            exportWavEnabled = false;
-            importMidiEnabled = false;
-            stopEnabled = true;
-            saveEnabled = false;
-            openEnabled = false;
-            break;
+    switch (recordingControlsState.state) {
+    case RecordingState::idle:
+        statusText = "Idle";
+        playEnabled = recordingControlsState.hasTake;
+        backToStartEnabled = recordingControlsState.hasTake;
+        exportMidiEnabled = recordingControlsState.hasTake && recordingControlsState.canExportMidiTake;
+        exportWavEnabled = recordingControlsState.hasTake && recordingControlsState.canExportWavTake;
+        importMidiEnabled = true;
+        saveEnabled = recordingControlsState.hasTake;
+        openEnabled = true;
+        break;
+    case RecordingState::recording:
+        statusText = "Recording";
+        recordEnabled = false;
+        playEnabled = false;
+        backToStartEnabled = false;
+        exportMidiEnabled = false;
+        exportWavEnabled = false;
+        importMidiEnabled = false;
+        stopEnabled = true;
+        saveEnabled = false;
+        openEnabled = false;
+        speedDownEnabled = false;
+        speedUpEnabled = false;
+        break;
+    case RecordingState::playing:
+        statusText = "Playing";
+        recordEnabled = false;
+        playEnabled = false;
+        backToStartEnabled = recordingControlsState.hasTake;
+        exportMidiEnabled = false;
+        exportWavEnabled = false;
+        importMidiEnabled = false;
+        stopEnabled = true;
+        saveEnabled = false;
+        openEnabled = false;
+        break;
     }
 
     recordStatusLabel.setText(statusText, juce::dontSendNotification);
@@ -358,12 +329,7 @@ void ControlsPanel::updateRecordingActionButtons()
     speedUpButton.setEnabled(speedUpEnabled);
 }
 
-void ControlsPanel::setValues(float masterGain,
-                              float attack,
-                              float decay,
-                              float sustain,
-                              float release)
-{
+void ControlsPanel::setValues(float masterGain, float attack, float decay, float sustain, float release) {
     volumeSlider.setValue(masterGain, juce::dontSendNotification);
     attackSlider.setValue(attack, juce::dontSendNotification);
     decaySlider.setValue(decay, juce::dontSendNotification);
@@ -371,16 +337,14 @@ void ControlsPanel::setValues(float masterGain,
     releaseSlider.setValue(release, juce::dontSendNotification);
 }
 
-void ControlsPanel::setLayouts(const juce::StringArray& layoutIds,
-                               const juce::String& currentLayoutId,
-                               const juce::StringArray& layoutDisplayNames)
-{
+void ControlsPanel::setLayouts(const juce::StringArray& layoutIds, const juce::String& currentLayoutId,
+                               const juce::StringArray& layoutDisplayNames) {
     availableLayoutIds = layoutIds;
 
     layoutComboBox.clear(juce::dontSendNotification);
-    for (int i = 0; i < layoutIds.size(); ++i)
-    {
-        auto displayName = (i < layoutDisplayNames.size()) ? layoutDisplayNames[i] : makeLayoutDisplayName(layoutIds[i]);
+    for (int i = 0; i < layoutIds.size(); ++i) {
+        auto displayName
+            = (i < layoutDisplayNames.size()) ? layoutDisplayNames[i] : makeLayoutDisplayName(layoutIds[i]);
         layoutComboBox.addItem(displayName, i + 1);
     }
 
@@ -390,41 +354,34 @@ void ControlsPanel::setLayouts(const juce::StringArray& layoutIds,
     updateLayoutActionButtons();
 }
 
-void ControlsPanel::updateLayoutActionButtons()
-{
+void ControlsPanel::updateLayoutActionButtons() {
     const auto selectedLayoutId = getSelectedLayoutId();
     const auto isUserLayout = selectedLayoutId.isNotEmpty() && !selectedLayoutId.startsWith("default.");
     renameLayoutButton.setEnabled(isUserLayout);
     deleteLayoutButton.setEnabled(isUserLayout);
 }
 
-float ControlsPanel::getMasterGain() const
-{
+float ControlsPanel::getMasterGain() const {
     return static_cast<float>(volumeSlider.getValue());
 }
 
-float ControlsPanel::getAttack() const
-{
+float ControlsPanel::getAttack() const {
     return static_cast<float>(attackSlider.getValue());
 }
 
-float ControlsPanel::getDecay() const
-{
+float ControlsPanel::getDecay() const {
     return static_cast<float>(decaySlider.getValue());
 }
 
-float ControlsPanel::getSustain() const
-{
+float ControlsPanel::getSustain() const {
     return static_cast<float>(sustainSlider.getValue());
 }
 
-float ControlsPanel::getRelease() const
-{
+float ControlsPanel::getRelease() const {
     return static_cast<float>(releaseSlider.getValue());
 }
 
-juce::String ControlsPanel::getSelectedLayoutId() const
-{
+juce::String ControlsPanel::getSelectedLayoutId() const {
     const auto selectedId = layoutComboBox.getSelectedId();
     if (selectedId <= 0)
         return {};
@@ -434,28 +391,20 @@ juce::String ControlsPanel::getSelectedLayoutId() const
     return availableLayoutIds[index];
 }
 
-void ControlsPanel::setPlaybackSpeed(double speed)
-{
+void ControlsPanel::setPlaybackSpeed(double speed) {
     currentPlaybackSpeed = std::clamp(speed, 0.5, 2.0);
-    playbackSpeedValueLabel.setText(juce::String(currentPlaybackSpeed, 2) + "x",
-                                    juce::dontSendNotification);
+    playbackSpeedValueLabel.setText(juce::String(currentPlaybackSpeed, 2) + "x", juce::dontSendNotification);
     // Disable speedDown at lower boundary, speedUp at upper boundary
     speedDownButton.setEnabled(currentPlaybackSpeed > 0.5);
     speedUpButton.setEnabled(currentPlaybackSpeed < 2.0);
 }
 
-double ControlsPanel::getCurrentPlaybackSpeed() const
-{
+double ControlsPanel::getCurrentPlaybackSpeed() const {
     return currentPlaybackSpeed;
 }
 
-void ControlsPanel::configureSlider(juce::Slider& slider,
-                                    juce::Label& label,
-                                    const juce::String& text,
-                                    double minimum,
-                                    double maximum,
-                                    double interval)
-{
+void ControlsPanel::configureSlider(juce::Slider& slider, juce::Label& label, const juce::String& text, double minimum,
+                                    double maximum, double interval) {
     label.setText(text, juce::dontSendNotification);
     label.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(label);
@@ -463,8 +412,7 @@ void ControlsPanel::configureSlider(juce::Slider& slider,
     slider.setRange(minimum, maximum, interval);
     slider.setSliderStyle(juce::Slider::LinearHorizontal);
     slider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 80, 22);
-    slider.onValueChange = [this]
-    {
+    slider.onValueChange = [this] {
         if (onValuesChanged)
             onValuesChanged();
     };

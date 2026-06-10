@@ -6,13 +6,11 @@
 
 class PluginHost;
 
-namespace devpiano::recording
-{
+namespace devpiano::recording {
 class RecordingEngine;
 }
 
-class AudioEngine
-{
+class AudioEngine {
 public:
     AudioEngine();
     ~AudioEngine() = default;
@@ -29,8 +27,12 @@ public:
     void setMasterGain(float newGain);
     void setAdsr(float attackSeconds, float decaySeconds, float sustainLevel, float releaseSeconds);
 
-    juce::MidiKeyboardState& getKeyboardState() noexcept { return keyboardState; }
-    juce::MidiMessageCollector& getMidiCollector() noexcept { return midiCollector; }
+    juce::MidiKeyboardState& getKeyboardState() noexcept {
+        return keyboardState;
+    }
+    juce::MidiMessageCollector& getMidiCollector() noexcept {
+        return midiCollector;
+    }
 
 private:
     class SimpleSineSound;

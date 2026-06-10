@@ -1,39 +1,20 @@
 #pragma once
 
-namespace devpiano::recording
-{
+namespace devpiano::recording {
 
-enum class RecordingFlowState
-{
-    idle,
-    recording,
-    playing
-};
+enum class RecordingFlowState { idle, recording, playing };
 
-enum class RecordingFlowIntent
-{
-    record,
-    play,
-    stop
-};
+enum class RecordingFlowIntent { record, play, stop };
 
-enum class RecordingFlowCommand
-{
-    none,
-    startRecording,
-    startPlayback,
-    stopRecording,
-    stopPlayback
-};
+enum class RecordingFlowCommand { none, startRecording, startPlayback, stopRecording, stopPlayback };
 
-struct RecordingFlowStatus
-{
+struct RecordingFlowStatus {
     RecordingFlowState currentState = RecordingFlowState::idle;
     bool hasTake = false;
 };
 
 [[nodiscard]] RecordingFlowCommand chooseRecordingFlowCommand(RecordingFlowIntent intent,
-                                                             RecordingFlowStatus status) noexcept;
+                                                              RecordingFlowStatus status) noexcept;
 
 [[nodiscard]] RecordingFlowState getStateAfterCommand(RecordingFlowCommand command,
                                                       RecordingFlowState fallbackState) noexcept;

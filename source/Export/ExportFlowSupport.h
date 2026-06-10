@@ -5,19 +5,13 @@
 #include "Recording/WavFileExporter.h"
 #include "Settings/SettingsModel.h"
 
-namespace devpiano::recording
-{
+namespace devpiano::recording {
 struct RecordingTake;
 }
 
-namespace devpiano::exporting
-{
+namespace devpiano::exporting {
 
-enum class ExportFileType
-{
-    midi,
-    wav
-};
+enum class ExportFileType { midi, wav };
 
 [[nodiscard]] juce::File makeDefaultRecordingExportFile(ExportFileType type,
                                                         juce::File directory = juce::File::getCurrentWorkingDirectory(),
@@ -27,8 +21,7 @@ enum class ExportFileType
 
 [[nodiscard]] WavExportOptions buildWavExportOptions(const devpiano::recording::RecordingTake& take,
                                                      const SettingsModel::PerformanceSettingsView& performance,
-                                                     double runtimeSampleRate,
-                                                     int runtimeBlockSize);
+                                                     double runtimeSampleRate, int runtimeBlockSize);
 
 [[nodiscard]] juce::String makeExportLogPrefix(ExportFileType type);
 

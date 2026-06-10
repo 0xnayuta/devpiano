@@ -19,17 +19,14 @@
 // - ADSR / Gain 参数
 // - 上次插件搜索路径 / 上次插件名
 // - 键盘布局持久化形态
-struct SettingsModel
-{
-    struct AudioSettingsView
-    {
+struct SettingsModel {
+    struct AudioSettingsView {
         double sampleRate = 44100.0;
         int bufferSize = 512;
         bool hasSerializedDeviceState = false;
     };
 
-    struct PerformanceSettingsView
-    {
+    struct PerformanceSettingsView {
         float masterGain = 0.8f;
         float adsrAttack = 0.01f;
         float adsrDecay = 0.20f;
@@ -37,14 +34,12 @@ struct SettingsModel
         float adsrRelease = 0.30f;
     };
 
-    struct PluginRecoverySettingsView
-    {
+    struct PluginRecoverySettingsView {
         juce::String pluginSearchPath;
         juce::String lastPluginName;
     };
 
-    struct InputMappingSettingsView
-    {
+    struct InputMappingSettingsView {
         juce::String layoutId { "default.freepiano.minimal" };
         std::unordered_map<int, int> keyMap;
     };
@@ -82,26 +77,22 @@ struct SettingsModel
     int mainWindowWidth = 0;
     int mainWindowHeight = 0;
 
-    [[nodiscard]] AudioSettingsView getAudioSettingsView() const
-    {
+    [[nodiscard]] AudioSettingsView getAudioSettingsView() const {
         return { .sampleRate = sampleRate,
                  .bufferSize = bufferSize,
                  .hasSerializedDeviceState = audioDeviceState != nullptr };
     }
 
-    void applyAudioSettingsView(const AudioSettingsView& view)
-    {
+    void applyAudioSettingsView(const AudioSettingsView& view) {
         sampleRate = view.sampleRate;
         bufferSize = view.bufferSize;
     }
 
-    void setSerializedAudioDeviceState(std::unique_ptr<juce::XmlElement> state)
-    {
+    void setSerializedAudioDeviceState(std::unique_ptr<juce::XmlElement> state) {
         audioDeviceState = std::move(state);
     }
 
-    [[nodiscard]] PerformanceSettingsView getPerformanceSettingsView() const
-    {
+    [[nodiscard]] PerformanceSettingsView getPerformanceSettingsView() const {
         return { .masterGain = masterGain,
                  .adsrAttack = adsrAttack,
                  .adsrDecay = adsrDecay,
@@ -109,8 +100,7 @@ struct SettingsModel
                  .adsrRelease = adsrRelease };
     }
 
-    void applyPerformanceSettingsView(const PerformanceSettingsView& view)
-    {
+    void applyPerformanceSettingsView(const PerformanceSettingsView& view) {
         masterGain = view.masterGain;
         adsrAttack = view.adsrAttack;
         adsrDecay = view.adsrDecay;
@@ -118,35 +108,27 @@ struct SettingsModel
         adsrRelease = view.adsrRelease;
     }
 
-    [[nodiscard]] PluginRecoverySettingsView getPluginRecoverySettingsView() const
-    {
-        return { .pluginSearchPath = pluginSearchPath,
-                 .lastPluginName = lastPluginName };
+    [[nodiscard]] PluginRecoverySettingsView getPluginRecoverySettingsView() const {
+        return { .pluginSearchPath = pluginSearchPath, .lastPluginName = lastPluginName };
     }
 
-    void applyPluginRecoverySettingsView(const PluginRecoverySettingsView& view)
-    {
+    void applyPluginRecoverySettingsView(const PluginRecoverySettingsView& view) {
         pluginSearchPath = view.pluginSearchPath;
         lastPluginName = view.lastPluginName;
     }
 
-    [[nodiscard]] InputMappingSettingsView getInputMappingSettingsView() const
-    {
-        return { .layoutId = lastLayoutId,
-                 .keyMap = keyMap };
+    [[nodiscard]] InputMappingSettingsView getInputMappingSettingsView() const {
+        return { .layoutId = lastLayoutId, .keyMap = keyMap };
     }
 
-    void applyInputMappingSettingsView(const InputMappingSettingsView& view)
-    {
+    void applyInputMappingSettingsView(const InputMappingSettingsView& view) {
         lastLayoutId = view.layoutId;
         keyMap = view.keyMap;
     }
 
-    static juce::ValueTree keyMapToValueTree(const std::unordered_map<int, int>& m)
-    {
+    static juce::ValueTree keyMapToValueTree(const std::unordered_map<int, int>& m) {
         juce::ValueTree t { "keymap" };
-        for (const auto& kv : m)
-        {
+        for (const auto& kv : m) {
             juce::ValueTree n { "k" };
             n.setProperty("code", kv.first, nullptr);
             n.setProperty("note", kv.second, nullptr);
@@ -155,14 +137,12 @@ struct SettingsModel
         return t;
     }
 
-    static std::unordered_map<int, int> valueTreeToKeyMap(const juce::ValueTree& t)
-    {
+    static std::unordered_map<int, int> valueTreeToKeyMap(const juce::ValueTree& t) {
         std::unordered_map<int, int> m;
-        if (! t.isValid())
+        if (!t.isValid())
             return m;
 
-        for (int i = 0; i < t.getNumChildren(); ++i)
-        {
+        for (int i = 0; i < t.getNumChildren(); ++i) {
             auto c = t.getChild(i);
             const auto code = static_cast<int>(c.getProperty("code", 0));
             const auto note = static_cast<int>(c.getProperty("note", -1));
@@ -173,12 +153,10 @@ struct SettingsModel
         return m;
     }
 
-    static std::unordered_map<int, int> layoutToKeyMap(const devpiano::core::KeyboardLayout& layout)
-    {
+    static std::unordered_map<int, int> layoutToKeyMap(const devpiano::core::KeyboardLayout& layout) {
         std::unordered_map<int, int> map;
 
-        for (const auto& binding : layout.bindings)
-        {
+        for (const auto& binding : layout.bindings) {
             if (binding.action.type != devpiano::core::KeyActionType::note)
                 continue;
 
@@ -191,13 +169,12 @@ struct SettingsModel
         return map;
     }
 
-    static devpiano::core::KeyboardLayout keyMapToLayout(const std::unordered_map<int, int>& map, const juce::String& layoutId)
-    {
+    static devpiano::core::KeyboardLayout keyMapToLayout(const std::unordered_map<int, int>& map,
+                                                         const juce::String& layoutId) {
         auto layout = (layoutId == "default.freepiano.full") ? devpiano::core::makeFullPianoLayout()
-                                                              : devpiano::core::makeDefaultKeyboardLayout();
+                                                             : devpiano::core::makeDefaultKeyboardLayout();
 
-        if (!layoutId.isEmpty() && !layoutId.startsWith("default."))
-        {
+        if (!layoutId.isEmpty() && !layoutId.startsWith("default.")) {
             if (auto userLayout = devpiano::layout::loadUserLayoutById(layoutId); userLayout.has_value())
                 layout = *userLayout;
         }
@@ -205,8 +182,7 @@ struct SettingsModel
         if (map.empty())
             return layout;
 
-        for (auto& binding : layout.bindings)
-        {
+        for (auto& binding : layout.bindings) {
             if (binding.action.type != devpiano::core::KeyActionType::note)
                 continue;
 

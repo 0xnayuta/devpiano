@@ -4,8 +4,7 @@
 
 #include "Core/KeyMapTypes.h"
 
-namespace devpiano::core
-{
+namespace devpiano::core {
 // Runtime aggregate state.
 //
 // 职责边界：
@@ -17,8 +16,7 @@ namespace devpiano::core
 // - 当前已加载插件、prepared 状态、editor 状态
 // - 当前 MIDI 输入活动、最后一条消息
 // - 当前布局对象、运行时设备状态快照
-struct AudioState
-{
+struct AudioState {
     // Snapshot values used by UI / runtime logic.
     double sampleRate = 44100.0;
     int bufferSize = 512;
@@ -31,8 +29,7 @@ struct AudioState
     juce::String mismatchReasons;
 };
 
-struct PerformanceState
-{
+struct PerformanceState {
     float masterGain = 0.8f;
     float adsrAttack = 0.01f;
     float adsrDecay = 0.20f;
@@ -40,8 +37,7 @@ struct PerformanceState
     float adsrRelease = 0.30f;
 };
 
-struct PluginState
-{
+struct PluginState {
     // Mix of persisted recovery fields + runtime plugin host fields.
     juce::String searchPath;
     juce::String lastPluginName;
@@ -57,8 +53,7 @@ struct PluginState
     bool isEditorOpen = false;
 };
 
-struct InputState
-{
+struct InputState {
     // Persisted layout identity + runtime input activity snapshot.
     juce::String layoutId { "default.freepiano.minimal" };
     KeyboardLayout keyboardLayout = makeDefaultKeyboardLayout();
@@ -67,8 +62,7 @@ struct InputState
     juce::String lastMidiMessage;
 };
 
-struct AppState
-{
+struct AppState {
     AudioState audio;
     PerformanceState performance;
     PluginState plugin;

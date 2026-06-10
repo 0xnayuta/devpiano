@@ -2,13 +2,11 @@
 
 #include <JuceHeader.h>
 
-#include "Settings/SettingsModel.h"
 #include "Plugin/PluginHost.h"
+#include "Settings/SettingsModel.h"
 
-namespace devpiano::plugin
-{
-struct StartupPluginRestorePlan
-{
+namespace devpiano::plugin {
+struct StartupPluginRestorePlan {
     SettingsModel::PluginRecoverySettingsView recovery;
     bool shouldScan = false;
     bool shouldLoadLastPlugin = false;
@@ -17,31 +15,29 @@ struct StartupPluginRestorePlan
 // Scans VST3 plugins at the given path and applies the given recovery settings.
 // This is an all-in-one helper that sequences: prepare → scan → apply.
 // The caller provides the already-resolved pluginSearchPath (with fallback already applied).
-void restorePluginsAtPath(PluginHost& pluginHost,
-                          const juce::FileSearchPath& path,
-                          const SettingsModel::PluginRecoverySettingsView& recovery,
-                          const std::function<void(const SettingsModel::PluginRecoverySettingsView&)>& applySettingsCallback);
+void restorePluginsAtPath(
+    PluginHost& pluginHost, const juce::FileSearchPath& path, const SettingsModel::PluginRecoverySettingsView& recovery,
+    const std::function<void(const SettingsModel::PluginRecoverySettingsView&)>& applySettingsCallback);
 
-[[nodiscard]] bool tryRestoreCachedPluginList(PluginHost& pluginHost,
-                                              SettingsModel& settings,
+[[nodiscard]] bool tryRestoreCachedPluginList(PluginHost& pluginHost, SettingsModel& settings,
                                               const StartupPluginRestorePlan& plan);
 
-void scanPluginsAtPathAndUpdateRecovery(PluginHost& pluginHost,
-                                        SettingsModel& settings,
-                                        const juce::FileSearchPath& path,
-                                        const juce::String& lastPluginName);
+void scanPluginsAtPathAndUpdateRecovery(PluginHost& pluginHost, SettingsModel& settings,
+                                        const juce::FileSearchPath& path, const juce::String& lastPluginName);
 
 [[nodiscard]] SettingsModel::PluginRecoverySettingsView makePluginRecoverySettings(juce::String pluginSearchPath,
                                                                                    juce::String lastPluginName);
 
-[[nodiscard]] SettingsModel::PluginRecoverySettingsView withPluginRecoveryPathFallback(const SettingsModel::PluginRecoverySettingsView& recovery,
-                                                                                        const juce::FileSearchPath& defaultSearchPath);
+[[nodiscard]] SettingsModel::PluginRecoverySettingsView
+withPluginRecoveryPathFallback(const SettingsModel::PluginRecoverySettingsView& recovery,
+                               const juce::FileSearchPath& defaultSearchPath);
 
 [[nodiscard]] juce::FileSearchPath normalisePluginScanPath(const juce::FileSearchPath& requestedPath,
                                                            const juce::FileSearchPath& defaultSearchPath);
 
 [[nodiscard]] bool isUsablePluginScanPath(const juce::FileSearchPath& path);
 
-[[nodiscard]] StartupPluginRestorePlan buildStartupPluginRestorePlan(const SettingsModel::PluginRecoverySettingsView& persistedRecovery,
-                                                                    const juce::FileSearchPath& defaultSearchPath);
+[[nodiscard]] StartupPluginRestorePlan
+buildStartupPluginRestorePlan(const SettingsModel::PluginRecoverySettingsView& persistedRecovery,
+                              const juce::FileSearchPath& defaultSearchPath);
 } // namespace devpiano::plugin

@@ -6,32 +6,25 @@
 #include "UI/PluginEditorWindow.h"
 #include "UI/PluginPanel.h"
 
-namespace devpiano::plugin
-{
+namespace devpiano::plugin {
 
-PluginOperationController::PluginOperationController(MainComponent& ownerIn,
-                                                     PluginHost& pluginHostIn,
-                                                     SettingsModel& appSettingsIn,
-                                                     PluginPanel& pluginPanelIn)
+PluginOperationController::PluginOperationController(MainComponent& ownerIn, PluginHost& pluginHostIn,
+                                                     SettingsModel& appSettingsIn, PluginPanel& pluginPanelIn)
     : owner(ownerIn)
     , pluginHost(pluginHostIn)
     , appSettings(appSettingsIn)
-    , pluginPanel(pluginPanelIn)
-{
+    , pluginPanel(pluginPanelIn) {
 }
 
-PluginOperationController::~PluginOperationController()
-{
+PluginOperationController::~PluginOperationController() {
     pluginHost.cancelVst3ScanSession();
 }
 
-void PluginOperationController::restorePluginStateOnStartup()
-{
+void PluginOperationController::restorePluginStateOnStartup() {
     const auto plan = buildStartupPluginRestorePlan(appSettings.getPluginRecoverySettingsView(),
                                                     pluginHost.getDefaultVst3SearchPath());
 
-    if (tryRestoreCachedPluginList(pluginHost, appSettings, plan))
-    {
+    if (tryRestoreCachedPluginList(pluginHost, appSettings, plan)) {
         owner.refreshReadOnlyUiStateFromCurrentSnapshot();
 
         if (plan.shouldLoadLastPlugin)
@@ -40,7 +33,7 @@ void PluginOperationController::restorePluginStateOnStartup()
         return;
     }
 
-    if (! plan.shouldScan)
+    if (!plan.shouldScan)
         return;
 
     restorePluginScanPathOnStartup(plan);
@@ -49,14 +42,12 @@ void PluginOperationController::restorePluginStateOnStartup()
         restoreLastPluginOnStartup(plan);
 }
 
-void PluginOperationController::loadSelectedPlugin()
-{
+void PluginOperationController::loadSelectedPlugin() {
     if (pluginHost.isCurrentlyScanning())
         return;
 
     const auto pluginName = getSelectedPluginNameForLoad();
-    if (pluginName.isEmpty())
-    {
+    if (pluginName.isEmpty()) {
         owner.finishPluginUiAction(false);
         return;
     }
@@ -64,28 +55,24 @@ void PluginOperationController::loadSelectedPlugin()
     loadPluginByNameAndCommitState(pluginName);
 }
 
-void PluginOperationController::unloadCurrentPlugin()
-{
+void PluginOperationController::unloadCurrentPlugin() {
     if (pluginHost.isCurrentlyScanning())
         return;
 
     unloadPluginAndCommitState();
 }
 
-void PluginOperationController::togglePluginEditor()
-{
+void PluginOperationController::togglePluginEditor() {
     if (pluginHost.isCurrentlyScanning())
         return;
-    if (pluginEditorWindow != nullptr)
-    {
+    if (pluginEditorWindow != nullptr) {
         closePluginEditorWindow();
         owner.finishPluginUiAction(false);
         return;
     }
 
     auto editor = tryCreatePluginEditor();
-    if (editor == nullptr)
-    {
+    if (editor == nullptr) {
         owner.finishPluginUiAction(false);
         return;
     }
@@ -93,11 +80,9 @@ void PluginOperationController::togglePluginEditor()
     openPluginEditorWindow(std::move(editor));
 }
 
-void PluginOperationController::scanPlugins()
-{
+void PluginOperationController::scanPlugins() {
     const auto path = resolvePluginScanPath();
-    if (! isUsablePluginScanPath(path))
-    {
+    if (!isUsablePluginScanPath(path)) {
         pluginHost.markPluginScanSkipped("No usable VST3 scan directories. Check the path field.");
         owner.finishPluginUiAction(false);
         return;
@@ -109,8 +94,7 @@ void PluginOperationController::scanPlugins()
     pendingScanPath = path;
     pendingScanLastPluginName = appSettings.getPluginRecoverySettingsView().lastPluginName;
 
-    if (! pluginHost.beginVst3ScanSession(path, true))
-    {
+    if (!pluginHost.beginVst3ScanSession(path, true)) {
         owner.finishPluginUiAction(false);
         return;
     }
@@ -123,25 +107,19 @@ void PluginOperationController::scanPlugins()
     triggerAsyncUpdate();
 }
 
-bool PluginOperationController::hasEditorWindowOpen() const noexcept
-{
+bool PluginOperationController::hasEditorWindowOpen() const noexcept {
     return pluginEditorWindow != nullptr;
 }
 
-void PluginOperationController::restorePluginScanPathOnStartup(const StartupPluginRestorePlan& plan)
-{
+void PluginOperationController::restorePluginScanPathOnStartup(const StartupPluginRestorePlan& plan) {
     const auto path = juce::FileSearchPath(plan.recovery.pluginSearchPath);
-    if (! isUsablePluginScanPath(path))
+    if (!isUsablePluginScanPath(path))
         return;
 
-    scanPluginsAtPathAndUpdateRecovery(pluginHost,
-                                       appSettings,
-                                       path,
-                                       plan.recovery.lastPluginName);
+    scanPluginsAtPathAndUpdateRecovery(pluginHost, appSettings, path, plan.recovery.lastPluginName);
 }
 
-void PluginOperationController::restoreLastPluginOnStartup(const StartupPluginRestorePlan& plan)
-{
+void PluginOperationController::restoreLastPluginOnStartup(const StartupPluginRestorePlan& plan) {
     const auto& pluginName = plan.recovery.lastPluginName;
     if (pluginName.isEmpty())
         return;
@@ -149,65 +127,47 @@ void PluginOperationController::restoreLastPluginOnStartup(const StartupPluginRe
     restorePluginByNameOnStartup(pluginName);
 }
 
-void PluginOperationController::restorePluginByNameOnStartup(const juce::String& pluginName)
-{
-    owner.runPluginActionWithAudioDeviceRebuild([this, pluginName](const MainComponent::RuntimeAudioConfig& config)
-    {
-        const auto loaded = pluginHost.loadPluginByName(pluginName,
-                                                        config.sampleRate,
-                                                        config.blockSize);
+void PluginOperationController::restorePluginByNameOnStartup(const juce::String& pluginName) {
+    owner.runPluginActionWithAudioDeviceRebuild([this, pluginName](const MainComponent::RuntimeAudioConfig& config) {
+        const auto loaded = pluginHost.loadPluginByName(pluginName, config.sampleRate, config.blockSize);
         juce::ignoreUnused(loaded);
     });
 }
 
-juce::FileSearchPath PluginOperationController::resolvePluginScanPath() const
-{
+juce::FileSearchPath PluginOperationController::resolvePluginScanPath() const {
     return normalisePluginScanPath(juce::FileSearchPath(pluginPanel.getPluginPathText().trim()),
                                    pluginHost.getDefaultVst3SearchPath());
 }
 
-juce::String PluginOperationController::getSelectedPluginNameForLoad() const
-{
+juce::String PluginOperationController::getSelectedPluginNameForLoad() const {
     return pluginPanel.getSelectedPluginName().trim();
 }
 
-void PluginOperationController::loadPluginByNameAndCommitState(const juce::String& pluginName)
-{
-    owner.runPluginActionWithAudioDeviceRebuild([this, pluginName](const MainComponent::RuntimeAudioConfig& config)
-    {
-        const auto success = pluginHost.loadPluginByName(pluginName,
-                                                         config.sampleRate,
-                                                         config.blockSize);
+void PluginOperationController::loadPluginByNameAndCommitState(const juce::String& pluginName) {
+    owner.runPluginActionWithAudioDeviceRebuild([this, pluginName](const MainComponent::RuntimeAudioConfig& config) {
+        const auto success = pluginHost.loadPluginByName(pluginName, config.sampleRate, config.blockSize);
         juce::ignoreUnused(success);
     });
 
-    commitPluginRecoveryStateAndFinishUi(makePluginRecoverySettings(appSettings.pluginSearchPath, pluginName),
-                                         true);
+    commitPluginRecoveryStateAndFinishUi(makePluginRecoverySettings(appSettings.pluginSearchPath, pluginName), true);
 }
 
-void PluginOperationController::unloadPluginAndCommitState()
-{
-    owner.runPluginActionWithAudioDeviceRebuild([this]
-    {
-        pluginHost.unloadPlugin();
-    });
+void PluginOperationController::unloadPluginAndCommitState() {
+    owner.runPluginActionWithAudioDeviceRebuild([this] { pluginHost.unloadPlugin(); });
 
     commitPluginRecoveryStateAndFinishUi(appSettings.getPluginRecoverySettingsView(), true);
 }
 
-std::unique_ptr<juce::AudioProcessorEditor> PluginOperationController::tryCreatePluginEditor() const
-{
+std::unique_ptr<juce::AudioProcessorEditor> PluginOperationController::tryCreatePluginEditor() const {
     auto* instance = pluginHost.getInstance();
-    if (instance == nullptr || ! instance->hasEditor())
+    if (instance == nullptr || !instance->hasEditor())
         return nullptr;
 
     return std::unique_ptr<juce::AudioProcessorEditor>(instance->createEditorAndMakeActive());
 }
 
-void PluginOperationController::handlePluginEditorWindowClosedAsync()
-{
-    juce::MessageManager::callAsync([safe = juce::Component::SafePointer<MainComponent>(&owner)]
-    {
+void PluginOperationController::handlePluginEditorWindowClosedAsync() {
+    juce::MessageManager::callAsync([safe = juce::Component::SafePointer<MainComponent>(&owner)] {
         if (safe == nullptr)
             return;
 
@@ -216,53 +176,40 @@ void PluginOperationController::handlePluginEditorWindowClosedAsync()
     });
 }
 
-void PluginOperationController::closePluginEditorWindow()
-{
+void PluginOperationController::closePluginEditorWindow() {
     pluginEditorWindow.reset();
 }
 
-void PluginOperationController::openPluginEditorWindow(std::unique_ptr<juce::AudioProcessorEditor> editor)
-{
-    auto closeEditorWindow = [safe = juce::Component::SafePointer<MainComponent>(&owner)]
-    {
+void PluginOperationController::openPluginEditorWindow(std::unique_ptr<juce::AudioProcessorEditor> editor) {
+    auto closeEditorWindow = [safe = juce::Component::SafePointer<MainComponent>(&owner)] {
         if (safe != nullptr)
             safe->pluginOperationController->handlePluginEditorWindowClosedAsync();
     };
 
-    pluginEditorWindow = std::make_unique<PluginEditorWindow>(pluginHost.getCurrentPluginName(),
-                                                                std::move(editor),
-                                                                closeEditorWindow);
-    pluginEditorWindow->centreAroundComponent(&owner,
-                                               pluginEditorWindow->getContentComponent()->getWidth(),
-                                               pluginEditorWindow->getContentComponent()->getHeight());
+    pluginEditorWindow
+        = std::make_unique<PluginEditorWindow>(pluginHost.getCurrentPluginName(), std::move(editor), closeEditorWindow);
+    pluginEditorWindow->centreAroundComponent(&owner, pluginEditorWindow->getContentComponent()->getWidth(),
+                                              pluginEditorWindow->getContentComponent()->getHeight());
     pluginEditorWindow->setVisible(true);
     owner.refreshReadOnlyUiStateFromCurrentSnapshot();
 }
 
 void PluginOperationController::scanPluginsAtPathAndApplyRecoveryState(const juce::FileSearchPath& path,
-                                                                       const juce::String& lastPluginName)
-{
-    owner.runPluginActionWithAudioDeviceRebuild([this, &path, lastPluginName]
-    {
-        scanPluginsAtPathAndUpdateRecovery(pluginHost,
-                                           appSettings,
-                                           path,
-                                           lastPluginName);
+                                                                       const juce::String& lastPluginName) {
+    owner.runPluginActionWithAudioDeviceRebuild([this, &path, lastPluginName] {
+        scanPluginsAtPathAndUpdateRecovery(pluginHost, appSettings, path, lastPluginName);
     });
 }
 
-void PluginOperationController::scanPluginsAtPathAndCommitState(const juce::FileSearchPath& path)
-{
+void PluginOperationController::scanPluginsAtPathAndCommitState(const juce::FileSearchPath& path) {
     const auto lastPluginName = appSettings.getPluginRecoverySettingsView().lastPluginName;
     scanPluginsAtPathAndApplyRecoveryState(path, lastPluginName);
     pluginPanel.setPluginPathText(path.toString());
     owner.finishPluginUiAction(true);
 }
 
-void PluginOperationController::handleAsyncUpdate()
-{
-    if (! pluginHost.isCurrentlyScanning())
-    {
+void PluginOperationController::handleAsyncUpdate() {
+    if (!pluginHost.isCurrentlyScanning()) {
         finishScanSessionAndCommitState();
         return;
     }
@@ -278,8 +225,7 @@ void PluginOperationController::handleAsyncUpdate()
 
     owner.refreshReadOnlyUiStateFromCurrentSnapshot();
 
-    if (! hasMore)
-    {
+    if (!hasMore) {
         finishScanSessionAndCommitState();
         return;
     }
@@ -287,10 +233,8 @@ void PluginOperationController::handleAsyncUpdate()
     triggerAsyncUpdate();
 }
 
-void PluginOperationController::finishScanSessionAndCommitState()
-{
-    const auto recovery = makePluginRecoverySettings(pendingScanPath.toString(),
-                                                    pendingScanLastPluginName);
+void PluginOperationController::finishScanSessionAndCommitState() {
+    const auto recovery = makePluginRecoverySettings(pendingScanPath.toString(), pendingScanLastPluginName);
 
     appSettings.applyPluginRecoverySettingsView(recovery);
     appSettings.knownPluginListState = pluginHost.createKnownPluginListXml();
@@ -298,9 +242,8 @@ void PluginOperationController::finishScanSessionAndCommitState()
     owner.finishPluginUiAction(true);
 }
 
-void PluginOperationController::commitPluginRecoveryStateAndFinishUi(const SettingsModel::PluginRecoverySettingsView& pluginRecovery,
-                                                                      bool shouldSaveSettings)
-{
+void PluginOperationController::commitPluginRecoveryStateAndFinishUi(
+    const SettingsModel::PluginRecoverySettingsView& pluginRecovery, bool shouldSaveSettings) {
     appSettings.applyPluginRecoverySettingsView(pluginRecovery);
     owner.finishPluginUiAction(shouldSaveSettings);
 }

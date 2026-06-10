@@ -2,8 +2,7 @@
 
 #include <JuceHeader.h>
 
-namespace devpiano::diagnostics
-{
+namespace devpiano::diagnostics {
 
 //! Returns a human-readable description for a MIDI message.
 //! Handles: note on/off, control change, pitch bend, program change,

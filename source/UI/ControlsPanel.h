@@ -2,19 +2,14 @@
 
 #include <JuceHeader.h>
 
-class ControlsPanel final : public juce::Component
-{
+class ControlsPanel final : public juce::Component {
 public:
     ControlsPanel();
     ~ControlsPanel() override;
 
     void resized() override;
 
-    void setValues(float masterGain,
-                   float attack,
-                   float decay,
-                   float sustain,
-                   float release);
+    void setValues(float masterGain, float attack, float decay, float sustain, float release);
 
     [[nodiscard]] float getMasterGain() const;
     [[nodiscard]] float getAttack() const;
@@ -40,15 +35,13 @@ public:
     std::function<void()> onOpenPerformanceClicked;
     std::function<void(double)> onPlaybackSpeedChange;
 
-    void setLayouts(const juce::StringArray& layoutIds,
-                const juce::String& currentLayoutId,
-                const juce::StringArray& layoutDisplayNames);
+    void setLayouts(const juce::StringArray& layoutIds, const juce::String& currentLayoutId,
+                    const juce::StringArray& layoutDisplayNames);
 
     [[nodiscard]] juce::String getSelectedLayoutId() const;
 
     enum class RecordingState { idle, recording, playing };
-    struct RecordingControlsState
-    {
+    struct RecordingControlsState {
         RecordingState state = RecordingState::idle;
         bool hasTake = false;
         bool canExportMidiTake = false;
@@ -64,12 +57,8 @@ private:
     void updateLayoutActionButtons();
     [[nodiscard]] double getCurrentPlaybackSpeed() const;
 
-    void configureSlider(juce::Slider& slider,
-                         juce::Label& label,
-                         const juce::String& text,
-                         double minimum,
-                         double maximum,
-                         double interval = 0.001);
+    void configureSlider(juce::Slider& slider, juce::Label& label, const juce::String& text, double minimum,
+                         double maximum, double interval = 0.001);
 
     juce::StringArray availableLayoutIds;
 

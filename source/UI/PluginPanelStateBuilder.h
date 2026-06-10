@@ -5,6 +5,5 @@
 #include "Plugin/PluginHost.h"
 #include "UI/PluginPanel.h"
 
-[[nodiscard]] PluginPanel::State buildPluginPanelState(const PluginHost& pluginHost,
-                                                       const juce::String& lastPluginName,
+[[nodiscard]] PluginPanel::State buildPluginPanelState(const PluginHost& pluginHost, const juce::String& lastPluginName,
                                                        bool isEditorOpen);

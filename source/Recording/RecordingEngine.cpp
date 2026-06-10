@@ -6,83 +6,67 @@
 #include <algorithm>
 #include <cmath>
 
-namespace devpiano::recording
-{
-namespace
-{
+namespace devpiano::recording {
+namespace {
 constexpr auto maxRealtimeMidiMessageBytes = 16;
 }
 
-bool RecordingTake::isEmpty() const noexcept
-{
+bool RecordingTake::isEmpty() const noexcept {
     return events.empty();
 }
 
-double RecordingTake::durationSeconds() const noexcept
-{
+double RecordingTake::durationSeconds() const noexcept {
     if (sampleRate <= 0.0 || lengthSamples <= 0)
         return 0.0;
 
     return static_cast<double>(lengthSamples) / sampleRate;
 }
 
-RecordingState RecordingEngine::getState() const noexcept
-{
+RecordingState RecordingEngine::getState() const noexcept {
     return state.load(std::memory_order_acquire);
 }
 
-bool RecordingEngine::isRecording() const noexcept
-{
+bool RecordingEngine::isRecording() const noexcept {
     return state.load(std::memory_order_acquire) == RecordingState::recording;
 }
 
-bool RecordingEngine::hasTake() const noexcept
-{
+bool RecordingEngine::hasTake() const noexcept {
     return !currentTake.isEmpty();
 }
 
-bool RecordingEngine::hasDroppedEvents() const noexcept
-{
+bool RecordingEngine::hasDroppedEvents() const noexcept {
     return droppedEventCount > 0;
 }
 
-std::size_t RecordingEngine::getDroppedEventCount() const noexcept
-{
+std::size_t RecordingEngine::getDroppedEventCount() const noexcept {
     return droppedEventCount;
 }
 
-std::size_t RecordingEngine::getReservedEventCapacity() const noexcept
-{
+std::size_t RecordingEngine::getReservedEventCapacity() const noexcept {
     return currentTake.events.capacity();
 }
 
-std::int64_t RecordingEngine::getCurrentPositionSamples() const noexcept
-{
+std::int64_t RecordingEngine::getCurrentPositionSamples() const noexcept {
     return currentPositionSamples;
 }
 
-double RecordingEngine::getSampleRate() const noexcept
-{
+double RecordingEngine::getSampleRate() const noexcept {
     return currentTake.sampleRate;
 }
 
-const RecordingTake& RecordingEngine::getCurrentTake() const noexcept
-{
+const RecordingTake& RecordingEngine::getCurrentTake() const noexcept {
     return currentTake;
 }
 
-RecordingTake RecordingEngine::createTakeSnapshot() const
-{
+RecordingTake RecordingEngine::createTakeSnapshot() const {
     return currentTake;
 }
 
-void RecordingEngine::reserveEvents(std::size_t expectedEventCount)
-{
+void RecordingEngine::reserveEvents(std::size_t expectedEventCount) {
     currentTake.events.reserve(expectedEventCount);
 }
 
-void RecordingEngine::startRecording(double sampleRate)
-{
+void RecordingEngine::startRecording(double sampleRate) {
     currentTake.events.clear();
     currentTake.sampleRate = std::max(sampleRate, 0.0);
     currentTake.lengthSamples = 0;
@@ -94,8 +78,7 @@ void RecordingEngine::startRecording(double sampleRate)
     DP_DEBUG_LOG("[RecordingEngine] recording STARTED");
 }
 
-RecordingTake RecordingEngine::stopRecording()
-{
+RecordingTake RecordingEngine::stopRecording() {
     if (isRecording())
         currentTake.lengthSamples = std::max(currentTake.lengthSamples, currentPositionSamples);
 
@@ -107,8 +90,7 @@ RecordingTake RecordingEngine::stopRecording()
     return currentTake;
 }
 
-void RecordingEngine::clear()
-{
+void RecordingEngine::clear() {
     currentTake.events.clear();
     currentTake.sampleRate = 0.0;
     currentTake.lengthSamples = 0;
@@ -120,8 +102,7 @@ void RecordingEngine::clear()
     DP_DEBUG_LOG("[RecordingEngine] take CLEARED");
 }
 
-void RecordingEngine::advanceRecordingPosition(std::int64_t numSamples) noexcept
-{
+void RecordingEngine::advanceRecordingPosition(std::int64_t numSamples) noexcept {
     if (!isRecording() || numSamples <= 0)
         return;
 
@@ -129,16 +110,13 @@ void RecordingEngine::advanceRecordingPosition(std::int64_t numSamples) noexcept
     currentTake.lengthSamples = std::max(currentTake.lengthSamples, currentPositionSamples);
 }
 
-void RecordingEngine::recordEvent(const juce::MidiMessage& message,
-                                  RecordingEventSource source,
-                                  std::int64_t timestampSamples)
-{
+void RecordingEngine::recordEvent(const juce::MidiMessage& message, RecordingEventSource source,
+                                  std::int64_t timestampSamples) {
     if (!isRecording())
         return;
 
     const auto clampedTimestamp = std::max<std::int64_t>(timestampSamples, 0);
-    if (currentTake.events.size() >= currentTake.events.capacity())
-    {
+    if (currentTake.events.size() >= currentTake.events.capacity()) {
         ++droppedEventCount;
         currentTake.lengthSamples = std::max(currentTake.lengthSamples, clampedTimestamp);
         DP_DEBUG_LOG("[RecordingEngine] event DROPPED: capacity exhausted");
@@ -149,27 +127,21 @@ void RecordingEngine::recordEvent(const juce::MidiMessage& message,
     currentTake.lengthSamples = std::max(currentTake.lengthSamples, clampedTimestamp);
 }
 
-void RecordingEngine::recordEventAtCurrentPosition(const juce::MidiMessage& message,
-                                                   RecordingEventSource source)
-{
+void RecordingEngine::recordEventAtCurrentPosition(const juce::MidiMessage& message, RecordingEventSource source) {
     recordEvent(message, source, currentPositionSamples);
 }
 
-void RecordingEngine::recordMidiBufferBlock(const juce::MidiBuffer& midiBuffer,
-                                            RecordingEventSource source,
-                                            std::int64_t blockStartSamples)
-{
+void RecordingEngine::recordMidiBufferBlock(const juce::MidiBuffer& midiBuffer, RecordingEventSource source,
+                                            std::int64_t blockStartSamples) {
     if (!isRecording())
         return;
 
     const auto clampedBlockStart = std::max<std::int64_t>(blockStartSamples, 0);
 
-    for (const auto metadata : midiBuffer)
-    {
+    for (const auto metadata : midiBuffer) {
         const auto timestamp = clampedBlockStart + std::max(metadata.samplePosition, 0);
         if (currentTake.events.size() >= currentTake.events.capacity()
-            || metadata.numBytes > maxRealtimeMidiMessageBytes)
-        {
+            || metadata.numBytes > maxRealtimeMidiMessageBytes) {
             ++droppedEventCount;
             currentTake.lengthSamples = std::max(currentTake.lengthSamples, timestamp);
             continue;
@@ -181,65 +153,55 @@ void RecordingEngine::recordMidiBufferBlock(const juce::MidiBuffer& midiBuffer,
     }
 }
 
-void RecordingEngine::startPlayback(const RecordingTake& take, double currentSampleRate)
-{
+void RecordingEngine::startPlayback(const RecordingTake& take, double currentSampleRate) {
     playbackTake = take;
-    playbackSampleRateRatio = (take.sampleRate > 0.0 && currentSampleRate > 0.0)
-                                   ? (currentSampleRate / take.sampleRate)
-                                   : 1.0;
+    playbackSampleRateRatio
+        = (take.sampleRate > 0.0 && currentSampleRate > 0.0) ? (currentSampleRate / take.sampleRate) : 1.0;
     scaledPlaybackLengthSamples.store(getScaledPlaybackLengthSamples());
     playbackPositionSamples.store(0);
     playbackEndedPending.store(false, std::memory_order_release);
     state.store(RecordingState::playing, std::memory_order_release);
 
-    DP_DEBUG_LOG("[RecordingEngine] playback STARTED: " + juce::String(take.events.size())
-                 + " events, ratio=" + juce::String(playbackSampleRateRatio)
-                 + ", speed=" + juce::String(playbackSpeedMultiplier.load())
+    DP_DEBUG_LOG("[RecordingEngine] playback STARTED: " + juce::String(take.events.size()) + " events, ratio="
+                 + juce::String(playbackSampleRateRatio) + ", speed=" + juce::String(playbackSpeedMultiplier.load())
                  + ", scaledLen=" + juce::String(scaledPlaybackLengthSamples.load()));
 }
 
-void RecordingEngine::stopPlayback()
-{
+void RecordingEngine::stopPlayback() {
     state.store(RecordingState::stopped, std::memory_order_release);
     playbackEndedPending.store(false, std::memory_order_release);
 }
 
-void RecordingEngine::setPlaybackSpeedMultiplier(double multiplier) noexcept
-{
+void RecordingEngine::setPlaybackSpeedMultiplier(double multiplier) noexcept {
     const auto clamped = std::clamp(multiplier, 0.5, 2.0);
     const auto oldSpeed = playbackSpeedMultiplier.load();
     playbackSpeedMultiplier.store(clamped);
 
-    if (isPlaying())
-    {
+    if (isPlaying()) {
         // Re-align playbackPositionSamples so the take-time position stays the same
-        playbackPositionSamples.store(static_cast<std::int64_t>(
-            static_cast<double>(playbackPositionSamples.load()) * oldSpeed / clamped));
+        playbackPositionSamples.store(
+            static_cast<std::int64_t>(static_cast<double>(playbackPositionSamples.load()) * oldSpeed / clamped));
         scaledPlaybackLengthSamples.store(getScaledPlaybackLengthSamples());
         DP_DEBUG_LOG("[RecordingEngine] playback speed updated to " + juce::String(clamped)
                      + ", scaledLen=" + juce::String(scaledPlaybackLengthSamples.load()));
     }
 }
 
-double RecordingEngine::getPlaybackSpeedMultiplier() const noexcept
-{
+double RecordingEngine::getPlaybackSpeedMultiplier() const noexcept {
     return playbackSpeedMultiplier.load();
 }
 
-void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer,
-                                          std::int64_t blockStartSamples,
-                                          int numSamples)
-{
+void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer, std::int64_t blockStartSamples,
+                                          int numSamples) {
     if (!isPlaying())
         return;
 
     const auto combinedRatio = playbackSampleRateRatio / playbackSpeedMultiplier.load();
     const auto blockEndSamples = blockStartSamples + static_cast<std::int64_t>(numSamples);
 
-    for (const auto& event : playbackTake.events)
-    {
-        const auto scaledTimestamp = static_cast<std::int64_t>(
-            static_cast<double>(event.timestampSamples) * combinedRatio);
+    for (const auto& event : playbackTake.events) {
+        const auto scaledTimestamp
+            = static_cast<std::int64_t>(static_cast<double>(event.timestampSamples) * combinedRatio);
 
         // Half-open interval [blockStartSamples, blockEndSamples) for block membership.
         // The >= on the upper bound is intentional: events whose scaledTimestamp reaches
@@ -253,45 +215,39 @@ void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer,
     }
 }
 
-void RecordingEngine::advancePlaybackPosition(std::int64_t numSamples) noexcept
-{
+void RecordingEngine::advancePlaybackPosition(std::int64_t numSamples) noexcept {
     if (!isPlaying() || numSamples <= 0)
         return;
 
     playbackPositionSamples.fetch_add(numSamples);
-    if (playbackPositionSamples.load() >= scaledPlaybackLengthSamples.load())
-    {
+    if (playbackPositionSamples.load() >= scaledPlaybackLengthSamples.load()) {
         state.store(RecordingState::stopped, std::memory_order_release);
         playbackPositionSamples.store(scaledPlaybackLengthSamples.load());
         playbackEndedPending.store(true, std::memory_order_release);
-        DP_LOG_INFO("[RecordingEngine] playback ENDED: pos="
-                    + juce::String(playbackPositionSamples.load())
+        DP_LOG_INFO("[RecordingEngine] playback ENDED: pos=" + juce::String(playbackPositionSamples.load())
                     + " >= scaledLen=" + juce::String(scaledPlaybackLengthSamples.load())
                     + " (ratio=" + juce::String(playbackSampleRateRatio) + ")");
     }
 }
 
-bool RecordingEngine::consumePlaybackEndedFlag() noexcept
-{
+bool RecordingEngine::consumePlaybackEndedFlag() noexcept {
     return playbackEndedPending.exchange(false, std::memory_order_acq_rel);
 }
 
-bool RecordingEngine::isPlaying() const noexcept
-{
+bool RecordingEngine::isPlaying() const noexcept {
     return state.load(std::memory_order_acquire) == RecordingState::playing;
 }
 
-std::int64_t RecordingEngine::getPlaybackPositionSamples() const noexcept
-{
+std::int64_t RecordingEngine::getPlaybackPositionSamples() const noexcept {
     return playbackPositionSamples;
 }
 
-std::int64_t RecordingEngine::getScaledPlaybackLengthSamples() const noexcept
-{
+std::int64_t RecordingEngine::getScaledPlaybackLengthSamples() const noexcept {
     if (playbackTake.lengthSamples <= 0)
         return 0;
 
-    const auto scaledLength = static_cast<double>(playbackTake.lengthSamples) * playbackSampleRateRatio / playbackSpeedMultiplier;
+    const auto scaledLength
+        = static_cast<double>(playbackTake.lengthSamples) * playbackSampleRateRatio / playbackSpeedMultiplier;
     if (scaledLength <= 0.0)
         return playbackTake.lengthSamples;
 

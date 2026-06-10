@@ -2,34 +2,28 @@
 
 using namespace devpiano::core;
 
-KeyboardMidiMapper::KeyboardMidiMapper()
-{
+KeyboardMidiMapper::KeyboardMidiMapper() {
     resetToDefaultLayout();
 }
 
-void KeyboardMidiMapper::setLayout(KeyboardLayout newLayout)
-{
+void KeyboardMidiMapper::setLayout(KeyboardLayout newLayout) {
     layout = std::move(newLayout);
     heldKeys.clear();
 }
 
-void KeyboardMidiMapper::setLayoutDisplayName(juce::String newDisplayName)
-{
+void KeyboardMidiMapper::setLayoutDisplayName(juce::String newDisplayName) {
     layout.name = std::move(newDisplayName);
 }
 
-const KeyboardLayout& KeyboardMidiMapper::getLayout() const noexcept
-{
+const KeyboardLayout& KeyboardMidiMapper::getLayout() const noexcept {
     return layout;
 }
 
-void KeyboardMidiMapper::resetToDefaultLayout()
-{
+void KeyboardMidiMapper::resetToDefaultLayout() {
     setLayout(makeDefaultKeyboardLayout());
 }
 
-bool KeyboardMidiMapper::handleKeyPressed(const juce::KeyPress& key, juce::MidiKeyboardState& keyboardState)
-{
+bool KeyboardMidiMapper::handleKeyPressed(const juce::KeyPress& key, juce::MidiKeyboardState& keyboardState) {
     const auto keyCode = normaliseKeyCode(key);
     if (keyCode == 0)
         return false;
@@ -38,18 +32,16 @@ bool KeyboardMidiMapper::handleKeyPressed(const juce::KeyPress& key, juce::MidiK
     if (binding == nullptr)
         return false;
 
-    if (! heldKeys.insert(keyCode).second)
+    if (!heldKeys.insert(keyCode).second)
         return true;
 
     return triggerBinding(*binding, keyboardState, true);
 }
 
-bool KeyboardMidiMapper::handleKeyStateChanged(juce::MidiKeyboardState& keyboardState)
-{
+bool KeyboardMidiMapper::handleKeyStateChanged(juce::MidiKeyboardState& keyboardState) {
     auto consumed = false;
 
-    for (const auto& binding : layout.bindings)
-    {
+    for (const auto& binding : layout.bindings) {
         const auto keyCode = binding.keyCode;
         if (keyCode == 0)
             continue;
@@ -58,25 +50,20 @@ bool KeyboardMidiMapper::handleKeyStateChanged(juce::MidiKeyboardState& keyboard
 
         const auto wasHeld = heldKeys.contains(keyCode);
 
-        if (isCurrentlyDown && ! wasHeld)
-        {
+        if (isCurrentlyDown && !wasHeld) {
             heldKeys.insert(keyCode);
             consumed = triggerBinding(binding, keyboardState, true) || consumed;
             continue;
         }
 
-        if (! isCurrentlyDown && wasHeld)
-        {
-            if (binding.action.type == KeyActionType::note)
-            {
+        if (!isCurrentlyDown && wasHeld) {
+            if (binding.action.type == KeyActionType::note) {
                 const auto midiChannel = binding.action.getMidiChannel().value;
                 const auto midiNote = binding.action.getMidiNoteNumber().value;
                 const auto velocity = binding.action.getVelocity().value;
                 keyboardState.noteOff(midiChannel, midiNote, velocity);
                 consumed = true;
-            }
-            else
-            {
+            } else {
                 consumed = triggerBinding(binding, keyboardState, false) || consumed;
             }
 
@@ -87,15 +74,12 @@ bool KeyboardMidiMapper::handleKeyStateChanged(juce::MidiKeyboardState& keyboard
     return consumed;
 }
 
-int KeyboardMidiMapper::normaliseKeyCode(const juce::KeyPress& key) const
-{
+int KeyboardMidiMapper::normaliseKeyCode(const juce::KeyPress& key) const {
     return normaliseAlphaNumericKeyCode(key.getKeyCode());
 }
 
-bool KeyboardMidiMapper::triggerBinding(const KeyBinding& binding,
-                                        juce::MidiKeyboardState& keyboardState,
-                                        bool isKeyDownEvent)
-{
+bool KeyboardMidiMapper::triggerBinding(const KeyBinding& binding, juce::MidiKeyboardState& keyboardState,
+                                        bool isKeyDownEvent) {
     const auto expectedTrigger = isKeyDownEvent ? KeyTrigger::keyDown : KeyTrigger::keyUp;
     if (binding.action.trigger != expectedTrigger)
         return false;

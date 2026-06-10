@@ -6,33 +6,18 @@
 #include <cstdint>
 #include <vector>
 
-namespace devpiano::recording
-{
-enum class RecordingEventSource
-{
-    computerKeyboard,
-    externalMidi,
-    realtimeMidiBuffer,
-    playback
-};
+namespace devpiano::recording {
+enum class RecordingEventSource { computerKeyboard, externalMidi, realtimeMidiBuffer, playback };
 
-enum class RecordingState
-{
-    idle,
-    recording,
-    playing,
-    stopped
-};
+enum class RecordingState { idle, recording, playing, stopped };
 
-struct PerformanceEvent
-{
+struct PerformanceEvent {
     std::int64_t timestampSamples = 0;
     RecordingEventSource source = RecordingEventSource::computerKeyboard;
     juce::MidiMessage message;
 };
 
-struct RecordingTake
-{
+struct RecordingTake {
     double sampleRate = 0.0;
     std::int64_t lengthSamples = 0;
     std::vector<PerformanceEvent> events;
@@ -41,8 +26,7 @@ struct RecordingTake
     [[nodiscard]] double durationSeconds() const noexcept;
 };
 
-class RecordingEngine
-{
+class RecordingEngine {
 public:
     // M6 MVP recording/playback model. Message-thread code owns structural changes
     // such as start/stop/clear/reserve while audio-thread code may record or render
@@ -67,18 +51,14 @@ public:
     void clear();
 
     void advanceRecordingPosition(std::int64_t numSamples) noexcept;
-    void recordEvent(const juce::MidiMessage& message,
-                     RecordingEventSource source,
-                     std::int64_t timestampSamples);
-    void recordEventAtCurrentPosition(const juce::MidiMessage& message,
-                                      RecordingEventSource source);
+    void recordEvent(const juce::MidiMessage& message, RecordingEventSource source, std::int64_t timestampSamples);
+    void recordEventAtCurrentPosition(const juce::MidiMessage& message, RecordingEventSource source);
     // Converts block-local MidiBuffer sample offsets into absolute timestampSamples.
     // The copied MidiMessage timestamp is normalised to 0.0; PerformanceEvent::timestampSamples
     // is the only authoritative timeline value stored by RecordingEngine. Events are dropped
     // before MidiMessage materialisation when capacity is exhausted or the message is too large
     // for the first realtime-safe recording path.
-    void recordMidiBufferBlock(const juce::MidiBuffer& midiBuffer,
-                               RecordingEventSource source,
+    void recordMidiBufferBlock(const juce::MidiBuffer& midiBuffer, RecordingEventSource source,
                                std::int64_t blockStartSamples);
 
     void startPlayback(const RecordingTake& take, double currentSampleRate);
@@ -89,9 +69,7 @@ public:
     [[nodiscard]] double getPlaybackSpeedMultiplier() const noexcept;
     // Renders playback events whose scaled timestamp falls within [blockStartSamples, blockStartSamples + numSamples).
     // Uses the same midiBuffer that AudioEngine will then pass to plugin/synth rendering.
-    void renderPlaybackBlock(juce::MidiBuffer& midiBuffer,
-                             std::int64_t blockStartSamples,
-                             int numSamples);
+    void renderPlaybackBlock(juce::MidiBuffer& midiBuffer, std::int64_t blockStartSamples, int numSamples);
     void advancePlaybackPosition(std::int64_t numSamples) noexcept;
     [[nodiscard]] bool consumePlaybackEndedFlag() noexcept;
     [[nodiscard]] bool isPlaying() const noexcept;

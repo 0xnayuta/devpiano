@@ -2,18 +2,15 @@
 
 #include <JuceHeader.h>
 
-class HeaderPanel final : public juce::Component
-{
+class HeaderPanel final : public juce::Component {
 public:
-    struct MidiStatus
-    {
+    struct MidiStatus {
         int openInputCount = 0;
         int activityCount = 0;
         juce::String lastMessage;
     };
 
-    struct AudioStatus
-    {
+    struct AudioStatus {
         juce::String summary;
     };
 

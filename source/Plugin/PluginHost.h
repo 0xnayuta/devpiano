@@ -2,13 +2,14 @@
 
 #include <JuceHeader.h>
 
-class PluginHost
-{
+class PluginHost {
 public:
     PluginHost();
     ~PluginHost();
 
-    juce::AudioPluginFormatManager& getFormatManager() noexcept { return formatManager; }
+    juce::AudioPluginFormatManager& getFormatManager() noexcept {
+        return formatManager;
+    }
     juce::String getAvailableFormatsDescription() const;
     bool supportsVst3() const;
 
@@ -23,17 +24,19 @@ public:
     juce::String getPluginListDescription() const;
     juce::String getLastScanSummary() const;
     juce::StringArray getLastScanFailedFiles() const;
-    bool isCurrentlyScanning() const noexcept { return isScanning; }
-    juce::String getScanningPluginName() const noexcept { return scanningPluginName; }
+    bool isCurrentlyScanning() const noexcept {
+        return isScanning;
+    }
+    juce::String getScanningPluginName() const noexcept {
+        return scanningPluginName;
+    }
     std::unique_ptr<juce::XmlElement> createKnownPluginListXml() const;
     bool restoreKnownPluginListFromXml(const juce::XmlElement& xml);
     void markPluginScanSkipped(juce::String reason);
 
-    bool loadPluginByName(const juce::String& pluginName,
-                          double initialSampleRate = 44100.0,
+    bool loadPluginByName(const juce::String& pluginName, double initialSampleRate = 44100.0,
                           int initialBufferSize = 512);
-    bool loadPluginByDescription(const juce::PluginDescription& description,
-                                 double initialSampleRate = 44100.0,
+    bool loadPluginByDescription(const juce::PluginDescription& description, double initialSampleRate = 44100.0,
                                  int initialBufferSize = 512);
     bool prepareToPlay(double sampleRate, int blockSize);
     void releaseResources();

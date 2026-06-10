@@ -7,21 +7,17 @@
 
 #include "Core/MidiTypes.h"
 
-namespace devpiano::core
-{
-enum class KeyActionType
-{
+namespace devpiano::core {
+enum class KeyActionType {
     note,
 };
 
-enum class KeyTrigger
-{
+enum class KeyTrigger {
     keyDown,
     keyUp,
 };
 
-struct KeyAction
-{
+struct KeyAction {
     KeyActionType type = KeyActionType::note;
     KeyTrigger trigger = KeyTrigger::keyDown;
 
@@ -31,52 +27,43 @@ struct KeyAction
     int midiChannel = 1;
     float velocity = 1.0f;
 
-    [[nodiscard]] MidiNoteNumber getMidiNoteNumber() const noexcept
-    {
+    [[nodiscard]] MidiNoteNumber getMidiNoteNumber() const noexcept {
         return MidiNoteNumber::fromClamped(midiNote);
     }
 
-    [[nodiscard]] MidiChannel getMidiChannel() const noexcept
-    {
+    [[nodiscard]] MidiChannel getMidiChannel() const noexcept {
         return MidiChannel::fromClamped(midiChannel);
     }
 
-    [[nodiscard]] Velocity getVelocity() const noexcept
-    {
+    [[nodiscard]] Velocity getVelocity() const noexcept {
         return Velocity::fromClamped(velocity);
     }
 
-    void setMidiNoteNumber(MidiNoteNumber note) noexcept
-    {
+    void setMidiNoteNumber(MidiNoteNumber note) noexcept {
         midiNote = note.value;
     }
 
-    void setMidiChannel(MidiChannel channel) noexcept
-    {
+    void setMidiChannel(MidiChannel channel) noexcept {
         midiChannel = channel.value;
     }
 
-    void setVelocity(Velocity newVelocity) noexcept
-    {
+    void setVelocity(Velocity newVelocity) noexcept {
         velocity = newVelocity.value;
     }
 };
 
-struct KeyBinding
-{
+struct KeyBinding {
     int keyCode = 0;
     juce::String displayText;
     KeyAction action;
 };
 
-struct KeyboardLayout
-{
+struct KeyboardLayout {
     juce::String id { "default.freepiano.minimal" };
     juce::String name { "FreePiano Minimal" };
     std::vector<KeyBinding> bindings;
 
-    [[nodiscard]] const KeyBinding* findByKeyCode(int keyCodeToFind) const noexcept
-    {
+    [[nodiscard]] const KeyBinding* findByKeyCode(int keyCodeToFind) const noexcept {
         for (const auto& binding : bindings)
             if (binding.keyCode == keyCodeToFind)
                 return &binding;
@@ -85,25 +72,19 @@ struct KeyboardLayout
     }
 };
 
-[[nodiscard]] inline int normaliseAlphaNumericKeyCode(int keyCode)
-{
-    if (! std::isalnum(static_cast<unsigned char>(keyCode)))
+[[nodiscard]] inline int normaliseAlphaNumericKeyCode(int keyCode) {
+    if (!std::isalnum(static_cast<unsigned char>(keyCode)))
         return 0;
 
     return juce::KeyPress(std::toupper(static_cast<unsigned char>(keyCode)), 0, 0).getKeyCode();
 }
 
-[[nodiscard]] inline int makeAlphaNumericKeyCode(char character)
-{
+[[nodiscard]] inline int makeAlphaNumericKeyCode(char character) {
     return normaliseAlphaNumericKeyCode(static_cast<unsigned char>(character));
 }
 
-[[nodiscard]] inline KeyBinding makeNoteBinding(char character,
-                                                int midiNote,
-                                                int midiChannel = 1,
-                                                float velocity = 1.0f,
-                                                KeyTrigger trigger = KeyTrigger::keyDown)
-{
+[[nodiscard]] inline KeyBinding makeNoteBinding(char character, int midiNote, int midiChannel = 1,
+                                                float velocity = 1.0f, KeyTrigger trigger = KeyTrigger::keyDown) {
     KeyBinding binding;
     binding.keyCode = makeAlphaNumericKeyCode(character);
     binding.displayText = juce::String::charToString(character);
@@ -115,12 +96,10 @@ struct KeyboardLayout
     return binding;
 }
 
-[[nodiscard]] inline KeyBinding makeNoteBinding(char character,
-                                                MidiNoteNumber midiNote,
+[[nodiscard]] inline KeyBinding makeNoteBinding(char character, MidiNoteNumber midiNote,
                                                 MidiChannel midiChannel = MidiChannel::fromClamped(1),
                                                 Velocity velocity = Velocity::fromClamped(1.0f),
-                                                KeyTrigger trigger = KeyTrigger::keyDown)
-{
+                                                KeyTrigger trigger = KeyTrigger::keyDown) {
     KeyBinding binding;
     binding.keyCode = makeAlphaNumericKeyCode(character);
     binding.displayText = juce::String::charToString(character);
@@ -132,8 +111,7 @@ struct KeyboardLayout
     return binding;
 }
 
-[[nodiscard]] inline KeyboardLayout makeDefaultKeyboardLayout()
-{
+[[nodiscard]] inline KeyboardLayout makeDefaultKeyboardLayout() {
     constexpr int baseC123Row = 84;
     constexpr int baseCQweRow = 72;
     constexpr int baseCAsdRow = 60;
@@ -191,8 +169,7 @@ struct KeyboardLayout
     return layout;
 }
 
-[[nodiscard]] inline KeyboardLayout makeFullPianoLayout()
-{
+[[nodiscard]] inline KeyboardLayout makeFullPianoLayout() {
     // A wider range layout for demonstration
     constexpr int baseC123Row = 96; // C6
     constexpr int baseCQweRow = 84; // C5

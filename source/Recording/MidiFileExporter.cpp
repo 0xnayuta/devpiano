@@ -2,16 +2,11 @@
 
 #include "Recording/RecordingEngine.h"
 
-namespace devpiano::exporting
-{
-namespace
-{
+namespace devpiano::exporting {
+namespace {
 constexpr int defaultTempoMicrosecondsPerQuarterNote = 500000; // 120 BPM
 
-double convertSamplesToTicks(std::int64_t timestampSamples,
-                             double sampleRate,
-                             int ppq)
-{
+double convertSamplesToTicks(std::int64_t timestampSamples, double sampleRate, int ppq) {
     if (timestampSamples <= 0 || sampleRate <= 0.0 || ppq <= 0)
         return 0.0;
 
@@ -21,10 +16,7 @@ double convertSamplesToTicks(std::int64_t timestampSamples,
 }
 } // namespace
 
-bool exportTakeAsMidiFile(const devpiano::recording::RecordingTake& take,
-                          const juce::File& destinationFile,
-                          int ppq)
-{
+bool exportTakeAsMidiFile(const devpiano::recording::RecordingTake& take, const juce::File& destinationFile, int ppq) {
     if (take.isEmpty() || take.sampleRate <= 0.0 || ppq <= 0)
         return false;
 
@@ -34,8 +26,7 @@ bool exportTakeAsMidiFile(const devpiano::recording::RecordingTake& take,
     tempoMessage.setTimeStamp(0.0);
     sequence.addEvent(tempoMessage);
 
-    for (const auto& event : take.events)
-    {
+    for (const auto& event : take.events) {
         auto message = event.message;
         message.setTimeStamp(convertSamplesToTicks(event.timestampSamples, take.sampleRate, ppq));
         sequence.addEvent(message);

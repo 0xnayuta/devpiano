@@ -2,8 +2,7 @@
 
 #include <JuceHeader.h>
 
-class KeyboardPanel final : public juce::Component
-{
+class KeyboardPanel final : public juce::Component {
 public:
     explicit KeyboardPanel(juce::MidiKeyboardState& keyboardState);
 

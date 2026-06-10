@@ -3,34 +3,23 @@
 
 #include "Audio/AudioDeviceDiagnostics.h"
 
-class SettingsComponent : public juce::Component, private juce::ChangeListener
-{
+class SettingsComponent : public juce::Component, private juce::ChangeListener {
 public:
-    explicit SettingsComponent(juce::AudioDeviceManager& dm,
-                               const juce::XmlElement* savedAudioDeviceState)
-        : deviceManager(dm)
-    {
+    explicit SettingsComponent(juce::AudioDeviceManager& dm, const juce::XmlElement* savedAudioDeviceState)
+        : deviceManager(dm) {
         if (savedAudioDeviceState != nullptr)
             savedStateSnapshot = std::make_unique<juce::XmlElement>(*savedAudioDeviceState);
 
-        selector = std::make_unique<juce::AudioDeviceSelectorComponent>(
-            deviceManager,
-            0, 2,
-            0, 2,
-            false,
-            false,
-            true,
-            false);
+        selector = std::make_unique<juce::AudioDeviceSelectorComponent>(deviceManager, 0, 2, 0, 2, false, false, true,
+                                                                        false);
 
         addAndMakeVisible(selector.get());
 
         saveButton.setButtonText("Save");
         addAndMakeVisible(saveButton);
-        saveButton.onClick = [this]
-        {
+        saveButton.onClick = [this] {
             dirty = false;
-            if (onSaveRequested)
-            {
+            if (onSaveRequested) {
                 auto callback = onSaveRequested;
                 juce::MessageManager::callAsync([callback] { callback(); });
             }
@@ -50,13 +39,11 @@ public:
         setSize(560, 520);
     }
 
-    ~SettingsComponent() override
-    {
+    ~SettingsComponent() override {
         deviceManager.removeChangeListener(this);
     }
 
-    void resized() override
-    {
+    void resized() override {
         auto area = getLocalBounds().reduced(8);
         auto bottomArea = area.removeFromBottom(120);
         auto buttonRow = bottomArea.removeFromBottom(36);
@@ -66,8 +53,12 @@ public:
     }
 
     // dirty tracking
-    bool isDirty() const noexcept { return dirty; }
-    void setDirty(bool d) noexcept { dirty = d; }
+    bool isDirty() const noexcept {
+        return dirty;
+    }
+    void setDirty(bool d) noexcept {
+        dirty = d;
+    }
 
     std::function<void()> onSaveRequested;
 
@@ -80,14 +71,12 @@ private:
 
     bool dirty = false;
 
-    void updateDiagnostics()
-    {
+    void updateDiagnostics() {
         const auto diagnostics = devpiano::audio::buildAudioDeviceDiagnostics(savedStateSnapshot.get(), deviceManager);
         diagnosticsEditor.setText(diagnostics.detailedSummary, juce::dontSendNotification);
     }
 
-    void changeListenerCallback(juce::ChangeBroadcaster*) override
-    {
+    void changeListenerCallback(juce::ChangeBroadcaster*) override {
         dirty = true;
         updateDiagnostics();
     }

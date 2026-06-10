@@ -2,18 +2,15 @@
 
 #include "Diagnostics/DebugLog.h"
 
-PluginHost::PluginHost()
-{
+PluginHost::PluginHost() {
     juce::addDefaultFormatsToManager(formatManager);
 }
 
-PluginHost::~PluginHost()
-{
+PluginHost::~PluginHost() {
     unloadPlugin();
 }
 
-juce::String PluginHost::getAvailableFormatsDescription() const
-{
+juce::String PluginHost::getAvailableFormatsDescription() const {
     juce::StringArray names;
 
     for (auto index = 0; index < formatManager.getNumFormats(); ++index)
@@ -26,47 +23,39 @@ juce::String PluginHost::getAvailableFormatsDescription() const
     return "Plugin formats: " + names.joinIntoString(", ");
 }
 
-bool PluginHost::supportsVst3() const
-{
+bool PluginHost::supportsVst3() const {
     return getVst3Format() != nullptr;
 }
 
-juce::FileSearchPath PluginHost::getDefaultVst3SearchPath() const
-{
+juce::FileSearchPath PluginHost::getDefaultVst3SearchPath() const {
     if (auto* format = getVst3Format())
         return format->getDefaultLocationsToSearch();
 
     return {};
 }
 
-int PluginHost::scanVst3Plugins(const juce::FileSearchPath& searchPath, bool recursive)
-{
-    if (! beginVst3ScanSession(searchPath, recursive))
+int PluginHost::scanVst3Plugins(const juce::FileSearchPath& searchPath, bool recursive) {
+    if (!beginVst3ScanSession(searchPath, recursive))
         return 0;
 
-    while (advanceVst3ScanStep())
-    {
-    }
+    while (advanceVst3ScanStep()) { }
 
     return knownPluginList.getNumTypes();
 }
 
-bool PluginHost::beginVst3ScanSession(const juce::FileSearchPath& searchPath, bool recursive)
-{
+bool PluginHost::beginVst3ScanSession(const juce::FileSearchPath& searchPath, bool recursive) {
     lastScanFailedFiles.clear();
     isScanning = true;
     scanningPluginName = "Preparing...";
 
     auto* format = getVst3Format();
-    if (format == nullptr)
-    {
+    if (format == nullptr) {
         lastScanSummary = "VST3 format unavailable.";
         isScanning = false;
         return false;
     }
 
-    if (! format->canScanForPlugins())
-    {
+    if (!format->canScanForPlugins()) {
         lastScanSummary = "Current VST3 format cannot scan for plugins.";
         isScanning = false;
         return false;
@@ -77,20 +66,15 @@ bool PluginHost::beginVst3ScanSession(const juce::FileSearchPath& searchPath, bo
 
     activeScanPath = searchPath;
     activeScanRecursive = recursive;
-    activeScanner = std::make_unique<juce::PluginDirectoryScanner>(knownPluginList,
-                                                                   *format,
-                                                                   searchPath,
-                                                                   recursive,
-                                                                   getDeadMansPedalFile(),
-                                                                   false);
+    activeScanner = std::make_unique<juce::PluginDirectoryScanner>(knownPluginList, *format, searchPath, recursive,
+                                                                   getDeadMansPedalFile(), false);
 
     lastScanSummary = "VST3 scan in progress...";
     return true;
 }
 
-bool PluginHost::advanceVst3ScanStep()
-{
-    if (! isScanning || activeScanner == nullptr)
+bool PluginHost::advanceVst3ScanStep() {
+    if (!isScanning || activeScanner == nullptr)
         return false;
 
     scanningPluginName = "...";
@@ -109,23 +93,15 @@ bool PluginHost::advanceVst3ScanStep()
     const auto failedCount = lastScanFailedFiles.size();
     const auto pluginCount = knownPluginList.getNumTypes();
 
-    if (pluginCount > 0)
-    {
-        lastScanSummary = "VST3 scan complete: " + juce::String(pluginCount)
-                        + " plugin(s), " + juce::String(failedCount) + " failed"
-                        + (failedCount > 0 ? " (see log)." : ".");
-        DP_LOG_INFO("VST3 scan complete: " + juce::String(pluginCount)
-                    + " plugin(s), " + juce::String(failedCount) + " failed");
-    }
-    else if (failedCount > 0)
-    {
-        lastScanSummary = "VST3 scan found no plugins; " + juce::String(failedCount)
-                        + " failed (see log).";
-        DP_LOG_WARN("VST3 scan found no plugins: " + juce::String(failedCount)
-                    + " failed files");
-    }
-    else
-    {
+    if (pluginCount > 0) {
+        lastScanSummary = "VST3 scan complete: " + juce::String(pluginCount) + " plugin(s), "
+            + juce::String(failedCount) + " failed" + (failedCount > 0 ? " (see log)." : ".");
+        DP_LOG_INFO("VST3 scan complete: " + juce::String(pluginCount) + " plugin(s), " + juce::String(failedCount)
+                    + " failed");
+    } else if (failedCount > 0) {
+        lastScanSummary = "VST3 scan found no plugins; " + juce::String(failedCount) + " failed (see log).";
+        DP_LOG_WARN("VST3 scan found no plugins: " + juce::String(failedCount) + " failed files");
+    } else {
         lastScanSummary = "VST3 scan complete: no plugins found.";
         DP_LOG_INFO("VST3 scan complete: no plugins found.");
     }
@@ -135,16 +111,14 @@ bool PluginHost::advanceVst3ScanStep()
     return false;
 }
 
-void PluginHost::cancelVst3ScanSession()
-{
+void PluginHost::cancelVst3ScanSession() {
     activeScanner.reset();
     isScanning = false;
     scanningPluginName.clear();
     lastScanSummary = "VST3 scan cancelled.";
 }
 
-juce::StringArray PluginHost::getKnownPluginNames() const
-{
+juce::StringArray PluginHost::getKnownPluginNames() const {
     juce::StringArray names;
 
     for (const auto& description : knownPluginList.getTypes())
@@ -155,11 +129,9 @@ juce::StringArray PluginHost::getKnownPluginNames() const
     return names;
 }
 
-juce::String PluginHost::getPluginListDescription() const
-{
+juce::String PluginHost::getPluginListDescription() const {
     const auto names = getKnownPluginNames();
-    if (names.isEmpty())
-    {
+    if (names.isEmpty()) {
         if (lastScanSummary == "VST3 scan not run yet.")
             return "No plugins scanned yet.";
 
@@ -169,29 +141,24 @@ juce::String PluginHost::getPluginListDescription() const
     return names.joinIntoString("\n");
 }
 
-juce::String PluginHost::getLastScanSummary() const
-{
+juce::String PluginHost::getLastScanSummary() const {
     return lastScanSummary;
 }
 
-juce::StringArray PluginHost::getLastScanFailedFiles() const
-{
+juce::StringArray PluginHost::getLastScanFailedFiles() const {
     return lastScanFailedFiles;
 }
 
-std::unique_ptr<juce::XmlElement> PluginHost::createKnownPluginListXml() const
-{
+std::unique_ptr<juce::XmlElement> PluginHost::createKnownPluginListXml() const {
     return knownPluginList.createXml();
 }
 
-bool PluginHost::restoreKnownPluginListFromXml(const juce::XmlElement& xml)
-{
+bool PluginHost::restoreKnownPluginListFromXml(const juce::XmlElement& xml) {
     knownPluginList.recreateFromXml(xml);
     lastScanFailedFiles.clear();
 
     const auto count = knownPluginList.getNumTypes();
-    if (count <= 0)
-    {
+    if (count <= 0) {
         lastScanSummary = "Cached plugin list was empty.";
         return false;
     }
@@ -200,18 +167,13 @@ bool PluginHost::restoreKnownPluginListFromXml(const juce::XmlElement& xml)
     return true;
 }
 
-void PluginHost::markPluginScanSkipped(juce::String reason)
-{
+void PluginHost::markPluginScanSkipped(juce::String reason) {
     knownPluginList.clear();
     lastScanFailedFiles.clear();
-    lastScanSummary = reason.trim().isNotEmpty() ? std::move(reason)
-                                                  : juce::String("VST3 scan skipped.");
+    lastScanSummary = reason.trim().isNotEmpty() ? std::move(reason) : juce::String("VST3 scan skipped.");
 }
 
-bool PluginHost::loadPluginByName(const juce::String& pluginName,
-                                  double initialSampleRate,
-                                  int initialBufferSize)
-{
+bool PluginHost::loadPluginByName(const juce::String& pluginName, double initialSampleRate, int initialBufferSize) {
     const auto trimmedName = pluginName.trim();
     for (const auto& description : knownPluginList.getTypes())
         if (description.name.equalsIgnoreCase(trimmedName))
@@ -221,22 +183,16 @@ bool PluginHost::loadPluginByName(const juce::String& pluginName,
     return false;
 }
 
-bool PluginHost::loadPluginByDescription(const juce::PluginDescription& description,
-                                         double initialSampleRate,
-                                         int initialBufferSize)
-{
+bool PluginHost::loadPluginByDescription(const juce::PluginDescription& description, double initialSampleRate,
+                                         int initialBufferSize) {
     unloadPlugin();
 
     juce::String errorMessage;
-    pluginInstance = formatManager.createPluginInstance(description,
-                                                        initialSampleRate,
-                                                        initialBufferSize,
-                                                        errorMessage);
+    pluginInstance
+        = formatManager.createPluginInstance(description, initialSampleRate, initialBufferSize, errorMessage);
 
-    if (pluginInstance == nullptr)
-    {
-        lastLoadError = errorMessage.isNotEmpty() ? errorMessage
-                                                  : "Unknown plugin load failure.";
+    if (pluginInstance == nullptr) {
+        lastLoadError = errorMessage.isNotEmpty() ? errorMessage : "Unknown plugin load failure.";
         loadedPluginDescription.reset();
         DP_LOG_ERROR("[PluginHost] Plugin load failed: " + lastLoadError);
         return false;
@@ -245,8 +201,7 @@ bool PluginHost::loadPluginByDescription(const juce::PluginDescription& descript
     loadedPluginDescription = std::make_unique<juce::PluginDescription>(description);
     DP_LOG_INFO("[PluginHost] Plugin loaded: " + description.name);
 
-    if (! prepareToPlay(initialSampleRate, initialBufferSize))
-    {
+    if (!prepareToPlay(initialSampleRate, initialBufferSize)) {
         unloadPlugin();
         return false;
     }
@@ -255,13 +210,11 @@ bool PluginHost::loadPluginByDescription(const juce::PluginDescription& descript
     return true;
 }
 
-bool PluginHost::prepareToPlay(double sampleRate, int blockSize)
-{
+bool PluginHost::prepareToPlay(double sampleRate, int blockSize) {
     preparedSampleRate = sampleRate > 0.0 ? sampleRate : preparedSampleRate;
     preparedBlockSize = blockSize > 0 ? blockSize : preparedBlockSize;
 
-    if (pluginInstance == nullptr)
-    {
+    if (pluginInstance == nullptr) {
         prepared = false;
         lastLoadError = "No plugin instance available for prepareToPlay.";
         return false;
@@ -270,8 +223,7 @@ bool PluginHost::prepareToPlay(double sampleRate, int blockSize)
     pluginInstance->suspendProcessing(true);
     releaseResources();
 
-    if (! configureDefaultBuses(*pluginInstance))
-    {
+    if (!configureDefaultBuses(*pluginInstance)) {
         prepared = false;
         lastLoadError = "Failed to configure plugin buses for playback.";
         return false;
@@ -289,8 +241,7 @@ bool PluginHost::prepareToPlay(double sampleRate, int blockSize)
     return true;
 }
 
-void PluginHost::releaseResources()
-{
+void PluginHost::releaseResources() {
     if (pluginInstance != nullptr)
         pluginInstance->suspendProcessing(true);
 
@@ -300,8 +251,7 @@ void PluginHost::releaseResources()
     prepared = false;
 }
 
-void PluginHost::unloadPlugin()
-{
+void PluginHost::unloadPlugin() {
     const auto hadPlugin = hasLoadedPlugin();
     const auto pluginName = getCurrentPluginName();
 
@@ -313,46 +263,38 @@ void PluginHost::unloadPlugin()
         DP_LOG_INFO("[PluginHost] Plugin unloaded: " + pluginName);
 }
 
-bool PluginHost::hasLoadedPlugin() const noexcept
-{
+bool PluginHost::hasLoadedPlugin() const noexcept {
     return pluginInstance != nullptr;
 }
 
-bool PluginHost::isPrepared() const noexcept
-{
+bool PluginHost::isPrepared() const noexcept {
     return prepared;
 }
 
-juce::AudioPluginInstance* PluginHost::getInstance() const noexcept
-{
+juce::AudioPluginInstance* PluginHost::getInstance() const noexcept {
     return pluginInstance.get();
 }
 
-juce::String PluginHost::getCurrentPluginName() const
-{
+juce::String PluginHost::getCurrentPluginName() const {
     if (loadedPluginDescription != nullptr)
         return loadedPluginDescription->name;
 
     return {};
 }
 
-juce::String PluginHost::getLastLoadError() const
-{
+juce::String PluginHost::getLastLoadError() const {
     return lastLoadError;
 }
 
-double PluginHost::getPreparedSampleRate() const noexcept
-{
+double PluginHost::getPreparedSampleRate() const noexcept {
     return preparedSampleRate;
 }
 
-int PluginHost::getPreparedBlockSize() const noexcept
-{
+int PluginHost::getPreparedBlockSize() const noexcept {
     return preparedBlockSize;
 }
 
-juce::AudioPluginFormat* PluginHost::getVst3Format() const
-{
+juce::AudioPluginFormat* PluginHost::getVst3Format() const {
     for (auto index = 0; index < formatManager.getNumFormats(); ++index)
         if (auto* format = formatManager.getFormat(index))
             if (format->getName().containsIgnoreCase("VST3"))
@@ -361,16 +303,13 @@ juce::AudioPluginFormat* PluginHost::getVst3Format() const
     return nullptr;
 }
 
-juce::File PluginHost::getDeadMansPedalFile() const
-{
-    auto directory = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
-                        .getChildFile("devpiano");
+juce::File PluginHost::getDeadMansPedalFile() const {
+    auto directory = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory).getChildFile("devpiano");
     directory.createDirectory();
     return directory.getChildFile("vst3-dead-mans-pedal.txt");
 }
 
-bool PluginHost::configureDefaultBuses(juce::AudioPluginInstance& instance)
-{
+bool PluginHost::configureDefaultBuses(juce::AudioPluginInstance& instance) {
     instance.enableAllBuses();
 
     auto layout = instance.getBusesLayout();
@@ -379,7 +318,7 @@ bool PluginHost::configureDefaultBuses(juce::AudioPluginInstance& instance)
 
     layout.outputBuses.getReference(0) = juce::AudioChannelSet::stereo();
 
-    if (! layout.inputBuses.isEmpty() && layout.getMainInputChannelSet() != juce::AudioChannelSet::disabled())
+    if (!layout.inputBuses.isEmpty() && layout.getMainInputChannelSet() != juce::AudioChannelSet::disabled())
         layout.inputBuses.getReference(0) = juce::AudioChannelSet::stereo();
 
     return instance.setBusesLayout(layout);

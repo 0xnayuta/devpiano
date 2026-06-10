@@ -2,30 +2,23 @@
 
 #include "Settings/SettingsComponent.h"
 
-namespace devpiano::settings
-{
-namespace
-{
+namespace devpiano::settings {
+namespace {
 const auto backgroundColour = juce::Colour(0xff202225);
 
-class SettingsDialogWindow final : public juce::DialogWindow
-{
+class SettingsDialogWindow final : public juce::DialogWindow {
 public:
-    SettingsDialogWindow(const juce::String& title,
-                         juce::Colour background,
-                         std::function<void()> onClose)
-        : juce::DialogWindow(title, background, true), closeCallback(std::move(onClose))
-    {
+    SettingsDialogWindow(const juce::String& title, juce::Colour background, std::function<void()> onClose)
+        : juce::DialogWindow(title, background, true)
+        , closeCallback(std::move(onClose)) {
     }
 
-    void closeButtonPressed() override
-    {
+    void closeButtonPressed() override {
         if (closeCallback)
             closeCallback();
     }
 
-    bool escapeKeyPressed() override
-    {
+    bool escapeKeyPressed() override {
         closeButtonPressed();
         return true;
     }
@@ -35,8 +28,7 @@ private:
 };
 } // namespace
 
-struct SettingsWindowManager::State
-{
+struct SettingsWindowManager::State {
     std::unique_ptr<juce::DialogWindow> window;
     std::function<void()> onSaveRequested;
     std::function<void()> onClosed;
@@ -44,22 +36,18 @@ struct SettingsWindowManager::State
 };
 
 SettingsWindowManager::SettingsWindowManager()
-    : state(std::make_shared<State>())
-{
+    : state(std::make_shared<State>()) {
 }
 
-SettingsWindowManager::~SettingsWindowManager()
-{
+SettingsWindowManager::~SettingsWindowManager() {
     if (state->window != nullptr)
         state->window->setVisible(false);
 
     state->window.reset();
 }
 
-void SettingsWindowManager::show(ShowOptions options)
-{
-    if (isOpen())
-    {
+void SettingsWindowManager::show(ShowOptions options) {
+    if (isOpen()) {
         state->window->toFront(true);
         return;
     }
@@ -68,20 +56,16 @@ void SettingsWindowManager::show(ShowOptions options)
     state->onClosed = std::move(options.onClosed);
     state->closePending = false;
 
-    const auto requestCloseAsync = [](std::weak_ptr<State> weakState)
-    {
-        if (auto lockedState = weakState.lock())
-        {
+    const auto requestCloseAsync = [](std::weak_ptr<State> weakState) {
+        if (auto lockedState = weakState.lock()) {
             if (lockedState->window == nullptr || lockedState->closePending)
                 return;
 
             lockedState->closePending = true;
         }
 
-        juce::MessageManager::callAsync([weakState]
-        {
-            if (auto lockedState = weakState.lock())
-            {
+        juce::MessageManager::callAsync([weakState] {
+            if (auto lockedState = weakState.lock()) {
                 if (lockedState->window == nullptr)
                     return;
 
@@ -100,10 +84,8 @@ void SettingsWindowManager::show(ShowOptions options)
     auto content = std::make_unique<SettingsComponent>(options.deviceManager, options.savedAudioDeviceState);
     auto* contentPtr = content.get();
 
-    contentPtr->onSaveRequested = [requestCloseAsync, weakState = std::weak_ptr<State>(state)]
-    {
-        if (auto lockedState = weakState.lock())
-        {
+    contentPtr->onSaveRequested = [requestCloseAsync, weakState = std::weak_ptr<State>(state)] {
+        if (auto lockedState = weakState.lock()) {
             if (lockedState->window == nullptr || lockedState->closePending)
                 return;
 
@@ -114,17 +96,13 @@ void SettingsWindowManager::show(ShowOptions options)
         }
     };
 
-    auto closeWindow = [requestCloseAsync, weakState = std::weak_ptr<State>(state)]
-    {
-        if (auto lockedState = weakState.lock())
-        {
+    auto closeWindow = [requestCloseAsync, weakState = std::weak_ptr<State>(state)] {
+        if (auto lockedState = weakState.lock()) {
             if (lockedState->window == nullptr || lockedState->closePending)
                 return;
 
-            if (auto* content = dynamic_cast<SettingsComponent*>(lockedState->window != nullptr
-                                                                      ? lockedState->window->getContentComponent()
-                                                                      : nullptr))
-            {
+            if (auto* content = dynamic_cast<SettingsComponent*>(
+                    lockedState->window != nullptr ? lockedState->window->getContentComponent() : nullptr)) {
                 if (content->isDirty() && lockedState->onSaveRequested)
                     lockedState->onSaveRequested();
             }
@@ -142,21 +120,18 @@ void SettingsWindowManager::show(ShowOptions options)
     state->window->toFront(true);
 }
 
-bool SettingsWindowManager::isDirty() const
-{
+bool SettingsWindowManager::isDirty() const {
     if (auto* settingsContent = getSettingsContent())
         return settingsContent->isDirty();
 
     return false;
 }
 
-bool SettingsWindowManager::isOpen() const
-{
+bool SettingsWindowManager::isOpen() const {
     return state->window != nullptr && state->window->isShowing();
 }
 
-void SettingsWindowManager::close()
-{
+void SettingsWindowManager::close() {
     if (state->window == nullptr || state->closePending)
         return;
 
@@ -166,18 +141,15 @@ void SettingsWindowManager::close()
     closeAsync();
 }
 
-void SettingsWindowManager::closeAsync()
-{
+void SettingsWindowManager::closeAsync() {
     if (state->window == nullptr || state->closePending)
         return;
 
     state->closePending = true;
 
     auto weakState = std::weak_ptr<State>(state);
-    juce::MessageManager::callAsync([weakState]
-    {
-        if (auto lockedState = weakState.lock())
-        {
+    juce::MessageManager::callAsync([weakState] {
+        if (auto lockedState = weakState.lock()) {
             if (lockedState->window == nullptr)
                 return;
 
@@ -193,8 +165,7 @@ void SettingsWindowManager::closeAsync()
     });
 }
 
-void SettingsWindowManager::saveAndClose()
-{
+void SettingsWindowManager::saveAndClose() {
     if (state->window == nullptr || state->closePending)
         return;
 
@@ -204,8 +175,7 @@ void SettingsWindowManager::saveAndClose()
     closeAsync();
 }
 
-SettingsComponent* SettingsWindowManager::getSettingsContent() const
-{
+SettingsComponent* SettingsWindowManager::getSettingsContent() const {
     if (state->window == nullptr)
         return nullptr;
 

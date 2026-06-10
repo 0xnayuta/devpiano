@@ -13,20 +13,15 @@ class PluginHost;
 class PluginPanel;
 class PluginEditorWindow;
 
-namespace devpiano::plugin
-{
+namespace devpiano::plugin {
 struct StartupPluginRestorePlan;
 }
 
-namespace devpiano::plugin
-{
+namespace devpiano::plugin {
 
-class PluginOperationController final : private juce::AsyncUpdater
-{
+class PluginOperationController final : private juce::AsyncUpdater {
 public:
-    PluginOperationController(MainComponent& owner,
-                              PluginHost& pluginHost,
-                              SettingsModel& appSettings,
+    PluginOperationController(MainComponent& owner, PluginHost& pluginHost, SettingsModel& appSettings,
                               PluginPanel& pluginPanel);
     ~PluginOperationController();
 
@@ -54,8 +49,7 @@ private:
     void handlePluginEditorWindowClosedAsync();
     void openPluginEditorWindow(std::unique_ptr<juce::AudioProcessorEditor> editor);
 
-    void scanPluginsAtPathAndApplyRecoveryState(const juce::FileSearchPath& path,
-                                                const juce::String& lastPluginName);
+    void scanPluginsAtPathAndApplyRecoveryState(const juce::FileSearchPath& path, const juce::String& lastPluginName);
     void scanPluginsAtPathAndCommitState(const juce::FileSearchPath& path);
 
     void commitPluginRecoveryStateAndFinishUi(const SettingsModel::PluginRecoverySettingsView& pluginRecovery,

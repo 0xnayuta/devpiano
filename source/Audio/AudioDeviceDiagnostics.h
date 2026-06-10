@@ -4,10 +4,8 @@
 
 #include <cmath>
 
-namespace devpiano::audio
-{
-struct SavedAudioDeviceState
-{
+namespace devpiano::audio {
+struct SavedAudioDeviceState {
     bool hasSavedState = false;
     juce::String deviceType;
     juce::String inputDeviceName;
@@ -16,8 +14,7 @@ struct SavedAudioDeviceState
     int bufferSize = 0;
 };
 
-struct LiveAudioDeviceState
-{
+struct LiveAudioDeviceState {
     bool hasLiveDevice = false;
     juce::String backendName;
     juce::String deviceName;
@@ -29,8 +26,7 @@ struct LiveAudioDeviceState
     juce::Array<int> availableBufferSizes;
 };
 
-struct AudioDeviceDiagnostics
-{
+struct AudioDeviceDiagnostics {
     SavedAudioDeviceState saved;
     LiveAudioDeviceState live;
     juce::String restoreOutcome;
@@ -39,8 +35,7 @@ struct AudioDeviceDiagnostics
     juce::String detailedSummary;
 };
 
-[[nodiscard]] inline juce::String formatBufferSizes(const juce::Array<int>& sizes)
-{
+[[nodiscard]] inline juce::String formatBufferSizes(const juce::Array<int>& sizes) {
     if (sizes.isEmpty())
         return "(none reported)";
 
@@ -51,8 +46,7 @@ struct AudioDeviceDiagnostics
     return parts.joinIntoString(", ");
 }
 
-[[nodiscard]] inline SavedAudioDeviceState parseSavedAudioDeviceState(const juce::XmlElement* state)
-{
+[[nodiscard]] inline SavedAudioDeviceState parseSavedAudioDeviceState(const juce::XmlElement* state) {
     if (state == nullptr)
         return {};
 
@@ -64,8 +58,7 @@ struct AudioDeviceDiagnostics
              .bufferSize = state->getIntAttribute("audioDeviceBufferSize", 0) };
 }
 
-[[nodiscard]] inline LiveAudioDeviceState captureLiveAudioDeviceState(const juce::AudioDeviceManager& deviceManager)
-{
+[[nodiscard]] inline LiveAudioDeviceState captureLiveAudioDeviceState(const juce::AudioDeviceManager& deviceManager) {
     juce::AudioDeviceManager::AudioDeviceSetup setup;
     deviceManager.getAudioDeviceSetup(setup);
 
@@ -76,12 +69,10 @@ struct AudioDeviceDiagnostics
     live.sampleRate = setup.sampleRate;
     live.bufferSize = setup.bufferSize;
 
-    if (const auto* currentDevice = deviceManager.getCurrentAudioDevice())
-    {
+    if (const auto* currentDevice = deviceManager.getCurrentAudioDevice()) {
         auto* device = const_cast<juce::AudioIODevice*>(currentDevice);
         live.hasLiveDevice = true;
-        live.backendName = device->getTypeName().isNotEmpty() ? device->getTypeName()
-                                                              : live.backendName;
+        live.backendName = device->getTypeName().isNotEmpty() ? device->getTypeName() : live.backendName;
         live.deviceName = device->getName();
         live.sampleRate = device->getCurrentSampleRate();
         live.bufferSize = device->getCurrentBufferSizeSamples();
@@ -90,53 +81,41 @@ struct AudioDeviceDiagnostics
 
         if (live.outputDeviceName.isEmpty())
             live.outputDeviceName = device->getName();
-    }
-    else
-    {
-        live.deviceName = live.outputDeviceName.isNotEmpty() ? live.outputDeviceName
-                                                             : live.inputDeviceName;
+    } else {
+        live.deviceName = live.outputDeviceName.isNotEmpty() ? live.outputDeviceName : live.inputDeviceName;
     }
 
     return live;
 }
 
-[[nodiscard]] inline bool sampleRatesMatch(double lhs, double rhs)
-{
+[[nodiscard]] inline bool sampleRatesMatch(double lhs, double rhs) {
     return std::abs(lhs - rhs) < 0.5;
 }
 
 [[nodiscard]] inline AudioDeviceDiagnostics buildAudioDeviceDiagnostics(const SavedAudioDeviceState& saved,
-                                                                        const LiveAudioDeviceState& live)
-{
+                                                                        const LiveAudioDeviceState& live) {
     AudioDeviceDiagnostics diagnostics;
     diagnostics.saved = saved;
     diagnostics.live = live;
 
     juce::StringArray mismatchReasons;
 
-    if (! saved.hasSavedState)
-    {
+    if (!saved.hasSavedState) {
         diagnostics.restoreOutcome = "none";
-    }
-    else if (! live.hasLiveDevice)
-    {
+    } else if (!live.hasLiveDevice) {
         diagnostics.restoreOutcome = "fallback suspected";
         mismatchReasons.add("no live device");
-    }
-    else
-    {
+    } else {
         if (saved.deviceType.isNotEmpty() && live.backendName.isNotEmpty()
-            && ! saved.deviceType.equalsIgnoreCase(live.backendName))
+            && !saved.deviceType.equalsIgnoreCase(live.backendName))
             mismatchReasons.add("backend");
 
-        const auto liveDeviceName = live.outputDeviceName.isNotEmpty() ? live.outputDeviceName
-                                                                       : live.deviceName;
+        const auto liveDeviceName = live.outputDeviceName.isNotEmpty() ? live.outputDeviceName : live.deviceName;
         if (saved.outputDeviceName.isNotEmpty() && liveDeviceName.isNotEmpty()
-            && ! saved.outputDeviceName.equalsIgnoreCase(liveDeviceName))
+            && !saved.outputDeviceName.equalsIgnoreCase(liveDeviceName))
             mismatchReasons.add("output device");
 
-        if (saved.sampleRate > 0.0 && live.sampleRate > 0.0
-            && ! sampleRatesMatch(saved.sampleRate, live.sampleRate))
+        if (saved.sampleRate > 0.0 && live.sampleRate > 0.0 && !sampleRatesMatch(saved.sampleRate, live.sampleRate))
             mismatchReasons.add("sample rate");
 
         if (saved.bufferSize > 0 && live.bufferSize > 0 && saved.bufferSize != live.bufferSize)
@@ -176,20 +155,17 @@ struct AudioDeviceDiagnostics
     detailed << "Saved output: " << (saved.outputDeviceName.isNotEmpty() ? saved.outputDeviceName : "(none)") << "\n";
     detailed << "Saved input: " << (saved.inputDeviceName.isNotEmpty() ? saved.inputDeviceName : "(none)") << "\n";
     detailed << "Saved rate/buffer: "
-             << (saved.sampleRate > 0.0 ? juce::String(saved.sampleRate, 0) + " Hz" : juce::String("(none)"))
-             << " / "
-             << (saved.bufferSize > 0 ? juce::String(saved.bufferSize) + " samples" : juce::String("(none)"))
-             << "\n";
+             << (saved.sampleRate > 0.0 ? juce::String(saved.sampleRate, 0) + " Hz" : juce::String("(none)")) << " / "
+             << (saved.bufferSize > 0 ? juce::String(saved.bufferSize) + " samples" : juce::String("(none)")) << "\n";
     detailed << "Live backend: " << (live.backendName.isNotEmpty() ? live.backendName : "(none)") << "\n";
     detailed << "Live device: " << (live.deviceName.isNotEmpty() ? live.deviceName : "(none)") << "\n";
     detailed << "Live output: " << (live.outputDeviceName.isNotEmpty() ? live.outputDeviceName : "(none)") << "\n";
     detailed << "Live input: " << (live.inputDeviceName.isNotEmpty() ? live.inputDeviceName : "(none)") << "\n";
     detailed << "Live rate/buffer: "
-             << (live.sampleRate > 0.0 ? juce::String(live.sampleRate, 0) + " Hz" : juce::String("(none)"))
-             << " / "
-             << (live.bufferSize > 0 ? juce::String(live.bufferSize) + " samples" : juce::String("(none)"))
-             << "\n";
-    detailed << "Default buffer: " << (live.defaultBufferSize > 0 ? juce::String(live.defaultBufferSize) : juce::String("(none)")) << "\n";
+             << (live.sampleRate > 0.0 ? juce::String(live.sampleRate, 0) + " Hz" : juce::String("(none)")) << " / "
+             << (live.bufferSize > 0 ? juce::String(live.bufferSize) + " samples" : juce::String("(none)")) << "\n";
+    detailed << "Default buffer: "
+             << (live.defaultBufferSize > 0 ? juce::String(live.defaultBufferSize) : juce::String("(none)")) << "\n";
     detailed << "Available buffer sizes: " << formatBufferSizes(live.availableBufferSizes) << "\n";
     detailed << "Restore outcome: " << diagnostics.restoreOutcome;
 
@@ -201,8 +177,7 @@ struct AudioDeviceDiagnostics
 }
 
 [[nodiscard]] inline AudioDeviceDiagnostics buildAudioDeviceDiagnostics(const juce::XmlElement* savedState,
-                                                                        const juce::AudioDeviceManager& deviceManager)
-{
+                                                                        const juce::AudioDeviceManager& deviceManager) {
     return buildAudioDeviceDiagnostics(parseSavedAudioDeviceState(savedState),
                                        captureLiveAudioDeviceState(deviceManager));
 }

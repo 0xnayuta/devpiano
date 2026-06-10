@@ -1,81 +1,74 @@
 #include "SettingsStore.h"
 
 namespace {
-    const char* kSectionApp = "DevPiano";
-    const char* kKeyAudioXml = "audioDeviceXml";
-    const char* kKeySampleRate = "sampleRate";
-    const char* kKeyBufferSize = "bufferSize";
-    const char* kKeyGain = "masterGain";
-    const char* kKeyA = "adsrAttack";
-    const char* kKeyD = "adsrDecay";
-    const char* kKeyS = "adsrSustain";
-    const char* kKeyR = "adsrRelease";
-    const char* kKeyPluginSearchPath = "pluginSearchPath";
-    const char* kKeyLastPluginName = "lastPluginName";
-    const char* kKeyKnownPluginListXml = "knownPluginListXml";
-    const char* kKeyLastLayoutId = "lastLayoutId";
-    const char* kKeyMap = "keymapVT"; // stored as ValueTree XML
-    const char* kKeyLastMidiImportPath = "lastMidiImportPath";
-    const char* kKeyLastMidiExportPath = "lastMidiExportPath";
-    const char* kKeyMainWindowWidth = "mainWindowWidth";
-    const char* kKeyMainWindowHeight = "mainWindowHeight";
+const char* kSectionApp = "DevPiano";
+const char* kKeyAudioXml = "audioDeviceXml";
+const char* kKeySampleRate = "sampleRate";
+const char* kKeyBufferSize = "bufferSize";
+const char* kKeyGain = "masterGain";
+const char* kKeyA = "adsrAttack";
+const char* kKeyD = "adsrDecay";
+const char* kKeyS = "adsrSustain";
+const char* kKeyR = "adsrRelease";
+const char* kKeyPluginSearchPath = "pluginSearchPath";
+const char* kKeyLastPluginName = "lastPluginName";
+const char* kKeyKnownPluginListXml = "knownPluginListXml";
+const char* kKeyLastLayoutId = "lastLayoutId";
+const char* kKeyMap = "keymapVT"; // stored as ValueTree XML
+const char* kKeyLastMidiImportPath = "lastMidiImportPath";
+const char* kKeyLastMidiExportPath = "lastMidiExportPath";
+const char* kKeyMainWindowWidth = "mainWindowWidth";
+const char* kKeyMainWindowHeight = "mainWindowHeight";
 
-    [[nodiscard]] SettingsModel::PerformanceSettingsView makeDefaultPerformanceSettings() noexcept
-    {
-        return {};
-    }
+[[nodiscard]] SettingsModel::PerformanceSettingsView makeDefaultPerformanceSettings() noexcept {
+    return {};
+}
 
-    void readPerformanceSettings(juce::PropertiesFile& file, SettingsModel& model)
-    {
-        auto performance = SettingsModel::PerformanceSettingsView {
-            .masterGain = static_cast<float>(file.getDoubleValue(kKeyGain, model.masterGain)),
-            .adsrAttack = static_cast<float>(file.getDoubleValue(kKeyA, model.adsrAttack)),
-            .adsrDecay = static_cast<float>(file.getDoubleValue(kKeyD, model.adsrDecay)),
-            .adsrSustain = static_cast<float>(file.getDoubleValue(kKeyS, model.adsrSustain)),
-            .adsrRelease = static_cast<float>(file.getDoubleValue(kKeyR, model.adsrRelease))
-        };
+void readPerformanceSettings(juce::PropertiesFile& file, SettingsModel& model) {
+    auto performance = SettingsModel::PerformanceSettingsView {
+        .masterGain = static_cast<float>(file.getDoubleValue(kKeyGain, model.masterGain)),
+        .adsrAttack = static_cast<float>(file.getDoubleValue(kKeyA, model.adsrAttack)),
+        .adsrDecay = static_cast<float>(file.getDoubleValue(kKeyD, model.adsrDecay)),
+        .adsrSustain = static_cast<float>(file.getDoubleValue(kKeyS, model.adsrSustain)),
+        .adsrRelease = static_cast<float>(file.getDoubleValue(kKeyR, model.adsrRelease))
+    };
 
-        const auto looksLikeCorruptedZeroState = performance.masterGain == 0.0f
-                                             && performance.adsrAttack == 0.0f
-                                             && performance.adsrDecay == 0.0f
-                                             && performance.adsrSustain == 0.0f
-                                             && performance.adsrRelease == 0.0f;
-        if (looksLikeCorruptedZeroState)
-            performance = makeDefaultPerformanceSettings();
+    const auto looksLikeCorruptedZeroState = performance.masterGain == 0.0f && performance.adsrAttack == 0.0f
+        && performance.adsrDecay == 0.0f && performance.adsrSustain == 0.0f && performance.adsrRelease == 0.0f;
+    if (looksLikeCorruptedZeroState)
+        performance = makeDefaultPerformanceSettings();
 
-        performance.masterGain = juce::jlimit(0.0f, 1.0f, performance.masterGain);
-        performance.adsrAttack = juce::jlimit(0.001f, 2.0f, performance.adsrAttack);
-        performance.adsrDecay = juce::jlimit(0.001f, 2.0f, performance.adsrDecay);
-        performance.adsrSustain = juce::jlimit(0.0f, 1.0f, performance.adsrSustain);
-        performance.adsrRelease = juce::jlimit(0.001f, 3.0f, performance.adsrRelease);
+    performance.masterGain = juce::jlimit(0.0f, 1.0f, performance.masterGain);
+    performance.adsrAttack = juce::jlimit(0.001f, 2.0f, performance.adsrAttack);
+    performance.adsrDecay = juce::jlimit(0.001f, 2.0f, performance.adsrDecay);
+    performance.adsrSustain = juce::jlimit(0.0f, 1.0f, performance.adsrSustain);
+    performance.adsrRelease = juce::jlimit(0.001f, 3.0f, performance.adsrRelease);
 
-        model.applyPerformanceSettingsView(performance);
-    }
+    model.applyPerformanceSettingsView(performance);
+}
 }
 
 SettingsStore::SettingsStore() = default;
 
-void SettingsStore::ensureProps()
-{
-    if (appProps) return;
+void SettingsStore::ensureProps() {
+    if (appProps)
+        return;
     juce::PropertiesFile::Options opts;
-    opts.applicationName     = kSectionApp;
-    opts.filenameSuffix      = ".settings";
+    opts.applicationName = kSectionApp;
+    opts.filenameSuffix = ".settings";
     opts.osxLibrarySubFolder = "Application Support";
-    opts.commonToAllUsers    = false;
-    opts.storageFormat       = juce::PropertiesFile::storeAsXML;
+    opts.commonToAllUsers = false;
+    opts.storageFormat = juce::PropertiesFile::storeAsXML;
     appProps = std::make_unique<juce::ApplicationProperties>();
     appProps->setStorageParameters(opts);
 }
 
-juce::PropertiesFile& SettingsStore::file()
-{
+juce::PropertiesFile& SettingsStore::file() {
     ensureProps();
     return *appProps->getUserSettings();
 }
 
-void SettingsStore::readNow(SettingsModel& m)
-{
+void SettingsStore::readNow(SettingsModel& m) {
     auto& f = file();
 
     // audio device xml
@@ -104,15 +97,13 @@ void SettingsStore::readNow(SettingsModel& m)
     m.mainWindowHeight = f.getIntValue(kKeyMainWindowHeight, m.mainWindowHeight);
 
     // keymap as ValueTree XML
-    if (auto keyXml = f.getXmlValue(kKeyMap))
-    {
+    if (auto keyXml = f.getXmlValue(kKeyMap)) {
         juce::ValueTree t = juce::ValueTree::fromXml(*keyXml);
         m.keyMap = SettingsModel::valueTreeToKeyMap(t);
     }
 }
 
-void SettingsStore::writeNow(const SettingsModel& m)
-{
+void SettingsStore::writeNow(const SettingsModel& m) {
     auto& f = file();
 
     if (m.audioDeviceState)
@@ -151,31 +142,38 @@ void SettingsStore::writeNow(const SettingsModel& m)
     f.saveIfNeeded();
 }
 
-void SettingsStore::load(SettingsModel& model)
-{
+void SettingsStore::load(SettingsModel& model) {
     readNow(model);
 }
 
-void SettingsStore::save(const SettingsModel& model)
-{
+void SettingsStore::save(const SettingsModel& model) {
     writeNow(model);
 }
 
-void SettingsStore::scheduleSave(const SettingsModel& model, int msDelay)
-{
-    class DebounceTimer : public juce::Timer
-    {
+void SettingsStore::scheduleSave(const SettingsModel& model, int msDelay) {
+    class DebounceTimer : public juce::Timer {
     public:
-        DebounceTimer(SettingsStore& s) : store(s) {}
-        void setPayload(const SettingsModel& m) { modelPtr = &m; }
-        void start(int ms) { startTimer(ms); }
-        void timerCallback() override { stopTimer(); if (modelPtr) store.save(*modelPtr); }
+        DebounceTimer(SettingsStore& s)
+            : store(s) {
+        }
+        void setPayload(const SettingsModel& m) {
+            modelPtr = &m;
+        }
+        void start(int ms) {
+            startTimer(ms);
+        }
+        void timerCallback() override {
+            stopTimer();
+            if (modelPtr)
+                store.save(*modelPtr);
+        }
+
     private:
         SettingsStore& store;
         const SettingsModel* modelPtr = nullptr;
     };
 
-    if (! saverTimer)
+    if (!saverTimer)
         saverTimer.reset(new DebounceTimer(*this));
 
     auto* t = static_cast<DebounceTimer*>(saverTimer.get());

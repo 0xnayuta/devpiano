@@ -1,10 +1,9 @@
 #pragma once
 
-#include <JuceHeader.h>
 #include "SettingsModel.h"
+#include <JuceHeader.h>
 
-class SettingsStore
-{
+class SettingsStore {
 public:
     SettingsStore();
 

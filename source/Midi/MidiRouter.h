@@ -3,8 +3,7 @@
 #include <JuceHeader.h>
 #include <functional>
 
-class MidiRouter : public juce::MidiInputCallback
-{
+class MidiRouter : public juce::MidiInputCallback {
 public:
     MidiRouter() = default;
     ~MidiRouter() override;

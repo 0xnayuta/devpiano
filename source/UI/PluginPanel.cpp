@@ -1,7 +1,6 @@
 #include "PluginPanel.h"
 
-PluginPanel::PluginPanel()
-{
+PluginPanel::PluginPanel() {
     pluginStatusLabel.setColour(juce::Label::textColourId, juce::Colours::lightblue);
     addAndMakeVisible(pluginStatusLabel);
 
@@ -15,8 +14,7 @@ PluginPanel::PluginPanel()
     addAndMakeVisible(pluginListLabel);
 
     addAndMakeVisible(scanPluginsButton);
-    scanPluginsButton.onClick = [this]
-    {
+    scanPluginsButton.onClick = [this] {
         if (onScanRequested)
             onScanRequested();
     };
@@ -25,30 +23,26 @@ PluginPanel::PluginPanel()
     setupBrowseButton();
 
     addAndMakeVisible(loadPluginButton);
-    loadPluginButton.onClick = [this]
-    {
+    loadPluginButton.onClick = [this] {
         if (onLoadRequested)
             onLoadRequested();
     };
 
     addAndMakeVisible(unloadPluginButton);
-    unloadPluginButton.onClick = [this]
-    {
+    unloadPluginButton.onClick = [this] {
         if (onUnloadRequested)
             onUnloadRequested();
     };
 
     addAndMakeVisible(openEditorButton);
-    openEditorButton.onClick = [this]
-    {
+    openEditorButton.onClick = [this] {
         if (onToggleEditorRequested)
             onToggleEditorRequested();
     };
 
     pluginPathEditor.setMultiLine(false);
     pluginPathEditor.setReturnKeyStartsNewLine(false);
-    pluginPathEditor.onReturnKey = [this]
-    {
+    pluginPathEditor.onReturnKey = [this] {
         if (onScanRequested)
             onScanRequested();
     };
@@ -56,8 +50,7 @@ PluginPanel::PluginPanel()
 
     pluginSelector.setTextWhenNothingSelected("Select a scanned plugin...");
     pluginSelector.setWantsKeyboardFocus(false);
-    pluginSelector.onChange = [this]
-    {
+    pluginSelector.onChange = [this] {
         if (onLoadRequested && pluginSelector.getSelectedItemIndex() >= 0)
             onLoadRequested();
     };
@@ -73,8 +66,7 @@ PluginPanel::PluginPanel()
     addAndMakeVisible(pluginListEditor);
 }
 
-void PluginPanel::resized()
-{
+void PluginPanel::resized() {
     auto area = getLocalBounds();
 
     pluginStatusLabel.setBounds(area.removeFromTop(22));
@@ -101,10 +93,8 @@ void PluginPanel::resized()
     pluginListEditor.setBounds(area);
 }
 
-void PluginPanel::updateState(const State& state)
-{
-    if (state.isCurrentlyScanning)
-    {
+void PluginPanel::updateState(const State& state) {
+    if (state.isCurrentlyScanning) {
         pluginSelector.clear(juce::dontSendNotification);
         pluginSelector.setTextWhenNothingSelected("Scanning...");
 
@@ -122,15 +112,12 @@ void PluginPanel::updateState(const State& state)
         unloadPluginButton.setEnabled(false);
         openEditorButton.setEnabled(false);
         pluginPathEditor.setEnabled(false);
-    }
-    else
-    {
+    } else {
         pluginSelector.clear(juce::dontSendNotification);
 
         auto itemId = 1;
         auto selectedIndex = -1;
-        for (const auto& name : state.availablePluginNames)
-        {
+        for (const auto& name : state.availablePluginNames) {
             pluginSelector.addItem(name, itemId);
 
             if (name.equalsIgnoreCase(state.preferredSelection))
@@ -150,7 +137,7 @@ void PluginPanel::updateState(const State& state)
 
         scanPluginsButton.setEnabled(true);
         browseButton.setEnabled(true);
-        loadPluginButton.setEnabled(! state.availablePluginNames.isEmpty());
+        loadPluginButton.setEnabled(!state.availablePluginNames.isEmpty());
         unloadPluginButton.setEnabled(state.hasLoadedPlugin);
         openEditorButton.setEnabled(state.hasLoadedPlugin);
         pluginPathEditor.setEnabled(true);
@@ -160,86 +147,64 @@ void PluginPanel::updateState(const State& state)
     if (state.supportsVst3)
         text << " [VST3 ready]";
 
-    if (state.isCurrentlyScanning)
-    {
+    if (state.isCurrentlyScanning) {
         text << " | Scanning: " << state.scanningPluginName << "...";
-    }
-    else
-    {
+    } else {
         text << " | " << state.lastScanSummary;
     }
 
-    if (state.hasLoadedPlugin)
-    {
+    if (state.hasLoadedPlugin) {
         text << " | Loaded: " << state.currentPluginName;
 
         if (state.isPrepared)
-            text << " @ " << juce::String(state.preparedSampleRate, 0)
-                 << " Hz / " << juce::String(state.preparedBlockSize);
+            text << " @ " << juce::String(state.preparedSampleRate, 0) << " Hz / "
+                 << juce::String(state.preparedBlockSize);
         else
             text << " [not prepared]";
 
         if (state.isEditorOpen)
             text << " | Editor open";
-    }
-    else if (state.lastLoadError.isNotEmpty() && state.lastLoadError != "No plugin load attempted yet.")
-    {
+    } else if (state.lastLoadError.isNotEmpty() && state.lastLoadError != "No plugin load attempted yet.") {
         text << " | Load error: " << state.lastLoadError;
-    }
-    else if (state.lastPluginName.isNotEmpty())
-    {
+    } else if (state.lastPluginName.isNotEmpty()) {
         text << " | Last plugin: " << state.lastPluginName;
     }
 
     pluginStatusLabel.setText(text, juce::dontSendNotification);
 }
 
-void PluginPanel::setPluginPathText(const juce::String& text)
-{
+void PluginPanel::setPluginPathText(const juce::String& text) {
     pluginPathEditor.setText(text, juce::dontSendNotification);
 }
 
-juce::String PluginPanel::getPluginPathText() const
-{
+juce::String PluginPanel::getPluginPathText() const {
     return pluginPathEditor.getText();
 }
 
-
-juce::String PluginPanel::getSelectedPluginName() const
-{
+juce::String PluginPanel::getSelectedPluginName() const {
     return pluginSelector.getText();
 }
 
-juce::File PluginPanel::getInitialBrowseDirectory() const
-{
+juce::File PluginPanel::getInitialBrowseDirectory() const {
     auto path = pluginPathEditor.getText();
     if (path.isNotEmpty())
         return juce::File(path);
     return {};
 }
 
-void PluginPanel::setupBrowseButton()
-{
-    browseButton.onClick = [this]
-    {
+void PluginPanel::setupBrowseButton() {
+    browseButton.onClick = [this] {
         auto startDir = getInitialBrowseDirectory();
-        auto* chooser = new juce::FileChooser("Select VST3 Plugin Folder",
-                                               startDir,
-                                               "",
-                                               true);
-        chooser->launchAsync(juce::FileBrowserComponent::openMode
-                                | juce::FileBrowserComponent::canSelectDirectories,
-                             [this, chooser](const juce::FileChooser& fc)
-        {
-            auto folder = fc.getResult();
-            if (folder.exists())
-            {
-                pluginPathEditor.setText(folder.getFullPathName(), juce::dontSendNotification);
-                if (onScanRequested)
-                    onScanRequested();
-            }
-            delete chooser;
-        });
+        auto* chooser = new juce::FileChooser("Select VST3 Plugin Folder", startDir, "", true);
+        chooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories,
+                             [this, chooser](const juce::FileChooser& fc) {
+                                 auto folder = fc.getResult();
+                                 if (folder.exists()) {
+                                     pluginPathEditor.setText(folder.getFullPathName(), juce::dontSendNotification);
+                                     if (onScanRequested)
+                                         onScanRequested();
+                                 }
+                                 delete chooser;
+                             });
     };
 }
-

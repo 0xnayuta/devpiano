@@ -7,14 +7,11 @@
 
 class SettingsComponent;
 
-namespace devpiano::settings
-{
+namespace devpiano::settings {
 
-class SettingsWindowManager final
-{
+class SettingsWindowManager final {
 public:
-    struct ShowOptions
-    {
+    struct ShowOptions {
         juce::Component& parent;
         juce::AudioDeviceManager& deviceManager;
         const juce::XmlElement* savedAudioDeviceState = nullptr;

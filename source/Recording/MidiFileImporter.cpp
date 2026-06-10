@@ -4,30 +4,27 @@
 #include "Diagnostics/MidiTrace.h"
 #include "RecordingEngine.h"
 
-namespace
-{
+namespace {
 
-struct TrackNoteStats
-{
+struct TrackNoteStats {
     int trackIndex = -1;
     int noteOnCount = 0;
     int noteOffCount = 0;
     int zeroVelocityNoteOnCount = 0;
 
-    [[nodiscard]] int totalNoteEvents() const noexcept { return noteOnCount + noteOffCount; }
+    [[nodiscard]] int totalNoteEvents() const noexcept {
+        return noteOnCount + noteOffCount;
+    }
 };
 
-bool readMidiFile(juce::MidiFile& midiFile, const juce::File& file)
-{
+bool readMidiFile(juce::MidiFile& midiFile, const juce::File& file) {
     std::unique_ptr<juce::FileInputStream> stream { file.createInputStream() };
-    if (!stream)
-    {
+    if (!stream) {
         DP_LOG_ERROR("MidiFileImporter: could not open file for reading: " + file.getFullPathName());
         return false;
     }
 
-    if (!midiFile.readFrom(*stream, true))
-    {
+    if (!midiFile.readFrom(*stream, true)) {
         DP_LOG_ERROR("MidiFileImporter: failed to read file: " + file.getFullPathName());
         return false;
     }
@@ -35,13 +32,11 @@ bool readMidiFile(juce::MidiFile& midiFile, const juce::File& file)
     return true;
 }
 
-TrackNoteStats countTrackNoteEvents(const juce::MidiMessageSequence& track, int trackIndex)
-{
+TrackNoteStats countTrackNoteEvents(const juce::MidiMessageSequence& track, int trackIndex) {
     TrackNoteStats stats;
     stats.trackIndex = trackIndex;
 
-    for (int i = 0; i < track.getNumEvents(); ++i)
-    {
+    for (int i = 0; i < track.getNumEvents(); ++i) {
         const auto* msg = track.getEventPointer(i);
         if (msg == nullptr)
             continue;
@@ -64,16 +59,13 @@ TrackNoteStats countTrackNoteEvents(const juce::MidiMessageSequence& track, int 
     return stats;
 }
 
-std::vector<TrackNoteStats> collectTrackNoteStats(const juce::MidiFile& midiFile)
-{
+std::vector<TrackNoteStats> collectTrackNoteStats(const juce::MidiFile& midiFile) {
     std::vector<TrackNoteStats> stats;
     stats.reserve(static_cast<std::size_t>(midiFile.getNumTracks()));
 
-    for (int trackIndex = 0; trackIndex < midiFile.getNumTracks(); ++trackIndex)
-    {
+    for (int trackIndex = 0; trackIndex < midiFile.getNumTracks(); ++trackIndex) {
         const auto* track = midiFile.getTrack(trackIndex);
-        if (track == nullptr)
-        {
+        if (track == nullptr) {
             stats.push_back({ .trackIndex = trackIndex });
             continue;
         }
@@ -84,26 +76,22 @@ std::vector<TrackNoteStats> collectTrackNoteStats(const juce::MidiFile& midiFile
     return stats;
 }
 
-int getTotalNoteEvents(const std::vector<TrackNoteStats>& stats)
-{
+int getTotalNoteEvents(const std::vector<TrackNoteStats>& stats) {
     int total = 0;
     for (const auto& trackStats : stats)
         total += trackStats.totalNoteEvents();
     return total;
 }
 
-int chooseNoteRichTrack(const std::vector<TrackNoteStats>& stats, int preferredTrack)
-{
+int chooseNoteRichTrack(const std::vector<TrackNoteStats>& stats, int preferredTrack) {
     juce::ignoreUnused(preferredTrack);
 
     auto selectedTrack = -1;
     auto selectedNoteCount = 0;
 
-    for (const auto& trackStats : stats)
-    {
+    for (const auto& trackStats : stats) {
         const auto noteCount = trackStats.totalNoteEvents();
-        if (noteCount > selectedNoteCount)
-        {
+        if (noteCount > selectedNoteCount) {
             selectedTrack = trackStats.trackIndex;
             selectedNoteCount = noteCount;
         }
@@ -112,41 +100,31 @@ int chooseNoteRichTrack(const std::vector<TrackNoteStats>& stats, int preferredT
     return selectedTrack;
 }
 
-void logTrackNoteStats(const std::vector<TrackNoteStats>& stats)
-{
-    for (const auto& trackStats : stats)
-    {
+void logTrackNoteStats(const std::vector<TrackNoteStats>& stats) {
+    for (const auto& trackStats : stats) {
         DP_LOG_INFO("MidiFileImporter: track " + juce::String(trackStats.trackIndex)
                     + " notes=" + juce::String(trackStats.totalNoteEvents())
-                    + " (on=" + juce::String(trackStats.noteOnCount)
-                    + ", off=" + juce::String(trackStats.noteOffCount)
+                    + " (on=" + juce::String(trackStats.noteOnCount) + ", off=" + juce::String(trackStats.noteOffCount)
                     + ", zero-velocity-on=" + juce::String(trackStats.zeroVelocityNoteOnCount) + ")");
     }
 }
 
 } // namespace
 
-namespace devpiano::recording
-{
+namespace devpiano::recording {
 
-std::optional<RecordingTake> importMidiFile(const juce::File& midiFile,
-                                            double targetSampleRate)
-{
+std::optional<RecordingTake> importMidiFile(const juce::File& midiFile, double targetSampleRate) {
     return importMidiFile(midiFile, targetSampleRate, MidiImportOptions {});
 }
 
-std::optional<RecordingTake> importMidiFile(const juce::File& midiFile,
-                                            double targetSampleRate,
-                                            const MidiImportOptions& options)
-{
-    if (!midiFile.exists())
-    {
+std::optional<RecordingTake> importMidiFile(const juce::File& midiFile, double targetSampleRate,
+                                            const MidiImportOptions& options) {
+    if (!midiFile.exists()) {
         DP_LOG_ERROR("MidiFileImporter: file does not exist: " + midiFile.getFullPathName());
         return std::nullopt;
     }
 
-    if (midiFile.getSize() == 0)
-    {
+    if (midiFile.getSize() == 0) {
         DP_LOG_ERROR("MidiFileImporter: file is empty: " + midiFile.getFullPathName());
         return std::nullopt;
     }
@@ -155,18 +133,16 @@ std::optional<RecordingTake> importMidiFile(const juce::File& midiFile,
     if (!readMidiFile(file, midiFile))
         return std::nullopt;
 
-    DP_TRACE_MIDI("MidiFile imported: " + midiFile.getFileName() + ", tracks=" + juce::String(file.getNumTracks()), "MidiImporter");
+    DP_TRACE_MIDI("MidiFile imported: " + midiFile.getFileName() + ", tracks=" + juce::String(file.getNumTracks()),
+                  "MidiImporter");
 #if defined(JUCE_DEBUG) || defined(DEBUG)
     const auto timeFormat = file.getTimeFormat();
-    if (timeFormat < 0)
-    {
+    if (timeFormat < 0) {
         const auto fps = -(timeFormat >> 8);
         const auto subframes = timeFormat & 0xff;
-        DP_DEBUG_LOG("MidiFileImporter: SMPTE timing detected: " + juce::String(fps)
-                     + " fps, " + juce::String(subframes) + " subframes/frame");
-    }
-    else
-    {
+        DP_DEBUG_LOG("MidiFileImporter: SMPTE timing detected: " + juce::String(fps) + " fps, "
+                     + juce::String(subframes) + " subframes/frame");
+    } else {
         DP_DEBUG_LOG("MidiFileImporter: PPQ = " + juce::String(timeFormat));
     }
 #endif
@@ -181,21 +157,19 @@ std::optional<RecordingTake> importMidiFile(const juce::File& midiFile,
     file.convertTimestampTicksToSeconds();
 
     const auto numTracks = file.getNumTracks();
-    if (numTracks == 0)
-    {
+    if (numTracks == 0) {
         DP_LOG_ERROR("MidiFileImporter: no tracks found in file");
         return std::nullopt;
     }
 
     const auto trackStats = collectTrackNoteStats(file);
     const auto totalNoteEventsAllTracks = getTotalNoteEvents(trackStats);
-    DP_LOG_INFO("MidiFileImporter: " + juce::String(numTracks) + " tracks, "
-                + juce::String(totalNoteEventsAllTracks) + " total note events across all tracks");
+    DP_LOG_INFO("MidiFileImporter: " + juce::String(numTracks) + " tracks, " + juce::String(totalNoteEventsAllTracks)
+                + " total note events across all tracks");
     logTrackNoteStats(trackStats);
 
     const auto selectedTrackIndex = chooseNoteRichTrack(trackStats, options.preferTrack);
-    if (selectedTrackIndex < 0)
-    {
+    if (selectedTrackIndex < 0) {
         DP_LOG_ERROR("MidiFileImporter: no note events found in any track");
         return std::nullopt;
     }
@@ -205,12 +179,11 @@ std::optional<RecordingTake> importMidiFile(const juce::File& midiFile,
                     + " instead of preferred track " + juce::String(options.preferTrack));
 
     if (numTracks > 1 && options.ignoreOtherTracks)
-        DP_LOG_INFO("MidiFileImporter: imported track " + juce::String(selectedTrackIndex)
-                    + ", " + juce::String(numTracks - 1) + " other tracks ignored");
+        DP_LOG_INFO("MidiFileImporter: imported track " + juce::String(selectedTrackIndex) + ", "
+                    + juce::String(numTracks - 1) + " other tracks ignored");
 
     const auto* track = file.getTrack(selectedTrackIndex);
-    if (track == nullptr)
-    {
+    if (track == nullptr) {
         DP_LOG_ERROR("MidiFileImporter: selected track " + juce::String(selectedTrackIndex) + " not found");
         return std::nullopt;
     }
@@ -226,8 +199,7 @@ std::optional<RecordingTake> importMidiFile(const juce::File& midiFile,
     int pitchBendCount = 0;
     int programChangeCount = 0;
 
-    for (int i = 0; i < track->getNumEvents(); ++i)
-    {
+    for (int i = 0; i < track->getNumEvents(); ++i) {
         const auto* msg = track->getEventPointer(i);
         if (msg == nullptr)
             continue;
@@ -239,15 +211,12 @@ std::optional<RecordingTake> importMidiFile(const juce::File& midiFile,
         const bool isNoteOnWithVelocityNonZero = midiMsg.isNoteOn(false);
         const bool isNoteOffEvent = midiMsg.isNoteOff(true);
 
-        if (!isNoteOnWithVelocityNonZero && !isNoteOffEvent)
-        {
+        if (!isNoteOnWithVelocityNonZero && !isNoteOffEvent) {
             // Phase 6-5: collect CC (including CC64 sustain), pitch bend, and program change
-            if (midiMsg.isController())
-            {
+            if (midiMsg.isController()) {
                 ++ccCount;
                 const auto ts = midiMsg.getTimeStamp();
-                if (ts >= 0.0)
-                {
+                if (ts >= 0.0) {
                     const auto tsSamples = static_cast<int64_t>(ts * targetSampleRate);
                     lastTimestampSamples = std::max(lastTimestampSamples, tsSamples);
                     PerformanceEvent ev;
@@ -256,13 +225,10 @@ std::optional<RecordingTake> importMidiFile(const juce::File& midiFile,
                     ev.message = midiMsg;
                     events.push_back(std::move(ev));
                 }
-            }
-            else if (midiMsg.isPitchWheel())
-            {
+            } else if (midiMsg.isPitchWheel()) {
                 ++pitchBendCount;
                 const auto ts = midiMsg.getTimeStamp();
-                if (ts >= 0.0)
-                {
+                if (ts >= 0.0) {
                     const auto tsSamples = static_cast<int64_t>(ts * targetSampleRate);
                     lastTimestampSamples = std::max(lastTimestampSamples, tsSamples);
                     PerformanceEvent ev;
@@ -271,13 +237,10 @@ std::optional<RecordingTake> importMidiFile(const juce::File& midiFile,
                     ev.message = midiMsg;
                     events.push_back(std::move(ev));
                 }
-            }
-            else if (midiMsg.isProgramChange())
-            {
+            } else if (midiMsg.isProgramChange()) {
                 ++programChangeCount;
                 const auto ts = midiMsg.getTimeStamp();
-                if (ts >= 0.0)
-                {
+                if (ts >= 0.0) {
                     const auto tsSamples = static_cast<int64_t>(ts * targetSampleRate);
                     lastTimestampSamples = std::max(lastTimestampSamples, tsSamples);
                     PerformanceEvent ev;
@@ -286,9 +249,7 @@ std::optional<RecordingTake> importMidiFile(const juce::File& midiFile,
                     ev.message = midiMsg;
                     events.push_back(std::move(ev));
                 }
-            }
-            else
-            {
+            } else {
                 // Trace other non-note events (SysEx, meta, etc.) for diagnostics
                 DP_TRACE_MIDI(devpiano::diagnostics::describeMidiMessage(midiMsg), "MidiImporter");
             }
@@ -319,12 +280,11 @@ std::optional<RecordingTake> importMidiFile(const juce::File& midiFile,
 
     DP_LOG_INFO("MidiFileImporter: track " + juce::String(selectedTrackIndex) + " collected "
                 + juce::String(noteOnCount) + " note-on, " + juce::String(noteOffCount) + " note-off, "
-                + juce::String(zeroVelocityNoteOnCount) + " zero-velocity note-on -> note-off, "
-                + juce::String(ccCount) + " CC, " + juce::String(pitchBendCount) + " pitch-bend, "
-                + juce::String(programChangeCount) + " program-change");
+                + juce::String(zeroVelocityNoteOnCount) + " zero-velocity note-on -> note-off, " + juce::String(ccCount)
+                + " CC, " + juce::String(pitchBendCount) + " pitch-bend, " + juce::String(programChangeCount)
+                + " program-change");
 
-    if (events.empty())
-    {
+    if (events.empty()) {
         DP_LOG_ERROR("MidiFileImporter: no note events found in selected track " + juce::String(selectedTrackIndex));
         return std::nullopt;
     }
@@ -334,9 +294,8 @@ std::optional<RecordingTake> importMidiFile(const juce::File& midiFile,
     take.lengthSamples = lastTimestampSamples;
     take.events = std::move(events);
 
-    DP_LOG_INFO("MidiFileImporter: imported successfully, "
-                + juce::String(static_cast<int>(take.events.size())) + " events, "
-                + "duration = " + juce::String(take.durationSeconds(), 2) + " seconds");
+    DP_LOG_INFO("MidiFileImporter: imported successfully, " + juce::String(static_cast<int>(take.events.size()))
+                + " events, " + "duration = " + juce::String(take.durationSeconds(), 2) + " seconds");
 
     return take;
 }

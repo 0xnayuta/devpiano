@@ -3,14 +3,16 @@
 #include "JuceHeader.h"
 #include <memory>
 
-#include "Audio/AudioEngine.h"
 #include "Audio/AudioDeviceDiagnostics.h"
+#include "Audio/AudioEngine.h"
 #include "Core/AppState.h"
 #include "Core/AppStateBuilder.h"
 #include "Input/KeyboardMidiMapper.h"
+#include "Layout/LayoutDirectoryScanner.h"
+#include "Layout/LayoutFlowSupport.h"
 #include "Midi/MidiRouter.h"
-#include "Plugin/PluginHost.h"
 #include "Plugin/PluginFlowSupport.h"
+#include "Plugin/PluginHost.h"
 #include "Plugin/PluginOperationController.h"
 #include "Recording/RecordingEngine.h"
 #include "Recording/RecordingSessionController.h"
@@ -22,15 +24,12 @@
 #include "UI/KeyboardPanel.h"
 #include "UI/PluginEditorWindow.h"
 #include "UI/PluginPanel.h"
-#include "Layout/LayoutDirectoryScanner.h"
-#include "Layout/LayoutFlowSupport.h"
 
-class MainComponent final : public juce::AudioAppComponent,
-                            private juce::Timer
-{
+class MainComponent final : public juce::AudioAppComponent, private juce::Timer {
     friend class devpiano::layout::LayoutFlowSupport;
     friend class devpiano::recording::RecordingSessionController;
     friend class devpiano::plugin::PluginOperationController;
+
 public:
     MainComponent();
     ~MainComponent() override;
@@ -55,8 +54,7 @@ protected:
     void focusLost(juce::Component::FocusChangeType cause) override;
 
 private:
-    struct RuntimeAudioConfig
-    {
+    struct RuntimeAudioConfig {
         double sampleRate = 44100.0;
         int blockSize = 512;
     };
