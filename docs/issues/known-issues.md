@@ -390,8 +390,21 @@ bool MainComponent::shouldRestoreMainKeyboardFocus() const;
 5. 关闭 editor 后，确认主窗口可恢复电脑键盘演奏。
 6. 打开 settings 窗口重复同类检查。
 
----
 
+## 11. WSL 环境 JUCE Files/Writing 单元测试失败
+
+> 触发条件：以 root 用户（`uid=0`）在 WSL 中运行单元测试。
+> 影响范围：仅测试；不影响构建和运行时功能。
+
+- **现象**：`devpiano_tests` 运行至 `Files / Writing` 测试的第 47 个断言时失败：
+  `tempFile.setReadOnly(true)` 移除了文件写权限，但 `tempFile.hasWriteAccess()` 仍返回 `true`。
+- **root 因**：JUCE 实现的 `hasWriteAccess()` 底层调用 POSIX `access(path, W_OK)`。Linux 内核规定 superuser（`uid=0`）对该系统调用始终返回成功，不受文件权限位影响。因此测试期望 `false` 但得到 `true`。
+- **项目影响**：**不影响任何项目功能**。该测试是 JUCE 自带的通用文件系统验证，仅验证核心 POSIX 行为。我们的代码不依赖 `setReadOnly` / `hasWriteAccess` 做权限决策。
+- **可重复性**：更换为非 root 用户后该测试自动通过。受影响的测试在普通 Linux、macOS、Windows/MSVC 上均正确执行。
+- **缓解**：继续接受此失败。运行测试时可通过 `--category "DevPiano"` 过滤仅运行项目自身的测试。
+> 见：`juce_File.cpp:1196`（`setReadOnly(true)` + `hasWriteAccess()`），`juce_UnitTest.cpp:318`（`jassertfalse`）。
+
+---
 ## 10. 已完成验证项（不作为风险）
 
 以下条目已通过 2026-04-30 人工验证，无已知明显问题：
