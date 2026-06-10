@@ -1309,7 +1309,7 @@ static bool match_number(char **str, int *value) {
   return false;
 }
 
-// match version 
+// match version
 bool match_version(char **str, int *value) {
   int version = 0;
   int digit = 3;
@@ -2168,7 +2168,7 @@ char* config_save_keymap(uint lang) {
 
       buffer_size += 4096 * 10;
       buffer = (char*)realloc(buffer, buffer_size);
-      
+
       s = buffer + start;
       end = buffer + buffer_size;
     }
@@ -3106,12 +3106,12 @@ int config_default_keylabel(char* buff, size_t size, key_bind_t bind) {
       break;
     }
   }
-    
+
   return s - buff;
 }
 
 
-// instrument show midi 
+// instrument show midi
 bool config_get_instrument_show_midi() {
   thread_lock lock(config_lock);
   return global.instrument_show_midi != 0;
@@ -3122,7 +3122,7 @@ void config_set_instrument_show_midi(bool value) {
   global.instrument_show_midi = value;
 }
 
-// instrument show midi 
+// instrument show midi
 bool config_get_instrument_show_vsti() {
   thread_lock lock(config_lock);
   return global.instrument_show_vsti != 0;

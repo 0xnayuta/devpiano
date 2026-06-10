@@ -243,11 +243,11 @@ const char* config_get_channel_name(byte ch);
 // translate key label
 int config_default_keylabel(char* buff, size_t size, key_bind_t bind);
 
-// instrument show midi 
+// instrument show midi
 bool config_get_instrument_show_midi();
 void config_set_instrument_show_midi(bool value);
 
-// instrument show midi 
+// instrument show midi
 bool config_get_instrument_show_vsti();
 void config_set_instrument_show_vsti(bool value);
 

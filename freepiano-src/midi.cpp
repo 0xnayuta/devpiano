@@ -15,7 +15,7 @@ struct midi_in_device_t {
   HMIDIIN device;
   int remap;
 
-  midi_in_device_t() 
+  midi_in_device_t()
     : enable(false)
     , device(NULL)
     , remap(0)

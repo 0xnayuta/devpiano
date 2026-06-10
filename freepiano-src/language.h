@@ -7,7 +7,7 @@
 
 // language string def
 #define STR_ENGLISH(id, str)  id,
-#define STR_SCHINESE(id, str) 
+#define STR_SCHINESE(id, str)
 enum StringIDs {
   FP_IDS_EMPTY,
 #include "language_strdef.h"

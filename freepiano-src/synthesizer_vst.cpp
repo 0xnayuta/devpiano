@@ -112,7 +112,7 @@ static VstIntPtr VSTCALLBACK HostCallback(AEffect *effect, VstInt32 opcode, VstI
      case OUTPUT_TYPE_WASAPI:
        result = wasapi_get_samplerate();
        break;
-       
+
      default:
        result = 44100;
        break;

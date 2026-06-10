@@ -1,6 +1,6 @@
 # 插件宿主功能说明
 
-> 用途：说明当前 VST3 插件扫描、加载、处理、editor 和生命周期相关功能行为。包含功能说明与专项测试。  
+> 用途：说明当前 VST3 插件扫描、加载、处理、editor 和生命周期相关功能行为。包含功能说明与专项测试。
 > 状态来源：[`../../roadmap/roadmap.md`](../../roadmap/roadmap.md)、[`../architecture.md`](../architecture.md)。
 
 ## 当前能力

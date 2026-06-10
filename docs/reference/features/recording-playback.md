@@ -924,7 +924,7 @@ VST3 插件离线渲染放到 Phase 3-2 再评估，原因：
 
 ### 包 E：WAV 导出回归（Phase 3-1d）
 
-> Phase 3-1c 已完成 UI 接入（Export WAV 按钮 + FileChooser + 调用 WavFileExporter）。  
+> Phase 3-1c 已完成 UI 接入（Export WAV 按钮 + FileChooser + 调用 WavFileExporter）。
 > 本包覆盖 fallback synth WAV 导出的手工验证。
 
 #### E.1 空 take 时 Export WAV 按钮禁用

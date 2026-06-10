@@ -27,9 +27,9 @@
 
 ## 2. 启动 / 音频重建早期首音音高异常（已修复，保留回归项）
 
-> 触发条件：程序启动后尽快弹奏，或手动加载 / 卸载插件导致音频设备重建后立即弹奏。  
-> 影响范围：无外部 MIDI 设备时也可复现；鼠标点击虚拟键盘、实体电脑键盘、内置 fallback synth、VST3 插件、Windows Audio / DirectSound 均受影响。  
-> 当前观察环境：live audio device 为 `48000 Hz / 480 samples`。  
+> 触发条件：程序启动后尽快弹奏，或手动加载 / 卸载插件导致音频设备重建后立即弹奏。
+> 影响范围：无外部 MIDI 设备时也可复现；鼠标点击虚拟键盘、实体电脑键盘、内置 fallback synth、VST3 插件、Windows Audio / DirectSound 均受影响。
+> 当前观察环境：live audio device 为 `48000 Hz / 480 samples`。
 > 修复状态：已通过多轮人工验证；正式保留 `25ms` audio warmup。
 
 ### 现象
@@ -66,16 +66,16 @@
 
 `25ms` warmup 的作用不是改变音高计算，也不是延迟整个程序启动，而是在每次 `AudioEngine::prepareToPlay()` 后建立一个很短的“不可听稳定窗口”：
 
-1. **让音频设备 / 回调先跑过几个空 block**  
+1. **让音频设备 / 回调先跑过几个空 block**
    在 `48000 Hz / 480 samples` 下，一个 block 约 `10ms`，`25ms` 约覆盖 2-3 个 blocks。这样可以避开设备刚启动、后端缓冲刚填充、插件 / synth 刚 prepare 后的 transient。
 
-2. **丢弃 warmup 窗口内的 pending 输入事件**  
+2. **丢弃 warmup 窗口内的 pending 输入事件**
    warmup 期间持续清理 `MidiKeyboardState`、`MidiMessageCollector`、实时 / playback MIDI buffer，避免用户极早期按下的 note 被压缩到首个可听 block，或携带音频重建前后的旧时间基线进入渲染。
 
-3. **保持输出静音并清理发声状态**  
+3. **保持输出静音并清理发声状态**
    warmup 期间 `getNextAudioBlock()` 在清空输出后直接返回，并执行 `synth.allNotesOff()`。因此异常 transient 不会进入声卡输出，也不会留下 hanging note。
 
-4. **覆盖所有相关生命周期入口**  
+4. **覆盖所有相关生命周期入口**
    由于启动、插件自动恢复、手动加载 / 卸载、音频设备重建最终都会重新触发 `AudioEngine::prepareToPlay()`，warmup 放在 `AudioEngine` 层可以同时覆盖 VST3 和内置 synth 两条发声路径。
 
 `25ms` 被选为正式值的原因：它明显大于单个 10ms block，能提供最小必要余量；同时远低于用户可明显感知的演奏延迟窗口。人工验证显示 500ms、250ms、100ms、25ms 均稳定，因此不再继续压到 10ms，避免只剩 1 个 block 的容错导致不同后端或负载下偶发复现。
@@ -296,8 +296,8 @@
 
 ## 9. 辅助窗口与主窗口键盘焦点恢复冲突（已修复，保留架构约束）
 
-> 触发条件：程序打开独立顶层辅助窗口，例如插件 editor、settings dialog、未来的 preset manager / about window / browser-like 窗口等。  
-> 影响范围：Windows 下主窗口为了支持电脑键盘演奏，会在 `WM_ACTIVATE` / `WM_SETFOCUS` / JUCE active window 变化后异步恢复 `MainComponent` 键盘焦点。若辅助窗口打开期间仍执行 `grabKeyboardFocus()`，主窗口可能重新成为前台窗口，把辅助窗口顶到后面。  
+> 触发条件：程序打开独立顶层辅助窗口，例如插件 editor、settings dialog、未来的 preset manager / about window / browser-like 窗口等。
+> 影响范围：Windows 下主窗口为了支持电脑键盘演奏，会在 `WM_ACTIVATE` / `WM_SETFOCUS` / JUCE active window 变化后异步恢复 `MainComponent` 键盘焦点。若辅助窗口打开期间仍执行 `grabKeyboardFocus()`，主窗口可能重新成为前台窗口，把辅助窗口顶到后面。
 > 当前状态：插件 editor 被主窗口顶到后面的 bug 已按最小修复处理；settings / plugin editor 打开时均会跳过主窗口焦点恢复。该条目保留为后续新增窗口的设计约束。
 
 ### 现象

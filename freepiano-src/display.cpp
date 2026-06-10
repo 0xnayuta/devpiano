@@ -1498,7 +1498,7 @@ static void draw_image(uint resource_id, float x1, float x2, float y1, float y2,
 static void draw_image(uint resource_id, float x1, float x2, float y1, float y2, uint color1, uint color2) {
   if ((color1 & 0xff000000) == 0 && (color2 & 0xff000000) == 0)
       return;
-    
+
   if (resource_id < resource_count) {
     set_texture(resources[resource_id].texture, 1, 1);
     draw_sprite(x1, x2, y1, y2, 0, 0, 1, 1, color1, color2);
@@ -1603,7 +1603,7 @@ static void hsv2rgb(float &r, float &g, float &b, float h, float s, float v) {
   case 2: r = m; g = v; b = n; break;
   case 3: r = m; g = n; b = v; break;
   case 4: r = n; g = m; b = v; break;
-  case 5: r = v; g = m; b = n; break; 
+  case 5: r = v; g = m; b = n; break;
   }
 }
 
@@ -1773,7 +1773,7 @@ static void update_keyboard(double fade) {
         else if (config_get_auto_color() == AUTO_COLOR_CHANNEL) {
           if (map.a) {
             static float channel_colors[16] = {
-              30, 10, 350, 330, 310, 290, 270, 210, 190, 170, 150, 130, 110, 90, 70, 50, 
+              30, 10, 350, 330, 310, 290, 270, 210, 190, 170, 150, 130, 110, 90, 70, 50,
             };
             switch (map.a) {
             case SM_OCTAVE:

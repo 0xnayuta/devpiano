@@ -568,7 +568,7 @@ static DWORD __stdcall export_rendering_thread(void *parameter) {
   ZeroMemory( &wfxInput, sizeof(wfxInput));
   wfxInput.wFormatTag = WAVE_FORMAT_PCM;
   wfxInput.nSamplesPerSec = samples_per_sec;
-  wfxInput.wBitsPerSample =  16; 
+  wfxInput.wBitsPerSample =  16;
   wfxInput.nChannels = 2;
   wfxInput.nBlockAlign = wfxInput.nChannels * (wfxInput.wBitsPerSample / 8);
   wfxInput.nAvgBytesPerSec = wfxInput.nBlockAlign * wfxInput.nSamplesPerSec;
@@ -619,7 +619,7 @@ static DWORD __stdcall export_rendering_thread(void *parameter) {
     short* output = output_buffer;
     float volume = config_get_output_volume() / 100.0;
     for (int i = 0; i < samples; i++) {
-      float l = 
+      float l =
       output[0] = convertSample(temp_buffer[0][i] * 32767.0f * volume);
       output[1] = convertSample(temp_buffer[1][i] * 32767.0f * volume);
       output += 2;

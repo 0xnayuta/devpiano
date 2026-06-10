@@ -917,7 +917,7 @@ static INT_PTR CALLBACK settings_play_proc(HWND hWnd, UINT uMsg, WPARAM wParam, 
       {
         byte value = IsDlgButtonChecked(hWnd, IDC_PLAY_FOLLOW_KEY1 + id);
         song_send_event(SM_FOLLOW_KEY, channel, SM_VALUE_SET, value, true);
-      } 
+      }
 
       else if (LOWORD(wParam) == IDC_PLAY_OCTAVE1 + id)
       {
@@ -2052,7 +2052,7 @@ static INT_PTR CALLBACK key_setting_proc(HWND hWnd, UINT uMsg, WPARAM wParam, LP
       // no need to auto apply
       need_apply = false;
     }
-    
+
     static key_bind_t get_keybind() {
       key_bind_t keydown;
       config_bind_get_keydown(selected_key, &keydown, 1);
@@ -2294,7 +2294,7 @@ static INT_PTR CALLBACK key_setting_proc(HWND hWnd, UINT uMsg, WPARAM wParam, LP
 // popup key menu
 void gui_popup_keymenu(byte code, int x, int y) {
   preview_key = selected_key = code;
-  
+
   if (key_setting_window == NULL) {
     key_setting_window = CreateDialog(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_KEY_SETTING), NULL, key_setting_proc);
 
@@ -2316,7 +2316,7 @@ void gui_popup_keymenu(byte code, int x, int y) {
       int width = rect.right - rect.left;
       int height = rect.bottom - rect.top;
 
-      if (x1 + width > workarea.right && 
+      if (x1 + width > workarea.right &&
         x2 - width >= workarea.left) {
           x = x2 - width - border;
       }
