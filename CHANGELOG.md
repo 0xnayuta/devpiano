@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+
+## [Unreleased]
+
+### Added
+
+- Code formatting infrastructure: `.clang-format` (WebKit-based, 120 col), `./scripts/dev.sh format`
+- Static analysis configuration: `.clang-tidy` (bugprone/performance/readability/modernize), `clang-tidy-21`
+- Automated unit test framework: `cmake -DBUILD_TESTS=ON` → `devpiano_tests` (JUCE UnitTest console runner)
+- First batch of unit tests: `KeyMapTypesTest` (45 test cases), `MidiFileImporterTest` (17 test cases)
+- `./scripts/dev.sh test` command for one-shot test configure/build/run via ctest
+
+### Changed
+
+- `-Wall -Wextra` enabled for Clang compilers
+- All source code formatted with clang-format (pure style, no logic changes)
+- Test runner defaults to skipping JUCE `Files` category (known WSL root-user issue)
+
+### Known Issues
+
+- WSL root user: JUCE `Files / Writing` test fails because `access(W_OK)` always succeeds for uid=0. Override with `--include-files`. See `docs/issues/known-issues.md` §11.
+
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [0.1.1] - 2025-05-06

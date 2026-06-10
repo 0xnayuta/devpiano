@@ -11,7 +11,6 @@
 - [`reference/architecture.md`](reference/architecture.md)：理解当前 JUCE 架构与模块职责。
 - [`roadmap/roadmap.md`](roadmap/roadmap.md)：了解当前状态、阶段路线与近期重点。
 
-### 日常开发
 
 - [`guides/quickstart.md`](guides/quickstart.md)：命令速查。
 - [`guides/development.md`](guides/development.md)：日常开发与构建细节。
@@ -19,6 +18,10 @@
 - [`guides/release-workflow.md`](guides/release-workflow.md)：手工 release、tag 与 zip 打包 checklist。
 - [`roadmap/current-iteration.md`](roadmap/current-iteration.md)：当前正在推进的任务。
 - [`decisions/README.md`](decisions/README.md)：架构决策记录。
+
+**代码格式**：`.clang-format`（WebKit 基），`./scripts/dev.sh format`
+**静态分析**：`.clang-tidy`（bugprone/performance/readability/modernize），`clang-tidy-21`
+**单元测试**：`cmake -DBUILD_TESTS=ON` → `devpiano_tests`，`./scripts/dev.sh test`
 
 ### 测试与验收
 

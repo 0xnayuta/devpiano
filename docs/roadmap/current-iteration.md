@@ -27,8 +27,16 @@
   - MIDI 导出使用原始 timeline，速度设置不影响导出时间戳。
   - `RecordingSessionController.handlePlaybackSpeedChange()` 同步 engine + UI，不写 settings。
 
+**测试基础设施（新增）：**
+- `.clang-format` / `.clang-tidy` 配置已创建
+- `dev.sh format` / `dev.sh test` 子命令已添加
+- `devpiano_tests` CMake 目标（`BUILD_TESTS=ON`），链接 `juce_core`/`juce_events`/`juce_gui_basics`/`juce_audio_basics`/`juce_audio_formats`
+- `TestRunner.cpp`：JUCE UnitTest 控制台 runner，默认跳过 JUCE Files 类别（WSL root 已知问题 §11）
+- `KeyMapTypesTest`（9 测试类，~45 test case）：核心类型边界、键盘布局正确性、不区分大小写查找
+- `MidiFileImporterTest`（6 测试类，~17 test case）：错误处理、5 种真实 MIDI 文件导入、多轨选择、CC 收集
+- `-Wall -Wextra` 为 Clang 编译器已开启
+
 **Phase 6-6 已完成**：Diagnostics 最小层 ✅
-  - `source/Diagnostics/`（4 文件）：`DebugLog.h/.cpp`、`MidiTrace.h/.cpp`。
   - 接口：`DP_LOG_INFO/WARN/ERROR`、`DP_DEBUG_LOG`、`DP_TRACE_MIDI`。
   - Debug-only 宏在 Release 下无输出或零副作用。
   - 已接入 8 个业务文件（MidiRouter、MidiFileImporter、RecordingEngine、RecordingSessionController、PluginHost、LayoutFlowSupport、PluginFlowSupport、MainComponent）。

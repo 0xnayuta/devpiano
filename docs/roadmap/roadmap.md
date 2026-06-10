@@ -30,6 +30,12 @@
 - 外部 MIDI 硬件依赖验证（待硬件条件恢复）。
 - VST3 插件离线渲染（Phase 3-2）后置。
 
+**测试基础设施已完成：**
+- 代码格式配置（`.clang-format`，`./scripts/dev.sh format`）
+- 静态分析配置（`.clang-tidy`，可选 `clang-tidy-21`）
+- 自动化单元测试框架（`cmake -DBUILD_TESTS=ON` → `devpiano_tests`）
+- 首批单元测试已就位（`KeyMapTypesTest`、`MidiFileImporterTest`，共 ~60 个 test case）
+
 ## 3. 阶段路线图
 
 ### Phase 1：工程骨架与最小演奏（Phase 1-1-Phase 1-2）
