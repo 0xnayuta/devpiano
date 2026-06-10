@@ -38,22 +38,18 @@
 
 当前 docs 结构已重组，阅读和维护时按以下职责区分：
 
-- `docs/README.md`：文档总入口。
-- `docs/index/doc-map.md`：按读者目标组织的文档地图。
-- `docs/guides/quickstart.md`：快速恢复环境与常用命令。
-- `docs/guides/wsl-windows-msvc-workflow.md`：WSL / Windows 镜像 / MSVC 验证详细工作流。
-- `docs/reference/architecture.md`：当前系统架构、模块职责与主要链路。
-- [`docs/reference/features/keyboard-mapping.md`](docs/reference/features/keyboard-mapping.md)：电脑键盘到 MIDI note 的映射能力与边界。
+- [`docs/README.md`](docs/README.md)：文档总入口，按读者角色组织推荐阅读顺序。
+- [`docs/guides/quickstart.md`](docs/guides/quickstart.md)：快速恢复环境与常用命令。
+- [`docs/guides/wsl-windows-msvc-workflow.md`](docs/guides/wsl-windows-msvc-workflow.md)：WSL / Windows 镜像 / MSVC 验证详细工作流。
+- [`docs/reference/architecture.md`](docs/reference/architecture.md)：当前系统架构、模块职责与主要链路。
+- [`docs/reference/features/keyboard-mapping.md`](docs/reference/features/keyboard-mapping.md)：电脑键盘到 MIDI note 的映射能力。
 - [`docs/reference/features/plugin-hosting.md`](docs/reference/features/plugin-hosting.md)：VST3 插件扫描、加载、处理、editor 和生命周期行为。
-- `docs/reference/acceptance.md`：阶段验收标准。
-- `docs/reference/features/keyboard-mapping.md`：键盘映射专项测试。
-- `docs/reference/features/plugin-hosting.md`：插件宿主生命周期专项测试。
+- [`docs/reference/acceptance.md`](docs/reference/acceptance.md)：阶段验收标准。
 - [`docs/reference/features/midi-file-import.md`](docs/reference/features/midi-file-import.md)：MIDI 文件导入、回放兼容性、剩余边界与 FreePiano 差距。
-- [`docs/reference/features/midi-file-import.md`](docs/reference/features/midi-file-import.md)：M8 MIDI 文件导入、回放、自动选轨与后续增强验收测试。
-- `docs/decisions/`：ADR，记录已确定的架构/工程决策。
-- `docs/roadmap/roadmap.md`：唯一项目状态、阶段路线与近期重点来源。
-- `docs/roadmap/current-iteration.md`：当前迭代入口。
-- `docs/archive/`：历史资料，内容只作参考，当前信息以现行文档为准。
+- [`docs/decisions/`](docs/decisions/README.md)：ADR，记录已确定的架构/工程决策。
+- [`docs/roadmap/roadmap.md`](docs/roadmap/roadmap.md)：唯一项目状态、阶段路线与近期重点来源。
+- [`docs/roadmap/current-iteration.md`](docs/roadmap/current-iteration.md)：当前迭代入口。
+- [`docs/archive/`](docs/archive/README.md)：历史资料，内容只作参考，当前信息以现行文档为准。
 
 ---
 
@@ -107,24 +103,24 @@
 
 涉及环境恢复、同步、MSVC 验证、路径问题时，优先参考：
 
-- `docs/guides/quickstart.md`
-- `docs/guides/wsl-windows-msvc-workflow.md`
-- ADR：`docs/decisions/0001-wsl-primary-windows-mirror-workflow.md`
+- [`docs/guides/quickstart.md`](docs/guides/quickstart.md)
+- [`docs/guides/wsl-windows-msvc-workflow.md`](docs/guides/wsl-windows-msvc-workflow.md)
+- ADR：[`docs/decisions/0001-wsl-primary-windows-mirror-workflow.md`](docs/decisions/0001-wsl-primary-windows-mirror-workflow.md)
 
 ---
 
 ## 5. 文档维护规则
 
-- 项目状态和长期路线只写入：`docs/roadmap/roadmap.md`。
-- 当前任务只写入：`docs/roadmap/current-iteration.md`。
-- 架构说明写入：`docs/architecture/`。
-- 功能行为说明写入：`docs/features/`。
-- 测试、验收、手工回归写入：`docs/testing/`。
-- 已确定的重要工程/架构决策写入：`docs/decisions/`。
-- 旧文档和过期规划进入：`docs/archive/`。
-- 不要在多个文档中重复维护同一份“当前状态”；以 `docs/roadmap/roadmap.md` 为准。
+- 项目状态和长期路线只写入：[`docs/roadmap/roadmap.md`](docs/roadmap/roadmap.md)。
+- 当前任务只写入：[`docs/roadmap/current-iteration.md`](docs/roadmap/current-iteration.md)。
+- 架构说明写入：[`docs/reference/architecture.md`](docs/reference/architecture.md)。
+- 功能行为说明写入：[`docs/reference/features/`](docs/reference/features/)。
+- 测试、验收、手工回归写入：[`docs/reference/features/`](docs/reference/features/)（与功能说明合并）。
+- 已确定的重要工程/架构决策写入：[`docs/decisions/`](docs/decisions/README.md)。
+- 旧文档和过期规划进入：[`docs/archive/`](docs/archive/README.md)。
+- 不要在多个文档中重复维护同一份“当前状态”；以 [`docs/roadmap/roadmap.md`](docs/roadmap/roadmap.md) 为准。
 - 不要把未实现能力写成已实现能力。
-- 移动或重命名文档后，检查 README、doc-map、相关引用和 archive 替代关系。
+- 移动或重命名文档后，检查 README、相关引用和 archive 替代关系。
 
 ---
 
@@ -151,7 +147,7 @@
 
 参考：
 
-- ADR：`docs/decisions/0002-legacy-code-as-reference-only.md`
+- ADR：[`docs/decisions/0002-legacy-code-as-reference-only.md`](docs/decisions/0002-legacy-code-as-reference-only.md)
 
 ---
 
@@ -167,41 +163,20 @@
 
 相关功能与测试文档：
 
-- 键盘映射功能：[`docs/reference/features/keyboard-mapping.md`](docs/reference/features/keyboard-mapping.md)
-- 键盘映射测试：[`docs/reference/features/keyboard-mapping.md`](docs/reference/features/keyboard-mapping.md)
-- 插件宿主功能：[`docs/reference/features/plugin-hosting.md`](docs/reference/features/plugin-hosting.md)
-- 插件宿主生命周期测试：`docs/reference/features/plugin-hosting.md`
-- MIDI 文件导入功能：[`docs/reference/features/midi-file-import.md`](docs/reference/features/midi-file-import.md)
-- MIDI 文件导入测试：[`docs/reference/features/midi-file-import.md`](docs/reference/features/midi-file-import.md)
-- 阶段验收：`docs/reference/acceptance.md`
+- 键盘映射功能及测试：[`docs/reference/features/keyboard-mapping.md`](docs/reference/features/keyboard-mapping.md)
+- 插件宿主功能及生命周期测试：[`docs/reference/features/plugin-hosting.md`](docs/reference/features/plugin-hosting.md)
+- MIDI 文件导入功能及测试：[`docs/reference/features/midi-file-import.md`](docs/reference/features/midi-file-import.md)
+- 阶段验收：[`docs/reference/acceptance.md`](docs/reference/acceptance.md)
 
 ---
 
-## 8. 已安装 Pi 扩展的行动指令
-
-### 8.1 `pi-lsp`
-
-- 把 `lsp` 作为当前 JUCE/C++ 重构任务的首选工具。
-- 修改 `source/*.h`、`source/*.cpp` 后，先用 `lsp` 检查 diagnostics / workspace-diagnostics。
-- 做局部重构、类型排错、符号跳转、引用分析时，先用 `lsp`，不要只依赖全文搜索。
-- 需要理解某个类、方法、成员的来源、类型或调用链时，先做 `lsp` 查询。
-- 先看 `lsp` 结果，再决定是否运行完整编译。
-- 当前 clangd / 编译数据库基于：`build-wsl-clang/compile_commands.json`。
-- 如编译数据库缺失或怀疑过期，先执行：
-
-```bash
-./scripts/dev.sh wsl-build --configure-only
-```
-
----
-
-## 9. 推荐工作流
+## 8. 推荐工作流
 
 1. 明确任务目标和涉及范围。
 2. 如涉及旧系统行为或迁移路径，先阅读：
    - 必要时阅读 `/freepiano-src/` 相关旧模块。
 3. 如涉及当前架构或功能边界，先阅读：
-   - `docs/reference/architecture.md`
+   - [`docs/reference/architecture.md`](docs/reference/architecture.md)
    - [`docs/reference/features/keyboard-mapping.md`](docs/reference/features/keyboard-mapping.md)
    - [`docs/reference/features/plugin-hosting.md`](docs/reference/features/plugin-hosting.md)
    - [`docs/reference/features/midi-file-import.md`](docs/reference/features/midi-file-import.md)
@@ -225,6 +200,6 @@
 ./scripts/dev.sh self-check
 ```
 
-## 10. 结束输出要求
+## 9. 结束输出要求
 
 每轮结束时必须给出：下一轮建议做什么，哪个或哪些是你最推荐的

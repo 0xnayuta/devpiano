@@ -1,8 +1,7 @@
 # 录制 / 回放 / MIDI 导出功能说明
 
 > 用途：说明 DevPiano 录制、回放与 MIDI 导出的第一版现代化设计边界与当前 MVP 行为。
-> 当前状态：**设计草案已收口；Phase 3-3 模型骨架、Phase 3-4 AudioEngine 最小录制边界、Phase 3-5 最小回放（内部无 UI 入口）、Phase 3-6 最小 UI（Record/Stop/Play 按钮与状态文本）与 Phase 3-7 MIDI 导出已实现**。包含功能说明与专项测试
-> 读者：维护 Phase 3 录制 / 回放 / MIDI 导出功能的开发者。
+> 当前状态：设计草案已收口；Phase 3-3 模型骨架、Phase 3-4 AudioEngine 最小录制边界、Phase 3-5 最小回放（内部无 UI 入口）、Phase 3-6 最小 UI（Record/Stop/Play 按钮与状态文本）与 Phase 3-7 MIDI 导出已实现。包含功能说明与专项测试
 > 更新时机：录制模型、回放调度、导出格式或实现状态发生变化时。
 
 相关文档：
@@ -644,8 +643,7 @@ VST3 插件离线渲染放到 Phase 3-2 再评估，原因：
 ---
 # devpiano 录制 / 回放 / MIDI 导出测试用例
 
-> 用途：定义 Phase 3 高级功能恢复 MVP 的专项手工回归清单。  
-> 读者：修改 `source/Recording/`、`source/Audio/AudioEngine.*`、`source/MainComponent.*` 或 `source/UI/ControlsPanel.*` 的开发者。  
+> 用途：定义 Phase 3 高级功能恢复 MVP 的专项手工回归清单。
 > 更新时机：录制模型、回放调度、导出格式或 UI 控制发生变化时。
 
 状态标记：

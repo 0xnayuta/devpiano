@@ -1,5 +1,8 @@
 # devpiano: WSL 主工作树 + Windows 镜像树 + MSVC 验证工作流
 
+> 用途：说明 WSL 主工作树 + Windows 镜像树 + MSVC 验证的完整工作流与工具链。
+> 更新时机：工作流步骤、同步工具或验证流程变化时。
+
 > 如需更短的恢复说明，请优先看：[`quickstart.md`](quickstart.md)
 
 ## 目标

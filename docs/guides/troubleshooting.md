@@ -1,5 +1,8 @@
 # 开发环境与构建问题排查
 
+> 用途：记录 WSL 构建、Windows 镜像同步、MSVC 验证等开发环境常见问题与解决方案。
+> 更新时机：新增排查项、解决方案变化或已验证问题时。
+
 > 当前推荐恢复入口见 [`quickstart.md`](quickstart.md)，详细 WSL / Windows / MSVC 工作流见 [`wsl-windows-msvc-workflow.md`](wsl-windows-msvc-workflow.md)。
 
 ---

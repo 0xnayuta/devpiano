@@ -1,7 +1,6 @@
 # Release Workflow Checklist
 
-> 用途：记录 devpiano 手工 release / tag / 打包流程。  
-> 读者：准备发布版本的维护者。  
+> 用途：记录 devpiano 手工 release / tag / 打包流程。
 > 更新时机：发布步骤、产物命名、验证范围或版本策略变化时。
 
 ## 1. 发布原则

@@ -1,5 +1,8 @@
 # Architecture Decision Records
 
+> 用途：说明 ADR（架构决策记录）的存放规范与索引。
+> 更新时机：ADR 新增或索引变化时。
+
 本目录用于记录已经形成的关键架构和工程决策（ADR）。
 
 当前 ADR：

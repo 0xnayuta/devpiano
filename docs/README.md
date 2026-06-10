@@ -1,27 +1,29 @@
 # devpiano 文档入口
 
-> 用途：说明 `docs/` 的分层、阅读顺序与每类文档的职责。  
-> 读者：新接手项目的人、日常开发者、后续维护者。  
+> 用途：说明 `docs/` 的分层、阅读顺序与每类文档的职责。
 > 更新时机：新增、移动、归档文档时。
 
 ## 推荐阅读顺序
 
 ### 新开发者
 
-1. [`guides/quickstart.md`](guides/quickstart.md)：快速恢复环境与常用命令。
-2. [`reference/architecture.md`](reference/architecture.md)：理解当前 JUCE 架构与模块职责。
-3. [`roadmap/roadmap.md`](roadmap/roadmap.md)：了解当前状态、阶段路线与近期重点。
+- [`guides/quickstart.md`](guides/quickstart.md)：快速恢复环境与常用命令。
+- [`reference/architecture.md`](reference/architecture.md)：理解当前 JUCE 架构与模块职责。
+- [`roadmap/roadmap.md`](roadmap/roadmap.md)：了解当前状态、阶段路线与近期重点。
 
 ### 日常开发
 
 - [`guides/quickstart.md`](guides/quickstart.md)：命令速查。
+- [`guides/development.md`](guides/development.md)：日常开发与构建细节。
 - [`guides/wsl-windows-msvc-workflow.md`](guides/wsl-windows-msvc-workflow.md)：WSL 主工作树 + Windows 镜像树 + MSVC 验证的详细工作流。
 - [`guides/release-workflow.md`](guides/release-workflow.md)：手工 release、tag 与 zip 打包 checklist。
 - [`roadmap/current-iteration.md`](roadmap/current-iteration.md)：当前正在推进的任务。
+- [`decisions/README.md`](decisions/README.md)：架构决策记录。
 
 ### 测试与验收
 
 - [`reference/acceptance.md`](reference/acceptance.md)：阶段性验收标准。
+- [`audit/README.md`](audit/README.md)：架构审查、设计评审与事后分析。
 - [`issues/known-issues.md`](issues/known-issues.md)：已知问题、已修复风险的回归项与长期设计约束。
 - [`reference/features/keyboard-mapping.md`](reference/features/keyboard-mapping.md)：键盘映射专项手工测试。
 - [`reference/features/plugin-hosting.md`](reference/features/plugin-hosting.md)：插件宿主生命周期与退出稳定性专项测试。
@@ -52,7 +54,6 @@
 
 | 目录 | 职责 |
 |---|---|
-| `index.md` | 文档导航、doc-map、术语表。 |
 | `guides/` | 快速开始、开发环境、构建、日常工作流、故障排查与协作规则。 |
 | `reference/` | 系统架构 (`architecture.md`)、验收标准 (`acceptance.md`) 入口。 |
 | `reference/features/` | 功能行为说明、专项测试与测试夹具清单。 |
@@ -62,8 +63,8 @@
 | `roadmap/` | 路线图、当前迭代与后续任务规划。 |
 | `planning/` | 未来阶段粗略规划与功能候选分析。 |
 | `audit/` | 架构审查、设计评审、事后分析。 |
-
 | `archive/` | 历史文档、旧方案、已被替代的资料。 |
+
 ## 文档职责原则
 
 - [`roadmap/roadmap.md`](roadmap/roadmap.md) 是唯一的项目状态与路线图来源。
