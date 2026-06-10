@@ -190,8 +190,16 @@ if (BUILD_TESTS)
         source/Input/KeyboardMidiMapper.h
         source/Diagnostics/DebugLog.cpp
         source/Diagnostics/DebugLog.h
+        source/Diagnostics/MidiTrace.cpp
+        source/Diagnostics/MidiTrace.h
+        source/Recording/MidiFileImporter.cpp
+        source/Recording/MidiFileImporter.h
+        source/Recording/RecordingEngine.cpp
+        source/Recording/RecordingEngine.h
         # 测试代码
         source/tests/TestRunner.cpp
+        source/tests/KeyMapTypesTest.cpp
+        source/tests/MidiFileImporterTest.cpp
     )
 
     target_include_directories(devpiano_tests PRIVATE source)
@@ -202,6 +210,7 @@ if (BUILD_TESTS)
         juce::juce_events
         juce::juce_gui_basics
         juce::juce_audio_basics
+        juce::juce_audio_formats
         juce::juce_recommended_config_flags
     )
 
