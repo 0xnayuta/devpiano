@@ -1,0 +1,27 @@
+---
+# devpiano clang-tidy 配置
+# 初始聚焦于错误防止、性能、可读性
+Checks: >
+    -*,
+    bugprone-*,
+    performance-*,
+    readability-*,
+    modernize-*,
+    clang-analyzer-*,
+    -modernize-use-trailing-return-type,
+    -modernize-avoid-c-arrays,
+    -readability-identifier-length,
+    -readability-magic-numbers,
+    -readability-convert-member-functions-to-static,
+    -readability-redundant-access-specifiers,
+    -readability-implicit-bool-conversion,
+    -readability-function-cognitive-complexity,
+    -readability-uppercase-literal-suffix,
+
+CheckOptions:
+    # 音频/DSP 常用常量豁免
+    - { key: readability-magic-numbers.IgnoredValues,
+        value: '0;1;2;3;4;8;12;16;24;25;32;44;48;64;80;100;127;128;256;441;480;512;1024;2048;48000;44100;96000' }
+    # 现代风格 using 声明
+    modernize-use-using.IgnoreExternC: true
+...

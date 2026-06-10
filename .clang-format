@@ -1,0 +1,63 @@
+---
+# devpiano 代码格式化配置
+# 基于 WebKit 风格，适配 JUCE 常见的约定
+BasedOnStyle: WebKit
+
+# 访问修饰符缩进（public/private 缩进 4 格回到类开头）
+AccessModifierOffset: -4
+
+# 函数返回值类型不换行时和函数名对齐
+AlignAfterOpenBracket: Align
+
+# 不压缩短函数到一行，保持可读性
+AllowShortFunctionsOnASingleLine: None
+
+# 不压缩短 if 到一行
+AllowShortIfStatementsOnASingleLine: Never
+
+# 不压缩短循环到一行
+AllowShortLoopsOnASingleLine: false
+
+# 总是将大括号附加到前一行末尾（JUCE 风格）
+BreakBeforeBraces: Attach
+
+# 列宽限制 120，JUCE 自身无硬限制，120 是合理折中
+ColumnLimit: 120
+
+# 构造函数的初始化列表在冒号后换行
+ConstructorInitializerIndentWidth: 4
+
+# 延续行缩进 4 格
+ContinuationIndentWidth: 4
+
+# C++11 风格 `auto` 推导类型后的星号/引用跟随变量
+DerivePointerAlignment: false
+
+
+# 缩进宽度 4 格
+IndentWidth: 4
+
+# 指针/引用记号贴在类型名左侧：`int* p`
+PointerAlignment: Left
+
+# 引用类型同上：`int& r`
+ReferenceAlignment: Left
+
+# 允许注释格式化（对齐注释列）
+ReflowComments: true
+
+# 排序 #include（按 LLVM 风格分组）
+SortIncludes: true
+
+# 制表符宽度 4
+TabWidth: 4
+
+# 不使用制表符缩进
+UseTab: Never
+
+# 命名空间不缩进内部内容
+NamespaceIndentation: None
+
+# 强制 #include 使用尖括号引用 JUCE 头
+# （不影响已有代码，仅格式化后检查）
+...

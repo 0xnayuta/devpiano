@@ -28,6 +28,14 @@ set_target_properties(devpiano PROPERTIES
     CXX_EXTENSIONS OFF
 )
 
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    target_compile_options(devpiano PRIVATE
+        -Wall
+        -Wextra
+    )
+endif()
+
+
 if (MSVC)
     target_compile_options(devpiano PRIVATE
         /utf-8
@@ -155,4 +163,57 @@ target_compile_definitions(devpiano PRIVATE
 
 if (MSVC)
     set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT devpiano)
+endif()
+
+# ========================================================
+# 7. 单元测试
+# ========================================================
+option(BUILD_TESTS "Build unit tests" OFF)
+
+if (BUILD_TESTS)
+    juce_add_console_app(devpiano_tests
+        PRODUCT_NAME "DevPiano Tests"
+    )
+
+    target_compile_features(devpiano_tests PRIVATE cxx_std_20)
+    set_target_properties(devpiano_tests PROPERTIES
+        CXX_STANDARD 20
+        CXX_STANDARD_REQUIRED ON
+        CXX_EXTENSIONS OFF
+    )
+    # 生产代码（被测模块）：只包含无 GUI/设备依赖的纯逻辑层
+    target_sources(devpiano_tests PRIVATE
+        source/Core/KeyMapTypes.h
+        source/Core/MidiTypes.h
+        source/Core/AppState.h
+        source/Input/KeyboardMidiMapper.cpp
+        source/Input/KeyboardMidiMapper.h
+        source/Diagnostics/DebugLog.cpp
+        source/Diagnostics/DebugLog.h
+        # 测试代码
+        source/tests/TestRunner.cpp
+    )
+
+    target_include_directories(devpiano_tests PRIVATE source)
+    juce_generate_juce_header(devpiano_tests)
+
+    target_link_libraries(devpiano_tests PRIVATE
+        juce::juce_core
+        juce::juce_events
+        juce::juce_gui_basics
+        juce::juce_audio_basics
+        juce::juce_recommended_config_flags
+    )
+
+    target_compile_definitions(devpiano_tests PRIVATE
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+        JUCE_UNIT_TESTS=1
+    )
+
+    enable_testing()
+
+    add_test(NAME devpiano_tests
+             COMMAND devpiano_tests
+             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 endif()
