@@ -86,14 +86,21 @@
 
 ---
 
-## 4. 推荐开发命令
-
 ```bash
 # 环境自检
 ./scripts/dev.sh self-check
 
+# 格式化 source/ 下所有 .cpp/.h
+./scripts/dev.sh format
+
+# 检查格式合规（CI 模式）
+./scripts/dev.sh format --check
+
 # 仅刷新 WSL configure / compile_commands.json（clangd/LSP 依赖此文件）
 ./scripts/dev.sh wsl-build --configure-only
+
+# 运行单元测试（配置 BUILD_TESTS=ON → 构建 → 执行）
+./scripts/dev.sh test
 
 # Windows MSVC 验证构建（内置同步，一般不需要单独 win-sync）
 ./scripts/dev.sh win-build
@@ -160,13 +167,16 @@
 - 插件相关改动重点关注：scan / load / unload / editor / audio device rebuild / exit 生命周期组合。
 - 键盘相关改动重点关注：note on/off 成对、长按、连按、焦点切换、输入法、修饰键。
 - 对大范围重命名或结构调整，先小步重构，再使用 LSP 和构建验证。
-
 相关功能与测试文档：
 
 - 键盘映射功能及测试：[`docs/reference/features/keyboard-mapping.md`](docs/reference/features/keyboard-mapping.md)
 - 插件宿主功能及生命周期测试：[`docs/reference/features/plugin-hosting.md`](docs/reference/features/plugin-hosting.md)
 - MIDI 文件导入功能及测试：[`docs/reference/features/midi-file-import.md`](docs/reference/features/midi-file-import.md)
 - 阶段验收：[`docs/reference/acceptance.md`](docs/reference/acceptance.md)
+- 已知问题：[`docs/issues/known-issues.md`](docs/issues/known-issues.md)
+- 代码格式：`.clang-format`（WebKit 基，120 列，Attach 大括号）
+- 静态分析：`.clang-tidy`（bugprone/performance/readability/modernize 检查集）
+- 单元测试：`cmake -DBUILD_TESTS=ON` → `devpiano_tests` 目标，使用 JUCE UnitTest 框架
 
 ---
 
@@ -182,24 +192,25 @@
    - [`docs/reference/features/midi-file-import.md`](docs/reference/features/midi-file-import.md)
 4. 使用 `lsp` + `read` / `edit` 在 WSL 主工作树中小步修改。
 5. 修改 `source/*.h` / `source/*.cpp` 后，先用 LSP diagnostics 检查。
-6. 需要刷新 clangd 编译数据库时运行：
+6. 运行 `./scripts/dev.sh format` 确保代码风格一致（首次使用或 `.clang-format` 变更后）。
+7. 若存在测试文件，运行 `./scripts/dev.sh test` 验证不引入回归。
+8. 需要刷新 clangd 编译数据库时运行：
 
 ```bash
 ./scripts/dev.sh wsl-build --configure-only
 ```
 
-7. Windows MSVC 验证构建：
+9. Windows MSVC 验证构建：
 
 ```bash
 ./scripts/dev.sh win-build
 ```
 
-8. 涉及环境或路径问题时，先运行：
+10. 涉及环境或路径问题时，先运行：
 
 ```bash
 ./scripts/dev.sh self-check
 ```
-
 ## 9. 结束输出要求
 
 每轮结束时必须给出：下一轮建议做什么，哪个或哪些是你最推荐的

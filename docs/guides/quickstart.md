@@ -15,12 +15,11 @@
 
 ### WSL
 
-安装基础工具：
 
 ```bash
 sudo apt-get update
 sudo apt-get install -y \
-  cmake ninja-build clang clangd lld pkg-config \
+  cmake ninja-build clang clangd-21 clang-format-21 clang-tidy-21 lld pkg-config \
   libasound2-dev libjack-jackd2-dev libcurl4-openssl-dev \
   libfreetype-dev libfontconfig1-dev \
   libx11-dev libxcomposite-dev libxcursor-dev libxext-dev \
@@ -121,6 +120,13 @@ source ~/.bashrc
 ./scripts/dev.sh win-build --release --no-sync
 ./scripts/dev.sh win-build --release --reconfigure
 ./scripts/dev.sh win-build --release --clean-win-build
+
+# ── 代码格式 ──
+./scripts/dev.sh format
+./scripts/dev.sh format --check       # CI 模式，只检查不改
+
+# ── 单元测试 ──
+./scripts/dev.sh test
 ```
 
 ## 关键目录

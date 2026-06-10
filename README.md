@@ -47,8 +47,9 @@
 - 布局 Preset 的冲突提示、图形化编辑等体验增强
 - WAV 离线渲染、复杂编辑、tempo map 等 M6+ 高级功能
 - 更清晰的正式 UI 分层与交互细节
-- 更系统化的稳定性验证与回归测试
+- 更系统化的稳定性验证与回归测试（自动化单元测试框架已就位：`cmake -DBUILD_TESTS=ON` → `devpiano_tests`）
 - Phase 4 后续 backlog，例如 Phase 3-2 VST3 离线渲染与外部 MIDI 硬件验证
+
 
 ---
 
@@ -124,17 +125,24 @@
 - 同步到 Windows 镜像树 `G:\source\projects\devpiano`
 - 再用 Windows 的 **Developer PowerShell for VS** 环境做 MSVC 验证构建
 
-推荐入口命令：
-
 ```bash
 # 自检当前开发环境
 ./scripts/dev.sh self-check
+
+# 格式化 source/ 下所有 .cpp/.h
+./scripts/dev.sh format
+
+# 检查格式合规（CI 模式）
+./scripts/dev.sh format --check
 
 # WSL 本地 configure / build（Debug）
 ./scripts/dev.sh wsl-build --configure-only
 
 # WSL 本地 configure / build（Release）
 ./scripts/dev.sh wsl-build --release --configure-only
+
+# 运行单元测试（配置 BUILD_TESTS=ON → 构建 → 执行）
+./scripts/dev.sh test
 
 # Windows MSVC 验证构建（Debug，内置同步）
 ./scripts/dev.sh win-build
@@ -165,6 +173,12 @@
 ./scripts/dev.sh self-check
 ```
 
+格式化代码：
+
+```bash
+./scripts/dev.sh format
+```
+
 仅刷新 WSL configure / `compile_commands.json`：
 
 ```bash
@@ -175,6 +189,12 @@ WSL 本地构建：
 
 ```bash
 ./scripts/dev.sh wsl-build
+```
+
+运行单元测试：
+
+```bash
+./scripts/dev.sh test
 ```
 
 Windows MSVC 验证构建（内置同步，不需要单独 win-sync）：
@@ -189,7 +209,6 @@ Release 构建（WSL / Windows）：
 ./scripts/dev.sh wsl-build --release
 ./scripts/dev.sh win-build --release
 ```
-
 ### 当前主要产物路径
 
 - WSL Debug：`build-wsl-clang/devpiano_artefacts/Debug/DevPiano`
