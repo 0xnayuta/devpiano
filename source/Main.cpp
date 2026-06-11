@@ -44,15 +44,23 @@ static void scheduleKeyboardFocusRestore(const char* reason) {
 }
 
 static LRESULT CALLBACK DevPianoWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    if (msg == WM_SETFOCUS) {
+    // WM_SETFOCUS / WM_ACTIVATE → schedule keyboard focus restoration.
+    //
+    // JUCE's focusGained() / activeWindowStatusChanged() fire for most activation
+    // scenarios, but on Windows they can arrive *before* the JUCE component tree
+    // has finished processing the native focus event. In those cases
+    // grabKeyboardFocus() inside focusGained() hits its own early-return guard
+    // (currentlyFocusedComponent already set by the WM_SETFOCUS handler), and the
+    // intended MIDI-keyboard input target never actually acquires focus.
+    //
+    // This hook catches those boundary cases and posts a deferred
+    // restoreKeyboardFocus() via MessageManager::callAsync, giving the component
+    // tree a chance to settle before re-acquiring focus.
+    if (msg == WM_SETFOCUS)
         scheduleKeyboardFocusRestore("WM_SETFOCUS");
-    }
-    if (msg == WM_ACTIVATE && LOWORD(wParam) != WA_INACTIVE) {
+    if (msg == WM_ACTIVATE && LOWORD(wParam) != WA_INACTIVE)
         scheduleKeyboardFocusRestore("WM_ACTIVATE");
-    }
-    if (msg == WM_KEYDOWN || msg == WM_KEYUP || msg == WM_SYSKEYDOWN || msg == WM_SYSKEYUP) {
-        juce::ignoreUnused(hwnd, wParam);
-    }
+
     return CallWindowProc(g_originalWndProc, hwnd, msg, wParam, lParam);
 }
 
