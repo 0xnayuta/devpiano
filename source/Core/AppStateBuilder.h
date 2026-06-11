@@ -86,7 +86,8 @@ struct RuntimeInputState {
                         .keyboardLayout = SettingsModel::keyMapToLayout(input.keyMap, input.layoutId),
                         .openMidiInputCount = 0,
                         .midiActivityCount = 0,
-                        .lastMidiMessage = {} } };
+                        .lastMidiMessage = {} },
+             .midiChannelMatrix = settings.channelMatrix };
 }
 
 // 叠加运行时插件宿主状态。

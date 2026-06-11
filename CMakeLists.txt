@@ -99,6 +99,9 @@ target_sources(devpiano PRIVATE
     source/UI/HeaderPanelStateBuilder.h
     source/UI/KeyboardPanel.cpp
     source/Core/KeyboardTypes.h
+    source/Core/ChannelMatrix.h
+    source/Midi/MidiChannelMapper.cpp
+    source/Midi/MidiChannelMapper.h
     source/UI/CustomKeyboard.cpp
     source/UI/CustomKeyboard.h
     source/UI/KeyBindingEditDialog.cpp

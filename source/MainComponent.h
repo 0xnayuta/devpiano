@@ -10,6 +10,7 @@
 #include "Input/KeyboardMidiMapper.h"
 #include "Layout/LayoutDirectoryScanner.h"
 #include "Layout/LayoutFlowSupport.h"
+#include "Midi/MidiChannelMapper.h"
 #include "Midi/MidiRouter.h"
 #include "Plugin/PluginFlowSupport.h"
 #include "Plugin/PluginHost.h"
@@ -105,6 +106,7 @@ private:
     MidiRouter midiRouter;
     PluginHost pluginHost;
     SettingsModel appSettings;
+    MidiChannelMapper midiChannelMapper { appSettings.channelMatrix };
     SettingsStore settingsStore;
 
     int externalMidiMessageCount = 0;

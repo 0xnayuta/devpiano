@@ -333,8 +333,10 @@ void CustomKeyboard::mouseDown(const juce::MouseEvent& e) {
     }
     repaint();
 
-    if (onNoteOn)
-        onNoteOn(note);
+    if (onNoteOn) {
+        auto ch = (note >= 0 && note < 128) ? static_cast<int>(perKeyChannel[note]) : 0;
+        onNoteOn(note, ch);
+    }
 }
 
 void CustomKeyboard::mouseUp(const juce::MouseEvent& e) {
@@ -346,9 +348,10 @@ void CustomKeyboard::mouseUp(const juce::MouseEvent& e) {
 
         // Let fade decay naturally; timer will handle it.
         ensureTimerRunning();
-
-        if (onNoteOff)
-            onNoteOff(note);
+        if (onNoteOff) {
+            auto ch = (note >= 0 && note < 128) ? static_cast<int>(perKeyChannel[note]) : 0;
+            onNoteOff(note, ch);
+        }
     }
 }
 

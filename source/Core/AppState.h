@@ -4,6 +4,7 @@
 
 #include "Core/KeyMapTypes.h"
 
+#include "Core/ChannelMatrix.h"
 namespace devpiano::core {
 // Runtime aggregate state.
 //
@@ -67,5 +68,6 @@ struct AppState {
     PerformanceState performance;
     PluginState plugin;
     InputState input;
+    devpiano::midi::ChannelMatrix midiChannelMatrix;
 };
 }

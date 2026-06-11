@@ -1,4 +1,5 @@
 #include "KeyboardMidiMapper.h"
+#include "Midi/MidiChannelMapper.h"
 
 using namespace devpiano::core;
 
@@ -21,6 +22,10 @@ const KeyboardLayout& KeyboardMidiMapper::getLayout() const noexcept {
 
 void KeyboardMidiMapper::resetToDefaultLayout() {
     setLayout(makeDefaultKeyboardLayout());
+}
+
+void KeyboardMidiMapper::setChannelMapper(const MidiChannelMapper* mapper) noexcept {
+    channelMapper = mapper;
 }
 
 bool KeyboardMidiMapper::handleKeyPressed(const juce::KeyPress& key, juce::MidiKeyboardState& keyboardState) {
@@ -86,15 +91,20 @@ bool KeyboardMidiMapper::triggerBinding(const KeyBinding& binding, juce::MidiKey
 
     if (binding.action.type != KeyActionType::note)
         return false;
-
-    const auto midiChannel = binding.action.getMidiChannel().value;
-    const auto midiNote = binding.action.getMidiNoteNumber().value;
-    const auto velocity = binding.action.getVelocity().value;
-
-    if (isKeyDownEvent)
-        keyboardState.noteOn(midiChannel, midiNote, velocity);
-    else
-        keyboardState.noteOff(midiChannel, midiNote, velocity);
+    if (channelMapper != nullptr && binding.action.type == KeyActionType::note) {
+        // Apply 16-channel matrix if active
+        auto mapped = isKeyDownEvent ? channelMapper->mapNoteOn(midiChannel, midiNote, velocity)
+                                     : channelMapper->mapNoteOff(midiChannel, midiNote, velocity);
+        if (isKeyDownEvent)
+            keyboardState.noteOn(mapped.getChannel(), mapped.getNoteNumber(), mapped.getFloatVelocity());
+        else
+            keyboardState.noteOff(mapped.getChannel(), mapped.getNoteNumber(), mapped.getFloatVelocity());
+    } else {
+        if (isKeyDownEvent)
+            keyboardState.noteOn(midiChannel, midiNote, velocity);
+        else
+            keyboardState.noteOff(midiChannel, midiNote, velocity);
+    }
 
     return true;
 }

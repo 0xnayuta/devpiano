@@ -30,8 +30,8 @@ public:
     [[nodiscard]] const devpiano::ui::KeyboardSettings& getKeyboardSettings() const noexcept;
 
     // ---- Callbacks ---------------------------------------------------------
-    std::function<void(int midiNote)> onNoteOn;
-    std::function<void(int midiNote)> onNoteOff;
+    std::function<void(int midiNote, int sourceChannel)> onNoteOn;
+    std::function<void(int midiNote, int sourceChannel)> onNoteOff;
     std::function<void(int midiNote)> onBindingEditRequested;
 
     // ---- Keyboard interface ------------------------------------------------

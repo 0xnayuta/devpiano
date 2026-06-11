@@ -22,6 +22,7 @@ const char* kKeyMainWindowHeight = "mainWindowHeight";
 const char* kKeyColourMode = "keyboardColourMode";
 const char* kKeyNoteDisplay = "keyboardNoteDisplay";
 const char* kKeyFadeSpeed = "keyboardFadeSpeed";
+const char* kKeyChannelMatrix = "channelMatrixVT";
 
 [[nodiscard]] SettingsModel::PerformanceSettingsView makeDefaultPerformanceSettings() noexcept {
     return {};
@@ -115,6 +116,12 @@ void SettingsStore::readNow(SettingsModel& m) {
         m.keyboardNoteDisplay = static_cast<devpiano::ui::NoteDisplayMode>(nd);
     }
     m.keyboardFadeSpeed = f.getDoubleValue(kKeyFadeSpeed, m.keyboardFadeSpeed);
+
+    // Channel matrix as ValueTree XML.
+    if (auto cmXml = f.getXmlValue(kKeyChannelMatrix)) {
+        juce::ValueTree t = juce::ValueTree::fromXml(*cmXml);
+        m.channelMatrix = SettingsModel::valueTreeToChannelMatrix(t);
+    }
 }
 
 void SettingsStore::writeNow(const SettingsModel& m) {
@@ -144,6 +151,13 @@ void SettingsStore::writeNow(const SettingsModel& m) {
 
     // Keyboard display settings
     f.setValue(kKeyColourMode, static_cast<int>(m.keyboardColourMode));
+
+    // Channel matrix as ValueTree XML.
+    {
+        auto t = SettingsModel::channelMatrixToValueTree(m.channelMatrix);
+        if (auto xml = t.createXml())
+            f.setValue(kKeyChannelMatrix, xml->toString());
+    }
     f.setValue(kKeyNoteDisplay, static_cast<int>(m.keyboardNoteDisplay));
     f.setValue(kKeyFadeSpeed, m.keyboardFadeSpeed);
     f.setValue(kKeyMainWindowWidth, m.mainWindowWidth);

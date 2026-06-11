@@ -159,10 +159,18 @@ void MainComponent::initialiseUi() {
 
     // Wire CustomKeyboard mouse interaction → sound
     auto& customKeyboard = keyboardPanel.getCustomKeyboard();
-    customKeyboard.onNoteOn = [this](int midiNote) {
-        audioEngine.getKeyboardState().noteOn(1, midiNote, 1.0f);
+    customKeyboard.onNoteOn = [this](int midiNote, int sourceChannel) {
+        auto mapped = midiChannelMapper.mapNoteOn(sourceChannel, midiNote, 1.0f);
+        audioEngine.getKeyboardState().noteOn(mapped.getChannel(), mapped.getNoteNumber(), mapped.getFloatVelocity());
         suppressTextInputMethods();
     };
+    customKeyboard.onNoteOff = [this](int midiNote, int sourceChannel) {
+        auto mapped = midiChannelMapper.mapNoteOff(sourceChannel, midiNote, 0.0f);
+        audioEngine.getKeyboardState().noteOff(mapped.getChannel(), mapped.getNoteNumber(), mapped.getFloatVelocity());
+    };
+
+    keyboardMidiMapper.setChannelMapper(&midiChannelMapper);
+
     customKeyboard.onBindingEditRequested = [this](int midiNote) {
         // Find the first computer-key binding mapped to this MIDI note
         const devpiano::core::KeyBinding* existingBinding = nullptr;
@@ -239,30 +247,33 @@ void MainComponent::persistMainContentSize(int width, int height) {
 
 void MainComponent::initialiseMidiRouting() {
     midiRouter.setCollector(&audioEngine.getMidiCollector());
-    midiRouter.setMessageCallback(
-        [safe = juce::Component::SafePointer<MainComponent>(this)](const juce::MidiMessage& message) {
-            juce::MessageManager::callAsync([safe, message] {
-                if (safe == nullptr)
-                    return;
+    auto userCallback = [safe = juce::Component::SafePointer<MainComponent>(this)](const juce::MidiMessage& message) {
+        juce::MessageManager::callAsync([safe, message] {
+            if (safe == nullptr)
+                return;
 
-                ++safe->externalMidiMessageCount;
+            ++safe->externalMidiMessageCount;
 
-                if (message.isNoteOn())
-                    safe->lastExternalMidiMessage = "Note On " + juce::String(message.getNoteNumber());
-                else if (message.isNoteOff())
-                    safe->lastExternalMidiMessage = "Note Off " + juce::String(message.getNoteNumber());
-                else if (message.isController())
-                    safe->lastExternalMidiMessage = "CC " + juce::String(message.getControllerNumber());
-                else if (message.isProgramChange())
-                    safe->lastExternalMidiMessage = "Program " + juce::String(message.getProgramChangeNumber());
-                else if (message.isPitchWheel())
-                    safe->lastExternalMidiMessage = "Pitch Wheel";
-                else
-                    safe->lastExternalMidiMessage = message.getDescription();
+            if (message.isNoteOn())
+                safe->lastExternalMidiMessage = "Note On " + juce::String(message.getNoteNumber());
+            else if (message.isNoteOff())
+                safe->lastExternalMidiMessage = "Note Off " + juce::String(message.getNoteNumber());
+            else if (message.isController())
+                safe->lastExternalMidiMessage = "CC " + juce::String(message.getControllerNumber());
+            else if (message.isProgramChange())
+                safe->lastExternalMidiMessage = "Program " + juce::String(message.getProgramChangeNumber());
+            else if (message.isPitchWheel())
+                safe->lastExternalMidiMessage = "Pitch Wheel";
+            else
+                safe->lastExternalMidiMessage = message.getDescription();
 
-                safe->refreshMidiStatusFromCurrentSnapshot();
-            });
+            safe->refreshMidiStatusFromCurrentSnapshot();
         });
+    };
+
+    // Apply the 16-channel matrix to incoming external MIDI before the
+    // user callback.  When the matrix is inactive this is a no-op.
+    midiRouter.setMessageCallback(midiChannelMapper.installRouterCallback(std::move(userCallback)));
     midiRouter.openAllInputs();
 }
 
