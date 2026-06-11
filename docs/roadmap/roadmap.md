@@ -144,11 +144,31 @@
   - fixture `sustain-pedal.mid` 已用于手工验证。
 
 **暂缓项：**
-- Phase 6-3（最近文件列表 + 拖拽打开）与 Phase 6-4（基础 MIDI 编辑）暂缓，规划见 [`../planning/roadmap-extensions.md`](../planning/roadmap-extensions.md)。
+**Phase 6-3：最近文件列表 + 拖拽打开**（暂缓）
+- 最近打开的演奏文件/MIDI 文件列表（最多 10 条）。
+- 拖拽 `.devpiano` / `.mid` 文件到窗口触发打开。
++
+**Phase 6-4：基础 MIDI 编辑（delete notes）**（暂缓）
+- 选中音符 → 删除。需将 `RecordingTake.events` 改为可变结构。
+- 最小编辑能力：只做删除，不做添加/移动/量化。
 
-### Phase 7 & Phase 8：远期规划
-
-状态：未开始。详见 [`../planning/roadmap-extensions.md`](../planning/roadmap-extensions.md)。
+### Phase 7：完整工程文件与多轨支持
+状态：未开始，粗略规划。
+**可能包含：**
+- 完整工程文件（`.devpiano-project`）：包含演奏数据 + layout preset + 插件状态 + 音频设备配置。
+- 多轨数据模型：`RecordingTake` 引入 track 概念。
+- Tempo map 支持：导入/编辑/保存 tempo 变化。
+- VST3 插件离线渲染（Phase 3-2 搁置项恢复）。
+- Setting groups：多组独立的八度/移调/力度/通道配置。
+### Phase 8：高级编辑与国际化
+状态：未开始，粗略规划。
+**可能包含：**
+- Piano roll / 事件编辑器 UI。
+- 量化 / snap-to-grid。
+- 多语言 UI（英文/中文）。
+- MP4 视频导出。
+- 自动延音踏板（auto pedal）。
+- Key fade 动画、GUI 透明度等装饰功能。
 
 
 ## 4. 当前近期重点
@@ -157,7 +177,7 @@
 
 1. **Phase 6：演奏数据持久化与播放体验增强** — 进行中，核心功能已基本完成。
    - 已完成：演奏文件保存/打开、播放速度控制、MIDI 导入增强、Diagnostics 最小层、测试夹具库。
-   - 暂缓：最近文件列表 + 拖拽打开（Phase 6-3）、基础 MIDI 编辑（Phase 6-4），见 [`../planning/roadmap-extensions.md`](../planning/roadmap-extensions.md)。
+   - 暂缓：最近文件列表 + 拖拽打开（Phase 6-3）、基础 MIDI 编辑（Phase 6-4）。
 
 
 2. **Phase 4 边界稳定**
