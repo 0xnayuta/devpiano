@@ -15,6 +15,10 @@ void MidiRouter::setMessageCallback(std::function<void(const juce::MidiMessage&)
     onMessage = std::move(callback);
 }
 
+void MidiRouter::setMessageTransformer(MessageTransformer t) {
+    transformer = std::move(t);
+}
+
 int MidiRouter::openAllInputs() {
     closeInputs();
 
@@ -45,9 +49,11 @@ void MidiRouter::handleIncomingMidiMessage(juce::MidiInput* source, const juce::
 
     DP_TRACE_MIDI(devpiano::diagnostics::describeMidiMessage(message), "MidiRouter");
 
+    auto msg = transformer ? transformer(message) : message;
+
     if (collector != nullptr)
-        collector->addMessageToQueue(message);
+        collector->addMessageToQueue(msg);
 
     if (onMessage)
-        onMessage(message);
+        onMessage(msg);
 }

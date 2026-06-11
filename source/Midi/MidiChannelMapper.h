@@ -2,19 +2,17 @@
 
 #include <JuceHeader.h>
 
-#include <functional>
-
 #include "Core/ChannelMatrix.h"
 
 // ============================================================================
 // Per-channel MIDI matrix mapper.
 //
 // Applies the 16-channel configuration matrix to note-on/off messages
-// before they reach the synth.  Three entry points:
+// before they reach the synth.  Entry points:
 //
 //  - mapNoteOn / mapNoteOff: transform a single note message.
-//  - installRouterCallback: wrap a MidiRouter's onMessage callback to
-//    apply the matrix to external MIDI input.
+//  - applyTransform: transform a full juce::MidiMessage (note-on/off only;
+//    all other message types pass through unchanged).
 //
 // When the matrix is inactive (ChannelMatrix::active == false), all
 // messages pass through unchanged.
@@ -30,10 +28,9 @@ public:
     // Transform a note-off.
     [[nodiscard]] juce::MidiMessage mapNoteOff(int sourceChannel, int midiNote, float velocity) const;
 
-    // Wrap a MidiRouter callback to apply the matrix to incoming external MIDI.
-    // Returns a new callback; the original should be set as the MidiRouter's onMessage.
-    [[nodiscard]] std::function<void(const juce::MidiMessage&)>
-    installRouterCallback(std::function<void(const juce::MidiMessage&)> originalCallback) const;
+    // Apply the matrix transform to a full MIDI message.
+    // Non-note messages pass through unchanged.
+    [[nodiscard]] juce::MidiMessage applyTransform(const juce::MidiMessage& msg) const;
 
 private:
     const devpiano::midi::ChannelMatrix& matrix;

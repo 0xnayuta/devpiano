@@ -23,22 +23,17 @@ juce::MidiMessage MidiChannelMapper::mapNoteOff(int sourceChannel, int midiNote,
     return devpiano::midi::applyMatrixToNoteOff(configFor(sourceChannel), sourceChannel, midiNote, velocity);
 }
 
-std::function<void(const juce::MidiMessage&)>
-MidiChannelMapper::installRouterCallback(std::function<void(const juce::MidiMessage&)> userCb) const {
-    if (!matrix.active || userCb == nullptr)
-        return userCb;
+juce::MidiMessage MidiChannelMapper::applyTransform(const juce::MidiMessage& msg) const {
+    if (!matrix.active)
+        return msg;
 
-    return [this, cb = std::move(userCb)](const juce::MidiMessage& msg) {
-        auto copy = msg;
+    auto copy = msg;
+    auto sourceChannel = copy.getChannel() - 1; // 1-based → 0-based
 
-        if (copy.isNoteOn()) {
-            auto ch = copy.getChannel() - 1; // 1-based → 0-based
-            copy = mapNoteOn(ch, copy.getNoteNumber(), copy.getFloatVelocity());
-        } else if (copy.isNoteOff()) {
-            auto ch = copy.getChannel() - 1;
-            copy = mapNoteOff(ch, copy.getNoteNumber(), copy.getFloatVelocity());
-        }
+    if (copy.isNoteOn())
+        copy = mapNoteOn(sourceChannel, copy.getNoteNumber(), copy.getFloatVelocity());
+    else if (copy.isNoteOff())
+        copy = mapNoteOff(sourceChannel, copy.getNoteNumber(), copy.getFloatVelocity());
 
-        cb(copy);
-    };
+    return copy;
 }

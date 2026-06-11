@@ -29,8 +29,7 @@ enum class NoteDisplayMode : uint8_t {
 struct KeyRenderState {
     int midiNote = -1;
     float fade = 0.0f; // [0, 1], decays when key not pressed
-    juce::Colour colour1 { 0x00000000 }; // top gradient colour (ARGB)
-    juce::Colour colour2 { 0x00000000 }; // bottom gradient colour (ARGB)
+    juce::Colour colour1 { 0x00000000 };
     juce::Rectangle<float> bounds;
     juce::String keyLabel; // computer-key binding label ("A", "S", …)
     bool isWhite = false;

@@ -91,15 +91,21 @@ bool KeyboardMidiMapper::triggerBinding(const KeyBinding& binding, juce::MidiKey
 
     if (binding.action.type != KeyActionType::note)
         return false;
-    if (channelMapper != nullptr && binding.action.type == KeyActionType::note) {
-        // Apply 16-channel matrix if active
-        auto mapped = isKeyDownEvent ? channelMapper->mapNoteOn(midiChannel, midiNote, velocity)
-                                     : channelMapper->mapNoteOff(midiChannel, midiNote, velocity);
+
+    const auto midiChannel = binding.action.getMidiChannel().value;
+    const auto midiNote = binding.action.getMidiNoteNumber().value;
+    const auto velocity = binding.action.getVelocity().value;
+
+    if (channelMapper != nullptr) {
+        // MidiChannelMapper expects 0-based source channel; convert from 1-based.
+        auto mapped = isKeyDownEvent ? channelMapper->mapNoteOn(midiChannel - 1, midiNote, velocity)
+                                     : channelMapper->mapNoteOff(midiChannel - 1, midiNote, velocity);
         if (isKeyDownEvent)
             keyboardState.noteOn(mapped.getChannel(), mapped.getNoteNumber(), mapped.getFloatVelocity());
         else
             keyboardState.noteOff(mapped.getChannel(), mapped.getNoteNumber(), mapped.getFloatVelocity());
     } else {
+        // Legacy pass-through — midiChannel is 1-based as JUCE expects.
         if (isKeyDownEvent)
             keyboardState.noteOn(midiChannel, midiNote, velocity);
         else

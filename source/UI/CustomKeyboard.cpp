@@ -13,10 +13,6 @@ static juce::Colour classicColourTop(float fade) {
     auto s = 0.3f + 0.7f * fade;
     return juce::Colour::fromHSV(27.0f / 360.0f, s, 1.0f, fade);
 }
-static juce::Colour classicColourBottom(float fade) {
-    return juce::Colour::fromHSV(30.0f / 360.0f, 1.0f, 1.0f, fade);
-}
-
 // Channel colour mode: 16 predefined hues (FreePiano values)
 constexpr float channelHues[16] = { 30, 10, 350, 330, 310, 290, 270, 210, 190, 170, 150, 130, 110, 90, 70, 50 };
 
@@ -174,26 +170,28 @@ void CustomKeyboard::recalculateKeyBounds() {
         k.fade = 0.0f;
 
         // Determine which white key this black key sits to the right of.
+        // Map black-key semitone → the white-key MIDI note to its immediate left.
         auto semiOffset = n % 12;
         auto octaveBase = n - semiOffset;
-        auto leftWhiteNote = octaveBase; // C of the octave
-
-        // Map black-key semitone → the semitone offset for the white key to its left.
-        // C# is right of C (semi=1), D# right of D (semi=3),
-        // F# right of F (semi=6), G# right of G (semi=8), A# right of A (semi=10).
-        // leftWhiteNote is always the octave-base C; we find the right white key
-        // by counting from rangeLow.  If semi is one of the known black-key offsets
-        // (1,3,6,8,10) then leftWhiteNote stays as the octave C.  For black keys
-        // that aren't standard piano semitones we simply skip.
+        int leftWhiteNote;
         switch (semiOffset) {
         case 1:
+            leftWhiteNote = octaveBase;
+            break; // C# right of C
         case 3:
+            leftWhiteNote = octaveBase + 2;
+            break; // D# right of D
         case 6:
+            leftWhiteNote = octaveBase + 5;
+            break; // F# right of F
         case 8:
+            leftWhiteNote = octaveBase + 7;
+            break; // G# right of G
         case 10:
-            break;
+            leftWhiteNote = octaveBase + 9;
+            break; // A# right of A
         default:
-            continue;
+            continue; // not a standard piano black-key semitone
         }
 
         // Count white keys from rangeLow to leftWhiteNote to get the vector index.
@@ -325,9 +323,7 @@ void CustomKeyboard::mouseDown(const juce::MouseEvent& e) {
     // Immediately visualise the press
     for (auto& k : keys) {
         if (k.midiNote == note) {
-            k.fade = 1.0f;
             k.colour1 = classicColourTop(1.0f);
-            k.colour2 = classicColourBottom(1.0f);
             break;
         }
     }
@@ -368,17 +364,26 @@ void CustomKeyboard::mouseDoubleClick(const juce::MouseEvent& e) {
 // ============================================================================
 
 void CustomKeyboard::timerCallback() {
-    updateKeyStates();
-
     bool anyActive = false;
     bool anyChanged = false;
 
     for (auto& k : keys) {
         auto before = k.fade;
 
-        if (keyboardState.isNoteOn(0, k.midiNote)) {
-            // Key is currently held down → full brightness
-            k.fade = 1.0f;
+        // Check if the note is held on any MIDI channel (1-16).
+        bool noteHeld = false;
+        for (int ch = 1; ch <= 16; ++ch) {
+            if (keyboardState.isNoteOn(ch, k.midiNote)) {
+                noteHeld = true;
+                break;
+            }
+        }
+
+        if (noteHeld) {
+            // Key held down → fade toward 1.0 (completely opaque).
+            k.fade = settings.previewAlpha + settings.fadeSpeed * (1.0f - settings.previewAlpha);
+            if (k.fade > (1.0f - fadeEpsilon))
+                k.fade = 1.0f;
         } else {
             // Key released → exponential decay toward previewAlpha
             k.fade = settings.previewAlpha + settings.fadeSpeed * (k.fade - settings.previewAlpha);
@@ -386,7 +391,9 @@ void CustomKeyboard::timerCallback() {
                 k.fade = 0.0f;
         }
 
-        if (k.fade > fadeEpsilon)
+        // Stop tracking when fade has converged to its target.
+        auto target = noteHeld ? 1.0f : settings.previewAlpha;
+        if (std::abs(k.fade - target) > fadeEpsilon)
             anyActive = true;
 
         if (std::abs(k.fade - before) > fadeEpsilon)
@@ -400,7 +407,6 @@ void CustomKeyboard::timerCallback() {
                     auto idx = static_cast<std::size_t>(k.midiNote);
                     auto ch = perKeyChannel[idx] % 16;
                     k.colour1 = juce::Colour::fromHSV(channelHues[ch] / 360.0f, 0.7f, 1.0f, k.fade);
-                    k.colour2 = juce::Colour::fromHSV(channelHues[ch] / 360.0f, 1.0f, 0.9f, k.fade);
                 }
                 break;
 
@@ -409,14 +415,12 @@ void CustomKeyboard::timerCallback() {
                     auto idx = static_cast<std::size_t>(k.midiNote);
                     auto h = velocityHue(perKeyVelocity[idx]);
                     k.colour1 = juce::Colour::fromHSV(h / 360.0f, 0.7f, 1.0f, k.fade);
-                    k.colour2 = juce::Colour::fromHSV(h / 360.0f, 1.0f, 0.9f, k.fade);
                 }
                 break;
 
             case devpiano::ui::KeyColourMode::classic:
             default:
                 k.colour1 = classicColourTop(k.fade);
-                k.colour2 = classicColourBottom(k.fade);
                 break;
             }
         }
@@ -429,22 +433,26 @@ void CustomKeyboard::timerCallback() {
         stopTimer();
 }
 
-void CustomKeyboard::ensureTimerRunning() {
-    if (!isTimerRunning())
-        startTimer(timerIntervalMs);
-}
-
 void CustomKeyboard::updateKeyStates() {
-    // Ensure the timer is running if any key is pressed.
+    // Ensure the timer is running if any key is pressed on any channel.
     bool anyPressed = false;
     for (const auto& k : keys) {
-        if (keyboardState.isNoteOn(0, k.midiNote)) {
-            anyPressed = true;
-            break;
+        for (int ch = 1; ch <= 16; ++ch) {
+            if (keyboardState.isNoteOn(ch, k.midiNote)) {
+                anyPressed = true;
+                break;
+            }
         }
+        if (anyPressed)
+            break;
     }
     if (anyPressed)
         ensureTimerRunning();
+}
+
+void CustomKeyboard::ensureTimerRunning() {
+    if (!isTimerRunning())
+        startTimer(timerIntervalMs);
 }
 
 // ============================================================================

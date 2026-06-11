@@ -271,9 +271,12 @@ void MainComponent::initialiseMidiRouting() {
         });
     };
 
-    // Apply the 16-channel matrix to incoming external MIDI before the
-    // user callback.  When the matrix is inactive this is a no-op.
-    midiRouter.setMessageCallback(midiChannelMapper.installRouterCallback(std::move(userCallback)));
+    // Apply the 16-channel matrix to incoming external MIDI before it
+    // reaches the collector (synth) and the status callback.
+    // When the matrix is inactive this is a no-op.
+    midiRouter.setMessageTransformer(
+        [&midiMapper = midiChannelMapper](const juce::MidiMessage& msg) { return midiMapper.applyTransform(msg); });
+    midiRouter.setMessageCallback(std::move(userCallback));
     midiRouter.openAllInputs();
 }
 
