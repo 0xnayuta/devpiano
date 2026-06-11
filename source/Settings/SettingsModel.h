@@ -5,6 +5,7 @@
 #include <unordered_map>
 
 #include "Core/KeyMapTypes.h"
+#include "Core/KeyboardTypes.h"
 #include "Layout/LayoutDirectoryScanner.h"
 
 // Persisted settings model.
@@ -44,6 +45,12 @@ struct SettingsModel {
         std::unordered_map<int, int> keyMap;
     };
 
+    struct KeyboardDisplaySettingsView {
+        devpiano::ui::KeyColourMode colourMode = devpiano::ui::KeyColourMode::classic;
+        devpiano::ui::NoteDisplayMode noteDisplay = devpiano::ui::NoteDisplayMode::doReMi;
+        float fadeSpeed = 0.92f;
+    };
+
     // Persisted audio device state (serialized XML from AudioDeviceManager)
     std::unique_ptr<juce::XmlElement> audioDeviceState;
 
@@ -76,6 +83,11 @@ struct SettingsModel {
     // Persisted main content size. Zero means unset; startup will use preferred size.
     int mainWindowWidth = 0;
     int mainWindowHeight = 0;
+
+    // Persisted keyboard display settings.
+    devpiano::ui::KeyColourMode keyboardColourMode = devpiano::ui::KeyColourMode::classic;
+    devpiano::ui::NoteDisplayMode keyboardNoteDisplay = devpiano::ui::NoteDisplayMode::doReMi;
+    float keyboardFadeSpeed = 0.92f;
 
     [[nodiscard]] AudioSettingsView getAudioSettingsView() const {
         return { .sampleRate = sampleRate,
@@ -124,6 +136,16 @@ struct SettingsModel {
     void applyInputMappingSettingsView(const InputMappingSettingsView& view) {
         lastLayoutId = view.layoutId;
         keyMap = view.keyMap;
+    }
+
+    [[nodiscard]] KeyboardDisplaySettingsView getKeyboardDisplaySettingsView() const {
+        return { .colourMode = keyboardColourMode, .noteDisplay = keyboardNoteDisplay, .fadeSpeed = keyboardFadeSpeed };
+    }
+
+    void applyKeyboardDisplaySettingsView(const KeyboardDisplaySettingsView& view) {
+        keyboardColourMode = view.colourMode;
+        keyboardNoteDisplay = view.noteDisplay;
+        keyboardFadeSpeed = view.fadeSpeed;
     }
 
     static juce::ValueTree keyMapToValueTree(const std::unordered_map<int, int>& m) {

@@ -1,7 +1,9 @@
 #include "MainComponent.h"
 
 #include "Diagnostics/DebugLog.h"
+#include "UI/CustomKeyboard.h"
 #include "UI/HeaderPanelStateBuilder.h"
+#include "UI/KeyBindingEditDialog.h"
 #include "UI/PluginPanelStateBuilder.h"
 
 #if JUCE_WINDOWS
@@ -154,6 +156,55 @@ void MainComponent::initialiseUi() {
     recordingEngine.setPlaybackSpeedMultiplier(1.0);
 
     addAndMakeVisible(keyboardPanel);
+
+    // Wire CustomKeyboard mouse interaction → sound
+    auto& customKeyboard = keyboardPanel.getCustomKeyboard();
+    customKeyboard.onNoteOn = [this](int midiNote) {
+        audioEngine.getKeyboardState().noteOn(1, midiNote, 1.0f);
+        suppressTextInputMethods();
+    };
+    customKeyboard.onBindingEditRequested = [this](int midiNote) {
+        // Find the first computer-key binding mapped to this MIDI note
+        const devpiano::core::KeyBinding* existingBinding = nullptr;
+        for (const auto& b : keyboardMidiMapper.getLayout().bindings) {
+            if (b.action.type == devpiano::core::KeyActionType::note && b.action.midiNote == midiNote) {
+                existingBinding = &b;
+                break;
+            }
+        }
+
+        auto noteName = devpiano::ui::getNoteDisplayName(midiNote, devpiano::ui::NoteDisplayMode::noteName);
+
+        auto originalKeyCode = existingBinding ? existingBinding->keyCode : -1;
+
+        KeyBindingEditDialog::launch(
+            midiNote, noteName, existingBinding,
+            [this, originalKeyCode](std::optional<devpiano::core::KeyBinding> updated) {
+                if (!updated)
+                    return; // cancelled
+
+                auto layout = keyboardMidiMapper.getLayout(); // copy (const → mutable)
+
+                if (updated->keyCode == -1) {
+                    // Unbind: remove the binding by original keyCode
+                    auto it = std::remove_if(
+                        layout.bindings.begin(), layout.bindings.end(),
+                        [oc = originalKeyCode](const devpiano::core::KeyBinding& b) { return b.keyCode == oc; });
+                    layout.bindings.erase(it, layout.bindings.end());
+                } else {
+                    // Update existing binding in place
+                    for (auto& b : layout.bindings) {
+                        if (b.keyCode == updated->keyCode) {
+                            b.action = updated->action;
+                            break;
+                        }
+                    }
+                }
+
+                keyboardMidiMapper.setLayout(std::move(layout));
+                syncUiFromSettings();
+            });
+    };
 }
 
 juce::Rectangle<int> MainComponent::getMainContentResizeLimits() {
@@ -371,6 +422,17 @@ void MainComponent::syncUiFromSettings() {
     }
 
     controlsPanel.setLayouts(layoutIds, appSettings.getInputMappingSettingsView().layoutId, layoutDisplayNames);
+
+    keyboardPanel.setKeyboardLayout(keyboardMidiMapper.getLayout());
+
+    {
+        auto kbs = appSettings.getKeyboardDisplaySettingsView();
+        devpiano::ui::KeyboardSettings ks;
+        ks.colourMode = kbs.colourMode;
+        ks.noteDisplay = kbs.noteDisplay;
+        ks.fadeSpeed = kbs.fadeSpeed;
+        keyboardPanel.getCustomKeyboard().setKeyboardSettings(ks);
+    }
 }
 
 void MainComponent::syncSettingsFromUi() {

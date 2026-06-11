@@ -19,6 +19,9 @@ const char* kKeyLastMidiImportPath = "lastMidiImportPath";
 const char* kKeyLastMidiExportPath = "lastMidiExportPath";
 const char* kKeyMainWindowWidth = "mainWindowWidth";
 const char* kKeyMainWindowHeight = "mainWindowHeight";
+const char* kKeyColourMode = "keyboardColourMode";
+const char* kKeyNoteDisplay = "keyboardNoteDisplay";
+const char* kKeyFadeSpeed = "keyboardFadeSpeed";
 
 [[nodiscard]] SettingsModel::PerformanceSettingsView makeDefaultPerformanceSettings() noexcept {
     return {};
@@ -101,6 +104,17 @@ void SettingsStore::readNow(SettingsModel& m) {
         juce::ValueTree t = juce::ValueTree::fromXml(*keyXml);
         m.keyMap = SettingsModel::valueTreeToKeyMap(t);
     }
+
+    // Keyboard display settings
+    {
+        int cm = f.getIntValue(kKeyColourMode, static_cast<int>(m.keyboardColourMode));
+        m.keyboardColourMode = static_cast<devpiano::ui::KeyColourMode>(cm);
+    }
+    {
+        int nd = f.getIntValue(kKeyNoteDisplay, static_cast<int>(m.keyboardNoteDisplay));
+        m.keyboardNoteDisplay = static_cast<devpiano::ui::NoteDisplayMode>(nd);
+    }
+    m.keyboardFadeSpeed = f.getDoubleValue(kKeyFadeSpeed, m.keyboardFadeSpeed);
 }
 
 void SettingsStore::writeNow(const SettingsModel& m) {
@@ -128,7 +142,10 @@ void SettingsStore::writeNow(const SettingsModel& m) {
     f.setValue(kKeyLastMidiImportPath, m.lastMidiImportPath);
     f.setValue(kKeyLastMidiExportPath, m.lastMidiExportPath);
 
-    // Main content size
+    // Keyboard display settings
+    f.setValue(kKeyColourMode, static_cast<int>(m.keyboardColourMode));
+    f.setValue(kKeyNoteDisplay, static_cast<int>(m.keyboardNoteDisplay));
+    f.setValue(kKeyFadeSpeed, m.keyboardFadeSpeed);
     f.setValue(kKeyMainWindowWidth, m.mainWindowWidth);
     f.setValue(kKeyMainWindowHeight, m.mainWindowHeight);
 

@@ -98,6 +98,11 @@ target_sources(devpiano PRIVATE
     source/UI/HeaderPanelStateBuilder.cpp
     source/UI/HeaderPanelStateBuilder.h
     source/UI/KeyboardPanel.cpp
+    source/Core/KeyboardTypes.h
+    source/UI/CustomKeyboard.cpp
+    source/UI/CustomKeyboard.h
+    source/UI/KeyBindingEditDialog.cpp
+    source/UI/KeyBindingEditDialog.h
     source/UI/KeyboardPanel.h
     source/Settings/SettingsModel.h
     source/Settings/SettingsStore.cpp
