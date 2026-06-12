@@ -73,6 +73,10 @@ private:
                                 const juce::String& dialogTitle, const juce::String& filePattern,
                                 std::function<bool(const juce::File&)> doExport);
 
+    void runImportOpenFlow(const juce::String& logPrefix, const juce::String& dialogTitle, const juce::File& startDir,
+                           const juce::String& filePattern, std::unique_ptr<juce::FileChooser>& chooser,
+                           std::function<std::optional<RecordingTake>(const juce::File&)> loadTake);
+
     [[nodiscard]] std::optional<RecordingTake> tryImportMidiFile(const juce::File& file) const;
     void replaceTakeAndStartPlayback(RecordingTake take);
 

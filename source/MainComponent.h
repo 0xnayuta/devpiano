@@ -97,6 +97,7 @@ private:
     double getCurrentRuntimeSampleRate() const;
     int getCurrentRuntimeBlockSize() const;
     [[nodiscard]] RuntimeAudioConfig getCurrentRuntimeAudioConfig() const;
+    [[nodiscard]] bool isKeyboardInputSuppressed() const;
     void runPluginActionWithAudioDeviceRebuild(const std::function<void(const RuntimeAudioConfig&)>& action);
     void runPluginActionWithAudioDeviceRebuild(const std::function<void()>& action);
 

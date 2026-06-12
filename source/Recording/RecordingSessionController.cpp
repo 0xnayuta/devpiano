@@ -183,49 +183,13 @@ void RecordingSessionController::handleExportWavClicked() {
 }
 
 void RecordingSessionController::handleImportMidiClicked() {
-    if (recordingSession.isRecording()) {
-        DP_LOG_INFO("[MIDI Import] import skipped while recording");
-        owner.restoreKeyboardFocus();
-        return;
-    }
-
-    if (recordingSession.isPlaying()) {
-        const auto stoppedTake = stopInternalPlayback();
-        juce::ignoreUnused(stoppedTake);
-        recordingSession.state = ControlsPanel::RecordingState::idle;
-        syncRecordingSessionToUi();
-        DP_LOG_INFO("[MIDI Import] stopped current playback before opening importer");
-    }
-
     const auto startDir = getLastMidiImportDirectory(appSettings);
-
-    importMidiChooser = std::make_unique<juce::FileChooser>("Import MIDI File", startDir, "*.mid;*.midi");
-    importMidiChooser->launchAsync(
-        juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
-        [this](const juce::FileChooser& fc) {
-            auto file = fc.getResult();
-            if (!file.exists()) {
-                importMidiChooser.reset();
-                return;
-            }
-
-            appSettings.lastMidiImportPath = file.getFullPathName();
-            owner.saveSettingsSoon();
-
-            auto take = tryImportMidiFile(file);
-            if (!take.has_value()) {
-                importMidiChooser.reset();
-                return;
-            }
-
-            replaceTakeAndStartPlayback(std::move(*take));
-
-            DP_LOG_INFO("[MIDI Import] imported: " + file.getFullPathName()
-                        + ", events=" + juce::String(static_cast<int>(recordingSession.take.events.size())));
-
-            importMidiChooser.reset();
-            owner.restoreKeyboardFocus();
-        });
+    runImportOpenFlow("MIDI Import", "Import MIDI File", startDir, "*.mid;*.midi", importMidiChooser,
+                      [this](const juce::File& file) -> std::optional<RecordingTake> {
+                          appSettings.lastMidiImportPath = file.getFullPathName();
+                          owner.saveSettingsSoon();
+                          return tryImportMidiFile(file);
+                      });
 }
 
 void RecordingSessionController::handleSavePerformanceClicked() {
@@ -264,51 +228,9 @@ void RecordingSessionController::handleSavePerformanceClicked() {
 }
 
 void RecordingSessionController::handleOpenPerformanceClicked() {
-    if (recordingSession.isRecording()) {
-        DP_LOG_INFO("[Performance File] open skipped while recording");
-        return;
-    }
-
-    if (recordingSession.isPlaying()) {
-        const auto stoppedTake = stopInternalPlayback();
-        juce::ignoreUnused(stoppedTake);
-        recordingSession.state = ControlsPanel::RecordingState::idle;
-        syncRecordingSessionToUi();
-        DP_LOG_INFO("[Performance File] stopped current playback before opening");
-    }
-
-    const auto startDir = juce::File::getCurrentWorkingDirectory();
-
-    performanceFileChooser = std::make_unique<juce::FileChooser>("Open Performance", startDir, "*.devpiano");
-    performanceFileChooser->launchAsync(
-        juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
-        [this](const juce::FileChooser& fc) {
-            auto file = fc.getResult();
-            if (!file.exists()) {
-                performanceFileChooser.reset();
-                return;
-            }
-
-            auto take = devpiano::recording::loadPerformanceFile(file);
-            if (!take.has_value() || take->isEmpty()) {
-                DP_LOG_ERROR("[Performance File] load failed or produced empty take: " + file.getFullPathName());
-                performanceFileChooser.reset();
-                return;
-            }
-
-            recordingSession.take = std::move(*take);
-            recordingSession.state = ControlsPanel::RecordingState::idle;
-            syncRecordingSessionToUi();
-
-            startInternalPlayback(recordingSession.take);
-            recordingSession.state = ControlsPanel::RecordingState::playing;
-            syncRecordingSessionToUi();
-
-            DP_LOG_INFO("[Performance File] opened: " + file.getFullPathName()
-                        + ", events=" + juce::String(static_cast<int>(recordingSession.take.events.size())));
-
-            performanceFileChooser.reset();
-        });
+    runImportOpenFlow("Performance File", "Open Performance", juce::File::getCurrentWorkingDirectory(), "*.devpiano",
+                      performanceFileChooser,
+                      [](const juce::File& file) -> std::optional<RecordingTake> { return loadPerformanceFile(file); });
 }
 
 void RecordingSessionController::handlePlaybackSpeedChange(double speed) {
@@ -453,13 +375,58 @@ std::optional<RecordingTake> RecordingSessionController::tryImportMidiFile(const
     return take;
 }
 
+void RecordingSessionController::runImportOpenFlow(
+    const juce::String& logPrefix, const juce::String& dialogTitle, const juce::File& startDir,
+    const juce::String& filePattern, std::unique_ptr<juce::FileChooser>& chooser,
+    std::function<std::optional<RecordingTake>(const juce::File&)> loadTake) {
+    if (recordingSession.isRecording()) {
+        DP_LOG_INFO("[" + logPrefix + "] skipped while recording");
+        owner.restoreKeyboardFocus();
+        return;
+    }
+
+    if (recordingSession.isPlaying()) {
+        const auto stoppedTake = stopInternalPlayback();
+        juce::ignoreUnused(stoppedTake);
+        recordingSession.state = ControlsPanel::RecordingState::idle;
+        syncRecordingSessionToUi();
+        DP_LOG_INFO("[" + logPrefix + "] stopped current playback before opening");
+    }
+
+    chooser = std::make_unique<juce::FileChooser>(dialogTitle, startDir, filePattern);
+    chooser->launchAsync(
+        juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+        [this, logPrefix, &chooser, loadTake = std::move(loadTake)](const juce::FileChooser& fc) {
+            auto file = fc.getResult();
+            if (!file.exists()) {
+                chooser.reset();
+                return;
+            }
+
+            auto take = loadTake(file);
+            if (!take.has_value() || take->isEmpty()) {
+                DP_LOG_ERROR("[" + logPrefix + "] failed or produced empty take: " + file.getFullPathName());
+                chooser.reset();
+                return;
+            }
+
+            replaceTakeAndStartPlayback(std::move(*take));
+
+            DP_LOG_INFO("[" + logPrefix + "] " + file.getFullPathName()
+                        + ", events=" + juce::String(static_cast<int>(recordingSession.take.events.size())));
+
+            chooser.reset();
+            owner.restoreKeyboardFocus();
+        });
+}
+
 void RecordingSessionController::replaceTakeAndStartPlayback(RecordingTake take) {
     if (recordingSession.isPlaying()) {
         const auto stoppedTake = stopInternalPlayback();
         juce::ignoreUnused(stoppedTake);
         recordingSession.state = ControlsPanel::RecordingState::idle;
         syncRecordingSessionToUi();
-        DP_LOG_INFO("[MIDI Import] stopped current playback before replacing take");
+        DP_LOG_INFO("[Take] stopped current playback before replacing take");
     }
 
     recordingSession.take = std::move(take);

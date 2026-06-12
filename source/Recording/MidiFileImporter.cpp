@@ -109,6 +109,20 @@ void logTrackNoteStats(const std::vector<TrackNoteStats>& stats) {
     }
 }
 
+void appendNonNoteEvent(std::vector<devpiano::recording::PerformanceEvent>& events, int64_t& lastTimestamp,
+                        const juce::MidiMessage& midiMsg, double targetSampleRate) {
+    const auto ts = midiMsg.getTimeStamp();
+    if (ts >= 0.0) {
+        const auto tsSamples = static_cast<int64_t>(ts * targetSampleRate);
+        lastTimestamp = std::max(lastTimestamp, tsSamples);
+        devpiano::recording::PerformanceEvent ev;
+        ev.timestampSamples = tsSamples;
+        ev.source = devpiano::recording::RecordingEventSource::playback;
+        ev.message = midiMsg;
+        events.push_back(std::move(ev));
+    }
+}
+
 } // namespace
 
 namespace devpiano::recording {
@@ -215,40 +229,13 @@ std::optional<RecordingTake> importMidiFile(const juce::File& midiFile, double t
             // Phase 6-5: collect CC (including CC64 sustain), pitch bend, and program change
             if (midiMsg.isController()) {
                 ++ccCount;
-                const auto ts = midiMsg.getTimeStamp();
-                if (ts >= 0.0) {
-                    const auto tsSamples = static_cast<int64_t>(ts * targetSampleRate);
-                    lastTimestampSamples = std::max(lastTimestampSamples, tsSamples);
-                    PerformanceEvent ev;
-                    ev.timestampSamples = tsSamples;
-                    ev.source = RecordingEventSource::playback;
-                    ev.message = midiMsg;
-                    events.push_back(std::move(ev));
-                }
+                appendNonNoteEvent(events, lastTimestampSamples, midiMsg, targetSampleRate);
             } else if (midiMsg.isPitchWheel()) {
                 ++pitchBendCount;
-                const auto ts = midiMsg.getTimeStamp();
-                if (ts >= 0.0) {
-                    const auto tsSamples = static_cast<int64_t>(ts * targetSampleRate);
-                    lastTimestampSamples = std::max(lastTimestampSamples, tsSamples);
-                    PerformanceEvent ev;
-                    ev.timestampSamples = tsSamples;
-                    ev.source = RecordingEventSource::playback;
-                    ev.message = midiMsg;
-                    events.push_back(std::move(ev));
-                }
+                appendNonNoteEvent(events, lastTimestampSamples, midiMsg, targetSampleRate);
             } else if (midiMsg.isProgramChange()) {
                 ++programChangeCount;
-                const auto ts = midiMsg.getTimeStamp();
-                if (ts >= 0.0) {
-                    const auto tsSamples = static_cast<int64_t>(ts * targetSampleRate);
-                    lastTimestampSamples = std::max(lastTimestampSamples, tsSamples);
-                    PerformanceEvent ev;
-                    ev.timestampSamples = tsSamples;
-                    ev.source = RecordingEventSource::playback;
-                    ev.message = midiMsg;
-                    events.push_back(std::move(ev));
-                }
+                appendNonNoteEvent(events, lastTimestampSamples, midiMsg, targetSampleRate);
             } else {
                 // Trace other non-note events (SysEx, meta, etc.) for diagnostics
                 DP_TRACE_MIDI(devpiano::diagnostics::describeMidiMessage(midiMsg), "MidiImporter");

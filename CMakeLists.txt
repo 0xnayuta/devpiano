@@ -113,6 +113,8 @@ target_sources(devpiano PRIVATE
     source/Settings/SettingsComponent.h
     source/Settings/SettingsWindowManager.cpp
     source/Settings/SettingsWindowManager.h
+    source/Settings/SettingsSerialization.cpp
+    source/Settings/SettingsSerialization.h
     source/Layout/LayoutPreset.cpp
     source/Layout/LayoutPreset.h
     source/Layout/LayoutDirectoryScanner.cpp
@@ -196,6 +198,8 @@ if (BUILD_TESTS)
         source/Core/AppState.h
         source/Input/KeyboardMidiMapper.cpp
         source/Input/KeyboardMidiMapper.h
+        source/Midi/MidiChannelMapper.cpp
+        source/Midi/MidiChannelMapper.h
         source/Diagnostics/DebugLog.cpp
         source/Diagnostics/DebugLog.h
         source/Diagnostics/MidiTrace.cpp

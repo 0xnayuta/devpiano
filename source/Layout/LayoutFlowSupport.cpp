@@ -5,6 +5,7 @@
 #include "Layout/LayoutDirectoryScanner.h"
 #include "Layout/LayoutPreset.h"
 #include "MainComponent.h"
+#include "Settings/SettingsSerialization.h"
 
 namespace devpiano::layout {
 namespace {
@@ -45,7 +46,7 @@ void LayoutFlowSupport::handleLayoutChanged(const juce::String& newLayoutId) {
         return;
     }
 
-    applyLayoutAndCommit(SettingsModel::keyMapToLayout({}, nextLayoutId));
+    applyLayoutAndCommit(devpiano::settings::keyMapToLayout({}, nextLayoutId));
 }
 
 void LayoutFlowSupport::handleSaveLayoutRequested() {
@@ -72,7 +73,7 @@ void LayoutFlowSupport::handleResetLayoutToDefaultRequested() {
     const auto layoutId
         = currentLayoutId.isNotEmpty() ? currentLayoutId : owner.appSettings.getInputMappingSettingsView().layoutId;
 
-    applyLayoutAndCommit(SettingsModel::keyMapToLayout({}, layoutId));
+    applyLayoutAndCommit(devpiano::settings::keyMapToLayout({}, layoutId));
 }
 
 void LayoutFlowSupport::handleImportLayoutRequested() {
@@ -135,7 +136,7 @@ void LayoutFlowSupport::applyLayoutAndCommit(const devpiano::core::KeyboardLayou
     owner.keyboardMidiMapper.setLayout(layout);
     owner.appSettings.applyInputMappingSettingsView(
         { .layoutId = owner.keyboardMidiMapper.getLayout().id,
-          .keyMap = SettingsModel::layoutToKeyMap(owner.keyboardMidiMapper.getLayout()) });
+          .keyMap = devpiano::settings::layoutToKeyMap(owner.keyboardMidiMapper.getLayout()) });
     owner.syncUiFromSettings();
     owner.saveSettingsSoon();
     owner.restoreKeyboardFocus();
@@ -188,7 +189,7 @@ void LayoutFlowSupport::runLayoutRenameDialog(const juce::String& layoutId, cons
                 safeOwner->keyboardMidiMapper.setLayoutDisplayName(updatedDisplayName);
                 safeOwner->appSettings.applyInputMappingSettingsView(
                     { .layoutId = layoutId,
-                      .keyMap = SettingsModel::layoutToKeyMap(safeOwner->keyboardMidiMapper.getLayout()) });
+                      .keyMap = devpiano::settings::layoutToKeyMap(safeOwner->keyboardMidiMapper.getLayout()) });
             }
 
             safeOwner->syncUiFromSettings();
@@ -221,7 +222,7 @@ void LayoutFlowSupport::runLayoutDeleteDialog(const juce::String& layoutId, cons
                 safeOwner->keyboardMidiMapper.setLayout(devpiano::core::makeDefaultKeyboardLayout());
                 safeOwner->appSettings.applyInputMappingSettingsView(
                     { .layoutId = safeOwner->keyboardMidiMapper.getLayout().id,
-                      .keyMap = SettingsModel::layoutToKeyMap(safeOwner->keyboardMidiMapper.getLayout()) });
+                      .keyMap = devpiano::settings::layoutToKeyMap(safeOwner->keyboardMidiMapper.getLayout()) });
             }
             safeOwner->syncUiFromSettings();
             safeOwner->saveSettingsSoon();

@@ -1,4 +1,5 @@
 #include "SettingsStore.h"
+#include "Settings/SettingsSerialization.h"
 
 namespace {
 const char* kSectionApp = "DevPiano";
@@ -103,7 +104,7 @@ void SettingsStore::readNow(SettingsModel& m) {
     // keymap as ValueTree XML
     if (auto keyXml = f.getXmlValue(kKeyMap)) {
         juce::ValueTree t = juce::ValueTree::fromXml(*keyXml);
-        m.keyMap = SettingsModel::valueTreeToKeyMap(t);
+        m.keyMap = devpiano::settings::valueTreeToKeyMap(t);
     }
 
     // Keyboard display settings
@@ -120,7 +121,7 @@ void SettingsStore::readNow(SettingsModel& m) {
     // Channel matrix as ValueTree XML.
     if (auto cmXml = f.getXmlValue(kKeyChannelMatrix)) {
         juce::ValueTree t = juce::ValueTree::fromXml(*cmXml);
-        m.channelMatrix = SettingsModel::valueTreeToChannelMatrix(t);
+        m.channelMatrix = devpiano::settings::valueTreeToChannelMatrix(t);
     }
 }
 
@@ -154,7 +155,7 @@ void SettingsStore::writeNow(const SettingsModel& m) {
 
     // Channel matrix as ValueTree XML.
     {
-        auto t = SettingsModel::channelMatrixToValueTree(m.channelMatrix);
+        auto t = devpiano::settings::channelMatrixToValueTree(m.channelMatrix);
         if (auto xml = t.createXml())
             f.setValue(kKeyChannelMatrix, xml->toString());
     }
@@ -165,7 +166,7 @@ void SettingsStore::writeNow(const SettingsModel& m) {
 
     // keymap serialize to ValueTree XML
     {
-        auto t = SettingsModel::keyMapToValueTree(m.keyMap);
+        auto t = devpiano::settings::keyMapToValueTree(m.keyMap);
         if (auto xml = t.createXml())
             f.setValue(kKeyMap, xml->toString());
     }
