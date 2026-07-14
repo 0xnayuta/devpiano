@@ -50,6 +50,7 @@ public:
     bool keyPressed(const juce::KeyPress& key) override;
     bool keyStateChanged(bool isKeyDown) override;
     [[nodiscard]] bool isKeyboardInputSuppressed() const noexcept;
+    [[nodiscard]] bool shouldTakeKeyboardFocus() const noexcept;
 
 protected:
     void focusGained(juce::Component::FocusChangeType cause) override;

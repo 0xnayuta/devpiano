@@ -365,16 +365,24 @@ bool MainComponent::isKeyboardInputSuppressed() const noexcept {
     return false;
 }
 
-void MainComponent::focusGained(juce::Component::FocusChangeType cause) {
-    juce::AudioAppComponent::focusGained(cause);
+bool MainComponent::shouldTakeKeyboardFocus() const noexcept {
     if (auto* mcm = juce::ModalComponentManager::getInstanceWithoutCreating();
         mcm != nullptr && mcm->getNumModalComponents() > 0)
-        return;
+        return false;
 
     if (isSettingsWindowOpen())
-        return;
+        return false;
 
     if (pluginOperationController != nullptr && pluginOperationController->hasEditorWindowOpen())
+        return false;
+
+    return true;
+}
+
+void MainComponent::focusGained(juce::Component::FocusChangeType cause) {
+    juce::AudioAppComponent::focusGained(cause);
+
+    if (!shouldTakeKeyboardFocus())
         return;
 
     // Windows may have already given us focus via WM_SETFOCUS before grabKeyboardFocus ran,
@@ -483,13 +491,7 @@ void MainComponent::suppressTextInputMethods() {
 }
 
 void MainComponent::restoreKeyboardFocus() {
-    if (auto* mcm = juce::ModalComponentManager::getInstanceWithoutCreating();
-        mcm != nullptr && mcm->getNumModalComponents() > 0)
-        return;
-    if (isSettingsWindowOpen())
-        return;
-
-    if (pluginOperationController != nullptr && pluginOperationController->hasEditorWindowOpen())
+    if (!shouldTakeKeyboardFocus())
         return;
 
     if (isShowing() && juce::Component::getCurrentlyFocusedComponent() != this)
@@ -505,6 +507,9 @@ void MainComponent::initialiseAudioDevice() {
         : nullptr;
 
     setAudioChannels(0, 2, savedState);
+
+    if (deviceManager.getCurrentAudioDevice() == nullptr)
+        DP_LOG_ERROR("[AudioDevice] initialiseAudioDevice: no device available after initialization");
 
     captureAudioDeviceState();
     logCurrentAudioDeviceDiagnostics("initialiseAudioDevice");

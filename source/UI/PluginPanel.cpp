@@ -194,8 +194,8 @@ juce::File PluginPanel::getInitialBrowseDirectory() const {
 
 void PluginPanel::setupBrowseButton() {
     browseButton.onClick = [this] {
-        auto startDir = getInitialBrowseDirectory();
-        auto* chooser = new juce::FileChooser("Select VST3 Plugin Folder", startDir, "", true);
+        auto chooser
+            = std::make_shared<juce::FileChooser>("Select VST3 Plugin Folder", getInitialBrowseDirectory(), "", true);
         chooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories,
                              [this, chooser](const juce::FileChooser& fc) {
                                  auto folder = fc.getResult();
@@ -204,7 +204,6 @@ void PluginPanel::setupBrowseButton() {
                                      if (onScanRequested)
                                          onScanRequested();
                                  }
-                                 delete chooser;
                              });
     };
 }

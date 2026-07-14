@@ -56,47 +56,7 @@ void SettingsWindowManager::show(ShowOptions options) {
     state->onClosed = std::move(options.onClosed);
     state->closePending = false;
 
-    const auto requestCloseAsync = [](std::weak_ptr<State> weakState) {
-        if (auto lockedState = weakState.lock()) {
-            if (lockedState->window == nullptr || lockedState->closePending)
-                return;
-
-            lockedState->closePending = true;
-        }
-
-        juce::MessageManager::callAsync([weakState] {
-            if (auto lockedState = weakState.lock()) {
-                if (lockedState->window == nullptr)
-                    return;
-
-                if (lockedState->window != nullptr)
-                    lockedState->window->setVisible(false);
-
-                lockedState->window.reset();
-                lockedState->closePending = false;
-
-                if (lockedState->onClosed)
-                    lockedState->onClosed();
-            }
-        });
-    };
-
-    auto content = std::make_unique<SettingsComponent>(options.deviceManager, options.savedAudioDeviceState);
-    auto* contentPtr = content.get();
-
-    contentPtr->onSaveRequested = [requestCloseAsync, weakState = std::weak_ptr<State>(state)] {
-        if (auto lockedState = weakState.lock()) {
-            if (lockedState->window == nullptr || lockedState->closePending)
-                return;
-
-            if (lockedState->onSaveRequested)
-                lockedState->onSaveRequested();
-
-            requestCloseAsync(weakState);
-        }
-    };
-
-    auto closeWindow = [requestCloseAsync, weakState = std::weak_ptr<State>(state)] {
+    auto closeWindow = [this, weakState = std::weak_ptr<State>(state)] {
         if (auto lockedState = weakState.lock()) {
             if (lockedState->window == nullptr || lockedState->closePending)
                 return;
@@ -107,7 +67,22 @@ void SettingsWindowManager::show(ShowOptions options) {
                     lockedState->onSaveRequested();
             }
 
-            requestCloseAsync(weakState);
+            closeAsync();
+        }
+    };
+
+    auto content = std::make_unique<SettingsComponent>(options.deviceManager, options.savedAudioDeviceState);
+    auto* contentPtr = content.get();
+
+    contentPtr->onSaveRequested = [this, weakState = std::weak_ptr<State>(state)] {
+        if (auto lockedState = weakState.lock()) {
+            if (lockedState->window == nullptr || lockedState->closePending)
+                return;
+
+            if (lockedState->onSaveRequested)
+                lockedState->onSaveRequested();
+
+            closeAsync();
         }
     };
 

@@ -69,8 +69,7 @@ struct AudioDeviceDiagnostics {
     live.sampleRate = setup.sampleRate;
     live.bufferSize = setup.bufferSize;
 
-    if (const auto* currentDevice = deviceManager.getCurrentAudioDevice()) {
-        auto* device = const_cast<juce::AudioIODevice*>(currentDevice);
+    if (auto* device = deviceManager.getCurrentAudioDevice()) {
         live.hasLiveDevice = true;
         live.backendName = device->getTypeName().isNotEmpty() ? device->getTypeName() : live.backendName;
         live.deviceName = device->getName();

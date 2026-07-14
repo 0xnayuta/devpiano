@@ -229,8 +229,7 @@ void RecordingSessionController::handleSavePerformanceClicked() {
 
 void RecordingSessionController::handleOpenPerformanceClicked() {
     runImportOpenFlow("Performance File", "Open Performance", juce::File::getCurrentWorkingDirectory(), "*.devpiano",
-                      performanceFileChooser,
-                      [](const juce::File& file) -> std::optional<RecordingTake> {
+                      performanceFileChooser, [](const juce::File& file) -> std::optional<RecordingTake> {
                           return devpiano::recording::loadPerformanceFile(file);
                       });
 }
@@ -265,15 +264,13 @@ int RecordingSessionController::getCurrentRuntimeBlockSize() const {
 }
 
 void RecordingSessionController::startInternalRecording(std::size_t expectedEventCapacity) {
-    const auto capacity = expectedEventCapacity > 0
-        ? expectedEventCapacity
-        : defaultRecordingEventsPerSecond * defaultRecordingCapacitySeconds;
+    const auto capacity = expectedEventCapacity > 0 ? expectedEventCapacity
+                                                    : defaultRecordingEventsPerSecond * defaultRecordingCapacitySeconds;
 
-    owner.runPluginActionWithAudioDeviceRebuild(
-        [this, capacity](const MainComponent::RuntimeAudioConfig& config) {
-            recordingEngine.reserveEvents(capacity);
-            recordingEngine.startRecording(config.sampleRate);
-        });
+    owner.runPluginActionWithAudioDeviceRebuild([this, capacity](const MainComponent::RuntimeAudioConfig& config) {
+        recordingEngine.reserveEvents(capacity);
+        recordingEngine.startRecording(config.sampleRate);
+    });
 
     DP_LOG_INFO("[Recording] Internal recording started; reserved events="
                 + juce::String(static_cast<int>(recordingEngine.getReservedEventCapacity())));
@@ -285,8 +282,7 @@ RecordingTake RecordingSessionController::stopInternalRecording() {
     owner.runPluginActionWithAudioDeviceRebuild(
         [this, &take](const MainComponent::RuntimeAudioConfig&) { take = recordingEngine.stopRecording(); });
 
-    DP_LOG_INFO("[Recording] Internal recording stopped; events="
-                + juce::String(static_cast<int>(take.events.size()))
+    DP_LOG_INFO("[Recording] Internal recording stopped; events=" + juce::String(static_cast<int>(take.events.size()))
                 + ", dropped=" + juce::String(static_cast<int>(recordingEngine.getDroppedEventCount())));
     return take;
 }
@@ -305,8 +301,7 @@ void RecordingSessionController::startInternalPlayback(const RecordingTake& take
     });
 
     DP_LOG_INFO("[Playback] Internal playback started; take events="
-                + juce::String(static_cast<int>(take.events.size()))
-                + ", sampleRate=" + juce::String(take.sampleRate));
+                + juce::String(static_cast<int>(take.events.size())) + ", sampleRate=" + juce::String(take.sampleRate));
 }
 
 RecordingTake RecordingSessionController::stopInternalPlayback() {
@@ -326,14 +321,14 @@ void RecordingSessionController::syncRecordingSessionToUi() {
                                               .canExportWavTake = recordingSession.hasTake() });
 }
 
-void RecordingSessionController::runExportRecordingFlow(
-    devpiano::exporting::ExportFileType type, std::unique_ptr<juce::FileChooser>& chooser,
-    const juce::String& dialogTitle, const juce::String& filePattern,
-    std::function<bool(const juce::File&)> doExport) {
+void RecordingSessionController::runExportRecordingFlow(devpiano::exporting::ExportFileType type,
+                                                        std::unique_ptr<juce::FileChooser>& chooser,
+                                                        const juce::String& dialogTitle,
+                                                        const juce::String& filePattern,
+                                                        std::function<bool(const juce::File&)> doExport) {
     const auto hasExportableTake = devpiano::exporting::canExportTake(recordingSession.take);
-    const auto canExportRequestedType = type == devpiano::exporting::ExportFileType::midi
-        ? recordingSession.canExportMidi
-        : hasExportableTake;
+    const auto canExportRequestedType
+        = type == devpiano::exporting::ExportFileType::midi ? recordingSession.canExportMidi : hasExportableTake;
 
     if (!canExportRequestedType || !hasExportableTake) {
         DP_LOG_INFO(devpiano::exporting::makeExportLogPrefix(type)
@@ -344,30 +339,29 @@ void RecordingSessionController::runExportRecordingFlow(
     const auto defaultFile = makeDefaultMidiExportFile(appSettings, type);
 
     chooser = std::make_unique<juce::FileChooser>(dialogTitle, defaultFile, filePattern);
-    chooser->launchAsync(juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles
-                             | juce::FileBrowserComponent::warnAboutOverwriting,
-                         [this, type, &chooser, doExport = std::move(doExport)](const juce::FileChooser& fc) {
-                             auto file = fc.getResult();
+    chooser->launchAsync(
+        juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles
+            | juce::FileBrowserComponent::warnAboutOverwriting,
+        [this, type, &chooser, doExport = std::move(doExport)](const juce::FileChooser& fc) {
+            auto file = fc.getResult();
 
-                             if (file == juce::File()) {
-                                 DP_LOG_INFO(devpiano::exporting::makeExportLogPrefix(type)
-                                             + " export cancelled by user");
-                                 chooser.reset();
-                                 return;
-                             }
+            if (file == juce::File()) {
+                DP_LOG_INFO(devpiano::exporting::makeExportLogPrefix(type) + " export cancelled by user");
+                chooser.reset();
+                return;
+            }
 
-                             appSettings.lastMidiExportPath = file.getFullPathName();
-                             owner.saveSettingsSoon();
+            appSettings.lastMidiExportPath = file.getFullPathName();
+            owner.saveSettingsSoon();
 
-                             if (doExport(file))
-                                 DP_LOG_INFO(devpiano::exporting::makeExportLogPrefix(type)
-                                             + " exported: " + file.getFullPathName());
-                             else
-                                 DP_LOG_ERROR(devpiano::exporting::makeExportLogPrefix(type)
-                                              + " export FAILED: " + file.getFullPathName());
+            if (doExport(file))
+                DP_LOG_INFO(devpiano::exporting::makeExportLogPrefix(type) + " exported: " + file.getFullPathName());
+            else
+                DP_LOG_ERROR(devpiano::exporting::makeExportLogPrefix(type)
+                             + " export FAILED: " + file.getFullPathName());
 
-                             chooser.reset();
-                         });
+            chooser.reset();
+        });
 }
 
 std::optional<RecordingTake> RecordingSessionController::tryImportMidiFile(const juce::File& file) const {
