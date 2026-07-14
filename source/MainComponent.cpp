@@ -322,8 +322,10 @@ bool MainComponent::keyPressed(const juce::KeyPress& key) {
 
     const auto handled = keyboardMidiMapper.handleKeyPressed(key, audioEngine.getKeyboardState());
 
-    if (handled)
+    if (handled) {
+        keyboardPanel.getCustomKeyboard().notifyNoteActivity();
         suppressTextInputMethods();
+    }
 
     return handled;
 }
@@ -339,8 +341,10 @@ bool MainComponent::keyStateChanged(bool isKeyDown) {
 
     const auto handled = keyboardMidiMapper.handleKeyStateChanged(audioEngine.getKeyboardState());
 
-    if (handled)
+    if (handled) {
+        keyboardPanel.getCustomKeyboard().notifyNoteActivity();
         suppressTextInputMethods();
+    }
 
     return handled;
 }

@@ -188,7 +188,7 @@ private:
 class BindingEditWindow final : public juce::DialogWindow {
 public:
     BindingEditWindow(juce::String title, std::unique_ptr<juce::Component> content)
-        : juce::DialogWindow(std::move(title), juce::Colour(0xff303030), true, true) {
+        : juce::DialogWindow(std::move(title), juce::Colour(0xff202225), true, true) {
         setUsingNativeTitleBar(true);
         setContentOwned(content.release(), true);
         centreAroundComponent(nullptr, getWidth(), getHeight());

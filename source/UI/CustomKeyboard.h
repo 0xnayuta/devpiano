@@ -41,6 +41,11 @@ public:
     // ---- Layout ------------------------------------------------------------
     void setKeyboardLayout(const devpiano::core::KeyboardLayout& layout);
 
+    // ---- External notification ---------------------------------------------
+    // Wake the fade timer when notes arrive from outside (physical keyboard,
+    // external MIDI).  Safe to call redundantly; timer runs at ~30 fps.
+    void notifyNoteActivity();
+
 private:
     // juce::Component
     void paint(juce::Graphics& g) override;

@@ -328,6 +328,7 @@ void CustomKeyboard::mouseDown(const juce::MouseEvent& e) {
         auto ch = (note >= 0 && note < 128) ? static_cast<int>(perKeyChannel[static_cast<std::size_t>(note)]) : 0;
         onNoteOn(note, ch);
     }
+    ensureTimerRunning();
 }
 
 void CustomKeyboard::mouseUp(const juce::MouseEvent& e) {
@@ -458,6 +459,10 @@ void CustomKeyboard::timerCallback() {
 void CustomKeyboard::ensureTimerRunning() {
     if (!isTimerRunning())
         startTimer(timerIntervalMs);
+}
+
+void CustomKeyboard::notifyNoteActivity() {
+    ensureTimerRunning();
 }
 
 // ============================================================================
