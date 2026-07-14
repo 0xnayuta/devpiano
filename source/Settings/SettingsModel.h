@@ -4,9 +4,9 @@
 
 #include <unordered_map>
 
+#include "Core/ChannelMatrix.h"
 #include "Core/KeyMapTypes.h"
 #include "Core/KeyboardTypes.h"
-#include "Core/ChannelMatrix.h"
 #include "Layout/LayoutDirectoryScanner.h"
 
 // Persisted settings model.

@@ -63,6 +63,8 @@ target_sources(devpiano PRIVATE
     source/Core/AppStateBuilder.h
     source/Midi/MidiRouter.cpp
     source/Midi/MidiRouter.h
+    source/Midi/MidiChannelMapper.cpp
+    source/Midi/MidiChannelMapper.h
     source/Plugin/PluginHost.cpp
     source/Plugin/PluginHost.h
     source/Plugin/PluginFlowSupport.cpp
@@ -202,6 +204,9 @@ if (BUILD_TESTS)
         source/Recording/MidiFileImporter.h
         source/Recording/RecordingEngine.cpp
         source/Recording/RecordingEngine.h
+
+        source/Midi/MidiChannelMapper.cpp
+        source/Midi/MidiChannelMapper.h
         # 测试代码
         source/tests/TestRunner.cpp
         source/tests/KeyMapTypesTest.cpp

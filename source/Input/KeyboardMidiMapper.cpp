@@ -1,5 +1,7 @@
 #include "KeyboardMidiMapper.h"
 
+#include "Midi/MidiChannelMapper.h"
+
 using namespace devpiano::core;
 
 KeyboardMidiMapper::KeyboardMidiMapper() {
@@ -17,6 +19,10 @@ void KeyboardMidiMapper::setLayoutDisplayName(juce::String newDisplayName) {
 
 const KeyboardLayout& KeyboardMidiMapper::getLayout() const noexcept {
     return layout;
+}
+
+void KeyboardMidiMapper::setChannelMapper(devpiano::midi::MidiChannelMapper* mapper) noexcept {
+    channelMapper = mapper;
 }
 
 void KeyboardMidiMapper::resetToDefaultLayout() {
@@ -58,10 +64,13 @@ bool KeyboardMidiMapper::handleKeyStateChanged(juce::MidiKeyboardState& keyboard
 
         if (!isCurrentlyDown && wasHeld) {
             if (binding.action.type == KeyActionType::note) {
-                const auto midiChannel = binding.action.getMidiChannel().value;
+                const auto midiChannel = binding.action.getMidiChannel().value; // 1-based
                 const auto midiNote = binding.action.getMidiNoteNumber().value;
                 const auto velocity = binding.action.getVelocity().value;
-                keyboardState.noteOff(midiChannel, midiNote, velocity);
+                if (channelMapper != nullptr)
+                    channelMapper->sendNoteOff(midiChannel - 1, midiNote, velocity, keyboardState);
+                else
+                    keyboardState.noteOff(midiChannel, midiNote, velocity);
                 consumed = true;
             } else {
                 consumed = triggerBinding(binding, keyboardState, false) || consumed;
@@ -87,14 +96,22 @@ bool KeyboardMidiMapper::triggerBinding(const KeyBinding& binding, juce::MidiKey
     if (binding.action.type != KeyActionType::note)
         return false;
 
-    const auto midiChannel = binding.action.getMidiChannel().value;
+    const auto midiChannel = binding.action.getMidiChannel().value; // 1-based
     const auto midiNote = binding.action.getMidiNoteNumber().value;
     const auto velocity = binding.action.getVelocity().value;
 
-    if (isKeyDownEvent)
-        keyboardState.noteOn(midiChannel, midiNote, velocity);
-    else
-        keyboardState.noteOff(midiChannel, midiNote, velocity);
+    if (channelMapper != nullptr) {
+        // Convert 1-based binding channel to 0-based matrix input channel
+        if (isKeyDownEvent)
+            channelMapper->sendNoteOn(midiChannel - 1, midiNote, velocity, keyboardState);
+        else
+            channelMapper->sendNoteOff(midiChannel - 1, midiNote, velocity, keyboardState);
+    } else {
+        if (isKeyDownEvent)
+            keyboardState.noteOn(midiChannel, midiNote, velocity);
+        else
+            keyboardState.noteOff(midiChannel, midiNote, velocity);
+    }
 
     return true;
 }

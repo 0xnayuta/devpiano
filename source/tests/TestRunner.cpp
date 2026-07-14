@@ -53,7 +53,7 @@ int main(int argc, char** argv) {
     bool includeFiles = false;
     juce::String categoryFilter;
     juce::String nameFilter;
-    juce::Array<juce::String> skipCategories = {"Files"};
+    juce::Array<juce::String> skipCategories = { "Files" };
 
     for (int i = 1; i < argc; ++i) {
         const juce::String arg(argv[i]);

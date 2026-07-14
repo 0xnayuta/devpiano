@@ -6,6 +6,10 @@
 
 #include "Core/KeyMapTypes.h"
 
+namespace devpiano::midi {
+class MidiChannelMapper;
+}
+
 class KeyboardMidiMapper {
 public:
     KeyboardMidiMapper();
@@ -17,12 +21,14 @@ public:
 
     bool handleKeyPressed(const juce::KeyPress& key, juce::MidiKeyboardState& keyboardState);
     bool handleKeyStateChanged(juce::MidiKeyboardState& keyboardState);
+    void setChannelMapper(devpiano::midi::MidiChannelMapper* mapper) noexcept;
 
 private:
     [[nodiscard]] int normaliseKeyCode(const juce::KeyPress& key) const;
     bool triggerBinding(const devpiano::core::KeyBinding& binding, juce::MidiKeyboardState& keyboardState,
                         bool isKeyDownEvent);
 
+    devpiano::midi::MidiChannelMapper* channelMapper = nullptr;
     devpiano::core::KeyboardLayout layout;
     std::unordered_set<int> heldKeys;
 };

@@ -1,10 +1,11 @@
 #include "MainComponent.h"
 
 #include "Diagnostics/DebugLog.h"
-#include "UI/HeaderPanelStateBuilder.h"
-#include "UI/PluginPanelStateBuilder.h"
+#include "Plugin/PluginFlowSupport.h"
 #include "UI/CustomKeyboard.h"
+#include "UI/HeaderPanelStateBuilder.h"
 #include "UI/KeyBindingEditDialog.h"
+#include "UI/PluginPanelStateBuilder.h"
 
 #if JUCE_WINDOWS
 struct HWND__;
@@ -51,6 +52,8 @@ MainComponent::MainComponent()
     audioEngine.setPluginHost(&pluginHost);
     audioEngine.setRecordingEngine(&recordingEngine);
 
+    midiChannelMapper = std::make_unique<devpiano::midi::MidiChannelMapper>(appSettings.channelMatrix);
+    keyboardMidiMapper.setChannelMapper(midiChannelMapper.get());
     layoutFlowSupport = std::make_unique<devpiano::layout::LayoutFlowSupport>(*this);
     recordingSessionController = std::make_unique<devpiano::recording::RecordingSessionController>(
         *this, recordingEngine, audioEngine, appSettings, controlsPanel);
@@ -96,6 +99,7 @@ MainComponent::~MainComponent() {
 
     midiRouter.setMessageCallback({});
     midiRouter.setCollector(nullptr);
+    midiRouter.setTransformer({});
     midiRouter.closeInputs();
 
     pluginOperationController.reset();
@@ -157,14 +161,20 @@ void MainComponent::initialiseUi() {
 
     addAndMakeVisible(keyboardPanel);
 
-    // Wire CustomKeyboard mouse interaction → sound
+    // Wire CustomKeyboard mouse interaction → sound (with MIDI matrix)
     auto& customKeyboard = keyboardPanel.getCustomKeyboard();
-    customKeyboard.onNoteOn = [this](int midiNote, int /*sourceChannel*/) {
-        audioEngine.getKeyboardState().noteOn(1, midiNote, 1.0f);
+    customKeyboard.onNoteOn = [this](int midiNote, int sourceChannel) {
+        if (midiChannelMapper != nullptr)
+            midiChannelMapper->sendNoteOn(sourceChannel, midiNote, 1.0f, audioEngine.getKeyboardState());
+        else
+            audioEngine.getKeyboardState().noteOn(1, midiNote, 1.0f);
         suppressTextInputMethods();
     };
-    customKeyboard.onNoteOff = [this](int midiNote, int /*sourceChannel*/) {
-        audioEngine.getKeyboardState().noteOff(1, midiNote, 1.0f);
+    customKeyboard.onNoteOff = [this](int midiNote, int sourceChannel) {
+        if (midiChannelMapper != nullptr)
+            midiChannelMapper->sendNoteOff(sourceChannel, midiNote, 1.0f, audioEngine.getKeyboardState());
+        else
+            audioEngine.getKeyboardState().noteOff(1, midiNote, 1.0f);
     };
     customKeyboard.onBindingEditRequested = [this](int midiNote) {
         // Find existing binding for this note
@@ -173,8 +183,7 @@ void MainComponent::initialiseUi() {
 
         const devpiano::core::KeyBinding* existingBinding = nullptr;
         for (const auto& binding : layout.bindings) {
-            if (binding.action.type == devpiano::core::KeyActionType::note
-                && binding.action.midiNote == midiNote) {
+            if (binding.action.type == devpiano::core::KeyActionType::note && binding.action.midiNote == midiNote) {
                 existingBinding = &binding;
                 break;
             }
@@ -242,6 +251,10 @@ void MainComponent::persistMainContentSize(int width, int height) {
 }
 
 void MainComponent::initialiseMidiRouting() {
+    if (midiChannelMapper != nullptr) {
+        midiRouter.setTransformer(
+            [mapper = midiChannelMapper.get()](const juce::MidiMessage& msg) { return mapper->applyTransform(msg); });
+    }
     midiRouter.setCollector(&audioEngine.getMidiCollector());
     midiRouter.setMessageCallback(
         [safe = juce::Component::SafePointer<MainComponent>(this)](const juce::MidiMessage& message) {
@@ -254,8 +267,7 @@ void MainComponent::initialiseMidiRouting() {
                 if (message.isNoteOn()) {
                     safe->lastExternalMidiMessage = "Note On " + juce::String(message.getNoteNumber());
                     safe->keyboardPanel.getCustomKeyboard().notifyNoteActivity();
-                }
-                else if (message.isNoteOff())
+                } else if (message.isNoteOff())
                     safe->lastExternalMidiMessage = "Note Off " + juce::String(message.getNoteNumber());
                 else if (message.isController())
                     safe->lastExternalMidiMessage = "CC " + juce::String(message.getControllerNumber());
@@ -353,7 +365,8 @@ bool MainComponent::keyStateChanged(bool isKeyDown) {
 
 void MainComponent::focusGained(juce::Component::FocusChangeType cause) {
     juce::AudioAppComponent::focusGained(cause);
-    if (auto* mcm = juce::ModalComponentManager::getInstanceWithoutCreating(); mcm != nullptr && mcm->getNumModalComponents() > 0)
+    if (auto* mcm = juce::ModalComponentManager::getInstanceWithoutCreating();
+        mcm != nullptr && mcm->getNumModalComponents() > 0)
         return;
 
     if (isSettingsWindowOpen())
@@ -468,7 +481,8 @@ void MainComponent::suppressTextInputMethods() {
 }
 
 void MainComponent::restoreKeyboardFocus() {
-    if (auto* mcm = juce::ModalComponentManager::getInstanceWithoutCreating(); mcm != nullptr && mcm->getNumModalComponents() > 0)
+    if (auto* mcm = juce::ModalComponentManager::getInstanceWithoutCreating();
+        mcm != nullptr && mcm->getNumModalComponents() > 0)
         return;
     if (isSettingsWindowOpen())
         return;
