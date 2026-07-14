@@ -19,6 +19,9 @@ const char* kKeyLastMidiImportPath = "lastMidiImportPath";
 const char* kKeyLastMidiExportPath = "lastMidiExportPath";
 const char* kKeyMainWindowWidth = "mainWindowWidth";
 const char* kKeyMainWindowHeight = "mainWindowHeight";
+const char* kKeyColourMode = "keyboardColourMode";
+const char* kKeyNoteDisplay = "keyboardNoteDisplay";
+const char* kKeyFadeSpeed = "keyboardFadeSpeed";
 
 [[nodiscard]] SettingsModel::PerformanceSettingsView makeDefaultPerformanceSettings() noexcept {
     return {};
@@ -96,6 +99,17 @@ void SettingsStore::readNow(SettingsModel& m) {
     m.mainWindowWidth = f.getIntValue(kKeyMainWindowWidth, m.mainWindowWidth);
     m.mainWindowHeight = f.getIntValue(kKeyMainWindowHeight, m.mainWindowHeight);
 
+    // Keyboard display settings
+    {
+        int cm = f.getIntValue(kKeyColourMode, static_cast<int>(m.keyboardColourMode));
+        m.keyboardColourMode = static_cast<devpiano::ui::KeyColourMode>(cm);
+    }
+    {
+        int nd = f.getIntValue(kKeyNoteDisplay, static_cast<int>(m.keyboardNoteDisplay));
+        m.keyboardNoteDisplay = static_cast<devpiano::ui::NoteDisplayMode>(nd);
+    }
+    m.keyboardFadeSpeed = static_cast<float>(f.getDoubleValue(kKeyFadeSpeed, static_cast<double>(m.keyboardFadeSpeed)));
+
     // keymap as ValueTree XML
     if (auto keyXml = f.getXmlValue(kKeyMap)) {
         juce::ValueTree t = juce::ValueTree::fromXml(*keyXml);
@@ -131,6 +145,11 @@ void SettingsStore::writeNow(const SettingsModel& m) {
     // Main content size
     f.setValue(kKeyMainWindowWidth, m.mainWindowWidth);
     f.setValue(kKeyMainWindowHeight, m.mainWindowHeight);
+
+    // Keyboard display settings
+    f.setValue(kKeyColourMode, static_cast<int>(m.keyboardColourMode));
+    f.setValue(kKeyNoteDisplay, static_cast<int>(m.keyboardNoteDisplay));
+    f.setValue(kKeyFadeSpeed, m.keyboardFadeSpeed);
 
     // keymap serialize to ValueTree XML
     {

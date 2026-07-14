@@ -101,8 +101,12 @@ target_sources(devpiano PRIVATE
     source/UI/KeyboardPanel.h
     source/Settings/SettingsModel.h
     source/Core/KeyboardTypes.h
+    source/UI/CustomKeyboard.cpp
+    source/UI/CustomKeyboard.h
     source/Core/ChannelMatrix.h
     source/Settings/SettingsStore.cpp
+    source/UI/KeyBindingEditDialog.cpp
+    source/UI/KeyBindingEditDialog.h
     source/Settings/SettingsStore.h
     source/Settings/SettingsComponent.h
     source/Settings/SettingsWindowManager.cpp

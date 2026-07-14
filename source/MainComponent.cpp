@@ -3,6 +3,8 @@
 #include "Diagnostics/DebugLog.h"
 #include "UI/HeaderPanelStateBuilder.h"
 #include "UI/PluginPanelStateBuilder.h"
+#include "UI/CustomKeyboard.h"
+#include "UI/KeyBindingEditDialog.h"
 
 #if JUCE_WINDOWS
 struct HWND__;
@@ -154,6 +156,59 @@ void MainComponent::initialiseUi() {
     recordingEngine.setPlaybackSpeedMultiplier(1.0);
 
     addAndMakeVisible(keyboardPanel);
+
+    // Wire CustomKeyboard mouse interaction → sound
+    auto& customKeyboard = keyboardPanel.getCustomKeyboard();
+    customKeyboard.onNoteOn = [this](int midiNote, int /*sourceChannel*/) {
+        audioEngine.getKeyboardState().noteOn(1, midiNote, 1.0f);
+        suppressTextInputMethods();
+    };
+    customKeyboard.onNoteOff = [this](int midiNote, int /*sourceChannel*/) {
+        audioEngine.getKeyboardState().noteOff(1, midiNote, 1.0f);
+    };
+    customKeyboard.onBindingEditRequested = [this](int midiNote) {
+        // Find existing binding for this note
+        const auto& layout = keyboardMidiMapper.getLayout();
+        auto noteName = devpiano::ui::getNoteDisplayName(midiNote, devpiano::ui::NoteDisplayMode::noteName);
+
+        const devpiano::core::KeyBinding* existingBinding = nullptr;
+        for (const auto& binding : layout.bindings) {
+            if (binding.action.type == devpiano::core::KeyActionType::note
+                && binding.action.midiNote == midiNote) {
+                existingBinding = &binding;
+                break;
+            }
+        }
+
+        KeyBindingEditDialog::launch(
+            midiNote, noteName, existingBinding, [this](std::optional<devpiano::core::KeyBinding> result) {
+                if (!result.has_value())
+                    return;
+
+                auto updatedLayout = keyboardMidiMapper.getLayout();
+
+                if (result->keyCode < 0) {
+                    // Unbind request: remove all bindings for this note
+                    updatedLayout.bindings.erase(
+                        std::remove_if(updatedLayout.bindings.begin(), updatedLayout.bindings.end(),
+                                       [note = result->action.midiNote](const auto& b) {
+                                           return b.action.type == devpiano::core::KeyActionType::note
+                                               && b.action.midiNote == note;
+                                       }),
+                        updatedLayout.bindings.end());
+                } else {
+                    // Update the binding in-place
+                    for (auto& b : updatedLayout.bindings)
+                        if (b.keyCode == result->keyCode) {
+                            b = *result;
+                            break;
+                        }
+                }
+
+                keyboardMidiMapper.setLayout(updatedLayout);
+                keyboardPanel.setKeyboardLayout(updatedLayout);
+            });
+    };
 }
 
 juce::Rectangle<int> MainComponent::getMainContentResizeLimits() {
@@ -292,6 +347,8 @@ bool MainComponent::keyStateChanged(bool isKeyDown) {
 
 void MainComponent::focusGained(juce::Component::FocusChangeType cause) {
     juce::AudioAppComponent::focusGained(cause);
+    if (auto* mcm = juce::ModalComponentManager::getInstanceWithoutCreating(); mcm != nullptr && mcm->getNumModalComponents() > 0)
+        return;
 
     if (isSettingsWindowOpen())
         return;
@@ -371,6 +428,17 @@ void MainComponent::syncUiFromSettings() {
     }
 
     controlsPanel.setLayouts(layoutIds, appSettings.getInputMappingSettingsView().layoutId, layoutDisplayNames);
+
+    keyboardPanel.setKeyboardLayout(keyboardMidiMapper.getLayout());
+
+    {
+        auto kbs = appSettings.getKeyboardDisplaySettingsView();
+        devpiano::ui::KeyboardSettings ks;
+        ks.colourMode = kbs.colourMode;
+        ks.noteDisplay = kbs.noteDisplay;
+        ks.fadeSpeed = kbs.fadeSpeed;
+        keyboardPanel.getCustomKeyboard().setKeyboardSettings(ks);
+    }
 }
 
 void MainComponent::syncSettingsFromUi() {
@@ -394,6 +462,8 @@ void MainComponent::suppressTextInputMethods() {
 }
 
 void MainComponent::restoreKeyboardFocus() {
+    if (auto* mcm = juce::ModalComponentManager::getInstanceWithoutCreating(); mcm != nullptr && mcm->getNumModalComponents() > 0)
+        return;
     if (isSettingsWindowOpen())
         return;
 
