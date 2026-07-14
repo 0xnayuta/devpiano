@@ -391,6 +391,26 @@ bool MainComponent::shouldRestoreMainKeyboardFocus() const;
 6. 打开 settings 窗口重复同类检查。
 
 
+## 10. 已完成验证项（不作为风险）
+
+以下条目已通过人工验证，无已知明显问题。最近更新：2026-07-14。
+
+- **Phase 2-1**：扫描失败文件记录（`lastScanFailedFiles` + Logger 写入 + UI 摘要提示）。
+- **Phase 2-2**：多目录扫描输入格式与持久化（`FileSearchPath` 分隔 + 过滤无效目录）。
+- **Phase 2-3**：扫描结果持久化（`KnownPluginList` XML 缓存 + 启动优先恢复）。
+- **Phase 2-4**：空 / 失败 / 恢复失败状态 UI（区分 6 种状态文本）。
+- **Phase 5-1**：RecordingFlowSupport 录制 / 回放 UI 流程。
+- **Phase 5-2**：ExportFlowSupport 导出选项与默认文件名。
+- **Phase 5-3**：PluginFlowSupport scan / restore / cache 收敛。
+- **Phase 5-4**：MainComponent 状态刷新边界命名清理。
+- **Phase 5**：Phase 5-1..5-4 全部完成，人工回归通过。
+- **启动 / 音频重建早期首音音高异常**：已通过音频设备初始化顺序修正 + `25ms` audio warmup 修复，并完成启动、虚拟键盘、实体键盘、VST load/unload、Windows Audio / DirectSound 人工回归。
+- **MIDI 导入播放首音无声**：已通过 playback-start pre-roll / arming 修复，人工验证测试样本均不再复现。
+- **插件 editor 被主窗口顶到后面**：已通过辅助窗口打开时跳过主窗口 `grabKeyboardFocus()` 修复，人工验证不再复现；长期约束见 §9。
+- **JUCE 子模块升级至 8.0.14（develop，3233cd13）**：CMake configure 成功，MSVC 验证构建通过；弃用 `Font` 构造函数已迁移至 `FontOptions` API，零警告；VST3 扫描/加载/editor/退出链路经功能验证无回归。
+
+---
+
 ## 11. WSL 环境 JUCE Files/Writing 单元测试失败
 
 > 触发条件：以 root 用户（`uid=0`）在 WSL 中运行单元测试。
@@ -405,26 +425,10 @@ bool MainComponent::shouldRestoreMainKeyboardFocus() const;
 > 见：`juce_File.cpp:1196`（`setReadOnly(true)` + `hasWriteAccess()`），`juce_UnitTest.cpp:318`（`jassertfalse`）。
 
 ---
-## 10. 已完成验证项（不作为风险）
 
-以下条目已通过 2026-04-30 人工验证，无已知明显问题：
+## 12. Phase 6-2 播放速度控制 — 已修复
 
-- **Phase 2-1**：扫描失败文件记录（`lastScanFailedFiles` + Logger 写入 + UI 摘要提示）。
-- **Phase 2-2**：多目录扫描输入格式与持久化（`FileSearchPath` 分隔 + 过滤无效目录）。
-- **Phase 2-3**：扫描结果持久化（`KnownPluginList` XML 缓存 + 启动优先恢复）。
-- **Phase 2-4**：空 / 失败 / 恢复失败状态 UI（区分 6 种状态文本）。
-- **Phase 5-1**：RecordingFlowSupport 录制 / 回放 UI 流程。
-- **Phase 5-2**：ExportFlowSupport 导出选项与默认文件名。
-- **Phase 5-3**：PluginFlowSupport scan / restore / cache 收敛。
-- **Phase 5-4**：MainComponent 状态刷新边界命名清理。
-- **Phase 5**：Phase 5-1..5-4 全部完成，人工回归通过。
-- **启动 / 音频重建早期首音音高异常**：已通过音频设备初始化顺序修正 + `25ms` audio warmup 修复，并完成启动、虚拟键盘、实体键盘、VST load/unload、Windows Audio / DirectSound 人工回归。
-- **MIDI 导入播放首音无声**：已通过 playback-start pre-roll / arming 修复，人工验证测试样本均不再复现。
-- **插件 editor 被主窗口顶到后面**：已通过辅助窗口打开时跳过主窗口 `grabKeyboardFocus()` 修复，人工验证不再复现；长期约束见 §9。
-
-### 11. Phase 6-2 播放速度控制 — 已修复
-
-#### 11.1 倍率公式反用（音符间隔反向）
+### 12.1 倍率公式反用（音符间隔反向）
 
 > 触发条件：播放中切换速度，无论调大或调小，音符间隔均反方向变化（0.5x 变快、2.0x 变慢）。
 
@@ -432,7 +436,7 @@ bool MainComponent::shouldRestoreMainKeyboardFocus() const;
 - **修复**：`combinedRatio = playbackSampleRateRatio / playbackSpeedMultiplier`（除法）；0.5x → 时间轴拉长 2×（慢放），2.0x → 时间轴压缩 0.5×（快放）。同步修正 `getScaledPlaybackLengthSamples()` 中的公式。
 - **文件**：`source/Recording/RecordingEngine.cpp`
 
-#### 11.2 速度切换时音长时间悬停（note-off 吞没）
+### 12.2 速度切换时音长时间悬停（note-off 吞没）
 
 > 触发条件：播放中切换速度，恰好在某个音 note-on 的时刻点击速度按钮，该音会一直持续到下次该音被再次触发。
 
@@ -440,7 +444,7 @@ bool MainComponent::shouldRestoreMainKeyboardFocus() const;
 - **修复**：`setPlaybackSpeedMultiplier()` 在 playing 状态下，先重校准 `playbackPositionSamples`（`pos × oldSpeed / newSpeed`），再更新 `scaledPlaybackLengthSamples`。保证速度切换前后 take 时间轴位置不变。
 - **文件**：`source/Recording/RecordingEngine.cpp`
 
-#### 11.3 播放状态三成员跨线程数据竞争
+### 12.3 播放状态三成员跨线程数据竞争
 
 > 触发条件：音频回调（high-priority audio thread）与 UI 消息线程并发访问 `playbackSpeedMultiplier` / `scaledPlaybackLengthSamples` / `playbackPositionSamples`。在 C++11+ 下构成未定义行为。
 

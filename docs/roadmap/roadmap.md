@@ -20,17 +20,23 @@
 **已完成阶段：**
 - Phase 1-4（功能开发）：Phase 1-1-Phase 4 全部完成，核心功能已可用。
 - Phase 5.1-5.7（架构收敛）：MainComponent 职责下沉，Phase 5-5..5-11 已完成。
-- Phase 6-1/6-2/6-5/6-6/6-7：演奏文件持久化、播放速度控制、MIDI 导入增强、Diagnostics、测试夹具库已完成。
+- Phase 6-1/6-2/6-5/6-6/6-7/6-8/6-9/6-10（note editor）：演奏文件持久化、播放速度控制、MIDI 导入增强、Diagnostics、测试夹具库、自定义钢琴键盘、16 通道 MIDI 矩阵、note-only 绑定编辑器已完成。
 - Phase 6-3（最近文件列表 + 拖拽打开）、Phase 6-4（基础 MIDI 编辑）暂缓，已完全替换为优先级更高的 Phase 6-8..6-11。
 
 **当前阶段与状态：**
-- Phase 6-8（自定义钢琴键盘）、Phase 6-9（16 通道 MIDI 矩阵）、Phase 6-10（扩展绑定系统）、Phase 6-11（GUI 设置补齐）为当前 P0 核心任务。
+- Phase 6-8（自定义钢琴键盘）、Phase 6-9（16 通道 MIDI 矩阵）已完成。
+- Phase 6-10（扩展绑定系统）：note-only 绑定编辑器已完成；CC / pitch bend / channel pressure 多事件类型扩展待实现。
+- Phase 6-11（GUI 设置补齐）：KeyboardDisplaySettings 已持久化；ChannelMatrix UI 编辑器及多项设置页面控件待实现。
 - Phase 5.8 MainComponent 瘦身已完成（1587→606 行），远低于 1200 行目标。
 - 启动 / 音频重建早期首音音高异常已修复并通过人工验证；保留 `25ms` audio warmup。
 - MIDI 导入播放首音无声已修复并完成人工回归。
 
+**基础设施更新：**
+- JUCE 子模块已升级至 `develop` 最新（3233cd13，JUCE 8.0.14）。弃用 API 已同步迁移（如 `Font` → `FontOptions`）。
+
 **搁置项：**
 - 外部 MIDI 硬件依赖验证（待硬件条件恢复）。
+
 ## 3. 阶段路线图
 
 ### Phase 1：工程骨架与最小演奏（Phase 1-1-Phase 1-2）
@@ -101,7 +107,7 @@
 
 ### Phase 6：功能补齐——钢琴键盘、MIDI 矩阵、绑定系统、GUI 设置
 
-状态：进行中（6-1/6-2/6-5/6-6/6-7 已完成；6-8..6-11 为当前 P0 任务）。
+状态：6-1/6-2/6-5/6-6/6-7/6-8/6-9/6-10（note editor）已完成；6-10（多事件扩展）、6-11 待完成。
 
 **目标：** 填补与 FreePiano 差距中的 P0 核心功能——视觉化钢琴键盘、16 通道 MIDI 矩阵、扩展绑定类型、GUI 设置完整化。
 
@@ -111,46 +117,63 @@
   - `RecordingTake` JSON 序列化（`.devpiano` 格式），包含 events、sampleRate、lengthSamples、元数据。
   - ControlsPanel Save/Open 按钮 + FileChooser 流程。
   - `RecordingSessionController` 接入 `PerformanceFile` API。
+
 - **Phase 6-2：播放速度控制** ✅
   - ControlsPanel 增加速度显示（`1.00x`）和 `-`/`+` 按钮。
   - `RecordingEngine.playbackSpeedMultiplier` + `setPlaybackSpeedMultiplier()`。
   - `renderPlaybackBlock()` 使用 `combinedRatio` 实时缩放时间戳，不修改原始数据。
+
 - **Phase 6-5：MIDI 导入增强** ✅
   - 扩展 `MidiFileImporter` 收集 CC（CC64 sustain 等）、pitch bend、program change 事件。
   - CC/pitch bend/program change 与 note 事件共用同一时间线。
   - 导入成功后输出 note-on/off 与 CC/pitch-bend/program-change 的分类计数。
+
 - **Phase 6-6：Diagnostics 最小层** ✅
   - `source/Diagnostics/`（4 个文件）：`DebugLog.h/.cpp`、`MidiTrace.h/.cpp`。
   - 接口：`DP_LOG_INFO/WARN/ERROR`、`DP_DEBUG_LOG`、`DP_TRACE_MIDI`。
   - Debug-only 宏在 Release 下无输出或零副作用。
+
 - **Phase 6-7：MIDI / Performance 测试夹具与最小回归样本库** ✅
   - `tests/fixtures/midi/`（7 个 MIDI fixture 文件）和 `tests/fixtures/performance/`。
   - 覆盖 MIDI 导入、MIDI roundtrip、错误处理、回放行为验证的统一输入基准。
 
-**当前 P0 任务：**
-
-- **Phase 6-8：自定义钢琴键盘**（已完成）
+- **Phase 6-8：自定义钢琴键盘** ✅
   - `CustomKeyboard` JUCE Component，支持 classic / rainbow / monochrome 着色模式。
   - 外部 MIDI / 电脑键盘 / 鼠标拖拽触发的 note 可视化，fade 动画。
-- **Phase 6-9：16 通道 MIDI 矩阵**（已完成）
+  - 音符显示模式（Do Re Mi / 固定 Do / 音符名称）。
+  - 双击键弹出绑定编辑对话框。
+
+- **Phase 6-9：16 通道 MIDI 矩阵** ✅
   - `ChannelMatrix` 数据模型 + `MidiChannelMapper` 路由服务。
   - 三条路径（鼠标点击、电脑键盘、外部 MIDI）均通过矩阵路由。
   - 矩阵默认 inactive（`active=false`），完全向后兼容。
-- **Phase 6-10：扩展绑定系统**（完成后端模型，GUI 待补齐）
-- **Phase 6-11：GUI 设置补齐**（KeyboardDisplaySettings 已持久化；ChannelMatrix UI 编辑器待实现）
+
+- **Phase 6-10：扩展绑定系统（note-only 绑定编辑器已完成）** ✅
+  - `KeyBindingEditDialog` 每键 GUI 编辑面板（MIDI note/channel/velocity）。
+  - CC / program change / pitch bend / channel pressure 多事件类型扩展待实现。
+
+- **Phase 6-11：GUI 设置补齐（部分完成）**
+  - `KeyboardDisplaySettings`（colourMode / noteDisplay / fadeSpeed）已持久化。
+  - ChannelMatrix UI 编辑器、MIDI 重映射 UI、fade speed slider、颜色/音符模式选择器、resizable toggle 待实现。
 
 **重新组织说明：**
 - Phase 6-3（最近文件列表 + 拖拽打开）、Phase 6-4（基础 MIDI 编辑）暂缓，已完全替换为优先级更高的 Phase 6-8..6-11。
+
 ### Phase 7：完整工程文件与多轨支持
+
 状态：未开始，粗略规划。
+
 **可能包含：**
 - 完整工程文件（`.devpiano-project`）：包含演奏数据 + layout preset + 插件状态 + 音频设备配置。
 - 多轨数据模型：`RecordingTake` 引入 track 概念。
 - Tempo map 支持：导入/编辑/保存 tempo 变化。
 - VST3 插件离线渲染（Phase 3-2 搁置项恢复）。
 - Setting groups：多组独立的八度/移调/力度/通道配置。
+
 ### Phase 8：高级编辑与国际化
+
 状态：未开始，粗略规划。
+
 **可能包含：**
 - Piano roll / 事件编辑器 UI。
 - 量化 / snap-to-grid。
@@ -159,24 +182,27 @@
 - 自动延音踏板（auto pedal）。
 - Key fade 动画、GUI 透明度等装饰功能。
 
-
 ## 4. 当前近期重点
 
 优先级从高到低：
+1. **Phase 6-10/6-11：扩展绑定系统 + GUI 设置补齐** — Phase 6 剩余任务。
+   - Phase 6-10：note-only 绑定编辑器已完成；CC / program change / pitch bend / channel pressure 多事件类型扩展待实现。
+   - Phase 6-11：KeyboardDisplaySettings 已持久化；ChannelMatrix UI 编辑器、MIDI 重映射 UI、fade speed slider、颜色/音符模式选择器、resizable toggle 待实现。
 
-1. **Phase 6-10/6-11：扩展绑定系统 + GUI 设置补齐** — 当前 P0 剩余任务。
-   - Phase 6-10：绑定系统后端模型已完成，GUI 编辑器待实现。
-   - Phase 6-11：KeyboardDisplaySettings 已持久化，ChannelMatrix UI 编辑器待实现。
+2. **Phase 7 规划与准备** — Phase 6 主体完成后启动。
+   - VST3 插件离线渲染（从搁置恢复）。
+   - 拖放文件支持、播放速度精确控制、多语言切换等。
 
-2. **Phase 4 边界稳定**
+3. **Phase 4 边界稳定**
    - 保持 Phase 4-4 边界：导入 playback take 禁止 MIDI 再导出；导入后允许 WAV 导出。
    - 继续搁置 Phase 4-6 merge-all。
 
-3. **Phase 2 插件宿主持续稳定**
+4. **Phase 2 插件宿主持续稳定**
    - 低优先级持续观察退出阶段 Debug 告警。
 
-4. **搁置项（待条件恢复）**
+5. **搁置项（待条件恢复）**
    - 外部 MIDI 硬件依赖验证。
+
 ## 5. 主要风险
 
 | 风险 | 当前判断 | 应对方向 |
