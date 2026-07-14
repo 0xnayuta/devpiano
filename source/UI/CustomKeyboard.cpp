@@ -93,6 +93,12 @@ void CustomKeyboard::setKeyboardLayout(const devpiano::core::KeyboardLayout& lay
         perKeyVelocity[idx] = binding.action.velocity;
     }
 
+    // Ensure keys are populated before labelling them.
+    // First call from syncUiFromSettings() happens before setKeyboardSettings()
+    // triggers recalculateKeyBounds(), so keys is empty without this guard.
+    if (keys.empty())
+        recalculateKeyBounds();
+
     // Apply labels to displayed keys
     for (auto& k : keys) {
         k.keyLabel = {};
@@ -377,6 +383,7 @@ void CustomKeyboard::mouseDrag(const juce::MouseEvent& e) {
         auto ch = (note >= 0 && note < 128) ? static_cast<int>(perKeyChannel[static_cast<std::size_t>(note)]) : 0;
         onNoteOn(note, ch);
     }
+    ensureTimerRunning();
 }
 
 void CustomKeyboard::mouseDoubleClick(const juce::MouseEvent& e) {

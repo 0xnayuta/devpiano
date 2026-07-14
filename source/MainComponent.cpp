@@ -251,8 +251,10 @@ void MainComponent::initialiseMidiRouting() {
 
                 ++safe->externalMidiMessageCount;
 
-                if (message.isNoteOn())
+                if (message.isNoteOn()) {
                     safe->lastExternalMidiMessage = "Note On " + juce::String(message.getNoteNumber());
+                    safe->keyboardPanel.getCustomKeyboard().notifyNoteActivity();
+                }
                 else if (message.isNoteOff())
                     safe->lastExternalMidiMessage = "Note Off " + juce::String(message.getNoteNumber());
                 else if (message.isController())
