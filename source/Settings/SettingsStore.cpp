@@ -1,4 +1,5 @@
 #include "SettingsStore.h"
+#include "Settings/SettingsSerialization.h"
 
 namespace {
 const char* kSectionApp = "DevPiano";
@@ -22,6 +23,7 @@ const char* kKeyMainWindowHeight = "mainWindowHeight";
 const char* kKeyColourMode = "keyboardColourMode";
 const char* kKeyNoteDisplay = "keyboardNoteDisplay";
 const char* kKeyFadeSpeed = "keyboardFadeSpeed";
+const char* kKeyChannelMatrix = "channelMatrix";
 
 [[nodiscard]] SettingsModel::PerformanceSettingsView makeDefaultPerformanceSettings() noexcept {
     return {};
@@ -110,10 +112,16 @@ void SettingsStore::readNow(SettingsModel& m) {
     }
     m.keyboardFadeSpeed = static_cast<float>(f.getDoubleValue(kKeyFadeSpeed, static_cast<double>(m.keyboardFadeSpeed)));
 
+    // Channel matrix as ValueTree XML.
+    if (auto cmXml = f.getXmlValue(kKeyChannelMatrix)) {
+        juce::ValueTree t = juce::ValueTree::fromXml(*cmXml);
+        m.channelMatrix = devpiano::settings::valueTreeToChannelMatrix(t);
+    }
+
     // keymap as ValueTree XML
     if (auto keyXml = f.getXmlValue(kKeyMap)) {
         juce::ValueTree t = juce::ValueTree::fromXml(*keyXml);
-        m.keyMap = SettingsModel::valueTreeToKeyMap(t);
+        m.keyMap = devpiano::settings::valueTreeToKeyMap(t);
     }
 }
 
@@ -151,13 +159,19 @@ void SettingsStore::writeNow(const SettingsModel& m) {
     f.setValue(kKeyNoteDisplay, static_cast<int>(m.keyboardNoteDisplay));
     f.setValue(kKeyFadeSpeed, m.keyboardFadeSpeed);
 
+    // Channel matrix as ValueTree XML.
+    {
+        auto t = devpiano::settings::channelMatrixToValueTree(m.channelMatrix);
+        if (auto xml = t.createXml())
+            f.setValue(kKeyChannelMatrix, xml->toString());
+    }
+
     // keymap serialize to ValueTree XML
     {
-        auto t = SettingsModel::keyMapToValueTree(m.keyMap);
+        auto t = devpiano::settings::keyMapToValueTree(m.keyMap);
         if (auto xml = t.createXml())
             f.setValue(kKeyMap, xml->toString());
     }
-
     f.saveIfNeeded();
 }
 

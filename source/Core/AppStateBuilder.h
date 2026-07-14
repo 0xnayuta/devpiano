@@ -3,6 +3,7 @@
 #include <JuceHeader.h>
 
 #include "../Settings/SettingsModel.h"
+#include "../Settings/SettingsSerialization.h"
 #include "AppState.h"
 
 class KeyboardMidiMapper;
@@ -83,7 +84,7 @@ struct RuntimeInputState {
                          .isPrepared = false,
                          .isEditorOpen = false },
              .input = { .layoutId = input.layoutId,
-                        .keyboardLayout = SettingsModel::keyMapToLayout(input.keyMap, input.layoutId),
+                        .keyboardLayout = devpiano::settings::keyMapToLayout(input.keyMap, input.layoutId),
                         .openMidiInputCount = 0,
                         .midiActivityCount = 0,
                         .lastMidiMessage = {} },

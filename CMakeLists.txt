@@ -110,6 +110,8 @@ target_sources(devpiano PRIVATE
     source/UI/KeyBindingEditDialog.cpp
     source/UI/KeyBindingEditDialog.h
     source/Settings/SettingsStore.h
+    source/Settings/SettingsSerialization.cpp
+    source/Settings/SettingsSerialization.h
     source/Settings/SettingsComponent.h
     source/Settings/SettingsWindowManager.cpp
     source/Settings/SettingsWindowManager.h

@@ -2,6 +2,7 @@
 
 #include "Diagnostics/DebugLog.h"
 #include "Plugin/PluginFlowSupport.h"
+#include "Settings/SettingsSerialization.h"
 #include "UI/CustomKeyboard.h"
 #include "UI/HeaderPanelStateBuilder.h"
 #include "UI/KeyBindingEditDialog.h"
@@ -111,10 +112,10 @@ MainComponent::~MainComponent() {
 
 void MainComponent::initialiseInputMappingFromSettings() {
     const auto inputMapping = appSettings.getInputMappingSettingsView();
-    keyboardMidiMapper.setLayout(SettingsModel::keyMapToLayout(inputMapping.keyMap, inputMapping.layoutId));
+    keyboardMidiMapper.setLayout(devpiano::settings::keyMapToLayout(inputMapping.keyMap, inputMapping.layoutId));
     appSettings.applyInputMappingSettingsView(
         { .layoutId = keyboardMidiMapper.getLayout().id,
-          .keyMap = SettingsModel::layoutToKeyMap(keyboardMidiMapper.getLayout()) });
+          .keyMap = devpiano::settings::layoutToKeyMap(keyboardMidiMapper.getLayout()) });
 }
 
 void MainComponent::initialiseUi() {
@@ -328,11 +329,8 @@ void MainComponent::visibilityChanged() {
 }
 
 bool MainComponent::keyPressed(const juce::KeyPress& key) {
-    // If focus is on a child component (e.g. TextEditor), don't intercept piano keys
-    if (auto* focused = juce::Component::getCurrentlyFocusedComponent()) {
-        if (focused != this && isParentOf(focused))
-            return false;
-    }
+    if (isKeyboardInputSuppressed())
+        return false;
 
     const auto handled = keyboardMidiMapper.handleKeyPressed(key, audioEngine.getKeyboardState());
 
@@ -347,11 +345,8 @@ bool MainComponent::keyPressed(const juce::KeyPress& key) {
 bool MainComponent::keyStateChanged(bool isKeyDown) {
     juce::ignoreUnused(isKeyDown);
 
-    // If focus is on a child component (e.g. TextEditor), don't intercept piano keys
-    if (auto* focused = juce::Component::getCurrentlyFocusedComponent()) {
-        if (focused != this && isParentOf(focused))
-            return false;
-    }
+    if (isKeyboardInputSuppressed())
+        return false;
 
     const auto handled = keyboardMidiMapper.handleKeyStateChanged(audioEngine.getKeyboardState());
 
@@ -361,6 +356,13 @@ bool MainComponent::keyStateChanged(bool isKeyDown) {
     }
 
     return handled;
+}
+
+bool MainComponent::isKeyboardInputSuppressed() const noexcept {
+    // If focus is on a child component (e.g. TextEditor), don't intercept piano keys
+    if (auto* focused = juce::Component::getCurrentlyFocusedComponent())
+        return focused != this && isParentOf(focused);
+    return false;
 }
 
 void MainComponent::focusGained(juce::Component::FocusChangeType cause) {
@@ -467,7 +469,7 @@ void MainComponent::syncSettingsFromUi() {
 
     appSettings.applyInputMappingSettingsView(
         { .layoutId = keyboardMidiMapper.getLayout().id,
-          .keyMap = SettingsModel::layoutToKeyMap(keyboardMidiMapper.getLayout()) });
+          .keyMap = devpiano::settings::layoutToKeyMap(keyboardMidiMapper.getLayout()) });
 }
 
 void MainComponent::suppressTextInputMethods() {

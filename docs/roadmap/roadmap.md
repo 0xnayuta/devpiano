@@ -20,22 +20,17 @@
 **已完成阶段：**
 - Phase 1-4（功能开发）：Phase 1-1-Phase 4 全部完成，核心功能已可用。
 - Phase 5.1-5.7（架构收敛）：MainComponent 职责下沉，Phase 5-5..5-11 已完成。
+- Phase 6-1/6-2/6-5/6-6/6-7：演奏文件持久化、播放速度控制、MIDI 导入增强、Diagnostics、测试夹具库已完成。
+- Phase 6-3（最近文件列表 + 拖拽打开）、Phase 6-4（基础 MIDI 编辑）暂缓，已完全替换为优先级更高的 Phase 6-8..6-11。
 
-**当前阶段：**
-- Phase 5.8：MainComponent 瘦身已完成 5.8a-5.8e（1587→606 行），远低于 1200 行目标。
-- 当前插入缺陷"启动 / 音频重建早期首音音高异常"已修复并通过人工验证；保留 `25ms` audio warmup，详见 [`../issues/known-issues.md`](../issues/known-issues.md) §2。
-- 插入缺陷"MIDI 导入播放首音无声"已通过 playback-start pre-roll / arming 修复并完成人工回归；后续作为 Phase 4 MIDI import 回归项观察，详见 [`../issues/known-issues.md`](../issues/known-issues.md) §8。
+**当前阶段与状态：**
+- Phase 6-8（自定义钢琴键盘）、Phase 6-9（16 通道 MIDI 矩阵）、Phase 6-10（扩展绑定系统）、Phase 6-11（GUI 设置补齐）为当前 P0 核心任务。
+- Phase 5.8 MainComponent 瘦身已完成（1587→606 行），远低于 1200 行目标。
+- 启动 / 音频重建早期首音音高异常已修复并通过人工验证；保留 `25ms` audio warmup。
+- MIDI 导入播放首音无声已修复并完成人工回归。
 
 **搁置项：**
 - 外部 MIDI 硬件依赖验证（待硬件条件恢复）。
-- VST3 插件离线渲染（Phase 3-2）后置。
-
-**测试基础设施已完成：**
-- 代码格式配置（`.clang-format`，`./scripts/dev.sh format`）
-- 静态分析配置（`.clang-tidy`，可选 `clang-tidy-21`）
-- 自动化单元测试框架（`cmake -DBUILD_TESTS=ON` → `devpiano_tests`）
-- 首批单元测试已就位（`KeyMapTypesTest`、`MidiFileImporterTest`，共 ~60 个 test case）
-
 ## 3. 阶段路线图
 
 ### Phase 1：工程骨架与最小演奏（Phase 1-1-Phase 1-2）
@@ -104,11 +99,11 @@
 
 详细完成记录见：[`../archive/phase5-architecture-convergence.md`](../archive/phase5-architecture-convergence.md)。
 
-### Phase 6：演奏数据持久化与播放体验增强
+### Phase 6：功能补齐——钢琴键盘、MIDI 矩阵、绑定系统、GUI 设置
 
-状态：进行中（6-1、6-2、6-5、6-6、6-7 已完成）。
+状态：进行中（6-1/6-2/6-5/6-6/6-7 已完成；6-8..6-11 为当前 P0 任务）。
 
-**目标：** 填补 FreePiano 核心功能差距——录制后能保存、保存后能打开、打开后能调速播放。
+**目标：** 填补与 FreePiano 差距中的 P0 核心功能——视觉化钢琴键盘、16 通道 MIDI 矩阵、扩展绑定类型、GUI 设置完整化。
 
 **已完成：**
 
@@ -116,42 +111,36 @@
   - `RecordingTake` JSON 序列化（`.devpiano` 格式），包含 events、sampleRate、lengthSamples、元数据。
   - ControlsPanel Save/Open 按钮 + FileChooser 流程。
   - `RecordingSessionController` 接入 `PerformanceFile` API。
-  - UI 布局待美化（Phase 6-2 范围）。
 - **Phase 6-2：播放速度控制** ✅
   - ControlsPanel 增加速度显示（`1.00x`）和 `-`/`+` 按钮。
   - `RecordingEngine.playbackSpeedMultiplier` + `setPlaybackSpeedMultiplier()`。
   - `renderPlaybackBlock()` 使用 `combinedRatio` 实时缩放时间戳，不修改原始数据。
-  - 每次启动默认 1.0x，不持久化速度值。
-  - 速度变更实时生效（播放中切换立即影响回放速率）。
-  - `.devpiano` 和 `.mid` 共用同一回放链路，无需差异化处理。
-- **Phase 6-6：Diagnostics 最小层**✅
+- **Phase 6-5：MIDI 导入增强** ✅
+  - 扩展 `MidiFileImporter` 收集 CC（CC64 sustain 等）、pitch bend、program change 事件。
+  - CC/pitch bend/program change 与 note 事件共用同一时间线。
+  - 导入成功后输出 note-on/off 与 CC/pitch-bend/program-change 的分类计数。
+- **Phase 6-6：Diagnostics 最小层** ✅
   - `source/Diagnostics/`（4 个文件）：`DebugLog.h/.cpp`、`MidiTrace.h/.cpp`。
   - 接口：`DP_LOG_INFO/WARN/ERROR`、`DP_DEBUG_LOG`、`DP_TRACE_MIDI`。
   - Debug-only 宏在 Release 下无输出或零副作用。
-  - 已接入 8 个业务文件，散落 `Logger::writeToLog` 已全部替换。
-  - 为 Phase 6-5 MIDI 导入增强及后续播放体验任务建立统一诊断基础设施。
-- **Phase 6-7：MIDI / Performance 测试夹具与最小回归样本库**✅
-  - `tests/fixtures/midi/`（7 个 MIDI fixture 文件）。
-  - `tests/fixtures/performance/simple-performance.json`（`.devpiano` 格式样本）。
+- **Phase 6-7：MIDI / Performance 测试夹具与最小回归样本库** ✅
+  - `tests/fixtures/midi/`（7 个 MIDI fixture 文件）和 `tests/fixtures/performance/`。
   - 覆盖 MIDI 导入、MIDI roundtrip、错误处理、回放行为验证的统一输入基准。
-  - 包含：`simple-notes.mid`、`velocity-channel.mid`、`sustain-pedal.mid`、`multitrack-basic.mid`、`tempo-change-basic.mid`、`empty.mid`、`invalid.mid`。
-  - 所有合法 MIDI 文件已通过 mido 库验证；`invalid.mid` 正确识别为非 MIDI（预期行为）。
-- **Phase 6-5：MIDI 导入增强**✅
-  - 扩展 `MidiFileImporter` 收集 CC（CC64 sustain 等）、pitch bend、program change 事件。
-  - 新增计数器：`ccCount`、`pitchBendCount`、`programChangeCount`。
-  - CC/pitch bend/program change 与 note 事件共用同一时间线，共享 `lastTimestampSamples` 计算。
-  - Logger 输出更新：导入成功后输出 note-on/off 与 CC/pitch-bend/program-change 的分类计数。
-  - fixture `sustain-pedal.mid` 已用于手工验证。
 
-**暂缓项：**
-**Phase 6-3：最近文件列表 + 拖拽打开**（暂缓）
-- 最近打开的演奏文件/MIDI 文件列表（最多 10 条）。
-- 拖拽 `.devpiano` / `.mid` 文件到窗口触发打开。
-+
-**Phase 6-4：基础 MIDI 编辑（delete notes）**（暂缓）
-- 选中音符 → 删除。需将 `RecordingTake.events` 改为可变结构。
-- 最小编辑能力：只做删除，不做添加/移动/量化。
+**当前 P0 任务：**
 
+- **Phase 6-8：自定义钢琴键盘**（已完成）
+  - `CustomKeyboard` JUCE Component，支持 classic / rainbow / monochrome 着色模式。
+  - 外部 MIDI / 电脑键盘 / 鼠标拖拽触发的 note 可视化，fade 动画。
+- **Phase 6-9：16 通道 MIDI 矩阵**（已完成）
+  - `ChannelMatrix` 数据模型 + `MidiChannelMapper` 路由服务。
+  - 三条路径（鼠标点击、电脑键盘、外部 MIDI）均通过矩阵路由。
+  - 矩阵默认 inactive（`active=false`），完全向后兼容。
+- **Phase 6-10：扩展绑定系统**（完成后端模型，GUI 待补齐）
+- **Phase 6-11：GUI 设置补齐**（KeyboardDisplaySettings 已持久化；ChannelMatrix UI 编辑器待实现）
+
+**重新组织说明：**
+- Phase 6-3（最近文件列表 + 拖拽打开）、Phase 6-4（基础 MIDI 编辑）暂缓，已完全替换为优先级更高的 Phase 6-8..6-11。
 ### Phase 7：完整工程文件与多轨支持
 状态：未开始，粗略规划。
 **可能包含：**
@@ -175,10 +164,9 @@
 
 优先级从高到低：
 
-1. **Phase 6：演奏数据持久化与播放体验增强** — 进行中，核心功能已基本完成。
-   - 已完成：演奏文件保存/打开、播放速度控制、MIDI 导入增强、Diagnostics 最小层、测试夹具库。
-   - 暂缓：最近文件列表 + 拖拽打开（Phase 6-3）、基础 MIDI 编辑（Phase 6-4）。
-
+1. **Phase 6-10/6-11：扩展绑定系统 + GUI 设置补齐** — 当前 P0 剩余任务。
+   - Phase 6-10：绑定系统后端模型已完成，GUI 编辑器待实现。
+   - Phase 6-11：KeyboardDisplaySettings 已持久化，ChannelMatrix UI 编辑器待实现。
 
 2. **Phase 4 边界稳定**
    - 保持 Phase 4-4 边界：导入 playback take 禁止 MIDI 再导出；导入后允许 WAV 导出。
@@ -189,8 +177,6 @@
 
 4. **搁置项（待条件恢复）**
    - 外部 MIDI 硬件依赖验证。
-   - VST3 插件离线渲染（Phase 3-2）。
-
 ## 5. 主要风险
 
 | 风险 | 当前判断 | 应对方向 |

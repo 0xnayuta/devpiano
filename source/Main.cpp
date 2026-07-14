@@ -44,14 +44,19 @@ static void scheduleKeyboardFocusRestore(const char* reason) {
 }
 
 static LRESULT CALLBACK DevPianoWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    // WM_SETFOCUS / WM_ACTIVATE → schedule keyboard focus restoration.
+    //
+    // JUCE's focusGained() / activeWindowStatusChanged() fire for most activation
+    // scenarios, but on Windows they can arrive *before* the JUCE component tree
+    // has finished processing the native focus event.  In those cases
+    // grabKeyboardFocus() is silently dropped.  By posting the restore into
+    // MessageManager::callAsync we give the component tree a chance to settle
+    // before restoring keyboard focus to the MainComponent.
     if (msg == WM_SETFOCUS) {
         scheduleKeyboardFocusRestore("WM_SETFOCUS");
     }
     if (msg == WM_ACTIVATE && LOWORD(wParam) != WA_INACTIVE) {
         scheduleKeyboardFocusRestore("WM_ACTIVATE");
-    }
-    if (msg == WM_KEYDOWN || msg == WM_KEYUP || msg == WM_SYSKEYDOWN || msg == WM_SYSKEYUP) {
-        juce::ignoreUnused(hwnd, wParam);
     }
     return CallWindowProc(g_originalWndProc, hwnd, msg, wParam, lParam);
 }
