@@ -5,6 +5,8 @@
 #include <unordered_map>
 
 #include "Core/KeyMapTypes.h"
+#include "Core/KeyboardTypes.h"
+#include "Core/ChannelMatrix.h"
 #include "Layout/LayoutDirectoryScanner.h"
 
 // Persisted settings model.
@@ -43,6 +45,11 @@ struct SettingsModel {
         juce::String layoutId { "default.freepiano.minimal" };
         std::unordered_map<int, int> keyMap;
     };
+    struct KeyboardDisplaySettingsView {
+        devpiano::ui::KeyColourMode colourMode = devpiano::ui::KeyColourMode::classic;
+        devpiano::ui::NoteDisplayMode noteDisplay = devpiano::ui::NoteDisplayMode::doReMi;
+        float fadeSpeed = 0.92f;
+    };
 
     // Persisted audio device state (serialized XML from AudioDeviceManager)
     std::unique_ptr<juce::XmlElement> audioDeviceState;
@@ -76,6 +83,13 @@ struct SettingsModel {
     // Persisted main content size. Zero means unset; startup will use preferred size.
     int mainWindowWidth = 0;
     int mainWindowHeight = 0;
+    // Persisted keyboard display settings.
+    devpiano::ui::KeyColourMode keyboardColourMode = devpiano::ui::KeyColourMode::classic;
+    devpiano::ui::NoteDisplayMode keyboardNoteDisplay = devpiano::ui::NoteDisplayMode::doReMi;
+    float keyboardFadeSpeed = 0.92f;
+
+    // 16-channel MIDI matrix (persisted baseline, active = false by default).
+    devpiano::midi::ChannelMatrix channelMatrix;
 
     [[nodiscard]] AudioSettingsView getAudioSettingsView() const {
         return { .sampleRate = sampleRate,
@@ -124,6 +138,56 @@ struct SettingsModel {
     void applyInputMappingSettingsView(const InputMappingSettingsView& view) {
         lastLayoutId = view.layoutId;
         keyMap = view.keyMap;
+    }
+
+    [[nodiscard]] KeyboardDisplaySettingsView getKeyboardDisplaySettingsView() const {
+        return { .colourMode = keyboardColourMode, .noteDisplay = keyboardNoteDisplay, .fadeSpeed = keyboardFadeSpeed };
+    }
+
+    void applyKeyboardDisplaySettingsView(const KeyboardDisplaySettingsView& view) {
+        keyboardColourMode = view.colourMode;
+        keyboardNoteDisplay = view.noteDisplay;
+        keyboardFadeSpeed = view.fadeSpeed;
+    }
+
+    // ---- Channel matrix serialization ----
+    static juce::ValueTree channelMatrixToValueTree(const devpiano::midi::ChannelMatrix& cm) {
+        juce::ValueTree root { "channelMatrix" };
+        root.setProperty("active", cm.active, nullptr);
+        for (int i = 0; i < 16; ++i) {
+            juce::ValueTree ch { "ch" };
+            ch.setProperty("index", i, nullptr);
+            ch.setProperty("outputChannel", cm.channels[i].outputChannel, nullptr);
+            ch.setProperty("transpose", cm.channels[i].transpose, nullptr);
+            ch.setProperty("octaveShift", cm.channels[i].octaveShift, nullptr);
+            ch.setProperty("velocity", cm.channels[i].velocity, nullptr);
+            ch.setProperty("program", cm.channels[i].program, nullptr);
+            ch.setProperty("bankMSB", cm.channels[i].bankMSB, nullptr);
+            ch.setProperty("sustainCC", cm.channels[i].sustainCC, nullptr);
+            root.appendChild(ch, nullptr);
+        }
+        return root;
+    }
+
+    static devpiano::midi::ChannelMatrix valueTreeToChannelMatrix(const juce::ValueTree& t) {
+        devpiano::midi::ChannelMatrix cm;
+        if (!t.isValid())
+            return cm;
+        cm.active = t.getProperty("active", false);
+        for (int i = 0; i < t.getNumChildren(); ++i) {
+            auto ch = t.getChild(i);
+            auto idx = static_cast<int>(ch.getProperty("index", i));
+            if (idx < 0 || idx >= 16)
+                continue;
+            cm.channels[idx].outputChannel = static_cast<uint8_t>(static_cast<int>(ch.getProperty("outputChannel", 0)));
+            cm.channels[idx].transpose = static_cast<int8_t>(static_cast<int>(ch.getProperty("transpose", 0)));
+            cm.channels[idx].octaveShift = static_cast<int8_t>(static_cast<int>(ch.getProperty("octaveShift", 0)));
+            cm.channels[idx].velocity = static_cast<uint8_t>(static_cast<int>(ch.getProperty("velocity", 64)));
+            cm.channels[idx].program = static_cast<uint8_t>(static_cast<int>(ch.getProperty("program", 0)));
+            cm.channels[idx].bankMSB = static_cast<uint8_t>(static_cast<int>(ch.getProperty("bankMSB", 0)));
+            cm.channels[idx].sustainCC = static_cast<uint8_t>(static_cast<int>(ch.getProperty("sustainCC", 64)));
+        }
+        return cm;
     }
 
     static juce::ValueTree keyMapToValueTree(const std::unordered_map<int, int>& m) {

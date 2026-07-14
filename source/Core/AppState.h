@@ -2,6 +2,7 @@
 
 #include <JuceHeader.h>
 
+#include "Core/ChannelMatrix.h"
 #include "Core/KeyMapTypes.h"
 
 namespace devpiano::core {
@@ -67,5 +68,6 @@ struct AppState {
     PerformanceState performance;
     PluginState plugin;
     InputState input;
+    devpiano::midi::ChannelMatrix midiChannelMatrix;
 };
 }
