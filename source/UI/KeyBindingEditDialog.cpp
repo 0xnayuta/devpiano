@@ -14,14 +14,14 @@ public:
         // Title / info area (non-editable)
         titleLabel.setText("Key Binding Editor — " + noteName + " (#" + juce::String(midiNote) + ")",
                            juce::dontSendNotification);
-        titleLabel.setFont(juce::Font(14.0f, juce::Font::bold));
+        titleLabel.setFont(juce::Font(juce::FontOptions(14.0f, juce::Font::bold)));
         titleLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0e0e0));
         addAndMakeVisible(titleLabel);
 
         if (existingBinding != nullptr) {
             // Editable form for an existing binding
             infoLabel.setText("Bound to keyboard key:  " + keyLabel, juce::dontSendNotification);
-            infoLabel.setFont(juce::Font(13.0f));
+            infoLabel.setFont(juce::Font(juce::FontOptions(13.0f)));
             infoLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0e0e0));
             addAndMakeVisible(infoLabel);
 
@@ -30,7 +30,7 @@ public:
             // MIDI Channel
             channelLabel.setText("MIDI Channel:", juce::dontSendNotification);
             channelLabel.attachToComponent(&channelCombo, true);
-            channelLabel.setFont(juce::Font(13.0f));
+            channelLabel.setFont(juce::Font(juce::FontOptions(13.0f)));
             channelLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0e0e0));
             addAndMakeVisible(channelLabel);
             for (int ch = 1; ch <= 16; ++ch)
@@ -45,7 +45,7 @@ public:
             noteSlider.setNumDecimalPlacesToDisplay(0);
             noteLabel.setText("MIDI Note:", juce::dontSendNotification);
             noteLabel.attachToComponent(&noteSlider, true);
-            noteLabel.setFont(juce::Font(13.0f));
+            noteLabel.setFont(juce::Font(juce::FontOptions(13.0f)));
             noteLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0e0e0));
             addAndMakeVisible(noteLabel);
             addAndMakeVisible(noteSlider);
@@ -57,7 +57,7 @@ public:
             velocitySlider.setNumDecimalPlacesToDisplay(0);
             velocityLabel.setText("Velocity:", juce::dontSendNotification);
             velocityLabel.attachToComponent(&velocitySlider, true);
-            velocityLabel.setFont(juce::Font(13.0f));
+            velocityLabel.setFont(juce::Font(juce::FontOptions(13.0f)));
             velocityLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0e0e0));
             addAndMakeVisible(velocityLabel);
             addAndMakeVisible(velocitySlider);
@@ -77,7 +77,7 @@ public:
         } else {
             // Read-only: no binding exists for this note
             infoLabel.setText("No keyboard key is currently mapped to this note.", juce::dontSendNotification);
-            infoLabel.setFont(juce::Font(13.0f));
+            infoLabel.setFont(juce::Font(juce::FontOptions(13.0f)));
             infoLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0e0e0));
             addAndMakeVisible(infoLabel);
 
