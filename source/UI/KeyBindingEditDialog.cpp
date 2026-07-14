@@ -15,12 +15,14 @@ public:
         titleLabel.setText("Key Binding Editor — " + noteName + " (#" + juce::String(midiNote) + ")",
                            juce::dontSendNotification);
         titleLabel.setFont(juce::Font(14.0f, juce::Font::bold));
+        titleLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0e0e0));
         addAndMakeVisible(titleLabel);
 
         if (existingBinding != nullptr) {
             // Editable form for an existing binding
             infoLabel.setText("Bound to keyboard key:  " + keyLabel, juce::dontSendNotification);
             infoLabel.setFont(juce::Font(13.0f));
+            infoLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0e0e0));
             addAndMakeVisible(infoLabel);
 
             auto& act = existingBinding->action;
@@ -29,6 +31,7 @@ public:
             channelLabel.setText("MIDI Channel:", juce::dontSendNotification);
             channelLabel.attachToComponent(&channelCombo, true);
             channelLabel.setFont(juce::Font(13.0f));
+            channelLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0e0e0));
             addAndMakeVisible(channelLabel);
             for (int ch = 1; ch <= 16; ++ch)
                 channelCombo.addItem(juce::String(ch), ch);
@@ -43,6 +46,7 @@ public:
             noteLabel.setText("MIDI Note:", juce::dontSendNotification);
             noteLabel.attachToComponent(&noteSlider, true);
             noteLabel.setFont(juce::Font(13.0f));
+            noteLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0e0e0));
             addAndMakeVisible(noteLabel);
             addAndMakeVisible(noteSlider);
 
@@ -54,15 +58,19 @@ public:
             velocityLabel.setText("Velocity:", juce::dontSendNotification);
             velocityLabel.attachToComponent(&velocitySlider, true);
             velocityLabel.setFont(juce::Font(13.0f));
+            velocityLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0e0e0));
             addAndMakeVisible(velocityLabel);
             addAndMakeVisible(velocitySlider);
 
             // OK / Cancel / Unbind buttons
             okButton.onClick = [this] { confirmEdit(); };
+            okButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xffe0e0e0));
             addAndMakeVisible(okButton);
             cancelButton.onClick = [this] { cancel(); };
+            cancelButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xffe0e0e0));
             addAndMakeVisible(cancelButton);
             unbindButton.onClick = [this] { unbind(); };
+            unbindButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xffe0e0e0));
             addAndMakeVisible(unbindButton);
 
             setSize(420, 230);
@@ -70,9 +78,11 @@ public:
             // Read-only: no binding exists for this note
             infoLabel.setText("No keyboard key is currently mapped to this note.", juce::dontSendNotification);
             infoLabel.setFont(juce::Font(13.0f));
+            infoLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0e0e0));
             addAndMakeVisible(infoLabel);
 
             closeButton.onClick = [this] { cancel(); };
+            closeButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xffe0e0e0));
             addAndMakeVisible(closeButton);
 
             setSize(420, 120);
@@ -124,11 +134,15 @@ private:
 
         if (onComplete)
             onComplete(updated);
+        if (auto* dw = findParentComponentOfClass<juce::DialogWindow>())
+            dw->exitModalState(0);
     }
 
     void cancel() {
         if (onComplete)
             onComplete(std::nullopt);
+        if (auto* dw = findParentComponentOfClass<juce::DialogWindow>())
+            dw->exitModalState(0);
     }
 
     void unbind() {
@@ -143,6 +157,8 @@ private:
         removed.keyCode = -1;
         if (onComplete)
             onComplete(removed);
+        if (auto* dw = findParentComponentOfClass<juce::DialogWindow>())
+            dw->exitModalState(0);
     }
 
     int midiNote;
@@ -172,7 +188,7 @@ private:
 class BindingEditWindow final : public juce::DialogWindow {
 public:
     BindingEditWindow(juce::String title, std::unique_ptr<juce::Component> content)
-        : juce::DialogWindow(std::move(title), juce::Colour(0xfff0f0f0), true, true) {
+        : juce::DialogWindow(std::move(title), juce::Colour(0xff303030), true, true) {
         setUsingNativeTitleBar(true);
         setContentOwned(content.release(), true);
         centreAroundComponent(nullptr, getWidth(), getHeight());

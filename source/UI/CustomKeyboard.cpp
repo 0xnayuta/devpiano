@@ -47,6 +47,7 @@ CustomKeyboard::CustomKeyboard(juce::MidiKeyboardState& state)
     : keyboardState(state) {
     setOpaque(false);
     setSize(800, defaultHeight); // reasonable default, resized by parent
+    startTimer(timerIntervalMs);
 }
 
 void CustomKeyboard::setKeyboardSettings(const devpiano::ui::KeyboardSettings& s) {
@@ -346,6 +347,37 @@ void CustomKeyboard::mouseUp(const juce::MouseEvent& e) {
     }
 }
 
+void CustomKeyboard::mouseDrag(const juce::MouseEvent& e) {
+    if (lastMouseDownNote < 0)
+        return;
+
+    auto note = findNoteAt(e.getPosition());
+    if (note == lastMouseDownNote || note < 0)
+        return;
+
+    // Release the old note
+    if (onNoteOff) {
+        auto oldCh = static_cast<int>(perKeyChannel[static_cast<std::size_t>(lastMouseDownNote)]);
+        onNoteOff(lastMouseDownNote, oldCh);
+    }
+
+    // Press the new note
+    lastMouseDownNote = note;
+    for (auto& k : keys) {
+        if (k.midiNote == note) {
+            k.fade = 1.0f;
+            k.colour1 = classicColourTop(1.0f);
+            break;
+        }
+    }
+    repaint();
+
+    if (onNoteOn) {
+        auto ch = (note >= 0 && note < 128) ? static_cast<int>(perKeyChannel[static_cast<std::size_t>(note)]) : 0;
+        onNoteOn(note, ch);
+    }
+}
+
 void CustomKeyboard::mouseDoubleClick(const juce::MouseEvent& e) {
     juce::ignoreUnused(e);
 
@@ -384,9 +416,8 @@ void CustomKeyboard::timerCallback() {
 
         // Stop tracking when fade has converged to its target.
         auto target = noteHeld ? 1.0f : settings.previewAlpha;
-        if (std::abs(k.fade - target) > fadeEpsilon)
+        if (noteHeld || std::abs(k.fade - target) > fadeEpsilon)
             anyActive = true;
-
         if (std::abs(k.fade - before) > fadeEpsilon)
             anyChanged = true;
 
