@@ -47,6 +47,8 @@ struct SettingsModel {
         devpiano::ui::KeyColourMode colourMode = devpiano::ui::KeyColourMode::classic;
         devpiano::ui::NoteDisplayMode noteDisplay = devpiano::ui::NoteDisplayMode::doReMi;
         float fadeSpeed = 0.92f;
+        bool resizableWindow = true;
+        bool showInstrumentFilter = true;
     };
 
     // Persisted audio device state (serialized XML from AudioDeviceManager)
@@ -85,8 +87,9 @@ struct SettingsModel {
     devpiano::ui::KeyColourMode keyboardColourMode = devpiano::ui::KeyColourMode::classic;
     devpiano::ui::NoteDisplayMode keyboardNoteDisplay = devpiano::ui::NoteDisplayMode::doReMi;
     float keyboardFadeSpeed = 0.92f;
+    bool resizableWindow = true;
+    bool showInstrumentFilter = true;
 
-    // 16-channel MIDI matrix (persisted baseline, active = false by default).
     devpiano::midi::ChannelMatrix channelMatrix;
 
     [[nodiscard]] AudioSettingsView getAudioSettingsView() const {
@@ -139,13 +142,19 @@ struct SettingsModel {
     }
 
     [[nodiscard]] KeyboardDisplaySettingsView getKeyboardDisplaySettingsView() const {
-        return { .colourMode = keyboardColourMode, .noteDisplay = keyboardNoteDisplay, .fadeSpeed = keyboardFadeSpeed };
+        return { .colourMode = keyboardColourMode,
+                 .noteDisplay = keyboardNoteDisplay,
+                 .fadeSpeed = keyboardFadeSpeed,
+                 .resizableWindow = resizableWindow,
+                 .showInstrumentFilter = showInstrumentFilter };
     }
 
     void applyKeyboardDisplaySettingsView(const KeyboardDisplaySettingsView& view) {
         keyboardColourMode = view.colourMode;
         keyboardNoteDisplay = view.noteDisplay;
         keyboardFadeSpeed = view.fadeSpeed;
+        resizableWindow = view.resizableWindow;
+        showInstrumentFilter = view.showInstrumentFilter;
     }
 
     // ---- Serialization methods moved to Settings/SettingsSerialization.h ----

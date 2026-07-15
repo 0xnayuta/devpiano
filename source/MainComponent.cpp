@@ -552,6 +552,7 @@ void MainComponent::showSettingsDialog() {
     settingsWindowManager->show({ .parent = *this,
                                   .deviceManager = deviceManager,
                                   .savedAudioDeviceState = appSettings.audioDeviceState.get(),
+                                  .displaySettingsModel = &appSettings,
                                   .onSaveRequested =
                                       [safe = juce::Component::SafePointer<MainComponent>(this)] {
                                           if (safe != nullptr)
@@ -561,6 +562,25 @@ void MainComponent::showSettingsDialog() {
                                       [safe = juce::Component::SafePointer<MainComponent>(this)] {
                                           if (safe != nullptr)
                                               safe->restoreKeyboardFocus();
+                                      },
+                                  .onDisplaySettingsChanged =
+                                      [safe = juce::Component::SafePointer<MainComponent>(this)] {
+                                          if (safe == nullptr)
+                                              return;
+
+                                          // Apply keyboard display settings live
+                                          auto kbs = safe->appSettings.getKeyboardDisplaySettingsView();
+                                          devpiano::ui::KeyboardSettings ks;
+                                          ks.colourMode = kbs.colourMode;
+                                          ks.noteDisplay = kbs.noteDisplay;
+                                          ks.fadeSpeed = kbs.fadeSpeed;
+                                          safe->keyboardPanel.getCustomKeyboard().setKeyboardSettings(ks);
+
+                                          // Toggle window resizable state
+                                          if (auto* topLevel = safe->getTopLevelComponent()) {
+                                              if (auto* dw = dynamic_cast<juce::DocumentWindow*>(topLevel))
+                                                  dw->setResizable(kbs.resizableWindow, kbs.resizableWindow);
+                                          }
                                       } });
 }
 

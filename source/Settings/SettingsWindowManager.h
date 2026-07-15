@@ -5,6 +5,8 @@
 #include <functional>
 #include <memory>
 
+#include "Settings/SettingsModel.h"
+
 class SettingsComponent;
 
 namespace devpiano::settings {
@@ -15,8 +17,10 @@ public:
         juce::Component& parent;
         juce::AudioDeviceManager& deviceManager;
         const juce::XmlElement* savedAudioDeviceState = nullptr;
+        SettingsModel* displaySettingsModel = nullptr;
         std::function<void()> onSaveRequested;
         std::function<void()> onClosed;
+        std::function<void()> onDisplaySettingsChanged;
     };
 
     SettingsWindowManager();

@@ -71,7 +71,8 @@ void SettingsWindowManager::show(ShowOptions options) {
         }
     };
 
-    auto content = std::make_unique<SettingsComponent>(options.deviceManager, options.savedAudioDeviceState);
+    auto content = std::make_unique<SettingsComponent>(options.deviceManager, options.savedAudioDeviceState,
+                                                       options.displaySettingsModel);
     auto* contentPtr = content.get();
 
     contentPtr->onSaveRequested = [this, weakState = std::weak_ptr<State>(state)] {
@@ -86,7 +87,8 @@ void SettingsWindowManager::show(ShowOptions options) {
         }
     };
 
-    state->window = std::make_unique<SettingsDialogWindow>("Audio Settings", backgroundColour, closeWindow);
+    contentPtr->onDisplaySettingsChanged = options.onDisplaySettingsChanged;
+    state->window->centreAroundComponent(&options.parent, 620, 580);
     state->window->setUsingNativeTitleBar(true);
     state->window->setContentOwned(content.release(), true);
     state->window->centreAroundComponent(&options.parent, 620, 560);

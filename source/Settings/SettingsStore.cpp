@@ -23,6 +23,8 @@ const char* kKeyMainWindowHeight = "mainWindowHeight";
 const char* kKeyColourMode = "keyboardColourMode";
 const char* kKeyNoteDisplay = "keyboardNoteDisplay";
 const char* kKeyFadeSpeed = "keyboardFadeSpeed";
+const char* kKeyResizableWindow = "resizableWindow";
+const char* kKeyShowInstrumentFilter = "showInstrumentFilter";
 const char* kKeyChannelMatrix = "channelMatrix";
 
 [[nodiscard]] SettingsModel::PerformanceSettingsView makeDefaultPerformanceSettings() noexcept {
@@ -115,8 +117,12 @@ void SettingsStore::readNow(SettingsModel& m) {
     // Channel matrix as ValueTree XML.
     if (auto cmXml = f.getXmlValue(kKeyChannelMatrix)) {
         juce::ValueTree t = juce::ValueTree::fromXml(*cmXml);
+
         m.channelMatrix = devpiano::settings::valueTreeToChannelMatrix(t);
     }
+
+    m.resizableWindow = f.getBoolValue(kKeyResizableWindow, m.resizableWindow);
+    m.showInstrumentFilter = f.getBoolValue(kKeyShowInstrumentFilter, m.showInstrumentFilter);
 
     // keymap as ValueTree XML
     if (auto keyXml = f.getXmlValue(kKeyMap)) {
@@ -137,8 +143,6 @@ void SettingsStore::writeNow(const SettingsModel& m) {
     f.setValue(kKeyGain, m.masterGain);
     f.setValue(kKeyA, m.adsrAttack);
     f.setValue(kKeyD, m.adsrDecay);
-    f.setValue(kKeyS, m.adsrSustain);
-    f.setValue(kKeyR, m.adsrRelease);
 
     f.setValue(kKeyPluginSearchPath, m.pluginSearchPath);
     f.setValue(kKeyLastPluginName, m.lastPluginName);
@@ -172,6 +176,9 @@ void SettingsStore::writeNow(const SettingsModel& m) {
         if (auto xml = t.createXml())
             f.setValue(kKeyMap, xml->toString());
     }
+    f.setValue(kKeyResizableWindow, m.resizableWindow);
+    f.setValue(kKeyShowInstrumentFilter, m.showInstrumentFilter);
+
     f.saveIfNeeded();
 }
 
