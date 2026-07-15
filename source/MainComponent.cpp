@@ -312,8 +312,7 @@ void MainComponent::resized() {
     headerPanel.setBounds(area.removeFromTop(98));
     area.removeFromTop(10);
 
-    if (pluginPanel.isVisible())
-        pluginPanel.setBounds(area.removeFromTop(188));
+    pluginPanel.setBounds(area.removeFromTop(188));
     area.removeFromTop(12);
 
     controlsPanel.setBounds(area.removeFromTop(260));
@@ -467,8 +466,6 @@ void MainComponent::syncUiFromSettings() {
         ks.noteDisplay = kbs.noteDisplay;
         ks.fadeSpeed = kbs.fadeSpeed;
         keyboardPanel.getCustomKeyboard().setKeyboardSettings(ks);
-
-        pluginPanel.setVisible(kbs.showInstrumentFilter);
     }
 }
 
@@ -563,9 +560,6 @@ void MainComponent::showSettingsDialog() {
               ks.fadeSpeed = kbs.fadeSpeed;
               safe->keyboardPanel.getCustomKeyboard().setKeyboardSettings(ks);
 
-              // Apply instrument filter toggle
-              safe->pluginPanel.setVisible(kbs.showInstrumentFilter);
-
               // Only recreate desktop window when resize preference changes
               if (kbs.resizableWindow != lastResizable) {
                   lastResizable = kbs.resizableWindow;
@@ -574,8 +568,6 @@ void MainComponent::showSettingsDialog() {
                           dw->setResizable(kbs.resizableWindow, kbs.resizableWindow);
                   }
               }
-
-              safe->resized();
           };
 
     settingsWindowManager->show({ .parent = *this,
