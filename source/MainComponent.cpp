@@ -549,6 +549,7 @@ void MainComponent::saveSettingsSoon() {
     collectCurrentSettingsState();
     settingsStore.scheduleSave(appSettings);
 }
+
 void MainComponent::showSettingsDialog() {
     auto onDisplaySettingsChanged
         = [safe = juce::Component::SafePointer<MainComponent>(this), lastResizable = true]() mutable {
