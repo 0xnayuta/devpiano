@@ -144,6 +144,8 @@ void SettingsStore::writeNow(const SettingsModel& m) {
     f.setValue(kKeyA, m.adsrAttack);
     f.setValue(kKeyD, m.adsrDecay);
 
+    f.setValue(kKeyS, m.adsrSustain);
+    f.setValue(kKeyR, m.adsrRelease);
     f.setValue(kKeyPluginSearchPath, m.pluginSearchPath);
     f.setValue(kKeyLastPluginName, m.lastPluginName);
     if (m.knownPluginListState)

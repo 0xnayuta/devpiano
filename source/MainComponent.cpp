@@ -576,6 +576,9 @@ void MainComponent::showSettingsDialog() {
                                           ks.fadeSpeed = kbs.fadeSpeed;
                                           safe->keyboardPanel.getCustomKeyboard().setKeyboardSettings(ks);
 
+                                          // TODO: Consume kbs.showInstrumentFilter to show/hide
+                                          // the plugin panel's instrument filter UI once implemented.
+
                                           // Toggle window resizable state
                                           if (auto* topLevel = safe->getTopLevelComponent()) {
                                               if (auto* dw = dynamic_cast<juce::DocumentWindow*>(topLevel))

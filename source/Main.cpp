@@ -139,13 +139,12 @@ public:
 #if JUCE_IOS || JUCE_ANDROID
             setFullScreen(true);
 #else
-            setResizable(true, true);
             if (auto* mainComponent = dynamic_cast<MainComponent*>(getContentComponent())) {
+                setResizable(mainComponent->getAppSettings().resizableWindow, true);
                 const auto limits = MainComponent::getMainContentResizeLimits();
                 setResizeLimits(limits.getX(), limits.getY(), limits.getWidth(), limits.getHeight());
                 mainComponent->persistMainContentSize(mainComponent->getWidth(), mainComponent->getHeight());
             }
-            centreWithSize(getWidth(), getHeight());
 #endif
 
             setVisible(true);

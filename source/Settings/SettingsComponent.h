@@ -29,7 +29,7 @@ public:
         colourModeCombo.addItem("Channel", 1 + static_cast<int>(devpiano::ui::KeyColourMode::channel));
         colourModeCombo.addItem("Velocity", 1 + static_cast<int>(devpiano::ui::KeyColourMode::velocity));
         if (model)
-            colourModeCombo.setSelectedId(1 + static_cast<int>(model->keyboardColourMode));
+            colourModeCombo.setSelectedId(1 + static_cast<int>(model->keyboardColourMode), juce::dontSendNotification);
         colourModeCombo.onChange = [this] {
             if (!model)
                 return;
@@ -47,7 +47,8 @@ public:
         noteDisplayCombo.addItem("Fixed Do", 1 + static_cast<int>(devpiano::ui::NoteDisplayMode::fixedDo));
         noteDisplayCombo.addItem("Note Name", 1 + static_cast<int>(devpiano::ui::NoteDisplayMode::noteName));
         if (model)
-            noteDisplayCombo.setSelectedId(1 + static_cast<int>(model->keyboardNoteDisplay));
+            noteDisplayCombo.setSelectedId(1 + static_cast<int>(model->keyboardNoteDisplay),
+                                           juce::dontSendNotification);
         noteDisplayCombo.onChange = [this] {
             if (!model)
                 return;
@@ -66,12 +67,11 @@ public:
         fadeSpeedSlider.setSliderStyle(juce::Slider::LinearHorizontal);
         fadeSpeedSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
         if (model)
-            fadeSpeedSlider.setValue(model->keyboardFadeSpeed);
+            fadeSpeedSlider.setValue(model->keyboardFadeSpeed, juce::dontSendNotification);
         fadeSpeedSlider.onValueChange = [this] {
             if (!model)
                 return;
             model->keyboardFadeSpeed = static_cast<float>(fadeSpeedSlider.getValue());
-            setDirty(true);
             if (onDisplaySettingsChanged)
                 onDisplaySettingsChanged();
         };

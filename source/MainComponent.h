@@ -47,6 +47,9 @@ public:
     static juce::Rectangle<int> getMainContentResizeLimits();
     void persistMainContentSize(int width, int height);
 
+    [[nodiscard]] SettingsModel& getAppSettings() noexcept {
+        return appSettings;
+    }
     bool keyPressed(const juce::KeyPress& key) override;
     bool keyStateChanged(bool isKeyDown) override;
     [[nodiscard]] bool isKeyboardInputSuppressed() const noexcept;
