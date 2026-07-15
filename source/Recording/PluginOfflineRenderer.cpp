@@ -22,7 +22,7 @@ struct RenderEvent {
 }
 
 [[nodiscard]] std::int64_t scaleTimestamp(std::int64_t timestampSamples, double ratio) noexcept {
-    return static_cast<std::int64_t>(static_cast<double>(timestampSamples) * ratio);
+    return static_cast<std::int64_t>(std::llround(static_cast<double>(timestampSamples) * ratio));
 }
 
 [[nodiscard]] std::vector<RenderEvent> buildRenderEvents(const devpiano::recording::RecordingTake& take,
@@ -42,6 +42,10 @@ struct RenderEvent {
         events.push_back(std::move(event));
     }
 
+    std::stable_sort(events.begin(), events.end(), [](const RenderEvent& a, const RenderEvent& b) {
+        return a.timestampSamples < b.timestampSamples;
+    });
+
     return events;
 }
 
@@ -56,6 +60,14 @@ struct RenderEvent {
     const auto scaledLengthFromTake = scaleTimestamp(take.lengthSamples, ratio);
 
     return std::max(lastTimestamp + 1, scaledLengthFromTake);
+}
+
+void addPanicMidi(juce::MidiBuffer& midiBuffer, int sampleOffset) {
+    for (auto channel = 1; channel <= 16; ++channel) {
+        midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 64, 0), sampleOffset);
+        midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 120, 0), sampleOffset);
+        midiBuffer.addEvent(juce::MidiMessage::allNotesOff(channel), sampleOffset);
+    }
 }
 
 } // namespace
@@ -179,11 +191,10 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
             ++eventIndex;
         }
 
-        // Send all-notes-off at the end of the take content
+        // Send all-notes-off across all 16 MIDI channels at the end of the take content
         if (!allNotesOffSent && scaledTakeLength >= blockStart && scaledTakeLength < blockEnd) {
             const auto offset = juce::jlimit(0, numSamples - 1, static_cast<int>(scaledTakeLength - blockStart));
-            midiBuffer.addEvent(juce::MidiMessage::allNotesOff(1), offset);
-            midiBuffer.addEvent(juce::MidiMessage::allSoundOff(1), offset);
+            addPanicMidi(midiBuffer, offset);
             allNotesOffSent = true;
         }
 
