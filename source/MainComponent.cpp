@@ -315,7 +315,7 @@ void MainComponent::resized() {
     pluginPanel.setBounds(area.removeFromTop(188));
     area.removeFromTop(12);
 
-    controlsPanel.setBounds(area.removeFromTop(260));
+    controlsPanel.setBounds(area.removeFromTop(296));
     area.removeFromTop(8);
 
     keyboardPanel.setBounds(area.removeFromBottom(128));

@@ -55,7 +55,6 @@ private:
     [[nodiscard]] static juce::String makeLayoutDisplayName(const juce::String& layoutId);
     void updateRecordingActionButtons();
     void updateLayoutActionButtons();
-    [[nodiscard]] double getCurrentPlaybackSpeed() const;
 
     void configureSlider(juce::Slider& slider, juce::Label& label, const juce::String& text, double minimum,
                          double maximum, double interval = 0.001);
@@ -93,11 +92,7 @@ private:
     juce::TextButton openPerformanceButton { "Open" };
 
     juce::Label playbackSpeedLabel { "Speed" };
-    juce::TextButton speedDownButton { "-" };
-    juce::TextButton speedUpButton { "+" };
-    juce::Label playbackSpeedValueLabel { "1.00x" };
-
-    double currentPlaybackSpeed = 1.0;
+    juce::Slider playbackSpeedSlider;
 
     RecordingControlsState recordingControlsState;
 

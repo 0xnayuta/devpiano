@@ -128,40 +128,15 @@ ControlsPanel::ControlsPanel() {
     playbackSpeedLabel.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(playbackSpeedLabel);
 
-    addAndMakeVisible(speedDownButton);
-    speedDownButton.onClick = [this] {
-        if (!onPlaybackSpeedChange)
-            return;
-        const auto current = currentPlaybackSpeed;
-        if (current <= 0.5)
-            return;
-        const auto speeds = std::array { 0.5, 0.75, 1.0, 1.25, 1.5, 2.0 };
-        for (std::size_t i = speeds.size(); i-- > 0;) {
-            if (speeds[i] < current) {
-                onPlaybackSpeedChange(speeds[i]);
-                break;
-            }
-        }
+    addAndMakeVisible(playbackSpeedSlider);
+    playbackSpeedSlider.setRange(0.5, 2.0, 0.01);
+    playbackSpeedSlider.setSliderStyle(juce::Slider::LinearHorizontal);
+    playbackSpeedSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 80, 22);
+    playbackSpeedSlider.setValue(1.0, juce::dontSendNotification);
+    playbackSpeedSlider.onValueChange = [this] {
+        if (onPlaybackSpeedChange)
+            onPlaybackSpeedChange(playbackSpeedSlider.getValue());
     };
-
-    addAndMakeVisible(speedUpButton);
-    speedUpButton.onClick = [this] {
-        if (!onPlaybackSpeedChange)
-            return;
-        const auto current = currentPlaybackSpeed;
-        if (current >= 2.0)
-            return;
-        const auto speeds = std::array { 0.5, 0.75, 1.0, 1.25, 1.5, 2.0 };
-        for (const auto speed : speeds) {
-            if (speed > current) {
-                onPlaybackSpeedChange(speed);
-                break;
-            }
-        }
-    };
-
-    playbackSpeedValueLabel.setJustificationType(juce::Justification::centred);
-    addAndMakeVisible(playbackSpeedValueLabel);
 
     setRecordingControlsState({});
 
@@ -189,8 +164,7 @@ ControlsPanel::~ControlsPanel() {
     importMidiButton.onClick = nullptr;
     savePerformanceButton.onClick = nullptr;
     openPerformanceButton.onClick = nullptr;
-    speedDownButton.onClick = nullptr;
-    speedUpButton.onClick = nullptr;
+    playbackSpeedSlider.onValueChange = nullptr;
 }
 
 void ControlsPanel::resized() {
@@ -209,6 +183,7 @@ void ControlsPanel::resized() {
     layoutSliderRow(decaySlider, decayLabel);
     layoutSliderRow(sustainSlider, sustainLabel);
     layoutSliderRow(releaseSlider, releaseLabel);
+    layoutSliderRow(playbackSpeedSlider, playbackSpeedLabel);
 
     auto row = area.removeFromTop(rowHeight);
     layoutLabel.setBounds(row.removeFromLeft(80));
@@ -246,14 +221,7 @@ void ControlsPanel::resized() {
     exportMidiButton.setBounds(buttonRow.removeFromLeft(90));
     buttonRow.removeFromLeft(6);
     exportWavButton.setBounds(buttonRow.removeFromLeft(90));
-    buttonRow.removeFromLeft(10);
-    playbackSpeedLabel.setBounds(buttonRow.removeFromLeft(50));
-    buttonRow.removeFromLeft(4);
-    speedDownButton.setBounds(buttonRow.removeFromLeft(30));
-    buttonRow.removeFromLeft(2);
-    playbackSpeedValueLabel.setBounds(buttonRow.removeFromLeft(50));
-    buttonRow.removeFromLeft(2);
-    speedUpButton.setBounds(buttonRow.removeFromLeft(30));
+    // Speed controls moved to slider section above (row 6)
 }
 
 void ControlsPanel::setRecordingControlsState(RecordingControlsState state) {
@@ -273,8 +241,6 @@ void ControlsPanel::updateRecordingActionButtons() {
     auto importMidiEnabled = true;
     auto saveEnabled = false;
     auto openEnabled = false;
-    auto speedDownEnabled = true;
-    auto speedUpEnabled = true;
 
     switch (recordingControlsState.state) {
     case RecordingState::idle:
@@ -298,8 +264,6 @@ void ControlsPanel::updateRecordingActionButtons() {
         stopEnabled = true;
         saveEnabled = false;
         openEnabled = false;
-        speedDownEnabled = false;
-        speedUpEnabled = false;
         break;
     case RecordingState::playing:
         statusText = "Playing";
@@ -325,8 +289,6 @@ void ControlsPanel::updateRecordingActionButtons() {
     exportWavButton.setEnabled(exportWavEnabled);
     savePerformanceButton.setEnabled(saveEnabled);
     openPerformanceButton.setEnabled(openEnabled);
-    speedDownButton.setEnabled(speedDownEnabled);
-    speedUpButton.setEnabled(speedUpEnabled);
 }
 
 void ControlsPanel::setValues(float masterGain, float attack, float decay, float sustain, float release) {
@@ -392,15 +354,7 @@ juce::String ControlsPanel::getSelectedLayoutId() const {
 }
 
 void ControlsPanel::setPlaybackSpeed(double speed) {
-    currentPlaybackSpeed = std::clamp(speed, 0.5, 2.0);
-    playbackSpeedValueLabel.setText(juce::String(currentPlaybackSpeed, 2) + "x", juce::dontSendNotification);
-    // Disable speedDown at lower boundary, speedUp at upper boundary
-    speedDownButton.setEnabled(currentPlaybackSpeed > 0.5);
-    speedUpButton.setEnabled(currentPlaybackSpeed < 2.0);
-}
-
-double ControlsPanel::getCurrentPlaybackSpeed() const {
-    return currentPlaybackSpeed;
+    playbackSpeedSlider.setValue(juce::jlimit(0.5, 2.0, speed), juce::dontSendNotification);
 }
 
 void ControlsPanel::configureSlider(juce::Slider& slider, juce::Label& label, const juce::String& text, double minimum,
