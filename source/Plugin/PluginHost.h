@@ -49,11 +49,12 @@ public:
     [[nodiscard]] juce::String getLastLoadError() const;
     [[nodiscard]] double getPreparedSampleRate() const noexcept;
     [[nodiscard]] int getPreparedBlockSize() const noexcept;
+    [[nodiscard]] static bool configureDefaultBuses(juce::AudioPluginInstance& instance);
+    [[nodiscard]] const juce::PluginDescription* getLoadedPluginDescription() const noexcept;
 
 private:
     juce::AudioPluginFormat* getVst3Format() const;
     juce::File getDeadMansPedalFile() const;
-    bool configureDefaultBuses(juce::AudioPluginInstance& instance);
 
     juce::AudioPluginFormatManager formatManager;
     juce::KnownPluginList knownPluginList;

@@ -4,9 +4,11 @@
 #include "Diagnostics/DebugLog.h"
 #include "Export/ExportFlowSupport.h"
 #include "MainComponent.h"
+#include "Plugin/PluginHost.h"
 #include "Recording/MidiFileExporter.h"
 #include "Recording/MidiFileImporter.h"
 #include "Recording/PerformanceFile.h"
+#include "Recording/PluginOfflineRenderer.h"
 #include "Recording/RecordingFlowSupport.h"
 #include "Recording/WavFileExporter.h"
 
@@ -173,13 +175,37 @@ void RecordingSessionController::handleExportMidiClicked() {
 void RecordingSessionController::handleExportWavClicked() {
     using devpiano::exporting::ExportFileType;
 
-    runExportRecordingFlow(ExportFileType::wav, exportWavChooser, "Export WAV Recording", "*.wav",
-                           [this](const juce::File& file) {
-                               const auto options = devpiano::exporting::buildWavExportOptions(
-                                   recordingSession.take, appSettings.getPerformanceSettingsView(),
-                                   getCurrentRuntimeSampleRate(), getCurrentRuntimeBlockSize());
-                               return devpiano::exporting::exportTakeAsWavFile(recordingSession.take, file, options);
-                           });
+    runExportRecordingFlow(
+        ExportFileType::wav, exportWavChooser, "Export WAV Recording", "*.wav", [this](const juce::File& file) {
+            auto options = devpiano::exporting::buildWavExportOptions(
+                recordingSession.take, appSettings.getPerformanceSettingsView(), getCurrentRuntimeSampleRate(),
+                getCurrentRuntimeBlockSize());
+
+            // Plugin offline render path
+            auto* pluginHost = audioEngine.getPluginHost();
+            if (pluginHost != nullptr && pluginHost->hasLoadedPlugin()) {
+                auto* liveInstance = pluginHost->getInstance();
+                auto* desc = pluginHost->getLoadedPluginDescription();
+                if (liveInstance != nullptr && desc != nullptr) {
+                    auto state = devpiano::exporting::snapshotPluginState(*liveInstance);
+
+                    juce::String error;
+                    auto offlinePlugin = devpiano::exporting::createOfflinePluginInstance(
+                        pluginHost->getFormatManager(), *desc, options.sampleRate, options.blockSize, error);
+
+                    if (offlinePlugin != nullptr) {
+                        offlinePlugin->setStateInformation(state.getData(), static_cast<int>(state.getSize()));
+                        return devpiano::exporting::renderTakeWithOfflinePlugin(recordingSession.take, file, options,
+                                                                                *offlinePlugin);
+                    }
+
+                    DP_LOG_WARN("[Export] Offline plugin instance creation failed: " + error
+                                + " — falling back to sine synth");
+                }
+            }
+
+            return devpiano::exporting::exportTakeAsWavFile(recordingSession.take, file, options);
+        });
 }
 
 void RecordingSessionController::handleImportMidiClicked() {

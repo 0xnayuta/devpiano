@@ -223,7 +223,7 @@ bool PluginHost::prepareToPlay(double sampleRate, int blockSize) {
     pluginInstance->suspendProcessing(true);
     releaseResources();
 
-    if (!configureDefaultBuses(*pluginInstance)) {
+    if (!PluginHost::configureDefaultBuses(*pluginInstance)) {
         prepared = false;
         lastLoadError = "Failed to configure plugin buses for playback.";
         return false;
@@ -280,6 +280,10 @@ juce::String PluginHost::getCurrentPluginName() const {
         return loadedPluginDescription->name;
 
     return {};
+}
+
+const juce::PluginDescription* PluginHost::getLoadedPluginDescription() const noexcept {
+    return loadedPluginDescription.get();
 }
 
 juce::String PluginHost::getLastLoadError() const {

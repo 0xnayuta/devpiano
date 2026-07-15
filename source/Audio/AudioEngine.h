@@ -26,6 +26,9 @@ public:
 
     void setMasterGain(float newGain);
     void setAdsr(float attackSeconds, float decaySeconds, float sustainLevel, float releaseSeconds);
+    [[nodiscard]] PluginHost* getPluginHost() const noexcept {
+        return pluginHost;
+    }
 
     juce::MidiKeyboardState& getKeyboardState() noexcept {
         return keyboardState;
