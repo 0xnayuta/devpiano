@@ -67,15 +67,17 @@ void PluginOperationController::handleImportVst3File(const juce::File& vst3File)
         return;
     }
 
-    pluginHost.addVst3FileToKnownList(vst3File);
+    juce::StringArray pluginNames;
+    owner.runPluginActionWithAudioDeviceRebuild(
+        [this, &vst3File, &pluginNames] { pluginNames = pluginHost.addVst3FileToKnownList(vst3File); });
 
-    const auto pluginName = vst3File.getFileNameWithoutExtension();
-    if (pluginName.isEmpty()) {
-        DP_LOG_ERROR("[Plugin] cannot determine plugin name from: " + vst3File.getFullPathName());
+    if (pluginNames.isEmpty()) {
+        DP_LOG_ERROR("[Plugin] no plugin types found in: " + vst3File.getFullPathName());
         return;
     }
 
-    loadPluginByNameAndCommitState(pluginName);
+    // Use the first real plugin name from metadata (not filename guessing)
+    loadPluginByNameAndCommitState(pluginNames[0]);
     DP_LOG_INFO("[Plugin] loaded from dropped file: " + vst3File.getFullPathName());
 }
 

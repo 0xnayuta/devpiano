@@ -29,7 +29,8 @@ public:
     }
 
     // Scans a single .vst3 file and adds it to the known plugin list (without clearing existing entries).
-    void addVst3FileToKnownList(const juce::File& vst3File);
+    // Returns the real plugin names extracted from the file metadata.
+    juce::StringArray addVst3FileToKnownList(const juce::File& vst3File);
     juce::String getScanningPluginName() const noexcept {
         return scanningPluginName;
     }

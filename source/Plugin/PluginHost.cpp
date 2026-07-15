@@ -111,19 +111,23 @@ bool PluginHost::advanceVst3ScanStep() {
     return false;
 }
 
-void PluginHost::addVst3FileToKnownList(const juce::File& vst3File) {
+juce::StringArray PluginHost::addVst3FileToKnownList(const juce::File& vst3File) {
+    juce::StringArray names;
     if (auto* format = getVst3Format()) {
         juce::OwnedArray<juce::PluginDescription> results;
         format->findAllTypesForFile(results, vst3File.getFullPathName());
 
         for (auto& desc : results) {
-            if (desc != nullptr)
+            if (desc != nullptr) {
                 knownPluginList.addType(*desc);
+                names.add(desc->name);
+            }
         }
 
         DP_LOG_INFO("[PluginHost] Added " + juce::String(results.size())
                     + " plugin(s) from: " + vst3File.getFullPathName());
     }
+    return names;
 }
 
 void PluginHost::cancelVst3ScanSession() {

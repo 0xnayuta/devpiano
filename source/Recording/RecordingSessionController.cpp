@@ -457,7 +457,6 @@ void RecordingSessionController::replaceTakeAndStartPlayback(RecordingTake take)
         juce::ignoreUnused(stoppedTake);
         recordingSession.state = ControlsPanel::RecordingState::idle;
         syncRecordingSessionToUi();
-        DP_LOG_INFO("[MIDI Import] stopped current playback before replacing take");
     }
 
     recordingSession.take = std::move(take);
