@@ -1,5 +1,6 @@
 #include "PluginOperationController.h"
 
+#include "Diagnostics/DebugLog.h"
 #include "MainComponent.h"
 #include "Plugin/PluginFlowSupport.h"
 #include "Plugin/PluginHost.h"
@@ -53,6 +54,29 @@ void PluginOperationController::loadSelectedPlugin() {
     }
 
     loadPluginByNameAndCommitState(pluginName);
+}
+
+void PluginOperationController::handleImportVst3File(const juce::File& vst3File) {
+    if (pluginHost.isCurrentlyScanning()) {
+        DP_LOG_WARN("[Plugin] dropped VST3 file ignored while scanning");
+        return;
+    }
+
+    if (!vst3File.exists() || vst3File.getFileExtension().toLowerCase() != ".vst3") {
+        DP_LOG_ERROR("[Plugin] invalid VST3 file: " + vst3File.getFullPathName());
+        return;
+    }
+
+    pluginHost.addVst3FileToKnownList(vst3File);
+
+    const auto pluginName = vst3File.getFileNameWithoutExtension();
+    if (pluginName.isEmpty()) {
+        DP_LOG_ERROR("[Plugin] cannot determine plugin name from: " + vst3File.getFullPathName());
+        return;
+    }
+
+    loadPluginByNameAndCommitState(pluginName);
+    DP_LOG_INFO("[Plugin] loaded from dropped file: " + vst3File.getFullPathName());
 }
 
 void PluginOperationController::unloadCurrentPlugin() {

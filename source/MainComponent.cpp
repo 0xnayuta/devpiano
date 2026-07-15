@@ -321,6 +321,56 @@ void MainComponent::resized() {
     keyboardPanel.setBounds(area.removeFromBottom(128));
 }
 
+void MainComponent::paintOverChildren(juce::Graphics& g) {
+    if (dropActive) {
+        g.setColour(juce::Colour(0x40aaddff));
+        g.drawRect(getLocalBounds(), 3);
+    }
+}
+
+bool MainComponent::isInterestedInFileDrag(const juce::StringArray& files) {
+    for (auto& f : files) {
+        auto ext = juce::File(f).getFileExtension().toLowerCase();
+        if (ext == ".devpiano" || ext == ".mid" || ext == ".midi" || ext == ".freepiano.layout" || ext == ".vst3")
+            return true;
+    }
+    return false;
+}
+
+void MainComponent::fileDragEnter(const juce::StringArray&, int, int) {
+    dropActive = true;
+    repaint();
+}
+
+void MainComponent::fileDragExit(const juce::StringArray&) {
+    dropActive = false;
+    repaint();
+}
+
+void MainComponent::filesDropped(const juce::StringArray& files, int, int) {
+    dropActive = false;
+    repaint();
+
+    for (auto& f : files) {
+        const auto file = juce::File(f);
+        const auto ext = file.getFileExtension().toLowerCase();
+
+        if (ext == ".devpiano") {
+            if (recordingSessionController != nullptr)
+                recordingSessionController->handleOpenPerformanceFile(file);
+        } else if (ext == ".mid" || ext == ".midi") {
+            if (recordingSessionController != nullptr)
+                recordingSessionController->handleImportMidiFile(file);
+        } else if (ext == ".freepiano.layout") {
+            if (layoutFlowSupport != nullptr)
+                layoutFlowSupport->handleImportLayoutFile(file);
+        } else if (ext == ".vst3") {
+            if (pluginOperationController != nullptr)
+                pluginOperationController->handleImportVst3File(file);
+        }
+    }
+}
+
 void MainComponent::visibilityChanged() {
     if (isShowing()) {
         suppressTextInputMethods();

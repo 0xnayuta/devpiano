@@ -54,6 +54,8 @@ public:
     void handleImportMidiClicked();
     void handleSavePerformanceClicked();
     void handleOpenPerformanceClicked();
+    void handleOpenPerformanceFile(const juce::File& file);
+    void handleImportMidiFile(const juce::File& file);
     void handlePlaybackSpeedChange(double speed);
 
     // Called from MainComponent::timerCallback() to check if playback ended.

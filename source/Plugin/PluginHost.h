@@ -27,6 +27,9 @@ public:
     bool isCurrentlyScanning() const noexcept {
         return isScanning;
     }
+
+    // Scans a single .vst3 file and adds it to the known plugin list (without clearing existing entries).
+    void addVst3FileToKnownList(const juce::File& vst3File);
     juce::String getScanningPluginName() const noexcept {
         return scanningPluginName;
     }

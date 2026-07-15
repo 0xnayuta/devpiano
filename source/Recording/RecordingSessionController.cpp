@@ -260,6 +260,55 @@ void RecordingSessionController::handleOpenPerformanceClicked() {
                       });
 }
 
+void RecordingSessionController::handleOpenPerformanceFile(const juce::File& file) {
+    if (recordingSession.isRecording()) {
+        DP_LOG_INFO("[Performance File] open dropped file skipped while recording");
+        return;
+    }
+
+    if (recordingSession.isPlaying()) {
+        const auto stoppedTake = stopInternalPlayback();
+        juce::ignoreUnused(stoppedTake);
+        recordingSession.state = ControlsPanel::RecordingState::idle;
+        syncRecordingSessionToUi();
+    }
+
+    auto take = devpiano::recording::loadPerformanceFile(file);
+    if (!take.has_value() || take->isEmpty()) {
+        DP_LOG_ERROR("[Performance File] dropped file failed or produced empty take: " + file.getFullPathName());
+        return;
+    }
+
+    replaceTakeAndStartPlayback(std::move(*take));
+    DP_LOG_INFO("[Performance File] loaded from dropped file: " + file.getFullPathName());
+    owner.restoreKeyboardFocus();
+}
+
+void RecordingSessionController::handleImportMidiFile(const juce::File& file) {
+    if (recordingSession.isRecording()) {
+        DP_LOG_INFO("[MIDI Import] dropped MIDI file skipped while recording");
+        return;
+    }
+
+    if (recordingSession.isPlaying()) {
+        const auto stoppedTake = stopInternalPlayback();
+        juce::ignoreUnused(stoppedTake);
+        recordingSession.state = ControlsPanel::RecordingState::idle;
+        syncRecordingSessionToUi();
+    }
+
+    appSettings.lastMidiImportPath = file.getFullPathName();
+    owner.saveSettingsSoon();
+
+    auto take = tryImportMidiFile(file);
+    if (!take.has_value() || take->isEmpty())
+        return;
+
+    replaceTakeAndStartPlayback(std::move(*take));
+    DP_LOG_INFO("[MIDI Import] imported from dropped file: " + file.getFullPathName());
+    owner.restoreKeyboardFocus();
+}
+
 void RecordingSessionController::handlePlaybackSpeedChange(double speed) {
     recordingEngine.setPlaybackSpeedMultiplier(speed);
     controlsPanel.setPlaybackSpeed(speed);

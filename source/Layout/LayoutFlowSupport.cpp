@@ -99,6 +99,29 @@ void LayoutFlowSupport::handleImportLayoutRequested() {
                          });
 }
 
+void LayoutFlowSupport::handleImportLayoutFile(const juce::File& file) {
+    auto optLayout = devpiano::layout::loadLayoutPreset(file);
+    if (!optLayout.has_value()) {
+        DP_LOG_ERROR("[Layout] dropped file failed to load: " + file.getFullPathName());
+        return;
+    }
+
+    auto layout = *optLayout;
+    auto userDir = devpiano::layout::getUserLayoutDirectory();
+
+    auto originalName = file.getFileName();
+    auto destFile = userDir.getChildFile(originalName);
+    layout.id = devpiano::layout::getUserLayoutIdForFile(destFile);
+    if (layout.name.trim().isEmpty())
+        layout.name = devpiano::layout::getLayoutPresetDisplayNameForFile(destFile);
+
+    if (!devpiano::layout::saveLayoutPreset(layout, destFile))
+        return;
+
+    applyLayoutAndCommit(layout);
+    DP_LOG_INFO("[Layout] imported from dropped file: " + file.getFullPathName());
+}
+
 void LayoutFlowSupport::handleRenameLayoutRequested() {
     const auto layoutId = owner.controlsPanel.getSelectedLayoutId().trim();
     if (layoutId.isEmpty() || layoutId.startsWith("default."))

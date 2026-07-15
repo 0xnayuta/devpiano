@@ -22,6 +22,7 @@ public:
     void handleImportLayoutRequested();
     void handleRenameLayoutRequested();
     void handleDeleteLayoutRequested();
+    void handleImportLayoutFile(const juce::File& file);
 
 private:
     void applyLayoutAndCommit(const devpiano::core::KeyboardLayout& layout);

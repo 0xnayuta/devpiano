@@ -32,6 +32,7 @@ public:
     void togglePluginEditor();
     void scanPlugins();
     void closePluginEditorWindow();
+    void handleImportVst3File(const juce::File& file);
 
     [[nodiscard]] bool hasEditorWindowOpen() const noexcept;
 

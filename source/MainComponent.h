@@ -26,7 +26,7 @@
 #include "UI/PluginEditorWindow.h"
 #include "UI/PluginPanel.h"
 
-class MainComponent final : public juce::AudioAppComponent, private juce::Timer {
+class MainComponent final : public juce::AudioAppComponent, private juce::Timer, public juce::FileDragAndDropTarget {
     friend class devpiano::layout::LayoutFlowSupport;
     friend class devpiano::recording::RecordingSessionController;
     friend class devpiano::plugin::PluginOperationController;
@@ -40,8 +40,17 @@ public:
     void releaseResources() override;
 
     void paint(juce::Graphics& g) override;
+    void paintOverChildren(juce::Graphics& g) override;
     void resized() override;
     void visibilityChanged() override;
+
+    // FileDragAndDropTarget interface
+    bool isInterestedInFileDrag(const juce::StringArray& files) override;
+    void fileDragEnter(const juce::StringArray& files, int x, int y) override;
+    void fileDragMove(const juce::StringArray&, int, int) override {
+    }
+    void fileDragExit(const juce::StringArray& files) override;
+    void filesDropped(const juce::StringArray& files, int x, int y) override;
 
     void restoreKeyboardFocus();
     static juce::Rectangle<int> getMainContentResizeLimits();
@@ -113,6 +122,7 @@ private:
     SettingsModel appSettings;
     SettingsStore settingsStore;
 
+    bool dropActive = false;
     int externalMidiMessageCount = 0;
     juce::String lastExternalMidiMessage;
 
