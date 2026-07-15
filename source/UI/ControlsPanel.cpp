@@ -125,6 +125,7 @@ ControlsPanel::ControlsPanel() {
             onOpenPerformanceClicked();
     };
 
+    playbackSpeedLabel.setText("Speed", juce::dontSendNotification);
     playbackSpeedLabel.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(playbackSpeedLabel);
 
