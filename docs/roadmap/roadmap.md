@@ -29,6 +29,10 @@
 - Phase 6-11（GUI 设置补齐）：5 项简单控件已完成（colourMode/noteDisplay/fadeSpeed 选择器 + resizable toggle + instrumentFilter toggle）；ChannelMatrix UI 编辑器、MIDI 重映射 UI 待实现（中低优先级，进入 Phase 7 后按需追加）。
 - 启动 / 音频重建早期首音音高异常已修复并通过人工验证；保留 `25ms` audio warmup。
 - MIDI 导入播放首音无声已修复并完成人工回归。
+- Phase 7-1（VST3 离线渲染）✅ 已完成 — 非 UI 线程 VST3 音色 WAV 导出 + ExportDialog 进度对话框。
+- Phase 7-2（播放速度精确控制）✅ 已完成 — Slider + TextBox 替换步进按钮，atomic 线程安全。
+- Phase 7-3（拖放文件支持）✅ 已完成 — FileDragAndDropTarget（.devpiano/.mid/.freepiano.layout/.vst3）。
+- Phase 7-4（运行时语言切换）为当前 P0 — JUCE Translation 机制替换旧 language_strdef.h。
 
 **基础设施更新：**
 - JUCE 子模块已升级至 `develop` 最新（3233cd13，JUCE 8.0.14）。弃用 API 已同步迁移（如 `Font` → `FontOptions`）。
@@ -159,36 +163,42 @@
 
 ### Phase 7：VST3 离线渲染与体验完善（当前阶段）
 
-状态：Phase 7-1（VST3 离线渲染）P0 本轮启动；其余子项按优先级顺序推进。
+状态：Phase 7-1 / 7-2 / 7-3 已完成；Phase 7-4（运行时语言切换）为当前 P0。
 
 **目标：** 打通 VST3 音色 WAV 导出闭环，补齐拖放、语言、播放速度精确控制等体验项。
 
-**P0 — Phase 7-1：VST3 插件离线渲染**
-- 非 UI 线程创建 `AudioPluginInstance` 副本实现 VST3 音色 WAV 导出。
-- 以 `RecordingTake` 事件为输入，逐 block 渲染到音频 buffer。
-- 输出到现有 WAV 写入流程（`RecordingExporter` / `WavAudioFormat`）。
-- 关键风险：插件状态同步（preset/program）、MIDI-to-audio 精确同步、多线程安全。
+**已完成：**
+- **Phase 7 启动前快速清扫** ✅ — 补 `instrumentFilter` toggle 的 show/hide 接入。
+- **Phase 7-1：VST3 插件离线渲染** ✅
+  - 非 UI 线程创建 `AudioPluginInstance` 副本实现 VST3 音色 WAV 导出。
+  - 以 `RecordingTake` 事件为输入，逐 block 渲染到音频 buffer。
+  - 输出到现有 WAV 写入流程（`RecordingExporter` / `WavAudioFormat`）。
+  - ExportDialog 进度对话框（`ProgressBar` + 取消支持）。
+  - 官方 git tag `v0.1.0-alpha`。
+- **Phase 7-2：播放速度精确控制** ✅
+  - 替换步进按钮为 `juce::Slider` + 数值标签。
+  - 跨线程安全：`std::atomic<double>` / `std::atomic<std::int64_t>`。
+- **Phase 7-3：拖放文件支持** ✅
+  - `FileDragAndDropTarget`：`.devpiano` / `.mid` / `.freepiano.layout` / `.vst3`。
+  - 蓝色 3px 边框视觉反馈。
 
-**P1 — Phase 7-2：播放速度精确控制**
-- 替换步进按钮为 `juce::Slider` + 数值标签。
-
-**P1 — Phase 7-3：拖放文件支持**
-- `FileDragAndDropTarget`：`.devpiano` / `.mid` / `.freepiano.layout` / `.vst3`。
-
-**P1 — Phase 7-4：运行时中英文语言切换**
+**P0 — Phase 7-4：运行时中英文语言切换**
 - JUCE `Translation` 机制，替换旧 `language_strdef.h` 体系。
 
 **P1 — Phase 7-5：歌曲信息编辑对话框**
 - 编辑 `PerformanceFileMetadata`。
 
-1. **Phase 7-1：VST3 插件离线渲染（P0）** — 当前主动阶段。
-   - 非 UI 线程创建 `AudioPluginInstance` 副本实现 VST3 音色 WAV 导出。
-   - 以 `RecordingTake` 事件为输入，逐 block 渲染到音频 buffer。
-   - 输出到现有 WAV 写入流程（`RecordingExporter` / `WavAudioFormat`）。
-   - 启动前快速清扫（~5 min）：补 instrumentFilter toggle 的 show/hide 接入，完成 Phase 6-11 剩余简单项。
+**P1 — Phase 7-6：Export 进度对话框**（与 Phase 7-1 合并，已实现）
 
-2. **Phase 7-2..7-7：体验完善（P1，按序推进）**
-   - 播放速度精确控制、拖放文件支持、运行时语言切换、歌曲信息编辑、Export 进度对话框、全屏模式。
+**P1 — Phase 7-7：全屏模式**
+- F11 切换，`Desktop::setKioskModeComponent`。
+
+1. **Phase 7-4：运行时语言切换（P0）** — 当前主动阶段。
+   - 实现 JUCE `Translation` 机制，替换旧 `language_strdef.h` 体系。
+   - 中英文 UI 字符串表。
+
+2. **Phase 7-5/7-7：体验完善（P1，按序推进）**
+   - 歌曲信息编辑对话框、全屏模式。
 
 3. **Phase 6-11 遗留项（中低优先级，Phase 7 中按需追加）**
    - ChannelMatrix UI 编辑器、MIDI 输入重映射 UI — 遇到对应场景时切入。
