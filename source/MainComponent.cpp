@@ -549,6 +549,30 @@ void MainComponent::saveSettingsSoon() {
 }
 
 void MainComponent::showSettingsDialog() {
+    auto onDisplaySettingsChanged
+        = [safe = juce::Component::SafePointer<MainComponent>(this), lastResizable = true]() mutable {
+              if (safe == nullptr)
+                  return;
+
+              auto kbs = safe->appSettings.getKeyboardDisplaySettingsView();
+              devpiano::ui::KeyboardSettings ks;
+              ks.colourMode = kbs.colourMode;
+              ks.noteDisplay = kbs.noteDisplay;
+              ks.fadeSpeed = kbs.fadeSpeed;
+              safe->keyboardPanel.getCustomKeyboard().setKeyboardSettings(ks);
+
+              // TODO: Consume kbs.showInstrumentFilter to show/hide
+              // the plugin panel's instrument filter UI once implemented.
+              // Only recreate desktop window when resize preference changes
+              if (kbs.resizableWindow != lastResizable) {
+                  lastResizable = kbs.resizableWindow;
+                  if (auto* topLevel = safe->getTopLevelComponent()) {
+                      if (auto* dw = dynamic_cast<juce::DocumentWindow*>(topLevel))
+                          dw->setResizable(kbs.resizableWindow, kbs.resizableWindow);
+                  }
+              }
+          };
+
     settingsWindowManager->show({ .parent = *this,
                                   .deviceManager = deviceManager,
                                   .savedAudioDeviceState = appSettings.audioDeviceState.get(),
@@ -563,28 +587,7 @@ void MainComponent::showSettingsDialog() {
                                           if (safe != nullptr)
                                               safe->restoreKeyboardFocus();
                                       },
-                                  .onDisplaySettingsChanged =
-                                      [safe = juce::Component::SafePointer<MainComponent>(this)] {
-                                          if (safe == nullptr)
-                                              return;
-
-                                          // Apply keyboard display settings live
-                                          auto kbs = safe->appSettings.getKeyboardDisplaySettingsView();
-                                          devpiano::ui::KeyboardSettings ks;
-                                          ks.colourMode = kbs.colourMode;
-                                          ks.noteDisplay = kbs.noteDisplay;
-                                          ks.fadeSpeed = kbs.fadeSpeed;
-                                          safe->keyboardPanel.getCustomKeyboard().setKeyboardSettings(ks);
-
-                                          // TODO: Consume kbs.showInstrumentFilter to show/hide
-                                          // the plugin panel's instrument filter UI once implemented.
-
-                                          // Toggle window resizable state
-                                          if (auto* topLevel = safe->getTopLevelComponent()) {
-                                              if (auto* dw = dynamic_cast<juce::DocumentWindow*>(topLevel))
-                                                  dw->setResizable(kbs.resizableWindow, kbs.resizableWindow);
-                                          }
-                                      } });
+                                  .onDisplaySettingsChanged = std::move(onDisplaySettingsChanged) });
 }
 
 bool MainComponent::isSettingsWindowOpen() const {
