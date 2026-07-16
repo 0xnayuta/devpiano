@@ -23,6 +23,12 @@ public:
     juce::StringArray getKnownPluginNames() const;
     juce::String getPluginListDescription() const;
     juce::String getLastScanSummary() const;
+    int getLastScanPluginCount() const noexcept {
+        return lastScanPluginCount;
+    }
+    int getLastScanFailedCount() const noexcept {
+        return lastScanFailedCount;
+    }
     juce::StringArray getLastScanFailedFiles() const;
     bool isCurrentlyScanning() const noexcept {
         return isScanning;
@@ -63,6 +69,8 @@ private:
     juce::AudioPluginFormatManager formatManager;
     juce::KnownPluginList knownPluginList;
     juce::String lastScanSummary { "VST3 scan not run yet." };
+    int lastScanPluginCount = 0;
+    int lastScanFailedCount = 0;
     juce::StringArray lastScanFailedFiles;
     juce::String lastLoadError { "No plugin load attempted yet." };
     std::unique_ptr<juce::AudioPluginInstance> pluginInstance;

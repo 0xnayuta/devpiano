@@ -90,8 +90,10 @@ bool PluginHost::advanceVst3ScanStep() {
 
     activeScanner.reset();
 
-    const auto failedCount = lastScanFailedFiles.size();
     const auto pluginCount = knownPluginList.getNumTypes();
+    lastScanPluginCount = pluginCount;
+    lastScanFailedCount = static_cast<int>(lastScanFailedFiles.size());
+    const auto failedCount = lastScanFailedFiles.size();
 
     if (pluginCount > 0) {
         lastScanSummary = "VST3 scan complete: " + juce::String(pluginCount) + " plugin(s), "
@@ -175,8 +177,8 @@ std::unique_ptr<juce::XmlElement> PluginHost::createKnownPluginListXml() const {
 bool PluginHost::restoreKnownPluginListFromXml(const juce::XmlElement& xml) {
     knownPluginList.recreateFromXml(xml);
     lastScanFailedFiles.clear();
-
     const auto count = knownPluginList.getNumTypes();
+    lastScanPluginCount = count;
     if (count <= 0) {
         lastScanSummary = "Cached plugin list was empty.";
         return false;

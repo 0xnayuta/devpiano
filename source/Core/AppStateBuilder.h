@@ -24,6 +24,8 @@ struct RuntimePluginState {
     juce::String lastScanSummary;
     juce::String lastLoadError;
     double preparedSampleRate = 0.0;
+    int scanPluginCount = 0;
+    int scanFailedCount = 0;
     int preparedBlockSize = 0;
     bool supportsVst3 = false;
     bool hasLoadedPlugin = false;

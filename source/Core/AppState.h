@@ -45,6 +45,8 @@ struct PluginState {
     juce::String currentPluginName;
     juce::StringArray availablePluginNames;
     juce::String lastScanSummary;
+    int scanPluginCount = 0;
+    int scanFailedCount = 0;
     juce::String lastLoadError;
     double preparedSampleRate = 0.0;
     int preparedBlockSize = 0;
