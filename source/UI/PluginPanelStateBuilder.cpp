@@ -19,5 +19,7 @@ PluginPanel::State buildPluginPanelState(const PluginHost& pluginHost, const juc
              .isPrepared = pluginHost.isPrepared(),
              .isEditorOpen = isEditorOpen,
              .isCurrentlyScanning = pluginHost.isCurrentlyScanning(),
+             .scanPluginCount = pluginHost.getLastScanPluginCount(),
+             .scanFailedCount = pluginHost.getLastScanFailedCount(),
              .scanningPluginName = pluginHost.getScanningPluginName() };
 }

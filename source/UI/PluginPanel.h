@@ -20,6 +20,8 @@ public:
         bool isPrepared = false;
         bool isEditorOpen = false;
         bool isCurrentlyScanning = false;
+        int scanPluginCount = 0;
+        int scanFailedCount = 0;
         juce::String scanningPluginName;
     };
 
@@ -38,6 +40,8 @@ public:
     std::function<void()> onUnloadRequested;
     std::function<void()> onToggleEditorRequested;
 
+    void refreshTexts();
+
 private:
     juce::File getInitialBrowseDirectory() const;
     void setupBrowseButton();
@@ -46,15 +50,16 @@ private:
     juce::Label pluginSelectionLabel;
     juce::Label pluginListLabel;
 
-    juce::TextButton scanPluginsButton { "Scan VST3" };
-    juce::TextButton browseButton { "..." };
-    juce::TextButton loadPluginButton { "Load" };
-    juce::TextButton unloadPluginButton { "Unload" };
-    juce::TextButton openEditorButton { "Open Editor" };
+    juce::TextButton scanPluginsButton { TRANS("Scan VST3") };
+    juce::TextButton browseButton { "..." }; // too short to translate
+    juce::TextButton loadPluginButton { TRANS("Load") };
+    juce::TextButton unloadPluginButton { TRANS("Unload") };
+    juce::TextButton openEditorButton { TRANS("Open Editor") };
 
     juce::TextEditor pluginPathEditor;
     juce::ComboBox pluginSelector;
     juce::TextEditor pluginListEditor;
+    State lastState;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginPanel)
 };
