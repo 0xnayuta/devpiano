@@ -10,6 +10,7 @@
 #include "Input/KeyboardMidiMapper.h"
 #include "Layout/LayoutDirectoryScanner.h"
 #include "Layout/LayoutFlowSupport.h"
+#include "Locale/LocaleManager.h"
 #include "Midi/MidiChannelMapper.h"
 
 #include "Midi/MidiRouter.h"
@@ -110,6 +111,9 @@ private:
     [[nodiscard]] devpiano::core::AppState buildCurrentAppStateSnapshot() const;
     double getCurrentRuntimeSampleRate() const;
     int getCurrentRuntimeBlockSize() const;
+    void applyLanguage(const juce::String& code);
+    void refreshAllTexts();
+
     [[nodiscard]] RuntimeAudioConfig getCurrentRuntimeAudioConfig() const;
     void runPluginActionWithAudioDeviceRebuild(const std::function<void(const RuntimeAudioConfig&)>& action);
     void runPluginActionWithAudioDeviceRebuild(const std::function<void()>& action);

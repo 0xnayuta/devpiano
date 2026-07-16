@@ -75,6 +75,7 @@ MainComponent::MainComponent()
 
     startTimerHz(30);
     restoreKeyboardFocus();
+    applyLanguage(appSettings.languageCode);
 }
 
 MainComponent::~MainComponent() {
@@ -123,7 +124,7 @@ void MainComponent::initialiseUi() {
     setWantsKeyboardFocus(true);
 
     addAndMakeVisible(headerPanel);
-    headerPanel.setHintText("VST3 scan/load is ready: scan, select a plugin, then click Load.");
+    headerPanel.setHintText(TRANS("VST3 scan/load is ready: scan, select a plugin, then click Load."));
     headerPanel.onSettingsRequested = [this] { showSettingsDialog(); };
 
     addAndMakeVisible(pluginPanel);
@@ -620,21 +621,30 @@ void MainComponent::showSettingsDialog() {
               }
           };
 
-    settingsWindowManager->show({ .parent = *this,
-                                  .deviceManager = deviceManager,
-                                  .savedAudioDeviceState = appSettings.audioDeviceState.get(),
-                                  .displaySettingsModel = &appSettings,
-                                  .onSaveRequested =
-                                      [safe = juce::Component::SafePointer<MainComponent>(this)] {
-                                          if (safe != nullptr)
-                                              safe->saveSettingsNow();
-                                      },
-                                  .onClosed =
-                                      [safe = juce::Component::SafePointer<MainComponent>(this)] {
-                                          if (safe != nullptr)
-                                              safe->restoreKeyboardFocus();
-                                      },
-                                  .onDisplaySettingsChanged = std::move(onDisplaySettingsChanged) });
+    settingsWindowManager->show(
+        { .parent = *this,
+          .deviceManager = deviceManager,
+          .savedAudioDeviceState = appSettings.audioDeviceState.get(),
+          .displaySettingsModel = &appSettings,
+          .onSaveRequested =
+              [safe = juce::Component::SafePointer<MainComponent>(this)] {
+                  if (safe != nullptr)
+                      safe->saveSettingsNow();
+              },
+          .onClosed =
+              [safe = juce::Component::SafePointer<MainComponent>(this)] {
+                  if (safe != nullptr)
+                      safe->restoreKeyboardFocus();
+              },
+          .onDisplaySettingsChanged = std::move(onDisplaySettingsChanged),
+          .onLanguageChanged =
+              [safe = juce::Component::SafePointer<MainComponent>(this)](const juce::String& code) {
+                  if (safe != nullptr) {
+                      safe->appSettings.languageCode = code;
+                      safe->applyLanguage(code);
+                      safe->saveSettingsSoon();
+                  }
+              } });
 }
 
 bool MainComponent::isSettingsWindowOpen() const {
@@ -678,6 +688,17 @@ devpiano::core::AppState MainComponent::buildCurrentAppStateSnapshot() const {
         appSettings, deviceManager, pluginHost,
         pluginOperationController != nullptr && pluginOperationController->hasEditorWindowOpen(), keyboardMidiMapper,
         midiRouter, externalMidiMessageCount, lastExternalMidiMessage);
+}
+
+void MainComponent::applyLanguage(const juce::String& code) {
+    devpiano::locale::activate(devpiano::locale::codeToLanguage(code));
+    refreshAllTexts();
+}
+
+void MainComponent::refreshAllTexts() {
+    headerPanel.refreshTexts();
+    pluginPanel.refreshTexts();
+    controlsPanel.refreshTexts();
 }
 
 double MainComponent::getCurrentRuntimeSampleRate() const {
