@@ -7,7 +7,7 @@
 
 当前活跃阶段：**Phase 7 — VST3 离线渲染与体验完善**。Phase 6 / Phase 7-1~7-4 已完成。
 
-**Phase 5** 已完成（5.1-5.8 + 人工回归均通过）。`MainComponent.cpp` 从 1587 行降至 606 行。
+**Phase 5** 已完成（5.1-5.8 + 人工回归均通过）。`MainComponent.cpp` 从 1587 行降至 606 行（Phase 5 结束时数据；后续 Phase 6/7 新增功能后当前约 750 行）。
 
 **Phase 6** 已完成子项：6-1（演奏文件持久化）、6-2（播放速度控制）、6-5（MIDI 导入增强）、6-6（Diagnostics 层）、6-7（测试夹具库）、6-8（自定义钢琴键盘）、6-9（16 通道 MIDI 矩阵）、6-10（note-only 绑定编辑器）、6-11（5 项设置控件：colourMode/noteDisplay/fadeSpeed/resizable/instrumentFilter toggle）。
 

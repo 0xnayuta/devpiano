@@ -104,7 +104,7 @@
 - Phase 5.8f：AppStateBuilder 分层清理 — 已评估为低优先级 tech debt，暂不执行。详见 [`../archive/phase5-architecture-convergence.md`](../archive/phase5-architecture-convergence.md)。
 - 5.8+ 后续机会（音频设备 helper、设置 flow helper、匿名 namespace 分散）— 已评估，不建议继续拆分，长期搁置到 MainComponent 再次膨胀。
 
-5.8a-5.8e 已使 `MainComponent.cpp` 降至 606 行，已达成 1200 行以下目标。人工回归已通过，无明显回退。详细计划见 [`../archive/phase5-architecture-convergence.md`](../archive/phase5-architecture-convergence.md)。
+5.8a-5.8e 已使 `MainComponent.cpp` 降至 606 行（Phase 5 结束时数据；后续 Phase 6/7 新增功能后当前约 750 行），已达成 1200 行以下目标。人工回归已通过，无明显回退。详细计划见 [`../archive/phase5-architecture-convergence.md`](../archive/phase5-architecture-convergence.md)。
 
 详细完成记录见：[`../archive/phase5-architecture-convergence.md`](../archive/phase5-architecture-convergence.md)。
 
@@ -140,7 +140,7 @@
   - 覆盖 MIDI 导入、MIDI roundtrip、错误处理、回放行为验证的统一输入基准。
 
 - **Phase 6-8：自定义钢琴键盘** ✅
-  - `CustomKeyboard` JUCE Component，支持 classic / rainbow / monochrome 着色模式。
+  - `CustomKeyboard` JUCE Component，支持 classic / channel / velocity 着色模式。
   - 外部 MIDI / 电脑键盘 / 鼠标拖拽触发的 note 可视化，fade 动画。
   - 音符显示模式（Do Re Mi / 固定 Do / 音符名称）。
   - 双击键弹出绑定编辑对话框。
@@ -170,9 +170,9 @@
 - **Phase 7-1：VST3 插件离线渲染** ✅
   - 非 UI 线程创建 `AudioPluginInstance` 副本实现 VST3 音色 WAV 导出。
   - 以 `RecordingTake` 事件为输入，逐 block 渲染到音频 buffer。
-  - 输出到现有 WAV 写入流程（`RecordingExporter` / `WavAudioFormat`）。
+  - 输出到现有 WAV 写入流程（`WavFileExporter` / `WavAudioFormat`）。
   - ExportDialog 进度对话框（`ProgressBar` + 取消支持）。
-  - 官方 git tag `v0.1.0-alpha`。
+  - 官方 git tag `v0.1.0`。
 - **Phase 7-2：播放速度精确控制** ✅
   - 替换步进按钮为 `juce::Slider` + 数值标签。
   - 跨线程安全：`std::atomic<double>` / `std::atomic<std::int64_t>`。
