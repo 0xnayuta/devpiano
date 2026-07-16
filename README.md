@@ -22,7 +22,7 @@
 
 ## 当前状态
 
-当前主干已经具备以下能力：
+当前主干已具备以下能力：
 
 - JUCE GUI 应用可构建并启动
 - 已使用 JUCE 音频设备管理流程初始化输出设备
@@ -39,17 +39,19 @@
 - 已支持 MIDI 文件导入、自动选轨、导入后回放与 playback 边界收敛
 - 已支持录制/回放相关按钮状态统一管理，Recording 期间禁用 Import MIDI，Playing 期间仍可安全导入另一个 MIDI 替换 playback
 - 已支持 MIDI playback 时虚拟键盘实时联动，以及主窗口尺寸持久化恢复
-- 当前 Phase 4 已收尾，Phase 4-6 merge-all 已搁置，Phase 3-2 作为后续 backlog
+- 已支持运行时界面语言切换（中文/英文），JUCE `Translation` 机制替换旧 `language_strdef.h` 体系
+- 已支持 VST3 离线 WAV 导出（非 UI 线程渲染 + 进度对话框）
+- 已支持播放速度精确控制（Slider + atomic 线程安全）
+- 已支持拖放文件（`.devpiano`/`.mid`/`.freepiano.layout`/`.vst3`），蓝色边框反馈
+- `MainComponent.cpp` 从约 1587 行降至约 606 行，职责已下沉到专门模块
+- 自动化单元测试框架已就位（`cmake -DBUILD_TESTS=ON` → `devpiano_tests`）
 
 当前仍在持续完善的能力：
 
-- 更完整的键盘映射编辑能力
-- 布局 Preset 的冲突提示、图形化编辑等体验增强
-- WAV 离线渲染、复杂编辑、tempo map 等 M6+ 高级功能
-- 更清晰的正式 UI 分层与交互细节
-- 更系统化的稳定性验证与回归测试（自动化单元测试框架已就位：`cmake -DBUILD_TESTS=ON` → `devpiano_tests`）
-- Phase 4 后续 backlog，例如 Phase 3-2 VST3 离线渲染与外部 MIDI 硬件验证
-
+- 歌曲信息编辑对话框（编辑 `PerformanceFileMetadata`）
+- 全屏模式（F11 切换）
+- ChannelMatrix UI 编辑器与 MIDI 输入重映射 UI（按需追加）
+- 更系统化的稳定性验证与回归测试
 
 ---
 
@@ -69,11 +71,13 @@
   - `PluginHost`：负责插件格式管理、VST3 扫描、实例加载、prepare/release 与卸载
 - `source/Input/`
   - `KeyboardMidiMapper`：将电脑键盘输入转换为 MIDI note on/off
+- `source/Locale/`
+  - `LocaleManager`：语言切换基础设施，JUCE `LocalisedStrings` 激活与管理
 - `source/Midi/`
   - `MidiRouter`：打开外部 MIDI 输入并转发到 `MidiMessageCollector`
 - `source/UI/`
   - `HeaderPanel`、`PluginPanel`、`ControlsPanel`、`KeyboardPanel`、`PluginEditorWindow`
-  - 当前 `ControlsPanel` 已统一管理 Record / Play / Stop / Back / Import MIDI / Export MIDI / Export WAV 按钮状态
+  - `ControlsPanel` 已统一管理 Record / Play / Stop / Back / Import MIDI / Export MIDI / Export WAV 按钮状态
 - `source/Settings/`
   - `SettingsModel`、`SettingsStore`、`SettingsComponent`：负责设置建模、持久化与设置界面
 - `source/Core/`
@@ -153,12 +157,12 @@
 
 更多细节见：
 
-- [docs/development/wsl-windows-msvc-workflow.md](docs/development/wsl-windows-msvc-workflow.md)
-- [docs/getting-started/quickstart.md](docs/getting-started/quickstart.md)
-
-## 构建方式
+- [docs/guides/wsl-windows-msvc-workflow.md](docs/guides/wsl-windows-msvc-workflow.md)
+- [docs/guides/quickstart.md](docs/guides/quickstart.md)
 
 > 说明：当前项目采用 **WSL 主工作树 + Windows 镜像树 + MSVC 验证** 的混合工作流。
+
+## 构建工作流
 
 ### 依赖
 - WSL：CMake 3.22+、Ninja、Clang/clangd
@@ -209,6 +213,7 @@ Release 构建（WSL / Windows）：
 ./scripts/dev.sh wsl-build --release
 ./scripts/dev.sh win-build --release
 ```
+
 ### 当前主要产物路径
 
 - WSL Debug：`build-wsl-clang/devpiano_artefacts/Debug/DevPiano`
@@ -218,18 +223,13 @@ Release 构建（WSL / Windows）：
 
 ### 相关文档
 
-- [docs/development/wsl-windows-msvc-workflow.md](docs/development/wsl-windows-msvc-workflow.md)
-- [docs/getting-started/quickstart.md](docs/getting-started/quickstart.md)
-- [docs/features/phase4-midi-file-import.md](docs/features/phase4-midi-file-import.md)
-- [docs/testing/phase4-midi-file-import.md](docs/testing/phase4-midi-file-import.md)
-
----
+- [docs/guides/wsl-windows-msvc-workflow.md](docs/guides/wsl-windows-msvc-workflow.md)
+- [docs/guides/quickstart.md](docs/guides/quickstart.md)
+- [docs/reference/features/midi-file-import.md](docs/reference/features/midi-file-import.md)
 
 ## 旧代码使用原则
 
 `freepiano-src/` 的定位是：**迁移参考资料**，不是当前实现的一部分。
-
-请遵循以下原则：
 
 - 可以阅读旧代码以理解历史功能和行为
 - 不要直接把旧的 Windows 专用实现照搬进新代码
@@ -249,7 +249,7 @@ Release 构建（WSL / Windows）：
 
 更多映射说明见：
 
-- [docs/features/phase4-midi-file-import.md](docs/features/phase4-midi-file-import.md)
+- [docs/reference/features/midi-file-import.md](docs/reference/features/midi-file-import.md)
 
 ---
 
@@ -259,20 +259,19 @@ Release 构建（WSL / Windows）：
 
 如果要了解项目当前规划，建议按以下顺序阅读：
 
-- 快速恢复：[docs/getting-started/quickstart.md](docs/getting-started/quickstart.md)
-- 详细工作流：[docs/development/wsl-windows-msvc-workflow.md](docs/development/wsl-windows-msvc-workflow.md)
-- 当前架构：[docs/architecture/overview.md](docs/architecture/overview.md)
+- 快速恢复：[docs/guides/quickstart.md](docs/guides/quickstart.md)
+- 详细工作流：[docs/guides/wsl-windows-msvc-workflow.md](docs/guides/wsl-windows-msvc-workflow.md)
+- 当前架构：[docs/reference/architecture.md](docs/reference/architecture.md)
 - 路线图与项目状态：[docs/roadmap/roadmap.md](docs/roadmap/roadmap.md)
 - 当前迭代任务：[docs/roadmap/current-iteration.md](docs/roadmap/current-iteration.md)
-- 阶段验收标准：[docs/testing/acceptance.md](docs/testing/acceptance.md)
-- MIDI 文件导入与回放边界：[docs/features/phase4-midi-file-import.md](docs/features/phase4-midi-file-import.md)
-- MIDI 文件导入专项测试：[docs/testing/phase4-midi-file-import.md](docs/testing/phase4-midi-file-import.md)
-- 专项测试：
-  - [docs/testing/phase2-keyboard-mapping.md](docs/testing/phase2-keyboard-mapping.md)
-  - [docs/testing/phase3-layout-presets.md](docs/testing/phase3-layout-presets.md)
-  - [docs/testing/phase3-recording-playback.md](docs/testing/phase3-recording-playback.md)
-  - [docs/testing/phase4-midi-file-import.md](docs/testing/phase4-midi-file-import.md)
-  - [docs/testing/phase2-plugin-host-lifecycle.md](docs/testing/phase2-plugin-host-lifecycle.md)
+- 阶段验收标准：[docs/reference/acceptance.md](docs/reference/acceptance.md)
+- MIDI 文件导入与回放边界：[docs/reference/features/midi-file-import.md](docs/reference/features/midi-file-import.md)
+- 键盘映射：[docs/reference/features/keyboard-mapping.md](docs/reference/features/keyboard-mapping.md)
+- 布局 Preset：[docs/reference/features/layout-presets.md](docs/reference/features/layout-presets.md)
+- 录制/回放：[docs/reference/features/recording-playback.md](docs/reference/features/recording-playback.md)
+- 插件宿主：[docs/reference/features/plugin-hosting.md](docs/reference/features/plugin-hosting.md)
+- 性能持久化：[docs/reference/features/performance-persistence.md](docs/reference/features/performance-persistence.md)
+- VST3 离线渲染：[docs/reference/features/plugin-offline-rendering.md](docs/reference/features/plugin-offline-rendering.md)
 
 ---
 
@@ -282,5 +281,4 @@ Release 构建（WSL / Windows）：
 - 新代码放入 `source/` 结构化子目录中
 - 不修改 `JUCE/` 中的任何代码
 - 修改后尽量通过 CMake 构建验证
-- 迁移旧逻辑时优先“提炼行为”，不要直接搬运平台绑定实现
-- 当前 Phase 4 已收尾：MIDI 文件导入、自动选轨、导入后回放、Import MIDI 按钮状态收敛、playback 边界与主窗口尺寸恢复均已通过人工验收；Phase 4-6 merge-all 已搁置，Phase 3-2 作为后续 backlog
+- 迁移旧逻辑时优先"提炼行为"，不要直接搬运平台绑定实现

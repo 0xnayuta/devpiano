@@ -32,7 +32,7 @@
 - Phase 7-1（VST3 离线渲染）✅ 已完成 — 非 UI 线程 VST3 音色 WAV 导出 + ExportDialog 进度对话框。
 - Phase 7-2（播放速度精确控制）✅ 已完成 — Slider + TextBox 替换步进按钮，atomic 线程安全。
 - Phase 7-3（拖放文件支持）✅ 已完成 — FileDragAndDropTarget（.devpiano/.mid/.freepiano.layout/.vst3）。
-- Phase 7-4（运行时语言切换）为当前 P0 — JUCE Translation 机制替换旧 language_strdef.h。
+- Phase 7-4（运行时语言切换）✅ 已完成 — JUCE `Translation` 机制替换旧 `language_strdef.h` 体系。
 
 **基础设施更新：**
 - JUCE 子模块已升级至 `develop` 最新（3233cd13，JUCE 8.0.14）。弃用 API 已同步迁移（如 `Font` → `FontOptions`）。
@@ -163,9 +163,7 @@
 
 ### Phase 7：VST3 离线渲染与体验完善（当前阶段）
 
-状态：Phase 7-1 / 7-2 / 7-3 已完成；Phase 7-4（运行时语言切换）为当前 P0。
-
-**目标：** 打通 VST3 音色 WAV 导出闭环，补齐拖放、语言、播放速度精确控制等体验项。
+状态：Phase 7-1 / 7-2 / 7-3 / 7-4 已完成；Phase 7-5 为下一个 P1。
 
 **已完成：**
 - **Phase 7 启动前快速清扫** ✅ — 补 `instrumentFilter` toggle 的 show/hide 接入。
@@ -182,36 +180,29 @@
   - `FileDragAndDropTarget`：`.devpiano` / `.mid` / `.freepiano.layout` / `.vst3`。
   - 蓝色 3px 边框视觉反馈。
 
-**P0 — Phase 7-4：运行时中英文语言切换**
-- JUCE `Translation` 机制，替换旧 `language_strdef.h` 体系。
+- **Phase 7-4：运行时中英文语言切换** ✅
+  - JUCE `Translation` 机制，替换旧 `language_strdef.h` 体系。
+  - 嵌入式中文 locale 表（`source/Locale/zh_CN.loc.h`）。
+  - Settings 页面 Language ComboBox。
+  - 切换即时生效，所有面板 `refreshTexts()` 联动。
 
-**P1 — Phase 7-5：歌曲信息编辑对话框**
+**下一个：Phase 7-5：歌曲信息编辑对话框**
 - 编辑 `PerformanceFileMetadata`。
-
-**P1 — Phase 7-6：Export 进度对话框**（与 Phase 7-1 合并，已实现）
 
 **P1 — Phase 7-7：全屏模式**
 - F11 切换，`Desktop::setKioskModeComponent`。
 
-1. **Phase 7-4：运行时语言切换（P0）** — 当前主动阶段。
-   - 实现 JUCE `Translation` 机制，替换旧 `language_strdef.h` 体系。
-   - 中英文 UI 字符串表。
-
-2. **Phase 7-5/7-7：体验完善（P1，按序推进）**
-   - 歌曲信息编辑对话框、全屏模式。
-
-3. **Phase 6-11 遗留项（中低优先级，Phase 7 中按需追加）**
-   - ChannelMatrix UI 编辑器、MIDI 输入重映射 UI — 遇到对应场景时切入。
+1. **Phase 7-5/7-7：体验完善（P1，按序推进）**
    - Phase 6-10 多事件扩展（CC/pitch bend/channel pressure）— 明确搁置，不做计划。
 
-4. **Phase 4 边界稳定**
+2. **Phase 4 边界稳定**
    - 保持 Phase 4-4 边界：导入 playback take 禁止 MIDI 再导出；导入后允许 WAV 导出。
    - 继续搁置 Phase 4-6 merge-all。
 
-5. **Phase 2 插件宿主持续稳定**
+3. **Phase 2 插件宿主持续稳定**
    - 低优先级持续观察退出阶段 Debug 告警。
 
-6. **搁置项（待条件恢复）**
+4. **搁置项（待条件恢复）**
    - 外部 MIDI 硬件依赖验证。
 
 ## 5. 主要风险

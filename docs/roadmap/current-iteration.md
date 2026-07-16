@@ -5,7 +5,7 @@
 
 ## 当前状态
 
-当前活跃阶段：**Phase 7 — VST3 离线渲染与体验完善**。Phase 6 / Phase 7-1~7-3 已完成。
+当前活跃阶段：**Phase 7 — VST3 离线渲染与体验完善**。Phase 6 / Phase 7-1~7-4 已完成。
 
 **Phase 5** 已完成（5.1-5.8 + 人工回归均通过）。`MainComponent.cpp` 从 1587 行降至 606 行。
 
@@ -16,25 +16,10 @@
 - **Phase 7-1：VST3 离线渲染** ✅ — 非 UI 线程创建 `AudioPluginInstance` 副本、WAV 导出、ExportDialog 进度对话框。
 - **Phase 7-2：播放速度精确控制** ✅ — Slider + TextBox 替换步进按钮，`std::atomic` 跨线程安全。
 - **Phase 7-3：拖放文件支持** ✅ — `FileDragAndDropTarget`（`.devpiano`/`.mid`/`.freepiano.layout`/`.vst3`），蓝色边框反馈。
-
----
-
-## 当前 P0 任务 — Phase 7-4：运行时中英文语言切换
-
-**目标：** 实现运行时切换界面语言（中文 / 英文），替换旧 FreePiano `language_strdef.h` 体系。
-
-- 接入 JUCE `Translation` 机制。
-- 定义中英文 UI 字符串表。
-- Settings 页面添加语言 ComboBox。
-- 语言切换即时生效（无需重启）。
-
-**预计工期：** ~2-3 天。
-
+- **Phase 7-4：运行时中英文语言切换** ✅ — JUCE `Translation` 机制替换 `language_strdef.h` 体系，嵌入式中文 locale 表，Settings ComboBox，切换即时生效。
 ---
 
 ## Phase 7 后续子项（P1，按序推进）
-
-Phase 7-4 完成后依次进入：
 
 - **Phase 7-5（P1）**：歌曲信息编辑对话框（编辑 `PerformanceFileMetadata`）。
 - **Phase 7-7（P1）**：全屏模式（F11 切换，`Desktop::setKioskModeComponent`）。

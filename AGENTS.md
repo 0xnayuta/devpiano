@@ -61,6 +61,7 @@
 4. UI：使用 JUCE `Component` 树替代旧 Windows GDI / 原生控件。
 5. 配置与状态：优先使用 JUCE `ApplicationProperties` / `ValueTree` 与项目内状态模型。
 6. 录制 / 回放 / 导出等高级功能应先定义现代数据模型，不直接继承旧 `song.*` 内部表示。
+7. 国际化：使用 JUCE `Translation` / `LocalisedStrings` 机制管理运行时语言切换，中文 locale 表作为编译期常量嵌入。
 
 ---
 

@@ -39,17 +39,19 @@ The current main branch already provides the following capabilities:
 - MIDI file import, automatic track selection, imported playback, and playback boundary stabilization are available
 - unified recording/playback button state management is available; Import MIDI is disabled during Recording and remains available during Playing to safely replace playback with another MIDI file
 - MIDI playback visualization on the virtual keyboard and main window size persistence are available
-- Phase 4 is now stabilized; Phase 4-6 merge-all is deferred and Phase 3-2 remains a future backlog item
+- runtime UI language switching (Chinese/English) via JUCE `Translation` mechanism, replacing the old `language_strdef.h` system
+- VST3 offline WAV export (non-UI-thread rendering + progress dialog)
+- playback speed precision control (Slider + atomic thread safety)
+- drag-and-drop file support (`.devpiano`/`.mid`/`.freepiano.layout`/`.vst3`), blue border feedback
+- `MainComponent.cpp` reduced from ~1587 lines to ~606 lines; responsibilities extracted into dedicated modules
+- automated unit testing framework ready (`cmake -DBUILD_TESTS=ON` → `devpiano_tests`)
 
 Areas still being improved:
 
-- more complete keyboard mapping editing
-- layout preset enhancements such as conflict warnings and graphical editing
-- M6+ advanced features such as WAV offline rendering, editing, and tempo maps
-- clearer formal UI layering and interaction details
+- song info editing dialog (edit `PerformanceFileMetadata`)
+- fullscreen mode (F11 toggle)
+- ChannelMatrix UI editor and MIDI remapping UI (on demand)
 - more systematic stability validation and regression testing
-- Phase 4 backlog items such as Phase 3-2 VST3 offline rendering and external MIDI hardware validation
-
 ---
 
 ## Current Architecture Overview
@@ -68,6 +70,8 @@ The current main branch can be roughly divided into the following layers:
   - `PluginHost`: manages plugin formats, VST3 scanning, instance loading, prepare/release, and unloading
 - `source/Input/`
   - `KeyboardMidiMapper`: converts computer keyboard input into MIDI note on/off
+- `source/Locale/`
+  - `LocaleManager`: language switching infrastructure, JUCE `LocalisedStrings` activation and management
 - `source/Midi/`
   - `MidiRouter`: opens external MIDI input and forwards it to `MidiMessageCollector`
 - `source/UI/`
@@ -130,11 +134,20 @@ Recommended entry commands:
 # self-check the current development environment
 ./scripts/dev.sh self-check
 
+# format all .cpp/.h under source/
+./scripts/dev.sh format
+
+# check format compliance (CI mode)
+./scripts/dev.sh format --check
+
 # local WSL configure / build (Debug)
 ./scripts/dev.sh wsl-build --configure-only
 
 # local WSL configure / build (Release)
 ./scripts/dev.sh wsl-build --release --configure-only
+
+# run unit tests (configures BUILD_TESTS=ON → builds → executes)
+./scripts/dev.sh test
 
 # Windows MSVC validation build (Debug, sync built-in)
 ./scripts/dev.sh win-build
@@ -142,11 +155,11 @@ Recommended entry commands:
 # Windows MSVC validation build (Release, sync built-in)
 ./scripts/dev.sh win-build --release
 ```
-
 For more details, see:
 
-- [docs/development/wsl-windows-msvc-workflow.md](docs/development/wsl-windows-msvc-workflow.md)
-- [docs/getting-started/quickstart.md](docs/getting-started/quickstart.md)
+- [docs/guides/wsl-windows-msvc-workflow.md](docs/guides/wsl-windows-msvc-workflow.md)
+- [docs/guides/quickstart.md](docs/guides/quickstart.md)
+
 
 ## Build Workflow
 
@@ -199,18 +212,15 @@ Release builds (WSL / Windows):
 
 ### Related Documents
 
-- [docs/development/wsl-windows-msvc-workflow.md](docs/development/wsl-windows-msvc-workflow.md)
-- [docs/getting-started/quickstart.md](docs/getting-started/quickstart.md)
-- [docs/features/phase4-midi-file-import.md](docs/features/phase4-midi-file-import.md)
-- [docs/testing/phase4-midi-file-import.md](docs/testing/phase4-midi-file-import.md)
+- [docs/guides/wsl-windows-msvc-workflow.md](docs/guides/wsl-windows-msvc-workflow.md)
+- [docs/guides/quickstart.md](docs/guides/quickstart.md)
+- [docs/reference/features/midi-file-import.md](docs/reference/features/midi-file-import.md)
 
 ---
 
 ## How to Use the Legacy Code
 
 `freepiano-src/` is **migration reference material**, not part of the current implementation.
-
-Please follow these principles:
 
 - you may read the legacy code to understand historical behavior and features
 - do not directly copy old Windows-specific implementations into the new code
@@ -230,7 +240,7 @@ Typical replacement directions:
 
 For more mapping details, see:
 
-- [docs/features/phase4-midi-file-import.md](docs/features/phase4-midi-file-import.md)
+- [docs/reference/features/midi-file-import.md](docs/reference/features/midi-file-import.md)
 
 ---
 
@@ -240,20 +250,19 @@ The full documentation index is available at: [docs/README.md](docs/README.md).
 
 If you want to understand the current project plan, the recommended reading order is:
 
-- Quick start / environment recovery: [docs/getting-started/quickstart.md](docs/getting-started/quickstart.md)
-- Detailed workflow: [docs/development/wsl-windows-msvc-workflow.md](docs/development/wsl-windows-msvc-workflow.md)
-- Current architecture: [docs/architecture/overview.md](docs/architecture/overview.md)
+- Quick start / environment recovery: [docs/guides/quickstart.md](docs/guides/quickstart.md)
+- Detailed workflow: [docs/guides/wsl-windows-msvc-workflow.md](docs/guides/wsl-windows-msvc-workflow.md)
+- Current architecture: [docs/reference/architecture.md](docs/reference/architecture.md)
 - Roadmap and project status: [docs/roadmap/roadmap.md](docs/roadmap/roadmap.md)
 - Current iteration tasks: [docs/roadmap/current-iteration.md](docs/roadmap/current-iteration.md)
-- Acceptance criteria: [docs/testing/acceptance.md](docs/testing/acceptance.md)
-- MIDI file import and playback boundaries: [docs/features/phase4-midi-file-import.md](docs/features/phase4-midi-file-import.md)
-- MIDI file import specialized tests: [docs/testing/phase4-midi-file-import.md](docs/testing/phase4-midi-file-import.md)
-- Specialized test docs:
-  - [docs/testing/phase2-keyboard-mapping.md](docs/testing/phase2-keyboard-mapping.md)
-  - [docs/testing/phase3-layout-presets.md](docs/testing/phase3-layout-presets.md)
-  - [docs/testing/phase3-recording-playback.md](docs/testing/phase3-recording-playback.md)
-  - [docs/testing/phase4-midi-file-import.md](docs/testing/phase4-midi-file-import.md)
-  - [docs/testing/phase2-plugin-host-lifecycle.md](docs/testing/phase2-plugin-host-lifecycle.md)
+- Acceptance criteria: [docs/reference/acceptance.md](docs/reference/acceptance.md)
+- MIDI file import and playback boundaries: [docs/reference/features/midi-file-import.md](docs/reference/features/midi-file-import.md)
+- Keyboard mapping: [docs/reference/features/keyboard-mapping.md](docs/reference/features/keyboard-mapping.md)
+- Layout presets: [docs/reference/features/layout-presets.md](docs/reference/features/layout-presets.md)
+- Recording/playback: [docs/reference/features/recording-playback.md](docs/reference/features/recording-playback.md)
+- Plugin hosting: [docs/reference/features/plugin-hosting.md](docs/reference/features/plugin-hosting.md)
+- Performance persistence: [docs/reference/features/performance-persistence.md](docs/reference/features/performance-persistence.md)
+- VST3 offline rendering: [docs/reference/features/plugin-offline-rendering.md](docs/reference/features/plugin-offline-rendering.md)
 
 ---
 
@@ -264,4 +273,3 @@ If you want to understand the current project plan, the recommended reading orde
 - do not modify anything inside `JUCE/`
 - validate changes through the build workflow whenever possible
 - when migrating legacy logic, prioritize extracting behavior rather than directly copying platform-specific implementations
-- Phase 4 is now stabilized: MIDI file import, automatic track selection, imported playback, Import MIDI button state convergence, playback boundaries, and main window size restoration have all passed manual validation; Phase 4-6 merge-all is deferred and Phase 3-2 remains a future backlog item
