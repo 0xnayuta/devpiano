@@ -12,7 +12,7 @@ public:
         , existingBinding(existing)
         , onComplete(std::move(onCompleteFn)) {
         // Title / info area (non-editable)
-        titleLabel.setText("Key Binding Editor — " + noteName + " (#" + juce::String(midiNote) + ")",
+        titleLabel.setText(TRANS("Key Binding Editor") + " — " + noteName + " (#" + juce::String(midiNote) + ")",
                            juce::dontSendNotification);
         titleLabel.setFont(juce::Font(juce::FontOptions(14.0f, juce::Font::bold)));
         titleLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0e0e0));
@@ -20,7 +20,7 @@ public:
 
         if (existingBinding != nullptr) {
             // Editable form for an existing binding
-            infoLabel.setText("Bound to keyboard key:  " + keyLabel, juce::dontSendNotification);
+            infoLabel.setText(TRANS("Bound to keyboard key:") + "  " + keyLabel, juce::dontSendNotification);
             infoLabel.setFont(juce::Font(juce::FontOptions(13.0f)));
             infoLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0e0e0));
             addAndMakeVisible(infoLabel);
@@ -28,7 +28,7 @@ public:
             auto& act = existingBinding->action;
 
             // MIDI Channel
-            channelLabel.setText("MIDI Channel:", juce::dontSendNotification);
+            channelLabel.setText(TRANS("MIDI Channel:"), juce::dontSendNotification);
             channelLabel.attachToComponent(&channelCombo, true);
             channelLabel.setFont(juce::Font(juce::FontOptions(13.0f)));
             channelLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0e0e0));
@@ -43,7 +43,7 @@ public:
             noteSlider.setValue(juce::jlimit(0, 127, act.midiNote));
             noteSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
             noteSlider.setNumDecimalPlacesToDisplay(0);
-            noteLabel.setText("MIDI Note:", juce::dontSendNotification);
+            noteLabel.setText(TRANS("MIDI Note:"), juce::dontSendNotification);
             noteLabel.attachToComponent(&noteSlider, true);
             noteLabel.setFont(juce::Font(juce::FontOptions(13.0f)));
             noteLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0e0e0));
@@ -55,7 +55,7 @@ public:
             velocitySlider.setValue(juce::jlimit(0.0, 127.0, static_cast<double>(act.velocity * 127.0)));
             velocitySlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
             velocitySlider.setNumDecimalPlacesToDisplay(0);
-            velocityLabel.setText("Velocity:", juce::dontSendNotification);
+            velocityLabel.setText(TRANS("Velocity:"), juce::dontSendNotification);
             velocityLabel.attachToComponent(&velocitySlider, true);
             velocityLabel.setFont(juce::Font(juce::FontOptions(13.0f)));
             velocityLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0e0e0));
@@ -76,7 +76,7 @@ public:
             setSize(420, 230);
         } else {
             // Read-only: no binding exists for this note
-            infoLabel.setText("No keyboard key is currently mapped to this note.", juce::dontSendNotification);
+            infoLabel.setText(TRANS("No keyboard key is currently mapped to this note."), juce::dontSendNotification);
             infoLabel.setFont(juce::Font(juce::FontOptions(13.0f)));
             infoLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0e0e0));
             addAndMakeVisible(infoLabel);
@@ -175,10 +175,10 @@ private:
     juce::Label velocityLabel;
     juce::Slider velocitySlider;
 
-    juce::TextButton okButton { "OK" };
-    juce::TextButton cancelButton { "Cancel" };
-    juce::TextButton unbindButton { "Unbind" };
-    juce::TextButton closeButton { "Close" };
+    juce::TextButton okButton { TRANS("OK") };
+    juce::TextButton cancelButton { TRANS("Cancel") };
+    juce::TextButton unbindButton { TRANS("Unbind") };
+    juce::TextButton closeButton { TRANS("Close") };
 };
 
 // ============================================================================
@@ -217,5 +217,5 @@ void KeyBindingEditDialog::launch(int midiNote, const juce::String& noteName,
     auto* content = new BindingEditContent(midiNote, existingBinding, noteName, keyLabel, std::move(onComplete));
 
     // BindingEditWindow takes ownership and self-destructs on close.
-    new BindingEditWindow("Key Binding Editor", std::unique_ptr<juce::Component>(content));
+    new BindingEditWindow(TRANS("Key Binding Editor"), std::unique_ptr<juce::Component>(content));
 }
