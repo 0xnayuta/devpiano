@@ -30,18 +30,27 @@ void HeaderPanel::resized() {
 }
 
 void HeaderPanel::setHintText(const juce::String& text) {
-    hintLabel.setText(text, juce::dontSendNotification);
+    lastHintText = text;
+    hintLabel.setText(TRANS(text), juce::dontSendNotification);
 }
 
 void HeaderPanel::updateMidiStatus(const MidiStatus& status) {
-    auto text = "MIDI Inputs: " + juce::String(status.openInputCount);
+    lastMidiStatus = status;
+    auto text = TRANS("MIDI Inputs: ") + juce::String(status.openInputCount);
 
     if (status.activityCount > 0) {
-        text << " | Activity: " << juce::String(status.activityCount);
+        text << TRANS(" | Activity: ") << juce::String(status.activityCount);
 
         if (status.lastMessage.isNotEmpty())
-            text << " | Last: " << status.lastMessage;
+            text << TRANS(" | Last: ") << status.lastMessage;
     }
 
     midiStatusLabel.setText(text, juce::dontSendNotification);
+}
+
+void HeaderPanel::refreshTexts() {
+    settingsButton.setButtonText(TRANS("Settings"));
+    // Re-apply the last hint text and MIDI status so they pick up the new locale.
+    hintLabel.setText(TRANS(lastHintText), juce::dontSendNotification);
+    updateMidiStatus(lastMidiStatus);
 }

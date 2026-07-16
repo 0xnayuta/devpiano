@@ -20,14 +20,17 @@ public:
 
     void setHintText(const juce::String& text);
     void updateMidiStatus(const MidiStatus& status);
-
     std::function<void()> onSettingsRequested;
+
+    void refreshTexts();
 
 private:
     juce::Label titleLabel;
     juce::Label hintLabel;
     juce::Label midiStatusLabel;
-    juce::TextButton settingsButton { "Settings" };
+    juce::TextButton settingsButton { TRANS("Settings") };
+    MidiStatus lastMidiStatus;
+    juce::String lastHintText;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(HeaderPanel)
 };
