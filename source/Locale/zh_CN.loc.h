@@ -1,0 +1,157 @@
+#pragma once
+
+namespace devpiano::locale {
+
+// zh-CN locale in JUCE LocalisedStrings .loc format.
+// English strings on the left are the keys used in TRANS("...") calls;
+// unmatched keys fall through to the original English string.
+static const char zhCNLocale[] = R"loc(language: Chinese (Simplified)
+countries: cn
+
+"Save Layout" = "保存布局"
+"Reset" = "重置"
+"Import" = "导入"
+"Rename" = "重命名"
+"Delete" = "删除"
+"Record" = "录音"
+"Play" = "播放"
+"Stop" = "停止"
+"Back" = "返回"
+"Export MIDI" = "导出 MIDI"
+"Export WAV" = "导出 WAV"
+"Import MIDI" = "导入 MIDI"
+"Save" = "保存"
+"Open" = "打开"
+"Speed" = "速度"
+"Layout" = "布局"
+"Volume" = "音量"
+"Attack" = "起音"
+"Decay" = "衰减"
+"Sustain" = "延音"
+"Release" = "释音"
+
+"Idle" = "空闲"
+"Recording" = "录音中"
+"Playing" = "播放中"
+
+
+"Scan VST3" = "扫描 VST3"
+"Load" = "加载"
+"Unload" = "卸载"
+"Open Editor" = "打开编辑器"
+"VST3 Path" = "VST3 路径"
+"Plugin" = "插件"
+"Discovered Plugins" = "已发现的插件"
+"Select a scanned plugin..." = "选择一个已扫描的插件..."
+"Scanning..." = "扫描中..."
+"Scanning VST3 plugins..." = "正在扫描 VST3 插件..."
+"Preparing..." = "准备中..."
+"Select VST3 Plugin Folder" = "选择 VST3 插件文件夹"
+
+"Settings" = "设置"
+
+"Key Binding Editor" = "按键绑定编辑器"
+"Bound to keyboard key:" = "绑定到键盘按键："
+"MIDI Channel:" = "MIDI 通道："
+"MIDI Note:" = "MIDI 音符："
+"Velocity:" = "力度："
+"OK" = "确定"
+"Cancel" = "取消"
+"Unbind" = "解除绑定"
+"Close" = "关闭"
+"No keyboard key is currently mapped to this note." = "当前没有键盘按键映射到此音符。"
+
+"Keyboard Display" = "键盘显示"
+"Colour Mode:" = "颜色模式："
+"Classic" = "经典"
+"Language:" = "语言："
+"Channel" = "通道"
+"Velocity" = "力度"
+"Note Display:" = "音符显示："
+"Do Re Mi" = "Do Re Mi"
+"Fixed Do" = "固定唱名"
+"Note Name" = "音名"
+"Fade Speed:" = "渐隐速度："
+"Resizable Window" = "可调整窗口大小"
+"Show MIDI/VSTi Instrument Filter" = "显示 MIDI/VSTi 乐器筛选"
+
+"Language" = "语言"
+"English" = "English"
+"简体中文" = "简体中文"
+
+"Import Layout" = "导入布局"
+"Display Name:" = "显示名称："
+"Set the display name shown in the layout dropdown." = "设置布局下拉框中显示的显示名称。"
+"Are you sure you want to delete " = "确定要删除 "
+"This action cannot be undone." = "此操作无法撤销。"
+"Delete Layout" = "删除布局"
+
+"Export MIDI Recording" = "导出 MIDI 录音"
+"Export WAV Recording" = "导出 WAV 录音"
+"Import MIDI File" = "导入 MIDI 文件"
+"Open Performance" = "打开演奏文件"
+
+"Audio Settings" = "音频设置"
+
+
+// JUCE AudioDeviceSelectorComponent labels
+"Audio device type:" = "音频设备类型："
+"Output:" = "输出："
+"Input:" = "输入："
+"Device:" = "设备："
+"Active output channels:" = "活跃输出通道："
+"Active input channels:" = "活跃输入通道："
+"Sample rate:" = "采样率："
+"Audio buffer size:" = "音频缓冲区大小："
+"Control Panel" = "控制面板"
+"Reset Device" = "重置设备"
+"Test" = "测试"
+"Show advanced settings..." = "显示高级设置..."
+"(no audio output channels found)" = "（未找到音频输出通道）"
+"(no audio input channels found)" = "（未找到音频输入通道）"
+"none" = "无"
+
+// PluginHost static description / summary strings
+"Plugin formats: " = "插件格式："
+"Plugin formats: none" = "插件格式：无"
+"Plugin formats: VST3" = "插件格式：VST3"
+"VST3 scan not run yet." = "尚未运行 VST3 扫描。"
+"No plugins scanned yet." = "尚未扫描任何插件。"
+"No plugins available. " = "没有可用插件。"
+"VST3 scan in progress..." = "VST3 扫描进行中..."
+"VST3 scan cancelled." = "VST3 扫描已取消。"
+"VST3 scan complete: " = "VST3 扫描完成："
+" plugin(s), " = " 个插件，"
+" failed." = " 个失败。"
+" failed (see log)." = " 个失败（查看日志）。"
+"VST3 scan found no plugins: " = "VST3 扫描未找到插件："
+"Loaded cached plugin list: " = "已加载缓存的插件列表："
+" plugin(s)." = " 个插件。"
+"VST3 scan skipped." = "VST3 扫描已跳过。"
+"VST3 scan complete: no plugins found." = "VST3 扫描完成：未找到任何插件。"
+"VST3 format unavailable." = "VST3 格式不可用。"
+"Current VST3 format cannot scan for plugins." = "当前 VST3 格式不支持扫描插件。"
+"Cached plugin list was empty." = "缓存的插件列表为空。"
+"No plugin load attempted yet." = "尚未尝试加载插件。"
+
+// MIDI status bar (HeaderPanel)
+"MIDI Inputs: " = "MIDI 输入："
+" | Activity: " = " | 活动："
+" | Last: " = " | 最后："
+
+// Plugin status indicators (PluginPanel updateState)
+" [VST3 ready]" = " [VST3 就绪]"
+" | Scanning: " = " | 正在扫描："
+" | Loaded: " = " | 已加载："
+" [not prepared]" = " [未准备]"
+" | Editor open" = " | 编辑器已打开"
+" | Load error: " = " | 加载错误："
+" | Last plugin: " = " | 上个插件："
+
+// Plugin editor window title
+"Plugin Editor" = "插件编辑器"
+" Editor" = " 编辑器"
+"VST3 scan/load is ready: scan, select a plugin, then click Load." = "VST3 扫描/加载已就绪：先扫描，选择插件，然后点击加载。"
+)loc";
+
+} // namespace devpiano::locale

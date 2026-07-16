@@ -127,6 +127,8 @@ target_sources(devpiano PRIVATE
     source/Diagnostics/DebugLog.cpp
     source/Diagnostics/MidiTrace.h
     source/Diagnostics/MidiTrace.cpp
+    source/Locale/LocaleManager.h
+    source/Locale/zh_CN.loc.h
 )
 
 # 包含 source 目录作为头文件查找路径，这样代码里可以通过 #include "xxx.h" 直接引用
