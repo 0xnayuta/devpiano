@@ -26,6 +26,7 @@ const char* kKeyFadeSpeed = "keyboardFadeSpeed";
 const char* kKeyResizableWindow = "resizableWindow";
 const char* kKeyShowInstrumentFilter = "showInstrumentFilter";
 const char* kKeyChannelMatrix = "channelMatrix";
+const char* kKeyLanguageCode = "languageCode";
 
 [[nodiscard]] SettingsModel::PerformanceSettingsView makeDefaultPerformanceSettings() noexcept {
     return {};
@@ -123,6 +124,7 @@ void SettingsStore::readNow(SettingsModel& m) {
 
     m.resizableWindow = f.getBoolValue(kKeyResizableWindow, m.resizableWindow);
     m.showInstrumentFilter = f.getBoolValue(kKeyShowInstrumentFilter, m.showInstrumentFilter);
+    m.languageCode = f.getValue(kKeyLanguageCode, m.languageCode);
 
     // keymap as ValueTree XML
     if (auto keyXml = f.getXmlValue(kKeyMap)) {
@@ -179,6 +181,7 @@ void SettingsStore::writeNow(const SettingsModel& m) {
             f.setValue(kKeyMap, xml->toString());
     }
     f.setValue(kKeyResizableWindow, m.resizableWindow);
+    f.setValue(kKeyLanguageCode, m.languageCode);
     f.setValue(kKeyShowInstrumentFilter, m.showInstrumentFilter);
 
     f.saveIfNeeded();

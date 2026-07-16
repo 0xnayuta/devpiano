@@ -89,6 +89,8 @@ struct SettingsModel {
     float keyboardFadeSpeed = 0.92f;
     bool resizableWindow = true;
     bool showInstrumentFilter = true;
+    // Persisted UI language code ("en" | "zh-CN").
+    juce::String languageCode { "en" };
 
     devpiano::midi::ChannelMatrix channelMatrix;
 

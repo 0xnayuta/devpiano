@@ -21,6 +21,7 @@ public:
         std::function<void()> onSaveRequested;
         std::function<void()> onClosed;
         std::function<void()> onDisplaySettingsChanged;
+        std::function<void(const juce::String&)> onLanguageChanged;
     };
 
     SettingsWindowManager();

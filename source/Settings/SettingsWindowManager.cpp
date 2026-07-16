@@ -88,8 +88,9 @@ void SettingsWindowManager::show(ShowOptions options) {
     };
 
     contentPtr->onDisplaySettingsChanged = options.onDisplaySettingsChanged;
+    contentPtr->onLanguageChanged = options.onLanguageChanged;
 
-    state->window = std::make_unique<SettingsDialogWindow>("Audio Settings", backgroundColour, closeWindow);
+    state->window = std::make_unique<SettingsDialogWindow>(TRANS("Audio Settings"), backgroundColour, closeWindow);
     state->window->setUsingNativeTitleBar(true);
     state->window->setContentOwned(content.release(), true);
     state->window->centreAroundComponent(&options.parent, 620, 580);

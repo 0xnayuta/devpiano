@@ -2,6 +2,7 @@
 #include <JuceHeader.h>
 
 #include "Audio/AudioDeviceDiagnostics.h"
+#include "Locale/LocaleManager.h"
 #include "Settings/SettingsModel.h"
 
 class SettingsComponent : public juce::Component, private juce::ChangeListener {
@@ -19,15 +20,15 @@ public:
         addAndMakeVisible(selector.get());
 
         // === Keyboard Display group ===
-        keyboardGroup.setText("Keyboard Display");
+        keyboardGroup.setText(TRANS("Keyboard Display"));
         addAndMakeVisible(keyboardGroup);
 
         // Colour mode
-        colourModeLabel.setText("Colour Mode:", juce::dontSendNotification);
+        colourModeLabel.setText(TRANS("Colour Mode:"), juce::dontSendNotification);
         colourModeLabel.attachToComponent(&colourModeCombo, true);
-        colourModeCombo.addItem("Classic", 1 + static_cast<int>(devpiano::ui::KeyColourMode::classic));
-        colourModeCombo.addItem("Channel", 1 + static_cast<int>(devpiano::ui::KeyColourMode::channel));
-        colourModeCombo.addItem("Velocity", 1 + static_cast<int>(devpiano::ui::KeyColourMode::velocity));
+        colourModeCombo.addItem(TRANS("Classic"), 1 + static_cast<int>(devpiano::ui::KeyColourMode::classic));
+        colourModeCombo.addItem(TRANS("Channel"), 1 + static_cast<int>(devpiano::ui::KeyColourMode::channel));
+        colourModeCombo.addItem(TRANS("Velocity"), 1 + static_cast<int>(devpiano::ui::KeyColourMode::velocity));
         if (model)
             colourModeCombo.setSelectedId(1 + static_cast<int>(model->keyboardColourMode), juce::dontSendNotification);
         colourModeCombo.onChange = [this] {
@@ -41,11 +42,11 @@ public:
         addAndMakeVisible(colourModeCombo);
 
         // Note display
-        noteDisplayLabel.setText("Note Display:", juce::dontSendNotification);
+        noteDisplayLabel.setText(TRANS("Note Display:"), juce::dontSendNotification);
         noteDisplayLabel.attachToComponent(&noteDisplayCombo, true);
-        noteDisplayCombo.addItem("Do Re Mi", 1 + static_cast<int>(devpiano::ui::NoteDisplayMode::doReMi));
-        noteDisplayCombo.addItem("Fixed Do", 1 + static_cast<int>(devpiano::ui::NoteDisplayMode::fixedDo));
-        noteDisplayCombo.addItem("Note Name", 1 + static_cast<int>(devpiano::ui::NoteDisplayMode::noteName));
+        noteDisplayCombo.addItem(TRANS("Do Re Mi"), 1 + static_cast<int>(devpiano::ui::NoteDisplayMode::doReMi));
+        noteDisplayCombo.addItem(TRANS("Fixed Do"), 1 + static_cast<int>(devpiano::ui::NoteDisplayMode::fixedDo));
+        noteDisplayCombo.addItem(TRANS("Note Name"), 1 + static_cast<int>(devpiano::ui::NoteDisplayMode::noteName));
         if (model)
             noteDisplayCombo.setSelectedId(1 + static_cast<int>(model->keyboardNoteDisplay),
                                            juce::dontSendNotification);
@@ -61,7 +62,7 @@ public:
         addAndMakeVisible(noteDisplayCombo);
 
         // Fade speed
-        fadeSpeedLabel.setText("Fade Speed:", juce::dontSendNotification);
+        fadeSpeedLabel.setText(TRANS("Fade Speed:"), juce::dontSendNotification);
         fadeSpeedLabel.attachToComponent(&fadeSpeedSlider, true);
         fadeSpeedSlider.setRange(0.50, 1.00, 0.01);
         fadeSpeedSlider.setSliderStyle(juce::Slider::LinearHorizontal);
@@ -78,7 +79,7 @@ public:
         addAndMakeVisible(fadeSpeedSlider);
 
         // Resizable window toggle
-        resizableToggle.setButtonText("Resizable Window");
+        resizableToggle.setButtonText(TRANS("Resizable Window"));
         if (model)
             resizableToggle.setToggleState(model->resizableWindow, juce::dontSendNotification);
         resizableToggle.onClick = [this] {
@@ -92,7 +93,7 @@ public:
         addAndMakeVisible(resizableToggle);
 
         // Instrument filter toggle
-        instrumentFilterToggle.setButtonText("Show MIDI/VSTi Instrument Filter");
+        instrumentFilterToggle.setButtonText(TRANS("Show MIDI/VSTi Instrument Filter"));
         if (model)
             instrumentFilterToggle.setToggleState(model->showInstrumentFilter, juce::dontSendNotification);
         instrumentFilterToggle.onClick = [this] {
@@ -108,6 +109,26 @@ public:
         // Diagnostics editor + Save button (unchanged)
         diagnosticsEditor.setMultiLine(true);
         diagnosticsEditor.setReadOnly(true);
+
+        // === Language ===
+        languageLabel.setText(TRANS("Language:"), juce::dontSendNotification);
+        languageLabel.attachToComponent(&languageCombo, true);
+        addAndMakeVisible(languageLabel);
+        using devpiano::locale::Language;
+        languageCombo.addItem("English", 1);
+        languageCombo.addItem(devpiano::locale::languageDisplayName(Language::zhCN), 2);
+        if (model)
+            languageCombo.setSelectedId(model->languageCode == "zh-CN" ? 2 : 1, juce::dontSendNotification);
+        languageCombo.onChange = [this] {
+            if (!model)
+                return;
+            model->languageCode = languageCombo.getSelectedId() == 2 ? "zh-CN" : "en";
+            if (onLanguageChanged)
+                onLanguageChanged(model->languageCode);
+        };
+        addAndMakeVisible(languageCombo);
+
+        // Diagnostics editor + Save button (unchanged)
         diagnosticsEditor.setScrollbarsShown(true);
         diagnosticsEditor.setCaretVisible(false);
         diagnosticsEditor.setPopupMenuEnabled(true);
@@ -115,7 +136,7 @@ public:
         diagnosticsEditor.setMouseClickGrabsKeyboardFocus(false);
         addAndMakeVisible(diagnosticsEditor);
 
-        saveButton.setButtonText("Save");
+        saveButton.setButtonText(TRANS("Save"));
         addAndMakeVisible(saveButton);
         saveButton.onClick = [this] {
             dirty = false;
@@ -142,9 +163,8 @@ public:
         auto buttonRow = bottomArea.removeFromBottom(36);
         saveButton.setBounds(buttonRow.removeFromRight(120).reduced(4));
         diagnosticsEditor.setBounds(bottomArea);
-
-        // Above diagnostics: keyboard display group
-        auto keyboardArea = area.removeFromBottom(170);
+        // Above diagnostics: keyboard display group + language
+        auto keyboardArea = area.removeFromBottom(196);
         keyboardGroup.setBounds(keyboardArea);
         auto groupContent = keyboardArea.reduced(12, 16);
 
@@ -160,13 +180,12 @@ public:
         row = groupContent.removeFromTop(rowH);
         fadeSpeedSlider.setBounds(row.removeFromRight(controlW).reduced(2));
 
-        row = groupContent.removeFromTop(rowH);
         resizableToggle.setBounds(row.removeFromRight(controlW).reduced(2));
 
         row = groupContent.removeFromTop(rowH);
         instrumentFilterToggle.setBounds(row.removeFromRight(controlW).reduced(2));
-
-        // Top: audio selector fills the rest
+        row = groupContent.removeFromTop(rowH);
+        languageCombo.setBounds(row.removeFromRight(controlW).reduced(2));
         selector->setBounds(area);
     }
 
@@ -176,9 +195,9 @@ public:
     void setDirty(bool d) noexcept {
         dirty = d;
     }
-
     std::function<void()> onSaveRequested;
     std::function<void()> onDisplaySettingsChanged;
+    std::function<void(const juce::String&)> onLanguageChanged;
 
 private:
     juce::AudioDeviceManager& deviceManager;
@@ -195,7 +214,8 @@ private:
     juce::Slider fadeSpeedSlider;
     juce::ToggleButton resizableToggle;
     juce::ToggleButton instrumentFilterToggle;
-
+    juce::Label languageLabel;
+    juce::ComboBox languageCombo;
     juce::TextButton saveButton;
     juce::TextEditor diagnosticsEditor;
     std::unique_ptr<juce::XmlElement> savedStateSnapshot;
