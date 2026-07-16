@@ -611,6 +611,8 @@ void MainComponent::showSettingsDialog() {
               ks.fadeSpeed = kbs.fadeSpeed;
               safe->keyboardPanel.getCustomKeyboard().setKeyboardSettings(ks);
 
+              safe->pluginPanel.setInstrumentFilterVisible(kbs.showInstrumentFilter);
+
               // Only recreate desktop window when resize preference changes
               if (kbs.resizableWindow != lastResizable) {
                   lastResizable = kbs.resizableWindow;

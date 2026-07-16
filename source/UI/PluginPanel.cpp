@@ -60,36 +60,55 @@ PluginPanel::PluginPanel() {
     pluginListEditor.setReadOnly(true);
     pluginListEditor.setScrollbarsShown(true);
     pluginListEditor.setCaretVisible(false);
-    pluginListEditor.setPopupMenuEnabled(true);
-    pluginListEditor.setWantsKeyboardFocus(false);
-    pluginListEditor.setMouseClickGrabsKeyboardFocus(false);
     addAndMakeVisible(pluginListEditor);
+
+    instrumentFilterCombo.setVisible(false);
+    instrumentFilterCombo.addItem(TRANS("All"), 1);
+    instrumentFilterCombo.addItem(TRANS("Instruments Only"), 2);
+    instrumentFilterCombo.addItem(TRANS("Effects Only"), 3);
+    instrumentFilterCombo.setSelectedId(1, juce::dontSendNotification);
+    instrumentFilterCombo.onChange = [this] {
+        // Re-apply the last state to refill pluginSelector based on the new filter mode.
+        updateState(lastState);
+    };
+    addAndMakeVisible(instrumentFilterCombo);
 }
 
 void PluginPanel::resized() {
     auto area = getLocalBounds();
+    const auto rowHeight = 28;
 
-    pluginStatusLabel.setBounds(area.removeFromTop(22));
-    area.removeFromTop(10);
+    pluginStatusLabel.setBounds(area.removeFromTop(rowHeight));
+    area.removeFromTop(8);
 
-    auto pathRow = area.removeFromTop(28);
+    // Path row: [VST3 Path(80)] [pathEditor] [Browse(40)] [Scan VST3(80)]
+    auto pathRow = area.removeFromTop(rowHeight);
     pluginPathLabel.setBounds(pathRow.removeFromLeft(80));
-    scanPluginsButton.setBounds(pathRow.removeFromRight(120));
+    scanPluginsButton.setBounds(pathRow.removeFromRight(80));
+    pathRow.removeFromRight(6);
     browseButton.setBounds(pathRow.removeFromRight(40));
-    pluginPathEditor.setBounds(pathRow.reduced(6, 0));
+    pathRow.removeFromRight(6);
+    pluginPathEditor.setBounds(pathRow);
 
     area.removeFromTop(8);
 
-    auto selectorRow = area.removeFromTop(28);
+    // Selector row: [Plugin(80)] [pluginSelector] [Filter(100)] [Load(80)] [Unload(80)] [Open Editor(100)]
+    auto selectorRow = area.removeFromTop(rowHeight);
     pluginSelectionLabel.setBounds(selectorRow.removeFromLeft(80));
-    openEditorButton.setBounds(selectorRow.removeFromRight(110));
-    unloadPluginButton.setBounds(selectorRow.removeFromRight(90));
-    loadPluginButton.setBounds(selectorRow.removeFromRight(90));
-    pluginSelector.setBounds(selectorRow.reduced(6, 0));
+    openEditorButton.setBounds(selectorRow.removeFromRight(100));
+    selectorRow.removeFromRight(6);
+    unloadPluginButton.setBounds(selectorRow.removeFromRight(80));
+    selectorRow.removeFromRight(6);
+    loadPluginButton.setBounds(selectorRow.removeFromRight(80));
+    selectorRow.removeFromRight(6);
+    instrumentFilterCombo.setBounds(selectorRow.removeFromRight(100));
+    selectorRow.removeFromRight(6);
+    pluginSelector.setBounds(selectorRow);
 
-    area.removeFromTop(8);
+    area.removeFromTop(12);
 
-    pluginListLabel.setBounds(area.removeFromTop(22));
+    pluginListLabel.setBounds(area.removeFromTop(rowHeight));
+    area.removeFromTop(6);
     pluginListEditor.setBounds(area);
 }
 
@@ -110,16 +129,23 @@ void PluginPanel::updateState(const State& state) {
         scanPluginsButton.setEnabled(false);
         browseButton.setEnabled(false);
         loadPluginButton.setEnabled(false);
-        unloadPluginButton.setEnabled(false);
-        openEditorButton.setEnabled(false);
-        pluginPathEditor.setEnabled(false);
     } else {
         pluginSelector.clear(juce::dontSendNotification);
         pluginSelector.setTextWhenNothingSelected(TRANS("Select a scanned plugin..."));
 
+        // Pick the plugin name array based on the current filter mode.
+        const auto& names = [&]() -> const juce::StringArray& {
+            const auto filterId = instrumentFilterCombo.getSelectedId();
+            if (filterId == 2 && !state.instrumentPluginNames.isEmpty())
+                return state.instrumentPluginNames;
+            if (filterId == 3 && !state.effectPluginNames.isEmpty())
+                return state.effectPluginNames;
+            return state.availablePluginNames;
+        }();
+
         auto itemId = 1;
         auto selectedIndex = -1;
-        for (const auto& name : state.availablePluginNames) {
+        for (const auto& name : names) {
             pluginSelector.addItem(name, itemId);
 
             if (name.equalsIgnoreCase(state.preferredSelection))
@@ -128,7 +154,7 @@ void PluginPanel::updateState(const State& state) {
             ++itemId;
         }
 
-        if (state.availablePluginNames.isEmpty())
+        if (names.isEmpty())
             pluginSelector.setSelectedItemIndex(-1, juce::dontSendNotification);
         else if (selectedIndex >= 0)
             pluginSelector.setSelectedItemIndex(selectedIndex, juce::dontSendNotification);
@@ -139,7 +165,7 @@ void PluginPanel::updateState(const State& state) {
 
         scanPluginsButton.setEnabled(true);
         browseButton.setEnabled(true);
-        loadPluginButton.setEnabled(!state.availablePluginNames.isEmpty());
+        loadPluginButton.setEnabled(!names.isEmpty());
         unloadPluginButton.setEnabled(state.hasLoadedPlugin);
         openEditorButton.setEnabled(state.hasLoadedPlugin);
         pluginPathEditor.setEnabled(true);
@@ -196,6 +222,10 @@ juce::String PluginPanel::getPluginPathText() const {
     return pluginPathEditor.getText();
 }
 
+void PluginPanel::setInstrumentFilterVisible(bool visible) {
+    instrumentFilterCombo.setVisible(visible);
+    resized();
+}
 juce::String PluginPanel::getSelectedPluginName() const {
     return pluginSelector.getText();
 }
@@ -222,6 +252,7 @@ void PluginPanel::setupBrowseButton() {
                              });
     };
 }
+
 void PluginPanel::refreshTexts() {
     // Static label and button text (constructor initializers are evaluated once)
     pluginPathLabel.setText(TRANS("VST3 Path"), juce::dontSendNotification);
@@ -232,6 +263,13 @@ void PluginPanel::refreshTexts() {
     unloadPluginButton.setButtonText(TRANS("Unload"));
     openEditorButton.setButtonText(TRANS("Open Editor"));
     pluginSelector.setTextWhenNothingSelected(TRANS("Select a scanned plugin..."));
+
+    const auto previousFilterId = instrumentFilterCombo.getSelectedId();
+    instrumentFilterCombo.clear(juce::dontSendNotification);
+    instrumentFilterCombo.addItem(TRANS("All"), 1);
+    instrumentFilterCombo.addItem(TRANS("Instruments Only"), 2);
+    instrumentFilterCombo.addItem(TRANS("Effects Only"), 3);
+    instrumentFilterCombo.setSelectedId(previousFilterId > 0 ? previousFilterId : 1, juce::dontSendNotification);
 
     // Re-apply the last state to refresh status text and plugin list (covers TRANS inside updateState).
     updateState(lastState);

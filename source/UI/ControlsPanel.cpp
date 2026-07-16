@@ -204,7 +204,6 @@ void ControlsPanel::resized() {
 
     auto buttonRow = area.removeFromTop(rowHeight);
     recordStatusLabel.setBounds(buttonRow.removeFromLeft(80));
-    buttonRow.removeFromLeft(6);
     savePerformanceButton.setBounds(buttonRow.removeFromLeft(50));
     buttonRow.removeFromLeft(6);
     openPerformanceButton.setBounds(buttonRow.removeFromLeft(50));

@@ -66,6 +66,10 @@ countries: cn
 "Language:" = "语言："
 "Channel" = "通道"
 "Velocity" = "力度"
+
+"All" = "全部"
+"Instruments Only" = "仅乐器"
+"Effects Only" = "仅效果器"
 "Note Display:" = "音符显示："
 "Do Re Mi" = "Do Re Mi"
 "Fixed Do" = "固定唱名"

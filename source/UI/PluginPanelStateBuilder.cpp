@@ -5,6 +5,8 @@ PluginPanel::State buildPluginPanelState(const PluginHost& pluginHost, const juc
     const auto preferredSelection = pluginHost.hasLoadedPlugin() ? pluginHost.getCurrentPluginName() : lastPluginName;
 
     return { .availablePluginNames = pluginHost.getKnownPluginNames(),
+             .instrumentPluginNames = pluginHost.getInstrumentPluginNames(),
+             .effectPluginNames = pluginHost.getEffectPluginNames(),
              .preferredSelection = preferredSelection,
              .pluginListText = pluginHost.getPluginListDescription(),
              .availableFormatsDescription = pluginHost.getAvailableFormatsDescription(),

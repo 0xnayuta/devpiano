@@ -150,6 +150,25 @@ juce::StringArray PluginHost::getKnownPluginNames() const {
     return names;
 }
 
+juce::StringArray PluginHost::getInstrumentPluginNames() const {
+    juce::StringArray names;
+    for (const auto& desc : knownPluginList.getTypes())
+        if (desc.isInstrument)
+            names.add(desc.name);
+    names.removeDuplicates(false);
+    names.sort(true);
+    return names;
+}
+
+juce::StringArray PluginHost::getEffectPluginNames() const {
+    juce::StringArray names;
+    for (const auto& desc : knownPluginList.getTypes())
+        if (!desc.isInstrument)
+            names.add(desc.name);
+    names.removeDuplicates(false);
+    names.sort(true);
+    return names;
+}
 juce::String PluginHost::getPluginListDescription() const {
     const auto names = getKnownPluginNames();
     if (names.isEmpty()) {

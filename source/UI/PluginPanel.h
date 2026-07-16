@@ -6,6 +6,8 @@ class PluginPanel final : public juce::Component {
 public:
     struct State {
         juce::StringArray availablePluginNames;
+        juce::StringArray instrumentPluginNames;
+        juce::StringArray effectPluginNames;
         juce::String preferredSelection;
         juce::String pluginListText;
         juce::String availableFormatsDescription;
@@ -32,6 +34,7 @@ public:
     void updateState(const State& state);
     void setPluginPathText(const juce::String& text);
     [[nodiscard]] juce::String getPluginPathText() const;
+    void setInstrumentFilterVisible(bool visible);
     [[nodiscard]] juce::String getSelectedPluginName() const;
 
     std::function<void()> onScanRequested;
@@ -60,6 +63,7 @@ private:
     juce::ComboBox pluginSelector;
     juce::TextEditor pluginListEditor;
     State lastState;
+    juce::ComboBox instrumentFilterCombo;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginPanel)
 };
