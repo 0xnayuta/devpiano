@@ -166,7 +166,7 @@ void RecordingSessionController::handleBackToStartClicked() {
 void RecordingSessionController::handleExportMidiClicked() {
     using devpiano::exporting::ExportFileType;
 
-    runExportRecordingFlow(ExportFileType::midi, exportMidiChooser, "Export MIDI Recording", "*.mid",
+    runExportRecordingFlow(ExportFileType::midi, exportMidiChooser, TRANS("Export MIDI Recording"), "*.mid",
                            [this](const juce::File& file) {
                                return devpiano::exporting::exportTakeAsMidiFile(recordingSession.take, file);
                            });
@@ -176,7 +176,7 @@ void RecordingSessionController::handleExportWavClicked() {
     using devpiano::exporting::ExportFileType;
 
     runExportRecordingFlow(
-        ExportFileType::wav, exportWavChooser, "Export WAV Recording", "*.wav", [this](const juce::File& file) {
+        ExportFileType::wav, exportWavChooser, TRANS("Export WAV Recording"), "*.wav", [this](const juce::File& file) {
             auto options = devpiano::exporting::buildWavExportOptions(
                 recordingSession.take, appSettings.getPerformanceSettingsView(), getCurrentRuntimeSampleRate(),
                 getCurrentRuntimeBlockSize());
@@ -210,7 +210,7 @@ void RecordingSessionController::handleExportWavClicked() {
 
 void RecordingSessionController::handleImportMidiClicked() {
     const auto startDir = getLastMidiImportDirectory(appSettings);
-    runImportOpenFlow("MIDI Import", "Import MIDI File", startDir, "*.mid;*.midi", importMidiChooser,
+    runImportOpenFlow("MIDI Import", TRANS("Import MIDI File"), startDir, "*.mid;*.midi", importMidiChooser,
                       [this](const juce::File& file) -> std::optional<RecordingTake> {
                           appSettings.lastMidiImportPath = file.getFullPathName();
                           owner.saveSettingsSoon();
@@ -254,8 +254,8 @@ void RecordingSessionController::handleSavePerformanceClicked() {
 }
 
 void RecordingSessionController::handleOpenPerformanceClicked() {
-    runImportOpenFlow("Performance File", "Open Performance", juce::File::getCurrentWorkingDirectory(), "*.devpiano",
-                      performanceFileChooser, [](const juce::File& file) -> std::optional<RecordingTake> {
+    runImportOpenFlow("Performance File", TRANS("Open Performance"), juce::File::getCurrentWorkingDirectory(),
+                      "*.devpiano", performanceFileChooser, [](const juce::File& file) -> std::optional<RecordingTake> {
                           return devpiano::recording::loadPerformanceFile(file);
                       });
 }

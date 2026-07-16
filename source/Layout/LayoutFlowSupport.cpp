@@ -50,7 +50,7 @@ void LayoutFlowSupport::handleLayoutChanged(const juce::String& newLayoutId) {
 }
 
 void LayoutFlowSupport::handleSaveLayoutRequested() {
-    runLayoutFileChooser("Save Layout", devpiano::layout::getUserLayoutDirectory(),
+    runLayoutFileChooser(TRANS("Save Layout"), devpiano::layout::getUserLayoutDirectory(),
                          juce::FileBrowserComponent::saveMode, saveLayoutChooser, [this](const juce::File& file) {
                              auto currentLayout = owner.keyboardMidiMapper.getLayout();
                              const auto targetLayoutId = devpiano::layout::getUserLayoutIdForFile(file);
@@ -77,8 +77,8 @@ void LayoutFlowSupport::handleResetLayoutToDefaultRequested() {
 }
 
 void LayoutFlowSupport::handleImportLayoutRequested() {
-    runLayoutFileChooser("Import Layout", juce::File {}, juce::FileBrowserComponent::openMode, importLayoutChooser,
-                         [this](const juce::File& file) {
+    runLayoutFileChooser(TRANS("Import Layout"), juce::File {}, juce::FileBrowserComponent::openMode,
+                         importLayoutChooser, [this](const juce::File& file) {
                              auto optLayout = devpiano::layout::loadLayoutPreset(file);
                              if (!optLayout.has_value())
                                  return;
@@ -182,11 +182,11 @@ void LayoutFlowSupport::runLayoutFileChooser(const juce::String& title, const ju
 
 void LayoutFlowSupport::runLayoutRenameDialog(const juce::String& layoutId, const juce::File& /*file*/,
                                               const juce::String& currentDisplayName) {
-    auto* renameWindow = new juce::AlertWindow("Rename Layout", "Set the display name shown in the layout dropdown.",
-                                               juce::AlertWindow::NoIcon);
-    renameWindow->addTextEditor("displayName", currentDisplayName, "Display Name:");
-    renameWindow->addButton("Rename", 1, juce::KeyPress(juce::KeyPress::returnKey));
-    renameWindow->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+    auto* renameWindow = new juce::AlertWindow(
+        TRANS("Rename Layout"), TRANS("Set the display name shown in the layout dropdown."), juce::AlertWindow::NoIcon);
+    renameWindow->addTextEditor("displayName", currentDisplayName, TRANS("Display Name:"));
+    renameWindow->addButton(TRANS("Rename"), 1, juce::KeyPress(juce::KeyPress::returnKey));
+    renameWindow->addButton(TRANS("Cancel"), 0, juce::KeyPress(juce::KeyPress::escapeKey));
 
     auto safeOwner = juce::Component::SafePointer<MainComponent>(&owner);
     juce::Component::SafePointer<juce::AlertWindow> safeWindow(renameWindow);
@@ -229,10 +229,10 @@ void LayoutFlowSupport::runLayoutDeleteDialog(const juce::String& layoutId, cons
     auto capturedFileToDelete = file;
 
     juce::AlertWindow::showAsync(
-        juce::MessageBoxOptions::makeOptionsOkCancel(juce::AlertWindow::WarningIcon, "Delete Layout",
-                                                     "Are you sure you want to delete \"" + displayName
-                                                         + "\"?\nThis action cannot be undone.",
-                                                     "Delete", "Cancel"),
+        juce::MessageBoxOptions::makeOptionsOkCancel(juce::AlertWindow::WarningIcon, TRANS("Delete Layout"),
+                                                     TRANS("Are you sure you want to delete ") + "\"" + displayName
+                                                         + "\"?\n" + TRANS("This action cannot be undone."),
+                                                     TRANS("Delete"), TRANS("Cancel")),
         [safeOwner, capturedLayoutId, capturedFileToDelete](int result) {
             if (result != 1 || safeOwner == nullptr)
                 return;

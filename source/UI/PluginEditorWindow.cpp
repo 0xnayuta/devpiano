@@ -2,10 +2,10 @@
 
 juce::String PluginEditorWindow::makeWindowTitle(const juce::String& pluginName) {
     if (pluginName.isEmpty())
-        return "Plugin Editor";
+        return TRANS("Plugin Editor");
 
     auto title = pluginName;
-    title << " Editor";
+    title << TRANS(" Editor");
     return title;
 }
 
