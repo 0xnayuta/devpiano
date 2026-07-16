@@ -177,6 +177,7 @@ std::unique_ptr<juce::XmlElement> PluginHost::createKnownPluginListXml() const {
 bool PluginHost::restoreKnownPluginListFromXml(const juce::XmlElement& xml) {
     knownPluginList.recreateFromXml(xml);
     lastScanFailedFiles.clear();
+    lastScanFailedCount = 0;
     const auto count = knownPluginList.getNumTypes();
     lastScanPluginCount = count;
     if (count <= 0) {
@@ -191,6 +192,8 @@ bool PluginHost::restoreKnownPluginListFromXml(const juce::XmlElement& xml) {
 void PluginHost::markPluginScanSkipped(juce::String reason) {
     knownPluginList.clear();
     lastScanFailedFiles.clear();
+    lastScanPluginCount = 0;
+    lastScanFailedCount = 0;
     lastScanSummary = reason.trim().isNotEmpty() ? std::move(reason) : juce::String("VST3 scan skipped.");
 }
 

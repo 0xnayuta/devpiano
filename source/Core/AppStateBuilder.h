@@ -100,6 +100,8 @@ inline void applyRuntimePluginState(AppState& appState, const RuntimePluginState
     appState.plugin.lastScanSummary = runtime.lastScanSummary;
     appState.plugin.lastLoadError = runtime.lastLoadError;
     appState.plugin.preparedSampleRate = runtime.preparedSampleRate;
+    appState.plugin.scanPluginCount = runtime.scanPluginCount;
+    appState.plugin.scanFailedCount = runtime.scanFailedCount;
     appState.plugin.preparedBlockSize = runtime.preparedBlockSize;
     appState.plugin.supportsVst3 = runtime.supportsVst3;
     appState.plugin.hasLoadedPlugin = runtime.hasLoadedPlugin;

@@ -34,7 +34,6 @@ countries: cn
 "Recording" = "录音中"
 "Playing" = "播放中"
 
-
 "Scan VST3" = "扫描 VST3"
 "Load" = "加载"
 "Unload" = "卸载"
@@ -75,10 +74,6 @@ countries: cn
 "Resizable Window" = "可调整窗口大小"
 "Show MIDI/VSTi Instrument Filter" = "显示 MIDI/VSTi 乐器筛选"
 
-"Language" = "语言"
-"English" = "English"
-"简体中文" = "简体中文"
-
 "Import Layout" = "导入布局"
 "Display Name:" = "显示名称："
 "Set the display name shown in the layout dropdown." = "设置布局下拉框中显示的显示名称。"
@@ -93,8 +88,6 @@ countries: cn
 
 "Audio Settings" = "音频设置"
 
-
-// JUCE AudioDeviceSelectorComponent labels
 "Audio device type:" = "音频设备类型："
 "Output:" = "输出："
 "Input:" = "输入："
@@ -111,7 +104,6 @@ countries: cn
 "(no audio input channels found)" = "（未找到音频输入通道）"
 "none" = "无"
 
-// PluginHost static description / summary strings
 "Plugin formats: " = "插件格式："
 "Plugin formats: none" = "插件格式：无"
 "Plugin formats: VST3" = "插件格式：VST3"
@@ -134,12 +126,10 @@ countries: cn
 "Cached plugin list was empty." = "缓存的插件列表为空。"
 "No plugin load attempted yet." = "尚未尝试加载插件。"
 
-// MIDI status bar (HeaderPanel)
 "MIDI Inputs: " = "MIDI 输入："
 " | Activity: " = " | 活动："
 " | Last: " = " | 最后："
 
-// Plugin status indicators (PluginPanel updateState)
 " [VST3 ready]" = " [VST3 就绪]"
 " | Scanning: " = " | 正在扫描："
 " | Loaded: " = " | 已加载："
@@ -148,7 +138,6 @@ countries: cn
 " | Load error: " = " | 加载错误："
 " | Last plugin: " = " | 上个插件："
 
-// Plugin editor window title
 "Plugin Editor" = "插件编辑器"
 " Editor" = " 编辑器"
 "VST3 scan/load is ready: scan, select a plugin, then click Load." = "VST3 扫描/加载已就绪：先扫描，选择插件，然后点击加载。"

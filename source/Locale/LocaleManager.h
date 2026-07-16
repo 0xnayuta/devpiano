@@ -36,7 +36,7 @@ enum class Language : uint8_t {
 // Activate the given language by setting JUCE's global LocalisedStrings.
 // Call this any time the language should change at runtime.
 // Primary path: compiled-in constant (reliable).  Falls back to file loading
-// so that advanced users can override/add strings without recompiling.
+// so that advanced users can add strings not present in the embedded table without recompiling.
 inline void activate(Language lang) {
     if (lang == Language::zhCN) {
         // Primary: embedded constant (UTF-8 via u8 prefix, works on all toolchains)

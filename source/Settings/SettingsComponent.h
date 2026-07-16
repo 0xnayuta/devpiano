@@ -123,6 +123,7 @@ public:
             if (!model)
                 return;
             model->languageCode = languageCombo.getSelectedId() == 2 ? "zh-CN" : "en";
+            refreshTexts();
             if (onLanguageChanged)
                 onLanguageChanged(model->languageCode);
         };
@@ -149,6 +150,17 @@ public:
         deviceManager.addChangeListener(this);
         updateDiagnostics();
         setSize(560, 620);
+    }
+
+    void refreshTexts() {
+        keyboardGroup.setText(TRANS("Keyboard Display"));
+        colourModeLabel.setText(TRANS("Colour Mode:"), juce::dontSendNotification);
+        noteDisplayLabel.setText(TRANS("Note Display:"), juce::dontSendNotification);
+        fadeSpeedLabel.setText(TRANS("Fade Speed:"), juce::dontSendNotification);
+        resizableToggle.setButtonText(TRANS("Resizable Window"));
+        instrumentFilterToggle.setButtonText(TRANS("Show MIDI/VSTi Instrument Filter"));
+        languageLabel.setText(TRANS("Language:"), juce::dontSendNotification);
+        saveButton.setButtonText(TRANS("Save"));
     }
 
     ~SettingsComponent() override {
