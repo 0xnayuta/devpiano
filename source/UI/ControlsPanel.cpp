@@ -11,13 +11,13 @@ juce::String ControlsPanel::makeLayoutDisplayName(const juce::String& layoutId) 
 }
 
 ControlsPanel::ControlsPanel() {
-    configureSlider(volumeSlider, volumeLabel, "Volume", 0.0, 1.0);
-    configureSlider(attackSlider, attackLabel, "Attack", 0.001, 2.0);
-    configureSlider(decaySlider, decayLabel, "Decay", 0.001, 2.0);
-    configureSlider(sustainSlider, sustainLabel, "Sustain", 0.0, 1.0);
-    configureSlider(releaseSlider, releaseLabel, "Release", 0.001, 3.0);
+    configureSlider(volumeSlider, volumeLabel, TRANS("Volume"), 0.0, 1.0);
+    configureSlider(attackSlider, attackLabel, TRANS("Attack"), 0.001, 2.0);
+    configureSlider(decaySlider, decayLabel, TRANS("Decay"), 0.001, 2.0);
+    configureSlider(sustainSlider, sustainLabel, TRANS("Sustain"), 0.0, 1.0);
+    configureSlider(releaseSlider, releaseLabel, TRANS("Release"), 0.001, 3.0);
 
-    layoutLabel.setText("Layout", juce::dontSendNotification);
+    layoutLabel.setText(TRANS("Layout"), juce::dontSendNotification);
     layoutLabel.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(layoutLabel);
 
@@ -125,7 +125,7 @@ ControlsPanel::ControlsPanel() {
             onOpenPerformanceClicked();
     };
 
-    playbackSpeedLabel.setText("Speed", juce::dontSendNotification);
+    playbackSpeedLabel.setText(TRANS("Speed"), juce::dontSendNotification);
     playbackSpeedLabel.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(playbackSpeedLabel);
 
@@ -245,7 +245,7 @@ void ControlsPanel::updateRecordingActionButtons() {
 
     switch (recordingControlsState.state) {
     case RecordingState::idle:
-        statusText = "Idle";
+        statusText = TRANS("Idle");
         playEnabled = recordingControlsState.hasTake;
         backToStartEnabled = recordingControlsState.hasTake;
         exportMidiEnabled = recordingControlsState.hasTake && recordingControlsState.canExportMidiTake;
@@ -255,7 +255,7 @@ void ControlsPanel::updateRecordingActionButtons() {
         openEnabled = true;
         break;
     case RecordingState::recording:
-        statusText = "Recording";
+        statusText = TRANS("Recording");
         recordEnabled = false;
         playEnabled = false;
         backToStartEnabled = false;
@@ -267,7 +267,7 @@ void ControlsPanel::updateRecordingActionButtons() {
         openEnabled = false;
         break;
     case RecordingState::playing:
-        statusText = "Playing";
+        statusText = TRANS("Playing");
         recordEnabled = false;
         playEnabled = false;
         backToStartEnabled = recordingControlsState.hasTake;
@@ -372,4 +372,34 @@ void ControlsPanel::configureSlider(juce::Slider& slider, juce::Label& label, co
             onValuesChanged();
     };
     addAndMakeVisible(slider);
+}
+
+void ControlsPanel::refreshTexts() {
+    // Slider labels
+    volumeLabel.setText(TRANS("Volume"), juce::dontSendNotification);
+    attackLabel.setText(TRANS("Attack"), juce::dontSendNotification);
+    decayLabel.setText(TRANS("Decay"), juce::dontSendNotification);
+    sustainLabel.setText(TRANS("Sustain"), juce::dontSendNotification);
+    releaseLabel.setText(TRANS("Release"), juce::dontSendNotification);
+    layoutLabel.setText(TRANS("Layout"), juce::dontSendNotification);
+    playbackSpeedLabel.setText(TRANS("Speed"), juce::dontSendNotification);
+
+    // Button texts (constructor initializers are evaluated once, so re-apply here)
+    saveLayoutButton.setButtonText(TRANS("Save Layout"));
+    resetLayoutButton.setButtonText(TRANS("Reset"));
+    importLayoutButton.setButtonText(TRANS("Import"));
+    renameLayoutButton.setButtonText(TRANS("Rename"));
+    deleteLayoutButton.setButtonText(TRANS("Delete"));
+    recordButton.setButtonText(TRANS("Record"));
+    playButton.setButtonText(TRANS("Play"));
+    stopButton.setButtonText(TRANS("Stop"));
+    backToStartButton.setButtonText(TRANS("Back"));
+    exportMidiButton.setButtonText(TRANS("Export MIDI"));
+    exportWavButton.setButtonText(TRANS("Export WAV"));
+    importMidiButton.setButtonText(TRANS("Import MIDI"));
+    savePerformanceButton.setButtonText(TRANS("Save"));
+    openPerformanceButton.setButtonText(TRANS("Open"));
+
+    // Status text refreshed via setRecordingControlsState path
+    updateRecordingActionButtons();
 }

@@ -50,6 +50,7 @@ public:
 
     void setRecordingControlsState(RecordingControlsState state);
     void setPlaybackSpeed(double speed);
+    void refreshTexts();
 
 private:
     [[nodiscard]] static juce::String makeLayoutDisplayName(const juce::String& layoutId);
@@ -74,24 +75,25 @@ private:
     juce::Slider sustainSlider;
     juce::Slider releaseSlider;
     juce::ComboBox layoutComboBox;
-    juce::TextButton saveLayoutButton { "Save Layout" };
-    juce::TextButton resetLayoutButton { "Reset" };
-    juce::TextButton importLayoutButton { "Import" };
-    juce::TextButton renameLayoutButton { "Rename" };
-    juce::TextButton deleteLayoutButton { "Delete" };
+    juce::TextButton saveLayoutButton { TRANS("Save Layout") };
+    juce::TextButton resetLayoutButton { TRANS("Reset") };
+    juce::TextButton importLayoutButton { TRANS("Import") };
+    juce::TextButton renameLayoutButton { TRANS("Rename") };
+    juce::TextButton deleteLayoutButton { TRANS("Delete") };
 
     juce::Label recordStatusLabel;
-    juce::TextButton recordButton { "Record" };
-    juce::TextButton playButton { "Play" };
-    juce::TextButton stopButton { "Stop" };
-    juce::TextButton backToStartButton { "Back" };
-    juce::TextButton exportMidiButton { "Export MIDI" };
-    juce::TextButton exportWavButton { "Export WAV" };
-    juce::TextButton importMidiButton { "Import MIDI" };
-    juce::TextButton savePerformanceButton { "Save" };
-    juce::TextButton openPerformanceButton { "Open" };
+    juce::TextButton recordButton { TRANS("Record") };
+    juce::TextButton playButton { TRANS("Play") };
+    juce::TextButton stopButton { TRANS("Stop") };
+    juce::TextButton backToStartButton { TRANS("Back") };
+    juce::TextButton exportMidiButton { TRANS("Export MIDI") };
+    juce::TextButton exportWavButton { TRANS("Export WAV") };
+    juce::TextButton importMidiButton { TRANS("Import MIDI") };
+    juce::TextButton savePerformanceButton { TRANS("Save") };
+    juce::TextButton openPerformanceButton { TRANS("Open") };
 
-    juce::Label playbackSpeedLabel { "Speed" };
+    juce::Label playbackSpeedLabel; // "Speed" set in refreshTexts
+
     juce::Slider playbackSpeedSlider;
 
     RecordingControlsState recordingControlsState;
