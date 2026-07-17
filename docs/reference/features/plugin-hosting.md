@@ -14,7 +14,6 @@
 - 可从扫描结果中选择并加载 VST3 乐器。
 - 已加载插件可参与 `processBlock` 并发声。
 - 电脑键盘输入可驱动已加载插件发声。
-- 外部 MIDI 输入到插件的代码通路已接入，但仍待更多真实设备手工验证。
 - 插件卸载后程序保持可用。
 - 可打开支持 editor 的插件窗口。
 - 基础插件恢复信息可持久化，例如最近扫描路径和上次插件名称。
@@ -39,7 +38,7 @@ Plugin scan path
 ### 演奏到插件发声
 
 ```text
-Computer keyboard / external MIDI
+Computer keyboard
   -> MidiMessageCollector / MidiKeyboardState
   -> AudioEngine
   -> loaded VST3 plugin
@@ -77,7 +76,6 @@ Computer keyboard / external MIDI
 
 当前仍待继续补齐或复核的生命周期相关场景：
 
-- 外部 MIDI 打开状态下直接退出程序：因当前缺少外部 MIDI 设备，尚未完成手工验证。
 
 详见：[`./plugin-hosting.md`](./plugin-hosting.md)。
 
@@ -86,10 +84,8 @@ Computer keyboard / external MIDI
 当前仍需继续完善或观察：
 
 - 扫描失败记录、多目录扫描、扫描结果持久化仍可继续完善。
-- 外部 MIDI 输入到插件的真实设备场景仍待更多手工验证。
 - 不同 `Audio device type` 下的 `buffer size` / `sample rate` 可调范围存在后端语义差异；当前已确认这不构成插件生命周期缺陷，但仍需在用户文档或设置说明中逐步提高可解释性。
 - 特定插件 / Debug 注入环境下退出阶段可能仍有 JUCE / VST3 调试告警，需要持续观察。
-- 外部 MIDI 打开状态下退出程序（生命周期测试 6.3）仍待设备条件补齐。
 - 后续视需要拆分 `PluginScanner` 与实例生命周期宿主职责。
 
 ## 与旧 FreePiano 的关系
@@ -160,9 +156,8 @@ Computer keyboard / external MIDI
 
 ### 其他后续方向
 
-1. 在具备外部 MIDI 设备后补齐生命周期测试 6.3 与更多真实设备场景验证。
-2. 观察并收敛退出阶段 Debug 告警。
-3. 按需拆分扫描职责与实例生命周期职责。
+1. 观察并收敛退出阶段 Debug 告警。
+2. 按需拆分扫描职责与实例生命周期职责。
 
 ---
 
@@ -488,26 +483,6 @@ Computer keyboard / external MIDI
 
 ---
 
-## 6.3 外部 MIDI 打开状态下退出程序
-
-### 目标
-验证 MIDI 输入、音频设备与插件在退出阶段的关闭顺序是否稳定。
-
-### 测试步骤
-- [ ] 保持外部 MIDI 输入已打开
-- [ ] 加载一个插件
-- [ ] 直接关闭程序
-
-### 预期结果
-- [ ] 程序正常退出
-- [ ] 无明显回调落到已析构对象上的异常
-- [ ] 无高概率卡死
-
-### 状态
-- [ ] 因缺少外部 MIDI 设备暂未验证
-
----
-
 ## 7. 建议优先测试包
 
 ### 优先测试包 A：最关键生命周期路径
@@ -519,7 +494,6 @@ Computer keyboard / external MIDI
 ### 优先测试包 B：高风险 editor / 退出组合
 - [x] 4.3 打开 editor 后重新扫描插件
 - [x] 6.2 打开 editor 后直接退出程序
-- [ ] 6.3 外部 MIDI 打开状态下退出程序（缺少设备，暂未验证）
 
 ### 优先测试包 C：长期回归
 - [x] 3.2 连续加载同一插件
@@ -603,9 +577,7 @@ Computer keyboard / external MIDI
   - 本轮未记录到必须单独追踪的稳定 Debug 告警。
 - 复现条件：
   - 已复核 `Windows Audio`、`Windows Audio (Exclusive Mode)`、`Windows Audio (Low Latency Mode)`、`Direct Sound` 的后端差异；可调范围与当前后端模式一致。
-  - 6.3 因缺少外部 MIDI 设备，当前无法补齐退出阶段验证。
 - 后续修复建议：
-  - 在具备外部 MIDI 设备后补齐 6.3 手工回归。
 
 ---
 
@@ -628,7 +600,5 @@ Computer keyboard / external MIDI
   - 无稳定复现的产品缺陷。
 - Debug 告警：
   - 本轮未记录到必须单独追踪的稳定 Debug 告警。
-- 复现条件：
-  - 外部 MIDI 打开状态下退出程序（6.3）仍因缺少外部 MIDI 设备暂未验证。
 - 后续修复建议：
   - 插件扫描产品化 backlog Phase 2-1..2-4 当前可视为完成；后续若需要更强 UI，可再评估失败明细展开面板或扫描日志导出。

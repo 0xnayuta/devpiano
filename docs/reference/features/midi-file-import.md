@@ -24,7 +24,6 @@ Phase 3（录制/回放/MIDI导出）主链路已完成，Phase 3-2 已搁置，
 - 录制 / 回放 / MIDI 导出：已有完整 MVP
 - WAV 离线渲染：已有 fallback synth MVP（Phase 3-1）
 - VST3 插件离线渲染：已搁置（Phase 3-2）
-- 外部 MIDI 硬件验证：因无硬件暂缓
 
 继续在 Phase 3 下追加"MIDI 导入"会模糊 Phase 3 的完成状态，且 MIDI 导入的用途（打开外部 MIDI 文件回放）与 Phase 3 的录制/回放闭环性质不同，独立命名更清晰。
 
@@ -122,7 +121,7 @@ Phase 3（录制/回放/MIDI导出）主链路已完成，Phase 3-2 已搁置，
 ### 录制
 - **已实现**
 - 依据：`RecordingEngine` + `RecordingFlowSupport` + `ControlsPanel` Record/Stop 按钮
-- 说明：可录制电脑键盘 + 外部 MIDI 输入产生的 MIDI 事件，存入 `RecordingTake.events`，sample-based 时间线
+- 说明：可录制电脑键盘产生的 MIDI 事件，存入 `RecordingTake.events`，sample-based 时间线
 
 ### 回放
 - **已实现**
@@ -149,10 +148,6 @@ Phase 3（录制/回放/MIDI导出）主链路已完成，Phase 3-2 已搁置，
 - 依据：`PluginHost` + `AudioPluginInstance` + Phase 2 验收通过
 - 说明：可扫描、加载、卸载 VST3 插件，驱动插件发声，支持 editor 窗口
 
-### 外部 MIDI 输入
-- **已实现（代码通路）**
-- 依据：`MidiRouter` + `MidiMessageCollector` + `AudioEngine` 链路
-- 说明：外部 MIDI 设备可驱动插件发声；验证因无硬件暂缓（`../../issues/known-issues.md` §1）
 
 ### 布局 Preset
 - **已实现**
@@ -256,7 +251,6 @@ Phase 3（录制/回放/MIDI导出）主链路已完成，Phase 3-2 已搁置，
 | **Sustain pedal** | **部分实现**（实时 MIDI/录制路径可承载 CC64；MIDI 文件导入暂不收集非 note 事件） | **已实现** | 差距：导入外部 MIDI 时 sustain 表现可能丢失 | **可选** | 后续可在 importer 中导入安全 channel voice 消息 |
 | **WAV 导出** | **已实现**（fallback synth） | **已实现** | 无差距 | 不做 | 已完成 |
 | **VST3 插件离线渲染** | **未实现**（Phase 3-2 搁置） | **不确定** | 差距：VST3 离线渲染未实现 | **应 defer** | 设计评估已完成但未验证，不应在 Phase 4 同时推进 |
-| **外部 MIDI 输入录制** | **已实现**（代码通路） | **已实现** | 无差距（验证因硬件暂缓） | 不做 | 已接入，硬件限制非代码问题 |
 | **文件拖拽打开 MIDI** | **未实现** | **未发现** | 差距：无拖拽支持 | **不推荐** | 需要额外 UI 和事件处理；非核心功能 |
 
 ---
@@ -386,10 +380,10 @@ Phase 3（录制/回放/MIDI导出）主链路已完成，Phase 3-2 已搁置，
 - **是否需要修改现有数据模型**：可能（需要 output target 枚举）
 - **是否需要新增 UI**：是
 - **是否需要新增测试文档**：是
-- **可能涉及的 devpiano 文件**：`AudioEngine` / `MidiRouter`
+- **可能涉及的 devpiano 文件**：`AudioEngine`
 - **可复用的现有模块**：现有 fallback synth / plugin 发声路径
 - **验收标准**：导入后选择输出到 fallback synth / 已加载 plugin / MIDI output
-- **不做范围**：外部 MIDI output 路由在 Phase 4 不做
+- **不做范围**：Phase 4 不做 MIDI output 路由
 
 **原因**：当前架构中导入的 MIDI 通过 `RecordingEngine::startPlayback()` + `AudioEngine::getNextAudioBlock()` 路由到当前已加载插件或 fallback synth，是隐式选择。"显式输出目标"需要对 playback 路径做较大扩展，不适合 Phase 4。
 
@@ -929,7 +923,7 @@ Phase 3（录制/回放/MIDI导出）主链路已完成，Phase 3-2 已搁置，
 
 ### 11.1 MIDI 导入播放首音回归（2026-05-02 人工验收通过）
 
-针对 [`known-issues.md`](../../issues/known-issues.md) §8 记录的“首个音符接近 0 秒时几乎无声”问题，已实施 playback-start pre-roll / arming 修复；Windows 侧人工回归确认测试样本均不再复现。
+针对 [`known-issues.md`](../../issues/known-issues.md) §2 中"MIDI 导入播放首音无声"条目记录的问题，已实施 playback-start pre-roll / arming 修复；Windows 侧人工回归确认测试样本均不再复现。
 
 - [x] 单轨 MIDI，首个 note-on 恰好在 tick/time `0`：导入后首音可听，虚拟键盘显示一致。
 - [x] 单轨 MIDI，首个 note-on 非常接近 0 秒（例如 1 sample 或约 1ms）：导入后首音可听。
@@ -970,4 +964,4 @@ Phase 3（录制/回放/MIDI导出）主链路已完成，Phase 3-2 已搁置，
 - 当前不是完整 GM 播放器；外部 GM MIDI 可能听起来与原文件不同。
 - fallback synth 声部数有限，大型 MIDI 编曲可能出现拥挤或缺音。
 - 完整 tempo map roundtrip、完整多轨模型、merge-all 导入和 MIDI 编辑器均为后续阶段范围。
-- **MIDI 导入播放首音无声**：已通过 playback-start pre-roll / arming 修复并完成 Windows 侧人工回归；测试样本均不再复现。修复不改写导入时间线。详见 [`known-issues.md`](../../issues/known-issues.md) §8。
+- **MIDI 导入播放首音无声**：已通过 playback-start pre-roll / arming 修复并完成 Windows 侧人工回归；测试样本均不再复现。修复不改写导入时间线。详见 [`known-issues.md`](../../issues/known-issues.md) §2。
