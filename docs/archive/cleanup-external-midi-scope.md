@@ -2,6 +2,7 @@
 
 > 用途：作为外部 MIDI 设备相关功能代码清理的执行计划。
 > 更新时机：清理执行前各步骤确认、执行中状态更新、执行完成后关闭。
+> 状态：✅ 已完成（2026-07-17）
 > 关联 ADR：[`../decisions/0006-remove-external-midi-support.md`](../decisions/0006-remove-external-midi-support.md)
 
 ---
@@ -71,7 +72,7 @@ Step 5: 清理 RecordingEventSource 枚举和 PerformanceFile 序列化
           ↓
 Step 6: 删除无调用的 recordEventAtCurrentPosition()
           ↓
-Step 7: 运行 yarn format && yarn test
+Step 7: 运行 ./scripts/dev.sh format && ./scripts/dev.sh test
           ↓
 Step 8: 更新文档
 ```
@@ -100,20 +101,29 @@ Step 8: 更新文档
 
 ## 5. 验证标准
 
-- [ ] WSL 编译通过，无 `MidiRouter` 相关符号残留
-- [ ] HeaderPanel 不再显示 `"MIDI Inputs: 0"`
-- [ ] `externalMidi` 枚举值在所有代码中已无引用
-- [ ] `recordEventAtCurrentPosition()` 已无定义和声明
-- [ ] 现有单元测试全部通过
-- [ ] 打开/保存 `.devpiano` 文件 roundtrip 测试正常
-- [ ] Windows MSVC 验证构建通过
+- [x] WSL 编译通过，无 `MidiRouter` 相关符号残留
+- [x] HeaderPanel 不再显示 `"MIDI Inputs: 0"`
+- [x] `externalMidi` 枚举值在所有代码中已无引用
+- [x] `recordEventAtCurrentPosition()` 已无定义和声明
+- [x] 现有单元测试全部通过
+- [x] 打开/保存 `.devpiano` 文件 roundtrip 测试正常（人工验证）
+- [x] Windows MSVC 验证构建通过
 
----
+## 6. 清理后操作
 
-## 6. 清理后文档更新
+### 文档更新
 
-- [`roadmap.md`](roadmap.md)：§2 长期观察项删除"外部 MIDI 硬件依赖验证"；§3 风险表删除对应行
-- [`current-iteration.md`](current-iteration.md)：§搁置与遗留 清空（外部 MIDI 条目已删除）
-- [`archive/phase6-7-completion-detail.md`](../archive/phase6-7-completion-detail.md)：§已取消功能 保持现有记录，无需修改
-- [`../../issues/known-issues.md`](../../issues/known-issues.md)：保留硬件依赖相关缺陷记录作为历史存档（不主动删除）
-- [`../decisions/0006-remove-external-midi-support.md`](../decisions/0006-remove-external-midi-support.md)：ADR 记录决策
+- [`docs/roadmap/roadmap.md`]：无更新必要（该文档不引用 external Midi）
+- [`docs/roadmap/current-iteration.md`]：无更新必要（该条目已在当前迭代范围之外）
+
+### 额外清理
+
+- [x] 移除 `source/Locale/zh_CN.loc.h` 中 3 条残余翻译字符串（`"MIDI Inputs: "`、`" | Activity: "`、`" | Last: "`）
+
+### 不执行项说明
+
+| 文档 | 原因 |
+|------|------|
+| `docs/archive/phase6-7-completion-detail.md` | §已取消功能 保持现有记录，无需修改 |
+| `issues/known-issues.md` | 保留硬件依赖相关缺陷记录作为历史存档（不主动删除） |
+| `docs/decisions/0006-remove-external-midi-support.md` | ADR 记录决策，无需修改 |

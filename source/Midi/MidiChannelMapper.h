@@ -13,10 +13,9 @@ namespace devpiano::midi {
 // messages.  When the matrix is inactive (`ChannelMatrix::active == false`)
 // all operations pass through unchanged, preserving backward compatibility.
 //
-// Used by all three input paths:
-//   1. External MIDI devices   (via MidiRouter::MessageTransformer)
-//   2. Computer keyboard input (via KeyboardMidiMapper)
-//   3. Piano-UI mouse clicks   (via CustomKeyboard callbacks)
+// Used by all two input paths:
+//   1. Computer keyboard input (via KeyboardMidiMapper)
+//   2. Piano-UI mouse clicks   (via CustomKeyboard callbacks)
 // ============================================================================
 class MidiChannelMapper {
 public:

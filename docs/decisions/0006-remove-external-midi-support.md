@@ -80,4 +80,4 @@
 
 ## 清理执行计划
 
-具体执行步骤、文件清单、验证标准见 [`../roadmap/cleanup-external-midi-scope.md`](../roadmap/cleanup-external-midi-scope.md)。
+具体执行步骤、文件清单、验证标准见 [`../archive/cleanup-external-midi-scope.md`](../archive/cleanup-external-midi-scope.md)。

@@ -130,10 +130,6 @@ countries: cn
 "Cached plugin list was empty." = "缓存的插件列表为空。"
 "No plugin load attempted yet." = "尚未尝试加载插件。"
 
-"MIDI Inputs: " = "MIDI 输入："
-" | Activity: " = " | 活动："
-" | Last: " = " | 最后："
-
 " [VST3 ready]" = " [VST3 就绪]"
 " | Scanning: " = " | 正在扫描："
 " | Loaded: " = " | 已加载："
