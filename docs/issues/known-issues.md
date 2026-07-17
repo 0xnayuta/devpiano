@@ -11,26 +11,6 @@
 
 功能缺口和已确认但尚未修复的缺陷。
 
-### VST3 插件离线渲染
-
-> WAV 离线渲染已支持 fallback synth，不支持已加载 VST3 插件音色。Phase 3-5 已排入 backlog，不阻塞 MVP。
-
-详见：
-
-- [`../reference/features/recording-playback.md`](../reference/features/recording-playback.md)（Phase 3-5 设计备注）
-- [`../roadmap/roadmap.md`](../roadmap/roadmap.md)（Phase 3 当前状态）
-
-### 录制/回放待验证点
-
-Phase 3 MVP 主链路已接入，以下几点为下一阶段稳定化重点：
-
-- **回放结束通知**：UI 状态转换和焦点恢复路径待验证
-- **采样率缩放**：不同采样率下录制事件的时间对齐待验证
-- **Stop 清理悬挂音**：清理路径已实现，边界条件验证不充分
-- **离线渲染采样率**：当前 WAV 导出固定 44100 Hz，后续可考虑选项
-
-详见：[`../reference/features/recording-playback.md`](../reference/features/recording-playback.md)（包 A–E 测试结果）
-
 ### 插件生命周期退出告警
 
 > scan / load / unload / editor / 重扫 / 直接退出等主要生命周期路径已通过人工回归，未发现功能性问题。特定插件或 Debug 注入环境下退出阶段可能仍有 JUCE / VST3 调试告警，低优先级持续观察。
