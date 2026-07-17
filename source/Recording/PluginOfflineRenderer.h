@@ -2,6 +2,7 @@
 
 #include <JuceHeader.h>
 
+#include <functional>
 #include <memory>
 
 namespace devpiano::recording {
@@ -26,7 +27,10 @@ createOfflinePluginInstance(juce::AudioPluginFormatManager& formatManager, const
 // The offline instance must already be created (via createOfflinePluginInstance),
 // prepared, and have its state restored before calling this function.
 // Can be called from any thread (no message-thread dependencies during the render loop).
+// If progressCallback is provided, it is called with progress in [0, 1] after each block.
+// Return false from the callback to cancel the export.
 bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take, const juce::File& destinationFile,
-                                 const WavExportOptions& options, juce::AudioPluginInstance& offlinePlugin);
+                                 const WavExportOptions& options, juce::AudioPluginInstance& offlinePlugin,
+                                 std::function<bool(double)> progressCallback = nullptr);
 
 } // namespace devpiano::exporting

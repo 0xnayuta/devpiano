@@ -73,6 +73,8 @@ target_sources(devpiano PRIVATE
     source/Plugin/PluginOperationController.h
     source/Export/ExportFlowSupport.cpp
     source/Export/ExportFlowSupport.h
+    source/Export/WavExportTask.cpp
+    source/Export/WavExportTask.h
     source/Recording/RecordingEngine.cpp
     source/Recording/RecordingEngine.h
     source/Recording/RecordingFlowSupport.cpp
@@ -159,6 +161,9 @@ target_link_libraries(devpiano PRIVATE
 # 6. 配置预编译宏（开启插件宿主支持）
 # ========================================================
 target_compile_definitions(devpiano PRIVATE
+    # 启用模态循环（JUCE 8 默认为 0；WAV 导出进度对话框需要该值为 1）
+    JUCE_MODAL_LOOPS_PERMITTED=1
+
     # 禁用一些不需要的沉重组件以加快编译
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0

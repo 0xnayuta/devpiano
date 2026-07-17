@@ -163,15 +163,14 @@
 
 ### Phase 7：VST3 离线渲染与体验完善（当前阶段）
 
-状态：Phase 7-1 / 7-2 / 7-3 / 7-4 已完成；Phase 7-5 为下一个 P1。
+状态：Phase 7-1 / 7-2 / 7-3 / 7-4 / 7-6 已完成；Phase 7-5 为下一个 P1。
 
 **已完成：**
 - **Phase 7 启动前快速清扫** ✅ — 补 `instrumentFilter` toggle 的 show/hide 接入。
 - **Phase 7-1：VST3 插件离线渲染** ✅
-  - 非 UI 线程创建 `AudioPluginInstance` 副本实现 VST3 音色 WAV 导出。
+  - message thread 上创建 `AudioPluginInstance` 副本、后台线程渲染。
   - 以 `RecordingTake` 事件为输入，逐 block 渲染到音频 buffer。
   - 输出到现有 WAV 写入流程（`WavFileExporter` / `WavAudioFormat`）。
-  - ExportDialog 进度对话框（`ProgressBar` + 取消支持）。
   - 官方 git tag `v0.1.0`。
 - **Phase 7-2：播放速度精确控制** ✅
   - 替换步进按钮为 `juce::Slider` + 数值标签。
@@ -185,6 +184,11 @@
   - 嵌入式中文 locale 表（`source/Locale/zh_CN.loc.h`）。
   - Settings 页面 Language ComboBox。
   - 切换即时生效，所有面板 `refreshTexts()` 联动。
+
+- **Phase 7-6：Export 进度对话框** ✅
+  - `WavExportTask`：`ThreadWithProgressWindow` + `ProgressBar` + 取消支持。
+  - message thread 上创建 `AudioPluginInstance` 副本，后台线程渲染。
+  - 取消时自动清理不完整 WAV 文件。
 
 **下一个：Phase 7-5：歌曲信息编辑对话框**
 - 编辑 `PerformanceFileMetadata`。

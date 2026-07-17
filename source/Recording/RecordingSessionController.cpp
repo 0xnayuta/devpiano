@@ -3,6 +3,8 @@
 #include "Audio/AudioEngine.h"
 #include "Diagnostics/DebugLog.h"
 #include "Export/ExportFlowSupport.h"
+#include "Export/WavExportTask.h"
+
 #include "MainComponent.h"
 #include "Plugin/PluginHost.h"
 #include "Recording/MidiFileExporter.h"
@@ -171,17 +173,22 @@ void RecordingSessionController::handleExportMidiClicked() {
                                return devpiano::exporting::exportTakeAsMidiFile(recordingSession.take, file);
                            });
 }
-
 void RecordingSessionController::handleExportWavClicked() {
     using devpiano::exporting::ExportFileType;
 
-    runExportRecordingFlow(
-        ExportFileType::wav, exportWavChooser, TRANS("Export WAV Recording"), "*.wav", [this](const juce::File& file) {
-            auto options = devpiano::exporting::buildWavExportOptions(
-                recordingSession.take, appSettings.getPerformanceSettingsView(), getCurrentRuntimeSampleRate(),
-                getCurrentRuntimeBlockSize());
+    // Snapshot the take on the message thread for thread-safe background export.
+    auto takeCopy = recordingSession.take;
 
-            // Plugin offline render path
+    runExportRecordingFlow(
+        ExportFileType::wav, exportWavChooser, TRANS("Export WAV Recording"), "*.wav",
+        [this, take = std::move(takeCopy)](const juce::File& file) mutable {
+            auto options = devpiano::exporting::buildWavExportOptions(take, appSettings.getPerformanceSettingsView(),
+                                                                      getCurrentRuntimeSampleRate(),
+                                                                      getCurrentRuntimeBlockSize());
+
+            // Phase 1: Create offline plugin instance (MUST be on message thread)
+            std::unique_ptr<juce::AudioPluginInstance> offlinePlugin;
+
             auto* pluginHost = audioEngine.getPluginHost();
             if (pluginHost != nullptr && pluginHost->hasLoadedPlugin()) {
                 auto* liveInstance = pluginHost->getInstance();
@@ -190,21 +197,29 @@ void RecordingSessionController::handleExportWavClicked() {
                     auto state = devpiano::exporting::snapshotPluginState(*liveInstance);
 
                     juce::String error;
-                    auto offlinePlugin = devpiano::exporting::createOfflinePluginInstance(
+                    offlinePlugin = devpiano::exporting::createOfflinePluginInstance(
                         pluginHost->getFormatManager(), *desc, options.sampleRate, options.blockSize, error);
 
                     if (offlinePlugin != nullptr) {
                         offlinePlugin->setStateInformation(state.getData(), static_cast<int>(state.getSize()));
-                        return devpiano::exporting::renderTakeWithOfflinePlugin(recordingSession.take, file, options,
-                                                                                *offlinePlugin);
+                    } else {
+                        DP_LOG_WARN("[Export] Offline plugin instance creation failed: " + error
+                                    + " — falling back to sine synth");
                     }
-
-                    DP_LOG_WARN("[Export] Offline plugin instance creation failed: " + error
-                                + " — falling back to sine synth");
                 }
             }
 
-            return devpiano::exporting::exportTakeAsWavFile(recordingSession.take, file, options);
+            // Phase 2: Background export with progress dialog
+            WavExportTask task(std::move(take), file, options, std::move(offlinePlugin), &owner);
+            task.runThread(); // blocks message thread via nested message loop
+
+            if (task.wasSuccessful()) {
+                DP_LOG_INFO("[Export] WAV exported: " + file.getFullPathName());
+                return true;
+            }
+
+            DP_LOG_WARN("[Export] WAV export " + task.getErrorMessage());
+            return false;
         });
 }
 

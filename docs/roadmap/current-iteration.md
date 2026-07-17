@@ -5,7 +5,7 @@
 
 ## 当前状态
 
-当前活跃阶段：**Phase 7 — VST3 离线渲染与体验完善**。Phase 6 / Phase 7-1~7-4 已完成。
+当前活跃阶段：**Phase 7 — VST3 离线渲染与体验完善**。Phase 6 / Phase 7-1~7-4、7-6 已完成。
 
 **Phase 5** 已完成（5.1-5.8 + 人工回归均通过）。`MainComponent.cpp` 从 1587 行降至 606 行（Phase 5 结束时数据；后续 Phase 6/7 新增功能后当前约 750 行）。
 
@@ -13,10 +13,11 @@
 
 **Phase 7 已完成子项：**
 - **Phase 7 启动前快速清扫** ✅ — instrumentFilter toggle show/hide 接入。
-- **Phase 7-1：VST3 离线渲染** ✅ — 非 UI 线程创建 `AudioPluginInstance` 副本、WAV 导出、ExportDialog 进度对话框。
+- **Phase 7-1：VST3 离线渲染** ✅ — message thread 上创建 `AudioPluginInstance` 副本、WAV 导出、后台线程渲染。
 - **Phase 7-2：播放速度精确控制** ✅ — Slider + TextBox 替换步进按钮，`std::atomic` 跨线程安全。
 - **Phase 7-3：拖放文件支持** ✅ — `FileDragAndDropTarget`（`.devpiano`/`.mid`/`.freepiano.layout`/`.vst3`），蓝色边框反馈。
 - **Phase 7-4：运行时中英文语言切换** ✅ — JUCE `Translation` 机制替换 `language_strdef.h` 体系，嵌入式中文 locale 表，Settings ComboBox，切换即时生效。
+- **Phase 7-6：Export 进度对话框** ✅ — `WavExportTask`（`ThreadWithProgressWindow` + `ProgressBar` + 取消支持），message thread 上创建实例，后台线程渲染，取消自动清理。
 ---
 
 ## Phase 7 后续子项（P1，按序推进）

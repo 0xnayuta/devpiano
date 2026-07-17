@@ -1,3 +1,5 @@
+#include <functional>
+
 #include "Recording/WavFileExporter.h"
 
 #include "Recording/RecordingEngine.h"
@@ -159,7 +161,7 @@ void addPanicMidi(juce::MidiBuffer& midiBuffer, int sampleOffset) {
 } // namespace
 
 bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const juce::File& destinationFile,
-                         const WavExportOptions& options) {
+                         const WavExportOptions& options, std::function<bool(double)> progressCallback) {
     if (take.isEmpty() || take.sampleRate <= 0.0 || !hasUsableOptions(options) || destinationFile == juce::File())
         return false;
 
@@ -200,6 +202,9 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
     auto panicSent = false;
 
     for (std::int64_t blockStart = 0; blockStart < totalSamples; blockStart += options.blockSize) {
+        if (progressCallback && !progressCallback(static_cast<double>(blockStart) / static_cast<double>(totalSamples)))
+            return false;
+
         const auto numSamples = static_cast<int>(std::min<std::int64_t>(options.blockSize, totalSamples - blockStart));
         const auto blockEnd = blockStart + numSamples;
 

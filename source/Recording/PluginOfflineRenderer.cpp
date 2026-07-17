@@ -1,3 +1,5 @@
+#include <functional>
+
 #include "Recording/PluginOfflineRenderer.h"
 
 #include "Diagnostics/DebugLog.h"
@@ -113,7 +115,8 @@ std::unique_ptr<juce::AudioPluginInstance> createOfflinePluginInstance(juce::Aud
 // renderTakeWithOfflinePlugin
 // ---------------------------------------------------------------------------
 bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take, const juce::File& destinationFile,
-                                 const WavExportOptions& options, juce::AudioPluginInstance& offlinePlugin) {
+                                 const WavExportOptions& options, juce::AudioPluginInstance& offlinePlugin,
+                                 std::function<bool(double)> progressCallback) {
     if (take.isEmpty() || take.sampleRate <= 0.0 || !hasUsableOptions(options) || destinationFile == juce::File()) {
         DP_LOG_ERROR("[PluginOfflineRenderer] Invalid parameters for offline render");
         return false;
@@ -173,6 +176,9 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
                 + juce::String(totalSamples) + " total samples, " + juce::String(outputChannels) + " output channels");
 
     for (std::int64_t blockStart = 0; blockStart < totalSamples; blockStart += options.blockSize) {
+        if (progressCallback && !progressCallback(static_cast<double>(blockStart) / static_cast<double>(totalSamples)))
+            return false;
+
         const auto numSamples = static_cast<int>(std::min<std::int64_t>(options.blockSize, totalSamples - blockStart));
         const auto blockEnd = blockStart + numSamples;
 
