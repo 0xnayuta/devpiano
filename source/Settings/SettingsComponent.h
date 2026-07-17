@@ -123,9 +123,12 @@ public:
             if (!model)
                 return;
             model->languageCode = languageCombo.getSelectedId() == 2 ? "zh-CN" : "en";
-            refreshTexts();
+            // Fire onLanguageChanged FIRST to update the JUCE translation table
+            // (locale::activate), so the subsequent refreshTexts() reads the
+            // CORRECT translations via TRANS() rather than the still-active old ones.
             if (onLanguageChanged)
                 onLanguageChanged(model->languageCode);
+            refreshTexts();
         };
         addAndMakeVisible(languageCombo);
 
@@ -148,8 +151,8 @@ public:
         };
 
         deviceManager.addChangeListener(this);
-        updateDiagnostics();
         setSize(560, 620);
+        updateDiagnostics();
     }
 
     void refreshTexts() {
@@ -161,6 +164,41 @@ public:
         instrumentFilterToggle.setButtonText(TRANS("Show MIDI/VSTi Instrument Filter"));
         languageLabel.setText(TRANS("Language:"), juce::dontSendNotification);
         saveButton.setButtonText(TRANS("Save"));
+
+        // Rebuild ComboBox items so their entries reflect the new language.
+        if (model) {
+            {
+                const auto selected = colourModeCombo.getSelectedId();
+                colourModeCombo.clear(juce::dontSendNotification);
+                colourModeCombo.addItem(TRANS("Classic"), 1 + static_cast<int>(devpiano::ui::KeyColourMode::classic));
+                colourModeCombo.addItem(TRANS("Channel"), 1 + static_cast<int>(devpiano::ui::KeyColourMode::channel));
+                colourModeCombo.addItem(TRANS("Velocity"), 1 + static_cast<int>(devpiano::ui::KeyColourMode::velocity));
+                colourModeCombo.setSelectedId(selected, juce::dontSendNotification);
+            }
+            {
+                const auto selected = noteDisplayCombo.getSelectedId();
+                noteDisplayCombo.clear(juce::dontSendNotification);
+                noteDisplayCombo.addItem(TRANS("Do Re Mi"),
+                                         1 + static_cast<int>(devpiano::ui::NoteDisplayMode::doReMi));
+                noteDisplayCombo.addItem(TRANS("Fixed Do"),
+                                         1 + static_cast<int>(devpiano::ui::NoteDisplayMode::fixedDo));
+                noteDisplayCombo.addItem(TRANS("Note Name"),
+                                         1 + static_cast<int>(devpiano::ui::NoteDisplayMode::noteName));
+                noteDisplayCombo.setSelectedId(selected, juce::dontSendNotification);
+            }
+        }
+
+        // Re-create AudioDeviceSelectorComponent so its internal labels re-evaluate
+        // TRANS() with the now-active language. JUCE's component only calls TRANS()
+        // in its constructor and has no runtime i18n API.
+        removeChildComponent(selector.get());
+        selector = std::make_unique<juce::AudioDeviceSelectorComponent>(deviceManager, 0, 2, 0, 2, false, false, true,
+                                                                        false);
+        addAndMakeVisible(selector.get());
+        resized();
+
+        if (onRefreshTexts)
+            onRefreshTexts();
     }
 
     ~SettingsComponent() override {
@@ -210,6 +248,7 @@ public:
     std::function<void()> onSaveRequested;
     std::function<void()> onDisplaySettingsChanged;
     std::function<void(const juce::String&)> onLanguageChanged;
+    std::function<void()> onRefreshTexts;
 
 private:
     juce::AudioDeviceManager& deviceManager;

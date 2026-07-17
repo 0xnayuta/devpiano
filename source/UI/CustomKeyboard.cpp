@@ -51,6 +51,10 @@ CustomKeyboard::CustomKeyboard(juce::MidiKeyboardState& state)
     startTimer(timerIntervalMs);
 }
 
+CustomKeyboard::~CustomKeyboard() {
+    keyboardState.removeListener(this);
+}
+
 void CustomKeyboard::setKeyboardSettings(const devpiano::ui::KeyboardSettings& s) {
     settings = s;
     recalculateKeyBounds();

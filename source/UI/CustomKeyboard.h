@@ -23,7 +23,7 @@
 class CustomKeyboard final : public juce::Component, private juce::Timer, private juce::MidiKeyboardStateListener {
 public:
     explicit CustomKeyboard(juce::MidiKeyboardState& keyboardState);
-    ~CustomKeyboard() override = default;
+    ~CustomKeyboard() override;
 
     // ---- Settings ----------------------------------------------------------
     void setKeyboardSettings(const devpiano::ui::KeyboardSettings& settings);

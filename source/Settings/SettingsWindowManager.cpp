@@ -90,6 +90,12 @@ void SettingsWindowManager::show(ShowOptions options) {
     contentPtr->onDisplaySettingsChanged = options.onDisplaySettingsChanged;
     contentPtr->onLanguageChanged = options.onLanguageChanged;
 
+    contentPtr->onRefreshTexts = [weakState = std::weak_ptr<State>(state)] {
+        if (auto locked = weakState.lock())
+            if (locked->window)
+                locked->window->setName(TRANS("Audio Settings"));
+    };
+
     state->window = std::make_unique<SettingsDialogWindow>(TRANS("Audio Settings"), backgroundColour, closeWindow);
     state->window->setUsingNativeTitleBar(true);
     state->window->setContentOwned(content.release(), true);
