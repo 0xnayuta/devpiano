@@ -13,7 +13,6 @@
 #include "Locale/LocaleManager.h"
 #include "Midi/MidiChannelMapper.h"
 
-#include "Midi/MidiRouter.h"
 #include "Plugin/PluginHost.h"
 #include "Plugin/PluginOperationController.h"
 #include "Recording/RecordingEngine.h"
@@ -80,7 +79,6 @@ private:
     void initialiseInputMappingFromSettings();
     void initialiseUi();
     [[nodiscard]] juce::Rectangle<int> getInitialMainContentBounds() const;
-    void initialiseMidiRouting();
     [[nodiscard]] SettingsModel::PerformanceSettingsView getPerformanceSettingsFromUi() const;
     [[nodiscard]] juce::String getLastPluginNameForRecoveryStateFromUi() const;
     [[nodiscard]] SettingsModel::PluginRecoverySettingsView getPluginRecoverySettingsFromUi() const;
@@ -102,7 +100,6 @@ private:
     void saveSettingsSoon();
     void showSettingsDialog();
     [[nodiscard]] bool isSettingsWindowOpen() const;
-    void refreshMidiStatusFromCurrentSnapshot();
     void logCurrentAudioDeviceDiagnostics(const juce::String& context) const;
     void renderReadOnlyUiState(const devpiano::core::AppState& appState);
     void refreshReadOnlyUiStateFromCurrentSnapshot();
@@ -121,14 +118,11 @@ private:
     devpiano::recording::RecordingEngine recordingEngine;
     AudioEngine audioEngine;
     KeyboardMidiMapper keyboardMidiMapper;
-    MidiRouter midiRouter;
     PluginHost pluginHost;
     SettingsModel appSettings;
     SettingsStore settingsStore;
 
     bool dropActive = false;
-    int externalMidiMessageCount = 0;
-    juce::String lastExternalMidiMessage;
 
     HeaderPanel headerPanel;
     PluginPanel pluginPanel;

@@ -69,7 +69,6 @@ MainComponent::MainComponent()
     initialiseAudioDevice();
     suppressTextInputMethods();
 
-    initialiseMidiRouting();
     pluginOperationController->restorePluginStateOnStartup();
     refreshReadOnlyUiStateFromCurrentSnapshot();
 
@@ -98,11 +97,6 @@ MainComponent::~MainComponent() {
     headerPanel.onSettingsRequested = {};
 
     saveSettingsNow();
-
-    midiRouter.setMessageCallback({});
-    midiRouter.setCollector(nullptr);
-    midiRouter.setTransformer({});
-    midiRouter.closeInputs();
 
     pluginOperationController.reset();
     shutdownAudio();
@@ -250,40 +244,6 @@ void MainComponent::persistMainContentSize(int width, int height) {
     appSettings.mainWindowWidth = clampedWidth;
     appSettings.mainWindowHeight = clampedHeight;
     saveSettingsSoon();
-}
-
-void MainComponent::initialiseMidiRouting() {
-    if (midiChannelMapper != nullptr) {
-        midiRouter.setTransformer(
-            [mapper = midiChannelMapper.get()](const juce::MidiMessage& msg) { return mapper->applyTransform(msg); });
-    }
-    midiRouter.setCollector(&audioEngine.getMidiCollector());
-    midiRouter.setMessageCallback(
-        [safe = juce::Component::SafePointer<MainComponent>(this)](const juce::MidiMessage& message) {
-            juce::MessageManager::callAsync([safe, message] {
-                if (safe == nullptr)
-                    return;
-
-                ++safe->externalMidiMessageCount;
-
-                if (message.isNoteOn()) {
-                    safe->lastExternalMidiMessage = "Note On " + juce::String(message.getNoteNumber());
-                    safe->keyboardPanel.getCustomKeyboard().notifyNoteActivity();
-                } else if (message.isNoteOff())
-                    safe->lastExternalMidiMessage = "Note Off " + juce::String(message.getNoteNumber());
-                else if (message.isController())
-                    safe->lastExternalMidiMessage = "CC " + juce::String(message.getControllerNumber());
-                else if (message.isProgramChange())
-                    safe->lastExternalMidiMessage = "Program " + juce::String(message.getProgramChangeNumber());
-                else if (message.isPitchWheel())
-                    safe->lastExternalMidiMessage = "Pitch Wheel";
-                else
-                    safe->lastExternalMidiMessage = message.getDescription();
-
-                safe->refreshMidiStatusFromCurrentSnapshot();
-            });
-        });
-    midiRouter.openAllInputs();
 }
 
 void MainComponent::prepareToPlay(int samplesPerBlockExpected, double sampleRate) {
@@ -654,7 +614,6 @@ bool MainComponent::isSettingsWindowOpen() const {
 }
 
 void MainComponent::renderReadOnlyUiState(const devpiano::core::AppState& appState) {
-    headerPanel.updateMidiStatus(buildHeaderPanelMidiStatus(appState));
     pluginPanel.updateState(
         buildPluginPanelState(pluginHost, appState.plugin.lastPluginName, appState.plugin.isEditorOpen));
 }
@@ -665,10 +624,6 @@ void MainComponent::refreshReadOnlyUiStateFromCurrentSnapshot() {
 
 void MainComponent::refreshPluginUiState() {
     renderReadOnlyUiState(buildCurrentAppStateSnapshot());
-}
-
-void MainComponent::refreshMidiStatusFromCurrentSnapshot() {
-    headerPanel.updateMidiStatus(buildHeaderPanelMidiStatus(buildCurrentAppStateSnapshot()));
 }
 
 void MainComponent::finishPluginUiAction(bool shouldSaveSettings) {
@@ -688,8 +643,7 @@ void MainComponent::logCurrentAudioDeviceDiagnostics(const juce::String& context
 devpiano::core::AppState MainComponent::buildCurrentAppStateSnapshot() const {
     return devpiano::core::buildCurrentAppStateSnapshot(
         appSettings, deviceManager, pluginHost,
-        pluginOperationController != nullptr && pluginOperationController->hasEditorWindowOpen(), keyboardMidiMapper,
-        midiRouter, externalMidiMessageCount, lastExternalMidiMessage);
+        pluginOperationController != nullptr && pluginOperationController->hasEditorWindowOpen(), keyboardMidiMapper);
 }
 
 void MainComponent::applyLanguage(const juce::String& code) {
