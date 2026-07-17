@@ -7,7 +7,6 @@
 #include "AppState.h"
 
 class KeyboardMidiMapper;
-class MidiRouter;
 class PluginHost;
 
 namespace devpiano::core {
@@ -46,13 +45,10 @@ struct RuntimeAudioState {
 
 struct RuntimeInputState {
     KeyboardLayout keyboardLayout = makeDefaultKeyboardLayout();
-    int openMidiInputCount = 0;
-    int midiActivityCount = 0;
-    juce::String lastMidiMessage;
 };
 
 // 从 persisted settings 创建 AppState 基线。
-// 不读取 PluginHost / MidiRouter / EditorWindow 等运行态对象。
+// 不读取 PluginHost / EditorWindow 等运行态对象。
 [[nodiscard]] inline AppState createPersistedAppState(const SettingsModel& settings) {
     const auto audio = settings.getAudioSettingsView();
     const auto performance = settings.getPerformanceSettingsView();
@@ -86,10 +82,7 @@ struct RuntimeInputState {
                          .isPrepared = false,
                          .isEditorOpen = false },
              .input = { .layoutId = input.layoutId,
-                        .keyboardLayout = devpiano::settings::keyMapToLayout(input.keyMap, input.layoutId),
-                        .openMidiInputCount = 0,
-                        .midiActivityCount = 0,
-                        .lastMidiMessage = {} },
+                        .keyboardLayout = devpiano::settings::keyMapToLayout(input.keyMap, input.layoutId) },
              .midiChannelMatrix = settings.channelMatrix };
 }
 
@@ -125,10 +118,6 @@ inline void applyRuntimeAudioState(AppState& appState, const RuntimeAudioState& 
 // 叠加运行时输入活动状态。
 inline void applyRuntimeInputState(AppState& appState, const RuntimeInputState& runtime) {
     appState.input.layoutId = runtime.keyboardLayout.id;
-    appState.input.keyboardLayout = runtime.keyboardLayout;
-    appState.input.openMidiInputCount = runtime.openMidiInputCount;
-    appState.input.midiActivityCount = runtime.midiActivityCount;
-    appState.input.lastMidiMessage = runtime.lastMidiMessage;
 }
 
 // 一次性组装 persisted + runtime 的完整 AppState 快照。
@@ -142,20 +131,10 @@ inline void applyRuntimeInputState(AppState& appState, const RuntimeInputState& 
     return appState;
 }
 
-// Runtime snapshot helpers read live app objects and are intended for message-thread UI refresh paths.
-[[nodiscard]] RuntimeAudioState buildRuntimeAudioStateSnapshot(const SettingsModel& settings,
-                                                               const juce::AudioDeviceManager& deviceManager);
-
-[[nodiscard]] RuntimePluginState buildRuntimePluginStateSnapshot(const PluginHost& pluginHost, bool isEditorOpen);
-
-[[nodiscard]] RuntimeInputState buildRuntimeInputStateSnapshot(const KeyboardMidiMapper& keyboardMidiMapper,
-                                                               const MidiRouter& midiRouter, int midiActivityCount,
-                                                               const juce::String& lastMidiMessage);
+[[nodiscard]] RuntimeInputState buildRuntimeInputStateSnapshot(const KeyboardMidiMapper& keyboardMidiMapper);
 
 [[nodiscard]] AppState buildCurrentAppStateSnapshot(const SettingsModel& settings,
                                                     const juce::AudioDeviceManager& deviceManager,
                                                     const PluginHost& pluginHost, bool isEditorOpen,
-                                                    const KeyboardMidiMapper& keyboardMidiMapper,
-                                                    const MidiRouter& midiRouter, int midiActivityCount,
-                                                    const juce::String& lastMidiMessage);
+                                                    const KeyboardMidiMapper& keyboardMidiMapper);
 }

@@ -57,12 +57,9 @@ struct PluginState {
 };
 
 struct InputState {
-    // Persisted layout identity + runtime input activity snapshot.
+    // Persisted layout identity.
     juce::String layoutId { "default.freepiano.minimal" };
     KeyboardLayout keyboardLayout = makeDefaultKeyboardLayout();
-    int openMidiInputCount = 0;
-    int midiActivityCount = 0;
-    juce::String lastMidiMessage;
 };
 
 struct AppState {
