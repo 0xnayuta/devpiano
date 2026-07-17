@@ -32,28 +32,10 @@ JUCE KeyPress / KeyListener
 
 关键代码位置：
 
-- `source/MainComponent.*`：装配 `AudioEngine`、`KeyboardMidiMapper`、`MidiRouter`、`PluginHost` 与 UI 面板。
+- `source/MainComponent.*`：装配 `AudioEngine`、`KeyboardMidiMapper`、`PluginHost` 与 UI 面板。
 - `source/Input/KeyboardMidiMapper.*`：将电脑键盘事件映射为 MIDI note on/off，并维护 held key 状态。
 - `source/Audio/AudioEngine.*`：拥有 `juce::MidiKeyboardState`、`juce::MidiMessageCollector` 和每个 audio block 的 `juce::MidiBuffer`。
 - `source/UI/KeyboardPanel.*`：绑定同一个 `MidiKeyboardState` 做虚拟键盘显示，不应成为录制主入口。
-
-### 1.2 外部 MIDI 输入
-
-```text
-JUCE MidiInput callback
-  -> MidiRouter::handleIncomingMidiMessage
-  -> AudioEngine::getMidiCollector()
-  -> MidiMessageCollector::removeNextBlockOfMessages
-  -> AudioEngine::getNextAudioBlock
-  -> juce::MidiBuffer
-  -> PluginHost / fallback synth
-```
-
-关键代码位置：
-
-- `source/Midi/MidiRouter.*`：打开外部 MIDI 输入，并把消息送入 `MidiMessageCollector`。
-- `source/MainComponent.*`：通过 `initialiseMidiRouting()` 将 `MidiRouter` 连接到 `AudioEngine::getMidiCollector()`。
-- `source/Audio/AudioEngine.*`：在 audio callback 中把 collector 中的消息取出到 block-local `MidiBuffer`。
 
 ### 1.3 发声路径
 
@@ -111,7 +93,7 @@ struct song_event_t {
 - 可开始录制。
 - 可停止录制。
 - 可回放录制结果。
-- 录制内容包含电脑键盘和外部 MIDI 输入产生的演奏事件。
+- 录制内容包含电脑键盘产生的演奏事件。
 - 回放时事件按录制时间顺序进入当前发声链路。
 - 已加载插件时驱动插件；未加载插件时驱动 fallback synth。
 - 优先支持 MIDI 文件导出；WAV 离线渲染后置。
@@ -136,7 +118,6 @@ struct song_event_t {
 ```cpp
 enum class RecordingEventSource {
     computerKeyboard,
-    externalMidi,
     realtimeMidiBuffer,
     playback
 };
@@ -152,7 +133,7 @@ struct PerformanceEvent {
 
 - `timestampSamples` 使用录制开始后的绝对 sample 位置，便于在 audio block 中转换为 sample offset；这是录制事件唯一权威时间线。
 - `juce::MidiMessage` 保存标准 MIDI 语义，避免旧 `SM_*` 裸字节模型；其内部 timestamp 不作为录制时间线使用。
-- `source` 用于区分电脑键盘、外部 MIDI、已合并的实时 `MidiBuffer` 与回放事件，便于后续过滤、调试和测试。
+- `source` 用于区分电脑键盘、已合并的实时 `MidiBuffer` 与回放事件，便于后续过滤、调试和测试。
 - 第一版不强制引入多轨；所有事件在同一条时间线上。
 
 ### 4.2 录制片段
@@ -217,7 +198,7 @@ plugin processBlock(...) or fallback synth.renderNextBlock(...)
 
 选择这个边界的原因：
 
-- `midiCollector.removeNextBlockOfMessages()` 之后，`midiBuffer` 已包含本 block 的外部 MIDI 输入。
+- `midiCollector.removeNextBlockOfMessages()` 之后，`midiBuffer` 已包含本 block 的实时 MIDI 输入。
 - `keyboardState.processNextMidiBuffer(..., true)` 之后，`MidiKeyboardState` 中待处理的电脑键盘 note on/off 也会通过同一个 block-local `MidiBuffer` 进入后续发声路径。
 - 插件 `processBlock()` 可能读取或修改 `midiBuffer`，因此录制必须发生在插件 / fallback synth 消费之前。
 - 该边界能在不新增第二套 MIDI 监听链路的前提下，记录“准备交给插件 / fallback synth 的 pre-render `MidiBuffer`”。
@@ -225,7 +206,6 @@ plugin processBlock(...) or fallback synth.renderNextBlock(...)
 此边界的限制：
 
 - 经过 `MidiKeyboardState` 合并后的 `MidiBuffer` 不再携带原始来源标签；第一版应将该路径记录为 `RecordingEventSource::realtimeMidiBuffer`。
-- 如果未来需要严格区分 `computerKeyboard` 与 `externalMidi`，应再增加 source tagging 机制，而不是在混合后的 `MidiBuffer` 中猜测来源。
 - `RecordingEngine::recordMidiBufferBlock()` 会把符合第一版大小门限的 `MidiMessageMetadata` 转为拥有数据的 `juce::MidiMessage`，并写入 `std::vector<PerformanceEvent>`；容量耗尽或超过大小门限的消息会被丢弃并计数。
 - `recordMidiBufferBlock()` 会把复制出的 `juce::MidiMessage` timestamp 归零；后续回放 / 导出只能使用 `PerformanceEvent::timestampSamples` 作为权威时间线。
 
@@ -391,7 +371,7 @@ RecordingTake
 导出范围：
 
 - note on / note off。
-- 外部 MIDI 输入中的标准 channel voice 消息，如 CC、pitch bend、program change，可按实现成本逐步纳入。
+- note on / note off 的标准 channel voice 消息，如 CC、pitch bend、program change，可按实现成本逐步纳入。
 - 不导出插件状态、音频、布局文件或 UI 状态。
 
 ### 8.2 WAV 导出（Phase 3-1 MVP）
@@ -509,7 +489,7 @@ VST3 插件离线渲染放到 Phase 3-2 再评估，原因：
 - audio callback 中尽量避免动态分配；如必须复制事件，需预分配或使用受控缓冲。
 - 非 audio thread 不直接修改正在回放读取的事件数组。
 - `MidiMessage` 的时间戳是应用定义的 double；进入 `MidiBuffer` 后以整数 sample offset 为准。
-- 外部 MIDI、电脑键盘 UI 输入和 audio callback 时间源不同，第一版只承诺回放调度与 audio block 对齐，不承诺 DAW 级录入量化或精确输入延迟校正。
+- 电脑键盘 UI 输入和 audio callback 时间源不同，第一版只承诺回放调度与 audio block 对齐，不承诺 DAW 级录入量化或精确输入延迟校正。
 
 ---
 
@@ -531,7 +511,6 @@ VST3 插件离线渲染放到 Phase 3-2 再评估，原因：
 - [x] 建立 owner / detach / preallocation / overflow 规则：`MainComponent` 持有，`AudioEngine` 非拥有引用，容量耗尽时丢弃新事件并计数。
 - [x] 增加无 UI 的内部 start/stop helper，用于后续手工触发或测试接入录制时间线。
 - [x] 验证电脑键盘能进入录制时间线。
-- [~] 外部 MIDI 进入同一录制时间线仍待真实硬件或虚拟 MIDI loopback 验证。
 
 ### Phase 3-5：最小回放
 
@@ -613,7 +592,6 @@ VST3 插件离线渲染放到 Phase 3-2 再评估，原因：
 
 - 开始录制 / 停止录制。
 - 电脑键盘 note on/off 成对录入。
-- 外部 MIDI 输入录入（有硬件后验证）。
 - 回放顺序与相对时间正确。
 - 回放驱动已加载插件。
 - 无插件时回放驱动 fallback synth。
@@ -665,7 +643,7 @@ VST3 插件离线渲染放到 Phase 3-2 再评估，原因：
 本测试文档覆盖 Phase 3 MVP 已恢复能力：
 
 - Record / Stop / Play 基础闭环。
-- 电脑键盘与外部 MIDI 经由同一 `AudioEngine` pre-render `MidiBuffer` 录制边界。
+- 电脑键盘经由 `AudioEngine` pre-render `MidiBuffer` 录制边界。
 - 回放事件重新进入当前插件 / fallback synth 发声路径。
 - Export MIDI 输出 `.mid` 文件。
 - 录制、回放、导出与键盘焦点、插件宿主、布局 Preset 的基本协同。
@@ -863,34 +841,6 @@ VST3 插件离线渲染放到 Phase 3-2 再评估，原因：
 
 ---
 
-## 7. 外部 MIDI 输入
-
-### 7.1 外部 MIDI 录制
-
-#### 步骤
-
-- [ ] 连接真实外部 MIDI 设备。
-- [ ] 在 DevPiano 中打开对应 MIDI 输入。
-- [ ] 点击 `Record`。
-- [ ] 从外部 MIDI 设备弹奏几个 note。
-- [ ] 点击 `Stop` 并 `Play`。
-
-#### 预期结果
-
-- [ ] 外部 MIDI 输入能被录制到同一 take。
-- [ ] 回放顺序与外部输入顺序一致。
-- [ ] 当前第一版可将混合后的事件记录为 `realtimeMidiBuffer`，不要求严格区分来源。
-
-#### 状态
-
-- [~] **搁置原因**：当前无真实外部 MIDI 设备，无法执行验证。虚拟 MIDI loopback 方案待后续有设备时补测。插件生命周期测试 `6.3`（外部 MIDI 打开状态下退出程序）同样待硬件补齐。
-
-#### 已知限制
-
-- 外部 MIDI 录制 / 回放验证依赖真实硬件，当前暂缓。
-- 若后续需要验证，可先配置虚拟 MIDI loopback 软件（如 loopMIDI），在无硬件环境下做基础通路验证。
-- `6.3` 插件生命周期退出场景在有外部 MIDI 设备后补测。
-
 ---
 
 ## 8. 优先测试包
@@ -910,9 +860,6 @@ VST3 插件离线渲染放到 Phase 3-2 再评估，原因：
 - [x] 3.3 录制期间焦点恢复。
 - [x] 5.2 外部播放器 / DAW 打开。
 
-### 包 C：硬件依赖回归
-
-- [~] 7.1 外部 MIDI 录制（暂缓：当前无真实外部 MIDI 设备；虚拟 MIDI loopback 方案待后续有设备时补测；插件生命周期测试 `6.3` 同样待硬件补齐）。
 
 ### 包 D：下一阶段 Phase 3 稳定化回归
 
@@ -1059,10 +1006,9 @@ VST3 插件离线渲染放到 Phase 3-2 再评估，原因：
 - 构建：未记录。
 - 平台：Windows 手工验证。
 - 模式：Phase 3 MVP 录制 / 回放 / MIDI 导出专项回归。
-- 结果：除外部 MIDI 硬件依赖项暂缓外，其余已执行项均通过，未发现明显问题。
+- 结果：已执行项均通过，未发现明显问题。
 - 备注：
   - `5.1` 中“未录制 take 时导出”的预期已修正为当前真实行为：未录制有效 take 时，`Play` 和 `Export MIDI` 按钮保持灰色禁用；该项已通过。
-  - `7.1` 外部 MIDI 输入因当前缺少真实外部 MIDI 设备，暂缓验证。
 
 ### Test Run 2026-04-29
 

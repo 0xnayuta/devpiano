@@ -34,7 +34,6 @@ Phase 6-6 已完成，包含以下内容：
 
 | 文件 | 接入点 | 宏 |
 |------|--------|----|
-| `MidiRouter.cpp` | 外部 MIDI 入口 | `DP_TRACE_MIDI` |
 | `MidiFileImporter.cpp` | 文件读取 + non-note 事件 | `DP_TRACE_MIDI`, `DP_LOG_INFO/WARN/ERROR`, `DP_DEBUG_LOG` |
 | `RecordingEngine.cpp` | 录制/回放状态 + 丢弃告警 | `DP_DEBUG_LOG`, `DP_LOG_INFO` |
 | `RecordingSessionController.cpp` | Save/Open/Import/Export/Record/Playback 全流程 | `DP_LOG_INFO/WARN/ERROR` |
@@ -221,7 +220,6 @@ Phase 6 包含六个子阶段：
 | `RecordingEventSource` | JSON 字符串 |
 |------------------------|-------------|
 | `computerKeyboard` | `"computerKeyboard"` |
-| `externalMidi` | `"externalMidi"` |
 | `realtimeMidiBuffer` | `"realtimeMidiBuffer"` |
 | `playback` | `"playback"` |
 
