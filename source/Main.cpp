@@ -148,9 +148,15 @@ public:
 #endif
 
             setVisible(true);
+            setAlwaysOnTop(true);
 
 #if defined(JUCE_WINDOWS) && JUCE_WINDOWS
+            // The 100ms timer (below) will call setAlwaysOnTop(false) after the
+            // window has had time to paint on screen, ensuring it appears on top
+            // of Explorer before reverting to normal z-order.
             startTimer(100);
+#else
+            juce::MessageManager::callAsync([this] { setAlwaysOnTop(false); });
 #endif
         }
 
@@ -163,8 +169,27 @@ public:
 
         void timerCallback() override {
             stopTimer();
+            setAlwaysOnTop(false);
 #if defined(JUCE_WINDOWS) && JUCE_WINDOWS
             installWndProcHook(getPeer());
+
+            // The window is now visually on top (via HWND_TOPMOST) but lacks
+            // keyboard focus — SetWindowPos with SWP_NOACTIVATE explicitly
+            // avoids activation. Use AttachThreadInput to share input state
+            // with the foreground thread, which grants SetForegroundWindow the
+            // rights it needs to activate our window and deliver key events.
+            if (auto* peer = getPeer()) {
+                if (auto hwnd = reinterpret_cast<HWND>(peer->getNativeHandle())) {
+                    auto fgHwnd = GetForegroundWindow();
+                    if (fgHwnd != nullptr && fgHwnd != hwnd) {
+                        const auto fgThreadId = GetWindowThreadProcessId(fgHwnd, nullptr);
+                        const auto ourThreadId = GetCurrentThreadId();
+                        AttachThreadInput(ourThreadId, fgThreadId, TRUE);
+                        SetForegroundWindow(hwnd);
+                        AttachThreadInput(ourThreadId, fgThreadId, FALSE);
+                    }
+                }
+            }
 #endif
         }
 

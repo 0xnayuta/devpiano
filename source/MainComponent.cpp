@@ -261,6 +261,17 @@ void MainComponent::releaseResources() {
 
 void MainComponent::timerCallback() {
     recordingSessionController->checkPlaybackEnded();
+
+    // Aggressively reclaim keyboard focus from child components that don't
+    // consume text input. This ensures piano keys always work immediately
+    // after slider/button/combobox interaction without requiring every
+    // child component to explicitly release focus.
+    if (auto* f = juce::Component::getCurrentlyFocusedComponent()) {
+        if (f != this && isParentOf(f) && dynamic_cast<const juce::TextEditor*>(f) == nullptr
+            && !(dynamic_cast<const juce::Label*>(f) && static_cast<const juce::Label*>(f)->isBeingEdited())) {
+            grabKeyboardFocus();
+        }
+    }
 }
 
 void MainComponent::paint(juce::Graphics& g) {
@@ -370,9 +381,18 @@ bool MainComponent::keyStateChanged(bool isKeyDown) {
 }
 
 bool MainComponent::isKeyboardInputSuppressed() const noexcept {
-    // If focus is on a child component (e.g. TextEditor), don't intercept piano keys
-    if (auto* focused = juce::Component::getCurrentlyFocusedComponent())
-        return focused != this && isParentOf(focused);
+    // Only suppress keyboard input when focus is on an actively-edited
+    // text component. Sliders, buttons, comboboxes and other child
+    // components that don't consume text keys should not block piano input.
+    if (auto* focused = juce::Component::getCurrentlyFocusedComponent()) {
+        if (focused == this || !isParentOf(focused))
+            return false;
+        if (dynamic_cast<const juce::TextEditor*>(focused) != nullptr)
+            return true;
+        if (auto* label = dynamic_cast<const juce::Label*>(focused))
+            return label->isBeingEdited();
+        return false;
+    }
     return false;
 }
 

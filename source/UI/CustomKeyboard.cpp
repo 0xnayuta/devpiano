@@ -47,6 +47,7 @@ CustomKeyboard::CustomKeyboard(juce::MidiKeyboardState& state)
     : keyboardState(state) {
     setOpaque(false);
     setSize(800, defaultHeight); // reasonable default, resized by parent
+    keyboardState.addListener(this);
     startTimer(timerIntervalMs);
 }
 
@@ -467,8 +468,15 @@ void CustomKeyboard::ensureTimerRunning() {
     if (!isTimerRunning())
         startTimer(timerIntervalMs);
 }
-
 void CustomKeyboard::notifyNoteActivity() {
+    ensureTimerRunning();
+}
+
+void CustomKeyboard::handleNoteOn(juce::MidiKeyboardState*, int, int, float) {
+    ensureTimerRunning();
+}
+
+void CustomKeyboard::handleNoteOff(juce::MidiKeyboardState*, int, int, float) {
     ensureTimerRunning();
 }
 

@@ -20,7 +20,7 @@
 // Steps completed: 1-4 (geometry + paint + mouse + fade), Group A (key labels +
 // note display mode).  Next: Group B (channel/velocity colour modes).
 // ============================================================================
-class CustomKeyboard final : public juce::Component, private juce::Timer {
+class CustomKeyboard final : public juce::Component, private juce::Timer, private juce::MidiKeyboardStateListener {
 public:
     explicit CustomKeyboard(juce::MidiKeyboardState& keyboardState);
     ~CustomKeyboard() override = default;
@@ -58,6 +58,10 @@ private:
     void mouseDoubleClick(const juce::MouseEvent& e) override;
 
     // juce::Timer
+
+    // juce::MidiKeyboardStateListener
+    void handleNoteOn(juce::MidiKeyboardState*, int, int, float) override;
+    void handleNoteOff(juce::MidiKeyboardState*, int, int, float) override;
     void timerCallback() override;
 
     // Geometry
