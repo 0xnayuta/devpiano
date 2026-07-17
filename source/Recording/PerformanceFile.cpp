@@ -12,8 +12,6 @@ juce::String sourceToString(RecordingEventSource source) {
     switch (source) {
     case RecordingEventSource::computerKeyboard:
         return performance_file::sourceComputerKeyboard;
-    case RecordingEventSource::externalMidi:
-        return performance_file::sourceExternalMidi;
     case RecordingEventSource::realtimeMidiBuffer:
         return performance_file::sourceRealtimeMidiBuffer;
     case RecordingEventSource::playback:
@@ -24,8 +22,6 @@ juce::String sourceToString(RecordingEventSource source) {
 }
 
 RecordingEventSource stringToSource(const juce::String& str) {
-    if (str == performance_file::sourceExternalMidi)
-        return RecordingEventSource::externalMidi;
     if (str == performance_file::sourceRealtimeMidiBuffer)
         return RecordingEventSource::realtimeMidiBuffer;
     if (str == performance_file::sourcePlayback)

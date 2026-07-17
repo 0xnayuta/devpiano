@@ -35,7 +35,6 @@ constexpr const char* keyMidiData = "midiData";
 
 // Source enum strings
 constexpr const char* sourceComputerKeyboard = "computerKeyboard";
-constexpr const char* sourceExternalMidi = "externalMidi";
 constexpr const char* sourceRealtimeMidiBuffer = "realtimeMidiBuffer";
 constexpr const char* sourcePlayback = "playback";
 } // namespace performance_file

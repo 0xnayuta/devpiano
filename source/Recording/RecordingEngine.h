@@ -7,7 +7,7 @@
 #include <vector>
 
 namespace devpiano::recording {
-enum class RecordingEventSource { computerKeyboard, externalMidi, realtimeMidiBuffer, playback };
+enum class RecordingEventSource { computerKeyboard, realtimeMidiBuffer, playback };
 
 enum class RecordingState { idle, recording, playing, stopped };
 
@@ -52,7 +52,6 @@ public:
 
     void advanceRecordingPosition(std::int64_t numSamples) noexcept;
     void recordEvent(const juce::MidiMessage& message, RecordingEventSource source, std::int64_t timestampSamples);
-    void recordEventAtCurrentPosition(const juce::MidiMessage& message, RecordingEventSource source);
     // Converts block-local MidiBuffer sample offsets into absolute timestampSamples.
     // The copied MidiMessage timestamp is normalised to 0.0; PerformanceEvent::timestampSamples
     // is the only authoritative timeline value stored by RecordingEngine. Events are dropped

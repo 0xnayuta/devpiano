@@ -127,10 +127,6 @@ void RecordingEngine::recordEvent(const juce::MidiMessage& message, RecordingEve
     currentTake.lengthSamples = std::max(currentTake.lengthSamples, clampedTimestamp);
 }
 
-void RecordingEngine::recordEventAtCurrentPosition(const juce::MidiMessage& message, RecordingEventSource source) {
-    recordEvent(message, source, currentPositionSamples);
-}
-
 void RecordingEngine::recordMidiBufferBlock(const juce::MidiBuffer& midiBuffer, RecordingEventSource source,
                                             std::int64_t blockStartSamples) {
     if (!isRecording())
