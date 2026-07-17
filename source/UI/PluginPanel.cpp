@@ -60,6 +60,9 @@ PluginPanel::PluginPanel() {
     pluginListEditor.setReadOnly(true);
     pluginListEditor.setScrollbarsShown(true);
     pluginListEditor.setCaretVisible(false);
+    pluginListEditor.setPopupMenuEnabled(true);
+    pluginListEditor.setWantsKeyboardFocus(false);
+    pluginListEditor.setMouseClickGrabsKeyboardFocus(false);
     addAndMakeVisible(pluginListEditor);
 
     instrumentFilterCombo.setVisible(false);
@@ -101,8 +104,10 @@ void PluginPanel::resized() {
     selectorRow.removeFromRight(6);
     loadPluginButton.setBounds(selectorRow.removeFromRight(80));
     selectorRow.removeFromRight(6);
-    instrumentFilterCombo.setBounds(selectorRow.removeFromRight(100));
-    selectorRow.removeFromRight(6);
+    if (instrumentFilterCombo.isVisible()) {
+        instrumentFilterCombo.setBounds(selectorRow.removeFromRight(100));
+        selectorRow.removeFromRight(6);
+    }
     pluginSelector.setBounds(selectorRow);
 
     area.removeFromTop(12);

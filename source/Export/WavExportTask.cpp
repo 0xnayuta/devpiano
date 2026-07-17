@@ -42,7 +42,7 @@ void WavExportTask::run() {
         if (threadShouldExit()) {
             success = false;
             errorMessage = TRANS("Export cancelled.");
-            return;
+            destinationFile.deleteFile();
         }
 
         if (renderTakeWithOfflinePlugin(take, destinationFile, options, *offlinePlugin, progressCallback)) {
