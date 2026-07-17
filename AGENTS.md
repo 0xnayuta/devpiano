@@ -1,6 +1,10 @@
-# Project: FreePiano-JUCE
+# Project: devpiano
 
-你正在协助将老旧的 FreePiano 项目重构为基于 JUCE 的现代 C++ 音频/MIDI 应用。
+你正在协助开发 **devpiano**——一款以 JUCE 为框架、VST3 插件为核心音源的电脑键盘钢琴应用，聚焦软件键盘演奏与 MIDI 文件处理。
+
+项目定位、核心能力与明确非目标详见 [`docs/reference/project-scope.md`](docs/reference/project-scope.md)。
+
+原 FreePiano 源码（`freepiano-src/`）保留为迁移参考资料，不参与当前构建。
 
 开发环境采用：**WSL 主工作树 + Windows 镜像树 + CMake + Ninja + Windows/MSVC 构建验证**。
 
@@ -41,6 +45,7 @@
 - [`docs/README.md`](docs/README.md)：文档总入口，按读者角色组织推荐阅读顺序。
 - [`docs/guides/quickstart.md`](docs/guides/quickstart.md)：快速恢复环境与常用命令。
 - [`docs/guides/wsl-windows-msvc-workflow.md`](docs/guides/wsl-windows-msvc-workflow.md)：WSL / Windows 镜像 / MSVC 验证详细工作流。
+- [`docs/reference/project-scope.md`](docs/reference/project-scope.md)：项目定位、核心能力与明确非目标。
 - [`docs/reference/architecture.md`](docs/reference/architecture.md)：当前系统架构、模块职责与主要链路。
 - [`docs/reference/features/keyboard-mapping.md`](docs/reference/features/keyboard-mapping.md)：电脑键盘到 MIDI note 的映射能力。
 - [`docs/reference/features/plugin-hosting.md`](docs/reference/features/plugin-hosting.md)：VST3 插件扫描、加载、处理、editor 和生命周期行为。
@@ -49,6 +54,7 @@
 - [`docs/decisions/`](docs/decisions/README.md)：ADR，记录已确定的架构/工程决策。
 - [`docs/roadmap/roadmap.md`](docs/roadmap/roadmap.md)：唯一项目状态、阶段路线与近期重点来源。
 - [`docs/roadmap/current-iteration.md`](docs/roadmap/current-iteration.md)：当前迭代入口。
+- [`docs/roadmap/cleanup-external-midi-scope.md`](docs/roadmap/cleanup-external-midi-scope.md)：外部 MIDI 清理执行计划。
 - [`docs/archive/`](docs/archive/README.md)：历史资料，内容只作参考，当前信息以现行文档为准。
 
 ---
@@ -120,6 +126,7 @@
 ## 5. 文档维护规则
 
 - 项目状态和长期路线只写入：[`docs/roadmap/roadmap.md`](docs/roadmap/roadmap.md)。
+- 项目定位、核心能力与非目标写入：[`docs/reference/project-scope.md`](docs/reference/project-scope.md)。
 - 当前任务只写入：[`docs/roadmap/current-iteration.md`](docs/roadmap/current-iteration.md)。
 - 架构说明写入：[`docs/reference/architecture.md`](docs/reference/architecture.md)。
 - 功能行为说明写入：[`docs/reference/features/`](docs/reference/features/)。
@@ -132,9 +139,11 @@
 
 ---
 
-## 6. 旧代码迁移规则
+## 6. 旧代码迁移规则（FreePiano 参考源码）
 
-旧源码目录：`/freepiano-src/`。
+旧源码目录 `/freepiano-src/` 保留为迁移参考资料，不参与当前构建。
+
+**devpiano 是一个独立项目，不是 FreePiano 的超集或替代品。** 当 FreePiano 中有价值、有意义的功能全部在新项目中实现后，FreePiano 的参考使命即告完成，可停止使用 `freepiano-src/`。
 
 允许：
 
@@ -188,6 +197,7 @@
    - 必要时阅读 `/freepiano-src/` 相关旧模块。
 3. 如涉及当前架构或功能边界，先阅读：
    - [`docs/reference/architecture.md`](docs/reference/architecture.md)
+   - [`docs/reference/project-scope.md`](docs/reference/project-scope.md)：项目定位与范围。
    - [`docs/reference/features/keyboard-mapping.md`](docs/reference/features/keyboard-mapping.md)
    - [`docs/reference/features/plugin-hosting.md`](docs/reference/features/plugin-hosting.md)
    - [`docs/reference/features/midi-file-import.md`](docs/reference/features/midi-file-import.md)

@@ -2,21 +2,11 @@
 
 中文 | [English](README_en.md)
 
-基于 **JUCE + CMake + C++20** 的 FreePiano 现代化重构项目。
+**devpiano** 是一款持续演进的电脑键盘钢琴应用——以 JUCE 为框架，VST3 插件为核心音源，聚焦软件键盘演奏与 MIDI 文件处理。
 
-目标是将老旧的 Windows FreePiano 重构为一个更简洁、现代、可持续演进的音频/MIDI 应用，并逐步替换旧项目中的：
+项目定位、核心能力与明确非目标详见 [`docs/reference/project-scope.md`](docs/reference/project-scope.md)。
 
-- 原生音频后端（WASAPI / ASIO / DirectSound）
-- 旧式 VST 宿主逻辑
-- Windows 原生 GUI / GDI
-- 旧配置与序列化方式
-
-新的主方向是：
-
-- 使用 JUCE `AudioDeviceManager` 管理音频设备
-- 使用 JUCE `AudioPluginFormatManager` / `AudioPluginInstance` 构建插件宿主
-- 使用 JUCE `Component` 树构建 UI
-- 使用 JUCE `ValueTree` / `ApplicationProperties` 管理状态与配置
+本仓库是 devpiano 的主源码与文档仓库。旧版 FreePiano 源码（`freepiano-src/`）保留为迁移参考资料，不参与当前构建。
 
 ---
 
@@ -25,9 +15,7 @@
 当前主干已具备以下能力：
 
 - JUCE GUI 应用可构建并启动
-- 已使用 JUCE 音频设备管理流程初始化输出设备
 - 电脑键盘可触发基础 MIDI note
-- 可打开外部 MIDI 输入并转发到引擎
 - 可调整主音量与 ADSR 参数
 - 可显示虚拟钢琴键盘
 - 可扫描 VST3 目录并列出插件名称
@@ -46,12 +34,6 @@
 - `MainComponent.cpp` 从约 1587 行降至约 606 行，职责已下沉到专门模块
 - 自动化单元测试框架已就位（`cmake -DBUILD_TESTS=ON` → `devpiano_tests`）
 
-当前仍在持续完善的能力：
-
-- 歌曲信息编辑对话框（编辑 `PerformanceFileMetadata`）
-- 全屏模式（F11 切换）
-- ChannelMatrix UI 编辑器与 MIDI 输入重映射 UI（按需追加）
-- 更系统化的稳定性验证与回归测试
 
 ---
 
@@ -86,7 +68,7 @@
 当前主音频路径为：
 
 ```text
-电脑键盘 / 外部 MIDI -> MidiMessageCollector / MidiKeyboardState
+电脑键盘 -> MidiMessageCollector / MidiKeyboardState
 -> AudioEngine
 -> 已加载 VST3 插件（优先）或内置 Sine Synth（fallback）
 -> JUCE 音频设备输出
@@ -262,6 +244,7 @@ Release 构建（WSL / Windows）：
 - 快速恢复：[docs/guides/quickstart.md](docs/guides/quickstart.md)
 - 详细工作流：[docs/guides/wsl-windows-msvc-workflow.md](docs/guides/wsl-windows-msvc-workflow.md)
 - 当前架构：[docs/reference/architecture.md](docs/reference/architecture.md)
+- 项目定位：[`docs/reference/project-scope.md`](docs/reference/project-scope.md)
 - 路线图与项目状态：[docs/roadmap/roadmap.md](docs/roadmap/roadmap.md)
 - 当前迭代任务：[docs/roadmap/current-iteration.md](docs/roadmap/current-iteration.md)
 - 阶段验收标准：[docs/reference/acceptance.md](docs/reference/acceptance.md)

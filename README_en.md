@@ -2,21 +2,11 @@
 
 [中文](README.md) | English
 
-A modernized FreePiano refactoring project based on **JUCE + CMake + C++20**.
+**devpiano** is a personally-led, continuously evolving computer-keyboard piano application — built on JUCE, with VST3 plugins as its core sound source, focused on software keyboard performance and MIDI file processing.
 
-The goal is to refactor the legacy Windows FreePiano codebase into a cleaner, more modern, and more maintainable audio/MIDI application, gradually replacing the old project's:
+For project scope, core capabilities, and explicit non-goals, see [`docs/reference/project-scope.md`](docs/reference/project-scope.md).
 
-- native audio backends (WASAPI / ASIO / DirectSound)
-- legacy VST hosting logic
-- native Windows GUI / GDI
-- old configuration and serialization approach
-
-The new primary direction is to:
-
-- use JUCE `AudioDeviceManager` to manage audio devices
-- use JUCE `AudioPluginFormatManager` / `AudioPluginInstance` to build the plugin host
-- use the JUCE `Component` tree to build the UI
-- use JUCE `ValueTree` / `ApplicationProperties` to manage state and configuration
+This repository is the main source and documentation tree for devpiano. The legacy FreePiano source (`freepiano-src/`) is retained as migration reference and does not participate in the current build.
 
 ---
 
@@ -46,12 +36,6 @@ The current main branch already provides the following capabilities:
 - `MainComponent.cpp` reduced from ~1587 lines to ~606 lines; responsibilities extracted into dedicated modules
 - automated unit testing framework ready (`cmake -DBUILD_TESTS=ON` → `devpiano_tests`)
 
-Areas still being improved:
-
-- song info editing dialog (edit `PerformanceFileMetadata`)
-- fullscreen mode (F11 toggle)
-- ChannelMatrix UI editor and MIDI remapping UI (on demand)
-- more systematic stability validation and regression testing
 ---
 
 ## Current Architecture Overview
@@ -85,7 +69,7 @@ The current main branch can be roughly divided into the following layers:
 The current main audio path is:
 
 ```text
-Computer keyboard / external MIDI -> MidiMessageCollector / MidiKeyboardState
+Computer keyboard -> MidiMessageCollector / MidiKeyboardState
 -> AudioEngine
 -> loaded VST3 plugin (preferred) or built-in Sine Synth (fallback)
 -> JUCE audio device output
@@ -217,14 +201,13 @@ Release builds (WSL / Windows):
 - [docs/reference/features/midi-file-import.md](docs/reference/features/midi-file-import.md)
 
 ---
-
-## How to Use the Legacy Code
+## Legacy Code (FreePiano Reference Source)
 
 `freepiano-src/` is **migration reference material**, not part of the current implementation.
 
-- you may read the legacy code to understand historical behavior and features
-- do not directly copy old Windows-specific implementations into the new code
-- do not reintroduce a `windows.h`-centered dependency chain as the core architecture
+**devpiano is an independent project, not a superset or replacement of FreePiano.** When all valuable and meaningful features from FreePiano have been implemented in devpiano, the reference mission is complete and `freepiano-src/` can be retired.
+
+Until then, when working with legacy code:
 - legacy modules should be used to extract behavior and redesign it, not to be replicated as-is
 
 Typical replacement directions:
@@ -256,6 +239,7 @@ If you want to understand the current project plan, the recommended reading orde
 - Roadmap and project status: [docs/roadmap/roadmap.md](docs/roadmap/roadmap.md)
 - Current iteration tasks: [docs/roadmap/current-iteration.md](docs/roadmap/current-iteration.md)
 - Acceptance criteria: [docs/reference/acceptance.md](docs/reference/acceptance.md)
+- Project scope: [`docs/reference/project-scope.md`](docs/reference/project-scope.md)
 - MIDI file import and playback boundaries: [docs/reference/features/midi-file-import.md](docs/reference/features/midi-file-import.md)
 - Keyboard mapping: [docs/reference/features/keyboard-mapping.md](docs/reference/features/keyboard-mapping.md)
 - Layout presets: [docs/reference/features/layout-presets.md](docs/reference/features/layout-presets.md)

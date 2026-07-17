@@ -10,6 +10,7 @@
 - [`guides/quickstart.md`](guides/quickstart.md)：快速恢复环境与常用命令。
 - [`reference/architecture.md`](reference/architecture.md)：理解当前 JUCE 架构与模块职责。
 - [`roadmap/roadmap.md`](roadmap/roadmap.md)：了解当前状态、阶段路线与近期重点。
+- [`reference/project-scope.md`](reference/project-scope.md)：了解项目定位、核心能力与明确非目标。
 
 
 - [`guides/quickstart.md`](guides/quickstart.md)：命令速查。
@@ -58,7 +59,7 @@
 | 目录 | 职责 |
 |---|---|
 | `guides/` | 快速开始、开发环境、构建、日常工作流、故障排查与协作规则。 |
-| `reference/` | 系统架构 (`architecture.md`)、验收标准 (`acceptance.md`) 入口。 |
+| `reference/` | 项目定位 (`project-scope.md`)、系统架构 (`architecture.md`)、验收标准 (`acceptance.md`) 入口。 |
 | `reference/features/` | 功能行为说明、专项测试与测试夹具清单。 |
 | `issues/` | 已知问题与回归项。 |
 | `tests/fixtures/` | 手工测试用例与测试 fixture 数据。 |
