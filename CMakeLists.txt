@@ -61,8 +61,6 @@ target_sources(devpiano PRIVATE
     source/Core/AppState.h
     source/Core/AppStateBuilder.cpp
     source/Core/AppStateBuilder.h
-    source/Midi/MidiRouter.cpp
-    source/Midi/MidiRouter.h
     source/Midi/MidiChannelMapper.cpp
     source/Midi/MidiChannelMapper.h
     source/Plugin/PluginHost.cpp
