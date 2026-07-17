@@ -52,7 +52,7 @@ devpiano 源于对旧版 Windows FreePiano 的现代化重构尝试。旧 FreePi
 
 | 非目标 | 理由 |
 |---|---|
-| 外部 MIDI 输入路径（通过系统 MIDI 设备枚举接收消息） | 无对应设备场景，无法开发/验证 |
+| 外部 MIDI 输入路径 | 已移除（聚焦电脑键盘演奏场景，详见 ADR 0006） |
 | 多轨 / 完整 DAW 功能 | 超出项目范围 |
 | MIDI 编辑（delete notes / piano roll） | 重录成本低，编辑 UI 价值不足 |
 | 旧 FreePiano `.fpm` 格式兼容 | 平台耦合、格式复杂 |

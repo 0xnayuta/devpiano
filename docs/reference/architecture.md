@@ -116,16 +116,6 @@
 - 基于 `KeyboardLayout` 进行映射。
 - 当前主路径优先使用稳定 key code，减少对字符输入和输入法状态的依赖。
 
-### Midi
-
-- `source/Midi/MidiRouter.h`
-- `source/Midi/MidiRouter.cpp`
-
-职责：
-
-- 枚举并打开外部 MIDI 输入。
-- 将外部 MIDI 消息送入 `MidiMessageCollector`。
-- 支持附加消息回调用于 UI 活动反馈。
 
 ### Plugin
 
@@ -193,17 +183,6 @@ JUCE KeyPress / KeyListener
   -> Audio Output
 ```
 
-### 外部 MIDI 链路
-
-```text
-MIDI Input Device
-  -> MidiRouter
-  -> MidiMessageCollector
-  -> AudioEngine
-  -> PluginHost / fallback synth
-  -> AudioDeviceManager
-  -> Audio Output
-```
 
 ### 插件链路
 

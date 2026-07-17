@@ -69,7 +69,7 @@
 - [x] 插件卸载后不会崩溃或留下非法状态。
 - [x] 未加载插件时程序仍保持可运行。
 - [x] 可打开支持 editor 的插件窗口。
-- [~] 外部 MIDI 输入通路已接通，但真实设备验证因硬件条件暂缓（详见 [`known-issues.md`](../issues/known-issues.md) §1）。
+- [-] 外部 MIDI 设备支持已移除（聚焦电脑键盘演奏场景，详见 ADR 0006）。
 
 专项生命周期回归见：[`plugin-host-lifecycle.md`](./features/plugin-hosting.md)。
 
@@ -112,7 +112,7 @@
 
 ## Phase 3：高级功能恢复
 
-状态：MVP 已通过。布局 Preset 保存/加载/导入/重命名/删除/启动恢复已完成（Phase 3）；录制 / 停止 / 回放 / MIDI 导出最小闭环已接入（Phase 3-3..3-7）；WAV 离线渲染 MVP 已完成（Phase 3-1a..3-1d，E.1–E.9 全部通过）。下一阶段重点是录制 / 回放稳定化和外部 MIDI 硬件验证补齐（详见 [`known-issues.md`](../issues/known-issues.md) §1）。VST3 插件离线渲染（Phase 3-2）后置。MP4 导出、复杂编辑与 tempo map 等仍为后续增强。
+状态：MVP 已通过。布局 Preset 保存/加载/导入/重命名/删除/启动恢复已完成（Phase 3）；录制 / 停止 / 回放 / MIDI 导出最小闭环已接入（Phase 3-3..3-7）；WAV 离线渲染 MVP 已完成（Phase 3-1a..3-1d，E.1–E.9 全部通过）。下一阶段重点是录制 / 回放稳定化。VST3 插件离线渲染（Phase 3-2）后置。MP4 导出、复杂编辑与 tempo map 等仍为后续增强。
 
 验收项：
 
@@ -209,4 +209,4 @@
 
 已知硬件限制：
 
-- 外部 MIDI 设备手工验证暂缓（无硬件），详见 [`known-issues.md`](../issues/known-issues.md) §1。
+- 外部 MIDI 设备支持已移除（聚焦电脑键盘演奏场景，详见 ADR 0006）。
