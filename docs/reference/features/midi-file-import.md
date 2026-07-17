@@ -537,7 +537,7 @@ Phase 3（录制/回放/MIDI导出）主链路已完成，Phase 3-2 已搁置，
   - 不合并所有轨道。
   - 不保留原始 track 结构。
   - 不做完整 GM 播放器。
-  - 不导入 program change / CC / pitch bend / sustain pedal。
+  - 不导入 program change / CC / pitch bend / sustain pedal（Phase 6-5 已扩展为此类事件的导入）。
   - 不提供 UI 选择轨道。
 - **验收标准**：
   - [x] track 0 只有 tempo/meta、track 1+ 有 note 的 MIDI 文件可自动选择有 note 的轨道并回放。
@@ -673,15 +673,13 @@ Phase 3（录制/回放/MIDI导出）主链路已完成，Phase 3-2 已搁置，
 
 ### channel / velocity / sustain pedal 的处理边界
 
-- **当前设计**：导入 note on/off 时保留原始 `juce::MidiMessage` 中的 channel 与 velocity。
-- **限制**：Phase 4-1 导入器目前只收集 note on/off；sustain pedal、pitch bend、program change、CC 等非 note 事件暂未导入，因此依赖这些事件表达演奏语义的外部 MIDI 文件可能听起来较生硬或与原文件不同。
+- **当前设计**：导入 note on/off 时保留原始 `juce::MidiMessage` 中的 channel 与 velocity。Phase 6-5 进一步扩展了导入器，支持 sustain CC64、pitch bend、program change 等 channel voice 消息的收集与回放。
 
 ### 是否支持非 note 事件
 
-- **当前设计**：Phase 4-1 只支持 note on/off。
-- **后续候选**：可在不进入 audio callback 的前提下继续导入安全的 channel voice 消息（如 sustain CC、pitch bend、program change），以改善外部 MIDI 文件回放保真度。
-- **sysex**：不支持，导入时丢弃
-- **meta 事件**：忽略，不阻塞导入
+- **当前设计**：Phase 6-5 已实现非 note 事件导入（sustain CC、pitch bend、program change），这些事件与 note 事件共享同一时间线并被正确回放。
+- **sysex**：不支持，导入时丢弃。
+- **meta 事件**：忽略，不阻塞导入。
 
 ### 导入 MIDI 后是否应该立即转换为 PerformanceEvent
 
@@ -960,7 +958,7 @@ Phase 3（录制/回放/MIDI导出）主链路已完成，Phase 3-2 已搁置，
 ## 12. 已知限制
 
 - Phase 4-2 默认只选择一个 note 最多的轨道，不合并所有轨道；这是当前推荐模式。
-- Program change、CC、pitch bend、sustain pedal 等非 note 事件暂未导入。
+- 非 note 事件（CC、pitch bend、program change）已在 Phase 6-5 中实现导入与回放；SysEx 和 meta 事件仍不导入。
 - 当前不是完整 GM 播放器；外部 GM MIDI 可能听起来与原文件不同。
 - fallback synth 声部数有限，大型 MIDI 编曲可能出现拥挤或缺音。
 - 完整 tempo map roundtrip、完整多轨模型、merge-all 导入和 MIDI 编辑器均为后续阶段范围。

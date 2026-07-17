@@ -371,7 +371,6 @@ RecordingTake
 导出范围：
 
 - note on / note off。
-- 标准 channel voice 消息（CC、pitch bend、program change 等），可按实现成本逐步纳入。
 - 不导出插件状态、音频、布局文件或 UI 状态。
 
 ### 8.2 WAV 导出（Phase 3-1 MVP）

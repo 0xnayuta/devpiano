@@ -186,7 +186,7 @@
 - [ ] 最近文件列表最多 10 条，点击可打开。
 - [ ] 拖拽 `.devpiano` / `.mid` 文件到窗口可打开。
 - [ ] 可选中并删除单个音符，删除后回放和保存正确。
-- [ ] 导入 MIDI 时可收集 sustain CC64、pitch bend、program change 并回放。
+- [x] 导入 MIDI 时可收集 sustain CC64、pitch bend、program change 并回放。
 
 专项测试见：[`phase6-performance-persistence.md`](./features/performance-persistence.md)。
 

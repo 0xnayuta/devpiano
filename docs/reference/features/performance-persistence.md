@@ -101,7 +101,7 @@ Phase 6 包含六个子阶段：
 | **Phase 6-2** | **播放速度控制（0.5x–2.0x）** | **高——练琴刚需** | **✅ 已完成（实时倍率、速度切换重校准、线程安全、边界按钮状态、1.0x 默认不持久化）。** |
 | Phase 6-3 | 最近文件列表 + 拖拽打开 | 中——体验增强 | 暂缓 |
 | Phase 6-4 | 基础 MIDI 编辑（delete notes） | 中——最小编辑能力 | 暂缓 |
-| Phase 6-5 | MIDI 导入增强（sustain/pitch bend/program change） | 中——提升回放保真度 | 暂缓 |
+| **Phase 6-5** | **MIDI 导入增强（sustain/pitch bend/program change）** | **中——提升回放保真度** | **✅ 已完成。** |
 
 ---
 
@@ -525,8 +525,8 @@ events[].message            →    events[].midiData (raw bytes)
 
 ### Phase 6-5：MIDI 导入增强
 
-- [ ] 导入 sustain CC64、pitch bend、program change 并回放。
-- [ ] 不含这些事件的 MIDI 文件行为无回退。
+- [x] 导入 sustain CC64、pitch bend、program change 并回放。
+- [x] 不含这些事件的 MIDI 文件行为无回退。
 
 ### Phase 6-7：MIDI / Performance 测试夹具 ✅ 已完成
 
