@@ -64,14 +64,12 @@ Phase 7 核心功能已无缺口，当前方向转为架构优化——减少自
 **长期观察项：**
 - Phase 4 边界稳定：导入 playback take 禁止 MIDI 再导出；继续搁置 Phase 4-6 merge-all。
 - Phase 2 插件宿主持续稳定：低优先级观察退出阶段 Debug 告警。
-- 外部 MIDI 硬件依赖验证：待硬件条件恢复。
 
 ## 3. 主要风险
 
 | 风险 | 当前判断 | 应对方向 |
 |---|---|---|
 | 插件生命周期复杂 | 中 | 维护专项生命周期测试，重点覆盖 editor、卸载、重扫、退出。 |
-| 外部 MIDI 硬件依赖 | 中 | 外部 MIDI 录制/回放/退出场景因无硬件暂缓；状态已记录至 [`known-issues.md`](../issues/known-issues.md)。 |
 | 键盘映射边界多 | 低中 | 基础映射已全量验证；布局 preset 已补充专项回归清单。 |
 | `MainComponent` 职责回流 | 低中 | 已通过 Phase 5 架构收敛下沉；当前 ~750 行。 |
 | 文档状态漂移 | 中 | 本文件作为唯一 roadmap；当前任务只写入 [`current-iteration.md`](current-iteration.md)。 |

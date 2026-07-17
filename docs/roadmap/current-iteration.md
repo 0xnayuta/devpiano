@@ -71,20 +71,15 @@ Phase 7 核心功能完成后识别的架构优化项。按优先级排列，为
 - **Phase 7-5（Metadata 编辑对话框）** — 明确搁置。`PerformanceFileMetadata` struct + JSON 序列化基础设施已就位，UI 编辑对话框不开发现阶段无价值。
 - **Phase 7-7（全屏模式）** — 不实现。`resizable` toggle + OS 最大化窗口可替代，且无 kiosk mode 边界问题。
 
-## 搁置与遗留
-
-- **外部 MIDI 硬件依赖验证** — 待硬件条件恢复，不列入计划。状态已记录至 [`../issues/known-issues.md`](../issues/known-issues.md) §1。
-
-
 ## 已修复缺陷（回归提醒）
 
-各缺陷的完整修复记录与回归条件见 [`../issues/known-issues.md`](../issues/known-issues.md)：
+各缺陷的完整修复记录与回归条件见 [`../issues/known-issues.md`](../issues/known-issues.md) §2：
 
-- §2：启动 / 音频重建早期首音音高异常（保留 `25ms` audio warmup）。
-- §8：MIDI 导入播放首音无声（playback-start pre-roll / arming）。
-- §11.1：Phase 6-2 播放速度倍率反用（`combinedRatio` 修正）。
-- §11.2：Phase 6-2 速度切换时音长时间悬停（position 重校准）。
-- §11.3：Phase 6-2 播放状态三成员跨线程数据竞争（atomic 化）。
+- 启动早期首音音高异常（保留 `25ms` audio warmup）。
+- MIDI 导入播放首音无声（playback-start pre-roll / arming）。
+- 辅助窗口键盘焦点冲突（restoreKeyboardFocus guard）。
+- Phase 6-2 播放速度控制（公式修正 + position 重校准 + atomic 化）。
+
 
 ## 验证命令
 
