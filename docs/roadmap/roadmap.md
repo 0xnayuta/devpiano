@@ -29,10 +29,11 @@
 - Phase 6-11（GUI 设置补齐）：5 项简单控件已完成（colourMode/noteDisplay/fadeSpeed 选择器 + resizable toggle + instrumentFilter toggle）；ChannelMatrix UI 编辑器、MIDI 重映射 UI 待实现（中低优先级，进入 Phase 7 后按需追加）。
 - 启动 / 音频重建早期首音音高异常已修复并通过人工验证；保留 `25ms` audio warmup。
 - MIDI 导入播放首音无声已修复并完成人工回归。
-- Phase 7-1（VST3 离线渲染）✅ 已完成 — 非 UI 线程 VST3 音色 WAV 导出 + ExportDialog 进度对话框。
+- Phase 7-1（VST3 离线渲染）✅ 已完成 — message thread 上创建 `AudioPluginInstance` 副本，后台线程渲染。
 - Phase 7-2（播放速度精确控制）✅ 已完成 — Slider + TextBox 替换步进按钮，atomic 线程安全。
 - Phase 7-3（拖放文件支持）✅ 已完成 — FileDragAndDropTarget（.devpiano/.mid/.freepiano.layout/.vst3）。
 - Phase 7-4（运行时语言切换）✅ 已完成 — JUCE `Translation` 机制替换旧 `language_strdef.h` 体系。
+- Phase 7-6（Export 进度对话框）✅ 已完成 — `ThreadWithProgressWindow` + `ProgressBar` + 取消支持。
 
 **基础设施更新：**
 - JUCE 子模块已升级至 `develop` 最新（3233cd13，JUCE 8.0.14）。弃用 API 已同步迁移（如 `Font` → `FontOptions`）。
