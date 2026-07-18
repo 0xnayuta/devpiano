@@ -57,6 +57,13 @@
 - **回归线索**：播放中切换速度 → 方向反向 / 悬挂音 / 数据竞争 UB
 - **关联**：`RecordingEngine::setPlaybackSpeedMultiplier()`，[`../archive/phase5-architecture-convergence.md`](../archive/phase5-architecture-convergence.md)
 
+### 非 ASCII UTF-8 字符显示乱码（最近文件菜单音符图标）
+
+最近文件下拉菜单中 `.mid` / `.devpiano` 文件名前的 ♪ / ♫ 图标显示为 `â™ª` / `â™«` 等乱码。根因：`showRecentFilesMenu()` 用裸 `const char*` 字面量（`"\xe2\x99\xaa"`）构造 `juce::String`，MSVC 按系统代码页（Windows-1252）而非 UTF-8 解读多字节序列。修复：统一用 `juce::String::fromUTF8()` 显式指定 UTF-8 编码，与 `LocaleManager.h` 中非 ASCII 字符串的处理方式一致。
+
+- **回归线索**：最近文件菜单中 `.mid` 文件前出现 `â` 等乱码字符
+- **关联**：`MainComponent::showRecentFilesMenu()`，`juce::String::fromUTF8()`，`Locale/LocaleManager.h`
+
 ---
 
 ## 3. 环境说明
