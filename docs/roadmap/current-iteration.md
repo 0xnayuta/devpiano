@@ -35,12 +35,13 @@ Phase 7 核心功能完成后识别的架构优化项。按优先级排列，为
 
 ### P1（有明确价值，需中等投入）
 
-- **P1-A: Diagnostics 日志层迁移到 `juce::Logger` 内置级别**
+- ~~**P1-A: Diagnostics 日志层迁移到 `juce::Logger` + `DevPianoLogger` 子类**~~ [已完成]
   - 当前 `DebugLog.h` 定义了 `DP_LOG_INFO/WARN/ERROR` 等 4 个宏 + `logInfo/logWarn/logError` 自定义函数。
-  - 改为：直接使用 `juce::Logger` 内置级别，移除自定义日志宏体系。
-  - 需评估：DEBUG-only 编译开关（`DP_DEBUG_LOG`）的替代方案、`MidiTrace` 的特化需求可否用 `juce::Logger` level filtering 覆盖。
-  - 文件：`source/Diagnostics/`（4 个文件）+ 所有调用点。
-  - 估算：~1–2 小时。
+  - 改为：删除 `DebugLog.h/.cpp`（~130 行），创建 `Log.h`（5 个薄宏直接调 `juce::Logger::writeToLog`）+ `DevPianoLogger` 子类。
+  - 移除 DEBUG 双发问题（旧系统 Debug 下 DBG() + writeToLog 双发）。
+  - `MidiTrace.h/.cpp` 不变（纯格式化工具函数，无日志依赖）。
+  - 文件：`source/Diagnostics/`（Log.h、DevPianoLogger.h/.cpp，删除 DebugLog.h/.cpp）+ 所有调用点。
+  - 提交：`c38e320`。 (refactor)
 
 - **P1-B: `WavExportOptions` 跨文件参数类型对齐**
   - 当前 `WavExportOptions` 定义在 `WavFileExporter.h`，`PluginOfflineRenderer` 和 `RecordingSessionController` 均引用。

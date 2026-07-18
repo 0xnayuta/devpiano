@@ -206,9 +206,9 @@ if (BUILD_TESTS)
         source/Core/AppState.h
         source/Input/KeyboardMidiMapper.cpp
         source/Input/KeyboardMidiMapper.h
-    source/Diagnostics/Log.h
-    source/Diagnostics/DevPianoLogger.h
-    source/Diagnostics/DevPianoLogger.cpp
+        source/Diagnostics/Log.h
+        source/Diagnostics/DevPianoLogger.h
+        source/Diagnostics/DevPianoLogger.cpp
         source/Diagnostics/MidiTrace.cpp
         source/Diagnostics/MidiTrace.h
         source/Recording/MidiFileImporter.cpp
