@@ -26,12 +26,12 @@ Phase 7 核心功能完成后识别的架构优化项。按优先级排列，为
   - 文件：`source/Recording/PluginOfflineRenderer.h`。
   - 提交：`0046435`。
 
-- **P0-A: `PerformanceFile` MIDI 消息序列化改用 `MidiMessage::toBase64Encoding()`**
+- ~~**P0-A: `PerformanceFile` MIDI 消息序列化改用 `MemoryBlock::toBase64Encoding()`**~~ [已完成]
   - 当前 `midiMessageToVar`/`varToMidiMessage` 手工将 `MidiMessage` 原始字节复制为 `juce::var` 整数数组。
-  - JUCE 8 已提供 `MidiMessage::toBase64Encoding()` / `fromBase64Encoding()`，返回紧凑 base64 字符串，可直接存入 `juce::var`。
-  - 替换后去掉 ~20 行手工编解码，JSON 体积更小。
+  - 改用 `MemoryBlock::toBase64Encoding()` / `fromBase64Encoding()`，JSON 体积更小。
+  - 删除旧 int-array 编解码 ~35 行。
   - 文件：`source/Recording/PerformanceFile.cpp`。
-  - 估算：~15 分钟。
+  - 提交：`d40845c`。 (refactor)
 
 ### P1（有明确价值，需中等投入）
 
