@@ -759,9 +759,9 @@ void MainComponent::showRecentFilesMenu() {
             auto ext = file.getFileExtension().toLowerCase();
             juce::String prefix;
             if (ext == ".devpiano")
-                prefix = "\xe2\x99\xaa "; // ♪
+                prefix = juce::String::fromUTF8("\xe2\x99\xaa "); // ♪
             else if (ext == ".mid" || ext == ".midi")
-                prefix = "\xe2\x99\xab "; // ♫
+                prefix = juce::String::fromUTF8("\xe2\x99\xab "); // ♫
             else
                 prefix = "? ";
 
