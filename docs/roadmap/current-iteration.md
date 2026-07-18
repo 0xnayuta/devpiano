@@ -43,12 +43,11 @@ Phase 7 核心功能完成后识别的架构优化项。按优先级排列，为
   - 文件：`source/Diagnostics/`（Log.h、DevPianoLogger.h/.cpp，删除 DebugLog.h/.cpp）+ 所有调用点。
   - 提交：`c38e320`。 (refactor)
 
-- **P1-B: `WavExportOptions` 跨文件参数类型对齐**
+- ~~**P1-B: `WavExportOptions` 跨文件参数类型对齐**~~ [已完成]
   - 当前 `WavExportOptions` 定义在 `WavFileExporter.h`，`PluginOfflineRenderer` 和 `RecordingSessionController` 均引用。
-  - 确认 `renderTakeWithOfflinePlugin` 和 `exportTakeAsWavFile` 两条导出路径的 writer 选项（sampleRate/bitsPerSample/channels）一致传递。
-  - 提取 `WavExportOptions` 到独立公共头文件，消除跨模块依赖隐患。
-  - 文件：`source/Export/WavExportOptions.h`（新建）、`source/Recording/WavFileExporter.h`、`source/Recording/PluginOfflineRenderer.h`。
-  - 估算：~30 分钟。
+  - 提取到独立 `Export/WavExportOptions.h`，消除跨模块依赖。`PluginOfflineRenderer.h` 前向声明 → `#include`。
+  - 文件：`source/Export/WavExportOptions.h`（新建）、`source/Recording/WavFileExporter.h`、`source/Recording/PluginOfflineRenderer.h`、`source/Export/ExportFlowSupport.h`、`source/Export/WavExportTask.h`。
+  - 提交：`4456f43`。 (refactor)
 
 ### P2（较大重构或已评估过的低优先级 tech debt）
 
