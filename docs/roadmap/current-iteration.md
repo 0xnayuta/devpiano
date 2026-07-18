@@ -58,12 +58,11 @@ Phase 7 核心功能完成后识别的架构优化项。按优先级排列，为
   - 文件：`source/Settings/SettingsComponent.h`。
   - 提交：`af5644a`。 (refactor)
 
-- **P2-B: `MainComponent` 继续瘦身（Phase 5.8f 后续）**
-  - Phase 5 结束时 `MainComponent.cpp` 降至 606 行，Phase 6/7 新增功能后当前 ~750 行。
-  - `showSettingsDialog()` 中约 80 行的配置窗口装配 + 回调闭包可提取到 `SettingsWindowManager` 或新的 `SettingsDialogBuilder`。
-  - Phase 5.8f 已评估为低优先级 tech debt，建议等待 MainComponent 再次膨胀至 900+ 行再切入。
-  - 文件：`source/MainComponent.cpp`、`source/Settings/SettingsWindowManager.cpp`。
-  - 估算：~2 小时。
+- ~~**P2-B: `MainComponent` 继续瘦身（Phase 5.8f 后续）**~~ [已完成]
+  - `showSettingsDialog()` body（~47 行）提取到 `SettingsWindowManager::showFor(MainComponent&)`，遵循现有友元类模式。
+  - `MainComponent.cpp`: 812 → 765 行（-47）。
+  - 文件：`source/MainComponent.cpp/.h`、`source/Settings/SettingsWindowManager.cpp/.h`。
+  - 提交：`4b4e1af`。 (refactor)
 
 ## 本轮决策
 
