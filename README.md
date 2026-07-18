@@ -15,6 +15,7 @@
 当前主干已具备以下能力：
 
 - JUCE GUI 应用可构建并启动
+- 音频输出设备通过 JUCE 设备管理流程初始化
 - 电脑键盘可触发基础 MIDI note
 - 可调整主音量与 ADSR 参数
 - 可显示虚拟钢琴键盘
@@ -56,7 +57,7 @@
 - `source/Locale/`
   - `LocaleManager`：语言切换基础设施，JUCE `LocalisedStrings` 激活与管理
 - `source/Midi/`
-  - `MidiRouter`：打开外部 MIDI 输入并转发到 `MidiMessageCollector`
+  - `MidiChannelMapper`：将 MIDI 消息路由到独立的 MIDI 通道
 - `source/UI/`
   - `HeaderPanel`、`PluginPanel`、`ControlsPanel`、`KeyboardPanel`、`PluginEditorWindow`
   - `ControlsPanel` 已统一管理 Record / Play / Stop / Back / Import MIDI / Export MIDI / Export WAV 按钮状态

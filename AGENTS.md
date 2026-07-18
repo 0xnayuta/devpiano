@@ -109,7 +109,7 @@
 |------|------|------|
 | `feat:` | 新功能 | `feat: wire language switching through MainComponent` |
 | `fix:` | Bug 修复 | `fix: resolve window foreground, keyboard focus, and virtual-keyboard playback issues` |
-| `refactor:` | 代码重构（无行为变化） | `refactor: clean up MainComponent external MIDI integration` |
+| `refactor:` | 代码重构（无行为变化） | `refactor: migrate diagnostics logging to juce::Logger with DevPianoLogger subclass` |
 | `docs:` | 文档变更 | `docs: align known-issues §1 with current code state` |
 | `chore:` | 构建/工具/依赖维护 | `chore: update JUCE submodule to develop tip` |
 | `test:` | 测试新增或修改 | `test: add first batch of unit tests for KeyMapTypes and MidiFileImporter` |

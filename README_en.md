@@ -17,7 +17,6 @@ The current main branch already provides the following capabilities:
 - the JUCE GUI application builds and launches
 - audio output devices are initialized through the JUCE device management flow
 - the computer keyboard can trigger basic MIDI notes
-- external MIDI input can be opened and forwarded into the engine
 - master volume and ADSR parameters can be adjusted
 - a virtual piano keyboard is displayed
 - VST3 directories can be scanned and plugin names can be listed
@@ -57,7 +56,7 @@ The current main branch can be roughly divided into the following layers:
 - `source/Locale/`
   - `LocaleManager`: language switching infrastructure, JUCE `LocalisedStrings` activation and management
 - `source/Midi/`
-  - `MidiRouter`: opens external MIDI input and forwards it to `MidiMessageCollector`
+  - `MidiChannelMapper`: routes MIDI messages to independent MIDI channels
 - `source/UI/`
   - `HeaderPanel`, `PluginPanel`, `ControlsPanel`, `KeyboardPanel`, `PluginEditorWindow`
   - `ControlsPanel` now provides unified button state management for Record / Play / Stop / Back / Import MIDI / Export MIDI / Export WAV
