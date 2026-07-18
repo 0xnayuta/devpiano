@@ -93,6 +93,50 @@
 
 ---
 
+## 4. 提交信息规范
+
+### 格式
+
+```
+<type>: <short description>
+
+<optional body — full sentences, explain what and why>
+```
+
+### 类型（`<type>`）
+
+| 类型 | 用途 | 示例 |
+|------|------|------|
+| `feat:` | 新功能 | `feat: wire language switching through MainComponent` |
+| `fix:` | Bug 修复 | `fix: resolve window foreground, keyboard focus, and virtual-keyboard playback issues` |
+| `refactor:` | 代码重构（无行为变化） | `refactor: clean up MainComponent external MIDI integration` |
+| `docs:` | 文档变更 | `docs: align known-issues §1 with current code state` |
+| `chore:` | 构建/工具/依赖维护 | `chore: update JUCE submodule to develop tip` |
+| `test:` | 测试新增或修改 | `test: add first batch of unit tests for KeyMapTypes and MidiFileImporter` |
+| `style:` | 代码格式（clang-format 等） | `style: apply clang-format to all source code` |
+
+### 规则
+
+- 短描述使用**祈使语气、英文、小写开头、句尾无句号**。
+- 单行不超过 72 字符；需换行时换行前不要有标点。
+- 短描述本身应能概括改动。需要更多上下文时，空一行后写 body。
+- Body 使用完整英文句子，说明**做了什么**和**为什么**，而非重复代码。
+- 多处修改用 `- ` 无序列表分行列出。
+- 一个提交只做一件事：不要将相互无关的改动混入同一个提交。
+
+### 禁止
+
+- `update file` / `fix bug` / `misc changes` — 无信息量。
+- 中文短描述（少数重构类可以用英文名词，但优先英文）。
+- 超过 72 字符的 subject。
+- 一个提交同时包含 feat + fix + docs + refactor。
+
+### 参考
+
+本规范遵循 [Conventional Commits](https://www.conventionalcommits.org/) 的子集，未严格引入 `scope` 和 `!` 后缀等特性。
+
+---
+
 ```bash
 # 环境自检
 ./scripts/dev.sh self-check
