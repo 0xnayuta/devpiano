@@ -51,13 +51,12 @@ Phase 7 核心功能完成后识别的架构优化项。按优先级排列，为
 
 ### P2（较大重构或已评估过的低优先级 tech debt）
 
-- **P2-A: `SettingsComponent` 手动回调迁移到 `ValueTree::Listener` 声明式绑定**
-  - 当前每个 ComboBox/Slider 的 `onChange` 回调手工调用 `onDisplaySettingsChanged()` + `setDirty(true)`。
-  - `juce::ValueTree::Listener` + `valueTreePropertyChanged()` 可实现自动响应，消除样板代码。
-  - 难点：`SettingsModel` 含 `std::unordered_map<int, int>`、`ChannelMatrix` 等非标量字段，不能直接映射到 `ValueTree` property。
-  - 建议等待设置页面扩展至 ~15 个控件以上再执行。
-  - 文件：`source/Settings/SettingsComponent.h`、`source/Settings/SettingsModel.h`。
-  - 估算：~3–4 小时。
+- ~~**P2-A: `SettingsComponent` 手动回调迁移到 `ValueTree::Listener` 声明式绑定**~~ [已完成]
+  - 每个 ComboBox/Slider/Toggle 的 `onChange` 回调替换为 `editingState.setProperty()`，集中式 `valueTreePropertyChanged` 统一处理 model 回写 + setDirty + 回调触发。
+  - 两个 ToggleButton 使用 Value binding 消除回调。
+  - 顺便修复 `fadeSpeedSlider` 遗漏 `setDirty(true)` 的 bug。
+  - 文件：`source/Settings/SettingsComponent.h`。
+  - 提交：`af5644a`。 (refactor)
 
 - **P2-B: `MainComponent` 继续瘦身（Phase 5.8f 后续）**
   - Phase 5 结束时 `MainComponent.cpp` 降至 606 行，Phase 6/7 新增功能后当前 ~750 行。
