@@ -22,7 +22,7 @@ $MirrorDir = [System.IO.Path]::GetFullPath($MirrorDir)
 
 Write-Log "source: $SourceDir"
 Write-Log "mirror: $MirrorDir"
-Write-Log "preserve mirror build dirs: build-win-msvc, build-win-msvc-release"
+Write-Log "preserve mirror build dirs: build-win-msvc, build-win-msvc-release, dist"
 
 New-Item -ItemType Directory -Force -Path $MirrorDir | Out-Null
 
@@ -44,6 +44,8 @@ $excludeDirPaths = @(
     # Mirror-local build output
     (Join-Path $MirrorDir 'build-win-msvc'),
     (Join-Path $MirrorDir 'build-win-msvc-release'),
+    # Mirror-local release packaging output
+    (Join-Path $MirrorDir 'dist'),
     # Mirror-local IDE / editor state (VS, JetBrains, etc.)
     (Join-Path $MirrorDir '.vs'),
     (Join-Path $MirrorDir '.idea'),
