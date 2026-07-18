@@ -3,27 +3,51 @@
 All notable changes to this project will be documented in this file.
 
 
-## [Unreleased]
+
+## [0.2.0] - 2026-07-19
+
+VST3 offline rendering, internationalization, drag-and-drop, and architecture hardening.
 
 ### Added
 
-- Code formatting infrastructure: `.clang-format` (WebKit-based, 120 col), `./scripts/dev.sh format`
-- Static analysis configuration: `.clang-tidy` (bugprone/performance/readability/modernize), `clang-tidy-21`
-- Automated unit test framework: `cmake -DBUILD_TESTS=ON` → `devpiano_tests` (JUCE UnitTest console runner)
-- First batch of unit tests: `KeyMapTypesTest` (45 test cases), `MidiFileImporterTest` (17 test cases)
-- `./scripts/dev.sh test` command for one-shot test configure/build/run via ctest
+- **VST3 plugin offline rendering** for WAV export — plugins process recorded takes during export, resolving the deferred item from v0.1.0.
+- **Internationalization (i18n)**: locale switching infrastructure, language selector in Settings, and Chinese (`zh`) UI localization across all panels (PluginPanel, ControlsPanel, HeaderPanel, KeyBindingEditDialog, Layout/Recording/Editor dialogs).
+- **Drag-and-drop file support** — MIDI (`.mid`) and performance (`.devpiano`) files can be dropped onto the main window to open them.
+- **Playback speed Slider + TextBox** replacing coarse step buttons for precise tempo control.
+- **WAV export progress dialog** with cancel support during offline rendering.
+- **Instrument filter ComboBox** in PluginPanel, replacing the show/hide toggle for finer plugin browsing.
+- **Recent files list UI** via `juce::RecentlyOpenedFilesList` with auto-persistence.
+- **Keyboard display settings UI** controls (note labels, highlight colours, key size).
+- **Plugin scan count display** (`scanPluginCount` / `scanFailedCount`) in the data layer.
+- **Developer tooling**: `.clang-format` (WebKit-based, 120 col), `.clang-tidy` (bugprone/performance/readability/modernize), unit test framework (`KeyMapTypesTest` 45 cases, `MidiFileImporterTest` 17 cases), `./scripts/dev.sh test` one-shot command.
 
 ### Changed
 
-- `-Wall -Wextra` enabled for Clang compilers
-- All source code formatted with clang-format (pure style, no logic changes)
-- Test runner defaults to skipping JUCE `Files` category (known WSL root-user issue)
+- **External MIDI hardware support removed** — `MidiRouter` class deleted, MIDI status display removed from HeaderPanel, related AppState fields and documentation references cleaned up.
+- **Diagnostics logging** migrated from custom `DebugLog.h`/`.cpp` macros to `juce::Logger` + `DevPianoLogger` subclass.
+- **PerformanceFile MIDI serialization** switched from manual int-array encoding to `MemoryBlock::toBase64Encoding()` for smaller JSON.
+- **`WavExportOptions`** extracted to standalone `Export/WavExportOptions.h`, eliminating cross-module dependency on `WavFileExporter.h`.
+- **SettingsComponent callbacks** migrated from manual `onChange` lambdas to `ValueTree::Listener` declarative binding; fixed a missing `setDirty(true)` on fade speed slider.
+- **`MainComponent` slimmed** — `showSettingsDialog()` body (~47 lines) extracted to `SettingsWindowManager::showFor()`, reducing `MainComponent.cpp` from 812 to 765 lines.
+- **JUCE submodule** updated to latest develop branch.
+- **`-Wall -Wextra`** enabled for Clang; all warnings eliminated from project source.
+- **All source code** formatted with `clang-format`.
 
-### Known Issues
+### Fixed
 
-- WSL root user: JUCE `Files / Writing` test fails because `access(W_OK)` always succeeds for uid=0. Override with `--include-files`. See `docs/issues/known-issues.md` §11.
+- Settings window i18n labels now refresh in real time on language switch.
+- Window foreground, keyboard focus, and virtual-keyboard playback issues resolved.
+- Settings button crash when `state->window` is null in `show()`.
+- Main window no longer calls `toFront()` on every Settings ComboBox change.
+- Deprecated `Font` constructors migrated to `FontOptions` API for JUCE 8 compatibility.
+- Missing `setText()` call for `playbackSpeedLabel` on init.
+- Music note symbols in recent files menu fixed with `fromUTF8()`.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+### Removed
+
+- External MIDI hardware support (`MidiRouter`, status display, related AppState fields and documentation).
+
+## [Unreleased]
 
 ## [0.1.1] - 2025-05-06
 
