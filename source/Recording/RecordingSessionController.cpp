@@ -432,7 +432,7 @@ void RecordingSessionController::runExportRecordingFlow(devpiano::exporting::Exp
     chooser->launchAsync(
         juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles
             | juce::FileBrowserComponent::warnAboutOverwriting,
-        [this, type, &chooser, doExport = std::move(doExport)](const juce::FileChooser& fc) {
+        [this, type, &chooser, doExportFn = std::move(doExport)](const juce::FileChooser& fc) {
             auto file = fc.getResult();
 
             if (file == juce::File()) {
@@ -444,7 +444,7 @@ void RecordingSessionController::runExportRecordingFlow(devpiano::exporting::Exp
             appSettings.lastMidiExportPath = file.getFullPathName();
             owner.saveSettingsSoon();
 
-            if (doExport(file))
+            if (doExportFn(file))
                 DP_LOG_INFO(devpiano::exporting::makeExportLogPrefix(type) + " exported: " + file.getFullPathName());
             else
                 DP_LOG_ERROR(devpiano::exporting::makeExportLogPrefix(type)
@@ -505,14 +505,14 @@ void RecordingSessionController::runImportOpenFlow(
     chooser = std::make_unique<juce::FileChooser>(dialogTitle, startDir, filePattern);
     chooser->launchAsync(
         juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
-        [this, logPrefix, &chooser, loadTake = std::move(loadTake)](const juce::FileChooser& fc) {
+        [this, logPrefix, &chooser, loadTakeFn = std::move(loadTake)](const juce::FileChooser& fc) {
             auto file = fc.getResult();
             if (!file.exists()) {
                 chooser.reset();
                 return;
             }
 
-            auto take = loadTake(file);
+            auto take = loadTakeFn(file);
             if (!take.has_value() || take->isEmpty()) {
                 DP_LOG_ERROR("[" + logPrefix + "] failed or produced empty take: " + file.getFullPathName());
                 chooser.reset();

@@ -108,19 +108,6 @@ juce::var metadataToVar(const PerformanceFileMetadata& metadata) {
     return obj.get();
 }
 
-PerformanceFileMetadata varToMetadata(const juce::var& v) {
-    PerformanceFileMetadata metadata;
-    if (v.isObject()) {
-        auto* obj = v.getDynamicObject();
-        if (obj != nullptr) {
-            metadata.createdAt = obj->getProperty(performance_file::keyCreatedAt).toString();
-            metadata.title = obj->getProperty(performance_file::keyTitle).toString();
-            metadata.notes = obj->getProperty(performance_file::keyNotes).toString();
-        }
-    }
-    return metadata;
-}
-
 // --- ISO 8601 timestamp ---
 
 juce::String currentIso8601() {

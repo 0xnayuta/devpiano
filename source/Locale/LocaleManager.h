@@ -64,10 +64,10 @@ inline Language codeToLanguage(const juce::String& code) {
 
 inline juce::String languageToCode(Language lang) {
     switch (lang) {
+    case Language::en:
+        return "en";
     case Language::zhCN:
         return "zh-CN";
-    default:
-        return "en";
     }
 }
 
@@ -75,10 +75,10 @@ inline juce::String languageToCode(Language lang) {
 // Return the display name in the language's own script.
 inline juce::String languageDisplayName(Language lang) {
     switch (lang) {
+    case Language::en:
+        return "English";
     case Language::zhCN:
         return juce::String::fromUTF8("\xe7\xae\x80\xe4\xbd\x93\xe4\xb8\xad\xe6\x96\x87"); // 简体中文
-    default:
-        return "English";
     }
 }
 

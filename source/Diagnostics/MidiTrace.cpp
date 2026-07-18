@@ -8,7 +8,7 @@ constexpr auto noteNames
     = std::array<const char*, 12> { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
 
 const char* noteNameFromSemitone(int note) {
-    return noteNames[note % 12];
+    return noteNames[static_cast<size_t>(note % 12)];
 }
 
 int octaveFromMidiNote(int note) {

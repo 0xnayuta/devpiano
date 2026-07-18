@@ -23,7 +23,7 @@ class PluginOperationController final : private juce::AsyncUpdater {
 public:
     PluginOperationController(MainComponent& owner, PluginHost& pluginHost, SettingsModel& appSettings,
                               PluginPanel& pluginPanel);
-    ~PluginOperationController();
+    ~PluginOperationController() override;
 
     void restorePluginStateOnStartup();
 

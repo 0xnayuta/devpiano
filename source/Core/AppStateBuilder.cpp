@@ -9,7 +9,6 @@ namespace {
 void assertMessageThreadSnapshotAccess() {
     jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
 }
-} // namespace
 
 RuntimeAudioState buildRuntimeAudioStateSnapshot(const SettingsModel& settings,
                                                  const juce::AudioDeviceManager& deviceManager) {
@@ -44,6 +43,8 @@ RuntimePluginState buildRuntimePluginStateSnapshot(const PluginHost& pluginHost,
              .isPrepared = pluginHost.isPrepared(),
              .isEditorOpen = isEditorOpen };
 }
+
+} // namespace
 
 RuntimeInputState buildRuntimeInputStateSnapshot(const KeyboardMidiMapper& keyboardMidiMapper) {
     assertMessageThreadSnapshotAccess();
