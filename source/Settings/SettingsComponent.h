@@ -5,7 +5,7 @@
 #include "Locale/LocaleManager.h"
 #include "Settings/SettingsModel.h"
 
-class SettingsComponent : public juce::Component, private juce::ChangeListener {
+class SettingsComponent : public juce::Component, private juce::ChangeListener, public juce::ValueTree::Listener {
 public:
     explicit SettingsComponent(juce::AudioDeviceManager& dm, const juce::XmlElement* savedAudioDeviceState,
                                SettingsModel* displayModel = nullptr)
@@ -31,14 +31,8 @@ public:
         colourModeCombo.addItem(TRANS("Velocity"), 1 + static_cast<int>(devpiano::ui::KeyColourMode::velocity));
         if (model)
             colourModeCombo.setSelectedId(1 + static_cast<int>(model->keyboardColourMode), juce::dontSendNotification);
-        colourModeCombo.onChange = [this] {
-            if (!model)
-                return;
-            model->keyboardColourMode = static_cast<devpiano::ui::KeyColourMode>(colourModeCombo.getSelectedId() - 1);
-            setDirty(true);
-            if (onDisplaySettingsChanged)
-                onDisplaySettingsChanged();
-        };
+        colourModeCombo.onChange
+            = [this] { editingState.setProperty("colourMode", colourModeCombo.getSelectedId(), nullptr); };
         addAndMakeVisible(colourModeCombo);
 
         // Note display
@@ -50,15 +44,8 @@ public:
         if (model)
             noteDisplayCombo.setSelectedId(1 + static_cast<int>(model->keyboardNoteDisplay),
                                            juce::dontSendNotification);
-        noteDisplayCombo.onChange = [this] {
-            if (!model)
-                return;
-            model->keyboardNoteDisplay
-                = static_cast<devpiano::ui::NoteDisplayMode>(noteDisplayCombo.getSelectedId() - 1);
-            setDirty(true);
-            if (onDisplaySettingsChanged)
-                onDisplaySettingsChanged();
-        };
+        noteDisplayCombo.onChange
+            = [this] { editingState.setProperty("noteDisplay", noteDisplayCombo.getSelectedId(), nullptr); };
         addAndMakeVisible(noteDisplayCombo);
 
         // Fade speed
@@ -69,41 +56,20 @@ public:
         fadeSpeedSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
         if (model)
             fadeSpeedSlider.setValue(model->keyboardFadeSpeed, juce::dontSendNotification);
-        fadeSpeedSlider.onValueChange = [this] {
-            if (!model)
-                return;
-            model->keyboardFadeSpeed = static_cast<float>(fadeSpeedSlider.getValue());
-            if (onDisplaySettingsChanged)
-                onDisplaySettingsChanged();
-        };
+        fadeSpeedSlider.onValueChange
+            = [this] { editingState.setProperty("fadeSpeed", fadeSpeedSlider.getValue(), nullptr); };
         addAndMakeVisible(fadeSpeedSlider);
 
         // Resizable window toggle
         resizableToggle.setButtonText(TRANS("Resizable Window"));
         if (model)
             resizableToggle.setToggleState(model->resizableWindow, juce::dontSendNotification);
-        resizableToggle.onClick = [this] {
-            if (!model)
-                return;
-            model->resizableWindow = resizableToggle.getToggleState();
-            setDirty(true);
-            if (onDisplaySettingsChanged)
-                onDisplaySettingsChanged();
-        };
         addAndMakeVisible(resizableToggle);
 
         // Instrument filter toggle
         instrumentFilterToggle.setButtonText(TRANS("Show MIDI/VSTi Instrument Filter"));
         if (model)
             instrumentFilterToggle.setToggleState(model->showInstrumentFilter, juce::dontSendNotification);
-        instrumentFilterToggle.onClick = [this] {
-            if (!model)
-                return;
-            model->showInstrumentFilter = instrumentFilterToggle.getToggleState();
-            setDirty(true);
-            if (onDisplaySettingsChanged)
-                onDisplaySettingsChanged();
-        };
         addAndMakeVisible(instrumentFilterToggle);
 
         // Diagnostics editor + Save button (unchanged)
@@ -120,15 +86,9 @@ public:
         if (model)
             languageCombo.setSelectedId(model->languageCode == "zh-CN" ? 2 : 1, juce::dontSendNotification);
         languageCombo.onChange = [this] {
-            if (!model)
-                return;
-            model->languageCode = languageCombo.getSelectedId() == 2 ? "zh-CN" : "en";
-            // Fire onLanguageChanged FIRST to update the JUCE translation table
-            // (locale::activate), so the subsequent refreshTexts() reads the
-            // CORRECT translations via TRANS() rather than the still-active old ones.
-            if (onLanguageChanged)
-                onLanguageChanged(model->languageCode);
-            refreshTexts();
+            editingState.setProperty("languageCode",
+                                     languageCombo.getSelectedId() == 2 ? juce::String("zh-CN") : juce::String("en"),
+                                     nullptr);
         };
         addAndMakeVisible(languageCombo);
 
@@ -149,6 +109,22 @@ public:
                 juce::MessageManager::callAsync([callback] { callback(); });
             }
         };
+
+        // --- Load model into editingState (before listener) ---
+        if (model) {
+            editingState.setProperty("colourMode", colourModeCombo.getSelectedId(), nullptr);
+            editingState.setProperty("noteDisplay", noteDisplayCombo.getSelectedId(), nullptr);
+            editingState.setProperty("fadeSpeed", static_cast<double>(model->keyboardFadeSpeed), nullptr);
+            editingState.setProperty("resizableWindow", model->resizableWindow, nullptr);
+            editingState.setProperty("showInstrumentFilter", model->showInstrumentFilter, nullptr);
+            editingState.setProperty("languageCode", model->languageCode, nullptr);
+            editingState.addListener(this);
+
+            // --- Value bindings (ToggleButtons auto-sync, zero callback) ---
+            editingState.getPropertyAsValue("resizableWindow", nullptr).referTo(resizableToggle.getToggleStateValue());
+            editingState.getPropertyAsValue("showInstrumentFilter", nullptr)
+                .referTo(instrumentFilterToggle.getToggleStateValue());
+        }
 
         deviceManager.addChangeListener(this);
         setSize(560, 620);
@@ -273,6 +249,8 @@ private:
 
     bool dirty = false;
 
+    juce::ValueTree editingState { "Settings" };
+
     void updateDiagnostics() {
         const auto diagnostics = devpiano::audio::buildAudioDeviceDiagnostics(savedStateSnapshot.get(), deviceManager);
         diagnosticsEditor.setText(diagnostics.detailedSummary, juce::dontSendNotification);
@@ -281,5 +259,32 @@ private:
     void changeListenerCallback(juce::ChangeBroadcaster*) override {
         dirty = true;
         updateDiagnostics();
+    }
+
+    void valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& prop) override {
+        if (tree != editingState || !model)
+            return;
+
+        if (prop == juce::Identifier("colourMode"))
+            model->keyboardColourMode = static_cast<devpiano::ui::KeyColourMode>((int)editingState[prop] - 1);
+        else if (prop == juce::Identifier("noteDisplay"))
+            model->keyboardNoteDisplay = static_cast<devpiano::ui::NoteDisplayMode>((int)editingState[prop] - 1);
+        else if (prop == juce::Identifier("fadeSpeed"))
+            model->keyboardFadeSpeed = static_cast<float>((double)editingState[prop]);
+        else if (prop == juce::Identifier("resizableWindow"))
+            model->resizableWindow = (bool)editingState[prop];
+        else if (prop == juce::Identifier("showInstrumentFilter"))
+            model->showInstrumentFilter = (bool)editingState[prop];
+        else if (prop == juce::Identifier("languageCode")) {
+            model->languageCode = editingState[prop].toString();
+            if (onLanguageChanged)
+                onLanguageChanged(model->languageCode);
+            refreshTexts();
+            return;
+        }
+
+        setDirty(true);
+        if (onDisplaySettingsChanged)
+            onDisplaySettingsChanged();
     }
 };
