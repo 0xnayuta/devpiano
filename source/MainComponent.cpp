@@ -1,6 +1,6 @@
 #include "MainComponent.h"
 
-#include "Diagnostics/DebugLog.h"
+#include "Diagnostics/Log.h"
 #include "Plugin/PluginFlowSupport.h"
 #include "Settings/SettingsSerialization.h"
 #include "UI/CustomKeyboard.h"
@@ -48,6 +48,8 @@ void suppressImeForPeer(juce::ComponentPeer* peer) {
 
 MainComponent::MainComponent()
     : keyboardPanel(audioEngine.getKeyboardState()) {
+    devPianoLogger = std::make_unique<devpiano::diagnostics::DevPianoLogger>();
+    juce::Logger::setCurrentLogger(devPianoLogger.get());
     settingsStore.load(appSettings);
     initialiseInputMappingFromSettings();
     audioEngine.setPluginHost(&pluginHost);
@@ -80,6 +82,7 @@ MainComponent::MainComponent()
 MainComponent::~MainComponent() {
     stopTimer();
 
+    juce::Logger::setCurrentLogger(nullptr);
     controlsPanel.onValuesChanged = {};
     controlsPanel.onLayoutChanged = {};
     controlsPanel.onSaveLayoutRequested = {};

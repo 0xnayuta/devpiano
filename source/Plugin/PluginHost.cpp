@@ -1,6 +1,6 @@
 #include "PluginHost.h"
 
-#include "Diagnostics/DebugLog.h"
+#include "Diagnostics/Log.h"
 
 PluginHost::PluginHost() {
     juce::addDefaultFormatsToManager(formatManager);

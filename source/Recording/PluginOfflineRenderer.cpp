@@ -2,7 +2,7 @@
 
 #include "Recording/PluginOfflineRenderer.h"
 
-#include "Diagnostics/DebugLog.h"
+#include "Diagnostics/Log.h"
 #include "Plugin/PluginHost.h"
 #include "Recording/RecordingEngine.h"
 #include "Recording/WavFileExporter.h"

@@ -1,6 +1,6 @@
 #include "MidiFileImporter.h"
 
-#include "Diagnostics/DebugLog.h"
+#include "Diagnostics/Log.h"
 #include "Diagnostics/MidiTrace.h"
 #include "RecordingEngine.h"
 

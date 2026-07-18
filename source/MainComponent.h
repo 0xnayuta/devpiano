@@ -7,6 +7,7 @@
 #include "Audio/AudioEngine.h"
 #include "Core/AppState.h"
 #include "Core/AppStateBuilder.h"
+#include "Diagnostics/DevPianoLogger.h"
 #include "Input/KeyboardMidiMapper.h"
 #include "Layout/LayoutDirectoryScanner.h"
 #include "Layout/LayoutFlowSupport.h"
@@ -135,6 +136,7 @@ private:
     std::unique_ptr<devpiano::layout::LayoutFlowSupport> layoutFlowSupport;
     std::unique_ptr<devpiano::recording::RecordingSessionController> recordingSessionController;
     std::unique_ptr<devpiano::plugin::PluginOperationController> pluginOperationController;
+    std::unique_ptr<devpiano::diagnostics::DevPianoLogger> devPianoLogger;
     std::unique_ptr<devpiano::midi::MidiChannelMapper> midiChannelMapper;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
 };

@@ -1,6 +1,6 @@
 #include "PluginFlowSupport.h"
 
-#include "Diagnostics/DebugLog.h"
+#include "Diagnostics/Log.h"
 
 #include "Plugin/PluginHost.h"
 

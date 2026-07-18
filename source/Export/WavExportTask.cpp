@@ -1,6 +1,5 @@
 #include "Export/WavExportTask.h"
 
-#include "Diagnostics/DebugLog.h"
 #include "Recording/PluginOfflineRenderer.h"
 #include "Recording/WavFileExporter.h"
 

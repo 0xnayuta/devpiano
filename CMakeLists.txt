@@ -123,8 +123,9 @@ target_sources(devpiano PRIVATE
     source/Layout/LayoutDirectoryScanner.h
     source/Layout/LayoutFlowSupport.cpp
     source/Layout/LayoutFlowSupport.h
-    source/Diagnostics/DebugLog.h
-    source/Diagnostics/DebugLog.cpp
+    source/Diagnostics/Log.h
+    source/Diagnostics/DevPianoLogger.h
+    source/Diagnostics/DevPianoLogger.cpp
     source/Diagnostics/MidiTrace.h
     source/Diagnostics/MidiTrace.cpp
     source/Locale/LocaleManager.h
@@ -205,8 +206,9 @@ if (BUILD_TESTS)
         source/Core/AppState.h
         source/Input/KeyboardMidiMapper.cpp
         source/Input/KeyboardMidiMapper.h
-        source/Diagnostics/DebugLog.cpp
-        source/Diagnostics/DebugLog.h
+    source/Diagnostics/Log.h
+    source/Diagnostics/DevPianoLogger.h
+    source/Diagnostics/DevPianoLogger.cpp
         source/Diagnostics/MidiTrace.cpp
         source/Diagnostics/MidiTrace.h
         source/Recording/MidiFileImporter.cpp

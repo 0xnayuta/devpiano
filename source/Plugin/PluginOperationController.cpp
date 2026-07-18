@@ -1,6 +1,6 @@
 #include "PluginOperationController.h"
 
-#include "Diagnostics/DebugLog.h"
+#include "Diagnostics/Log.h"
 #include "MainComponent.h"
 #include "Plugin/PluginFlowSupport.h"
 #include "Plugin/PluginHost.h"

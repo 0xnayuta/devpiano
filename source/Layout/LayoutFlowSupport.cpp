@@ -1,6 +1,6 @@
 #include "LayoutFlowSupport.h"
 
-#include "Diagnostics/DebugLog.h"
+#include "Diagnostics/Log.h"
 
 #include "Layout/LayoutDirectoryScanner.h"
 #include "Layout/LayoutPreset.h"

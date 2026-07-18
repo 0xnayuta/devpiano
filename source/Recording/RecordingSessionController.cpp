@@ -1,7 +1,7 @@
 #include "RecordingSessionController.h"
 
 #include "Audio/AudioEngine.h"
-#include "Diagnostics/DebugLog.h"
+#include "Diagnostics/Log.h"
 #include "Export/ExportFlowSupport.h"
 #include "Export/WavExportTask.h"
 
