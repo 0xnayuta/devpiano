@@ -79,6 +79,8 @@ struct SettingsModel {
     // Persisted last MIDI import/export paths for FileChooser defaults.
     juce::String lastMidiImportPath;
     juce::String lastMidiExportPath;
+    // Persisted recently-opened files list (juce::RecentlyOpenedFilesList serialized).
+    juce::String recentFilesSerialized;
 
     // Persisted main content size. Zero means unset; startup will use preferred size.
     int mainWindowWidth = 0;

@@ -110,6 +110,8 @@ private:
     int getCurrentRuntimeBlockSize() const;
     void applyLanguage(const juce::String& code);
     void refreshAllTexts();
+    void showRecentFilesMenu();
+    void saveRecentFiles();
 
     [[nodiscard]] RuntimeAudioConfig getCurrentRuntimeAudioConfig() const;
     void runPluginActionWithAudioDeviceRebuild(const std::function<void(const RuntimeAudioConfig&)>& action);
@@ -121,6 +123,7 @@ private:
     PluginHost pluginHost;
     SettingsModel appSettings;
     SettingsStore settingsStore;
+    juce::RecentlyOpenedFilesList recentFiles;
 
     bool dropActive = false;
 

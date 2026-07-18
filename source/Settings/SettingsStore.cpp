@@ -18,6 +18,7 @@ const char* kKeyLastLayoutId = "lastLayoutId";
 const char* kKeyMap = "keymapVT"; // stored as ValueTree XML
 const char* kKeyLastMidiImportPath = "lastMidiImportPath";
 const char* kKeyLastMidiExportPath = "lastMidiExportPath";
+const char* kKeyRecentFiles = "recentFiles";
 const char* kKeyMainWindowWidth = "mainWindowWidth";
 const char* kKeyMainWindowHeight = "mainWindowHeight";
 const char* kKeyColourMode = "keyboardColourMode";
@@ -100,6 +101,9 @@ void SettingsStore::readNow(SettingsModel& m) {
     m.lastMidiImportPath = f.getValue(kKeyLastMidiImportPath, m.lastMidiImportPath);
     m.lastMidiExportPath = f.getValue(kKeyLastMidiExportPath, m.lastMidiExportPath);
 
+    // Recently-opened files list
+    m.recentFilesSerialized = f.getValue(kKeyRecentFiles, m.recentFilesSerialized);
+
     // Main content size
     m.mainWindowWidth = f.getIntValue(kKeyMainWindowWidth, m.mainWindowWidth);
     m.mainWindowHeight = f.getIntValue(kKeyMainWindowHeight, m.mainWindowHeight);
@@ -157,6 +161,9 @@ void SettingsStore::writeNow(const SettingsModel& m) {
     // MIDI import/export paths
     f.setValue(kKeyLastMidiImportPath, m.lastMidiImportPath);
     f.setValue(kKeyLastMidiExportPath, m.lastMidiExportPath);
+
+    // Recently-opened files list
+    f.setValue(kKeyRecentFiles, m.recentFilesSerialized);
 
     // Main content size
     f.setValue(kKeyMainWindowWidth, m.mainWindowWidth);

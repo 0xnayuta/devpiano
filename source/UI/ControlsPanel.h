@@ -33,6 +33,7 @@ public:
     std::function<void()> onImportMidiClicked;
     std::function<void()> onSavePerformanceClicked;
     std::function<void()> onOpenPerformanceClicked;
+    std::function<void()> onRecentFilesClicked;
     std::function<void(double)> onPlaybackSpeedChange;
 
     void setLayouts(const juce::StringArray& layoutIds, const juce::String& currentLayoutId,
@@ -51,6 +52,7 @@ public:
     void setRecordingControlsState(RecordingControlsState state);
     void setPlaybackSpeed(double speed);
     void refreshTexts();
+    [[nodiscard]] juce::Rectangle<int> getRecentFilesButtonScreenBounds() const noexcept;
 
 private:
     [[nodiscard]] static juce::String makeLayoutDisplayName(const juce::String& layoutId);
@@ -91,6 +93,7 @@ private:
     juce::TextButton importMidiButton { TRANS("Import MIDI") };
     juce::TextButton savePerformanceButton { TRANS("Save") };
     juce::TextButton openPerformanceButton { TRANS("Open") };
+    juce::TextButton recentFilesButton { TRANS("Recent") };
 
     juce::Label playbackSpeedLabel; // "Speed" set in refreshTexts
 

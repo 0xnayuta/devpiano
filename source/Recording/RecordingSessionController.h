@@ -60,6 +60,7 @@ public:
 
     // Called from MainComponent::timerCallback() to check if playback ended.
     void checkPlaybackEnded();
+    std::function<void(const juce::File&)> onFileOpened;
 
 private:
     [[nodiscard]] double getCurrentRuntimeSampleRate() const;

@@ -28,6 +28,9 @@ countries: cn
 "Attack" = "起音"
 "Decay" = "衰减"
 "Sustain" = "延音"
+"Recent" = "最近"
+"(no recent files)" = "（暂无最近文件）"
+"Clear Recent Files" = "清除最近文件列表"
 "Release" = "释音"
 
 "Idle" = "空闲"

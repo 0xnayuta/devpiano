@@ -125,6 +125,12 @@ ControlsPanel::ControlsPanel() {
             onOpenPerformanceClicked();
     };
 
+    addAndMakeVisible(recentFilesButton);
+    recentFilesButton.onClick = [this] {
+        if (onRecentFilesClicked)
+            onRecentFilesClicked();
+    };
+
     playbackSpeedLabel.setText(TRANS("Speed"), juce::dontSendNotification);
     playbackSpeedLabel.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(playbackSpeedLabel);
@@ -165,6 +171,7 @@ ControlsPanel::~ControlsPanel() {
     importMidiButton.onClick = nullptr;
     savePerformanceButton.onClick = nullptr;
     openPerformanceButton.onClick = nullptr;
+    recentFilesButton.onClick = nullptr;
     playbackSpeedSlider.onValueChange = nullptr;
 }
 
@@ -221,6 +228,8 @@ void ControlsPanel::resized() {
     exportMidiButton.setBounds(buttonRow.removeFromLeft(90));
     buttonRow.removeFromLeft(6);
     exportWavButton.setBounds(buttonRow.removeFromLeft(90));
+    buttonRow.removeFromLeft(6);
+    recentFilesButton.setBounds(buttonRow.removeFromLeft(60));
     // Speed controls moved to slider section above (row 6)
 }
 
@@ -396,9 +405,13 @@ void ControlsPanel::refreshTexts() {
     exportMidiButton.setButtonText(TRANS("Export MIDI"));
     exportWavButton.setButtonText(TRANS("Export WAV"));
     importMidiButton.setButtonText(TRANS("Import MIDI"));
+    recentFilesButton.setButtonText(TRANS("Recent"));
     savePerformanceButton.setButtonText(TRANS("Save"));
     openPerformanceButton.setButtonText(TRANS("Open"));
 
     // Status text refreshed via setRecordingControlsState path
     updateRecordingActionButtons();
+}
+juce::Rectangle<int> ControlsPanel::getRecentFilesButtonScreenBounds() const noexcept {
+    return recentFilesButton.getScreenBounds();
 }

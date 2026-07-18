@@ -297,6 +297,8 @@ void RecordingSessionController::handleOpenPerformanceFile(const juce::File& fil
     replaceTakeAndStartPlayback(std::move(*take));
     DP_LOG_INFO("[Performance File] loaded from dropped file: " + file.getFullPathName());
     owner.restoreKeyboardFocus();
+    if (onFileOpened)
+        onFileOpened(file);
 }
 
 void RecordingSessionController::handleImportMidiFile(const juce::File& file) {
@@ -322,6 +324,8 @@ void RecordingSessionController::handleImportMidiFile(const juce::File& file) {
     replaceTakeAndStartPlayback(std::move(*take));
     DP_LOG_INFO("[MIDI Import] imported from dropped file: " + file.getFullPathName());
     owner.restoreKeyboardFocus();
+    if (onFileOpened)
+        onFileOpened(file);
 }
 
 void RecordingSessionController::handlePlaybackSpeedChange(double speed) {
@@ -526,6 +530,8 @@ void RecordingSessionController::runImportOpenFlow(
 
             chooser.reset();
             owner.restoreKeyboardFocus();
+            if (onFileOpened)
+                onFileOpened(file);
         });
 }
 
