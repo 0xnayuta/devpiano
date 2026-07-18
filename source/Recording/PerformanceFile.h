@@ -12,7 +12,7 @@ struct RecordingTake;
 // --- .devpiano JSON format constants ---
 
 namespace performance_file {
-constexpr int currentVersion = 1;
+constexpr int currentVersion = 2;
 constexpr const char* formatIdentifier = "devpiano-performance";
 
 // Top-level keys

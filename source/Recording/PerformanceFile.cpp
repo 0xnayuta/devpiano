@@ -2,8 +2,6 @@
 
 #include "Recording/RecordingEngine.h"
 
-#include <sstream>
-
 namespace devpiano::recording {
 namespace {
 // --- Source enum <-> string ---
@@ -32,39 +30,17 @@ RecordingEventSource stringToSource(const juce::String& str) {
 // --- MidiMessage <-> var ---
 
 juce::var midiMessageToVar(const juce::MidiMessage& msg) {
-    juce::Array<juce::var> bytes;
-    auto* raw = msg.getRawData();
-    auto size = msg.getRawDataSize();
-    for (int i = 0; i < size; ++i)
-        bytes.add(static_cast<int>(raw[i]));
-    return juce::var(bytes);
+    juce::MemoryBlock mb(msg.getRawData(), msg.getRawDataSize());
+    return juce::var(mb.toBase64Encoding());
 }
 
 std::optional<juce::MidiMessage> varToMidiMessage(const juce::var& v) {
-    if (!v.isArray())
+    juce::MemoryBlock mb;
+    if (!mb.fromBase64Encoding(v.toString()))
         return std::nullopt;
-
-    auto* arr = v.getArray();
-    if (arr == nullptr || arr->isEmpty())
+    if (mb.getSize() == 0)
         return std::nullopt;
-
-    // Build raw byte buffer
-    std::vector<juce::uint8> buffer;
-    buffer.reserve(static_cast<size_t>(arr->size()));
-    for (const auto& elem : *arr) {
-        auto intVal = static_cast<int>(elem);
-        if (intVal < 0 || intVal > 255)
-            return std::nullopt;
-        buffer.push_back(static_cast<juce::uint8>(intVal));
-    }
-
-    // Use MidiMessage(data, numBytes, timestamp) constructor directly.
-    // Timestamp is irrelevant for deserialised messages (loaded from file).
-    auto msg = juce::MidiMessage(buffer.data(), static_cast<int>(buffer.size()), 0);
-    if (msg.getRawDataSize() == 0)
-        return std::nullopt;
-
-    return msg;
+    return juce::MidiMessage(mb.getData(), static_cast<int>(mb.getSize()), 0);
 }
 
 // --- PerformanceEvent <-> var ---
