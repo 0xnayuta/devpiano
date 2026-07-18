@@ -3,66 +3,23 @@
 > 用途：只记录当前正在推进的一轮任务。
 > 更新时机：开始新一轮任务、完成当前任务、调整本轮范围时。
 
-## 当前方向：架构优化
+## 当前方向
 
-Phase 7 核心功能已完成。当前 Backlog 见下方，阶段完成详情见 [`roadmap.md`](roadmap.md) §阶段路线图。
+架构优化 Backlog 七项（P0/P1/P2）已全部完成，累计 8 个提交（P1-B、P2-A、P2-B 为本次迭代新增）。
 
-## 架构优化 Backlog
+详情见 [`roadmap.md`](roadmap.md) §阶段路线图。
 
-Phase 7 核心功能完成后识别的架构优化项。按优先级排列，为当前主要推进方向。
+### 提交摘要
 
-### P0（安全，快速）
-
-- ~~**P0-C: 最近文件列表 UI**~~ [已完成]
-  - `juce::RecentlyOpenedFilesList` 内置持久化，只需在 ControlsPanel 或 File 菜单添加一个"最近文件"子菜单/按钮。
-  - 连接打开 Performance 和打开 MIDI 两条文件路径。
-  - 无需额外数据模型，JUCE 自动保存到 `ApplicationProperties`。
-  - 文件：`source/UI/ControlsPanel.cpp`、`source/Recording/RecordingSessionController.cpp`。
-  - 提交：`0454b75` (feat) / `3b7e16a` (fix)。
-
-- ~~**P0-B: `PluginOfflineRenderer` 生命周期注释补充**~~ [已完成]
-  - 当前 `createOfflinePluginInstance` 注释只写了 "Must be called on the message thread"，未说明完整 3 阶段生命周期。
-  - 改为：**message thread 创建实例 → move 到 `WavExportTask` → 后台线程 `renderTakeWithOfflinePlugin`**。
-  - 文件：`source/Recording/PluginOfflineRenderer.h`。
-  - 提交：`0046435`。
-
-- ~~**P0-A: `PerformanceFile` MIDI 消息序列化改用 `MemoryBlock::toBase64Encoding()`**~~ [已完成]
-  - 当前 `midiMessageToVar`/`varToMidiMessage` 手工将 `MidiMessage` 原始字节复制为 `juce::var` 整数数组。
-  - 改用 `MemoryBlock::toBase64Encoding()` / `fromBase64Encoding()`，JSON 体积更小。
-  - 删除旧 int-array 编解码 ~35 行。
-  - 文件：`source/Recording/PerformanceFile.cpp`。
-  - 提交：`d40845c`。 (refactor)
-
-### P1（有明确价值，需中等投入）
-
-- ~~**P1-A: Diagnostics 日志层迁移到 `juce::Logger` + `DevPianoLogger` 子类**~~ [已完成]
-  - 当前 `DebugLog.h` 定义了 `DP_LOG_INFO/WARN/ERROR` 等 4 个宏 + `logInfo/logWarn/logError` 自定义函数。
-  - 改为：删除 `DebugLog.h/.cpp`（~130 行），创建 `Log.h`（5 个薄宏直接调 `juce::Logger::writeToLog`）+ `DevPianoLogger` 子类。
-  - 移除 DEBUG 双发问题（旧系统 Debug 下 DBG() + writeToLog 双发）。
-  - `MidiTrace.h/.cpp` 不变（纯格式化工具函数，无日志依赖）。
-  - 文件：`source/Diagnostics/`（Log.h、DevPianoLogger.h/.cpp，删除 DebugLog.h/.cpp）+ 所有调用点。
-  - 提交：`c38e320`。 (refactor)
-
-- ~~**P1-B: `WavExportOptions` 跨文件参数类型对齐**~~ [已完成]
-  - 当前 `WavExportOptions` 定义在 `WavFileExporter.h`，`PluginOfflineRenderer` 和 `RecordingSessionController` 均引用。
-  - 提取到独立 `Export/WavExportOptions.h`，消除跨模块依赖。`PluginOfflineRenderer.h` 前向声明 → `#include`。
-  - 文件：`source/Export/WavExportOptions.h`（新建）、`source/Recording/WavFileExporter.h`、`source/Recording/PluginOfflineRenderer.h`、`source/Export/ExportFlowSupport.h`、`source/Export/WavExportTask.h`。
-  - 提交：`4456f43`。 (refactor)
-
-### P2（较大重构或已评估过的低优先级 tech debt）
-
-- ~~**P2-A: `SettingsComponent` 手动回调迁移到 `ValueTree::Listener` 声明式绑定**~~ [已完成]
-  - 每个 ComboBox/Slider/Toggle 的 `onChange` 回调替换为 `editingState.setProperty()`，集中式 `valueTreePropertyChanged` 统一处理 model 回写 + setDirty + 回调触发。
-  - 两个 ToggleButton 使用 Value binding 消除回调。
-  - 顺便修复 `fadeSpeedSlider` 遗漏 `setDirty(true)` 的 bug。
-  - 文件：`source/Settings/SettingsComponent.h`。
-  - 提交：`af5644a`。 (refactor)
-
-- ~~**P2-B: `MainComponent` 继续瘦身（Phase 5.8f 后续）**~~ [已完成]
-  - `showSettingsDialog()` body（~47 行）提取到 `SettingsWindowManager::showFor(MainComponent&)`，遵循现有友元类模式。
-  - `MainComponent.cpp`: 812 → 765 行（-47）。
-  - 文件：`source/MainComponent.cpp/.h`、`source/Settings/SettingsWindowManager.cpp/.h`。
-  - 提交：`4b4e1af`。 (refactor)
+| 优先级 | 项目 | 提交 |
+|---|---|---|
+| P0-C | 最近文件列表 UI | `0454b75` (feat) / `3b7e16a` (fix) |
+| P0-B | PluginOfflineRenderer 生命周期注释 | `0046435` |
+| P0-A | PerformanceFile Base64 序列化 | `d40845c` (refactor) |
+| P1-A | Diagnostics 日志层迁移 | `7c3f2c1` (refactor) |
+| P1-B | WavExportOptions 独立头文件 | `4456f43` (refactor) |
+| P2-A | SettingsComponent ValueTree::Listener | `af5644a` (refactor) |
+| P2-B | MainComponent 瘦身 | `4b4e1af` (refactor) |
 
 ## 本轮决策
 
