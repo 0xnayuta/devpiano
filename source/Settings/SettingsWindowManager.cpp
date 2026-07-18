@@ -1,6 +1,8 @@
 #include "SettingsWindowManager.h"
 
+#include "MainComponent.h"
 #include "Settings/SettingsComponent.h"
+#include "UI/CustomKeyboard.h"
 
 namespace devpiano::settings {
 namespace {
@@ -167,4 +169,53 @@ SettingsComponent* SettingsWindowManager::getSettingsContent() const {
     return dynamic_cast<SettingsComponent*>(state->window->getContentComponent());
 }
 
+void SettingsWindowManager::showFor(MainComponent& owner) {
+    auto onDisplaySettingsChanged
+        = [safe = juce::Component::SafePointer<MainComponent>(&owner), lastResizable = true]() mutable {
+              if (safe == nullptr)
+                  return;
+
+              auto kbs = safe->appSettings.getKeyboardDisplaySettingsView();
+              devpiano::ui::KeyboardSettings ks;
+              ks.colourMode = kbs.colourMode;
+              ks.noteDisplay = kbs.noteDisplay;
+              ks.fadeSpeed = kbs.fadeSpeed;
+              safe->keyboardPanel.getCustomKeyboard().setKeyboardSettings(ks);
+
+              safe->pluginPanel.setInstrumentFilterVisible(kbs.showInstrumentFilter);
+
+              // Only recreate desktop window when resize preference changes
+              if (kbs.resizableWindow != lastResizable) {
+                  lastResizable = kbs.resizableWindow;
+                  if (auto* topLevel = safe->getTopLevelComponent()) {
+                      if (auto* dw = dynamic_cast<juce::DocumentWindow*>(topLevel))
+                          dw->setResizable(kbs.resizableWindow, kbs.resizableWindow);
+                  }
+              }
+          };
+
+    show({ .parent = owner,
+           .deviceManager = owner.deviceManager,
+           .savedAudioDeviceState = owner.appSettings.audioDeviceState.get(),
+           .displaySettingsModel = &owner.appSettings,
+           .onSaveRequested =
+               [safe = juce::Component::SafePointer<MainComponent>(&owner)] {
+                   if (safe != nullptr)
+                       safe->saveSettingsNow();
+               },
+           .onClosed =
+               [safe = juce::Component::SafePointer<MainComponent>(&owner)] {
+                   if (safe != nullptr)
+                       safe->restoreKeyboardFocus();
+               },
+           .onDisplaySettingsChanged = std::move(onDisplaySettingsChanged),
+           .onLanguageChanged =
+               [safe = juce::Component::SafePointer<MainComponent>(&owner)](const juce::String& code) {
+                   if (safe != nullptr) {
+                       safe->appSettings.languageCode = code;
+                       safe->applyLanguage(code);
+                       safe->saveSettingsSoon();
+                   }
+               } });
+}
 } // namespace devpiano::settings

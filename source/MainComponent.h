@@ -31,6 +31,7 @@ class MainComponent final : public juce::AudioAppComponent, private juce::Timer,
     friend class devpiano::layout::LayoutFlowSupport;
     friend class devpiano::recording::RecordingSessionController;
     friend class devpiano::plugin::PluginOperationController;
+    friend class devpiano::settings::SettingsWindowManager;
 
 public:
     MainComponent();

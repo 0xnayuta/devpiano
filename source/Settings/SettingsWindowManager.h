@@ -7,6 +7,7 @@
 
 #include "Settings/SettingsModel.h"
 
+class MainComponent;
 class SettingsComponent;
 
 namespace devpiano::settings {
@@ -33,6 +34,7 @@ public:
     void close();
     void closeAsync();
     void saveAndClose();
+    void showFor(MainComponent& owner);
 
 private:
     struct State;

@@ -595,54 +595,7 @@ void MainComponent::saveSettingsSoon() {
 }
 
 void MainComponent::showSettingsDialog() {
-    auto onDisplaySettingsChanged
-        = [safe = juce::Component::SafePointer<MainComponent>(this), lastResizable = true]() mutable {
-              if (safe == nullptr)
-                  return;
-
-              auto kbs = safe->appSettings.getKeyboardDisplaySettingsView();
-              devpiano::ui::KeyboardSettings ks;
-              ks.colourMode = kbs.colourMode;
-              ks.noteDisplay = kbs.noteDisplay;
-              ks.fadeSpeed = kbs.fadeSpeed;
-              safe->keyboardPanel.getCustomKeyboard().setKeyboardSettings(ks);
-
-              safe->pluginPanel.setInstrumentFilterVisible(kbs.showInstrumentFilter);
-
-              // Only recreate desktop window when resize preference changes
-              if (kbs.resizableWindow != lastResizable) {
-                  lastResizable = kbs.resizableWindow;
-                  if (auto* topLevel = safe->getTopLevelComponent()) {
-                      if (auto* dw = dynamic_cast<juce::DocumentWindow*>(topLevel))
-                          dw->setResizable(kbs.resizableWindow, kbs.resizableWindow);
-                  }
-              }
-          };
-
-    settingsWindowManager->show(
-        { .parent = *this,
-          .deviceManager = deviceManager,
-          .savedAudioDeviceState = appSettings.audioDeviceState.get(),
-          .displaySettingsModel = &appSettings,
-          .onSaveRequested =
-              [safe = juce::Component::SafePointer<MainComponent>(this)] {
-                  if (safe != nullptr)
-                      safe->saveSettingsNow();
-              },
-          .onClosed =
-              [safe = juce::Component::SafePointer<MainComponent>(this)] {
-                  if (safe != nullptr)
-                      safe->restoreKeyboardFocus();
-              },
-          .onDisplaySettingsChanged = std::move(onDisplaySettingsChanged),
-          .onLanguageChanged =
-              [safe = juce::Component::SafePointer<MainComponent>(this)](const juce::String& code) {
-                  if (safe != nullptr) {
-                      safe->appSettings.languageCode = code;
-                      safe->applyLanguage(code);
-                      safe->saveSettingsSoon();
-                  }
-              } });
+    settingsWindowManager->showFor(*this);
 }
 
 bool MainComponent::isSettingsWindowOpen() const {
