@@ -2,8 +2,8 @@
 
 #include <JuceHeader.h>
 
+#include "Export/WavExportOptions.h"
 #include "Recording/RecordingEngine.h"
-#include "Recording/WavFileExporter.h"
 
 #include <memory>
 

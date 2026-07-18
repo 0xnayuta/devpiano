@@ -2,7 +2,7 @@
 
 #include <JuceHeader.h>
 
-#include "Recording/WavFileExporter.h"
+#include "Export/WavExportOptions.h"
 #include "Settings/SettingsModel.h"
 
 namespace devpiano::recording {

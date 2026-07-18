@@ -9,9 +9,8 @@ namespace devpiano::recording {
 struct RecordingTake;
 }
 
+#include "Export/WavExportOptions.h"
 namespace devpiano::exporting {
-
-struct WavExportOptions;
 
 //
 // Offline-render lifecycle (3 phases):

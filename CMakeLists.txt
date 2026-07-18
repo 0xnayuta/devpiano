@@ -73,6 +73,7 @@ target_sources(devpiano PRIVATE
     source/Export/ExportFlowSupport.h
     source/Export/WavExportTask.cpp
     source/Export/WavExportTask.h
+    source/Export/WavExportOptions.h
     source/Recording/RecordingEngine.cpp
     source/Recording/RecordingEngine.h
     source/Recording/RecordingFlowSupport.cpp
