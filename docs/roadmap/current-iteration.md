@@ -13,18 +13,18 @@ Phase 7 核心功能完成后识别的架构优化项。按优先级排列，为
 
 ### P0（安全，快速）
 
-- **P0-C: 最近文件列表 UI**
+- ~~**P0-C: 最近文件列表 UI**~~ [已完成]
   - `juce::RecentlyOpenedFilesList` 内置持久化，只需在 ControlsPanel 或 File 菜单添加一个"最近文件"子菜单/按钮。
   - 连接打开 Performance 和打开 MIDI 两条文件路径。
   - 无需额外数据模型，JUCE 自动保存到 `ApplicationProperties`。
   - 文件：`source/UI/ControlsPanel.cpp`、`source/Recording/RecordingSessionController.cpp`。
-  - 估算：~30 分钟。
+  - 提交：`0454b75` (feat) / `3b7e16a` (fix)。
 
-- **P0-B: `PluginOfflineRenderer` 生命周期注释补充**
+- ~~**P0-B: `PluginOfflineRenderer` 生命周期注释补充**~~ [已完成]
   - 当前 `createOfflinePluginInstance` 注释只写了 "Must be called on the message thread"，未说明完整 3 阶段生命周期。
   - 改为：**message thread 创建实例 → move 到 `WavExportTask` → 后台线程 `renderTakeWithOfflinePlugin`**。
   - 文件：`source/Recording/PluginOfflineRenderer.h`。
-  - 估算：~5 分钟。
+  - 提交：`0046435`。
 
 - **P0-A: `PerformanceFile` MIDI 消息序列化改用 `MidiMessage::toBase64Encoding()`**
   - 当前 `midiMessageToVar`/`varToMidiMessage` 手工将 `MidiMessage` 原始字节复制为 `juce::var` 整数数组。
