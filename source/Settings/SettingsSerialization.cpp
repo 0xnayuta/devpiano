@@ -19,6 +19,7 @@ juce::ValueTree channelMatrixToValueTree(const devpiano::midi::ChannelMatrix& cm
         ch.setProperty("program", c.program, nullptr);
         ch.setProperty("bankMSB", c.bankMSB, nullptr);
         ch.setProperty("sustainCC", c.sustainCC, nullptr);
+        ch.setProperty("followKey", c.followKey, nullptr);
         root.appendChild(ch, nullptr);
     }
     return root;
@@ -39,6 +40,7 @@ devpiano::midi::ChannelMatrix valueTreeToChannelMatrix(const juce::ValueTree& t)
         c.program = static_cast<uint8_t>(static_cast<int>(ch.getProperty("program", 0)));
         c.bankMSB = static_cast<uint8_t>(static_cast<int>(ch.getProperty("bankMSB", 0)));
         c.sustainCC = static_cast<uint8_t>(static_cast<int>(ch.getProperty("sustainCC", 64)));
+        c.followKey = static_cast<bool>(static_cast<int>(ch.getProperty("followKey", 0)));
     }
     return cm;
 }

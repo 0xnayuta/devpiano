@@ -19,7 +19,9 @@ namespace devpiano::midi {
 // ============================================================================
 class MidiChannelMapper {
 public:
-    explicit MidiChannelMapper(const ChannelMatrix& matrixRef);
+    explicit MidiChannelMapper(const ChannelMatrix& matrixRef,
+                               const bool& midiTransposeRef,
+                               const int& keySignatureRef);
 
     // Transform a single MIDI message through the matrix.
     // Selects PerChannelConfig based on the message's original MIDI channel.
@@ -33,8 +35,9 @@ public:
 
 private:
     [[nodiscard]] const PerChannelConfig& configForChannel(int inputChannel) const;
-
     const ChannelMatrix& matrix;
+    const bool& midiTranspose;
+    const int& keySignature;
 };
 
 } // namespace devpiano::midi

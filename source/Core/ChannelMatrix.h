@@ -37,6 +37,10 @@ struct PerChannelConfig {
 
     // Sustain pedal CC number (default 64 = standard sustain)
     uint8_t sustainCC : 7 = 64;
+    // When true and global midiTranspose is enabled, this channel's note
+    // events are transposed by the global keySignature offset.
+    // Bit-field reuses existing struct padding — zero memory growth.
+    bool followKey : 1 = false;
 };
 
 // ============================================================================

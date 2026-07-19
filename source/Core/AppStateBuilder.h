@@ -83,6 +83,8 @@ struct RuntimeInputState {
                          .isEditorOpen = false },
              .input = { .layoutId = input.layoutId,
                         .keyboardLayout = devpiano::settings::keyMapToLayout(input.keyMap, input.layoutId) },
+             .midiTranspose = settings.midiTranspose,
+             .keySignature = settings.keySignature,
              .midiChannelMatrix = settings.channelMatrix };
 }
 

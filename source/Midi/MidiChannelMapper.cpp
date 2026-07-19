@@ -2,8 +2,12 @@
 
 namespace devpiano::midi {
 
-MidiChannelMapper::MidiChannelMapper(const ChannelMatrix& matrixRef)
-    : matrix(matrixRef) {
+MidiChannelMapper::MidiChannelMapper(const ChannelMatrix& matrixRef,
+                                     const bool& midiTransposeRef,
+                                     const int& keySignatureRef)
+    : matrix(matrixRef)
+    , midiTranspose(midiTransposeRef)
+    , keySignature(keySignatureRef) {
 }
 
 const PerChannelConfig& MidiChannelMapper::configForChannel(int inputChannel) const {
@@ -31,24 +35,34 @@ juce::MidiMessage MidiChannelMapper::applyTransform(const juce::MidiMessage& mes
 void MidiChannelMapper::sendNoteOn(int inputChannel, int midiNote, float velocity,
                                    juce::MidiKeyboardState& keyboardState) {
     if (!matrix.active) {
-        keyboardState.noteOn(inputChannel + 1, midiNote, velocity);
+        auto outNote = midiTranspose ? juce::jlimit(0, 127, midiNote + keySignature) : midiNote;
+        keyboardState.noteOn(inputChannel + 1, outNote, velocity);
         return;
     }
 
     const auto& cfg = configForChannel(inputChannel);
-    const auto transformed = applyMatrixToNoteOn(cfg, inputChannel, midiNote, velocity);
+    auto transformed = applyMatrixToNoteOn(cfg, inputChannel, midiNote, velocity);
+    if (cfg.followKey && midiTranspose) {
+        auto fn = juce::jlimit(0, 127, transformed.getNoteNumber() + keySignature);
+        transformed = juce::MidiMessage::noteOn(transformed.getChannel(), fn, transformed.getFloatVelocity());
+    }
     keyboardState.noteOn(transformed.getChannel(), transformed.getNoteNumber(), transformed.getFloatVelocity());
 }
 
 void MidiChannelMapper::sendNoteOff(int inputChannel, int midiNote, float velocity,
                                     juce::MidiKeyboardState& keyboardState) {
     if (!matrix.active) {
-        keyboardState.noteOff(inputChannel + 1, midiNote, velocity);
+        auto outNote = midiTranspose ? juce::jlimit(0, 127, midiNote + keySignature) : midiNote;
+        keyboardState.noteOff(inputChannel + 1, outNote, velocity);
         return;
     }
 
     const auto& cfg = configForChannel(inputChannel);
-    const auto transformed = applyMatrixToNoteOff(cfg, inputChannel, midiNote, velocity);
+    auto transformed = applyMatrixToNoteOff(cfg, inputChannel, midiNote, velocity);
+    if (cfg.followKey && midiTranspose) {
+        auto fn = juce::jlimit(0, 127, transformed.getNoteNumber() + keySignature);
+        transformed = juce::MidiMessage::noteOff(transformed.getChannel(), fn, transformed.getFloatVelocity());
+    }
     keyboardState.noteOff(transformed.getChannel(), transformed.getNoteNumber(), transformed.getFloatVelocity());
 }
 

@@ -148,6 +148,12 @@ countries: cn
 "Plugin Editor" = "插件编辑器"
 " Editor" = " 编辑器"
 "VST3 scan/load is ready: scan, select a plugin, then click Load." = "VST3 扫描/加载已就绪：先扫描，选择插件，然后点击加载。"
+
+"Key Signature" = "调号"
+"Key Signature:" = "调号："
+"MIDI Transpose" = "MIDI 移调"
+"Follow Key" = "跟随调号"
+"Channel Follow Key:" = "通道跟随调号："
 )loc";
 
 } // namespace devpiano::locale

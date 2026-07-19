@@ -55,7 +55,8 @@ MainComponent::MainComponent()
     audioEngine.setPluginHost(&pluginHost);
     audioEngine.setRecordingEngine(&recordingEngine);
 
-    midiChannelMapper = std::make_unique<devpiano::midi::MidiChannelMapper>(appSettings.channelMatrix);
+    midiChannelMapper = std::make_unique<devpiano::midi::MidiChannelMapper>(
+        appSettings.channelMatrix, appSettings.midiTranspose, appSettings.keySignature);
     keyboardMidiMapper.setChannelMapper(midiChannelMapper.get());
     layoutFlowSupport = std::make_unique<devpiano::layout::LayoutFlowSupport>(*this);
     recordingSessionController = std::make_unique<devpiano::recording::RecordingSessionController>(

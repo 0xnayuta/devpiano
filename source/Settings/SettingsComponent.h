@@ -72,6 +72,55 @@ public:
             instrumentFilterToggle.setToggleState(model->showInstrumentFilter, juce::dontSendNotification);
         addAndMakeVisible(instrumentFilterToggle);
 
+        // === Key Signature group ===
+        keySigGroup.setText(TRANS("Key Signature"));
+        addAndMakeVisible(keySigGroup);
+
+        keySignatureLabel.setText(TRANS("Key Signature:"), juce::dontSendNotification);
+        keySignatureLabel.attachToComponent(&keySignatureCombo, true);
+        keySignatureCombo.addItem("C", 1);
+        keySignatureCombo.addItem("C# / Db", 2);
+        keySignatureCombo.addItem("D", 3);
+        keySignatureCombo.addItem("D# / Eb", 4);
+        keySignatureCombo.addItem("E", 5);
+        keySignatureCombo.addItem("F", 6);
+        keySignatureCombo.addItem("F# / Gb", 7);
+        keySignatureCombo.addItem("G", 8);
+        keySignatureCombo.addItem("G# / Ab", 9);
+        keySignatureCombo.addItem("A", 10);
+        keySignatureCombo.addItem("A# / Bb", 11);
+        keySignatureCombo.addItem("B", 12);
+        if (model)
+            keySignatureCombo.setSelectedId(keySignatureToComboId(model->keySignature), juce::dontSendNotification);
+        keySignatureCombo.onChange = [this] {
+            auto ks = comboKeyMapping[static_cast<size_t>(keySignatureCombo.getSelectedId())];
+            editingState.setProperty("keySignature", ks, nullptr);
+        };
+        addAndMakeVisible(keySignatureCombo);
+
+        midiTransposeToggle.setButtonText(TRANS("MIDI Transpose"));
+        if (model)
+            midiTransposeToggle.setToggleState(model->midiTranspose, juce::dontSendNotification);
+        addAndMakeVisible(midiTransposeToggle);
+
+        // Channel Follow Key toggles
+        channelFollowKeyLabel.setText(TRANS("Channel Follow Key:"), juce::dontSendNotification);
+        addAndMakeVisible(channelFollowKeyLabel);
+        for (int ch = 0; ch < 16; ++ch) {
+            auto& tb = followKeyToggles[static_cast<size_t>(ch)];
+            tb.setButtonText("Ch" + juce::String(ch + 1));
+            tb.setTooltip(TRANS("Follow Key"));
+            if (model)
+                tb.setToggleState(model->channelMatrix.channels[static_cast<size_t>(ch)].followKey,
+                                  juce::dontSendNotification);
+            tb.onStateChange = [this, ch] {
+                editingState.setProperty("followKey_" + juce::String(ch),
+                                         followKeyToggles[static_cast<size_t>(ch)].getToggleState(), nullptr);
+            };
+            addAndMakeVisible(tb);
+        }
+        updateFollowKeyTogglesVisibility();
+
         // Diagnostics editor + Save button (unchanged)
         diagnosticsEditor.setMultiLine(true);
         diagnosticsEditor.setReadOnly(true);
@@ -118,16 +167,25 @@ public:
             editingState.setProperty("resizableWindow", model->resizableWindow, nullptr);
             editingState.setProperty("showInstrumentFilter", model->showInstrumentFilter, nullptr);
             editingState.setProperty("languageCode", model->languageCode, nullptr);
+            editingState.setProperty("keySignature", model->keySignature, nullptr);
+            editingState.setProperty("midiTranspose", model->midiTranspose, nullptr);
+            for (int ch = 0; ch < 16; ++ch) {
+                editingState.setProperty("followKey_" + juce::String(ch),
+                                         model->channelMatrix.channels[static_cast<size_t>(ch)].followKey, nullptr);
+            }
             editingState.addListener(this);
 
             // --- Value bindings (ToggleButtons auto-sync, zero callback) ---
             editingState.getPropertyAsValue("resizableWindow", nullptr).referTo(resizableToggle.getToggleStateValue());
             editingState.getPropertyAsValue("showInstrumentFilter", nullptr)
                 .referTo(instrumentFilterToggle.getToggleStateValue());
+            editingState.getPropertyAsValue("midiTranspose", nullptr)
+                .referTo(midiTransposeToggle.getToggleStateValue());
         }
 
         deviceManager.addChangeListener(this);
-        setSize(560, 620);
+        setSize(560, 900);
+
         updateDiagnostics();
     }
 
@@ -140,6 +198,10 @@ public:
         instrumentFilterToggle.setButtonText(TRANS("Show MIDI/VSTi Instrument Filter"));
         languageLabel.setText(TRANS("Language:"), juce::dontSendNotification);
         saveButton.setButtonText(TRANS("Save"));
+        keySigGroup.setText(TRANS("Key Signature"));
+        keySignatureLabel.setText(TRANS("Key Signature:"), juce::dontSendNotification);
+        midiTransposeToggle.setButtonText(TRANS("MIDI Transpose"));
+        channelFollowKeyLabel.setText(TRANS("Channel Follow Key:"), juce::dontSendNotification);
 
         // Rebuild ComboBox items so their entries reflect the new language.
         if (model) {
@@ -161,6 +223,23 @@ public:
                 noteDisplayCombo.addItem(TRANS("Note Name"),
                                          1 + static_cast<int>(devpiano::ui::NoteDisplayMode::noteName));
                 noteDisplayCombo.setSelectedId(selected, juce::dontSendNotification);
+            }
+            {
+                const auto selected = keySignatureCombo.getSelectedId();
+                keySignatureCombo.clear(juce::dontSendNotification);
+                keySignatureCombo.addItem("C", 1);
+                keySignatureCombo.addItem("C# / Db", 2);
+                keySignatureCombo.addItem("D", 3);
+                keySignatureCombo.addItem("D# / Eb", 4);
+                keySignatureCombo.addItem("E", 5);
+                keySignatureCombo.addItem("F", 6);
+                keySignatureCombo.addItem("F# / Gb", 7);
+                keySignatureCombo.addItem("G", 8);
+                keySignatureCombo.addItem("G# / Ab", 9);
+                keySignatureCombo.addItem("A", 10);
+                keySignatureCombo.addItem("A# / Bb", 11);
+                keySignatureCombo.addItem("B", 12);
+                keySignatureCombo.setSelectedId(selected, juce::dontSendNotification);
             }
         }
 
@@ -212,6 +291,33 @@ public:
         instrumentFilterToggle.setBounds(row.removeFromRight(controlW).reduced(2));
         row = groupContent.removeFromTop(rowH);
         languageCombo.setBounds(row.removeFromRight(controlW).reduced(2));
+
+        // Key Signature group
+        auto keySigArea = area.removeFromBottom(150);
+        keySigGroup.setBounds(keySigArea);
+        auto ksContent = keySigArea.reduced(12, 16);
+
+        auto ksRow = ksContent.removeFromTop(rowH);
+        keySignatureCombo.setBounds(ksRow.removeFromRight(controlW).reduced(2));
+
+        ksRow = ksContent.removeFromTop(rowH);
+        midiTransposeToggle.setBounds(ksRow.removeFromRight(controlW).reduced(2));
+
+        ksContent.removeFromTop(4);
+        channelFollowKeyLabel.setBounds(ksContent.removeFromTop(rowH));
+        // 2 rows of 8 channel toggles
+        constexpr int chBtnW = 48;
+        constexpr int chSpacing = 4;
+        auto chArea = ksContent.removeFromTop(rowH * 2);
+        for (int ch = 0; ch < 16; ++ch) {
+            int col = ch % 8;
+            int rowIdx = ch / 8;
+            followKeyToggles[static_cast<size_t>(ch)].setBounds(
+                chArea.getX() + col * (chBtnW + chSpacing),
+                chArea.getY() + rowIdx * rowH,
+                chBtnW, rowH - 2);
+        }
+
         selector->setBounds(area);
     }
 
@@ -237,6 +343,26 @@ private:
     juce::ComboBox colourModeCombo;
     juce::Label noteDisplayLabel;
     juce::ComboBox noteDisplayCombo;
+
+    // === Key Signature group ===
+    juce::GroupComponent keySigGroup;
+    juce::Label keySignatureLabel;
+    juce::ComboBox keySignatureCombo;
+    juce::ToggleButton midiTransposeToggle;
+    juce::Label channelFollowKeyLabel;
+    std::array<juce::ToggleButton, 16> followKeyToggles;
+
+    // Combo ID (1-12) → semitone offset from C
+    static constexpr std::array<int, 13> comboKeyMapping { 0, 0, 1, 2, 3, 4, 5, 6, -5, -4, -3, -2, -1 };
+    // combo ID 1=C(0), 2=C#/Db(+1), 3=D(+2), 4=D#/Eb(+3), 5=E(+4), 6=F(+5), 7=F#/Gb(+6),
+    //           8=G(-5), 9=G#/Ab(-4), 10=A(-3), 11=A#/Bb(-2), 12=B(-1)
+
+    [[nodiscard]] static int keySignatureToComboId(int ks) {
+        for (int id = 1; id <= 12; ++id)
+            if (comboKeyMapping[static_cast<size_t>(id)] == ks)
+                return id;
+        return 1; // default C
+    }
     juce::Label fadeSpeedLabel;
     juce::Slider fadeSpeedSlider;
     juce::ToggleButton resizableToggle;
@@ -251,6 +377,14 @@ private:
 
     juce::ValueTree editingState { "Settings" };
 
+
+    void updateFollowKeyTogglesVisibility() {
+        auto visible = midiTransposeToggle.getToggleState();
+        channelFollowKeyLabel.setVisible(visible);
+        for (auto& tb : followKeyToggles)
+            tb.setVisible(visible);
+        resized();
+    }
     void updateDiagnostics() {
         const auto diagnostics = devpiano::audio::buildAudioDeviceDiagnostics(savedStateSnapshot.get(), deviceManager);
         diagnosticsEditor.setText(diagnostics.detailedSummary, juce::dontSendNotification);
@@ -275,6 +409,16 @@ private:
             model->resizableWindow = (bool)editingState[prop];
         else if (prop == juce::Identifier("showInstrumentFilter"))
             model->showInstrumentFilter = (bool)editingState[prop];
+        else if (prop == juce::Identifier("keySignature"))
+            model->keySignature = (int)editingState[prop];
+        else if (prop == juce::Identifier("midiTranspose")) {
+            model->midiTranspose = (bool)editingState[prop];
+            updateFollowKeyTogglesVisibility();
+        } else if (prop.toString().startsWith("followKey_")) {
+            auto chIdx = prop.toString().substring(10).getIntValue();
+            if (chIdx >= 0 && chIdx < 16)
+                model->channelMatrix.channels[static_cast<size_t>(chIdx)].followKey = (bool)editingState[prop];
+        }
         else if (prop == juce::Identifier("languageCode")) {
             model->languageCode = editingState[prop].toString();
             if (onLanguageChanged)

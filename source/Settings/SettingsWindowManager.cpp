@@ -101,7 +101,7 @@ void SettingsWindowManager::show(ShowOptions options) {
     state->window = std::make_unique<SettingsDialogWindow>(TRANS("Audio Settings"), backgroundColour, closeWindow);
     state->window->setUsingNativeTitleBar(true);
     state->window->setContentOwned(content.release(), true);
-    state->window->centreAroundComponent(&options.parent, 620, 580);
+    state->window->centreAroundComponent(&options.parent, 620, 760);
     state->window->setResizable(true, true);
     state->window->setVisible(true);
     state->window->toFront(true);

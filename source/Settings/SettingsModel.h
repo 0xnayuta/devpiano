@@ -98,6 +98,9 @@ struct SettingsModel {
     std::array<juce::Colour, 128> customKeyColours;
     // Persisted UI language code ("en" | "zh-CN").
     juce::String languageCode { "en" };
+    // Key signature system: global transpose state
+    bool midiTranspose = false;
+    int keySignature = 0;  // semitone offset from C, -7..+7
 
     devpiano::midi::ChannelMatrix channelMatrix;
 

@@ -36,36 +36,23 @@ Phase 9 计划同列于此，以便一次看清完整执行路径。
 
 ---
 
-### 8b. Key Signature + MIDI Transpose + Follow Key（调号系统）
+### 8b. Key Signature + MIDI Transpose + Follow Key（调号系统）— ✅ 已完成
 
-**涉及文件**：`Core/AppState.h`、`Core/ChannelMatrix.h`、`Settings/SettingsModel.h`、`Settings/SettingsComponent.h`、`Settings/SettingsComponent.cpp`、`Settings/SettingsSerialization.cpp`、`Midi/MidiChannelMapper.h`、`Input/KeyboardMidiMapper.h`、`Input/KeyboardMidiMapper.cpp`、UI 层 ChannelMatrix 面板或 `UI/ControlsPanel.cpp`
+**实现摘要**：
+- 数据模型：`AppState` / `SettingsModel` 新增 `bool midiTranspose`、`int keySignature`（-7..+7）；`PerChannelConfig` 新增 `bool followKey : 1`（复用 bitfield padding，零内存增长）
+- 持久化：`SettingsStore` 以 `keySignature` / `midiTranspose` 两个 PropertiesFile key 读写；`followKey` 纳入 `channelMatrix` ValueTree 序列化（缺失属性 → 默认 false，向后兼容）
+- MIDI 管道：`MidiChannelMapper` 构造时接受 `const bool& midiTranspose`、`const int& keySignature` 引用；`sendNoteOn/Off` 四路分支（矩阵 on/off × midiTranspose on/off × followKey on/off），note-on/off 成对变换，所有路径 `jlimit(0, 127)` 钳位
+- UI：`SettingsComponent` 新增 "Key Signature" group——调号 ComboBox（12 项，ID→半音偏移查表）+ "MIDI Transpose" Toggle + Ch1~Ch16 Follow Key 网格（2×8，midiTranspose 关闭时自动隐藏）；`editingState` ValueTree 绑定 + `referTo` 双向同步
+- 翻译：zh-CN 新增 5 条（Key Signature/Key Signature:/MIDI Transpose/Follow Key/Channel Follow Key:）；调号名不翻译（C, C#/Db, ... 通用）
+- 实际涉及文件：`Core/AppState.h`、`Core/AppStateBuilder.h`、`Core/ChannelMatrix.h`、`Midi/MidiChannelMapper.h/.cpp`、`MainComponent.cpp`、`Settings/SettingsModel.h`、`Settings/SettingsSerialization.cpp`、`Settings/SettingsStore.cpp`、`Settings/SettingsComponent.h`、`Settings/SettingsWindowManager.cpp`、`Locale/zh_CN.loc.h`
 
-**数据模型**：
-- `AppState` / `SettingsModel` 增加 `bool midiTranspose = false` 和 `int keySignature = 0`（范围 -7..+7 半音，0= C）
-- `PerChannelConfig` 增加 `bool followKey = false`（复用 struct 已有 1-bit padding，不增加内存）
-
-**MIDI 管道改动**（`MidiChannelMapper::applyMatrixToNoteOn/Off`）：
-- 在现有 `transpose + octaveShift` 变换之后
-- 若 `cfg.followKey && appState.midiTranspose`，则 `outNote += appState.keySignature`
-- Clamp 到 0..127
-- Note-off 同步应用相同偏移（确保 note-on/off 成对）
-
-**UI 控件**：
-- `SettingsComponent`（GUI 页）：调号预设下拉选择器（12 个选项：C(0), C#/Db(+1), D(+2), ..., B(+11)，含负向映射 -7..+7）+ `juce::ToggleButton` "MIDI 移调"（绑定 `midiTranspose`）
-- `ChannelMatrix` UI 面板：每通道增加 `juce::ToggleButton` "Follow Key"（绑定 `followKey`）。仅当 `midiTranspose` 全局开启时可见/可操作
-
-**翻译**（zh-CN）：
-- "Key Signature" → "调号"
-- "MIDI Transpose" → "MIDI 移调"
-- "Follow Key" → "跟随调号"
-- 12 调号名：C, C#/Db, D, D#/Eb, E, F, F#/Gb, G, G#/Ab, A, A#/Bb, B
-
-**验收标准**：
-- (a) 设置调号 +2（D）、开启 MIDI Transpose、关闭所有 Follow Key → 按 C 键听到 D（+2 半音），显示不受影响
-- (b) 通道 1 开启 Follow Key、通道 2 关闭 → 通道 1 感受移调，通道 2 保持原始音高
-- (c) 录制 MIDI 时，移调后音符写入事件为最终输出音高（非未移调值）
-- (d) 回放含移调事件的录制，输出音高与录制时一致
-- (e) 重启后 `midiTranspose`、`keySignature`、各通道 `followKey` 持久化恢复
+**验收通过**：
+- (a) 调号 +2(D)、MIDI Transpose on、所有 Follow Key off → 按 C 键听到 D ✓
+- (b) Ch1 Follow=on、Ch2 Follow=off → 通道 1 移调，通道 2 不变 ✓
+- (c) 录制时写入事件为最终输出音高 ✓
+- (d) 回放输出音高与录制一致 ✓
+- (e) 重启持久化恢复 ✓
+- 审查通过（4 agent，2 处修复：补翻译键 + 删冗余 handler）✓
 
 ---
 
@@ -215,7 +202,7 @@ Phase 9 计划同列于此，以便一次看清完整执行路径。
 ```
 Phase 8a (Labels + Colors) ✅ ──┐
                                 ├──→ Phase 9a (Performance Preset)
-Phase 8b (Key Sig System)    ──┘
+Phase 8b (Key Sig System)    ✅ ──┘
 
 (无依赖，可与 Phase 8 并行或 Phase 9 集中执行)
 Phase 9b (88-Key Keyboard)
@@ -226,7 +213,6 @@ Phase 9d (Song Info / Metadata)
 ## 已修复缺陷（回归提醒）
 
 各缺陷的完整修复记录与回归条件见 [`../issues/known-issues.md`](../issues/known-issues.md) §2：
-
 - 启动早期首音音高异常（保留 `25ms` audio warmup）。
 - MIDI 导入播放首音无声（playback-start pre-roll / arming）。
 - 辅助窗口键盘焦点冲突（restoreKeyboardFocus guard）。

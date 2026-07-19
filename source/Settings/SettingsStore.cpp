@@ -30,6 +30,8 @@ const char* kKeyChannelMatrix = "channelMatrix";
 const char* kKeyLanguageCode = "languageCode";
 const char* kKeyCustomLabels = "customKeyLabels";
 const char* kKeyCustomColours = "customKeyColours";
+const char* kKeyKeySignature = "keySignature";
+const char* kKeyMidiTranspose = "midiTranspose";
 
 [[nodiscard]] SettingsModel::PerformanceSettingsView makeDefaultPerformanceSettings() noexcept {
     return {};
@@ -128,6 +130,9 @@ void SettingsStore::readNow(SettingsModel& m) {
         m.channelMatrix = devpiano::settings::valueTreeToChannelMatrix(t);
     }
 
+    m.keySignature = f.getIntValue(kKeyKeySignature, 0);
+    m.midiTranspose = f.getBoolValue(kKeyMidiTranspose, false);
+
     m.resizableWindow = f.getBoolValue(kKeyResizableWindow, m.resizableWindow);
     m.showInstrumentFilter = f.getBoolValue(kKeyShowInstrumentFilter, m.showInstrumentFilter);
     m.languageCode = f.getValue(kKeyLanguageCode, m.languageCode);
@@ -213,6 +218,9 @@ void SettingsStore::writeNow(const SettingsModel& m) {
         if (auto xml = t.createXml())
             f.setValue(kKeyChannelMatrix, xml->toString());
     }
+
+    f.setValue(kKeyKeySignature, m.keySignature);
+    f.setValue(kKeyMidiTranspose, m.midiTranspose);
 
     // keymap serialize to ValueTree XML
     {
