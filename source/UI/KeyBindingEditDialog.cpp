@@ -1,15 +1,71 @@
 #include "UI/KeyBindingEditDialog.h"
 
 // ============================================================================
+// Colour picker dialog content
+// ============================================================================
+class ColourPickerContent final : public juce::Component {
+public:
+    ColourPickerContent(juce::Colour initialColour, juce::Colour& resultRef, bool& acceptedRef)
+        : result(resultRef)
+        , accepted(acceptedRef) {
+        selector = std::make_unique<juce::ColourSelector>(
+            juce::ColourSelector::showColourAtTop | juce::ColourSelector::showAlphaChannel
+            | juce::ColourSelector::showSliders | juce::ColourSelector::showColourspace);
+        selector->setCurrentColour(initialColour);
+        addAndMakeVisible(selector.get());
+
+        okButton.onClick = [this] {
+            result = selector->getCurrentColour();
+            accepted = true;
+            if (auto* dw = findParentComponentOfClass<juce::DialogWindow>())
+                dw->exitModalState(0);
+        };
+        okButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xffe0e0e0));
+        addAndMakeVisible(okButton);
+
+        cancelButton.onClick = [this] {
+            accepted = false;
+            if (auto* dw = findParentComponentOfClass<juce::DialogWindow>())
+                dw->exitModalState(0);
+        };
+        cancelButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xffe0e0e0));
+        addAndMakeVisible(cancelButton);
+
+        setSize(340, 340);
+    }
+
+    void resized() override {
+        auto r = getLocalBounds().reduced(10);
+        auto btnRow = r.removeFromBottom(32);
+        r.removeFromBottom(8);
+        okButton.setBounds(btnRow.removeFromLeft(80));
+        btnRow.removeFromLeft(8);
+        cancelButton.setBounds(btnRow.removeFromLeft(80));
+
+        selector->setBounds(r);
+    }
+
+private:
+    juce::Colour& result;
+    bool& accepted;
+    std::unique_ptr<juce::ColourSelector> selector;
+    juce::TextButton okButton { TRANS("OK") };
+    juce::TextButton cancelButton { TRANS("Cancel") };
+};
+
+// ============================================================================
 // Dialog content component
 // ============================================================================
 class BindingEditContent final : public juce::Component {
 public:
     BindingEditContent(int note, const devpiano::core::KeyBinding* existing, juce::String noteName,
-                       juce::String keyLabel,
-                       std::function<void(std::optional<devpiano::core::KeyBinding>)> onCompleteFn)
+                       juce::String keyLabel, juce::String customLabel, juce::Colour customColour,
+                       std::function<void(KeyBindingEditResult)> onCompleteFn)
         : midiNote(note)
         , existingBinding(existing)
+        , initialCustomLabel(customLabel)
+        , initialCustomColour(customColour)
+        , selectedCustomColour(customColour)
         , onComplete(std::move(onCompleteFn)) {
         // Title / info area (non-editable)
         titleLabel.setText(TRANS("Key Binding Editor") + " — " + noteName + " (#" + juce::String(midiNote) + ")",
@@ -73,7 +129,7 @@ public:
             unbindButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xffe0e0e0));
             addAndMakeVisible(unbindButton);
 
-            setSize(420, 230);
+            setSize(420, 310);
         } else {
             // Read-only: no binding exists for this note
             infoLabel.setText(TRANS("No keyboard key is currently mapped to this note."), juce::dontSendNotification);
@@ -81,18 +137,47 @@ public:
             infoLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0e0e0));
             addAndMakeVisible(infoLabel);
 
-            closeButton.onClick = [this] { cancel(); };
+            closeButton.onClick = [this] { confirmOrClose(); };
             closeButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xffe0e0e0));
             addAndMakeVisible(closeButton);
 
-            setSize(420, 120);
+            setSize(420, 200);
         }
+
+        // ---- Per-key custom label (always shown, regardless of binding) ----
+        customLabelLabel.setText(TRANS("Label:"), juce::dontSendNotification);
+        customLabelLabel.attachToComponent(&customLabelEditor, true);
+        customLabelLabel.setFont(juce::Font(juce::FontOptions(13.0f)));
+        customLabelLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0e0e0));
+        addAndMakeVisible(customLabelLabel);
+
+        customLabelEditor.setText(customLabel, juce::dontSendNotification);
+        customLabelEditor.setInputRestrictions(32, {});
+        customLabelEditor.setColour(juce::TextEditor::textColourId, juce::Colour(0xffe0e0e0));
+        customLabelEditor.setColour(juce::TextEditor::backgroundColourId, juce::Colour(0xff2a2c30));
+        customLabelEditor.setColour(juce::TextEditor::outlineColourId, juce::Colour(0xff555555));
+        customLabelEditor.setColour(juce::TextEditor::focusedOutlineColourId, juce::Colour(0xff7799cc));
+        addAndMakeVisible(customLabelEditor);
+
+        // ---- Per-key custom colour (always shown) ----
+        colourPickerButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xffe0e0e0));
+        colourPickerButton.onClick = [this] { showColourPicker(); };
+        addAndMakeVisible(colourPickerButton);
+        updateColourButtonText();
+
+        clearColourButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xffe0e0e0));
+        clearColourButton.onClick = [this] {
+            selectedCustomColour = juce::Colour(0x00000000);
+            updateColourButtonText();
+        };
+        addAndMakeVisible(clearColourButton);
     }
 
     void resized() override {
         auto r = getLocalBounds().reduced(12);
 
         titleLabel.setBounds(r.removeFromTop(24));
+        r.removeFromTop(4);
 
         if (existingBinding != nullptr) {
             infoLabel.setBounds(r.removeFromTop(20));
@@ -106,7 +191,24 @@ public:
 
             velocitySlider.setBounds(r.removeFromTop(24).withTrimmedLeft(100));
             r.removeFromTop(12);
+        } else {
+            infoLabel.setBounds(r.removeFromTop(20));
+            r.removeFromTop(12);
+        }
 
+        // Custom label row
+        customLabelEditor.setBounds(r.removeFromTop(24).withTrimmedLeft(100));
+        r.removeFromTop(6);
+
+        // Custom colour row: button + clear button
+        auto colourRow = r.removeFromTop(24).withTrimmedLeft(100);
+        colourPickerButton.setBounds(colourRow.removeFromLeft(100));
+        colourRow.removeFromLeft(8);
+        clearColourButton.setBounds(colourRow.removeFromLeft(60));
+        r.removeFromTop(12);
+
+        // Button row
+        if (existingBinding != nullptr) {
             auto btnRow = r.removeFromTop(28);
             okButton.setBounds(btnRow.removeFromLeft(80));
             btnRow.removeFromLeft(8);
@@ -114,35 +216,73 @@ public:
             btnRow.removeFromLeft(8);
             unbindButton.setBounds(btnRow.removeFromLeft(80));
         } else {
-            infoLabel.setBounds(r.removeFromTop(20));
-            r.removeFromTop(12);
             closeButton.setBounds(r.removeFromTop(28).withWidth(80));
         }
     }
 
 private:
+    void updateColourButtonText() {
+        if (selectedCustomColour.isTransparent()) {
+            colourPickerButton.setButtonText(TRANS("Choose Colour..."));
+        } else {
+            colourPickerButton.setButtonText(TRANS("Colour Set"));
+            colourPickerButton.setColour(juce::TextButton::buttonColourId, selectedCustomColour);
+        }
+    }
+
+    void showColourPicker() {
+        auto initialColour = selectedCustomColour.isTransparent() ? juce::Colours::white : selectedCustomColour;
+
+        // Track the picked colour across the modal dialog lifecycle
+        juce::Colour pickedColour = initialColour;
+        bool accepted = false;
+
+        // Wrap ColourSelector with OK / Cancel buttons in a DialogWindow.
+        juce::DialogWindow::LaunchOptions opts;
+        opts.dialogTitle = TRANS("Choose Colour");
+        opts.dialogBackgroundColour = juce::Colour(0xff202225);
+        opts.componentToCentreAround = this;
+        opts.content.setOwned(new ColourPickerContent(initialColour, pickedColour, accepted));
+        opts.runModal();
+
+        if (accepted) {
+            selectedCustomColour = pickedColour;
+            updateColourButtonText();
+        }
+    }
+
     void confirmEdit() {
-        if (existingBinding == nullptr) {
-            cancel();
-            return;
+        KeyBindingEditResult result;
+        result.customLabel = customLabelEditor.getText();
+        result.customColour = selectedCustomColour;
+        result.labelChanged = (result.customLabel != initialCustomLabel);
+        result.colourChanged = (result.customColour != initialCustomColour);
+
+        if (existingBinding != nullptr) {
+            auto updated = *existingBinding;
+            updated.action.midiChannel = channelCombo.getSelectedId();
+            updated.action.midiNote = static_cast<int>(noteSlider.getValue());
+            updated.action.velocity = static_cast<float>(velocitySlider.getValue() / 127.0);
+            result.binding = updated;
         }
 
-        auto updated = *existingBinding;
-        updated.action.midiChannel = channelCombo.getSelectedId();
-        updated.action.midiNote = static_cast<int>(noteSlider.getValue());
-        updated.action.velocity = static_cast<float>(velocitySlider.getValue() / 127.0);
-
         if (onComplete)
-            onComplete(updated);
+            onComplete(result);
         if (auto* dw = findParentComponentOfClass<juce::DialogWindow>())
             dw->exitModalState(0);
     }
 
     void cancel() {
+        KeyBindingEditResult result;
         if (onComplete)
-            onComplete(std::nullopt);
+            onComplete(result);
         if (auto* dw = findParentComponentOfClass<juce::DialogWindow>())
             dw->exitModalState(0);
+    }
+
+    void confirmOrClose() {
+        // Read-only mode: still return label/colour changes but no binding.
+        confirmEdit();
     }
 
     void unbind() {
@@ -151,19 +291,29 @@ private:
             return;
         }
 
+        KeyBindingEditResult result;
+        result.customLabel = customLabelEditor.getText();
+        result.customColour = selectedCustomColour;
+        result.labelChanged = true;
+        result.colourChanged = true;
+
         // Return a binding with keyCode set to signal "remove this binding".
-        // The caller should erase it from the layout.
         auto removed = *existingBinding;
         removed.keyCode = -1;
+        result.binding = removed;
+
         if (onComplete)
-            onComplete(removed);
+            onComplete(result);
         if (auto* dw = findParentComponentOfClass<juce::DialogWindow>())
             dw->exitModalState(0);
     }
 
     int midiNote;
     const devpiano::core::KeyBinding* existingBinding;
-    std::function<void(std::optional<devpiano::core::KeyBinding>)> onComplete;
+    juce::String initialCustomLabel;
+    juce::Colour initialCustomColour;
+    juce::Colour selectedCustomColour;
+    std::function<void(KeyBindingEditResult)> onComplete;
 
     juce::Label titleLabel;
     juce::Label infoLabel;
@@ -174,6 +324,11 @@ private:
     juce::Slider noteSlider;
     juce::Label velocityLabel;
     juce::Slider velocitySlider;
+
+    juce::Label customLabelLabel;
+    juce::TextEditor customLabelEditor;
+    juce::TextButton colourPickerButton { TRANS("Choose Colour...") };
+    juce::TextButton clearColourButton { TRANS("Clear") };
 
     juce::TextButton okButton { TRANS("OK") };
     juce::TextButton cancelButton { TRANS("Cancel") };
@@ -212,9 +367,11 @@ private:
 // KeyBindingEditDialog static launch
 void KeyBindingEditDialog::launch(int midiNote, const juce::String& noteName,
                                   const devpiano::core::KeyBinding* existingBinding,
-                                  std::function<void(std::optional<devpiano::core::KeyBinding>)> onComplete) {
+                                  const juce::String& currentCustomLabel, const juce::Colour& currentCustomColour,
+                                  std::function<void(KeyBindingEditResult)> onComplete) {
     auto keyLabel = existingBinding != nullptr ? existingBinding->displayText : juce::String();
-    auto* content = new BindingEditContent(midiNote, existingBinding, noteName, keyLabel, std::move(onComplete));
+    auto* content = new BindingEditContent(midiNote, existingBinding, noteName, keyLabel,
+                                           currentCustomLabel, currentCustomColour, std::move(onComplete));
 
     // BindingEditWindow takes ownership and self-destructs on close.
     new BindingEditWindow(TRANS("Key Binding Editor"), std::unique_ptr<juce::Component>(content));

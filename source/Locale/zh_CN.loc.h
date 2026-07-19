@@ -62,7 +62,11 @@ countries: cn
 "Unbind" = "解除绑定"
 "Close" = "关闭"
 "No keyboard key is currently mapped to this note." = "当前没有键盘按键映射到此音符。"
-
+"Label:" = "标签："
+"Choose Colour..." = "选择颜色..."
+"Colour Set" = "已选颜色"
+"Clear" = "清除"
+"Choose Colour" = "选择颜色"
 "Keyboard Display" = "键盘显示"
 "Colour Mode:" = "颜色模式："
 "Classic" = "经典"

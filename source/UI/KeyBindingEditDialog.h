@@ -8,28 +8,31 @@
 #include "Core/KeyMapTypes.h"
 
 // ============================================================================
-// Modal dialog for editing a computer-key → MIDI-note binding.
+// Result returned by KeyBindingEditDialog on close.
+// ============================================================================
+struct KeyBindingEditResult {
+    std::optional<devpiano::core::KeyBinding> binding;
+    juce::String customLabel; // empty = no change
+    juce::Colour customColour { 0x00000000 }; // transparent = no change
+    bool labelChanged = false;
+    bool colourChanged = false;
+};
+
+// ============================================================================
+// Modal dialog for editing a computer-key → MIDI-note binding,
+// plus per-key custom label and colour.
 //
 // Launched by double-clicking a key on the CustomKeyboard.
 // Shows the current mapping for that MIDI note, lets the user change
-// the target MIDI note, channel, and velocity.
+// the target MIDI note, channel, velocity, custom label, and custom colour.
 // ============================================================================
 class KeyBindingEditDialog {
 public:
     KeyBindingEditDialog() = delete;
 
-    // Opens a modal dialog.
-    //
-    //  midiNote         — the MIDI note whose key was clicked
-    //  noteName         — display name ("C4", "D#5", …)
-    //  existingBinding  — the first computer-key binding for this note, or
-    //                     nullptr when no key is mapped yet (read-only mode)
-    //  onComplete       — called when the dialog closes:
-    //                       std::nullopt → cancelled / window closed
-    //                       KeyBinding   → user confirmed; caller should update
-    //                                      the layout with this binding
     static void launch(int midiNote, const juce::String& noteName, const devpiano::core::KeyBinding* existingBinding,
-                       std::function<void(std::optional<devpiano::core::KeyBinding>)> onComplete);
+                       const juce::String& currentCustomLabel, const juce::Colour& currentCustomColour,
+                       std::function<void(KeyBindingEditResult)> onComplete);
 
 private:
     JUCE_DECLARE_NON_COPYABLE(KeyBindingEditDialog)

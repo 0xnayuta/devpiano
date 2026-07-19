@@ -16,35 +16,23 @@ Phase 9 计划同列于此，以便一次看清完整执行路径。
 
 **前置依赖**：无（Phase 1-7 基础设施已就位）。
 
-### 8a. Per-Key Labels + Colors（逐键标签与颜色）
+### 8a. Per-Key Labels + Colors（逐键标签与颜色）— ✅ 已完成
 
-**涉及文件**：`Core/KeyboardTypes.h`、`UI/CustomKeyboard.h`、`UI/CustomKeyboard.cpp`、`UI/KeyBindingEditDialog.h`、`UI/KeyBindingEditDialog.cpp`、`Settings/SettingsModel.h`、`Settings/SettingsSerialization.h`、`Settings/SettingsSerialization.cpp`
+**实现摘要**：
+- 数据模型：`KeyboardSettings` 新增 `customKeyLabels[128]`，`customKeyColours[128]` 已在
+- 持久化：`SettingsStore` 以稀疏 ValueTree XML 读写，空集合时 `removeValue` 防止残留
+- 渲染：`CustomKeyboard` 三级标签优先级（custom label > binding displayText > note name）；底色/fade overlay 优先检查自定义颜色
+- UI：`KeyBindingEditDialog` 新增 Label 文本框（`setInputRestrictions(32, {})`）+ Colour 拾取器（`ColourPickerContent` 包装 `ColourSelector`，含 OK/Cancel）
+- 接线：`MainComponent::syncUiFromSettings` 传递 labels/colours；`onBindingEditRequested` 读→dialog→回写→`syncUiFromSettings`+`saveSettingsSoon`；`SettingsWindowManager` 同步更新
+- 翻译：zh-CN 新增 5 条（Label:/Choose Colour.../Colour Set/Clear/Choose Colour）
+- 改动文件 9 个：`Core/KeyboardTypes.h`、`Settings/SettingsModel.h`、`Settings/SettingsStore.cpp`、`UI/CustomKeyboard.cpp`、`UI/KeyBindingEditDialog.h/.cpp`、`MainComponent.cpp`、`Settings/SettingsWindowManager.cpp`、`Locale/zh_CN.loc.h`
 
-**数据模型**：
-- `KeyboardSettings` 增加 `std::array<juce::String, 128> customKeyLabels`
-- `customKeyColours` 数组已存在（`std::array<juce::Colour, 128>`），仅需 UI 接线与渲染读取
-
-**UI 入口**：
-- `KeyBindingEditDialog` 增加 "Label" 行内编辑字段 + "Color" 按钮
-- Color 按钮触发 `juce::ColourSelector::showColourSelectorAtTopLevel` 独立取色窗口
-- 双击钢琴键 → 打开增强后的编辑 dialog
-
-**渲染改动**（`CustomKeyboard::renderKey`）：
-1. 优先检查 `settings.customKeyLabels[midiNote].isNotEmpty()` → 显示自定义标签
-2. Fallback → `keyLabel`（绑定的 displayText）
-3. Fallback → `getNoteDisplayName()`
-4. 优先检查 `settings.customKeyColours[midiNote].isTransparent() == false` → 使用自定义颜色
-5. Fallback → `colourMode` auto-color（classic / channel / velocity）
-
-**序列化**（`SettingsSerialization`）：
-- `keyLabels`：JSON 字符串数组，空字符串 = 无自定义标签
-- `keyColours`：JSON ARGB hex 字符串数组（如 `"#ff3366cc"`），`"#00000000"` = 无自定义颜色
-
-**验收标准**：
-- (a) 设置自定义标签后，`CustomKeyboard` 物理键上显示标签文本而非默认键名
-- (b) 设置自定义颜色后，物理键用该颜色渲染而非 auto-color
-- (c) 清除标签/颜色后，回退到默认行为
-- (d) 重启后标签/颜色持久化恢复
+**验收通过**：
+- (a) 自定义标签覆盖默认键名 ✓
+- (b) 自定义颜色覆盖 auto-color ✓
+- (c) 清除标签/颜色回退默认 ✓
+- (d) 重启持久化恢复 ✓
+- 审查修复 5 项（SettingsWindowManager 遗漏同步、清除全部后旧数据残留、无绑定模式多余 save、无限长标签、按钮颜色残留）全部修复 ✓
 
 ---
 
@@ -225,9 +213,9 @@ Phase 9 计划同列于此，以便一次看清完整执行路径。
 ## 执行顺序
 
 ```
-Phase 8a (Labels + Colors) ──┐
-                              ├──→ Phase 9a (Performance Preset)
-Phase 8b (Key Sig System) ──┘
+Phase 8a (Labels + Colors) ✅ ──┐
+                                ├──→ Phase 9a (Performance Preset)
+Phase 8b (Key Sig System)    ──┘
 
 (无依赖，可与 Phase 8 并行或 Phase 9 集中执行)
 Phase 9b (88-Key Keyboard)

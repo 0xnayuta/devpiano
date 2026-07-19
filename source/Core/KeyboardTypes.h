@@ -51,6 +51,9 @@ struct KeyboardSettings {
 
     // Per-key custom colour (transparent = not set, use colourMode instead)
     std::array<juce::Colour, 128> customKeyColours;
+
+    // Per-key custom label (empty = not set, use binding displayText or note name)
+    std::array<juce::String, 128> customKeyLabels;
 };
 
 // ============================================================================

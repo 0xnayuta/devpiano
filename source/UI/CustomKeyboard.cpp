@@ -258,8 +258,9 @@ void CustomKeyboard::paintWhiteKeys(juce::Graphics& g) {
 
         auto& b = k.bounds;
 
-        // Base white key fill
-        g.setColour(juce::Colour(0xffe8e8e8));
+        // Base white key fill: custom colour takes priority
+        auto customColour = settings.customKeyColours[static_cast<std::size_t>(k.midiNote)];
+        g.setColour(!customColour.isTransparent() ? customColour : juce::Colour(0xffe8e8e8));
         g.fillRect(b);
 
         // Fade overlay (pressed or recently pressed)
@@ -273,7 +274,6 @@ void CustomKeyboard::paintWhiteKeys(juce::Graphics& g) {
         g.drawRect(b, 1.0f);
     }
 }
-
 void CustomKeyboard::paintBlackKeys(juce::Graphics& g) {
     for (const auto& k : keys) {
         if (k.isWhite)
@@ -281,8 +281,9 @@ void CustomKeyboard::paintBlackKeys(juce::Graphics& g) {
 
         auto& b = k.bounds;
 
-        // Base black key fill
-        g.setColour(juce::Colour(0xff333333));
+        // Base black key fill: custom colour takes priority
+        auto customColour = settings.customKeyColours[static_cast<std::size_t>(k.midiNote)];
+        g.setColour(!customColour.isTransparent() ? customColour : juce::Colour(0xff333333));
         g.fillRect(b);
 
         // Fade overlay
@@ -305,7 +306,11 @@ void CustomKeyboard::paintKeyLabels(juce::Graphics& g) {
         if (!k.isWhite)
             continue;
 
-        if (k.keyLabel.isNotEmpty()) {
+        // Priority: custom label > binding displayText > note name
+        auto& customLabel = settings.customKeyLabels[static_cast<std::size_t>(k.midiNote)];
+        if (customLabel.isNotEmpty()) {
+            g.drawText(customLabel, k.bounds.reduced(2).withTrimmedBottom(2), juce::Justification::centredBottom, false);
+        } else if (k.keyLabel.isNotEmpty()) {
             g.drawText(k.keyLabel, k.bounds.reduced(2).withTrimmedBottom(2), juce::Justification::centredBottom, false);
         } else if (k.midiNote >= 0) {
             auto name = devpiano::ui::getNoteDisplayName(k.midiNote, settings.noteDisplay, settings.keySignature);
@@ -434,29 +439,34 @@ void CustomKeyboard::timerCallback() {
         if (std::abs(k.fade - before) > fadeEpsilon)
             anyChanged = true;
 
-        // Recompute colour based on active colour mode
+        // Recompute colour: custom colour takes priority, else colourMode
         if (k.fade > fadeEpsilon) {
-            switch (settings.colourMode) {
-            case devpiano::ui::KeyColourMode::channel:
-                if (k.midiNote >= 0 && k.midiNote < 128) {
-                    auto idx = static_cast<std::size_t>(k.midiNote);
-                    auto ch = perKeyChannel[idx] % 16;
-                    k.colour1 = juce::Colour::fromHSV(channelHues[ch] / 360.0f, 0.7f, 1.0f, k.fade);
-                }
-                break;
+            auto customColour = settings.customKeyColours[static_cast<std::size_t>(k.midiNote)];
+            if (!customColour.isTransparent()) {
+                k.colour1 = customColour.withAlpha(k.fade);
+            } else {
+                switch (settings.colourMode) {
+                case devpiano::ui::KeyColourMode::channel:
+                    if (k.midiNote >= 0 && k.midiNote < 128) {
+                        auto idx = static_cast<std::size_t>(k.midiNote);
+                        auto ch = perKeyChannel[idx] % 16;
+                        k.colour1 = juce::Colour::fromHSV(channelHues[ch] / 360.0f, 0.7f, 1.0f, k.fade);
+                    }
+                    break;
 
-            case devpiano::ui::KeyColourMode::velocity:
-                if (k.midiNote >= 0 && k.midiNote < 128) {
-                    auto idx = static_cast<std::size_t>(k.midiNote);
-                    auto h = velocityHue(perKeyVelocity[idx]);
-                    k.colour1 = juce::Colour::fromHSV(h / 360.0f, 0.7f, 1.0f, k.fade);
-                }
-                break;
+                case devpiano::ui::KeyColourMode::velocity:
+                    if (k.midiNote >= 0 && k.midiNote < 128) {
+                        auto idx = static_cast<std::size_t>(k.midiNote);
+                        auto h = velocityHue(perKeyVelocity[idx]);
+                        k.colour1 = juce::Colour::fromHSV(h / 360.0f, 0.7f, 1.0f, k.fade);
+                    }
+                    break;
 
-            case devpiano::ui::KeyColourMode::classic:
-            default:
-                k.colour1 = classicColourTop(k.fade);
-                break;
+                case devpiano::ui::KeyColourMode::classic:
+                default:
+                    k.colour1 = classicColourTop(k.fade);
+                    break;
+                }
             }
         }
     }

@@ -49,6 +49,8 @@ struct SettingsModel {
         float fadeSpeed = 0.92f;
         bool resizableWindow = true;
         bool showInstrumentFilter = true;
+        std::array<juce::String, 128> customKeyLabels;
+        std::array<juce::Colour, 128> customKeyColours;
     };
 
     // Persisted audio device state (serialized XML from AudioDeviceManager)
@@ -91,6 +93,9 @@ struct SettingsModel {
     float keyboardFadeSpeed = 0.92f;
     bool resizableWindow = true;
     bool showInstrumentFilter = true;
+    // Persisted per-key custom labels and colours (sparse, stored as ValueTree XML).
+    std::array<juce::String, 128> customKeyLabels;
+    std::array<juce::Colour, 128> customKeyColours;
     // Persisted UI language code ("en" | "zh-CN").
     juce::String languageCode { "en" };
 
@@ -150,7 +155,9 @@ struct SettingsModel {
                  .noteDisplay = keyboardNoteDisplay,
                  .fadeSpeed = keyboardFadeSpeed,
                  .resizableWindow = resizableWindow,
-                 .showInstrumentFilter = showInstrumentFilter };
+                 .showInstrumentFilter = showInstrumentFilter,
+                 .customKeyLabels = customKeyLabels,
+                 .customKeyColours = customKeyColours };
     }
 
     void applyKeyboardDisplaySettingsView(const KeyboardDisplaySettingsView& view) {
@@ -159,6 +166,8 @@ struct SettingsModel {
         keyboardFadeSpeed = view.fadeSpeed;
         resizableWindow = view.resizableWindow;
         showInstrumentFilter = view.showInstrumentFilter;
+        customKeyLabels = view.customKeyLabels;
+        customKeyColours = view.customKeyColours;
     }
 
     // ---- Serialization methods moved to Settings/SettingsSerialization.h ----

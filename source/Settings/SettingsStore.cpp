@@ -28,6 +28,8 @@ const char* kKeyResizableWindow = "resizableWindow";
 const char* kKeyShowInstrumentFilter = "showInstrumentFilter";
 const char* kKeyChannelMatrix = "channelMatrix";
 const char* kKeyLanguageCode = "languageCode";
+const char* kKeyCustomLabels = "customKeyLabels";
+const char* kKeyCustomColours = "customKeyColours";
 
 [[nodiscard]] SettingsModel::PerformanceSettingsView makeDefaultPerformanceSettings() noexcept {
     return {};
@@ -135,6 +137,37 @@ void SettingsStore::readNow(SettingsModel& m) {
         juce::ValueTree t = juce::ValueTree::fromXml(*keyXml);
         m.keyMap = devpiano::settings::valueTreeToKeyMap(t);
     }
+
+    // custom key labels as ValueTree XML (sparse: only non-empty labels stored)
+    if (auto labelsXml = f.getXmlValue(kKeyCustomLabels)) {
+        juce::ValueTree t = juce::ValueTree::fromXml(*labelsXml);
+        m.customKeyLabels.fill({});
+        for (int i = 0; i < t.getNumChildren(); ++i) {
+            auto c = t.getChild(i);
+            auto note = c.getProperty("note");
+            if (note.isInt()) {
+                auto n = static_cast<int>(note);
+                if (n >= 0 && n < 128)
+                    m.customKeyLabels[static_cast<std::size_t>(n)] = c.getProperty("text").toString();
+            }
+        }
+    }
+
+    // custom key colours as ValueTree XML (sparse: only non-transparent colours stored)
+    if (auto coloursXml = f.getXmlValue(kKeyCustomColours)) {
+        juce::ValueTree t = juce::ValueTree::fromXml(*coloursXml);
+        m.customKeyColours.fill(juce::Colour(0x00000000));
+        for (int i = 0; i < t.getNumChildren(); ++i) {
+            auto c = t.getChild(i);
+            auto note = c.getProperty("note");
+            if (note.isInt()) {
+                auto n = static_cast<int>(note);
+                if (n >= 0 && n < 128)
+                    m.customKeyColours[static_cast<std::size_t>(n)]
+                        = juce::Colour::fromString(c.getProperty("argb").toString());
+            }
+        }
+    }
 }
 
 void SettingsStore::writeNow(const SettingsModel& m) {
@@ -186,6 +219,46 @@ void SettingsStore::writeNow(const SettingsModel& m) {
         auto t = devpiano::settings::keyMapToValueTree(m.keyMap);
         if (auto xml = t.createXml())
             f.setValue(kKeyMap, xml->toString());
+    }
+
+    // custom key labels as ValueTree XML (sparse: only non-empty labels stored)
+    {
+        juce::ValueTree t("customKeyLabels");
+        for (int n = 0; n < 128; ++n) {
+            auto& lbl = m.customKeyLabels[static_cast<std::size_t>(n)];
+            if (lbl.isNotEmpty()) {
+                auto c = juce::ValueTree("label");
+                c.setProperty("note", n, nullptr);
+                c.setProperty("text", lbl, nullptr);
+                t.appendChild(c, nullptr);
+            }
+        }
+        if (t.getNumChildren() > 0) {
+            if (auto xml = t.createXml())
+                f.setValue(kKeyCustomLabels, xml->toString());
+        } else {
+            f.removeValue(kKeyCustomLabels);
+        }
+    }
+
+    // custom key colours as ValueTree XML (sparse: only non-transparent stored)
+    {
+        juce::ValueTree t("customKeyColours");
+        for (int n = 0; n < 128; ++n) {
+            auto& col = m.customKeyColours[static_cast<std::size_t>(n)];
+            if (!col.isTransparent()) {
+                auto c = juce::ValueTree("colour");
+                c.setProperty("note", n, nullptr);
+                c.setProperty("argb", col.toString(), nullptr);
+                t.appendChild(c, nullptr);
+            }
+        }
+        if (t.getNumChildren() > 0) {
+            if (auto xml = t.createXml())
+                f.setValue(kKeyCustomColours, xml->toString());
+        } else {
+            f.removeValue(kKeyCustomColours);
+        }
     }
     f.setValue(kKeyResizableWindow, m.resizableWindow);
     f.setValue(kKeyLanguageCode, m.languageCode);

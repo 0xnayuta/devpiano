@@ -201,33 +201,47 @@ void MainComponent::initialiseUi() {
             }
         }
 
+        // Read current per-key custom label and colour
+        auto currentLabel = appSettings.customKeyLabels[static_cast<std::size_t>(midiNote)];
+        auto currentColour = appSettings.customKeyColours[static_cast<std::size_t>(midiNote)];
+
         KeyBindingEditDialog::launch(
-            midiNote, noteName, existingBinding, [this](std::optional<devpiano::core::KeyBinding> result) {
-                if (!result.has_value())
-                    return;
+            midiNote, noteName, existingBinding, currentLabel, currentColour, [this, midiNote](KeyBindingEditResult result) {
+                // Update custom label and colour if changed
+                if (result.labelChanged)
+                    appSettings.customKeyLabels[static_cast<std::size_t>(midiNote)] = result.customLabel;
+                if (result.colourChanged)
+                    appSettings.customKeyColours[static_cast<std::size_t>(midiNote)] = result.customColour;
 
-                auto updatedLayout = keyboardMidiMapper.getLayout();
+                // Update binding if changed
+                if (result.binding.has_value()) {
+                    auto updatedLayout = keyboardMidiMapper.getLayout();
 
-                if (result->keyCode < 0) {
-                    // Unbind request: remove all bindings for this note
-                    updatedLayout.bindings.erase(
-                        std::remove_if(updatedLayout.bindings.begin(), updatedLayout.bindings.end(),
-                                       [note = result->action.midiNote](const auto& b) {
-                                           return b.action.type == devpiano::core::KeyActionType::note
-                                               && b.action.midiNote == note;
-                                       }),
-                        updatedLayout.bindings.end());
-                } else {
-                    // Update the binding in-place
-                    for (auto& b : updatedLayout.bindings)
-                        if (b.keyCode == result->keyCode) {
-                            b = *result;
-                            break;
-                        }
+                    if (result.binding->keyCode < 0) {
+                        // Unbind request: remove all bindings for this note
+                        updatedLayout.bindings.erase(
+                            std::remove_if(updatedLayout.bindings.begin(), updatedLayout.bindings.end(),
+                                           [note = result.binding->action.midiNote](const auto& b) {
+                                               return b.action.type == devpiano::core::KeyActionType::note
+                                                   && b.action.midiNote == note;
+                                           }),
+                            updatedLayout.bindings.end());
+                    } else {
+                        // Update the binding in-place
+                        for (auto& b : updatedLayout.bindings)
+                            if (b.keyCode == result.binding->keyCode) {
+                                b = *result.binding;
+                                break;
+                            }
+                    }
+
+                    keyboardMidiMapper.setLayout(updatedLayout);
+                    keyboardPanel.setKeyboardLayout(updatedLayout);
                 }
 
-                keyboardMidiMapper.setLayout(updatedLayout);
-                keyboardPanel.setKeyboardLayout(updatedLayout);
+                // Refresh keyboard rendering (picks up label/colour changes)
+                syncUiFromSettings();
+                saveSettingsSoon();
             });
     };
 }
@@ -512,6 +526,8 @@ void MainComponent::syncUiFromSettings() {
         ks.colourMode = kbs.colourMode;
         ks.noteDisplay = kbs.noteDisplay;
         ks.fadeSpeed = kbs.fadeSpeed;
+        ks.customKeyLabels = kbs.customKeyLabels;
+        ks.customKeyColours = kbs.customKeyColours;
         keyboardPanel.getCustomKeyboard().setKeyboardSettings(ks);
     }
 }
