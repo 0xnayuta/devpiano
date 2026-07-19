@@ -173,22 +173,21 @@
 
 ## Phase 6：演奏数据持久化与播放体验增强
 
-状态：进行中，Phase 6-1/6-2/6-5/6-6/6-7 已完成，Phase 6-3/6-4 暂缓。
+状态：已完成。Phase 6-1/6-2/6-5/6-6/6-7 全部完成，Phase 6-3（最近文件列表 + 拖拽打开）已在架构优化阶段（P0-C + Phase 7）完成。
 
 验收项：
 
-- [ ] 可将录制 take 保存为 `.devpiano` JSON 文件，包含完整事件数据。
-- [ ] 可打开 `.devpiano` 文件并回放，内容与原始录制一致。
-- [ ] 打开损坏或格式错误的 `.devpiano` 文件时不崩溃，Logger 输出错误。
-- [ ] Save/Open 按钮状态与录制/播放状态正确联动。
-- [ ] 保存和打开路径记忆生效。
-- [ ] 播放速度可调（0.50x–2.00x），播放中变速立即生效。
-- [ ] 最近文件列表最多 10 条，点击可打开。
-- [ ] 拖拽 `.devpiano` / `.mid` 文件到窗口可打开。
-- [ ] 可选中并删除单个音符，删除后回放和保存正确。
-- [x] 导入 MIDI 时可收集 sustain CC64、pitch bend、program change 并回放。
+- [x] 可将录制 take 保存为 `.devpiano` JSON 文件，包含完整事件数据。
+- [x] 可打开 `.devpiano` 文件并回放，内容与原始录制一致。
+- [x] 打开损坏或格式错误的 `.devpiano` 文件时不崩溃，Logger 输出错误。
+- [x] Save/Open 按钮状态与录制/播放状态正确联动。
+- [x] 保存和打开路径记忆生效。
+- [x] 播放速度可调（0.50x–2.00x），播放中变速立即生效。
+- [x] 最近文件列表最多 10 条，点击可打开。
+- [x] 拖拽 `.devpiano` / `.mid` 文件到窗口可打开。
+- [~] 可选中并删除单个音符（永久搁置）。
 
-专项测试见：[`phase6-performance-persistence.md`](./features/performance-persistence.md)。
+专项测试见：[`performance-persistence.md`](./features/performance-persistence.md)。
 
 ## 建议最小回归集合
 
@@ -205,7 +204,7 @@
 - [x] 如修改插件生命周期相关代码：执行 [`plugin-host-lifecycle.md`](./features/plugin-hosting.md) 中优先测试包。
 - [x] 如修改录制、回放或 MIDI 导出相关代码：执行 [`recording-playback.md`](./features/recording-playback.md) 中优先测试包。
 - [x] 如修改 MIDI 文件导入、导入后回放、自动选轨或 playback 切换逻辑：执行 [`midi-file-import.md`](./features/midi-file-import.md) 中建议最小回归集合。
-- [ ] 如修改演奏文件保存/打开、播放速度、最近文件列表或基础编辑相关代码：执行 [`phase6-performance-persistence.md`](./features/performance-persistence.md) 中建议最小回归集合。
+- [x] 如修改演奏文件保存/打开、播放速度、最近文件列表或基础编辑相关代码：执行 [`performance-persistence.md`](./features/performance-persistence.md) 中建议最小回归集合。
 
 已知硬件限制：
 

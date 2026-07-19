@@ -1,7 +1,7 @@
-# Phase 3-5：VST3 插件离线渲染评估与设计
+# VST3 插件离线渲染设计（Phase 7 已实现）
 
-> 用途：评估 VST3 插件离线渲染的技术路径与设计边界，为后续实现提供决策依据。
-> 状态：评估阶段，不阻塞当前 WAV MVP（Phase 3-4）。
+> 用途：评估 VST3 插件离线渲染的技术路径与设计边界，为 Phase 7 实现提供决策依据。
+> 状态：**本设计文档已于 Phase 7 完整实现**（`PluginOfflineRenderer`、`WavExportTask`、`ExportDialog` 进度对话框）。本文件保留为设计参考。
 
 相关文档：
 
@@ -153,8 +153,12 @@
 
 ---
 
-## 8. 后续行动
+## 8. 实现结果
 
-- 确认路径 B（独立离线实例 + 重置状态 + 无 editor）是否可接受。
-- 在有真实 VST3 插件环境下验证"实施前的验证项"。
-- 若验证通过，再拆分为 Phase 3-2 实现切片（参考 Phase 3-1 的切片方式）。
+本设计的推荐路径（独立离线实例 + 重置状态 + 无 editor）已于 Phase 7 完整实现：
+
+- `source/Recording/PluginOfflineRenderer.*`：`snapshotPluginState()`、`createOfflinePluginInstance()`、`renderTakeWithOfflinePlugin()`
+- `source/Export/WavExportTask.*`：`juce::ThreadWithProgressWindow` 包装的 WAV 导出，含进度对话框
+- `source/Export/ExportFlowSupport.*`：`buildWavExportOptions()`
+
+验证项（§5）已全部通过人工回归。

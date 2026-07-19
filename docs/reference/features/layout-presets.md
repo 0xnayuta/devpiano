@@ -273,9 +273,8 @@ layout preset 与录制独立：
 
 ## 5. 关键实现文件
 
-- `source/Layout/LayoutPreset.h/.cpp`：`loadLayoutPreset()` / `saveLayoutPreset()`
+- `source/Layout/LayoutFlowSupport.h/.cpp`：布局保存、导入、重命名、删除、恢复与下拉同步逻辑
 - `source/Layout/LayoutDirectoryScanner.h/.cpp`：`getUserLayoutDirectory()` / `scanUserLayoutDirectory()` / `loadUserLayoutById()`
-- `source/MainComponent.cpp`：布局保存、导入、重命名、删除、恢复与下拉同步逻辑
 - `source/UI/ControlsPanel.h/.cpp`：layout 下拉框与 Save / Import / Rename / Delete / Reset 按钮
 - `source/Settings/SettingsModel.h`：`layoutId -> KeyboardLayout` 的恢复逻辑
 - `source/Core/KeyMapTypes.h`：内置 preset 定义与统一显示名称

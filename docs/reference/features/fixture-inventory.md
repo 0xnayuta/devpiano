@@ -88,13 +88,12 @@ Phase 6-7 的目标就是用**固定 fixture 样本库**取代临时文件和口
 | `simple-performance.json` | Phase 6-1 保存/打开 roundtrip 的最小输入；后续可在此基础上扩展 smoke test |
 
 ### 验收标准
-
-- [ ] 文档中清晰列出 8 个 MIDI fixture + 1 个 performance fixture 的名称、描述和用途。
-- [ ] 每个 fixture 的预期用途与 Phase 6-5、Phase 6-1 的功能边界对应。
-- [ ] fixture 清单与 Phase 6-5 验收标准中的"导入 xxx 事件"形成一一映射。
-- [ ] 明确说明本轮不创建任何 fixture 文件，仅做规划记录。
-- [ ] Phase 6-7 与 Phase 6-6（Diagnostics）和 Phase 6-5（MIDI 导入增强）的关系清晰。
-
+- [x] 文档中清晰列出 8 个 MIDI fixture + 1 个 performance fixture 的名称、描述和用途。
+- [x] 每个 fixture 的预期用途与 Phase 6-5、Phase 6-1 的功能边界对应。
+- [x] fixture 清单与 Phase 6-5 验收标准中的"导入 xxx 事件"形成一一映射。
+- [x] 明确说明本轮不创建任何 fixture 文件，仅做规划记录。
+- [x] Phase 6-7 与 Phase 6-6（Diagnostics）和 Phase 6-5（MIDI 导入增强）的关系清晰。
+- [x] 全部 8 个 fixture 文件已创建于 `tests/fixtures/`，经验证可用。
 ### 风险与边界
 
 | 风险 | 等级 | 应对 |
