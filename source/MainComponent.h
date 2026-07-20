@@ -9,8 +9,7 @@
 #include "Core/AppStateBuilder.h"
 #include "Diagnostics/DevPianoLogger.h"
 #include "Input/KeyboardMidiMapper.h"
-#include "Layout/LayoutDirectoryScanner.h"
-#include "Layout/LayoutFlowSupport.h"
+#include "Layout/PresetFlowSupport.h"
 #include "Locale/LocaleManager.h"
 #include "Midi/MidiChannelMapper.h"
 
@@ -28,7 +27,7 @@
 #include "UI/PluginPanel.h"
 
 class MainComponent final : public juce::AudioAppComponent, private juce::Timer, public juce::FileDragAndDropTarget {
-    friend class devpiano::layout::LayoutFlowSupport;
+    friend class devpiano::layout::PresetFlowSupport;
     friend class devpiano::recording::RecordingSessionController;
     friend class devpiano::plugin::PluginOperationController;
     friend class devpiano::settings::SettingsWindowManager;
@@ -78,7 +77,7 @@ private:
 
     void timerCallback() override;
 
-    void initialiseInputMappingFromSettings();
+    void initialiseFromPreset();
     void initialiseUi();
     [[nodiscard]] juce::Rectangle<int> getInitialMainContentBounds() const;
     [[nodiscard]] SettingsModel::PerformanceSettingsView getPerformanceSettingsFromUi() const;
@@ -92,6 +91,8 @@ private:
     void applyUiStateToAudioEngine();
     void syncUiFromSettings();
     void syncSettingsFromUi();
+    void reconfigureChannelMapper();
+    void handlePresetShortcut(int index);
     void suppressTextInputMethods();
     void initialiseAudioDevice();
     void captureAudioDeviceState();
@@ -134,7 +135,7 @@ private:
     ControlsPanel controlsPanel;
     KeyboardPanel keyboardPanel;
     std::unique_ptr<devpiano::settings::SettingsWindowManager> settingsWindowManager;
-    std::unique_ptr<devpiano::layout::LayoutFlowSupport> layoutFlowSupport;
+    std::unique_ptr<devpiano::layout::PresetFlowSupport> presetFlowSupport;
     std::unique_ptr<devpiano::recording::RecordingSessionController> recordingSessionController;
     std::unique_ptr<devpiano::plugin::PluginOperationController> pluginOperationController;
     std::unique_ptr<devpiano::diagnostics::DevPianoLogger> devPianoLogger;

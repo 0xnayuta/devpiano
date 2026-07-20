@@ -51,14 +51,13 @@ MainComponent::MainComponent()
     devPianoLogger = std::make_unique<devpiano::diagnostics::DevPianoLogger>();
     juce::Logger::setCurrentLogger(devPianoLogger.get());
     settingsStore.load(appSettings);
-    initialiseInputMappingFromSettings();
     audioEngine.setPluginHost(&pluginHost);
     audioEngine.setRecordingEngine(&recordingEngine);
 
     midiChannelMapper = std::make_unique<devpiano::midi::MidiChannelMapper>(
         appSettings.channelMatrix, appSettings.midiTranspose, appSettings.keySignature);
     keyboardMidiMapper.setChannelMapper(midiChannelMapper.get());
-    layoutFlowSupport = std::make_unique<devpiano::layout::LayoutFlowSupport>(*this);
+    presetFlowSupport = std::make_unique<devpiano::layout::PresetFlowSupport>(*this);
     recordingSessionController = std::make_unique<devpiano::recording::RecordingSessionController>(
         *this, recordingEngine, audioEngine, appSettings, controlsPanel);
     pluginOperationController
@@ -66,6 +65,8 @@ MainComponent::MainComponent()
     settingsWindowManager = std::make_unique<devpiano::settings::SettingsWindowManager>();
 
     initialiseUi();
+    initialiseFromPreset();
+
     syncUiFromSettings();
     applyUiStateToAudioEngine();
 
@@ -85,12 +86,6 @@ MainComponent::~MainComponent() {
 
     juce::Logger::setCurrentLogger(nullptr);
     controlsPanel.onValuesChanged = {};
-    controlsPanel.onLayoutChanged = {};
-    controlsPanel.onSaveLayoutRequested = {};
-    controlsPanel.onResetLayoutRequested = {};
-    controlsPanel.onImportLayoutRequested = {};
-    controlsPanel.onRenameLayoutRequested = {};
-    controlsPanel.onDeleteLayoutRequested = {};
     controlsPanel.onRecordClicked = {};
     controlsPanel.onPlayClicked = {};
     controlsPanel.onStopClicked = {};
@@ -114,14 +109,33 @@ MainComponent::~MainComponent() {
     settingsWindowManager.reset();
 }
 
-void MainComponent::initialiseInputMappingFromSettings() {
-    const auto inputMapping = appSettings.getInputMappingSettingsView();
-    keyboardMidiMapper.setLayout(devpiano::settings::keyMapToLayout(inputMapping.keyMap, inputMapping.layoutId));
-    appSettings.applyInputMappingSettingsView(
-        { .layoutId = keyboardMidiMapper.getLayout().id,
-          .keyMap = devpiano::settings::layoutToKeyMap(keyboardMidiMapper.getLayout()) });
+void MainComponent::initialiseFromPreset() {
+    // Load the last active preset, or fall back to built-in default
+    if (appSettings.lastActivePresetId.isNotEmpty()) {
+        auto file = devpiano::layout::getPresetDirectory()
+                        .getChildFile(devpiano::layout::sanitisePresetFileName(appSettings.lastActivePresetId)
+                                      + ".devpiano.preset");
+        auto loaded = devpiano::layout::loadPreset(file);
+        if (loaded.has_value()) {
+            presetFlowSupport->applyPresetData(*loaded);
+            return;
+        }
+    }
+
+    // Fallback: built-in default
+    presetFlowSupport->applyPresetData(devpiano::layout::makeDefaultPreset());
 }
 
+void MainComponent::reconfigureChannelMapper() {
+    midiChannelMapper = std::make_unique<devpiano::midi::MidiChannelMapper>(
+        appSettings.channelMatrix, appSettings.midiTranspose, appSettings.keySignature);
+    keyboardMidiMapper.setChannelMapper(midiChannelMapper.get());
+}
+
+void MainComponent::handlePresetShortcut(int index) {
+    if (presetFlowSupport != nullptr)
+        presetFlowSupport->applyPresetByIndex(index);
+}
 void MainComponent::initialiseUi() {
     setBounds(getInitialMainContentBounds());
     setWantsKeyboardFocus(true);
@@ -141,13 +155,11 @@ void MainComponent::initialiseUi() {
 
     addAndMakeVisible(controlsPanel);
     controlsPanel.onValuesChanged = [this] { handlePerformanceUiChanged(); };
-    controlsPanel.onLayoutChanged
-        = [this](const juce::String& newId) { layoutFlowSupport->handleLayoutChanged(newId); };
-    controlsPanel.onSaveLayoutRequested = [this] { layoutFlowSupport->handleSaveLayoutRequested(); };
-    controlsPanel.onResetLayoutRequested = [this] { layoutFlowSupport->handleResetLayoutToDefaultRequested(); };
-    controlsPanel.onImportLayoutRequested = [this] { layoutFlowSupport->handleImportLayoutRequested(); };
-    controlsPanel.onRenameLayoutRequested = [this] { layoutFlowSupport->handleRenameLayoutRequested(); };
-    controlsPanel.onDeleteLayoutRequested = [this] { layoutFlowSupport->handleDeleteLayoutRequested(); };
+    controlsPanel.onPresetChanged
+        = [this](const juce::String& id) { presetFlowSupport->applyPresetById(id); };
+    controlsPanel.onSaveAsNewPresetRequested = [this] { presetFlowSupport->handleSaveAsNewPreset(); };
+    controlsPanel.onRenamePresetRequested = [this] { presetFlowSupport->handleRenamePreset(); };
+    controlsPanel.onDeletePresetRequested = [this] { presetFlowSupport->handleDeletePreset(); };
     controlsPanel.onRecordClicked = [this] { recordingSessionController->handleRecordClicked(); };
     controlsPanel.onPlayClicked = [this] { recordingSessionController->handlePlayClicked(); };
     controlsPanel.onStopClicked = [this] { recordingSessionController->handleStopClicked(); };
@@ -293,6 +305,13 @@ void MainComponent::releaseResources() {
 void MainComponent::timerCallback() {
     recordingSessionController->checkPlaybackEnded();
 
+    // Drain preset-change notifications from playback
+    {
+        auto changes = recordingEngine.drainPendingPresetChanges();
+        for (const auto& change : changes)
+            presetFlowSupport->applyPresetByIndex(change.presetId);
+    }
+
     // Aggressively reclaim keyboard focus from child components that don't
     // consume text input. This ensures piano keys always work immediately
     // after slider/button/combobox interaction without requiring every
@@ -334,7 +353,7 @@ void MainComponent::paintOverChildren(juce::Graphics& g) {
 bool MainComponent::isInterestedInFileDrag(const juce::StringArray& files) {
     for (auto& f : files) {
         auto ext = juce::File(f).getFileExtension().toLowerCase();
-        if (ext == ".devpiano" || ext == ".mid" || ext == ".midi" || ext == ".freepiano.layout" || ext == ".vst3")
+        if (ext == ".devpiano" || ext == ".mid" || ext == ".midi" || ext == ".devpiano.preset" || ext == ".vst3")
             return true;
     }
     return false;
@@ -364,9 +383,9 @@ void MainComponent::filesDropped(const juce::StringArray& files, int, int) {
         } else if (ext == ".mid" || ext == ".midi") {
             if (recordingSessionController != nullptr)
                 recordingSessionController->handleImportMidiFile(file);
-        } else if (ext == ".freepiano.layout") {
-            if (layoutFlowSupport != nullptr)
-                layoutFlowSupport->handleImportLayoutFile(file);
+        } else if (ext == ".devpiano.preset") {
+            if (presetFlowSupport != nullptr)
+                presetFlowSupport->handleImportPresetFile(file);
         } else if (ext == ".vst3") {
             if (pluginOperationController != nullptr)
                 pluginOperationController->handleImportVst3File(file);
@@ -384,6 +403,16 @@ void MainComponent::visibilityChanged() {
 bool MainComponent::keyPressed(const juce::KeyPress& key) {
     if (isKeyboardInputSuppressed())
         return false;
+
+    // F1-F12 preset shortcuts (no modifiers)
+    if (!key.getModifiers().isAnyModifierKeyDown()) {
+        for (int i = 0; i < 12; ++i) {
+            if (key == juce::KeyPress(static_cast<int>(juce::KeyPress::F1Key) + i)) {
+                handlePresetShortcut(i);
+                return true;
+            }
+        }
+    }
 
     const auto handled = keyboardMidiMapper.handleKeyPressed(key, audioEngine.getKeyboardState());
 
@@ -468,8 +497,16 @@ SettingsModel::PerformanceSettingsView MainComponent::getPerformanceSettingsFrom
 }
 
 juce::String MainComponent::getLastPluginNameForRecoveryStateFromUi() const {
-    return pluginHost.hasLoadedPlugin() ? pluginHost.getCurrentPluginName()
-                                        : pluginPanel.getSelectedPluginName().trim();
+    if (pluginHost.hasLoadedPlugin())
+        return pluginHost.getCurrentPluginName();
+
+    auto selected = pluginPanel.getSelectedPluginName().trim();
+    if (selected.isNotEmpty())
+        return selected;
+
+    // Fallback: during early startup the UI may not be populated yet;
+    // preserve the model's persisted value so saveSettingsSoon() doesn't clear it.
+    return appSettings.lastPluginName;
 }
 
 SettingsModel::PluginRecoverySettingsView MainComponent::getPluginRecoverySettingsFromUi() const {
@@ -509,16 +546,11 @@ void MainComponent::applyUiStateToAudioEngine() {
 void MainComponent::syncUiFromSettings() {
     applyPerformanceSettingsToUi(appSettings.getPerformanceSettingsView());
 
-    juce::StringArray layoutIds = { "default.freepiano.minimal", "default.freepiano.full" };
-    juce::StringArray layoutDisplayNames = { "FreePiano Minimal", "FreePiano Full" };
-
-    auto userLayouts = devpiano::layout::scanUserLayoutDirectory();
-    for (const auto& layout : userLayouts) {
-        layoutIds.add(layout.id);
-        layoutDisplayNames.add(layout.name.isNotEmpty() ? layout.name : layout.id);
+    if (presetFlowSupport != nullptr) {
+        controlsPanel.setPresets(presetFlowSupport->getPresetIds(),
+                                 presetFlowSupport->getCurrentPresetId(),
+                                 presetFlowSupport->getPresetDisplayNames());
     }
-
-    controlsPanel.setLayouts(layoutIds, appSettings.getInputMappingSettingsView().layoutId, layoutDisplayNames);
 
     keyboardPanel.setKeyboardLayout(keyboardMidiMapper.getLayout());
     {
@@ -537,10 +569,6 @@ void MainComponent::syncSettingsFromUi() {
     appSettings.applyPerformanceSettingsView(getPerformanceSettingsFromUi());
 
     applyPluginRecoverySettings(getPluginRecoverySettingsFromUi());
-
-    appSettings.applyInputMappingSettingsView(
-        { .layoutId = keyboardMidiMapper.getLayout().id,
-          .keyMap = devpiano::settings::layoutToKeyMap(keyboardMidiMapper.getLayout()) });
 }
 
 void MainComponent::suppressTextInputMethods() {
