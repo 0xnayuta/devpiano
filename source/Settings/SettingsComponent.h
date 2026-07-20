@@ -101,6 +101,10 @@ public:
         midiTransposeToggle.setButtonText(TRANS("MIDI Transpose"));
         if (model)
             midiTransposeToggle.setToggleState(model->midiTranspose, juce::dontSendNotification);
+        midiTransposeToggle.onStateChange = [this] {
+            editingState.setProperty("midiTranspose",
+                                     midiTransposeToggle.getToggleState(), nullptr);
+        };
         addAndMakeVisible(midiTransposeToggle);
 
         // Channel Follow Key toggles
@@ -179,8 +183,8 @@ public:
             editingState.getPropertyAsValue("resizableWindow", nullptr).referTo(resizableToggle.getToggleStateValue());
             editingState.getPropertyAsValue("showInstrumentFilter", nullptr)
                 .referTo(instrumentFilterToggle.getToggleStateValue());
-            editingState.getPropertyAsValue("midiTranspose", nullptr)
-                .referTo(midiTransposeToggle.getToggleStateValue());
+            // midiTransposeToggle uses explicit onStateChange (not referTo) —
+            // see constructor above.
         }
 
         deviceManager.addChangeListener(this);
