@@ -31,34 +31,45 @@ bool RecordingEngine::isRecording() const noexcept {
 }
 
 bool RecordingEngine::hasTake() const noexcept {
+    // Must not be called during active recording — events vector is being
+    // mutated by the audio thread.  Callers should use RecordingSessionController's
+    // local-take copy (recordingSession.hasTake()) for during-recording checks.
+    jassert(!isRecording());
     return !currentTake.isEmpty();
 }
 
 bool RecordingEngine::hasDroppedEvents() const noexcept {
-    return droppedEventCount > 0;
+    return droppedEventCount.load(std::memory_order_relaxed) > 0;
 }
 
 std::size_t RecordingEngine::getDroppedEventCount() const noexcept {
-    return droppedEventCount;
-}
-
-std::size_t RecordingEngine::getReservedEventCapacity() const noexcept {
-    return currentTake.events.capacity();
+    return droppedEventCount.load(std::memory_order_relaxed);
 }
 
 std::int64_t RecordingEngine::getCurrentPositionSamples() const noexcept {
-    return currentPositionSamples;
+    return currentPositionSamples.load(std::memory_order_relaxed);
 }
 
 double RecordingEngine::getSampleRate() const noexcept {
     return currentTake.sampleRate;
 }
 
+std::size_t RecordingEngine::getReservedEventCapacity() const noexcept {
+    // capacity() is a read-only query on vector metadata — safe even during recording.
+    return currentTake.events.capacity();
+}
+
 const RecordingTake& RecordingEngine::getCurrentTake() const noexcept {
+    // Must not be called during active recording — the returned reference aliases
+    // the events vector that the audio thread is mutating.
+    jassert(!isRecording());
     return currentTake;
 }
 
 RecordingTake RecordingEngine::createTakeSnapshot() const {
+    // Must not be called during active recording — copies the events vector
+    // while the audio thread may be pushing new events into it.
+    jassert(!isRecording());
     return currentTake;
 }
 
@@ -70,8 +81,8 @@ void RecordingEngine::startRecording(double sampleRate) {
     currentTake.events.clear();
     currentTake.sampleRate = std::max(sampleRate, 0.0);
     currentTake.lengthSamples = 0;
-    currentPositionSamples = 0;
-    droppedEventCount = 0;
+    currentPositionSamples.store(0, std::memory_order_relaxed);
+    droppedEventCount.store(0, std::memory_order_relaxed);
     playbackEndedPending.store(false, std::memory_order_release);
     state.store(RecordingState::recording, std::memory_order_release);
 
@@ -80,7 +91,8 @@ void RecordingEngine::startRecording(double sampleRate) {
 
 RecordingTake RecordingEngine::stopRecording() {
     if (isRecording())
-        currentTake.lengthSamples = std::max(currentTake.lengthSamples, currentPositionSamples);
+        currentTake.lengthSamples
+            = std::max(currentTake.lengthSamples, currentPositionSamples.load(std::memory_order_relaxed));
 
     state.store(RecordingState::stopped, std::memory_order_release);
 
@@ -94,8 +106,8 @@ void RecordingEngine::clear() {
     currentTake.events.clear();
     currentTake.sampleRate = 0.0;
     currentTake.lengthSamples = 0;
-    currentPositionSamples = 0;
-    droppedEventCount = 0;
+    currentPositionSamples.store(0, std::memory_order_relaxed);
+    droppedEventCount.store(0, std::memory_order_relaxed);
     playbackEndedPending.store(false, std::memory_order_release);
     state.store(RecordingState::idle, std::memory_order_release);
 
@@ -106,8 +118,9 @@ void RecordingEngine::advanceRecordingPosition(std::int64_t numSamples) noexcept
     if (!isRecording() || numSamples <= 0)
         return;
 
-    currentPositionSamples += numSamples;
-    currentTake.lengthSamples = std::max(currentTake.lengthSamples, currentPositionSamples);
+    currentPositionSamples.fetch_add(numSamples, std::memory_order_relaxed);
+    currentTake.lengthSamples
+        = std::max(currentTake.lengthSamples, currentPositionSamples.load(std::memory_order_relaxed));
 }
 
 void RecordingEngine::recordEvent(const juce::MidiMessage& message, RecordingEventSource source,
@@ -136,7 +149,7 @@ void RecordingEngine::recordMidiBufferBlock(const juce::MidiBuffer& midiBuffer, 
         const auto timestamp = clampedBlockStart + std::max(metadata.samplePosition, 0);
         if (currentTake.events.size() >= currentTake.events.capacity()
             || metadata.numBytes > maxRealtimeMidiMessageBytes) {
-            ++droppedEventCount;
+            droppedEventCount.fetch_add(1, std::memory_order_relaxed);
             currentTake.lengthSamples = std::max(currentTake.lengthSamples, timestamp);
             continue;
         }
@@ -159,14 +172,14 @@ void RecordingEngine::recordPresetChange(uint8_t presetId, std::int64_t timestam
         return;
     }
 
-    currentTake.events.push_back({ ts, PerformanceEventType::presetChange, presetId,
-                                   RecordingEventSource::computerKeyboard, {} });
+    currentTake.events.push_back(
+        { ts, PerformanceEventType::presetChange, presetId, RecordingEventSource::computerKeyboard, {} });
     currentTake.lengthSamples = std::max(currentTake.lengthSamples, ts);
 }
 
 bool RecordingEngine::isCapacityExhausted(std::int64_t timestamp) noexcept {
     if (currentTake.events.size() >= currentTake.events.capacity()) {
-        ++droppedEventCount;
+        droppedEventCount.fetch_add(1, std::memory_order_relaxed);
         currentTake.lengthSamples = std::max(currentTake.lengthSamples, timestamp);
         return true;
     }
@@ -264,8 +277,8 @@ void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer, std::int
             auto target = static_cast<float>(event.message.getPitchWheelValue());
             smoothedPitchBend[ch] += 0.3f * (target - smoothedPitchBend[ch]);
 
-            auto smoothedMsg = juce::MidiMessage::pitchWheel(
-                static_cast<int>(ch) + 1, static_cast<int>(std::round(smoothedPitchBend[ch])));
+            auto smoothedMsg = juce::MidiMessage::pitchWheel(static_cast<int>(ch) + 1,
+                                                             static_cast<int>(std::round(smoothedPitchBend[ch])));
             smoothedMsg.setTimeStamp(event.message.getTimeStamp());
             midiBuffer.addEvent(smoothedMsg, juce::jlimit(0, numSamples - 1, sampleOffset));
         } else {
@@ -305,7 +318,7 @@ std::vector<PendingPresetChange> RecordingEngine::drainPendingPresetChanges() {
     juce::CriticalSection::ScopedLockType lock(presetChangeLock);
     std::vector<PendingPresetChange> drained;
     drained.swap(pendingPresetChanges);
-    pendingPresetChanges.reserve(drained.capacity());  // preserve the pre-allocated capacity
+    pendingPresetChanges.reserve(drained.capacity()); // preserve the pre-allocated capacity
     return drained;
 }
 

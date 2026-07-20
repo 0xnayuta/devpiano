@@ -29,7 +29,9 @@ struct RecordingTake {
     [[nodiscard]] double durationSeconds() const noexcept;
 };
 
-struct PendingPresetChange { uint8_t presetId; };
+struct PendingPresetChange {
+    uint8_t presetId;
+};
 
 class RecordingEngine {
 public:
@@ -89,8 +91,8 @@ private:
 
     RecordingTake currentTake;
     std::atomic<RecordingState> state { RecordingState::idle };
-    std::int64_t currentPositionSamples = 0;
-    std::size_t droppedEventCount = 0;
+    std::atomic<std::int64_t> currentPositionSamples { 0 };
+    std::atomic<std::size_t> droppedEventCount { 0 };
 
     // Playback state
     RecordingTake playbackTake;
