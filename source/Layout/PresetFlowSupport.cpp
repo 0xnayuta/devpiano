@@ -108,9 +108,10 @@ void PresetFlowSupport::commitPreset(const PerformancePreset& preset) {
     s.channelMatrix = preset.channelMatrix;
     owner.reconfigureChannelMapper();
 
-    // 3. Keyboard display / musical settings
-    s.keySignature = preset.keySignature;
-    s.midiTranspose = preset.midiTranspose;
+    // 3. Keyboard display settings
+    // NOTE: keySignature and midiTranspose are live app-level settings managed
+    // by the Audio Settings dialog, NOT by presets. They are intentionally NOT
+    // overwritten here so that persisted values survive preset loading at startup.
     s.keyboardColourMode = preset.colourMode;
     s.keyboardNoteDisplay = preset.noteDisplay;
     s.keyboardFadeSpeed = preset.fadeSpeed;
