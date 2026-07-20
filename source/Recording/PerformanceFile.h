@@ -64,6 +64,12 @@ bool savePerformanceFile(const RecordingTake& take, const juce::File& destinatio
 // Returns std::nullopt on failure (parse error, wrong format, missing fields).
 std::optional<RecordingTake> loadPerformanceFile(const juce::File& sourceFile);
 
+// Load only the metadata block from a .devpiano file without parsing events.
+// Returns std::nullopt if the file cannot be read or has an invalid format.
+// For legacy files that lack a metadata key, returns an empty (default) struct.
+std::optional<PerformanceFileMetadata> loadPerformanceFileMetadata(const juce::File& sourceFile);
+
+
 // --- Low-level serialisation (for testing / reuse) ---
 
 // Serialise a RecordingTake to a JSON string.

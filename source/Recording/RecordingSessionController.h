@@ -9,6 +9,7 @@
 
 #include "Recording/RecordingEngine.h"
 #include "UI/ControlsPanel.h"
+#include "Recording/PerformanceFile.h"
 
 class AudioEngine;
 class MainComponent;
@@ -25,6 +26,8 @@ public:
     struct RecordingSession {
         RecordingTake take;
         bool canExportMidi = false;
+        PerformanceFileMetadata currentMetadata;
+        juce::File currentPerformanceFile;
         ControlsPanel::RecordingState state = ControlsPanel::RecordingState::idle;
 
         [[nodiscard]] bool hasTake() const noexcept {
@@ -54,6 +57,7 @@ public:
     void handleImportMidiClicked();
     void handleSavePerformanceClicked();
     void handleOpenPerformanceClicked();
+    void handleSongInfoClicked();
     void handleOpenPerformanceFile(const juce::File& file);
     void handleImportMidiFile(const juce::File& file);
     void handlePlaybackSpeedChange(double speed);

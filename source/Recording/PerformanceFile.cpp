@@ -103,6 +103,16 @@ juce::var metadataToVar(const PerformanceFileMetadata& metadata) {
     return obj.get();
 }
 
+PerformanceFileMetadata metadataFromVar(const juce::var& v) {
+    PerformanceFileMetadata m;
+    if (auto* obj = v.getDynamicObject()) {
+        m.createdAt = obj->getProperty(performance_file::keyCreatedAt).toString();
+        m.title = obj->getProperty(performance_file::keyTitle).toString();
+        m.notes = obj->getProperty(performance_file::keyNotes).toString();
+    }
+    return m;
+}
+
 // --- ISO 8601 timestamp ---
 
 juce::String currentIso8601() {
@@ -211,6 +221,34 @@ std::optional<RecordingTake> loadPerformanceFile(const juce::File& sourceFile) {
         return std::nullopt;
 
     return deserialiseTakeFromJson(json);
+}
+
+std::optional<PerformanceFileMetadata> loadPerformanceFileMetadata(const juce::File& sourceFile) {
+    if (!sourceFile.existsAsFile())
+        return std::nullopt;
+
+    auto json = sourceFile.loadFileAsString();
+    if (json.isEmpty())
+        return std::nullopt;
+
+    auto parsed = juce::JSON::parse(json);
+    if (!parsed.isObject())
+        return std::nullopt;
+
+    auto* root = parsed.getDynamicObject();
+    if (root == nullptr)
+        return std::nullopt;
+
+    // Check format identifier (same guard as deserialiseTakeFromJson)
+    auto format = root->getProperty(performance_file::keyFormat).toString();
+    if (format != performance_file::formatIdentifier)
+        return std::nullopt;
+
+    auto metadataVar = root->getProperty(performance_file::keyMetadata);
+    if (metadataVar.isVoid())
+        return PerformanceFileMetadata {}; // legacy files: return empty metadata
+
+    return metadataFromVar(metadataVar);
 }
 
 } // namespace devpiano::recording

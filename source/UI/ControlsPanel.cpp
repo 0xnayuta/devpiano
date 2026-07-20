@@ -109,6 +109,12 @@ ControlsPanel::ControlsPanel() {
             onRecentFilesClicked();
     };
 
+    addAndMakeVisible(songInfoButton);
+    songInfoButton.onClick = [this] {
+        if (onSongInfoRequested)
+            onSongInfoRequested();
+    };
+
     // Playback speed
     playbackSpeedLabel.setText(TRANS("Speed"), juce::dontSendNotification);
     playbackSpeedLabel.setJustificationType(juce::Justification::centredLeft);
@@ -139,6 +145,7 @@ ControlsPanel::~ControlsPanel() {
     playButton.onClick = nullptr;
     stopButton.onClick = nullptr;
     backToStartButton.onClick = nullptr;
+    songInfoButton.onClick = nullptr;
     exportMidiButton.onClick = nullptr;
     exportWavButton.onClick = nullptr;
     importMidiButton.onClick = nullptr;
@@ -201,6 +208,8 @@ void ControlsPanel::resized() {
     exportWavButton.setBounds(buttonRow.removeFromLeft(90));
     buttonRow.removeFromLeft(6);
     recentFilesButton.setBounds(buttonRow.removeFromLeft(60));
+    buttonRow.removeFromLeft(6);
+    songInfoButton.setBounds(buttonRow.removeFromLeft(80));
 }
 
 void ControlsPanel::setRecordingControlsState(RecordingControlsState state) {
@@ -374,6 +383,7 @@ void ControlsPanel::refreshTexts() {
     recentFilesButton.setButtonText(TRANS("Recent"));
     savePerformanceButton.setButtonText(TRANS("Save"));
     openPerformanceButton.setButtonText(TRANS("Open"));
+    songInfoButton.setButtonText(TRANS("Song Info"));
 
     updateRecordingActionButtons();
 }

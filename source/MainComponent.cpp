@@ -100,6 +100,7 @@ MainComponent::~MainComponent() {
     controlsPanel.onSavePerformanceClicked = {};
     controlsPanel.onOpenPerformanceClicked = {};
     controlsPanel.onRecentFilesClicked = {};
+    controlsPanel.onSongInfoRequested = {};
     headerPanel.onSettingsRequested = {};
     appSettings.keyboardScrollOffsetX = keyboardPanel.getViewPositionX();
     saveSettingsNow();
@@ -175,6 +176,7 @@ void MainComponent::initialiseUi() {
     controlsPanel.onOpenPerformanceClicked = [this] { recordingSessionController->handleOpenPerformanceClicked(); };
     controlsPanel.onPlaybackSpeedChange
         = [this](double speed) { recordingSessionController->handlePlaybackSpeedChange(speed); };
+    controlsPanel.onSongInfoRequested = [this] { recordingSessionController->handleSongInfoClicked(); };
     controlsPanel.onRecentFilesClicked = [this] { showRecentFilesMenu(); };
     recordingSessionController->onFileOpened = [this](const juce::File& file) {
         recentFiles.addFile(file);

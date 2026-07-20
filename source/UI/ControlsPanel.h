@@ -32,6 +32,7 @@ public:
     std::function<void()> onSavePerformanceClicked;
     std::function<void()> onOpenPerformanceClicked;
     std::function<void()> onRecentFilesClicked;
+    std::function<void()> onSongInfoRequested;
     std::function<void(double)> onPlaybackSpeedChange;
 
     void setPresets(const juce::StringArray& presetIds, const juce::String& currentPresetId,
@@ -88,6 +89,7 @@ private:
     juce::TextButton importMidiButton { TRANS("Import MIDI") };
     juce::TextButton savePerformanceButton { TRANS("Save") };
     juce::TextButton openPerformanceButton { TRANS("Open") };
+    juce::TextButton songInfoButton { TRANS("Song Info") };
     juce::TextButton recentFilesButton { TRANS("Recent") };
 
     juce::Label playbackSpeedLabel;

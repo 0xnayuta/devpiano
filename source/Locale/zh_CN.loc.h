@@ -99,6 +99,10 @@ countries: cn
 "Import MIDI File" = "导入 MIDI 文件"
 "Open Performance" = "打开演奏文件"
 
+"Song Info" = "乐曲信息"
+"Song Information" = "乐曲信息"
+"Song Title" = "乐曲名称"
+"Notes" = "备注"
 "Audio Settings" = "音频设置"
 
 "Audio device type:" = "音频设备类型："
