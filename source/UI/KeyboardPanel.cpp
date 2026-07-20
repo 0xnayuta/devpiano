@@ -14,6 +14,13 @@ KeyboardPanel::~KeyboardPanel() = default;
 
 void KeyboardPanel::resized() {
     viewport->setBounds(getLocalBounds());
+
+    // Sync CustomKeyboard height to Viewport so keys fill the available
+    // vertical space without clipping.  The Viewport handles horizontal
+    // scrolling; vertical should always be exact-fit.
+    auto vpHeight = viewport->getMaximumVisibleHeight();
+    if (vpHeight > 0 && customKeyboard->getHeight() != vpHeight)
+        customKeyboard->setSize(customKeyboard->getWidth(), vpHeight);
 }
 
 void KeyboardPanel::setKeyboardLayout(const devpiano::core::KeyboardLayout& layout) {

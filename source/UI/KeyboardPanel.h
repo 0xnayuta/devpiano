@@ -27,7 +27,7 @@ public:
     // Scroll viewport to align a MIDI note at the left edge.
     // When pixelOffset >= 0: restore from persisted pixel position directly.
     // When pixelOffset < 0 (sentinel): compute position from midiNote.
-    void setViewPosition(int midiNote, int pixelOffset = 0);
+    void setViewPosition(int midiNote, int pixelOffset = -1);
     [[nodiscard]] int getViewPositionX() const noexcept;
 
 private:
