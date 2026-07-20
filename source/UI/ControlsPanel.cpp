@@ -1,15 +1,5 @@
 #include "ControlsPanel.h"
 
-juce::String ControlsPanel::makeLayoutDisplayName(const juce::String& layoutId) {
-    if (layoutId == "default.freepiano.minimal")
-        return "FreePiano Minimal";
-
-    if (layoutId == "default.freepiano.full")
-        return "FreePiano Full";
-
-    return layoutId;
-}
-
 ControlsPanel::ControlsPanel() {
     configureSlider(volumeSlider, volumeLabel, TRANS("Volume"), 0.0, 1.0);
     configureSlider(attackSlider, attackLabel, TRANS("Attack"), 0.001, 2.0);
@@ -17,57 +7,44 @@ ControlsPanel::ControlsPanel() {
     configureSlider(sustainSlider, sustainLabel, TRANS("Sustain"), 0.0, 1.0);
     configureSlider(releaseSlider, releaseLabel, TRANS("Release"), 0.001, 3.0);
 
-    layoutLabel.setText(TRANS("Layout"), juce::dontSendNotification);
-    layoutLabel.setJustificationType(juce::Justification::centredLeft);
-    addAndMakeVisible(layoutLabel);
+    // --- Preset row ---
+    presetLabel.setText(TRANS("Preset"), juce::dontSendNotification);
+    presetLabel.setJustificationType(juce::Justification::centredLeft);
+    addAndMakeVisible(presetLabel);
 
-    addAndMakeVisible(layoutComboBox);
-    layoutComboBox.setTextWhenNothingSelected("FreePiano Minimal");
-    layoutComboBox.onChange = [this] {
-        updateLayoutActionButtons();
-
-        const auto selectedId = layoutComboBox.getSelectedId();
-        if (selectedId <= 0 || !onLayoutChanged)
+    addAndMakeVisible(presetComboBox);
+    presetComboBox.setTextWhenNothingSelected("Default");
+    presetComboBox.onChange = [this] {
+        const auto selectedId = presetComboBox.getSelectedId();
+        if (selectedId <= 0 || !onPresetChanged)
             return;
 
         const auto index = selectedId - 1;
-        if (!juce::isPositiveAndBelow(index, availableLayoutIds.size()))
+        if (!juce::isPositiveAndBelow(index, availablePresetIds.size()))
             return;
 
-        onLayoutChanged(availableLayoutIds[index]);
-    };
-    layoutComboBox.addMouseListener(this, true);
-
-    addAndMakeVisible(saveLayoutButton);
-    saveLayoutButton.onClick = [this] {
-        if (onSaveLayoutRequested)
-            onSaveLayoutRequested();
+        onPresetChanged(availablePresetIds[index]);
     };
 
-    addAndMakeVisible(resetLayoutButton);
-    resetLayoutButton.onClick = [this] {
-        if (onResetLayoutRequested)
-            onResetLayoutRequested();
+    addAndMakeVisible(saveAsNewPresetButton);
+    saveAsNewPresetButton.onClick = [this] {
+        if (onSaveAsNewPresetRequested)
+            onSaveAsNewPresetRequested();
     };
 
-    addAndMakeVisible(importLayoutButton);
-    importLayoutButton.onClick = [this] {
-        if (onImportLayoutRequested)
-            onImportLayoutRequested();
+    addAndMakeVisible(renamePresetButton);
+    renamePresetButton.onClick = [this] {
+        if (onRenamePresetRequested)
+            onRenamePresetRequested();
     };
 
-    addAndMakeVisible(renameLayoutButton);
-    renameLayoutButton.onClick = [this] {
-        if (onRenameLayoutRequested)
-            onRenameLayoutRequested();
+    addAndMakeVisible(deletePresetButton);
+    deletePresetButton.onClick = [this] {
+        if (onDeletePresetRequested)
+            onDeletePresetRequested();
     };
 
-    addAndMakeVisible(deleteLayoutButton);
-    deleteLayoutButton.onClick = [this] {
-        if (onDeleteLayoutRequested)
-            onDeleteLayoutRequested();
-    };
-
+    // --- Recording row ---
     recordStatusLabel.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(recordStatusLabel);
 
@@ -95,6 +72,12 @@ ControlsPanel::ControlsPanel() {
             onBackToStartClicked();
     };
 
+    addAndMakeVisible(importMidiButton);
+    importMidiButton.onClick = [this] {
+        if (onImportMidiClicked)
+            onImportMidiClicked();
+    };
+
     addAndMakeVisible(exportMidiButton);
     exportMidiButton.onClick = [this] {
         if (onExportMidiClicked)
@@ -105,12 +88,6 @@ ControlsPanel::ControlsPanel() {
     exportWavButton.onClick = [this] {
         if (onExportWavClicked)
             onExportWavClicked();
-    };
-
-    addAndMakeVisible(importMidiButton);
-    importMidiButton.onClick = [this] {
-        if (onImportMidiClicked)
-            onImportMidiClicked();
     };
 
     addAndMakeVisible(savePerformanceButton);
@@ -131,23 +108,18 @@ ControlsPanel::ControlsPanel() {
             onRecentFilesClicked();
     };
 
+    // Playback speed
     playbackSpeedLabel.setText(TRANS("Speed"), juce::dontSendNotification);
     playbackSpeedLabel.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(playbackSpeedLabel);
-
-    addAndMakeVisible(playbackSpeedSlider);
-    playbackSpeedSlider.setRange(0.5, 2.0, 0.01);
+    playbackSpeedSlider.setRange(0.5, 2.0, 0.25);
     playbackSpeedSlider.setSliderStyle(juce::Slider::LinearHorizontal);
     playbackSpeedSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 80, 22);
-    playbackSpeedSlider.setValue(1.0, juce::dontSendNotification);
     playbackSpeedSlider.onValueChange = [this] {
         if (onPlaybackSpeedChange)
             onPlaybackSpeedChange(playbackSpeedSlider.getValue());
     };
-
-    setRecordingControlsState({});
-
-    updateLayoutActionButtons();
+    addAndMakeVisible(playbackSpeedSlider);
 }
 
 ControlsPanel::~ControlsPanel() {
@@ -156,12 +128,10 @@ ControlsPanel::~ControlsPanel() {
     decaySlider.onValueChange = nullptr;
     sustainSlider.onValueChange = nullptr;
     releaseSlider.onValueChange = nullptr;
-    layoutComboBox.onChange = nullptr;
-    saveLayoutButton.onClick = nullptr;
-    resetLayoutButton.onClick = nullptr;
-    importLayoutButton.onClick = nullptr;
-    renameLayoutButton.onClick = nullptr;
-    deleteLayoutButton.onClick = nullptr;
+    presetComboBox.onChange = nullptr;
+    saveAsNewPresetButton.onClick = nullptr;
+    renamePresetButton.onClick = nullptr;
+    deletePresetButton.onClick = nullptr;
     recordButton.onClick = nullptr;
     playButton.onClick = nullptr;
     stopButton.onClick = nullptr;
@@ -193,22 +163,20 @@ void ControlsPanel::resized() {
     layoutSliderRow(releaseSlider, releaseLabel);
     layoutSliderRow(playbackSpeedSlider, playbackSpeedLabel);
 
+    // Preset row
     auto row = area.removeFromTop(rowHeight);
-    layoutLabel.setBounds(row.removeFromLeft(80));
-    layoutComboBox.setBounds(row.removeFromLeft(200));
+    presetLabel.setBounds(row.removeFromLeft(80));
+    presetComboBox.setBounds(row.removeFromLeft(200));
     row.removeFromLeft(8);
-    saveLayoutButton.setBounds(row.removeFromLeft(90));
+    saveAsNewPresetButton.setBounds(row.removeFromLeft(100));
     row.removeFromLeft(8);
-    resetLayoutButton.setBounds(row.removeFromLeft(60));
+    renamePresetButton.setBounds(row.removeFromLeft(70));
     row.removeFromLeft(8);
-    importLayoutButton.setBounds(row.removeFromLeft(60));
-    row.removeFromLeft(8);
-    renameLayoutButton.setBounds(row.removeFromLeft(70));
-    row.removeFromLeft(8);
-    deleteLayoutButton.setBounds(row.removeFromLeft(60));
+    deletePresetButton.setBounds(row.removeFromLeft(60));
 
     area.removeFromTop(12);
 
+    // Recording controls row
     auto buttonRow = area.removeFromTop(rowHeight);
     recordStatusLabel.setBounds(buttonRow.removeFromLeft(80));
     savePerformanceButton.setBounds(buttonRow.removeFromLeft(50));
@@ -230,12 +198,10 @@ void ControlsPanel::resized() {
     exportWavButton.setBounds(buttonRow.removeFromLeft(90));
     buttonRow.removeFromLeft(6);
     recentFilesButton.setBounds(buttonRow.removeFromLeft(60));
-    // Speed controls moved to slider section above (row 6)
 }
 
 void ControlsPanel::setRecordingControlsState(RecordingControlsState state) {
     recordingControlsState = state;
-
     updateRecordingActionButtons();
 }
 
@@ -308,28 +274,30 @@ void ControlsPanel::setValues(float masterGain, float attack, float decay, float
     releaseSlider.setValue(release, juce::dontSendNotification);
 }
 
-void ControlsPanel::setLayouts(const juce::StringArray& layoutIds, const juce::String& currentLayoutId,
-                               const juce::StringArray& layoutDisplayNames) {
-    availableLayoutIds = layoutIds;
+void ControlsPanel::setPresets(const juce::StringArray& presetIds, const juce::String& currentPresetId,
+                                const juce::StringArray& presetDisplayNames) {
+    availablePresetIds = presetIds;
 
-    layoutComboBox.clear(juce::dontSendNotification);
-    for (int i = 0; i < layoutIds.size(); ++i) {
+    presetComboBox.clear(juce::dontSendNotification);
+    for (int i = 0; i < presetIds.size(); ++i) {
         auto displayName
-            = (i < layoutDisplayNames.size()) ? layoutDisplayNames[i] : makeLayoutDisplayName(layoutIds[i]);
-        layoutComboBox.addItem(displayName, i + 1);
+            = (i < presetDisplayNames.size()) ? presetDisplayNames[i] : presetIds[i];
+        presetComboBox.addItem(displayName, i + 1);
     }
 
-    const auto index = layoutIds.indexOf(currentLayoutId);
+    const auto index = presetIds.indexOf(currentPresetId);
     const auto selectedId = index >= 0 ? (index + 1) : 1;
-    layoutComboBox.setSelectedId(selectedId, juce::dontSendNotification);
-    updateLayoutActionButtons();
+    presetComboBox.setSelectedId(selectedId, juce::dontSendNotification);
 }
 
-void ControlsPanel::updateLayoutActionButtons() {
-    const auto selectedLayoutId = getSelectedLayoutId();
-    const auto isUserLayout = selectedLayoutId.isNotEmpty() && !selectedLayoutId.startsWith("default.");
-    renameLayoutButton.setEnabled(isUserLayout);
-    deleteLayoutButton.setEnabled(isUserLayout);
+juce::String ControlsPanel::getSelectedPresetId() const {
+    const auto selectedId = presetComboBox.getSelectedId();
+    if (selectedId <= 0)
+        return {};
+    const auto index = selectedId - 1;
+    if (!juce::isPositiveAndBelow(index, availablePresetIds.size()))
+        return {};
+    return availablePresetIds[index];
 }
 
 float ControlsPanel::getMasterGain() const {
@@ -350,16 +318,6 @@ float ControlsPanel::getSustain() const {
 
 float ControlsPanel::getRelease() const {
     return static_cast<float>(releaseSlider.getValue());
-}
-
-juce::String ControlsPanel::getSelectedLayoutId() const {
-    const auto selectedId = layoutComboBox.getSelectedId();
-    if (selectedId <= 0)
-        return {};
-    const auto index = selectedId - 1;
-    if (!juce::isPositiveAndBelow(index, availableLayoutIds.size()))
-        return {};
-    return availableLayoutIds[index];
 }
 
 void ControlsPanel::setPlaybackSpeed(double speed) {
@@ -383,21 +341,17 @@ void ControlsPanel::configureSlider(juce::Slider& slider, juce::Label& label, co
 }
 
 void ControlsPanel::refreshTexts() {
-    // Slider labels
     volumeLabel.setText(TRANS("Volume"), juce::dontSendNotification);
     attackLabel.setText(TRANS("Attack"), juce::dontSendNotification);
     decayLabel.setText(TRANS("Decay"), juce::dontSendNotification);
     sustainLabel.setText(TRANS("Sustain"), juce::dontSendNotification);
     releaseLabel.setText(TRANS("Release"), juce::dontSendNotification);
-    layoutLabel.setText(TRANS("Layout"), juce::dontSendNotification);
+    presetLabel.setText(TRANS("Preset"), juce::dontSendNotification);
     playbackSpeedLabel.setText(TRANS("Speed"), juce::dontSendNotification);
 
-    // Button texts (constructor initializers are evaluated once, so re-apply here)
-    saveLayoutButton.setButtonText(TRANS("Save Layout"));
-    resetLayoutButton.setButtonText(TRANS("Reset"));
-    importLayoutButton.setButtonText(TRANS("Import"));
-    renameLayoutButton.setButtonText(TRANS("Rename"));
-    deleteLayoutButton.setButtonText(TRANS("Delete"));
+    saveAsNewPresetButton.setButtonText(TRANS("Save As New"));
+    renamePresetButton.setButtonText(TRANS("Rename"));
+    deletePresetButton.setButtonText(TRANS("Delete"));
     recordButton.setButtonText(TRANS("Record"));
     playButton.setButtonText(TRANS("Play"));
     stopButton.setButtonText(TRANS("Stop"));
@@ -409,9 +363,9 @@ void ControlsPanel::refreshTexts() {
     savePerformanceButton.setButtonText(TRANS("Save"));
     openPerformanceButton.setButtonText(TRANS("Open"));
 
-    // Status text refreshed via setRecordingControlsState path
     updateRecordingActionButtons();
 }
+
 juce::Rectangle<int> ControlsPanel::getRecentFilesButtonScreenBounds() const noexcept {
     return recentFilesButton.getScreenBounds();
 }

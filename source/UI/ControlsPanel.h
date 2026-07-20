@@ -18,12 +18,10 @@ public:
     [[nodiscard]] float getRelease() const;
 
     std::function<void()> onValuesChanged;
-    std::function<void(const juce::String&)> onLayoutChanged;
-    std::function<void()> onSaveLayoutRequested;
-    std::function<void()> onResetLayoutRequested;
-    std::function<void()> onImportLayoutRequested;
-    std::function<void()> onRenameLayoutRequested;
-    std::function<void()> onDeleteLayoutRequested;
+    std::function<void(const juce::String&)> onPresetChanged;
+    std::function<void()> onSaveAsNewPresetRequested;
+    std::function<void()> onRenamePresetRequested;
+    std::function<void()> onDeletePresetRequested;
     std::function<void()> onRecordClicked;
     std::function<void()> onPlayClicked;
     std::function<void()> onStopClicked;
@@ -36,10 +34,10 @@ public:
     std::function<void()> onRecentFilesClicked;
     std::function<void(double)> onPlaybackSpeedChange;
 
-    void setLayouts(const juce::StringArray& layoutIds, const juce::String& currentLayoutId,
-                    const juce::StringArray& layoutDisplayNames);
+    void setPresets(const juce::StringArray& presetIds, const juce::String& currentPresetId,
+                    const juce::StringArray& presetDisplayNames);
 
-    [[nodiscard]] juce::String getSelectedLayoutId() const;
+    [[nodiscard]] juce::String getSelectedPresetId() const;
 
     enum class RecordingState { idle, recording, playing };
     struct RecordingControlsState {
@@ -55,33 +53,29 @@ public:
     [[nodiscard]] juce::Rectangle<int> getRecentFilesButtonScreenBounds() const noexcept;
 
 private:
-    [[nodiscard]] static juce::String makeLayoutDisplayName(const juce::String& layoutId);
     void updateRecordingActionButtons();
-    void updateLayoutActionButtons();
 
     void configureSlider(juce::Slider& slider, juce::Label& label, const juce::String& text, double minimum,
                          double maximum, double interval = 0.001);
 
-    juce::StringArray availableLayoutIds;
+    juce::StringArray availablePresetIds;
 
     juce::Label volumeLabel;
     juce::Label attackLabel;
     juce::Label decayLabel;
     juce::Label sustainLabel;
     juce::Label releaseLabel;
-    juce::Label layoutLabel;
+    juce::Label presetLabel;
 
     juce::Slider volumeSlider;
     juce::Slider attackSlider;
     juce::Slider decaySlider;
     juce::Slider sustainSlider;
     juce::Slider releaseSlider;
-    juce::ComboBox layoutComboBox;
-    juce::TextButton saveLayoutButton { TRANS("Save Layout") };
-    juce::TextButton resetLayoutButton { TRANS("Reset") };
-    juce::TextButton importLayoutButton { TRANS("Import") };
-    juce::TextButton renameLayoutButton { TRANS("Rename") };
-    juce::TextButton deleteLayoutButton { TRANS("Delete") };
+    juce::ComboBox presetComboBox;
+    juce::TextButton saveAsNewPresetButton { TRANS("Save As New") };
+    juce::TextButton renamePresetButton { TRANS("Rename") };
+    juce::TextButton deletePresetButton { TRANS("Delete") };
 
     juce::Label recordStatusLabel;
     juce::TextButton recordButton { TRANS("Record") };
@@ -95,7 +89,7 @@ private:
     juce::TextButton openPerformanceButton { TRANS("Open") };
     juce::TextButton recentFilesButton { TRANS("Recent") };
 
-    juce::Label playbackSpeedLabel; // "Speed" set in refreshTexts
+    juce::Label playbackSpeedLabel;
 
     juce::Slider playbackSpeedSlider;
 
