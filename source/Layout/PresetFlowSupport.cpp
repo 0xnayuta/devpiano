@@ -55,22 +55,25 @@ void PresetFlowSupport::applyPresetById(const juce::String& presetId) {
 
     for (const auto& p : cachedPresets) {
         if (p.name == id) {
-            applyPresetData(p);
+            // Set currentPresetId BEFORE applyPresetData so that
+            // updateUiAfterCommit → setPresets sees the new ID.
             currentPresetId = id;
+            applyPresetData(p);
             return;
         }
     }
 
     DP_LOG_WARN("[Preset] preset not found: " + id);
 }
+
 void PresetFlowSupport::applyPresetByIndex(int index) {
     refreshCache();
     if (index < 0 || index >= static_cast<int>(cachedPresets.size()))
         return;
 
-    auto name = cachedPresets[static_cast<std::size_t>(index)].name;  // copy before applyPresetData
+    // Set currentPresetId BEFORE applyPresetData (same race as applyPresetById).
+    currentPresetId = cachedPresets[static_cast<std::size_t>(index)].name;
     applyPresetData(cachedPresets[static_cast<std::size_t>(index)]);
-    currentPresetId = name;
 }
 
 void PresetFlowSupport::applyPresetData(const PerformancePreset& preset) {
