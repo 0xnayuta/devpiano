@@ -575,6 +575,7 @@ void MainComponent::syncUiFromSettings() {
         ks.colourMode = kbs.colourMode;
         ks.noteDisplay = kbs.noteDisplay;
         ks.fadeSpeed = kbs.fadeSpeed;
+        ks.keySignature = appSettings.keySignature;
         ks.customKeyLabels = kbs.customKeyLabels;
         ks.customKeyColours = kbs.customKeyColours;
         keyboardPanel.getCustomKeyboard().setKeyboardSettings(ks);

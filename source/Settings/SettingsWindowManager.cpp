@@ -180,9 +180,9 @@ void SettingsWindowManager::showFor(MainComponent& owner) {
               ks.colourMode = kbs.colourMode;
               ks.noteDisplay = kbs.noteDisplay;
               ks.fadeSpeed = kbs.fadeSpeed;
+              ks.keySignature = safe->appSettings.keySignature;
               ks.customKeyLabels = kbs.customKeyLabels;
               ks.customKeyColours = kbs.customKeyColours;
-              safe->keyboardPanel.getCustomKeyboard().setKeyboardSettings(ks);
 
               safe->pluginPanel.setInstrumentFilterVisible(kbs.showInstrumentFilter);
 
