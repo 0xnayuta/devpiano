@@ -118,12 +118,10 @@ target_sources(devpiano PRIVATE
     source/Settings/SettingsComponent.h
     source/Settings/SettingsWindowManager.cpp
     source/Settings/SettingsWindowManager.h
-    source/Layout/LayoutPreset.cpp
-    source/Layout/LayoutPreset.h
-    source/Layout/LayoutDirectoryScanner.cpp
-    source/Layout/LayoutDirectoryScanner.h
-    source/Layout/LayoutFlowSupport.cpp
-    source/Layout/LayoutFlowSupport.h
+    source/Layout/PerformancePreset.cpp
+    source/Layout/PerformancePreset.h
+    source/Layout/PresetFlowSupport.cpp
+    source/Layout/PresetFlowSupport.h
     source/Diagnostics/Log.h
     source/Diagnostics/DevPianoLogger.h
     source/Diagnostics/DevPianoLogger.cpp
