@@ -85,6 +85,7 @@ public:
 
 private:
     [[nodiscard]] std::int64_t getScaledPlaybackLengthSamples() const noexcept;
+    [[nodiscard]] bool isCapacityExhausted(std::int64_t timestamp) noexcept;
 
     RecordingTake currentTake;
     std::atomic<RecordingState> state { RecordingState::idle };

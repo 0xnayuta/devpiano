@@ -1,4 +1,5 @@
 #include "Layout/PerformancePreset.h"
+#include <algorithm>
 
 namespace {
 
@@ -303,9 +304,10 @@ bool savePreset(const PerformancePreset& preset, const juce::File& path) {
         kbo->setProperty("colourMode", static_cast<int>(preset.colourMode));
         kbo->setProperty("noteDisplay", static_cast<int>(preset.noteDisplay));
         kbo->setProperty("fadeSpeed", preset.fadeSpeed);
-        kbo->setProperty("previewAlpha", preset.previewAlpha);
+        // previewAlpha intentionally not serialised — SettingsModel has no corresponding
+        // field; the value is reserved for future use.
 
-        // Sparse customKeyLabels: drop empty strings
+        // Custom key labels: write all 128 entries for simplicity
         {
             juce::Array<juce::var> labels;
             for (const auto& label : preset.customKeyLabels)
@@ -356,6 +358,11 @@ std::vector<PerformancePreset> scanPresetDirectory() {
         if (loaded.has_value())
             results.push_back(*loaded);
     }
+
+    std::sort(results.begin(), results.end(),
+              [](const PerformancePreset& a, const PerformancePreset& b) {
+                  return a.name.compareIgnoreCase(b.name) < 0;
+              });
 
     return results;
 }

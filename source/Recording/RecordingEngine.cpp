@@ -116,9 +116,7 @@ void RecordingEngine::recordEvent(const juce::MidiMessage& message, RecordingEve
         return;
 
     const auto clampedTimestamp = std::max<std::int64_t>(timestampSamples, 0);
-    if (currentTake.events.size() >= currentTake.events.capacity()) {
-        ++droppedEventCount;
-        currentTake.lengthSamples = std::max(currentTake.lengthSamples, clampedTimestamp);
+    if (isCapacityExhausted(clampedTimestamp)) {
         DP_DEBUG_LOG("[RecordingEngine] event DROPPED: capacity exhausted");
         return;
     }
@@ -156,15 +154,23 @@ void RecordingEngine::recordPresetChange(uint8_t presetId, std::int64_t timestam
         return;
 
     const auto ts = std::max<std::int64_t>(timestampSamples, 0);
-    if (currentTake.events.size() >= currentTake.events.capacity()) {
-        ++droppedEventCount;
-        currentTake.lengthSamples = std::max(currentTake.lengthSamples, ts);
+    if (isCapacityExhausted(ts)) {
+        DP_DEBUG_LOG("[RecordingEngine] presetChange DROPPED: capacity exhausted");
         return;
     }
 
     currentTake.events.push_back({ ts, PerformanceEventType::presetChange, presetId,
                                    RecordingEventSource::computerKeyboard, {} });
     currentTake.lengthSamples = std::max(currentTake.lengthSamples, ts);
+}
+
+bool RecordingEngine::isCapacityExhausted(std::int64_t timestamp) noexcept {
+    if (currentTake.events.size() >= currentTake.events.capacity()) {
+        ++droppedEventCount;
+        currentTake.lengthSamples = std::max(currentTake.lengthSamples, timestamp);
+        return true;
+    }
+    return false;
 }
 
 void RecordingEngine::startPlayback(const RecordingTake& take, double currentSampleRate) {
@@ -174,6 +180,18 @@ void RecordingEngine::startPlayback(const RecordingTake& take, double currentSam
     scaledPlaybackLengthSamples.store(getScaledPlaybackLengthSamples());
     playbackPositionSamples.store(0);
     playbackEndedPending.store(false, std::memory_order_release);
+
+    // Pre-allocate the preset-change queue so renderPlaybackBlock never allocates
+    {
+        juce::CriticalSection::ScopedLockType lock(presetChangeLock);
+        pendingPresetChanges.clear();
+        std::size_t presetEventCount = 0;
+        for (const auto& event : take.events)
+            if (event.type == PerformanceEventType::presetChange)
+                ++presetEventCount;
+        pendingPresetChanges.reserve(presetEventCount);
+    }
+
     state.store(RecordingState::playing, std::memory_order_release);
 
     DP_DEBUG_LOG("[RecordingEngine] playback STARTED: " + juce::String(take.events.size()) + " events, ratio="
@@ -221,6 +239,8 @@ void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer, std::int
         const auto scaledTimestamp
             = static_cast<std::int64_t>(static_cast<double>(event.timestampSamples) * combinedRatio);
 
+        // >= on the upper bound is intentional — the interval is half-open:
+        // events at blockEndSamples belong to the next block.
         if (scaledTimestamp < blockStartSamples || scaledTimestamp >= blockEndSamples)
             continue;
 
@@ -266,6 +286,7 @@ std::vector<PendingPresetChange> RecordingEngine::drainPendingPresetChanges() {
     juce::CriticalSection::ScopedLockType lock(presetChangeLock);
     std::vector<PendingPresetChange> drained;
     drained.swap(pendingPresetChanges);
+    pendingPresetChanges.reserve(drained.capacity());  // preserve the pre-allocated capacity
     return drained;
 }
 

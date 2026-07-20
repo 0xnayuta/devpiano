@@ -36,17 +36,16 @@ public:
     [[nodiscard]] juce::String getCurrentPresetId() const;
     [[nodiscard]] int getPresetCount() const;
 
+    [[nodiscard]] PerformancePreset captureCurrentState(const juce::String& name) const;
+
 private:
     void refreshCache();
     void commitPreset(const PerformancePreset& preset);
     void updateUiAfterCommit();
 
-    [[nodiscard]] PerformancePreset captureCurrentState(const juce::String& name) const;
-
     MainComponent& owner;
     std::vector<PerformancePreset> cachedPresets;
     juce::String currentPresetId;
-
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PresetFlowSupport)
 };
 

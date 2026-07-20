@@ -54,6 +54,7 @@ public:
 
 private:
     void updateRecordingActionButtons();
+    void updatePresetActionButtons();
 
     void configureSlider(juce::Slider& slider, juce::Label& label, const juce::String& text, double minimum,
                          double maximum, double interval = 0.001);

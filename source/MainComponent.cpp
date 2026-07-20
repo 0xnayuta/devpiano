@@ -86,6 +86,10 @@ MainComponent::~MainComponent() {
 
     juce::Logger::setCurrentLogger(nullptr);
     controlsPanel.onValuesChanged = {};
+    controlsPanel.onPresetChanged = {};
+    controlsPanel.onSaveAsNewPresetRequested = {};
+    controlsPanel.onRenamePresetRequested = {};
+    controlsPanel.onDeletePresetRequested = {};
     controlsPanel.onRecordClicked = {};
     controlsPanel.onPlayClicked = {};
     controlsPanel.onStopClicked = {};
@@ -97,7 +101,6 @@ MainComponent::~MainComponent() {
     controlsPanel.onOpenPerformanceClicked = {};
     controlsPanel.onRecentFilesClicked = {};
     headerPanel.onSettingsRequested = {};
-
     saveSettingsNow();
 
     pluginOperationController.reset();
@@ -255,6 +258,19 @@ void MainComponent::initialiseUi() {
                 // Refresh keyboard rendering (picks up label/colour changes)
                 syncUiFromSettings();
                 saveSettingsSoon();
+
+                // Persist binding changes to the current preset file (if user preset)
+                if (presetFlowSupport != nullptr) {
+                    auto currentId = presetFlowSupport->getCurrentPresetId();
+                    if (currentId.isNotEmpty()) {
+                        auto updatedPreset = presetFlowSupport->captureCurrentState(currentId);
+                        auto presetFile = devpiano::layout::getPresetDirectory()
+                                              .getChildFile(devpiano::layout::sanitisePresetFileName(currentId)
+                                                            + ".devpiano.preset");
+                        if (!devpiano::layout::savePreset(updatedPreset, presetFile))
+                            DP_LOG_WARN("[Preset] failed to auto-save after binding edit: " + currentId);
+                    }
+                }
             });
     };
 }

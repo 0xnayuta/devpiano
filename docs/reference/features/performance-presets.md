@@ -177,9 +177,8 @@ struct PerformancePreset {
 ### 3.3 Preset 注册与发现
 
 Preset 存储在用户配置目录 `DevPiano/Presets/` 下，扩展名 `.devpiano.preset` 的文件会被自动发现。
-
 `ControlsPanel` 的 preset 列表从两个来源聚合：
-1. 内置 `[Default]` preset（`makeDefaultPreset()` 返回的出厂默认值）
+1. 内置 `[Default]` preset（`makeDefaultPreset()` 返回的出厂默认值，通过 `setTextWhenNothingSelected` 显示为占位文本，不可被选中/删除/重命名）
 2. 用户 Preset 目录下所有 `.devpiano.preset` 文件
 
 ---
@@ -188,10 +187,9 @@ Preset 存储在用户配置目录 `DevPiano/Presets/` 下，扩展名 `.devpian
 
 ### 4.1 内置 Default Preset
 
-- 固定一个内置 preset：`[Default]`
-- 包含默认 36 键键盘布局（`makeDefaultKeyboardLayout()`）、身份通道矩阵和默认键盘显示设置
-- 下拉菜单中显示为 `[Default]` 友好名
-- `[Default]` 不可被删除或重命名
+- 固定一个内置 preset：`[Default]`，通过 `setTextWhenNothingSelected("Default")` 显示为 ComboBox 占位文本
+- 不可被选中、删除或重命名（Rename/Delete 按钮禁用）
+- 在以下场景自动应用：(a) 启动时无已持久化的用户 preset，(b) 删除当前活动 preset 后回退
 
 ### 4.2 Preset ID 与显示名称
 
@@ -204,13 +202,14 @@ Preset 存储在用户配置目录 `DevPiano/Presets/` 下，扩展名 `.devpian
 
 `Save As New` 弹出一个简短的文本输入对话框，用户输入名称后：
 - 名称经 `sanitisePresetFileName()` 处理（只保留字母数字、空格、连字符、下划线）
+- 若同名文件已存在，弹出覆盖确认对话框
 - 保存到 `DevPiano/Presets/<name>.devpiano.preset`
 - 立即将该 preset 设为当前活动 preset
 - 触发 `commitPreset()` → 更新 UI 和持久化 `lastActivePresetId`
 
 ### 4.4 导入行为
 
-- 可从任意位置选择 `.devpiano.preset` 文件
+- 通过拖放 `.devpiano.preset` 文件到主窗口导入（无独立 Import 按钮）
 - 保留原文件名复制到 Preset 目录
 - 若存在同名文件则覆盖
 - 导入后立即应用，刷新 dropdown，持久化
@@ -243,11 +242,11 @@ Preset 存储在用户配置目录 `DevPiano/Presets/` 下，扩展名 `.devpian
 `RecordingEngine` 支持 `PerformanceEventType::presetChange`：
 
 ```cpp
-void recordPresetChange(uint8_t presetId);
+void recordPresetChange(uint8_t presetId, std::int64_t timestampSamples);
 ```
 
-- 携带 `presetId`（0..255），ID 由 `PresetFlowSupport` 分配和维护
-- 录制时 `PresetFlowSupport::commitPreset()` 调用 `recordingEngine.recordPresetChange(id)`
+- 携带 `presetId`（0..255）和时间戳；ID 由 `PresetFlowSupport` 分配和维护
+- 录制时 `PresetFlowSupport::applyPresetData()` 调用 `recordingEngine.recordPresetChange(idx, pos)`
 - `drainPendingPresetChanges()` 在 message thread 上清空音频侧入队的 preset 切换通知
 
 ### 5.2 回放自动切换
@@ -287,14 +286,13 @@ void recordPresetChange(uint8_t presetId);
 ## 7. 已知边界与后续方向
 
 - 用户 preset 的 ID 与文件名绑定，因此"重命名"会改变 preset 的稳定标识符
-- `.devpiano.preset` 文件内的 `customKeyLabels` / `customKeyColours` 以稀疏数组形式存储（仅保存非零/非空项），减少文件体积
+- `.devpiano.preset` 文件内的 `customKeyLabels` / `customKeyColours` 以完整 128 项数组存储，保证后续编辑一致性
 - 若在已有 preset 的 slot 上 Save As New，新 preset 会创建一个新 ID；旧 preset 文件仍然存在，需手动清理
 - 目前不支持图形化布局编辑器、per-preset 插件绑定或 preset 排序调整
 
 ---
 
 # devpiano Performance Preset 手工测试清单
-
 > 用途：对 Performance Preset 的保存、导入、重命名、删除、快捷键、启动恢复与录制集成进行手工验证。
 > 更新时机：preset 文件格式、交互行为、发现机制或录制集成变化时。
 
@@ -325,7 +323,13 @@ void recordPresetChange(uint8_t presetId);
 - [ ] 验证：下拉菜单恢复为 `[Default]`，原 preset 消失
 - [ ] 验证：文件已从 `DevPiano/Presets/` 删除
 
-### 1.4 内置 Default 保护
+### 1.4 Import Preset（拖放）
+- [ ] 通过外部手段准备一个 `.devpiano.preset` 文件
+- [ ] 将文件拖放到主窗口（无独立 Import 按钮，仅支持拖放导入）
+- [ ] 验证：主窗口出现蓝色边框反馈
+- [ ] 验证：松开后 preset 被导入并应用，下拉菜单中出现并自动选中
+
+### 1.5 内置 Default 保护
 - [ ] 选中 `[Default]` 时，Rename 和 Delete 按钮应保持禁用（灰色/不可点击）
 - [ ] F1-F12 不会意外触发 Default preset 操作
 
@@ -348,22 +352,8 @@ void recordPresetChange(uint8_t presetId);
 
 ---
 
-## 3. 导入 Preset
+## 3. 启动恢复
 
-### 3.1 文件导入
-- [ ] 通过外部手段准备一个 `.devpiano.preset` 文件
-- [ ] 在 ControlsPanel 点击 "Import" → 选择该文件
-- [ ] 验证：文件被复制到 `DevPiano/Presets/`，下拉菜单出现并自动选中
-- [ ] 验证：若导入同名已有文件，覆盖后仍正常显示
-
-### 3.2 拖放导入
-- [ ] 将 `.devpiano.preset` 文件拖到主窗口
-- [ ] 验证：主窗口出现蓝色边框反馈
-- [ ] 验证：松开后 preset 被导入并应用
-
----
-
-## 4. 启动恢复
 
 - [ ] 选择一个用户 preset（非 Default），记录当前键盘/显示/通道设置
 - [ ] 关闭程序
@@ -373,7 +363,7 @@ void recordPresetChange(uint8_t presetId);
 
 ---
 
-## 5. 录制 / 回放集成
+## 4. 录制 / 回放集成
 
 ### 5.1 录制中切换 Preset
 - [ ] 准备 2 个以上预设

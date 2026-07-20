@@ -71,8 +71,10 @@ void PresetFlowSupport::applyPresetByIndex(int index) {
 }
 
 void PresetFlowSupport::applyPresetData(const PerformancePreset& preset) {
-    // 0. Recording integration: record the preset change if currently recording
-    if (owner.recordingEngine.isRecording()) {
+    // 0. Recording integration: record the preset change if currently recording.
+    // Only record file-backed (user) presets — the built-in default has no persistent
+    // identity and recording it would write a wrong index.
+    if (owner.recordingEngine.isRecording() && preset.layout.id != "default.preset.builtin") {
         // Find the preset's index in our cached list for the presetId field
         uint8_t presetIdx = 0;
         for (std::size_t i = 0; i < cachedPresets.size(); ++i) {
@@ -156,6 +158,15 @@ void PresetFlowSupport::handleSaveAsNewPreset() {
     auto fileName = sanitisePresetFileName(rawName);
     auto file = getPresetDirectory().getChildFile(fileName + ".devpiano.preset");
 
+    if (file.existsAsFile()) {
+        auto overwrite = juce::AlertWindow::showOkCancelBox(
+            juce::AlertWindow::QuestionIcon, TRANS("Overwrite Preset?"),
+            TRANS("A preset named \"") + rawName + TRANS("\" already exists.\nDo you want to overwrite it?"),
+            TRANS("Overwrite"), TRANS("Cancel"));
+        if (!overwrite)
+            return;
+    }
+
     auto preset = captureCurrentState(rawName);
 
     if (savePreset(preset, file)) {
@@ -236,11 +247,11 @@ void PresetFlowSupport::handleDeletePreset() {
     // If the deleted preset was current, revert to default
     if (currentPresetId == it->name) {
         applyPresetData(makeDefaultPreset());
-        currentPresetId.clear(); // "Default" built-in has no persistent file
+        currentPresetId.clear();
         owner.appSettings.lastActivePresetId = {};
     }
     refreshCache();
-    updateUiAfterCommit();
+    updateUiAfterCommit();  // must run after refreshCache so combo reflects the deletion
 }
 
 void PresetFlowSupport::handleImportPresetFile(const juce::File& file) {
@@ -256,9 +267,9 @@ void PresetFlowSupport::handleImportPresetFile(const juce::File& file) {
     if (savePreset(*loaded, destFile)) {
         DP_LOG_INFO("[Preset] imported: " + destFile.getFullPathName());
         refreshCache();
-        applyPresetData(*loaded);
+        applyPresetData(*loaded);             // applies settings + updates UI (with old preset ID)
         currentPresetId = loaded->name;
-        updateUiAfterCommit();
+        updateUiAfterCommit();                // re-update so combo shows the newly imported preset selected
     }
 }
 

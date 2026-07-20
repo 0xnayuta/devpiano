@@ -13,6 +13,10 @@ countries: cn
 "Rename Preset" = "重命名演奏配置"
 "Delete Preset?" = "确定删除此演奏配置？"
 "Delete preset \"" = "确定删除演奏配置 \""
+"Overwrite Preset?" = "覆盖演奏配置？"
+"A preset named \"" = "已有名为 \""
+"\" already exists.\nDo you want to overwrite it?" = "\" 的演奏配置存在。\n是否覆盖？"
+"Overwrite" = "覆盖"
 "Save as New Preset" = "另存为演奏配置"
 "Preset Name:" = "配置名称："
 

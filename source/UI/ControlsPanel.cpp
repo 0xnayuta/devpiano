@@ -24,6 +24,7 @@ ControlsPanel::ControlsPanel() {
             return;
 
         onPresetChanged(availablePresetIds[index]);
+        updatePresetActionButtons();
     };
 
     addAndMakeVisible(saveAsNewPresetButton);
@@ -120,6 +121,8 @@ ControlsPanel::ControlsPanel() {
             onPlaybackSpeedChange(playbackSpeedSlider.getValue());
     };
     addAndMakeVisible(playbackSpeedSlider);
+
+    setRecordingControlsState({});
 }
 
 ControlsPanel::~ControlsPanel() {
@@ -288,6 +291,15 @@ void ControlsPanel::setPresets(const juce::StringArray& presetIds, const juce::S
     const auto index = presetIds.indexOf(currentPresetId);
     const auto selectedId = index >= 0 ? (index + 1) : 1;
     presetComboBox.setSelectedId(selectedId, juce::dontSendNotification);
+    updatePresetActionButtons();
+}
+
+void ControlsPanel::updatePresetActionButtons() {
+    // Rename and Delete only apply to user presets (non-empty currentPresetId)
+    auto selectedId = getSelectedPresetId();
+    auto isUserPreset = selectedId.isNotEmpty();
+    renamePresetButton.setEnabled(isUserPreset);
+    deletePresetButton.setEnabled(isUserPreset);
 }
 
 juce::String ControlsPanel::getSelectedPresetId() const {

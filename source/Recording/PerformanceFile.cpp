@@ -75,7 +75,10 @@ std::optional<PerformanceEvent> varToEvent(const juce::var& v) {
     auto typeStr = obj->getProperty(performance_file::keyEventType).toString();
     if (typeStr == performance_file::eventTypePresetChange) {
         event.type = PerformanceEventType::presetChange;
-        event.presetId = static_cast<uint8_t>(static_cast<int>(obj->getProperty(performance_file::keyPresetId)));
+        auto presetIdVar = obj->getProperty(performance_file::keyPresetId);
+        if (presetIdVar.isVoid())
+            return std::nullopt;
+        event.presetId = static_cast<uint8_t>(static_cast<int>(presetIdVar));
         return event;
     }
 
