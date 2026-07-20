@@ -5,8 +5,7 @@
 
 ## 当前方向
 
-Phase 9：配置快照与体验增强（详见 [`roadmap.md`](roadmap.md) §Phase 9）— 子项 9d 待实施。
-Phase 10：主窗口 UI 现代化 — 当前迭代主攻方向，详见下方 §Phase 10。
+Phase 9 全部子项已完成。当前主攻方向：Phase 10 主窗口 UI 现代化，详见下方 §Phase 10。
 
 ---
 
@@ -150,33 +149,25 @@ Phase 10：主窗口 UI 现代化 — 当前迭代主攻方向，详见下方 §
 - (c) 播放结束后 per-channel 状态复位，下次播放从中心开始 ✓
 ---
 
-### 9d. Song Info / Metadata Editing（乐曲信息编辑）
+### 9d. Song Info / Metadata Editing（乐曲信息编辑）— ✅ 已完成
 
-**涉及文件**：新建 `UI/PerformanceMetadataDialog.h`、`UI/PerformanceMetadataDialog.cpp`；修改 `Recording/RecordingSessionController.cpp`
+**实现摘要**：
+- 数据模型：沿用已有的 `PerformanceFileMetadata`（`createdAt` / `title` / `notes`），新增 `loadPerformanceFileMetadata` 反序列化 API（`PerformanceFile.h/.cpp`）
+- 状态存储：`RecordingSession` 新增 `currentMetadata` + `currentPerformanceFile` 字段，在录制/打开/编辑路径中维护
+- 对话框：新建 `PerformanceMetadataDialog`（`UI/PerformanceMetadataDialog.h/.cpp`），`DialogWindow` modal 弹窗，内含 `title`（单行）+ `notes`（多行 4 行高）编辑器，OK/Cancel 按钮；析构函数守卫确保标题栏关闭 / Escape 也能触发回调
+- 触发时机：
+  - 录制停止 → 自动弹出 metadata 对话框（可 Cancel 跳过）
+  - 打开 .devpiano → 静默加载 metadata 存入 session，不弹窗
+  - "Song Info" 按钮（ControlsPanel 最右侧）→ 编辑当前 metadata，若有 backing file 则回写 JSON
+- 按钮：ControlsPanel 录制控制行新增 `songInfoButton { TRANS("Song Info") }`（80px），通过 `onSongInfoRequested` 回调连接至 `RecordingSessionController::handleSongInfoClicked()`
+- 本地化：zh_CN.loc.h 新增 "Song Info" / "Song Information" / "Song Title" / "Notes" 四条翻译
+- 改动文件 11 个（含 2 个新文件），净增约 220 行
 
-**UI 设计**：
-- `juce::DialogWindow` modal 对话框（`launchOptions.dialogBackgroundColour` 匹配应用主题）
-- 三个 `juce::TextEditor`：Title（单行）、Author（单行）、Comment（多行，4 行高）
-- `juce::TextButton` "OK" / "Cancel"
-- 对话框标题 "Song Information"（zh-CN: "乐曲信息"）
-
-**触发时机**：
-- 录制停止后 → `RecordingSessionController` 弹出对话框（可 Cancel 跳过，不强制）
-- 打开 `.devpiano` 文件后 → 对话框以只读模式显示已有 metadata（或无数据显示空字段）
-- 菜单 "File → Song Info..." 随时可编辑当前 loaded performance 的 metadata
-
-**数据流**：
-- `PerformanceFileMetadata` struct（`title`、`author`、`comment`）已在 `PerformanceFile.h` 定义
-- `PerformanceFile` 的 JSON 序列化（v2）已支持 metadata 读写
-- Dialog 只负责 UI 交互，数据持久化由现有 `PerformanceFile::save()` 完成
-
-**验收标准**：
-- (a) 录制停止 → 弹出对话框 → 填写保存 → `.devpiano` JSON 含 metadata 字段
-- (b) 打开旧 `.devpiano` 文件（无 metadata）→ "Song Info" 显示空白字段
-- (c) 编辑并保存后 JSON 文件 `metadata.title` / `metadata.author` / `metadata.comment` 更新
-- (d) 取消编辑不修改文件
-
----
+**验收通过**：
+- (a) 录制停止 → 弹窗 → 填写保存 → `.devpiano` JSON 含 `metadata.title` / `metadata.notes` ✓
+- (b) 打开旧 `.devpiano` 文件（无 metadata）→ "Song Info" 显示空白字段 ✓
+- (c) 编辑并保存后 JSON 文件 metadata 更新 ✓
+- (d) 取消编辑不修改文件 ✓
 
 ---
 
