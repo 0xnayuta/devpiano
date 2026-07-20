@@ -24,8 +24,9 @@ public:
 
     void setKeyboardLayout(const devpiano::core::KeyboardLayout& layout);
 
-    // Scroll viewport so that the given MIDI note's white key is at the left edge.
-    // negative note = restore from persisted pixel offset.
+    // Scroll viewport to align a MIDI note at the left edge.
+    // When pixelOffset >= 0: restore from persisted pixel position directly.
+    // When pixelOffset < 0 (sentinel): compute position from midiNote.
     void setViewPosition(int midiNote, int pixelOffset = 0);
     [[nodiscard]] int getViewPositionX() const noexcept;
 

@@ -24,8 +24,8 @@ void KeyboardPanel::setViewPosition(int midiNote, int pixelOffset) {
     if (viewport == nullptr || customKeyboard == nullptr)
         return;
 
-    if (pixelOffset > 0) {
-        // Restore from persisted pixel offset
+    if (pixelOffset >= 0) {
+        // Restore from persisted pixel offset (0 is a valid position)
         viewport->setViewPosition(pixelOffset, 0);
     } else if (midiNote >= 0 && midiNote <= 127) {
         // Compute pixel offset: count white keys from 0 to midiNote

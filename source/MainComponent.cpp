@@ -583,8 +583,8 @@ void MainComponent::syncUiFromSettings() {
         ks.customKeyColours = kbs.customKeyColours;
         keyboardPanel.getCustomKeyboard().setKeyboardSettings(ks);
     }
-    // Restore keyboard scroll position (after layout is known)
-    if (appSettings.keyboardScrollOffsetX > 0)
+    // Restore keyboard scroll position (after layout is known); -1 sentinel = unset
+    if (appSettings.keyboardScrollOffsetX >= 0)
         keyboardPanel.setViewPosition(-1, appSettings.keyboardScrollOffsetX);
     else
         keyboardPanel.setViewPosition(24); // default: align note 24 (C1) at left edge

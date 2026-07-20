@@ -110,7 +110,7 @@ void SettingsStore::readNow(SettingsModel& m) {
     // Main content size
     m.mainWindowWidth = f.getIntValue(kKeyMainWindowWidth, m.mainWindowWidth);
     m.mainWindowHeight = f.getIntValue(kKeyMainWindowHeight, m.mainWindowHeight);
-    m.keyboardScrollOffsetX = f.getIntValue(kKeyKeyboardScrollX, 0);
+    m.keyboardScrollOffsetX = f.getIntValue(kKeyKeyboardScrollX, -1);
 
     // Keyboard display settings
     {
