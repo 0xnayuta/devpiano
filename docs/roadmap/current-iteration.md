@@ -5,8 +5,8 @@
 
 ## 当前方向
 
-Phase 8：逐键个性化与调号系统（详见 [`roadmap.md`](roadmap.md) §Phase 8）。
-Phase 9 计划同列于此，以便一次看清完整执行路径。
+Phase 9：配置快照与体验增强（详见 [`roadmap.md`](roadmap.md) §Phase 9）— 子项 9c / 9d 待实施。
+Phase 10：主窗口 UI 现代化 — 当前迭代主攻方向，详见下方 §Phase 10。
 
 ---
 
@@ -181,25 +181,203 @@ Phase 9 计划同列于此，以便一次看清完整执行路径。
 
 ---
 
+---
+
+## Phase 10：主窗口 UI 现代化
+
+**目标**：将主窗口四大面板（HeaderPanel / PluginPanel / ControlsPanel / KeyboardPanel）从开发调试风格的表单布局，升级为接近现代化商业钢琴 VST 宿主软件（Pianoteq / Kontakt / Gig Performer）的专业界面。
+
+**前置依赖**：Phase 9（Performance Preset、全音域键盘、Smooth Pitch Bend、Song Info 构成稳定的功能基线，Phase 10 在其上进行纯 UI 层改造，无功能行为变更）。
+
+**核心设计原则**：
+- 不改动现有 MIDI / 音频 / 插件 / 录制逻辑，仅变更 Component 布局与绘制
+- 所有视觉参数集中管理（颜色、圆角、间距、字体），便于后续统一调优
+- 优先确保窗口高度 ≤700px（最小限制）时仍可用，再向上拉伸时充分利用额外空间
+
+---
+
+### 10a. 自定义 LookAndFeel 全局视觉主题
+
+**现状**：项目未定制 `juce::LookAndFeel`，沿用 JUCE V4 默认扁平蓝灰风格——按钮为纯色矩形、滑块无质感、组合框样式老旧，缺乏音频软件特有的暗黑工业质感。
+
+**方案**：
+- 新建 `source/UI/DevPianoLookAndFeel.h/.cpp`，继承 `juce::LookAndFeel_V4`
+- 全局色彩体系：
+  - 背景层级：深炭黑 `0xff1a1c1e`（主窗口）、冷深灰 `0xff24262a`（面板）、微亮灰 `0xff2d3035`（控件底）
+  - 功能高亮：冰蓝 `0xff00b4d8`（选中/悬停/滑块填充）、软橙 `0xffe07b3c`（录制 active）、薄荷绿 `0xff4ecdc4`（播放 active）
+  - 文字层级：纯白 `0xffeeeeee`（主文本）、浅灰 `0xff999999`（辅助文本）、暗灰 `0xff555555`（禁用态）
+- 覆写的绘制方法：
+  - `drawButtonBackground`：圆角 4px、微渐变背景、hover 时半透明高亮叠加、按下时轻微内阴影
+  - `drawComboBox` / `drawPopupMenuItem`：统一圆角、下拉箭头改用矢量三角
+  - `drawLinearSlider`：滑槽细线 + 圆角矩形 thumb（6×18），填充段用功能高亮色
+  - `drawRotarySlider`（为 10b 预备）：环形进度弧线 + 中心指示点
+  - `drawLabel`：默认字体 `juce::FontOptions(14.0f)`，文本编辑器获得 1px 圆角边框
+- 不覆写 `drawDocumentWindowTitleBar`（保留系统原生标题栏以适应各平台）
+
+**验收标准**：
+- (a) 所有 `TextButton` 具有 4px 圆角、悬浮变色、按下反馈
+- (b) 所有 `ComboBox` 具有统一圆角下拉框与矢量箭头
+- (c) `Slider` 滑槽与 thumb 符合新配色，填充段显示功能高亮色
+- (d) 背景色层级分明：主窗口 → 面板区域 → 控件，三级灰度可辨识
+- (e) 设置对话框中所有控件同步应用新主题（`SettingsComponent` 不独立维护样式）
+
+---
+
+### 10b. ControlsPanel 布局重构：水平滑动条 → 横向旋转旋钮 + ADSR 曲线
+
+**现状**：6 个水平滑动条（Volume / Attack / Decay / Sustain / Release / Playback Speed）以 28px 行高 + 8px 间距纵向堆叠，共占用 216px 垂直高度，每行横跨 1008px——视觉上稀薄且不符合调音台设计习惯。
+
+**方案**：
+- 将 6 个 `juce::Slider::LinearHorizontal` 替换为 `juce::Slider::RotaryHorizontalVerticalDrag` 旋转旋钮
+  - 旋钮直径：约 48px（含标签约 72px 总高），6 个旋钮横向一字排开
+  - 每个旋钮下方居中显示参数名（Volume / Attack / Decay / Sustain / Release / Speed）
+  - 旋钮正下方或旋钮中心显示参数数值（如 "0.85"）
+- **ADSR 可视化曲线**：
+  - 在 Attack / Decay / Sustain / Release 四个旋钮上方或右侧，用 `juce::Graphics` 绘制一个 200×40 的折线图
+  - X 轴 = 时间（线性映射 Attack→Decay→Sustain→Release），Y 轴 = 幅度 [0, 1]
+  - 调节任一 ADSR 旋钮时曲线实时更新；旋钮之间用细线连接形成包络轮廓
+  - 曲线颜色使用冰蓝功能高亮色，填充区域使用半透明叠加
+- **预设与录制行保持不变**（Preset ComboBox + Save/Rename/Delete 按钮行、录制 Transport 按钮行），但整体 ControlsPanel 高度预计从 296px 降至约 180px
+- 腾出的 ~116px 垂直空间分配给键盘面板或留白
+
+**验收标准**：
+- (a) 6 个旋钮横向排列，span 不超过面板宽度，视觉紧凑
+- (b) 旋钮支持鼠标垂直拖拽调节，参数实时生效
+- (c) ADSR 曲线随旋钮值变化实时更新，形状符合 A-D-S-R 语义
+- (d) Volume 和 Playback Speed 旋钮功能不受影响
+- (e) ControlsPanel 总高度在默认窗口下 ≤180px
+
+---
+
+### 10c. PluginPanel 紧凑化与可折叠
+
+**现状**：PluginPanel 固定高度 188px，包含 VST 路径输入行、插件选择行、始终可见的"已发现插件列表"标签 + 文本框。即使用户已完成插件加载，列表信息仍占位且不可收起，浪费纵向空间。
+
+**方案**：
+- 将 `PluginPanel` 拆分为两个逻辑区：
+  - **工具栏行（始终可见）**：插件选择 ComboBox + Load / Unload / Open Editor 按钮 + 当前插件状态标签，单行高度 ~32px
+  - **可折叠高级区（默认折叠）**：VST 路径输入 + Browse + Scan 按钮 + 插件列表编辑器
+- 添加一个 `juce::TextButton "···"`（或齿轮图标）作为折叠/展开触发器，位于工具栏行右侧
+- 折叠状态：PluginPanel 高度约 40px（仅工具栏行）
+- 展开状态：PluginPanel 高度约 160px（含路径 + 列表 + 扫描按钮），与当前接近
+- 折叠/展开状态通过 `AppState` 持久化（`SettingsModel` 新增 `bool pluginPanelExpanded`）
+- 移除"已发现插件列表"标签（`pluginListLabel`），列表编辑器自带含义自明
+- `instrumentFilterCombo` 移至工具栏行，紧邻插件选择器右侧
+
+**验收标准**：
+- (a) 默认启动时插件面板折叠为单行工具栏（约 40px）
+- (b) 点击展开按钮后显示完整 VST 路径/扫描/列表区
+- (c) 折叠/展开状态重启后保持
+- (d) Load / Unload / Open Editor 在折叠态仍可操作
+- (e) 已发现插件列表文本在展开态正常显示
+
+---
+
+### 10d. 虚拟钢琴键盘拟真渲染
+
+**现状**：白键为纯色 `0xffe8e8e8` 矩形 + 灰色细边框，黑键为纯色 `0xff333333` 矩形 + 灰色边框，无圆角、无阴影、无渐变——视觉上更接近调试工具而非乐器界面。
+
+**方案**：
+- **白键渲染**：
+  - 纵向渐变填充：顶部微亮（`0xfff0f0f0`）→ 底部微暗（`0xffd8d8d8`），模拟琴键侧面光线反射
+  - 底部两角 2px 圆角（顶部保持直角，与物理钢琴键一致）
+  - 边框改用 `0xffaaaaaa`（比当前 `0xff888888` 更柔和）
+  - 按键按下时（fade > 0）：叠加功能高亮色半透明渐变（从键中部向上扩散）
+- **黑键渲染**：
+  - 纵向渐变填充：顶部 `0xff444444` → 底部 `0xff1a1a1a`
+  - 左右两侧 + 底部绘制 3px 模糊暗色阴影（用 `juce::DropShadow` 或手动多层半透明矩形 offset），使黑键浮于白键之上
+  - 底部两角 2px 圆角
+  - 边框改用 `0xff333333`
+  - 按键按下时：叠加高亮色，键高度微缩 2px（模拟物理按压下沉）
+- **黑键标签显示**：
+  - 在 `paintKeyLabels` 中移除 `if (!k.isWhite) continue` 限制
+  - 黑键标签绘制在键体上半部（因黑键下半部可能被白键遮挡视觉），颜色使用浅灰 `0xffcccccc`
+  - 字体大小取 `jmin(10, keyWidth * 0.4f)`
+- 所有绘制逻辑在 `CustomKeyboard::paintWhiteKeys` / `paintBlackKeys` / `paintKeyLabels` 中修改，不改变 `KeyRenderState` 数据结构
+
+**验收标准**：
+- (a) 白键有顶部→底部微渐变，底部 2px 圆角，边框颜色柔和
+- (b) 黑键有上下渐变 + 下方/侧方阴影投影，底部圆角，视觉上浮于白键
+- (c) 黑键上显示键盘映射标签（如 "W"、"E" 等）
+- (d) 按键按下时白键和黑键的高亮反馈明显且美观
+- (e) 水平滚动、鼠标点击、note on/off 功能不受渲染变更影响
+
+---
+
+### 10e. Transport 按钮图标化 + 底部状态栏
+
+**现状**：录制/回放控制行共 12 个纯文字 `TextButton` 紧密排列（Record / Play / Stop / Back / Import MIDI / Export MIDI / Export WAV / Save / Open / Recent），视觉拥挤且不符合音频软件行业惯例（图标 > 文字）。
+
+**方案**：
+- 用 `juce::DrawableButton` 替换传输核心按钮（Record / Play / Stop / Back to Start）：
+  - 使用 `juce::Drawable` 绘制简单矢量图标（圆形 = 录制、三角 = 播放、方块 = 停止、双左三角 = 回到开头）
+  - 按钮尺寸缩小至 36×28，图标 16×16 居中
+  - 按钮 tooltip 显示中文/英文标签
+- 文件操作按钮（Save/Open/Import/Export/Recent）保留为文字 `TextButton`，但缩小字体至 12px，分组放在传输按钮右侧
+- **底部状态栏**：
+  - 在 `MainComponent::resized` 中，于键盘面板下方（即整个窗口最底部）分配 22px 高度作为状态栏
+  - 新建简单 `StatusBar` Component（也可以是 `MainComponent` 的直接子 Label）：
+    - 左侧：MIDI 活动指示灯（实心圆点，有 MIDI 事件时绿色脉冲）+ 当前 VST 插件名
+    - 中间：录音/回放时间显示（如 "01:23.4"）
+    - 右侧：音频设备信息（采样率 + buffer size，如 "44.1kHz / 512"）
+  - 背景色使用略深于主窗口的颜色，顶部 1px 分隔线
+- **HeaderPanel 精简**：
+  - 移除 `hintLabel`（当前 VST 状态信息迁移至状态栏）
+  - `HeaderPanel` 总高度从 98px 降至约 36px（仅标题 + 设置按钮）
+  - 设置按钮改用齿轮图标（`juce::DrawableButton`），宽度从 110px 缩至 36px
+
+**验收标准**：
+- (a) 传输按钮以矢量图标显示，hover 时 tooltip 显示功能名称
+- (b) 底部状态栏显示 MIDI 活动灯、插件名、时间、音频设备信息
+- (c) 状态栏高度 22px，不占用四大面板的布局空间
+- (d) HeaderPanel 压缩至 36px，VST 状态信息不再显示在顶部
+- (e) 所有文字按钮的原有功能不受影响
+
+---
+
+### 10f. 布局尺寸规则调整
+
+**现状**：四大面板均使用硬编码固定高度（98 / 188 / 296 / `jmin(128, remaining)`），窗口高度增加时键盘面板最高 128px，超出部分全部闲置——用户拉伸窗口无法获得更大键盘。
+
+**方案**：
+- **键盘高度下限保障**：
+  - 将 `maxKeyboardHeight` 从 128 提高到 200
+  - 新增 `minKeyboardHeight = 90`：当窗口高度不足时，键盘面板至少 90px，优先压缩 ControlsPanel 或 PluginPanel
+- **动态溢出分配**：
+  - 当窗口高度 > 默认 760px 时，溢出空间按比例分配给键盘面板（60%）和 ControlsPanel（40%），PluginPanel 和 HeaderPanel 保持折叠态高度不变
+  - 实现方式：`MainComponent::resized` 中先分配固定最小高度给各面板，再将剩余高度（`remaining > 0`）按 `0.6 : 0.4` 追加给键盘面板和 ControlsPanel
+- **最小窗口验证**：
+  - 确保在 980×700 窗口下，所有控件仍可见且可操作，键盘高度不低于 90px
+
+**验收标准**：
+- (a) 默认窗口下键盘高度 ≥ 116px（与当前持平或更大）
+- (b) 窗口拉伸到 900px 高度时，键盘高度达到约 200px（上限）
+- (c) 最小 700px 高度窗口下，键盘高度 ≥ 90px，所有面板均可见
+- (d) PluginPanel 折叠态不受高度变化影响
+
+---
+
 ## 本轮决策
 
-- Phase 8a/8b 为 Phase 9a（Performance Preset）的必要前置——逐键标签/颜色和调号系统共同构成快照内容，不可跳过
-- 88-key Piano（9b）、Smooth Pitch Bend（9c）、Song Info（9d）三者与 Phase 8 无强依赖，可与 Phase 8 并行开发，但建议集中在 Phase 9 统一收尾以降低上下文切换开销
-- Phase 7-5（Metadata 编辑对话框）的搁置决策被 9d 替代——9d 的范围更窄（仅编辑 title/author/comment），UI 更简洁
-- Phase 7-7（全屏模式）确认永不实现
+- Phase 10 为纯 UI 层改造，不涉及 MIDI / 音频 / 插件 / 录制功能变更，风险边界清晰
+- 子项按视觉依赖排序：10a（LookAndFeel）是所有视觉变更的基础，须最先实施；10b/10c/10d 可在 10a 完成后并行；10e/10f 依赖前三项确定后的剩余空间来设计
+- Phase 9 的 9c（Smooth Pitch Bend）和 9d（Song Info）与 Phase 10 无代码依赖，可在 Phase 10 期间穿插完成或继续搁置
 
 ## 执行顺序
 
 ```
-Phase 8a (Labels + Colors) ✅ ──┐
-                                ├──→ Phase 9a (Performance Preset)
-Phase 8b (Key Sig System)    ✅ ──┘
-
-(无依赖，可与 Phase 8 并行或 Phase 9 集中执行)
-Phase 9b (88-Key Keyboard)
-Phase 9c (Smooth Pitch Bend)
-Phase 9d (Song Info / Metadata)
+Phase 10a (LookAndFeel) ── 必须先完成，全局视觉基础
+         │
+         ├──→ 10b (ControlsPanel → Knobs + ADSR Curve)
+         ├──→ 10c (PluginPanel 折叠化)
+         └──→ 10d (Keyboard 拟真渲染)
+                   │
+                   └──→ 10e (Transport 图标 + StatusBar)
+                   └──→ 10f (布局尺寸规则调整)
 ```
+
+注：10e/10f 可并行，但建议在 10b/10c/10d 完成后进行以准确掌握剩余空间。
+
 
 ## 已修复缺陷（回归提醒）
 
