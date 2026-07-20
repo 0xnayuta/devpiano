@@ -31,6 +31,7 @@ const char* kKeyCustomLabels = "customKeyLabels";
 const char* kKeyCustomColours = "customKeyColours";
 const char* kKeyKeySignature = "keySignature";
 const char* kKeyMidiTranspose = "midiTranspose";
+const char* kKeyKeyboardScrollX = "keyboardScrollX";
 
 [[nodiscard]] SettingsModel::PerformanceSettingsView makeDefaultPerformanceSettings() noexcept {
     return {};
@@ -109,6 +110,7 @@ void SettingsStore::readNow(SettingsModel& m) {
     // Main content size
     m.mainWindowWidth = f.getIntValue(kKeyMainWindowWidth, m.mainWindowWidth);
     m.mainWindowHeight = f.getIntValue(kKeyMainWindowHeight, m.mainWindowHeight);
+    m.keyboardScrollOffsetX = f.getIntValue(kKeyKeyboardScrollX, 0);
 
     // Keyboard display settings
     {
@@ -196,6 +198,7 @@ void SettingsStore::writeNow(const SettingsModel& m) {
     // Main content size
     f.setValue(kKeyMainWindowWidth, m.mainWindowWidth);
     f.setValue(kKeyMainWindowHeight, m.mainWindowHeight);
+    f.setValue(kKeyKeyboardScrollX, m.keyboardScrollOffsetX);
 
     // Keyboard display settings
     f.setValue(kKeyColourMode, static_cast<int>(m.keyboardColourMode));

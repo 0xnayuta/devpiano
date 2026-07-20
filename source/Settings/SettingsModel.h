@@ -77,6 +77,7 @@ struct SettingsModel {
     // Persisted main content size. Zero means unset; startup will use preferred size.
     int mainWindowWidth = 0;
     int mainWindowHeight = 0;
+    int keyboardScrollOffsetX = 0; // persisted keyboard Viewport scroll position in pixels
     // Persisted keyboard display settings.
     devpiano::ui::KeyColourMode keyboardColourMode = devpiano::ui::KeyColourMode::classic;
     devpiano::ui::NoteDisplayMode keyboardNoteDisplay = devpiano::ui::NoteDisplayMode::doReMi;

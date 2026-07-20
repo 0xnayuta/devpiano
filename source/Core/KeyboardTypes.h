@@ -81,30 +81,18 @@ inline juce::String getNoteDisplayName(int midiNote, NoteDisplayMode mode, int k
 
     switch (mode) {
     case NoteDisplayMode::doReMi: {
-        // doReMi offset: C4 = index 4 → offset 0.
         auto offset = octaveIndex - 4;
-        juce::String offStr;
-        if (offset >= 0)
-            offStr = "+" + juce::String(offset);
-        else
-            offStr = juce::String(offset);
-        return doReMiNames[noteIndex] + offStr;
+        return doReMiNames[noteIndex] + juce::String(offset >= 0 ? "+" : "") + juce::String(offset);
     }
     case NoteDisplayMode::fixedDo: {
         auto shiftedNoteIndex = (noteIndex + keySignature) % 12;
         if (shiftedNoteIndex < 0)
             shiftedNoteIndex += 12;
         auto offset = octaveIndex - 4;
-        juce::String offStr;
-        if (offset >= 0)
-            offStr = "+" + juce::String(offset);
-        else
-            offStr = juce::String(offset);
-        return doReMiNames[shiftedNoteIndex] + offStr;
+        return doReMiNames[shiftedNoteIndex] + juce::String(offset >= 0 ? "+" : "") + juce::String(offset);
     }
     case NoteDisplayMode::noteName:
     default: {
-        // Standard octave number: MIDI 60 = C4 → octave 4.
         return juce::String(noteLetterNames[noteIndex]) + juce::String(octaveIndex);
     }
     }

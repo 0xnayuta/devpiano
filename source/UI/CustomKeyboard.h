@@ -83,10 +83,11 @@ private:
     devpiano::ui::KeyboardSettings settings;
     std::vector<devpiano::ui::KeyRenderState> keys;
 
-    int lowestVisibleNote = 24;
-    int rangeLow = 24;
-    int rangeHigh = 96;
+    int lowestVisibleNote = 24; // default viewport positioned at mapping zone (C1)
+    int rangeLow = 0;           // full MIDI range
+    int rangeHigh = 127;
     int lastMouseDownNote = -1;
+    bool resizing = false; // guard against recalc → setSize → resized() loop
 
     // Per-key binding data for colour mode computation, indexed by MIDI note.
     // Populated by setKeyboardLayout().  Unbound notes default to channel 0 / vel 1.0.

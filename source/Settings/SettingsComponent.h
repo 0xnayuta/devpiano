@@ -64,13 +64,20 @@ public:
         resizableToggle.setButtonText(TRANS("Resizable Window"));
         if (model)
             resizableToggle.setToggleState(model->resizableWindow, juce::dontSendNotification);
+        resizableToggle.onStateChange = [this] {
+            editingState.setProperty("resizableWindow", resizableToggle.getToggleState(), nullptr);
+        };
         addAndMakeVisible(resizableToggle);
 
         // Instrument filter toggle
         instrumentFilterToggle.setButtonText(TRANS("Show MIDI/VSTi Instrument Filter"));
         if (model)
             instrumentFilterToggle.setToggleState(model->showInstrumentFilter, juce::dontSendNotification);
+        instrumentFilterToggle.onStateChange = [this] {
+            editingState.setProperty("showInstrumentFilter", instrumentFilterToggle.getToggleState(), nullptr);
+        };
         addAndMakeVisible(instrumentFilterToggle);
+
 
         // === Key Signature group ===
         keySigGroup.setText(TRANS("Key Signature"));
@@ -157,10 +164,8 @@ public:
         addAndMakeVisible(saveButton);
         saveButton.onClick = [this] {
             dirty = false;
-            if (onSaveRequested) {
-                auto callback = onSaveRequested;
-                juce::MessageManager::callAsync([callback] { callback(); });
-            }
+            if (onSaveRequested)
+                onSaveRequested();
         };
 
         // --- Load model into editingState (before listener) ---
@@ -178,17 +183,10 @@ public:
                                          model->channelMatrix.channels[static_cast<size_t>(ch)].followKey, nullptr);
             }
             editingState.addListener(this);
-
-            // --- Value bindings (ToggleButtons auto-sync, zero callback) ---
-            editingState.getPropertyAsValue("resizableWindow", nullptr).referTo(resizableToggle.getToggleStateValue());
-            editingState.getPropertyAsValue("showInstrumentFilter", nullptr)
-                .referTo(instrumentFilterToggle.getToggleStateValue());
-            // midiTransposeToggle uses explicit onStateChange (not referTo) —
-            // see constructor above.
+            // ToggleButtons use explicit onStateChange (not referTo) — see constructor above.
         }
-
+        setSize(560, 926);
         deviceManager.addChangeListener(this);
-        setSize(560, 900);
 
         updateDiagnostics();
     }
@@ -273,7 +271,7 @@ public:
         saveButton.setBounds(buttonRow.removeFromRight(120).reduced(4));
         diagnosticsEditor.setBounds(bottomArea);
         // Above diagnostics: keyboard display group + language
-        auto keyboardArea = area.removeFromBottom(196);
+        auto keyboardArea = area.removeFromBottom(222);
         keyboardGroup.setBounds(keyboardArea);
         auto groupContent = keyboardArea.reduced(12, 16);
 

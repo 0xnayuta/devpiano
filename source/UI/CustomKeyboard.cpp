@@ -47,6 +47,7 @@ CustomKeyboard::CustomKeyboard(juce::MidiKeyboardState& state)
     : keyboardState(state) {
     setOpaque(false);
     setSize(800, defaultHeight); // reasonable default, resized by parent
+    setAvailableRange(0, 127); // full MIDI range (unified full-range keyboard)
     keyboardState.addListener(this);
     startTimer(timerIntervalMs);
 }
@@ -64,8 +65,32 @@ void CustomKeyboard::setKeyboardSettings(const devpiano::ui::KeyboardSettings& s
 const devpiano::ui::KeyboardSettings& CustomKeyboard::getKeyboardSettings() const noexcept {
     return settings;
 }
-
 void CustomKeyboard::setLowestVisibleNote(int note) {
+    // Clamp to valid range
+    note = juce::jlimit(rangeLow, rangeHigh, note);
+
+    // Compute how many white keys fit in the current width
+    auto w = static_cast<float>(getWidth());
+    if (w < 1.0f) w = 800.0f;
+    auto kw = settings.keyWidth;
+    auto maxVisible = static_cast<int>(w / kw);
+    if (maxVisible < 1) maxVisible = 1;
+
+    // Find the latest start note so the rightmost key is still within rangeHigh
+    int whiteCount = 0;
+    int upperBound = rangeHigh;
+    for (int n = rangeHigh; n >= rangeLow; --n) {
+        if (devpiano::ui::isWhiteKey(n)) {
+            ++whiteCount;
+            if (whiteCount == maxVisible) {
+                upperBound = n;
+                break;
+            }
+        }
+    }
+    // Clamp: don't let viewStart go beyond upperBound
+    note = juce::jlimit(rangeLow, upperBound, note);
+
     lowestVisibleNote = note;
     recalculateKeyBounds();
     repaint();
@@ -132,13 +157,7 @@ void CustomKeyboard::recalculateKeyBounds() {
     if (totalHeight < 1.0f)
         totalHeight = static_cast<float>(defaultHeight);
 
-    auto totalWidth = static_cast<float>(getWidth());
-    if (totalWidth < 1.0f)
-        totalWidth = 800.0f;
-
-    // --- White keys ---
-
-    // Count white keys in range so we can distribute them evenly.
+    // Count all white keys in the full range (not just visible window)
     int whiteKeyCount = 0;
     for (int n = rangeLow; n <= rangeHigh; ++n)
         if (devpiano::ui::isWhiteKey(n))
@@ -148,18 +167,12 @@ void CustomKeyboard::recalculateKeyBounds() {
         return;
 
     auto whiteKeyWidth = settings.keyWidth;
-    auto totalWhiteWidth = whiteKeyWidth * static_cast<float>(whiteKeyCount);
-
-    // If the total white-key width is smaller than the component, use the
-    // computed width (keys align left). Otherwise scale to fit.
-    float scale = 1.0f;
-    if (totalWhiteWidth > totalWidth)
-        scale = totalWidth / totalWhiteWidth;
-
-    auto actualWhiteWidth = whiteKeyWidth * scale;
+    auto actualWhiteWidth = whiteKeyWidth;
     auto blackKeyWidth = actualWhiteWidth * 0.6f;
     auto whiteKeyHeight = totalHeight;
     auto blackKeyHeight = totalHeight * 0.6f;
+
+    auto totalContentWidth = actualWhiteWidth * static_cast<float>(whiteKeyCount);
 
     // First pass: assign white-key positions.
     int whiteIdx = 0;
@@ -181,7 +194,6 @@ void CustomKeyboard::recalculateKeyBounds() {
     for (int n = rangeLow; n <= rangeHigh; ++n) {
         if (devpiano::ui::isWhiteKey(n))
             continue;
-
         if (n <= 0 || n > 127)
             continue;
 
@@ -190,39 +202,37 @@ void CustomKeyboard::recalculateKeyBounds() {
         k.isWhite = false;
         k.fade = 0.0f;
 
-        // Map black-key semitone to the white key immediately to its left.
         auto semi = n % 12;
         auto leftWhiteNote = blackKeyLeftWhiteNote[semi];
         if (leftWhiteNote < 0)
             continue;
 
-        // leftWhiteNote is the semitone within the octave (0-11).
-        // Compute the actual MIDI note of that white key in the same octave.
         auto octaveBase = n - semi;
         auto leftWhiteMidi = octaveBase + leftWhiteNote;
 
-        // Count white keys from rangeLow to leftWhiteMidi to get the vector index.
         int whiteVecIdx = 0;
         for (int m = rangeLow; m <= leftWhiteMidi; ++m)
             if (devpiano::ui::isWhiteKey(m))
                 ++whiteVecIdx;
 
-        // whiteVecIdx is 1-based count; convert to 0-based index.
         auto idx = static_cast<std::size_t>(whiteVecIdx - 1);
         if (whiteVecIdx > 0 && idx < keys.size()) {
             auto leftX = keys[idx].bounds.getX();
             auto leftWidth = keys[idx].bounds.getWidth();
 
-            // Black key centred at the right edge of the left white key.
             auto centreX = leftX + leftWidth;
             k.bounds = { centreX - blackKeyWidth * 0.5f, 0.0f, blackKeyWidth, blackKeyHeight };
             keys.push_back(k);
         }
     }
 
-    // Sort keys so that lower notes come first (black keys were appended after
-    // their white-key neighbours; this sort ensures paint order is correct).
     std::sort(keys.begin(), keys.end(), [](const auto& a, const auto& b) { return a.midiNote < b.midiNote; });
+
+    // Expand component to full key width so parent Viewport can scroll;
+    // guard against resized() → recalculateKeyBounds() recursion.
+    resizing = true;
+    setSize(static_cast<int>(totalContentWidth), static_cast<int>(totalHeight));
+    resizing = false;
 }
 
 int CustomKeyboard::findNoteAt(juce::Point<int> position) const {
@@ -299,22 +309,48 @@ void CustomKeyboard::paintBlackKeys(juce::Graphics& g) {
 }
 
 void CustomKeyboard::paintKeyLabels(juce::Graphics& g) {
-    g.setFont(static_cast<float>(juce::jlimit(8, 16, static_cast<int>(settings.keyWidth * 0.5f))));
-    g.setColour(juce::Colour(0xff888888));
+    auto fontH = static_cast<float>(juce::jlimit(8, 14, static_cast<int>(settings.keyWidth * 0.45f)));
+    g.setFont(fontH);
 
     for (const auto& k : keys) {
         if (!k.isWhite)
             continue;
 
-        // Priority: custom label > binding displayText > note name
         auto& customLabel = settings.customKeyLabels[static_cast<std::size_t>(k.midiNote)];
+
         if (customLabel.isNotEmpty()) {
-            g.drawText(customLabel, k.bounds.reduced(2).withTrimmedBottom(2), juce::Justification::centredBottom, false);
+            // Custom label: single line centred in bottom portion
+            auto area = k.bounds.withTrimmedTop(k.bounds.getHeight() * 0.5f).reduced(1, 2);
+            g.setColour(juce::Colour(0xff888888));
+            g.drawText(customLabel, area, juce::Justification::centred, false);
         } else if (k.keyLabel.isNotEmpty()) {
-            g.drawText(k.keyLabel, k.bounds.reduced(2).withTrimmedBottom(2), juce::Justification::centredBottom, false);
+            auto area = k.bounds.withTrimmedTop(k.bounds.getHeight() * 0.5f).reduced(1, 2);
+            g.setColour(juce::Colour(0xff888888));
+            g.drawText(k.keyLabel, area, juce::Justification::centred, false);
         } else if (k.midiNote >= 0) {
+            g.setColour(juce::Colour(0xff888888));
             auto name = devpiano::ui::getNoteDisplayName(k.midiNote, settings.noteDisplay, settings.keySignature);
-            g.drawText(name, k.bounds.reduced(2).withTrimmedBottom(2), juce::Justification::centredBottom, false);
+
+            // Split at '+' or '-' for two-line rendering (doReMi / fixedDo modes)
+            auto plusPos = name.indexOfChar('+');
+            auto minusPos = name.indexOfChar('-');
+            auto splitPos = (plusPos >= 0) ? plusPos : minusPos;
+
+            if (splitPos > 0) {
+                // Two-line layout: note name on top, octave offset below
+                auto topLine = name.substring(0, splitPos);
+                auto bottomLine = name.substring(splitPos);
+                auto area = k.bounds.withTrimmedTop(k.bounds.getHeight() * 0.5f).reduced(1, 2);
+                auto lineH = fontH * 1.25f;
+                auto topArea = area.withHeight(lineH).translated(0, (area.getHeight() - lineH * 2.0f) * 0.5f);
+                auto bottomArea = topArea.translated(0, lineH);
+                g.drawText(topLine, topArea, juce::Justification::centred, false);
+                g.drawText(bottomLine, bottomArea, juce::Justification::centred, false);
+            } else {
+                // Single line (noteName mode)
+                auto area = k.bounds.withTrimmedTop(k.bounds.getHeight() * 0.5f).reduced(1, 2);
+                g.drawText(name, area, juce::Justification::centred, false);
+            }
         }
     }
 }
@@ -499,5 +535,6 @@ void CustomKeyboard::handleNoteOff(juce::MidiKeyboardState*, int, int, float) {
 // ============================================================================
 
 void CustomKeyboard::resized() {
-    recalculateKeyBounds();
+    if (!resizing)
+        recalculateKeyBounds();
 }

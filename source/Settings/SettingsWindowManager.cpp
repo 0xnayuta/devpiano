@@ -181,6 +181,7 @@ void SettingsWindowManager::showFor(MainComponent& owner) {
               ks.noteDisplay = kbs.noteDisplay;
               ks.fadeSpeed = kbs.fadeSpeed;
               ks.keySignature = safe->appSettings.keySignature;
+              safe->resized();
               ks.customKeyLabels = kbs.customKeyLabels;
               ks.customKeyColours = kbs.customKeyColours;
 

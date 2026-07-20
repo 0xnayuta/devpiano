@@ -101,6 +101,7 @@ MainComponent::~MainComponent() {
     controlsPanel.onOpenPerformanceClicked = {};
     controlsPanel.onRecentFilesClicked = {};
     headerPanel.onSettingsRequested = {};
+    appSettings.keyboardScrollOffsetX = keyboardPanel.getViewPositionX();
     saveSettingsNow();
 
     pluginOperationController.reset();
@@ -356,7 +357,9 @@ void MainComponent::resized() {
     controlsPanel.setBounds(area.removeFromTop(296));
     area.removeFromTop(8);
 
-    keyboardPanel.setBounds(area.removeFromBottom(128));
+    constexpr int maxKeyboardHeight = 128;
+    int keyboardHeight = juce::jmin(maxKeyboardHeight, area.getHeight());
+    keyboardPanel.setBounds(area.removeFromBottom(keyboardHeight));
 }
 
 void MainComponent::paintOverChildren(juce::Graphics& g) {
@@ -580,6 +583,11 @@ void MainComponent::syncUiFromSettings() {
         ks.customKeyColours = kbs.customKeyColours;
         keyboardPanel.getCustomKeyboard().setKeyboardSettings(ks);
     }
+    // Restore keyboard scroll position (after layout is known)
+    if (appSettings.keyboardScrollOffsetX > 0)
+        keyboardPanel.setViewPosition(-1, appSettings.keyboardScrollOffsetX);
+    else
+        keyboardPanel.setViewPosition(24); // default: align note 24 (C1) at left edge
 }
 
 void MainComponent::syncSettingsFromUi() {
