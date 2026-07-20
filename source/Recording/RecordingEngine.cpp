@@ -207,7 +207,6 @@ void RecordingEngine::stopPlayback() {
         juce::CriticalSection::ScopedLockType lock(presetChangeLock);
         pendingPresetChanges.clear();
     }
-    smoothedPitchBend.fill(8192.0f);
 
     state.store(RecordingState::stopped, std::memory_order_release);
     playbackEndedPending.store(false, std::memory_order_release);
