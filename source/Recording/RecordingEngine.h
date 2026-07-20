@@ -11,12 +11,15 @@ enum class RecordingEventSource { computerKeyboard, realtimeMidiBuffer, playback
 
 enum class RecordingState { idle, recording, playing, stopped };
 
+enum class PerformanceEventType : uint8_t { midi = 0, presetChange = 1 };
+
 struct PerformanceEvent {
     std::int64_t timestampSamples = 0;
+    PerformanceEventType type = PerformanceEventType::midi;
+    uint8_t presetId = 0; // meaningful only when type == presetChange
     RecordingEventSource source = RecordingEventSource::computerKeyboard;
-    juce::MidiMessage message;
+    juce::MidiMessage message; // meaningful only when type == midi
 };
-
 struct RecordingTake {
     double sampleRate = 0.0;
     std::int64_t lengthSamples = 0;
@@ -25,6 +28,8 @@ struct RecordingTake {
     [[nodiscard]] bool isEmpty() const noexcept;
     [[nodiscard]] double durationSeconds() const noexcept;
 };
+
+struct PendingPresetChange { uint8_t presetId; };
 
 class RecordingEngine {
 public:
@@ -49,7 +54,6 @@ public:
     void startRecording(double sampleRate);
     RecordingTake stopRecording();
     void clear();
-
     void advanceRecordingPosition(std::int64_t numSamples) noexcept;
     void recordEvent(const juce::MidiMessage& message, RecordingEventSource source, std::int64_t timestampSamples);
     // Converts block-local MidiBuffer sample offsets into absolute timestampSamples.
@@ -59,6 +63,10 @@ public:
     // for the first realtime-safe recording path.
     void recordMidiBufferBlock(const juce::MidiBuffer& midiBuffer, RecordingEventSource source,
                                std::int64_t blockStartSamples);
+
+    // Records a preset-change event at the current recording position.
+    // presetId is a 0-based index into the preset list.
+    void recordPresetChange(uint8_t presetId, std::int64_t timestampSamples);
 
     void startPlayback(const RecordingTake& take, double currentSampleRate);
     void stopPlayback();
@@ -73,6 +81,7 @@ public:
     [[nodiscard]] bool consumePlaybackEndedFlag() noexcept;
     [[nodiscard]] bool isPlaying() const noexcept;
     [[nodiscard]] std::int64_t getPlaybackPositionSamples() const noexcept;
+    [[nodiscard]] std::vector<PendingPresetChange> drainPendingPresetChanges();
 
 private:
     [[nodiscard]] std::int64_t getScaledPlaybackLengthSamples() const noexcept;
@@ -89,5 +98,9 @@ private:
     std::atomic<std::int64_t> scaledPlaybackLengthSamples { 0 };
     std::atomic<std::int64_t> playbackPositionSamples { 0 };
     std::atomic_bool playbackEndedPending { false };
+
+    // Preset-change notification queue (audio thread → message thread)
+    std::vector<PendingPresetChange> pendingPresetChanges;
+    juce::CriticalSection presetChangeLock;
 };
 } // namespace devpiano::recording

@@ -123,7 +123,7 @@ void RecordingEngine::recordEvent(const juce::MidiMessage& message, RecordingEve
         return;
     }
 
-    currentTake.events.push_back({ clampedTimestamp, source, message });
+    currentTake.events.push_back({ clampedTimestamp, PerformanceEventType::midi, 0, source, message });
     currentTake.lengthSamples = std::max(currentTake.lengthSamples, clampedTimestamp);
 }
 
@@ -149,6 +149,24 @@ void RecordingEngine::recordMidiBufferBlock(const juce::MidiBuffer& midiBuffer, 
     }
 }
 
+// ---- Preset-change recording ----
+
+void RecordingEngine::recordPresetChange(uint8_t presetId, std::int64_t timestampSamples) {
+    if (!isRecording())
+        return;
+
+    const auto ts = std::max<std::int64_t>(timestampSamples, 0);
+    if (currentTake.events.size() >= currentTake.events.capacity()) {
+        ++droppedEventCount;
+        currentTake.lengthSamples = std::max(currentTake.lengthSamples, ts);
+        return;
+    }
+
+    currentTake.events.push_back({ ts, PerformanceEventType::presetChange, presetId,
+                                   RecordingEventSource::computerKeyboard, {} });
+    currentTake.lengthSamples = std::max(currentTake.lengthSamples, ts);
+}
+
 void RecordingEngine::startPlayback(const RecordingTake& take, double currentSampleRate) {
     playbackTake = take;
     playbackSampleRateRatio
@@ -164,6 +182,10 @@ void RecordingEngine::startPlayback(const RecordingTake& take, double currentSam
 }
 
 void RecordingEngine::stopPlayback() {
+    {
+        juce::CriticalSection::ScopedLockType lock(presetChangeLock);
+        pendingPresetChanges.clear();
+    }
     state.store(RecordingState::stopped, std::memory_order_release);
     playbackEndedPending.store(false, std::memory_order_release);
 }
@@ -199,12 +221,14 @@ void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer, std::int
         const auto scaledTimestamp
             = static_cast<std::int64_t>(static_cast<double>(event.timestampSamples) * combinedRatio);
 
-        // Half-open interval [blockStartSamples, blockEndSamples) for block membership.
-        // The >= on the upper bound is intentional: events whose scaledTimestamp reaches
-        // or passes blockEndSamples belong to the next block (or are past playback end).
-        // Playback naturally ends when advancePlaybackPosition sees position >= scaledLength.
         if (scaledTimestamp < blockStartSamples || scaledTimestamp >= blockEndSamples)
             continue;
+
+        if (event.type == PerformanceEventType::presetChange) {
+            juce::CriticalSection::ScopedLockType lock(presetChangeLock);
+            pendingPresetChanges.push_back({ event.presetId });
+            continue;
+        }
 
         const auto sampleOffset = static_cast<int>(scaledTimestamp - blockStartSamples);
         midiBuffer.addEvent(event.message, juce::jlimit(0, numSamples - 1, sampleOffset));
@@ -236,6 +260,13 @@ bool RecordingEngine::isPlaying() const noexcept {
 
 std::int64_t RecordingEngine::getPlaybackPositionSamples() const noexcept {
     return playbackPositionSamples;
+}
+
+std::vector<PendingPresetChange> RecordingEngine::drainPendingPresetChanges() {
+    juce::CriticalSection::ScopedLockType lock(presetChangeLock);
+    std::vector<PendingPresetChange> drained;
+    drained.swap(pendingPresetChanges);
+    return drained;
 }
 
 std::int64_t RecordingEngine::getScaledPlaybackLengthSamples() const noexcept {
