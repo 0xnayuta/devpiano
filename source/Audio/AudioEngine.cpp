@@ -3,6 +3,7 @@
 #include "Plugin/PluginHost.h"
 #include "Recording/RecordingEngine.h"
 
+#include "Diagnostics/Log.h"
 #include <cmath>
 
 namespace {
@@ -125,7 +126,10 @@ void AudioEngine::prepareToPlay(int samplesPerBlockExpected, double sampleRate) 
     synth.setCurrentPlaybackSampleRate(sampleRate);
     midiCollector.reset(sampleRate);
     midiBuffer.clear();
-    pluginBuffer.setSize(2, juce::jmax(1, samplesPerBlockExpected), false, false, true);
+    // Pre-allocate for up to 8 channels (covers stereo sources + multi-out plugins).
+    // The audio callback must never resize this buffer — heap allocation on the
+    // real-time thread causes glitches.
+    pluginBuffer.setSize(8, juce::jmax(1, samplesPerBlockExpected), false, false, true);
     pluginBuffer.clear();
 
     const auto bytes = static_cast<size_t>(juce::jlimit(4096, 65536, samplesPerBlockExpected * 16));
@@ -161,15 +165,20 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
     auto renderedByPlugin = false;
 
     if (pluginHost != nullptr && pluginHost->hasLoadedPlugin()) {
-        if (!pluginHost->isPrepared())
-            pluginHost->prepareToPlay(currentSampleRate, currentBlockSize);
 
         if (auto* instance = pluginHost->getInstance(); instance != nullptr && pluginHost->isPrepared()) {
             const auto requiredChannels = juce::jmax(
                 1, juce::jmax(instance->getTotalNumInputChannels(), instance->getTotalNumOutputChannels()));
+            // Buffer is pre-allocated in prepareToPlay and should never need resizing here.
+            // If this triggers, the audio device changed its block size without calling prepareToPlay
+            // — which is a framework contract violation. Resize as a safety net in release builds.
+            jassert(pluginBuffer.getNumChannels() >= requiredChannels);
+            jassert(pluginBuffer.getNumSamples() >= bufferToFill.numSamples);
             if (pluginBuffer.getNumChannels() < requiredChannels
-                || pluginBuffer.getNumSamples() < bufferToFill.numSamples)
+                || pluginBuffer.getNumSamples() < bufferToFill.numSamples) {
                 pluginBuffer.setSize(requiredChannels, bufferToFill.numSamples, false, false, true);
+                DP_LOG_WARN("AudioEngine: pluginBuffer resized in callback — prepareToPlay mismatch");
+            }
 
             pluginBuffer.clear();
             instance->processBlock(pluginBuffer, midiBuffer);
