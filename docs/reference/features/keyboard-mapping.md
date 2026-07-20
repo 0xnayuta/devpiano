@@ -55,16 +55,16 @@ JUCE KeyPress / KeyListener
 - 自定义映射保存/恢复测试仍依赖后续完整 UI 能力。
 - Performance Preset 新建/导入/切换/重命名/删除/启动恢复/F1-F12 快捷键/录制集成已全部完成，后续主要是低优先级体验增强。
 
-## 与旧 FreePiano 的关系
+## 历史参考
 
-旧 FreePiano 中的 `keyboard.*` / `config.*` 可用于参考：
+键盘映射系统的设计参考了旧 FreePiano 的 `keyboard.*` / `config.*` 模块，提炼了以下行为：
 
 - 默认键位布局；
 - 映射规则；
 - 功能边界；
 - 历史交互预期。
 
-新实现不直接沿用旧扫描码处理和平台绑定输入逻辑，而是基于 JUCE 输入事件和项目内布局模型重建。
+当前 devpiano 实现基于 JUCE 输入事件和项目内 `KeyboardLayout` / `KeyboardMidiMapper` 模型独立重建，不沿用旧平台绑定逻辑。
 
 ## 后续方向
 

@@ -5,7 +5,7 @@
 
 ## 1. 项目定位
 
-`devpiano` 是将旧版 Windows FreePiano 重构为基于 JUCE 的现代 C++ 音频应用的项目。
+`devpiano` 是一款基于 JUCE 的现代 C++ 电脑键盘钢琴应用。
 
 当前主架构原则：
 
@@ -13,14 +13,13 @@
 - 插件宿主使用 JUCE `AudioPluginFormatManager` / `AudioPluginInstance`。
 - 电脑键盘输入通过 JUCE `KeyListener` / `KeyPress` 转换为 MIDI。
 - UI 使用 JUCE `Component` 树。
-- 旧源码只用于提炼行为，不直接复制平台相关实现。
+- 架构设计以 JUCE 标准 API 和抽象为核心，避免平台耦合。
 
 ## 2. 顶层目录职责
 
 | 路径 | 职责 |
 |---|---|
 | `source/` | 当前 JUCE 主代码。新增和重构后的业务代码应放在这里。 |
-| `freepiano-src/` | 旧 FreePiano 源码，仅作为迁移参考，不参与主构建。 |
 | `JUCE/` | JUCE 子模块，禁止修改。 |
 | `docs/` | 项目文档。 |
 | `scripts/` | WSL / Windows 镜像同步 / 构建验证脚本。 |
@@ -196,22 +195,6 @@ SettingsModel + runtime state
   -> HeaderPanel / PluginPanel
 ```
 
-## 5. 旧代码边界
+## 5. 项目起源
 
-`freepiano-src/` 只用于理解旧行为，例如默认键位、录制回放功能边界、旧插件宿主预期等。
-
-### 允许做的事情
-- 阅读旧代码以理解历史行为
-- 提取业务规则、消息语义、默认布局、功能边界
-- 参考旧项目模块职责拆分方式
-- 对照旧项目验证新实现行为是否一致
-
-### 禁止做的事情
-- 直接复制旧的 Windows 平台实现到新代码中
-- 直接延续旧的宏式、全局函数式设计
-- 重新引入以 `windows.h` 为中心的依赖链作为核心架构
-- 将旧的音频后端、GUI、VST 实现原样照搬
-
-### 核心原则
-
-> 旧代码用于"提炼逻辑"，不是用于"直接复刻实现"。
+devpiano 源于对旧版 Windows FreePiano 的现代化重构。Phase 1-9 中，所有有价值的 FreePiano 功能（键盘映射、插件宿主、录制回放、MIDI 导入导出、WAV 渲染、逐键个性化、调号系统、Performance Preset）已用 JUCE 架构完整重建。旧参考源码（`freepiano-src/`）已移除。

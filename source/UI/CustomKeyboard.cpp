@@ -8,13 +8,13 @@
 
 namespace {
 
-// Colour helpers (FreePiano classic mode: warm orange)
+// Colour helpers (classic mode: warm orange)
 static juce::Colour classicColourTop(float fade) {
     auto s = 0.3f + 0.7f * fade;
     return juce::Colour::fromHSV(27.0f / 360.0f, s, 1.0f, fade);
 }
 
-// Channel colour mode: 16 predefined hues (FreePiano values)
+// Channel colour mode: 16 predefined hues
 constexpr float channelHues[16] = { 30, 10, 350, 330, 310, 290, 270, 210, 190, 170, 150, 130, 110, 90, 70, 50 };
 
 // Velocity colour mode: green (h=64) → red (h=0)

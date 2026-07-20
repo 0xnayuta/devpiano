@@ -51,11 +51,9 @@ JUCE KeyPress / KeyListener
 
 ---
 
-## 2. 旧 FreePiano 行为参考
+## 2. 历史参考
 
-对应旧源码：`freepiano-src/song.*`、`freepiano-src/export.*`。
-
-旧系统事件模型近似为：
+录制回放系统的设计参考了旧 FreePiano 的 `song.*` / `export.*` 模块的事件模型。旧系统使用以下近似结构：
 
 ```cpp
 struct song_event_t {
@@ -66,6 +64,8 @@ struct song_event_t {
     byte d;        // 数据字节 3
 };
 ```
+
+当前 devpiano 实现基于 `RecordingEngine` + `.devpiano` JSON 格式独立重建。
 
 旧录制覆盖范围很宽：
 

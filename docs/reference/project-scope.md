@@ -12,9 +12,7 @@
 
 ## 2. 项目起源
 
-devpiano 源于对旧版 Windows FreePiano 的现代化重构尝试。旧 FreePiano 源码（`freepiano-src/`）在本仓库中保留为迁移参考资料，不参与当前构建。
-
-**devpiano 不是 FreePiano 的超集或替代品**，而是一个独立项目——聚焦电脑键盘演奏场景，有自己的设计方向和判断标准。当 FreePiano 中有价值、有意义的功能全部在新项目中实现后，FreePiano 的参考使命即告完成。
+devpiano 源于对旧版 Windows FreePiano 的现代化重构。所有有价值的功能已通过 Phase 1-9 在 JUCE 架构上完整重建，旧参考源码（`freepiano-src/`）已移除。参考使命已完成，devpiano 完全以自身方向独立演进。
 
 ## 3. 核心能力
 
@@ -69,5 +67,4 @@ devpiano 源于对旧版 Windows FreePiano 的现代化重构尝试。旧 FreePi
 ## 6. 长期演进方向
 
 - 架构优化（减少自定义实现、对齐 JUCE 标准 API、清晰化生命周期边界）作为持续主题。
-- 新功能按"场景价值"评估，而非"与 FreePiano 的差距"。
-- 在 FreePiano 参考使命完成后，放开对旧项目功能的追溯约束，完全以 devpiano 自身方向演进。
+- 新功能按"场景价值"评估，完全以 devpiano 自身方向演进。

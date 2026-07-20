@@ -172,7 +172,7 @@ target_compile_definitions(devpiano PRIVATE
     NOMINMAX=1
     WIN32_LEAN_AND_MEAN=1
 
-    # 核心：允许我们的应用加载外部 VST3 插件（FreePiano 发声必备）
+    # 核心：允许我们的应用加载外部 VST3 插件（VST3 插件音源）
     JUCE_PLUGINHOST_VST3=1
 
     # 如果你也想加载古老的 VST2 插件，可以解开下方的注释

@@ -5,7 +5,7 @@
 
 ## 1. 项目目标
 
-将旧版 Windows FreePiano 重构为基于 JUCE 的现代 C++ 音频应用。
+devpiano 是一款基于 JUCE 的现代 C++ 电脑键盘钢琴应用。
 
 核心替代方向：
 

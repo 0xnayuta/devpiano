@@ -13,9 +13,9 @@
 
 ---
 
-## 1. 旧 FreePiano 布局管理行为参考
+## 1. 历史参考：布局管理
 
-对应源码：`freepiano-src/config.*`、`freepiano-src/song.*`。
+Performance Preset 系统的设计参考了旧 FreePiano 的配置模型（`config.*` / `song.*`）。
 
 ### 1.1 布局在旧系统中的定位
 

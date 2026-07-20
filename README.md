@@ -6,7 +6,7 @@
 
 项目定位、核心能力与明确非目标详见 [`docs/reference/project-scope.md`](docs/reference/project-scope.md)。
 
-本仓库是 devpiano 的主源码与文档仓库。旧版 FreePiano 源码（`freepiano-src/`）保留为迁移参考资料，不参与当前构建。
+本仓库是 devpiano 的主源码与文档仓库。
 
 ---
 
@@ -31,10 +31,9 @@
 - 已支持运行时界面语言切换（中文/英文），JUCE `Translation` 机制替换旧 `language_strdef.h` 体系
 - 已支持 VST3 离线 WAV 导出（非 UI 线程渲染 + 进度对话框）
 - 已支持播放速度精确控制（Slider + atomic 线程安全）
-- 已支持拖放文件（`.devpiano`/`.mid`/`.freepiano.layout`/`.vst3`），蓝色边框反馈
+- 已支持拖放文件（`.devpiano`/`.mid`/`.devpiano.preset`/`.vst3`），蓝色边框反馈
 - `MainComponent.cpp` 从约 1587 行降至约 606 行，职责已下沉到专门模块
 - 自动化单元测试框架已就位（`cmake -DBUILD_TESTS=ON` → `devpiano_tests`）
-
 
 ---
 
@@ -90,11 +89,6 @@
   - JUCE 框架子模块
   - **不要修改**
 
-### 旧版参考源码
-- `freepiano-src/`
-  - 旧版 FreePiano 源码，仅作为迁移参考
-  - **不参与当前主构建**
-  - **不要直接复制其中平台相关实现到新架构中**
 
 ### 文档目录
 - `docs/`
@@ -144,6 +138,8 @@
 - [docs/guides/quickstart.md](docs/guides/quickstart.md)
 
 > 说明：当前项目采用 **WSL 主工作树 + Windows 镜像树 + MSVC 验证** 的混合工作流。
+
+---
 
 ## 构建工作流
 
@@ -208,30 +204,6 @@ Release 构建（WSL / Windows）：
 
 - [docs/guides/wsl-windows-msvc-workflow.md](docs/guides/wsl-windows-msvc-workflow.md)
 - [docs/guides/quickstart.md](docs/guides/quickstart.md)
-- [docs/reference/features/midi-file-import.md](docs/reference/features/midi-file-import.md)
-
-## 旧代码使用原则
-
-`freepiano-src/` 的定位是：**迁移参考资料**，不是当前实现的一部分。
-
-- 可以阅读旧代码以理解历史功能和行为
-- 不要直接把旧的 Windows 专用实现照搬进新代码
-- 不要重新引入 `windows.h` 依赖链作为核心方案
-- 旧模块应被“提炼逻辑、重建设计”，而不是原样复刻
-
-典型替代方向：
-
-- `output_wasapi.* / output_asio.* / output_dsound.*`
-  -> JUCE `AudioDeviceManager`
-- `synthesizer_vst.*`
-  -> JUCE `AudioPluginFormatManager` + `AudioPluginInstance`
-- `gui.*`
-  -> JUCE `Component`
-- `config.*`
-  -> JUCE `ApplicationProperties` + `ValueTree`
-
-更多映射说明见：
-
 - [docs/reference/features/midi-file-import.md](docs/reference/features/midi-file-import.md)
 
 ---

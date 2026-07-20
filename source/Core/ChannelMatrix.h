@@ -10,10 +10,10 @@ namespace devpiano::midi {
 // ============================================================================
 // Per-channel configuration within the 16-channel MIDI matrix.
 //
-// Mirrors FreePiano's per-channel settings: each of the 16 logical input
-// channels carries its own transpose, octave shift, velocity curve, program,
-// bank, and sustain CC.  The matrix acts as a global configuration layer
-// applied to every note-on/off before it reaches the synth.
+// Each of the 16 logical input channels carries its own transpose, octave
+// shift, velocity curve, program, bank, and sustain CC.  The matrix acts as
+// a global configuration layer applied to every note-on/off before it reaches
+// the synth.
 // ============================================================================
 struct PerChannelConfig {
     // Actual MIDI output channel (0-15, 0 = channel 1).

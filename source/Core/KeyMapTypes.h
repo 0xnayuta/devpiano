@@ -59,8 +59,8 @@ struct KeyBinding {
 };
 
 struct KeyboardLayout {
-    juce::String id { "default.freepiano.minimal" };
-    juce::String name { "FreePiano Minimal" };
+    juce::String id { "devpiano.default" };
+    juce::String name { "DevPiano Default" };
     std::vector<KeyBinding> bindings;
 
     [[nodiscard]] const KeyBinding* findByKeyCode(int keyCodeToFind) const noexcept {
@@ -118,7 +118,7 @@ struct KeyboardLayout {
     constexpr int baseCZxcRow = 48;
 
     KeyboardLayout layout;
-    layout.name = "FreePiano Minimal";
+    layout.name = "DevPiano Default";
     auto& bindings = layout.bindings;
     bindings.reserve(36);
 
@@ -177,8 +177,8 @@ struct KeyboardLayout {
     constexpr int baseCZxcRow = 60; // C3
 
     KeyboardLayout layout;
-    layout.id = "default.freepiano.full";
-    layout.name = "FreePiano Full";
+    layout.id = "devpiano.full";
+    layout.name = "DevPiano Full";
     auto& bindings = layout.bindings;
     bindings.reserve(36);
 

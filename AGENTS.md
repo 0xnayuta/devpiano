@@ -4,7 +4,7 @@
 
 项目定位、核心能力与明确非目标详见 [`docs/reference/project-scope.md`](docs/reference/project-scope.md)。
 
-原 FreePiano 源码（`freepiano-src/`）保留为迁移参考资料，不参与当前构建。
+
 
 开发环境采用：**WSL 主工作树 + Windows 镜像树 + CMake + Ninja + Windows/MSVC 构建验证**。
 
@@ -20,11 +20,6 @@
 - `/JUCE/`
   - JUCE 框架 git 子模块。
   - **绝对不要修改其中任何代码**。
-- `/freepiano-src/`
-  - 旧 FreePiano 源码，仅作为迁移参考。
-  - 不参与当前 JUCE 主构建。
-  - 只用于理解历史行为、默认布局、功能边界和旧模块关系。
-  - 不要直接复制平台相关实现；应提炼行为后用 JUCE 抽象重建。
 - `/build-wsl-clang/`
   - WSL 本地 Debug 构建目录。
   - clangd / LSP 编译数据库来源：`build-wsl-clang/compile_commands.json`。
@@ -45,17 +40,17 @@
 - [`docs/README.md`](docs/README.md)：文档总入口，按读者角色组织推荐阅读顺序。
 - [`docs/guides/quickstart.md`](docs/guides/quickstart.md)：快速恢复环境与常用命令。
 - [`docs/guides/wsl-windows-msvc-workflow.md`](docs/guides/wsl-windows-msvc-workflow.md)：WSL / Windows 镜像 / MSVC 验证详细工作流。
+- [`docs/guides/development.md`](docs/guides/development.md)：日常开发与构建细节。
+- [`docs/guides/troubleshooting.md`](docs/guides/troubleshooting.md)：常见问题排查。
 - [`docs/reference/project-scope.md`](docs/reference/project-scope.md)：项目定位、核心能力与明确非目标。
 - [`docs/reference/architecture.md`](docs/reference/architecture.md)：当前系统架构、模块职责与主要链路。
-- [`docs/reference/features/keyboard-mapping.md`](docs/reference/features/keyboard-mapping.md)：电脑键盘到 MIDI note 的映射能力。
-- [`docs/reference/features/plugin-hosting.md`](docs/reference/features/plugin-hosting.md)：VST3 插件扫描、加载、处理、editor 和生命周期行为。
 - [`docs/reference/acceptance.md`](docs/reference/acceptance.md)：阶段验收标准。
-- [`docs/reference/features/midi-file-import.md`](docs/reference/features/midi-file-import.md)：MIDI 文件导入、回放兼容性、剩余边界与 FreePiano 差距。
+- [`docs/reference/features/`](docs/reference/features/)：功能行为说明与专项手工测试，涵盖键盘映射、插件宿主、录制回放、MIDI 导入、Performance Preset、离线渲染等。
+- [`docs/issues/known-issues.md`](docs/issues/known-issues.md)：已知问题、已修复风险的回归项与长期设计约束。
 - [`docs/decisions/`](docs/decisions/README.md)：ADR，记录已确定的架构/工程决策。
 - [`docs/roadmap/roadmap.md`](docs/roadmap/roadmap.md)：唯一项目状态、阶段路线与近期重点来源。
 - [`docs/roadmap/current-iteration.md`](docs/roadmap/current-iteration.md)：当前迭代入口。
-- [`docs/roadmap/cleanup-external-midi-scope.md`](docs/roadmap/cleanup-external-midi-scope.md)：外部 MIDI 清理执行计划。
-- [`docs/archive/`](docs/archive/README.md)：历史资料，内容只作参考，当前信息以现行文档为准。
+- [`docs/archive/`](docs/archive/README.md)：历史资料与已完成计划归档，内容只作参考，当前信息以现行文档为准。
 
 ---
 
@@ -77,7 +72,6 @@
 - **不要修改 `/JUCE/` 子模块**。
 - **新增业务代码只放在 `/source/` 下的合适子目录**。
 - 优先小步修改、小范围验证，不要一次性大改整个系统。
-- 理解旧逻辑时可以阅读 `/freepiano-src/`，但日常搜索、编辑、重构都以 WSL 主工作树和 `/source/` 为准。
 - **WSL 主工作树是唯一主源码来源，仅用于编辑代码和刷新 `compile_commands.json`**，所有构建验证和软件测试在 Windows 侧进行。
 - **不要让 Windows/MSVC 直接跨边界在 WSL 主工作树上长期构建**；Windows 只使用镜像树做验证。
 - WSL 构建和 Windows 构建必须分离：
@@ -183,36 +177,7 @@
 
 ---
 
-## 6. 旧代码迁移规则（FreePiano 参考源码）
-
-旧源码目录 `/freepiano-src/` 保留为迁移参考资料，不参与当前构建。
-
-**devpiano 是一个独立项目，不是 FreePiano 的超集或替代品。** 当 FreePiano 中有价值、有意义的功能全部在新项目中实现后，FreePiano 的参考使命即告完成，可停止使用 `freepiano-src/`。
-
-允许：
-
-- 阅读旧代码以理解历史行为。
-- 提取业务规则、默认键位、消息语义和功能边界。
-- 对照旧模块验证新架构是否覆盖关键行为。
-
-禁止或避免：
-
-- 直接复制旧 Windows 平台实现。
-- 重新引入以 `windows.h` 为中心的依赖链作为核心架构。
-- 原样复刻旧 WASAPI / ASIO / DSound 后端。
-- 原样复刻旧 VST SDK 风格宿主。
-- 原样复刻旧 GDI GUI。
-- 延续旧宏式、全局函数式设计。
-
-迁移原则：**旧代码用于提炼行为，不用于直接复刻实现。**
-
-参考：
-
-- ADR：[`docs/decisions/0002-legacy-code-as-reference-only.md`](docs/decisions/0002-legacy-code-as-reference-only.md)
-
----
-
-## 7. JUCE/C++ 专项指令
+## 6. JUCE/C++ 专项指令
 
 - 优先保持 UI、音频/MIDI、插件宿主、设置/状态模型解耦。
 - 修改 UI 时，保持 `Component` 层级清晰、职责单一。
@@ -221,47 +186,50 @@
 - 插件相关改动重点关注：scan / load / unload / editor / audio device rebuild / exit 生命周期组合。
 - 键盘相关改动重点关注：note on/off 成对、长按、连按、焦点切换、输入法、修饰键。
 - 对大范围重命名或结构调整，先小步重构，再使用 LSP 和构建验证。
-相关功能与测试文档：
+
+---
+
+## 7. 相关功能与测试文档：
 
 - 键盘映射功能及测试：[`docs/reference/features/keyboard-mapping.md`](docs/reference/features/keyboard-mapping.md)
 - 插件宿主功能及生命周期测试：[`docs/reference/features/plugin-hosting.md`](docs/reference/features/plugin-hosting.md)
 - MIDI 文件导入功能及测试：[`docs/reference/features/midi-file-import.md`](docs/reference/features/midi-file-import.md)
+- 录制回放与 MIDI 导出：[`docs/reference/features/recording-playback.md`](docs/reference/features/recording-playback.md)
+- Performance Preset 功能与测试：[`docs/reference/features/performance-presets.md`](docs/reference/features/performance-presets.md)
+- 性能持久化：[`docs/reference/features/performance-persistence.md`](docs/reference/features/performance-persistence.md)
+- 插件离线渲染：[`docs/reference/features/plugin-offline-rendering.md`](docs/reference/features/plugin-offline-rendering.md)
+- 测试夹具清单：[`docs/reference/features/fixture-inventory.md`](docs/reference/features/fixture-inventory.md)
 - 阶段验收：[`docs/reference/acceptance.md`](docs/reference/acceptance.md)
 - 已知问题：[`docs/issues/known-issues.md`](docs/issues/known-issues.md)
-- 代码格式：`.clang-format`（WebKit 基，120 列，Attach 大括号）
-- 静态分析：`.clang-tidy`（bugprone/performance/readability/modernize 检查集）
-- 单元测试：`cmake -DBUILD_TESTS=ON` → `devpiano_tests` 目标，使用 JUCE UnitTest 框架
 
 ---
 
 ## 8. 推荐工作流
 
 1. 明确任务目标和涉及范围。
-2. 如涉及旧系统行为或迁移路径，先阅读：
-   - 必要时阅读 `/freepiano-src/` 相关旧模块。
-3. 如涉及当前架构或功能边界，先阅读：
+2. 如涉及当前架构或功能边界，先阅读：
    - [`docs/reference/architecture.md`](docs/reference/architecture.md)
    - [`docs/reference/project-scope.md`](docs/reference/project-scope.md)：项目定位与范围。
    - [`docs/reference/features/keyboard-mapping.md`](docs/reference/features/keyboard-mapping.md)
    - [`docs/reference/features/plugin-hosting.md`](docs/reference/features/plugin-hosting.md)
    - [`docs/reference/features/midi-file-import.md`](docs/reference/features/midi-file-import.md)
-4. 使用 `lsp` + `read` / `edit` 在 WSL 主工作树中小步修改。
-5. 修改 `source/*.h` / `source/*.cpp` 后，先用 LSP diagnostics 检查。
-6. 运行 `./scripts/dev.sh format` 确保代码风格一致（首次使用或 `.clang-format` 变更后）。
-7. 若存在测试文件，运行 `./scripts/dev.sh test` 验证不引入回归。
-8. 需要刷新 clangd 编译数据库时运行：
+3. 使用 `lsp` + `read` / `edit` 在 WSL 主工作树中小步修改。
+4. 修改 `source/` 下的 `.cpp` / `.h` 文件后，先用 LSP diagnostics 检查。
+5. 运行 `./scripts/dev.sh format` 确保代码风格一致（首次使用或 `.clang-format` 变更后）。
+6. 若存在测试文件，运行 `./scripts/dev.sh test` 验证不引入回归。
+7. 需要刷新 clangd 编译数据库时运行：
 
 ```bash
 ./scripts/dev.sh wsl-build --configure-only
 ```
 
-9. Windows MSVC 验证构建：
+8. Windows MSVC 验证构建：
 
 ```bash
 ./scripts/dev.sh win-build
 ```
 
-10. 涉及环境或路径问题时，先运行：
+9. 涉及环境或路径问题时，先运行：
 
 ```bash
 ./scripts/dev.sh self-check

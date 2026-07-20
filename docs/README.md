@@ -44,7 +44,7 @@
 - [`reference/features/plugin-hosting.md`](reference/features/plugin-hosting.md)：VST3 插件扫描、加载、处理、editor 和生命周期行为。
 - [`reference/features/recording-playback.md`](reference/features/recording-playback.md)：录制 / 回放 / MIDI 导出的第一版设计与当前 MVP 行为。
 - [`reference/features/performance-presets.md`](reference/features/performance-presets.md)：Performance Preset 的文件格式、CRUD 行为、F1-F12 快捷键、录制集成与启动恢复。
-- [`reference/features/midi-file-import.md`](reference/features/midi-file-import.md)：MIDI 文件导入、回放兼容性、剩余边界与 FreePiano 差距。
+- [`reference/features/midi-file-import.md`](reference/features/midi-file-import.md)：MIDI 文件导入、回放兼容性与功能边界。
 - [`reference/features/performance-persistence.md`](reference/features/performance-persistence.md)：性能与持久化。
 - [`reference/features/plugin-offline-rendering.md`](reference/features/plugin-offline-rendering.md)：插件离线渲染能力、文件输出格式与边界。
 - [`reference/features/fixture-inventory.md`](reference/features/fixture-inventory.md)：MIDI / Performance 测试夹具清单。

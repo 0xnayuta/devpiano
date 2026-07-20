@@ -318,12 +318,12 @@ public:
 
         testCase("default layout has correct id", [&] {
             auto layout = makeDefaultKeyboardLayout();
-            expectEquals(layout.id, juce::String("default.freepiano.minimal"));
+            expectEquals(layout.id, juce::String("devpiano.default"));
         });
 
         testCase("default layout has correct name", [&] {
             auto layout = makeDefaultKeyboardLayout();
-            expectEquals(layout.name, juce::String("FreePiano Minimal"));
+            expectEquals(layout.name, juce::String("DevPiano Default"));
         });
 
         testCase("A key maps to C3 (MIDI note 60)", [&] {
@@ -389,8 +389,8 @@ public:
 
         testCase("full layout has correct id and name", [&] {
             auto layout = makeFullPianoLayout();
-            expectEquals(layout.id, juce::String("default.freepiano.full"));
-            expectEquals(layout.name, juce::String("FreePiano Full"));
+            expectEquals(layout.id, juce::String("devpiano.full"));
+            expectEquals(layout.name, juce::String("DevPiano Full"));
         });
 
         testCase("full layout has higher octave range", [&] {

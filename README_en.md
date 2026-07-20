@@ -6,7 +6,7 @@
 
 For project scope, core capabilities, and explicit non-goals, see [`docs/reference/project-scope.md`](docs/reference/project-scope.md).
 
-This repository is the main source and documentation tree for devpiano. The legacy FreePiano source (`freepiano-src/`) is retained as migration reference and does not participate in the current build.
+This repository is the main source and documentation tree for devpiano.
 
 ---
 
@@ -31,7 +31,7 @@ The current main branch already provides the following capabilities:
 - runtime UI language switching (Chinese/English) via JUCE `Translation` mechanism, replacing the old `language_strdef.h` system
 - VST3 offline WAV export (non-UI-thread rendering + progress dialog)
 - playback speed precision control (Slider + atomic thread safety)
-- drag-and-drop file support (`.devpiano`/`.mid`/`.freepiano.layout`/`.vst3`), blue border feedback
+- drag-and-drop file support (`.devpiano`/`.mid`/`.devpiano.preset`/`.vst3`), blue border feedback
 - `MainComponent.cpp` reduced from ~1587 lines to ~606 lines; responsibilities extracted into dedicated modules
 - automated unit testing framework ready (`cmake -DBUILD_TESTS=ON` → `devpiano_tests`)
 
@@ -89,11 +89,6 @@ Computer keyboard -> MidiMessageCollector / MidiKeyboardState
   - JUCE framework submodule
   - **do not modify**
 
-### Legacy Reference Source
-- `freepiano-src/`
-  - legacy FreePiano source code, kept only as a migration reference
-  - **not part of the current main build**
-  - **do not directly copy platform-specific implementations from it into the new architecture**
 
 ### Documentation
 - `docs/`
@@ -143,6 +138,7 @@ For more details, see:
 - [docs/guides/wsl-windows-msvc-workflow.md](docs/guides/wsl-windows-msvc-workflow.md)
 - [docs/guides/quickstart.md](docs/guides/quickstart.md)
 
+---
 
 ## Build Workflow
 
@@ -197,31 +193,6 @@ Release builds (WSL / Windows):
 
 - [docs/guides/wsl-windows-msvc-workflow.md](docs/guides/wsl-windows-msvc-workflow.md)
 - [docs/guides/quickstart.md](docs/guides/quickstart.md)
-- [docs/reference/features/midi-file-import.md](docs/reference/features/midi-file-import.md)
-
----
-## Legacy Code (FreePiano Reference Source)
-
-`freepiano-src/` is **migration reference material**, not part of the current implementation.
-
-**devpiano is an independent project, not a superset or replacement of FreePiano.** When all valuable and meaningful features from FreePiano have been implemented in devpiano, the reference mission is complete and `freepiano-src/` can be retired.
-
-Until then, when working with legacy code:
-- legacy modules should be used to extract behavior and redesign it, not to be replicated as-is
-
-Typical replacement directions:
-
-- `output_wasapi.* / output_asio.* / output_dsound.*`
-  -> JUCE `AudioDeviceManager`
-- `synthesizer_vst.*`
-  -> JUCE `AudioPluginFormatManager` + `AudioPluginInstance`
-- `gui.*`
-  -> JUCE `Component`
-- `config.*`
-  -> JUCE `ApplicationProperties` + `ValueTree`
-
-For more mapping details, see:
-
 - [docs/reference/features/midi-file-import.md](docs/reference/features/midi-file-import.md)
 
 ---

@@ -11,14 +11,14 @@ namespace devpiano::ui {
 // Keyboard rendering enums and data types
 // ============================================================================
 
-// Per-key colouring mode (mirrors old FreePiano AUTO_COLOR_*)
+// Per-key colouring mode
 enum class KeyColourMode : uint8_t {
     classic = 0, // warm orange hue
     channel = 1, // 16-channel hue palette
     velocity = 2, // green-red velocity gradient
 };
 
-// Note-display mode (mirrors old FreePiano NOTE_DISPLAY_*)
+// Note-display mode
 enum class NoteDisplayMode : uint8_t {
     doReMi = 0, // "1" "#1" "2" … (solfège numbers, absolute)
     fixedDo = 1, // same as doReMi with key-signature offset applied
@@ -67,7 +67,7 @@ constexpr const char* doReMiNames[12] = { "1", "#1", "2", "#2", "3", "4", "#4", 
 constexpr const char* noteLetterNames[12] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
 
 // Return the display name for a MIDI note in the given mode.
-// Octave convention matches FreePiano:
+// Octave convention: C0 starts at MIDI 12.
 //   (midiNote - 12) / 12  is the octave index, with index 4 = C4 (MIDI 60).
 //   doReMi/fixedDo offset is relative to C4 (index 4 → offset "0").
 //   noteName uses the standard octave number (C4 → "C4").
@@ -75,7 +75,7 @@ inline juce::String getNoteDisplayName(int midiNote, NoteDisplayMode mode, int k
     if (midiNote < 0 || midiNote > 127)
         return {};
 
-    // FreePiano-style octave index: C0 starts at MIDI 12.
+    // Octave index: C0 starts at MIDI 12.
     auto octaveIndex = (midiNote - 12) / 12;
     auto noteIndex = midiNote % 12;
 

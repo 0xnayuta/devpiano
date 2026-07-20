@@ -88,11 +88,11 @@ Computer keyboard
 - 特定插件 / Debug 注入环境下退出阶段可能仍有 JUCE / VST3 调试告警，需要持续观察。
 - 后续视需要拆分 `PluginScanner` 与实例生命周期宿主职责。
 
-## 与旧 FreePiano 的关系
+## 历史参考
 
-旧 FreePiano 中的 `synthesizer_vst.*` / `vst/*` 可用于理解历史功能边界和插件交互预期。
+插件宿主系统的设计参考了旧 FreePiano 的 `synthesizer_vst.*` / `vst/*` 模块的历史功能边界和插件交互预期。
 
-新实现不沿用旧版 VST SDK 风格接口，而是使用 JUCE：
+当前 devpiano 实现基于 JUCE 标准 API 独立重建：
 
 - `AudioPluginFormatManager`
 - `KnownPluginList`
