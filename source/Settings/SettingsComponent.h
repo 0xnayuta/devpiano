@@ -310,7 +310,7 @@ public:
         ksContent.removeFromTop(4);
         channelFollowKeyLabel.setBounds(ksContent.removeFromTop(rowH));
         // 2 rows of 8 channel toggles
-        constexpr int chBtnW = 48;
+        constexpr int chBtnW = 56;
         constexpr int chSpacing = 4;
         auto chArea = ksContent.removeFromTop(rowH * 2);
         for (int ch = 0; ch < 16; ++ch) {
