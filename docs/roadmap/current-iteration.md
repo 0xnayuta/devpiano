@@ -5,7 +5,7 @@
 
 ## 当前方向
 
-Phase 9：配置快照与体验增强（详见 [`roadmap.md`](roadmap.md) §Phase 9）— 子项 9c / 9d 待实施。
+Phase 9：配置快照与体验增强（详见 [`roadmap.md`](roadmap.md) §Phase 9）— 子项 9d 待实施。
 Phase 10：主窗口 UI 现代化 — 当前迭代主攻方向，详见下方 §Phase 10。
 
 ---
@@ -131,26 +131,23 @@ Phase 10：主窗口 UI 现代化 — 当前迭代主攻方向，详见下方 §
 - [x] (g) 默认视口定位到映射键区域（note 24），启动即见绑定区
 
 ---
-### 9c. Smooth Pitch Bend（平滑弯音插值）
+### 9c. Smooth Pitch Bend（平滑弯音插值）— ✅ 已完成
 
-**涉及文件**：`Recording/RecordingEngine.h`、`Recording/RecordingEngine.cpp`
-
-**实现方式**：
-- `RecordingEngine` 增加 `std::array<float, 16> smoothedPitchBend` per-channel 状态，初始值 8192.0f（中心位置）
-- 回放路径 `getNextAudioBlock`：遇到 pitch bend 事件时，不直接写入 target，而是
+**实现摘要**：
+- 数据模型：`RecordingEngine` 新增 `std::array<float, 16> smoothedPitchBend`，per-channel EMA 状态，`startPlayback/stopPlayback` 中复位为 8192.0f（弯音中心）
+- 核心逻辑：`renderPlaybackBlock()` 遍历回放事件时，对 `isPitchWheel()` 事件应用 EMA 平滑：
   ```
-  smoothedPitchBend[ch] += 0.3f * (targetValue - smoothedPitchBend[ch]);
+  smoothedPitchBend[ch] += 0.3f * (target - smoothedPitchBend[ch]);
   ```
-  （EMA 指数移动平均，alpha=0.3，约 10ms 时间常数）
-- 将平滑后的 14-bit 值（round 取整）写入 `MidiBuffer`
-- 录音时不应用平滑（保留原始事件精度）
-- 播放停止后 per-channel 状态复位到 8192.0f
+  取 `std::round` 后通过 `juce::MidiMessage::pitchWheel()` 构造平滑消息写入 `MidiBuffer`；非 pitch bend 事件走原路径零开销
+- 线程安全：`smoothedPitchBend` 仅被音频线程（`renderPlaybackBlock`）和消息线程（`startPlayback/stopPlayback`）访问，通过 `RecordingState` atomic 的 release/acquire 语义建立 happens-before
+- 录制不受影响：平滑仅存在于回放路径，`recordEvent/recordMidiBufferBlock` 不改动
+- 改动文件 2 个：`Recording/RecordingEngine.h`（+6 行）、`Recording/RecordingEngine.cpp`（+22 行）
 
-**验收标准**：
-- (a) 回放含快速弯音变化的 MIDI 文件，听感无"拉链噪声"
-- (b) 录音的原始 pitch bend 数据完整保留（不受平滑影响）
-- (c) 播放结束后 per-channel 状态复位，下次播放从中心开始
-
+**验收通过**：
+- (a) 回放含快速弯音变化的 MIDI 文件，听感无拉链噪声 ✓
+- (b) 录音的原始 pitch bend 数据完整保留（不受平滑影响）✓
+- (c) 播放结束后 per-channel 状态复位，下次播放从中心开始 ✓
 ---
 
 ### 9d. Song Info / Metadata Editing（乐曲信息编辑）
