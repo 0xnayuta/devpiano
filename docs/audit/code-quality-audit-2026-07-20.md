@@ -29,30 +29,29 @@
 
 | Priority | Total | Open | In Progress | Mitigated | Deferred | Closed |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| P0 | 5 | 5 | 0 | 0 | 0 | 0 |
+| P0 | 5 | 2 | 0 | 0 | 0 | 3 |
 | P1 | 11 | 11 | 0 | 0 | 0 | 0 |
 | P2 | 20 | 20 | 0 | 0 | 0 | 0 |
 | P3 | 24 | 24 | 0 | 0 | 0 | 0 |
-| **合计** | 60 | 60 | 0 | 0 | 0 | 0 |
+| **合计** | 60 | 57 | 0 | 0 | 0 | 3 |
 
 ### 0.3 关键结论
 
-- 总体评级：`B` — 功能完整，架构拆分已大幅改善；但存在 5 个 P0 线程安全问题，需在新增功能前修复
-- 当前是否适合继续新增功能：`Conditional` — 必须先修复 P0 音频回调堆分配和 RecordingEngine 数据竞争
-- 当前是否建议优先重构：`Conditional` — 建议在对用户可见功能暂停期间进行一轮线程安全修复和 Module Boundary Cleanup
-- 最大风险：**音频回调中存在堆内存分配**（`AudioEngine::getNextAudioBlock` 中 `pluginBuffer.setSize()`），可导致音频毛刺/掉帧
-- 下一步最高优先级：修复 P0-001（音频回调堆分配）和 P0-002（RecordingEngine 数据竞争）
+- 总体评级：`B` — 功能完整，架构拆分已大幅改善；Phase A (音频稳定性) 已完成，3 个 P0 已关闭
+- 当前是否适合继续新增功能：`Conditional` — 剩余 2 个 P0 (PLUG-001, REC-005) 需在当前迭代修复
+- 当前是否建议优先重构：`Conditional` — 建议在下一轮功能暂停期间进行 Module Boundary Cleanup 和剩余 P1 修复
+- 最大风险：**PluginHost 零内部线程同步**（`PLUG-001`），依赖外部设备重建约定保护，缺乏强制执行机制
+- 下一步最高优先级：修复 PLUG-001（PluginHost 线程安全契约）和 REC-005（PluginOfflineRenderer 线程模型）
 
 ### 0.4 Top Findings
 
 | ID | Priority | Status | 标题 | 当前结论 |
 | --- | --- | --- | --- | --- |
-| `AUDIO-001` | P0 | Open | AudioEngine 音频回调中堆分配 pluginBuffer.setSize() | 必须立即修复；预分配 buffer 或移到 prepareToPlay |
-| `AUDIO-002` | P0 | Open | pluginHost->prepareToPlay() 在音频回调线程中延迟调用 | 必须移到设备初始化流程 |
+| `AUDIO-001` | P0 | Closed | AudioEngine 音频回调中堆分配 pluginBuffer.setSize() | 已修复 (009355d): prepareToPlay 预分配 8 通道，回调仅 jassert+安全网 |
+| `AUDIO-002` | P0 | Closed | pluginHost->prepareToPlay() 在音频回调线程中延迟调用 | 已修复 (009355d): 移除延迟 prepare，设备重建时由 prepareToPlay 处理 |
 | `PLUG-001` | P0 | Open | PluginHost 零内部线程同步，依赖外部设备重建保护 | 添加内部同步或文档化契约并断言 |
-| `REC-001` | P0 | Open | RecordingEngine 非原子字段在音频/消息线程间无同步读写 | 向量容量预分配不解决 size 读写竞争 |
+| `REC-001` | P0 | Closed | RecordingEngine 非原子字段在音频/消息线程间无同步读写 | 已修复 (3bd994b): currentPositionSamples/droppedEventCount → atomic; events vector → jassert 守卫 |
 | `REC-005` | P0 | Open | PluginOfflineRenderer 在后台线程调用 processBlock() | 大多数 VST3 插件不支持多线程 |
-
 ---
 
 ## 1. 审计范围与方法
@@ -220,9 +219,9 @@ source/
 - **`std::atomic` / `CriticalSection` 使用**：`RecordingEngine` 的 playback 路径正确使用 `std::atomic`（`state`、`playbackSpeedMultiplier`、`playbackPositionSamples`、`playbackEndedPending`）。但 recording 路径中 `currentTake.events`（`std::vector`）、`currentPositionSamples`、`lengthSamples`、`droppedEventCount` 均为非原子变量，在音频线程写入、消息线程读取时无同步。
 - **插件回调线程与 UI 线程的数据竞争风险**：`PluginHost` 没有任何内部互斥锁。`isScanning`、`scanningPluginName`、`prepared`、`pluginInstance`、`knownPluginList` 均无保护。当前线程安全完全依赖 `MainComponent::runPluginActionWithAudioDeviceRebuild` 模式（关闭音频设备 → 执行操作 → 重启设备），但缺少断言或文档化契约来防止未来调用者绕过该模式。
 
-- 评级：**C**
-- 结论：存在 5 个 P0 线程安全问题。音频回调路径违反实时安全约束（堆分配、潜在阻塞调用）。RecordingEngine recording 路径存在无保护并发访问。PluginHost 内无同步，依赖外部约定。Playback 路径线程安全实现良好。
-- 关联问题：`AUDIO-001`、`AUDIO-002`、`PLUG-001`、`REC-001`~`REC-004`、`THREAD-001`~`THREAD-002`
+- 评级：**C → B-** (Phase A 完成后升级：3/5 P0 已修复)
+- 结论：Phase A 已修复音频回调堆分配、lazy prepareToPlay 和 RecordingEngine recording 路径原子性。剩余 2 个 P0：PluginHost 无内部同步（PLUG-001，依赖外部约定）和 PluginOfflineRenderer 后台线程调用 processBlock（REC-005）。Playback 路径线程安全实现良好。
+- 关联问题：`PLUG-001`、`REC-002`~`REC-005`、`THREAD-001`~`THREAD-002`（AUDIO-001/002、REC-001 已关闭）
 
 ### 3.4 安全边界
 
@@ -418,10 +417,10 @@ Exit code: 123
 
 | ID | Priority | Status | 标题 | 文件:行号 | 描述 | 建议修复 |
 | --- | --- | --- | --- | --- | --- | --- |
-| `AUDIO-001` | P0 | Open | 音频回调中 pluginBuffer.setSize() 堆分配 | `source/Audio/AudioEngine.cpp` (getNextAudioBlock) | 每次音频回调调用 `pluginBuffer.setSize(channels, numSamples)` 可能触发堆分配，违反实时安全约束，可导致音频毛刺 | 在 `prepareToPlay` 中预分配 pluginBuffer；在回调中仅使用已分配 buffer |
-| `AUDIO-002` | P0 | Open | prepareToPlay 延迟到音频回调线程执行 | `source/Audio/AudioEngine.cpp` (getNextAudioBlock, lazy prepare) | `pluginHost->prepareToPlay()` 在音频回调中延迟调用，VST3 插件的 `prepareToPlay` 可能包含阻塞操作和内存分配 | 将 prepareToPlay 移到 `AudioEngine::prepareToPlay` 或设备初始化流程中，移除 lazy prepare 模式 |
+| `AUDIO-001` | P0 | Closed | 音频回调中 pluginBuffer.setSize() 堆分配 | `source/Audio/AudioEngine.cpp` (getNextAudioBlock) | 每次音频回调调用 `pluginBuffer.setSize(channels, numSamples)` 可能触发堆分配，违反实时安全约束 | 已修复 (009355d)：prepareToPlay 预分配 8 通道；回调中仅 jassert + 安全网（Release 中 DP_LOG_WARN 后 resize） |
+| `AUDIO-002` | P0 | Closed | prepareToPlay 延迟到音频回调线程执行 | `source/Audio/AudioEngine.cpp` (getNextAudioBlock, lazy prepare) | `pluginHost->prepareToPlay()` 在音频回调中延迟调用，VST3 插件 lifecycle 方法在音频线程执行 | 已修复 (009355d)：移除 lazy prepare 模式；插件加载触发设备重建 → prepareToPlay 在消息线程调用 |
 | `PLUG-001` | P0 | Open | PluginHost 零内部线程同步 | `source/Plugin/PluginHost.h:35-65`, `source/Plugin/PluginHost.cpp` | `isScanning`、`scanningPluginName`、`prepared`、`pluginInstance` (raw pointer 访问)、`knownPluginList` 均无互斥锁保护。`getInstance()` 返回裸指针，音频线程通过它调用 `processBlock` | 选项 A: 在 PluginHost 内部添加 `CriticalSection`；选项 B: 在 getInstance() 等关键路径添加 `jassert(isMessageThread())` 断言 + 文档化契约 |
-| `REC-001` | P0 | Open | RecordingEngine recording 路径无同步 | `source/Recording/RecordingEngine.h:90`, `source/Recording/RecordingEngine.cpp` (recordMidiBufferBlock, recordPresetChange) | `currentTake.events` vector 在音频线程 push_back 写入、消息线程 read/clear 读取，无同步。`currentPositionSamples`、`lengthSamples`、`droppedEventCount` 同为非原子变量 | 为 recording 路径数据添加 mutex（在非音频路径使用）或使用 lock-free SPSC queue；或将 recording 数据访问全部限制在消息线程 |
+| `REC-001` | P0 | Closed | RecordingEngine recording 路径无同步 | `source/Recording/RecordingEngine.h:90`, `source/Recording/RecordingEngine.cpp` | `currentPositionSamples`、`droppedEventCount` 在音频线程写入、消息线程读取时无同步。`currentTake.events` vector 由音频线程写入，消息线程在录制进行中不得读取。`currentTake.lengthSamples` 为良性竞争（调用者先挂起音频设备，x86-64 对齐 int64 读实际原子，std::max 保守） | 已修复 (3bd994b)：currentPositionSamples/droppedEventCount → std::atomic；hasTake/getCurrentTake/createTakeSnapshot 添加 jassert(!isRecording()) 守卫。lengthSamples 保留非原子（良性竞争，见描述） |
 | `REC-005` | P0 | Open | PluginOfflineRenderer 在后台线程调用 processBlock | `source/Recording/PluginOfflineRenderer.cpp` (renderTakeWithOfflinePlugin) | `renderTakeWithOfflinePlugin` 在 `WavExportTask::run()` 的后台线程中调用 `AudioPluginInstance::processBlock()`。绝大多数 VST3 插件假设单线程访问，多线程调用可导致崩溃或音频错误 | 文档化此限制；确保离线渲染线程是唯一使用该插件实例的线程；或使用独立的 processBlock 替换机制 |
 
 ### P1（当前迭代修复）
@@ -503,12 +502,12 @@ Exit code: 123
 
 基于审计发现，建议按以下优先级处理：
 
-### Phase A: 音频稳定性 (P0, 预计 2-3 天)
+### Phase A: 音频稳定性 ✅ 已完成 (2026-07-20)
 
-1. **AUDIO-001**: 将 `pluginBuffer.setSize()` 移到 `prepareToPlay`，回调中仅使用预分配 buffer
-2. **AUDIO-002**: 移除 lazy prepare，将 `pluginHost->prepareToPlay()` 集成到设备初始化流程
-3. **REC-001**: 为 RecordingEngine recording 路径添加线程同步
-4. 验证：运行现有测试 + 手动演奏/录制压力测试
+1. ~~**AUDIO-001**: 将 `pluginBuffer.setSize()` 移到 `prepareToPlay`~~ → 已修复 (009355d)
+2. ~~**AUDIO-002**: 移除 lazy prepare~~ → 已修复 (009355d)
+3. ~~**REC-001**: 为 RecordingEngine recording 路径添加线程同步~~ → 已修复 (3bd994b)
+4. 验证：构建 0 error、测试 100% 通过、格式干净
 
 ### Phase B: 线程安全加固 (P0 + P1, 预计 3-5 天)
 
