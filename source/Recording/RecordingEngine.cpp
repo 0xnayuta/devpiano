@@ -192,6 +192,9 @@ void RecordingEngine::startPlayback(const RecordingTake& take, double currentSam
         pendingPresetChanges.reserve(presetEventCount);
     }
 
+    // Reset per-channel pitch bend smoothing for a clean playback start.
+    smoothedPitchBend.fill(8192.0f);
+
     state.store(RecordingState::playing, std::memory_order_release);
 
     DP_DEBUG_LOG("[RecordingEngine] playback STARTED: " + juce::String(take.events.size()) + " events, ratio="
@@ -204,6 +207,8 @@ void RecordingEngine::stopPlayback() {
         juce::CriticalSection::ScopedLockType lock(presetChangeLock);
         pendingPresetChanges.clear();
     }
+    smoothedPitchBend.fill(8192.0f);
+
     state.store(RecordingState::stopped, std::memory_order_release);
     playbackEndedPending.store(false, std::memory_order_release);
 }
@@ -251,7 +256,22 @@ void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer, std::int
         }
 
         const auto sampleOffset = static_cast<int>(scaledTimestamp - blockStartSamples);
-        midiBuffer.addEvent(event.message, juce::jlimit(0, numSamples - 1, sampleOffset));
+
+        // Apply EMA smoothing to pitch bend events to eliminate zipper noise.
+        // Raw events are preserved in the recording take; smoothing only affects
+        // what the plugin / synth hears during playback.
+        if (event.message.isPitchWheel()) {
+            auto ch = static_cast<std::size_t>(juce::jlimit(0, 15, event.message.getChannel() - 1));
+            auto target = static_cast<float>(event.message.getPitchWheelValue());
+            smoothedPitchBend[ch] += 0.3f * (target - smoothedPitchBend[ch]);
+
+            auto smoothedMsg = juce::MidiMessage::pitchWheel(
+                static_cast<int>(ch) + 1, static_cast<int>(std::round(smoothedPitchBend[ch])));
+            smoothedMsg.setTimeStamp(event.message.getTimeStamp());
+            midiBuffer.addEvent(smoothedMsg, juce::jlimit(0, numSamples - 1, sampleOffset));
+        } else {
+            midiBuffer.addEvent(event.message, juce::jlimit(0, numSamples - 1, sampleOffset));
+        }
     }
 }
 

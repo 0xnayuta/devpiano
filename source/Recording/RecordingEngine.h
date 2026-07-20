@@ -103,5 +103,11 @@ private:
     // Preset-change notification queue (audio thread → message thread)
     std::vector<PendingPresetChange> pendingPresetChanges;
     juce::CriticalSection presetChangeLock;
+
+    // Per-channel pitch bend EMA state for playback zipper-noise reduction.
+    // Indexed by MIDI channel (0-15).  Initialised to 8192.0f (center) in
+    // startPlayback / stopPlayback.  Audio-thread access is gated by isPlaying()
+    // with happens-before ordering via the RecordingState atomic.
+    std::array<float, 16> smoothedPitchBend {};
 };
 } // namespace devpiano::recording
