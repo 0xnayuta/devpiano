@@ -5,4 +5,4 @@
 
 本目录用于存放架构审查、设计评审、代码审查报告和事后分析（post-mortem）。
 
-当前为空，按需添加。
+- [`code-quality-audit-template.md`](code-quality-audit-template.md)：devpiano 代码质量审计模板，供审计时复制后填入并提交。覆盖架构、代码质量、线程安全、安全、资源、错误处理、测试、文档、工程化 9 个领域，包含问题总表（Finding Registry）与修复路线图。
