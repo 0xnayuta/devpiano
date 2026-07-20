@@ -48,8 +48,15 @@ std::optional<juce::MidiMessage> varToMidiMessage(const juce::var& v) {
 juce::var eventToVar(const PerformanceEvent& event) {
     juce::DynamicObject::Ptr obj = new juce::DynamicObject();
     obj->setProperty(performance_file::keyTimestampSamples, static_cast<juce::int64>(event.timestampSamples));
-    obj->setProperty(performance_file::keySource, sourceToString(event.source));
-    obj->setProperty(performance_file::keyMidiData, midiMessageToVar(event.message));
+
+    if (event.type == PerformanceEventType::presetChange) {
+        obj->setProperty(performance_file::keyEventType, juce::String(performance_file::eventTypePresetChange));
+        obj->setProperty(performance_file::keyPresetId, static_cast<int>(event.presetId));
+    } else {
+        obj->setProperty(performance_file::keyEventType, juce::String(performance_file::eventTypeMidi));
+        obj->setProperty(performance_file::keySource, sourceToString(event.source));
+        obj->setProperty(performance_file::keyMidiData, midiMessageToVar(event.message));
+    }
     return obj.get();
 }
 
@@ -64,6 +71,16 @@ std::optional<PerformanceEvent> varToEvent(const juce::var& v) {
     PerformanceEvent event;
     event.timestampSamples
         = static_cast<std::int64_t>(static_cast<juce::int64>(obj->getProperty(performance_file::keyTimestampSamples)));
+
+    auto typeStr = obj->getProperty(performance_file::keyEventType).toString();
+    if (typeStr == performance_file::eventTypePresetChange) {
+        event.type = PerformanceEventType::presetChange;
+        event.presetId = static_cast<uint8_t>(static_cast<int>(obj->getProperty(performance_file::keyPresetId)));
+        return event;
+    }
+
+    // Default (missing keyEventType or "midi"): legacy MIDI event
+    event.type = PerformanceEventType::midi;
     event.source = stringToSource(obj->getProperty(performance_file::keySource).toString());
 
     auto msg = varToMidiMessage(obj->getProperty(performance_file::keyMidiData));
@@ -73,7 +90,6 @@ std::optional<PerformanceEvent> varToEvent(const juce::var& v) {
     event.message = *msg;
     return event;
 }
-
 // --- Metadata <-> var ---
 
 juce::var metadataToVar(const PerformanceFileMetadata& metadata) {

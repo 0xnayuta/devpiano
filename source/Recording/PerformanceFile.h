@@ -30,13 +30,19 @@ constexpr const char* keyNotes = "notes";
 
 // Event keys
 constexpr const char* keyTimestampSamples = "timestampSamples";
+constexpr const char* keyEventType = "type";
 constexpr const char* keySource = "source";
 constexpr const char* keyMidiData = "midiData";
+constexpr const char* keyPresetId = "presetId";
 
 // Source enum strings
 constexpr const char* sourceComputerKeyboard = "computerKeyboard";
 constexpr const char* sourceRealtimeMidiBuffer = "realtimeMidiBuffer";
 constexpr const char* sourcePlayback = "playback";
+
+// Event type strings
+constexpr const char* eventTypeMidi = "midi";
+constexpr const char* eventTypePresetChange = "presetChange";
 } // namespace performance_file
 
 // --- Metadata for .devpiano files ---
