@@ -645,7 +645,7 @@ VST3 插件离线渲染放到 Phase 3-2 再评估，原因：
 - 电脑键盘经由 `AudioEngine` pre-render `MidiBuffer` 录制边界。
 - 回放事件重新进入当前插件 / fallback synth 发声路径。
 - Export MIDI 输出 `.mid` 文件。
-- 录制、回放、导出与键盘焦点、插件宿主、布局 Preset 的基本协同。
+- 录制、回放、导出与键盘焦点、插件宿主、Performance Preset 的基本协同。
 
 当前不作为 Phase 3 MVP 验收目标：
 
@@ -808,13 +808,13 @@ VST3 插件离线渲染放到 Phase 3-2 再评估，原因：
 
 ---
 
-## 6. 与布局 Preset 的协同
+## 6. 与 Performance Preset 的协同
 
 ### 6.1 切换布局后录制
 
 #### 步骤
 
-- [x] 切换到另一个布局 preset。
+- [x] 切换到另一个 Performance Preset。
 - [x] 点击 `Record`。
 - [x] 弹奏新布局中的几个按键。
 - [x] 点击 `Stop` 并 `Play`。
@@ -823,7 +823,7 @@ VST3 插件离线渲染放到 Phase 3-2 再评估，原因：
 
 - [x] 录制的是布局映射后的 MIDI note，而不是按键字符本身。
 - [x] 回放不依赖当前键盘物理按键状态。
-- [x] 回放不覆盖当前布局 preset。
+- [x] 回放不覆盖当前 Performance Preset。
 
 ### 6.2 重启后行为边界
 
@@ -834,7 +834,7 @@ VST3 插件离线渲染放到 Phase 3-2 再评估，原因：
 
 #### 预期结果
 
-- [x] 布局 preset 可按既有规则恢复。
+- [x] Performance Preset 可按既有规则恢复。
 - [x] 当前 MVP 不要求录制 take 跨重启持久化。
 - [x] 程序重启后仍可重新录制、回放和导出。
 

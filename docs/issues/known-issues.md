@@ -17,11 +17,11 @@
 
 详见：[`../reference/features/plugin-hosting.md`](../reference/features/plugin-hosting.md)
 
-### 布局 Preset ID 冲突
+### Performance Preset ID 冲突
 
-> 用户 preset id 由文件名派生；导入同名文件时覆盖行为已实现，暂无非覆盖时的冲突提示 UI。正常使用不受影响，低优先级。
+> 用户 preset ID 由文件名派生；导入同名文件时覆盖行为已实现，暂无明确冲突提示 UI。正常使用不受影响，低优先级。
 
-详见：[`../reference/features/layout-presets.md`](../reference/features/layout-presets.md)
+详见：[`../reference/features/performance-presets.md`](../reference/features/performance-presets.md)
 
 ---
 

@@ -60,55 +60,36 @@ Phase 9 计划同列于此，以便一次看清完整执行路径。
 
 **目标**：用 Performance Preset 框架将 Phase 8 的所有个性化设置整合为可命名的完整快照，支持一键切换与录制集成；同时补充三个低成本、高感知的体验增强功能。
 
-**前置依赖**：Phase 8（逐键标签/颜色和调号系统共同构成快照内容）。
+### 9a. Performance Preset（演奏配置快照）- [OK] 已完成
 
-### 9a. Performance Preset（演奏配置快照 / Setting Groups）
+**实现摘要**：
+- 数据模型：新建 `PerformancePreset`（含 `KeyboardLayout` + `ChannelMatrix` + keyboard settings），`makeDefaultPreset()` 内置出厂默认值
+- 文件格式：`.devpiano.preset` JSON（version 1），稀疏数组保存 `customKeyLabels` / `customKeyColours`
+- 旧 Layout 替换：删除 `LayoutPreset.*` / `LayoutFlowSupport.*` / `LayoutDirectoryScanner.*`；新建 `PerformancePreset.*` / `PresetFlowSupport.*`
+- 数据模型清理：`SettingsModel` 中删除 `keyMap` / `lastLayoutId` / `InputMappingSettingsView`，新增 `lastActivePresetId`；删除 `SettingsSerialization::keyMapToValueTree` / `valueTreeToKeyMap` / `layoutToKeyMap` / `keyMapToLayout`
+- UI：`ControlsPanel` 中 Layout 行替换为 Preset 行（下拉菜单 + Save As New / Rename / Delete 按钮）
+- F1-F12：`MainComponent::keyPressed` 拦截 F 键映射到 preset 列表索引
+- 录制集成：`RecordingEngine` 新增 `PerformanceEventType::presetChange`、`recordPresetChange()`、`drainPendingPresetChanges()`
+- 回放自动切换：回放 loop 遇 `presetChange` 事件调用 `applyPresetByIndex()`
+- `.devpiano` 文件扩展：`eventToVar` / `varToEvent` 支持 presetChange（向后兼容旧文件）
+- 翻译：zh-CN 新增 preset 相关翻译，删除 layout 相关翻译
+- 改动文件 13 个：`PerformancePreset.h/.cpp`、`PresetFlowSupport.h/.cpp`、`RecordingEngine.h/.cpp`、`PerformanceFile.h/.cpp`、`SettingsModel.h`、`SettingsStore.cpp`、`SettingsSerialization.h/.cpp`、`AppStateBuilder.h`、`MainComponent.h/.cpp`、`ControlsPanel.h/.cpp`、`zh_CN.loc.h`、`CMakeLists.txt`
 
-**涉及文件**：`Layout/LayoutPreset.h`、`Layout/LayoutPreset.cpp`（扩展或新建 `PerformancePreset` 类型）、`Layout/LayoutDirectoryScanner.h`、`Layout/LayoutFlowSupport.h`、`Layout/LayoutFlowSupport.cpp`、`UI/ControlsPanel.cpp`、`Recording/RecordingEngine.h`、`Recording/RecordingEngine.cpp`、`Recording/RecordingSessionController.cpp`、`Core/AppState.h`
-
-**快照边界**——一份 Performance Preset 包含：
-- `KeyboardLayout`（键位绑定：key→MIDI note mapping）
-- `ChannelMatrix`（16 通道完整配置：outputChannel、transpose、octaveShift、velocity、program、bankMSB、sustainCC、followKey）
-- `KeyboardSettings` 子集（`keySignature`、`midiTranspose`、`colourMode`、`noteDisplay`、`fadeSpeed`、`previewAlpha`、`customKeyLabels`、`customKeyColours`）
-- **明确排除**：音频设备选择、插件路径、语言设置、窗口尺寸（这些是全局设置，不随 Preset 切换）
-
-**JSON 格式**（扩展现有 Layout Preset，version 2）：
+**JSON 格式**（`.devpiano.preset`，version 1）：
 ```json
 {
-  "version": 2,
+  "version": 1,
   "name": "My Preset",
-  "layout": { /* 现有 keymap 结构 */ },
-  "channelMatrix": {
-    "active": true,
-    "channels": [ /* 16 × PerChannelConfig */ ]
-  },
+  "layout": { "id": "...", "name": "...", "bindings": [...] },
+  "channelMatrix": { "active": true, "channels": [...] },
   "keyboard": {
-    "keySignature": 0,
-    "midiTranspose": false,
-    "colourMode": 0,
-    "noteDisplay": 0,
-    "fadeSpeed": 0.92,
-    "previewAlpha": 0.0,
-    "customKeyLabels": [ /* 128 × string */ ],
-    "customKeyColours": [ /* 128 × ARGB hex */ ]
+    "keySignature": 0, "midiTranspose": false,
+    "colourMode": 0, "noteDisplay": 0,
+    "fadeSpeed": 0.92, "previewAlpha": 0.0,
+    "customKeyLabels": [...], "customKeyColours": [...]
   }
 }
 ```
-
-**UI 交互**：
-- `ControlsPanel` 中 Preset 下拉列表支持重命名（双击行内编辑）、新建（save current as new）、删除
-- 菜单栏 "Preset" 子菜单列出前 12 个 Preset，F1-F12 快捷键绑定 Preset 1-12
-- 切换时 `AppState` 全量更新 + `CustomKeyboard` / `ChannelMatrix` / `ControlsPanel` repaint
-
-**录制集成**：
-- `RecordingEngine` 新增 `PerformanceEvent::Type::presetChange`，携带 preset ID（0..255）
-- 录制时 `RecordingSessionController` 监听 preset 切换 → 写入事件
-- 回放时 playback loop 遇到 `presetChange` → 调用 `applyPreset(id)`
-- `.devpiano` JSON 格式扩展：events 数组增加 `{ "type": "presetChange", "presetId": N }` 事件
-
-**迁移**：
-- 现有 Layout Preset（version 1）首次加载时自动包装为 Performance Preset（channelMatrix 默认透传、keyboard 默认值）
-- 另存为 version 2，保留原 version 1 文件不覆盖
 
 **验收标准**：
 - (a) "Save As New Preset" 保存当前所有配置，切换到另一 Preset 再切回，状态完全恢复

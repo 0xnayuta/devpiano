@@ -112,20 +112,17 @@
 
 ## Phase 3：高级功能恢复
 
-状态：MVP 已通过。布局 Preset 保存/加载/导入/重命名/删除/启动恢复已完成（Phase 3）；录制 / 停止 / 回放 / MIDI 导出最小闭环已接入（Phase 3-3..3-7）；WAV 离线渲染 MVP 已完成（Phase 3-1a..3-1d，E.1–E.9 全部通过）。下一阶段重点是录制 / 回放稳定化。VST3 插件离线渲染（Phase 3-2）后置。MP4 导出、复杂编辑与 tempo map 等仍为后续增强。
+### Performance Preset
 
-验收项：
+- [x] 可保存当前完整配置为 `.devpiano.preset` Preset（键位 + channel matrix + keyboard settings）。
+- [x] 可导入 `.devpiano.preset` 文件并立即应用。
+- [x] 可通过持久化的 `lastActivePresetId` 恢复上次使用的 preset。
+- [x] 可重命名用户 preset 的文件名与显示名称。
+- [x] 可删除用户 preset，内置 `[Default]` 不可删除。
+- [x] F1-F12 快捷键一键切换 preset。
+- [x] 退回到 `[Default]` 恢复默认配置。
 
-### 布局 Preset
-
-- [x] 可保存当前键盘布局为 `.freepiano.layout` Preset。
-- [x] 可导入并加载 `.freepiano.layout` 用户布局。
-- [x] 可通过持久化的 `layoutId` 恢复内置或用户布局。
-- [x] 可重命名用户布局的下拉菜单显示名称。
-- [x] 可删除用户布局，内置布局不可删除。
-- [x] 可恢复当前布局的默认映射。
-
-专项布局 preset 回归见：[`phase3-layout-presets.md`](./features/layout-presets.md)。
+专项 Performance Preset 回归见：[`performance-presets.md`](./features/performance-presets.md)。
 
 ### 录制 / 回放
 

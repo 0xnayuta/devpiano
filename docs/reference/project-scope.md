@@ -40,8 +40,8 @@ devpiano 源于对旧版 Windows FreePiano 的现代化重构尝试。旧 FreePi
 
 ### UI 与体验
 
-- 布局 Preset 系统（JSON 格式、自动发现、导入/保存/重命名/删除）
-- 拖放文件支持（`.devpiano` / `.mid` / `.freepiano.layout` / `.vst3`）
+- Performance Preset 系统（`.devpiano.preset` JSON 格式、自动发现、新建/导入/重命名/删除、F1-F12 快捷键、录制集成）
+- 拖放文件支持（`.devpiano` / `.mid` / `.devpiano.preset` / `.vst3`）
 - 运行时中英文语言切换（JUCE `Translation` 机制）
 - 设置持久化（音频设备状态、性能参数、输入映射、插件恢复信息）
 - 最近文件列表（`juce::RecentlyOpenedFilesList`）

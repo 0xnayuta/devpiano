@@ -31,7 +31,7 @@
 - [`issues/known-issues.md`](issues/known-issues.md)：已知问题、已修复风险的回归项与长期设计约束。
 - [`reference/features/keyboard-mapping.md`](reference/features/keyboard-mapping.md)：键盘映射专项手工测试。
 - [`reference/features/plugin-hosting.md`](reference/features/plugin-hosting.md)：插件宿主生命周期与退出稳定性专项测试。
-- [`reference/features/layout-presets.md`](reference/features/layout-presets.md)：布局 preset 的保存、导入、重命名、删除与启动恢复专项手工测试。
+- [`reference/features/performance-presets.md`](reference/features/performance-presets.md)：Performance Preset 的保存、导入、切换、重命名、删除、快捷键与录制集成专项测试。
 - [`reference/features/recording-playback.md`](reference/features/recording-playback.md)：录制、回放与 MIDI 导出专项手工测试。
 - [`reference/features/midi-file-import.md`](reference/features/midi-file-import.md)：MIDI 文件导入、回放、自动选轨与后续增强验收测试。
 - [`reference/features/plugin-offline-rendering.md`](reference/features/plugin-offline-rendering.md)：插件离线渲染与文件输出专项测试。
@@ -43,7 +43,7 @@
 - [`reference/features/keyboard-mapping.md`](reference/features/keyboard-mapping.md)：电脑键盘到 MIDI note 的映射能力与边界。
 - [`reference/features/plugin-hosting.md`](reference/features/plugin-hosting.md)：VST3 插件扫描、加载、处理、editor 和生命周期行为。
 - [`reference/features/recording-playback.md`](reference/features/recording-playback.md)：录制 / 回放 / MIDI 导出的第一版设计与当前 MVP 行为。
-- [`reference/features/layout-presets.md`](reference/features/layout-presets.md)：布局 preset 的文件格式、导入/保存/重命名/删除与恢复行为。
+- [`reference/features/performance-presets.md`](reference/features/performance-presets.md)：Performance Preset 的文件格式、CRUD 行为、F1-F12 快捷键、录制集成与启动恢复。
 - [`reference/features/midi-file-import.md`](reference/features/midi-file-import.md)：MIDI 文件导入、回放兼容性、剩余边界与 FreePiano 差距。
 - [`reference/features/performance-persistence.md`](reference/features/performance-persistence.md)：性能与持久化。
 - [`reference/features/plugin-offline-rendering.md`](reference/features/plugin-offline-rendering.md)：插件离线渲染能力、文件输出格式与边界。

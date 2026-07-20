@@ -55,7 +55,7 @@
   - 只读状态刷新边界：状态函数命名已收敛为 `build*Snapshot()`、`renderReadOnlyUiState()`、`refreshReadOnlyUiStateFromCurrentSnapshot()` 和 `refreshMidiStatusFromCurrentSnapshot()`。
   - MIDI 导入流程：导入路径推导、导入结果处理、替换 take 并自动播放已收敛为 3 个 helper。
 - Phase 5 进一步下沉布局管理、录制/回放/MIDI 导入编排、插件操作、设置窗口管理和状态快照构建：
-  - `LayoutFlowSupport`（`source/Layout/LayoutFlowSupport.*`）：布局 preset CRUD、文件选择和确认流程。
+  - `PresetFlowSupport`（`source/Layout/PresetFlowSupport.*`）：Performance Preset CRUD、文件选择、commit 与录制集成。
   - `RecordingSessionController`（`source/Recording/RecordingSessionController.*`）：录制/回放/MIDI 导入/导出编排与会话状态。
   - `PluginOperationController`（`source/Plugin/PluginOperationController.*`）：插件扫描、加载/卸载、editor 和启动恢复编排。
   - `SettingsWindowManager`（`source/Settings/SettingsWindowManager.*`）：设置窗口、`SettingsComponent`、dirty/save/close 生命周期。

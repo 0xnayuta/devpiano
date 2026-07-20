@@ -67,7 +67,7 @@ Phase 3（录制/回放/MIDI导出）主链路已完成，Phase 3-2 已搁置，
 - `../../issues/known-issues.md`（已知限制与待验证项）
 - `../architecture.md`（当前模块边界与主链路）
 - `docs/decisions/0002-legacy-code-as-reference-only.md`（旧代码使用原则）
-- `./layout-presets.md`（Phase 3 preset 系统现状）
+- `./performance-presets.md`（Phase 9 Performance Preset 系统现状）
 
 - `./keyboard-mapping.md`（键盘映射现状）
 
@@ -86,7 +86,7 @@ Phase 3（录制/回放/MIDI导出）主链路已完成，Phase 3-2 已搁置，
 - `source/MainComponent.cpp`：通过 `RecordingFlowSupport` 管理录制/回放状态，包含 MIDI 导入入口、导入 playback take 与导出 take 解耦
 - `source/Core/AppState.h`：运行时状态快照，无持久化演奏文件路径字段
 - `source/Audio/AudioEngine.*`：音频引擎，fallback synth 存在
-- `source/Layout/LayoutPreset.*`：preset 文件读写
+- `source/Layout/PerformancePreset.*`：Performance Preset 文件读写与序列化
 
 ### 已搜索或阅读的 freepiano-src/ 旧源码范围
 
@@ -149,9 +149,9 @@ Phase 3（录制/回放/MIDI导出）主链路已完成，Phase 3-2 已搁置，
 - 说明：可扫描、加载、卸载 VST3 插件，驱动插件发声，支持 editor 窗口
 
 
-### 布局 Preset
+### Performance Preset
 - **已实现**
-- 依据：Phase 3 + `LayoutPreset.*` + `.freepiano.layout` JSON
+- 依据：Phase 9a + `PerformancePreset.*` + `.devpiano.preset` JSON
 - 说明：内置 + 用户 preset 的保存/加载/导入/重命名/删除/启动恢复
 
 ### 当前 PerformanceEvent / timeline 模型
