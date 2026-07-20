@@ -1,6 +1,5 @@
 #include "Settings/SettingsSerialization.h"
 
-#include "Layout/LayoutDirectoryScanner.h"
 
 namespace devpiano::settings {
 
@@ -44,75 +43,4 @@ devpiano::midi::ChannelMatrix valueTreeToChannelMatrix(const juce::ValueTree& t)
     }
     return cm;
 }
-
-// ---- Key map serialization ----
-
-juce::ValueTree keyMapToValueTree(const std::unordered_map<int, int>& m) {
-    juce::ValueTree t { "keymap" };
-    for (const auto& kv : m) {
-        juce::ValueTree n { "k" };
-        n.setProperty("code", kv.first, nullptr);
-        n.setProperty("note", kv.second, nullptr);
-        t.appendChild(n, nullptr);
-    }
-    return t;
-}
-
-std::unordered_map<int, int> valueTreeToKeyMap(const juce::ValueTree& t) {
-    std::unordered_map<int, int> m;
-    if (!t.isValid())
-        return m;
-
-    for (int i = 0; i < t.getNumChildren(); ++i) {
-        auto c = t.getChild(i);
-        const auto code = static_cast<int>(c.getProperty("code", 0));
-        const auto note = static_cast<int>(c.getProperty("note", -1));
-        if (note >= 0)
-            m[code] = note;
-    }
-
-    return m;
-}
-
-// ---- KeyboardLayout <-> legacy keyMap conversion ----
-
-std::unordered_map<int, int> layoutToKeyMap(const devpiano::core::KeyboardLayout& layout) {
-    std::unordered_map<int, int> map;
-
-    for (const auto& binding : layout.bindings) {
-        if (binding.action.type != devpiano::core::KeyActionType::note)
-            continue;
-
-        if (binding.action.trigger != devpiano::core::KeyTrigger::keyDown)
-            continue;
-
-        map[binding.keyCode] = binding.action.getMidiNoteNumber().value;
-    }
-
-    return map;
-}
-
-devpiano::core::KeyboardLayout keyMapToLayout(const std::unordered_map<int, int>& map, const juce::String& layoutId) {
-    auto layout = (layoutId == "default.freepiano.full") ? devpiano::core::makeFullPianoLayout()
-                                                         : devpiano::core::makeDefaultKeyboardLayout();
-
-    if (!layoutId.isEmpty() && !layoutId.startsWith("default.")) {
-        if (auto userLayout = devpiano::layout::loadUserLayoutById(layoutId); userLayout.has_value())
-            layout = *userLayout;
-    }
-
-    if (map.empty())
-        return layout;
-
-    for (auto& binding : layout.bindings) {
-        if (binding.action.type != devpiano::core::KeyActionType::note)
-            continue;
-
-        if (const auto it = map.find(binding.keyCode); it != map.end())
-            binding.action.setMidiNoteNumber(devpiano::core::MidiNoteNumber::fromClamped(it->second));
-    }
-
-    return layout;
-}
-
 } // namespace devpiano::settings

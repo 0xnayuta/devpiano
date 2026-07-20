@@ -3,7 +3,6 @@
 #include <JuceHeader.h>
 
 #include "../Settings/SettingsModel.h"
-#include "../Settings/SettingsSerialization.h"
 #include "AppState.h"
 
 class KeyboardMidiMapper;
@@ -49,11 +48,11 @@ struct RuntimeInputState {
 
 // 从 persisted settings 创建 AppState 基线。
 // 不读取 PluginHost / EditorWindow 等运行态对象。
-[[nodiscard]] inline AppState createPersistedAppState(const SettingsModel& settings) {
+[[nodiscard]] inline AppState createPersistedAppState(const SettingsModel& settings,
+                                                      const KeyboardLayout& keyboardLayout) {
     const auto audio = settings.getAudioSettingsView();
     const auto performance = settings.getPerformanceSettingsView();
     const auto plugin = settings.getPluginRecoverySettingsView();
-    const auto input = settings.getInputMappingSettingsView();
 
     return { .audio = { .sampleRate = audio.sampleRate,
                         .bufferSize = audio.bufferSize,
@@ -81,13 +80,12 @@ struct RuntimeInputState {
                          .hasLoadedPlugin = false,
                          .isPrepared = false,
                          .isEditorOpen = false },
-             .input = { .layoutId = input.layoutId,
-                        .keyboardLayout = devpiano::settings::keyMapToLayout(input.keyMap, input.layoutId) },
+             .input = { .layoutId = settings.lastActivePresetId,
+                        .keyboardLayout = keyboardLayout },
              .midiTranspose = settings.midiTranspose,
              .keySignature = settings.keySignature,
              .midiChannelMatrix = settings.channelMatrix };
 }
-
 // 叠加运行时插件宿主状态。
 inline void applyRuntimePluginState(AppState& appState, const RuntimePluginState& runtime) {
     appState.plugin.currentPluginName = runtime.currentPluginName;
@@ -126,7 +124,7 @@ inline void applyRuntimeInputState(AppState& appState, const RuntimeInputState& 
 [[nodiscard]] inline AppState buildAppState(const SettingsModel& settings, const RuntimeAudioState& audioRuntime,
                                             const RuntimePluginState& pluginRuntime,
                                             const RuntimeInputState& inputRuntime) {
-    auto appState = createPersistedAppState(settings);
+    auto appState = createPersistedAppState(settings, inputRuntime.keyboardLayout);
     applyRuntimeAudioState(appState, audioRuntime);
     applyRuntimePluginState(appState, pluginRuntime);
     applyRuntimeInputState(appState, inputRuntime);

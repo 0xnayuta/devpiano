@@ -2,7 +2,6 @@
 
 #include <JuceHeader.h>
 
-#include <unordered_map>
 
 #include "Core/ChannelMatrix.h"
 #include "Core/KeyboardTypes.h"
@@ -39,10 +38,6 @@ struct SettingsModel {
         juce::String lastPluginName;
     };
 
-    struct InputMappingSettingsView {
-        juce::String layoutId { "default.freepiano.minimal" };
-        std::unordered_map<int, int> keyMap;
-    };
     struct KeyboardDisplaySettingsView {
         devpiano::ui::KeyColourMode colourMode = devpiano::ui::KeyColourMode::classic;
         devpiano::ui::NoteDisplayMode noteDisplay = devpiano::ui::NoteDisplayMode::doReMi;
@@ -72,12 +67,7 @@ struct SettingsModel {
     juce::String pluginSearchPath;
     juce::String lastPluginName;
     std::unique_ptr<juce::XmlElement> knownPluginListState;
-    juce::String lastLayoutId { "default.freepiano.minimal" };
-
-    // Persisted keyboard layout in legacy on-disk shape.
-    // 运行态请优先使用 KeyboardLayout / AppState.input.keyboardLayout。
-    std::unordered_map<int, int> keyMap;
-
+    juce::String lastActivePresetId;  // last-used preset file name (without extension)
     // Persisted last MIDI import/export paths for FileChooser defaults.
     juce::String lastMidiImportPath;
     juce::String lastMidiExportPath;
@@ -144,14 +134,6 @@ struct SettingsModel {
         lastPluginName = view.lastPluginName;
     }
 
-    [[nodiscard]] InputMappingSettingsView getInputMappingSettingsView() const {
-        return { .layoutId = lastLayoutId, .keyMap = keyMap };
-    }
-
-    void applyInputMappingSettingsView(const InputMappingSettingsView& view) {
-        lastLayoutId = view.layoutId;
-        keyMap = view.keyMap;
-    }
 
     [[nodiscard]] KeyboardDisplaySettingsView getKeyboardDisplaySettingsView() const {
         return { .colourMode = keyboardColourMode,

@@ -14,8 +14,7 @@ const char* kKeyR = "adsrRelease";
 const char* kKeyPluginSearchPath = "pluginSearchPath";
 const char* kKeyLastPluginName = "lastPluginName";
 const char* kKeyKnownPluginListXml = "knownPluginListXml";
-const char* kKeyLastLayoutId = "lastLayoutId";
-const char* kKeyMap = "keymapVT"; // stored as ValueTree XML
+const char* kKeyLastActivePresetId = "lastActivePresetId";
 const char* kKeyLastMidiImportPath = "lastMidiImportPath";
 const char* kKeyLastMidiExportPath = "lastMidiExportPath";
 const char* kKeyRecentFiles = "recentFiles";
@@ -99,8 +98,7 @@ void SettingsStore::readNow(SettingsModel& m) {
     m.pluginSearchPath = f.getValue(kKeyPluginSearchPath, m.pluginSearchPath);
     m.lastPluginName = f.getValue(kKeyLastPluginName, m.lastPluginName);
     m.knownPluginListState = f.getXmlValue(kKeyKnownPluginListXml);
-    m.lastLayoutId = f.getValue(kKeyLastLayoutId, m.lastLayoutId);
-
+    m.lastActivePresetId = f.getValue(kKeyLastActivePresetId, m.lastActivePresetId);
     // MIDI import/export paths
     m.lastMidiImportPath = f.getValue(kKeyLastMidiImportPath, m.lastMidiImportPath);
     m.lastMidiExportPath = f.getValue(kKeyLastMidiExportPath, m.lastMidiExportPath);
@@ -136,13 +134,6 @@ void SettingsStore::readNow(SettingsModel& m) {
     m.resizableWindow = f.getBoolValue(kKeyResizableWindow, m.resizableWindow);
     m.showInstrumentFilter = f.getBoolValue(kKeyShowInstrumentFilter, m.showInstrumentFilter);
     m.languageCode = f.getValue(kKeyLanguageCode, m.languageCode);
-
-    // keymap as ValueTree XML
-    if (auto keyXml = f.getXmlValue(kKeyMap)) {
-        juce::ValueTree t = juce::ValueTree::fromXml(*keyXml);
-        m.keyMap = devpiano::settings::valueTreeToKeyMap(t);
-    }
-
     // custom key labels as ValueTree XML (sparse: only non-empty labels stored)
     if (auto labelsXml = f.getXmlValue(kKeyCustomLabels)) {
         juce::ValueTree t = juce::ValueTree::fromXml(*labelsXml);
@@ -194,13 +185,12 @@ void SettingsStore::writeNow(const SettingsModel& m) {
     f.setValue(kKeyLastPluginName, m.lastPluginName);
     if (m.knownPluginListState)
         f.setValue(kKeyKnownPluginListXml, m.knownPluginListState->toString());
-    f.setValue(kKeyLastLayoutId, m.lastLayoutId);
 
     // MIDI import/export paths
     f.setValue(kKeyLastMidiImportPath, m.lastMidiImportPath);
     f.setValue(kKeyLastMidiExportPath, m.lastMidiExportPath);
 
-    // Recently-opened files list
+    f.setValue(kKeyLastActivePresetId, m.lastActivePresetId);
     f.setValue(kKeyRecentFiles, m.recentFilesSerialized);
 
     // Main content size
@@ -221,13 +211,6 @@ void SettingsStore::writeNow(const SettingsModel& m) {
 
     f.setValue(kKeyKeySignature, m.keySignature);
     f.setValue(kKeyMidiTranspose, m.midiTranspose);
-
-    // keymap serialize to ValueTree XML
-    {
-        auto t = devpiano::settings::keyMapToValueTree(m.keyMap);
-        if (auto xml = t.createXml())
-            f.setValue(kKeyMap, xml->toString());
-    }
 
     // custom key labels as ValueTree XML (sparse: only non-empty labels stored)
     {
