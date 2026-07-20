@@ -9,7 +9,8 @@
 
 | 归档文档 | 当前替代文档 |
 |---|---|
- | `phase5-architecture-convergence.md` | `docs/roadmap/roadmap.md`（Phase 5 摘要）、`docs/reference/architecture.md` |
- | `phase2-3-implementation-backlog.md` | `docs/roadmap/roadmap.md` |
- | `phase6-7-completion-detail.md` | `docs/roadmap/roadmap.md`（Phase 6-7 摘要） |
- | `architecture-optimization-backlog.md` | `docs/roadmap/roadmap.md`（架构优化摘要）、`docs/roadmap/current-iteration.md`（现为 Phase 8） |
+| `phase5-architecture-convergence.md` | `docs/roadmap/roadmap.md`（Phase 5 摘要）、`docs/reference/architecture.md` |
+| `phase2-3-implementation-backlog.md` | `docs/roadmap/roadmap.md` |
+| `phase6-7-completion-detail.md` | `docs/roadmap/roadmap.md`（Phase 6-7 摘要） |
+| `phase8-9-completion.md` | `docs/roadmap/current-iteration.md`（已迁移至 Phase 10） |
+| `architecture-optimization-backlog.md` | `docs/roadmap/roadmap.md`（架构优化摘要）、`docs/roadmap/current-iteration.md`（现为 Phase 10） |
