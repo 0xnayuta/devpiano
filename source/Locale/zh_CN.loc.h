@@ -8,9 +8,14 @@ namespace devpiano::locale {
 static const char zhCNLocale[] = R"loc(language: Chinese (Simplified)
 countries: cn
 
-"Save Layout" = "保存布局"
-"Reset" = "重置"
-"Import" = "导入"
+"Save As New" = "另存为新配置"
+"Preset" = "演奏配置"
+"Rename Preset" = "重命名演奏配置"
+"Delete Preset?" = "确定删除此演奏配置？"
+"Delete preset \"" = "确定删除演奏配置 \""
+"Save as New Preset" = "另存为演奏配置"
+"Preset Name:" = "配置名称："
+
 "Rename" = "重命名"
 "Delete" = "删除"
 "Record" = "录音"
@@ -23,7 +28,6 @@ countries: cn
 "Save" = "保存"
 "Open" = "打开"
 "Speed" = "速度"
-"Layout" = "布局"
 "Volume" = "音量"
 "Attack" = "起音"
 "Decay" = "衰减"
@@ -85,12 +89,6 @@ countries: cn
 "Resizable Window" = "可调整窗口大小"
 "Show MIDI/VSTi Instrument Filter" = "显示 MIDI/VSTi 乐器筛选"
 
-"Import Layout" = "导入布局"
-"Display Name:" = "显示名称："
-"Set the display name shown in the layout dropdown." = "设置布局下拉框中显示的显示名称。"
-"Are you sure you want to delete " = "确定要删除 "
-"This action cannot be undone." = "此操作无法撤销。"
-"Delete Layout" = "删除布局"
 
 "Export MIDI Recording" = "导出 MIDI 录音"
 "Export WAV Recording" = "导出 WAV 录音"
