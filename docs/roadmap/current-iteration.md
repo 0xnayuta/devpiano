@@ -99,27 +99,59 @@ Phase 9 计划同列于此，以便一次看清完整执行路径。
 
 ---
 
-### 9b. 88-Key Full Piano Keyboard（88 键完整钢琴键盘）
+### 9b. Unified Full-Range Keyboard（统一全音域钢琴键盘）
 
-**涉及文件**：`UI/KeyboardPanel.h`、`UI/KeyboardPanel.cpp`、`Settings/SettingsModel.h`、`Settings/SettingsComponent.cpp`
+**决策背景**：Phase 9b 原方案引入独立 `juce::MidiKeyboardComponent` 作为"88 键全音域键盘"，与 `CustomKeyboard` 上下堆叠形成双键盘布局。经实际验证发现：
+- `MidiKeyboardComponent` 为 JUCE 黑盒组件，无法支持逐键标签/颜色/fade 动画等 Phase 8a 已建立的能力
+- 双键盘共享同一 `MidiKeyboardState`，鼠标点击、note 高亮功能完全重叠
+- FreePiano 参考实现采用"单键盘 + 绑定叠层"设计，devpiano 的双键盘是权宜实现而非有意设计
 
-**实现方式**：
-- `KeyboardPanel` 内部增加 `juce::MidiKeyboardComponent` 成员
-- `setAvailableRange(0, 127)`、`setLowestVisibleKey(0)`、`setKeyWidth(16.0f)`
-- 从 `AudioEngine` 的 `juce::MidiKeyboardState` 获取 note 状态并同步
-- 与 `CustomKeyboard` 上下排列：`CustomKeyboard` 在上（电脑键盘映射区），`MidiKeyboardComponent` 在下（全音域）
+**修订方向**：放弃 `MidiKeyboardComponent`，将 `CustomKeyboard` 从"映射区窗口"升级为"全音域画布"，实现 FreePiano 风格的单键盘 + 绑定叠层设计。
 
-**UI 控制**：
-- `SettingsComponent`（GUI 页）增加 `juce::ToggleButton` "Show 88-key Piano"（默认 off，避免对仅需电脑键盘的用户增加视觉负担）
-- `KeyboardPanel` 根据设置动态 `setVisible()` 控制 `MidiKeyboardComponent`
+**涉及文件**：
+- `UI/CustomKeyboard.h`、`UI/CustomKeyboard.cpp` — 范围扩展 + 水平滚动 + 绑定叠层视觉
+- `UI/KeyboardPanel.h`、`UI/KeyboardPanel.cpp` — 移除 `MidiKeyboardComponent` 及 `setShow88KeyPiano()`
+- `Settings/SettingsModel.h` — 移除 `show88KeyPiano` 字段
+- `Settings/SettingsComponent.h` — 移除 "Show 88-key Piano" toggle
+- `Settings/SettingsStore.cpp` — 移除 `show88KeyPiano` 持久化
+- `Settings/SettingsWindowManager.cpp` — 移除 `setShow88KeyPiano()` 调用
+- `MainComponent.cpp` — 移除 `show88KeyPiano` 分支（resized / syncUiFromSettings）
+- `Locale/zh_CN.loc.h` — 移除 "Show 88-key Piano" 翻译项
+
+**子任务**：
+
+1. **CustomKeyboard 范围扩展**
+   - `rangeLow`/`rangeHigh` 默认改为 0–127（全 MIDI 范围）
+   - `setAvailableRange(0, 127)` 在构造中调用
+   - 保留 `setAvailableRange` / `setLowestVisibleNote` 接口不变（兼容现有调用方）
+
+2. **CustomKeyboard 水平滚动**
+   - 新增 `juce::Viewport` 或手动 `mouseWheelMove` / `mouseDrag` 滚动
+   - 滚动改变 `lowestVisibleNote` 偏移量，触发 `recalculateKeyBounds()` + `repaint()`
+   - 白键宽度 `settings.keyWidth` 保持不变（16px），超出组件宽度时出现水平滚动条或支持拖拽滚动
+
+3. **绑定叠层视觉增强**
+   - 在全音域键盘上，已绑定的键渲染自定义标签和颜色（Phase 8a 成果直接复用）
+   - 未绑定的键显示标准音符名/无标签，视觉上与绑定键区分（灰阶 vs 彩色）
+   - 确保 128 键全量 `perKeyChannel`/`perKeyVelocity` 数组正确填充
+
+4. **清理 MidiKeyboardComponent**
+   - 从 `KeyboardPanel` 移除 `midiKeyboard` 成员、构造初始化、`resized()` 分支、`setShow88KeyPiano()`
+   - `KeyboardPanel` 简化为仅包含 `CustomKeyboard`
+
+5. **清理 show88KeyPiano 设置项**
+   - 从 `SettingsModel`、`SettingsComponent`、`SettingsStore`、`SettingsWindowManager`、`MainComponent` 中移除全部引用
+   - 清理 `zh_CN.loc.h` 翻译项
+   - 注意：旧 PropertiesFile 中的 `show88KeyPiano` key 自然废弃（不影响其他设置）
 
 **验收标准**：
-- (a) 开启后窗口底部显示 88 键钢琴键盘，水平可滚动
-- (b) 电脑按键触发 note 时，对应钢琴键高亮（力度着色）
-- (c) MIDI 回放时钢琴键同步高亮
-- (d) 鼠标点击钢琴键发出对应 MIDI 音符（JUCE 内置行为）
-
----
+- (a) CustomKeyboard 显示完整 0–127 音域，默认可见区定位到有映射键的区域（如 ~24）
+- (b) 水平滚动（鼠标滚轮 / 拖拽）可浏览全音域，白键宽度保持 16px
+- (c) 已绑定的键显示自定义标签/颜色（Phase 8a 能力完整保留），未绑定键显示标准音符名
+- (d) 电脑按键、鼠标点击、MIDI 回放均正确高亮对应键（全音域）
+- (e) `KeyboardPanel` 仅含 `CustomKeyboard`，无 `MidiKeyboardComponent` 残留
+- (f) Settings 对话框中无 "Show 88-key Piano" 选项
+- (g) 有绑定键的区域始终在默认视口内可见（无需手动滚动才能看到映射键）
 
 ### 9c. Smooth Pitch Bend（平滑弯音插值）
 
