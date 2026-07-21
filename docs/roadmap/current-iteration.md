@@ -35,29 +35,17 @@ Phase 10：主窗口 UI 现代化 — 10a 已完成，详见下方。Phase 8–9
 - SettingsWindowManager 的 SettingsDialogWindow 从 `MainComponent` 继承 L&F
 - WSL clang + Windows MSVC 双平台构建 0 error，单元测试 100% pass，格式检查 0 violations
 
-### 10b. ControlsPanel 布局重构：水平滑动条 → 横向旋转旋钮 + ADSR 曲线
+### 10b. ControlsPanel 布局重构：水平滑动条 → 横向旋转旋钮 + ADSR 曲线 ✅ 已完成
 
-**现状**：6 个水平滑动条（Volume / Attack / Decay / Sustain / Release / Playback Speed）以 28px 行高 + 8px 间距纵向堆叠，共占用 216px 垂直高度，每行横跨 1008px——视觉上稀薄且不符合调音台设计习惯。
+**状态**：已完成 (2026-07-21)。将 6 个 `LinearHorizontal` 滑动条替换为 `RotaryHorizontalVerticalDrag` 旋转旋钮，并在 knob 行与 preset 行之间新增 ADSR 包络曲线可视化。
 
-**方案**：
-- 将 6 个 `juce::Slider::LinearHorizontal` 替换为 `juce::Slider::RotaryHorizontalVerticalDrag` 旋转旋钮
-  - 旋钮直径：约 48px（含标签约 72px 总高），6 个旋钮横向一字排开
-  - 每个旋钮下方居中显示参数名（Volume / Attack / Decay / Sustain / Release / Speed）
-  - 旋钮正下方或旋钮中心显示参数数值（如 "0.85"）
-- **ADSR 可视化曲线**：
-  - 在 Attack / Decay / Sustain / Release 四个旋钮上方或右侧，用 `juce::Graphics` 绘制一个 200×40 的折线图
-  - X 轴 = 时间（线性映射 Attack→Decay→Sustain→Release），Y 轴 = 幅度 [0, 1]
-  - 调节任一 ADSR 旋钮时曲线实时更新；旋钮之间用细线连接形成包络轮廓
-  - 曲线颜色使用冰蓝功能高亮色，填充区域使用半透明叠加
-- **预设与录制行保持不变**（Preset ComboBox + Save/Rename/Delete 按钮行、录制 Transport 按钮行），但整体 ControlsPanel 高度预计从 296px 降至约 180px
-- 腾出的 ~116px 垂直空间分配给键盘面板或留白
-
-**验收标准**：
-- (a) 6 个旋钮横向排列，span 不超过面板宽度，视觉紧凑
-- (b) 旋钮支持鼠标垂直拖拽调节，参数实时生效
-- (c) ADSR 曲线随旋钮值变化实时更新，形状符合 A-D-S-R 语义
-- (d) Volume 和 Playback Speed 旋钮功能不受影响
-- (e) ControlsPanel 总高度在默认窗口下 ≤180px
+**已交付**：
+- `configureSlider` → `configureKnob`：RotaryHorizontalVerticalDrag 风格、TextBoxBelow (44×16)、7→5 点钟弧形（1.25π–2.75π）、value formatter、double-click 归中
+- 6 个 knob 横向一字排开（slot=width/6），每 knob 含：冰蓝弧线旋钮 → 下方文本值显示 → 下方居中标签
+- ADSR 包络曲线：44px 区域，ms-scaled 四段折线 + 半透明填充 + 1.5px 冰蓝描边，旋钮拖拽时实时更新
+- 值格式化：Volume/Sustain 2 位小数、Attack/Decay/Release "0.500s"、Speed "1.0x"
+- `resized()` 布局：knob 行 (68px) → ADSR 曲线 (44px) → preset 行 (24px) → recording 行 (24px)，总高 174px ≤ 180px
+- Public API（getters / `setValues` / callbacks）零变更，MainComponent 调用侧零改动
 
 ---
 
@@ -178,8 +166,8 @@ Phase 10：主窗口 UI 现代化 — 10a 已完成，详见下方。Phase 8–9
 
 ```
 Phase 10a (LookAndFeel) ✅ 已完成
+Phase 10b (Knobs + ADSR) ✅ 已完成
          │
-         ├──→ 10b (ControlsPanel → Knobs + ADSR Curve)
          ├──→ 10c (PluginPanel 折叠化)
          └──→ 10d (Keyboard 拟真渲染)
                    │
