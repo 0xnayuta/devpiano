@@ -17,7 +17,6 @@ extern "C" HIMC __stdcall ImmAssociateContext(HWND, HIMC);
 #endif
 
 namespace {
-const auto backgroundColour = juce::Colour(0xff202225);
 constexpr int preferredMainContentWidth = 1120;
 constexpr int preferredMainContentHeight = 760;
 constexpr int minimumMainContentWidth = 980;
@@ -117,9 +116,8 @@ MainComponent::~MainComponent() {
 void MainComponent::initialiseFromPreset() {
     // Load the last active preset, or fall back to built-in default
     if (appSettings.lastActivePresetId.isNotEmpty()) {
-        auto file = devpiano::layout::getPresetDirectory()
-                        .getChildFile(devpiano::layout::sanitisePresetFileName(appSettings.lastActivePresetId)
-                                      + ".devpiano.preset");
+        auto file = devpiano::layout::getPresetDirectory().getChildFile(
+            devpiano::layout::sanitisePresetFileName(appSettings.lastActivePresetId) + ".devpiano.preset");
         auto loaded = devpiano::layout::loadPreset(file);
         if (loaded.has_value()) {
             presetFlowSupport->applyPresetData(*loaded);
@@ -142,6 +140,7 @@ void MainComponent::handlePresetShortcut(int index) {
         presetFlowSupport->applyPresetByIndex(index);
 }
 void MainComponent::initialiseUi() {
+    setLookAndFeel(&lookAndFeel);
     setBounds(getInitialMainContentBounds());
     setWantsKeyboardFocus(true);
 
@@ -160,8 +159,7 @@ void MainComponent::initialiseUi() {
 
     addAndMakeVisible(controlsPanel);
     controlsPanel.onValuesChanged = [this] { handlePerformanceUiChanged(); };
-    controlsPanel.onPresetChanged
-        = [this](const juce::String& id) { presetFlowSupport->applyPresetById(id); };
+    controlsPanel.onPresetChanged = [this](const juce::String& id) { presetFlowSupport->applyPresetById(id); };
     controlsPanel.onSaveAsNewPresetRequested = [this] { presetFlowSupport->handleSaveAsNewPreset(); };
     controlsPanel.onRenamePresetRequested = [this] { presetFlowSupport->handleRenamePreset(); };
     controlsPanel.onDeletePresetRequested = [this] { presetFlowSupport->handleDeletePreset(); };
@@ -225,7 +223,8 @@ void MainComponent::initialiseUi() {
         auto currentColour = appSettings.customKeyColours[static_cast<std::size_t>(midiNote)];
 
         KeyBindingEditDialog::launch(
-            midiNote, noteName, existingBinding, currentLabel, currentColour, [this, midiNote](KeyBindingEditResult result) {
+            midiNote, noteName, existingBinding, currentLabel, currentColour,
+            [this, midiNote](KeyBindingEditResult result) {
                 // Update custom label and colour if changed
                 if (result.labelChanged)
                     appSettings.customKeyLabels[static_cast<std::size_t>(midiNote)] = result.customLabel;
@@ -267,14 +266,14 @@ void MainComponent::initialiseUi() {
                     auto currentId = presetFlowSupport->getCurrentPresetId();
                     if (currentId.isNotEmpty()) {
                         auto updatedPreset = presetFlowSupport->captureCurrentState(currentId);
-                        auto presetFile = devpiano::layout::getPresetDirectory()
-                                              .getChildFile(devpiano::layout::sanitisePresetFileName(currentId)
-                                                            + ".devpiano.preset");
+                        auto presetFile = devpiano::layout::getPresetDirectory().getChildFile(
+                            devpiano::layout::sanitisePresetFileName(currentId) + ".devpiano.preset");
                         if (!devpiano::layout::savePreset(updatedPreset, presetFile))
                             DP_LOG_WARN("[Preset] failed to auto-save after binding edit: " + currentId);
                     }
                 }
-            });
+            },
+            this);
     };
 }
 
@@ -344,7 +343,7 @@ void MainComponent::timerCallback() {
 }
 
 void MainComponent::paint(juce::Graphics& g) {
-    g.fillAll(backgroundColour);
+    g.fillAll(findColour(juce::ResizableWindow::backgroundColourId));
 }
 
 void MainComponent::resized() {
@@ -568,8 +567,7 @@ void MainComponent::syncUiFromSettings() {
     applyPerformanceSettingsToUi(appSettings.getPerformanceSettingsView());
 
     if (presetFlowSupport != nullptr) {
-        controlsPanel.setPresets(presetFlowSupport->getPresetIds(),
-                                 presetFlowSupport->getCurrentPresetId(),
+        controlsPanel.setPresets(presetFlowSupport->getPresetIds(), presetFlowSupport->getCurrentPresetId(),
                                  presetFlowSupport->getPresetDisplayNames());
     }
 

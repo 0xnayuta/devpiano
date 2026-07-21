@@ -96,6 +96,8 @@ target_sources(devpiano PRIVATE
     source/UI/PluginEditorWindow.h
     source/UI/PluginPanelStateBuilder.cpp
     source/UI/PluginPanelStateBuilder.h
+    source/UI/DevPianoLookAndFeel.cpp
+    source/UI/DevPianoLookAndFeel.h
     source/UI/ControlsPanel.cpp
     source/UI/ControlsPanel.h
     source/UI/HeaderPanel.cpp

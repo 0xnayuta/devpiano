@@ -21,6 +21,7 @@
 #include "Settings/SettingsStore.h"
 #include "Settings/SettingsWindowManager.h"
 #include "UI/ControlsPanel.h"
+#include "UI/DevPianoLookAndFeel.h"
 #include "UI/HeaderPanel.h"
 #include "UI/KeyboardPanel.h"
 #include "UI/PluginEditorWindow.h"
@@ -127,6 +128,8 @@ private:
     SettingsModel appSettings;
     SettingsStore settingsStore;
     juce::RecentlyOpenedFilesList recentFiles;
+
+    DevPianoLookAndFeel lookAndFeel;
 
     bool dropActive = false;
 
