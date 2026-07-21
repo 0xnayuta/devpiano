@@ -69,6 +69,7 @@ inline juce::String languageToCode(Language lang) {
     case Language::zhCN:
         return "zh-CN";
     }
+    return {}; // unreachable; silences MSVC C4715
 }
 
 // Human-readable labels for the settings ComboBox.
@@ -80,6 +81,7 @@ inline juce::String languageDisplayName(Language lang) {
     case Language::zhCN:
         return juce::String::fromUTF8("\xe7\xae\x80\xe4\xbd\x93\xe4\xb8\xad\xe6\x96\x87"); // 简体中文
     }
+    return {}; // unreachable; silences MSVC C4715
 }
 
 } // namespace devpiano::locale
