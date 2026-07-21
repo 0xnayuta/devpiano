@@ -1,11 +1,17 @@
 #include "ControlsPanel.h"
+#include "DevPianoLookAndFeel.h"
 
 ControlsPanel::ControlsPanel() {
-    configureSlider(volumeSlider, volumeLabel, TRANS("Volume"), 0.0, 1.0);
-    configureSlider(attackSlider, attackLabel, TRANS("Attack"), 0.001, 2.0);
-    configureSlider(decaySlider, decayLabel, TRANS("Decay"), 0.001, 2.0);
-    configureSlider(sustainSlider, sustainLabel, TRANS("Sustain"), 0.0, 1.0);
-    configureSlider(releaseSlider, releaseLabel, TRANS("Release"), 0.001, 3.0);
+    configureKnob(volumeSlider, volumeLabel, TRANS("Volume"), 0.0, 1.0, 0.01,
+                  [](double v) { return juce::String(v, 2); });
+    configureKnob(attackSlider, attackLabel, TRANS("Attack"), 0.001, 2.0, 0.001,
+                  [](double v) { return juce::String(v, 3) + "s"; });
+    configureKnob(decaySlider, decayLabel, TRANS("Decay"), 0.001, 2.0, 0.001,
+                  [](double v) { return juce::String(v, 3) + "s"; });
+    configureKnob(sustainSlider, sustainLabel, TRANS("Sustain"), 0.0, 1.0, 0.01,
+                  [](double v) { return juce::String(v, 2); });
+    configureKnob(releaseSlider, releaseLabel, TRANS("Release"), 0.001, 3.0, 0.001,
+                  [](double v) { return juce::String(v, 3) + "s"; });
 
     // --- Preset row ---
     presetLabel.setText(TRANS("Preset"), juce::dontSendNotification);
@@ -117,12 +123,17 @@ ControlsPanel::ControlsPanel() {
 
     // Playback speed
     playbackSpeedLabel.setText(TRANS("Speed"), juce::dontSendNotification);
-    playbackSpeedLabel.setJustificationType(juce::Justification::centredLeft);
+    playbackSpeedLabel.setJustificationType(juce::Justification::centred);
+    playbackSpeedLabel.setFont(juce::FontOptions(11.0f));
     addAndMakeVisible(playbackSpeedLabel);
     playbackSpeedSlider.setRange(0.5, 2.0, 0.25);
-    playbackSpeedSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-    playbackSpeedSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 80, 22);
+    playbackSpeedSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    playbackSpeedSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 44, 16);
+    playbackSpeedSlider.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f,
+                                            juce::MathConstants<float>::pi * 2.75f, true);
+    playbackSpeedSlider.textFromValueFunction = [](double v) { return juce::String(v, 1) + "x"; };
     playbackSpeedSlider.onValueChange = [this] {
+        repaint();
         if (onPlaybackSpeedChange)
             onPlaybackSpeedChange(playbackSpeedSlider.getValue());
     };
@@ -157,23 +168,35 @@ ControlsPanel::~ControlsPanel() {
 
 void ControlsPanel::resized() {
     auto area = getLocalBounds();
-    const auto rowHeight = 28;
+    constexpr int knobRowHeight = 68;
+    constexpr int curveHeight = 44;
+    constexpr int rowHeight = 24;
 
-    auto layoutSliderRow = [&](juce::Slider& slider, juce::Label& label) {
-        auto row = area.removeFromTop(rowHeight);
-        label.setBounds(row.removeFromLeft(80));
-        slider.setBounds(row);
-        area.removeFromTop(8);
+    // -- Knob row: 6 rotary knobs horizontal --
+    auto knobRow = area.removeFromTop(knobRowHeight);
+    const int knobSlotWidth = knobRow.getWidth() / 6;
+    constexpr int sliderW = 50;
+    constexpr int sliderH = 56; // 40px knob + 16px TextBoxBelow
+
+    auto placeKnob = [&](juce::Slider& slider, juce::Label& label) {
+        auto slot = knobRow.removeFromLeft(knobSlotWidth);
+        slider.setBounds(slot.getCentreX() - sliderW / 2, slot.getY() + 2, sliderW, sliderH);
+        label.setBounds(slot.getX(), slider.getBottom() + 2, knobSlotWidth, 12);
     };
 
-    layoutSliderRow(volumeSlider, volumeLabel);
-    layoutSliderRow(attackSlider, attackLabel);
-    layoutSliderRow(decaySlider, decayLabel);
-    layoutSliderRow(sustainSlider, sustainLabel);
-    layoutSliderRow(releaseSlider, releaseLabel);
-    layoutSliderRow(playbackSpeedSlider, playbackSpeedLabel);
+    placeKnob(volumeSlider, volumeLabel);
+    placeKnob(attackSlider, attackLabel);
+    placeKnob(decaySlider, decayLabel);
+    placeKnob(sustainSlider, sustainLabel);
+    placeKnob(releaseSlider, releaseLabel);
+    placeKnob(playbackSpeedSlider, playbackSpeedLabel);
 
-    // Preset row
+    // -- ADSR curve area --
+    area.removeFromTop(2);
+    m_adsrCurveArea = area.removeFromTop(curveHeight);
+    area.removeFromTop(4);
+
+    // -- Preset row --
     auto row = area.removeFromTop(rowHeight);
     presetLabel.setBounds(row.removeFromLeft(80));
     presetComboBox.setBounds(row.removeFromLeft(200));
@@ -184,9 +207,9 @@ void ControlsPanel::resized() {
     row.removeFromLeft(8);
     deletePresetButton.setBounds(row.removeFromLeft(60));
 
-    area.removeFromTop(12);
+    area.removeFromTop(8);
 
-    // Recording controls row
+    // -- Recording controls row --
     auto buttonRow = area.removeFromTop(rowHeight);
     recordStatusLabel.setBounds(buttonRow.removeFromLeft(80));
     savePerformanceButton.setBounds(buttonRow.removeFromLeft(50));
@@ -210,6 +233,57 @@ void ControlsPanel::resized() {
     recentFilesButton.setBounds(buttonRow.removeFromLeft(60));
     buttonRow.removeFromLeft(6);
     songInfoButton.setBounds(buttonRow.removeFromLeft(80));
+}
+
+// ============================================================================
+//  paint  (ADSR envelope curve)
+// ============================================================================
+void ControlsPanel::paint(juce::Graphics& g) {
+    drawAdsrCurve(g, static_cast<float>(attackSlider.getValue()), static_cast<float>(decaySlider.getValue()),
+                  static_cast<float>(sustainSlider.getValue()), static_cast<float>(releaseSlider.getValue()));
+}
+
+void ControlsPanel::drawAdsrCurve(juce::Graphics& g, float a, float d, float s, float r) {
+    if (m_adsrCurveArea.isEmpty())
+        return;
+
+    // Scale each parameter to millisecond range for visual proportions
+    const float attackMs = a * 1000.0f;
+    const float decayMs = d * 1000.0f;
+    const float releaseMs = r * 1000.0f;
+    constexpr float sustainWeight = 200.0f; // fixed visual weight for sustain phase
+
+    float totalX = attackMs + decayMs + sustainWeight + releaseMs;
+    if (totalX < 1.0f)
+        return;
+
+    auto rect = m_adsrCurveArea.toFloat().reduced(12.0f, 6.0f);
+    const float w = rect.getWidth();
+    const float h = rect.getHeight();
+    const float x0 = rect.getX();
+    const float y0 = rect.getY();
+
+    float xA = w * (attackMs / totalX);
+    float xD = w * (decayMs / totalX);
+    float xS = w * (sustainWeight / totalX);
+
+    float peakY = y0; // attack peak at top
+    float susY = y0 + (1.0f - s) * h; // sustain level
+    float baseY = y0 + h; // zero level at bottom
+
+    juce::Path path;
+    path.startNewSubPath(x0, baseY);
+    path.lineTo(x0 + xA, peakY); // attack
+    path.lineTo(x0 + xA + xD, susY); // decay
+    path.lineTo(x0 + xA + xD + xS, susY); // sustain
+    path.lineTo(rect.getRight(), baseY); // release
+    path.closeSubPath();
+
+    const auto primary = DevPianoLookAndFeel::kPrimary;
+    g.setColour(primary.withAlpha(0.15f));
+    g.fillPath(path);
+    g.setColour(primary);
+    g.strokePath(path, juce::PathStrokeType(1.5f));
 }
 
 void ControlsPanel::setRecordingControlsState(RecordingControlsState state) {
@@ -344,16 +418,22 @@ void ControlsPanel::setPlaybackSpeed(double speed) {
     playbackSpeedSlider.setValue(juce::jlimit(0.5, 2.0, speed), juce::dontSendNotification);
 }
 
-void ControlsPanel::configureSlider(juce::Slider& slider, juce::Label& label, const juce::String& text, double minimum,
-                                    double maximum, double interval) {
+void ControlsPanel::configureKnob(juce::Slider& slider, juce::Label& label, const juce::String& text, double minimum,
+                                  double maximum, double interval, std::function<juce::String(double)> formatter) {
     label.setText(text, juce::dontSendNotification);
-    label.setJustificationType(juce::Justification::centredLeft);
+    label.setJustificationType(juce::Justification::centred);
+    label.setFont(juce::FontOptions(11.0f));
     addAndMakeVisible(label);
 
     slider.setRange(minimum, maximum, interval);
-    slider.setSliderStyle(juce::Slider::LinearHorizontal);
-    slider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 80, 22);
+    slider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 44, 16);
+    slider.setRotaryParameters(juce::MathConstants<float>::pi * 1.25f, juce::MathConstants<float>::pi * 2.75f, true);
+    slider.setDoubleClickReturnValue(true, 0.5);
+    if (formatter)
+        slider.textFromValueFunction = std::move(formatter);
     slider.onValueChange = [this] {
+        repaint();
         if (onValuesChanged)
             onValuesChanged();
     };

@@ -8,7 +8,7 @@ public:
     ~ControlsPanel() override;
 
     void resized() override;
-
+    void paint(juce::Graphics&) override;
     void setValues(float masterGain, float attack, float decay, float sustain, float release);
 
     [[nodiscard]] float getMasterGain() const;
@@ -57,8 +57,11 @@ private:
     void updateRecordingActionButtons();
     void updatePresetActionButtons();
 
-    void configureSlider(juce::Slider& slider, juce::Label& label, const juce::String& text, double minimum,
-                         double maximum, double interval = 0.001);
+    void configureKnob(juce::Slider& slider, juce::Label& label, const juce::String& text, double minimum,
+                       double maximum, double interval, std::function<juce::String(double)> formatter = {});
+
+    void drawAdsrCurve(juce::Graphics& g, float attack, float decay, float sustain, float release);
+    juce::Rectangle<int> m_adsrCurveArea;
 
     juce::StringArray availablePresetIds;
 
