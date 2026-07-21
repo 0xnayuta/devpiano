@@ -1,6 +1,5 @@
 #include "Settings/SettingsSerialization.h"
 
-
 namespace devpiano::settings {
 
 // ---- Channel matrix serialization ----

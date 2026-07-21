@@ -287,13 +287,12 @@ void ControlsPanel::setValues(float masterGain, float attack, float decay, float
 }
 
 void ControlsPanel::setPresets(const juce::StringArray& presetIds, const juce::String& currentPresetId,
-                                const juce::StringArray& presetDisplayNames) {
+                               const juce::StringArray& presetDisplayNames) {
     availablePresetIds = presetIds;
 
     presetComboBox.clear(juce::dontSendNotification);
     for (int i = 0; i < presetIds.size(); ++i) {
-        auto displayName
-            = (i < presetDisplayNames.size()) ? presetDisplayNames[i] : presetIds[i];
+        auto displayName = (i < presetDisplayNames.size()) ? presetDisplayNames[i] : presetIds[i];
         presetComboBox.addItem(displayName, i + 1);
     }
 

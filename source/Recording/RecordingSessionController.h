@@ -7,9 +7,9 @@
 #include <memory>
 #include <optional>
 
+#include "Recording/PerformanceFile.h"
 #include "Recording/RecordingEngine.h"
 #include "UI/ControlsPanel.h"
-#include "Recording/PerformanceFile.h"
 
 class AudioEngine;
 class MainComponent;

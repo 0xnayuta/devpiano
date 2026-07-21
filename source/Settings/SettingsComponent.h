@@ -64,9 +64,8 @@ public:
         resizableToggle.setButtonText(TRANS("Resizable Window"));
         if (model)
             resizableToggle.setToggleState(model->resizableWindow, juce::dontSendNotification);
-        resizableToggle.onStateChange = [this] {
-            editingState.setProperty("resizableWindow", resizableToggle.getToggleState(), nullptr);
-        };
+        resizableToggle.onStateChange
+            = [this] { editingState.setProperty("resizableWindow", resizableToggle.getToggleState(), nullptr); };
         addAndMakeVisible(resizableToggle);
 
         // Instrument filter toggle
@@ -77,7 +76,6 @@ public:
             editingState.setProperty("showInstrumentFilter", instrumentFilterToggle.getToggleState(), nullptr);
         };
         addAndMakeVisible(instrumentFilterToggle);
-
 
         // === Key Signature group ===
         keySigGroup.setText(TRANS("Key Signature"));
@@ -108,10 +106,8 @@ public:
         midiTransposeToggle.setButtonText(TRANS("MIDI Transpose"));
         if (model)
             midiTransposeToggle.setToggleState(model->midiTranspose, juce::dontSendNotification);
-        midiTransposeToggle.onStateChange = [this] {
-            editingState.setProperty("midiTranspose",
-                                     midiTransposeToggle.getToggleState(), nullptr);
-        };
+        midiTransposeToggle.onStateChange
+            = [this] { editingState.setProperty("midiTranspose", midiTransposeToggle.getToggleState(), nullptr); };
         addAndMakeVisible(midiTransposeToggle);
 
         // Channel Follow Key toggles
@@ -314,10 +310,8 @@ public:
         for (int ch = 0; ch < 16; ++ch) {
             int col = ch % 8;
             int rowIdx = ch / 8;
-            followKeyToggles[static_cast<size_t>(ch)].setBounds(
-                chArea.getX() + col * (chBtnW + chSpacing),
-                chArea.getY() + rowIdx * rowH,
-                chBtnW, rowH - 2);
+            followKeyToggles[static_cast<size_t>(ch)].setBounds(chArea.getX() + col * (chBtnW + chSpacing),
+                                                                chArea.getY() + rowIdx * rowH, chBtnW, rowH - 2);
         }
 
         selector->setBounds(area);
@@ -379,7 +373,6 @@ private:
 
     juce::ValueTree editingState { "Settings" };
 
-
     void updateFollowKeyTogglesVisibility() {
         auto visible = midiTransposeToggle.getToggleState();
         channelFollowKeyLabel.setVisible(visible);
@@ -420,8 +413,7 @@ private:
             auto chIdx = prop.toString().substring(10).getIntValue();
             if (chIdx >= 0 && chIdx < 16)
                 model->channelMatrix.channels[static_cast<size_t>(chIdx)].followKey = (bool)editingState[prop];
-        }
-        else if (prop == juce::Identifier("languageCode")) {
+        } else if (prop == juce::Identifier("languageCode")) {
             model->languageCode = editingState[prop].toString();
             if (onLanguageChanged)
                 onLanguageChanged(model->languageCode);

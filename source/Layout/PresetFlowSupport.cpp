@@ -238,10 +238,9 @@ void PresetFlowSupport::handleDeletePreset() {
     if (it == cachedPresets.end())
         return;
 
-    auto result = juce::AlertWindow::showOkCancelBox(
-        juce::AlertWindow::QuestionIcon, TRANS("Delete Preset?"),
-        TRANS("Delete preset \"") + it->name + "\"?",
-        TRANS("Delete"), TRANS("Cancel"));
+    auto result = juce::AlertWindow::showOkCancelBox(juce::AlertWindow::QuestionIcon, TRANS("Delete Preset?"),
+                                                     TRANS("Delete preset \"") + it->name + "\"?", TRANS("Delete"),
+                                                     TRANS("Cancel"));
 
     if (!result)
         return;
@@ -258,7 +257,7 @@ void PresetFlowSupport::handleDeletePreset() {
         owner.appSettings.lastActivePresetId = {};
     }
     refreshCache();
-    updateUiAfterCommit();  // must run after refreshCache so combo reflects the deletion
+    updateUiAfterCommit(); // must run after refreshCache so combo reflects the deletion
 }
 
 void PresetFlowSupport::handleImportPresetFile(const juce::File& file) {
@@ -268,15 +267,14 @@ void PresetFlowSupport::handleImportPresetFile(const juce::File& file) {
         return;
     }
 
-    auto destFile = getPresetDirectory().getChildFile(
-        sanitisePresetFileName(loaded->name) + ".devpiano.preset");
+    auto destFile = getPresetDirectory().getChildFile(sanitisePresetFileName(loaded->name) + ".devpiano.preset");
 
     if (savePreset(*loaded, destFile)) {
         DP_LOG_INFO("[Preset] imported: " + destFile.getFullPathName());
         refreshCache();
-        applyPresetData(*loaded);             // applies settings + updates UI (with old preset ID)
+        applyPresetData(*loaded); // applies settings + updates UI (with old preset ID)
         currentPresetId = loaded->name;
-        updateUiAfterCommit();                // re-update so combo shows the newly imported preset selected
+        updateUiAfterCommit(); // re-update so combo shows the newly imported preset selected
     }
 }
 

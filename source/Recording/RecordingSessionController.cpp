@@ -134,12 +134,11 @@ void RecordingSessionController::handleStopClicked() {
         recordingSession.take = stopInternalRecording();
         recordingSession.canExportMidi = recordingSession.hasTake();
         // Pop up metadata dialog so the user can title the recording.
-        PerformanceMetadataDialog::launch(
-            recordingSession.currentMetadata, &owner,
-            [this](std::optional<PerformanceFileMetadata> result) {
-                if (result.has_value())
-                    recordingSession.currentMetadata = std::move(*result);
-            });
+        PerformanceMetadataDialog::launch(recordingSession.currentMetadata, &owner,
+                                          [this](std::optional<PerformanceFileMetadata> result) {
+                                              if (result.has_value())
+                                                  recordingSession.currentMetadata = std::move(*result);
+                                          });
     } else if (command == RecordingFlowCommand::stopPlayback) {
         const auto stoppedTake = stopInternalPlayback();
         juce::ignoreUnused(stoppedTake);
@@ -278,7 +277,8 @@ void RecordingSessionController::handleSavePerformanceClicked() {
 
 void RecordingSessionController::handleOpenPerformanceClicked() {
     runImportOpenFlow("Performance File", TRANS("Open Performance"), juce::File::getCurrentWorkingDirectory(),
-                      "*.devpiano", performanceFileChooser, [this](const juce::File& file) -> std::optional<RecordingTake> {
+                      "*.devpiano", performanceFileChooser,
+                      [this](const juce::File& file) -> std::optional<RecordingTake> {
                           auto metadata = devpiano::recording::loadPerformanceFileMetadata(file);
                           if (metadata.has_value()) {
                               recordingSession.currentMetadata = std::move(*metadata);
@@ -557,8 +557,7 @@ void RecordingSessionController::runImportOpenFlow(
 
 void RecordingSessionController::handleSongInfoClicked() {
     PerformanceMetadataDialog::launch(
-        recordingSession.currentMetadata, &owner,
-        [this](std::optional<PerformanceFileMetadata> result) {
+        recordingSession.currentMetadata, &owner, [this](std::optional<PerformanceFileMetadata> result) {
             if (!result.has_value()) {
                 owner.restoreKeyboardFocus();
                 return; // cancelled
@@ -572,8 +571,8 @@ void RecordingSessionController::handleSongInfoClicked() {
                 if (metadata.createdAt.isEmpty())
                     metadata.createdAt = juce::Time::getCurrentTime().toISO8601(true);
 
-                if (devpiano::recording::savePerformanceFile(
-                        recordingSession.take, recordingSession.currentPerformanceFile, metadata))
+                if (devpiano::recording::savePerformanceFile(recordingSession.take,
+                                                             recordingSession.currentPerformanceFile, metadata))
                     DP_LOG_INFO("[Performance File] metadata updated: "
                                 + recordingSession.currentPerformanceFile.getFullPathName());
                 else

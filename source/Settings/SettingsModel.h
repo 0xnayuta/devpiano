@@ -2,7 +2,6 @@
 
 #include <JuceHeader.h>
 
-
 #include "Core/ChannelMatrix.h"
 #include "Core/KeyboardTypes.h"
 
@@ -67,7 +66,7 @@ struct SettingsModel {
     juce::String pluginSearchPath;
     juce::String lastPluginName;
     std::unique_ptr<juce::XmlElement> knownPluginListState;
-    juce::String lastActivePresetId;  // last-used preset file name (without extension)
+    juce::String lastActivePresetId; // last-used preset file name (without extension)
     // Persisted last MIDI import/export paths for FileChooser defaults.
     juce::String lastMidiImportPath;
     juce::String lastMidiExportPath;
@@ -91,7 +90,7 @@ struct SettingsModel {
     juce::String languageCode { "en" };
     // Key signature system: global transpose state
     bool midiTranspose = false;
-    int keySignature = 0;  // semitone offset from C, -7..+7
+    int keySignature = 0; // semitone offset from C, -7..+7
 
     devpiano::midi::ChannelMatrix channelMatrix;
 
@@ -134,7 +133,6 @@ struct SettingsModel {
         pluginSearchPath = view.pluginSearchPath;
         lastPluginName = view.lastPluginName;
     }
-
 
     [[nodiscard]] KeyboardDisplaySettingsView getKeyboardDisplaySettingsView() const {
         return { .colourMode = keyboardColourMode,

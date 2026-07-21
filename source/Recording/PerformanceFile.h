@@ -69,7 +69,6 @@ std::optional<RecordingTake> loadPerformanceFile(const juce::File& sourceFile);
 // For legacy files that lack a metadata key, returns an empty (default) struct.
 std::optional<PerformanceFileMetadata> loadPerformanceFileMetadata(const juce::File& sourceFile);
 
-
 // --- Low-level serialisation (for testing / reuse) ---
 
 // Serialise a RecordingTake to a JSON string.

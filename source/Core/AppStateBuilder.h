@@ -80,8 +80,7 @@ struct RuntimeInputState {
                          .hasLoadedPlugin = false,
                          .isPrepared = false,
                          .isEditorOpen = false },
-             .input = { .layoutId = settings.lastActivePresetId,
-                        .keyboardLayout = keyboardLayout },
+             .input = { .layoutId = settings.lastActivePresetId, .keyboardLayout = keyboardLayout },
              .midiTranspose = settings.midiTranspose,
              .keySignature = settings.keySignature,
              .midiChannelMatrix = settings.channelMatrix };

@@ -7,8 +7,8 @@
 #include <vector>
 
 #include "Core/ChannelMatrix.h"
-#include "Core/KeyboardTypes.h"
 #include "Core/KeyMapTypes.h"
+#include "Core/KeyboardTypes.h"
 
 namespace devpiano::layout {
 

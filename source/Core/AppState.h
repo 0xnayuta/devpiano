@@ -69,7 +69,7 @@ struct AppState {
     InputState input;
     // Key signature system: global transpose state
     bool midiTranspose = false;
-    int keySignature = 0;  // semitone offset from C, -7..+7
+    int keySignature = 0; // semitone offset from C, -7..+7
     devpiano::midi::ChannelMatrix midiChannelMatrix;
 };
 }

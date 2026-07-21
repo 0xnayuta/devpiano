@@ -241,10 +241,10 @@ std::optional<PerformancePreset> loadPreset(const juce::File& path) {
         if (kbo != nullptr) {
             preset.keySignature = static_cast<int>(kbo->getProperty("keySignature"));
             preset.midiTranspose = static_cast<bool>(kbo->getProperty("midiTranspose"));
-            preset.colourMode = static_cast<devpiano::ui::KeyColourMode>(
-                static_cast<int>(kbo->getProperty("colourMode")));
-            preset.noteDisplay = static_cast<devpiano::ui::NoteDisplayMode>(
-                static_cast<int>(kbo->getProperty("noteDisplay")));
+            preset.colourMode
+                = static_cast<devpiano::ui::KeyColourMode>(static_cast<int>(kbo->getProperty("colourMode")));
+            preset.noteDisplay
+                = static_cast<devpiano::ui::NoteDisplayMode>(static_cast<int>(kbo->getProperty("noteDisplay")));
             preset.fadeSpeed = static_cast<float>(kbo->getProperty("fadeSpeed"));
             preset.previewAlpha = static_cast<float>(kbo->getProperty("previewAlpha"));
 
@@ -263,8 +263,7 @@ std::optional<PerformancePreset> loadPreset(const juce::File& path) {
                 auto* arr = coloursVar.getArray();
                 auto count = std::min(static_cast<int>(arr->size()), 128);
                 for (int i = 0; i < count; ++i)
-                    preset.customKeyColours[static_cast<std::size_t>(i)]
-                        = argbHexToColour((*arr)[i].toString());
+                    preset.customKeyColours[static_cast<std::size_t>(i)] = argbHexToColour((*arr)[i].toString());
             }
         }
     }
@@ -351,18 +350,16 @@ std::vector<PerformancePreset> scanPresetDirectory() {
 
     std::vector<PerformancePreset> results;
 
-    for (const auto& entry :
-         dir.findChildFiles(juce::File::TypesOfFileToFind::findFiles, false,
-                            "*" + juce::String(kPresetFileExtension))) {
+    for (const auto& entry : dir.findChildFiles(juce::File::TypesOfFileToFind::findFiles, false,
+                                                "*" + juce::String(kPresetFileExtension))) {
         auto loaded = loadPreset(entry);
         if (loaded.has_value())
             results.push_back(*loaded);
     }
 
-    std::sort(results.begin(), results.end(),
-              [](const PerformancePreset& a, const PerformancePreset& b) {
-                  return a.name.compareIgnoreCase(b.name) < 0;
-              });
+    std::sort(results.begin(), results.end(), [](const PerformancePreset& a, const PerformancePreset& b) {
+        return a.name.compareIgnoreCase(b.name) < 0;
+    });
 
     return results;
 }

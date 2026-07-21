@@ -72,10 +72,12 @@ void CustomKeyboard::setLowestVisibleNote(int note) {
     auto visibleW = 800.0f;
     if (auto* parent = getParentComponent())
         visibleW = static_cast<float>(parent->getWidth());
-    if (visibleW < 1.0f) visibleW = 800.0f;
+    if (visibleW < 1.0f)
+        visibleW = 800.0f;
     auto kw = settings.keyWidth;
     auto maxVisible = static_cast<int>(visibleW / kw);
-    if (maxVisible < 1) maxVisible = 1;
+    if (maxVisible < 1)
+        maxVisible = 1;
 
     // Find the latest start note so the rightmost key is still within rangeHigh
     int whiteCount = 0;
