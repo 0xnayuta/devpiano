@@ -32,7 +32,7 @@ public:
 
     static void launch(int midiNote, const juce::String& noteName, const devpiano::core::KeyBinding* existingBinding,
                        const juce::String& currentCustomLabel, const juce::Colour& currentCustomColour,
-                       std::function<void(KeyBindingEditResult)> onComplete);
+                       std::function<void(KeyBindingEditResult)> onComplete, juce::Component* parent = nullptr);
 
 private:
     JUCE_DECLARE_NON_COPYABLE(KeyBindingEditDialog)

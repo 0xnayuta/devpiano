@@ -1,11 +1,12 @@
 #include "HeaderPanel.h"
+#include "DevPianoLookAndFeel.h"
 
 HeaderPanel::HeaderPanel() {
     titleLabel.setText("devpiano", juce::dontSendNotification);
     titleLabel.setFont(juce::FontOptions(22.0f, juce::Font::bold));
     addAndMakeVisible(titleLabel);
 
-    hintLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+    hintLabel.setColour(juce::Label::textColourId, DevPianoLookAndFeel::kTextSecondary);
     addAndMakeVisible(hintLabel);
 
     addAndMakeVisible(settingsButton);

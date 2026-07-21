@@ -1,7 +1,6 @@
 #include "PluginPanel.h"
 
 PluginPanel::PluginPanel() {
-    pluginStatusLabel.setColour(juce::Label::textColourId, juce::Colours::lightblue);
     addAndMakeVisible(pluginStatusLabel);
 
     pluginPathLabel.setText(TRANS("VST3 Path"), juce::dontSendNotification);

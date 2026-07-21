@@ -1,4 +1,5 @@
 #include "UI/KeyBindingEditDialog.h"
+#include "DevPianoLookAndFeel.h"
 
 // ============================================================================
 // Colour picker dialog content
@@ -20,7 +21,6 @@ public:
             if (auto* dw = findParentComponentOfClass<juce::DialogWindow>())
                 dw->exitModalState(0);
         };
-        okButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xffe0e0e0));
         addAndMakeVisible(okButton);
 
         cancelButton.onClick = [this] {
@@ -28,7 +28,6 @@ public:
             if (auto* dw = findParentComponentOfClass<juce::DialogWindow>())
                 dw->exitModalState(0);
         };
-        cancelButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xffe0e0e0));
         addAndMakeVisible(cancelButton);
 
         setSize(340, 340);
@@ -71,14 +70,12 @@ public:
         titleLabel.setText(TRANS("Key Binding Editor") + " — " + noteName + " (#" + juce::String(midiNote) + ")",
                            juce::dontSendNotification);
         titleLabel.setFont(juce::Font(juce::FontOptions(14.0f, juce::Font::bold)));
-        titleLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0e0e0));
         addAndMakeVisible(titleLabel);
 
         if (existingBinding != nullptr) {
             // Editable form for an existing binding
             infoLabel.setText(TRANS("Bound to keyboard key:") + "  " + keyLabel, juce::dontSendNotification);
             infoLabel.setFont(juce::Font(juce::FontOptions(13.0f)));
-            infoLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0e0e0));
             addAndMakeVisible(infoLabel);
 
             auto& act = existingBinding->action;
@@ -87,7 +84,6 @@ public:
             channelLabel.setText(TRANS("MIDI Channel:"), juce::dontSendNotification);
             channelLabel.attachToComponent(&channelCombo, true);
             channelLabel.setFont(juce::Font(juce::FontOptions(13.0f)));
-            channelLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0e0e0));
             addAndMakeVisible(channelLabel);
             for (int ch = 1; ch <= 16; ++ch)
                 channelCombo.addItem(juce::String(ch), ch);
@@ -102,7 +98,6 @@ public:
             noteLabel.setText(TRANS("MIDI Note:"), juce::dontSendNotification);
             noteLabel.attachToComponent(&noteSlider, true);
             noteLabel.setFont(juce::Font(juce::FontOptions(13.0f)));
-            noteLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0e0e0));
             addAndMakeVisible(noteLabel);
             addAndMakeVisible(noteSlider);
 
@@ -114,19 +109,15 @@ public:
             velocityLabel.setText(TRANS("Velocity:"), juce::dontSendNotification);
             velocityLabel.attachToComponent(&velocitySlider, true);
             velocityLabel.setFont(juce::Font(juce::FontOptions(13.0f)));
-            velocityLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0e0e0));
             addAndMakeVisible(velocityLabel);
             addAndMakeVisible(velocitySlider);
 
             // OK / Cancel / Unbind buttons
             okButton.onClick = [this] { confirmEdit(); };
-            okButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xffe0e0e0));
             addAndMakeVisible(okButton);
             cancelButton.onClick = [this] { cancel(); };
-            cancelButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xffe0e0e0));
             addAndMakeVisible(cancelButton);
             unbindButton.onClick = [this] { unbind(); };
-            unbindButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xffe0e0e0));
             addAndMakeVisible(unbindButton);
 
             setSize(420, 310);
@@ -134,11 +125,9 @@ public:
             // Read-only: no binding exists for this note
             infoLabel.setText(TRANS("No keyboard key is currently mapped to this note."), juce::dontSendNotification);
             infoLabel.setFont(juce::Font(juce::FontOptions(13.0f)));
-            infoLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0e0e0));
             addAndMakeVisible(infoLabel);
 
             closeButton.onClick = [this] { confirmOrClose(); };
-            closeButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xffe0e0e0));
             addAndMakeVisible(closeButton);
 
             setSize(420, 200);
@@ -148,24 +137,17 @@ public:
         customLabelLabel.setText(TRANS("Label:"), juce::dontSendNotification);
         customLabelLabel.attachToComponent(&customLabelEditor, true);
         customLabelLabel.setFont(juce::Font(juce::FontOptions(13.0f)));
-        customLabelLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0e0e0));
         addAndMakeVisible(customLabelLabel);
 
         customLabelEditor.setText(customLabel, juce::dontSendNotification);
         customLabelEditor.setInputRestrictions(32, {});
-        customLabelEditor.setColour(juce::TextEditor::textColourId, juce::Colour(0xffe0e0e0));
-        customLabelEditor.setColour(juce::TextEditor::backgroundColourId, juce::Colour(0xff2a2c30));
-        customLabelEditor.setColour(juce::TextEditor::outlineColourId, juce::Colour(0xff555555));
-        customLabelEditor.setColour(juce::TextEditor::focusedOutlineColourId, juce::Colour(0xff7799cc));
         addAndMakeVisible(customLabelEditor);
 
         // ---- Per-key custom colour (always shown) ----
-        colourPickerButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xffe0e0e0));
         colourPickerButton.onClick = [this] { showColourPicker(); };
         addAndMakeVisible(colourPickerButton);
         updateColourButtonText();
 
-        clearColourButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xffe0e0e0));
         clearColourButton.onClick = [this] {
             selectedCustomColour = juce::Colour(0x00000000);
             updateColourButtonText();
@@ -239,10 +221,11 @@ private:
 
         // Wrap ColourSelector with OK / Cancel buttons in a DialogWindow.
         juce::DialogWindow::LaunchOptions opts;
+        opts.dialogBackgroundColour = DevPianoLookAndFeel::kMainBg;
         opts.dialogTitle = TRANS("Choose Colour");
-        opts.dialogBackgroundColour = juce::Colour(0xff202225);
         opts.componentToCentreAround = this;
         opts.content.setOwned(new ColourPickerContent(initialColour, pickedColour, accepted));
+        opts.content->setLookAndFeel(&getLookAndFeel());
         opts.runModal();
 
         if (accepted) {
@@ -338,12 +321,11 @@ private:
 
 // ============================================================================
 // Lightweight modal dialog window.
-// Self-destructs when closed.
-// ============================================================================
 class BindingEditWindow final : public juce::DialogWindow {
 public:
-    BindingEditWindow(juce::String title, std::unique_ptr<juce::Component> content)
-        : juce::DialogWindow(std::move(title), juce::Colour(0xff202225), true, true) {
+    BindingEditWindow(juce::String title, std::unique_ptr<juce::Component> content,
+                      juce::Colour background = DevPianoLookAndFeel::kMainBg)
+        : juce::DialogWindow(std::move(title), background, true, true) {
         setUsingNativeTitleBar(true);
         setContentOwned(content.release(), true);
         centreAroundComponent(nullptr, getWidth(), getHeight());
@@ -363,16 +345,20 @@ private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BindingEditWindow)
 };
 
-// ============================================================================
-// KeyBindingEditDialog static launch
 void KeyBindingEditDialog::launch(int midiNote, const juce::String& noteName,
                                   const devpiano::core::KeyBinding* existingBinding,
                                   const juce::String& currentCustomLabel, const juce::Colour& currentCustomColour,
-                                  std::function<void(KeyBindingEditResult)> onComplete) {
+                                  std::function<void(KeyBindingEditResult)> onComplete, juce::Component* parent) {
     auto keyLabel = existingBinding != nullptr ? existingBinding->displayText : juce::String();
-    auto* content = new BindingEditContent(midiNote, existingBinding, noteName, keyLabel,
-                                           currentCustomLabel, currentCustomColour, std::move(onComplete));
+    auto* content = new BindingEditContent(midiNote, existingBinding, noteName, keyLabel, currentCustomLabel,
+                                           currentCustomColour, std::move(onComplete));
 
-    // BindingEditWindow takes ownership and self-destructs on close.
-    new BindingEditWindow(TRANS("Key Binding Editor"), std::unique_ptr<juce::Component>(content));
+    auto bg = DevPianoLookAndFeel::kMainBg;
+    if (parent != nullptr) {
+        bg = parent->findColour(juce::ResizableWindow::backgroundColourId);
+    }
+    auto* window = new BindingEditWindow(TRANS("Key Binding Editor"), std::unique_ptr<juce::Component>(content), bg);
+    if (parent != nullptr) {
+        window->setLookAndFeel(&parent->getLookAndFeel());
+    }
 }

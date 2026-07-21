@@ -1,4 +1,5 @@
 #include "UI/PerformanceMetadataDialog.h"
+#include "DevPianoLookAndFeel.h"
 
 namespace {
 
@@ -13,40 +14,28 @@ public:
         // Title editor (single line)
         titleLabel.setText(TRANS("Song Title"), juce::dontSendNotification);
         titleLabel.setFont(juce::FontOptions(13.0f));
-        titleLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0e0e0));
         addAndMakeVisible(titleLabel);
 
         titleEditor.setText(initial.title, juce::dontSendNotification);
         titleEditor.setInputRestrictions(128, {});
-        titleEditor.setColour(juce::TextEditor::textColourId, juce::Colour(0xffe0e0e0));
-        titleEditor.setColour(juce::TextEditor::backgroundColourId, juce::Colour(0xff2a2c30));
-        titleEditor.setColour(juce::TextEditor::outlineColourId, juce::Colour(0xff555555));
-        titleEditor.setColour(juce::TextEditor::focusedOutlineColourId, juce::Colour(0xff7799cc));
         addAndMakeVisible(titleEditor);
 
         // Notes editor (multi-line)
         notesLabel.setText(TRANS("Notes"), juce::dontSendNotification);
         notesLabel.setFont(juce::FontOptions(13.0f));
-        notesLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0e0e0));
         addAndMakeVisible(notesLabel);
 
         notesEditor.setMultiLine(true, false);
         notesEditor.setReturnKeyStartsNewLine(true);
         notesEditor.setText(initial.notes, juce::dontSendNotification);
         notesEditor.setInputRestrictions(2048, {});
-        notesEditor.setColour(juce::TextEditor::textColourId, juce::Colour(0xffe0e0e0));
-        notesEditor.setColour(juce::TextEditor::backgroundColourId, juce::Colour(0xff2a2c30));
-        notesEditor.setColour(juce::TextEditor::outlineColourId, juce::Colour(0xff555555));
-        notesEditor.setColour(juce::TextEditor::focusedOutlineColourId, juce::Colour(0xff7799cc));
         addAndMakeVisible(notesEditor);
 
         // Buttons
         okButton.onClick = [this] { confirm(); };
-        okButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xffe0e0e0));
         addAndMakeVisible(okButton);
 
         cancelButton.onClick = [this] { dismiss(); };
-        cancelButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xffe0e0e0));
         addAndMakeVisible(cancelButton);
 
         setSize(420, 260);
@@ -82,7 +71,7 @@ public:
     }
 
     void paint(juce::Graphics& g) override {
-        g.fillAll(juce::Colour(0xff202225));
+        g.fillAll(DevPianoLookAndFeel::kMainBg);
     }
 
     void confirm() {
@@ -127,8 +116,11 @@ void PerformanceMetadataDialog::launch(
     std::function<void(std::optional<devpiano::recording::PerformanceFileMetadata>)> onComplete) {
     juce::DialogWindow::LaunchOptions opts;
     opts.dialogTitle = TRANS("Song Information");
-    opts.dialogBackgroundColour = juce::Colour(0xff202225);
+    opts.dialogBackgroundColour = DevPianoLookAndFeel::kMainBg;
     opts.componentToCentreAround = componentToCentreAround;
     opts.content.setOwned(new MetadataEditContent(initialMetadata, std::move(onComplete)));
+    if (componentToCentreAround != nullptr) {
+        opts.content->setLookAndFeel(&componentToCentreAround->getLookAndFeel());
+    }
     opts.runModal();
 }

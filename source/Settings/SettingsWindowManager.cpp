@@ -3,10 +3,10 @@
 #include "MainComponent.h"
 #include "Settings/SettingsComponent.h"
 #include "UI/CustomKeyboard.h"
+#include "UI/DevPianoLookAndFeel.h"
 
 namespace devpiano::settings {
 namespace {
-const auto backgroundColour = juce::Colour(0xff202225);
 
 class SettingsDialogWindow final : public juce::DialogWindow {
 public:
@@ -98,7 +98,9 @@ void SettingsWindowManager::show(ShowOptions options) {
                 locked->window->setName(TRANS("Audio Settings"));
     };
 
-    state->window = std::make_unique<SettingsDialogWindow>(TRANS("Audio Settings"), backgroundColour, closeWindow);
+    state->window
+        = std::make_unique<SettingsDialogWindow>(TRANS("Audio Settings"), DevPianoLookAndFeel::kMainBg, closeWindow);
+    state->window->setLookAndFeel(&options.parent.getLookAndFeel());
     state->window->setUsingNativeTitleBar(true);
     state->window->setContentOwned(content.release(), true);
     state->window->centreAroundComponent(&options.parent, 620, 760);
