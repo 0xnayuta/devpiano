@@ -59,6 +59,7 @@ SYNC_ONLY=0
 RECONFIGURE=0
 CLEAN_WIN_BUILD=0
 USE_RELEASE=0
+CLANG_TIDY=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -76,6 +77,9 @@ while [[ $# -gt 0 ]]; do
       ;;
     --clean-win-build)
       CLEAN_WIN_BUILD=1
+      ;;
+    --clang-tidy)
+      CLANG_TIDY=1
       ;;
     -h|--help)
       usage
@@ -176,10 +180,14 @@ fi
 if [[ "${CLEAN_WIN_BUILD}" == "1" ]]; then
   log 'mode: clean-win-build'
 fi
+if [[ "${CLANG_TIDY}" == "1" ]]; then
+  log 'mode: clang-tidy'
+fi
 
 "${WINDOWS_POWERSHELL}" -NoProfile -ExecutionPolicy Bypass -File "${WIN_PS_BUILD_SCRIPT}" \
   -MirrorDir "${WIN_MIRROR_DIR_VALUE}" \
   -ConfigurePreset "${CONFIGURE_PRESET}" \
-  -BuildPreset "${BUILD_PRESET}"
+  -BuildPreset "${BUILD_PRESET}" \
+  $(if [[ "${CLANG_TIDY}" == "1" ]]; then echo '-ClangTidy'; fi)
 
 success 'MSVC validation build complete'

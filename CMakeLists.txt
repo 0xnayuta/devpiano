@@ -54,6 +54,7 @@ target_sources(devpiano PRIVATE
     source/MainComponent.h
     source/Audio/AudioEngine.cpp
     source/Audio/AudioEngine.h
+    source/Audio/AudioDeviceDiagnostics.h
     source/Input/KeyboardMidiMapper.cpp
     source/Input/KeyboardMidiMapper.h
     source/Core/KeyMapTypes.h
@@ -250,4 +251,25 @@ if (BUILD_TESTS)
     add_test(NAME devpiano_tests
              COMMAND devpiano_tests
              WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+endif()
+
+# clang-tidy target (requires compile_commands.json)
+find_program(CLANG_TIDY_EXE NAMES clang-tidy clang-tidy-21 clang-tidy-20 clang-tidy-19)
+if(CLANG_TIDY_EXE)
+    file(GLOB_RECURSE ALL_SOURCE_FILES
+        "${CMAKE_SOURCE_DIR}/source/*.cpp"
+        "${CMAKE_SOURCE_DIR}/source/*.h"
+    )
+    add_custom_target(clang-tidy
+        COMMAND ${CLANG_TIDY_EXE}
+            -p "${CMAKE_BINARY_DIR}"
+            --quiet
+            ${ALL_SOURCE_FILES}
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        COMMENT "Running clang-tidy on source/"
+        VERBATIM
+    )
+    message(STATUS "clang-tidy target: enabled (${CLANG_TIDY_EXE})")
+else()
+    message(STATUS "clang-tidy target: skipped (clang-tidy not found)")
 endif()

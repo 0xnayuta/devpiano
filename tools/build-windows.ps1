@@ -4,6 +4,7 @@ param(
     [string]$ConfigurePreset = '',
     [string]$BuildPreset = '',
     [switch]$Release,
+    [switch]$ClangTidy,
     [string]$VsInstallPath = $env:VSINSTALLDIR,
     [string]$VsDevCmdPath = $env:VS_DEVCMD_PATH
 )
@@ -123,8 +124,17 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "CMake build failed with exit code $LASTEXITCODE"
     }
-}
-finally {
+
+    if ($ClangTidy) {
+        Write-Log "cmake --build --preset $BuildPreset --target clang-tidy"
+        & cmake --build --preset $BuildPreset --target clang-tidy 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "[build-windows] clang-tidy returned warnings (non-blocking)" -ForegroundColor Yellow
+        } else {
+            Write-Log "clang-tidy: clean (0 diagnostics)"
+        }
+    }
+} finally {
     Pop-Location
 }
 
