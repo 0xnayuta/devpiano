@@ -94,6 +94,8 @@ private:
     ControlsPanel& controlsPanel;
 
     RecordingSession recordingSession;
+    // aliveFlag_ shared with async lambdas so they can detect destruction
+    std::shared_ptr<bool> aliveFlag_;
 
     std::unique_ptr<juce::FileChooser> exportMidiChooser;
     std::unique_ptr<juce::FileChooser> exportWavChooser;

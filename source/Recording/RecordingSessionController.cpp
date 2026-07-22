@@ -90,10 +90,14 @@ RecordingSessionController::RecordingSessionController(MainComponent& ownerIn, R
     , recordingEngine(recordingEngineIn)
     , audioEngine(audioEngineIn)
     , appSettings(appSettingsIn)
-    , controlsPanel(controlsPanelIn) {
+    , controlsPanel(controlsPanelIn)
+    , aliveFlag_(std::make_shared<bool>(true)) {
 }
 
-RecordingSessionController::~RecordingSessionController() = default;
+RecordingSessionController::~RecordingSessionController() {
+    if (aliveFlag_)
+        *aliveFlag_ = false;
+}
 
 void RecordingSessionController::handleRecordClicked() {
     const auto command = chooseRecordingFlowCommand(
@@ -134,11 +138,14 @@ void RecordingSessionController::handleStopClicked() {
         recordingSession.take = stopInternalRecording();
         recordingSession.canExportMidi = recordingSession.hasTake();
         // Pop up metadata dialog so the user can title the recording.
-        PerformanceMetadataDialog::launch(recordingSession.currentMetadata, &owner,
-                                          [this](std::optional<PerformanceFileMetadata> result) {
-                                              if (result.has_value())
-                                                  recordingSession.currentMetadata = std::move(*result);
-                                          });
+        PerformanceMetadataDialog::launch(
+            recordingSession.currentMetadata, &owner,
+            [this, aliveFlag = aliveFlag_](std::optional<PerformanceFileMetadata> result) {
+                if (!*aliveFlag)
+                    return;
+                if (result.has_value())
+                    recordingSession.currentMetadata = std::move(*result);
+            });
     } else if (command == RecordingFlowCommand::stopPlayback) {
         const auto stoppedTake = stopInternalPlayback();
         juce::ignoreUnused(stoppedTake);
@@ -255,7 +262,9 @@ void RecordingSessionController::handleSavePerformanceClicked() {
     performanceFileChooser->launchAsync(
         juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles
             | juce::FileBrowserComponent::warnAboutOverwriting,
-        [this](const juce::FileChooser& fc) {
+        [this, aliveFlag = aliveFlag_](const juce::FileChooser& fc) {
+            if (!*aliveFlag)
+                return;
             auto file = fc.getResult();
             if (file == juce::File()) {
                 DP_LOG_INFO("[Performance File] save cancelled by user");
@@ -456,7 +465,9 @@ void RecordingSessionController::runExportRecordingFlow(devpiano::exporting::Exp
     chooser->launchAsync(
         juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles
             | juce::FileBrowserComponent::warnAboutOverwriting,
-        [this, type, &chooser, doExportFn = std::move(doExport)](const juce::FileChooser& fc) {
+        [this, type, &chooser, doExportFn = std::move(doExport), aliveFlag = aliveFlag_](const juce::FileChooser& fc) {
+            if (!*aliveFlag)
+                return;
             auto file = fc.getResult();
 
             if (file == juce::File()) {
@@ -529,7 +540,10 @@ void RecordingSessionController::runImportOpenFlow(
     chooser = std::make_unique<juce::FileChooser>(dialogTitle, startDir, filePattern);
     chooser->launchAsync(
         juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
-        [this, logPrefix, &chooser, loadTakeFn = std::move(loadTake)](const juce::FileChooser& fc) {
+        [this, logPrefix, &chooser, loadTakeFn = std::move(loadTake),
+         aliveFlag = aliveFlag_](const juce::FileChooser& fc) {
+            if (!*aliveFlag)
+                return;
             auto file = fc.getResult();
             if (!file.exists()) {
                 chooser.reset();
@@ -557,7 +571,10 @@ void RecordingSessionController::runImportOpenFlow(
 
 void RecordingSessionController::handleSongInfoClicked() {
     PerformanceMetadataDialog::launch(
-        recordingSession.currentMetadata, &owner, [this](std::optional<PerformanceFileMetadata> result) {
+        recordingSession.currentMetadata, &owner,
+        [this, aliveFlag = aliveFlag_](std::optional<PerformanceFileMetadata> result) {
+            if (!*aliveFlag)
+                return;
             if (!result.has_value()) {
                 owner.restoreKeyboardFocus();
                 return; // cancelled
