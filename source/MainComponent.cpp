@@ -364,12 +364,29 @@ void MainComponent::resized() {
     pluginPanel.setBounds(content.removeFromTop(pluginPanel.getPreferredHeight()));
     content.removeFromTop(12);
 
-    controlsPanel.setBounds(content.removeFromTop(174));
-    content.removeFromTop(8);
+    // ── Dynamic allocation between ControlsPanel and KeyboardPanel ──
+    constexpr int controlsBase = 174;
+    constexpr int keyboardMin = 90;
+    constexpr int keyboardMax = 200;
+    constexpr int baseline = controlsBase + keyboardMin;
+    constexpr float keyboardRatio = 0.6f;
 
-    constexpr int maxKeyboardHeight = 128;
-    int keyboardHeight = juce::jmin(maxKeyboardHeight, content.getHeight());
-    keyboardPanel.setBounds(content.removeFromBottom(keyboardHeight));
+    int alloc = content.getHeight() - 8; // gap between controls & keyboard
+
+    int keyboardHeight = keyboardMin;
+    if (alloc > baseline) {
+        int extra = alloc - baseline;
+        keyboardHeight = keyboardMin + static_cast<int>(static_cast<float>(extra) * keyboardRatio);
+        keyboardHeight = juce::jmin(keyboardHeight, keyboardMax);
+    } else {
+        keyboardHeight = juce::jmax(keyboardMin, alloc - controlsBase);
+    }
+
+    int controlsHeight = alloc - keyboardHeight;
+
+    controlsPanel.setBounds(content.removeFromTop(controlsHeight));
+    content.removeFromTop(8);
+    keyboardPanel.setBounds(content.removeFromTop(keyboardHeight));
 }
 
 void MainComponent::paintOverChildren(juce::Graphics& g) {
