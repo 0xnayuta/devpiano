@@ -58,7 +58,7 @@
   - `RecordingSessionController`（`source/Recording/RecordingSessionController.*`）：录制/回放/MIDI 导入/导出编排与会话状态。
   - `PluginOperationController`（`source/Plugin/PluginOperationController.*`）：插件扫描、加载/卸载、editor 和启动恢复编排。
   - `SettingsWindowManager`（`source/Settings/SettingsWindowManager.*`）：设置窗口、`SettingsComponent`、dirty/save/close 生命周期。
-  - `AppStateBuilder`（`source/Core/AppStateBuilder.*`）：持久化状态基线与 runtime audio/plugin/input snapshot 组装。
+  - `AppStateBuilder`（`source/Settings/AppStateBuilder.*`）：持久化状态基线与 runtime audio/plugin/input snapshot 组装。
 - 架构优化 Backlog（7 项 P0/P1/P2）进一步收敛：最近文件列表 UI、PluginOfflineRenderer 生命周期注释、Base64 序列化、Diagnostics 日志层迁移、WavExportOptions 独立头文件、ValueTree::Listener 与 MainComponent 瘦身。
 - `MainComponent` 现在主要保留 UI 组件拥有权、JUCE 生命周期入口、音频设备重建胶水、键盘焦点恢复和顶层装配。
 
@@ -76,13 +76,24 @@
 - `source/Core/KeyMapTypes.h`
 - `source/Core/MidiTypes.h`
 - `source/Core/AppState.h`
-- `source/Core/AppStateBuilder.h`
 
 职责：
 
-- 定义平台无关的核心数据类型。
-- 承载键盘布局、MIDI 轻量强类型、应用状态快照等模型。
+- 定义核心数据类型：键盘布局、MIDI 轻量强类型、应用状态快照。
+- 依赖 JUCE 工具类型（`juce::String`、`juce::Array`），无渲染/GUI 依赖。
 - 区分持久化设置基线与运行时状态叠加。
+
+### Midi
+
+- `source/Midi/MidiChannelMapper.h`
+- `source/Midi/MidiChannelMapper.cpp`
+- `source/Midi/ChannelMatrix.h`
+
+职责：
+
+- 16 通道 MIDI 矩阵配置与路由。
+- 每通道半音移调、八度偏移、力度覆盖、音色/音色库选择、延音 CC。
+- `applyMatrixToNoteOn/Off` / `makeProgramChange` 内联变换。
 
 ### Audio
 
@@ -134,6 +145,8 @@
 - `source/Settings/SettingsComponent.h`
 - `source/Settings/SettingsWindowManager.h`
 - `source/Settings/SettingsWindowManager.cpp`
+- `source/Settings/AppStateBuilder.h`
+- `source/Settings/AppStateBuilder.cpp`
 
 职责：
 
@@ -141,6 +154,8 @@
 - 保存插件恢复信息，例如最近扫描路径和上次插件名称。
 - 保存键盘布局相关状态。
 - 提供设置窗口中音频设备选择组件。
+- `AppStateBuilder` 组装持久化基线 + runtime snapshot 为完整 `AppState`。
+
 
 ### UI
 
@@ -152,12 +167,14 @@
 - `source/UI/KeyboardPanel.*`
 - `source/UI/PluginEditorWindow.*`
 - `source/UI/*StateBuilder.*`
+- `source/UI/KeyboardTypes.h`
 
 职责：
 
 - 承载独立 UI 区域。
 - 将只读展示状态从 `MainComponent` 中逐步抽离。
 - 管理插件 editor 独立窗口托管。
+- `KeyboardTypes.h` 定义键盘渲染枚举、`KeyboardSettings` 和音符名 helper。
 
 ## 4. 主运行链路
 

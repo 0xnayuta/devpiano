@@ -516,13 +516,14 @@ Exit code: 123
 7. ~~**REC-003**: preset change 写入队列化~~ → 已修复：独立 pendingPresetEvents 队列，stopRecording 时合并
 8. ~~**REC-005**: 评估 PluginOfflineRenderer 线程模型并修复~~ → 已修复：文档化独立实例线程隔离
 9. 验证：WSL build 0 error 0 warning、Windows MSVC 0 error、format 干净
-### Phase C: 模块边界 (P1, 预计 2-3 天)
 
-10. **ARCH-002/ARCH-003**: 移动 `ChannelMatrix.h` → `Midi/`，`KeyboardTypes.h` → `UI/`
-11. **ARCH-001**: 更新 architecture.md 或清理 Core/ JUCE 依赖
-12. **ARCH-004**: 移动 `AppStateBuilder` 或调整依赖方向
-13. **DOC-001**: 同步 architecture.md 与实际文件布局
+### Phase C: 模块边界 ✅ 已完成 (2026-07-22)
 
+10. ~~**ARCH-002**: 移动 `ChannelMatrix.h` → `Midi/`~~ → 已修复：5 include 更新，零逻辑变更
+11. ~~**ARCH-003**: 移动 `KeyboardTypes.h` → `UI/`~~ → 已修复：3 include 更新，零逻辑变更
+12. ~~**ARCH-004**: 移动 `AppStateBuilder` → `Settings/`~~ → 已修复：1 include 更新，依赖反转消除
+13. ~~**ARCH-001/DOC-001**: 更新 architecture.md 与 Core/ 描述~~ → 已修复：新增 Midi/ 模块文档，Core/ 去 GUI 化
+14. 验证：WSL build 0 error、Windows MSVC 0 error、format 干净
 ### Phase D: 工程化 (P3, 预计 1 天)
 
 14. **ENG-001**: 运行 `./scripts/dev.sh format` 修复所有格式违规
