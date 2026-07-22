@@ -62,35 +62,15 @@ Phase 10：主窗口 UI 现代化 — 10a 已完成，详见下方。Phase 8–9
 - `MainComponent`：`resized()` 高度改为 `getPreferredHeight()` 动态获取，`ControlsPanel` 高度常量从 296→174
 - 5 个高级区 widget 用 `addChildComponent` 初始不可见，避免首次折叠态时的可见性泄漏
 
-### 10d. 虚拟钢琴键盘拟真渲染
+### 10d. 虚拟钢琴键盘拟真渲染 ✅ 已完成
 
-**现状**：白键为纯色 `0xffe8e8e8` 矩形 + 灰色细边框，黑键为纯色 `0xff333333` 矩形 + 灰色边框，无圆角、无阴影、无渐变——视觉上更接近调试工具而非乐器界面。
+**状态**：已完成 (2026-07-22)。白键/黑键渲染从调试风格纯色矩形升级为渐变填充 + 底部圆角 + 阴影投影 + 中部扩散高亮反馈，并支持黑键 binding label 显示。
 
-**方案**：
-- **白键渲染**：
-  - 纵向渐变填充：顶部微亮（`0xfff0f0f0`）→ 底部微暗（`0xffd8d8d8`），模拟琴键侧面光线反射
-  - 底部两角 2px 圆角（顶部保持直角，与物理钢琴键一致）
-  - 边框改用 `0xffaaaaaa`（比当前 `0xff888888` 更柔和）
-  - 按键按下时（fade > 0）：叠加功能高亮色半透明渐变（从键中部向上扩散）
-- **黑键渲染**：
-  - 纵向渐变填充：顶部 `0xff444444` → 底部 `0xff1a1a1a`
-  - 左右两侧 + 底部绘制 3px 模糊暗色阴影（用 `juce::DropShadow` 或手动多层半透明矩形 offset），使黑键浮于白键之上
-  - 底部两角 2px 圆角
-  - 边框改用 `0xff333333`
-  - 按键按下时：叠加高亮色，键高度微缩 2px（模拟物理按压下沉）
-- **黑键标签显示**：
-  - 在 `paintKeyLabels` 中移除 `if (!k.isWhite) continue` 限制
-  - 黑键标签绘制在键体上半部（因黑键下半部可能被白键遮挡视觉），颜色使用浅灰 `0xffcccccc`
-  - 字体大小取 `jmin(10, keyWidth * 0.4f)`
-- 所有绘制逻辑在 `CustomKeyboard::paintWhiteKeys` / `paintBlackKeys` / `paintKeyLabels` 中修改，不改变 `KeyRenderState` 数据结构
-
-**验收标准**：
-- (a) 白键有顶部→底部微渐变，底部 2px 圆角，边框颜色柔和
-- (b) 黑键有上下渐变 + 下方/侧方阴影投影，底部圆角，视觉上浮于白键
-- (c) 黑键上显示键盘映射标签（如 "W"、"E" 等）
-- (d) 按键按下时白键和黑键的高亮反馈明显且美观
-- (e) 水平滚动、鼠标点击、note on/off 功能不受渲染变更影响
-
+**已交付**：
+- **白键**：`0xfff0f0f0`→`0xffd8d8d8` 纵向渐变填充，底部两角 2px 圆角（`addRoundedRectangle` + bool 控制），fade 高亮从键中部向顶部扩散渐变，边框 `0xffaaaaaa`
+- **黑键**：`0xff444444`→`0xff1a1a1a` 纵向渐变 + 两层阴影投影（alpha 0.08/0.05，仅侧边+底部，expand 1.0/1.5px）+ 底部圆角 + fade 中部向上渐变高亮 + 键高随 fade 线性微缩 0→2px（无 snap-back）+ 边框 `0xff333333`
+- **黑键标签**：移除 `isWhite` guard，上半部绑定位标签（字体 `jmin(10, kw*0.4f)`，颜色 `0xffcccccc`），跳过音名
+- 仅修改 `CustomKeyboard.cpp` 三个 `paint*` 方法，`KeyRenderState` 及鼠标/几何/动画逻辑零变更
 ---
 
 ### 10e. Transport 按钮图标化 + 底部状态栏
@@ -157,9 +137,9 @@ Phase 10：主窗口 UI 现代化 — 10a 已完成，详见下方。Phase 8–9
 Phase 10a (LookAndFeel) ✅ 已完成
 Phase 10b (Knobs + ADSR) ✅ 已完成
 Phase 10c (PluginPanel 折叠化) ✅ 已完成
+Phase 10d (Keyboard 拟真渲染) ✅ 已完成
          │
-         ├──→ 10d (Keyboard 拟真渲染)
-         └──→ 10e (Transport 图标 + StatusBar)
+         ├──→ 10e (Transport 图标 + StatusBar)
          └──→ 10f (布局尺寸规则调整)
 ```
 
