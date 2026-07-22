@@ -11,6 +11,13 @@ struct RecordingTake;
 
 #include "Export/WavExportOptions.h"
 namespace devpiano::exporting {
+// Thread isolation: each render creates a completely independent plugin instance
+// via createOfflinePluginInstance().  The live plugin (audio-device thread,
+// AudioEngine::getNextAudioBlock) and the offline plugin (background thread,
+// WavExportTask::run) are separate objects — no concurrent processBlock on the
+// same instance.  The only cross-instance interaction is snapshotPluginState()
+// in Phase 1, which reads the live plugin on the message thread while audio is
+// paused (device-rebuild guard, see PluginHost.h).
 
 //
 // Offline-render lifecycle (3 phases):
