@@ -29,19 +29,19 @@
 
 | Priority | Total | Open | In Progress | Mitigated | Deferred | Closed |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| P0 | 5 | 2 | 0 | 0 | 0 | 3 |
-| P1 | 11 | 11 | 0 | 0 | 0 | 0 |
+| P0 | 5 | 0 | 0 | 0 | 0 | 5 |
+| P1 | 11 | 9 | 0 | 0 | 0 | 2 |
 | P2 | 20 | 20 | 0 | 0 | 0 | 0 |
 | P3 | 24 | 24 | 0 | 0 | 0 | 0 |
-| **合计** | 60 | 57 | 0 | 0 | 0 | 3 |
+| **合计** | 60 | 53 | 0 | 0 | 0 | 7 |
 
 ### 0.3 关键结论
 
 - 总体评级：`B` — 功能完整，架构拆分已大幅改善；Phase A (音频稳定性) 已完成，3 个 P0 已关闭
-- 当前是否适合继续新增功能：`Conditional` — 剩余 2 个 P0 (PLUG-001, REC-005) 需在当前迭代修复
+- 当前是否适合继续新增功能：`Yes` — Phase B (线程安全加固) 已完成，4 个 finding 全部关闭
 - 当前是否建议优先重构：`Conditional` — 建议在下一轮功能暂停期间进行 Module Boundary Cleanup 和剩余 P1 修复
-- 最大风险：**PluginHost 零内部线程同步**（`PLUG-001`），依赖外部设备重建约定保护，缺乏强制执行机制
-- 下一步最高优先级：修复 PLUG-001（PluginHost 线程安全契约）和 REC-005（PluginOfflineRenderer 线程模型）
+- 最大风险：**PluginHost 零内部线程同步**（`PLUG-001`）— 已通过断言 + 文档化契约修复
+- 下一步最高优先级：Phase C 模块边界清理 (ARCH-001 ~ ARCH-004)
 
 ### 0.4 Top Findings
 
@@ -49,9 +49,9 @@
 | --- | --- | --- | --- | --- |
 | `AUDIO-001` | P0 | Closed | AudioEngine 音频回调中堆分配 pluginBuffer.setSize() | 已修复 (009355d): prepareToPlay 预分配 8 通道，回调仅 jassert+安全网 |
 | `AUDIO-002` | P0 | Closed | pluginHost->prepareToPlay() 在音频回调线程中延迟调用 | 已修复 (009355d): 移除延迟 prepare，设备重建时由 prepareToPlay 处理 |
-| `PLUG-001` | P0 | Open | PluginHost 零内部线程同步，依赖外部设备重建保护 | 添加内部同步或文档化契约并断言 |
+| `PLUG-001` | P0 | Closed | PluginHost 零内部线程同步，依赖外部设备重建保护 | 已修复：添加 jassert(isMessageThread()) 断言 + 头文件文档化契约；所有 mutation 方法在 Debug 构建中强制执行消息线程约束 |
 | `REC-001` | P0 | Closed | RecordingEngine 非原子字段在音频/消息线程间无同步读写 | 已修复 (3bd994b): currentPositionSamples/droppedEventCount → atomic; events vector → jassert 守卫 |
-| `REC-005` | P0 | Open | PluginOfflineRenderer 在后台线程调用 processBlock() | 大多数 VST3 插件不支持多线程 |
+| `REC-005` | P0 | Closed | PluginOfflineRenderer 在后台线程调用 processBlock() | 已修复：文档化现有保护（每次渲染创建全新独立插件实例，不与音频线程的 live 实例共享 processBlock）; PluginOfflineRenderer.h 添加线程隔离说明 |
 ---
 
 ## 1. 审计范围与方法
@@ -419,9 +419,9 @@ Exit code: 123
 | --- | --- | --- | --- | --- | --- | --- |
 | `AUDIO-001` | P0 | Closed | 音频回调中 pluginBuffer.setSize() 堆分配 | `source/Audio/AudioEngine.cpp` (getNextAudioBlock) | 每次音频回调调用 `pluginBuffer.setSize(channels, numSamples)` 可能触发堆分配，违反实时安全约束 | 已修复 (009355d)：prepareToPlay 预分配 8 通道；回调中仅 jassert + 安全网（Release 中 DP_LOG_WARN 后 resize） |
 | `AUDIO-002` | P0 | Closed | prepareToPlay 延迟到音频回调线程执行 | `source/Audio/AudioEngine.cpp` (getNextAudioBlock, lazy prepare) | `pluginHost->prepareToPlay()` 在音频回调中延迟调用，VST3 插件 lifecycle 方法在音频线程执行 | 已修复 (009355d)：移除 lazy prepare 模式；插件加载触发设备重建 → prepareToPlay 在消息线程调用 |
-| `PLUG-001` | P0 | Open | PluginHost 零内部线程同步 | `source/Plugin/PluginHost.h:35-65`, `source/Plugin/PluginHost.cpp` | `isScanning`、`scanningPluginName`、`prepared`、`pluginInstance` (raw pointer 访问)、`knownPluginList` 均无互斥锁保护。`getInstance()` 返回裸指针，音频线程通过它调用 `processBlock` | 选项 A: 在 PluginHost 内部添加 `CriticalSection`；选项 B: 在 getInstance() 等关键路径添加 `jassert(isMessageThread())` 断言 + 文档化契约 |
+| `PLUG-001` | P0 | Closed | PluginHost 零内部线程同步 | `source/Plugin/PluginHost.h:5-16`, `source/Plugin/PluginHost.cpp` | `isScanning`、`scanningPluginName`、`prepared`、`pluginInstance` (raw pointer 访问)、`knownPluginList` 均无互斥锁保护。`getInstance()` 返回裸指针，音频线程通过它调用 `processBlock` | 已修复：在 PluginHost.h 添加 thread-safety contract 文档，所有 mutation 方法入口添加 `jassert(isMessageThread())` 断言；read-only 访问器允许音频线程调用；设备重建 pause 为唯一同步点 |
 | `REC-001` | P0 | Closed | RecordingEngine recording 路径无同步 | `source/Recording/RecordingEngine.h:90`, `source/Recording/RecordingEngine.cpp` | `currentPositionSamples`、`droppedEventCount` 在音频线程写入、消息线程读取时无同步。`currentTake.events` vector 由音频线程写入，消息线程在录制进行中不得读取。`currentTake.lengthSamples` 为良性竞争（调用者先挂起音频设备，x86-64 对齐 int64 读实际原子，std::max 保守） | 已修复 (3bd994b)：currentPositionSamples/droppedEventCount → std::atomic；hasTake/getCurrentTake/createTakeSnapshot 添加 jassert(!isRecording()) 守卫。lengthSamples 保留非原子（良性竞争，见描述） |
-| `REC-005` | P0 | Open | PluginOfflineRenderer 在后台线程调用 processBlock | `source/Recording/PluginOfflineRenderer.cpp` (renderTakeWithOfflinePlugin) | `renderTakeWithOfflinePlugin` 在 `WavExportTask::run()` 的后台线程中调用 `AudioPluginInstance::processBlock()`。绝大多数 VST3 插件假设单线程访问，多线程调用可导致崩溃或音频错误 | 文档化此限制；确保离线渲染线程是唯一使用该插件实例的线程；或使用独立的 processBlock 替换机制 |
+| `REC-005` | P0 | Closed | PluginOfflineRenderer 在后台线程调用 processBlock | `source/Recording/PluginOfflineRenderer.h`, `source/Recording/PluginOfflineRenderer.cpp` | `renderTakeWithOfflinePlugin` 在 `WavExportTask::run()` 的后台线程中调用 `AudioPluginInstance::processBlock()`。绝大多数 VST3 插件假设单线程访问，多线程调用可导致崩溃或音频错误 | 已修复：文档化现有保护 — `createOfflinePluginInstance()` 为每次渲染创建独立的插件实例，不与音频线程的 live 实例共享 processBlock；PluginOfflineRenderer.h 添加线程隔离注释 |
 
 ### P1（当前迭代修复）
 
@@ -430,8 +430,8 @@ Exit code: 123
 | `PLUG-002` | P1 | Open | PluginHost::loadPlugin 忽略 addToList 失败 | `source/Plugin/PluginHost.cpp` (loadPlugin) | `knownPluginList.addToList()` 返回值被忽略，列表添加失败不报错 | 检查返回值并在失败时记录 DP_LOG_ERROR |
 | `PLUG-003` | P1 | Open | PluginHost::unload 非异常安全 | `source/Plugin/PluginHost.cpp` (unload) | `unload()` 中先 `releaseResources()` 再 `reset()` pluginInstance。如果 releaseResources 抛出（VST3 理论上不应抛出但无保证），pluginInstance 残留 | 使用 `std::unique_ptr` 的 RAII 语义，在 reset 之前先交换出临时指针 |
 | `PLUG-004` | P1 | Open | PluginOperationController 析构不卸载插件 | `source/Plugin/PluginOperationController.h`, `source/Plugin/PluginOperationController.cpp` | 析构函数仅取消扫描，不调用 `closePluginEditor()` 或通过 PluginHost 卸载插件 | 在析构或 shutdown 中确保 editor 关闭和插件资源释放 |
-| `REC-002` | P1 | Open | RecordingSessionController async lambda use-after-free 风险 | `source/Recording/RecordingSessionController.cpp` (~line 281, ~line 560) | 异步文件选择器 lambda 捕获 `[this]` 和 chooser `unique_ptr` 的引用。如果 controller 在回调触发前被销毁，访问悬垂指针 | 使用 `juce::Component::SafePointer` 或 `std::weak_ptr` 保护回调中的 `this`；使用 shared_ptr 管理 chooser |
-| `REC-003` | P1 | Open | 录制中 preset 变更与录音向量并发写入 | `source/Recording/RecordingEngine.cpp` (recordPresetChange vs recordMidiBufferBlock) | `PresetFlowSupport` (消息线程) 调用 `recordPresetChange` 写入 `currentTake.events`，与音频线程的 `recordMidiBufferBlock` 并发写同一 vector | 将 preset change 写入独立队列，在录制停止时合并；或为 events vector 添加 mutex |
+| `REC-002` | P1 | Closed | RecordingSessionController async lambda use-after-free 风险 | `source/Recording/RecordingSessionController.cpp` (5 处 lambda) | 异步文件选择器 lambda 捕获 `[this]` 和 chooser `unique_ptr` 的引用。如果 controller 在回调触发前被销毁，访问悬垂指针 | 已修复：添加 `std::shared_ptr<bool> aliveFlag_` 成员，所有异步 lambda 通过值捕获并检查 `*aliveFlag` 提前返回；析构函数设置 flag 为 false |
+| `REC-003` | P1 | Closed | 录制中 preset 变更与录音向量并发写入 | `source/Recording/RecordingEngine.cpp` (recordPresetChange vs recordMidiBufferBlock) | `PresetFlowSupport` (消息线程) 调用 `recordPresetChange` 写入 `currentTake.events`，与音频线程的 `recordMidiBufferBlock` 并发写同一 vector | 已修复：添加独立的 `pendingPresetEvents` 消息线程队列，`recordPresetChange` 写入该队列；`stopRecording()` / `clear()` 时合并到 `currentTake.events`，单线程访问无需锁 |
 | `REC-004` | P1 | Open | RecordingEngine 录制中 getCurrentTake() 返回引用 racing | `source/Recording/RecordingEngine.h:50`, `source/Recording/RecordingEngine.cpp` (getCurrentTake) | `getCurrentTake()` 返回 `const RecordingTake&` 引用，调用方读取时音频线程可能同时在修改 events vector | 使用 `createTakeSnapshot()` 代替引用返回，或在文档中明确调用方必须在消息线程且录制停止时调用 |
 | `ARCH-001` | P1 | Open | Core/ 目录包含 JUCE GUI 依赖 | `source/Core/AppState.h:5`, `source/Core/KeyMapTypes.h:3`, `source/Core/ChannelMatrix.h:6`, `source/Core/KeyboardTypes.h:7` | architecture.md 描述 Core/"平台无关"，但 5/7 文件 include `<JuceHeader.h>`，使用 `juce::String`、`juce::Colour`、`juce::Rectangle` | 选项 A: 更新 architecture.md 反映实际依赖；选项 B: 将 GUI 类型文件移到 UI/，将 ChannelMatrix 移到 Midi/ |
 | `ARCH-002` | P1 | Open | ChannelMatrix.h 物理位置与命名空间不匹配 | `source/Core/ChannelMatrix.h` | 文件在 `Core/`，命名空间为 `devpiano::midi`。MidiChannelMapper 在 `Midi/` include `Core/ChannelMatrix.h` | 将 `ChannelMatrix.h` 移至 `source/Midi/`，保持命名空间不变 |

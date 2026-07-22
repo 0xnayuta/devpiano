@@ -5,7 +5,11 @@
 
 ## 当前方向
 
-Phase 10：主窗口 UI 现代化 — 10a 已完成，详见下方。Phase 8–9 完成记录已归档至 [`../archive/phase8-9-completion.md`](../archive/phase8-9-completion.md)。
+Phase 10：主窗口 UI 现代化 — 全部子项 (10a–10f) 已完成。
+Phase B：线程安全加固 — PLUG-001 / REC-005 / REC-002 / REC-003 全部 Closed。
+
+下一步：Phase C 模块边界清理 (ARCH-001 ~ ARCH-004)。
+
 
 ---
 
