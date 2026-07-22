@@ -85,25 +85,21 @@ Phase 10：主窗口 UI 现代化 — 10a 已完成，详见下方。Phase 8–9
 - **国际化**：`statusBar.refreshTexts()` 接入 `MainComponent::refreshAllTexts()` 链，语言切换同步
 ---
 
-### 10f. 布局尺寸规则调整
+### 10f. 布局尺寸规则调整 ✅ 已完成
 
-**现状**：四大面板均使用硬编码固定高度（98 / 188 / 296 / `jmin(128, remaining)`），窗口高度增加时键盘面板最高 128px，超出部分全部闲置——用户拉伸窗口无法获得更大键盘。
+**状态**：已完成 (2026-07-22)。仅修改 `MainComponent::resized()`，引入 ControlsPanel ↔ KeyboardPanel 动态高度分配算法。
 
-**方案**：
-- **键盘高度下限保障**：
-  - 将 `maxKeyboardHeight` 从 128 提高到 200
-  - 新增 `minKeyboardHeight = 90`：当窗口高度不足时，键盘面板至少 90px，优先压缩 ControlsPanel 或 PluginPanel
-- **动态溢出分配**：
-  - 当窗口高度 > 默认 760px 时，溢出空间按比例分配给键盘面板（60%）和 ControlsPanel（40%），PluginPanel 和 HeaderPanel 保持折叠态高度不变
-  - 实现方式：`MainComponent::resized` 中先分配固定最小高度给各面板，再将剩余高度（`remaining > 0`）按 `0.6 : 0.4` 追加给键盘面板和 ControlsPanel
-- **最小窗口验证**：
-  - 确保在 980×700 窗口下，所有控件仍可见且可操作，键盘高度不低于 90px
+**已交付**：
+- `maxKeyboardHeight` 128 → **200px**；新增 `minKeyboardHeight = 90px`
+- 动态分配算法：固定面板后剩余高度 (`alloc`) 在 ControlsPanel 与 KeyboardPanel 间分配
+  - 基准线 264px（controls 174 + keyboard 90），溢出按 **60% keyboard / 40% controls** 分配，键盘封顶 200px
+  - 紧凑情况（`alloc ≤ 264`）：键盘守住 90px 底线，ControlsPanel 压缩
+- 各窗口高度下键盘分配：默认 760px → 200px（cap），最小 700px 展开 → 184px，900px → 200px（cap）
+- `removeFromBottom` → `removeFromTop`（语义等价，总分配填满 content）
 
-**验收标准**：
-- (a) 默认窗口下键盘高度 ≥ 116px（与当前持平或更大）
-- (b) 窗口拉伸到 900px 高度时，键盘高度达到约 200px（上限）
-- (c) 最小 700px 高度窗口下，键盘高度 ≥ 90px，所有面板均可见
-- (d) PluginPanel 折叠态不受高度变化影响
+**验收覆盖**：
+- (a) 默认 760px 键盘 200px ≥ 116 ✓ — (b) 900px 键盘 200px ✓
+- (c) 700px 键盘 184px ≥ 90，所有面板可见 ✓ — (d) PluginPanel 折叠态独立 ✓
 
 ---
 
@@ -120,11 +116,9 @@ Phase 10b (Knobs + ADSR) ✅ 已完成
 Phase 10c (PluginPanel 折叠化) ✅ 已完成
 Phase 10d (Keyboard 拟真渲染) ✅ 已完成
 Phase 10e (Transport 图标 + StatusBar) ✅ 已完成
-         │
-         └──→ 10f (布局尺寸规则调整)
-```
+Phase 10f (布局尺寸规则调整) ✅ 已完成
 
-注：10f 为 Phase 10 最后一项目，完成后可进入整体验收。
+Phase 10 全部子项完成，可进入整体验收。
 
 
 ## 已修复缺陷（回归提醒）
