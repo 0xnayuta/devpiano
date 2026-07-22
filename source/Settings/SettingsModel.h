@@ -83,6 +83,7 @@ struct SettingsModel {
     float keyboardFadeSpeed = 0.92f;
     bool resizableWindow = true;
     bool showInstrumentFilter = true;
+    bool pluginPanelExpanded = false; // persisted PluginPanel collapsed/expanded toggle
     // Persisted per-key custom labels and colours (sparse, stored as ValueTree XML).
     std::array<juce::String, 128> customKeyLabels;
     std::array<juce::Colour, 128> customKeyColours;

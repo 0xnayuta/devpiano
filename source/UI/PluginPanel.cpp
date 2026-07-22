@@ -4,15 +4,9 @@ PluginPanel::PluginPanel() {
     addAndMakeVisible(pluginStatusLabel);
 
     pluginPathLabel.setText(TRANS("VST3 Path"), juce::dontSendNotification);
-    addAndMakeVisible(pluginPathLabel);
+    addChildComponent(pluginPathLabel);
 
-    pluginSelectionLabel.setText(TRANS("Plugin"), juce::dontSendNotification);
-    addAndMakeVisible(pluginSelectionLabel);
-
-    pluginListLabel.setText(TRANS("Discovered Plugins"), juce::dontSendNotification);
-    addAndMakeVisible(pluginListLabel);
-
-    addAndMakeVisible(scanPluginsButton);
+    addChildComponent(scanPluginsButton);
     scanPluginsButton.onClick = [this] {
         if (onScanRequested)
             onScanRequested();
@@ -21,7 +15,7 @@ PluginPanel::PluginPanel() {
     addAndMakeVisible(browseButton);
     setupBrowseButton();
 
-    addAndMakeVisible(loadPluginButton);
+    addChildComponent(browseButton);
     loadPluginButton.onClick = [this] {
         if (onLoadRequested)
             onLoadRequested();
@@ -39,13 +33,21 @@ PluginPanel::PluginPanel() {
             onToggleEditorRequested();
     };
 
+    toggleButton.setWantsKeyboardFocus(false);
+    addAndMakeVisible(toggleButton);
+    toggleButton.onClick = [this] {
+        setExpanded(!expanded);
+        if (onPanelSizeChanged)
+            onPanelSizeChanged();
+    };
+
     pluginPathEditor.setMultiLine(false);
     pluginPathEditor.setReturnKeyStartsNewLine(false);
     pluginPathEditor.onReturnKey = [this] {
         if (onScanRequested)
             onScanRequested();
     };
-    addAndMakeVisible(pluginPathEditor);
+    addChildComponent(pluginPathEditor);
 
     pluginSelector.setTextWhenNothingSelected("Select a scanned plugin...");
     pluginSelector.setWantsKeyboardFocus(false);
@@ -62,9 +64,8 @@ PluginPanel::PluginPanel() {
     pluginListEditor.setPopupMenuEnabled(true);
     pluginListEditor.setWantsKeyboardFocus(false);
     pluginListEditor.setMouseClickGrabsKeyboardFocus(false);
-    addAndMakeVisible(pluginListEditor);
+    addChildComponent(pluginListEditor);
 
-    instrumentFilterCombo.setVisible(false);
     instrumentFilterCombo.addItem(TRANS("All"), 1);
     instrumentFilterCombo.addItem(TRANS("Instruments Only"), 2);
     instrumentFilterCombo.addItem(TRANS("Effects Only"), 3);
@@ -78,13 +79,30 @@ PluginPanel::PluginPanel() {
 
 void PluginPanel::resized() {
     auto area = getLocalBounds();
-    const auto rowHeight = 28;
+    constexpr int rowH = 28;
 
-    pluginStatusLabel.setBounds(area.removeFromTop(rowHeight));
+    // ----- toolbar row (always visible) -----
+    auto toolbarRow = area.removeFromTop(rowH);
+    toggleButton.setBounds(toolbarRow.removeFromRight(30));
+    toolbarRow.removeFromRight(6);
+    openEditorButton.setBounds(toolbarRow.removeFromRight(100));
+    toolbarRow.removeFromRight(6);
+    unloadPluginButton.setBounds(toolbarRow.removeFromRight(80));
+    toolbarRow.removeFromRight(6);
+    loadPluginButton.setBounds(toolbarRow.removeFromRight(60));
+    toolbarRow.removeFromRight(6);
+    instrumentFilterCombo.setBounds(toolbarRow.removeFromRight(100));
+    toolbarRow.removeFromRight(6);
+    pluginSelector.setBounds(toolbarRow.removeFromRight(180));
+    toolbarRow.removeFromRight(6);
+    pluginStatusLabel.setBounds(toolbarRow); // remaining width
+
+    if (!expanded)
+        return;
+
+    // ----- advanced area (visible only when expanded) -----
     area.removeFromTop(8);
-
-    // Path row: [VST3 Path(80)] [pathEditor] [Browse(40)] [Scan VST3(80)]
-    auto pathRow = area.removeFromTop(rowHeight);
+    auto pathRow = area.removeFromTop(rowH);
     pluginPathLabel.setBounds(pathRow.removeFromLeft(80));
     scanPluginsButton.setBounds(pathRow.removeFromRight(80));
     pathRow.removeFromRight(6);
@@ -93,27 +111,23 @@ void PluginPanel::resized() {
     pluginPathEditor.setBounds(pathRow);
 
     area.removeFromTop(8);
-
-    // Selector row: [Plugin(80)] [pluginSelector] [Filter(100)] [Load(80)] [Unload(80)] [Open Editor(100)]
-    auto selectorRow = area.removeFromTop(rowHeight);
-    pluginSelectionLabel.setBounds(selectorRow.removeFromLeft(80));
-    openEditorButton.setBounds(selectorRow.removeFromRight(100));
-    selectorRow.removeFromRight(6);
-    unloadPluginButton.setBounds(selectorRow.removeFromRight(80));
-    selectorRow.removeFromRight(6);
-    loadPluginButton.setBounds(selectorRow.removeFromRight(80));
-    selectorRow.removeFromRight(6);
-    if (instrumentFilterCombo.isVisible()) {
-        instrumentFilterCombo.setBounds(selectorRow.removeFromRight(100));
-        selectorRow.removeFromRight(6);
-    }
-    pluginSelector.setBounds(selectorRow);
-
-    area.removeFromTop(12);
-
-    pluginListLabel.setBounds(area.removeFromTop(rowHeight));
-    area.removeFromTop(6);
     pluginListEditor.setBounds(area);
+}
+
+void PluginPanel::setExpanded(bool e) {
+    if (expanded == e)
+        return;
+    expanded = e;
+    pluginPathLabel.setVisible(e);
+    pluginPathEditor.setVisible(e);
+    browseButton.setVisible(e);
+    scanPluginsButton.setVisible(e);
+    pluginListEditor.setVisible(e);
+    resized();
+}
+
+int PluginPanel::getPreferredHeight() const {
+    return expanded ? 160 : 40;
 }
 
 void PluginPanel::updateState(const State& state) {
@@ -260,8 +274,6 @@ void PluginPanel::setupBrowseButton() {
 void PluginPanel::refreshTexts() {
     // Static label and button text (constructor initializers are evaluated once)
     pluginPathLabel.setText(TRANS("VST3 Path"), juce::dontSendNotification);
-    pluginSelectionLabel.setText(TRANS("Plugin"), juce::dontSendNotification);
-    pluginListLabel.setText(TRANS("Discovered Plugins"), juce::dontSendNotification);
     scanPluginsButton.setButtonText(TRANS("Scan VST3"));
     loadPluginButton.setButtonText(TRANS("Load"));
     unloadPluginButton.setButtonText(TRANS("Unload"));

@@ -32,6 +32,7 @@ const char* kKeyCustomColours = "customKeyColours";
 const char* kKeyKeySignature = "keySignature";
 const char* kKeyMidiTranspose = "midiTranspose";
 const char* kKeyKeyboardScrollX = "keyboardScrollX";
+const char* kKeyPluginPanelExpanded = "pluginPanelExpanded";
 
 [[nodiscard]] SettingsModel::PerformanceSettingsView makeDefaultPerformanceSettings() noexcept {
     return {};
@@ -135,6 +136,7 @@ void SettingsStore::readNow(SettingsModel& m) {
 
     m.resizableWindow = f.getBoolValue(kKeyResizableWindow, m.resizableWindow);
     m.showInstrumentFilter = f.getBoolValue(kKeyShowInstrumentFilter, m.showInstrumentFilter);
+    m.pluginPanelExpanded = f.getBoolValue(kKeyPluginPanelExpanded, m.pluginPanelExpanded);
     m.languageCode = f.getValue(kKeyLanguageCode, m.languageCode);
     // custom key labels as ValueTree XML (sparse: only non-empty labels stored)
     if (auto labelsXml = f.getXmlValue(kKeyCustomLabels)) {
@@ -257,6 +259,7 @@ void SettingsStore::writeNow(const SettingsModel& m) {
     f.setValue(kKeyResizableWindow, m.resizableWindow);
     f.setValue(kKeyLanguageCode, m.languageCode);
     f.setValue(kKeyShowInstrumentFilter, m.showInstrumentFilter);
+    f.setValue(kKeyPluginPanelExpanded, m.pluginPanelExpanded);
 
     f.saveIfNeeded();
 }

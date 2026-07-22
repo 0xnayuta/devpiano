@@ -157,6 +157,14 @@ void MainComponent::initialiseUi() {
     const auto pluginRecovery = getPluginRecoverySettingsWithFallback();
     pluginPanel.setPluginPathText(makeSafeUiText(pluginRecovery.pluginSearchPath));
 
+    pluginPanel.setExpanded(appSettings.pluginPanelExpanded);
+
+    pluginPanel.onPanelSizeChanged = [this] {
+        resized();
+        appSettings.pluginPanelExpanded = pluginPanel.isExpanded();
+        settingsStore.scheduleSave(appSettings);
+    };
+
     addAndMakeVisible(controlsPanel);
     controlsPanel.onValuesChanged = [this] { handlePerformanceUiChanged(); };
     controlsPanel.onPresetChanged = [this](const juce::String& id) { presetFlowSupport->applyPresetById(id); };
@@ -352,10 +360,10 @@ void MainComponent::resized() {
     headerPanel.setBounds(area.removeFromTop(98));
     area.removeFromTop(10);
 
-    pluginPanel.setBounds(area.removeFromTop(188));
+    pluginPanel.setBounds(area.removeFromTop(pluginPanel.getPreferredHeight()));
     area.removeFromTop(12);
 
-    controlsPanel.setBounds(area.removeFromTop(296));
+    controlsPanel.setBounds(area.removeFromTop(174));
     area.removeFromTop(8);
 
     constexpr int maxKeyboardHeight = 128;
