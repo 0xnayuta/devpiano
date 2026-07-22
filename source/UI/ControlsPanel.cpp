@@ -1,6 +1,41 @@
 #include "ControlsPanel.h"
 #include "DevPianoLookAndFeel.h"
 
+// ── Transport button icon paths ──
+static std::unique_ptr<juce::Drawable> createRecordIcon() {
+    juce::Path p;
+    p.addEllipse(-7, -7, 14, 14);
+    auto d = std::make_unique<juce::DrawablePath>();
+    d->setPath(p);
+    d->setFill(DevPianoLookAndFeel::kRecordActive);
+    return d;
+}
+static std::unique_ptr<juce::Drawable> createPlayIcon() {
+    juce::Path p;
+    p.addTriangle(-5.0f, -7.0f, -5.0f, 7.0f, 7.0f, 0.0f);
+    auto d = std::make_unique<juce::DrawablePath>();
+    d->setPath(p);
+    d->setFill(DevPianoLookAndFeel::kPlayActive);
+    return d;
+}
+static std::unique_ptr<juce::Drawable> createStopIcon() {
+    juce::Path p;
+    p.addRectangle(-6, -6, 12, 12);
+    auto d = std::make_unique<juce::DrawablePath>();
+    d->setPath(p);
+    d->setFill(DevPianoLookAndFeel::kTextPrimary);
+    return d;
+}
+static std::unique_ptr<juce::Drawable> createBackIcon() {
+    juce::Path p;
+    p.addTriangle(-7.0f, -6.0f, -7.0f, 6.0f, 1.0f, 0.0f);
+    p.addTriangle(-1.0f, -6.0f, -1.0f, 6.0f, 7.0f, 0.0f);
+    auto d = std::make_unique<juce::DrawablePath>();
+    d->setPath(p);
+    d->setFill(DevPianoLookAndFeel::kTextSecondary);
+    return d;
+}
+
 ControlsPanel::ControlsPanel() {
     configureKnob(volumeSlider, volumeLabel, TRANS("Volume"), 0.0, 1.0, 0.01,
                   [](double v) { return juce::String(v, 2); });
@@ -51,28 +86,33 @@ ControlsPanel::ControlsPanel() {
             onDeletePresetRequested();
     };
 
-    // --- Recording row ---
-    recordStatusLabel.setJustificationType(juce::Justification::centredLeft);
-    addAndMakeVisible(recordStatusLabel);
-
+    // --- Transport icon buttons ---
+    recordButton.setImages(createRecordIcon().get());
+    recordButton.setTooltip(TRANS("Record"));
     addAndMakeVisible(recordButton);
     recordButton.onClick = [this] {
         if (onRecordClicked)
             onRecordClicked();
     };
 
+    playButton.setImages(createPlayIcon().get());
+    playButton.setTooltip(TRANS("Play"));
     addAndMakeVisible(playButton);
     playButton.onClick = [this] {
         if (onPlayClicked)
             onPlayClicked();
     };
 
+    stopButton.setImages(createStopIcon().get());
+    stopButton.setTooltip(TRANS("Stop"));
     addAndMakeVisible(stopButton);
     stopButton.onClick = [this] {
         if (onStopClicked)
             onStopClicked();
     };
 
+    backToStartButton.setImages(createBackIcon().get());
+    backToStartButton.setTooltip(TRANS("Back to Start"));
     addAndMakeVisible(backToStartButton);
     backToStartButton.onClick = [this] {
         if (onBackToStartClicked)
@@ -208,22 +248,20 @@ void ControlsPanel::resized() {
     deletePresetButton.setBounds(row.removeFromLeft(60));
 
     area.removeFromTop(8);
-
     // -- Recording controls row --
     auto buttonRow = area.removeFromTop(rowHeight);
-    recordStatusLabel.setBounds(buttonRow.removeFromLeft(80));
     savePerformanceButton.setBounds(buttonRow.removeFromLeft(50));
     buttonRow.removeFromLeft(6);
     openPerformanceButton.setBounds(buttonRow.removeFromLeft(50));
-    buttonRow.removeFromLeft(6);
-    recordButton.setBounds(buttonRow.removeFromLeft(60));
-    buttonRow.removeFromLeft(6);
-    playButton.setBounds(buttonRow.removeFromLeft(50));
-    buttonRow.removeFromLeft(6);
-    stopButton.setBounds(buttonRow.removeFromLeft(50));
-    buttonRow.removeFromLeft(6);
-    backToStartButton.setBounds(buttonRow.removeFromLeft(60));
-    buttonRow.removeFromLeft(6);
+    buttonRow.removeFromLeft(10);
+    recordButton.setBounds(buttonRow.removeFromLeft(36));
+    buttonRow.removeFromLeft(4);
+    playButton.setBounds(buttonRow.removeFromLeft(36));
+    buttonRow.removeFromLeft(4);
+    stopButton.setBounds(buttonRow.removeFromLeft(36));
+    buttonRow.removeFromLeft(4);
+    backToStartButton.setBounds(buttonRow.removeFromLeft(36));
+    buttonRow.removeFromLeft(10);
     importMidiButton.setBounds(buttonRow.removeFromLeft(90));
     buttonRow.removeFromLeft(6);
     exportMidiButton.setBounds(buttonRow.removeFromLeft(90));
@@ -290,9 +328,7 @@ void ControlsPanel::setRecordingControlsState(RecordingControlsState state) {
     recordingControlsState = state;
     updateRecordingActionButtons();
 }
-
 void ControlsPanel::updateRecordingActionButtons() {
-    juce::String statusText;
     auto recordEnabled = true;
     auto playEnabled = recordingControlsState.hasTake;
     auto stopEnabled = false;
@@ -305,7 +341,6 @@ void ControlsPanel::updateRecordingActionButtons() {
 
     switch (recordingControlsState.state) {
     case RecordingState::idle:
-        statusText = TRANS("Idle");
         playEnabled = recordingControlsState.hasTake;
         backToStartEnabled = recordingControlsState.hasTake;
         exportMidiEnabled = recordingControlsState.hasTake && recordingControlsState.canExportMidiTake;
@@ -315,7 +350,6 @@ void ControlsPanel::updateRecordingActionButtons() {
         openEnabled = true;
         break;
     case RecordingState::recording:
-        statusText = TRANS("Recording");
         recordEnabled = false;
         playEnabled = false;
         backToStartEnabled = false;
@@ -327,7 +361,6 @@ void ControlsPanel::updateRecordingActionButtons() {
         openEnabled = false;
         break;
     case RecordingState::playing:
-        statusText = TRANS("Playing");
         recordEnabled = false;
         playEnabled = false;
         backToStartEnabled = recordingControlsState.hasTake;
@@ -340,7 +373,6 @@ void ControlsPanel::updateRecordingActionButtons() {
         break;
     }
 
-    recordStatusLabel.setText(statusText, juce::dontSendNotification);
     recordButton.setEnabled(recordEnabled);
     playButton.setEnabled(playEnabled);
     stopButton.setEnabled(stopEnabled);
@@ -452,10 +484,10 @@ void ControlsPanel::refreshTexts() {
     saveAsNewPresetButton.setButtonText(TRANS("Save As New"));
     renamePresetButton.setButtonText(TRANS("Rename"));
     deletePresetButton.setButtonText(TRANS("Delete"));
-    recordButton.setButtonText(TRANS("Record"));
-    playButton.setButtonText(TRANS("Play"));
-    stopButton.setButtonText(TRANS("Stop"));
-    backToStartButton.setButtonText(TRANS("Back"));
+    recordButton.setTooltip(TRANS("Record"));
+    playButton.setTooltip(TRANS("Play"));
+    stopButton.setTooltip(TRANS("Stop"));
+    backToStartButton.setTooltip(TRANS("Back to Start"));
     exportMidiButton.setButtonText(TRANS("Export MIDI"));
     exportWavButton.setButtonText(TRANS("Export WAV"));
     importMidiButton.setButtonText(TRANS("Import MIDI"));

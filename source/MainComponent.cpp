@@ -4,7 +4,6 @@
 #include "Plugin/PluginFlowSupport.h"
 #include "Settings/SettingsSerialization.h"
 #include "UI/CustomKeyboard.h"
-#include "UI/HeaderPanelStateBuilder.h"
 #include "UI/KeyBindingEditDialog.h"
 #include "UI/PluginPanelStateBuilder.h"
 
@@ -145,7 +144,6 @@ void MainComponent::initialiseUi() {
     setWantsKeyboardFocus(true);
 
     addAndMakeVisible(headerPanel);
-    headerPanel.setHintText(TRANS("VST3 scan/load is ready: scan, select a plugin, then click Load."));
     headerPanel.onSettingsRequested = [this] { showSettingsDialog(); };
 
     addAndMakeVisible(pluginPanel);
@@ -197,6 +195,7 @@ void MainComponent::initialiseUi() {
     recordingEngine.setPlaybackSpeedMultiplier(1.0);
 
     addAndMakeVisible(keyboardPanel);
+    addAndMakeVisible(statusBar);
 
     // Wire CustomKeyboard mouse interaction → sound (with MIDI matrix)
     auto& customKeyboard = keyboardPanel.getCustomKeyboard();
@@ -355,20 +354,22 @@ void MainComponent::paint(juce::Graphics& g) {
 }
 
 void MainComponent::resized() {
-    auto area = getLocalBounds().reduced(16);
+    auto area = getLocalBounds();
+    statusBar.setBounds(area.removeFromBottom(22));
 
-    headerPanel.setBounds(area.removeFromTop(98));
-    area.removeFromTop(10);
+    auto content = area.reduced(16);
+    headerPanel.setBounds(content.removeFromTop(36));
+    content.removeFromTop(10);
 
-    pluginPanel.setBounds(area.removeFromTop(pluginPanel.getPreferredHeight()));
-    area.removeFromTop(12);
+    pluginPanel.setBounds(content.removeFromTop(pluginPanel.getPreferredHeight()));
+    content.removeFromTop(12);
 
-    controlsPanel.setBounds(area.removeFromTop(174));
-    area.removeFromTop(8);
+    controlsPanel.setBounds(content.removeFromTop(174));
+    content.removeFromTop(8);
 
     constexpr int maxKeyboardHeight = 128;
-    int keyboardHeight = juce::jmin(maxKeyboardHeight, area.getHeight());
-    keyboardPanel.setBounds(area.removeFromBottom(keyboardHeight));
+    int keyboardHeight = juce::jmin(maxKeyboardHeight, content.getHeight());
+    keyboardPanel.setBounds(content.removeFromBottom(keyboardHeight));
 }
 
 void MainComponent::paintOverChildren(juce::Graphics& g) {
@@ -722,6 +723,7 @@ void MainComponent::refreshAllTexts() {
     headerPanel.refreshTexts();
     pluginPanel.refreshTexts();
     controlsPanel.refreshTexts();
+    statusBar.refreshTexts();
 }
 
 double MainComponent::getCurrentRuntimeSampleRate() const {

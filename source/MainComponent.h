@@ -26,6 +26,7 @@
 #include "UI/KeyboardPanel.h"
 #include "UI/PluginEditorWindow.h"
 #include "UI/PluginPanel.h"
+#include "UI/StatusBar.h"
 
 class MainComponent final : public juce::AudioAppComponent, private juce::Timer, public juce::FileDragAndDropTarget {
     friend class devpiano::layout::PresetFlowSupport;
@@ -137,6 +138,7 @@ private:
     PluginPanel pluginPanel;
     ControlsPanel controlsPanel;
     KeyboardPanel keyboardPanel;
+    StatusBar statusBar;
     std::unique_ptr<devpiano::settings::SettingsWindowManager> settingsWindowManager;
     std::unique_ptr<devpiano::layout::PresetFlowSupport> presetFlowSupport;
     std::unique_ptr<devpiano::recording::RecordingSessionController> recordingSessionController;

@@ -102,8 +102,8 @@ target_sources(devpiano PRIVATE
     source/UI/ControlsPanel.h
     source/UI/HeaderPanel.cpp
     source/UI/HeaderPanel.h
-    source/UI/HeaderPanelStateBuilder.cpp
-    source/UI/HeaderPanelStateBuilder.h
+    source/UI/StatusBar.cpp
+    source/UI/StatusBar.h
     source/UI/KeyboardPanel.cpp
     source/UI/KeyboardPanel.h
     source/Settings/SettingsModel.h

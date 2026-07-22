@@ -82,11 +82,10 @@ private:
     juce::TextButton renamePresetButton { TRANS("Rename") };
     juce::TextButton deletePresetButton { TRANS("Delete") };
 
-    juce::Label recordStatusLabel;
-    juce::TextButton recordButton { TRANS("Record") };
-    juce::TextButton playButton { TRANS("Play") };
-    juce::TextButton stopButton { TRANS("Stop") };
-    juce::TextButton backToStartButton { TRANS("Back") };
+    juce::DrawableButton recordButton { "", juce::DrawableButton::ImageFitted };
+    juce::DrawableButton playButton { "", juce::DrawableButton::ImageFitted };
+    juce::DrawableButton stopButton { "", juce::DrawableButton::ImageFitted };
+    juce::DrawableButton backToStartButton { "", juce::DrawableButton::ImageFitted };
     juce::TextButton exportMidiButton { TRANS("Export MIDI") };
     juce::TextButton exportWavButton { TRANS("Export WAV") };
     juce::TextButton importMidiButton { TRANS("Import MIDI") };
