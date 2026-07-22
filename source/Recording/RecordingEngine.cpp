@@ -79,6 +79,7 @@ void RecordingEngine::reserveEvents(std::size_t expectedEventCount) {
 
 void RecordingEngine::startRecording(double sampleRate) {
     currentTake.events.clear();
+    pendingPresetEvents.clear();
     currentTake.sampleRate = std::max(sampleRate, 0.0);
     currentTake.lengthSamples = 0;
     currentPositionSamples.store(0, std::memory_order_relaxed);
