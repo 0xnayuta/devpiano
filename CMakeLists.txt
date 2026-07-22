@@ -59,10 +59,9 @@ target_sources(devpiano PRIVATE
     source/Core/KeyMapTypes.h
     source/Core/MidiTypes.h
     source/Core/AppState.h
-    source/Core/AppStateBuilder.cpp
-    source/Core/AppStateBuilder.h
     source/Midi/MidiChannelMapper.cpp
     source/Midi/MidiChannelMapper.h
+    source/Midi/ChannelMatrix.h
     source/Plugin/PluginHost.cpp
     source/Plugin/PluginHost.h
     source/Plugin/PluginFlowSupport.cpp
@@ -107,10 +106,11 @@ target_sources(devpiano PRIVATE
     source/UI/KeyboardPanel.cpp
     source/UI/KeyboardPanel.h
     source/Settings/SettingsModel.h
-    source/Core/KeyboardTypes.h
+    source/Settings/AppStateBuilder.cpp
+    source/Settings/AppStateBuilder.h
     source/UI/CustomKeyboard.cpp
     source/UI/CustomKeyboard.h
-    source/Core/ChannelMatrix.h
+    source/UI/KeyboardTypes.h
     source/Settings/SettingsStore.cpp
     source/UI/KeyBindingEditDialog.cpp
     source/UI/KeyBindingEditDialog.h

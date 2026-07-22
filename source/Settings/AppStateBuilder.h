@@ -2,8 +2,8 @@
 
 #include <JuceHeader.h>
 
-#include "../Settings/SettingsModel.h"
-#include "AppState.h"
+#include "../Core/AppState.h"
+#include "SettingsModel.h"
 
 class KeyboardMidiMapper;
 class PluginHost;

@@ -6,12 +6,12 @@
 #include "Audio/AudioDeviceDiagnostics.h"
 #include "Audio/AudioEngine.h"
 #include "Core/AppState.h"
-#include "Core/AppStateBuilder.h"
 #include "Diagnostics/DevPianoLogger.h"
 #include "Input/KeyboardMidiMapper.h"
 #include "Layout/PresetFlowSupport.h"
 #include "Locale/LocaleManager.h"
 #include "Midi/MidiChannelMapper.h"
+#include "Settings/AppStateBuilder.h"
 
 #include "Plugin/PluginHost.h"
 #include "Plugin/PluginOperationController.h"

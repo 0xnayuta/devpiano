@@ -1,4 +1,4 @@
-#include "Core/AppStateBuilder.h"
+#include "AppStateBuilder.h"
 
 #include "Audio/AudioDeviceDiagnostics.h"
 #include "Input/KeyboardMidiMapper.h"
