@@ -49,29 +49,18 @@ Phase 10：主窗口 UI 现代化 — 10a 已完成，详见下方。Phase 8–9
 
 ---
 
-### 10c. PluginPanel 紧凑化与可折叠
+### 10c. PluginPanel 紧凑化与可折叠 ✅ 已完成
 
-**现状**：PluginPanel 固定高度 188px，包含 VST 路径输入行、插件选择行、始终可见的"已发现插件列表"标签 + 文本框。即使用户已完成插件加载，列表信息仍占位且不可收起，浪费纵向空间。
+**状态**：已完成 (2026-07-21)。PluginPanel 拆分为始终可见的工具栏行和可折叠高级区，折叠态高度从 188px 降至 40px。
 
-**方案**：
-- 将 `PluginPanel` 拆分为两个逻辑区：
-  - **工具栏行（始终可见）**：插件选择 ComboBox + Load / Unload / Open Editor 按钮 + 当前插件状态标签，单行高度 ~32px
-  - **可折叠高级区（默认折叠）**：VST 路径输入 + Browse + Scan 按钮 + 插件列表编辑器
-- 添加一个 `juce::TextButton "···"`（或齿轮图标）作为折叠/展开触发器，位于工具栏行右侧
-- 折叠状态：PluginPanel 高度约 40px（仅工具栏行）
-- 展开状态：PluginPanel 高度约 160px（含路径 + 列表 + 扫描按钮），与当前接近
-- 折叠/展开状态通过 `AppState` 持久化（`SettingsModel` 新增 `bool pluginPanelExpanded`）
-- 移除"已发现插件列表"标签（`pluginListLabel`），列表编辑器自带含义自明
-- `instrumentFilterCombo` 移至工具栏行，紧邻插件选择器右侧
-
-**验收标准**：
-- (a) 默认启动时插件面板折叠为单行工具栏（约 40px）
-- (b) 点击展开按钮后显示完整 VST 路径/扫描/列表区
-- (c) 折叠/展开状态重启后保持
-- (d) Load / Unload / Open Editor 在折叠态仍可操作
-- (e) 已发现插件列表文本在展开态正常显示
-
----
+**已交付**：
+- 工具栏行（始终可见）：`pluginStatusLabel` + `pluginSelector` (180px) + `instrumentFilterCombo` (100px) + `Load`/`Unload`/`OpenEditor` 按钮 + 折叠切换 `toggleButton` ("⋮")，共 28px
+- 高级区（默认折叠）：`VST3 Path` 标签 + 路径编辑器 + `Browse`/`Scan` 按钮 + 已发现插件列表编辑区，可见性由 `addChildComponent` + `setExpanded` 管控
+- `setExpanded(bool)` / `getPreferredHeight()`：折叠 40px / 展开 160px
+- 状态持久化：`SettingsModel::pluginPanelExpanded` → `SettingsStore` 读写，重启保持
+- `pluginListLabel` 和 `pluginSelectionLabel` 移除（冗余标签）
+- `MainComponent`：`resized()` 高度改为 `getPreferredHeight()` 动态获取，`ControlsPanel` 高度常量从 296→174
+- 5 个高级区 widget 用 `addChildComponent` 初始不可见，避免首次折叠态时的可见性泄漏
 
 ### 10d. 虚拟钢琴键盘拟真渲染
 
@@ -167,12 +156,11 @@ Phase 10：主窗口 UI 现代化 — 10a 已完成，详见下方。Phase 8–9
 ```
 Phase 10a (LookAndFeel) ✅ 已完成
 Phase 10b (Knobs + ADSR) ✅ 已完成
+Phase 10c (PluginPanel 折叠化) ✅ 已完成
          │
-         ├──→ 10c (PluginPanel 折叠化)
-         └──→ 10d (Keyboard 拟真渲染)
-                   │
-                   └──→ 10e (Transport 图标 + StatusBar)
-                   └──→ 10f (布局尺寸规则调整)
+         ├──→ 10d (Keyboard 拟真渲染)
+         └──→ 10e (Transport 图标 + StatusBar)
+         └──→ 10f (布局尺寸规则调整)
 ```
 
 注：10e/10f 可并行，但建议在 10b/10c/10d 完成后进行以准确掌握剩余空间。
