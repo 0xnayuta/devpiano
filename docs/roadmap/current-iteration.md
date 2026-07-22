@@ -73,35 +73,16 @@ Phase 10：主窗口 UI 现代化 — 10a 已完成，详见下方。Phase 8–9
 - 仅修改 `CustomKeyboard.cpp` 三个 `paint*` 方法，`KeyRenderState` 及鼠标/几何/动画逻辑零变更
 ---
 
-### 10e. Transport 按钮图标化 + 底部状态栏
+### 10e. Transport 按钮图标化 + 底部状态栏 ✅ 已完成
 
-**现状**：录制/回放控制行共 12 个纯文字 `TextButton` 紧密排列（Record / Play / Stop / Back / Import MIDI / Export MIDI / Export WAV / Save / Open / Recent），视觉拥挤且不符合音频软件行业惯例（图标 > 文字）。
+**状态**：已完成 (2026-07-22)。传输按钮从文字 TextButton 升级为矢量化 DrawableButton，新增底部 StatusBar，HeaderPanel 压缩至 36px。
 
-**方案**：
-- 用 `juce::DrawableButton` 替换传输核心按钮（Record / Play / Stop / Back to Start）：
-  - 使用 `juce::Drawable` 绘制简单矢量图标（圆形 = 录制、三角 = 播放、方块 = 停止、双左三角 = 回到开头）
-  - 按钮尺寸缩小至 36×28，图标 16×16 居中
-  - 按钮 tooltip 显示中文/英文标签
-- 文件操作按钮（Save/Open/Import/Export/Recent）保留为文字 `TextButton`，但缩小字体至 12px，分组放在传输按钮右侧
-- **底部状态栏**：
-  - 在 `MainComponent::resized` 中，于键盘面板下方（即整个窗口最底部）分配 22px 高度作为状态栏
-  - 新建简单 `StatusBar` Component（也可以是 `MainComponent` 的直接子 Label）：
-    - 左侧：MIDI 活动指示灯（实心圆点，有 MIDI 事件时绿色脉冲）+ 当前 VST 插件名
-    - 中间：录音/回放时间显示（如 "01:23.4"）
-    - 右侧：音频设备信息（采样率 + buffer size，如 "44.1kHz / 512"）
-  - 背景色使用略深于主窗口的颜色，顶部 1px 分隔线
-- **HeaderPanel 精简**：
-  - 移除 `hintLabel`（当前 VST 状态信息迁移至状态栏）
-  - `HeaderPanel` 总高度从 98px 降至约 36px（仅标题 + 设置按钮）
-  - 设置按钮改用齿轮图标（`juce::DrawableButton`），宽度从 110px 缩至 36px
-
-**验收标准**：
-- (a) 传输按钮以矢量图标显示，hover 时 tooltip 显示功能名称
-- (b) 底部状态栏显示 MIDI 活动灯、插件名、时间、音频设备信息
-- (c) 状态栏高度 22px，不占用四大面板的布局空间
-- (d) HeaderPanel 压缩至 36px，VST 状态信息不再显示在顶部
-- (e) 所有文字按钮的原有功能不受影响
-
+**已交付**：
+- **Transport 图标**：Record (⬤ 圆)/ Play (▶ 三角)/ Stop (■ 方块)/ Back (◀◀ 双三角) 4 个 `DrawableButton`，36×28px，通过 `DrawablePath` + `setFill` 上色，tooltip 显示功能名
+- **底部 StatusBar**：22px，MIDI 活动绿点（`kPlayActive`）+ 插件名 + 音频设备信息 + 时间，背景 `kPanelBg.darker(0.2f)` + 顶部 1px 分隔线，独立于四大面板分配
+- **HeaderPanel 压缩**：移除 `hintLabel`/`AudioStatus`/`setHintText`/`HeaderPanelStateBuilder`，标题字体 22→18pt，设置按钮改为齿轮 DrawableButton（非零则矢量合成），高度 98→36px，单行布局
+- **ControlsPanel**：移除 `recordStatusLabel`，缩减传输按钮间距，文字传输按钮功能无变化
+- **国际化**：`statusBar.refreshTexts()` 接入 `MainComponent::refreshAllTexts()` 链，语言切换同步
 ---
 
 ### 10f. 布局尺寸规则调整
@@ -138,12 +119,12 @@ Phase 10a (LookAndFeel) ✅ 已完成
 Phase 10b (Knobs + ADSR) ✅ 已完成
 Phase 10c (PluginPanel 折叠化) ✅ 已完成
 Phase 10d (Keyboard 拟真渲染) ✅ 已完成
+Phase 10e (Transport 图标 + StatusBar) ✅ 已完成
          │
-         ├──→ 10e (Transport 图标 + StatusBar)
          └──→ 10f (布局尺寸规则调整)
 ```
 
-注：10e/10f 可并行，但建议在 10b/10c/10d 完成后进行以准确掌握剩余空间。
+注：10f 为 Phase 10 最后一项目，完成后可进入整体验收。
 
 
 ## 已修复缺陷（回归提醒）
