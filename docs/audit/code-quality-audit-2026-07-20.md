@@ -30,10 +30,10 @@
 | Priority | Total | Open | In Progress | Mitigated | Deferred | Closed |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | P0 | 5 | 0 | 0 | 0 | 0 | 5 |
-| P1 | 11 | 9 | 0 | 0 | 0 | 2 |
+| P1 | 11 | 4 | 0 | 0 | 0 | 7 |
 | P2 | 20 | 20 | 0 | 0 | 0 | 0 |
 | P3 | 24 | 24 | 0 | 0 | 0 | 0 |
-| **合计** | 60 | 53 | 0 | 0 | 0 | 7 |
+| **合计** | 60 | 48 | 0 | 0 | 0 | 12 |
 
 ### 0.3 关键结论
 
@@ -433,12 +433,12 @@ Exit code: 123
 | `REC-002` | P1 | Closed | RecordingSessionController async lambda use-after-free 风险 | `source/Recording/RecordingSessionController.cpp` (5 处 lambda) | 异步文件选择器 lambda 捕获 `[this]` 和 chooser `unique_ptr` 的引用。如果 controller 在回调触发前被销毁，访问悬垂指针 | 已修复：添加 `std::shared_ptr<bool> aliveFlag_` 成员，所有异步 lambda 通过值捕获并检查 `*aliveFlag` 提前返回；析构函数设置 flag 为 false |
 | `REC-003` | P1 | Closed | 录制中 preset 变更与录音向量并发写入 | `source/Recording/RecordingEngine.cpp` (recordPresetChange vs recordMidiBufferBlock) | `PresetFlowSupport` (消息线程) 调用 `recordPresetChange` 写入 `currentTake.events`，与音频线程的 `recordMidiBufferBlock` 并发写同一 vector | 已修复：添加独立的 `pendingPresetEvents` 消息线程队列，`recordPresetChange` 写入该队列；`stopRecording()` / `clear()` 时合并到 `currentTake.events`，单线程访问无需锁 |
 | `REC-004` | P1 | Open | RecordingEngine 录制中 getCurrentTake() 返回引用 racing | `source/Recording/RecordingEngine.h:50`, `source/Recording/RecordingEngine.cpp` (getCurrentTake) | `getCurrentTake()` 返回 `const RecordingTake&` 引用，调用方读取时音频线程可能同时在修改 events vector | 使用 `createTakeSnapshot()` 代替引用返回，或在文档中明确调用方必须在消息线程且录制停止时调用 |
-| `ARCH-001` | P1 | Open | Core/ 目录包含 JUCE GUI 依赖 | `source/Core/AppState.h:5`, `source/Core/KeyMapTypes.h:3`, `source/Core/ChannelMatrix.h:6`, `source/Core/KeyboardTypes.h:7` | architecture.md 描述 Core/"平台无关"，但 5/7 文件 include `<JuceHeader.h>`，使用 `juce::String`、`juce::Colour`、`juce::Rectangle` | 选项 A: 更新 architecture.md 反映实际依赖；选项 B: 将 GUI 类型文件移到 UI/，将 ChannelMatrix 移到 Midi/ |
-| `ARCH-002` | P1 | Open | ChannelMatrix.h 物理位置与命名空间不匹配 | `source/Core/ChannelMatrix.h` | 文件在 `Core/`，命名空间为 `devpiano::midi`。MidiChannelMapper 在 `Midi/` include `Core/ChannelMatrix.h` | 将 `ChannelMatrix.h` 移至 `source/Midi/`，保持命名空间不变 |
-| `ARCH-003` | P1 | Open | KeyboardTypes.h 物理位置与命名空间不匹配 | `source/Core/KeyboardTypes.h` | 文件在 `Core/`，命名空间为 `devpiano::ui`，依赖 `juce::Colour`、`juce::Rectangle` GUI 类型 | 将 `KeyboardTypes.h` 移至 `source/UI/` |
-| `ARCH-004` | P1 | Open | AppStateBuilder 依赖反转 | `source/Core/AppStateBuilder.h` | Core/ 中的 builder 依赖 Settings/、Audio/、Plugin/ 模块。依赖方向应为 Settings→Core，而非 Core→Settings | 将 `AppStateBuilder` 移至 `Settings/` 或新建 `State/` 模块 |
+| `ARCH-001` | P1 | Closed | Core/ 目录包含 JUCE GUI 依赖 | `source/Core/AppState.h:5`, `source/Core/KeyMapTypes.h:3` | architecture.md 描述 Core/"平台无关"，但 5/7 文件 include `<JuceHeader.h>`，使用 `juce::String`、`juce::Colour`、`juce::Rectangle` | 已修复：`ChannelMatrix.h` 移至 Midi/，`KeyboardTypes.h` 移至 UI/，`AppStateBuilder` 移至 Settings/；Core/ 现仅使用 JUCE 工具类型（String, Array），architecture.md 已更新 |
+| `ARCH-002` | P1 | Closed | ChannelMatrix.h 物理位置与命名空间不匹配 | `source/Midi/ChannelMatrix.h` | 文件原在 `Core/`，命名空间为 `devpiano::midi` | 已修复：移至 `source/Midi/ChannelMatrix.h`，5 include 更新 |
+| `ARCH-003` | P1 | Closed | KeyboardTypes.h 物理位置与命名空间不匹配 | `source/UI/KeyboardTypes.h` | 文件原在 `Core/`，命名空间为 `devpiano::ui`，依赖 `juce::Colour`、`juce::Rectangle` GUI 类型 | 已修复：移至 `source/UI/KeyboardTypes.h`，3 include 更新 |
+| `ARCH-004` | P1 | Closed | AppStateBuilder 依赖反转 | `source/Settings/AppStateBuilder.h` | Core/ 中的 builder 依赖 Settings/、Audio/、Plugin/ 模块 | 已修复：移至 `source/Settings/AppStateBuilder.*`，1 include 更新 |
 | `ERR-001` | P1 | Open | JSON::parse() 无异常保护 | `source/Recording/PerformanceFile.cpp`, `source/Layout/PerformancePreset.cpp` | `juce::JSON::parse()` 在格式错误时可能抛出异常（JUCE 文档未明确承诺 noexcept），但调用处无 try-catch | 添加 try-catch 或使用 `juce::JSON::parse()` 的 `Result` 返回版本 |
-| `DOC-001` | P1 | Open | architecture.md 与源码文件清单不一致 | `docs/reference/architecture.md` | 文档列出 Core/ 含 4 文件、Recording/ 含 12 文件、未提及 Midi/ 模块，均与实际不符 | 更新架构文档反映当前文件布局和模块边界 |
+| `DOC-001` | P1 | Closed | architecture.md 与源码文件清单不一致 | `docs/reference/architecture.md` | 文档列出 Core/ 含 4 文件、Recording/ 含 12 文件、未提及 Midi/ 模块，均与实际不符 | 已修复：新增 Midi/ 模块节，更新 Core/Settings/UI 文件清单，更新依赖描述 |
 
 ### P2（近期排期）
 
