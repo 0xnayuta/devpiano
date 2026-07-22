@@ -5,7 +5,7 @@
 #include <functional>
 
 #include "Core/KeyMapTypes.h"
-#include "Core/KeyboardTypes.h"
+#include "KeyboardTypes.h"
 
 // ============================================================================
 // A custom-drawn piano keyboard Component.
