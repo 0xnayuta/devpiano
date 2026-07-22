@@ -104,6 +104,13 @@ private:
 
     // Preset-change notification queue (audio thread → message thread)
     std::vector<PendingPresetChange> pendingPresetChanges;
+    // Preset-change events recorded from the message thread during active
+    // recording.  Separate from currentTake.events (audio-thread writes) to
+    // avoid concurrent vector push_back data races (see REC-003).  Merged
+    // into currentTake.events at stopRecording / clear time on the message
+    // thread — no lock needed, single-threaded access.
+    std::vector<PerformanceEvent> pendingPresetEvents;
+
     juce::CriticalSection presetChangeLock;
 
     // Per-channel pitch bend EMA state for playback zipper-noise reduction.

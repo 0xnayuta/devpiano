@@ -90,9 +90,16 @@ void RecordingEngine::startRecording(double sampleRate) {
 }
 
 RecordingTake RecordingEngine::stopRecording() {
-    if (isRecording())
+    if (isRecording()) {
+        // Merge pending preset-change events (message-thread writes) into the
+        // recorded events vector before finalising the take.
+        for (auto& ev : pendingPresetEvents)
+            currentTake.events.push_back(std::move(ev));
+        pendingPresetEvents.clear();
+
         currentTake.lengthSamples
             = std::max(currentTake.lengthSamples, currentPositionSamples.load(std::memory_order_relaxed));
+    }
 
     state.store(RecordingState::stopped, std::memory_order_release);
 
@@ -104,14 +111,13 @@ RecordingTake RecordingEngine::stopRecording() {
 
 void RecordingEngine::clear() {
     currentTake.events.clear();
+    pendingPresetEvents.clear();
     currentTake.sampleRate = 0.0;
     currentTake.lengthSamples = 0;
     currentPositionSamples.store(0, std::memory_order_relaxed);
     droppedEventCount.store(0, std::memory_order_relaxed);
     playbackEndedPending.store(false, std::memory_order_release);
     state.store(RecordingState::idle, std::memory_order_release);
-
-    DP_DEBUG_LOG("[RecordingEngine] take CLEARED");
 }
 
 void RecordingEngine::advanceRecordingPosition(std::int64_t numSamples) noexcept {
@@ -163,18 +169,15 @@ void RecordingEngine::recordMidiBufferBlock(const juce::MidiBuffer& midiBuffer, 
 // ---- Preset-change recording ----
 
 void RecordingEngine::recordPresetChange(uint8_t presetId, std::int64_t timestampSamples) {
+    // Write to a dedicated message-thread queue to avoid racing with the
+    // audio thread's writes to currentTake.events via recordMidiBufferBlock.
+    // Merged into currentTake.events at stopRecording() or clear() time.
     if (!isRecording())
         return;
 
     const auto ts = std::max<std::int64_t>(timestampSamples, 0);
-    if (isCapacityExhausted(ts)) {
-        DP_DEBUG_LOG("[RecordingEngine] presetChange DROPPED: capacity exhausted");
-        return;
-    }
-
-    currentTake.events.push_back(
+    pendingPresetEvents.push_back(
         { ts, PerformanceEventType::presetChange, presetId, RecordingEventSource::computerKeyboard, {} });
-    currentTake.lengthSamples = std::max(currentTake.lengthSamples, ts);
 }
 
 bool RecordingEngine::isCapacityExhausted(std::int64_t timestamp) noexcept {
