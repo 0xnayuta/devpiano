@@ -1,6 +1,19 @@
+
 #include "PluginHost.h"
 
 #include "Diagnostics/Log.h"
+#include <JuceHeader.h>
+
+namespace {
+[[maybe_unused]] void assertMessageThread() {
+    // Thread-safety contract (see PluginHost.h): mutation methods MUST be
+    // called on the JUCE message thread, guarded by
+    // runPluginActionWithAudioDeviceRebuild (shut down audio, operate,
+    // restart audio).  The audio-device rebuild pause is the sole
+    // synchronisation point — there is no internal mutex.
+    jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
+}
+} // namespace
 
 PluginHost::PluginHost() {
     juce::addDefaultFormatsToManager(formatManager);
@@ -44,6 +57,7 @@ int PluginHost::scanVst3Plugins(const juce::FileSearchPath& searchPath, bool rec
 }
 
 bool PluginHost::beginVst3ScanSession(const juce::FileSearchPath& searchPath, bool recursive) {
+    assertMessageThread();
     lastScanFailedFiles.clear();
     isScanning = true;
     scanningPluginName = "Preparing...";
@@ -74,6 +88,7 @@ bool PluginHost::beginVst3ScanSession(const juce::FileSearchPath& searchPath, bo
 }
 
 bool PluginHost::advanceVst3ScanStep() {
+    assertMessageThread();
     if (!isScanning || activeScanner == nullptr)
         return false;
 
@@ -114,6 +129,7 @@ bool PluginHost::advanceVst3ScanStep() {
 }
 
 juce::StringArray PluginHost::addVst3FileToKnownList(const juce::File& vst3File) {
+    assertMessageThread();
     juce::StringArray names;
     if (auto* format = getVst3Format()) {
         juce::OwnedArray<juce::PluginDescription> results;
@@ -133,6 +149,7 @@ juce::StringArray PluginHost::addVst3FileToKnownList(const juce::File& vst3File)
 }
 
 void PluginHost::cancelVst3ScanSession() {
+    assertMessageThread();
     activeScanner.reset();
     isScanning = false;
     scanningPluginName.clear();
@@ -194,6 +211,7 @@ std::unique_ptr<juce::XmlElement> PluginHost::createKnownPluginListXml() const {
 }
 
 bool PluginHost::restoreKnownPluginListFromXml(const juce::XmlElement& xml) {
+    assertMessageThread();
     knownPluginList.recreateFromXml(xml);
     lastScanFailedFiles.clear();
     lastScanFailedCount = 0;
@@ -209,6 +227,7 @@ bool PluginHost::restoreKnownPluginListFromXml(const juce::XmlElement& xml) {
 }
 
 void PluginHost::markPluginScanSkipped(juce::String reason) {
+    assertMessageThread();
     knownPluginList.clear();
     lastScanFailedFiles.clear();
     lastScanPluginCount = 0;
@@ -228,6 +247,7 @@ bool PluginHost::loadPluginByName(const juce::String& pluginName, double initial
 
 bool PluginHost::loadPluginByDescription(const juce::PluginDescription& description, double initialSampleRate,
                                          int initialBufferSize) {
+    assertMessageThread();
     unloadPlugin();
 
     juce::String errorMessage;
@@ -254,6 +274,7 @@ bool PluginHost::loadPluginByDescription(const juce::PluginDescription& descript
 }
 
 bool PluginHost::prepareToPlay(double sampleRate, int blockSize) {
+    assertMessageThread();
     preparedSampleRate = sampleRate > 0.0 ? sampleRate : preparedSampleRate;
     preparedBlockSize = blockSize > 0 ? blockSize : preparedBlockSize;
 
@@ -285,6 +306,7 @@ bool PluginHost::prepareToPlay(double sampleRate, int blockSize) {
 }
 
 void PluginHost::releaseResources() {
+    assertMessageThread();
     if (pluginInstance != nullptr)
         pluginInstance->suspendProcessing(true);
 
@@ -295,6 +317,7 @@ void PluginHost::releaseResources() {
 }
 
 void PluginHost::unloadPlugin() {
+    assertMessageThread();
     const auto hadPlugin = hasLoadedPlugin();
     const auto pluginName = getCurrentPluginName();
 

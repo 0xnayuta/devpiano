@@ -2,6 +2,19 @@
 
 #include <JuceHeader.h>
 
+// Thread-safety contract:
+//   Read-only accessors (getInstance, hasLoadedPlugin, isPrepared, etc.) may
+//   be called from the real-time audio callback thread.  All mutation methods
+//   (loadPlugin*, prepareToPlay, releaseResources, unloadPlugin, scan*, etc.)
+//   MUST be called exclusively from the JUCE message thread, guarded by
+//   runPluginActionWithAudioDeviceRebuild (shut down audio → operate →
+//   restart audio).  Debug builds enforce this with jassert.
+//
+//   There is no internal mutex: the audio-device rebuild pause is the sole
+//   synchronisation point between writers (message thread) and readers
+//   (audio thread).  Any mutation path that does not go through this guard
+//   creates an immediate data race.
+
 class PluginHost {
 public:
     PluginHost();
