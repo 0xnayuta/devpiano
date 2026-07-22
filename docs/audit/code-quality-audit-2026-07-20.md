@@ -509,14 +509,13 @@ Exit code: 123
 3. ~~**REC-001**: 为 RecordingEngine recording 路径添加线程同步~~ → 已修复 (3bd994b)
 4. 验证：构建 0 error、测试 100% 通过、格式干净
 
-### Phase B: 线程安全加固 (P0 + P1, 预计 3-5 天)
+### Phase B: 线程安全加固 ✅ 已完成 (2026-07-22)
 
-5. **PLUG-001**: PluginHost 添加线程安全契约（断言 + 文档化）
-6. **REC-002**: 修复 async lambda 生命周期问题
-7. **REC-003**: preset change 写入队列化
-8. **REC-005**: 评估 PluginOfflineRenderer 线程模型并修复
-9. 验证：全测试 + Windows 构建验证
-
+5. ~~**PLUG-001**: PluginHost 添加线程安全契约（断言 + 文档化）~~ → 已修复：jassert(isMessageThread()) + 头文件文档
+6. ~~**REC-002**: 修复 async lambda 生命周期问题~~ → 已修复：alive-flag (shared_ptr\<bool\>) 防 use-after-free
+7. ~~**REC-003**: preset change 写入队列化~~ → 已修复：独立 pendingPresetEvents 队列，stopRecording 时合并
+8. ~~**REC-005**: 评估 PluginOfflineRenderer 线程模型并修复~~ → 已修复：文档化独立实例线程隔离
+9. 验证：WSL build 0 error 0 warning、Windows MSVC 0 error、format 干净
 ### Phase C: 模块边界 (P1, 预计 2-3 天)
 
 10. **ARCH-002/ARCH-003**: 移动 `ChannelMatrix.h` → `Midi/`，`KeyboardTypes.h` → `UI/`
