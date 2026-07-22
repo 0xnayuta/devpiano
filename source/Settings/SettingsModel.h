@@ -2,8 +2,8 @@
 
 #include <JuceHeader.h>
 
-#include "Core/ChannelMatrix.h"
-#include "Core/KeyboardTypes.h"
+#include "../Midi/ChannelMatrix.h"
+#include "../UI/KeyboardTypes.h"
 
 // Persisted settings model.
 //

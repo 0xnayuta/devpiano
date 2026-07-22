@@ -6,9 +6,9 @@
 #include <optional>
 #include <vector>
 
-#include "Core/ChannelMatrix.h"
+#include "../Midi/ChannelMatrix.h"
+#include "../UI/KeyboardTypes.h"
 #include "Core/KeyMapTypes.h"
-#include "Core/KeyboardTypes.h"
 
 namespace devpiano::layout {
 

@@ -2,7 +2,7 @@
 
 #include <JuceHeader.h>
 
-#include "Core/ChannelMatrix.h"
+#include "../Midi/ChannelMatrix.h"
 #include "Core/KeyMapTypes.h"
 
 namespace devpiano::core {

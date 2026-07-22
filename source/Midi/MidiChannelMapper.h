@@ -2,7 +2,7 @@
 
 #include <JuceHeader.h>
 
-#include "Core/ChannelMatrix.h"
+#include "ChannelMatrix.h"
 
 namespace devpiano::midi {
 
