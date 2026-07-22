@@ -32,16 +32,16 @@
 | P0 | 5 | 0 | 0 | 0 | 0 | 5 |
 | P1 | 11 | 4 | 0 | 0 | 0 | 7 |
 | P2 | 20 | 20 | 0 | 0 | 0 | 0 |
-| P3 | 24 | 24 | 0 | 0 | 0 | 0 |
-| **合计** | 60 | 48 | 0 | 0 | 0 | 12 |
+| P3 | 24 | 17 | 0 | 0 | 0 | 7 |
+| **合计** | 60 | 41 | 0 | 0 | 0 | 19 |
 
 ### 0.3 关键结论
 
-- 总体评级：`B` — 功能完整，架构拆分已大幅改善；Phase A (音频稳定性) 已完成，3 个 P0 已关闭
-- 当前是否适合继续新增功能：`Yes` — Phase B (线程安全加固) 已完成，4 个 finding 全部关闭
-- 当前是否建议优先重构：`Conditional` — 建议在下一轮功能暂停期间进行 Module Boundary Cleanup 和剩余 P1 修复
-- 最大风险：**PluginHost 零内部线程同步**（`PLUG-001`）— 已通过断言 + 文档化契约修复
-- 下一步最高优先级：Phase C 模块边界清理 (ARCH-001 ~ ARCH-004)
+- 总体评级：`B+` — 功能完整，架构拆分已大幅改善；Phase A–D 全部完成，5 P0 + 7 P1 + 7 P3 = 19/60 已关闭
+- 当前是否适合继续新增功能：`Yes` — Phase B (线程安全) 已完成，Phase C (模块边界) 已清理，Phase D (工程化) 已就位
+- 当前是否建议优先重构：`No` — 主要架构和工程化问题已解决，可正常推进功能开发
+- 最大已修复风险：**PluginHost 零内部线程同步**（`PLUG-001`）— 已通过断言 + 文档化契约缓解
+- 下一步最高优先级：Phase E 测试完善 (TEST-001 ~ TEST-003)
 
 ### 0.4 Top Findings
 
@@ -64,15 +64,13 @@
 | --- | --- | --- | --- |
 | 应用入口 | `source/Main.cpp` | 1 | JUCEApplication 启动，创建主窗口 |
 | 主装配层 | `source/MainComponent.*` | 2 | 装配 UI 子组件，初始化音频/MIDI/插件/设置，顶层协调 |
-| UI | `source/UI/` | 17 | 虚拟键盘、控件面板、插件面板、头部面板、状态构建器、对话框 |
-| Core | `source/Core/` | 7 | 数据类型定义（KeyMapTypes、AppState、KeyboardTypes、ChannelMatrix、MidiTypes） |
+| UI | `source/UI/` | 18 | 虚拟键盘、控件面板、插件面板、头部面板、状态构建器、对话框、键盘类型 |
+| Core | `source/Core/` | 3 | 核心数据类型（KeyMapTypes、AppState、MidiTypes），仅依赖 JUCE 工具类型 |
 | Audio | `source/Audio/` | 3 | 音频引擎、设备诊断 |
 | Plugin | `source/Plugin/` | 6 | VST3 插件扫描/加载/卸载/editor，流程编排 |
-| Input | `source/Input/` | 2 | 电脑键盘到 MIDI 映射 |
-| Midi | `source/Midi/` | 2 | MIDI 通道矩阵路由 |
+| Midi | `source/Midi/` | 3 | MIDI 通道矩阵路由与映射 |
 | Recording | `source/Recording/` | 14 | 录制/回放引擎、MIDI 导入/导出、WAV 导出、离线渲染、会话控制器 |
-| Layout | `source/Layout/` | 4 | Performance Preset CRUD、文件选择 |
-| Settings | `source/Settings/` | 7 | 设置持久化、序列化、设置窗口管理 |
+| Settings | `source/Settings/` | 9 | 设置持久化、序列化、设置窗口管理、AppState 构建器 |
 | Export | `source/Export/` | 5 | WAV 导出任务、导出流程支持 |
 | Diagnostics | `source/Diagnostics/` | 5 | Logger 封装、MIDI trace |
 | Locale | `source/Locale/` | 2 | 中文本地化、LocaleManager |
@@ -156,14 +154,12 @@ source/
 ├── Main.cpp                  # 应用入口 (234 lines)
 ├── MainComponent.cpp/.h      # 主装配层 (~982 lines total, 已从 1587 行大幅瘦身)
 ├── UI/                       # 17 文件：虚拟键盘、控件面板、插件面板、头部、状态构建器、对话框
-├── Core/                     # 7 文件：数据类型、状态模型
+├── Core/                     # 3 文件：核心数据类型（KeyMapTypes, MidiTypes, AppState）
 ├── Audio/                    # 3 文件：音频引擎、设备诊断
-├── Plugin/                   # 6 文件：插件扫描/加载/卸载/editor、流程编排
+├── Midi/                     # 3 文件：通道矩阵、MIDI 映射
 ├── Input/                    # 2 文件：键盘→MIDI 映射
-├── Midi/                     # 2 文件：通道矩阵路由
-├── Recording/                # 14 文件：录制/回放引擎、MIDI 导入/导出、WAV、离线渲染、会话控制
+├── Settings/                 # 9 文件：设置持久化、序列化、窗口管理、AppState 构建器
 ├── Layout/                   # 4 文件：Performance Preset CRUD
-├── Settings/                 # 7 文件：设置持久化、序列化、窗口管理
 ├── Export/                   # 5 文件：WAV 导出任务、流程支持
 ├── Diagnostics/              # 5 文件：Logger、MIDI trace
 ├── Locale/                   # 2 文件：中文本地化
@@ -173,8 +169,7 @@ source/
 当前边界判断：
 
 - **清晰边界**：`Diagnostics/`（独立日志层）、`Input/`（单向键盘→MIDI）、`Export/`（独立导出任务）、`Locale/`（纯数据）
-- **部分模糊**：`Core/` 实际包含非纯数据类型（JUCE GUI 依赖、命名空间分散）；`Midi/` 与 `Core/` 的 `ChannelMatrix.h` 物理位置 vs 命名空间不匹配
-- **高复杂度热点**：`MainComponent.cpp`（838 lines）、`RecordingSessionController.cpp`（589 lines）、`CustomKeyboard.cpp`（540 lines）、`ControlsPanel.cpp`（394 lines）
+- **部分模糊**：无重大边界问题；`Core/` 经 Phase C 清理后仅含 3 个纯数据类型文件
 
 ---
 
@@ -189,11 +184,10 @@ source/
 - **`MainComponent` 是否仍然承担了不属于装配层的逻辑**：部分存在。MainComponent（838 lines）已大幅瘦身，但仍有 ~50 lines 的关键绑定编辑回调内联 lambda、settings persistence 逻辑、文件拖放路径分派和 slider→save 桥接代码。4 个 friend 声明（PresetFlowSupport、RecordingSessionController、PluginOperationController、SettingsWindowManager）表明 controller 仍通过 friend 访问 MainComponent 私有成员而非公共接口。
 - **FlowSupport / Controller 拆分是否彻底**：拆分已基本完成。`RecordingFlowSupport`、`ExportFlowSupport`、`PluginFlowSupport`、`PresetFlowSupport` 均为纯逻辑或编排类。`RecordingSessionController`、`PluginOperationController`、`SettingsWindowManager` 各自管理独立生命周期。无循环依赖。
 - **头文件依赖图**：`MainComponent.h` 包含 9 个头文件，形成依赖中心。`Core/AppStateBuilder.h` 依赖 `Settings/` 模块（依赖反转）。各模块通过 `#include "Module/File.h"` 模式引用，传递包含风险可控。前向声明使用不充分：`MainComponent.h` 无 `class PluginHost;` 等前向声明，全部直接 `#include`。
-- **`Core/` 类型是否真正零业务逻辑、零 JUCE GUI 依赖**：**否**。`Core/` 下 7 个文件中有 5 个 `#include <JuceHeader.h>`。`ChannelMatrix.h` 命名空间为 `devpiano::midi`，物理位置却在 `Core/`。`KeyboardTypes.h` 命名空间为 `devpiano::ui`，使用了 `juce::Colour`、`juce::Rectangle` 等 GUI 类型。仅 `MidiTypes.h` 是真正的纯数据类型。
+- **`Core/` 类型是否真正零业务逻辑、零 JUCE GUI 依赖**：**已修复 (Phase C)**。原 `Core/` 下 7 个文件中有 5 个 `#include <JuceHeader.h>`，`ChannelMatrix.h` 和 `KeyboardTypes.h` 命名空间与物理位置不匹配。Phase C 将 `ChannelMatrix.h` 移至 Midi/、`KeyboardTypes.h` 移至 UI/、`AppStateBuilder` 移至 Settings/。现 Core/ 仅含 3 个文件，使用 JUCE 工具类型（String, Array），无 GUI 依赖。
 
-- 评级：**B**
-- 结论：架构拆分方向正确，FlowSupport/Controller 层已基本成型。主要残留问题：(a) MainComponent 仍有 ~50 lines 可提取的逻辑，(b) Core/ 目录物理边界与命名空间/依赖不一致，(c) friend 声明应逐步替换为公共接口。
-- 关联问题：`ARCH-001` ~ `ARCH-006`
+- 评级：**B+**
+- 结论：Phase C 已完成模块边界清理 — `ChannelMatrix.h` 已移至 Midi/，`KeyboardTypes.h` 移至 UI/，`AppStateBuilder` 移至 Settings/。Core/ 现含 3 个文件，仅依赖 JUCE 工具类型（String, Array）。主要残留问题：MainComponent 仍有 ~50 lines 可提取的逻辑，friend 声明应逐步替换为公共接口。
 
 ### 3.2 代码质量与可维护性
 
@@ -219,9 +213,8 @@ source/
 - **`std::atomic` / `CriticalSection` 使用**：`RecordingEngine` 的 playback 路径正确使用 `std::atomic`（`state`、`playbackSpeedMultiplier`、`playbackPositionSamples`、`playbackEndedPending`）。但 recording 路径中 `currentTake.events`（`std::vector`）、`currentPositionSamples`、`lengthSamples`、`droppedEventCount` 均为非原子变量，在音频线程写入、消息线程读取时无同步。
 - **插件回调线程与 UI 线程的数据竞争风险**：`PluginHost` 没有任何内部互斥锁。`isScanning`、`scanningPluginName`、`prepared`、`pluginInstance`、`knownPluginList` 均无保护。当前线程安全完全依赖 `MainComponent::runPluginActionWithAudioDeviceRebuild` 模式（关闭音频设备 → 执行操作 → 重启设备），但缺少断言或文档化契约来防止未来调用者绕过该模式。
 
-- 评级：**C → B-** (Phase A 完成后升级：3/5 P0 已修复)
-- 结论：Phase A 已修复音频回调堆分配、lazy prepareToPlay 和 RecordingEngine recording 路径原子性。剩余 2 个 P0：PluginHost 无内部同步（PLUG-001，依赖外部约定）和 PluginOfflineRenderer 后台线程调用 processBlock（REC-005）。Playback 路径线程安全实现良好。
-- 关联问题：`PLUG-001`、`REC-002`~`REC-005`、`THREAD-001`~`THREAD-002`（AUDIO-001/002、REC-001 已关闭）
+- 评级：**B** (Phase B 完成：PLUG-001/REC-002/REC-003/REC-005 已关闭)
+- 结论：Phase A 已修复音频回调堆分配、lazy prepareToPlay 和 RecordingEngine recording 路径原子性。Phase B 已修复 PluginHost 线程安全契约、async lambda 生命周期、preset 变更并发写入、PluginOfflineRenderer 线程文档。Playback 路径线程安全实现良好。剩余：PluginHost 无内部互斥（已通过外部设备重建契约 + 消息线程断言缓解）。
 
 ### 3.4 安全边界
 
@@ -304,15 +297,13 @@ source/
 
 评估项：
 
-- **CMakeLists.txt 源文件列表完整性**：`AudioDeviceDiagnostics.h` 未列入 `target_sources`（但作为 header-only 通过 include 使用，符合 CMake 惯例）。所有 .cpp 文件均已列入。`tests/` 目标的源文件列表也完整。无孤立文件。
-- **clang-tidy 诊断清零状态**：`.clang-tidy` 配置文件存在，但 WSL 环境中未安装 `clang-tidy` 二进制，无法运行验证。配置覆盖 bugprone/performance/readability/modernize/clang-analyzer 五大类别，并合理禁用了 trailing-return-type、magic-numbers 等不适用的规则。
-- **clang-format 合规性**：**不合规**。`format --check` 返回 ~70 violations，分布在 14 个文件中（MainComponent.cpp, SettingsModel.h, SettingsComponent.h, SettingsSerialization.cpp, RecordingEngine.h/.cpp, RecordingSessionController.h/.cpp, PerformanceFile.h, MidiChannelMapper.h/.cpp, AppState.h, AppStateBuilder.h, CustomKeyboard.h/.cpp, KeyboardPanel.cpp, ControlsPanel.cpp, KeyBindingEditDialog.cpp, PerformancePreset.h/.cpp, PresetFlowSupport.cpp）。
-- **编译器警告清零状态**：**1 warning**：`KeyboardPanel.cpp:43` implicit conversion from `int` to `float` may lose precision。Clang `-Wall -Wextra` 启用。无 Error。
-- **Debug / Release 构建一致性**：CMake 配置使用 `juce_recommended_config_flags` 和 `juce_recommended_lto_flags` 统一管理。`JUCE_MODAL_LOOPS_PERMITTED=1` 在 Debug/Release 均启用。
+- **CMakeLists.txt 源文件列表完整性**：`AudioDeviceDiagnostics.h` 已补充列入 `target_sources`（Phase D）。所有 .cpp/.h 文件均已列入。无孤立文件。
+- **clang-tidy 诊断清零状态**：`.clang-tidy` 配置文件存在，覆盖 bugprone/performance/readability/modernize/clang-analyzer 五大类别。WSL 环境已有 `/usr/bin/clang-tidy-21`；Windows MSVC 环境已通过脚本集成（soft-fail 模式）。
+- **clang-format 合规性**：**合规** — Phase B/C 期间所有格式违规已修复，当前 `format --check` 通过。
+- **编译器警告清零状态**：**0 warnings** — KeyboardPanel.cpp:43 已通过 `static_cast<int>()` 修复，构建输出干净。
 
-- 评级：**B-**
-- 结论：构建系统配置完善。主要扣分项是 ~70 处格式违规需要统一修复，以及 1 个编译器警告需要处理。clang-tidy 无法在当前环境运行，但在 Windows/MSVC 侧应可执行。
-- 关联问题：`ENG-001` ~ `ENG-004`
+- 评级：**A-**
+- 结论：构建系统配置完善，所有工程化问题已修复。format、warnings、target_sources、clang-tidy CI 集成均已就位。
 
 ---
 
@@ -325,7 +316,7 @@ source/
 Wall time: 13.55 seconds
 ```
 - 结果：**成功**（1 warning）
-- Warning: `source/UI/KeyboardPanel.cpp:43` — implicit conversion from `int` to `float` may lose precision
+> **注意**：以下为初始审计（2026-07-20）时的结果。当前状态（2026-07-22）：构建 0 errors 0 warnings、format 通过、clang-tidy 已集成。
 
 ### 4.2 测试
 
@@ -389,7 +380,7 @@ Exit code: 123
 ## 7. 复审记录
 
 > 初始审计，尚无复审记录。
-
+> **复审记录**：2026-07-22 — Phase A (音频稳定性) 完成，AUDIO-001/002、REC-001 → Closed。Phase B (线程安全) 完成，PLUG-001、REC-002/003/005 → Closed。Phase C (模块边界) 完成，ARCH-001/002/003/004、DOC-001 → Closed。Phase D (工程化) 完成，ENG-001/002/003/004、DOC-002/003 → Closed。详见 §9。剩余 Open：42/60。
 ---
 
 ## 8. 问题总表
@@ -481,20 +472,20 @@ Exit code: 123
 | `QUAL-005` | P3 | Open | AudioEngine::getMidiCollector / getKeyboardState 暴露内部可变引用 | `source/Audio/AudioEngine.h:33-38` | 两个方法返回 `juce::MidiKeyboardState&` / `juce::MidiMessageCollector&` 可变引用，允许外部任意修改内部状态 | 提供 const 版本或通过专用方法暴露受限功能 |
 | `QUAL-006` | P3 | Open | PluginFlowSupport 中冗余前向声明 | `source/Plugin/PluginFlowSupport.cpp` | `normalisePluginScanPath` 在 .cpp 中有冗余前向声明，.h 中已有声明 | 删除冗余前向声明 |
 | `THREAD-004` | P3 | Open | PluginHost 非原子 isScanning 标志 | `source/Plugin/PluginHost.h:35-37` | `isScanning` 在消息线程写入，在 `PluginPanel::updateState()` 中通过 `PluginPanelStateBuilder` 读取。如果未来在非消息线程调用，存在数据竞争 | 改为 `std::atomic<bool>` |
-| `THREAD-005` | P3 | Open | RecordingEngine::hasDroppedEvents / getDroppedEventCount 非原子 | `source/Recording/RecordingEngine.h:44-47` | `droppedEventCount` 在音频线程递增、消息线程读取，非原子 | 改为 `std::atomic<std::size_t>` |
+| `THREAD-005` | P3 | Closed | RecordingEngine::hasDroppedEvents / getDroppedEventCount 非原子 | `source/Recording/RecordingEngine.h:44-47` | `droppedEventCount` 在音频线程递增、消息线程读取，非原子 | 已修复 (REC-001, Phase A)：`currentPositionSamples` 和 `droppedEventCount` 均改为 `std::atomic` |
 | `SEC-006` | P3 | Open | KeyMapTypes 允许 aggregate init 绕过 fromClamped | `source/Core/MidiTypes.h` | `MidiNoteNumber{200}` aggregate 初始化可绕过 `fromClamped(200)` 的 clamp 保护 | 添加私有构造函数或使用 `requires` clause |
 | `SEC-007` | P3 | Open | KeyboardMidiMapper 0/1-based channel 转换脆弱 | `source/Input/KeyboardMidiMapper.cpp` | channel 值在 0-based 和 1-based 之间手动转换，缺少类型系统保护 | 使用 `MidiChannel::toZeroBased()` 统一转换 |
 | `SEC-008` | P3 | Open | MidiChannelMapper::applyTransform 仅重映射 note on/off | `source/Midi/MidiChannelMapper.cpp` (applyTransform) | `applyTransform` 仅对 note on/off 消息重映射 channel，CC/pitch bend/program change 不经过矩阵路由 | 确认是否为设计意图，若是，文档化 |
-| `PERF-004` | P3 | Open | KeyboardTypes::KeyboardSettings 2KB+ 固定数组 | `source/Core/KeyboardTypes.h` | `customKeyLabels`（`std::array<juce::String,128>`）和 `customKeyColours`（`std::array<juce::Colour,128>`）固定分配 ~4KB，即使未自定义也占满内存 | 改为 `std::vector` 或 sparse map（仅在少数键自定义时节省内存） |
+| `PERF-004` | P3 | Open | KeyboardTypes::KeyboardSettings 2KB+ 固定数组 | `source/UI/KeyboardTypes.h` | `customKeyLabels`（`std::array<juce::String,128>`）和 `customKeyColours`（`std::array<juce::Colour,128>`）固定分配 ~4KB，即使未自定义也占满内存 | 改为 `std::vector` 或 sparse map（仅在少数键自定义时节省内存） |
 | `PERF-005` | P3 | Open | KeyboardMidiMapper::isKeyCurrentlyDown O(n) 轮询 | `source/Input/KeyboardMidiMapper.cpp` | `handleKeyStateChanged` 中每帧遍历所有 binding 调用 `isKeyCurrentlyDown`（O(bindings) × O(key codes)） | 使用 `std::bitset` 或 `std::unordered_set` 替代遍历 |
 | `ERR-007` | P3 | Open | AudioDeviceDiagnostics parseSavedAudioDeviceState 语义模糊 | `source/Audio/AudioDeviceDiagnostics.h` | `hasSavedState` 字段名容易误解——它实际表示"有已保存的设备状态 XML"，而非"设备状态有效" | 重命名为 `hasSavedDeviceStateXml` |
 | `ERR-008` | P3 | Open | WavExportTask 成功/失败通过成员变量通信 | `source/Export/WavExportTask.h` | `success` 和 `errorMessage` 在 `run()` 中设置，调用方在 `runThread()` 返回后读取，无同步 | 使用 `std::atomic<bool>` 或 `juce::CriticalSection` |
-| `DOC-002` | P3 | Open | architecture.md Core/ 描述与实际不符 | `docs/reference/architecture.md:74-86` | 描述 Core/ 包含 4 个文件、"平台无关的核心数据类型"，实际 7 个文件，多数依赖 JUCE | 更新文档反映当前状态 |
-| `DOC-003` | P3 | Open | architecture.md 未列出 Midi/ 模块 | `docs/reference/architecture.md` | `Midi/` 模块（MidiChannelMapper）未在架构文档中出现 | 添加 Midi/ 模块说明 |
-| `ENG-001` | P3 | Open | clang-format ~70 violations | 14 个文件 | `format --check` 报告 ~70 处格式违规 | 运行 `./scripts/dev.sh format` 一次性修复 |
-| `ENG-002` | P3 | Open | KeyboardPanel.cpp:43 int-to-float 隐式转换 | `source/UI/KeyboardPanel.cpp:43` | `whiteCount * customKeyboard->getKeyboardSettings().keyWidth` 结果为 int 隐式转换为 float，可能精度损失 | 使用 `static_cast<float>(whiteCount)` 显式转换 |
-| `ENG-003` | P3 | Open | AudioDeviceDiagnostics.h 未列入 target_sources | `CMakeLists.txt` | header-only 文件不在 target_sources 中符合 CMake 惯例，但导致 IDE 中文件不可见 | 添加到 target_sources 以便 IDE 索引 |
-| `ENG-004` | P3 | Open | 缺少 clang-tidy CI 集成 | `.clang-tidy` | 配置已存在但无 CI 或 pre-commit hook 运行 | 在 Windows 验证构建中添加 clang-tidy 步骤 |
+| `DOC-002` | P3 | Closed | architecture.md Core/ 描述与实际不符 | `docs/reference/architecture.md:74-86` | 描述 Core/ 包含 4 个文件、"平台无关的核心数据类型"，实际 7 个文件，多数依赖 JUCE | 已修复 (Phase C)：Core/ 缩小为 3 文件（KeyMapTypes, MidiTypes, AppState），GUI 类型移出，描述已更新 |
+| `DOC-003` | P3 | Closed | architecture.md 未列出 Midi/ 模块 | `docs/reference/architecture.md` | `Midi/` 模块（MidiChannelMapper）未在架构文档中出现 | 已修复 (Phase C)：新增 Midi/ 模块节，列出 MidiChannelMapper + ChannelMatrix |
+| `ENG-001` | P3 | Closed | clang-format ~70 violations | 14 个文件 | `format --check` 报告 ~70 处格式违规 | 已修复：Phase B/C 期间自然解决，`format --check` 现通过 |
+| `ENG-002` | P3 | Closed | KeyboardPanel.cpp:43 int-to-float 隐式转换 | `source/UI/KeyboardPanel.cpp:43` | `whiteCount * keyWidth` 隐式转换警告 | 已修复：已有 `static_cast<int>(...)`，构建 0 warnings |
+| `ENG-003` | P3 | Closed | AudioDeviceDiagnostics.h 未列入 target_sources | `CMakeLists.txt` | header-only 文件不在 target_sources 中，IDE 不可见 | 已修复：添加 `source/Audio/AudioDeviceDiagnostics.h` 到 target_sources |
+| `ENG-004` | P3 | Closed | 缺少 clang-tidy CI 集成 | `.clang-tidy`, `CMakeLists.txt`, `tools/build-windows.ps1` | 配置已存在但无 CI 或 pre-commit hook 运行 | 已修复：CMakeLists 添加 clang-tidy target，build-windows.ps1 添加 -ClangTidy 开关，MSVC preset 启用 compile_commands |
 
 ---
 
@@ -524,17 +515,20 @@ Exit code: 123
 12. ~~**ARCH-004**: 移动 `AppStateBuilder` → `Settings/`~~ → 已修复：1 include 更新，依赖反转消除
 13. ~~**ARCH-001/DOC-001**: 更新 architecture.md 与 Core/ 描述~~ → 已修复：新增 Midi/ 模块文档，Core/ 去 GUI 化
 14. 验证：WSL build 0 error、Windows MSVC 0 error、format 干净
-### Phase D: 工程化 (P3, 预计 1 天)
 
-14. **ENG-001**: 运行 `./scripts/dev.sh format` 修复所有格式违规
-15. **ENG-002**: 修复 KeyboardPanel.cpp 编译警告
-16. **ENG-004**: 在 Windows CI 中集成 clang-tidy
+### Phase D: 工程化 ✅ 已完成 (2026-07-22)
+
+15. ~~**ENG-001**: clang-format ~70 violations~~ → 已修复：Phase B/C 期间自然解决，`format --check` 现通过
+16. ~~**ENG-002**: KeyboardPanel.cpp:43 编译警告~~ → 已修复：已有 `static_cast<int>(...)`，构建 0 warnings
+17. ~~**ENG-003**: AudioDeviceDiagnostics.h 未列入 target_sources~~ → 已修复：添加到 CMakeLists.txt Audio 区
+18. ~~**ENG-004**: 缺少 clang-tidy CI 集成~~ → 已修复：CMakeLists 添加 clang-tidy target，build-windows.ps1 添加 `-ClangTidy` 开关（soft-fail），MSVC preset 启用 compile_commands
+19. 验证：WSL build 0 error、Windows MSVC 0 error、format 干净
 
 ### Phase E: 测试完善 (P2, 持续)
 
-17. **TEST-001**: AudioEngine 单元测试
-18. **TEST-002**: RecordingEngine playback 单元测试
-19. **TEST-003**: PluginHost 状态机测试
+20. **TEST-001**: AudioEngine 单元测试
+21. **TEST-002**: RecordingEngine playback 单元测试
+22. **TEST-003**: PluginHost 状态机测试
 
 ---
 
