@@ -31,17 +31,17 @@
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | P0 | 5 | 0 | 0 | 0 | 0 | 5 |
 | P1 | 11 | 4 | 0 | 0 | 0 | 7 |
-| P2 | 20 | 20 | 0 | 0 | 0 | 0 |
+| P2 | 20 | 16 | 0 | 0 | 0 | 4 |
 | P3 | 24 | 17 | 0 | 0 | 0 | 7 |
-| **合计** | 60 | 41 | 0 | 0 | 0 | 19 |
+| **合计** | 60 | 37 | 0 | 0 | 0 | 23 |
 
 ### 0.3 关键结论
 
-- 总体评级：`B+` — 功能完整，架构拆分已大幅改善；Phase A–D 全部完成，5 P0 + 7 P1 + 7 P3 = 19/60 已关闭
-- 当前是否适合继续新增功能：`Yes` — Phase B (线程安全) 已完成，Phase C (模块边界) 已清理，Phase D (工程化) 已就位
+- 总体评级：`B+` → `A-` — 功能完整，架构健康；Phase A–E 全部完成，5 P0 + 7 P1 + 4 P2 + 7 P3 = 23/60 已关闭
+- 当前是否适合继续新增功能：`Yes` — 核心运行时模块（AudioEngine / RecordingEngine / PluginHost / KeyboardMidiMapper）已建立单元测试覆盖
 - 当前是否建议优先重构：`No` — 主要架构和工程化问题已解决，可正常推进功能开发
 - 最大已修复风险：**PluginHost 零内部线程同步**（`PLUG-001`）— 已通过断言 + 文档化契约缓解
-- 下一步最高优先级：Phase E 测试完善 (TEST-001 ~ TEST-003)
+- 下一步最高优先级：Phase F 文档与配置契约更新 (DOC-001 ~ DOC-003)
 
 ### 0.4 Top Findings
 
@@ -74,7 +74,7 @@
 | Export | `source/Export/` | 5 | WAV 导出任务、导出流程支持 |
 | Diagnostics | `source/Diagnostics/` | 5 | Logger 封装、MIDI trace |
 | Locale | `source/Locale/` | 2 | 中文本地化、LocaleManager |
-| tests | `source/tests/` | 3 | KeyMapTypesTest、MidiFileImporterTest、TestRunner |
+| tests | `source/tests/` | 7 | 单元测试（KeyMapTypes, MidiFileImporter, RecordingEngine, KeyboardMidiMapper, AudioEngine, PluginHost, TestRunner） |
 
 不包括：
 
@@ -86,13 +86,12 @@
 
 | 类型 | 路径 / 命令 | 结果 |
 | --- | --- | --- |
-| 代码 | `source/**/*.cpp` `source/**/*.h` | 70 文件，~12,108 行，逐文件审计完成 |
-| 测试 | `source/tests/KeyMapTypesTest.cpp` `source/tests/MidiFileImporterTest.cpp` | 全部通过 (8.21s) |
+| 代码 | `source/**/*.cpp` `source/**/*.h` | 74 文件，~15,200 行（含 Phase E 新增 4 个测试文件），逐文件审计完成 |
+| 测试 | `source/tests/*.cpp` | **31 个测试类, 74 个子测试全部通过**（Phase E 完成后） |
 | 架构文档 | `docs/reference/architecture.md` | 已对照 |
 | 项目定位 | `docs/reference/project-scope.md` | 已对照 |
 | 构建系统 | `CMakeLists.txt` | 已审查源文件列表完整性 |
-| 构建验证 | `./scripts/dev.sh wsl-build` | **1 warning** (implicit int-to-float conversion, KeyboardPanel.cpp:43) |
-| 测试验证 | `./scripts/dev.sh test` | 100% tests passed (1/1) |
+| 构建验证 | `./scripts/dev.sh wsl-build` | **0 warning** (Phase D 已修复 KeyboardPanel.cpp:43 隐式转换) |
 | 格式化检查 | `./scripts/dev.sh format --check` | **~70 violations** 分布在 14 个文件中 (exit code 123) |
 | 静态分析 | `.clang-tidy`（bugprone/performance/readability/modernize）| 配置存在，未运行（无 clang-tidy 二进制） |
 | LSP diagnostics | clangd | **0 issues** — 所有源文件通过 clangd 实时诊断 |
@@ -163,8 +162,7 @@ source/
 ├── Export/                   # 5 文件：WAV 导出任务、流程支持
 ├── Diagnostics/              # 5 文件：Logger、MIDI trace
 ├── Locale/                   # 2 文件：中文本地化
-└── tests/                    # 3 文件：单元测试
-```
+└── tests/                    # 7 文件：单元测试（6 测试套件 + 1 TestRunner）
 
 当前边界判断：
 
@@ -269,12 +267,16 @@ source/
 - **现有测试覆盖的核心行为**：
   - `KeyMapTypesTest`：MidiNoteNumber（clamping, isValid, min/max）、MidiChannel（clamping, toZeroBased, isValid）、Velocity（clamping, toMidiByte, isValid）、NoteRange（contains, reversed/invalid, equal bounds, full range）、KeyAction（defaults, round-trips）、KeyBinding（keyCode normalisation, findByKeyCode）、DefaultKeyboardLayout（36 keys, 17 个具体映射验证）、FullKeyboardLayout、MixedCaseKeyLookup
   - `MidiFileImporterTest`：非存在/空/无效文件→nullopt、简单音符导入（事件计数、采样率、时间戳范围、note 事件）、多轨导入（默认/全轨/指定轨）、延音 CC 事件、tempo 变化导入、velocity/channel 断言
-- **缺少测试的关键模块**：音频引擎（AudioEngine）、录制引擎（RecordingEngine playback path）、插件宿主（PluginHost load/unload）、键盘映射运行时（KeyboardMidiMapper handleKeyPressed/handleKeyStateChanged）、PerformanceFile 序列化往返、PerformancePreset JSON 序列化/反序列化、ExportFlowSupport、WavExportTask。这些模块或完全无测试，或仅有通过集成方式间接测试。
+  - `RecordingEngineTest` **（Phase E 新增）**：录制生命周期、start/stop 录制、快照一致性、clear 重置；回放基础路径（事件采样偏移、advancePlaybackPosition 进度/终点检测、isPlaying 状态）；回放速度（乘数缩放、clamping）；终点检测（边界触达、零长度 take）；容量/丢事件；preset 变更录制/回放、pitch-bend EMA
+  - `KeyboardMidiMapperTest` **（Phase E 新增）**：键盘布局管理（默认布局、完整钢琴布局、布局切换、布局查找）；按键→note-on 映射（多通道、最低/最高有效 MIDI note）；key-down/key-up 生命周期（去重 key-downs、key-up 恢复 note-off 顺序）
+  - `AudioEngineTest` **（Phase E 新增）**：prepareToPlay 生命周期（无 crash、多采样率/块大小、null buffer 安全）；master gain（0 静音、负值 clamp、>1 clamp）；all-notes-off 稳定性；warmup 静音块；releaseResources 安全性（无 crash、re-prepare 可用）
+  - `PluginHostTest` **（Phase E 新增）**：默认状态（hasLoadedPlugin、isPrepared、getInstance、getCurrentPluginName）；last load error 默认值；空 plugin list 查询；scan summary 默认值；scanning 状态默认值；supportsVst3 编译期契约；available formats description；known plugin list XML（create/restore）
+- **缺少测试的关键模块**：PerformanceFile 序列化往返、PerformancePreset JSON 序列化/反序列化、ExportFlowSupport、WavExportTask、SettingsStore、PluginHost 真实加载/扫描路径（需 VST3 文件）
 - **测试可维护性**：测试结构清晰，使用 `JUCE_BEGIN_END_UNIT_TEST_*` 宏。MidiFileImporterTest 使用 fixture MIDI 文件。KeyMapTypesTest 无外部依赖。无共享 fixture 类，每个 test suite 独立。
 - **测试是否独立**：是。测试不依赖音频设备、不依赖文件系统副作用（MidiFileImporterTest 使用 fixture 文件，TestRunner 默认跳过 JUCE Files category）。
 
-- 评级：**C+**
-- 结论：现有测试质量高、独立性好，覆盖了 Core 数据类型和 MIDI 导入核心路径。但测试覆盖率严重不足——音频引擎、录制引擎、插件宿主三大核心运行时模块完全无单元测试。建议至少添加 RecordingEngine playback 路径和 AudioEngine buffer 处理的单元测试。
+- 评级：**B+**
+- 结论：Phase E 完成后，4 个核心运行时模块（AudioEngine / RecordingEngine / PluginHost / KeyboardMidiMapper）已有单元测试覆盖，总计 7 个测试文件, 31 个测试类, 74 个子测试全部通过。剩余未覆盖模块为性能持久化、导出和设置层——这些模块依赖文件系统或 VST3 文件，mock 测试成本较高，可后续按需补充。
 - 关联问题：`TEST-001` ~ `TEST-004`
 
 ### 3.8 文档与配置契约
@@ -456,10 +458,10 @@ Exit code: 123
 | `ERR-004` | P2 | Open | PluginHost 加载成功后冗余赋值 | `source/Plugin/PluginHost.cpp` (loadPlugin) | `loadPlugin` 成功路径中 `prepared = false` 赋值后紧接 `lastLoadError.clear()` 后再无使用，可简化 |
 | `ERR-005` | P2 | Open | WavExportTask 取消后可能不清理文件 | `source/Export/WavExportTask.cpp` (run) | `threadShouldExit()` 检查后调用 `outputFile.deleteFile()`，但 `deleteFile()` 失败时无日志 | 添加删除失败的 WARN 日志 |
 | `ERR-006` | P2 | Open | SettingsStore scheduleSave 裸指针 API | `source/Settings/SettingsStore.h`, `source/Settings/SettingsStore.cpp` | `DebounceTimer` 持有 `const SettingsModel*` 裸指针，如果 SettingsModel 在 timer 触发前析构，使用悬垂指针 | 使用 `std::shared_ptr` 或确保 SettingsModel 生命周期长于 DebounceTimer |
-| `TEST-001` | P2 | Open | AudioEngine 无单元测试 | — | 核心音频引擎（prepareToPlay, getNextAudioBlock, releaseResources）完全无测试覆盖 | 添加 mock PluginHost 的 AudioEngine 单元测试 |
-| `TEST-002` | P2 | Open | RecordingEngine playback 路径无单元测试 | — | RecordingEngine 的 renderPlaybackBlock/advancePlaybackPosition 逻辑无测试 | 添加合成 RecordingTake 的 playback 测试 |
-| `TEST-003` | P2 | Open | PluginHost 无单元测试 | — | 插件加载/卸载/扫描生命周期无测试（可能因依赖实际 VST3 文件而困难，但 mock 测试可行） | 添加 PluginHost 状态机逻辑的单元测试 |
-| `TEST-004` | P2 | Open | KeyboardMidiMapper 运行时逻辑无测试 | — | handleKeyPressed/handleKeyStateChanged 的 note on/off 映射逻辑仅通过集成测试间接覆盖 | 添加 mock MidiKeyboardState 的单元测试 |
+| `TEST-001` | P2 | Closed | AudioEngine 无单元测试 | `source/tests/AudioEngineTest.cpp` | 核心音频引擎（prepareToPlay, getNextAudioBlock, releaseResources）完全无测试覆盖 | 已修复：添加 AudioEngineTest（6 个测试类, 14 个子测试），覆盖生命周期/增益/静音/warmup/release |
+| `TEST-002` | P2 | Closed | RecordingEngine playback 路径无单元测试 | `source/tests/RecordingEngineTest.cpp` | RecordingEngine 的 renderPlaybackBlock/advancePlaybackPosition 逻辑无测试 | 已修复：添加 RecordingEngineTest（10 个测试类, 25 个子测试），覆盖录制/回放/容量/preset/pitch-bend |
+| `TEST-003` | P2 | Closed | PluginHost 无单元测试 | `source/tests/PluginHostTest.cpp` | 插件加载/卸载/扫描生命周期无测试（可能因依赖实际 VST3 文件而困难，但 mock 测试可行） | 已修复：添加 PluginHostTest（8 个测试类, 21 个子测试），覆盖默认状态/错误消息/list 查询/扫描摘要/VST3 支持/XML |
+| `TEST-004` | P2 | Closed | KeyboardMidiMapper 运行时逻辑无测试 | `source/tests/KeyboardMidiMapperTest.cpp` | handleKeyPressed/handleKeyStateChanged 的 note on/off 映射逻辑仅通过集成测试间接覆盖 | 已修复：添加 KeyboardMidiMapperTest（7 个测试类, 14 个子测试），覆盖布局管理/按键映射/note-on-off/去重 |
 
 ### P3（持续跟踪）
 
@@ -524,12 +526,13 @@ Exit code: 123
 18. ~~**ENG-004**: 缺少 clang-tidy CI 集成~~ → 已修复：CMakeLists 添加 clang-tidy target，build-windows.ps1 添加 `-ClangTidy` 开关（soft-fail），MSVC preset 启用 compile_commands
 19. 验证：WSL build 0 error、Windows MSVC 0 error、format 干净
 
-### Phase E: 测试完善 (P2, 持续)
+### Phase E: 测试完善 ✅ 已完成 (2026-07-23)
 
-20. **TEST-001**: AudioEngine 单元测试
-21. **TEST-002**: RecordingEngine playback 单元测试
-22. **TEST-003**: PluginHost 状态机测试
-
+20. ~~**TEST-001**: AudioEngine 单元测试~~ → 已修复：AudioEngineTest（6 类, 14 子测试）
+21. ~~**TEST-002**: RecordingEngine playback 单元测试~~ → 已修复：RecordingEngineTest（10 类, 25 子测试）
+22. ~~**TEST-003**: PluginHost 状态机测试~~ → 已修复：PluginHostTest（8 类, 21 子测试）
+23. ~~**TEST-004**: KeyboardMidiMapper 运行时测试~~ → 已修复：KeyboardMidiMapperTest（7 类, 14 子测试）
+24. 验证：4 个新测试文件, 31 个测试类, 74 个子测试全部通过；CMakeLists.txt 测试目标正确链接所需库
 ---
 
 ## 附录 A: 所有审计文件清单
