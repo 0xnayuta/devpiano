@@ -30,18 +30,18 @@
 | Priority | Total | Open | In Progress | Mitigated | Deferred | Closed |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | P0 | 5 | 0 | 0 | 0 | 0 | 5 |
-| P1 | 11 | 2 | 0 | 0 | 0 | 9 |
-| P2 | 20 | 11 | 0 | 0 | 0 | 9 |
-| P3 | 24 | 16 | 0 | 0 | 0 | 8 |
-| **合计** | 60 | 29 | 0 | 0 | 0 | 31 |
+| P1 | 12 | 1 | 0 | 0 | 0 | 11 |
+| P2 | 25 | 15 | 0 | 0 | 0 | 10 |
+| P3 | 21 | 8 | 0 | 0 | 0 | 13 |
+| **合计** | 63 | 24 | 0 | 0 | 0 | 39 |
 
 ### 0.3 关键结论
 
-- 总体评级：`A-` — 功能完整，架构健康；Phase A–E 全部完成，复审 2026-07-23 确认 8 项已自然修复，31/60 已关闭
-- 当前是否适合继续新增功能：`Yes` — 核心运行时模块已有单元测试覆盖，未发现回归
-- 当前是否建议优先重构：`No` — 主要架构和工程化问题已解决
+- 总体评级：`A-` — 功能完整，架构健康；Phase A–F 全部完成，39/63 已关闭
+- 当前是否适合继续新增功能：`Yes` — 核心运行时模块已有单元测试覆盖，P0/P1 风险全部关闭
+- 当前是否建议优先重构：`No` — 剩余 24 项 Open 主要为 P2(15)/P3(8) 低风险改进
 - 最大已修复风险：**PluginHost 零内部线程同步**（`PLUG-001`）— 已通过断言 + 文档化契约缓解
-- 下一步最高优先级：Phase F 文档与配置契约更新 (DOC-001 ~ DOC-003)；剩余 29 项 Open 为低风险改进（P3 占 16 项）
+- 下一步最高优先级：按需推进 Defer/Won't-Fix 项目；定期复审
 
 ### 0.4 Top Findings
 
@@ -383,9 +383,9 @@ Exit code: 123
 ## 7. 复审记录
 
 > 初始审计，尚无复审记录。
-> **复审记录**：2026-07-22 — Phase A (音频稳定性) 完成，AUDIO-001/002、REC-001 → Closed。Phase B (线程安全) 完成，PLUG-001、REC-002/003/005 → Closed。Phase C (模块边界) 完成，ARCH-001/002/003/004、DOC-001 → Closed。Phase D (工程化) 完成，ENG-001/002/003/004、DOC-002/003 → Closed。详见 §9。剩余 Open：42/60。
-> **复审记录**：2026-07-23 — Phase E (测试完善) 完成，TEST-001~004 → Closed。并行 scout 复审全部 60 项，确认 0 回归/0 误判。8 项 Open 经代码演变已自然修复 → Closed：PLUG-002 (loadPlugin 重构), PLUG-003 (unloadPlugin 顺序), PLUG-006 (异步扫描), REC-006 (CriticalSection), PERF-003 (timerCallback 最小化), ERR-002 (save 返回值检查), ERR-004 (无冗余赋值), QUAL-001 (AudioStatus 移除)。剩余 Open：29/60（P1 2 项, P2 11 项, P3 16 项）。
----
+> **复审记录**：2026-07-22 — Phase A (音频稳定性) 完成，AUDIO-001/002、REC-001 → Closed。Phase B (线程安全) 完成，PLUG-001、REC-002/003/005 → Closed。Phase C (模块边界) 完成，ARCH-001/002/003/004、DOC-001 → Closed。Phase D (工程化) 完成，ENG-001/002/003/004、DOC-002/003 → Closed。详见 §9。剩余 Open：42/63。
+> **复审记录**：2026-07-23 — Phase E (测试完善) 完成，TEST-001~004 → Closed。并行 scout 复审全部 63 项，确认 0 回归/0 误判。8 项 Open 经代码演变已自然修复 → Closed。剩余 Open：29/63。
+> **复审记录**：2026-07-23 — 修正 0.2 汇总表（原始审计 Ch8 实际 63 项，汇总表误写为 60）。Phase F (代码修复) 完成，ERR-001/REC-004/ERR-005/THREAD-004/ERR-007/ERR-008/QUAL-002/QUAL-006 → Closed。剩余 Open：24/63（P1 1 项，P2 15 项，P3 8 项）。
 
 ## 8. 问题总表
 
@@ -427,12 +427,12 @@ Exit code: 123
 | `PLUG-004` | P1 | Open | PluginOperationController 析构不卸载插件 | `source/Plugin/PluginOperationController.h`, `source/Plugin/PluginOperationController.cpp` | 析构函数仅取消扫描，不调用 `closePluginEditor()` 或通过 PluginHost 卸载插件 | 在析构或 shutdown 中确保 editor 关闭和插件资源释放 |
 | `REC-002` | P1 | Closed | RecordingSessionController async lambda use-after-free 风险 | `source/Recording/RecordingSessionController.cpp` (5 处 lambda) | 异步文件选择器 lambda 捕获 `[this]` 和 chooser `unique_ptr` 的引用。如果 controller 在回调触发前被销毁，访问悬垂指针 | 已修复：添加 `std::shared_ptr<bool> aliveFlag_` 成员，所有异步 lambda 通过值捕获并检查 `*aliveFlag` 提前返回；析构函数设置 flag 为 false |
 | `REC-003` | P1 | Closed | 录制中 preset 变更与录音向量并发写入 | `source/Recording/RecordingEngine.cpp` (recordPresetChange vs recordMidiBufferBlock) | `PresetFlowSupport` (消息线程) 调用 `recordPresetChange` 写入 `currentTake.events`，与音频线程的 `recordMidiBufferBlock` 并发写同一 vector | 已修复：添加独立的 `pendingPresetEvents` 消息线程队列，`recordPresetChange` 写入该队列；`stopRecording()` / `clear()` 时合并到 `currentTake.events`，单线程访问无需锁 |
-| `REC-004` | P1 | Open | RecordingEngine 录制中 getCurrentTake() 返回引用 racing | `source/Recording/RecordingEngine.h:50`, `source/Recording/RecordingEngine.cpp` (getCurrentTake) | `getCurrentTake()` 返回 `const RecordingTake&` 引用，调用方读取时音频线程可能同时在修改 events vector | 使用 `createTakeSnapshot()` 代替引用返回，或在文档中明确调用方必须在消息线程且录制停止时调用 |
+| `REC-004` | P1 | Closed | RecordingEngine 录制中 getCurrentTake() 返回引用 racing | `source/Recording/RecordingEngine.h:50`, `source/Recording/RecordingEngine.cpp` (getCurrentTake) | `getCurrentTake()` 返回 `const RecordingTake&` 引用，调用方读取时音频线程可能同时在修改 events vector | 已修复：getCurrentTake() 添加运行时 isRecording() 守卫，录制中返回空 take |
 | `ARCH-001` | P1 | Closed | Core/ 目录包含 JUCE GUI 依赖 | `source/Core/AppState.h:5`, `source/Core/KeyMapTypes.h:3` | architecture.md 描述 Core/"平台无关"，但 5/7 文件 include `<JuceHeader.h>`，使用 `juce::String`、`juce::Colour`、`juce::Rectangle` | 已修复：`ChannelMatrix.h` 移至 Midi/，`KeyboardTypes.h` 移至 UI/，`AppStateBuilder` 移至 Settings/；Core/ 现仅使用 JUCE 工具类型（String, Array），architecture.md 已更新 |
 | `ARCH-002` | P1 | Closed | ChannelMatrix.h 物理位置与命名空间不匹配 | `source/Midi/ChannelMatrix.h` | 文件原在 `Core/`，命名空间为 `devpiano::midi` | 已修复：移至 `source/Midi/ChannelMatrix.h`，5 include 更新 |
 | `ARCH-003` | P1 | Closed | KeyboardTypes.h 物理位置与命名空间不匹配 | `source/UI/KeyboardTypes.h` | 文件原在 `Core/`，命名空间为 `devpiano::ui`，依赖 `juce::Colour`、`juce::Rectangle` GUI 类型 | 已修复：移至 `source/UI/KeyboardTypes.h`，3 include 更新 |
 | `ARCH-004` | P1 | Closed | AppStateBuilder 依赖反转 | `source/Settings/AppStateBuilder.h` | Core/ 中的 builder 依赖 Settings/、Audio/、Plugin/ 模块 | 已修复：移至 `source/Settings/AppStateBuilder.*`，1 include 更新 |
-| `ERR-001` | P1 | Open | JSON::parse() 无异常保护 | `source/Recording/PerformanceFile.cpp`, `source/Layout/PerformancePreset.cpp` | `juce::JSON::parse()` 在格式错误时可能抛出异常（JUCE 文档未明确承诺 noexcept），但调用处无 try-catch | 添加 try-catch 或使用 `juce::JSON::parse()` 的 `Result` 返回版本 |
+| `ERR-001` | P1 | Closed | JSON::parse() 无异常保护 | `source/Recording/PerformanceFile.cpp`, `source/Layout/PerformancePreset.cpp` | `juce::JSON::parse()` 在格式错误时可能抛出异常（JUCE 文档未明确承诺 noexcept），但调用处无 try-catch | 已修复：3 处 JSON::parse() 调用包裹 try-catch，异常时返回 nullopt |
 | `DOC-001` | P1 | Closed | architecture.md 与源码文件清单不一致 | `docs/reference/architecture.md` | 文档列出 Core/ 含 4 文件、Recording/ 含 12 文件、未提及 Midi/ 模块，均与实际不符 | 已修复：新增 Midi/ 模块节，更新 Core/Settings/UI 文件清单，更新依赖描述 |
 
 ### P2（近期排期）
@@ -458,7 +458,7 @@ Exit code: 123
 | `ERR-002` | P2 | Closed | RecordingSessionController 忽略 scheduleSave 失败 | `source/Recording/RecordingSessionController.cpp` | 多处调用 `owner.settingsStore.scheduleSave(owner.appSettings)` 后忽略 save 结果 | 已修复：savePerformanceFile 返回值已被检查并记录日志（成功/错误） |
 | `ERR-003` | P2 | Open | AppStateBuilder 仅 jassert 线程守卫 | `source/Core/AppStateBuilder.cpp` | `buildAppStateSnapshot` 使用 `jassert(isMessageThread())` 做线程守卫——Release 构建中为 no-op | 考虑使用 `jassert` + 返回错误码（debug），或在 Release 中也保持检查 |
 | `ERR-004` | P2 | Closed | PluginHost 加载成功后冗余赋值 | `source/Plugin/PluginHost.cpp` (loadPlugin) | `loadPlugin` 成功路径中 `prepared = false` 赋值后紧接 `lastLoadError.clear()` 后再无使用 | 已修复：loadPlugin 重构后直接返回 bool，无冗余赋值 |
-| `ERR-005` | P2 | Open | WavExportTask 取消后可能不清理文件 | `source/Export/WavExportTask.cpp` (run) | `threadShouldExit()` 检查后调用 `outputFile.deleteFile()`，但 `deleteFile()` 失败时无日志 | 添加删除失败的 WARN 日志 |
+| `ERR-005` | P2 | Closed | WavExportTask 取消后可能不清理文件 | `source/Export/WavExportTask.cpp` (run) | `threadShouldExit()` 检查后调用 `outputFile.deleteFile()`，但 `deleteFile()` 失败时无日志 | 已修复：取消路径 deleteFile 失败时记录 DP_LOG_WARN |
 | `ERR-006` | P2 | Open | SettingsStore scheduleSave 裸指针 API | `source/Settings/SettingsStore.h`, `source/Settings/SettingsStore.cpp` | `DebounceTimer` 持有 `const SettingsModel*` 裸指针，如果 SettingsModel 在 timer 触发前析构，使用悬垂指针 | 使用 `std::shared_ptr` 或确保 SettingsModel 生命周期长于 DebounceTimer |
 | `TEST-001` | P2 | Closed | AudioEngine 无单元测试 | `source/tests/AudioEngineTest.cpp` | 核心音频引擎（prepareToPlay, getNextAudioBlock, releaseResources）完全无测试覆盖 | 已修复：添加 AudioEngineTest（6 个测试类, 14 个子测试），覆盖生命周期/增益/静音/warmup/release |
 | `TEST-002` | P2 | Closed | RecordingEngine playback 路径无单元测试 | `source/tests/RecordingEngineTest.cpp` | RecordingEngine 的 renderPlaybackBlock/advancePlaybackPosition 逻辑无测试 | 已修复：添加 RecordingEngineTest（10 个测试类, 25 个子测试），覆盖录制/回放/容量/preset/pitch-bend |
@@ -470,22 +470,22 @@ Exit code: 123
 | ID | Priority | Status | 标题 | 文件:行号 | 描述 | 建议修复 |
 | --- | --- | --- | --- | --- | --- | --- |
 | `QUAL-001` | P3 | Closed | HeaderPanel::AudioStatus struct 未使用 | `source/UI/HeaderPanel.h` | `AudioStatus` struct 定义了但未被 HeaderPanel 自身使用 | 已修复：AudioStatus struct 已从 HeaderPanel.h 中移除 |
-| `QUAL-002` | P3 | Open | KeyboardMidiMapper note-off 逻辑重复 | `source/Input/KeyboardMidiMapper.cpp` (handleKeyStateChanged, triggerBinding) | `handleKeyStateChanged` 和 `triggerBinding` 中有重复的 note-off 发送逻辑（~8 行） | 提取为私有 `sendNoteOff` helper |
+| `QUAL-002` | P3 | Closed | KeyboardMidiMapper note-off 逻辑重复 | `source/Input/KeyboardMidiMapper.cpp` (handleKeyStateChanged, triggerBinding) | `handleKeyStateChanged` 和 `triggerBinding` 中有重复的 note-off 发送逻辑（~8 行） | 已修复：提取 sendNoteOff() 私有辅助方法，handleKeyStateChanged 和 triggerBinding 共用 |
 | `QUAL-003` | P3 | Open | makeDefaultKeyboardLayout / makeFullPianoLayout 重复 | `source/Core/KeyMapTypes.h` | 两个函数中 binding 数组构建模式高度重复，每个 note 定义 ~4 行 | 提取共享的 binding 构建辅助函数 |
 | `QUAL-004` | P3 | Open | findByKeyCode 返回裸指针 | `source/Core/KeyMapTypes.h:66` | `KeyboardLayout::findByKeyCode` 返回 `const KeyBinding*` 指向 vector 内部元素。vector 修改后指针悬垂 | 返回 `std::optional<std::reference_wrapper<const KeyBinding>>` 或索引 |
 | `QUAL-005` | P3 | Open | AudioEngine::getMidiCollector / getKeyboardState 暴露内部可变引用 | `source/Audio/AudioEngine.h:33-38` | 两个方法返回 `juce::MidiKeyboardState&` / `juce::MidiMessageCollector&` 可变引用，允许外部任意修改内部状态 | 提供 const 版本或通过专用方法暴露受限功能 |
-| `QUAL-006` | P3 | Open | PluginFlowSupport 中冗余前向声明 | `source/Plugin/PluginFlowSupport.cpp` | `normalisePluginScanPath` 在 .cpp 中有冗余前向声明，.h 中已有声明 | 删除冗余前向声明 |
-| `THREAD-004` | P3 | Open | PluginHost 非原子 isScanning 标志 | `source/Plugin/PluginHost.h:35-37` | `isScanning` 在消息线程写入，在 `PluginPanel::updateState()` 中通过 `PluginPanelStateBuilder` 读取。如果未来在非消息线程调用，存在数据竞争 | 改为 `std::atomic<bool>` |
+| `QUAL-006` | P3 | Closed | PluginFlowSupport 中冗余前向声明 | `source/Plugin/PluginFlowSupport.cpp` | `normalisePluginScanPath` 在 .cpp 中有冗余前向声明，.h 中已有声明 | 已修复：删除冗余前向声明 |
+| `THREAD-004` | P3 | Closed | PluginHost 非原子 isScanning 标志 | `source/Plugin/PluginHost.h:35-37` | `isScanning` 在消息线程写入，在 `PluginPanel::updateState()` 中通过 `PluginPanelStateBuilder` 读取 | 已修复：isScanning 改为 std::atomic<bool> |
 | `THREAD-005` | P3 | Closed | RecordingEngine::hasDroppedEvents / getDroppedEventCount 非原子 | `source/Recording/RecordingEngine.h:44-47` | `droppedEventCount` 在音频线程递增、消息线程读取，非原子 | 已修复 (REC-001, Phase A)：`currentPositionSamples` 和 `droppedEventCount` 均改为 `std::atomic` |
 | `SEC-006` | P3 | Open | KeyMapTypes 允许 aggregate init 绕过 fromClamped | `source/Core/MidiTypes.h` | `MidiNoteNumber{200}` aggregate 初始化可绕过 `fromClamped(200)` 的 clamp 保护 | 添加私有构造函数或使用 `requires` clause |
 | `SEC-007` | P3 | Open | KeyboardMidiMapper 0/1-based channel 转换脆弱 | `source/Input/KeyboardMidiMapper.cpp` | channel 值在 0-based 和 1-based 之间手动转换，缺少类型系统保护 | 使用 `MidiChannel::toZeroBased()` 统一转换 |
 | `SEC-008` | P3 | Open | MidiChannelMapper::applyTransform 仅重映射 note on/off | `source/Midi/MidiChannelMapper.cpp` (applyTransform) | `applyTransform` 仅对 note on/off 消息重映射 channel，CC/pitch bend/program change 不经过矩阵路由 | 确认是否为设计意图，若是，文档化 |
 | `PERF-004` | P3 | Open | KeyboardTypes::KeyboardSettings 2KB+ 固定数组 | `source/UI/KeyboardTypes.h` | `customKeyLabels`（`std::array<juce::String,128>`）和 `customKeyColours`（`std::array<juce::Colour,128>`）固定分配 ~4KB，即使未自定义也占满内存 | 改为 `std::vector` 或 sparse map（仅在少数键自定义时节省内存） |
 | `PERF-005` | P3 | Open | KeyboardMidiMapper::isKeyCurrentlyDown O(n) 轮询 | `source/Input/KeyboardMidiMapper.cpp` | `handleKeyStateChanged` 中每帧遍历所有 binding 调用 `isKeyCurrentlyDown`（O(bindings) × O(key codes)） | 使用 `std::bitset` 或 `std::unordered_set` 替代遍历 |
-| `ERR-007` | P3 | Open | AudioDeviceDiagnostics parseSavedAudioDeviceState 语义模糊 | `source/Audio/AudioDeviceDiagnostics.h` | `hasSavedState` 字段名容易误解——它实际表示"有已保存的设备状态 XML"，而非"设备状态有效" | 重命名为 `hasSavedDeviceStateXml` |
-| `ERR-008` | P3 | Open | WavExportTask 成功/失败通过成员变量通信 | `source/Export/WavExportTask.h` | `success` 和 `errorMessage` 在 `run()` 中设置，调用方在 `runThread()` 返回后读取，无同步 | 使用 `std::atomic<bool>` 或 `juce::CriticalSection` |
-| `DOC-002` | P3 | Closed | architecture.md Core/ 描述与实际不符 | `docs/reference/architecture.md:74-86` | 描述 Core/ 包含 4 个文件、"平台无关的核心数据类型"，实际 7 个文件，多数依赖 JUCE | 已修复 (Phase C)：Core/ 缩小为 3 文件（KeyMapTypes, MidiTypes, AppState），GUI 类型移出，描述已更新 |
+| `ERR-007` | P3 | Closed | AudioDeviceDiagnostics parseSavedAudioDeviceState 语义模糊 | `source/Audio/AudioDeviceDiagnostics.h` | `hasSavedState` 字段名容易误解 | 已修复：重命名为 hasSavedDeviceStateXml |
+| `ERR-008` | P3 | Closed | WavExportTask 成功/失败通过成员变量通信 | `source/Export/WavExportTask.h` | `success` 和 `errorMessage` 在 `run()` 中设置，调用方在 `runThread()` 返回后读取，无同步 | 已修复：success 改为 std::atomic<bool> |
 | `DOC-003` | P3 | Closed | architecture.md 未列出 Midi/ 模块 | `docs/reference/architecture.md` | `Midi/` 模块（MidiChannelMapper）未在架构文档中出现 | 已修复 (Phase C)：新增 Midi/ 模块节，列出 MidiChannelMapper + ChannelMatrix |
+| `DOC-002` | P3 | Closed | architecture.md Core/ 描述与实际不符 | `docs/reference/architecture.md:74-86` | 描述 Core/ 包含 4 个文件、"平台无关的核心数据类型"，实际 7 个文件，多数依赖 JUCE | 已修复 (Phase C)：Core/ 缩小为 3 文件（KeyMapTypes, MidiTypes, AppState），GUI 类型移出，描述已更新 |
 | `ENG-001` | P3 | Closed | clang-format ~70 violations | 14 个文件 | `format --check` 报告 ~70 处格式违规 | 已修复：Phase B/C 期间自然解决，`format --check` 现通过 |
 | `ENG-002` | P3 | Closed | KeyboardPanel.cpp:43 int-to-float 隐式转换 | `source/UI/KeyboardPanel.cpp:43` | `whiteCount * keyWidth` 隐式转换警告 | 已修复：已有 `static_cast<int>(...)`，构建 0 warnings |
 | `ENG-003` | P3 | Closed | AudioDeviceDiagnostics.h 未列入 target_sources | `CMakeLists.txt` | header-only 文件不在 target_sources 中，IDE 不可见 | 已修复：添加 `source/Audio/AudioDeviceDiagnostics.h` 到 target_sources |
