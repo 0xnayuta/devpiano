@@ -236,28 +236,73 @@ void DevPianoLookAndFeel::drawLinearSlider(juce::Graphics& g, int x, int y, int 
 //  drawRotarySlider  (placeholder for Phase 10b)
 // ============================================================================
 void DevPianoLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int w, int h, float pos, float startAng,
-                                           float endAng, juce::Slider& slider) {
-    constexpr float arcThickness = 3.0f;
-    const auto bounds = juce::Rectangle<float>((float)x, (float)y, (float)w, (float)h).reduced(4.0f);
+                                           float endAng, juce::Slider& /*slider*/) {
+    constexpr float arcThickness = 3.5f;
+    const auto bounds = juce::Rectangle<float>(static_cast<float>(x), static_cast<float>(y), static_cast<float>(w),
+                                               static_cast<float>(h))
+                            .reduced(2.0f);
     const auto radius = juce::jmin(bounds.getWidth(), bounds.getHeight()) * 0.5f - arcThickness;
     const auto centre = bounds.getCentre();
 
-    // Background arc
+    // 1. Outer Track & Glow
     juce::Path bgArc;
     bgArc.addCentredArc(centre.x, centre.y, radius, radius, 0.0f, startAng, endAng, true);
-    g.setColour(slider.findColour(juce::Slider::backgroundColourId));
-    g.strokePath(bgArc, juce::PathStrokeType(arcThickness, juce::PathStrokeType::curved));
+    g.setColour(juce::Colour(0xff222428));
+    g.strokePath(bgArc,
+                 juce::PathStrokeType(arcThickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
-    // Filled arc
     const float filledAngle = startAng + pos * (endAng - startAng);
-    juce::Path fgArc;
-    fgArc.addCentredArc(centre.x, centre.y, radius, radius, 0.0f, startAng, filledAngle, true);
-    g.setColour(slider.findColour(juce::Slider::thumbColourId));
-    g.strokePath(fgArc, juce::PathStrokeType(arcThickness, juce::PathStrokeType::curved));
+    if (pos > 0.001f) {
+        // Glow effect when turned up
+        juce::Path glowArc;
+        glowArc.addCentredArc(centre.x, centre.y, radius, radius, 0.0f, startAng, filledAngle, true);
+        g.setColour(kPrimary.withAlpha(0.28f * pos));
+        g.strokePath(
+            glowArc,
+            juce::PathStrokeType(arcThickness * 2.2f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
-    // Centre dot
-    g.setColour(slider.findColour(juce::Slider::thumbColourId));
-    g.fillEllipse(centre.x - 2.0f, centre.y - 2.0f, 4.0f, 4.0f);
+        // Active track
+        juce::Path fgArc;
+        fgArc.addCentredArc(centre.x, centre.y, radius, radius, 0.0f, startAng, filledAngle, true);
+        g.setColour(kPrimary);
+        g.strokePath(fgArc,
+                     juce::PathStrokeType(arcThickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    }
+
+    // 2. Metallic 3D Cap Body
+    const float capRadius = radius * 0.72f;
+    const auto capBounds
+        = juce::Rectangle<float>(centre.x - capRadius, centre.y - capRadius, capRadius * 2.0f, capRadius * 2.0f);
+
+    // Gradient fill for convex metal cap
+    juce::ColourGradient capGrad(juce::Colour(0xff3d4147), capBounds.getX(), capBounds.getY(), juce::Colour(0xff1d1f23),
+                                 capBounds.getRight(), capBounds.getBottom(), false);
+    g.setGradientFill(capGrad);
+    g.fillEllipse(capBounds);
+
+    // Dark outer rim
+    g.setColour(juce::Colour(0xff121315));
+    g.drawEllipse(capBounds, 1.0f);
+
+    // Inner specular ring (light from top-left)
+    const auto innerCapBounds = capBounds.reduced(1.0f);
+    juce::ColourGradient ringGrad(juce::Colour(0xff5c616a), innerCapBounds.getX(), innerCapBounds.getY(),
+                                  juce::Colour(0xff16171a), innerCapBounds.getRight(), innerCapBounds.getBottom(),
+                                  false);
+    g.setGradientFill(ringGrad);
+    g.drawEllipse(innerCapBounds, 1.0f);
+
+    // 3. Indicator Needle
+    const float needleLen = capRadius * 0.82f;
+    const float needleX = centre.x + needleLen * std::sin(filledAngle);
+    const float needleY = centre.y - needleLen * std::cos(filledAngle);
+    // Needle: 2.0px ice-blue → bright-white gradient
+    juce::Line<float> needleLine(centre.x, centre.y, needleX, needleY);
+    juce::ColourGradient needleGrad(pos > 0.01f ? kPrimary : juce::Colour(0xff888888), centre.x, centre.y,
+                                    pos > 0.01f ? juce::Colours::white : juce::Colour(0xffaaaaaa), needleX, needleY,
+                                    false);
+    g.setGradientFill(needleGrad);
+    g.drawLine(needleLine, 2.0f);
 }
 
 // ============================================================================
@@ -299,4 +344,35 @@ void DevPianoLookAndFeel::drawLabel(juce::Graphics& g, juce::Label& label) {
 // ============================================================================
 juce::Font DevPianoLookAndFeel::getLabelFont(juce::Label& /*label*/) {
     return juce::Font(juce::FontOptions(14.0f));
+}
+// ============================================================================
+//  drawTooltip
+// ============================================================================
+void DevPianoLookAndFeel::drawTooltip(juce::Graphics& g, const juce::String& text, int width, int height) {
+    const auto bounds = juce::Rectangle<float>(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height));
+    constexpr float corner = 4.0f;
+
+    // Dark charcoal card background
+    g.setColour(kPanelBg.darker(0.1f));
+    g.fillRoundedRectangle(bounds, corner);
+
+    // Micro ice-blue border (0x1f00b4d8)
+    g.setColour(juce::Colour(0x1f00b4d8));
+    g.drawRoundedRectangle(bounds.reduced(0.5f), corner, 1.0f);
+
+    // Matte gray text
+    g.setColour(juce::Colour(0xff999999));
+    g.setFont(juce::FontOptions(11.0f));
+    g.drawText(text, bounds.reduced(6.0f, 2.0f), juce::Justification::centred, true);
+}
+
+juce::Rectangle<int> DevPianoLookAndFeel::getTooltipBounds(const juce::String& tip, juce::Point<int> screenPos,
+                                                           juce::Rectangle<int> parentArea) {
+    const auto font = juce::Font(juce::FontOptions(11.0f));
+    const auto textW = juce::jmin(juce::GlyphArrangement::getStringWidthInt(font, tip) + 14, parentArea.getWidth());
+    const auto textH = juce::jmin(22, parentArea.getHeight()); // single-line height + padding
+
+    return juce::Rectangle<int>(textW, textH)
+        .withPosition(juce::jmin(screenPos.x, parentArea.getRight() - textW),
+                      juce::jmin(screenPos.y, parentArea.getBottom() - textH));
 }

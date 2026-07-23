@@ -26,7 +26,6 @@ juce::FileSearchPath filterExistingDirectories(const juce::FileSearchPath& path)
 }
 } // namespace
 
-
 void restorePluginsAtPath(
     PluginHost& pluginHost, const juce::FileSearchPath& path, const SettingsModel::PluginRecoverySettingsView& recovery,
     const std::function<void(const SettingsModel::PluginRecoverySettingsView&)>& applySettingsCallback) {

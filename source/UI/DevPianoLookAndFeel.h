@@ -38,6 +38,9 @@ public:
     void drawTextEditorOutline(juce::Graphics&, int w, int h, juce::TextEditor&) override;
     void drawLabel(juce::Graphics&, juce::Label&) override;
     juce::Font getLabelFont(juce::Label&) override;
+    void drawTooltip(juce::Graphics&, const juce::String& text, int width, int height) override;
+    juce::Rectangle<int> getTooltipBounds(const juce::String& tip, juce::Point<int> screenPos,
+                                          juce::Rectangle<int> parentArea) override;
 
 private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DevPianoLookAndFeel)

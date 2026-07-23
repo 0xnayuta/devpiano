@@ -92,7 +92,7 @@ private:
     // Per-key binding data for colour mode computation, indexed by MIDI note.
     // Populated by setKeyboardLayout().  Unbound notes default to channel 0 / vel 1.0.
     std::array<uint8_t, 128> perKeyChannel {};
-    std::array<float, 128> perKeyVelocity {};
+    std::array<juce::Atomic<float>, 128> perKeyVelocity {};
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CustomKeyboard)
 };

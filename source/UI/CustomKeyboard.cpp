@@ -1,4 +1,5 @@
 #include "UI/CustomKeyboard.h"
+#include "DevPianoLookAndFeel.h"
 
 #include <cmath>
 
@@ -257,6 +258,10 @@ int CustomKeyboard::findNoteAt(juce::Point<int> position) const {
 // ============================================================================
 
 void CustomKeyboard::paint(juce::Graphics& g) {
+    // ── 1. Crimson felt strip at top edge of keybed (#9e1b1b) ──
+    g.setColour(juce::Colour(0xff9e1b1b));
+    g.fillRect(0, 0, getWidth(), 2);
+
     paintWhiteKeys(g);
     paintBlackKeys(g);
     paintKeyLabels(g);
@@ -284,12 +289,30 @@ void CustomKeyboard::paintWhiteKeys(juce::Graphics& g) {
             g.fillPath(keyPath);
         }
 
-        // Fade overlay: gradient from key centre upward
+        // Fade overlay & Velocity dynamic glow (ice blue -> bright white based on velocity)
         if (k.fade > fadeEpsilon) {
-            juce::ColourGradient fadeGrad(k.colour1, b.getCentreX(), b.getCentreY(), k.colour1.withAlpha(0.0f),
+            float vel = perKeyVelocity[static_cast<std::size_t>(k.midiNote)].get();
+            if (vel <= 0.001f)
+                vel = 0.8f;
+            auto baseGlow = (settings.colourMode == devpiano::ui::KeyColourMode::classic)
+                ? DevPianoLookAndFeel::kPrimary
+                : k.colour1;
+            auto glowColour = baseGlow.interpolatedWith(juce::Colours::white, vel * 0.7f).withAlpha(k.fade);
+
+            juce::ColourGradient fadeGrad(glowColour, b.getCentreX(), b.getCentreY(), glowColour.withAlpha(0.0f),
                                           b.getCentreX(), b.getY(), false);
             g.setGradientFill(fadeGrad);
             g.fillPath(keyPath);
+
+            // Pressed key top inner shadow simulating 1.5px sink effect
+            if (k.fade > 0.5f) {
+                auto shadowH = juce::jmin(12.0f, b.getHeight() * 0.15f);
+                juce::ColourGradient sinkGrad(juce::Colours::black.withAlpha(0.35f * k.fade), b.getX(), b.getY(),
+                                              juce::Colours::black.withAlpha(0.0f), b.getX(), b.getY() + shadowH,
+                                              false);
+                g.setGradientFill(sinkGrad);
+                g.fillRect(juce::Rectangle<float>(b.getX() + 1.0f, b.getY(), b.getWidth() - 2.0f, shadowH));
+            }
         }
 
         // Border
@@ -347,6 +370,9 @@ void CustomKeyboard::paintBlackKeys(juce::Graphics& g) {
         // Border
         g.setColour(juce::Colour(0xff333333));
         g.strokePath(keyPath, juce::PathStrokeType(1.0f));
+        // 1px ebony bevel edge highlight (#666666) on top edge
+        g.setColour(juce::Colour(0xff666666));
+        g.drawHorizontalLine(static_cast<int>(keyRect.getY()), keyRect.getX() + 1.0f, keyRect.getRight() - 1.0f);
     }
 }
 
@@ -540,7 +566,7 @@ void CustomKeyboard::timerCallback() {
                 case devpiano::ui::KeyColourMode::velocity:
                     if (k.midiNote >= 0 && k.midiNote < 128) {
                         auto idx = static_cast<std::size_t>(k.midiNote);
-                        auto h = velocityHue(perKeyVelocity[idx]);
+                        auto h = velocityHue(perKeyVelocity[idx].get());
                         k.colour1 = juce::Colour::fromHSV(h / 360.0f, 0.7f, 1.0f, k.fade);
                     }
                     break;
@@ -569,7 +595,9 @@ void CustomKeyboard::notifyNoteActivity() {
     ensureTimerRunning();
 }
 
-void CustomKeyboard::handleNoteOn(juce::MidiKeyboardState*, int, int, float) {
+void CustomKeyboard::handleNoteOn(juce::MidiKeyboardState*, int, int midiNoteNumber, float velocity) {
+    if (midiNoteNumber >= 0 && midiNoteNumber < 128 && velocity > 0.0f)
+        perKeyVelocity[static_cast<std::size_t>(midiNoteNumber)] = velocity;
     ensureTimerRunning();
 }
 

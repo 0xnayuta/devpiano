@@ -350,7 +350,35 @@ void MainComponent::timerCallback() {
 }
 
 void MainComponent::paint(juce::Graphics& g) {
-    g.fillAll(findColour(juce::ResizableWindow::backgroundColourId));
+    const auto bounds = getLocalBounds().toFloat();
+    const auto centreX = bounds.getCentreX();
+    const auto centreY = bounds.getCentreY() * 0.8f;
+    const float radius = juce::jmax(bounds.getWidth(), bounds.getHeight()) * 0.75f;
+
+    juce::ColourGradient bgGrad(juce::Colour(0xff202327), centreX, centreY, juce::Colour(0xff161719), centreX + radius,
+                                centreY + radius, true);
+    g.setGradientFill(bgGrad);
+    g.fillRect(bounds);
+
+    // ── Panel 1px micro highlight top borders & dark outlines ──
+    const auto drawPanelBorder = [&g](const juce::Rectangle<int>& b) {
+        if (b.isEmpty())
+            return;
+        auto fb = b.toFloat();
+
+        // Top 1px specular highlight
+        g.setColour(juce::Colour(0x20ffffff));
+        g.drawHorizontalLine(b.getY(), fb.getX(), fb.getRight());
+
+        // 1px micro dark outline
+        g.setColour(juce::Colour(0x28000000));
+        g.drawRect(fb, 1.0f);
+    };
+
+    drawPanelBorder(headerPanel.getBounds());
+    drawPanelBorder(pluginPanel.getBounds());
+    drawPanelBorder(controlsPanel.getBounds());
+    drawPanelBorder(keyboardPanel.getBounds());
 }
 
 void MainComponent::resized() {

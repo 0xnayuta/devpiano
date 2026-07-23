@@ -42,7 +42,7 @@ void WavExportTask::run() {
         if (threadShouldExit()) {
             success = false;
             errorMessage = TRANS("Export cancelled.");
-            destinationFile.deleteFile();  // best-effort; log failure below
+            destinationFile.deleteFile(); // best-effort; log failure below
         }
 
         if (renderTakeWithOfflinePlugin(take, destinationFile, options, *offlinePlugin, progressCallback)) {
@@ -50,8 +50,8 @@ void WavExportTask::run() {
         } else {
             if (threadShouldExit()) {
                 errorMessage = TRANS("Export cancelled.");
-            if (!destinationFile.deleteFile())
-                DP_LOG_WARN("Failed to clean up cancelled WAV: " + destinationFile.getFullPathName());
+                if (!destinationFile.deleteFile())
+                    DP_LOG_WARN("Failed to clean up cancelled WAV: " + destinationFile.getFullPathName());
             } else {
                 errorMessage = TRANS("Export failed during plugin rendering.");
             }
@@ -64,8 +64,8 @@ void WavExportTask::run() {
         } else {
             if (threadShouldExit()) {
                 errorMessage = TRANS("Export cancelled.");
-            if (!destinationFile.deleteFile())
-                DP_LOG_WARN("Failed to clean up cancelled WAV: " + destinationFile.getFullPathName());
+                if (!destinationFile.deleteFile())
+                    DP_LOG_WARN("Failed to clean up cancelled WAV: " + destinationFile.getFullPathName());
             } else {
                 errorMessage = TRANS("Export failed during sine synth rendering.");
             }
