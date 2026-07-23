@@ -119,6 +119,9 @@ try {
         throw "CMake configure failed with exit code $LASTEXITCODE"
     }
 
+    Write-Log 'killing any stale DevPiano.exe process'
+    Get-Process -Name "DevPiano" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+
     Write-Log "cmake --build --preset $BuildPreset"
     & cmake --build --preset $BuildPreset
     if ($LASTEXITCODE -ne 0) {
