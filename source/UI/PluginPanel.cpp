@@ -20,6 +20,7 @@ PluginPanel::PluginPanel() {
         if (onLoadRequested)
             onLoadRequested();
     };
+    addAndMakeVisible(loadPluginButton);
 
     addAndMakeVisible(unloadPluginButton);
     unloadPluginButton.onClick = [this] {
