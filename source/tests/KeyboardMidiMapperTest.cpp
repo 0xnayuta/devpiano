@@ -11,8 +11,7 @@ using namespace devpiano::core;
 
 namespace {
 /// Build a minimal layout with a single binding.
-KeyboardLayout makeSingleBindingLayout(char key, int midiNote, int midiChannel = 1, float velocity = 1.0f)
-{
+KeyboardLayout makeSingleBindingLayout(char key, int midiNote, int midiChannel = 1, float velocity = 1.0f) {
     KeyboardLayout layout;
     layout.id = "test.single";
     layout.name = "Test Single";
@@ -21,8 +20,7 @@ KeyboardLayout makeSingleBindingLayout(char key, int midiNote, int midiChannel =
 }
 
 /// Build a layout with two bindings.
-KeyboardLayout makeTwoBindingLayout(char key1, int note1, char key2, int note2)
-{
+KeyboardLayout makeTwoBindingLayout(char key1, int note1, char key2, int note2) {
     KeyboardLayout layout;
     layout.id = "test.pair";
     layout.name = "Test Pair";
@@ -32,8 +30,7 @@ KeyboardLayout makeTwoBindingLayout(char key1, int note1, char key2, int note2)
 }
 
 /// Count the number of held notes in a MidiKeyboardState.
-int countNotesOn(const juce::MidiKeyboardState& state)
-{
+int countNotesOn(const juce::MidiKeyboardState& state) {
     int count = 0;
     for (int ch = 1; ch <= 16; ++ch)
         for (int note = 0; note < 128; ++note)
@@ -43,8 +40,7 @@ int countNotesOn(const juce::MidiKeyboardState& state)
 }
 
 /// Check if a specific note is on in a given channel.
-bool isNoteOn(const juce::MidiKeyboardState& state, int midiChannel, int midiNote)
-{
+bool isNoteOn(const juce::MidiKeyboardState& state, int midiChannel, int midiNote) {
     return state.isNoteOn(midiChannel, midiNote);
 }
 } // namespace
@@ -53,10 +49,11 @@ bool isNoteOn(const juce::MidiKeyboardState& state, int midiChannel, int midiNot
 
 class LayoutManagementTest : public juce::UnitTest {
 public:
-    LayoutManagementTest() : juce::UnitTest("KeyboardMidiMapper: layout management") {}
+    LayoutManagementTest()
+        : juce::UnitTest("KeyboardMidiMapper: layout management") {
+    }
 
-    void runTest() override
-    {
+    void runTest() override {
         beginTest("default layout on construction");
         {
             KeyboardMidiMapper mapper;
@@ -107,10 +104,11 @@ static LayoutManagementTest layoutManagementTest;
 
 class NoteOnMappingTest : public juce::UnitTest {
 public:
-    NoteOnMappingTest() : juce::UnitTest("KeyboardMidiMapper: note-on mapping") {}
+    NoteOnMappingTest()
+        : juce::UnitTest("KeyboardMidiMapper: note-on mapping") {
+    }
 
-    void runTest() override
-    {
+    void runTest() override {
         beginTest("mapped key sends note-on to keyboardState");
         {
             KeyboardMidiMapper mapper;
@@ -172,10 +170,11 @@ static NoteOnMappingTest noteOnMappingTest;
 
 class RepeatKeySuppressionTest : public juce::UnitTest {
 public:
-    RepeatKeySuppressionTest() : juce::UnitTest("KeyboardMidiMapper: repeat key suppression") {}
+    RepeatKeySuppressionTest()
+        : juce::UnitTest("KeyboardMidiMapper: repeat key suppression") {
+    }
 
-    void runTest() override
-    {
+    void runTest() override {
         beginTest("pressing same key twice does not duplicate note-on");
         {
             KeyboardMidiMapper mapper;
@@ -215,10 +214,11 @@ static RepeatKeySuppressionTest repeatKeySuppressionTest;
 
 class NoteOffOnReleaseTest : public juce::UnitTest {
 public:
-    NoteOffOnReleaseTest() : juce::UnitTest("KeyboardMidiMapper: note-off on release") {}
+    NoteOffOnReleaseTest()
+        : juce::UnitTest("KeyboardMidiMapper: note-off on release") {
+    }
 
-    void runTest() override
-    {
+    void runTest() override {
         beginTest("handleKeyStateChanged releases held keys");
         {
             // NOTE: handleKeyStateChanged uses juce::KeyPress::isKeyCurrentlyDown(),
@@ -266,10 +266,11 @@ static NoteOffOnReleaseTest noteOffOnReleaseTest;
 
 class MultipleKeysTest : public juce::UnitTest {
 public:
-    MultipleKeysTest() : juce::UnitTest("KeyboardMidiMapper: multiple simultaneous keys") {}
+    MultipleKeysTest()
+        : juce::UnitTest("KeyboardMidiMapper: multiple simultaneous keys") {
+    }
 
-    void runTest() override
-    {
+    void runTest() override {
         beginTest("multiple keys pressed produce multiple notes");
         {
             KeyboardMidiMapper mapper;
@@ -292,10 +293,11 @@ static MultipleKeysTest multipleKeysTest;
 
 class ChannelMapperNullTest : public juce::UnitTest {
 public:
-    ChannelMapperNullTest() : juce::UnitTest("KeyboardMidiMapper: nullptr channel mapper") {}
+    ChannelMapperNullTest()
+        : juce::UnitTest("KeyboardMidiMapper: nullptr channel mapper") {
+    }
 
-    void runTest() override
-    {
+    void runTest() override {
         beginTest("works correctly with no channel mapper set");
         {
             KeyboardMidiMapper mapper;
@@ -316,10 +318,11 @@ static ChannelMapperNullTest channelMapperNullTest;
 
 class MixedCaseKeyTest : public juce::UnitTest {
 public:
-    MixedCaseKeyTest() : juce::UnitTest("KeyboardMidiMapper: mixed case key lookup") {}
+    MixedCaseKeyTest()
+        : juce::UnitTest("KeyboardMidiMapper: mixed case key lookup") {
+    }
 
-    void runTest() override
-    {
+    void runTest() override {
         beginTest("lowercase KeyPress matches uppercase binding");
         {
             // Layout has binding for 'A' (uppercase normalized key code).

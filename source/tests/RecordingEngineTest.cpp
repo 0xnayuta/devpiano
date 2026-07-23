@@ -12,16 +12,13 @@ namespace {
 /// Helper: build a RecordingTake populated with the given note-on/off events.
 /// Each tuple = (timestampSamples, noteNumber, isNoteOn, channel, velocity).
 RecordingTake buildTake(double sampleRate, std::int64_t lengthSamples,
-                        const std::vector<std::tuple<std::int64_t, int, bool, int, float>>& events)
-{
+                        const std::vector<std::tuple<std::int64_t, int, bool, int, float>>& events) {
     RecordingTake take;
     take.sampleRate = sampleRate;
     take.lengthSamples = lengthSamples;
     take.events.reserve(events.size());
     for (const auto& [ts, note, isOn, ch, vel] : events) {
-        juce::MidiMessage msg = isOn
-            ? juce::MidiMessage::noteOn(ch, note, vel)
-            : juce::MidiMessage::noteOff(ch, note);
+        juce::MidiMessage msg = isOn ? juce::MidiMessage::noteOn(ch, note, vel) : juce::MidiMessage::noteOff(ch, note);
         take.events.push_back({ ts, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard, msg });
     }
     return take;
@@ -32,10 +29,11 @@ RecordingTake buildTake(double sampleRate, std::int64_t lengthSamples,
 
 class RecordingLifecycleTest : public juce::UnitTest {
 public:
-    RecordingLifecycleTest() : juce::UnitTest("RecordingEngine: recording lifecycle") {}
+    RecordingLifecycleTest()
+        : juce::UnitTest("RecordingEngine: recording lifecycle") {
+    }
 
-    void runTest() override
-    {
+    void runTest() override {
         beginTest("start/stop recording produces correct take");
         {
             RecordingEngine engine;
@@ -119,18 +117,20 @@ static RecordingLifecycleTest recordingLifecycleTest;
 
 class PlaybackBasicTest : public juce::UnitTest {
 public:
-    PlaybackBasicTest() : juce::UnitTest("RecordingEngine: playback basic") {}
+    PlaybackBasicTest()
+        : juce::UnitTest("RecordingEngine: playback basic") {
+    }
 
-    void runTest() override
-    {
+    void runTest() override {
         beginTest("playback renders events at correct sample offsets");
         {
             // Build a take with three events at sample positions 0, 2205, 4410.
-            auto take = buildTake(44100.0, 5000, {
-                { 0,    60, true,  1, 1.0f },
-                { 2205, 64, true,  1, 1.0f },
-                { 4410, 60, false, 1, 0.0f },
-            });
+            auto take = buildTake(44100.0, 5000,
+                                  {
+                                      { 0, 60, true, 1, 1.0f },
+                                      { 2205, 64, true, 1, 1.0f },
+                                      { 4410, 60, false, 1, 0.0f },
+                                  });
 
             RecordingEngine engine;
             engine.startPlayback(take, 44100.0);
@@ -141,28 +141,40 @@ public:
             juce::MidiBuffer buf;
             engine.renderPlaybackBlock(buf, 0, 512);
             int blockEvents = 0;
-            for (auto m : buf) { juce::ignoreUnused(m); ++blockEvents; }
+            for (auto m : buf) {
+                juce::ignoreUnused(m);
+                ++blockEvents;
+            }
             expectEquals(1, blockEvents, "first block should contain the event at sample 0");
 
             // Render second block [512, 1024) — no events.
             buf.clear();
             engine.renderPlaybackBlock(buf, 512, 512);
             blockEvents = 0;
-            for (auto m : buf) { juce::ignoreUnused(m); ++blockEvents; }
+            for (auto m : buf) {
+                juce::ignoreUnused(m);
+                ++blockEvents;
+            }
             expectEquals(0, blockEvents);
 
             // Render block containing sample 2205.
             buf.clear();
             engine.renderPlaybackBlock(buf, 2048, 256);
             blockEvents = 0;
-            for (auto m : buf) { juce::ignoreUnused(m); ++blockEvents; }
+            for (auto m : buf) {
+                juce::ignoreUnused(m);
+                ++blockEvents;
+            }
             expectEquals(1, blockEvents, "block containing sample 2205 should have one event");
 
             // Render block containing sample 4410.
             buf.clear();
             engine.renderPlaybackBlock(buf, 4096, 512);
             blockEvents = 0;
-            for (auto m : buf) { juce::ignoreUnused(m); ++blockEvents; }
+            for (auto m : buf) {
+                juce::ignoreUnused(m);
+                ++blockEvents;
+            }
             expectEquals(1, blockEvents, "block containing sample 4410 should have one event (note-off)");
 
             engine.stopPlayback();
@@ -171,9 +183,10 @@ public:
 
         beginTest("advancePlaybackPosition tracks progress and detects end");
         {
-            auto take = buildTake(44100.0, 1000, {
-                { 0, 60, true, 1, 1.0f },
-            });
+            auto take = buildTake(44100.0, 1000,
+                                  {
+                                      { 0, 60, true, 1, 1.0f },
+                                  });
 
             RecordingEngine engine;
             engine.startPlayback(take, 44100.0);
@@ -207,16 +220,18 @@ static PlaybackBasicTest playbackBasicTest;
 
 class PlaybackSpeedTest : public juce::UnitTest {
 public:
-    PlaybackSpeedTest() : juce::UnitTest("RecordingEngine: playback speed") {}
+    PlaybackSpeedTest()
+        : juce::UnitTest("RecordingEngine: playback speed") {
+    }
 
-    void runTest() override
-    {
+    void runTest() override {
         beginTest("speed multiplier scales event timestamps");
         {
             // Event at sample 4410. At 1.0x → offset 4410; at 2.0x → offset 2205.
-            auto take = buildTake(44100.0, 10000, {
-                { 4410, 64, true, 1, 1.0f },
-            });
+            auto take = buildTake(44100.0, 10000,
+                                  {
+                                      { 4410, 64, true, 1, 1.0f },
+                                  });
 
             RecordingEngine engine;
 
@@ -228,7 +243,10 @@ public:
                 engine.renderPlaybackBlock(buf, 0, 10000);
                 int count = 0;
                 int sampleOff = -1;
-                for (auto m : buf) { ++count; sampleOff = m.samplePosition; }
+                for (auto m : buf) {
+                    ++count;
+                    sampleOff = m.samplePosition;
+                }
                 expectEquals(1, count);
                 expectEquals(4410, sampleOff, "at 1.0x event should be at original offset");
             }
@@ -243,7 +261,10 @@ public:
                 engine.renderPlaybackBlock(buf, 0, 10000);
                 int count = 0;
                 int sampleOff = -1;
-                for (auto m : buf) { ++count; sampleOff = m.samplePosition; }
+                for (auto m : buf) {
+                    ++count;
+                    sampleOff = m.samplePosition;
+                }
                 expectEquals(1, count);
                 expectEquals(2205, sampleOff, "at 2.0x event should be at half the offset");
             }
@@ -268,15 +289,17 @@ static PlaybackSpeedTest playbackSpeedTest;
 
 class PlaybackEndDetectionTest : public juce::UnitTest {
 public:
-    PlaybackEndDetectionTest() : juce::UnitTest("RecordingEngine: playback end detection") {}
+    PlaybackEndDetectionTest()
+        : juce::UnitTest("RecordingEngine: playback end detection") {
+    }
 
-    void runTest() override
-    {
+    void runTest() override {
         beginTest("exact boundary advance triggers end");
         {
-            auto take = buildTake(44100.0, 1024, {
-                { 0, 60, true, 1, 1.0f },
-            });
+            auto take = buildTake(44100.0, 1024,
+                                  {
+                                      { 0, 60, true, 1, 1.0f },
+                                  });
 
             RecordingEngine engine;
             engine.startPlayback(take, 44100.0);
@@ -312,10 +335,11 @@ static PlaybackEndDetectionTest playbackEndDetectionTest;
 
 class RecordingCapacityTest : public juce::UnitTest {
 public:
-    RecordingCapacityTest() : juce::UnitTest("RecordingEngine: capacity / dropped events") {}
+    RecordingCapacityTest()
+        : juce::UnitTest("RecordingEngine: capacity / dropped events") {
+    }
 
-    void runTest() override
-    {
+    void runTest() override {
         beginTest("events dropped when capacity exhausted");
         {
             RecordingEngine engine;
@@ -366,10 +390,11 @@ static RecordingCapacityTest recordingCapacityTest;
 
 class PresetChangeRecordingTest : public juce::UnitTest {
 public:
-    PresetChangeRecordingTest() : juce::UnitTest("RecordingEngine: preset change recording") {}
+    PresetChangeRecordingTest()
+        : juce::UnitTest("RecordingEngine: preset change recording") {
+    }
 
-    void runTest() override
-    {
+    void runTest() override {
         beginTest("preset change events merged into final take");
         {
             RecordingEngine engine;
@@ -418,10 +443,11 @@ static PresetChangeRecordingTest presetChangeRecordingTest;
 
 class PresetChangePlaybackTest : public juce::UnitTest {
 public:
-    PresetChangePlaybackTest() : juce::UnitTest("RecordingEngine: preset change playback") {}
+    PresetChangePlaybackTest()
+        : juce::UnitTest("RecordingEngine: preset change playback") {
+    }
 
-    void runTest() override
-    {
+    void runTest() override {
         beginTest("preset changes drained during playback");
         {
             RecordingTake take;
@@ -463,9 +489,10 @@ public:
 
         beginTest("no preset changes when none recorded");
         {
-            auto take = buildTake(44100.0, 1000, {
-                { 0, 60, true, 1, 1.0f },
-            });
+            auto take = buildTake(44100.0, 1000,
+                                  {
+                                      { 0, 60, true, 1, 1.0f },
+                                  });
 
             RecordingEngine engine;
             engine.startPlayback(take, 44100.0);
@@ -486,10 +513,11 @@ static PresetChangePlaybackTest presetChangePlaybackTest;
 
 class PitchBendSmoothingTest : public juce::UnitTest {
 public:
-    PitchBendSmoothingTest() : juce::UnitTest("RecordingEngine: pitch bend smoothing") {}
+    PitchBendSmoothingTest()
+        : juce::UnitTest("RecordingEngine: pitch bend smoothing") {
+    }
 
-    void runTest() override
-    {
+    void runTest() override {
         beginTest("pitch wheel events are EMA-smoothed during playback");
         {
             RecordingTake take;
@@ -519,8 +547,7 @@ public:
                     auto val = m.getMessage().getPitchWheelValue();
                     // EMA: 8192 + 0.3 * (16383 - 8192) = 8192 + 2457.3 = 10649.3
                     // Allow some tolerance for float rounding.
-                    expect(val > 8192 && val < 16383,
-                           "smoothed value should be between center and target");
+                    expect(val > 8192 && val < 16383, "smoothed value should be between center and target");
                 }
             }
             expect(foundPitchWheel, "playback should emit a pitch wheel event");
@@ -536,10 +563,11 @@ static PitchBendSmoothingTest pitchBendSmoothingTest;
 
 class TakeHelpersTest : public juce::UnitTest {
 public:
-    TakeHelpersTest() : juce::UnitTest("RecordingEngine: RecordingTake helpers") {}
+    TakeHelpersTest()
+        : juce::UnitTest("RecordingEngine: RecordingTake helpers") {
+    }
 
-    void runTest() override
-    {
+    void runTest() override {
         beginTest("isEmpty on empty take");
         {
             RecordingTake take;
@@ -549,9 +577,10 @@ public:
 
         beginTest("isEmpty on populated take");
         {
-            auto take = buildTake(44100.0, 44100, {
-                { 0, 60, true, 1, 1.0f },
-            });
+            auto take = buildTake(44100.0, 44100,
+                                  {
+                                      { 0, 60, true, 1, 1.0f },
+                                  });
             expect(!take.isEmpty());
         }
 
@@ -585,10 +614,11 @@ static TakeHelpersTest takeHelpersTest;
 
 class MidiBufferBlockRecordingTest : public juce::UnitTest {
 public:
-    MidiBufferBlockRecordingTest() : juce::UnitTest("RecordingEngine: MidiBuffer block recording") {}
+    MidiBufferBlockRecordingTest()
+        : juce::UnitTest("RecordingEngine: MidiBuffer block recording") {
+    }
 
-    void runTest() override
-    {
+    void runTest() override {
         beginTest("recordMidiBufferBlock captures MIDI with absolute timestamps");
         {
             RecordingEngine engine;
@@ -610,7 +640,8 @@ public:
             expectEquals(static_cast<std::int64_t>(1024), take.events[0].timestampSamples);
             // Second event: 1024 + 256 = 1280.
             expectEquals(static_cast<std::int64_t>(1280), take.events[1].timestampSamples);
-            expect(take.events[0].source == RecordingEventSource::realtimeMidiBuffer, "source should be realtimeMidiBuffer");
+            expect(take.events[0].source == RecordingEventSource::realtimeMidiBuffer,
+                   "source should be realtimeMidiBuffer");
         }
 
         beginTest("recordMidiBufferBlock ignores when not recording");

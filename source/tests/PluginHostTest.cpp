@@ -25,10 +25,11 @@
 
 class DefaultStateTest : public juce::UnitTest {
 public:
-    DefaultStateTest() : juce::UnitTest("PluginHost: default state") {}
+    DefaultStateTest()
+        : juce::UnitTest("PluginHost: default state") {
+    }
 
-    void runTest() override
-    {
+    void runTest() override {
         beginTest("fresh PluginHost has no loaded plugin");
         {
             PluginHost host;
@@ -69,15 +70,15 @@ static DefaultStateTest defaultStateTest;
 
 class LastLoadErrorTest : public juce::UnitTest {
 public:
-    LastLoadErrorTest() : juce::UnitTest("PluginHost: last load error") {}
+    LastLoadErrorTest()
+        : juce::UnitTest("PluginHost: last load error") {
+    }
 
-    void runTest() override
-    {
+    void runTest() override {
         beginTest("default load error message is set");
         {
             PluginHost host;
-            expect(host.getLastLoadError().isNotEmpty(),
-                   "should have a default error message");
+            expect(host.getLastLoadError().isNotEmpty(), "should have a default error message");
         }
     }
 };
@@ -88,29 +89,27 @@ static LastLoadErrorTest lastLoadErrorTest;
 
 class PluginListEmptyTest : public juce::UnitTest {
 public:
-    PluginListEmptyTest() : juce::UnitTest("PluginHost: empty plugin lists") {}
+    PluginListEmptyTest()
+        : juce::UnitTest("PluginHost: empty plugin lists") {
+    }
 
-    void runTest() override
-    {
+    void runTest() override {
         beginTest("getKnownPluginNames is empty for fresh host");
         {
             PluginHost host;
-            expect(host.getKnownPluginNames().isEmpty(),
-                   "known plugin names should be empty");
+            expect(host.getKnownPluginNames().isEmpty(), "known plugin names should be empty");
         }
 
         beginTest("getInstrumentPluginNames is empty for fresh host");
         {
             PluginHost host;
-            expect(host.getInstrumentPluginNames().isEmpty(),
-                   "instrument names should be empty");
+            expect(host.getInstrumentPluginNames().isEmpty(), "instrument names should be empty");
         }
 
         beginTest("getEffectPluginNames is empty for fresh host");
         {
             PluginHost host;
-            expect(host.getEffectPluginNames().isEmpty(),
-                   "effect names should be empty");
+            expect(host.getEffectPluginNames().isEmpty(), "effect names should be empty");
         }
 
         beginTest("getPluginListDescription is non-empty (describes empty state)");
@@ -128,15 +127,15 @@ static PluginListEmptyTest pluginListEmptyTest;
 
 class ScanSummaryTest : public juce::UnitTest {
 public:
-    ScanSummaryTest() : juce::UnitTest("PluginHost: scan summary defaults") {}
+    ScanSummaryTest()
+        : juce::UnitTest("PluginHost: scan summary defaults") {
+    }
 
-    void runTest() override
-    {
+    void runTest() override {
         beginTest("getLastScanSummary returns default message");
         {
             PluginHost host;
-            expect(host.getLastScanSummary().isNotEmpty(),
-                   "should have a default scan summary message");
+            expect(host.getLastScanSummary().isNotEmpty(), "should have a default scan summary message");
         }
 
         beginTest("getLastScanPluginCount returns 0 by default");
@@ -159,10 +158,11 @@ static ScanSummaryTest scanSummaryTest;
 
 class ScanningStateTest : public juce::UnitTest {
 public:
-    ScanningStateTest() : juce::UnitTest("PluginHost: scanning state") {}
+    ScanningStateTest()
+        : juce::UnitTest("PluginHost: scanning state") {
+    }
 
-    void runTest() override
-    {
+    void runTest() override {
         beginTest("isCurrentlyScanning is false by default");
         {
             PluginHost host;
@@ -172,15 +172,13 @@ public:
         beginTest("getScanningPluginName is empty by default");
         {
             PluginHost host;
-            expect(host.getScanningPluginName().isEmpty(),
-                   "scanning name should be empty");
+            expect(host.getScanningPluginName().isEmpty(), "scanning name should be empty");
         }
 
         beginTest("getLastScanFailedFiles is empty by default");
         {
             PluginHost host;
-            expect(host.getLastScanFailedFiles().isEmpty(),
-                   "failed files list should be empty");
+            expect(host.getLastScanFailedFiles().isEmpty(), "failed files list should be empty");
         }
     }
 };
@@ -191,16 +189,16 @@ static ScanningStateTest scanningStateTest;
 
 class SupportsVst3Test : public juce::UnitTest {
 public:
-    SupportsVst3Test() : juce::UnitTest("PluginHost: supports VST3") {}
+    SupportsVst3Test()
+        : juce::UnitTest("PluginHost: supports VST3") {
+    }
 
-    void runTest() override
-    {
+    void runTest() override {
         beginTest("supportsVst3 reflects compile-time config");
         {
             PluginHost host;
             // JUCE_PLUGINHOST_VST3=1 is set in CMake → VST3 support enabled.
-            expect(host.supportsVst3(),
-                   "VST3 should be supported when JUCE_PLUGINHOST_VST3=1");
+            expect(host.supportsVst3(), "VST3 should be supported when JUCE_PLUGINHOST_VST3=1");
         }
     }
 };
@@ -211,15 +209,15 @@ static SupportsVst3Test supportsVst3Test;
 
 class FormatsAndPathsTest : public juce::UnitTest {
 public:
-    FormatsAndPathsTest() : juce::UnitTest("PluginHost: formats and paths") {}
+    FormatsAndPathsTest()
+        : juce::UnitTest("PluginHost: formats and paths") {
+    }
 
-    void runTest() override
-    {
+    void runTest() override {
         beginTest("getAvailableFormatsDescription is non-empty");
         {
             PluginHost host;
-            expect(host.getAvailableFormatsDescription().isNotEmpty(),
-                   "should describe available formats");
+            expect(host.getAvailableFormatsDescription().isNotEmpty(), "should describe available formats");
         }
 
         beginTest("getDefaultVst3SearchPath does not crash");
@@ -240,10 +238,11 @@ static FormatsAndPathsTest formatsAndPathsTest;
 
 class KnownPluginListXmlTest : public juce::UnitTest {
 public:
-    KnownPluginListXmlTest() : juce::UnitTest("PluginHost: known plugin list XML") {}
+    KnownPluginListXmlTest()
+        : juce::UnitTest("PluginHost: known plugin list XML") {
+    }
 
-    void runTest() override
-    {
+    void runTest() override {
         beginTest("createKnownPluginListXml returns valid XML for empty list");
         {
             PluginHost host;

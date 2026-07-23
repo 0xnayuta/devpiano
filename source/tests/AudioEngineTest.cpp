@@ -24,25 +24,23 @@
 
 namespace {
 auto makeBlock(int numChannels, int numSamples, int startSample = 0)
-    -> std::pair<juce::AudioBuffer<float>, juce::AudioSourceChannelInfo>
-{
+    -> std::pair<juce::AudioBuffer<float>, juce::AudioSourceChannelInfo> {
     juce::AudioBuffer<float> buf(numChannels, numSamples);
     buf.clear();
     juce::AudioSourceChannelInfo info(&buf, startSample, numSamples - startSample);
     return { std::move(buf), info };
 }
 
-int countNonZeroSamples(const juce::AudioBuffer<float>& buf, int start, int n)
-{
+int countNonZeroSamples(const juce::AudioBuffer<float>& buf, int start, int n) {
     int c = 0;
     for (int ch = 0; ch < buf.getNumChannels(); ++ch)
         for (int i = 0; i < n; ++i)
-            if (buf.getReadPointer(ch, start)[i] != 0.0f) ++c;
+            if (buf.getReadPointer(ch, start)[i] != 0.0f)
+                ++c;
     return c;
 }
 
-void exhaustWarmup(AudioEngine& engine, int blockSize)
-{
+void exhaustWarmup(AudioEngine& engine, int blockSize) {
     for (int i = 0; i < 5; ++i) {
         auto [buf, info] = makeBlock(2, blockSize);
         engine.getNextAudioBlock(info);
@@ -54,9 +52,10 @@ void exhaustWarmup(AudioEngine& engine, int blockSize)
 
 class PrepareToPlayTest : public juce::UnitTest {
 public:
-    PrepareToPlayTest() : juce::UnitTest("AudioEngine: prepareToPlay") {}
-    void runTest() override
-    {
+    PrepareToPlayTest()
+        : juce::UnitTest("AudioEngine: prepareToPlay") {
+    }
+    void runTest() override {
         beginTest("prepareToPlay does not crash");
         {
             AudioEngine engine;
@@ -65,8 +64,12 @@ public:
         }
         beginTest("prepareToPlay with different rates / sizes");
         {
-            AudioEngine e1; e1.prepareToPlay(256, 48000.0);  expect(true);
-            AudioEngine e2; e2.prepareToPlay(1024, 22050.0); expect(true);
+            AudioEngine e1;
+            e1.prepareToPlay(256, 48000.0);
+            expect(true);
+            AudioEngine e2;
+            e2.prepareToPlay(1024, 22050.0);
+            expect(true);
         }
         beginTest("getNextAudioBlock works after prepareToPlay");
         {
@@ -92,9 +95,10 @@ static PrepareToPlayTest prepareToPlayTest;
 
 class MasterGainTest : public juce::UnitTest {
 public:
-    MasterGainTest() : juce::UnitTest("AudioEngine: master gain") {}
-    void runTest() override
-    {
+    MasterGainTest()
+        : juce::UnitTest("AudioEngine: master gain") {
+    }
+    void runTest() override {
         beginTest("gain 0 silences output (masterGain applied at end of block)");
         {
             AudioEngine engine;
@@ -135,9 +139,10 @@ static MasterGainTest masterGainTest;
 
 class AllNotesOffTest : public juce::UnitTest {
 public:
-    AllNotesOffTest() : juce::UnitTest("AudioEngine: all-notes-off") {}
-    void runTest() override
-    {
+    AllNotesOffTest()
+        : juce::UnitTest("AudioEngine: all-notes-off") {
+    }
+    void runTest() override {
         beginTest("requestAllNotesOff does not crash");
         {
             AudioEngine engine;
@@ -168,9 +173,10 @@ static AllNotesOffTest allNotesOffTest;
 
 class WarmupTest : public juce::UnitTest {
 public:
-    WarmupTest() : juce::UnitTest("AudioEngine: warmup") {}
-    void runTest() override
-    {
+    WarmupTest()
+        : juce::UnitTest("AudioEngine: warmup") {
+    }
+    void runTest() override {
         beginTest("first two blocks after prepareToPlay are silent");
         {
             AudioEngine engine;
@@ -204,9 +210,10 @@ static WarmupTest warmupTest;
 
 class ReleaseResourcesTest : public juce::UnitTest {
 public:
-    ReleaseResourcesTest() : juce::UnitTest("AudioEngine: releaseResources") {}
-    void runTest() override
-    {
+    ReleaseResourcesTest()
+        : juce::UnitTest("AudioEngine: releaseResources") {
+    }
+    void runTest() override {
         beginTest("releaseResources does not crash");
         {
             AudioEngine engine;
