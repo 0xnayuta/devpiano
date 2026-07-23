@@ -140,7 +140,6 @@ void MainComponent::handlePresetShortcut(int index) {
 }
 void MainComponent::initialiseUi() {
     setLookAndFeel(&lookAndFeel);
-    setBounds(getInitialMainContentBounds());
     setWantsKeyboardFocus(true);
 
     addAndMakeVisible(headerPanel);
@@ -282,6 +281,7 @@ void MainComponent::initialiseUi() {
             },
             this);
     };
+    setBounds(getInitialMainContentBounds());
 }
 
 juce::Rectangle<int> MainComponent::getMainContentResizeLimits() {
