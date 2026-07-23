@@ -194,8 +194,10 @@ std::optional<PerformancePreset> loadPreset(const juce::File& path) {
     if (raw.isEmpty())
         return std::nullopt;
 
-    auto jsonResult = juce::JSON::parse(raw);
-    if (!jsonResult.isObject())
+    juce::var jsonResult;
+    try { jsonResult = juce::JSON::parse(raw); }
+    catch (...) { return std::nullopt; }
+     if (!jsonResult.isObject())
         return std::nullopt;
 
     auto* obj = jsonResult.getDynamicObject();

@@ -60,9 +60,13 @@ std::size_t RecordingEngine::getReservedEventCapacity() const noexcept {
 }
 
 const RecordingTake& RecordingEngine::getCurrentTake() const noexcept {
-    // Must not be called during active recording — the returned reference aliases
-    // the events vector that the audio thread is mutating.
-    jassert(!isRecording());
+    // Return an empty take if called during active recording — the audio thread
+    // may be mutating the events vector. Callers should use createTakeSnapshot()
+    // or stop recording first.
+    if (isRecording()) {
+        static const RecordingTake empty;
+        return empty;
+    }
     return currentTake;
 }
 

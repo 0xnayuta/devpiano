@@ -150,8 +150,10 @@ juce::String serialiseTakeToJson(const RecordingTake& take, const PerformanceFil
 // --- Public API: deserialise ---
 
 std::optional<RecordingTake> deserialiseTakeFromJson(const juce::String& json) {
-    auto parsed = juce::JSON::parse(json);
-    if (!parsed.isObject())
+    juce::var parsed;
+    try { parsed = juce::JSON::parse(json); }
+    catch (...) { return std::nullopt; }
+     if (!parsed.isObject())
         return std::nullopt;
 
     auto* root = parsed.getDynamicObject();
@@ -231,8 +233,10 @@ std::optional<PerformanceFileMetadata> loadPerformanceFileMetadata(const juce::F
     if (json.isEmpty())
         return std::nullopt;
 
-    auto parsed = juce::JSON::parse(json);
-    if (!parsed.isObject())
+    juce::var parsed;
+    try { parsed = juce::JSON::parse(json); }
+    catch (...) { return std::nullopt; }
+     if (!parsed.isObject())
         return std::nullopt;
 
     auto* root = parsed.getDynamicObject();
