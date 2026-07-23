@@ -3,6 +3,7 @@
 #include "Recording/PluginOfflineRenderer.h"
 #include "Recording/WavFileExporter.h"
 
+#include "Diagnostics/Log.h"
 // ============================================================================
 WavExportTask::WavExportTask(devpiano::recording::RecordingTake take_, const juce::File& destinationFile_,
                              const devpiano::exporting::WavExportOptions& options_,
@@ -41,7 +42,7 @@ void WavExportTask::run() {
         if (threadShouldExit()) {
             success = false;
             errorMessage = TRANS("Export cancelled.");
-            destinationFile.deleteFile();
+            destinationFile.deleteFile();  // best-effort; log failure below
         }
 
         if (renderTakeWithOfflinePlugin(take, destinationFile, options, *offlinePlugin, progressCallback)) {
@@ -49,7 +50,8 @@ void WavExportTask::run() {
         } else {
             if (threadShouldExit()) {
                 errorMessage = TRANS("Export cancelled.");
-                destinationFile.deleteFile();
+            if (!destinationFile.deleteFile())
+                DP_LOG_WARN("Failed to clean up cancelled WAV: " + destinationFile.getFullPathName());
             } else {
                 errorMessage = TRANS("Export failed during plugin rendering.");
             }
@@ -62,7 +64,8 @@ void WavExportTask::run() {
         } else {
             if (threadShouldExit()) {
                 errorMessage = TRANS("Export cancelled.");
-                destinationFile.deleteFile();
+            if (!destinationFile.deleteFile())
+                DP_LOG_WARN("Failed to clean up cancelled WAV: " + destinationFile.getFullPathName());
             } else {
                 errorMessage = TRANS("Export failed during sine synth rendering.");
             }

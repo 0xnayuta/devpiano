@@ -5,6 +5,7 @@
 #include "Export/WavExportOptions.h"
 #include "Recording/RecordingEngine.h"
 
+#include <atomic>
 #include <memory>
 
 // ============================================================================
@@ -47,6 +48,6 @@ private:
     devpiano::exporting::WavExportOptions options;
     std::unique_ptr<juce::AudioPluginInstance> offlinePlugin;
 
-    bool success = false;
+    std::atomic<bool> success { false };
     juce::String errorMessage;
 };

@@ -93,7 +93,7 @@ private:
     double preparedSampleRate = 44100.0;
     int preparedBlockSize = 512;
     bool prepared = false;
-    bool isScanning = false;
+    std::atomic<bool> isScanning { false };
     juce::String scanningPluginName;
     juce::FileSearchPath activeScanPath;
     bool activeScanRecursive = false;

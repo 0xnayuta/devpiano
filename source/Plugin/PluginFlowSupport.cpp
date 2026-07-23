@@ -26,8 +26,6 @@ juce::FileSearchPath filterExistingDirectories(const juce::FileSearchPath& path)
 }
 } // namespace
 
-juce::FileSearchPath normalisePluginScanPath(const juce::FileSearchPath& requestedPath,
-                                             const juce::FileSearchPath& defaultSearchPath);
 
 void restorePluginsAtPath(
     PluginHost& pluginHost, const juce::FileSearchPath& path, const SettingsModel::PluginRecoverySettingsView& recovery,

@@ -64,13 +64,10 @@ bool KeyboardMidiMapper::handleKeyStateChanged(juce::MidiKeyboardState& keyboard
 
         if (!isCurrentlyDown && wasHeld) {
             if (binding.action.type == KeyActionType::note) {
-                const auto midiChannel = binding.action.getMidiChannel().value; // 1-based
+                const auto midiChannel = binding.action.getMidiChannel().value;
                 const auto midiNote = binding.action.getMidiNoteNumber().value;
                 const auto velocity = binding.action.getVelocity().value;
-                if (channelMapper != nullptr)
-                    channelMapper->sendNoteOff(midiChannel - 1, midiNote, velocity, keyboardState);
-                else
-                    keyboardState.noteOff(midiChannel, midiNote, velocity);
+                sendNoteOff(midiChannel, midiNote, velocity, keyboardState);
                 consumed = true;
             } else {
                 consumed = triggerBinding(binding, keyboardState, false) || consumed;
@@ -105,13 +102,21 @@ bool KeyboardMidiMapper::triggerBinding(const KeyBinding& binding, juce::MidiKey
         if (isKeyDownEvent)
             channelMapper->sendNoteOn(midiChannel - 1, midiNote, velocity, keyboardState);
         else
-            channelMapper->sendNoteOff(midiChannel - 1, midiNote, velocity, keyboardState);
+            sendNoteOff(midiChannel, midiNote, velocity, keyboardState);
     } else {
         if (isKeyDownEvent)
             keyboardState.noteOn(midiChannel, midiNote, velocity);
         else
-            keyboardState.noteOff(midiChannel, midiNote, velocity);
+            sendNoteOff(midiChannel, midiNote, velocity, keyboardState);
     }
 
     return true;
+}
+
+void KeyboardMidiMapper::sendNoteOff(int midiChannel, int midiNote, float velocity,
+                                     juce::MidiKeyboardState& keyboardState) {
+    if (channelMapper != nullptr)
+        channelMapper->sendNoteOff(midiChannel - 1, midiNote, velocity, keyboardState);
+    else
+        keyboardState.noteOff(midiChannel, midiNote, velocity);
 }

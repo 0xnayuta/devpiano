@@ -6,7 +6,7 @@
 
 namespace devpiano::audio {
 struct SavedAudioDeviceState {
-    bool hasSavedState = false;
+    bool hasSavedDeviceStateXml = false;
     juce::String deviceType;
     juce::String inputDeviceName;
     juce::String outputDeviceName;
@@ -50,7 +50,7 @@ struct AudioDeviceDiagnostics {
     if (state == nullptr)
         return {};
 
-    return { .hasSavedState = true,
+    return { .hasSavedDeviceStateXml = true,
              .deviceType = state->getStringAttribute("deviceType"),
              .inputDeviceName = state->getStringAttribute("audioInputDeviceName"),
              .outputDeviceName = state->getStringAttribute("audioOutputDeviceName"),
@@ -99,7 +99,7 @@ struct AudioDeviceDiagnostics {
 
     juce::StringArray mismatchReasons;
 
-    if (!saved.hasSavedState) {
+    if (!saved.hasSavedDeviceStateXml) {
         diagnostics.restoreOutcome = "none";
     } else if (!live.hasLiveDevice) {
         diagnostics.restoreOutcome = "fallback suspected";
@@ -149,7 +149,7 @@ struct AudioDeviceDiagnostics {
     diagnostics.compactSummary = compact;
 
     juce::String detailed;
-    detailed << "Saved state: " << (saved.hasSavedState ? "yes" : "no") << "\n";
+    detailed << "Saved state: " << (saved.hasSavedDeviceStateXml ? "yes" : "no") << "\n";
     detailed << "Saved backend: " << (saved.deviceType.isNotEmpty() ? saved.deviceType : "(none)") << "\n";
     detailed << "Saved output: " << (saved.outputDeviceName.isNotEmpty() ? saved.outputDeviceName : "(none)") << "\n";
     detailed << "Saved input: " << (saved.inputDeviceName.isNotEmpty() ? saved.inputDeviceName : "(none)") << "\n";
