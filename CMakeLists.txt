@@ -222,25 +222,36 @@ if (BUILD_TESTS)
 
         source/Midi/MidiChannelMapper.cpp
         source/Midi/MidiChannelMapper.h
+        source/Audio/AudioEngine.cpp
+        source/Audio/AudioEngine.h
+        source/Plugin/PluginHost.cpp
+        source/Plugin/PluginHost.h
+
+
         # 测试代码
         source/tests/TestRunner.cpp
         source/tests/KeyMapTypesTest.cpp
         source/tests/MidiFileImporterTest.cpp
+        source/tests/RecordingEngineTest.cpp
+        source/tests/KeyboardMidiMapperTest.cpp
+        source/tests/AudioEngineTest.cpp
+        source/tests/PluginHostTest.cpp
     )
-
-    target_include_directories(devpiano_tests PRIVATE source)
-    juce_generate_juce_header(devpiano_tests)
-
     target_link_libraries(devpiano_tests PRIVATE
         juce::juce_core
         juce::juce_events
         juce::juce_gui_basics
         juce::juce_audio_basics
         juce::juce_audio_formats
+        juce::juce_audio_devices
+        juce::juce_audio_processors
         juce::juce_recommended_config_flags
     )
 
+    target_include_directories(devpiano_tests PRIVATE source)
+    juce_generate_juce_header(devpiano_tests)
     target_compile_definitions(devpiano_tests PRIVATE
+        JUCE_PLUGINHOST_VST3=1
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
         JUCE_UNIT_TESTS=1
