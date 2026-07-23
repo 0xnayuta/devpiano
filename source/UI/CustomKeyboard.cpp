@@ -359,10 +359,18 @@ void CustomKeyboard::paintBlackKeys(juce::Graphics& g) {
             g.fillPath(keyPath);
         }
 
-        // Fade overlay: gradient from key centre upward
+        // Velocity dynamic glow & fade: ice blue → bright white based on velocity
         if (k.fade > fadeEpsilon) {
-            juce::ColourGradient fadeGrad(k.colour1, keyRect.getCentreX(), keyRect.getCentreY(),
-                                          k.colour1.withAlpha(0.0f), keyRect.getCentreX(), keyRect.getY(), false);
+            float vel = perKeyVelocity[static_cast<std::size_t>(k.midiNote)].get();
+            if (vel <= 0.001f)
+                vel = 0.8f;
+            auto baseGlow = (settings.colourMode == devpiano::ui::KeyColourMode::classic)
+                ? DevPianoLookAndFeel::kPrimary
+                : k.colour1;
+            auto glowColour = baseGlow.interpolatedWith(juce::Colours::white, vel * 0.7f).withAlpha(k.fade);
+
+            juce::ColourGradient fadeGrad(glowColour, keyRect.getCentreX(), keyRect.getCentreY(),
+                                          glowColour.withAlpha(0.0f), keyRect.getCentreX(), keyRect.getY(), false);
             g.setGradientFill(fadeGrad);
             g.fillPath(keyPath);
         }
