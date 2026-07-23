@@ -266,6 +266,11 @@ void PluginOperationController::finishScanSessionAndCommitState() {
     appSettings.knownPluginListState = pluginHost.createKnownPluginListXml();
 
     owner.finishPluginUiAction(true);
+
+    // Auto-load the first available plugin when user-initiated scan completes
+    // and no plugin is currently loaded.
+    if (!pluginHost.hasLoadedPlugin() && !pluginHost.getKnownPluginNames().isEmpty())
+        loadSelectedPlugin();
 }
 
 void PluginOperationController::commitPluginRecoveryStateAndFinishUi(
