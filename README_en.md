@@ -84,11 +84,13 @@ Computer keyboard -> MidiMessageCollector / MidiKeyboardState
   - all new `.cpp/.h` files should be placed here first
   - currently covers keyboard input, plugin hosting, recording/playback/export, MIDI file import, and UI panel layering
 
-### JUCE Submodule
-- `JUCE/`
-  - JUCE framework submodule
-  - **do not modify**
-
+### External Submodules
+- `submodules/`
+  - all third-party dependencies live under this directory
+  - `submodules/JUCE/` — JUCE framework (AGPLv3 / commercial license)
+  - `submodules/JIVE/` — JIVE declarative UI framework (MIT)
+  - `submodules/melatonin_inspector/` — runtime Component inspector (MIT)
+  - **do not modify any code inside submodules**
 
 ### Documentation
 - `docs/`
@@ -145,9 +147,7 @@ For more details, see:
 > Note: the project now uses a **WSL primary working tree + Windows mirror tree + MSVC validation** hybrid workflow.
 
 ### Dependencies
-- WSL: CMake 3.22+, Ninja, Clang/clangd
-- Windows: Visual Studio 2026, MSVC, CMake, Ninja, PowerShell 7 (recommended)
-- JUCE submodule initialized
+- all git submodules initialized (`git submodule update --init --recursive`)
 
 ### Recommended Commands
 
@@ -222,8 +222,6 @@ If you want to understand the current project plan, the recommended reading orde
 
 ## Development Notes
 
-- keep the code minimal, modern, and cross-platform
-- place new code into structured subdirectories under `source/`
-- do not modify anything inside `JUCE/`
+- do not modify any code inside `submodules/`
 - validate changes through the build workflow whenever possible
 - when migrating legacy logic, prioritize extracting behavior rather than directly copying platform-specific implementations

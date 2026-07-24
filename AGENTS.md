@@ -20,6 +20,14 @@
 - `/submodules/JUCE/`
   - JUCE 框架 git 子模块。
   - **绝对不要修改其中任何代码**。
+- `/submodules/JIVE/`
+  - JIVE 声明式 UI 框架 git 子模块（MIT）。
+  - 提供 `juce::ValueTree` 布局引擎 + JSON 样式表 + Flex/Grid 自适应。
+  - **不要修改其中任何代码**。
+- `/submodules/melatonin_inspector/`
+  - melatonin_inspector 运行时 Component 检查器 git 子模块（MIT）。
+  - 提供可视化组件检查、位置拖动、实时改色、FPS 仪表。
+  - **不要修改其中任何代码**。
 - `/build-wsl-clang/`
   - WSL 本地 Debug 构建目录。
   - clangd / LSP 编译数据库来源：`build-wsl-clang/compile_commands.json`。
@@ -69,7 +77,7 @@
 ## 3. 高优先级行动规则
 
 - 保持代码极简、现代、可维护，使用 C++20/23 风格。
-- **不要修改 `/submodules/JUCE/` 子模块**。
+- **不要修改 `/submodules/` 下任何子模块代码**。
 - **新增业务代码只放在 `/source/` 下的合适子目录**。
 - 优先小步修改、小范围验证，不要一次性大改整个系统。
 - **WSL 主工作树是唯一主源码来源，仅用于编辑代码和刷新 `compile_commands.json`**，所有构建验证和软件测试在 Windows 侧进行。

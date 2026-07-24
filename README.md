@@ -84,11 +84,13 @@
   - 所有新的 `.cpp/.h` 应优先放在这里
   - 当前已覆盖键盘输入、插件宿主、录制/回放/导出、MIDI 文件导入与 UI 面板分层
 
-### JUCE 子模块
-- `JUCE/`
-  - JUCE 框架子模块
-  - **不要修改**
-
+### 外部子模块
+- `submodules/`
+  - 所有第三方依赖统一放置于此
+  - `submodules/JUCE/` — JUCE 框架（AGPLv3 / 商业许可）
+  - `submodules/JIVE/` — JIVE 声明式 UI 框架（MIT）
+  - `submodules/melatonin_inspector/` — 运行时 Component 检查器（MIT）
+  - **不要修改子模块中任何代码**
 
 ### 文档目录
 - `docs/`
@@ -145,8 +147,7 @@
 
 ### 依赖
 - WSL：CMake 3.22+、Ninja、Clang/clangd
-- Windows：Visual Studio 2026、MSVC、CMake、Ninja、PowerShell 7（推荐）
-- 已初始化 JUCE 子模块
+- 已初始化所有 git 子模块（`git submodule update --init --recursive`）
 
 ### 推荐命令
 
@@ -234,7 +235,6 @@ Release 构建（WSL / Windows）：
 ## 开发注意事项
 
 - 保持代码极简、现代、跨平台
-- 新代码放入 `source/` 结构化子目录中
-- 不修改 `JUCE/` 中的任何代码
+- 不修改 `submodules/` 中的任何代码
 - 修改后尽量通过 CMake 构建验证
 - 迁移旧逻辑时优先"提炼行为"，不要直接搬运平台绑定实现
