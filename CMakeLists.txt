@@ -9,6 +9,12 @@ project(devpiano VERSION 0.2.0)
 # 告诉 CMake 将 JUCE 目录作为子项目添加进构建树
 add_subdirectory(submodules/JUCE)
 
+# JIVE: 声明式 UI 框架（ValueTree 布局 + JSON 样式表 + Flex/Grid）
+add_subdirectory(submodules/JIVE)
+
+# melatonin_inspector: 运行时 Component 检查器（DEBUG 构建可用）
+add_subdirectory(submodules/melatonin_inspector)
+
 # ========================================================
 # 2. 创建 GUI 应用程序
 # ========================================================
@@ -158,6 +164,9 @@ target_link_libraries(devpiano PRIVATE
     juce::juce_recommended_config_flags
     juce::juce_recommended_lto_flags
     juce::juce_recommended_warning_flags
+    jive::jive_layouts            # JIVE: ValueTree 布局引擎
+    jive::jive_style_sheets       # JIVE: JSON 样式表引擎
+    melatonin_inspector           # 运行时 Component 检查器
 )
 
 # ========================================================
@@ -176,6 +185,8 @@ target_compile_definitions(devpiano PRIVATE
     WIN32_LEAN_AND_MEAN=1
 
     # 核心：允许我们的应用加载外部 VST3 插件（VST3 插件音源）
+    # JIVE：同时使用 jive_layouts 和 jive_style_sheets 时推荐定义
+    JIVE_GUI_ITEMS_HAVE_STYLE_SHEETS=1
     JUCE_PLUGINHOST_VST3=1
 
     # 如果你也想加载古老的 VST2 插件，可以解开下方的注释

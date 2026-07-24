@@ -27,6 +27,9 @@
 #include "UI/PluginEditorWindow.h"
 #include "UI/PluginPanel.h"
 #include "UI/StatusBar.h"
+#if DEBUG
+#include <melatonin_inspector/melatonin_inspector.h>
+#endif
 
 class MainComponent final : public juce::AudioAppComponent, private juce::Timer, public juce::FileDragAndDropTarget {
     friend class devpiano::layout::PresetFlowSupport;
@@ -145,5 +148,8 @@ private:
     std::unique_ptr<devpiano::plugin::PluginOperationController> pluginOperationController;
     std::unique_ptr<devpiano::diagnostics::DevPianoLogger> devPianoLogger;
     std::unique_ptr<devpiano::midi::MidiChannelMapper> midiChannelMapper;
+#if DEBUG
+    std::unique_ptr<melatonin::Inspector> inspector;
+#endif
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
 };

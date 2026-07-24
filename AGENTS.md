@@ -4,8 +4,6 @@
 
 项目定位、核心能力与明确非目标详见 [`docs/reference/project-scope.md`](docs/reference/project-scope.md)。
 
-
-
 开发环境采用：**WSL 主工作树 + Windows 镜像树 + CMake + Ninja + Windows/MSVC 构建验证**。
 
 ---

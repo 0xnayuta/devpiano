@@ -5,7 +5,7 @@
 
 ## 当前方向
 
-Phase 11：声明式 UI 架构迁移（JIVE + melatonin_inspector）— 计划已就绪，待开始。详见下方 Phase 11 节。
+Phase 11：声明式 UI 架构迁移（JIVE + melatonin_inspector）— 计划已就绪，正在进行中。详见下方 Phase 11 节。
 
 ## Phase 11：声明式 UI 架构迁移（JIVE + melatonin_inspector） [进行中]
 
@@ -56,14 +56,14 @@ melatonin_inspector (DEBUG only): 运行时可视化检查与编辑
 
 ### 子阶段
 
-#### Phase 11a — 基础设施集成
+#### Phase 11a — 基础设施集成 [已完成]
 
 - [x] 添加 JIVE 为 git submodule（`submodules/JIVE`）
 - [x] 添加 melatonin_inspector 为 git submodule（`submodules/melatonin_inspector`）
-- [ ] 更新 `CMakeLists.txt`：链接 `jive::jive_layouts`、`jive::jive_style_sheets`、`melatonin_inspector`（`#if DEBUG`）
-- [ ] 定义 `JIVE_GUI_ITEMS_HAVE_STYLE_SHEETS=1` 预处理器宏
-- [ ] 在 `MainComponent` 构造函数中添加 inspector 初始化（`#if DEVPIANO_ENABLE_INSPECTOR`）
-- [ ] 验证：WSL `--configure-only` + Windows MSVC 构建通过
+- [x] 更新 `CMakeLists.txt`：链接 `jive::jive_layouts`、`jive::jive_style_sheets`、`melatonin_inspector`（`#if DEBUG`）
+- [x] 定义 `JIVE_GUI_ITEMS_HAVE_STYLE_SHEETS=1` 预处理器宏
+- [x] 在 `MainComponent` 构造函数中添加 inspector 初始化（`#if DEVPIANO_ENABLE_INSPECTOR`）
+- [x] 验证：WSL `--configure-only` + Windows MSVC 构建通过
 
 #### Phase 11b — 样式基础设施
 

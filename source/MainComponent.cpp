@@ -61,6 +61,9 @@ MainComponent::MainComponent()
     pluginOperationController
         = std::make_unique<devpiano::plugin::PluginOperationController>(*this, pluginHost, appSettings, pluginPanel);
     settingsWindowManager = std::make_unique<devpiano::settings::SettingsWindowManager>();
+#if DEBUG
+    inspector = std::make_unique<melatonin::Inspector>(*this);
+#endif
 
     initialiseUi();
     initialiseFromPreset();
