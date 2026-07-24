@@ -7,7 +7,7 @@ project(devpiano VERSION 0.2.0)
 # 1. 引入 JUCE 框架
 # ========================================================
 # 告诉 CMake 将 JUCE 目录作为子项目添加进构建树
-add_subdirectory(JUCE)
+add_subdirectory(submodules/JUCE)
 
 # ========================================================
 # 2. 创建 GUI 应用程序

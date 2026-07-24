@@ -1,4 +1,12 @@
 [submodule "JUCE"]
-	path = JUCE
+	path = submodules/JUCE
 	url = https://github.com/juce-framework/JUCE.git
 	branch = develop
+[submodule "submodules/JIVE"]
+	path = submodules/JIVE
+	url = https://github.com/ImJimmi/JIVE.git
+	branch = main
+[submodule "submodules/melatonin_inspector"]
+	path = submodules/melatonin_inspector
+	url = https://github.com/sudara/melatonin_inspector.git
+	branch = main
