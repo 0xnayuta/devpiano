@@ -40,7 +40,7 @@ void KeyboardPanel::setViewPosition(int midiNote, int pixelOffset) {
         for (int n = 0; n < midiNote; ++n)
             if (devpiano::ui::isWhiteKey(n))
                 ++whiteCount;
-        auto x = static_cast<int>(whiteCount * customKeyboard->getKeyboardSettings().keyWidth);
+        auto x = static_cast<int>(static_cast<float>(whiteCount) * customKeyboard->getKeyboardSettings().keyWidth);
         viewport->setViewPosition(x, 0);
     }
 }

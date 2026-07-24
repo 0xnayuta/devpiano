@@ -30,7 +30,7 @@ RecordingEventSource stringToSource(const juce::String& str) {
 // --- MidiMessage <-> var ---
 
 juce::var midiMessageToVar(const juce::MidiMessage& msg) {
-    juce::MemoryBlock mb(msg.getRawData(), msg.getRawDataSize());
+    juce::MemoryBlock mb(msg.getRawData(), static_cast<size_t>(msg.getRawDataSize()));
     return juce::var(mb.toBase64Encoding());
 }
 
