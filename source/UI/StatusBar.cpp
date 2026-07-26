@@ -1,16 +1,17 @@
 #include "StatusBar.h"
 #include "DevPianoLookAndFeel.h"
+#include "UI/jive/DesignTokens.h"
 
 StatusBar::StatusBar() {
-    pluginNameLabel.setColour(juce::Label::textColourId, DevPianoLookAndFeel::kTextSecondary);
+    pluginNameLabel.setColour(juce::Label::textColourId, devpiano::jive::DesignTokens::get().textSecondary());
     pluginNameLabel.setFont(juce::FontOptions(12.0f));
     addAndMakeVisible(pluginNameLabel);
 
-    audioInfoLabel.setColour(juce::Label::textColourId, DevPianoLookAndFeel::kTextSecondary);
+    audioInfoLabel.setColour(juce::Label::textColourId, devpiano::jive::DesignTokens::get().textSecondary());
     audioInfoLabel.setFont(juce::FontOptions(12.0f));
     addAndMakeVisible(audioInfoLabel);
 
-    timeLabel.setColour(juce::Label::textColourId, DevPianoLookAndFeel::kTextSecondary);
+    timeLabel.setColour(juce::Label::textColourId, devpiano::jive::DesignTokens::get().textSecondary());
     timeLabel.setFont(juce::FontOptions(12.0f));
     timeLabel.setJustificationType(juce::Justification::centredRight);
     addAndMakeVisible(timeLabel);
@@ -18,14 +19,14 @@ StatusBar::StatusBar() {
 
 void StatusBar::paint(juce::Graphics& g) {
     // Background: slightly darker than panels
-    g.fillAll(DevPianoLookAndFeel::kPanelBg.darker(0.2f));
+    g.fillAll(devpiano::jive::DesignTokens::get().panelBg().darker(0.2f));
 
     // Top separator line
-    g.setColour(DevPianoLookAndFeel::kControlBg);
+    g.setColour(devpiano::jive::DesignTokens::get().controlBg());
     g.drawHorizontalLine(0, 0.0f, static_cast<float>(getWidth()));
 
     // MIDI activity dot
-    auto& k = DevPianoLookAndFeel::kPlayActive;
+    const auto& k = devpiano::jive::DesignTokens::get().playActive();
     g.setColour(midiActive ? k : k.withAlpha(0.25f));
     g.fillEllipse(midiDotBounds);
 }

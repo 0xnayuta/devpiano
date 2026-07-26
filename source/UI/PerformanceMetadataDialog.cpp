@@ -1,5 +1,6 @@
 #include "UI/PerformanceMetadataDialog.h"
 #include "DevPianoLookAndFeel.h"
+#include "UI/jive/DesignTokens.h"
 
 namespace {
 
@@ -71,7 +72,7 @@ public:
     }
 
     void paint(juce::Graphics& g) override {
-        g.fillAll(DevPianoLookAndFeel::kMainBg);
+        g.fillAll(devpiano::jive::DesignTokens::get().mainBg());
     }
 
     void confirm() {
@@ -116,7 +117,7 @@ void PerformanceMetadataDialog::launch(
     std::function<void(std::optional<devpiano::recording::PerformanceFileMetadata>)> onComplete) {
     juce::DialogWindow::LaunchOptions opts;
     opts.dialogTitle = TRANS("Song Information");
-    opts.dialogBackgroundColour = DevPianoLookAndFeel::kMainBg;
+    opts.dialogBackgroundColour = devpiano::jive::DesignTokens::get().mainBg();
     opts.componentToCentreAround = componentToCentreAround;
     opts.content.setOwned(new MetadataEditContent(initialMetadata, std::move(onComplete)));
     if (componentToCentreAround != nullptr) {

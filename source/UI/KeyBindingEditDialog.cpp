@@ -1,5 +1,6 @@
 #include "UI/KeyBindingEditDialog.h"
 #include "DevPianoLookAndFeel.h"
+#include "UI/jive/DesignTokens.h"
 
 // ============================================================================
 // Colour picker dialog content
@@ -221,7 +222,7 @@ private:
 
         // Wrap ColourSelector with OK / Cancel buttons in a DialogWindow.
         juce::DialogWindow::LaunchOptions opts;
-        opts.dialogBackgroundColour = DevPianoLookAndFeel::kMainBg;
+        opts.dialogBackgroundColour = devpiano::jive::DesignTokens::get().mainBg();
         opts.dialogTitle = TRANS("Choose Colour");
         opts.componentToCentreAround = this;
         opts.content.setOwned(new ColourPickerContent(initialColour, pickedColour, accepted));
@@ -324,7 +325,7 @@ private:
 class BindingEditWindow final : public juce::DialogWindow {
 public:
     BindingEditWindow(juce::String title, std::unique_ptr<juce::Component> content,
-                      juce::Colour background = DevPianoLookAndFeel::kMainBg)
+                      juce::Colour background = devpiano::jive::DesignTokens::get().mainBg())
         : juce::DialogWindow(std::move(title), background, true, true) {
         setUsingNativeTitleBar(true);
         setContentOwned(content.release(), true);
@@ -353,7 +354,7 @@ void KeyBindingEditDialog::launch(int midiNote, const juce::String& noteName,
     auto* content = new BindingEditContent(midiNote, existingBinding, noteName, keyLabel, currentCustomLabel,
                                            currentCustomColour, std::move(onComplete));
 
-    auto bg = DevPianoLookAndFeel::kMainBg;
+    auto bg = devpiano::jive::DesignTokens::get().mainBg();
     if (parent != nullptr) {
         bg = parent->findColour(juce::ResizableWindow::backgroundColourId);
     }

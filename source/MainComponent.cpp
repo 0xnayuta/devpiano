@@ -6,6 +6,7 @@
 #include "UI/CustomKeyboard.h"
 #include "UI/KeyBindingEditDialog.h"
 #include "UI/PluginPanelStateBuilder.h"
+#include "UI/jive/DesignTokens.h"
 
 #if JUCE_WINDOWS
 struct HWND__;
@@ -83,6 +84,7 @@ MainComponent::MainComponent()
 }
 
 MainComponent::~MainComponent() {
+    setLookAndFeel(nullptr);
     stopTimer();
 
     juce::Logger::setCurrentLogger(nullptr);
@@ -142,7 +144,18 @@ void MainComponent::handlePresetShortcut(int index) {
         presetFlowSupport->applyPresetByIndex(index);
 }
 void MainComponent::initialiseUi() {
-    setLookAndFeel(&lookAndFeel);
+    // 加载设计 token（单一配色真相源）— 必须在构造 LookAndFeel 之前
+    {
+        const auto tokensFile = juce::File::getCurrentWorkingDirectory()
+                                    .getChildFile("source/UI/jive/design_tokens.json");
+        if (auto stream = tokensFile.createInputStream()) {
+            auto json = juce::JSON::parse(*stream);
+            devpiano::jive::DesignTokens::get().loadFromJSON(json);
+        }
+    }
+
+    lookAndFeel = std::make_unique<DevPianoLookAndFeel>();
+    setLookAndFeel(lookAndFeel.get());
     setWantsKeyboardFocus(true);
 
     addAndMakeVisible(headerPanel);

@@ -1,5 +1,6 @@
 #include "SettingsWindowManager.h"
 
+#include "UI/jive/DesignTokens.h"
 #include "MainComponent.h"
 #include "Settings/SettingsComponent.h"
 #include "UI/CustomKeyboard.h"
@@ -99,7 +100,7 @@ void SettingsWindowManager::show(ShowOptions options) {
     };
 
     state->window
-        = std::make_unique<SettingsDialogWindow>(TRANS("Audio Settings"), DevPianoLookAndFeel::kMainBg, closeWindow);
+        = std::make_unique<SettingsDialogWindow>(TRANS("Audio Settings"), devpiano::jive::DesignTokens::get().mainBg(), closeWindow);
     state->window->setLookAndFeel(&options.parent.getLookAndFeel());
     state->window->setUsingNativeTitleBar(true);
     state->window->setContentOwned(content.release(), true);

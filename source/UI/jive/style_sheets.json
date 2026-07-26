@@ -1,0 +1,55 @@
+{
+  "#window": {
+    "background": "#1A1C1E",
+    "foreground": "#EEEEEE",
+    "font-size": "14"
+  },
+
+  "Button": {
+    "background": "#2D3035",
+    "foreground": "#EEEEEE",
+    "border": "#00B4D8",
+    "border-radius": "4",
+    ":hover": {
+      "background": "#35383D"
+    },
+    ":pressed": {
+      "background": "#1D1F23"
+    }
+  },
+
+  "Slider": {
+    "background": "#2D3035",
+    "foreground": "#00B4D8"
+  },
+
+  "ComboBox": {
+    "background": "#2D3035",
+    "foreground": "#EEEEEE",
+    "border": "#999999",
+    "border-radius": "4",
+    ":focus": {
+      "border": "#00B4D8"
+    }
+  },
+
+  "TextEditor": {
+    "background": "#2D3035",
+    "foreground": "#EEEEEE",
+    "border": "#999999",
+    ":focus": {
+      "border": "#00B4D8"
+    }
+  },
+
+  "Label": {
+    "foreground": "#EEEEEE",
+    "font-size": "14"
+  },
+
+  "#status-bar": {
+    "background": "#1D1F23",
+    "foreground": "#999999",
+    "font-size": "12"
+  }
+}

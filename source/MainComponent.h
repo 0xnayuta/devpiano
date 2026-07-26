@@ -133,7 +133,7 @@ private:
     SettingsStore settingsStore;
     juce::RecentlyOpenedFilesList recentFiles;
 
-    DevPianoLookAndFeel lookAndFeel;
+    std::unique_ptr<DevPianoLookAndFeel> lookAndFeel;
 
     bool dropActive = false;
 

@@ -1,5 +1,6 @@
 #include "ControlsPanel.h"
 #include "DevPianoLookAndFeel.h"
+#include "UI/jive/DesignTokens.h"
 
 // ── Transport button icon paths ──
 static std::unique_ptr<juce::Drawable> createRecordIcon() {
@@ -7,7 +8,7 @@ static std::unique_ptr<juce::Drawable> createRecordIcon() {
     p.addEllipse(-7, -7, 14, 14);
     auto d = std::make_unique<juce::DrawablePath>();
     d->setPath(p);
-    d->setFill(DevPianoLookAndFeel::kRecordActive);
+    d->setFill(devpiano::jive::DesignTokens::get().recordActive());
     return d;
 }
 static std::unique_ptr<juce::Drawable> createPlayIcon() {
@@ -15,7 +16,7 @@ static std::unique_ptr<juce::Drawable> createPlayIcon() {
     p.addTriangle(-5.0f, -7.0f, -5.0f, 7.0f, 7.0f, 0.0f);
     auto d = std::make_unique<juce::DrawablePath>();
     d->setPath(p);
-    d->setFill(DevPianoLookAndFeel::kPlayActive);
+    d->setFill(devpiano::jive::DesignTokens::get().playActive());
     return d;
 }
 static std::unique_ptr<juce::Drawable> createStopIcon() {
@@ -23,7 +24,7 @@ static std::unique_ptr<juce::Drawable> createStopIcon() {
     p.addRectangle(-6, -6, 12, 12);
     auto d = std::make_unique<juce::DrawablePath>();
     d->setPath(p);
-    d->setFill(DevPianoLookAndFeel::kTextPrimary);
+    d->setFill(devpiano::jive::DesignTokens::get().textPrimary());
     return d;
 }
 static std::unique_ptr<juce::Drawable> createBackIcon() {
@@ -32,7 +33,7 @@ static std::unique_ptr<juce::Drawable> createBackIcon() {
     p.addTriangle(-1.0f, -6.0f, -1.0f, 6.0f, 7.0f, 0.0f);
     auto d = std::make_unique<juce::DrawablePath>();
     d->setPath(p);
-    d->setFill(DevPianoLookAndFeel::kTextSecondary);
+    d->setFill(devpiano::jive::DesignTokens::get().textSecondary());
     return d;
 }
 
@@ -317,7 +318,7 @@ void ControlsPanel::drawAdsrCurve(juce::Graphics& g, float a, float d, float s, 
     path.lineTo(rect.getRight(), baseY); // release
     path.closeSubPath();
 
-    const auto primary = DevPianoLookAndFeel::kPrimary;
+    const auto primary = devpiano::jive::DesignTokens::get().primary();
     g.setColour(primary.withAlpha(0.15f));
     g.fillPath(path);
     g.setColour(primary);

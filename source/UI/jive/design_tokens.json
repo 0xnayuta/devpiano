@@ -1,0 +1,44 @@
+{
+  "colors": {
+    "main-bg": "#FF1A1C1E",
+    "panel-bg": "#FF24262A",
+    "control-bg": "#FF2D3035",
+    "primary": "#FF00B4D8",
+    "primary-alpha-30": "#4D00B4D8",
+    "record-active": "#FFE07B3C",
+    "play-active": "#FF4ECDC4",
+    "text-primary": "#FFEEEEEE",
+    "text-secondary": "#FF999999",
+    "text-disabled": "#FF555555",
+    "highlight-overlay": "#14FFFFFF",
+    "press-overlay": "#2E000000",
+    "rotary-bg-track": "#FF222428",
+    "rotary-cap-top": "#FF3D4147",
+    "rotary-cap-bottom": "#FF1D1F23",
+    "rotary-cap-rim": "#FF121315",
+    "rotary-ring-top": "#FF5C616A",
+    "rotary-ring-bottom": "#FF16171A"
+  },
+  "typography": {
+    "font-size-tiny": 11.0,
+    "font-size-small": 12.0,
+    "font-size-default": 13.0,
+    "font-size-label": 14.0,
+    "font-size-title": 18.0,
+    "font-weight-title": "bold"
+  },
+  "border-radius": {
+    "default": 4.0,
+    "tooltip": 4.0
+  },
+  "spacing": {
+    "window-default-width": 1120,
+    "window-default-height": 760,
+    "window-min-width": 980,
+    "window-min-height": 700,
+    "window-max-width": 3840,
+    "window-max-height": 2160,
+    "status-bar-height": 22,
+    "settings-btn-width": 36
+  }
+}

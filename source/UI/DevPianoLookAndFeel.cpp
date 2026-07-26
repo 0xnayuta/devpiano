@@ -1,78 +1,84 @@
 #include "DevPianoLookAndFeel.h"
 
+#include "UI/jive/DesignTokens.h"
+
+namespace {
+const auto& tokens = devpiano::jive::DesignTokens::get();
+} // namespace
+
 DevPianoLookAndFeel::DevPianoLookAndFeel()
-    : LookAndFeel_V4(ColourScheme {
-          kMainBg, // windowBackground
-          kControlBg, // widgetBackground
-          kPanelBg, // menuBackground
-          kTextSecondary, // outline
-          kTextPrimary, // defaultText
-          kPrimary, // defaultFill
-          kTextPrimary, // highlightedText
-          kPrimary, // highlightedFill
-          kTextPrimary, // menuText
+    : LookAndFeel_V4(ColourScheme{
+          tokens.mainBg(),     // windowBackground
+          tokens.controlBg(),  // widgetBackground
+          tokens.panelBg(),    // menuBackground
+          tokens.textSecondary(), // outline
+          tokens.textPrimary(),   // defaultText
+          tokens.primary(),       // defaultFill
+          tokens.textPrimary(),   // highlightedText
+          tokens.primary(),       // highlightedFill
+          tokens.textPrimary(),   // menuText
       }) {
     // ── Window ──
-    setColour(juce::ResizableWindow::backgroundColourId, kMainBg);
+    setColour(juce::ResizableWindow::backgroundColourId, tokens.mainBg());
 
     // ── Slider ──
-    setColour(juce::Slider::thumbColourId, kPrimary);
-    setColour(juce::Slider::trackColourId, kControlBg);
-    setColour(juce::Slider::backgroundColourId, kTextDisabled);
-    setColour(juce::Slider::textBoxTextColourId, kTextPrimary);
-    setColour(juce::Slider::textBoxBackgroundColourId, kPanelBg);
-    setColour(juce::Slider::textBoxOutlineColourId, kTextSecondary);
+    setColour(juce::Slider::thumbColourId, tokens.primary());
+    setColour(juce::Slider::trackColourId, tokens.controlBg());
+    setColour(juce::Slider::backgroundColourId, tokens.textDisabled());
+    setColour(juce::Slider::textBoxTextColourId, tokens.textPrimary());
+    setColour(juce::Slider::textBoxBackgroundColourId, tokens.panelBg());
+    setColour(juce::Slider::textBoxOutlineColourId, tokens.textSecondary());
 
     // ── TextButton ──
-    setColour(juce::TextButton::buttonColourId, kControlBg);
-    setColour(juce::TextButton::buttonOnColourId, kPrimary);
-    setColour(juce::TextButton::textColourOffId, kTextPrimary);
-    setColour(juce::TextButton::textColourOnId, kTextPrimary);
+    setColour(juce::TextButton::buttonColourId, tokens.controlBg());
+    setColour(juce::TextButton::buttonOnColourId, tokens.primary());
+    setColour(juce::TextButton::textColourOffId, tokens.textPrimary());
+    setColour(juce::TextButton::textColourOnId, tokens.textPrimary());
 
     // ── ComboBox ──
-    setColour(juce::ComboBox::backgroundColourId, kControlBg);
-    setColour(juce::ComboBox::textColourId, kTextPrimary);
-    setColour(juce::ComboBox::outlineColourId, kTextSecondary);
-    setColour(juce::ComboBox::arrowColourId, kTextPrimary);
-    setColour(juce::ComboBox::buttonColourId, kPrimary);
-    setColour(juce::ComboBox::focusedOutlineColourId, kPrimary);
+    setColour(juce::ComboBox::backgroundColourId, tokens.controlBg());
+    setColour(juce::ComboBox::textColourId, tokens.textPrimary());
+    setColour(juce::ComboBox::outlineColourId, tokens.textSecondary());
+    setColour(juce::ComboBox::arrowColourId, tokens.textPrimary());
+    setColour(juce::ComboBox::buttonColourId, tokens.primary());
+    setColour(juce::ComboBox::focusedOutlineColourId, tokens.primary());
 
     // ── PopupMenu ──
-    setColour(juce::PopupMenu::backgroundColourId, kPanelBg);
-    setColour(juce::PopupMenu::textColourId, kTextPrimary);
-    setColour(juce::PopupMenu::highlightedBackgroundColourId, kPrimary);
-    setColour(juce::PopupMenu::highlightedTextColourId, kTextPrimary);
+    setColour(juce::PopupMenu::backgroundColourId, tokens.panelBg());
+    setColour(juce::PopupMenu::textColourId, tokens.textPrimary());
+    setColour(juce::PopupMenu::highlightedBackgroundColourId, tokens.primary());
+    setColour(juce::PopupMenu::highlightedTextColourId, tokens.textPrimary());
 
     // ── TextEditor ──
-    setColour(juce::TextEditor::backgroundColourId, kControlBg);
-    setColour(juce::TextEditor::textColourId, kTextPrimary);
-    setColour(juce::TextEditor::outlineColourId, kTextSecondary);
-    setColour(juce::TextEditor::focusedOutlineColourId, kPrimary);
-    setColour(juce::TextEditor::highlightColourId, kPrimary.withAlpha(0.3f));
-    setColour(juce::TextEditor::highlightedTextColourId, kTextPrimary);
+    setColour(juce::TextEditor::backgroundColourId, tokens.controlBg());
+    setColour(juce::TextEditor::textColourId, tokens.textPrimary());
+    setColour(juce::TextEditor::outlineColourId, tokens.textSecondary());
+    setColour(juce::TextEditor::focusedOutlineColourId, tokens.primary());
+    setColour(juce::TextEditor::highlightColourId, tokens.primaryAlpha30());
+    setColour(juce::TextEditor::highlightedTextColourId, tokens.textPrimary());
 
     // ── Label ──
-    setColour(juce::Label::textColourId, kTextPrimary);
-    setColour(juce::Label::textWhenEditingColourId, kTextPrimary);
+    setColour(juce::Label::textColourId, tokens.textPrimary());
+    setColour(juce::Label::textWhenEditingColourId, tokens.textPrimary());
 
     // ── ToggleButton ──
-    setColour(juce::ToggleButton::textColourId, kTextPrimary);
-    setColour(juce::ToggleButton::tickColourId, kPrimary);
-    setColour(juce::ToggleButton::tickDisabledColourId, kTextDisabled);
+    setColour(juce::ToggleButton::textColourId, tokens.textPrimary());
+    setColour(juce::ToggleButton::tickColourId, tokens.primary());
+    setColour(juce::ToggleButton::tickDisabledColourId, tokens.textDisabled());
 
     // ── GroupComponent ──
-    setColour(juce::GroupComponent::outlineColourId, kTextSecondary);
-    setColour(juce::GroupComponent::textColourId, kTextPrimary);
+    setColour(juce::GroupComponent::outlineColourId, tokens.textSecondary());
+    setColour(juce::GroupComponent::textColourId, tokens.textPrimary());
 
     // ── ListBox ──
-    setColour(juce::ListBox::backgroundColourId, kPanelBg);
-    setColour(juce::ListBox::textColourId, kTextPrimary);
+    setColour(juce::ListBox::backgroundColourId, tokens.panelBg());
+    setColour(juce::ListBox::textColourId, tokens.textPrimary());
 
     // ── ScrollBar ──
-    setColour(juce::ScrollBar::thumbColourId, kTextSecondary);
+    setColour(juce::ScrollBar::thumbColourId, tokens.textSecondary());
 
     // ── Caret ──
-    setColour(juce::CaretComponent::caretColourId, kPrimary);
+    setColour(juce::CaretComponent::caretColourId, tokens.primary());
 }
 
 // ============================================================================
@@ -93,13 +99,13 @@ void DevPianoLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button& 
 
     // Highlight overlay
     if (highlighted && !down) {
-        g.setColour(juce::Colours::white.withAlpha(0.08f));
+        g.setColour(tokens.highlightOverlay());
         g.fillRoundedRectangle(bounds, corner);
     }
 
     // Pressed state — darken
     if (down) {
-        g.setColour(juce::Colours::black.withAlpha(0.18f));
+        g.setColour(tokens.pressOverlay());
         g.fillRoundedRectangle(bounds, corner);
     }
 }
@@ -150,26 +156,26 @@ void DevPianoLookAndFeel::drawPopupMenuItem(juce::Graphics& g, const juce::Recta
                                             const juce::String& shortcut, const juce::Drawable* icon,
                                             const juce::Colour* /* textColour */) {
     if (sep) {
-        g.setColour(kTextSecondary.withAlpha(0.3f));
+        g.setColour(tokens.textSecondary().withAlpha(0.3f));
         g.fillRect(area.getX() + 4, area.getCentreY(), area.getWidth() - 8, 1);
         return;
     }
 
     // Highlight background
     if (highlighted && active) {
-        g.setColour(kPrimary);
+        g.setColour(tokens.primary());
         g.fillRect(area);
     }
 
     // Ticked item — draw check mark
     if (ticked) {
-        g.setColour(highlighted ? kTextPrimary : kPrimary);
+        g.setColour(highlighted ? tokens.textPrimary() : tokens.primary());
         const auto tick = getTickShape(6.0f);
         g.fillPath(tick,
                    tick.getTransformToScaleToFit(area.reduced(4, 0).removeFromLeft(area.getHeight()).toFloat(), true));
     }
 
-    const auto textColour = (highlighted && active) ? kTextPrimary : (active ? kTextPrimary : kTextDisabled);
+    const auto textColour = (highlighted && active) ? tokens.textPrimary() : (active ? tokens.textPrimary() : tokens.textDisabled());
     g.setColour(textColour);
     g.setFont(juce::FontOptions(14.0f));
 
@@ -183,7 +189,7 @@ void DevPianoLookAndFeel::drawPopupMenuItem(juce::Graphics& g, const juce::Recta
     }
 
     if (shortcut.isNotEmpty()) {
-        g.setColour(kTextSecondary);
+        g.setColour(tokens.textSecondary());
         g.drawText(shortcut, textBounds, juce::Justification::centredRight);
     }
 
@@ -256,7 +262,7 @@ void DevPianoLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int 
         // Glow effect when turned up
         juce::Path glowArc;
         glowArc.addCentredArc(centre.x, centre.y, radius, radius, 0.0f, startAng, filledAngle, true);
-        g.setColour(kPrimary.withAlpha(0.28f * pos));
+        g.setColour(tokens.primary().withAlpha(0.28f * pos));
         g.strokePath(
             glowArc,
             juce::PathStrokeType(arcThickness * 2.2f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
@@ -264,7 +270,7 @@ void DevPianoLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int 
         // Active track
         juce::Path fgArc;
         fgArc.addCentredArc(centre.x, centre.y, radius, radius, 0.0f, startAng, filledAngle, true);
-        g.setColour(kPrimary);
+        g.setColour(tokens.primary());
         g.strokePath(fgArc,
                      juce::PathStrokeType(arcThickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
     }
@@ -298,7 +304,7 @@ void DevPianoLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int 
     const float needleY = centre.y - needleLen * std::cos(filledAngle);
     // Needle: 2.0px ice-blue → bright-white gradient
     juce::Line<float> needleLine(centre.x, centre.y, needleX, needleY);
-    juce::ColourGradient needleGrad(pos > 0.01f ? kPrimary : juce::Colour(0xff888888), centre.x, centre.y,
+    juce::ColourGradient needleGrad(pos > 0.01f ? tokens.primary() : juce::Colour(0xff888888), centre.x, centre.y,
                                     pos > 0.01f ? juce::Colours::white : juce::Colour(0xffaaaaaa), needleX, needleY,
                                     false);
     g.setGradientFill(needleGrad);
@@ -353,7 +359,7 @@ void DevPianoLookAndFeel::drawTooltip(juce::Graphics& g, const juce::String& tex
     constexpr float corner = 4.0f;
 
     // Dark charcoal card background
-    g.setColour(kPanelBg.darker(0.1f));
+    g.setColour(tokens.panelBg().darker(0.1f));
     g.fillRoundedRectangle(bounds, corner);
 
     // Micro ice-blue border (0x1f00b4d8)

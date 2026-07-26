@@ -1,5 +1,6 @@
 #include "UI/CustomKeyboard.h"
 #include "DevPianoLookAndFeel.h"
+#include "UI/jive/DesignTokens.h"
 
 #include <cmath>
 
@@ -295,7 +296,7 @@ void CustomKeyboard::paintWhiteKeys(juce::Graphics& g) {
             if (vel <= 0.001f)
                 vel = 0.8f;
             auto baseGlow = (settings.colourMode == devpiano::ui::KeyColourMode::classic)
-                ? DevPianoLookAndFeel::kPrimary
+                ? devpiano::jive::DesignTokens::get().primary()
                 : k.colour1;
             auto glowColour = baseGlow.interpolatedWith(juce::Colours::white, vel * 0.7f).withAlpha(k.fade);
 
@@ -365,7 +366,7 @@ void CustomKeyboard::paintBlackKeys(juce::Graphics& g) {
             if (vel <= 0.001f)
                 vel = 0.8f;
             auto baseGlow = (settings.colourMode == devpiano::ui::KeyColourMode::classic)
-                ? DevPianoLookAndFeel::kPrimary
+                ? devpiano::jive::DesignTokens::get().primary()
                 : k.colour1;
             auto glowColour = baseGlow.interpolatedWith(juce::Colours::white, vel * 0.7f).withAlpha(k.fade);
 
