@@ -63,6 +63,8 @@ target_sources(devpiano PRIVATE
     source/Audio/AudioDeviceDiagnostics.h
     source/Input/KeyboardMidiMapper.cpp
     source/Input/KeyboardMidiMapper.h
+    source/Input/KeyboardInputHandler.cpp
+    source/Input/KeyboardInputHandler.h
     source/Core/KeyMapTypes.h
     source/Core/MidiTypes.h
     source/Core/AppState.h
@@ -225,6 +227,8 @@ if (BUILD_TESTS)
         source/Core/MidiTypes.h
         source/Core/AppState.h
         source/Input/KeyboardMidiMapper.cpp
+        source/Input/KeyboardInputHandler.cpp
+        source/Input/KeyboardInputHandler.h
         source/Input/KeyboardMidiMapper.h
         source/Diagnostics/Log.h
         source/Diagnostics/DevPianoLogger.h

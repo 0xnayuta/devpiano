@@ -5,6 +5,7 @@
 
 #include "Audio/AudioDeviceDiagnostics.h"
 #include "Audio/AudioEngine.h"
+#include "Input/KeyboardInputHandler.h"
 #include "Core/AppState.h"
 #include "Diagnostics/DevPianoLogger.h"
 #include "Input/KeyboardMidiMapper.h"
@@ -41,8 +42,17 @@ class MainComponent final : public juce::AudioAppComponent, private juce::Timer,
     friend class devpiano::recording::RecordingSessionController;
     friend class devpiano::plugin::PluginOperationController;
     friend class devpiano::settings::SettingsWindowManager;
+    friend class devpiano::input::KeyboardInputHandler;
 
     friend void devpiano::ui::jive::wireAllCallbacks(::jive::GuiItem& rootItem, MainComponent& mc);
+
+    // Window dimension constants
+    static constexpr int kPreferredWidth = 1120;
+    static constexpr int kPreferredHeight = 760;
+    static constexpr int kMinWidth = 980;
+    static constexpr int kMinHeight = 700;
+    static constexpr int kMaxWidth = 3840;
+    static constexpr int kMaxHeight = 2160;
 
 public:
     MainComponent();
@@ -64,7 +74,6 @@ public:
     }
     void fileDragExit(const juce::StringArray& files) override;
     void filesDropped(const juce::StringArray& files, int x, int y) override;
-
     void restoreKeyboardFocus();
     static juce::Rectangle<int> getMainContentResizeLimits();
     void persistMainContentSize(int width, int height);
@@ -76,8 +85,7 @@ public:
     bool keyStateChanged(bool isKeyDown) override;
     [[nodiscard]] bool isKeyboardInputSuppressed() const noexcept;
     [[nodiscard]] bool shouldTakeKeyboardFocus() const noexcept;
-
-protected:
+    void suppressTextInputMethods();
     void focusGained(juce::Component::FocusChangeType cause) override;
     void focusLost(juce::Component::FocusChangeType cause) override;
 
@@ -105,7 +113,6 @@ private:
     void syncSettingsFromUi();
     void reconfigureChannelMapper();
     void handlePresetShortcut(int index);
-    void suppressTextInputMethods();
     void initialiseAudioDevice();
     void captureAudioDeviceState();
     void prepareForAudioDeviceRebuild();
@@ -169,6 +176,7 @@ private:
     void setStatusMidiActivity(bool active);
     AudioEngine audioEngine;
     KeyboardMidiMapper keyboardMidiMapper;
+    std::unique_ptr<devpiano::input::KeyboardInputHandler> keyboardInputHandler;
     PluginHost pluginHost;
     SettingsModel appSettings;
     SettingsStore settingsStore;
