@@ -20,22 +20,29 @@
 #include "Settings/SettingsModel.h"
 #include "Settings/SettingsStore.h"
 #include "Settings/SettingsWindowManager.h"
-#include "UI/ControlsPanel.h"
+#include "UI/CustomKeyboard.h"
 #include "UI/DevPianoLookAndFeel.h"
-#include "UI/HeaderPanel.h"
-#include "UI/KeyboardPanel.h"
 #include "UI/PluginEditorWindow.h"
-#include "UI/PluginPanel.h"
-#include "UI/StatusBar.h"
+#include "UI/PluginTypes.h"
+#include "UI/native/AdsrCurveComponent.h"
+#include <jive_layouts/jive_layouts.h>
 #if DEBUG
 #include <melatonin_inspector/melatonin_inspector.h>
 #endif
+
+class MainComponent;
+
+namespace devpiano::ui::jive {
+void wireAllCallbacks(::jive::GuiItem& rootItem, MainComponent& mc);
+} // namespace devpiano::ui::jive
 
 class MainComponent final : public juce::AudioAppComponent, private juce::Timer, public juce::FileDragAndDropTarget {
     friend class devpiano::layout::PresetFlowSupport;
     friend class devpiano::recording::RecordingSessionController;
     friend class devpiano::plugin::PluginOperationController;
     friend class devpiano::settings::SettingsWindowManager;
+
+    friend void devpiano::ui::jive::wireAllCallbacks(::jive::GuiItem& rootItem, MainComponent& mc);
 
 public:
     MainComponent();
@@ -126,6 +133,40 @@ private:
     void runPluginActionWithAudioDeviceRebuild(const std::function<void()>& action);
 
     devpiano::recording::RecordingEngine recordingEngine;
+    // ── JIVE component accessors (replace direct panel member access) ──
+    CustomKeyboard& getCustomKeyboard();
+    void setCustomKeyboardLayout(const devpiano::core::KeyboardLayout& layout);
+    void setCustomKeyboardSettings(const devpiano::ui::KeyboardSettings& ks);
+    void setKeyboardViewPosition(int midiNote, int pixelOffset = -1);
+    int getKeyboardViewPositionX() const;
+
+    // Plugin panel accessors (through JIVE tree)
+    juce::String getPluginPanelPath() const;
+    void setPluginPanelPath(const juce::String& path);
+    juce::String getSelectedPluginName() const;
+    void setInstrumentFilterVisible(bool visible);
+    void updatePluginPanelState(const PluginPanelState& state);
+    void setPluginPanelExpanded(bool expanded);
+    bool isPluginPanelExpanded() const;
+
+    // Controls panel accessors (through JIVE tree)
+    void setControlsValues(float gain, float a, float d, float s, float r);
+    float getControlsMasterGain() const;
+    float getControlsAttack() const;
+    float getControlsDecay() const;
+    float getControlsSustain() const;
+    float getControlsRelease() const;
+    void setControlsPresets(const juce::StringArray& ids, const juce::String& current, const juce::StringArray& names);
+    juce::String getControlsSelectedPresetId() const;
+    void setControlsRecordingState(RecordingControlsState state);
+    void setControlsPlaybackSpeed(double speed);
+    juce::Rectangle<int> getRecentFilesButtonScreenBounds() const;
+
+    // Status bar accessors (through JIVE tree)
+    void setStatusPluginName(const juce::String& name);
+    void setStatusAudioInfo(const juce::String& info);
+    void setStatusTimeDisplay(const juce::String& time);
+    void setStatusMidiActivity(bool active);
     AudioEngine audioEngine;
     KeyboardMidiMapper keyboardMidiMapper;
     PluginHost pluginHost;
@@ -137,11 +178,9 @@ private:
 
     bool dropActive = false;
 
-    HeaderPanel headerPanel;
-    PluginPanel pluginPanel;
-    ControlsPanel controlsPanel;
-    KeyboardPanel keyboardPanel;
-    StatusBar statusBar;
+    AdsrCurveComponent adsrCurve;
+    std::unique_ptr<jive::Interpreter> jiveInterpreter;
+    std::unique_ptr<jive::GuiItem> jiveRootItem;
     std::unique_ptr<devpiano::settings::SettingsWindowManager> settingsWindowManager;
     std::unique_ptr<devpiano::layout::PresetFlowSupport> presetFlowSupport;
     std::unique_ptr<devpiano::recording::RecordingSessionController> recordingSessionController;

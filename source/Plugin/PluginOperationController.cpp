@@ -5,16 +5,14 @@
 #include "Plugin/PluginFlowSupport.h"
 #include "Plugin/PluginHost.h"
 #include "UI/PluginEditorWindow.h"
-#include "UI/PluginPanel.h"
 
 namespace devpiano::plugin {
 
 PluginOperationController::PluginOperationController(MainComponent& ownerIn, PluginHost& pluginHostIn,
-                                                     SettingsModel& appSettingsIn, PluginPanel& pluginPanelIn)
+                                                     SettingsModel& appSettingsIn)
     : owner(ownerIn)
     , pluginHost(pluginHostIn)
-    , appSettings(appSettingsIn)
-    , pluginPanel(pluginPanelIn) {
+    , appSettings(appSettingsIn) {
 }
 
 PluginOperationController::~PluginOperationController() {
@@ -125,7 +123,7 @@ void PluginOperationController::scanPlugins() {
         return;
     }
 
-    pluginPanel.setPluginPathText(path.toString());
+    owner.setPluginPanelPath(path.toString());
 
     owner.refreshReadOnlyUiStateFromCurrentSnapshot();
 
@@ -161,12 +159,12 @@ void PluginOperationController::restorePluginByNameOnStartup(const juce::String&
 }
 
 juce::FileSearchPath PluginOperationController::resolvePluginScanPath() const {
-    return normalisePluginScanPath(juce::FileSearchPath(pluginPanel.getPluginPathText().trim()),
+    return normalisePluginScanPath(juce::FileSearchPath(owner.getPluginPanelPath().trim()),
                                    pluginHost.getDefaultVst3SearchPath());
 }
 
 juce::String PluginOperationController::getSelectedPluginNameForLoad() const {
-    return pluginPanel.getSelectedPluginName().trim();
+    return owner.getSelectedPluginName().trim();
 }
 
 void PluginOperationController::loadPluginByNameAndCommitState(const juce::String& pluginName) {
@@ -230,7 +228,7 @@ void PluginOperationController::scanPluginsAtPathAndApplyRecoveryState(const juc
 void PluginOperationController::scanPluginsAtPathAndCommitState(const juce::FileSearchPath& path) {
     const auto lastPluginName = appSettings.getPluginRecoverySettingsView().lastPluginName;
     scanPluginsAtPathAndApplyRecoveryState(path, lastPluginName);
-    pluginPanel.setPluginPathText(path.toString());
+    owner.setPluginPanelPath(path.toString());
     owner.finishPluginUiAction(true);
 }
 
