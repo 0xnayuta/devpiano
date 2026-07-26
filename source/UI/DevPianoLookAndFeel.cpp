@@ -7,16 +7,16 @@ const auto& tokens = devpiano::jive::DesignTokens::get();
 } // namespace
 
 DevPianoLookAndFeel::DevPianoLookAndFeel()
-    : LookAndFeel_V4(ColourScheme{
-          tokens.mainBg(),     // windowBackground
-          tokens.controlBg(),  // widgetBackground
-          tokens.panelBg(),    // menuBackground
+    : LookAndFeel_V4(ColourScheme {
+          tokens.mainBg(), // windowBackground
+          tokens.controlBg(), // widgetBackground
+          tokens.panelBg(), // menuBackground
           tokens.textSecondary(), // outline
-          tokens.textPrimary(),   // defaultText
-          tokens.primary(),       // defaultFill
-          tokens.textPrimary(),   // highlightedText
-          tokens.primary(),       // highlightedFill
-          tokens.textPrimary(),   // menuText
+          tokens.textPrimary(), // defaultText
+          tokens.primary(), // defaultFill
+          tokens.textPrimary(), // highlightedText
+          tokens.primary(), // highlightedFill
+          tokens.textPrimary(), // menuText
       }) {
     // ── Window ──
     setColour(juce::ResizableWindow::backgroundColourId, tokens.mainBg());
@@ -175,7 +175,8 @@ void DevPianoLookAndFeel::drawPopupMenuItem(juce::Graphics& g, const juce::Recta
                    tick.getTransformToScaleToFit(area.reduced(4, 0).removeFromLeft(area.getHeight()).toFloat(), true));
     }
 
-    const auto textColour = (highlighted && active) ? tokens.textPrimary() : (active ? tokens.textPrimary() : tokens.textDisabled());
+    const auto textColour
+        = (highlighted && active) ? tokens.textPrimary() : (active ? tokens.textPrimary() : tokens.textDisabled());
     g.setColour(textColour);
     g.setFont(juce::FontOptions(14.0f));
 

@@ -96,22 +96,14 @@ target_sources(devpiano PRIVATE
     source/Recording/WavFileExporter.h
     source/Recording/PluginOfflineRenderer.cpp
     source/Recording/PluginOfflineRenderer.h
-    source/UI/PluginPanel.cpp
-    source/UI/PluginPanel.h
+    source/UI/RecordingTypes.h
+    source/UI/PluginTypes.h
     source/UI/PluginEditorWindow.cpp
     source/UI/PluginEditorWindow.h
     source/UI/PluginPanelStateBuilder.cpp
     source/UI/PluginPanelStateBuilder.h
     source/UI/DevPianoLookAndFeel.cpp
     source/UI/DevPianoLookAndFeel.h
-    source/UI/ControlsPanel.cpp
-    source/UI/ControlsPanel.h
-    source/UI/HeaderPanel.cpp
-    source/UI/HeaderPanel.h
-    source/UI/StatusBar.cpp
-    source/UI/StatusBar.h
-    source/UI/KeyboardPanel.cpp
-    source/UI/KeyboardPanel.h
     source/Settings/SettingsModel.h
     source/Settings/AppStateBuilder.cpp
     source/Settings/AppStateBuilder.h
@@ -142,6 +134,17 @@ target_sources(devpiano PRIVATE
     source/Locale/zh_CN.loc.h
     source/UI/jive/DesignTokens.cpp
     source/UI/jive/DesignTokens.h
+    source/UI/native/AdsrCurveComponent.cpp
+    source/UI/native/AdsrCurveComponent.h
+    source/UI/native/StatusBarMidiDot.h
+    source/UI/jive/AppView.cpp
+    source/UI/jive/AppView.h
+    source/UI/jive/ComponentFactory.cpp
+    source/UI/jive/ComponentFactory.h
+    source/UI/jive/LayoutModel.cpp
+    source/UI/jive/LayoutModel.h
+    source/UI/jive/CallbackWiring.cpp
+    source/UI/jive/CallbackWiring.h
 )
 
 # 包含 source 目录作为头文件查找路径，这样代码里可以通过 #include "xxx.h" 直接引用

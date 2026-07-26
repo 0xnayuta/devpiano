@@ -105,9 +105,9 @@ Performance Preset、88 键完整钢琴键盘、Smooth Pitch Bend、乐曲信息
 
 详细完成记录见 [`../audit/code-quality-audit-2026-07-20.md`](../audit/code-quality-audit-2026-07-20.md)。
 
-### Phase 11：声明式 UI 架构迁移（JIVE + melatonin_inspector） [待开始]
+### Phase 11：声明式 UI 架构迁移（JIVE + melatonin_inspector） [进行中: 11a-11d 已完成]
 
-引入 JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid 自适应）替代 5 个面板的硬编码 `setBounds()` 布局，引入 melatonin_inspector 运行时 Component 检查器加速 UI 迭代反馈，通过 `design_tokens.json` 统一 JIVE 与原生组件的样式来源。`CustomKeyboard` 和 ADSR 曲线通过组件工厂原生注入，业务逻辑层零改动。
+Phase 11a-11d 已完成：JIVE + melatonin_inspector submodule 集成、design_tokens/style_sheets 样式基础设施、5 面板 JIVE ValueTree 迁移、25+ 回调 CallbackWiring 连接、MainComponent 瘦身（移除 5 个面板成员，resized 缩减为 3 行，initialiseUi 使用 JIVE AppView）。Phase 11e（热重载）和 11f（回归验证）待开始。
 
 详细计划见 [`current-iteration.md#phase-11`](current-iteration.md#phase-11)。
 
