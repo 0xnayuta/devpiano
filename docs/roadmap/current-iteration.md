@@ -65,12 +65,12 @@ melatonin_inspector (DEBUG only): 运行时可视化检查与编辑
 - [x] 在 `MainComponent` 构造函数中添加 inspector 初始化（`#if DEVPIANO_ENABLE_INSPECTOR`）
 - [x] 验证：WSL `--configure-only` + Windows MSVC 构建通过
 
-#### Phase 11b — 样式基础设施
+#### Phase 11b — 样式基础设施 [已完成]
 
-- [ ] 创建 `source/UI/jive/design_tokens.json`：定义全部颜色、字体、圆角、间距 token
-- [ ] 创建 `source/UI/jive/style_sheets.json`：JIVE 样式表，引用 design tokens 并定义组件级样式（Button、Slider、ComboBox、Label、面板背景等）
-- [ ] 修改 `DevPianoLookAndFeel` 构造函数：从 `design_tokens.json` 读取颜色 → 设置 JUCE `ColourIds`
-- [ ] 验证：inspector 中检查主窗口 + 对话框 + SettingsComponent 颜色一致性
+- [x] 创建 `source/UI/jive/design_tokens.json`：定义全部颜色、字体、圆角、间距 token
+- [x] 创建 `source/UI/jive/style_sheets.json`：JIVE 样式表，引用 design tokens 并定义组件级样式（Button、Slider、ComboBox、Label、面板背景等）
+- [x] 修改 `DevPianoLookAndFeel` 构造函数：从 `design_tokens.json` 读取颜色 → 设置 JUCE `ColourIds`
+- [x] 验证：inspector 中检查主窗口 + 对话框 + SettingsComponent 颜色一致性
 
 #### Phase 11c — 面板迁移（由简到繁）
 
