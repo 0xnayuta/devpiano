@@ -100,8 +100,7 @@ void suppressImeForPeer(juce::ComponentPeer* peer) {
 #endif
 }
 
-MainComponent::MainComponent()
-    : keyboardPanel(audioEngine.getKeyboardState()) {
+MainComponent::MainComponent() {
     devPianoLogger = std::make_unique<devpiano::diagnostics::DevPianoLogger>();
     juce::Logger::setCurrentLogger(devPianoLogger.get());
     settingsStore.load(appSettings);
@@ -143,7 +142,7 @@ MainComponent::~MainComponent() {
     stopTimer();
 
     juce::Logger::setCurrentLogger(nullptr);
-    appSettings.keyboardScrollOffsetX = keyboardPanel.getViewPositionX();
+    appSettings.keyboardScrollOffsetX = getKeyboardViewPositionX();
     saveSettingsNow();
 
     pluginOperationController.reset();
@@ -433,7 +432,21 @@ void MainComponent::initialiseUi() {
     setControlsPlaybackSpeed(1.0);
     recordingEngine.setPlaybackSpeedMultiplier(1.0);
 
-    addAndMakeVisible(keyboardPanel);
+    // ── JIVE keyboard area ──
+    {
+        jiveInterpreter->getComponentFactory().set(
+            "CustomKeyboard", [this] { return std::make_unique<KeyboardViewport>(audioEngine.getKeyboardState()); });
+
+        auto keyboardTree = devpiano::ui::jive::makeKeyboardAreaTree();
+        devpiano::ui::jive::StyleCatalog::get().applyToTree(keyboardTree);
+        jiveKeyboardAreaItem = jiveInterpreter->interpret(keyboardTree);
+        if (jiveKeyboardAreaItem != nullptr) {
+            addAndMakeVisible(jiveKeyboardAreaItem->getComponent().get());
+            if (auto* item = jive::findItemWithID(*jiveKeyboardAreaItem, "custom-keyboard"))
+                if (auto* viewport = dynamic_cast<KeyboardViewport*>(item->getComponent().get()))
+                    customKeyboardRef = &viewport->getCustomKeyboard();
+        }
+    }
 
     // ── JIVE status bar ──
     {
@@ -448,7 +461,7 @@ void MainComponent::initialiseUi() {
     }
 
     // Wire CustomKeyboard mouse interaction → sound (with MIDI matrix)
-    auto& customKeyboard = keyboardPanel.getCustomKeyboard();
+    auto& customKeyboard = getCustomKeyboard();
     customKeyboard.onNoteOn = [this](int midiNote, int sourceChannel) {
         if (midiChannelMapper != nullptr)
             midiChannelMapper->sendNoteOn(sourceChannel, midiNote, 1.0f, audioEngine.getKeyboardState());
@@ -511,7 +524,7 @@ void MainComponent::initialiseUi() {
                     }
 
                     keyboardMidiMapper.setLayout(updatedLayout);
-                    keyboardPanel.setKeyboardLayout(updatedLayout);
+                    setKeyboardLayout(updatedLayout);
                 }
 
                 // Refresh keyboard rendering (picks up label/colour changes)
@@ -635,7 +648,9 @@ void MainComponent::paint(juce::Graphics& g) {
     const auto controlsBounds = (jiveControlsPanelItem != nullptr) ? jiveControlsPanelItem->getComponent()->getBounds()
                                                                    : juce::Rectangle<int> {};
     drawPanelBorder(controlsBounds);
-    drawPanelBorder(keyboardPanel.getBounds());
+    const auto keyboardBounds = (jiveKeyboardAreaItem != nullptr) ? jiveKeyboardAreaItem->getComponent()->getBounds()
+                                                                  : juce::Rectangle<int> {};
+    drawPanelBorder(keyboardBounds);
 }
 
 void MainComponent::resized() {
@@ -684,7 +699,10 @@ void MainComponent::resized() {
     else
         content.removeFromTop(controlsHeight);
     content.removeFromTop(8);
-    keyboardPanel.setBounds(content.removeFromTop(keyboardHeight));
+    if (jiveKeyboardAreaItem != nullptr)
+        jiveKeyboardAreaItem->getComponent()->setBounds(content.removeFromTop(keyboardHeight));
+    else
+        content.removeFromTop(keyboardHeight);
 }
 
 void MainComponent::paintOverChildren(juce::Graphics& g) {
@@ -761,7 +779,7 @@ bool MainComponent::keyPressed(const juce::KeyPress& key) {
     const auto handled = keyboardMidiMapper.handleKeyPressed(key, audioEngine.getKeyboardState());
 
     if (handled) {
-        keyboardPanel.getCustomKeyboard().notifyNoteActivity();
+        getCustomKeyboard().notifyNoteActivity();
         suppressTextInputMethods();
     }
 
@@ -777,7 +795,7 @@ bool MainComponent::keyStateChanged(bool isKeyDown) {
     const auto handled = keyboardMidiMapper.handleKeyStateChanged(audioEngine.getKeyboardState());
 
     if (handled) {
-        keyboardPanel.getCustomKeyboard().notifyNoteActivity();
+        getCustomKeyboard().notifyNoteActivity();
         suppressTextInputMethods();
     }
 
@@ -895,7 +913,7 @@ void MainComponent::syncUiFromSettings() {
                            presetFlowSupport->getPresetDisplayNames());
     }
 
-    keyboardPanel.setKeyboardLayout(keyboardMidiMapper.getLayout());
+    setKeyboardLayout(keyboardMidiMapper.getLayout());
     {
         auto kbs = appSettings.getKeyboardDisplaySettingsView();
         devpiano::ui::KeyboardSettings ks;
@@ -905,13 +923,13 @@ void MainComponent::syncUiFromSettings() {
         ks.keySignature = appSettings.keySignature;
         ks.customKeyLabels = kbs.customKeyLabels;
         ks.customKeyColours = kbs.customKeyColours;
-        keyboardPanel.getCustomKeyboard().setKeyboardSettings(ks);
+        getCustomKeyboard().setKeyboardSettings(ks);
     }
     // Restore keyboard scroll position (after layout is known); -1 sentinel = unset
     if (appSettings.keyboardScrollOffsetX >= 0)
-        keyboardPanel.setViewPosition(-1, appSettings.keyboardScrollOffsetX);
+        setKeyboardViewPosition(-1, appSettings.keyboardScrollOffsetX);
     else
-        keyboardPanel.setViewPosition(24); // default: align note 24 (C1) at left edge
+        setKeyboardViewPosition(24); // default: align note 24 (C1) at left edge
 }
 
 void MainComponent::syncSettingsFromUi() {
@@ -1464,6 +1482,51 @@ void MainComponent::refreshControlsTexts() {
     setButtonText("song-info-btn", TRANS("Song Info"));
 
     setRecordingControlsState(recordingControlsState);
+}
+
+// ── JIVE keyboard area accessors ───────────────────────────────────────────
+
+CustomKeyboard& MainComponent::getCustomKeyboard() {
+    jassert(customKeyboardRef != nullptr);
+    return *customKeyboardRef;
+}
+
+void MainComponent::setKeyboardLayout(const devpiano::core::KeyboardLayout& layout) {
+    if (jiveKeyboardAreaItem == nullptr)
+        return;
+    if (auto* item = jive::findItemWithID(*jiveKeyboardAreaItem, "custom-keyboard"))
+        if (auto* viewport = dynamic_cast<KeyboardViewport*>(item->getComponent().get()))
+            viewport->getCustomKeyboard().setKeyboardLayout(layout);
+}
+
+void MainComponent::setKeyboardViewPosition(int midiNote, int pixelOffset) {
+    if (jiveKeyboardAreaItem == nullptr)
+        return;
+    auto* item = jive::findItemWithID(*jiveKeyboardAreaItem, "custom-keyboard");
+    auto* viewport = item != nullptr ? dynamic_cast<KeyboardViewport*>(item->getComponent().get()) : nullptr;
+    if (viewport == nullptr)
+        return;
+
+    auto& keyboard = viewport->getCustomKeyboard();
+    if (pixelOffset >= 0) {
+        viewport->setViewPosition(pixelOffset, 0);
+    } else if (midiNote >= 0 && midiNote <= 127) {
+        int whiteCount = 0;
+        for (int n = 0; n < midiNote; ++n)
+            if (devpiano::ui::isWhiteKey(n))
+                ++whiteCount;
+        auto x = static_cast<int>(static_cast<float>(whiteCount) * keyboard.getKeyboardSettings().keyWidth);
+        viewport->setViewPosition(x, 0);
+    }
+}
+
+int MainComponent::getKeyboardViewPositionX() const noexcept {
+    if (jiveKeyboardAreaItem == nullptr)
+        return 0;
+    if (auto* item = jive::findItemWithID(*jiveKeyboardAreaItem, "custom-keyboard"))
+        if (auto* viewport = dynamic_cast<KeyboardViewport*>(item->getComponent().get()))
+            return viewport->getViewPositionX();
+    return 0;
 }
 
 void MainComponent::finishPluginUiAction(bool shouldSaveSettings) {

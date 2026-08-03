@@ -102,8 +102,6 @@ target_sources(devpiano PRIVATE
     source/UI/PluginPanelStateBuilder.h
     source/UI/DevPianoLookAndFeel.cpp
     source/UI/DevPianoLookAndFeel.h
-    source/UI/KeyboardPanel.cpp
-    source/UI/KeyboardPanel.h
     source/Settings/SettingsModel.h
     source/Settings/AppStateBuilder.cpp
     source/Settings/AppStateBuilder.h
@@ -112,6 +110,7 @@ target_sources(devpiano PRIVATE
     source/UI/native/AdsrCurveComponent.cpp
     source/UI/native/AdsrCurveComponent.h
     source/UI/native/StatusBarMidiDot.h
+    source/UI/native/KeyboardViewport.h
     source/UI/KeyboardTypes.h
     source/UI/PluginTypes.h
     source/UI/RecordingTypes.h

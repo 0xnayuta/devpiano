@@ -20,13 +20,14 @@
 #include "Settings/SettingsModel.h"
 #include "Settings/SettingsStore.h"
 #include "Settings/SettingsWindowManager.h"
+#include "UI/CustomKeyboard.h"
 #include "UI/DevPianoLookAndFeel.h"
-#include "UI/KeyboardPanel.h"
 #include "UI/PluginEditorWindow.h"
 #include "UI/PluginTypes.h"
 #include "UI/RecordingTypes.h"
 #include "UI/jive/LayoutModel.h"
 #include "UI/jive/StyleCatalog.h"
+#include "UI/native/KeyboardViewport.h"
 
 #include <jive_layouts/jive_layouts.h>
 #if DEBUG
@@ -139,6 +140,12 @@ private:
     void setRecordingControlsState(RecordingControlsState state);
     [[nodiscard]] juce::Rectangle<int> getRecentFilesButtonScreenBounds() const;
     void refreshControlsTexts();
+
+    // ── JIVE keyboard area accessors ──
+    CustomKeyboard& getCustomKeyboard();
+    void setKeyboardLayout(const devpiano::core::KeyboardLayout& layout);
+    void setKeyboardViewPosition(int midiNote, int pixelOffset = -1);
+    [[nodiscard]] int getKeyboardViewPositionX() const noexcept;
     void refreshReadOnlyUiStateFromCurrentSnapshot();
     void refreshPluginUiState();
     void finishPluginUiAction(bool shouldSaveSettings);
@@ -178,7 +185,10 @@ private:
     juce::StringArray availablePresetIds;
     RecordingControlsState recordingControlsState;
 
-    KeyboardPanel keyboardPanel;
+    // JIVE keyboard area (replaces native KeyboardPanel)
+    std::unique_ptr<::jive::GuiItem> jiveKeyboardAreaItem;
+    CustomKeyboard* customKeyboardRef = nullptr;
+
     std::unique_ptr<devpiano::settings::SettingsWindowManager> settingsWindowManager;
     std::unique_ptr<devpiano::layout::PresetFlowSupport> presetFlowSupport;
     std::unique_ptr<devpiano::recording::RecordingSessionController> recordingSessionController;

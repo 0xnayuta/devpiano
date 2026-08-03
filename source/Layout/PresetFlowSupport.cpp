@@ -102,7 +102,7 @@ void PresetFlowSupport::commitPreset(const PerformancePreset& preset) {
 
     // 1. KeyboardLayout
     owner.keyboardMidiMapper.setLayout(preset.layout);
-    owner.keyboardPanel.setKeyboardLayout(preset.layout);
+    owner.setKeyboardLayout(preset.layout);
 
     // 2. ChannelMatrix
     s.channelMatrix = preset.channelMatrix;
@@ -124,7 +124,7 @@ void PresetFlowSupport::commitPreset(const PerformancePreset& preset) {
 
 void PresetFlowSupport::updateUiAfterCommit() {
     owner.syncUiFromSettings();
-    owner.keyboardPanel.getCustomKeyboard().repaint();
+    owner.getCustomKeyboard().repaint();
     owner.saveSettingsSoon();
 }
 

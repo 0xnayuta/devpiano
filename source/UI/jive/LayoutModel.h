@@ -26,4 +26,8 @@ namespace devpiano::ui::jive {
 /// Full-width horizontal strip (MainComponent positions it).
 [[nodiscard]] juce::ValueTree makeControlsPanelTree();
 
+/// Keyboard area: CustomKeyboard inside a scrolling viewport.
+/// Fills the remaining vertical space (MainComponent positions it).
+[[nodiscard]] juce::ValueTree makeKeyboardAreaTree();
+
 } // namespace devpiano::ui::jive

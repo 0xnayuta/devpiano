@@ -188,7 +188,7 @@ void SettingsWindowManager::showFor(MainComponent& owner) {
               ks.customKeyLabels = kbs.customKeyLabels;
               ks.customKeyColours = kbs.customKeyColours;
 
-              safe->keyboardPanel.getCustomKeyboard().setKeyboardSettings(ks);
+              safe->getCustomKeyboard().setKeyboardSettings(ks);
               safe->setInstrumentFilterVisible(kbs.showInstrumentFilter);
 
               // Only recreate desktop window when resize preference changes

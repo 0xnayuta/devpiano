@@ -29,6 +29,7 @@ public:
         testStatusBarTreeInterprets();
         testPluginPanelTreeInterprets();
         testControlsPanelTreeInterprets();
+        testKeyboardAreaTreeInterprets();
     }
 
 private:
@@ -212,21 +213,11 @@ private:
             slider->setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
             return slider;
         });
-        interpreter.getComponentFactory().set("AdsrCurve", [] {
-            return std::make_unique<juce::Component>();
-        });
-        interpreter.getComponentFactory().set("RecordButton", [] {
-            return std::make_unique<juce::TextButton>();
-        });
-        interpreter.getComponentFactory().set("PlayButton", [] {
-            return std::make_unique<juce::TextButton>();
-        });
-        interpreter.getComponentFactory().set("StopButton", [] {
-            return std::make_unique<juce::TextButton>();
-        });
-        interpreter.getComponentFactory().set("BackButton", [] {
-            return std::make_unique<juce::TextButton>();
-        });
+        interpreter.getComponentFactory().set("AdsrCurve", [] { return std::make_unique<juce::Component>(); });
+        interpreter.getComponentFactory().set("RecordButton", [] { return std::make_unique<juce::TextButton>(); });
+        interpreter.getComponentFactory().set("PlayButton", [] { return std::make_unique<juce::TextButton>(); });
+        interpreter.getComponentFactory().set("StopButton", [] { return std::make_unique<juce::TextButton>(); });
+        interpreter.getComponentFactory().set("BackButton", [] { return std::make_unique<juce::TextButton>(); });
 
         auto tree = devpiano::ui::jive::makeControlsPanelTree();
         devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
@@ -236,8 +227,8 @@ private:
         if (item == nullptr)
             return;
 
-        for (const char* id : { "volume-knob", "attack-knob", "decay-knob", "sustain-knob", "release-knob",
-                                "speed-knob" }) {
+        for (const char* id :
+             { "volume-knob", "attack-knob", "decay-knob", "sustain-knob", "release-knob", "speed-knob" }) {
             auto* knob = ::jive::findItemWithID(*item, id);
             expect(knob != nullptr, juce::String(id) + " not found");
             if (knob != nullptr)
@@ -263,6 +254,33 @@ private:
 
         auto* curve = ::jive::findItemWithID(*item, "adsr-curve");
         expect(curve != nullptr, "adsr-curve not found");
+    }
+    void testKeyboardAreaTreeInterprets() {
+        beginTest("keyboard area tree interprets with viewport");
+
+        ::jive::Interpreter interpreter;
+        juce::MidiKeyboardState keyboardState;
+        interpreter.getComponentFactory().set("CustomKeyboard", [&keyboardState] {
+            auto viewport = std::make_unique<juce::Viewport>();
+            viewport->setScrollBarsShown(false, true, false, true);
+            auto keyboard = std::make_unique<jive::TextComponent>();
+            viewport->setViewedComponent(keyboard.release(), true);
+            return viewport;
+        });
+
+        auto tree = devpiano::ui::jive::makeKeyboardAreaTree();
+        devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
+
+        auto item = interpreter.interpret(tree);
+        expect(item != nullptr, "keyboard area interpretation failed");
+        if (item == nullptr)
+            return;
+
+        auto* keyboard = ::jive::findItemWithID(*item, "custom-keyboard");
+        expect(keyboard != nullptr, "custom-keyboard item not found");
+        if (keyboard != nullptr)
+            expect(dynamic_cast<juce::Viewport*>(keyboard->getComponent().get()) != nullptr,
+                   "custom-keyboard component is not a Viewport");
     }
 };
 

@@ -324,4 +324,21 @@ juce::ValueTree makeControlsPanelTree() {
     return panel;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// KeyboardArea
+// ═══════════════════════════════════════════════════════════════════════════
+
+juce::ValueTree makeKeyboardAreaTree() {
+    auto area = node("Component", "keyboard-area");
+    area.setProperty("display", "flex", nullptr);
+    area.setProperty("flex-direction", "column", nullptr);
+
+    // KeyboardViewport (Viewport + CustomKeyboard) provided by the factory.
+    auto ck = node("CustomKeyboard", "custom-keyboard");
+    ck.setProperty("flex-grow", 1.0, nullptr);
+    area.appendChild(ck, nullptr);
+
+    return area;
+}
+
 } // namespace devpiano::ui::jive
