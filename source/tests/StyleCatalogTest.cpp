@@ -481,25 +481,72 @@ public:
         expect(plugin->getComponent()->getHeight() == 40, "collapsed panel height");
         expect(plugin->getComponent()->isVisible(), "collapsed panel visible");
 
-        // Expand
-        plugin->state.setProperty("height", 160, nullptr);
+        auto* contentRow = jive::findItemWithID(*item, "content-row");
+        auto* controlsItem = jive::findItemWithID(*item, "controls-panel");
+        auto* keyboardItem = jive::findItemWithID(*item, "keyboard-area");
+        auto* statusItem = jive::findItemWithID(*item, "status-bar");
+        expect(contentRow != nullptr, "content-row item missing");
+        expect(controlsItem != nullptr, "controls-panel item missing");
+        expect(keyboardItem != nullptr, "keyboard-area item missing");
+        // Sibling positions are measured relative to the shared parent
+        // (main-area), which is where reflow must happen.
+        const auto contentRowYBefore = contentRow->getComponent()->getY();
+        const auto controlsHBefore = controlsItem->getComponent()->getHeight();
+        const auto keyboardHBefore = keyboardItem->getComponent()->getHeight();
+        expect(contentRowYBefore >= plugin->getComponent()->getBottom(), "content-row below collapsed panel");
+
+        auto* actionRow = jive::findItemWithID(*item, "plugin-action-row");
+        auto printBounds = [&](const char* tag) {
+            juce::Logger::writeToLog(juce::String(tag) + " plugin=" + plugin->getComponent()->getBounds().toString()
+                                     + " actionRow=" + actionRow->getComponent()->getBounds().toString()
+                                     + " area=" + area->getComponent()->getBounds().toString());
+        };
+        printBounds("COLLAPSED");
+
+        // Expand — fixed order: area FIRST (so the panel's layout pass reads
+        // the final area height), then panel, then explicit main-area reflow
+        // (JIVE's boxModelChanged only relays the item itself, never its
+        // siblings in the parent column).
         area->state.setProperty("height", 112, nullptr);
+        plugin->state.setProperty("height", 160, nullptr);
+        if (auto* mainArea = dynamic_cast<jive::FlexContainer*>(jive::findItemWithID(*item, "main-area")))
+            mainArea->layOutChildren();
+        printBounds("EXPANDED-FIXED");
         expect(plugin->getComponent()->getHeight() == 160, "expanded panel height");
         expect(area->getComponent()->getHeight() > 0, "expanded area visible");
         expect(plugin->getComponent()->isVisible(), "expanded panel visible");
 
+        // THE regression this test exists for: the parent column must reflow
+        // its siblings when the plugin panel height changes, or the expanded
+        // area overlaps the controls below it.
+        expect(contentRow->getComponent()->getY() == contentRowYBefore + 120,
+               "content-row moved down when panel expanded");
+        expect(controlsItem->getComponent()->getHeight() < controlsHBefore, "controls shrank when panel expanded");
+        expectEquals(keyboardItem->getComponent()->getHeight(), keyboardHBefore,
+                     "keyboard capped at max-height, unchanged");
+        expect(plugin->getComponent()->getBottom() <= contentRow->getComponent()->getY(),
+               "expanded panel does not overlap content-row");
+
         // Collapse again — the exact sequence that made the whole panel vanish
-        plugin->state.setProperty("height", 40, nullptr);
+        // (fixed order + explicit main-area reflow, as in setPluginPanelExpanded)
         area->state.setProperty("height", 0, nullptr);
+        plugin->state.setProperty("height", 40, nullptr);
+        if (auto* mainArea = dynamic_cast<jive::FlexContainer*>(jive::findItemWithID(*item, "main-area")))
+            mainArea->layOutChildren();
+        printBounds("COLLAPSED-FIXED");
         expect(plugin->getComponent()->getHeight() == 40, "re-collapsed panel height");
         expect(plugin->getComponent()->isVisible(), "re-collapsed panel visible");
         expect(area->getComponent()->getHeight() == 0, "re-collapsed area height");
+        expect(actionRow != nullptr && actionRow->getComponent()->getHeight() == 28,
+               "toolbar row keeps full height after collapse");
+        expect(actionRow != nullptr && actionRow->getComponent()->isVisible(), "toolbar visible after collapse");
+        expect(contentRow->getComponent()->getY() == contentRowYBefore,
+               "content-row back at original y after collapse");
+        expect(plugin->getComponent()->getBottom() <= contentRow->getComponent()->getY(),
+               "collapsed panel does not overlap content-row");
 
         // Other panels must keep their size after the toggling.
         auto* headerItem = jive::findItemWithID(*item, "header");
-        auto* controlsItem = jive::findItemWithID(*item, "controls-panel");
-        auto* keyboardItem = jive::findItemWithID(*item, "keyboard-area");
-        auto* statusItem = jive::findItemWithID(*item, "status-bar");
         expect(headerItem->getComponent()->getHeight() == 36, "header keeps height");
         expect(controlsItem->getComponent()->getHeight() > 0, "controls keep height");
         expect(keyboardItem->getComponent()->getHeight() > 0, "keyboard keeps height");

@@ -302,10 +302,6 @@ void MainComponent::initialiseUi() {
                     return dynamic_cast<juce::Button*>(item->getComponent().get());
                 return nullptr;
             };
-            const auto setEnabled = [&findItem](const char* id, bool enabled) {
-                if (auto* item = findItem(id))
-                    item->state.setProperty("enabled", enabled, nullptr);
-            };
 
             // ── header ──
             if (auto* btn = findButton("settings-btn"))

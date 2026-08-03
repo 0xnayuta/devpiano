@@ -20,6 +20,27 @@ void setButtonLabel(::jive::GuiItem* buttonItem, const juce::String& text) {
         }
 }
 
+/// Ellipsise a string to fit `maxWidth` pixels of the 14 pt UI font.
+///
+/// JIVE's TextComponent paints its AttributedString without clipping, so a
+/// long single-line status text spills over the plugin selector combo to its
+/// right. Truncate here instead (the full text goes into the tooltip).
+juce::String ellipsiseForStatus(const juce::String& text, float maxWidth) {
+    if (text.isEmpty())
+        return text;
+
+    const juce::Font font(juce::FontOptions(14.0f));
+    if (juce::GlyphArrangement::getStringWidth(font, text) <= maxWidth)
+        return text;
+
+    const auto ellipsis = juce::String::charToString(0x2026);
+    juce::String result = text;
+    while (result.length() > 1 && juce::GlyphArrangement::getStringWidth(font, result + ellipsis) > maxWidth)
+        result = result.dropLastCharacters(1);
+
+    return result + ellipsis;
+}
+
 } // namespace
 
 // ── JIVE plugin panel accessors ────────────────────────────────────────────
@@ -53,10 +74,27 @@ juce::String MainComponent::getSelectedPluginName() const {
 void MainComponent::setPluginPanelExpanded(bool expanded) {
     appSettings.pluginPanelExpanded = expanded;
     if (jiveRootItem != nullptr) {
+        // Order matters: update the expandable area FIRST, so that the panel's
+        // layout pass (triggered by the height change below) reads the final
+        // area height. The old order laid the panel out while the area was
+        // still 112 px tall, flex-compressing the toolbar row to 0 height.
+        if (auto* expandedArea = jive::findItemWithID(*jiveRootItem, "plugin-expanded-area"))
+            expandedArea->state.setProperty("height", expanded ? 112 : 0, nullptr);
+
         if (auto* item = jive::findItemWithID(*jiveRootItem, "plugin-panel")) {
             item->state.setProperty("height", expanded ? 160 : 40, nullptr);
-            if (auto* expandedArea = jive::findItemWithID(*jiveRootItem, "plugin-expanded-area"))
-                expandedArea->state.setProperty("height", expanded ? 112 : 0, nullptr);
+            // JIVE's boxModelChanged only re-lays-out the decorated item
+            // itself (the top of its decorator chain), never its siblings in
+            // the parent column — so the controls/keyboard below would stay
+            // put and overlap the expanded panel. Reflow the main column
+            // explicitly. (A root reflow is not enough: components whose
+            // bounds did not change are skipped, so the panel's own children
+            // would keep their compressed layout.)
+            if (auto* panel = dynamic_cast<jive::FlexContainer*>(item))
+                panel->layOutChildren();
+
+            if (auto* mainArea = dynamic_cast<jive::FlexContainer*>(jive::findItemWithID(*jiveRootItem, "main-area")))
+                mainArea->layOutChildren();
         }
     }
     settingsStore.scheduleSave(appSettings);
@@ -199,8 +237,15 @@ void MainComponent::updatePluginPanelState(const PluginPanelState& state) {
         text << TRANS(" | Last plugin: ") << state.lastPluginName;
     }
 
-    if (statusItem != nullptr)
-        statusItem->state.setProperty("text", text, nullptr);
+    if (statusItem != nullptr) {
+        // The label's flex-grow already sized it to the space left in the
+        // toolbar row — truncate to that (minus a small pad), not a fixed
+        // width, so narrow windows don't spill either.
+        const auto labelWidth = static_cast<float>(statusItem->getComponent()->getWidth());
+        statusItem->state.setProperty("text", ellipsiseForStatus(text, labelWidth > 0.0f ? labelWidth - 4.0f : 470.0f),
+                                      nullptr);
+        statusItem->state.setProperty("tooltip", text, nullptr);
+    }
 }
 
 void MainComponent::refreshPluginPanelTexts() {
@@ -322,7 +367,6 @@ void MainComponent::setControlsPresets(const juce::StringArray& presetIds, const
         return;
 
     auto* comboItem = jive::findItemWithID(*jiveRootItem, "preset-combo");
-    auto* combo = comboItem != nullptr ? dynamic_cast<juce::ComboBox*>(comboItem->getComponent().get()) : nullptr;
 
     if (comboItem != nullptr)
         comboItem->state.removeAllChildren(nullptr);
