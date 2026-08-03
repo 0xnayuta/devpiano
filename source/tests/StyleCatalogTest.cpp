@@ -24,7 +24,6 @@ public:
     }
 
     void runTest() override {
-        devpiano::ui::jive::StyleCatalog::get().releaseOwnedStyles();
         testJsonStringParsesToJiveObject();
         testAppliedStylesReachInterpretedComponents();
         testStatusBarTreeInterprets();
@@ -286,6 +285,8 @@ private:
     }
     void testRootLayoutInterprets() {
         beginTest("root layout interprets with every panel");
+        // Release styles owned by the previous tests once all trees are gone.
+        devpiano::ui::jive::StyleCatalog::get().releaseOwnedStyles();
 
         ::jive::Interpreter interpreter;
         auto& factory = interpreter.getComponentFactory();
