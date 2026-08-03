@@ -24,6 +24,7 @@ public:
     }
 
     void runTest() override {
+        devpiano::ui::jive::StyleCatalog::get().releaseOwnedStyles();
         testJsonStringParsesToJiveObject();
         testAppliedStylesReachInterpretedComponents();
         testStatusBarTreeInterprets();

@@ -38,6 +38,10 @@ public:
     /// sub-rules. Nodes keep their existing explicit "style" if present.
     void applyToTree(juce::ValueTree& tree) const;
 
+    /// Release owned style objects (tests only): safe once no ValueTree
+    /// references the styles anymore.
+    void releaseOwnedStyles() { ownedStyles.clear(); }
+
 private:
     StyleCatalog() = default;
 
