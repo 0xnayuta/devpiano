@@ -28,6 +28,7 @@ public:
         testAppliedStylesReachInterpretedComponents();
         testStatusBarTreeInterprets();
         testPluginPanelTreeInterprets();
+        testControlsPanelTreeInterprets();
     }
 
 private:
@@ -201,6 +202,67 @@ private:
         expect(expandedArea != nullptr, "expanded area missing");
         if (expandedArea != nullptr)
             expectEquals(expandedArea->state["height"].toString(), juce::String("0"));
+    }
+    void testControlsPanelTreeInterprets() {
+        beginTest("controls panel tree interprets with knobs, curve and rows");
+
+        ::jive::Interpreter interpreter;
+        interpreter.getComponentFactory().set("DevKnob", [] {
+            auto slider = std::make_unique<juce::Slider>();
+            slider->setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+            return slider;
+        });
+        interpreter.getComponentFactory().set("AdsrCurve", [] {
+            return std::make_unique<juce::Component>();
+        });
+        interpreter.getComponentFactory().set("RecordButton", [] {
+            return std::make_unique<juce::TextButton>();
+        });
+        interpreter.getComponentFactory().set("PlayButton", [] {
+            return std::make_unique<juce::TextButton>();
+        });
+        interpreter.getComponentFactory().set("StopButton", [] {
+            return std::make_unique<juce::TextButton>();
+        });
+        interpreter.getComponentFactory().set("BackButton", [] {
+            return std::make_unique<juce::TextButton>();
+        });
+
+        auto tree = devpiano::ui::jive::makeControlsPanelTree();
+        devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
+
+        auto item = interpreter.interpret(tree);
+        expect(item != nullptr, "controls panel interpretation failed");
+        if (item == nullptr)
+            return;
+
+        for (const char* id : { "volume-knob", "attack-knob", "decay-knob", "sustain-knob", "release-knob",
+                                "speed-knob" }) {
+            auto* knob = ::jive::findItemWithID(*item, id);
+            expect(knob != nullptr, juce::String(id) + " not found");
+            if (knob != nullptr)
+                expect(dynamic_cast<juce::Slider*>(knob->getComponent().get()) != nullptr,
+                       juce::String(id) + " is not a Slider");
+        }
+
+        for (const char* id : { "record-btn", "play-btn", "stop-btn", "back-btn", "export-midi-btn", "export-wav-btn",
+                                "import-midi-btn", "save-perf-btn", "open-perf-btn", "song-info-btn", "recent-btn",
+                                "save-preset-btn", "rename-preset-btn", "delete-preset-btn" }) {
+            auto* btn = ::jive::findItemWithID(*item, id);
+            expect(btn != nullptr, juce::String(id) + " not found");
+            if (btn != nullptr)
+                expect(dynamic_cast<juce::Button*>(btn->getComponent().get()) != nullptr,
+                       juce::String(id) + " is not a Button");
+        }
+
+        auto* combo = ::jive::findItemWithID(*item, "preset-combo");
+        expect(combo != nullptr, "preset-combo not found");
+        if (combo != nullptr)
+            expect(dynamic_cast<juce::ComboBox*>(combo->getComponent().get()) != nullptr,
+                   "preset-combo is not a ComboBox");
+
+        auto* curve = ::jive::findItemWithID(*item, "adsr-curve");
+        expect(curve != nullptr, "adsr-curve not found");
     }
 };
 

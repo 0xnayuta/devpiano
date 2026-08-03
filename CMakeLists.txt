@@ -102,8 +102,6 @@ target_sources(devpiano PRIVATE
     source/UI/PluginPanelStateBuilder.h
     source/UI/DevPianoLookAndFeel.cpp
     source/UI/DevPianoLookAndFeel.h
-    source/UI/ControlsPanel.cpp
-    source/UI/ControlsPanel.h
     source/UI/KeyboardPanel.cpp
     source/UI/KeyboardPanel.h
     source/Settings/SettingsModel.h

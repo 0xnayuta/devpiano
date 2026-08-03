@@ -22,4 +22,8 @@ namespace devpiano::ui::jive {
 /// Collapsed height 40, expanded 160 (MainComponent positions it).
 [[nodiscard]] juce::ValueTree makePluginPanelTree();
 
+/// Controls panel: knob row, ADSR curve, preset row, transport row.
+/// Full-width horizontal strip (MainComponent positions it).
+[[nodiscard]] juce::ValueTree makeControlsPanelTree();
+
 } // namespace devpiano::ui::jive

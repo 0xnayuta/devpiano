@@ -20,11 +20,11 @@
 #include "Settings/SettingsModel.h"
 #include "Settings/SettingsStore.h"
 #include "Settings/SettingsWindowManager.h"
-#include "UI/ControlsPanel.h"
 #include "UI/DevPianoLookAndFeel.h"
 #include "UI/KeyboardPanel.h"
 #include "UI/PluginEditorWindow.h"
 #include "UI/PluginTypes.h"
+#include "UI/RecordingTypes.h"
 #include "UI/jive/LayoutModel.h"
 #include "UI/jive/StyleCatalog.h"
 
@@ -122,6 +122,23 @@ private:
     void setInstrumentFilterVisible(bool visible);
     void showPluginBrowseDialog();
     void refreshPluginPanelTexts();
+
+    // ── JIVE controls panel accessors ──
+    [[nodiscard]] float getMasterGain() const;
+    [[nodiscard]] float getAttack() const;
+    [[nodiscard]] float getDecay() const;
+    [[nodiscard]] float getSustain() const;
+    [[nodiscard]] float getRelease() const;
+    [[nodiscard]] double getControlsPlaybackSpeed() const;
+    void setControlsValues(float masterGain, float attack, float decay, float sustain, float release);
+    void setControlsPlaybackSpeed(double speed);
+    void setControlsPresets(const juce::StringArray& presetIds, const juce::String& currentPresetId,
+                            const juce::StringArray& presetDisplayNames);
+    [[nodiscard]] juce::String getSelectedPresetId() const;
+    void updateControlsPresetActionButtons();
+    void setRecordingControlsState(RecordingControlsState state);
+    [[nodiscard]] juce::Rectangle<int> getRecentFilesButtonScreenBounds() const;
+    void refreshControlsTexts();
     void refreshReadOnlyUiStateFromCurrentSnapshot();
     void refreshPluginUiState();
     void finishPluginUiAction(bool shouldSaveSettings);
@@ -156,7 +173,11 @@ private:
     std::unique_ptr<::jive::GuiItem> jiveStatusBarItem;
     // JIVE plugin panel (replaces native PluginPanel)
     std::unique_ptr<::jive::GuiItem> jivePluginPanelItem;
-    ControlsPanel controlsPanel;
+    // JIVE controls panel (replaces native ControlsPanel)
+    std::unique_ptr<::jive::GuiItem> jiveControlsPanelItem;
+    juce::StringArray availablePresetIds;
+    RecordingControlsState recordingControlsState;
+
     KeyboardPanel keyboardPanel;
     std::unique_ptr<devpiano::settings::SettingsWindowManager> settingsWindowManager;
     std::unique_ptr<devpiano::layout::PresetFlowSupport> presetFlowSupport;
