@@ -40,7 +40,9 @@ public:
 
     /// Release owned style objects (tests only): safe once no ValueTree
     /// references the styles anymore.
-    void releaseOwnedStyles() { ownedStyles.clear(); }
+    void releaseOwnedStyles() {
+        ownedStyles.clear();
+    }
 
 private:
     StyleCatalog() = default;

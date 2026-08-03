@@ -6,6 +6,22 @@
 // compiled in its translation unit.
 // ═══════════════════════════════════════════════════════════════════════════
 
+namespace {
+
+/// JIVE Button's "text" property maps to Button::setTitle (accessibility),
+/// not the visible label — that lives in the button's Text child.
+void setButtonLabel(::jive::GuiItem* buttonItem, const juce::String& text) {
+    if (buttonItem == nullptr)
+        return;
+    for (auto child : buttonItem->state)
+        if (child.getType() == juce::Identifier("Text")) {
+            child.setProperty("text", text, nullptr);
+            return;
+        }
+}
+
+} // namespace
+
 // ── JIVE plugin panel accessors ────────────────────────────────────────────
 
 void MainComponent::setPluginPathText(const juce::String& text) {
@@ -193,8 +209,7 @@ void MainComponent::refreshPluginPanelTexts() {
     if (auto* item = jive::findItemWithID(*jiveRootItem, "plugin-path-label"))
         item->state.setProperty("text", TRANS("VST3 Path"), nullptr);
     const auto setButtonText = [this](const char* id, const juce::String& text) {
-        if (auto* item = jive::findItemWithID(*jiveRootItem, id))
-            item->state.setProperty("text", text, nullptr);
+        setButtonLabel(jive::findItemWithID(*jiveRootItem, id), text);
     };
     setButtonText("scan-btn", TRANS("Scan VST3"));
     setButtonText("load-btn", TRANS("Load"));
@@ -432,8 +447,7 @@ void MainComponent::refreshControlsTexts() {
             item->state.setProperty("text", text, nullptr);
     };
     const auto setButtonText = [this](const char* id, const juce::String& text) {
-        if (auto* item = jive::findItemWithID(*jiveRootItem, id))
-            item->state.setProperty("text", text, nullptr);
+        setButtonLabel(jive::findItemWithID(*jiveRootItem, id), text);
     };
     const auto setTooltip = [this](const char* id, const juce::String& tooltip) {
         if (auto* item = jive::findItemWithID(*jiveRootItem, id))

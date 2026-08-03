@@ -341,3 +341,83 @@ private:
 };
 
 static StyleCatalogTest styleCatalogTest;
+
+// =============================================================================
+// Off-screen rendering checks: verify visible pixels for text and buttons.
+// (Counterpart of the user-visible report: JIVE text/button rendering.)
+// =============================================================================
+
+class JiveRenderTest final : public juce::UnitTest {
+public:
+    JiveRenderTest()
+        : juce::UnitTest("JiveRender", "devpiano") {
+    }
+
+    void runTest() override {
+        testTitleTextRendersVisiblePixels();
+        testButtonLabelRendersVisiblePixels();
+    }
+
+private:
+    [[nodiscard]] static int countLightPixels(juce::Component& component, int width, int height) {
+        auto image = juce::Image(juce::Image::ARGB, width, height, true);
+        juce::Graphics g(image);
+        g.fillAll(juce::Colour(0xff202327)); // app background
+        component.setBounds(0, 0, width, height);
+        component.paintEntireComponent(g, true);
+
+        int light = 0;
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                const auto c = image.getPixelAt(x, y);
+                if (c.getRed() > 200 && c.getGreen() > 200 && c.getBlue() > 200)
+                    ++light;
+            }
+        }
+        return light;
+    }
+
+    void testTitleTextRendersVisiblePixels() {
+        beginTest("header title renders visible pixels");
+
+        // Self-contained style rules (no cwd dependence in tests).
+        devpiano::ui::jive::StyleCatalog::get().loadFromJSON(juce::JSON::parse(
+            R"({ "Text": { "foreground": "#EEEEEE", "font-size": 14 },
+                 "#title": { "font-size": 18, "font-weight": "bold" },
+                 "#settings-btn": { "background": "transparent" } })"));
+
+        ::jive::Interpreter interpreter;
+        interpreter.getComponentFactory().set("SettingsButton", [] { return std::make_unique<juce::Component>(); });
+
+        auto tree = devpiano::ui::jive::makeHeaderTree();
+        devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
+        auto item = interpreter.interpret(tree);
+        expect(item != nullptr, "header interpretation failed");
+        if (item == nullptr)
+            return;
+
+        // Give the header real size and count near-white pixels (text).
+        const int light = countLightPixels(*item->getComponent(), 400, 36);
+        expect(light > 50, "title text renders no visible pixels (light=" + juce::String(light) + ")");
+    }
+
+    void testButtonLabelRendersVisiblePixels() {
+        beginTest("button label renders visible pixels");
+
+        ::jive::Interpreter interpreter;
+        interpreter.getComponentFactory().set("PathEditor", [] { return std::make_unique<juce::TextEditor>(); });
+        interpreter.getComponentFactory().set("ListEditor", [] { return std::make_unique<juce::TextEditor>(); });
+
+        auto tree = devpiano::ui::jive::makePluginPanelTree();
+        devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
+        auto item = interpreter.interpret(tree);
+        expect(item != nullptr, "plugin panel interpretation failed");
+        if (item == nullptr)
+            return;
+
+        const int light = countLightPixels(*item->getComponent(), 800, 40);
+        expect(light > 100, "button labels render no visible pixels (light=" + juce::String(light) + ")");
+    }
+};
+
+static JiveRenderTest jiveRenderTest;

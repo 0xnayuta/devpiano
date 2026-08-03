@@ -22,10 +22,21 @@ inline juce::ValueTree text(const juce::String& content, const juce::String& id 
     return t;
 }
 
-/// Helper: create a <Button> node with text content.
+/// Helper: create a <Button> node with a text label.
+///
+/// JIVE's Button widget maps the node's "text" property to
+/// juce::Button::setTitle (accessibility title), NOT setButtonText — the
+/// visible label must be a Text child, centred by the button's flex layout.
 inline juce::ValueTree button(const juce::String& label, const juce::String& id = {}) {
     auto t = node("Button", id);
-    t.setProperty("text", label, nullptr);
+    t.setProperty("display", "flex", nullptr);
+    t.setProperty("justify-content", "centre", nullptr);
+    t.setProperty("align-items", "centre", nullptr);
+
+    auto labelText = text(label);
+    labelText.setProperty("justification", "centred", nullptr);
+    t.appendChild(labelText, nullptr);
+
     return t;
 }
 
@@ -133,6 +144,7 @@ juce::ValueTree makePluginPanelTree() {
 
     auto status = text({}, "plugin-status-label");
     status.setProperty("flex-grow", 1.0, nullptr);
+    status.setProperty("height", 20, nullptr); // explicit: toolbar row centres, not stretches
     status.setProperty("margin", "0 6 0 0", nullptr);
     actionRow.appendChild(status, nullptr);
 

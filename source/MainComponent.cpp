@@ -54,6 +54,25 @@ std::unique_ptr<juce::Drawable> createGearIcon(juce::Colour colour) {
     return drawable;
 }
 
+// Locate a project source file: CWD-relative first, then executable-relative
+// (the Windows exe lives at <project>/build-win-msvc/devpiano_artefacts/Debug/,
+// so walking up from the exe dir finds the project root).
+juce::File resolveSourceFile(const juce::String& relativePath) {
+    auto cwdFile = juce::File::getCurrentWorkingDirectory().getChildFile(relativePath);
+    if (cwdFile.existsAsFile())
+        return cwdFile;
+
+    auto dir = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
+    for (int i = 0; i < 4; ++i) {
+        auto candidate = dir.getChildFile(relativePath);
+        if (candidate.existsAsFile())
+            return candidate;
+        dir = dir.getParentDirectory();
+    }
+
+    return cwdFile; // best effort; caller handles missing file
+}
+
 // -- Transport button icon paths --
 std::unique_ptr<juce::Drawable> createRecordIcon() {
     juce::Path p;
@@ -183,8 +202,7 @@ void MainComponent::handlePresetShortcut(int index) {
 void MainComponent::initialiseUi() {
     // 加载设计 token（单一配色真相源）— 必须在构造 LookAndFeel 之前
     {
-        const auto tokensFile
-            = juce::File::getCurrentWorkingDirectory().getChildFile("source/UI/jive/design_tokens.json");
+        const auto tokensFile = resolveSourceFile("source/UI/jive/design_tokens.json");
         if (auto stream = tokensFile.createInputStream()) {
             auto json = juce::JSON::parse(*stream);
             devpiano::jive::DesignTokens::get().loadFromJSON(json);
@@ -198,8 +216,7 @@ void MainComponent::initialiseUi() {
     // ── JIVE root layout (header, plugin, controls, keyboard, status bar) ──
     {
         // Global style rules (loaded once; re-loading is idempotent).
-        const auto styleFile
-            = juce::File::getCurrentWorkingDirectory().getChildFile("source/UI/jive/style_sheets.json");
+        const auto styleFile = resolveSourceFile("source/UI/jive/style_sheets.json");
         if (auto stream = styleFile.createInputStream()) {
             auto json = juce::JSON::parse(*stream);
             devpiano::ui::jive::StyleCatalog::get().loadFromJSON(json);
