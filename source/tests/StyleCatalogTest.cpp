@@ -30,6 +30,7 @@ public:
         testPluginPanelTreeInterprets();
         testControlsPanelTreeInterprets();
         testKeyboardAreaTreeInterprets();
+        testRootLayoutInterprets();
     }
 
 private:
@@ -281,6 +282,59 @@ private:
         if (keyboard != nullptr)
             expect(dynamic_cast<juce::Viewport*>(keyboard->getComponent().get()) != nullptr,
                    "custom-keyboard component is not a Viewport");
+    }
+    void testRootLayoutInterprets() {
+        beginTest("root layout interprets with every panel");
+
+        ::jive::Interpreter interpreter;
+        auto& factory = interpreter.getComponentFactory();
+        factory.set("SettingsButton",
+                    [] { return std::make_unique<juce::DrawableButton>("s", juce::DrawableButton::ImageFitted); });
+        factory.set("PathEditor", [] { return std::make_unique<juce::TextEditor>(); });
+        factory.set("ListEditor", [] { return std::make_unique<juce::TextEditor>(); });
+        factory.set("DevKnob", [] { return std::make_unique<juce::Slider>(); });
+        factory.set("AdsrCurve", [] { return std::make_unique<juce::Component>(); });
+        for (const char* type : { "RecordButton", "PlayButton", "StopButton", "BackButton" })
+            factory.set(type, [] { return std::make_unique<juce::TextButton>(); });
+        juce::MidiKeyboardState keyboardState;
+        factory.set("CustomKeyboard", [&keyboardState] {
+            auto viewport = std::make_unique<juce::Viewport>();
+            auto keyboard = std::make_unique<jive::TextComponent>();
+            viewport->setViewedComponent(keyboard.release(), true);
+            return viewport;
+        });
+        factory.set("StatusBarMidiDot", [] { return std::make_unique<juce::Component>(); });
+
+        auto tree = devpiano::ui::jive::makeRootLayout();
+        devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
+
+        auto item = interpreter.interpret(tree);
+        expect(item != nullptr, "root layout interpretation failed");
+        if (item == nullptr)
+            return;
+
+        // Every top-level panel must be present and nested correctly.
+        for (const char* id :
+             { "header", "plugin-panel", "content-row", "controls-panel", "keyboard-area", "status-bar", "main-area",
+               "custom-keyboard", "midi-dot", "settings-btn", "preset-combo", "volume-knob" }) {
+            expect(::jive::findItemWithID(*item, id) != nullptr, juce::String(id) + " missing from root layout");
+        }
+
+        // The plugin panel starts collapsed (height 40).
+        auto* plugin = ::jive::findItemWithID(*item, "plugin-panel");
+        expect(plugin != nullptr, "");
+        if (plugin != nullptr)
+            expectEquals(plugin->state["height"].toString(), juce::String("40"));
+
+        // Layout the root and verify panels receive non-zero bounds.
+        item->getComponent()->setBounds(0, 0, 1120, 760);
+        const auto headerBounds = ::jive::findItemWithID(*item, "header")->getComponent()->getBounds();
+        const auto statusBounds = ::jive::findItemWithID(*item, "status-bar")->getComponent()->getBounds();
+        const auto keyboardBounds = ::jive::findItemWithID(*item, "keyboard-area")->getComponent()->getBounds();
+        expect(headerBounds.getHeight() > 0, "header has zero height after layout");
+        expect(statusBounds.getHeight() > 0, "status bar has zero height after layout");
+        expect(keyboardBounds.getHeight() > 0, "keyboard area has zero height after layout");
+        expect(statusBounds.getBottom() <= 760, "status bar overflows the window");
     }
 };
 

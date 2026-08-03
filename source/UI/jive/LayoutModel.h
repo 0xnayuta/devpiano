@@ -30,4 +30,10 @@ namespace devpiano::ui::jive {
 /// Fills the remaining vertical space (MainComponent positions it).
 [[nodiscard]] juce::ValueTree makeKeyboardAreaTree();
 
+/// Full application layout: header, plugin panel, controls + keyboard
+/// content area, status bar. One tree, laid out entirely by JIVE FlexBox.
+/// The controls/keyboard split uses flex-grow (1 : 1.5) with min/max
+/// heights, reproducing the native dynamic allocation.
+[[nodiscard]] juce::ValueTree makeRootLayout();
+
 } // namespace devpiano::ui::jive

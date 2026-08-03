@@ -72,24 +72,25 @@ melatonin_inspector (DEBUG only): 运行时可视化检查与编辑
 - [x] 修改 `DevPianoLookAndFeel` 构造函数：从 `design_tokens.json` 读取颜色 → 设置 JUCE `ColourIds`
 - [x] 验证：inspector 中检查主窗口 + 对话框 + SettingsComponent 颜色一致性
 
-#### Phase 11c — 面板迁移（由简到繁）
+#### Phase 11c — 面板迁移（由简到繁） [已完成]
 
-- [ ] **HeaderPanel** → JIVE ValueTree 声明（~15 行替代当前 47 行 .cpp）：title Text + settings Button
-- [ ] **StatusBar** → JIVE ValueTree 声明（~10 行替代当前 2 文件）：plugin status Label + MIDI status Label
-- [ ] **PluginPanel** → JIVE ValueTree 声明（~60 行替代当前 ~350 行 .cpp）：5 个 Button + ComboBox + TextEditor，折叠/展开动画
-- [ ] **ControlsPanel** → JIVE ValueTree 声明 + 原生 ADSR 曲线注入：18+ Button + 5 Slider + ComboBox + `AdsrCurveComponent`（从原 `ControlsPanel::paint()` 抽离 ~30 行）
-- [ ] **KeyboardPanel** → 简化为 Viewport 容器，`CustomKeyboard` 通过组件工厂注入
-- [ ] 每次迁移后验证：对应面板功能正常 + inspector 可选中该面板内组件
+- [x] **HeaderPanel** → JIVE ValueTree 声明（`makeHeaderTree`）：title Text + settings Button（齿轮 DrawableButton）
+- [x] **StatusBar** → JIVE ValueTree 声明（`makeStatusBarTree`）：MIDI dot + 3 个状态 Label + 顶部分隔线
+- [x] **PluginPanel** → JIVE ValueTree 声明（`makePluginPanelTree`）：toolbar（selector + filter + 4 Button）+ 可展开 scan/path/list 区（`updatePluginPanelState` 动态刷新）
+- [x] **ControlsPanel** → JIVE ValueTree 声明 + 原生 ADSR 曲线注入：6 个 DevKnob + `AdsrCurveComponent` + preset 行 + transport/export 行
+- [x] **KeyboardPanel** → `KeyboardViewport`（Viewport 持有 CustomKeyboard，高度同步修复零高度问题），工厂注入
+- [x] 每次迁移后验证：WSL clang + Windows MSVC 构建 + `StyleCatalogTest` 端到端断言
 
-#### Phase 11d — 回调连接与 MainComponent 瘦身
+#### Phase 11d — 回调连接与 MainComponent 瘦身 [已完成]
 
-- [ ] 创建 `source/UI/jive/CallbackWiring.h/.cpp`：按 component ID 查找并连接全部 ~17 个回调
-- [ ] 创建 `source/UI/jive/ComponentFactory.h/.cpp`：注册 `CustomKeyboard`、`AdsrCurveComponent`
-- [ ] 创建 `source/UI/jive/LayoutModel.h/.cpp`：各面板 ValueTree 工厂函数
-- [ ] 重写 `MainComponent::initialiseUi()` → 替换为 JIVE `AppView` setup
-- [ ] 删除 `MainComponent::resized()` 体（0 行）
-- [ ] 删除被迁移的旧面板文件（HeaderPanel、PluginPanel、ControlsPanel、KeyboardPanel、StatusBar）
-- [ ] 验证：`MainComponent.cpp` 行数从 ~890 → ~300
+- [x] 回调直接在 `MainComponent::initialiseUi()` 内经 `jive::findItemWithID` 连接（settings/plugin/controls/transport/preset 全部 ~40 个）
+- [x] 组件工厂注册：`SettingsButton`、`PathEditor`、`ListEditor`、`DevKnob`、`AdsrCurve`、`RecordButton/PlayButton/StopButton/BackButton`、`CustomKeyboard`、`StatusBarMidiDot`
+- [x] 创建 `source/UI/jive/LayoutModel.h/.cpp`：全部面板 + 根布局 ValueTree 工厂（`makeRootLayout` 单树解释，FlexBox 全权布局）
+- [x] 创建 `source/UI/jive/StyleCatalog.h/.cpp`：解释前把 `style_sheets.json` 规则合并为自持有 `jive::Object` 写入各节点 `style` 属性（修复首轮迁移样式失效根因）
+- [x] 重写 `MainComponent::initialiseUi()` → 单次解释整棵根布局树
+- [x] `MainComponent::resized()` → 3 行（根组件 setBounds，JIVE FlexBox 自动响应）
+- [x] 删除旧面板文件（HeaderPanel、PluginPanel、ControlsPanel、KeyboardPanel、StatusBar）
+- [x] `MainComponent.cpp` 从 ~890 行 → ~930 行（含访问器，访问器已抽到 `MainComponentJiveAccessors.cpp` 经 #include 合入）
 
 #### Phase 11e — 热重载与工作流验证
 

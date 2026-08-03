@@ -173,20 +173,11 @@ private:
 
     bool dropActive = false;
 
-    // JIVE header bar (replaces native HeaderPanel)
+    // Single JIVE tree for the whole window (replaces the native panels)
     std::unique_ptr<::jive::Interpreter> jiveInterpreter;
-    std::unique_ptr<::jive::GuiItem> jiveHeaderItem;
-    // JIVE status bar (replaces native StatusBar)
-    std::unique_ptr<::jive::GuiItem> jiveStatusBarItem;
-    // JIVE plugin panel (replaces native PluginPanel)
-    std::unique_ptr<::jive::GuiItem> jivePluginPanelItem;
-    // JIVE controls panel (replaces native ControlsPanel)
-    std::unique_ptr<::jive::GuiItem> jiveControlsPanelItem;
+    std::unique_ptr<::jive::GuiItem> jiveRootItem;
     juce::StringArray availablePresetIds;
     RecordingControlsState recordingControlsState;
-
-    // JIVE keyboard area (replaces native KeyboardPanel)
-    std::unique_ptr<::jive::GuiItem> jiveKeyboardAreaItem;
     CustomKeyboard* customKeyboardRef = nullptr;
 
     std::unique_ptr<devpiano::settings::SettingsWindowManager> settingsWindowManager;

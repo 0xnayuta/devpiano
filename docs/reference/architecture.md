@@ -159,19 +159,28 @@
 
 ### UI
 
+UI 采用 JIVE 声明式布局：`source/UI/jive/LayoutModel.cpp` 以 ValueTree 声明全部面板
+（header / plugin-panel / controls-panel / keyboard-area / status-bar），
+`MainComponent` 通过 `jive::Interpreter` 一次解释整棵布局树，FlexBox 负责全部定位与缩放。
+样式由 `StyleCatalog` 在解释前将 `style_sheets.json` 规则合并进每个节点的 `style`
+属性（jive::Object）；`MainComponentJiveAccessors.cpp`（#include 进 MainComponent.cpp）
+提供面板访问器（getCustomKeyboard、setControlsValues、updatePluginPanelState 等）。
+
 典型文件：
 
-- `source/UI/HeaderPanel.*`
-- `source/UI/PluginPanel.*`
-- `source/UI/ControlsPanel.*`
-- `source/UI/KeyboardPanel.*`
+- `source/UI/jive/LayoutModel.*` — 面板 ValueTree 工厂
+- `source/UI/jive/StyleCatalog.*` — 全局样式注入
+- `source/UI/jive/DesignTokens.*` — 设计 token（配色/字号/尺寸）
+- `source/UI/jive/style_sheets.json` — 全局样式规则
+- `source/UI/native/` — 注入 JIVE 的原生组件（CustomKeyboard、AdsrCurve、
+  StatusBarMidiDot、KeyboardViewport）
 - `source/UI/PluginEditorWindow.*`
-- `source/UI/*StateBuilder.*`
-- `source/UI/KeyboardTypes.h`
+- `source/UI/PluginPanelStateBuilder.*` / `source/UI/*StateBuilder.*`
+- `source/UI/KeyboardTypes.h` / `source/UI/PluginTypes.h` / `source/UI/RecordingTypes.h`
 
 职责：
 
-- 承载独立 UI 区域。
+- 承载独立 UI 区域（组件工厂注入 + 访问器接线）。
 - 将只读展示状态从 `MainComponent` 中逐步抽离。
 - 管理插件 editor 独立窗口托管。
 - `KeyboardTypes.h` 定义键盘渲染枚举、`KeyboardSettings` 和音符名 helper。
@@ -208,8 +217,8 @@ Plugin scan path
 ```text
 SettingsModel + runtime state
   -> AppStateBuilder / MainComponent snapshot
-  -> HeaderPanelStateBuilder / PluginPanelStateBuilder
-  -> HeaderPanel / PluginPanel
+  -> PluginPanelStateBuilder
+  -> MainComponent::updatePluginPanelState -> JIVE item state / components
 ```
 
 ## 5. 项目起源

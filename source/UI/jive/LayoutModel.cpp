@@ -341,4 +341,48 @@ juce::ValueTree makeKeyboardAreaTree() {
     return area;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Root layout
+// ═══════════════════════════════════════════════════════════════════════════
+
+juce::ValueTree makeRootLayout() {
+    auto root = flexColumn("root");
+
+    auto mainArea = flexColumn("main-area");
+    mainArea.setProperty("flex-grow", 1.0, nullptr);
+    mainArea.setProperty("padding", "16", nullptr);
+
+    auto header = makeHeaderTree();
+    header.setProperty("margin", "0 0 10 0", nullptr);
+    mainArea.appendChild(header, nullptr);
+
+    auto plugin = makePluginPanelTree();
+    plugin.setProperty("height", 40, nullptr); // collapsed; setPluginPanelExpanded updates
+    plugin.setProperty("margin", "0 0 12 0", nullptr);
+    mainArea.appendChild(plugin, nullptr);
+
+    auto contentRow = flexColumn("content-row");
+    contentRow.setProperty("flex-grow", 1.0, nullptr);
+
+    auto controls = makeControlsPanelTree();
+    controls.setProperty("flex-grow", 1.0, nullptr);
+    controls.setProperty("min-height", 174, nullptr);
+    controls.setProperty("margin", "0 0 8 0", nullptr);
+    contentRow.appendChild(controls, nullptr);
+
+    auto keyboard = makeKeyboardAreaTree();
+    keyboard.setProperty("flex-grow", 1.5, nullptr);
+    keyboard.setProperty("min-height", 90, nullptr);
+    keyboard.setProperty("max-height", 200, nullptr);
+    contentRow.appendChild(keyboard, nullptr);
+
+    mainArea.appendChild(contentRow, nullptr);
+    root.appendChild(mainArea, nullptr);
+
+    auto status = makeStatusBarTree();
+    root.appendChild(status, nullptr);
+
+    return root;
+}
+
 } // namespace devpiano::ui::jive
