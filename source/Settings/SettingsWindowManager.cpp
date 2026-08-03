@@ -189,7 +189,7 @@ void SettingsWindowManager::showFor(MainComponent& owner) {
               ks.customKeyColours = kbs.customKeyColours;
 
               safe->keyboardPanel.getCustomKeyboard().setKeyboardSettings(ks);
-              safe->pluginPanel.setInstrumentFilterVisible(kbs.showInstrumentFilter);
+              safe->setInstrumentFilterVisible(kbs.showInstrumentFilter);
 
               // Only recreate desktop window when resize preference changes
               if (kbs.resizableWindow != lastResizable) {

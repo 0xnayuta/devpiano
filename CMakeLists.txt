@@ -96,8 +96,6 @@ target_sources(devpiano PRIVATE
     source/Recording/WavFileExporter.h
     source/Recording/PluginOfflineRenderer.cpp
     source/Recording/PluginOfflineRenderer.h
-    source/UI/PluginPanel.cpp
-    source/UI/PluginPanel.h
     source/UI/PluginEditorWindow.cpp
     source/UI/PluginEditorWindow.h
     source/UI/PluginPanelStateBuilder.cpp

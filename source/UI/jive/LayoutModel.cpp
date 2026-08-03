@@ -22,6 +22,13 @@ inline juce::ValueTree text(const juce::String& content, const juce::String& id 
     return t;
 }
 
+/// Helper: create a <Button> node with text content.
+inline juce::ValueTree button(const juce::String& label, const juce::String& id = {}) {
+    auto t = node("Button", id);
+    t.setProperty("text", label, nullptr);
+    return t;
+}
+
 /// Helper: create a <Component> flex row with centre alignment.
 inline juce::ValueTree flexRow(const juce::String& id = {}) {
     auto t = node("Component", id);
@@ -38,6 +45,14 @@ inline juce::ValueTree flexRowStretch(const juce::String& id = {}) {
     t.setProperty("display", "flex", nullptr);
     t.setProperty("flex-direction", "row", nullptr);
     t.setProperty("align-items", "stretch", nullptr);
+    return t;
+}
+
+/// Helper: create a <Component> flex column.
+inline juce::ValueTree flexColumn(const juce::String& id = {}) {
+    auto t = node("Component", id);
+    t.setProperty("display", "flex", nullptr);
+    t.setProperty("flex-direction", "column", nullptr);
     return t;
 }
 
@@ -102,6 +117,99 @@ juce::ValueTree makeStatusBarTree() {
     row.appendChild(timeLabel, nullptr);
 
     return row;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PluginPanel
+// ═══════════════════════════════════════════════════════════════════════════
+
+juce::ValueTree makePluginPanelTree() {
+    auto panel = flexColumn("plugin-panel");
+    panel.setProperty("padding", "4 8 4 8", nullptr);
+
+    // ── Always-visible toolbar row: status | selector | filter | buttons ──
+    auto actionRow = flexRow("plugin-action-row");
+    actionRow.setProperty("height", 28, nullptr);
+
+    auto status = text({}, "plugin-status-label");
+    status.setProperty("flex-grow", 1.0, nullptr);
+    status.setProperty("margin", "0 6 0 0", nullptr);
+    actionRow.appendChild(status, nullptr);
+
+    auto selector = node("ComboBox", "plugin-selector");
+    selector.setProperty("width", 180, nullptr);
+    selector.setProperty("margin", "0 6 0 0", nullptr);
+    actionRow.appendChild(selector, nullptr);
+
+    auto filter = node("ComboBox", "plugin-filter-combo");
+    filter.setProperty("width", 100, nullptr);
+    filter.setProperty("margin", "0 6 0 0", nullptr);
+    const auto addOption = [&filter](const juce::String& text, int index) {
+        auto opt = juce::ValueTree("Option");
+        opt.setProperty("text", text, nullptr);
+        filter.addChild(opt, index, nullptr);
+    };
+    addOption("All", 0);
+    addOption("Instruments Only", 1);
+    addOption("Effects Only", 2);
+    actionRow.appendChild(filter, nullptr);
+
+    auto loadBtn = button("Load", "load-btn");
+    loadBtn.setProperty("width", 60, nullptr);
+    loadBtn.setProperty("margin", "0 6 0 0", nullptr);
+    actionRow.appendChild(loadBtn, nullptr);
+
+    auto unloadBtn = button("Unload", "unload-btn");
+    unloadBtn.setProperty("width", 80, nullptr);
+    unloadBtn.setProperty("margin", "0 6 0 0", nullptr);
+    actionRow.appendChild(unloadBtn, nullptr);
+
+    auto editorBtn = button("Open Editor", "editor-btn");
+    editorBtn.setProperty("width", 100, nullptr);
+    editorBtn.setProperty("margin", "0 6 0 0", nullptr);
+    actionRow.appendChild(editorBtn, nullptr);
+
+    auto toggleBtn = button("\u22EF", "toggle-btn");
+    toggleBtn.setProperty("width", 30, nullptr);
+    actionRow.appendChild(toggleBtn, nullptr);
+
+    panel.appendChild(actionRow, nullptr);
+
+    // ── Expandable area (height 0 when collapsed; 112 when expanded) ──
+    auto expandedArea = flexColumn("plugin-expanded-area");
+    expandedArea.setProperty("height", 0, nullptr);
+
+    auto pathRow = flexRow("plugin-path-row");
+    pathRow.setProperty("height", 28, nullptr);
+
+    auto pathLabel = text("VST3 Path", "plugin-path-label");
+    pathLabel.setProperty("width", 80, nullptr);
+    pathRow.appendChild(pathLabel, nullptr);
+
+    auto pathEditor = node("PathEditor", "plugin-path-editor");
+    pathEditor.setProperty("flex-grow", 1.0, nullptr);
+    pathRow.appendChild(pathEditor, nullptr);
+
+    auto browseBtn = button("...", "browse-btn");
+    browseBtn.setProperty("width", 40, nullptr);
+    browseBtn.setProperty("margin", "0 0 0 6", nullptr);
+    pathRow.appendChild(browseBtn, nullptr);
+
+    auto scanBtn = button("Scan VST3", "scan-btn");
+    scanBtn.setProperty("width", 80, nullptr);
+    scanBtn.setProperty("margin", "0 0 0 6", nullptr);
+    pathRow.appendChild(scanBtn, nullptr);
+
+    expandedArea.appendChild(pathRow, nullptr);
+
+    auto listEditor = node("ListEditor", "plugin-list-editor");
+    listEditor.setProperty("flex-grow", 1.0, nullptr);
+    listEditor.setProperty("margin", "8 0 0 0", nullptr);
+    expandedArea.appendChild(listEditor, nullptr);
+
+    panel.appendChild(expandedArea, nullptr);
+
+    return panel;
 }
 
 } // namespace devpiano::ui::jive

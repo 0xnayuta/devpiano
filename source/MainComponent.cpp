@@ -79,7 +79,7 @@ MainComponent::MainComponent()
     recordingSessionController = std::make_unique<devpiano::recording::RecordingSessionController>(
         *this, recordingEngine, audioEngine, appSettings, controlsPanel);
     pluginOperationController
-        = std::make_unique<devpiano::plugin::PluginOperationController>(*this, pluginHost, appSettings, pluginPanel);
+        = std::make_unique<devpiano::plugin::PluginOperationController>(*this, pluginHost, appSettings);
     settingsWindowManager = std::make_unique<devpiano::settings::SettingsWindowManager>();
 #if DEBUG
     inspector = std::make_unique<melatonin::Inspector>(*this);
@@ -205,22 +205,70 @@ void MainComponent::initialiseUi() {
         }
     }
 
-    addAndMakeVisible(pluginPanel);
-    pluginPanel.onScanRequested = [this] { pluginOperationController->scanPlugins(); };
-    pluginPanel.onLoadRequested = [this] { pluginOperationController->loadSelectedPlugin(); };
-    pluginPanel.onUnloadRequested = [this] { pluginOperationController->unloadCurrentPlugin(); };
-    pluginPanel.onToggleEditorRequested = [this] { pluginOperationController->togglePluginEditor(); };
+    // ── JIVE plugin panel ──
+    {
+        jiveInterpreter->getComponentFactory().set("PathEditor", [] {
+            auto editor = std::make_unique<juce::TextEditor>();
+            editor->setMultiLine(false);
+            editor->setReturnKeyStartsNewLine(false);
+            return editor;
+        });
+        jiveInterpreter->getComponentFactory().set("ListEditor", [] {
+            auto editor = std::make_unique<juce::TextEditor>();
+            editor->setMultiLine(true);
+            editor->setReadOnly(true);
+            editor->setScrollbarsShown(true);
+            editor->setCaretVisible(false);
+            editor->setPopupMenuEnabled(true);
+            editor->setWantsKeyboardFocus(false);
+            editor->setMouseClickGrabsKeyboardFocus(false);
+            return editor;
+        });
+
+        auto pluginTree = devpiano::ui::jive::makePluginPanelTree();
+        devpiano::ui::jive::StyleCatalog::get().applyToTree(pluginTree);
+        jivePluginPanelItem = jiveInterpreter->interpret(pluginTree);
+        if (jivePluginPanelItem != nullptr) {
+            addAndMakeVisible(jivePluginPanelItem->getComponent().get());
+
+            const auto wireButton = [this](const char* id, const std::function<void()>& action) {
+                if (auto* item = jive::findItemWithID(*jivePluginPanelItem, id))
+                    if (auto* btn = dynamic_cast<juce::Button*>(item->getComponent().get()))
+                        btn->onClick = action;
+            };
+            wireButton("load-btn", [this] { pluginOperationController->loadSelectedPlugin(); });
+            wireButton("unload-btn", [this] { pluginOperationController->unloadCurrentPlugin(); });
+            wireButton("editor-btn", [this] { pluginOperationController->togglePluginEditor(); });
+            wireButton("toggle-btn", [this] { setPluginPanelExpanded(!appSettings.pluginPanelExpanded); });
+            wireButton("scan-btn", [this] { pluginOperationController->scanPlugins(); });
+            wireButton("browse-btn", [this] { showPluginBrowseDialog(); });
+
+            if (auto* item = jive::findItemWithID(*jivePluginPanelItem, "plugin-selector"))
+                if (auto* combo = dynamic_cast<juce::ComboBox*>(item->getComponent().get())) {
+                    combo->setTextWhenNothingSelected(TRANS("Select a scanned plugin..."));
+                    combo->setWantsKeyboardFocus(false);
+                    combo->onChange = [this, combo] {
+                        if (combo->getSelectedItemIndex() >= 0)
+                            pluginOperationController->loadSelectedPlugin();
+                    };
+                }
+
+            if (auto* item = jive::findItemWithID(*jivePluginPanelItem, "plugin-filter-combo"))
+                if (auto* combo = dynamic_cast<juce::ComboBox*>(item->getComponent().get())) {
+                    combo->setWantsKeyboardFocus(false);
+                    combo->onChange = [this] { refreshPluginUiState(); };
+                }
+
+            if (auto* item = jive::findItemWithID(*jivePluginPanelItem, "plugin-path-editor"))
+                if (auto* editor = dynamic_cast<juce::TextEditor*>(item->getComponent().get()))
+                    editor->onReturnKey = [this] { pluginOperationController->scanPlugins(); };
+        }
+    }
 
     const auto pluginRecovery = getPluginRecoverySettingsWithFallback();
-    pluginPanel.setPluginPathText(makeSafeUiText(pluginRecovery.pluginSearchPath));
+    setPluginPathText(makeSafeUiText(pluginRecovery.pluginSearchPath));
 
-    pluginPanel.setExpanded(appSettings.pluginPanelExpanded);
-
-    pluginPanel.onPanelSizeChanged = [this] {
-        resized();
-        appSettings.pluginPanelExpanded = pluginPanel.isExpanded();
-        settingsStore.scheduleSave(appSettings);
-    };
+    setPluginPanelExpanded(appSettings.pluginPanelExpanded);
 
     addAndMakeVisible(controlsPanel);
     controlsPanel.onValuesChanged = [this] { handlePerformanceUiChanged(); };
@@ -449,7 +497,9 @@ void MainComponent::paint(juce::Graphics& g) {
     const auto headerBounds
         = (jiveHeaderItem != nullptr) ? jiveHeaderItem->getComponent()->getBounds() : juce::Rectangle<int> {};
     drawPanelBorder(headerBounds);
-    drawPanelBorder(pluginPanel.getBounds());
+    const auto pluginBounds
+        = (jivePluginPanelItem != nullptr) ? jivePluginPanelItem->getComponent()->getBounds() : juce::Rectangle<int> {};
+    drawPanelBorder(pluginBounds);
     drawPanelBorder(controlsPanel.getBounds());
     drawPanelBorder(keyboardPanel.getBounds());
 }
@@ -468,7 +518,11 @@ void MainComponent::resized() {
         content.removeFromTop(36);
     content.removeFromTop(10);
 
-    pluginPanel.setBounds(content.removeFromTop(pluginPanel.getPreferredHeight()));
+    if (jivePluginPanelItem != nullptr)
+        jivePluginPanelItem->getComponent()->setBounds(
+            content.removeFromTop(appSettings.pluginPanelExpanded ? 160 : 40));
+    else
+        content.removeFromTop(40);
     content.removeFromTop(12);
 
     // ── Dynamic allocation between ControlsPanel and KeyboardPanel ──
@@ -653,7 +707,7 @@ juce::String MainComponent::getLastPluginNameForRecoveryStateFromUi() const {
     if (pluginHost.hasLoadedPlugin())
         return pluginHost.getCurrentPluginName();
 
-    auto selected = pluginPanel.getSelectedPluginName().trim();
+    auto selected = getSelectedPluginName().trim();
     if (selected.isNotEmpty())
         return selected;
 
@@ -663,7 +717,7 @@ juce::String MainComponent::getLastPluginNameForRecoveryStateFromUi() const {
 }
 
 SettingsModel::PluginRecoverySettingsView MainComponent::getPluginRecoverySettingsFromUi() const {
-    return devpiano::plugin::makePluginRecoverySettings(pluginPanel.getPluginPathText().trim(),
+    return devpiano::plugin::makePluginRecoverySettings(getPluginPathText().trim(),
                                                         getLastPluginNameForRecoveryStateFromUi());
 }
 
@@ -806,7 +860,7 @@ bool MainComponent::isSettingsWindowOpen() const {
 }
 
 void MainComponent::renderReadOnlyUiState(const devpiano::core::AppState& appState) {
-    pluginPanel.updateState(
+    updatePluginPanelState(
         buildPluginPanelState(pluginHost, appState.plugin.lastPluginName, appState.plugin.isEditorOpen));
 }
 
@@ -816,6 +870,215 @@ void MainComponent::refreshReadOnlyUiStateFromCurrentSnapshot() {
 
 void MainComponent::refreshPluginUiState() {
     renderReadOnlyUiState(buildCurrentAppStateSnapshot());
+}
+
+// ── JIVE plugin panel accessors ────────────────────────────────────────────
+
+void MainComponent::setPluginPathText(const juce::String& text) {
+    if (jivePluginPanelItem == nullptr)
+        return;
+    if (auto* item = jive::findItemWithID(*jivePluginPanelItem, "plugin-path-editor"))
+        if (auto* editor = dynamic_cast<juce::TextEditor*>(item->getComponent().get()))
+            editor->setText(text, juce::dontSendNotification);
+}
+
+juce::String MainComponent::getPluginPathText() const {
+    if (jivePluginPanelItem == nullptr)
+        return {};
+    if (auto* item = jive::findItemWithID(*jivePluginPanelItem, "plugin-path-editor"))
+        if (auto* editor = dynamic_cast<juce::TextEditor*>(item->getComponent().get()))
+            return editor->getText();
+    return {};
+}
+
+juce::String MainComponent::getSelectedPluginName() const {
+    if (jivePluginPanelItem == nullptr)
+        return {};
+    if (auto* item = jive::findItemWithID(*jivePluginPanelItem, "plugin-selector"))
+        if (auto* combo = dynamic_cast<juce::ComboBox*>(item->getComponent().get()))
+            return combo->getText();
+    return {};
+}
+
+void MainComponent::setPluginPanelExpanded(bool expanded) {
+    appSettings.pluginPanelExpanded = expanded;
+    if (jivePluginPanelItem != nullptr) {
+        if (auto* item = jive::findItemWithID(*jivePluginPanelItem, "plugin-expanded-area"))
+            item->state.setProperty("height", expanded ? 112 : 0, nullptr);
+        resized();
+    }
+    settingsStore.scheduleSave(appSettings);
+}
+
+void MainComponent::setInstrumentFilterVisible(bool visible) {
+    if (jivePluginPanelItem == nullptr)
+        return;
+    if (auto* item = jive::findItemWithID(*jivePluginPanelItem, "plugin-filter-combo"))
+        item->state.setProperty("visibility", visible, nullptr);
+}
+
+void MainComponent::showPluginBrowseDialog() {
+    auto chooser = std::make_shared<juce::FileChooser>(TRANS("Select VST3 Plugin Folder"),
+                                                       juce::File(getPluginPathText()), "", true);
+    chooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories,
+                         [this, chooser](const juce::FileChooser& fc) {
+                             auto folder = fc.getResult();
+                             if (folder.exists()) {
+                                 setPluginPathText(folder.getFullPathName());
+                                 pluginOperationController->scanPlugins();
+                             }
+                         });
+}
+
+void MainComponent::updatePluginPanelState(const PluginPanelState& state) {
+    if (jivePluginPanelItem == nullptr)
+        return;
+
+    auto* selectorItem = jive::findItemWithID(*jivePluginPanelItem, "plugin-selector");
+    auto* statusItem = jive::findItemWithID(*jivePluginPanelItem, "plugin-status-label");
+    auto* listItem = jive::findItemWithID(*jivePluginPanelItem, "plugin-list-editor");
+    auto* filterItem = jive::findItemWithID(*jivePluginPanelItem, "plugin-filter-combo");
+
+    auto* selectorCombo
+        = selectorItem != nullptr ? dynamic_cast<juce::ComboBox*>(selectorItem->getComponent().get()) : nullptr;
+    auto* listEditor = listItem != nullptr ? dynamic_cast<juce::TextEditor*>(listItem->getComponent().get()) : nullptr;
+
+    const auto setEnabled = [](::jive::GuiItem* item, bool enabled) {
+        if (item != nullptr)
+            item->state.setProperty("enabled", enabled, nullptr);
+    };
+
+    if (state.isCurrentlyScanning) {
+        if (selectorItem != nullptr)
+            selectorItem->state.removeAllChildren(nullptr);
+        if (selectorCombo != nullptr)
+            selectorCombo->setTextWhenNothingSelected(TRANS("Scanning..."));
+        if (listEditor != nullptr) {
+            auto scanText = TRANS("Scanning VST3 plugins...") + "\n";
+            scanText << (state.scanningPluginName.isNotEmpty() ? state.scanningPluginName : TRANS("Preparing..."));
+            listEditor->setText(scanText, juce::dontSendNotification);
+        }
+        setEnabled(jive::findItemWithID(*jivePluginPanelItem, "scan-btn"), false);
+        setEnabled(jive::findItemWithID(*jivePluginPanelItem, "browse-btn"), false);
+        setEnabled(jive::findItemWithID(*jivePluginPanelItem, "load-btn"), false);
+    } else {
+        const auto& names = [&]() -> const juce::StringArray& {
+            const auto filterId = filterItem != nullptr ? filterItem->state["selected"].toString().getIntValue() : 1;
+            if (filterId == 2 && !state.instrumentPluginNames.isEmpty())
+                return state.instrumentPluginNames;
+            if (filterId == 3 && !state.effectPluginNames.isEmpty())
+                return state.effectPluginNames;
+            return state.availablePluginNames;
+        }();
+
+        if (selectorItem != nullptr) {
+            selectorItem->state.removeAllChildren(nullptr);
+            auto selectedIndex = -1;
+            auto index = 0;
+            for (const auto& name : names) {
+                auto option = juce::ValueTree("Option");
+                option.setProperty("text", name, nullptr);
+                selectorItem->state.addChild(option, index, nullptr);
+                if (name.equalsIgnoreCase(state.preferredSelection))
+                    selectedIndex = index;
+                ++index;
+            }
+            if (names.isEmpty())
+                selectorItem->state.setProperty("selected", -1, nullptr);
+            else if (selectedIndex >= 0)
+                selectorItem->state.setProperty("selected", selectedIndex, nullptr);
+            else
+                selectorItem->state.setProperty("selected", 0, nullptr);
+        }
+
+        if (selectorCombo != nullptr)
+            selectorCombo->setTextWhenNothingSelected(TRANS("Select a scanned plugin..."));
+        if (listEditor != nullptr)
+            listEditor->setText(TRANS(state.pluginListText), juce::dontSendNotification);
+
+        setEnabled(jive::findItemWithID(*jivePluginPanelItem, "scan-btn"), true);
+        setEnabled(jive::findItemWithID(*jivePluginPanelItem, "browse-btn"), true);
+        setEnabled(jive::findItemWithID(*jivePluginPanelItem, "load-btn"), !names.isEmpty());
+        setEnabled(jive::findItemWithID(*jivePluginPanelItem, "unload-btn"), state.hasLoadedPlugin);
+        setEnabled(jive::findItemWithID(*jivePluginPanelItem, "editor-btn"), state.hasLoadedPlugin);
+        if (auto* item = jive::findItemWithID(*jivePluginPanelItem, "plugin-path-editor"))
+            item->state.setProperty("enabled", true, nullptr);
+    }
+
+    // Status line: formats + scan summary + loaded plugin info.
+    auto text = TRANS(state.availableFormatsDescription);
+    if (state.supportsVst3)
+        text << TRANS(" [VST3 ready]");
+
+    if (state.isCurrentlyScanning) {
+        text << TRANS(" | Scanning: ") << state.scanningPluginName << "...";
+    } else {
+        auto summary = state.lastScanSummary;
+        if (summary.startsWith("VST3 scan complete: ") && !summary.contains("no plugins")) {
+            auto resultSuffix = (state.scanFailedCount > 0) ? TRANS(" failed (see log).") : TRANS(" failed.");
+            text << " | " << TRANS("VST3 scan complete: ") << juce::String(state.scanPluginCount)
+                 << TRANS(" plugin(s), ") << juce::String(state.scanFailedCount) << resultSuffix;
+        } else if (summary.startsWith("VST3 scan found no plugins; ")) {
+            text << " | " << TRANS("VST3 scan found no plugins: ") << juce::String(state.scanFailedCount)
+                 << TRANS(" failed (see log).");
+        } else if (summary.startsWith("Loaded cached plugin list: ")) {
+            text << " | " << TRANS("Loaded cached plugin list: ") << juce::String(state.scanPluginCount)
+                 << TRANS(" plugin(s).");
+        } else {
+            text << " | " << TRANS(summary);
+        }
+    }
+
+    if (state.hasLoadedPlugin) {
+        text << TRANS(" | Loaded: ") << state.currentPluginName;
+
+        if (state.isPrepared)
+            text << " @ " << juce::String(state.preparedSampleRate, 0) << " Hz / "
+                 << juce::String(state.preparedBlockSize);
+        else
+            text << TRANS(" [not prepared]");
+
+        if (state.isEditorOpen)
+            text << TRANS(" | Editor open");
+    } else if (state.lastLoadError.isNotEmpty() && state.lastLoadError != "No plugin load attempted yet.") {
+        text << TRANS(" | Load error: ") << state.lastLoadError;
+    } else if (state.lastPluginName.isNotEmpty()) {
+        text << TRANS(" | Last plugin: ") << state.lastPluginName;
+    }
+
+    if (statusItem != nullptr)
+        statusItem->state.setProperty("text", text, nullptr);
+}
+
+void MainComponent::refreshPluginPanelTexts() {
+    if (jivePluginPanelItem == nullptr)
+        return;
+
+    if (auto* item = jive::findItemWithID(*jivePluginPanelItem, "plugin-path-label"))
+        item->state.setProperty("text", TRANS("VST3 Path"), nullptr);
+    const auto setButtonText = [this](const char* id, const juce::String& text) {
+        if (auto* item = jive::findItemWithID(*jivePluginPanelItem, id))
+            item->state.setProperty("text", text, nullptr);
+    };
+    setButtonText("scan-btn", TRANS("Scan VST3"));
+    setButtonText("load-btn", TRANS("Load"));
+    setButtonText("unload-btn", TRANS("Unload"));
+    setButtonText("editor-btn", TRANS("Open Editor"));
+    if (auto* item = jive::findItemWithID(*jivePluginPanelItem, "plugin-filter-combo")) {
+        const juce::StringArray filterTexts { TRANS("All"), TRANS("Instruments Only"), TRANS("Effects Only") };
+        auto childIndex = 0;
+        for (auto child : item->state) {
+            if (childIndex < filterTexts.size())
+                child.setProperty("text", filterTexts[childIndex], nullptr);
+            ++childIndex;
+        }
+    }
+    if (auto* item = jive::findItemWithID(*jivePluginPanelItem, "plugin-selector"))
+        if (auto* combo = dynamic_cast<juce::ComboBox*>(item->getComponent().get()))
+            combo->setTextWhenNothingSelected(TRANS("Select a scanned plugin..."));
+
+    // Re-apply the last state to refresh status text (locale-dependent).
+    refreshPluginUiState();
 }
 
 void MainComponent::finishPluginUiAction(bool shouldSaveSettings) {
@@ -844,7 +1107,7 @@ void MainComponent::applyLanguage(const juce::String& code) {
 }
 
 void MainComponent::refreshAllTexts() {
-    pluginPanel.refreshTexts();
+    refreshPluginPanelTexts();
     controlsPanel.refreshTexts();
 }
 

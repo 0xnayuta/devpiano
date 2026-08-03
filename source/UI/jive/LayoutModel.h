@@ -18,4 +18,8 @@ namespace devpiano::ui::jive {
 /// Bottom status bar: MIDI activity dot, plugin name, audio info, time.
 [[nodiscard]] juce::ValueTree makeStatusBarTree();
 
+/// Plugin panel: selector toolbar + expandable scan/path/list area.
+/// Collapsed height 40, expanded 160 (MainComponent positions it).
+[[nodiscard]] juce::ValueTree makePluginPanelTree();
+
 } // namespace devpiano::ui::jive

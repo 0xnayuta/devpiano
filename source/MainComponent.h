@@ -24,7 +24,7 @@
 #include "UI/DevPianoLookAndFeel.h"
 #include "UI/KeyboardPanel.h"
 #include "UI/PluginEditorWindow.h"
-#include "UI/PluginPanel.h"
+#include "UI/PluginTypes.h"
 #include "UI/jive/LayoutModel.h"
 #include "UI/jive/StyleCatalog.h"
 
@@ -112,6 +112,16 @@ private:
     [[nodiscard]] bool isSettingsWindowOpen() const;
     void logCurrentAudioDeviceDiagnostics(const juce::String& context) const;
     void renderReadOnlyUiState(const devpiano::core::AppState& appState);
+
+    // ── JIVE plugin panel accessors ──
+    void setPluginPathText(const juce::String& text);
+    [[nodiscard]] juce::String getPluginPathText() const;
+    [[nodiscard]] juce::String getSelectedPluginName() const;
+    void setPluginPanelExpanded(bool expanded);
+    void updatePluginPanelState(const PluginPanelState& state);
+    void setInstrumentFilterVisible(bool visible);
+    void showPluginBrowseDialog();
+    void refreshPluginPanelTexts();
     void refreshReadOnlyUiStateFromCurrentSnapshot();
     void refreshPluginUiState();
     void finishPluginUiAction(bool shouldSaveSettings);
@@ -144,8 +154,8 @@ private:
     std::unique_ptr<::jive::GuiItem> jiveHeaderItem;
     // JIVE status bar (replaces native StatusBar)
     std::unique_ptr<::jive::GuiItem> jiveStatusBarItem;
-
-    PluginPanel pluginPanel;
+    // JIVE plugin panel (replaces native PluginPanel)
+    std::unique_ptr<::jive::GuiItem> jivePluginPanelItem;
     ControlsPanel controlsPanel;
     KeyboardPanel keyboardPanel;
     std::unique_ptr<devpiano::settings::SettingsWindowManager> settingsWindowManager;

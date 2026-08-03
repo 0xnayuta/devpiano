@@ -27,6 +27,7 @@ public:
         testJsonStringParsesToJiveObject();
         testAppliedStylesReachInterpretedComponents();
         testStatusBarTreeInterprets();
+        testPluginPanelTreeInterprets();
     }
 
 private:
@@ -146,6 +147,60 @@ private:
                 expect(dynamic_cast<jive::TextComponent*>(label->getComponent().get()) != nullptr,
                        juce::String(id) + " component is not a TextComponent");
         }
+    }
+    void testPluginPanelTreeInterprets() {
+        beginTest("plugin panel tree interprets with all controls");
+
+        ::jive::Interpreter interpreter;
+        interpreter.getComponentFactory().set("PathEditor", [] {
+            auto editor = std::make_unique<juce::TextEditor>();
+            editor->setMultiLine(false);
+            return editor;
+        });
+        interpreter.getComponentFactory().set("ListEditor", [] {
+            auto editor = std::make_unique<juce::TextEditor>();
+            editor->setMultiLine(true);
+            editor->setReadOnly(true);
+            return editor;
+        });
+
+        auto tree = devpiano::ui::jive::makePluginPanelTree();
+        devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
+
+        auto item = interpreter.interpret(tree);
+        expect(item != nullptr, "plugin panel interpretation failed");
+        if (item == nullptr)
+            return;
+
+        const auto expectComponent = [this, &item](const char* id) {
+            auto* found = ::jive::findItemWithID(*item, id);
+            expect(found != nullptr, juce::String(id) + " item not found");
+            return found;
+        };
+
+        expect(expectComponent("plugin-selector") != nullptr, "");
+        expect(expectComponent("plugin-filter-combo") != nullptr, "");
+        for (const char* id : { "load-btn", "unload-btn", "editor-btn", "toggle-btn", "scan-btn", "browse-btn" })
+            expect(expectComponent(id) != nullptr, "");
+        expect(expectComponent("plugin-path-editor") != nullptr, "");
+        expect(expectComponent("plugin-list-editor") != nullptr, "");
+
+        // Filter combo must expose its three options as declarative children.
+        auto* filter = ::jive::findItemWithID(*item, "plugin-filter-combo");
+        expect(filter != nullptr, "filter combo missing");
+        if (filter != nullptr) {
+            int optionCount = 0;
+            for (auto child : filter->state)
+                if (child.hasType("Option"))
+                    ++optionCount;
+            expectEquals(optionCount, 3);
+        }
+
+        // The expanded area starts collapsed (height 0).
+        auto* expandedArea = ::jive::findItemWithID(*item, "plugin-expanded-area");
+        expect(expandedArea != nullptr, "expanded area missing");
+        if (expandedArea != nullptr)
+            expectEquals(expandedArea->state["height"].toString(), juce::String("0"));
     }
 };
 
