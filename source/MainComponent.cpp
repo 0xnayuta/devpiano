@@ -7,6 +7,7 @@
 #include "UI/KeyBindingEditDialog.h"
 #include "UI/PluginPanelStateBuilder.h"
 #include "UI/jive/DesignTokens.h"
+#include "UI/native/StatusBarMidiDot.h"
 
 #if JUCE_WINDOWS
 struct HWND__;
@@ -253,7 +254,18 @@ void MainComponent::initialiseUi() {
     recordingEngine.setPlaybackSpeedMultiplier(1.0);
 
     addAndMakeVisible(keyboardPanel);
-    addAndMakeVisible(statusBar);
+
+    // ── JIVE status bar ──
+    {
+        jiveInterpreter->getComponentFactory().set("StatusBarMidiDot",
+                                                   [] { return std::make_unique<StatusBarMidiDot>(); });
+
+        auto statusTree = devpiano::ui::jive::makeStatusBarTree();
+        devpiano::ui::jive::StyleCatalog::get().applyToTree(statusTree);
+        jiveStatusBarItem = jiveInterpreter->interpret(statusTree);
+        if (jiveStatusBarItem != nullptr)
+            addAndMakeVisible(jiveStatusBarItem->getComponent().get());
+    }
 
     // Wire CustomKeyboard mouse interaction → sound (with MIDI matrix)
     auto& customKeyboard = keyboardPanel.getCustomKeyboard();
@@ -444,7 +456,10 @@ void MainComponent::paint(juce::Graphics& g) {
 
 void MainComponent::resized() {
     auto area = getLocalBounds();
-    statusBar.setBounds(area.removeFromBottom(22));
+    if (jiveStatusBarItem != nullptr)
+        jiveStatusBarItem->getComponent()->setBounds(area.removeFromBottom(22));
+    else
+        area.removeFromBottom(22);
 
     auto content = area.reduced(16);
     if (jiveHeaderItem != nullptr)
@@ -831,7 +846,6 @@ void MainComponent::applyLanguage(const juce::String& code) {
 void MainComponent::refreshAllTexts() {
     pluginPanel.refreshTexts();
     controlsPanel.refreshTexts();
-    statusBar.refreshTexts();
 }
 
 double MainComponent::getCurrentRuntimeSampleRate() const {

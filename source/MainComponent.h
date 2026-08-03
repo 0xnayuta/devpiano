@@ -25,7 +25,6 @@
 #include "UI/KeyboardPanel.h"
 #include "UI/PluginEditorWindow.h"
 #include "UI/PluginPanel.h"
-#include "UI/StatusBar.h"
 #include "UI/jive/LayoutModel.h"
 #include "UI/jive/StyleCatalog.h"
 
@@ -143,11 +142,12 @@ private:
     // JIVE header bar (replaces native HeaderPanel)
     std::unique_ptr<::jive::Interpreter> jiveInterpreter;
     std::unique_ptr<::jive::GuiItem> jiveHeaderItem;
+    // JIVE status bar (replaces native StatusBar)
+    std::unique_ptr<::jive::GuiItem> jiveStatusBarItem;
 
     PluginPanel pluginPanel;
     ControlsPanel controlsPanel;
     KeyboardPanel keyboardPanel;
-    StatusBar statusBar;
     std::unique_ptr<devpiano::settings::SettingsWindowManager> settingsWindowManager;
     std::unique_ptr<devpiano::layout::PresetFlowSupport> presetFlowSupport;
     std::unique_ptr<devpiano::recording::RecordingSessionController> recordingSessionController;

@@ -2,6 +2,7 @@
 
 #include "UI/jive/LayoutModel.h"
 #include "UI/jive/StyleCatalog.h"
+#include "UI/native/StatusBarMidiDot.h"
 
 #include <jive_layouts/jive_layouts.h>
 
@@ -25,6 +26,7 @@ public:
     void runTest() override {
         testJsonStringParsesToJiveObject();
         testAppliedStylesReachInterpretedComponents();
+        testStatusBarTreeInterprets();
     }
 
 private:
@@ -115,6 +117,35 @@ private:
         // asserted at the Object level in the first test; JIVE's font-height
         // application is environment-dependent and not observable here).
         expectEquals(text->getTextColour(), juce::Colour(0xFFEEEEEE));
+    }
+    void testStatusBarTreeInterprets() {
+        beginTest("status bar tree interprets with labels and dot");
+
+        ::jive::Interpreter interpreter;
+        interpreter.getComponentFactory().set("StatusBarMidiDot", [] { return std::make_unique<StatusBarMidiDot>(); });
+
+        auto tree = devpiano::ui::jive::makeStatusBarTree();
+        devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
+
+        auto item = interpreter.interpret(tree);
+        expect(item != nullptr, "status bar interpretation failed");
+        if (item == nullptr)
+            return;
+
+        // The status-bar rule must have reached the container (background).
+        auto* dot = ::jive::findItemWithID(*item, "midi-dot");
+        expect(dot != nullptr, "midi-dot item not found");
+        if (dot != nullptr)
+            expect(dynamic_cast<StatusBarMidiDot*>(dot->getComponent().get()) != nullptr,
+                   "midi-dot component is not a StatusBarMidiDot");
+
+        for (const auto* id : { "plugin-name-label", "audio-info-label", "time-label" }) {
+            auto* label = ::jive::findItemWithID(*item, id);
+            expect(label != nullptr, juce::String(id) + " item not found");
+            if (label != nullptr)
+                expect(dynamic_cast<jive::TextComponent*>(label->getComponent().get()) != nullptr,
+                       juce::String(id) + " component is not a TextComponent");
+        }
     }
 };
 

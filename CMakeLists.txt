@@ -106,8 +106,6 @@ target_sources(devpiano PRIVATE
     source/UI/DevPianoLookAndFeel.h
     source/UI/ControlsPanel.cpp
     source/UI/ControlsPanel.h
-    source/UI/StatusBar.cpp
-    source/UI/StatusBar.h
     source/UI/KeyboardPanel.cpp
     source/UI/KeyboardPanel.h
     source/Settings/SettingsModel.h
@@ -117,6 +115,7 @@ target_sources(devpiano PRIVATE
     source/UI/CustomKeyboard.h
     source/UI/native/AdsrCurveComponent.cpp
     source/UI/native/AdsrCurveComponent.h
+    source/UI/native/StatusBarMidiDot.h
     source/UI/KeyboardTypes.h
     source/UI/PluginTypes.h
     source/UI/RecordingTypes.h
@@ -249,6 +248,8 @@ if (BUILD_TESTS)
         source/UI/jive/StyleCatalog.h
         source/UI/jive/LayoutModel.cpp
         source/UI/jive/LayoutModel.h
+        source/UI/jive/DesignTokens.cpp
+        source/UI/jive/DesignTokens.h
 
 
         # 测试代码

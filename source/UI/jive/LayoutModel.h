@@ -15,4 +15,7 @@ namespace devpiano::ui::jive {
 /// Top bar: app title + settings button.
 [[nodiscard]] juce::ValueTree makeHeaderTree();
 
+/// Bottom status bar: MIDI activity dot, plugin name, audio info, time.
+[[nodiscard]] juce::ValueTree makeStatusBarTree();
+
 } // namespace devpiano::ui::jive

@@ -64,6 +64,7 @@
   "#status-bar": {
     "background": "#1D1F23",
     "foreground": "#999999",
-    "font-size": 12
+    "font-size": 12,
+    "border": "#2D3035"
   }
 }
