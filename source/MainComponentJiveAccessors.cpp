@@ -130,6 +130,7 @@ void MainComponent::updatePluginPanelState(const PluginPanelState& state) {
             for (const auto& name : names) {
                 auto option = juce::ValueTree("Option");
                 option.setProperty("text", name, nullptr);
+                option.setProperty("enabled", true, nullptr); // JIVE defaults to false
                 selectorItem->state.addChild(option, index, nullptr);
                 if (name.equalsIgnoreCase(state.preferredSelection))
                     selectedIndex = index;
@@ -331,6 +332,7 @@ void MainComponent::setControlsPresets(const juce::StringArray& presetIds, const
         if (comboItem != nullptr) {
             auto option = juce::ValueTree("Option");
             option.setProperty("text", displayName, nullptr);
+            option.setProperty("enabled", true, nullptr); // JIVE defaults to false
             comboItem->state.addChild(option, i, nullptr);
         }
         if (presetIds[i] == currentPresetId)

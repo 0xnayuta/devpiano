@@ -7,14 +7,15 @@
 #include <jive_layouts/jive_layouts.h>
 
 // =============================================================================
-// Regression test for the JIVE style injection chain.
+// Regression tests for the JIVE style injection chain and layout trees.
 //
 // The first JIVE migration attempt stored styles as plain juce::DynamicObject
 // vars, which jive::VariantConverter<jive::Object::Ptr> rejects (jassert +
 // nullptr) — so no styles ever applied and text stayed invisible (black on
-// dark). This test locks in the fix: StyleCatalog emits style as a JSON
-// string, which JIVE parses into a jive::Object, and interpretation must
-// yield a styled TextComponent.
+// dark). These tests lock in the fix: StyleCatalog emits owned jive::Object
+// style values, and interpretation must yield styled components.
+//
+// Self-contained style rules are used (no cwd dependence in tests).
 // =============================================================================
 
 class StyleCatalogTest final : public juce::UnitTest {
@@ -31,11 +32,13 @@ public:
         testControlsPanelTreeInterprets();
         testKeyboardAreaTreeInterprets();
         testRootLayoutInterprets();
+        // Release styles owned by the tests once all trees are gone.
+        devpiano::ui::jive::StyleCatalog::get().releaseOwnedStyles();
     }
 
 private:
     void testJsonStringParsesToJiveObject() {
-        beginTest("style stored as JSON string parses into jive::Object");
+        beginTest("style rules merge into owned jive::Object values");
 
         const juce::var json = juce::JSON::parse(
             R"({ "Text": { "foreground": "#EEEEEE", "font-size": 14 },
@@ -117,11 +120,10 @@ private:
             return;
 
         // StyleSheet must have applied the #title rule — the text colour
-        // proves the style pipeline end to end (the font-size value itself is
-        // asserted at the Object level in the first test; JIVE's font-height
-        // application is environment-dependent and not observable here).
+        // proves the style pipeline end to end.
         expectEquals(text->getTextColour(), juce::Colour(0xFFEEEEEE));
     }
+
     void testStatusBarTreeInterprets() {
         beginTest("status bar tree interprets with labels and dot");
 
@@ -136,7 +138,6 @@ private:
         if (item == nullptr)
             return;
 
-        // The status-bar rule must have reached the container (background).
         auto* dot = ::jive::findItemWithID(*item, "midi-dot");
         expect(dot != nullptr, "midi-dot item not found");
         if (dot != nullptr)
@@ -151,6 +152,7 @@ private:
                        juce::String(id) + " component is not a TextComponent");
         }
     }
+
     void testPluginPanelTreeInterprets() {
         beginTest("plugin panel tree interprets with all controls");
 
@@ -205,6 +207,7 @@ private:
         if (expandedArea != nullptr)
             expectEquals(expandedArea->state["height"].toString(), juce::String("0"));
     }
+
     void testControlsPanelTreeInterprets() {
         beginTest("controls panel tree interprets with knobs, curve and rows");
 
@@ -256,6 +259,7 @@ private:
         auto* curve = ::jive::findItemWithID(*item, "adsr-curve");
         expect(curve != nullptr, "adsr-curve not found");
     }
+
     void testKeyboardAreaTreeInterprets() {
         beginTest("keyboard area tree interprets with viewport");
 
@@ -283,10 +287,9 @@ private:
             expect(dynamic_cast<juce::Viewport*>(keyboard->getComponent().get()) != nullptr,
                    "custom-keyboard component is not a Viewport");
     }
+
     void testRootLayoutInterprets() {
         beginTest("root layout interprets with every panel");
-        // Release styles owned by the previous tests once all trees are gone.
-        devpiano::ui::jive::StyleCatalog::get().releaseOwnedStyles();
 
         ::jive::Interpreter interpreter;
         auto& factory = interpreter.getComponentFactory();
@@ -354,6 +357,12 @@ public:
     }
 
     void runTest() override {
+        // Self-contained style rules (no cwd dependence in tests).
+        devpiano::ui::jive::StyleCatalog::get().loadFromJSON(juce::JSON::parse(
+            R"({ "Text": { "foreground": "#EEEEEE", "font-size": 14 },
+                 "#title": { "font-size": 18, "font-weight": "bold" },
+                 "#settings-btn": { "background": "transparent" } })"));
+
         testTitleTextRendersVisiblePixels();
         testButtonLabelRendersVisiblePixels();
     }
@@ -379,12 +388,6 @@ private:
 
     void testTitleTextRendersVisiblePixels() {
         beginTest("header title renders visible pixels");
-
-        // Self-contained style rules (no cwd dependence in tests).
-        devpiano::ui::jive::StyleCatalog::get().loadFromJSON(juce::JSON::parse(
-            R"({ "Text": { "foreground": "#EEEEEE", "font-size": 14 },
-                 "#title": { "font-size": 18, "font-weight": "bold" },
-                 "#settings-btn": { "background": "transparent" } })"));
 
         ::jive::Interpreter interpreter;
         interpreter.getComponentFactory().set("SettingsButton", [] { return std::make_unique<juce::Component>(); });
@@ -421,3 +424,134 @@ private:
 };
 
 static JiveRenderTest jiveRenderTest;
+
+// =============================================================================
+// Regression: toggling the plugin panel must not destroy the layout, and
+// populated combo options must be selectable (enabled).
+// =============================================================================
+
+class PluginPanelToggleTest final : public juce::UnitTest {
+public:
+    PluginPanelToggleTest()
+        : juce::UnitTest("PluginPanelToggle", "devpiano") {
+    }
+
+    void runTest() override {
+        beginTest("plugin panel toggle keeps layout intact");
+
+        devpiano::ui::jive::StyleCatalog::get().loadFromJSON(
+            juce::JSON::parse(R"({ "Text": { "foreground": "#EEEEEE", "font-size": 14 } })"));
+
+        ::jive::Interpreter interpreter;
+        auto& factory = interpreter.getComponentFactory();
+        factory.set("SettingsButton",
+                    [] { return std::make_unique<juce::DrawableButton>("s", juce::DrawableButton::ImageFitted); });
+        factory.set("PathEditor", [] { return std::make_unique<juce::Component>(); });
+        factory.set("ListEditor", [] { return std::make_unique<juce::Component>(); });
+        factory.set("DevKnob", [] { return std::make_unique<juce::Slider>(); });
+        factory.set("AdsrCurve", [] { return std::make_unique<juce::Component>(); });
+        for (const char* type : { "RecordButton", "PlayButton", "StopButton", "BackButton" })
+            factory.set(type, [] { return std::make_unique<juce::TextButton>(); });
+        juce::MidiKeyboardState keyboardState;
+        factory.set("CustomKeyboard", [&keyboardState] {
+            auto viewport = std::make_unique<juce::Viewport>();
+            viewport->setViewedComponent(std::make_unique<jive::TextComponent>().release(), true);
+            return viewport;
+        });
+        factory.set("StatusBarMidiDot", [] { return std::make_unique<juce::Component>(); });
+
+        auto tree = devpiano::ui::jive::makeRootLayout();
+        devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
+        auto item = interpreter.interpret(tree);
+        expect(item != nullptr, "root interpretation failed");
+        if (item == nullptr)
+            return;
+        item->getComponent()->setBounds(0, 0, 1120, 760);
+
+        auto* plugin = jive::findItemWithID(*item, "plugin-panel");
+        auto* area = jive::findItemWithID(*item, "plugin-expanded-area");
+        expect(plugin != nullptr, "plugin-panel item missing");
+        expect(area != nullptr, "plugin-expanded-area item missing");
+        if (plugin == nullptr || area == nullptr)
+            return;
+
+        // Collapsed initial state
+        plugin->state.setProperty("height", 40, nullptr);
+        area->state.setProperty("height", 0, nullptr);
+        expect(plugin->getComponent()->getHeight() == 40, "collapsed panel height");
+        expect(plugin->getComponent()->isVisible(), "collapsed panel visible");
+
+        // Expand
+        plugin->state.setProperty("height", 160, nullptr);
+        area->state.setProperty("height", 112, nullptr);
+        expect(plugin->getComponent()->getHeight() == 160, "expanded panel height");
+        expect(area->getComponent()->getHeight() > 0, "expanded area visible");
+        expect(plugin->getComponent()->isVisible(), "expanded panel visible");
+
+        // Collapse again — the exact sequence that made the whole panel vanish
+        plugin->state.setProperty("height", 40, nullptr);
+        area->state.setProperty("height", 0, nullptr);
+        expect(plugin->getComponent()->getHeight() == 40, "re-collapsed panel height");
+        expect(plugin->getComponent()->isVisible(), "re-collapsed panel visible");
+        expect(area->getComponent()->getHeight() == 0, "re-collapsed area height");
+
+        // Other panels must keep their size after the toggling.
+        auto* headerItem = jive::findItemWithID(*item, "header");
+        auto* controlsItem = jive::findItemWithID(*item, "controls-panel");
+        auto* keyboardItem = jive::findItemWithID(*item, "keyboard-area");
+        auto* statusItem = jive::findItemWithID(*item, "status-bar");
+        expect(headerItem->getComponent()->getHeight() == 36, "header keeps height");
+        expect(controlsItem->getComponent()->getHeight() > 0, "controls keep height");
+        expect(keyboardItem->getComponent()->getHeight() > 0, "keyboard keeps height");
+        expect(statusItem->getComponent()->getHeight() == 22, "status bar keeps height");
+        expect(controlsItem->getComponent()->isVisible(), "controls stay visible");
+        expect(keyboardItem->getComponent()->isVisible(), "keyboard stays visible");
+        auto* toggleBtn = dynamic_cast<juce::Button*>(jive::findItemWithID(*item, "toggle-btn")->getComponent().get());
+        expect(toggleBtn != nullptr, "toggle button found");
+        if (toggleBtn != nullptr)
+            expect(toggleBtn->isVisible(), "toggle button visible after toggling");
+
+        // Combo options populated like updatePluginPanelState must be
+        // enabled and selectable (JIVE defaults missing "enabled" to false).
+        testComboOptionsEnabled(interpreter);
+    }
+
+    void testComboOptionsEnabled(::jive::Interpreter& interpreter) {
+        beginTest("combo options are enabled");
+
+        auto pluginTree = devpiano::ui::jive::makePluginPanelTree();
+        devpiano::ui::jive::StyleCatalog::get().applyToTree(pluginTree);
+        auto pluginItem = interpreter.interpret(pluginTree);
+        expect(pluginItem != nullptr, "plugin panel interpretation failed");
+        if (pluginItem == nullptr)
+            return;
+
+        auto* selectorItem = jive::findItemWithID(*pluginItem, "plugin-selector");
+        expect(selectorItem != nullptr, "plugin-selector missing");
+        if (selectorItem == nullptr)
+            return;
+
+        const auto addOption = [&selectorItem](const juce::String& name, int index) {
+            auto option = juce::ValueTree("Option");
+            option.setProperty("text", name, nullptr);
+            option.setProperty("enabled", true, nullptr);
+            selectorItem->state.addChild(option, index, nullptr);
+        };
+        addOption("pianoteq 9", 0);
+        addOption("surge XT", 1);
+        selectorItem->state.setProperty("selected", 0, nullptr);
+
+        auto* combo = dynamic_cast<juce::ComboBox*>(selectorItem->getComponent().get());
+        expect(combo != nullptr, "selector is not a ComboBox");
+        if (combo == nullptr)
+            return;
+
+        expectEquals(combo->getNumItems(), 2);
+        expect(combo->isItemEnabled(1), "first option must be enabled");
+        expect(combo->isItemEnabled(2), "second option must be enabled");
+        expect(combo->isEnabled(), "combo itself must be enabled");
+        expectEquals(combo->getText(), juce::String("pianoteq 9"));
+    }
+};
+
+static PluginPanelToggleTest pluginPanelToggleTest;

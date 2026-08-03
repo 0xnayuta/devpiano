@@ -145,6 +145,7 @@ juce::ValueTree makePluginPanelTree() {
     auto status = text({}, "plugin-status-label");
     status.setProperty("flex-grow", 1.0, nullptr);
     status.setProperty("height", 20, nullptr); // explicit: toolbar row centres, not stretches
+    status.setProperty("word-wrap", "none", nullptr); // single line, clipped like the native label
     status.setProperty("margin", "0 6 0 0", nullptr);
     actionRow.appendChild(status, nullptr);
 
@@ -159,6 +160,9 @@ juce::ValueTree makePluginPanelTree() {
     const auto addOption = [&filter](const juce::String& text, int index) {
         auto opt = juce::ValueTree("Option");
         opt.setProperty("text", text, nullptr);
+        // JIVE Option defaults "enabled" to false when missing — items would
+        // be greyed out and unselectable.
+        opt.setProperty("enabled", true, nullptr);
         filter.addChild(opt, index, nullptr);
     };
     addOption("All", 0);
@@ -181,7 +185,7 @@ juce::ValueTree makePluginPanelTree() {
     editorBtn.setProperty("margin", "0 6 0 0", nullptr);
     actionRow.appendChild(editorBtn, nullptr);
 
-    auto toggleBtn = button("\u22EF", "toggle-btn");
+    auto toggleBtn = button(juce::String::charToString(0x22EF), "toggle-btn");
     toggleBtn.setProperty("width", 30, nullptr);
     actionRow.appendChild(toggleBtn, nullptr);
 
