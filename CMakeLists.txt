@@ -117,7 +117,11 @@ target_sources(devpiano PRIVATE
     source/Settings/AppStateBuilder.h
     source/UI/CustomKeyboard.cpp
     source/UI/CustomKeyboard.h
+    source/UI/native/AdsrCurveComponent.cpp
+    source/UI/native/AdsrCurveComponent.h
     source/UI/KeyboardTypes.h
+    source/UI/PluginTypes.h
+    source/UI/RecordingTypes.h
     source/Settings/SettingsStore.cpp
     source/UI/KeyBindingEditDialog.cpp
     source/UI/KeyBindingEditDialog.h
