@@ -47,21 +47,18 @@ juce::DynamicObject::Ptr DesignTokens::spacingNode() const {
 
 // ── Parsing helpers ────────────────────────────────────────────
 
-juce::Colour DesignTokens::parseColor(juce::StringRef key,
-                                      juce::Colour fallback) const {
+juce::Colour DesignTokens::parseColor(juce::StringRef key, juce::Colour fallback) const {
     if (auto node = colorsNode()) {
-        const auto v = node->getProperty(juce::Identifier(juce::String{ key }));
+        const auto v = node->getProperty(juce::Identifier(juce::String { key }));
         if (!v.isVoid())
             return juce::Colour::fromString(v.toString());
     }
     return fallback;
 }
 
-float DesignTokens::parseFloat(juce::StringRef section,
-                                juce::StringRef key,
-                                float fallback) const {
+float DesignTokens::parseFloat(juce::StringRef section, juce::StringRef key, float fallback) const {
     juce::DynamicObject::Ptr node;
-    const juce::String sec{ section };
+    const juce::String sec { section };
     if (sec == "typography") {
         node = typographyNode();
     } else if (sec == "border-radius") {
@@ -70,7 +67,7 @@ float DesignTokens::parseFloat(juce::StringRef section,
         node = spacingNode();
     }
     if (node != nullptr) {
-        const auto v = node->getProperty(juce::Identifier(juce::String{ key }));
+        const auto v = node->getProperty(juce::Identifier(juce::String { key }));
         if (!v.isVoid()) {
             return static_cast<float>(v);
         }
@@ -78,11 +75,9 @@ float DesignTokens::parseFloat(juce::StringRef section,
     return fallback;
 }
 
-int DesignTokens::parseInt(juce::StringRef /*section*/,
-                            juce::StringRef key,
-                            int fallback) const {
+int DesignTokens::parseInt(juce::StringRef /*section*/, juce::StringRef key, int fallback) const {
     if (auto node = spacingNode()) {
-        const auto v = node->getProperty(juce::Identifier(juce::String{ key }));
+        const auto v = node->getProperty(juce::Identifier(juce::String { key }));
         if (!v.isVoid()) {
             return static_cast<int>(v);
         }
@@ -90,11 +85,9 @@ int DesignTokens::parseInt(juce::StringRef /*section*/,
     return fallback;
 }
 
-juce::String DesignTokens::parseString(juce::StringRef /*section*/,
-                                        juce::StringRef key,
-                                        juce::String fallback) const {
+juce::String DesignTokens::parseString(juce::StringRef /*section*/, juce::StringRef key, juce::String fallback) const {
     if (auto node = typographyNode()) {
-        const auto v = node->getProperty(juce::Identifier(juce::String{ key }));
+        const auto v = node->getProperty(juce::Identifier(juce::String { key }));
         if (!v.isVoid()) {
             return v.toString();
         }
@@ -117,8 +110,7 @@ juce::Colour DesignTokens::primary() const {
     return parseColor("primary", juce::Colour(0xff00b4d8));
 }
 juce::Colour DesignTokens::primaryAlpha30() const {
-    return parseColor("primary-alpha-30",
-                      juce::Colour(0xff00b4d8).withAlpha(0.3f));
+    return parseColor("primary-alpha-30", juce::Colour(0xff00b4d8).withAlpha(0.3f));
 }
 juce::Colour DesignTokens::recordActive() const {
     return parseColor("record-active", juce::Colour(0xffe07b3c));
@@ -136,12 +128,10 @@ juce::Colour DesignTokens::textDisabled() const {
     return parseColor("text-disabled", juce::Colour(0xff555555));
 }
 juce::Colour DesignTokens::highlightOverlay() const {
-    return parseColor("highlight-overlay",
-                      juce::Colours::white.withAlpha(0.08f));
+    return parseColor("highlight-overlay", juce::Colours::white.withAlpha(0.08f));
 }
 juce::Colour DesignTokens::pressOverlay() const {
-    return parseColor("press-overlay",
-                      juce::Colours::black.withAlpha(0.18f));
+    return parseColor("press-overlay", juce::Colours::black.withAlpha(0.18f));
 }
 
 // ── Typography ─────────────────────────────────────────────────

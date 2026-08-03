@@ -1,7 +1,7 @@
 #pragma once
 
-#include <JuceHeader.h>
 #include "PluginTypes.h"
+#include <JuceHeader.h>
 
 class PluginPanel final : public juce::Component {
 public:

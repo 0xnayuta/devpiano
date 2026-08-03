@@ -58,23 +58,16 @@ public:
 private:
     DesignTokens() = default;
 
-    juce::DynamicObject::Ptr root{ new juce::DynamicObject() };
+    juce::DynamicObject::Ptr root { new juce::DynamicObject() };
 
     [[nodiscard]] juce::DynamicObject::Ptr colorsNode() const;
     [[nodiscard]] juce::DynamicObject::Ptr typographyNode() const;
     [[nodiscard]] juce::DynamicObject::Ptr borderRadiusNode() const;
     [[nodiscard]] juce::DynamicObject::Ptr spacingNode() const;
-    [[nodiscard]] juce::Colour parseColor(juce::StringRef key,
-                                          juce::Colour fallback) const;
-    [[nodiscard]] float parseFloat(juce::StringRef section,
-                                  juce::StringRef key,
-                                  float fallback) const;
-    [[nodiscard]] int parseInt(juce::StringRef section,
-                              juce::StringRef key,
-                              int fallback) const;
-    [[nodiscard]] juce::String parseString(juce::StringRef section,
-                                          juce::StringRef key,
-                                          juce::String fallback) const;
+    [[nodiscard]] juce::Colour parseColor(juce::StringRef key, juce::Colour fallback) const;
+    [[nodiscard]] float parseFloat(juce::StringRef section, juce::StringRef key, float fallback) const;
+    [[nodiscard]] int parseInt(juce::StringRef section, juce::StringRef key, int fallback) const;
+    [[nodiscard]] juce::String parseString(juce::StringRef section, juce::StringRef key, juce::String fallback) const;
 };
 
 } // namespace devpiano::jive

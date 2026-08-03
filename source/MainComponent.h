@@ -22,11 +22,14 @@
 #include "Settings/SettingsWindowManager.h"
 #include "UI/ControlsPanel.h"
 #include "UI/DevPianoLookAndFeel.h"
-#include "UI/HeaderPanel.h"
 #include "UI/KeyboardPanel.h"
 #include "UI/PluginEditorWindow.h"
 #include "UI/PluginPanel.h"
 #include "UI/StatusBar.h"
+#include "UI/jive/LayoutModel.h"
+#include "UI/jive/StyleCatalog.h"
+
+#include <jive_layouts/jive_layouts.h>
 #if DEBUG
 #include <melatonin_inspector/melatonin_inspector.h>
 #endif
@@ -137,7 +140,10 @@ private:
 
     bool dropActive = false;
 
-    HeaderPanel headerPanel;
+    // JIVE header bar (replaces native HeaderPanel)
+    std::unique_ptr<::jive::Interpreter> jiveInterpreter;
+    std::unique_ptr<::jive::GuiItem> jiveHeaderItem;
+
     PluginPanel pluginPanel;
     ControlsPanel controlsPanel;
     KeyboardPanel keyboardPanel;

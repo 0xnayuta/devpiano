@@ -2,54 +2,68 @@
   "#window": {
     "background": "#1A1C1E",
     "foreground": "#EEEEEE",
-    "font-size": "14"
+    "font-size": 14
   },
-
+  "Text": {
+    "foreground": "#EEEEEE",
+    "font-size": 14
+  },
   "Button": {
     "background": "#2D3035",
     "foreground": "#EEEEEE",
     "border": "#00B4D8",
     "border-radius": "4",
-    ":hover": {
+    "hover": {
       "background": "#35383D"
     },
-    ":pressed": {
+    "active": {
       "background": "#1D1F23"
     }
   },
-
+  "#title": {
+    "foreground": "#EEEEEE",
+    "font-size": 18,
+    "font-weight": "bold"
+  },
+  "#settings-btn": {
+    "background": "transparent",
+    "border": "transparent",
+    "border-radius": "4",
+    "hover": {
+      "background": "#35383D"
+    },
+    "active": {
+      "background": "#1D1F23"
+    }
+  },
   "Slider": {
     "background": "#2D3035",
     "foreground": "#00B4D8"
   },
-
   "ComboBox": {
     "background": "#2D3035",
     "foreground": "#EEEEEE",
     "border": "#999999",
     "border-radius": "4",
-    ":focus": {
+    "focus": {
       "border": "#00B4D8"
     }
   },
-
   "TextEditor": {
     "background": "#2D3035",
     "foreground": "#EEEEEE",
     "border": "#999999",
-    ":focus": {
+    "focus": {
       "border": "#00B4D8"
     }
   },
-
   "Label": {
     "foreground": "#EEEEEE",
-    "font-size": "14"
+    "font-size": 14
   },
-
   "#status-bar": {
     "background": "#1D1F23",
     "foreground": "#999999",
-    "font-size": "12"
+    "font-size": 12
   }
 }

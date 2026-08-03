@@ -34,6 +34,24 @@ juce::String makeSafeUiText(juce::String text) {
     return text;
 }
 
+// -- Gear icon path (simple cog / settings icon) --
+std::unique_ptr<juce::Drawable> createGearIcon(juce::Colour colour) {
+    juce::Path p;
+    // Outer ring + four teeth as a single non-zero-winding composite
+    p.addEllipse(-8, -8, 16, 16);
+    for (int i = 0; i < 4; ++i) {
+        auto angle = juce::MathConstants<float>::halfPi * static_cast<float>(i) - juce::MathConstants<float>::pi / 4.0f;
+        auto cx = 9.0f * std::cos(angle);
+        auto cy = 9.0f * std::sin(angle);
+        p.addRectangle(cx - 2.5f, cy - 2.5f, 5.0f, 5.0f);
+    }
+    p.setUsingNonZeroWinding(true);
+    auto drawable = std::make_unique<juce::DrawablePath>();
+    drawable->setPath(p);
+    drawable->setFill(colour);
+    return drawable;
+}
+
 #if JUCE_WINDOWS
 void suppressImeForPeer(juce::ComponentPeer* peer) {
     if (peer == nullptr)
@@ -104,7 +122,6 @@ MainComponent::~MainComponent() {
     controlsPanel.onOpenPerformanceClicked = {};
     controlsPanel.onRecentFilesClicked = {};
     controlsPanel.onSongInfoRequested = {};
-    headerPanel.onSettingsRequested = {};
     appSettings.keyboardScrollOffsetX = keyboardPanel.getViewPositionX();
     saveSettingsNow();
 
@@ -146,8 +163,8 @@ void MainComponent::handlePresetShortcut(int index) {
 void MainComponent::initialiseUi() {
     // 加载设计 token（单一配色真相源）— 必须在构造 LookAndFeel 之前
     {
-        const auto tokensFile = juce::File::getCurrentWorkingDirectory()
-                                    .getChildFile("source/UI/jive/design_tokens.json");
+        const auto tokensFile
+            = juce::File::getCurrentWorkingDirectory().getChildFile("source/UI/jive/design_tokens.json");
         if (auto stream = tokensFile.createInputStream()) {
             auto json = juce::JSON::parse(*stream);
             devpiano::jive::DesignTokens::get().loadFromJSON(json);
@@ -158,8 +175,34 @@ void MainComponent::initialiseUi() {
     setLookAndFeel(lookAndFeel.get());
     setWantsKeyboardFocus(true);
 
-    addAndMakeVisible(headerPanel);
-    headerPanel.onSettingsRequested = [this] { showSettingsDialog(); };
+    // ── JIVE header bar ──
+    {
+        // Global style rules (loaded once; re-loading is idempotent).
+        const auto styleFile
+            = juce::File::getCurrentWorkingDirectory().getChildFile("source/UI/jive/style_sheets.json");
+        if (auto stream = styleFile.createInputStream()) {
+            auto json = juce::JSON::parse(*stream);
+            devpiano::ui::jive::StyleCatalog::get().loadFromJSON(json);
+        }
+
+        jiveInterpreter = std::make_unique<::jive::Interpreter>();
+        jiveInterpreter->getComponentFactory().set("SettingsButton", [] {
+            auto btn = std::make_unique<juce::DrawableButton>("settings", juce::DrawableButton::ImageFitted);
+            btn->setImages(createGearIcon(devpiano::jive::DesignTokens::get().textSecondary()).get(),
+                           createGearIcon(devpiano::jive::DesignTokens::get().primary()).get(), nullptr);
+            return btn;
+        });
+
+        auto headerTree = devpiano::ui::jive::makeHeaderTree();
+        devpiano::ui::jive::StyleCatalog::get().applyToTree(headerTree);
+        jiveHeaderItem = jiveInterpreter->interpret(headerTree);
+        if (jiveHeaderItem != nullptr) {
+            addAndMakeVisible(jiveHeaderItem->getComponent().get());
+            if (auto* settingsItem = jive::findItemWithID(*jiveHeaderItem, "settings-btn"))
+                if (auto* settingsBtn = dynamic_cast<juce::Button*>(settingsItem->getComponent().get()))
+                    settingsBtn->onClick = [this] { showSettingsDialog(); };
+        }
+    }
 
     addAndMakeVisible(pluginPanel);
     pluginPanel.onScanRequested = [this] { pluginOperationController->scanPlugins(); };
@@ -391,7 +434,9 @@ void MainComponent::paint(juce::Graphics& g) {
         g.drawRect(fb, 1.0f);
     };
 
-    drawPanelBorder(headerPanel.getBounds());
+    const auto headerBounds
+        = (jiveHeaderItem != nullptr) ? jiveHeaderItem->getComponent()->getBounds() : juce::Rectangle<int> {};
+    drawPanelBorder(headerBounds);
     drawPanelBorder(pluginPanel.getBounds());
     drawPanelBorder(controlsPanel.getBounds());
     drawPanelBorder(keyboardPanel.getBounds());
@@ -402,7 +447,10 @@ void MainComponent::resized() {
     statusBar.setBounds(area.removeFromBottom(22));
 
     auto content = area.reduced(16);
-    headerPanel.setBounds(content.removeFromTop(36));
+    if (jiveHeaderItem != nullptr)
+        jiveHeaderItem->getComponent()->setBounds(content.removeFromTop(36));
+    else
+        content.removeFromTop(36);
     content.removeFromTop(10);
 
     pluginPanel.setBounds(content.removeFromTop(pluginPanel.getPreferredHeight()));
@@ -781,7 +829,6 @@ void MainComponent::applyLanguage(const juce::String& code) {
 }
 
 void MainComponent::refreshAllTexts() {
-    headerPanel.refreshTexts();
     pluginPanel.refreshTexts();
     controlsPanel.refreshTexts();
     statusBar.refreshTexts();
