@@ -153,10 +153,11 @@ void MainComponent::updatePluginPanelState(const PluginPanelState& state) {
         setEnabled(jive::findItemWithID(*jiveRootItem, "load-btn"), false);
     } else {
         const auto& names = [&]() -> const juce::StringArray& {
-            const auto filterId = filterItem != nullptr ? filterItem->state["selected"].toString().getIntValue() : 1;
-            if (filterId == 2 && !state.instrumentPluginNames.isEmpty())
+            // JIVE "selected" is a 0-based item index (All=0, Instruments=1, Effects=2).
+            const auto filterId = filterItem != nullptr ? filterItem->state["selected"].toString().getIntValue() : 0;
+            if (filterId == 1 && !state.instrumentPluginNames.isEmpty())
                 return state.instrumentPluginNames;
-            if (filterId == 3 && !state.effectPluginNames.isEmpty())
+            if (filterId == 2 && !state.effectPluginNames.isEmpty())
                 return state.effectPluginNames;
             return state.availablePluginNames;
         }();
@@ -174,12 +175,23 @@ void MainComponent::updatePluginPanelState(const PluginPanelState& state) {
                     selectedIndex = index;
                 ++index;
             }
-            if (names.isEmpty())
-                selectorItem->state.setProperty("selected", -1, nullptr);
-            else if (selectedIndex >= 0)
-                selectorItem->state.setProperty("selected", selectedIndex, nullptr);
-            else
-                selectorItem->state.setProperty("selected", 0, nullptr);
+            const auto finalIndex = names.isEmpty() ? -1 : (selectedIndex >= 0 ? selectedIndex : 0);
+            selectorItem->state.setProperty("selected", finalIndex, nullptr);
+
+            // Synchronously restore the ComboBox label (bypasses the JIVE
+            // Property chain so the text is correct even if an async change
+            // notification later overwrites "selected" with -1).
+            if (selectorCombo != nullptr)
+                selectorCombo->setSelectedItemIndex(juce::jmax(0, finalIndex), juce::dontSendNotification);
+
+            // And re-assert the property after pending async change messages
+            // have been dispatched (ValueTree is ref-counted, so the lambda
+            // outlives the tree safely — isCurrent()/isValid() guards).
+            auto selectorState = selectorItem->state;
+            juce::MessageManager::callAsync([selectorState, finalIndex]() mutable {
+                if (selectorState.isValid())
+                    selectorState.setProperty("selected", finalIndex, nullptr);
+            });
         }
 
         if (selectorCombo != nullptr)
@@ -237,14 +249,24 @@ void MainComponent::updatePluginPanelState(const PluginPanelState& state) {
         text << TRANS(" | Last plugin: ") << state.lastPluginName;
     }
 
-    if (statusItem != nullptr) {
-        // The label's flex-grow already sized it to the space left in the
-        // toolbar row — truncate to that (minus a small pad), not a fixed
-        // width, so narrow windows don't spill either.
+    lastPluginStatusText = text;
+    if (statusItem != nullptr)
+        refreshPluginStatusEllipsis();
+}
+
+void MainComponent::refreshPluginStatusEllipsis() {
+    // Re-truncate the status text to the label's current flex-allocated
+    // width. updatePluginPanelState can run before the first layout, when
+    // the label width is still 0 (and the 470 px fallback overflows narrow
+    // windows) — re-apply after every layout so the text never spills into
+    // the combo to its right.
+    if (jiveRootItem == nullptr || lastPluginStatusText.isEmpty())
+        return;
+    if (auto* statusItem = jive::findItemWithID(*jiveRootItem, "plugin-status-label")) {
         const auto labelWidth = static_cast<float>(statusItem->getComponent()->getWidth());
-        statusItem->state.setProperty("text", ellipsiseForStatus(text, labelWidth > 0.0f ? labelWidth - 4.0f : 470.0f),
-                                      nullptr);
-        statusItem->state.setProperty("tooltip", text, nullptr);
+        statusItem->state.setProperty(
+            "text", ellipsiseForStatus(lastPluginStatusText, labelWidth > 0.0f ? labelWidth - 4.0f : 470.0f), nullptr);
+        statusItem->state.setProperty("tooltip", lastPluginStatusText, nullptr);
     }
 }
 

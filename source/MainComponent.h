@@ -119,6 +119,7 @@ private:
     [[nodiscard]] juce::String getPluginPathText() const;
     [[nodiscard]] juce::String getSelectedPluginName() const;
     void setPluginPanelExpanded(bool expanded);
+    void refreshPluginStatusEllipsis();
     void updatePluginPanelState(const PluginPanelState& state);
     void setInstrumentFilterVisible(bool visible);
     void showPluginBrowseDialog();
@@ -176,6 +177,7 @@ private:
     // Single JIVE tree for the whole window (replaces the native panels)
     std::unique_ptr<::jive::Interpreter> jiveInterpreter;
     std::unique_ptr<::jive::GuiItem> jiveRootItem;
+    juce::String lastPluginStatusText; // full text; re-ellipsised on resize
     juce::StringArray availablePresetIds;
     RecordingControlsState recordingControlsState;
     CustomKeyboard* customKeyboardRef = nullptr;

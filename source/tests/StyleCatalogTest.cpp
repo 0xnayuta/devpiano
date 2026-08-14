@@ -602,3 +602,88 @@ public:
 };
 
 static PluginPanelToggleTest pluginPanelToggleTest;
+// =============================================================================
+// Regression: a combo rebuilt like updatePluginPanelState must show the
+// selected item's text when collapsed (JUCE draws the selected text in the
+// combo's label; an empty label means the selection never took).
+// =============================================================================
+
+class ComboRebuildTest final : public juce::UnitTest {
+public:
+    ComboRebuildTest()
+        : juce::UnitTest("ComboRebuild", "devpiano") {
+    }
+
+    void runTest() override {
+        beginTest("selected text after rebuild");
+
+        ::jive::Interpreter interpreter;
+        juce::ValueTree tree("ComboBox");
+        tree.setProperty("width", 180, nullptr);
+        auto item = interpreter.interpret(tree);
+        auto* combo = dynamic_cast<juce::ComboBox*>(item->getComponent().get());
+        expect(combo != nullptr, "combo created");
+        if (combo == nullptr)
+            return;
+
+        // Exactly what updatePluginPanelState does: clear, add options, select.
+        item->state.removeAllChildren(nullptr);
+        auto option = juce::ValueTree("Option");
+        option.setProperty("text", "pianoteq 9", nullptr);
+        option.setProperty("enabled", true, nullptr);
+        item->state.addChild(option, 0, nullptr);
+        item->state.setProperty("selected", 0, nullptr);
+
+        expectEquals(combo->getNumItems(), 1);
+        expectEquals(combo->getSelectedItemIndex(), 0, "selected index");
+        expect(combo->getText().isNotEmpty(), "collapsed text not empty: '" + combo->getText() + "'");
+        expectEquals(combo->getText(), juce::String("pianoteq 9"), "collapsed text");
+        juce::Logger::writeToLog("COMBO text='" + combo->getText()
+                                 + "' sel=" + juce::String(combo->getSelectedItemIndex()));
+    }
+};
+
+static ComboRebuildTest comboRebuildTest;
+
+// =============================================================================
+// Regression: the instrument filter combo must show its default selection
+// ("All") when collapsed — a combo with no "selected" property and no
+// when-nothing-selected text renders an empty label.
+// =============================================================================
+
+class FilterComboDefaultTest final : public juce::UnitTest {
+public:
+    FilterComboDefaultTest()
+        : juce::UnitTest("FilterComboDefault", "devpiano") {
+    }
+
+    void runTest() override {
+        beginTest("filter combo defaults to All");
+
+        ::jive::Interpreter interpreter;
+        auto tree = devpiano::ui::jive::makePluginPanelTree();
+        auto item = interpreter.interpret(tree);
+        expect(item != nullptr, "plugin panel interpretation failed");
+        if (item == nullptr)
+            return;
+
+        auto* filterItem = jive::findItemWithID(*item, "plugin-filter-combo");
+        expect(filterItem != nullptr, "filter combo item missing");
+        if (filterItem == nullptr)
+            return;
+
+        auto* combo = dynamic_cast<juce::ComboBox*>(filterItem->getComponent().get());
+        expect(combo != nullptr, "filter is a ComboBox");
+        if (combo == nullptr)
+            return;
+
+        expectEquals(combo->getNumItems(), 3);
+        expectEquals(combo->getSelectedItemIndex(), 0, "defaults to All");
+        expect(combo->getText().isNotEmpty(), "collapsed filter shows text: '" + combo->getText() + "'");
+        expectEquals(combo->getText(), juce::String("All"), "filter text is All");
+
+        devpiano::ui::jive::StyleCatalog::get().releaseOwnedStyles();
+    }
+};
+
+static FilterComboDefaultTest filterComboDefaultTest;

@@ -616,8 +616,12 @@ void MainComponent::paint(juce::Graphics& g) {
 void MainComponent::resized() {
     // The entire layout is a single JIVE FlexBox tree; resizing the root
     // component propagates to every panel.
-    if (jiveRootItem != nullptr)
+    if (jiveRootItem != nullptr) {
         jiveRootItem->getComponent()->setBounds(getLocalBounds());
+        // Layout just recomputed the status label's width — re-truncate the
+        // status text to it (JIVE TextComponents never clip their text).
+        refreshPluginStatusEllipsis();
+    }
 }
 
 void MainComponent::paintOverChildren(juce::Graphics& g) {

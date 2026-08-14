@@ -35,6 +35,7 @@ inline juce::ValueTree button(const juce::String& label, const juce::String& id 
 
     auto labelText = text(label);
     labelText.setProperty("justification", "centred", nullptr);
+    labelText.setProperty("word-wrap", "none", nullptr); // single-line labels
     t.appendChild(labelText, nullptr);
 
     return t;
@@ -168,6 +169,9 @@ juce::ValueTree makePluginPanelTree() {
     addOption("All", 0);
     addOption("Instruments Only", 1);
     addOption("Effects Only", 2);
+    // Default "All" selected — without "selected" (or a when-nothing-selected
+    // text) a collapsed combo shows an empty label.
+    filter.setProperty("selected", 0, nullptr);
     actionRow.appendChild(filter, nullptr);
 
     auto loadBtn = button("Load", "load-btn");
@@ -181,7 +185,7 @@ juce::ValueTree makePluginPanelTree() {
     actionRow.appendChild(unloadBtn, nullptr);
 
     auto editorBtn = button("Open Editor", "editor-btn");
-    editorBtn.setProperty("width", 100, nullptr);
+    editorBtn.setProperty("width", 118, nullptr);
     editorBtn.setProperty("margin", "0 6 0 0", nullptr);
     actionRow.appendChild(editorBtn, nullptr);
 
