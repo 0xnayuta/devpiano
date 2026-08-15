@@ -60,13 +60,13 @@ Phase 3（录制/回放/MIDI导出）主链路已完成，Phase 3-2 已搁置，
 
 ### 已阅读的 devpiano 文档
 
-- `docs/roadmap/roadmap.md`（Phase 1–4 阶段状态、当前重点）
-- `docs/roadmap/current-iteration.md`（Phase 4 当前迭代状态、已完成验收与剩余方向）
+- `../../roadmap/roadmap.md`（Phase 1–4 阶段状态、当前重点）
+- `../../roadmap/current-iteration.md`（Phase 4 当前迭代状态、已完成验收与剩余方向）
 - `./recording-playback.md`（Phase 3 设计与实现状态、验收标准）
 - `../acceptance.md`（Phase 1–3 验收状态）
 - `../../issues/known-issues.md`（已知限制与待验证项）
 - `../architecture.md`（当前模块边界与主链路）
-- `docs/decisions/0002-legacy-code-as-reference-only.md`（旧代码使用原则）
+- `../../decisions/ADR-002-legacy-code-as-reference-only.md`（旧代码使用原则）
 - `./performance-presets.md`（Phase 9 Performance Preset 系统现状）
 
 - `./keyboard-mapping.md`（键盘映射现状）

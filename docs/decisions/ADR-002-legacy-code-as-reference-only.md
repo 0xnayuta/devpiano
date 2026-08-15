@@ -1,4 +1,4 @@
-# ADR 0002: 旧 FreePiano 源码只作为迁移参考
+# ADR 002: 旧 FreePiano 源码只作为迁移参考
 
 ## 状态
 

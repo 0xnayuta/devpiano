@@ -1,4 +1,4 @@
-# ADR 0005: VST3-first 插件宿主
+# ADR 005: VST3-first 插件宿主
 
 ## 状态
 
@@ -25,7 +25,7 @@ JUCE 提供了跨平台的 `AudioPluginFormatManager` / `AudioPluginInstance` �
 - **技术一致性**：项目使用 JUCE 框架，插件宿主使用 JUCE 抽象保持技术路线统一。
 - **跨平台**：VST3 是跨平台格式，JUCE 封装了 Windows/macOS/Linux 的 VST3 加载差异。
 - **维护成本**：旧 VST SDK 接口（`AEffect*`/dispatch）是 C 风格接口，与 C++ RAII 原则不兼容，直接复制会导致生命周期管理问题。
-- **旧代码参考原则**：旧 FreePiano 的 `synthesizer_vst.*` / `vst/*` 仅作为行为参考（ADR-0002），不复制其 VST SDK 风格实现。
+- **旧代码参考原则**：旧 FreePiano 的 `synthesizer_vst.*` / `vst/*` 仅作为行为参考（ADR-002），不复制其 VST SDK 风格实现。
 
 ## 影响
 

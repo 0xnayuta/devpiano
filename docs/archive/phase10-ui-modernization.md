@@ -2,7 +2,7 @@
 
 > 归档日期：2026-07-23
 > 来源：[`../roadmap/current-iteration.md`](../roadmap/current-iteration.md) Phase 10
-> 后续方向：审计修复详见 [`../audit/code-quality-audit-2026-07-20.md`](../audit/code-quality-audit-2026-07-20.md)
+> 后续方向：审计修复详见 [`../audit/AUDIT-001-code-quality-audit-2026-07-20.md`](../audit/AUDIT-001-code-quality-audit-2026-07-20.md)
 
 ---
 

@@ -163,7 +163,7 @@
 
 - [`docs/guides/quickstart.md`](docs/guides/quickstart.md)
 - [`docs/guides/wsl-windows-msvc-workflow.md`](docs/guides/wsl-windows-msvc-workflow.md)
-- ADR：[`docs/decisions/0001-wsl-primary-windows-mirror-workflow.md`](docs/decisions/0001-wsl-primary-windows-mirror-workflow.md)
+- ADR：[`docs/decisions/ADR-001-wsl-primary-windows-mirror-workflow.md`](docs/decisions/ADR-001-wsl-primary-windows-mirror-workflow.md)
 
 ---
 

@@ -1,4 +1,4 @@
-# ADR 0004: JUCE AudioDeviceManager 作为音频设备管理主路径
+# ADR 004: JUCE AudioDeviceManager 作为音频设备管理主路径
 
 ## 状态
 
@@ -25,7 +25,7 @@ JUCE 提供了跨平台的 `AudioDeviceManager`，封装了各平台音频后端
 - **跨平台**：同一代码可在 Windows/macOS/Linux 编译运行。
 - **JUCE 一致性**：项目已使用 JUCE 框架，音频后端使用 JUCE 抽象保持技术路线统一。
 - **维护成本**：平台 SDK 直接调用带来额外维护负担（设备枚举、格式转换、错误处理），JUCE 已封装这些路径。
-- **旧代码参考原则**：旧 FreePiano 的 WASAPI / ASIO / DSound 后端仅作为行为参考（ADR-0002），不复制其实现。
+- **旧代码参考原则**：旧 FreePiano 的 WASAPI / ASIO / DSound 后端仅作为行为参考（ADR-002），不复制其实现。
 
 ## 影响
 

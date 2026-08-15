@@ -92,7 +92,7 @@ Performance Preset、88 键完整钢琴键盘、Smooth Pitch Bend、乐曲信息
 
 ### 审计问题修复 (2026-07-20 ~ 2026-07-23) [已完成]
 
-代码质量审计 (`code-quality-audit-2026-07-20`) 发现 63 项问题，经 Phase A–F 六轮修复：
+代码质量审计 (`AUDIT-001`) 发现 63 项问题，经 Phase A–F 六轮修复：
 
 - **Phase A** — 音频稳定性：音频回调堆分配、lazy prepareToPlay、RecordingEngine recording 路径原子性
 - **Phase B** — 线程安全：PluginHost 断言+文档化契约、async lambda 生命周期、preset 并发写入、离线渲染线程隔离
@@ -103,7 +103,7 @@ Performance Preset、88 键完整钢琴键盘、Smooth Pitch Bend、乐曲信息
 
 最终：0 Open · 24 Deferred · 39 Closed · 评级 A-。审计关闭，项目可安全进入功能开发阶段。
 
-详细完成记录见 [`../audit/code-quality-audit-2026-07-20.md`](../audit/code-quality-audit-2026-07-20.md)。
+详细完成记录见 [`../audit/AUDIT-001-code-quality-audit-2026-07-20.md`](../audit/AUDIT-001-code-quality-audit-2026-07-20.md)。
 
 ### Phase 11：声明式 UI 架构迁移（JIVE + melatonin_inspector） [待开始]
 
@@ -147,4 +147,4 @@ Performance Preset、88 键完整钢琴键盘、Smooth Pitch Bend、乐曲信息
 - 架构优化完成记录：[`../archive/architecture-optimization-backlog.md`](../archive/architecture-optimization-backlog.md)
 - Phase 8–9 完成记录：[`../archive/phase8-9-completion.md`](../archive/phase8-9-completion.md)
 - Phase 10 完成记录：[`../archive/phase10-ui-modernization.md`](../archive/phase10-ui-modernization.md)
-- 2026-07-20 审计报告：[`../audit/code-quality-audit-2026-07-20.md`](../audit/code-quality-audit-2026-07-20.md)
+- 2026-07-20 审计报告：[`../audit/AUDIT-001-code-quality-audit-2026-07-20.md`](../audit/AUDIT-001-code-quality-audit-2026-07-20.md)

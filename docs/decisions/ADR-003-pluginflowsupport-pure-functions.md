@@ -1,4 +1,4 @@
-# ADR 0003: `PluginFlowSupport` 保持纯函数约束
+# ADR 003: `PluginFlowSupport` 保持纯函数约束
 
 ## 状态
 

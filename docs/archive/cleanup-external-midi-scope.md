@@ -3,7 +3,7 @@
 > 用途：作为外部 MIDI 设备相关功能代码清理的执行计划。
 > 更新时机：清理执行前各步骤确认、执行中状态更新、执行完成后关闭。
 > 状态：✅ 已完成（2026-07-17）
-> 关联 ADR：[`../decisions/0006-remove-external-midi-support.md`](../decisions/0006-remove-external-midi-support.md)
+> 关联 ADR：[`../decisions/ADR-006-remove-external-midi-support.md`](../decisions/ADR-006-remove-external-midi-support.md)
 
 ---
 
@@ -126,4 +126,4 @@ Step 8: 更新文档
 |------|------|
 | `docs/archive/phase6-7-completion-detail.md` | §已取消功能 保持现有记录，无需修改 |
 | `issues/known-issues.md` | 保留硬件依赖相关缺陷记录作为历史存档（不主动删除） |
-| `docs/decisions/0006-remove-external-midi-support.md` | ADR 记录决策，无需修改 |
+| `docs/decisions/ADR-006-remove-external-midi-support.md` | ADR 记录决策，无需修改 |

@@ -1,4 +1,4 @@
-# ADR 0001: WSL 主工作树 + Windows 镜像树 + MSVC 验证工作流
+# ADR 001: WSL 主工作树 + Windows 镜像树 + MSVC 验证工作流
 
 ## 状态
 
