@@ -422,7 +422,18 @@ void MainComponent::initialiseUi() {
             wireAdsrKnob("sustain-knob", 0.0, 1.0, 0.01, [](double v) { return juce::String(v, 2); });
             wireAdsrKnob("release-knob", 0.001, 3.0, 0.001, [](double v) { return juce::String(v, 3) + "s"; });
             wireKnob(
-                "speed-knob", 0.5, 2.0, 0.25, [](double v) { return juce::String(v, 1) + "x"; },
+                "speed-knob", 0.5, 2.0, 0.25,
+                [](double v) {
+                    // 0.25-step speeds: format with two decimals, then trim a
+                    // single trailing zero ("1.00" → "1.0", "1.25" stays,
+                    // "1.50" → "1.5"). A single decimal place uses banker's
+                    // rounding, which mis-rendered 1.25 as "1.2" and 1.75 as
+                    // "1.8".
+                    auto text = juce::String(v, 2);
+                    if (text.endsWith("0"))
+                        text = text.dropLastCharacters(1);
+                    return text + "x";
+                },
                 [this] { recordingSessionController->handlePlaybackSpeedChange(getControlsPlaybackSpeed()); });
 
             wireButton("record-btn", [this] { recordingSessionController->handleRecordClicked(); });
