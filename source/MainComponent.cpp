@@ -286,6 +286,12 @@ void MainComponent::initialiseUi() {
                                         true);
             return slider;
         });
+        factory.set("SpeedSlider", [] {
+            auto slider = std::make_unique<juce::Slider>();
+            slider->setSliderStyle(juce::Slider::LinearHorizontal);
+            slider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 42, 16);
+            return slider;
+        });
         factory.set("AdsrCurve", [] { return std::make_unique<AdsrCurveComponent>(); });
         const auto registerIconButton
             = [&factory](const char* type, const std::unique_ptr<juce::Drawable>& image, const juce::String& tooltip) {

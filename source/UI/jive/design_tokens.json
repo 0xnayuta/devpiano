@@ -1,23 +1,25 @@
 {
   "colors": {
-    "main-bg": "#FF1A1C1E",
-    "panel-bg": "#FF24262A",
-    "control-bg": "#FF2D3035",
-    "primary": "#FF00B4D8",
-    "primary-alpha-30": "#4D00B4D8",
-    "record-active": "#FFE07B3C",
-    "play-active": "#FF4ECDC4",
-    "text-primary": "#FFEEEEEE",
-    "text-secondary": "#FF999999",
-    "text-disabled": "#FF555555",
-    "highlight-overlay": "#14FFFFFF",
-    "press-overlay": "#2E000000",
-    "rotary-bg-track": "#FF222428",
-    "rotary-cap-top": "#FF3D4147",
-    "rotary-cap-bottom": "#FF1D1F23",
-    "rotary-cap-rim": "#FF121315",
-    "rotary-ring-top": "#FF5C616A",
-    "rotary-ring-bottom": "#FF16171A"
+    "main-bg": "#FF111316",
+    "panel-bg": "#FF181A1F",
+    "control-bg": "#FF22252C",
+    "card-bg": "#FF181A1F",
+    "card-border": "#FF2B2F38",
+    "primary": "#FF00C8F0",
+    "primary-alpha-30": "#4D00C8F0",
+    "record-active": "#FFE05345",
+    "play-active": "#FF2ECC71",
+    "text-primary": "#FFF0F2F5",
+    "text-secondary": "#FFA0A6B2",
+    "text-disabled": "#FF555B66",
+    "highlight-overlay": "#18FFFFFF",
+    "press-overlay": "#33000000",
+    "rotary-bg-track": "#FF181A1E",
+    "rotary-cap-top": "#FF353942",
+    "rotary-cap-bottom": "#FF1A1C20",
+    "rotary-cap-rim": "#FF101114",
+    "rotary-ring-top": "#FF565C69",
+    "rotary-ring-bottom": "#FF141518"
   },
   "typography": {
     "font-size-tiny": 11.0,
@@ -28,17 +30,18 @@
     "font-weight-title": "bold"
   },
   "border-radius": {
-    "default": 4.0,
+    "default": 6.0,
+    "card": 8.0,
     "tooltip": 4.0
   },
   "spacing": {
-    "window-default-width": 1120,
-    "window-default-height": 760,
+    "window-default-width": 1180,
+    "window-default-height": 780,
     "window-min-width": 980,
     "window-min-height": 700,
     "window-max-width": 3840,
     "window-max-height": 2160,
-    "status-bar-height": 22,
+    "status-bar-height": 24,
     "settings-btn-width": 36
   }
 }
