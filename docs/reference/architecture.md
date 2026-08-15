@@ -44,7 +44,7 @@
 - 初始化音频设备、MIDI 路由、插件宿主和设置。
 - 协调键盘输入、插件操作、状态保存与只读 UI 刷新。
 
-当前状态（`MainComponent.cpp` 约 765 行，已远低于原始 1587 行）：
+当前状态（`MainComponent.cpp` 约 1100 行，已远低于原始 1587 行）：
 
 - 已不再是纯单体 UI；插件区、参数区、头部状态区和键盘区已拆入 `source/UI/`。
 - 插件流程、录制/回放状态流、导出选项、只读 UI 刷新边界已通过 Phase 5 完成收敛：
@@ -172,10 +172,10 @@ UI 采用 JIVE 声明式布局：`source/UI/jive/LayoutModel.cpp` 以 ValueTree 
 - `source/UI/jive/StyleCatalog.*` — 全局样式注入
 - `source/UI/jive/DesignTokens.*` — 设计 token（配色/字号/尺寸）
 - `source/UI/jive/style_sheets.json` — 全局样式规则
-- `source/UI/native/` — 注入 JIVE 的原生组件（CustomKeyboard、AdsrCurve、
-  StatusBarMidiDot、KeyboardViewport）
+- `source/UI/native/` — 注入 JIVE 的原生组件（AdsrCurve、StatusBarMidiDot、KeyboardViewport）
+- `source/UI/CustomKeyboard.*` — 键盘组件（经 KeyboardViewport 注入 JIVE）
 - `source/UI/PluginEditorWindow.*`
-- `source/UI/PluginPanelStateBuilder.*` / `source/UI/*StateBuilder.*`
+- `source/UI/PluginPanelStateBuilder.*`
 - `source/UI/KeyboardTypes.h` / `source/UI/PluginTypes.h` / `source/UI/RecordingTypes.h`
 
 职责：

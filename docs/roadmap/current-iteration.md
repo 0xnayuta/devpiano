@@ -77,7 +77,7 @@ melatonin_inspector (DEBUG only): 运行时可视化检查与编辑
 - [x] **HeaderPanel** → JIVE ValueTree 声明（`makeHeaderTree`）：title Text + settings Button（齿轮 DrawableButton）
 - [x] **StatusBar** → JIVE ValueTree 声明（`makeStatusBarTree`）：MIDI dot + 3 个状态 Label + 顶部分隔线
 - [x] **PluginPanel** → JIVE ValueTree 声明（`makePluginPanelTree`）：toolbar（selector + filter + 4 Button）+ 可展开 scan/path/list 区（`updatePluginPanelState` 动态刷新）
-- [x] **ControlsPanel** → JIVE ValueTree 声明 + 原生 ADSR 曲线注入：6 个 DevKnob + `AdsrCurveComponent` + preset 行 + transport/export 行
+- [x] **ControlsPanel** → JIVE ValueTree 声明 + 原生 ADSR 曲线注入：5 个 DevKnob + SpeedSlider + `AdsrCurveComponent` + preset 行 + transport/export 行
 - [x] **KeyboardPanel** → `KeyboardViewport`（Viewport 持有 CustomKeyboard，高度同步修复零高度问题），工厂注入
 - [x] 每次迁移后验证：WSL clang + Windows MSVC 构建 + `StyleCatalogTest` 端到端断言
 
@@ -90,7 +90,7 @@ melatonin_inspector (DEBUG only): 运行时可视化检查与编辑
 - [x] 重写 `MainComponent::initialiseUi()` → 单次解释整棵根布局树
 - [x] `MainComponent::resized()` → 3 行（根组件 setBounds，JIVE FlexBox 自动响应）
 - [x] 删除旧面板文件（HeaderPanel、PluginPanel、ControlsPanel、KeyboardPanel、StatusBar）
-- [x] `MainComponent.cpp` 从 ~890 行 → ~930 行（含访问器，访问器已抽到 `MainComponentJiveAccessors.cpp` 经 #include 合入）
+- [x] `MainComponent.cpp` 从 ~906 行 → ~1100 行（含访问器翻译单元 ~1850 行，访问器已抽到 `MainComponentJiveAccessors.cpp` 经 #include 合入）
 
 #### Phase 11e — 热重载与工作流验证 [已完成]
 
