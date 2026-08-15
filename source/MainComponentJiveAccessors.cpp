@@ -51,8 +51,14 @@ void MainComponent::setPluginPathText(const juce::String& text) {
     if (jiveRootItem == nullptr)
         return;
     if (auto* item = jive::findItemWithID(*jiveRootItem, "plugin-path-editor"))
-        if (auto* editor = dynamic_cast<juce::TextEditor*>(item->getComponent().get()))
+        if (auto* editor = dynamic_cast<juce::TextEditor*>(item->getComponent().get())) {
             editor->setText(text, juce::dontSendNotification);
+            // The text can be set before the first layout (editor width 0);
+            // repaint so the label renders once the panel expands. Also
+            // re-assert on the next tick in case a JIVE property change
+            // rebuilt the component mid-flight.
+            editor->repaint();
+        }
 }
 
 juce::String MainComponent::getPluginPathText() const {

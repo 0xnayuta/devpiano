@@ -261,6 +261,7 @@ if (BUILD_TESTS)
         source/tests/AudioEngineTest.cpp
         source/tests/PluginHostTest.cpp
         source/tests/StyleCatalogTest.cpp
+        source/tests/PathEditorReproTest.cpp
     )
     target_link_libraries(devpiano_tests PRIVATE
         juce::juce_core
