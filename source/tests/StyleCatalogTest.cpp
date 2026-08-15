@@ -427,11 +427,11 @@ private:
             expect(::jive::findItemWithID(*item, id) != nullptr, juce::String(id) + " missing from root layout");
         }
 
-        // The plugin panel starts collapsed (height 40).
+        // The plugin panel starts collapsed (height 42: 40 content + 2 border).
         auto* plugin = ::jive::findItemWithID(*item, "plugin-panel");
         expect(plugin != nullptr, "");
         if (plugin != nullptr)
-            expectEquals(plugin->state["height"].toString(), juce::String("40"));
+            expectEquals(plugin->state["height"].toString(), juce::String("42"));
 
         // Layout the root and verify panels receive non-zero bounds.
         item->getComponent()->setBounds(0, 0, 1120, 760);
@@ -804,9 +804,9 @@ public:
             return;
 
         // Collapsed initial state
-        plugin->state.setProperty("height", 40, nullptr);
+        plugin->state.setProperty("height", 42, nullptr);
         area->state.setProperty("height", 0, nullptr);
-        expect(plugin->getComponent()->getHeight() == 40, "collapsed panel height");
+        expect(plugin->getComponent()->getHeight() == 42, "collapsed panel height");
         expect(plugin->getComponent()->isVisible(), "collapsed panel visible");
 
         auto* contentRow = jive::findItemWithID(*item, "content-row");
@@ -837,6 +837,8 @@ public:
         // siblings in the parent column).
         area->state.setProperty("height", 112, nullptr);
         plugin->state.setProperty("height", 160, nullptr);
+        if (auto* panel = dynamic_cast<jive::FlexContainer*>(plugin))
+            panel->layOutChildren();
         if (auto* mainArea = dynamic_cast<jive::FlexContainer*>(jive::findItemWithID(*item, "main-area")))
             mainArea->layOutChildren();
         printBounds("EXPANDED-FIXED");
@@ -847,7 +849,7 @@ public:
         // THE regression this test exists for: the parent column must reflow
         // its siblings when the plugin panel height changes, or the expanded
         // area overlaps the controls below it.
-        expect(contentRow->getComponent()->getY() == contentRowYBefore + 120,
+        expect(contentRow->getComponent()->getY() == contentRowYBefore + 118,
                "content-row moved down when panel expanded");
         expect(controlsItem->getComponent()->getHeight() < controlsHBefore, "controls shrank when panel expanded");
         expectEquals(keyboardItem->getComponent()->getHeight(), keyboardHBefore,
@@ -858,11 +860,13 @@ public:
         // Collapse again — the exact sequence that made the whole panel vanish
         // (fixed order + explicit main-area reflow, as in setPluginPanelExpanded)
         area->state.setProperty("height", 0, nullptr);
-        plugin->state.setProperty("height", 40, nullptr);
+        plugin->state.setProperty("height", 42, nullptr);
+        if (auto* panel = dynamic_cast<jive::FlexContainer*>(plugin))
+            panel->layOutChildren();
         if (auto* mainArea = dynamic_cast<jive::FlexContainer*>(jive::findItemWithID(*item, "main-area")))
             mainArea->layOutChildren();
         printBounds("COLLAPSED-FIXED");
-        expect(plugin->getComponent()->getHeight() == 40, "re-collapsed panel height");
+        expect(plugin->getComponent()->getHeight() == 42, "re-collapsed panel height");
         expect(plugin->getComponent()->isVisible(), "re-collapsed panel visible");
         expect(area->getComponent()->getHeight() == 0, "re-collapsed area height");
         expect(actionRow != nullptr && actionRow->getComponent()->getHeight() == 30,
@@ -954,8 +958,12 @@ public:
         if (combo == nullptr)
             return;
 
-        // Exactly what updatePluginPanelState does: clear with dontSendNotification, add items, select.
+        // Mirrors the JUCE calls updatePluginPanelState makes on the plugin
+        // selector (clear + placeholder + add + select; the
+        // preferred-selection and empty-list branches live in the production
+        // function and are not replayed here).
         combo->clear(juce::dontSendNotification);
+        combo->setTextWhenNothingSelected("Select a scanned plugin...");
         combo->addItem("pianoteq 9", 1);
         combo->setSelectedItemIndex(0, juce::dontSendNotification);
 
@@ -1060,7 +1068,9 @@ public:
         if (combo == nullptr)
             return;
 
-        // Exactly what setControlsPresets does:
+        // Mirrors the JUCE calls setControlsPresets makes on the preset combo
+        // (clear + placeholder + add + select; the empty-list branch lives in
+        // the production function and is not replayed here).
         combo->clear(juce::dontSendNotification);
         combo->setTextWhenNothingSelected("Default");
         combo->addItem("Default", 1);
