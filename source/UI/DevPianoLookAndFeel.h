@@ -16,6 +16,7 @@ public:
     // ── Drawing overrides ──
     void drawButtonBackground(juce::Graphics&, juce::Button&, const juce::Colour& bg, bool highlighted,
                               bool down) override;
+    void drawDrawableButton(juce::Graphics&, juce::DrawableButton&, bool highlighted, bool down) override;
     void drawToggleButton(juce::Graphics&, juce::ToggleButton&, bool highlighted, bool down) override;
     void drawComboBox(juce::Graphics&, int w, int h, bool down, int bx, int by, int bw, int bh,
                       juce::ComboBox&) override;

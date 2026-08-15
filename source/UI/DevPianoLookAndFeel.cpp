@@ -167,6 +167,19 @@ void DevPianoLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton
 }
 
 // ============================================================================
+//  drawDrawableButton
+// ============================================================================
+void DevPianoLookAndFeel::drawDrawableButton(juce::Graphics& g, juce::DrawableButton& /*button*/, bool /*highlighted*/,
+                                             bool /*down*/) {
+    // ImageFitted 图标按钮（transport 四键、settings 齿轮）的背景与边框由
+    // JIVE BackgroundCanvas 绘制（圆角、含伪状态配色）。必须覆盖 V2 默认
+    // 实现：否则 toggle 状态下 fillAll(backgroundOnColourId) 会在按钮圆角
+    // 外露出一个直角底色（LAF ColourScheme highlightedFill = primary 蓝，
+    // 播放/录制中 setLatched 置 toggle 时可见）。
+    g.fillAll(juce::Colours::transparentBlack);
+}
+
+// ============================================================================
 //  drawComboBox
 // ============================================================================
 void DevPianoLookAndFeel::drawComboBox(juce::Graphics& g, int width, int height, bool /* isButtonDown */, int buttonX,
