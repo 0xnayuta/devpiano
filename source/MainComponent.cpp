@@ -700,32 +700,11 @@ void MainComponent::paint(juce::Graphics& g) {
     g.setGradientFill(bgGrad);
     g.fillRect(bounds);
 
-    // ── Panel 1px micro highlight top borders & dark outlines ──
-    const auto drawPanelBorder = [&g](const juce::Rectangle<int>& b) {
-        if (b.isEmpty())
-            return;
-        auto fb = b.toFloat();
-
-        // Top 1px specular highlight
-        g.setColour(juce::Colour(0x20ffffff));
-        g.drawHorizontalLine(b.getY(), fb.getX(), fb.getRight());
-
-        // 1px micro dark outline
-        g.setColour(juce::Colour(0x28000000));
-        g.drawRect(fb, 1.0f);
-    };
-
-    const auto panelBounds = [this](const char* id) {
-        if (jiveRootItem == nullptr)
-            return juce::Rectangle<int> {};
-        if (auto* item = jive::findItemWithID(*jiveRootItem, id))
-            return item->getComponent()->getBounds();
-        return juce::Rectangle<int> {};
-    };
-    drawPanelBorder(panelBounds("header"));
-    drawPanelBorder(panelBounds("plugin-panel"));
-    drawPanelBorder(panelBounds("controls-panel"));
-    drawPanelBorder(panelBounds("keyboard-area"));
+    // NOTE: no per-panel border drawing here. The JIVE root (#window) has an
+    // opaque background that covers everything MainComponent::paint draws,
+    // and panel borders/outlines now come from the style sheet (see
+    // style_sheets.json "border" rules + border-width on the layout nodes).
+    // The gradient above only matters before the JIVE tree exists.
 }
 
 void MainComponent::resized() {
