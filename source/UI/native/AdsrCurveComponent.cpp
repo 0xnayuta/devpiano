@@ -84,11 +84,18 @@ void AdsrCurveComponent::drawAdsrCurve(juce::Graphics& g, float a, float d, floa
     g.drawHorizontalLine(static_cast<int>(susY), x0, x0 + w);
 
     // Labels at bottom
-    g.setFont(juce::FontOptions(10.0f));
+    const auto labelFont = juce::Font(juce::FontOptions(10.0f));
+    g.setFont(labelFont);
     g.setColour(juce::Colour(0xFF888E9B));
 
     const auto drawPhaseLabel = [&](const juce::String& text, float startX, float endX) {
-        const auto labelBounds = juce::Rectangle<float>(startX, baseY + 2.0f, endX - startX, bottomLabelHeight);
+        // Skip labels whose phase is narrower than the text itself: drawing
+        // them centred still overflows into the neighbouring phases (e.g. a
+        // 5 px attack segment under a 30 px "Attack" label).
+        const auto phaseWidth = endX - startX;
+        if (phaseWidth < juce::GlyphArrangement::getStringWidth(labelFont, text) + 4.0f)
+            return;
+        const auto labelBounds = juce::Rectangle<float>(startX, baseY + 2.0f, phaseWidth, bottomLabelHeight);
         g.drawText(text, labelBounds, juce::Justification::centred, false);
     };
 
