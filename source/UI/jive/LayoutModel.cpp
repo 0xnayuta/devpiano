@@ -366,7 +366,10 @@ juce::ValueTree makeKeyboardAreaTree() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 juce::ValueTree makeRootLayout() {
-    auto root = flexColumn("root");
+    // Id "window" matches the "#window" rule in style_sheets.json (background,
+    // foreground, font-size) which acts as the window-level default that every
+    // child inherits through JIVE's StyleSheet ancestor chain.
+    auto root = flexColumn("window");
     root.setProperty("width", 1120, nullptr);
     root.setProperty("height", 760, nullptr);
     auto mainArea = flexColumn("main-area");

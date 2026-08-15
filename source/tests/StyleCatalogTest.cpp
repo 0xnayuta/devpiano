@@ -36,6 +36,7 @@ public:
         testControlsPanelTreeInterprets();
         testKeyboardAreaTreeInterprets();
         testRootLayoutInterprets();
+        testWindowRuleFontSizeInheritsToText();
         // Release styles owned by the tests once all trees are gone.
         devpiano::ui::jive::StyleCatalog::get().releaseOwnedStyles();
     }
@@ -426,6 +427,92 @@ private:
         expect(statusBounds.getHeight() > 0, "status bar has zero height after layout");
         expect(keyboardBounds.getHeight() > 0, "keyboard area has zero height after layout");
         expect(statusBounds.getBottom() <= 760, "status bar overflows the window");
+    }
+
+    void testWindowRuleFontSizeInheritsToText() {
+        beginTest("#window rule font-size inherits to text and hot-reloads");
+
+        // Regression: the "#window" rule in style_sheets.json was dead —
+        // the root node id was "root", so nothing matched. The root must be
+        // id "window" and its font-size must inherit down to every Text
+        // component through JIVE's StyleSheet ancestor chain.
+        ::jive::Interpreter interpreter;
+        auto& factory = interpreter.getComponentFactory();
+        factory.set("SettingsButton",
+                    [] { return std::make_unique<juce::DrawableButton>("s", juce::DrawableButton::ImageFitted); });
+        factory.set("PathEditor", [] { return std::make_unique<juce::TextEditor>(); });
+        factory.set("ListEditor", [] { return std::make_unique<juce::TextEditor>(); });
+        factory.set("DevKnob", [] { return std::make_unique<juce::Slider>(); });
+        factory.set("AdsrCurve", [] { return std::make_unique<juce::Component>(); });
+        for (const char* type : { "RecordButton", "PlayButton", "StopButton", "BackButton" })
+            factory.set(type, [] { return std::make_unique<juce::TextButton>(); });
+        juce::MidiKeyboardState keyboardState;
+        factory.set("CustomKeyboard", [&keyboardState] {
+            auto viewport = std::make_unique<juce::Viewport>();
+            auto keyboard = std::make_unique<jive::TextComponent>();
+            viewport->setViewedComponent(keyboard.release(), true);
+            return viewport;
+        });
+        factory.set("StatusBarMidiDot", [] { return std::make_unique<juce::Component>(); });
+
+        auto& catalog = devpiano::ui::jive::StyleCatalog::get();
+        const juce::var json1 = juce::JSON::parse(
+            R"({ "#window": { "background": "#1A1C1E", "foreground": "#EEEEEE", "font-size": 14 } })");
+        catalog.loadFromJSON(json1);
+
+        auto tree = devpiano::ui::jive::makeRootLayout();
+        catalog.applyToTree(tree);
+
+        // The root node must carry id "window" so the #window rule applies.
+        expectEquals(tree.getProperty("id").toString(), juce::String("window"));
+
+        auto item = interpreter.interpret(tree);
+        expect(item != nullptr, "root layout interpretation failed");
+        if (item == nullptr)
+            return;
+
+        // Mount the root component so StyleSheets establish their ancestor
+        // chain (inheritance resolves through the component tree).
+        juce::Component host;
+        host.setBounds(0, 0, 1120, 760);
+        host.addAndMakeVisible(item->getComponent().get());
+        item->getComponent()->setBounds(host.getLocalBounds());
+
+        auto* titleItem = ::jive::findItemWithID(*item, "title");
+        expect(titleItem != nullptr, "title item not found");
+        if (titleItem == nullptr)
+            return;
+
+        auto* text = dynamic_cast<jive::TextComponent*>(titleItem->getComponent().get());
+        expect(text != nullptr, "title component is not a TextComponent");
+        if (text == nullptr)
+            return;
+
+        // getFont().getHeight() includes an environment-specific unit factor,
+        // so assert the relative scale instead of absolute values.
+        const auto heightAt14 = text->getFont().getHeight();
+        expect(heightAt14 > 0.0f, "title font must have non-zero height");
+        if (heightAt14 <= 0.0f)
+            return;
+
+        // Hot reload: #window font-size -> 32 must reach the live tree and
+        // scale the rendered font by 32/14.
+        const juce::var json2 = juce::JSON::parse(R"({ "#window": { "font-size": 32 } })");
+        catalog.loadFromJSON(json2);
+        catalog.refreshStyles(item->state);
+
+        const auto heightAt32 = text->getFont().getHeight();
+        expectWithinAbsoluteError(heightAt32 / heightAt14, 32.0f / 14.0f, 0.02f,
+                                  "font-size must scale with #window rule after hot reload");
+
+        // And a second reload scales back down.
+        const juce::var json3 = juce::JSON::parse(R"({ "#window": { "font-size": 7 } })");
+        catalog.loadFromJSON(json3);
+        catalog.refreshStyles(item->state);
+
+        const auto heightAt7 = text->getFont().getHeight();
+        expectWithinAbsoluteError(heightAt7 / heightAt32, 7.0f / 32.0f, 0.02f,
+                                  "font-size must scale down after second hot reload");
     }
 };
 

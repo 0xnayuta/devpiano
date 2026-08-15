@@ -819,8 +819,9 @@ void MainComponent::reloadStylesAndTokens() {
 
     repaint();
 
-    DP_LOG_INFO("MainComponent: Hot reload completed (tokens: " + juce::String(tokensLoaded ? "ok" : "failed")
-                + ", styles: " + juce::String(stylesLoaded ? "ok" : "failed") + ")");
+    DP_LOG_INFO("MainComponent: Hot reload completed (tokens: " + juce::String(tokensLoaded ? "ok" : "failed") + " ["
+                + tokensFile.getFullPathName() + "], styles: " + juce::String(stylesLoaded ? "ok" : "failed") + " ["
+                + styleFile.getFullPathName() + "])");
 }
 
 bool MainComponent::keyStateChanged(bool isKeyDown) {
