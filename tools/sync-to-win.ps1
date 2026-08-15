@@ -38,6 +38,7 @@ $excludeDirNames = @(
     '.git',            # git 元数据目录；同时保护镜像侧已有 git 仓库不被 /MIR 删除
     '.vs', '.idea', '.vscode',   # IDE 状态
     '.cache', '.codegraph',      # 本地缓存 / codegraph 索引
+    '.omp',                      # 本地工具 / 会话 skill（.gitignore 同步）
     '__pycache__',               # Python 缓存
     'ipch'                       # VS 智能感知缓存
 )
