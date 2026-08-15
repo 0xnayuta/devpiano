@@ -11,13 +11,14 @@ namespace devpiano::ui::jive {
 /// Global style rules loaded from style_sheets.json, applied to a JIVE
 /// ValueTree BEFORE interpretation.
 ///
-/// Why pre-interpretation + JSON strings:
+/// How styles are injected:
 ///   JIVE's StyleSheet reads the "style" property through
 ///   VariantConverter<jive::Object::Ptr>, which REJECTS plain
-///   juce::DynamicObject vars (jassert + nullptr) — so styles injected as
-///   parsed JSON objects were silently dropped (the root cause of the
-///   invisible-text bug in the first migration attempt). Storing the style
-///   as a JSON *string* makes JIVE parse it into a proper jive::Object.
+///   juce::DynamicObject vars (jassert + nullptr), and its parseJSON-string
+///   path is broken (the Object is released before the var takes ownership).
+///   So we build real ::jive::Object instances ourselves (makeJiveObject)
+///   and keep them alive in ownedStyles; ValueTree properties hold the raw
+///   pointers without ownership.
 ///
 /// Rule keys: component type ("Button"), id ("#header"), and pseudo-state
 /// keys ("hover", "active", "focus", "disabled", "checked") nested inside
@@ -35,7 +36,8 @@ public:
 
     /// Recursively set a "style" property on every node in the tree,
     /// merging the applicable type / id rules (id wins) plus pseudo-state
-    /// sub-rules. Nodes keep their existing explicit "style" if present.
+    /// sub-rules. Any existing explicit "style" on a node is replaced by
+    /// the merged rule (or removed when no rule matches).
     void applyToTree(juce::ValueTree& tree) const;
     /// Clear existing owned styles and re-apply newly built styles recursively.
     void refreshStyles(juce::ValueTree& tree);
