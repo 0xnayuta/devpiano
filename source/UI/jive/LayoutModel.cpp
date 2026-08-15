@@ -316,6 +316,10 @@ juce::ValueTree makeControlsPanelTree() {
     auto presetCombo = node("ComboBox", "preset-combo");
     presetCombo.setProperty("title", TRANS("Performance Preset"), nullptr);
     presetCombo.setProperty("height", 28, nullptr);
+    // 固定与下方 preset-btn-row 三按钮合计等宽（card 270 - 2*10 padding）。
+    // JIVE ComboBox 无显式 width 时回退到 50px（jive_ComboBox 的 auto 默认），
+    // 会渲染成窄条并裁剪占位文本/选项。
+    presetCombo.setProperty("width", 250, nullptr);
     presetCombo.setProperty("margin", "0 0 8 0", nullptr);
     presetCombo.setProperty("border-width", "1", nullptr);
     presetCard.appendChild(presetCombo, nullptr);
