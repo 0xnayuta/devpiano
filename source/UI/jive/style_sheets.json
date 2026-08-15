@@ -147,7 +147,7 @@
     }
   },
   "ComboBox": {
-    "background": "#1F2228",
+    "background": "transparent",
     "foreground": "#F0F2F5",
     "border": "#333742",
     "border-radius": "5",
@@ -155,7 +155,7 @@
       "border": "#00C8F0"
     },
     "disabled": {
-      "background": "#1A1C21",
+      "background": "transparent",
       "foreground": "#555B66",
       "border": "#262B34"
     }

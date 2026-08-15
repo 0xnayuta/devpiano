@@ -41,6 +41,7 @@ public:
         testWindowRuleFontSizeInheritsToText();
         testRealStyleSheetWindowFontSizeActsAsGlobalDefault();
         testRealStyleSheetDisabledPseudoStates();
+        testComboPlaceholderRendersAboveCanvas();
         testTitlesFollowLanguageSwitch();
         // Release styles owned by the tests once all trees are gone.
         devpiano::ui::jive::StyleCatalog::get().releaseOwnedStyles();
@@ -759,6 +760,74 @@ private:
             if (labelStyle != nullptr)
                 expect(labelStyle->getProperty("disabled").isObject(), "Text style missing disabled pseudo-state");
         }
+    }
+
+    void testComboPlaceholderRendersAboveCanvas() {
+        beginTest("combo placeholder text renders above the background canvas");
+
+        // Regression: JIVE's BackgroundCanvas painted the opaque style
+        // background over the combo's own paint layer, hiding the LAF-drawn
+        // "nothing selected" placeholder (the combo looked blank). With the
+        // ComboBox style background transparent, the placeholder must render.
+        juce::File styleFile
+            = juce::File::getCurrentWorkingDirectory().getChildFile("source/UI/jive/style_sheets.json");
+        if (!styleFile.existsAsFile()) {
+            auto dir = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
+            for (int i = 0; i < 4 && !styleFile.existsAsFile(); ++i) {
+                styleFile = dir.getChildFile("source/UI/jive/style_sheets.json");
+                dir = dir.getParentDirectory();
+            }
+        }
+        if (!styleFile.existsAsFile())
+            return; // not a repo checkout; skip
+
+        devpiano::ui::jive::StyleCatalog::get().loadFromJSON(juce::JSON::parse(styleFile));
+
+        ::jive::Interpreter interpreter;
+        auto& factory = interpreter.getComponentFactory();
+        factory.set("DevKnob", [] { return std::make_unique<juce::Slider>(); });
+        factory.set("SpeedSlider", [] {
+            auto slider = std::make_unique<juce::Slider>();
+            slider->setSliderStyle(juce::Slider::LinearHorizontal);
+            return slider;
+        });
+        factory.set("AdsrCurve", [] { return std::make_unique<juce::Component>(); });
+        for (const char* type : { "RecordButton", "PlayButton", "StopButton", "BackButton" })
+            factory.set(type, [] { return std::make_unique<juce::TextButton>(); });
+
+        auto tree = devpiano::ui::jive::makeControlsPanelTree();
+        devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
+        auto item = interpreter.interpret(tree);
+        expect(item != nullptr, "controls tree interpretation failed");
+        if (item == nullptr)
+            return;
+
+        DevPianoLookAndFeel laf;
+        item->getComponent()->setLookAndFeel(&laf);
+
+        auto* comboItem = ::jive::findItemWithID(*item, "preset-combo");
+        auto* combo = comboItem != nullptr ? dynamic_cast<juce::ComboBox*>(comboItem->getComponent().get()) : nullptr;
+        expect(combo != nullptr, "preset-combo is a ComboBox");
+        if (combo == nullptr)
+            return;
+
+        // Empty-preset flow (mirrors setControlsPresets with no preset files).
+        combo->clear(juce::dontSendNotification);
+        combo->setTextWhenNothingSelected("Default");
+        combo->setSelectedItemIndex(-1, juce::dontSendNotification);
+
+        combo->setBounds(0, 0, 250, 28);
+        juce::Image img(juce::Image::ARGB, 250, 28, true);
+        juce::Graphics g(img);
+        g.fillAll(juce::Colour(0xff202327));
+        combo->paintEntireComponent(g, true);
+
+        int light = 0;
+        for (int y = 0; y < 28; ++y)
+            for (int x = 0; x < 250; ++x)
+                if (img.getPixelAt(x, y).getRed() > 120)
+                    ++light;
+        expect(light > 20, "combo placeholder text must render above the background canvas");
     }
 
     void testTitlesFollowLanguageSwitch() {
