@@ -377,7 +377,7 @@ void DevPianoLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int 
     // 1. Outer Track & Background Depression
     juce::Path bgArc;
     bgArc.addCentredArc(centre.x, centre.y, radius, radius, 0.0f, startAng, endAng, true);
-    g.setColour(juce::Colour(0xFF181A1E));
+    g.setColour(tokens.rotaryBgTrack());
     g.strokePath(bgArc,
                  juce::PathStrokeType(arcThickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
@@ -404,24 +404,19 @@ void DevPianoLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int 
     const auto capBounds
         = juce::Rectangle<float>(centre.x - capRadius, centre.y - capRadius, capRadius * 2.0f, capRadius * 2.0f);
 
-    // Outer drop shadow of knob cap
-    g.setColour(juce::Colours::black.withAlpha(0.5f));
-    g.fillEllipse(capBounds.translated(0.0f, 1.5f));
-
-    // Convex metal cap top-to-bottom gradient
-    juce::ColourGradient capGrad(juce::Colour(0xFF40454E), capBounds.getX(), capBounds.getY(), juce::Colour(0xFF1C1E23),
+    juce::ColourGradient capGrad(tokens.rotaryCapTop(), capBounds.getX(), capBounds.getY(), tokens.rotaryCapBottom(),
                                  capBounds.getRight(), capBounds.getBottom(), false);
     g.setGradientFill(capGrad);
     g.fillEllipse(capBounds);
 
     // Dark outer bevel rim
-    g.setColour(juce::Colour(0xFF101114));
+    g.setColour(tokens.rotaryCapRim());
     g.drawEllipse(capBounds, 1.0f);
 
     // Specular highlight inner ring (light reflection from top-left)
     const auto innerCapBounds = capBounds.reduced(1.0f);
-    juce::ColourGradient ringGrad(juce::Colour(0xFF656C7A), innerCapBounds.getX(), innerCapBounds.getY(),
-                                  juce::Colour(0xFF141518), innerCapBounds.getRight(), innerCapBounds.getBottom(),
+    juce::ColourGradient ringGrad(tokens.rotaryRingTop(), innerCapBounds.getX(), innerCapBounds.getY(),
+                                  tokens.rotaryRingBottom(), innerCapBounds.getRight(), innerCapBounds.getBottom(),
                                   false);
     g.setGradientFill(ringGrad);
     g.drawEllipse(innerCapBounds, 1.0f);
@@ -490,17 +485,12 @@ juce::Font DevPianoLookAndFeel::getLabelFont(juce::Label& /*label*/) {
 void DevPianoLookAndFeel::drawTooltip(juce::Graphics& g, const juce::String& text, int width, int height) {
     const auto bounds = juce::Rectangle<float>(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height));
     constexpr float corner = 4.0f;
-
-    // Dark charcoal card background
-    g.setColour(tokens.panelBg().darker(0.1f));
-    g.fillRoundedRectangle(bounds, corner);
-
-    // Micro ice-blue border (0x1f00b4d8)
-    g.setColour(juce::Colour(0x1f00b4d8));
+    // Micro ice-blue border
+    g.setColour(tokens.primary().withAlpha(0.12f));
     g.drawRoundedRectangle(bounds.reduced(0.5f), corner, 1.0f);
 
     // Matte gray text
-    g.setColour(juce::Colour(0xff999999));
+    g.setColour(tokens.textSecondary());
     g.setFont(juce::FontOptions(11.0f));
     g.drawText(text, bounds.reduced(6.0f, 2.0f), juce::Justification::centred, true);
 }
