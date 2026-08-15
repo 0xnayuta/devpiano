@@ -413,7 +413,7 @@ juce::ValueTree makeControlsPanelTree() {
     transportCard.appendChild(speedHeader, nullptr);
 
     auto speedSlider = node("SpeedSlider", "speed-knob");
-    speedSlider.setProperty("height", 30, nullptr);
+    speedSlider.setProperty("height", 32, nullptr);
     transportCard.appendChild(speedSlider, nullptr);
 
     panel.appendChild(transportCard, nullptr);

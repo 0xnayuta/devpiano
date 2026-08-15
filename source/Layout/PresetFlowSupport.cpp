@@ -188,12 +188,17 @@ void PresetFlowSupport::handleSaveAsNewPreset() {
 }
 
 void PresetFlowSupport::handleRenamePreset() {
-    if (currentPresetId.isEmpty())
+    // Target the preset currently shown in the combo box. The stored
+    // currentPresetId can be out of sync (e.g. right after startup the combo
+    // selects the first user preset while currentPresetId still refers to the
+    // built-in default), which previously made Rename silently do nothing.
+    const auto targetId = owner.getSelectedPresetId();
+    if (targetId.isEmpty())
         return;
 
     refreshCache();
     auto it = std::find_if(cachedPresets.begin(), cachedPresets.end(),
-                           [this](const auto& p) { return p.name == currentPresetId; });
+                           [&targetId](const auto& p) { return p.name == targetId; });
     if (it == cachedPresets.end())
         return;
 
@@ -229,12 +234,15 @@ void PresetFlowSupport::handleRenamePreset() {
 }
 
 void PresetFlowSupport::handleDeletePreset() {
-    if (currentPresetId.isEmpty())
+    // Same as Rename: operate on the combo's current selection so the button
+    // works even when currentPresetId is stale after startup.
+    const auto targetId = owner.getSelectedPresetId();
+    if (targetId.isEmpty())
         return;
 
     refreshCache();
     auto it = std::find_if(cachedPresets.begin(), cachedPresets.end(),
-                           [this](const auto& p) { return p.name == currentPresetId; });
+                           [&targetId](const auto& p) { return p.name == targetId; });
     if (it == cachedPresets.end())
         return;
 

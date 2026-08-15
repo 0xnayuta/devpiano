@@ -173,6 +173,8 @@ MainComponent::MainComponent() {
 
 MainComponent::~MainComponent() {
     setLookAndFeel(nullptr);
+    // Restore the JUCE default global LookAndFeel (see initialiseUi).
+    juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
     stopTimer();
 
     juce::Logger::setCurrentLogger(nullptr);
@@ -238,6 +240,11 @@ void MainComponent::initialiseUi() {
 
     lookAndFeel = std::make_unique<DevPianoLookAndFeel>();
     setLookAndFeel(lookAndFeel.get());
+    // Native dialogs (AlertWindow for preset rename/save/delete, FileChooser
+    // for VST3 browsing) use the *global* default LookAndFeel, not the
+    // component one. Install our dark theme globally so every native window
+    // matches the main UI instead of JUCE's light default.
+    juce::LookAndFeel::setDefaultLookAndFeel(lookAndFeel.get());
     setWantsKeyboardFocus(true);
 
     // ── JIVE root layout (header, plugin, controls, keyboard, status bar) ──

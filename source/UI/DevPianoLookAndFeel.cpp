@@ -62,6 +62,11 @@ void DevPianoLookAndFeel::refreshColours() {
     setColour(juce::TextEditor::highlightColourId, tokens.primaryAlpha30());
     setColour(juce::TextEditor::highlightedTextColourId, tokens.textPrimary());
 
+    // ── AlertWindow ──
+    setColour(juce::AlertWindow::backgroundColourId, tokens.panelBg());
+    setColour(juce::AlertWindow::textColourId, tokens.textPrimary());
+    setColour(juce::AlertWindow::outlineColourId, tokens.textSecondary());
+
     // ── Label ──
     setColour(juce::Label::textColourId, tokens.textPrimary());
     setColour(juce::Label::textWhenEditingColourId, tokens.textPrimary());
@@ -99,6 +104,24 @@ void DevPianoLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button& 
                               bounds.getBottom(), false);
     g.setGradientFill(grad);
     g.fillRoundedRectangle(bounds, corner);
+
+    // Disabled state: flat, faded, low-contrast. A latched accent (e.g. the
+    // record button while recording) is kept but faded so the active state
+    // stays visible even though the button cannot be clicked.
+    if (!button.isEnabled()) {
+        if (button.getToggleState()) {
+            g.setColour(bg.withAlpha(0.30f));
+            g.fillRoundedRectangle(bounds, corner);
+            g.setColour(bg.withAlpha(0.55f));
+            g.drawRoundedRectangle(bounds, corner, 1.2f);
+        } else {
+            g.setColour(bg.darker(0.12f).withAlpha(0.5f));
+            g.fillRoundedRectangle(bounds, corner);
+            g.setColour(juce::Colour(0xFF262B34));
+            g.drawRoundedRectangle(bounds, corner, 1.0f);
+        }
+        return;
+    }
 
     // Latched state (e.g. recording/playing): inner colour glow
     if (button.getToggleState()) {
@@ -287,9 +310,9 @@ void DevPianoLookAndFeel::drawLinearSlider(juce::Graphics& g, int x, int y, int 
     // 0.75 and 1.5 land at their true slider positions.
     if (juce::approximatelyEqual(slider.getMinimum(), 0.5) && juce::approximatelyEqual(slider.getMaximum(), 2.0)) {
         const juce::StringArray labels { "0.5", "0.75", "1.0", "1.5", "2.0" };
-        g.setFont(juce::FontOptions(8.0f));
+        g.setFont(juce::FontOptions(9.0f));
         g.setColour(juce::Colour(0xFF707888));
-        const float labelY = tickY + 4.0f;
+        const float labelY = tickY + 3.0f;
         const auto span = static_cast<float>(slider.getMaximum() - slider.getMinimum());
         for (const auto& label : labels) {
             const auto lx = juce::jlimit(
@@ -297,7 +320,7 @@ void DevPianoLookAndFeel::drawLinearSlider(juce::Graphics& g, int x, int y, int 
                 (float)x
                     + (static_cast<float>(label.getFloatValue()) - static_cast<float>(slider.getMinimum())) / span
                         * trackW);
-            g.drawText(label, juce::Rectangle<float>(lx - 14.0f, labelY, 28.0f, 8.0f), juce::Justification::centred,
+            g.drawText(label, juce::Rectangle<float>(lx - 15.0f, labelY, 30.0f, 9.0f), juce::Justification::centred,
                        false);
         }
     }
