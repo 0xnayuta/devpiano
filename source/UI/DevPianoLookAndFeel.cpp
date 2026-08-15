@@ -319,10 +319,11 @@ void DevPianoLookAndFeel::drawLinearSlider(juce::Graphics& g, int x, int y, int 
     }
 
     // Value labels below the track (playback-speed slider: 0.5x–2.0x).
-    // Positions follow the actual value range, so non-uniform steps like
-    // 0.75 and 1.5 land at their true slider positions.
+    // Four labels at 0.5 steps: the old 7-label set (0.75/1.25/1.75) put
+    // adjacent labels only 1/6 of the track apart (~33px at 200px, less at
+    // low resolution) while each label is 30px wide, so they overlapped.
     if (juce::approximatelyEqual(slider.getMinimum(), 0.5) && juce::approximatelyEqual(slider.getMaximum(), 2.0)) {
-        const juce::StringArray labels { "0.5", "0.75", "1.0", "1.25", "1.5", "1.75", "2.0" };
+        const juce::StringArray labels { "0.5", "1.0", "1.5", "2.0" };
         g.setFont(juce::FontOptions(9.0f));
         g.setColour(juce::Colour(0xFF707888));
         // Extra clearance below the ticks so the 8x16 thumb never overlaps
