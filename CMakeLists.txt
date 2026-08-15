@@ -245,6 +245,9 @@ if (BUILD_TESTS)
         source/UI/jive/LayoutModel.h
         source/UI/jive/DesignTokens.cpp
         source/UI/jive/DesignTokens.h
+        source/UI/DevPianoLookAndFeel.cpp
+        source/UI/DevPianoLookAndFeel.h
+
 
 
         # 测试代码

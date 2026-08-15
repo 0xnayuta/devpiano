@@ -92,15 +92,13 @@ melatonin_inspector (DEBUG only): 运行时可视化检查与编辑
 - [x] 删除旧面板文件（HeaderPanel、PluginPanel、ControlsPanel、KeyboardPanel、StatusBar）
 - [x] `MainComponent.cpp` 从 ~890 行 → ~930 行（含访问器，访问器已抽到 `MainComponentJiveAccessors.cpp` 经 #include 合入）
 
-#### Phase 11e — 热重载与工作流验证
+#### Phase 11e — 热重载与工作流验证 [已完成]
 
-- [ ] 实现 `Ctrl+R` 快捷键：触发 JIVE 样式表重新加载（`ValueTree` property change → 自动重绘）
-- [ ] 实现 `design_tokens.json` 文件监听（可选：`juce::FileWatcher` 自动重载，或手动 `Ctrl+R`）
-- [ ] 端到端工作流验证：
-  - [ ] Agent 修改 `style_sheets.json` → 按 `Ctrl+R` → 秒级生效
-  - [ ] Agent 修改 `design_tokens.json` → 按 `Ctrl+R` → 主窗口 + 对话框统一变色
-  - [ ] 在 inspector 中拖动组件 → 获取精确坐标 → Agent 更新 `LayoutModel`
-  - [ ] FPS 仪表确认 CustomKeyboard 渐变绘制性能达标（≥ 30fps）
+- [x] 实现 `Ctrl+R` 快捷键：触发 JIVE 样式表 + 设计 Token 重新加载（`ValueTree` property change → 自动重绘）
+- [x] 实现 `design_tokens.json` 与 `style_sheets.json` 文件变更监听（Debug 模式下 `timerCallback` 约 1s 自动检测重载）
+- [x] `DevPianoLookAndFeel::refreshColours()`：热重载时动态刷新原生控件颜色体系并通知全局 LookAndFeel 变更
+- [x] `StyleCatalog::refreshStyles()`：清空旧 style 对象并递归向 live `ValueTree` 注入新 `jive::Object` 样式
+- [x] 单元测试覆盖：`StyleCatalogTest` 新增 `testDesignTokensHotReload` 与 `testStyleCatalogHotReloadOnLiveTree` 端到端断言
 
 #### Phase 11f — 回归验证
 

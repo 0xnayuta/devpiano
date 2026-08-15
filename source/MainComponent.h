@@ -64,6 +64,8 @@ public:
     void restoreKeyboardFocus();
     static juce::Rectangle<int> getMainContentResizeLimits();
     void persistMainContentSize(int width, int height);
+    /// Hot reloads design_tokens.json and style_sheets.json at runtime without restarting.
+    void reloadStylesAndTokens();
 
     [[nodiscard]] SettingsModel& getAppSettings() noexcept {
         return appSettings;
@@ -183,6 +185,9 @@ private:
     juce::StringArray availablePresetIds;
     RecordingControlsState recordingControlsState;
     CustomKeyboard* customKeyboardRef = nullptr;
+    juce::Time lastTokensModTime;
+    juce::Time lastStylesModTime;
+    int hotReloadCheckCounter = 0;
 
     std::unique_ptr<devpiano::settings::SettingsWindowManager> settingsWindowManager;
     std::unique_ptr<devpiano::layout::PresetFlowSupport> presetFlowSupport;

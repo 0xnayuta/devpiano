@@ -203,9 +203,12 @@ void MainComponent::initialiseUi() {
     // 加载设计 token（单一配色真相源）— 必须在构造 LookAndFeel 之前
     {
         const auto tokensFile = resolveSourceFile("source/UI/jive/design_tokens.json");
-        if (auto stream = tokensFile.createInputStream()) {
-            auto json = juce::JSON::parse(*stream);
-            devpiano::jive::DesignTokens::get().loadFromJSON(json);
+        if (tokensFile.existsAsFile()) {
+            lastTokensModTime = tokensFile.getLastModificationTime();
+            if (auto stream = tokensFile.createInputStream()) {
+                auto json = juce::JSON::parse(*stream);
+                devpiano::jive::DesignTokens::get().loadFromJSON(json);
+            }
         }
     }
 
@@ -217,12 +220,13 @@ void MainComponent::initialiseUi() {
     {
         // Global style rules (loaded once; re-loading is idempotent).
         const auto styleFile = resolveSourceFile("source/UI/jive/style_sheets.json");
-        if (auto stream = styleFile.createInputStream()) {
-            auto json = juce::JSON::parse(*stream);
-            devpiano::ui::jive::StyleCatalog::get().loadFromJSON(json);
+        if (styleFile.existsAsFile()) {
+            lastStylesModTime = styleFile.getLastModificationTime();
+            if (auto stream = styleFile.createInputStream()) {
+                auto json = juce::JSON::parse(*stream);
+                devpiano::ui::jive::StyleCatalog::get().loadFromJSON(json);
+            }
         }
-
-        jiveInterpreter = std::make_unique<::jive::Interpreter>();
         auto& factory = jiveInterpreter->getComponentFactory();
 
         factory.set("SettingsButton", [] {
@@ -585,6 +589,21 @@ void MainComponent::timerCallback() {
             grabKeyboardFocus();
         }
     }
+
+#if DEBUG
+    // Check file modification time every ~1 second (30 ticks at 30Hz) in debug builds
+    if (++hotReloadCheckCounter >= 30) {
+        hotReloadCheckCounter = 0;
+        const auto tokensFile = resolveSourceFile("source/UI/jive/design_tokens.json");
+        const auto styleFile = resolveSourceFile("source/UI/jive/style_sheets.json");
+        const bool tokensChanged
+            = tokensFile.existsAsFile() && tokensFile.getLastModificationTime() > lastTokensModTime;
+        const bool stylesChanged = styleFile.existsAsFile() && styleFile.getLastModificationTime() > lastStylesModTime;
+        if (tokensChanged || stylesChanged) {
+            reloadStylesAndTokens();
+        }
+    }
+#endif
 }
 
 void MainComponent::paint(juce::Graphics& g) {
@@ -695,6 +714,12 @@ void MainComponent::visibilityChanged() {
 }
 
 bool MainComponent::keyPressed(const juce::KeyPress& key) {
+    // Ctrl+R (or Cmd+R) hot reload styles & design tokens
+    if (key.getModifiers().isCtrlDown() && (key.getKeyCode() == 'r' || key.getKeyCode() == 'R')) {
+        reloadStylesAndTokens();
+        return true;
+    }
+
     if (isKeyboardInputSuppressed())
         return false;
 
@@ -716,6 +741,60 @@ bool MainComponent::keyPressed(const juce::KeyPress& key) {
     }
 
     return handled;
+}
+
+void MainComponent::reloadStylesAndTokens() {
+    bool tokensLoaded = false;
+    bool stylesLoaded = false;
+
+    // 1. Reload design tokens
+    const auto tokensFile = resolveSourceFile("source/UI/jive/design_tokens.json");
+    if (tokensFile.existsAsFile()) {
+        lastTokensModTime = tokensFile.getLastModificationTime();
+        if (auto stream = tokensFile.createInputStream()) {
+            auto json = juce::JSON::parse(*stream);
+            if (!json.isVoid()) {
+                devpiano::jive::DesignTokens::get().loadFromJSON(json);
+                tokensLoaded = true;
+            }
+        }
+    }
+
+    // 2. Refresh LookAndFeel
+    if (lookAndFeel != nullptr) {
+        lookAndFeel->refreshColours();
+        sendLookAndFeelChange();
+    }
+
+    // 3. Reload StyleCatalog & apply to live JIVE tree
+    const auto styleFile = resolveSourceFile("source/UI/jive/style_sheets.json");
+    if (styleFile.existsAsFile()) {
+        lastStylesModTime = styleFile.getLastModificationTime();
+        if (auto stream = styleFile.createInputStream()) {
+            auto json = juce::JSON::parse(*stream);
+            if (!json.isVoid()) {
+                devpiano::ui::jive::StyleCatalog::get().loadFromJSON(json);
+                stylesLoaded = true;
+            }
+        }
+    }
+
+    if (jiveRootItem != nullptr) {
+        devpiano::ui::jive::StyleCatalog::get().refreshStyles(jiveRootItem->state);
+
+        // Update settings button icon colours with newly loaded tokens
+        if (auto* item = jive::findItemWithID(*jiveRootItem, "settings-btn")) {
+            if (auto* btn = dynamic_cast<juce::DrawableButton*>(item->getComponent().get())) {
+                btn->setImages(createGearIcon(devpiano::jive::DesignTokens::get().textSecondary()).get(),
+                               createGearIcon(devpiano::jive::DesignTokens::get().primary()).get(), nullptr);
+            }
+        }
+    }
+
+    repaint();
+
+    DP_LOG_INFO("MainComponent: Hot reload completed (tokens: " + juce::String(tokensLoaded ? "ok" : "failed")
+                + ", styles: " + juce::String(stylesLoaded ? "ok" : "failed") + ")");
 }
 
 bool MainComponent::keyStateChanged(bool isKeyDown) {

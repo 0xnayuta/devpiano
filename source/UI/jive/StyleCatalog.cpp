@@ -99,10 +99,18 @@ void StyleCatalog::applyToNode(juce::ValueTree& node) const {
             applyRule(*idRule);
     }
 
-    if (merged.getProperties().size() == 0)
+    if (merged.getProperties().size() == 0) {
+        if (node.hasProperty("style"))
+            node.removeProperty("style", nullptr);
         return;
+    }
 
     node.setProperty("style", juce::var(makeJiveObject(merged).get()), nullptr);
+}
+
+void StyleCatalog::refreshStyles(juce::ValueTree& tree) {
+    ownedStyles.clear();
+    applyToTree(tree);
 }
 
 void StyleCatalog::applyToTree(juce::ValueTree& tree) const {

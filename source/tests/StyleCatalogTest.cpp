@@ -1,5 +1,7 @@
 #include <JuceHeader.h>
 
+#include "UI/DevPianoLookAndFeel.h"
+#include "UI/jive/DesignTokens.h"
 #include "UI/jive/LayoutModel.h"
 #include "UI/jive/StyleCatalog.h"
 #include "UI/native/StatusBarMidiDot.h"
@@ -27,6 +29,8 @@ public:
     void runTest() override {
         testJsonStringParsesToJiveObject();
         testAppliedStylesReachInterpretedComponents();
+        testDesignTokensHotReload();
+        testStyleCatalogHotReloadOnLiveTree();
         testStatusBarTreeInterprets();
         testPluginPanelTreeInterprets();
         testControlsPanelTreeInterprets();
@@ -122,6 +126,88 @@ private:
         // StyleSheet must have applied the #title rule — the text colour
         // proves the style pipeline end to end.
         expectEquals(text->getTextColour(), juce::Colour(0xFFEEEEEE));
+    }
+    void testDesignTokensHotReload() {
+        beginTest("design tokens reload dynamically and refresh look and feel");
+
+        const juce::var json1
+            = juce::JSON::parse(R"({ "colors": { "primary": "#FF00B4D8", "main-bg": "#FF1A1C1E" } })");
+        auto& tokens = devpiano::jive::DesignTokens::get();
+        tokens.loadFromJSON(json1);
+        expectEquals(tokens.primary().toString(), juce::Colour::fromString("#FF00B4D8").toString());
+        expectEquals(tokens.mainBg().toString(), juce::Colour::fromString("#FF1A1C1E").toString());
+
+        {
+            auto lnf = std::make_unique<DevPianoLookAndFeel>();
+            expectEquals(lnf->findColour(juce::Slider::thumbColourId).toString(),
+                         juce::Colour::fromString("#FF00B4D8").toString());
+            expectEquals(lnf->findColour(juce::ResizableWindow::backgroundColourId).toString(),
+                         juce::Colour::fromString("#FF1A1C1E").toString());
+
+            // Hot reload with new colors
+            const juce::var json2
+                = juce::JSON::parse(R"({ "colors": { "primary": "#FFFF5500", "main-bg": "#FF002244" } })");
+            tokens.loadFromJSON(json2);
+            expectEquals(tokens.primary().toString(), juce::Colour::fromString("#FFFF5500").toString());
+            expectEquals(tokens.mainBg().toString(), juce::Colour::fromString("#FF002244").toString());
+
+            lnf->refreshColours();
+            expectEquals(lnf->findColour(juce::Slider::thumbColourId).toString(),
+                         juce::Colour::fromString("#FFFF5500").toString());
+            expectEquals(lnf->findColour(juce::ResizableWindow::backgroundColourId).toString(),
+                         juce::Colour::fromString("#FF002244").toString());
+            juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
+            lnf.reset();
+        }
+    }
+
+    void testStyleCatalogHotReloadOnLiveTree() {
+        beginTest("style catalog reloads rules and updates live interpreted tree");
+
+        ::jive::Interpreter interpreter;
+        interpreter.getComponentFactory().set("SettingsButton", [] { return std::make_unique<juce::Component>(); });
+
+        const juce::var json1 = juce::JSON::parse(
+            R"({ "Text": { "foreground": "#112233" },
+                 "#title": { "foreground": "#AABBCC" } })");
+        auto& catalog = devpiano::ui::jive::StyleCatalog::get();
+        catalog.loadFromJSON(json1);
+
+        auto tree = devpiano::ui::jive::makeHeaderTree();
+        catalog.applyToTree(tree);
+
+        auto item = interpreter.interpret(tree);
+        expect(item != nullptr, "interpretation failed");
+        if (item == nullptr)
+            return;
+
+        auto* titleItem = ::jive::findItemWithID(*item, "title");
+        expect(titleItem != nullptr, "title item not found");
+        if (titleItem == nullptr)
+            return;
+
+        auto* text = dynamic_cast<jive::TextComponent*>(titleItem->getComponent().get());
+        expect(text != nullptr, "title component is not a TextComponent");
+        if (text == nullptr)
+            return;
+
+        expectEquals(text->getTextColour(), juce::Colour(0xFFAABBCC));
+
+        // Hot reload: new rules pushed to live tree
+        const juce::var json2 = juce::JSON::parse(
+            R"({ "Text": { "foreground": "#445566" },
+                 "#title": { "foreground": "#FF00AA" } })");
+        catalog.loadFromJSON(json2);
+        catalog.refreshStyles(item->state);
+
+        expectEquals(text->getTextColour(), juce::Colour(0xFFFF00AA));
+
+        // Hot reload: #title rule removed, falls back to Text type rule
+        const juce::var json3 = juce::JSON::parse(R"({ "Text": { "foreground": "#123456" } })");
+        catalog.loadFromJSON(json3);
+        catalog.refreshStyles(item->state);
+
+        expectEquals(text->getTextColour(), juce::Colour(0xFF123456));
     }
 
     void testStatusBarTreeInterprets() {

@@ -10,6 +10,8 @@ class DevPianoLookAndFeel final : public juce::LookAndFeel_V4 {
 public:
     DevPianoLookAndFeel();
     ~DevPianoLookAndFeel() override = default;
+    /// Re-read colors from DesignTokens singleton and update all JUCE colour IDs.
+    void refreshColours();
 
     // ── Drawing overrides ──
     void drawButtonBackground(juce::Graphics&, juce::Button&, const juce::Colour& bg, bool highlighted,

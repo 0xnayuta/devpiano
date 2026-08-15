@@ -37,6 +37,8 @@ public:
     /// merging the applicable type / id rules (id wins) plus pseudo-state
     /// sub-rules. Nodes keep their existing explicit "style" if present.
     void applyToTree(juce::ValueTree& tree) const;
+    /// Clear existing owned styles and re-apply newly built styles recursively.
+    void refreshStyles(juce::ValueTree& tree);
 
     /// Release owned style objects (tests only): safe once no ValueTree
     /// references the styles anymore.

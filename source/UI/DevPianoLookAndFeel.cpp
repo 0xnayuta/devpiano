@@ -6,18 +6,23 @@ namespace {
 const auto& tokens = devpiano::jive::DesignTokens::get();
 } // namespace
 
-DevPianoLookAndFeel::DevPianoLookAndFeel()
-    : LookAndFeel_V4(ColourScheme {
-          tokens.mainBg(), // windowBackground
-          tokens.controlBg(), // widgetBackground
-          tokens.panelBg(), // menuBackground
-          tokens.textSecondary(), // outline
-          tokens.textPrimary(), // defaultText
-          tokens.primary(), // defaultFill
-          tokens.textPrimary(), // highlightedText
-          tokens.primary(), // highlightedFill
-          tokens.textPrimary(), // menuText
-      }) {
+DevPianoLookAndFeel::DevPianoLookAndFeel() {
+    refreshColours();
+}
+
+void DevPianoLookAndFeel::refreshColours() {
+    setColourScheme(ColourScheme {
+        tokens.mainBg(), // windowBackground
+        tokens.controlBg(), // widgetBackground
+        tokens.panelBg(), // menuBackground
+        tokens.textSecondary(), // outline
+        tokens.textPrimary(), // defaultText
+        tokens.primary(), // defaultFill
+        tokens.textPrimary(), // highlightedText
+        tokens.primary(), // highlightedFill
+        tokens.textPrimary(), // menuText
+    });
+
     // ── Window ──
     setColour(juce::ResizableWindow::backgroundColourId, tokens.mainBg());
 
