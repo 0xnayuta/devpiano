@@ -1077,3 +1077,77 @@ public:
 };
 
 static PresetComboRebuildTest presetComboRebuildTest;
+
+// =============================================================================
+// Regression: every Component must outlive its StyleSheet when the JIVE tree
+// is torn down. GuiItem's member declaration order releases `component`
+// before `styleSheet`, so MainComponent's destructor collects owning
+// references to all components first; without them, StyleSheet's
+// ComponentInteractionState calls removeMouseListener() on a dead Component
+// (and BackgroundCanvas, a child component member, would be double-deleted).
+// =============================================================================
+
+class JiveTeardownOrderTest final : public juce::UnitTest {
+public:
+    JiveTeardownOrderTest()
+        : juce::UnitTest("JiveTeardownOrder", "devpiano") {
+    }
+
+    void runTest() override {
+        beginTest("components survive GuiItem destruction with styles attached");
+
+        const juce::var rules = juce::JSON::parse(R"(
+            { "#plugin-panel": { "background": "#FF112233" } }
+        )");
+        expect(rules.isObject(), "test rules parse");
+        devpiano::ui::jive::StyleCatalog::get().loadFromJSON(rules);
+
+        auto tree = devpiano::ui::jive::makePluginPanelTree();
+        devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
+
+        ::jive::Interpreter interpreter;
+        auto item = interpreter.interpret(tree);
+        expect(item != nullptr, "plugin panel interpretation failed");
+        if (item == nullptr)
+            return;
+
+        expect(item->getComponent()->getProperties().contains("style-sheet"), "style sheet attached at interpret");
+
+        // Mirror MainComponent::~MainComponent: collect owning component
+        // references, strip the "style-sheet" properties, then destroy the
+        // GuiItem tree.
+        std::vector<std::shared_ptr<juce::Component>> components;
+        const std::function<void(::jive::GuiItem&)> collect = [&](::jive::GuiItem& guiItem) {
+            if (auto component = guiItem.getComponent())
+                components.push_back(std::move(component));
+            for (auto* child : guiItem.getChildren())
+                collect(*child);
+        };
+        const std::function<void(juce::Component&)> stripStyleSheets = [&](juce::Component& comp) {
+            for (int i = 0; i < comp.getNumChildComponents(); ++i)
+                stripStyleSheets(*comp.getChildComponent(i));
+            comp.getProperties().remove("style-sheet");
+        };
+
+        collect(*item);
+        expect(components.size() > 0, "components collected");
+        stripStyleSheets(*item->getComponent());
+        item.reset();
+
+        // The StyleSheets are gone by now; the components must still be
+        // fully alive and usable.
+        for (const auto& component : components) {
+            expect(component != nullptr, "component reference alive after GuiItem destruction");
+            if (component != nullptr)
+                component->getProperties(); // must not touch a dead object
+        }
+
+        // Releasing the last references destroys the components (children
+        // before parents, as the vector unwinds in reverse order).
+        components.clear();
+
+        devpiano::ui::jive::StyleCatalog::get().releaseOwnedStyles();
+    }
+};
+
+static JiveTeardownOrderTest jiveTeardownOrderTest;

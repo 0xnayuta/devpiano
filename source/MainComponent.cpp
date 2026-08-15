@@ -88,6 +88,22 @@ static void clearJiveStyleSheets(juce::Component* comp) {
         comp->getProperties().remove("style-sheet");
 }
 
+// Collect every Component in the JIVE tree (pre-order). GuiItem releases its
+// `component` member before its `styleSheet` member, so without extra
+// references the Components would be destroyed first, followed by their
+// StyleSheets — whose ComponentInteractionState holds a raw Component
+// reference and calls removeMouseListener() in its destructor. Holding the
+// Components here keeps them alive until all StyleSheets are gone; the
+// vector destroys its elements in reverse order, so children are deleted
+// before their parents, matching JUCE's child-ownership rules.
+static void collectJiveComponents(::jive::GuiItem& item, std::vector<std::shared_ptr<juce::Component>>& components) {
+    if (auto component = item.getComponent())
+        components.push_back(std::move(component));
+
+    for (auto* child : item.getChildren())
+        collectJiveComponents(*child, components);
+}
+
 // -- Transport button icon paths --
 std::unique_ptr<juce::Drawable> createRecordIcon() {
     juce::Path p;
@@ -189,9 +205,16 @@ MainComponent::~MainComponent() {
     pluginHost.unloadPlugin();
     settingsWindowManager.reset();
 
-    // Detach JIVE style sheets before component destruction to prevent
-    // ComponentInteractionState from calling removeMouseListener on a destructing Component.
+    // Detach JIVE style sheets before component destruction: GuiItem's member
+    // declaration order would destroy each Component before its StyleSheet,
+    // leaving ComponentInteractionState to call removeMouseListener() on a
+    // dead Component. Collect owning references first so every StyleSheet
+    // dies while its Component is still alive; `jiveComponents` then unwinds
+    // at the end of this scope, destroying the Components strictly after
+    // their StyleSheets (children before parents, as JUCE requires).
     if (jiveRootItem != nullptr) {
+        std::vector<std::shared_ptr<juce::Component>> jiveComponents;
+        collectJiveComponents(*jiveRootItem, jiveComponents);
         clearJiveStyleSheets(jiveRootItem->getComponent().get());
         jiveRootItem.reset();
     }
