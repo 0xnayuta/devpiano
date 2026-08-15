@@ -85,9 +85,13 @@ private:
     void complete(std::optional<juce::String> result) {
         if (completed)
             return;
-        if (onComplete)
-            onComplete(std::move(result));
-        finish(0);
+        completed = true; // 先标记：析构不再触发取消回调，防止 double-callback
+        auto cb = std::move(onComplete); // 取走回调：回调内重入 complete() 直接返回
+        if (cb)
+            cb(std::move(result));
+        // 回调可能已关闭对话框并销毁 this；仍存活才退出模态状态，防止 UAF
+        if (juce::Component::SafePointer<DialogContentBase> alive(this); alive != nullptr)
+            alive->finish(0);
     }
 
     juce::Label nameLabel;
@@ -148,9 +152,13 @@ private:
     void complete(bool result) {
         if (completed)
             return;
-        if (onComplete)
-            onComplete(result);
-        finish(0);
+        completed = true; // 先标记：析构不再触发取消回调，防止 double-callback
+        auto cb = std::move(onComplete); // 取走回调：回调内重入 complete() 直接返回
+        if (cb)
+            cb(result);
+        // 回调可能已关闭对话框并销毁 this；仍存活才退出模态状态，防止 UAF
+        if (juce::Component::SafePointer<DialogContentBase> alive(this); alive != nullptr)
+            alive->finish(0);
     }
 
     juce::Label messageLabel;
