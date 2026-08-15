@@ -12,12 +12,16 @@ namespace {
 
 /// JIVE Button's "text" property maps to Button::setTitle (accessibility),
 /// not the visible label — that lives in the button's Text child.
+/// The semantic "title" is kept in sync with the label so the
+/// accessibility/inspector title follows runtime language switching.
 void setButtonLabel(::jive::GuiItem* buttonItem, const juce::String& text) {
     if (buttonItem == nullptr)
         return;
+    buttonItem->state.setProperty("title", text, nullptr);
     for (auto child : buttonItem->state)
         if (child.getType() == juce::Identifier("Text")) {
             child.setProperty("text", text, nullptr);
+            child.setProperty("title", text, nullptr);
             child.setProperty("word-wrap", "none", nullptr);
             return;
         }
@@ -266,8 +270,10 @@ void MainComponent::refreshPluginPanelTexts() {
     if (jiveRootItem == nullptr)
         return;
 
-    if (auto* item = jive::findItemWithID(*jiveRootItem, "plugin-path-label"))
+    if (auto* item = jive::findItemWithID(*jiveRootItem, "plugin-path-label")) {
         item->state.setProperty("text", TRANS("VST3 Path"), nullptr);
+        item->state.setProperty("title", TRANS("VST3 Path"), nullptr);
+    }
     const auto setButtonText = [this](const char* id, const juce::String& text) {
         setButtonLabel(jive::findItemWithID(*jiveRootItem, id), text);
     };
@@ -516,8 +522,10 @@ void MainComponent::refreshControlsTexts() {
         return;
 
     const auto setText = [this](const char* id, const juce::String& text) {
-        if (auto* item = jive::findItemWithID(*jiveRootItem, id))
+        if (auto* item = jive::findItemWithID(*jiveRootItem, id)) {
             item->state.setProperty("text", text, nullptr);
+            item->state.setProperty("title", text, nullptr);
+        }
     };
     const auto setButtonText = [this](const char* id, const juce::String& text) {
         setButtonLabel(jive::findItemWithID(*jiveRootItem, id), text);
@@ -628,8 +636,11 @@ void MainComponent::applyLanguage(const juce::String& code) {
 }
 
 void MainComponent::refreshAllTexts() {
+    if (jiveRootItem == nullptr)
+        return;
     refreshPluginPanelTexts();
     refreshControlsTexts();
+    devpiano::ui::jive::refreshTitles(*jiveRootItem);
 }
 
 double MainComponent::getCurrentRuntimeSampleRate() const {

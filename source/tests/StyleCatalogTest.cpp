@@ -1,5 +1,6 @@
 #include <JuceHeader.h>
 
+#include "Locale/LocaleManager.h"
 #include "UI/ComboSelection.h"
 #include "UI/DevPianoLookAndFeel.h"
 #include "UI/jive/DesignTokens.h"
@@ -40,6 +41,7 @@ public:
         testWindowRuleFontSizeInheritsToText();
         testRealStyleSheetWindowFontSizeActsAsGlobalDefault();
         testRealStyleSheetDisabledPseudoStates();
+        testTitlesFollowLanguageSwitch();
         // Release styles owned by the tests once all trees are gone.
         devpiano::ui::jive::StyleCatalog::get().releaseOwnedStyles();
     }
@@ -757,6 +759,74 @@ private:
             if (labelStyle != nullptr)
                 expect(labelStyle->getProperty("disabled").isObject(), "Text style missing disabled pseudo-state");
         }
+    }
+
+    void testTitlesFollowLanguageSwitch() {
+        beginTest("titles follow runtime language switching");
+
+        devpiano::locale::activate(devpiano::locale::Language::en);
+
+        ::jive::Interpreter interpreter;
+        auto& factory = interpreter.getComponentFactory();
+        factory.set("SettingsButton",
+                    [] { return std::make_unique<juce::DrawableButton>("s", juce::DrawableButton::ImageFitted); });
+        factory.set("PathEditor", [] { return std::make_unique<juce::TextEditor>(); });
+        factory.set("ListEditor", [] { return std::make_unique<juce::TextEditor>(); });
+        factory.set("DevKnob", [] { return std::make_unique<juce::Slider>(); });
+        factory.set("SpeedSlider", [] {
+            auto slider = std::make_unique<juce::Slider>();
+            slider->setSliderStyle(juce::Slider::LinearHorizontal);
+            return slider;
+        });
+        factory.set("AdsrCurve", [] { return std::make_unique<juce::Component>(); });
+        for (const char* type : { "RecordButton", "PlayButton", "StopButton", "BackButton" })
+            factory.set(type, [] { return std::make_unique<juce::TextButton>(); });
+        juce::MidiKeyboardState keyboardState;
+        factory.set("CustomKeyboard", [&keyboardState] {
+            auto viewport = std::make_unique<juce::Viewport>();
+            auto keyboard = std::make_unique<jive::TextComponent>();
+            viewport->setViewedComponent(keyboard.release(), true);
+            return viewport;
+        });
+        factory.set("StatusBarMidiDot", [] { return std::make_unique<juce::Component>(); });
+
+        auto tree = devpiano::ui::jive::makeRootLayout();
+        devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
+        auto item = interpreter.interpret(tree);
+        expect(item != nullptr, "root layout interpretation failed");
+        if (item == nullptr) {
+            devpiano::locale::activate(devpiano::locale::Language::en);
+            return;
+        }
+
+        const auto titleOf = [&item](const char* id) -> juce::String {
+            if (auto* gi = ::jive::findItemWithID(*item, id))
+                return gi->state["title"].toString();
+            return {};
+        };
+
+        // Built under English: container and button titles are English.
+        expectEquals(titleOf("header"), juce::String("Header"), "container title must start English");
+        expectEquals(titleOf("load-btn"), juce::String("Load"), "button title must start English");
+
+        // Switch to zh-CN and re-run the runtime refresh paths that
+        // MainComponent::applyLanguage triggers: refreshTitles for static
+        // nodes, and setButtonLabel's title sync for buttons (mirrored here).
+        devpiano::locale::activate(devpiano::locale::Language::zhCN);
+        devpiano::ui::jive::refreshTitles(*item);
+        if (auto* loadBtn = ::jive::findItemWithID(*item, "load-btn")) {
+            loadBtn->state.setProperty("title", TRANS("Load"), nullptr);
+            for (auto child : loadBtn->state)
+                if (child.getType() == juce::Identifier("Text"))
+                    child.setProperty("title", TRANS("Load"), nullptr);
+        }
+
+        expectEquals(titleOf("header"), juce::String(TRANS("Header")), "container title must follow the locale");
+        expectEquals(titleOf("plugin-path-editor"), juce::String(TRANS("VST3 Path Editor")),
+                     "editor title must follow the locale");
+        expectEquals(titleOf("load-btn"), juce::String(TRANS("Load")), "button title must follow the locale");
+
+        devpiano::locale::activate(devpiano::locale::Language::en);
     }
 };
 

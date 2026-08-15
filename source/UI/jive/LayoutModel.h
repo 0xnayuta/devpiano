@@ -2,6 +2,8 @@
 
 #include <JuceHeader.h>
 
+#include <jive_layouts/jive_layouts.h>
+
 namespace devpiano::ui::jive {
 
 /// ValueTree factories for the application layout.
@@ -35,5 +37,11 @@ namespace devpiano::ui::jive {
 /// The controls/keyboard split uses flex-grow (1 : 1.5) with min/max
 /// heights, reproducing the native dynamic allocation.
 [[nodiscard]] juce::ValueTree makeRootLayout();
+
+/// Re-apply the static semantic titles (id -> TRANS key) to a live
+/// interpreted tree. Runtime language switching calls this so container,
+/// editor and label titles follow the locale; button and text titles are
+/// refreshed by the accessors alongside their visible text.
+void refreshTitles(::jive::GuiItem& root);
 
 } // namespace devpiano::ui::jive
