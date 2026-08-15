@@ -295,8 +295,10 @@ void CustomKeyboard::paintWhiteKeys(juce::Graphics& g) {
             float vel = perKeyVelocity[static_cast<std::size_t>(k.midiNote)].get();
             if (vel <= 0.001f)
                 vel = 0.8f;
-            const auto primary = devpiano::jive::DesignTokens::get().primary();
-            auto glowColour = primary.interpolatedWith(juce::Colours::white, vel * 0.45f).withAlpha(k.fade * 0.85f);
+            const auto baseGlow = (settings.colourMode == devpiano::ui::KeyColourMode::classic)
+                ? devpiano::jive::DesignTokens::get().primary()
+                : k.colour1;
+            auto glowColour = baseGlow.interpolatedWith(juce::Colours::white, vel * 0.45f).withAlpha(k.fade * 0.85f);
 
             // Soft bloom from bottom upward
             juce::ColourGradient glowGrad(glowColour, b.getCentreX(), b.getBottom() - 10.0f,
@@ -365,8 +367,10 @@ void CustomKeyboard::paintBlackKeys(juce::Graphics& g) {
             float vel = perKeyVelocity[static_cast<std::size_t>(k.midiNote)].get();
             if (vel <= 0.001f)
                 vel = 0.8f;
-            const auto primary = devpiano::jive::DesignTokens::get().primary();
-            auto glowColour = primary.interpolatedWith(juce::Colours::white, vel * 0.4f).withAlpha(k.fade * 0.75f);
+            const auto baseGlow = (settings.colourMode == devpiano::ui::KeyColourMode::classic)
+                ? devpiano::jive::DesignTokens::get().primary()
+                : k.colour1;
+            auto glowColour = baseGlow.interpolatedWith(juce::Colours::white, vel * 0.4f).withAlpha(k.fade * 0.75f);
 
             juce::ColourGradient fadeGrad(glowColour, keyRect.getCentreX(), keyRect.getBottom() - 6.0f,
                                           glowColour.withAlpha(0.0f), keyRect.getCentreX(), keyRect.getY(), false);
