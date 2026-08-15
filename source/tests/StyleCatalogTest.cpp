@@ -278,7 +278,10 @@ private:
         expect(expectComponent("plugin-path-editor") != nullptr, "");
         expect(expectComponent("plugin-list-editor") != nullptr, "");
 
-        // Filter combo must expose its three options as declarative children.
+        // Filter combo must stay free of declarative Option children: its
+        // items are managed programmatically by MainComponent, and JIVE's
+        // Option "selected" write-back would clear the combo on the second
+        // user selection otherwise.
         auto* filter = ::jive::findItemWithID(*item, "plugin-filter-combo");
         expect(filter != nullptr, "filter combo missing");
         if (filter != nullptr) {
@@ -286,7 +289,8 @@ private:
             for (auto child : filter->state)
                 if (child.hasType("Option"))
                     ++optionCount;
-            expectEquals(optionCount, 3);
+            expectEquals(optionCount, 0);
+            expect(!filter->state.hasProperty("selected"), "filter combo must not declare a selected property");
         }
 
         // The expanded area starts collapsed (height 0).
@@ -965,9 +969,11 @@ public:
 static ComboRebuildTest comboRebuildTest;
 
 // =============================================================================
-// Regression: the instrument filter combo must show its default selection
-// ("All") when collapsed — a combo with no "selected" property and no
-// when-nothing-selected text renders an empty label.
+// Regression: the instrument filter combo is populated programmatically by
+// MainComponent — the layout must NOT declare Option children or a "selected"
+// property. JIVE's Option "selected" write-back (Option::selected calls
+// setSelectedId(0) when deselected) clears the combo on the second user
+// selection when items are also managed with clear()/addItem().
 // =============================================================================
 
 class FilterComboDefaultTest final : public juce::UnitTest {
@@ -977,7 +983,7 @@ public:
     }
 
     void runTest() override {
-        beginTest("filter combo defaults to All");
+        beginTest("filter combo layout is free of declarative options");
 
         ::jive::Interpreter interpreter;
         auto tree = devpiano::ui::jive::makePluginPanelTree();
@@ -991,15 +997,31 @@ public:
         if (filterItem == nullptr)
             return;
 
+        expect(!filterItem->state.hasProperty("selected"), "layout must not declare a selected property");
+        expectEquals(filterItem->state.getNumChildren(), 0, "layout must not declare Option children");
+
         auto* combo = dynamic_cast<juce::ComboBox*>(filterItem->getComponent().get());
         expect(combo != nullptr, "filter is a ComboBox");
         if (combo == nullptr)
             return;
 
+        // The production fill sequence (MainComponent::initialiseUi /
+        // refreshPluginPanelTexts) must still yield a visible "All" default
+        // when collapsed.
+        combo->clear(juce::dontSendNotification);
+        combo->addItem("All", 1);
+        combo->addItem("Instruments Only", 2);
+        combo->addItem("Effects Only", 3);
+        combo->setSelectedId(1, juce::dontSendNotification);
         expectEquals(combo->getNumItems(), 3);
         expectEquals(combo->getSelectedItemIndex(), 0, "defaults to All");
-        expect(combo->getText().isNotEmpty(), "collapsed filter shows text: '" + combo->getText() + "'");
-        expectEquals(combo->getText(), juce::String("All"), "filter text is All");
+        expectEquals(combo->getText(), juce::String("All"), "collapsed filter shows text: '" + combo->getText() + "'");
+
+        // Re-selection used to wipe the combo via the Option write-back;
+        // with no declarative Options it must simply move the selection.
+        combo->setSelectedId(2, juce::dontSendNotification);
+        expectEquals(combo->getSelectedId(), 2, "second selection keeps the combo populated");
+        expectEquals(combo->getNumItems(), 3, "items survive user re-selection");
 
         devpiano::ui::jive::StyleCatalog::get().releaseOwnedStyles();
     }

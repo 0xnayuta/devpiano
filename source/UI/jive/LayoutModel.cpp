@@ -159,24 +159,16 @@ juce::ValueTree makePluginPanelTree() {
     selector.setProperty("margin", "0 6 0 0", nullptr);
     actionRow.appendChild(selector, nullptr);
 
+    // Filter combo: populated programmatically by MainComponent
+    // (initialiseUi / refreshPluginPanelTexts), NOT via declarative Option
+    // children. JIVE's Option "selected" write-back (Option::selected calls
+    // setSelectedId(0) when deselected) clears the combo on the second user
+    // selection when items are also managed with clear()/addItem(), so this
+    // must stay a bare ComboBox like plugin-selector.
     auto filter = node("ComboBox", "plugin-filter-combo");
     filter.setProperty("width", 100, nullptr);
     filter.setProperty("height", 26, nullptr);
     filter.setProperty("margin", "0 6 0 0", nullptr);
-    const auto addOption = [&filter](const juce::String& text, int index) {
-        auto opt = juce::ValueTree("Option");
-        opt.setProperty("text", text, nullptr);
-        // JIVE Option defaults "enabled" to false when missing — items would
-        // be greyed out and unselectable.
-        opt.setProperty("enabled", true, nullptr);
-        filter.addChild(opt, index, nullptr);
-    };
-    addOption("All", 0);
-    addOption("Instruments Only", 1);
-    addOption("Effects Only", 2);
-    // Default "All" selected — without "selected" (or a when-nothing-selected
-    // text) a collapsed combo shows an empty label.
-    filter.setProperty("selected", 0, nullptr);
     actionRow.appendChild(filter, nullptr);
 
     auto loadBtn = button(TRANS("Load"), "load-btn");
