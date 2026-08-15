@@ -453,8 +453,10 @@ juce::ValueTree makeRootLayout() {
     // foreground, font-size) which acts as the window-level default that every
     // child inherits through JIVE's StyleSheet ancestor chain.
     auto root = flexColumn("window");
-    root.setProperty("width", 1120, nullptr);
-    root.setProperty("height", 760, nullptr);
+    // 初始尺寸以 design_tokens.json 为唯一事实来源（与窗口默认尺寸一致）；
+    // 后续由 MainComponent::resized() 按实际窗口尺寸覆盖。
+    root.setProperty("width", devpiano::jive::DesignTokens::get().windowDefaultWidth(), nullptr);
+    root.setProperty("height", devpiano::jive::DesignTokens::get().windowDefaultHeight(), nullptr);
     auto mainArea = flexColumn("main-area");
     mainArea.setProperty("flex-grow", 1.0, nullptr);
     mainArea.setProperty("padding", "16", nullptr);

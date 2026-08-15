@@ -176,16 +176,16 @@ juce::String DesignTokens::fontWeightTitle() const {
 // ── Border Radius ──────────────────────────────────────────────
 
 float DesignTokens::borderRadiusDefault() const {
-    return parseFloat("border-radius", "default", 4.0f);
+    return parseFloat("border-radius", "default", 6.0f);
 }
 
 // ── Spacing & Dimensions ───────────────────────────────────────
 
 int DesignTokens::windowDefaultWidth() const {
-    return parseInt("spacing", "window-default-width", 1120);
+    return parseInt("spacing", "window-default-width", 1180);
 }
 int DesignTokens::windowDefaultHeight() const {
-    return parseInt("spacing", "window-default-height", 760);
+    return parseInt("spacing", "window-default-height", 780);
 }
 int DesignTokens::windowMinWidth() const {
     return parseInt("spacing", "window-min-width", 980);
@@ -200,7 +200,7 @@ int DesignTokens::windowMaxHeight() const {
     return parseInt("spacing", "window-max-height", 2160);
 }
 int DesignTokens::statusBarHeight() const {
-    return parseInt("spacing", "status-bar-height", 22);
+    return parseInt("spacing", "status-bar-height", 24);
 }
 int DesignTokens::settingsBtnWidth() const {
     return parseInt("spacing", "settings-btn-width", 36);

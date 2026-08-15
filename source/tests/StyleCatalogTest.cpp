@@ -883,7 +883,7 @@ public:
         expect(headerItem->getComponent()->getHeight() == 36, "header keeps height");
         expect(controlsItem->getComponent()->getHeight() > 0, "controls keep height");
         expect(keyboardItem->getComponent()->getHeight() > 0, "keyboard keeps height");
-        expect(statusItem->getComponent()->getHeight() == 22, "status bar keeps height");
+        expect(statusItem->getComponent()->getHeight() == 24, "status bar keeps height");
         expect(controlsItem->getComponent()->isVisible(), "controls stay visible");
         expect(keyboardItem->getComponent()->isVisible(), "keyboard stays visible");
         auto* toggleBtn = dynamic_cast<juce::Button*>(jive::findItemWithID(*item, "toggle-btn")->getComponent().get());
