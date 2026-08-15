@@ -442,7 +442,8 @@ void MainComponent::initialiseUi() {
                   };
             wireAdsrKnob("attack-knob", 0.001, 2.0, 0.001, [](double v) { return juce::String(v, 3) + "s"; });
             wireAdsrKnob("decay-knob", 0.001, 2.0, 0.001, [](double v) { return juce::String(v, 3) + "s"; });
-            wireAdsrKnob("sustain-knob", 0.0, 1.0, 0.01, [](double v) { return juce::String(v, 2); });
+            wireAdsrKnob("sustain-knob", 0.0, 1.0, 0.01,
+                         [](double v) { return juce::String(juce::roundToInt(v * 100.0)) + "%"; });
             wireAdsrKnob("release-knob", 0.001, 3.0, 0.001, [](double v) { return juce::String(v, 3) + "s"; });
             wireKnob(
                 "speed-knob", 0.5, 2.0, 0.25,
