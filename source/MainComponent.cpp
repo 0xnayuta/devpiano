@@ -117,6 +117,17 @@ std::unique_ptr<juce::Drawable> createPlayIcon() {
     d->setFill(devpiano::jive::DesignTokens::get().playActive());
     return d;
 }
+std::unique_ptr<juce::Drawable> createPauseIcon() {
+    juce::Path p;
+    // 两个竖条（II），与 Play 的 ▶ 对称；作为 PlayButton 的 on 态图标，
+    // 播放/录制进行中按钮显示 Pause 语义。
+    p.addRectangle(-6.0f, -7.0f, 4.0f, 14.0f);
+    p.addRectangle(2.0f, -7.0f, 4.0f, 14.0f);
+    auto d = std::make_unique<juce::DrawablePath>();
+    d->setPath(p);
+    d->setFill(devpiano::jive::DesignTokens::get().playActive());
+    return d;
+}
 std::unique_ptr<juce::Drawable> createStopIcon() {
     juce::Path p;
     p.addRectangle(-6, -6, 12, 12);
@@ -332,10 +343,13 @@ void MainComponent::initialiseUi() {
         });
         factory.set("AdsrCurve", [] { return std::make_unique<AdsrCurveComponent>(); });
         const auto registerIconButton
-            = [&factory](const char* type, const std::unique_ptr<juce::Drawable>& image, const juce::String& tooltip) {
-                  factory.set(type, [&image, tooltip] {
+            = [&factory](const char* type, const std::unique_ptr<juce::Drawable>& image, const juce::String& tooltip,
+                         const std::unique_ptr<juce::Drawable>& onImage = {}) {
+                  factory.set(type, [&image, tooltip, &onImage] {
                       auto btn = std::make_unique<juce::DrawableButton>(tooltip, juce::DrawableButton::ImageFitted);
-                      btn->setImages(image.get());
+                      // onImage (optional) is shown while the button is latched
+                      // (toggle on) — PlayButton uses it to switch ▶/II.
+                      btn->setImages(image.get(), nullptr, nullptr, nullptr, onImage.get(), nullptr, nullptr, nullptr);
                       // Inset the icon area so large transport buttons keep
                       // their size while the glyph renders at ~18 px.
                       btn->setEdgeIndent(10);
@@ -346,10 +360,11 @@ void MainComponent::initialiseUi() {
         // Icons are owned by the factory closures for the app lifetime.
         static const auto recordIcon = createRecordIcon();
         static const auto playIcon = createPlayIcon();
+        static const auto pauseIcon = createPauseIcon();
         static const auto stopIcon = createStopIcon();
         static const auto backIcon = createBackIcon();
         registerIconButton("RecordButton", recordIcon, TRANS("Record"));
-        registerIconButton("PlayButton", playIcon, TRANS("Play"));
+        registerIconButton("PlayButton", playIcon, TRANS("Play"), pauseIcon);
         registerIconButton("StopButton", stopIcon, TRANS("Stop"));
         registerIconButton("BackButton", backIcon, TRANS("Back to Start"));
         factory.set("CustomKeyboard",

@@ -9,7 +9,7 @@
 namespace devpiano::recording {
 enum class RecordingEventSource { computerKeyboard, realtimeMidiBuffer, playback };
 
-enum class RecordingState { idle, recording, playing, stopped };
+enum class RecordingState { idle, recording, recordingPaused, playing, playingPaused, stopped };
 
 enum class PerformanceEventType : uint8_t { midi = 0, presetChange = 1 };
 
@@ -70,7 +70,18 @@ public:
     // presetId is a 0-based index into the preset list.
     void recordPresetChange(uint8_t presetId, std::int64_t timestampSamples);
 
-    void startPlayback(const RecordingTake& take, double currentSampleRate);
+    // Starts playback. resumeFromSamples (device-sample space, already scaled by
+    // the playback speed multiplier) is clamped to [0, scaled length]; pass 0 to
+    // play from the start. Callers resume a paused playback with the position
+    // returned by getPlaybackPositionSamples().
+    void startPlayback(const RecordingTake& take, double currentSampleRate, std::int64_t resumeFromSamples = 0);
+    // Pauses active playback at the current position (retained for resume).
+    void pausePlayback();
+    // Pauses / resumes an active recording. The recording timeline freezes while
+    // paused (events are not captured, position does not advance); live keyboard
+    // performance keeps sounding through AudioEngine.
+    void pauseRecording();
+    void resumeRecording();
     void stopPlayback();
     // Sets the playback speed multiplier. Affects the next startPlayback or immediately
     // if playback is active. Values: 0.5, 0.75, 1.0, 1.25, 1.5, 2.0.

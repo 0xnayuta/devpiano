@@ -26,8 +26,12 @@ constexpr std::size_t defaultRecordingCapacitySeconds = 30 * 60;
         return RecordingFlowState::idle;
     case ui::RecordingState::recording:
         return RecordingFlowState::recording;
+    case ui::RecordingState::recordingPaused:
+        return RecordingFlowState::recordingPaused;
     case ui::RecordingState::playing:
         return RecordingFlowState::playing;
+    case ui::RecordingState::playingPaused:
+        return RecordingFlowState::playingPaused;
     }
 
     return RecordingFlowState::idle;
@@ -39,8 +43,12 @@ constexpr std::size_t defaultRecordingCapacitySeconds = 30 * 60;
         return ui::RecordingState::idle;
     case RecordingFlowState::recording:
         return ui::RecordingState::recording;
+    case RecordingFlowState::recordingPaused:
+        return ui::RecordingState::recordingPaused;
     case RecordingFlowState::playing:
         return ui::RecordingState::playing;
+    case RecordingFlowState::playingPaused:
+        return ui::RecordingState::playingPaused;
     }
 
     return ui::RecordingState::idle;
@@ -116,13 +124,37 @@ void RecordingSessionController::handleRecordClicked() {
 
 void RecordingSessionController::handlePlayClicked() {
     const auto command = chooseRecordingFlowCommand(
-        RecordingFlowIntent::play, makeRecordingFlowStatus(recordingSession.state, recordingSession.hasTake()));
-    if (command != RecordingFlowCommand::startPlayback)
+        RecordingFlowIntent::playPause, makeRecordingFlowStatus(recordingSession.state, recordingSession.hasTake()));
+    if (command == RecordingFlowCommand::none)
         return;
 
-    startInternalPlayback(recordingSession.take);
-    recordingSession.state
-        = toRecordingControlsState(getStateAfterCommand(command, toRecordingFlowState(recordingSession.state)));
+    switch (command) {
+    case RecordingFlowCommand::startPlayback:
+        startInternalPlayback(recordingSession.take, 0);
+        recordingSession.state = ui::RecordingState::playing;
+        break;
+    case RecordingFlowCommand::pausePlayback:
+        // Kill hanging notes before freezing the timeline (mirrors stopInternalPlayback).
+        audioEngine.requestAllNotesOff();
+        recordingEngine.pausePlayback();
+        recordingSession.state = ui::RecordingState::playingPaused;
+        break;
+    case RecordingFlowCommand::resumePlayback:
+        startInternalPlayback(recordingSession.take, recordingEngine.getPlaybackPositionSamples());
+        recordingSession.state = ui::RecordingState::playing;
+        break;
+    case RecordingFlowCommand::pauseRecording:
+        recordingEngine.pauseRecording();
+        recordingSession.state = ui::RecordingState::recordingPaused;
+        break;
+    case RecordingFlowCommand::resumeRecording:
+        recordingEngine.resumeRecording();
+        recordingSession.state = ui::RecordingState::recording;
+        break;
+    default:
+        return;
+    }
+
     syncRecordingSessionToUi();
     if (shouldRestoreKeyboardFocus(command))
         owner.restoreKeyboardFocus();
@@ -162,13 +194,21 @@ void RecordingSessionController::handleBackToStartClicked() {
     if (!recordingSession.hasTake() || recordingSession.isRecording())
         return;
 
-    if (recordingSession.isPlaying()) {
+    if (recordingSession.state == ui::RecordingState::playing) {
         const auto stoppedTake = stopInternalPlayback();
         juce::ignoreUnused(stoppedTake);
-        startInternalPlayback(recordingSession.take);
+        startInternalPlayback(recordingSession.take, 0);
         recordingSession.state = ui::RecordingState::playing;
         syncRecordingSessionToUi();
         DP_LOG_INFO("[Playback] Restarted from beginning");
+    } else if (recordingSession.state == ui::RecordingState::playingPaused) {
+        // Industry Rewind semantics: jump to the start but stay paused; the
+        // user presses Play to hear it from the beginning.
+        startInternalPlayback(recordingSession.take, 0);
+        recordingEngine.pausePlayback();
+        recordingSession.state = ui::RecordingState::playingPaused;
+        syncRecordingSessionToUi();
+        DP_LOG_INFO("[Playback] Rewound to beginning (paused)");
     } else {
         audioEngine.requestAllNotesOff();
         DP_LOG_INFO("[Playback] Already at beginning");
@@ -365,7 +405,9 @@ void RecordingSessionController::checkPlaybackEnded() {
     if (!recordingEngine.consumePlaybackEndedFlag())
         return;
 
-    if (!recordingSession.isPlaying())
+    // Only a genuinely playing session ends; a paused one must not be kicked
+    // back to idle by a stale flag.
+    if (recordingSession.state != ui::RecordingState::playing)
         return;
 
     const auto stoppedTake = stopInternalPlayback();
@@ -408,7 +450,7 @@ RecordingTake RecordingSessionController::stopInternalRecording() {
     return take;
 }
 
-void RecordingSessionController::startInternalPlayback(const RecordingTake& take) {
+void RecordingSessionController::startInternalPlayback(const RecordingTake& take, std::int64_t resumeFromSamples) {
     if (take.isEmpty()) {
         DP_LOG_WARN("[Playback] startInternalPlayback called with empty take - ignoring");
         return;
@@ -416,13 +458,15 @@ void RecordingSessionController::startInternalPlayback(const RecordingTake& take
 
     audioEngine.requestAllNotesOff();
 
-    owner.runPluginActionWithAudioDeviceRebuild([this, &take](const MainComponent::RuntimeAudioConfig& config) {
-        recordingEngine.startPlayback(take, config.sampleRate);
-        audioEngine.armPlaybackStartPreRoll(config.sampleRate, config.blockSize);
-    });
+    owner.runPluginActionWithAudioDeviceRebuild(
+        [this, &take, resumeFromSamples](const MainComponent::RuntimeAudioConfig& config) {
+            recordingEngine.startPlayback(take, config.sampleRate, resumeFromSamples);
+            audioEngine.armPlaybackStartPreRoll(config.sampleRate, config.blockSize);
+        });
 
-    DP_LOG_INFO("[Playback] Internal playback started; take events="
-                + juce::String(static_cast<int>(take.events.size())) + ", sampleRate=" + juce::String(take.sampleRate));
+    DP_LOG_INFO(juce::String("[Playback] Internal playback started") + (resumeFromSamples > 0 ? " (resumed)" : "")
+                + "; take events=" + juce::String(static_cast<int>(take.events.size()))
+                + ", sampleRate=" + juce::String(take.sampleRate));
 }
 
 RecordingTake RecordingSessionController::stopInternalPlayback() {

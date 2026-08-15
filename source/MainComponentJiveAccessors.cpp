@@ -460,8 +460,10 @@ void MainComponent::setRecordingControlsState(devpiano::ui::RecordingControlsSta
         openEnabled = true;
         break;
     case devpiano::ui::RecordingState::recording:
+    case devpiano::ui::RecordingState::recordingPaused:
+        // Play/Pause is the combined pause/continue control during recording.
         recordEnabled = false;
-        playEnabled = false;
+        playEnabled = true;
         backToStartEnabled = false;
         exportMidiEnabled = false;
         exportWavEnabled = false;
@@ -471,8 +473,11 @@ void MainComponent::setRecordingControlsState(devpiano::ui::RecordingControlsSta
         openEnabled = false;
         break;
     case devpiano::ui::RecordingState::playing:
+    case devpiano::ui::RecordingState::playingPaused:
+        // Play/Pause toggles playback; Stop is always available (industry
+        // standard: pausing never disables Stop); BackToStart rewinds.
         recordEnabled = false;
-        playEnabled = false;
+        playEnabled = true;
         backToStartEnabled = state.hasTake;
         exportMidiEnabled = false;
         exportWavEnabled = false;
@@ -497,14 +502,20 @@ void MainComponent::setRecordingControlsState(devpiano::ui::RecordingControlsSta
     setEnabled("save-perf-btn", saveEnabled);
     setEnabled("open-perf-btn", openEnabled);
 
-    // Latched highlight: red while recording, green while playing.
+    // Latched highlight: red while recording (incl. paused), green while
+    // playing or recording — the combined Play/Pause button shows its Pause
+    // glyph whenever an activity is running.
     const auto setLatched = [this](const char* id, bool active) {
         if (auto* item = jive::findItemWithID(*jiveRootItem, id))
             if (auto* btn = dynamic_cast<juce::Button*>(item->getComponent().get()))
                 btn->setToggleState(active, juce::dontSendNotification);
     };
-    setLatched("record-btn", state.state == devpiano::ui::RecordingState::recording);
-    setLatched("play-btn", state.state == devpiano::ui::RecordingState::playing);
+    setLatched("record-btn",
+               state.state == devpiano::ui::RecordingState::recording
+                   || state.state == devpiano::ui::RecordingState::recordingPaused);
+    setLatched("play-btn",
+               state.state == devpiano::ui::RecordingState::playing
+                   || state.state == devpiano::ui::RecordingState::recording);
     setLatched("stop-btn", false);
     setLatched("back-btn", false);
 }

@@ -13,7 +13,9 @@
 
 namespace devpiano::ui {
 
-enum class RecordingState : std::uint8_t { idle, recording, playing };
+// 行业标准 transport 语义：播放/录制中可原位暂停（保留进度），
+// Stop 完全停止并重置进度。
+enum class RecordingState : std::uint8_t { idle, recording, recordingPaused, playing, playingPaused };
 
 struct RecordingControlsState {
     RecordingState state = RecordingState::idle;

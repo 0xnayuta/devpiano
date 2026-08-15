@@ -337,13 +337,14 @@ Internal trigger stops playback
 
 ## 7. UI 边界
 
-第一版 UI 可以非常小：
+传输控制遵循行业标准 transport 语义（Play/Pause 镜像、Stop 完全停止、Rewind 只移动位置）：
 
-- `Record`：开始录制。
-- `Stop`：停止录制或停止回放。
-- `Play`：回放最近一次录制。
+- `Record`：开始录制；录制中（含暂停）禁用。
+- `Play / Pause`（合一按钮，图标镜像切换）：idle 且有 take 时从头播放；播放/录制进行中按下暂停（图标变 Pause，进度保留）；暂停中按下恢复（播放从暂停处继续、录制从暂停处继续采集）。播放暂停前发送 all-notes-off 清悬挂音；录制暂停期间键盘实时演奏继续发声，但事件不进入 take、时间线冻结（回放中为静音间隙）。
+- `Stop`：完全停止，任何状态下均可用。录制（含暂停）中停止=结束录制并保留 take；播放（含暂停）中停止=停止并重置进度，再次 Play 从头开始。
+- `Back to Start`（Rewind）：播放中=回到开头继续播放；播放暂停中=回到开头但保持暂停（再点 Play 从头）；录制中（含暂停）禁用。
 - `Export MIDI`：导出最近一次录制为 `.mid`。
-- 状态文本：Idle / Recording / Playing / Has Take / No Take。
+- 状态：Idle / Recording / Recording Paused / Playing / Playing Paused。
 
 建议优先放在 `ControlsPanel` 附近，但状态装配不要全部塞回 `MainComponent`：
 

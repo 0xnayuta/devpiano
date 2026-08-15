@@ -32,11 +32,14 @@ public:
         [[nodiscard]] bool hasTake() const noexcept {
             return !take.isEmpty();
         }
+        // "Recording flow active": includes the paused-recording state so import /
+        // back-to-start guards treat a paused recording as still recording.
         [[nodiscard]] bool isRecording() const noexcept {
-            return state == ui::RecordingState::recording;
+            return state == ui::RecordingState::recording || state == ui::RecordingState::recordingPaused;
         }
+        // "Playback flow active": includes the paused-playback state.
         [[nodiscard]] bool isPlaying() const noexcept {
-            return state == ui::RecordingState::playing;
+            return state == ui::RecordingState::playing || state == ui::RecordingState::playingPaused;
         }
         [[nodiscard]] bool isIdle() const noexcept {
             return state == ui::RecordingState::idle;
@@ -71,7 +74,7 @@ private:
 
     void startInternalRecording(std::size_t expectedEventCapacity);
     [[nodiscard]] RecordingTake stopInternalRecording();
-    void startInternalPlayback(const RecordingTake& take);
+    void startInternalPlayback(const RecordingTake& take, std::int64_t resumeFromSamples = 0);
     [[nodiscard]] RecordingTake stopInternalPlayback();
     void syncRecordingSessionToUi();
 

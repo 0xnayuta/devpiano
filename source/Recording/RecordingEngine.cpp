@@ -95,7 +95,11 @@ void RecordingEngine::startRecording(double sampleRate) {
 }
 
 RecordingTake RecordingEngine::stopRecording() {
-    if (isRecording()) {
+    // Finalise even when stopping from the paused-recording state (events and
+    // length must still be merged/updated).
+    const auto recordingActive
+        = isRecording() || state.load(std::memory_order_acquire) == RecordingState::recordingPaused;
+    if (recordingActive) {
         // Merge pending preset-change events (message-thread writes) into the
         // recorded events vector before finalising the take.
         for (auto& ev : pendingPresetEvents)
@@ -194,12 +198,13 @@ bool RecordingEngine::isCapacityExhausted(std::int64_t timestamp) noexcept {
     return false;
 }
 
-void RecordingEngine::startPlayback(const RecordingTake& take, double currentSampleRate) {
+void RecordingEngine::startPlayback(const RecordingTake& take, double currentSampleRate,
+                                    std::int64_t resumeFromSamples) {
     playbackTake = take;
     playbackSampleRateRatio
         = (take.sampleRate > 0.0 && currentSampleRate > 0.0) ? (currentSampleRate / take.sampleRate) : 1.0;
     scaledPlaybackLengthSamples.store(getScaledPlaybackLengthSamples());
-    playbackPositionSamples.store(0);
+    playbackPositionSamples.store(juce::jlimit<std::int64_t>(0, scaledPlaybackLengthSamples.load(), resumeFromSamples));
     playbackEndedPending.store(false, std::memory_order_release);
 
     // Pre-allocate the preset-change queue so renderPlaybackBlock never allocates
@@ -221,6 +226,32 @@ void RecordingEngine::startPlayback(const RecordingTake& take, double currentSam
     DP_DEBUG_LOG("[RecordingEngine] playback STARTED: " + juce::String(take.events.size()) + " events, ratio="
                  + juce::String(playbackSampleRateRatio) + ", speed=" + juce::String(playbackSpeedMultiplier.load())
                  + ", scaledLen=" + juce::String(scaledPlaybackLengthSamples.load()));
+}
+
+void RecordingEngine::pausePlayback() {
+    if (state.load(std::memory_order_acquire) != RecordingState::playing)
+        return;
+
+    state.store(RecordingState::playingPaused, std::memory_order_release);
+    // Clear any stale end flag so checkPlaybackEnded does not mis-fire while paused.
+    playbackEndedPending.store(false, std::memory_order_release);
+    DP_DEBUG_LOG("[RecordingEngine] playback PAUSED at pos=" + juce::String(playbackPositionSamples.load()));
+}
+
+void RecordingEngine::pauseRecording() {
+    if (state.load(std::memory_order_acquire) != RecordingState::recording)
+        return;
+
+    state.store(RecordingState::recordingPaused, std::memory_order_release);
+    DP_DEBUG_LOG("[RecordingEngine] recording PAUSED at pos=" + juce::String(currentPositionSamples.load()));
+}
+
+void RecordingEngine::resumeRecording() {
+    if (state.load(std::memory_order_acquire) != RecordingState::recordingPaused)
+        return;
+
+    state.store(RecordingState::recording, std::memory_order_release);
+    DP_DEBUG_LOG("[RecordingEngine] recording RESUMED at pos=" + juce::String(currentPositionSamples.load()));
 }
 
 void RecordingEngine::stopPlayback() {

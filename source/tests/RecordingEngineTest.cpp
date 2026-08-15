@@ -1,6 +1,7 @@
 #include <JuceHeader.h>
 
 #include "Recording/RecordingEngine.h"
+#include "Recording/RecordingFlowSupport.h"
 
 using namespace devpiano::recording;
 
@@ -660,3 +661,207 @@ public:
 };
 
 static MidiBufferBlockRecordingTest midiBufferBlockRecordingTest;
+
+// =============================================================================
+
+class PlaybackPauseResumeTest : public juce::UnitTest {
+public:
+    PlaybackPauseResumeTest()
+        : juce::UnitTest("RecordingEngine: playback pause/resume") {
+    }
+
+    void runTest() override {
+        beginTest("startPlayback with resume position continues from there");
+        {
+            auto take = buildTake(44100.0, 10000, { { 5000, 60, true, 1, 1.0f } });
+            RecordingEngine engine;
+
+            engine.startPlayback(take, 44100.0, 5000);
+            expectEquals(static_cast<std::int64_t>(5000), engine.getPlaybackPositionSamples(),
+                         "resume position should be honoured");
+            expect(engine.isPlaying());
+
+            // Event at 5000 belongs to the resumed block starting at 5000.
+            juce::MidiBuffer buf;
+            engine.renderPlaybackBlock(buf, 5000, 500);
+            int count = 0;
+            for (auto m : buf) {
+                ++count;
+                expectEquals(0, m.samplePosition, "event should land at block start");
+            }
+            expectEquals(1, count, "resumed playback should render the event at the resume point");
+        }
+
+        beginTest("resume position beyond end is clamped to the end");
+        {
+            auto take = buildTake(44100.0, 1000, {});
+            RecordingEngine engine;
+            engine.startPlayback(take, 44100.0, 999999);
+            expectEquals(static_cast<std::int64_t>(1000), engine.getPlaybackPositionSamples(),
+                         "resume past the end should clamp to the scaled length");
+        }
+
+        beginTest("pausePlayback freezes position and resume continues");
+        {
+            auto take = buildTake(44100.0, 20000, { { 4410, 60, true, 1, 1.0f } });
+            RecordingEngine engine;
+
+            engine.startPlayback(take, 44100.0);
+            engine.advancePlaybackPosition(4410);
+            expect(engine.isPlaying());
+
+            engine.pausePlayback();
+            expect(!engine.isPlaying(), "paused playback is not playing");
+            expect(engine.getState() == RecordingState::playingPaused, "state should be playingPaused");
+            expectEquals(static_cast<std::int64_t>(4410), engine.getPlaybackPositionSamples(),
+                         "pause must retain the position");
+
+            // Paused: no rendering, no advancement.
+            juce::MidiBuffer buf;
+            engine.renderPlaybackBlock(buf, 4410, 1000);
+            int count = 0;
+            for (auto m : buf) {
+                ++count;
+            }
+            expectEquals(0, count, "no events rendered while paused");
+            engine.advancePlaybackPosition(500);
+            expectEquals(static_cast<std::int64_t>(4410), engine.getPlaybackPositionSamples(),
+                         "position must not advance while paused");
+
+            // Resume from the retained position.
+            engine.startPlayback(take, 44100.0, engine.getPlaybackPositionSamples());
+            expect(engine.isPlaying());
+            engine.advancePlaybackPosition(500);
+            expectEquals(static_cast<std::int64_t>(4910), engine.getPlaybackPositionSamples(),
+                         "resume should continue from the pause point");
+        }
+
+        beginTest("pausePlayback outside playing state is a no-op");
+        {
+            RecordingEngine engine;
+            engine.pausePlayback();
+            expect(engine.getState() == RecordingState::idle, "pause in idle must not change state");
+        }
+    }
+};
+
+static PlaybackPauseResumeTest playbackPauseResumeTest;
+
+// =============================================================================
+
+class RecordingPauseTest : public juce::UnitTest {
+public:
+    RecordingPauseTest()
+        : juce::UnitTest("RecordingEngine: recording pause/resume") {
+    }
+
+    void runTest() override {
+        beginTest("pauseRecording freezes capture and position");
+        {
+            RecordingEngine engine;
+            engine.reserveEvents(128);
+            engine.startRecording(44100.0);
+            engine.advanceRecordingPosition(4410);
+
+            engine.pauseRecording();
+            expect(!engine.isRecording(), "paused recording is not recording");
+            expect(engine.getState() == RecordingState::recordingPaused, "state should be recordingPaused");
+
+            // Paused: events ignored, position frozen.
+            engine.recordEvent(juce::MidiMessage::noteOn(1, 60, 0.8f), RecordingEventSource::computerKeyboard, 99999);
+            engine.advanceRecordingPosition(500);
+            expectEquals(static_cast<std::int64_t>(4410), engine.getCurrentPositionSamples(),
+                         "position must not advance while paused");
+
+            engine.resumeRecording();
+            expect(engine.isRecording(), "resumed recording is recording again");
+            expect(engine.getState() == RecordingState::recording, "state should be recording after resume");
+
+            engine.advanceRecordingPosition(500);
+            expectEquals(static_cast<std::int64_t>(4910), engine.getCurrentPositionSamples(),
+                         "position should continue after resume");
+
+            auto take = engine.stopRecording();
+            expectEquals(static_cast<std::int64_t>(4910), take.lengthSamples, "length covers the resumed position");
+        }
+
+        beginTest("stopRecording from paused state finalises take");
+        {
+            RecordingEngine engine;
+            engine.reserveEvents(128);
+            engine.startRecording(44100.0);
+            engine.recordEvent(juce::MidiMessage::noteOn(1, 60, 0.8f), RecordingEventSource::computerKeyboard, 0);
+            engine.advanceRecordingPosition(4410);
+
+            engine.pauseRecording();
+            auto take = engine.stopRecording();
+
+            expect(engine.getState() == RecordingState::stopped, "state should be stopped after stopRecording");
+            expectEquals(1, static_cast<int>(take.events.size()), "events recorded before pausing must be kept");
+            expectEquals(static_cast<std::int64_t>(4410), take.lengthSamples,
+                         "length must be finalised even when stopping from paused");
+        }
+    }
+};
+
+static RecordingPauseTest recordingPauseTest;
+
+// =============================================================================
+
+class RecordingFlowSupportTest : public juce::UnitTest {
+public:
+    RecordingFlowSupportTest()
+        : juce::UnitTest("RecordingFlow: transport state machine") {
+    }
+
+    void runTest() override {
+        beginTest("playPause intent maps to the five states");
+        {
+            using enum RecordingFlowCommand;
+            using enum RecordingFlowState;
+
+            // idle + take → start from scratch.
+            expect(chooseRecordingFlowCommand(RecordingFlowIntent::playPause, { idle, true }) == startPlayback);
+            // idle without take → nothing.
+            expect(chooseRecordingFlowCommand(RecordingFlowIntent::playPause, { idle, false }) == none);
+            // Active playback pauses; paused playback resumes.
+            expect(chooseRecordingFlowCommand(RecordingFlowIntent::playPause, { playing, true }) == pausePlayback);
+            expect(chooseRecordingFlowCommand(RecordingFlowIntent::playPause, { playingPaused, true })
+                   == resumePlayback);
+            // Active recording pauses; paused recording resumes.
+            expect(chooseRecordingFlowCommand(RecordingFlowIntent::playPause, { recording, true }) == pauseRecording);
+            expect(chooseRecordingFlowCommand(RecordingFlowIntent::playPause, { recordingPaused, true })
+                   == resumeRecording);
+        }
+
+        beginTest("stop intent always stops an active flow");
+        {
+            using enum RecordingFlowCommand;
+            using enum RecordingFlowState;
+
+            expect(chooseRecordingFlowCommand(RecordingFlowIntent::stop, { recording, true }) == stopRecording);
+            expect(chooseRecordingFlowCommand(RecordingFlowIntent::stop, { recordingPaused, true }) == stopRecording);
+            expect(chooseRecordingFlowCommand(RecordingFlowIntent::stop, { playing, true }) == stopPlayback);
+            expect(chooseRecordingFlowCommand(RecordingFlowIntent::stop, { playingPaused, true }) == stopPlayback);
+            expect(chooseRecordingFlowCommand(RecordingFlowIntent::stop, { idle, true }) == none);
+        }
+
+        beginTest("state transitions follow the commands");
+        {
+            using enum RecordingFlowCommand;
+            using enum RecordingFlowState;
+
+            expect(getStateAfterCommand(startRecording, idle) == recording);
+            expect(getStateAfterCommand(startPlayback, idle) == playing);
+            expect(getStateAfterCommand(pausePlayback, playing) == playingPaused);
+            expect(getStateAfterCommand(resumePlayback, playingPaused) == playing);
+            expect(getStateAfterCommand(pauseRecording, recording) == recordingPaused);
+            expect(getStateAfterCommand(resumeRecording, recordingPaused) == recording);
+            expect(getStateAfterCommand(stopRecording, recordingPaused) == idle);
+            expect(getStateAfterCommand(stopPlayback, playingPaused) == idle);
+            expect(getStateAfterCommand(none, playing) == playing, "none keeps the fallback state");
+        }
+    }
+};
+
+static RecordingFlowSupportTest recordingFlowSupportTest;

@@ -233,6 +233,8 @@ if (BUILD_TESTS)
         source/Recording/MidiFileImporter.h
         source/Recording/RecordingEngine.cpp
         source/Recording/RecordingEngine.h
+        source/Recording/RecordingFlowSupport.cpp
+        source/Recording/RecordingFlowSupport.h
 
         source/Midi/MidiChannelMapper.cpp
         source/Midi/MidiChannelMapper.h
