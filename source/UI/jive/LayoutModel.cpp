@@ -88,7 +88,7 @@ juce::ValueTree makeHeaderTree() {
     // Settings button — DrawableButton with gear icon, provided by the
     // "SettingsButton" component factory registered in MainComponent.
     auto settings = node("SettingsButton", "settings-btn");
-    settings.setProperty("tooltip", "Settings", nullptr);
+    settings.setProperty("tooltip", TRANS("Settings"), nullptr);
     settings.setProperty("width", 36, nullptr);
     settings.setProperty("height", 36, nullptr);
     row.appendChild(settings, nullptr);
@@ -377,24 +377,8 @@ juce::ValueTree makeControlsPanelTree() {
     transportHeader.setProperty("margin", "0 0 6 0", nullptr);
     transportCard.appendChild(transportHeader, nullptr);
 
-    // Quick transport row (|<  |>  >|  ⚙)
-    auto quickRow = flexRow("transport-quick-row");
-    quickRow.setProperty("height", 24, nullptr);
-    quickRow.setProperty("margin", "0 0 8 0", nullptr);
-    const auto quickBtn = [&makeTextBtn](const juce::String& label, const juce::String& id, const juce::String& tip,
-                                         const juce::String& margin) {
-        auto btn = makeTextBtn(label, id, margin);
-        btn.setProperty("tooltip", tip, nullptr);
-        return btn;
-    };
-    quickRow.appendChild(quickBtn("|<", "quick-back-btn", TRANS("Back to Start"), "0 4 0 0"), nullptr);
-    quickRow.appendChild(quickBtn("|>", "quick-play-btn", TRANS("Play"), "0 4 0 0"), nullptr);
-    quickRow.appendChild(quickBtn(">|", "quick-stop-btn", TRANS("Stop"), "0 4 0 0"), nullptr);
-    quickRow.appendChild(quickBtn(juce::String::charToString(0x2699), "quick-settings-btn", TRANS("Settings"), "0"),
-                         nullptr);
-    transportCard.appendChild(quickRow, nullptr);
-
-    // 2x2 Large Transport Buttons
+    // 2x2 Large Transport Buttons (Record, Play, Stop, Back to Start).
+    // The header's settings button already covers Settings — no gear here.
     auto transportGrid1 = flexRow("transport-grid-1");
     transportGrid1.setProperty("height", 42, nullptr);
     transportGrid1.setProperty("margin", "0 0 6 0", nullptr);

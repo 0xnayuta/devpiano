@@ -533,10 +533,6 @@ void MainComponent::refreshControlsTexts() {
     setTooltip("play-btn", TRANS("Play"));
     setTooltip("stop-btn", TRANS("Stop"));
     setTooltip("back-btn", TRANS("Back to Start"));
-    setTooltip("quick-back-btn", TRANS("Back to Start"));
-    setTooltip("quick-play-btn", TRANS("Play"));
-    setTooltip("quick-stop-btn", TRANS("Stop"));
-    setTooltip("quick-settings-btn", TRANS("Settings"));
     setButtonText("export-midi-btn", TRANS("Export"));
     setButtonText("export-wav-btn", TRANS("Export WAV"));
     setButtonText("import-midi-btn", TRANS("Import"));

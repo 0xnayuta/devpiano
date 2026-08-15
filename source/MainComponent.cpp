@@ -422,11 +422,6 @@ void MainComponent::initialiseUi() {
             wireButton("play-btn", [this] { recordingSessionController->handlePlayClicked(); });
             wireButton("stop-btn", [this] { recordingSessionController->handleStopClicked(); });
             wireButton("back-btn", [this] { recordingSessionController->handleBackToStartClicked(); });
-            // Compact quick-transport row (top of transport card).
-            wireButton("quick-back-btn", [this] { recordingSessionController->handleBackToStartClicked(); });
-            wireButton("quick-play-btn", [this] { recordingSessionController->handlePlayClicked(); });
-            wireButton("quick-stop-btn", [this] { recordingSessionController->handleStopClicked(); });
-            wireButton("quick-settings-btn", [this] { showSettingsDialog(); });
             wireButton("export-midi-btn", [this] { recordingSessionController->handleExportMidiClicked(); });
             wireButton("export-wav-btn", [this] { recordingSessionController->handleExportWavClicked(); });
             wireButton("import-midi-btn", [this] { recordingSessionController->handleImportMidiClicked(); });
