@@ -485,6 +485,10 @@ juce::Font DevPianoLookAndFeel::getLabelFont(juce::Label& /*label*/) {
 void DevPianoLookAndFeel::drawTooltip(juce::Graphics& g, const juce::String& text, int width, int height) {
     const auto bounds = juce::Rectangle<float>(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height));
     constexpr float corner = 4.0f;
+    // 深色圆角背景：TooltipWindow 透明，若不填充背景，文字会直接叠在
+    // 下方 UI 内容上（深色主题下不可读）。
+    g.setColour(tokens.panelBg());
+    g.fillRoundedRectangle(bounds, corner);
     // Micro ice-blue border
     g.setColour(tokens.primary().withAlpha(0.12f));
     g.drawRoundedRectangle(bounds.reduced(0.5f), corner, 1.0f);
