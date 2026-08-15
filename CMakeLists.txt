@@ -119,6 +119,8 @@ target_sources(devpiano PRIVATE
     source/UI/KeyBindingEditDialog.h
     source/UI/PerformanceMetadataDialog.cpp
     source/UI/PerformanceMetadataDialog.h
+    source/UI/PresetDialogs.cpp
+    source/UI/PresetDialogs.h
     source/Settings/SettingsStore.h
     source/Settings/SettingsSerialization.cpp
     source/Settings/SettingsSerialization.h
