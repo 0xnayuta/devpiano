@@ -100,16 +100,28 @@ void DevPianoLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button& 
     g.setGradientFill(grad);
     g.fillRoundedRectangle(bounds, corner);
 
+    // Latched state (e.g. recording/playing): inner colour glow
+    if (button.getToggleState()) {
+        g.setColour(bg.withAlpha(0.22f));
+        g.fillRoundedRectangle(bounds, corner);
+    }
+
     // Top 1px bevel highlight for physical tactile feel
     if (!down) {
         g.setColour(juce::Colour(0x28FFFFFF));
         g.drawHorizontalLine(static_cast<int>(bounds.getY() + 1.0f), bounds.getX() + 2.0f, bounds.getRight() - 2.0f);
     }
 
-    // Subtle border outline
-    const auto borderCol = highlighted ? tokens.primary().withAlpha(0.6f) : bg.brighter(0.18f);
+    // Border: latched gets a bright accent, hover gets the primary tint
+    juce::Colour borderCol;
+    if (button.getToggleState())
+        borderCol = bg.brighter(0.55f);
+    else if (highlighted)
+        borderCol = tokens.primary().withAlpha(0.6f);
+    else
+        borderCol = bg.brighter(0.18f);
     g.setColour(borderCol);
-    g.drawRoundedRectangle(bounds, corner, 1.0f);
+    g.drawRoundedRectangle(bounds, corner, button.getToggleState() ? 1.6f : 1.0f);
 
     // Highlight overlay
     if (highlighted && !down) {
@@ -268,6 +280,26 @@ void DevPianoLookAndFeel::drawLinearSlider(juce::Graphics& g, int x, int y, int 
         const float tx = (float)x + ((float)i / (float)(numTicks - 1)) * trackW;
         const float th = (i == 0 || i == numTicks - 1 || i == (numTicks - 1) / 2) ? 4.0f : 2.5f;
         g.drawVerticalLine(static_cast<int>(tx), tickY, tickY + th);
+    }
+
+    // Value labels below the track (playback-speed slider: 0.5x–2.0x).
+    // Positions follow the actual value range, so non-uniform steps like
+    // 0.75 and 1.5 land at their true slider positions.
+    if (juce::approximatelyEqual(slider.getMinimum(), 0.5) && juce::approximatelyEqual(slider.getMaximum(), 2.0)) {
+        const juce::StringArray labels { "0.5", "0.75", "1.0", "1.5", "2.0" };
+        g.setFont(juce::FontOptions(8.0f));
+        g.setColour(juce::Colour(0xFF707888));
+        const float labelY = tickY + 4.0f;
+        const auto span = static_cast<float>(slider.getMaximum() - slider.getMinimum());
+        for (const auto& label : labels) {
+            const auto lx = juce::jlimit(
+                (float)x, (float)x + trackW,
+                (float)x
+                    + (static_cast<float>(label.getFloatValue()) - static_cast<float>(slider.getMinimum())) / span
+                        * trackW);
+            g.drawText(label, juce::Rectangle<float>(lx - 14.0f, labelY, 28.0f, 8.0f), juce::Justification::centred,
+                       false);
+        }
     }
 
     // Metallic Thumb — 8 x 16 rounded block with center groove

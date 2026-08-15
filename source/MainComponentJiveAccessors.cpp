@@ -488,6 +488,17 @@ void MainComponent::setRecordingControlsState(RecordingControlsState state) {
     setEnabled("export-wav-btn", exportWavEnabled);
     setEnabled("save-perf-btn", saveEnabled);
     setEnabled("open-perf-btn", openEnabled);
+
+    // Latched highlight: red while recording, green while playing.
+    const auto setLatched = [this](const char* id, bool active) {
+        if (auto* item = jive::findItemWithID(*jiveRootItem, id))
+            if (auto* btn = dynamic_cast<juce::Button*>(item->getComponent().get()))
+                btn->setToggleState(active, juce::dontSendNotification);
+    };
+    setLatched("record-btn", state.state == RecordingState::recording);
+    setLatched("play-btn", state.state == RecordingState::playing);
+    setLatched("stop-btn", false);
+    setLatched("back-btn", false);
 }
 
 juce::Rectangle<int> MainComponent::getRecentFilesButtonScreenBounds() const {

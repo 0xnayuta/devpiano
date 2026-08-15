@@ -422,6 +422,13 @@ void MainComponent::initialiseUi() {
             wireButton("play-btn", [this] { recordingSessionController->handlePlayClicked(); });
             wireButton("stop-btn", [this] { recordingSessionController->handleStopClicked(); });
             wireButton("back-btn", [this] { recordingSessionController->handleBackToStartClicked(); });
+
+            // Latched (toggle-on) accent colours: red while recording, green while playing.
+            const auto& tokens = devpiano::jive::DesignTokens::get();
+            if (auto* btn = findButton("record-btn"))
+                btn->setColour(juce::TextButton::buttonOnColourId, tokens.recordActive());
+            if (auto* btn = findButton("play-btn"))
+                btn->setColour(juce::TextButton::buttonOnColourId, tokens.playActive());
             wireButton("export-midi-btn", [this] { recordingSessionController->handleExportMidiClicked(); });
             wireButton("export-wav-btn", [this] { recordingSessionController->handleExportWavClicked(); });
             wireButton("import-midi-btn", [this] { recordingSessionController->handleImportMidiClicked(); });

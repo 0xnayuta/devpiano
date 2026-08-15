@@ -142,6 +142,9 @@ juce::ValueTree makePluginPanelTree() {
     // ── Always-visible toolbar row: status | selector | filter | buttons ──
     auto actionRow = flexRow("plugin-action-row");
     actionRow.setProperty("height", 30, nullptr);
+    // 2px bottom margin + 4px panel padding = same 6px row rhythm as the
+    // preset-card rows (Export/Save) below.
+    actionRow.setProperty("margin", "0 0 2 0", nullptr);
 
     auto status = text({}, "plugin-status-label");
     status.setProperty("flex-grow", 1.0, nullptr);
@@ -234,7 +237,7 @@ juce::ValueTree makePluginPanelTree() {
 
     auto listEditor = node("ListEditor", "plugin-list-editor");
     listEditor.setProperty("flex-grow", 1.0, nullptr);
-    listEditor.setProperty("margin", "8 0 0 0", nullptr);
+    listEditor.setProperty("margin", "6 0 0 0", nullptr);
     expandedArea.appendChild(listEditor, nullptr);
 
     panel.appendChild(expandedArea, nullptr);
@@ -288,8 +291,8 @@ juce::ValueTree makeControlsPanelTree() {
     auto presetBtnRow = flexRow("preset-btn-row");
     presetBtnRow.setProperty("height", 26, nullptr);
     presetBtnRow.setProperty("margin", "0 0 12 0", nullptr);
-    presetBtnRow.appendChild(makeTextBtn(TRANS("New"), "save-preset-btn", "0 4 0 0"), nullptr);
-    presetBtnRow.appendChild(makeTextBtn(TRANS("Rename"), "rename-preset-btn", "0 4 0 0"), nullptr);
+    presetBtnRow.appendChild(makeTextBtn(TRANS("New"), "save-preset-btn", "0 6 0 0"), nullptr);
+    presetBtnRow.appendChild(makeTextBtn(TRANS("Rename"), "rename-preset-btn", "0 6 0 0"), nullptr);
     presetBtnRow.appendChild(makeTextBtn(TRANS("Delete"), "delete-preset-btn", "0"), nullptr);
     presetCard.appendChild(presetBtnRow, nullptr);
 
@@ -314,8 +317,8 @@ juce::ValueTree makeControlsPanelTree() {
 
     auto fileRow3 = flexRow("file-row-3");
     fileRow3.setProperty("height", 24, nullptr);
-    fileRow3.appendChild(makeTextBtn(TRANS("Export WAV"), "export-wav-btn", "0 4 0 0"), nullptr);
-    fileRow3.appendChild(makeTextBtn(TRANS("Recent"), "recent-btn", "0 4 0 0"), nullptr);
+    fileRow3.appendChild(makeTextBtn(TRANS("Export WAV"), "export-wav-btn", "0 6 0 0"), nullptr);
+    fileRow3.appendChild(makeTextBtn(TRANS("Recent"), "recent-btn", "0 6 0 0"), nullptr);
     fileRow3.appendChild(makeTextBtn(TRANS("Info"), "song-info-btn", "0"), nullptr);
     presetCard.appendChild(fileRow3, nullptr);
 
@@ -364,7 +367,7 @@ juce::ValueTree makeControlsPanelTree() {
 
     auto adsrTitle = text(TRANS("ADSR Curve"), "adsr-curve-title");
     adsrTitle.setProperty("height", 14, nullptr);
-    adsrTitle.setProperty("margin", "0 0 4 0", nullptr);
+    adsrTitle.setProperty("margin", "0 0 6 0", nullptr);
     adsrCard.appendChild(adsrTitle, nullptr);
 
     auto curve = node("AdsrCurve", "adsr-curve");
@@ -398,7 +401,7 @@ juce::ValueTree makeControlsPanelTree() {
 
     auto transportGrid2 = flexRow("transport-grid-2");
     transportGrid2.setProperty("height", 42, nullptr);
-    transportGrid2.setProperty("margin", "0 0 10 0", nullptr);
+    transportGrid2.setProperty("margin", "0 0 8 0", nullptr);
     transportGrid2.appendChild(makeIconBtn("StopButton", "stop-btn", "0 6 0 0"), nullptr);
     transportGrid2.appendChild(makeIconBtn("BackButton", "back-btn", "0"), nullptr);
     transportCard.appendChild(transportGrid2, nullptr);
@@ -406,11 +409,11 @@ juce::ValueTree makeControlsPanelTree() {
     // Speed Slider Area — horizontal slider matching the reference design
     auto speedHeader = text(TRANS("Playback Speed"), "speed-label");
     speedHeader.setProperty("height", 14, nullptr);
-    speedHeader.setProperty("margin", "0 0 2 0", nullptr);
+    speedHeader.setProperty("margin", "0 0 4 0", nullptr);
     transportCard.appendChild(speedHeader, nullptr);
 
     auto speedSlider = node("SpeedSlider", "speed-knob");
-    speedSlider.setProperty("height", 26, nullptr);
+    speedSlider.setProperty("height", 30, nullptr);
     transportCard.appendChild(speedSlider, nullptr);
 
     panel.appendChild(transportCard, nullptr);
