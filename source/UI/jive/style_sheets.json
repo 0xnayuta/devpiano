@@ -5,8 +5,7 @@
     "font-size": 14
   },
   "Text": {
-    "foreground": "#EEEEEE",
-    "font-size": 14
+    "foreground": "#EEEEEE"
   },
   "Button": {
     "background": "#2D3035",
@@ -58,8 +57,7 @@
     }
   },
   "Label": {
-    "foreground": "#EEEEEE",
-    "font-size": 14
+    "foreground": "#EEEEEE"
   },
   "#status-bar": {
     "background": "#1D1F23",

@@ -37,6 +37,7 @@ public:
         testKeyboardAreaTreeInterprets();
         testRootLayoutInterprets();
         testWindowRuleFontSizeInheritsToText();
+        testRealStyleSheetWindowFontSizeActsAsGlobalDefault();
         // Release styles owned by the tests once all trees are gone.
         devpiano::ui::jive::StyleCatalog::get().releaseOwnedStyles();
     }
@@ -513,6 +514,131 @@ private:
         const auto heightAt7 = text->getFont().getHeight();
         expectWithinAbsoluteError(heightAt7 / heightAt32, 7.0f / 32.0f, 0.02f,
                                   "font-size must scale down after second hot reload");
+    }
+
+    void testRealStyleSheetWindowFontSizeActsAsGlobalDefault() {
+        beginTest("real style_sheets.json: #window font-size is the global default");
+
+        // Load the ACTUAL shipped style sheet (found via CWD or exe walk-up).
+        juce::File styleFile
+            = juce::File::getCurrentWorkingDirectory().getChildFile("source/UI/jive/style_sheets.json");
+        if (!styleFile.existsAsFile()) {
+            auto dir = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
+            for (int i = 0; i < 4 && !styleFile.existsAsFile(); ++i) {
+                styleFile = dir.getChildFile("source/UI/jive/style_sheets.json");
+                dir = dir.getParentDirectory();
+            }
+        }
+        if (!styleFile.existsAsFile())
+            return; // not a repo checkout; skip
+
+        auto json = juce::JSON::parse(styleFile);
+        expect(!json.isVoid(), "real style_sheets.json must parse");
+        if (json.isVoid())
+            return;
+
+        ::jive::Interpreter interpreter;
+        auto& factory = interpreter.getComponentFactory();
+        factory.set("SettingsButton",
+                    [] { return std::make_unique<juce::DrawableButton>("s", juce::DrawableButton::ImageFitted); });
+        factory.set("PathEditor", [] { return std::make_unique<juce::TextEditor>(); });
+        factory.set("ListEditor", [] { return std::make_unique<juce::TextEditor>(); });
+        factory.set("DevKnob", [] { return std::make_unique<juce::Slider>(); });
+        factory.set("AdsrCurve", [] { return std::make_unique<juce::Component>(); });
+        for (const char* type : { "RecordButton", "PlayButton", "StopButton", "BackButton" })
+            factory.set(type, [] { return std::make_unique<juce::TextButton>(); });
+        juce::MidiKeyboardState keyboardState;
+        factory.set("CustomKeyboard", [&keyboardState] {
+            auto viewport = std::make_unique<juce::Viewport>();
+            auto keyboard = std::make_unique<jive::TextComponent>();
+            viewport->setViewedComponent(keyboard.release(), true);
+            return viewport;
+        });
+        factory.set("StatusBarMidiDot", [] { return std::make_unique<juce::Component>(); });
+
+        auto& catalog = devpiano::ui::jive::StyleCatalog::get();
+        catalog.loadFromJSON(json);
+
+        auto tree = devpiano::ui::jive::makeRootLayout();
+        catalog.applyToTree(tree);
+
+        // #title must still override the global default (18 in the shipped file).
+        const std::function<juce::ValueTree(const juce::ValueTree&, const juce::String&)> findById
+            = [&](const juce::ValueTree& root, const juce::String& id) -> juce::ValueTree {
+            if (root.getProperty("id").toString() == id)
+                return root;
+            for (auto child : root) {
+                if (auto found = findById(child, id); found.isValid())
+                    return found;
+            }
+            return {};
+        };
+        const auto titleNode = findById(tree, "title");
+        expect(titleNode.isValid(), "title node missing");
+        if (titleNode.isValid()) {
+            auto* titleStyle = dynamic_cast<::jive::Object*>(titleNode["style"].getObject());
+            expect(titleStyle != nullptr, "title must carry a style object");
+            if (titleStyle != nullptr)
+                expectEquals(titleStyle->getProperty("font-size").toString(), juce::String("18"));
+        }
+
+        auto item = interpreter.interpret(tree);
+        expect(item != nullptr, "root layout interpretation failed");
+        if (item == nullptr)
+            return;
+
+        juce::Component host;
+        host.setBounds(0, 0, 1120, 760);
+        host.addAndMakeVisible(item->getComponent().get());
+        item->getComponent()->setBounds(host.getLocalBounds());
+
+        // Find the title (explicit font-size) and one inherited Text node.
+        auto* titleItem = ::jive::findItemWithID(*item, "title");
+        expect(titleItem != nullptr, "title item not found");
+        if (titleItem == nullptr)
+            return;
+
+        auto* titleText = dynamic_cast<jive::TextComponent*>(titleItem->getComponent().get());
+        expect(titleText != nullptr, "title component is not a TextComponent");
+        if (titleText == nullptr)
+            return;
+
+        // An inherited text node: any Text component that is not the title
+        // (e.g. the settings button label) must NOT carry its own font-size,
+        // so it inherits the #window default.
+        jive::TextComponent* inheritedText = nullptr;
+        const std::function<void(::jive::GuiItem&)> findInheritedText = [&](::jive::GuiItem& guiItem) {
+            if (auto* text = dynamic_cast<jive::TextComponent*>(guiItem.getComponent().get())) {
+                if (guiItem.state.getProperty("id").toString() != "title" && inheritedText == nullptr)
+                    inheritedText = text;
+            }
+            for (auto* child : guiItem.getChildren())
+                findInheritedText(*child);
+        };
+        findInheritedText(*item);
+        expect(inheritedText != nullptr, "no inherited Text component found");
+        if (inheritedText == nullptr)
+            return;
+
+        const auto titleHeightBefore = titleText->getFont().getHeight();
+        const auto inheritedHeightBefore = inheritedText->getFont().getHeight();
+        expect(inheritedHeightBefore > 0.0f, "inherited text must have a font");
+        if (inheritedHeightBefore <= 0.0f)
+            return;
+
+        // Hot reload: bump #window font-size to 32. Inherited text must scale
+        // by 32/14 while the title keeps its explicit 18.
+        if (auto* windowRule = json.getDynamicObject()->getProperty("#window").getDynamicObject())
+            windowRule->setProperty("font-size", 32);
+        catalog.loadFromJSON(json);
+        catalog.refreshStyles(item->state);
+
+        const auto titleHeightAfter = titleText->getFont().getHeight();
+        const auto inheritedHeightAfter = inheritedText->getFont().getHeight();
+        expectWithinAbsoluteError(inheritedHeightAfter / inheritedHeightBefore, 32.0f / 14.0f, 0.02f,
+                                  "inherited text must scale with #window font-size");
+        expectWithinAbsoluteError(titleHeightAfter / titleHeightBefore, 1.0f, 0.02f,
+                                  "title must keep its explicit #title font-size");
     }
 };
 
