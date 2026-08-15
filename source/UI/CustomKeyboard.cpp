@@ -451,6 +451,19 @@ void CustomKeyboard::mouseDown(const juce::MouseEvent& e) {
     if (note < 0)
         return;
 
+    // 右键单击：打开按键绑定编辑器，不触发发音。
+    // 左键双击容易与快速连按同一键冲突（第一击会先发一个音，连按会误开
+    // 编辑器），因此编辑器改由右键独占触发，左键只负责弹琴。
+    if (e.mods.isRightButtonDown()) {
+        if (onBindingEditRequested)
+            onBindingEditRequested(note);
+        return;
+    }
+
+    // 仅左键参与弹琴；中键等其它按钮不发声、不改变状态。
+    if (!e.mods.isLeftButtonDown())
+        return;
+
     lastMouseDownNote = note;
 
     // Immediately visualise the press
@@ -517,14 +530,6 @@ void CustomKeyboard::mouseDrag(const juce::MouseEvent& e) {
         onNoteOn(note, ch);
     }
     ensureTimerRunning();
-}
-
-void CustomKeyboard::mouseDoubleClick(const juce::MouseEvent& e) {
-    juce::ignoreUnused(e);
-
-    auto note = findNoteAt(e.getPosition());
-    if (note >= 0 && onBindingEditRequested)
-        onBindingEditRequested(note);
 }
 
 // ============================================================================

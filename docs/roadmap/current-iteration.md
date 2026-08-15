@@ -113,7 +113,7 @@ melatonin_inspector (DEBUG only): 运行时可视化检查与编辑
   - [ ] Performance Preset CRUD + 快捷键
   - [ ] 中英文语言切换
   - [ ] 窗口缩放（JIVE Flex/Grid 自适应验证）
-  - [ ] KeyBindingEditDialog 双击键 → 编辑 → 保存
+  - [ ] KeyBindingEditDialog 右键点击键 → 编辑 → 保存
   - [ ] PerformanceMetadataDialog 编辑 → 保存
   - [ ] SettingsComponent 各项设置修改 → 保存 → 重启恢复
 

@@ -22,7 +22,7 @@ struct KeyBindingEditResult {
 // Modal dialog for editing a computer-key → MIDI-note binding,
 // plus per-key custom label and colour.
 //
-// Launched by double-clicking a key on the CustomKeyboard.
+// Launched by right-clicking a key on the CustomKeyboard.
 // Shows the current mapping for that MIDI note, lets the user change
 // the target MIDI note, channel, velocity, custom label, and custom colour.
 // ============================================================================

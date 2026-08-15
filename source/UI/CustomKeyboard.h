@@ -16,7 +16,7 @@
 //  - Colour modes: classic, channel, velocity
 //  - Note display modes: doReMi, fixedDo, noteName
 //  - Mouse click → note on/off
-//  - Double-click → binding editor (Phase 7-7)
+//  - Right-click → binding editor (Phase 7-7)
 // Steps completed: 1-4 (geometry + paint + mouse + fade), Group A (key labels +
 // note display mode).  Next: Group B (channel/velocity colour modes).
 // ============================================================================
@@ -55,7 +55,6 @@ private:
     void mouseDown(const juce::MouseEvent& e) override;
     void mouseUp(const juce::MouseEvent& e) override;
     void mouseDrag(const juce::MouseEvent& e) override;
-    void mouseDoubleClick(const juce::MouseEvent& e) override;
 
     // juce::Timer
 
