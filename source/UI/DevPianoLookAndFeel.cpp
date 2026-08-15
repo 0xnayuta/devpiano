@@ -312,7 +312,9 @@ void DevPianoLookAndFeel::drawLinearSlider(juce::Graphics& g, int x, int y, int 
         const juce::StringArray labels { "0.5", "0.75", "1.0", "1.5", "2.0" };
         g.setFont(juce::FontOptions(9.0f));
         g.setColour(juce::Colour(0xFF707888));
-        const float labelY = tickY + 3.0f;
+        // Extra clearance below the ticks so the 8x16 thumb never overlaps
+        // the value labels.
+        const float labelY = tickY + 6.0f;
         const auto span = static_cast<float>(slider.getMaximum() - slider.getMinimum());
         for (const auto& label : labels) {
             const auto lx = juce::jlimit(

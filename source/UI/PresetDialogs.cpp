@@ -73,9 +73,12 @@ public:
         r.removeFromTop(14);
 
         auto btnRow = r.removeFromTop(28);
-        okButton.setBounds(btnRow.removeFromLeft(80));
+        // Right-aligned button group: confirm (OK) left, cancel right.
+        constexpr int btnW = 80;
+        btnRow.removeFromLeft(btnRow.getWidth() - (btnW * 2 + 8));
+        okButton.setBounds(btnRow.removeFromLeft(btnW));
         btnRow.removeFromLeft(8);
-        cancelButton.setBounds(btnRow.removeFromLeft(80));
+        cancelButton.setBounds(btnRow.removeFromLeft(btnW));
     }
 
 private:
@@ -127,9 +130,12 @@ public:
         r.removeFromTop(12);
 
         auto btnRow = r.removeFromTop(28);
-        cancelButton.setBounds(btnRow.removeFromLeft(80));
+        // Right-aligned button group: affirmative (Delete/OK) left, cancel right.
+        constexpr int btnW = 80;
+        btnRow.removeFromLeft(btnRow.getWidth() - (btnW * 2 + 8));
+        okButton.setBounds(btnRow.removeFromLeft(btnW));
         btnRow.removeFromLeft(8);
-        okButton.setBounds(btnRow.removeFromLeft(80));
+        cancelButton.setBounds(btnRow.removeFromLeft(btnW));
     }
 
 private:
