@@ -98,40 +98,58 @@ juce::String DesignTokens::parseString(juce::StringRef /*section*/, juce::String
 // ── Colors ─────────────────────────────────────────────────────
 
 juce::Colour DesignTokens::mainBg() const {
-    return parseColor("main-bg", juce::Colour(0xff1a1c1e));
+    return parseColor("main-bg", juce::Colour(0xff111316));
 }
 juce::Colour DesignTokens::panelBg() const {
-    return parseColor("panel-bg", juce::Colour(0xff24262a));
+    return parseColor("panel-bg", juce::Colour(0xff181a1f));
 }
 juce::Colour DesignTokens::controlBg() const {
-    return parseColor("control-bg", juce::Colour(0xff2d3035));
+    return parseColor("control-bg", juce::Colour(0xff22252c));
 }
 juce::Colour DesignTokens::primary() const {
-    return parseColor("primary", juce::Colour(0xff00b4d8));
+    return parseColor("primary", juce::Colour(0xff00c8f0));
 }
 juce::Colour DesignTokens::primaryAlpha30() const {
-    return parseColor("primary-alpha-30", juce::Colour(0xff00b4d8).withAlpha(0.3f));
+    return parseColor("primary-alpha-30", juce::Colour(0xff00c8f0).withAlpha(0.3f));
 }
 juce::Colour DesignTokens::recordActive() const {
-    return parseColor("record-active", juce::Colour(0xffe07b3c));
+    return parseColor("record-active", juce::Colour(0xffe05345));
 }
 juce::Colour DesignTokens::playActive() const {
-    return parseColor("play-active", juce::Colour(0xff4ecdc4));
+    return parseColor("play-active", juce::Colour(0xff2ecc71));
 }
 juce::Colour DesignTokens::textPrimary() const {
-    return parseColor("text-primary", juce::Colour(0xffeeeeee));
+    return parseColor("text-primary", juce::Colour(0xfff0f2f5));
 }
 juce::Colour DesignTokens::textSecondary() const {
-    return parseColor("text-secondary", juce::Colour(0xff999999));
+    return parseColor("text-secondary", juce::Colour(0xffa0a6b2));
 }
 juce::Colour DesignTokens::textDisabled() const {
-    return parseColor("text-disabled", juce::Colour(0xff555555));
+    return parseColor("text-disabled", juce::Colour(0xff555b66));
 }
 juce::Colour DesignTokens::highlightOverlay() const {
-    return parseColor("highlight-overlay", juce::Colours::white.withAlpha(0.08f));
+    return parseColor("highlight-overlay", juce::Colours::white.withAlpha(0.094f));
 }
 juce::Colour DesignTokens::pressOverlay() const {
-    return parseColor("press-overlay", juce::Colours::black.withAlpha(0.18f));
+    return parseColor("press-overlay", juce::Colours::black.withAlpha(0.2f));
+}
+juce::Colour DesignTokens::rotaryBgTrack() const {
+    return parseColor("rotary-bg-track", juce::Colour(0xff181a1e));
+}
+juce::Colour DesignTokens::rotaryCapTop() const {
+    return parseColor("rotary-cap-top", juce::Colour(0xff353942));
+}
+juce::Colour DesignTokens::rotaryCapBottom() const {
+    return parseColor("rotary-cap-bottom", juce::Colour(0xff1a1c20));
+}
+juce::Colour DesignTokens::rotaryCapRim() const {
+    return parseColor("rotary-cap-rim", juce::Colour(0xff101114));
+}
+juce::Colour DesignTokens::rotaryRingTop() const {
+    return parseColor("rotary-ring-top", juce::Colour(0xff565c69));
+}
+juce::Colour DesignTokens::rotaryRingBottom() const {
+    return parseColor("rotary-ring-bottom", juce::Colour(0xff141518));
 }
 
 // ── Typography ─────────────────────────────────────────────────
