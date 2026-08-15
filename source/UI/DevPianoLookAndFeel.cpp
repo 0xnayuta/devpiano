@@ -316,14 +316,23 @@ void DevPianoLookAndFeel::drawLinearSlider(juce::Graphics& g, int x, int y, int 
         // the value labels.
         const float labelY = tickY + 6.0f;
         const auto span = static_cast<float>(slider.getMaximum() - slider.getMinimum());
-        for (const auto& label : labels) {
-            const auto lx = juce::jlimit(
-                (float)x + 15.0f, (float)x + trackW - 15.0f,
-                (float)x
-                    + (static_cast<float>(label.getFloatValue()) - static_cast<float>(slider.getMinimum())) / span
-                        * trackW);
-            g.drawText(label, juce::Rectangle<float>(lx - 15.0f, labelY, 30.0f, 9.0f), juce::Justification::centred,
-                       false);
+        for (int i = 0; i < labels.size(); ++i) {
+            const auto& label = labels[i];
+            const auto posX = (float)x
+                + (static_cast<float>(label.getFloatValue()) - static_cast<float>(slider.getMinimum())) / span * trackW;
+            if (i == 0) {
+                // First label sits at the track start; draw left-aligned so it
+                // stays fully inside the track instead of clamping its centre
+                // onto the next label.
+                g.drawText(label, juce::Rectangle<float>(posX, labelY, 30.0f, 9.0f), juce::Justification::left, false);
+            } else if (i == labels.size() - 1) {
+                // Last label sits at the track end; draw right-aligned.
+                g.drawText(label, juce::Rectangle<float>(posX - 30.0f, labelY, 30.0f, 9.0f), juce::Justification::right,
+                           false);
+            } else {
+                g.drawText(label, juce::Rectangle<float>(posX - 15.0f, labelY, 30.0f, 9.0f),
+                           juce::Justification::centred, false);
+            }
         }
     }
 
