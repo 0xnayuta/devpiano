@@ -626,20 +626,15 @@ public:
         if (combo == nullptr)
             return;
 
-        // Exactly what updatePluginPanelState does: clear, add options, select.
-        item->state.removeAllChildren(nullptr);
-        auto option = juce::ValueTree("Option");
-        option.setProperty("text", "pianoteq 9", nullptr);
-        option.setProperty("enabled", true, nullptr);
-        item->state.addChild(option, 0, nullptr);
-        item->state.setProperty("selected", 0, nullptr);
+        // Exactly what updatePluginPanelState does: clear with dontSendNotification, add items, select.
+        combo->clear(juce::dontSendNotification);
+        combo->addItem("pianoteq 9", 1);
+        combo->setSelectedItemIndex(0, juce::dontSendNotification);
 
         expectEquals(combo->getNumItems(), 1);
         expectEquals(combo->getSelectedItemIndex(), 0, "selected index");
         expect(combo->getText().isNotEmpty(), "collapsed text not empty: '" + combo->getText() + "'");
         expectEquals(combo->getText(), juce::String("pianoteq 9"), "collapsed text");
-        juce::Logger::writeToLog("COMBO text='" + combo->getText()
-                                 + "' sel=" + juce::String(combo->getSelectedItemIndex()));
     }
 };
 

@@ -185,7 +185,7 @@ juce::ValueTree makePluginPanelTree() {
     actionRow.appendChild(unloadBtn, nullptr);
 
     auto editorBtn = button("Open Editor", "editor-btn");
-    editorBtn.setProperty("width", 118, nullptr);
+    editorBtn.setProperty("width", 124, nullptr);
     editorBtn.setProperty("margin", "0 6 0 0", nullptr);
     actionRow.appendChild(editorBtn, nullptr);
 
@@ -367,7 +367,8 @@ juce::ValueTree makeKeyboardAreaTree() {
 
 juce::ValueTree makeRootLayout() {
     auto root = flexColumn("root");
-
+    root.setProperty("width", 1120, nullptr);
+    root.setProperty("height", 760, nullptr);
     auto mainArea = flexColumn("main-area");
     mainArea.setProperty("flex-grow", 1.0, nullptr);
     mainArea.setProperty("padding", "16", nullptr);

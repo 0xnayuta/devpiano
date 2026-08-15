@@ -323,13 +323,23 @@ void MainComponent::initialiseUi() {
                 combo->setTextWhenNothingSelected(TRANS("Select a scanned plugin..."));
                 combo->setWantsKeyboardFocus(false);
                 combo->onChange = [this, combo] {
+                    if (isUpdatingPluginSelector)
+                        return;
                     if (combo->getSelectedItemIndex() >= 0)
                         pluginOperationController->loadSelectedPlugin();
                 };
             }
             if (auto* combo = findCombo("plugin-filter-combo")) {
+                combo->clear(juce::dontSendNotification);
+                combo->addItem(TRANS("All"), 1);
+                combo->addItem(TRANS("Instruments Only"), 2);
+                combo->addItem(TRANS("Effects Only"), 3);
+                combo->setSelectedId(1, juce::dontSendNotification);
                 combo->setWantsKeyboardFocus(false);
-                combo->onChange = [this] { refreshPluginUiState(); };
+                combo->onChange = [this] {
+                    if (!isUpdatingPluginSelector)
+                        refreshPluginUiState();
+                };
             }
             if (auto* item = findItem("plugin-path-editor"))
                 if (auto* editor = dynamic_cast<juce::TextEditor*>(item->getComponent().get()))

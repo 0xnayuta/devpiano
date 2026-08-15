@@ -16,6 +16,7 @@ void setButtonLabel(::jive::GuiItem* buttonItem, const juce::String& text) {
     for (auto child : buttonItem->state)
         if (child.getType() == juce::Identifier("Text")) {
             child.setProperty("text", text, nullptr);
+            child.setProperty("word-wrap", "none", nullptr);
             return;
         }
 }
@@ -29,13 +30,14 @@ juce::String ellipsiseForStatus(const juce::String& text, float maxWidth) {
     if (text.isEmpty())
         return text;
 
+    const auto safeWidth = juce::jmax(20.0f, maxWidth - 16.0f);
     const juce::Font font(juce::FontOptions(14.0f));
-    if (juce::GlyphArrangement::getStringWidth(font, text) <= maxWidth)
+    if (juce::GlyphArrangement::getStringWidth(font, text) <= safeWidth)
         return text;
 
     const auto ellipsis = juce::String::charToString(0x2026);
     juce::String result = text;
-    while (result.length() > 1 && juce::GlyphArrangement::getStringWidth(font, result + ellipsis) > maxWidth)
+    while (result.length() > 1 && juce::GlyphArrangement::getStringWidth(font, result + ellipsis) > safeWidth)
         result = result.dropLastCharacters(1);
 
     return result + ellipsis;
@@ -124,6 +126,8 @@ void MainComponent::updatePluginPanelState(const PluginPanelState& state) {
     if (jiveRootItem == nullptr)
         return;
 
+    const juce::ScopedValueSetter<bool> svs(isUpdatingPluginSelector, true);
+
     auto* selectorItem = jive::findItemWithID(*jiveRootItem, "plugin-selector");
     auto* statusItem = jive::findItemWithID(*jiveRootItem, "plugin-status-label");
     auto* listItem = jive::findItemWithID(*jiveRootItem, "plugin-list-editor");
@@ -131,6 +135,8 @@ void MainComponent::updatePluginPanelState(const PluginPanelState& state) {
 
     auto* selectorCombo
         = selectorItem != nullptr ? dynamic_cast<juce::ComboBox*>(selectorItem->getComponent().get()) : nullptr;
+    auto* filterCombo
+        = filterItem != nullptr ? dynamic_cast<juce::ComboBox*>(filterItem->getComponent().get()) : nullptr;
     auto* listEditor = listItem != nullptr ? dynamic_cast<juce::TextEditor*>(listItem->getComponent().get()) : nullptr;
 
     const auto setEnabled = [](::jive::GuiItem* item, bool enabled) {
@@ -139,10 +145,10 @@ void MainComponent::updatePluginPanelState(const PluginPanelState& state) {
     };
 
     if (state.isCurrentlyScanning) {
-        if (selectorItem != nullptr)
-            selectorItem->state.removeAllChildren(nullptr);
-        if (selectorCombo != nullptr)
+        if (selectorCombo != nullptr) {
+            selectorCombo->clear(juce::dontSendNotification);
             selectorCombo->setTextWhenNothingSelected(TRANS("Scanning..."));
+        }
         if (listEditor != nullptr) {
             auto scanText = TRANS("Scanning VST3 plugins...") + "\n";
             scanText << (state.scanningPluginName.isNotEmpty() ? state.scanningPluginName : TRANS("Preparing..."));
@@ -153,49 +159,33 @@ void MainComponent::updatePluginPanelState(const PluginPanelState& state) {
         setEnabled(jive::findItemWithID(*jiveRootItem, "load-btn"), false);
     } else {
         const auto& names = [&]() -> const juce::StringArray& {
-            // JIVE "selected" is a 0-based item index (All=0, Instruments=1, Effects=2).
-            const auto filterId = filterItem != nullptr ? filterItem->state["selected"].toString().getIntValue() : 0;
-            if (filterId == 1 && !state.instrumentPluginNames.isEmpty())
+            const auto filterId = (filterCombo != nullptr) ? filterCombo->getSelectedId() : 1;
+            if (filterId == 2 && !state.instrumentPluginNames.isEmpty())
                 return state.instrumentPluginNames;
-            if (filterId == 2 && !state.effectPluginNames.isEmpty())
+            if (filterId == 3 && !state.effectPluginNames.isEmpty())
                 return state.effectPluginNames;
             return state.availablePluginNames;
         }();
 
-        if (selectorItem != nullptr) {
-            selectorItem->state.removeAllChildren(nullptr);
+        if (selectorCombo != nullptr) {
+            selectorCombo->clear(juce::dontSendNotification);
+            selectorCombo->setTextWhenNothingSelected(TRANS("Select a scanned plugin..."));
+
             auto selectedIndex = -1;
-            auto index = 0;
-            for (const auto& name : names) {
-                auto option = juce::ValueTree("Option");
-                option.setProperty("text", name, nullptr);
-                option.setProperty("enabled", true, nullptr); // JIVE defaults to false
-                selectorItem->state.addChild(option, index, nullptr);
-                if (name.equalsIgnoreCase(state.preferredSelection))
-                    selectedIndex = index;
-                ++index;
+            for (int i = 0; i < names.size(); ++i) {
+                selectorCombo->addItem(names[i], i + 1);
+                if (names[i].equalsIgnoreCase(state.preferredSelection))
+                    selectedIndex = i;
             }
-            const auto finalIndex = names.isEmpty() ? -1 : (selectedIndex >= 0 ? selectedIndex : 0);
-            selectorItem->state.setProperty("selected", finalIndex, nullptr);
 
-            // Synchronously restore the ComboBox label (bypasses the JIVE
-            // Property chain so the text is correct even if an async change
-            // notification later overwrites "selected" with -1).
-            if (selectorCombo != nullptr)
-                selectorCombo->setSelectedItemIndex(juce::jmax(0, finalIndex), juce::dontSendNotification);
-
-            // And re-assert the property after pending async change messages
-            // have been dispatched (ValueTree is ref-counted, so the lambda
-            // outlives the tree safely — isCurrent()/isValid() guards).
-            auto selectorState = selectorItem->state;
-            juce::MessageManager::callAsync([selectorState, finalIndex]() mutable {
-                if (selectorState.isValid())
-                    selectorState.setProperty("selected", finalIndex, nullptr);
-            });
+            if (names.isEmpty())
+                selectorCombo->setSelectedItemIndex(-1, juce::dontSendNotification);
+            else if (selectedIndex >= 0)
+                selectorCombo->setSelectedItemIndex(selectedIndex, juce::dontSendNotification);
+            else
+                selectorCombo->setSelectedItemIndex(0, juce::dontSendNotification);
         }
 
-        if (selectorCombo != nullptr)
-            selectorCombo->setTextWhenNothingSelected(TRANS("Select a scanned plugin..."));
         if (listEditor != nullptr)
             listEditor->setText(TRANS(state.pluginListText), juce::dontSendNotification);
 
@@ -208,33 +198,10 @@ void MainComponent::updatePluginPanelState(const PluginPanelState& state) {
             item->state.setProperty("enabled", true, nullptr);
     }
 
-    // Status line: formats + scan summary + loaded plugin info.
-    auto text = TRANS(state.availableFormatsDescription);
-    if (state.supportsVst3)
-        text << TRANS(" [VST3 ready]");
-
-    if (state.isCurrentlyScanning) {
-        text << TRANS(" | Scanning: ") << state.scanningPluginName << "...";
-    } else {
-        auto summary = state.lastScanSummary;
-        if (summary.startsWith("VST3 scan complete: ") && !summary.contains("no plugins")) {
-            auto resultSuffix = (state.scanFailedCount > 0) ? TRANS(" failed (see log).") : TRANS(" failed.");
-            text << " | " << TRANS("VST3 scan complete: ") << juce::String(state.scanPluginCount)
-                 << TRANS(" plugin(s), ") << juce::String(state.scanFailedCount) << resultSuffix;
-        } else if (summary.startsWith("VST3 scan found no plugins; ")) {
-            text << " | " << TRANS("VST3 scan found no plugins: ") << juce::String(state.scanFailedCount)
-                 << TRANS(" failed (see log).");
-        } else if (summary.startsWith("Loaded cached plugin list: ")) {
-            text << " | " << TRANS("Loaded cached plugin list: ") << juce::String(state.scanPluginCount)
-                 << TRANS(" plugin(s).");
-        } else {
-            text << " | " << TRANS(summary);
-        }
-    }
-
+    // Status line: concise on-toolbar summary + full diagnostic info in tooltip.
+    auto text = juce::String();
     if (state.hasLoadedPlugin) {
-        text << TRANS(" | Loaded: ") << state.currentPluginName;
-
+        text << TRANS("Loaded: ") << state.currentPluginName;
         if (state.isPrepared)
             text << " @ " << juce::String(state.preparedSampleRate, 0) << " Hz / "
                  << juce::String(state.preparedBlockSize);
@@ -243,10 +210,30 @@ void MainComponent::updatePluginPanelState(const PluginPanelState& state) {
 
         if (state.isEditorOpen)
             text << TRANS(" | Editor open");
+    } else if (state.isCurrentlyScanning) {
+        text << TRANS("Scanning: ") << state.scanningPluginName << "...";
     } else if (state.lastLoadError.isNotEmpty() && state.lastLoadError != "No plugin load attempted yet.") {
-        text << TRANS(" | Load error: ") << state.lastLoadError;
+        text << TRANS("Load error: ") << state.lastLoadError;
     } else if (state.lastPluginName.isNotEmpty()) {
-        text << TRANS(" | Last plugin: ") << state.lastPluginName;
+        text << TRANS("Last plugin: ") << state.lastPluginName;
+    } else {
+        auto summary = state.lastScanSummary;
+        if (summary.startsWith("VST3 scan complete: ") && !summary.contains("no plugins")) {
+            auto resultSuffix = (state.scanFailedCount > 0) ? TRANS(" failed (see log).") : TRANS(" failed.");
+            text << TRANS("VST3 scan complete: ") << juce::String(state.scanPluginCount) << TRANS(" plugin(s), ")
+                 << juce::String(state.scanFailedCount) << resultSuffix;
+        } else if (summary.startsWith("VST3 scan found no plugins; ")) {
+            text << TRANS("VST3 scan found no plugins: ") << juce::String(state.scanFailedCount)
+                 << TRANS(" failed (see log).");
+        } else if (summary.startsWith("Loaded cached plugin list: ")) {
+            text << TRANS("Loaded cached plugin list: ") << juce::String(state.scanPluginCount) << TRANS(" plugin(s).");
+        } else if (summary.isNotEmpty()) {
+            text << TRANS(summary);
+        } else {
+            text << TRANS(state.availableFormatsDescription);
+            if (state.supportsVst3)
+                text << TRANS(" [VST3 ready]");
+        }
     }
 
     lastPluginStatusText = text;
@@ -284,12 +271,13 @@ void MainComponent::refreshPluginPanelTexts() {
     setButtonText("unload-btn", TRANS("Unload"));
     setButtonText("editor-btn", TRANS("Open Editor"));
     if (auto* item = jive::findItemWithID(*jiveRootItem, "plugin-filter-combo")) {
-        const juce::StringArray filterTexts { TRANS("All"), TRANS("Instruments Only"), TRANS("Effects Only") };
-        auto childIndex = 0;
-        for (auto child : item->state) {
-            if (childIndex < filterTexts.size())
-                child.setProperty("text", filterTexts[childIndex], nullptr);
-            ++childIndex;
+        if (auto* combo = dynamic_cast<juce::ComboBox*>(item->getComponent().get())) {
+            const auto prevId = combo->getSelectedId();
+            combo->clear(juce::dontSendNotification);
+            combo->addItem(TRANS("All"), 1);
+            combo->addItem(TRANS("Instruments Only"), 2);
+            combo->addItem(TRANS("Effects Only"), 3);
+            combo->setSelectedId(prevId > 0 ? prevId : 1, juce::dontSendNotification);
         }
     }
     if (auto* item = jive::findItemWithID(*jiveRootItem, "plugin-selector"))
