@@ -305,6 +305,11 @@ private:
             slider->setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
             return slider;
         });
+        interpreter.getComponentFactory().set("SpeedSlider", [] {
+            auto slider = std::make_unique<juce::Slider>();
+            slider->setSliderStyle(juce::Slider::LinearHorizontal);
+            return slider;
+        });
         interpreter.getComponentFactory().set("AdsrCurve", [] { return std::make_unique<juce::Component>(); });
         interpreter.getComponentFactory().set("RecordButton", [] { return std::make_unique<juce::TextButton>(); });
         interpreter.getComponentFactory().set("PlayButton", [] { return std::make_unique<juce::TextButton>(); });
@@ -386,6 +391,11 @@ private:
         factory.set("PathEditor", [] { return std::make_unique<juce::TextEditor>(); });
         factory.set("ListEditor", [] { return std::make_unique<juce::TextEditor>(); });
         factory.set("DevKnob", [] { return std::make_unique<juce::Slider>(); });
+        factory.set("SpeedSlider", [] {
+            auto slider = std::make_unique<juce::Slider>();
+            slider->setSliderStyle(juce::Slider::LinearHorizontal);
+            return slider;
+        });
         factory.set("AdsrCurve", [] { return std::make_unique<juce::Component>(); });
         for (const char* type : { "RecordButton", "PlayButton", "StopButton", "BackButton" })
             factory.set(type, [] { return std::make_unique<juce::TextButton>(); });
@@ -444,6 +454,11 @@ private:
         factory.set("PathEditor", [] { return std::make_unique<juce::TextEditor>(); });
         factory.set("ListEditor", [] { return std::make_unique<juce::TextEditor>(); });
         factory.set("DevKnob", [] { return std::make_unique<juce::Slider>(); });
+        factory.set("SpeedSlider", [] {
+            auto slider = std::make_unique<juce::Slider>();
+            slider->setSliderStyle(juce::Slider::LinearHorizontal);
+            return slider;
+        });
         factory.set("AdsrCurve", [] { return std::make_unique<juce::Component>(); });
         for (const char* type : { "RecordButton", "PlayButton", "StopButton", "BackButton" })
             factory.set(type, [] { return std::make_unique<juce::TextButton>(); });
@@ -544,6 +559,11 @@ private:
         factory.set("PathEditor", [] { return std::make_unique<juce::TextEditor>(); });
         factory.set("ListEditor", [] { return std::make_unique<juce::TextEditor>(); });
         factory.set("DevKnob", [] { return std::make_unique<juce::Slider>(); });
+        factory.set("SpeedSlider", [] {
+            auto slider = std::make_unique<juce::Slider>();
+            slider->setSliderStyle(juce::Slider::LinearHorizontal);
+            return slider;
+        });
         factory.set("AdsrCurve", [] { return std::make_unique<juce::Component>(); });
         for (const char* type : { "RecordButton", "PlayButton", "StopButton", "BackButton" })
             factory.set(type, [] { return std::make_unique<juce::TextButton>(); });
@@ -748,6 +768,11 @@ public:
         factory.set("PathEditor", [] { return std::make_unique<juce::Component>(); });
         factory.set("ListEditor", [] { return std::make_unique<juce::Component>(); });
         factory.set("DevKnob", [] { return std::make_unique<juce::Slider>(); });
+        factory.set("SpeedSlider", [] {
+            auto slider = std::make_unique<juce::Slider>();
+            slider->setSliderStyle(juce::Slider::LinearHorizontal);
+            return slider;
+        });
         factory.set("AdsrCurve", [] { return std::make_unique<juce::Component>(); });
         for (const char* type : { "RecordButton", "PlayButton", "StopButton", "BackButton" })
             factory.set(type, [] { return std::make_unique<juce::TextButton>(); });
@@ -836,7 +861,7 @@ public:
         expect(plugin->getComponent()->getHeight() == 40, "re-collapsed panel height");
         expect(plugin->getComponent()->isVisible(), "re-collapsed panel visible");
         expect(area->getComponent()->getHeight() == 0, "re-collapsed area height");
-        expect(actionRow != nullptr && actionRow->getComponent()->getHeight() == 28,
+        expect(actionRow != nullptr && actionRow->getComponent()->getHeight() == 30,
                "toolbar row keeps full height after collapse");
         expect(actionRow != nullptr && actionRow->getComponent()->isVisible(), "toolbar visible after collapse");
         expect(contentRow->getComponent()->getY() == contentRowYBefore,

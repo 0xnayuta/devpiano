@@ -141,22 +141,24 @@ juce::ValueTree makePluginPanelTree() {
 
     // ── Always-visible toolbar row: status | selector | filter | buttons ──
     auto actionRow = flexRow("plugin-action-row");
-    actionRow.setProperty("height", 28, nullptr);
+    actionRow.setProperty("height", 30, nullptr);
 
     auto status = text({}, "plugin-status-label");
     status.setProperty("flex-grow", 1.0, nullptr);
-    status.setProperty("height", 20, nullptr); // explicit: toolbar row centres, not stretches
+    status.setProperty("height", 26, nullptr); // explicit: toolbar row centres, not stretches
     status.setProperty("word-wrap", "none", nullptr); // single line, clipped like the native label
     status.setProperty("margin", "0 6 0 0", nullptr);
     actionRow.appendChild(status, nullptr);
 
     auto selector = node("ComboBox", "plugin-selector");
     selector.setProperty("width", 180, nullptr);
+    selector.setProperty("height", 26, nullptr);
     selector.setProperty("margin", "0 6 0 0", nullptr);
     actionRow.appendChild(selector, nullptr);
 
     auto filter = node("ComboBox", "plugin-filter-combo");
     filter.setProperty("width", 100, nullptr);
+    filter.setProperty("height", 26, nullptr);
     filter.setProperty("margin", "0 6 0 0", nullptr);
     const auto addOption = [&filter](const juce::String& text, int index) {
         auto opt = juce::ValueTree("Option");
@@ -176,21 +178,25 @@ juce::ValueTree makePluginPanelTree() {
 
     auto loadBtn = button(TRANS("Load"), "load-btn");
     loadBtn.setProperty("width", 72, nullptr);
+    loadBtn.setProperty("height", 26, nullptr);
     loadBtn.setProperty("margin", "0 6 0 0", nullptr);
     actionRow.appendChild(loadBtn, nullptr);
 
     auto unloadBtn = button(TRANS("Unload"), "unload-btn");
     unloadBtn.setProperty("width", 72, nullptr);
+    unloadBtn.setProperty("height", 26, nullptr);
     unloadBtn.setProperty("margin", "0 6 0 0", nullptr);
     actionRow.appendChild(unloadBtn, nullptr);
 
     auto editorBtn = button(TRANS("Open Editor"), "editor-btn");
     editorBtn.setProperty("width", 124, nullptr);
+    editorBtn.setProperty("height", 26, nullptr);
     editorBtn.setProperty("margin", "0 6 0 0", nullptr);
     actionRow.appendChild(editorBtn, nullptr);
 
     auto toggleBtn = button(juce::String::charToString(0x22EF), "toggle-btn");
     toggleBtn.setProperty("width", 30, nullptr);
+    toggleBtn.setProperty("height", 26, nullptr);
     actionRow.appendChild(toggleBtn, nullptr);
 
     panel.appendChild(actionRow, nullptr);
@@ -200,23 +206,27 @@ juce::ValueTree makePluginPanelTree() {
     expandedArea.setProperty("height", 0, nullptr);
 
     auto pathRow = flexRow("plugin-path-row");
-    pathRow.setProperty("height", 28, nullptr);
+    pathRow.setProperty("height", 30, nullptr);
 
     auto pathLabel = text(TRANS("VST3 Path"), "plugin-path-label");
     pathLabel.setProperty("width", 80, nullptr);
+    pathLabel.setProperty("height", 26, nullptr);
     pathRow.appendChild(pathLabel, nullptr);
 
     auto pathEditor = node("PathEditor", "plugin-path-editor");
     pathEditor.setProperty("flex-grow", 1.0, nullptr);
+    pathEditor.setProperty("height", 26, nullptr);
     pathRow.appendChild(pathEditor, nullptr);
 
     auto browseBtn = button("...", "browse-btn");
     browseBtn.setProperty("width", 40, nullptr);
+    browseBtn.setProperty("height", 26, nullptr);
     browseBtn.setProperty("margin", "0 0 0 6", nullptr);
     pathRow.appendChild(browseBtn, nullptr);
 
     auto scanBtn = button(TRANS("Scan VST3"), "scan-btn");
     scanBtn.setProperty("width", 96, nullptr);
+    scanBtn.setProperty("height", 26, nullptr);
     scanBtn.setProperty("margin", "0 0 0 6", nullptr);
     pathRow.appendChild(scanBtn, nullptr);
 
@@ -393,14 +403,14 @@ juce::ValueTree makeControlsPanelTree() {
     transportGrid2.appendChild(makeIconBtn("BackButton", "back-btn", "0"), nullptr);
     transportCard.appendChild(transportGrid2, nullptr);
 
-    // Speed Slider Area
+    // Speed Slider Area — horizontal slider matching the reference design
     auto speedHeader = text(TRANS("Playback Speed"), "speed-label");
     speedHeader.setProperty("height", 14, nullptr);
     speedHeader.setProperty("margin", "0 0 2 0", nullptr);
     transportCard.appendChild(speedHeader, nullptr);
 
-    auto speedSlider = node("DevKnob", "speed-knob");
-    speedSlider.setProperty("height", 46, nullptr);
+    auto speedSlider = node("SpeedSlider", "speed-knob");
+    speedSlider.setProperty("height", 26, nullptr);
     transportCard.appendChild(speedSlider, nullptr);
 
     panel.appendChild(transportCard, nullptr);
@@ -463,8 +473,8 @@ juce::ValueTree makeRootLayout() {
     keyboard.setProperty("flex-grow", 1.0, nullptr);
     keyboard.setProperty("flex-shrink", 0.0, nullptr);
     keyboard.setProperty("min-height", 90, nullptr);
-    keyboard.setProperty("max-height", 200, nullptr);
-    keyboard.setProperty("height", 200, nullptr);
+    keyboard.setProperty("max-height", 170, nullptr);
+    keyboard.setProperty("height", 170, nullptr);
     contentRow.appendChild(keyboard, nullptr);
     mainArea.appendChild(contentRow, nullptr);
     root.appendChild(mainArea, nullptr);
