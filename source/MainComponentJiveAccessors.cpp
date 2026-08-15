@@ -6,6 +6,8 @@
 // compiled in its translation unit.
 // ═══════════════════════════════════════════════════════════════════════════
 
+#include "UI/ComboSelection.h"
+
 namespace {
 
 /// JIVE Button's "text" property maps to Button::setTitle (accessibility),
@@ -177,12 +179,9 @@ void MainComponent::updatePluginPanelState(const PluginPanelState& state) {
             selectorCombo->clear(juce::dontSendNotification);
             selectorCombo->setTextWhenNothingSelected(TRANS("Select a scanned plugin..."));
 
-            auto selectedIndex = -1;
-            for (int i = 0; i < names.size(); ++i) {
+            auto selectedIndex = devpiano::ui::preferredNameIndex(names, state.preferredSelection);
+            for (int i = 0; i < names.size(); ++i)
                 selectorCombo->addItem(names[i], i + 1);
-                if (names[i].equalsIgnoreCase(state.preferredSelection))
-                    selectedIndex = i;
-            }
 
             if (names.isEmpty())
                 selectorCombo->setSelectedItemIndex(-1, juce::dontSendNotification);
@@ -383,7 +382,6 @@ void MainComponent::setControlsPresets(const juce::StringArray& presetIds, const
         return;
 
     const juce::ScopedValueSetter<bool> svs(isUpdatingPresets, true);
-
     auto* comboItem = jive::findItemWithID(*jiveRootItem, "preset-combo");
     auto* combo = comboItem != nullptr ? dynamic_cast<juce::ComboBox*>(comboItem->getComponent().get()) : nullptr;
 
@@ -391,12 +389,10 @@ void MainComponent::setControlsPresets(const juce::StringArray& presetIds, const
         combo->clear(juce::dontSendNotification);
         combo->setTextWhenNothingSelected(TRANS("Default"));
 
-        auto selectedIndex = 0;
+        const auto selectedIndex = devpiano::ui::presetIdIndex(presetIds, currentPresetId);
         for (int i = 0; i < presetIds.size(); ++i) {
             const auto displayName = (i < presetDisplayNames.size()) ? presetDisplayNames[i] : presetIds[i];
             combo->addItem(displayName, i + 1);
-            if (presetIds[i] == currentPresetId)
-                selectedIndex = i;
         }
 
         if (presetIds.isEmpty())

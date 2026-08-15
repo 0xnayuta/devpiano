@@ -1,5 +1,6 @@
 #include <JuceHeader.h>
 
+#include "UI/ComboSelection.h"
 #include "UI/DevPianoLookAndFeel.h"
 #include "UI/jive/DesignTokens.h"
 #include "UI/jive/LayoutModel.h"
@@ -958,10 +959,14 @@ public:
         if (combo == nullptr)
             return;
 
-        // Mirrors the JUCE calls updatePluginPanelState makes on the plugin
-        // selector (clear + placeholder + add + select; the
-        // preferred-selection and empty-list branches live in the production
-        // function and are not replayed here).
+        // updatePluginPanelState computes its selection via the pure
+        // devpiano::ui::preferredNameIndex function - test it directly.
+        expectEquals(devpiano::ui::preferredNameIndex({ "pianoteq 9", "surge XT" }, "surge xt"), 1,
+                     "preferred index matches case-insensitively");
+        expectEquals(devpiano::ui::preferredNameIndex({ "pianoteq 9" }, "missing"), -1, "no preferred match");
+
+        // The combo itself receives the same clear/placeholder/add/select
+        // sequence from the production function.
         combo->clear(juce::dontSendNotification);
         combo->setTextWhenNothingSelected("Select a scanned plugin...");
         combo->addItem("pianoteq 9", 1);
@@ -1068,9 +1073,14 @@ public:
         if (combo == nullptr)
             return;
 
-        // Mirrors the JUCE calls setControlsPresets makes on the preset combo
-        // (clear + placeholder + add + select; the empty-list branch lives in
-        // the production function and is not replayed here).
+        // setControlsPresets computes its selection via the pure
+        // devpiano::ui::presetIdIndex function - test it directly.
+        const juce::StringArray presetIds { "default", "grand-piano" };
+        expectEquals(devpiano::ui::presetIdIndex(presetIds, "grand-piano"), 1, "preset id match");
+        expectEquals(devpiano::ui::presetIdIndex(presetIds, "missing"), 0, "fallback to first entry");
+
+        // The combo itself receives the same clear/placeholder/add/select
+        // sequence from the production function.
         combo->clear(juce::dontSendNotification);
         combo->setTextWhenNothingSelected("Default");
         combo->addItem("Default", 1);
