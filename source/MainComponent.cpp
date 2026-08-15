@@ -298,6 +298,9 @@ void MainComponent::initialiseUi() {
                   factory.set(type, [&image, tooltip] {
                       auto btn = std::make_unique<juce::DrawableButton>(tooltip, juce::DrawableButton::ImageFitted);
                       btn->setImages(image.get());
+                      // Inset the icon area so large transport buttons keep
+                      // their size while the glyph renders at ~18 px.
+                      btn->setEdgeIndent(10);
                       btn->setTooltip(tooltip);
                       return btn;
                   });
@@ -419,6 +422,11 @@ void MainComponent::initialiseUi() {
             wireButton("play-btn", [this] { recordingSessionController->handlePlayClicked(); });
             wireButton("stop-btn", [this] { recordingSessionController->handleStopClicked(); });
             wireButton("back-btn", [this] { recordingSessionController->handleBackToStartClicked(); });
+            // Compact quick-transport row (top of transport card).
+            wireButton("quick-back-btn", [this] { recordingSessionController->handleBackToStartClicked(); });
+            wireButton("quick-play-btn", [this] { recordingSessionController->handlePlayClicked(); });
+            wireButton("quick-stop-btn", [this] { recordingSessionController->handleStopClicked(); });
+            wireButton("quick-settings-btn", [this] { showSettingsDialog(); });
             wireButton("export-midi-btn", [this] { recordingSessionController->handleExportMidiClicked(); });
             wireButton("export-wav-btn", [this] { recordingSessionController->handleExportWavClicked(); });
             wireButton("import-midi-btn", [this] { recordingSessionController->handleImportMidiClicked(); });

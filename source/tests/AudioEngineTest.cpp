@@ -25,10 +25,16 @@
 namespace {
 auto makeBlock(int numChannels, int numSamples, int startSample = 0)
     -> std::pair<juce::AudioBuffer<float>, juce::AudioSourceChannelInfo> {
-    juce::AudioBuffer<float> buf(numChannels, numSamples);
-    buf.clear();
-    juce::AudioSourceChannelInfo info(&buf, startSample, numSamples - startSample);
-    return { std::move(buf), info };
+    // NOTE: build the info AFTER moving the buffer into the pair, otherwise
+    // its AudioSourceChannelInfo keeps a dangling pointer to the moved-from
+    // temporary (use-after-move) — every getNextAudioBlock() call then reads
+    // garbage and can crash.
+    std::pair<juce::AudioBuffer<float>, juce::AudioSourceChannelInfo> result {
+        juce::AudioBuffer<float>(numChannels, numSamples), {}
+    };
+    result.first.clear();
+    result.second = juce::AudioSourceChannelInfo(&result.first, startSample, numSamples - startSample);
+    return result;
 }
 
 int countNonZeroSamples(const juce::AudioBuffer<float>& buf, int start, int n) {

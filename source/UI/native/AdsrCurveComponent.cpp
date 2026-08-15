@@ -92,10 +92,10 @@ void AdsrCurveComponent::drawAdsrCurve(juce::Graphics& g, float a, float d, floa
         g.drawText(text, labelBounds, juce::Justification::centred, false);
     };
 
-    drawPhaseLabel("Attack", p0.x, pA.x);
-    drawPhaseLabel("Decay", pA.x, pD.x);
-    drawPhaseLabel("Sustain", pD.x, pS.x);
-    drawPhaseLabel("Release", pS.x, pR.x);
+    drawPhaseLabel(TRANS("Attack"), p0.x, pA.x);
+    drawPhaseLabel(TRANS("Decay"), pA.x, pD.x);
+    drawPhaseLabel(TRANS("Sustain"), pD.x, pS.x);
+    drawPhaseLabel(TRANS("Release"), pS.x, pR.x);
 
     // ── 3. Smooth Bezier Curve Path ──
     juce::Path curvePath;

@@ -519,25 +519,31 @@ void MainComponent::refreshControlsTexts() {
     setText("decay-label", TRANS("Decay"));
     setText("sustain-label", TRANS("Sustain"));
     setText("release-label", TRANS("Release"));
-    setText("preset-label", TRANS("Preset"));
+    setText("preset-card-title", TRANS("Performance Preset"));
+    setText("adsr-curve-title", TRANS("ADSR Curve"));
+    setText("transport-card-title", TRANS("Transport Controls"));
     if (auto* item = jive::findItemWithID(*jiveRootItem, "preset-combo"))
         if (auto* combo = dynamic_cast<juce::ComboBox*>(item->getComponent().get()))
             combo->setTextWhenNothingSelected(TRANS("Default"));
-    setText("speed-label", TRANS("Speed"));
-    setButtonText("save-preset-btn", TRANS("Save As New"));
+    setText("speed-label", TRANS("Playback Speed"));
+    setButtonText("save-preset-btn", TRANS("New"));
     setButtonText("rename-preset-btn", TRANS("Rename"));
     setButtonText("delete-preset-btn", TRANS("Delete"));
     setTooltip("record-btn", TRANS("Record"));
     setTooltip("play-btn", TRANS("Play"));
     setTooltip("stop-btn", TRANS("Stop"));
     setTooltip("back-btn", TRANS("Back to Start"));
-    setButtonText("export-midi-btn", TRANS("Export MIDI"));
+    setTooltip("quick-back-btn", TRANS("Back to Start"));
+    setTooltip("quick-play-btn", TRANS("Play"));
+    setTooltip("quick-stop-btn", TRANS("Stop"));
+    setTooltip("quick-settings-btn", TRANS("Settings"));
+    setButtonText("export-midi-btn", TRANS("Export"));
     setButtonText("export-wav-btn", TRANS("Export WAV"));
-    setButtonText("import-midi-btn", TRANS("Import MIDI"));
+    setButtonText("import-midi-btn", TRANS("Import"));
     setButtonText("recent-btn", TRANS("Recent"));
     setButtonText("save-perf-btn", TRANS("Save"));
     setButtonText("open-perf-btn", TRANS("Open"));
-    setButtonText("song-info-btn", TRANS("Song Info"));
+    setButtonText("song-info-btn", TRANS("Info"));
 
     setRecordingControlsState(recordingControlsState);
 }

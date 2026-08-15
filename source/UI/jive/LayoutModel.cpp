@@ -174,17 +174,17 @@ juce::ValueTree makePluginPanelTree() {
     filter.setProperty("selected", 0, nullptr);
     actionRow.appendChild(filter, nullptr);
 
-    auto loadBtn = button("Load", "load-btn");
-    loadBtn.setProperty("width", 60, nullptr);
+    auto loadBtn = button(TRANS("Load"), "load-btn");
+    loadBtn.setProperty("width", 72, nullptr);
     loadBtn.setProperty("margin", "0 6 0 0", nullptr);
     actionRow.appendChild(loadBtn, nullptr);
 
-    auto unloadBtn = button("Unload", "unload-btn");
-    unloadBtn.setProperty("width", 80, nullptr);
+    auto unloadBtn = button(TRANS("Unload"), "unload-btn");
+    unloadBtn.setProperty("width", 72, nullptr);
     unloadBtn.setProperty("margin", "0 6 0 0", nullptr);
     actionRow.appendChild(unloadBtn, nullptr);
 
-    auto editorBtn = button("Open Editor", "editor-btn");
+    auto editorBtn = button(TRANS("Open Editor"), "editor-btn");
     editorBtn.setProperty("width", 124, nullptr);
     editorBtn.setProperty("margin", "0 6 0 0", nullptr);
     actionRow.appendChild(editorBtn, nullptr);
@@ -202,7 +202,7 @@ juce::ValueTree makePluginPanelTree() {
     auto pathRow = flexRow("plugin-path-row");
     pathRow.setProperty("height", 28, nullptr);
 
-    auto pathLabel = text("VST3 Path", "plugin-path-label");
+    auto pathLabel = text(TRANS("VST3 Path"), "plugin-path-label");
     pathLabel.setProperty("width", 80, nullptr);
     pathRow.appendChild(pathLabel, nullptr);
 
@@ -215,8 +215,8 @@ juce::ValueTree makePluginPanelTree() {
     browseBtn.setProperty("margin", "0 0 0 6", nullptr);
     pathRow.appendChild(browseBtn, nullptr);
 
-    auto scanBtn = button("Scan VST3", "scan-btn");
-    scanBtn.setProperty("width", 80, nullptr);
+    auto scanBtn = button(TRANS("Scan VST3"), "scan-btn");
+    scanBtn.setProperty("width", 96, nullptr);
     scanBtn.setProperty("margin", "0 0 0 6", nullptr);
     pathRow.appendChild(scanBtn, nullptr);
 
@@ -260,12 +260,12 @@ juce::ValueTree makeControlsPanelTree() {
     // Card 1: Presets & Performance Files (Left Card)
     // ═════════════════════════════════════════════════════════════════════════
     auto presetCard = flexColumn("preset-card");
-    presetCard.setProperty("width", 240, nullptr);
+    presetCard.setProperty("width", 270, nullptr);
     presetCard.setProperty("flex-shrink", 0.0, nullptr);
     presetCard.setProperty("padding", "10", nullptr);
     presetCard.setProperty("margin", "0 10 0 0", nullptr);
 
-    auto presetHeader = text("Performance Preset", "preset-card-title");
+    auto presetHeader = text(TRANS("Performance Preset"), "preset-card-title");
     presetHeader.setProperty("height", 16, nullptr);
     presetHeader.setProperty("margin", "0 0 6 0", nullptr);
     presetCard.appendChild(presetHeader, nullptr);
@@ -278,9 +278,9 @@ juce::ValueTree makeControlsPanelTree() {
     auto presetBtnRow = flexRow("preset-btn-row");
     presetBtnRow.setProperty("height", 26, nullptr);
     presetBtnRow.setProperty("margin", "0 0 12 0", nullptr);
-    presetBtnRow.appendChild(makeTextBtn("New", "save-preset-btn", "0 4 0 0"), nullptr);
-    presetBtnRow.appendChild(makeTextBtn("Rename", "rename-preset-btn", "0 4 0 0"), nullptr);
-    presetBtnRow.appendChild(makeTextBtn("Delete", "delete-preset-btn", "0"), nullptr);
+    presetBtnRow.appendChild(makeTextBtn(TRANS("New"), "save-preset-btn", "0 4 0 0"), nullptr);
+    presetBtnRow.appendChild(makeTextBtn(TRANS("Rename"), "rename-preset-btn", "0 4 0 0"), nullptr);
+    presetBtnRow.appendChild(makeTextBtn(TRANS("Delete"), "delete-preset-btn", "0"), nullptr);
     presetCard.appendChild(presetBtnRow, nullptr);
 
     // Spacer between presets and file actions
@@ -291,22 +291,22 @@ juce::ValueTree makeControlsPanelTree() {
     auto fileRow1 = flexRow("file-row-1");
     fileRow1.setProperty("height", 26, nullptr);
     fileRow1.setProperty("margin", "0 0 6 0", nullptr);
-    fileRow1.appendChild(makeTextBtn("Export", "export-midi-btn", "0 6 0 0"), nullptr);
-    fileRow1.appendChild(makeTextBtn("Import", "import-midi-btn", "0"), nullptr);
+    fileRow1.appendChild(makeTextBtn(TRANS("Export"), "export-midi-btn", "0 6 0 0"), nullptr);
+    fileRow1.appendChild(makeTextBtn(TRANS("Import"), "import-midi-btn", "0"), nullptr);
     presetCard.appendChild(fileRow1, nullptr);
 
     auto fileRow2 = flexRow("file-row-2");
     fileRow2.setProperty("height", 26, nullptr);
     fileRow2.setProperty("margin", "0 0 6 0", nullptr);
-    fileRow2.appendChild(makeTextBtn("Save", "save-perf-btn", "0 6 0 0"), nullptr);
-    fileRow2.appendChild(makeTextBtn("Open", "open-perf-btn", "0"), nullptr);
+    fileRow2.appendChild(makeTextBtn(TRANS("Save"), "save-perf-btn", "0 6 0 0"), nullptr);
+    fileRow2.appendChild(makeTextBtn(TRANS("Open"), "open-perf-btn", "0"), nullptr);
     presetCard.appendChild(fileRow2, nullptr);
 
     auto fileRow3 = flexRow("file-row-3");
     fileRow3.setProperty("height", 24, nullptr);
-    fileRow3.appendChild(makeTextBtn("Export WAV", "export-wav-btn", "0 4 0 0"), nullptr);
-    fileRow3.appendChild(makeTextBtn("Recent", "recent-btn", "0 4 0 0"), nullptr);
-    fileRow3.appendChild(makeTextBtn("Info", "song-info-btn", "0"), nullptr);
+    fileRow3.appendChild(makeTextBtn(TRANS("Export WAV"), "export-wav-btn", "0 4 0 0"), nullptr);
+    fileRow3.appendChild(makeTextBtn(TRANS("Recent"), "recent-btn", "0 4 0 0"), nullptr);
+    fileRow3.appendChild(makeTextBtn(TRANS("Info"), "song-info-btn", "0"), nullptr);
     presetCard.appendChild(fileRow3, nullptr);
 
     panel.appendChild(presetCard, nullptr);
@@ -345,14 +345,14 @@ juce::ValueTree makeControlsPanelTree() {
         return wrapper;
     };
 
-    knobsRow.appendChild(makeKnob("volume-knob", "volume-label", "Volume"), nullptr);
-    knobsRow.appendChild(makeKnob("attack-knob", "attack-label", "Attack"), nullptr);
-    knobsRow.appendChild(makeKnob("decay-knob", "decay-label", "Decay"), nullptr);
-    knobsRow.appendChild(makeKnob("sustain-knob", "sustain-label", "Sustain"), nullptr);
-    knobsRow.appendChild(makeKnob("release-knob", "release-label", "Release"), nullptr);
+    knobsRow.appendChild(makeKnob("volume-knob", "volume-label", TRANS("Volume")), nullptr);
+    knobsRow.appendChild(makeKnob("attack-knob", "attack-label", TRANS("Attack")), nullptr);
+    knobsRow.appendChild(makeKnob("decay-knob", "decay-label", TRANS("Decay")), nullptr);
+    knobsRow.appendChild(makeKnob("sustain-knob", "sustain-label", TRANS("Sustain")), nullptr);
+    knobsRow.appendChild(makeKnob("release-knob", "release-label", TRANS("Release")), nullptr);
     adsrCard.appendChild(knobsRow, nullptr);
 
-    auto adsrTitle = text("ADSR Curve", "adsr-curve-title");
+    auto adsrTitle = text(TRANS("ADSR Curve"), "adsr-curve-title");
     adsrTitle.setProperty("height", 14, nullptr);
     adsrTitle.setProperty("margin", "0 0 4 0", nullptr);
     adsrCard.appendChild(adsrTitle, nullptr);
@@ -372,7 +372,7 @@ juce::ValueTree makeControlsPanelTree() {
     transportCard.setProperty("flex-shrink", 0.0, nullptr);
     transportCard.setProperty("padding", "10", nullptr);
 
-    auto transportHeader = text("Transport Controls", "transport-card-title");
+    auto transportHeader = text(TRANS("Transport Controls"), "transport-card-title");
     transportHeader.setProperty("height", 16, nullptr);
     transportHeader.setProperty("margin", "0 0 6 0", nullptr);
     transportCard.appendChild(transportHeader, nullptr);
@@ -381,10 +381,17 @@ juce::ValueTree makeControlsPanelTree() {
     auto quickRow = flexRow("transport-quick-row");
     quickRow.setProperty("height", 24, nullptr);
     quickRow.setProperty("margin", "0 0 8 0", nullptr);
-    quickRow.appendChild(makeTextBtn("|<", "back-btn", "0 4 0 0"), nullptr);
-    quickRow.appendChild(makeTextBtn("|>", "play-btn", "0 4 0 0"), nullptr);
-    quickRow.appendChild(makeTextBtn(">|", "stop-btn", "0 4 0 0"), nullptr);
-    quickRow.appendChild(makeTextBtn(juce::String::charToString(0x2699), "settings-btn", "0"), nullptr);
+    const auto quickBtn = [&makeTextBtn](const juce::String& label, const juce::String& id, const juce::String& tip,
+                                         const juce::String& margin) {
+        auto btn = makeTextBtn(label, id, margin);
+        btn.setProperty("tooltip", tip, nullptr);
+        return btn;
+    };
+    quickRow.appendChild(quickBtn("|<", "quick-back-btn", TRANS("Back to Start"), "0 4 0 0"), nullptr);
+    quickRow.appendChild(quickBtn("|>", "quick-play-btn", TRANS("Play"), "0 4 0 0"), nullptr);
+    quickRow.appendChild(quickBtn(">|", "quick-stop-btn", TRANS("Stop"), "0 4 0 0"), nullptr);
+    quickRow.appendChild(quickBtn(juce::String::charToString(0x2699), "quick-settings-btn", TRANS("Settings"), "0"),
+                         nullptr);
     transportCard.appendChild(quickRow, nullptr);
 
     // 2x2 Large Transport Buttons
@@ -403,7 +410,7 @@ juce::ValueTree makeControlsPanelTree() {
     transportCard.appendChild(transportGrid2, nullptr);
 
     // Speed Slider Area
-    auto speedHeader = text("Playback Speed", "speed-label");
+    auto speedHeader = text(TRANS("Playback Speed"), "speed-label");
     speedHeader.setProperty("height", 14, nullptr);
     speedHeader.setProperty("margin", "0 0 2 0", nullptr);
     transportCard.appendChild(speedHeader, nullptr);
