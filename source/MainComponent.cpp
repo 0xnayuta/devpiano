@@ -19,12 +19,8 @@ extern "C" HIMC __stdcall ImmAssociateContext(HWND, HIMC);
 #endif
 
 namespace {
-constexpr int preferredMainContentWidth = 1120;
-constexpr int preferredMainContentHeight = 760;
-constexpr int minimumMainContentWidth = 980;
-constexpr int minimumMainContentHeight = 700;
-constexpr int maximumMainContentWidth = 3840;
-constexpr int maximumMainContentHeight = 2160;
+// Window size limits live in design_tokens.json (single source of truth);
+// DesignTokens falls back to the shipped JSON values when the file is missing.
 
 juce::String makeSafeUiText(juce::String text) {
     text = text.replaceCharacters("\r\n\t", "   ");
@@ -611,7 +607,8 @@ void MainComponent::initialiseUi() {
 }
 
 juce::Rectangle<int> MainComponent::getMainContentResizeLimits() {
-    return { minimumMainContentWidth, minimumMainContentHeight, maximumMainContentWidth, maximumMainContentHeight };
+    const auto& tokens = devpiano::jive::DesignTokens::get();
+    return { tokens.windowMinWidth(), tokens.windowMinHeight(), tokens.windowMaxWidth(), tokens.windowMaxHeight() };
 }
 
 juce::Rectangle<int> MainComponent::getInitialMainContentBounds() const {
@@ -620,9 +617,11 @@ juce::Rectangle<int> MainComponent::getInitialMainContentBounds() const {
     const auto savedHeight = appSettings.mainWindowHeight;
 
     const auto width
-        = juce::jlimit(limits.getX(), limits.getWidth(), savedWidth > 0 ? savedWidth : preferredMainContentWidth);
+        = juce::jlimit(limits.getX(), limits.getWidth(),
+                       savedWidth > 0 ? savedWidth : devpiano::jive::DesignTokens::get().windowDefaultWidth());
     const auto height
-        = juce::jlimit(limits.getY(), limits.getHeight(), savedHeight > 0 ? savedHeight : preferredMainContentHeight);
+        = juce::jlimit(limits.getY(), limits.getHeight(),
+                       savedHeight > 0 ? savedHeight : devpiano::jive::DesignTokens::get().windowDefaultHeight());
 
     return { 0, 0, width, height };
 }

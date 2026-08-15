@@ -1,4 +1,5 @@
 #include "LayoutModel.h"
+#include "UI/jive/DesignTokens.h"
 
 namespace devpiano::ui::jive {
 
@@ -105,7 +106,7 @@ juce::ValueTree makeHeaderTree() {
 
 juce::ValueTree makeStatusBarTree() {
     auto row = flexRowStretch("status-bar");
-    row.setProperty("height", 22, nullptr);
+    row.setProperty("height", devpiano::jive::DesignTokens::get().statusBarHeight(), nullptr);
     row.setProperty("padding", "0 8 0 8", nullptr);
     // Top separator line — drawn by the StyleSheet border canvas.
     row.setProperty("border-width", "1 0 0 0", nullptr);
