@@ -39,9 +39,10 @@ namespace devpiano::ui::jive {
 [[nodiscard]] juce::ValueTree makeRootLayout();
 
 /// Re-apply the static semantic titles (id -> TRANS key) to a live
-/// interpreted tree. Runtime language switching calls this so container,
-/// editor and label titles follow the locale; button and text titles are
-/// refreshed by the accessors alongside their visible text.
+/// interpreted tree. Runtime language switching calls this so every node
+/// whose title is evaluated once from TRANS() at build time (containers,
+/// editors, labels, icon buttons, combo boxes, knobs) follows the locale;
+/// text-button titles are refreshed by the accessors alongside their text.
 void refreshTitles(::jive::GuiItem& root);
 
 } // namespace devpiano::ui::jive

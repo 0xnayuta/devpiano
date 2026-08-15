@@ -383,7 +383,7 @@ juce::ValueTree makeControlsPanelTree() {
     knobsRow.setProperty("margin", "0 0 8 0", nullptr);
 
     const auto makeKnob = [](const juce::String& id, const juce::String& labelId, const juce::String& labelText) {
-        auto wrapper = node("Component");
+        auto wrapper = node("Component", id + "-wrap");
         wrapper.setProperty("title", labelText, nullptr);
         wrapper.setProperty("display", "flex", nullptr);
         wrapper.setProperty("flex-direction", "column", nullptr);
@@ -548,9 +548,12 @@ juce::ValueTree makeRootLayout() {
 }
 
 void refreshTitles(::jive::GuiItem& root) {
-    // Static semantic titles (containers, editors, labels) are re-evaluated
-    // on every runtime language switch. Buttons and text nodes get their
-    // titles refreshed by the accessors alongside their visible text.
+    // Static semantic titles are re-evaluated on every runtime language
+    // switch. This table covers every node whose title is evaluated once
+    // from TRANS() at build time and has no accessor text-refresh path:
+    // containers, editors, labels, icon buttons (toggle/browse/transport),
+    // combo boxes and knobs. Text buttons keep their titles refreshed by
+    // the accessors alongside their visible text.
     struct TitleKey {
         const char* id;
         const char* key;
@@ -568,15 +571,18 @@ void refreshTitles(::jive::GuiItem& root) {
         { "time-label", "Time" },
         { "plugin-panel", "Plugin Panel" },
         { "plugin-action-row", "Plugin Actions" },
+        { "toggle-btn", "Toggle Plugin Panel" },
         { "plugin-status-label", "Plugin Status" },
         { "plugin-selector", "Plugin Selector" },
         { "plugin-filter-combo", "Plugin Filter" },
         { "plugin-expanded-area", "Plugin Expanded Area" },
         { "plugin-path-row", "Plugin Path Row" },
         { "plugin-path-editor", "VST3 Path Editor" },
+        { "browse-btn", "Browse" },
         { "plugin-list-editor", "Plugin List" },
         { "controls-panel", "Controls" },
         { "preset-card", "Preset Card" },
+        { "preset-combo", "Performance Preset" },
         { "preset-btn-row", "Preset Actions" },
         { "preset-spacer", "Spacer" },
         { "file-row-1", "Export Row" },
@@ -584,10 +590,25 @@ void refreshTitles(::jive::GuiItem& root) {
         { "file-row-3", "File Row 3" },
         { "adsr-card", "ADSR Card" },
         { "knobs-row", "Knobs Row" },
+        { "volume-knob", "Volume" },
+        { "volume-knob-wrap", "Volume" },
+        { "attack-knob", "Attack" },
+        { "attack-knob-wrap", "Attack" },
+        { "decay-knob", "Decay" },
+        { "decay-knob-wrap", "Decay" },
+        { "sustain-knob", "Sustain" },
+        { "sustain-knob-wrap", "Sustain" },
+        { "release-knob", "Release" },
+        { "release-knob-wrap", "Release" },
         { "adsr-curve", "ADSR Curve" },
         { "transport-card", "Transport Card" },
         { "transport-grid-1", "Transport Grid 1" },
+        { "record-btn", "Record" },
+        { "play-btn", "Play" },
         { "transport-grid-2", "Transport Grid 2" },
+        { "stop-btn", "Stop" },
+        { "back-btn", "Back to Start" },
+        { "speed-knob", "Playback Speed" },
         { "keyboard-area", "Keyboard Area" },
         { "custom-keyboard", "Keyboard" },
     };

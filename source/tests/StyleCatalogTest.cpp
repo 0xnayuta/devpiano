@@ -895,6 +895,27 @@ private:
                      "editor title must follow the locale");
         expectEquals(titleOf("load-btn"), juce::String(TRANS("Load")), "button title must follow the locale");
 
+        // Nodes whose title has no accessor text-refresh path (icon buttons,
+        // combo, slider, knobs and their wrappers) must all be covered by
+        // the refreshTitles table; a missing entry leaves the startup
+        // language title in the inspector/accessibility tree.
+        expectEquals(titleOf("toggle-btn"), juce::String(TRANS("Toggle Plugin Panel")),
+                     "toggle button title must follow the locale");
+        expectEquals(titleOf("browse-btn"), juce::String(TRANS("Browse")),
+                     "browse button title must follow the locale");
+        expectEquals(titleOf("preset-combo"), juce::String(TRANS("Performance Preset")),
+                     "preset combo title must follow the locale");
+        expectEquals(titleOf("speed-knob"), juce::String(TRANS("Playback Speed")),
+                     "speed slider title must follow the locale");
+        expectEquals(titleOf("volume-knob"), juce::String(TRANS("Volume")), "knob title must follow the locale");
+        expectEquals(titleOf("volume-knob-wrap"), juce::String(TRANS("Volume")),
+                     "knob wrapper title must follow the locale");
+        expectEquals(titleOf("release-knob-wrap"), juce::String(TRANS("Release")),
+                     "knob wrapper title must follow the locale");
+        expectEquals(titleOf("record-btn"), juce::String(TRANS("Record")), "transport title must follow the locale");
+        expectEquals(titleOf("back-btn"), juce::String(TRANS("Back to Start")),
+                     "transport title must follow the locale");
+
         devpiano::locale::activate(devpiano::locale::Language::en);
     }
 };
