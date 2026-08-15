@@ -3,6 +3,9 @@
 # 适用：JUCE C++/CMake 项目 + WSL 主工作树 ↔ Windows 镜像树双构建工作流。
 # 约定：此处忽略的内容同样不应进入 Win 镜像，与 tools/sync-to-win.ps1 的
 #       排除清单保持一致；改动一侧时须同步另一侧。
+# 例外：下方 "Visual Studio 输出目录" 分区是 git 层预防规则（防止违规在
+#       源树内直接构建时污染仓库状态）；构建目录已规范化为 /build-* 前缀
+#       并由 sync-to-win.ps1 排除/保留，该分区因此不进 robocopy 清单。
 # 构建目录统一使用 /build-* 前缀（WSL：build-wsl-clang、build-asan；
 # 镜像：build-win-msvc），由下方 /build-*/ 一条规则覆盖。
 # 新增忽略项时：先判断是否为本项目可产出的内容，再决定加在哪个分区。

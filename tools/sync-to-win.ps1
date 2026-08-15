@@ -28,6 +28,9 @@ New-Item -ItemType Directory -Force -Path $MirrorDir | Out-Null
 
 # 排除清单与仓库 .gitignore 保持一致：此处列出的内容不应进入镜像，
 # 且镜像侧同名内容不会被 /MIR 删除。改动 .gitignore 时须同步此处。
+# 例外：.gitignore 中 [Dd]ebug/ 等 "Visual Studio 输出目录" 规则是 git 层
+# 预防（防违规在源树内直接构建）；构建产物目录已规范化为 build-* 前缀
+# （源侧动态排除、镜像侧显式保留），故不在此列出。
 
 # 名字级排除：robocopy 裸名匹配任意层级目录，源与镜像两侧同时生效
 # （源侧不复制，镜像侧不删除）。
