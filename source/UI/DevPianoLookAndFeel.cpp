@@ -224,7 +224,7 @@ void DevPianoLookAndFeel::drawPopupMenuItem(juce::Graphics& g, const juce::Recta
 
     // Ticked item — draw check mark
     if (ticked) {
-        g.setColour(highlighted ? tokens.primary() : tokens.primary());
+        g.setColour(highlighted ? tokens.textPrimary() : tokens.primary());
         const auto tick = getTickShape(6.0f);
         g.fillPath(tick,
                    tick.getTransformToScaleToFit(area.reduced(4, 0).removeFromLeft(area.getHeight()).toFloat(), true));
@@ -318,7 +318,7 @@ void DevPianoLookAndFeel::drawLinearSlider(juce::Graphics& g, int x, int y, int 
         const auto span = static_cast<float>(slider.getMaximum() - slider.getMinimum());
         for (const auto& label : labels) {
             const auto lx = juce::jlimit(
-                (float)x, (float)x + trackW,
+                (float)x + 15.0f, (float)x + trackW - 15.0f,
                 (float)x
                     + (static_cast<float>(label.getFloatValue()) - static_cast<float>(slider.getMinimum())) / span
                         * trackW);
