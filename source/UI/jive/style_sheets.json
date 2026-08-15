@@ -106,10 +106,6 @@
     "hover": { "background": "#2C313B", "border": "#4C5362" },
     "active": { "background": "#16181D" }
   },
-  "Slider": {
-    "background": "#181A1E",
-    "foreground": "#00C8F0"
-  },
   "ComboBox": {
     "background": "#1F2228",
     "foreground": "#F0F2F5",
@@ -136,9 +132,6 @@
     "focus": {
       "border": "#00C8F0"
     }
-  },
-  "Label": {
-    "foreground": "#F0F2F5"
   },
   "#status-bar": {
     "background": "#0E0F12",
