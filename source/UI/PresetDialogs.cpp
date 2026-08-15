@@ -11,21 +11,16 @@ namespace {
 // ============================================================================
 class DialogContentBase : public juce::Component {
 public:
-    explicit DialogContentBase(std::function<void()> onDismiss)
-        : dismissCallback(std::move(onDismiss)) {
-    }
-
-    ~DialogContentBase() override {
-        // Fire the "cancelled" path if the window was closed without an
-        // explicit confirm (title bar X / Escape).
-        if (!completed && dismissCallback)
-            dismissCallback();
-    }
+    DialogContentBase() = default;
 
     void paint(juce::Graphics& g) override {
         g.fillAll(devpiano::jive::DesignTokens::get().mainBg());
     }
 
+    // NOTE: no destructor here. The "closed without confirming" (title bar X
+    // / Escape) path is handled in the derived destructors instead, because
+    // it fires `onComplete`, a derived member that has already been destroyed
+    // by the time a base destructor body runs.
     void finish(int exitResult) {
         completed = true;
         if (auto* dw = findParentComponentOfClass<juce::DialogWindow>())
@@ -33,7 +28,6 @@ public:
     }
 
 protected:
-    std::function<void()> dismissCallback;
     bool completed = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DialogContentBase)
@@ -45,8 +39,7 @@ protected:
 class PresetNameContent final : public DialogContentBase {
 public:
     PresetNameContent(const juce::String& initialName, std::function<void(std::optional<juce::String>)> onCompleteFn)
-        : DialogContentBase([this] { complete(std::nullopt); })
-        , onComplete(std::move(onCompleteFn)) {
+        : onComplete(std::move(onCompleteFn)) {
         nameLabel.setText(TRANS("Preset Name:"), juce::dontSendNotification);
         nameLabel.setFont(juce::FontOptions(13.0f));
         addAndMakeVisible(nameLabel);
@@ -63,6 +56,13 @@ public:
         addAndMakeVisible(cancelButton);
 
         setSize(380, 150);
+    }
+
+    ~PresetNameContent() override {
+        // Fire the "cancelled" path if the window was closed without an
+        // explicit confirm (title bar X / Escape).
+        if (!completed && onComplete)
+            onComplete(std::nullopt);
     }
 
     void resized() override {
@@ -106,8 +106,7 @@ class PresetConfirmContent final : public DialogContentBase {
 public:
     PresetConfirmContent(const juce::String& message, const juce::String& okLabel, const juce::String& cancelLabel,
                          std::function<void(bool)> onCompleteFn)
-        : DialogContentBase([this] { complete(false); })
-        , onComplete(std::move(onCompleteFn)) {
+        : onComplete(std::move(onCompleteFn)) {
         messageLabel.setText(message, juce::dontSendNotification);
         messageLabel.setFont(juce::FontOptions(13.0f));
         messageLabel.setJustificationType(juce::Justification::centred);
@@ -122,6 +121,13 @@ public:
         addAndMakeVisible(cancelButton);
 
         setSize(380, 140);
+    }
+
+    ~PresetConfirmContent() override {
+        // Title bar X / Escape: fire the cancel result while `onComplete`
+        // (a derived member) is still alive. See PresetNameContent.
+        if (!completed && onComplete)
+            onComplete(false);
     }
 
     void resized() override {
