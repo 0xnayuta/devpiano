@@ -23,6 +23,13 @@ countries: cn
 
 "Rename" = "重命名"
 "Delete" = "删除"
+"Cut" = "剪切"
+"Copy" = "复制"
+"Paste" = "粘贴"
+"Select All" = "全选"
+"Undo" = "撤销"
+"Redo" = "重做"
+
 "Record" = "录音"
 "Play" = "播放"
 "Stop" = "停止"
