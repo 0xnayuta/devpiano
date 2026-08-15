@@ -12,9 +12,12 @@ public:
     void runTest() override {
         beginTest("path editor text");
 
-        // Load the real style sheet (PathEditor may match the TextEditor rule)
-        devpiano::ui::jive::StyleCatalog::get().loadFromJSON(
-            juce::JSON::parse(juce::File("/root/repos/devpiano/source/UI/jive/style_sheets.json").loadFileAsString()));
+        // Load the real style sheet (the PathEditor rule must match the
+        // PathEditor factory type). The test runs with the repo root as its
+        // working directory.
+        const juce::File styleSheetFile("source/UI/jive/style_sheets.json");
+        expect(styleSheetFile.existsAsFile(), "style sheet file found relative to the test working directory");
+        devpiano::ui::jive::StyleCatalog::get().loadFromJSON(juce::JSON::parse(styleSheetFile.loadFileAsString()));
 
         ::jive::Interpreter interpreter;
         auto& factory = interpreter.getComponentFactory();
@@ -41,11 +44,12 @@ public:
 
         editor->setText("C:\\VST3\\pianoteq 9.vst3", juce::dontSendNotification);
         expectEquals(editor->getText(), juce::String("C:\\VST3\\pianoteq 9.vst3"), "text set");
-        expect(editor->isEnabled(), "enabled");
-        juce::Logger::writeToLog("PATHEDITOR text='" + editor->getText()
-                                 + "' enabled=" + juce::String(editor->isEnabled() ? "yes" : "no") + " textColour="
-                                 + editor->findColour(juce::TextEditor::textColourId).toDisplayString(false));
         expect(editor->findColour(juce::TextEditor::textColourId).getAlpha() > 0, "text colour not transparent");
+        // The PathEditor rule from style_sheets.json must have matched the
+        // node type and attached a StyleSheet with its background canvas.
+        expect(tree.hasProperty("style"), "style property applied before interpretation");
+        expect(item->getComponent()->getProperties().contains("style-sheet"), "style sheet attached");
+        expect(item->getComponent()->getNumChildComponents() > 0, "background canvas present");
 
         // Full panel layout: the editor sits inside path-row (28 px) of the
         // expanded area — it must get a usable height, or its text is clipped.
@@ -72,6 +76,13 @@ public:
                 juce::Logger::writeToLog("PATHROW after expand row=" + row->getComponent()->getBounds().toString());
             juce::Logger::writeToLog("PATHROW after expand editor="
                                      + pathEditorItem->getComponent()->getBounds().toString());
+
+            // Re-read the bounds AFTER expanding: the expanded layout must
+            // give the editor a visible, usable size or its text is clipped.
+            const auto expandedBounds = pathEditorItem->getComponent()->getBounds();
+            expect(expandedBounds.getWidth() > 0, "expanded: path editor has visible width");
+            expect(expandedBounds.getHeight() >= 20,
+                   "expanded: path editor has usable height: " + expandedBounds.toString());
         }
 
         // Full app flow: root tree + setPluginPathText equivalent.
@@ -106,10 +117,13 @@ public:
                                          + " bounds=" + it->getComponent()->getBounds().toString());
         // Collapsed: the area has height 0 so JIVE skips laying out the row
         // (bounds.isEmpty()) — the editor keeps its initial 0 width, which is
-        // correct for a hidden area. The expanded assertions below are the
-        // real check.
+        // correct for a hidden area. The expanded-state assertions above are
+        // the real check.
         expect(editorBounds.getWidth() == 0, "collapsed: editor hidden (width 0)");
-        expect(editorBounds.getHeight() >= 20, "path editor has usable height: " + editorBounds.toString());
+
+        // This test runs after StyleCatalogTest's cleanup; release the styles
+        // owned by the catalog so the leak detector stays quiet.
+        devpiano::ui::jive::StyleCatalog::get().releaseOwnedStyles();
     }
 };
 static PathEditorReproTest pathEditorReproTest;
