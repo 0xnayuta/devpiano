@@ -179,6 +179,7 @@ private:
     std::unique_ptr<::jive::GuiItem> jiveRootItem;
     juce::String lastPluginStatusText; // full text; re-ellipsised on resize
     bool isUpdatingPluginSelector = false; // guard against onChange re-entrancy during programmatic UI refresh
+    bool isUpdatingPresets = false; // guard against onChange re-entrancy during preset list refresh
     juce::StringArray availablePresetIds;
     RecordingControlsState recordingControlsState;
     CustomKeyboard* customKeyboardRef = nullptr;

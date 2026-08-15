@@ -395,8 +395,11 @@ void MainComponent::initialiseUi() {
             wireButton("delete-preset-btn", [this] { presetFlowSupport->handleDeletePreset(); });
 
             if (auto* combo = findCombo("preset-combo")) {
-                combo->setTextWhenNothingSelected("Default");
+                combo->setTextWhenNothingSelected(TRANS("Default"));
+                combo->setWantsKeyboardFocus(false);
                 combo->onChange = [this, combo] {
+                    if (isUpdatingPresets)
+                        return;
                     const auto selectedId = combo->getSelectedId();
                     if (selectedId <= 0 || !juce::isPositiveAndBelow(selectedId - 1, availablePresetIds.size()))
                         return;

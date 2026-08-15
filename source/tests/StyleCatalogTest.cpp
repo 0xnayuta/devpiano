@@ -682,3 +682,52 @@ public:
 };
 
 static FilterComboDefaultTest filterComboDefaultTest;
+
+// =============================================================================
+// Regression: the preset combo in ControlsPanel must show its selected preset
+// text when collapsed after populate.
+// =============================================================================
+
+class PresetComboRebuildTest final : public juce::UnitTest {
+public:
+    PresetComboRebuildTest()
+        : juce::UnitTest("PresetComboRebuild", "devpiano") {
+    }
+
+    void runTest() override {
+        beginTest("preset combo text after populate");
+
+        ::jive::Interpreter interpreter;
+        auto tree = devpiano::ui::jive::makeControlsPanelTree();
+        auto item = interpreter.interpret(tree);
+        expect(item != nullptr, "controls panel interpretation failed");
+        if (item == nullptr)
+            return;
+
+        auto* comboItem = jive::findItemWithID(*item, "preset-combo");
+        expect(comboItem != nullptr, "preset-combo missing");
+        if (comboItem == nullptr)
+            return;
+
+        auto* combo = dynamic_cast<juce::ComboBox*>(comboItem->getComponent().get());
+        expect(combo != nullptr, "preset-combo is a ComboBox");
+        if (combo == nullptr)
+            return;
+
+        // Exactly what setControlsPresets does:
+        combo->clear(juce::dontSendNotification);
+        combo->setTextWhenNothingSelected("Default");
+        combo->addItem("Default", 1);
+        combo->addItem("Grand Piano", 2);
+        combo->setSelectedItemIndex(0, juce::dontSendNotification);
+
+        expectEquals(combo->getNumItems(), 2);
+        expectEquals(combo->getSelectedItemIndex(), 0, "preset default selected");
+        expect(combo->getText().isNotEmpty(), "preset combo text not empty: '" + combo->getText() + "'");
+        expectEquals(combo->getText(), juce::String("Default"), "preset combo shows Default");
+
+        devpiano::ui::jive::StyleCatalog::get().releaseOwnedStyles();
+    }
+};
+
+static PresetComboRebuildTest presetComboRebuildTest;

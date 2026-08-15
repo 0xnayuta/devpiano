@@ -376,24 +376,28 @@ void MainComponent::setControlsPresets(const juce::StringArray& presetIds, const
     if (jiveRootItem == nullptr)
         return;
 
-    auto* comboItem = jive::findItemWithID(*jiveRootItem, "preset-combo");
+    const juce::ScopedValueSetter<bool> svs(isUpdatingPresets, true);
 
-    if (comboItem != nullptr)
-        comboItem->state.removeAllChildren(nullptr);
-    auto selectedIndex = 0;
-    for (int i = 0; i < presetIds.size(); ++i) {
-        const auto displayName = (i < presetDisplayNames.size()) ? presetDisplayNames[i] : presetIds[i];
-        if (comboItem != nullptr) {
-            auto option = juce::ValueTree("Option");
-            option.setProperty("text", displayName, nullptr);
-            option.setProperty("enabled", true, nullptr); // JIVE defaults to false
-            comboItem->state.addChild(option, i, nullptr);
+    auto* comboItem = jive::findItemWithID(*jiveRootItem, "preset-combo");
+    auto* combo = comboItem != nullptr ? dynamic_cast<juce::ComboBox*>(comboItem->getComponent().get()) : nullptr;
+
+    if (combo != nullptr) {
+        combo->clear(juce::dontSendNotification);
+        combo->setTextWhenNothingSelected(TRANS("Default"));
+
+        auto selectedIndex = 0;
+        for (int i = 0; i < presetIds.size(); ++i) {
+            const auto displayName = (i < presetDisplayNames.size()) ? presetDisplayNames[i] : presetIds[i];
+            combo->addItem(displayName, i + 1);
+            if (presetIds[i] == currentPresetId)
+                selectedIndex = i;
         }
-        if (presetIds[i] == currentPresetId)
-            selectedIndex = i;
+
+        if (presetIds.isEmpty())
+            combo->setSelectedItemIndex(-1, juce::dontSendNotification);
+        else
+            combo->setSelectedItemIndex(selectedIndex, juce::dontSendNotification);
     }
-    if (comboItem != nullptr)
-        comboItem->state.setProperty("selected", selectedIndex, nullptr);
 
     updateControlsPresetActionButtons();
 }
@@ -516,6 +520,9 @@ void MainComponent::refreshControlsTexts() {
     setText("sustain-label", TRANS("Sustain"));
     setText("release-label", TRANS("Release"));
     setText("preset-label", TRANS("Preset"));
+    if (auto* item = jive::findItemWithID(*jiveRootItem, "preset-combo"))
+        if (auto* combo = dynamic_cast<juce::ComboBox*>(item->getComponent().get()))
+            combo->setTextWhenNothingSelected(TRANS("Default"));
     setText("speed-label", TRANS("Speed"));
     setButtonText("save-preset-btn", TRANS("Save As New"));
     setButtonText("rename-preset-btn", TRANS("Rename"));
