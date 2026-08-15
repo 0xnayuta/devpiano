@@ -127,8 +127,9 @@ std::unique_ptr<juce::Drawable> createStopIcon() {
 }
 std::unique_ptr<juce::Drawable> createBackIcon() {
     juce::Path p;
-    p.addTriangle(-7.0f, -6.0f, -7.0f, 6.0f, 1.0f, 0.0f);
-    p.addTriangle(-1.0f, -6.0f, -1.0f, 6.0f, 7.0f, 0.0f);
+    // 两个三角形尖端朝左（<<），“Back to Start” 语义与 Play 的 ▶ 对称。
+    p.addTriangle(7.0f, -6.0f, 7.0f, 6.0f, -1.0f, 0.0f);
+    p.addTriangle(1.0f, -6.0f, 1.0f, 6.0f, -7.0f, 0.0f);
     auto d = std::make_unique<juce::DrawablePath>();
     d->setPath(p);
     d->setFill(devpiano::jive::DesignTokens::get().textSecondary());
