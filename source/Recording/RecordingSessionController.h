@@ -28,19 +28,18 @@ public:
         bool canExportMidi = false;
         PerformanceFileMetadata currentMetadata;
         juce::File currentPerformanceFile;
-        ::RecordingState state = ::RecordingState::idle;
-
+        ui::RecordingState state = ui::RecordingState::idle;
         [[nodiscard]] bool hasTake() const noexcept {
             return !take.isEmpty();
         }
         [[nodiscard]] bool isRecording() const noexcept {
-            return state == ::RecordingState::recording;
+            return state == ui::RecordingState::recording;
         }
         [[nodiscard]] bool isPlaying() const noexcept {
-            return state == ::RecordingState::playing;
+            return state == ui::RecordingState::playing;
         }
         [[nodiscard]] bool isIdle() const noexcept {
-            return state == ::RecordingState::idle;
+            return state == ui::RecordingState::idle;
         }
     };
 

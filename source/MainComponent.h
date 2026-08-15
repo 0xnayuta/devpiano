@@ -122,7 +122,7 @@ private:
     [[nodiscard]] juce::String getSelectedPluginName() const;
     void setPluginPanelExpanded(bool expanded);
     void refreshPluginStatusEllipsis();
-    void updatePluginPanelState(const PluginPanelState& state);
+    void updatePluginPanelState(const devpiano::ui::PluginPanelState& state);
     void setInstrumentFilterVisible(bool visible);
     void showPluginBrowseDialog();
     void refreshPluginPanelTexts();
@@ -140,7 +140,7 @@ private:
                             const juce::StringArray& presetDisplayNames);
     [[nodiscard]] juce::String getSelectedPresetId() const;
     void updateControlsPresetActionButtons();
-    void setRecordingControlsState(RecordingControlsState state);
+    void setRecordingControlsState(devpiano::ui::RecordingControlsState state);
     [[nodiscard]] juce::Rectangle<int> getRecentFilesButtonScreenBounds() const;
     void refreshControlsTexts();
 
@@ -183,7 +183,7 @@ private:
     bool isUpdatingPluginSelector = false; // guard against onChange re-entrancy during programmatic UI refresh
     bool isUpdatingPresets = false; // guard against onChange re-entrancy during preset list refresh
     juce::StringArray availablePresetIds;
-    RecordingControlsState recordingControlsState;
+    devpiano::ui::RecordingControlsState recordingControlsState;
     CustomKeyboard* customKeyboardRef = nullptr;
     juce::Time lastTokensModTime;
     juce::Time lastStylesModTime;

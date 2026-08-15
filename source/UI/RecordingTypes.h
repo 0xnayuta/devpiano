@@ -3,11 +3,15 @@
 #include <cstdint>
 
 // ============================================================================
-// Recording state enum & UI control state struct.
+// 录制 UI 状态枚举与控制面板状态结构体。
 //
-// Previously nested inside ControlsPanel; extracted so RecordingSessionController
-// does not depend on the ControlsPanel Component class (deleted in Phase 11d).
+// 原为 ControlsPanel 内部类型；Phase 11d 删除 ControlsPanel 组件类后抽出，
+// 使 RecordingSessionController 不再依赖该组件类。与 KeyboardTypes.h 等
+// UI 状态类型一致，置于 devpiano::ui 命名空间，避免与
+// devpiano::recording::RecordingState（RecordingEngine 状态机）同名冲突。
 // ============================================================================
+
+namespace devpiano::ui {
 
 enum class RecordingState : std::uint8_t { idle, recording, playing };
 
@@ -17,3 +21,5 @@ struct RecordingControlsState {
     bool canExportMidiTake = false;
     bool canExportWavTake = false;
 };
+
+} // namespace devpiano::ui

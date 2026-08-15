@@ -130,7 +130,7 @@ void MainComponent::showPluginBrowseDialog() {
                          });
 }
 
-void MainComponent::updatePluginPanelState(const PluginPanelState& state) {
+void MainComponent::updatePluginPanelState(const devpiano::ui::PluginPanelState& state) {
     if (jiveRootItem == nullptr)
         return;
 
@@ -428,7 +428,7 @@ void MainComponent::updateControlsPresetActionButtons() {
     setEnabled("delete-preset-btn", isUserPreset);
 }
 
-void MainComponent::setRecordingControlsState(RecordingControlsState state) {
+void MainComponent::setRecordingControlsState(devpiano::ui::RecordingControlsState state) {
     recordingControlsState = state;
     if (jiveRootItem == nullptr)
         return;
@@ -444,7 +444,7 @@ void MainComponent::setRecordingControlsState(RecordingControlsState state) {
     auto openEnabled = false;
 
     switch (state.state) {
-    case RecordingState::idle:
+    case devpiano::ui::RecordingState::idle:
         playEnabled = state.hasTake;
         backToStartEnabled = state.hasTake;
         exportMidiEnabled = state.hasTake && state.canExportMidiTake;
@@ -453,7 +453,7 @@ void MainComponent::setRecordingControlsState(RecordingControlsState state) {
         saveEnabled = state.hasTake;
         openEnabled = true;
         break;
-    case RecordingState::recording:
+    case devpiano::ui::RecordingState::recording:
         recordEnabled = false;
         playEnabled = false;
         backToStartEnabled = false;
@@ -464,7 +464,7 @@ void MainComponent::setRecordingControlsState(RecordingControlsState state) {
         saveEnabled = false;
         openEnabled = false;
         break;
-    case RecordingState::playing:
+    case devpiano::ui::RecordingState::playing:
         recordEnabled = false;
         playEnabled = false;
         backToStartEnabled = state.hasTake;
@@ -497,8 +497,8 @@ void MainComponent::setRecordingControlsState(RecordingControlsState state) {
             if (auto* btn = dynamic_cast<juce::Button*>(item->getComponent().get()))
                 btn->setToggleState(active, juce::dontSendNotification);
     };
-    setLatched("record-btn", state.state == RecordingState::recording);
-    setLatched("play-btn", state.state == RecordingState::playing);
+    setLatched("record-btn", state.state == devpiano::ui::RecordingState::recording);
+    setLatched("play-btn", state.state == devpiano::ui::RecordingState::playing);
     setLatched("stop-btn", false);
     setLatched("back-btn", false);
 }

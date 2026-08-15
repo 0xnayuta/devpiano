@@ -5,5 +5,5 @@
 #include "Plugin/PluginHost.h"
 #include "UI/PluginTypes.h"
 
-[[nodiscard]] PluginPanelState buildPluginPanelState(const PluginHost& pluginHost, const juce::String& lastPluginName,
-                                                     bool isEditorOpen);
+[[nodiscard]] devpiano::ui::PluginPanelState
+buildPluginPanelState(const PluginHost& pluginHost, const juce::String& lastPluginName, bool isEditorOpen);

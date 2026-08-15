@@ -20,33 +20,33 @@ namespace {
 constexpr std::size_t defaultRecordingEventsPerSecond = 100;
 constexpr std::size_t defaultRecordingCapacitySeconds = 30 * 60;
 
-[[nodiscard]] RecordingFlowState toRecordingFlowState(::RecordingState state) noexcept {
+[[nodiscard]] RecordingFlowState toRecordingFlowState(ui::RecordingState state) noexcept {
     switch (state) {
-    case ::RecordingState::idle:
+    case ui::RecordingState::idle:
         return RecordingFlowState::idle;
-    case ::RecordingState::recording:
+    case ui::RecordingState::recording:
         return RecordingFlowState::recording;
-    case ::RecordingState::playing:
+    case ui::RecordingState::playing:
         return RecordingFlowState::playing;
     }
 
     return RecordingFlowState::idle;
 }
 
-[[nodiscard]] ::RecordingState toRecordingControlsState(RecordingFlowState state) noexcept {
+[[nodiscard]] ui::RecordingState toRecordingControlsState(RecordingFlowState state) noexcept {
     switch (state) {
     case RecordingFlowState::idle:
-        return ::RecordingState::idle;
+        return ui::RecordingState::idle;
     case RecordingFlowState::recording:
-        return ::RecordingState::recording;
+        return ui::RecordingState::recording;
     case RecordingFlowState::playing:
-        return ::RecordingState::playing;
+        return ui::RecordingState::playing;
     }
 
-    return ::RecordingState::idle;
+    return ui::RecordingState::idle;
 }
 
-[[nodiscard]] RecordingFlowStatus makeRecordingFlowStatus(::RecordingState state, bool hasTake) noexcept {
+[[nodiscard]] RecordingFlowStatus makeRecordingFlowStatus(ui::RecordingState state, bool hasTake) noexcept {
     return { .currentState = toRecordingFlowState(state), .hasTake = hasTake };
 }
 
@@ -166,7 +166,7 @@ void RecordingSessionController::handleBackToStartClicked() {
         const auto stoppedTake = stopInternalPlayback();
         juce::ignoreUnused(stoppedTake);
         startInternalPlayback(recordingSession.take);
-        recordingSession.state = ::RecordingState::playing;
+        recordingSession.state = ui::RecordingState::playing;
         syncRecordingSessionToUi();
         DP_LOG_INFO("[Playback] Restarted from beginning");
     } else {
@@ -304,7 +304,7 @@ void RecordingSessionController::handleOpenPerformanceFile(const juce::File& fil
     if (recordingSession.isPlaying()) {
         const auto stoppedTake = stopInternalPlayback();
         juce::ignoreUnused(stoppedTake);
-        recordingSession.state = ::RecordingState::idle;
+        recordingSession.state = ui::RecordingState::idle;
         syncRecordingSessionToUi();
     }
 
@@ -337,7 +337,7 @@ void RecordingSessionController::handleImportMidiFile(const juce::File& file) {
     if (recordingSession.isPlaying()) {
         const auto stoppedTake = stopInternalPlayback();
         juce::ignoreUnused(stoppedTake);
-        recordingSession.state = ::RecordingState::idle;
+        recordingSession.state = ui::RecordingState::idle;
         syncRecordingSessionToUi();
     }
 
@@ -371,7 +371,7 @@ void RecordingSessionController::checkPlaybackEnded() {
     const auto stoppedTake = stopInternalPlayback();
     juce::ignoreUnused(stoppedTake);
 
-    recordingSession.state = ::RecordingState::idle;
+    recordingSession.state = ui::RecordingState::idle;
     syncRecordingSessionToUi();
     owner.restoreKeyboardFocus();
 }
@@ -503,17 +503,17 @@ void RecordingSessionController::replaceTakeAndStartPlayback(RecordingTake take)
     if (recordingSession.isPlaying()) {
         const auto stoppedTake = stopInternalPlayback();
         juce::ignoreUnused(stoppedTake);
-        recordingSession.state = ::RecordingState::idle;
+        recordingSession.state = ui::RecordingState::idle;
         syncRecordingSessionToUi();
     }
 
     recordingSession.take = std::move(take);
     recordingSession.canExportMidi = false;
-    recordingSession.state = ::RecordingState::idle;
+    recordingSession.state = ui::RecordingState::idle;
     syncRecordingSessionToUi();
 
     startInternalPlayback(recordingSession.take);
-    recordingSession.state = ::RecordingState::playing;
+    recordingSession.state = ui::RecordingState::playing;
     syncRecordingSessionToUi();
 }
 
@@ -530,7 +530,7 @@ void RecordingSessionController::runImportOpenFlow(
     if (recordingSession.isPlaying()) {
         const auto stoppedTake = stopInternalPlayback();
         juce::ignoreUnused(stoppedTake);
-        recordingSession.state = ::RecordingState::idle;
+        recordingSession.state = ui::RecordingState::idle;
         syncRecordingSessionToUi();
         DP_LOG_INFO("[" + logPrefix + "] stopped current playback before opening");
     }
