@@ -73,6 +73,21 @@ juce::File resolveSourceFile(const juce::String& relativePath) {
     return cwdFile; // best effort; caller handles missing file
 }
 
+// Recursively remove the "style-sheet" property from all components in a JIVE
+// hierarchy before destruction. This ensures StyleSheet (and its ComponentInteractionState)
+// is destroyed while the Component and its mouseListeners list are still completely alive,
+// avoiding access violations during Component::~Component().
+static void clearJiveStyleSheets(juce::Component* comp) {
+    if (comp == nullptr)
+        return;
+
+    for (int i = 0; i < comp->getNumChildComponents(); ++i)
+        clearJiveStyleSheets(comp->getChildComponent(i));
+
+    if (comp->getProperties().contains("style-sheet"))
+        comp->getProperties().remove("style-sheet");
+}
+
 // -- Transport button icon paths --
 std::unique_ptr<juce::Drawable> createRecordIcon() {
     juce::Path p;
@@ -171,6 +186,15 @@ MainComponent::~MainComponent() {
     audioEngine.setRecordingEngine(nullptr);
     pluginHost.unloadPlugin();
     settingsWindowManager.reset();
+
+    // Detach JIVE style sheets before component destruction to prevent
+    // ComponentInteractionState from calling removeMouseListener on a destructing Component.
+    if (jiveRootItem != nullptr) {
+        clearJiveStyleSheets(jiveRootItem->getComponent().get());
+        jiveRootItem.reset();
+    }
+    devpiano::ui::jive::StyleCatalog::get().releaseOwnedStyles();
+    jiveInterpreter.reset();
 }
 
 void MainComponent::initialiseFromPreset() {
