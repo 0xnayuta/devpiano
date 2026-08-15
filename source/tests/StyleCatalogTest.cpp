@@ -39,6 +39,7 @@ public:
         testRootLayoutInterprets();
         testWindowRuleFontSizeInheritsToText();
         testRealStyleSheetWindowFontSizeActsAsGlobalDefault();
+        testRealStyleSheetDisabledPseudoStates();
         // Release styles owned by the tests once all trees are gone.
         devpiano::ui::jive::StyleCatalog::get().releaseOwnedStyles();
     }
@@ -664,6 +665,82 @@ private:
                                   "inherited text must scale with #window font-size");
         expectWithinAbsoluteError(titleHeightAfter / titleHeightBefore, 1.0f, 0.02f,
                                   "title must keep its explicit #title font-size");
+    }
+
+    void testRealStyleSheetDisabledPseudoStates() {
+        beginTest("real style_sheets.json: disabled pseudo-states cover state-controlled buttons");
+
+        // Regression: disabled buttons kept their normal colours and JIVE's
+        // hover/active pseudo-states kept firing (ComponentInteractionState
+        // ignores isEnabled), so a disabled Export/Save/Rename/Delete looked
+        // clickable. The shipped sheet must carry "disabled" rules on Button,
+        // Text and the transport icon buttons, with hover/active neutralised
+        // inside them.
+        juce::File styleFile
+            = juce::File::getCurrentWorkingDirectory().getChildFile("source/UI/jive/style_sheets.json");
+        if (!styleFile.existsAsFile()) {
+            auto dir = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
+            for (int i = 0; i < 4 && !styleFile.existsAsFile(); ++i) {
+                styleFile = dir.getChildFile("source/UI/jive/style_sheets.json");
+                dir = dir.getParentDirectory();
+            }
+        }
+        if (!styleFile.existsAsFile())
+            return; // not a repo checkout; skip
+
+        auto json = juce::JSON::parse(styleFile);
+        expect(!json.isVoid(), "real style_sheets.json must parse");
+        if (json.isVoid())
+            return;
+
+        auto& catalog = devpiano::ui::jive::StyleCatalog::get();
+        catalog.loadFromJSON(json);
+
+        auto tree = devpiano::ui::jive::makeControlsPanelTree();
+        catalog.applyToTree(tree);
+
+        const std::function<juce::ValueTree(const juce::ValueTree&, const juce::String&)> findById
+            = [&](const juce::ValueTree& root, const juce::String& id) -> juce::ValueTree {
+            if (root.getProperty("id").toString() == id)
+                return root;
+            for (auto child : root) {
+                if (auto found = findById(child, id); found.isValid())
+                    return found;
+            }
+            return {};
+        };
+
+        for (const char* id : { "export-midi-btn", "export-wav-btn", "save-perf-btn", "rename-preset-btn",
+                                "delete-preset-btn", "play-btn", "stop-btn", "back-btn", "record-btn" }) {
+            const auto node = findById(tree, id);
+            expect(node.isValid(), juce::String(id) + " node missing");
+            if (!node.isValid())
+                continue;
+
+            auto* styleObj = dynamic_cast<::jive::Object*>(node["style"].getObject());
+            expect(styleObj != nullptr, juce::String(id) + " must carry a style object");
+            if (styleObj == nullptr)
+                continue;
+
+            const auto disabled = styleObj->getProperty("disabled");
+            expect(disabled.isObject(), juce::String(id) + " style missing disabled pseudo-state");
+            if (disabled.isObject()) {
+                expect(disabled.getDynamicObject()->getProperty("hover").isObject(),
+                       juce::String(id) + " disabled must neutralise hover");
+                expect(disabled.getDynamicObject()->getProperty("active").isObject(),
+                       juce::String(id) + " disabled must neutralise active");
+            }
+        }
+
+        // The button label (a Text child) must grey out along with the button.
+        const auto exportBtn = findById(tree, "export-midi-btn");
+        expect(exportBtn.isValid() && exportBtn.getNumChildren() > 0, "export button label missing");
+        if (exportBtn.isValid() && exportBtn.getNumChildren() > 0) {
+            auto* labelStyle = dynamic_cast<::jive::Object*>(exportBtn.getChild(0)["style"].getObject());
+            expect(labelStyle != nullptr, "button label must carry a style object");
+            if (labelStyle != nullptr)
+                expect(labelStyle->getProperty("disabled").isObject(), "Text style missing disabled pseudo-state");
+        }
     }
 };
 

@@ -5,7 +5,10 @@
     "font-size": 14
   },
   "Text": {
-    "foreground": "#F0F2F5"
+    "foreground": "#F0F2F5",
+    "disabled": {
+      "foreground": "#555B66"
+    }
   },
   "Button": {
     "background": "#22252C",
@@ -19,6 +22,19 @@
     "active": {
       "background": "#181A1F",
       "border": "#00C8F0"
+    },
+    "disabled": {
+      "background": "#1A1C21",
+      "foreground": "#555B66",
+      "border": "#262B34",
+      "hover": {
+        "background": "#1A1C21",
+        "border": "#262B34"
+      },
+      "active": {
+        "background": "#1A1C21",
+        "border": "#262B34"
+      }
     }
   },
   "#title": {
@@ -83,28 +99,52 @@
     "border": "#E05345",
     "border-radius": "6",
     "hover": { "background": "#382220", "border": "#FF6B5B" },
-    "active": { "background": "#18100F" }
+    "active": { "background": "#18100F" },
+    "disabled": {
+      "background": "#201514",
+      "border": "#A03A30",
+      "hover": { "background": "#201514", "border": "#A03A30" },
+      "active": { "background": "#201514", "border": "#A03A30" }
+    }
   },
   "#play-btn": {
     "background": "#15261C",
     "border": "#2ECC71",
     "border-radius": "6",
     "hover": { "background": "#1E3829", "border": "#38E083" },
-    "active": { "background": "#0F1A13" }
+    "active": { "background": "#0F1A13" },
+    "disabled": {
+      "background": "#111E16",
+      "border": "#218A50",
+      "hover": { "background": "#111E16", "border": "#218A50" },
+      "active": { "background": "#111E16", "border": "#218A50" }
+    }
   },
   "#stop-btn": {
     "background": "#20232A",
     "border": "#383D48",
     "border-radius": "6",
     "hover": { "background": "#2C313B", "border": "#4C5362" },
-    "active": { "background": "#16181D" }
+    "active": { "background": "#16181D" },
+    "disabled": {
+      "background": "#1A1C21",
+      "border": "#262B34",
+      "hover": { "background": "#1A1C21", "border": "#262B34" },
+      "active": { "background": "#1A1C21", "border": "#262B34" }
+    }
   },
   "#back-btn": {
     "background": "#20232A",
     "border": "#383D48",
     "border-radius": "6",
     "hover": { "background": "#2C313B", "border": "#4C5362" },
-    "active": { "background": "#16181D" }
+    "active": { "background": "#16181D" },
+    "disabled": {
+      "background": "#1A1C21",
+      "border": "#262B34",
+      "hover": { "background": "#1A1C21", "border": "#262B34" },
+      "active": { "background": "#1A1C21", "border": "#262B34" }
+    }
   },
   "ComboBox": {
     "background": "#1F2228",
@@ -113,6 +153,11 @@
     "border-radius": "5",
     "focus": {
       "border": "#00C8F0"
+    },
+    "disabled": {
+      "background": "#1A1C21",
+      "foreground": "#555B66",
+      "border": "#262B34"
     }
   },
   "PathEditor": {
@@ -122,6 +167,11 @@
     "border-radius": "5",
     "focus": {
       "border": "#00C8F0"
+    },
+    "disabled": {
+      "background": "#16181D",
+      "foreground": "#555B66",
+      "border": "#262B34"
     }
   },
   "ListEditor": {
@@ -131,6 +181,11 @@
     "border-radius": "5",
     "focus": {
       "border": "#00C8F0"
+    },
+    "disabled": {
+      "background": "#16181D",
+      "foreground": "#555B66",
+      "border": "#262B34"
     }
   },
   "#status-bar": {
