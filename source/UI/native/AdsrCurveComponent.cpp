@@ -50,7 +50,7 @@ void AdsrCurveComponent::drawAdsrCurve(juce::Graphics& g, float a, float d, floa
     // Proportional phase widths
     const float attackMs = juce::jlimit(0.001f, 2.0f, a) * 1000.0f;
     const float decayMs = juce::jlimit(0.001f, 2.0f, d) * 1000.0f;
-    const float releaseMs = juce::jlimit(0.001f, 2.0f, r) * 1000.0f;
+    const float releaseMs = juce::jlimit(0.001f, 3.0f, r) * 1000.0f;
     constexpr float sustainWeight = 300.0f;
 
     const float totalWeight = attackMs + decayMs + sustainWeight + releaseMs;
