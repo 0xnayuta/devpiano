@@ -227,6 +227,8 @@ void MainComponent::initialiseUi() {
                 devpiano::ui::jive::StyleCatalog::get().loadFromJSON(json);
             }
         }
+
+        jiveInterpreter = std::make_unique<::jive::Interpreter>();
         auto& factory = jiveInterpreter->getComponentFactory();
 
         factory.set("SettingsButton", [] {
