@@ -9,7 +9,7 @@
 
 #include "Recording/PerformanceFile.h"
 #include "Recording/RecordingEngine.h"
-#include "UI/ControlsPanel.h"
+#include "UI/RecordingTypes.h"
 
 class AudioEngine;
 class MainComponent;
@@ -28,24 +28,23 @@ public:
         bool canExportMidi = false;
         PerformanceFileMetadata currentMetadata;
         juce::File currentPerformanceFile;
-        ControlsPanel::RecordingState state = ControlsPanel::RecordingState::idle;
-
+        ui::RecordingState state = ui::RecordingState::idle;
         [[nodiscard]] bool hasTake() const noexcept {
             return !take.isEmpty();
         }
         [[nodiscard]] bool isRecording() const noexcept {
-            return state == ControlsPanel::RecordingState::recording;
+            return state == ui::RecordingState::recording;
         }
         [[nodiscard]] bool isPlaying() const noexcept {
-            return state == ControlsPanel::RecordingState::playing;
+            return state == ui::RecordingState::playing;
         }
         [[nodiscard]] bool isIdle() const noexcept {
-            return state == ControlsPanel::RecordingState::idle;
+            return state == ui::RecordingState::idle;
         }
     };
 
     RecordingSessionController(MainComponent& owner, RecordingEngine& recordingEngine, AudioEngine& audioEngine,
-                               SettingsModel& appSettings, ControlsPanel& controlsPanel);
+                               SettingsModel& appSettings);
     ~RecordingSessionController();
 
     void handleRecordClicked();
@@ -91,7 +90,6 @@ private:
     RecordingEngine& recordingEngine;
     AudioEngine& audioEngine;
     SettingsModel& appSettings;
-    ControlsPanel& controlsPanel;
 
     RecordingSession recordingSession;
     // aliveFlag_ shared with async lambdas so they can detect destruction

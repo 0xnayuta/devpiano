@@ -20,13 +20,16 @@
 #include "Settings/SettingsModel.h"
 #include "Settings/SettingsStore.h"
 #include "Settings/SettingsWindowManager.h"
-#include "UI/ControlsPanel.h"
+#include "UI/CustomKeyboard.h"
 #include "UI/DevPianoLookAndFeel.h"
-#include "UI/HeaderPanel.h"
-#include "UI/KeyboardPanel.h"
 #include "UI/PluginEditorWindow.h"
-#include "UI/PluginPanel.h"
-#include "UI/StatusBar.h"
+#include "UI/PluginTypes.h"
+#include "UI/RecordingTypes.h"
+#include "UI/jive/LayoutModel.h"
+#include "UI/jive/StyleCatalog.h"
+#include "UI/native/KeyboardViewport.h"
+
+#include <jive_layouts/jive_layouts.h>
 #if DEBUG
 #include <melatonin_inspector/melatonin_inspector.h>
 #endif
@@ -61,6 +64,8 @@ public:
     void restoreKeyboardFocus();
     static juce::Rectangle<int> getMainContentResizeLimits();
     void persistMainContentSize(int width, int height);
+    /// Hot reloads design_tokens.json and style_sheets.json at runtime without restarting.
+    void reloadStylesAndTokens();
 
     [[nodiscard]] SettingsModel& getAppSettings() noexcept {
         return appSettings;
@@ -110,6 +115,40 @@ private:
     [[nodiscard]] bool isSettingsWindowOpen() const;
     void logCurrentAudioDeviceDiagnostics(const juce::String& context) const;
     void renderReadOnlyUiState(const devpiano::core::AppState& appState);
+
+    // ── JIVE plugin panel accessors ──
+    void setPluginPathText(const juce::String& text);
+    [[nodiscard]] juce::String getPluginPathText() const;
+    [[nodiscard]] juce::String getSelectedPluginName() const;
+    void setPluginPanelExpanded(bool expanded);
+    void refreshPluginStatusEllipsis();
+    void updatePluginPanelState(const devpiano::ui::PluginPanelState& state);
+    void setInstrumentFilterVisible(bool visible);
+    void showPluginBrowseDialog();
+    void refreshPluginPanelTexts();
+
+    // ── JIVE controls panel accessors ──
+    [[nodiscard]] float getMasterGain() const;
+    [[nodiscard]] float getAttack() const;
+    [[nodiscard]] float getDecay() const;
+    [[nodiscard]] float getSustain() const;
+    [[nodiscard]] float getRelease() const;
+    [[nodiscard]] double getControlsPlaybackSpeed() const;
+    void setControlsValues(float masterGain, float attack, float decay, float sustain, float release);
+    void setControlsPlaybackSpeed(double speed);
+    void setControlsPresets(const juce::StringArray& presetIds, const juce::String& currentPresetId,
+                            const juce::StringArray& presetDisplayNames);
+    [[nodiscard]] juce::String getSelectedPresetId() const;
+    void updateControlsPresetActionButtons();
+    void setRecordingControlsState(devpiano::ui::RecordingControlsState state);
+    [[nodiscard]] juce::Rectangle<int> getRecentFilesButtonScreenBounds() const;
+    void refreshControlsTexts();
+
+    // ── JIVE keyboard area accessors ──
+    CustomKeyboard& getCustomKeyboard();
+    void setKeyboardLayout(const devpiano::core::KeyboardLayout& layout);
+    void setKeyboardViewPosition(int midiNote, int pixelOffset = -1);
+    [[nodiscard]] int getKeyboardViewPositionX() const noexcept;
     void refreshReadOnlyUiStateFromCurrentSnapshot();
     void refreshPluginUiState();
     void finishPluginUiAction(bool shouldSaveSettings);
@@ -137,11 +176,19 @@ private:
 
     bool dropActive = false;
 
-    HeaderPanel headerPanel;
-    PluginPanel pluginPanel;
-    ControlsPanel controlsPanel;
-    KeyboardPanel keyboardPanel;
-    StatusBar statusBar;
+    // Single JIVE tree for the whole window (replaces the native panels)
+    std::unique_ptr<::jive::Interpreter> jiveInterpreter;
+    std::unique_ptr<::jive::GuiItem> jiveRootItem;
+    juce::String lastPluginStatusText; // full text; re-ellipsised on resize
+    bool isUpdatingPluginSelector = false; // guard against onChange re-entrancy during programmatic UI refresh
+    bool isUpdatingPresets = false; // guard against onChange re-entrancy during preset list refresh
+    juce::StringArray availablePresetIds;
+    devpiano::ui::RecordingControlsState recordingControlsState;
+    CustomKeyboard* customKeyboardRef = nullptr;
+    juce::Time lastTokensModTime;
+    juce::Time lastStylesModTime;
+    int hotReloadCheckCounter = 0;
+
     std::unique_ptr<devpiano::settings::SettingsWindowManager> settingsWindowManager;
     std::unique_ptr<devpiano::layout::PresetFlowSupport> presetFlowSupport;
     std::unique_ptr<devpiano::recording::RecordingSessionController> recordingSessionController;

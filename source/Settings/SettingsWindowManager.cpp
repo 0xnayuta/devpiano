@@ -1,10 +1,10 @@
 #include "SettingsWindowManager.h"
 
-#include "UI/jive/DesignTokens.h"
 #include "MainComponent.h"
 #include "Settings/SettingsComponent.h"
 #include "UI/CustomKeyboard.h"
 #include "UI/DevPianoLookAndFeel.h"
+#include "UI/jive/DesignTokens.h"
 
 namespace devpiano::settings {
 namespace {
@@ -99,8 +99,8 @@ void SettingsWindowManager::show(ShowOptions options) {
                 locked->window->setName(TRANS("Audio Settings"));
     };
 
-    state->window
-        = std::make_unique<SettingsDialogWindow>(TRANS("Audio Settings"), devpiano::jive::DesignTokens::get().mainBg(), closeWindow);
+    state->window = std::make_unique<SettingsDialogWindow>(TRANS("Audio Settings"),
+                                                           devpiano::jive::DesignTokens::get().mainBg(), closeWindow);
     state->window->setLookAndFeel(&options.parent.getLookAndFeel());
     state->window->setUsingNativeTitleBar(true);
     state->window->setContentOwned(content.release(), true);
@@ -188,8 +188,8 @@ void SettingsWindowManager::showFor(MainComponent& owner) {
               ks.customKeyLabels = kbs.customKeyLabels;
               ks.customKeyColours = kbs.customKeyColours;
 
-              safe->keyboardPanel.getCustomKeyboard().setKeyboardSettings(ks);
-              safe->pluginPanel.setInstrumentFilterVisible(kbs.showInstrumentFilter);
+              safe->getCustomKeyboard().setKeyboardSettings(ks);
+              safe->setInstrumentFilterVisible(kbs.showInstrumentFilter);
 
               // Only recreate desktop window when resize preference changes
               if (kbs.resizableWindow != lastResizable) {

@@ -96,33 +96,31 @@ target_sources(devpiano PRIVATE
     source/Recording/WavFileExporter.h
     source/Recording/PluginOfflineRenderer.cpp
     source/Recording/PluginOfflineRenderer.h
-    source/UI/PluginPanel.cpp
-    source/UI/PluginPanel.h
     source/UI/PluginEditorWindow.cpp
     source/UI/PluginEditorWindow.h
     source/UI/PluginPanelStateBuilder.cpp
     source/UI/PluginPanelStateBuilder.h
     source/UI/DevPianoLookAndFeel.cpp
     source/UI/DevPianoLookAndFeel.h
-    source/UI/ControlsPanel.cpp
-    source/UI/ControlsPanel.h
-    source/UI/HeaderPanel.cpp
-    source/UI/HeaderPanel.h
-    source/UI/StatusBar.cpp
-    source/UI/StatusBar.h
-    source/UI/KeyboardPanel.cpp
-    source/UI/KeyboardPanel.h
     source/Settings/SettingsModel.h
     source/Settings/AppStateBuilder.cpp
     source/Settings/AppStateBuilder.h
     source/UI/CustomKeyboard.cpp
     source/UI/CustomKeyboard.h
+    source/UI/native/AdsrCurveComponent.cpp
+    source/UI/native/AdsrCurveComponent.h
+    source/UI/native/StatusBarMidiDot.h
+    source/UI/native/KeyboardViewport.h
     source/UI/KeyboardTypes.h
+    source/UI/PluginTypes.h
+    source/UI/RecordingTypes.h
     source/Settings/SettingsStore.cpp
     source/UI/KeyBindingEditDialog.cpp
     source/UI/KeyBindingEditDialog.h
     source/UI/PerformanceMetadataDialog.cpp
     source/UI/PerformanceMetadataDialog.h
+    source/UI/PresetDialogs.cpp
+    source/UI/PresetDialogs.h
     source/Settings/SettingsStore.h
     source/Settings/SettingsSerialization.cpp
     source/Settings/SettingsSerialization.h
@@ -142,8 +140,11 @@ target_sources(devpiano PRIVATE
     source/Locale/zh_CN.loc.h
     source/UI/jive/DesignTokens.cpp
     source/UI/jive/DesignTokens.h
+    source/UI/jive/StyleCatalog.cpp
+    source/UI/jive/StyleCatalog.h
+    source/UI/jive/LayoutModel.cpp
+    source/UI/jive/LayoutModel.h
 )
-
 # 包含 source 目录作为头文件查找路径，这样代码里可以通过 #include "xxx.h" 直接引用
 target_include_directories(devpiano PRIVATE source)
 
@@ -240,6 +241,16 @@ if (BUILD_TESTS)
         source/Plugin/PluginHost.cpp
         source/Plugin/PluginHost.h
 
+        source/UI/jive/StyleCatalog.cpp
+        source/UI/jive/StyleCatalog.h
+        source/UI/jive/LayoutModel.cpp
+        source/UI/jive/LayoutModel.h
+        source/UI/jive/DesignTokens.cpp
+        source/UI/jive/DesignTokens.h
+        source/UI/DevPianoLookAndFeel.cpp
+        source/UI/DevPianoLookAndFeel.h
+
+
 
         # 测试代码
         source/tests/TestRunner.cpp
@@ -249,6 +260,8 @@ if (BUILD_TESTS)
         source/tests/KeyboardMidiMapperTest.cpp
         source/tests/AudioEngineTest.cpp
         source/tests/PluginHostTest.cpp
+        source/tests/StyleCatalogTest.cpp
+        source/tests/PathEditorReproTest.cpp
     )
     target_link_libraries(devpiano_tests PRIVATE
         juce::juce_core
@@ -259,6 +272,9 @@ if (BUILD_TESTS)
         juce::juce_audio_devices
         juce::juce_audio_processors
         juce::juce_recommended_config_flags
+        jive::jive_core
+        jive::jive_layouts
+        jive::jive_style_sheets
     )
 
     target_include_directories(devpiano_tests PRIVATE source)
@@ -268,6 +284,7 @@ if (BUILD_TESTS)
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
         JUCE_UNIT_TESTS=1
+        JIVE_GUI_ITEMS_HAVE_STYLE_SHEETS=1
     )
 
     enable_testing()

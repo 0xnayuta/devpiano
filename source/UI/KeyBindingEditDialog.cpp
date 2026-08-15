@@ -38,9 +38,12 @@ public:
         auto r = getLocalBounds().reduced(10);
         auto btnRow = r.removeFromBottom(32);
         r.removeFromBottom(8);
-        okButton.setBounds(btnRow.removeFromLeft(80));
+        // Right-aligned button group: OK left, Cancel right.
+        constexpr int btnW = 80;
+        btnRow.removeFromLeft(btnRow.getWidth() - (btnW * 2 + 8));
+        okButton.setBounds(btnRow.removeFromLeft(btnW));
         btnRow.removeFromLeft(8);
-        cancelButton.setBounds(btnRow.removeFromLeft(80));
+        cancelButton.setBounds(btnRow.removeFromLeft(btnW));
 
         selector->setBounds(r);
     }
@@ -190,16 +193,18 @@ public:
         clearColourButton.setBounds(colourRow.removeFromLeft(60));
         r.removeFromTop(12);
 
-        // Button row
+        // Button row: right-aligned, OK left of Cancel (Unbind rightmost).
         if (existingBinding != nullptr) {
             auto btnRow = r.removeFromTop(28);
-            okButton.setBounds(btnRow.removeFromLeft(80));
+            constexpr int btnW = 80;
+            btnRow.removeFromLeft(btnRow.getWidth() - (btnW * 3 + 16));
+            okButton.setBounds(btnRow.removeFromLeft(btnW));
             btnRow.removeFromLeft(8);
-            cancelButton.setBounds(btnRow.removeFromLeft(80));
+            cancelButton.setBounds(btnRow.removeFromLeft(btnW));
             btnRow.removeFromLeft(8);
-            unbindButton.setBounds(btnRow.removeFromLeft(80));
+            unbindButton.setBounds(btnRow.removeFromLeft(btnW));
         } else {
-            closeButton.setBounds(r.removeFromTop(28).withWidth(80));
+            closeButton.setBounds(r.removeFromTop(28).withWidth(80).withRightX(r.getRight()));
         }
     }
 

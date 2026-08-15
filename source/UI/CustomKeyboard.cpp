@@ -259,8 +259,8 @@ int CustomKeyboard::findNoteAt(juce::Point<int> position) const {
 // ============================================================================
 
 void CustomKeyboard::paint(juce::Graphics& g) {
-    // ── 1. Crimson felt strip at top edge of keybed (#9e1b1b) ──
-    g.setColour(juce::Colour(0xff9e1b1b));
+    // ── 1. Crimson felt strip at top edge of keybed (#8A1515) ──
+    g.setColour(juce::Colour(0xFF8A1515));
     g.fillRect(0, 0, getWidth(), 2);
 
     paintWhiteKeys(g);
@@ -275,40 +275,41 @@ void CustomKeyboard::paintWhiteKeys(juce::Graphics& g) {
 
         auto& b = k.bounds;
         juce::Path keyPath;
-        keyPath.addRoundedRectangle(b.getX(), b.getY(), b.getWidth(), b.getHeight(), 2.0f, 2.0f, false, false, true,
+        keyPath.addRoundedRectangle(b.getX(), b.getY(), b.getWidth(), b.getHeight(), 2.5f, 2.5f, false, false, true,
                                     true);
 
-        // Base fill: custom colour or vertical gradient
+        // Base fill: custom colour or realistic ivory-white gradient
         auto customColour = settings.customKeyColours[static_cast<std::size_t>(k.midiNote)];
         if (!customColour.isTransparent()) {
             g.setColour(customColour);
             g.fillPath(keyPath);
         } else {
-            juce::ColourGradient whiteGrad(juce::Colour(0xfff0f0f0), b.getX(), b.getY(), juce::Colour(0xffd8d8d8),
+            juce::ColourGradient whiteGrad(juce::Colour(0xFFFAFBFC), b.getX(), b.getY(), juce::Colour(0xFFDDE1E8),
                                            b.getX(), b.getBottom(), false);
             g.setGradientFill(whiteGrad);
             g.fillPath(keyPath);
         }
 
-        // Fade overlay & Velocity dynamic glow (ice blue -> bright white based on velocity)
+        // Neon Cyan Glow bloom on key press
         if (k.fade > fadeEpsilon) {
             float vel = perKeyVelocity[static_cast<std::size_t>(k.midiNote)].get();
             if (vel <= 0.001f)
                 vel = 0.8f;
-            auto baseGlow = (settings.colourMode == devpiano::ui::KeyColourMode::classic)
+            const auto baseGlow = (settings.colourMode == devpiano::ui::KeyColourMode::classic)
                 ? devpiano::jive::DesignTokens::get().primary()
                 : k.colour1;
-            auto glowColour = baseGlow.interpolatedWith(juce::Colours::white, vel * 0.7f).withAlpha(k.fade);
+            auto glowColour = baseGlow.interpolatedWith(juce::Colours::white, vel * 0.45f).withAlpha(k.fade * 0.85f);
 
-            juce::ColourGradient fadeGrad(glowColour, b.getCentreX(), b.getCentreY(), glowColour.withAlpha(0.0f),
-                                          b.getCentreX(), b.getY(), false);
-            g.setGradientFill(fadeGrad);
+            // Soft bloom from bottom upward
+            juce::ColourGradient glowGrad(glowColour, b.getCentreX(), b.getBottom() - 10.0f,
+                                          glowColour.withAlpha(0.05f), b.getCentreX(), b.getY() + 10.0f, false);
+            g.setGradientFill(glowGrad);
             g.fillPath(keyPath);
 
-            // Pressed key top inner shadow simulating 1.5px sink effect
-            if (k.fade > 0.5f) {
-                auto shadowH = juce::jmin(12.0f, b.getHeight() * 0.15f);
-                juce::ColourGradient sinkGrad(juce::Colours::black.withAlpha(0.35f * k.fade), b.getX(), b.getY(),
+            // Pressed key top sink shadow (simulating physical mechanical dip)
+            if (k.fade > 0.3f) {
+                const float shadowH = juce::jmin(14.0f, b.getHeight() * 0.18f);
+                juce::ColourGradient sinkGrad(juce::Colours::black.withAlpha(0.32f * k.fade), b.getX(), b.getY(),
                                               juce::Colours::black.withAlpha(0.0f), b.getX(), b.getY() + shadowH,
                                               false);
                 g.setGradientFill(sinkGrad);
@@ -316,11 +317,12 @@ void CustomKeyboard::paintWhiteKeys(juce::Graphics& g) {
             }
         }
 
-        // Border
-        g.setColour(juce::Colour(0xffaaaaaa));
-        g.strokePath(keyPath, juce::PathStrokeType(1.0f));
+        // Subtle key border outline
+        g.setColour(juce::Colour(0xFFB4BAC6));
+        g.strokePath(keyPath, juce::PathStrokeType(0.8f));
     }
 }
+
 void CustomKeyboard::paintBlackKeys(juce::Graphics& g) {
     for (const auto& k : keys) {
         if (k.isWhite)
@@ -331,10 +333,10 @@ void CustomKeyboard::paintBlackKeys(juce::Graphics& g) {
         // Gradual shrink proportional to fade (0→2px)
         auto keyRect = b.withHeight(b.getHeight() - k.fade * 2.0f);
 
-        // Shadow: two layers beneath the key (sides + bottom, confined within key width)
+        // Shadow: two soft layers beneath the key (sides + bottom)
         for (int layer = 0; layer < 2; ++layer) {
             float expand = 1.0f + static_cast<float>(layer) * 0.5f;
-            float alpha = 0.08f - static_cast<float>(layer) * 0.03f;
+            float alpha = 0.12f - static_cast<float>(layer) * 0.05f;
             juce::Path shadowPath;
             shadowPath.addRoundedRectangle(keyRect.getX() - expand, keyRect.getY() + 1.5f + static_cast<float>(layer),
                                            keyRect.getWidth() + expand * 2.0f, keyRect.getHeight() + expand,
@@ -348,39 +350,39 @@ void CustomKeyboard::paintBlackKeys(juce::Graphics& g) {
         keyPath.addRoundedRectangle(keyRect.getX(), keyRect.getY(), keyRect.getWidth(), keyRect.getHeight(), 2.0f, 2.0f,
                                     false, false, true, true);
 
-        // Base fill: custom colour or vertical gradient
+        // Base fill: custom colour or obsidian matte gradient
         auto customColour = settings.customKeyColours[static_cast<std::size_t>(k.midiNote)];
         if (!customColour.isTransparent()) {
             g.setColour(customColour);
             g.fillPath(keyPath);
         } else {
-            juce::ColourGradient blackGrad(juce::Colour(0xff444444), keyRect.getX(), keyRect.getY(),
-                                           juce::Colour(0xff1a1a1a), keyRect.getX(), keyRect.getBottom(), false);
+            juce::ColourGradient blackGrad(juce::Colour(0xFF383C45), keyRect.getX(), keyRect.getY(),
+                                           juce::Colour(0xFF131417), keyRect.getX(), keyRect.getBottom(), false);
             g.setGradientFill(blackGrad);
             g.fillPath(keyPath);
         }
 
-        // Velocity dynamic glow & fade: ice blue → bright white based on velocity
+        // Glow on key press
         if (k.fade > fadeEpsilon) {
             float vel = perKeyVelocity[static_cast<std::size_t>(k.midiNote)].get();
             if (vel <= 0.001f)
                 vel = 0.8f;
-            auto baseGlow = (settings.colourMode == devpiano::ui::KeyColourMode::classic)
+            const auto baseGlow = (settings.colourMode == devpiano::ui::KeyColourMode::classic)
                 ? devpiano::jive::DesignTokens::get().primary()
                 : k.colour1;
-            auto glowColour = baseGlow.interpolatedWith(juce::Colours::white, vel * 0.7f).withAlpha(k.fade);
+            auto glowColour = baseGlow.interpolatedWith(juce::Colours::white, vel * 0.4f).withAlpha(k.fade * 0.75f);
 
-            juce::ColourGradient fadeGrad(glowColour, keyRect.getCentreX(), keyRect.getCentreY(),
+            juce::ColourGradient fadeGrad(glowColour, keyRect.getCentreX(), keyRect.getBottom() - 6.0f,
                                           glowColour.withAlpha(0.0f), keyRect.getCentreX(), keyRect.getY(), false);
             g.setGradientFill(fadeGrad);
             g.fillPath(keyPath);
         }
 
-        // Border
-        g.setColour(juce::Colour(0xff333333));
-        g.strokePath(keyPath, juce::PathStrokeType(1.0f));
-        // 1px ebony bevel edge highlight (#666666) on top edge
-        g.setColour(juce::Colour(0xff666666));
+        // Border outline
+        g.setColour(juce::Colour(0xFF2B2F38));
+        g.strokePath(keyPath, juce::PathStrokeType(0.8f));
+        // Top edge bevel highlight
+        g.setColour(juce::Colour(0xFF606674));
         g.drawHorizontalLine(static_cast<int>(keyRect.getY()), keyRect.getX() + 1.0f, keyRect.getRight() - 1.0f);
     }
 }
@@ -390,16 +392,19 @@ void CustomKeyboard::paintKeyLabels(juce::Graphics& g) {
         auto& customLabel = settings.customKeyLabels[static_cast<std::size_t>(k.midiNote)];
 
         if (k.isWhite) {
-            // ── White key labels: bottom half ──
-            auto fontH = static_cast<float>(juce::jlimit(8, 14, static_cast<int>(settings.keyWidth * 0.45f)));
-            g.setFont(fontH);
-            g.setColour(juce::Colour(0xff888888));
+            // ── White key labels: bottom of key ──
+            auto fontH = static_cast<float>(juce::jlimit(9, 13, static_cast<int>(settings.keyWidth * 0.42f)));
+            g.setFont(juce::FontOptions(fontH));
+
+            // Adaptive text color for high contrast against cyan glow
+            const auto labelColor = (k.fade > 0.45f) ? juce::Colour(0xFF0C2B38) : juce::Colour(0xFF606674);
+            g.setColour(labelColor);
 
             if (customLabel.isNotEmpty()) {
-                auto area = k.bounds.withTrimmedTop(k.bounds.getHeight() * 0.5f).reduced(1, 2);
+                auto area = k.bounds.withTrimmedTop(k.bounds.getHeight() * 0.65f).reduced(1, 3);
                 g.drawText(customLabel, area, juce::Justification::centred, false);
             } else if (k.keyLabel.isNotEmpty()) {
-                auto area = k.bounds.withTrimmedTop(k.bounds.getHeight() * 0.5f).reduced(1, 2);
+                auto area = k.bounds.withTrimmedTop(k.bounds.getHeight() * 0.65f).reduced(1, 3);
                 g.drawText(k.keyLabel, area, juce::Justification::centred, false);
             } else if (k.midiNote >= 0) {
                 auto name = devpiano::ui::getNoteDisplayName(k.midiNote, settings.noteDisplay, settings.keySignature);
@@ -411,14 +416,14 @@ void CustomKeyboard::paintKeyLabels(juce::Graphics& g) {
                 if (splitPos > 0) {
                     auto topLine = name.substring(0, splitPos);
                     auto bottomLine = name.substring(splitPos);
-                    auto area = k.bounds.withTrimmedTop(k.bounds.getHeight() * 0.5f).reduced(1, 2);
-                    auto lineH = fontH * 1.25f;
+                    auto area = k.bounds.withTrimmedTop(k.bounds.getHeight() * 0.65f).reduced(1, 2);
+                    auto lineH = fontH * 1.15f;
                     auto topArea = area.withHeight(lineH).translated(0, (area.getHeight() - lineH * 2.0f) * 0.5f);
                     auto bottomArea = topArea.translated(0, lineH);
                     g.drawText(topLine, topArea, juce::Justification::centred, false);
                     g.drawText(bottomLine, bottomArea, juce::Justification::centred, false);
                 } else {
-                    auto area = k.bounds.withTrimmedTop(k.bounds.getHeight() * 0.5f).reduced(1, 2);
+                    auto area = k.bounds.withTrimmedTop(k.bounds.getHeight() * 0.65f).reduced(1, 3);
                     g.drawText(name, area, juce::Justification::centred, false);
                 }
             }
@@ -427,11 +432,11 @@ void CustomKeyboard::paintKeyLabels(juce::Graphics& g) {
             if (customLabel.isEmpty() && k.keyLabel.isEmpty())
                 continue;
 
-            auto bkFontH = static_cast<float>(juce::jmin(10, static_cast<int>(settings.keyWidth * 0.4f)));
-            g.setFont(bkFontH);
-            g.setColour(juce::Colour(0xffcccccc));
+            auto bkFontH = static_cast<float>(juce::jmin(10, static_cast<int>(settings.keyWidth * 0.38f)));
+            g.setFont(juce::FontOptions(bkFontH));
+            g.setColour(juce::Colour(0xFFD4D8E0));
             auto label = customLabel.isNotEmpty() ? customLabel : k.keyLabel;
-            auto area = k.bounds.withTrimmedBottom(k.bounds.getHeight() * 0.35f).reduced(1, 2);
+            auto area = k.bounds.withTrimmedBottom(k.bounds.getHeight() * 0.4f).reduced(1, 2);
             g.drawText(label, area, juce::Justification::centred, false);
         }
     }

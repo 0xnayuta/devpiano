@@ -47,21 +47,18 @@ juce::DynamicObject::Ptr DesignTokens::spacingNode() const {
 
 // ── Parsing helpers ────────────────────────────────────────────
 
-juce::Colour DesignTokens::parseColor(juce::StringRef key,
-                                      juce::Colour fallback) const {
+juce::Colour DesignTokens::parseColor(juce::StringRef key, juce::Colour fallback) const {
     if (auto node = colorsNode()) {
-        const auto v = node->getProperty(juce::Identifier(juce::String{ key }));
+        const auto v = node->getProperty(juce::Identifier(juce::String { key }));
         if (!v.isVoid())
             return juce::Colour::fromString(v.toString());
     }
     return fallback;
 }
 
-float DesignTokens::parseFloat(juce::StringRef section,
-                                juce::StringRef key,
-                                float fallback) const {
+float DesignTokens::parseFloat(juce::StringRef section, juce::StringRef key, float fallback) const {
     juce::DynamicObject::Ptr node;
-    const juce::String sec{ section };
+    const juce::String sec { section };
     if (sec == "typography") {
         node = typographyNode();
     } else if (sec == "border-radius") {
@@ -70,7 +67,7 @@ float DesignTokens::parseFloat(juce::StringRef section,
         node = spacingNode();
     }
     if (node != nullptr) {
-        const auto v = node->getProperty(juce::Identifier(juce::String{ key }));
+        const auto v = node->getProperty(juce::Identifier(juce::String { key }));
         if (!v.isVoid()) {
             return static_cast<float>(v);
         }
@@ -78,11 +75,9 @@ float DesignTokens::parseFloat(juce::StringRef section,
     return fallback;
 }
 
-int DesignTokens::parseInt(juce::StringRef /*section*/,
-                            juce::StringRef key,
-                            int fallback) const {
+int DesignTokens::parseInt(juce::StringRef /*section*/, juce::StringRef key, int fallback) const {
     if (auto node = spacingNode()) {
-        const auto v = node->getProperty(juce::Identifier(juce::String{ key }));
+        const auto v = node->getProperty(juce::Identifier(juce::String { key }));
         if (!v.isVoid()) {
             return static_cast<int>(v);
         }
@@ -90,11 +85,9 @@ int DesignTokens::parseInt(juce::StringRef /*section*/,
     return fallback;
 }
 
-juce::String DesignTokens::parseString(juce::StringRef /*section*/,
-                                        juce::StringRef key,
-                                        juce::String fallback) const {
+juce::String DesignTokens::parseString(juce::StringRef /*section*/, juce::StringRef key, juce::String fallback) const {
     if (auto node = typographyNode()) {
-        const auto v = node->getProperty(juce::Identifier(juce::String{ key }));
+        const auto v = node->getProperty(juce::Identifier(juce::String { key }));
         if (!v.isVoid()) {
             return v.toString();
         }
@@ -105,43 +98,58 @@ juce::String DesignTokens::parseString(juce::StringRef /*section*/,
 // ── Colors ─────────────────────────────────────────────────────
 
 juce::Colour DesignTokens::mainBg() const {
-    return parseColor("main-bg", juce::Colour(0xff1a1c1e));
+    return parseColor("main-bg", juce::Colour(0xff111316));
 }
 juce::Colour DesignTokens::panelBg() const {
-    return parseColor("panel-bg", juce::Colour(0xff24262a));
+    return parseColor("panel-bg", juce::Colour(0xff181a1f));
 }
 juce::Colour DesignTokens::controlBg() const {
-    return parseColor("control-bg", juce::Colour(0xff2d3035));
+    return parseColor("control-bg", juce::Colour(0xff22252c));
 }
 juce::Colour DesignTokens::primary() const {
-    return parseColor("primary", juce::Colour(0xff00b4d8));
+    return parseColor("primary", juce::Colour(0xff00c8f0));
 }
 juce::Colour DesignTokens::primaryAlpha30() const {
-    return parseColor("primary-alpha-30",
-                      juce::Colour(0xff00b4d8).withAlpha(0.3f));
+    return parseColor("primary-alpha-30", juce::Colour(0xff00c8f0).withAlpha(0.3f));
 }
 juce::Colour DesignTokens::recordActive() const {
-    return parseColor("record-active", juce::Colour(0xffe07b3c));
+    return parseColor("record-active", juce::Colour(0xffe05345));
 }
 juce::Colour DesignTokens::playActive() const {
-    return parseColor("play-active", juce::Colour(0xff4ecdc4));
+    return parseColor("play-active", juce::Colour(0xff2ecc71));
 }
 juce::Colour DesignTokens::textPrimary() const {
-    return parseColor("text-primary", juce::Colour(0xffeeeeee));
+    return parseColor("text-primary", juce::Colour(0xfff0f2f5));
 }
 juce::Colour DesignTokens::textSecondary() const {
-    return parseColor("text-secondary", juce::Colour(0xff999999));
+    return parseColor("text-secondary", juce::Colour(0xffa0a6b2));
 }
 juce::Colour DesignTokens::textDisabled() const {
-    return parseColor("text-disabled", juce::Colour(0xff555555));
+    return parseColor("text-disabled", juce::Colour(0xff555b66));
 }
 juce::Colour DesignTokens::highlightOverlay() const {
-    return parseColor("highlight-overlay",
-                      juce::Colours::white.withAlpha(0.08f));
+    return parseColor("highlight-overlay", juce::Colours::white.withAlpha(0.094f));
 }
 juce::Colour DesignTokens::pressOverlay() const {
-    return parseColor("press-overlay",
-                      juce::Colours::black.withAlpha(0.18f));
+    return parseColor("press-overlay", juce::Colours::black.withAlpha(0.2f));
+}
+juce::Colour DesignTokens::rotaryBgTrack() const {
+    return parseColor("rotary-bg-track", juce::Colour(0xff181a1e));
+}
+juce::Colour DesignTokens::rotaryCapTop() const {
+    return parseColor("rotary-cap-top", juce::Colour(0xff353942));
+}
+juce::Colour DesignTokens::rotaryCapBottom() const {
+    return parseColor("rotary-cap-bottom", juce::Colour(0xff1a1c20));
+}
+juce::Colour DesignTokens::rotaryCapRim() const {
+    return parseColor("rotary-cap-rim", juce::Colour(0xff101114));
+}
+juce::Colour DesignTokens::rotaryRingTop() const {
+    return parseColor("rotary-ring-top", juce::Colour(0xff565c69));
+}
+juce::Colour DesignTokens::rotaryRingBottom() const {
+    return parseColor("rotary-ring-bottom", juce::Colour(0xff141518));
 }
 
 // ── Typography ─────────────────────────────────────────────────
@@ -168,16 +176,16 @@ juce::String DesignTokens::fontWeightTitle() const {
 // ── Border Radius ──────────────────────────────────────────────
 
 float DesignTokens::borderRadiusDefault() const {
-    return parseFloat("border-radius", "default", 4.0f);
+    return parseFloat("border-radius", "default", 6.0f);
 }
 
 // ── Spacing & Dimensions ───────────────────────────────────────
 
 int DesignTokens::windowDefaultWidth() const {
-    return parseInt("spacing", "window-default-width", 1120);
+    return parseInt("spacing", "window-default-width", 1180);
 }
 int DesignTokens::windowDefaultHeight() const {
-    return parseInt("spacing", "window-default-height", 760);
+    return parseInt("spacing", "window-default-height", 780);
 }
 int DesignTokens::windowMinWidth() const {
     return parseInt("spacing", "window-min-width", 980);
@@ -192,7 +200,7 @@ int DesignTokens::windowMaxHeight() const {
     return parseInt("spacing", "window-max-height", 2160);
 }
 int DesignTokens::statusBarHeight() const {
-    return parseInt("spacing", "status-bar-height", 22);
+    return parseInt("spacing", "status-bar-height", 24);
 }
 int DesignTokens::settingsBtnWidth() const {
     return parseInt("spacing", "settings-btn-width", 36);

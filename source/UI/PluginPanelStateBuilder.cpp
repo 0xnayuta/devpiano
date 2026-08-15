@@ -1,7 +1,7 @@
 #include "PluginPanelStateBuilder.h"
 
-PluginPanel::State buildPluginPanelState(const PluginHost& pluginHost, const juce::String& lastPluginName,
-                                         bool isEditorOpen) {
+devpiano::ui::PluginPanelState buildPluginPanelState(const PluginHost& pluginHost, const juce::String& lastPluginName,
+                                                     bool isEditorOpen) {
     const auto preferredSelection = pluginHost.hasLoadedPlugin() ? pluginHost.getCurrentPluginName() : lastPluginName;
 
     return { .availablePluginNames = pluginHost.getKnownPluginNames(),

@@ -7,7 +7,8 @@ namespace devpiano::jive {
 /// Single source of truth for design tokens (colors, fonts, spacing).
 ///
 /// Loaded once at startup from design_tokens.json; falls back to hardcoded
-/// defaults (current Phase 10 palette) if the file is missing or malformed.
+/// defaults matching the shipped design_tokens.json if the file is missing
+/// or malformed.
 class DesignTokens {
 public:
     DesignTokens(const DesignTokens&) = delete;
@@ -33,6 +34,12 @@ public:
     [[nodiscard]] juce::Colour textDisabled() const;
     [[nodiscard]] juce::Colour highlightOverlay() const;
     [[nodiscard]] juce::Colour pressOverlay() const;
+    [[nodiscard]] juce::Colour rotaryBgTrack() const;
+    [[nodiscard]] juce::Colour rotaryCapTop() const;
+    [[nodiscard]] juce::Colour rotaryCapBottom() const;
+    [[nodiscard]] juce::Colour rotaryCapRim() const;
+    [[nodiscard]] juce::Colour rotaryRingTop() const;
+    [[nodiscard]] juce::Colour rotaryRingBottom() const;
 
     // ── Typography ──────────────────────────────────────
     [[nodiscard]] float fontSizeTiny() const;
@@ -58,23 +65,16 @@ public:
 private:
     DesignTokens() = default;
 
-    juce::DynamicObject::Ptr root{ new juce::DynamicObject() };
+    juce::DynamicObject::Ptr root { new juce::DynamicObject() };
 
     [[nodiscard]] juce::DynamicObject::Ptr colorsNode() const;
     [[nodiscard]] juce::DynamicObject::Ptr typographyNode() const;
     [[nodiscard]] juce::DynamicObject::Ptr borderRadiusNode() const;
     [[nodiscard]] juce::DynamicObject::Ptr spacingNode() const;
-    [[nodiscard]] juce::Colour parseColor(juce::StringRef key,
-                                          juce::Colour fallback) const;
-    [[nodiscard]] float parseFloat(juce::StringRef section,
-                                  juce::StringRef key,
-                                  float fallback) const;
-    [[nodiscard]] int parseInt(juce::StringRef section,
-                              juce::StringRef key,
-                              int fallback) const;
-    [[nodiscard]] juce::String parseString(juce::StringRef section,
-                                          juce::StringRef key,
-                                          juce::String fallback) const;
+    [[nodiscard]] juce::Colour parseColor(juce::StringRef key, juce::Colour fallback) const;
+    [[nodiscard]] float parseFloat(juce::StringRef section, juce::StringRef key, float fallback) const;
+    [[nodiscard]] int parseInt(juce::StringRef section, juce::StringRef key, int fallback) const;
+    [[nodiscard]] juce::String parseString(juce::StringRef section, juce::StringRef key, juce::String fallback) const;
 };
 
 } // namespace devpiano::jive

@@ -10,7 +10,6 @@
 class AudioEngine;
 class MainComponent;
 class PluginHost;
-class PluginPanel;
 class PluginEditorWindow;
 
 namespace devpiano::plugin {
@@ -21,8 +20,7 @@ namespace devpiano::plugin {
 
 class PluginOperationController final : private juce::AsyncUpdater {
 public:
-    PluginOperationController(MainComponent& owner, PluginHost& pluginHost, SettingsModel& appSettings,
-                              PluginPanel& pluginPanel);
+    PluginOperationController(MainComponent& owner, PluginHost& pluginHost, SettingsModel& appSettings);
     ~PluginOperationController() override;
 
     void restorePluginStateOnStartup();
@@ -62,7 +60,6 @@ private:
     MainComponent& owner;
     PluginHost& pluginHost;
     SettingsModel& appSettings;
-    PluginPanel& pluginPanel;
 
     std::unique_ptr<PluginEditorWindow> pluginEditorWindow;
 

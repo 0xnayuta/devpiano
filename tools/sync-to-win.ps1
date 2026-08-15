@@ -39,6 +39,7 @@ $excludeDirPaths = @(
     (Join-Path $SourceDir 'bin'),
     (Join-Path $SourceDir 'obj'),
     (Join-Path $SourceDir '.cache'),
+    (Join-Path $SourceDir '.codegraph'),
     (Join-Path $SourceDir '__pycache__'),
     (Join-Path $SourceDir 'CMakeFiles'),
     # Mirror-local build output

@@ -42,6 +42,8 @@ private:
     void refreshCache();
     void commitPreset(const PerformancePreset& preset);
     void updateUiAfterCommit();
+    /// Save the current live state as a preset to `file` and refresh the UI.
+    void savePresetFromCurrentState(const juce::String& name, const juce::File& file);
 
     MainComponent& owner;
     std::vector<PerformancePreset> cachedPresets;

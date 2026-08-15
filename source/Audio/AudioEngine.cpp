@@ -126,10 +126,18 @@ void AudioEngine::prepareToPlay(int samplesPerBlockExpected, double sampleRate) 
     synth.setCurrentPlaybackSampleRate(sampleRate);
     midiCollector.reset(sampleRate);
     midiBuffer.clear();
-    // Pre-allocate for up to 8 channels (covers stereo sources + multi-out plugins).
+    // Pre-allocate channels (covers stereo, multi-out, and spatial/ambisonic plugins up to 32+ channels).
     // The audio callback must never resize this buffer — heap allocation on the
     // real-time thread causes glitches.
-    pluginBuffer.setSize(8, juce::jmax(1, samplesPerBlockExpected), false, false, true);
+    auto requiredChannels = 32;
+    if (pluginHost != nullptr && pluginHost->hasLoadedPlugin()) {
+        if (auto* instance = pluginHost->getInstance()) {
+            requiredChannels
+                = juce::jmax(requiredChannels,
+                             juce::jmax(instance->getTotalNumInputChannels(), instance->getTotalNumOutputChannels()));
+        }
+    }
+    pluginBuffer.setSize(requiredChannels, juce::jmax(1, samplesPerBlockExpected), false, false, true);
     pluginBuffer.clear();
 
     const auto bytes = static_cast<size_t>(juce::jlimit(4096, 65536, samplesPerBlockExpected * 16));

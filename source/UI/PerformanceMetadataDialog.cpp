@@ -64,11 +64,13 @@ public:
         notesEditor.setBounds(r.removeFromTop(80));
         r.removeFromTop(12);
 
-        // Button row
+        // Button row: right-aligned, OK left of Cancel.
         auto btnRow = r.removeFromTop(28);
-        okButton.setBounds(btnRow.removeFromLeft(80));
+        constexpr int btnW = 80;
+        btnRow.removeFromLeft(btnRow.getWidth() - (btnW * 2 + 8));
+        okButton.setBounds(btnRow.removeFromLeft(btnW));
         btnRow.removeFromLeft(8);
-        cancelButton.setBounds(btnRow.removeFromLeft(80));
+        cancelButton.setBounds(btnRow.removeFromLeft(btnW));
     }
 
     void paint(juce::Graphics& g) override {
