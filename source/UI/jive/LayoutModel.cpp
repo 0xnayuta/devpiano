@@ -32,6 +32,9 @@ inline juce::ValueTree button(const juce::String& label, const juce::String& id 
     t.setProperty("display", "flex", nullptr);
     t.setProperty("justify-content", "centre", nullptr);
     t.setProperty("align-items", "centre", nullptr);
+    // Required for the "Button" style-sheet border rule to render: JIVE's
+    // BackgroundCanvas only strokes when the node carries a border-width.
+    t.setProperty("border-width", "1", nullptr);
 
     auto labelText = text(label);
     labelText.setProperty("justification", "centred", nullptr);
@@ -138,6 +141,7 @@ juce::ValueTree makeStatusBarTree() {
 juce::ValueTree makePluginPanelTree() {
     auto panel = flexColumn("plugin-panel");
     panel.setProperty("padding", "4 8 4 8", nullptr);
+    panel.setProperty("border-width", "1", nullptr);
 
     // ── Always-visible toolbar row: status | selector | filter | buttons ──
     auto actionRow = flexRow("plugin-action-row");
@@ -157,6 +161,7 @@ juce::ValueTree makePluginPanelTree() {
     selector.setProperty("width", 180, nullptr);
     selector.setProperty("height", 26, nullptr);
     selector.setProperty("margin", "0 6 0 0", nullptr);
+    selector.setProperty("border-width", "1", nullptr);
     actionRow.appendChild(selector, nullptr);
 
     // Filter combo: populated programmatically by MainComponent
@@ -169,6 +174,7 @@ juce::ValueTree makePluginPanelTree() {
     filter.setProperty("width", 100, nullptr);
     filter.setProperty("height", 26, nullptr);
     filter.setProperty("margin", "0 6 0 0", nullptr);
+    filter.setProperty("border-width", "1", nullptr);
     actionRow.appendChild(filter, nullptr);
 
     auto loadBtn = button(TRANS("Load"), "load-btn");
@@ -211,6 +217,7 @@ juce::ValueTree makePluginPanelTree() {
     auto pathEditor = node("PathEditor", "plugin-path-editor");
     pathEditor.setProperty("flex-grow", 1.0, nullptr);
     pathEditor.setProperty("height", 26, nullptr);
+    pathEditor.setProperty("border-width", "1", nullptr);
     pathRow.appendChild(pathEditor, nullptr);
 
     auto browseBtn = button("...", "browse-btn");
@@ -230,6 +237,7 @@ juce::ValueTree makePluginPanelTree() {
     auto listEditor = node("ListEditor", "plugin-list-editor");
     listEditor.setProperty("flex-grow", 1.0, nullptr);
     listEditor.setProperty("margin", "6 0 0 0", nullptr);
+    listEditor.setProperty("border-width", "1", nullptr);
     expandedArea.appendChild(listEditor, nullptr);
 
     panel.appendChild(expandedArea, nullptr);
@@ -258,6 +266,7 @@ juce::ValueTree makeControlsPanelTree() {
         btn.setProperty("margin", margin, nullptr);
         btn.setProperty("flex-grow", 1.0, nullptr);
         btn.setProperty("height", 38, nullptr);
+        btn.setProperty("border-width", "1", nullptr);
         return btn;
     };
 
@@ -269,6 +278,7 @@ juce::ValueTree makeControlsPanelTree() {
     presetCard.setProperty("flex-shrink", 0.0, nullptr);
     presetCard.setProperty("padding", "10", nullptr);
     presetCard.setProperty("margin", "0 10 0 0", nullptr);
+    presetCard.setProperty("border-width", "1", nullptr);
 
     auto presetHeader = text(TRANS("Performance Preset"), "preset-card-title");
     presetHeader.setProperty("height", 16, nullptr);
@@ -278,6 +288,7 @@ juce::ValueTree makeControlsPanelTree() {
     auto presetCombo = node("ComboBox", "preset-combo");
     presetCombo.setProperty("height", 28, nullptr);
     presetCombo.setProperty("margin", "0 0 8 0", nullptr);
+    presetCombo.setProperty("border-width", "1", nullptr);
     presetCard.appendChild(presetCombo, nullptr);
 
     auto presetBtnRow = flexRow("preset-btn-row");
@@ -323,6 +334,7 @@ juce::ValueTree makeControlsPanelTree() {
     adsrCard.setProperty("flex-grow", 2.0, nullptr);
     adsrCard.setProperty("padding", "10", nullptr);
     adsrCard.setProperty("margin", "0 10 0 0", nullptr);
+    adsrCard.setProperty("border-width", "1", nullptr);
 
     // 5 Rotary Knobs (Volume, Attack, Decay, Sustain, Release)
     auto knobsRow = flexRow("knobs-row");
@@ -376,6 +388,7 @@ juce::ValueTree makeControlsPanelTree() {
     transportCard.setProperty("width", 230, nullptr);
     transportCard.setProperty("flex-shrink", 0.0, nullptr);
     transportCard.setProperty("padding", "10", nullptr);
+    transportCard.setProperty("border-width", "1", nullptr);
 
     auto transportHeader = text(TRANS("Transport Controls"), "transport-card-title");
     transportHeader.setProperty("height", 16, nullptr);
@@ -450,7 +463,7 @@ juce::ValueTree makeRootLayout() {
     mainArea.appendChild(header, nullptr);
 
     auto plugin = makePluginPanelTree();
-    plugin.setProperty("height", 40, nullptr); // collapsed; setPluginPanelExpanded updates
+    plugin.setProperty("height", 42, nullptr); // collapsed; setPluginPanelExpanded updates
     plugin.setProperty("margin", "0 0 12 0", nullptr);
     mainArea.appendChild(plugin, nullptr);
 

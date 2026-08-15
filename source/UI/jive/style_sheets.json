@@ -119,7 +119,16 @@
       "border": "#00C8F0"
     }
   },
-  "TextEditor": {
+  "PathEditor": {
+    "background": "#181A1F",
+    "foreground": "#F0F2F5",
+    "border": "#2C303A",
+    "border-radius": "5",
+    "focus": {
+      "border": "#00C8F0"
+    }
+  },
+  "ListEditor": {
     "background": "#181A1F",
     "foreground": "#F0F2F5",
     "border": "#2C303A",

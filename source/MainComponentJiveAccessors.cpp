@@ -90,7 +90,7 @@ void MainComponent::setPluginPanelExpanded(bool expanded) {
             expandedArea->state.setProperty("height", expanded ? 112 : 0, nullptr);
 
         if (auto* item = jive::findItemWithID(*jiveRootItem, "plugin-panel")) {
-            item->state.setProperty("height", expanded ? 160 : 40, nullptr);
+            item->state.setProperty("height", expanded ? 160 : 42, nullptr);
             // JIVE's boxModelChanged only re-lays-out the decorated item
             // itself (the top of its decorator chain), never its siblings in
             // the parent column — so the controls/keyboard below would stay
