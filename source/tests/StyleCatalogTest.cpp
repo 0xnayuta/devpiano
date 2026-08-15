@@ -444,6 +444,22 @@ private:
         expect(statusBounds.getHeight() > 0, "status bar has zero height after layout");
         expect(keyboardBounds.getHeight() > 0, "keyboard area has zero height after layout");
         expect(statusBounds.getBottom() <= 760, "status bar overflows the window");
+
+        // Every node carries a semantic title (inspector/accessibility): the
+        // CommonGuiItem "title" property must reach Component::setTitle.
+        const auto expectTitle = [&item, this](const char* id, const char* expected) {
+            auto* guiItem = ::jive::findItemWithID(*item, id);
+            expect(guiItem != nullptr, juce::String(id) + " item not found");
+            if (guiItem == nullptr)
+                return;
+            expectEquals(guiItem->getComponent()->getTitle(), juce::String(expected),
+                         juce::String(id) + " must expose its semantic title");
+        };
+        expectTitle("record-btn", "Record");
+        expectTitle("export-midi-btn", "Export");
+        expectTitle("speed-knob", "Playback Speed");
+        expectTitle("settings-btn", "Settings");
+        expectTitle("keyboard-area", "Keyboard Area");
     }
 
     void testWindowRuleFontSizeInheritsToText() {

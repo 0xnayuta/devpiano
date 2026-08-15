@@ -20,6 +20,9 @@ inline juce::ValueTree node(const juce::Identifier& type, const juce::String& id
 inline juce::ValueTree text(const juce::String& content, const juce::String& id = {}) {
     auto t = node("Text", id);
     t.setProperty("text", content, nullptr);
+    // Semantic title for inspector/accessibility: defaults to the displayed
+    // text; dynamic labels override it at the call site.
+    t.setProperty("title", content, nullptr);
     return t;
 }
 
@@ -33,6 +36,8 @@ inline juce::ValueTree button(const juce::String& label, const juce::String& id 
     t.setProperty("display", "flex", nullptr);
     t.setProperty("justify-content", "centre", nullptr);
     t.setProperty("align-items", "centre", nullptr);
+    // Semantic title for inspector/accessibility: the visible label.
+    t.setProperty("title", label, nullptr);
     // Required for the "Button" style-sheet border rule to render: JIVE's
     // BackgroundCanvas only strokes when the node carries a border-width.
     t.setProperty("border-width", "1", nullptr);
@@ -80,6 +85,7 @@ inline juce::ValueTree flexColumn(const juce::String& id = {}) {
 
 juce::ValueTree makeHeaderTree() {
     auto row = flexRow("header");
+    row.setProperty("title", "Header", nullptr);
     row.setProperty("height", 36, nullptr);
     row.setProperty("padding", "0 12 0 12", nullptr);
 
@@ -92,6 +98,7 @@ juce::ValueTree makeHeaderTree() {
     // Settings button — DrawableButton with gear icon, provided by the
     // "SettingsButton" component factory registered in MainComponent.
     auto settings = node("SettingsButton", "settings-btn");
+    settings.setProperty("title", "Settings", nullptr);
     settings.setProperty("tooltip", TRANS("Settings"), nullptr);
     settings.setProperty("width", 36, nullptr);
     settings.setProperty("height", 36, nullptr);
@@ -106,6 +113,7 @@ juce::ValueTree makeHeaderTree() {
 
 juce::ValueTree makeStatusBarTree() {
     auto row = flexRowStretch("status-bar");
+    row.setProperty("title", "Status Bar", nullptr);
     row.setProperty("height", devpiano::jive::DesignTokens::get().statusBarHeight(), nullptr);
     row.setProperty("padding", "0 8 0 8", nullptr);
     // Top separator line — drawn by the StyleSheet border canvas.
@@ -113,6 +121,7 @@ juce::ValueTree makeStatusBarTree() {
 
     // MIDI activity dot — custom component (StatusBarMidiDot) 6x6 px.
     auto dot = node("StatusBarMidiDot", "midi-dot");
+    dot.setProperty("title", "MIDI Activity", nullptr);
     dot.setProperty("width", 6, nullptr);
     dot.setProperty("height", 6, nullptr);
     dot.setProperty("margin", "0 6 0 0", nullptr);
@@ -120,14 +129,17 @@ juce::ValueTree makeStatusBarTree() {
 
     // Labels stretch to the row height and centre their text vertically.
     auto pluginLabel = text({}, "plugin-name-label");
+    pluginLabel.setProperty("title", "Plugin Name", nullptr);
     pluginLabel.setProperty("flex-grow", 1.0, nullptr);
     row.appendChild(pluginLabel, nullptr);
 
     auto audioInfo = text({}, "audio-info-label");
+    audioInfo.setProperty("title", "Audio Info", nullptr);
     audioInfo.setProperty("flex-grow", 1.0, nullptr);
     row.appendChild(audioInfo, nullptr);
 
     auto timeLabel = text({}, "time-label");
+    timeLabel.setProperty("title", "Time", nullptr);
     timeLabel.setProperty("width", 120, nullptr);
     timeLabel.setProperty("justification", "centred-right", nullptr);
     row.appendChild(timeLabel, nullptr);
@@ -141,17 +153,20 @@ juce::ValueTree makeStatusBarTree() {
 
 juce::ValueTree makePluginPanelTree() {
     auto panel = flexColumn("plugin-panel");
+    panel.setProperty("title", "Plugin Panel", nullptr);
     panel.setProperty("padding", "4 8 4 8", nullptr);
     panel.setProperty("border-width", "1", nullptr);
 
     // ── Always-visible toolbar row: status | selector | filter | buttons ──
     auto actionRow = flexRow("plugin-action-row");
+    actionRow.setProperty("title", "Plugin Actions", nullptr);
     actionRow.setProperty("height", 30, nullptr);
     // 2px bottom margin + 4px panel padding = same 6px row rhythm as the
     // preset-card rows (Export/Save) below.
     actionRow.setProperty("margin", "0 0 2 0", nullptr);
 
     auto status = text({}, "plugin-status-label");
+    status.setProperty("title", "Plugin Status", nullptr);
     status.setProperty("flex-grow", 1.0, nullptr);
     status.setProperty("height", 26, nullptr); // explicit: toolbar row centres, not stretches
     status.setProperty("word-wrap", "none", nullptr); // single line, clipped like the native label
@@ -159,6 +174,7 @@ juce::ValueTree makePluginPanelTree() {
     actionRow.appendChild(status, nullptr);
 
     auto selector = node("ComboBox", "plugin-selector");
+    selector.setProperty("title", "Plugin Selector", nullptr);
     selector.setProperty("width", 180, nullptr);
     selector.setProperty("height", 26, nullptr);
     selector.setProperty("margin", "0 6 0 0", nullptr);
@@ -172,6 +188,7 @@ juce::ValueTree makePluginPanelTree() {
     // selection when items are also managed with clear()/addItem(), so this
     // must stay a bare ComboBox like plugin-selector.
     auto filter = node("ComboBox", "plugin-filter-combo");
+    filter.setProperty("title", "Plugin Filter", nullptr);
     filter.setProperty("width", 100, nullptr);
     filter.setProperty("height", 26, nullptr);
     filter.setProperty("margin", "0 6 0 0", nullptr);
@@ -197,6 +214,7 @@ juce::ValueTree makePluginPanelTree() {
     actionRow.appendChild(editorBtn, nullptr);
 
     auto toggleBtn = button(juce::String::charToString(0x22EF), "toggle-btn");
+    toggleBtn.setProperty("title", TRANS("Toggle Plugin Panel"), nullptr);
     toggleBtn.setProperty("width", 30, nullptr);
     toggleBtn.setProperty("height", 26, nullptr);
     actionRow.appendChild(toggleBtn, nullptr);
@@ -205,9 +223,11 @@ juce::ValueTree makePluginPanelTree() {
 
     // ── Expandable area (height 0 when collapsed; 112 when expanded) ──
     auto expandedArea = flexColumn("plugin-expanded-area");
+    expandedArea.setProperty("title", "Plugin Expanded Area", nullptr);
     expandedArea.setProperty("height", 0, nullptr);
 
     auto pathRow = flexRow("plugin-path-row");
+    pathRow.setProperty("title", "Plugin Path Row", nullptr);
     pathRow.setProperty("height", 30, nullptr);
 
     auto pathLabel = text(TRANS("VST3 Path"), "plugin-path-label");
@@ -216,12 +236,14 @@ juce::ValueTree makePluginPanelTree() {
     pathRow.appendChild(pathLabel, nullptr);
 
     auto pathEditor = node("PathEditor", "plugin-path-editor");
+    pathEditor.setProperty("title", "VST3 Path Editor", nullptr);
     pathEditor.setProperty("flex-grow", 1.0, nullptr);
     pathEditor.setProperty("height", 26, nullptr);
     pathEditor.setProperty("border-width", "1", nullptr);
     pathRow.appendChild(pathEditor, nullptr);
 
     auto browseBtn = button("...", "browse-btn");
+    browseBtn.setProperty("title", TRANS("Browse"), nullptr);
     browseBtn.setProperty("width", 40, nullptr);
     browseBtn.setProperty("height", 26, nullptr);
     browseBtn.setProperty("margin", "0 0 0 6", nullptr);
@@ -236,6 +258,7 @@ juce::ValueTree makePluginPanelTree() {
     expandedArea.appendChild(pathRow, nullptr);
 
     auto listEditor = node("ListEditor", "plugin-list-editor");
+    listEditor.setProperty("title", "Plugin List", nullptr);
     listEditor.setProperty("flex-grow", 1.0, nullptr);
     listEditor.setProperty("margin", "6 0 0 0", nullptr);
     listEditor.setProperty("border-width", "1", nullptr);
@@ -252,6 +275,7 @@ juce::ValueTree makePluginPanelTree() {
 
 juce::ValueTree makeControlsPanelTree() {
     auto panel = flexRowStretch("controls-panel");
+    panel.setProperty("title", "Controls", nullptr);
     panel.setProperty("margin", "0 0 8 0", nullptr);
 
     const auto makeTextBtn = [](const juce::String& label, const juce::String& id, const juce::String& margin = "0") {
@@ -262,8 +286,10 @@ juce::ValueTree makeControlsPanelTree() {
         return btn;
     };
 
-    const auto makeIconBtn = [](const juce::String& type, const juce::String& id, const juce::String& margin = "0") {
+    const auto makeIconBtn = [](const juce::String& type, const juce::String& id, const juce::String& title,
+                                const juce::String& margin = "0") {
         auto btn = node(type, id);
+        btn.setProperty("title", title, nullptr);
         btn.setProperty("margin", margin, nullptr);
         btn.setProperty("flex-grow", 1.0, nullptr);
         btn.setProperty("height", 38, nullptr);
@@ -275,6 +301,7 @@ juce::ValueTree makeControlsPanelTree() {
     // Card 1: Presets & Performance Files (Left Card)
     // ═════════════════════════════════════════════════════════════════════════
     auto presetCard = flexColumn("preset-card");
+    presetCard.setProperty("title", "Preset Card", nullptr);
     presetCard.setProperty("width", 270, nullptr);
     presetCard.setProperty("flex-shrink", 0.0, nullptr);
     presetCard.setProperty("padding", "10", nullptr);
@@ -287,12 +314,14 @@ juce::ValueTree makeControlsPanelTree() {
     presetCard.appendChild(presetHeader, nullptr);
 
     auto presetCombo = node("ComboBox", "preset-combo");
+    presetCombo.setProperty("title", TRANS("Performance Preset"), nullptr);
     presetCombo.setProperty("height", 28, nullptr);
     presetCombo.setProperty("margin", "0 0 8 0", nullptr);
     presetCombo.setProperty("border-width", "1", nullptr);
     presetCard.appendChild(presetCombo, nullptr);
 
     auto presetBtnRow = flexRow("preset-btn-row");
+    presetBtnRow.setProperty("title", "Preset Actions", nullptr);
     presetBtnRow.setProperty("height", 26, nullptr);
     presetBtnRow.setProperty("margin", "0 0 12 0", nullptr);
     presetBtnRow.appendChild(makeTextBtn(TRANS("New"), "save-preset-btn", "0 6 0 0"), nullptr);
@@ -302,10 +331,12 @@ juce::ValueTree makeControlsPanelTree() {
 
     // Spacer between presets and file actions
     auto spacer = node("Component");
+    spacer.setProperty("title", "Spacer", nullptr);
     spacer.setProperty("flex-grow", 1.0, nullptr);
     presetCard.appendChild(spacer, nullptr);
 
     auto fileRow1 = flexRow("file-row-1");
+    fileRow1.setProperty("title", "Export Row", nullptr);
     fileRow1.setProperty("height", 26, nullptr);
     fileRow1.setProperty("margin", "0 0 6 0", nullptr);
     fileRow1.appendChild(makeTextBtn(TRANS("Export"), "export-midi-btn", "0 6 0 0"), nullptr);
@@ -313,6 +344,7 @@ juce::ValueTree makeControlsPanelTree() {
     presetCard.appendChild(fileRow1, nullptr);
 
     auto fileRow2 = flexRow("file-row-2");
+    fileRow2.setProperty("title", "File Row 2", nullptr);
     fileRow2.setProperty("height", 26, nullptr);
     fileRow2.setProperty("margin", "0 0 6 0", nullptr);
     fileRow2.appendChild(makeTextBtn(TRANS("Save"), "save-perf-btn", "0 6 0 0"), nullptr);
@@ -320,6 +352,7 @@ juce::ValueTree makeControlsPanelTree() {
     presetCard.appendChild(fileRow2, nullptr);
 
     auto fileRow3 = flexRow("file-row-3");
+    fileRow3.setProperty("title", "File Row 3", nullptr);
     fileRow3.setProperty("height", 24, nullptr);
     fileRow3.appendChild(makeTextBtn(TRANS("Export WAV"), "export-wav-btn", "0 6 0 0"), nullptr);
     fileRow3.appendChild(makeTextBtn(TRANS("Recent"), "recent-btn", "0 6 0 0"), nullptr);
@@ -332,6 +365,7 @@ juce::ValueTree makeControlsPanelTree() {
     // Card 2: Core Sound & ADSR Envelope (Center Card)
     // ═════════════════════════════════════════════════════════════════════════
     auto adsrCard = flexColumn("adsr-card");
+    adsrCard.setProperty("title", "ADSR Card", nullptr);
     adsrCard.setProperty("flex-grow", 2.0, nullptr);
     adsrCard.setProperty("padding", "10", nullptr);
     adsrCard.setProperty("margin", "0 10 0 0", nullptr);
@@ -339,12 +373,14 @@ juce::ValueTree makeControlsPanelTree() {
 
     // 5 Rotary Knobs (Volume, Attack, Decay, Sustain, Release)
     auto knobsRow = flexRow("knobs-row");
+    knobsRow.setProperty("title", "Knobs Row", nullptr);
     knobsRow.setProperty("height", 72, nullptr);
     knobsRow.setProperty("justify-content", "space-around", nullptr);
     knobsRow.setProperty("margin", "0 0 8 0", nullptr);
 
     const auto makeKnob = [](const juce::String& id, const juce::String& labelId, const juce::String& labelText) {
         auto wrapper = node("Component");
+        wrapper.setProperty("title", labelText, nullptr);
         wrapper.setProperty("display", "flex", nullptr);
         wrapper.setProperty("flex-direction", "column", nullptr);
         wrapper.setProperty("align-items", "centre", nullptr);
@@ -356,6 +392,7 @@ juce::ValueTree makeControlsPanelTree() {
         wrapper.appendChild(lbl, nullptr);
 
         auto knob = node("DevKnob", id);
+        knob.setProperty("title", labelText, nullptr);
         knob.setProperty("width", 48, nullptr);
         knob.setProperty("height", 52, nullptr);
         wrapper.appendChild(knob, nullptr);
@@ -376,6 +413,7 @@ juce::ValueTree makeControlsPanelTree() {
     adsrCard.appendChild(adsrTitle, nullptr);
 
     auto curve = node("AdsrCurve", "adsr-curve");
+    curve.setProperty("title", "ADSR Curve", nullptr);
     curve.setProperty("flex-grow", 1.0, nullptr);
     curve.setProperty("min-height", 70, nullptr);
     adsrCard.appendChild(curve, nullptr);
@@ -386,6 +424,7 @@ juce::ValueTree makeControlsPanelTree() {
     // Card 3: Transport Controls & Playback Speed (Right Card)
     // ═════════════════════════════════════════════════════════════════════════
     auto transportCard = flexColumn("transport-card");
+    transportCard.setProperty("title", "Transport Card", nullptr);
     transportCard.setProperty("width", 230, nullptr);
     transportCard.setProperty("flex-shrink", 0.0, nullptr);
     transportCard.setProperty("padding", "10", nullptr);
@@ -399,17 +438,19 @@ juce::ValueTree makeControlsPanelTree() {
     // 2x2 Large Transport Buttons (Record, Play, Stop, Back to Start).
     // The header's settings button already covers Settings — no gear here.
     auto transportGrid1 = flexRow("transport-grid-1");
+    transportGrid1.setProperty("title", "Transport Grid 1", nullptr);
     transportGrid1.setProperty("height", 42, nullptr);
     transportGrid1.setProperty("margin", "0 0 6 0", nullptr);
-    transportGrid1.appendChild(makeIconBtn("RecordButton", "record-btn", "0 6 0 0"), nullptr);
-    transportGrid1.appendChild(makeIconBtn("PlayButton", "play-btn", "0"), nullptr);
+    transportGrid1.appendChild(makeIconBtn("RecordButton", "record-btn", TRANS("Record"), "0 6 0 0"), nullptr);
+    transportGrid1.appendChild(makeIconBtn("PlayButton", "play-btn", TRANS("Play"), "0"), nullptr);
     transportCard.appendChild(transportGrid1, nullptr);
 
     auto transportGrid2 = flexRow("transport-grid-2");
+    transportGrid2.setProperty("title", "Transport Grid 2", nullptr);
     transportGrid2.setProperty("height", 42, nullptr);
     transportGrid2.setProperty("margin", "0 0 8 0", nullptr);
-    transportGrid2.appendChild(makeIconBtn("StopButton", "stop-btn", "0 6 0 0"), nullptr);
-    transportGrid2.appendChild(makeIconBtn("BackButton", "back-btn", "0"), nullptr);
+    transportGrid2.appendChild(makeIconBtn("StopButton", "stop-btn", TRANS("Stop"), "0 6 0 0"), nullptr);
+    transportGrid2.appendChild(makeIconBtn("BackButton", "back-btn", TRANS("Back to Start"), "0"), nullptr);
     transportCard.appendChild(transportGrid2, nullptr);
 
     // Speed Slider Area — horizontal slider matching the reference design
@@ -419,6 +460,7 @@ juce::ValueTree makeControlsPanelTree() {
     transportCard.appendChild(speedHeader, nullptr);
 
     auto speedSlider = node("SpeedSlider", "speed-knob");
+    speedSlider.setProperty("title", TRANS("Playback Speed"), nullptr);
     speedSlider.setProperty("height", 36, nullptr);
     transportCard.appendChild(speedSlider, nullptr);
 
@@ -433,11 +475,13 @@ juce::ValueTree makeControlsPanelTree() {
 
 juce::ValueTree makeKeyboardAreaTree() {
     auto area = node("Component", "keyboard-area");
+    area.setProperty("title", "Keyboard Area", nullptr);
     area.setProperty("display", "flex", nullptr);
     area.setProperty("flex-direction", "column", nullptr);
 
     // KeyboardViewport (Viewport + CustomKeyboard) provided by the factory.
     auto ck = node("CustomKeyboard", "custom-keyboard");
+    ck.setProperty("title", "Keyboard", nullptr);
     ck.setProperty("flex-grow", 1.0, nullptr);
     area.appendChild(ck, nullptr);
 
@@ -453,11 +497,13 @@ juce::ValueTree makeRootLayout() {
     // foreground, font-size) which acts as the window-level default that every
     // child inherits through JIVE's StyleSheet ancestor chain.
     auto root = flexColumn("window");
+    root.setProperty("title", "Window", nullptr);
     // 初始尺寸以 design_tokens.json 为唯一事实来源（与窗口默认尺寸一致）；
     // 后续由 MainComponent::resized() 按实际窗口尺寸覆盖。
     root.setProperty("width", devpiano::jive::DesignTokens::get().windowDefaultWidth(), nullptr);
     root.setProperty("height", devpiano::jive::DesignTokens::get().windowDefaultHeight(), nullptr);
     auto mainArea = flexColumn("main-area");
+    mainArea.setProperty("title", "Main Area", nullptr);
     mainArea.setProperty("flex-grow", 1.0, nullptr);
     mainArea.setProperty("padding", "16", nullptr);
 
@@ -471,6 +517,7 @@ juce::ValueTree makeRootLayout() {
     mainArea.appendChild(plugin, nullptr);
 
     auto contentRow = flexColumn("content-row");
+    contentRow.setProperty("title", "Content Row", nullptr);
     contentRow.setProperty("flex-grow", 1.0, nullptr);
 
     auto controls = makeControlsPanelTree();
