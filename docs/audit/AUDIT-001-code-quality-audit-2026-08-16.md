@@ -30,25 +30,25 @@
 | 优先级 | 合计 | 未处理 | 处理中 | 已缓解 | 已暂缓 | 已关闭 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | P0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| P1 | 5 | 5 | 0 | 0 | 0 | 0 |
+| P1 | 5 | 3 | 0 | 0 | 0 | 2 |
 | P2 | 29 | 18 | 0 | 0 | 9 | 2 |
 | P3 | 51 | 43 | 0 | 0 | 7 | 1 |
-| **合计** | 85 | 66 | 0 | 0 | 16 | 3 |
+| **合计** | 85 | 64 | 0 | 0 | 16 | 5 |
 
 ### 0.3 关键结论
 
-- 总体评级：`B` — 核心运行时健康（0 崩溃/泄漏/静默数据损坏的 P0），线程模型经设备重建同步点设计可靠；但三闸门中 format 门禁回归失败、测试体系存在 3 个 P1 覆盖空洞、实时音频线程有 1 处 P1 级日志 I/O 与 1 处 P1 级数据竞争，架构文档滞后于 Phase 11 新结构。
-- 当前是否适合继续新增功能：`有条件` — 建议先修复 P1（实时线程日志 I/O、masterGain 竞争、3 个核心模块零测试），其余 P2/P3 可与功能开发并行。
+- 总体评级：`B` — 核心运行时健康（0 崩溃/泄漏/静默数据损坏的 P0），线程模型经设备重建同步点设计可靠；实时线程 2 处 P1（播放结束日志 I/O、masterGain 数据竞争）已于 2026-08-16 Phase A 修复；剩余驱动因素：三闸门中 format 门禁回归失败、测试体系存在 3 个 P1 覆盖空洞、架构文档滞后于 Phase 11 新结构。
+- 当前是否适合继续新增功能：`有条件` — 实时线程 P1 已修复（2026-08-16）；建议先补 3 个核心模块零测试（P1），其余 P2/P3 可与功能开发并行。
 - 当前是否建议优先重构：`有条件` — 不涉及大规模重构；优先清理 P2 死代码/错误持久化路径（QUAL-001、ERR-004）与格式门禁回归（ENG-001）。
-- 最大风险：实时音频线程 2 处 P1（播放结束日志 I/O 毛刺 + masterGain 数据竞争 UB），以及 3 个核心模块（会话控制/通道矩阵/预设序列化）零测试覆盖下的回归隐患。
-- 下一步最高优先级：修复 ERR-001（音频线程日志移到消息线程）+ THR-001（masterGain 改 atomic），随后补 TEST-001~003 三个 P1 纯逻辑测试。
+- 最大风险：3 个核心模块（会话控制/通道矩阵/预设序列化）零测试覆盖下的回归隐患。
+- 下一步最高优先级：补 TEST-001~003 三个 P1 纯逻辑测试。
 
 ### 0.4 重点发现
 
 | ID | 优先级 | 状态 | 标题 | 当前结论 |
 | --- | --- | --- | --- | --- |
-| `ERR-001` | P1 | 未处理 | 音频线程播放结束路径 DP_LOG_INFO（文件 I/O + 互斥锁） | 每次回放结束必触发，实时线程阻塞/毛刺风险；日志应移消息线程 |
-| `THR-001` | P1 | 未处理 | AudioEngine::masterGain 跨线程数据竞争（非原子 float） | 音频回调每 block 读、消息线程写；x86 实际原子但标准 UB，需改 atomic |
+| `ERR-001` | P1 | 已关闭 | 音频线程播放结束路径 DP_LOG_INFO（文件 I/O + 互斥锁） | 实时线程仅置 playbackEndedPending 标志，日志移至消息线程 checkPlaybackEnded()（2026-08-16 复审 3） |
+| `THR-001` | P1 | 已关闭 | AudioEngine::masterGain 跨线程数据竞争（非原子 float） | masterGain 改 std::atomic<float>（2026-08-16 复审 3） |
 | `TEST-001` | P1 | 未处理 | RecordingSessionController 零测试覆盖 | 录制/回放/导入/导出全流程状态机 646 行无任何测试 |
 | `TEST-002` | P1 | 未处理 | MidiChannelMapper 零测试覆盖 | 通道路由/移调核心逻辑无测试；唯一相关测试仅测 nullptr 透传 |
 | `TEST-003` | P1 | 未处理 | PerformancePreset 序列化零测试覆盖 | 预设 round-trip 无测试，格式变更可静默破坏用户数据 |
@@ -381,8 +381,8 @@ source/
 
 ### 5.2 当前迭代处理（P1）
 
-- [ ] `THR-001`：`AudioEngine::masterGain` 改为 `std::atomic<float>`（或经设备重建 guard 同步写），消除音频回调/消息线程数据竞争。
-- [ ] `ERR-001`：`advancePlaybackPosition` 播放结束日志移出音频线程——实时线程仅置 `playbackEndedPending` 原子标志，日志移至 `RecordingSessionController::checkPlaybackEnded()`（消息线程）或预构建字符串。
+- [x] `THR-001`：`AudioEngine::masterGain` 改为 `std::atomic<float>`（或经设备重建 guard 同步写），消除音频回调/消息线程数据竞争。（已落地：`std::atomic<float>` + relaxed load/store，2026-08-16 复审 3）
+- [x] `ERR-001`：`advancePlaybackPosition` 播放结束日志移出音频线程——实时线程仅置 `playbackEndedPending` 原子标志，日志移至 `RecordingSessionController::checkPlaybackEnded()`（消息线程）或预构建字符串。（已落地：日志移至 checkPlaybackEnded，字段全部原子读取，2026-08-16 复审 3）
 - [ ] `TEST-001`：补 `RecordingSessionControllerTest`——覆盖 `getLastMidiExportDirectory`（.cpp:52-64）、`toRecordingFlowState`/`makeRecordingFlowStatus` 组合、`RecordingSession::isRecording/isPlaying` paused 语义（.h:36-50）、`replaceTakeAndStartPlayback` 流程（FileChooser 注入桩）。
 - [ ] `TEST-002`：补 `MidiChannelMapperTest`——matrix.active=false 透传、`applyMatrixToNoteOn/Off` 通道选择、transpose 边界钳制（note+keySignature 越界）、followKey+midiTranspose 组合、noteOn/Off 对称变换。
 - [ ] `TEST-003`：补 `PerformancePresetTest`——save→load round-trip（含 128 项 customKeyLabels/Colours）、`sanitisePresetFileName` 特殊字符、损坏文件返回 nullopt、formatVersion 校验。
@@ -478,13 +478,13 @@ devpiano 核心运行时健康：0 项 P0（无崩溃/数据损坏/静默泄漏�
 
 ### 6.4 下一步三件事
 
-1. 修复实时线程 P1 对：ERR-001（播放结束日志移消息线程）+ THR-001（masterGain 改 atomic）。
+1. ~~修复实时线程 P1 对：ERR-001（播放结束日志移消息线程）+ THR-001（masterGain 改 atomic）。~~ ✅ 已于 2026-08-16 Phase A 完成（复审 3）。
 2. 修复格式门禁回归（ENG-001：format 批量修复 + pre-commit/CI 挂钩），恢复三闸门全绿。
 3. 补 3 个 P1 纯逻辑测试（TEST-001/002/003）并修复 TEST-010/011 的 CI 静默丢覆盖。
 
 ### 6.5 ID 覆盖率校验
 
-第 8 章登记 82 项：66 项新发现（THR-001、QUAL-001~018、ERR-001~015、TEST-001~020（其中 TEST-011/012/017 已关闭）、DOC-001~008、ENG-001~007）+ 16 项已暂缓项（THR-002~004、SEC-001~004、PERF-001~004、ERR-016~017、QUAL-019~021）+ 3 项已关闭（TEST-011/012/017，修复证据与复审说明见第 7 章）。第 5 章路线图覆盖全部 66 项未处理（P1×5 → 5.2、P2×18 → 5.3、P3×43 → 5.4），`comm` 校验零缺失、零多余；16 项已暂缓不排期（重开条件见第 8 章）。ADR 事实性描述修正项（2 条，非问题）在 5.4 单独排期。
+第 8 章登记 82 项：66 项新发现（THR-001、QUAL-001~018、ERR-001~015、TEST-001~020（其中 TEST-011/012/017 已关闭）、DOC-001~008、ENG-001~007）+ 16 项已暂缓项（THR-002~004、SEC-001~004、PERF-001~004、ERR-016~017、QUAL-019~021）+ 5 项已关闭（TEST-011/012/017、THR-001、ERR-001，修复证据与复审说明见第 7 章）。第 5 章路线图覆盖全部 64 项未处理（P1×3 → 5.2、P2×18 → 5.3、P3×43 → 5.4），`comm` 校验零缺失、零多余；16 项已暂缓不排期（重开条件见第 8 章）。ADR 事实性描述修正项（2 条，非问题）在 5.4 单独排期。
 
 ---
 
@@ -506,6 +506,15 @@ devpiano 核心运行时健康：0 项 P0（无崩溃/数据损坏/静默泄漏�
 
 同轮结构性精简（非审计问题项，登记备查）：测试类 58 → 34（PluginHostTest 8→1、AudioEngineTest 5→2、KeyboardMidiMapperTest 7→3、KeyMapTypesTest 9→3、MidiFileImporterTest 6→2），用例 179 → 约 149；StyleCatalogTest 提取 registerRootComponentFactory/findShippedStyleSheet/findNodeById 消除 ~200 行重复，像素扫描降采样；RecordingEngineTest 提取 countMidiBufferEvents；AudioEngineTest/PluginHostTest 删除全部 `expect(true)` 空断言（保留调用序列作崩溃守护）；PathEditorReproTest 与 StyleCatalogTest 清除调试日志。默认套件 33 类 754 断言全绿，6.0s。
 
+### 复审 3（2026-08-16，Phase A 实时线程稳定性）
+
+关闭 2 项：
+
+- `THR-001` → `已关闭`：`AudioEngine::masterGain` 改 `std::atomic<float>`（`AudioEngine.h:63`），写路径 `setMasterGain` 改 `store(..., std::memory_order_relaxed)`（`AudioEngine.cpp:232`），音频回调读路径改 `load(std::memory_order_relaxed)`（`AudioEngine.cpp:209`）。验证：wsl-build / test / win-build 三闸门通过。
+- `ERR-001` → `已关闭`：`advancePlaybackPosition` 删除音频线程 `DP_LOG_INFO`（原 `RecordingEngine.cpp:338-340`），实时线程仅置 `playbackEndedPending` 原子标志；日志移至 `RecordingSessionController::checkPlaybackEnded()`（消息线程，`RecordingSessionController.cpp:415-417`），字段全部原子读取（`getPlaybackPositionSamples`/`getPlaybackSpeedMultiplier`）。验证：wsl-build / test / win-build 三闸门通过。
+
+关联加固（同类实时线程竞争，同轮顺带修复）：`playbackSampleRateRatio`（普通 double，消息线程写 / 音频线程 `renderPlaybackBlock` 读）改 `std::atomic<double>` + relaxed load/store（`RecordingEngine.h:110`、`RecordingEngine.cpp` 4 处读写点）。默认套件 33 类 754 断言全绿，6.0s。
+
 ---
 
 ## 8. 附录：问题总表（登记表）
@@ -515,7 +524,6 @@ devpiano 核心运行时健康：0 项 P0（无崩溃/数据损坏/静默泄漏�
 
 | ID | 领域 | 问题标题 | 优先级 | 状态 | 来源 | 影响摘要 | 证据 | 风险接受原因 | 重开条件 | 下一步 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| THR-001 | 线程安全 | AudioEngine::masterGain 跨线程数据竞争（非原子 float） | P1 | 未处理 | 审计 | 音频回调每 block 读 masterGain（applyGain），消息线程 setMasterGain 写，无同步——C++ 标准 UB（x86-64 实际对齐 float 原子，但非规范保证；音量滑块拖动时存在理论撕裂/优化重排风险） | `source/Audio/AudioEngine.h:63`（`float masterGain = 0.8f;` 非 atomic）；`source/Audio/AudioEngine.cpp:208`（回调内读）、`:231`（消息线程写）。采样率/块大小项（THR-002 已暂缓）仅覆盖 currentSampleRate/BlockSize，未覆盖此字段 | - | 引入编译器优化/交叉编译时暴露 UB | 改 `std::atomic<float>`（或写路径经设备重建 guard 同步） |
 | QUAL-001 | 质量 | InputState::layoutId 死字段被 lastActivePresetId 误赋值 | P2 | 未处理 | 审计 | 死字段全仓库无读取点；`createPersistedAppState` 用"最后激活预设名"填充"键盘布局 id"（语义错误），随后被真实 layoutId 覆盖——潜伏误导，未来若有人读取该字段将拿到错误值 | `source/Core/AppState.h:61`（字段定义）；`source/Settings/AppStateBuilder.h:83`（`layoutId = settings.lastActivePresetId` 误赋值）、`:119`（applyRuntimeInputState 正确覆盖） | - | 有人开始读取该字段 | 删除字段与 :83 赋值 |
 | QUAL-002 | 质量 | stopInternalPlayback 死返回值（7 处丢弃 + 大向量拷贝） | P3 | 未处理 | 审计 | 每次停止回放拷贝整个事件向量（最大 reserve 容量）后丢弃，纯浪费 | `source/Recording/RecordingSessionController.cpp:472-480`（返回 take + getCurrentTake），丢弃点 `:181/:199/:346/:379/:414/:549/:576` | - | 大 take 停止回放出现可感知卡顿 | 改返回 void |
 | QUAL-003 | 质量 | MainComponent.cpp 未使用 include | P3 | 未处理 | 审计 | 两个 include 在本文件零符号使用，增加编译依赖 | `source/MainComponent.cpp:4-5`（PluginFlowSupport.h、SettingsSerialization.h） | - | 头文件依赖被误用 | 删除 |
@@ -534,7 +542,6 @@ devpiano 核心运行时健康：0 项 P0（无崩溃/数据损坏/静默泄漏�
 | QUAL-016 | 质量 | test-only API 面（6 处生产零消费） | P3 | 未处理 | 审计 | hasDroppedEvents/getLastScanFailedFiles/setLowestVisibleNote/makeFullPianoLayout/NoteRange/isValid 系列仅测试使用，生产无人消费 | `source/Recording/RecordingEngine.h:47`、`source/Plugin/PluginHost.h:47`、`source/UI/CustomKeyboard.h:38`（零调用）、`source/Core/KeyMapTypes.h:172`、`source/Core/MidiTypes.h:73-84,32,55,79` | - | API 面膨胀/误导 | 逐个接入生产或删除 |
 | QUAL-017 | 质量 | CustomKeyboard.h 过期开发步骤注释 | P3 | 未处理 | 审计 | "Next: Group B (channel/velocity colour modes)" 描述 Phase 6 早期状态，功能早已全部完成 | `source/UI/CustomKeyboard.h:38-41`（类注释 "Steps completed: 1-4…Next: Group B"） | - | 误导新读者 | 更新为现状描述 |
 | QUAL-018 | 质量 | adsrCurve 怪异 lambda 初始化 | P3 | 未处理 | 审计 | `auto* adsrCurve = []() -> AdsrCurveComponent* { return nullptr; }();` 等价于 `= nullptr`，增加噪声 | `source/MainComponent.cpp:401` | - | 可读性 | 改直接初始化 |
-| ERR-001 | 错误处理 | 音频线程播放结束路径 DP_LOG_INFO（文件 I/O + 互斥锁） | P1 | 未处理 | 审计 | advancePlaybackPosition 在音频回调线程执行播放结束日志（拼接 3 String + Logger::writeToLog = 锁 + 磁盘 I/O），Release 也编译，每次回放结束必触发——实时线程阻塞/毛刺/优先级反转 | `source/Recording/RecordingEngine.cpp:338`（`DP_LOG_INFO("[RecordingEngine] playback ENDED…")`），调用链 `AudioEngine.cpp` getNextAudioBlock → renderPlaybackEventsIfNeeded → advancePlaybackPosition；`source/Diagnostics/Log.h:14`（Release 编译） | - | 播放结束在长 take 场景高频发生 | 日志移消息线程（checkPlaybackEnded）或预构建字符串 |
 | ERR-002 | 错误处理 | 音频回调安全网分支内 DP_LOG_WARN | P2 | 未处理 | 审计 | getNextAudioBlock 内 pluginBuffer 契约违约安全网触发 DP_LOG_WARN（实时线程 I/O）；触发罕见但一旦触发即毛刺 | `source/Audio/AudioEngine.cpp:188` | - | prepareToPlay 契约被违反 | 回调内仅 jassert，日志移消息线程 |
 | ERR-003 | 错误处理 | recordEvent 丢弃事件时音频线程 DP_DEBUG_LOG | P3 | 未处理 | 审计 | Debug 构建下实时线程日志 I/O，恰在系统过载（容量耗尽）时加剧毛刺 | `source/Recording/RecordingEngine.cpp:148` | - | 容量耗尽场景实时性恶化 | 丢弃日志移 stopRecording() |
 | ERR-004 | 错误处理 | 插件加载失败仍按成功提交恢复状态并持久化失败插件名 | P2 | 未处理 | 审计 | loadPluginByName 返回值被 ignoreUnused 后无条件 commitPluginRecoveryStateAndFinishUi(true)——失败插件名被持久化为 lastPluginName，下次启动反复尝试加载失败插件，UI 无失败反馈（与 ScoutQual 的 QUAL-012 为同一问题，合并登记于此） | `source/Plugin/PluginOperationController.cpp:163-169`（loadPluginByNameAndCommitState）、`:156-158`（restorePluginByNameOnStartup 同模式）；`juce::ignoreUnused(success)` | - | 失败插件在启动时反复加载 | 失败分支不持久化 + 用户可见错误 |

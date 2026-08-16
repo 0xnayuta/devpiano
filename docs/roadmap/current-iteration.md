@@ -7,18 +7,19 @@
 
 Phase 11（声明式 UI 架构迁移，JIVE + melatonin_inspector）已全部完成并归档至 [`../archive/phase11-declarative-ui-jive.md`](../archive/phase11-declarative-ui-jive.md)。v0.3.0 发布准备（版本号 / CHANGELOG / Release 构建 / 打包）为并行事项，见 [`../guides/release-workflow.md`](../guides/release-workflow.md)。
 
-代码质量审计（[`AUDIT-001`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)，2026-08-16）登记 85 项：66 项未处理（5 P1 / 18 P2 / 43 P3）+ 16 项已暂缓 + 3 项已关闭（TEST-011/012 随 TestRunner 白名单、TEST-017 随测试精简落地，2026-08-16）。修复按最佳排期分为 **AUDIT Phase A–H** 推进，每 Phase 完成即更新本文件状态并同步报告第 8 章登记表；16 项已暂缓维持不动（重开条件见报告 §8）。当前推进：**AUDIT Phase A**。
+代码质量审计（[`AUDIT-001`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)，2026-08-16）登记 85 项：64 项未处理（3 P1 / 18 P2 / 43 P3）+ 16 项已暂缓 + 5 项已关闭（TEST-011/012/017、THR-001、ERR-001，2026-08-16）。修复按最佳排期分为 **AUDIT Phase A–H** 推进，每 Phase 完成即更新本文件状态并同步报告第 8 章登记表；16 项已暂缓维持不动（重开条件见报告 §8）。当前推进：**AUDIT Phase A 已全部完成**。
 
 ---
 
-## AUDIT Phase A — 实时线程稳定性 [进行中]
+## AUDIT Phase A — 实时线程稳定性 [已完成]
 
 > 目标：消除实时音频线程的 2 处 P1（日志 I/O + 数据竞争），为核心路径稳定性打底；Phase D 的 AudioEngineTest 强化将回归验证本 Phase。
+> 完成于 2026-08-16：THR-001（masterGain 改 `std::atomic<float>`）+ ERR-001（播放结束日志移至消息线程 `checkPlaybackEnded()`）+ 顺带加固 playbackSampleRateRatio（同类跨线程 double → `std::atomic<double>`）。验证：wsl-build / test（33 类 754 断言全绿）/ format --check / win-build 全通过，详见 AUDIT-001 §7 复审 3。
 
-- [ ] `THR-001`：`AudioEngine::masterGain` 改 `std::atomic<float>`（AudioEngine.h:63），消除音频回调（:208 applyGain 读）/消息线程（:231 setMasterGain 写）数据竞争。
-- [ ] `ERR-001`：`RecordingEngine::advancePlaybackPosition` 播放结束日志（:338）移出音频线程——实时线程仅置 `playbackEndedPending` 原子标志，`DP_LOG_INFO` 移至 `RecordingSessionController::checkPlaybackEnded()`（消息线程）。
+- [x] `THR-001`：`AudioEngine::masterGain` 改 `std::atomic<float>`（AudioEngine.h:63），消除音频回调（:209 applyGain 读）/消息线程（:232 setMasterGain 写）数据竞争。
+- [x] `ERR-001`：`RecordingEngine::advancePlaybackPosition` 播放结束日志移出音频线程——实时线程仅置 `playbackEndedPending` 原子标志，`DP_LOG_INFO` 移至 `RecordingSessionController::checkPlaybackEnded()`（消息线程，:415-417）。
 
-验证：`./scripts/dev.sh wsl-build`、`./scripts/dev.sh test`、`./scripts/dev.sh format --check`。
+验证：`./scripts/dev.sh wsl-build`、`./scripts/dev.sh test`、`./scripts/dev.sh format --check`、`./scripts/dev.sh win-build`（全部通过，2026-08-16）。
 
 ## AUDIT Phase B — 工程化门禁与构建修复 [未开始]
 
@@ -157,6 +158,6 @@ Phase 11（声明式 UI 架构迁移，JIVE + melatonin_inspector）已全部完
 ## 相关文档
 
 - 项目路线图：[`roadmap.md`](roadmap.md)
-- 审计报告：[`../audit/AUDIT-001-code-quality-audit-2026-08-16.md`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)（§8 问题总表 69 项未处理 + 16 项已暂缓追踪；§5 修复路线图为排期来源）
+- 审计报告：[`../audit/AUDIT-001-code-quality-audit-2026-08-16.md`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)（§8 问题总表 64 项未处理 + 16 项已暂缓追踪；§5 修复路线图为排期来源）
 - 架构概览：[`../reference/architecture.md`](../reference/architecture.md)
 - Phase 11 归档：[`../archive/phase11-declarative-ui-jive.md`](../archive/phase11-declarative-ui-jive.md)
