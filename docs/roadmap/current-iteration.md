@@ -5,134 +5,177 @@
 
 ## 当前方向
 
-Phase 11：声明式 UI 架构迁移（JIVE + melatonin_inspector）已完成，回归验证全部通过。当前任务：准备发布 **v0.3.0**（版本号 / CHANGELOG / Release 构建 / 打包），流程见 [`../guides/release-workflow.md`](../guides/release-workflow.md)。
+Phase 11（声明式 UI 架构迁移，JIVE + melatonin_inspector）已全部完成并归档至 [`../archive/phase11-declarative-ui-jive.md`](../archive/phase11-declarative-ui-jive.md)。v0.3.0 发布准备（版本号 / CHANGELOG / Release 构建 / 打包）为并行事项，见 [`../guides/release-workflow.md`](../guides/release-workflow.md)。
 
-## Phase 11：声明式 UI 架构迁移（JIVE + melatonin_inspector） [已完成]
+当前任务：根据审计复审（[`../audit/AUDIT-001-code-quality-audit-2026-07-20.md`](../audit/AUDIT-001-code-quality-audit-2026-07-20.md) 2026-08-16 复审），修复 19 项仍存在 Deferred 中性价比最高的三项：
 
-### 背景与动机
+| ID | 优先级 | 标题 | 规模 |
+| --- | --- | --- | --- |
+| `AUDIT-REC-007` | P2 | 提取公共渲染管线（WavFileExporter / PluginOfflineRenderer 重复代码） | 中 |
+| `AUDIT-SEC-004` | P2 | PerformanceFile 原子文件写入（TemporaryFile + rename） | 小 |
+| `AUDIT-SEC-001` | P2 | PerformancePreset 未知 KeyAction type 记录 WARN | 极小 |
 
-Phase 10 完成了主窗口 UI 的视觉现代化（暗黑主题、旋钮化、图标化），但暴露出两个结构性瓶颈：
+执行顺序：AUDIT-SEC-001 → AUDIT-SEC-004 → AUDIT-REC-007（由小到大，先建立测试基线再动渲染管线）。
 
-**问题 A — Agent 空间推理盲区**：当前所有 UI 布局通过 `setBounds()` 硬编码像素坐标（如 `statusBar.setBounds(area.removeFromBottom(22))`）。Agent 无法"看见"界面，只能猜测坐标和尺寸，导致反复修改仍不精确。
+---
 
-**问题 B — 反馈周期过长**：改 UI → WSL 编译 → Windows MSVC 构建（2–5 分钟）→ 启动应用 → 肉眼检查 → 描述问题 → Agent 再改。每轮迭代分钟级，且依赖主观描述。
+## AUDIT-SEC-001：PerformancePreset 未知 KeyAction type 记录 WARN
 
-### 解决方案：三件套组合
+### 背景
 
-| 组件 | 角色 | 解决问题 |
-|---|---|---|
-| **JIVE** ([ImJimmi/JIVE](https://github.com/ImJimmi/JIVE), MIT) | 声明式 UI 框架：`juce::ValueTree` 布局（类 HTML）+ `juce::DynamicObject` 样式表（类 CSS）+ Flex/Grid 自适应 | 问题 A：语义化布局替代像素推算；问题 B：JSON 样式热重载 |
-| **melatonin_inspector** ([sudara/melatonin_inspector](https://github.com/sudara/melatonin_inspector), MIT) | 运行时 Component 检查器：点击查看 bounds/hierarchy、拖动调整位置、实时改色、FPS 仪表、paint 性能分析 | 问题 B：秒级可视化反馈替代分钟级编译循环；问题 A：精确坐标来源 |
-| **design_tokens.json** (自建) | 单一样式真相源：颜色、字体、圆角、间距的命名 token，同时被 JIVE 样式表和 `DevPianoLookAndFeel` 引用 | 确保 JIVE 管理的面板与原生组件（对话框、CustomKeyboard、SettingsComponent）视觉统一 |
+审计项 `SEC-001`（P2）：`varToKeyAction` 解析 preset JSON 时，未知 `type` 值被静默强制为 `"note"`，掩盖数据损坏。2026-08-16 复审确认仍存在，且表达式已退化为恒等 ternary——`(typeStr == "note") ? note : note` 两个分支相同，属无意义代码。`KeyActionType` 当前仅 `note` 一个枚举值，故无实际行为损害；收益在于**可观测性**（数据损坏可见）与**代码清理**。
 
-### 核心设计决策
+### 现状代码
 
-1. **JIVE 替代范围**：仅替代 5 个静态面板 Component（HeaderPanel、PluginPanel、ControlsPanel、KeyboardPanel、StatusBar），不替代以下内容：
-   - `CustomKeyboard`（~700 行自定义 paint，功能独一无二，通过 JIVE 组件工厂原生注入）
-   - ADSR 曲线绘制（从 ControlsPanel 抽离为独立 `AdsrCurveComponent`，工厂注入）
-   - 模态对话框（`KeyBindingEditDialog`、`PerformanceMetadataDialog`）——临时生命周期，非 JIVE 目标场景
-   - VST 插件 editor 窗口（`PluginEditorWindow`）——UI 由第三方插件提供
-   - 数据类型（`KeyboardTypes.h`、`PluginPanelStateBuilder`）——非 Component
+`source/Layout/PerformancePreset.cpp:33-35`（`varToKeyAction`）：
 
-2. **音频/插件/MIDI 零改动**：全部业务逻辑层（Core/Audio/Midi/Plugin/Recording/Export/Settings/Input/Diagnostics/Locale/Layout，共 60+ 文件）完全不涉及。
-
-3. **MainComponent 角色转变**：从"UI 组装者 + Presenter"变为纯 Presenter，`resized()` 从 40 行硬编码缩减为 0 行（JIVE Flex/Grid 自动响应）。
-
-### 目标架构
-
-```
-design_tokens.json  ←  唯一样式真相源
-    ├── JIVE style_sheets.json（引用 tokens，管理主窗口面板）
-    └── DevPianoLookAndFeel（启动时读取 tokens，管理对话框 + CustomKeyboard + ADSR）
-
-LayoutModel (ValueTree) → jive::Interpreter + ComponentFactory → Component 树
-    ├── JIVE 标准控件: Button / Slider / ComboBox / TextEditor / Label
-    └── 原生注入: CustomKeyboard / AdsrCurveComponent
-
-MainComponent (Presenter) → CallbackWiring → PluginOperationController / RecordingSessionController / ...
-
-melatonin_inspector (DEBUG only): 运行时可视化检查与编辑
+```cpp
+auto typeStr = obj->getProperty("type").toString();
+action.type
+    = (typeStr == "note") ? devpiano::core::KeyActionType::note : devpiano::core::KeyActionType::note;
 ```
 
-### 子阶段
+### 实施步骤
 
-#### Phase 11a — 基础设施集成 [已完成]
+1. `source/Layout/PerformancePreset.cpp` 顶部添加 `#include "Diagnostics/Log.h"`（DP_LOG 宏统一入口，项目惯例）。
+2. 将 33-35 行替换为：
 
-- [x] 添加 JIVE 为 git submodule（`submodules/JIVE`）
-- [x] 添加 melatonin_inspector 为 git submodule（`submodules/melatonin_inspector`）
-- [x] 更新 `CMakeLists.txt`：链接 `jive::jive_layouts`、`jive::jive_style_sheets`、`melatonin_inspector`（`#if DEBUG`）
-- [x] 定义 `JIVE_GUI_ITEMS_HAVE_STYLE_SHEETS=1` 预处理器宏
-- [x] 在 `MainComponent` 构造函数中添加 inspector 初始化（`#if DEVPIANO_ENABLE_INSPECTOR`）
-- [x] 验证：WSL `--configure-only` + Windows MSVC 构建通过
+```cpp
+const auto typeStr = obj->getProperty("type").toString();
+if (typeStr != "note")
+    DP_LOG_WARN("[Preset] unknown KeyAction type '" + typeStr + "', falling back to \"note\"");
+action.type = devpiano::core::KeyActionType::note;
+```
 
-#### Phase 11b — 样式基础设施 [已完成]
+   - 行为不变：未知类型仍回退 `note`（**不拒绝整个 preset**——`KeyActionType` 仅一个枚举值，拒绝会丢弃整个 preset 且无任何收益）。
+   - 日志含原始 `typeStr`，便于定位损坏来源（手改文件 / 旧版本格式）。
+3. 不修改 `keyActionToVar`（写出路径无变化）。
 
-- [x] 创建 `source/UI/jive/design_tokens.json`：定义全部颜色、字体、圆角、间距 token
-- [x] 创建 `source/UI/jive/style_sheets.json`：JIVE 样式表，引用 design tokens 并定义组件级样式（Button、Slider、ComboBox、Label、面板背景等）
-- [x] 修改 `DevPianoLookAndFeel` 构造函数：从 `design_tokens.json` 读取颜色 → 设置 JUCE `ColourIds`
-- [x] 验证：inspector 中检查主窗口 + 对话框 + SettingsComponent 颜色一致性
+### 验证
 
-#### Phase 11c — 面板迁移（由简到繁） [已完成]
+- 单元测试：`KeyMapTypesTest` 或新增用例——构造 `type="bogus"` 的 var → `varToKeyAction` → `action.type == KeyActionType::note` 且不抛异常。`varToKeyAction` 位于匿名命名空间，不可直接测试；等价替代：通过 preset JSON 文件加载（`loadPreset`）验证未知 type 的 preset 仍可加载且 action 为 note。若测试成本高于收益，允许仅手动验证 + `format --check`。
+- 回归：`./scripts/dev.sh test`（KeyMapTypesTest round-trip 用例守护序列化一致性）、`./scripts/dev.sh format --check`、`./scripts/dev.sh win-build`。
+- 行为回归：加载一个现存 `.devpiano.preset` 文件，确认无 WARN 输出（type 均为 "note"）。
 
-- [x] **HeaderPanel** → JIVE ValueTree 声明（`makeHeaderTree`）：title Text + settings Button（齿轮 DrawableButton）
-- [x] **StatusBar** → JIVE ValueTree 声明（`makeStatusBarTree`）：MIDI dot + 3 个状态 Label + 顶部分隔线
-- [x] **PluginPanel** → JIVE ValueTree 声明（`makePluginPanelTree`）：toolbar（selector + filter + 4 Button）+ 可展开 scan/path/list 区（`updatePluginPanelState` 动态刷新）
-- [x] **ControlsPanel** → JIVE ValueTree 声明 + 原生 ADSR 曲线注入：5 个 DevKnob + SpeedSlider + `AdsrCurveComponent` + preset 行 + transport/export 行
-- [x] **KeyboardPanel** → `KeyboardViewport`（Viewport 持有 CustomKeyboard，高度同步修复零高度问题），工厂注入
-- [x] 每次迁移后验证：WSL clang + Windows MSVC 构建 + `StyleCatalogTest` 端到端断言
+### 风险与回滚
 
-#### Phase 11d — 回调连接与 MainComponent 瘦身 [已完成]
+- 风险极低：仅新增日志分支，无控制流变化。回滚 = 还原 3 行。
 
-- [x] 回调直接在 `MainComponent::initialiseUi()` 内经 `jive::findItemWithID` 连接（settings/plugin/controls/transport/preset 全部 ~40 个）
-- [x] 组件工厂注册：`SettingsButton`、`PathEditor`、`ListEditor`、`DevKnob`、`AdsrCurve`、`RecordButton/PlayButton/StopButton/BackButton`、`CustomKeyboard`、`StatusBarMidiDot`
-- [x] 创建 `source/UI/jive/LayoutModel.h/.cpp`：全部面板 + 根布局 ValueTree 工厂（`makeRootLayout` 单树解释，FlexBox 全权布局）
-- [x] 创建 `source/UI/jive/StyleCatalog.h/.cpp`：解释前把 `style_sheets.json` 规则合并为自持有 `jive::Object` 写入各节点 `style` 属性（修复首轮迁移样式失效根因）
-- [x] 重写 `MainComponent::initialiseUi()` → 单次解释整棵根布局树
-- [x] `MainComponent::resized()` → 3 行（根组件 setBounds，JIVE FlexBox 自动响应）
-- [x] 删除旧面板文件（HeaderPanel、PluginPanel、ControlsPanel、KeyboardPanel、StatusBar）
-- [x] `MainComponent.cpp` 从 ~906 行 → ~1100 行（含访问器翻译单元 ~1850 行，访问器已抽到 `MainComponentJiveAccessors.cpp` 经 #include 合入）
+---
 
-#### Phase 11e — 热重载与工作流验证 [已完成]
+## AUDIT-SEC-004：PerformanceFile 原子文件写入
 
-- [x] 实现 `Ctrl+R` 快捷键：触发 JIVE 样式表 + 设计 Token 重新加载（`ValueTree` property change → 自动重绘）
-- [x] 实现 `design_tokens.json` 与 `style_sheets.json` 文件变更监听（Debug 模式下 `timerCallback` 约 1s 自动检测重载）
-- [x] `DevPianoLookAndFeel::refreshColours()`：热重载时动态刷新原生控件颜色体系并通知全局 LookAndFeel 变更
-- [x] `StyleCatalog::refreshStyles()`：清空旧 style 对象并递归向 live `ValueTree` 注入新 `jive::Object` 样式
-- [x] 单元测试覆盖：`StyleCatalogTest` 新增 `testDesignTokensHotReload` 与 `testStyleCatalogHotReloadOnLiveTree` 端到端断言
+### 背景
 
-#### Phase 11f — 回归验证 [已完成]
+审计项 `SEC-004`（P2）：`savePerformanceFile` 用 `destinationFile.replaceWithText(json)` 直接截断写入目标文件——写入中途崩溃（断电 / 进程被杀）会留下半截 JSON，`.devpiano` 录制文件损坏且无备份。调用方：`RecordingSessionController.cpp:316/633`（手动保存 + 元数据更新），属录制数据主保存路径。`PerformancePreset.cpp:346`（`savePreset`）存在同类问题，作为可选扩展。
 
-- [x] 全量单元测试通过：`./scripts/dev.sh test`
-- [x] Windows MSVC 构建通过：`./scripts/dev.sh win-build`
-- [x] 手动回归清单：
-  - [x] 电脑键盘演奏（note on/off 成对、长按、连按）
-  - [x] VST3 插件扫描 / 加载 / 卸载 / editor 窗口 / 退出
-  - [x] 录制 / 回放 / 停止 / 回到开头
-  - [x] MIDI 文件导入 / 自动播放
-  - [x] MIDI / WAV 导出
-  - [x] Performance Preset CRUD + 快捷键
-  - [x] 中英文语言切换
-  - [x] 窗口缩放（JIVE Flex/Grid 自适应验证）
-  - [x] KeyBindingEditDialog 右键点击键 → 编辑 → 保存
-  - [x] PerformanceMetadataDialog 编辑 → 保存
-  - [x] SettingsComponent 各项设置修改 → 保存 → 重启恢复
+### 现状代码
 
-### 风险与缓解
+`source/Recording/PerformanceFile.cpp:207-217`：
 
-| 风险 | 概率 | 缓解措施 |
-|---|---|---|
-| JIVE API 不稳定（198 stars，仍在迭代） | 中 | 固定 git commit hash，不追 main 分支 |
-| JIVE 与 devpiano 的 JUCE 子模块版本不兼容 | 低 | Phase 11a 首次集成时验证 `jive_JuceVersion.h`，必要时升级 JUCE submodule |
-| 复杂回调链路（ControlsPanel 17 个 `std::function`）在 JIVE `setup()` 中连接繁琐 | 低 | 按 ID 查找 + 统一 `CallbackWiring` 模块，不分散在各面板中 |
-| melatonin_inspector 与 CustomKeyboard 的自定义 paint 交互异常 | 极低 | inspector 仅读取 Component bounds/properties，不干涉 paint 逻辑 |
-| 迁移过程中功能回归 | 中 | 逐面板迁移（11c），每完成一个面板立即验证，不攒到批次末尾 |
+```cpp
+bool savePerformanceFile(const RecordingTake& take, const juce::File& destinationFile,
+                         const PerformanceFileMetadata& metadata) {
+    if (take.isEmpty() || take.sampleRate <= 0.0)
+        return false;
+    ...
+    return destinationFile.replaceWithText(json);
+}
+```
 
-### 相关参考项目
+### 方案：juce::TemporaryFile（JUCE 官方原子写入惯用法）
 
-- [JIVE](https://github.com/ImJimmi/JIVE)：JUCE 声明式 UI 框架（MIT）
-- [melatonin_inspector](https://github.com/sudara/melatonin_inspector)：JUCE 运行时 Component 检查器（MIT）
-- [JUCE AudioPluginHost](https://github.com/juce-framework/JUCE/tree/master/extras/AudioPluginHost)：官方插件宿主参考实现
-- [Kushview Element](https://github.com/kushview/element)：JUCE 开源插件宿主（GPLv3）
+`juce::TemporaryFile(const File& targetFile)` 在目标同目录创建临时文件，`overwriteTargetFileWithTemporary()` 原子替换目标（跨平台实现：Linux `rename(2)`，Windows 失败时先删目标再 rename）。已确认 `submodules/JUCE/modules/juce_core/files/juce_TemporaryFile.h` 提供 `getFile()` / `overwriteTargetFileWithTemporary()` / `deleteTemporaryFile()`。
+
+### 实施步骤
+
+1. 修改 `savePerformanceFile` 尾部：
+
+```cpp
+    juce::TemporaryFile tempFile(destinationFile);
+    if (!tempFile.getFile().replaceWithText(json)) {
+        tempFile.deleteTemporaryFile();
+        return false;
+    }
+    if (tempFile.overwriteTargetFileWithTemporary())
+        return true;
+    tempFile.deleteTemporaryFile();
+    return false;
+```
+
+   - 写临时文件失败 → 删除临时文件、返回 false，**目标文件保持原样**（现行为是目标已被截断破坏）。
+   - 替换失败 → 同样清理临时文件，不残留。
+2. 函数签名与调用方零改动（`bool` + 参数不变）。
+3. 可选扩展（同 commit 或后续）：`PerformancePreset.cpp:346` `savePreset` 的 `replaceWithText` 应用同一模式（同类崩溃风险，改动同构）。
+
+### 验证
+
+- 单元测试（新文件 `source/tests/PerformanceFileTest.cpp`，JUCE `Files` category + TestRunner `--include-files` 运行——默认跳过 Files category 是 WSL root 权限限制，测试需显式开启）：
+  - round-trip：`savePerformanceFile` → `loadPerformanceFile` 内容一致（事件数、时间戳、元数据）。
+  - 失败注入：目标目录设为只读（或目标为不存在目录）→ 保存返回 false → 目标文件（若存在）内容不被破坏、无 `.tmp` 残留文件。
+  - 临时文件清理：成功路径下目录中无临时文件残留。
+- 回归：`./scripts/dev.sh test`、`./scripts/dev.sh format --check`、`./scripts/dev.sh win-build`。
+- 手动：录制 → 保存 → 重开加载（内容一致）；保存后目录内无临时文件。
+
+### 风险与回滚
+
+- 行为变化仅限失败路径（成功路径等价：内容相同的 JSON 落盘）。`TemporaryFile` 构造失败（目标目录不可写）时 `getFile()` 写入失败 → 干净返回 false。
+- 回滚 = 还原 `replaceWithText` 单行。
+
+---
+
+## AUDIT-REC-007：提取公共渲染管线（RenderPipeline）
+
+### 背景
+
+审计项 `REC-007`（P2）：`WavFileExporter.cpp` 与 `PluginOfflineRenderer.cpp` 重复定义 `RenderEvent`、`buildRenderEvents`、`getScaledTakeLengthSamples`、`addPanicMidi`（另有 `scaleTimestamp`、`hasUsableOptions` 亦重复），相似度 ~50%。2026-08-16 复审确认 7-20 后仅日志迁移类改动，结构原样——这是 19 项 Deferred 中**重构收益最明确**的一项（消除双份维护，未来改渲染语义只需改一处）。
+
+### 现状差异分析（行为对齐是关键）
+
+| 函数 | WavFileExporter.cpp | PluginOfflineRenderer.cpp | 差异 |
+| --- | --- | --- | --- |
+| `RenderEvent` | `{timestampSamples, message}` | `{message, timestampSamples}` | 字段顺序不同（等价） |
+| `scaleTimestamp` | 含 `<=0 → 0` 短路 + `max(0, …)` | 无保护 | Wav 更防御，统一取 Wav 版 |
+| `buildRenderEvents` | ratio 双零检查 `(take.sr>0 && target>0)` | ratio 仅查 `take.sr>0`；`stable_sort` | 统一取双零检查 + sort 两者都有 |
+| `getScaledTakeLengthSamples` | `max(scale(lengthSamples), 各事件 ts)`，空事件返回 `scale(lengthSamples)` | `events.empty() → 0`；否则 `max(last+1, scale(lengthSamples))` | **语义差异**：`+1` 与空事件返回值不同 |
+| `addPanicMidi` | CC64 + CC120 + allNotesOff × 16 通道 | 同左 | 完全一致 |
+| `hasUsableOptions` | 4 字段检查 | 同左 | 完全一致 |
+
+`getScaledTakeLengthSamples` 的差异：Wav 路径对"最后一事件时间戳"不 +1（可能截断最后事件？不——事件以 `timestampSamples < blockEnd` 注入，+1 只影响尾部 1 sample）；Plugin 路径 `last+1` 保证最后事件完整入块。统一语义：**`max(scaleTimestamp(lengthSamples), events.empty() ? 0 : events.back().timestampSamples + 1)`**（取更保守的 Plugin 语义）。对 Wav 路径影响 ≤1 sample（44.1kHz 下 ~23µs），且两路径均追加 2s tail，输出总时长不受影响——但仍需在验证步骤中实测对比。
+
+### 实施步骤
+
+1. 新建 `source/Recording/RenderPipeline.h/.cpp`（`namespace devpiano::recording` 或既有 `devpiano::exporting`——建议 `devpiano::recording`，取值为录制域公共设施）：
+   - `struct RenderEvent { juce::MidiMessage message; std::int64_t timestampSamples = 0; };`
+   - `[[nodiscard]] std::int64_t scaleTimestamp(std::int64_t, double ratio) noexcept;`（Wav 版防御语义）
+   - `[[nodiscard]] bool hasUsableRenderOptions(const WavExportOptions&) noexcept;`（注意：`WavExportOptions` 在 `source/Export/WavExportOptions.h`，RenderPipeline 引入对 Export 的依赖——可接受，或保持 `hasUsableOptions` 各留一份；**建议一并提取**，两文件均已依赖该头）
+   - `[[nodiscard]] std::vector<RenderEvent> buildRenderEvents(const RecordingTake&, double targetSampleRate);`（双零检查 ratio + `message.setTimeStamp(0)` + stable_sort）
+   - `[[nodiscard]] std::int64_t getScaledTakeLengthSamples(const RecordingTake&, const std::vector<RenderEvent>&, double targetSampleRate) noexcept;`（统一语义如上）
+   - `void addPanicMidi(juce::MidiBuffer&, int sampleOffset) noexcept;`
+2. `WavFileExporter.cpp`：删除 6 个重复定义，`#include "Recording/RenderPipeline.h"`；调用点不变（同名函数）。
+3. `PluginOfflineRenderer.cpp`：同上。
+4. **渲染主循环不提取**：两循环音频源（synth vs plugin 实例）与输出通道处理不同，整体提取需模板/回调，属过度设计；仅提取纯函数层。若首轮重构后两循环剩余相似度仍高（事件注入 + panic 判定），可再提取 `fillBlockMidiEvents(renderEvents, blockStart, blockEnd, midiBuffer)` 小助手（第二迭代，非本轮必须）。
+5. `CMakeLists.txt`：
+   - 主 target `target_sources`（Recording 区，:83-98 附近）添加 `source/Recording/RenderPipeline.cpp` / `.h`。
+   - tests target（:231-266 区域）添加 `source/Recording/RenderPipeline.cpp`（被测纯逻辑）与新测试文件。
+
+### 验证
+
+- 单元测试（新文件 `source/tests/RenderPipelineTest.cpp`，无 GUI/设备依赖，可进 tests target）：
+  - `buildRenderEvents`：采样率缩放（take 44.1k → target 48k 时间戳按 48/44.1 缩放）、稳定排序（乱序输入 → 有序输出）、空 take → 空 events、`setTimeStamp(0)` 生效。
+  - `scaleTimestamp`：负值/零 → 0；正常缩放；ratio 0/负防御。
+  - `getScaledTakeLengthSamples`：空 events → `scale(lengthSamples)`；last 事件超 length → `last+1`；length 超 last → `scale(lengthSamples)`。
+  - `addPanicMidi`：16 通道 × 3 控制器 = 48 事件，offset 正确。
+- 行为回归（关键）：同一 `RecordingTake` 分别导出 WAV（synth 路径）与经 `PluginOfflineRenderer`（需真实 VST3 插件，手动路径）——对比重构前后输出采样数一致（或仅尾部 +1 sample，可接受并记录）。WAV 导出路径可在 Windows 侧手动导出同一录制对比文件时长。
+- 全套：`./scripts/dev.sh test`、`./scripts/dev.sh format --check`、`./scripts/dev.sh win-build`。
+
+### 风险与回滚
+
+- 唯一行为风险：`getScaledTakeLengthSamples` 语义统一（Wav 路径可能 +1 sample）。通过重构后对比导出验证。
+- 编译风险：匿名命名空间删除后符号进入头文件，`RenderEvent` 字段顺序统一为 `{message, timestampSamples}`（对 `.message`/`.timestampSamples` 成员访问无影响）。
+- 回滚 = 还原两文件 + 删除 RenderPipeline 文件（纯新增 + 两处删除，边界清晰）。
+
+---
 
 ## 验证命令
 
@@ -152,4 +195,6 @@ melatonin_inspector (DEBUG only): 运行时可视化检查与编辑
 ## 相关文档
 
 - 项目路线图：[`roadmap.md`](roadmap.md)
+- 审计报告：[`../audit/AUDIT-001-code-quality-audit-2026-07-20.md`](../audit/AUDIT-001-code-quality-audit-2026-07-20.md)（§8 问题总表，19 项 Deferred 追踪）
 - 架构概览：[`../reference/architecture.md`](../reference/architecture.md)
+- Phase 11 归档：[`../archive/phase11-declarative-ui-jive.md`](../archive/phase11-declarative-ui-jive.md)

@@ -109,7 +109,7 @@ Performance Preset、88 键完整钢琴键盘、Smooth Pitch Bend、乐曲信息
 
 JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid 自适应）替代 5 个面板的硬编码 `setBounds()` 布局；melatonin_inspector 运行时检查器加速 UI 迭代反馈；`design_tokens.json` 统一 JIVE 与原生组件样式来源；`Ctrl+R` / 文件监听热重载；`MainComponent::resized()` 缩减至 3 行（JIVE FlexBox 自动响应）。`CustomKeyboard` 与 ADSR 曲线经组件工厂原生注入，业务逻辑层零改动。回归验证（全量单元测试 / Windows MSVC 构建 / 手动回归清单 11 项）全部通过。
 
-详细计划见 [`current-iteration.md#phase-11`](current-iteration.md#phase-11)。
+详细计划与完成记录见 [`../archive/phase11-declarative-ui-jive.md`](../archive/phase11-declarative-ui-jive.md)。
 
 ## 3. 主要风险
 
