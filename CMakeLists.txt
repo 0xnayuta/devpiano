@@ -231,6 +231,8 @@ if (BUILD_TESTS)
         source/Diagnostics/MidiTrace.h
         source/Recording/MidiFileImporter.cpp
         source/Recording/MidiFileImporter.h
+        source/Recording/PerformanceFile.cpp
+        source/Recording/PerformanceFile.h
         source/Recording/RecordingEngine.cpp
         source/Recording/RecordingEngine.h
         source/Recording/RecordingFlowSupport.cpp
@@ -262,6 +264,7 @@ if (BUILD_TESTS)
         source/tests/KeyboardMidiMapperTest.cpp
         source/tests/AudioEngineTest.cpp
         source/tests/PluginHostTest.cpp
+        source/tests/PerformanceFileTest.cpp
         source/tests/StyleCatalogTest.cpp
         source/tests/PathEditorReproTest.cpp
     )

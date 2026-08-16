@@ -214,7 +214,20 @@ bool savePerformanceFile(const RecordingTake& take, const juce::File& destinatio
     if (!destinationFile.getParentDirectory().createDirectory())
         return false;
 
-    return destinationFile.replaceWithText(json);
+    // 原子写入：先写同目录临时文件，成功后 rename 覆盖目标。
+    // replaceWithText 会先截断目标文件——写入中途崩溃将留下半截 JSON 且无备份；
+    // TemporaryFile 方案保证失败时目标文件保持原样。
+    juce::TemporaryFile tempFile(destinationFile);
+    if (!tempFile.getFile().replaceWithText(json)) {
+        tempFile.deleteTemporaryFile();
+        return false;
+    }
+
+    if (tempFile.overwriteTargetFileWithTemporary())
+        return true;
+
+    tempFile.deleteTemporaryFile();
+    return false;
 }
 
 std::optional<RecordingTake> loadPerformanceFile(const juce::File& sourceFile) {
