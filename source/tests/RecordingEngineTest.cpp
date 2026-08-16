@@ -24,6 +24,16 @@ RecordingTake buildTake(double sampleRate, std::int64_t lengthSamples,
     }
     return take;
 }
+
+/// Helper: 统计 MidiBuffer 中的 MIDI 消息条数。
+int countMidiBufferEvents(const juce::MidiBuffer& buf) {
+    int n = 0;
+    for (auto m : buf) {
+        juce::ignoreUnused(m);
+        ++n;
+    }
+    return n;
+}
 } // namespace
 
 // =============================================================================
@@ -141,41 +151,25 @@ public:
             // Render the first block [0, 512).
             juce::MidiBuffer buf;
             engine.renderPlaybackBlock(buf, 0, 512);
-            int blockEvents = 0;
-            for (auto m : buf) {
-                juce::ignoreUnused(m);
-                ++blockEvents;
-            }
+            int blockEvents = countMidiBufferEvents(buf);
             expectEquals(1, blockEvents, "first block should contain the event at sample 0");
 
             // Render second block [512, 1024) — no events.
             buf.clear();
             engine.renderPlaybackBlock(buf, 512, 512);
-            blockEvents = 0;
-            for (auto m : buf) {
-                juce::ignoreUnused(m);
-                ++blockEvents;
-            }
+            blockEvents = countMidiBufferEvents(buf);
             expectEquals(0, blockEvents);
 
             // Render block containing sample 2205.
             buf.clear();
             engine.renderPlaybackBlock(buf, 2048, 256);
-            blockEvents = 0;
-            for (auto m : buf) {
-                juce::ignoreUnused(m);
-                ++blockEvents;
-            }
+            blockEvents = countMidiBufferEvents(buf);
             expectEquals(1, blockEvents, "block containing sample 2205 should have one event");
 
             // Render block containing sample 4410.
             buf.clear();
             engine.renderPlaybackBlock(buf, 4096, 512);
-            blockEvents = 0;
-            for (auto m : buf) {
-                juce::ignoreUnused(m);
-                ++blockEvents;
-            }
+            blockEvents = countMidiBufferEvents(buf);
             expectEquals(1, blockEvents, "block containing sample 4410 should have one event (note-off)");
 
             engine.stopPlayback();

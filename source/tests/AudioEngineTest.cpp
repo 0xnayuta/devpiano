@@ -56,26 +56,25 @@ void exhaustWarmup(AudioEngine& engine, int blockSize) {
 
 // =============================================================================
 
-class PrepareToPlayTest : public juce::UnitTest {
+// 合并自原 PrepareToPlayTest / WarmupTest / ReleaseResourcesTest。
+class AudioEngineLifecycleTest : public juce::UnitTest {
 public:
-    PrepareToPlayTest()
-        : juce::UnitTest("AudioEngine: prepareToPlay", "DevPiano/Engine") {
+    AudioEngineLifecycleTest()
+        : juce::UnitTest("AudioEngine: lifecycle", "DevPiano/Engine") {
     }
     void runTest() override {
+        // —— 原 PrepareToPlayTest 的用例 ——
         beginTest("prepareToPlay does not crash");
         {
             AudioEngine engine;
             engine.prepareToPlay(512, 44100.0);
-            expect(true);
         }
         beginTest("prepareToPlay with different rates / sizes");
         {
             AudioEngine e1;
             e1.prepareToPlay(256, 48000.0);
-            expect(true);
             AudioEngine e2;
             e2.prepareToPlay(1024, 22050.0);
-            expect(true);
         }
         beginTest("getNextAudioBlock works after prepareToPlay");
         {
@@ -83,7 +82,6 @@ public:
             engine.prepareToPlay(512, 44100.0);
             auto [buf, info] = makeBlock(2, 512);
             engine.getNextAudioBlock(info);
-            expect(true);
         }
         beginTest("null buffer is safe");
         {
@@ -91,98 +89,8 @@ public:
             engine.prepareToPlay(512, 44100.0);
             juce::AudioSourceChannelInfo nullInfo(nullptr, 0, 0);
             engine.getNextAudioBlock(nullInfo);
-            expect(true);
         }
-    }
-};
-static PrepareToPlayTest prepareToPlayTest;
-
-// =============================================================================
-
-class MasterGainTest : public juce::UnitTest {
-public:
-    MasterGainTest()
-        : juce::UnitTest("AudioEngine: master gain", "DevPiano/Engine") {
-    }
-    void runTest() override {
-        beginTest("gain 0 silences output (masterGain applied at end of block)");
-        {
-            AudioEngine engine;
-            engine.prepareToPlay(512, 44100.0);
-            engine.setMasterGain(0.0f);
-            exhaustWarmup(engine, 512);
-            auto [buf, info] = makeBlock(2, 512);
-            engine.getNextAudioBlock(info);
-            // Even if the synth produced audio, gain=0 zeros it.
-            int nz = countNonZeroSamples(buf, info.startSample, info.numSamples);
-            expectEquals(nz, 0);
-        }
-        beginTest("gain clamps negative to 0");
-        {
-            AudioEngine engine;
-            engine.prepareToPlay(512, 44100.0);
-            engine.setMasterGain(-0.5f);
-            exhaustWarmup(engine, 512);
-            auto [buf, info] = makeBlock(2, 512);
-            engine.getNextAudioBlock(info);
-            expectEquals(countNonZeroSamples(buf, info.startSample, info.numSamples), 0);
-        }
-        beginTest("gain clamps >1.0 to 1.0 without crash");
-        {
-            AudioEngine engine;
-            engine.prepareToPlay(512, 44100.0);
-            engine.setMasterGain(2.0f);
-            exhaustWarmup(engine, 512);
-            auto [buf, info] = makeBlock(2, 512);
-            engine.getNextAudioBlock(info);
-            expect(true); // no crash
-        }
-    }
-};
-static MasterGainTest masterGainTest;
-
-// =============================================================================
-
-class AllNotesOffTest : public juce::UnitTest {
-public:
-    AllNotesOffTest()
-        : juce::UnitTest("AudioEngine: all-notes-off", "DevPiano/Engine") {
-    }
-    void runTest() override {
-        beginTest("requestAllNotesOff does not crash");
-        {
-            AudioEngine engine;
-            engine.prepareToPlay(512, 44100.0);
-            exhaustWarmup(engine, 512);
-            engine.requestAllNotesOff();
-            auto [buf, info] = makeBlock(2, 512);
-            engine.getNextAudioBlock(info);
-            expect(true);
-        }
-        beginTest("subsequent blocks after all-notes-off are safe");
-        {
-            AudioEngine engine;
-            engine.prepareToPlay(512, 44100.0);
-            exhaustWarmup(engine, 512);
-            engine.requestAllNotesOff();
-            for (int i = 0; i < 5; ++i) {
-                auto [buf, info] = makeBlock(2, 512);
-                engine.getNextAudioBlock(info);
-            }
-            expect(true); // survived
-        }
-    }
-};
-static AllNotesOffTest allNotesOffTest;
-
-// =============================================================================
-
-class WarmupTest : public juce::UnitTest {
-public:
-    WarmupTest()
-        : juce::UnitTest("AudioEngine: warmup", "DevPiano/Engine") {
-    }
-    void runTest() override {
+        // —— 原 WarmupTest 的用例 ——
         beginTest("first two blocks after prepareToPlay are silent");
         {
             AudioEngine engine;
@@ -206,27 +114,14 @@ public:
                 auto [buf, info] = makeBlock(2, 512);
                 engine.getNextAudioBlock(info);
             }
-            expect(true); // survived
         }
-    }
-};
-static WarmupTest warmupTest;
-
-// =============================================================================
-
-class ReleaseResourcesTest : public juce::UnitTest {
-public:
-    ReleaseResourcesTest()
-        : juce::UnitTest("AudioEngine: releaseResources", "DevPiano/Engine") {
-    }
-    void runTest() override {
+        // —— 原 ReleaseResourcesTest 的用例 ——
         beginTest("releaseResources does not crash");
         {
             AudioEngine engine;
             engine.prepareToPlay(512, 44100.0);
             exhaustWarmup(engine, 512);
             engine.releaseResources();
-            expect(true);
         }
         beginTest("re-prepare after release works");
         {
@@ -238,7 +133,6 @@ public:
             exhaustWarmup(engine, 256);
             auto [buf, info] = makeBlock(2, 256);
             engine.getNextAudioBlock(info);
-            expect(true);
         }
         beginTest("releaseResources silences running notes (post-release silence)");
         {
@@ -255,4 +149,71 @@ public:
         }
     }
 };
-static ReleaseResourcesTest releaseResourcesTest;
+static AudioEngineLifecycleTest audioEngineLifecycleTest;
+
+// =============================================================================
+
+// 合并自原 MasterGainTest / AllNotesOffTest。
+class AudioEngineGainAndNotesOffTest : public juce::UnitTest {
+public:
+    AudioEngineGainAndNotesOffTest()
+        : juce::UnitTest("AudioEngine: gain and all-notes-off", "DevPiano/Engine") {
+    }
+    void runTest() override {
+        // —— 原 MasterGainTest 的用例 ——
+        // 原 "gain 0 silences output" 与 "gain clamps negative to 0"
+        // 断言相同（输出全零），合并为一条用例，保留两条断言路径。
+        beginTest("gain 0 silences output; gain clamps negative to 0");
+        {
+            AudioEngine engine;
+            engine.prepareToPlay(512, 44100.0);
+            engine.setMasterGain(0.0f);
+            exhaustWarmup(engine, 512);
+            auto [buf, info] = makeBlock(2, 512);
+            engine.getNextAudioBlock(info);
+            // Even if the synth produced audio, gain=0 zeros it.
+            int nz = countNonZeroSamples(buf, info.startSample, info.numSamples);
+            expectEquals(nz, 0);
+        }
+        {
+            AudioEngine engine;
+            engine.prepareToPlay(512, 44100.0);
+            engine.setMasterGain(-0.5f);
+            exhaustWarmup(engine, 512);
+            auto [buf, info] = makeBlock(2, 512);
+            engine.getNextAudioBlock(info);
+            expectEquals(countNonZeroSamples(buf, info.startSample, info.numSamples), 0);
+        }
+        beginTest("gain clamps >1.0 to 1.0 without crash");
+        {
+            AudioEngine engine;
+            engine.prepareToPlay(512, 44100.0);
+            engine.setMasterGain(2.0f);
+            exhaustWarmup(engine, 512);
+            auto [buf, info] = makeBlock(2, 512);
+            engine.getNextAudioBlock(info);
+        }
+        // —— 原 AllNotesOffTest 的用例 ——
+        beginTest("requestAllNotesOff does not crash");
+        {
+            AudioEngine engine;
+            engine.prepareToPlay(512, 44100.0);
+            exhaustWarmup(engine, 512);
+            engine.requestAllNotesOff();
+            auto [buf, info] = makeBlock(2, 512);
+            engine.getNextAudioBlock(info);
+        }
+        beginTest("subsequent blocks after all-notes-off are safe");
+        {
+            AudioEngine engine;
+            engine.prepareToPlay(512, 44100.0);
+            exhaustWarmup(engine, 512);
+            engine.requestAllNotesOff();
+            for (int i = 0; i < 5; ++i) {
+                auto [buf, info] = makeBlock(2, 512);
+                engine.getNextAudioBlock(info);
+            }
+        }
+    }
+};
+static AudioEngineGainAndNotesOffTest audioEngineGainAndNotesOffTest;

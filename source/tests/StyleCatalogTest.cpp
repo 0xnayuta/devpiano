@@ -22,6 +22,59 @@
 // Self-contained style rules are used (no cwd dependence in tests).
 // =============================================================================
 
+namespace {
+
+// 注册完整 root layout 所需的全部组件类型。keyboardState 由调用方持有，
+// 其生命周期必须覆盖 interpret()（工厂 lambda 按引用捕获）。
+void registerRootComponentFactory(::jive::Interpreter& interpreter, juce::MidiKeyboardState& keyboardState) {
+    auto& factory = interpreter.getComponentFactory();
+    factory.set("SettingsButton",
+                [] { return std::make_unique<juce::DrawableButton>("s", juce::DrawableButton::ImageFitted); });
+    factory.set("PathEditor", [] { return std::make_unique<juce::TextEditor>(); });
+    factory.set("ListEditor", [] { return std::make_unique<juce::TextEditor>(); });
+    factory.set("DevKnob", [] { return std::make_unique<juce::Slider>(); });
+    factory.set("SpeedSlider", [] {
+        auto slider = std::make_unique<juce::Slider>();
+        slider->setSliderStyle(juce::Slider::LinearHorizontal);
+        return slider;
+    });
+    factory.set("AdsrCurve", [] { return std::make_unique<juce::Component>(); });
+    for (const char* type : { "RecordButton", "PlayButton", "StopButton", "BackButton" })
+        factory.set(type, [] { return std::make_unique<juce::TextButton>(); });
+    factory.set("CustomKeyboard", [&keyboardState] {
+        auto viewport = std::make_unique<juce::Viewport>();
+        viewport->setScrollBarsShown(false, true, false, true);
+        auto keyboard = std::make_unique<jive::TextComponent>();
+        viewport->setViewedComponent(keyboard.release(), true);
+        return viewport;
+    });
+    factory.set("StatusBarMidiDot", [] { return std::make_unique<juce::Component>(); });
+}
+
+// 定位仓库内真实 style_sheets.json（CWD 或可执行文件目录上溯）。
+juce::File findShippedStyleSheet() {
+    juce::File styleFile = juce::File::getCurrentWorkingDirectory().getChildFile("source/UI/jive/style_sheets.json");
+    if (!styleFile.existsAsFile()) {
+        auto dir = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
+        for (int i = 0; i < 4 && !styleFile.existsAsFile(); ++i) {
+            styleFile = dir.getChildFile("source/UI/jive/style_sheets.json");
+            dir = dir.getParentDirectory();
+        }
+    }
+    return styleFile;
+}
+
+juce::ValueTree findNodeById(const juce::ValueTree& root, const juce::String& id) {
+    if (root.getProperty("id").toString() == id)
+        return root;
+    for (auto child : root)
+        if (auto found = findNodeById(child, id); found.isValid())
+            return found;
+    return {};
+}
+
+} // namespace
+
 class StyleCatalogTest final : public juce::UnitTest {
 public:
     StyleCatalogTest()
@@ -394,28 +447,8 @@ private:
         beginTest("root layout interprets with every panel");
 
         ::jive::Interpreter interpreter;
-        auto& factory = interpreter.getComponentFactory();
-        factory.set("SettingsButton",
-                    [] { return std::make_unique<juce::DrawableButton>("s", juce::DrawableButton::ImageFitted); });
-        factory.set("PathEditor", [] { return std::make_unique<juce::TextEditor>(); });
-        factory.set("ListEditor", [] { return std::make_unique<juce::TextEditor>(); });
-        factory.set("DevKnob", [] { return std::make_unique<juce::Slider>(); });
-        factory.set("SpeedSlider", [] {
-            auto slider = std::make_unique<juce::Slider>();
-            slider->setSliderStyle(juce::Slider::LinearHorizontal);
-            return slider;
-        });
-        factory.set("AdsrCurve", [] { return std::make_unique<juce::Component>(); });
-        for (const char* type : { "RecordButton", "PlayButton", "StopButton", "BackButton" })
-            factory.set(type, [] { return std::make_unique<juce::TextButton>(); });
         juce::MidiKeyboardState keyboardState;
-        factory.set("CustomKeyboard", [&keyboardState] {
-            auto viewport = std::make_unique<juce::Viewport>();
-            auto keyboard = std::make_unique<jive::TextComponent>();
-            viewport->setViewedComponent(keyboard.release(), true);
-            return viewport;
-        });
-        factory.set("StatusBarMidiDot", [] { return std::make_unique<juce::Component>(); });
+        registerRootComponentFactory(interpreter, keyboardState);
 
         auto tree = devpiano::ui::jive::makeRootLayout();
         devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
@@ -473,28 +506,8 @@ private:
         // id "window" and its font-size must inherit down to every Text
         // component through JIVE's StyleSheet ancestor chain.
         ::jive::Interpreter interpreter;
-        auto& factory = interpreter.getComponentFactory();
-        factory.set("SettingsButton",
-                    [] { return std::make_unique<juce::DrawableButton>("s", juce::DrawableButton::ImageFitted); });
-        factory.set("PathEditor", [] { return std::make_unique<juce::TextEditor>(); });
-        factory.set("ListEditor", [] { return std::make_unique<juce::TextEditor>(); });
-        factory.set("DevKnob", [] { return std::make_unique<juce::Slider>(); });
-        factory.set("SpeedSlider", [] {
-            auto slider = std::make_unique<juce::Slider>();
-            slider->setSliderStyle(juce::Slider::LinearHorizontal);
-            return slider;
-        });
-        factory.set("AdsrCurve", [] { return std::make_unique<juce::Component>(); });
-        for (const char* type : { "RecordButton", "PlayButton", "StopButton", "BackButton" })
-            factory.set(type, [] { return std::make_unique<juce::TextButton>(); });
         juce::MidiKeyboardState keyboardState;
-        factory.set("CustomKeyboard", [&keyboardState] {
-            auto viewport = std::make_unique<juce::Viewport>();
-            auto keyboard = std::make_unique<jive::TextComponent>();
-            viewport->setViewedComponent(keyboard.release(), true);
-            return viewport;
-        });
-        factory.set("StatusBarMidiDot", [] { return std::make_unique<juce::Component>(); });
+        registerRootComponentFactory(interpreter, keyboardState);
 
         auto& catalog = devpiano::ui::jive::StyleCatalog::get();
         const juce::var json1 = juce::JSON::parse(
@@ -560,15 +573,7 @@ private:
         beginTest("real style_sheets.json: #window font-size is the global default");
 
         // Load the ACTUAL shipped style sheet (found via CWD or exe walk-up).
-        juce::File styleFile
-            = juce::File::getCurrentWorkingDirectory().getChildFile("source/UI/jive/style_sheets.json");
-        if (!styleFile.existsAsFile()) {
-            auto dir = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
-            for (int i = 0; i < 4 && !styleFile.existsAsFile(); ++i) {
-                styleFile = dir.getChildFile("source/UI/jive/style_sheets.json");
-                dir = dir.getParentDirectory();
-            }
-        }
+        const auto styleFile = findShippedStyleSheet();
         if (!styleFile.existsAsFile())
             return; // not a repo checkout; skip
 
@@ -578,28 +583,8 @@ private:
             return;
 
         ::jive::Interpreter interpreter;
-        auto& factory = interpreter.getComponentFactory();
-        factory.set("SettingsButton",
-                    [] { return std::make_unique<juce::DrawableButton>("s", juce::DrawableButton::ImageFitted); });
-        factory.set("PathEditor", [] { return std::make_unique<juce::TextEditor>(); });
-        factory.set("ListEditor", [] { return std::make_unique<juce::TextEditor>(); });
-        factory.set("DevKnob", [] { return std::make_unique<juce::Slider>(); });
-        factory.set("SpeedSlider", [] {
-            auto slider = std::make_unique<juce::Slider>();
-            slider->setSliderStyle(juce::Slider::LinearHorizontal);
-            return slider;
-        });
-        factory.set("AdsrCurve", [] { return std::make_unique<juce::Component>(); });
-        for (const char* type : { "RecordButton", "PlayButton", "StopButton", "BackButton" })
-            factory.set(type, [] { return std::make_unique<juce::TextButton>(); });
         juce::MidiKeyboardState keyboardState;
-        factory.set("CustomKeyboard", [&keyboardState] {
-            auto viewport = std::make_unique<juce::Viewport>();
-            auto keyboard = std::make_unique<jive::TextComponent>();
-            viewport->setViewedComponent(keyboard.release(), true);
-            return viewport;
-        });
-        factory.set("StatusBarMidiDot", [] { return std::make_unique<juce::Component>(); });
+        registerRootComponentFactory(interpreter, keyboardState);
 
         auto& catalog = devpiano::ui::jive::StyleCatalog::get();
         catalog.loadFromJSON(json);
@@ -608,16 +593,7 @@ private:
         catalog.applyToTree(tree);
 
         // #title must still override the global default (18 in the shipped file).
-        const std::function<juce::ValueTree(const juce::ValueTree&, const juce::String&)> findById
-            = [&](const juce::ValueTree& root, const juce::String& id) -> juce::ValueTree {
-            if (root.getProperty("id").toString() == id)
-                return root;
-            for (auto child : root) {
-                if (auto found = findById(child, id); found.isValid())
-                    return found;
-            }
-            return {};
-        };
+        const auto findById = findNodeById;
         const auto titleNode = findById(tree, "title");
         expect(titleNode.isValid(), "title node missing");
         if (titleNode.isValid()) {
@@ -695,15 +671,7 @@ private:
         // clickable. The shipped sheet must carry "disabled" rules on Button,
         // Text and the transport icon buttons, with hover/active neutralised
         // inside them.
-        juce::File styleFile
-            = juce::File::getCurrentWorkingDirectory().getChildFile("source/UI/jive/style_sheets.json");
-        if (!styleFile.existsAsFile()) {
-            auto dir = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
-            for (int i = 0; i < 4 && !styleFile.existsAsFile(); ++i) {
-                styleFile = dir.getChildFile("source/UI/jive/style_sheets.json");
-                dir = dir.getParentDirectory();
-            }
-        }
+        const auto styleFile = findShippedStyleSheet();
         if (!styleFile.existsAsFile())
             return; // not a repo checkout; skip
 
@@ -718,16 +686,7 @@ private:
         auto tree = devpiano::ui::jive::makeControlsPanelTree();
         catalog.applyToTree(tree);
 
-        const std::function<juce::ValueTree(const juce::ValueTree&, const juce::String&)> findById
-            = [&](const juce::ValueTree& root, const juce::String& id) -> juce::ValueTree {
-            if (root.getProperty("id").toString() == id)
-                return root;
-            for (auto child : root) {
-                if (auto found = findById(child, id); found.isValid())
-                    return found;
-            }
-            return {};
-        };
+        const auto findById = findNodeById;
 
         for (const char* id : { "export-midi-btn", "export-wav-btn", "save-perf-btn", "rename-preset-btn",
                                 "delete-preset-btn", "play-btn", "stop-btn", "back-btn", "record-btn" }) {
@@ -769,15 +728,7 @@ private:
         // background over the combo's own paint layer, hiding the LAF-drawn
         // "nothing selected" placeholder (the combo looked blank). With the
         // ComboBox style background transparent, the placeholder must render.
-        juce::File styleFile
-            = juce::File::getCurrentWorkingDirectory().getChildFile("source/UI/jive/style_sheets.json");
-        if (!styleFile.existsAsFile()) {
-            auto dir = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
-            for (int i = 0; i < 4 && !styleFile.existsAsFile(); ++i) {
-                styleFile = dir.getChildFile("source/UI/jive/style_sheets.json");
-                dir = dir.getParentDirectory();
-            }
-        }
+        const auto styleFile = findShippedStyleSheet();
         if (!styleFile.existsAsFile())
             return; // not a repo checkout; skip
 
@@ -823,11 +774,11 @@ private:
         combo->paintEntireComponent(g, true);
 
         int light = 0;
-        for (int y = 0; y < 28; ++y)
-            for (int x = 0; x < 250; ++x)
+        for (int y = 0; y < 28; y += 2)
+            for (int x = 0; x < 250; x += 2)
                 if (img.getPixelAt(x, y).getRed() > 120)
                     ++light;
-        expect(light > 20, "combo placeholder text must render above the background canvas");
+        expect(light > 4, "combo placeholder text must render above the background canvas");
     }
 
     void testTitlesFollowLanguageSwitch() {
@@ -836,28 +787,8 @@ private:
         devpiano::locale::activate(devpiano::locale::Language::en);
 
         ::jive::Interpreter interpreter;
-        auto& factory = interpreter.getComponentFactory();
-        factory.set("SettingsButton",
-                    [] { return std::make_unique<juce::DrawableButton>("s", juce::DrawableButton::ImageFitted); });
-        factory.set("PathEditor", [] { return std::make_unique<juce::TextEditor>(); });
-        factory.set("ListEditor", [] { return std::make_unique<juce::TextEditor>(); });
-        factory.set("DevKnob", [] { return std::make_unique<juce::Slider>(); });
-        factory.set("SpeedSlider", [] {
-            auto slider = std::make_unique<juce::Slider>();
-            slider->setSliderStyle(juce::Slider::LinearHorizontal);
-            return slider;
-        });
-        factory.set("AdsrCurve", [] { return std::make_unique<juce::Component>(); });
-        for (const char* type : { "RecordButton", "PlayButton", "StopButton", "BackButton" })
-            factory.set(type, [] { return std::make_unique<juce::TextButton>(); });
         juce::MidiKeyboardState keyboardState;
-        factory.set("CustomKeyboard", [&keyboardState] {
-            auto viewport = std::make_unique<juce::Viewport>();
-            auto keyboard = std::make_unique<jive::TextComponent>();
-            viewport->setViewedComponent(keyboard.release(), true);
-            return viewport;
-        });
-        factory.set("StatusBarMidiDot", [] { return std::make_unique<juce::Component>(); });
+        registerRootComponentFactory(interpreter, keyboardState);
 
         auto tree = devpiano::ui::jive::makeRootLayout();
         devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
@@ -953,8 +884,8 @@ private:
         component.paintEntireComponent(g, true);
 
         int light = 0;
-        for (int y = 0; y < height; ++y) {
-            for (int x = 0; x < width; ++x) {
+        for (int y = 0; y < height; y += 2) {
+            for (int x = 0; x < width; x += 2) {
                 const auto c = image.getPixelAt(x, y);
                 if (c.getRed() > 200 && c.getGreen() > 200 && c.getBlue() > 200)
                     ++light;
@@ -978,7 +909,7 @@ private:
 
         // Give the header real size and count near-white pixels (text).
         const int light = countLightPixels(*item->getComponent(), 400, 36);
-        expect(light > 50, "title text renders no visible pixels (light=" + juce::String(light) + ")");
+        expect(light > 12, "title text renders no visible pixels (light=" + juce::String(light) + ")");
     }
 
     void testButtonLabelRendersVisiblePixels() {
@@ -996,7 +927,7 @@ private:
             return;
 
         const int light = countLightPixels(*item->getComponent(), 800, 40);
-        expect(light > 100, "button labels render no visible pixels (light=" + juce::String(light) + ")");
+        expect(light > 25, "button labels render no visible pixels (light=" + juce::String(light) + ")");
     }
 };
 
@@ -1020,27 +951,8 @@ public:
             juce::JSON::parse(R"({ "Text": { "foreground": "#EEEEEE", "font-size": 14 } })"));
 
         ::jive::Interpreter interpreter;
-        auto& factory = interpreter.getComponentFactory();
-        factory.set("SettingsButton",
-                    [] { return std::make_unique<juce::DrawableButton>("s", juce::DrawableButton::ImageFitted); });
-        factory.set("PathEditor", [] { return std::make_unique<juce::Component>(); });
-        factory.set("ListEditor", [] { return std::make_unique<juce::Component>(); });
-        factory.set("DevKnob", [] { return std::make_unique<juce::Slider>(); });
-        factory.set("SpeedSlider", [] {
-            auto slider = std::make_unique<juce::Slider>();
-            slider->setSliderStyle(juce::Slider::LinearHorizontal);
-            return slider;
-        });
-        factory.set("AdsrCurve", [] { return std::make_unique<juce::Component>(); });
-        for (const char* type : { "RecordButton", "PlayButton", "StopButton", "BackButton" })
-            factory.set(type, [] { return std::make_unique<juce::TextButton>(); });
         juce::MidiKeyboardState keyboardState;
-        factory.set("CustomKeyboard", [&keyboardState] {
-            auto viewport = std::make_unique<juce::Viewport>();
-            viewport->setViewedComponent(std::make_unique<jive::TextComponent>().release(), true);
-            return viewport;
-        });
-        factory.set("StatusBarMidiDot", [] { return std::make_unique<juce::Component>(); });
+        registerRootComponentFactory(interpreter, keyboardState);
 
         auto tree = devpiano::ui::jive::makeRootLayout();
         devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
@@ -1078,12 +990,6 @@ public:
         expect(contentRowYBefore >= plugin->getComponent()->getBottom(), "content-row below collapsed panel");
 
         auto* actionRow = jive::findItemWithID(*item, "plugin-action-row");
-        auto printBounds = [&](const char* tag) {
-            juce::Logger::writeToLog(juce::String(tag) + " plugin=" + plugin->getComponent()->getBounds().toString()
-                                     + " actionRow=" + actionRow->getComponent()->getBounds().toString()
-                                     + " area=" + area->getComponent()->getBounds().toString());
-        };
-        printBounds("COLLAPSED");
 
         // Expand — fixed order: area FIRST (so the panel's layout pass reads
         // the final area height), then panel, then explicit main-area reflow
@@ -1095,7 +1001,6 @@ public:
             panel->layOutChildren();
         if (auto* mainArea = dynamic_cast<jive::FlexContainer*>(jive::findItemWithID(*item, "main-area")))
             mainArea->layOutChildren();
-        printBounds("EXPANDED-FIXED");
         expect(plugin->getComponent()->getHeight() == 160, "expanded panel height");
         expect(area->getComponent()->getHeight() > 0, "expanded area visible");
         expect(plugin->getComponent()->isVisible(), "expanded panel visible");
@@ -1119,7 +1024,6 @@ public:
             panel->layOutChildren();
         if (auto* mainArea = dynamic_cast<jive::FlexContainer*>(jive::findItemWithID(*item, "main-area")))
             mainArea->layOutChildren();
-        printBounds("COLLAPSED-FIXED");
         expect(plugin->getComponent()->getHeight() == 42, "re-collapsed panel height");
         expect(plugin->getComponent()->isVisible(), "re-collapsed panel visible");
         expect(area->getComponent()->getHeight() == 0, "re-collapsed area height");

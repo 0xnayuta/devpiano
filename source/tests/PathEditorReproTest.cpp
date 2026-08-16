@@ -65,17 +65,12 @@ public:
         if (pathEditorItem == nullptr)
             return;
         const auto editorBounds = pathEditorItem->getComponent()->getBounds();
-        juce::Logger::writeToLog("PATHEDITOR bounds=" + editorBounds.toString());
 
         // Expand the area (like setPluginPanelExpanded(true)) and re-check:
         // with height 0 the area's layOutChildren bails on empty bounds, so
         // the row children keep their pre-layout zero width.
         if (auto* area = jive::findItemWithID(*panelItem, "plugin-expanded-area")) {
             area->state.setProperty("height", 112, nullptr);
-            if (auto* row = jive::findItemWithID(*panelItem, "plugin-path-row"))
-                juce::Logger::writeToLog("PATHROW after expand row=" + row->getComponent()->getBounds().toString());
-            juce::Logger::writeToLog("PATHROW after expand editor="
-                                     + pathEditorItem->getComponent()->getBounds().toString());
 
             // Re-read the bounds AFTER expanding: the expanded layout must
             // give the editor a visible, usable size or its text is clipped.
@@ -106,15 +101,7 @@ public:
         rootEditor->setText("C:\\Program Files\\Common Files\\VST3", juce::dontSendNotification);
         expectEquals(rootEditor->getText(), juce::String("C:\\Program Files\\Common Files\\VST3"),
                      "root path text set");
-        juce::Logger::writeToLog("PATHEDITOR root bounds=" + rootEditorItem->getComponent()->getBounds().toString()
-                                 + " text='" + rootEditor->getText() + "'");
         expect(rootEditorItem->getComponent()->getWidth() > 50, "root flow: path editor visible width");
-        for (const char* id :
-             { "plugin-panel", "plugin-action-row", "plugin-expanded-area", "plugin-path-label", "plugin-path-editor",
-               "browse-btn", "scan-btn", "plugin-path-row", "plugin-list-editor" })
-            if (auto* it = jive::findItemWithID(*panelItem, id))
-                juce::Logger::writeToLog(juce::String("PATHROW item ") + id
-                                         + " bounds=" + it->getComponent()->getBounds().toString());
         // Collapsed: the area has height 0 so JIVE skips laying out the row
         // (bounds.isEmpty()) — the editor keeps its initial 0 width, which is
         // correct for a hidden area. The expanded-state assertions above are

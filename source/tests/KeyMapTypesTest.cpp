@@ -4,16 +4,19 @@
 #include "Core/MidiTypes.h"
 
 // =============================================================================
-// Tests for core data types and keyboard layout functions
+// 核心数据类型与键盘布局函数测试
 // =============================================================================
 
-class MidiNoteNumberTest : public juce::UnitTest {
+class MidiScalarsTest : public juce::UnitTest {
 public:
-    MidiNoteNumberTest()
-        : juce::UnitTest("MidiNoteNumber", "DevPiano/Core") {
+    MidiScalarsTest()
+        : juce::UnitTest("KeyMapTypes: midi scalars", "DevPiano/Core") {
     }
 
     void runTest() override {
+        using devpiano::core::MidiNoteNumber;
+        using devpiano::core::NoteRange;
+
         testCase("fromClamped clamps below minimum", [&] {
             auto n = devpiano::core::MidiNoteNumber::fromClamped(-42);
             expectEquals(n.value, 0);
@@ -42,20 +45,7 @@ public:
             expectEquals(devpiano::core::MidiNoteNumber::minValue(), 0);
             expectEquals(devpiano::core::MidiNoteNumber::maxValue(), 127);
         });
-    }
-};
 
-static MidiNoteNumberTest midiNoteNumberTest;
-
-// =============================================================================
-
-class MidiChannelTest : public juce::UnitTest {
-public:
-    MidiChannelTest()
-        : juce::UnitTest("MidiChannel", "DevPiano/Core") {
-    }
-
-    void runTest() override {
         testCase("fromClamped clamps below minimum", [&] {
             auto ch = devpiano::core::MidiChannel::fromClamped(0);
             expectEquals(ch.value, 1);
@@ -84,20 +74,7 @@ public:
             expect(!devpiano::core::MidiChannel { 0 }.isValid());
             expect(!devpiano::core::MidiChannel { 17 }.isValid());
         });
-    }
-};
 
-static MidiChannelTest midiChannelTest;
-
-// =============================================================================
-
-class VelocityTest : public juce::UnitTest {
-public:
-    VelocityTest()
-        : juce::UnitTest("Velocity", "DevPiano/Core") {
-    }
-
-    void runTest() override {
         testCase("fromClamped clamps below minimum", [&] {
             auto v = devpiano::core::Velocity::fromClamped(-0.5f);
             expectEquals(v.value, 0.0f);
@@ -127,22 +104,6 @@ public:
             expect(!devpiano::core::Velocity { -0.01f }.isValid());
             expect(!devpiano::core::Velocity { 1.01f }.isValid());
         });
-    }
-};
-
-static VelocityTest velocityTest;
-
-// =============================================================================
-
-class NoteRangeTest : public juce::UnitTest {
-public:
-    NoteRangeTest()
-        : juce::UnitTest("NoteRange", "DevPiano/Core") {
-    }
-
-    void runTest() override {
-        using devpiano::core::MidiNoteNumber;
-        using devpiano::core::NoteRange;
 
         testCase("contains works correctly", [&] {
             NoteRange range { MidiNoteNumber::fromClamped(36), MidiNoteNumber::fromClamped(96) };
@@ -174,20 +135,27 @@ public:
     }
 };
 
-static NoteRangeTest noteRangeTest;
+static MidiScalarsTest midiScalarsTest;
 
 // =============================================================================
 
-class KeyActionTest : public juce::UnitTest {
+class KeyBindingTypesTest : public juce::UnitTest {
 public:
-    KeyActionTest()
-        : juce::UnitTest("KeyAction", "DevPiano/Core") {
+    KeyBindingTypesTest()
+        : juce::UnitTest("KeyMapTypes: key binding", "DevPiano/Core") {
     }
 
     void runTest() override {
         using devpiano::core::KeyAction;
+        using devpiano::core::KeyActionType;
+        using devpiano::core::KeyBinding;
+        using devpiano::core::KeyboardLayout;
+        using devpiano::core::KeyTrigger;
+        using devpiano::core::makeAlphaNumericKeyCode;
+        using devpiano::core::makeNoteBinding;
         using devpiano::core::MidiChannel;
         using devpiano::core::MidiNoteNumber;
+        using devpiano::core::normaliseAlphaNumericKeyCode;
         using devpiano::core::Velocity;
 
         testCase("default construction has sensible defaults", [&] {
@@ -224,27 +192,6 @@ public:
             expectEquals(action.velocity, 0.75f);
             expectEquals(action.getVelocity().value, 0.75f);
         });
-    }
-};
-
-static KeyActionTest keyActionTest;
-
-// =============================================================================
-
-class KeyBindingTest : public juce::UnitTest {
-public:
-    KeyBindingTest()
-        : juce::UnitTest("KeyBinding", "DevPiano/Core") {
-    }
-
-    void runTest() override {
-        using devpiano::core::KeyActionType;
-        using devpiano::core::KeyBinding;
-        using devpiano::core::KeyboardLayout;
-        using devpiano::core::KeyTrigger;
-        using devpiano::core::makeAlphaNumericKeyCode;
-        using devpiano::core::makeNoteBinding;
-        using devpiano::core::normaliseAlphaNumericKeyCode;
 
         testCase("makeAlphaNumericKeyCode normalises to uppercase",
                  [&] { expectEquals(makeAlphaNumericKeyCode('a'), makeAlphaNumericKeyCode('A')); });
@@ -274,10 +221,6 @@ public:
         });
 
         testCase("makeNoteBinding with strong types", [&] {
-            using devpiano::core::MidiChannel;
-            using devpiano::core::MidiNoteNumber;
-            using devpiano::core::Velocity;
-
             auto binding = makeNoteBinding('D', MidiNoteNumber::fromClamped(50), MidiChannel::fromClamped(3),
                                            Velocity::fromClamped(0.5f));
 
@@ -294,14 +237,14 @@ public:
     }
 };
 
-static KeyBindingTest keyBindingTest;
+static KeyBindingTypesTest keyBindingTypesTest;
 
 // =============================================================================
 
-class DefaultKeyboardLayoutTest : public juce::UnitTest {
+class KeyboardLayoutsTest : public juce::UnitTest {
 public:
-    DefaultKeyboardLayoutTest()
-        : juce::UnitTest("DefaultLayout", "DevPiano/Core") {
+    KeyboardLayoutsTest()
+        : juce::UnitTest("KeyMapTypes: layouts", "DevPiano/Core") {
     }
 
     void runTest() override {
@@ -309,10 +252,12 @@ public:
         using devpiano::core::KeyTrigger;
         using devpiano::core::makeAlphaNumericKeyCode;
         using devpiano::core::makeDefaultKeyboardLayout;
+        using devpiano::core::makeFullPianoLayout;
+        using devpiano::core::normaliseAlphaNumericKeyCode;
 
         testCase("default layout has correct number of keys", [&] {
             auto layout = makeDefaultKeyboardLayout();
-            // 10 (123 row) + 10 (QWERTY row) + 9 (ASDF row) + 7 (ZXCV row) = 36
+            // 10（123 行）+ 10（QWERTY 行）+ 9（ASDF 行）+ 7（ZXCV 行）= 36
             expectEquals(layout.bindings.size(), size_t(36));
         });
 
@@ -364,23 +309,6 @@ public:
                 expect(binding != nullptr, "Missing binding for key '" + juce::String::charToString(c) + "'");
             }
         });
-    }
-};
-
-static DefaultKeyboardLayoutTest defaultKeyboardLayoutTest;
-
-// =============================================================================
-
-class FullKeyboardLayoutTest : public juce::UnitTest {
-public:
-    FullKeyboardLayoutTest()
-        : juce::UnitTest("FullLayout", "DevPiano/Core") {
-    }
-
-    void runTest() override {
-        using devpiano::core::KeyboardLayout;
-        using devpiano::core::makeAlphaNumericKeyCode;
-        using devpiano::core::makeFullPianoLayout;
 
         testCase("full layout has correct number of keys", [&] {
             auto layout = makeFullPianoLayout();
@@ -395,7 +323,7 @@ public:
 
         testCase("full layout has higher octave range", [&] {
             auto layout = makeFullPianoLayout();
-            // In full layout, A maps to C4 (72), Z maps to C3 (60)
+            // 在 full layout 中，A 映射到 C4 (72)，Z 映射到 C3 (60)
             auto* aBinding = layout.findByKeyCode(makeAlphaNumericKeyCode('A'));
             expect(aBinding != nullptr);
             expectEquals(aBinding->action.midiNote, 72); // C4 = 72
@@ -404,22 +332,6 @@ public:
             expect(zBinding != nullptr);
             expectEquals(zBinding->action.midiNote, 60); // C3 = 60
         });
-    }
-};
-
-static FullKeyboardLayoutTest fullKeyboardLayoutTest;
-
-// =============================================================================
-
-class MixedCaseKeyLookupTest : public juce::UnitTest {
-public:
-    MixedCaseKeyLookupTest()
-        : juce::UnitTest("KeyLookup", "DevPiano/Core") {
-    }
-
-    void runTest() override {
-        using devpiano::core::makeDefaultKeyboardLayout;
-        using devpiano::core::normaliseAlphaNumericKeyCode;
 
         testCase("lowercase and uppercase find same binding", [&] {
             auto layout = makeDefaultKeyboardLayout();
@@ -436,4 +348,4 @@ public:
     }
 };
 
-static MixedCaseKeyLookupTest mixedCaseKeyLookupTest;
+static KeyboardLayoutsTest keyboardLayoutsTest;

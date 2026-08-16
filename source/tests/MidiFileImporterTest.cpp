@@ -4,15 +4,19 @@
 #include "Recording/RecordingEngine.h"
 
 // =============================================================================
-// Tests for MIDI file importing
+// MIDI 文件导入测试
 //
-// These tests use real MIDI files from tests/fixtures/midi/.
-// CTest's WORKING_DIRECTORY is set to the repo root, so fixture paths
-// are relative to that.
+// 这些测试使用 tests/fixtures/midi/ 下的真实 MIDI 文件。
+// CTest 的 WORKING_DIRECTORY 设置为仓库根目录，因此 fixture 路径相对于根目录。
 // =============================================================================
 
 static juce::String getFixturePath(const juce::String& filename) {
     return "tests/fixtures/midi/" + filename;
+}
+
+/// 导入指定 fixture 文件并返回 importMidiFile 结果（默认采样率 48kHz）。
+auto importFixture(const juce::String& name, double sampleRate = 48000.0) {
+    return devpiano::recording::importMidiFile(juce::File(getFixturePath(name)), sampleRate);
 }
 
 // =============================================================================
@@ -32,13 +36,13 @@ public:
         });
 
         testCase("empty file returns nullopt", [&] {
-            auto result = importMidiFile(juce::File(getFixturePath("empty.mid")), 48000.0);
+            auto result = importFixture("empty.mid");
             expect(!result.has_value());
         });
 
         testCase("invalid file returns nullopt", [&] {
-            // invalid.mid contains non-MIDI garbage; should fail to parse
-            auto result = importMidiFile(juce::File(getFixturePath("invalid.mid")), 48000.0);
+            // invalid.mid 包含非 MIDI 的垃圾数据，应解析失败
+            auto result = importFixture("invalid.mid");
             expect(!result.has_value());
         });
     }
@@ -48,46 +52,27 @@ static MidiFileImportSmokeTest midiFileImportSmokeTest;
 
 // =============================================================================
 
-class SimpleNotesImportTest : public juce::UnitTest {
+class MidiFileImportDetail : public juce::UnitTest {
 public:
-    SimpleNotesImportTest()
-        : juce::UnitTest("SimpleNotesImport", "DevPiano/Recording") {
+    MidiFileImportDetail()
+        : juce::UnitTest("MidiFileImportDetail", "DevPiano/Recording") {
     }
 
     void runTest() override {
         using devpiano::recording::importMidiFile;
+        using devpiano::recording::MidiImportOptions;
 
-        testCase("simple-notes.mid imports successfully", [&] {
-            auto result = importMidiFile(juce::File(getFixturePath("simple-notes.mid")), 48000.0);
-            expect(result.has_value());
-        });
-
-        testCase("simple-notes.mid has events", [&] {
-            auto result = importMidiFile(juce::File(getFixturePath("simple-notes.mid")), 48000.0);
+        testCase("simple-notes.mid imports with events, sample rate, timestamps and note events", [&] {
+            auto result = importFixture("simple-notes.mid");
             expect(result.has_value());
             expect(!result->isEmpty());
             expectGreaterThan(result->events.size(), size_t(0));
-        });
-
-        testCase("simple-notes.mid has correct sample rate", [&] {
-            auto result = importMidiFile(juce::File(getFixturePath("simple-notes.mid")), 48000.0);
-            expect(result.has_value());
             expectEquals(result->sampleRate, 48000.0);
-        });
-
-        testCase("simple-notes.mid events have playable timestamps", [&] {
-            auto result = importMidiFile(juce::File(getFixturePath("simple-notes.mid")), 48000.0);
-            expect(result.has_value());
             for (const auto& ev : result->events) {
                 expect(ev.timestampSamples >= 0);
-                // All events should be within a reasonable range (file is short)
+                // 所有事件都应处于合理范围内（文件很短）
                 expectLessThan(ev.timestampSamples, std::int64_t(48000 * 10));
             }
-        });
-
-        testCase("simple-notes.mid contains note events", [&] {
-            auto result = importMidiFile(juce::File(getFixturePath("simple-notes.mid")), 48000.0);
-            expect(result.has_value());
 
             int noteOnCount = 0;
             for (const auto& ev : result->events) {
@@ -96,71 +81,32 @@ public:
             }
             expectGreaterThan(noteOnCount, 0);
         });
-    }
-};
 
-static SimpleNotesImportTest simpleNotesImportTest;
-
-// =============================================================================
-
-class MultiTrackImportTest : public juce::UnitTest {
-public:
-    MultiTrackImportTest()
-        : juce::UnitTest("MultiTrackImport", "DevPiano/Recording") {
-    }
-
-    void runTest() override {
-        using devpiano::recording::importMidiFile;
-        using devpiano::recording::MidiImportOptions;
-
-        testCase("multitrack-basic.mid imports with default options", [&] {
-            auto result = importMidiFile(juce::File(getFixturePath("multitrack-basic.mid")), 48000.0);
+        testCase("multitrack-basic.mid imports with default and track options", [&] {
+            auto result = importFixture("multitrack-basic.mid");
             expect(result.has_value());
             expect(!result->isEmpty());
-        });
 
-        testCase("multitrack-basic.mid with specific track preference", [&] {
             MidiImportOptions opts;
             opts.preferTrack = 0;
             opts.ignoreOtherTracks = true;
-            auto result = importMidiFile(juce::File(getFixturePath("multitrack-basic.mid")), 48000.0, opts);
-            expect(result.has_value());
-            expect(!result->isEmpty());
+            auto resultWithPreference
+                = importMidiFile(juce::File(getFixturePath("multitrack-basic.mid")), 48000.0, opts);
+            expect(resultWithPreference.has_value());
+            expect(!resultWithPreference->isEmpty());
+
+            MidiImportOptions allTracksOpts;
+            allTracksOpts.ignoreOtherTracks = false;
+            auto resultAllTracks
+                = importMidiFile(juce::File(getFixturePath("multitrack-basic.mid")), 48000.0, allTracksOpts);
+            expect(resultAllTracks.has_value());
+            expect(!resultAllTracks->isEmpty());
         });
 
-        testCase("multitrack-basic.mid importing all tracks", [&] {
-            MidiImportOptions opts;
-            opts.ignoreOtherTracks = false;
-            auto result = importMidiFile(juce::File(getFixturePath("multitrack-basic.mid")), 48000.0, opts);
+        testCase("sustain-pedal.mid imports successfully with controller events", [&] {
+            auto result = importFixture("sustain-pedal.mid");
             expect(result.has_value());
             expect(!result->isEmpty());
-        });
-    }
-};
-
-static MultiTrackImportTest multiTrackImportTest;
-
-// =============================================================================
-
-class SustainedNotesImportTest : public juce::UnitTest {
-public:
-    SustainedNotesImportTest()
-        : juce::UnitTest("SustainPedalImport", "DevPiano/Recording") {
-    }
-
-    void runTest() override {
-        using devpiano::recording::importMidiFile;
-        using devpiano::recording::MidiImportOptions;
-
-        testCase("sustain-pedal.mid imports successfully", [&] {
-            auto result = importMidiFile(juce::File(getFixturePath("sustain-pedal.mid")), 48000.0);
-            expect(result.has_value());
-            expect(!result->isEmpty());
-        });
-
-        testCase("sustain-pedal.mid contains controller events", [&] {
-            auto result = importMidiFile(juce::File(getFixturePath("sustain-pedal.mid")), 48000.0);
-            expect(result.has_value());
 
             int ccCount = 0;
             for (const auto& ev : result->events) {
@@ -169,52 +115,17 @@ public:
             }
             expectGreaterThan(ccCount, 0);
         });
-    }
-};
-
-static SustainedNotesImportTest sustainedNotesImportTest;
-
-// =============================================================================
-
-class TempoChangeImportTest : public juce::UnitTest {
-public:
-    TempoChangeImportTest()
-        : juce::UnitTest("TempoChangeImport", "DevPiano/Recording") {
-    }
-
-    void runTest() override {
-        using devpiano::recording::importMidiFile;
 
         testCase("tempo-change-basic.mid imports successfully", [&] {
-            auto result = importMidiFile(juce::File(getFixturePath("tempo-change-basic.mid")), 48000.0);
-            expect(result.has_value());
-            expect(!result->isEmpty());
-        });
-    }
-};
-
-static TempoChangeImportTest tempoChangeImportTest;
-
-// =============================================================================
-
-class VelocityChannelImportTest : public juce::UnitTest {
-public:
-    VelocityChannelImportTest()
-        : juce::UnitTest("VelocityChannelImport", "DevPiano/Recording") {
-    }
-
-    void runTest() override {
-        using devpiano::recording::importMidiFile;
-
-        testCase("velocity-channel.mid imports successfully", [&] {
-            auto result = importMidiFile(juce::File(getFixturePath("velocity-channel.mid")), 48000.0);
+            auto result = importFixture("tempo-change-basic.mid");
             expect(result.has_value());
             expect(!result->isEmpty());
         });
 
-        testCase("velocity-channel.mid has note and channel info", [&] {
-            auto result = importMidiFile(juce::File(getFixturePath("velocity-channel.mid")), 48000.0);
+        testCase("velocity-channel.mid has varying velocity and non-default channel", [&] {
+            auto result = importFixture("velocity-channel.mid");
             expect(result.has_value());
+            expect(!result->isEmpty());
 
             bool foundVaryingVelocity = false;
             bool foundNonDefaultChannel = false;
@@ -228,9 +139,10 @@ public:
                 }
             }
 
-            expect(foundVaryingVelocity || foundNonDefaultChannel || result->events.size() > 0);
+            expect(foundVaryingVelocity, "fixture 应包含非 127 力度");
+            expect(foundNonDefaultChannel, "fixture 应包含非通道 1 事件");
         });
     }
 };
 
-static VelocityChannelImportTest velocityChannelImportTest;
+static MidiFileImportDetail midiFileImportDetailTest;

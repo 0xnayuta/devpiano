@@ -6,11 +6,11 @@
 using namespace devpiano::core;
 
 // =============================================================================
-// Tests for KeyboardMidiMapper: layout management, key press mapping, note-on/off
+// KeyboardMidiMapper 测试：布局管理、按键映射、note-on/off
 // =============================================================================
 
 namespace {
-/// Build a minimal layout with a single binding.
+/// 构建只含单个绑定（binding）的最小布局。
 KeyboardLayout makeSingleBindingLayout(char key, int midiNote, int midiChannel = 1, float velocity = 1.0f) {
     KeyboardLayout layout;
     layout.id = "test.single";
@@ -19,7 +19,7 @@ KeyboardLayout makeSingleBindingLayout(char key, int midiNote, int midiChannel =
     return layout;
 }
 
-/// Build a layout with two bindings.
+/// 构建含两个绑定的布局。
 KeyboardLayout makeTwoBindingLayout(char key1, int note1, char key2, int note2) {
     KeyboardLayout layout;
     layout.id = "test.pair";
@@ -29,7 +29,7 @@ KeyboardLayout makeTwoBindingLayout(char key1, int note1, char key2, int note2) 
     return layout;
 }
 
-/// Count the number of held notes in a MidiKeyboardState.
+/// 统计 MidiKeyboardState 中按住的音符数量。
 int countNotesOn(const juce::MidiKeyboardState& state) {
     int count = 0;
     for (int ch = 1; ch <= 16; ++ch)
@@ -39,7 +39,7 @@ int countNotesOn(const juce::MidiKeyboardState& state) {
     return count;
 }
 
-/// Check if a specific note is on in a given channel.
+/// 检查指定通道上的某个音符是否处于按下状态。
 bool isNoteOn(const juce::MidiKeyboardState& state, int midiChannel, int midiNote) {
     return state.isNoteOn(midiChannel, midiNote);
 }
@@ -81,7 +81,7 @@ public:
             mapper.setLayoutDisplayName("My Custom Layout");
             expectEquals(mapper.getLayout().name, juce::String("My Custom Layout"));
 
-            // ID unchanged.
+            // ID 不变。
             expectEquals(mapper.getLayout().id, juce::String("devpiano.default"));
         }
 
@@ -102,10 +102,10 @@ static LayoutManagementTest layoutManagementTest;
 
 // =============================================================================
 
-class NoteOnMappingTest : public juce::UnitTest {
+class KeyMappingTest : public juce::UnitTest {
 public:
-    NoteOnMappingTest()
-        : juce::UnitTest("KeyboardMidiMapper: note-on mapping", "DevPiano/Engine") {
+    KeyMappingTest()
+        : juce::UnitTest("KeyboardMidiMapper: key mapping", "DevPiano/Engine") {
     }
 
     void runTest() override {
@@ -119,8 +119,8 @@ public:
             bool consumed = mapper.handleKeyPressed(keyPress, keyState);
             expect(consumed, "mapped key should be consumed");
 
-            // noteOn() is called directly by handleKeyPressed, so isNoteOn
-            // reflects the state immediately without extra processing.
+            // noteOn() 由 handleKeyPressed 直接调用，因此 isNoteOn
+            // 无需额外处理即可立即反映状态。
             expect(isNoteOn(keyState, 1, 72), "note 72 should be on in channel 1");
         }
 
@@ -130,7 +130,7 @@ public:
             mapper.setLayout(makeSingleBindingLayout('A', 72));
 
             juce::MidiKeyboardState keyState;
-            juce::KeyPress keyPress('Z'); // not in layout
+            juce::KeyPress keyPress('Z'); // 不在布局中
             bool consumed = mapper.handleKeyPressed(keyPress, keyState);
             expect(!consumed, "unmapped key should not be consumed");
 
@@ -143,7 +143,7 @@ public:
             mapper.setLayout(makeSingleBindingLayout('A', 72));
 
             juce::MidiKeyboardState keyState;
-            // KeyPress with keyCode = juce::KeyPress::escapeKey (non-alphanumeric).
+            // KeyPress 的 keyCode 为 juce::KeyPress::escapeKey（非字母数字）。
             juce::KeyPress keyPress(juce::KeyPress::escapeKey);
             bool consumed = mapper.handleKeyPressed(keyPress, keyState);
             expect(!consumed, "escape key should not be consumed");
@@ -161,20 +161,7 @@ public:
 
             expect(isNoteOn(keyState, 3, 60), "note 60 should be on in channel 3");
         }
-    }
-};
 
-static NoteOnMappingTest noteOnMappingTest;
-
-// =============================================================================
-
-class RepeatKeySuppressionTest : public juce::UnitTest {
-public:
-    RepeatKeySuppressionTest()
-        : juce::UnitTest("KeyboardMidiMapper: repeat key suppression", "DevPiano/Engine") {
-    }
-
-    void runTest() override {
         beginTest("pressing same key twice does not duplicate note-on");
         {
             KeyboardMidiMapper mapper;
@@ -183,14 +170,14 @@ public:
             juce::MidiKeyboardState keyState;
             juce::KeyPress keyPress('A');
 
-            // First press → note-on.
+            // 第一次按下 → note-on。
             expect(mapper.handleKeyPressed(keyPress, keyState));
 
-            // Second press of same key before release → consumed but no duplicate.
+            // 释放前再次按下同一按键 → 被消费但不产生重复 note-on。
             bool second = mapper.handleKeyPressed(keyPress, keyState);
             expect(second, "should return true (consumed) even on repeat");
 
-            // Only one note should be active.
+            // 只应有一个音符处于激活状态。
             expectEquals(countNotesOn(keyState), 1);
         }
 
@@ -205,42 +192,57 @@ public:
 
             expectEquals(countNotesOn(keyState), 2);
         }
+
+        beginTest("lowercase KeyPress matches uppercase binding");
+        {
+            // 布局包含 'A'（大写规范化后的 keyCode）的绑定。
+            KeyboardMidiMapper mapper;
+            mapper.setLayout(makeSingleBindingLayout('A', 72));
+
+            juce::MidiKeyboardState keyState;
+            // 按下 'a'（小写）。normaliseKeyCode 会将其转换为大写。
+            juce::KeyPress keyPress('a');
+            bool consumed = mapper.handleKeyPressed(keyPress, keyState);
+            expect(consumed, "lowercase key should match uppercase binding");
+
+            expect(isNoteOn(keyState, 1, 72));
+        }
     }
 };
 
-static RepeatKeySuppressionTest repeatKeySuppressionTest;
+static KeyMappingTest keyMappingTest;
 
 // =============================================================================
 
-class NoteOffOnReleaseTest : public juce::UnitTest {
+class KeyReleaseTest : public juce::UnitTest {
 public:
-    NoteOffOnReleaseTest()
-        : juce::UnitTest("KeyboardMidiMapper: note-off on release", "DevPiano/Engine") {
+    KeyReleaseTest()
+        : juce::UnitTest("KeyboardMidiMapper: key release", "DevPiano/Engine") {
     }
 
     void runTest() override {
         beginTest("handleKeyStateChanged releases held keys");
         {
-            // NOTE: handleKeyStateChanged uses juce::KeyPress::isKeyCurrentlyDown(),
-            // which queries the OS keyboard state. In a headless unit-test
-            // environment, this returns false for all keys. Therefore, calling
-            // handleKeyStateChanged after handleKeyPressed will cause the held
-            // key to be released (because the OS reports it as "not currently down").
+            // 注意：handleKeyStateChanged 使用 juce::KeyPress::isKeyCurrentlyDown()，
+            // 它会查询操作系统键盘状态。在无头（headless）单元测试环境中，
+            // 所有按键都返回 false。因此，在 handleKeyPressed 之后调用
+            // handleKeyStateChanged 会导致按住的按键被释放（因为操作系统
+            // 报告其"未按下"）。
             //
-            // This test verifies that when a key transitions from held to
-            // not-held (per OS state), the mapper sends note-off.
+            // 本测试验证：当按键从按下变为未按下（按操作系统状态判断）时，
+            // mapper 会发送 note-off。
             KeyboardMidiMapper mapper;
             mapper.setLayout(makeSingleBindingLayout('A', 72));
 
             juce::MidiKeyboardState keyState;
 
-            // Press the key via handleKeyPressed (simulates key-down event).
+            // 通过 handleKeyPressed 按下按键（模拟 key-down 事件）。
             mapper.handleKeyPressed(juce::KeyPress('A'), keyState);
             expect(isNoteOn(keyState, 1, 72), "key A should be on after press");
             expectEquals(countNotesOn(keyState), 1);
 
-            // Now call handleKeyStateChanged. In a headless environment,
-            // isKeyCurrentlyDown('A') returns false → note-off should be sent.
+            // 现在调用 handleKeyStateChanged。在无头环境中，isKeyCurrentlyDown('A')
+            // 返回 false → 应发送 note-off。
             mapper.handleKeyStateChanged(keyState);
             expect(!isNoteOn(keyState, 1, 72), "key A should be off after state change detects release");
             expectEquals(countNotesOn(keyState), 0);
@@ -252,56 +254,16 @@ public:
             mapper.setLayout(makeSingleBindingLayout('A', 72));
 
             juce::MidiKeyboardState keyState;
-            // No keys held → should be a no-op.
+            // 没有按住的按键 → 应为 no-op。
             bool consumed = mapper.handleKeyStateChanged(keyState);
             expect(!consumed, "no held keys → no consumption");
             expectEquals(countNotesOn(keyState), 0);
         }
-    }
-};
 
-static NoteOffOnReleaseTest noteOffOnReleaseTest;
-
-// =============================================================================
-
-class MultipleKeysTest : public juce::UnitTest {
-public:
-    MultipleKeysTest()
-        : juce::UnitTest("KeyboardMidiMapper: multiple simultaneous keys", "DevPiano/Engine") {
-    }
-
-    void runTest() override {
-        beginTest("multiple keys pressed produce multiple notes");
-        {
-            KeyboardMidiMapper mapper;
-            mapper.setLayout(makeTwoBindingLayout('A', 60, 'S', 64));
-
-            juce::MidiKeyboardState keyState;
-            mapper.handleKeyPressed(juce::KeyPress('A'), keyState);
-            mapper.handleKeyPressed(juce::KeyPress('S'), keyState);
-
-            expectEquals(countNotesOn(keyState), 2);
-            expect(isNoteOn(keyState, 1, 60));
-            expect(isNoteOn(keyState, 1, 64));
-        }
-    }
-};
-
-static MultipleKeysTest multipleKeysTest;
-
-// =============================================================================
-
-class ChannelMapperNullTest : public juce::UnitTest {
-public:
-    ChannelMapperNullTest()
-        : juce::UnitTest("KeyboardMidiMapper: nullptr channel mapper", "DevPiano/Engine") {
-    }
-
-    void runTest() override {
         beginTest("works correctly with no channel mapper set");
         {
             KeyboardMidiMapper mapper;
-            // channelMapper defaults to nullptr — should still work.
+            // channelMapper 默认为 nullptr——仍应正常工作。
             mapper.setLayout(makeSingleBindingLayout('A', 72));
 
             juce::MidiKeyboardState keyState;
@@ -312,32 +274,4 @@ public:
     }
 };
 
-static ChannelMapperNullTest channelMapperNullTest;
-
-// =============================================================================
-
-class MixedCaseKeyTest : public juce::UnitTest {
-public:
-    MixedCaseKeyTest()
-        : juce::UnitTest("KeyboardMidiMapper: mixed case key lookup", "DevPiano/Engine") {
-    }
-
-    void runTest() override {
-        beginTest("lowercase KeyPress matches uppercase binding");
-        {
-            // Layout has binding for 'A' (uppercase normalized key code).
-            KeyboardMidiMapper mapper;
-            mapper.setLayout(makeSingleBindingLayout('A', 72));
-
-            juce::MidiKeyboardState keyState;
-            // Press 'a' (lowercase). normaliseKeyCode will convert to uppercase.
-            juce::KeyPress keyPress('a');
-            bool consumed = mapper.handleKeyPressed(keyPress, keyState);
-            expect(consumed, "lowercase key should match uppercase binding");
-
-            expect(isNoteOn(keyState, 1, 72));
-        }
-    }
-};
-
-static MixedCaseKeyTest mixedCaseKeyTest;
+static KeyReleaseTest keyReleaseTest;
