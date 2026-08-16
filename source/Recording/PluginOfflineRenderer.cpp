@@ -5,6 +5,7 @@
 #include "Diagnostics/Log.h"
 #include "Plugin/PluginHost.h"
 #include "Recording/RecordingEngine.h"
+#include "Recording/RenderPipeline.h"
 #include "Recording/WavFileExporter.h"
 
 #include <algorithm>
@@ -14,63 +15,12 @@
 namespace devpiano::exporting {
 namespace {
 
-struct RenderEvent {
-    juce::MidiMessage message;
-    std::int64_t timestampSamples = 0;
-};
-
-[[nodiscard]] bool hasUsableOptions(const WavExportOptions& options) noexcept {
-    return options.sampleRate > 0.0 && options.numChannels > 0 && options.blockSize > 0 && options.bitsPerSample > 0;
-}
-
-[[nodiscard]] std::int64_t scaleTimestamp(std::int64_t timestampSamples, double ratio) noexcept {
-    return static_cast<std::int64_t>(std::llround(static_cast<double>(timestampSamples) * ratio));
-}
-
-[[nodiscard]] std::vector<RenderEvent> buildRenderEvents(const devpiano::recording::RecordingTake& take,
-                                                         double targetSampleRate) {
-    std::vector<RenderEvent> events;
-    events.reserve(take.events.size());
-
-    const auto ratio = take.sampleRate > 0.0 ? targetSampleRate / take.sampleRate : 1.0;
-
-    for (const auto& perfEvent : take.events) {
-        auto msg = perfEvent.message;
-        msg.setTimeStamp(0.0);
-
-        RenderEvent event;
-        event.message = msg;
-        event.timestampSamples = scaleTimestamp(perfEvent.timestampSamples, ratio);
-        events.push_back(std::move(event));
-    }
-
-    std::stable_sort(events.begin(), events.end(), [](const RenderEvent& a, const RenderEvent& b) {
-        return a.timestampSamples < b.timestampSamples;
-    });
-
-    return events;
-}
-
-[[nodiscard]] std::int64_t getScaledTakeLengthSamples(const devpiano::recording::RecordingTake& take,
-                                                      const std::vector<RenderEvent>& events,
-                                                      double targetSampleRate) noexcept {
-    if (events.empty())
-        return 0;
-
-    const auto lastTimestamp = events.back().timestampSamples;
-    const auto ratio = take.sampleRate > 0.0 ? targetSampleRate / take.sampleRate : 1.0;
-    const auto scaledLengthFromTake = scaleTimestamp(take.lengthSamples, ratio);
-
-    return std::max(lastTimestamp + 1, scaledLengthFromTake);
-}
-
-void addPanicMidi(juce::MidiBuffer& midiBuffer, int sampleOffset) {
-    for (auto channel = 1; channel <= 16; ++channel) {
-        midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 64, 0), sampleOffset);
-        midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 120, 0), sampleOffset);
-        midiBuffer.addEvent(juce::MidiMessage::allNotesOff(channel), sampleOffset);
-    }
-}
+using devpiano::recording::RenderEvent;
+using devpiano::recording::addPanicMidi;
+using devpiano::recording::buildRenderEvents;
+using devpiano::recording::getScaledTakeLengthSamples;
+using devpiano::recording::hasUsableRenderOptions;
+using devpiano::recording::scaleTimestamp;
 
 } // namespace
 
@@ -117,7 +67,7 @@ std::unique_ptr<juce::AudioPluginInstance> createOfflinePluginInstance(juce::Aud
 bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take, const juce::File& destinationFile,
                                  const WavExportOptions& options, juce::AudioPluginInstance& offlinePlugin,
                                  std::function<bool(double)> progressCallback) {
-    if (take.isEmpty() || take.sampleRate <= 0.0 || !hasUsableOptions(options) || destinationFile == juce::File()) {
+    if (take.isEmpty() || take.sampleRate <= 0.0 || !hasUsableRenderOptions(options) || destinationFile == juce::File()) {
         DP_LOG_ERROR("[PluginOfflineRenderer] Invalid parameters for offline render");
         return false;
     }

@@ -92,6 +92,8 @@ target_sources(devpiano PRIVATE
     source/Recording/MidiFileImporter.h
     source/Recording/PerformanceFile.cpp
     source/Recording/PerformanceFile.h
+    source/Recording/RenderPipeline.cpp
+    source/Recording/RenderPipeline.h
     source/Recording/WavFileExporter.cpp
     source/Recording/WavFileExporter.h
     source/Recording/PluginOfflineRenderer.cpp
@@ -233,6 +235,8 @@ if (BUILD_TESTS)
         source/Recording/MidiFileImporter.h
         source/Recording/PerformanceFile.cpp
         source/Recording/PerformanceFile.h
+        source/Recording/RenderPipeline.cpp
+        source/Recording/RenderPipeline.h
         source/Recording/RecordingEngine.cpp
         source/Recording/RecordingEngine.h
         source/Recording/RecordingFlowSupport.cpp
@@ -265,6 +269,7 @@ if (BUILD_TESTS)
         source/tests/AudioEngineTest.cpp
         source/tests/PluginHostTest.cpp
         source/tests/PerformanceFileTest.cpp
+        source/tests/RenderPipelineTest.cpp
         source/tests/StyleCatalogTest.cpp
         source/tests/PathEditorReproTest.cpp
     )
