@@ -7,8 +7,11 @@
 // source files, this executable discovers all JUCE UnitTest instances
 // registered via static global constructors and runs them.
 //
-// By default skips JUCE's internal "Files" category (known WSL root-user
-// incompatibility with POSIX access(W_OK)). Override with --include-files.
+// By default runs only devpiano's own tests (categories "DevPiano/<area>")
+// and skips JUCE's internal "Files" category (known WSL root-user
+// incompatibility with POSIX access(W_OK)). JUCE's own internal tests add
+// ~95s (e.g. AudioProcessorGraph's large render sequence) and are opt-in via
+// --include-juce; override the Files skip with --include-files.
 //
 // Returns EXIT_FAILURE if any test fails, EXIT_SUCCESS otherwise.
 // =============================================================================
@@ -51,6 +54,7 @@ int main(int argc, char** argv) {
 
     bool verbose = false;
     bool includeFiles = false;
+    bool includeJuce = false;
     juce::String categoryFilter;
     juce::String nameFilter;
     juce::Array<juce::String> skipCategories = { "Files" };
@@ -62,6 +66,8 @@ int main(int argc, char** argv) {
             verbose = true;
         else if (arg == "--include-files")
             includeFiles = true;
+        else if (arg == "--include-juce")
+            includeJuce = true;
         else if (arg == "--skip-category" && i + 1 < argc)
             skipCategories.add(juce::String(argv[++i]));
         else if (arg == "--category" && i + 1 < argc)
@@ -75,6 +81,8 @@ int main(int argc, char** argv) {
                       << "  --name <name>           Run only tests with the given name\n"
                       << "  --skip-category <name>  Skip tests in the given category\n"
                       << "  --include-files         Don't skip JUCE Files category\n"
+                      << "  --include-juce          Also run JUCE's own internal tests\n"
+                      << "                          (default: project tests only, fast)\n"
                       << "  --help, -h              Show this help\n";
             return 0;
         }
@@ -99,17 +107,28 @@ int main(int argc, char** argv) {
         testsToRun = juce::UnitTest::getTestsInCategory(categoryFilter);
     } else if (nameFilter.isNotEmpty()) {
         testsToRun = juce::UnitTest::getTestsWithName(nameFilter);
-    } else {
+    } else if (includeJuce) {
+        // Full suite including JUCE's own internal tests (slow: ~100s).
         for (auto* t : allTests)
             if (!skipCategories.contains(t->getCategory()))
+                testsToRun.add(t);
+    } else {
+        // Default: project tests only (fast). Categories follow the
+        // "DevPiano/<area>" scheme; "Files" stays skippable by default
+        // (WSL root POSIX access(W_OK) quirk).
+        const juce::StringArray projectCategories
+            = { "DevPiano/Core", "DevPiano/Recording", "DevPiano/Engine", "DevPiano/UI", "Files" };
+        for (auto* t : allTests)
+            if (projectCategories.contains(t->getCategory()) && !skipCategories.contains(t->getCategory()))
                 testsToRun.add(t);
     }
 
     if (testsToRun.isEmpty()) {
         std::cout << "No tests matched after filtering." << std::endl;
-        return 0;
+        return EXIT_FAILURE; // a typo'd filter must not silently pass CI
     }
 
+    std::cout << "Running " << testsToRun.size() << " test(s)...\n" << std::endl;
     runner.runTests(testsToRun);
 
     const auto numPasses = runner.computeTotalPasses();

@@ -78,4 +78,5 @@ Windows MSVC 侧 CMake 缓存未追踪源文件变更可能导致旧目标文件
 
 以 root 用户（`uid=0`）在 WSL 中运行单元测试时，`tempFile.setReadOnly(true)` 移除了文件写权限，但 `tempFile.hasWriteAccess()` 因 POSIX `access(path, W_OK)` 对 superuser 始终返回成功而返回 `true`。**不影响任何项目功能**——该测试为 JUCE 自带文件系统验证，项目代码不依赖 `setReadOnly` / `hasWriteAccess`。非 root 用户下该测试自动通过。
 
-- **缓解**：运行测试时通过 `--category "DevPiano"` 过滤，仅运行项目自身测试
+- **缓解**：`devpiano_tests` 默认只运行项目自身测试（类别白名单 `DevPiano/Core` / `DevPiano/Recording` / `DevPiano/Engine` / `DevPiano/UI`，`Files` 默认跳过），该问题不再触发。仅当显式 `--include-juce --include-files` 全量运行时才会遇到，非 root 用户或跳过该组合即可。
+  - 注：旧缓解命令 `--category "DevPiano"` 已失效（`juce::UnitTest::getTestsInCategory` 精确匹配，"DevPiano" 不匹配任何项目类别），请使用上述默认行为或精确类别名。
