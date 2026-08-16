@@ -59,7 +59,7 @@ void exhaustWarmup(AudioEngine& engine, int blockSize) {
 class PrepareToPlayTest : public juce::UnitTest {
 public:
     PrepareToPlayTest()
-        : juce::UnitTest("AudioEngine: prepareToPlay") {
+        : juce::UnitTest("AudioEngine: prepareToPlay", "DevPiano/Engine") {
     }
     void runTest() override {
         beginTest("prepareToPlay does not crash");
@@ -102,7 +102,7 @@ static PrepareToPlayTest prepareToPlayTest;
 class MasterGainTest : public juce::UnitTest {
 public:
     MasterGainTest()
-        : juce::UnitTest("AudioEngine: master gain") {
+        : juce::UnitTest("AudioEngine: master gain", "DevPiano/Engine") {
     }
     void runTest() override {
         beginTest("gain 0 silences output (masterGain applied at end of block)");
@@ -146,7 +146,7 @@ static MasterGainTest masterGainTest;
 class AllNotesOffTest : public juce::UnitTest {
 public:
     AllNotesOffTest()
-        : juce::UnitTest("AudioEngine: all-notes-off") {
+        : juce::UnitTest("AudioEngine: all-notes-off", "DevPiano/Engine") {
     }
     void runTest() override {
         beginTest("requestAllNotesOff does not crash");
@@ -180,7 +180,7 @@ static AllNotesOffTest allNotesOffTest;
 class WarmupTest : public juce::UnitTest {
 public:
     WarmupTest()
-        : juce::UnitTest("AudioEngine: warmup") {
+        : juce::UnitTest("AudioEngine: warmup", "DevPiano/Engine") {
     }
     void runTest() override {
         beginTest("first two blocks after prepareToPlay are silent");
@@ -217,7 +217,7 @@ static WarmupTest warmupTest;
 class ReleaseResourcesTest : public juce::UnitTest {
 public:
     ReleaseResourcesTest()
-        : juce::UnitTest("AudioEngine: releaseResources") {
+        : juce::UnitTest("AudioEngine: releaseResources", "DevPiano/Engine") {
     }
     void runTest() override {
         beginTest("releaseResources does not crash");

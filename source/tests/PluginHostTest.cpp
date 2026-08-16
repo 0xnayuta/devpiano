@@ -26,7 +26,7 @@
 class DefaultStateTest : public juce::UnitTest {
 public:
     DefaultStateTest()
-        : juce::UnitTest("PluginHost: default state") {
+        : juce::UnitTest("PluginHost: default state", "DevPiano/Engine") {
     }
 
     void runTest() override {
@@ -71,7 +71,7 @@ static DefaultStateTest defaultStateTest;
 class LastLoadErrorTest : public juce::UnitTest {
 public:
     LastLoadErrorTest()
-        : juce::UnitTest("PluginHost: last load error") {
+        : juce::UnitTest("PluginHost: last load error", "DevPiano/Engine") {
     }
 
     void runTest() override {
@@ -90,7 +90,7 @@ static LastLoadErrorTest lastLoadErrorTest;
 class PluginListEmptyTest : public juce::UnitTest {
 public:
     PluginListEmptyTest()
-        : juce::UnitTest("PluginHost: empty plugin lists") {
+        : juce::UnitTest("PluginHost: empty plugin lists", "DevPiano/Engine") {
     }
 
     void runTest() override {
@@ -128,7 +128,7 @@ static PluginListEmptyTest pluginListEmptyTest;
 class ScanSummaryTest : public juce::UnitTest {
 public:
     ScanSummaryTest()
-        : juce::UnitTest("PluginHost: scan summary defaults") {
+        : juce::UnitTest("PluginHost: scan summary defaults", "DevPiano/Engine") {
     }
 
     void runTest() override {
@@ -159,7 +159,7 @@ static ScanSummaryTest scanSummaryTest;
 class ScanningStateTest : public juce::UnitTest {
 public:
     ScanningStateTest()
-        : juce::UnitTest("PluginHost: scanning state") {
+        : juce::UnitTest("PluginHost: scanning state", "DevPiano/Engine") {
     }
 
     void runTest() override {
@@ -190,7 +190,7 @@ static ScanningStateTest scanningStateTest;
 class SupportsVst3Test : public juce::UnitTest {
 public:
     SupportsVst3Test()
-        : juce::UnitTest("PluginHost: supports VST3") {
+        : juce::UnitTest("PluginHost: supports VST3", "DevPiano/Engine") {
     }
 
     void runTest() override {
@@ -210,7 +210,7 @@ static SupportsVst3Test supportsVst3Test;
 class FormatsAndPathsTest : public juce::UnitTest {
 public:
     FormatsAndPathsTest()
-        : juce::UnitTest("PluginHost: formats and paths") {
+        : juce::UnitTest("PluginHost: formats and paths", "DevPiano/Engine") {
     }
 
     void runTest() override {
@@ -239,7 +239,7 @@ static FormatsAndPathsTest formatsAndPathsTest;
 class KnownPluginListXmlTest : public juce::UnitTest {
 public:
     KnownPluginListXmlTest()
-        : juce::UnitTest("PluginHost: known plugin list XML") {
+        : juce::UnitTest("PluginHost: known plugin list XML", "DevPiano/Engine") {
     }
 
     void runTest() override {

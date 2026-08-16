@@ -6,7 +6,7 @@
 class PathEditorReproTest final : public juce::UnitTest {
 public:
     PathEditorReproTest()
-        : juce::UnitTest("PathEditorRepro", "devpiano") {
+        : juce::UnitTest("PathEditorRepro", "DevPiano/UI") {
     }
 
     void runTest() override {

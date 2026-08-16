@@ -50,7 +50,7 @@ bool isNoteOn(const juce::MidiKeyboardState& state, int midiChannel, int midiNot
 class LayoutManagementTest : public juce::UnitTest {
 public:
     LayoutManagementTest()
-        : juce::UnitTest("KeyboardMidiMapper: layout management") {
+        : juce::UnitTest("KeyboardMidiMapper: layout management", "DevPiano/Engine") {
     }
 
     void runTest() override {
@@ -105,7 +105,7 @@ static LayoutManagementTest layoutManagementTest;
 class NoteOnMappingTest : public juce::UnitTest {
 public:
     NoteOnMappingTest()
-        : juce::UnitTest("KeyboardMidiMapper: note-on mapping") {
+        : juce::UnitTest("KeyboardMidiMapper: note-on mapping", "DevPiano/Engine") {
     }
 
     void runTest() override {
@@ -171,7 +171,7 @@ static NoteOnMappingTest noteOnMappingTest;
 class RepeatKeySuppressionTest : public juce::UnitTest {
 public:
     RepeatKeySuppressionTest()
-        : juce::UnitTest("KeyboardMidiMapper: repeat key suppression") {
+        : juce::UnitTest("KeyboardMidiMapper: repeat key suppression", "DevPiano/Engine") {
     }
 
     void runTest() override {
@@ -215,7 +215,7 @@ static RepeatKeySuppressionTest repeatKeySuppressionTest;
 class NoteOffOnReleaseTest : public juce::UnitTest {
 public:
     NoteOffOnReleaseTest()
-        : juce::UnitTest("KeyboardMidiMapper: note-off on release") {
+        : juce::UnitTest("KeyboardMidiMapper: note-off on release", "DevPiano/Engine") {
     }
 
     void runTest() override {
@@ -267,7 +267,7 @@ static NoteOffOnReleaseTest noteOffOnReleaseTest;
 class MultipleKeysTest : public juce::UnitTest {
 public:
     MultipleKeysTest()
-        : juce::UnitTest("KeyboardMidiMapper: multiple simultaneous keys") {
+        : juce::UnitTest("KeyboardMidiMapper: multiple simultaneous keys", "DevPiano/Engine") {
     }
 
     void runTest() override {
@@ -294,7 +294,7 @@ static MultipleKeysTest multipleKeysTest;
 class ChannelMapperNullTest : public juce::UnitTest {
 public:
     ChannelMapperNullTest()
-        : juce::UnitTest("KeyboardMidiMapper: nullptr channel mapper") {
+        : juce::UnitTest("KeyboardMidiMapper: nullptr channel mapper", "DevPiano/Engine") {
     }
 
     void runTest() override {
@@ -319,7 +319,7 @@ static ChannelMapperNullTest channelMapperNullTest;
 class MixedCaseKeyTest : public juce::UnitTest {
 public:
     MixedCaseKeyTest()
-        : juce::UnitTest("KeyboardMidiMapper: mixed case key lookup") {
+        : juce::UnitTest("KeyboardMidiMapper: mixed case key lookup", "DevPiano/Engine") {
     }
 
     void runTest() override {

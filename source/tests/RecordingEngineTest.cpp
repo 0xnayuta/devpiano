@@ -31,7 +31,7 @@ RecordingTake buildTake(double sampleRate, std::int64_t lengthSamples,
 class RecordingLifecycleTest : public juce::UnitTest {
 public:
     RecordingLifecycleTest()
-        : juce::UnitTest("RecordingEngine: recording lifecycle") {
+        : juce::UnitTest("RecordingEngine: recording lifecycle", "DevPiano/Engine") {
     }
 
     void runTest() override {
@@ -119,7 +119,7 @@ static RecordingLifecycleTest recordingLifecycleTest;
 class PlaybackBasicTest : public juce::UnitTest {
 public:
     PlaybackBasicTest()
-        : juce::UnitTest("RecordingEngine: playback basic") {
+        : juce::UnitTest("RecordingEngine: playback basic", "DevPiano/Engine") {
     }
 
     void runTest() override {
@@ -222,7 +222,7 @@ static PlaybackBasicTest playbackBasicTest;
 class PlaybackSpeedTest : public juce::UnitTest {
 public:
     PlaybackSpeedTest()
-        : juce::UnitTest("RecordingEngine: playback speed") {
+        : juce::UnitTest("RecordingEngine: playback speed", "DevPiano/Engine") {
     }
 
     void runTest() override {
@@ -291,7 +291,7 @@ static PlaybackSpeedTest playbackSpeedTest;
 class PlaybackEndDetectionTest : public juce::UnitTest {
 public:
     PlaybackEndDetectionTest()
-        : juce::UnitTest("RecordingEngine: playback end detection") {
+        : juce::UnitTest("RecordingEngine: playback end detection", "DevPiano/Engine") {
     }
 
     void runTest() override {
@@ -337,7 +337,7 @@ static PlaybackEndDetectionTest playbackEndDetectionTest;
 class RecordingCapacityTest : public juce::UnitTest {
 public:
     RecordingCapacityTest()
-        : juce::UnitTest("RecordingEngine: capacity / dropped events") {
+        : juce::UnitTest("RecordingEngine: capacity / dropped events", "DevPiano/Engine") {
     }
 
     void runTest() override {
@@ -392,7 +392,7 @@ static RecordingCapacityTest recordingCapacityTest;
 class PresetChangeRecordingTest : public juce::UnitTest {
 public:
     PresetChangeRecordingTest()
-        : juce::UnitTest("RecordingEngine: preset change recording") {
+        : juce::UnitTest("RecordingEngine: preset change recording", "DevPiano/Engine") {
     }
 
     void runTest() override {
@@ -445,7 +445,7 @@ static PresetChangeRecordingTest presetChangeRecordingTest;
 class PresetChangePlaybackTest : public juce::UnitTest {
 public:
     PresetChangePlaybackTest()
-        : juce::UnitTest("RecordingEngine: preset change playback") {
+        : juce::UnitTest("RecordingEngine: preset change playback", "DevPiano/Engine") {
     }
 
     void runTest() override {
@@ -515,7 +515,7 @@ static PresetChangePlaybackTest presetChangePlaybackTest;
 class PitchBendSmoothingTest : public juce::UnitTest {
 public:
     PitchBendSmoothingTest()
-        : juce::UnitTest("RecordingEngine: pitch bend smoothing") {
+        : juce::UnitTest("RecordingEngine: pitch bend smoothing", "DevPiano/Engine") {
     }
 
     void runTest() override {
@@ -565,7 +565,7 @@ static PitchBendSmoothingTest pitchBendSmoothingTest;
 class TakeHelpersTest : public juce::UnitTest {
 public:
     TakeHelpersTest()
-        : juce::UnitTest("RecordingEngine: RecordingTake helpers") {
+        : juce::UnitTest("RecordingEngine: RecordingTake helpers", "DevPiano/Engine") {
     }
 
     void runTest() override {
@@ -616,7 +616,7 @@ static TakeHelpersTest takeHelpersTest;
 class MidiBufferBlockRecordingTest : public juce::UnitTest {
 public:
     MidiBufferBlockRecordingTest()
-        : juce::UnitTest("RecordingEngine: MidiBuffer block recording") {
+        : juce::UnitTest("RecordingEngine: MidiBuffer block recording", "DevPiano/Engine") {
     }
 
     void runTest() override {
@@ -667,7 +667,7 @@ static MidiBufferBlockRecordingTest midiBufferBlockRecordingTest;
 class PlaybackPauseResumeTest : public juce::UnitTest {
 public:
     PlaybackPauseResumeTest()
-        : juce::UnitTest("RecordingEngine: playback pause/resume") {
+        : juce::UnitTest("RecordingEngine: playback pause/resume", "DevPiano/Engine") {
     }
 
     void runTest() override {
@@ -752,7 +752,7 @@ static PlaybackPauseResumeTest playbackPauseResumeTest;
 class RecordingPauseTest : public juce::UnitTest {
 public:
     RecordingPauseTest()
-        : juce::UnitTest("RecordingEngine: recording pause/resume") {
+        : juce::UnitTest("RecordingEngine: recording pause/resume", "DevPiano/Engine") {
     }
 
     void runTest() override {
@@ -811,7 +811,7 @@ static RecordingPauseTest recordingPauseTest;
 class RecordingFlowSupportTest : public juce::UnitTest {
 public:
     RecordingFlowSupportTest()
-        : juce::UnitTest("RecordingFlow: transport state machine") {
+        : juce::UnitTest("RecordingFlow: transport state machine", "DevPiano/Engine") {
     }
 
     void runTest() override {

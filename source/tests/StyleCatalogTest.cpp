@@ -25,7 +25,7 @@
 class StyleCatalogTest final : public juce::UnitTest {
 public:
     StyleCatalogTest()
-        : juce::UnitTest("StyleCatalog", "devpiano") {
+        : juce::UnitTest("StyleCatalog", "DevPiano/UI") {
     }
 
     void runTest() override {
@@ -930,7 +930,7 @@ static StyleCatalogTest styleCatalogTest;
 class JiveRenderTest final : public juce::UnitTest {
 public:
     JiveRenderTest()
-        : juce::UnitTest("JiveRender", "devpiano") {
+        : juce::UnitTest("JiveRender", "DevPiano/UI") {
     }
 
     void runTest() override {
@@ -1010,7 +1010,7 @@ static JiveRenderTest jiveRenderTest;
 class PluginPanelToggleTest final : public juce::UnitTest {
 public:
     PluginPanelToggleTest()
-        : juce::UnitTest("PluginPanelToggle", "devpiano") {
+        : juce::UnitTest("PluginPanelToggle", "DevPiano/UI") {
     }
 
     void runTest() override {
@@ -1197,7 +1197,7 @@ static PluginPanelToggleTest pluginPanelToggleTest;
 class ComboRebuildTest final : public juce::UnitTest {
 public:
     ComboRebuildTest()
-        : juce::UnitTest("ComboRebuild", "devpiano") {
+        : juce::UnitTest("ComboRebuild", "DevPiano/UI") {
     }
 
     void runTest() override {
@@ -1245,7 +1245,7 @@ static ComboRebuildTest comboRebuildTest;
 class FilterComboDefaultTest final : public juce::UnitTest {
 public:
     FilterComboDefaultTest()
-        : juce::UnitTest("FilterComboDefault", "devpiano") {
+        : juce::UnitTest("FilterComboDefault", "DevPiano/UI") {
     }
 
     void runTest() override {
@@ -1303,7 +1303,7 @@ static FilterComboDefaultTest filterComboDefaultTest;
 class PresetComboRebuildTest final : public juce::UnitTest {
 public:
     PresetComboRebuildTest()
-        : juce::UnitTest("PresetComboRebuild", "devpiano") {
+        : juce::UnitTest("PresetComboRebuild", "DevPiano/UI") {
     }
 
     void runTest() override {
@@ -1363,7 +1363,7 @@ static PresetComboRebuildTest presetComboRebuildTest;
 class JiveTeardownOrderTest final : public juce::UnitTest {
 public:
     JiveTeardownOrderTest()
-        : juce::UnitTest("JiveTeardownOrder", "devpiano") {
+        : juce::UnitTest("JiveTeardownOrder", "DevPiano/UI") {
     }
 
     void runTest() override {
