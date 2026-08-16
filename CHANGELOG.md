@@ -2,7 +2,56 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
 
+## [0.3.0] - 2026-08-16
+
+Performance presets, per-key personalization, dark UI modernization, JIVE declarative UI migration, and the first full code-quality audit closure.
+
+### Added
+
+- **Performance Preset system** — data model, CRUD orchestration, F1–F12 shortcuts, and preset-change events recorded into performances.
+- **Per-key customisation** — per-key labels and colours with a dialog-based editor.
+- **Key signature with MIDI transpose** and per-channel follow-key mode.
+- **Song metadata editing** dialog.
+- **Dark visual theme** (`DevPianoLookAndFeel`) with rotary knobs for ADSR/volume and realistic piano keyboard rendering (gradients, rounded corners, shadows).
+- **Collapsible plugin panel** with persisted expand/collapse state.
+- **Transport button icons, bottom status bar**, and dynamic layout sizing rules.
+- **Declarative UI migration** — five panels rebuilt on JIVE (`juce::ValueTree` layout + JSON style sheets + Flex/Grid), with `design_tokens.json` as the single colour source of truth shared by JIVE and native components.
+- **Live style hot reload** (`Ctrl+R` and file-watch) in Debug builds.
+- **Runtime component inspector** (melatonin_inspector) in Debug builds.
+- **Industry-standard play/pause transport semantics**.
+- **Auto-load of the first plugin** after a user-initiated scan completes.
+- **Unified submodule layout** (`submodules/JIVE`, `submodules/melatonin_inspector`).
+
+### Changed
+
+- Key binding editor opens on **right-click** instead of double-click.
+- Preset dialogs replaced with dark-themed native dialogs; button order and alignment unified.
+- Speed slider made horizontal with labelled tick marks; speed readout rounding corrected.
+- Audio callback no longer allocates or defers `prepareToPlay` (audit fix).
+- PluginHost gained a documented thread-safety contract with assertions (audit fix).
+- Recording engine fields narrowed to atomics; async lambdas guarded by an alive-flag (audit fix).
+- clang-tidy integrated (bugprone/performance/readability/modernize) with zero-diagnostic gate.
+- Documentation numbering unified (AUDIT-XXX audit reports, ADR-XXX decisions).
+
+### Fixed
+
+- Keyboard glow not syncing from white keys to black keys.
+- Smooth pitch bend data race on stop.
+- Preset switch use-after-free; combo requiring double-click.
+- Key signature / MIDI transpose not persisting.
+- JIVE combo blank labels, greyed options, recursion loops, and status text overflow.
+- Plugin panel collapse breaking layout and overlapping content.
+- Tooltip background and JIVE panel border rendering.
+- Text editor context menu not localised.
+- Various JIVE layout/style regressions across the migration.
+
+### Known Issues
+
+- Official release artifact is Windows x64 only.
+- Linux package is not provided yet.
+- External MIDI hardware remains unsupported (removed in v0.2.0).
 
 ## [0.2.0] - 2026-07-19
 
@@ -46,8 +95,6 @@ VST3 offline rendering, internationalization, drag-and-drop, and architecture ha
 ### Removed
 
 - External MIDI hardware support (`MidiRouter`, status display, related AppState fields and documentation).
-
-## [Unreleased]
 
 ## [0.1.1] - 2025-05-06
 
