@@ -2,7 +2,7 @@
 
 > 归档日期：2026-08-16
 > 来源：[`../roadmap/current-iteration.md`](../roadmap/current-iteration.md) Phase 11
-> 后续方向：v0.3.0 发布准备（版本号 / CHANGELOG / Release 构建 / 打包），流程见 [`../guides/release-workflow.md`](../guides/release-workflow.md)；代码质量复审见 [`../audit/AUDIT-001-code-quality-audit-2026-07-20.md`](../audit/AUDIT-001-code-quality-audit-2026-07-20.md)
+> 后续方向：v0.3.0 发布准备（版本号 / CHANGELOG / Release 构建 / 打包），流程见 [`../guides/release-workflow.md`](../guides/release-workflow.md)；代码质量复审见 [`../audit/AUDIT-001-code-quality-audit-2026-08-16.md`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)
 
 ---
 

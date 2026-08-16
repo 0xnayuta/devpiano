@@ -90,26 +90,26 @@ Performance Preset、88 键完整钢琴键盘、Smooth Pitch Bend、乐曲信息
 
 详细完成记录见 [`../archive/phase10-ui-modernization.md`](../archive/phase10-ui-modernization.md)。
 
-### 审计问题修复 (2026-07-20 ~ 2026-07-23) [已完成]
-
-代码质量审计 (`AUDIT-001`) 发现 63 项问题，经 Phase A–F 六轮修复：
-
-- **Phase A** — 音频稳定性：音频回调堆分配、lazy prepareToPlay、RecordingEngine recording 路径原子性
-- **Phase B** — 线程安全：PluginHost 断言+文档化契约、async lambda 生命周期、preset 并发写入、离线渲染线程隔离
-- **Phase C** — 模块边界：ChannelMatrix→Midi/、KeyboardTypes→UI/、AppStateBuilder→Settings/、Core/ 精简至 3 个纯数据类型文件
-- **Phase D** — 工程化：CMakeLists 完整、ARCH-001~004 架构更新、DOC-001~003 文档同步、clang-format 0 violations
-- **Phase E** — 测试完善：新增 AudioEngine/RecordingEngine/PluginHost/KeyboardMidiMapper 4 个测试文件，测试覆盖从 2 模块→7 模块，31 测试类 74 子测试全部通过
-- **Phase F** — 剩余项评估：9 项修复（JSON 崩溃防护、录制守卫等），24 项低风险/长期项标记 Deferred
-
-最终：0 Open · 24 Deferred · 39 Closed · 评级 A-。审计关闭，项目可安全进入功能开发阶段。
-
-详细完成记录见 [`../audit/AUDIT-001-code-quality-audit-2026-07-20.md`](../audit/AUDIT-001-code-quality-audit-2026-07-20.md)。
-
 ### Phase 11：声明式 UI 架构迁移（JIVE + melatonin_inspector） [已完成]
 
 JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid 自适应）替代 5 个面板的硬编码 `setBounds()` 布局；melatonin_inspector 运行时检查器加速 UI 迭代反馈；`design_tokens.json` 统一 JIVE 与原生组件样式来源；`Ctrl+R` / 文件监听热重载；`MainComponent::resized()` 缩减至 3 行（JIVE FlexBox 自动响应）。`CustomKeyboard` 与 ADSR 曲线经组件工厂原生注入，业务逻辑层零改动。回归验证（全量单元测试 / Windows MSVC 构建 / 手动回归清单 11 项）全部通过。
 
 详细计划与完成记录见 [`../archive/phase11-declarative-ui-jive.md`](../archive/phase11-declarative-ui-jive.md)。
+
+### 全面审计 (2026-08-16) [进行中]
+
+代码质量审计（`AUDIT-001`，2026-08-16 版）已解决的问题包括：
+
+- 音频稳定性：消除音频回调堆分配（prepareToPlay 预分配插件缓冲）、移除回调内延迟 prepare、RecordingEngine 录制路径原子化
+- 线程安全：PluginHost 线程契约（断言 + 头文件文档）、异步 lambda 生命周期防护（alive-flag）、录制中 preset 并发写入队列化、离线渲染线程隔离、播放状态原子化
+- 模块边界：ChannelMatrix→Midi/、KeyboardTypes→UI/、AppStateBuilder→Settings/、Core/ 精简至 3 个纯数据类型文件
+- 工程化：CMakeLists 源列表完整、架构与文档同步、clang-format 清零
+- 测试完善：新增 AudioEngine/RecordingEngine/PluginHost/KeyboardMidiMapper 4 个测试文件，测试覆盖从 2 模块扩至 7 模块（31 测试类 74 子测试全部通过）
+- 其余修复：JSON 崩溃防护、录制守卫、原子文件写入（PerformanceFile 与 Preset 走 TemporaryFile + rename）、公共渲染管线提取（RenderPipeline）
+
+当前状态：本次审计登记 85 项——69 项新问题（5 P1 / 20 P2 / 44 P3，评级 B）+ 16 项已暂缓（重开条件与风险接受原因见报告第 8 章登记表）。主要风险：实时音频线程 2 处 P1（播放结束日志 I/O、masterGain 数据竞争）、3 个核心模块（会话控制/通道矩阵/预设序列化）零测试覆盖、format 门禁回归。
+
+详细完成记录见 [`../audit/AUDIT-001-code-quality-audit-2026-08-16.md`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)。
 
 ## 3. 主要风险
 
@@ -147,4 +147,4 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 - 架构优化完成记录：[`../archive/architecture-optimization-backlog.md`](../archive/architecture-optimization-backlog.md)
 - Phase 8–9 完成记录：[`../archive/phase8-9-completion.md`](../archive/phase8-9-completion.md)
 - Phase 10 完成记录：[`../archive/phase10-ui-modernization.md`](../archive/phase10-ui-modernization.md)
-- 2026-07-20 审计报告：[`../audit/AUDIT-001-code-quality-audit-2026-07-20.md`](../audit/AUDIT-001-code-quality-audit-2026-07-20.md)
+- 2026-08-16 审计报告：[`../audit/AUDIT-001-code-quality-audit-2026-08-16.md`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)

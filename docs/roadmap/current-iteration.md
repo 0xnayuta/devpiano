@@ -7,179 +7,134 @@
 
 Phase 11（声明式 UI 架构迁移，JIVE + melatonin_inspector）已全部完成并归档至 [`../archive/phase11-declarative-ui-jive.md`](../archive/phase11-declarative-ui-jive.md)。v0.3.0 发布准备（版本号 / CHANGELOG / Release 构建 / 打包）为并行事项，见 [`../guides/release-workflow.md`](../guides/release-workflow.md)。
 
-三项审计修复（2026-08-16 复审选定）已全部完成并提交：
-
-| ID | 优先级 | 标题 | 提交 |
-| --- | --- | --- | --- |
-| `AUDIT-REC-007` | P2 | 提取公共渲染管线（WavFileExporter / PluginOfflineRenderer 重复代码） | `85ff516` |
-| `AUDIT-SEC-004` | P2 | PerformanceFile 原子文件写入（TemporaryFile + rename） | `ca317ab` + `b54ae07`（savePreset 扩展） |
-| `AUDIT-SEC-001` | P2 | PerformancePreset 未知 KeyAction type 记录 WARN | `90a9552` |
-
-验证：WSL 全量测试 100% 通过、`RenderPipelineTest`/`PerformanceFileTest` 新增用例通过、Windows MSVC 构建成功（详见各节）。剩余 16 项 Deferred 维持暂缓，重开条件见 [`../audit/AUDIT-001-code-quality-audit-2026-07-20.md`](../audit/AUDIT-001-code-quality-audit-2026-07-20.md)。
+代码质量审计（[`AUDIT-001`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)，2026-08-16）登记 85 项：69 项未处理（5 P1 / 20 P2 / 44 P3）+ 16 项已暂缓。修复按最佳排期分为 **AUDIT Phase A–H** 推进，每 Phase 完成即更新本文件状态并同步报告第 8 章登记表；16 项已暂缓维持不动（重开条件见报告 §8）。当前推进：**AUDIT Phase A**。
 
 ---
 
-## AUDIT-SEC-001：PerformancePreset 未知 KeyAction type 记录 WARN [已完成]
+## AUDIT Phase A — 实时线程稳定性 [进行中]
 
-> **状态**：已完成 (2026-08-16)，提交 `90a9552`。WSL 全量测试 + Windows MSVC 构建通过。
+> 目标：消除实时音频线程的 2 处 P1（日志 I/O + 数据竞争），为核心路径稳定性打底；Phase D 的 AudioEngineTest 强化将回归验证本 Phase。
 
-### 背景
+- [ ] `THR-001`：`AudioEngine::masterGain` 改 `std::atomic<float>`（AudioEngine.h:63），消除音频回调（:208 applyGain 读）/消息线程（:231 setMasterGain 写）数据竞争。
+- [ ] `ERR-001`：`RecordingEngine::advancePlaybackPosition` 播放结束日志（:338）移出音频线程——实时线程仅置 `playbackEndedPending` 原子标志，`DP_LOG_INFO` 移至 `RecordingSessionController::checkPlaybackEnded()`（消息线程）。
 
-审计项 `SEC-001`（P2）：`varToKeyAction` 解析 preset JSON 时，未知 `type` 值被静默强制为 `"note"`，掩盖数据损坏。2026-08-16 复审确认仍存在，且表达式已退化为恒等 ternary——`(typeStr == "note") ? note : note` 两个分支相同，属无意义代码。`KeyActionType` 当前仅 `note` 一个枚举值，故无实际行为损害；收益在于**可观测性**（数据损坏可见）与**代码清理**。
+验证：`./scripts/dev.sh wsl-build`、`./scripts/dev.sh test`、`./scripts/dev.sh format --check`。
 
-### 现状代码
+## AUDIT Phase B — 工程化门禁与构建修复 [未开始]
 
-`source/Layout/PerformancePreset.cpp:33-35`（`varToKeyAction`）：
+> 目标：恢复三闸门全绿（format 门禁被 18 处违规击穿），建立 clang-tidy 基线，补齐 target_sources 与构建配置。
 
-```cpp
-auto typeStr = obj->getProperty("type").toString();
-action.type
-    = (typeStr == "note") ? devpiano::core::KeyActionType::note : devpiano::core::KeyActionType::note;
-```
+- [ ] `ENG-001`：`./scripts/dev.sh format` 批量修复 18 处违规（RenderPipeline 相关 16 处 + AudioDeviceDiagnostics.h + PerformanceFileTest.cpp），复核 `format --check` 归零；将 format 检查接入 pre-commit/CI 防再回归。
+- [ ] `ENG-002`：全量运行 `cmake --build build-wsl-clang --target clang-tidy` 建立诊断基线；先批量修机械项（braces / loop-convert / qualified-auto），再处理 `bugprone-easily-swappable-parameters`（MidiChannelMapper 构造参数重排或豁免）。
+- [ ] `ENG-003` + `QUAL-014`：`MainComponentJiveAccessors.cpp` 迁移为独立 TU（纳入 target_sources）或改 `.h`，消除 `.cpp` 间 `#include`（MainComponent.cpp:1143，33.2KB）。
+- [ ] `ENG-004`：`ComboSelection.h` 补入主 target_sources（UI 段）。
+- [ ] `ENG-005`：`devpiano_tests` 添加与主目标一致的 `-Wall -Wextra`（MSVC /W4）。
+- [ ] `ENG-006`：clang-tidy `file(GLOB_RECURSE)` 加 `CONFIGURE_DEPENDS`，文件列表按 compile_commands 去重。
+- [ ] `ENG-007`：删除 `.clang-tidy` 死 CheckOptions（readability-magic-numbers.IgnoredValues）。
 
-### 实施步骤
+验证：`./scripts/dev.sh format --check`（归零）、`./scripts/dev.sh wsl-build`（0 warning）、clang-tidy 目标、`./scripts/dev.sh win-build`。
 
-1. `source/Layout/PerformancePreset.cpp` 顶部添加 `#include "Diagnostics/Log.h"`（DP_LOG 宏统一入口，项目惯例）。
-2. 将 33-35 行替换为：
+## AUDIT Phase C — 核心模块测试补强 [未开始]
 
-```cpp
-const auto typeStr = obj->getProperty("type").toString();
-if (typeStr != "note")
-    DP_LOG_WARN("[Preset] unknown KeyAction type '" + typeStr + "', falling back to \"note\"");
-action.type = devpiano::core::KeyActionType::note;
-```
+> 目标：填补 3 个 P1 覆盖空洞（会话控制 / 通道矩阵 / 预设序列化）与导出、设置、插件操作层（P2），全部纯逻辑、无 GUI/设备依赖，可进 `devpiano_tests`。
 
-   - 行为不变：未知类型仍回退 `note`（**不拒绝整个 preset**——`KeyActionType` 仅一个枚举值，拒绝会丢弃整个 preset 且无任何收益）。
-   - 日志含原始 `typeStr`，便于定位损坏来源（手改文件 / 旧版本格式）。
-3. 不修改 `keyActionToVar`（写出路径无变化）。
+- [ ] `TEST-001`：`RecordingSessionControllerTest`——`getLastMidiExportDirectory`（.cpp:52-64）、`toRecordingFlowState`/`makeRecordingFlowStatus` 组合、`RecordingSession::isRecording/isPlaying` paused 语义（.h:36-50）、`replaceTakeAndStartPlayback` 流程（FileChooser 注入桩）。
+- [ ] `TEST-002`：`MidiChannelMapperTest`——matrix.active=false 透传、`applyMatrixToNoteOn/Off` 通道选择、transpose 边界钳制、followKey+midiTranspose 组合、noteOn/Off 对称变换。
+- [ ] `TEST-003`：`PerformancePresetTest`——save→load round-trip（含 128 项 customKeyLabels/Colours）、`sanitisePresetFileName` 特殊字符、损坏文件返回 nullopt、formatVersion 校验。
+- [ ] `TEST-004`：SettingsStore 测试——临时 PropertiesFile round-trip + scheduleSave 合并/延迟语义（timer 注入）。
+- [ ] `TEST-005`：导出链纯逻辑测试——`buildWavExportOptions` 参数组合、`canExportTake` 边界、WAV/MIDI 头 round-trip 读回。
+- [ ] `TEST-006`：PluginHost XML round-trip（createKnownPluginListXml→restore）与 PluginPanelStateBuilder 测试。
 
-### 验证
+验证：`./scripts/dev.sh test`（新增测试进 `devpiano_tests`）、`./scripts/dev.sh format --check`。
 
-- 单元测试：`KeyMapTypesTest` 或新增用例——构造 `type="bogus"` 的 var → `varToKeyAction` → `action.type == KeyActionType::note` 且不抛异常。`varToKeyAction` 位于匿名命名空间，不可直接测试；等价替代：通过 preset JSON 文件加载（`loadPreset`）验证未知 type 的 preset 仍可加载且 action 为 note。若测试成本高于收益，允许仅手动验证 + `format --check`。
-- 回归：`./scripts/dev.sh test`（KeyMapTypesTest round-trip 用例守护序列化一致性）、`./scripts/dev.sh format --check`、`./scripts/dev.sh win-build`。
-- 行为回归：加载一个现存 `.devpiano.preset` 文件，确认无 WARN 输出（type 均为 "note"）。
+## AUDIT Phase D — 测试机制与回归强化 [未开始]
 
-### 风险与回滚
+> 目标：修复 CI 静默丢覆盖（Files 类别跳过、空匹配假绿、类别命名混乱），强化 AudioEngine 断言区分力（验证 Phase A 修复）。
 
-- 风险极低：仅新增日志分支，无控制流变化。回滚 = 还原 3 行。
+- [ ] `TEST-010`：PerformanceFileTest 改独立类别（如 `DevPiano/Files`）或 TestRunner 增加精确文件过滤，使 `.devpiano` 持久化回归进入默认运行。
+- [ ] `TEST-011`：TestRunner 空匹配/空注册时非零退出并输出实际测试数。
+- [ ] `TEST-012`：统一测试类别前缀（`DevPiano/Audio`、`DevPiano/Recording`、`DevPiano/UI`），补全 4 个无类别文件，同步修正 known-issues 过滤命令。
+- [ ] `TEST-008`：AudioEngineTest 注入 noteOn 后断言 warmup 块内静音、warmup 后非零采样（消除"本来无声"假通过；依赖 Phase A 完成）。
+- [ ] `TEST-009`：AudioEngine 未覆盖 API——setAdsr、armPlaybackStartPreRoll 块计数纯函数、setPluginHost/setRecordingEngine 接线。
+- [ ] `TEST-007`：离屏渲染测试 CustomKeyboard 命中映射/八度切换与 AdsrCurve 拖拽钳制。
 
----
+验证：`./scripts/dev.sh test`、`./scripts/dev.sh format --check`。
 
-## AUDIT-SEC-004：PerformanceFile 原子文件写入 [已完成]
+## AUDIT Phase E — 错误处理与失败路径 [未开始]
 
-> **状态**：已完成 (2026-08-16)，提交 `ca317ab`（主项）+ `b54ae07`（savePreset 扩展）。新增 `PerformanceFileTest`（Files category，4 用例 28 断言）；WSL 全量测试 + Windows MSVC 构建通过。
+> 目标：消除实时/后台线程日志 I/O，补齐失败路径可观测性（插件加载、设置落盘、JSON 解析、WAV 导出），清理死 catch 与残留文件。
 
-### 背景
+- [ ] `ERR-002`：`getNextAudioBlock` 安全网分支（AudioEngine.cpp:188）移除 `DP_LOG_WARN`，改计数/标志由消息线程输出。
+- [ ] `ERR-003`：`recordEvent` 丢弃日志（RecordingEngine.cpp:148）移 `stopRecording()` 消息线程统一输出。
+- [ ] `ERR-004`：`loadPluginByNameAndCommitState` 检查加载返回值——失败时走 `finishPluginUiAction(false)` 且不持久化失败插件名；`restorePluginByNameOnStartup` 同模式。
+- [ ] `ERR-005`：`SettingsStore::save()/writeNow()` 返回 `bool`/`juce::Result`，失败时 `DP_LOG_ERROR`（含文件路径）。
+- [ ] `ERR-006`：`initialiseUi`/`reloadStylesAndTokens` 的 `JSON::parse` 结果加 `isVoid()` 校验 + 失败 `DP_LOG_ERROR`。
+- [ ] `ERR-008`：`WavFileExporter` 各失败分支补 `DP_LOG_ERROR`（对齐 PluginOfflineRenderer 日志粒度）。
+- [ ] `ERR-007`：移除 3 处死 `catch(...)`（本版本 JUCE JSON::parse 不抛异常，juce_JSON.cpp:552-559），或改用 `JSON::parse(text, result)` Result 重载并记录行:列。
+- [ ] `ERR-009`：`WavExportTask` 非取消失败路径删除残留目标文件（或整体改 TemporaryFile + rename）。
+- [ ] `ERR-010`：`addVst3FileToKnownList` 检查 `addType` 返回值，失败项 WARN 并按实际成功数计数。
+- [ ] `ERR-011`：`getPresetDirectory`/`PresetFlowSupport` 检查 createDirectory/deleteFile 返回值；rename/delete 失败不打成功日志。
+- [ ] `ERR-012`：修正 `WavExportTask.cpp:45` 注释与日志不一致（或补日志）。
+- [ ] `ERR-013`：测试代码改用 DP_LOG_* 宏（PathEditorReproTest/StyleCatalogTest 直用 writeToLog 处）。
+- [ ] `ERR-014`：测试中 JSON::parse 结果补 isVoid 校验并 expect（PathEditorReproTest:20、StyleCatalogTest:784）。
+- [ ] `ERR-015`：`WavExportTask::run()` 内包 try-catch，捕获后设置 errorMessage + DP_LOG_ERROR + 清理部分文件。
 
-审计项 `SEC-004`（P2）：`savePerformanceFile` 用 `destinationFile.replaceWithText(json)` 直接截断写入目标文件——写入中途崩溃（断电 / 进程被杀）会留下半截 JSON，`.devpiano` 录制文件损坏且无备份。调用方：`RecordingSessionController.cpp:316/633`（手动保存 + 元数据更新），属录制数据主保存路径。`PerformancePreset.cpp:346`（`savePreset`）存在同类问题，作为可选扩展。
+验证：`./scripts/dev.sh test`、`./scripts/dev.sh format --check`、`./scripts/dev.sh win-build`。
 
-### 现状代码
+## AUDIT Phase F — 死代码与重复清理 [未开始]
 
-`source/Recording/PerformanceFile.cpp:207-217`：
+> 目标：批量清理死字段/死返回值/重复装配/冗余参数/过期注释（QUAL-014 已在 Phase B 联动处理）。
 
-```cpp
-bool savePerformanceFile(const RecordingTake& take, const juce::File& destinationFile,
-                         const PerformanceFileMetadata& metadata) {
-    if (take.isEmpty() || take.sampleRate <= 0.0)
-        return false;
-    ...
-    return destinationFile.replaceWithText(json);
-}
-```
+- [ ] `QUAL-001`：删除 `InputState::layoutId` 死字段与 `AppStateBuilder.h:83` 的 `lastActivePresetId` 误赋值。
+- [ ] `QUAL-002`：`stopInternalPlayback` 改返回 void，删除 7 处 ignoreUnused 与大向量拷贝。
+- [ ] `QUAL-003`：删除 MainComponent.cpp:4-5 未使用 include。
+- [ ] `QUAL-004`：SettingsComponent.h ComboBox item 装配提取 `rebuildComboItems()` 供构造器与 refreshTexts() 复用。
+- [ ] `QUAL-005`：合并 SettingsComponent.h 重复过时注释与拆段配置。
+- [ ] `QUAL-006`：PresetDialogs.cpp `complete()` 模式上提到 `DialogContentBase`。
+- [ ] `QUAL-007`：提取 `makeKeyboardSettings(view, keySignature)` 共享函数消除跨文件重复装配。
+- [ ] `QUAL-008`：PerformanceFile 提取公共 `parsePerformanceFileRoot` 复用 metadata/事件解析。
+- [ ] `QUAL-009`：`chooseNoteRichTrack` 实现 preferredTrack 平局语义或删除参数与"instead of"日志。
+- [ ] `QUAL-010`：删除 `applyMatrixToNoteOn/Off` 未用 `originalChannel` 参数。
+- [ ] `QUAL-011`：删除 `WavExportTask.cpp:45-47` 死预检查块（保留单一取消路径）。
+- [ ] `QUAL-012`：PerformancePreset 移除 keySignature/midiTranspose 死配置字段（或补应用路径）。
+- [ ] `QUAL-013`：成员版 `buildCurrentAppStateSnapshot` 改名消除与 core 自由函数同名混淆。
+- [ ] `QUAL-015`：`sourceToString` 删除冗余 `default:` 分支（枚举已穷尽）。
+- [ ] `QUAL-016`：逐个决策 test-only API 面（hasDroppedEvents/getLastScanFailedFiles/setLowestVisibleNote/makeFullPianoLayout/NoteRange/isValid 系列）——接入生产或删除并清理测试。
+- [ ] `QUAL-017`：删除 CustomKeyboard.h 过期 Phase 6 开发步骤注释。
+- [ ] `QUAL-018`：`MainComponent.cpp` adsrCurve 怪 lambda 初始化改直接 `= nullptr`。
 
-### 方案：juce::TemporaryFile（JUCE 官方原子写入惯用法）
+验证：`./scripts/dev.sh wsl-build`、`./scripts/dev.sh test`、`./scripts/dev.sh format --check`。
 
-`juce::TemporaryFile(const File& targetFile)` 在目标同目录创建临时文件，`overwriteTargetFileWithTemporary()` 原子替换目标（跨平台实现：Linux `rename(2)`，Windows 失败时先删目标再 rename）。已确认 `submodules/JUCE/modules/juce_core/files/juce_TemporaryFile.h` 提供 `getFile()` / `overwriteTargetFileWithTemporary()` / `deleteTemporaryFile()`。
+## AUDIT Phase G — 文档与配置契约 [未开始]
 
-### 实施步骤
+> 目标：补齐架构文档缺失章节、WAV 导出缺译，修正 ADR 失效链接（报告 3.10 事实性描述修正项）。
 
-1. 修改 `savePerformanceFile` 尾部：
+- [ ] `DOC-002`：architecture.md 补 Recording/Export/Layout/Diagnostics 四模块章节（含 RenderPipeline、WavExportTask、SettingsSerialization 等新文件）。
+- [ ] `DOC-003`：architecture.md Plugin 章节更新为已收敛现状（PluginFlowSupport + PluginOperationController 已落地）。
+- [ ] `DOC-004`：zh_CN.loc.h 补 5 个 WAV 导出字符串译文（Exporting.../Export cancelled./Export failed during plugin/sine rendering./Export complete.）。
+- [ ] `DOC-001`：architecture.md 更新 MainComponent 实际行数（1143）或改描述性表述。
+- [ ] `DOC-005`：清理 zh_CN.loc.h 13 个死键。
+- [ ] `DOC-006`：SettingsModel 扁平成员改持有单一 KeyboardDisplaySettingsView 实例（消除双默认值）。
+- [ ] `DOC-007`：style_sheets.json 硬编码色值改引用 DesignTokens（消除双事实源）。
+- [ ] `DOC-008`：修正 LocaleManager.h 头注释与实际搜索目录不符。
+- [ ] ADR 修正：ADR-001 引用链接更新为 `docs/guides/wsl-windows-msvc-workflow.md` 与 `docs/guides/quickstart.md`；ADR-002 引用更新为 `docs/reference/architecture.md`。
 
-```cpp
-    juce::TemporaryFile tempFile(destinationFile);
-    if (!tempFile.getFile().replaceWithText(json)) {
-        tempFile.deleteTemporaryFile();
-        return false;
-    }
-    if (tempFile.overwriteTargetFileWithTemporary())
-        return true;
-    tempFile.deleteTemporaryFile();
-    return false;
-```
+验证：链接检查、`./scripts/dev.sh test`、`./scripts/dev.sh format --check`。
 
-   - 写临时文件失败 → 删除临时文件、返回 false，**目标文件保持原样**（现行为是目标已被截断破坏）。
-   - 替换失败 → 同样清理临时文件，不残留。
-2. 函数签名与调用方零改动（`bool` + 参数不变）。
-3. 可选扩展（同 commit 或后续）：`PerformancePreset.cpp:346` `savePreset` 的 `replaceWithText` 应用同一模式（同类崩溃风险，改动同构）。
+## AUDIT Phase H — 测试质量余项 [未开始]
 
-### 验证
+> 目标：消除测试脆弱性（单例顺序依赖、CWD 依赖、OS 键盘状态依赖）与断言空洞、CLI 语义缺口。
 
-- 单元测试（新文件 `source/tests/PerformanceFileTest.cpp`，JUCE `Files` category + TestRunner `--include-files` 运行——默认跳过 Files category 是 WSL root 权限限制，测试需显式开启）：
-  - round-trip：`savePerformanceFile` → `loadPerformanceFile` 内容一致（事件数、时间戳、元数据）。
-  - 失败注入：目标目录设为只读（或目标为不存在目录）→ 保存返回 false → 目标文件（若存在）内容不被破坏、无 `.tmp` 残留文件。
-  - 临时文件清理：成功路径下目录中无临时文件残留。
-- 回归：`./scripts/dev.sh test`、`./scripts/dev.sh format --check`、`./scripts/dev.sh win-build`。
-- 手动：录制 → 保存 → 重开加载（内容一致）；保存后目录内无临时文件。
+- [ ] `TEST-013`：StyleCatalog/DesignTokens 提供 reset()，消除跨文件执行顺序依赖。
+- [ ] `TEST-014`：测试 fixture/样式文件改为 `__FILE__` 相对定位或缺失时显式 skip。
+- [ ] `TEST-015`：键盘状态查询抽象为可注入谓词，消除 OS 键盘依赖。
+- [ ] `TEST-016`：AudioEngineTest/PluginHostTest 的 `expect(true)` 空洞断言补可观察结果校验。
+- [ ] `TEST-017`：MidiFileImporter velocity-channel 恒真断言拆分为独立可证伪断言。
+- [ ] `TEST-018`：hasTake jassert 用例改为验证 RecordingSession 副本语义（Debug/Release 双配置 CI）。
+- [ ] `TEST-019`：warmup 块数 magic number 改引用生产常量/注释说明。
+- [ ] `TEST-020`：TestRunner --category/--name 冲突参数报错或文档化优先级。
 
-### 风险与回滚
-
-- 行为变化仅限失败路径（成功路径等价：内容相同的 JSON 落盘）。`TemporaryFile` 构造失败（目标目录不可写）时 `getFile()` 写入失败 → 干净返回 false。
-- 回滚 = 还原 `replaceWithText` 单行。
-
----
-
-## AUDIT-REC-007：提取公共渲染管线（RenderPipeline） [已完成]
-
-> **状态**：已完成 (2026-08-16)，提交 `85ff516`。新增 `RenderPipelineTest`（10 用例 75 断言）；WSL 全量测试 + Windows MSVC 构建通过。待办：Windows 侧 GUI 手动导出对比验证（预期差异 ≤1 sample）。
-
-### 背景
-
-审计项 `REC-007`（P2）：`WavFileExporter.cpp` 与 `PluginOfflineRenderer.cpp` 重复定义 `RenderEvent`、`buildRenderEvents`、`getScaledTakeLengthSamples`、`addPanicMidi`（另有 `scaleTimestamp`、`hasUsableOptions` 亦重复），相似度 ~50%。2026-08-16 复审确认 7-20 后仅日志迁移类改动，结构原样——这是 19 项 Deferred 中**重构收益最明确**的一项（消除双份维护，未来改渲染语义只需改一处）。
-
-### 现状差异分析（行为对齐是关键）
-
-| 函数 | WavFileExporter.cpp | PluginOfflineRenderer.cpp | 差异 |
-| --- | --- | --- | --- |
-| `RenderEvent` | `{timestampSamples, message}` | `{message, timestampSamples}` | 字段顺序不同（等价） |
-| `scaleTimestamp` | 含 `<=0 → 0` 短路 + `max(0, …)` | 无保护 | Wav 更防御，统一取 Wav 版 |
-| `buildRenderEvents` | ratio 双零检查 `(take.sr>0 && target>0)` | ratio 仅查 `take.sr>0`；`stable_sort` | 统一取双零检查 + sort 两者都有 |
-| `getScaledTakeLengthSamples` | `max(scale(lengthSamples), 各事件 ts)`，空事件返回 `scale(lengthSamples)` | `events.empty() → 0`；否则 `max(last+1, scale(lengthSamples))` | **语义差异**：`+1` 与空事件返回值不同 |
-| `addPanicMidi` | CC64 + CC120 + allNotesOff × 16 通道 | 同左 | 完全一致 |
-| `hasUsableOptions` | 4 字段检查 | 同左 | 完全一致 |
-
-`getScaledTakeLengthSamples` 的差异：Wav 路径对"最后一事件时间戳"不 +1（可能截断最后事件？不——事件以 `timestampSamples < blockEnd` 注入，+1 只影响尾部 1 sample）；Plugin 路径 `last+1` 保证最后事件完整入块。统一语义：**`max(scaleTimestamp(lengthSamples), events.empty() ? 0 : events.back().timestampSamples + 1)`**（取更保守的 Plugin 语义）。对 Wav 路径影响 ≤1 sample（44.1kHz 下 ~23µs），且两路径均追加 2s tail，输出总时长不受影响——但仍需在验证步骤中实测对比。
-
-### 实施步骤
-
-1. 新建 `source/Recording/RenderPipeline.h/.cpp`（`namespace devpiano::recording` 或既有 `devpiano::exporting`——建议 `devpiano::recording`，取值为录制域公共设施）：
-   - `struct RenderEvent { juce::MidiMessage message; std::int64_t timestampSamples = 0; };`
-   - `[[nodiscard]] std::int64_t scaleTimestamp(std::int64_t, double ratio) noexcept;`（Wav 版防御语义）
-   - `[[nodiscard]] bool hasUsableRenderOptions(const WavExportOptions&) noexcept;`（注意：`WavExportOptions` 在 `source/Export/WavExportOptions.h`，RenderPipeline 引入对 Export 的依赖——可接受，或保持 `hasUsableOptions` 各留一份；**建议一并提取**，两文件均已依赖该头）
-   - `[[nodiscard]] std::vector<RenderEvent> buildRenderEvents(const RecordingTake&, double targetSampleRate);`（双零检查 ratio + `message.setTimeStamp(0)` + stable_sort）
-   - `[[nodiscard]] std::int64_t getScaledTakeLengthSamples(const RecordingTake&, const std::vector<RenderEvent>&, double targetSampleRate) noexcept;`（统一语义如上）
-   - `void addPanicMidi(juce::MidiBuffer&, int sampleOffset) noexcept;`
-2. `WavFileExporter.cpp`：删除 6 个重复定义，`#include "Recording/RenderPipeline.h"`；调用点不变（同名函数）。
-3. `PluginOfflineRenderer.cpp`：同上。
-4. **渲染主循环不提取**：两循环音频源（synth vs plugin 实例）与输出通道处理不同，整体提取需模板/回调，属过度设计；仅提取纯函数层。若首轮重构后两循环剩余相似度仍高（事件注入 + panic 判定），可再提取 `fillBlockMidiEvents(renderEvents, blockStart, blockEnd, midiBuffer)` 小助手（第二迭代，非本轮必须）。
-5. `CMakeLists.txt`：
-   - 主 target `target_sources`（Recording 区，:83-98 附近）添加 `source/Recording/RenderPipeline.cpp` / `.h`。
-   - tests target（:231-266 区域）添加 `source/Recording/RenderPipeline.cpp`（被测纯逻辑）与新测试文件。
-
-### 验证
-
-- 单元测试（新文件 `source/tests/RenderPipelineTest.cpp`，无 GUI/设备依赖，可进 tests target）：
-  - `buildRenderEvents`：采样率缩放（take 44.1k → target 48k 时间戳按 48/44.1 缩放）、稳定排序（乱序输入 → 有序输出）、空 take → 空 events、`setTimeStamp(0)` 生效。
-  - `scaleTimestamp`：负值/零 → 0；正常缩放；ratio 0/负防御。
-  - `getScaledTakeLengthSamples`：空 events → `scale(lengthSamples)`；last 事件超 length → `last+1`；length 超 last → `scale(lengthSamples)`。
-  - `addPanicMidi`：16 通道 × 3 控制器 = 48 事件，offset 正确。
-- 行为回归（关键）：同一 `RecordingTake` 分别导出 WAV（synth 路径）与经 `PluginOfflineRenderer`（需真实 VST3 插件，手动路径）——对比重构前后输出采样数一致（或仅尾部 +1 sample，可接受并记录）。WAV 导出路径可在 Windows 侧手动导出同一录制对比文件时长。
-- 全套：`./scripts/dev.sh test`、`./scripts/dev.sh format --check`、`./scripts/dev.sh win-build`。
-
-### 风险与回滚
-
-- 唯一行为风险：`getScaledTakeLengthSamples` 语义统一（Wav 路径可能 +1 sample）。通过重构后对比导出验证。
-- 编译风险：匿名命名空间删除后符号进入头文件，`RenderEvent` 字段顺序统一为 `{message, timestampSamples}`（对 `.message`/`.timestampSamples` 成员访问无影响）。
-- 回滚 = 还原两文件 + 删除 RenderPipeline 文件（纯新增 + 两处删除，边界清晰）。
+验证：`./scripts/dev.sh test`、`./scripts/dev.sh format --check`。
 
 ---
 
@@ -201,6 +156,6 @@ bool savePerformanceFile(const RecordingTake& take, const juce::File& destinatio
 ## 相关文档
 
 - 项目路线图：[`roadmap.md`](roadmap.md)
-- 审计报告：[`../audit/AUDIT-001-code-quality-audit-2026-07-20.md`](../audit/AUDIT-001-code-quality-audit-2026-07-20.md)（§8 问题总表，19 项 Deferred 追踪）
+- 审计报告：[`../audit/AUDIT-001-code-quality-audit-2026-08-16.md`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)（§8 问题总表 69 项未处理 + 16 项已暂缓追踪；§5 修复路线图为排期来源）
 - 架构概览：[`../reference/architecture.md`](../reference/architecture.md)
 - Phase 11 归档：[`../archive/phase11-declarative-ui-jive.md`](../archive/phase11-declarative-ui-jive.md)
