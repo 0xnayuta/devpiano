@@ -205,7 +205,8 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
         synth.renderNextBlock(*bufferToFill.buffer, midiBuffer, bufferToFill.startSample, bufferToFill.numSamples);
     }
 
-    bufferToFill.buffer->applyGain(bufferToFill.startSample, bufferToFill.numSamples, masterGain);
+    bufferToFill.buffer->applyGain(bufferToFill.startSample, bufferToFill.numSamples,
+                                   masterGain.load(std::memory_order_relaxed));
 }
 
 void AudioEngine::releaseResources() {
@@ -228,7 +229,7 @@ void AudioEngine::armPlaybackStartPreRoll(double sampleRate, int blockSize) noex
 }
 
 void AudioEngine::setMasterGain(float newGain) {
-    masterGain = juce::jlimit(0.0f, 1.0f, newGain);
+    masterGain.store(juce::jlimit(0.0f, 1.0f, newGain), std::memory_order_relaxed);
 }
 
 void AudioEngine::setAdsr(float attackSeconds, float decaySeconds, float sustainLevel, float releaseSeconds) {

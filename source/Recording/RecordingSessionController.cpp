@@ -410,6 +410,11 @@ void RecordingSessionController::checkPlaybackEnded() {
     if (recordingSession.state != ui::RecordingState::playing)
         return;
 
+    // 实时线程仅置 playbackEndedPending 标志；日志在消息线程输出,
+    // 避免音频回调内 juce::Logger 互斥锁 + 磁盘 I/O(ERR-001)。
+    DP_LOG_INFO("[RecordingEngine] playback ENDED at pos=" + juce::String(recordingEngine.getPlaybackPositionSamples())
+                + " (speed=" + juce::String(recordingEngine.getPlaybackSpeedMultiplier()) + "x)");
+
     const auto stoppedTake = stopInternalPlayback();
     juce::ignoreUnused(stoppedTake);
 

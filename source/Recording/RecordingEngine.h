@@ -107,7 +107,7 @@ private:
 
     // Playback state
     RecordingTake playbackTake;
-    double playbackSampleRateRatio = 1.0;
+    std::atomic<double> playbackSampleRateRatio { 1.0 };
     std::atomic<double> playbackSpeedMultiplier { 1.0 };
     std::atomic<std::int64_t> scaledPlaybackLengthSamples { 0 };
     std::atomic<std::int64_t> playbackPositionSamples { 0 };

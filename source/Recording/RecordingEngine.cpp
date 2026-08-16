@@ -201,8 +201,9 @@ bool RecordingEngine::isCapacityExhausted(std::int64_t timestamp) noexcept {
 void RecordingEngine::startPlayback(const RecordingTake& take, double currentSampleRate,
                                     std::int64_t resumeFromSamples) {
     playbackTake = take;
-    playbackSampleRateRatio
-        = (take.sampleRate > 0.0 && currentSampleRate > 0.0) ? (currentSampleRate / take.sampleRate) : 1.0;
+    playbackSampleRateRatio.store(
+        (take.sampleRate > 0.0 && currentSampleRate > 0.0) ? (currentSampleRate / take.sampleRate) : 1.0,
+        std::memory_order_relaxed);
     scaledPlaybackLengthSamples.store(getScaledPlaybackLengthSamples());
     playbackPositionSamples.store(juce::jlimit<std::int64_t>(0, scaledPlaybackLengthSamples.load(), resumeFromSamples));
     playbackEndedPending.store(false, std::memory_order_release);
@@ -223,8 +224,9 @@ void RecordingEngine::startPlayback(const RecordingTake& take, double currentSam
 
     state.store(RecordingState::playing, std::memory_order_release);
 
-    DP_DEBUG_LOG("[RecordingEngine] playback STARTED: " + juce::String(take.events.size()) + " events, ratio="
-                 + juce::String(playbackSampleRateRatio) + ", speed=" + juce::String(playbackSpeedMultiplier.load())
+    DP_DEBUG_LOG("[RecordingEngine] playback STARTED: " + juce::String(take.events.size())
+                 + " events, ratio=" + juce::String(playbackSampleRateRatio.load(std::memory_order_relaxed))
+                 + ", speed=" + juce::String(playbackSpeedMultiplier.load())
                  + ", scaledLen=" + juce::String(scaledPlaybackLengthSamples.load()));
 }
 
@@ -288,7 +290,7 @@ void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer, std::int
     if (!isPlaying())
         return;
 
-    const auto combinedRatio = playbackSampleRateRatio / playbackSpeedMultiplier.load();
+    const auto combinedRatio = playbackSampleRateRatio.load(std::memory_order_relaxed) / playbackSpeedMultiplier.load();
     const auto blockEndSamples = blockStartSamples + static_cast<std::int64_t>(numSamples);
 
     for (const auto& event : playbackTake.events) {
@@ -335,9 +337,6 @@ void RecordingEngine::advancePlaybackPosition(std::int64_t numSamples) noexcept 
         state.store(RecordingState::stopped, std::memory_order_release);
         playbackPositionSamples.store(scaledPlaybackLengthSamples.load());
         playbackEndedPending.store(true, std::memory_order_release);
-        DP_LOG_INFO("[RecordingEngine] playback ENDED: pos=" + juce::String(playbackPositionSamples.load())
-                    + " >= scaledLen=" + juce::String(scaledPlaybackLengthSamples.load())
-                    + " (ratio=" + juce::String(playbackSampleRateRatio) + ")");
     }
 }
 
@@ -365,8 +364,8 @@ std::int64_t RecordingEngine::getScaledPlaybackLengthSamples() const noexcept {
     if (playbackTake.lengthSamples <= 0)
         return 0;
 
-    const auto scaledLength
-        = static_cast<double>(playbackTake.lengthSamples) * playbackSampleRateRatio / playbackSpeedMultiplier;
+    const auto scaledLength = static_cast<double>(playbackTake.lengthSamples)
+        * playbackSampleRateRatio.load(std::memory_order_relaxed) / playbackSpeedMultiplier.load();
     if (scaledLength <= 0.0)
         return playbackTake.lengthSamples;
 

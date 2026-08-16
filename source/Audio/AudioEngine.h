@@ -60,7 +60,7 @@ private:
     juce::AudioBuffer<float> pluginBuffer;
 
     juce::ADSR::Parameters adsrParameters;
-    float masterGain = 0.8f;
+    std::atomic<float> masterGain { 0.8f };
     double currentSampleRate = 44100.0;
     int currentBlockSize = 512;
     std::atomic_bool allNotesOffPending { false };
