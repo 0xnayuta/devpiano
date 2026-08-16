@@ -8,8 +8,9 @@ const juce::StringArray kPseudoKeys { "hover", "active", "focus", "disabled", "c
 
 [[nodiscard]] juce::String normalizePseudoKey(const juce::String& key) {
     auto k = key.startsWith(":") ? key.substring(1) : key;
-    if (k == "pressed")
+    if (k == "pressed") {
         k = "active";
+    }
     return k;
 }
 
@@ -21,8 +22,9 @@ StyleCatalog& StyleCatalog::get() {
 }
 
 void StyleCatalog::loadFromJSON(const juce::var& json) {
-    if (auto* obj = json.getDynamicObject())
+    if (auto* obj = json.getDynamicObject()) {
         rules = obj;
+    }
 }
 
 bool StyleCatalog::isPseudoKey(const juce::String& key) {
@@ -31,23 +33,26 @@ bool StyleCatalog::isPseudoKey(const juce::String& key) {
 
 void StyleCatalog::mergeBaseProps(juce::DynamicObject& target, const juce::DynamicObject& rule) {
     const auto& props = rule.getProperties();
-    for (auto it = props.begin(); it != props.end(); ++it) {
-        const auto key = it->name.toString();
-        if (!isPseudoKey(key))
-            target.setProperty(it->name, it->value);
+    for (const auto& prop : props) {
+        const auto key = prop.name.toString();
+        if (!isPseudoKey(key)) {
+            target.setProperty(prop.name, prop.value);
+        }
     }
 }
 
 void StyleCatalog::mergePseudoProps(juce::DynamicObject& target, const juce::DynamicObject& rule) {
     const auto& props = rule.getProperties();
-    for (auto it = props.begin(); it != props.end(); ++it) {
-        const auto key = it->name.toString();
-        if (!isPseudoKey(key))
+    for (const auto& prop : props) {
+        const auto key = prop.name.toString();
+        if (!isPseudoKey(key)) {
             continue;
+        }
 
-        auto* pseudoRule = it->value.getDynamicObject();
-        if (pseudoRule == nullptr)
+        auto* pseudoRule = prop.value.getDynamicObject();
+        if (pseudoRule == nullptr) {
             continue;
+        }
 
         auto pseudoKey = normalizePseudoKey(key);
         auto* pseudoTarget = target.getProperty(pseudoKey).getDynamicObject();
@@ -55,8 +60,9 @@ void StyleCatalog::mergePseudoProps(juce::DynamicObject& target, const juce::Dyn
             pseudoTarget = new juce::DynamicObject();
             target.setProperty(pseudoKey, juce::var(pseudoTarget));
         }
-        for (auto pit = pseudoRule->getProperties().begin(); pit != pseudoRule->getProperties().end(); ++pit)
-            pseudoTarget->setProperty(pit->name, pit->value);
+        for (const auto& pit : pseudoRule->getProperties()) {
+            pseudoTarget->setProperty(pit.name, pit.value);
+        }
     }
 }
 
@@ -66,19 +72,21 @@ void StyleCatalog::mergePseudoProps(juce::DynamicObject& target, const juce::Dyn
     // before the var takes ownership) — so we build jive::Object instances
     // ourselves and keep them alive in ownedStyles.
     auto result = ::jive::Object::ReferenceCountedPointer(new ::jive::Object());
-    for (auto it = src.getProperties().begin(); it != src.getProperties().end(); ++it) {
-        if (auto* child = it->value.getDynamicObject())
-            result->setProperty(it->name, juce::var(makeJiveObject(*child).get()));
-        else
-            result->setProperty(it->name, it->value);
+    for (const auto& it : src.getProperties()) {
+        if (auto* child = it.value.getDynamicObject()) {
+            result->setProperty(it.name, juce::var(makeJiveObject(*child).get()));
+        } else {
+            result->setProperty(it.name, it.value);
+        }
     }
     ownedStyles.push_back(result);
     return result;
 }
 
 void StyleCatalog::applyToNode(juce::ValueTree& node) const {
-    if (rules == nullptr)
+    if (rules == nullptr) {
         return;
+    }
 
     // Build a merged style object: base props + pseudo-state sub-objects.
     juce::DynamicObject merged;
@@ -92,16 +100,19 @@ void StyleCatalog::applyToNode(juce::ValueTree& node) const {
     };
 
     // Type rule first (lowest priority), then id rule (overrides).
-    if (auto* typeRule = rules->getProperty(nodeType).getDynamicObject())
+    if (auto* typeRule = rules->getProperty(nodeType).getDynamicObject()) {
         applyRule(*typeRule);
+    }
     if (nodeId.isNotEmpty()) {
-        if (auto* idRule = rules->getProperty("#" + nodeId).getDynamicObject())
+        if (auto* idRule = rules->getProperty("#" + nodeId).getDynamicObject()) {
             applyRule(*idRule);
+        }
     }
 
     if (merged.getProperties().size() == 0) {
-        if (node.hasProperty("style"))
+        if (node.hasProperty("style")) {
             node.removeProperty("style", nullptr);
+        }
         return;
     }
 
@@ -115,8 +126,9 @@ void StyleCatalog::refreshStyles(juce::ValueTree& tree) {
 
 void StyleCatalog::applyToTree(juce::ValueTree& tree) const {
     applyToNode(tree);
-    for (auto child : tree)
+    for (auto child : tree) {
         applyToTree(child);
+    }
 }
 
 } // namespace devpiano::ui::jive

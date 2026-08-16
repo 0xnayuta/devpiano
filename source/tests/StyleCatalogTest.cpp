@@ -24,9 +24,8 @@
 
 namespace {
 
-// 注册完整 root layout 所需的全部组件类型。keyboardState 由调用方持有，
-// 其生命周期必须覆盖 interpret()（工厂 lambda 按引用捕获）。
-void registerRootComponentFactory(::jive::Interpreter& interpreter, juce::MidiKeyboardState& keyboardState) {
+// 注册完整 root layout 所需的全部组件类型。
+void registerRootComponentFactory(::jive::Interpreter& interpreter) {
     auto& factory = interpreter.getComponentFactory();
     factory.set("SettingsButton",
                 [] { return std::make_unique<juce::DrawableButton>("s", juce::DrawableButton::ImageFitted); });
@@ -41,7 +40,7 @@ void registerRootComponentFactory(::jive::Interpreter& interpreter, juce::MidiKe
     factory.set("AdsrCurve", [] { return std::make_unique<juce::Component>(); });
     for (const char* type : { "RecordButton", "PlayButton", "StopButton", "BackButton" })
         factory.set(type, [] { return std::make_unique<juce::TextButton>(); });
-    factory.set("CustomKeyboard", [&keyboardState] {
+    factory.set("CustomKeyboard", [] {
         auto viewport = std::make_unique<juce::Viewport>();
         viewport->setScrollBarsShown(false, true, false, true);
         auto keyboard = std::make_unique<jive::TextComponent>();
@@ -419,8 +418,7 @@ private:
         beginTest("keyboard area tree interprets with viewport");
 
         ::jive::Interpreter interpreter;
-        juce::MidiKeyboardState keyboardState;
-        interpreter.getComponentFactory().set("CustomKeyboard", [&keyboardState] {
+        interpreter.getComponentFactory().set("CustomKeyboard", [] {
             auto viewport = std::make_unique<juce::Viewport>();
             viewport->setScrollBarsShown(false, true, false, true);
             auto keyboard = std::make_unique<jive::TextComponent>();
@@ -447,8 +445,7 @@ private:
         beginTest("root layout interprets with every panel");
 
         ::jive::Interpreter interpreter;
-        juce::MidiKeyboardState keyboardState;
-        registerRootComponentFactory(interpreter, keyboardState);
+        registerRootComponentFactory(interpreter);
 
         auto tree = devpiano::ui::jive::makeRootLayout();
         devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
@@ -506,8 +503,7 @@ private:
         // id "window" and its font-size must inherit down to every Text
         // component through JIVE's StyleSheet ancestor chain.
         ::jive::Interpreter interpreter;
-        juce::MidiKeyboardState keyboardState;
-        registerRootComponentFactory(interpreter, keyboardState);
+        registerRootComponentFactory(interpreter);
 
         auto& catalog = devpiano::ui::jive::StyleCatalog::get();
         const juce::var json1 = juce::JSON::parse(
@@ -583,8 +579,7 @@ private:
             return;
 
         ::jive::Interpreter interpreter;
-        juce::MidiKeyboardState keyboardState;
-        registerRootComponentFactory(interpreter, keyboardState);
+        registerRootComponentFactory(interpreter);
 
         auto& catalog = devpiano::ui::jive::StyleCatalog::get();
         catalog.loadFromJSON(json);
@@ -787,8 +782,7 @@ private:
         devpiano::locale::activate(devpiano::locale::Language::en);
 
         ::jive::Interpreter interpreter;
-        juce::MidiKeyboardState keyboardState;
-        registerRootComponentFactory(interpreter, keyboardState);
+        registerRootComponentFactory(interpreter);
 
         auto tree = devpiano::ui::jive::makeRootLayout();
         devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
@@ -951,8 +945,7 @@ public:
             juce::JSON::parse(R"({ "Text": { "foreground": "#EEEEEE", "font-size": 14 } })"));
 
         ::jive::Interpreter interpreter;
-        juce::MidiKeyboardState keyboardState;
-        registerRootComponentFactory(interpreter, keyboardState);
+        registerRootComponentFactory(interpreter);
 
         auto tree = devpiano::ui::jive::makeRootLayout();
         devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);

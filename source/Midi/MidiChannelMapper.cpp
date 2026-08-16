@@ -15,18 +15,21 @@ const PerChannelConfig& MidiChannelMapper::configForChannel(int inputChannel) co
 }
 
 juce::MidiMessage MidiChannelMapper::applyTransform(const juce::MidiMessage& message) {
-    if (!matrix.active)
+    if (!matrix.active) {
         return message;
+    }
 
-    if (!message.isNoteOnOrOff())
+    if (!message.isNoteOnOrOff()) {
         return message;
+    }
 
     // inputChannel here is the message's original MIDI channel (0-based).
     const auto inputChannel = message.getChannel() - 1;
     const auto& cfg = configForChannel(inputChannel);
 
-    if (message.isNoteOn())
+    if (message.isNoteOn()) {
         return applyMatrixToNoteOn(cfg, inputChannel, message.getNoteNumber(), message.getFloatVelocity());
+    }
 
     return applyMatrixToNoteOff(cfg, inputChannel, message.getNoteNumber(), message.getFloatVelocity());
 }

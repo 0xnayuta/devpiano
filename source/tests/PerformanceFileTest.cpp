@@ -41,8 +41,7 @@ devpiano::recording::RecordingTake makeTestTake() {
 }
 
 juce::File makeScratchFile(const juce::String& name) {
-    return juce::File::getSpecialLocation(juce::File::tempDirectory)
-        .getChildFile("devpiano_perf_test_" + name);
+    return juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("devpiano_perf_test_" + name);
 }
 
 // TemporaryFile names the scratch file "<base>_temp<hex>.<ext>" in the target

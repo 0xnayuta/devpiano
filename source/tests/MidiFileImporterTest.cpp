@@ -15,7 +15,7 @@ static juce::String getFixturePath(const juce::String& filename) {
 }
 
 /// 导入指定 fixture 文件并返回 importMidiFile 结果（默认采样率 48kHz）。
-auto importFixture(const juce::String& name, double sampleRate = 48000.0) {
+static auto importFixture(const juce::String& name, double sampleRate = 48000.0) {
     return devpiano::recording::importMidiFile(juce::File(getFixturePath(name)), sampleRate);
 }
 

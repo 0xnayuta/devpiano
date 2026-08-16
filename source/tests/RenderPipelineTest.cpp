@@ -57,8 +57,7 @@ public:
         });
 
         testCase("buildRenderEvents rescales timestamps to target rate", [&] {
-            auto take = makeTake(44100.0, 44100,
-                                 { makeEvent(0), makeEvent(22050), makeEvent(44100) });
+            auto take = makeTake(44100.0, 44100, { makeEvent(0), makeEvent(22050), makeEvent(44100) });
             const auto events = buildRenderEvents(take, 88200.0); // 2x ratio
             expectEquals(static_cast<int>(events.size()), 3);
             expect(events[0].timestampSamples == 0);
@@ -67,8 +66,7 @@ public:
         });
 
         testCase("buildRenderEvents sorts events stably by timestamp", [&] {
-            auto take = makeTake(44100.0, 100,
-                                 { makeEvent(300), makeEvent(100), makeEvent(200) });
+            auto take = makeTake(44100.0, 100, { makeEvent(300), makeEvent(100), makeEvent(200) });
             const auto events = buildRenderEvents(take, 44100.0);
             expectEquals(static_cast<int>(events.size()), 3);
             expect(events[0].timestampSamples == 100);
@@ -122,10 +120,12 @@ public:
                 ++eventCount;
                 expectEquals(metadata.samplePosition, 42);
                 const auto& message = metadata.getMessage();
-                if (message.isController() && message.getControllerNumber() == 64 && message.getControllerValue() == 0) {
+                if (message.isController() && message.getControllerNumber() == 64
+                    && message.getControllerValue() == 0) {
                     sawSustainRelease = true;
                 }
-                if (message.isController() && message.getControllerNumber() == 120 && message.getControllerValue() == 0) {
+                if (message.isController() && message.getControllerNumber() == 120
+                    && message.getControllerValue() == 0) {
                     sawAllControllersOff = true;
                 }
                 if (message.isAllNotesOff()) {

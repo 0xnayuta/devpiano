@@ -151,6 +151,14 @@ void RecordingSessionController::handlePlayClicked() {
         recordingEngine.resumeRecording();
         recordingSession.state = ui::RecordingState::recording;
         break;
+    // 其余命令在此函数中无副作用（none 已提前返回；startRecording /
+    // stopRecording / stopPlayback 由录制/停止路径处理），显式列出以满足
+    // -Wswitch-enum 全枚举覆盖。
+    case RecordingFlowCommand::none:
+    case RecordingFlowCommand::startRecording:
+    case RecordingFlowCommand::stopRecording:
+    case RecordingFlowCommand::stopPlayback:
+        return;
     default:
         return;
     }

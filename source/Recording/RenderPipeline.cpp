@@ -32,8 +32,8 @@ std::vector<RenderEvent> buildRenderEvents(const RecordingTake& take, double tar
         events.push_back({ message, scaleTimestamp(perfEvent.timestampSamples, ratio) });
     }
 
-    std::stable_sort(events.begin(), events.end(),
-                     [](const auto& lhs, const auto& rhs) { return lhs.timestampSamples < rhs.timestampSamples; });
+    std::ranges::stable_sort(
+        events, [](const auto& lhs, const auto& rhs) { return lhs.timestampSamples < rhs.timestampSamples; });
 
     return events;
 }

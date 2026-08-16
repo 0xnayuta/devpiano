@@ -19,6 +19,9 @@ namespace devpiano::midi {
 // ============================================================================
 class MidiChannelMapper {
 public:
+    // NOLINTNEXTLINE(bugprone-easily-swappable-parameters) - bool/int 引用参数
+    // 相邻可隐式互换；调用点仅 MainComponent 两处（命名实参 appSettings.*），
+    // 重排无法消除相邻性（int/bool 无论顺序都可转换），故豁免。
     explicit MidiChannelMapper(const ChannelMatrix& matrixRef, const bool& midiTransposeRef,
                                const int& keySignatureRef);
 

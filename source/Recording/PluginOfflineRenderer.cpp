@@ -15,11 +15,11 @@
 namespace devpiano::exporting {
 namespace {
 
-using devpiano::recording::RenderEvent;
 using devpiano::recording::addPanicMidi;
 using devpiano::recording::buildRenderEvents;
 using devpiano::recording::getScaledTakeLengthSamples;
 using devpiano::recording::hasUsableRenderOptions;
+using devpiano::recording::RenderEvent;
 using devpiano::recording::scaleTimestamp;
 
 } // namespace
@@ -67,7 +67,8 @@ std::unique_ptr<juce::AudioPluginInstance> createOfflinePluginInstance(juce::Aud
 bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take, const juce::File& destinationFile,
                                  const WavExportOptions& options, juce::AudioPluginInstance& offlinePlugin,
                                  std::function<bool(double)> progressCallback) {
-    if (take.isEmpty() || take.sampleRate <= 0.0 || !hasUsableRenderOptions(options) || destinationFile == juce::File()) {
+    if (take.isEmpty() || take.sampleRate <= 0.0 || !hasUsableRenderOptions(options)
+        || destinationFile == juce::File()) {
         DP_LOG_ERROR("[PluginOfflineRenderer] Invalid parameters for offline render");
         return false;
     }

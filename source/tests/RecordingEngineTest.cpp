@@ -714,7 +714,7 @@ public:
             juce::MidiBuffer buf;
             engine.renderPlaybackBlock(buf, 4410, 1000);
             int count = 0;
-            for (auto m : buf) {
+            for ([[maybe_unused]] auto m : buf) {
                 ++count;
             }
             expectEquals(0, count, "no events rendered while paused");

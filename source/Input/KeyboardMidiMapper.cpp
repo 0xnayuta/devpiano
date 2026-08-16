@@ -31,15 +31,18 @@ void KeyboardMidiMapper::resetToDefaultLayout() {
 
 bool KeyboardMidiMapper::handleKeyPressed(const juce::KeyPress& key, juce::MidiKeyboardState& keyboardState) {
     const auto keyCode = normaliseKeyCode(key);
-    if (keyCode == 0)
+    if (keyCode == 0) {
         return false;
+    }
 
     const auto* binding = layout.findByKeyCode(keyCode);
-    if (binding == nullptr)
+    if (binding == nullptr) {
         return false;
+    }
 
-    if (!heldKeys.insert(keyCode).second)
+    if (!heldKeys.insert(keyCode).second) {
         return true;
+    }
 
     return triggerBinding(*binding, keyboardState, true);
 }
@@ -49,8 +52,9 @@ bool KeyboardMidiMapper::handleKeyStateChanged(juce::MidiKeyboardState& keyboard
 
     for (const auto& binding : layout.bindings) {
         const auto keyCode = binding.keyCode;
-        if (keyCode == 0)
+        if (keyCode == 0) {
             continue;
+        }
 
         const auto isCurrentlyDown = juce::KeyPress::isKeyCurrentlyDown(keyCode);
 
@@ -87,11 +91,13 @@ int KeyboardMidiMapper::normaliseKeyCode(const juce::KeyPress& key) const {
 bool KeyboardMidiMapper::triggerBinding(const KeyBinding& binding, juce::MidiKeyboardState& keyboardState,
                                         bool isKeyDownEvent) {
     const auto expectedTrigger = isKeyDownEvent ? KeyTrigger::keyDown : KeyTrigger::keyUp;
-    if (binding.action.trigger != expectedTrigger)
+    if (binding.action.trigger != expectedTrigger) {
         return false;
+    }
 
-    if (binding.action.type != KeyActionType::note)
+    if (binding.action.type != KeyActionType::note) {
         return false;
+    }
 
     const auto midiChannel = binding.action.getMidiChannel().value; // 1-based
     const auto midiNote = binding.action.getMidiNoteNumber().value;
@@ -99,15 +105,17 @@ bool KeyboardMidiMapper::triggerBinding(const KeyBinding& binding, juce::MidiKey
 
     if (channelMapper != nullptr) {
         // Convert 1-based binding channel to 0-based matrix input channel
-        if (isKeyDownEvent)
+        if (isKeyDownEvent) {
             channelMapper->sendNoteOn(midiChannel - 1, midiNote, velocity, keyboardState);
-        else
+        } else {
             sendNoteOff(midiChannel, midiNote, velocity, keyboardState);
+        }
     } else {
-        if (isKeyDownEvent)
+        if (isKeyDownEvent) {
             keyboardState.noteOn(midiChannel, midiNote, velocity);
-        else
+        } else {
             sendNoteOff(midiChannel, midiNote, velocity, keyboardState);
+        }
     }
 
     return true;
@@ -115,8 +123,9 @@ bool KeyboardMidiMapper::triggerBinding(const KeyBinding& binding, juce::MidiKey
 
 void KeyboardMidiMapper::sendNoteOff(int midiChannel, int midiNote, float velocity,
                                      juce::MidiKeyboardState& keyboardState) {
-    if (channelMapper != nullptr)
+    if (channelMapper != nullptr) {
         channelMapper->sendNoteOff(midiChannel - 1, midiNote, velocity, keyboardState);
-    else
+    } else {
         keyboardState.noteOff(midiChannel, midiNote, velocity);
+    }
 }

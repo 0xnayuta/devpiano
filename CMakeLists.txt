@@ -58,6 +58,7 @@ target_sources(devpiano PRIVATE
     source/Main.cpp
     source/MainComponent.cpp
     source/MainComponent.h
+    source/MainComponentJiveAccessors.cpp
     source/Audio/AudioEngine.cpp
     source/Audio/AudioEngine.h
     source/Audio/AudioDeviceDiagnostics.h
@@ -109,6 +110,7 @@ target_sources(devpiano PRIVATE
     source/Settings/AppStateBuilder.h
     source/UI/CustomKeyboard.cpp
     source/UI/CustomKeyboard.h
+    source/UI/ComboSelection.h
     source/UI/native/AdsrCurveComponent.cpp
     source/UI/native/AdsrCurveComponent.h
     source/UI/native/StatusBarMidiDot.h
@@ -219,6 +221,20 @@ if (BUILD_TESTS)
         CXX_STANDARD_REQUIRED ON
         CXX_EXTENSIONS OFF
     )
+    if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        target_compile_options(devpiano_tests PRIVATE
+            -Wall
+            -Wextra
+        )
+    endif()
+    if (MSVC)
+        target_compile_options(devpiano_tests PRIVATE
+            /utf-8
+            /permissive-
+            /Zc:__cplusplus
+            /W4
+        )
+    endif()
     # 生产代码（被测模块）：只包含无 GUI/设备依赖的纯逻辑层
     target_sources(devpiano_tests PRIVATE
         source/Core/KeyMapTypes.h
@@ -282,6 +298,7 @@ if (BUILD_TESTS)
         juce::juce_audio_devices
         juce::juce_audio_processors
         juce::juce_recommended_config_flags
+        juce::juce_recommended_warning_flags
         jive::jive_core
         jive::jive_layouts
         jive::jive_style_sheets
@@ -307,17 +324,38 @@ endif()
 # clang-tidy target (requires compile_commands.json)
 find_program(CLANG_TIDY_EXE NAMES clang-tidy clang-tidy-21 clang-tidy-20 clang-tidy-19)
 if(CLANG_TIDY_EXE)
-    file(GLOB_RECURSE ALL_SOURCE_FILES
+    # GLOB 仅作 configure 变更触发源（CONFIGURE_DEPENDS：新增源文件自动重新 configure）
+    file(GLOB_RECURSE ALL_SOURCE_FILES CONFIGURE_DEPENDS
         "${CMAKE_SOURCE_DIR}/source/*.cpp"
         "${CMAKE_SOURCE_DIR}/source/*.h"
     )
+    # 去重：只分析 compile_commands.json 中实际编译的 source/ 源文件。
+    # 同一文件因 devpiano/devpiano_tests 双目标产生多条记录时只保留一次；
+    # 被 #include 的孤儿 .cpp（无独立编译记录）不重复分析。
+    set(TIDY_FILES)
+    if(EXISTS "${CMAKE_BINARY_DIR}/compile_commands.json")
+        file(STRINGS "${CMAKE_BINARY_DIR}/compile_commands.json" _CC_LINES REGEX "\"file\"[ \t]*:")
+        foreach(_CC_LINE IN LISTS _CC_LINES)
+            if(_CC_LINE MATCHES "\"file\"[ \t]*:[ \t]*\"([^\"]+)\"")
+                set(_CC_FILE "${CMAKE_MATCH_1}")
+                if(_CC_FILE MATCHES "${CMAKE_SOURCE_DIR}/source/")
+                    list(APPEND TIDY_FILES "${_CC_FILE}")
+                endif()
+            endif()
+        endforeach()
+        list(REMOVE_DUPLICATES TIDY_FILES)
+    endif()
+    if(NOT TIDY_FILES)
+        # compile_commands 缺失时降级为 GLOB 全量
+        set(TIDY_FILES ${ALL_SOURCE_FILES})
+    endif()
     add_custom_target(clang-tidy
         COMMAND ${CLANG_TIDY_EXE}
             -p "${CMAKE_BINARY_DIR}"
             --quiet
-            ${ALL_SOURCE_FILES}
+            ${TIDY_FILES}
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-        COMMENT "Running clang-tidy on source/"
+        COMMENT "Running clang-tidy on source/ (${TIDY_FILES} files)"
         VERBATIM
     )
     message(STATUS "clang-tidy target: enabled (${CLANG_TIDY_EXE})")

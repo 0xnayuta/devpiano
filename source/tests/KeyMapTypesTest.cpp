@@ -305,7 +305,7 @@ public:
             auto layout = makeDefaultKeyboardLayout();
             const juce::String letters("QWERTYUIOPASDFGHJKLZXCVBNM");
             for (auto c : letters) {
-                auto* binding = layout.findByKeyCode(makeAlphaNumericKeyCode(c));
+                auto* binding = layout.findByKeyCode(makeAlphaNumericKeyCode(static_cast<char>(c)));
                 expect(binding != nullptr, "Missing binding for key '" + juce::String::charToString(c) + "'");
             }
         });

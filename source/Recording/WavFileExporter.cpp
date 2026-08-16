@@ -90,11 +90,11 @@ private:
     juce::ADSR adsr;
 };
 
-using devpiano::recording::RenderEvent;
 using devpiano::recording::addPanicMidi;
 using devpiano::recording::buildRenderEvents;
 using devpiano::recording::getScaledTakeLengthSamples;
 using devpiano::recording::hasUsableRenderOptions;
+using devpiano::recording::RenderEvent;
 using devpiano::recording::scaleTimestamp;
 
 void initialiseOfflineSynth(juce::Synthesiser& synth, double sampleRate, const juce::ADSR::Parameters& adsr) {

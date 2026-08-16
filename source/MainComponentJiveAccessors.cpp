@@ -1,12 +1,16 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// JIVE component accessors — #included into MainComponent.cpp.
+// JIVE component accessors — independent translation unit (ENG-003/QUAL-014).
 //
-// Kept in a separate file (following the Phase 11 architecture) because the
-// accessors reach into MainComponent private members and therefore must be
-// compiled in its translation unit.
+// These are MainComponent member-function definitions (declared in
+// MainComponent.h), so they reach private members from their own TU; the
+// former #include-into-MainComponent.cpp arrangement is gone.
 // ═══════════════════════════════════════════════════════════════════════════
 
+#include "MainComponent.h"
+
+#include "Diagnostics/Log.h"
 #include "UI/ComboSelection.h"
+#include "UI/native/AdsrCurveComponent.h"
 
 namespace {
 

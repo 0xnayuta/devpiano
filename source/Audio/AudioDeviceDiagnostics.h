@@ -63,8 +63,7 @@ struct AudioDeviceDiagnostics {
 // lastExplicitSettings，createStateXml() 恒为 null；此函数供默认设备启动路径
 // 手工构造可持久化/可恢复的设备状态（恢复端 initialiseFromXML 消费同款属性）。
 [[nodiscard]] inline std::unique_ptr<juce::XmlElement>
-createDeviceStateXml(juce::AudioIODevice& device,
-                     const juce::AudioDeviceManager::AudioDeviceSetup& setup) {
+createDeviceStateXml(juce::AudioIODevice& device, const juce::AudioDeviceManager::AudioDeviceSetup& setup) {
     auto xml = std::make_unique<juce::XmlElement>("DEVICESETUP");
 
     xml->setAttribute("deviceType", device.getTypeName());

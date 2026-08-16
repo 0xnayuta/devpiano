@@ -42,8 +42,7 @@ struct RenderEvent {
 [[nodiscard]] std::vector<RenderEvent> buildRenderEvents(const RecordingTake& take, double targetSampleRate);
 
 // 渲染总时长（缩放后的 take 长度 vs 最后事件时间戳+1，取大者）。
-[[nodiscard]] std::int64_t getScaledTakeLengthSamples(const RecordingTake& take,
-                                                      const std::vector<RenderEvent>& events,
+[[nodiscard]] std::int64_t getScaledTakeLengthSamples(const RecordingTake& take, const std::vector<RenderEvent>& events,
                                                       double targetSampleRate) noexcept;
 
 // 向 midiBuffer 注入全 16 通道 panic 控制器事件（CC64 延音 / CC120 全关 / all-notes-off）。

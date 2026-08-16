@@ -1139,5 +1139,4 @@ void MainComponent::refreshPluginUiState() {
     renderReadOnlyUiState(buildCurrentAppStateSnapshot());
 }
 
-// JIVE component accessors (see MainComponentJiveAccessors.cpp)
-#include "MainComponentJiveAccessors.cpp"
+// JIVE component accessors now live in their own TU (MainComponentJiveAccessors.cpp).
