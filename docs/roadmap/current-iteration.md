@@ -5,9 +5,9 @@
 
 ## 当前方向
 
-Phase 11：声明式 UI 架构迁移（JIVE + melatonin_inspector）— 计划已就绪，正在进行中。详见下方 Phase 11 节。
+Phase 11：声明式 UI 架构迁移（JIVE + melatonin_inspector）已完成，回归验证全部通过。当前任务：准备发布 **v0.3.0**（版本号 / CHANGELOG / Release 构建 / 打包），流程见 [`../guides/release-workflow.md`](../guides/release-workflow.md)。
 
-## Phase 11：声明式 UI 架构迁移（JIVE + melatonin_inspector） [进行中]
+## Phase 11：声明式 UI 架构迁移（JIVE + melatonin_inspector） [已完成]
 
 ### 背景与动机
 
@@ -100,22 +100,22 @@ melatonin_inspector (DEBUG only): 运行时可视化检查与编辑
 - [x] `StyleCatalog::refreshStyles()`：清空旧 style 对象并递归向 live `ValueTree` 注入新 `jive::Object` 样式
 - [x] 单元测试覆盖：`StyleCatalogTest` 新增 `testDesignTokensHotReload` 与 `testStyleCatalogHotReloadOnLiveTree` 端到端断言
 
-#### Phase 11f — 回归验证
+#### Phase 11f — 回归验证 [已完成]
 
-- [ ] 全量单元测试通过：`./scripts/dev.sh test`
-- [ ] Windows MSVC 构建通过：`./scripts/dev.sh win-build`
-- [ ] 手动回归清单：
-  - [ ] 电脑键盘演奏（note on/off 成对、长按、连按）
-  - [ ] VST3 插件扫描 / 加载 / 卸载 / editor 窗口 / 退出
-  - [ ] 录制 / 回放 / 停止 / 回到开头
-  - [ ] MIDI 文件导入 / 自动播放
-  - [ ] MIDI / WAV 导出
-  - [ ] Performance Preset CRUD + 快捷键
-  - [ ] 中英文语言切换
-  - [ ] 窗口缩放（JIVE Flex/Grid 自适应验证）
-  - [ ] KeyBindingEditDialog 右键点击键 → 编辑 → 保存
-  - [ ] PerformanceMetadataDialog 编辑 → 保存
-  - [ ] SettingsComponent 各项设置修改 → 保存 → 重启恢复
+- [x] 全量单元测试通过：`./scripts/dev.sh test`
+- [x] Windows MSVC 构建通过：`./scripts/dev.sh win-build`
+- [x] 手动回归清单：
+  - [x] 电脑键盘演奏（note on/off 成对、长按、连按）
+  - [x] VST3 插件扫描 / 加载 / 卸载 / editor 窗口 / 退出
+  - [x] 录制 / 回放 / 停止 / 回到开头
+  - [x] MIDI 文件导入 / 自动播放
+  - [x] MIDI / WAV 导出
+  - [x] Performance Preset CRUD + 快捷键
+  - [x] 中英文语言切换
+  - [x] 窗口缩放（JIVE Flex/Grid 自适应验证）
+  - [x] KeyBindingEditDialog 右键点击键 → 编辑 → 保存
+  - [x] PerformanceMetadataDialog 编辑 → 保存
+  - [x] SettingsComponent 各项设置修改 → 保存 → 重启恢复
 
 ### 风险与缓解
 
