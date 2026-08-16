@@ -31,15 +31,15 @@
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | P0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | P1 | 5 | 3 | 0 | 0 | 0 | 2 |
-| P2 | 29 | 18 | 0 | 0 | 9 | 2 |
-| P3 | 51 | 43 | 0 | 0 | 7 | 1 |
-| **合计** | 85 | 64 | 0 | 0 | 16 | 5 |
+| P2 | 29 | 16 | 0 | 0 | 9 | 4 |
+| P3 | 51 | 37 | 0 | 0 | 7 | 7 |
+| **合计** | 85 | 56 | 0 | 0 | 16 | 13 |
 
 ### 0.3 关键结论
 
 - 总体评级：`B` — 核心运行时健康（0 崩溃/泄漏/静默数据损坏的 P0），线程模型经设备重建同步点设计可靠；实时线程 2 处 P1（播放结束日志 I/O、masterGain 数据竞争）已于 2026-08-16 Phase A 修复；剩余驱动因素：三闸门中 format 门禁回归失败、测试体系存在 3 个 P1 覆盖空洞、架构文档滞后于 Phase 11 新结构。
 - 当前是否适合继续新增功能：`有条件` — 实时线程 P1 已修复（2026-08-16）；建议先补 3 个核心模块零测试（P1），其余 P2/P3 可与功能开发并行。
-- 当前是否建议优先重构：`有条件` — 不涉及大规模重构；优先清理 P2 死代码/错误持久化路径（QUAL-001、ERR-004）与格式门禁回归（ENG-001）。
+- 当前是否建议优先重构：`有条件` — 不涉及大规模重构；优先清理 P2 死代码/错误持久化路径（QUAL-001、ERR-004）。
 - 最大风险：3 个核心模块（会话控制/通道矩阵/预设序列化）零测试覆盖下的回归隐患。
 - 下一步最高优先级：补 TEST-001~003 三个 P1 纯逻辑测试。
 
@@ -52,7 +52,7 @@
 | `TEST-001` | P1 | 未处理 | RecordingSessionController 零测试覆盖 | 录制/回放/导入/导出全流程状态机 646 行无任何测试 |
 | `TEST-002` | P1 | 未处理 | MidiChannelMapper 零测试覆盖 | 通道路由/移调核心逻辑无测试；唯一相关测试仅测 nullptr 透传 |
 | `TEST-003` | P1 | 未处理 | PerformancePreset 序列化零测试覆盖 | 预设 round-trip 无测试，格式变更可静默破坏用户数据 |
-| `ENG-001` | P2 | 未处理 | format --check 门禁回归失败（18 处违规） | 2026-08-16 三项修复提交（RenderPipeline 等）引入 |
+| `ENG-001` | P2 | 已关闭 | format --check 门禁回归失败（18 处违规） | 18 处已修复归零 + `.githooks/pre-commit` 防再回归（2026-08-16 复审 4） |
 | `ERR-004` | P2 | 未处理 | 插件加载失败仍按成功提交恢复状态并持久化 | 下次启动反复尝试加载失败插件；UI 无失败反馈 |
 | `DOC-002` | P2 | 未处理 | architecture.md 缺 Recording/Export/Layout/Diagnostics 四模块章节 | Phase 11 / RenderPipeline 新结构未收录，文档滞后 |
 
@@ -389,7 +389,7 @@ source/
 
 ### 5.3 近期排期（P2）
 
-- [ ] `ENG-001`：运行 `./scripts/dev.sh format` 修复 18 处违规（RenderPipeline 相关 16 处 + AudioDeviceDiagnostics.h + PerformanceFileTest.cpp），复核 `format --check` 归零；将 format 检查接入 pre-commit/CI 防再回归。
+- [x] `ENG-001`：运行 `./scripts/dev.sh format` 修复 18 处违规（RenderPipeline 相关 16 处 + AudioDeviceDiagnostics.h + PerformanceFileTest.cpp），复核 `format --check` 归零；将 format 检查接入 pre-commit/CI 防再回归。（已落地：修复归零 + `.githooks/pre-commit`，2026-08-16 复审 4）
 - [ ] `ERR-004`：`loadPluginByNameAndCommitState` 检查加载返回值——失败时走 `finishPluginUiAction(false)` 且不持久化失败插件名；`restorePluginByNameOnStartup` 同模式处理。
 - [ ] `ERR-002`：`getNextAudioBlock` 安全网分支移除 `DP_LOG_WARN`，改为计数/标志由消息线程输出。
 - [ ] `ERR-005`：`SettingsStore::save()/writeNow()` 返回 `bool`/`juce::Result`，失败时 `DP_LOG_ERROR`（含文件路径）。
@@ -405,7 +405,7 @@ source/
 - [ ] `TEST-010`：PerformanceFileTest 改独立类别（如 `DevPiano/Files`）或 TestRunner 增加精确文件过滤，使 .devpiano 持久化回归进入默认运行。
 - [x] `TEST-011`：TestRunner 空匹配/空注册时非零退出并输出实际测试数。（已落地：`source/tests/TestRunner.cpp` 过滤分支返回 `EXIT_FAILURE` 并输出 `Running N test(s)`；另新增 `--include-juce` 默认只跑项目测试，详见第 7 章复审记录）
 - [x] `TEST-012`：统一测试类别前缀（`DevPiano/Audio`、`DevPiano/Recording`、`DevPiano/UI`），补全 4 个无类别文件，同步修正 known-issues 过滤命令。（已落地：类别统一为 `DevPiano/Core|Recording|Engine|UI`——实际引擎类别用 `DevPiano/Engine` 而非排期建议的 `DevPiano/Audio`；known-issues 缓解命令已修正，详见第 7 章复审记录）
-- [ ] `ENG-002`：全量运行 clang-tidy 建立基线；先批量修机械项（braces/loop-convert/qualified-auto），再处理 `bugprone-easily-swappable-parameters`（MidiChannelMapper 构造参数重排或豁免）。
+- [x] `ENG-002`：全量运行 clang-tidy 建立基线；先批量修机械项（braces/loop-convert/qualified-auto），再处理 `bugprone-easily-swappable-parameters`（MidiChannelMapper 构造参数重排或豁免）。（已落地：4 采样文件机械项清零 + MidiChannelMapper 构造 NOLINT 豁免，2026-08-16 复审 4）
 - [ ] `DOC-002`：architecture.md 补 Recording/Export/Layout/Diagnostics 四模块章节（含 RenderPipeline、WavExportTask、SettingsSerialization 等新文件）。
 - [ ] `DOC-003`：architecture.md Plugin 章节更新为已收敛现状（PluginFlowSupport + PluginOperationController 已落地）。
 - [ ] `DOC-004`：zh_CN.loc.h 补 5 个 WAV 导出字符串译文（Exporting.../Export cancelled./Export failed during plugin/sine rendering./Export complete.）。
@@ -433,7 +433,7 @@ source/
 - [ ] `QUAL-011`：删除 `WavExportTask.cpp:45-47` 死预检查块（保留单一取消路径）。
 - [ ] `QUAL-012`：PerformancePreset 移除 keySignature/midiTranspose 死配置字段（或补应用路径）。
 - [ ] `QUAL-013`：成员版 `buildCurrentAppStateSnapshot` 改名消除与 core 自由函数同名混淆。
-- [ ] `QUAL-014`：`MainComponentJiveAccessors.cpp` 迁移为独立 TU（加入 target_sources）或改头文件方式（与 ENG-003 联动）。
+- [x] `QUAL-014`：`MainComponentJiveAccessors.cpp` 迁移为独立 TU（加入 target_sources）或改头文件方式（与 ENG-003 联动）。（已落地：独立 TU，2026-08-16 复审 4）
 - [ ] `QUAL-015`：`sourceToString` 删除冗余 `default:` 分支（枚举已穷尽）。
 - [ ] `QUAL-016`：逐个决策 test-only API 面（hasDroppedEvents/getLastScanFailedFiles/setLowestVisibleNote/makeFullPianoLayout/NoteRange/isValid 系列）——接入生产或删除并清理测试。
 - [ ] `QUAL-017`：删除 CustomKeyboard.h 过期 Phase 6 开发步骤注释。
@@ -451,11 +451,11 @@ source/
 - [ ] `DOC-006`：SettingsModel 扁平成员改持有单一 KeyboardDisplaySettingsView 实例（消除双默认值）。
 - [ ] `DOC-007`：style_sheets.json 硬编码色值改引用 DesignTokens（消除双事实源）。
 - [ ] `DOC-008`：修正 LocaleManager.h 头注释与实际搜索目录不符。
-- [ ] `ENG-003`：MainComponentJiveAccessors.cpp 纳入 target_sources 或迁移为 .h（与 QUAL-014 联动）。
-- [ ] `ENG-004`：ComboSelection.h 补入主 target_sources。
-- [ ] `ENG-005`：devpiano_tests 添加与主目标一致的 `-Wall -Wextra`（MSVC /W4）。
-- [ ] `ENG-006`：clang-tidy GLOB 加 CONFIGURE_DEPENDS，文件列表按 compile_commands 去重。
-- [ ] `ENG-007`：删除 .clang-tidy 死 CheckOptions（readability-magic-numbers.IgnoredValues）。
+- [x] `ENG-003`：MainComponentJiveAccessors.cpp 纳入 target_sources 或迁移为 .h（与 QUAL-014 联动）。（已落地：独立 TU）
+- [x] `ENG-004`：ComboSelection.h 补入主 target_sources。
+- [x] `ENG-005`：devpiano_tests 添加与主目标一致的 `-Wall -Wextra`（MSVC /W4）。（已落地：+`juce_recommended_warning_flags`，tests 既有 6 处警告修复，0 warning）
+- [x] `ENG-006`：clang-tidy GLOB 加 CONFIGURE_DEPENDS，文件列表按 compile_commands 去重。（已落地：50 唯一文件归并）
+- [x] `ENG-007`：删除 .clang-tidy 死 CheckOptions（readability-magic-numbers.IgnoredValues）。
 - [ ] **ADR 原文修正（不开问题）**：ADR-001 引用链接更新为 `docs/guides/wsl-windows-msvc-workflow.md` 与 `docs/guides/quickstart.md`；ADR-002 引用更新为 `docs/reference/architecture.md`。
 
 ---
@@ -479,12 +479,12 @@ devpiano 核心运行时健康：0 项 P0（无崩溃/数据损坏/静默泄漏�
 ### 6.4 下一步三件事
 
 1. ~~修复实时线程 P1 对：ERR-001（播放结束日志移消息线程）+ THR-001（masterGain 改 atomic）。~~ ✅ 已于 2026-08-16 Phase A 完成（复审 3）。
-2. 修复格式门禁回归（ENG-001：format 批量修复 + pre-commit/CI 挂钩），恢复三闸门全绿。
+2. ~~修复格式门禁回归（ENG-001：format 批量修复 + pre-commit/CI 挂钩），恢复三闸门全绿。~~ ✅ 已于 2026-08-16 Phase B 完成（复审 4）。
 3. 补 3 个 P1 纯逻辑测试（TEST-001/002/003）并修复 TEST-010/011 的 CI 静默丢覆盖。
 
 ### 6.5 ID 覆盖率校验
 
-第 8 章登记 82 项：66 项新发现（THR-001、QUAL-001~018、ERR-001~015、TEST-001~020（其中 TEST-011/012/017 已关闭）、DOC-001~008、ENG-001~007）+ 16 项已暂缓项（THR-002~004、SEC-001~004、PERF-001~004、ERR-016~017、QUAL-019~021）+ 5 项已关闭（TEST-011/012/017、THR-001、ERR-001，修复证据与复审说明见第 7 章）。第 5 章路线图覆盖全部 64 项未处理（P1×3 → 5.2、P2×18 → 5.3、P3×43 → 5.4），`comm` 校验零缺失、零多余；16 项已暂缓不排期（重开条件见第 8 章）。ADR 事实性描述修正项（2 条，非问题）在 5.4 单独排期。
+第 8 章登记 82 项：66 项新发现（THR-001、QUAL-001~018、ERR-001~015、TEST-001~020（其中 TEST-011/012/017 已关闭）、DOC-001~008、ENG-001~007）+ 16 项已暂缓项（THR-002~004、SEC-001~004、PERF-001~004、ERR-016~017、QUAL-019~021）+ 13 项已关闭（TEST-011/012/017、THR-001、ERR-001、ENG-001~007、QUAL-014，修复证据与复审说明见第 7 章）。第 5 章路线图覆盖全部 56 项未处理（P1×3 → 5.2、P2×16 → 5.3、P3×37 → 5.4），`comm` 校验零缺失、零多余；16 项已暂缓不排期（重开条件见第 8 章）。ADR 事实性描述修正项（2 条，非问题）在 5.4 单独排期。
 
 ---
 
@@ -515,6 +515,20 @@ devpiano 核心运行时健康：0 项 P0（无崩溃/数据损坏/静默泄漏�
 
 关联加固（同类实时线程竞争，同轮顺带修复）：`playbackSampleRateRatio`（普通 double，消息线程写 / 音频线程 `renderPlaybackBlock` 读）改 `std::atomic<double>` + relaxed load/store（`RecordingEngine.h:110`、`RecordingEngine.cpp` 4 处读写点）。默认套件 33 类 754 断言全绿，6.0s。
 
+### 复审 4（2026-08-16，Phase B 工程化门禁与构建修复）
+
+关闭 8 项：
+
+- `ENG-001` → `已关闭`：18 处格式违规（PluginOfflineRenderer 6 / WavFileExporter 5 / RenderPipelineTest 4 / AudioDeviceDiagnostics.h / RenderPipeline.h / PerformanceFileTest.cpp）经 clang-format 修复，`format --check` 归零；新增 `.githooks/pre-commit`（仅查暂存 source 文件）+ `git config core.hooksPath .githooks` 防再回归。验证：`format --check` 0 违规。
+- `ENG-002` → `已关闭`：clang-tidy 机械项批量修复——KeyboardMidiMapper braces×12、MidiChannelMapper braces×3、RenderPipeline modernize-use-ranges、StyleCatalog braces+loop-convert+qualified-auto（`--fix` 自动应用 + clang-format 复核），采样文件残留 0；`bugprone-easily-swappable-parameters`（MidiChannelMapper 构造 bool/int 引用相邻）因重排无法消除相邻性（int/bool 无论顺序都可隐式互换）、调用点仅 MainComponent 两处命名实参，采用 NOLINT 豁免并注释。验证：clang-tidy 采样文件 0 诊断、wsl-build 0 warning。
+- `ENG-003` + `QUAL-014` → `已关闭`：`MainComponentJiveAccessors.cpp` 独立 TU 化——补 `#include "MainComponent.h"` + Diagnostics/Log.h + AdsrCurveComponent.h，删除 `MainComponent.cpp` 的 `#include "MainComponentJiveAccessors.cpp"`，纳入 `target_sources`（compile_commands 确认入列）。验证：wsl-build / test / win-build 全通过。
+- `ENG-004` → `已关闭`：`ComboSelection.h` 补入主 target_sources（UI 段）。
+- `ENG-005` → `已关闭`：devpiano_tests 对齐主目标编译选项（Clang `-Wall -Wextra`、MSVC `/W4`）+ 链接 `juce_recommended_warning_flags`；暴露的 6 处既有警告全部修复（KeyMapTypesTest char 窄化、MidiFileImporterTest importFixture 缺 static、RecordingEngineTest unused m、StyleCatalogTest 2×unused lambda capture + unused 参数，helper 删 5 处传参）。项目代码 0 warning。验证：wsl-build 0 warning、test 全绿。
+- `ENG-006` → `已关闭`：clang-tidy GLOB 加 `CONFIGURE_DEPENDS`；输入文件按 compile_commands.json 的 `file` 字段提取去重（file(STRINGS) 正则，避免 string(JSON) 逐条解析性能问题），50 唯一文件 / 15 双目标重复记录归并；compile_commands 缺失时降级 GLOB 全量。
+- `ENG-007` → `已关闭`：删除 `.clang-tidy` 死 CheckOptions（readability-magic-numbers.IgnoredValues，该检查已在 Checks 排除）。
+
+关联修复（非审计问题项）：RecordingSessionController `handlePlayClicked` switch 补全 4 个未显式枚举 case（-Wswitch-enum 由 juce_recommended_warning_flags 开启，主目标既有警告）。验证：wsl-build 0 warning（项目代码）、test 33 类全绿、win-build 通过。
+
 ---
 
 ## 8. 附录：问题总表（登记表）
@@ -537,7 +551,6 @@ devpiano 核心运行时健康：0 项 P0（无崩溃/数据损坏/静默泄漏�
 | QUAL-011 | 质量 | WavExportTask 插件路径死预检查块 | P3 | 未处理 | 审计 | threadShouldExit() 预检查块无 return，赋值立即被后续渲染覆盖，与 :51-58 else 分支重复——死分支 | `source/Export/WavExportTask.cpp:45-47` | - | 取消路径语义混乱 | 删除或补 return |
 | QUAL-012 | 质量 | PerformancePreset keySignature/midiTranspose 死配置字段 | P3 | 未处理 | 审计 | 字段保存/加载 round-trip 但 applyPresetData 明确不应用（注释 intentional）——永无效果的配置，格式承载死数据 | `source/Layout/PerformancePreset.h:26-27`；`PerformancePreset.cpp:251-252,310-311`（读写）；`PresetFlowSupport.cpp:112-115`（不应用 + 注释） | - | 用户误以为预设可保存调号 | 从格式移除或补应用路径 |
 | QUAL-013 | 质量 | buildCurrentAppStateSnapshot 命名冲突 | P3 | 未处理 | 审计 | 成员函数与 core 自由函数同名，检索/阅读易混淆 | `source/MainComponentJiveAccessors.cpp:638`；`source/Settings/AppStateBuilder.cpp:55` | - | 误调用不同版本 | 成员版改名 |
-| QUAL-014 | 质量 | MainComponent.cpp 以 #include 并入 33.2KB .cpp 文件 | P3 | 未处理 | 审计 | 破坏标准 TU 模型；IDE 把被包含文件当独立 TU；若日后加入 target_sources 产生重复符号（ODR 链接错误）；clang-tidy 重复分析 | `source/MainComponent.cpp:1143`（`#include "MainComponentJiveAccessors.cpp"`），文件 33.2KB 不在任何 target_sources | 已文档化意图（访问器与主文件共享私有成员） | 文件被加入 target_sources 或 IDE 误重构 | 迁移独立 TU 或改 .h（联动 ENG-003） |
 | QUAL-015 | 质量 | sourceToString 冗余 default 分支 | P3 | 未处理 | 审计 | switch 已穷尽 3 个枚举值，default 返回与首 case 相同——未来新增枚举被静默映射，编译器 -Wswitch 无法兜底 | `source/Recording/PerformanceFile.cpp:17-19` | - | 新增 RecordingEventSource 值被静默错映射 | 删除 default 或显式 jassertfalse |
 | QUAL-016 | 质量 | test-only API 面（6 处生产零消费） | P3 | 未处理 | 审计 | hasDroppedEvents/getLastScanFailedFiles/setLowestVisibleNote/makeFullPianoLayout/NoteRange/isValid 系列仅测试使用，生产无人消费 | `source/Recording/RecordingEngine.h:47`、`source/Plugin/PluginHost.h:47`、`source/UI/CustomKeyboard.h:38`（零调用）、`source/Core/KeyMapTypes.h:172`、`source/Core/MidiTypes.h:73-84,32,55,79` | - | API 面膨胀/误导 | 逐个接入生产或删除 |
 | QUAL-017 | 质量 | CustomKeyboard.h 过期开发步骤注释 | P3 | 未处理 | 审计 | "Next: Group B (channel/velocity colour modes)" 描述 Phase 6 早期状态，功能早已全部完成 | `source/UI/CustomKeyboard.h:38-41`（类注释 "Steps completed: 1-4…Next: Group B"） | - | 误导新读者 | 更新为现状描述 |
@@ -581,13 +594,6 @@ devpiano 核心运行时健康：0 项 P0（无崩溃/数据损坏/静默泄漏�
 | DOC-006 | 文档 | SettingsModel 键盘显示默认值双处声明 | P3 | 未处理 | 审计 | KeyboardDisplaySettingsView 与扁平成员重复定义同一组默认（当前两处一致已核对），无编译期防护，存在漂移风险 | `source/Settings/SettingsModel.h:40-48` vs `:81-85` | - | 默认值漂移 | 扁平成员持有单一 View 实例 |
 | DOC-007 | 文档 | style_sheets.json 硬编码色值与 tokens 双事实源 | P3 | 未处理 | 审计 | Button background #22252C=control-bg、#preset-card #181A1F=card-bg 等硬编码与 design_tokens.json 重复；#window font-size 14 与 token font-size-default 13.0 冲突；改 token 不联动样式表 | `source/UI/jive/style_sheets.json:5,14,62-63,99,112` vs `source/UI/jive/design_tokens.json:5-12,27` | - | 主题修改需改两处 | 样式表引用 DesignTokens |
 | DOC-008 | 文档 | LocaleManager.h 注释与实际搜索目录不符 | P3 | 未处理 | 审计 | 注释称 "project root" 第三个搜索目录，实际为 CWD——从其它目录启动定位不到项目根 .loc | `source/Locale/LocaleManager.h:9` vs `:14-17` | - | 注释误导 | 修正注释或按注释语义实现 |
-| ENG-001 | 工程化 | format --check 门禁回归失败（18 处违规） | P2 | 未处理 | 审计 | 格式合规被 2026-08-16 三项修复提交（RenderPipeline 提取等）重新击穿：18 处违规 / 6 文件（RenderPipeline 相关 16 处 + AudioDeviceDiagnostics.h + PerformanceFileTest.cpp）；无 pre-commit/CI 强制点 | `./scripts/dev.sh format --check`（exit 123）；`source/Recording/RenderPipeline.h:45`、`PluginOfflineRenderer.cpp:18-22,70`、`WavFileExporter.cpp:93-97`、`source/tests/RenderPipelineTest.cpp:60,70,125,128`、`PerformanceFileTest.cpp:44`、`Audio/AudioDeviceDiagnostics.h:66` | - | 格式债务再累积 | format 批量修复 + pre-commit/CI 挂钩 |
-| ENG-002 | 工程化 | clang-tidy 首跑 ~33 条诊断含 1 条 bugprone | P2 | 未处理 | 审计 | 采样 4 文件：KeyboardMidiMapper braces×12、MidiChannelMapper bugprone-easily-swappable-parameters（bool/int 相邻参数可隐式互换）+braces×3、RenderPipeline modernize-use-ranges、StyleCatalog braces×13+loop-convert×4+qualified-auto×4；clang-tidy target 已启用但从未清零验证 | `clang-tidy-21 -p build-wsl-clang` 采样输出；`source/Midi/MidiChannelMapper.cpp:5`（bugprone）；CMakeLists.txt:307-326（target 配置） | - | 参数误传正确性风险 | 全量运行建基线 + 批量修机械项 |
-| ENG-003 | 工程化 | MainComponentJiveAccessors.cpp 不在 target_sources | P3 | 未处理 | 审计 | 33.2KB 文件靠 .cpp #include 编译（ENG-003 与 QUAL-014 同源）；加入 target_sources 将产生重复符号；IDE 不显示；clang-tidy 重复分析 | CMakeLists.txt:57-149（不含）vs `source/MainComponentJiveAccessors.cpp`；注入点 `source/MainComponent.cpp:1143` | - | 误加 target_sources 链接错误 | 迁移独立 TU 或改 .h |
-| ENG-004 | 工程化 | ComboSelection.h 不在 target_sources | P3 | 未处理 | 审计 | header-only 文件不在工程文件列表（与已关闭的同类遗漏一致）；能编译但 IDE 不可见 | CMakeLists.txt:57-149（不含）vs `source/UI/ComboSelection.h`（include 于 MainComponentJiveAccessors.cpp:9、StyleCatalogTest.cpp:4） | - | IDE 缺失文件 | 补入 UI 段 |
-| ENG-005 | 工程化 | devpiano_tests 无编译警告开关 | P3 | 未处理 | 审计 | 主 target 有 -Wall -Wextra + juce_recommended_warning_flags，tests target 两者皆无——测试代码告警被静默吞掉，与主目标"0 warning 门禁"不对称 | CMakeLists.txt:223-275（tests 定义区，无 target_compile_options）vs `:38-41,:171`（主 target） | - | 测试代码告警不可见 | 补 -Wall -Wextra（MSVC /W4） |
-| ENG-006 | 工程化 | clang-tidy GLOB 无 CONFIGURE_DEPENDS 且重复分析 | P3 | 未处理 | 审计 | file(GLOB_RECURSE) 新增源文件后不重新 configure 不更新清单；同一 TU 因 devpiano/devpiano_tests 两条 compile_commands 记录各分析一遍（实测 4 文件处理 8 次） | CMakeLists.txt:310-313；实测输出 `[1/4]..[8/4]` | - | 新文件漏检/耗时翻倍 | GLOB 加 CONFIGURE_DEPENDS + 去重 |
-| ENG-007 | 工程化 | .clang-tidy 死配置 | P3 | 未处理 | 审计 | readability-magic-numbers 已在 Checks 排除，CheckOptions 仍设置其 IgnoredValues——永不生效 | `.clang-tidy:14`（排除）vs `:23-24`（CheckOptions） | - | 配置误导 | 删除或重启用 |
 | THR-002 | 线程安全 | AudioEngine currentSampleRate/currentBlockSize 非原子 | P2 | 已暂缓 | - | prepareToPlay（消息线程）写、getNextAudioBlock（音频线程）读，无 atomic/mutex | `source/Audio/AudioEngine.h:64-65`、`AudioEngine.cpp` | 触发面收窄：getNextAudioBlock 主路径不读，仅 warmup 路径（consumeWarmupBlockIfNeeded→discardWarmupInputState）读；x86-64 对齐 double/int 实际原子 | warmup 路径扩展读取或编译优化暴露 UB | 改 std::atomic<double>/std::atomic<int> |
 | THR-003 | 线程安全 | MidiChannelMapper 引用成员悬垂风险 | P2 | 已暂缓 | - | 构造器存储 const ChannelMatrix&/const bool&/const int&，外部对象销毁后引用悬垂 | `source/Midi/MidiChannelMapper.h:22-25` | 引用对象为 MainComponent::appSettings 成员（MainComponent.h 声明先于 midiChannelMapper 构造），寿命安全 | appSettings 改为动态分配或生命周期缩短 | 文档化生命周期契约或改值拷贝 |
 | THR-004 | 线程安全 | PluginHost::getInstance 暴露裸指针 | P2 | 已暂缓 | - | 返回 AudioPluginInstance* 裸指针，音频线程经它调用 processBlock，生命周期依赖外部协调 | `source/Plugin/PluginHost.h:64` | 生命周期由 runPluginActionWithAudioDeviceRebuild 外部协调 + 头文件 thread-safety contract（THR-001 修复时建立） | 引入非设备重建 guard 的插件切换路径 | 返回 juce::AudioPluginInstance::Ptr 或文档化所有权契约 |

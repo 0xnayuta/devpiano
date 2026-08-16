@@ -7,7 +7,7 @@
 
 Phase 11（声明式 UI 架构迁移，JIVE + melatonin_inspector）已全部完成并归档至 [`../archive/phase11-declarative-ui-jive.md`](../archive/phase11-declarative-ui-jive.md)。v0.3.0 发布准备（版本号 / CHANGELOG / Release 构建 / 打包）为并行事项，见 [`../guides/release-workflow.md`](../guides/release-workflow.md)。
 
-代码质量审计（[`AUDIT-001`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)，2026-08-16）登记 85 项：64 项未处理（3 P1 / 18 P2 / 43 P3）+ 16 项已暂缓 + 5 项已关闭（TEST-011/012/017、THR-001、ERR-001，2026-08-16）。修复按最佳排期分为 **AUDIT Phase A–H** 推进，每 Phase 完成即更新本文件状态并同步报告第 8 章登记表；16 项已暂缓维持不动（重开条件见报告 §8）。当前推进：**AUDIT Phase A 已全部完成**。
+代码质量审计（[`AUDIT-001`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)，2026-08-16）登记 85 项：56 项未处理（3 P1 / 16 P2 / 37 P3）+ 16 项已暂缓 + 13 项已关闭（TEST-011/012/017、THR-001、ERR-001、ENG-001~007、QUAL-014，2026-08-16）。修复按最佳排期分为 **AUDIT Phase A–H** 推进，每 Phase 完成即更新本文件状态并同步报告第 8 章登记表；16 项已暂缓维持不动（重开条件见报告 §8）。当前推进：**AUDIT Phase A、B 已全部完成**。
 
 ---
 
@@ -21,19 +21,20 @@ Phase 11（声明式 UI 架构迁移，JIVE + melatonin_inspector）已全部完
 
 验证：`./scripts/dev.sh wsl-build`、`./scripts/dev.sh test`、`./scripts/dev.sh format --check`、`./scripts/dev.sh win-build`（全部通过，2026-08-16）。
 
-## AUDIT Phase B — 工程化门禁与构建修复 [未开始]
+## AUDIT Phase B — 工程化门禁与构建修复 [已完成]
 
 > 目标：恢复三闸门全绿（format 门禁被 18 处违规击穿），建立 clang-tidy 基线，补齐 target_sources 与构建配置。
+> 完成于 2026-08-16：format 归零 + pre-commit 钩子、clang-tidy 机械项修复（braces/loop-convert/qualified-auto 清零，bugprone 项 NOLINT 豁免）、MainComponentJiveAccessors 独立 TU、ComboSelection.h 入清单、tests 对齐警告选项（0 warning）、GLOB 去重。验证：format --check / wsl-build / test / win-build 全通过，详见 AUDIT-001 §7 复审 4。
 
-- [ ] `ENG-001`：`./scripts/dev.sh format` 批量修复 18 处违规（RenderPipeline 相关 16 处 + AudioDeviceDiagnostics.h + PerformanceFileTest.cpp），复核 `format --check` 归零；将 format 检查接入 pre-commit/CI 防再回归。
-- [ ] `ENG-002`：全量运行 `cmake --build build-wsl-clang --target clang-tidy` 建立诊断基线；先批量修机械项（braces / loop-convert / qualified-auto），再处理 `bugprone-easily-swappable-parameters`（MidiChannelMapper 构造参数重排或豁免）。
-- [ ] `ENG-003` + `QUAL-014`：`MainComponentJiveAccessors.cpp` 迁移为独立 TU（纳入 target_sources）或改 `.h`，消除 `.cpp` 间 `#include`（MainComponent.cpp:1143，33.2KB）。
-- [ ] `ENG-004`：`ComboSelection.h` 补入主 target_sources（UI 段）。
-- [ ] `ENG-005`：`devpiano_tests` 添加与主目标一致的 `-Wall -Wextra`（MSVC /W4）。
-- [ ] `ENG-006`：clang-tidy `file(GLOB_RECURSE)` 加 `CONFIGURE_DEPENDS`，文件列表按 compile_commands 去重。
-- [ ] `ENG-007`：删除 `.clang-tidy` 死 CheckOptions（readability-magic-numbers.IgnoredValues）。
+- [x] `ENG-001`：`./scripts/dev.sh format` 批量修复 18 处违规（RenderPipeline 相关 16 处 + AudioDeviceDiagnostics.h + PerformanceFileTest.cpp），复核 `format --check` 归零；将 format 检查接入 pre-commit/CI 防再回归。（已落地：`.githooks/pre-commit` + `core.hooksPath`）
+- [x] `ENG-002`：全量运行 `cmake --build build-wsl-clang --target clang-tidy` 建立诊断基线；先批量修机械项（braces / loop-convert / qualified-auto），再处理 `bugprone-easily-swappable-parameters`（MidiChannelMapper 构造参数重排或豁免）。（已落地：KeyboardMidiMapper 12、MidiChannelMapper 3、RenderPipeline 1、StyleCatalog 19+ 机械项清零；MidiChannelMapper 构造 NOLINT 豁免）
+- [x] `ENG-003` + `QUAL-014`：`MainComponentJiveAccessors.cpp` 迁移为独立 TU（纳入 target_sources）或改 `.h`，消除 `.cpp` 间 `#include`（MainComponent.cpp:1143，33.2KB）。（已落地：独立 TU + 补 MainComponent.h/Log.h/AdsrCurveComponent.h include）
+- [x] `ENG-004`：`ComboSelection.h` 补入主 target_sources（UI 段）。
+- [x] `ENG-005`：`devpiano_tests` 添加与主目标一致的 `-Wall -Wextra`（MSVC /W4）。（已落地：+ `juce_recommended_warning_flags`，tests 暴露的 6 处既有警告全部修复，项目代码 0 warning）
+- [x] `ENG-006`：clang-tidy `file(GLOB_RECURSE)` 加 `CONFIGURE_DEPENDS`，文件列表按 compile_commands 去重。（已落地：50 唯一文件 / 15 重复记录归并）
+- [x] `ENG-007`：删除 `.clang-tidy` 死 CheckOptions（readability-magic-numbers.IgnoredValues）。
 
-验证：`./scripts/dev.sh format --check`（归零）、`./scripts/dev.sh wsl-build`（0 warning）、clang-tidy 目标、`./scripts/dev.sh win-build`。
+验证：`./scripts/dev.sh format --check`（归零）、`./scripts/dev.sh wsl-build`（0 warning）、clang-tidy 目标、`./scripts/dev.sh win-build`（全部通过，2026-08-16）。
 
 ## AUDIT Phase C — 核心模块测试补强 [未开始]
 
@@ -158,6 +159,6 @@ Phase 11（声明式 UI 架构迁移，JIVE + melatonin_inspector）已全部完
 ## 相关文档
 
 - 项目路线图：[`roadmap.md`](roadmap.md)
-- 审计报告：[`../audit/AUDIT-001-code-quality-audit-2026-08-16.md`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)（§8 问题总表 64 项未处理 + 16 项已暂缓追踪；§5 修复路线图为排期来源）
+- 审计报告：[`../audit/AUDIT-001-code-quality-audit-2026-08-16.md`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)（§8 问题总表 56 项未处理 + 16 项已暂缓追踪；§5 修复路线图为排期来源）
 - 架构概览：[`../reference/architecture.md`](../reference/architecture.md)
 - Phase 11 归档：[`../archive/phase11-declarative-ui-jive.md`](../archive/phase11-declarative-ui-jive.md)
