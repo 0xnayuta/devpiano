@@ -1,4 +1,7 @@
 #include "Layout/PerformancePreset.h"
+
+#include "Diagnostics/Log.h"
+
 #include <algorithm>
 
 namespace {
@@ -30,9 +33,10 @@ constexpr auto kPresetFileExtension = ".devpiano.preset";
     if (v.isObject()) {
         auto* obj = v.getDynamicObject();
         if (obj != nullptr) {
-            auto typeStr = obj->getProperty("type").toString();
-            action.type
-                = (typeStr == "note") ? devpiano::core::KeyActionType::note : devpiano::core::KeyActionType::note;
+            const auto typeStr = obj->getProperty("type").toString();
+            if (typeStr != "note")
+                DP_LOG_WARN("[Preset] unknown KeyAction type '" + typeStr + "', falling back to \"note\"");
+            action.type = devpiano::core::KeyActionType::note;
             auto triggerStr = obj->getProperty("trigger").toString();
             action.trigger
                 = (triggerStr == "keyDown") ? devpiano::core::KeyTrigger::keyDown : devpiano::core::KeyTrigger::keyUp;
