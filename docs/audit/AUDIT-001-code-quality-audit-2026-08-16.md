@@ -529,6 +529,21 @@ devpiano 核心运行时健康：0 项 P0（无崩溃/数据损坏/静默泄漏�
 
 关联修复（非审计问题项）：RecordingSessionController `handlePlayClicked` switch 补全 4 个未显式枚举 case（-Wswitch-enum 由 juce_recommended_warning_flags 开启，主目标既有警告）。验证：wsl-build 0 warning（项目代码）、test 33 类全绿、win-build 通过。
 
+### 复审 5（2026-08-16，clang-tidy 全量归零）
+
+`ENG-002` 收官：**全量 44 文件 clang-tidy 0 诊断**。关键路径与决策：
+
+- **放弃 clang-tidy `--fix`**：实测 `--fix` 在含中文注释/无参数名声明的代码上产生 Replacement 锚点错位，破坏代码（PerformanceFile/RecordingEngine 标识符截断、4 个 .h 连带改写）。根因是特定 checker 的 `Lexer::getLocForEndOfToken` 边界缺陷 + 多 Fix 碰撞，非简单 UTF-8 线性漂移。工程结论：clang-tidy 只做检查，机械修复交给 clang-format（`InsertBraces` 字符级安全）与人工。
+- **`.clang-format` 加 `InsertBraces: true`**：一次全量 format 清零 readability-braces-around-statements 614 条（UTF-8 安全、语义不变）。
+- **`.clang-tidy` 调整**：
+  - 禁用 `-readability-named-parameter`、`-readability-inconsistent-declaration-parameter-name`（JUCE 虚函数 override 参数名由基类契约决定；后者 --fix 会改写头文件）
+  - 禁用 4 类存量风格噪音：`-modernize-use-designated-initializers`、`-readability-math-missing-parentheses`、`-readability-redundant-inline-specifier`、`-bugprone-easily-swappable-parameters`（一次性清理成本高于价值，保留会淹没 bugprone/analyzer 真实信号）
+  - `HeaderFilterRegex: '^.*/source/.*'` 限项目头诊断
+  - 修复配置 bug：Checks 折叠标量内 `#` 注释会被拼进检查字符串并吞掉后续禁用项（实测 designated-init 失效）
+- **enum-size 68 条**（3 头文件 5 个唯一枚举的跨 include 重复报告）：RecordingEventSource/RecordingState/KeyActionType/KeyTrigger/ExportFileType 加 `: std::uint8_t` 底类型（前向声明同步）。
+- **正确性/性能项人工修复**：analyzer DeadStores（删 idle 重复赋值）×4、StackAddressEscape（NOLINT + C++17 guaranteed elision 论证）、NullDereference（if 守卫）；velocity 窄化（`uint8` 与 `0.0f` 比较 → `== 0`/显式 cast）；widening（容量常量直接 1800）；misplaced-widening-cast（先 cast 再乘）；branch-clone（删冗余 default）；smartptr-reset 歧义（智能指针 `= nullptr`、实例方法 NOLINT）；POD 参数 pass-by-value 与 move-const-arg 互斥 → const& + NOLINT。
+- **修复后复验**：全量 44 文件 0 诊断；wsl-build 0 warning、test 33 类全绿、format 归零、win-build 通过。
+
 ---
 
 ## 8. 附录：问题总表（登记表）

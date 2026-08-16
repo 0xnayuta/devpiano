@@ -16,7 +16,7 @@ namespace {
 }
 } // namespace
 
-juce::File makeDefaultRecordingExportFile(ExportFileType type, juce::File directory, juce::Time now) {
+juce::File makeDefaultRecordingExportFile(ExportFileType type, const juce::File& directory, juce::Time now) {
     return directory.getChildFile("recording_" + now.toISO8601(false).replaceCharacters(":", "-") + getExtension(type));
 }
 
@@ -27,8 +27,12 @@ bool canExportTake(const devpiano::recording::RecordingTake& take) {
 WavExportOptions buildWavExportOptions(const devpiano::recording::RecordingTake& take,
                                        const SettingsModel::PerformanceSettingsView& performance,
                                        double runtimeSampleRate, int runtimeBlockSize) {
-    const auto exportSampleRate
-        = runtimeSampleRate > 0.0 ? runtimeSampleRate : (take.sampleRate > 0.0 ? take.sampleRate : 44100.0);
+    double exportSampleRate = 44100.0;
+    if (runtimeSampleRate > 0.0) {
+        exportSampleRate = runtimeSampleRate;
+    } else if (take.sampleRate > 0.0) {
+        exportSampleRate = take.sampleRate;
+    }
 
     WavExportOptions options;
     options.sampleRate = exportSampleRate;

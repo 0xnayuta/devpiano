@@ -73,6 +73,6 @@ createOfflinePluginInstance(juce::AudioPluginFormatManager& formatManager, const
 // Return false from the callback to cancel the export.
 bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take, const juce::File& destinationFile,
                                  const WavExportOptions& options, juce::AudioPluginInstance& offlinePlugin,
-                                 std::function<bool(double)> progressCallback = nullptr);
+                                 const std::function<bool(double)>& progressCallback = nullptr);
 
 } // namespace devpiano::exporting

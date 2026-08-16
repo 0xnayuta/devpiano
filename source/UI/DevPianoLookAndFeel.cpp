@@ -137,12 +137,13 @@ void DevPianoLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button& 
 
     // Border: latched gets a bright accent, hover gets the primary tint
     juce::Colour borderCol;
-    if (button.getToggleState())
+    if (button.getToggleState()) {
         borderCol = bg.brighter(0.55f);
-    else if (highlighted)
+    } else if (highlighted) {
         borderCol = tokens.primary().withAlpha(0.6f);
-    else
+    } else {
         borderCol = bg.brighter(0.18f);
+    }
     g.setColour(borderCol);
     g.drawRoundedRectangle(bounds, corner, button.getToggleState() ? 1.6f : 1.0f);
 
@@ -195,10 +196,13 @@ void DevPianoLookAndFeel::drawComboBox(juce::Graphics& g, int width, int height,
     g.fillRoundedRectangle(bounds, corner);
 
     // Outline
-    const auto outlineColour = box.isEnabled()
-        ? (box.hasKeyboardFocus(true) ? box.findColour(juce::ComboBox::focusedOutlineColourId)
-                                      : box.findColour(juce::ComboBox::outlineColourId))
-        : box.findColour(juce::ComboBox::outlineColourId).withAlpha(0.3f);
+    juce::Colour outlineColour;
+    if (box.isEnabled()) {
+        outlineColour = box.hasKeyboardFocus(true) ? box.findColour(juce::ComboBox::focusedOutlineColourId)
+                                                   : box.findColour(juce::ComboBox::outlineColourId);
+    } else {
+        outlineColour = box.findColour(juce::ComboBox::outlineColourId).withAlpha(0.3f);
+    }
     g.setColour(outlineColour);
     g.drawRoundedRectangle(bounds, corner, 1.0f);
 
@@ -243,8 +247,12 @@ void DevPianoLookAndFeel::drawPopupMenuItem(juce::Graphics& g, const juce::Recta
                    tick.getTransformToScaleToFit(area.reduced(4, 0).removeFromLeft(area.getHeight()).toFloat(), true));
     }
 
-    const auto textColour
-        = (highlighted && active) ? tokens.textPrimary() : (active ? tokens.textPrimary() : tokens.textDisabled());
+    juce::Colour textColour;
+    if (highlighted && active) {
+        textColour = tokens.textPrimary();
+    } else {
+        textColour = active ? tokens.textPrimary() : tokens.textDisabled();
+    }
     g.setColour(textColour);
     g.setFont(juce::FontOptions(13.0f));
 
@@ -267,8 +275,8 @@ void DevPianoLookAndFeel::drawPopupMenuItem(juce::Graphics& g, const juce::Recta
 
     if (submenu) {
         juce::Path arrow;
-        const float cx = (float)area.getRight() - 8.0f;
-        const float cy = (float)area.getCentreY();
+        const auto cx = static_cast<float>(area.getRight()) - 8.0f;
+        const auto cy = static_cast<float>(area.getCentreY());
         arrow.addTriangle(cx - 3.0f, cy - 4.0f, cx - 3.0f, cy + 4.0f, cx + 1.0f, cy);
         g.setColour(textColour);
         g.fillPath(arrow);
@@ -280,12 +288,14 @@ void DevPianoLookAndFeel::drawPopupMenuItem(juce::Graphics& g, const juce::Recta
 // ============================================================================
 void DevPianoLookAndFeel::drawLinearSlider(juce::Graphics& g, int x, int y, int w, int h, float pos, float minPos,
                                            float maxPos, juce::Slider::SliderStyle style, juce::Slider& slider) {
-    if (!slider.isHorizontal())
-        return LookAndFeel_V4::drawLinearSlider(g, x, y, w, h, pos, minPos, maxPos, style, slider);
+    if (!slider.isHorizontal()) {
+        LookAndFeel_V4::drawLinearSlider(g, x, y, w, h, pos, minPos, maxPos, style, slider);
+        return;
+    }
 
     constexpr float trackThickness = 4.0f;
-    const float trackY = (float)y + (float)h * 0.42f - trackThickness * 0.5f;
-    const float trackW = (float)w;
+    const auto trackY = static_cast<float>(y) + static_cast<float>(h) * 0.42f - trackThickness * 0.5f;
+    const auto trackW = static_cast<float>(w);
 
     // Background recessed groove
     g.setColour(juce::Colour(0xFF14161A));
@@ -332,8 +342,8 @@ void DevPianoLookAndFeel::drawLinearSlider(juce::Graphics& g, int x, int y, int 
         const auto span = static_cast<float>(slider.getMaximum() - slider.getMinimum());
         for (int i = 0; i < labels.size(); ++i) {
             const auto& label = labels[i];
-            const auto posX = (float)x
-                + (static_cast<float>(label.getFloatValue()) - static_cast<float>(slider.getMinimum())) / span * trackW;
+            const auto posX
+                = (float)x + (label.getFloatValue() - static_cast<float>(slider.getMinimum())) / span * trackW;
             if (i == 0) {
                 // First label sits at the track start; draw left-aligned so it
                 // stays fully inside the track instead of clamping its centre
@@ -491,7 +501,7 @@ void DevPianoLookAndFeel::drawLabel(juce::Graphics& g, juce::Label& label) {
 //  getLabelFont
 // ============================================================================
 juce::Font DevPianoLookAndFeel::getLabelFont(juce::Label& /*label*/) {
-    return juce::Font(juce::FontOptions(14.0f));
+    return { juce::FontOptions(14.0f) };
 }
 // ============================================================================
 //  drawTooltip

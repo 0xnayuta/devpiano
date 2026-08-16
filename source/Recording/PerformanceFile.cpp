@@ -20,10 +20,12 @@ juce::String sourceToString(RecordingEventSource source) {
 }
 
 RecordingEventSource stringToSource(const juce::String& str) {
-    if (str == performance_file::sourceRealtimeMidiBuffer)
+    if (str == performance_file::sourceRealtimeMidiBuffer) {
         return RecordingEventSource::realtimeMidiBuffer;
-    if (str == performance_file::sourcePlayback)
+    }
+    if (str == performance_file::sourcePlayback) {
         return RecordingEventSource::playback;
+    }
     return RecordingEventSource::computerKeyboard;
 }
 
@@ -31,15 +33,18 @@ RecordingEventSource stringToSource(const juce::String& str) {
 
 juce::var midiMessageToVar(const juce::MidiMessage& msg) {
     juce::MemoryBlock mb(msg.getRawData(), static_cast<size_t>(msg.getRawDataSize()));
+    // NOLINTNEXTLINE(modernize-return-braced-init-list) - juce::var 构造为 explicit，braced init 不可用
     return juce::var(mb.toBase64Encoding());
 }
 
 std::optional<juce::MidiMessage> varToMidiMessage(const juce::var& v) {
     juce::MemoryBlock mb;
-    if (!mb.fromBase64Encoding(v.toString()))
+    if (!mb.fromBase64Encoding(v.toString())) {
         return std::nullopt;
-    if (mb.getSize() == 0)
+    }
+    if (mb.getSize() == 0) {
         return std::nullopt;
+    }
     return juce::MidiMessage(mb.getData(), static_cast<int>(mb.getSize()), 0);
 }
 
@@ -61,12 +66,14 @@ juce::var eventToVar(const PerformanceEvent& event) {
 }
 
 std::optional<PerformanceEvent> varToEvent(const juce::var& v) {
-    if (!v.isObject())
+    if (!v.isObject()) {
         return std::nullopt;
+    }
 
     auto* obj = v.getDynamicObject();
-    if (obj == nullptr)
+    if (obj == nullptr) {
         return std::nullopt;
+    }
 
     PerformanceEvent event;
     event.timestampSamples
@@ -76,8 +83,9 @@ std::optional<PerformanceEvent> varToEvent(const juce::var& v) {
     if (typeStr == performance_file::eventTypePresetChange) {
         event.type = PerformanceEventType::presetChange;
         auto presetIdVar = obj->getProperty(performance_file::keyPresetId);
-        if (presetIdVar.isVoid())
+        if (presetIdVar.isVoid()) {
             return std::nullopt;
+        }
         event.presetId = static_cast<uint8_t>(static_cast<int>(presetIdVar));
         return event;
     }
@@ -87,8 +95,9 @@ std::optional<PerformanceEvent> varToEvent(const juce::var& v) {
     event.source = stringToSource(obj->getProperty(performance_file::keySource).toString());
 
     auto msg = varToMidiMessage(obj->getProperty(performance_file::keyMidiData));
-    if (!msg.has_value())
+    if (!msg.has_value()) {
         return std::nullopt;
+    }
 
     event.message = *msg;
     return event;
@@ -133,15 +142,17 @@ juce::String serialiseTakeToJson(const RecordingTake& take, const PerformanceFil
 
     // Metadata: fill createdAt if empty
     auto meta = metadata;
-    if (meta.createdAt.isEmpty())
+    if (meta.createdAt.isEmpty()) {
         meta.createdAt = currentIso8601();
+    }
     root->setProperty(performance_file::keyMetadata, metadataToVar(meta));
 
     // Events
     juce::Array<juce::var> eventsArray;
     eventsArray.ensureStorageAllocated(static_cast<int>(take.events.size()));
-    for (const auto& event : take.events)
+    for (const auto& event : take.events) {
         eventsArray.add(eventToVar(event));
+    }
     root->setProperty(performance_file::keyEvents, juce::var(eventsArray));
 
     return juce::JSON::toString(root.get(), true);
@@ -156,22 +167,26 @@ std::optional<RecordingTake> deserialiseTakeFromJson(const juce::String& json) {
     } catch (...) {
         return std::nullopt;
     }
-    if (!parsed.isObject())
+    if (!parsed.isObject()) {
         return std::nullopt;
+    }
 
     auto* root = parsed.getDynamicObject();
-    if (root == nullptr)
+    if (root == nullptr) {
         return std::nullopt;
+    }
 
     // Check format identifier
     auto format = root->getProperty(performance_file::keyFormat).toString();
-    if (format != performance_file::formatIdentifier)
+    if (format != performance_file::formatIdentifier) {
         return std::nullopt;
+    }
 
     // Check version
     auto version = static_cast<int>(root->getProperty(performance_file::keyVersion));
-    if (version < 1 || version > performance_file::currentVersion)
+    if (version < 1 || version > performance_file::currentVersion) {
         return std::nullopt;
+    }
 
     // Read take fields
     RecordingTake take;
@@ -179,23 +194,27 @@ std::optional<RecordingTake> deserialiseTakeFromJson(const juce::String& json) {
     take.lengthSamples
         = static_cast<std::int64_t>(static_cast<juce::int64>(root->getProperty(performance_file::keyLengthSamples)));
 
-    if (take.sampleRate <= 0.0)
+    if (take.sampleRate <= 0.0) {
         return std::nullopt;
+    }
 
     // Read events
     auto eventsVar = root->getProperty(performance_file::keyEvents);
-    if (!eventsVar.isArray())
+    if (!eventsVar.isArray()) {
         return std::nullopt;
+    }
 
     auto* eventsArray = eventsVar.getArray();
-    if (eventsArray == nullptr)
+    if (eventsArray == nullptr) {
         return std::nullopt;
+    }
 
     take.events.reserve(static_cast<size_t>(eventsArray->size()));
     for (const auto& elem : *eventsArray) {
         auto event = varToEvent(elem);
-        if (!event.has_value())
+        if (!event.has_value()) {
             return std::nullopt;
+        }
         take.events.push_back(*event);
     }
 
@@ -206,13 +225,15 @@ std::optional<RecordingTake> deserialiseTakeFromJson(const juce::String& json) {
 
 bool savePerformanceFile(const RecordingTake& take, const juce::File& destinationFile,
                          const PerformanceFileMetadata& metadata) {
-    if (take.isEmpty() || take.sampleRate <= 0.0)
+    if (take.isEmpty() || take.sampleRate <= 0.0) {
         return false;
+    }
 
     auto json = serialiseTakeToJson(take, metadata);
 
-    if (!destinationFile.getParentDirectory().createDirectory())
+    if (!destinationFile.getParentDirectory().createDirectory()) {
         return false;
+    }
 
     // 原子写入：先写同目录临时文件，成功后 rename 覆盖目标。
     // replaceWithText 会先截断目标文件——写入中途崩溃将留下半截 JSON 且无备份；
@@ -223,31 +244,36 @@ bool savePerformanceFile(const RecordingTake& take, const juce::File& destinatio
         return false;
     }
 
-    if (tempFile.overwriteTargetFileWithTemporary())
+    if (tempFile.overwriteTargetFileWithTemporary()) {
         return true;
+    }
 
     tempFile.deleteTemporaryFile();
     return false;
 }
 
 std::optional<RecordingTake> loadPerformanceFile(const juce::File& sourceFile) {
-    if (!sourceFile.existsAsFile())
+    if (!sourceFile.existsAsFile()) {
         return std::nullopt;
+    }
 
     auto json = sourceFile.loadFileAsString();
-    if (json.isEmpty())
+    if (json.isEmpty()) {
         return std::nullopt;
+    }
 
     return deserialiseTakeFromJson(json);
 }
 
 std::optional<PerformanceFileMetadata> loadPerformanceFileMetadata(const juce::File& sourceFile) {
-    if (!sourceFile.existsAsFile())
+    if (!sourceFile.existsAsFile()) {
         return std::nullopt;
+    }
 
     auto json = sourceFile.loadFileAsString();
-    if (json.isEmpty())
+    if (json.isEmpty()) {
         return std::nullopt;
+    }
 
     juce::var parsed;
     try {
@@ -255,21 +281,25 @@ std::optional<PerformanceFileMetadata> loadPerformanceFileMetadata(const juce::F
     } catch (...) {
         return std::nullopt;
     }
-    if (!parsed.isObject())
+    if (!parsed.isObject()) {
         return std::nullopt;
+    }
 
     auto* root = parsed.getDynamicObject();
-    if (root == nullptr)
+    if (root == nullptr) {
         return std::nullopt;
+    }
 
     // Check format identifier (same guard as deserialiseTakeFromJson)
     auto format = root->getProperty(performance_file::keyFormat).toString();
-    if (format != performance_file::formatIdentifier)
+    if (format != performance_file::formatIdentifier) {
         return std::nullopt;
+    }
 
     auto metadataVar = root->getProperty(performance_file::keyMetadata);
-    if (metadataVar.isVoid())
+    if (metadataVar.isVoid()) {
         return PerformanceFileMetadata {}; // legacy files: return empty metadata
+    }
 
     return metadataFromVar(metadataVar);
 }

@@ -26,8 +26,9 @@ public:
         juce::Viewport::resized();
 
         const auto visibleHeight = getMaximumVisibleHeight();
-        if (visibleHeight > 0 && keyboard->getHeight() != visibleHeight)
+        if (visibleHeight > 0 && keyboard->getHeight() != visibleHeight) {
             keyboard->setSize(keyboard->getWidth(), visibleHeight);
+        }
     }
 
     [[nodiscard]] CustomKeyboard& getCustomKeyboard() noexcept {

@@ -36,19 +36,22 @@ struct AudioDeviceDiagnostics {
 };
 
 [[nodiscard]] inline juce::String formatBufferSizes(const juce::Array<int>& sizes) {
-    if (sizes.isEmpty())
+    if (sizes.isEmpty()) {
         return "(none reported)";
+    }
 
     juce::StringArray parts;
-    for (const auto size : sizes)
+    for (const auto size : sizes) {
         parts.add(juce::String(size));
+    }
 
     return parts.joinIntoString(", ");
 }
 
 [[nodiscard]] inline SavedAudioDeviceState parseSavedAudioDeviceState(const juce::XmlElement* state) {
-    if (state == nullptr)
+    if (state == nullptr) {
         return {};
+    }
 
     return { .hasSavedDeviceStateXml = true,
              .deviceType = state->getStringAttribute("deviceType"),
@@ -73,10 +76,12 @@ createDeviceStateXml(juce::AudioIODevice& device, const juce::AudioDeviceManager
     xml->setAttribute("audioDeviceBufferSize", device.getCurrentBufferSizeSamples());
 
     // 与 JUCE 一致：仅非默认通道配置时写入，保证恢复端 useDefault*Channels 语义。
-    if (!setup.useDefaultInputChannels)
+    if (!setup.useDefaultInputChannels) {
         xml->setAttribute("audioDeviceInChans", setup.inputChannels.toString(2));
-    if (!setup.useDefaultOutputChannels)
+    }
+    if (!setup.useDefaultOutputChannels) {
         xml->setAttribute("audioDeviceOutChans", setup.outputChannels.toString(2));
+    }
 
     return xml;
 }
@@ -101,8 +106,9 @@ createDeviceStateXml(juce::AudioIODevice& device, const juce::AudioDeviceManager
         live.defaultBufferSize = device->getDefaultBufferSize();
         live.availableBufferSizes = device->getAvailableBufferSizes();
 
-        if (live.outputDeviceName.isEmpty())
+        if (live.outputDeviceName.isEmpty()) {
             live.outputDeviceName = device->getName();
+        }
     } else {
         live.deviceName = live.outputDeviceName.isNotEmpty() ? live.outputDeviceName : live.inputDeviceName;
     }
@@ -129,26 +135,31 @@ createDeviceStateXml(juce::AudioIODevice& device, const juce::AudioDeviceManager
         mismatchReasons.add("no live device");
     } else {
         if (saved.deviceType.isNotEmpty() && live.backendName.isNotEmpty()
-            && !saved.deviceType.equalsIgnoreCase(live.backendName))
+            && !saved.deviceType.equalsIgnoreCase(live.backendName)) {
             mismatchReasons.add("backend");
+        }
 
         const auto liveDeviceName = live.outputDeviceName.isNotEmpty() ? live.outputDeviceName : live.deviceName;
         if (saved.outputDeviceName.isNotEmpty() && liveDeviceName.isNotEmpty()
-            && !saved.outputDeviceName.equalsIgnoreCase(liveDeviceName))
+            && !saved.outputDeviceName.equalsIgnoreCase(liveDeviceName)) {
             mismatchReasons.add("output device");
+        }
 
-        if (saved.sampleRate > 0.0 && live.sampleRate > 0.0 && !sampleRatesMatch(saved.sampleRate, live.sampleRate))
+        if (saved.sampleRate > 0.0 && live.sampleRate > 0.0 && !sampleRatesMatch(saved.sampleRate, live.sampleRate)) {
             mismatchReasons.add("sample rate");
+        }
 
-        if (saved.bufferSize > 0 && live.bufferSize > 0 && saved.bufferSize != live.bufferSize)
+        if (saved.bufferSize > 0 && live.bufferSize > 0 && saved.bufferSize != live.bufferSize) {
             mismatchReasons.add("buffer size");
+        }
 
-        if (mismatchReasons.isEmpty())
+        if (mismatchReasons.isEmpty()) {
             diagnostics.restoreOutcome = "exact";
-        else if (mismatchReasons.contains("backend") || mismatchReasons.contains("output device"))
+        } else if (mismatchReasons.contains("backend") || mismatchReasons.contains("output device")) {
             diagnostics.restoreOutcome = "fallback suspected";
-        else
+        } else {
             diagnostics.restoreOutcome = "adjusted";
+        }
     }
 
     diagnostics.mismatchReasons = mismatchReasons.joinIntoString(", ");
@@ -157,17 +168,20 @@ createDeviceStateXml(juce::AudioIODevice& device, const juce::AudioDeviceManager
     compact << (live.backendName.isNotEmpty() ? live.backendName : "(no backend)");
     compact << " / " << (live.deviceName.isNotEmpty() ? live.deviceName : "(no device)");
 
-    if (live.sampleRate > 0.0)
+    if (live.sampleRate > 0.0) {
         compact << " @ " << juce::String(live.sampleRate, 0) << " Hz";
+    }
 
-    if (live.bufferSize > 0)
+    if (live.bufferSize > 0) {
         compact << " / " << juce::String(live.bufferSize) << " smp";
+    }
 
     compact << " | Buffers: " << formatBufferSizes(live.availableBufferSizes);
     compact << " | Restore: " << diagnostics.restoreOutcome;
 
-    if (diagnostics.mismatchReasons.isNotEmpty())
+    if (diagnostics.mismatchReasons.isNotEmpty()) {
         compact << " (" << diagnostics.mismatchReasons << ")";
+    }
 
     diagnostics.compactSummary = compact;
 
@@ -191,8 +205,9 @@ createDeviceStateXml(juce::AudioIODevice& device, const juce::AudioDeviceManager
     detailed << "Available buffer sizes: " << formatBufferSizes(live.availableBufferSizes) << "\n";
     detailed << "Restore outcome: " << diagnostics.restoreOutcome;
 
-    if (diagnostics.mismatchReasons.isNotEmpty())
+    if (diagnostics.mismatchReasons.isNotEmpty()) {
         detailed << "\nMismatch reasons: " << diagnostics.mismatchReasons;
+    }
 
     diagnostics.detailedSummary = detailed;
     return diagnostics;

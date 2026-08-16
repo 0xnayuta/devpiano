@@ -24,8 +24,9 @@ void AdsrCurveComponent::setParameters(float a, float d, float s, float r) {
 
 void AdsrCurveComponent::drawAdsrCurve(juce::Graphics& g, float a, float d, float s, float r) {
     auto bounds = getLocalBounds().toFloat();
-    if (bounds.isEmpty() || bounds.getWidth() < 20.0f || bounds.getHeight() < 20.0f)
+    if (bounds.isEmpty() || bounds.getWidth() < 20.0f || bounds.getHeight() < 20.0f) {
         return;
+    }
 
     // ── 1. Background box with subtle depth ──
     const auto cardBorder = juce::Colour(0xFF282D36);
@@ -93,8 +94,9 @@ void AdsrCurveComponent::drawAdsrCurve(juce::Graphics& g, float a, float d, floa
         // them centred still overflows into the neighbouring phases (e.g. a
         // 5 px attack segment under a 30 px "Attack" label).
         const auto phaseWidth = endX - startX;
-        if (phaseWidth < juce::GlyphArrangement::getStringWidth(labelFont, text) + 4.0f)
+        if (phaseWidth < juce::GlyphArrangement::getStringWidth(labelFont, text) + 4.0f) {
             return;
+        }
         const auto labelBounds = juce::Rectangle<float>(startX, baseY + 2.0f, phaseWidth, bottomLabelHeight);
         g.drawText(text, labelBounds, juce::Justification::centred, false);
     };

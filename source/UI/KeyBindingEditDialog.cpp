@@ -19,15 +19,17 @@ public:
         okButton.onClick = [this] {
             result = selector->getCurrentColour();
             accepted = true;
-            if (auto* dw = findParentComponentOfClass<juce::DialogWindow>())
+            if (auto* dw = findParentComponentOfClass<juce::DialogWindow>()) {
                 dw->exitModalState(0);
+            }
         };
         addAndMakeVisible(okButton);
 
         cancelButton.onClick = [this] {
             accepted = false;
-            if (auto* dw = findParentComponentOfClass<juce::DialogWindow>())
+            if (auto* dw = findParentComponentOfClass<juce::DialogWindow>()) {
                 dw->exitModalState(0);
+            }
         };
         addAndMakeVisible(cancelButton);
 
@@ -61,8 +63,8 @@ private:
 // ============================================================================
 class BindingEditContent final : public juce::Component {
 public:
-    BindingEditContent(int note, const devpiano::core::KeyBinding* existing, juce::String noteName,
-                       juce::String keyLabel, juce::String customLabel, juce::Colour customColour,
+    BindingEditContent(int note, const devpiano::core::KeyBinding* existing, const juce::String& noteName,
+                       const juce::String& keyLabel, const juce::String& customLabel, juce::Colour customColour,
                        std::function<void(KeyBindingEditResult)> onCompleteFn)
         : midiNote(note)
         , existingBinding(existing)
@@ -82,15 +84,16 @@ public:
             infoLabel.setFont(juce::Font(juce::FontOptions(13.0f)));
             addAndMakeVisible(infoLabel);
 
-            auto& act = existingBinding->action;
+            const auto& act = existingBinding->action;
 
             // MIDI Channel
             channelLabel.setText(TRANS("MIDI Channel:"), juce::dontSendNotification);
             channelLabel.attachToComponent(&channelCombo, true);
             channelLabel.setFont(juce::Font(juce::FontOptions(13.0f)));
             addAndMakeVisible(channelLabel);
-            for (int ch = 1; ch <= 16; ++ch)
+            for (int ch = 1; ch <= 16; ++ch) {
                 channelCombo.addItem(juce::String(ch), ch);
+            }
             channelCombo.setSelectedId(juce::jlimit(1, 16, act.midiChannel));
             addAndMakeVisible(channelCombo);
 
@@ -255,18 +258,22 @@ private:
             result.binding = updated;
         }
 
-        if (onComplete)
+        if (onComplete) {
             onComplete(result);
-        if (auto* dw = findParentComponentOfClass<juce::DialogWindow>())
+        }
+        if (auto* dw = findParentComponentOfClass<juce::DialogWindow>()) {
             dw->exitModalState(0);
+        }
     }
 
     void cancel() {
         KeyBindingEditResult result;
-        if (onComplete)
+        if (onComplete) {
             onComplete(result);
-        if (auto* dw = findParentComponentOfClass<juce::DialogWindow>())
+        }
+        if (auto* dw = findParentComponentOfClass<juce::DialogWindow>()) {
             dw->exitModalState(0);
+        }
     }
 
     void confirmOrClose() {
@@ -291,10 +298,12 @@ private:
         removed.keyCode = -1;
         result.binding = removed;
 
-        if (onComplete)
+        if (onComplete) {
             onComplete(result);
-        if (auto* dw = findParentComponentOfClass<juce::DialogWindow>())
+        }
+        if (auto* dw = findParentComponentOfClass<juce::DialogWindow>()) {
             dw->exitModalState(0);
+        }
     }
 
     int midiNote;
@@ -329,9 +338,9 @@ private:
 // Lightweight modal dialog window.
 class BindingEditWindow final : public juce::DialogWindow {
 public:
-    BindingEditWindow(juce::String title, std::unique_ptr<juce::Component> content,
+    BindingEditWindow(const juce::String& title, std::unique_ptr<juce::Component> content,
                       juce::Colour background = devpiano::jive::DesignTokens::get().mainBg())
-        : juce::DialogWindow(std::move(title), background, true, true) {
+        : juce::DialogWindow(title, background, true, true) {
         setUsingNativeTitleBar(true);
         setContentOwned(content.release(), true);
         centreAroundComponent(nullptr, getWidth(), getHeight());

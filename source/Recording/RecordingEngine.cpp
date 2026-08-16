@@ -16,8 +16,9 @@ bool RecordingTake::isEmpty() const noexcept {
 }
 
 double RecordingTake::durationSeconds() const noexcept {
-    if (sampleRate <= 0.0 || lengthSamples <= 0)
+    if (sampleRate <= 0.0 || lengthSamples <= 0) {
         return 0.0;
+    }
 
     return static_cast<double>(lengthSamples) / sampleRate;
 }
@@ -102,8 +103,9 @@ RecordingTake RecordingEngine::stopRecording() {
     if (recordingActive) {
         // Merge pending preset-change events (message-thread writes) into the
         // recorded events vector before finalising the take.
-        for (auto& ev : pendingPresetEvents)
+        for (auto& ev : pendingPresetEvents) {
             currentTake.events.push_back(std::move(ev));
+        }
         pendingPresetEvents.clear();
 
         currentTake.lengthSamples
@@ -130,8 +132,9 @@ void RecordingEngine::clear() {
 }
 
 void RecordingEngine::advanceRecordingPosition(std::int64_t numSamples) noexcept {
-    if (!isRecording() || numSamples <= 0)
+    if (!isRecording() || numSamples <= 0) {
         return;
+    }
 
     currentPositionSamples.fetch_add(numSamples, std::memory_order_relaxed);
     currentTake.lengthSamples
@@ -140,8 +143,9 @@ void RecordingEngine::advanceRecordingPosition(std::int64_t numSamples) noexcept
 
 void RecordingEngine::recordEvent(const juce::MidiMessage& message, RecordingEventSource source,
                                   std::int64_t timestampSamples) {
-    if (!isRecording())
+    if (!isRecording()) {
         return;
+    }
 
     const auto clampedTimestamp = std::max<std::int64_t>(timestampSamples, 0);
     if (isCapacityExhausted(clampedTimestamp)) {
@@ -155,8 +159,9 @@ void RecordingEngine::recordEvent(const juce::MidiMessage& message, RecordingEve
 
 void RecordingEngine::recordMidiBufferBlock(const juce::MidiBuffer& midiBuffer, RecordingEventSource source,
                                             std::int64_t blockStartSamples) {
-    if (!isRecording())
+    if (!isRecording()) {
         return;
+    }
 
     const auto clampedBlockStart = std::max<std::int64_t>(blockStartSamples, 0);
 
@@ -181,8 +186,9 @@ void RecordingEngine::recordPresetChange(uint8_t presetId, std::int64_t timestam
     // Write to a dedicated message-thread queue to avoid racing with the
     // audio thread's writes to currentTake.events via recordMidiBufferBlock.
     // Merged into currentTake.events at stopRecording() or clear() time.
-    if (!isRecording())
+    if (!isRecording()) {
         return;
+    }
 
     const auto ts = std::max<std::int64_t>(timestampSamples, 0);
     pendingPresetEvents.push_back(
@@ -213,9 +219,11 @@ void RecordingEngine::startPlayback(const RecordingTake& take, double currentSam
         juce::CriticalSection::ScopedLockType lock(presetChangeLock);
         pendingPresetChanges.clear();
         std::size_t presetEventCount = 0;
-        for (const auto& event : take.events)
-            if (event.type == PerformanceEventType::presetChange)
+        for (const auto& event : take.events) {
+            if (event.type == PerformanceEventType::presetChange) {
                 ++presetEventCount;
+            }
+        }
         pendingPresetChanges.reserve(presetEventCount);
     }
 
@@ -231,8 +239,9 @@ void RecordingEngine::startPlayback(const RecordingTake& take, double currentSam
 }
 
 void RecordingEngine::pausePlayback() {
-    if (state.load(std::memory_order_acquire) != RecordingState::playing)
+    if (state.load(std::memory_order_acquire) != RecordingState::playing) {
         return;
+    }
 
     state.store(RecordingState::playingPaused, std::memory_order_release);
     // Clear any stale end flag so checkPlaybackEnded does not mis-fire while paused.
@@ -241,16 +250,18 @@ void RecordingEngine::pausePlayback() {
 }
 
 void RecordingEngine::pauseRecording() {
-    if (state.load(std::memory_order_acquire) != RecordingState::recording)
+    if (state.load(std::memory_order_acquire) != RecordingState::recording) {
         return;
+    }
 
     state.store(RecordingState::recordingPaused, std::memory_order_release);
     DP_DEBUG_LOG("[RecordingEngine] recording PAUSED at pos=" + juce::String(currentPositionSamples.load()));
 }
 
 void RecordingEngine::resumeRecording() {
-    if (state.load(std::memory_order_acquire) != RecordingState::recordingPaused)
+    if (state.load(std::memory_order_acquire) != RecordingState::recordingPaused) {
         return;
+    }
 
     state.store(RecordingState::recording, std::memory_order_release);
     DP_DEBUG_LOG("[RecordingEngine] recording RESUMED at pos=" + juce::String(currentPositionSamples.load()));
@@ -287,8 +298,9 @@ double RecordingEngine::getPlaybackSpeedMultiplier() const noexcept {
 
 void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer, std::int64_t blockStartSamples,
                                           int numSamples) {
-    if (!isPlaying())
+    if (!isPlaying()) {
         return;
+    }
 
     const auto combinedRatio = playbackSampleRateRatio.load(std::memory_order_relaxed) / playbackSpeedMultiplier.load();
     const auto blockEndSamples = blockStartSamples + static_cast<std::int64_t>(numSamples);
@@ -299,8 +311,9 @@ void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer, std::int
 
         // >= on the upper bound is intentional — the interval is half-open:
         // events at blockEndSamples belong to the next block.
-        if (scaledTimestamp < blockStartSamples || scaledTimestamp >= blockEndSamples)
+        if (scaledTimestamp < blockStartSamples || scaledTimestamp >= blockEndSamples) {
             continue;
+        }
 
         if (event.type == PerformanceEventType::presetChange) {
             juce::CriticalSection::ScopedLockType lock(presetChangeLock);
@@ -329,8 +342,9 @@ void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer, std::int
 }
 
 void RecordingEngine::advancePlaybackPosition(std::int64_t numSamples) noexcept {
-    if (!isPlaying() || numSamples <= 0)
+    if (!isPlaying() || numSamples <= 0) {
         return;
+    }
 
     playbackPositionSamples.fetch_add(numSamples);
     if (playbackPositionSamples.load() >= scaledPlaybackLengthSamples.load()) {
@@ -361,13 +375,15 @@ std::vector<PendingPresetChange> RecordingEngine::drainPendingPresetChanges() {
 }
 
 std::int64_t RecordingEngine::getScaledPlaybackLengthSamples() const noexcept {
-    if (playbackTake.lengthSamples <= 0)
+    if (playbackTake.lengthSamples <= 0) {
         return 0;
+    }
 
     const auto scaledLength = static_cast<double>(playbackTake.lengthSamples)
         * playbackSampleRateRatio.load(std::memory_order_relaxed) / playbackSpeedMultiplier.load();
-    if (scaledLength <= 0.0)
+    if (scaledLength <= 0.0) {
         return playbackTake.lengthSamples;
+    }
 
     return std::max<std::int64_t>(1, static_cast<std::int64_t>(std::ceil(scaledLength)));
 }

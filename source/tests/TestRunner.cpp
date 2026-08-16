@@ -25,23 +25,28 @@ public:
     void logMessage(const juce::String& message) override {
         juce::Logger::writeToLog(message);
 
-        if (verboseMode)
-            std::cout << message << std::endl;
+        if (verboseMode) {
+            std::cout << message << '\n';
+        }
     }
 
     int computeTotalPasses() const noexcept {
         int total = 0;
-        for (int i = 0; i < getNumResults(); ++i)
-            if (const auto* result = getResult(i))
+        for (int i = 0; i < getNumResults(); ++i) {
+            if (const auto* result = getResult(i)) {
                 total += result->passes;
+            }
+        }
         return total;
     }
 
     int computeTotalFailures() const noexcept {
         int total = 0;
-        for (int i = 0; i < getNumResults(); ++i)
-            if (const auto* result = getResult(i))
+        for (int i = 0; i < getNumResults(); ++i) {
+            if (const auto* result = getResult(i)) {
                 total += result->failures;
+            }
+        }
         return total;
     }
 
@@ -62,19 +67,19 @@ int main(int argc, char** argv) {
     for (int i = 1; i < argc; ++i) {
         const juce::String arg(argv[i]);
 
-        if (arg == "--verbose" || arg == "-v")
+        if (arg == "--verbose" || arg == "-v") {
             verbose = true;
-        else if (arg == "--include-files")
+        } else if (arg == "--include-files") {
             includeFiles = true;
-        else if (arg == "--include-juce")
+        } else if (arg == "--include-juce") {
             includeJuce = true;
-        else if (arg == "--skip-category" && i + 1 < argc)
+        } else if (arg == "--skip-category" && i + 1 < argc) {
             skipCategories.add(juce::String(argv[++i]));
-        else if (arg == "--category" && i + 1 < argc)
+        } else if (arg == "--category" && i + 1 < argc) {
             categoryFilter = juce::String(argv[++i]);
-        else if (arg == "--name" && i + 1 < argc)
+        } else if (arg == "--name" && i + 1 < argc) {
             nameFilter = juce::String(argv[++i]);
-        else if (arg == "--help" || arg == "-h") {
+        } else if (arg == "--help" || arg == "-h") {
             std::cout << "Usage: devpiano_tests [options]\n"
                       << "  --verbose, -v           Verbose output\n"
                       << "  --category <name>       Run only tests in the given category\n"
@@ -88,15 +93,16 @@ int main(int argc, char** argv) {
         }
     }
 
-    if (includeFiles)
+    if (includeFiles) {
         skipCategories.removeAllInstancesOf("Files");
+    }
 
     ConsoleTestRunner runner(verbose);
 
     auto allTests = juce::UnitTest::getAllTests();
 
     if (allTests.isEmpty()) {
-        std::cout << "No tests registered." << std::endl;
+        std::cout << "No tests registered." << '\n';
         return 0;
     }
 
@@ -109,26 +115,30 @@ int main(int argc, char** argv) {
         testsToRun = juce::UnitTest::getTestsWithName(nameFilter);
     } else if (includeJuce) {
         // Full suite including JUCE's own internal tests (slow: ~100s).
-        for (auto* t : allTests)
-            if (!skipCategories.contains(t->getCategory()))
+        for (auto* t : allTests) {
+            if (!skipCategories.contains(t->getCategory())) {
                 testsToRun.add(t);
+            }
+        }
     } else {
         // Default: project tests only (fast). Categories follow the
         // "DevPiano/<area>" scheme; "Files" stays skippable by default
         // (WSL root POSIX access(W_OK) quirk).
         const juce::StringArray projectCategories
             = { "DevPiano/Core", "DevPiano/Recording", "DevPiano/Engine", "DevPiano/UI", "Files" };
-        for (auto* t : allTests)
-            if (projectCategories.contains(t->getCategory()) && !skipCategories.contains(t->getCategory()))
+        for (auto* t : allTests) {
+            if (projectCategories.contains(t->getCategory()) && !skipCategories.contains(t->getCategory())) {
                 testsToRun.add(t);
+            }
+        }
     }
 
     if (testsToRun.isEmpty()) {
-        std::cout << "No tests matched after filtering." << std::endl;
+        std::cout << "No tests matched after filtering." << '\n';
         return EXIT_FAILURE; // a typo'd filter must not silently pass CI
     }
 
-    std::cout << "Running " << testsToRun.size() << " test(s)...\n" << std::endl;
+    std::cout << "Running " << testsToRun.size() << " test(s)...\n" << '\n';
     runner.runTests(testsToRun);
 
     const auto numPasses = runner.computeTotalPasses();

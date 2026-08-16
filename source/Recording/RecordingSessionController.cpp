@@ -18,7 +18,7 @@
 namespace devpiano::recording {
 namespace {
 constexpr std::size_t defaultRecordingEventsPerSecond = 100;
-constexpr std::size_t defaultRecordingCapacitySeconds = 30 * 60;
+constexpr std::size_t defaultRecordingCapacitySeconds = 1800;
 
 [[nodiscard]] RecordingFlowState toRecordingFlowState(ui::RecordingState state) noexcept {
     switch (state) {
@@ -60,16 +60,19 @@ constexpr std::size_t defaultRecordingCapacitySeconds = 30 * 60;
 
 [[nodiscard]] juce::File getLastMidiExportDirectory(const SettingsModel& settings) {
     if (settings.lastMidiExportPath.isNotEmpty()) {
-        const auto lastFile = juce::File(settings.lastMidiExportPath);
-        if (lastFile.existsAsFile())
+        auto lastFile = juce::File(settings.lastMidiExportPath);
+        if (lastFile.existsAsFile()) {
             return lastFile.getParentDirectory();
+        }
 
-        if (lastFile.isDirectory())
+        if (lastFile.isDirectory()) {
             return lastFile;
+        }
 
         const auto parent = lastFile.getParentDirectory();
-        if (parent.isDirectory())
+        if (parent.isDirectory()) {
             return parent;
+        }
     }
 
     return juce::File::getCurrentWorkingDirectory();
@@ -78,8 +81,9 @@ constexpr std::size_t defaultRecordingCapacitySeconds = 30 * 60;
 [[nodiscard]] juce::File getLastMidiImportDirectory(const SettingsModel& settings) {
     if (settings.lastMidiImportPath.isNotEmpty()) {
         const auto lastFile = juce::File(settings.lastMidiImportPath);
-        if (lastFile.exists())
+        if (lastFile.exists()) {
             return lastFile.getParentDirectory();
+        }
     }
 
     return juce::File {};
@@ -101,15 +105,17 @@ RecordingSessionController::RecordingSessionController(MainComponent& ownerIn, R
 }
 
 RecordingSessionController::~RecordingSessionController() {
-    if (aliveFlag_)
+    if (aliveFlag_) {
         *aliveFlag_ = false;
+    }
 }
 
 void RecordingSessionController::handleRecordClicked() {
     const auto command = chooseRecordingFlowCommand(
         RecordingFlowIntent::record, makeRecordingFlowStatus(recordingSession.state, recordingSession.hasTake()));
-    if (command != RecordingFlowCommand::startRecording)
+    if (command != RecordingFlowCommand::startRecording) {
         return;
+    }
 
     recordingEngine.clear();
     recordingSession.take = {};
@@ -118,15 +124,17 @@ void RecordingSessionController::handleRecordClicked() {
     recordingSession.state
         = toRecordingControlsState(getStateAfterCommand(command, toRecordingFlowState(recordingSession.state)));
     syncRecordingSessionToUi();
-    if (shouldRestoreKeyboardFocus(command))
+    if (shouldRestoreKeyboardFocus(command)) {
         owner.restoreKeyboardFocus();
+    }
 }
 
 void RecordingSessionController::handlePlayClicked() {
     const auto command = chooseRecordingFlowCommand(
         RecordingFlowIntent::playPause, makeRecordingFlowStatus(recordingSession.state, recordingSession.hasTake()));
-    if (command == RecordingFlowCommand::none)
+    if (command == RecordingFlowCommand::none) {
         return;
+    }
 
     switch (command) {
     case RecordingFlowCommand::startPlayback:
@@ -159,13 +167,12 @@ void RecordingSessionController::handlePlayClicked() {
     case RecordingFlowCommand::stopRecording:
     case RecordingFlowCommand::stopPlayback:
         return;
-    default:
-        return;
     }
 
     syncRecordingSessionToUi();
-    if (shouldRestoreKeyboardFocus(command))
+    if (shouldRestoreKeyboardFocus(command)) {
         owner.restoreKeyboardFocus();
+    }
 }
 
 void RecordingSessionController::handleStopClicked() {
@@ -179,10 +186,12 @@ void RecordingSessionController::handleStopClicked() {
         PerformanceMetadataDialog::launch(
             recordingSession.currentMetadata, &owner,
             [this, aliveFlag = aliveFlag_](std::optional<PerformanceFileMetadata> result) {
-                if (!*aliveFlag)
+                if (!*aliveFlag) {
                     return;
-                if (result.has_value())
+                }
+                if (result.has_value()) {
                     recordingSession.currentMetadata = std::move(*result);
+                }
             });
     } else if (command == RecordingFlowCommand::stopPlayback) {
         const auto stoppedTake = stopInternalPlayback();
@@ -194,13 +203,15 @@ void RecordingSessionController::handleStopClicked() {
     recordingSession.state
         = toRecordingControlsState(getStateAfterCommand(command, toRecordingFlowState(recordingSession.state)));
     syncRecordingSessionToUi();
-    if (shouldRestoreKeyboardFocus(command))
+    if (shouldRestoreKeyboardFocus(command)) {
         owner.restoreKeyboardFocus();
+    }
 }
 
 void RecordingSessionController::handleBackToStartClicked() {
-    if (!recordingSession.hasTake() || recordingSession.isRecording())
+    if (!recordingSession.hasTake() || recordingSession.isRecording()) {
         return;
+    }
 
     if (recordingSession.state == ui::RecordingState::playing) {
         const auto stoppedTake = stopInternalPlayback();
@@ -252,7 +263,7 @@ void RecordingSessionController::handleExportWavClicked() {
             auto* pluginHost = audioEngine.getPluginHost();
             if (pluginHost != nullptr && pluginHost->hasLoadedPlugin()) {
                 auto* liveInstance = pluginHost->getInstance();
-                auto* desc = pluginHost->getLoadedPluginDescription();
+                const auto* desc = pluginHost->getLoadedPluginDescription();
                 if (liveInstance != nullptr && desc != nullptr) {
                     auto state = devpiano::exporting::snapshotPluginState(*liveInstance);
 
@@ -309,8 +320,9 @@ void RecordingSessionController::handleSavePerformanceClicked() {
         juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles
             | juce::FileBrowserComponent::warnAboutOverwriting,
         [this, aliveFlag = aliveFlag_](const juce::FileChooser& fc) {
-            if (!*aliveFlag)
+            if (!*aliveFlag) {
                 return;
+            }
             auto file = fc.getResult();
             if (file == juce::File()) {
                 DP_LOG_INFO("[Performance File] save cancelled by user");
@@ -321,10 +333,11 @@ void RecordingSessionController::handleSavePerformanceClicked() {
             auto metadata = recordingSession.currentMetadata;
             metadata.createdAt = juce::Time::getCurrentTime().toISO8601(true);
 
-            if (devpiano::recording::savePerformanceFile(recordingSession.take, file, metadata))
+            if (devpiano::recording::savePerformanceFile(recordingSession.take, file, metadata)) {
                 DP_LOG_INFO("[Performance File] saved: " + file.getFullPathName());
-            else
+            } else {
                 DP_LOG_ERROR("[Performance File] save FAILED: " + file.getFullPathName());
+            }
 
             performanceFileChooser.reset();
         });
@@ -372,8 +385,9 @@ void RecordingSessionController::handleOpenPerformanceFile(const juce::File& fil
     replaceTakeAndStartPlayback(std::move(*take));
     DP_LOG_INFO("[Performance File] loaded from dropped file: " + file.getFullPathName());
     owner.restoreKeyboardFocus();
-    if (onFileOpened)
+    if (onFileOpened) {
         onFileOpened(file);
+    }
 }
 
 void RecordingSessionController::handleImportMidiFile(const juce::File& file) {
@@ -393,14 +407,16 @@ void RecordingSessionController::handleImportMidiFile(const juce::File& file) {
     owner.saveSettingsSoon();
 
     auto take = tryImportMidiFile(file);
-    if (!take.has_value() || take->isEmpty())
+    if (!take.has_value() || take->isEmpty()) {
         return;
+    }
 
     replaceTakeAndStartPlayback(std::move(*take));
     DP_LOG_INFO("[MIDI Import] imported from dropped file: " + file.getFullPathName());
     owner.restoreKeyboardFocus();
-    if (onFileOpened)
+    if (onFileOpened) {
         onFileOpened(file);
+    }
 }
 
 void RecordingSessionController::handlePlaybackSpeedChange(double speed) {
@@ -410,13 +426,15 @@ void RecordingSessionController::handlePlaybackSpeedChange(double speed) {
 }
 
 void RecordingSessionController::checkPlaybackEnded() {
-    if (!recordingEngine.consumePlaybackEndedFlag())
+    if (!recordingEngine.consumePlaybackEndedFlag()) {
         return;
+    }
 
     // Only a genuinely playing session ends; a paused one must not be kicked
     // back to idle by a stale flag.
-    if (recordingSession.state != ui::RecordingState::playing)
+    if (recordingSession.state != ui::RecordingState::playing) {
         return;
+    }
 
     // 实时线程仅置 playbackEndedPending 标志；日志在消息线程输出,
     // 避免音频回调内 juce::Logger 互斥锁 + 磁盘 I/O(ERR-001)。
@@ -521,8 +539,9 @@ void RecordingSessionController::runExportRecordingFlow(devpiano::exporting::Exp
         juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles
             | juce::FileBrowserComponent::warnAboutOverwriting,
         [this, type, &chooser, doExportFn = std::move(doExport), aliveFlag = aliveFlag_](const juce::FileChooser& fc) {
-            if (!*aliveFlag)
+            if (!*aliveFlag) {
                 return;
+            }
             auto file = fc.getResult();
 
             if (file == juce::File()) {
@@ -534,11 +553,12 @@ void RecordingSessionController::runExportRecordingFlow(devpiano::exporting::Exp
             appSettings.lastMidiExportPath = file.getFullPathName();
             owner.saveSettingsSoon();
 
-            if (doExportFn(file))
+            if (doExportFn(file)) {
                 DP_LOG_INFO(devpiano::exporting::makeExportLogPrefix(type) + " exported: " + file.getFullPathName());
-            else
+            } else {
                 DP_LOG_ERROR(devpiano::exporting::makeExportLogPrefix(type)
                              + " export FAILED: " + file.getFullPathName());
+            }
 
             chooser.reset();
         });
@@ -597,8 +617,9 @@ void RecordingSessionController::runImportOpenFlow(
         juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
         [this, logPrefix, &chooser, loadTakeFn = std::move(loadTake),
          aliveFlag = aliveFlag_](const juce::FileChooser& fc) {
-            if (!*aliveFlag)
+            if (!*aliveFlag) {
                 return;
+            }
             auto file = fc.getResult();
             if (!file.exists()) {
                 chooser.reset();
@@ -619,8 +640,9 @@ void RecordingSessionController::runImportOpenFlow(
 
             chooser.reset();
             owner.restoreKeyboardFocus();
-            if (onFileOpened)
+            if (onFileOpened) {
                 onFileOpened(file);
+            }
         });
 }
 
@@ -628,8 +650,9 @@ void RecordingSessionController::handleSongInfoClicked() {
     PerformanceMetadataDialog::launch(
         recordingSession.currentMetadata, &owner,
         [this, aliveFlag = aliveFlag_](std::optional<PerformanceFileMetadata> result) {
-            if (!*aliveFlag)
+            if (!*aliveFlag) {
                 return;
+            }
             if (!result.has_value()) {
                 owner.restoreKeyboardFocus();
                 return; // cancelled
@@ -640,16 +663,18 @@ void RecordingSessionController::handleSongInfoClicked() {
             // If we have a backing .devpiano file, rewrite it with updated metadata.
             if (recordingSession.currentPerformanceFile.existsAsFile() && recordingSession.hasTake()) {
                 auto metadata = recordingSession.currentMetadata;
-                if (metadata.createdAt.isEmpty())
+                if (metadata.createdAt.isEmpty()) {
                     metadata.createdAt = juce::Time::getCurrentTime().toISO8601(true);
+                }
 
                 if (devpiano::recording::savePerformanceFile(recordingSession.take,
-                                                             recordingSession.currentPerformanceFile, metadata))
+                                                             recordingSession.currentPerformanceFile, metadata)) {
                     DP_LOG_INFO("[Performance File] metadata updated: "
                                 + recordingSession.currentPerformanceFile.getFullPathName());
-                else
+                } else {
                     DP_LOG_WARN("[Performance File] metadata update FAILED: "
                                 + recordingSession.currentPerformanceFile.getFullPathName());
+                }
             }
 
             owner.restoreKeyboardFocus();

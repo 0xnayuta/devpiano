@@ -72,8 +72,9 @@ constexpr const char* noteLetterNames[12] = { "C", "C#", "D", "D#", "E", "F", "F
 //   doReMi/fixedDo offset is relative to C4 (index 4 → offset "0").
 //   noteName uses the standard octave number (C4 → "C4").
 inline juce::String getNoteDisplayName(int midiNote, NoteDisplayMode mode, int keySignature = 0) {
-    if (midiNote < 0 || midiNote > 127)
+    if (midiNote < 0 || midiNote > 127) {
         return {};
+    }
 
     // Octave index: C0 starts at MIDI 12.
     auto octaveIndex = (midiNote - 12) / 12;
@@ -86,8 +87,9 @@ inline juce::String getNoteDisplayName(int midiNote, NoteDisplayMode mode, int k
     }
     case NoteDisplayMode::fixedDo: {
         auto shiftedNoteIndex = (noteIndex + keySignature) % 12;
-        if (shiftedNoteIndex < 0)
+        if (shiftedNoteIndex < 0) {
             shiftedNoteIndex += 12;
+        }
         auto offset = octaveIndex - 4;
         return doReMiNames[shiftedNoteIndex] + juce::String(offset >= 0 ? "+" : "") + juce::String(offset);
     }

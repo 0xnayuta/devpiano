@@ -61,8 +61,9 @@ public:
     }
 
     void renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int startSample, int numSamples) override {
-        if (!isVoiceActive())
+        if (!isVoiceActive()) {
             return;
+        }
 
         for (auto sample = 0; sample < numSamples; ++sample) {
             const auto envelope = adsr.getNextSample();
@@ -73,12 +74,14 @@ public:
 
             const auto value = static_cast<float>(std::sin(phase) * level * envelope);
             phase += increment;
-            if (phase >= juce::MathConstants<double>::twoPi)
+            if (phase >= juce::MathConstants<double>::twoPi) {
                 phase -= juce::MathConstants<double>::twoPi;
+            }
 
             const auto sampleIndex = startSample + sample;
-            for (auto channel = 0; channel < outputBuffer.getNumChannels(); ++channel)
+            for (auto channel = 0; channel < outputBuffer.getNumChannels(); ++channel) {
                 outputBuffer.addSample(channel, sampleIndex, value);
+            }
         }
     }
 
@@ -113,17 +116,21 @@ void initialiseOfflineSynth(juce::Synthesiser& synth, double sampleRate, const j
 } // namespace
 
 bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const juce::File& destinationFile,
-                         const WavExportOptions& options, std::function<bool(double)> progressCallback) {
-    if (take.isEmpty() || take.sampleRate <= 0.0 || !hasUsableRenderOptions(options) || destinationFile == juce::File())
+                         const WavExportOptions& options, const std::function<bool(double)>& progressCallback) {
+    if (take.isEmpty() || take.sampleRate <= 0.0 || !hasUsableRenderOptions(options)
+        || destinationFile == juce::File()) {
         return false;
+    }
 
     auto parentDirectory = destinationFile.getParentDirectory();
-    if (!parentDirectory.exists() && !parentDirectory.createDirectory())
+    if (!parentDirectory.exists() && !parentDirectory.createDirectory()) {
         return false;
+    }
 
     auto fileStream = std::make_unique<juce::FileOutputStream>(destinationFile);
-    if (!fileStream->openedOk())
+    if (!fileStream->openedOk()) {
         return false;
+    }
 
     std::unique_ptr<juce::OutputStream> outputStream = std::move(fileStream);
 
@@ -135,8 +142,9 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
 
     auto writer = wavFormat.createWriterFor(outputStream, writerOptions);
 
-    if (writer == nullptr)
+    if (writer == nullptr) {
         return false;
+    }
 
     juce::Synthesiser synth;
     initialiseOfflineSynth(synth, options.sampleRate, options.adsr);
@@ -154,8 +162,10 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
     auto panicSent = false;
 
     for (std::int64_t blockStart = 0; blockStart < totalSamples; blockStart += options.blockSize) {
-        if (progressCallback && !progressCallback(static_cast<double>(blockStart) / static_cast<double>(totalSamples)))
+        if (progressCallback
+            && !progressCallback(static_cast<double>(blockStart) / static_cast<double>(totalSamples))) {
             return false;
+        }
 
         const auto numSamples = static_cast<int>(std::min<std::int64_t>(options.blockSize, totalSamples - blockStart));
         const auto blockEnd = blockStart + numSamples;
@@ -182,8 +192,9 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
         synth.renderNextBlock(audioBuffer, midiBuffer, 0, numSamples);
         audioBuffer.applyGain(gain);
 
-        if (!writer->writeFromAudioSampleBuffer(audioBuffer, 0, numSamples))
+        if (!writer->writeFromAudioSampleBuffer(audioBuffer, 0, numSamples)) {
             return false;
+        }
     }
 
     return true;

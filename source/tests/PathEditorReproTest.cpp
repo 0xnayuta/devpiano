@@ -34,13 +34,15 @@ public:
         devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
         auto item = interpreter.interpret(tree);
         expect(item != nullptr, "interpret");
-        if (item == nullptr)
+        if (item == nullptr) {
             return;
+        }
 
         auto* editor = dynamic_cast<juce::TextEditor*>(item->getComponent().get());
         expect(editor != nullptr, "is TextEditor");
-        if (editor == nullptr)
+        if (editor == nullptr) {
             return;
+        }
 
         editor->setText("C:\\VST3\\pianoteq 9.vst3", juce::dontSendNotification);
         expectEquals(editor->getText(), juce::String("C:\\VST3\\pianoteq 9.vst3"), "text set");
@@ -57,13 +59,15 @@ public:
         devpiano::ui::jive::StyleCatalog::get().applyToTree(panelTree);
         auto panelItem = interpreter.interpret(panelTree);
         expect(panelItem != nullptr, "panel interpreted");
-        if (panelItem == nullptr)
+        if (panelItem == nullptr) {
             return;
+        }
         panelItem->getComponent()->setBounds(0, 0, 500, 200);
         auto* pathEditorItem = jive::findItemWithID(*panelItem, "plugin-path-editor");
         expect(pathEditorItem != nullptr, "path editor item found");
-        if (pathEditorItem == nullptr)
+        if (pathEditorItem == nullptr) {
             return;
+        }
         const auto editorBounds = pathEditorItem->getComponent()->getBounds();
 
         // Expand the area (like setPluginPanelExpanded(true)) and re-check:
@@ -85,21 +89,25 @@ public:
         devpiano::ui::jive::StyleCatalog::get().applyToTree(rootTree);
         auto rootItem = interpreter.interpret(rootTree);
         expect(rootItem != nullptr, "root interpreted");
-        if (rootItem == nullptr)
+        if (rootItem == nullptr) {
             return;
+        }
         rootItem->getComponent()->setBounds(0, 0, 1120, 760);
-        if (auto* rootArea = jive::findItemWithID(*rootItem, "plugin-expanded-area"))
+        if (auto* rootArea = jive::findItemWithID(*rootItem, "plugin-expanded-area")) {
             rootArea->state.setProperty("height", 112, nullptr);
+        }
         auto* rootEditorItem = jive::findItemWithID(*rootItem, "plugin-path-editor");
         expect(rootEditorItem != nullptr, "root path editor found");
-        if (rootEditorItem == nullptr)
+        if (rootEditorItem == nullptr) {
             return;
+        }
         auto* rootEditor = dynamic_cast<juce::TextEditor*>(rootEditorItem->getComponent().get());
         expect(rootEditor != nullptr, "root path editor is TextEditor");
-        if (rootEditor == nullptr)
+        if (rootEditor == nullptr) {
             return;
-        rootEditor->setText("C:\\Program Files\\Common Files\\VST3", juce::dontSendNotification);
-        expectEquals(rootEditor->getText(), juce::String("C:\\Program Files\\Common Files\\VST3"),
+        }
+        rootEditor->setText(R"(C:\Program Files\Common Files\VST3)", juce::dontSendNotification);
+        expectEquals(rootEditor->getText(), juce::String(R"(C:\Program Files\Common Files\VST3)"),
                      "root path text set");
         expect(rootEditorItem->getComponent()->getWidth() > 50, "root flow: path editor visible width");
         // Collapsed: the area has height 0 so JIVE skips laying out the row

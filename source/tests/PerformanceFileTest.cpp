@@ -49,11 +49,10 @@ juce::File makeScratchFile(const juce::String& name) {
 bool hasTempResidue(const juce::File& targetFile) {
     const auto dir = targetFile.getParentDirectory();
     const auto base = targetFile.getFileNameWithoutExtension();
-    for (const auto& entry : juce::RangedDirectoryIterator(dir, false, "*", juce::File::findFiles)) {
-        if (entry.getFile().getFileNameWithoutExtension().startsWith(base + "_temp"))
-            return true;
-    }
-    return false;
+    return std::ranges::any_of(juce::RangedDirectoryIterator(dir, false, "*", juce::File::findFiles),
+                               [&base](const auto& entry) {
+                                   return entry.getFile().getFileNameWithoutExtension().startsWith(base + "_temp");
+                               });
 }
 
 } // namespace

@@ -34,11 +34,13 @@ void restorePluginsAtPath(
 }
 
 bool tryRestoreCachedPluginList(PluginHost& pluginHost, SettingsModel& settings, const StartupPluginRestorePlan& plan) {
-    if (settings.knownPluginListState == nullptr)
+    if (settings.knownPluginListState == nullptr) {
         return false;
+    }
 
-    if (!pluginHost.restoreKnownPluginListFromXml(*settings.knownPluginListState))
+    if (!pluginHost.restoreKnownPluginListFromXml(*settings.knownPluginListState)) {
         return false;
+    }
 
     settings.applyPluginRecoverySettingsView(plan.recovery);
     return true;

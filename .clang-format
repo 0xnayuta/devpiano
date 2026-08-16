@@ -18,6 +18,11 @@ AllowShortIfStatementsOnASingleLine: Never
 # 不压缩短循环到一行
 AllowShortLoopsOnASingleLine: false
 
+# 强制单行 if/for/while 加花括号（与 clang-tidy readability-braces-
+# around-statements 一致；clang-format 对 UTF-8 注释安全，而 clang-tidy
+# --fix 会在含中文注释的文件上产生字节偏移破坏，见 AUDIT-001 ENG-002 复审）
+InsertBraces: true
+
 # 总是将大括号附加到前一行末尾（JUCE 风格）
 BreakBeforeBraces: Attach
 

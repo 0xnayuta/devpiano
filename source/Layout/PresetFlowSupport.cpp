@@ -25,15 +25,17 @@ void PresetFlowSupport::refreshCache() {
 
 juce::StringArray PresetFlowSupport::getPresetIds() const {
     juce::StringArray ids;
-    for (const auto& p : cachedPresets)
+    for (const auto& p : cachedPresets) {
         ids.add(p.name);
+    }
     return ids;
 }
 
 juce::StringArray PresetFlowSupport::getPresetDisplayNames() const {
     juce::StringArray names;
-    for (const auto& p : cachedPresets)
+    for (const auto& p : cachedPresets) {
         names.add(p.name.isNotEmpty() ? p.name : "Untitled");
+    }
     return names;
 }
 
@@ -50,6 +52,7 @@ int PresetFlowSupport::getPresetCount() const {
 void PresetFlowSupport::applyPresetById(const juce::String& presetId) {
     // Defensive copy: applyPresetData → updateUiAfterCommit → setPresets may
     // reallocate the caller's string storage, invalidating the reference.
+    // NOLINTNEXTLINE(performance-unnecessary-copy-initialization) - intentional defensive copy
     auto id = presetId;
 
     refreshCache();
@@ -69,8 +72,9 @@ void PresetFlowSupport::applyPresetById(const juce::String& presetId) {
 
 void PresetFlowSupport::applyPresetByIndex(int index) {
     refreshCache();
-    if (index < 0 || index >= static_cast<int>(cachedPresets.size()))
+    if (index < 0 || static_cast<std::size_t>(index) >= cachedPresets.size()) {
         return;
+    }
 
     // Set currentPresetId BEFORE applyPresetData (same race as applyPresetById).
     currentPresetId = cachedPresets[static_cast<std::size_t>(index)].name;
@@ -152,11 +156,13 @@ PerformancePreset PresetFlowSupport::captureCurrentState(const juce::String& nam
 
 void PresetFlowSupport::handleSaveAsNewPreset() {
     PresetNameDialog::launch(TRANS("Save as New Preset"), {}, &owner, [this](std::optional<juce::String> nameOpt) {
-        if (!nameOpt.has_value())
+        if (!nameOpt.has_value()) {
             return;
+        }
         auto rawName = nameOpt->trim();
-        if (rawName.isEmpty())
+        if (rawName.isEmpty()) {
             return;
+        }
 
         auto fileName = sanitisePresetFileName(rawName);
         auto file = getPresetDirectory().getChildFile(fileName + ".devpiano.preset");
@@ -166,8 +172,9 @@ void PresetFlowSupport::handleSaveAsNewPreset() {
                 TRANS("Overwrite Preset?"),
                 TRANS("A preset named \"") + rawName + TRANS("\" already exists.\nDo you want to overwrite it?"),
                 TRANS("Overwrite"), TRANS("Cancel"), &owner, [this, rawName, file](bool overwrite) {
-                    if (overwrite)
+                    if (overwrite) {
                         savePresetFromCurrentState(rawName, file);
+                    }
                 });
             return;
         }
@@ -195,68 +202,73 @@ void PresetFlowSupport::handleRenamePreset() {
     // selects the first user preset while currentPresetId still refers to the
     // built-in default), which previously made Rename silently do nothing.
     const auto targetId = owner.getSelectedPresetId();
-    if (targetId.isEmpty())
+    if (targetId.isEmpty()) {
         return;
+    }
 
     refreshCache();
-    auto it = std::find_if(cachedPresets.begin(), cachedPresets.end(),
-                           [&targetId](const auto& p) { return p.name == targetId; });
-    if (it == cachedPresets.end())
+    auto it = std::ranges::find_if(cachedPresets, [&targetId](const auto& p) { return p.name == targetId; });
+    if (it == cachedPresets.end()) {
         return;
+    }
 
     auto oldName = it->name;
     auto oldFile = getPresetDirectory().getChildFile(sanitisePresetFileName(oldName) + ".devpiano.preset");
 
-    PresetNameDialog::launch(TRANS("Rename Preset"), oldName, &owner,
-                             [this, targetId, oldName, oldFile](std::optional<juce::String> nameOpt) {
-                                 if (!nameOpt.has_value())
-                                     return;
-                                 auto newName = nameOpt->trim();
-                                 if (newName.isEmpty() || newName == oldName)
-                                     return;
+    PresetNameDialog::launch(
+        TRANS("Rename Preset"), oldName, &owner,
+        [this, targetId, oldName, oldFile](std::optional<juce::String> nameOpt) {
+            if (!nameOpt.has_value()) {
+                return;
+            }
+            auto newName = nameOpt->trim();
+            if (newName.isEmpty() || newName == oldName) {
+                return;
+            }
 
-                                 refreshCache();
-                                 auto it2 = std::find_if(cachedPresets.begin(), cachedPresets.end(),
-                                                         [&targetId](const auto& p) { return p.name == targetId; });
-                                 if (it2 == cachedPresets.end())
-                                     return;
+            refreshCache();
+            auto it2 = std::ranges::find_if(cachedPresets, [&targetId](const auto& p) { return p.name == targetId; });
+            if (it2 == cachedPresets.end()) {
+                return;
+            }
 
-                                 auto preset = *it2;
-                                 preset.name = newName;
-                                 preset.layout.name = newName;
+            auto preset = *it2;
+            preset.name = newName;
+            preset.layout.name = newName;
 
-                                 auto newFile = getPresetDirectory().getChildFile(sanitisePresetFileName(newName)
-                                                                                  + ".devpiano.preset");
+            auto newFile = getPresetDirectory().getChildFile(sanitisePresetFileName(newName) + ".devpiano.preset");
 
-                                 if (savePreset(preset, newFile)) {
-                                     oldFile.deleteFile();
-                                     DP_LOG_INFO("[Preset] renamed: " + oldName + " -> " + newName);
-                                     currentPresetId = newName;
-                                     owner.appSettings.lastActivePresetId = currentPresetId;
-                                     refreshCache();
-                                     updateUiAfterCommit();
-                                 }
-                             });
+            if (savePreset(preset, newFile)) {
+                oldFile.deleteFile();
+                DP_LOG_INFO("[Preset] renamed: " + oldName + " -> " + newName);
+                currentPresetId = newName;
+                owner.appSettings.lastActivePresetId = currentPresetId;
+                refreshCache();
+                updateUiAfterCommit();
+            }
+        });
 }
 
 void PresetFlowSupport::handleDeletePreset() {
     // Same as Rename: operate on the combo's current selection so the button
     // works even when currentPresetId is stale after startup.
     const auto targetId = owner.getSelectedPresetId();
-    if (targetId.isEmpty())
+    if (targetId.isEmpty()) {
         return;
+    }
 
     refreshCache();
-    auto it = std::find_if(cachedPresets.begin(), cachedPresets.end(),
-                           [&targetId](const auto& p) { return p.name == targetId; });
-    if (it == cachedPresets.end())
+    auto it = std::ranges::find_if(cachedPresets, [&targetId](const auto& p) { return p.name == targetId; });
+    if (it == cachedPresets.end()) {
         return;
+    }
     auto name = it->name;
 
     PresetConfirmDialog::show(TRANS("Delete Preset?"), TRANS("Delete preset \"") + name + "\"?", TRANS("Delete"),
                               TRANS("Cancel"), &owner, [this, targetId, name](bool confirmed) {
-                                  if (!confirmed)
+                                  if (!confirmed) {
                                       return;
+                                  }
 
                                   auto file = getPresetDirectory().getChildFile(sanitisePresetFileName(name)
                                                                                 + ".devpiano.preset");

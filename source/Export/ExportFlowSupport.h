@@ -11,10 +11,11 @@ struct RecordingTake;
 
 namespace devpiano::exporting {
 
-enum class ExportFileType { midi, wav };
+enum class ExportFileType : std::uint8_t { midi, wav };
 
 [[nodiscard]] juce::File makeDefaultRecordingExportFile(ExportFileType type,
-                                                        juce::File directory = juce::File::getCurrentWorkingDirectory(),
+                                                        const juce::File& directory
+                                                        = juce::File::getCurrentWorkingDirectory(),
                                                         juce::Time now = juce::Time::getCurrentTime());
 
 [[nodiscard]] bool canExportTake(const devpiano::recording::RecordingTake& take);

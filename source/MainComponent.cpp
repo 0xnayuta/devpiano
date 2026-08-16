@@ -26,8 +26,9 @@ juce::String makeSafeUiText(juce::String text) {
     text = text.replaceCharacters("\r\n\t", "   ");
 
     constexpr auto maxLen = 1024;
-    if (text.length() > maxLen)
+    if (text.length() > maxLen) {
         text = text.substring(0, maxLen);
+    }
 
     return text;
 }
@@ -55,14 +56,16 @@ std::unique_ptr<juce::Drawable> createGearIcon(juce::Colour colour) {
 // so walking up from the exe dir finds the project root).
 juce::File resolveSourceFile(const juce::String& relativePath) {
     auto cwdFile = juce::File::getCurrentWorkingDirectory().getChildFile(relativePath);
-    if (cwdFile.existsAsFile())
+    if (cwdFile.existsAsFile()) {
         return cwdFile;
+    }
 
     auto dir = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
     for (int i = 0; i < 4; ++i) {
         auto candidate = dir.getChildFile(relativePath);
-        if (candidate.existsAsFile())
+        if (candidate.existsAsFile()) {
             return candidate;
+        }
         dir = dir.getParentDirectory();
     }
 
@@ -73,15 +76,18 @@ juce::File resolveSourceFile(const juce::String& relativePath) {
 // hierarchy before destruction. This ensures StyleSheet (and its ComponentInteractionState)
 // is destroyed while the Component and its mouseListeners list are still completely alive,
 // avoiding access violations during Component::~Component().
-static void clearJiveStyleSheets(juce::Component* comp) {
-    if (comp == nullptr)
+void clearJiveStyleSheets(juce::Component* comp) {
+    if (comp == nullptr) {
         return;
+    }
 
-    for (int i = 0; i < comp->getNumChildComponents(); ++i)
+    for (int i = 0; i < comp->getNumChildComponents(); ++i) {
         clearJiveStyleSheets(comp->getChildComponent(i));
+    }
 
-    if (comp->getProperties().contains("style-sheet"))
+    if (comp->getProperties().contains("style-sheet")) {
         comp->getProperties().remove("style-sheet");
+    }
 }
 
 // Collect every Component in the JIVE tree (pre-order). GuiItem releases its
@@ -92,12 +98,14 @@ static void clearJiveStyleSheets(juce::Component* comp) {
 // Components here keeps them alive until all StyleSheets are gone; the
 // vector destroys its elements in reverse order, so children are deleted
 // before their parents, matching JUCE's child-ownership rules.
-static void collectJiveComponents(::jive::GuiItem& item, std::vector<std::shared_ptr<juce::Component>>& components) {
-    if (auto component = item.getComponent())
+void collectJiveComponents(::jive::GuiItem& item, std::vector<std::shared_ptr<juce::Component>>& components) {
+    if (auto component = item.getComponent()) {
         components.push_back(std::move(component));
+    }
 
-    for (auto* child : item.getChildren())
+    for (auto* child : item.getChildren()) {
         collectJiveComponents(*child, components);
+    }
 }
 
 // -- Transport button icon paths --
@@ -149,11 +157,13 @@ std::unique_ptr<juce::Drawable> createBackIcon() {
 
 #if JUCE_WINDOWS
 void suppressImeForPeer(juce::ComponentPeer* peer) {
-    if (peer == nullptr)
+    if (peer == nullptr) {
         return;
+    }
 
-    if (auto hwnd = static_cast<HWND>(peer->getNativeHandle()))
+    if (auto hwnd = static_cast<HWND>(peer->getNativeHandle())) {
         ImmAssociateContext(hwnd, nullptr);
+    }
 }
 #endif
 }
@@ -218,8 +228,9 @@ MainComponent::~MainComponent() {
 
     pluginOperationController.reset();
     shutdownAudio();
-    if (recordingSessionController != nullptr)
+    if (recordingSessionController != nullptr) {
         recordingSessionController->onFileOpened = {};
+    }
     audioEngine.setRecordingEngine(nullptr);
     pluginHost.unloadPlugin();
     settingsWindowManager.reset();
@@ -264,8 +275,9 @@ void MainComponent::reconfigureChannelMapper() {
 }
 
 void MainComponent::handlePresetShortcut(int index) {
-    if (presetFlowSupport != nullptr)
+    if (presetFlowSupport != nullptr) {
         presetFlowSupport->applyPresetByIndex(index);
+    }
 }
 void MainComponent::initialiseUi() {
     // 加载设计 token（单一配色真相源）— 必须在构造 LookAndFeel 之前
@@ -380,29 +392,34 @@ void MainComponent::initialiseUi() {
             const auto findItem
                 = [this](const char* id) -> ::jive::GuiItem* { return jive::findItemWithID(*jiveRootItem, id); };
             const auto findSlider = [&findItem](const char* id) -> juce::Slider* {
-                if (auto* item = findItem(id))
+                if (auto* item = findItem(id)) {
                     return dynamic_cast<juce::Slider*>(item->getComponent().get());
+                }
                 return nullptr;
             };
             const auto findCombo = [&findItem](const char* id) -> juce::ComboBox* {
-                if (auto* item = findItem(id))
+                if (auto* item = findItem(id)) {
                     return dynamic_cast<juce::ComboBox*>(item->getComponent().get());
+                }
                 return nullptr;
             };
             const auto findButton = [&findItem](const char* id) -> juce::Button* {
-                if (auto* item = findItem(id))
+                if (auto* item = findItem(id)) {
                     return dynamic_cast<juce::Button*>(item->getComponent().get());
+                }
                 return nullptr;
             };
 
             // ── header ──
-            if (auto* btn = findButton("settings-btn"))
+            if (auto* btn = findButton("settings-btn")) {
                 btn->onClick = [this] { showSettingsDialog(); };
+            }
 
             // ── plugin panel ──
             const auto wireButton = [&findButton](const char* id, const std::function<void()>& action) {
-                if (auto* btn = findButton(id))
+                if (auto* btn = findButton(id)) {
                     btn->onClick = action;
+                }
             };
             wireButton("load-btn", [this] { pluginOperationController->loadSelectedPlugin(); });
             wireButton("unload-btn", [this] { pluginOperationController->unloadCurrentPlugin(); });
@@ -415,10 +432,12 @@ void MainComponent::initialiseUi() {
                 combo->setTextWhenNothingSelected(TRANS("Select a scanned plugin..."));
                 combo->setWantsKeyboardFocus(false);
                 combo->onChange = [this, combo] {
-                    if (isUpdatingPluginSelector)
+                    if (isUpdatingPluginSelector) {
                         return;
-                    if (combo->getSelectedItemIndex() >= 0)
+                    }
+                    if (combo->getSelectedItemIndex() >= 0) {
                         pluginOperationController->loadSelectedPlugin();
+                    }
                 };
             }
             if (auto* combo = findCombo("plugin-filter-combo")) {
@@ -429,18 +448,22 @@ void MainComponent::initialiseUi() {
                 combo->setSelectedId(1, juce::dontSendNotification);
                 combo->setWantsKeyboardFocus(false);
                 combo->onChange = [this] {
-                    if (!isUpdatingPluginSelector)
+                    if (!isUpdatingPluginSelector) {
                         refreshPluginUiState();
+                    }
                 };
             }
-            if (auto* item = findItem("plugin-path-editor"))
-                if (auto* editor = dynamic_cast<juce::TextEditor*>(item->getComponent().get()))
+            if (auto* item = findItem("plugin-path-editor")) {
+                if (auto* editor = dynamic_cast<juce::TextEditor*>(item->getComponent().get())) {
                     editor->onReturnKey = [this] { pluginOperationController->scanPlugins(); };
+                }
+            }
 
             // ── controls panel ──
             auto* adsrCurve = []() -> AdsrCurveComponent* { return nullptr; }();
-            if (auto* item = findItem("adsr-curve"))
+            if (auto* item = findItem("adsr-curve")) {
                 adsrCurve = dynamic_cast<AdsrCurveComponent*>(item->getComponent().get());
+            }
 
             const auto wireKnob = [&findSlider](const char* id, double min, double max, double interval,
                                                 const std::function<juce::String(double)>& formatter,
@@ -458,8 +481,9 @@ void MainComponent::initialiseUi() {
                 = [this, curve = adsrCurve, &wireKnob](const char* id, double min, double max, double interval,
                                                        const std::function<juce::String(double)>& formatter) {
                       wireKnob(id, min, max, interval, formatter, [this, curve] {
-                          if (curve != nullptr)
+                          if (curve != nullptr) {
                               curve->setParameters(getAttack(), getDecay(), getSustain(), getRelease());
+                          }
                           handlePerformanceUiChanged();
                       });
                   };
@@ -477,8 +501,9 @@ void MainComponent::initialiseUi() {
                     // rounding, which mis-rendered 1.25 as "1.2" and 1.75 as
                     // "1.8".
                     auto text = juce::String(v, 2);
-                    if (text.endsWith("0"))
+                    if (text.endsWith("0")) {
                         text = text.dropLastCharacters(1);
+                    }
                     return text + "x";
                 },
                 [this] { recordingSessionController->handlePlaybackSpeedChange(getControlsPlaybackSpeed()); });
@@ -490,10 +515,12 @@ void MainComponent::initialiseUi() {
 
             // Latched (toggle-on) accent colours: red while recording, green while playing.
             const auto& tokens = devpiano::jive::DesignTokens::get();
-            if (auto* btn = findButton("record-btn"))
+            if (auto* btn = findButton("record-btn")) {
                 btn->setColour(juce::TextButton::buttonOnColourId, tokens.recordActive());
-            if (auto* btn = findButton("play-btn"))
+            }
+            if (auto* btn = findButton("play-btn")) {
                 btn->setColour(juce::TextButton::buttonOnColourId, tokens.playActive());
+            }
             wireButton("export-midi-btn", [this] { recordingSessionController->handleExportMidiClicked(); });
             wireButton("export-wav-btn", [this] { recordingSessionController->handleExportWavClicked(); });
             wireButton("import-midi-btn", [this] { recordingSessionController->handleImportMidiClicked(); });
@@ -509,11 +536,13 @@ void MainComponent::initialiseUi() {
                 combo->setTextWhenNothingSelected(TRANS("Default"));
                 combo->setWantsKeyboardFocus(false);
                 combo->onChange = [this, combo] {
-                    if (isUpdatingPresets)
+                    if (isUpdatingPresets) {
                         return;
+                    }
                     const auto selectedId = combo->getSelectedId();
-                    if (selectedId <= 0 || !juce::isPositiveAndBelow(selectedId - 1, availablePresetIds.size()))
+                    if (selectedId <= 0 || !juce::isPositiveAndBelow(selectedId - 1, availablePresetIds.size())) {
                         return;
+                    }
                     presetFlowSupport->applyPresetById(availablePresetIds[selectedId - 1]);
                     updateControlsPresetActionButtons();
                 };
@@ -522,9 +551,11 @@ void MainComponent::initialiseUi() {
             setRecordingControlsState({});
 
             // ── keyboard area ──
-            if (auto* item = findItem("custom-keyboard"))
-                if (auto* viewport = dynamic_cast<KeyboardViewport*>(item->getComponent().get()))
+            if (auto* item = findItem("custom-keyboard")) {
+                if (auto* viewport = dynamic_cast<KeyboardViewport*>(item->getComponent().get())) {
                     customKeyboardRef = &viewport->getCustomKeyboard();
+                }
+            }
         }
     }
 
@@ -548,17 +579,19 @@ void MainComponent::initialiseUi() {
     // Wire CustomKeyboard mouse interaction → sound (with MIDI matrix)
     auto& customKeyboard = getCustomKeyboard();
     customKeyboard.onNoteOn = [this](int midiNote, int sourceChannel) {
-        if (midiChannelMapper != nullptr)
+        if (midiChannelMapper != nullptr) {
             midiChannelMapper->sendNoteOn(sourceChannel, midiNote, 1.0f, audioEngine.getKeyboardState());
-        else
+        } else {
             audioEngine.getKeyboardState().noteOn(1, midiNote, 1.0f);
+        }
         suppressTextInputMethods();
     };
     customKeyboard.onNoteOff = [this](int midiNote, int sourceChannel) {
-        if (midiChannelMapper != nullptr)
+        if (midiChannelMapper != nullptr) {
             midiChannelMapper->sendNoteOff(sourceChannel, midiNote, 1.0f, audioEngine.getKeyboardState());
-        else
+        } else {
             audioEngine.getKeyboardState().noteOff(1, midiNote, 1.0f);
+        }
     };
     customKeyboard.onBindingEditRequested = [this](int midiNote) {
         // Find existing binding for this note
@@ -581,10 +614,12 @@ void MainComponent::initialiseUi() {
             midiNote, noteName, existingBinding, currentLabel, currentColour,
             [this, midiNote](KeyBindingEditResult result) {
                 // Update custom label and colour if changed
-                if (result.labelChanged)
+                if (result.labelChanged) {
                     appSettings.customKeyLabels[static_cast<std::size_t>(midiNote)] = result.customLabel;
-                if (result.colourChanged)
+                }
+                if (result.colourChanged) {
                     appSettings.customKeyColours[static_cast<std::size_t>(midiNote)] = result.customColour;
+                }
 
                 // Update binding if changed
                 if (result.binding.has_value()) {
@@ -592,20 +627,17 @@ void MainComponent::initialiseUi() {
 
                     if (result.binding->keyCode < 0) {
                         // Unbind request: remove all bindings for this note
-                        updatedLayout.bindings.erase(
-                            std::remove_if(updatedLayout.bindings.begin(), updatedLayout.bindings.end(),
-                                           [note = result.binding->action.midiNote](const auto& b) {
-                                               return b.action.type == devpiano::core::KeyActionType::note
-                                                   && b.action.midiNote == note;
-                                           }),
-                            updatedLayout.bindings.end());
+                        std::erase_if(updatedLayout.bindings, [note = result.binding->action.midiNote](const auto& b) {
+                            return b.action.type == devpiano::core::KeyActionType::note && b.action.midiNote == note;
+                        });
                     } else {
                         // Update the binding in-place
-                        for (auto& b : updatedLayout.bindings)
+                        for (auto& b : updatedLayout.bindings) {
                             if (b.keyCode == result.binding->keyCode) {
                                 b = *result.binding;
                                 break;
                             }
+                        }
                     }
 
                     keyboardMidiMapper.setLayout(updatedLayout);
@@ -623,8 +655,9 @@ void MainComponent::initialiseUi() {
                         auto updatedPreset = presetFlowSupport->captureCurrentState(currentId);
                         auto presetFile = devpiano::layout::getPresetDirectory().getChildFile(
                             devpiano::layout::sanitisePresetFileName(currentId) + ".devpiano.preset");
-                        if (!devpiano::layout::savePreset(updatedPreset, presetFile))
+                        if (!devpiano::layout::savePreset(updatedPreset, presetFile)) {
                             DP_LOG_WARN("[Preset] failed to auto-save after binding edit: " + currentId);
+                        }
                     }
                 }
             },
@@ -658,8 +691,9 @@ void MainComponent::persistMainContentSize(int width, int height) {
     const auto clampedWidth = juce::jlimit(limits.getX(), limits.getWidth(), width);
     const auto clampedHeight = juce::jlimit(limits.getY(), limits.getHeight(), height);
 
-    if (appSettings.mainWindowWidth == clampedWidth && appSettings.mainWindowHeight == clampedHeight)
+    if (appSettings.mainWindowWidth == clampedWidth && appSettings.mainWindowHeight == clampedHeight) {
         return;
+    }
 
     appSettings.mainWindowWidth = clampedWidth;
     appSettings.mainWindowHeight = clampedHeight;
@@ -685,8 +719,9 @@ void MainComponent::timerCallback() {
     // Drain preset-change notifications from playback
     {
         auto changes = recordingEngine.drainPendingPresetChanges();
-        for (const auto& change : changes)
+        for (const auto& change : changes) {
             presetFlowSupport->applyPresetByIndex(change.presetId);
+        }
     }
 
     // Aggressively reclaim keyboard focus from child components that don't
@@ -753,12 +788,10 @@ void MainComponent::paintOverChildren(juce::Graphics& g) {
 }
 
 bool MainComponent::isInterestedInFileDrag(const juce::StringArray& files) {
-    for (auto& f : files) {
-        auto ext = juce::File(f).getFileExtension().toLowerCase();
-        if (ext == ".devpiano" || ext == ".mid" || ext == ".midi" || ext == ".devpiano.preset" || ext == ".vst3")
-            return true;
-    }
-    return false;
+    return std::ranges::any_of(files, [](const auto& f) {
+        const auto ext = juce::File(f).getFileExtension().toLowerCase();
+        return ext == ".devpiano" || ext == ".mid" || ext == ".midi" || ext == ".devpiano.preset" || ext == ".vst3";
+    });
 }
 
 void MainComponent::fileDragEnter(const juce::StringArray&, int, int) {
@@ -775,22 +808,26 @@ void MainComponent::filesDropped(const juce::StringArray& files, int, int) {
     dropActive = false;
     repaint();
 
-    for (auto& f : files) {
+    for (const auto& f : files) {
         const auto file = juce::File(f);
         const auto ext = file.getFileExtension().toLowerCase();
 
         if (ext == ".devpiano") {
-            if (recordingSessionController != nullptr)
+            if (recordingSessionController != nullptr) {
                 recordingSessionController->handleOpenPerformanceFile(file);
+            }
         } else if (ext == ".mid" || ext == ".midi") {
-            if (recordingSessionController != nullptr)
+            if (recordingSessionController != nullptr) {
                 recordingSessionController->handleImportMidiFile(file);
+            }
         } else if (ext == ".devpiano.preset") {
-            if (presetFlowSupport != nullptr)
+            if (presetFlowSupport != nullptr) {
                 presetFlowSupport->handleImportPresetFile(file);
+            }
         } else if (ext == ".vst3") {
-            if (pluginOperationController != nullptr)
+            if (pluginOperationController != nullptr) {
                 pluginOperationController->handleImportVst3File(file);
+            }
         }
     }
 }
@@ -809,8 +846,9 @@ bool MainComponent::keyPressed(const juce::KeyPress& key) {
         return true;
     }
 
-    if (isKeyboardInputSuppressed())
+    if (isKeyboardInputSuppressed()) {
         return false;
+    }
 
     // F1-F12 preset shortcuts (no modifiers)
     if (!key.getModifiers().isAnyModifierKeyDown()) {
@@ -890,8 +928,9 @@ void MainComponent::reloadStylesAndTokens() {
 bool MainComponent::keyStateChanged(bool isKeyDown) {
     juce::ignoreUnused(isKeyDown);
 
-    if (isKeyboardInputSuppressed())
+    if (isKeyboardInputSuppressed()) {
         return false;
+    }
 
     const auto handled = keyboardMidiMapper.handleKeyStateChanged(audioEngine.getKeyboardState());
 
@@ -908,12 +947,15 @@ bool MainComponent::isKeyboardInputSuppressed() const noexcept {
     // text component. Sliders, buttons, comboboxes and other child
     // components that don't consume text keys should not block piano input.
     if (auto* focused = juce::Component::getCurrentlyFocusedComponent()) {
-        if (focused == this || !isParentOf(focused))
+        if (focused == this || !isParentOf(focused)) {
             return false;
-        if (dynamic_cast<const juce::TextEditor*>(focused) != nullptr)
+        }
+        if (dynamic_cast<const juce::TextEditor*>(focused) != nullptr) {
             return true;
-        if (auto* label = dynamic_cast<const juce::Label*>(focused))
+        }
+        if (const auto* label = dynamic_cast<const juce::Label*>(focused)) {
             return label->isBeingEdited();
+        }
         return false;
     }
     return false;
@@ -921,14 +963,17 @@ bool MainComponent::isKeyboardInputSuppressed() const noexcept {
 
 bool MainComponent::shouldTakeKeyboardFocus() const noexcept {
     if (auto* mcm = juce::ModalComponentManager::getInstanceWithoutCreating();
-        mcm != nullptr && mcm->getNumModalComponents() > 0)
+        mcm != nullptr && mcm->getNumModalComponents() > 0) {
         return false;
+    }
 
-    if (isSettingsWindowOpen())
+    if (isSettingsWindowOpen()) {
         return false;
+    }
 
-    if (pluginOperationController != nullptr && pluginOperationController->hasEditorWindowOpen())
+    if (pluginOperationController != nullptr && pluginOperationController->hasEditorWindowOpen()) {
         return false;
+    }
 
     return true;
 }
@@ -936,15 +981,17 @@ bool MainComponent::shouldTakeKeyboardFocus() const noexcept {
 void MainComponent::focusGained(juce::Component::FocusChangeType cause) {
     juce::AudioAppComponent::focusGained(cause);
 
-    if (!shouldTakeKeyboardFocus())
+    if (!shouldTakeKeyboardFocus()) {
         return;
+    }
 
     // Windows may have already given us focus via WM_SETFOCUS before grabKeyboardFocus ran,
     // causing takeKeyboardFocus's early-return check to fire. Call grabKeyboardFocus() to
     // synchronize the global state. The early-return in takeKeyboardFocus will safely fire
     // (because currentlyFocusedComponent will already be set after the first call).
-    if (juce::Component::getCurrentlyFocusedComponent() != this)
+    if (juce::Component::getCurrentlyFocusedComponent() != this) {
         grabKeyboardFocus();
+    }
 }
 
 void MainComponent::focusLost(juce::Component::FocusChangeType cause) {
@@ -960,12 +1007,14 @@ SettingsModel::PerformanceSettingsView MainComponent::getPerformanceSettingsFrom
 }
 
 juce::String MainComponent::getLastPluginNameForRecoveryStateFromUi() const {
-    if (pluginHost.hasLoadedPlugin())
+    if (pluginHost.hasLoadedPlugin()) {
         return pluginHost.getCurrentPluginName();
+    }
 
     auto selected = getSelectedPluginName().trim();
-    if (selected.isNotEmpty())
+    if (selected.isNotEmpty()) {
         return selected;
+    }
 
     // Fallback: during early startup the UI may not be populated yet;
     // preserve the model's persisted value so saveSettingsSoon() doesn't clear it.
@@ -1027,10 +1076,11 @@ void MainComponent::syncUiFromSettings() {
         getCustomKeyboard().setKeyboardSettings(ks);
     }
     // Restore keyboard scroll position (after layout is known); -1 sentinel = unset
-    if (appSettings.keyboardScrollOffsetX >= 0)
+    if (appSettings.keyboardScrollOffsetX >= 0) {
         setKeyboardViewPosition(-1, appSettings.keyboardScrollOffsetX);
-    else
+    } else {
         setKeyboardViewPosition(24); // default: align note 24 (C1) at left edge
+    }
 }
 
 void MainComponent::syncSettingsFromUi() {
@@ -1050,11 +1100,13 @@ void MainComponent::suppressTextInputMethods() {
 }
 
 void MainComponent::restoreKeyboardFocus() {
-    if (!shouldTakeKeyboardFocus())
+    if (!shouldTakeKeyboardFocus()) {
         return;
+    }
 
-    if (isShowing() && juce::Component::getCurrentlyFocusedComponent() != this)
+    if (isShowing() && juce::Component::getCurrentlyFocusedComponent() != this) {
         grabKeyboardFocus();
+    }
 
     suppressTextInputMethods();
 }
@@ -1067,8 +1119,9 @@ void MainComponent::initialiseAudioDevice() {
 
     setAudioChannels(0, 2, savedState);
 
-    if (deviceManager.getCurrentAudioDevice() == nullptr)
+    if (deviceManager.getCurrentAudioDevice() == nullptr) {
         DP_LOG_ERROR("[AudioDevice] initialiseAudioDevice: no device available after initialization");
+    }
 
     captureAudioDeviceState();
     logCurrentAudioDeviceDiagnostics("initialiseAudioDevice");
@@ -1092,8 +1145,9 @@ void MainComponent::captureAudioDeviceState() {
 
 void MainComponent::prepareForAudioDeviceRebuild() {
     captureAudioDeviceState();
-    if (pluginOperationController)
+    if (pluginOperationController) {
         pluginOperationController->closePluginEditorWindow();
+    }
     shutdownAudio();
 }
 

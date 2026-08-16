@@ -8,8 +8,9 @@ namespace {
 /// Helper: create a ValueTree node with a type name.
 inline juce::ValueTree node(const juce::Identifier& type, const juce::String& id = {}) {
     auto t = juce::ValueTree(type);
-    if (id.isNotEmpty())
+    if (id.isNotEmpty()) {
         t.setProperty("id", id, nullptr);
+    }
     return t;
 }
 
@@ -613,9 +614,11 @@ void refreshTitles(::jive::GuiItem& root) {
         { "custom-keyboard", "Keyboard" },
     };
 
-    for (const auto& t : titles)
-        if (auto* item = ::jive::findItemWithID(root, t.id))
+    for (const auto& t : titles) {
+        if (auto* item = ::jive::findItemWithID(root, t.id)) {
             item->state.setProperty("title", TRANS(t.key), nullptr);
+        }
+    }
 }
 
 } // namespace devpiano::ui::jive

@@ -23,8 +23,9 @@ public:
     // by the time a base destructor body runs.
     void finish(int exitResult) {
         completed = true;
-        if (auto* dw = findParentComponentOfClass<juce::DialogWindow>())
+        if (auto* dw = findParentComponentOfClass<juce::DialogWindow>()) {
             dw->exitModalState(exitResult);
+        }
     }
 
 protected:
@@ -61,8 +62,9 @@ public:
     ~PresetNameContent() override {
         // Fire the "cancelled" path if the window was closed without an
         // explicit confirm (title bar X / Escape).
-        if (!completed && onComplete)
+        if (!completed && onComplete) {
             onComplete(std::nullopt);
+        }
     }
 
     void resized() override {
@@ -83,15 +85,18 @@ public:
 
 private:
     void complete(std::optional<juce::String> result) {
-        if (completed)
+        if (completed) {
             return;
+        }
         completed = true; // 先标记：析构不再触发取消回调，防止 double-callback
         auto cb = std::move(onComplete); // 取走回调：回调内重入 complete() 直接返回
-        if (cb)
+        if (cb) {
             cb(std::move(result));
+        }
         // 回调可能已关闭对话框并销毁 this；仍存活才退出模态状态，防止 UAF
-        if (juce::Component::SafePointer<DialogContentBase> alive(this); alive != nullptr)
+        if (juce::Component::SafePointer<DialogContentBase> alive(this); alive != nullptr) {
             alive->finish(0);
+        }
     }
 
     juce::Label nameLabel;
@@ -130,8 +135,9 @@ public:
     ~PresetConfirmContent() override {
         // Title bar X / Escape: fire the cancel result while `onComplete`
         // (a derived member) is still alive. See PresetNameContent.
-        if (!completed && onComplete)
+        if (!completed && onComplete) {
             onComplete(false);
+        }
     }
 
     void resized() override {
@@ -150,15 +156,18 @@ public:
 
 private:
     void complete(bool result) {
-        if (completed)
+        if (completed) {
             return;
+        }
         completed = true; // 先标记：析构不再触发取消回调，防止 double-callback
         auto cb = std::move(onComplete); // 取走回调：回调内重入 complete() 直接返回
-        if (cb)
+        if (cb) {
             cb(result);
+        }
         // 回调可能已关闭对话框并销毁 this；仍存活才退出模态状态，防止 UAF
-        if (juce::Component::SafePointer<DialogContentBase> alive(this); alive != nullptr)
+        if (juce::Component::SafePointer<DialogContentBase> alive(this); alive != nullptr) {
             alive->finish(0);
+        }
     }
 
     juce::Label messageLabel;
@@ -180,8 +189,9 @@ void launchDialog(const juce::String& title, juce::Component* componentToCentreA
     opts.dialogBackgroundColour = devpiano::jive::DesignTokens::get().mainBg();
     opts.componentToCentreAround = componentToCentreAround;
     opts.content.setOwned(content.release());
-    if (componentToCentreAround != nullptr)
+    if (componentToCentreAround != nullptr) {
         opts.content->setLookAndFeel(&componentToCentreAround->getLookAndFeel());
+    }
     opts.runModal();
 }
 

@@ -27,7 +27,7 @@ juce::String describeMidiMessage(const juce::MidiMessage& message) {
         return "NoteOn ts=" + juce::String(timestamp, 3) + " ch=" + juce::String(channel) + " note="
             + juce::String(message.getNoteNumber()) + "(" + juce::String(noteNameFromSemitone(message.getNoteNumber()))
             + juce::String(octaveFromMidiNote(message.getNoteNumber())) + ")"
-            + " vel=" + juce::String(static_cast<int>(message.getVelocity() * 127.0f));
+            + " vel=" + juce::String(juce::roundToInt(static_cast<float>(message.getVelocity()) * 127.0f));
     }
 
     if (message.isNoteOff()) {
@@ -73,8 +73,9 @@ juce::String describeMidiMessage(const juce::MidiMessage& message) {
     juce::String raw;
     const auto* data = message.getRawData();
     const auto size = message.getRawDataSize();
-    for (int i = 0; i < size; ++i)
+    for (int i = 0; i < size; ++i) {
         raw += juce::String::toHexString(static_cast<unsigned char>(data[i])) + " ";
+    }
     return "Unknown [" + raw.trim() + "]";
 }
 

@@ -38,8 +38,9 @@ void registerRootComponentFactory(::jive::Interpreter& interpreter) {
         return slider;
     });
     factory.set("AdsrCurve", [] { return std::make_unique<juce::Component>(); });
-    for (const char* type : { "RecordButton", "PlayButton", "StopButton", "BackButton" })
+    for (const char* type : { "RecordButton", "PlayButton", "StopButton", "BackButton" }) {
         factory.set(type, [] { return std::make_unique<juce::TextButton>(); });
+    }
     factory.set("CustomKeyboard", [] {
         auto viewport = std::make_unique<juce::Viewport>();
         viewport->setScrollBarsShown(false, true, false, true);
@@ -64,11 +65,14 @@ juce::File findShippedStyleSheet() {
 }
 
 juce::ValueTree findNodeById(const juce::ValueTree& root, const juce::String& id) {
-    if (root.getProperty("id").toString() == id)
+    if (root.getProperty("id").toString() == id) {
         return root;
-    for (auto child : root)
-        if (auto found = findNodeById(child, id); found.isValid())
+    }
+    for (auto child : root) {
+        if (auto found = findNodeById(child, id); found.isValid()) {
             return found;
+        }
+    }
     return {};
 }
 
@@ -122,18 +126,21 @@ private:
         expect(title.isValid(), "title node missing");
         expect(title.hasProperty("style"), "title has no style property");
 
-        if (!title.hasProperty("style"))
+        if (!title.hasProperty("style")) {
             return;
+        }
 
         const auto styleVar = title["style"];
         expect(styleVar.getObject() != nullptr, "style must be a DynamicObject");
-        if (styleVar.getObject() == nullptr)
+        if (styleVar.getObject() == nullptr) {
             return;
+        }
 
         auto* object = dynamic_cast<::jive::Object*>(styleVar.getObject());
         expect(object != nullptr, "style must be a jive::Object (plain DynamicObject is rejected by JIVE)");
-        if (object == nullptr)
+        if (object == nullptr) {
             return;
+        }
 
         expectEquals(object->getProperty("foreground").toString(), juce::String("#EEEEEE"));
         expectEquals(object->getProperty("font-size").toString(), juce::String("18"));
@@ -143,19 +150,22 @@ private:
         // (hover/active/focus...), not ":hover" / "pressed".
         const auto settings = tree.getChildWithProperty("id", "settings-btn");
         expect(settings.isValid(), "settings-btn node missing");
-        if (!settings.isValid())
+        if (!settings.isValid()) {
             return;
+        }
 
         auto* btnStyle = dynamic_cast<::jive::Object*>(settings["style"].getObject());
         expect(btnStyle != nullptr, "settings-btn style must be a jive::Object");
-        if (btnStyle == nullptr)
+        if (btnStyle == nullptr) {
             return;
+        }
 
         expectEquals(btnStyle->getProperty("background").toString(), juce::String("#2D3035"));
         auto* hover = btnStyle->getProperty("hover").getDynamicObject();
         expect(hover != nullptr, "hover sub-rule missing");
-        if (hover != nullptr)
+        if (hover != nullptr) {
             expectEquals(hover->getProperty("background").toString(), juce::String("#35383D"));
+        }
     }
 
     void testAppliedStylesReachInterpretedComponents() {
@@ -169,18 +179,21 @@ private:
 
         auto item = interpreter.interpret(tree);
         expect(item != nullptr, "interpretation failed");
-        if (item == nullptr)
+        if (item == nullptr) {
             return;
+        }
 
         auto* titleItem = ::jive::findItemWithID(*item, "title");
         expect(titleItem != nullptr, "title item not found");
-        if (titleItem == nullptr)
+        if (titleItem == nullptr) {
             return;
+        }
 
         auto* text = dynamic_cast<jive::TextComponent*>(titleItem->getComponent().get());
         expect(text != nullptr, "title component is not a TextComponent");
-        if (text == nullptr)
+        if (text == nullptr) {
             return;
+        }
 
         // StyleSheet must have applied the #title rule — the text colour
         // proves the style pipeline end to end.
@@ -237,18 +250,21 @@ private:
 
         auto item = interpreter.interpret(tree);
         expect(item != nullptr, "interpretation failed");
-        if (item == nullptr)
+        if (item == nullptr) {
             return;
+        }
 
         auto* titleItem = ::jive::findItemWithID(*item, "title");
         expect(titleItem != nullptr, "title item not found");
-        if (titleItem == nullptr)
+        if (titleItem == nullptr) {
             return;
+        }
 
         auto* text = dynamic_cast<jive::TextComponent*>(titleItem->getComponent().get());
         expect(text != nullptr, "title component is not a TextComponent");
-        if (text == nullptr)
+        if (text == nullptr) {
             return;
+        }
 
         expectEquals(text->getTextColour(), juce::Colour(0xFFAABBCC));
 
@@ -280,21 +296,24 @@ private:
 
         auto item = interpreter.interpret(tree);
         expect(item != nullptr, "status bar interpretation failed");
-        if (item == nullptr)
+        if (item == nullptr) {
             return;
+        }
 
         auto* dot = ::jive::findItemWithID(*item, "midi-dot");
         expect(dot != nullptr, "midi-dot item not found");
-        if (dot != nullptr)
+        if (dot != nullptr) {
             expect(dynamic_cast<StatusBarMidiDot*>(dot->getComponent().get()) != nullptr,
                    "midi-dot component is not a StatusBarMidiDot");
+        }
 
         for (const auto* id : { "plugin-name-label", "audio-info-label", "time-label" }) {
             auto* label = ::jive::findItemWithID(*item, id);
             expect(label != nullptr, juce::String(id) + " item not found");
-            if (label != nullptr)
+            if (label != nullptr) {
                 expect(dynamic_cast<jive::TextComponent*>(label->getComponent().get()) != nullptr,
                        juce::String(id) + " component is not a TextComponent");
+            }
         }
     }
 
@@ -319,8 +338,9 @@ private:
 
         auto item = interpreter.interpret(tree);
         expect(item != nullptr, "plugin panel interpretation failed");
-        if (item == nullptr)
+        if (item == nullptr) {
             return;
+        }
 
         const auto expectComponent = [this, &item](const char* id) {
             auto* found = ::jive::findItemWithID(*item, id);
@@ -330,8 +350,9 @@ private:
 
         expect(expectComponent("plugin-selector") != nullptr, "");
         expect(expectComponent("plugin-filter-combo") != nullptr, "");
-        for (const char* id : { "load-btn", "unload-btn", "editor-btn", "toggle-btn", "scan-btn", "browse-btn" })
+        for (const char* id : { "load-btn", "unload-btn", "editor-btn", "toggle-btn", "scan-btn", "browse-btn" }) {
             expect(expectComponent(id) != nullptr, "");
+        }
         expect(expectComponent("plugin-path-editor") != nullptr, "");
         expect(expectComponent("plugin-list-editor") != nullptr, "");
 
@@ -343,9 +364,11 @@ private:
         expect(filter != nullptr, "filter combo missing");
         if (filter != nullptr) {
             int optionCount = 0;
-            for (auto child : filter->state)
-                if (child.hasType("Option"))
+            for (auto child : filter->state) {
+                if (child.hasType("Option")) {
                     ++optionCount;
+                }
+            }
             expectEquals(optionCount, 0);
             expect(!filter->state.hasProperty("selected"), "filter combo must not declare a selected property");
         }
@@ -353,8 +376,9 @@ private:
         // The expanded area starts collapsed (height 0).
         auto* expandedArea = ::jive::findItemWithID(*item, "plugin-expanded-area");
         expect(expandedArea != nullptr, "expanded area missing");
-        if (expandedArea != nullptr)
+        if (expandedArea != nullptr) {
             expectEquals(expandedArea->state["height"].toString(), juce::String("0"));
+        }
     }
 
     void testControlsPanelTreeInterprets() {
@@ -382,16 +406,18 @@ private:
 
         auto item = interpreter.interpret(tree);
         expect(item != nullptr, "controls panel interpretation failed");
-        if (item == nullptr)
+        if (item == nullptr) {
             return;
+        }
 
         for (const char* id :
              { "volume-knob", "attack-knob", "decay-knob", "sustain-knob", "release-knob", "speed-knob" }) {
             auto* knob = ::jive::findItemWithID(*item, id);
             expect(knob != nullptr, juce::String(id) + " not found");
-            if (knob != nullptr)
+            if (knob != nullptr) {
                 expect(dynamic_cast<juce::Slider*>(knob->getComponent().get()) != nullptr,
                        juce::String(id) + " is not a Slider");
+            }
         }
 
         for (const char* id : { "record-btn", "play-btn", "stop-btn", "back-btn", "export-midi-btn", "export-wav-btn",
@@ -399,16 +425,18 @@ private:
                                 "save-preset-btn", "rename-preset-btn", "delete-preset-btn" }) {
             auto* btn = ::jive::findItemWithID(*item, id);
             expect(btn != nullptr, juce::String(id) + " not found");
-            if (btn != nullptr)
+            if (btn != nullptr) {
                 expect(dynamic_cast<juce::Button*>(btn->getComponent().get()) != nullptr,
                        juce::String(id) + " is not a Button");
+            }
         }
 
         auto* combo = ::jive::findItemWithID(*item, "preset-combo");
         expect(combo != nullptr, "preset-combo not found");
-        if (combo != nullptr)
+        if (combo != nullptr) {
             expect(dynamic_cast<juce::ComboBox*>(combo->getComponent().get()) != nullptr,
                    "preset-combo is not a ComboBox");
+        }
 
         auto* curve = ::jive::findItemWithID(*item, "adsr-curve");
         expect(curve != nullptr, "adsr-curve not found");
@@ -431,14 +459,16 @@ private:
 
         auto item = interpreter.interpret(tree);
         expect(item != nullptr, "keyboard area interpretation failed");
-        if (item == nullptr)
+        if (item == nullptr) {
             return;
+        }
 
         auto* keyboard = ::jive::findItemWithID(*item, "custom-keyboard");
         expect(keyboard != nullptr, "custom-keyboard item not found");
-        if (keyboard != nullptr)
+        if (keyboard != nullptr) {
             expect(dynamic_cast<juce::Viewport*>(keyboard->getComponent().get()) != nullptr,
                    "custom-keyboard component is not a Viewport");
+        }
     }
 
     void testRootLayoutInterprets() {
@@ -452,8 +482,9 @@ private:
 
         auto item = interpreter.interpret(tree);
         expect(item != nullptr, "root layout interpretation failed");
-        if (item == nullptr)
+        if (item == nullptr) {
             return;
+        }
 
         // Every top-level panel must be present and nested correctly.
         for (const char* id :
@@ -465,8 +496,9 @@ private:
         // The plugin panel starts collapsed (height 42: 40 content + 2 border).
         auto* plugin = ::jive::findItemWithID(*item, "plugin-panel");
         expect(plugin != nullptr, "");
-        if (plugin != nullptr)
+        if (plugin != nullptr) {
             expectEquals(plugin->state["height"].toString(), juce::String("42"));
+        }
 
         // Layout the root and verify panels receive non-zero bounds.
         item->getComponent()->setBounds(0, 0, 1120, 760);
@@ -483,8 +515,9 @@ private:
         const auto expectTitle = [&item, this](const char* id, const char* expected) {
             auto* guiItem = ::jive::findItemWithID(*item, id);
             expect(guiItem != nullptr, juce::String(id) + " item not found");
-            if (guiItem == nullptr)
+            if (guiItem == nullptr) {
                 return;
+            }
             expectEquals(guiItem->getComponent()->getTitle(), juce::String(expected),
                          juce::String(id) + " must expose its semantic title");
         };
@@ -518,8 +551,9 @@ private:
 
         auto item = interpreter.interpret(tree);
         expect(item != nullptr, "root layout interpretation failed");
-        if (item == nullptr)
+        if (item == nullptr) {
             return;
+        }
 
         // Mount the root component so StyleSheets establish their ancestor
         // chain (inheritance resolves through the component tree).
@@ -530,20 +564,23 @@ private:
 
         auto* titleItem = ::jive::findItemWithID(*item, "title");
         expect(titleItem != nullptr, "title item not found");
-        if (titleItem == nullptr)
+        if (titleItem == nullptr) {
             return;
+        }
 
         auto* text = dynamic_cast<jive::TextComponent*>(titleItem->getComponent().get());
         expect(text != nullptr, "title component is not a TextComponent");
-        if (text == nullptr)
+        if (text == nullptr) {
             return;
+        }
 
         // getFont().getHeight() includes an environment-specific unit factor,
         // so assert the relative scale instead of absolute values.
         const auto heightAt14 = text->getFont().getHeight();
         expect(heightAt14 > 0.0f, "title font must have non-zero height");
-        if (heightAt14 <= 0.0f)
+        if (heightAt14 <= 0.0f) {
             return;
+        }
 
         // Hot reload: #window font-size -> 32 must reach the live tree and
         // scale the rendered font by 32/14.
@@ -570,13 +607,15 @@ private:
 
         // Load the ACTUAL shipped style sheet (found via CWD or exe walk-up).
         const auto styleFile = findShippedStyleSheet();
-        if (!styleFile.existsAsFile())
+        if (!styleFile.existsAsFile()) {
             return; // not a repo checkout; skip
+        }
 
         auto json = juce::JSON::parse(styleFile);
         expect(!json.isVoid(), "real style_sheets.json must parse");
-        if (json.isVoid())
+        if (json.isVoid()) {
             return;
+        }
 
         ::jive::Interpreter interpreter;
         registerRootComponentFactory(interpreter);
@@ -594,14 +633,16 @@ private:
         if (titleNode.isValid()) {
             auto* titleStyle = dynamic_cast<::jive::Object*>(titleNode["style"].getObject());
             expect(titleStyle != nullptr, "title must carry a style object");
-            if (titleStyle != nullptr)
+            if (titleStyle != nullptr) {
                 expectEquals(titleStyle->getProperty("font-size").toString(), juce::String("18"));
+            }
         }
 
         auto item = interpreter.interpret(tree);
         expect(item != nullptr, "root layout interpretation failed");
-        if (item == nullptr)
+        if (item == nullptr) {
             return;
+        }
 
         juce::Component host;
         host.setBounds(0, 0, 1120, 760);
@@ -611,13 +652,15 @@ private:
         // Find the title (explicit font-size) and one inherited Text node.
         auto* titleItem = ::jive::findItemWithID(*item, "title");
         expect(titleItem != nullptr, "title item not found");
-        if (titleItem == nullptr)
+        if (titleItem == nullptr) {
             return;
+        }
 
         auto* titleText = dynamic_cast<jive::TextComponent*>(titleItem->getComponent().get());
         expect(titleText != nullptr, "title component is not a TextComponent");
-        if (titleText == nullptr)
+        if (titleText == nullptr) {
             return;
+        }
 
         // An inherited text node: any Text component that is not the title
         // (e.g. the settings button label) must NOT carry its own font-size,
@@ -625,27 +668,32 @@ private:
         jive::TextComponent* inheritedText = nullptr;
         const std::function<void(::jive::GuiItem&)> findInheritedText = [&](::jive::GuiItem& guiItem) {
             if (auto* text = dynamic_cast<jive::TextComponent*>(guiItem.getComponent().get())) {
-                if (guiItem.state.getProperty("id").toString() != "title" && inheritedText == nullptr)
+                if (guiItem.state.getProperty("id").toString() != "title" && inheritedText == nullptr) {
                     inheritedText = text;
+                }
             }
-            for (auto* child : guiItem.getChildren())
+            for (auto* child : guiItem.getChildren()) {
                 findInheritedText(*child);
+            }
         };
         findInheritedText(*item);
         expect(inheritedText != nullptr, "no inherited Text component found");
-        if (inheritedText == nullptr)
+        if (inheritedText == nullptr) {
             return;
+        }
 
         const auto titleHeightBefore = titleText->getFont().getHeight();
         const auto inheritedHeightBefore = inheritedText->getFont().getHeight();
         expect(inheritedHeightBefore > 0.0f, "inherited text must have a font");
-        if (inheritedHeightBefore <= 0.0f)
+        if (inheritedHeightBefore <= 0.0f) {
             return;
+        }
 
         // Hot reload: bump #window font-size to 32. Inherited text must scale
         // by 32/14 while the title keeps its explicit 18.
-        if (auto* windowRule = json.getDynamicObject()->getProperty("#window").getDynamicObject())
+        if (auto* windowRule = json.getDynamicObject()->getProperty("#window").getDynamicObject()) {
             windowRule->setProperty("font-size", 32);
+        }
         catalog.loadFromJSON(json);
         catalog.refreshStyles(item->state);
 
@@ -667,13 +715,15 @@ private:
         // Text and the transport icon buttons, with hover/active neutralised
         // inside them.
         const auto styleFile = findShippedStyleSheet();
-        if (!styleFile.existsAsFile())
+        if (!styleFile.existsAsFile()) {
             return; // not a repo checkout; skip
+        }
 
         auto json = juce::JSON::parse(styleFile);
         expect(!json.isVoid(), "real style_sheets.json must parse");
-        if (json.isVoid())
+        if (json.isVoid()) {
             return;
+        }
 
         auto& catalog = devpiano::ui::jive::StyleCatalog::get();
         catalog.loadFromJSON(json);
@@ -687,13 +737,15 @@ private:
                                 "delete-preset-btn", "play-btn", "stop-btn", "back-btn", "record-btn" }) {
             const auto node = findById(tree, id);
             expect(node.isValid(), juce::String(id) + " node missing");
-            if (!node.isValid())
+            if (!node.isValid()) {
                 continue;
+            }
 
             auto* styleObj = dynamic_cast<::jive::Object*>(node["style"].getObject());
             expect(styleObj != nullptr, juce::String(id) + " must carry a style object");
-            if (styleObj == nullptr)
+            if (styleObj == nullptr) {
                 continue;
+            }
 
             const auto disabled = styleObj->getProperty("disabled");
             expect(disabled.isObject(), juce::String(id) + " style missing disabled pseudo-state");
@@ -711,8 +763,9 @@ private:
         if (exportBtn.isValid() && exportBtn.getNumChildren() > 0) {
             auto* labelStyle = dynamic_cast<::jive::Object*>(exportBtn.getChild(0)["style"].getObject());
             expect(labelStyle != nullptr, "button label must carry a style object");
-            if (labelStyle != nullptr)
+            if (labelStyle != nullptr) {
                 expect(labelStyle->getProperty("disabled").isObject(), "Text style missing disabled pseudo-state");
+            }
         }
     }
 
@@ -724,8 +777,9 @@ private:
         // "nothing selected" placeholder (the combo looked blank). With the
         // ComboBox style background transparent, the placeholder must render.
         const auto styleFile = findShippedStyleSheet();
-        if (!styleFile.existsAsFile())
+        if (!styleFile.existsAsFile()) {
             return; // not a repo checkout; skip
+        }
 
         devpiano::ui::jive::StyleCatalog::get().loadFromJSON(juce::JSON::parse(styleFile));
 
@@ -738,15 +792,17 @@ private:
             return slider;
         });
         factory.set("AdsrCurve", [] { return std::make_unique<juce::Component>(); });
-        for (const char* type : { "RecordButton", "PlayButton", "StopButton", "BackButton" })
+        for (const char* type : { "RecordButton", "PlayButton", "StopButton", "BackButton" }) {
             factory.set(type, [] { return std::make_unique<juce::TextButton>(); });
+        }
 
         auto tree = devpiano::ui::jive::makeControlsPanelTree();
         devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
         auto item = interpreter.interpret(tree);
         expect(item != nullptr, "controls tree interpretation failed");
-        if (item == nullptr)
+        if (item == nullptr) {
             return;
+        }
 
         DevPianoLookAndFeel laf;
         item->getComponent()->setLookAndFeel(&laf);
@@ -754,8 +810,9 @@ private:
         auto* comboItem = ::jive::findItemWithID(*item, "preset-combo");
         auto* combo = comboItem != nullptr ? dynamic_cast<juce::ComboBox*>(comboItem->getComponent().get()) : nullptr;
         expect(combo != nullptr, "preset-combo is a ComboBox");
-        if (combo == nullptr)
+        if (combo == nullptr) {
             return;
+        }
 
         // Empty-preset flow (mirrors setControlsPresets with no preset files).
         combo->clear(juce::dontSendNotification);
@@ -769,10 +826,13 @@ private:
         combo->paintEntireComponent(g, true);
 
         int light = 0;
-        for (int y = 0; y < 28; y += 2)
-            for (int x = 0; x < 250; x += 2)
-                if (img.getPixelAt(x, y).getRed() > 120)
+        for (int y = 0; y < 28; y += 2) {
+            for (int x = 0; x < 250; x += 2) {
+                if (img.getPixelAt(x, y).getRed() > 120) {
                     ++light;
+                }
+            }
+        }
         expect(light > 4, "combo placeholder text must render above the background canvas");
     }
 
@@ -794,8 +854,9 @@ private:
         }
 
         const auto titleOf = [&item](const char* id) -> juce::String {
-            if (auto* gi = ::jive::findItemWithID(*item, id))
+            if (auto* gi = ::jive::findItemWithID(*item, id)) {
                 return gi->state["title"].toString();
+            }
             return {};
         };
 
@@ -810,9 +871,11 @@ private:
         devpiano::ui::jive::refreshTitles(*item);
         if (auto* loadBtn = ::jive::findItemWithID(*item, "load-btn")) {
             loadBtn->state.setProperty("title", TRANS("Load"), nullptr);
-            for (auto child : loadBtn->state)
-                if (child.getType() == juce::Identifier("Text"))
+            for (auto child : loadBtn->state) {
+                if (child.getType() == juce::Identifier("Text")) {
                     child.setProperty("title", TRANS("Load"), nullptr);
+                }
+            }
         }
 
         expectEquals(titleOf("header"), juce::String(TRANS("Header")), "container title must follow the locale");
@@ -881,8 +944,9 @@ private:
         for (int y = 0; y < height; y += 2) {
             for (int x = 0; x < width; x += 2) {
                 const auto c = image.getPixelAt(x, y);
-                if (c.getRed() > 200 && c.getGreen() > 200 && c.getBlue() > 200)
+                if (c.getRed() > 200 && c.getGreen() > 200 && c.getBlue() > 200) {
                     ++light;
+                }
             }
         }
         return light;
@@ -898,8 +962,9 @@ private:
         devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
         auto item = interpreter.interpret(tree);
         expect(item != nullptr, "header interpretation failed");
-        if (item == nullptr)
+        if (item == nullptr) {
             return;
+        }
 
         // Give the header real size and count near-white pixels (text).
         const int light = countLightPixels(*item->getComponent(), 400, 36);
@@ -917,8 +982,9 @@ private:
         devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
         auto item = interpreter.interpret(tree);
         expect(item != nullptr, "plugin panel interpretation failed");
-        if (item == nullptr)
+        if (item == nullptr) {
             return;
+        }
 
         const int light = countLightPixels(*item->getComponent(), 800, 40);
         expect(light > 25, "button labels render no visible pixels (light=" + juce::String(light) + ")");
@@ -951,16 +1017,18 @@ public:
         devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
         auto item = interpreter.interpret(tree);
         expect(item != nullptr, "root interpretation failed");
-        if (item == nullptr)
+        if (item == nullptr) {
             return;
+        }
         item->getComponent()->setBounds(0, 0, 1120, 760);
 
         auto* plugin = jive::findItemWithID(*item, "plugin-panel");
         auto* area = jive::findItemWithID(*item, "plugin-expanded-area");
         expect(plugin != nullptr, "plugin-panel item missing");
         expect(area != nullptr, "plugin-expanded-area item missing");
-        if (plugin == nullptr || area == nullptr)
+        if (plugin == nullptr || area == nullptr) {
             return;
+        }
 
         // Collapsed initial state
         plugin->state.setProperty("height", 42, nullptr);
@@ -990,10 +1058,12 @@ public:
         // siblings in the parent column).
         area->state.setProperty("height", 112, nullptr);
         plugin->state.setProperty("height", 160, nullptr);
-        if (auto* panel = dynamic_cast<jive::FlexContainer*>(plugin))
+        if (auto* panel = dynamic_cast<jive::FlexContainer*>(plugin)) {
             panel->layOutChildren();
-        if (auto* mainArea = dynamic_cast<jive::FlexContainer*>(jive::findItemWithID(*item, "main-area")))
+        }
+        if (auto* mainArea = dynamic_cast<jive::FlexContainer*>(jive::findItemWithID(*item, "main-area"))) {
             mainArea->layOutChildren();
+        }
         expect(plugin->getComponent()->getHeight() == 160, "expanded panel height");
         expect(area->getComponent()->getHeight() > 0, "expanded area visible");
         expect(plugin->getComponent()->isVisible(), "expanded panel visible");
@@ -1013,10 +1083,12 @@ public:
         // (fixed order + explicit main-area reflow, as in setPluginPanelExpanded)
         area->state.setProperty("height", 0, nullptr);
         plugin->state.setProperty("height", 42, nullptr);
-        if (auto* panel = dynamic_cast<jive::FlexContainer*>(plugin))
+        if (auto* panel = dynamic_cast<jive::FlexContainer*>(plugin)) {
             panel->layOutChildren();
-        if (auto* mainArea = dynamic_cast<jive::FlexContainer*>(jive::findItemWithID(*item, "main-area")))
+        }
+        if (auto* mainArea = dynamic_cast<jive::FlexContainer*>(jive::findItemWithID(*item, "main-area"))) {
             mainArea->layOutChildren();
+        }
         expect(plugin->getComponent()->getHeight() == 42, "re-collapsed panel height");
         expect(plugin->getComponent()->isVisible(), "re-collapsed panel visible");
         expect(area->getComponent()->getHeight() == 0, "re-collapsed area height");
@@ -1038,8 +1110,9 @@ public:
         expect(keyboardItem->getComponent()->isVisible(), "keyboard stays visible");
         auto* toggleBtn = dynamic_cast<juce::Button*>(jive::findItemWithID(*item, "toggle-btn")->getComponent().get());
         expect(toggleBtn != nullptr, "toggle button found");
-        if (toggleBtn != nullptr)
+        if (toggleBtn != nullptr) {
             expect(toggleBtn->isVisible(), "toggle button visible after toggling");
+        }
 
         // Combo options populated like updatePluginPanelState must be
         // enabled and selectable (JIVE defaults missing "enabled" to false).
@@ -1053,13 +1126,15 @@ public:
         devpiano::ui::jive::StyleCatalog::get().applyToTree(pluginTree);
         auto pluginItem = interpreter.interpret(pluginTree);
         expect(pluginItem != nullptr, "plugin panel interpretation failed");
-        if (pluginItem == nullptr)
+        if (pluginItem == nullptr) {
             return;
+        }
 
         auto* selectorItem = jive::findItemWithID(*pluginItem, "plugin-selector");
         expect(selectorItem != nullptr, "plugin-selector missing");
-        if (selectorItem == nullptr)
+        if (selectorItem == nullptr) {
             return;
+        }
 
         const auto addOption = [&selectorItem](const juce::String& name, int index) {
             auto option = juce::ValueTree("Option");
@@ -1073,8 +1148,9 @@ public:
 
         auto* combo = dynamic_cast<juce::ComboBox*>(selectorItem->getComponent().get());
         expect(combo != nullptr, "selector is not a ComboBox");
-        if (combo == nullptr)
+        if (combo == nullptr) {
             return;
+        }
 
         expectEquals(combo->getNumItems(), 2);
         expect(combo->isItemEnabled(1), "first option must be enabled");
@@ -1106,8 +1182,9 @@ public:
         auto item = interpreter.interpret(tree);
         auto* combo = dynamic_cast<juce::ComboBox*>(item->getComponent().get());
         expect(combo != nullptr, "combo created");
-        if (combo == nullptr)
+        if (combo == nullptr) {
             return;
+        }
 
         // updatePluginPanelState computes its selection via the pure
         // devpiano::ui::preferredNameIndex function - test it directly.
@@ -1152,21 +1229,24 @@ public:
         auto tree = devpiano::ui::jive::makePluginPanelTree();
         auto item = interpreter.interpret(tree);
         expect(item != nullptr, "plugin panel interpretation failed");
-        if (item == nullptr)
+        if (item == nullptr) {
             return;
+        }
 
         auto* filterItem = jive::findItemWithID(*item, "plugin-filter-combo");
         expect(filterItem != nullptr, "filter combo item missing");
-        if (filterItem == nullptr)
+        if (filterItem == nullptr) {
             return;
+        }
 
         expect(!filterItem->state.hasProperty("selected"), "layout must not declare a selected property");
         expectEquals(filterItem->state.getNumChildren(), 0, "layout must not declare Option children");
 
         auto* combo = dynamic_cast<juce::ComboBox*>(filterItem->getComponent().get());
         expect(combo != nullptr, "filter is a ComboBox");
-        if (combo == nullptr)
+        if (combo == nullptr) {
             return;
+        }
 
         // The production fill sequence (MainComponent::initialiseUi /
         // refreshPluginPanelTexts) must still yield a visible "All" default
@@ -1210,18 +1290,21 @@ public:
         auto tree = devpiano::ui::jive::makeControlsPanelTree();
         auto item = interpreter.interpret(tree);
         expect(item != nullptr, "controls panel interpretation failed");
-        if (item == nullptr)
+        if (item == nullptr) {
             return;
+        }
 
         auto* comboItem = jive::findItemWithID(*item, "preset-combo");
         expect(comboItem != nullptr, "preset-combo missing");
-        if (comboItem == nullptr)
+        if (comboItem == nullptr) {
             return;
+        }
 
         auto* combo = dynamic_cast<juce::ComboBox*>(comboItem->getComponent().get());
         expect(combo != nullptr, "preset-combo is a ComboBox");
-        if (combo == nullptr)
+        if (combo == nullptr) {
             return;
+        }
 
         // setControlsPresets computes its selection via the pure
         // devpiano::ui::presetIdIndex function - test it directly.
@@ -1278,8 +1361,9 @@ public:
         ::jive::Interpreter interpreter;
         auto item = interpreter.interpret(tree);
         expect(item != nullptr, "plugin panel interpretation failed");
-        if (item == nullptr)
+        if (item == nullptr) {
             return;
+        }
 
         expect(item->getComponent()->getProperties().contains("style-sheet"), "style sheet attached at interpret");
 
@@ -1288,19 +1372,22 @@ public:
         // GuiItem tree.
         std::vector<std::shared_ptr<juce::Component>> components;
         const std::function<void(::jive::GuiItem&)> collect = [&](::jive::GuiItem& guiItem) {
-            if (auto component = guiItem.getComponent())
+            if (auto component = guiItem.getComponent()) {
                 components.push_back(std::move(component));
-            for (auto* child : guiItem.getChildren())
+            }
+            for (auto* child : guiItem.getChildren()) {
                 collect(*child);
+            }
         };
         const std::function<void(juce::Component&)> stripStyleSheets = [&](juce::Component& comp) {
-            for (int i = 0; i < comp.getNumChildComponents(); ++i)
+            for (int i = 0; i < comp.getNumChildComponents(); ++i) {
                 stripStyleSheets(*comp.getChildComponent(i));
+            }
             comp.getProperties().remove("style-sheet");
         };
 
         collect(*item);
-        expect(components.size() > 0, "components collected");
+        expect(!components.empty(), "components collected");
         stripStyleSheets(*item->getComponent());
         item.reset();
 
@@ -1308,8 +1395,9 @@ public:
         // fully alive and usable.
         for (const auto& component : components) {
             expect(component != nullptr, "component reference alive after GuiItem destruction");
-            if (component != nullptr)
+            if (component != nullptr) {
                 component->getProperties(); // must not touch a dead object
+            }
         }
 
         // Releasing the last references destroys the components (children

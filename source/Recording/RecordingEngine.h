@@ -7,9 +7,9 @@
 #include <vector>
 
 namespace devpiano::recording {
-enum class RecordingEventSource { computerKeyboard, realtimeMidiBuffer, playback };
+enum class RecordingEventSource : std::uint8_t { computerKeyboard, realtimeMidiBuffer, playback };
 
-enum class RecordingState { idle, recording, recordingPaused, playing, playingPaused, stopped };
+enum class RecordingState : std::uint8_t { idle, recording, recordingPaused, playing, playingPaused, stopped };
 
 enum class PerformanceEventType : uint8_t { midi = 0, presetChange = 1 };
 

@@ -103,10 +103,12 @@ inline void applyRuntimePluginState(AppState& appState, const RuntimePluginState
 
 inline void applyRuntimeAudioState(AppState& appState, const RuntimeAudioState& runtime) {
     appState.audio.hasLiveDevice = runtime.hasLiveDevice;
-    if (runtime.sampleRate > 0.0)
+    if (runtime.sampleRate > 0.0) {
         appState.audio.sampleRate = runtime.sampleRate;
-    if (runtime.bufferSize > 0)
+    }
+    if (runtime.bufferSize > 0) {
         appState.audio.bufferSize = runtime.bufferSize;
+    }
     appState.audio.backendName = runtime.backendName;
     appState.audio.deviceName = runtime.deviceName;
     appState.audio.availableBufferSizesText = runtime.availableBufferSizesText;

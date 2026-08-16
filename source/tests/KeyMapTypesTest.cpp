@@ -273,7 +273,7 @@ public:
 
         testCase("A key maps to C3 (MIDI note 60)", [&] {
             auto layout = makeDefaultKeyboardLayout();
-            auto* binding = layout.findByKeyCode(makeAlphaNumericKeyCode('A'));
+            const auto* binding = layout.findByKeyCode(makeAlphaNumericKeyCode('A'));
             expect(binding != nullptr);
             expectEquals(binding->action.midiNote, 60);
             expectEquals(binding->action.midiChannel, 1);
@@ -282,21 +282,21 @@ public:
 
         testCase("W key maps to D#4 (MIDI note 74)", [&] {
             auto layout = makeDefaultKeyboardLayout();
-            auto* binding = layout.findByKeyCode(makeAlphaNumericKeyCode('W'));
+            const auto* binding = layout.findByKeyCode(makeAlphaNumericKeyCode('W'));
             expect(binding != nullptr);
             expectEquals(binding->action.midiNote, 74); // C4 (72) + 2 = D4 = 74
         });
 
         testCase("Z key maps to C2 (MIDI note 48)", [&] {
             auto layout = makeDefaultKeyboardLayout();
-            auto* binding = layout.findByKeyCode(makeAlphaNumericKeyCode('Z'));
+            const auto* binding = layout.findByKeyCode(makeAlphaNumericKeyCode('Z'));
             expect(binding != nullptr);
             expectEquals(binding->action.midiNote, 48);
         });
 
         testCase("1 key maps to C5 (MIDI note 84)", [&] {
             auto layout = makeDefaultKeyboardLayout();
-            auto* binding = layout.findByKeyCode(makeAlphaNumericKeyCode('1'));
+            const auto* binding = layout.findByKeyCode(makeAlphaNumericKeyCode('1'));
             expect(binding != nullptr);
             expectEquals(binding->action.midiNote, 84);
         });
@@ -305,7 +305,7 @@ public:
             auto layout = makeDefaultKeyboardLayout();
             const juce::String letters("QWERTYUIOPASDFGHJKLZXCVBNM");
             for (auto c : letters) {
-                auto* binding = layout.findByKeyCode(makeAlphaNumericKeyCode(static_cast<char>(c)));
+                const auto* binding = layout.findByKeyCode(makeAlphaNumericKeyCode(static_cast<char>(c)));
                 expect(binding != nullptr, "Missing binding for key '" + juce::String::charToString(c) + "'");
             }
         });
@@ -324,11 +324,11 @@ public:
         testCase("full layout has higher octave range", [&] {
             auto layout = makeFullPianoLayout();
             // 在 full layout 中，A 映射到 C4 (72)，Z 映射到 C3 (60)
-            auto* aBinding = layout.findByKeyCode(makeAlphaNumericKeyCode('A'));
+            const auto* aBinding = layout.findByKeyCode(makeAlphaNumericKeyCode('A'));
             expect(aBinding != nullptr);
             expectEquals(aBinding->action.midiNote, 72); // C4 = 72
 
-            auto* zBinding = layout.findByKeyCode(makeAlphaNumericKeyCode('Z'));
+            const auto* zBinding = layout.findByKeyCode(makeAlphaNumericKeyCode('Z'));
             expect(zBinding != nullptr);
             expectEquals(zBinding->action.midiNote, 60); // C3 = 60
         });
@@ -339,8 +339,8 @@ public:
             auto lowerCode = normaliseAlphaNumericKeyCode('g');
             expectEquals(upperCode, lowerCode);
 
-            auto* upperBinding = layout.findByKeyCode(upperCode);
-            auto* lowerBinding = layout.findByKeyCode(lowerCode);
+            const auto* upperBinding = layout.findByKeyCode(upperCode);
+            const auto* lowerBinding = layout.findByKeyCode(lowerCode);
             expect(upperBinding != nullptr);
             expect(lowerBinding != nullptr);
             expect(upperBinding == lowerBinding);

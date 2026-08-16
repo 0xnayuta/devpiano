@@ -54,6 +54,7 @@ std::unique_ptr<juce::AudioPluginInstance> createOfflinePluginInstance(juce::Aud
 
     instance->setRateAndBufferSizeDetails(sampleRate, blockSize);
     instance->prepareToPlay(sampleRate, blockSize);
+    // NOLINTNEXTLINE(readability-ambiguous-smartptr-reset-call) - 意图是 AudioPluginInstance::reset()（实例方法）
     instance->reset();
 
     DP_LOG_INFO("[PluginOfflineRenderer] Offline instance created and prepared: " + description.name + " @ "
@@ -66,7 +67,7 @@ std::unique_ptr<juce::AudioPluginInstance> createOfflinePluginInstance(juce::Aud
 // ---------------------------------------------------------------------------
 bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take, const juce::File& destinationFile,
                                  const WavExportOptions& options, juce::AudioPluginInstance& offlinePlugin,
-                                 std::function<bool(double)> progressCallback) {
+                                 const std::function<bool(double)>& progressCallback) {
     if (take.isEmpty() || take.sampleRate <= 0.0 || !hasUsableRenderOptions(options)
         || destinationFile == juce::File()) {
         DP_LOG_ERROR("[PluginOfflineRenderer] Invalid parameters for offline render");
@@ -127,8 +128,10 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
                 + juce::String(totalSamples) + " total samples, " + juce::String(outputChannels) + " output channels");
 
     for (std::int64_t blockStart = 0; blockStart < totalSamples; blockStart += options.blockSize) {
-        if (progressCallback && !progressCallback(static_cast<double>(blockStart) / static_cast<double>(totalSamples)))
+        if (progressCallback
+            && !progressCallback(static_cast<double>(blockStart) / static_cast<double>(totalSamples))) {
             return false;
+        }
 
         const auto numSamples = static_cast<int>(std::min<std::int64_t>(options.blockSize, totalSamples - blockStart));
         const auto blockEnd = blockStart + numSamples;
@@ -161,8 +164,9 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
         // Copy plugin output (with channel down-mix if needed) and apply master gain
         outputBuffer.setSize(options.numChannels, numSamples, false, false, true);
         outputBuffer.clear();
-        for (auto channel = 0; channel < outputChannels; ++channel)
+        for (auto channel = 0; channel < outputChannels; ++channel) {
             outputBuffer.copyFrom(channel, 0, pluginBuffer, channel, 0, numSamples);
+        }
         outputBuffer.applyGain(gain);
 
         if (!writer->writeFromAudioSampleBuffer(outputBuffer, 0, numSamples)) {

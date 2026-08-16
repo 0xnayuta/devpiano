@@ -9,7 +9,7 @@ namespace {
 // ============================================================================
 class MetadataEditContent final : public juce::Component {
 public:
-    MetadataEditContent(devpiano::recording::PerformanceFileMetadata initial,
+    MetadataEditContent(const devpiano::recording::PerformanceFileMetadata& initial,
                         std::function<void(std::optional<devpiano::recording::PerformanceFileMetadata>)> onCompleteFn)
         : onComplete(std::move(onCompleteFn)) {
         // Title editor (single line)
@@ -45,8 +45,9 @@ public:
     ~MetadataEditContent() override {
         // Fire onComplete if neither confirm() nor dismiss() was called
         // (e.g. user closed via title bar X or Escape key).
-        if (!completed && onComplete)
+        if (!completed && onComplete) {
             onComplete(std::nullopt);
+        }
     }
 
     void resized() override {
@@ -83,18 +84,22 @@ public:
         result.title = titleEditor.getText();
         result.notes = notesEditor.getText();
 
-        if (onComplete)
+        if (onComplete) {
             onComplete(std::move(result));
-        if (auto* dw = findParentComponentOfClass<juce::DialogWindow>())
+        }
+        if (auto* dw = findParentComponentOfClass<juce::DialogWindow>()) {
             dw->exitModalState(0);
+        }
     }
 
     void dismiss() {
         completed = true;
-        if (onComplete)
+        if (onComplete) {
             onComplete(std::nullopt);
-        if (auto* dw = findParentComponentOfClass<juce::DialogWindow>())
+        }
+        if (auto* dw = findParentComponentOfClass<juce::DialogWindow>()) {
             dw->exitModalState(0);
+        }
     }
 
     juce::Label titleLabel;

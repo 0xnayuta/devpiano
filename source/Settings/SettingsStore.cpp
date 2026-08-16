@@ -49,8 +49,9 @@ void readPerformanceSettings(juce::PropertiesFile& file, SettingsModel& model) {
 
     const auto looksLikeCorruptedZeroState = performance.masterGain == 0.0f && performance.adsrAttack == 0.0f
         && performance.adsrDecay == 0.0f && performance.adsrSustain == 0.0f && performance.adsrRelease == 0.0f;
-    if (looksLikeCorruptedZeroState)
+    if (looksLikeCorruptedZeroState) {
         performance = makeDefaultPerformanceSettings();
+    }
 
     performance.masterGain = juce::jlimit(0.0f, 1.0f, performance.masterGain);
     performance.adsrAttack = juce::jlimit(0.001f, 2.0f, performance.adsrAttack);
@@ -65,8 +66,9 @@ void readPerformanceSettings(juce::PropertiesFile& file, SettingsModel& model) {
 SettingsStore::SettingsStore() = default;
 
 void SettingsStore::ensureProps() {
-    if (appProps)
+    if (appProps) {
         return;
+    }
     juce::PropertiesFile::Options opts;
     opts.applicationName = kSectionApp;
     opts.filenameSuffix = ".settings";
@@ -88,8 +90,9 @@ void SettingsStore::readNow(SettingsModel& m) {
     // audio device xml
     {
         std::unique_ptr<juce::XmlElement> xml = f.getXmlValue(kKeyAudioXml);
-        if (xml)
+        if (xml) {
             m.audioDeviceState = std::move(xml);
+        }
     }
 
     m.sampleRate = f.getDoubleValue(kKeySampleRate, m.sampleRate);
@@ -147,8 +150,9 @@ void SettingsStore::readNow(SettingsModel& m) {
             auto note = c.getProperty("note");
             if (note.isInt()) {
                 auto n = static_cast<int>(note);
-                if (n >= 0 && n < 128)
+                if (n >= 0 && n < 128) {
                     m.customKeyLabels[static_cast<std::size_t>(n)] = c.getProperty("text").toString();
+                }
             }
         }
     }
@@ -162,9 +166,10 @@ void SettingsStore::readNow(SettingsModel& m) {
             auto note = c.getProperty("note");
             if (note.isInt()) {
                 auto n = static_cast<int>(note);
-                if (n >= 0 && n < 128)
+                if (n >= 0 && n < 128) {
                     m.customKeyColours[static_cast<std::size_t>(n)]
                         = juce::Colour::fromString(c.getProperty("argb").toString());
+                }
             }
         }
     }
@@ -173,8 +178,9 @@ void SettingsStore::readNow(SettingsModel& m) {
 void SettingsStore::writeNow(const SettingsModel& m) {
     auto& f = file();
 
-    if (m.audioDeviceState)
+    if (m.audioDeviceState) {
         f.setValue(kKeyAudioXml, m.audioDeviceState->toString());
+    }
 
     f.setValue(kKeySampleRate, m.sampleRate);
     f.setValue(kKeyBufferSize, m.bufferSize);
@@ -187,8 +193,9 @@ void SettingsStore::writeNow(const SettingsModel& m) {
     f.setValue(kKeyR, m.adsrRelease);
     f.setValue(kKeyPluginSearchPath, m.pluginSearchPath);
     f.setValue(kKeyLastPluginName, m.lastPluginName);
-    if (m.knownPluginListState)
+    if (m.knownPluginListState) {
         f.setValue(kKeyKnownPluginListXml, m.knownPluginListState->toString());
+    }
 
     // MIDI import/export paths
     f.setValue(kKeyLastMidiImportPath, m.lastMidiImportPath);
@@ -210,8 +217,9 @@ void SettingsStore::writeNow(const SettingsModel& m) {
     // Channel matrix as ValueTree XML.
     {
         auto t = devpiano::settings::channelMatrixToValueTree(m.channelMatrix);
-        if (auto xml = t.createXml())
+        if (auto xml = t.createXml()) {
             f.setValue(kKeyChannelMatrix, xml->toString());
+        }
     }
 
     f.setValue(kKeyKeySignature, m.keySignature);
@@ -221,7 +229,7 @@ void SettingsStore::writeNow(const SettingsModel& m) {
     {
         juce::ValueTree t("customKeyLabels");
         for (int n = 0; n < 128; ++n) {
-            auto& lbl = m.customKeyLabels[static_cast<std::size_t>(n)];
+            const auto& lbl = m.customKeyLabels[static_cast<std::size_t>(n)];
             if (lbl.isNotEmpty()) {
                 auto c = juce::ValueTree("label");
                 c.setProperty("note", n, nullptr);
@@ -230,8 +238,9 @@ void SettingsStore::writeNow(const SettingsModel& m) {
             }
         }
         if (t.getNumChildren() > 0) {
-            if (auto xml = t.createXml())
+            if (auto xml = t.createXml()) {
                 f.setValue(kKeyCustomLabels, xml->toString());
+            }
         } else {
             f.removeValue(kKeyCustomLabels);
         }
@@ -241,7 +250,7 @@ void SettingsStore::writeNow(const SettingsModel& m) {
     {
         juce::ValueTree t("customKeyColours");
         for (int n = 0; n < 128; ++n) {
-            auto& col = m.customKeyColours[static_cast<std::size_t>(n)];
+            const auto& col = m.customKeyColours[static_cast<std::size_t>(n)];
             if (!col.isTransparent()) {
                 auto c = juce::ValueTree("colour");
                 c.setProperty("note", n, nullptr);
@@ -250,8 +259,9 @@ void SettingsStore::writeNow(const SettingsModel& m) {
             }
         }
         if (t.getNumChildren() > 0) {
-            if (auto xml = t.createXml())
+            if (auto xml = t.createXml()) {
                 f.setValue(kKeyCustomColours, xml->toString());
+            }
         } else {
             f.removeValue(kKeyCustomColours);
         }
@@ -286,8 +296,9 @@ void SettingsStore::scheduleSave(const SettingsModel& model, int msDelay) {
         }
         void timerCallback() override {
             stopTimer();
-            if (modelPtr)
+            if (modelPtr) {
                 store.save(*modelPtr);
+            }
         }
 
     private:
@@ -295,8 +306,9 @@ void SettingsStore::scheduleSave(const SettingsModel& model, int msDelay) {
         const SettingsModel* modelPtr = nullptr;
     };
 
-    if (!saverTimer)
-        saverTimer.reset(new DebounceTimer(*this));
+    if (!saverTimer) {
+        saverTimer = std::make_unique<DebounceTimer>(*this);
+    }
 
     auto* t = static_cast<DebounceTimer*>(saverTimer.get());
     t->setPayload(model);

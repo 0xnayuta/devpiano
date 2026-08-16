@@ -1,8 +1,9 @@
 #include "PluginEditorWindow.h"
 
 juce::String PluginEditorWindow::makeWindowTitle(const juce::String& pluginName) {
-    if (pluginName.isEmpty())
+    if (pluginName.isEmpty()) {
         return TRANS("Plugin Editor");
+    }
 
     auto title = pluginName;
     title << TRANS(" Editor");
@@ -25,6 +26,7 @@ PluginEditorWindow::PluginEditorWindow(const juce::String& pluginName,
 }
 
 void PluginEditorWindow::closeButtonPressed() {
-    if (closeCallback)
+    if (closeCallback) {
         closeCallback();
+    }
 }

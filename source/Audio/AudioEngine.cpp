@@ -11,8 +11,9 @@ constexpr auto warmupSeconds = 0.025;
 constexpr auto playbackStartPreRollSeconds = 0.025;
 
 int calculateBlocksForDuration(double seconds, double sampleRate, int blockSize) {
-    if (sampleRate <= 0.0 || blockSize <= 0)
+    if (sampleRate <= 0.0 || blockSize <= 0) {
         return 1;
+    }
 
     return juce::jmax(1, static_cast<int>(std::ceil(seconds * sampleRate / static_cast<double>(blockSize))));
 }
@@ -73,8 +74,9 @@ public:
     }
 
     void renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int startSample, int numSamples) override {
-        if (!isVoiceActive())
+        if (!isVoiceActive()) {
             return;
+        }
 
         for (int sample = 0; sample < numSamples; ++sample) {
             const auto envelope = adsr.getNextSample();
@@ -85,12 +87,14 @@ public:
 
             const auto value = static_cast<float>(std::sin(phase) * level * envelope);
             phase += increment;
-            if (phase >= juce::MathConstants<double>::twoPi)
+            if (phase >= juce::MathConstants<double>::twoPi) {
                 phase -= juce::MathConstants<double>::twoPi;
+            }
 
             const auto sampleIndex = startSample + sample;
-            for (auto channel = 0; channel < outputBuffer.getNumChannels(); ++channel)
+            for (auto channel = 0; channel < outputBuffer.getNumChannels(); ++channel) {
                 outputBuffer.addSample(channel, sampleIndex, value);
+            }
         }
     }
 
@@ -145,30 +149,34 @@ void AudioEngine::prepareToPlay(int samplesPerBlockExpected, double sampleRate) 
 
     updateAdsrOnVoices();
 
-    if (pluginHost != nullptr && pluginHost->hasLoadedPlugin())
+    if (pluginHost != nullptr && pluginHost->hasLoadedPlugin()) {
         pluginHost->prepareToPlay(sampleRate, samplesPerBlockExpected);
+    }
 
     discardWarmupInputState();
     warmupBlocksRemaining.store(calculateWarmupBlocks(sampleRate, samplesPerBlockExpected), std::memory_order_release);
 }
 
 void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) {
-    if (bufferToFill.buffer == nullptr)
+    if (bufferToFill.buffer == nullptr) {
         return;
+    }
 
     bufferToFill.buffer->clear(bufferToFill.startSample, bufferToFill.numSamples);
 
-    if (consumeWarmupBlockIfNeeded())
+    if (consumeWarmupBlockIfNeeded()) {
         return;
+    }
 
     midiBuffer.clear();
     midiCollector.removeNextBlockOfMessages(midiBuffer, bufferToFill.numSamples);
     keyboardState.processNextMidiBuffer(midiBuffer, 0, bufferToFill.numSamples, true);
     injectPendingAllNotesOffIfNeeded();
     recordRealtimeMidiBufferIfNeeded(bufferToFill.numSamples);
-    if (!consumePlaybackStartPreRollBlockIfNeeded())
+    if (!consumePlaybackStartPreRollBlockIfNeeded()) {
         renderPlaybackEventsIfNeeded(recordingEngine != nullptr ? recordingEngine->getPlaybackPositionSamples() : 0,
                                      bufferToFill.numSamples);
+    }
 
     auto renderedByPlugin = false;
 
@@ -193,9 +201,10 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
 
             const auto outputChannels
                 = juce::jmin(bufferToFill.buffer->getNumChannels(), instance->getTotalNumOutputChannels());
-            for (auto channel = 0; channel < outputChannels; ++channel)
+            for (auto channel = 0; channel < outputChannels; ++channel) {
                 bufferToFill.buffer->copyFrom(channel, bufferToFill.startSample, pluginBuffer, channel, 0,
                                               bufferToFill.numSamples);
+            }
 
             renderedByPlugin = true;
         }
@@ -215,8 +224,9 @@ void AudioEngine::releaseResources() {
     discardWarmupInputState();
     synth.allNotesOff(0, false);
 
-    if (pluginHost != nullptr)
+    if (pluginHost != nullptr) {
         pluginHost->releaseResources();
+    }
 }
 
 void AudioEngine::requestAllNotesOff() noexcept {
@@ -245,16 +255,19 @@ void AudioEngine::rebuildSynth() {
     synth.clearVoices();
 
     synth.addSound(new SimpleSineSound());
-    for (auto index = 0; index < 8; ++index)
+    for (auto index = 0; index < 8; ++index) {
         synth.addVoice(new SimpleSineVoice());
+    }
 
     updateAdsrOnVoices();
 }
 
 void AudioEngine::updateAdsrOnVoices() {
-    for (auto index = 0; index < synth.getNumVoices(); ++index)
-        if (auto* voice = dynamic_cast<SimpleSineVoice*>(synth.getVoice(index)))
+    for (auto index = 0; index < synth.getNumVoices(); ++index) {
+        if (auto* voice = dynamic_cast<SimpleSineVoice*>(synth.getVoice(index))) {
             voice->setAdsrParameters(adsrParameters);
+        }
+    }
 }
 
 void AudioEngine::discardWarmupInputState() {
@@ -266,8 +279,9 @@ void AudioEngine::discardWarmupInputState() {
 }
 
 bool AudioEngine::consumeWarmupBlockIfNeeded() {
-    if (warmupBlocksRemaining.load(std::memory_order_acquire) <= 0)
+    if (warmupBlocksRemaining.load(std::memory_order_acquire) <= 0) {
         return false;
+    }
 
     warmupBlocksRemaining.fetch_sub(1, std::memory_order_acq_rel);
     discardWarmupInputState();
@@ -280,8 +294,9 @@ bool AudioEngine::consumePlaybackStartPreRollBlockIfNeeded() {
         return false;
     }
 
-    if (playbackStartPreRollBlocksRemaining.load(std::memory_order_acquire) <= 0)
+    if (playbackStartPreRollBlocksRemaining.load(std::memory_order_acquire) <= 0) {
         return false;
+    }
 
     // Let plugin/synth render a few post-warmup blocks before timestamp-0 playback
     // events are scheduled. Do not advance RecordingEngine playback position here:
@@ -292,8 +307,9 @@ bool AudioEngine::consumePlaybackStartPreRollBlockIfNeeded() {
 }
 
 void AudioEngine::injectPendingAllNotesOffIfNeeded() {
-    if (!allNotesOffPending.exchange(false, std::memory_order_acq_rel))
+    if (!allNotesOffPending.exchange(false, std::memory_order_acq_rel)) {
         return;
+    }
 
     for (auto channel = 1; channel <= 16; ++channel) {
         keyboardState.allNotesOff(channel);
@@ -306,8 +322,9 @@ void AudioEngine::injectPendingAllNotesOffIfNeeded() {
 }
 
 void AudioEngine::recordRealtimeMidiBufferIfNeeded(int numSamples) {
-    if (recordingEngine == nullptr || !recordingEngine->isRecording())
+    if (recordingEngine == nullptr || !recordingEngine->isRecording()) {
         return;
+    }
 
     const auto blockStartSamples = recordingEngine->getCurrentPositionSamples();
     recordingEngine->recordMidiBufferBlock(midiBuffer, devpiano::recording::RecordingEventSource::realtimeMidiBuffer,
@@ -316,8 +333,9 @@ void AudioEngine::recordRealtimeMidiBufferIfNeeded(int numSamples) {
 }
 
 void AudioEngine::renderPlaybackEventsIfNeeded(std::int64_t blockStartSamples, int numSamples) {
-    if (recordingEngine == nullptr || !recordingEngine->isPlaying())
+    if (recordingEngine == nullptr || !recordingEngine->isPlaying()) {
         return;
+    }
 
     playbackVisualMidiBuffer.clear();
     recordingEngine->renderPlaybackBlock(playbackVisualMidiBuffer, blockStartSamples, numSamples);

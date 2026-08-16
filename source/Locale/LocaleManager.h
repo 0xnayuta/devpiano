@@ -26,8 +26,9 @@ enum class Language : uint8_t {
         if (file.existsAsFile()) {
             auto result = std::make_unique<juce::LocalisedStrings>(file, false);
             // Basic validation: language name should be non-empty if file parsed
-            if (result->getLanguageName().isNotEmpty())
+            if (result->getLanguageName().isNotEmpty()) {
                 return result;
+            }
         }
     }
     return nullptr;
@@ -45,8 +46,9 @@ inline void activate(Language lang) {
 
         // Secondary: overlay translations from a .loc file if it exists
         auto fileLocale = tryLoadLocaleFile("zh-CN.loc");
-        if (fileLocale != nullptr)
+        if (fileLocale != nullptr) {
             zh->setFallback(fileLocale.release());
+        }
 
         juce::LocalisedStrings::setCurrentMappings(zh.release());
     } else {
@@ -57,8 +59,9 @@ inline void activate(Language lang) {
 }
 
 inline Language codeToLanguage(const juce::String& code) {
-    if (code == "zh-CN")
+    if (code == "zh-CN") {
         return Language::zhCN;
+    }
     return Language::en;
 }
 

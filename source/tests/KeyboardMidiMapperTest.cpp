@@ -32,10 +32,13 @@ KeyboardLayout makeTwoBindingLayout(char key1, int note1, char key2, int note2) 
 /// 统计 MidiKeyboardState 中按住的音符数量。
 int countNotesOn(const juce::MidiKeyboardState& state) {
     int count = 0;
-    for (int ch = 1; ch <= 16; ++ch)
-        for (int note = 0; note < 128; ++note)
-            if (state.isNoteOn(ch, note))
+    for (int ch = 1; ch <= 16; ++ch) {
+        for (int note = 0; note < 128; ++note) {
+            if (state.isNoteOn(ch, note)) {
                 ++count;
+            }
+        }
+    }
     return count;
 }
 

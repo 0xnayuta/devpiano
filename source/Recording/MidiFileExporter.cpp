@@ -7,8 +7,9 @@ namespace {
 constexpr int defaultTempoMicrosecondsPerQuarterNote = 500000; // 120 BPM
 
 double convertSamplesToTicks(std::int64_t timestampSamples, double sampleRate, int ppq) {
-    if (timestampSamples <= 0 || sampleRate <= 0.0 || ppq <= 0)
+    if (timestampSamples <= 0 || sampleRate <= 0.0 || ppq <= 0) {
         return 0.0;
+    }
 
     const auto seconds = static_cast<double>(timestampSamples) / sampleRate;
     const auto quartersPerSecond = 1.0 / (static_cast<double>(defaultTempoMicrosecondsPerQuarterNote) / 1'000'000.0);
@@ -17,8 +18,9 @@ double convertSamplesToTicks(std::int64_t timestampSamples, double sampleRate, i
 } // namespace
 
 bool exportTakeAsMidiFile(const devpiano::recording::RecordingTake& take, const juce::File& destinationFile, int ppq) {
-    if (take.isEmpty() || take.sampleRate <= 0.0 || ppq <= 0)
+    if (take.isEmpty() || take.sampleRate <= 0.0 || ppq <= 0) {
         return false;
+    }
 
     juce::MidiMessageSequence sequence;
 
@@ -39,8 +41,9 @@ bool exportTakeAsMidiFile(const devpiano::recording::RecordingTake& take, const 
     midiFile.addTrack(sequence);
 
     juce::FileOutputStream outStream(destinationFile);
-    if (outStream.openedOk())
+    if (outStream.openedOk()) {
         return midiFile.writeTo(outStream);
+    }
 
     return false;
 }

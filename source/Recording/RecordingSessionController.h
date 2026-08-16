@@ -16,7 +16,7 @@ class MainComponent;
 struct SettingsModel;
 
 namespace devpiano::exporting {
-enum class ExportFileType;
+enum class ExportFileType : std::uint8_t;
 }
 
 namespace devpiano::recording {

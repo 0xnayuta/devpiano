@@ -8,11 +8,11 @@
 #include "Core/MidiTypes.h"
 
 namespace devpiano::core {
-enum class KeyActionType {
+enum class KeyActionType : std::uint8_t {
     note,
 };
 
-enum class KeyTrigger {
+enum class KeyTrigger : std::uint8_t {
     keyDown,
     keyUp,
 };
@@ -64,17 +64,20 @@ struct KeyboardLayout {
     std::vector<KeyBinding> bindings;
 
     [[nodiscard]] const KeyBinding* findByKeyCode(int keyCodeToFind) const noexcept {
-        for (const auto& binding : bindings)
-            if (binding.keyCode == keyCodeToFind)
+        for (const auto& binding : bindings) {
+            if (binding.keyCode == keyCodeToFind) {
                 return &binding;
+            }
+        }
 
         return nullptr;
     }
 };
 
 [[nodiscard]] inline int normaliseAlphaNumericKeyCode(int keyCode) {
-    if (!std::isalnum(static_cast<unsigned char>(keyCode)))
+    if (!std::isalnum(static_cast<unsigned char>(keyCode))) {
         return 0;
+    }
 
     return juce::KeyPress(std::toupper(static_cast<unsigned char>(keyCode)), 0, 0).getKeyCode();
 }

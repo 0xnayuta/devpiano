@@ -361,9 +361,10 @@ public:
             engine.reserveEvents(100);
             engine.startRecording(48000.0);
 
-            for (int i = 0; i < 50; ++i)
+            for (int i = 0; i < 50; ++i) {
                 engine.recordEvent(juce::MidiMessage::noteOn(1, 60, 0.5f), RecordingEventSource::computerKeyboard,
-                                   static_cast<std::int64_t>(i * 100));
+                                   static_cast<std::int64_t>(i) * 100);
+            }
 
             expect(!engine.hasDroppedEvents());
             auto take = engine.stopRecording();
@@ -405,20 +406,28 @@ public:
             expectEquals(3, static_cast<int>(take.events.size()));
 
             int presetCount = 0;
-            for (const auto& ev : take.events)
-                if (ev.type == PerformanceEventType::presetChange)
+            for (const auto& ev : take.events) {
+                if (ev.type == PerformanceEventType::presetChange) {
                     ++presetCount;
+                }
+            }
             expectEquals(1, presetCount);
             // Verify the preset event data.
             const auto* presetEv = [&]() -> const PerformanceEvent* {
-                for (const auto& ev : take.events)
-                    if (ev.type == PerformanceEventType::presetChange)
+                for (const auto& ev : take.events) {
+                    if (ev.type == PerformanceEventType::presetChange) {
                         return &ev;
+                    }
+                }
                 return nullptr;
             }();
             expect(presetEv != nullptr);
-            expectEquals(static_cast<uint8_t>(3), presetEv->presetId);
-            expectEquals(static_cast<std::int64_t>(2205), presetEv->timestampSamples);
+            // JUCE expect() 失败时仅记录不中断，继续解引用会在断言失败时崩
+            // 溃——用 if 守卫满足 clang-analyzer 的 null 检查。
+            if (presetEv != nullptr) {
+                expectEquals(static_cast<uint8_t>(3), presetEv->presetId);
+                expectEquals(static_cast<std::int64_t>(2205), presetEv->timestampSamples);
+            }
         }
 
         beginTest("preset change ignored when not recording");

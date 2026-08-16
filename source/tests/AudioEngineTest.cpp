@@ -29,20 +29,30 @@ auto makeBlock(int numChannels, int numSamples, int startSample = 0)
     // its AudioSourceChannelInfo keeps a dangling pointer to the moved-from
     // temporary (use-after-move) — every getNextAudioBlock() call then reads
     // garbage and can crash.
+    //
+    // info.second points at result.first (a stack member); this is safe
+    // because C++17 guaranteed copy elision makes `auto [buf, info] =
+    // makeBlock(...)` construct the pair directly in the caller's hidden
+    // variable — no move, so &result.first is the live buffer address.
+    // NOLINTNEXTLINE(clang-analyzer-core.StackAddressEscape) - see above
     std::pair<juce::AudioBuffer<float>, juce::AudioSourceChannelInfo> result {
         juce::AudioBuffer<float>(numChannels, numSamples), {}
     };
     result.first.clear();
     result.second = juce::AudioSourceChannelInfo(&result.first, startSample, numSamples - startSample);
+    // NOLINTNEXTLINE(clang-analyzer-core.StackAddressEscape) - see comment above
     return result;
 }
 
 int countNonZeroSamples(const juce::AudioBuffer<float>& buf, int start, int n) {
     int c = 0;
-    for (int ch = 0; ch < buf.getNumChannels(); ++ch)
-        for (int i = 0; i < n; ++i)
-            if (buf.getReadPointer(ch, start)[i] != 0.0f)
+    for (int ch = 0; ch < buf.getNumChannels(); ++ch) {
+        for (int i = 0; i < n; ++i) {
+            if (buf.getReadPointer(ch, start)[i] != 0.0f) {
                 ++c;
+            }
+        }
+    }
     return c;
 }
 

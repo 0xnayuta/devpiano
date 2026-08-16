@@ -17,8 +17,9 @@ public:
     }
 
     void closeButtonPressed() override {
-        if (closeCallback)
+        if (closeCallback) {
             closeCallback();
+        }
     }
 
     bool escapeKeyPressed() override {
@@ -43,8 +44,9 @@ SettingsWindowManager::SettingsWindowManager()
 }
 
 SettingsWindowManager::~SettingsWindowManager() {
-    if (state->window != nullptr)
+    if (state->window != nullptr) {
         state->window->setVisible(false);
+    }
 
     state->window.reset();
 }
@@ -61,13 +63,15 @@ void SettingsWindowManager::show(ShowOptions options) {
 
     auto closeWindow = [this, weakState = std::weak_ptr<State>(state)] {
         if (auto lockedState = weakState.lock()) {
-            if (lockedState->window == nullptr || lockedState->closePending)
+            if (lockedState->window == nullptr || lockedState->closePending) {
                 return;
+            }
 
             if (auto* content = dynamic_cast<SettingsComponent*>(
                     lockedState->window != nullptr ? lockedState->window->getContentComponent() : nullptr)) {
-                if (content->isDirty() && lockedState->onSaveRequested)
+                if (content->isDirty() && lockedState->onSaveRequested) {
                     lockedState->onSaveRequested();
+                }
             }
 
             closeAsync();
@@ -80,11 +84,13 @@ void SettingsWindowManager::show(ShowOptions options) {
 
     contentPtr->onSaveRequested = [this, weakState = std::weak_ptr<State>(state)] {
         if (auto lockedState = weakState.lock()) {
-            if (lockedState->window == nullptr || lockedState->closePending)
+            if (lockedState->window == nullptr || lockedState->closePending) {
                 return;
+            }
 
-            if (lockedState->onSaveRequested)
+            if (lockedState->onSaveRequested) {
                 lockedState->onSaveRequested();
+            }
 
             closeAsync();
         }
@@ -94,9 +100,11 @@ void SettingsWindowManager::show(ShowOptions options) {
     contentPtr->onLanguageChanged = options.onLanguageChanged;
 
     contentPtr->onRefreshTexts = [weakState = std::weak_ptr<State>(state)] {
-        if (auto locked = weakState.lock())
-            if (locked->window)
+        if (auto locked = weakState.lock()) {
+            if (locked->window) {
                 locked->window->setName(TRANS("Audio Settings"));
+            }
+        }
     };
 
     state->window = std::make_unique<SettingsDialogWindow>(TRANS("Audio Settings"),
@@ -111,8 +119,9 @@ void SettingsWindowManager::show(ShowOptions options) {
 }
 
 bool SettingsWindowManager::isDirty() const {
-    if (auto* settingsContent = getSettingsContent())
+    if (auto* settingsContent = getSettingsContent()) {
         return settingsContent->isDirty();
+    }
 
     return false;
 }
@@ -122,52 +131,61 @@ bool SettingsWindowManager::isOpen() const {
 }
 
 void SettingsWindowManager::close() {
-    if (state->window == nullptr || state->closePending)
+    if (state->window == nullptr || state->closePending) {
         return;
+    }
 
-    if (isDirty() && state->onSaveRequested)
+    if (isDirty() && state->onSaveRequested) {
         state->onSaveRequested();
+    }
 
     closeAsync();
 }
 
 void SettingsWindowManager::closeAsync() {
-    if (state->window == nullptr || state->closePending)
+    if (state->window == nullptr || state->closePending) {
         return;
+    }
 
     state->closePending = true;
 
     auto weakState = std::weak_ptr<State>(state);
     juce::MessageManager::callAsync([weakState] {
         if (auto lockedState = weakState.lock()) {
-            if (lockedState->window == nullptr)
+            if (lockedState->window == nullptr) {
                 return;
+            }
 
-            if (lockedState->window != nullptr)
+            if (lockedState->window != nullptr) {
                 lockedState->window->setVisible(false);
+            }
 
             lockedState->window.reset();
             lockedState->closePending = false;
 
-            if (lockedState->onClosed)
+            if (lockedState->onClosed) {
                 lockedState->onClosed();
+            }
         }
     });
 }
 
 void SettingsWindowManager::saveAndClose() {
-    if (state->window == nullptr || state->closePending)
+    if (state->window == nullptr || state->closePending) {
         return;
+    }
 
-    if (state->onSaveRequested)
+    if (state->onSaveRequested) {
         state->onSaveRequested();
+    }
 
     closeAsync();
 }
 
 SettingsComponent* SettingsWindowManager::getSettingsContent() const {
-    if (state->window == nullptr)
+    if (state->window == nullptr) {
         return nullptr;
+    }
 
     return dynamic_cast<SettingsComponent*>(state->window->getContentComponent());
 }
@@ -175,8 +193,9 @@ SettingsComponent* SettingsWindowManager::getSettingsContent() const {
 void SettingsWindowManager::showFor(MainComponent& owner) {
     auto onDisplaySettingsChanged
         = [safe = juce::Component::SafePointer<MainComponent>(&owner), lastResizable = true]() mutable {
-              if (safe == nullptr)
+              if (safe == nullptr) {
                   return;
+              }
 
               auto kbs = safe->appSettings.getKeyboardDisplaySettingsView();
               devpiano::ui::KeyboardSettings ks;
@@ -195,8 +214,9 @@ void SettingsWindowManager::showFor(MainComponent& owner) {
               if (kbs.resizableWindow != lastResizable) {
                   lastResizable = kbs.resizableWindow;
                   if (auto* topLevel = safe->getTopLevelComponent()) {
-                      if (auto* dw = dynamic_cast<juce::DocumentWindow*>(topLevel))
+                      if (auto* dw = dynamic_cast<juce::DocumentWindow*>(topLevel)) {
                           dw->setResizable(kbs.resizableWindow, kbs.resizableWindow);
+                      }
                   }
               }
           };
@@ -207,13 +227,15 @@ void SettingsWindowManager::showFor(MainComponent& owner) {
            .displaySettingsModel = &owner.appSettings,
            .onSaveRequested =
                [safe = juce::Component::SafePointer<MainComponent>(&owner)] {
-                   if (safe != nullptr)
+                   if (safe != nullptr) {
                        safe->saveSettingsNow();
+                   }
                },
            .onClosed =
                [safe = juce::Component::SafePointer<MainComponent>(&owner)] {
-                   if (safe != nullptr)
+                   if (safe != nullptr) {
                        safe->restoreKeyboardFocus();
+                   }
                },
            .onDisplaySettingsChanged = std::move(onDisplaySettingsChanged),
            .onLanguageChanged =

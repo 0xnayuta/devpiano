@@ -26,12 +26,15 @@ PluginHost::~PluginHost() {
 juce::String PluginHost::getAvailableFormatsDescription() const {
     juce::StringArray names;
 
-    for (auto index = 0; index < formatManager.getNumFormats(); ++index)
-        if (auto* format = formatManager.getFormat(index))
+    for (auto index = 0; index < formatManager.getNumFormats(); ++index) {
+        if (auto* format = formatManager.getFormat(index)) {
             names.add(format->getName());
+        }
+    }
 
-    if (names.isEmpty())
+    if (names.isEmpty()) {
         return "Plugin formats: none";
+    }
 
     return "Plugin formats: " + names.joinIntoString(", ");
 }
@@ -41,15 +44,17 @@ bool PluginHost::supportsVst3() const {
 }
 
 juce::FileSearchPath PluginHost::getDefaultVst3SearchPath() const {
-    if (auto* format = getVst3Format())
+    if (auto* format = getVst3Format()) {
         return format->getDefaultLocationsToSearch();
+    }
 
     return {};
 }
 
 int PluginHost::scanVst3Plugins(const juce::FileSearchPath& searchPath, bool recursive) {
-    if (!beginVst3ScanSession(searchPath, recursive))
+    if (!beginVst3ScanSession(searchPath, recursive)) {
         return 0;
+    }
 
     while (advanceVst3ScanStep()) { }
 
@@ -89,25 +94,28 @@ bool PluginHost::beginVst3ScanSession(const juce::FileSearchPath& searchPath, bo
 
 bool PluginHost::advanceVst3ScanStep() {
     assertMessageThread();
-    if (!isScanning || activeScanner == nullptr)
+    if (!isScanning || activeScanner == nullptr) {
         return false;
+    }
 
     scanningPluginName = "...";
     const bool hasMore = activeScanner->scanNextFile(true, scanningPluginName);
 
-    if (hasMore)
+    if (hasMore) {
         return true;
+    }
 
     // Scan complete — capture failed files then destroy scanner
     lastScanFailedFiles = activeScanner->getFailedFiles();
-    for (const auto& failedFile : lastScanFailedFiles)
+    for (const auto& failedFile : lastScanFailedFiles) {
         DP_LOG_WARN("[PluginScan] Failed file: " + failedFile);
+    }
 
     activeScanner.reset();
 
     const auto pluginCount = knownPluginList.getNumTypes();
     lastScanPluginCount = pluginCount;
-    lastScanFailedCount = static_cast<int>(lastScanFailedFiles.size());
+    lastScanFailedCount = lastScanFailedFiles.size();
     const auto failedCount = lastScanFailedFiles.size();
 
     if (pluginCount > 0) {
@@ -159,8 +167,9 @@ void PluginHost::cancelVst3ScanSession() {
 juce::StringArray PluginHost::getKnownPluginNames() const {
     juce::StringArray names;
 
-    for (const auto& description : knownPluginList.getTypes())
+    for (const auto& description : knownPluginList.getTypes()) {
         names.add(description.name);
+    }
 
     names.removeDuplicates(false);
     names.sort(true);
@@ -169,9 +178,11 @@ juce::StringArray PluginHost::getKnownPluginNames() const {
 
 juce::StringArray PluginHost::getInstrumentPluginNames() const {
     juce::StringArray names;
-    for (const auto& desc : knownPluginList.getTypes())
-        if (desc.isInstrument)
+    for (const auto& desc : knownPluginList.getTypes()) {
+        if (desc.isInstrument) {
             names.add(desc.name);
+        }
+    }
     names.removeDuplicates(false);
     names.sort(true);
     return names;
@@ -179,9 +190,11 @@ juce::StringArray PluginHost::getInstrumentPluginNames() const {
 
 juce::StringArray PluginHost::getEffectPluginNames() const {
     juce::StringArray names;
-    for (const auto& desc : knownPluginList.getTypes())
-        if (!desc.isInstrument)
+    for (const auto& desc : knownPluginList.getTypes()) {
+        if (!desc.isInstrument) {
             names.add(desc.name);
+        }
+    }
     names.removeDuplicates(false);
     names.sort(true);
     return names;
@@ -189,8 +202,9 @@ juce::StringArray PluginHost::getEffectPluginNames() const {
 juce::String PluginHost::getPluginListDescription() const {
     const auto names = getKnownPluginNames();
     if (names.isEmpty()) {
-        if (lastScanSummary == "VST3 scan not run yet.")
+        if (lastScanSummary == "VST3 scan not run yet.") {
             return "No plugins scanned yet.";
+        }
 
         return "No plugins available. " + lastScanSummary;
     }
@@ -237,9 +251,11 @@ void PluginHost::markPluginScanSkipped(juce::String reason) {
 
 bool PluginHost::loadPluginByName(const juce::String& pluginName, double initialSampleRate, int initialBufferSize) {
     const auto trimmedName = pluginName.trim();
-    for (const auto& description : knownPluginList.getTypes())
-        if (description.name.equalsIgnoreCase(trimmedName))
+    for (const auto& description : knownPluginList.getTypes()) {
+        if (description.name.equalsIgnoreCase(trimmedName)) {
             return loadPluginByDescription(description, initialSampleRate, initialBufferSize);
+        }
+    }
 
     lastLoadError = "Plugin not found in known list: " + trimmedName;
     return false;
@@ -295,6 +311,7 @@ bool PluginHost::prepareToPlay(double sampleRate, int blockSize) {
 
     pluginInstance->setRateAndBufferSizeDetails(preparedSampleRate, preparedBlockSize);
     pluginInstance->prepareToPlay(preparedSampleRate, preparedBlockSize);
+    // NOLINTNEXTLINE(readability-ambiguous-smartptr-reset-call) - 意图是 AudioPluginInstance::reset()（实例方法）
     pluginInstance->reset();
     pluginInstance->suspendProcessing(false);
     prepared = true;
@@ -307,11 +324,13 @@ bool PluginHost::prepareToPlay(double sampleRate, int blockSize) {
 
 void PluginHost::releaseResources() {
     assertMessageThread();
-    if (pluginInstance != nullptr)
+    if (pluginInstance != nullptr) {
         pluginInstance->suspendProcessing(true);
+    }
 
-    if (pluginInstance != nullptr && prepared)
+    if (pluginInstance != nullptr && prepared) {
         pluginInstance->releaseResources();
+    }
 
     prepared = false;
 }
@@ -322,11 +341,12 @@ void PluginHost::unloadPlugin() {
     const auto pluginName = getCurrentPluginName();
 
     releaseResources();
-    pluginInstance.reset();
+    pluginInstance = nullptr;
     loadedPluginDescription.reset();
 
-    if (hadPlugin)
+    if (hadPlugin) {
         DP_LOG_INFO("[PluginHost] Plugin unloaded: " + pluginName);
+    }
 }
 
 bool PluginHost::hasLoadedPlugin() const noexcept {
@@ -342,8 +362,9 @@ juce::AudioPluginInstance* PluginHost::getInstance() const noexcept {
 }
 
 juce::String PluginHost::getCurrentPluginName() const {
-    if (loadedPluginDescription != nullptr)
+    if (loadedPluginDescription != nullptr) {
         return loadedPluginDescription->name;
+    }
 
     return {};
 }
@@ -365,10 +386,13 @@ int PluginHost::getPreparedBlockSize() const noexcept {
 }
 
 juce::AudioPluginFormat* PluginHost::getVst3Format() const {
-    for (auto index = 0; index < formatManager.getNumFormats(); ++index)
-        if (auto* format = formatManager.getFormat(index))
-            if (format->getName().containsIgnoreCase("VST3"))
+    for (auto index = 0; index < formatManager.getNumFormats(); ++index) {
+        if (auto* format = formatManager.getFormat(index)) {
+            if (format->getName().containsIgnoreCase("VST3")) {
                 return format;
+            }
+        }
+    }
 
     return nullptr;
 }
@@ -383,13 +407,15 @@ bool PluginHost::configureDefaultBuses(juce::AudioPluginInstance& instance) {
     instance.enableAllBuses();
 
     auto layout = instance.getBusesLayout();
-    if (layout.outputBuses.isEmpty())
+    if (layout.outputBuses.isEmpty()) {
         return true;
+    }
 
     layout.outputBuses.getReference(0) = juce::AudioChannelSet::stereo();
 
-    if (!layout.inputBuses.isEmpty() && layout.getMainInputChannelSet() != juce::AudioChannelSet::disabled())
+    if (!layout.inputBuses.isEmpty() && layout.getMainInputChannelSet() != juce::AudioChannelSet::disabled()) {
         layout.inputBuses.getReference(0) = juce::AudioChannelSet::stereo();
+    }
 
     return instance.setBusesLayout(layout);
 }

@@ -76,8 +76,9 @@ public:
 
             int noteOnCount = 0;
             for (const auto& ev : result->events) {
-                if (ev.message.isNoteOn())
+                if (ev.message.isNoteOn()) {
                     ++noteOnCount;
+                }
             }
             expectGreaterThan(noteOnCount, 0);
         });
@@ -110,8 +111,9 @@ public:
 
             int ccCount = 0;
             for (const auto& ev : result->events) {
-                if (ev.message.isController())
+                if (ev.message.isController()) {
                     ++ccCount;
+                }
             }
             expectGreaterThan(ccCount, 0);
         });
@@ -132,10 +134,12 @@ public:
 
             for (const auto& ev : result->events) {
                 if (ev.message.isNoteOn()) {
-                    if (ev.message.getVelocity() != 127)
+                    if (ev.message.getVelocity() != 127) {
                         foundVaryingVelocity = true;
-                    if (ev.message.getChannel() != 0)
+                    }
+                    if (ev.message.getChannel() != 0) {
                         foundNonDefaultChannel = true;
+                    }
                 }
             }
 

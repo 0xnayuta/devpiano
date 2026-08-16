@@ -9,7 +9,7 @@ juce::ValueTree channelMatrixToValueTree(const devpiano::midi::ChannelMatrix& cm
     root.setProperty("active", cm.active, nullptr);
     for (std::size_t i = 0; i < 16; ++i) {
         juce::ValueTree ch { "ch" };
-        auto& c = cm.channels[i];
+        const auto& c = cm.channels[i];
         ch.setProperty("outputChannel", c.outputChannel, nullptr);
         ch.setProperty("transpose", c.transpose, nullptr);
         ch.setProperty("octaveShift", c.octaveShift, nullptr);
@@ -25,8 +25,9 @@ juce::ValueTree channelMatrixToValueTree(const devpiano::midi::ChannelMatrix& cm
 
 devpiano::midi::ChannelMatrix valueTreeToChannelMatrix(const juce::ValueTree& t) {
     devpiano::midi::ChannelMatrix cm;
-    if (!t.isValid())
+    if (!t.isValid()) {
         return cm;
+    }
     cm.active = t.getProperty("active", false);
     for (int i = 0; i < 16 && i < t.getNumChildren(); ++i) {
         auto ch = t.getChild(i);

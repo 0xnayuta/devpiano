@@ -11,8 +11,9 @@ public:
                                SettingsModel* displayModel = nullptr)
         : deviceManager(dm)
         , model(displayModel) {
-        if (savedAudioDeviceState != nullptr)
+        if (savedAudioDeviceState != nullptr) {
             savedStateSnapshot = std::make_unique<juce::XmlElement>(*savedAudioDeviceState);
+        }
 
         selector = std::make_unique<juce::AudioDeviceSelectorComponent>(deviceManager, 0, 2, 0, 2, false, false, true,
                                                                         false);
@@ -29,8 +30,9 @@ public:
         colourModeCombo.addItem(TRANS("Classic"), 1 + static_cast<int>(devpiano::ui::KeyColourMode::classic));
         colourModeCombo.addItem(TRANS("Channel"), 1 + static_cast<int>(devpiano::ui::KeyColourMode::channel));
         colourModeCombo.addItem(TRANS("Velocity"), 1 + static_cast<int>(devpiano::ui::KeyColourMode::velocity));
-        if (model)
+        if (model) {
             colourModeCombo.setSelectedId(1 + static_cast<int>(model->keyboardColourMode), juce::dontSendNotification);
+        }
         colourModeCombo.onChange
             = [this] { editingState.setProperty("colourMode", colourModeCombo.getSelectedId(), nullptr); };
         addAndMakeVisible(colourModeCombo);
@@ -41,9 +43,10 @@ public:
         noteDisplayCombo.addItem(TRANS("Do Re Mi"), 1 + static_cast<int>(devpiano::ui::NoteDisplayMode::doReMi));
         noteDisplayCombo.addItem(TRANS("Fixed Do"), 1 + static_cast<int>(devpiano::ui::NoteDisplayMode::fixedDo));
         noteDisplayCombo.addItem(TRANS("Note Name"), 1 + static_cast<int>(devpiano::ui::NoteDisplayMode::noteName));
-        if (model)
+        if (model) {
             noteDisplayCombo.setSelectedId(1 + static_cast<int>(model->keyboardNoteDisplay),
                                            juce::dontSendNotification);
+        }
         noteDisplayCombo.onChange
             = [this] { editingState.setProperty("noteDisplay", noteDisplayCombo.getSelectedId(), nullptr); };
         addAndMakeVisible(noteDisplayCombo);
@@ -54,24 +57,27 @@ public:
         fadeSpeedSlider.setRange(0.50, 1.00, 0.01);
         fadeSpeedSlider.setSliderStyle(juce::Slider::LinearHorizontal);
         fadeSpeedSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
-        if (model)
+        if (model) {
             fadeSpeedSlider.setValue(model->keyboardFadeSpeed, juce::dontSendNotification);
+        }
         fadeSpeedSlider.onValueChange
             = [this] { editingState.setProperty("fadeSpeed", fadeSpeedSlider.getValue(), nullptr); };
         addAndMakeVisible(fadeSpeedSlider);
 
         // Resizable window toggle
         resizableToggle.setButtonText(TRANS("Resizable Window"));
-        if (model)
+        if (model) {
             resizableToggle.setToggleState(model->resizableWindow, juce::dontSendNotification);
+        }
         resizableToggle.onStateChange
             = [this] { editingState.setProperty("resizableWindow", resizableToggle.getToggleState(), nullptr); };
         addAndMakeVisible(resizableToggle);
 
         // Instrument filter toggle
         instrumentFilterToggle.setButtonText(TRANS("Show MIDI/VSTi Instrument Filter"));
-        if (model)
+        if (model) {
             instrumentFilterToggle.setToggleState(model->showInstrumentFilter, juce::dontSendNotification);
+        }
         instrumentFilterToggle.onStateChange = [this] {
             editingState.setProperty("showInstrumentFilter", instrumentFilterToggle.getToggleState(), nullptr);
         };
@@ -95,8 +101,9 @@ public:
         keySignatureCombo.addItem("A", 10);
         keySignatureCombo.addItem("A# / Bb", 11);
         keySignatureCombo.addItem("B", 12);
-        if (model)
+        if (model) {
             keySignatureCombo.setSelectedId(keySignatureToComboId(model->keySignature), juce::dontSendNotification);
+        }
         keySignatureCombo.onChange = [this] {
             auto ks = comboKeyMapping[static_cast<size_t>(keySignatureCombo.getSelectedId())];
             editingState.setProperty("keySignature", ks, nullptr);
@@ -104,8 +111,9 @@ public:
         addAndMakeVisible(keySignatureCombo);
 
         midiTransposeToggle.setButtonText(TRANS("MIDI Transpose"));
-        if (model)
+        if (model) {
             midiTransposeToggle.setToggleState(model->midiTranspose, juce::dontSendNotification);
+        }
         midiTransposeToggle.onStateChange
             = [this] { editingState.setProperty("midiTranspose", midiTransposeToggle.getToggleState(), nullptr); };
         addAndMakeVisible(midiTransposeToggle);
@@ -117,9 +125,10 @@ public:
             auto& tb = followKeyToggles[static_cast<size_t>(ch)];
             tb.setButtonText("Ch" + juce::String(ch + 1));
             tb.setTooltip(TRANS("Follow Key"));
-            if (model)
+            if (model) {
                 tb.setToggleState(model->channelMatrix.channels[static_cast<size_t>(ch)].followKey,
                                   juce::dontSendNotification);
+            }
             tb.onStateChange = [this, ch] {
                 editingState.setProperty("followKey_" + juce::String(ch),
                                          followKeyToggles[static_cast<size_t>(ch)].getToggleState(), nullptr);
@@ -139,8 +148,9 @@ public:
         using devpiano::locale::Language;
         languageCombo.addItem("English", 1);
         languageCombo.addItem(devpiano::locale::languageDisplayName(Language::zhCN), 2);
-        if (model)
+        if (model) {
             languageCombo.setSelectedId(model->languageCode == "zh-CN" ? 2 : 1, juce::dontSendNotification);
+        }
         languageCombo.onChange = [this] {
             editingState.setProperty("languageCode",
                                      languageCombo.getSelectedId() == 2 ? juce::String("zh-CN") : juce::String("en"),
@@ -160,8 +170,9 @@ public:
         addAndMakeVisible(saveButton);
         saveButton.onClick = [this] {
             dirty = false;
-            if (onSaveRequested)
+            if (onSaveRequested) {
                 onSaveRequested();
+            }
         };
 
         // --- Load model into editingState (before listener) ---
@@ -250,8 +261,9 @@ public:
         addAndMakeVisible(selector.get());
         resized();
 
-        if (onRefreshTexts)
+        if (onRefreshTexts) {
             onRefreshTexts();
+        }
     }
 
     ~SettingsComponent() override {
@@ -354,9 +366,11 @@ private:
     //           8=G(-5), 9=G#/Ab(-4), 10=A(-3), 11=A#/Bb(-2), 12=B(-1)
 
     [[nodiscard]] static int keySignatureToComboId(int ks) {
-        for (int id = 1; id <= 12; ++id)
-            if (comboKeyMapping[static_cast<size_t>(id)] == ks)
+        for (int id = 1; id <= 12; ++id) {
+            if (comboKeyMapping[static_cast<size_t>(id)] == ks) {
                 return id;
+            }
+        }
         return 1; // default C
     }
     juce::Label fadeSpeedLabel;
@@ -376,8 +390,9 @@ private:
     void updateFollowKeyTogglesVisibility() {
         auto visible = midiTransposeToggle.getToggleState();
         channelFollowKeyLabel.setVisible(visible);
-        for (auto& tb : followKeyToggles)
+        for (auto& tb : followKeyToggles) {
             tb.setVisible(visible);
+        }
         resized();
     }
     void updateDiagnostics() {
@@ -391,38 +406,42 @@ private:
     }
 
     void valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& prop) override {
-        if (tree != editingState || !model)
+        if (tree != editingState || !model) {
             return;
+        }
 
-        if (prop == juce::Identifier("colourMode"))
+        if (prop == juce::Identifier("colourMode")) {
             model->keyboardColourMode = static_cast<devpiano::ui::KeyColourMode>((int)editingState[prop] - 1);
-        else if (prop == juce::Identifier("noteDisplay"))
+        } else if (prop == juce::Identifier("noteDisplay")) {
             model->keyboardNoteDisplay = static_cast<devpiano::ui::NoteDisplayMode>((int)editingState[prop] - 1);
-        else if (prop == juce::Identifier("fadeSpeed"))
+        } else if (prop == juce::Identifier("fadeSpeed")) {
             model->keyboardFadeSpeed = static_cast<float>((double)editingState[prop]);
-        else if (prop == juce::Identifier("resizableWindow"))
+        } else if (prop == juce::Identifier("resizableWindow")) {
             model->resizableWindow = (bool)editingState[prop];
-        else if (prop == juce::Identifier("showInstrumentFilter"))
+        } else if (prop == juce::Identifier("showInstrumentFilter")) {
             model->showInstrumentFilter = (bool)editingState[prop];
-        else if (prop == juce::Identifier("keySignature"))
+        } else if (prop == juce::Identifier("keySignature")) {
             model->keySignature = (int)editingState[prop];
-        else if (prop == juce::Identifier("midiTranspose")) {
+        } else if (prop == juce::Identifier("midiTranspose")) {
             model->midiTranspose = (bool)editingState[prop];
             updateFollowKeyTogglesVisibility();
         } else if (prop.toString().startsWith("followKey_")) {
             auto chIdx = prop.toString().substring(10).getIntValue();
-            if (chIdx >= 0 && chIdx < 16)
+            if (chIdx >= 0 && chIdx < 16) {
                 model->channelMatrix.channels[static_cast<size_t>(chIdx)].followKey = (bool)editingState[prop];
+            }
         } else if (prop == juce::Identifier("languageCode")) {
             model->languageCode = editingState[prop].toString();
-            if (onLanguageChanged)
+            if (onLanguageChanged) {
                 onLanguageChanged(model->languageCode);
+            }
             refreshTexts();
             return;
         }
 
         setDirty(true);
-        if (onDisplaySettingsChanged)
+        if (onDisplaySettingsChanged) {
             onDisplaySettingsChanged();
+        }
     }
 };

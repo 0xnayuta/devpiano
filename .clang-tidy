@@ -1,6 +1,15 @@
 ---
 # devpiano clang-tidy 配置
 # 初始聚焦于错误防止、性能、可读性
+#
+# 注意：
+# 1. Checks 使用 YAML 折叠标量（>），块内不能写 # 注释——折叠标量中
+#    # 会被拼进检查字符串；若该项后紧跟逗号分隔的下一个检查，clang-tidy
+#    会把整段当注释吞掉后面的禁用项（实测 designated-initializers 失效）。
+#    说明文字一律放这里（块外 YAML 注释）。
+# 2. clang-tidy 只做检查、不做 --fix：对含多字节注释/无参数名声明的代码，
+#    --fix 的 Replacement 锚点会错位并破坏代码（见 AUDIT-001 ENG-002 复审 5）。
+#    机械修复交给 clang-format（InsertBraces 等），逐项人工修。
 Checks: >
     -*,
     bugprone-*,
@@ -17,8 +26,17 @@ Checks: >
     -readability-implicit-bool-conversion,
     -readability-function-cognitive-complexity,
     -readability-uppercase-literal-suffix,
+    -readability-named-parameter,
+    -readability-inconsistent-declaration-parameter-name,
+    -modernize-use-nodiscard,
+    -modernize-use-designated-initializers,
+    -readability-math-missing-parentheses,
+    -readability-redundant-inline-specifier,
+    -bugprone-easily-swappable-parameters
+
+# 仅报告 source/ 项目自身头文件的诊断，排除 JUCE / 第三方库头
+HeaderFilterRegex: '^.*/source/.*'
 
 CheckOptions:
     # 现代风格 using 声明
-    - { key: modernize-use-using.IgnoreExternC, value: true }
-...
+    - { key: modernize-use-using.IgnoreExternC, value: 'true' }

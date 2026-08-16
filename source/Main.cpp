@@ -21,11 +21,13 @@ static MainComponent* g_mainComponent = nullptr;
 static bool g_focusRestorePending = false;
 
 static void scheduleKeyboardFocusRestore(const char* reason) {
-    if (g_mainComponent == nullptr)
+    if (g_mainComponent == nullptr) {
         return;
+    }
 
-    if (g_focusRestorePending)
+    if (g_focusRestorePending) {
         return;
+    }
 
     g_focusRestorePending = true;
 
@@ -35,8 +37,9 @@ static void scheduleKeyboardFocusRestore(const char* reason) {
     juce::MessageManager::callAsync([safeMainComponent, restoreReason] {
         g_focusRestorePending = false;
 
-        if (safeMainComponent == nullptr)
+        if (safeMainComponent == nullptr) {
             return;
+        }
 
         juce::ignoreUnused(restoreReason);
         safeMainComponent->restoreKeyboardFocus();
@@ -62,11 +65,13 @@ static LRESULT CALLBACK DevPianoWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
 }
 
 static void installWndProcHook(juce::ComponentPeer* peer) {
-    if (peer == nullptr || g_originalWndProc != nullptr)
+    if (peer == nullptr || g_originalWndProc != nullptr) {
         return;
+    }
     HWND hwnd = reinterpret_cast<HWND>(peer->getNativeHandle());
-    if (hwnd == nullptr)
+    if (hwnd == nullptr) {
         return;
+    }
     g_hwnd = hwnd;
     g_originalWndProc = reinterpret_cast<WNDPROC>(
         SetWindowLongPtrW(hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&DevPianoWndProc)));
@@ -86,8 +91,7 @@ static void uninstallWndProcHook() {
 class DevPianoApplication : public juce::JUCEApplication {
 public:
     //==============================================================================
-    DevPianoApplication() {
-    }
+    DevPianoApplication() = default;
 
     const juce::String getApplicationName() override {
         return ProjectInfo::projectName;
@@ -102,7 +106,7 @@ public:
     //==============================================================================
     void initialise(const juce::String& commandLine) override {
         juce::ignoreUnused(commandLine);
-        mainWindow.reset(new MainWindow(getApplicationName()));
+        mainWindow = std::make_unique<MainWindow>(getApplicationName());
     }
 
     void shutdown() override {
@@ -125,7 +129,7 @@ public:
     //==============================================================================
     class MainWindow : public juce::DocumentWindow, private juce::Timer {
     public:
-        MainWindow(juce::String name)
+        MainWindow(const juce::String& name)
             : DocumentWindow(name,
                              juce::Desktop::getInstance().getDefaultLookAndFeel().findColour(
                                  juce::ResizableWindow::backgroundColourId),
@@ -162,8 +166,9 @@ public:
 
         ~MainWindow() override {
 #if defined(JUCE_WINDOWS) && JUCE_WINDOWS
-            if (g_mainComponent == getContentComponent())
+            if (g_mainComponent == getContentComponent()) {
                 g_mainComponent = nullptr;
+            }
 #endif
         }
 
@@ -200,18 +205,21 @@ public:
         void resized() override {
             DocumentWindow::resized();
 
-            if (!isVisible())
+            if (!isVisible()) {
                 return;
+            }
 
-            if (auto* mainComponent = dynamic_cast<MainComponent*>(getContentComponent()))
+            if (auto* mainComponent = dynamic_cast<MainComponent*>(getContentComponent())) {
                 mainComponent->persistMainContentSize(mainComponent->getWidth(), mainComponent->getHeight());
+            }
         }
 
         void activeWindowStatusChanged() override {
             DocumentWindow::activeWindowStatusChanged();
 
-            if (!isActiveWindow())
+            if (!isActiveWindow()) {
                 return;
+            }
 
             if (auto* mainComponent = dynamic_cast<MainComponent*>(getContentComponent())) {
 #if defined(JUCE_WINDOWS) && JUCE_WINDOWS

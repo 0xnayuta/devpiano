@@ -50,8 +50,9 @@ juce::DynamicObject::Ptr DesignTokens::spacingNode() const {
 juce::Colour DesignTokens::parseColor(juce::StringRef key, juce::Colour fallback) const {
     if (auto node = colorsNode()) {
         const auto v = node->getProperty(juce::Identifier(juce::String { key }));
-        if (!v.isVoid())
+        if (!v.isVoid()) {
             return juce::Colour::fromString(v.toString());
+        }
     }
     return fallback;
 }

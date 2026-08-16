@@ -26,24 +26,28 @@ void PluginOperationController::restorePluginStateOnStartup() {
     if (tryRestoreCachedPluginList(pluginHost, appSettings, plan)) {
         owner.refreshReadOnlyUiStateFromCurrentSnapshot();
 
-        if (plan.shouldLoadLastPlugin)
+        if (plan.shouldLoadLastPlugin) {
             restoreLastPluginOnStartup(plan);
+        }
 
         return;
     }
 
-    if (!plan.shouldScan)
+    if (!plan.shouldScan) {
         return;
+    }
 
     restorePluginScanPathOnStartup(plan);
 
-    if (plan.shouldLoadLastPlugin)
+    if (plan.shouldLoadLastPlugin) {
         restoreLastPluginOnStartup(plan);
+    }
 }
 
 void PluginOperationController::loadSelectedPlugin() {
-    if (pluginHost.isCurrentlyScanning())
+    if (pluginHost.isCurrentlyScanning()) {
         return;
+    }
 
     const auto pluginName = getSelectedPluginNameForLoad();
     if (pluginName.isEmpty()) {
@@ -80,15 +84,17 @@ void PluginOperationController::handleImportVst3File(const juce::File& vst3File)
 }
 
 void PluginOperationController::unloadCurrentPlugin() {
-    if (pluginHost.isCurrentlyScanning())
+    if (pluginHost.isCurrentlyScanning()) {
         return;
+    }
 
     unloadPluginAndCommitState();
 }
 
 void PluginOperationController::togglePluginEditor() {
-    if (pluginHost.isCurrentlyScanning())
+    if (pluginHost.isCurrentlyScanning()) {
         return;
+    }
     if (pluginEditorWindow != nullptr) {
         closePluginEditorWindow();
         owner.finishPluginUiAction(false);
@@ -112,8 +118,9 @@ void PluginOperationController::scanPlugins() {
         return;
     }
 
-    if (pluginHost.isCurrentlyScanning())
+    if (pluginHost.isCurrentlyScanning()) {
         return;
+    }
 
     pendingScanPath = path;
     pendingScanLastPluginName = appSettings.getPluginRecoverySettingsView().lastPluginName;
@@ -137,16 +144,18 @@ bool PluginOperationController::hasEditorWindowOpen() const noexcept {
 
 void PluginOperationController::restorePluginScanPathOnStartup(const StartupPluginRestorePlan& plan) {
     const auto path = juce::FileSearchPath(plan.recovery.pluginSearchPath);
-    if (!isUsablePluginScanPath(path))
+    if (!isUsablePluginScanPath(path)) {
         return;
+    }
 
     scanPluginsAtPathAndUpdateRecovery(pluginHost, appSettings, path, plan.recovery.lastPluginName);
 }
 
 void PluginOperationController::restoreLastPluginOnStartup(const StartupPluginRestorePlan& plan) {
     const auto& pluginName = plan.recovery.lastPluginName;
-    if (pluginName.isEmpty())
+    if (pluginName.isEmpty()) {
         return;
+    }
 
     restorePluginByNameOnStartup(pluginName);
 }
@@ -184,16 +193,18 @@ void PluginOperationController::unloadPluginAndCommitState() {
 
 std::unique_ptr<juce::AudioProcessorEditor> PluginOperationController::tryCreatePluginEditor() const {
     auto* instance = pluginHost.getInstance();
-    if (instance == nullptr || !instance->hasEditor())
+    if (instance == nullptr || !instance->hasEditor()) {
         return nullptr;
+    }
 
     return std::unique_ptr<juce::AudioProcessorEditor>(instance->createEditorAndMakeActive());
 }
 
 void PluginOperationController::handlePluginEditorWindowClosedAsync() {
     juce::MessageManager::callAsync([safe = juce::Component::SafePointer<MainComponent>(&owner)] {
-        if (safe == nullptr)
+        if (safe == nullptr) {
             return;
+        }
 
         safe->pluginOperationController->closePluginEditorWindow();
         safe->finishPluginUiAction(false);
@@ -206,8 +217,9 @@ void PluginOperationController::closePluginEditorWindow() {
 
 void PluginOperationController::openPluginEditorWindow(std::unique_ptr<juce::AudioProcessorEditor> editor) {
     auto closeEditorWindow = [safe = juce::Component::SafePointer<MainComponent>(&owner)] {
-        if (safe != nullptr)
+        if (safe != nullptr) {
             safe->pluginOperationController->handlePluginEditorWindowClosedAsync();
+        }
     };
 
     pluginEditorWindow
@@ -238,8 +250,9 @@ void PluginOperationController::handleAsyncUpdate() {
         return;
     }
 
-    if (scanStepInProgress)
+    if (scanStepInProgress) {
         return;
+    }
 
     scanStepInProgress = true;
 
@@ -267,8 +280,9 @@ void PluginOperationController::finishScanSessionAndCommitState() {
 
     // Auto-load the first available plugin when user-initiated scan completes
     // and no plugin is currently loaded.
-    if (!pluginHost.hasLoadedPlugin() && !pluginHost.getKnownPluginNames().isEmpty())
+    if (!pluginHost.hasLoadedPlugin() && !pluginHost.getKnownPluginNames().isEmpty()) {
         loadSelectedPlugin();
+    }
 }
 
 void PluginOperationController::commitPluginRecoveryStateAndFinishUi(

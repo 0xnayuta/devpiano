@@ -11,8 +11,9 @@ constexpr auto kPresetFileExtension = ".devpiano.preset";
 // ---- File naming helpers ----
 
 [[nodiscard]] juce::String stripPresetExtension(const juce::String& fileName) {
-    if (fileName.endsWithIgnoreCase(kPresetFileExtension))
+    if (fileName.endsWithIgnoreCase(kPresetFileExtension)) {
         return fileName.dropLastCharacters(juce::String(kPresetFileExtension).length());
+    }
     return juce::File::createLegalFileName(fileName).upToLastOccurrenceOf(".", false, false);
 }
 
@@ -34,8 +35,9 @@ constexpr auto kPresetFileExtension = ".devpiano.preset";
         auto* obj = v.getDynamicObject();
         if (obj != nullptr) {
             const auto typeStr = obj->getProperty("type").toString();
-            if (typeStr != "note")
+            if (typeStr != "note") {
                 DP_LOG_WARN("[Preset] unknown KeyAction type '" + typeStr + "', falling back to \"note\"");
+            }
             action.type = devpiano::core::KeyActionType::note;
             auto triggerStr = obj->getProperty("trigger").toString();
             action.trigger
@@ -106,8 +108,9 @@ constexpr auto kPresetFileExtension = ".devpiano.preset";
     obj->setProperty("active", cm.active);
 
     juce::Array<juce::var> channels;
-    for (const auto& ch : cm.channels)
+    for (const auto& ch : cm.channels) {
         channels.add(channelToVar(ch));
+    }
     obj->setProperty("channels", juce::var(channels));
 
     return obj.get();
@@ -115,21 +118,24 @@ constexpr auto kPresetFileExtension = ".devpiano.preset";
 
 [[nodiscard]] devpiano::midi::ChannelMatrix varToChannelMatrix(const juce::var& v) {
     devpiano::midi::ChannelMatrix cm;
-    if (!v.isObject())
+    if (!v.isObject()) {
         return cm;
+    }
 
     auto* obj = v.getDynamicObject();
-    if (obj == nullptr)
+    if (obj == nullptr) {
         return cm;
+    }
 
     cm.active = static_cast<bool>(obj->getProperty("active"));
 
     auto channelsVar = obj->getProperty("channels");
     if (channelsVar.isArray()) {
         auto* arr = channelsVar.getArray();
-        auto count = std::min(static_cast<int>(arr->size()), 16);
-        for (int i = 0; i < count; ++i)
+        auto count = std::min(arr->size(), 16);
+        for (int i = 0; i < count; ++i) {
             cm.channels[static_cast<std::size_t>(i)] = varToChannel((*arr)[i]);
+        }
     }
 
     return cm;
@@ -144,13 +150,14 @@ constexpr auto kPresetFileExtension = ".devpiano.preset";
 }
 
 [[nodiscard]] juce::Colour argbHexToColour(const juce::String& hex) {
-    if (hex.length() != 8)
+    if (hex.length() != 8) {
         return juce::Colour(0x00000000);
+    }
     auto a = static_cast<uint8_t>(hex.substring(0, 2).getHexValue32());
     auto r = static_cast<uint8_t>(hex.substring(2, 4).getHexValue32());
     auto g = static_cast<uint8_t>(hex.substring(4, 6).getHexValue32());
     auto b = static_cast<uint8_t>(hex.substring(6, 8).getHexValue32());
-    return juce::Colour(r, g, b, a);
+    return { r, g, b, a };
 }
 
 } // anonymous namespace
@@ -163,8 +170,9 @@ juce::File getPresetDirectory() {
     auto dir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
                    .getChildFile("DevPiano")
                    .getChildFile("Presets");
-    if (!dir.exists())
+    if (!dir.exists()) {
         dir.createDirectory();
+    }
     return dir;
 }
 
@@ -172,14 +180,16 @@ juce::String sanitisePresetFileName(const juce::String& name) {
     // Keep only alphanumerics, spaces, hyphens, underscores; fold to legal file name.
     juce::String out;
     for (auto ch : name) {
-        if (juce::CharacterFunctions::isLetterOrDigit(ch) || ch == ' ' || ch == '-' || ch == '_')
+        if (juce::CharacterFunctions::isLetterOrDigit(ch) || ch == ' ' || ch == '-' || ch == '_') {
             out << ch;
-        else
+        } else {
             out << '_';
+        }
     }
     out = out.trim();
-    if (out.isEmpty())
+    if (out.isEmpty()) {
         out = "untitled";
+    }
     return out;
 }
 
@@ -191,12 +201,14 @@ juce::String getPresetDisplayNameForFile(const juce::File& path) {
 // ---- Load ----
 
 std::optional<PerformancePreset> loadPreset(const juce::File& path) {
-    if (!path.existsAsFile())
+    if (!path.existsAsFile()) {
         return std::nullopt;
+    }
 
     auto raw = path.loadFileAsString();
-    if (raw.isEmpty())
+    if (raw.isEmpty()) {
         return std::nullopt;
+    }
 
     juce::var jsonResult;
     try {
@@ -204,16 +216,19 @@ std::optional<PerformancePreset> loadPreset(const juce::File& path) {
     } catch (...) {
         return std::nullopt;
     }
-    if (!jsonResult.isObject())
+    if (!jsonResult.isObject()) {
         return std::nullopt;
+    }
 
     auto* obj = jsonResult.getDynamicObject();
-    if (obj == nullptr)
+    if (obj == nullptr) {
         return std::nullopt;
+    }
 
     auto version = static_cast<int>(obj->getProperty("version"));
-    if (version != performancePresetFormatVersion)
+    if (version != performancePresetFormatVersion) {
         return std::nullopt;
+    }
 
     PerformancePreset preset;
     preset.name = obj->getProperty("name").toString();
@@ -229,16 +244,19 @@ std::optional<PerformancePreset> loadPreset(const juce::File& path) {
             auto bindingsVar = lo->getProperty("bindings");
             if (bindingsVar.isArray()) {
                 preset.layout.bindings.clear();
-                for (const auto& bv : *bindingsVar.getArray())
+                for (const auto& bv : *bindingsVar.getArray()) {
                     preset.layout.bindings.push_back(varToKeyBinding(bv));
+                }
             }
         }
     }
     // Fallback: id/name from top-level if layout section absent
-    if (preset.layout.id.isEmpty())
+    if (preset.layout.id.isEmpty()) {
         preset.layout.id = "user.preset." + sanitisePresetFileName(preset.name);
-    if (preset.layout.name.isEmpty())
+    }
+    if (preset.layout.name.isEmpty()) {
         preset.layout.name = preset.name;
+    }
 
     // --- channelMatrix ---
     preset.channelMatrix = varToChannelMatrix(obj->getProperty("channelMatrix"));
@@ -261,18 +279,20 @@ std::optional<PerformancePreset> loadPreset(const juce::File& path) {
             auto labelsVar = kbo->getProperty("customKeyLabels");
             if (labelsVar.isArray()) {
                 auto* arr = labelsVar.getArray();
-                auto count = std::min(static_cast<int>(arr->size()), 128);
-                for (int i = 0; i < count; ++i)
+                auto count = std::min(arr->size(), 128);
+                for (int i = 0; i < count; ++i) {
                     preset.customKeyLabels[static_cast<std::size_t>(i)] = (*arr)[i].toString();
+                }
             }
 
             // customKeyColours (sparse array of "AARRGGBB" hex)
             auto coloursVar = kbo->getProperty("customKeyColours");
             if (coloursVar.isArray()) {
                 auto* arr = coloursVar.getArray();
-                auto count = std::min(static_cast<int>(arr->size()), 128);
-                for (int i = 0; i < count; ++i)
+                auto count = std::min(arr->size(), 128);
+                for (int i = 0; i < count; ++i) {
                     preset.customKeyColours[static_cast<std::size_t>(i)] = argbHexToColour((*arr)[i].toString());
+                }
             }
         }
     }
@@ -294,8 +314,9 @@ bool savePreset(const PerformancePreset& preset, const juce::File& path) {
         lo->setProperty("name", preset.layout.name);
 
         juce::Array<juce::var> bindings;
-        for (const auto& binding : preset.layout.bindings)
+        for (const auto& binding : preset.layout.bindings) {
             bindings.add(keyBindingToVar(binding));
+        }
         lo->setProperty("bindings", juce::var(bindings));
 
         root->setProperty("layout", juce::var(lo));
@@ -318,8 +339,9 @@ bool savePreset(const PerformancePreset& preset, const juce::File& path) {
         // Custom key labels: write all 128 entries for simplicity
         {
             juce::Array<juce::var> labels;
-            for (const auto& label : preset.customKeyLabels)
+            for (const auto& label : preset.customKeyLabels) {
                 labels.add(juce::var(label));
+            }
             kbo->setProperty("customKeyLabels", juce::var(labels));
         }
 
@@ -327,8 +349,9 @@ bool savePreset(const PerformancePreset& preset, const juce::File& path) {
         // (128 ARGB strings is ~1KB; sparse optimisation not worth the code complexity)
         {
             juce::Array<juce::var> colours;
-            for (const auto& c : preset.customKeyColours)
+            for (const auto& c : preset.customKeyColours) {
                 colours.add(juce::var(colourToArgbHex(c)));
+            }
             kbo->setProperty("customKeyColours", juce::var(colours));
         }
 
@@ -336,16 +359,19 @@ bool savePreset(const PerformancePreset& preset, const juce::File& path) {
     }
 
     auto jsonString = juce::JSON::toString(juce::var(root));
-    if (jsonString.isEmpty())
+    if (jsonString.isEmpty()) {
         return false;
+    }
 
     auto targetFile = path;
-    if (!targetFile.hasFileExtension(kPresetFileExtension))
+    if (!targetFile.hasFileExtension(kPresetFileExtension)) {
         targetFile = targetFile.withFileExtension(kPresetFileExtension);
+    }
 
     auto dir = targetFile.getParentDirectory();
-    if (!dir.exists() && !dir.createDirectory())
+    if (!dir.exists() && !dir.createDirectory()) {
         return false;
+    }
 
     // 原子写入：同目录临时文件 + rename 覆盖，失败时目标文件保持原样
     // （与 PerformanceFile::savePerformanceFile 同一模式，AUDIT-SEC-004 扩展）。
@@ -355,8 +381,9 @@ bool savePreset(const PerformancePreset& preset, const juce::File& path) {
         return false;
     }
 
-    if (tempFile.overwriteTargetFileWithTemporary())
+    if (tempFile.overwriteTargetFileWithTemporary()) {
         return true;
+    }
 
     tempFile.deleteTemporaryFile();
     return false;
@@ -366,19 +393,21 @@ bool savePreset(const PerformancePreset& preset, const juce::File& path) {
 
 std::vector<PerformancePreset> scanPresetDirectory() {
     auto dir = getPresetDirectory();
-    if (!dir.exists())
+    if (!dir.exists()) {
         return {};
+    }
 
     std::vector<PerformancePreset> results;
 
     for (const auto& entry : dir.findChildFiles(juce::File::TypesOfFileToFind::findFiles, false,
                                                 "*" + juce::String(kPresetFileExtension))) {
         auto loaded = loadPreset(entry);
-        if (loaded.has_value())
+        if (loaded.has_value()) {
             results.push_back(*loaded);
+        }
     }
 
-    std::sort(results.begin(), results.end(), [](const PerformancePreset& a, const PerformancePreset& b) {
+    std::ranges::sort(results, [](const PerformancePreset& a, const PerformancePreset& b) {
         return a.name.compareIgnoreCase(b.name) < 0;
     });
 

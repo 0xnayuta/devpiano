@@ -12,9 +12,11 @@ namespace devpiano::ui {
 /// (case-insensitive), or -1 when nothing matches.
 [[nodiscard]] inline int preferredNameIndex(const juce::StringArray& names,
                                             const juce::String& preferredSelection) noexcept {
-    for (int i = 0; i < names.size(); ++i)
-        if (names[i].equalsIgnoreCase(preferredSelection))
+    for (int i = 0; i < names.size(); ++i) {
+        if (names[i].equalsIgnoreCase(preferredSelection)) {
             return i;
+        }
+    }
     return -1;
 }
 
@@ -22,9 +24,11 @@ namespace devpiano::ui {
 /// caller selects -1 itself when the list is empty).
 [[nodiscard]] inline int presetIdIndex(const juce::StringArray& presetIds,
                                        const juce::String& currentPresetId) noexcept {
-    for (int i = 0; i < presetIds.size(); ++i)
-        if (presetIds[i] == currentPresetId)
+    for (int i = 0; i < presetIds.size(); ++i) {
+        if (presetIds[i] == currentPresetId) {
             return i;
+        }
+    }
     return 0;
 }
 

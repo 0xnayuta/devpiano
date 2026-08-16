@@ -38,22 +38,25 @@ TrackNoteStats countTrackNoteEvents(const juce::MidiMessageSequence& track, int 
 
     for (int i = 0; i < track.getNumEvents(); ++i) {
         const auto* msg = track.getEventPointer(i);
-        if (msg == nullptr)
+        if (msg == nullptr) {
             continue;
+        }
 
         const auto& midiMsg = msg->message;
         const auto isRawNoteOn = midiMsg.isNoteOn(true);
-        const auto isZeroVelocityNoteOn = isRawNoteOn && midiMsg.getVelocity() == 0.0f;
+        const auto isZeroVelocityNoteOn = isRawNoteOn && midiMsg.getVelocity() == 0;
         const auto isNoteOn = midiMsg.isNoteOn(false);
         const auto isNoteOff = midiMsg.isNoteOff(true);
 
-        if (isZeroVelocityNoteOn)
+        if (isZeroVelocityNoteOn) {
             ++stats.zeroVelocityNoteOnCount;
+        }
 
-        if (isNoteOn)
+        if (isNoteOn) {
             ++stats.noteOnCount;
-        else if (isNoteOff)
+        } else if (isNoteOff) {
             ++stats.noteOffCount;
+        }
     }
 
     return stats;
@@ -78,8 +81,9 @@ std::vector<TrackNoteStats> collectTrackNoteStats(const juce::MidiFile& midiFile
 
 int getTotalNoteEvents(const std::vector<TrackNoteStats>& stats) {
     int total = 0;
-    for (const auto& trackStats : stats)
+    for (const auto& trackStats : stats) {
         total += trackStats.totalNoteEvents();
+    }
     return total;
 }
 
@@ -146,8 +150,9 @@ std::optional<RecordingTake> importMidiFile(const juce::File& midiFile, double t
     }
 
     juce::MidiFile file;
-    if (!readMidiFile(file, midiFile))
+    if (!readMidiFile(file, midiFile)) {
         return std::nullopt;
+    }
 
     DP_TRACE_MIDI("MidiFile imported: " + midiFile.getFileName() + ", tracks=" + juce::String(file.getNumTracks()),
                   "MidiImporter");
@@ -190,13 +195,15 @@ std::optional<RecordingTake> importMidiFile(const juce::File& midiFile, double t
         return std::nullopt;
     }
 
-    if (options.preferTrack != selectedTrackIndex)
+    if (options.preferTrack != selectedTrackIndex) {
         DP_LOG_INFO("MidiFileImporter: auto-selected track " + juce::String(selectedTrackIndex)
                     + " instead of preferred track " + juce::String(options.preferTrack));
+    }
 
-    if (numTracks > 1 && options.ignoreOtherTracks)
+    if (numTracks > 1 && options.ignoreOtherTracks) {
         DP_LOG_INFO("MidiFileImporter: imported track " + juce::String(selectedTrackIndex) + ", "
                     + juce::String(numTracks - 1) + " other tracks ignored");
+    }
 
     const auto* track = file.getTrack(selectedTrackIndex);
     if (track == nullptr) {
@@ -217,13 +224,14 @@ std::optional<RecordingTake> importMidiFile(const juce::File& midiFile, double t
 
     for (int i = 0; i < track->getNumEvents(); ++i) {
         const auto* msg = track->getEventPointer(i);
-        if (msg == nullptr)
+        if (msg == nullptr) {
             continue;
+        }
 
         const auto& midiMsg = msg->message;
 
         // Note On with velocity 0 is technically a Note Off in MIDI spec.
-        const bool isNoteOnWithVelocityZero = midiMsg.isNoteOn(true) && midiMsg.getVelocity() == 0.0f;
+        const bool isNoteOnWithVelocityZero = midiMsg.isNoteOn(true) && midiMsg.getVelocity() == 0;
         const bool isNoteOnWithVelocityNonZero = midiMsg.isNoteOn(false);
         const bool isNoteOffEvent = midiMsg.isNoteOff(true);
 
@@ -245,17 +253,20 @@ std::optional<RecordingTake> importMidiFile(const juce::File& midiFile, double t
             continue;
         }
 
-        if (isNoteOnWithVelocityZero)
+        if (isNoteOnWithVelocityZero) {
             ++zeroVelocityNoteOnCount;
+        }
 
-        if (midiMsg.isNoteOn())
+        if (midiMsg.isNoteOn()) {
             ++noteOnCount;
-        else
+        } else {
             ++noteOffCount;
+        }
 
         const auto timestampSeconds = midiMsg.getTimeStamp();
-        if (timestampSeconds < 0.0)
+        if (timestampSeconds < 0.0) {
             continue;
+        }
 
         const auto timestampSamples = static_cast<int64_t>(timestampSeconds * targetSampleRate);
         lastTimestampSamples = std::max(lastTimestampSamples, timestampSamples);
