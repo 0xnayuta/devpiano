@@ -347,7 +347,19 @@ bool savePreset(const PerformancePreset& preset, const juce::File& path) {
     if (!dir.exists() && !dir.createDirectory())
         return false;
 
-    return targetFile.replaceWithText(jsonString);
+    // 原子写入：同目录临时文件 + rename 覆盖，失败时目标文件保持原样
+    // （与 PerformanceFile::savePerformanceFile 同一模式，AUDIT-SEC-004 扩展）。
+    juce::TemporaryFile tempFile(targetFile);
+    if (!tempFile.getFile().replaceWithText(jsonString)) {
+        tempFile.deleteTemporaryFile();
+        return false;
+    }
+
+    if (tempFile.overwriteTargetFileWithTemporary())
+        return true;
+
+    tempFile.deleteTemporaryFile();
+    return false;
 }
 
 // ---- Directory scanning ----
