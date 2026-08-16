@@ -31,14 +31,14 @@
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | P0 | 5 | 0 | 0 | 0 | 0 | 5 |
 | P1 | 12 | 0 | 0 | 0 | 0 | 12 |
-| P2 | 25 | 0 | 0 | 0 | 12 | 13 |
+| P2 | 25 | 0 | 0 | 0 | 9 | 16 |
 | P3 | 21 | 0 | 0 | 0 | 7 | 14 |
-| **合计** | 63 | 0 | 0 | 0 | 19 | 44 |
+| **合计** | 63 | 0 | 0 | 0 | 16 | 47 |
 
 ### 0.3 关键结论
 
-- 总体评级：`A-` — 功能完整，架构健康；Phase A–F 全部完成，审计关闭（0 Open, 19 Deferred, 44 Closed）
-- 当前是否适合继续新增功能：`Yes` — 无未解决的 P0/P1 风险；剩余 19 项已全部评估并暂缓（Deferred）
+- 总体评级：`A-` — 功能完整，架构健康；Phase A–F 全部完成，审计关闭（0 Open, 16 Deferred, 47 Closed）
+- 当前是否适合继续新增功能：`Yes` — 无未解决的 P0/P1 风险；剩余 16 项已全部评估并暂缓（Deferred）
 - 当前是否建议优先重构：`No` — 主要架构和工程化问题已解决
 - 最大已修复风险：**PluginHost 零内部线程同步**（`PLUG-001`）— 已通过断言 + 文档化契约缓解
 - 下一步最高优先级：功能开发；下次审计复审 Deferred 项的重开条件
@@ -389,6 +389,7 @@ Exit code: 123
 > **复审记录**：2026-08-16 — 距上次复审近一个月（期间引入 JIVE 声明式 UI 与 melatonin_inspector，UI 面板整体迁移至 `UI/jive/` + `UI/native/`，`HeaderPanel/ControlsPanel/PluginPanel/KeyboardPanel` 等原生面板已移除）。逐项复核全部 24 项 Deferred，5 项确认已不存在 → Closed，19 项仍存在 → 维持 Deferred（详见 §8 状态列与下方结论）：
 > - **Closed（5）**：`PLUG-004`（editor/插件资源释放由 RAII 析构链保证，MainComponent 成员析构顺序 controller(195) → pluginHost(170) 安全）、`PLUG-007`（析构已调用 `cancelVst3ScanSession()`，审计基线即存在，属审计误判）、`THREAD-003`（`applyTransform` 已无调用方；midiTranspose/keySignature 读写全部位于消息线程）、`SEC-005`（序列化已逐字段转 ValueTree XML，无内存 dump）、`SEC-008`（设计意图已文档化于 MidiChannelMapper.h 头注释）。
 > - **维持 Deferred（19）**：`PLUG-005`、`REC-007`、`THREAD-001/002`、`SEC-001/002/003/004`、`PERF-001/002`、`ERR-003/006`、`QUAL-003/004/005`、`SEC-006/007`、`PERF-004/005`。其中 `THREAD-001` 触发面进一步收窄（音频线程仅 warmup 路径读 currentSampleRate）；`PERF-001` 已缓解（现仅导入单轨道）；`SEC-001` 的 unknown-type 分支现为恒等 ternary（KeyActionType 仅 note 一个值，无实际损害）；`ERR-006` 调用方均传长寿命 `appSettings`，无实际悬垂；`PERF-002` 调用方低频（设置窗口/保存路径）。状态汇总：0 Open, 19 Deferred, 44 Closed。
+> **复审记录**：2026-08-16（二次）— 19 项 Deferred 中性价比最高的三项已按 current-iteration 方案修复并提交：`SEC-001` → Closed (90a9552，未知 type 记 DP_LOG_WARN)、`SEC-004` → Closed (ca317ab + b54ae07，PerformanceFile 与 savePreset 原子写入，含 PerformanceFileTest)、`REC-007` → Closed (85ff516，提取 RenderPipeline.h/.cpp 公共渲染管线，含 RenderPipelineTest)。三项均经 WSL 全量测试 + Windows MSVC 构建验证。剩余 16 项维持 Deferred，重开条件不变；其中 `REC-007` 遗留项为 Windows 侧 GUI 导出对比（预期 ≤1 sample 差异）。状态汇总：0 Open, 16 Deferred, 47 Closed。
 
 ## 8. 问题总表
 
@@ -446,14 +447,14 @@ Exit code: 123
 | `PLUG-006` | P2 | Closed | 同步扫描阻塞消息线程 | `source/Plugin/PluginHost.cpp` | `scanAndAddToKnownList` 在主扫描循环中调用 `addVst3FileToKnownList`，每个插件同步处理，大目录扫描时阻塞 UI | 已修复：scanAndAddToKnownList 已移除；扫描现为全异步（advanceVst3ScanStep + AsyncUpdater），不阻塞消息线程 |
 | `PLUG-007` | P2 | Closed | PluginOperationController 扫描状态在销毁时未清理 | `source/Plugin/PluginOperationController.cpp:18-19` | 如果 controller 在扫描进行中销毁，PluginHost 的 `isScanning` 保持 true，UI 永远卡在扫描状态 | 已确认不存在（2026-08-16 复审）：析构函数调用 `pluginHost.cancelVst3ScanSession()`（PluginHost.cpp:151-157 重置 activeScanner + isScanning=false + scanningPluginName.clear()），审计基线 c1b52bb 即存在该调用，属审计误判 |
 | `REC-006` | P2 | Closed | RecordingEngine renderPlaybackBlock 中使用 mutex | `source/Recording/RecordingEngine.cpp` (renderPlaybackBlock) | `renderPlaybackBlock` 在音频回调中调用，内部使用 `std::mutex` 保护 `pendingPresetChanges` 队列 | 已修复：改用 `juce::CriticalSection` 替代 `std::mutex`，仅在 preset 变更分支作用域锁 |
-| `REC-007` | P2 | Deferred | WavFileExporter 和 PluginOfflineRenderer 重复代码 | `source/Recording/WavFileExporter.cpp`, `source/Recording/PluginOfflineRenderer.cpp` | `RenderEvent` struct、`buildRenderEvents`、`getScaledTakeLengthSamples`、`addPanicMidi` 在两个文件中重复定义，相似度 ~50% | 提取公共渲染管线到 `source/Recording/RenderPipeline.h` 或共享基类。2026-08-16 复审：结构仍原样重复（WavFileExporter.cpp:92/123/142/154 vs PluginOfflineRenderer.cpp:17/30/54/67），7-20 后仅日志迁移类改动；此项为 19 项 Deferred 中重构收益最明确者，建议下轮排期 |
+| `REC-007` | P2 | Closed | WavFileExporter 和 PluginOfflineRenderer 重复代码 | `source/Recording/WavFileExporter.cpp`, `source/Recording/PluginOfflineRenderer.cpp` | `RenderEvent` struct、`buildRenderEvents`、`getScaledTakeLengthSamples`、`addPanicMidi` 在两个文件中重复定义，相似度 ~50% | 已修复 (85ff516)：提取公共渲染管线 `source/Recording/RenderPipeline.h/.cpp`（RenderEvent/scaleTimestamp/hasUsableRenderOptions/buildRenderEvents/getScaledTakeLengthSamples/addPanicMidi 统一实现）；两文件去重 -130 行；渲染主循环因音频源不同（synth vs 插件实例）各自保留；新增 RenderPipelineTest（10 用例 75 断言）+ WSL 全量测试 + MSVC 构建通过。语义统一：时长取 max(缩放长度, 最后一事件 timestamp+1)，Wav 路径 ≤1 sample 差异（GUI 导出对比待 Windows 侧手动验证） |
 | `THREAD-001` | P2 | Deferred | AudioEngine::currentSampleRate/currentBlockSize 非原子 | `source/Audio/AudioEngine.h:64-65`, `source/Audio/AudioEngine.cpp` | `currentSampleRate` 和 `currentBlockSize` 在 `prepareToPlay`（消息线程）设置，在 `getNextAudioBlock`（音频线程）读取，无 atomic/mutex | 改为 `std::atomic<double>` / `std::atomic<int>`。2026-08-16 复审：触发面进一步收窄——getNextAudioBlock 主路径不读这两个字段，仅 warmup 路径（consumeWarmupBlockIfNeeded → discardWarmupInputState → `midiCollector.reset(currentSampleRate)`）在音频线程读；该读发生在 prepareToPlay 之后、无并发写窗口，维持 Deferred |
 | `THREAD-002` | P2 | Deferred | MidiChannelMapper 引用成员悬垂风险 | `source/Midi/MidiChannelMapper.h:22-25` | 构造函数接受 `const ChannelMatrix&`、`const int&` 等引用并存储。如果外部对象被销毁而 mapper 仍存活，引用悬垂 | 文档化生命周期契约（mapper 必须短于引用对象）；或改用值拷贝。2026-08-16 复审：引用对象为 MainComponent::appSettings 的成员（MainComponent.h:171 声明，先于 :197 的 midiChannelMapper 构造、后于其析构），且 reconfigureChannelMapper 重建 mapper 保持同一引用源，成员顺序保证生命周期安全；维持 Deferred |
 | `THREAD-003` | P2 | Closed | midiTranspose/keySignature 无同步读取 | `source/Midi/MidiChannelMapper.cpp` | `applyTransform` 在音频回调中读取 `midiTranspose` 和 `keySignature`（通过引用），而这些值可在消息线程修改 | 已确认不存在（2026-08-16 复审）：`applyTransform` 已无任何调用方（死代码）；`sendNoteOn/sendNoteOff` 的全部调用点（MainComponent.cpp CustomKeyboard 回调 :550-561、键盘监听 :825/:896 → KeyboardMidiMapper）均位于消息线程，与设置变更线程一致，无跨线程竞争 |
-| `SEC-001` | P2 | Deferred | loadPreset 静默强制未知 KeyAction 类型 | `source/Layout/PerformancePreset.cpp:33-35` (loadPreset) | JSON 中 `type` 字段若为未知值，被静默设为 `"note"`，可能掩盖数据损坏。2026-08-16 复审：仍存在且表达式已退化为恒等 ternary（`(typeStr == "note") ? note : note`，两分支相同）；因 `KeyActionType` 仅有 `note` 一个枚举值，无实际损害 | 至少记录 DP_LOG_WARN，或拒绝加载整个 preset。最低成本修复：将恒等 ternary 简化为直接赋值 + 未知值时 DP_LOG_WARN |
+| `SEC-001` | P2 | Closed | loadPreset 静默强制未知 KeyAction 类型 | `source/Layout/PerformancePreset.cpp:33-35` (loadPreset) | JSON 中 `type` 字段若为未知值，被静默设为 `"note"`，可能掩盖数据损坏。2026-08-16 复审：仍存在且表达式已退化为恒等 ternary（`(typeStr == "note") ? note : note`，两分支相同）；因 `KeyActionType` 仅有 `note` 一个枚举值，无实际损害 | 已修复 (90a9552)：恒等 ternary 简化为直接赋值 + 未知 type 时 `DP_LOG_WARN`（数据损坏可观测）；行为不变（仍回退 note）；WSL 全量测试 + MSVC 构建通过 |
 | `SEC-002` | P2 | Deferred | MidiChannelMapper::configForChannel 静默 clamp | `source/Midi/MidiChannelMapper.cpp:12-14` (configForChannel) | 越界 channel 参数被静默 clamp 到 [0,15]，调用方无法得知错误 | 添加 `jassert` 或返回 `std::optional`。2026-08-16 复审：仍为 `juce::jlimit(0,15, ...)` 静默 clamp；实际调用方（sendNoteOn/sendNoteOff，消息线程）传入值均来自合法 0-15 通道，越界仅理论可能，维持 Deferred |
 | `SEC-003` | P2 | Deferred | MidiFileImporter 无文件大小限制 | `source/Recording/MidiFileImporter.cpp` | 无输入文件大小检查，超大或恶意构造的 MIDI 文件可导致内存耗尽 | 添加可配置的文件大小上限（如 100MB）。2026-08-16 复审：仍仅检查 `getSize() == 0`，无上限；本地桌面应用、用户自选文件的威胁面有限，维持 Deferred |
-| `SEC-004` | P2 | Deferred | PerformanceFile JSON parse 非原子文件写入 | `source/Recording/PerformanceFile.cpp:207-217` | `file.replaceWithText()` 非原子写入——如果写入中途崩溃，文件损坏且无备份 | 写入临时文件 + 原子 rename。2026-08-16 复审：`savePerformanceFile` 仍直接 `replaceWithText`，PerformancePreset 保存（PerformancePreset.cpp:346）同样如此；录制数据保存路径（RecordingSessionController.cpp:316/633）复用同一函数，崩溃丢数据的窗口真实但概率低，维持 Deferred |
+| `SEC-004` | P2 | Closed | PerformanceFile JSON parse 非原子文件写入 | `source/Recording/PerformanceFile.cpp:207-217` | `file.replaceWithText()` 非原子写入——如果写入中途崩溃，文件损坏且无备份 | 已修复 (ca317ab + b54ae07)：`savePerformanceFile` 与 `savePreset` 均改用 `juce::TemporaryFile` + `overwriteTargetFileWithTemporary()` 原子写入（同目录临时文件 + rename 覆盖），失败时目标文件保持原样并清理临时文件；新增 PerformanceFileTest（Files category，4 用例 28 断言：round-trip/无残留/覆盖替换/非法 take 拒绝）+ WSL 全量测试 + MSVC 构建通过 |
 | `SEC-005` | P2 | Closed | ChannelMatrix 位域布局编译器依赖 | `source/Midi/ChannelMatrix.h` (PerChannelConfig) | `PerChannelConfig` 使用位域（`uint8_t outputChannel : 4`），布局依赖编译器实现，序列化可能在不同编译器间不兼容 | 已确认不存在（2026-08-16 复审）：序列化路径 `channelMatrixToValueTree`/`valueTreeToChannelMatrix`（SettingsSerialization.cpp）逐字段转 ValueTree XML 属性，无内存布局 dump，跨编译器/跨 ABI 兼容；位域仅存在于内存，无外部消费者 |
 | `PERF-001` | P2 | Deferred | MidiFileImporter 全量内存加载 | `source/Recording/MidiFileImporter.cpp` | 将整个 MIDI 文件读入 `juce::MidiFile` 再转换，选中轨道的全部事件加载到 `vector<PerformanceEvent>`，大文件（>10min 高密度）可能产生数百 MB 内存使用 | 添加流式处理或事件数量上限。2026-08-16 复审：已部分缓解——现仅导入单条最丰富轨道（chooseNoteRichTrack），不再展开全部轨道；但整文件仍全量读入内存、单轨道事件仍全量入 vector，维持 Deferred |
 | `PERF-002` | P2 | Deferred | SettingsModel view getter 按值返回 128 元素数组 | `source/Settings/SettingsModel.h` | `KeyboardDisplaySettingsView` 等 view getter 返回包含 `std::array<juce::String,128>` 和 `std::array<juce::Colour,128>` 的副本，每次调用复制 ~4KB | 返回 `const&` 或使用 `std::span`。2026-08-16 复审：调用方仅 2 处且均为低频路径（MainComponent.cpp:1019 设置同步、SettingsWindowManager.cpp:181 设置窗口打开），~4KB 拷贝影响可忽略，维持 Deferred |

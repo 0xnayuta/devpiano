@@ -7,19 +7,21 @@
 
 Phase 11（声明式 UI 架构迁移，JIVE + melatonin_inspector）已全部完成并归档至 [`../archive/phase11-declarative-ui-jive.md`](../archive/phase11-declarative-ui-jive.md)。v0.3.0 发布准备（版本号 / CHANGELOG / Release 构建 / 打包）为并行事项，见 [`../guides/release-workflow.md`](../guides/release-workflow.md)。
 
-当前任务：根据审计复审（[`../audit/AUDIT-001-code-quality-audit-2026-07-20.md`](../audit/AUDIT-001-code-quality-audit-2026-07-20.md) 2026-08-16 复审），修复 19 项仍存在 Deferred 中性价比最高的三项：
+三项审计修复（2026-08-16 复审选定）已全部完成并提交：
 
-| ID | 优先级 | 标题 | 规模 |
+| ID | 优先级 | 标题 | 提交 |
 | --- | --- | --- | --- |
-| `AUDIT-REC-007` | P2 | 提取公共渲染管线（WavFileExporter / PluginOfflineRenderer 重复代码） | 中 |
-| `AUDIT-SEC-004` | P2 | PerformanceFile 原子文件写入（TemporaryFile + rename） | 小 |
-| `AUDIT-SEC-001` | P2 | PerformancePreset 未知 KeyAction type 记录 WARN | 极小 |
+| `AUDIT-REC-007` | P2 | 提取公共渲染管线（WavFileExporter / PluginOfflineRenderer 重复代码） | `85ff516` |
+| `AUDIT-SEC-004` | P2 | PerformanceFile 原子文件写入（TemporaryFile + rename） | `ca317ab` + `b54ae07`（savePreset 扩展） |
+| `AUDIT-SEC-001` | P2 | PerformancePreset 未知 KeyAction type 记录 WARN | `90a9552` |
 
-执行顺序：AUDIT-SEC-001 → AUDIT-SEC-004 → AUDIT-REC-007（由小到大，先建立测试基线再动渲染管线）。
+验证：WSL 全量测试 100% 通过、`RenderPipelineTest`/`PerformanceFileTest` 新增用例通过、Windows MSVC 构建成功（详见各节）。剩余 16 项 Deferred 维持暂缓，重开条件见 [`../audit/AUDIT-001-code-quality-audit-2026-07-20.md`](../audit/AUDIT-001-code-quality-audit-2026-07-20.md)。
 
 ---
 
-## AUDIT-SEC-001：PerformancePreset 未知 KeyAction type 记录 WARN
+## AUDIT-SEC-001：PerformancePreset 未知 KeyAction type 记录 WARN [已完成]
+
+> **状态**：已完成 (2026-08-16)，提交 `90a9552`。WSL 全量测试 + Windows MSVC 构建通过。
 
 ### 背景
 
@@ -63,7 +65,9 @@ action.type = devpiano::core::KeyActionType::note;
 
 ---
 
-## AUDIT-SEC-004：PerformanceFile 原子文件写入
+## AUDIT-SEC-004：PerformanceFile 原子文件写入 [已完成]
+
+> **状态**：已完成 (2026-08-16)，提交 `ca317ab`（主项）+ `b54ae07`（savePreset 扩展）。新增 `PerformanceFileTest`（Files category，4 用例 28 断言）；WSL 全量测试 + Windows MSVC 构建通过。
 
 ### 背景
 
@@ -124,7 +128,9 @@ bool savePerformanceFile(const RecordingTake& take, const juce::File& destinatio
 
 ---
 
-## AUDIT-REC-007：提取公共渲染管线（RenderPipeline）
+## AUDIT-REC-007：提取公共渲染管线（RenderPipeline） [已完成]
+
+> **状态**：已完成 (2026-08-16)，提交 `85ff516`。新增 `RenderPipelineTest`（10 用例 75 断言）；WSL 全量测试 + Windows MSVC 构建通过。待办：Windows 侧 GUI 手动导出对比验证（预期差异 ≤1 sample）。
 
 ### 背景
 
