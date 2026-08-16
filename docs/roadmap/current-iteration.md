@@ -7,7 +7,7 @@
 
 Phase 11（声明式 UI 架构迁移，JIVE + melatonin_inspector）已全部完成并归档至 [`../archive/phase11-declarative-ui-jive.md`](../archive/phase11-declarative-ui-jive.md)。v0.3.0 发布准备（版本号 / CHANGELOG / Release 构建 / 打包）为并行事项，见 [`../guides/release-workflow.md`](../guides/release-workflow.md)。
 
-代码质量审计（[`AUDIT-001`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)，2026-08-16）登记 85 项：69 项未处理（5 P1 / 20 P2 / 44 P3）+ 16 项已暂缓。修复按最佳排期分为 **AUDIT Phase A–H** 推进，每 Phase 完成即更新本文件状态并同步报告第 8 章登记表；16 项已暂缓维持不动（重开条件见报告 §8）。当前推进：**AUDIT Phase A**。
+代码质量审计（[`AUDIT-001`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)，2026-08-16）登记 85 项：67 项未处理（5 P1 / 18 P2 / 44 P3）+ 16 项已暂缓 + 2 项已关闭（TEST-011/012，2026-08-16 随 TestRunner 白名单改动落地）。修复按最佳排期分为 **AUDIT Phase A–H** 推进，每 Phase 完成即更新本文件状态并同步报告第 8 章登记表；16 项已暂缓维持不动（重开条件见报告 §8）。当前推进：**AUDIT Phase A**。
 
 ---
 
@@ -47,13 +47,14 @@ Phase 11（声明式 UI 架构迁移，JIVE + melatonin_inspector）已全部完
 
 验证：`./scripts/dev.sh test`（新增测试进 `devpiano_tests`）、`./scripts/dev.sh format --check`。
 
-## AUDIT Phase D — 测试机制与回归强化 [未开始]
+## AUDIT Phase D — 测试机制与回归强化 [进行中]
 
 > 目标：修复 CI 静默丢覆盖（Files 类别跳过、空匹配假绿、类别命名混乱），强化 AudioEngine 断言区分力（验证 Phase A 修复）。
+> TEST-011/012 已随 P0（TestRunner 白名单 + 类别统一）落地，2026-08-16；余下 TEST-010/008/009/007 未开始。
 
 - [ ] `TEST-010`：PerformanceFileTest 改独立类别（如 `DevPiano/Files`）或 TestRunner 增加精确文件过滤，使 `.devpiano` 持久化回归进入默认运行。
-- [ ] `TEST-011`：TestRunner 空匹配/空注册时非零退出并输出实际测试数。
-- [ ] `TEST-012`：统一测试类别前缀（`DevPiano/Audio`、`DevPiano/Recording`、`DevPiano/UI`），补全 4 个无类别文件，同步修正 known-issues 过滤命令。
+- [x] `TEST-011`：TestRunner 空匹配/空注册时非零退出并输出实际测试数。（已落地：空匹配 exit=1；另默认只跑项目测试 + `--include-juce`，详见 AUDIT-001 §7 复审记录）
+- [x] `TEST-012`：统一测试类别前缀（`DevPiano/Audio`、`DevPiano/Recording`、`DevPiano/UI`），补全 4 个无类别文件，同步修正 known-issues 过滤命令。（已落地：`DevPiano/Core|Recording|Engine|UI`，详见 AUDIT-001 §7 复审记录）
 - [ ] `TEST-008`：AudioEngineTest 注入 noteOn 后断言 warmup 块内静音、warmup 后非零采样（消除"本来无声"假通过；依赖 Phase A 完成）。
 - [ ] `TEST-009`：AudioEngine 未覆盖 API——setAdsr、armPlaybackStartPreRoll 块计数纯函数、setPluginHost/setRecordingEngine 接线。
 - [ ] `TEST-007`：离屏渲染测试 CustomKeyboard 命中映射/八度切换与 AdsrCurve 拖拽钳制。

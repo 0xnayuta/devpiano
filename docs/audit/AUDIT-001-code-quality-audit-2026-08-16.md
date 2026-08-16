@@ -31,9 +31,9 @@
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | P0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | P1 | 5 | 5 | 0 | 0 | 0 | 0 |
-| P2 | 29 | 20 | 0 | 0 | 9 | 0 |
+| P2 | 29 | 18 | 0 | 0 | 9 | 2 |
 | P3 | 51 | 44 | 0 | 0 | 7 | 0 |
-| **合计** | 85 | 69 | 0 | 0 | 16 | 0 |
+| **合计** | 85 | 67 | 0 | 0 | 16 | 2 |
 
 ### 0.3 关键结论
 
@@ -403,8 +403,8 @@ source/
 - [ ] `TEST-008`：AudioEngineTest 注入 noteOn 后断言 warmup 块内静音、warmup 后非零采样（消除"本来无声"假通过）。
 - [ ] `TEST-009`：补 AudioEngine 未覆盖 API（setAdsr/armPlaybackStartPreRoll 块计数纯函数/接线）。
 - [ ] `TEST-010`：PerformanceFileTest 改独立类别（如 `DevPiano/Files`）或 TestRunner 增加精确文件过滤，使 .devpiano 持久化回归进入默认运行。
-- [ ] `TEST-011`：TestRunner 空匹配/空注册时非零退出并输出实际测试数。
-- [ ] `TEST-012`：统一测试类别前缀（`DevPiano/Audio`、`DevPiano/Recording`、`DevPiano/UI`），补全 4 个无类别文件，同步修正 known-issues 过滤命令。
+- [x] `TEST-011`：TestRunner 空匹配/空注册时非零退出并输出实际测试数。（已落地：`source/tests/TestRunner.cpp` 过滤分支返回 `EXIT_FAILURE` 并输出 `Running N test(s)`；另新增 `--include-juce` 默认只跑项目测试，详见第 7 章复审记录）
+- [x] `TEST-012`：统一测试类别前缀（`DevPiano/Audio`、`DevPiano/Recording`、`DevPiano/UI`），补全 4 个无类别文件，同步修正 known-issues 过滤命令。（已落地：类别统一为 `DevPiano/Core|Recording|Engine|UI`——实际引擎类别用 `DevPiano/Engine` 而非排期建议的 `DevPiano/Audio`；known-issues 缓解命令已修正，详见第 7 章复审记录）
 - [ ] `ENG-002`：全量运行 clang-tidy 建立基线；先批量修机械项（braces/loop-convert/qualified-auto），再处理 `bugprone-easily-swappable-parameters`（MidiChannelMapper 构造参数重排或豁免）。
 - [ ] `DOC-002`：architecture.md 补 Recording/Export/Layout/Diagnostics 四模块章节（含 RenderPipeline、WavExportTask、SettingsSerialization 等新文件）。
 - [ ] `DOC-003`：architecture.md Plugin 章节更新为已收敛现状（PluginFlowSupport + PluginOperationController 已落地）。
@@ -484,13 +484,20 @@ devpiano 核心运行时健康：0 项 P0（无崩溃/数据损坏/静默泄漏�
 
 ### 6.5 ID 覆盖率校验
 
-第 8 章登记 85 项：69 项新发现（THR-001、QUAL-001~018、ERR-001~015、TEST-001~020、DOC-001~008、ENG-001~007）+ 16 项已暂缓项（THR-002~004、SEC-001~004、PERF-001~004、ERR-016~017、QUAL-019~021）。第 5 章路线图覆盖全部 69 项未处理（P1×5 → 5.2、P2×20 → 5.3、P3×44 → 5.4），`comm` 校验零缺失、零多余；16 项已暂缓不排期（重开条件见第 8 章）。ADR 事实性描述修正项（2 条，非问题）在 5.4 单独排期。
+第 8 章登记 83 项：67 项新发现（THR-001、QUAL-001~018、ERR-001~015、TEST-001~020（其中 TEST-011/012 已关闭）、DOC-001~008、ENG-001~007）+ 16 项已暂缓项（THR-002~004、SEC-001~004、PERF-001~004、ERR-016~017、QUAL-019~021）+ 2 项已关闭（TEST-011/012，修复证据与复审说明见第 7 章）。第 5 章路线图覆盖全部 67 项未处理（P1×5 → 5.2、P2×18 → 5.3、P3×44 → 5.4），`comm` 校验零缺失、零多余；16 项已暂缓不排期（重开条件见第 8 章）。ADR 事实性描述修正项（2 条，非问题）在 5.4 单独排期。
 
 ---
 
 ## 7. 复审记录
 
-> 初始审计，尚无复审记录。
+### 复审 1（2026-08-16，P0 TestRunner 白名单落地）
+
+关闭 2 项：
+
+- `TEST-011` → `已关闭`：TestRunner 空匹配/空注册改为 `EXIT_FAILURE` 并输出 `Running N test(s)`（`source/tests/TestRunner.cpp` 过滤分支），拼错 `--category`/`--name` 不再 CI 假绿。验证：`--category NotACategory` / `--name NoSuchTest` 均 exit=1。
+- `TEST-012` → `已关闭`：测试类别统一为 `DevPiano/Core|Recording|Engine|UI` 前缀——33 个无类别类（RecordingEngineTest 13、KeyboardMidiMapperTest 7、AudioEngineTest 5、PluginHostTest 8）→ `DevPiano/Engine`，8 个 `devpiano` 类（StyleCatalogTest 7、PathEditorReproTest 1）→ `DevPiano/UI`；known-issues 缓解命令已修正为新默认行为说明。落地类别名与排期建议 `DevPiano/Audio` 有差异：引擎/音频层合并为 `DevPiano/Engine`（避免 `Audio` 与 JUCE `UnitTestCategories::audio` 混淆）。
+
+关联改动（同一 P0）：TestRunner 默认仅跑项目测试（类别白名单），JUCE 库自带内部测试（~95s，含 AudioProcessorGraph 86s）改为 `--include-juce` 显式 opt-in。默认套件耗时 101.0s → 5.9s，57 类 778 断言全绿。
 
 ---
 
@@ -545,8 +552,6 @@ devpiano 核心运行时健康：0 项 P0（无崩溃/数据损坏/静默泄漏�
 | TEST-008 | 测试 | AudioEngineTest 未喂音符，warmup/静音断言无区分力 | P2 | 未处理 | 审计 | WarmupTest"前两块静音"与 ReleaseResourcesTest"静音"即使删除 warmup/note-off 逻辑也通过——断言无法区分"warmup 生效"与"本来无声" | `source/tests/AudioEngineTest.cpp:186-198,243-256`；头注释 :9-12 自认豁免 synth 出声 | - | warmup 回归假绿 | 注入 noteOn 后断言 warmup 内静音/后非零 |
 | TEST-009 | 测试 | AudioEngine 未覆盖 API（setAdsr/armPlaybackStartPreRoll/接线） | P2 | 未处理 | 审计 | setAdsr、armPlaybackStartPreRoll、setPluginHost/setRecordingEngine 接线、recordRealtimeMidiBufferIfNeeded/renderPlaybackEventsIfNeeded 未测；calculateWarmupBlocks 纯函数无直接测试 | `source/Audio/AudioEngine.h:27-30,36,56-57`；`AudioEngine.cpp:13-22`（块计数纯函数） | - | ADSR/接线回归 | 补块计数纯函数 + ADSR 包络采样断言 |
 | TEST-010 | 测试 | PerformanceFileTest 被 Files 类别默认跳过（持久化回归从不执行） | P2 | 未处理 | 审计 | PerformanceFileTest 注册在 "Files" 类别被 TestRunner 默认 skipCategories 整体跳过——.devpiano 持久化 round-trip（AUDIT-SEC-004 回归）在默认/CI 运行中从不执行 | `source/tests/PerformanceFileTest.cpp:65`；`source/tests/TestRunner.cpp:38-39`；`docs/issues/known-issues.md:77-79` | - | 原子写回归无守护 | 独立类别或精确文件过滤 |
-| TEST-011 | 测试 | TestRunner 空匹配返回成功（静默丢覆盖） | P2 | 未处理 | 审计 | "No tests matched after filtering"/"No tests registered" 均 return 0——--category/--name 拼错或类别改名后 CI 全绿但 0 测试执行 | `source/tests/TestRunner.cpp:44-45,88-93` | - | 过滤参数错误 CI 假绿 | 空匹配非零退出 + 输出测试数 |
-| TEST-012 | 测试 | 测试类别命名三套并存且 known-issues 过滤命令失效 | P2 | 未处理 | 审计 | 类别 DevPiano/Core、DevPiano/Recording、devpiano、Files 及空类别（4 文件无类别）并存；JUCE getTestsInCategory 精确匹配，"DevPiano" 匹配 0 个项目测试——known-issues 文档化缓解措施失效 | `source/tests/KeyMapTypesTest.cpp:13`、`MidiFileImporterTest.cpp:23`、`StyleCatalogTest.cpp:28`、AudioEngineTest 等 4 文件无类别；验证 `submodules/JUCE/modules/juce_core/unit_tests/juce_UnitTest.cpp:60` | - | 过滤命令误导用户 | 统一 DevPiano/* 前缀 + 修正文档 |
 | TEST-013 | 测试 | 跨文件进程级单例与执行顺序依赖 | P3 | 未处理 | 审计 | StyleCatalog::get()/DesignTokens::get() 被 4 文件反复覆写；PathEditorReproTest 注释显式依赖跨文件执行顺序；改链接顺序/单文件重跑可能破坏测试 | `source/tests/StyleCatalogTest.cpp:52,138,172,932-936,1019`；`source/tests/PathEditorReproTest.cpp:92-95` | - | 测试顺序脆弱 | 提供 reset() 恢复初态 |
 | TEST-014 | 测试 | 测试依赖 CWD/真实文件（fixture 与样式表） | P3 | 未处理 | 审计 | MidiFileImporterTest fixture 路径 "tests/fixtures/midi/" 依赖 CTest WORKING_DIRECTORY；PathEditorReproTest/StyleCatalogTest 加载真实 style_sheets.json（CWD 或 exe 上溯）——IDE/其他工作目录运行即红 | `source/tests/MidiFileImporterTest.cpp:15-19,22`；`PathEditorReproTest.cpp:15-17`；`StyleCatalogTest.cpp:560-568` | - | 非标准工作目录测试失败 | __FILE__ 相对定位或缺失 skip |
 | TEST-015 | 测试 | NoteOffOnReleaseTest 依赖真实 OS 键盘状态 | P3 | 未处理 | 审计 | KeyPress::isKeyCurrentlyDown() 查询系统键盘——headless 下恒 false 成立，真实桌面且该键被物理按住时前提失效误报 | `source/tests/KeyboardMidiMapperTest.cpp:221-247` | - | 环境相关脆弱测试 | 抽象可注入键状态谓词 |
