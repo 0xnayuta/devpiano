@@ -1075,8 +1075,19 @@ void MainComponent::initialiseAudioDevice() {
 }
 
 void MainComponent::captureAudioDeviceState() {
-    if (auto xml = deviceManager.createStateXml())
+    if (auto xml = deviceManager.createStateXml()) {
         appSettings.setSerializedAudioDeviceState(std::move(xml));
+        return;
+    }
+
+    // JUCE v8: initialise/initialiseDefault 路径（treatAsChosenDevice=false）不更新
+    // lastExplicitSettings，createStateXml() 恒为 null（仅用户经设置 UI 显式改设备后有效）。
+    // 按 updateXml 同款格式手工构造，保证默认设备启动路径的设备状态可持久化/恢复。
+    if (auto* device = deviceManager.getCurrentAudioDevice()) {
+        juce::AudioDeviceManager::AudioDeviceSetup setup;
+        deviceManager.getAudioDeviceSetup(setup);
+        appSettings.setSerializedAudioDeviceState(devpiano::audio::createDeviceStateXml(*device, setup));
+    }
 }
 
 void MainComponent::prepareForAudioDeviceRebuild() {

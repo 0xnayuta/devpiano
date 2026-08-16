@@ -58,6 +58,30 @@ struct AudioDeviceDiagnostics {
              .bufferSize = state->getIntAttribute("audioDeviceBufferSize", 0) };
 }
 
+// 构造与 JUCE AudioDeviceManager::updateXml() 同款格式的 DEVICESETUP XML。
+// JUCE v8 中 initialise/initialiseDefault 路径（treatAsChosenDevice=false）不维护
+// lastExplicitSettings，createStateXml() 恒为 null；此函数供默认设备启动路径
+// 手工构造可持久化/可恢复的设备状态（恢复端 initialiseFromXML 消费同款属性）。
+[[nodiscard]] inline std::unique_ptr<juce::XmlElement>
+createDeviceStateXml(juce::AudioIODevice& device,
+                     const juce::AudioDeviceManager::AudioDeviceSetup& setup) {
+    auto xml = std::make_unique<juce::XmlElement>("DEVICESETUP");
+
+    xml->setAttribute("deviceType", device.getTypeName());
+    xml->setAttribute("audioOutputDeviceName", setup.outputDeviceName);
+    xml->setAttribute("audioInputDeviceName", setup.inputDeviceName);
+    xml->setAttribute("audioDeviceRate", device.getCurrentSampleRate());
+    xml->setAttribute("audioDeviceBufferSize", device.getCurrentBufferSizeSamples());
+
+    // 与 JUCE 一致：仅非默认通道配置时写入，保证恢复端 useDefault*Channels 语义。
+    if (!setup.useDefaultInputChannels)
+        xml->setAttribute("audioDeviceInChans", setup.inputChannels.toString(2));
+    if (!setup.useDefaultOutputChannels)
+        xml->setAttribute("audioDeviceOutChans", setup.outputChannels.toString(2));
+
+    return xml;
+}
+
 [[nodiscard]] inline LiveAudioDeviceState captureLiveAudioDeviceState(const juce::AudioDeviceManager& deviceManager) {
     juce::AudioDeviceManager::AudioDeviceSetup setup;
     deviceManager.getAudioDeviceSetup(setup);
