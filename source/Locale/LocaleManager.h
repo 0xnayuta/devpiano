@@ -14,7 +14,7 @@ enum class Language : uint8_t {
 // Try to load a .loc file from several common paths relative to the
 // executable / working directory.  Returns nullptr on failure.
 [[nodiscard]] inline std::unique_ptr<juce::LocalisedStrings> tryLoadLocaleFile(const juce::String& fileName) {
-    // Search order: next to executable, CWD/locales/, project root
+    // Search order: next to executable, CWD/locales/, CWD
     const juce::Array<juce::File> searchDirs = {
         juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory().getChildFile("locales"),
         juce::File::getCurrentWorkingDirectory().getChildFile("locales"),

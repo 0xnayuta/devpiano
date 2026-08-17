@@ -7,7 +7,7 @@
 
 Phase 11（声明式 UI 架构迁移，JIVE + melatonin_inspector）已全部完成并归档至 [`../archive/phase11-declarative-ui-jive.md`](../archive/phase11-declarative-ui-jive.md)。v0.3.0 发布准备（版本号 / CHANGELOG / Release 构建 / 打包）为并行事项，见 [`../guides/release-workflow.md`](../guides/release-workflow.md)。
 
-代码质量审计（[`AUDIT-001`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)，2026-08-16）登记 85 项：56 项未处理（3 P1 / 16 P2 / 37 P3）+ 16 项已暂缓 + 13 项已关闭（TEST-011/012/017、THR-001、ERR-001、ENG-001~007、QUAL-014，2026-08-16）。修复按最佳排期分为 **AUDIT Phase A–H** 推进，每 Phase 完成即更新本文件状态并同步报告第 8 章登记表；16 项已暂缓维持不动（重开条件见报告 §8）。当前推进：**AUDIT Phase A、B 已全部完成**。
+代码质量审计（[`AUDIT-001`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)，2026-08-16）登记 85 项：56 项未处理（3 P1 / 16 P2 / 37 P3）+ 16 项已暂缓 + 13 项已关闭（TEST-011/012/017、THR-001、ERR-001、ENG-001~007、QUAL-014，2026-08-16）。修复按最佳排期分为 **AUDIT Phase A–H** 推进，每 Phase 完成即更新本文件状态并同步报告第 8 章登记表；16 项已暂缓维持不动（重开条件见报告 §8）。当前推进：**AUDIT Phase A、B、C、D、E、F、G 已全部完成**。
 
 ---
 
@@ -111,21 +111,22 @@ Phase 11（声明式 UI 架构迁移，JIVE + melatonin_inspector）已全部完
 
 验证：`./scripts/dev.sh test`（全绿）、`./scripts/dev.sh format --check`（归零）、wsl-build（0 warning）、win-build（通过，2026-08-17）。
 
-## AUDIT Phase G — 文档与配置契约 [未开始]
+## AUDIT Phase G — 文档与配置契约 [已完成]
 
 > 目标：补齐架构文档缺失章节、WAV 导出缺译，修正 ADR 失效链接（报告 3.10 事实性描述修正项）。
+> 完成于 2026-08-17：DOC-001~008 + ADR-001/002 全部处理。验证：wsl-build 0 warning / test 2916 断言全绿 / format 归零 / 12 个改动文件 clang-tidy 0 诊断 / win-build 通过，详见 AUDIT-001 §7 复审 10。
 
-- [ ] `DOC-002`：architecture.md 补 Recording/Export/Layout/Diagnostics 四模块章节（含 RenderPipeline、WavExportTask、SettingsSerialization 等新文件）。
-- [ ] `DOC-003`：architecture.md Plugin 章节更新为已收敛现状（PluginFlowSupport + PluginOperationController 已落地）。
-- [ ] `DOC-004`：zh_CN.loc.h 补 5 个 WAV 导出字符串译文（Exporting.../Export cancelled./Export failed during plugin/sine rendering./Export complete.）。
-- [ ] `DOC-001`：architecture.md 更新 MainComponent 实际行数（1143）或改描述性表述。
-- [ ] `DOC-005`：清理 zh_CN.loc.h 13 个死键。
-- [ ] `DOC-006`：SettingsModel 扁平成员改持有单一 KeyboardDisplaySettingsView 实例（消除双默认值）。
-- [ ] `DOC-007`：style_sheets.json 硬编码色值改引用 DesignTokens（消除双事实源）。
-- [ ] `DOC-008`：修正 LocaleManager.h 头注释与实际搜索目录不符。
-- [ ] ADR 修正：ADR-001 引用链接更新为 `docs/guides/wsl-windows-msvc-workflow.md` 与 `docs/guides/quickstart.md`；ADR-002 引用更新为 `docs/reference/architecture.md`。
+- [x] `DOC-002`：architecture.md 补 Recording/Export/Layout/Diagnostics 四模块章节（Recording 9 文件、Export 3、Layout 2、Diagnostics 3；RenderPipeline、PerformanceFile、WavExportTask、SettingsSerialization 等全部收录）。
+- [x] `DOC-003`：architecture.md Plugin 章节更新为已收敛现状（PluginFlowSupport + PluginOperationController 已落地，删"最小可用/待拆分"表述）。
+- [x] `DOC-004`：zh_CN.loc.h 补 6 个 WAV 导出字符串译文（含 Phase E 新增的 "Export failed unexpectedly."，比 AUDIT 记录的 5 键多 1）。
+- [x] `DOC-001`：architecture.md MainComponent 行数改描述性表述（不再写会漂移的具体数字）。
+- [x] `DOC-005`：清理 zh_CN.loc.h 13 个死键（AUDIT 行号清单逐一对上；其余无 TRANS 引用键经核实为 JUCE 内置组件键，保留）。
+- [x] `DOC-006`：SettingsModel 扁平键盘显示成员改持有单一 `KeyboardDisplaySettingsView` 实例（消除双默认值；序列化键名不变，兼容）。
+- [x] `DOC-007`：style_sheets.json 有 token 对应的色值/字号改 `@token` 引用，StyleCatalog 加载时经 `DesignTokens::resolveToken` 解析（getter 回退、顺序无关）；#window font-size 14 → @font-size-label 消除与 default 13.0 冲突。
+- [x] `DOC-008`：修正 LocaleManager.h 注释"project root"→ 实际语义"CWD"。
+- [x] ADR 修正：ADR-001 引用更新为 `docs/guides/wsl-windows-msvc-workflow.md` 与 `docs/guides/quickstart.md`；ADR-002 更新为 `docs/reference/architecture.md`（目标存在性已验证）。
 
-验证：链接检查、`./scripts/dev.sh test`、`./scripts/dev.sh format --check`。
+验证：链接检查（目标文件存在）、`./scripts/dev.sh test`（2916 断言全绿）、`./scripts/dev.sh format --check`（归零）、win-build 通过。
 
 ## AUDIT Phase H — 测试质量余项 [未开始]
 

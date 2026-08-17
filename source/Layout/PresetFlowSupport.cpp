@@ -117,11 +117,11 @@ void PresetFlowSupport::commitPreset(const PerformancePreset& preset) {
     // NOTE: keySignature and midiTranspose are live app-level settings managed
     // by the Audio Settings dialog, NOT by presets. They are intentionally NOT
     // overwritten here so that persisted values survive preset loading at startup.
-    s.keyboardColourMode = preset.colourMode;
-    s.keyboardNoteDisplay = preset.noteDisplay;
-    s.keyboardFadeSpeed = preset.fadeSpeed;
-    s.customKeyLabels = preset.customKeyLabels;
-    s.customKeyColours = preset.customKeyColours;
+    s.keyboardDisplay.colourMode = preset.colourMode;
+    s.keyboardDisplay.noteDisplay = preset.noteDisplay;
+    s.keyboardDisplay.fadeSpeed = preset.fadeSpeed;
+    s.keyboardDisplay.customKeyLabels = preset.customKeyLabels;
+    s.keyboardDisplay.customKeyColours = preset.customKeyColours;
 
     // 4. Persist preset identity
     s.lastActivePresetId = preset.name;
@@ -143,12 +143,12 @@ PerformancePreset PresetFlowSupport::captureCurrentState(const juce::String& nam
     preset.channelMatrix = owner.appSettings.channelMatrix;
     preset.keySignature = owner.appSettings.keySignature;
     preset.midiTranspose = owner.appSettings.midiTranspose;
-    preset.colourMode = owner.appSettings.keyboardColourMode;
-    preset.noteDisplay = owner.appSettings.keyboardNoteDisplay;
-    preset.fadeSpeed = owner.appSettings.keyboardFadeSpeed;
+    preset.colourMode = owner.appSettings.keyboardDisplay.colourMode;
+    preset.noteDisplay = owner.appSettings.keyboardDisplay.noteDisplay;
+    preset.fadeSpeed = owner.appSettings.keyboardDisplay.fadeSpeed;
     preset.previewAlpha = 0.0f;
-    preset.customKeyLabels = owner.appSettings.customKeyLabels;
-    preset.customKeyColours = owner.appSettings.customKeyColours;
+    preset.customKeyLabels = owner.appSettings.keyboardDisplay.customKeyLabels;
+    preset.customKeyColours = owner.appSettings.keyboardDisplay.customKeyColours;
     return preset;
 }
 

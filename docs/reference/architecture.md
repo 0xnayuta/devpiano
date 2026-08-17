@@ -44,7 +44,7 @@
 - 初始化音频设备、MIDI 路由、插件宿主和设置。
 - 协调键盘输入、插件操作、状态保存与只读 UI 刷新。
 
-当前状态（`MainComponent.cpp` 约 1100 行，已远低于原始 1587 行）：
+当前状态（`MainComponent.cpp` 体量已远低于原始单体 1587 行，且持续下降）：
 
 - 已不再是纯单体 UI；插件区、参数区、头部状态区和键盘区已拆入 `source/UI/`。
 - 插件流程、录制/回放状态流、导出选项、只读 UI 刷新边界已通过 Phase 5 完成收敛：
@@ -134,8 +134,37 @@
 
 当前状态：
 
-- 已具备最小可用插件宿主能力。
-- 后续仍可继续拆分扫描职责与实例生命周期职责。
+- 已具备完整插件宿主能力：扫描、缓存恢复、加载 / 卸载、editor 与启动恢复编排已收敛为 `PluginFlowSupport`（`source/Plugin/PluginFlowSupport.*`：扫描路径规范化、缓存恢复、启动恢复计划）与 `PluginOperationController`（`source/Plugin/PluginOperationController.*`：扫描、加载 / 卸载、editor 和启动恢复编排）。`PluginHost` 保留格式注册、扫描执行、`KnownPluginList` 与实例生命周期等核心状态。
+- 扫描失败文件与最近扫描摘要（`lastScanFailedFiles` / `lastScanSummary`）由 `PluginHost` 维护，供状态条展示。
+
+### Recording
+
+- `source/Recording/RecordingEngine.*` — 录制引擎：实时线程 MIDI 采集（`recordEvent`）、dropped-event 计数、`hasTake` / `stopRecording` 生命周期与 take 生成。
+- `source/Recording/RecordingSessionController.*` — 录制 / 回放 / MIDI 导入 / 导出编排与会话状态（Phase 5 自 MainComponent 下沉）。
+- `source/Recording/RenderPipeline.*` — 共享离线渲染管线：事件时间戳缩放 / 排序、scaled take length 计算与 panic MIDI 注入，`WavFileExporter` 与 `PluginOfflineRenderer` 共用（AUDIT-REC-007）。
+- `source/Recording/PerformanceFile.*` — `.devpiano` 文件持久化：JSON 保存 / 加载、原子临时文件写入、metadata 读取与公共 `parsePerformanceFileRoot` 解析（AUDIT-SEC-004、QUAL-008）。
+- `source/Recording/WavFileExporter.*` — WAV 文件导出（实时回调渲染路径）。
+- `source/Recording/PluginOfflineRenderer.*` — 插件离线渲染（非实时渲染路径）。
+- `source/Recording/MidiFileImporter.*` — MIDI 文件导入：格式校验、track 选择与事件解析。
+- `source/Recording/MidiFileExporter.*` — MIDI 导出（录制 take → `.mid`）。
+- `source/Recording/RecordingFlowSupport.*` — 录制 / 回放 UI 状态转换与顶层控制策略。
+
+### Export
+
+- `source/Export/WavExportTask.*` — 后台线程 WAV 导出任务：进度对话框、取消、异常捕获与残留文件清理、结果日志（ERR-009/012/015）。
+- `source/Export/WavExportOptions.h` — 导出选项（采样率 / 通道数 / 块大小）。
+- `source/Export/ExportFlowSupport.*` — 导出默认文件名、空 take 判断与导出选项构建。
+
+### Layout
+
+- `source/Layout/PerformancePreset.*` — PerformancePreset 数据模型（键盘布局、ChannelMatrix、键盘显示、移调、自定义标签 / 颜色）+ JSON 序列化（格式版本 1）。
+- `source/Layout/PresetFlowSupport.*` — Performance Preset CRUD、文件选择、commit 与录制集成。
+
+### Diagnostics
+
+- `source/Diagnostics/Log.h` — 日志宏（`DP_LOG_*`），全部路由到 `juce::Logger::writeToLog`，替代旧 DebugLog.h 宏体系。
+- `source/Diagnostics/DevPianoLogger.*` — `juce::Logger` 子类：Windows `OutputDebugString` / Linux stderr 输出。
+- `source/Diagnostics/MidiTrace.*` — MIDI 消息可读描述（note on/off、CC、pitch bend、program change 等）。
 
 ### Settings
 

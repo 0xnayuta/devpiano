@@ -1,5 +1,7 @@
 #include "StyleCatalog.h"
 
+#include "UI/jive/DesignTokens.h"
+
 namespace devpiano::ui::jive {
 
 namespace {
@@ -14,6 +16,26 @@ const juce::StringArray kPseudoKeys { "hover", "active", "focus", "disabled", "c
     return k;
 }
 
+// Style values starting with '@' reference DesignTokens (DOC-007) so
+// style_sheets.json and design_tokens.json share one source of truth for
+// colours / typography.  Resolution goes through DesignTokens getters, so
+// it is safe whether or not design_tokens.json was loaded first.
+void resolveTokenValues(juce::DynamicObject& obj) {
+    for (const auto& prop : obj.getProperties()) {
+        if (auto* child = prop.value.getDynamicObject()) {
+            resolveTokenValues(*child);
+        } else if (prop.value.isString()) {
+            const auto text = prop.value.toString();
+            if (text.startsWith("@") && text.length() > 1) {
+                const auto resolved = devpiano::jive::DesignTokens::get().resolveToken(text.substring(1));
+                if (resolved.isNotEmpty()) {
+                    obj.setProperty(prop.name, resolved);
+                }
+            }
+        }
+    }
+}
+
 } // namespace
 
 StyleCatalog& StyleCatalog::get() {
@@ -23,6 +45,7 @@ StyleCatalog& StyleCatalog::get() {
 
 void StyleCatalog::loadFromJSON(const juce::var& json) {
     if (auto* obj = json.getDynamicObject()) {
+        resolveTokenValues(*obj);
         rules = obj;
     }
 }

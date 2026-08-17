@@ -614,18 +614,20 @@ void MainComponent::initialiseUi() {
         }
 
         // Read current per-key custom label and colour
-        auto currentLabel = appSettings.customKeyLabels[static_cast<std::size_t>(midiNote)];
-        auto currentColour = appSettings.customKeyColours[static_cast<std::size_t>(midiNote)];
+        auto currentLabel = appSettings.keyboardDisplay.customKeyLabels[static_cast<std::size_t>(midiNote)];
+        auto currentColour = appSettings.keyboardDisplay.customKeyColours[static_cast<std::size_t>(midiNote)];
 
         KeyBindingEditDialog::launch(
             midiNote, noteName, existingBinding, currentLabel, currentColour,
             [this, midiNote](KeyBindingEditResult result) {
                 // Update custom label and colour if changed
                 if (result.labelChanged) {
-                    appSettings.customKeyLabels[static_cast<std::size_t>(midiNote)] = result.customLabel;
+                    appSettings.keyboardDisplay.customKeyLabels[static_cast<std::size_t>(midiNote)]
+                        = result.customLabel;
                 }
                 if (result.colourChanged) {
-                    appSettings.customKeyColours[static_cast<std::size_t>(midiNote)] = result.customColour;
+                    appSettings.keyboardDisplay.customKeyColours[static_cast<std::size_t>(midiNote)]
+                        = result.customColour;
                 }
 
                 // Update binding if changed

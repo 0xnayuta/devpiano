@@ -207,4 +207,63 @@ int DesignTokens::settingsBtnWidth() const {
     return parseInt("spacing", "settings-btn-width", 36);
 }
 
+// ── Token lookup for style sheets (DOC-007) ───────────────────
+
+juce::String DesignTokens::resolveToken(const juce::String& name) const {
+    // 颜色：经 getter 解析（JSON 未加载时回退到内置默认，与 shipped 文件一致）。
+    if (name == "main-bg") {
+        return mainBg().toDisplayString(false).paddedLeft('#', 7);
+    }
+    if (name == "panel-bg") {
+        return panelBg().toDisplayString(false).paddedLeft('#', 7);
+    }
+    if (name == "control-bg") {
+        return controlBg().toDisplayString(false).paddedLeft('#', 7);
+    }
+    if (name == "card-bg") {
+        return panelBg().toDisplayString(false).paddedLeft('#', 7); // card-bg 与 panel-bg 同值
+    }
+    if (name == "card-border") {
+        return parseColor("card-border", juce::Colour(0xff2b2f38)).toDisplayString(false).paddedLeft('#', 7);
+    }
+    if (name == "primary") {
+        return primary().toDisplayString(false).paddedLeft('#', 7);
+    }
+    if (name == "record-active") {
+        return recordActive().toDisplayString(false).paddedLeft('#', 7);
+    }
+    if (name == "play-active") {
+        return playActive().toDisplayString(false).paddedLeft('#', 7);
+    }
+    if (name == "text-primary") {
+        return textPrimary().toDisplayString(false).paddedLeft('#', 7);
+    }
+    if (name == "text-secondary") {
+        return textSecondary().toDisplayString(false).paddedLeft('#', 7);
+    }
+    if (name == "text-disabled") {
+        return textDisabled().toDisplayString(false).paddedLeft('#', 7);
+    }
+    // 字号：整数字符串以匹配 style_sheets.json 现有写法（"14" 而非 "14.0"）。
+    if (name == "font-size-tiny") {
+        return juce::String(static_cast<int>(fontSizeTiny()));
+    }
+    if (name == "font-size-small") {
+        return juce::String(static_cast<int>(fontSizeSmall()));
+    }
+    if (name == "font-size-default") {
+        return juce::String(static_cast<int>(fontSizeDefault()));
+    }
+    if (name == "font-size-label") {
+        return juce::String(static_cast<int>(fontSizeLabel()));
+    }
+    if (name == "font-size-title") {
+        return juce::String(static_cast<int>(fontSizeTitle()));
+    }
+    if (name == "font-weight-title") {
+        return fontWeightTitle();
+    }
+    return {};
+}
+
 } // namespace devpiano::jive

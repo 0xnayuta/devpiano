@@ -8,8 +8,6 @@ namespace devpiano::locale {
 static const char zhCNLocale[] = R"loc(language: Chinese (Simplified)
 countries: cn
 
-"Save As New" = "另存为新配置"
-"Preset" = "演奏配置"
 "Performance Preset" = "演奏预设"
 "Rename Preset" = "重命名演奏配置"
 "Delete Preset?" = "确定删除此演奏配置？"
@@ -37,6 +35,12 @@ countries: cn
 "Back to Start" = "回到开头"
 "Export MIDI" = "导出 MIDI"
 "Export WAV" = "导出 WAV"
+"Exporting..." = "正在导出..."
+"Export cancelled." = "导出已取消。"
+"Export failed during plugin rendering." = "插件渲染期间导出失败。"
+"Export failed during sine synth rendering." = "正弦合成渲染期间导出失败。"
+"Export failed unexpectedly." = "导出意外失败。"
+"Export complete." = "导出完成。"
 "Import MIDI" = "导入 MIDI"
 "Save" = "保存"
 "Open" = "打开"
@@ -44,7 +48,6 @@ countries: cn
 "Export" = "导出"
 "Import" = "导入"
 "Info" = "信息"
-"Speed" = "速度"
 "Playback Speed" = "播放速度"
 "Volume" = "音量"
 "Attack" = "起音"
@@ -57,17 +60,12 @@ countries: cn
 "ADSR Curve" = "ADSR 包络"
 "Transport Controls" = "走带控制"
 
-"Idle" = "空闲"
-"Recording" = "录音中"
-"Playing" = "播放中"
 
 "Scan VST3" = "扫描 VST3"
 "Load" = "加载"
 "Unload" = "卸载"
 "Open Editor" = "打开编辑器"
 "VST3 Path" = "VST3 路径"
-"Plugin" = "插件"
-"Discovered Plugins" = "已发现的插件"
 "Select a scanned plugin..." = "选择一个已扫描的插件..."
 "Scanning..." = "扫描中..."
 "Scanning VST3 plugins..." = "正在扫描 VST3 插件..."
@@ -151,7 +149,6 @@ countries: cn
 "Import MIDI File" = "导入 MIDI 文件"
 "Open Performance" = "打开演奏文件"
 
-"Song Info" = "乐曲信息"
 "Song Information" = "乐曲信息"
 "Song Title" = "乐曲名称"
 "Notes" = "备注"
@@ -196,16 +193,12 @@ countries: cn
 "No plugin load attempted yet." = "尚未尝试加载插件。"
 
 " [VST3 ready]" = " [VST3 就绪]"
-" | Scanning: " = " | 正在扫描："
-" | Loaded: " = " | 已加载："
 "Loaded: " = "已加载："
 " [not prepared]" = " [未准备]"
 "Scanning: " = "正在扫描："
 "Load error: " = "加载错误："
 "Last plugin: " = "上个插件："
 " | Editor open" = " | 编辑器已打开"
-" | Load error: " = " | 加载错误："
-" | Last plugin: " = " | 上个插件："
 
 "Plugin Editor" = "插件编辑器"
 " Editor" = " 编辑器"

@@ -144,14 +144,15 @@ void SettingsStore::readNow(SettingsModel& m) {
 
     // Keyboard display settings
     {
-        int cm = f.getIntValue(kKeyColourMode, static_cast<int>(m.keyboardColourMode));
-        m.keyboardColourMode = static_cast<devpiano::ui::KeyColourMode>(cm);
+        int cm = f.getIntValue(kKeyColourMode, static_cast<int>(m.keyboardDisplay.colourMode));
+        m.keyboardDisplay.colourMode = static_cast<devpiano::ui::KeyColourMode>(cm);
     }
     {
-        int nd = f.getIntValue(kKeyNoteDisplay, static_cast<int>(m.keyboardNoteDisplay));
-        m.keyboardNoteDisplay = static_cast<devpiano::ui::NoteDisplayMode>(nd);
+        int nd = f.getIntValue(kKeyNoteDisplay, static_cast<int>(m.keyboardDisplay.noteDisplay));
+        m.keyboardDisplay.noteDisplay = static_cast<devpiano::ui::NoteDisplayMode>(nd);
     }
-    m.keyboardFadeSpeed = static_cast<float>(f.getDoubleValue(kKeyFadeSpeed, static_cast<double>(m.keyboardFadeSpeed)));
+    m.keyboardDisplay.fadeSpeed
+        = static_cast<float>(f.getDoubleValue(kKeyFadeSpeed, static_cast<double>(m.keyboardDisplay.fadeSpeed)));
 
     // Channel matrix as ValueTree XML.
     if (auto cmXml = f.getXmlValue(kKeyChannelMatrix)) {
@@ -163,14 +164,15 @@ void SettingsStore::readNow(SettingsModel& m) {
     m.keySignature = f.getIntValue(kKeyKeySignature, 0);
     m.midiTranspose = f.getBoolValue(kKeyMidiTranspose, false);
 
-    m.resizableWindow = f.getBoolValue(kKeyResizableWindow, m.resizableWindow);
-    m.showInstrumentFilter = f.getBoolValue(kKeyShowInstrumentFilter, m.showInstrumentFilter);
+    m.keyboardDisplay.resizableWindow = f.getBoolValue(kKeyResizableWindow, m.keyboardDisplay.resizableWindow);
+    m.keyboardDisplay.showInstrumentFilter
+        = f.getBoolValue(kKeyShowInstrumentFilter, m.keyboardDisplay.showInstrumentFilter);
     m.pluginPanelExpanded = f.getBoolValue(kKeyPluginPanelExpanded, m.pluginPanelExpanded);
     m.languageCode = f.getValue(kKeyLanguageCode, m.languageCode);
     // custom key labels as ValueTree XML (sparse: only non-empty labels stored)
     if (auto labelsXml = f.getXmlValue(kKeyCustomLabels)) {
         juce::ValueTree t = juce::ValueTree::fromXml(*labelsXml);
-        m.customKeyLabels.fill({});
+        m.keyboardDisplay.customKeyLabels.fill({});
         for (int i = 0; i < t.getNumChildren(); ++i) {
             auto c = t.getChild(i);
             auto note = c.getProperty("note");
@@ -179,7 +181,7 @@ void SettingsStore::readNow(SettingsModel& m) {
             if (note.isInt() || note.isString()) {
                 auto n = static_cast<int>(note);
                 if (n >= 0 && n < 128) {
-                    m.customKeyLabels[static_cast<std::size_t>(n)] = c.getProperty("text").toString();
+                    m.keyboardDisplay.customKeyLabels[static_cast<std::size_t>(n)] = c.getProperty("text").toString();
                 }
             }
         }
@@ -188,7 +190,7 @@ void SettingsStore::readNow(SettingsModel& m) {
     // custom key colours as ValueTree XML (sparse: only non-transparent colours stored)
     if (auto coloursXml = f.getXmlValue(kKeyCustomColours)) {
         juce::ValueTree t = juce::ValueTree::fromXml(*coloursXml);
-        m.customKeyColours.fill(juce::Colour(0x00000000));
+        m.keyboardDisplay.customKeyColours.fill(juce::Colour(0x00000000));
         for (int i = 0; i < t.getNumChildren(); ++i) {
             auto c = t.getChild(i);
             auto note = c.getProperty("note");
@@ -196,7 +198,7 @@ void SettingsStore::readNow(SettingsModel& m) {
             if (note.isInt() || note.isString()) {
                 auto n = static_cast<int>(note);
                 if (n >= 0 && n < 128) {
-                    m.customKeyColours[static_cast<std::size_t>(n)]
+                    m.keyboardDisplay.customKeyColours[static_cast<std::size_t>(n)]
                         = juce::Colour::fromString(c.getProperty("argb").toString());
                 }
             }
@@ -239,9 +241,9 @@ bool SettingsStore::writeNow(const SettingsModel& m) {
     f.setValue(kKeyKeyboardScrollX, m.keyboardScrollOffsetX);
 
     // Keyboard display settings
-    f.setValue(kKeyColourMode, static_cast<int>(m.keyboardColourMode));
-    f.setValue(kKeyNoteDisplay, static_cast<int>(m.keyboardNoteDisplay));
-    f.setValue(kKeyFadeSpeed, m.keyboardFadeSpeed);
+    f.setValue(kKeyColourMode, static_cast<int>(m.keyboardDisplay.colourMode));
+    f.setValue(kKeyNoteDisplay, static_cast<int>(m.keyboardDisplay.noteDisplay));
+    f.setValue(kKeyFadeSpeed, m.keyboardDisplay.fadeSpeed);
 
     // Channel matrix as ValueTree XML.
     {
@@ -258,7 +260,7 @@ bool SettingsStore::writeNow(const SettingsModel& m) {
     {
         juce::ValueTree t("customKeyLabels");
         for (int n = 0; n < 128; ++n) {
-            const auto& lbl = m.customKeyLabels[static_cast<std::size_t>(n)];
+            const auto& lbl = m.keyboardDisplay.customKeyLabels[static_cast<std::size_t>(n)];
             if (lbl.isNotEmpty()) {
                 auto c = juce::ValueTree("label");
                 c.setProperty("note", n, nullptr);
@@ -279,7 +281,7 @@ bool SettingsStore::writeNow(const SettingsModel& m) {
     {
         juce::ValueTree t("customKeyColours");
         for (int n = 0; n < 128; ++n) {
-            const auto& col = m.customKeyColours[static_cast<std::size_t>(n)];
+            const auto& col = m.keyboardDisplay.customKeyColours[static_cast<std::size_t>(n)];
             if (!col.isTransparent()) {
                 auto c = juce::ValueTree("colour");
                 c.setProperty("note", n, nullptr);
@@ -295,9 +297,9 @@ bool SettingsStore::writeNow(const SettingsModel& m) {
             f.removeValue(kKeyCustomColours);
         }
     }
-    f.setValue(kKeyResizableWindow, m.resizableWindow);
+    f.setValue(kKeyResizableWindow, m.keyboardDisplay.resizableWindow);
     f.setValue(kKeyLanguageCode, m.languageCode);
-    f.setValue(kKeyShowInstrumentFilter, m.showInstrumentFilter);
+    f.setValue(kKeyShowInstrumentFilter, m.keyboardDisplay.showInstrumentFilter);
     f.setValue(kKeyPluginPanelExpanded, m.pluginPanelExpanded);
 
     const auto saved = f.saveIfNeeded();

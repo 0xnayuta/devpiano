@@ -62,6 +62,20 @@ public:
     [[nodiscard]] int statusBarHeight() const;
     [[nodiscard]] int settingsBtnWidth() const;
 
+    // ── Token lookup for style sheets (DOC-007) ──────────
+    // Resolve a token name (without the leading '@') to its style-sheet
+    // representation: colours as "#RRGGBB", typography as integer strings
+    // ("14"), font-weight as-is.  Resolves through the getters so the
+    // built-in defaults apply when design_tokens.json has not been loaded.
+    // Returns empty string for unknown token names.
+    [[nodiscard]] juce::String resolveToken(const juce::String& name) const;
+
+    // Test hook: snapshot the current token root for save/restore across
+    // unit-test cases (the singleton is shared process-wide).
+    [[nodiscard]] juce::var currentRootForTest() const {
+        return { root };
+    }
+
 private:
     DesignTokens() = default;
 

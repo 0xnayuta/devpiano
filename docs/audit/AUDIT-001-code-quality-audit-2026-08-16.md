@@ -406,9 +406,9 @@ source/
 - [x] `TEST-011`：TestRunner 空匹配/空注册时非零退出并输出实际测试数。（已落地：`source/tests/TestRunner.cpp` 过滤分支返回 `EXIT_FAILURE` 并输出 `Running N test(s)`；另新增 `--include-juce` 默认只跑项目测试，详见第 7 章复审记录）
 - [x] `TEST-012`：统一测试类别前缀（`DevPiano/Audio`、`DevPiano/Recording`、`DevPiano/UI`），补全 4 个无类别文件，同步修正 known-issues 过滤命令。（已落地：类别统一为 `DevPiano/Core|Recording|Engine|UI`——实际引擎类别用 `DevPiano/Engine` 而非排期建议的 `DevPiano/Audio`；known-issues 缓解命令已修正，详见第 7 章复审记录）
 - [x] `ENG-002`：全量运行 clang-tidy 建立基线；先批量修机械项（braces/loop-convert/qualified-auto），再处理 `bugprone-easily-swappable-parameters`（MidiChannelMapper 构造参数重排或豁免）。（已落地：4 采样文件机械项清零 + MidiChannelMapper 构造 NOLINT 豁免，2026-08-16 复审 4）
-- [ ] `DOC-002`：architecture.md 补 Recording/Export/Layout/Diagnostics 四模块章节（含 RenderPipeline、WavExportTask、SettingsSerialization 等新文件）。
-- [ ] `DOC-003`：architecture.md Plugin 章节更新为已收敛现状（PluginFlowSupport + PluginOperationController 已落地）。
-- [ ] `DOC-004`：zh_CN.loc.h 补 5 个 WAV 导出字符串译文（Exporting.../Export cancelled./Export failed during plugin/sine rendering./Export complete.）。
+- [x] `DOC-002`：architecture.md 补 Recording/Export/Layout/Diagnostics 四模块章节（含 RenderPipeline、WavExportTask、SettingsSerialization 等新文件）。（落地：2026-08-17 复审 10）
+- [x] `DOC-003`：architecture.md Plugin 章节更新为已收敛现状（PluginFlowSupport + PluginOperationController 已落地）。（落地：2026-08-17 复审 10）
+- [x] `DOC-004`：zh_CN.loc.h 补 5 个 WAV 导出字符串译文（Exporting.../Export cancelled./Export failed during plugin/sine rendering./Export complete.）。（落地：2026-08-17 复审 10）
 
 ### 5.4 后续优化（P3）
 
@@ -446,11 +446,11 @@ source/
 - [ ] `TEST-018`：hasTake jassert 用例改为验证 RecordingSession 副本语义（Debug/Release 双配置 CI）。
 - [ ] `TEST-019`：warmup 块数 magic number 改引用生产常量/注释说明。
 - [ ] `TEST-020`：TestRunner --category/--name 冲突参数报错或文档化优先级。
-- [ ] `DOC-001`：architecture.md 更新 MainComponent 实际行数（1143）或改描述性表述。
-- [ ] `DOC-005`：清理 zh_CN.loc.h 13 个死键。
-- [ ] `DOC-006`：SettingsModel 扁平成员改持有单一 KeyboardDisplaySettingsView 实例（消除双默认值）。
-- [ ] `DOC-007`：style_sheets.json 硬编码色值改引用 DesignTokens（消除双事实源）。
-- [ ] `DOC-008`：修正 LocaleManager.h 头注释与实际搜索目录不符。
+- [x] `DOC-001`：architecture.md 更新 MainComponent 实际行数（1143）或改描述性表述。（落地：2026-08-17 复审 10）
+- [x] `DOC-005`：清理 zh_CN.loc.h 13 个死键。（落地：2026-08-17 复审 10）
+- [x] `DOC-006`：SettingsModel 扁平成员改持有单一 KeyboardDisplaySettingsView 实例（消除双默认值）。（落地：2026-08-17 复审 10）
+- [x] `DOC-007`：style_sheets.json 硬编码色值改引用 DesignTokens（消除双事实源）。（落地：2026-08-17 复审 10）
+- [x] `DOC-008`：修正 LocaleManager.h 头注释与实际搜索目录不符。（落地：2026-08-17 复审 10）
 - [x] `ENG-003`：MainComponentJiveAccessors.cpp 纳入 target_sources 或迁移为 .h（与 QUAL-014 联动）。（已落地：独立 TU）
 - [x] `ENG-004`：ComboSelection.h 补入主 target_sources。
 - [x] `ENG-005`：devpiano_tests 添加与主目标一致的 `-Wall -Wextra`（MSVC /W4）。（已落地：+`juce_recommended_warning_flags`，tests 既有 6 处警告修复，0 warning）
@@ -604,6 +604,19 @@ devpiano 核心运行时健康：0 项 P0（无崩溃/数据损坏/静默泄漏�
 
 **验证**：wsl-build 0 warning、test 2914 断言全绿、format 归零、24 个改动文件 clang-tidy 0 诊断、win-build 通过。
 
+### 复审 10（2026-08-17，AUDIT Phase G 文档与配置契约）
+
+`DOC-001~008` 全部处理 + ADR-001/002 链接修正。要点：
+
+- **架构文档（DOC-001/002/003）**：MainComponent 行数改描述性表述（不再写漂移数字）；architecture.md 补 Recording（9 文件）/Export（3）/Layout（2）/Diagnostics（3）四模块章节（RenderPipeline、PerformanceFile、WavExportTask、SettingsSerialization 等 Phase 11 后新文件全部收录）；Plugin 章节"最小可用/待拆分"更新为收敛现状（PluginFlowSupport + PluginOperationController 已落地）。
+- **本地化（DOC-004/005）**：zh_CN.loc.h 补 6 个 WAV 导出键译文（Exporting.../Export cancelled./Export failed during plugin|sine synth rendering./Export failed unexpectedly./Export complete.——AUDIT 记录的 5 键之外 catch 路径 "Export failed unexpectedly." 为 Phase E 新增）；删除 13 个死键（AUDIT 行号清单逐一对上：Save As New/Preset/Speed/Idle/Recording/Playing/Plugin/Discovered Plugins/Song Info/4 个 "｜" 前缀状态行键；其余 39 个无 TRANS 引用键经核实为 JUCE 内置组件键，保留）。
+- **设置模型（DOC-006）**：SettingsModel 删 7 个扁平键盘显示字段，持有单一 `KeyboardDisplaySettingsView keyboardDisplay` 实例（get/apply 转发），消除双默认值漂移风险；SettingsStore 序列化键名不变（兼容）。
+- **样式 token（DOC-007）**：DesignTokens 新增 `resolveToken(name)`（经 getter 解析，JSON 未加载时回退内置默认，顺序无关）；StyleCatalog::loadFromJSON 递归解析 `@token` 样式值；style_sheets.json 有 token 对应的色值/字号全部改 `@` 引用（#window font-size 14 → @font-size-label，消除与 font-size-default 13.0 的隐性冲突且保持渲染行为不变）；StyleCatalogTest 新增 token 解析专项测试（3 断言 + 顺序无关验证）。
+- **DOC-008**：LocaleManager.h 注释"project root"改为实际语义"CWD"。
+- **ADR 链接**：ADR-001 → `docs/guides/wsl-windows-msvc-workflow.md` + `docs/guides/quickstart.md`；ADR-002 → `docs/reference/architecture.md`（目标文件存在性已验证）。
+
+**验证**：wsl-build 0 warning、test 2916 断言全绿、format 归零、12 个改动文件 clang-tidy 0 诊断、win-build 通过。
+
 ---
 
 ## 8. 附录：问题总表（登记表）
@@ -661,14 +674,14 @@ devpiano 核心运行时健康：0 项 P0（无崩溃/数据损坏/静默泄漏�
 | TEST-018 | 测试 | hasTake jassert 用例固化 API 契约缺陷 | P3 | 未处理 | 审计 | "hasTake jasserts during recording" 仅验证 Release 不崩、零行为断言；jassert 仅在调试器下中断（juce_PlatformDefs.h:167 实现），CI 无碍；测试把"录制中读 currentTake"的契约违反固化为预期行为 | `source/tests/RecordingEngineTest.cpp:101-113`；`source/Recording/RecordingEngine.cpp:33-39`（jassert(!isRecording())）；验证 `submodules/JUCE/modules/juce_core/system/juce_PlatformDefs.h:167` | - | Debug 调试器下测试中断 | 改验证 RecordingSession 副本语义 |
 | TEST-019 | 测试 | warmup 块数 magic number 与生产常量脱节 | P3 | 未处理 | 审计 | exhaustWarmup 硬编码 5 块（生产 warmupSeconds=0.025 → 44.1k/512 下 ceil=3 块）；"前两块静音"无注释关联，生产改 warmupSeconds 后测试不感知 | `source/tests/AudioEngineTest.cpp:48,186`；`source/Audio/AudioEngine.cpp:10,20-22`（warmupSeconds） | - | 生产参数漂移 | 导出 calculateWarmupBlocks 或注释说明 |
 | TEST-020 | 测试 | TestRunner CLI 语义缺口（参数优先级/空匹配） | P3 | 未处理 | 审计 | --category 与 --name 同时给出时 category 静默优先；--include-files 过滤模式下不生效无提示；help 未说明优先级与空匹配行为（配合 TEST-011 静默全绿） | `source/tests/TestRunner.cpp:56-59,64-75` | - | 参数误用 | 冲突报错或文档化优先级 |
-| DOC-001 | 文档 | architecture.md MainComponent 行数漂移 | P3 | 未处理 | 审计 | 文档称约 1100 行，实际 1143 行（修正后的描述再次漂移） | `docs/reference/architecture.md:47` vs `source/MainComponent.cpp`（1143 行） | - | 行数描述持续过期 | 更新或改描述性表述 |
-| DOC-002 | 文档 | architecture.md 缺 Recording/Export/Layout/Diagnostics 四模块章节 | P2 | 未处理 | 审计 | 模块分层止于 Settings/UI；Phase 11 / 渲染管线提取（2026-08-16）新增的 RenderPipeline、PerformanceFile、RecordingEngine、WavExportTask、WavExportOptions、SettingsSerialization 均未收录；文档头"更新时机"未被执行 | `docs/reference/architecture.md:74-160` vs `source/Recording/`（18 文件）、`source/Export/`（5）、`source/Layout/`（4）、`source/Diagnostics/`（5） | - | 新文件结构对读者不可见 | 补四模块章节 |
-| DOC-003 | 文档 | architecture.md Plugin 章节自相矛盾 | P2 | 未处理 | 审计 | Plugin 章节"后续仍可继续拆分扫描职责与实例生命周期职责"与主装配层已落地内容矛盾（PluginFlowSupport/PluginOperationController 早已拆分收敛） | `docs/reference/architecture.md:137-138` vs `:53,:59` | - | 读者误判现状 | 更新 Plugin 章节现状 |
-| DOC-004 | 文档 | WAV 导出 5 个用户可见字符串缺译 | P2 | 未处理 | 审计 | TRANS() 包装的进度对话框文案 zh_CN.loc.h 无对应键——中文模式下导出时显示英文 | `source/Export/WavExportTask.cpp:28,36,44,52,56,66,70,78`（5 个字符串）vs `source/Locale/zh_CN.loc.h`（无键） | - | 中文本地化不完整 | zh_CN.loc.h 补 5 键译文 |
-| DOC-005 | 文档 | zh_CN.loc.h 13 个死键 | P3 | 未处理 | 审计 | 无任何 TRANS 引用；录音/播放状态文本与 "｜" 前缀状态行属旧 UI 遗留 | `source/Locale/zh_CN.loc.h:11,12,47,60,61,62,69,70,154,199,200,207,208`（13 键） | - | 本地化表膨胀 | 删除死键 |
-| DOC-006 | 文档 | SettingsModel 键盘显示默认值双处声明 | P3 | 未处理 | 审计 | KeyboardDisplaySettingsView 与扁平成员重复定义同一组默认（当前两处一致已核对），无编译期防护，存在漂移风险 | `source/Settings/SettingsModel.h:40-48` vs `:81-85` | - | 默认值漂移 | 扁平成员持有单一 View 实例 |
-| DOC-007 | 文档 | style_sheets.json 硬编码色值与 tokens 双事实源 | P3 | 未处理 | 审计 | Button background #22252C=control-bg、#preset-card #181A1F=card-bg 等硬编码与 design_tokens.json 重复；#window font-size 14 与 token font-size-default 13.0 冲突；改 token 不联动样式表 | `source/UI/jive/style_sheets.json:5,14,62-63,99,112` vs `source/UI/jive/design_tokens.json:5-12,27` | - | 主题修改需改两处 | 样式表引用 DesignTokens |
-| DOC-008 | 文档 | LocaleManager.h 注释与实际搜索目录不符 | P3 | 未处理 | 审计 | 注释称 "project root" 第三个搜索目录，实际为 CWD——从其它目录启动定位不到项目根 .loc | `source/Locale/LocaleManager.h:9` vs `:14-17` | - | 注释误导 | 修正注释或按注释语义实现 |
+| DOC-001 | 文档 | architecture.md MainComponent 行数漂移 | P3 | 已关闭 | 审计 | 文档称约 1100 行，实际 1143 行（修正后的描述再次漂移） | `docs/reference/architecture.md:47` vs `source/MainComponent.cpp`（1143 行） | - | 行数描述持续过期 | 更新或改描述性表述 |
+| DOC-002 | 文档 | architecture.md 缺 Recording/Export/Layout/Diagnostics 四模块章节 | P2 | 已关闭 | 审计 | 模块分层止于 Settings/UI；Phase 11 / 渲染管线提取（2026-08-16）新增的 RenderPipeline、PerformanceFile、RecordingEngine、WavExportTask、WavExportOptions、SettingsSerialization 均未收录；文档头"更新时机"未被执行 | `docs/reference/architecture.md:74-160` vs `source/Recording/`（18 文件）、`source/Export/`（5）、`source/Layout/`（4）、`source/Diagnostics/`（5） | - | 新文件结构对读者不可见 | 补四模块章节 |
+| DOC-003 | 文档 | architecture.md Plugin 章节自相矛盾 | P2 | 已关闭 | 审计 | Plugin 章节"后续仍可继续拆分扫描职责与实例生命周期职责"与主装配层已落地内容矛盾（PluginFlowSupport/PluginOperationController 早已拆分收敛） | `docs/reference/architecture.md:137-138` vs `:53,:59` | - | 读者误判现状 | 更新 Plugin 章节现状 |
+| DOC-004 | 文档 | WAV 导出 5 个用户可见字符串缺译 | P2 | 已关闭 | 审计 | TRANS() 包装的进度对话框文案 zh_CN.loc.h 无对应键——中文模式下导出时显示英文 | `source/Export/WavExportTask.cpp:28,36,44,52,56,66,70,78`（5 个字符串）vs `source/Locale/zh_CN.loc.h`（无键） | - | 中文本地化不完整 | zh_CN.loc.h 补 5 键译文 |
+| DOC-005 | 文档 | zh_CN.loc.h 13 个死键 | P3 | 已关闭 | 审计 | 无任何 TRANS 引用；录音/播放状态文本与 "｜" 前缀状态行属旧 UI 遗留 | `source/Locale/zh_CN.loc.h:11,12,47,60,61,62,69,70,154,199,200,207,208`（13 键） | - | 本地化表膨胀 | 删除死键 |
+| DOC-006 | 文档 | SettingsModel 键盘显示默认值双处声明 | P3 | 已关闭 | 审计 | KeyboardDisplaySettingsView 与扁平成员重复定义同一组默认（当前两处一致已核对），无编译期防护，存在漂移风险 | `source/Settings/SettingsModel.h:40-48` vs `:81-85` | - | 默认值漂移 | 扁平成员持有单一 View 实例 |
+| DOC-007 | 文档 | style_sheets.json 硬编码色值与 tokens 双事实源 | P3 | 已关闭 | 审计 | Button background #22252C=control-bg、#preset-card #181A1F=card-bg 等硬编码与 design_tokens.json 重复；#window font-size 14 与 token font-size-default 13.0 冲突；改 token 不联动样式表 | `source/UI/jive/style_sheets.json:5,14,62-63,99,112` vs `source/UI/jive/design_tokens.json:5-12,27` | - | 主题修改需改两处 | 样式表引用 DesignTokens |
+| DOC-008 | 文档 | LocaleManager.h 注释与实际搜索目录不符 | P3 | 已关闭 | 审计 | 注释称 "project root" 第三个搜索目录，实际为 CWD——从其它目录启动定位不到项目根 .loc | `source/Locale/LocaleManager.h:9` vs `:14-17` | - | 注释误导 | 修正注释或按注释语义实现 |
 | THR-002 | 线程安全 | AudioEngine currentSampleRate/currentBlockSize 非原子 | P2 | 已暂缓 | - | prepareToPlay（消息线程）写、getNextAudioBlock（音频线程）读，无 atomic/mutex | `source/Audio/AudioEngine.h:64-65`、`AudioEngine.cpp` | 触发面收窄：getNextAudioBlock 主路径不读，仅 warmup 路径（consumeWarmupBlockIfNeeded→discardWarmupInputState）读；x86-64 对齐 double/int 实际原子 | warmup 路径扩展读取或编译优化暴露 UB | 改 std::atomic<double>/std::atomic<int> |
 | THR-003 | 线程安全 | MidiChannelMapper 引用成员悬垂风险 | P2 | 已暂缓 | - | 构造器存储 const ChannelMatrix&/const bool&/const int&，外部对象销毁后引用悬垂 | `source/Midi/MidiChannelMapper.h:22-25` | 引用对象为 MainComponent::appSettings 成员（MainComponent.h 声明先于 midiChannelMapper 构造），寿命安全 | appSettings 改为动态分配或生命周期缩短 | 文档化生命周期契约或改值拷贝 |
 | THR-004 | 线程安全 | PluginHost::getInstance 暴露裸指针 | P2 | 已暂缓 | - | 返回 AudioPluginInstance* 裸指针，音频线程经它调用 processBlock，生命周期依赖外部协调 | `source/Plugin/PluginHost.h:64` | 生命周期由 runPluginActionWithAudioDeviceRebuild 外部协调 + 头文件 thread-safety contract（THR-001 修复时建立） | 引入非设备重建 guard 的插件切换路径 | 返回 juce::AudioPluginInstance::Ptr 或文档化所有权契约 |

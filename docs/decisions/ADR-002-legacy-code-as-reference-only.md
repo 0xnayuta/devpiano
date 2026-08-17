@@ -39,4 +39,4 @@
 
 ## 当前实践
 
-当前架构总览见：[`../architecture/overview.md`](../architecture/overview.md)。
+当前架构总览见：[`../reference/architecture.md`](../reference/architecture.md)。

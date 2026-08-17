@@ -77,16 +77,10 @@ struct SettingsModel {
     int mainWindowWidth = 0;
     int mainWindowHeight = 0;
     int keyboardScrollOffsetX = -1; // persisted keyboard Viewport scroll position (-1 = unset)
-    // Persisted keyboard display settings.
-    devpiano::ui::KeyColourMode keyboardColourMode = devpiano::ui::KeyColourMode::classic;
-    devpiano::ui::NoteDisplayMode keyboardNoteDisplay = devpiano::ui::NoteDisplayMode::doReMi;
-    float keyboardFadeSpeed = 0.92f;
-    bool resizableWindow = true;
-    bool showInstrumentFilter = true;
+    // Persisted keyboard display settings (single View instance — DOC-006:
+    // one declaration of the defaults, no parallel flat fields to drift).
+    KeyboardDisplaySettingsView keyboardDisplay;
     bool pluginPanelExpanded = false; // persisted PluginPanel collapsed/expanded toggle
-    // Persisted per-key custom labels and colours (sparse, stored as ValueTree XML).
-    std::array<juce::String, 128> customKeyLabels;
-    std::array<juce::Colour, 128> customKeyColours;
     // Persisted UI language code ("en" | "zh-CN").
     juce::String languageCode { "en" };
     // Key signature system: global transpose state
@@ -135,24 +129,12 @@ struct SettingsModel {
         lastPluginName = view.lastPluginName;
     }
 
-    [[nodiscard]] KeyboardDisplaySettingsView getKeyboardDisplaySettingsView() const {
-        return { .colourMode = keyboardColourMode,
-                 .noteDisplay = keyboardNoteDisplay,
-                 .fadeSpeed = keyboardFadeSpeed,
-                 .resizableWindow = resizableWindow,
-                 .showInstrumentFilter = showInstrumentFilter,
-                 .customKeyLabels = customKeyLabels,
-                 .customKeyColours = customKeyColours };
+    [[nodiscard]] const KeyboardDisplaySettingsView& getKeyboardDisplaySettingsView() const {
+        return keyboardDisplay;
     }
 
     void applyKeyboardDisplaySettingsView(const KeyboardDisplaySettingsView& view) {
-        keyboardColourMode = view.colourMode;
-        keyboardNoteDisplay = view.noteDisplay;
-        keyboardFadeSpeed = view.fadeSpeed;
-        resizableWindow = view.resizableWindow;
-        showInstrumentFilter = view.showInstrumentFilter;
-        customKeyLabels = view.customKeyLabels;
-        customKeyColours = view.customKeyColours;
+        keyboardDisplay = view;
     }
 
     // ---- Serialization methods moved to Settings/SettingsSerialization.h ----

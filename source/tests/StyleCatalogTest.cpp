@@ -88,6 +88,7 @@ public:
         testJsonStringParsesToJiveObject();
         testAppliedStylesReachInterpretedComponents();
         testDesignTokensHotReload();
+        testStyleTokenResolutionInStyleSheet();
         testStyleCatalogHotReloadOnLiveTree();
         testStatusBarTreeInterprets();
         testPluginPanelTreeInterprets();
@@ -231,6 +232,72 @@ private:
             juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
             lnf.reset();
         }
+    }
+
+    void testStyleTokenResolutionInStyleSheet() {
+        beginTest("@token style values resolve through DesignTokens (DOC-007)");
+
+        auto& tokens = devpiano::jive::DesignTokens::get();
+        // 记住当前 tokens 根，测试后恢复，避免污染后续用例。
+        const auto savedRoot = tokens.currentRootForTest();
+
+        // 显式加载 tokens：与生产路径一致（MainComponent 先加载 design_tokens.json）。
+        tokens.loadFromJSON(juce::JSON::parse(
+            R"({ "colors": { "main-bg": "#FF111316", "control-bg": "#FF22252C", "text-disabled": "#FF555B66" },
+                 "typography": { "font-size-label": 14.0, "font-weight-title": "bold" } })"));
+
+        auto& catalog = devpiano::ui::jive::StyleCatalog::get();
+        catalog.loadFromJSON(juce::JSON::parse(R"({
+            "#probe": {
+                "background": "@main-bg",
+                "foreground": "@text-disabled",
+                "font-size": "@font-size-label",
+                "font-weight": "@font-weight-title",
+                "border": "#2E333D",
+                "unknown": "@no-such-token"
+            }
+        })"));
+        catalog.releaseOwnedStyles();
+
+        juce::ValueTree tree("probe");
+        tree.setProperty("id", "probe", nullptr);
+        catalog.applyToTree(tree);
+        catalog.releaseOwnedStyles();
+
+        auto* style = dynamic_cast<::jive::Object*>(tree["style"].getObject());
+        expect(style != nullptr, "probe must carry a style object");
+        if (style == nullptr) {
+            tokens.loadFromJSON(savedRoot);
+            return;
+        }
+        expectEquals(style->getProperty("background").toString(), juce::String("#111316"),
+                     "@main-bg must resolve to #111316");
+        expectEquals(style->getProperty("foreground").toString(), juce::String("#555B66"),
+                     "@text-disabled must resolve to #555B66");
+        expectEquals(style->getProperty("font-size").toString(), juce::String("14"),
+                     "@font-size-label must resolve to integer string 14");
+        expectEquals(style->getProperty("font-weight").toString(), juce::String("bold"),
+                     "@font-weight-title must pass through");
+        expectEquals(style->getProperty("border").toString(), juce::String("#2E333D"),
+                     "non-token literal values must stay untouched");
+        expectEquals(style->getProperty("unknown").toString(), juce::String("@no-such-token"),
+                     "unknown tokens must be kept verbatim, not dropped");
+
+        // 顺序无关：tokens 未加载（root 为空）时 getter 内置默认仍能解析。
+        tokens.loadFromJSON(juce::JSON::parse(R"({})"));
+        catalog.loadFromJSON(juce::JSON::parse(R"({ "#probe": { "background": "@main-bg" } })"));
+        juce::ValueTree tree2("probe");
+        tree2.setProperty("id", "probe", nullptr);
+        catalog.applyToTree(tree2);
+        catalog.releaseOwnedStyles();
+        auto* style2 = dynamic_cast<::jive::Object*>(tree2["style"].getObject());
+        expect(style2 != nullptr, "probe2 must carry a style object");
+        if (style2 != nullptr) {
+            expectEquals(style2->getProperty("background").toString(), juce::String("#111316"),
+                         "getter fallback must resolve @main-bg without loaded JSON");
+        }
+
+        tokens.loadFromJSON(savedRoot);
     }
 
     void testStyleCatalogHotReloadOnLiveTree() {

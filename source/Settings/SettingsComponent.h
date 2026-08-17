@@ -29,7 +29,8 @@ public:
         colourModeLabel.attachToComponent(&colourModeCombo, true);
         rebuildColourModeCombo();
         if (model) {
-            colourModeCombo.setSelectedId(1 + static_cast<int>(model->keyboardColourMode), juce::dontSendNotification);
+            colourModeCombo.setSelectedId(1 + static_cast<int>(model->keyboardDisplay.colourMode),
+                                          juce::dontSendNotification);
         }
         colourModeCombo.onChange
             = [this] { editingState.setProperty("colourMode", colourModeCombo.getSelectedId(), nullptr); };
@@ -40,7 +41,7 @@ public:
         noteDisplayLabel.attachToComponent(&noteDisplayCombo, true);
         rebuildNoteDisplayCombo();
         if (model) {
-            noteDisplayCombo.setSelectedId(1 + static_cast<int>(model->keyboardNoteDisplay),
+            noteDisplayCombo.setSelectedId(1 + static_cast<int>(model->keyboardDisplay.noteDisplay),
                                            juce::dontSendNotification);
         }
         noteDisplayCombo.onChange
@@ -54,7 +55,7 @@ public:
         fadeSpeedSlider.setSliderStyle(juce::Slider::LinearHorizontal);
         fadeSpeedSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
         if (model) {
-            fadeSpeedSlider.setValue(model->keyboardFadeSpeed, juce::dontSendNotification);
+            fadeSpeedSlider.setValue(model->keyboardDisplay.fadeSpeed, juce::dontSendNotification);
         }
         fadeSpeedSlider.onValueChange
             = [this] { editingState.setProperty("fadeSpeed", fadeSpeedSlider.getValue(), nullptr); };
@@ -63,7 +64,7 @@ public:
         // Resizable window toggle
         resizableToggle.setButtonText(TRANS("Resizable Window"));
         if (model) {
-            resizableToggle.setToggleState(model->resizableWindow, juce::dontSendNotification);
+            resizableToggle.setToggleState(model->keyboardDisplay.resizableWindow, juce::dontSendNotification);
         }
         resizableToggle.onStateChange
             = [this] { editingState.setProperty("resizableWindow", resizableToggle.getToggleState(), nullptr); };
@@ -72,7 +73,8 @@ public:
         // Instrument filter toggle
         instrumentFilterToggle.setButtonText(TRANS("Show MIDI/VSTi Instrument Filter"));
         if (model) {
-            instrumentFilterToggle.setToggleState(model->showInstrumentFilter, juce::dontSendNotification);
+            instrumentFilterToggle.setToggleState(model->keyboardDisplay.showInstrumentFilter,
+                                                  juce::dontSendNotification);
         }
         instrumentFilterToggle.onStateChange = [this] {
             editingState.setProperty("showInstrumentFilter", instrumentFilterToggle.getToggleState(), nullptr);
@@ -164,9 +166,9 @@ public:
         if (model) {
             editingState.setProperty("colourMode", colourModeCombo.getSelectedId(), nullptr);
             editingState.setProperty("noteDisplay", noteDisplayCombo.getSelectedId(), nullptr);
-            editingState.setProperty("fadeSpeed", static_cast<double>(model->keyboardFadeSpeed), nullptr);
-            editingState.setProperty("resizableWindow", model->resizableWindow, nullptr);
-            editingState.setProperty("showInstrumentFilter", model->showInstrumentFilter, nullptr);
+            editingState.setProperty("fadeSpeed", static_cast<double>(model->keyboardDisplay.fadeSpeed), nullptr);
+            editingState.setProperty("resizableWindow", model->keyboardDisplay.resizableWindow, nullptr);
+            editingState.setProperty("showInstrumentFilter", model->keyboardDisplay.showInstrumentFilter, nullptr);
             editingState.setProperty("languageCode", model->languageCode, nullptr);
             editingState.setProperty("keySignature", model->keySignature, nullptr);
             editingState.setProperty("midiTranspose", model->midiTranspose, nullptr);
@@ -405,15 +407,16 @@ private:
         }
 
         if (prop == juce::Identifier("colourMode")) {
-            model->keyboardColourMode = static_cast<devpiano::ui::KeyColourMode>((int)editingState[prop] - 1);
+            model->keyboardDisplay.colourMode = static_cast<devpiano::ui::KeyColourMode>((int)editingState[prop] - 1);
         } else if (prop == juce::Identifier("noteDisplay")) {
-            model->keyboardNoteDisplay = static_cast<devpiano::ui::NoteDisplayMode>((int)editingState[prop] - 1);
+            model->keyboardDisplay.noteDisplay
+                = static_cast<devpiano::ui::NoteDisplayMode>((int)editingState[prop] - 1);
         } else if (prop == juce::Identifier("fadeSpeed")) {
-            model->keyboardFadeSpeed = static_cast<float>((double)editingState[prop]);
+            model->keyboardDisplay.fadeSpeed = static_cast<float>((double)editingState[prop]);
         } else if (prop == juce::Identifier("resizableWindow")) {
-            model->resizableWindow = (bool)editingState[prop];
+            model->keyboardDisplay.resizableWindow = (bool)editingState[prop];
         } else if (prop == juce::Identifier("showInstrumentFilter")) {
-            model->showInstrumentFilter = (bool)editingState[prop];
+            model->keyboardDisplay.showInstrumentFilter = (bool)editingState[prop];
         } else if (prop == juce::Identifier("keySignature")) {
             model->keySignature = (int)editingState[prop];
         } else if (prop == juce::Identifier("midiTranspose")) {
