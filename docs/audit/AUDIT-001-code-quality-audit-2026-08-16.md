@@ -23,25 +23,25 @@
 | 审计日期 | `2026-08-16` |
 | 审计基线 | `main` @ `b352cff`（fix: persist audio device state on default-device startup） |
 | 审计人 | AI code audit（主代理核心审查 + 5 个只读 scout 并行分领域 + 手工验证） |
-| 复审状态 | `初次` |
+| 复审状态 | `全部完成`（复审 1–11，2026-08-16 ~ 2026-08-17，AUDIT Phase A–H） |
 
 ### 0.2 风险与状态汇总
 
 | 优先级 | 合计 | 未处理 | 处理中 | 已缓解 | 已暂缓 | 已关闭 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | P0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| P1 | 5 | 3 | 0 | 0 | 0 | 2 |
-| P2 | 29 | 16 | 0 | 0 | 9 | 4 |
-| P3 | 51 | 37 | 0 | 0 | 7 | 7 |
-| **合计** | 85 | 56 | 0 | 0 | 16 | 13 |
+| P1 | 5 | 0 | 0 | 0 | 0 | 5 |
+| P2 | 29 | 0 | 0 | 0 | 8 | 21 |
+| P3 | 51 | 0 | 0 | 0 | 6 | 45 |
+| **合计** | 85 | 0 | 0 | 0 | 14 | 71 |
 
 ### 0.3 关键结论
 
-- 总体评级：`B` — 核心运行时健康（0 崩溃/泄漏/静默数据损坏的 P0），线程模型经设备重建同步点设计可靠；实时线程 2 处 P1（播放结束日志 I/O、masterGain 数据竞争）已于 2026-08-16 Phase A 修复；剩余驱动因素：三闸门中 format 门禁回归失败、测试体系存在 3 个 P1 覆盖空洞、架构文档滞后于 Phase 11 新结构。
-- 当前是否适合继续新增功能：`有条件` — 实时线程 P1 已修复（2026-08-16）；建议先补 3 个核心模块零测试（P1），其余 P2/P3 可与功能开发并行。
-- 当前是否建议优先重构：`有条件` — 不涉及大规模重构；优先清理 P2 死代码/错误持久化路径（QUAL-001、ERR-004）。
-- 最大风险：3 个核心模块（会话控制/通道矩阵/预设序列化）零测试覆盖下的回归隐患。
-- 下一步最高优先级：补 TEST-001~003 三个 P1 纯逻辑测试。
+- 总体评级：`A-` — 全部 56 项未处理问题已关闭（2026-08-17 AUDIT Phase A–H 落地，复审 1–11）；三闸门全绿（wsl-build 0 warning / test 2921 断言 / format --check 归零）+ win-build 通过 + 改动文件 clang-tidy 0 诊断；16 项已暂缓维持（风险接受原因与重开条件见第 8 章登记表）。
+- 当前是否适合继续新增功能：`是` — 实时线程 P1（ERR-001/THR-001）、3 个核心模块测试空洞（TEST-001/002/003）、format 门禁回归（ENG-001）与文档滞后（DOC-002/003/004）全部解决；P2/P3 已随 Phase A–H 消化完毕。
+- 当前是否建议优先重构：`否` — 无需进一步重构；Phase F 死代码/重复清理（QUAL-001~018）已完成。
+- 最大风险：14 项已暂缓项（THR-002~004、SEC-001~004、PERF-001/003/004、ERR-016/017、QUAL-020/021）——均为低频触发或已缓解场景，重开条件见第 8 章。
+- 下一步最高优先级：已无审计未处理项；建议回到业务路线图迭代，并按需复核暂缓项。
 
 ### 0.4 重点发现
 
@@ -373,7 +373,7 @@ source/
 
 ## 5. 修复路线图
 
-> 排期覆盖第 8 章全部 69 项未处理问题（ID 覆盖率校验见 6.5）。修复实施另开迭代，本报告只排期。
+> 排期覆盖第 8 章全部 56 项未处理问题（ID 覆盖率校验见 6.5）。**全部 56 项已于 2026-08-17 随 AUDIT Phase A–H 落地关闭**（复审 1–11，证据见第 7 章）；本路线图保留为历史排期记录。16 项已暂缓不排期（重开条件见第 8 章）。
 
 ### 5.1 立即处理（P0）
 
@@ -464,27 +464,29 @@ source/
 
 ### 6.1 当前判断
 
-devpiano 核心运行时健康：0 项 P0（无崩溃/数据损坏/静默泄漏），既有修复（音频预分配、线程同步、模块边界、测试完善、原子写入）在 2026-08-16 基线全部保持有效，且本次实测 3/4 闸门通过（wsl-build / test / win-build）+ ADR 6/6 合规。本次审计新发现 69 项问题（5 P1 / 20 P2 / 44 P3）并登记 16 项已暂缓项，评级回落至 B：主要驱动因素是实时线程 2 处 P1（日志 I/O + masterGain 竞争）、3 个核心模块测试空洞（P1）、format 门禁回归（P2）与文档滞后（P2）。无结构性架构缺陷，全部问题均可在增量迭代内收敛。
+devpiano 核心运行时健康：0 项 P0（无崩溃/数据损坏/静默泄漏）。**审计关闭态（2026-08-17）**：本次审计登记的 56 项未处理问题已全部修复关闭（AUDIT Phase A–H），14 项已暂缓维持原状（QUAL-019/PERF-002 经复核已关闭，风险接受原因与重开条件见第 8 章）。实时线程日志 I/O 清零（ERR-001~003）、masterGain 竞争修复（THR-001）、3 个核心模块测试空洞补齐（TEST-001~003，断言 357 → 2921）、format 门禁回归修复并挂钩 pre-commit（ENG-001）、架构文档与 WAV 导出缺译补齐（DOC-001~008）、死代码/重复清理（QUAL-001~018）、测试脆弱性与断言空洞消除（TEST-013~020）。三闸门全绿（wsl-build / test / format --check）+ win-build 通过 + 改动文件 clang-tidy 0 诊断 + CLI 行为实测。评级自 B 回升至 **A-**。
 
 ### 6.2 是否建议继续新增功能
 
-`有条件`：可以继续，但建议先完成 5.2 的 5 项 P1（预计 1-2 个迭代）。理由：P1 中 2 项是实时线程正确性/稳定性（长期演奏/录制场景必然触达），3 项是核心模块测试空洞（新功能叠加会放大回归风险）。P2/P3 可与功能开发并行消化。
+`是`：5 项 P1 已全部关闭（ERR-001/THR-001 实时线程对、TEST-001/002/003 核心模块测试），P2/P3 已随 Phase A–H 全部消化。新增功能可直接开展，回归防线为 2921 断言测试套件 + 三闸门门禁。
 
 ### 6.3 是否建议先重构 / 补测试 / 补文档
 
-- 重构：`有条件` — 不需要大规模重构；优先清理 QUAL-001（错误字段赋值）、ERR-004（失败恢复态提交）、ENG-001（格式回归）、QUAL-002（死返回值大向量拷贝）。
-- 补测试：`是` — 3 个 P1 空洞（RecordingSessionController / MidiChannelMapper / PerformancePreset）与 2 个 CI 静默丢覆盖点（TEST-010/011）优先。
-- 补文档：`有条件` — architecture.md 四模块章节（DOC-002/003）与 WAV 导出缺译（DOC-004）优先；P3 文档项随周期清理。
+- 重构：`已完成` — QUAL-001~018 全部处理（死字段/死返回值/重复装配/冗余参数/过期注释，2026-08-17 Phase F）。
+- 补测试：`已完成` — TEST-001~020 全部落地（Phase C/D/H），断言 357 → 2921，覆盖会话状态机、通道矩阵、预设 round-trip、持久化、导出链、插件 XML、样式 token、键盘 hit-test 等。
+- 补文档：`已完成` — DOC-001~008 全部处理（Phase G）：四模块章节、Plugin 现状、6 个 WAV 导出键译文、13 死键清理、SettingsModel 单一 View、样式 token 单一事实源、注释修正、ADR 链接。
 
 ### 6.4 下一步三件事
 
-1. ~~修复实时线程 P1 对：ERR-001（播放结束日志移消息线程）+ THR-001（masterGain 改 atomic）。~~ ✅ 已于 2026-08-16 Phase A 完成（复审 3）。
-2. ~~修复格式门禁回归（ENG-001：format 批量修复 + pre-commit/CI 挂钩），恢复三闸门全绿。~~ ✅ 已于 2026-08-16 Phase B 完成（复审 4）。
-3. 补 3 个 P1 纯逻辑测试（TEST-001/002/003）并修复 TEST-010/011 的 CI 静默丢覆盖。
+1. ✅ 实时线程 P1 对：ERR-001（播放结束日志移消息线程）+ THR-001（masterGain 改 atomic）——2026-08-16 Phase A（复审 3）。
+2. ✅ 格式门禁回归（ENG-001：format 批量修复 + pre-commit 挂钩）——2026-08-16 Phase B（复审 4）。
+3. ✅ 3 个 P1 纯逻辑测试（TEST-001/002/003）+ TEST-010/011 静默丢覆盖修复——Phase C/D（复审 6/7）。
+4. ✅ Phase E–H 收尾：错误处理与失败路径（ERR-002~015）、死代码清理（QUAL-001~018）、文档契约（DOC-001~008）、测试质量（TEST-013~020）——2026-08-17（复审 8–11）。
+5. **当前**：无审计未处理项；回到业务路线图迭代，按需复核 16 项已暂缓。
 
 ### 6.5 ID 覆盖率校验
 
-第 8 章登记 82 项：66 项新发现（THR-001、QUAL-001~018、ERR-001~015、TEST-001~020（其中 TEST-011/012/017 已关闭）、DOC-001~008、ENG-001~007）+ 16 项已暂缓项（THR-002~004、SEC-001~004、PERF-001~004、ERR-016~017、QUAL-019~021）+ 13 项已关闭（TEST-011/012/017、THR-001、ERR-001、ENG-001~007、QUAL-014，修复证据与复审说明见第 7 章）。第 5 章路线图覆盖全部 56 项未处理（P1×3 → 5.2、P2×16 → 5.3、P3×37 → 5.4），`comm` 校验零缺失、零多余；16 项已暂缓不排期（重开条件见第 8 章）。ADR 事实性描述修正项（2 条，非问题）在 5.4 单独排期。
+第 8 章登记 72 项（已关闭项按规则不登记）：56 项已关闭（66 项新发现 - 13 项初始已关闭 + TEST-011/012/017 等，全部修复证据与复审说明见第 7 章）+ 14 项已暂缓（THR-002~004、SEC-001~004、PERF-001/003/004、ERR-016/017、QUAL-020/021；QUAL-019/PERF-002 经复审 12 关闭，风险接受原因与重开条件见第 8 章）。**56 项未处理全部关闭（2026-08-17，AUDIT Phase A–H）**：P1×3（TEST-001/002/003）+ 首页已关闭 ERR-001/THR-001 合计 P1×5 全清；P2×16、P3×37 全部落地。`comm` 校验零缺失、零多余；16 项已暂缓不排期（重开条件见第 8 章）。ADR 事实性描述修正项（2 条，非问题）已修正原文（2026-08-17 复审 10）。
 
 ---
 
@@ -631,6 +633,20 @@ devpiano 核心运行时健康：0 项 P0（无崩溃/数据损坏/静默泄漏�
 
 **验证**：wsl-build 0 warning、test 2921 断言全绿（新增/改写断言 +4）、format 归零、12 个改动文件 clang-tidy 0 诊断、win-build 通过、CLI 冲突/空匹配/help 退出码实测（1/1/0）。
 
+### 复审 12（2026-08-17，报告状态一致化 + 16 项已暂缓复核）
+
+**报告状态一致化**：首页 0.1 复审状态 `初次` → `全部完成`（复审 1–11）；0.2 汇总表更新为当前分布（0 未处理 / 16 已暂缓 / 69 已关闭，合计 85）；0.3 关键结论评级 `B` → `A-` 并更新建议；§5 路线图头部注明 56 项已全部关闭（保留历史排期）；§6.1/6.2/6.3/6.4/6.5 全部更新为完成态。
+
+**16 项已暂缓复核**（对照 Phase A–H 改动逐一验证前提）：
+
+- **QUAL-019 → 已关闭**：`makeFullPianoLayout` 已随 Phase F（QUAL-016，e9d4d6f）删除，`makeDefaultKeyboardLayout`/`makeFullPianoLayout` 镜像重复的前提消失（grep 源码零残留）。剩余 `makeDefaultKeyboardLayout` 维持现状。
+- **PERF-002 → 已关闭**：`getKeyboardDisplaySettingsView()` 已随 Phase G（DOC-006，4c35504）改为返回 `const&`（SettingsModel.h:132）——按值复制 128 元素数组（~4KB）的问题已消除。Audio/Performance view getter 仍按值返回但仅含标量，不在该项范围。
+- **ERR-017 → 维持暂缓**：`scheduleSave` 参数本就为引用（f315734 起）；内部 `SettingsDebounceTimer::modelPtr` 裸指针模式未变（SettingsStore.h:24），风险接受（调用方均传长寿命 appSettings）与重开条件（出现寿命短于 timer 的调用方）仍成立。
+- **THR-003 → 维持暂缓**：MidiChannelMapper 引用成员（`const ChannelMatrix&`/`const bool&`/`const int&`，:40-41）未变。
+- **其余 11 项维持暂缓**：THR-002/004（线程契约未变）、SEC-001~004（安全前提未变）、PERF-001/003/004（性能缓解状态未变）、ERR-016（jassert 守卫未变）、QUAL-020/021（指针/引用暴露未变）。
+
+**验证**：grep 源码零残留（makeFullPianoLayout）、getter 签名实测 const&（SettingsModel.h:132）、scheduleSave/引用成员签名实测。
+
 ---
 
 ## 8. 附录：问题总表（登记表）
@@ -704,12 +720,12 @@ devpiano 核心运行时健康：0 项 P0（无崩溃/数据损坏/静默泄漏�
 | SEC-003 | 安全 | KeyMapTypes aggregate init 绕过 fromClamped | P3 | 已暂缓 | - | MidiNoteNumber{200} aggregate 初始化可绕过 clamp 保护 | `source/Core/MidiTypes.h`（aggregate struct） | 全项目调用点均经 fromClamped/helper 构造，无实际越界输入 | 新增绕过 fromClamped 的构造点 | 私有构造函数或 requires clause |
 | SEC-004 | 安全 | KeyboardMidiMapper 0/1-based 通道转换脆弱 | P3 | 已暂缓 | - | channel 值在 0-based/1-based 间手工转换，缺少类型系统保护 | `source/Input/KeyboardMidiMapper.cpp`（midiChannel - 1） | 当前路径正确且无缺陷报告；MidiChannel::toZeroBased() helper 已存在可低成本收编 | 出现 0/1-based 混淆缺陷报告 | 统一用 MidiChannel::toZeroBased() |
 | PERF-001 | 性能 | MidiFileImporter 全量内存加载 | P2 | 已暂缓 | - | 整文件读入 juce::MidiFile 再转换，大文件（>10min 高密度）可能数百 MB 内存 | `source/Recording/MidiFileImporter.cpp` | 已缓解：现仅导入单条最丰富轨道（chooseNoteRichTrack），不再展开全部轨道；整文件仍全量读入 | 导入大文件实测内存峰值过高 | 流式处理或事件数量上限 |
-| PERF-002 | 性能 | SettingsModel view getter 按值返回 128 元素数组 | P2 | 已暂缓 | - | KeyboardDisplaySettingsView 等返回含 std::array<String,128>/std::array<Colour,128> 副本，每次调用复制 ~4KB | `source/Settings/SettingsModel.h` | 调用方仅 2 处且均为低频路径（设置同步、设置窗口打开），~4KB 拷贝影响可忽略 | 调用点增多或进入高频路径 | 返回 const& 或 std::span |
+| PERF-002 | 性能 | SettingsModel view getter 按值返回 128 元素数组 | P2 | 已关闭 | - | KeyboardDisplaySettingsView 等返回含 std::array<String,128>/std::array<Colour,128> 副本，每次调用复制 ~4KB | `source/Settings/SettingsModel.h` | 调用方仅 2 处且均为低频路径（设置同步、设置窗口打开），~4KB 拷贝影响可忽略 | 调用点增多或进入高频路径 | 返回 const& 或 std::span |
 | PERF-003 | 性能 | KeyboardSettings 2KB+ 固定数组 | P3 | 已暂缓 | - | customKeyLabels/customKeyColours 固定 std::array 128 项，未自定义也占满 | `source/UI/KeyboardTypes.h` | 持久化侧已稀疏化（SettingsStore 仅存非空 label） | 大量自定义键场景内存实测过高 | 改 std::vector 或 sparse map |
 | PERF-004 | 性能 | KeyboardMidiMapper::isKeyCurrentlyDown O(n) 轮询 | P3 | 已暂缓 | - | handleKeyStateChanged 每帧遍历所有 binding 查询 OS 键状态 | `source/Input/KeyboardMidiMapper.cpp` | 36 次/帧在消息线程的绝对开销可忽略（heldKeys 已为 unordered_set） | 键盘轮询改高频（音频线程）或 binding 数大增 | std::bitset 或 unordered_set 替代遍历 |
 | ERR-016 | 错误处理 | AppStateBuilder 仅 jassert 线程守卫 | P2 | 已暂缓 | - | buildAppStateSnapshot 用 jassert(isMessageThread())，Release 构建为 no-op | `source/Settings/AppStateBuilder.cpp`（assertMessageThreadSnapshotAccess） | 全部调用方（MainComponent timerCallback/UI 事件）均为消息线程，实际风险低 | 新增非消息线程调用方 | jassert + 错误码或 Release 保持检查 |
 | ERR-017 | 错误处理 | SettingsStore scheduleSave 裸指针 API | P2 | 已暂缓 | - | DebounceTimer 持有 const SettingsModel* 裸指针，timer 触发前对象析构则悬垂 | `source/Settings/SettingsStore.h`、`SettingsStore.cpp:275-304` | 调用方均传 MainComponent::appSettings（成员寿命长于 DebounceTimer），无实际悬垂 | 出现 SettingsModel 寿命短于 timer 的调用方 | std::shared_ptr 或文档化寿命契约 |
-| QUAL-019 | 质量 | makeDefaultKeyboardLayout / makeFullPianoLayout 镜像重复 | P3 | 已暂缓 | - | 两函数 binding 构建主体镜像重复（仅 base 常量与 layout id/name 不同） | `source/Core/KeyMapTypes.h` | 已提取 makeNoteBinding helper（每 binding 降至 1 行）；P3 低风险 | 新增第三种 layout 生成函数 | 参数化 base 合并两函数 |
+| QUAL-019 | 质量 | makeDefaultKeyboardLayout / makeFullPianoLayout 镜像重复 | P3 | 已关闭 | - | 两函数 binding 构建主体镜像重复（仅 base 常量与 layout id/name 不同） | `source/Core/KeyMapTypes.h` | 已提取 makeNoteBinding helper（每 binding 降至 1 行）；P3 低风险 | 新增第三种 layout 生成函数 | 参数化 base 合并两函数 |
 | QUAL-020 | 质量 | findByKeyCode 返回裸指针 | P3 | 已暂缓 | - | KeyboardLayout::findByKeyCode 返回 const KeyBinding* 指向 vector 内部，修改后悬垂 | `source/Core/KeyMapTypes.h:66` | 调用方（KeyboardMidiMapper 等）均在 vector 未变更的同一线程同一快照内使用，无实际悬垂路径 | findByKeyCode 返回后 vector 被修改的调用方出现 | 返回 std::optional<std::reference_wrapper> 或索引 |
 | QUAL-021 | 质量 | AudioEngine getMidiCollector/getKeyboardState 暴露内部可变引用 | P3 | 已暂缓 | - | 两方法返回可变引用，允许外部任意修改内部 MIDI 状态 | `source/Audio/AudioEngine.h:35-38` | 两个 JUCE 类型本身线程安全（MidiKeyboardState 内置 CriticalSection、MidiMessageCollector 跨线程生产/消费设计） | 外部代码直接修改内部状态造成缺陷 | 提供 const 版本或专用受限 API |
 
