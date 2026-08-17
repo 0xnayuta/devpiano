@@ -14,5 +14,6 @@
 | `phase6-7-completion-detail.md` | `docs/roadmap/roadmap.md`（Phase 6-7 摘要） |
 | `phase8-9-completion.md` | `docs/roadmap/current-iteration.md`（已迁移至 Phase 10） |
 | `phase10-ui-modernization.md` | `docs/roadmap/roadmap.md`（Phase 10 摘要） |
-| `phase11-declarative-ui-jive.md` | `docs/roadmap/roadmap.md`（Phase 11 摘要）、`docs/roadmap/current-iteration.md`（现为 AUDIT 修复项） |
+| `phase11-declarative-ui-jive.md` | `docs/roadmap/roadmap.md`（Phase 11 摘要）、`docs/roadmap/current-iteration.md`（现为 Phase 12 规划） |
+| `audit-001-code-quality-fix-phases.md` | `docs/roadmap/roadmap.md`（全面审计摘要）、`docs/roadmap/current-iteration.md`（现为 Phase 12 规划） |
 | `architecture-optimization-backlog.md` | `docs/roadmap/roadmap.md`（架构优化摘要）、`docs/roadmap/current-iteration.md`（现为 Phase 10） |

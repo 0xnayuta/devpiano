@@ -96,20 +96,49 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 详细计划与完成记录见 [`../archive/phase11-declarative-ui-jive.md`](../archive/phase11-declarative-ui-jive.md)。
 
-### 全面审计 (2026-08-16) [进行中]
+### 全面审计 (2026-08-16) [已完成]
 
-代码质量审计（`AUDIT-001`，2026-08-16 版）已解决的问题包括：
+代码质量审计（`AUDIT-001`，2026-08-16）登记 85 项：56 项未处理（3 P1 / 16 P2 / 37 P3，评级 B）+ 16 项已暂缓（重开条件与风险接受原因见报告第 8 章登记表）+ 13 项已关闭。修复按 **AUDIT Phase A–H** 推进，已全部完成（2026-08-17）：56 项未处理全关闭，16 项已暂缓经复核关闭 2 项（QUAL-019/PERF-002），剩余 14 项维持。
+
+审计期间落地的主要修复：
 
 - 音频稳定性：消除音频回调堆分配（prepareToPlay 预分配插件缓冲）、移除回调内延迟 prepare、RecordingEngine 录制路径原子化
 - 线程安全：PluginHost 线程契约（断言 + 头文件文档）、异步 lambda 生命周期防护（alive-flag）、录制中 preset 并发写入队列化、离线渲染线程隔离、播放状态原子化
 - 模块边界：ChannelMatrix→Midi/、KeyboardTypes→UI/、AppStateBuilder→Settings/、Core/ 精简至 3 个纯数据类型文件
-- 工程化：CMakeLists 源列表完整、架构与文档同步、clang-format 清零
-- 测试完善：新增 AudioEngine/RecordingEngine/PluginHost/KeyboardMidiMapper 4 个测试文件，测试覆盖从 2 模块扩至 7 模块（31 测试类 74 子测试全部通过）
+- 工程化：CMakeLists 源列表完整、架构与文档同步、clang-format 清零、全量 44 文件 clang-tidy 0 诊断
+- 测试完善：断言总数 754 → 2921 全绿（覆盖会话控制/通道矩阵/预设序列化/导出/设置/插件操作层），顺带修复 SettingsStore customKeyLabels/Colours 持久化读回失效 bug
 - 其余修复：JSON 崩溃防护、录制守卫、原子文件写入（PerformanceFile 与 Preset 走 TemporaryFile + rename）、公共渲染管线提取（RenderPipeline）
 
-当前状态：本次审计登记 85 项——69 项新问题（5 P1 / 20 P2 / 44 P3，评级 B）+ 16 项已暂缓（重开条件与风险接受原因见报告第 8 章登记表）。主要风险：实时音频线程 2 处 P1（播放结束日志 I/O、masterGain 数据竞争）、3 个核心模块（会话控制/通道矩阵/预设序列化）零测试覆盖、format 门禁回归。
+审计报告见 [`../audit/AUDIT-001-code-quality-audit-2026-08-16.md`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)，Phase A–H 逐项完成记录见 [`../archive/audit-001-code-quality-fix-phases.md`](../archive/audit-001-code-quality-fix-phases.md)。
 
-详细完成记录见 [`../audit/AUDIT-001-code-quality-audit-2026-08-16.md`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)。
+### Phase 12：内置物理建模钢琴音源（SineSynth → PianoSynth） [规划中]
+
+> 目标：把当前内置 fallback 正弦合成器逐步替换为**自主拥有、纯 C++、零/极低采样依赖的物理建模钢琴音源**，使"未加载插件时的默认钢琴"成为产品核心能力而非兜底 beep。详细排期与子任务见 [`current-iteration.md`](current-iteration.md)。
+
+**现状（代码事实）：**
+
+- 实时路径 `AudioEngine::SimpleSineVoice`（AudioEngine.cpp:41）与离线导出路径 `OfflineSineVoice`（WavFileExporter.cpp:28）是**两份逐字重复**的 sine 实现；另加 `RecordingSessionController.cpp:202` 插件离线实例创建失败时回退 sine。任何音色替换需同时改 3 处，否则实时/导出/回退音色分叉。
+- 参数接线已有同构模式：`SettingsModel::PerformanceSettingsView`（masterGain + 4 项 ADSR）→ `MainComponent::applyPerformanceSettingsToAudioEngine`（实时）+ `ExportFlowSupport::buildWavExportOptions`（离线），新音色参数沿用即可。
+- 测试盲区：`AudioEngineTest.cpp` 声明 fallback 音频输出路径不测（`MidiMessageCollector` wall-clock 时序），新音色需确定性测试夹具（直接驱动 `SynthesiserVoice`，固定 sampleRate，断言频谱/能量/时长/力度单调性）。
+
+**技术路线（JUCE 惯例，不建新抽象）：**
+
+以 `juce::Synthesiser` + `SynthesiserVoice` 为唯一音色承载（JUCE 生态标准做法，当前代码已在使用）——不引入自定义 `BuiltinInstrument` 接口层，不建 `source/Audio/Builtin/` 多层目录。替换音色 = 换 `addSound/addVoice` 注册内容。分三阶段渐进，每阶段可独立合入、可听感回归：
+
+- **Phase 12：音源重构 + 谐波钢琴 v1**（Level 1）——合并两份 sine 为共享 `SynthesiserVoice` 子类（三处调用点改接，零行为变化）；新增 Harmonic PianoVoice：基频 + 2~7 次谐波叠加、velocity→亮度/响度映射、分音独立衰减；参数进 `SettingsModel`。纯加法、零采样、CPU 可忽略。验收：实时/离线音色一致、确定性音色单测、听觉对比明显优于 sine。
+- **Phase 13：Stiff-String Inharmonic Piano v2**（Level 2）——加入 inharmonicity（`fₙ = n·f₀·√(1+B·n²)`，B 按音区设定）、分音衰减速率建模、简单 body 共鸣滤波。仍纯解析加法，无需延迟线。
+- **Phase 14：Digital Waveguide Piano v3**（Level 3，研究性）——延迟线 + 分数延迟 + loss/dispersion filter + hammer excitation，进入真正物理建模层。**决策门**：听感收益 vs CPU 预算 vs 代码复杂度，产物是否成为默认音色。
+
+**外部参考（许可证已实地核实）：**
+
+| 项目 | 许可证 | 用法 |
+|---|---|---|
+| bBpiano | PolyForm Internal Use 1.0.0（**禁止再分发**） | 仅读思想/论文式源码（如 `From PDE to PCM.md`），**不复制代码** |
+| Instrudio | 无 LICENSE（默认保留所有权利） | 仅读思想 |
+| STK | MIT（含非绑定回馈请求条款） | 可复用 delay/filter 类作零件库；注意其物理乐器依赖自带 rawwaves 采样，与零采样目标有张力 |
+| mda-plugins-juce | MIT | 可参考 JUCE DSP 实现惯例 |
+
+Faust 不引入 runtime（生成代码 GPL exception 面模糊，仅作研究工具）。若复用 STK/mda 代码，在 `THIRD-PARTY-NOTICES.md` 记录来源/版本/修改。
 
 ## 3. 主要风险
 
@@ -148,3 +177,4 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 - Phase 8–9 完成记录：[`../archive/phase8-9-completion.md`](../archive/phase8-9-completion.md)
 - Phase 10 完成记录：[`../archive/phase10-ui-modernization.md`](../archive/phase10-ui-modernization.md)
 - 2026-08-16 审计报告：[`../audit/AUDIT-001-code-quality-audit-2026-08-16.md`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)
+- AUDIT Phase A–H 完成记录：[`../archive/audit-001-code-quality-fix-phases.md`](../archive/audit-001-code-quality-fix-phases.md)
