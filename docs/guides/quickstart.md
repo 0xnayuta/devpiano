@@ -227,6 +227,13 @@ source ~/.bashrc
 ./scripts/dev.sh format
 ./scripts/dev.sh format --check       # CI 模式，只检查不改
 
+# ── 静态检查（clang-tidy，ADR-007：只检查，不用 --fix）──
+./scripts/dev.sh tidy                 # 增量：仅未提交改动文件（秒级~分钟级）
+./scripts/dev.sh tidy <file...>       # 指定文件/路径
+./scripts/dev.sh tidy --all           # 全量 44 文件（约 19 分钟，迭代边界跑）
+# 编辑器内：clangd 已启用 clang-tidy 集成（.clangd），保存即增量波浪线提示；
+# pre-commit 只做 format 检查（tidy 单文件 18-211s 实测，不阻塞提交）
+
 # ── 单元测试 ──
 ./scripts/dev.sh test
 # 测试二进制参数（直接运行 build-wsl-clang/devpiano_tests_artefacts/Debug/devpiano_tests）：

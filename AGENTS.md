@@ -147,6 +147,12 @@
 # 检查格式合规（CI 模式）
 ./scripts/dev.sh format --check
 
+# 增量静态检查（clang-tidy，只检查不用 --fix；无参数=未提交改动文件，指定文件可传入）
+./scripts/dev.sh tidy
+
+# 全量静态检查（迭代边界/CI 门禁，约 19 分钟）
+./scripts/dev.sh tidy --all
+
 # 仅刷新 WSL configure / compile_commands.json（clangd/LSP 依赖此文件）
 ./scripts/dev.sh wsl-build --configure-only
 
@@ -228,14 +234,15 @@
 3. 使用 `lsp` + `read` / `edit` 在 WSL 主工作树中小步修改。
 4. 修改 `source/` 下的 `.cpp` / `.h` 文件后，先用 LSP diagnostics 检查。
 5. 运行 `./scripts/dev.sh format` 确保代码风格一致（首次使用或 `.clang-format` 变更后）。
-6. 若存在测试文件，运行 `./scripts/dev.sh test` 验证不引入回归。
-7. 需要刷新 clangd 编译数据库时运行：
+6. 运行 `./scripts/dev.sh tidy` 确认本次改动文件 clang-tidy 0 诊断（clangd 波浪线已实时提示，提交前显式复核）。
+7. 若存在测试文件，运行 `./scripts/dev.sh test` 验证不引入回归。
+8. 需要刷新 clangd 编译数据库时运行：
 
 ```bash
 ./scripts/dev.sh wsl-build --configure-only
 ```
 
-8. Windows MSVC 验证构建：
+9. Windows MSVC 验证构建：
 
 ```bash
 ./scripts/dev.sh win-build

@@ -1,2 +1,8 @@
 CompileFlags:
   CompilationDatabase: build-wsl-clang
+
+# clang-tidy 集成（波浪线增量检查）。
+# 复用 .clang-tidy 配置（含禁用项），与全量门禁（./scripts/dev.sh tidy --all）
+# 同源；clangd 与 clang-tidy-21 同为 21.x，诊断一致。
+Diagnostics:
+  ClangTidy: true
