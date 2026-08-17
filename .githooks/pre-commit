@@ -1,22 +1,35 @@
 #!/usr/bin/env bash
 # devpiano pre-commit hook: 阻止格式违规进入提交（ENG-001 门禁）。
-# 仅检查暂存的 source/ 下 .cpp/.h；无 clang-format-21 时跳过（不阻塞提交）。
+# 仅检查暂存的 source/ 下 .cpp/.h；无 clang-format 可用时跳过并警告（不阻塞提交）。
 set -euo pipefail
 
 ROOT_DIR="$(git rev-parse --show-toplevel)"
 cd "$ROOT_DIR"
 
-if ! command -v clang-format-21 >/dev/null 2>&1; then
-    echo "pre-commit: clang-format-21 not found; skipping format check" >&2
+# 工具探测：$CLANG_FORMAT 环境变量 → clang-format-21 → clang-format。
+# 硬编码单版本号会让无版本化命名的环境（部分发行版 / Homebrew）静默跳过门禁。
+clang_format="${CLANG_FORMAT:-}"
+if [[ -z "${clang_format}" ]]; then
+    for candidate in clang-format-21 clang-format; do
+        if command -v "${candidate}" >/dev/null 2>&1; then
+            clang_format="${candidate}"
+            break
+        fi
+    done
+fi
+
+if [[ -z "${clang_format}" ]]; then
+    echo "pre-commit: clang-format not found (set CLANG_FORMAT); skipping format check" >&2
     exit 0
 fi
 
-staged_files="$(git diff --cached --name-only --diff-filter=ACM -- 'source/*.cpp' 'source/*.h')"
-if [[ -z "${staged_files}" ]]; then
-    exit 0
-fi
-
-if ! echo "${staged_files}" | xargs clang-format-21 --dry-run --Werror -style=file; then
+# NUL 分隔（-z）配合 xargs -0：杜绝文件名含换行/空格的切分歧义。
+# -r 使空暂存不执行（GNU xargs；项目环境为 WSL / Git for Windows，均为 GNU）。
+# pathspec 语义：无 magic 时 '*' 跨目录匹配（Git fnmatch 不启用 FNM_PATHNAME），
+# 'source/*.cpp' 已覆盖 source/Recording/ 等全部子目录，与 :(glob)source/**/*.cpp 等价
+# （已验证 56/56 文件一致），无需显式 glob magic。
+if ! git diff --cached --name-only -z --diff-filter=ACM -- 'source/*.cpp' 'source/*.h' \
+    | xargs -0 -r "${clang_format}" --dry-run --Werror --style=file; then
     echo "pre-commit: format check failed — run ./scripts/dev.sh format, then re-stage" >&2
     exit 1
 fi
