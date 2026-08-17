@@ -13,5 +13,6 @@
 - [`ADR-004-juce-audiodevicemanager-audio-backend.md`](ADR-004-juce-audiodevicemanager-audio-backend.md)：使用 JUCE `AudioDeviceManager` 作为音频设备管理主路径，不复刻旧 WASAPI / ASIO / DirectSound 后端。
 - [`ADR-005-vst3-first-plugin-hosting.md`](ADR-005-vst3-first-plugin-hosting.md)：使用 JUCE `AudioPluginFormatManager` / `AudioPluginInstance` 作为插件宿主抽象，以 VST3 为当前主路径，不复刻旧 VST SDK 风格宿主。
 - [`ADR-006-remove-external-midi-support.md`](ADR-006-remove-external-midi-support.md)：移除外 MIDI 设备支持，聚焦电脑键盘演奏场景，删除相关死代码。
+- [`ADR-007-clang-tidy-check-only-clang-format-fixes.md`](ADR-007-clang-tidy-check-only-clang-format-fixes.md)：clang-tidy 只做检查（禁用 `--fix`），格式化与机械修复交给 clang-format 与人工。
 
 ADR 应记录已确定的决策、原因和影响，不用于描述未决定的计划。
