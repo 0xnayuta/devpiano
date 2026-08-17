@@ -36,18 +36,19 @@ Phase 11（声明式 UI 架构迁移，JIVE + melatonin_inspector）已全部完
 
 验证：`./scripts/dev.sh format --check`（归零）、`./scripts/dev.sh wsl-build`（0 warning）、clang-tidy 目标、`./scripts/dev.sh win-build`（全部通过，2026-08-16）。
 
-## AUDIT Phase C — 核心模块测试补强 [未开始]
+## AUDIT Phase C — 核心模块测试补强 [已完成]
 
 > 目标：填补 3 个 P1 覆盖空洞（会话控制 / 通道矩阵 / 预设序列化）与导出、设置、插件操作层（P2），全部纯逻辑、无 GUI/设备依赖，可进 `devpiano_tests`。
+> 完成于 2026-08-17：6 个测试文件全部落地（1486 行，断言总数 357 → 1322），**顺带发现并修复 1 个真实持久化 bug**（SettingsStore customKeyLabels/Colours 永远无法从磁盘恢复，见下 TEST-004）。验证：wsl-build 0 warning / test 1322 断言全绿 / format 归零 / 新文件 clang-tidy 0 诊断，详见 AUDIT-001 §7 复审 6。
 
-- [ ] `TEST-001`：`RecordingSessionControllerTest`——`getLastMidiExportDirectory`（.cpp:52-64）、`toRecordingFlowState`/`makeRecordingFlowStatus` 组合、`RecordingSession::isRecording/isPlaying` paused 语义（.h:36-50）、`replaceTakeAndStartPlayback` 流程（FileChooser 注入桩）。
-- [ ] `TEST-002`：`MidiChannelMapperTest`——matrix.active=false 透传、`applyMatrixToNoteOn/Off` 通道选择、transpose 边界钳制、followKey+midiTranspose 组合、noteOn/Off 对称变换。
-- [ ] `TEST-003`：`PerformancePresetTest`——save→load round-trip（含 128 项 customKeyLabels/Colours）、`sanitisePresetFileName` 特殊字符、损坏文件返回 nullopt、formatVersion 校验。
-- [ ] `TEST-004`：SettingsStore 测试——临时 PropertiesFile round-trip + scheduleSave 合并/延迟语义（timer 注入）。
-- [ ] `TEST-005`：导出链纯逻辑测试——`buildWavExportOptions` 参数组合、`canExportTake` 边界、WAV/MIDI 头 round-trip 读回。
-- [ ] `TEST-006`：PluginHost XML round-trip（createKnownPluginListXml→restore）与 PluginPanelStateBuilder 测试。
+- [x] `TEST-001`：`RecordingSessionControllerTest`——RecordingSession paused 语义矩阵（recordingPaused/playingPaused 流保持）、ui↔flow 状态映射 round-trip、chooseRecordingFlowCommand 全组合矩阵（record/playPause/stop × 5 状态 × hasTake）、getStateAfterCommand 全命令映射、last-MIDI 导出/导入目录解析（文件→父目录/目录→自身/过期路径→CWD fallback）。（可测性重构：toRecordingFlowState/toRecordingControlsState/makeRecordingFlowStatus 从 .cpp 匿名空间移入 RecordingFlowSupport；getLastMidiExportDirectory/ImportDirectory 移入 ExportFlowSupport；replaceTakeAndStartPlayback 需 MainComponent 不可直接测，其状态转换语义由命令组合测试覆盖）
+- [x] `TEST-002`：`MidiChannelMapperTest`——inactive 透传（applyTransform 原样/全局移调在 sendNoteOn 仍生效）、outputChannel 重映射、transpose+octaveShift 边界钳制（0/127）、velocity 覆盖（64=不覆盖）、followKey+midiTranspose 组合、noteOn/Off 对称、非 note 消息透传、输入通道越界钳制、MidiKeyboardState 实际收/放。
+- [x] `TEST-003`：`PerformancePresetTest`——全字段 save→load round-trip（含 128 customKeyLabels/Colours、bindings、channelMatrix、keyboard 子集）、sanitisePresetFileName 特殊字符/trim/空→untitled、损坏文件（不存在/空/无效 JSON/非对象/version=2）→ nullopt、扩展名自动补、display name、makeDefaultPreset。
+- [x] `TEST-004`：`SettingsStoreTest`——临时 PropertiesFile（Options.folderName 注入）save→load round-trip（含 channelMatrix/labels/colours/knownPluginListXml XML 字段）、corrupted zero-state 恢复默认、scheduleSave 合并语义（SettingsDebounceTimer 公开 + 手动触发 timerCallback）。**发现真实 bug**：readNow 用 `note.isInt()` 判断 ValueTree 属性——fromXml 后属性为 String 类型，isInt() 恒 false → custom key labels/colours 持久化读回永远失效（已修复：`isInt() || isString()`）。
+- [x] `TEST-005`：`ExportFlowTest`——buildWavExportOptions 组合（runtime SR 优先/take SR fallback/44100 默认/blockSize≥1/ADSR 透传）、canExportTake 边界、默认导出文件命名、日志前缀、MIDI 导出→读回事件匹配、WAV 导出→读回 header（sampleRate/channels/长度）+ 非零采样验证。
+- [x] `TEST-006`：`PluginHostXmlTest`——createKnownPluginListXml→restore round-trip（空列表/手构插件 XML/幂等/垃圾 XML 不崩溃）、PluginPanelStateBuilder 状态映射（fresh host/preferredSelection/isEditorOpen/恢复列表）。PluginOperationController 依赖 MainComponent 不可测，如实记录。
 
-验证：`./scripts/dev.sh test`（新增测试进 `devpiano_tests`）、`./scripts/dev.sh format --check`。
+验证：`./scripts/dev.sh test`（1322 断言全绿）、`./scripts/dev.sh format --check`（归零）、wsl-build（0 warning）、win-build（通过，2026-08-17）。
 
 ## AUDIT Phase D — 测试机制与回归强化 [进行中]
 

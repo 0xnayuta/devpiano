@@ -249,6 +249,10 @@ if (BUILD_TESTS)
         source/Diagnostics/MidiTrace.h
         source/Recording/MidiFileImporter.cpp
         source/Recording/MidiFileImporter.h
+        source/Recording/MidiFileExporter.cpp
+        source/Recording/MidiFileExporter.h
+        source/Recording/WavFileExporter.cpp
+        source/Recording/WavFileExporter.h
         source/Recording/PerformanceFile.cpp
         source/Recording/PerformanceFile.h
         source/Recording/RenderPipeline.cpp
@@ -258,12 +262,29 @@ if (BUILD_TESTS)
         source/Recording/RecordingFlowSupport.cpp
         source/Recording/RecordingFlowSupport.h
 
+        source/Export/ExportFlowSupport.cpp
+        source/Export/ExportFlowSupport.h
+        source/Export/WavExportOptions.h
+
         source/Midi/MidiChannelMapper.cpp
         source/Midi/MidiChannelMapper.h
         source/Audio/AudioEngine.cpp
         source/Audio/AudioEngine.h
         source/Plugin/PluginHost.cpp
         source/Plugin/PluginHost.h
+
+        source/Layout/PerformancePreset.cpp
+        source/Layout/PerformancePreset.h
+        source/Settings/SettingsStore.cpp
+        source/Settings/SettingsStore.h
+        source/Settings/SettingsSerialization.cpp
+        source/Settings/SettingsSerialization.h
+        source/Settings/SettingsModel.h
+        source/UI/KeyboardTypes.h
+        source/UI/RecordingTypes.h
+        source/UI/PluginPanelStateBuilder.cpp
+        source/UI/PluginPanelStateBuilder.h
+        source/UI/PluginTypes.h
 
         source/UI/jive/StyleCatalog.cpp
         source/UI/jive/StyleCatalog.h
@@ -288,6 +309,12 @@ if (BUILD_TESTS)
         source/tests/RenderPipelineTest.cpp
         source/tests/StyleCatalogTest.cpp
         source/tests/PathEditorReproTest.cpp
+        source/tests/RecordingSessionControllerTest.cpp
+        source/tests/MidiChannelMapperTest.cpp
+        source/tests/PerformancePresetTest.cpp
+        source/tests/SettingsStoreTest.cpp
+        source/tests/ExportFlowTest.cpp
+        source/tests/PluginHostXmlTest.cpp
     )
     target_link_libraries(devpiano_tests PRIVATE
         juce::juce_core

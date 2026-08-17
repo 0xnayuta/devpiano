@@ -69,4 +69,42 @@ bool shouldRestoreKeyboardFocus(RecordingFlowCommand command) noexcept {
     return command != RecordingFlowCommand::none;
 }
 
+RecordingFlowState toRecordingFlowState(ui::RecordingState state) noexcept {
+    switch (state) {
+    case ui::RecordingState::idle:
+        return RecordingFlowState::idle;
+    case ui::RecordingState::recording:
+        return RecordingFlowState::recording;
+    case ui::RecordingState::recordingPaused:
+        return RecordingFlowState::recordingPaused;
+    case ui::RecordingState::playing:
+        return RecordingFlowState::playing;
+    case ui::RecordingState::playingPaused:
+        return RecordingFlowState::playingPaused;
+    }
+
+    return RecordingFlowState::idle;
+}
+
+ui::RecordingState toRecordingControlsState(RecordingFlowState state) noexcept {
+    switch (state) {
+    case RecordingFlowState::idle:
+        return ui::RecordingState::idle;
+    case RecordingFlowState::recording:
+        return ui::RecordingState::recording;
+    case RecordingFlowState::recordingPaused:
+        return ui::RecordingState::recordingPaused;
+    case RecordingFlowState::playing:
+        return ui::RecordingState::playing;
+    case RecordingFlowState::playingPaused:
+        return ui::RecordingState::playingPaused;
+    }
+
+    return ui::RecordingState::idle;
+}
+
+RecordingFlowStatus makeRecordingFlowStatus(ui::RecordingState state, bool hasTake) noexcept {
+    return { .currentState = toRecordingFlowState(state), .hasTake = hasTake };
+}
+
 } // namespace devpiano::recording

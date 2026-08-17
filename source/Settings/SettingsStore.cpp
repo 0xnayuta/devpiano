@@ -63,18 +63,42 @@ void readPerformanceSettings(juce::PropertiesFile& file, SettingsModel& model) {
 }
 }
 
-SettingsStore::SettingsStore() = default;
+SettingsStore::SettingsStore(juce::PropertiesFile::Options options)
+    : storedOptions(std::move(options)) {
+}
+
+SettingsDebounceTimer::SettingsDebounceTimer(SettingsStore& s)
+    : store(s) {
+}
+
+void SettingsDebounceTimer::setPayload(const SettingsModel& m) {
+    modelPtr = &m;
+}
+
+void SettingsDebounceTimer::start(int ms) {
+    startTimer(ms);
+}
+
+void SettingsDebounceTimer::timerCallback() {
+    stopTimer();
+    if (modelPtr) {
+        store.save(*modelPtr);
+    }
+}
 
 void SettingsStore::ensureProps() {
     if (appProps) {
         return;
     }
-    juce::PropertiesFile::Options opts;
-    opts.applicationName = kSectionApp;
-    opts.filenameSuffix = ".settings";
-    opts.osxLibrarySubFolder = "Application Support";
-    opts.commonToAllUsers = false;
-    opts.storageFormat = juce::PropertiesFile::storeAsXML;
+    auto opts = storedOptions;
+    if (opts.applicationName.isEmpty()) {
+        // Production location: user application-data directory.
+        opts.applicationName = kSectionApp;
+        opts.filenameSuffix = ".settings";
+        opts.osxLibrarySubFolder = "Application Support";
+        opts.commonToAllUsers = false;
+        opts.storageFormat = juce::PropertiesFile::storeAsXML;
+    }
     appProps = std::make_unique<juce::ApplicationProperties>();
     appProps->setStorageParameters(opts);
 }
@@ -148,7 +172,9 @@ void SettingsStore::readNow(SettingsModel& m) {
         for (int i = 0; i < t.getNumChildren(); ++i) {
             auto c = t.getChild(i);
             auto note = c.getProperty("note");
-            if (note.isInt()) {
+            // ValueTree::fromXml 将 XML 属性还原为 String 类型（isInt() 恒 false），
+            // 需同时接受 String 与 int 两种形态（内存直构 vs XML round-trip）。
+            if (note.isInt() || note.isString()) {
                 auto n = static_cast<int>(note);
                 if (n >= 0 && n < 128) {
                     m.customKeyLabels[static_cast<std::size_t>(n)] = c.getProperty("text").toString();
@@ -164,7 +190,8 @@ void SettingsStore::readNow(SettingsModel& m) {
         for (int i = 0; i < t.getNumChildren(); ++i) {
             auto c = t.getChild(i);
             auto note = c.getProperty("note");
-            if (note.isInt()) {
+            // 同 labels：XML round-trip 后属性为 String 类型。
+            if (note.isInt() || note.isString()) {
                 auto n = static_cast<int>(note);
                 if (n >= 0 && n < 128) {
                     m.customKeyColours[static_cast<std::size_t>(n)]
@@ -283,34 +310,10 @@ void SettingsStore::save(const SettingsModel& model) {
 }
 
 void SettingsStore::scheduleSave(const SettingsModel& model, int msDelay) {
-    class DebounceTimer : public juce::Timer {
-    public:
-        DebounceTimer(SettingsStore& s)
-            : store(s) {
-        }
-        void setPayload(const SettingsModel& m) {
-            modelPtr = &m;
-        }
-        void start(int ms) {
-            startTimer(ms);
-        }
-        void timerCallback() override {
-            stopTimer();
-            if (modelPtr) {
-                store.save(*modelPtr);
-            }
-        }
-
-    private:
-        SettingsStore& store;
-        const SettingsModel* modelPtr = nullptr;
-    };
-
     if (!saverTimer) {
-        saverTimer = std::make_unique<DebounceTimer>(*this);
+        saverTimer = std::make_unique<SettingsDebounceTimer>(*this);
     }
 
-    auto* t = static_cast<DebounceTimer*>(saverTimer.get());
-    t->setPayload(model);
-    t->start(msDelay);
+    saverTimer->setPayload(model);
+    saverTimer->start(msDelay);
 }

@@ -20,6 +20,37 @@ juce::File makeDefaultRecordingExportFile(ExportFileType type, const juce::File&
     return directory.getChildFile("recording_" + now.toISO8601(false).replaceCharacters(":", "-") + getExtension(type));
 }
 
+juce::File getLastMidiExportDirectory(const SettingsModel& settings) {
+    if (settings.lastMidiExportPath.isNotEmpty()) {
+        auto lastFile = juce::File(settings.lastMidiExportPath);
+        if (lastFile.existsAsFile()) {
+            return lastFile.getParentDirectory();
+        }
+
+        if (lastFile.isDirectory()) {
+            return lastFile;
+        }
+
+        const auto parent = lastFile.getParentDirectory();
+        if (parent.isDirectory()) {
+            return parent;
+        }
+    }
+
+    return juce::File::getCurrentWorkingDirectory();
+}
+
+juce::File getLastMidiImportDirectory(const SettingsModel& settings) {
+    if (settings.lastMidiImportPath.isNotEmpty()) {
+        const auto lastFile = juce::File(settings.lastMidiImportPath);
+        if (lastFile.exists()) {
+            return lastFile.getParentDirectory();
+        }
+    }
+
+    return juce::File {};
+}
+
 bool canExportTake(const devpiano::recording::RecordingTake& take) {
     return !take.isEmpty();
 }

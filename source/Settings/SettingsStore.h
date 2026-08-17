@@ -3,9 +3,33 @@
 #include "SettingsModel.h"
 #include <JuceHeader.h>
 
+class SettingsStore;
+
+// Debounced save helper backing SettingsStore::scheduleSave.
+//
+// Extracted from the .cpp-local implementation so unit tests can drive
+// timerCallback() directly (juce::Timer::timerCallback is public) and verify
+// the merge semantics without a running message loop.
+class SettingsDebounceTimer final : public juce::Timer {
+public:
+    explicit SettingsDebounceTimer(SettingsStore& store);
+
+    void setPayload(const SettingsModel& model);
+    void start(int ms);
+
+    void timerCallback() override;
+
+private:
+    SettingsStore& store;
+    const SettingsModel* modelPtr = nullptr;
+};
+
 class SettingsStore {
 public:
-    SettingsStore();
+    // `options` overrides the storage location; leave empty to use the
+    // production location (user application-data directory).  Tests inject a
+    // temporary-directory options set to avoid touching real user settings.
+    explicit SettingsStore(juce::PropertiesFile::Options options = {});
 
     void load(SettingsModel& model);
     void save(const SettingsModel& model);
@@ -14,8 +38,9 @@ public:
     void scheduleSave(const SettingsModel& model, int msDelay = 300);
 
 private:
+    juce::PropertiesFile::Options storedOptions;
     std::unique_ptr<juce::ApplicationProperties> appProps;
-    std::unique_ptr<juce::Timer> saverTimer; // created lazily
+    std::unique_ptr<SettingsDebounceTimer> saverTimer; // created lazily
 
     void ensureProps();
     juce::PropertiesFile& file();

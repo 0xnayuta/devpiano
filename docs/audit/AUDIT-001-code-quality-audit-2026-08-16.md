@@ -383,9 +383,9 @@ source/
 
 - [x] `THR-001`：`AudioEngine::masterGain` 改为 `std::atomic<float>`（或经设备重建 guard 同步写），消除音频回调/消息线程数据竞争。（已落地：`std::atomic<float>` + relaxed load/store，2026-08-16 复审 3）
 - [x] `ERR-001`：`advancePlaybackPosition` 播放结束日志移出音频线程——实时线程仅置 `playbackEndedPending` 原子标志，日志移至 `RecordingSessionController::checkPlaybackEnded()`（消息线程）或预构建字符串。（已落地：日志移至 checkPlaybackEnded，字段全部原子读取，2026-08-16 复审 3）
-- [ ] `TEST-001`：补 `RecordingSessionControllerTest`——覆盖 `getLastMidiExportDirectory`（.cpp:52-64）、`toRecordingFlowState`/`makeRecordingFlowStatus` 组合、`RecordingSession::isRecording/isPlaying` paused 语义（.h:36-50）、`replaceTakeAndStartPlayback` 流程（FileChooser 注入桩）。
-- [ ] `TEST-002`：补 `MidiChannelMapperTest`——matrix.active=false 透传、`applyMatrixToNoteOn/Off` 通道选择、transpose 边界钳制（note+keySignature 越界）、followKey+midiTranspose 组合、noteOn/Off 对称变换。
-- [ ] `TEST-003`：补 `PerformancePresetTest`——save→load round-trip（含 128 项 customKeyLabels/Colours）、`sanitisePresetFileName` 特殊字符、损坏文件返回 nullopt、formatVersion 校验。
+- [x] `TEST-001`：补 `RecordingSessionControllerTest`——paused 语义矩阵、ui↔flow 映射、命令组合矩阵、last-MIDI 目录解析（落地：`source/tests/RecordingSessionControllerTest.cpp`，2026-08-17 复审 6）
+- [x] `TEST-002`：补 `MidiChannelMapperTest`——透传/重映射/钳制/组合/对称全覆盖（落地：`source/tests/MidiChannelMapperTest.cpp`，2026-08-17 复审 6）
+- [x] `TEST-003`：补 `PerformancePresetTest`——全字段 round-trip + 损坏文件 + 版本校验（落地：`source/tests/PerformancePresetTest.cpp`，2026-08-17 复审 6）
 
 ### 5.3 近期排期（P2）
 
@@ -396,9 +396,9 @@ source/
 - [ ] `ERR-006`：`initialiseUi`/`reloadStylesAndTokens` 的 `JSON::parse` 结果加 `isVoid()` 校验 + 失败 `DP_LOG_ERROR`。
 - [ ] `ERR-008`：`WavFileExporter` 各失败分支补 `DP_LOG_ERROR`（对齐 PluginOfflineRenderer 日志粒度）。
 - [ ] `QUAL-001`：删除 `InputState::layoutId` 死字段与 `AppStateBuilder.h:83` 的 `lastActivePresetId` 误赋值。
-- [ ] `TEST-004`：补 SettingsStore 测试（临时 PropertiesFile round-trip + scheduleSave 合并语义）。
-- [ ] `TEST-005`：补导出链纯逻辑测试（`buildWavExportOptions` 组合、`canExportTake` 边界、WAV/MIDI 头 round-trip 读回验证）。
-- [ ] `TEST-006`：补 PluginHost XML round-trip（createKnownPluginListXml→restore）与 PluginPanelStateBuilder 测试。
+- [x] `TEST-004`：补 SettingsStore 测试——临时 PropertiesFile round-trip + scheduleSave 合并语义；发现并修复 readNow String 属性判断 bug（落地：`source/tests/SettingsStoreTest.cpp`，2026-08-17 复审 6）
+- [x] `TEST-005`：补导出链纯逻辑测试——选项组合 + WAV/MIDI 真实文件 round-trip（落地：`source/tests/ExportFlowTest.cpp`，2026-08-17 复审 6）
+- [x] `TEST-006`：补 PluginHost XML round-trip + PluginPanelStateBuilder 测试（落地：`source/tests/PluginHostXmlTest.cpp`，2026-08-17 复审 6）
 - [ ] `TEST-007`：离屏渲染测试 CustomKeyboard 命中映射/八度切换与 AdsrCurve 拖拽钳制。
 - [ ] `TEST-008`：AudioEngineTest 注入 noteOn 后断言 warmup 块内静音、warmup 后非零采样（消除"本来无声"假通过）。
 - [ ] `TEST-009`：补 AudioEngine 未覆盖 API（setAdsr/armPlaybackStartPreRoll 块计数纯函数/接线）。
@@ -544,6 +544,27 @@ devpiano 核心运行时健康：0 项 P0（无崩溃/数据损坏/静默泄漏�
 - **正确性/性能项人工修复**：analyzer DeadStores（删 idle 重复赋值）×4、StackAddressEscape（NOLINT + C++17 guaranteed elision 论证）、NullDereference（if 守卫）；velocity 窄化（`uint8` 与 `0.0f` 比较 → `== 0`/显式 cast）；widening（容量常量直接 1800）；misplaced-widening-cast（先 cast 再乘）；branch-clone（删冗余 default）；smartptr-reset 歧义（智能指针 `= nullptr`、实例方法 NOLINT）；POD 参数 pass-by-value 与 move-const-arg 互斥 → const& + NOLINT。
 - **修复后复验**：全量 44 文件 0 诊断；wsl-build 0 warning、test 33 类全绿、format 归零、win-build 通过。
 
+### 复审 6（2026-08-17，AUDIT Phase C 核心模块测试补强）
+
+`TEST-001~006` 全部落地：6 个测试文件（1486 行），断言总数 357 → **1322 全绿**。新增覆盖：会话状态机（paused 语义 + 命令组合矩阵）、MidiChannelMapper 路由/移调、PerformancePreset round-trip、SettingsStore 持久化 + scheduleSave 合并、导出链（WAV/MIDI 真实文件 round-trip）、PluginHost XML 持久化。
+
+**可测性重构（3 处，无行为变化）**：
+- `toRecordingFlowState`/`toRecordingControlsState`/`makeRecordingFlowStatus`：RecordingSessionController.cpp 匿名空间 → `RecordingFlowSupport.h/.cpp`（公开，测试直达）
+- `getLastMidiExportDirectory`/`getLastMidiImportDirectory`：匿名空间 → `ExportFlowSupport.h/.cpp`
+- `SettingsStore`：构造注入 `PropertiesFile::Options`（测试隔离临时目录）；`SettingsDebounceTimer` 提取为公开类（测试直接驱动 `timerCallback()` 验证合并语义）
+
+**测试发现并修复 1 个真实生产 bug（TEST-004 价值）**：
+- `SettingsStore::readNow` 用 `note.isInt()` 判断 ValueTree 属性——`ValueTree::fromXml` 将 XML 属性还原为 **String 类型**，`var(String).isInt()` 恒 false → **custom key labels/colours 持久化读回永远失效**（用户自定义键标签/颜色重启即丢）。channelMatrix 读回走 `valueTreeToChannelMatrix`（直接转换）故未受影响。已修复：`isInt() || isString()`。此缺陷因 SettingsStore 此前零测试而未被发现。
+
+**测试期望修正（3 处，均为测试侧问题）**：
+- velocity 0.5×127=63.5 经 `static_cast<int>` **截断**为 63（非四舍五入）
+- `previewAlpha` 有意不序列化（SettingsModel 无对应字段，savePreset 注释明确）→ 断言文档化默认 0
+- `sanitisePresetFileName` 对中文替换为下划线（`isLetterOrDigit` 为 ASCII 语义，文件名安全策略）
+
+**明确不可测项（如实记录）**：`replaceTakeAndStartPlayback` / `PluginOperationController` 依赖 `MainComponent&`（GUI），其状态转换语义由 chooseRecordingFlowCommand/getStateAfterCommand 组合测试覆盖；FileChooser 交互留手工测试。
+
+**验证**：wsl-build 0 warning（项目代码）、test 1322 断言全绿、format 归零、6 新测试文件 + 3 重构文件 clang-tidy 0 诊断、win-build 通过。
+
 ---
 
 ## 8. 附录：问题总表（登记表）
@@ -584,12 +605,12 @@ devpiano 核心运行时健康：0 项 P0（无崩溃/数据损坏/静默泄漏�
 | ERR-013 | 错误处理 | 测试代码直用 juce::Logger::writeToLog（绕过 DP_LOG 前缀） | P3 | 未处理 | 审计 | 生产代码 0 处直用（合规），但测试 4 处绕过宏，日志格式不统一 | `source/tests/PathEditorReproTest.cpp:68,76-77,109-110,116-117`、`source/tests/StyleCatalogTest.cpp:1082-1084` | - | 测试日志无法与生产统一过滤 | 改用 DP_LOG_* |
 | ERR-014 | 错误处理 | 测试中 JSON::parse 无 isVoid 校验 | P3 | 未处理 | 审计 | style_sheets.json 解析失败时测试静默空转（不报错也不断言） | `source/tests/PathEditorReproTest.cpp:20`、`source/tests/StyleCatalogTest.cpp:784`（575/710 有校验，两处遗漏） | - | 样式文件回归测试假绿 | 参照 575 模式补校验 |
 | ERR-015 | 错误处理 | WavExportTask 后台线程无应用层异常防护 | P3 | 未处理 | 审计 | 渲染异常逃逸 run() 由 JUCE 线程包装兜底（juce_Thread.cpp:114-117）——Debug 仅 jassertfalse，Release 静默吞掉：errorMessage 为空、无日志、残留部分文件 | `source/Export/WavExportTask.cpp:22-88`（run()）；验证 `submodules/JUCE/modules/juce_core/threads/juce_Thread.cpp:114-117` | - | Release 下导出失败原因不可见 | run() 内 try-catch + errorMessage + 清理 |
-| TEST-001 | 测试 | RecordingSessionController 零测试覆盖 | P1 | 未处理 | 审计 | 录制/回放/导入/导出全流程状态机、async FileChooser 流程、aliveFlag_ 生命周期 646 行零测试；错误分支与 UI 同步逻辑未验证 | `source/Recording/RecordingSessionController.h:24-107`（.cpp 646 行）；grep 确认 tests/ 无引用 | - | 流程状态机回归 | 补纯逻辑测试（状态组合/paused 语义/流程编排） |
-| TEST-002 | 测试 | MidiChannelMapper 零测试覆盖 | P1 | 未处理 | 审计 | 通道路由 + 移调核心逻辑零覆盖；唯一相关测试只测 nullptr 透传从未实例化 mapper；ChannelMatrix 语义下落不明 | `source/Midi/MidiChannelMapper.cpp:29-77`；`source/tests/KeyboardMidiMapperTest.cpp:296-314`（仅 nullptr 测试） | - | 矩阵路由回归 | 补纯函数级测试（透传/选择/边界/对称） |
-| TEST-003 | 测试 | PerformancePreset 序列化零测试覆盖 | P1 | 未处理 | 审计 | loadPreset/savePreset/scanPresetDirectory/sanitisePresetFileName 无 round-trip 覆盖；PresetFlowSupport 全部 CRUD 依赖此格式，格式变更可静默破坏用户数据 | `source/Layout/PerformancePreset.h:31-48`；tests/ 无引用 | - | 预设格式变更静默破坏 | 补 save→load round-trip + 损坏文件用例 |
-| TEST-004 | 测试 | SettingsStore 零测试（含 scheduleSave 防抖合并） | P2 | 未处理 | 审计 | load/save/scheduleSave（DebounceTimer 300ms）零测试；与已暂缓项 ERR-017（scheduleSave 裸指针 API）直接相关，合并语义从未验证 | `source/Settings/SettingsStore.h:7-18` | - | 设置丢失回归 | 临时 PropertiesFile round-trip + timer 注入 |
-| TEST-005 | 测试 | 导出链零测试（WavExportTask/导出器/流程支持） | P2 | 未处理 | 审计 | WavExportTask、exportTakeAsWavFile、exportTakeAsMidiFile、buildWavExportOptions/canExportTake（纯函数）全部未测；RenderPipelineTest 未触达真实写出路径 | `source/Export/WavExportTask.h:17-35`、`source/Recording/WavFileExporter.h:11-17`、`source/Recording/MidiFileExporter.h:10-12`、`source/Export/ExportFlowSupport.h:15-24` | - | 导出格式回归 | 临时目录 round-trip + 参数组合 |
-| TEST-006 | 测试 | 插件操作层/XML round-trip 零覆盖 | P2 | 未处理 | 审计 | PluginOperationController、PluginFlowSupport、PluginPanelStateBuilder、PluginOfflineRenderer 零覆盖；createKnownPluginListXml→restore 持久化路径未测 | `source/tests/PluginHostTest.cpp:31-262`（仅 fresh-host 只读查询） | - | 插件恢复逻辑回归 | 补 XML round-trip + 纯逻辑层测试 |
+| TEST-001 | 测试 | RecordingSessionController 零测试覆盖 | P1 | 已关闭 | 审计 | 录制/回放/导入/导出全流程状态机、async FileChooser 流程、aliveFlag_ 生命周期 646 行零测试；错误分支与 UI 同步逻辑未验证 | `source/Recording/RecordingSessionController.h:24-107`（.cpp 646 行）；grep 确认 tests/ 无引用 | - | 流程状态机回归 | 补纯逻辑测试（状态组合/paused 语义/流程编排） |
+| TEST-002 | 测试 | MidiChannelMapper 零测试覆盖 | P1 | 已关闭 | 审计 | 通道路由 + 移调核心逻辑零覆盖；唯一相关测试只测 nullptr 透传从未实例化 mapper；ChannelMatrix 语义下落不明 | `source/Midi/MidiChannelMapper.cpp:29-77`；`source/tests/KeyboardMidiMapperTest.cpp:296-314`（仅 nullptr 测试） | - | 矩阵路由回归 | 补纯函数级测试（透传/选择/边界/对称） |
+| TEST-003 | 测试 | PerformancePreset 序列化零测试覆盖 | P1 | 已关闭 | 审计 | loadPreset/savePreset/scanPresetDirectory/sanitisePresetFileName 无 round-trip 覆盖；PresetFlowSupport 全部 CRUD 依赖此格式，格式变更可静默破坏用户数据 | `source/Layout/PerformancePreset.h:31-48`；tests/ 无引用 | - | 预设格式变更静默破坏 | 补 save→load round-trip + 损坏文件用例 |
+| TEST-004 | 测试 | SettingsStore 零测试（含 scheduleSave 防抖合并） | P2 | 已关闭 | 审计 | load/save/scheduleSave（DebounceTimer 300ms）零测试；与已暂缓项 ERR-017（scheduleSave 裸指针 API）直接相关，合并语义从未验证 | `source/Settings/SettingsStore.h:7-18` | - | 设置丢失回归 | 临时 PropertiesFile round-trip + timer 注入 |
+| TEST-005 | 测试 | 导出链零测试（WavExportTask/导出器/流程支持） | P2 | 已关闭 | 审计 | WavExportTask、exportTakeAsWavFile、exportTakeAsMidiFile、buildWavExportOptions/canExportTake（纯函数）全部未测；RenderPipelineTest 未触达真实写出路径 | `source/Export/WavExportTask.h:17-35`、`source/Recording/WavFileExporter.h:11-17`、`source/Recording/MidiFileExporter.h:10-12`、`source/Export/ExportFlowSupport.h:15-24` | - | 导出格式回归 | 临时目录 round-trip + 参数组合 |
+| TEST-006 | 测试 | 插件操作层/XML round-trip 零覆盖 | P2 | 已关闭 | 审计 | PluginOperationController、PluginFlowSupport、PluginPanelStateBuilder、PluginOfflineRenderer 零覆盖；createKnownPluginListXml→restore 持久化路径未测 | `source/tests/PluginHostTest.cpp:31-262`（仅 fresh-host 只读查询） | - | 插件恢复逻辑回归 | 补 XML round-trip + 纯逻辑层测试 |
 | TEST-007 | 测试 | CustomKeyboard/AdsrCurveComponent 零测试 | P2 | 未处理 | 审计 | 键盘 hit-test/八度范围/吸附/自定义颜色渲染逻辑无测试；StyleCatalogTest 用 stub 工厂替换真实组件 | `source/UI/CustomKeyboard.cpp`、`source/UI/native/AdsrCurveComponent.cpp`；`source/tests/StyleCatalogTest.cpp:370-374`（stub） | - | 键盘交互回归 | 离屏渲染测试真实组件 |
 | TEST-008 | 测试 | AudioEngineTest 未喂音符，warmup/静音断言无区分力 | P2 | 未处理 | 审计 | WarmupTest"前两块静音"与 ReleaseResourcesTest"静音"即使删除 warmup/note-off 逻辑也通过——断言无法区分"warmup 生效"与"本来无声" | `source/tests/AudioEngineTest.cpp:186-198,243-256`；头注释 :9-12 自认豁免 synth 出声 | - | warmup 回归假绿 | 注入 noteOn 后断言 warmup 内静音/后非零 |
 | TEST-009 | 测试 | AudioEngine 未覆盖 API（setAdsr/armPlaybackStartPreRoll/接线） | P2 | 未处理 | 审计 | setAdsr、armPlaybackStartPreRoll、setPluginHost/setRecordingEngine 接线、recordRealtimeMidiBufferIfNeeded/renderPlaybackEventsIfNeeded 未测；calculateWarmupBlocks 纯函数无直接测试 | `source/Audio/AudioEngine.h:27-30,36,56-57`；`AudioEngine.cpp:13-22`（块计数纯函数） | - | ADSR/接线回归 | 补块计数纯函数 + ADSR 包络采样断言 |

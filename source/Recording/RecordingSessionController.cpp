@@ -19,80 +19,6 @@ namespace devpiano::recording {
 namespace {
 constexpr std::size_t defaultRecordingEventsPerSecond = 100;
 constexpr std::size_t defaultRecordingCapacitySeconds = 1800;
-
-[[nodiscard]] RecordingFlowState toRecordingFlowState(ui::RecordingState state) noexcept {
-    switch (state) {
-    case ui::RecordingState::idle:
-        return RecordingFlowState::idle;
-    case ui::RecordingState::recording:
-        return RecordingFlowState::recording;
-    case ui::RecordingState::recordingPaused:
-        return RecordingFlowState::recordingPaused;
-    case ui::RecordingState::playing:
-        return RecordingFlowState::playing;
-    case ui::RecordingState::playingPaused:
-        return RecordingFlowState::playingPaused;
-    }
-
-    return RecordingFlowState::idle;
-}
-
-[[nodiscard]] ui::RecordingState toRecordingControlsState(RecordingFlowState state) noexcept {
-    switch (state) {
-    case RecordingFlowState::idle:
-        return ui::RecordingState::idle;
-    case RecordingFlowState::recording:
-        return ui::RecordingState::recording;
-    case RecordingFlowState::recordingPaused:
-        return ui::RecordingState::recordingPaused;
-    case RecordingFlowState::playing:
-        return ui::RecordingState::playing;
-    case RecordingFlowState::playingPaused:
-        return ui::RecordingState::playingPaused;
-    }
-
-    return ui::RecordingState::idle;
-}
-
-[[nodiscard]] RecordingFlowStatus makeRecordingFlowStatus(ui::RecordingState state, bool hasTake) noexcept {
-    return { .currentState = toRecordingFlowState(state), .hasTake = hasTake };
-}
-
-[[nodiscard]] juce::File getLastMidiExportDirectory(const SettingsModel& settings) {
-    if (settings.lastMidiExportPath.isNotEmpty()) {
-        auto lastFile = juce::File(settings.lastMidiExportPath);
-        if (lastFile.existsAsFile()) {
-            return lastFile.getParentDirectory();
-        }
-
-        if (lastFile.isDirectory()) {
-            return lastFile;
-        }
-
-        const auto parent = lastFile.getParentDirectory();
-        if (parent.isDirectory()) {
-            return parent;
-        }
-    }
-
-    return juce::File::getCurrentWorkingDirectory();
-}
-
-[[nodiscard]] juce::File getLastMidiImportDirectory(const SettingsModel& settings) {
-    if (settings.lastMidiImportPath.isNotEmpty()) {
-        const auto lastFile = juce::File(settings.lastMidiImportPath);
-        if (lastFile.exists()) {
-            return lastFile.getParentDirectory();
-        }
-    }
-
-    return juce::File {};
-}
-
-[[nodiscard]] juce::File makeDefaultMidiExportFile(const SettingsModel& settings,
-                                                   devpiano::exporting::ExportFileType type) {
-    return devpiano::exporting::makeDefaultRecordingExportFile(type, getLastMidiExportDirectory(settings));
-}
 } // namespace
 
 RecordingSessionController::RecordingSessionController(MainComponent& ownerIn, RecordingEngine& recordingEngineIn,
@@ -295,7 +221,7 @@ void RecordingSessionController::handleExportWavClicked() {
 }
 
 void RecordingSessionController::handleImportMidiClicked() {
-    const auto startDir = getLastMidiImportDirectory(appSettings);
+    const auto startDir = devpiano::exporting::getLastMidiImportDirectory(appSettings);
     runImportOpenFlow("MIDI Import", TRANS("Import MIDI File"), startDir, "*.mid;*.midi", importMidiChooser,
                       [this](const juce::File& file) -> std::optional<RecordingTake> {
                           appSettings.lastMidiImportPath = file.getFullPathName();
@@ -532,7 +458,8 @@ void RecordingSessionController::runExportRecordingFlow(devpiano::exporting::Exp
         return;
     }
 
-    const auto defaultFile = makeDefaultMidiExportFile(appSettings, type);
+    const auto defaultFile = devpiano::exporting::makeDefaultRecordingExportFile(
+        type, devpiano::exporting::getLastMidiExportDirectory(appSettings));
 
     chooser = std::make_unique<juce::FileChooser>(dialogTitle, defaultFile, filePattern);
     chooser->launchAsync(
