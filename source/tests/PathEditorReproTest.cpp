@@ -12,11 +12,18 @@ public:
     void runTest() override {
         beginTest("path editor text");
 
+        // 独立基线（TEST-013）：不依赖其他测试文件对 StyleCatalog 单例的覆写。
+        devpiano::ui::jive::StyleCatalog::get().reset();
+
         // Load the real style sheet (the PathEditor rule must match the
-        // PathEditor factory type). The test runs with the repo root as its
-        // working directory.
-        const juce::File styleSheetFile("source/UI/jive/style_sheets.json");
-        expect(styleSheetFile.existsAsFile(), "style sheet file found relative to the test working directory");
+        // PathEditor factory type). Located relative to __FILE__ (TEST-014)
+        // so it works from any working directory; skipped when the file is
+        // missing (e.g. a bare binary build without the source tree).
+        const juce::File styleSheetFile
+            = juce::File(__FILE__).getParentDirectory().getChildFile("../UI/jive/style_sheets.json");
+        if (!styleSheetFile.existsAsFile()) {
+            return; // not a repo checkout; skip
+        }
         const auto styleJson = juce::JSON::parse(styleSheetFile.loadFileAsString());
         expect(!styleJson.isVoid(), "style_sheets.json must parse as JSON");
         if (styleJson.isVoid()) {

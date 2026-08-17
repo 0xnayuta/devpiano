@@ -438,14 +438,14 @@ source/
 - [x] `QUAL-016`：逐个决策 test-only API 面（hasDroppedEvents/getLastScanFailedFiles/setLowestVisibleNote/makeFullPianoLayout/NoteRange/isValid 系列）——接入生产或删除并清理测试。（落地：2026-08-17 复审 9）
 - [x] `QUAL-017`：删除 CustomKeyboard.h 过期 Phase 6 开发步骤注释。（落地：2026-08-17 复审 9）
 - [x] `QUAL-018`：`MainComponent.cpp` adsrCurve 怪 lambda 初始化改直接 `= nullptr`。（落地：2026-08-17 复审 9）
-- [ ] `TEST-013`：StyleCatalog/DesignTokens 提供 reset()，消除跨文件执行顺序依赖。
-- [ ] `TEST-014`：测试 fixture/样式文件改为 `__FILE__` 相对定位或缺失时显式 skip。
-- [ ] `TEST-015`：键盘状态查询抽象为可注入谓词，消除 OS 键盘依赖。
-- [ ] `TEST-016`：AudioEngineTest/PluginHostTest 的 `expect(true)` 空洞断言补可观察结果校验。
+- [x] `TEST-013`：StyleCatalog/DesignTokens 提供 reset()，消除跨文件执行顺序依赖。（落地：2026-08-17 复审 11）
+- [x] `TEST-014`：测试 fixture/样式文件改为 `__FILE__` 相对定位或缺失时显式 skip。（落地：2026-08-17 复审 11）
+- [x] `TEST-015`：键盘状态查询抽象为可注入谓词，消除 OS 键盘依赖。（落地：2026-08-17 复审 11）
+- [x] `TEST-016`：AudioEngineTest/PluginHostTest 的 `expect(true)` 空洞断言补可观察结果校验。（落地：2026-08-17 复审 11）
 - [x] `TEST-017`：MidiFileImporter velocity-channel 恒真断言拆分为独立可证伪断言。（已落地：`expect(foundVaryingVelocity, ...)` 与 `expect(foundNonDefaultChannel, ...)` 两条独立断言，见第 7 章复审记录）
-- [ ] `TEST-018`：hasTake jassert 用例改为验证 RecordingSession 副本语义（Debug/Release 双配置 CI）。
-- [ ] `TEST-019`：warmup 块数 magic number 改引用生产常量/注释说明。
-- [ ] `TEST-020`：TestRunner --category/--name 冲突参数报错或文档化优先级。
+- [x] `TEST-018`：hasTake jassert 用例改为验证 RecordingSession 副本语义（Debug/Release 双配置 CI）。（落地：2026-08-17 复审 11）
+- [x] `TEST-019`：warmup 块数 magic number 改引用生产常量/注释说明。（落地：2026-08-17 复审 11）
+- [x] `TEST-020`：TestRunner --category/--name 冲突参数报错或文档化优先级。（落地：2026-08-17 复审 11）
 - [x] `DOC-001`：architecture.md 更新 MainComponent 实际行数（1143）或改描述性表述。（落地：2026-08-17 复审 10）
 - [x] `DOC-005`：清理 zh_CN.loc.h 13 个死键。（落地：2026-08-17 复审 10）
 - [x] `DOC-006`：SettingsModel 扁平成员改持有单一 KeyboardDisplaySettingsView 实例（消除双默认值）。（落地：2026-08-17 复审 10）
@@ -617,6 +617,20 @@ devpiano 核心运行时健康：0 项 P0（无崩溃/数据损坏/静默泄漏�
 
 **验证**：wsl-build 0 warning、test 2916 断言全绿、format 归零、12 个改动文件 clang-tidy 0 诊断、win-build 通过。
 
+### 复审 11（2026-08-17，AUDIT Phase H 测试质量余项）
+
+`TEST-013~020` 全部处理（TEST-017 已在复审 2 落地）。要点：
+
+- **TEST-013**：StyleCatalog/DesignTokens 新增 `reset()`（初态恢复）；StyleCatalogTest::runTest 开头 reset 建立独立基线；PathEditorReproTest 开头 reset——消除进程级单例的跨文件执行顺序依赖（locale 测试本就恢复 en，保持）。
+- **TEST-014**：三处 fixture/样式定位改 `__FILE__` 相对（source/tests → 仓库内）——MidiFileImporterTest fixture 目录、StyleCatalogTest findShippedStyleSheet、PathEditorReproTest style sheet（缺失时显式 skip，不再 expect 失败）；CWD/exe 上溯保留为兼容回退。
+- **TEST-015**：KeyboardMidiMapper 新增 `setKeyStatePredicate(KeyStatePredicate)` 可注入键状态谓词（默认委托 `juce::KeyPress::isKeyCurrentlyDown`，生产行为不变）；KeyReleaseTest 注入全释放谓词——桌面环境物理按住按键不再误报。
+- **TEST-016**：5 处空洞断言补可观察校验——gain>1.0 钳制（与 gain=1.0 输出 approximatelyEqual 逐样本一致）、requestAllNotesOff（note on 出声 → all-notes-off → 40 块后释放尾音衰减静音）、re-prepare after release（重新 prepare 后注入音符渲染非零）、getDefaultVst3SearchPath（路径全绝对或空）、restoreKnownPluginListFromXml（空 XML → false + count 0 + summary 非空）。
+- **TEST-018**：删除录制中调用 `hasTake()`（jassert 契约违反固化）；改为验证安全查询路径（录制中 `getCurrentTake()` 返回空 take、capacity 可读）+ 停止后 `hasTake()` 正确。
+- **TEST-019**：exhaustWarmup 硬编码 5 块改 `AudioEngine::calculateWarmupBlockCount(44100.0, blockSize)`——生产改 warmupSeconds 自动跟随。
+- **TEST-020**：TestRunner `--category` + `--name` 同时给出 → 显式报错 EXIT_FAILURE（不再 category 静默优先）；help 文档化互斥规则与空匹配报错（空匹配报错为 TEST-011 既有落地，行为验证 exit=1）。
+
+**验证**：wsl-build 0 warning、test 2921 断言全绿（新增/改写断言 +4）、format 归零、12 个改动文件 clang-tidy 0 诊断、win-build 通过、CLI 冲突/空匹配/help 退出码实测（1/1/0）。
+
 ---
 
 ## 8. 附录：问题总表（登记表）
@@ -667,13 +681,13 @@ devpiano 核心运行时健康：0 项 P0（无崩溃/数据损坏/静默泄漏�
 | TEST-008 | 测试 | AudioEngineTest 未喂音符，warmup/静音断言无区分力 | P2 | 已关闭 | 审计 | WarmupTest"前两块静音"与 ReleaseResourcesTest"静音"即使删除 warmup/note-off 逻辑也通过——断言无法区分"warmup 生效"与"本来无声" | `source/tests/AudioEngineTest.cpp:186-198,243-256`；头注释 :9-12 自认豁免 synth 出声 | - | warmup 回归假绿 | 注入 noteOn 后断言 warmup 内静音/后非零 |
 | TEST-009 | 测试 | AudioEngine 未覆盖 API（setAdsr/armPlaybackStartPreRoll/接线） | P2 | 已关闭 | 审计 | setAdsr、armPlaybackStartPreRoll、setPluginHost/setRecordingEngine 接线、recordRealtimeMidiBufferIfNeeded/renderPlaybackEventsIfNeeded 未测；calculateWarmupBlocks 纯函数无直接测试 | `source/Audio/AudioEngine.h:27-30,36,56-57`；`AudioEngine.cpp:13-22`（块计数纯函数） | - | ADSR/接线回归 | 补块计数纯函数 + ADSR 包络采样断言 |
 | TEST-010 | 测试 | PerformanceFileTest 被 Files 类别默认跳过（持久化回归从不执行） | P2 | 已关闭 | 审计 | PerformanceFileTest 注册在 "Files" 类别被 TestRunner 默认 skipCategories 整体跳过——.devpiano 持久化 round-trip（AUDIT-SEC-004 回归）在默认/CI 运行中从不执行 | `source/tests/PerformanceFileTest.cpp:65`；`source/tests/TestRunner.cpp:38-39`；`docs/issues/known-issues.md:77-79` | - | 原子写回归无守护 | 独立类别或精确文件过滤 |
-| TEST-013 | 测试 | 跨文件进程级单例与执行顺序依赖 | P3 | 未处理 | 审计 | StyleCatalog::get()/DesignTokens::get() 被 4 文件反复覆写；PathEditorReproTest 注释显式依赖跨文件执行顺序；改链接顺序/单文件重跑可能破坏测试 | `source/tests/StyleCatalogTest.cpp:52,138,172,932-936,1019`；`source/tests/PathEditorReproTest.cpp:92-95` | - | 测试顺序脆弱 | 提供 reset() 恢复初态 |
-| TEST-014 | 测试 | 测试依赖 CWD/真实文件（fixture 与样式表） | P3 | 未处理 | 审计 | MidiFileImporterTest fixture 路径 "tests/fixtures/midi/" 依赖 CTest WORKING_DIRECTORY；PathEditorReproTest/StyleCatalogTest 加载真实 style_sheets.json（CWD 或 exe 上溯）——IDE/其他工作目录运行即红 | `source/tests/MidiFileImporterTest.cpp:15-19,22`；`PathEditorReproTest.cpp:15-17`；`StyleCatalogTest.cpp:560-568` | - | 非标准工作目录测试失败 | __FILE__ 相对定位或缺失 skip |
-| TEST-015 | 测试 | NoteOffOnReleaseTest 依赖真实 OS 键盘状态 | P3 | 未处理 | 审计 | KeyPress::isKeyCurrentlyDown() 查询系统键盘——headless 下恒 false 成立，真实桌面且该键被物理按住时前提失效误报 | `source/tests/KeyboardMidiMapperTest.cpp:221-247` | - | 环境相关脆弱测试 | 抽象可注入键状态谓词 |
-| TEST-016 | 测试 | 断言强度不足（只调不查 expect(true)） | P3 | 未处理 | 审计 | "gain clamps >1.0"/"requestAllNotesOff does not crash"/"re-prepare after release"/"getDefaultVst3SearchPath does not crash"/"restoreKnownPluginListFromXml null safe" 仅 expect(true) 无结果校验 | `source/tests/AudioEngineTest.cpp:130-135,152-160,231-241`；`source/tests/PluginHostTest.cpp:223-230,253-260` | - | 行为回归不可见 | 补可观察结果断言 |
-| TEST-018 | 测试 | hasTake jassert 用例固化 API 契约缺陷 | P3 | 未处理 | 审计 | "hasTake jasserts during recording" 仅验证 Release 不崩、零行为断言；jassert 仅在调试器下中断（juce_PlatformDefs.h:167 实现），CI 无碍；测试把"录制中读 currentTake"的契约违反固化为预期行为 | `source/tests/RecordingEngineTest.cpp:101-113`；`source/Recording/RecordingEngine.cpp:33-39`（jassert(!isRecording())）；验证 `submodules/JUCE/modules/juce_core/system/juce_PlatformDefs.h:167` | - | Debug 调试器下测试中断 | 改验证 RecordingSession 副本语义 |
-| TEST-019 | 测试 | warmup 块数 magic number 与生产常量脱节 | P3 | 未处理 | 审计 | exhaustWarmup 硬编码 5 块（生产 warmupSeconds=0.025 → 44.1k/512 下 ceil=3 块）；"前两块静音"无注释关联，生产改 warmupSeconds 后测试不感知 | `source/tests/AudioEngineTest.cpp:48,186`；`source/Audio/AudioEngine.cpp:10,20-22`（warmupSeconds） | - | 生产参数漂移 | 导出 calculateWarmupBlocks 或注释说明 |
-| TEST-020 | 测试 | TestRunner CLI 语义缺口（参数优先级/空匹配） | P3 | 未处理 | 审计 | --category 与 --name 同时给出时 category 静默优先；--include-files 过滤模式下不生效无提示；help 未说明优先级与空匹配行为（配合 TEST-011 静默全绿） | `source/tests/TestRunner.cpp:56-59,64-75` | - | 参数误用 | 冲突报错或文档化优先级 |
+| TEST-013 | 测试 | 跨文件进程级单例与执行顺序依赖 | P3 | 已关闭 | 审计 | StyleCatalog::get()/DesignTokens::get() 被 4 文件反复覆写；PathEditorReproTest 注释显式依赖跨文件执行顺序；改链接顺序/单文件重跑可能破坏测试 | `source/tests/StyleCatalogTest.cpp:52,138,172,932-936,1019`；`source/tests/PathEditorReproTest.cpp:92-95` | - | 测试顺序脆弱 | 提供 reset() 恢复初态 |
+| TEST-014 | 测试 | 测试依赖 CWD/真实文件（fixture 与样式表） | P3 | 已关闭 | 审计 | MidiFileImporterTest fixture 路径 "tests/fixtures/midi/" 依赖 CTest WORKING_DIRECTORY；PathEditorReproTest/StyleCatalogTest 加载真实 style_sheets.json（CWD 或 exe 上溯）——IDE/其他工作目录运行即红 | `source/tests/MidiFileImporterTest.cpp:15-19,22`；`PathEditorReproTest.cpp:15-17`；`StyleCatalogTest.cpp:560-568` | - | 非标准工作目录测试失败 | __FILE__ 相对定位或缺失 skip |
+| TEST-015 | 测试 | NoteOffOnReleaseTest 依赖真实 OS 键盘状态 | P3 | 已关闭 | 审计 | KeyPress::isKeyCurrentlyDown() 查询系统键盘——headless 下恒 false 成立，真实桌面且该键被物理按住时前提失效误报 | `source/tests/KeyboardMidiMapperTest.cpp:221-247` | - | 环境相关脆弱测试 | 抽象可注入键状态谓词 |
+| TEST-016 | 测试 | 断言强度不足（只调不查 expect(true)） | P3 | 已关闭 | 审计 | "gain clamps >1.0"/"requestAllNotesOff does not crash"/"re-prepare after release"/"getDefaultVst3SearchPath does not crash"/"restoreKnownPluginListFromXml null safe" 仅 expect(true) 无结果校验 | `source/tests/AudioEngineTest.cpp:130-135,152-160,231-241`；`source/tests/PluginHostTest.cpp:223-230,253-260` | - | 行为回归不可见 | 补可观察结果断言 |
+| TEST-018 | 测试 | hasTake jassert 用例固化 API 契约缺陷 | P3 | 已关闭 | 审计 | "hasTake jasserts during recording" 仅验证 Release 不崩、零行为断言；jassert 仅在调试器下中断（juce_PlatformDefs.h:167 实现），CI 无碍；测试把"录制中读 currentTake"的契约违反固化为预期行为 | `source/tests/RecordingEngineTest.cpp:101-113`；`source/Recording/RecordingEngine.cpp:33-39`（jassert(!isRecording())）；验证 `submodules/JUCE/modules/juce_core/system/juce_PlatformDefs.h:167` | - | Debug 调试器下测试中断 | 改验证 RecordingSession 副本语义 |
+| TEST-019 | 测试 | warmup 块数 magic number 与生产常量脱节 | P3 | 已关闭 | 审计 | exhaustWarmup 硬编码 5 块（生产 warmupSeconds=0.025 → 44.1k/512 下 ceil=3 块）；"前两块静音"无注释关联，生产改 warmupSeconds 后测试不感知 | `source/tests/AudioEngineTest.cpp:48,186`；`source/Audio/AudioEngine.cpp:10,20-22`（warmupSeconds） | - | 生产参数漂移 | 导出 calculateWarmupBlocks 或注释说明 |
+| TEST-020 | 测试 | TestRunner CLI 语义缺口（参数优先级/空匹配） | P3 | 已关闭 | 审计 | --category 与 --name 同时给出时 category 静默优先；--include-files 过滤模式下不生效无提示；help 未说明优先级与空匹配行为（配合 TEST-011 静默全绿） | `source/tests/TestRunner.cpp:56-59,64-75` | - | 参数误用 | 冲突报错或文档化优先级 |
 | DOC-001 | 文档 | architecture.md MainComponent 行数漂移 | P3 | 已关闭 | 审计 | 文档称约 1100 行，实际 1143 行（修正后的描述再次漂移） | `docs/reference/architecture.md:47` vs `source/MainComponent.cpp`（1143 行） | - | 行数描述持续过期 | 更新或改描述性表述 |
 | DOC-002 | 文档 | architecture.md 缺 Recording/Export/Layout/Diagnostics 四模块章节 | P2 | 已关闭 | 审计 | 模块分层止于 Settings/UI；Phase 11 / 渲染管线提取（2026-08-16）新增的 RenderPipeline、PerformanceFile、RecordingEngine、WavExportTask、WavExportOptions、SettingsSerialization 均未收录；文档头"更新时机"未被执行 | `docs/reference/architecture.md:74-160` vs `source/Recording/`（18 文件）、`source/Export/`（5）、`source/Layout/`（4）、`source/Diagnostics/`（5） | - | 新文件结构对读者不可见 | 补四模块章节 |
 | DOC-003 | 文档 | architecture.md Plugin 章节自相矛盾 | P2 | 已关闭 | 审计 | Plugin 章节"后续仍可继续拆分扫描职责与实例生命周期职责"与主装配层已落地内容矛盾（PluginFlowSupport/PluginOperationController 早已拆分收敛） | `docs/reference/architecture.md:137-138` vs `:53,:59` | - | 读者误判现状 | 更新 Plugin 章节现状 |

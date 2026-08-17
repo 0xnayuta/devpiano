@@ -48,6 +48,14 @@ public:
         ownedStyles.clear();
     }
 
+    /// Reset to the pristine empty state (TEST-013): clears rules and owned
+    /// styles so a test file can establish an independent baseline instead of
+    /// depending on which other test file touched the process-wide singleton.
+    void reset() {
+        rules = nullptr;
+        ownedStyles.clear();
+    }
+
 private:
     StyleCatalog() = default;
 

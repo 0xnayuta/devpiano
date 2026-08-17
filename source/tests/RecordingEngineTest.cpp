@@ -108,16 +108,21 @@ public:
             expect(!engine.hasTake(), "should not have take after clear");
         }
 
-        beginTest("hasTake jasserts during recording (Debug) — verify no crash in Release path");
+        beginTest("during-recording queries use safe paths; hasTake valid after stop (TEST-018)");
         {
             RecordingEngine engine;
             engine.reserveEvents(64);
             engine.startRecording(44100.0);
-            // hasTake() asserts !isRecording in Debug; in Release it reads empty vector.
-            // Just verify it doesn't crash.
-            [[maybe_unused]] auto has = engine.hasTake();
+            engine.recordEvent(juce::MidiMessage::noteOn(1, 60, 0.5f), RecordingEventSource::computerKeyboard, 0);
+
+            // 录制中不调用 hasTake()（jassert 契约违反——事件向量正被音频线程
+            // 修改）。正确的录制中检查是 RecordingSessionController 的 local-take
+            // 副本（recordingSession.hasTake()）；引擎侧的安全查询路径如下：
+            expect(engine.getCurrentTake().isEmpty(),
+                   "getCurrentTake must return an empty take during recording (safe query path)");
+            expect(engine.getReservedEventCapacity() >= 64, "capacity query must stay readable during recording");
             engine.stopRecording();
-            expect(true); // survived
+            expect(engine.hasTake(), "hasTake must be valid after stopRecording");
         }
     }
 };

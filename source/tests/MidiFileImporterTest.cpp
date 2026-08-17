@@ -7,11 +7,16 @@
 // MIDI 文件导入测试
 //
 // 这些测试使用 tests/fixtures/midi/ 下的真实 MIDI 文件。
-// CTest 的 WORKING_DIRECTORY 设置为仓库根目录，因此 fixture 路径相对于根目录。
+// fixture 目录相对 __FILE__（source/tests/）定位（TEST-014），与 CWD 无关；
+// CTest 的 WORKING_DIRECTORY 只作为兼容回退。
 // =============================================================================
 
+static juce::File getFixtureDir() {
+    return juce::File(__FILE__).getParentDirectory().getChildFile("../../tests/fixtures/midi");
+}
+
 static juce::String getFixturePath(const juce::String& filename) {
-    return "tests/fixtures/midi/" + filename;
+    return getFixtureDir().getChildFile(filename).getFullPathName();
 }
 
 /// 导入指定 fixture 文件并返回 importMidiFile 结果（默认采样率 48kHz）。

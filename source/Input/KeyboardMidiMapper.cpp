@@ -56,7 +56,7 @@ bool KeyboardMidiMapper::handleKeyStateChanged(juce::MidiKeyboardState& keyboard
             continue;
         }
 
-        const auto isCurrentlyDown = juce::KeyPress::isKeyCurrentlyDown(keyCode);
+        const auto isCurrentlyDown = isKeyCurrentlyDown(keyCode);
 
         const auto wasHeld = heldKeys.contains(keyCode);
 
@@ -128,4 +128,16 @@ void KeyboardMidiMapper::sendNoteOff(int midiChannel, int midiNote, float veloci
     } else {
         keyboardState.noteOff(midiChannel, midiNote, velocity);
     }
+}
+
+void KeyboardMidiMapper::setKeyStatePredicate(KeyStatePredicate predicate) noexcept {
+    keyStatePredicate = std::move(predicate);
+}
+
+bool KeyboardMidiMapper::isKeyCurrentlyDown(int keyCode) const {
+    // 注入的谓词优先；未注入时回退真实 OS 键盘状态（生产行为）。
+    if (keyStatePredicate) {
+        return keyStatePredicate(keyCode);
+    }
+    return juce::KeyPress::isKeyCurrentlyDown(keyCode);
 }

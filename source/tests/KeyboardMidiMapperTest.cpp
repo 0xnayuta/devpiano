@@ -224,18 +224,19 @@ public:
     }
 
     void runTest() override {
+        // TEST-015：注入确定性键状态谓词（全 false = 所有键未按住），
+        // 消除对真实 OS 键盘状态的依赖——无头环境下原实现依赖
+        // isKeyCurrentlyDown() 恒 false，桌面环境物理按住 'A' 时会误报失败。
+        const auto allKeysReleased = [](int) { return false; };
+
         beginTest("handleKeyStateChanged releases held keys");
         {
-            // 注意：handleKeyStateChanged 使用 juce::KeyPress::isKeyCurrentlyDown()，
-            // 它会查询操作系统键盘状态。在无头（headless）单元测试环境中，
-            // 所有按键都返回 false。因此，在 handleKeyPressed 之后调用
-            // handleKeyStateChanged 会导致按住的按键被释放（因为操作系统
-            // 报告其"未按下"）。
-            //
-            // 本测试验证：当按键从按下变为未按下（按操作系统状态判断）时，
-            // mapper 会发送 note-off。
+            // handleKeyStateChanged 通过可注入谓词判断按键当前是否按下：
+            // 无头单元测试中所有按键都报告"未按下"，因此 handleKeyPressed
+            // 之后调用 handleKeyStateChanged 会释放按住的按键并发送 note-off。
             KeyboardMidiMapper mapper;
             mapper.setLayout(makeSingleBindingLayout('A', 72));
+            mapper.setKeyStatePredicate(allKeysReleased);
 
             juce::MidiKeyboardState keyState;
 
@@ -244,8 +245,7 @@ public:
             expect(isNoteOn(keyState, 1, 72), "key A should be on after press");
             expectEquals(countNotesOn(keyState), 1);
 
-            // 现在调用 handleKeyStateChanged。在无头环境中，isKeyCurrentlyDown('A')
-            // 返回 false → 应发送 note-off。
+            // 谓词报告 'A' 未按住 → 应发送 note-off。
             mapper.handleKeyStateChanged(keyState);
             expect(!isNoteOn(keyState, 1, 72), "key A should be off after state change detects release");
             expectEquals(countNotesOn(keyState), 0);
@@ -255,6 +255,7 @@ public:
         {
             KeyboardMidiMapper mapper;
             mapper.setLayout(makeSingleBindingLayout('A', 72));
+            mapper.setKeyStatePredicate(allKeysReleased);
 
             juce::MidiKeyboardState keyState;
             // 没有按住的按键 → 应为 no-op。

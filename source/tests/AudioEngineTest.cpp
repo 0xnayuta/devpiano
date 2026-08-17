@@ -58,7 +58,10 @@ int countNonZeroSamples(const juce::AudioBuffer<float>& buf, int start, int n) {
 }
 
 void exhaustWarmup(AudioEngine& engine, int blockSize) {
-    for (int i = 0; i < 5; ++i) {
+    // TEST-019：消费生产定义的 warmup 块数（warmupSeconds=0.025 → 44.1k/512
+    // 下 3 块），而非硬编码 5——生产改 warmupSeconds 时测试自动跟随。
+    const auto warmupBlocks = AudioEngine::calculateWarmupBlockCount(44100.0, blockSize);
+    for (int i = 0; i < warmupBlocks; ++i) {
         auto [buf, info] = makeBlock(2, blockSize);
         engine.getNextAudioBlock(info);
     }
@@ -142,8 +145,11 @@ public:
             engine.releaseResources();
             engine.prepareToPlay(256, 48000.0);
             exhaustWarmup(engine, 256);
+            engine.getKeyboardState().noteOn(1, 60, 0.8f);
             auto [buf, info] = makeBlock(2, 256);
             engine.getNextAudioBlock(info);
+            expect(countNonZeroSamples(buf, info.startSample, info.numSamples) > 0,
+                   "re-prepared engine must render a held note (synth usable again)");
         }
         beginTest("releaseResources silences running notes (post-release silence)");
         {
@@ -195,24 +201,65 @@ public:
             engine.getNextAudioBlock(info);
             expectEquals(countNonZeroSamples(buf, info.startSample, info.numSamples), 0);
         }
-        beginTest("gain clamps >1.0 to 1.0 without crash");
+        beginTest("gain clamps >1.0 to 1.0");
         {
-            AudioEngine engine;
-            engine.prepareToPlay(512, 44100.0);
-            engine.setMasterGain(2.0f);
-            exhaustWarmup(engine, 512);
-            auto [buf, info] = makeBlock(2, 512);
-            engine.getNextAudioBlock(info);
+            // 渲染同一个按住音符：gain=2.0 必须钳制到 1.0（setMasterGain 内部
+            // jlimit 0..1），输出与 gain=1.0 逐样本一致——可证伪的行为断言。
+            AudioEngine engineHigh;
+            engineHigh.prepareToPlay(512, 44100.0);
+            engineHigh.setMasterGain(2.0f);
+            exhaustWarmup(engineHigh, 512);
+            engineHigh.getKeyboardState().noteOn(1, 60, 0.8f);
+
+            AudioEngine engineUnit;
+            engineUnit.prepareToPlay(512, 44100.0);
+            engineUnit.setMasterGain(1.0f);
+            exhaustWarmup(engineUnit, 512);
+            engineUnit.getKeyboardState().noteOn(1, 60, 0.8f);
+
+            auto [bufHigh, infoHigh] = makeBlock(2, 512);
+            engineHigh.getNextAudioBlock(infoHigh);
+            auto [bufUnit, infoUnit] = makeBlock(2, 512);
+            engineUnit.getNextAudioBlock(infoUnit);
+
+            expect(countNonZeroSamples(bufHigh, infoHigh.startSample, infoHigh.numSamples) > 0,
+                   "held note must render after warmup");
+
+            bool identical = true;
+            for (int ch = 0; ch < bufHigh.getNumChannels(); ++ch) {
+                for (int i = 0; i < infoHigh.numSamples; ++i) {
+                    if (!juce::approximatelyEqual(bufHigh.getReadPointer(ch, infoHigh.startSample)[i],
+                                                  bufUnit.getReadPointer(ch, infoUnit.startSample)[i])) {
+                        identical = false;
+                    }
+                }
+            }
+            expect(identical, "gain >1.0 must clamp to 1.0: output identical to gain=1.0");
         }
         // —— 原 AllNotesOffTest 的用例 ——
-        beginTest("requestAllNotesOff does not crash");
+        beginTest("requestAllNotesOff silences held notes after release");
         {
             AudioEngine engine;
             engine.prepareToPlay(512, 44100.0);
+            engine.setMasterGain(1.0f);
             exhaustWarmup(engine, 512);
+            engine.getKeyboardState().noteOn(1, 60, 0.8f);
+            auto [buf0, info0] = makeBlock(2, 512);
+            engine.getNextAudioBlock(info0);
+            expect(countNonZeroSamples(buf0, info0.startSample, info0.numSamples) > 0,
+                   "held note must render before all-notes-off");
+
             engine.requestAllNotesOff();
-            auto [buf, info] = makeBlock(2, 512);
-            engine.getNextAudioBlock(info);
+            // ADSR release 默认 0.30s → 44.1k/512 ≈ 26 块；渲染 40 块让释放尾音
+            // 完全衰减，之后必须静音。
+            for (int i = 0; i < 40; ++i) {
+                auto [buf, info] = makeBlock(2, 512);
+                engine.getNextAudioBlock(info);
+            }
+            auto [bufEnd, infoEnd] = makeBlock(2, 512);
+            engine.getNextAudioBlock(infoEnd);
+            expectEquals(countNonZeroSamples(bufEnd, infoEnd.startSample, infoEnd.numSamples), 0,
+                         "all-notes-off must silence held notes once the release tail decays");
         }
         beginTest("subsequent blocks after all-notes-off are safe");
         {

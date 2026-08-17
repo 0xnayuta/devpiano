@@ -76,6 +76,14 @@ public:
         return { root };
     }
 
+    // Reset to the pristine empty state (TEST-013): clears the loaded JSON so
+    // every getter falls back to its built-in default.  Lets a test file
+    // establish an independent baseline instead of depending on which other
+    // file loaded design_tokens.json first.
+    void reset() {
+        root = new juce::DynamicObject();
+    }
+
 private:
     DesignTokens() = default;
 

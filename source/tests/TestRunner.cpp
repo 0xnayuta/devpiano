@@ -88,9 +88,18 @@ int main(int argc, char** argv) {
                       << "  --include-files         Don't skip JUCE Files category\n"
                       << "  --include-juce          Also run JUCE's own internal tests\n"
                       << "                          (default: project tests only, fast)\n"
-                      << "  --help, -h              Show this help\n";
+                      << "  --help, -h              Show this help\n"
+                      << "\n"
+                      << "  --category and --name are mutually exclusive; passing both is an error.\n"
+                      << "  A filter matching no tests is an error (no silent pass).\n";
             return 0;
         }
+    }
+
+    // TEST-020：互斥过滤参数同时给出 → 显式报错，而非 category 静默优先。
+    if (categoryFilter.isNotEmpty() && nameFilter.isNotEmpty()) {
+        std::cout << "Error: --category and --name are mutually exclusive; pass only one.\n";
+        return EXIT_FAILURE;
     }
 
     if (includeFiles) {

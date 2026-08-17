@@ -56,24 +56,31 @@ public:
                    "list description should describe state even when empty");
         }
 
-        beginTest("格式描述非空、默认 VST3 搜索路径不崩溃");
+        beginTest("格式描述非空、默认 VST3 搜索路径为绝对路径");
         {
             PluginHost host;
             expect(host.getAvailableFormatsDescription().isNotEmpty(), "should describe available formats");
-            // 在 Linux/WSL 上可能返回空路径或默认路径，仅验证不崩溃。
-            auto path = host.getDefaultVst3SearchPath();
-            juce::ignoreUnused(path);
+            // Linux/WSL 上 VST3 格式不可用时路径列表为空；存在时每条都必须是
+            // 绝对路径——可证伪且跨平台稳定。
+            const auto searchPath = host.getDefaultVst3SearchPath();
+            for (int i = 0; i < searchPath.getNumPaths(); ++i) {
+                const auto path = searchPath[i].getFullPathName();
+                expect(juce::File::isAbsolutePath(path), "default VST3 search path must be absolute: " + path);
+            }
         }
 
-        beginTest("插件列表 XML 导出非空、restore 空元素不崩溃");
+        beginTest("插件列表 XML 导出非空、restore 空元素报告空缓存");
         {
             PluginHost host;
             auto xml = host.createKnownPluginListXml();
             expect(xml != nullptr, "XML should not be null for empty list");
 
             juce::XmlElement elem("dummy");
+            // 空 XML 恢复：应返回 false（空缓存）并更新扫描摘要/计数——可观察语义。
             bool result = host.restoreKnownPluginListFromXml(elem);
-            juce::ignoreUnused(result);
+            expect(!result, "restoring an empty plugin list must report an empty cache");
+            expectEquals(host.getLastScanPluginCount(), 0);
+            expect(host.getLastScanSummary().isNotEmpty(), "summary must describe the empty-cache result");
         }
     }
 };

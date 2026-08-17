@@ -51,9 +51,13 @@ void registerRootComponentFactory(::jive::Interpreter& interpreter) {
     factory.set("StatusBarMidiDot", [] { return std::make_unique<juce::Component>(); });
 }
 
-// 定位仓库内真实 style_sheets.json（CWD 或可执行文件目录上溯）。
+// 定位仓库内真实 style_sheets.json：优先 __FILE__ 相对定位（TEST-014，与 CWD
+// 无关），回退 CWD / 可执行文件目录上溯兼容旧环境。
 juce::File findShippedStyleSheet() {
-    juce::File styleFile = juce::File::getCurrentWorkingDirectory().getChildFile("source/UI/jive/style_sheets.json");
+    juce::File styleFile = juce::File(__FILE__).getParentDirectory().getChildFile("../UI/jive/style_sheets.json");
+    if (!styleFile.existsAsFile()) {
+        styleFile = juce::File::getCurrentWorkingDirectory().getChildFile("source/UI/jive/style_sheets.json");
+    }
     if (!styleFile.existsAsFile()) {
         auto dir = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
         for (int i = 0; i < 4 && !styleFile.existsAsFile(); ++i) {
@@ -85,6 +89,11 @@ public:
     }
 
     void runTest() override {
+        // 独立基线（TEST-013）：本文件大量 loadFromJSON 覆写进程级单例，
+        // 先 reset 保证无论其他文件是否先跑，起始状态一致。
+        devpiano::ui::jive::StyleCatalog::get().reset();
+        devpiano::jive::DesignTokens::get().reset();
+
         testJsonStringParsesToJiveObject();
         testAppliedStylesReachInterpretedComponents();
         testDesignTokensHotReload();

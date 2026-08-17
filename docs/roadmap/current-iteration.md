@@ -7,7 +7,7 @@
 
 Phase 11（声明式 UI 架构迁移，JIVE + melatonin_inspector）已全部完成并归档至 [`../archive/phase11-declarative-ui-jive.md`](../archive/phase11-declarative-ui-jive.md)。v0.3.0 发布准备（版本号 / CHANGELOG / Release 构建 / 打包）为并行事项，见 [`../guides/release-workflow.md`](../guides/release-workflow.md)。
 
-代码质量审计（[`AUDIT-001`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)，2026-08-16）登记 85 项：56 项未处理（3 P1 / 16 P2 / 37 P3）+ 16 项已暂缓 + 13 项已关闭（TEST-011/012/017、THR-001、ERR-001、ENG-001~007、QUAL-014，2026-08-16）。修复按最佳排期分为 **AUDIT Phase A–H** 推进，每 Phase 完成即更新本文件状态并同步报告第 8 章登记表；16 项已暂缓维持不动（重开条件见报告 §8）。当前推进：**AUDIT Phase A、B、C、D、E、F、G 已全部完成**。
+代码质量审计（[`AUDIT-001`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)，2026-08-16）登记 85 项：56 项未处理（3 P1 / 16 P2 / 37 P3）+ 16 项已暂缓 + 13 项已关闭（TEST-011/012/017、THR-001、ERR-001、ENG-001~007、QUAL-014，2026-08-16）。修复按最佳排期分为 **AUDIT Phase A–H** 推进，每 Phase 完成即更新本文件状态并同步报告第 8 章登记表；16 项已暂缓维持不动（重开条件见报告 §8）。当前推进：**AUDIT Phase A–H 已全部完成（2026-08-17）**。
 
 ---
 
@@ -128,20 +128,21 @@ Phase 11（声明式 UI 架构迁移，JIVE + melatonin_inspector）已全部完
 
 验证：链接检查（目标文件存在）、`./scripts/dev.sh test`（2916 断言全绿）、`./scripts/dev.sh format --check`（归零）、win-build 通过。
 
-## AUDIT Phase H — 测试质量余项 [未开始]
+## AUDIT Phase H — 测试质量余项 [已完成]
 
 > 目标：消除测试脆弱性（单例顺序依赖、CWD 依赖、OS 键盘状态依赖）与断言空洞、CLI 语义缺口。
+> 完成于 2026-08-17：TEST-013~020 全部处理（TEST-017 已在复审 2 落地）。验证：wsl-build 0 warning / test 2921 断言全绿 / format 归零 / 12 个改动文件 clang-tidy 0 诊断 / win-build 通过 / CLI 退出码实测，详见 AUDIT-001 §7 复审 11。
 
-- [ ] `TEST-013`：StyleCatalog/DesignTokens 提供 reset()，消除跨文件执行顺序依赖。
-- [ ] `TEST-014`：测试 fixture/样式文件改为 `__FILE__` 相对定位或缺失时显式 skip。
-- [ ] `TEST-015`：键盘状态查询抽象为可注入谓词，消除 OS 键盘依赖。
-- [ ] `TEST-016`：AudioEngineTest/PluginHostTest 的 `expect(true)` 空洞断言补可观察结果校验。
-- [x] `TEST-017`：MidiFileImporter velocity-channel 恒真断言拆分为独立可证伪断言。（已落地：`expect(foundVaryingVelocity)` 与 `expect(foundNonDefaultChannel)` 两条独立断言，详见 AUDIT-001 §7 复审 2）
-- [ ] `TEST-018`：hasTake jassert 用例改为验证 RecordingSession 副本语义（Debug/Release 双配置 CI）。
-- [ ] `TEST-019`：warmup 块数 magic number 改引用生产常量/注释说明。
-- [ ] `TEST-020`：TestRunner --category/--name 冲突参数报错或文档化优先级。
+- [x] `TEST-013`：StyleCatalog/DesignTokens 提供 `reset()`；StyleCatalogTest/PathEditorReproTest 开头 reset 建立独立基线，消除跨文件执行顺序依赖。
+- [x] `TEST-014`：MidiFileImporterTest fixture / StyleCatalogTest findShippedStyleSheet / PathEditorReproTest style sheet 改 `__FILE__` 相对定位（缺失时显式 skip）；CWD/exe 上溯保留为兼容回退。
+- [x] `TEST-015`：KeyboardMidiMapper 新增 `setKeyStatePredicate` 可注入键状态谓词（默认真实 OS 查询，生产行为不变）；KeyReleaseTest 注入确定性谓词。
+- [x] `TEST-016`：5 处 `expect(true)` 空洞补可观察断言——gain>1.0 钳制（与 gain=1.0 逐样本一致）、requestAllNotesOff（释放尾音衰减后静音）、re-prepare（重备后出声）、搜索路径绝对性、空 XML 恢复语义。
+- [x] `TEST-017`：MidiFileImporter velocity-channel 恒真断言拆分。（已落地：复审 2）
+- [x] `TEST-018`：hasTake jassert 用例改验证安全查询路径（录制中 `getCurrentTake()` 空 take + capacity 可读）与停止后 `hasTake()` 正确，删除契约违反固化。
+- [x] `TEST-019`：exhaustWarmup 硬编码 5 块改 `AudioEngine::calculateWarmupBlockCount`——生产改 warmupSeconds 自动跟随。
+- [x] `TEST-020`：TestRunner `--category`/`--name` 互斥报错（EXIT_FAILURE）+ help 文档化优先级与空匹配报错（空匹配报错为 TEST-011 既有落地）。
 
-验证：`./scripts/dev.sh test`、`./scripts/dev.sh format --check`。
+验证：`./scripts/dev.sh test`（2921 断言全绿）、`./scripts/dev.sh format --check`（归零）。
 
 ---
 
