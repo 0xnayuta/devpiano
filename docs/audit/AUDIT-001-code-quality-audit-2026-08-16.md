@@ -456,7 +456,7 @@ source/
 - [x] `ENG-005`：devpiano_tests 添加与主目标一致的 `-Wall -Wextra`（MSVC /W4）。（已落地：+`juce_recommended_warning_flags`，tests 既有 6 处警告修复，0 warning）
 - [x] `ENG-006`：clang-tidy GLOB 加 CONFIGURE_DEPENDS，文件列表按 compile_commands 去重。（已落地：50 唯一文件归并）
 - [x] `ENG-007`：删除 .clang-tidy 死 CheckOptions（readability-magic-numbers.IgnoredValues）。
-- [ ] **ADR 原文修正（不开问题）**：ADR-001 引用链接更新为 `docs/guides/wsl-windows-msvc-workflow.md` 与 `docs/guides/quickstart.md`；ADR-002 引用更新为 `docs/reference/architecture.md`。
+- [x] **ADR 原文修正（不开问题）**：ADR-001 引用链接更新为 `docs/guides/wsl-windows-msvc-workflow.md` 与 `docs/guides/quickstart.md`；ADR-002 引用更新为 `docs/reference/architecture.md`。（落地：2026-08-17 复审 10）
 
 ---
 
