@@ -57,8 +57,6 @@ struct PluginState {
 };
 
 struct InputState {
-    // Persisted layout identity.
-    juce::String layoutId { "devpiano.default" };
     KeyboardLayout keyboardLayout = makeDefaultKeyboardLayout();
 };
 

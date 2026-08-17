@@ -198,16 +198,8 @@ void SettingsWindowManager::showFor(MainComponent& owner) {
               }
 
               auto kbs = safe->appSettings.getKeyboardDisplaySettingsView();
-              devpiano::ui::KeyboardSettings ks;
-              ks.colourMode = kbs.colourMode;
-              ks.noteDisplay = kbs.noteDisplay;
-              ks.fadeSpeed = kbs.fadeSpeed;
-              ks.keySignature = safe->appSettings.keySignature;
               safe->resized();
-              ks.customKeyLabels = kbs.customKeyLabels;
-              ks.customKeyColours = kbs.customKeyColours;
-
-              safe->getCustomKeyboard().setKeyboardSettings(ks);
+              safe->getCustomKeyboard().setKeyboardSettings(makeKeyboardSettings(kbs, safe->appSettings.keySignature));
               safe->setInstrumentFilterVisible(kbs.showInstrumentFilter);
 
               // Only recreate desktop window when resize preference changes

@@ -28,10 +28,10 @@ juce::MidiMessage MidiChannelMapper::applyTransform(const juce::MidiMessage& mes
     const auto& cfg = configForChannel(inputChannel);
 
     if (message.isNoteOn()) {
-        return applyMatrixToNoteOn(cfg, inputChannel, message.getNoteNumber(), message.getFloatVelocity());
+        return applyMatrixToNoteOn(cfg, message.getNoteNumber(), message.getFloatVelocity());
     }
 
-    return applyMatrixToNoteOff(cfg, inputChannel, message.getNoteNumber(), message.getFloatVelocity());
+    return applyMatrixToNoteOff(cfg, message.getNoteNumber(), message.getFloatVelocity());
 }
 
 void MidiChannelMapper::sendNoteOn(int inputChannel, int midiNote, float velocity,
@@ -43,7 +43,7 @@ void MidiChannelMapper::sendNoteOn(int inputChannel, int midiNote, float velocit
     }
 
     const auto& cfg = configForChannel(inputChannel);
-    auto transformed = applyMatrixToNoteOn(cfg, inputChannel, midiNote, velocity);
+    auto transformed = applyMatrixToNoteOn(cfg, midiNote, velocity);
     if (cfg.followKey && midiTranspose) {
         auto fn = juce::jlimit(0, 127, transformed.getNoteNumber() + keySignature);
         transformed = juce::MidiMessage::noteOn(transformed.getChannel(), fn, transformed.getFloatVelocity());
@@ -60,7 +60,7 @@ void MidiChannelMapper::sendNoteOff(int inputChannel, int midiNote, float veloci
     }
 
     const auto& cfg = configForChannel(inputChannel);
-    auto transformed = applyMatrixToNoteOff(cfg, inputChannel, midiNote, velocity);
+    auto transformed = applyMatrixToNoteOff(cfg, midiNote, velocity);
     if (cfg.followKey && midiTranspose) {
         auto fn = juce::jlimit(0, 127, transformed.getNoteNumber() + keySignature);
         transformed = juce::MidiMessage::noteOff(transformed.getChannel(), fn, transformed.getFloatVelocity());

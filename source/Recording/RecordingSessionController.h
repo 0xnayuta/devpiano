@@ -75,7 +75,7 @@ private:
     void startInternalRecording(std::size_t expectedEventCapacity);
     [[nodiscard]] RecordingTake stopInternalRecording();
     void startInternalPlayback(const RecordingTake& take, std::int64_t resumeFromSamples = 0);
-    [[nodiscard]] RecordingTake stopInternalPlayback();
+    void stopInternalPlayback();
     void syncRecordingSessionToUi();
 
     void runExportRecordingFlow(devpiano::exporting::ExportFileType type, std::unique_ptr<juce::FileChooser>& chooser,

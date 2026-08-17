@@ -6,6 +6,35 @@
 
 namespace devpiano::recording {
 namespace {
+// --- Shared root parsing (QUAL-008) ---
+// Parse + format-guard a .devpiano JSON payload.  Both take and metadata
+// loaders share this preamble.
+[[nodiscard]] std::optional<juce::DynamicObject::Ptr> parsePerformanceFileRoot(const juce::String& json) {
+    juce::var parsed;
+    // ERR-007：JUCE JSON::parse 不抛异常，用 Result 重载获得行/列错误信息。
+    const auto parseResult = juce::JSON::parse(json, parsed);
+    if (parseResult.failed()) {
+        DP_LOG_WARN("[PerformanceFile] JSON parse failed: " + parseResult.getErrorMessage());
+        return std::nullopt;
+    }
+    if (!parsed.isObject()) {
+        return std::nullopt;
+    }
+
+    auto* root = parsed.getDynamicObject();
+    if (root == nullptr) {
+        return std::nullopt;
+    }
+
+    // Check format identifier
+    auto format = root->getProperty(performance_file::keyFormat).toString();
+    if (format != performance_file::formatIdentifier) {
+        return std::nullopt;
+    }
+
+    return juce::DynamicObject::Ptr(root);
+}
+
 // --- Source enum <-> string ---
 
 juce::String sourceToString(RecordingEventSource source) {
@@ -16,8 +45,6 @@ juce::String sourceToString(RecordingEventSource source) {
         return performance_file::sourceRealtimeMidiBuffer;
     case RecordingEventSource::playback:
         return performance_file::sourcePlayback;
-    default:
-        return performance_file::sourceComputerKeyboard;
     }
 }
 
@@ -163,46 +190,29 @@ juce::String serialiseTakeToJson(const RecordingTake& take, const PerformanceFil
 // --- Public API: deserialise ---
 
 std::optional<RecordingTake> deserialiseTakeFromJson(const juce::String& json) {
-    juce::var parsed;
-    // ERR-007：JUCE JSON::parse 不抛异常，用 Result 重载获得行/列错误信息。
-    const auto parseResult = juce::JSON::parse(json, parsed);
-    if (parseResult.failed()) {
-        DP_LOG_WARN("[PerformanceFile] JSON parse failed: " + parseResult.getErrorMessage());
-        return std::nullopt;
-    }
-    if (!parsed.isObject()) {
-        return std::nullopt;
-    }
-
-    auto* root = parsed.getDynamicObject();
-    if (root == nullptr) {
-        return std::nullopt;
-    }
-
-    // Check format identifier
-    auto format = root->getProperty(performance_file::keyFormat).toString();
-    if (format != performance_file::formatIdentifier) {
+    auto root = parsePerformanceFileRoot(json);
+    if (!root.has_value()) {
         return std::nullopt;
     }
 
     // Check version
-    auto version = static_cast<int>(root->getProperty(performance_file::keyVersion));
+    auto version = static_cast<int>((*root)->getProperty(performance_file::keyVersion));
     if (version < 1 || version > performance_file::currentVersion) {
         return std::nullopt;
     }
 
     // Read take fields
     RecordingTake take;
-    take.sampleRate = static_cast<double>(root->getProperty(performance_file::keySampleRate));
+    take.sampleRate = static_cast<double>((*root)->getProperty(performance_file::keySampleRate));
     take.lengthSamples
-        = static_cast<std::int64_t>(static_cast<juce::int64>(root->getProperty(performance_file::keyLengthSamples)));
+        = static_cast<std::int64_t>(static_cast<juce::int64>((*root)->getProperty(performance_file::keyLengthSamples)));
 
     if (take.sampleRate <= 0.0) {
         return std::nullopt;
     }
 
     // Read events
-    auto eventsVar = root->getProperty(performance_file::keyEvents);
+    auto eventsVar = (*root)->getProperty(performance_file::keyEvents);
     if (!eventsVar.isArray()) {
         return std::nullopt;
     }
@@ -278,29 +288,12 @@ std::optional<PerformanceFileMetadata> loadPerformanceFileMetadata(const juce::F
         return std::nullopt;
     }
 
-    juce::var parsed;
-    // ERR-007：JUCE JSON::parse 不抛异常，用 Result 重载获得行/列错误信息。
-    const auto parseResult = juce::JSON::parse(json, parsed);
-    if (parseResult.failed()) {
-        DP_LOG_WARN("[PerformanceFile] JSON parse failed: " + parseResult.getErrorMessage());
-        return std::nullopt;
-    }
-    if (!parsed.isObject()) {
+    auto root = parsePerformanceFileRoot(json);
+    if (!root.has_value()) {
         return std::nullopt;
     }
 
-    auto* root = parsed.getDynamicObject();
-    if (root == nullptr) {
-        return std::nullopt;
-    }
-
-    // Check format identifier (same guard as deserialiseTakeFromJson)
-    auto format = root->getProperty(performance_file::keyFormat).toString();
-    if (format != performance_file::formatIdentifier) {
-        return std::nullopt;
-    }
-
-    auto metadataVar = root->getProperty(performance_file::keyMetadata);
+    auto metadataVar = (*root)->getProperty(performance_file::keyMetadata);
     if (metadataVar.isVoid()) {
         return PerformanceFileMetadata {}; // legacy files: return empty metadata
     }

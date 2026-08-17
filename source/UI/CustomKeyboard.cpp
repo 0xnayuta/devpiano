@@ -67,39 +67,6 @@ void CustomKeyboard::setKeyboardSettings(const devpiano::ui::KeyboardSettings& s
 const devpiano::ui::KeyboardSettings& CustomKeyboard::getKeyboardSettings() const noexcept {
     return settings;
 }
-void CustomKeyboard::setLowestVisibleNote(int note) {
-    note = juce::jlimit(rangeLow, rangeHigh, note);
-
-    // Use parent (Viewport) visible width for clamping, not content width
-    auto visibleW = 800.0f;
-    if (auto* parent = getParentComponent()) {
-        visibleW = static_cast<float>(parent->getWidth());
-    }
-    if (visibleW < 1.0f) {
-        visibleW = 800.0f;
-    }
-    auto kw = settings.keyWidth;
-    auto maxVisible = static_cast<int>(visibleW / kw);
-    maxVisible = std::max(maxVisible, 1);
-
-    // Find the latest start note so the rightmost key is still within rangeHigh
-    int whiteCount = 0;
-    int upperBound = rangeHigh;
-    for (int n = rangeHigh; n >= rangeLow; --n) {
-        if (devpiano::ui::isWhiteKey(n)) {
-            ++whiteCount;
-            if (whiteCount == maxVisible) {
-                upperBound = n;
-                break;
-            }
-        }
-    }
-    note = juce::jlimit(rangeLow, upperBound, note);
-
-    lowestVisibleNote = note;
-    repaint();
-}
-
 void CustomKeyboard::setAvailableRange(int low, int high) {
     rangeLow = juce::jlimit(0, 127, low);
     rangeHigh = juce::jlimit(0, 127, high);

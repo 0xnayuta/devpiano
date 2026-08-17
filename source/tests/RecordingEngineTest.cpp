@@ -344,11 +344,11 @@ public:
 
             engine.recordEvent(juce::MidiMessage::noteOn(1, 60, 1.0f), RecordingEventSource::computerKeyboard, 0);
             engine.recordEvent(juce::MidiMessage::noteOn(1, 62, 1.0f), RecordingEventSource::computerKeyboard, 100);
-            expect(!engine.hasDroppedEvents(), "should not have dropped within capacity");
+            expectEquals(static_cast<int>(engine.getDroppedEventCount()), 0, "should not have dropped within capacity");
 
             // Third event exceeds capacity.
             engine.recordEvent(juce::MidiMessage::noteOn(1, 64, 1.0f), RecordingEventSource::computerKeyboard, 200);
-            expect(engine.hasDroppedEvents(), "should have dropped events beyond capacity");
+            expect(engine.getDroppedEventCount() > 0, "should have dropped events beyond capacity");
             expectEquals(static_cast<std::size_t>(1), engine.getDroppedEventCount());
 
             auto take = engine.stopRecording();
@@ -366,7 +366,7 @@ public:
                                    static_cast<std::int64_t>(i) * 100);
             }
 
-            expect(!engine.hasDroppedEvents());
+            expectEquals(static_cast<int>(engine.getDroppedEventCount()), 0);
             auto take = engine.stopRecording();
             expectEquals(50, static_cast<int>(take.events.size()));
         }

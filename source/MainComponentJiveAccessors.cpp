@@ -724,7 +724,7 @@ void MainComponent::logCurrentAudioDeviceDiagnostics(const juce::String& context
     DP_LOG_INFO("[AudioDevice] " + context + "\n" + diagnostics.detailedSummary);
 }
 
-devpiano::core::AppState MainComponent::buildCurrentAppStateSnapshot() const {
+devpiano::core::AppState MainComponent::buildAppStateSnapshot() const {
     return devpiano::core::buildCurrentAppStateSnapshot(
         appSettings, deviceManager, pluginHost,
         pluginOperationController != nullptr && pluginOperationController->hasEditorWindowOpen(), keyboardMidiMapper);

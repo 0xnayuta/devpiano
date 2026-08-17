@@ -2,7 +2,6 @@
 
 #include "Diagnostics/Log.h"
 #include "Plugin/PluginFlowSupport.h"
-#include "Settings/SettingsSerialization.h"
 #include "UI/CustomKeyboard.h"
 #include "UI/KeyBindingEditDialog.h"
 #include "UI/PluginPanelStateBuilder.h"
@@ -468,7 +467,7 @@ void MainComponent::initialiseUi() {
             }
 
             // ── controls panel ──
-            auto* adsrCurve = []() -> AdsrCurveComponent* { return nullptr; }();
+            AdsrCurveComponent* adsrCurve = nullptr;
             if (auto* item = findItem("adsr-curve")) {
                 adsrCurve = dynamic_cast<AdsrCurveComponent*>(item->getComponent().get());
             }
@@ -1085,14 +1084,7 @@ void MainComponent::syncUiFromSettings() {
     setKeyboardLayout(keyboardMidiMapper.getLayout());
     {
         auto kbs = appSettings.getKeyboardDisplaySettingsView();
-        devpiano::ui::KeyboardSettings ks;
-        ks.colourMode = kbs.colourMode;
-        ks.noteDisplay = kbs.noteDisplay;
-        ks.fadeSpeed = kbs.fadeSpeed;
-        ks.keySignature = appSettings.keySignature;
-        ks.customKeyLabels = kbs.customKeyLabels;
-        ks.customKeyColours = kbs.customKeyColours;
-        getCustomKeyboard().setKeyboardSettings(ks);
+        getCustomKeyboard().setKeyboardSettings(makeKeyboardSettings(kbs, appSettings.keySignature));
     }
     // Restore keyboard scroll position (after layout is known); -1 sentinel = unset
     if (appSettings.keyboardScrollOffsetX >= 0) {
@@ -1205,11 +1197,11 @@ void MainComponent::renderReadOnlyUiState(const devpiano::core::AppState& appSta
 }
 
 void MainComponent::refreshReadOnlyUiStateFromCurrentSnapshot() {
-    renderReadOnlyUiState(buildCurrentAppStateSnapshot());
+    renderReadOnlyUiState(buildAppStateSnapshot());
 }
 
 void MainComponent::refreshPluginUiState() {
-    renderReadOnlyUiState(buildCurrentAppStateSnapshot());
+    renderReadOnlyUiState(buildAppStateSnapshot());
 }
 
 // JIVE component accessors now live in their own TU (MainComponentJiveAccessors.cpp).

@@ -89,7 +89,6 @@ public:
             expect(!result->isEmpty());
 
             MidiImportOptions opts;
-            opts.preferTrack = 0;
             opts.ignoreOtherTracks = true;
             auto resultWithPreference
                 = importMidiFile(juce::File(getFixturePath("multitrack-basic.mid")), 48000.0, opts);

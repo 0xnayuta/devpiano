@@ -127,7 +127,7 @@ private:
             matrix.active = true;
             matrix.channels[0].transpose = 48;
 
-            const auto out = applyMatrixToNoteOn(matrix.channels[0], 0, 120, 0.5f);
+            const auto out = applyMatrixToNoteOn(matrix.channels[0], 120, 0.5f);
             expectEquals(out.getNoteNumber(), 127, "transposed note must clamp to 127");
         });
 
@@ -136,7 +136,7 @@ private:
             matrix.active = true;
             matrix.channels[0].transpose = -48;
 
-            const auto out = applyMatrixToNoteOff(matrix.channels[0], 0, 10, 0.5f);
+            const auto out = applyMatrixToNoteOff(matrix.channels[0], 10, 0.5f);
             expectEquals(out.getNoteNumber(), 0, "transposed note must clamp to 0");
         });
 
@@ -161,7 +161,7 @@ private:
             matrix.active = true;
             matrix.channels[0].velocity = 100;
 
-            const auto out = applyMatrixToNoteOn(matrix.channels[0], 0, 60, 0.5f);
+            const auto out = applyMatrixToNoteOn(matrix.channels[0], 60, 0.5f);
             expectEquals(static_cast<int>(out.getVelocity()), 100);
         });
 
@@ -170,7 +170,7 @@ private:
             matrix.active = true;
             matrix.channels[0].velocity = 64; // default = use original
 
-            const auto out = applyMatrixToNoteOn(matrix.channels[0], 0, 60, 0.5f);
+            const auto out = applyMatrixToNoteOn(matrix.channels[0], 60, 0.5f);
             expectEquals(static_cast<int>(out.getVelocity()), 63, "0.5 * 127 truncates to 63");
         });
     }
@@ -213,8 +213,8 @@ private:
             matrix.channels[4].outputChannel = 9;
             matrix.channels[4].transpose = 2;
 
-            const auto on = applyMatrixToNoteOn(matrix.channels[4], 4, 60, 0.5f);
-            const auto off = applyMatrixToNoteOff(matrix.channels[4], 4, 60, 0.5f);
+            const auto on = applyMatrixToNoteOn(matrix.channels[4], 60, 0.5f);
+            const auto off = applyMatrixToNoteOff(matrix.channels[4], 60, 0.5f);
             expectEquals(on.getChannel(), off.getChannel(), "on/off must share the output channel");
             expectEquals(on.getNoteNumber(), off.getNoteNumber(), "on/off must share the output note");
         });

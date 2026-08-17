@@ -9,8 +9,6 @@
 //   - black keys take priority over white keys in the black-key zone
 //   - out-of-range positions return -1
 //   - setAvailableRange shrinks the hit area
-//   - octave scrolling (setLowestVisibleNote) does not move the hit map
-//     (keys cover the full range; scrolling is a Viewport concept)
 //
 // NOTE (TEST-007 scope): the audit's "AdsrCurve drag clamping" sub-item no
 // longer applies — AdsrCurveComponent is a paint-only component with no
@@ -50,7 +48,6 @@ public:
         testBlackKeyPriority();
         testOutOfRange();
         testAvailableRange();
-        testOctaveScrollDoesNotMoveHitMap();
     }
 
 private:
@@ -115,21 +112,6 @@ private:
             expectEquals(kb.findNoteAt({ totalWidth + 50, 64 }), -1, "beyond the range must miss");
             expectEquals(kb.findNoteAt({ whiteKeyCentreX(24, 60), 64 }), 60, "in-range note must hit");
             expectEquals(kb.findNoteAt({ whiteKeyCentreX(24, 96), 64 }), 96);
-        });
-    }
-
-    void testOctaveScrollDoesNotMoveHitMap() {
-        testCase("scrolling the viewport does not change absolute hit positions", [&] {
-            juce::MidiKeyboardState ks;
-            CustomKeyboard kb(ks);
-            kb.setSize(2000, 128);
-
-            const auto centre = whiteKeyCentreX(0, 60);
-            expectEquals(kb.findNoteAt({ centre, 64 }), 60);
-
-            kb.setLowestVisibleNote(48); // 八度滚动
-            expectEquals(kb.findNoteAt({ centre, 64 }), 60,
-                         "hit map is absolute over the full range; scrolling is a Viewport concern");
         });
     }
 };

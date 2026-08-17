@@ -61,9 +61,7 @@ struct ChannelMatrix {
 
 // Apply the given per-channel config to a note-on event.
 // Returns a new MidiMessage with the transformed channel, note, and velocity.
-inline juce::MidiMessage applyMatrixToNoteOn(const PerChannelConfig& cfg, int originalChannel, int originalNote,
-                                             float originalVelocity) {
-    juce::ignoreUnused(originalChannel);
+inline juce::MidiMessage applyMatrixToNoteOn(const PerChannelConfig& cfg, int originalNote, float originalVelocity) {
     auto outChannel = static_cast<uint8_t>(cfg.outputChannel + 1); // 0-based → 1-based
     auto outNote = static_cast<uint8_t>(
         juce::jlimit(0, 127, originalNote + cfg.transpose + static_cast<int>(cfg.octaveShift) * 12));
@@ -75,9 +73,7 @@ inline juce::MidiMessage applyMatrixToNoteOn(const PerChannelConfig& cfg, int or
 }
 
 // Apply the given config to a note-off event (channel + note transforms only).
-inline juce::MidiMessage applyMatrixToNoteOff(const PerChannelConfig& cfg, int originalChannel, int originalNote,
-                                              float originalVelocity) {
-    juce::ignoreUnused(originalChannel);
+inline juce::MidiMessage applyMatrixToNoteOff(const PerChannelConfig& cfg, int originalNote, float originalVelocity) {
     auto outChannel = static_cast<uint8_t>(cfg.outputChannel + 1);
     auto outNote = static_cast<uint8_t>(
         juce::jlimit(0, 127, originalNote + cfg.transpose + static_cast<int>(cfg.octaveShift) * 12));

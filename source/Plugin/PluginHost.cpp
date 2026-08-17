@@ -63,7 +63,6 @@ int PluginHost::scanVst3Plugins(const juce::FileSearchPath& searchPath, bool rec
 
 bool PluginHost::beginVst3ScanSession(const juce::FileSearchPath& searchPath, bool recursive) {
     assertMessageThread();
-    lastScanFailedFiles.clear();
     isScanning = true;
     scanningPluginName = "Preparing...";
 
@@ -227,10 +226,6 @@ juce::String PluginHost::getLastScanSummary() const {
     return lastScanSummary;
 }
 
-juce::StringArray PluginHost::getLastScanFailedFiles() const {
-    return lastScanFailedFiles;
-}
-
 std::unique_ptr<juce::XmlElement> PluginHost::createKnownPluginListXml() const {
     return knownPluginList.createXml();
 }
@@ -254,7 +249,6 @@ bool PluginHost::restoreKnownPluginListFromXml(const juce::XmlElement& xml) {
 void PluginHost::markPluginScanSkipped(juce::String reason) {
     assertMessageThread();
     knownPluginList.clear();
-    lastScanFailedFiles.clear();
     lastScanPluginCount = 0;
     lastScanFailedCount = 0;
     lastScanSummary = reason.trim().isNotEmpty() ? std::move(reason) : juce::String("VST3 scan skipped.");

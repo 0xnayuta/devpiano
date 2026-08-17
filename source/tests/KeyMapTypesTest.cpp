@@ -252,7 +252,6 @@ public:
         using devpiano::core::KeyTrigger;
         using devpiano::core::makeAlphaNumericKeyCode;
         using devpiano::core::makeDefaultKeyboardLayout;
-        using devpiano::core::makeFullPianoLayout;
         using devpiano::core::normaliseAlphaNumericKeyCode;
 
         testCase("default layout has correct number of keys", [&] {
@@ -308,29 +307,6 @@ public:
                 const auto* binding = layout.findByKeyCode(makeAlphaNumericKeyCode(static_cast<char>(c)));
                 expect(binding != nullptr, "Missing binding for key '" + juce::String::charToString(c) + "'");
             }
-        });
-
-        testCase("full layout has correct number of keys", [&] {
-            auto layout = makeFullPianoLayout();
-            expectEquals(layout.bindings.size(), size_t(36));
-        });
-
-        testCase("full layout has correct id and name", [&] {
-            auto layout = makeFullPianoLayout();
-            expectEquals(layout.id, juce::String("devpiano.full"));
-            expectEquals(layout.name, juce::String("DevPiano Full"));
-        });
-
-        testCase("full layout has higher octave range", [&] {
-            auto layout = makeFullPianoLayout();
-            // 在 full layout 中，A 映射到 C4 (72)，Z 映射到 C3 (60)
-            const auto* aBinding = layout.findByKeyCode(makeAlphaNumericKeyCode('A'));
-            expect(aBinding != nullptr);
-            expectEquals(aBinding->action.midiNote, 72); // C4 = 72
-
-            const auto* zBinding = layout.findByKeyCode(makeAlphaNumericKeyCode('Z'));
-            expect(zBinding != nullptr);
-            expectEquals(zBinding->action.midiNote, 60); // C3 = 60
         });
 
         testCase("lowercase and uppercase find same binding", [&] {

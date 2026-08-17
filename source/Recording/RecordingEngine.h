@@ -44,7 +44,6 @@ public:
     [[nodiscard]] RecordingState getState() const noexcept;
     [[nodiscard]] bool isRecording() const noexcept;
     [[nodiscard]] bool hasTake() const noexcept;
-    [[nodiscard]] bool hasDroppedEvents() const noexcept;
     [[nodiscard]] std::size_t getDroppedEventCount() const noexcept;
     [[nodiscard]] std::size_t getReservedEventCapacity() const noexcept;
     [[nodiscard]] std::int64_t getCurrentPositionSamples() const noexcept;

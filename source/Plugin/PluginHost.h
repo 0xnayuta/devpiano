@@ -44,7 +44,6 @@ public:
     int getLastScanFailedCount() const noexcept {
         return lastScanFailedCount;
     }
-    juce::StringArray getLastScanFailedFiles() const;
     bool isCurrentlyScanning() const noexcept {
         return isScanning;
     }

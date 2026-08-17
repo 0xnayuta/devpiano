@@ -17,8 +17,6 @@
 //  - Note display modes: doReMi, fixedDo, noteName
 //  - Mouse click → note on/off
 //  - Right-click → binding editor (Phase 7-7)
-// Steps completed: 1-4 (geometry + paint + mouse + fade), Group A (key labels +
-// note display mode).  Next: Group B (channel/velocity colour modes).
 // ============================================================================
 class CustomKeyboard final : public juce::Component, private juce::Timer, private juce::MidiKeyboardStateListener {
 public:
@@ -35,7 +33,6 @@ public:
     std::function<void(int midiNote)> onBindingEditRequested;
 
     // ---- Keyboard interface ------------------------------------------------
-    void setLowestVisibleNote(int note);
     void setAvailableRange(int low, int high);
 
     // ---- Layout ------------------------------------------------------------

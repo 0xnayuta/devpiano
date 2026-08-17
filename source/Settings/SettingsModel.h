@@ -157,3 +157,18 @@ struct SettingsModel {
 
     // ---- Serialization methods moved to Settings/SettingsSerialization.h ----
 };
+
+// Shared KeyboardSettings assembly from the persisted view + key signature
+// (QUAL-007): MainComponent and SettingsWindowManager build the same field
+// subset for CustomKeyboard; keep it in one place.
+[[nodiscard]] inline devpiano::ui::KeyboardSettings
+makeKeyboardSettings(const SettingsModel::KeyboardDisplaySettingsView& view, int keySignature) {
+    devpiano::ui::KeyboardSettings ks;
+    ks.colourMode = view.colourMode;
+    ks.noteDisplay = view.noteDisplay;
+    ks.fadeSpeed = view.fadeSpeed;
+    ks.keySignature = keySignature;
+    ks.customKeyLabels = view.customKeyLabels;
+    ks.customKeyColours = view.customKeyColours;
+    return ks;
+}

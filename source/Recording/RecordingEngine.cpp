@@ -39,10 +39,6 @@ bool RecordingEngine::hasTake() const noexcept {
     return !currentTake.isEmpty();
 }
 
-bool RecordingEngine::hasDroppedEvents() const noexcept {
-    return droppedEventCount.load(std::memory_order_relaxed) > 0;
-}
-
 std::size_t RecordingEngine::getDroppedEventCount() const noexcept {
     return droppedEventCount.load(std::memory_order_relaxed);
 }

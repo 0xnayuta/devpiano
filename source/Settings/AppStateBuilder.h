@@ -80,7 +80,7 @@ struct RuntimeInputState {
                          .hasLoadedPlugin = false,
                          .isPrepared = false,
                          .isEditorOpen = false },
-             .input = { .layoutId = settings.lastActivePresetId, .keyboardLayout = keyboardLayout },
+             .input = { .keyboardLayout = keyboardLayout },
              .midiTranspose = settings.midiTranspose,
              .keySignature = settings.keySignature,
              .midiChannelMatrix = settings.channelMatrix };
@@ -116,11 +116,6 @@ inline void applyRuntimeAudioState(AppState& appState, const RuntimeAudioState& 
     appState.audio.mismatchReasons = runtime.mismatchReasons;
 }
 
-// 叠加运行时输入活动状态。
-inline void applyRuntimeInputState(AppState& appState, const RuntimeInputState& runtime) {
-    appState.input.layoutId = runtime.keyboardLayout.id;
-}
-
 // 一次性组装 persisted + runtime 的完整 AppState 快照。
 [[nodiscard]] inline AppState buildAppState(const SettingsModel& settings, const RuntimeAudioState& audioRuntime,
                                             const RuntimePluginState& pluginRuntime,
@@ -128,7 +123,6 @@ inline void applyRuntimeInputState(AppState& appState, const RuntimeInputState& 
     auto appState = createPersistedAppState(settings, inputRuntime.keyboardLayout);
     applyRuntimeAudioState(appState, audioRuntime);
     applyRuntimePluginState(appState, pluginRuntime);
-    applyRuntimeInputState(appState, inputRuntime);
     return appState;
 }
 

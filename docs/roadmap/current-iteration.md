@@ -86,29 +86,30 @@ Phase 11（声明式 UI 架构迁移，JIVE + melatonin_inspector）已全部完
 
 验证：`./scripts/dev.sh test`（2914 断言全绿）、`./scripts/dev.sh format --check`（归零）、wsl-build（0 warning）、win-build（通过，2026-08-17）。
 
-## AUDIT Phase F — 死代码与重复清理 [未开始]
+## AUDIT Phase F — 死代码与重复清理 [已完成]
 
 > 目标：批量清理死字段/死返回值/重复装配/冗余参数/过期注释（QUAL-014 已在 Phase B 联动处理）。
+> 完成于 2026-08-17：QUAL-001~018 全部处理（QUAL-005/011/012 验证为已处理或已不适用）。验证：wsl-build 0 warning / test 全绿 / format 归零 / 改动文件 clang-tidy 0 诊断 / win-build 通过，详见 AUDIT-001 §7 复审 9。
 
-- [ ] `QUAL-001`：删除 `InputState::layoutId` 死字段与 `AppStateBuilder.h:83` 的 `lastActivePresetId` 误赋值。
-- [ ] `QUAL-002`：`stopInternalPlayback` 改返回 void，删除 7 处 ignoreUnused 与大向量拷贝。
-- [ ] `QUAL-003`：删除 MainComponent.cpp:4-5 未使用 include。
-- [ ] `QUAL-004`：SettingsComponent.h ComboBox item 装配提取 `rebuildComboItems()` 供构造器与 refreshTexts() 复用。
-- [ ] `QUAL-005`：合并 SettingsComponent.h 重复过时注释与拆段配置。
-- [ ] `QUAL-006`：PresetDialogs.cpp `complete()` 模式上提到 `DialogContentBase`。
-- [ ] `QUAL-007`：提取 `makeKeyboardSettings(view, keySignature)` 共享函数消除跨文件重复装配。
-- [ ] `QUAL-008`：PerformanceFile 提取公共 `parsePerformanceFileRoot` 复用 metadata/事件解析。
-- [ ] `QUAL-009`：`chooseNoteRichTrack` 实现 preferredTrack 平局语义或删除参数与"instead of"日志。
-- [ ] `QUAL-010`：删除 `applyMatrixToNoteOn/Off` 未用 `originalChannel` 参数。
-- [ ] `QUAL-011`：删除 `WavExportTask.cpp:45-47` 死预检查块（保留单一取消路径）。
-- [ ] `QUAL-012`：PerformancePreset 移除 keySignature/midiTranspose 死配置字段（或补应用路径）。
-- [ ] `QUAL-013`：成员版 `buildCurrentAppStateSnapshot` 改名消除与 core 自由函数同名混淆。
-- [ ] `QUAL-015`：`sourceToString` 删除冗余 `default:` 分支（枚举已穷尽）。
-- [ ] `QUAL-016`：逐个决策 test-only API 面（hasDroppedEvents/getLastScanFailedFiles/setLowestVisibleNote/makeFullPianoLayout/NoteRange/isValid 系列）——接入生产或删除并清理测试。
-- [ ] `QUAL-017`：删除 CustomKeyboard.h 过期 Phase 6 开发步骤注释。
-- [ ] `QUAL-018`：`MainComponent.cpp` adsrCurve 怪 lambda 初始化改直接 `= nullptr`。
+- [x] `QUAL-001`：删除 `InputState::layoutId` 死字段 + AppStateBuilder 2 处赋值 + 因之变空的 `applyRuntimeInputState` 函数。
+- [x] `QUAL-002`：`stopInternalPlayback` 改返回 `void`，删除 6 处 `const auto stoppedTake =` 与残留 ignoreUnused，消除大向量拷贝。
+- [x] `QUAL-003`：删除 MainComponent.cpp 未使用 include（SettingsSerialization.h）；**PluginFlowSupport.h 保留**（`makePluginRecoverySettings` 实际使用，AUDIT 时点误判）。
+- [x] `QUAL-004`：SettingsComponent 提取 `rebuildColourModeCombo`/`rebuildNoteDisplayCombo`/`rebuildKeySignatureCombo`——构造器与 refreshTexts() 复用，消除 38 处 addItem 重复。
+- [x] `QUAL-005`：验证**已不适用**——无重复过时注释（AUDIT 时点内容已随此前重构消失）。
+- [x] `QUAL-006`：PresetDialogs `complete()` 模式提取为 `DialogContentBase::completeWith()`（防 double-callback + SafePointer UAF 防护），PresetNameContent/PresetConfirmContent 复用。
+- [x] `QUAL-007`：提取 `makeKeyboardSettings(view, keySignature)` 共享函数（SettingsModel.h inline）——MainComponent 与 SettingsWindowManager 两处重复装配复用。
+- [x] `QUAL-008`：PerformanceFile 提取公共 `parsePerformanceFileRoot`（parse + format 校验），deserialiseTakeFromJson 与 loadPerformanceFileMetadata 复用。
+- [x] `QUAL-009`：`chooseNoteRichTrack` 删除未实现 preferredTrack 参数 + `MidiImportOptions::preferTrack` 字段 + "instead of" 日志（同步清理测试）。
+- [x] `QUAL-010`：`applyMatrixToNoteOn/Off` 删除未用 `originalChannel` 参数 + 全部调用点（MidiChannelMapper、测试）。
+- [x] `QUAL-011`：验证**已随 Phase E 落地**——WavExportTask::run() 已重构为 try-catch + 单一取消路径，死预检查块不存在。
+- [x] `QUAL-012`：验证**已接入应用路径**——`captureCurrentState` 读入 preset.keySignature/midiTranspose（:144-145），不删除。
+- [x] `QUAL-013`：成员版 `buildCurrentAppStateSnapshot` 改名 `buildAppStateSnapshot`，消除与 core 自由函数同名混淆。
+- [x] `QUAL-015`：`sourceToString` 删除冗余 `default:` 分支（枚举穷尽，-Wswitch-enum 保障）。
+- [x] `QUAL-016`：删除 4 个 test-only API——`hasDroppedEvents`（测试改用 `getDroppedEventCount`）、`getLastScanFailedFiles`（访问器无消费者；`lastScanFailedFiles` 成员被生产扫描使用故保留）、`makeFullPianoLayout`、`setLowestVisibleNote`（同步清理 KeyMapTypesTest/KeyboardHitMappingTest 用例）。**保留** `NoteRange`/`isValid` 系列（MidiTypes 值类型体系，生产契约）。
+- [x] `QUAL-017`：删除 CustomKeyboard.h 过期 Phase 6 开发步骤注释。
+- [x] `QUAL-018`：MainComponent adsrCurve 怪 lambda 初始化改直接 `= nullptr`。
 
-验证：`./scripts/dev.sh wsl-build`、`./scripts/dev.sh test`、`./scripts/dev.sh format --check`。
+验证：`./scripts/dev.sh test`（全绿）、`./scripts/dev.sh format --check`（归零）、wsl-build（0 warning）、win-build（通过，2026-08-17）。
 
 ## AUDIT Phase G — 文档与配置契约 [未开始]
 

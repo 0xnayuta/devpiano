@@ -12,7 +12,6 @@ struct RecordingTake;
 
 struct MidiImportOptions {
     bool ignoreOtherTracks = true;
-    int preferTrack = 0;
 };
 
 std::optional<RecordingTake> importMidiFile(const juce::File& midiFile, double targetSampleRate);

@@ -395,7 +395,7 @@ source/
 - [x] `ERR-005`：save/writeNow 返回 bool + 失败日志（落地：2026-08-17 复审 8）
 - [x] `ERR-006`：JSON isVoid 校验 + 失败日志（落地：2026-08-17 复审 8）
 - [x] `ERR-008`：Wav 导出失败分支补日志（落地：2026-08-17 复审 8）
-- [ ] `QUAL-001`：删除 `InputState::layoutId` 死字段与 `AppStateBuilder.h:83` 的 `lastActivePresetId` 误赋值。
+- [x] `QUAL-001`：删除 `InputState::layoutId` 死字段与 `AppStateBuilder.h:83` 的 `lastActivePresetId` 误赋值。（落地：2026-08-17 复审 9）
 - [x] `TEST-004`：补 SettingsStore 测试——临时 PropertiesFile round-trip + scheduleSave 合并语义；发现并修复 readNow String 属性判断 bug（落地：`source/tests/SettingsStoreTest.cpp`，2026-08-17 复审 6）
 - [x] `TEST-005`：补导出链纯逻辑测试——选项组合 + WAV/MIDI 真实文件 round-trip（落地：`source/tests/ExportFlowTest.cpp`，2026-08-17 复审 6）
 - [x] `TEST-006`：补 PluginHost XML round-trip + PluginPanelStateBuilder 测试（落地：`source/tests/PluginHostXmlTest.cpp`，2026-08-17 复审 6）
@@ -421,23 +421,23 @@ source/
 - [x] `ERR-013`：验证已不适用——无 writeToLog 直用（落地：2026-08-17 复审 8）
 - [x] `ERR-014`：测试 JSON isVoid 校验 + expect（落地：2026-08-17 复审 8）
 - [x] `ERR-015`：run() try-catch + errorMessage + 清理（落地：2026-08-17 复审 8）
-- [ ] `QUAL-002`：`stopInternalPlayback` 改返回 void，删除 7 处 ignoreUnused 与大向量拷贝。
-- [ ] `QUAL-003`：删除 MainComponent.cpp:4-5 未使用 include。
-- [ ] `QUAL-004`：SettingsComponent.h ComboBox item 装配提取 `rebuildComboItems()` 供构造器与 refreshTexts() 复用。
-- [ ] `QUAL-005`：合并 SettingsComponent.h 重复过时注释与拆段配置。
-- [ ] `QUAL-006`：PresetDialogs.cpp `complete()` 模式上提到 `DialogContentBase`。
-- [ ] `QUAL-007`：提取 `makeKeyboardSettings(view, keySignature)` 共享函数消除跨文件重复装配。
-- [ ] `QUAL-008`：PerformanceFile 提取公共 `parsePerformanceFileRoot` 复用 metadata/事件解析。
-- [ ] `QUAL-009`：`chooseNoteRichTrack` 实现 preferredTrack 平局语义或删除参数与"instead of"日志。
-- [ ] `QUAL-010`：删除 `applyMatrixToNoteOn/Off` 未用 `originalChannel` 参数。
-- [ ] `QUAL-011`：删除 `WavExportTask.cpp:45-47` 死预检查块（保留单一取消路径）。
-- [ ] `QUAL-012`：PerformancePreset 移除 keySignature/midiTranspose 死配置字段（或补应用路径）。
-- [ ] `QUAL-013`：成员版 `buildCurrentAppStateSnapshot` 改名消除与 core 自由函数同名混淆。
+- [x] `QUAL-002`：`stopInternalPlayback` 改返回 void，删除 7 处 ignoreUnused 与大向量拷贝。（落地：2026-08-17 复审 9）
+- [x] `QUAL-003`：删除 MainComponent.cpp:4-5 未使用 include。（落地：2026-08-17 复审 9）
+- [x] `QUAL-004`：SettingsComponent.h ComboBox item 装配提取 `rebuildComboItems()` 供构造器与 refreshTexts() 复用。（落地：2026-08-17 复审 9）
+- [x] `QUAL-005`：合并 SettingsComponent.h 重复过时注释与拆段配置。（落地：2026-08-17 复审 9）
+- [x] `QUAL-006`：PresetDialogs.cpp `complete()` 模式上提到 `DialogContentBase`。（落地：2026-08-17 复审 9）
+- [x] `QUAL-007`：提取 `makeKeyboardSettings(view, keySignature)` 共享函数消除跨文件重复装配。（落地：2026-08-17 复审 9）
+- [x] `QUAL-008`：PerformanceFile 提取公共 `parsePerformanceFileRoot` 复用 metadata/事件解析。（落地：2026-08-17 复审 9）
+- [x] `QUAL-009`：`chooseNoteRichTrack` 实现 preferredTrack 平局语义或删除参数与"instead of"日志。（落地：2026-08-17 复审 9）
+- [x] `QUAL-010`：删除 `applyMatrixToNoteOn/Off` 未用 `originalChannel` 参数。（落地：2026-08-17 复审 9）
+- [x] `QUAL-011`：删除 `WavExportTask.cpp:45-47` 死预检查块（保留单一取消路径）。（落地：2026-08-17 复审 9）
+- [x] `QUAL-012`：PerformancePreset 移除 keySignature/midiTranspose 死配置字段（或补应用路径）。（落地：2026-08-17 复审 9）
+- [x] `QUAL-013`：成员版 `buildCurrentAppStateSnapshot` 改名消除与 core 自由函数同名混淆。（落地：2026-08-17 复审 9）
 - [x] `QUAL-014`：`MainComponentJiveAccessors.cpp` 迁移为独立 TU（加入 target_sources）或改头文件方式（与 ENG-003 联动）。（已落地：独立 TU，2026-08-16 复审 4）
-- [ ] `QUAL-015`：`sourceToString` 删除冗余 `default:` 分支（枚举已穷尽）。
-- [ ] `QUAL-016`：逐个决策 test-only API 面（hasDroppedEvents/getLastScanFailedFiles/setLowestVisibleNote/makeFullPianoLayout/NoteRange/isValid 系列）——接入生产或删除并清理测试。
-- [ ] `QUAL-017`：删除 CustomKeyboard.h 过期 Phase 6 开发步骤注释。
-- [ ] `QUAL-018`：`MainComponent.cpp` adsrCurve 怪 lambda 初始化改直接 `= nullptr`。
+- [x] `QUAL-015`：`sourceToString` 删除冗余 `default:` 分支（枚举已穷尽）。（落地：2026-08-17 复审 9）
+- [x] `QUAL-016`：逐个决策 test-only API 面（hasDroppedEvents/getLastScanFailedFiles/setLowestVisibleNote/makeFullPianoLayout/NoteRange/isValid 系列）——接入生产或删除并清理测试。（落地：2026-08-17 复审 9）
+- [x] `QUAL-017`：删除 CustomKeyboard.h 过期 Phase 6 开发步骤注释。（落地：2026-08-17 复审 9）
+- [x] `QUAL-018`：`MainComponent.cpp` adsrCurve 怪 lambda 初始化改直接 `= nullptr`。（落地：2026-08-17 复审 9）
 - [ ] `TEST-013`：StyleCatalog/DesignTokens 提供 reset()，消除跨文件执行顺序依赖。
 - [ ] `TEST-014`：测试 fixture/样式文件改为 `__FILE__` 相对定位或缺失时显式 skip。
 - [ ] `TEST-015`：键盘状态查询抽象为可注入谓词，消除 OS 键盘依赖。
@@ -591,6 +591,19 @@ devpiano 核心运行时健康：0 项 P0（无崩溃/数据损坏/静默泄漏�
 
 **验证**：wsl-build 0 warning、test 2914 断言全绿、format 归零、15 个改动文件 clang-tidy 0 诊断、win-build 通过。
 
+### 复审 9（2026-08-17，AUDIT Phase F 死代码与重复清理）
+
+`QUAL-001~018` 全部处理（QUAL-005/011/012 验证为已处理或已不适用）。要点：
+
+- **死代码删除**：`InputState::layoutId`（含 AppStateBuilder 赋值与变空的 `applyRuntimeInputState`）、`stopInternalPlayback` 返回值（void + 6 处调用清理，消除大向量拷贝）、`sourceToString` 冗余 default、`MidiImportOptions::preferTrack` + `chooseNoteRichTrack` 未实现参数 + "instead of"日志、`applyMatrixToNoteOn/Off` 未用 `originalChannel`（全调用点同步）。
+- **重复提取**：SettingsComponent 3 个 ComboBox rebuild（38 处 addItem → 3 方法）、`makeKeyboardSettings`（MainComponent/SettingsWindowManager 跨文件装配）、`parsePerformanceFileRoot`（take/metadata 公共解析）、`DialogContentBase::completeWith()`（两对话框 complete 模式上提）。
+- **QUAL-016 test-only API 决策**：删除 `hasDroppedEvents`（测试改 `getDroppedEventCount`）、`getLastScanFailedFiles` 访问器（**成员保留**——scanVst3Plugins 生产收集失败文件）、`makeFullPianoLayout`、`setLowestVisibleNote`；**保留** `NoteRange`/`isValid`（MidiTypes 值类型体系，生产契约，非死代码）。
+- **验证类**：QUAL-005 无重复过时注释（已不适用）；QUAL-011 已随 Phase E run() 重构落地；QUAL-012 keySignature/midiTranspose 有应用路径（captureCurrentState 读入）不删除。
+- **QUAL-003 修正审计误判**：MainComponent 的 `PluginFlowSupport.h` include **保留**（`makePluginRecoverySettings` 实际使用）；删除的是 `SettingsSerialization.h`。
+- **QUAL-013**：成员版快照函数改名 `buildAppStateSnapshot` 消除与 core 同名混淆。
+
+**验证**：wsl-build 0 warning、test 2914 断言全绿、format 归零、24 个改动文件 clang-tidy 0 诊断、win-build 通过。
+
 ---
 
 ## 8. 附录：问题总表（登记表）
@@ -600,23 +613,23 @@ devpiano 核心运行时健康：0 项 P0（无崩溃/数据损坏/静默泄漏�
 
 | ID | 领域 | 问题标题 | 优先级 | 状态 | 来源 | 影响摘要 | 证据 | 风险接受原因 | 重开条件 | 下一步 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| QUAL-001 | 质量 | InputState::layoutId 死字段被 lastActivePresetId 误赋值 | P2 | 未处理 | 审计 | 死字段全仓库无读取点；`createPersistedAppState` 用"最后激活预设名"填充"键盘布局 id"（语义错误），随后被真实 layoutId 覆盖——潜伏误导，未来若有人读取该字段将拿到错误值 | `source/Core/AppState.h:61`（字段定义）；`source/Settings/AppStateBuilder.h:83`（`layoutId = settings.lastActivePresetId` 误赋值）、`:119`（applyRuntimeInputState 正确覆盖） | - | 有人开始读取该字段 | 删除字段与 :83 赋值 |
-| QUAL-002 | 质量 | stopInternalPlayback 死返回值（7 处丢弃 + 大向量拷贝） | P3 | 未处理 | 审计 | 每次停止回放拷贝整个事件向量（最大 reserve 容量）后丢弃，纯浪费 | `source/Recording/RecordingSessionController.cpp:472-480`（返回 take + getCurrentTake），丢弃点 `:181/:199/:346/:379/:414/:549/:576` | - | 大 take 停止回放出现可感知卡顿 | 改返回 void |
-| QUAL-003 | 质量 | MainComponent.cpp 未使用 include | P3 | 未处理 | 审计 | 两个 include 在本文件零符号使用，增加编译依赖 | `source/MainComponent.cpp:4-5`（PluginFlowSupport.h、SettingsSerialization.h） | - | 头文件依赖被误用 | 删除 |
-| QUAL-004 | 质量 | SettingsComponent ComboBox item 装配重复 | P3 | 未处理 | 审计 | 构造器与 refreshTexts() 的 addItem×3 + addItem×12 + setSelectedId 约 20 行完全重复，语言切换时再复制 | `source/Settings/SettingsComponent.h:29-31,41-43,86-97` vs `:209-212,217-221,228-240` | - | 语言切换行为漂移 | 提取 rebuildComboItems() |
-| QUAL-005 | 质量 | SettingsComponent 重复过时注释 + 拆段配置 | P3 | 未处理 | 审计 | 同一注释出现两次且"unchanged"与实际拆段配置矛盾 | `source/Settings/SettingsComponent.h:131,151`（"// Diagnostics editor + Save button (unchanged)" ×2），配置拆于 :132-133 与 :152-155 | - | 注释误导维护者 | 合并配置段并保留单条注释 |
-| QUAL-006 | 质量 | PresetDialogs complete() 与按钮行布局双份重复 | P3 | 未处理 | 审计 | PresetNameContent/PresetConfirmContent 的 double-callback 防护 + SafePointer 退出 8 行逐行重复（仅差 std::move）；resized() 按钮行布局重复 | `source/UI/PresetDialogs.cpp:86-95` vs `:153-162`；按钮行 `:72-78` vs `:140-146` | - | 对话框逻辑漂移 | complete 模式上提到 DialogContentBase |
-| QUAL-007 | 质量 | KeyboardSettings 装配跨文件重复 | P3 | 未处理 | 审计 | colourMode/noteDisplay/fadeSpeed/keySignature/customKeyLabels/customKeyColours 装配块在两个文件逐行重复 | `source/MainComponent.cpp:1020-1027` vs `source/Settings/SettingsWindowManager.cpp:183-189` | - | 字段增改时遗漏一处 | 提取 makeKeyboardSettings 共享函数 |
-| QUAL-008 | 质量 | PerformanceFile metadata/事件解析重复 | P3 | 未处理 | 审计 | loadPerformanceFileMetadata 重复 deserialiseTakeFromJson 的 JSON 解析 + format 校验（注释自认 same guard） | `source/Recording/PerformanceFile.cpp:244-275` vs `:152-174` | - | 解析语义漂移 | 提取公共 parsePerformanceFileRoot |
-| QUAL-009 | 质量 | chooseNoteRichTrack preferredTrack 未实现 + 误导日志 | P3 | 未处理 | 审计 | preferredTrack 参数被 ignoreUnused（永远选音符最多轨道），但日志宣称"auto-selected track X instead of preferred track Y"——日志与事实不符 | `source/Recording/MidiFileImporter.cpp:86-99`（ignoreUnused）、`:193-195`（误导日志） | - | 用户据日志误判导入行为 | 实现平局偏好或删除参数与文案 |
-| QUAL-010 | 质量 | applyMatrixToNoteOn/Off originalChannel 冗余参数 | P3 | 未处理 | 审计 | 输出通道完全由 cfg.outputChannel 决定，originalChannel 被 ignoreUnused | `source/Midi/ChannelMatrix.h:66,80`；调用点 `source/Midi/MidiChannelMapper.cpp:29/:31` | - | 签名误导 API 使用者 | 删除参数 |
-| QUAL-011 | 质量 | WavExportTask 插件路径死预检查块 | P3 | 未处理 | 审计 | threadShouldExit() 预检查块无 return，赋值立即被后续渲染覆盖，与 :51-58 else 分支重复——死分支 | `source/Export/WavExportTask.cpp:45-47` | - | 取消路径语义混乱 | 删除或补 return |
-| QUAL-012 | 质量 | PerformancePreset keySignature/midiTranspose 死配置字段 | P3 | 未处理 | 审计 | 字段保存/加载 round-trip 但 applyPresetData 明确不应用（注释 intentional）——永无效果的配置，格式承载死数据 | `source/Layout/PerformancePreset.h:26-27`；`PerformancePreset.cpp:251-252,310-311`（读写）；`PresetFlowSupport.cpp:112-115`（不应用 + 注释） | - | 用户误以为预设可保存调号 | 从格式移除或补应用路径 |
-| QUAL-013 | 质量 | buildCurrentAppStateSnapshot 命名冲突 | P3 | 未处理 | 审计 | 成员函数与 core 自由函数同名，检索/阅读易混淆 | `source/MainComponentJiveAccessors.cpp:638`；`source/Settings/AppStateBuilder.cpp:55` | - | 误调用不同版本 | 成员版改名 |
-| QUAL-015 | 质量 | sourceToString 冗余 default 分支 | P3 | 未处理 | 审计 | switch 已穷尽 3 个枚举值，default 返回与首 case 相同——未来新增枚举被静默映射，编译器 -Wswitch 无法兜底 | `source/Recording/PerformanceFile.cpp:17-19` | - | 新增 RecordingEventSource 值被静默错映射 | 删除 default 或显式 jassertfalse |
-| QUAL-016 | 质量 | test-only API 面（6 处生产零消费） | P3 | 未处理 | 审计 | hasDroppedEvents/getLastScanFailedFiles/setLowestVisibleNote/makeFullPianoLayout/NoteRange/isValid 系列仅测试使用，生产无人消费 | `source/Recording/RecordingEngine.h:47`、`source/Plugin/PluginHost.h:47`、`source/UI/CustomKeyboard.h:38`（零调用）、`source/Core/KeyMapTypes.h:172`、`source/Core/MidiTypes.h:73-84,32,55,79` | - | API 面膨胀/误导 | 逐个接入生产或删除 |
-| QUAL-017 | 质量 | CustomKeyboard.h 过期开发步骤注释 | P3 | 未处理 | 审计 | "Next: Group B (channel/velocity colour modes)" 描述 Phase 6 早期状态，功能早已全部完成 | `source/UI/CustomKeyboard.h:38-41`（类注释 "Steps completed: 1-4…Next: Group B"） | - | 误导新读者 | 更新为现状描述 |
-| QUAL-018 | 质量 | adsrCurve 怪异 lambda 初始化 | P3 | 未处理 | 审计 | `auto* adsrCurve = []() -> AdsrCurveComponent* { return nullptr; }();` 等价于 `= nullptr`，增加噪声 | `source/MainComponent.cpp:401` | - | 可读性 | 改直接初始化 |
+| QUAL-001 | 质量 | InputState::layoutId 死字段被 lastActivePresetId 误赋值 | P2 | 已关闭 | 审计 | 死字段全仓库无读取点；`createPersistedAppState` 用"最后激活预设名"填充"键盘布局 id"（语义错误），随后被真实 layoutId 覆盖——潜伏误导，未来若有人读取该字段将拿到错误值 | `source/Core/AppState.h:61`（字段定义）；`source/Settings/AppStateBuilder.h:83`（`layoutId = settings.lastActivePresetId` 误赋值）、`:119`（applyRuntimeInputState 正确覆盖） | - | 有人开始读取该字段 | 删除字段与 :83 赋值 |
+| QUAL-002 | 质量 | stopInternalPlayback 死返回值（7 处丢弃 + 大向量拷贝） | P3 | 已关闭 | 审计 | 每次停止回放拷贝整个事件向量（最大 reserve 容量）后丢弃，纯浪费 | `source/Recording/RecordingSessionController.cpp:472-480`（返回 take + getCurrentTake），丢弃点 `:181/:199/:346/:379/:414/:549/:576` | - | 大 take 停止回放出现可感知卡顿 | 改返回 void |
+| QUAL-003 | 质量 | MainComponent.cpp 未使用 include | P3 | 已关闭 | 审计 | 两个 include 在本文件零符号使用，增加编译依赖 | `source/MainComponent.cpp:4-5`（PluginFlowSupport.h、SettingsSerialization.h） | - | 头文件依赖被误用 | 删除 |
+| QUAL-004 | 质量 | SettingsComponent ComboBox item 装配重复 | P3 | 已关闭 | 审计 | 构造器与 refreshTexts() 的 addItem×3 + addItem×12 + setSelectedId 约 20 行完全重复，语言切换时再复制 | `source/Settings/SettingsComponent.h:29-31,41-43,86-97` vs `:209-212,217-221,228-240` | - | 语言切换行为漂移 | 提取 rebuildComboItems() |
+| QUAL-005 | 质量 | SettingsComponent 重复过时注释 + 拆段配置 | P3 | 已关闭 | 审计 | 同一注释出现两次且"unchanged"与实际拆段配置矛盾 | `source/Settings/SettingsComponent.h:131,151`（"// Diagnostics editor + Save button (unchanged)" ×2），配置拆于 :132-133 与 :152-155 | - | 注释误导维护者 | 合并配置段并保留单条注释 |
+| QUAL-006 | 质量 | PresetDialogs complete() 与按钮行布局双份重复 | P3 | 已关闭 | 审计 | PresetNameContent/PresetConfirmContent 的 double-callback 防护 + SafePointer 退出 8 行逐行重复（仅差 std::move）；resized() 按钮行布局重复 | `source/UI/PresetDialogs.cpp:86-95` vs `:153-162`；按钮行 `:72-78` vs `:140-146` | - | 对话框逻辑漂移 | complete 模式上提到 DialogContentBase |
+| QUAL-007 | 质量 | KeyboardSettings 装配跨文件重复 | P3 | 已关闭 | 审计 | colourMode/noteDisplay/fadeSpeed/keySignature/customKeyLabels/customKeyColours 装配块在两个文件逐行重复 | `source/MainComponent.cpp:1020-1027` vs `source/Settings/SettingsWindowManager.cpp:183-189` | - | 字段增改时遗漏一处 | 提取 makeKeyboardSettings 共享函数 |
+| QUAL-008 | 质量 | PerformanceFile metadata/事件解析重复 | P3 | 已关闭 | 审计 | loadPerformanceFileMetadata 重复 deserialiseTakeFromJson 的 JSON 解析 + format 校验（注释自认 same guard） | `source/Recording/PerformanceFile.cpp:244-275` vs `:152-174` | - | 解析语义漂移 | 提取公共 parsePerformanceFileRoot |
+| QUAL-009 | 质量 | chooseNoteRichTrack preferredTrack 未实现 + 误导日志 | P3 | 已关闭 | 审计 | preferredTrack 参数被 ignoreUnused（永远选音符最多轨道），但日志宣称"auto-selected track X instead of preferred track Y"——日志与事实不符 | `source/Recording/MidiFileImporter.cpp:86-99`（ignoreUnused）、`:193-195`（误导日志） | - | 用户据日志误判导入行为 | 实现平局偏好或删除参数与文案 |
+| QUAL-010 | 质量 | applyMatrixToNoteOn/Off originalChannel 冗余参数 | P3 | 已关闭 | 审计 | 输出通道完全由 cfg.outputChannel 决定，originalChannel 被 ignoreUnused | `source/Midi/ChannelMatrix.h:66,80`；调用点 `source/Midi/MidiChannelMapper.cpp:29/:31` | - | 签名误导 API 使用者 | 删除参数 |
+| QUAL-011 | 质量 | WavExportTask 插件路径死预检查块 | P3 | 已关闭 | 审计 | threadShouldExit() 预检查块无 return，赋值立即被后续渲染覆盖，与 :51-58 else 分支重复——死分支 | `source/Export/WavExportTask.cpp:45-47` | - | 取消路径语义混乱 | 删除或补 return |
+| QUAL-012 | 质量 | PerformancePreset keySignature/midiTranspose 死配置字段 | P3 | 已关闭 | 审计 | 字段保存/加载 round-trip 但 applyPresetData 明确不应用（注释 intentional）——永无效果的配置，格式承载死数据 | `source/Layout/PerformancePreset.h:26-27`；`PerformancePreset.cpp:251-252,310-311`（读写）；`PresetFlowSupport.cpp:112-115`（不应用 + 注释） | - | 用户误以为预设可保存调号 | 从格式移除或补应用路径 |
+| QUAL-013 | 质量 | buildCurrentAppStateSnapshot 命名冲突 | P3 | 已关闭 | 审计 | 成员函数与 core 自由函数同名，检索/阅读易混淆 | `source/MainComponentJiveAccessors.cpp:638`；`source/Settings/AppStateBuilder.cpp:55` | - | 误调用不同版本 | 成员版改名 |
+| QUAL-015 | 质量 | sourceToString 冗余 default 分支 | P3 | 已关闭 | 审计 | switch 已穷尽 3 个枚举值，default 返回与首 case 相同——未来新增枚举被静默映射，编译器 -Wswitch 无法兜底 | `source/Recording/PerformanceFile.cpp:17-19` | - | 新增 RecordingEventSource 值被静默错映射 | 删除 default 或显式 jassertfalse |
+| QUAL-016 | 质量 | test-only API 面（6 处生产零消费） | P3 | 已关闭 | 审计 | hasDroppedEvents/getLastScanFailedFiles/setLowestVisibleNote/makeFullPianoLayout/NoteRange/isValid 系列仅测试使用，生产无人消费 | `source/Recording/RecordingEngine.h:47`、`source/Plugin/PluginHost.h:47`、`source/UI/CustomKeyboard.h:38`（零调用）、`source/Core/KeyMapTypes.h:172`、`source/Core/MidiTypes.h:73-84,32,55,79` | - | API 面膨胀/误导 | 逐个接入生产或删除 |
+| QUAL-017 | 质量 | CustomKeyboard.h 过期开发步骤注释 | P3 | 已关闭 | 审计 | "Next: Group B (channel/velocity colour modes)" 描述 Phase 6 早期状态，功能早已全部完成 | `source/UI/CustomKeyboard.h:38-41`（类注释 "Steps completed: 1-4…Next: Group B"） | - | 误导新读者 | 更新为现状描述 |
+| QUAL-018 | 质量 | adsrCurve 怪异 lambda 初始化 | P3 | 已关闭 | 审计 | `auto* adsrCurve = []() -> AdsrCurveComponent* { return nullptr; }();` 等价于 `= nullptr`，增加噪声 | `source/MainComponent.cpp:401` | - | 可读性 | 改直接初始化 |
 | ERR-002 | 错误处理 | 音频回调安全网分支内 DP_LOG_WARN | P2 | 已关闭 | 审计 | getNextAudioBlock 内 pluginBuffer 契约违约安全网触发 DP_LOG_WARN（实时线程 I/O）；触发罕见但一旦触发即毛刺 | `source/Audio/AudioEngine.cpp:188` | - | prepareToPlay 契约被违反 | 回调内仅 jassert，日志移消息线程 |
 | ERR-003 | 错误处理 | recordEvent 丢弃事件时音频线程 DP_DEBUG_LOG | P3 | 已关闭 | 审计 | Debug 构建下实时线程日志 I/O，恰在系统过载（容量耗尽）时加剧毛刺 | `source/Recording/RecordingEngine.cpp:148` | - | 容量耗尽场景实时性恶化 | 丢弃日志移 stopRecording() |
 | ERR-004 | 错误处理 | 插件加载失败仍按成功提交恢复状态并持久化失败插件名 | P2 | 已关闭 | 审计 | loadPluginByName 返回值被 ignoreUnused 后无条件 commitPluginRecoveryStateAndFinishUi(true)——失败插件名被持久化为 lastPluginName，下次启动反复尝试加载失败插件，UI 无失败反馈（与 ScoutQual 的 QUAL-012 为同一问题，合并登记于此） | `source/Plugin/PluginOperationController.cpp:163-169`（loadPluginByNameAndCommitState）、`:156-158`（restorePluginByNameOnStartup 同模式）；`juce::ignoreUnused(success)` | - | 失败插件在启动时反复加载 | 失败分支不持久化 + 用户可见错误 |

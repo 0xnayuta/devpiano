@@ -152,7 +152,7 @@ private:
     void refreshReadOnlyUiStateFromCurrentSnapshot();
     void refreshPluginUiState();
     void finishPluginUiAction(bool shouldSaveSettings);
-    [[nodiscard]] devpiano::core::AppState buildCurrentAppStateSnapshot() const;
+    [[nodiscard]] devpiano::core::AppState buildAppStateSnapshot() const;
     double getCurrentRuntimeSampleRate() const;
     int getCurrentRuntimeBlockSize() const;
     void applyLanguage(const juce::String& code);

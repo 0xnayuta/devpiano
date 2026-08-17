@@ -27,9 +27,7 @@ public:
         // Colour mode
         colourModeLabel.setText(TRANS("Colour Mode:"), juce::dontSendNotification);
         colourModeLabel.attachToComponent(&colourModeCombo, true);
-        colourModeCombo.addItem(TRANS("Classic"), 1 + static_cast<int>(devpiano::ui::KeyColourMode::classic));
-        colourModeCombo.addItem(TRANS("Channel"), 1 + static_cast<int>(devpiano::ui::KeyColourMode::channel));
-        colourModeCombo.addItem(TRANS("Velocity"), 1 + static_cast<int>(devpiano::ui::KeyColourMode::velocity));
+        rebuildColourModeCombo();
         if (model) {
             colourModeCombo.setSelectedId(1 + static_cast<int>(model->keyboardColourMode), juce::dontSendNotification);
         }
@@ -40,9 +38,7 @@ public:
         // Note display
         noteDisplayLabel.setText(TRANS("Note Display:"), juce::dontSendNotification);
         noteDisplayLabel.attachToComponent(&noteDisplayCombo, true);
-        noteDisplayCombo.addItem(TRANS("Do Re Mi"), 1 + static_cast<int>(devpiano::ui::NoteDisplayMode::doReMi));
-        noteDisplayCombo.addItem(TRANS("Fixed Do"), 1 + static_cast<int>(devpiano::ui::NoteDisplayMode::fixedDo));
-        noteDisplayCombo.addItem(TRANS("Note Name"), 1 + static_cast<int>(devpiano::ui::NoteDisplayMode::noteName));
+        rebuildNoteDisplayCombo();
         if (model) {
             noteDisplayCombo.setSelectedId(1 + static_cast<int>(model->keyboardNoteDisplay),
                                            juce::dontSendNotification);
@@ -89,18 +85,7 @@ public:
 
         keySignatureLabel.setText(TRANS("Key Signature:"), juce::dontSendNotification);
         keySignatureLabel.attachToComponent(&keySignatureCombo, true);
-        keySignatureCombo.addItem("C", 1);
-        keySignatureCombo.addItem("C# / Db", 2);
-        keySignatureCombo.addItem("D", 3);
-        keySignatureCombo.addItem("D# / Eb", 4);
-        keySignatureCombo.addItem("E", 5);
-        keySignatureCombo.addItem("F", 6);
-        keySignatureCombo.addItem("F# / Gb", 7);
-        keySignatureCombo.addItem("G", 8);
-        keySignatureCombo.addItem("G# / Ab", 9);
-        keySignatureCombo.addItem("A", 10);
-        keySignatureCombo.addItem("A# / Bb", 11);
-        keySignatureCombo.addItem("B", 12);
+        rebuildKeySignatureCombo();
         if (model) {
             keySignatureCombo.setSelectedId(keySignatureToComboId(model->keySignature), juce::dontSendNotification);
         }
@@ -198,6 +183,36 @@ public:
         updateDiagnostics();
     }
 
+    void rebuildColourModeCombo() {
+        colourModeCombo.clear(juce::dontSendNotification);
+        colourModeCombo.addItem(TRANS("Classic"), 1 + static_cast<int>(devpiano::ui::KeyColourMode::classic));
+        colourModeCombo.addItem(TRANS("Channel"), 1 + static_cast<int>(devpiano::ui::KeyColourMode::channel));
+        colourModeCombo.addItem(TRANS("Velocity"), 1 + static_cast<int>(devpiano::ui::KeyColourMode::velocity));
+    }
+
+    void rebuildNoteDisplayCombo() {
+        noteDisplayCombo.clear(juce::dontSendNotification);
+        noteDisplayCombo.addItem(TRANS("Do Re Mi"), 1 + static_cast<int>(devpiano::ui::NoteDisplayMode::doReMi));
+        noteDisplayCombo.addItem(TRANS("Fixed Do"), 1 + static_cast<int>(devpiano::ui::NoteDisplayMode::fixedDo));
+        noteDisplayCombo.addItem(TRANS("Note Name"), 1 + static_cast<int>(devpiano::ui::NoteDisplayMode::noteName));
+    }
+
+    void rebuildKeySignatureCombo() {
+        keySignatureCombo.clear(juce::dontSendNotification);
+        keySignatureCombo.addItem("C", 1);
+        keySignatureCombo.addItem("C# / Db", 2);
+        keySignatureCombo.addItem("D", 3);
+        keySignatureCombo.addItem("D# / Eb", 4);
+        keySignatureCombo.addItem("E", 5);
+        keySignatureCombo.addItem("F", 6);
+        keySignatureCombo.addItem("F# / Gb", 7);
+        keySignatureCombo.addItem("G", 8);
+        keySignatureCombo.addItem("G# / Ab", 9);
+        keySignatureCombo.addItem("A", 10);
+        keySignatureCombo.addItem("A# / Bb", 11);
+        keySignatureCombo.addItem("B", 12);
+    }
+
     void refreshTexts() {
         keyboardGroup.setText(TRANS("Keyboard Display"));
         colourModeLabel.setText(TRANS("Colour Mode:"), juce::dontSendNotification);
@@ -216,38 +231,17 @@ public:
         if (model) {
             {
                 const auto selected = colourModeCombo.getSelectedId();
-                colourModeCombo.clear(juce::dontSendNotification);
-                colourModeCombo.addItem(TRANS("Classic"), 1 + static_cast<int>(devpiano::ui::KeyColourMode::classic));
-                colourModeCombo.addItem(TRANS("Channel"), 1 + static_cast<int>(devpiano::ui::KeyColourMode::channel));
-                colourModeCombo.addItem(TRANS("Velocity"), 1 + static_cast<int>(devpiano::ui::KeyColourMode::velocity));
+                rebuildColourModeCombo();
                 colourModeCombo.setSelectedId(selected, juce::dontSendNotification);
             }
             {
                 const auto selected = noteDisplayCombo.getSelectedId();
-                noteDisplayCombo.clear(juce::dontSendNotification);
-                noteDisplayCombo.addItem(TRANS("Do Re Mi"),
-                                         1 + static_cast<int>(devpiano::ui::NoteDisplayMode::doReMi));
-                noteDisplayCombo.addItem(TRANS("Fixed Do"),
-                                         1 + static_cast<int>(devpiano::ui::NoteDisplayMode::fixedDo));
-                noteDisplayCombo.addItem(TRANS("Note Name"),
-                                         1 + static_cast<int>(devpiano::ui::NoteDisplayMode::noteName));
+                rebuildNoteDisplayCombo();
                 noteDisplayCombo.setSelectedId(selected, juce::dontSendNotification);
             }
             {
                 const auto selected = keySignatureCombo.getSelectedId();
-                keySignatureCombo.clear(juce::dontSendNotification);
-                keySignatureCombo.addItem("C", 1);
-                keySignatureCombo.addItem("C# / Db", 2);
-                keySignatureCombo.addItem("D", 3);
-                keySignatureCombo.addItem("D# / Eb", 4);
-                keySignatureCombo.addItem("E", 5);
-                keySignatureCombo.addItem("F", 6);
-                keySignatureCombo.addItem("F# / Gb", 7);
-                keySignatureCombo.addItem("G", 8);
-                keySignatureCombo.addItem("G# / Ab", 9);
-                keySignatureCombo.addItem("A", 10);
-                keySignatureCombo.addItem("A# / Bb", 11);
-                keySignatureCombo.addItem("B", 12);
+                rebuildKeySignatureCombo();
                 keySignatureCombo.setSelectedId(selected, juce::dontSendNotification);
             }
         }

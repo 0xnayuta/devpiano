@@ -29,6 +29,23 @@ public:
     }
 
 protected:
+    // 共享的"完成并收尾"序列（QUAL-006）：防 double-callback 标记、取走回调
+    // 通知（回调可能销毁 this）、仍存活才退出模态状态（防 UAF）。
+    void completeWith(std::function<void()> notify) {
+        if (completed) {
+            return;
+        }
+        completed = true; // 先标记：析构不再触发取消回调，防止 double-callback
+        auto n = std::move(notify); // 取走通知：通知内重入 completeWith() 直接返回
+        if (n) {
+            n();
+        }
+        // 回调可能已关闭对话框并销毁 this；仍存活才退出模态状态，防止 UAF
+        if (juce::Component::SafePointer<DialogContentBase> alive(this); alive != nullptr) {
+            alive->finish(0);
+        }
+    }
+
     bool completed = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DialogContentBase)
@@ -85,18 +102,12 @@ public:
 
 private:
     void complete(std::optional<juce::String> result) {
-        if (completed) {
-            return;
-        }
-        completed = true; // 先标记：析构不再触发取消回调，防止 double-callback
-        auto cb = std::move(onComplete); // 取走回调：回调内重入 complete() 直接返回
-        if (cb) {
-            cb(std::move(result));
-        }
-        // 回调可能已关闭对话框并销毁 this；仍存活才退出模态状态，防止 UAF
-        if (juce::Component::SafePointer<DialogContentBase> alive(this); alive != nullptr) {
-            alive->finish(0);
-        }
+        completeWith([this, r = std::move(result)] {
+            auto cb = std::move(onComplete); // 取走回调：回调内重入 complete() 直接返回
+            if (cb) {
+                cb(r); // r 为 lambda const 捕获；String 引用计数拷贝无额外开销
+            }
+        });
     }
 
     juce::Label nameLabel;
@@ -156,18 +167,12 @@ public:
 
 private:
     void complete(bool result) {
-        if (completed) {
-            return;
-        }
-        completed = true; // 先标记：析构不再触发取消回调，防止 double-callback
-        auto cb = std::move(onComplete); // 取走回调：回调内重入 complete() 直接返回
-        if (cb) {
-            cb(result);
-        }
-        // 回调可能已关闭对话框并销毁 this；仍存活才退出模态状态，防止 UAF
-        if (juce::Component::SafePointer<DialogContentBase> alive(this); alive != nullptr) {
-            alive->finish(0);
-        }
+        completeWith([this, result] {
+            auto cb = std::move(onComplete); // 取走回调：回调内重入 complete() 直接返回
+            if (cb) {
+                cb(result);
+            }
+        });
     }
 
     juce::Label messageLabel;

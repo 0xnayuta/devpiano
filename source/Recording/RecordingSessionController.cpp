@@ -120,8 +120,7 @@ void RecordingSessionController::handleStopClicked() {
                 }
             });
     } else if (command == RecordingFlowCommand::stopPlayback) {
-        const auto stoppedTake = stopInternalPlayback();
-        juce::ignoreUnused(stoppedTake);
+        stopInternalPlayback();
     } else {
         return;
     }
@@ -140,8 +139,7 @@ void RecordingSessionController::handleBackToStartClicked() {
     }
 
     if (recordingSession.state == ui::RecordingState::playing) {
-        const auto stoppedTake = stopInternalPlayback();
-        juce::ignoreUnused(stoppedTake);
+        stopInternalPlayback();
         startInternalPlayback(recordingSession.take, 0);
         recordingSession.state = ui::RecordingState::playing;
         syncRecordingSessionToUi();
@@ -289,8 +287,7 @@ void RecordingSessionController::handleOpenPerformanceFile(const juce::File& fil
     }
 
     if (recordingSession.isPlaying()) {
-        const auto stoppedTake = stopInternalPlayback();
-        juce::ignoreUnused(stoppedTake);
+        stopInternalPlayback();
         recordingSession.state = ui::RecordingState::idle;
         syncRecordingSessionToUi();
     }
@@ -323,8 +320,7 @@ void RecordingSessionController::handleImportMidiFile(const juce::File& file) {
     }
 
     if (recordingSession.isPlaying()) {
-        const auto stoppedTake = stopInternalPlayback();
-        juce::ignoreUnused(stoppedTake);
+        stopInternalPlayback();
         recordingSession.state = ui::RecordingState::idle;
         syncRecordingSessionToUi();
     }
@@ -367,8 +363,7 @@ void RecordingSessionController::checkPlaybackEnded() {
     DP_LOG_INFO("[RecordingEngine] playback ENDED at pos=" + juce::String(recordingEngine.getPlaybackPositionSamples())
                 + " (speed=" + juce::String(recordingEngine.getPlaybackSpeedMultiplier()) + "x)");
 
-    const auto stoppedTake = stopInternalPlayback();
-    juce::ignoreUnused(stoppedTake);
+    stopInternalPlayback();
 
     recordingSession.state = ui::RecordingState::idle;
     syncRecordingSessionToUi();
@@ -426,14 +421,12 @@ void RecordingSessionController::startInternalPlayback(const RecordingTake& take
                 + ", sampleRate=" + juce::String(take.sampleRate));
 }
 
-RecordingTake RecordingSessionController::stopInternalPlayback() {
-    auto take = recordingEngine.getCurrentTake();
+void RecordingSessionController::stopInternalPlayback() {
     DP_LOG_INFO("[Playback] stopInternalPlayback: calling requestAllNotesOff then stopPlayback");
     audioEngine.requestAllNotesOff();
     recordingEngine.stopPlayback();
 
     DP_LOG_INFO("[Playback] Internal playback stopped");
-    return take;
 }
 
 void RecordingSessionController::syncRecordingSessionToUi() {
@@ -505,8 +498,7 @@ std::optional<RecordingTake> RecordingSessionController::tryImportMidiFile(const
 
 void RecordingSessionController::replaceTakeAndStartPlayback(RecordingTake take) {
     if (recordingSession.isPlaying()) {
-        const auto stoppedTake = stopInternalPlayback();
-        juce::ignoreUnused(stoppedTake);
+        stopInternalPlayback();
         recordingSession.state = ui::RecordingState::idle;
         syncRecordingSessionToUi();
     }
@@ -532,8 +524,7 @@ void RecordingSessionController::runImportOpenFlow(
     }
 
     if (recordingSession.isPlaying()) {
-        const auto stoppedTake = stopInternalPlayback();
-        juce::ignoreUnused(stoppedTake);
+        stopInternalPlayback();
         recordingSession.state = ui::RecordingState::idle;
         syncRecordingSessionToUi();
         DP_LOG_INFO("[" + logPrefix + "] stopped current playback before opening");

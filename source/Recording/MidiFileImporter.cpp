@@ -87,9 +87,7 @@ int getTotalNoteEvents(const std::vector<TrackNoteStats>& stats) {
     return total;
 }
 
-int chooseNoteRichTrack(const std::vector<TrackNoteStats>& stats, int preferredTrack) {
-    juce::ignoreUnused(preferredTrack);
-
+int chooseNoteRichTrack(const std::vector<TrackNoteStats>& stats) {
     auto selectedTrack = -1;
     auto selectedNoteCount = 0;
 
@@ -189,15 +187,10 @@ std::optional<RecordingTake> importMidiFile(const juce::File& midiFile, double t
                 + " total note events across all tracks");
     logTrackNoteStats(trackStats);
 
-    const auto selectedTrackIndex = chooseNoteRichTrack(trackStats, options.preferTrack);
+    const auto selectedTrackIndex = chooseNoteRichTrack(trackStats);
     if (selectedTrackIndex < 0) {
         DP_LOG_ERROR("MidiFileImporter: no note events found in any track");
         return std::nullopt;
-    }
-
-    if (options.preferTrack != selectedTrackIndex) {
-        DP_LOG_INFO("MidiFileImporter: auto-selected track " + juce::String(selectedTrackIndex)
-                    + " instead of preferred track " + juce::String(options.preferTrack));
     }
 
     if (numTracks > 1 && options.ignoreOtherTracks) {
