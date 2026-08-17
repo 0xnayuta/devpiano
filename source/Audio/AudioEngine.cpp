@@ -9,22 +9,23 @@
 namespace {
 constexpr auto warmupSeconds = 0.025;
 constexpr auto playbackStartPreRollSeconds = 0.025;
+} // namespace
 
-int calculateBlocksForDuration(double seconds, double sampleRate, int blockSize) {
+int AudioEngine::calculateWarmupBlockCount(double sampleRate, int blockSize) noexcept {
     if (sampleRate <= 0.0 || blockSize <= 0) {
         return 1;
     }
 
-    return juce::jmax(1, static_cast<int>(std::ceil(seconds * sampleRate / static_cast<double>(blockSize))));
+    return juce::jmax(1, static_cast<int>(std::ceil(warmupSeconds * sampleRate / static_cast<double>(blockSize))));
 }
 
-int calculateWarmupBlocks(double sampleRate, int blockSize) {
-    return calculateBlocksForDuration(warmupSeconds, sampleRate, blockSize);
-}
+int AudioEngine::calculatePlaybackStartPreRollBlockCount(double sampleRate, int blockSize) noexcept {
+    if (sampleRate <= 0.0 || blockSize <= 0) {
+        return 1;
+    }
 
-int calculatePlaybackStartPreRollBlocks(double sampleRate, int blockSize) {
-    return calculateBlocksForDuration(playbackStartPreRollSeconds, sampleRate, blockSize);
-}
+    return juce::jmax(
+        1, static_cast<int>(std::ceil(playbackStartPreRollSeconds * sampleRate / static_cast<double>(blockSize))));
 }
 
 class AudioEngine::SimpleSineSound final : public juce::SynthesiserSound {
@@ -154,7 +155,8 @@ void AudioEngine::prepareToPlay(int samplesPerBlockExpected, double sampleRate) 
     }
 
     discardWarmupInputState();
-    warmupBlocksRemaining.store(calculateWarmupBlocks(sampleRate, samplesPerBlockExpected), std::memory_order_release);
+    warmupBlocksRemaining.store(calculateWarmupBlockCount(sampleRate, samplesPerBlockExpected),
+                                std::memory_order_release);
 }
 
 void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) {
@@ -234,7 +236,7 @@ void AudioEngine::requestAllNotesOff() noexcept {
 }
 
 void AudioEngine::armPlaybackStartPreRoll(double sampleRate, int blockSize) noexcept {
-    playbackStartPreRollBlocksRemaining.store(calculatePlaybackStartPreRollBlocks(sampleRate, blockSize),
+    playbackStartPreRollBlocksRemaining.store(calculatePlaybackStartPreRollBlockCount(sampleRate, blockSize),
                                               std::memory_order_release);
 }
 

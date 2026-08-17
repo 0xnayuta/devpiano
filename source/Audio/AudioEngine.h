@@ -30,6 +30,12 @@ public:
         return pluginHost;
     }
 
+    // Block counts for the startup warmup and the playback-start pre-roll
+    // silence windows.  Exposed as pure functions so unit tests can verify
+    // the duration→block mapping (AUDIT TEST-009).
+    [[nodiscard]] static int calculateWarmupBlockCount(double sampleRate, int blockSize) noexcept;
+    [[nodiscard]] static int calculatePlaybackStartPreRollBlockCount(double sampleRate, int blockSize) noexcept;
+
     juce::MidiKeyboardState& getKeyboardState() noexcept {
         return keyboardState;
     }

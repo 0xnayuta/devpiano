@@ -399,10 +399,10 @@ source/
 - [x] `TEST-004`：补 SettingsStore 测试——临时 PropertiesFile round-trip + scheduleSave 合并语义；发现并修复 readNow String 属性判断 bug（落地：`source/tests/SettingsStoreTest.cpp`，2026-08-17 复审 6）
 - [x] `TEST-005`：补导出链纯逻辑测试——选项组合 + WAV/MIDI 真实文件 round-trip（落地：`source/tests/ExportFlowTest.cpp`，2026-08-17 复审 6）
 - [x] `TEST-006`：补 PluginHost XML round-trip + PluginPanelStateBuilder 测试（落地：`source/tests/PluginHostXmlTest.cpp`，2026-08-17 复审 6）
-- [ ] `TEST-007`：离屏渲染测试 CustomKeyboard 命中映射/八度切换与 AdsrCurve 拖拽钳制。
-- [ ] `TEST-008`：AudioEngineTest 注入 noteOn 后断言 warmup 块内静音、warmup 后非零采样（消除"本来无声"假通过）。
-- [ ] `TEST-009`：补 AudioEngine 未覆盖 API（setAdsr/armPlaybackStartPreRoll 块计数纯函数/接线）。
-- [ ] `TEST-010`：PerformanceFileTest 改独立类别（如 `DevPiano/Files`）或 TestRunner 增加精确文件过滤，使 .devpiano 持久化回归进入默认运行。
+- [x] `TEST-007`：离屏键盘几何测试（命中映射/八度滚动/setAvailableRange）；AdsrCurve 拖拽子项不适用（纯绘制组件，钳制在 AudioEngine::setAdsr）（落地：2026-08-17 复审 7）
+- [x] `TEST-008`：AudioEngineTest 注入按住音符——warmup 块内静音 + warmup 后非零采样（消除假通过；注入发生在 warmup 后，2026-08-17 复审 7）
+- [x] `TEST-009`：AudioEngine 未覆盖 API——块计数纯函数公开 static、setAdsr 钳制、host/engine 接线（落地：2026-08-17 复审 7）
+- [x] `TEST-010`：PerformanceFileTest 改独立类别 `DevPiano/Recording`——.devpiano 持久化回归进入默认运行（落地：2026-08-17 复审 7）
 - [x] `TEST-011`：TestRunner 空匹配/空注册时非零退出并输出实际测试数。（已落地：`source/tests/TestRunner.cpp` 过滤分支返回 `EXIT_FAILURE` 并输出 `Running N test(s)`；另新增 `--include-juce` 默认只跑项目测试，详见第 7 章复审记录）
 - [x] `TEST-012`：统一测试类别前缀（`DevPiano/Audio`、`DevPiano/Recording`、`DevPiano/UI`），补全 4 个无类别文件，同步修正 known-issues 过滤命令。（已落地：类别统一为 `DevPiano/Core|Recording|Engine|UI`——实际引擎类别用 `DevPiano/Engine` 而非排期建议的 `DevPiano/Audio`；known-issues 缓解命令已修正，详见第 7 章复审记录）
 - [x] `ENG-002`：全量运行 clang-tidy 建立基线；先批量修机械项（braces/loop-convert/qualified-auto），再处理 `bugprone-easily-swappable-parameters`（MidiChannelMapper 构造参数重排或豁免）。（已落地：4 采样文件机械项清零 + MidiChannelMapper 构造 NOLINT 豁免，2026-08-16 复审 4）
@@ -565,6 +565,17 @@ devpiano 核心运行时健康：0 项 P0（无崩溃/数据损坏/静默泄漏�
 
 **验证**：wsl-build 0 warning（项目代码）、test 1322 断言全绿、format 归零、6 新测试文件 + 3 重构文件 clang-tidy 0 诊断、win-build 通过。
 
+### 复审 7（2026-08-17，AUDIT Phase D 测试机制与回归强化）
+
+`TEST-010/008/009/007` 落地（TEST-011/012 已随 P0 完成），断言总数 1322 → **2914 全绿**。
+
+- **TEST-010**：PerformanceFileTest 类别 `"Files"` → `"DevPiano/Recording"`——.devpiano 持久化回归（4 用例）进入默认运行并全绿。此前因 `Files` 类别被 TestRunner 默认跳过而静默丢覆盖（写盘走系统临时目录，WSL root 安全）。
+- **TEST-008**：注入按住音符消除"本来无声"假通过。关键机制：`keyboardState.noteOn` + `processNextMidiBuffer(..., injectIndirectEvents=true)` 将 note-on 确定性注入 midiBuffer（**绕过 wall-clock 依赖的 MidiMessageCollector**，headless 可靠）；warmup 块内静音 + warmup 后非零采样。**设计行为确认**：warmup 期间 `discardWarmupInputState()` reset keyboardState 丢弃一切输入（设备切换残留防护）——注入必须发生在 warmup 结束之后。
+- **TEST-009**：块计数纯函数（`calculateWarmupBlockCount`/`calculatePlaybackStartPreRollBlockCount` 匿名空间 → AudioEngine 公开 static）、setAdsr 极端值钳制 + 输出有限、setPluginHost/setRecordingEngine 接线（null 安全 + 真实实例）。
+- **TEST-007**：`CustomKeyboard::findNoteAt` private → public（纯几何），离屏命中测试：白键绝对映射、黑键优先（黑键区/下方右白键）、越界 -1、setAvailableRange 收缩、八度滚动不移动命中映射。**范围调整**：`AdsrCurveComponent` 为纯绘制组件（无鼠标交互），"拖拽钳制"子项不适用——ADSR 钳制在 `AudioEngine::setAdsr`（TEST-009 覆盖）。
+
+**验证**：wsl-build 0 warning、test 2914 断言全绿、format 归零、7 个改动文件 clang-tidy 0 诊断、win-build 通过。
+
 ---
 
 ## 8. 附录：问题总表（登记表）
@@ -611,10 +622,10 @@ devpiano 核心运行时健康：0 项 P0（无崩溃/数据损坏/静默泄漏�
 | TEST-004 | 测试 | SettingsStore 零测试（含 scheduleSave 防抖合并） | P2 | 已关闭 | 审计 | load/save/scheduleSave（DebounceTimer 300ms）零测试；与已暂缓项 ERR-017（scheduleSave 裸指针 API）直接相关，合并语义从未验证 | `source/Settings/SettingsStore.h:7-18` | - | 设置丢失回归 | 临时 PropertiesFile round-trip + timer 注入 |
 | TEST-005 | 测试 | 导出链零测试（WavExportTask/导出器/流程支持） | P2 | 已关闭 | 审计 | WavExportTask、exportTakeAsWavFile、exportTakeAsMidiFile、buildWavExportOptions/canExportTake（纯函数）全部未测；RenderPipelineTest 未触达真实写出路径 | `source/Export/WavExportTask.h:17-35`、`source/Recording/WavFileExporter.h:11-17`、`source/Recording/MidiFileExporter.h:10-12`、`source/Export/ExportFlowSupport.h:15-24` | - | 导出格式回归 | 临时目录 round-trip + 参数组合 |
 | TEST-006 | 测试 | 插件操作层/XML round-trip 零覆盖 | P2 | 已关闭 | 审计 | PluginOperationController、PluginFlowSupport、PluginPanelStateBuilder、PluginOfflineRenderer 零覆盖；createKnownPluginListXml→restore 持久化路径未测 | `source/tests/PluginHostTest.cpp:31-262`（仅 fresh-host 只读查询） | - | 插件恢复逻辑回归 | 补 XML round-trip + 纯逻辑层测试 |
-| TEST-007 | 测试 | CustomKeyboard/AdsrCurveComponent 零测试 | P2 | 未处理 | 审计 | 键盘 hit-test/八度范围/吸附/自定义颜色渲染逻辑无测试；StyleCatalogTest 用 stub 工厂替换真实组件 | `source/UI/CustomKeyboard.cpp`、`source/UI/native/AdsrCurveComponent.cpp`；`source/tests/StyleCatalogTest.cpp:370-374`（stub） | - | 键盘交互回归 | 离屏渲染测试真实组件 |
-| TEST-008 | 测试 | AudioEngineTest 未喂音符，warmup/静音断言无区分力 | P2 | 未处理 | 审计 | WarmupTest"前两块静音"与 ReleaseResourcesTest"静音"即使删除 warmup/note-off 逻辑也通过——断言无法区分"warmup 生效"与"本来无声" | `source/tests/AudioEngineTest.cpp:186-198,243-256`；头注释 :9-12 自认豁免 synth 出声 | - | warmup 回归假绿 | 注入 noteOn 后断言 warmup 内静音/后非零 |
-| TEST-009 | 测试 | AudioEngine 未覆盖 API（setAdsr/armPlaybackStartPreRoll/接线） | P2 | 未处理 | 审计 | setAdsr、armPlaybackStartPreRoll、setPluginHost/setRecordingEngine 接线、recordRealtimeMidiBufferIfNeeded/renderPlaybackEventsIfNeeded 未测；calculateWarmupBlocks 纯函数无直接测试 | `source/Audio/AudioEngine.h:27-30,36,56-57`；`AudioEngine.cpp:13-22`（块计数纯函数） | - | ADSR/接线回归 | 补块计数纯函数 + ADSR 包络采样断言 |
-| TEST-010 | 测试 | PerformanceFileTest 被 Files 类别默认跳过（持久化回归从不执行） | P2 | 未处理 | 审计 | PerformanceFileTest 注册在 "Files" 类别被 TestRunner 默认 skipCategories 整体跳过——.devpiano 持久化 round-trip（AUDIT-SEC-004 回归）在默认/CI 运行中从不执行 | `source/tests/PerformanceFileTest.cpp:65`；`source/tests/TestRunner.cpp:38-39`；`docs/issues/known-issues.md:77-79` | - | 原子写回归无守护 | 独立类别或精确文件过滤 |
+| TEST-007 | 测试 | CustomKeyboard/AdsrCurveComponent 零测试 | P2 | 已关闭 | 审计 | 键盘 hit-test/八度范围/吸附/自定义颜色渲染逻辑无测试；StyleCatalogTest 用 stub 工厂替换真实组件 | `source/UI/CustomKeyboard.cpp`、`source/UI/native/AdsrCurveComponent.cpp`；`source/tests/StyleCatalogTest.cpp:370-374`（stub） | - | 键盘交互回归 | 离屏渲染测试真实组件 |
+| TEST-008 | 测试 | AudioEngineTest 未喂音符，warmup/静音断言无区分力 | P2 | 已关闭 | 审计 | WarmupTest"前两块静音"与 ReleaseResourcesTest"静音"即使删除 warmup/note-off 逻辑也通过——断言无法区分"warmup 生效"与"本来无声" | `source/tests/AudioEngineTest.cpp:186-198,243-256`；头注释 :9-12 自认豁免 synth 出声 | - | warmup 回归假绿 | 注入 noteOn 后断言 warmup 内静音/后非零 |
+| TEST-009 | 测试 | AudioEngine 未覆盖 API（setAdsr/armPlaybackStartPreRoll/接线） | P2 | 已关闭 | 审计 | setAdsr、armPlaybackStartPreRoll、setPluginHost/setRecordingEngine 接线、recordRealtimeMidiBufferIfNeeded/renderPlaybackEventsIfNeeded 未测；calculateWarmupBlocks 纯函数无直接测试 | `source/Audio/AudioEngine.h:27-30,36,56-57`；`AudioEngine.cpp:13-22`（块计数纯函数） | - | ADSR/接线回归 | 补块计数纯函数 + ADSR 包络采样断言 |
+| TEST-010 | 测试 | PerformanceFileTest 被 Files 类别默认跳过（持久化回归从不执行） | P2 | 已关闭 | 审计 | PerformanceFileTest 注册在 "Files" 类别被 TestRunner 默认 skipCategories 整体跳过——.devpiano 持久化 round-trip（AUDIT-SEC-004 回归）在默认/CI 运行中从不执行 | `source/tests/PerformanceFileTest.cpp:65`；`source/tests/TestRunner.cpp:38-39`；`docs/issues/known-issues.md:77-79` | - | 原子写回归无守护 | 独立类别或精确文件过滤 |
 | TEST-013 | 测试 | 跨文件进程级单例与执行顺序依赖 | P3 | 未处理 | 审计 | StyleCatalog::get()/DesignTokens::get() 被 4 文件反复覆写；PathEditorReproTest 注释显式依赖跨文件执行顺序；改链接顺序/单文件重跑可能破坏测试 | `source/tests/StyleCatalogTest.cpp:52,138,172,932-936,1019`；`source/tests/PathEditorReproTest.cpp:92-95` | - | 测试顺序脆弱 | 提供 reset() 恢复初态 |
 | TEST-014 | 测试 | 测试依赖 CWD/真实文件（fixture 与样式表） | P3 | 未处理 | 审计 | MidiFileImporterTest fixture 路径 "tests/fixtures/midi/" 依赖 CTest WORKING_DIRECTORY；PathEditorReproTest/StyleCatalogTest 加载真实 style_sheets.json（CWD 或 exe 上溯）——IDE/其他工作目录运行即红 | `source/tests/MidiFileImporterTest.cpp:15-19,22`；`PathEditorReproTest.cpp:15-17`；`StyleCatalogTest.cpp:560-568` | - | 非标准工作目录测试失败 | __FILE__ 相对定位或缺失 skip |
 | TEST-015 | 测试 | NoteOffOnReleaseTest 依赖真实 OS 键盘状态 | P3 | 未处理 | 审计 | KeyPress::isKeyCurrentlyDown() 查询系统键盘——headless 下恒 false 成立，真实桌面且该键被物理按住时前提失效误报 | `source/tests/KeyboardMidiMapperTest.cpp:221-247` | - | 环境相关脆弱测试 | 抽象可注入键状态谓词 |

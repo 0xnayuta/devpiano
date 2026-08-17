@@ -50,19 +50,19 @@ Phase 11（声明式 UI 架构迁移，JIVE + melatonin_inspector）已全部完
 
 验证：`./scripts/dev.sh test`（1322 断言全绿）、`./scripts/dev.sh format --check`（归零）、wsl-build（0 warning）、win-build（通过，2026-08-17）。
 
-## AUDIT Phase D — 测试机制与回归强化 [进行中]
+## AUDIT Phase D — 测试机制与回归强化 [已完成]
 
 > 目标：修复 CI 静默丢覆盖（Files 类别跳过、空匹配假绿、类别命名混乱），强化 AudioEngine 断言区分力（验证 Phase A 修复）。
-> TEST-011/012 已随 P0（TestRunner 白名单 + 类别统一）落地，2026-08-16；余下 TEST-010/008/009/007 未开始。
+> TEST-011/012 已随 P0 落地，2026-08-16；TEST-010/008/009/007 完成于 2026-08-17。验证：断言总数 1322 → **2914 全绿**（PerformanceFile 套件回归 + 新增），wsl-build 0 warning / format 归零 / clang-tidy 0 诊断 / win-build 通过，详见 AUDIT-001 §7 复审 7。
 
-- [ ] `TEST-010`：PerformanceFileTest 改独立类别（如 `DevPiano/Files`）或 TestRunner 增加精确文件过滤，使 `.devpiano` 持久化回归进入默认运行。
+- [x] `TEST-010`：PerformanceFileTest 改独立类别——`"Files"` → `"DevPiano/Recording"`，.devpiano 持久化回归（4 用例）进入默认运行（断言 1322 → 2914）。已确认默认套件执行并全绿；写盘走系统临时目录，WSL root 下安全。
 - [x] `TEST-011`：TestRunner 空匹配/空注册时非零退出并输出实际测试数。（已落地：空匹配 exit=1；另默认只跑项目测试 + `--include-juce`，详见 AUDIT-001 §7 复审记录）
 - [x] `TEST-012`：统一测试类别前缀（`DevPiano/Audio`、`DevPiano/Recording`、`DevPiano/UI`），补全 4 个无类别文件，同步修正 known-issues 过滤命令。（已落地：`DevPiano/Core|Recording|Engine|UI`，详见 AUDIT-001 §7 复审记录）
-- [ ] `TEST-008`：AudioEngineTest 注入 noteOn 后断言 warmup 块内静音、warmup 后非零采样（消除"本来无声"假通过；依赖 Phase A 完成）。
-- [ ] `TEST-009`：AudioEngine 未覆盖 API——setAdsr、armPlaybackStartPreRoll 块计数纯函数、setPluginHost/setRecordingEngine 接线。
-- [ ] `TEST-007`：离屏渲染测试 CustomKeyboard 命中映射/八度切换与 AdsrCurve 拖拽钳制。
+- [x] `TEST-008`：AudioEngineTest 注入按住音符后断言 warmup 块内静音 + warmup 后非零采样（消除"本来无声"假通过）。关键实现细节：`keyboardState.noteOn` + `processNextMidiBuffer(..., injectIndirectEvents=true)` 确定性注入（绕过 wall-clock 依赖的 MidiMessageCollector）；**warmup 期间 `discardWarmupInputState()` 会 reset keyboardState 丢弃输入（设计行为）**，因此注入必须发生在 warmup 结束之后。可测性重构：`calculateWarmupBlockCount`/`calculatePlaybackStartPreRollBlockCount` 从匿名空间提升为 AudioEngine 公开 static 纯函数。
+- [x] `TEST-009`：AudioEngine 未覆盖 API——块计数纯函数边界（44100/512→3、48000/256→5、非法参数→1）、setAdsr 极端值钳制 + 输出有限、setPluginHost/setRecordingEngine 接线（null 安全 + 真实 RecordingEngine 实例）。
+- [x] `TEST-007`：离屏键盘几何测试（`KeyboardHitMappingTest`）——白键命中（绝对 note 映射）、黑键优先（黑键区命中黑键、下方命中右白键）、范围外 -1、setAvailableRange 收缩命中区、八度滚动不影响命中映射（keys 覆盖全范围，滚动是 Viewport 概念）。可测性重构：`findNoteAt` 从 private 提升 public（纯几何）。**范围调整**：AUDIT 描述的"AdsrCurve 拖拽钳制"不适用——`AdsrCurveComponent` 是纯绘制组件（无鼠标交互），ADSR 钳制在 `AudioEngine::setAdsr`（已由 TEST-009 覆盖），如实记录。
 
-验证：`./scripts/dev.sh test`、`./scripts/dev.sh format --check`。
+验证：`./scripts/dev.sh test`（2914 断言全绿）、`./scripts/dev.sh format --check`（归零）、wsl-build（0 warning）、win-build（通过，2026-08-17）。
 
 ## AUDIT Phase E — 错误处理与失败路径 [未开始]
 

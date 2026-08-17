@@ -41,6 +41,12 @@ public:
     // ---- Layout ------------------------------------------------------------
     void setKeyboardLayout(const devpiano::core::KeyboardLayout& layout);
 
+    // ---- Hit testing --------------------------------------------------------
+    // Map a component-local position to the pressed MIDI note (black keys take
+    // priority, matching render order).  Returns -1 when no key is hit.
+    // Public for unit tests (AUDIT TEST-007); pure geometry, no side effects.
+    [[nodiscard]] int findNoteAt(juce::Point<int> position) const;
+
     // ---- External notification ---------------------------------------------
     // Wake the fade timer when notes arrive from outside (physical keyboard,
     // external MIDI).  Safe to call redundantly; timer runs at ~30 fps.
@@ -65,7 +71,6 @@ private:
 
     // Geometry
     void recalculateKeyBounds();
-    [[nodiscard]] int findNoteAt(juce::Point<int> position) const;
 
     // Rendering helpers
     void paintWhiteKeys(juce::Graphics& g);

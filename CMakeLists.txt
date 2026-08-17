@@ -285,6 +285,8 @@ if (BUILD_TESTS)
         source/UI/PluginPanelStateBuilder.cpp
         source/UI/PluginPanelStateBuilder.h
         source/UI/PluginTypes.h
+        source/UI/CustomKeyboard.cpp
+        source/UI/CustomKeyboard.h
 
         source/UI/jive/StyleCatalog.cpp
         source/UI/jive/StyleCatalog.h
@@ -315,6 +317,7 @@ if (BUILD_TESTS)
         source/tests/SettingsStoreTest.cpp
         source/tests/ExportFlowTest.cpp
         source/tests/PluginHostXmlTest.cpp
+        source/tests/KeyboardHitMappingTest.cpp
     )
     target_link_libraries(devpiano_tests PRIVATE
         juce::juce_core

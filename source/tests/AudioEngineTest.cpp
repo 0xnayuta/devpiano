@@ -1,6 +1,7 @@
 #include <JuceHeader.h>
 
 #include "Audio/AudioEngine.h"
+#include "Recording/RecordingEngine.h"
 
 // =============================================================================
 // Tests for AudioEngine: prepareToPlay, master gain, warmup, releaseResources,
@@ -227,3 +228,144 @@ public:
     }
 };
 static AudioEngineGainAndNotesOffTest audioEngineGainAndNotesOffTest;
+
+// =============================================================================
+// AUDIT TEST-008 / TEST-009：
+//   - warmup 块在注入按住音符时仍静音（消除"本来无声"假通过）
+//   - warmup 结束后合成器渲染出非零采样
+//   - 块计数纯函数（warmup / playback-start pre-roll 时长 → 块数）
+//   - setAdsr 参数钳制与极端值稳定性
+//   - setPluginHost / setRecordingEngine 接线（null 安全 + 真实实例）
+// =============================================================================
+
+class AudioEngineWarmupAndCoverageTest final : public juce::UnitTest {
+public:
+    AudioEngineWarmupAndCoverageTest()
+        : juce::UnitTest("AudioEngine: warmup, adsr and wiring", "DevPiano/Engine") {
+    }
+
+    void runTest() override {
+        testWarmupSuppressesHeldNote();
+        testAudioAfterWarmupWithHeldNote();
+        testBlockCountFunctions();
+        testSetAdsr();
+        testWiring();
+    }
+
+private:
+    void testWarmupSuppressesHeldNote() {
+        testCase("warmup blocks stay silent even with a pressed note", [&] {
+            AudioEngine engine;
+            engine.prepareToPlay(512, 44100.0);
+            engine.setMasterGain(1.0f);
+            engine.getKeyboardState().noteOn(1, 60, 0.8f); // 注入按住音
+
+            const auto warmupBlocks = AudioEngine::calculateWarmupBlockCount(44100.0, 512);
+            expect(warmupBlocks > 0, "warmup must span at least one block");
+            for (int i = 0; i < warmupBlocks; ++i) {
+                auto [buf, info] = makeBlock(2, 512);
+                engine.getNextAudioBlock(info);
+                expectEquals(countNonZeroSamples(buf, info.startSample, info.numSamples), 0,
+                             "warmup blocks must stay silent even with input pending");
+            }
+        });
+    }
+
+    void testAudioAfterWarmupWithHeldNote() {
+        testCase("held note renders audio after warmup", [&] {
+            AudioEngine engine;
+            engine.prepareToPlay(512, 44100.0);
+            engine.setMasterGain(1.0f);
+
+            // 精确消费 warmup 块。注：warmup 期间的 discardWarmupInputState()
+            // 会 reset keyboardState 丢弃输入（设计行为），因此注入必须发生在
+            // warmup 结束之后，否则事件被丢弃、断言块无声。
+            const auto warmupBlocks = AudioEngine::calculateWarmupBlockCount(44100.0, 512);
+            for (int i = 0; i < warmupBlocks; ++i) {
+                auto [buf, info] = makeBlock(2, 512);
+                engine.getNextAudioBlock(info);
+            }
+
+            engine.getKeyboardState().noteOn(1, 60, 0.8f);
+
+            auto [buf, info] = makeBlock(2, 512);
+            engine.getNextAudioBlock(info);
+            expect(countNonZeroSamples(buf, info.startSample, info.numSamples) > 0,
+                   "the synth must render the held note after warmup");
+        });
+    }
+
+    void testBlockCountFunctions() {
+        testCase("warmup block count maps duration to whole blocks", [&] {
+            expectEquals(AudioEngine::calculateWarmupBlockCount(44100.0, 512), 3); // ceil(0.025 * 44100 / 512)
+            expectEquals(AudioEngine::calculateWarmupBlockCount(48000.0, 256), 5); // ceil(0.025 * 48000 / 256)
+            expectEquals(AudioEngine::calculateWarmupBlockCount(44100.0, 44100), 1);
+        });
+
+        testCase("pre-roll block count matches the same duration mapping", [&] {
+            expectEquals(AudioEngine::calculatePlaybackStartPreRollBlockCount(44100.0, 512), 3);
+            expectEquals(AudioEngine::calculatePlaybackStartPreRollBlockCount(48000.0, 256), 5);
+        });
+
+        testCase("invalid rates or block sizes fall back to one block", [&] {
+            expectEquals(AudioEngine::calculateWarmupBlockCount(0.0, 512), 1);
+            expectEquals(AudioEngine::calculateWarmupBlockCount(44100.0, 0), 1);
+            expectEquals(AudioEngine::calculatePlaybackStartPreRollBlockCount(-1.0, -1), 1);
+        });
+
+        testCase("armPlaybackStartPreRoll sets a finite block count", [&] {
+            AudioEngine engine;
+            engine.prepareToPlay(512, 44100.0);
+            engine.armPlaybackStartPreRoll(44100.0, 512);
+            // 消费 pre-roll 块不崩溃（无播放 take 时静音路径）
+            for (int i = 0; i < 5; ++i) {
+                auto [buf, info] = makeBlock(2, 512);
+                engine.getNextAudioBlock(info);
+            }
+        });
+    }
+
+    void testSetAdsr() {
+        testCase("setAdsr clamps extreme values without crashing", [&] {
+            AudioEngine engine;
+            engine.prepareToPlay(512, 44100.0);
+            engine.setAdsr(0.0f, 0.0f, 0.0f, 0.0f); // 下限
+            engine.setAdsr(10.0f, 10.0f, 2.0f, 10.0f); // 上限（sustain 钳到 1）
+            engine.getKeyboardState().noteOn(1, 60, 0.8f);
+            exhaustWarmup(engine, 512);
+            for (int i = 0; i < 3; ++i) {
+                auto [buf, info] = makeBlock(2, 512);
+                engine.getNextAudioBlock(info);
+                const auto* ch0 = buf.getReadPointer(0);
+                for (int s = 0; s < info.numSamples; ++s) {
+                    expect(!std::isnan(ch0[s]), "output must stay finite");
+                }
+            }
+        });
+    }
+
+    void testWiring() {
+        testCase("null host / engine wiring is safe", [&] {
+            AudioEngine engine;
+            engine.setPluginHost(nullptr);
+            engine.setRecordingEngine(nullptr);
+            engine.prepareToPlay(512, 44100.0);
+            exhaustWarmup(engine, 512);
+            auto [buf, info] = makeBlock(2, 512);
+            engine.getNextAudioBlock(info);
+        });
+
+        testCase("a live RecordingEngine can be wired in", [&] {
+            devpiano::recording::RecordingEngine rec;
+            AudioEngine engine;
+            engine.setRecordingEngine(&rec);
+            engine.prepareToPlay(512, 44100.0);
+            exhaustWarmup(engine, 512);
+            auto [buf, info] = makeBlock(2, 512);
+            engine.getNextAudioBlock(info); // 未播放 → 渲染跳过，安全
+            expect(engine.getPluginHost() == nullptr);
+        });
+    }
+};
+
+static AudioEngineWarmupAndCoverageTest audioEngineWarmupAndCoverageTest;

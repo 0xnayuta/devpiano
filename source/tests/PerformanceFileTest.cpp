@@ -7,8 +7,8 @@
 // Tests for .devpiano file persistence: save/load round-trip and atomic
 // temporary-file writes (AUDIT-SEC-004).
 //
-// Category "Files" is skipped by default in TestRunner (WSL root permission
-// quirks); run explicitly with: devpiano_tests --include-files
+// Category "DevPiano/Recording" runs in the default suite (TEST-010): writes
+// go to the system temp directory, which is safe under WSL root.
 // =============================================================================
 
 namespace {
@@ -60,7 +60,7 @@ bool hasTempResidue(const juce::File& targetFile) {
 class PerformanceFileSaveLoadTest : public juce::UnitTest {
 public:
     PerformanceFileSaveLoadTest()
-        : juce::UnitTest("PerformanceFile", "Files") {
+        : juce::UnitTest("PerformanceFile", "DevPiano/Recording") {
     }
 
     void runTest() override {
