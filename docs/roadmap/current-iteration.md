@@ -64,26 +64,27 @@ Phase 11（声明式 UI 架构迁移，JIVE + melatonin_inspector）已全部完
 
 验证：`./scripts/dev.sh test`（2914 断言全绿）、`./scripts/dev.sh format --check`（归零）、wsl-build（0 warning）、win-build（通过，2026-08-17）。
 
-## AUDIT Phase E — 错误处理与失败路径 [未开始]
+## AUDIT Phase E — 错误处理与失败路径 [已完成]
 
 > 目标：消除实时/后台线程日志 I/O，补齐失败路径可观测性（插件加载、设置落盘、JSON 解析、WAV 导出），清理死 catch 与残留文件。
+> 完成于 2026-08-17：ERR-002~015 全部处理（ERR-013 验证已不适用）。验证：wsl-build 0 warning / test 2914 断言全绿 / format 归零 / 改动文件 clang-tidy 0 诊断 / win-build 通过，详见 AUDIT-001 §7 复审 8。
 
-- [ ] `ERR-002`：`getNextAudioBlock` 安全网分支（AudioEngine.cpp:188）移除 `DP_LOG_WARN`，改计数/标志由消息线程输出。
-- [ ] `ERR-003`：`recordEvent` 丢弃日志（RecordingEngine.cpp:148）移 `stopRecording()` 消息线程统一输出。
-- [ ] `ERR-004`：`loadPluginByNameAndCommitState` 检查加载返回值——失败时走 `finishPluginUiAction(false)` 且不持久化失败插件名；`restorePluginByNameOnStartup` 同模式。
-- [ ] `ERR-005`：`SettingsStore::save()/writeNow()` 返回 `bool`/`juce::Result`，失败时 `DP_LOG_ERROR`（含文件路径）。
-- [ ] `ERR-006`：`initialiseUi`/`reloadStylesAndTokens` 的 `JSON::parse` 结果加 `isVoid()` 校验 + 失败 `DP_LOG_ERROR`。
-- [ ] `ERR-008`：`WavFileExporter` 各失败分支补 `DP_LOG_ERROR`（对齐 PluginOfflineRenderer 日志粒度）。
-- [ ] `ERR-007`：移除 3 处死 `catch(...)`（本版本 JUCE JSON::parse 不抛异常，juce_JSON.cpp:552-559），或改用 `JSON::parse(text, result)` Result 重载并记录行:列。
-- [ ] `ERR-009`：`WavExportTask` 非取消失败路径删除残留目标文件（或整体改 TemporaryFile + rename）。
-- [ ] `ERR-010`：`addVst3FileToKnownList` 检查 `addType` 返回值，失败项 WARN 并按实际成功数计数。
-- [ ] `ERR-011`：`getPresetDirectory`/`PresetFlowSupport` 检查 createDirectory/deleteFile 返回值；rename/delete 失败不打成功日志。
-- [ ] `ERR-012`：修正 `WavExportTask.cpp:45` 注释与日志不一致（或补日志）。
-- [ ] `ERR-013`：测试代码改用 DP_LOG_* 宏（PathEditorReproTest/StyleCatalogTest 直用 writeToLog 处）。
-- [ ] `ERR-014`：测试中 JSON::parse 结果补 isVoid 校验并 expect（PathEditorReproTest:20、StyleCatalogTest:784）。
-- [ ] `ERR-015`：`WavExportTask::run()` 内包 try-catch，捕获后设置 errorMessage + DP_LOG_ERROR + 清理部分文件。
+- [x] `ERR-002`：`getNextAudioBlock` 安全网分支（pluginBuffer 实时 resized）`DP_LOG_WARN` 移除——改 `pluginBufferResizeCount` 原子计数，`consumePluginBufferResizeCount()` 由 `MainComponent::timerCallback()` 消息线程消费输出。
+- [x] `ERR-003`：`recordEvent` 丢弃日志（`DP_DEBUG_LOG`）移除——丢弃只计入 `droppedEventCount` 原子，`stopRecording()` 已统一输出 dropped 数。
+- [x] `ERR-004`：`loadPluginByNameAndCommitState` 检查加载返回值——失败时 `DP_LOG_ERROR`（含 `getLastLoadError()`）+ `finishPluginUiAction(false)` 且**不持久化失败插件名**（否则下次启动反复重试）；`restorePluginByNameOnStartup` 同模式（失败仅日志）。
+- [x] `ERR-005`：`SettingsStore::save()`/`writeNow()` 返回 `bool`（`saveIfNeeded()` 结果），失败 `DP_LOG_ERROR`（含文件路径）。
+- [x] `ERR-006`：`initialiseUi` 两处（tokens/style）`JSON::parse` 加 `isVoid()` 校验 + 失败 `DP_LOG_ERROR`；`reloadStylesAndTokens` 失败分支补日志（此前 isVoid 校验存在但无日志）。
+- [x] `ERR-008`：`WavFileExporter` 失败分支补 `DP_LOG_ERROR`（参数拒绝/目录创建/打开失败/writer 创建/写入失败；取消回调返回 false 不打日志）。
+- [x] `ERR-007`：3 处死 `catch(...)`（PerformanceFile ×2、PerformancePreset ×1）改 `JSON::parse(text, result)` Result 重载——`failed()` 时 `DP_LOG_WARN` 含 `getErrorMessage()`，删 catch。
+- [x] `ERR-009`：`WavExportTask` 非取消失败路径（插件渲染/sine 渲染）也删除残留目标文件（此前仅取消路径清理）。
+- [x] `ERR-010`：`addVst3FileToKnownList` 检查 `addType` 返回值——失败项 WARN，成功日志按实际成功数 + 跳过数计数。
+- [x] `ERR-011`：`getPresetDirectory` 检查 `createDirectory` 返回值（失败 WARN）；`PresetFlowSupport` rename 的 `deleteFile` 失败 WARN、delete 的 `deleteFile` 失败时**不打成功日志**（改 WARN）。
+- [x] `ERR-012`：`WavExportTask::run()` 补结果日志（成功 `DP_LOG_INFO` / 失败 `DP_LOG_WARN` + errorMessage）——线程内观测点。
+- [x] `ERR-013`：验证**已不适用**——`source/tests/` 无 `writeToLog` 直用（仅 TestRunner.cpp:26 的 runner 基础设施，AUDIT 审计时点的 PathEditorReproTest/StyleCatalogTest 直用已不存在）。
+- [x] `ERR-014`：PathEditorReproTest:20 与 StyleCatalogTest（shipped style sheet 用例）`JSON::parse` 补 `isVoid()` 校验 + expect + 失败提前 return。
+- [x] `ERR-015`：`WavExportTask::run()` 包 try-catch（std::exception + ...）——捕获后 errorMessage + `DP_LOG_ERROR` + 清理残留文件，异常不逸出线程。
 
-验证：`./scripts/dev.sh test`、`./scripts/dev.sh format --check`、`./scripts/dev.sh win-build`。
+验证：`./scripts/dev.sh test`（2914 断言全绿）、`./scripts/dev.sh format --check`（归零）、wsl-build（0 warning）、win-build（通过，2026-08-17）。
 
 ## AUDIT Phase F — 死代码与重复清理 [未开始]
 

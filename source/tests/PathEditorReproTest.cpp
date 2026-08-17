@@ -17,7 +17,12 @@ public:
         // working directory.
         const juce::File styleSheetFile("source/UI/jive/style_sheets.json");
         expect(styleSheetFile.existsAsFile(), "style sheet file found relative to the test working directory");
-        devpiano::ui::jive::StyleCatalog::get().loadFromJSON(juce::JSON::parse(styleSheetFile.loadFileAsString()));
+        const auto styleJson = juce::JSON::parse(styleSheetFile.loadFileAsString());
+        expect(!styleJson.isVoid(), "style_sheets.json must parse as JSON");
+        if (styleJson.isVoid()) {
+            return;
+        }
+        devpiano::ui::jive::StyleCatalog::get().loadFromJSON(styleJson);
 
         ::jive::Interpreter interpreter;
         auto& factory = interpreter.getComponentFactory();

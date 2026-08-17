@@ -2,6 +2,7 @@
 
 #include "Recording/WavFileExporter.h"
 
+#include "Diagnostics/Log.h"
 #include "Recording/RecordingEngine.h"
 #include "Recording/RenderPipeline.h"
 
@@ -119,16 +120,19 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
                          const WavExportOptions& options, const std::function<bool(double)>& progressCallback) {
     if (take.isEmpty() || take.sampleRate <= 0.0 || !hasUsableRenderOptions(options)
         || destinationFile == juce::File()) {
+        DP_LOG_ERROR("[Export] WAV export rejected: empty take / invalid sample rate / unusable options / no file");
         return false;
     }
 
     auto parentDirectory = destinationFile.getParentDirectory();
     if (!parentDirectory.exists() && !parentDirectory.createDirectory()) {
+        DP_LOG_ERROR("[Export] WAV export failed: cannot create directory " + parentDirectory.getFullPathName());
         return false;
     }
 
     auto fileStream = std::make_unique<juce::FileOutputStream>(destinationFile);
     if (!fileStream->openedOk()) {
+        DP_LOG_ERROR("[Export] WAV export failed: cannot open output file " + destinationFile.getFullPathName());
         return false;
     }
 
@@ -143,6 +147,7 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
     auto writer = wavFormat.createWriterFor(outputStream, writerOptions);
 
     if (writer == nullptr) {
+        DP_LOG_ERROR("[Export] WAV export failed: WAV writer creation failed for " + destinationFile.getFullPathName());
         return false;
     }
 
@@ -193,6 +198,7 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
         audioBuffer.applyGain(gain);
 
         if (!writer->writeFromAudioSampleBuffer(audioBuffer, 0, numSamples)) {
+            DP_LOG_ERROR("[Export] WAV export failed while writing: " + destinationFile.getFullPathName());
             return false;
         }
     }

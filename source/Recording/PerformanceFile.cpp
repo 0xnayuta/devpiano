@@ -2,6 +2,8 @@
 
 #include "Recording/RecordingEngine.h"
 
+#include "Diagnostics/Log.h"
+
 namespace devpiano::recording {
 namespace {
 // --- Source enum <-> string ---
@@ -162,9 +164,10 @@ juce::String serialiseTakeToJson(const RecordingTake& take, const PerformanceFil
 
 std::optional<RecordingTake> deserialiseTakeFromJson(const juce::String& json) {
     juce::var parsed;
-    try {
-        parsed = juce::JSON::parse(json);
-    } catch (...) {
+    // ERR-007：JUCE JSON::parse 不抛异常，用 Result 重载获得行/列错误信息。
+    const auto parseResult = juce::JSON::parse(json, parsed);
+    if (parseResult.failed()) {
+        DP_LOG_WARN("[PerformanceFile] JSON parse failed: " + parseResult.getErrorMessage());
         return std::nullopt;
     }
     if (!parsed.isObject()) {
@@ -276,9 +279,10 @@ std::optional<PerformanceFileMetadata> loadPerformanceFileMetadata(const juce::F
     }
 
     juce::var parsed;
-    try {
-        parsed = juce::JSON::parse(json);
-    } catch (...) {
+    // ERR-007：JUCE JSON::parse 不抛异常，用 Result 重载获得行/列错误信息。
+    const auto parseResult = juce::JSON::parse(json, parsed);
+    if (parseResult.failed()) {
+        DP_LOG_WARN("[PerformanceFile] JSON parse failed: " + parseResult.getErrorMessage());
         return std::nullopt;
     }
     if (!parsed.isObject()) {

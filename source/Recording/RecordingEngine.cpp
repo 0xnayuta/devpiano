@@ -149,7 +149,8 @@ void RecordingEngine::recordEvent(const juce::MidiMessage& message, RecordingEve
 
     const auto clampedTimestamp = std::max<std::int64_t>(timestampSamples, 0);
     if (isCapacityExhausted(clampedTimestamp)) {
-        DP_DEBUG_LOG("[RecordingEngine] event DROPPED: capacity exhausted");
+        // 丢弃只计入 droppedEventCount（原子）；stopRecording() 在消息线程
+        // 统一输出 dropped 数（ERR-003），实时线程不做任何日志/IO。
         return;
     }
 

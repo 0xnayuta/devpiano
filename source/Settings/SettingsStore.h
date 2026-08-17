@@ -32,7 +32,9 @@ public:
     explicit SettingsStore(juce::PropertiesFile::Options options = {});
 
     void load(SettingsModel& model);
-    void save(const SettingsModel& model);
+    // Persists synchronously; false means the write failed (caller logs the
+    // path — see writeNow's DP_LOG_ERROR).
+    bool save(const SettingsModel& model);
 
     // Debounced save helper (call on UI thread)
     void scheduleSave(const SettingsModel& model, int msDelay = 300);
@@ -45,6 +47,6 @@ private:
     void ensureProps();
     juce::PropertiesFile& file();
 
-    void writeNow(const SettingsModel& model);
+    bool writeNow(const SettingsModel& model);
     void readNow(SettingsModel& model);
 };

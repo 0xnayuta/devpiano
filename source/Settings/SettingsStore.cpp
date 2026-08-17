@@ -1,6 +1,8 @@
 #include "SettingsStore.h"
 #include "Settings/SettingsSerialization.h"
 
+#include "Diagnostics/Log.h"
+
 namespace {
 const char* kSectionApp = "DevPiano";
 const char* kKeyAudioXml = "audioDeviceXml";
@@ -202,7 +204,7 @@ void SettingsStore::readNow(SettingsModel& m) {
     }
 }
 
-void SettingsStore::writeNow(const SettingsModel& m) {
+bool SettingsStore::writeNow(const SettingsModel& m) {
     auto& f = file();
 
     if (m.audioDeviceState) {
@@ -298,15 +300,19 @@ void SettingsStore::writeNow(const SettingsModel& m) {
     f.setValue(kKeyShowInstrumentFilter, m.showInstrumentFilter);
     f.setValue(kKeyPluginPanelExpanded, m.pluginPanelExpanded);
 
-    f.saveIfNeeded();
+    const auto saved = f.saveIfNeeded();
+    if (!saved) {
+        DP_LOG_ERROR("[Settings] failed to persist settings to: " + f.getFile().getFullPathName());
+    }
+    return saved;
 }
 
 void SettingsStore::load(SettingsModel& model) {
     readNow(model);
 }
 
-void SettingsStore::save(const SettingsModel& model) {
-    writeNow(model);
+bool SettingsStore::save(const SettingsModel& model) {
+    return writeNow(model);
 }
 
 void SettingsStore::scheduleSave(const SettingsModel& model, int msDelay) {

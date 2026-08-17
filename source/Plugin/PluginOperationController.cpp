@@ -162,8 +162,9 @@ void PluginOperationController::restoreLastPluginOnStartup(const StartupPluginRe
 
 void PluginOperationController::restorePluginByNameOnStartup(const juce::String& pluginName) {
     owner.runPluginActionWithAudioDeviceRebuild([this, pluginName](const MainComponent::RuntimeAudioConfig& config) {
-        const auto loaded = pluginHost.loadPluginByName(pluginName, config.sampleRate, config.blockSize);
-        juce::ignoreUnused(loaded);
+        if (!pluginHost.loadPluginByName(pluginName, config.sampleRate, config.blockSize)) {
+            DP_LOG_ERROR("[Plugin] startup restore failed: " + pluginName + " — " + pluginHost.getLastLoadError());
+        }
     });
 }
 
@@ -177,12 +178,23 @@ juce::String PluginOperationController::getSelectedPluginNameForLoad() const {
 }
 
 void PluginOperationController::loadPluginByNameAndCommitState(const juce::String& pluginName) {
-    owner.runPluginActionWithAudioDeviceRebuild([this, pluginName](const MainComponent::RuntimeAudioConfig& config) {
-        const auto success = pluginHost.loadPluginByName(pluginName, config.sampleRate, config.blockSize);
-        juce::ignoreUnused(success);
-    });
+    bool loaded = false;
+    juce::String loadError;
+    owner.runPluginActionWithAudioDeviceRebuild(
+        [this, pluginName, &loaded, &loadError](const MainComponent::RuntimeAudioConfig& config) {
+            loaded = pluginHost.loadPluginByName(pluginName, config.sampleRate, config.blockSize);
+            loadError = pluginHost.getLastLoadError();
+        });
 
-    commitPluginRecoveryStateAndFinishUi(makePluginRecoverySettings(appSettings.pluginSearchPath, pluginName), true);
+    if (loaded) {
+        commitPluginRecoveryStateAndFinishUi(makePluginRecoverySettings(appSettings.pluginSearchPath, pluginName),
+                                             true);
+        return;
+    }
+
+    // 加载失败：不持久化失败插件名（否则下次启动反复重试），UI 按失败收尾。
+    DP_LOG_ERROR("[Plugin] failed to load: " + pluginName + " — " + loadError);
+    owner.finishPluginUiAction(false);
 }
 
 void PluginOperationController::unloadPluginAndCommitState() {

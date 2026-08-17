@@ -170,8 +170,8 @@ juce::File getPresetDirectory() {
     auto dir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
                    .getChildFile("DevPiano")
                    .getChildFile("Presets");
-    if (!dir.exists()) {
-        dir.createDirectory();
+    if (!dir.exists() && !dir.createDirectory()) {
+        DP_LOG_WARN("[Preset] failed to create preset directory: " + dir.getFullPathName());
     }
     return dir;
 }
@@ -211,9 +211,10 @@ std::optional<PerformancePreset> loadPreset(const juce::File& path) {
     }
 
     juce::var jsonResult;
-    try {
-        jsonResult = juce::JSON::parse(raw);
-    } catch (...) {
+    // ERR-007：JUCE JSON::parse 不抛异常，用 Result 重载获得错误信息。
+    const auto parseResult = juce::JSON::parse(raw, jsonResult);
+    if (parseResult.failed()) {
+        DP_LOG_WARN("[Preset] JSON parse failed: " + parseResult.getErrorMessage());
         return std::nullopt;
     }
     if (!jsonResult.isObject()) {

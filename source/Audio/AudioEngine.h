@@ -30,6 +30,11 @@ public:
         return pluginHost;
     }
 
+    // Consume the count of pluginBuffer safety-net resizes that happened in
+    // audio callbacks (framework contract violation; the callback itself only
+    // increments an atomic — logging happens on the message thread, ERR-002).
+    [[nodiscard]] int consumePluginBufferResizeCount() noexcept;
+
     // Block counts for the startup warmup and the playback-start pre-roll
     // silence windows.  Exposed as pure functions so unit tests can verify
     // the duration→block mapping (AUDIT TEST-009).
@@ -72,6 +77,7 @@ private:
     std::atomic_bool allNotesOffPending { false };
     std::atomic<int> warmupBlocksRemaining { 0 };
     std::atomic<int> playbackStartPreRollBlocksRemaining { 0 };
+    std::atomic<int> pluginBufferResizeCount { 0 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AudioEngine)
 };

@@ -143,15 +143,26 @@ juce::StringArray PluginHost::addVst3FileToKnownList(const juce::File& vst3File)
         juce::OwnedArray<juce::PluginDescription> results;
         format->findAllTypesForFile(results, vst3File.getFullPathName());
 
+        int failedTypes = 0;
         for (auto& desc : results) {
-            if (desc != nullptr) {
-                knownPluginList.addType(*desc);
+            if (desc == nullptr) {
+                ++failedTypes;
+                continue;
+            }
+
+            if (knownPluginList.addType(*desc)) {
                 names.add(desc->name);
+            } else {
+                // 类型重复或描述无效（addType 返回 false）
+                ++failedTypes;
+                DP_LOG_WARN("[PluginHost] failed to add plugin type '" + desc->name
+                            + "' from: " + vst3File.getFullPathName());
             }
         }
 
-        DP_LOG_INFO("[PluginHost] Added " + juce::String(results.size())
-                    + " plugin(s) from: " + vst3File.getFullPathName());
+        const auto succeeded = names.size();
+        DP_LOG_INFO("[PluginHost] Added " + juce::String(succeeded) + " plugin(s) from: " + vst3File.getFullPathName()
+                    + (failedTypes > 0 ? " (" + juce::String(failedTypes) + " skipped)" : ""));
     }
     return names;
 }

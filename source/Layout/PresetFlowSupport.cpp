@@ -239,8 +239,12 @@ void PresetFlowSupport::handleRenamePreset() {
             auto newFile = getPresetDirectory().getChildFile(sanitisePresetFileName(newName) + ".devpiano.preset");
 
             if (savePreset(preset, newFile)) {
-                oldFile.deleteFile();
-                DP_LOG_INFO("[Preset] renamed: " + oldName + " -> " + newName);
+                if (oldFile.deleteFile()) {
+                    DP_LOG_INFO("[Preset] renamed: " + oldName + " -> " + newName);
+                } else {
+                    DP_LOG_WARN("[Preset] renamed preset saved but old file could not be deleted: "
+                                + oldFile.getFullPathName());
+                }
                 currentPresetId = newName;
                 owner.appSettings.lastActivePresetId = currentPresetId;
                 refreshCache();
@@ -272,9 +276,11 @@ void PresetFlowSupport::handleDeletePreset() {
 
                                   auto file = getPresetDirectory().getChildFile(sanitisePresetFileName(name)
                                                                                 + ".devpiano.preset");
-                                  file.deleteFile();
-
-                                  DP_LOG_INFO("[Preset] deleted: " + name);
+                                  if (file.deleteFile()) {
+                                      DP_LOG_INFO("[Preset] deleted: " + name);
+                                  } else {
+                                      DP_LOG_WARN("[Preset] failed to delete preset file: " + file.getFullPathName());
+                                  }
 
                                   // If the deleted preset was current, revert to default
                                   if (currentPresetId == name) {

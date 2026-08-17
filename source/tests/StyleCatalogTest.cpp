@@ -781,7 +781,12 @@ private:
             return; // not a repo checkout; skip
         }
 
-        devpiano::ui::jive::StyleCatalog::get().loadFromJSON(juce::JSON::parse(styleFile));
+        const auto styleJson = juce::JSON::parse(styleFile);
+        expect(!styleJson.isVoid(), "shipped style_sheets.json must parse");
+        if (styleJson.isVoid()) {
+            return;
+        }
+        devpiano::ui::jive::StyleCatalog::get().loadFromJSON(styleJson);
 
         ::jive::Interpreter interpreter;
         auto& factory = interpreter.getComponentFactory();

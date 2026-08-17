@@ -390,11 +390,11 @@ source/
 ### 5.3 近期排期（P2）
 
 - [x] `ENG-001`：运行 `./scripts/dev.sh format` 修复 18 处违规（RenderPipeline 相关 16 处 + AudioDeviceDiagnostics.h + PerformanceFileTest.cpp），复核 `format --check` 归零；将 format 检查接入 pre-commit/CI 防再回归。（已落地：修复归零 + `.githooks/pre-commit`，2026-08-16 复审 4）
-- [ ] `ERR-004`：`loadPluginByNameAndCommitState` 检查加载返回值——失败时走 `finishPluginUiAction(false)` 且不持久化失败插件名；`restorePluginByNameOnStartup` 同模式处理。
-- [ ] `ERR-002`：`getNextAudioBlock` 安全网分支移除 `DP_LOG_WARN`，改为计数/标志由消息线程输出。
-- [ ] `ERR-005`：`SettingsStore::save()/writeNow()` 返回 `bool`/`juce::Result`，失败时 `DP_LOG_ERROR`（含文件路径）。
-- [ ] `ERR-006`：`initialiseUi`/`reloadStylesAndTokens` 的 `JSON::parse` 结果加 `isVoid()` 校验 + 失败 `DP_LOG_ERROR`。
-- [ ] `ERR-008`：`WavFileExporter` 各失败分支补 `DP_LOG_ERROR`（对齐 PluginOfflineRenderer 日志粒度）。
+- [x] `ERR-004`：加载失败不持久化插件名 + finishPluginUiAction(false)（落地：2026-08-17 复审 8）
+- [x] `ERR-002`：pluginBuffer 安全网改原子计数 + timerCallback 消息线程消费（落地：2026-08-17 复审 8）
+- [x] `ERR-005`：save/writeNow 返回 bool + 失败日志（落地：2026-08-17 复审 8）
+- [x] `ERR-006`：JSON isVoid 校验 + 失败日志（落地：2026-08-17 复审 8）
+- [x] `ERR-008`：Wav 导出失败分支补日志（落地：2026-08-17 复审 8）
 - [ ] `QUAL-001`：删除 `InputState::layoutId` 死字段与 `AppStateBuilder.h:83` 的 `lastActivePresetId` 误赋值。
 - [x] `TEST-004`：补 SettingsStore 测试——临时 PropertiesFile round-trip + scheduleSave 合并语义；发现并修复 readNow String 属性判断 bug（落地：`source/tests/SettingsStoreTest.cpp`，2026-08-17 复审 6）
 - [x] `TEST-005`：补导出链纯逻辑测试——选项组合 + WAV/MIDI 真实文件 round-trip（落地：`source/tests/ExportFlowTest.cpp`，2026-08-17 复审 6）
@@ -412,15 +412,15 @@ source/
 
 ### 5.4 后续优化（P3）
 
-- [ ] `ERR-003`：`recordEvent` 丢弃日志移 stopRecording()（消息线程）统一输出。
-- [ ] `ERR-007`：移除 3 处死 `catch(...)`（已确认本版本 JUCE JSON::parse 不抛异常），或改用 `JSON::parse(text, result)` Result 重载并记录行:列诊断。
-- [ ] `ERR-009`：`WavExportTask` 非取消失败路径删除残留目标文件（或整体改 TemporaryFile + rename）。
-- [ ] `ERR-010`：`addVst3FileToKnownList` 检查 `addType` 返回值，失败项 WARN 并按实际成功数计数。
-- [ ] `ERR-011`：`getPresetDirectory`/`PresetFlowSupport` 检查 createDirectory/deleteFile 返回值；rename/delete 失败不打成功日志。
-- [ ] `ERR-012`：修正 `WavExportTask.cpp:45` 注释与日志不一致（或补日志）。
-- [ ] `ERR-013`：测试代码改用 DP_LOG_* 宏（PathEditorReproTest/StyleCatalogTest 直用 writeToLog 处）。
-- [ ] `ERR-014`：测试中 JSON::parse 结果补 isVoid 校验并 expect（PathEditorReproTest:20、StyleCatalogTest:784）。
-- [ ] `ERR-015`：`WavExportTask::run()` 内包 try-catch，捕获后设置 errorMessage + DP_LOG_ERROR + 清理部分文件。
+- [x] `ERR-003`：recordEvent 丢弃日志删除，droppedEventCount + stopRecording 统一输出（落地：2026-08-17 复审 8）
+- [x] `ERR-007`：3 处死 catch 改 Result 重载 + getErrorMessage（落地：2026-08-17 复审 8）
+- [x] `ERR-009`：非取消失败清理残留文件（落地：2026-08-17 复审 8）
+- [x] `ERR-010`：addType 返回值检查 + 成功/跳过计数（落地：2026-08-17 复审 8）
+- [x] `ERR-011`：createDirectory/deleteFile 返回值检查（落地：2026-08-17 复审 8）
+- [x] `ERR-012`：run() 补结果日志（落地：2026-08-17 复审 8）
+- [x] `ERR-013`：验证已不适用——无 writeToLog 直用（落地：2026-08-17 复审 8）
+- [x] `ERR-014`：测试 JSON isVoid 校验 + expect（落地：2026-08-17 复审 8）
+- [x] `ERR-015`：run() try-catch + errorMessage + 清理（落地：2026-08-17 复审 8）
 - [ ] `QUAL-002`：`stopInternalPlayback` 改返回 void，删除 7 处 ignoreUnused 与大向量拷贝。
 - [ ] `QUAL-003`：删除 MainComponent.cpp:4-5 未使用 include。
 - [ ] `QUAL-004`：SettingsComponent.h ComboBox item 装配提取 `rebuildComboItems()` 供构造器与 refreshTexts() 复用。
@@ -576,6 +576,21 @@ devpiano 核心运行时健康：0 项 P0（无崩溃/数据损坏/静默泄漏�
 
 **验证**：wsl-build 0 warning、test 2914 断言全绿、format 归零、7 个改动文件 clang-tidy 0 诊断、win-build 通过。
 
+### 复审 8（2026-08-17，AUDIT Phase E 错误处理与失败路径）
+
+`ERR-002~015` 全部处理（ERR-013 验证已不适用），实时/后台线程日志 I/O 清零，失败路径可观测性补齐：
+
+- **实时线程日志清零**：ERR-002（pluginBuffer 安全网 `DP_LOG_WARN` → 原子计数 + `MainComponent::timerCallback` 消息线程消费）、ERR-003（recordEvent 丢弃 `DP_DEBUG_LOG` 删除，`droppedEventCount` + stopRecording 统一输出）——至此实时/后台线程 0 处日志 I/O。
+- **ERR-004 插件加载失败**：`loadPluginByNameAndCommitState` 检查返回值，失败 `DP_LOG_ERROR` + `finishPluginUiAction(false)` + **不持久化失败插件名**（消除下次启动反复重试）；`restorePluginByNameOnStartup` 同模式。此修复验证了 AUDIT 审计结论（原代码 `juce::ignoreUnused(success)` 忽略加载结果仍按成功提交）。
+- **ERR-005 设置落盘**：`save()`/`writeNow()` 返回 `saveIfNeeded()` 结果，失败 `DP_LOG_ERROR` 含文件路径。
+- **ERR-007 死 catch**：确认 JUCE `JSON::parse` 有 Result 重载（`juce_JSON.h:68`），3 处 `catch(...)` 改 `parse(text, result)` + `failed()` 检查（PerformanceFile ×2、PerformancePreset ×1），获得 `getErrorMessage()` 行:列信息。
+- **ERR-009/012/015 WavExportTask**：非取消失败路径清理残留文件；run() 补成功/失败结果日志（线程内观测点）；run() 包 try-catch（std::exception + ...），异常不逸出线程。
+- **ERR-006/014 JSON 校验**：`initialiseUi` 两处补 `isVoid()` + `DP_LOG_ERROR`（reloadStylesAndTokens 已有校验但无日志，补上）；PathEditorReproTest/StyleCatalogTest 的 shipped-style-sheet 用例补 `isVoid()` + expect。
+- **ERR-010/011 文件与列表操作**：`addType` 返回值检查（失败 WARN + 按成功/跳过数计数）；`getPresetDirectory` createDirectory、`PresetFlowSupport` rename/delete 的 `deleteFile` 返回值检查（失败 WARN，delete 失败不再打成功日志）。
+- **ERR-013 验证不适用**：`source/tests/` 无 `writeToLog` 直用（仅 TestRunner.cpp:26 runner 基础设施；AUDIT 审计时点的直用已随重构消失）。
+
+**验证**：wsl-build 0 warning、test 2914 断言全绿、format 归零、15 个改动文件 clang-tidy 0 诊断、win-build 通过。
+
 ---
 
 ## 8. 附录：问题总表（登记表）
@@ -602,20 +617,20 @@ devpiano 核心运行时健康：0 项 P0（无崩溃/数据损坏/静默泄漏�
 | QUAL-016 | 质量 | test-only API 面（6 处生产零消费） | P3 | 未处理 | 审计 | hasDroppedEvents/getLastScanFailedFiles/setLowestVisibleNote/makeFullPianoLayout/NoteRange/isValid 系列仅测试使用，生产无人消费 | `source/Recording/RecordingEngine.h:47`、`source/Plugin/PluginHost.h:47`、`source/UI/CustomKeyboard.h:38`（零调用）、`source/Core/KeyMapTypes.h:172`、`source/Core/MidiTypes.h:73-84,32,55,79` | - | API 面膨胀/误导 | 逐个接入生产或删除 |
 | QUAL-017 | 质量 | CustomKeyboard.h 过期开发步骤注释 | P3 | 未处理 | 审计 | "Next: Group B (channel/velocity colour modes)" 描述 Phase 6 早期状态，功能早已全部完成 | `source/UI/CustomKeyboard.h:38-41`（类注释 "Steps completed: 1-4…Next: Group B"） | - | 误导新读者 | 更新为现状描述 |
 | QUAL-018 | 质量 | adsrCurve 怪异 lambda 初始化 | P3 | 未处理 | 审计 | `auto* adsrCurve = []() -> AdsrCurveComponent* { return nullptr; }();` 等价于 `= nullptr`，增加噪声 | `source/MainComponent.cpp:401` | - | 可读性 | 改直接初始化 |
-| ERR-002 | 错误处理 | 音频回调安全网分支内 DP_LOG_WARN | P2 | 未处理 | 审计 | getNextAudioBlock 内 pluginBuffer 契约违约安全网触发 DP_LOG_WARN（实时线程 I/O）；触发罕见但一旦触发即毛刺 | `source/Audio/AudioEngine.cpp:188` | - | prepareToPlay 契约被违反 | 回调内仅 jassert，日志移消息线程 |
-| ERR-003 | 错误处理 | recordEvent 丢弃事件时音频线程 DP_DEBUG_LOG | P3 | 未处理 | 审计 | Debug 构建下实时线程日志 I/O，恰在系统过载（容量耗尽）时加剧毛刺 | `source/Recording/RecordingEngine.cpp:148` | - | 容量耗尽场景实时性恶化 | 丢弃日志移 stopRecording() |
-| ERR-004 | 错误处理 | 插件加载失败仍按成功提交恢复状态并持久化失败插件名 | P2 | 未处理 | 审计 | loadPluginByName 返回值被 ignoreUnused 后无条件 commitPluginRecoveryStateAndFinishUi(true)——失败插件名被持久化为 lastPluginName，下次启动反复尝试加载失败插件，UI 无失败反馈（与 ScoutQual 的 QUAL-012 为同一问题，合并登记于此） | `source/Plugin/PluginOperationController.cpp:163-169`（loadPluginByNameAndCommitState）、`:156-158`（restorePluginByNameOnStartup 同模式）；`juce::ignoreUnused(success)` | - | 失败插件在启动时反复加载 | 失败分支不持久化 + 用户可见错误 |
-| ERR-005 | 错误处理 | SettingsStore 落盘失败全链路静默 | P2 | 未处理 | 审计 | save()/writeNow() 为 void，f.saveIfNeeded() 返回值被忽略——磁盘满/只读/权限失败无日志无反馈（对比录制保存路径均有成败记录） | `source/Settings/SettingsStore.cpp:264`（saveIfNeeded 返回忽略）；`source/Settings/SettingsStore.h`（save 为 void）；`source/MainComponent.cpp:1112`（saveSettingsNow 直接调用） | - | 设置静默丢失 | save 返回 bool/Result + DP_LOG_ERROR |
-| ERR-006 | 错误处理 | 启动/热重载 JSON 解析无 isVoid 校验与错误日志 | P2 | 未处理 | 审计 | design_tokens.json/style_sheets.json 损坏时静默回退默认主题，零诊断（热重载路径 844/863 有 isVoid 检查但无日志；启动路径 277-278/299-300 无检查无日志） | `source/MainComponent.cpp:277-278,299-300`（initialiseUi）、`:843-846,862-866`（reloadStylesAndTokens） | - | 样式文件损坏无法定位 | isVoid 校验 + DP_LOG_ERROR（含路径） |
-| ERR-007 | 错误处理 | 3 处 catch(...) 为死代码（本版本 JUCE JSON::parse 不抛异常） | P3 | 未处理 | 审计 | 交叉验证本地 JUCE（juce_JSON.cpp:552-559）JSON::parse 内部自捕异常，解析失败返回空 var——历史修复加入的 try-catch 从不触发；其本应提供的解析诊断缺失 | `source/Recording/PerformanceFile.cpp:156,256`、`source/Layout/PerformancePreset.cpp:204`；验证 `submodules/JUCE/modules/juce_core/json/juce_JSON.cpp:552-559` | - | 升级 JUCE 版本改变解析行为 | 移除死 catch 或改 Result 重载记行:列 |
-| ERR-008 | 错误处理 | WavFileExporter 全文件零日志（静默失败） | P2 | 未处理 | 审计 | 非法参数/建目录失败/openedOk 失败/writer 为空/写盘失败全部静默 return false（对比 PluginOfflineRenderer 逐分支 DP_LOG_ERROR）——sine 导出路径失败日志无痕 | `source/Recording/WavFileExporter.cpp:115-122,127-128,138-139,185-186` | - | 导出失败无法定位 | 各失败分支补 DP_LOG_ERROR |
-| ERR-009 | 错误处理 | WavExportTask 非取消失败残留目标文件 | P3 | 未处理 | 审计 | 渲染失败（非取消）不清理已创建的目标 .wav（取消路径已处理），用户收到失败但残留截断文件 | `source/Export/WavExportTask.cpp:56-57,70-71`（失败分支无清理；取消分支 :53-54/:67-68 已处理） | - | 残留文件被误导入 | 失败分支删除残留（或 TemporaryFile 原子写） |
-| ERR-010 | 错误处理 | PluginHost addType 返回值忽略 | P3 | 未处理 | 审计 | knownPluginList.addType(*desc) 失败时插件静默不进列表，随后按 results.size() 计数日志可能夸大 | `source/Plugin/PluginHost.cpp:145`（addType），`:149`（按 results.size() 打日志） | - | 扫描计数失真 | 检查返回值 + 按实际成功数计数 |
-| ERR-011 | 错误处理 | createDirectory/deleteFile 返回值忽略；rename/delete 失败仍打成功日志 | P3 | 未处理 | 审计 | 目录创建失败导致后续 save 莫名失败；rename/delete 失败仍输出 [Preset] renamed/deleted INFO 日志——日志与事实不符 | `source/Layout/PerformancePreset.cpp:167`（createDirectory）；`source/Layout/PresetFlowSupport.cpp:232,263`（rename/delete + 成功日志） | - | 用户被成功日志误导 | 检查返回值 + 失败不打成功日志 |
-| ERR-012 | 错误处理 | WavExportTask deleteFile 忽略且注释与行为不符 | P3 | 未处理 | 审计 | :45 注释声称"best-effort; log failure below"但实际日志在另一分支——该分支失败无日志 | `source/Export/WavExportTask.cpp:45` | - | 注释误导 | 补日志或修正注释 |
-| ERR-013 | 错误处理 | 测试代码直用 juce::Logger::writeToLog（绕过 DP_LOG 前缀） | P3 | 未处理 | 审计 | 生产代码 0 处直用（合规），但测试 4 处绕过宏，日志格式不统一 | `source/tests/PathEditorReproTest.cpp:68,76-77,109-110,116-117`、`source/tests/StyleCatalogTest.cpp:1082-1084` | - | 测试日志无法与生产统一过滤 | 改用 DP_LOG_* |
-| ERR-014 | 错误处理 | 测试中 JSON::parse 无 isVoid 校验 | P3 | 未处理 | 审计 | style_sheets.json 解析失败时测试静默空转（不报错也不断言） | `source/tests/PathEditorReproTest.cpp:20`、`source/tests/StyleCatalogTest.cpp:784`（575/710 有校验，两处遗漏） | - | 样式文件回归测试假绿 | 参照 575 模式补校验 |
-| ERR-015 | 错误处理 | WavExportTask 后台线程无应用层异常防护 | P3 | 未处理 | 审计 | 渲染异常逃逸 run() 由 JUCE 线程包装兜底（juce_Thread.cpp:114-117）——Debug 仅 jassertfalse，Release 静默吞掉：errorMessage 为空、无日志、残留部分文件 | `source/Export/WavExportTask.cpp:22-88`（run()）；验证 `submodules/JUCE/modules/juce_core/threads/juce_Thread.cpp:114-117` | - | Release 下导出失败原因不可见 | run() 内 try-catch + errorMessage + 清理 |
+| ERR-002 | 错误处理 | 音频回调安全网分支内 DP_LOG_WARN | P2 | 已关闭 | 审计 | getNextAudioBlock 内 pluginBuffer 契约违约安全网触发 DP_LOG_WARN（实时线程 I/O）；触发罕见但一旦触发即毛刺 | `source/Audio/AudioEngine.cpp:188` | - | prepareToPlay 契约被违反 | 回调内仅 jassert，日志移消息线程 |
+| ERR-003 | 错误处理 | recordEvent 丢弃事件时音频线程 DP_DEBUG_LOG | P3 | 已关闭 | 审计 | Debug 构建下实时线程日志 I/O，恰在系统过载（容量耗尽）时加剧毛刺 | `source/Recording/RecordingEngine.cpp:148` | - | 容量耗尽场景实时性恶化 | 丢弃日志移 stopRecording() |
+| ERR-004 | 错误处理 | 插件加载失败仍按成功提交恢复状态并持久化失败插件名 | P2 | 已关闭 | 审计 | loadPluginByName 返回值被 ignoreUnused 后无条件 commitPluginRecoveryStateAndFinishUi(true)——失败插件名被持久化为 lastPluginName，下次启动反复尝试加载失败插件，UI 无失败反馈（与 ScoutQual 的 QUAL-012 为同一问题，合并登记于此） | `source/Plugin/PluginOperationController.cpp:163-169`（loadPluginByNameAndCommitState）、`:156-158`（restorePluginByNameOnStartup 同模式）；`juce::ignoreUnused(success)` | - | 失败插件在启动时反复加载 | 失败分支不持久化 + 用户可见错误 |
+| ERR-005 | 错误处理 | SettingsStore 落盘失败全链路静默 | P2 | 已关闭 | 审计 | save()/writeNow() 为 void，f.saveIfNeeded() 返回值被忽略——磁盘满/只读/权限失败无日志无反馈（对比录制保存路径均有成败记录） | `source/Settings/SettingsStore.cpp:264`（saveIfNeeded 返回忽略）；`source/Settings/SettingsStore.h`（save 为 void）；`source/MainComponent.cpp:1112`（saveSettingsNow 直接调用） | - | 设置静默丢失 | save 返回 bool/Result + DP_LOG_ERROR |
+| ERR-006 | 错误处理 | 启动/热重载 JSON 解析无 isVoid 校验与错误日志 | P2 | 已关闭 | 审计 | design_tokens.json/style_sheets.json 损坏时静默回退默认主题，零诊断（热重载路径 844/863 有 isVoid 检查但无日志；启动路径 277-278/299-300 无检查无日志） | `source/MainComponent.cpp:277-278,299-300`（initialiseUi）、`:843-846,862-866`（reloadStylesAndTokens） | - | 样式文件损坏无法定位 | isVoid 校验 + DP_LOG_ERROR（含路径） |
+| ERR-007 | 错误处理 | 3 处 catch(...) 为死代码（本版本 JUCE JSON::parse 不抛异常） | P3 | 已关闭 | 审计 | 交叉验证本地 JUCE（juce_JSON.cpp:552-559）JSON::parse 内部自捕异常，解析失败返回空 var——历史修复加入的 try-catch 从不触发；其本应提供的解析诊断缺失 | `source/Recording/PerformanceFile.cpp:156,256`、`source/Layout/PerformancePreset.cpp:204`；验证 `submodules/JUCE/modules/juce_core/json/juce_JSON.cpp:552-559` | - | 升级 JUCE 版本改变解析行为 | 移除死 catch 或改 Result 重载记行:列 |
+| ERR-008 | 错误处理 | WavFileExporter 全文件零日志（静默失败） | P2 | 已关闭 | 审计 | 非法参数/建目录失败/openedOk 失败/writer 为空/写盘失败全部静默 return false（对比 PluginOfflineRenderer 逐分支 DP_LOG_ERROR）——sine 导出路径失败日志无痕 | `source/Recording/WavFileExporter.cpp:115-122,127-128,138-139,185-186` | - | 导出失败无法定位 | 各失败分支补 DP_LOG_ERROR |
+| ERR-009 | 错误处理 | WavExportTask 非取消失败残留目标文件 | P3 | 已关闭 | 审计 | 渲染失败（非取消）不清理已创建的目标 .wav（取消路径已处理），用户收到失败但残留截断文件 | `source/Export/WavExportTask.cpp:56-57,70-71`（失败分支无清理；取消分支 :53-54/:67-68 已处理） | - | 残留文件被误导入 | 失败分支删除残留（或 TemporaryFile 原子写） |
+| ERR-010 | 错误处理 | PluginHost addType 返回值忽略 | P3 | 已关闭 | 审计 | knownPluginList.addType(*desc) 失败时插件静默不进列表，随后按 results.size() 计数日志可能夸大 | `source/Plugin/PluginHost.cpp:145`（addType），`:149`（按 results.size() 打日志） | - | 扫描计数失真 | 检查返回值 + 按实际成功数计数 |
+| ERR-011 | 错误处理 | createDirectory/deleteFile 返回值忽略；rename/delete 失败仍打成功日志 | P3 | 已关闭 | 审计 | 目录创建失败导致后续 save 莫名失败；rename/delete 失败仍输出 [Preset] renamed/deleted INFO 日志——日志与事实不符 | `source/Layout/PerformancePreset.cpp:167`（createDirectory）；`source/Layout/PresetFlowSupport.cpp:232,263`（rename/delete + 成功日志） | - | 用户被成功日志误导 | 检查返回值 + 失败不打成功日志 |
+| ERR-012 | 错误处理 | WavExportTask deleteFile 忽略且注释与行为不符 | P3 | 已关闭 | 审计 | :45 注释声称"best-effort; log failure below"但实际日志在另一分支——该分支失败无日志 | `source/Export/WavExportTask.cpp:45` | - | 注释误导 | 补日志或修正注释 |
+| ERR-013 | 错误处理 | 测试代码直用 juce::Logger::writeToLog（绕过 DP_LOG 前缀） | P3 | 已关闭 | 审计 | 生产代码 0 处直用（合规），但测试 4 处绕过宏，日志格式不统一 | `source/tests/PathEditorReproTest.cpp:68,76-77,109-110,116-117`、`source/tests/StyleCatalogTest.cpp:1082-1084` | - | 测试日志无法与生产统一过滤 | 改用 DP_LOG_* |
+| ERR-014 | 错误处理 | 测试中 JSON::parse 无 isVoid 校验 | P3 | 已关闭 | 审计 | style_sheets.json 解析失败时测试静默空转（不报错也不断言） | `source/tests/PathEditorReproTest.cpp:20`、`source/tests/StyleCatalogTest.cpp:784`（575/710 有校验，两处遗漏） | - | 样式文件回归测试假绿 | 参照 575 模式补校验 |
+| ERR-015 | 错误处理 | WavExportTask 后台线程无应用层异常防护 | P3 | 已关闭 | 审计 | 渲染异常逃逸 run() 由 JUCE 线程包装兜底（juce_Thread.cpp:114-117）——Debug 仅 jassertfalse，Release 静默吞掉：errorMessage 为空、无日志、残留部分文件 | `source/Export/WavExportTask.cpp:22-88`（run()）；验证 `submodules/JUCE/modules/juce_core/threads/juce_Thread.cpp:114-117` | - | Release 下导出失败原因不可见 | run() 内 try-catch + errorMessage + 清理 |
 | TEST-001 | 测试 | RecordingSessionController 零测试覆盖 | P1 | 已关闭 | 审计 | 录制/回放/导入/导出全流程状态机、async FileChooser 流程、aliveFlag_ 生命周期 646 行零测试；错误分支与 UI 同步逻辑未验证 | `source/Recording/RecordingSessionController.h:24-107`（.cpp 646 行）；grep 确认 tests/ 无引用 | - | 流程状态机回归 | 补纯逻辑测试（状态组合/paused 语义/流程编排） |
 | TEST-002 | 测试 | MidiChannelMapper 零测试覆盖 | P1 | 已关闭 | 审计 | 通道路由 + 移调核心逻辑零覆盖；唯一相关测试只测 nullptr 透传从未实例化 mapper；ChannelMatrix 语义下落不明 | `source/Midi/MidiChannelMapper.cpp:29-77`；`source/tests/KeyboardMidiMapperTest.cpp:296-314`（仅 nullptr 测试） | - | 矩阵路由回归 | 补纯函数级测试（透传/选择/边界/对称） |
 | TEST-003 | 测试 | PerformancePreset 序列化零测试覆盖 | P1 | 已关闭 | 审计 | loadPreset/savePreset/scanPresetDirectory/sanitisePresetFileName 无 round-trip 覆盖；PresetFlowSupport 全部 CRUD 依赖此格式，格式变更可静默破坏用户数据 | `source/Layout/PerformancePreset.h:31-48`；tests/ 无引用 | - | 预设格式变更静默破坏 | 补 save→load round-trip + 损坏文件用例 |

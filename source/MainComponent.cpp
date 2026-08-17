@@ -287,7 +287,11 @@ void MainComponent::initialiseUi() {
             lastTokensModTime = tokensFile.getLastModificationTime();
             if (auto stream = tokensFile.createInputStream()) {
                 auto json = juce::JSON::parse(*stream);
-                devpiano::jive::DesignTokens::get().loadFromJSON(json);
+                if (json.isVoid()) {
+                    DP_LOG_ERROR("[Style] design_tokens.json failed to parse: " + tokensFile.getFullPathName());
+                } else {
+                    devpiano::jive::DesignTokens::get().loadFromJSON(json);
+                }
             }
         }
     }
@@ -309,7 +313,11 @@ void MainComponent::initialiseUi() {
             lastStylesModTime = styleFile.getLastModificationTime();
             if (auto stream = styleFile.createInputStream()) {
                 auto json = juce::JSON::parse(*stream);
-                devpiano::ui::jive::StyleCatalog::get().loadFromJSON(json);
+                if (json.isVoid()) {
+                    DP_LOG_ERROR("[Style] style_sheets.json failed to parse: " + styleFile.getFullPathName());
+                } else {
+                    devpiano::ui::jive::StyleCatalog::get().loadFromJSON(json);
+                }
             }
         }
 
@@ -716,6 +724,13 @@ void MainComponent::releaseResources() {
 void MainComponent::timerCallback() {
     recordingSessionController->checkPlaybackEnded();
 
+    // Drain pluginBuffer safety-net resize notifications from the audio
+    // callback (ERR-002): the callback only counts, logging happens here.
+    if (const auto resizeCount = audioEngine.consumePluginBufferResizeCount(); resizeCount > 0) {
+        DP_LOG_WARN("AudioEngine: pluginBuffer resized " + juce::String(resizeCount)
+                    + " time(s) in audio callback — prepareToPlay mismatch");
+    }
+
     // Drain preset-change notifications from playback
     {
         auto changes = recordingEngine.drainPendingPresetChanges();
@@ -883,6 +898,8 @@ void MainComponent::reloadStylesAndTokens() {
             if (!json.isVoid()) {
                 devpiano::jive::DesignTokens::get().loadFromJSON(json);
                 tokensLoaded = true;
+            } else {
+                DP_LOG_ERROR("[Style] design_tokens.json failed to parse: " + tokensFile.getFullPathName());
             }
         }
     }
@@ -902,6 +919,8 @@ void MainComponent::reloadStylesAndTokens() {
             if (!json.isVoid()) {
                 devpiano::ui::jive::StyleCatalog::get().loadFromJSON(json);
                 stylesLoaded = true;
+            } else {
+                DP_LOG_ERROR("[Style] style_sheets.json failed to parse: " + styleFile.getFullPathName());
             }
         }
     }

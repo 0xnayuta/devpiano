@@ -195,7 +195,8 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
             if (pluginBuffer.getNumChannels() < requiredChannels
                 || pluginBuffer.getNumSamples() < bufferToFill.numSamples) {
                 pluginBuffer.setSize(requiredChannels, bufferToFill.numSamples, false, false, true);
-                DP_LOG_WARN("AudioEngine: pluginBuffer resized in callback — prepareToPlay mismatch");
+                // 实时回调内只计数，日志由消息线程 consume 后输出（ERR-002）。
+                pluginBufferResizeCount.fetch_add(1, std::memory_order_relaxed);
             }
 
             pluginBuffer.clear();
@@ -242,6 +243,10 @@ void AudioEngine::armPlaybackStartPreRoll(double sampleRate, int blockSize) noex
 
 void AudioEngine::setMasterGain(float newGain) {
     masterGain.store(juce::jlimit(0.0f, 1.0f, newGain), std::memory_order_relaxed);
+}
+
+int AudioEngine::consumePluginBufferResizeCount() noexcept {
+    return pluginBufferResizeCount.exchange(0, std::memory_order_acq_rel);
 }
 
 void AudioEngine::setAdsr(float attackSeconds, float decaySeconds, float sustainLevel, float releaseSeconds) {

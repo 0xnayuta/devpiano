@@ -41,46 +41,76 @@ void WavExportTask::run() {
         return !threadShouldExit();
     };
 
-    if (offlinePlugin != nullptr) {
-        // Plugin offline-render path
-        if (threadShouldExit()) {
-            success = false;
-            errorMessage = TRANS("Export cancelled.");
-            destinationFile.deleteFile(); // best-effort; log failure below
-        }
+    // ERR-015：渲染路径（插件离线渲染 / 文件写出）可能抛异常，统一捕获为
+    // 失败结果并清理残留目标文件，避免 run() 异常逸出导致线程悬挂。
+    try {
+        if (offlinePlugin != nullptr) {
+            // Plugin offline-render path
+            if (threadShouldExit()) {
+                success = false;
+                errorMessage = TRANS("Export cancelled.");
+                destinationFile.deleteFile(); // best-effort; log failure below
+            }
 
-        if (renderTakeWithOfflinePlugin(take, destinationFile, options, *offlinePlugin, progressCallback)) {
-            success = true;
-        } else {
-            if (threadShouldExit()) {
-                errorMessage = TRANS("Export cancelled.");
-                if (!destinationFile.deleteFile()) {
-                    DP_LOG_WARN("Failed to clean up cancelled WAV: " + destinationFile.getFullPathName());
-                }
+            if (renderTakeWithOfflinePlugin(take, destinationFile, options, *offlinePlugin, progressCallback)) {
+                success = true;
             } else {
-                errorMessage = TRANS("Export failed during plugin rendering.");
+                if (threadShouldExit()) {
+                    errorMessage = TRANS("Export cancelled.");
+                    if (!destinationFile.deleteFile()) {
+                        DP_LOG_WARN("Failed to clean up cancelled WAV: " + destinationFile.getFullPathName());
+                    }
+                } else {
+                    errorMessage = TRANS("Export failed during plugin rendering.");
+                    // ERR-009：非取消失败也清理残留的部分文件。
+                    if (!destinationFile.deleteFile()) {
+                        DP_LOG_WARN("Failed to clean up failed WAV: " + destinationFile.getFullPathName());
+                    }
+                }
+                success = false;
             }
-            success = false;
+        } else {
+            // Sine-synth fallback path
+            if (exportTakeAsWavFile(take, destinationFile, options, progressCallback)) {
+                success = true;
+            } else {
+                if (threadShouldExit()) {
+                    errorMessage = TRANS("Export cancelled.");
+                    if (!destinationFile.deleteFile()) {
+                        DP_LOG_WARN("Failed to clean up cancelled WAV: " + destinationFile.getFullPathName());
+                    }
+                } else {
+                    errorMessage = TRANS("Export failed during sine synth rendering.");
+                    // ERR-009：非取消失败也清理残留的部分文件。
+                    if (!destinationFile.deleteFile()) {
+                        DP_LOG_WARN("Failed to clean up failed WAV: " + destinationFile.getFullPathName());
+                    }
+                }
+                success = false;
+            }
         }
-    } else {
-        // Sine-synth fallback path
-        if (exportTakeAsWavFile(take, destinationFile, options, progressCallback)) {
-            success = true;
-        } else {
-            if (threadShouldExit()) {
-                errorMessage = TRANS("Export cancelled.");
-                if (!destinationFile.deleteFile()) {
-                    DP_LOG_WARN("Failed to clean up cancelled WAV: " + destinationFile.getFullPathName());
-                }
-            } else {
-                errorMessage = TRANS("Export failed during sine synth rendering.");
-            }
-            success = false;
+    } catch (const std::exception& e) {
+        success = false;
+        errorMessage = TRANS("Export failed unexpectedly.");
+        DP_LOG_ERROR("[Export] WAV export threw: " + juce::String(e.what()));
+        if (!destinationFile.deleteFile()) {
+            DP_LOG_WARN("Failed to clean up failed WAV: " + destinationFile.getFullPathName());
+        }
+    } catch (...) {
+        success = false;
+        errorMessage = TRANS("Export failed unexpectedly.");
+        DP_LOG_ERROR("[Export] WAV export threw an unknown exception");
+        if (!destinationFile.deleteFile()) {
+            DP_LOG_WARN("Failed to clean up failed WAV: " + destinationFile.getFullPathName());
         }
     }
 
     if (success) {
         setProgress(1.0);
         setStatusMessage(TRANS("Export complete."));
+        // ERR-012：run() 内补结果日志（此前只有调用方日志，线程内无观测点）。
+        DP_LOG_INFO("[Export] WAV exported: " + destinationFile.getFullPathName());
+    } else {
+        DP_LOG_WARN("[Export] WAV export " + errorMessage);
     }
 }
