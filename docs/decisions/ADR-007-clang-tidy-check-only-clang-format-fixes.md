@@ -55,5 +55,6 @@
 
 - `.clang-format`：`InsertBraces: true` 已启用。
 - `.clang-tidy`：见上文决策第 4 条；`modernize-use-using.IgnoreExternC: 'true'` 保留。
+- **执行时机**：编辑期 clangd 波浪线实时提示（`.clangd` 已启用 `Diagnostics.ClangTidy`，与全量同源配置）；大迭代边界跑全量 `./scripts/dev.sh tidy --all`（约 19 分钟，唯一例行执行点）；**不进入 pre-commit**——实测单文件 18–211s、全量 44 文件约 19 分钟，提交前逐文件运行成本不成比例（纪律见 [`../../AGENTS.md`](../../AGENTS.md) 第 3 节）。
 - 验证基线（2026-08-16）：全量 44 文件 clang-tidy 0 诊断；`wsl-build` 0 warning（项目代码）；`devpiano_tests` 33 类全绿；`format --check` 归零；`win-build` 通过。
 - 归零过程中的完整分析与逐项修复记录见 [`../audit/AUDIT-001-code-quality-audit-2026-08-16.md`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md) §7 复审 5。

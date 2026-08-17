@@ -243,6 +243,18 @@ source ~/.bashrc
 #   --name <name>         仅运行指定名称的测试类
 ```
 
+### 格式化与静态检查时机
+
+| 阶段 | clang-format | clang-tidy |
+| --- | --- | --- |
+| 编辑期 | 编辑器 Format on Save | clangd 波浪线实时提示（`.clangd` 已启用 `Diagnostics.ClangTidy`，与全量 tidy 同源 `.clang-tidy` 配置） |
+| 提交前 (pre-commit) | 自动检查 staged 文件（`--dry-run --Werror`，失败手动 `./scripts/dev.sh format`） | **不做**——单文件实测 18–211s，成本不成比例（AGENTS.md 第 3 节纪律） |
+| 大迭代边界 | `./scripts/dev.sh format --check` | `./scripts/dev.sh tidy --all` 全量 0 诊断（约 19 分钟，唯一例行执行点） |
+| CI（未来） | `format --check` 门禁 | 全量 tidy 0 容忍门禁 |
+
+例外：修改 `.clang-tidy` / `.clang-format` 配置后，可用 `./scripts/dev.sh tidy <file>` 单文件快速验证配置效果。
+决策背景：[`ADR-007`](../decisions/ADR-007-clang-tidy-check-only-clang-format-fixes.md)（clang-tidy 只做检查、clang-format 负责机械修复）。
+
 ## 关键目录
 
 - WSL 主工作树：`/root/repos/devpiano`
