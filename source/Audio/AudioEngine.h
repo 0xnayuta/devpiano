@@ -49,9 +49,6 @@ public:
     }
 
 private:
-    class SimpleSineSound;
-    class SimpleSineVoice;
-
     void rebuildSynth();
     void updateAdsrOnVoices();
     void discardWarmupInputState();

@@ -2,6 +2,7 @@
 
 #include "Recording/WavFileExporter.h"
 
+#include "Audio/SineSynthVoice.h"
 #include "Diagnostics/Log.h"
 #include "Recording/RecordingEngine.h"
 #include "Recording/RenderPipeline.h"
@@ -15,85 +16,6 @@ namespace {
 constexpr auto fallbackVoiceCount = 8;
 constexpr auto wavTailSeconds = 2.0;
 
-class OfflineSineSound final : public juce::SynthesiserSound {
-public:
-    bool appliesToNote(int) override {
-        return true;
-    }
-    bool appliesToChannel(int) override {
-        return true;
-    }
-};
-
-class OfflineSineVoice final : public juce::SynthesiserVoice {
-public:
-    bool canPlaySound(juce::SynthesiserSound* sound) override {
-        return dynamic_cast<OfflineSineSound*>(sound) != nullptr;
-    }
-
-    void setAdsrParameters(const juce::ADSR::Parameters& parameters) {
-        adsr.setParameters(parameters);
-    }
-
-    void startNote(int midiNoteNumber, float velocity, juce::SynthesiserSound*, int) override {
-        level = velocity * 0.2f;
-        frequency = static_cast<float>(juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber));
-        phase = 0.0;
-        increment
-            = static_cast<float>(juce::MathConstants<double>::twoPi * static_cast<double>(frequency) / getSampleRate());
-
-        adsr.setSampleRate(getSampleRate());
-        adsr.noteOn();
-    }
-
-    void stopNote(float, bool allowTailOff) override {
-        if (allowTailOff) {
-            adsr.noteOff();
-            return;
-        }
-
-        adsr.reset();
-        clearCurrentNote();
-    }
-
-    void pitchWheelMoved(int) override {
-    }
-    void controllerMoved(int, int) override {
-    }
-
-    void renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int startSample, int numSamples) override {
-        if (!isVoiceActive()) {
-            return;
-        }
-
-        for (auto sample = 0; sample < numSamples; ++sample) {
-            const auto envelope = adsr.getNextSample();
-            if (envelope <= 0.0f && !adsr.isActive()) {
-                clearCurrentNote();
-                break;
-            }
-
-            const auto value = static_cast<float>(std::sin(phase) * level * envelope);
-            phase += increment;
-            if (phase >= juce::MathConstants<double>::twoPi) {
-                phase -= juce::MathConstants<double>::twoPi;
-            }
-
-            const auto sampleIndex = startSample + sample;
-            for (auto channel = 0; channel < outputBuffer.getNumChannels(); ++channel) {
-                outputBuffer.addSample(channel, sampleIndex, value);
-            }
-        }
-    }
-
-private:
-    double phase = 0.0;
-    float increment = 0.0f;
-    float frequency = 440.0f;
-    float level = 0.0f;
-    juce::ADSR adsr;
-};
-
 using devpiano::recording::addPanicMidi;
 using devpiano::recording::buildRenderEvents;
 using devpiano::recording::getScaledTakeLengthSamples;
@@ -105,9 +27,9 @@ void initialiseOfflineSynth(juce::Synthesiser& synth, double sampleRate, const j
     synth.clearSounds();
     synth.clearVoices();
 
-    synth.addSound(new OfflineSineSound());
+    synth.addSound(new SineSynthSound());
     for (auto index = 0; index < fallbackVoiceCount; ++index) {
-        auto* voice = new OfflineSineVoice();
+        auto* voice = new SineSynthVoice();
         voice->setAdsrParameters(adsr);
         synth.addVoice(voice);
     }

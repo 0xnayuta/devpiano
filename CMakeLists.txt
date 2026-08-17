@@ -61,6 +61,7 @@ target_sources(devpiano PRIVATE
     source/MainComponentJiveAccessors.cpp
     source/Audio/AudioEngine.cpp
     source/Audio/AudioEngine.h
+    source/Audio/SineSynthVoice.h
     source/Audio/AudioDeviceDiagnostics.h
     source/Input/KeyboardMidiMapper.cpp
     source/Input/KeyboardMidiMapper.h
@@ -270,6 +271,7 @@ if (BUILD_TESTS)
         source/Midi/MidiChannelMapper.h
         source/Audio/AudioEngine.cpp
         source/Audio/AudioEngine.h
+        source/Audio/SineSynthVoice.h
         source/Plugin/PluginHost.cpp
         source/Plugin/PluginHost.h
 
