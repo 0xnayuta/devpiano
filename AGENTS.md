@@ -85,6 +85,7 @@
   - Windows（构建验证 + 软件测试）：镜像树下 `build-win-msvc`
 - **默认仅使用 Debug 构建**。Release 构建（`--release`）仅在用户明确要求时才执行，或由用户手动进行。不要主动发起 Release 构建。
 - 关键修改后优先使用项目脚本验证，而不是直接手写 `cmake --build .`。
+- **clang-tidy 只在迭代边界执行全量检查（`./scripts/dev.sh tidy --all`），禁止提交前逐文件运行**——诊断由 clangd 波浪线实时提示（`.clangd` 已启用），全量在迭代边界兜底。例外：修改 `.clang-tidy` / `.clang-format` 配置后可用单文件快速验证配置效果。
 - 需要快速检查环境时，先运行：
 
 ```bash
@@ -147,10 +148,10 @@
 # 检查格式合规（CI 模式）
 ./scripts/dev.sh format --check
 
-# 增量静态检查（clang-tidy，只检查不用 --fix；无参数=未提交改动文件，指定文件可传入）
+# 增量静态检查（clang-tidy，仅配置变更验证/例外场景使用；日常提交前不做）
 ./scripts/dev.sh tidy
 
-# 全量静态检查（迭代边界/CI 门禁，约 19 分钟）
+# 全量静态检查（迭代边界门禁，约 19 分钟；唯一例行 clang-tidy 执行点）
 ./scripts/dev.sh tidy --all
 
 # 仅刷新 WSL configure / compile_commands.json（clangd/LSP 依赖此文件）
@@ -234,7 +235,7 @@
 3. 使用 `lsp` + `read` / `edit` 在 WSL 主工作树中小步修改。
 4. 修改 `source/` 下的 `.cpp` / `.h` 文件后，先用 LSP diagnostics 检查。
 5. 运行 `./scripts/dev.sh format` 确保代码风格一致（首次使用或 `.clang-format` 变更后）。
-6. 运行 `./scripts/dev.sh tidy` 确认本次改动文件 clang-tidy 0 诊断（clangd 波浪线已实时提示，提交前显式复核）。
+6. clang-tidy 不做提交前增量复核——编辑期由 clangd 波浪线实时提示（`.clangd` 已启用 `Diagnostics.ClangTidy`），仅在大迭代边界运行全量 `./scripts/dev.sh tidy --all` 确认 0 诊断（实测单文件 18–211s、全量 44 文件约 19 分钟，提交前逐文件跑成本不成比例）。
 7. 若存在测试文件，运行 `./scripts/dev.sh test` 验证不引入回归。
 8. 需要刷新 clangd 编译数据库时运行：
 
