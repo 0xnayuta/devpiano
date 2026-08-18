@@ -5,7 +5,7 @@
 
 ## 当前方向
 
-**Phase 13（Stiff-String Inharmonic Piano v2）已完成（2026-08-18）**——Phase 13-1（刚性琴弦分音失谐偏移）、13-2（模态分音衰减速率建模）、13-3（琴体音板共鸣滤波）、13-4（参数与 UI 维持 3 旋钮布局）、13-5（确定性测试套件）、13-6（人工听觉回归与 BuiltinTone 默认值切为 Piano）全部完成。下一阶段为 **Phase 14（Digital Waveguide Piano v3）**。
+**Phase 13（Stiff-String Inharmonic Piano v2）已完成（2026-08-18）**——Phase 13-1~13-6 全部落地（含 BuiltinTone 默认值切为 Piano）。当前进入 **Phase 14（Digital Waveguide Piano v3，研究性）**：Phase 14-0（预研与方案设计）已完成（2026-08-18），详见下文 Phase 14 详细排期。
 
 代码质量审计（[`AUDIT-001`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)，2026-08-16）修复 **AUDIT Phase A–H 已全部完成**（2026-08-17）：56 项未处理全关闭，16 项已暂缓复核关闭 2 项（QUAL-019/PERF-002），剩余 14 项维持；断言总数 754 → 2921 全绿。逐项完成记录已归档至 [`../archive/audit-001-code-quality-fix-phases.md`](../archive/audit-001-code-quality-fix-phases.md)。
 
@@ -222,17 +222,136 @@ Phase 12 的 v1 是**整数倍谐波**叠加：分音频率严格 `n·f₀`，�
 
 13-1 + 13-2 约 1 轮；13-3 约 1 轮（含谐振器调参）；13-5 与 13-1~3 并行；13-4 视决策 0~1 轮；13-6 听感回归约 1 次。Phase 13 总计约 2 轮迭代 + Windows 侧手工回归。
 
-## Phase 14：Digital Waveguide Piano v3 [规划中]
+## Phase 14：Digital Waveguide Piano v3 [预研完成，进入分阶段实施]
 
-> 概要排期，研究性阶段。Level 3：进入真正物理建模层（数字波导）。
+> Level 3：真正物理建模层（数字波导）。Phase 14-0（预研与方案设计，2026-08-18）已完成，架构方案、CPU/内存预算与子阶段排期如下。
 
-- **核心技术**：每 voice 纯 C++ 无分配数字波导（环形缓冲 + 全通分数延迟 `DelayA`）+ 换向波导（Commuted Waveguide）击弦脉冲激励 + Balázs Bank 级联全通色散滤波（Allpass Dispersion Chain）+ 损耗滤波（Loss Filter）。
-- **参考源**：
-  - **STK (`thestk/stk`)**（MIT-style）：分数延迟线（`DelayA`）与二阶滤波（`BiQuad`）零件库架构。
-  - **Faust (`misceffects.lib` / `piano_dispersion_filter`) & Balázs Bank 论文**（BSD/LGPL）：级联全通色散滤波器设计。
-  - **Julius O. Smith (JOS) PASP**：换向波导合成（Commuted Waveguide Synthesis）理论。
-- **决策门**：听感收益 vs CPU 预算（多复音波导计算量）vs 代码复杂度，产物是否取代 Phase 13 成为默认音色；若收益不足则维持 Phase 13 音色为默认。
-- **排期参考**：2+ 轮迭代，含 CPU 基准与决策评审。
+### 背景与目标
+
+Phase 12/13 的 v1/v2 均为**解析加法**模型：有限分音（≤8）逐个叠加 `std::sin`，每 voice 计算量随分音数线性增长，且分音数是有限近似。真实钢琴琴弦是**连续弹性介质**：全部（理论无限多）分音同时存在，刚度导致高次分音色散、能量经弦端损耗衰减。Phase 14 用**数字波导**直接模拟弦振动传播：一根延迟线天然携带全部分音（与分音数无关的恒定计算量），配合色散滤波（刚度）与损耗滤波（能量耗散），向真实物理逼近。
+
+### 前置事实（已核实代码，Phase 12/13 落地后）
+
+| 事实 | 位置 | 影响 |
+|---|---|---|
+| 音色承载为 `juce::Synthesiser` + `SynthesiserVoice` 派生（Sine/Piano 并存），`AudioEngine::BuiltinSynthTone {sine, piano}` + `setBuiltinSynthTone` 注册切换 | AudioEngine.h / AudioEngine.cpp `rebuildSynth` | Phase 14 新 voice 沿用同一模式（`WaveguidePianoVoice` 并入或扩展枚举），不建新抽象层 |
+| 离线导出按 `builtinTone` 注册同一 voice 类，实时/离线同参数 | WavFileExporter.cpp `initialiseOfflineSynth` / WavExportOptions.h | 波导音色接入导出路径沿用同链路，保持实时/离线一致 |
+| v1/v2 均为解析加法（≤8 分音 + 3 谐振器，每 voice ≤8 次 `std::sin` + ≤12 乘加）；分音数与衰减按音区查表 | PianoSynthVoice.h | 波导每 voice 计算量恒定（与分音数无关），但需延迟线内存；两套模型并存作听感对比 |
+| 确定性测试夹具就绪：`Synthesiser` 驱动 voice + 单点 DFT（Hann 窗）+ 长时稳定性断言 | PianoSynthVoiceTest.cpp | 波导 voice 复用同一夹具模式：基频/分音/衰减/稳定性量化验证 |
+| 主界面 Tone 下拉已移除，默认 Piano，`--sine` 启动参数支持 | LayoutModel.cpp / Main.cpp / MainComponent.cpp | Phase 14 若加第三音色，UI 侧无下拉位 → 参数化决策需考虑（默认值/命令行/设置项） |
+| 参数链路：`PerformanceSettingsView` → `applyPerformanceSettingsToAudioEngine` + `buildWavExportOptions`（DOC-006 默认值回退模式） | MainComponent.cpp / ExportFlowSupport.cpp / SettingsStore.cpp | 波导参数（如色散强度/激励硬度）沿用同一链路，默认值向后兼容 |
+
+### 架构方案（Phase 14-0 预研结论）
+
+**单弦波导拓扑（Karplus-Strong 家族 + 色散 + 损耗）：**
+
+```
+激励脉冲（换向波导合成击弦脉冲，noteOn 注入）
+   ↓
+输出耦合/拾音点 ←—— 延迟线（WaveguideDelayLine：环形缓冲 + 一阶全通分数插值，DelayA）
+                          ↓ 循环（每采样 1 读 + 1 写）
+                    色散滤波链（Balázs Bank 级联一阶全通 ×2~4，按音区）
+                          ↓
+                    损耗滤波（LoopLossFilter：一阶低通，频率相关衰减）
+```
+
+**关键设计决策：**
+
+1. **分数延迟（DelayA）**：弦长通常非整数采样，全通分数插值（STK `DelayA` 架构，MIT）保证音高连续无"台阶"；延迟长度按音高设置（D ≈ fs/f0），静态最大缓冲（88 键最低 A0 27.5 Hz → 4096 采样 float 上限），**noteOn 时按音高使用子区间，实时线程零分配**。
+2. **色散滤波链（Balázs Bank）**：级联一阶全通（低音 3~4 阶、中高音 1~2 阶），系数按音区/音高查表插值，拟合 $f_m = m \cdot f_0 \sqrt{1 + B \cdot m^2}$ 的群延迟曲线——物理色散取代/补充 Phase 13 的静态非谐公式，高次分音频率随循环自动正确偏移。
+3. **损耗滤波（Loss Filter）**：一阶低通系数按音区（低频≈1.0 长衰减、高频衰减快），等效 Phase 13 的 τ_base 与高频阻尼，实现"击弦明亮 → 基频主导尾音"的自然过渡。
+4. **换向波导激励（Commuted Waveguide）**：预计算合成击弦脉冲（含 inharmonicity 的短衰减宽带脉冲，可经 Phase 13 voice 离线渲染一次获得），noteOn 注入波导——避免逐采样非线性锤模型，保持实时零分配。
+5. **递归振荡器性能优化**：波导路径本身无 `std::sin`；Phase 13 回退路径可选用 Magic Circle 二阶递归振荡器替换 `std::sin`（2 乘加/分音），作为 14-5 的可选优化项。
+
+### CPU / 内存预算（Phase 14-0 评估）
+
+**计算量（每 voice 每采样，恒定、与音高无关）：**
+
+| 零件 | 乘加/采样 |
+|---|---|
+| 延迟线读 + 一阶全通插值 | ~4 |
+| 色散链（2~4 阶一阶全通） | ~4~8 |
+| 损耗滤波（一阶） | ~2~3 |
+| 输出耦合 | ~1~2 |
+| **合计** | **~11~17** |
+
+- 8 voice × 44100 Hz × 14 ≈ **4.9M 乘加/秒** ≈ 单核（Zen 3 4.6 GHz）**0.1%~0.2%**——比 Phase 13（8 voice × 64 次 `std::sin` ≈ 28M 高价 op/s）**低约一个数量级**；
+- 每 voice 内存 ≈ 16 KB（4096 采样 float 延迟线）+ 几十字节状态；8 voice ≈ **128 KB**，完全可接受。
+
+**声音真实感评估：**
+
+- **优点**：理论无限分音且色散自动正确（高次分音微偏高、谐波间真实拍频）；瞬态与弦振动物理对应（听感自然）；扩展潜力大（延音踏板 sympathetic resonance 琴弦间耦合、琴体耦合）。
+- **风险**：激励不自然 → "拨弦/橡皮筋"感；色散阶数不足 → 高音区群延迟误差；调参维度多。
+- **决策门**（14-6）：听感收益 vs CPU/复杂度，产物是否取代 Phase 13 为默认；若收益不足维持 Phase 13。
+
+### 子任务排期
+
+**Phase 14-0：预研与方案设计 [已完成，2026-08-18]**
+
+- [x] 核实代码现状（voice 注册/导出/参数链路/测试夹具）与既有规划（roadmap.md / current-iteration.md）。
+- [x] 设计单弦波导拓扑（DelayA 分数延迟 + Balázs Bank 色散链 + Loss Filter + 换向激励）。
+- [x] CPU/内存预算评估（~11~17 乘加/voice/采样，8 voice ≈ 0.1%~0.2% 单核；128 KB 内存）。
+- [x] 本文件 Phase 14 详细排期落地（下述 14-1~14-6）。
+
+**Phase 14-1：波导核心零件库（WaveguideDelayLine）**
+
+- [ ] 新建 `source/Audio/WaveguideDelayLine.h`（header-only，参考 STK `DelayA` 架构）：环形缓冲（静态 `std::array<float, 4096>` 上限，noteOn 按音高选子区间）+ 一阶全通分数插值；`setDelaySamples(double)` / `read()/write(float)` / `reset()`。
+- [ ] 确定性测试：整数延迟（D=100 精确延迟 100 采样）、分数延迟（D=100.5 插值精度）、零输入稳定、长时渲染无发散、无堆分配（固定缓冲）。
+- [ ] 验证：`wsl-build` / `test` / `format --check` / `win-build`。
+
+**Phase 14-2：色散滤波链 + 损耗滤波（Dispersion & Loss）**
+
+- [ ] 新建 `source/Audio/WaveguideDispersion.h`：Balázs Bank 级联一阶全通（2~4 阶按音区），系数查表/插值拟合 $f_m = m \cdot f_0 \sqrt{1 + B \cdot m^2}$ 群延迟。
+- [ ] 新建 `source/Audio/WaveguideLossFilter.h`：一阶低通损耗滤波，系数按音区（低频≈1.0、高频衰减）。
+- [ ] 确定性测试：全通链群延迟频响（低频≈0、高频正偏移）、各阶极点 |r|<1 稳定、损耗滤波频率响应单调、长时渲染无发散。
+- [ ] 验证：`wsl-build` / `test` / `format --check` / `win-build`。
+
+**Phase 14-3：WaveguidePianoVoice 原型（v1 完整音色）**
+
+- [ ] 新建 `source/Audio/WaveguidePianoVoice.h`（继承 `SynthesiserVoice`，与 Sine/PianoSynthVoice 并存注册）：激励（合成宽带短脉冲）→ 延迟线 → 色散链 → 损耗滤波 → 输出耦合；`startNote` 按音高配置延迟长度/色散/损耗系数（按键瞬间计算，逐采样恒定低成本）。
+- [ ] 确定性测试（复用 PianoSynthVoiceTest 夹具模式）：单点 DFT 验证基频（低音 C2 / 中音 C4）、分音存在且带色散偏移、noteOff 尾音收敛、长时渲染有限无 NaN、`allNotesOff` 生效。
+- [ ] 初步听感对比（Windows 侧手工）：v3 波导 vs v2 解析加法（低音真实感 / 瞬态 / 高音清脆度）。
+- [ ] 验证：`wsl-build` / `test` / `format --check` / `win-build`。
+
+**Phase 14-4：换向波导击弦脉冲激励（Commuted Waveguide）**
+
+- [ ] 预计算合成击弦脉冲（含 inharmonicity 的短衰减宽带脉冲，可经 Phase 13 voice 离线渲染一次性获得并嵌入头文件），noteOn 注入波导。
+- [ ] 激励整形与力度映射：velocity → 脉冲幅度/硬度（亮度随力度提升）。
+- [ ] 确定性测试：脉冲注入后基频/分音正确建立、力度单调、脉冲长度与内存上限约束。
+- [ ] 验证：`wsl-build` / `test` / `format --check` / `win-build`。
+
+**Phase 14-5：参数化与接线 + 递归振荡器性能优化**
+
+- [ ] 决策：波导音色接入方式——扩展 `BuiltinTone`（第三档）或独立开关；参数（色散强度/激励硬度）沿用 `PerformanceSettingsView → AudioEngine → Voice` 链路，DOC-006 默认值回退；实时/离线一致（WavExportOptions 同步）。
+- [ ] 可选优化：Magic Circle 递归振荡器（2 乘加/分音）替换 `PianoSynthVoice` 的 `std::sin`，作为 v2 回退路径性能提升（确定性测试验证频偏 ≤ 阈值）。
+- [ ] 验证：`wsl-build` / `test` / `format --check` / `win-build`。
+
+**Phase 14-6：确定性测试 + CPU 基准 + 决策评审**
+
+- [ ] DFT 量化：波导音色基频精确、分音色散偏移符合预期（对比公式）、衰减曲线合理。
+- [ ] CPU 基准：8 voice 复音实测 v3 波导 vs v2 解析加法（Windows 侧任务管理器 / 内部计时），验证预算评估（v3 应显著低于 v2）。
+- [ ] 听感回归（Windows 侧手工）：低音（C2~C3 真实感与拍频）、中音（C4 瞬态过渡）、高音（C6+ 清脆度）；3 旋钮在波导引擎上的协调性。
+- [ ] **决策评审**：波导音色是否取代 Phase 13 成为默认；若收益不足则维持 Phase 13 默认，波导作为可选音色或归档。
+
+### 验收标准
+
+- 每 voice 波导循环为纯直接计算（~11~17 乘加/采样，恒定），零堆分配、无锁；延迟线静态缓冲（8 voice ≤ 128 KB）。
+- 基频精确（分数延迟插值），分音色散偏移符合刚度物理（DFT 可测），损耗衰减高次快于低次（可测）。
+- 三闸门全绿：`wsl-build` 0 warning / `test` 全绿 / `format --check` 归零 / `win-build` 通过。
+- 决策门产出：CPU 基准数据 + 听感对比结论，明确默认音色归属。
+
+### 验证命令
+
+```bash
+./scripts/dev.sh wsl-build --configure-only
+./scripts/dev.sh test
+./scripts/dev.sh format --check
+./scripts/dev.sh win-build
+```
+
+### 排期参考
+
+14-1 + 14-2（零件库）约 1 轮；14-3（原型）约 1 轮（含初步听感）；14-4（激励）约 1 轮；14-5 视接线决策 0~1 轮；14-6（基准 + 决策评审）约 1 轮。Phase 14 总计约 3~4 轮迭代 + Windows 侧手工回归。研究性阶段，任何子阶段若听感收益不足可提前止损回退 Phase 13。
 
 ---
 
