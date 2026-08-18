@@ -283,21 +283,21 @@ public:
         const auto availableWidth = viewport.getMaximumVisibleWidth();
         const auto contentWidth = juce::jmax(520, availableWidth);
 
-        constexpr int padding = 8;
+        constexpr int padding = 10;
         constexpr int rowH = 26;
         constexpr int controlW = 200;
-        constexpr int gap = 8;
+        constexpr int gap = 12;
 
         auto area = juce::Rectangle<int>(padding, padding, contentWidth - padding * 2, 10000);
 
-        // 1. Audio Device Selector (顶部，紧凑高度紧贴调号)
-        constexpr int selectorH = 220;
+        // 1. Audio Device Selector (顶部，高度自然贴合，预留适度间距)
+        constexpr int selectorH = 234;
         selector->setBounds(area.removeFromTop(selectorH));
         area.removeFromTop(gap);
 
         // 2. Key Signature group (调号与通道跟随)
         const auto hasFollowKey = midiTransposeToggle.getToggleState();
-        const auto keySigH = hasFollowKey ? 148 : 78;
+        const auto keySigH = hasFollowKey ? 152 : 82;
         auto keySigArea = area.removeFromTop(keySigH);
         keySigGroup.setBounds(keySigArea);
         auto ksContent = keySigArea.reduced(12, 16);
@@ -324,7 +324,7 @@ public:
         area.removeFromTop(gap);
 
         // 3. Keyboard Display group (键盘显示与语言)
-        constexpr int keyboardH = 210;
+        constexpr int keyboardH = 212;
         auto keyboardArea = area.removeFromTop(keyboardH);
         keyboardGroup.setBounds(keyboardArea);
         auto groupContent = keyboardArea.reduced(12, 16);
@@ -346,14 +346,14 @@ public:
         languageCombo.setBounds(row.removeFromRight(controlW).reduced(2));
         area.removeFromTop(gap);
 
-        // 4. Diagnostics Editor (Saved state 诊断信息，适当增高至 96px 舒适容纳 5 行文本)
+        // 4. Diagnostics Editor (Saved state 诊断信息，96px 舒适容纳 5 行文本)
         constexpr int diagH = 96;
         diagnosticsEditor.setBounds(area.removeFromTop(diagH));
-        area.removeFromTop(gap);
+        area.removeFromTop(10);
 
-        // 5. Save Button (右对齐)
-        constexpr int btnH = 32;
-        constexpr int btnW = 120;
+        // 5. Save Button (右对齐，紧凑底边距)
+        constexpr int btnH = 30;
+        constexpr int btnW = 110;
         auto btnRow = area.removeFromTop(btnH);
         saveButton.setBounds(btnRow.removeFromRight(btnW).reduced(2));
 

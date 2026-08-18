@@ -113,7 +113,7 @@ void SettingsWindowManager::show(ShowOptions options) {
     state->window->setUsingNativeTitleBar(true);
     state->window->setContentOwned(content.release(), true);
     state->window->setResizable(false, false);
-    state->window->centreAroundComponent(&options.parent, 580, 750);
+    state->window->centreAroundComponent(&options.parent, 580, 720);
     state->window->setVisible(true);
     state->window->toFront(true);
 }
