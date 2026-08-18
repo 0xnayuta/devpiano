@@ -130,18 +130,19 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 - **Phase 12：音源重构 + 谐波钢琴 v1**（Level 1）——合并两份 sine 为共享 `SynthesiserVoice` 子类（三处调用点改接，零行为变化）；新增 Harmonic PianoVoice：基频 + 2~7 次谐波叠加、velocity→亮度/响度映射、分音独立衰减；参数进 `SettingsModel`。纯加法、零采样、CPU 可忽略。验收：实时/离线音色一致、确定性音色单测、听觉对比明显优于 sine。
 - **Phase 13：Stiff-String Inharmonic Piano v2**（Level 2）——加入 inharmonicity（`fₙ = n·f₀·√(1+B·n²)`，B 按音区设定）、分音衰减速率建模、简单 body 共鸣滤波。仍纯解析加法，无需延迟线。**详细计划与子任务见 [`current-iteration.md`](current-iteration.md)。**
-- **Phase 14：Digital Waveguide Piano v3**（Level 3，研究性）——延迟线 + 分数延迟 + loss/dispersion filter + hammer excitation，进入真正物理建模层。**决策门**：听感收益 vs CPU 预算 vs 代码复杂度，产物是否成为默认音色。
+- **Phase 14：Digital Waveguide Piano v3**（Level 3，研究性）——延迟线 + 分数延迟（`DelayA`）+ 换向击弦脉冲 + 级联全通色散滤波（Balázs Bank 方案）+ loss filter，进入真正物理建模层。**决策门**：听感收益 vs CPU 预算 vs 代码复杂度，产物是否取代 Phase 13 成为默认音色。
 
 **外部参考（许可证已实地核实）：**
 
 | 项目 | 许可证 | 用法 |
 |---|---|---|
-| bBpiano | PolyForm Internal Use 1.0.0（**禁止再分发**） | 仅读思想/论文式源码（如 `From PDE to PCM.md`），**不复制代码** |
-| Instrudio | 无 LICENSE（默认保留所有权利） | 仅读思想 |
-| STK | MIT（含非绑定回馈请求条款） | 可复用 delay/filter 类作零件库；注意其物理乐器依赖自带 rawwaves 采样，与零采样目标有张力 |
-| mda-plugins-juce | MIT | 可参考 JUCE DSP 实现惯例 |
+| pichenettes/eurorack (Mutable Instruments) | MIT | 二阶谐振器组、模态衰减与冲击激励塑造实现范本（Phase 13 核心参考） |
+| electro-smith/DaisySP | MIT | 模块化 C++ DSP 库，参考 `ModalVoice` / `Resonator` 滤波实现（Phase 13 参考） |
+| STK (Synthesis ToolKit) | MIT-style | 可复用/参考 `DelayA` / `BiQuad` 类作波导循环零件库（Phase 14 核心参考） |
+| Faust Libraries (physmodels.lib, misceffects.lib) | LGPL-2.1 / BSD | 级联全通色散滤波器（Balázs Bank 方案）与刚度非谐性数学推导（Phase 13/14 理论范本） |
+| Instrudio | 无 LICENSE（默认保留所有权利） | 仅在概念与 EQ 曲线设计层面借鉴，**不复制代码** |
 
-Faust 不引入 runtime（生成代码 GPL exception 面模糊，仅作研究工具）。若复用 STK/mda 代码，在 `THIRD-PARTY-NOTICES.md` 记录来源/版本/修改。
+若复用 STK / DaisySP / Mutable Instruments 代码，在 `THIRD-PARTY-NOTICES.md` 记录来源/版本/修改。
 
 ## 3. 主要风险
 

@@ -107,52 +107,98 @@ Phase 12 的 v1 是**整数倍谐波**叠加：分音频率严格 `n·f₀`，�
 | 确定性测试夹具已就绪：Synthesiser 驱动 + 单点 DFT（Hann 窗） | PianoSynthVoiceTest.cpp | 可量化验证分音频率偏移 / 衰减速率 / 共鸣频响 |
 | UI 空间：piano-row 已有 Tone 下拉 + 3 旋钮（Brightness/Hammer/Resonance），高度 72px | LayoutModel.cpp `makeControlsPanelTree` | 新增旋钮需评估布局空间；语言切换/样式同步已有 12-3 修复的先例 |
 
+### 开源参考与算法选型矩阵
+
+#### 候选开源项目深度分析矩阵
+
+**类别 A：解析加法 / 模态合成（Modal Synthesis）—— Phase 13 的首选与直接对标**
+
+| 项目 | 核心原理 | 许可证 | 优点 | 局限 / 风险 | 对 devpiano 的复用价值 |
+|---|---|---|---|---|---|
+| **[pichenettes/eurorack](https://github.com/pichenettes/eurorack)**<br>*(Mutable Instruments: Rings, Elements, Plaits)* | 模态二阶谐振器组（Resonator Bank）+ 冲击激励塑形 | **MIT** | 工业级 DSP 优化、数值极稳定、纯 C++ 无分配、音色极具表现力 | 针对嵌入式 ARM 优化，需移植到现代 C++20 | **★★★★★ (极高)**<br>Phase 13-2（衰减建模）与 13-3（琴体共鸣滤波）的**工业级实现范本** |
+| **[electro-smith/DaisySP](https://github.com/electro-smith/DaisySP)** | 模块化 C++ DSP 库（含 `StringVoice`, `ModalVoice`, `Resonator`） | **MIT** | 纯 C++ 类库结构清晰、现代 CMake 支持、开箱即用 | 泛用型模态模型，未针对钢琴 88 键专门调参 | **★★★★☆ (很高)**<br>可直接参考其 `ModalVoice` / `Resonator` 的 Direct Form II 滤波实现 |
+| **[GareBear99/Instrudio](https://github.com/GareBear99/Instrudio)** | 基于 JUCE DSP 的物理建模乐器（小提琴、钢琴、竖琴） | **无明确 LICENSE**<br>*(默认保留所有权利)* | 原生 JUCE DSP 架构，含 inharmonicity chorus 与琴体 EQ 建模 | 无 LICENSE 文件，**不能复制任何代码** | **★★★☆☆ (中等)**<br>仅可学习其 JUCE DSP 链路与琴体共鸣 EQ 曲线设计思路 |
+
+**类别 B：数字波导与色散建模（Digital Waveguide & Dispersion）—— Phase 14 的物理模型基石**
+
+| 项目 | 核心原理 | 许可证 | 优点 | 局限 / 风险 | 对 devpiano 的复用价值 |
+|---|---|---|---|---|---|
+| **[thestk/stk](https://github.com/thestk/stk)**<br>*(Synthesis ToolKit)* | 经典波导合成（DelayA, BiQuad, ModalBar, BandedWG） | **MIT-style** | 物理建模领域常青树，延迟线与滤波零件库非常成熟 | 部分旧 C++ 风格（90 年代写法），需要现代化重构 | **★★★★★ (极高)**<br>Phase 14 构建分数延迟线（`DelayA`）与波导循环的核心零件参考 |
+| **[grame-cncm/faustlibraries](https://github.com/grame-cncm/faustlibraries)**<br>*(physmodels.lib, misceffects.lib)* | `piano_dispersion_filter`（Balázs Bank 级联全通色散滤波） | **LGPL-2.1 / BSD** | 数学推导最严谨，全通滤波器拟合琴弦刚度色散的黄金标准 | Faust DSL 语法，需转译其数学公式为 C++ | **★★★★☆ (很高)**<br>学习钢琴高次分音失谐与全通色散滤波设计的**最佳数学范本** |
+
+#### 针对 devpiano 的分阶段开发与参考选型建议
+
+1. **Phase 13（Stiff-String Inharmonic Piano v2）落地推进建议**：
+   - **非谐性分音频率计算（Inharmonicity）**：
+     - **参考源**：Julius O. Smith (PASP) 与 Faust `physmodels.lib` 的刚度参数模型。
+     - **落地方式**：在 `PianoSynthVoice::startNote` 中使用 $f_n = n \cdot f_0 \sqrt{1 + B \cdot n^2}$。刚度系数 $B$ 按音区查表（低音区 $\approx 4 \times 10^{-4}$，高音区 $\approx 1 \times 10^{-5}$）。
+     - **CPU 成本**：零新增（仅在按键瞬间计算一次步进增量）。
+   - **频率相关分音衰减建模（Decay Modeling）**：
+     - **参考源**：Mutable Instruments (Rings/Elements) 的模态能量耗散模型。
+     - **落地方式**：将现有固定 8 档表替换为连续函数 $\tau_n = \tau_{\text{base}} / (1 + c \cdot (n - 1))$，使高次谐波在击弦后快速衰减，自然过渡至基频主导。
+   - **琴体共鸣滤波（Body Resonator）**：
+     - **参考源**：`DaisySP::Resonator` 与 `Mutable Instruments` 的 Direct Form II 二阶带通/谐振器。
+     - **落地方式**：在每 voice 输出挂载 2~3 个二阶谐振器，固定极点在单位圆内（$r < 1$），模拟钢琴音板 100~300 Hz 的共振峰，计算量仅增加 8~12 次乘加/采样。
+
+2. **Phase 14（Digital Waveguide Piano v3）真正物理建模参考**：
+   - **波导与分数延迟**：参考 **STK (`thestk/stk`)** 中的 `DelayA` / `BiQuad`，编写 header-only、现代 C++20 的环形缓冲波导类。
+   - **琴弦色散（Dispersion Allpass Chain）**：参考 **Balázs Bank 论文** 与 **Faust `piano_dispersion_filter`**，用 1~4 阶一阶全通滤波器级联逼近色散效应。
+   - **击弦激励（Hammer Excitation）**：采用**换向波导（Commuted Waveguide）**思想，将击弦脉冲经非线性滤波整形后注入波导。
+
+3. **合规与开发纪律**：
+   - 第一推荐参考库（代码级）：`pichenettes/eurorack` (MIT)、`electro-smith/DaisySP` (MIT)、`thestk/stk` (MIT-style)。
+   - 第一推荐算法与理论源（思想级）：Julius O. Smith (JOS) - 《Physical Audio Signal Processing (PASP)》、Faust Libraries (`misceffects.lib`)。
+   - 对 `Instrudio`（无授权）坚决不复制代码，仅在设计层面借鉴。
+
 ### 子任务排期
 
-**Phase 13-1：Inharmonicity（分音频率偏移）**
+**Phase 13-1：Inharmonicity（刚性琴弦分音失谐偏移）**
 
-- [ ] `startNote` 分音频率公式：`fₙ = n·f₀·√(1 + B·n²)`（n 从 1 起 = 基频，`increment` 按此计算；相位仍 double 累积）。
-- [ ] B 按音区查表（真实钢琴量级，低音大 / 高音小）：
-  - region 0（note <48）：B ≈ 4e-4（低音弦刚度效应最强）
-  - region 1（48–71）：B ≈ 1e-4
-  - region 2（72–95）：B ≈ 3e-5
-  - region 3（≥96）：B ≈ 1e-5
-  - 效果量级：低音区 n=7 时偏移 ≈ √(1+0.0004×49)−1 ≈ +1.0%；n=2 ≈ +0.06%（次谐波几乎不失谐）。
-- [ ] **关键听感**：分音频率失去公共周期 → 波形不再循环重复，低音区出现真实的"泛音失谐"感（beats/拍频），这是 v2 相对 v1 最显著的提升点。
-- [ ] 参数化决策（在 13-2 前定案）：B 按音区硬编码查表（**推荐**，无新旋钮，UI 空间留给后续）vs `pianoStiffness` 旋钮缩放 B（沿用 12-3 链路，需第 4 旋钮）。倾向硬编码——真实钢琴 B 由物理决定，用户可调性低；若用户要求再参数化。
-- [ ] 验证：确定性测试量化偏移（见 13-5）；听感低音区"更真实"。
+- [ ] 引入 JOS PASP 刚性琴弦公式：在 `PianoSynthVoice::startNote` 中计算分音频率 $f_n = n \cdot f_0 \sqrt{1 + B \cdot n^2}$（$n \ge 1$ 为分音序号），步进计算为 `increment = (2π / sampleRate) * f_n`；相位累积维持 `double`。
+- [ ] 刚度系数 $B$ 按音区查表（低音弦刚度大、高音小）：
+  - region 0（note <48）：$B \approx 4 \times 10^{-4}$（低音区 $n=7$ 时频率偏移 $\approx +1.0\%$，$n=2 \approx +0.06\%$）
+  - region 1（48–71）：$B \approx 1 \times 10^{-4}$
+  - region 2（72–95）：$B \approx 3 \times 10^{-5}$
+  - region 3（≥96）：$B \approx 1 \times 10^{-5}$
+- [ ] **核心声学收益**：各分音失去公共整数倍周期 $\to$ 波形不再单调循环，低音区产生真实的"泛音失谐拍频（Beats）"，彻底消除整数倍加法合成的电子蜂鸣感。
+- [ ] 参数化决策：推荐刚度 $B$ 按音区硬编码查表（真实钢琴刚度由物理弦径与张力决定，无需向用户暴露额外旋钮，保持 UI 紧凑）。
+- [ ] 计算纪律：仅在 `startNote` 按键瞬间计算一次步进增量，**音频渲染线程逐采样 CPU 零新增**。
 
-**Phase 13-2：分音衰减速率建模**
+**Phase 13-2：模态分音衰减速率建模（Modal Decay Modeling）**
 
-- [ ] 替换 v1 固定因子表为与分音频率相关的连续模型：`tau_n = tau_base(note) / (1 + c·(n−1))`，c 按音区（低音区 c 大 = 高次衰减相对更快）；或 `decayRate ∝ fₙ^k`（k≈0.5~1，物理上高频能量耗散快）。
-- [ ] 效果：击弦瞬间的"明亮"（高次谐波强）在数百 ms 内衰减为"基频主导"（真实钢琴特征），比 v1 的 8 档表更平滑连续。
-- [ ] 保持 `resonance` 旋钮语义不变（全局 decay 缩放 ×0.7~1.3 叠加在新模型之上），避免旋钮语义混乱。
-- [ ] CPU：零新增（startNote 一次性计算）。
+- [ ] 借鉴 Mutable Instruments（Rings/Elements）模态能量耗散模型：替换 v1 的 8 档离散表，引入连续分音时间常数模型 $\tau_n = \tau_{\text{base}}(\text{note}) / (1.0 + c_{\text{region}} \cdot (n - 1))$。
+- [ ] 确定性衰减因子：在 `startNote` 预计算每分音每采样衰减系数 $\text{decayPerSample}_n = \exp(-1.0 / (\text{sampleRate} \cdot \tau_n))$，低音区 $c_{\text{region}} \approx 0.35$，高音区 $c_{\text{region}} \approx 0.15$。
+- [ ] 旋钮映射保持：`pianoResonance` 旋钮继续作用于 $\tau_{\text{base}}$（$\times 0.7 \sim 1.3$），`pianoBrightness` 作用于高次谐波初始幅度与高频衰减斜率。
+- [ ] **声学收益**：高次分音在击弦后数十至数百毫秒内快速耗散，音色平滑过渡为基频与低次分音主导的纯净尾音。
 
-**Phase 13-3：简单 body 共鸣**
+**Phase 13-3：简单琴体共鸣滤波（Body Resonator Bank）**
 
-- [ ] 每 voice 输出（`value × envelope` 后）经过 2~3 个并联/级联**二阶谐振器**（Direct Form II，每谐振器 2 状态变量，系数 startNote 预计算）。
-- [ ] 共振频率按音区（如低音 100~300 Hz 区间 2~3 个峰，模拟音板），Q ≈ 5~15，增益归一避免整体响度偏移。
-- [ ] CPU 预算：每 voice 每 sample 2~3 谐振器 × 4 乘加 ≈ 8~12 乘加（叠加在 ≤8 次 sin 之上，仍远低于实时预算）；状态在 `std::array` 成员，无堆分配无锁。
-- [ ] 备选降级（若谐振器调参/稳定性成本高）：静态分音增益塑形（按分音号 EQ 表，零新增状态）——计划中标注为决策点，优先尝试真谐振器。
-- [ ] 稳定性：系数极点在单位圆内（`r < 1`），渲染前后输出有限（测试断言无 NaN/Inf）。
+- [ ] 借鉴 `DaisySP::Resonator` 与 Mutable Instruments 标准拓扑：构建轻量 Direct Form II 二阶带通/谐振器组（2~3 个并联峰）。
+- [ ] 音板共振频率配置：模拟真实钢琴音板的主共鸣峰（如 $f_{c1} \approx 110\text{ Hz}, Q_1 \approx 6$；$f_{c2} \approx 220\text{ Hz}, Q_2 \approx 5$；$f_{c3} \approx 360\text{ Hz}, Q_3 \approx 4$）。
+- [ ] 状态与内存纪律：`std::array<ResonatorState, 3>` 静态作为 `PianoSynthVoice` 私有成员，系数在 `prepareToPlay` 预计算；`renderNextBlock` 中纯直接计算（每 sample 增加 $\le 12$ 次乘加），**零堆分配、无锁**。
+- [ ] 信号混合：采用 Wet/Dry 混合策略（`output = (1 - wet) * raw + wet * filtered`，默认 $\text{wet} \approx 0.25$），避免过度滤波染色引起动态压缩。
+- [ ] 数值稳定性保证：极点严格约束在单位圆内（$r = \exp(-\pi \cdot \text{bandwidth} / \text{sampleRate}) < 1.0$），长时渲染无发散。
 
-**Phase 13-4：参数化与 UI（可选，视 13-1 决策）**
+**Phase 13-4：参数化与 UI 适配（向后兼容）**
 
-- [ ] 若加 `pianoStiffness`：`PerformanceSettingsView` + `SettingsStore`（默认 0.5，旧数据回退）+ `AudioEngine::setPianoParameters` + `WavExportOptions` 同步 + `LayoutModel` 第 4 旋钮 + 语言切换/样式同步（沿用 12-3 修复先例）。
-- [ ] 默认走硬编码路线时本子任务跳过。
+- [ ] 维持 Phase 12-3 确立的 3 旋钮布局（Brightness / Hammer / Resonance）与 Tone 下拉，刚度 $B$ 与音板共鸣参数默认走物理精调查表，不强行增加第 4 旋钮。
+- [ ] 若后续听感回归提出调参诉求，再评估是否扩展 `pianoStiffness`（沿用 `SettingsModel` $\to$ `AudioEngine` $\to$ `Voice` 链路）。
 
-**Phase 13-5：确定性音色测试（与 13-1~3 并行推进）**
+**Phase 13-5：确定性音色测试（与 13-1~3 并行）**
 
-- [ ] inharmonicity：单点 DFT 验证低音 note 36 的分音峰值频率偏移与 B 一致（如 5 次分音频率 ∈ [5·f₀·(1+0.4%), 5·f₀·(1+0.7%)]；基频 ≈ f₀ 无偏移）。
-- [ ] 衰减速率：长时窗后高次分音相对基频的能量比下降（对比 t0 与 t1 窗口的 DFT 幅度比）。
-- [ ] body 共鸣：对比滤波前后 DFT，共振峰附近频段增益可测（或等价断言）。
-- [ ] 现有 2993 断言保持全绿；类别沿用 `DevPiano/Engine`；实时纪律断言（100 块渲染有限、无 NaN）。
+- [ ] 非谐性 DFT 量化：在 `PianoSynthVoiceTest.cpp` 中以单点 DFT 验证低音 note 36（C2）的第 5 分音精确落在 $5 \cdot f_0 \sqrt{1 + 25 B}$ 附近（频率容差 $\le \pm 0.2\%$）。
+- [ ] 模态衰减对比断言：量化断言在 $t_0 = 0.1\text{ s}$ 与 $t_1 = 1.0\text{ s}$ 处，第 6 分音与基频的幅度比满足 $\text{Ratio}(t_1) < 0.5 \cdot \text{Ratio}(t_0)$。
+- [ ] 琴体谐振器频响与稳定性测试：DFT 断言 100~300 Hz 区域存在预期共鸣增益；100 块长渲染输出有限、无 NaN/Inf、静音后各 voice 彻底清零。
+- [ ] 保持全量 2993+ 断言全绿。
 
 **Phase 13-6：听感回归与默认音色决策**
 
-- [ ] Windows 侧手工（仿 Phase 12 Step 流程）：v1（整数倍）vs v2（失谐 + 新衰减 + 共鸣）对比——低音区真实感、击弦瞬态、共鸣感；3 旋钮在 v2 上仍生效。
-- [ ] **阶段决策**：v2 是否提升明显 → 是否将 Piano 切为默认音色（衔接 Phase 14 决策门；若 v2 已足够好可提前切默认）。
+- [ ] Windows 侧手工听觉对比（v1 vs v2）：
+  - **低音区（C2~C3）**：重点听非谐性拍频与音板共鸣厚度；
+  - **中音区（C4）**：重点听击弦明亮度向基频衰减的过渡平滑度；
+  - **高音区（C6+）**：重点听清脆度与短余韵；
+  - **3 旋钮效果**：确认 Brightness/Hammer/Resonance 在 v2 引擎上依然协调有效。
+- [ ] **阶段决策**：若 v2 听感已显著超越传统采样插件的易用性与表现力，可正式将 BuiltinTone 默认切换为 `Piano`。
 
 ### 验收标准
 
@@ -180,10 +226,13 @@ Phase 12 的 v1 是**整数倍谐波**叠加：分音频率严格 `n·f₀`，�
 
 > 概要排期，研究性阶段。Level 3：进入真正物理建模层（数字波导）。
 
-- 每 voice 数字波导：延迟线 + 分数延迟（`DelayA` 级） + loss 滤波器 + dispersion 近似 + hammer excitation 模型。
-- 参考：bBpiano（PolyForm Internal Use，**仅读思想**，不复制代码）；STK（MIT，delay/filter 类可作零件库，注意其乐器依赖 rawwaves 采样）。
-- **决策门**：听感收益 vs CPU 预算 vs 代码复杂度，产物是否成为默认音色；若收益不足则维持 Phase 13 音色为默认。
-- 排期参考：2+ 轮迭代，含 CPU 基准与决策评审。
+- **核心技术**：每 voice 纯 C++ 无分配数字波导（环形缓冲 + 全通分数延迟 `DelayA`）+ 换向波导（Commuted Waveguide）击弦脉冲激励 + Balázs Bank 级联全通色散滤波（Allpass Dispersion Chain）+ 损耗滤波（Loss Filter）。
+- **参考源**：
+  - **STK (`thestk/stk`)**（MIT-style）：分数延迟线（`DelayA`）与二阶滤波（`BiQuad`）零件库架构。
+  - **Faust (`misceffects.lib` / `piano_dispersion_filter`) & Balázs Bank 论文**（BSD/LGPL）：级联全通色散滤波器设计。
+  - **Julius O. Smith (JOS) PASP**：换向波导合成（Commuted Waveguide Synthesis）理论。
+- **决策门**：听感收益 vs CPU 预算（多复音波导计算量）vs 代码复杂度，产物是否取代 Phase 13 成为默认音色；若收益不足则维持 Phase 13 音色为默认。
+- **排期参考**：2+ 轮迭代，含 CPU 基准与决策评审。
 
 ---
 
