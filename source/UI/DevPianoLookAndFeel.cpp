@@ -564,7 +564,7 @@ void DevPianoLookAndFeel::drawProgressBar(juce::Graphics& g, juce::ProgressBar& 
 
     if (textToShow.isNotEmpty()) {
         g.setColour(tokens.textPrimary());
-        g.setFont(juce::FontOptions(13.0f));
+        g.setFont(juce::FontOptions(14.0f));
         g.drawText(textToShow, bounds.reduced(4.0f, 0.0f), juce::Justification::centred, true);
     }
 }
@@ -583,4 +583,33 @@ void DevPianoLookAndFeel::drawAlertBox(juce::Graphics& g, juce::AlertWindow& ale
     g.drawRoundedRectangle(bounds.reduced(0.5f), corner, 1.0f);
 
     textLayout.draw(g, textArea.toFloat());
+}
+
+// ============================================================================
+//  AlertWindow fonts and dimensions
+// ============================================================================
+juce::Font DevPianoLookAndFeel::getAlertWindowTitleFont() {
+    return { juce::FontOptions(15.0f).withStyle("Bold") };
+}
+
+juce::Font DevPianoLookAndFeel::getAlertWindowMessageFont() {
+    return { juce::FontOptions(14.0f) };
+}
+
+juce::Font DevPianoLookAndFeel::getAlertWindowFont() {
+    return { juce::FontOptions(14.0f) };
+}
+
+int DevPianoLookAndFeel::getAlertWindowButtonHeight() {
+    return 28;
+}
+
+juce::Array<int> DevPianoLookAndFeel::getWidthsForTextButtons(juce::AlertWindow& alert,
+                                                              const juce::Array<juce::TextButton*>& buttons) {
+    juce::ignoreUnused(alert);
+    juce::Array<int> widths;
+    for (int i = 0; i < buttons.size(); ++i) {
+        widths.add(80);
+    }
+    return widths;
 }

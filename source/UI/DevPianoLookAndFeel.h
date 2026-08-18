@@ -38,6 +38,12 @@ public:
                          const juce::String& textToShow) override;
     void drawAlertBox(juce::Graphics&, juce::AlertWindow&, const juce::Rectangle<int>& textArea,
                       juce::TextLayout&) override;
+    juce::Font getAlertWindowTitleFont() override;
+    juce::Font getAlertWindowMessageFont() override;
+    juce::Font getAlertWindowFont() override;
+    int getAlertWindowButtonHeight() override;
+    juce::Array<int> getWidthsForTextButtons(juce::AlertWindow&,
+                                             const juce::Array<juce::TextButton*>& buttons) override;
 
 private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DevPianoLookAndFeel)
