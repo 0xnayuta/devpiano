@@ -13,6 +13,10 @@ const char* kKeyA = "adsrAttack";
 const char* kKeyD = "adsrDecay";
 const char* kKeyS = "adsrSustain";
 const char* kKeyR = "adsrRelease";
+const char* kKeyBuiltinTone = "builtinTone";
+const char* kKeyPianoBrightness = "pianoBrightness";
+const char* kKeyPianoHammerHardness = "pianoHammerHardness";
+const char* kKeyPianoResonance = "pianoResonance";
 const char* kKeyPluginSearchPath = "pluginSearchPath";
 const char* kKeyLastPluginName = "lastPluginName";
 const char* kKeyKnownPluginListXml = "knownPluginListXml";
@@ -46,7 +50,13 @@ void readPerformanceSettings(juce::PropertiesFile& file, SettingsModel& model) {
         .adsrAttack = static_cast<float>(file.getDoubleValue(kKeyA, model.adsrAttack)),
         .adsrDecay = static_cast<float>(file.getDoubleValue(kKeyD, model.adsrDecay)),
         .adsrSustain = static_cast<float>(file.getDoubleValue(kKeyS, model.adsrSustain)),
-        .adsrRelease = static_cast<float>(file.getDoubleValue(kKeyR, model.adsrRelease))
+        .adsrRelease = static_cast<float>(file.getDoubleValue(kKeyR, model.adsrRelease)),
+        .builtinTone = static_cast<SettingsModel::BuiltinTone>(
+            file.getIntValue(kKeyBuiltinTone, static_cast<int>(model.builtinTone))),
+        .pianoBrightness = static_cast<float>(file.getDoubleValue(kKeyPianoBrightness, model.pianoBrightness)),
+        .pianoHammerHardness
+        = static_cast<float>(file.getDoubleValue(kKeyPianoHammerHardness, model.pianoHammerHardness)),
+        .pianoResonance = static_cast<float>(file.getDoubleValue(kKeyPianoResonance, model.pianoResonance))
     };
 
     const auto looksLikeCorruptedZeroState = performance.masterGain == 0.0f && performance.adsrAttack == 0.0f
@@ -60,6 +70,14 @@ void readPerformanceSettings(juce::PropertiesFile& file, SettingsModel& model) {
     performance.adsrDecay = juce::jlimit(0.001f, 2.0f, performance.adsrDecay);
     performance.adsrSustain = juce::jlimit(0.0f, 1.0f, performance.adsrSustain);
     performance.adsrRelease = juce::jlimit(0.001f, 3.0f, performance.adsrRelease);
+    // 旧序列化数据缺失字段时回退默认（DOC-006 模式）；越界值钳制。
+    const auto rawTone = static_cast<int>(performance.builtinTone);
+    performance.builtinTone = (rawTone == static_cast<int>(SettingsModel::BuiltinTone::piano))
+        ? SettingsModel::BuiltinTone::piano
+        : SettingsModel::BuiltinTone::sine;
+    performance.pianoBrightness = juce::jlimit(0.0f, 1.0f, performance.pianoBrightness);
+    performance.pianoHammerHardness = juce::jlimit(0.0f, 1.0f, performance.pianoHammerHardness);
+    performance.pianoResonance = juce::jlimit(0.0f, 1.0f, performance.pianoResonance);
 
     model.applyPerformanceSettingsView(performance);
 }
@@ -222,6 +240,10 @@ bool SettingsStore::writeNow(const SettingsModel& m) {
 
     f.setValue(kKeyS, m.adsrSustain);
     f.setValue(kKeyR, m.adsrRelease);
+    f.setValue(kKeyBuiltinTone, static_cast<int>(m.builtinTone));
+    f.setValue(kKeyPianoBrightness, m.pianoBrightness);
+    f.setValue(kKeyPianoHammerHardness, m.pianoHammerHardness);
+    f.setValue(kKeyPianoResonance, m.pianoResonance);
     f.setValue(kKeyPluginSearchPath, m.pluginSearchPath);
     f.setValue(kKeyLastPluginName, m.lastPluginName);
     if (m.knownPluginListState) {

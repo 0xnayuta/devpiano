@@ -180,6 +180,13 @@ void AudioEngine::setAdsr(float attackSeconds, float decaySeconds, float sustain
     updateAdsrOnVoices();
 }
 
+void AudioEngine::setPianoParameters(float brightness, float hammerHardness, float resonance) {
+    pianoBrightness = juce::jlimit(0.0f, 1.0f, brightness);
+    pianoHammerHardness = juce::jlimit(0.0f, 1.0f, hammerHardness);
+    pianoResonance = juce::jlimit(0.0f, 1.0f, resonance);
+    updatePianoParametersOnVoices();
+}
+
 void AudioEngine::setBuiltinSynthTone(BuiltinSynthTone tone) {
     if (builtinTone == tone) {
         return;
@@ -206,6 +213,15 @@ void AudioEngine::rebuildSynth() {
     }
 
     updateAdsrOnVoices();
+    updatePianoParametersOnVoices();
+}
+
+void AudioEngine::updatePianoParametersOnVoices() {
+    for (auto index = 0; index < synth.getNumVoices(); ++index) {
+        if (auto* voice = dynamic_cast<PianoSynthVoice*>(synth.getVoice(index))) {
+            voice->setPianoParameters(pianoBrightness, pianoHammerHardness, pianoResonance);
+        }
+    }
 }
 
 void AudioEngine::updateAdsrOnVoices() {

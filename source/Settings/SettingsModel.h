@@ -18,6 +18,13 @@
 // - 上次插件搜索路径 / 上次插件名
 // - 键盘布局持久化形态
 struct SettingsModel {
+    // 内置 fallback 音色（Phase 12-2/12-3）：模型层独立枚举，AudioEngine
+    // 的 BuiltinSynthTone 与之映射（MainComponent 负责转换）。
+    enum class BuiltinTone : int {
+        sine = 0,
+        piano = 1,
+    };
+
     struct AudioSettingsView {
         double sampleRate = 44100.0;
         int bufferSize = 512;
@@ -30,6 +37,10 @@ struct SettingsModel {
         float adsrDecay = 0.20f;
         float adsrSustain = 0.80f;
         float adsrRelease = 0.30f;
+        BuiltinTone builtinTone = BuiltinTone::sine;
+        float pianoBrightness = 0.50f;
+        float pianoHammerHardness = 0.50f;
+        float pianoResonance = 0.50f;
     };
 
     struct PluginRecoverySettingsView {
@@ -61,6 +72,10 @@ struct SettingsModel {
     float adsrDecay = 0.20f;
     float adsrSustain = 0.80f;
     float adsrRelease = 0.30f;
+    BuiltinTone builtinTone = BuiltinTone::sine;
+    float pianoBrightness = 0.50f;
+    float pianoHammerHardness = 0.50f;
+    float pianoResonance = 0.50f;
 
     // Persisted ,UI recovery state.
     juce::String pluginSearchPath;
@@ -109,7 +124,11 @@ struct SettingsModel {
                  .adsrAttack = adsrAttack,
                  .adsrDecay = adsrDecay,
                  .adsrSustain = adsrSustain,
-                 .adsrRelease = adsrRelease };
+                 .adsrRelease = adsrRelease,
+                 .builtinTone = builtinTone,
+                 .pianoBrightness = pianoBrightness,
+                 .pianoHammerHardness = pianoHammerHardness,
+                 .pianoResonance = pianoResonance };
     }
 
     void applyPerformanceSettingsView(const PerformanceSettingsView& view) {
@@ -118,6 +137,10 @@ struct SettingsModel {
         adsrDecay = view.adsrDecay;
         adsrSustain = view.adsrSustain;
         adsrRelease = view.adsrRelease;
+        builtinTone = view.builtinTone;
+        pianoBrightness = view.pianoBrightness;
+        pianoHammerHardness = view.pianoHammerHardness;
+        pianoResonance = view.pianoResonance;
     }
 
     [[nodiscard]] PluginRecoverySettingsView getPluginRecoverySettingsView() const {

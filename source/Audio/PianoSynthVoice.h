@@ -47,6 +47,16 @@ public:
         adsrGate.setParameters({ parameters.attack, 0.001f, 1.0f, parameters.release });
     }
 
+    // 音色参数（Phase 12-3，0..1，默认 0.5 与 v1 基准行为一致）：
+    // - brightness：亮度基准，作用于 velocity 亮度映射（b=0.5 时与 12-2 相同）；
+    // - hammerHardness：击弦硬度，高次谐波起始增益（0.5 中性）；
+    // - resonance：共鸣/余韵，衰减时间缩放（0.5 中性，高 → 衰减更慢）。
+    void setPianoParameters(float brightness, float hammerHardness, float resonance) noexcept {
+        pianoBrightness = juce::jlimit(0.0f, 1.0f, brightness);
+        pianoHammerHardness = juce::jlimit(0.0f, 1.0f, hammerHardness);
+        pianoResonance = juce::jlimit(0.0f, 1.0f, resonance);
+    }
+
     void startNote(int midiNoteNumber, float velocity, juce::SynthesiserSound*, int) override {
         const auto sampleRate = getSampleRate();
         const auto& region = regionForNote(midiNoteNumber);
@@ -56,13 +66,17 @@ public:
 
         // velocity 响度：v^1.5（弱奏更敏感），用 sqrt 避免 std::pow。
         const auto velocityLevel = velocity * std::sqrt(velocity);
-        // velocity 亮度：高次谐波增益随力度线性提升。
-        const auto brightness = velocity;
+        // velocity 亮度：随力度线性提升；pianoBrightness 调节亮度基准
+        // （b=0.5 时 factor = velocity，与 12-2 一致）。
+        const auto brightnessFactor = velocity * (0.5f + pianoBrightness);
+        // 共鸣：衰减时间缩放（r=0.5 中性，r=1 → ×1.3，r=0 → ×0.7）。
+        const auto decayScale = 1.0f + (pianoResonance - 0.5f) * 0.6f;
 
         // 归一化：按当前亮度因子求和，使 v=1 时峰值恒为 peakLevelAtFullVelocity。
         auto normSum = 0.0f;
         for (auto n = 0; n < numActivePartials; ++n) {
-            normSum += amplitudeFor(n) * brightnessBoost(n, brightness, numActivePartials);
+            normSum += amplitudeFor(n) * brightnessBoost(n, brightnessFactor, numActivePartials)
+                * hammerGain(n, numActivePartials);
         }
         const auto scale = peakLevelAtFullVelocity / juce::jmax(1e-6f, normSum);
 
@@ -71,9 +85,10 @@ public:
             partial.phase = 0.0;
             partial.increment
                 = juce::MathConstants<double>::twoPi * baseFrequency * static_cast<double>(n + 1) / sampleRate;
-            partial.level = amplitudeFor(n) * brightnessBoost(n, brightness, numActivePartials) * scale * velocityLevel;
-            partial.decayPerSample = static_cast<float>(
-                std::exp(-1.0 / (static_cast<double>(region.decaySeconds * harmonicDecayFactor(n)) * sampleRate)));
+            partial.level = amplitudeFor(n) * brightnessBoost(n, brightnessFactor, numActivePartials)
+                * hammerGain(n, numActivePartials) * scale * velocityLevel;
+            partial.decayPerSample = static_cast<float>(std::exp(
+                -1.0 / (static_cast<double>(region.decaySeconds * decayScale * harmonicDecayFactor(n)) * sampleRate)));
         }
 
         adsrGate.setSampleRate(sampleRate);
@@ -170,9 +185,16 @@ private:
         return 1.0f / static_cast<float>(partialIndex + 1);
     }
 
-    // 亮度：高次谐波增益随 velocity 提升（基频不变，最高次 +60%）。
+    // 亮度：高次谐波增益随亮度因子提升（基频不变，最高次 +60%）。
     [[nodiscard]] static float brightnessBoost(int partialIndex, float brightness, int partialCount) noexcept {
         return 1.0f + brightness * (static_cast<float>(partialIndex) / static_cast<float>(partialCount)) * 0.6f;
+    }
+
+    // 击弦硬度：高次谐波起始增益（h=0.5 中性，基频不受影响，最高次 ±20%）。
+    [[nodiscard]] float hammerGain(int partialIndex, int partialCount) const noexcept {
+        return 1.0f
+            + (pianoHammerHardness - 0.5f) * 0.4f
+            * (static_cast<float>(partialIndex) / static_cast<float>(partialCount));
     }
 
     // 分音独立衰减：高次分音衰减略快（v1 简单因子表；精细曲线建模在 Phase 13）。
@@ -200,4 +222,7 @@ private:
     std::array<Partial, maxPartials> partials;
     int numActivePartials = 0;
     juce::ADSR adsrGate;
+    float pianoBrightness = 0.5f;
+    float pianoHammerHardness = 0.5f;
+    float pianoResonance = 0.5f;
 };

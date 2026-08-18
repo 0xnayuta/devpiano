@@ -2,6 +2,7 @@
 
 #include "Recording/WavFileExporter.h"
 
+#include "Audio/PianoSynthVoice.h"
 #include "Audio/SineSynthVoice.h"
 #include "Diagnostics/Log.h"
 #include "Recording/RecordingEngine.h"
@@ -23,18 +24,28 @@ using devpiano::recording::hasUsableRenderOptions;
 using devpiano::recording::RenderEvent;
 using devpiano::recording::scaleTimestamp;
 
-void initialiseOfflineSynth(juce::Synthesiser& synth, double sampleRate, const juce::ADSR::Parameters& adsr) {
+void initialiseOfflineSynth(juce::Synthesiser& synth, const devpiano::exporting::WavExportOptions& options) {
     synth.clearSounds();
     synth.clearVoices();
 
-    synth.addSound(new SineSynthSound());
-    for (auto index = 0; index < fallbackVoiceCount; ++index) {
-        auto* voice = new SineSynthVoice();
-        voice->setAdsrParameters(adsr);
-        synth.addVoice(voice);
+    if (options.builtinTone == SettingsModel::BuiltinTone::piano) {
+        synth.addSound(new PianoSynthSound());
+        for (auto index = 0; index < fallbackVoiceCount; ++index) {
+            auto* voice = new PianoSynthVoice();
+            voice->setAdsrParameters(options.adsr);
+            voice->setPianoParameters(options.pianoBrightness, options.pianoHammerHardness, options.pianoResonance);
+            synth.addVoice(voice);
+        }
+    } else {
+        synth.addSound(new SineSynthSound());
+        for (auto index = 0; index < fallbackVoiceCount; ++index) {
+            auto* voice = new SineSynthVoice();
+            voice->setAdsrParameters(options.adsr);
+            synth.addVoice(voice);
+        }
     }
 
-    synth.setCurrentPlaybackSampleRate(sampleRate);
+    synth.setCurrentPlaybackSampleRate(options.sampleRate);
 }
 } // namespace
 
@@ -74,7 +85,7 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
     }
 
     juce::Synthesiser synth;
-    initialiseOfflineSynth(synth, options.sampleRate, options.adsr);
+    initialiseOfflineSynth(synth, options);
     auto renderEvents = buildRenderEvents(take, options.sampleRate);
     const auto scaledTakeLength = getScaledTakeLengthSamples(take, renderEvents, options.sampleRate);
     const auto tailSamples = static_cast<std::int64_t>(std::ceil(wavTailSeconds * options.sampleRate));

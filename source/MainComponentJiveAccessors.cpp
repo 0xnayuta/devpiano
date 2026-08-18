@@ -411,6 +411,54 @@ double MainComponent::getControlsPlaybackSpeed() const {
     return 1.0;
 }
 
+SettingsModel::BuiltinTone MainComponent::getBuiltinToneFromUi() const {
+    if (jiveRootItem == nullptr) {
+        return SettingsModel::BuiltinTone::sine;
+    }
+    if (auto* item = jive::findItemWithID(*jiveRootItem, "tone-combo")) {
+        if (auto* combo = dynamic_cast<juce::ComboBox*>(item->getComponent().get())) {
+            return combo->getSelectedId() == 2 ? SettingsModel::BuiltinTone::piano : SettingsModel::BuiltinTone::sine;
+        }
+    }
+    return SettingsModel::BuiltinTone::sine;
+}
+
+float MainComponent::getPianoBrightness() const {
+    if (jiveRootItem == nullptr) {
+        return 0.5f;
+    }
+    if (auto* item = jive::findItemWithID(*jiveRootItem, "brightness-knob")) {
+        if (auto* slider = dynamic_cast<juce::Slider*>(item->getComponent().get())) {
+            return static_cast<float>(slider->getValue());
+        }
+    }
+    return 0.5f;
+}
+
+float MainComponent::getPianoHammerHardness() const {
+    if (jiveRootItem == nullptr) {
+        return 0.5f;
+    }
+    if (auto* item = jive::findItemWithID(*jiveRootItem, "hardness-knob")) {
+        if (auto* slider = dynamic_cast<juce::Slider*>(item->getComponent().get())) {
+            return static_cast<float>(slider->getValue());
+        }
+    }
+    return 0.5f;
+}
+
+float MainComponent::getPianoResonance() const {
+    if (jiveRootItem == nullptr) {
+        return 0.5f;
+    }
+    if (auto* item = jive::findItemWithID(*jiveRootItem, "resonance-knob")) {
+        if (auto* slider = dynamic_cast<juce::Slider*>(item->getComponent().get())) {
+            return static_cast<float>(slider->getValue());
+        }
+    }
+    return 0.5f;
+}
+
 void MainComponent::setControlsValues(float masterGain, float attack, float decay, float sustain, float release) {
     if (jiveRootItem == nullptr) {
         return;
@@ -432,6 +480,29 @@ void MainComponent::setControlsValues(float masterGain, float attack, float deca
             curve->setParameters(attack, decay, sustain, release);
         }
     }
+}
+
+void MainComponent::setControlsPianoValues(SettingsModel::BuiltinTone tone, float brightness, float hammerHardness,
+                                           float resonance) {
+    if (jiveRootItem == nullptr) {
+        return;
+    }
+    const auto setSlider = [this](const char* id, double value) {
+        if (auto* item = jive::findItemWithID(*jiveRootItem, id)) {
+            if (auto* slider = dynamic_cast<juce::Slider*>(item->getComponent().get())) {
+                slider->setValue(value, juce::dontSendNotification);
+            }
+        }
+    };
+    if (auto* item = jive::findItemWithID(*jiveRootItem, "tone-combo")) {
+        if (auto* combo = dynamic_cast<juce::ComboBox*>(item->getComponent().get())) {
+            const auto id = tone == SettingsModel::BuiltinTone::piano ? 2 : 1;
+            combo->setSelectedId(id, juce::dontSendNotification);
+        }
+    }
+    setSlider("brightness-knob", brightness);
+    setSlider("hardness-knob", hammerHardness);
+    setSlider("resonance-knob", resonance);
 }
 
 void MainComponent::setControlsPlaybackSpeed(double speed) {

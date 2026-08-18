@@ -412,6 +412,36 @@ juce::ValueTree makeControlsPanelTree() {
     knobsRow.appendChild(makeKnob("release-knob", "release-label", TRANS("Release")), nullptr);
     adsrCard.appendChild(knobsRow, nullptr);
 
+    // Piano 音色行（Phase 12-3）：音色切换 + 亮度 / 击弦硬度 / 共鸣旋钮。
+    // 沿用 knobs-row 的 makeKnob 模式；参数 0..1，默认 0.5（与 v1 基准一致）。
+    auto pianoRow = flexRow("piano-row");
+    pianoRow.setProperty("title", TRANS("Piano Row"), nullptr);
+    pianoRow.setProperty("height", 72, nullptr);
+    pianoRow.setProperty("justify-content", "space-around", nullptr);
+    pianoRow.setProperty("margin", "0 0 8 0", nullptr);
+
+    auto toneWrap = node("Component", "tone-combo-wrap");
+    toneWrap.setProperty("title", TRANS("Tone"), nullptr);
+    toneWrap.setProperty("display", "flex", nullptr);
+    toneWrap.setProperty("flex-direction", "column", nullptr);
+    toneWrap.setProperty("align-items", "centre", nullptr);
+    toneWrap.setProperty("flex-grow", 1.0, nullptr);
+    auto toneLbl = text(TRANS("Tone"), "tone-label");
+    toneLbl.setProperty("height", 14, nullptr);
+    toneLbl.setProperty("margin", "0 0 2 0", nullptr);
+    toneWrap.appendChild(toneLbl, nullptr);
+    auto toneCombo = node("ComboBox", "tone-combo");
+    toneCombo.setProperty("title", TRANS("Tone"), nullptr);
+    toneCombo.setProperty("width", 86, nullptr);
+    toneCombo.setProperty("height", 28, nullptr);
+    toneWrap.appendChild(toneCombo, nullptr);
+    pianoRow.appendChild(toneWrap, nullptr);
+
+    pianoRow.appendChild(makeKnob("brightness-knob", "brightness-label", TRANS("Brightness")), nullptr);
+    pianoRow.appendChild(makeKnob("hardness-knob", "hardness-label", TRANS("Hammer")), nullptr);
+    pianoRow.appendChild(makeKnob("resonance-knob", "resonance-label", TRANS("Resonance")), nullptr);
+    adsrCard.appendChild(pianoRow, nullptr);
+
     auto adsrTitle = text(TRANS("ADSR Curve"), "adsr-curve-title");
     adsrTitle.setProperty("height", 14, nullptr);
     adsrTitle.setProperty("margin", "0 0 6 0", nullptr);
