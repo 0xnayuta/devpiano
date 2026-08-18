@@ -14,7 +14,7 @@ struct WavExportOptions {
     float masterGain = 0.8f;
     juce::ADSR::Parameters adsr;
     // 内置 fallback 音色（Phase 12-3）：导出路径与实时路径同参数，保证音色一致。
-    SettingsModel::BuiltinTone builtinTone = SettingsModel::BuiltinTone::sine;
+    SettingsModel::BuiltinTone builtinTone = SettingsModel::BuiltinTone::piano;
     float pianoBrightness = 0.5f;
     float pianoHammerHardness = 0.5f;
     float pianoResonance = 0.5f;

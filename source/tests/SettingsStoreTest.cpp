@@ -176,8 +176,8 @@ public:
                                       "missing piano brightness must fall back to default");
             expectWithinAbsoluteError(loaded.pianoHammerHardness, 0.5f, 0.0001f);
             expectWithinAbsoluteError(loaded.pianoResonance, 0.5f, 0.0001f);
-            expectEquals(static_cast<int>(loaded.builtinTone), static_cast<int>(SettingsModel::BuiltinTone::sine),
-                         "missing tone must fall back to sine");
+            expectEquals(static_cast<int>(loaded.builtinTone), static_cast<int>(SettingsModel::BuiltinTone::piano),
+                         "missing tone must fall back to default piano");
         });
 
         testCase("corrupted zero-state performance falls back to defaults", [&] {

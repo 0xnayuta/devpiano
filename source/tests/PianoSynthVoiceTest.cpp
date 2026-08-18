@@ -378,14 +378,14 @@ public:
         beginTest("audio engine tone switching");
         {
             AudioEngine engine;
-            expect(engine.getBuiltinSynthTone() == AudioEngine::BuiltinSynthTone::sine, "default tone is sine");
-
-            engine.setBuiltinSynthTone(AudioEngine::BuiltinSynthTone::piano);
-            expect(engine.getBuiltinSynthTone() == AudioEngine::BuiltinSynthTone::piano, "switch to piano");
-            engine.setAdsr(0.01f, 0.2f, 0.8f, 0.3f); // 对新 voice 的 ADSR 接线不崩溃
+            expect(engine.getBuiltinSynthTone() == AudioEngine::BuiltinSynthTone::piano, "default tone is piano");
 
             engine.setBuiltinSynthTone(AudioEngine::BuiltinSynthTone::sine);
-            expect(engine.getBuiltinSynthTone() == AudioEngine::BuiltinSynthTone::sine, "switch back to sine");
+            expect(engine.getBuiltinSynthTone() == AudioEngine::BuiltinSynthTone::sine, "switch to sine");
+            engine.setAdsr(0.01f, 0.2f, 0.8f, 0.3f); // 对新 voice 的 ADSR 接线不崩溃
+
+            engine.setBuiltinSynthTone(AudioEngine::BuiltinSynthTone::piano);
+            expect(engine.getBuiltinSynthTone() == AudioEngine::BuiltinSynthTone::piano, "switch back to piano");
 
             engine.prepareToPlay(512, 44100.0); // 重建后 prepare 不崩溃
             engine.releaseResources();

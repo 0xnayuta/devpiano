@@ -413,14 +413,14 @@ double MainComponent::getControlsPlaybackSpeed() const {
 
 SettingsModel::BuiltinTone MainComponent::getBuiltinToneFromUi() const {
     if (jiveRootItem == nullptr) {
-        return SettingsModel::BuiltinTone::sine;
+        return SettingsModel::BuiltinTone::piano;
     }
     if (auto* item = jive::findItemWithID(*jiveRootItem, "tone-combo")) {
         if (auto* combo = dynamic_cast<juce::ComboBox*>(item->getComponent().get())) {
             return combo->getSelectedId() == 2 ? SettingsModel::BuiltinTone::piano : SettingsModel::BuiltinTone::sine;
         }
     }
-    return SettingsModel::BuiltinTone::sine;
+    return SettingsModel::BuiltinTone::piano;
 }
 
 float MainComponent::getPianoBrightness() const {

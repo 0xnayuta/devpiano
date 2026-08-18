@@ -512,7 +512,7 @@ void MainComponent::initialiseUi() {
                 combo->clear(juce::dontSendNotification);
                 combo->addItem(TRANS("Sine"), 1);
                 combo->addItem(TRANS("Piano"), 2);
-                combo->setSelectedId(1, juce::dontSendNotification);
+                combo->setSelectedId(2, juce::dontSendNotification);
                 combo->setWantsKeyboardFocus(false);
                 combo->onChange = [this] { handlePerformanceUiChanged(); };
             }

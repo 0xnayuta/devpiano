@@ -37,7 +37,7 @@ struct SettingsModel {
         float adsrDecay = 0.20f;
         float adsrSustain = 0.80f;
         float adsrRelease = 0.30f;
-        BuiltinTone builtinTone = BuiltinTone::sine;
+        BuiltinTone builtinTone = BuiltinTone::piano;
         float pianoBrightness = 0.50f;
         float pianoHammerHardness = 0.50f;
         float pianoResonance = 0.50f;
@@ -72,7 +72,7 @@ struct SettingsModel {
     float adsrDecay = 0.20f;
     float adsrSustain = 0.80f;
     float adsrRelease = 0.30f;
-    BuiltinTone builtinTone = BuiltinTone::sine;
+    BuiltinTone builtinTone = BuiltinTone::piano;
     float pianoBrightness = 0.50f;
     float pianoHammerHardness = 0.50f;
     float pianoResonance = 0.50f;

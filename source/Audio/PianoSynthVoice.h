@@ -5,10 +5,10 @@
 #include <array>
 #include <cmath>
 
-// 内置谐波钢琴合成器（Phase 12-2）：与 SineSynthVoice 并存的第二套内置音色。
+// 内置物理建模钢琴合成器（Phase 12~13）：与 SineSynthVoice 并存的内置音色。
 // 与 SineSynthVoice 相同的承载方式（继承 juce::SynthesiserVoice），由
 // juce::Synthesiser 管理 voice 生命周期；AudioEngine::setBuiltinSynthTone
-// 切换实时路径注册的音色（默认仍为 sine，Piano 可切换，后续阶段切默认）。
+// 切换实时路径注册的音色（默认内置音色为 Piano，Sine 可切换回退）。
 //
 // 合成模型（纯加法 + 物理共鸣、零采样依赖）：
 // - 分音叠加与刚性琴弦非谐性（Phase 13-1）：基频 + 高次分音，各分音频率按 JOS PASP

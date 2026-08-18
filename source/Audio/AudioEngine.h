@@ -85,7 +85,7 @@ private:
 
     juce::ADSR::Parameters adsrParameters;
     std::atomic<float> masterGain { 0.8f };
-    BuiltinSynthTone builtinTone = BuiltinSynthTone::sine;
+    BuiltinSynthTone builtinTone = BuiltinSynthTone::piano;
     float pianoBrightness = 0.5f;
     float pianoHammerHardness = 0.5f;
     float pianoResonance = 0.5f;

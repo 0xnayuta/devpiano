@@ -37,7 +37,7 @@ struct PerformanceState {
     float adsrDecay = 0.20f;
     float adsrSustain = 0.80f;
     float adsrRelease = 0.30f;
-    SettingsModel::BuiltinTone builtinTone = SettingsModel::BuiltinTone::sine;
+    SettingsModel::BuiltinTone builtinTone = SettingsModel::BuiltinTone::piano;
     float pianoBrightness = 0.50f;
     float pianoHammerHardness = 0.50f;
     float pianoResonance = 0.50f;

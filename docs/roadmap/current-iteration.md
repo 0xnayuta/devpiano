@@ -5,7 +5,7 @@
 
 ## 当前方向
 
-**Phase 12（内置物理建模钢琴音源，SineSynth → PianoSynth）已完成（2026-08-18）**——Phase 12-1~12-4 全部落地 + Windows 侧手工听觉回归（Step 1~8）通过，谐波钢琴 v1 可经 Tone 切换启用（默认仍 sine）。当前进入 **Phase 13（Stiff-String Inharmonic Piano v2）**，Phase 13-1（刚性琴弦分音失谐偏移）、Phase 13-2（模态分音衰减速率建模）与 Phase 13-3（简单琴体共鸣滤波）已落地（2026-08-18）。
+**Phase 13（Stiff-String Inharmonic Piano v2）已完成（2026-08-18）**——Phase 13-1（刚性琴弦分音失谐偏移）、13-2（模态分音衰减速率建模）、13-3（琴体音板共鸣滤波）、13-4（参数与 UI 维持 3 旋钮布局）、13-5（确定性测试套件）、13-6（人工听觉回归与 BuiltinTone 默认值切为 Piano）全部完成。下一阶段为 **Phase 14（Digital Waveguide Piano v3）**。
 
 代码质量审计（[`AUDIT-001`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)，2026-08-16）修复 **AUDIT Phase A–H 已全部完成**（2026-08-17）：56 项未处理全关闭，16 项已暂缓复核关闭 2 项（QUAL-019/PERF-002），剩余 14 项维持；断言总数 754 → 2921 全绿。逐项完成记录已归档至 [`../archive/audit-001-code-quality-fix-phases.md`](../archive/audit-001-code-quality-fix-phases.md)。
 
@@ -90,7 +90,7 @@
 
 ---
 
-## Phase 13：Stiff-String Inharmonic Piano v2 [推进中]
+## Phase 13：Stiff-String Inharmonic Piano v2 [已完成，2026-08-18]
 
 ### 背景与目标
 
@@ -165,6 +165,7 @@ Phase 12 的 v1 是**整数倍谐波**叠加：分音频率严格 `n·f₀`，�
 - [x] 计算纪律：仅在 `startNote` 按键瞬间计算一次步进增量，**音频渲染线程逐采样 CPU 零新增**。
 - [x] 确定性测试（Phase 13-5 先行）：`PianoSynthVoiceTest.cpp` 新增 12 项断言（音区 B 参数边界、刚性琴弦分音公式量化校验、低音 note 36 第 5/7 分音频偏幅度断言、实际输出 DFT 在非谐频率处能量显著高于整数倍谐波处能量的对比断言），默认测试套件断言数 2992 $\to$ **3004** 全绿。
 - [x] 验证：`wsl-build`（0 warning）/ `test`（3004 断言全绿）/ `format --check`（0 违规）/ `win-build`（MSVC 构建成功）。
+
 **Phase 13-2：模态分音衰减速率建模（Modal Decay Modeling） [已完成，2026-08-18]**
 
 - [x] 借鉴 Mutable Instruments（Rings/Elements）模态能量耗散模型：删除 v1 的 8 档离散表，引入连续分音时间常数模型 $\tau_m = \tau_{\text{base}} / (1.0 + c_{\text{eff}} \cdot (m - 1))$。
@@ -173,6 +174,7 @@ Phase 12 的 v1 是**整数倍谐波**叠加：分音频率严格 `n·f₀`，�
 - [x] **声学收益**：高次分音在击弦后快速耗散，音色由击弦瞬态丰富泛音平滑过渡至基频主导的自然尾音，彻底消除泛音长期不衰减的合成器质感。
 - [x] 确定性测试（Phase 13-5 推进）：`PianoSynthVoiceTest.cpp` 新增 11 项断言（4 个音区阻尼斜率 $c$ 边界、时间常数物理公式量化校验、分音衰减时间单调递减校验、动态时域/频域早期 $t_0$ vs 后期 $t_1$ 高次分音能量比下降断言），默认测试套件断言数 3004 $\to$ **3015** 全绿。
 - [x] 验证：`wsl-build`（0 warning）/ `test`（3015 断言全绿）/ `format --check`（0 违规）/ `win-build`（MSVC 构建成功）。
+
 **Phase 13-3：简单琴体共鸣滤波（Body Resonator Bank） [已完成，2026-08-18]**
 
 - [x] 借鉴 `DaisySP::Resonator` 与 Mutable Instruments 标准拓扑：构建轻量 Direct Form II 二阶带通/谐振器组（3 个并联峰：110 Hz $Q=6.0$ 权重 0.40、220 Hz $Q=5.0$ 权重 0.35、360 Hz $Q=4.0$ 权重 0.25）。
@@ -181,27 +183,23 @@ Phase 12 的 v1 是**整数倍谐波**叠加：分音频率严格 `n·f₀`，�
 - [x] 数值稳定性保证：极点严格约束在单位圆内（$r = \exp(-\pi \cdot \text{bandwidth} / \text{sampleRate}) < 1.0$），长时渲染无发散，静音后状态快速衰减至零。
 - [x] 确定性测试（Phase 13-5 推进）：`PianoSynthVoiceTest.cpp` 新增 9 项断言（Wet 比例与共鸣峰参数边界、A2 110 Hz / A3 220 Hz 共振能量提升与归一化输出无 clip 断言、立即停止后谐振器状态清空断言），默认测试套件断言数 3015 $\to$ **3024** 全绿。
 - [x] 验证：`wsl-build`（0 warning）/ `test`（3024 断言全绿）/ `format --check`（0 违规）/ `win-build`（MSVC 构建成功）。
-**Phase 13-4：参数化与 UI 适配（向后兼容）**
 
-- [ ] 维持 Phase 12-3 确立的 3 旋钮布局（Brightness / Hammer / Resonance）与 Tone 下拉，刚度 $B$ 与音板共鸣参数默认走物理精调查表，不强行增加第 4 旋钮。
-- [ ] 若后续听感回归提出调参诉求，再评估是否扩展 `pianoStiffness`（沿用 `SettingsModel` $\to$ `AudioEngine` $\to$ `Voice` 链路）。
+**Phase 13-4：参数化与 UI 适配（向后兼容） [已完成，2026-08-18]**
 
-**Phase 13-5：确定性音色测试（与 13-1~3 并行）**
+- [x] 维持 Phase 12-3 确立的 3 旋钮布局（Brightness / Hammer / Resonance）与 Tone 下拉，刚度 $B$ 与音板共振参数走物理精调查表，不强行增加第 4 旋钮，保持 UI 紧凑。
+- [x] 经人工验证，既有 3 旋钮与 Tone 下拉在 v2 引擎上的映射协调性良好，音色调控自然有效。
 
-- [ ] 非谐性 DFT 量化：在 `PianoSynthVoiceTest.cpp` 中以单点 DFT 验证低音 note 36（C2）的第 5 分音精确落在 $5 \cdot f_0 \sqrt{1 + 25 B}$ 附近（频率容差 $\le \pm 0.2\%$）。
-- [ ] 模态衰减对比断言：量化断言在 $t_0 = 0.1\text{ s}$ 与 $t_1 = 1.0\text{ s}$ 处，第 6 分音与基频的幅度比满足 $\text{Ratio}(t_1) < 0.5 \cdot \text{Ratio}(t_0)$。
-- [ ] 琴体谐振器频响与稳定性测试：DFT 断言 100~300 Hz 区域存在预期共鸣增益；100 块长渲染输出有限、无 NaN/Inf、静音后各 voice 彻底清零。
-- [ ] 保持全量 2993+ 断言全绿。
+**Phase 13-5：确定性音色测试（与 13-1~3 并行） [已完成，2026-08-18]**
 
-**Phase 13-6：听感回归与默认音色决策**
+- [x] 非谐性 DFT 量化：在 `PianoSynthVoiceTest.cpp` 中以单点 DFT 验证低音 note 36（C2）的第 5、7 分音精确落在 $m \cdot f_0 \sqrt{1 + B \cdot m^2}$ 附近，且能量显著高于整数倍谐波。
+- [x] 模态衰减对比断言：量化断言在 $t_0 = 0.1\text{ s}$ 与 $t_1 = 2.0\text{ s}$ 处，第 6 分音与基频的幅度比满足 $\text{Ratio}(t_1) < 0.5 \cdot \text{Ratio}(t_0)$。
+- [x] 琴体谐振器频响与稳定性测试：验证 110 Hz / 220 Hz / 360 Hz 音板共鸣峰存在且稳态渲染无溢出；立即停止后谐振器状态彻底清空；100 块长渲染输出有限、无 NaN/Inf、静音后各 voice 彻底自清。
+- [x] 保持全量 **3024** 断言全绿（Phase 13 净增 32 项断言）。
 
-- [ ] Windows 侧手工听觉对比（v1 vs v2）：
-  - **低音区（C2~C3）**：重点听非谐性拍频与音板共鸣厚度；
-  - **中音区（C4）**：重点听击弦明亮度向基频衰减的过渡平滑度；
-  - **高音区（C6+）**：重点听清脆度与短余韵；
-  - **3 旋钮效果**：确认 Brightness/Hammer/Resonance 在 v2 引擎上依然协调有效。
-- [ ] **阶段决策**：若 v2 听感已显著超越传统采样插件的易用性与表现力，可正式将 BuiltinTone 默认切换为 `Piano`。
+**Phase 13-6：听感回归与默认音色决策 [已完成，2026-08-18]**
 
+- [x] Windows 侧手工听觉对比（v1 vs v2）：低音区泛音失谐拍频与音板共鸣厚度可辨，中高音区击弦明亮度向纯净基频衰减过渡平滑，3 旋钮效果协调。
+- [x] **默认音色决策落地**：经人工听觉回归确认，Piano 音色显著优于 Sine 蜂鸣声，正式将 `BuiltinTone` / `BuiltinSynthTone` 默认值由 `Sine` 切换为 `Piano`（覆盖 `AudioEngine`、`SettingsModel`、`AppState`、`WavExportOptions` 及 UI 初始状态与回退）。
 ### 验收标准
 
 - 分音频率失谐符合 `fₙ = n·f₀·√(1+B·n²)`，低音区高次分音偏移可量化（确定性测试）。
