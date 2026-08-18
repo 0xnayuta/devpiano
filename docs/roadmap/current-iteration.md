@@ -5,13 +5,13 @@
 
 ## 当前方向
 
-**Phase 12（内置物理建模钢琴音源，SineSynth → PianoSynth）规划中**——把当前内置 fallback 正弦合成器逐步替换为自主拥有、纯 C++、零/极低采样依赖的物理建模钢琴音源。整体路线见 [`roadmap.md`](roadmap.md) Phase 12；本文件为详细排期与子任务。
+**Phase 12（内置物理建模钢琴音源，SineSynth → PianoSynth）进行中**——把当前内置 fallback 正弦合成器逐步替换为自主拥有、纯 C++、零/极低采样依赖的物理建模钢琴音源。整体路线见 [`roadmap.md`](roadmap.md) Phase 12；本文件为详细排期与子任务。**Phase 12-1（共享 SineSynthVoice 重构）已完成（2026-08-18）**，详见下文。
 
 代码质量审计（[`AUDIT-001`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)，2026-08-16）修复 **AUDIT Phase A–H 已全部完成**（2026-08-17）：56 项未处理全关闭，16 项已暂缓复核关闭 2 项（QUAL-019/PERF-002），剩余 14 项维持；断言总数 754 → 2921 全绿。逐项完成记录已归档至 [`../archive/audit-001-code-quality-fix-phases.md`](../archive/audit-001-code-quality-fix-phases.md)。
 
 ---
 
-## Phase 12：音源重构 + 谐波钢琴 v1 [规划中]
+## Phase 12：音源重构 + 谐波钢琴 v1 [进行中]
 
 ### 背景与目标
 
@@ -21,20 +21,22 @@
 
 | 事实 | 位置 | 影响 |
 |---|---|---|
-| sine 实现**两份逐字重复**：`SimpleSineVoice`（实时）与 `OfflineSineVoice`（离线导出） | AudioEngine.cpp:31-99 / WavFileExporter.cpp:18-101 | 音色替换必须消除重复，否则实时/导出分叉 |
+| ~~sine 实现两份逐字重复：`SimpleSineVoice`（实时）与 `OfflineSineVoice`（离线导出）~~ | ~~AudioEngine.cpp:31-99 / WavFileExporter.cpp:18-101~~ | **已消除（12-1）**：合并为共享 `SineSynthVoice`，实时/导出同源 |
 | 三处调用点：实时渲染、WAV 离线导出、插件离线失败回退 | AudioEngine.cpp:217 / WavFileExporter.cpp:197 / RecordingSessionController.cpp:202 | 全部改接共享 voice |
 | 参数接线已有同构模式：`PerformanceSettingsView` → `applyPerformanceSettingsToAudioEngine` + `buildWavExportOptions` | MainComponent.cpp:1059-1063 / ExportFlowSupport.cpp:58 | 新音色参数沿用，含默认值向后兼容 |
 | fallback 音频路径无确定性测试（`MidiMessageCollector` wall-clock 时序） | AudioEngineTest.cpp 顶部注释 | 新音色必须带确定性夹具（直接驱动 voice） |
 
 ### 子任务排期
 
-**Phase 12-1：共享 SineSynthVoice 重构（零行为变化）**
+**Phase 12-1：共享 SineSynthVoice 重构（零行为变化） [已完成，2026-08-18]**
 
-- [ ] 新建 `source/Audio/SineSynthVoice.h/.cpp`（或 header-only）：`SimpleSineSound` + `SimpleSineVoice` 从 AudioEngine 私有嵌套提出为独立类（仍继承 `juce::SynthesiserVoice`），行为逐行不变。
-- [ ] `AudioEngine::rebuildSynth` / `updateAdsrOnVoices` 改用共享类；`AudioEngine.h` 删除嵌套类前向声明。
-- [ ] `WavFileExporter` 删除 `OfflineSineVoice`/`OfflineSineSound`/`initialiseOfflineSynth` 副本，改注册共享类（保留 `fallbackVoiceCount` 语义）。
-- [ ] 确认三处调用点全部改接，无残余 sine 定义。
-- [ ] 验证：`wsl-build` / `test`（2921 断言全绿，行为不变）/ `format --check` / `win-build`。
+落地提交：`26772e9`（refactor: extract shared SineSynthVoice for realtime and offline paths，净 -71 行）。
+
+- [x] 新建 `source/Audio/SineSynthVoice.h`（header-only）：`SineSynthSound` + `SineSynthVoice` 从 AudioEngine 私有嵌套提出为独立类（继承 `juce::SynthesiserVoice`），行为逐行不变。
+- [x] `AudioEngine::rebuildSynth` / `updateAdsrOnVoices` 改用共享类（`synth.addVoice(new SineSynthVoice())` ×8 + `dynamic_cast<SineSynthVoice*>` 设 ADSR）；`AudioEngine.h` 删除嵌套类前向声明。
+- [x] `WavFileExporter` 删除 `OfflineSineVoice`/`OfflineSineSound`/`initialiseOfflineSynth` 逐字副本（-84 行），改注册共享类（保留 `fallbackVoiceCount = 8` 语义）。
+- [x] 三处调用点全部改接：实时渲染（AudioEngine.cpp:188）、WAV 离线导出（WavFileExporter.cpp:77）、插件离线失败回退（WavExportTask → `exportTakeAsWavFile` 走同一共享实现）；`grep SimpleSine|OfflineSine` 无残余定义。
+- [x] 验证通过：`wsl-build`（经 `dev.sh test` 构建 0 新警告）/ `test`（ctest 1/1 passed，断言全绿，行为不变）/ `format --check`（归零）/ `win-build`（MSVC 构建成功，2026-08-18）。
 
 **Phase 12-2：Harmonic PianoVoice v1（Level 1 音色）**
 
@@ -58,7 +60,7 @@
 - [ ] 断言：基频≈261.63 Hz（FFT/过零）、存在 2~7 次谐波、velocity 0.2 vs 0.9 响度单调递增、noteOff 后 tail 衰减收敛至零、allNotesOff 生效、无堆分配/无崩溃。
 - [ ] 现有 2921 断言保持全绿；测试类别沿用 `DevPiano/Audio` 前缀（TEST-012 惯例）。
 
-**排期参考**：12-1 约 1 轮；12-2 约 1–2 轮（含调参）；12-3 约 1 轮；12-4 与 12-2 并行推进。Phase 12 总计约 3–4 轮迭代。
+**排期参考**：12-1 已完成（1 轮兑现，2026-08-18）；12-2 约 1–2 轮（含调参）；12-3 约 1 轮；12-4 与 12-2 并行推进。Phase 12 剩余约 3 轮迭代。
 
 ### 验收标准
 

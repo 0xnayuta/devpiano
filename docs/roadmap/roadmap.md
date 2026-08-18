@@ -111,13 +111,13 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 审计报告见 [`../audit/AUDIT-001-code-quality-audit-2026-08-16.md`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)，Phase A–H 逐项完成记录见 [`../archive/audit-001-code-quality-fix-phases.md`](../archive/audit-001-code-quality-fix-phases.md)。
 
-### Phase 12：内置物理建模钢琴音源（SineSynth → PianoSynth） [规划中]
+### Phase 12：内置物理建模钢琴音源（SineSynth → PianoSynth） [进行中]
 
 > 目标：把当前内置 fallback 正弦合成器逐步替换为**自主拥有、纯 C++、零/极低采样依赖的物理建模钢琴音源**，使"未加载插件时的默认钢琴"成为产品核心能力而非兜底 beep。详细排期与子任务见 [`current-iteration.md`](current-iteration.md)。
 
 **现状（代码事实）：**
 
-- 实时路径 `AudioEngine::SimpleSineVoice`（AudioEngine.cpp:41）与离线导出路径 `OfflineSineVoice`（WavFileExporter.cpp:28）是**两份逐字重复**的 sine 实现；另加 `RecordingSessionController.cpp:202` 插件离线实例创建失败时回退 sine。任何音色替换需同时改 3 处，否则实时/导出/回退音色分叉。
+- ~~实时路径 `AudioEngine::SimpleSineVoice`（AudioEngine.cpp:41）与离线导出路径 `OfflineSineVoice`（WavFileExporter.cpp:28）是两份逐字重复的 sine 实现；另加 `RecordingSessionController.cpp:202` 插件离线实例创建失败时回退 sine。~~ **已消除（Phase 12-1，2026-08-18，commit `26772e9`）**：两份 sine 合并为共享 `SineSynthVoice`（`source/Audio/SineSynthVoice.h`，继承 `juce::SynthesiserVoice`），实时渲染 / WAV 离线导出 / 插件离线失败回退（经 `exportTakeAsWavFile`）三处调用点全部改接同一实现，零行为变化，`wsl-build`/`test`/`format --check`/`win-build` 验证通过。当前内置音色仍是 sine（谐波钢琴待 12-2）。
 - 参数接线已有同构模式：`SettingsModel::PerformanceSettingsView`（masterGain + 4 项 ADSR）→ `MainComponent::applyPerformanceSettingsToAudioEngine`（实时）+ `ExportFlowSupport::buildWavExportOptions`（离线），新音色参数沿用即可。
 - 测试盲区：`AudioEngineTest.cpp` 声明 fallback 音频输出路径不测（`MidiMessageCollector` wall-clock 时序），新音色需确定性测试夹具（直接驱动 `SynthesiserVoice`，固定 sampleRate，断言频谱/能量/时长/力度单调性）。
 
