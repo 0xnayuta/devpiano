@@ -26,6 +26,19 @@ public:
 
     void setMasterGain(float newGain);
     void setAdsr(float attackSeconds, float decaySeconds, float sustainLevel, float releaseSeconds);
+
+    // 内置 fallback 音色（Phase 12-2）：默认 sine（行为不变），piano 为谐波
+    // 钢琴 v1。切换会重建 synth voice 注册，须在音频线程停止期间调用
+    // （构造 / 设备重启前）；渲染中调用会与音频回调竞争 voice 生命周期。
+    enum class BuiltinSynthTone {
+        sine,
+        piano,
+    };
+    void setBuiltinSynthTone(BuiltinSynthTone tone);
+    [[nodiscard]] BuiltinSynthTone getBuiltinSynthTone() const noexcept {
+        return builtinTone;
+    }
+
     [[nodiscard]] PluginHost* getPluginHost() const noexcept {
         return pluginHost;
     }
@@ -69,6 +82,7 @@ private:
 
     juce::ADSR::Parameters adsrParameters;
     std::atomic<float> masterGain { 0.8f };
+    BuiltinSynthTone builtinTone = BuiltinSynthTone::sine;
     double currentSampleRate = 44100.0;
     int currentBlockSize = 512;
     std::atomic_bool allNotesOffPending { false };

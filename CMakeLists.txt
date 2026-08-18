@@ -62,6 +62,7 @@ target_sources(devpiano PRIVATE
     source/Audio/AudioEngine.cpp
     source/Audio/AudioEngine.h
     source/Audio/SineSynthVoice.h
+    source/Audio/PianoSynthVoice.h
     source/Audio/AudioDeviceDiagnostics.h
     source/Input/KeyboardMidiMapper.cpp
     source/Input/KeyboardMidiMapper.h

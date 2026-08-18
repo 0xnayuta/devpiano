@@ -1,5 +1,6 @@
 #include "AudioEngine.h"
 
+#include "Audio/PianoSynthVoice.h"
 #include "Audio/SineSynthVoice.h"
 #include "Plugin/PluginHost.h"
 #include "Recording/RecordingEngine.h"
@@ -179,13 +180,29 @@ void AudioEngine::setAdsr(float attackSeconds, float decaySeconds, float sustain
     updateAdsrOnVoices();
 }
 
+void AudioEngine::setBuiltinSynthTone(BuiltinSynthTone tone) {
+    if (builtinTone == tone) {
+        return;
+    }
+
+    builtinTone = tone;
+    rebuildSynth();
+}
+
 void AudioEngine::rebuildSynth() {
     synth.clearSounds();
     synth.clearVoices();
 
-    synth.addSound(new SineSynthSound());
-    for (auto index = 0; index < 8; ++index) {
-        synth.addVoice(new SineSynthVoice());
+    if (builtinTone == BuiltinSynthTone::piano) {
+        synth.addSound(new PianoSynthSound());
+        for (auto index = 0; index < 8; ++index) {
+            synth.addVoice(new PianoSynthVoice());
+        }
+    } else {
+        synth.addSound(new SineSynthSound());
+        for (auto index = 0; index < 8; ++index) {
+            synth.addVoice(new SineSynthVoice());
+        }
     }
 
     updateAdsrOnVoices();
@@ -193,8 +210,10 @@ void AudioEngine::rebuildSynth() {
 
 void AudioEngine::updateAdsrOnVoices() {
     for (auto index = 0; index < synth.getNumVoices(); ++index) {
-        if (auto* voice = dynamic_cast<SineSynthVoice*>(synth.getVoice(index))) {
-            voice->setAdsrParameters(adsrParameters);
+        if (auto* sineVoice = dynamic_cast<SineSynthVoice*>(synth.getVoice(index))) {
+            sineVoice->setAdsrParameters(adsrParameters);
+        } else if (auto* pianoVoice = dynamic_cast<PianoSynthVoice*>(synth.getVoice(index))) {
+            pianoVoice->setAdsrParameters(adsrParameters);
         }
     }
 }
