@@ -10,7 +10,7 @@
 // juce::Synthesiser 管理 voice 生命周期；AudioEngine::setBuiltinSynthTone
 // 切换实时路径注册的音色（默认仍为 sine，Piano 可切换，后续阶段切默认）。
 //
-// 合成模型（纯加法、零采样依赖）：
+// 合成模型（纯加法 + 物理共鸣、零采样依赖）：
 // - 分音叠加与刚性琴弦非谐性（Phase 13-1）：基频 + 高次分音，各分音频率按 JOS PASP
 //   刚性琴弦公式计算 f_m = m·f₀·√(1+B·m²)，刚度系数 B 按音区查表（低音弦粗 B≈4e-4，
 //   高音 B≈1e-5），各分音失去公共整数倍周期，产生自然的泛音拍频（Beats）；
@@ -18,12 +18,16 @@
 //   分音时间常数 τ_m = τ_base / (1.0 + c_eff · (m - 1))，高次分音快速耗散，音色由击弦瞬间
 //   的丰富泛音自然过渡至基频主导的纯净尾音；pianoResonance 调节 τ_base，pianoBrightness
 //   微调高频阻尼斜率；
+// - 琴体音板共鸣滤波（Phase 13-3）：借鉴 DaisySP / Mutable Instruments 二阶带通谐振器
+//   拓扑，在 voice 输出端挂载 3 个音板主共鸣峰（110 Hz / 220 Hz / 360 Hz），经 Wet/Dry
+//   混合（wet = 0.25）为干弦声注入木质共鸣箱体感；极点严格在单位圆内，渐近绝对稳定；
 // - velocity 双映射：响度 level = v^1.5（弱奏更敏感）+ 亮度（高次谐波增益随 v 提升）；
 // - attack/release 沿用 AudioEngine::setAdsr 接线（经 setAdsrParameters
 //   提取 attack/release 作门控，decay/sustain 由分音衰减替代）。
-// 实时约束：renderNextBlock 无堆分配、无锁；每分音一次 std::sin（≤8 次），
-// startNote 内每 note 做 O(partials) 次 std::sqrt/std::exp（按键瞬间计算，逐采样
-// 渲染 CPU 零新增）。
+//
+// 实时约束：renderNextBlock 无堆分配、无锁；每分音一次 std::sin（≤8 次），每 sample
+// ≤12 次乘加（3 个二阶谐振器），startNote 内每 note 做 O(partials) 次 std::sqrt/std::exp
+// （按键瞬间计算，逐采样渲染 CPU 极轻量）。
 class PianoSynthSound final : public juce::SynthesiserSound {
 public:
     bool appliesToNote(int) override {
@@ -37,6 +41,8 @@ public:
 class PianoSynthVoice final : public juce::SynthesiserVoice {
 public:
     static constexpr auto maxPartials = 8;
+    static constexpr auto numResonators = 3;
+    static constexpr auto bodyWetRatio = 0.25f; // 25% wet soundboard, 75% dry string
     // 每 voice 峰值上限（v=1）：0.16 为 8 voice 齐奏 + masterGain 0.8 预留
     // 复音余量（实际峰值约为该值的 0.6~0.8，最坏 8 voice 周期对齐 ≈0.9）。
     static constexpr auto peakLevelAtFullVelocity = 0.16f;
@@ -108,6 +114,10 @@ public:
             partial.decayPerSample = static_cast<float>(std::exp(-1.0 / (tau_m * sampleRate)));
         }
 
+        for (auto& resonator : bodyResonators) {
+            resonator.updateCoefficients(sampleRate);
+        }
+
         adsrGate.setSampleRate(sampleRate);
         adsrGate.noteOn();
     }
@@ -119,6 +129,9 @@ public:
         }
 
         adsrGate.reset();
+        for (auto& resonator : bodyResonators) {
+            resonator.reset();
+        }
         clearCurrentNote();
     }
 
@@ -136,6 +149,9 @@ public:
             const auto envelope = adsrGate.getNextSample();
             if (envelope <= 0.0f && !adsrGate.isActive()) {
                 clearCurrentNote();
+                for (auto& resonator : bodyResonators) {
+                    resonator.reset();
+                }
                 break;
             }
 
@@ -151,7 +167,15 @@ public:
             }
 
             const auto sampleIndex = startSample + sample;
-            const auto output = value * envelope;
+            const auto rawOutput = value * envelope;
+
+            // 琴体共鸣滤波（Phase 13-3）：并联谐振器组与 Wet/Dry 混合
+            auto resonatorSum = 0.0f;
+            for (auto& resonator : bodyResonators) {
+                resonatorSum += resonator.weight * resonator.process(rawOutput);
+            }
+            const auto output = (1.0f - bodyWetRatio) * rawOutput + bodyWetRatio * resonatorSum;
+
             for (auto channel = 0; channel < outputBuffer.getNumChannels(); ++channel) {
                 outputBuffer.addSample(channel, sampleIndex, output);
             }
@@ -160,6 +184,9 @@ public:
         // 分音全部衰减到阈值以下（-80 dB）即释放 voice，避免低音长尾长期占位。
         if (allPartialsSilent()) {
             clearCurrentNote();
+            for (auto& resonator : bodyResonators) {
+                resonator.reset();
+            }
         }
     }
 
@@ -189,6 +216,26 @@ public:
         const auto baseDecay = static_cast<double>(region.decaySeconds * decayScale);
         const auto dampingSlope = region.decayDampingC * (1.5f - juce::jlimit(0.0f, 1.0f, brightness));
         return baseDecay / (1.0 + static_cast<double>(dampingSlope * static_cast<float>(partialIndex)));
+    }
+    [[nodiscard]] static constexpr float bodyWet() noexcept {
+        return bodyWetRatio;
+    }
+    [[nodiscard]] static constexpr int resonatorCount() noexcept {
+        return numResonators;
+    }
+    struct ResonatorSpec {
+        float frequency;
+        float q;
+        float weight;
+    };
+    [[nodiscard]] static ResonatorSpec resonatorSpec(int index) noexcept {
+        constexpr ResonatorSpec specs[] = {
+            { 110.0f, 6.0f, 0.40f },
+            { 220.0f, 5.0f, 0.35f },
+            { 360.0f, 4.0f, 0.25f },
+        };
+        const auto clamped = std::clamp(index, 0, numResonators - 1);
+        return specs[clamped];
     }
 
 private:
@@ -257,4 +304,46 @@ private:
     float pianoBrightness = 0.5f;
     float pianoHammerHardness = 0.5f;
     float pianoResonance = 0.5f;
+    struct BodyResonator {
+        float frequency = 110.0f;
+        float q = 6.0f;
+        float weight = 0.40f;
+
+        float c1 = 0.0f;
+        float c2 = 0.0f;
+        float g = 0.0f;
+        float s1 = 0.0f;
+        float s2 = 0.0f;
+
+        void updateCoefficients(double sampleRate) noexcept {
+            if (sampleRate <= 0.0) {
+                return;
+            }
+            const auto theta = juce::MathConstants<double>::twoPi * static_cast<double>(frequency) / sampleRate;
+            const auto bandwidth = static_cast<double>(frequency / q);
+            const auto r = std::exp(-juce::MathConstants<double>::pi * bandwidth / sampleRate);
+            c1 = static_cast<float>(2.0 * r * std::cos(theta));
+            c2 = static_cast<float>(-r * r);
+            g = static_cast<float>((1.0 - r * r) * 0.5);
+        }
+
+        void reset() noexcept {
+            s1 = 0.0f;
+            s2 = 0.0f;
+        }
+
+        [[nodiscard]] float process(float in) noexcept {
+            const auto w = in + c1 * s1 + c2 * s2;
+            const auto y = g * (w - s2);
+            s2 = s1;
+            s1 = w;
+            return y;
+        }
+    };
+
+    std::array<BodyResonator, numResonators> bodyResonators = {
+        BodyResonator { 110.0f, 6.0f, 0.40f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
+        BodyResonator { 220.0f, 5.0f, 0.35f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
+        BodyResonator { 360.0f, 4.0f, 0.25f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
+    };
 };

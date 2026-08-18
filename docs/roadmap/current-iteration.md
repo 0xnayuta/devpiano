@@ -5,7 +5,7 @@
 
 ## 当前方向
 
-**Phase 12（内置物理建模钢琴音源，SineSynth → PianoSynth）已完成（2026-08-18）**——Phase 12-1~12-4 全部落地 + Windows 侧手工听觉回归（Step 1~8）通过，谐波钢琴 v1 可经 Tone 切换启用（默认仍 sine）。当前进入 **Phase 13（Stiff-String Inharmonic Piano v2）**，Phase 13-1（刚性琴弦分音失谐偏移）与 Phase 13-2（模态分音衰减速率建模）已落地（2026-08-18）。
+**Phase 12（内置物理建模钢琴音源，SineSynth → PianoSynth）已完成（2026-08-18）**——Phase 12-1~12-4 全部落地 + Windows 侧手工听觉回归（Step 1~8）通过，谐波钢琴 v1 可经 Tone 切换启用（默认仍 sine）。当前进入 **Phase 13（Stiff-String Inharmonic Piano v2）**，Phase 13-1（刚性琴弦分音失谐偏移）、Phase 13-2（模态分音衰减速率建模）与 Phase 13-3（简单琴体共鸣滤波）已落地（2026-08-18）。
 
 代码质量审计（[`AUDIT-001`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)，2026-08-16）修复 **AUDIT Phase A–H 已全部完成**（2026-08-17）：56 项未处理全关闭，16 项已暂缓复核关闭 2 项（QUAL-019/PERF-002），剩余 14 项维持；断言总数 754 → 2921 全绿。逐项完成记录已归档至 [`../archive/audit-001-code-quality-fix-phases.md`](../archive/audit-001-code-quality-fix-phases.md)。
 
@@ -173,14 +173,14 @@ Phase 12 的 v1 是**整数倍谐波**叠加：分音频率严格 `n·f₀`，�
 - [x] **声学收益**：高次分音在击弦后快速耗散，音色由击弦瞬态丰富泛音平滑过渡至基频主导的自然尾音，彻底消除泛音长期不衰减的合成器质感。
 - [x] 确定性测试（Phase 13-5 推进）：`PianoSynthVoiceTest.cpp` 新增 11 项断言（4 个音区阻尼斜率 $c$ 边界、时间常数物理公式量化校验、分音衰减时间单调递减校验、动态时域/频域早期 $t_0$ vs 后期 $t_1$ 高次分音能量比下降断言），默认测试套件断言数 3004 $\to$ **3015** 全绿。
 - [x] 验证：`wsl-build`（0 warning）/ `test`（3015 断言全绿）/ `format --check`（0 违规）/ `win-build`（MSVC 构建成功）。
-**Phase 13-3：简单琴体共鸣滤波（Body Resonator Bank）**
+**Phase 13-3：简单琴体共鸣滤波（Body Resonator Bank） [已完成，2026-08-18]**
 
-- [ ] 借鉴 `DaisySP::Resonator` 与 Mutable Instruments 标准拓扑：构建轻量 Direct Form II 二阶带通/谐振器组（2~3 个并联峰）。
-- [ ] 音板共振频率配置：模拟真实钢琴音板的主共鸣峰（如 $f_{c1} \approx 110\text{ Hz}, Q_1 \approx 6$；$f_{c2} \approx 220\text{ Hz}, Q_2 \approx 5$；$f_{c3} \approx 360\text{ Hz}, Q_3 \approx 4$）。
-- [ ] 状态与内存纪律：`std::array<ResonatorState, 3>` 静态作为 `PianoSynthVoice` 私有成员，系数在 `prepareToPlay` 预计算；`renderNextBlock` 中纯直接计算（每 sample 增加 $\le 12$ 次乘加），**零堆分配、无锁**。
-- [ ] 信号混合：采用 Wet/Dry 混合策略（`output = (1 - wet) * raw + wet * filtered`，默认 $\text{wet} \approx 0.25$），避免过度滤波染色引起动态压缩。
-- [ ] 数值稳定性保证：极点严格约束在单位圆内（$r = \exp(-\pi \cdot \text{bandwidth} / \text{sampleRate}) < 1.0$），长时渲染无发散。
-
+- [x] 借鉴 `DaisySP::Resonator` 与 Mutable Instruments 标准拓扑：构建轻量 Direct Form II 二阶带通/谐振器组（3 个并联峰：110 Hz $Q=6.0$ 权重 0.40、220 Hz $Q=5.0$ 权重 0.35、360 Hz $Q=4.0$ 权重 0.25）。
+- [x] 状态与内存纪律：`std::array<BodyResonator, 3>` 静态作为 `PianoSynthVoice` 私有成员，系数在 `startNote` 预计算更新，`stopNote(false)` 与自清时彻底重置状态；`renderNextBlock` 中纯直接计算（每 sample 增加 $\le 12$ 次乘加），**零堆分配、无锁**。
+- [x] 信号混合：采用 Wet/Dry 混合策略（`output = (1 - wet) * raw + wet * filtered`，默认 $\text{wet} = 0.25$），为纯干弦声注入温暖的木质共鸣箱体感，且整体峰值电平严格归一化。
+- [x] 数值稳定性保证：极点严格约束在单位圆内（$r = \exp(-\pi \cdot \text{bandwidth} / \text{sampleRate}) < 1.0$），长时渲染无发散，静音后状态快速衰减至零。
+- [x] 确定性测试（Phase 13-5 推进）：`PianoSynthVoiceTest.cpp` 新增 9 项断言（Wet 比例与共鸣峰参数边界、A2 110 Hz / A3 220 Hz 共振能量提升与归一化输出无 clip 断言、立即停止后谐振器状态清空断言），默认测试套件断言数 3015 $\to$ **3024** 全绿。
+- [x] 验证：`wsl-build`（0 warning）/ `test`（3024 断言全绿）/ `format --check`（0 违规）/ `win-build`（MSVC 构建成功）。
 **Phase 13-4：参数化与 UI 适配（向后兼容）**
 
 - [ ] 维持 Phase 12-3 确立的 3 旋钮布局（Brightness / Hammer / Resonance）与 Tone 下拉，刚度 $B$ 与音板共鸣参数默认走物理精调查表，不强行增加第 4 旋钮。

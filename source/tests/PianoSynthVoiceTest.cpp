@@ -133,6 +133,12 @@ public:
                                       "high-mid damping slope");
             expectWithinAbsoluteError(PianoSynthVoice::decayDampingCForNote(100), 0.12f, 0.001f,
                                       "treble damping slope");
+
+            expectWithinAbsoluteError(PianoSynthVoice::bodyWet(), 0.25f, 0.001f, "25% body wet ratio");
+            expectEquals(PianoSynthVoice::resonatorCount(), 3, "3 body resonators");
+            expectWithinAbsoluteError(PianoSynthVoice::resonatorSpec(0).frequency, 110.0f, 0.1f, "peak 1 freq");
+            expectWithinAbsoluteError(PianoSynthVoice::resonatorSpec(1).frequency, 220.0f, 0.1f, "peak 2 freq");
+            expectWithinAbsoluteError(PianoSynthVoice::resonatorSpec(2).frequency, 360.0f, 0.1f, "peak 3 freq");
         }
 
         beginTest("renders non-zero finite output at normalised level");
@@ -262,6 +268,30 @@ public:
             expect(lateRatio < 0.5 * earlyRatio,
                    "upper harmonic ratio at t1 (" + juce::String(lateRatio, 5) + ") must drop below 50% of t0 ratio ("
                        + juce::String(earlyRatio, 5) + ") due to modal energy dissipation");
+        }
+        beginTest("body resonator frequency response and stability (soundboard physics)");
+        {
+            // 验证 110 Hz（A2）音符在音板主共振峰下的稳态渲染与能量表现
+            VoiceFixture a2Fixture;
+            juce::AudioBuffer<float> a2Buffer(1, analysisWindow);
+            a2Fixture.noteOnBlock(45, 0.9f, a2Buffer); // MIDI 45 = A2 (110.0 Hz)
+            const auto fA2 = PianoSynthVoice::partialFrequency(45, 0);
+            const auto magA2 = magnitudeAtFrequency(a2Buffer, fA2, analysisWindow);
+            expect(magA2 > 0.02, "A2 fundamental ~ 110 Hz is boosted by soundboard peak 1");
+            expect(peakMagnitude(a2Buffer) < 1.0f, "wet/dry mixed output remains strictly normalised");
+
+            // 验证 220 Hz（A3）音符在音板第 2 共鸣峰下的表现
+            VoiceFixture a3Fixture;
+            juce::AudioBuffer<float> a3Buffer(1, analysisWindow);
+            a3Fixture.noteOnBlock(57, 0.9f, a3Buffer); // MIDI 57 = A3 (220.0 Hz)
+            const auto fA3 = PianoSynthVoice::partialFrequency(57, 0);
+            const auto magA3 = magnitudeAtFrequency(a3Buffer, fA3, analysisWindow);
+            expect(magA3 > 0.02, "A3 fundamental ~ 220 Hz is boosted by soundboard peak 2");
+
+            // 谐振器状态在 stopNote(false) 后彻底重置
+            a2Fixture.synth.noteOff(1, 45, 0.0f, false);
+            a2Fixture.renderBlock(a2Buffer);
+            expect(peakMagnitude(a2Buffer) == 0.0f, "resonator state is cleared on immediate stop");
         }
 
         beginTest("velocity loudness is monotonically increasing");
