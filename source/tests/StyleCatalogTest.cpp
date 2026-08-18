@@ -486,13 +486,22 @@ private:
             return;
         }
 
-        for (const char* id :
-             { "volume-knob", "attack-knob", "decay-knob", "sustain-knob", "release-knob", "speed-knob" }) {
+        for (const char* id : { "volume-knob", "attack-knob", "decay-knob", "sustain-knob", "release-knob",
+                                "speed-knob", "brightness-knob", "hardness-knob", "resonance-knob" }) {
             auto* knob = ::jive::findItemWithID(*item, id);
             expect(knob != nullptr, juce::String(id) + " not found");
             if (knob != nullptr) {
                 expect(dynamic_cast<juce::Slider*>(knob->getComponent().get()) != nullptr,
                        juce::String(id) + " is not a Slider");
+            }
+        }
+
+        for (const char* id : { "tone-combo" }) {
+            auto* combo = ::jive::findItemWithID(*item, id);
+            expect(combo != nullptr, juce::String(id) + " not found");
+            if (combo != nullptr) {
+                expect(dynamic_cast<juce::ComboBox*>(combo->getComponent().get()) != nullptr,
+                       juce::String(id) + " is not a ComboBox");
             }
         }
 

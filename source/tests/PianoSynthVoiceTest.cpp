@@ -260,6 +260,64 @@ public:
             engine.prepareToPlay(512, 44100.0); // 重建后 prepare 不崩溃
             engine.releaseResources();
         }
+
+        beginTest("piano parameters shape the tone");
+        {
+            // 高 brightness → 高次谐波相对幅度更大（upper-harmonic ratio 提升）。
+            VoiceFixture dim;
+            dim.voice()->setPianoParameters(0.0f, 0.5f, 0.5f);
+            juce::AudioBuffer<float> dimBuffer(1, analysisWindow);
+            dim.noteOnBlock(60, 1.0f, dimBuffer);
+            const auto dimFourth = magnitudeAtFrequency(dimBuffer, fundamentalHz * 4, analysisWindow)
+                / juce::jmax(1e-6, magnitudeAtFrequency(dimBuffer, fundamentalHz, analysisWindow));
+
+            VoiceFixture bright;
+            bright.voice()->setPianoParameters(1.0f, 0.5f, 0.5f);
+            juce::AudioBuffer<float> brightBuffer(1, analysisWindow);
+            bright.noteOnBlock(60, 1.0f, brightBuffer);
+            const auto brightFourth = magnitudeAtFrequency(brightBuffer, fundamentalHz * 4, analysisWindow)
+                / juce::jmax(1e-6, magnitudeAtFrequency(brightBuffer, fundamentalHz, analysisWindow));
+
+            expect(brightFourth > dimFourth, "higher brightness must boost the upper-harmonic ratio");
+
+            // 高 hammerHardness → 最高次谐波相对幅度更大。
+            VoiceFixture softHammer;
+            softHammer.voice()->setPianoParameters(0.5f, 0.0f, 0.5f);
+            juce::AudioBuffer<float> softBuffer(1, analysisWindow);
+            softHammer.noteOnBlock(60, 1.0f, softBuffer);
+            const auto softTop = magnitudeAtFrequency(softBuffer, fundamentalHz * 5, analysisWindow)
+                / juce::jmax(1e-6, magnitudeAtFrequency(softBuffer, fundamentalHz, analysisWindow));
+
+            VoiceFixture hardHammer;
+            hardHammer.voice()->setPianoParameters(0.5f, 1.0f, 0.5f);
+            juce::AudioBuffer<float> hardBuffer(1, analysisWindow);
+            hardHammer.noteOnBlock(60, 1.0f, hardBuffer);
+            const auto hardTop = magnitudeAtFrequency(hardBuffer, fundamentalHz * 5, analysisWindow)
+                / juce::jmax(1e-6, magnitudeAtFrequency(hardBuffer, fundamentalHz, analysisWindow));
+
+            expect(hardTop > softTop, "harder hammer must boost the top-harmonic ratio");
+
+            // 高 resonance → 衰减更慢（长时窗口 RMS 更强）。
+            VoiceFixture dry;
+            dry.voice()->setPianoParameters(0.5f, 0.5f, 0.0f);
+            juce::AudioBuffer<float> dryBuffer(1, blockSize);
+            dry.noteOnBlock(60, 0.9f, dryBuffer);
+            for (auto block = 0; block < 40; ++block) {
+                dry.renderBlock(dryBuffer);
+            }
+            const auto dryLate = rmsLevel(dryBuffer);
+
+            VoiceFixture resonant;
+            resonant.voice()->setPianoParameters(0.5f, 0.5f, 1.0f);
+            juce::AudioBuffer<float> resBuffer(1, blockSize);
+            resonant.noteOnBlock(60, 0.9f, resBuffer);
+            for (auto block = 0; block < 40; ++block) {
+                resonant.renderBlock(resBuffer);
+            }
+            const auto resLate = rmsLevel(resBuffer);
+
+            expect(resLate > dryLate, "higher resonance must decay slower (stronger late energy)");
+        }
     }
 };
 

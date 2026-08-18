@@ -50,6 +50,10 @@ SettingsModel makePopulatedModel() {
     m.adsrDecay = 0.30f;
     m.adsrSustain = 0.70f;
     m.adsrRelease = 0.40f;
+    m.builtinTone = SettingsModel::BuiltinTone::piano;
+    m.pianoBrightness = 0.70f;
+    m.pianoHammerHardness = 0.35f;
+    m.pianoResonance = 0.90f;
     m.keySignature = 5;
     m.midiTranspose = true;
     m.channelMatrix.active = true;
@@ -101,6 +105,11 @@ public:
             expectWithinAbsoluteError(loaded.adsrDecay, 0.30f, 0.0001f);
             expectWithinAbsoluteError(loaded.adsrSustain, 0.70f, 0.0001f);
             expectWithinAbsoluteError(loaded.adsrRelease, 0.40f, 0.0001f);
+            expectEquals(static_cast<int>(loaded.builtinTone), static_cast<int>(SettingsModel::BuiltinTone::piano),
+                         "builtin tone must round-trip");
+            expectWithinAbsoluteError(loaded.pianoBrightness, 0.70f, 0.0001f);
+            expectWithinAbsoluteError(loaded.pianoHammerHardness, 0.35f, 0.0001f);
+            expectWithinAbsoluteError(loaded.pianoResonance, 0.90f, 0.0001f);
             expectEquals(loaded.keySignature, 5);
             expect(loaded.midiTranspose, "midiTranspose must round-trip");
             expect(loaded.channelMatrix.active);
@@ -139,6 +148,36 @@ public:
                 store.load(loaded);
             }
             expectWithinAbsoluteError(loaded.masterGain, 0.8f, 0.0001f);
+        });
+
+        testCase("legacy file without piano keys falls back to defaults", [&] {
+            auto dir = makeScratchDir("store-legacy");
+            const auto options = makeTestOptions(dir);
+
+            {
+                // 手工构造“旧版本”文件：只写 ADSR/gain，不含 builtinTone /
+                // pianoBrightness / pianoHammerHardness / pianoResonance。
+                juce::PropertiesFile legacy(options);
+                legacy.setValue("masterGain", 0.6);
+                legacy.setValue("adsrAttack", 0.02);
+                legacy.setValue("adsrDecay", 0.2);
+                legacy.setValue("adsrSustain", 0.8);
+                legacy.setValue("adsrRelease", 0.3);
+                legacy.saveIfNeeded();
+            }
+
+            SettingsModel loaded;
+            {
+                SettingsStore store(options);
+                store.load(loaded);
+            }
+            expectWithinAbsoluteError(loaded.masterGain, 0.6f, 0.0001f, "legacy gain must still load");
+            expectWithinAbsoluteError(loaded.pianoBrightness, 0.5f, 0.0001f,
+                                      "missing piano brightness must fall back to default");
+            expectWithinAbsoluteError(loaded.pianoHammerHardness, 0.5f, 0.0001f);
+            expectWithinAbsoluteError(loaded.pianoResonance, 0.5f, 0.0001f);
+            expectEquals(static_cast<int>(loaded.builtinTone), static_cast<int>(SettingsModel::BuiltinTone::sine),
+                         "missing tone must fall back to sine");
         });
 
         testCase("corrupted zero-state performance falls back to defaults", [&] {
