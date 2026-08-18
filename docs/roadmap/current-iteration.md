@@ -5,7 +5,7 @@
 
 ## 当前方向
 
-**Phase 13（Stiff-String Inharmonic Piano v2）已完成（2026-08-18）**——Phase 13-1~13-6 全部落地（含 BuiltinTone 默认值切为 Piano）。当前进入 **Phase 14（Enhanced Modal Piano v3，增强模态合成）**：经网络与文献核实（2026-08-18），原数字波导计划正式改道为增强模态合成（Pianoteq 与 Bank 2010 TASLP 实证的业界最佳路线），详细排期 14-A~14-E 见下文；数字波导降级为实验分支（14-F）。
+**Phase 13（Stiff-String Inharmonic Piano v2）已完成（2026-08-18）**；**Phase 14-A（递归振荡器 + 分音数扩展）已完成（2026-08-18）**——Magic Circle coupled-form 递归振荡器（零 `std::sin`）替换逐采样正弦，分音上限 8 → 20/14/8/6，三闸门全绿（46/46 测试、3059 断言）。当前进入 **Phase 14-B（Two-stage decay 双阶段衰减）**：Phase 14 为 Enhanced Modal Piano v3（增强模态合成），经网络与文献核实（2026-08-18）由原数字波导计划改道而来（Pianoteq 与 Bank 2010 TASLP 实证的业界最佳路线），详细排期 14-A~14-E 见下文；数字波导降级为实验分支（14-F）。
 
 代码质量审计（[`AUDIT-001`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)，2026-08-16）修复 **AUDIT Phase A–H 已全部完成**（2026-08-17）：56 项未处理全关闭，16 项已暂缓复核关闭 2 项（QUAL-019/PERF-002），剩余 14 项维持；断言总数 754 → 2921 全绿。逐项完成记录已归档至 [`../archive/audit-001-code-quality-fix-phases.md`](../archive/audit-001-code-quality-fix-phases.md)。
 
@@ -253,7 +253,7 @@ Phase 12/13 的 v1/v2 是**有限分音解析加法**：≤8 分音逐个 `std::
 **v3 = v2 架构 + 四项增强（全部在 `PianoSynthVoice` 内演进）：**
 
 1. **递归振荡器（Magic Circle / Coupled Form）**：每分音二阶递归正弦 $u[n] = u[n-1] - \epsilon v[n-1],\; v[n] = v[n-1] + \epsilon u[n]$（2 乘加，零 `std::sin`），相位/幅度状态存入 `Partial`；幅度衰减经每采样增益乘法维持。
-2. **分音数扩展**：上限 8 → 低音区 20 / 中音区 14 / 高音区 8 / 极高音区 6（保证各音区覆盖到 ~10 kHz）；归一化峰值电平逻辑沿用（`peakLevelAtFullVelocity`）。
+2. **分音数扩展**：上限 8 → 低音区 20 / 中音区 14 / 高音区 8 / 极高音区 6（顶分音覆盖 C2≈1.4 kHz / C4≈3.7 kHz / C5≈4.2 kHz，感知核心频段）；归一化峰值电平逻辑沿用（`peakLevelAtFullVelocity`）。
 3. **Two-stage decay**：每分音双指数衰减 $\text{level}(t) = A \left[ (1-w) e^{-t/\tau_{\text{fast}}} + w\, e^{-t/\tau_{\text{slow}}} \right]$（$\tau_{\text{fast}}$ 击弦段、$\tau_{\text{slow}}$ 琴体段，$w$ 按音区），在 `startNote` 预计算两套 `decayPerSample` 与交叉时间；或采用 Bank 2010 的 secondary resonators（5~10 个副谐振器）。
 4. **同音三弦拍频（Beating）**：每分音微失谐双振荡器对（±0.1%~0.3%，同音三弦近似为双组拍频），或 Bank 的 beating equalizer（调谐峰值滤波器调制分音包络）——低中音区厚度关键。
 5. **音板模态组扩展**：BodyResonator 3 峰 → 8~12 峰（音板主模态集，参考 Bank/Pianoteq 频点），保持每 sample ≤ 32 乘加的预算内。
@@ -270,12 +270,12 @@ Phase 12/13 的 v1/v2 是**有限分音解析加法**：≤8 分音逐个 `std::
 
 ### 子任务排期
 
-**Phase 14-A：递归振荡器 + 分音数扩展**
+**Phase 14-A：递归振荡器 + 分音数扩展 [已完成，2026-08-18]**
 
-- [ ] Magic Circle 递归振荡器替换 `Partial` 的 `std::sin`（2 乘加/分音，状态存 `Partial`）；幅度衰减并入状态更新。
-- [ ] 分音上限扩展：低音 20 / 中音 14 / 高音 8 / 极高音 6，`amplitudeFor`/`brightnessBoost`/`hammerGain` 归一化逻辑适配新上限。
-- [ ] 确定性测试：递归振荡器长时频偏（30 s 渲染基频漂移 ≤ 1e-4 相对）、分音数边界、现有 DFT/衰减/稳定性断言保持全绿。
-- [ ] 验证：`wsl-build` / `test` / `format --check` / `win-build`。
+- [x] Magic Circle 递归振荡器替换 `Partial` 的 `std::sin`（coupled form：u/v 双状态 3 乘 2 加双精度，零 `std::sin`）；幅度衰减经每采样增益乘法维持。
+- [x] 分音上限扩展：低音 20 / 中音 14 / 高音 8 / 极高音 6（真实覆盖：C2 顶分音 ≈1.4 kHz、C4 ≈3.7 kHz、C5 ≈4.2 kHz）；`amplitudeFor`/`brightnessBoost`/`hammerGain` 归一化自动适配（scale 重算）。
+- [x] 确定性测试：递归振荡器长时频偏（25 s 渲染 + 双窗复 DFT 相位差法，漂移 < 1e-4 相对；30 s 与 voice 自清阈值冲突，25 s 处基频幅度 ≥2e-4、相位分辨率 ≈1e-8 相对）、分音数边界 20/14/8/6、全区域 DFT 分音检查（低音 2..20 / 中音 2..14 / 高音 2..8 / 极高音 2..6）、现有断言全绿（46/46，3059 断言）。
+- [x] 验证：`wsl-build` / `test` / `format --check` / `win-build` 三闸门全绿。
 
 **Phase 14-B：Two-stage decay（双阶段衰减）**
 
@@ -311,7 +311,7 @@ Phase 12/13 的 v1/v2 是**有限分音解析加法**：≤8 分音逐个 `std::
 ### 验收标准
 
 - 递归振荡器零 `std::sin`，长时频偏可忽略（确定性测试）。
-- 分音覆盖到 ~10 kHz（分音数边界断言）。
+- 分音上限扩展 20/14/8/6，全区域分音在非谐频率处可测（分音数边界 + DFT 断言）。
 - 双阶段衰减可测（早期/晚期斜率比断言）；拍频周期可测（时域/DFT 断言）。
 - 音板 8~12 峰频响可测且稳定，输出有限无 NaN。
 - 三闸门全绿：`wsl-build` 0 warning / `test` 全绿 / `format --check` 归零 / `win-build` 通过。

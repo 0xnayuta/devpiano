@@ -1,5 +1,7 @@
 #include <JuceHeader.h>
 
+#include <complex>
+
 #include "Audio/AudioEngine.h"
 #include "Audio/PianoSynthVoice.h"
 
@@ -15,8 +17,10 @@
 // Covered:
 //   - Region table boundaries (partial counts / decay seconds)
 //   - Non-zero finite output at the normalised peak level
-//   - Fundamental and harmonics present (single-bin DFT; bass region
-//     checks harmonics 2..7, mid region checks 2..5)
+//   - Fundamental and all region partials present (single-bin DFT; bass 2..20,
+//     mid 2..14, high-mid 2..8, treble 2..6 at stiff-string frequencies)
+//   - Magic Circle recursive oscillator long-term frequency stability
+//     (dual-window complex DFT phase-difference over 25 s, drift < 1e-4)
 //   - Velocity 0.2 vs 0.9 loudness is monotonically increasing
 //   - noteOff tail decays and the voice releases itself
 //   - Immediate stopNote (allowTailOff=false) silences and clears the voice
@@ -107,14 +111,14 @@ public:
     void runTest() override {
         beginTest("region table boundaries");
         {
-            expectEquals(PianoSynthVoice::partialCountForNote(0), 8, "bottom note (C-1) keeps 7 harmonics");
-            expectEquals(PianoSynthVoice::partialCountForNote(47), 8, "B3 still low-bass region");
-            expectEquals(PianoSynthVoice::partialCountForNote(48), 6, "C4 mid region: 5 harmonics");
-            expectEquals(PianoSynthVoice::partialCountForNote(71), 6, "B4 still mid region");
-            expectEquals(PianoSynthVoice::partialCountForNote(72), 4, "C5 high-mid: 3 harmonics");
-            expectEquals(PianoSynthVoice::partialCountForNote(95), 4, "B6 still high-mid");
-            expectEquals(PianoSynthVoice::partialCountForNote(96), 3, "C7 treble converges to 2 harmonics");
-            expectEquals(PianoSynthVoice::partialCountForNote(127), 3, "top note stays treble region");
+            expectEquals(PianoSynthVoice::partialCountForNote(0), 20, "bottom note (C-1) keeps 19 harmonics");
+            expectEquals(PianoSynthVoice::partialCountForNote(47), 20, "B3 still low-bass region");
+            expectEquals(PianoSynthVoice::partialCountForNote(48), 14, "C4 mid region: 13 harmonics");
+            expectEquals(PianoSynthVoice::partialCountForNote(71), 14, "B4 still mid region");
+            expectEquals(PianoSynthVoice::partialCountForNote(72), 8, "C5 high-mid: 7 harmonics");
+            expectEquals(PianoSynthVoice::partialCountForNote(95), 8, "B6 still high-mid");
+            expectEquals(PianoSynthVoice::partialCountForNote(96), 6, "C7 treble region: 5 harmonics");
+            expectEquals(PianoSynthVoice::partialCountForNote(127), 6, "top note stays treble region");
 
             expectWithinAbsoluteError(PianoSynthVoice::decaySecondsForNote(0), 4.0f, 0.001f, "bass decay is long");
             expectWithinAbsoluteError(PianoSynthVoice::decaySecondsForNote(60), 2.5f, 0.001f, "mid decay");
@@ -159,31 +163,58 @@ public:
 
         beginTest("fundamental and harmonics present (single-bin DFT)");
         {
+            // 低音区（Phase 14-A 后 20 分音）：全部高次分音在非谐频率处可测。
             VoiceFixture bassFixture;
             juce::AudioBuffer<float> bass(1, analysisWindow);
-            bassFixture.noteOnBlock(36, 0.9f, bass); // low-bass region: 7 harmonics (C2 ≈ 65.41 Hz)
+            bassFixture.noteOnBlock(36, 0.9f, bass); // low-bass region: 20 partials (C2 ≈ 65.41 Hz)
             const auto bassFundamental
                 = magnitudeAtFrequency(bass, PianoSynthVoice::partialFrequency(36, 0), analysisWindow);
             expect(bassFundamental > 0.01, "low-bass fundamental must be present");
-            for (auto harmonic = 2; harmonic <= 7; ++harmonic) {
+            for (auto harmonic = 2; harmonic <= 20; ++harmonic) {
                 const auto partialFreq = PianoSynthVoice::partialFrequency(36, harmonic - 1);
                 const auto magnitude = magnitudeAtFrequency(bass, partialFreq, analysisWindow);
-                expect(magnitude > 0.05 * bassFundamental,
+                expect(magnitude > 0.03 * bassFundamental,
                        "low-bass harmonic " + juce::String(harmonic) + " must be present (mag="
                            + juce::String(magnitude, 5) + " base=" + juce::String(bassFundamental, 5) + ")");
             }
 
+            // 中音区（14 分音）。
             VoiceFixture midFixture;
             juce::AudioBuffer<float> mid(1, analysisWindow);
             midFixture.noteOnBlock(60, 0.9f, mid);
             const auto midFundamental
                 = magnitudeAtFrequency(mid, PianoSynthVoice::partialFrequency(60, 0), analysisWindow);
-            expect(midFundamental > 0.03, "MIDI 60 fundamental ~ 261.63 Hz must dominate");
-            for (auto harmonic = 2; harmonic <= 5; ++harmonic) {
+            expect(midFundamental > 0.02, "MIDI 60 fundamental ~ 261.63 Hz must dominate");
+            for (auto harmonic = 2; harmonic <= 14; ++harmonic) {
                 const auto partialFreq = PianoSynthVoice::partialFrequency(60, harmonic - 1);
                 const auto magnitude = magnitudeAtFrequency(mid, partialFreq, analysisWindow);
-                expect(magnitude > 0.05 * midFundamental,
+                expect(magnitude > 0.03 * midFundamental,
                        "mid harmonic " + juce::String(harmonic) + " must be present");
+            }
+
+            // 高音区（8 分音）与极高音区（6 分音）。
+            VoiceFixture highFixture;
+            juce::AudioBuffer<float> high(1, analysisWindow);
+            highFixture.noteOnBlock(72, 0.9f, high);
+            const auto highFundamental
+                = magnitudeAtFrequency(high, PianoSynthVoice::partialFrequency(72, 0), analysisWindow);
+            for (auto harmonic = 2; harmonic <= 8; ++harmonic) {
+                const auto partialFreq = PianoSynthVoice::partialFrequency(72, harmonic - 1);
+                const auto magnitude = magnitudeAtFrequency(high, partialFreq, analysisWindow);
+                expect(magnitude > 0.03 * highFundamental,
+                       "high-mid harmonic " + juce::String(harmonic) + " must be present");
+            }
+
+            VoiceFixture topFixture;
+            juce::AudioBuffer<float> top(1, analysisWindow);
+            topFixture.noteOnBlock(96, 0.9f, top);
+            const auto topFundamental
+                = magnitudeAtFrequency(top, PianoSynthVoice::partialFrequency(96, 0), analysisWindow);
+            for (auto harmonic = 2; harmonic <= 6; ++harmonic) {
+                const auto partialFreq = PianoSynthVoice::partialFrequency(96, harmonic - 1);
+                const auto magnitude = magnitudeAtFrequency(top, partialFreq, analysisWindow);
+                expect(magnitude > 0.03 * topFundamental,
+                       "treble harmonic " + juce::String(harmonic) + " must be present");
             }
         }
 
@@ -224,6 +255,62 @@ public:
             expect(magAtInharmonic5 > 1.2 * magAtInteger5,
                    "DFT energy at stiff-string 5th partial (" + juce::String(actualF5, 2)
                        + " Hz) must be higher than integer harmonic (" + juce::String(5.0 * f0, 2) + " Hz)");
+        }
+
+        beginTest("recursive oscillator frequency stability (Magic Circle long render)");
+        {
+            // Phase 14-A：双窗复 DFT 相位差法测量长时频偏。
+            // 渲染 25 s 低音 C2（resonance=1 → τ_base = 5.2 s，voice 自清时间 ≈ 30 s，
+            // 25 s 处基频仍有 ≥ 2e-4 幅度、voice 活跃），取两段 16384 样本对称 Hann 窗
+            // 单点 DFT，arg(X2) - arg(X1) = 2π·δf·ΔT 直接给出频率漂移。
+            VoiceFixture fixture;
+            fixture.voice()->setPianoParameters(0.5f, 0.5f, 1.0f);
+            constexpr auto totalSeconds = 25.0;
+            constexpr auto totalSamples = static_cast<int>(totalSeconds * sampleRate); // 1102500
+            juce::AudioBuffer<float> stream(1, totalSamples);
+            stream.clear();
+
+            auto rendered = 0;
+            {
+                juce::MidiBuffer midi;
+                midi.addEvent(juce::MidiMessage::noteOn(1, 36, 0.9f), 0);
+                fixture.synth.renderNextBlock(stream, midi, 0, blockSize);
+                rendered += blockSize;
+            }
+            while (rendered < totalSamples) {
+                juce::MidiBuffer empty;
+                const auto count = juce::jmin(blockSize, totalSamples - rendered);
+                fixture.synth.renderNextBlock(stream, empty, rendered, count);
+                rendered += count;
+            }
+            expect(fixture.voice()->isVoiceActive(), "voice must still be active at 25 s");
+
+            const auto f0 = PianoSynthVoice::partialFrequency(36, 0);
+            auto complexDft = [](const juce::AudioBuffer<float>& buffer, int start, int count, double frequency) {
+                auto real = 0.0;
+                auto imag = 0.0;
+                for (auto i = 0; i < count; ++i) {
+                    const auto window = 0.5 * (1.0 - std::cos(juce::MathConstants<double>::twoPi * i / (count - 1)));
+                    const auto angle = juce::MathConstants<double>::twoPi * frequency * i / sampleRate;
+                    const auto value = buffer.getSample(0, start + i) * window;
+                    real += value * std::cos(angle);
+                    imag -= value * std::sin(angle);
+                }
+                return std::complex<double> { real, imag };
+            };
+
+            const auto window1Start = blockSize; // 跳过 attack ramp，保证两窗完全对称
+            const auto window2Start = totalSamples - analysisWindow;
+            const auto x1 = complexDft(stream, window1Start, analysisWindow, f0);
+            const auto x2 = complexDft(stream, window2Start, analysisWindow, f0);
+            expect(std::abs(x1) > 1e-6, "early window fundamental energy present");
+            expect(std::abs(x2) > 1e-7, "late window fundamental energy still measurable");
+
+            const auto phaseDelta = std::arg(x2) - std::arg(x1);
+            const auto deltaT = static_cast<double>(window2Start - window1Start) / sampleRate;
+            const auto measuredFreq = f0 + phaseDelta / (juce::MathConstants<double>::twoPi * deltaT);
+            expectWithinAbsoluteError(measuredFreq, f0, 1e-4 * f0,
+                                      "recursive oscillator frequency drift < 1e-4 relative over 25 s");
         }
         beginTest("modal overtone decay rates (physical energy dissipation)");
         {

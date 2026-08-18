@@ -10,10 +10,12 @@
 // juce::Synthesiser 管理 voice 生命周期；AudioEngine::setBuiltinSynthTone
 // 切换实时路径注册的音色（默认内置音色为 Piano，Sine 可切换回退）。
 //
-// 合成模型（纯加法 + 物理共鸣、零采样依赖）：
 // - 分音叠加与刚性琴弦非谐性（Phase 13-1）：基频 + 高次分音，各分音频率按 JOS PASP
 //   刚性琴弦公式计算 f_m = m·f₀·√(1+B·m²)，刚度系数 B 按音区查表（低音弦粗 B≈4e-4，
 //   高音 B≈1e-5），各分音失去公共整数倍周期，产生自然的泛音拍频（Beats）；
+// - 递归振荡器与分音数扩展（Phase 14-A）：分音上限 8 → 20/14/8/6（按音区），每分音
+//   用 Magic Circle coupled-form 递归振荡器（零 std::sin、幅度严格有界、频率由
+//   ε = 2·sin(π·f/fs) 精确决定），幅度衰减以每采样增益乘法维持；
 // - 模态分音衰减速率建模（Phase 13-2）：基于 Mutable Instruments 模态能量耗散模型，
 //   分音时间常数 τ_m = τ_base / (1.0 + c_eff · (m - 1))，高次分音快速耗散，音色由击弦瞬间
 //   的丰富泛音自然过渡至基频主导的纯净尾音；pianoResonance 调节 τ_base，pianoBrightness
@@ -25,9 +27,11 @@
 // - attack/release 沿用 AudioEngine::setAdsr 接线（经 setAdsrParameters
 //   提取 attack/release 作门控，decay/sustain 由分音衰减替代）。
 //
-// 实时约束：renderNextBlock 无堆分配、无锁；每分音一次 std::sin（≤8 次），每 sample
-// ≤12 次乘加（3 个二阶谐振器），startNote 内每 note 做 O(partials) 次 std::sqrt/std::exp
-// （按键瞬间计算，逐采样渲染 CPU 极轻量）。
+// 实时约束（Phase 14-A 起）：renderNextBlock 无堆分配、无锁；每分音 Magic Circle
+// 递归振荡器（coupled form，3 乘 2 加双精度，零 std::sin）+ 每采样增益衰减，≤20 分音
+// + 3 个二阶谐振器 ≈ 每 sample ≤ 184 次运算；startNote 内每 note 做 O(partials) 次
+// std::sqrt/std::sin/std::exp（按键瞬间计算，逐采样渲染 CPU 极轻量）。
+
 class PianoSynthSound final : public juce::SynthesiserSound {
 public:
     bool appliesToNote(int) override {
@@ -40,7 +44,7 @@ public:
 
 class PianoSynthVoice final : public juce::SynthesiserVoice {
 public:
-    static constexpr auto maxPartials = 8;
+    static constexpr auto maxPartials = 20;
     static constexpr auto numResonators = 3;
     static constexpr auto bodyWetRatio = 0.25f; // 25% wet soundboard, 75% dry string
     // 每 voice 峰值上限（v=1）：0.16 为 8 voice 齐奏 + masterGain 0.8 预留
@@ -102,11 +106,14 @@ public:
 
         for (auto n = 0; n < numActivePartials; ++n) {
             auto& partial = partials[static_cast<std::size_t>(n)];
-            partial.phase = 0.0;
+            partial.cosState = 1.0;
+            partial.sinState = 0.0;
             const auto partialNumber = static_cast<double>(n + 1);
             const auto inharmonicFactor = std::sqrt(1.0 + region.inharmonicityB * partialNumber * partialNumber);
             const auto partialFrequency = baseFrequency * partialNumber * inharmonicFactor;
-            partial.increment = juce::MathConstants<double>::twoPi * partialFrequency / sampleRate;
+            // Magic Circle 步进系数：ε = 2·sin(π·f/fs) 使 coupled form 精确振荡于
+            // 目标频率（ω = 2·arcsin(ε/2) = 2π·f/fs），幅度严格有界、无相位缠绕。
+            partial.epsilon = 2.0 * std::sin(juce::MathConstants<double>::pi * partialFrequency / sampleRate);
             partial.level = amplitudeFor(n) * brightnessBoost(n, brightnessFactor, numActivePartials)
                 * hammerGain(n, numActivePartials) * scale * velocityLevel;
             // 模态能量耗散模型：τ_m = τ_base / (1.0 + c_eff * (m - 1))
@@ -158,11 +165,12 @@ public:
             auto value = 0.0f;
             for (auto n = 0; n < numActivePartials; ++n) {
                 auto& partial = partials[static_cast<std::size_t>(n)];
-                value += partial.level * static_cast<float>(std::sin(partial.phase));
-                partial.phase += partial.increment;
-                if (partial.phase >= juce::MathConstants<double>::twoPi) {
-                    partial.phase -= juce::MathConstants<double>::twoPi;
-                }
+                value += partial.level * static_cast<float>(partial.sinState);
+                // Magic Circle 步进（coupled form）：
+                // u[n] = u[n-1] - ε·v[n-1]；v[n] = v[n-1] + ε·u[n]。
+                const auto nextCos = partial.cosState - partial.epsilon * partial.sinState;
+                partial.sinState += partial.epsilon * nextCos;
+                partial.cosState = nextCos;
                 partial.level *= partial.decayPerSample;
             }
 
@@ -247,10 +255,10 @@ private:
     };
 
     static constexpr VoiceRegion voiceRegions[] = {
-        { 8, 4.0f, 4.0e-4, 0.35f }, // note < 48：低音弦长，高次衰减阻尼斜率 c = 0.35
-        { 6, 2.5f, 1.0e-4, 0.25f }, // 48–71：中音弦 c = 0.25
-        { 4, 1.5f, 3.0e-5, 0.18f }, // 72–95：高音弦 c = 0.18
-        { 3, 0.8f, 1.0e-5, 0.12f }, // ≥ 96：极高音弦 c = 0.12
+        { 20, 4.0f, 4.0e-4, 0.35f }, // note < 48：低音弦长，20 分音（C2 顶分音 ≈ 1.4 kHz）
+        { 14, 2.5f, 1.0e-4, 0.25f }, // 48–71：中音弦，14 分音（C4 顶分音 ≈ 3.7 kHz）
+        { 8, 1.5f, 3.0e-5, 0.18f }, // 72–95：高音弦，8 分音（C5 顶分音 ≈ 4.2 kHz）
+        { 6, 0.8f, 1.0e-5, 0.12f }, // ≥ 96：极高音弦，6 分音
     };
     [[nodiscard]] static const VoiceRegion& regionForNote(int midiNoteNumber) noexcept {
         if (midiNoteNumber < 48) {
@@ -292,8 +300,9 @@ private:
     }
 
     struct Partial {
-        double phase = 0.0;
-        double increment = 0.0;
+        double cosState = 1.0; // Magic Circle 余弦状态 u[n]（初值 cos(0) = 1）
+        double sinState = 0.0; // Magic Circle 正弦状态 v[n]（初值 sin(0) = 0，渲染取此值）
+        double epsilon = 0.0; // 步进系数 ε = 2·sin(π·f/fs)，startNote 计算
         float level = 0.0f;
         float decayPerSample = 0.0f;
     };
