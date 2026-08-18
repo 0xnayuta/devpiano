@@ -5,7 +5,7 @@
 
 ## 当前方向
 
-**Phase 12（内置物理建模钢琴音源，SineSynth → PianoSynth）进行中**——把当前内置 fallback 正弦合成器逐步替换为自主拥有、纯 C++、零/极低采样依赖的物理建模钢琴音源。整体路线见 [`roadmap.md`](roadmap.md) Phase 12；本文件为详细排期与子任务。**Phase 12-1（共享 SineSynthVoice 重构）已完成（2026-08-18）**，详见下文。
+**Phase 12（内置物理建模钢琴音源，SineSynth → PianoSynth）进行中**——把当前内置 fallback 正弦合成器逐步替换为自主拥有、纯 C++、零/极低采样依赖的物理建模钢琴音源。整体路线见 [`roadmap.md`](roadmap.md) Phase 12；本文件为详细排期与子任务。**Phase 12-1（共享 SineSynthVoice 重构）、12-2（Harmonic PianoVoice v1）、12-4（确定性音色测试）已完成（2026-08-18）**，剩余 12-3（参数化与 UI 接线），详见下文。
 
 代码质量审计（[`AUDIT-001`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)，2026-08-16）修复 **AUDIT Phase A–H 已全部完成**（2026-08-17）：56 项未处理全关闭，16 项已暂缓复核关闭 2 项（QUAL-019/PERF-002），剩余 14 项维持；断言总数 754 → 2921 全绿。逐项完成记录已归档至 [`../archive/audit-001-code-quality-fix-phases.md`](../archive/audit-001-code-quality-fix-phases.md)。
 
@@ -38,14 +38,18 @@
 - [x] 三处调用点全部改接：实时渲染（AudioEngine.cpp:188）、WAV 离线导出（WavFileExporter.cpp:77）、插件离线失败回退（WavExportTask → `exportTakeAsWavFile` 走同一共享实现）；`grep SimpleSine|OfflineSine` 无残余定义。
 - [x] 验证通过：`wsl-build`（经 `dev.sh test` 构建 0 新警告）/ `test`（ctest 1/1 passed，断言全绿，行为不变）/ `format --check`（归零）/ `win-build`（MSVC 构建成功，2026-08-18）。
 
-**Phase 12-2：Harmonic PianoVoice v1（Level 1 音色）**
+**Phase 12-2：Harmonic PianoVoice v1（Level 1 音色） [已完成，2026-08-18]**
 
-- [ ] 新建 `source/Audio/PianoSynthVoice`（继承 `SynthesiserVoice`），与 SineSynthVoice 并存注册；初始默认仍用 sine，Piano 可切换（后续阶段切默认）。
-- [ ] 合成核心：基频 + 2~7 次谐波叠加，各谐波幅度按音区查表（低音区谐波丰富、高音区收敛），幅度归一避免 clip。
-- [ ] velocity 双映射：响度（`level = f(velocity)` 非线性，弱奏更敏感）+ 亮度（高频谐波增益随 velocity 提升）。
-- [ ] 分音独立衰减：低音 decay 长、高音短（替代单一 ADSR 固定 decay）；attack/release 仍走现有 ADSR 门控（沿用 `setAdsr` 接线）。
-- [ ] CPU 预算：每 voice ≤ 8 次 `std::sin` + 少量乘加；8 voice 满载远低于实时预算（Debug 构建内自检：`renderNextBlock` 无堆分配、无锁）。
-- [ ] 听觉回归（Windows 侧手工）：与 sine 对比，可辨识击弦瞬间 / 衰减 / 力度分层。
+落地：`source/Audio/PianoSynthVoice.h`（header-only，继承 `juce::SynthesiserVoice`，与 SineSynthVoice 并存注册）。
+
+- [x] 新建 `source/Audio/PianoSynthVoice`（继承 `SynthesiserVoice`），与 SineSynthVoice 并存注册；`AudioEngine::BuiltinSynthTone {sine, piano}` + `setBuiltinSynthTone` 可切换（`rebuildSynth` 按 tone 注册），初始默认仍用 sine（行为不变），后续阶段切默认。
+- [x] 合成核心：基频 + 2~7 次谐波叠加，分音数与幅度按音区查表（`voiceRegions`：note <48 → 8 分音 / <72 → 6 / <96 → 4 / ≥96 → 3；幅度 1/n 递减），幅度归一避免 clip（`peakLevelAtFullVelocity = 0.28`）。
+- [x] velocity 双映射：响度 `level = v^1.5`（弱奏更敏感，sqrt 实现避免 pow）+ 亮度（高次谐波增益随 v 线性提升，最高次 +60%）。
+- [x] 分音独立衰减：decay 按音区查表（4.0 / 2.5 / 1.5 / 0.8 s，低音长高音短）+ 高次分音略快（`harmonicDecayFactor` 表）；attack/release 沿用 `setAdsrParameters` 接线（内部变换为 `{attack, 0.001, 1.0, release}` 作门控，decay/sustain 由分音衰减替代）。
+- [x] CPU 预算：每 voice ≤ 8 次 `std::sin`（分音数上限 8）+ 每 note 一次 `sqrt`/`exp`；`renderNextBlock` 无堆分配、无锁（`std::array<Partial, 8>` 固定缓冲）；分音衰减至 `1e-4`（-80 dB）后 voice 自清防低音长尾占位。
+- [ ] 听觉回归（Windows 侧手工）：与 sine 对比击弦瞬间 / 衰减 / 力度分层——待用户手工验证（音色已可经切换接口启用）。
+- 验证：`test`（52 类 2968 断言全绿）/ `format --check`（归零）/ `win-build`（MSVC 成功，2026-08-18）。
+- 范围说明：导出路径（`WavExportOptions`）接入 Piano 音色归 12-3（与参数扩展一起做）；12-2 保持实时默认 sine = 导出 sine 的一致性。
 
 **Phase 12-3：参数化与 UI 接线**
 
@@ -54,13 +58,16 @@
 - [ ] `WavExportOptions` + `buildWavExportOptions` 扩展同参数（实时/离线音色一致前提）。
 - [ ] `SettingsComponent` / UI 控件（沿用 ADSR 旋钮模式）绑定新参数。
 
-**Phase 12-4：确定性音色测试**
+**Phase 12-4：确定性音色测试 [已完成，2026-08-18]**
 
-- [ ] 新建 `source/tests/PianoSynthVoiceTest.cpp`：夹具直接构造 voice → `prepare(44100, 512)` → `startNote` → `renderNextBlock`（绕过 `MidiMessageCollector` 时序）。
-- [ ] 断言：基频≈261.63 Hz（FFT/过零）、存在 2~7 次谐波、velocity 0.2 vs 0.9 响度单调递增、noteOff 后 tail 衰减收敛至零、allNotesOff 生效、无堆分配/无崩溃。
-- [ ] 现有 2921 断言保持全绿；测试类别沿用 `DevPiano/Audio` 前缀（TEST-012 惯例）。
+落地：`source/tests/PianoSynthVoiceTest.cpp`（`DevPiano/Engine` 类别，10 个 beginTest，37 断言，与 12-2 并行推进）。
 
-**排期参考**：12-1 已完成（1 轮兑现，2026-08-18）；12-2 约 1–2 轮（含调参）；12-3 约 1 轮；12-4 与 12-2 并行推进。Phase 12 剩余约 3 轮迭代。
+- [x] 新建 `source/tests/PianoSynthVoiceTest.cpp`：夹具经 `juce::Synthesiser` 驱动 voice（`noteOn` 事件 → `renderNextBlock`，绕过 `MidiMessageCollector` 时序）——**必须走 Synthesiser**：`currentlyPlayingSound` 仅由 `Synthesiser::startVoice` 设置，直接调 `startNote` 会让 voice 处于非活跃态。
+- [x] 断言：单点 DFT（Hann 窗）验证基频≈261.63 Hz 且低音区 2~7 次 / 中音区 2~5 次谐波存在、velocity 0.2 vs 0.9 响度单调递增、noteOff 后 tail 衰减收敛至零、自然衰减自清（treble 8 s）、`stopNote(false)` 立即静音、100 块长渲染有限无 NaN、`allNotesOff` 生效、`AudioEngine` 音色切换接口（默认 sine → piano → sine，`prepareToPlay` 不崩溃）。
+- [x] 现有断言保持全绿：默认套件 52 类 2968 断言（2928 + 37 新 + 3 切换）。
+- [x] 注意：TestRunner 默认按类别白名单 `{DevPiano/Core, Recording, Engine, UI}` 筛选——TEST-012 记录的 "DevPiano/Audio" 前缀与白名单不一致，本测试沿用现有惯例用 `DevPiano/Engine`（与 AudioEngineTest 一致），否则默认套件不会执行它。
+
+**排期参考**：12-1 / 12-2 / 12-4 已完成（2026-08-18）；12-3（参数化与 UI 接线，含导出路径接入 Piano 音色）约 1 轮。Phase 12 剩余约 1 轮 + Windows 侧听觉回归。
 
 ### 验收标准
 
