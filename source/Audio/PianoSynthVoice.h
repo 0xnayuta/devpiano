@@ -14,12 +14,13 @@
 // - 分音叠加与刚性琴弦非谐性（Phase 13-1）：基频 + 高次分音，各分音频率按 JOS PASP
 //   刚性琴弦公式计算 f_m = m·f₀·√(1+B·m²)，刚度系数 B 按音区查表（低音弦粗 B≈4e-4，
 //   高音 B≈1e-5），各分音失去公共整数倍周期，产生自然的泛音拍频（Beats）；
-// - velocity 双映射：响度 level = v^1.5（弱奏更敏感）+ 亮度（高次谐波增益
-//   随 v 提升）；
-// - 分音独立指数衰减：decay 按音区（低音长、高音短），高次分音略快；
-//   attack/release 沿用 AudioEngine::setAdsr 接线（经 setAdsrParameters
+// - 模态分音衰减速率建模（Phase 13-2）：基于 Mutable Instruments 模态能量耗散模型，
+//   分音时间常数 τ_m = τ_base / (1.0 + c_eff · (m - 1))，高次分音快速耗散，音色由击弦瞬间
+//   的丰富泛音自然过渡至基频主导的纯净尾音；pianoResonance 调节 τ_base，pianoBrightness
+//   微调高频阻尼斜率；
+// - velocity 双映射：响度 level = v^1.5（弱奏更敏感）+ 亮度（高次谐波增益随 v 提升）；
+// - attack/release 沿用 AudioEngine::setAdsr 接线（经 setAdsrParameters
 //   提取 attack/release 作门控，decay/sustain 由分音衰减替代）。
-//
 // 实时约束：renderNextBlock 无堆分配、无锁；每分音一次 std::sin（≤8 次），
 // startNote 内每 note 做 O(partials) 次 std::sqrt/std::exp（按键瞬间计算，逐采样
 // 渲染 CPU 零新增）。
@@ -81,6 +82,9 @@ public:
         const auto brightnessFactor = velocity * (0.5f + pianoBrightness);
         // 共鸣：衰减时间缩放（r=0.5 中性，r=1 → ×1.3，r=0 → ×0.7）。
         const auto decayScale = 1.0f + (pianoResonance - 0.5f) * 0.6f;
+        const auto baseDecaySeconds = static_cast<double>(region.decaySeconds * decayScale);
+        // 高频衰减阻尼：pianoBrightness 微调（b=0.5 时为 1.0，暗时阻尼更大衰减更快，亮时阻尼略小）
+        const auto dampingSlope = region.decayDampingC * (1.5f - pianoBrightness);
 
         // 归一化：按当前亮度因子求和，使 v=1 时峰值恒为 peakLevelAtFullVelocity。
         auto normSum = 0.0f;
@@ -99,8 +103,9 @@ public:
             partial.increment = juce::MathConstants<double>::twoPi * partialFrequency / sampleRate;
             partial.level = amplitudeFor(n) * brightnessBoost(n, brightnessFactor, numActivePartials)
                 * hammerGain(n, numActivePartials) * scale * velocityLevel;
-            partial.decayPerSample = static_cast<float>(std::exp(
-                -1.0 / (static_cast<double>(region.decaySeconds * decayScale * harmonicDecayFactor(n)) * sampleRate)));
+            // 模态能量耗散模型：τ_m = τ_base / (1.0 + c_eff * (m - 1))
+            const auto tau_m = baseDecaySeconds / (1.0 + static_cast<double>(dampingSlope * static_cast<float>(n)));
+            partial.decayPerSample = static_cast<float>(std::exp(-1.0 / (tau_m * sampleRate)));
         }
 
         adsrGate.setSampleRate(sampleRate);
@@ -168,11 +173,22 @@ public:
     [[nodiscard]] static double inharmonicityBForNote(int midiNoteNumber) noexcept {
         return regionForNote(midiNoteNumber).inharmonicityB;
     }
+    [[nodiscard]] static float decayDampingCForNote(int midiNoteNumber) noexcept {
+        return regionForNote(midiNoteNumber).decayDampingC;
+    }
     [[nodiscard]] static double partialFrequency(int midiNoteNumber, int partialIndex) noexcept {
         const auto baseFrequency = static_cast<double>(juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber));
         const auto partialNumber = static_cast<double>(partialIndex + 1);
         const auto b = inharmonicityBForNote(midiNoteNumber);
         return baseFrequency * partialNumber * std::sqrt(1.0 + b * partialNumber * partialNumber);
+    }
+    [[nodiscard]] static double partialDecaySeconds(int midiNoteNumber, int partialIndex, float brightness = 0.5f,
+                                                    float resonance = 0.5f) noexcept {
+        const auto& region = regionForNote(midiNoteNumber);
+        const auto decayScale = 1.0f + (juce::jlimit(0.0f, 1.0f, resonance) - 0.5f) * 0.6f;
+        const auto baseDecay = static_cast<double>(region.decaySeconds * decayScale);
+        const auto dampingSlope = region.decayDampingC * (1.5f - juce::jlimit(0.0f, 1.0f, brightness));
+        return baseDecay / (1.0 + static_cast<double>(dampingSlope * static_cast<float>(partialIndex)));
     }
 
 private:
@@ -180,13 +196,14 @@ private:
         int partialCount;
         float decaySeconds;
         double inharmonicityB;
+        float decayDampingC;
     };
 
     static constexpr VoiceRegion voiceRegions[] = {
-        { 8, 4.0f, 4.0e-4 }, // note < 48：7 次谐波，长衰减，低音弦粗刚度大（B ≈ 4e-4）
-        { 6, 2.5f, 1.0e-4 }, // 48–71：5 次谐波，中音弦（B ≈ 1e-4）
-        { 4, 1.5f, 3.0e-5 }, // 72–95：3 次谐波，高音弦（B ≈ 3e-5）
-        { 3, 0.8f, 1.0e-5 }, // ≥ 96：2 次谐波，短衰减，极高音弦（B ≈ 1e-5）
+        { 8, 4.0f, 4.0e-4, 0.35f }, // note < 48：低音弦长，高次衰减阻尼斜率 c = 0.35
+        { 6, 2.5f, 1.0e-4, 0.25f }, // 48–71：中音弦 c = 0.25
+        { 4, 1.5f, 3.0e-5, 0.18f }, // 72–95：高音弦 c = 0.18
+        { 3, 0.8f, 1.0e-5, 0.12f }, // ≥ 96：极高音弦 c = 0.12
     };
     [[nodiscard]] static const VoiceRegion& regionForNote(int midiNoteNumber) noexcept {
         if (midiNoteNumber < 48) {
@@ -216,12 +233,6 @@ private:
         return 1.0f
             + (pianoHammerHardness - 0.5f) * 0.4f
             * (static_cast<float>(partialIndex) / static_cast<float>(partialCount));
-    }
-
-    // 分音独立衰减：高次分音衰减略快（v1 简单因子表；精细曲线建模在 Phase 13）。
-    [[nodiscard]] static float harmonicDecayFactor(int partialIndex) noexcept {
-        constexpr float factors[] = { 1.0f, 0.85f, 0.72f, 0.62f, 0.55f, 0.50f, 0.46f, 0.43f };
-        return factors[partialIndex];
     }
 
     [[nodiscard]] bool allPartialsSilent() const noexcept {

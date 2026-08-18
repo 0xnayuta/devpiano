@@ -5,7 +5,7 @@
 
 ## 当前方向
 
-**Phase 12（内置物理建模钢琴音源，SineSynth → PianoSynth）已完成（2026-08-18）**——Phase 12-1~12-4 全部落地 + Windows 侧手工听觉回归（Step 1~8）通过，谐波钢琴 v1 可经 Tone 切换启用（默认仍 sine）。当前进入 **Phase 13（Stiff-String Inharmonic Piano v2）**，Phase 13-1（刚性琴弦分音失谐偏移）已落地（2026-08-18）。
+**Phase 12（内置物理建模钢琴音源，SineSynth → PianoSynth）已完成（2026-08-18）**——Phase 12-1~12-4 全部落地 + Windows 侧手工听觉回归（Step 1~8）通过，谐波钢琴 v1 可经 Tone 切换启用（默认仍 sine）。当前进入 **Phase 13（Stiff-String Inharmonic Piano v2）**，Phase 13-1（刚性琴弦分音失谐偏移）与 Phase 13-2（模态分音衰减速率建模）已落地（2026-08-18）。
 
 代码质量审计（[`AUDIT-001`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)，2026-08-16）修复 **AUDIT Phase A–H 已全部完成**（2026-08-17）：56 项未处理全关闭，16 项已暂缓复核关闭 2 项（QUAL-019/PERF-002），剩余 14 项维持；断言总数 754 → 2921 全绿。逐项完成记录已归档至 [`../archive/audit-001-code-quality-fix-phases.md`](../archive/audit-001-code-quality-fix-phases.md)。
 
@@ -165,13 +165,14 @@ Phase 12 的 v1 是**整数倍谐波**叠加：分音频率严格 `n·f₀`，�
 - [x] 计算纪律：仅在 `startNote` 按键瞬间计算一次步进增量，**音频渲染线程逐采样 CPU 零新增**。
 - [x] 确定性测试（Phase 13-5 先行）：`PianoSynthVoiceTest.cpp` 新增 12 项断言（音区 B 参数边界、刚性琴弦分音公式量化校验、低音 note 36 第 5/7 分音频偏幅度断言、实际输出 DFT 在非谐频率处能量显著高于整数倍谐波处能量的对比断言），默认测试套件断言数 2992 $\to$ **3004** 全绿。
 - [x] 验证：`wsl-build`（0 warning）/ `test`（3004 断言全绿）/ `format --check`（0 违规）/ `win-build`（MSVC 构建成功）。
-**Phase 13-2：模态分音衰减速率建模（Modal Decay Modeling）**
+**Phase 13-2：模态分音衰减速率建模（Modal Decay Modeling） [已完成，2026-08-18]**
 
-- [ ] 借鉴 Mutable Instruments（Rings/Elements）模态能量耗散模型：替换 v1 的 8 档离散表，引入连续分音时间常数模型 $\tau_n = \tau_{\text{base}}(\text{note}) / (1.0 + c_{\text{region}} \cdot (n - 1))$。
-- [ ] 确定性衰减因子：在 `startNote` 预计算每分音每采样衰减系数 $\text{decayPerSample}_n = \exp(-1.0 / (\text{sampleRate} \cdot \tau_n))$，低音区 $c_{\text{region}} \approx 0.35$，高音区 $c_{\text{region}} \approx 0.15$。
-- [ ] 旋钮映射保持：`pianoResonance` 旋钮继续作用于 $\tau_{\text{base}}$（$\times 0.7 \sim 1.3$），`pianoBrightness` 作用于高次谐波初始幅度与高频衰减斜率。
-- [ ] **声学收益**：高次分音在击弦后数十至数百毫秒内快速耗散，音色平滑过渡为基频与低次分音主导的纯净尾音。
-
+- [x] 借鉴 Mutable Instruments（Rings/Elements）模态能量耗散模型：删除 v1 的 8 档离散表，引入连续分音时间常数模型 $\tau_m = \tau_{\text{base}} / (1.0 + c_{\text{eff}} \cdot (m - 1))$。
+- [x] 确定性衰减因子：在 `startNote` 预计算每分音每采样衰减系数 $\text{decayPerSample}_m = \exp(-1.0 / (\text{sampleRate} \cdot \tau_m))$，阻尼斜率按音区查表 $c_{\text{region}} \in \{0.35, 0.25, 0.18, 0.12\}$（低音弦长阻尼斜率大、极高音小）。
+- [x] 旋钮映射协调：`pianoResonance` 作用于 $\tau_{\text{base}}$（$\times 0.7 \sim 1.3$），`pianoBrightness` 作用于高次谐波初始幅度与高频衰减阻尼斜率（$c_{\text{eff}} = c_{\text{region}} \times (1.5 - \text{brightness})$，默认 0.5 时为 1.0 完全保持物理基准）。
+- [x] **声学收益**：高次分音在击弦后快速耗散，音色由击弦瞬态丰富泛音平滑过渡至基频主导的自然尾音，彻底消除泛音长期不衰减的合成器质感。
+- [x] 确定性测试（Phase 13-5 推进）：`PianoSynthVoiceTest.cpp` 新增 11 项断言（4 个音区阻尼斜率 $c$ 边界、时间常数物理公式量化校验、分音衰减时间单调递减校验、动态时域/频域早期 $t_0$ vs 后期 $t_1$ 高次分音能量比下降断言），默认测试套件断言数 3004 $\to$ **3015** 全绿。
+- [x] 验证：`wsl-build`（0 warning）/ `test`（3015 断言全绿）/ `format --check`（0 违规）/ `win-build`（MSVC 构建成功）。
 **Phase 13-3：简单琴体共鸣滤波（Body Resonator Bank）**
 
 - [ ] 借鉴 `DaisySP::Resonator` 与 Mutable Instruments 标准拓扑：构建轻量 Direct Form II 二阶带通/谐振器组（2~3 个并联峰）。

@@ -125,6 +125,14 @@ public:
             expectWithinAbsoluteError(PianoSynthVoice::inharmonicityBForNote(60), 1.0e-4, 1e-7, "mid B");
             expectWithinAbsoluteError(PianoSynthVoice::inharmonicityBForNote(80), 3.0e-5, 1e-7, "high-mid B");
             expectWithinAbsoluteError(PianoSynthVoice::inharmonicityBForNote(100), 1.0e-5, 1e-7, "treble B is small");
+
+            expectWithinAbsoluteError(PianoSynthVoice::decayDampingCForNote(0), 0.35f, 0.001f,
+                                      "bass damping slope is high");
+            expectWithinAbsoluteError(PianoSynthVoice::decayDampingCForNote(60), 0.25f, 0.001f, "mid damping slope");
+            expectWithinAbsoluteError(PianoSynthVoice::decayDampingCForNote(80), 0.18f, 0.001f,
+                                      "high-mid damping slope");
+            expectWithinAbsoluteError(PianoSynthVoice::decayDampingCForNote(100), 0.12f, 0.001f,
+                                      "treble damping slope");
         }
 
         beginTest("renders non-zero finite output at normalised level");
@@ -210,6 +218,50 @@ public:
             expect(magAtInharmonic5 > 1.2 * magAtInteger5,
                    "DFT energy at stiff-string 5th partial (" + juce::String(actualF5, 2)
                        + " Hz) must be higher than integer harmonic (" + juce::String(5.0 * f0, 2) + " Hz)");
+        }
+        beginTest("modal overtone decay rates (physical energy dissipation)");
+        {
+            // 验证时间常数物理公式：τ_m = τ_base / (1 + c_eff * (m - 1))
+            const auto tau1 = PianoSynthVoice::partialDecaySeconds(36, 0);
+            expectWithinAbsoluteError(tau1, 4.0, 1e-3, "fundamental decay equals base decay");
+
+            const auto tau6
+                = PianoSynthVoice::partialDecaySeconds(36, 5); // m=6, 4.0 / (1 + 0.35 * 5) = 4.0 / 2.75 ≈ 1.4545s
+            expectWithinAbsoluteError(tau6, 4.0 / (1.0 + 0.35 * 5.0), 1e-3, "6th partial modal decay formula");
+            expect(tau6 < tau1 * 0.4, "6th partial decays more than 2.5x faster than fundamental");
+
+            const auto tau8
+                = PianoSynthVoice::partialDecaySeconds(36, 7); // m=8, 4.0 / (1 + 0.35 * 7) = 4.0 / 3.45 ≈ 1.1594s
+            expectWithinAbsoluteError(tau8, 4.0 / (1.0 + 0.35 * 7.0), 1e-3, "8th partial modal decay formula");
+            expect(tau8 < tau6, "overtone decay times are strictly monotonically decreasing");
+
+            // 动态时域 / 频域验证（Phase 13-5 模态衰减对比断言）：
+            // 在低音 note 36（C2）按键后，对比早期 t0 与后期 t1 的第 6 分音 / 基频幅度比
+            VoiceFixture fixture;
+            juce::AudioBuffer<float> earlyBuffer(1, analysisWindow);
+            fixture.noteOnBlock(36, 0.9f, earlyBuffer); // 0 ~ 0.37s
+
+            const auto f1 = PianoSynthVoice::partialFrequency(36, 0);
+            const auto f6 = PianoSynthVoice::partialFrequency(36, 5);
+
+            const auto earlyF1 = magnitudeAtFrequency(earlyBuffer, f1, analysisWindow);
+            const auto earlyF6 = magnitudeAtFrequency(earlyBuffer, f6, analysisWindow);
+            const auto earlyRatio = earlyF6 / juce::jmax(1e-6, earlyF1);
+            expect(earlyRatio > 0.05, "6th partial is present in the early strike window");
+
+            // 推进到约 2.0s 处（再渲染 5 个 analysisWindow，中心点 t ≈ 2.0s）
+            juce::AudioBuffer<float> lateBuffer(1, analysisWindow);
+            for (auto step = 0; step < 5; ++step) {
+                fixture.renderBlock(lateBuffer);
+            }
+            const auto lateF1 = magnitudeAtFrequency(lateBuffer, f1, analysisWindow);
+            const auto lateF6 = magnitudeAtFrequency(lateBuffer, f6, analysisWindow);
+            const auto lateRatio = lateF6 / juce::jmax(1e-6, lateF1);
+
+            // 高次分音衰减远快于基频，后期分音比显著下降（Ratio(t1) < 0.5 * Ratio(t0)）
+            expect(lateRatio < 0.5 * earlyRatio,
+                   "upper harmonic ratio at t1 (" + juce::String(lateRatio, 5) + ") must drop below 50% of t0 ratio ("
+                       + juce::String(earlyRatio, 5) + ") due to modal energy dissipation");
         }
 
         beginTest("velocity loudness is monotonically increasing");
