@@ -16,6 +16,10 @@
 // - 递归振荡器与分音数扩展（Phase 14-A）：分音上限 8 → 20/14/8/6（按音区），每分音
 //   用 Magic Circle coupled-form 递归振荡器（零 std::sin、幅度严格有界、频率由
 //   ε = 2·sin(π·f/fs) 精确决定），幅度衰减以每采样增益乘法维持；
+// - 双阶段衰减（Phase 14-B）：每分音双指数分量 A(t) = A·[(1-w)·e^{-t/τ_fast} + w·e^{-t/τ_slow}]，
+//   快分量对应击弦后弦-音板快速能量辐射（τ_fast ≈ 0.15~0.2 × τ_slow），慢分量对应
+//   弱耦合偏振模态的绵长尾音（权重 w 按音区 0.15~0.30）；两套 decayPerSample 在
+//   startNote 预计算，逐采样各一次乘法；
 // - 模态分音衰减速率建模（Phase 13-2）：基于 Mutable Instruments 模态能量耗散模型，
 //   分音时间常数 τ_m = τ_base / (1.0 + c_eff · (m - 1))，高次分音快速耗散，音色由击弦瞬间
 //   的丰富泛音自然过渡至基频主导的纯净尾音；pianoResonance 调节 τ_base，pianoBrightness
@@ -116,9 +120,14 @@ public:
             partial.epsilon = 2.0 * std::sin(juce::MathConstants<double>::pi * partialFrequency / sampleRate);
             partial.level = amplitudeFor(n) * brightnessBoost(n, brightnessFactor, numActivePartials)
                 * hammerGain(n, numActivePartials) * scale * velocityLevel;
-            // 模态能量耗散模型：τ_m = τ_base / (1.0 + c_eff * (m - 1))
+            // 模态能量耗散模型：τ_m = τ_base / (1.0 + c_eff * (m - 1))；双阶段衰减
+            // （Phase 14-B）：τ_fast,m = τ_m × fastDecayRatio，慢分量权重 slowWeight。
             const auto tau_m = baseDecaySeconds / (1.0 + static_cast<double>(dampingSlope * static_cast<float>(n)));
-            partial.decayPerSample = static_cast<float>(std::exp(-1.0 / (tau_m * sampleRate)));
+            const auto tauFast_m = tau_m * static_cast<double>(region.fastDecayRatio);
+            partial.decayFastPerSample = static_cast<float>(std::exp(-1.0 / (tauFast_m * sampleRate)));
+            partial.decaySlowPerSample = static_cast<float>(std::exp(-1.0 / (tau_m * sampleRate)));
+            partial.levelFast = partial.level * (1.0f - region.slowWeight);
+            partial.levelSlow = partial.level * region.slowWeight;
         }
 
         for (auto& resonator : bodyResonators) {
@@ -165,13 +174,14 @@ public:
             auto value = 0.0f;
             for (auto n = 0; n < numActivePartials; ++n) {
                 auto& partial = partials[static_cast<std::size_t>(n)];
-                value += partial.level * static_cast<float>(partial.sinState);
+                value += (partial.levelFast + partial.levelSlow) * static_cast<float>(partial.sinState);
                 // Magic Circle 步进（coupled form）：
                 // u[n] = u[n-1] - ε·v[n-1]；v[n] = v[n-1] + ε·u[n]。
                 const auto nextCos = partial.cosState - partial.epsilon * partial.sinState;
                 partial.sinState += partial.epsilon * nextCos;
                 partial.cosState = nextCos;
-                partial.level *= partial.decayPerSample;
+                partial.levelFast *= partial.decayFastPerSample;
+                partial.levelSlow *= partial.decaySlowPerSample;
             }
 
             const auto sampleIndex = startSample + sample;
@@ -205,18 +215,19 @@ public:
     [[nodiscard]] static float decaySecondsForNote(int midiNoteNumber) noexcept {
         return regionForNote(midiNoteNumber).decaySeconds;
     }
-    [[nodiscard]] static double inharmonicityBForNote(int midiNoteNumber) noexcept {
-        return regionForNote(midiNoteNumber).inharmonicityB;
-    }
     [[nodiscard]] static float decayDampingCForNote(int midiNoteNumber) noexcept {
         return regionForNote(midiNoteNumber).decayDampingC;
     }
-    [[nodiscard]] static double partialFrequency(int midiNoteNumber, int partialIndex) noexcept {
-        const auto baseFrequency = static_cast<double>(juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber));
-        const auto partialNumber = static_cast<double>(partialIndex + 1);
-        const auto b = inharmonicityBForNote(midiNoteNumber);
-        return baseFrequency * partialNumber * std::sqrt(1.0 + b * partialNumber * partialNumber);
+    [[nodiscard]] static double inharmonicityBForNote(int midiNoteNumber) noexcept {
+        return regionForNote(midiNoteNumber).inharmonicityB;
     }
+    [[nodiscard]] static float fastDecayRatioForNote(int midiNoteNumber) noexcept {
+        return regionForNote(midiNoteNumber).fastDecayRatio;
+    }
+    [[nodiscard]] static float slowWeightForNote(int midiNoteNumber) noexcept {
+        return regionForNote(midiNoteNumber).slowWeight;
+    }
+    // 慢分量（尾音）时间常数：τ_slow,m = τ_base / (1 + c_eff·(m-1))（Phase 14-B 后 decaySeconds 的语义）。
     [[nodiscard]] static double partialDecaySeconds(int midiNoteNumber, int partialIndex, float brightness = 0.5f,
                                                     float resonance = 0.5f) noexcept {
         const auto& region = regionForNote(midiNoteNumber);
@@ -225,9 +236,23 @@ public:
         const auto dampingSlope = region.decayDampingC * (1.5f - juce::jlimit(0.0f, 1.0f, brightness));
         return baseDecay / (1.0 + static_cast<double>(dampingSlope * static_cast<float>(partialIndex)));
     }
+    // 快分量（击弦辐射期）时间常数：τ_fast,m = τ_slow,m × fastDecayRatio。
+    [[nodiscard]] static double partialFastDecaySeconds(int midiNoteNumber, int partialIndex, float brightness = 0.5f,
+                                                        float resonance = 0.5f) noexcept {
+        const auto& region = regionForNote(midiNoteNumber);
+        return partialDecaySeconds(midiNoteNumber, partialIndex, brightness, resonance)
+            * static_cast<double>(region.fastDecayRatio);
+    }
     [[nodiscard]] static constexpr float bodyWet() noexcept {
         return bodyWetRatio;
     }
+    [[nodiscard]] static double partialFrequency(int midiNoteNumber, int partialIndex) noexcept {
+        const auto baseFrequency = static_cast<double>(juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber));
+        const auto partialNumber = static_cast<double>(partialIndex + 1);
+        const auto b = inharmonicityBForNote(midiNoteNumber);
+        return baseFrequency * partialNumber * std::sqrt(1.0 + b * partialNumber * partialNumber);
+    }
+
     [[nodiscard]] static constexpr int resonatorCount() noexcept {
         return numResonators;
     }
@@ -246,20 +271,22 @@ public:
         return specs[clamped];
     }
 
-private:
     struct VoiceRegion {
         int partialCount;
-        float decaySeconds;
+        float decaySeconds; // τ_slow 基准（双阶段衰减的慢分量时间常数，Phase 14-B）
         double inharmonicityB;
         float decayDampingC;
+        float fastDecayRatio; // τ_fast / τ_slow
+        float slowWeight; // 慢分量初始权重 w（快分量权重 = 1 - w）
     };
 
     static constexpr VoiceRegion voiceRegions[] = {
-        { 20, 4.0f, 4.0e-4, 0.35f }, // note < 48：低音弦长，20 分音（C2 顶分音 ≈ 1.4 kHz）
-        { 14, 2.5f, 1.0e-4, 0.25f }, // 48–71：中音弦，14 分音（C4 顶分音 ≈ 3.7 kHz）
-        { 8, 1.5f, 3.0e-5, 0.18f }, // 72–95：高音弦，8 分音（C5 顶分音 ≈ 4.2 kHz）
-        { 6, 0.8f, 1.0e-5, 0.12f }, // ≥ 96：极高音弦，6 分音
+        { 20, 4.0f, 4.0e-4, 0.35f, 0.15f, 0.30f }, // note < 48：低音，τ_fast=0.6 s
+        { 14, 2.5f, 1.0e-4, 0.25f, 0.20f, 0.25f }, // 48–71：中音，τ_fast=0.5 s
+        { 8, 1.5f, 3.0e-5, 0.18f, 0.20f, 0.20f }, // 72–95：高音，τ_fast=0.3 s
+        { 6, 0.8f, 1.0e-5, 0.12f, 0.15f, 0.15f }, // ≥ 96：极高音，τ_fast=0.12 s
     };
+
     [[nodiscard]] static const VoiceRegion& regionForNote(int midiNoteNumber) noexcept {
         if (midiNoteNumber < 48) {
             return voiceRegions[0];
@@ -292,7 +319,8 @@ private:
 
     [[nodiscard]] bool allPartialsSilent() const noexcept {
         for (auto n = 0; n < numActivePartials; ++n) {
-            if (partials[static_cast<std::size_t>(n)].level > silentLevelThreshold) {
+            const auto& partial = partials[static_cast<std::size_t>(n)];
+            if (partial.levelFast + partial.levelSlow > silentLevelThreshold) {
                 return false;
             }
         }
@@ -303,10 +331,12 @@ private:
         double cosState = 1.0; // Magic Circle 余弦状态 u[n]（初值 cos(0) = 1）
         double sinState = 0.0; // Magic Circle 正弦状态 v[n]（初值 sin(0) = 0，渲染取此值）
         double epsilon = 0.0; // 步进系数 ε = 2·sin(π·f/fs)，startNote 计算
-        float level = 0.0f;
-        float decayPerSample = 0.0f;
+        float level = 0.0f; // 初始总幅度（归一化后，仅 startNote 用）
+        float levelFast = 0.0f; // 快衰减分量（击弦辐射期）
+        float levelSlow = 0.0f; // 慢衰减分量（弱耦合尾音）
+        float decayFastPerSample = 0.0f;
+        float decaySlowPerSample = 0.0f;
     };
-
     std::array<Partial, maxPartials> partials;
     int numActivePartials = 0;
     juce::ADSR adsrGate;

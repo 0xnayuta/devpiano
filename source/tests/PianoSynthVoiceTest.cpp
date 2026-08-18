@@ -138,6 +138,17 @@ public:
             expectWithinAbsoluteError(PianoSynthVoice::decayDampingCForNote(100), 0.12f, 0.001f,
                                       "treble damping slope");
 
+            expectWithinAbsoluteError(PianoSynthVoice::fastDecayRatioForNote(0), 0.15f, 0.001f, "bass fast ratio");
+            expectWithinAbsoluteError(PianoSynthVoice::fastDecayRatioForNote(60), 0.20f, 0.001f, "mid fast ratio");
+            expectWithinAbsoluteError(PianoSynthVoice::fastDecayRatioForNote(100), 0.15f, 0.001f, "treble fast ratio");
+            expectWithinAbsoluteError(PianoSynthVoice::slowWeightForNote(0), 0.30f, 0.001f, "bass slow weight");
+            expectWithinAbsoluteError(PianoSynthVoice::slowWeightForNote(60), 0.25f, 0.001f, "mid slow weight");
+            expectWithinAbsoluteError(PianoSynthVoice::slowWeightForNote(100), 0.15f, 0.001f, "treble slow weight");
+
+            // τ_fast = τ_slow × ratio 的解析公式（低音 m=6：τ_slow ≈ 1.4545 s → τ_fast ≈ 0.218 s）。
+            expectWithinAbsoluteError(PianoSynthVoice::partialFastDecaySeconds(36, 5), 4.0 / (1.0 + 0.35 * 5.0) * 0.15,
+                                      1e-3, "6th partial fast decay formula");
+
             expectWithinAbsoluteError(PianoSynthVoice::bodyWet(), 0.25f, 0.001f, "25% body wet ratio");
             expectEquals(PianoSynthVoice::resonatorCount(), 3, "3 body resonators");
             expectWithinAbsoluteError(PianoSynthVoice::resonatorSpec(0).frequency, 110.0f, 0.1f, "peak 1 freq");
@@ -173,7 +184,7 @@ public:
             for (auto harmonic = 2; harmonic <= 20; ++harmonic) {
                 const auto partialFreq = PianoSynthVoice::partialFrequency(36, harmonic - 1);
                 const auto magnitude = magnitudeAtFrequency(bass, partialFreq, analysisWindow);
-                expect(magnitude > 0.03 * bassFundamental,
+                expect(magnitude > 0.025 * bassFundamental,
                        "low-bass harmonic " + juce::String(harmonic) + " must be present (mag="
                            + juce::String(magnitude, 5) + " base=" + juce::String(bassFundamental, 5) + ")");
             }
@@ -260,13 +271,14 @@ public:
         beginTest("recursive oscillator frequency stability (Magic Circle long render)");
         {
             // Phase 14-A：双窗复 DFT 相位差法测量长时频偏。
-            // 渲染 25 s 低音 C2（resonance=1 → τ_base = 5.2 s，voice 自清时间 ≈ 30 s，
-            // 25 s 处基频仍有 ≥ 2e-4 幅度、voice 活跃），取两段 16384 样本对称 Hann 窗
-            // 单点 DFT，arg(X2) - arg(X1) = 2π·δf·ΔT 直接给出频率漂移。
+            // 渲染 20 s 低音 C2（resonance=1 → τ_slow = 5.2 s，双阶段衰减后 voice
+            // 自清时间 ≈ 24 s，20 s 处慢分量仍有 ≥ 2e-4 幅度、voice 活跃），取两段
+            // 16384 样本对称 Hann 窗单点 DFT，arg(X2) - arg(X1) = 2π·δf·ΔT 直接
+            // 给出频率漂移（相位分辨率 ≈1e-8 相对，远优于 1e-4 断言阈值）。
             VoiceFixture fixture;
             fixture.voice()->setPianoParameters(0.5f, 0.5f, 1.0f);
-            constexpr auto totalSeconds = 25.0;
-            constexpr auto totalSamples = static_cast<int>(totalSeconds * sampleRate); // 1102500
+            constexpr auto totalSeconds = 20.0;
+            constexpr auto totalSamples = static_cast<int>(totalSeconds * sampleRate); // 882000
             juce::AudioBuffer<float> stream(1, totalSamples);
             stream.clear();
 
@@ -283,7 +295,7 @@ public:
                 fixture.synth.renderNextBlock(stream, empty, rendered, count);
                 rendered += count;
             }
-            expect(fixture.voice()->isVoiceActive(), "voice must still be active at 25 s");
+            expect(fixture.voice()->isVoiceActive(), "voice must still be active at 20 s");
 
             const auto f0 = PianoSynthVoice::partialFrequency(36, 0);
             auto complexDft = [](const juce::AudioBuffer<float>& buffer, int start, int count, double frequency) {
@@ -310,7 +322,7 @@ public:
             const auto deltaT = static_cast<double>(window2Start - window1Start) / sampleRate;
             const auto measuredFreq = f0 + phaseDelta / (juce::MathConstants<double>::twoPi * deltaT);
             expectWithinAbsoluteError(measuredFreq, f0, 1e-4 * f0,
-                                      "recursive oscillator frequency drift < 1e-4 relative over 25 s");
+                                      "recursive oscillator frequency drift < 1e-4 relative over 20 s");
         }
         beginTest("modal overtone decay rates (physical energy dissipation)");
         {
@@ -342,9 +354,10 @@ public:
             const auto earlyRatio = earlyF6 / juce::jmax(1e-6, earlyF1);
             expect(earlyRatio > 0.05, "6th partial is present in the early strike window");
 
-            // 推进到约 2.0s 处（再渲染 5 个 analysisWindow，中心点 t ≈ 2.0s）
+            // 推进到约 3.15 s 处（再渲染 8 个 analysisWindow，中心点 t ≈ 3.15 s；
+            // Phase 14-B 双阶段衰减后高次分音的慢分量残存更多，晚期时点后移保持对比余量）。
             juce::AudioBuffer<float> lateBuffer(1, analysisWindow);
-            for (auto step = 0; step < 5; ++step) {
+            for (auto step = 0; step < 8; ++step) {
                 fixture.renderBlock(lateBuffer);
             }
             const auto lateF1 = magnitudeAtFrequency(lateBuffer, f1, analysisWindow);
@@ -355,6 +368,82 @@ public:
             expect(lateRatio < 0.5 * earlyRatio,
                    "upper harmonic ratio at t1 (" + juce::String(lateRatio, 5) + ") must drop below 50% of t0 ratio ("
                        + juce::String(earlyRatio, 5) + ") due to modal energy dissipation");
+        }
+
+        beginTest("two-stage decay envelope (fast strike then slow tail)");
+        {
+            // Phase 14-B：低音 note 36 双指数衰减 A(t) = A[(1-w)e^{-t/τ_f} + w·e^{-t/τ_s}]，
+            // τ_f = 0.6 s（ratio 0.15）、τ_s = 4.0 s、w = 0.30（基频，resonance 中性）。
+            // 渲染 4.2 s 长流，短窗（4096 样本 ≈ 0.093 s）单点 DFT 在 f1 处取 5 个早期
+            // 点（0.05~0.25 s）与 5 个晚期点（2.0~4.0 s），对数幅度线性回归斜率：
+            // 预期早期 ≈ -1.18 /s（快分量主导）、晚期 ≈ -0.25 /s（慢分量主导）。
+            VoiceFixture fixture;
+            constexpr auto renderSeconds = 4.2;
+            constexpr auto renderSamples = static_cast<int>(renderSeconds * sampleRate); // 185220
+            juce::AudioBuffer<float> stream(1, renderSamples);
+            stream.clear();
+
+            auto rendered = 0;
+            {
+                juce::MidiBuffer midi;
+                midi.addEvent(juce::MidiMessage::noteOn(1, 36, 0.9f), 0);
+                fixture.synth.renderNextBlock(stream, midi, 0, blockSize);
+                rendered += blockSize;
+            }
+            while (rendered < renderSamples) {
+                juce::MidiBuffer empty;
+                const auto count = juce::jmin(blockSize, renderSamples - rendered);
+                fixture.synth.renderNextBlock(stream, empty, rendered, count);
+                rendered += count;
+            }
+            const auto f1 = PianoSynthVoice::partialFrequency(36, 0);
+            constexpr auto shortWindow = 4096;
+            // 短窗单点 DFT（Hann 窗，带 start 偏移）：测 t 处窗口的基频幅度。
+            auto windowMagnitude = [&](int start) {
+                auto real = 0.0;
+                auto imag = 0.0;
+                for (auto i = 0; i < shortWindow; ++i) {
+                    const auto window
+                        = 0.5 * (1.0 - std::cos(juce::MathConstants<double>::twoPi * i / (shortWindow - 1)));
+                    const auto angle = juce::MathConstants<double>::twoPi * f1 * i / sampleRate;
+                    const auto value = stream.getSample(0, start + i) * window;
+                    real += value * std::cos(angle);
+                    imag -= value * std::sin(angle);
+                }
+                return 4.0 * std::sqrt(real * real + imag * imag) / shortWindow;
+            };
+            auto logSlope = [&](double t0, double step, int points) {
+                auto sumT = 0.0;
+                auto sumL = 0.0;
+                juce::Array<double> times;
+                juce::Array<double> levels;
+                for (auto i = 0; i < points; ++i) {
+                    const auto t = t0 + step * i;
+                    const auto magnitude = windowMagnitude(static_cast<int>(t * sampleRate));
+                    times.add(t);
+                    levels.add(std::log(juce::jmax(1e-9, magnitude)));
+                    sumT += t;
+                    sumL += levels.getReference(i);
+                }
+                const auto meanT = sumT / points;
+                const auto meanL = sumL / points;
+                auto num = 0.0;
+                auto den = 0.0;
+                for (auto i = 0; i < points; ++i) {
+                    num += (times[i] - meanT) * (levels[i] - meanL);
+                    den += (times[i] - meanT) * (times[i] - meanT);
+                }
+                return num / den;
+            };
+
+            const auto slopeEarly = logSlope(0.05, 0.05, 5);
+            const auto slopeLate = logSlope(2.0, 0.5, 5);
+
+            expect(slopeEarly < -0.6, "early strike decay must be fast (slope=" + juce::String(slopeEarly, 3) + " /s)");
+            expect(slopeLate > -0.45, "slow tail decay must be gentle (slope=" + juce::String(slopeLate, 3) + " /s)");
+            expect(std::abs(slopeEarly) > 2.0 * std::abs(slopeLate),
+                   "early decay must be more than 2x faster than the tail (early=" + juce::String(slopeEarly, 3)
+                       + " late=" + juce::String(slopeLate, 3) + ")");
         }
         beginTest("body resonator frequency response and stability (soundboard physics)");
         {

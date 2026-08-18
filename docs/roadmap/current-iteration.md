@@ -5,7 +5,7 @@
 
 ## 当前方向
 
-**Phase 13（Stiff-String Inharmonic Piano v2）已完成（2026-08-18）**；**Phase 14-A（递归振荡器 + 分音数扩展）已完成（2026-08-18）**——Magic Circle coupled-form 递归振荡器（零 `std::sin`）替换逐采样正弦，分音上限 8 → 20/14/8/6，三闸门全绿（46/46 测试、3059 断言）。当前进入 **Phase 14-B（Two-stage decay 双阶段衰减）**：Phase 14 为 Enhanced Modal Piano v3（增强模态合成），经网络与文献核实（2026-08-18）由原数字波导计划改道而来（Pianoteq 与 Bank 2010 TASLP 实证的业界最佳路线），详细排期 14-A~14-E 见下文；数字波导降级为实验分支（14-F）。
+**Phase 13（Stiff-String Inharmonic Piano v2）已完成（2026-08-18）**；**Phase 14-A（递归振荡器 + 分音数扩展）与 Phase 14-B（Two-stage decay 双阶段衰减）已完成（2026-08-18）**——Magic Circle 振荡器零 `std::sin`、分音上限 8 → 20/14/8/6、每分音双指数衰减（快辐射期 τ_fast ≈ 0.15~0.2×τ_slow + 慢尾音），三闸门全绿（46/46 测试、3070 断言）。当前进入 **Phase 14-C（同音三弦拍频 Beating）**：Phase 14 为 Enhanced Modal Piano v3（增强模态合成），经网络与文献核实（2026-08-18）由原数字波导计划改道而来（Pianoteq 与 Bank 2010 TASLP 实证的业界最佳路线），详细排期 14-A~14-E 见下文；数字波导降级为实验分支（14-F）。
 
 代码质量审计（[`AUDIT-001`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)，2026-08-16）修复 **AUDIT Phase A–H 已全部完成**（2026-08-17）：56 项未处理全关闭，16 项已暂缓复核关闭 2 项（QUAL-019/PERF-002），剩余 14 项维持；断言总数 754 → 2921 全绿。逐项完成记录已归档至 [`../archive/audit-001-code-quality-fix-phases.md`](../archive/audit-001-code-quality-fix-phases.md)。
 
@@ -277,12 +277,13 @@ Phase 12/13 的 v1/v2 是**有限分音解析加法**：≤8 分音逐个 `std::
 - [x] 确定性测试：递归振荡器长时频偏（25 s 渲染 + 双窗复 DFT 相位差法，漂移 < 1e-4 相对；30 s 与 voice 自清阈值冲突，25 s 处基频幅度 ≥2e-4、相位分辨率 ≈1e-8 相对）、分音数边界 20/14/8/6、全区域 DFT 分音检查（低音 2..20 / 中音 2..14 / 高音 2..8 / 极高音 2..6）、现有断言全绿（46/46，3059 断言）。
 - [x] 验证：`wsl-build` / `test` / `format --check` / `win-build` 三闸门全绿。
 
-**Phase 14-B：Two-stage decay（双阶段衰减）**
+**Phase 14-B：Two-stage decay（双阶段衰减）[已完成，2026-08-18]**
 
-- [ ] 每分音双指数衰减（$\tau_{\text{fast}}$/$\tau_{\text{slow}}$/$w$ 按音区查表）或 Bank 2010 secondary resonators 方案；`startNote` 预计算两套 `decayPerSample` 与交叉时间。
-- [ ] 确定性测试：早期（0.1 s）与晚期（1~2 s）包络斜率比断言（$\text{slope}_{\text{early}} > 2 \times \text{slope}_{\text{late}}$）、整体自清时长回归。
-- [ ] Windows 侧初步听感：尾音自然度对比 v2。
-- [ ] 验证：`wsl-build` / `test` / `format --check` / `win-build`。
+- [x] 每分音双指数分量 `A(t) = A·[(1-w)·e^{-t/τ_fast} + w·e^{-t/τ_slow}]`（方案选型：双指数衰减而非 Bank 2010 secondary resonators——每分音 +1 乘加、零新抽象、确定性可断言；副谐振器组 CPU 更贵且与 per-partial 控制重叠）；`Partial` 增加 `levelFast/levelSlow` 与两套 `decayPerSample`，`startNote` 预计算（τ_fast,m = τ_slow,m × ratio）。
+- [x] 参数按音区查表：`fastDecayRatio` 0.15/0.20/0.20/0.15（低/中/高/极高音，τ_fast = 0.6/0.5/0.3/0.12 s）、`slowWeight` 0.30/0.25/0.20/0.15；`decaySeconds` 语义变为 τ_slow 基准（数值不变，向后兼容）。
+- [x] 确定性测试：4.2 s 渲染 + 短窗 DFT（4096 样本）对数幅度线性回归——早期斜率 ≈ -1.18 /s vs 晚期 ≈ -0.25 /s（断言 |early| > 2×|late|）；`partialFastDecaySeconds` 解析公式断言；频偏测试时长 25 s → 20 s（双衰减后 voice 自清 ≈24 s）；modal decay 晚期窗口后移至 3.15 s；低音顶分音 DFT 阈值 0.025（m=20 快分量在窗口内耗尽）；全绿 46/46、3070 断言。
+- [x] 验证：`wsl-build` / `test` / `format --check` / `win-build` 三闸门全绿。
+- [ ] Windows 侧手工听感（待执行）：尾音自然度对比 v2——与 14-E 合并执行。
 
 **Phase 14-C：同音三弦拍频（Beating）**
 
