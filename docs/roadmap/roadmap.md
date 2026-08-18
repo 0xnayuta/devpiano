@@ -111,7 +111,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 审计报告见 [`../audit/AUDIT-001-code-quality-audit-2026-08-16.md`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)，Phase A–H 逐项完成记录见 [`../archive/audit-001-code-quality-fix-phases.md`](../archive/audit-001-code-quality-fix-phases.md)。
 
-### Phase 12：内置物理建模钢琴音源（SineSynth → PianoSynth） [进行中]
+### Phase 12：内置物理建模钢琴音源（SineSynth → PianoSynth） [已完成，2026-08-18]
 
 > 目标：把当前内置 fallback 正弦合成器逐步替换为**自主拥有、纯 C++、零/极低采样依赖的物理建模钢琴音源**，使"未加载插件时的默认钢琴"成为产品核心能力而非兜底 beep。详细排期与子任务见 [`current-iteration.md`](current-iteration.md)。
 
@@ -120,7 +120,8 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 - ~~实时路径 `AudioEngine::SimpleSineVoice`（AudioEngine.cpp:41）与离线导出路径 `OfflineSineVoice`（WavFileExporter.cpp:28）是两份逐字重复的 sine 实现；另加 `RecordingSessionController.cpp:202` 插件离线实例创建失败时回退 sine。~~ **已消除（Phase 12-1，2026-08-18，commit `26772e9`）**：两份 sine 合并为共享 `SineSynthVoice`（`source/Audio/SineSynthVoice.h`，继承 `juce::SynthesiserVoice`），实时渲染 / WAV 离线导出 / 插件离线失败回退（经 `exportTakeAsWavFile`）三处调用点全部改接同一实现，零行为变化，`wsl-build`/`test`/`format --check`/`win-build` 验证通过。
 - **谐波钢琴 v1 已落地（Phase 12-2，2026-08-18）**：`source/Audio/PianoSynthVoice.h` 与 SineSynthVoice 并存注册，`AudioEngine::BuiltinSynthTone {sine, piano}` + `setBuiltinSynthTone` 切换（默认仍 sine，行为不变；后续阶段切默认）。合成：基频 + 2~7 次谐波按音区查表、velocity 双映射（v^1.5 响度 + 高次谐波亮度）、分音独立衰减（attack/release 沿用 ADSR 门控）；≤8 次 `std::sin`/voice、`renderNextBlock` 无堆分配无锁。
 - **参数化与 UI 接线已落地（Phase 12-3，2026-08-18）**：`PerformanceSettingsView` 扩展 `builtinTone` + `pianoBrightness/HammerHardness/Resonance`（默认 0.5，旧数据缺失回退默认）；`AudioEngine::setPianoParameters` + 消息线程安全切换（JUCE 内部锁核实）；`WavExportOptions`/`buildWavExportOptions`/`initialiseOfflineSynth` 按音色注册——**实时/离线音色一致达成**；ControlsPanel 新增 `piano-row`（Tone 选择 + 3 旋钮，沿用 ADSR 旋钮模式）。
-- 参数接线已有同构模式：`SettingsModel::PerformanceSettingsView`（masterGain + 4 项 ADSR）→ `MainComponent::applyPerformanceSettingsToAudioEngine`（实时）+ `ExportFlowSupport::buildWavExportOptions`（离线），12-3 的新音色参数沿用即可。
+- **听觉回归通过（2026-08-18，Windows 侧手工 Step 1~8）**：sine vs piano 音色/衰减/音区差异、3 旋钮效果（Resonance 明显、Brightness 可闻、Hammer 微妙）、实时/导出一致、参数持久化均符合预期；力度分层未验证（键盘 velocity 固定 1.0）。**Phase 12 全部完成**。
+- 参数接线已有同构模式：`SettingsModel::PerformanceSettingsView`（masterGain + 4 项 ADSR）→ `MainComponent::applyPerformanceSettingsToAudioEngine`（实时）+ `ExportFlowSupport::buildWavExportOptions`（离线），后续新音色参数沿用即可。
 - ~~测试盲区：`AudioEngineTest.cpp` 声明 fallback 音频输出路径不测（`MidiMessageCollector` wall-clock 时序），新音色需确定性测试夹具（直接驱动 `SynthesiserVoice`，固定 sampleRate，断言频谱/能量/时长/力度单调性）。~~ **已解决（Phase 12-4，2026-08-18）**：`source/tests/PianoSynthVoiceTest.cpp` 经 `Synthesiser` 驱动 voice（确定性，绕过 `MidiMessageCollector`），单点 DFT 验证基频/谐波、velocity 单调、tail 收敛、自清、allNotesOff、音色切换接口；默认套件 52 类 2968 断言全绿。
 
 **技术路线（JUCE 惯例，不建新抽象）：**
@@ -128,7 +129,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 以 `juce::Synthesiser` + `SynthesiserVoice` 为唯一音色承载（JUCE 生态标准做法，当前代码已在使用）——不引入自定义 `BuiltinInstrument` 接口层，不建 `source/Audio/Builtin/` 多层目录。替换音色 = 换 `addSound/addVoice` 注册内容。分三阶段渐进，每阶段可独立合入、可听感回归：
 
 - **Phase 12：音源重构 + 谐波钢琴 v1**（Level 1）——合并两份 sine 为共享 `SynthesiserVoice` 子类（三处调用点改接，零行为变化）；新增 Harmonic PianoVoice：基频 + 2~7 次谐波叠加、velocity→亮度/响度映射、分音独立衰减；参数进 `SettingsModel`。纯加法、零采样、CPU 可忽略。验收：实时/离线音色一致、确定性音色单测、听觉对比明显优于 sine。
-- **Phase 13：Stiff-String Inharmonic Piano v2**（Level 2）——加入 inharmonicity（`fₙ = n·f₀·√(1+B·n²)`，B 按音区设定）、分音衰减速率建模、简单 body 共鸣滤波。仍纯解析加法，无需延迟线。
+- **Phase 13：Stiff-String Inharmonic Piano v2**（Level 2）——加入 inharmonicity（`fₙ = n·f₀·√(1+B·n²)`，B 按音区设定）、分音衰减速率建模、简单 body 共鸣滤波。仍纯解析加法，无需延迟线。**详细计划与子任务见 [`current-iteration.md`](current-iteration.md)。**
 - **Phase 14：Digital Waveguide Piano v3**（Level 3，研究性）——延迟线 + 分数延迟 + loss/dispersion filter + hammer excitation，进入真正物理建模层。**决策门**：听感收益 vs CPU 预算 vs 代码复杂度，产物是否成为默认音色。
 
 **外部参考（许可证已实地核实）：**
