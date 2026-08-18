@@ -343,6 +343,7 @@ public:
         : juce::DialogWindow(title, background, true, true) {
         setUsingNativeTitleBar(true);
         setContentOwned(content.release(), true);
+        setResizable(false, false);
         centreAroundComponent(nullptr, getWidth(), getHeight());
         // enterModalState implicitly makes the component visible.
         enterModalState(true, juce::ModalCallbackFunction::create([this](int) { delete this; }), true);

@@ -128,6 +128,7 @@ void PerformanceMetadataDialog::launch(
     opts.dialogBackgroundColour = devpiano::jive::DesignTokens::get().mainBg();
     opts.componentToCentreAround = componentToCentreAround;
     opts.content.setOwned(new MetadataEditContent(initialMetadata, std::move(onComplete)));
+    opts.resizable = false;
     if (componentToCentreAround != nullptr) {
         opts.content->setLookAndFeel(&componentToCentreAround->getLookAndFeel());
     }

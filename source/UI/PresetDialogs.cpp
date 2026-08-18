@@ -194,6 +194,7 @@ void launchDialog(const juce::String& title, juce::Component* componentToCentreA
     opts.dialogBackgroundColour = devpiano::jive::DesignTokens::get().mainBg();
     opts.componentToCentreAround = componentToCentreAround;
     opts.content.setOwned(content.release());
+    opts.resizable = false;
     if (componentToCentreAround != nullptr) {
         opts.content->setLookAndFeel(&componentToCentreAround->getLookAndFeel());
     }

@@ -281,22 +281,23 @@ public:
         }
 
         const auto availableWidth = viewport.getMaximumVisibleWidth();
-        const auto contentWidth = juce::jmax(500, availableWidth);
+        const auto contentWidth = juce::jmax(520, availableWidth);
 
         constexpr int padding = 8;
         constexpr int rowH = 26;
         constexpr int controlW = 200;
+        constexpr int gap = 8;
 
         auto area = juce::Rectangle<int>(padding, padding, contentWidth - padding * 2, 10000);
 
-        // 1. Audio Device Selector (顶部)
-        constexpr int selectorH = 310;
+        // 1. Audio Device Selector (顶部，紧凑高度紧贴调号)
+        constexpr int selectorH = 220;
         selector->setBounds(area.removeFromTop(selectorH));
-        area.removeFromTop(12);
+        area.removeFromTop(gap);
 
         // 2. Key Signature group (调号与通道跟随)
         const auto hasFollowKey = midiTransposeToggle.getToggleState();
-        const auto keySigH = hasFollowKey ? 150 : 80;
+        const auto keySigH = hasFollowKey ? 148 : 78;
         auto keySigArea = area.removeFromTop(keySigH);
         keySigGroup.setBounds(keySigArea);
         auto ksContent = keySigArea.reduced(12, 16);
@@ -320,10 +321,10 @@ public:
                                                                     chArea.getY() + rowIdx * rowH, chBtnW, rowH - 2);
             }
         }
-        area.removeFromTop(12);
+        area.removeFromTop(gap);
 
         // 3. Keyboard Display group (键盘显示与语言)
-        constexpr int keyboardH = 222;
+        constexpr int keyboardH = 210;
         auto keyboardArea = area.removeFromTop(keyboardH);
         keyboardGroup.setBounds(keyboardArea);
         auto groupContent = keyboardArea.reduced(12, 16);
@@ -343,12 +344,12 @@ public:
 
         row = groupContent.removeFromTop(rowH);
         languageCombo.setBounds(row.removeFromRight(controlW).reduced(2));
-        area.removeFromTop(12);
+        area.removeFromTop(gap);
 
-        // 4. Diagnostics Editor
-        constexpr int diagH = 75;
+        // 4. Diagnostics Editor (Saved state 诊断信息，适当增高至 96px 舒适容纳 5 行文本)
+        constexpr int diagH = 96;
         diagnosticsEditor.setBounds(area.removeFromTop(diagH));
-        area.removeFromTop(10);
+        area.removeFromTop(gap);
 
         // 5. Save Button (右对齐)
         constexpr int btnH = 32;
