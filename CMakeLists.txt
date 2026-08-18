@@ -273,6 +273,7 @@ if (BUILD_TESTS)
         source/Audio/AudioEngine.cpp
         source/Audio/AudioEngine.h
         source/Audio/SineSynthVoice.h
+        source/Audio/PianoSynthVoice.h
         source/Plugin/PluginHost.cpp
         source/Plugin/PluginHost.h
 
@@ -321,6 +322,7 @@ if (BUILD_TESTS)
         source/tests/ExportFlowTest.cpp
         source/tests/PluginHostXmlTest.cpp
         source/tests/KeyboardHitMappingTest.cpp
+        source/tests/PianoSynthVoiceTest.cpp
     )
     target_link_libraries(devpiano_tests PRIVATE
         juce::juce_core
