@@ -59,11 +59,11 @@ public:
     PresetNameContent(const juce::String& initialName, std::function<void(std::optional<juce::String>)> onCompleteFn)
         : onComplete(std::move(onCompleteFn)) {
         nameLabel.setText(TRANS("Preset Name:"), juce::dontSendNotification);
-        nameLabel.setFont(juce::FontOptions(14.0f));
+        nameLabel.setFont(juce::FontOptions(15.0f));
         addAndMakeVisible(nameLabel);
 
         nameEditor.setText(initialName, juce::dontSendNotification);
-        nameEditor.setFont(juce::FontOptions(14.0f));
+        nameEditor.setFont(juce::FontOptions(15.0f));
         nameEditor.setInputRestrictions(64, {});
         nameEditor.onReturnKey = [this] { complete(nameEditor.getText().trim()); };
         addAndMakeVisible(nameEditor);
@@ -128,7 +128,7 @@ public:
                          std::function<void(bool)> onCompleteFn)
         : onComplete(std::move(onCompleteFn)) {
         messageLabel.setText(message, juce::dontSendNotification);
-        messageLabel.setFont(juce::FontOptions(14.0f));
+        messageLabel.setFont(juce::FontOptions(15.0f));
         messageLabel.setJustificationType(juce::Justification::centred);
         addAndMakeVisible(messageLabel);
 

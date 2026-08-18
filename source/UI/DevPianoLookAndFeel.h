@@ -44,6 +44,7 @@ public:
     int getAlertWindowButtonHeight() override;
     juce::Array<int> getWidthsForTextButtons(juce::AlertWindow&,
                                              const juce::Array<juce::TextButton*>& buttons) override;
+    juce::Font getTextButtonFont(juce::TextButton&, int buttonHeight) override;
 
 private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DevPianoLookAndFeel)

@@ -14,23 +14,23 @@ public:
         : onComplete(std::move(onCompleteFn)) {
         // Title editor (single line)
         titleLabel.setText(TRANS("Song Title"), juce::dontSendNotification);
-        titleLabel.setFont(juce::FontOptions(14.0f));
+        titleLabel.setFont(juce::FontOptions(15.0f));
         addAndMakeVisible(titleLabel);
 
         titleEditor.setText(initial.title, juce::dontSendNotification);
-        titleEditor.setFont(juce::FontOptions(14.0f));
+        titleEditor.setFont(juce::FontOptions(15.0f));
         titleEditor.setInputRestrictions(128, {});
         addAndMakeVisible(titleEditor);
 
         // Notes editor (multi-line)
         notesLabel.setText(TRANS("Notes"), juce::dontSendNotification);
-        notesLabel.setFont(juce::FontOptions(14.0f));
+        notesLabel.setFont(juce::FontOptions(15.0f));
         addAndMakeVisible(notesLabel);
 
         notesEditor.setMultiLine(true, false);
         notesEditor.setReturnKeyStartsNewLine(true);
         notesEditor.setText(initial.notes, juce::dontSendNotification);
-        notesEditor.setFont(juce::FontOptions(14.0f));
+        notesEditor.setFont(juce::FontOptions(15.0f));
         notesEditor.setInputRestrictions(2048, {});
         addAndMakeVisible(notesEditor);
         // Buttons

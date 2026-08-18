@@ -503,7 +503,7 @@ void DevPianoLookAndFeel::drawLabel(juce::Graphics& g, juce::Label& label) {
 //  getLabelFont
 // ============================================================================
 juce::Font DevPianoLookAndFeel::getLabelFont(juce::Label& /*label*/) {
-    return { juce::FontOptions(14.0f) };
+    return { juce::FontOptions(15.0f) };
 }
 // ============================================================================
 //  drawTooltip
@@ -564,7 +564,7 @@ void DevPianoLookAndFeel::drawProgressBar(juce::Graphics& g, juce::ProgressBar& 
 
     if (textToShow.isNotEmpty()) {
         g.setColour(tokens.textPrimary());
-        g.setFont(juce::FontOptions(14.0f));
+        g.setFont(juce::FontOptions(15.0f));
         g.drawText(textToShow, bounds.reduced(4.0f, 0.0f), juce::Justification::centred, true);
     }
 }
@@ -589,15 +589,15 @@ void DevPianoLookAndFeel::drawAlertBox(juce::Graphics& g, juce::AlertWindow& ale
 //  AlertWindow fonts and dimensions
 // ============================================================================
 juce::Font DevPianoLookAndFeel::getAlertWindowTitleFont() {
-    return { juce::FontOptions(15.0f).withStyle("Bold") };
+    return { juce::FontOptions(16.0f).withStyle("Bold") };
 }
 
 juce::Font DevPianoLookAndFeel::getAlertWindowMessageFont() {
-    return { juce::FontOptions(14.0f) };
+    return { juce::FontOptions(15.0f) };
 }
 
 juce::Font DevPianoLookAndFeel::getAlertWindowFont() {
-    return { juce::FontOptions(14.0f) };
+    return { juce::FontOptions(15.0f) };
 }
 
 int DevPianoLookAndFeel::getAlertWindowButtonHeight() {
@@ -612,4 +612,9 @@ juce::Array<int> DevPianoLookAndFeel::getWidthsForTextButtons(juce::AlertWindow&
         widths.add(80);
     }
     return widths;
+}
+
+juce::Font DevPianoLookAndFeel::getTextButtonFont(juce::TextButton&, int buttonHeight) {
+    juce::ignoreUnused(buttonHeight);
+    return { juce::FontOptions(15.0f) };
 }
