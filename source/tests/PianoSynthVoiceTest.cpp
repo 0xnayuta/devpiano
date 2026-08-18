@@ -29,7 +29,6 @@ namespace {
 constexpr auto sampleRate = 44100.0;
 constexpr auto blockSize = 2048;
 constexpr auto analysisWindow = 16384; // ≈ 0.37 s for the DFT
-constexpr auto fundamentalHz = 261.63; // MIDI 60 (middle C)
 
 struct VoiceFixture {
     juce::Synthesiser synth;
@@ -121,6 +120,11 @@ public:
             expectWithinAbsoluteError(PianoSynthVoice::decaySecondsForNote(60), 2.5f, 0.001f, "mid decay");
             expectWithinAbsoluteError(PianoSynthVoice::decaySecondsForNote(80), 1.5f, 0.001f, "high-mid decay");
             expectWithinAbsoluteError(PianoSynthVoice::decaySecondsForNote(100), 0.8f, 0.001f, "treble decay is short");
+
+            expectWithinAbsoluteError(PianoSynthVoice::inharmonicityBForNote(0), 4.0e-4, 1e-7, "bass B is large");
+            expectWithinAbsoluteError(PianoSynthVoice::inharmonicityBForNote(60), 1.0e-4, 1e-7, "mid B");
+            expectWithinAbsoluteError(PianoSynthVoice::inharmonicityBForNote(80), 3.0e-5, 1e-7, "high-mid B");
+            expectWithinAbsoluteError(PianoSynthVoice::inharmonicityBForNote(100), 1.0e-5, 1e-7, "treble B is small");
         }
 
         beginTest("renders non-zero finite output at normalised level");
@@ -144,11 +148,12 @@ public:
             VoiceFixture bassFixture;
             juce::AudioBuffer<float> bass(1, analysisWindow);
             bassFixture.noteOnBlock(36, 0.9f, bass); // low-bass region: 7 harmonics (C2 ≈ 65.41 Hz)
-            const auto bassF0 = juce::MidiMessage::getMidiNoteInHertz(36);
-            const auto bassFundamental = magnitudeAtFrequency(bass, bassF0, analysisWindow);
+            const auto bassFundamental
+                = magnitudeAtFrequency(bass, PianoSynthVoice::partialFrequency(36, 0), analysisWindow);
             expect(bassFundamental > 0.01, "low-bass fundamental must be present");
             for (auto harmonic = 2; harmonic <= 7; ++harmonic) {
-                const auto magnitude = magnitudeAtFrequency(bass, bassF0 * harmonic, analysisWindow);
+                const auto partialFreq = PianoSynthVoice::partialFrequency(36, harmonic - 1);
+                const auto magnitude = magnitudeAtFrequency(bass, partialFreq, analysisWindow);
                 expect(magnitude > 0.05 * bassFundamental,
                        "low-bass harmonic " + juce::String(harmonic) + " must be present (mag="
                            + juce::String(magnitude, 5) + " base=" + juce::String(bassFundamental, 5) + ")");
@@ -157,13 +162,54 @@ public:
             VoiceFixture midFixture;
             juce::AudioBuffer<float> mid(1, analysisWindow);
             midFixture.noteOnBlock(60, 0.9f, mid);
-            const auto midFundamental = magnitudeAtFrequency(mid, fundamentalHz, analysisWindow);
+            const auto midFundamental
+                = magnitudeAtFrequency(mid, PianoSynthVoice::partialFrequency(60, 0), analysisWindow);
             expect(midFundamental > 0.03, "MIDI 60 fundamental ~ 261.63 Hz must dominate");
             for (auto harmonic = 2; harmonic <= 5; ++harmonic) {
-                const auto magnitude = magnitudeAtFrequency(mid, fundamentalHz * harmonic, analysisWindow);
+                const auto partialFreq = PianoSynthVoice::partialFrequency(60, harmonic - 1);
+                const auto magnitude = magnitudeAtFrequency(mid, partialFreq, analysisWindow);
                 expect(magnitude > 0.05 * midFundamental,
                        "mid harmonic " + juce::String(harmonic) + " must be present");
             }
+        }
+
+        beginTest("inharmonicity overtone frequency shift (stiff-string physics)");
+        {
+            // 低音 C2 (note 36 ≈ 65.406 Hz, B = 4e-4) 的高次分音频偏量化验证：
+            const auto f0 = static_cast<double>(juce::MidiMessage::getMidiNoteInHertz(36));
+            const auto b = PianoSynthVoice::inharmonicityBForNote(36);
+            expectWithinAbsoluteError(b, 4.0e-4, 1e-7, "note 36 B coefficient");
+
+            // 验证分音频率计算与物理公式一致：f_m = m·f0·√(1 + B·m^2)
+            // 第 5 分音：m=5, √(1 + 25 * 4e-4) = √1.01 ≈ 1.0049875, 偏移 +0.50%
+            const auto expectedF5 = 5.0 * f0 * std::sqrt(1.0 + 25.0 * b);
+            const auto actualF5 = PianoSynthVoice::partialFrequency(36, 4);
+            expectWithinAbsoluteError(actualF5, expectedF5, 1e-4, "5th partial frequency formula");
+            expect(actualF5 > 5.0 * f0 + 1.0, "5th partial is shifted up by > 1 Hz (stiff string)");
+
+            // 第 7 分音：m=7, √(1 + 49 * 4e-4) = √1.0196 ≈ 1.009752, 偏移 +0.975%
+            const auto expectedF7 = 7.0 * f0 * std::sqrt(1.0 + 49.0 * b);
+            const auto actualF7 = PianoSynthVoice::partialFrequency(36, 6);
+            expectWithinAbsoluteError(actualF7, expectedF7, 1e-4, "7th partial frequency formula");
+            expect(actualF7 > 7.0 * f0 + 4.0, "7th partial is shifted up by > 4 Hz in bass region");
+
+            // 频谱实测：在合成器实际渲染输出中，DFT 在非谐频率处的能量显著高于整数倍谐波处
+            VoiceFixture fixture;
+            juce::AudioBuffer<float> buffer(1, analysisWindow);
+            fixture.noteOnBlock(36, 0.9f, buffer);
+
+            const auto magAtInharmonic7 = magnitudeAtFrequency(buffer, actualF7, analysisWindow);
+            const auto magAtInteger7 = magnitudeAtFrequency(buffer, 7.0 * f0, analysisWindow);
+            expect(magAtInharmonic7 > 1.5 * magAtInteger7,
+                   "DFT energy at stiff-string 7th partial (" + juce::String(actualF7, 2)
+                       + " Hz) must be significantly higher than integer harmonic (" + juce::String(7.0 * f0, 2)
+                       + " Hz)");
+
+            const auto magAtInharmonic5 = magnitudeAtFrequency(buffer, actualF5, analysisWindow);
+            const auto magAtInteger5 = magnitudeAtFrequency(buffer, 5.0 * f0, analysisWindow);
+            expect(magAtInharmonic5 > 1.2 * magAtInteger5,
+                   "DFT energy at stiff-string 5th partial (" + juce::String(actualF5, 2)
+                       + " Hz) must be higher than integer harmonic (" + juce::String(5.0 * f0, 2) + " Hz)");
         }
 
         beginTest("velocity loudness is monotonically increasing");
@@ -265,20 +311,24 @@ public:
 
         beginTest("piano parameters shape the tone");
         {
+            const auto midF4 = PianoSynthVoice::partialFrequency(60, 3);
+            const auto midF5 = PianoSynthVoice::partialFrequency(60, 4);
+            const auto midF1 = PianoSynthVoice::partialFrequency(60, 0);
+
             // 高 brightness → 高次谐波相对幅度更大（upper-harmonic ratio 提升）。
             VoiceFixture dim;
             dim.voice()->setPianoParameters(0.0f, 0.5f, 0.5f);
             juce::AudioBuffer<float> dimBuffer(1, analysisWindow);
             dim.noteOnBlock(60, 1.0f, dimBuffer);
-            const auto dimFourth = magnitudeAtFrequency(dimBuffer, fundamentalHz * 4, analysisWindow)
-                / juce::jmax(1e-6, magnitudeAtFrequency(dimBuffer, fundamentalHz, analysisWindow));
+            const auto dimFourth = magnitudeAtFrequency(dimBuffer, midF4, analysisWindow)
+                / juce::jmax(1e-6, magnitudeAtFrequency(dimBuffer, midF1, analysisWindow));
 
             VoiceFixture bright;
             bright.voice()->setPianoParameters(1.0f, 0.5f, 0.5f);
             juce::AudioBuffer<float> brightBuffer(1, analysisWindow);
             bright.noteOnBlock(60, 1.0f, brightBuffer);
-            const auto brightFourth = magnitudeAtFrequency(brightBuffer, fundamentalHz * 4, analysisWindow)
-                / juce::jmax(1e-6, magnitudeAtFrequency(brightBuffer, fundamentalHz, analysisWindow));
+            const auto brightFourth = magnitudeAtFrequency(brightBuffer, midF4, analysisWindow)
+                / juce::jmax(1e-6, magnitudeAtFrequency(brightBuffer, midF1, analysisWindow));
 
             expect(brightFourth > dimFourth, "higher brightness must boost the upper-harmonic ratio");
 
@@ -287,18 +337,17 @@ public:
             softHammer.voice()->setPianoParameters(0.5f, 0.0f, 0.5f);
             juce::AudioBuffer<float> softBuffer(1, analysisWindow);
             softHammer.noteOnBlock(60, 1.0f, softBuffer);
-            const auto softTop = magnitudeAtFrequency(softBuffer, fundamentalHz * 5, analysisWindow)
-                / juce::jmax(1e-6, magnitudeAtFrequency(softBuffer, fundamentalHz, analysisWindow));
+            const auto softTop = magnitudeAtFrequency(softBuffer, midF5, analysisWindow)
+                / juce::jmax(1e-6, magnitudeAtFrequency(softBuffer, midF1, analysisWindow));
 
             VoiceFixture hardHammer;
             hardHammer.voice()->setPianoParameters(0.5f, 1.0f, 0.5f);
             juce::AudioBuffer<float> hardBuffer(1, analysisWindow);
             hardHammer.noteOnBlock(60, 1.0f, hardBuffer);
-            const auto hardTop = magnitudeAtFrequency(hardBuffer, fundamentalHz * 5, analysisWindow)
-                / juce::jmax(1e-6, magnitudeAtFrequency(hardBuffer, fundamentalHz, analysisWindow));
+            const auto hardTop = magnitudeAtFrequency(hardBuffer, midF5, analysisWindow)
+                / juce::jmax(1e-6, magnitudeAtFrequency(hardBuffer, midF1, analysisWindow));
 
             expect(hardTop > softTop, "harder hammer must boost the top-harmonic ratio");
-
             // 高 resonance → 衰减更慢（长时窗口 RMS 更强）。
             VoiceFixture dry;
             dry.voice()->setPianoParameters(0.5f, 0.5f, 0.0f);

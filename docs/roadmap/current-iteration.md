@@ -5,7 +5,7 @@
 
 ## 当前方向
 
-**Phase 12（内置物理建模钢琴音源，SineSynth → PianoSynth）已完成（2026-08-18）**——Phase 12-1~12-4 全部落地 + Windows 侧手工听觉回归（Step 1~8）通过，谐波钢琴 v1 可经 Tone 切换启用（默认仍 sine）。当前进入 **Phase 13（Stiff-String Inharmonic Piano v2）**，详细计划见下文。
+**Phase 12（内置物理建模钢琴音源，SineSynth → PianoSynth）已完成（2026-08-18）**——Phase 12-1~12-4 全部落地 + Windows 侧手工听觉回归（Step 1~8）通过，谐波钢琴 v1 可经 Tone 切换启用（默认仍 sine）。当前进入 **Phase 13（Stiff-String Inharmonic Piano v2）**，Phase 13-1（刚性琴弦分音失谐偏移）已落地（2026-08-18）。
 
 代码质量审计（[`AUDIT-001`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)，2026-08-16）修复 **AUDIT Phase A–H 已全部完成**（2026-08-17）：56 项未处理全关闭，16 项已暂缓复核关闭 2 项（QUAL-019/PERF-002），剩余 14 项维持；断言总数 754 → 2921 全绿。逐项完成记录已归档至 [`../archive/audit-001-code-quality-fix-phases.md`](../archive/audit-001-code-quality-fix-phases.md)。
 
@@ -90,7 +90,7 @@
 
 ---
 
-## Phase 13：Stiff-String Inharmonic Piano v2 [规划中]
+## Phase 13：Stiff-String Inharmonic Piano v2 [推进中]
 
 ### 背景与目标
 
@@ -152,18 +152,19 @@ Phase 12 的 v1 是**整数倍谐波**叠加：分音频率严格 `n·f₀`，�
 
 ### 子任务排期
 
-**Phase 13-1：Inharmonicity（刚性琴弦分音失谐偏移）**
+**Phase 13-1：Inharmonicity（刚性琴弦分音失谐偏移） [已完成，2026-08-18]**
 
-- [ ] 引入 JOS PASP 刚性琴弦公式：在 `PianoSynthVoice::startNote` 中计算分音频率 $f_n = n \cdot f_0 \sqrt{1 + B \cdot n^2}$（$n \ge 1$ 为分音序号），步进计算为 `increment = (2π / sampleRate) * f_n`；相位累积维持 `double`。
-- [ ] 刚度系数 $B$ 按音区查表（低音弦刚度大、高音小）：
-  - region 0（note <48）：$B \approx 4 \times 10^{-4}$（低音区 $n=7$ 时频率偏移 $\approx +1.0\%$，$n=2 \approx +0.06\%$）
-  - region 1（48–71）：$B \approx 1 \times 10^{-4}$
-  - region 2（72–95）：$B \approx 3 \times 10^{-5}$
-  - region 3（≥96）：$B \approx 1 \times 10^{-5}$
-- [ ] **核心声学收益**：各分音失去公共整数倍周期 $\to$ 波形不再单调循环，低音区产生真实的"泛音失谐拍频（Beats）"，彻底消除整数倍加法合成的电子蜂鸣感。
-- [ ] 参数化决策：推荐刚度 $B$ 按音区硬编码查表（真实钢琴刚度由物理弦径与张力决定，无需向用户暴露额外旋钮，保持 UI 紧凑）。
-- [ ] 计算纪律：仅在 `startNote` 按键瞬间计算一次步进增量，**音频渲染线程逐采样 CPU 零新增**。
-
+- [x] 引入 JOS PASP 刚性琴弦公式：在 `PianoSynthVoice::startNote` 中计算分音频率 $f_m = m \cdot f_0 \sqrt{1 + B \cdot m^2}$（$m \ge 1$ 为分音序号，1-based），步进计算为 `increment = (2π / sampleRate) * f_m`；相位累积维持 `double`。
+- [x] 刚度系数 $B$ 按音区查表（低音弦刚度大、高音小）：
+  - region 0（note <48）：$B = 4.0 \times 10^{-4}$（低音区 $m=7$ 时频率偏移 $+0.975\% \approx +1.0\%$，$m=2$ 时 $+0.08\%$）
+  - region 1（48–71）：$B = 1.0 \times 10^{-4}$
+  - region 2（72–95）：$B = 3.0 \times 10^{-5}$
+  - region 3（≥96）：$B = 1.0 \times 10^{-5}$
+- [x] **核心声学收益**：各分音失去公共整数倍周期 $\to$ 波形不再单调循环，低音区产生真实的"泛音失谐拍频（Beats）"，彻底消除整数倍加法合成的电子蜂鸣感。
+- [x] 参数化决策：刚度 $B$ 按音区硬编码查表（真实钢琴刚度由物理弦径与张力决定，无需向用户暴露额外旋钮，保持 UI 紧凑）。
+- [x] 计算纪律：仅在 `startNote` 按键瞬间计算一次步进增量，**音频渲染线程逐采样 CPU 零新增**。
+- [x] 确定性测试（Phase 13-5 先行）：`PianoSynthVoiceTest.cpp` 新增 12 项断言（音区 B 参数边界、刚性琴弦分音公式量化校验、低音 note 36 第 5/7 分音频偏幅度断言、实际输出 DFT 在非谐频率处能量显著高于整数倍谐波处能量的对比断言），默认测试套件断言数 2992 $\to$ **3004** 全绿。
+- [x] 验证：`wsl-build`（0 warning）/ `test`（3004 断言全绿）/ `format --check`（0 违规）/ `win-build`（MSVC 构建成功）。
 **Phase 13-2：模态分音衰减速率建模（Modal Decay Modeling）**
 
 - [ ] 借鉴 Mutable Instruments（Rings/Elements）模态能量耗散模型：替换 v1 的 8 档离散表，引入连续分音时间常数模型 $\tau_n = \tau_{\text{base}}(\text{note}) / (1.0 + c_{\text{region}} \cdot (n - 1))$。

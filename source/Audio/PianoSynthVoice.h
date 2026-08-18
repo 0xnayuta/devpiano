@@ -10,9 +10,10 @@
 // juce::Synthesiser 管理 voice 生命周期；AudioEngine::setBuiltinSynthTone
 // 切换实时路径注册的音色（默认仍为 sine，Piano 可切换，后续阶段切默认）。
 //
-// 合成模型（v1，纯加法、零采样依赖）：
-// - 基频 + 2~7 次谐波叠加，分音数与谐波幅度按音区查表（低音区谐波丰富、
-//   高音区收敛），幅度归一避免 clip；
+// 合成模型（纯加法、零采样依赖）：
+// - 分音叠加与刚性琴弦非谐性（Phase 13-1）：基频 + 高次分音，各分音频率按 JOS PASP
+//   刚性琴弦公式计算 f_m = m·f₀·√(1+B·m²)，刚度系数 B 按音区查表（低音弦粗 B≈4e-4，
+//   高音 B≈1e-5），各分音失去公共整数倍周期，产生自然的泛音拍频（Beats）；
 // - velocity 双映射：响度 level = v^1.5（弱奏更敏感）+ 亮度（高次谐波增益
 //   随 v 提升）；
 // - 分音独立指数衰减：decay 按音区（低音长、高音短），高次分音略快；
@@ -20,8 +21,8 @@
 //   提取 attack/release 作门控，decay/sustain 由分音衰减替代）。
 //
 // 实时约束：renderNextBlock 无堆分配、无锁；每分音一次 std::sin（≤8 次），
-// startNote 内每 note 一次 std::sqrt/std::exp（实时安全，不做逐采样 pow）。
-
+// startNote 内每 note 做 O(partials) 次 std::sqrt/std::exp（按键瞬间计算，逐采样
+// 渲染 CPU 零新增）。
 class PianoSynthSound final : public juce::SynthesiserSound {
 public:
     bool appliesToNote(int) override {
@@ -92,8 +93,10 @@ public:
         for (auto n = 0; n < numActivePartials; ++n) {
             auto& partial = partials[static_cast<std::size_t>(n)];
             partial.phase = 0.0;
-            partial.increment
-                = juce::MathConstants<double>::twoPi * baseFrequency * static_cast<double>(n + 1) / sampleRate;
+            const auto partialNumber = static_cast<double>(n + 1);
+            const auto inharmonicFactor = std::sqrt(1.0 + region.inharmonicityB * partialNumber * partialNumber);
+            const auto partialFrequency = baseFrequency * partialNumber * inharmonicFactor;
+            partial.increment = juce::MathConstants<double>::twoPi * partialFrequency / sampleRate;
             partial.level = amplitudeFor(n) * brightnessBoost(n, brightnessFactor, numActivePartials)
                 * hammerGain(n, numActivePartials) * scale * velocityLevel;
             partial.decayPerSample = static_cast<float>(std::exp(
@@ -162,18 +165,28 @@ public:
     [[nodiscard]] static float decaySecondsForNote(int midiNoteNumber) noexcept {
         return regionForNote(midiNoteNumber).decaySeconds;
     }
+    [[nodiscard]] static double inharmonicityBForNote(int midiNoteNumber) noexcept {
+        return regionForNote(midiNoteNumber).inharmonicityB;
+    }
+    [[nodiscard]] static double partialFrequency(int midiNoteNumber, int partialIndex) noexcept {
+        const auto baseFrequency = static_cast<double>(juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber));
+        const auto partialNumber = static_cast<double>(partialIndex + 1);
+        const auto b = inharmonicityBForNote(midiNoteNumber);
+        return baseFrequency * partialNumber * std::sqrt(1.0 + b * partialNumber * partialNumber);
+    }
 
 private:
     struct VoiceRegion {
         int partialCount;
         float decaySeconds;
+        double inharmonicityB;
     };
 
     static constexpr VoiceRegion voiceRegions[] = {
-        { 8, 4.0f }, // note < 48：7 次谐波，长衰减（低音弦余音长）
-        { 6, 2.5f }, // 48–71：5 次谐波
-        { 4, 1.5f }, // 72–95：3 次谐波
-        { 3, 0.8f }, // ≥ 96：2 次谐波，短衰减（高音收敛）
+        { 8, 4.0f, 4.0e-4 }, // note < 48：7 次谐波，长衰减，低音弦粗刚度大（B ≈ 4e-4）
+        { 6, 2.5f, 1.0e-4 }, // 48–71：5 次谐波，中音弦（B ≈ 1e-4）
+        { 4, 1.5f, 3.0e-5 }, // 72–95：3 次谐波，高音弦（B ≈ 3e-5）
+        { 3, 0.8f, 1.0e-5 }, // ≥ 96：2 次谐波，短衰减，极高音弦（B ≈ 1e-5）
     };
     [[nodiscard]] static const VoiceRegion& regionForNote(int midiNoteNumber) noexcept {
         if (midiNoteNumber < 48) {
