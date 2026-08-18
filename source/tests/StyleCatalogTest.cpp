@@ -496,15 +496,6 @@ private:
             }
         }
 
-        for (const char* id : { "tone-combo" }) {
-            auto* combo = ::jive::findItemWithID(*item, id);
-            expect(combo != nullptr, juce::String(id) + " not found");
-            if (combo != nullptr) {
-                expect(dynamic_cast<juce::ComboBox*>(combo->getComponent().get()) != nullptr,
-                       juce::String(id) + " is not a ComboBox");
-            }
-        }
-
         for (const char* id : { "record-btn", "play-btn", "stop-btn", "back-btn", "export-midi-btn", "export-wav-btn",
                                 "import-midi-btn", "save-perf-btn", "open-perf-btn", "song-info-btn", "recent-btn",
                                 "save-preset-btn", "rename-preset-btn", "delete-preset-btn" }) {

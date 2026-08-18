@@ -508,14 +508,6 @@ void MainComponent::initialiseUi() {
             wirePianoKnob("brightness-knob", [](double v) { return juce::String(juce::roundToInt(v * 100.0)) + "%"; });
             wirePianoKnob("hardness-knob", [](double v) { return juce::String(juce::roundToInt(v * 100.0)) + "%"; });
             wirePianoKnob("resonance-knob", [](double v) { return juce::String(juce::roundToInt(v * 100.0)) + "%"; });
-            if (auto* combo = findCombo("tone-combo")) {
-                combo->clear(juce::dontSendNotification);
-                combo->addItem(TRANS("Sine"), 1);
-                combo->addItem(TRANS("Piano"), 2);
-                combo->setSelectedId(2, juce::dontSendNotification);
-                combo->setWantsKeyboardFocus(false);
-                combo->onChange = [this] { handlePerformanceUiChanged(); };
-            }
             wireKnob(
                 "speed-knob", 0.5, 2.0, 0.25,
                 [](double v) {
@@ -1088,6 +1080,11 @@ void MainComponent::applyPerformanceSettingsToAudioEngine(const SettingsModel::P
                                         : AudioEngine::BuiltinSynthTone::sine);
     audioEngine.setPianoParameters(performance.pianoBrightness, performance.pianoHammerHardness,
                                    performance.pianoResonance);
+}
+void MainComponent::setBuiltinSynthTone(SettingsModel::BuiltinTone tone) {
+    appSettings.builtinTone = tone;
+    audioEngine.setBuiltinSynthTone(tone == SettingsModel::BuiltinTone::piano ? AudioEngine::BuiltinSynthTone::piano
+                                                                              : AudioEngine::BuiltinSynthTone::sine);
 }
 
 void MainComponent::applyPluginRecoverySettings(const SettingsModel::PluginRecoverySettingsView& pluginRecovery) {

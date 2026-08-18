@@ -34,6 +34,10 @@ public:
     void drawTooltip(juce::Graphics&, const juce::String& text, int width, int height) override;
     juce::Rectangle<int> getTooltipBounds(const juce::String& tip, juce::Point<int> screenPos,
                                           juce::Rectangle<int> parentArea) override;
+    void drawProgressBar(juce::Graphics&, juce::ProgressBar&, int width, int height, double progress,
+                         const juce::String& textToShow) override;
+    void drawAlertBox(juce::Graphics&, juce::AlertWindow&, const juce::Rectangle<int>& textArea,
+                      juce::TextLayout&) override;
 
 private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DevPianoLookAndFeel)

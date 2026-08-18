@@ -412,15 +412,7 @@ double MainComponent::getControlsPlaybackSpeed() const {
 }
 
 SettingsModel::BuiltinTone MainComponent::getBuiltinToneFromUi() const {
-    if (jiveRootItem == nullptr) {
-        return SettingsModel::BuiltinTone::piano;
-    }
-    if (auto* item = jive::findItemWithID(*jiveRootItem, "tone-combo")) {
-        if (auto* combo = dynamic_cast<juce::ComboBox*>(item->getComponent().get())) {
-            return combo->getSelectedId() == 2 ? SettingsModel::BuiltinTone::piano : SettingsModel::BuiltinTone::sine;
-        }
-    }
-    return SettingsModel::BuiltinTone::piano;
+    return appSettings.builtinTone;
 }
 
 float MainComponent::getPianoBrightness() const {
@@ -484,6 +476,7 @@ void MainComponent::setControlsValues(float masterGain, float attack, float deca
 
 void MainComponent::setControlsPianoValues(SettingsModel::BuiltinTone tone, float brightness, float hammerHardness,
                                            float resonance) {
+    juce::ignoreUnused(tone);
     if (jiveRootItem == nullptr) {
         return;
     }
@@ -494,12 +487,6 @@ void MainComponent::setControlsPianoValues(SettingsModel::BuiltinTone tone, floa
             }
         }
     };
-    if (auto* item = jive::findItemWithID(*jiveRootItem, "tone-combo")) {
-        if (auto* combo = dynamic_cast<juce::ComboBox*>(item->getComponent().get())) {
-            const auto id = tone == SettingsModel::BuiltinTone::piano ? 2 : 1;
-            combo->setSelectedId(id, juce::dontSendNotification);
-        }
-    }
     setSlider("brightness-knob", brightness);
     setSlider("hardness-knob", hammerHardness);
     setSlider("resonance-knob", resonance);
@@ -708,15 +695,6 @@ void MainComponent::refreshControlsTexts() {
     if (auto* item = jive::findItemWithID(*jiveRootItem, "preset-combo")) {
         if (auto* combo = dynamic_cast<juce::ComboBox*>(item->getComponent().get())) {
             combo->setTextWhenNothingSelected(TRANS("Default"));
-        }
-    }
-    if (auto* item = jive::findItemWithID(*jiveRootItem, "tone-combo")) {
-        if (auto* combo = dynamic_cast<juce::ComboBox*>(item->getComponent().get())) {
-            const auto prevId = combo->getSelectedId();
-            combo->clear(juce::dontSendNotification);
-            combo->addItem(TRANS("Sine"), 1);
-            combo->addItem(TRANS("Piano"), 2);
-            combo->setSelectedId(prevId > 0 ? prevId : 1, juce::dontSendNotification);
         }
     }
     setText("speed-label", TRANS("Playback Speed"));

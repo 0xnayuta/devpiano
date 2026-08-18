@@ -73,6 +73,7 @@ public:
     bool keyPressed(const juce::KeyPress& key) override;
     bool keyStateChanged(bool isKeyDown) override;
     [[nodiscard]] bool isKeyboardInputSuppressed() const noexcept;
+    void setBuiltinSynthTone(SettingsModel::BuiltinTone tone);
     [[nodiscard]] bool shouldTakeKeyboardFocus() const noexcept;
 
 protected:

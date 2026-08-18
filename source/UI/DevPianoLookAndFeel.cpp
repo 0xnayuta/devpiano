@@ -63,10 +63,12 @@ void DevPianoLookAndFeel::refreshColours() {
     setColour(juce::TextEditor::highlightedTextColourId, tokens.textPrimary());
 
     // ── AlertWindow ──
-    setColour(juce::AlertWindow::backgroundColourId, tokens.panelBg());
+    setColour(juce::AlertWindow::backgroundColourId, tokens.mainBg());
     setColour(juce::AlertWindow::textColourId, tokens.textPrimary());
     setColour(juce::AlertWindow::outlineColourId, tokens.textSecondary());
-
+    // ── ProgressBar ──
+    setColour(juce::ProgressBar::backgroundColourId, tokens.controlBg());
+    setColour(juce::ProgressBar::foregroundColourId, tokens.primary());
     // ── Label ──
     setColour(juce::Label::textColourId, tokens.textPrimary());
     setColour(juce::Label::textWhenEditingColourId, tokens.textPrimary());
@@ -532,4 +534,53 @@ juce::Rectangle<int> DevPianoLookAndFeel::getTooltipBounds(const juce::String& t
     return juce::Rectangle<int>(textW, textH)
         .withPosition(juce::jmin(screenPos.x, parentArea.getRight() - textW),
                       juce::jmin(screenPos.y, parentArea.getBottom() - textH));
+}
+
+// ============================================================================
+//  drawProgressBar
+// ============================================================================
+void DevPianoLookAndFeel::drawProgressBar(juce::Graphics& g, juce::ProgressBar& progressBar, int width, int height,
+                                          double progress, const juce::String& textToShow) {
+    juce::ignoreUnused(width, height);
+    const auto bounds = progressBar.getLocalBounds().toFloat();
+    constexpr float corner = 4.0f;
+
+    g.setColour(tokens.controlBg());
+    g.fillRoundedRectangle(bounds, corner);
+    g.setColour(tokens.textSecondary());
+    g.drawRoundedRectangle(bounds.reduced(0.5f), corner, 1.0f);
+
+    if (progress > 0.0) {
+        const auto fillWidth = bounds.getWidth() * static_cast<float>(juce::jlimit(0.0, 1.0, progress));
+        auto fillBounds = bounds.withWidth(fillWidth);
+
+        juce::Path p;
+        p.addRoundedRectangle(bounds, corner);
+        g.reduceClipRegion(p);
+
+        g.setColour(tokens.primary());
+        g.fillRoundedRectangle(fillBounds, corner);
+    }
+
+    if (textToShow.isNotEmpty()) {
+        g.setColour(tokens.textPrimary());
+        g.setFont(juce::FontOptions(13.0f));
+        g.drawText(textToShow, bounds.reduced(4.0f, 0.0f), juce::Justification::centred, true);
+    }
+}
+
+// ============================================================================
+//  drawAlertBox
+// ============================================================================
+void DevPianoLookAndFeel::drawAlertBox(juce::Graphics& g, juce::AlertWindow& alert,
+                                       const juce::Rectangle<int>& textArea, juce::TextLayout& textLayout) {
+    const auto bounds = alert.getLocalBounds().toFloat();
+    constexpr float corner = 8.0f;
+
+    g.setColour(tokens.mainBg());
+    g.fillRoundedRectangle(bounds, corner);
+    g.setColour(tokens.textSecondary());
+    g.drawRoundedRectangle(bounds.reduced(0.5f), corner, 1.0f);
+
+    textLayout.draw(g, textArea.toFloat());
 }
