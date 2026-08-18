@@ -5,7 +5,7 @@
 
 ## 当前方向
 
-**Phase 12（内置物理建模钢琴音源，SineSynth → PianoSynth）进行中**——把当前内置 fallback 正弦合成器逐步替换为自主拥有、纯 C++、零/极低采样依赖的物理建模钢琴音源。整体路线见 [`roadmap.md`](roadmap.md) Phase 12；本文件为详细排期与子任务。**Phase 12-1（共享 SineSynthVoice 重构）、12-2（Harmonic PianoVoice v1）、12-4（确定性音色测试）已完成（2026-08-18）**，剩余 12-3（参数化与 UI 接线），详见下文。
+**Phase 12（内置物理建模钢琴音源，SineSynth → PianoSynth）进行中**——把当前内置 fallback 正弦合成器逐步替换为自主拥有、纯 C++、零/极低采样依赖的物理建模钢琴音源。整体路线见 [`roadmap.md`](roadmap.md) Phase 12；本文件为详细排期与子任务。**Phase 12-1/12-2/12-3/12-4 已完成（2026-08-18）**，剩余 Windows 侧手工听觉回归与默认音色决策，详见下文。
 
 代码质量审计（[`AUDIT-001`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)，2026-08-16）修复 **AUDIT Phase A–H 已全部完成**（2026-08-17）：56 项未处理全关闭，16 项已暂缓复核关闭 2 项（QUAL-019/PERF-002），剩余 14 项维持；断言总数 754 → 2921 全绿。逐项完成记录已归档至 [`../archive/audit-001-code-quality-fix-phases.md`](../archive/audit-001-code-quality-fix-phases.md)。
 
@@ -51,12 +51,15 @@
 - 验证：`test`（52 类 2968 断言全绿）/ `format --check`（归零）/ `win-build`（MSVC 成功，2026-08-18）。
 - 范围说明：导出路径（`WavExportOptions`）接入 Piano 音色归 12-3（与参数扩展一起做）；12-2 保持实时默认 sine = 导出 sine 的一致性。
 
-**Phase 12-3：参数化与 UI 接线**
+**Phase 12-3：参数化与 UI 接线 [已完成，2026-08-18]**
 
-- [ ] `SettingsModel::PerformanceSettingsView` 扩展 Piano 参数（如 `pianoBrightness` / `pianoHammerHardness` / `pianoResonance`），带默认值——旧序列化数据缺失字段回退默认（向后兼容，仿 `DOC-006` 处理）。
-- [ ] `AudioEngine::setPianoParameters`（或并入 setAdsr 模式）+ `MainComponent::applyPerformanceSettingsToAudioEngine` 透传。
-- [ ] `WavExportOptions` + `buildWavExportOptions` 扩展同参数（实时/离线音色一致前提）。
-- [ ] `SettingsComponent` / UI 控件（沿用 ADSR 旋钮模式）绑定新参数。
+- [x] `SettingsModel::PerformanceSettingsView` + 平铺字段扩展：`builtinTone`（模型层枚举 `BuiltinTone {sine, piano}`）+ `pianoBrightness` / `pianoHammerHardness` / `pianoResonance`（0..1，默认 0.5，与 v1 基准行为一致）。`SettingsStore` 4 个新 key 读写 + 钳制（tone 仅 0|1、参数 0..1）；旧序列化数据缺失字段回退默认（仿 DOC-006，`getDoubleValue(key, model.xxx)`），新增 legacy 文件专项用例。
+- [x] `AudioEngine::setPianoParameters`（jlimit + `updatePianoParametersOnVoices`）+ `MainComponent::applyPerformanceSettingsToAudioEngine` 透传（含 `setBuiltinSynthTone` 映射）。**线程安全修正**：核实 JUCE `Synthesiser` 内部锁——`processNextBlock`（音频渲染）与 `clearVoices`/`addVoice` 共用同一 lock，消息线程 `rebuildSynth` 安全，音频线程仅短暂阻塞；更新 12-2 的保守注释。
+- [x] `WavExportOptions` + `buildWavExportOptions` 扩展同参数；`WavFileExporter::initialiseOfflineSynth` 按 `builtinTone` 注册 Sine/Piano voice 并设置参数——**实时/离线音色一致达成**（12-2 遗留的导出路径接入一并完成）。
+- [x] `PianoSynthVoice` 参数映射：brightness 亮度基准（b=0.5 时与 12-2 完全一致）、hammerHardness 高次起始增益（0.5 中性 ±20%）、resonance 衰减时间缩放（×0.7~1.3）。
+- [x] UI 控件（沿用 ADSR 旋钮模式）：`LayoutModel::makeControlsPanelTree` 新增 `piano-row`（`tone-combo` + 3 个 DevKnob）；`MainComponent` wireKnob 接线（0..1/0.01 步进，% 显示）+ `tone-combo` 单选；`MainComponentJiveAccessors` 新访问器（getBuiltinToneFromUi / getPiano* / setControlsPianoValues）；`AppState`/`AppStateBuilder` 同步。
+- 验证：`test`（52 类 2992 断言全绿，新增 24 断言：SettingsStore round-trip + legacy 回退 / ExportFlow 透传 / StyleCatalog 控件 id / PianoSynthVoice 参数映射）/ `format --check`（归零）/ `win-build`（MSVC 成功，2026-08-18）。
+- 待办：Windows 侧手工听觉回归（Phase 12 收尾，验证 sine vs piano 音色与 3 参数旋钮的实际效果）。
 
 **Phase 12-4：确定性音色测试 [已完成，2026-08-18]**
 
@@ -67,14 +70,14 @@
 - [x] 现有断言保持全绿：默认套件 52 类 2968 断言（2928 + 37 新 + 3 切换）。
 - [x] 注意：TestRunner 默认按类别白名单 `{DevPiano/Core, Recording, Engine, UI}` 筛选——TEST-012 记录的 "DevPiano/Audio" 前缀与白名单不一致，本测试沿用现有惯例用 `DevPiano/Engine`（与 AudioEngineTest 一致），否则默认套件不会执行它。
 
-**排期参考**：12-1 / 12-2 / 12-4 已完成（2026-08-18）；12-3（参数化与 UI 接线，含导出路径接入 Piano 音色）约 1 轮。Phase 12 剩余约 1 轮 + Windows 侧听觉回归。
+**排期参考**：12-1 / 12-2 / 12-3 / 12-4 已完成（2026-08-18）。Phase 12 剩余：Windows 侧手工听觉回归 + 默认音色决策（sine → piano 切换时点）。
 
 ### 验收标准
 
-- 实时演奏与 WAV 导出使用同一 voice 类，音色一致。
-- 确定性测试覆盖基频 / 谐波 / 力度单调 / tail 收敛。
-- 听觉对比明显优于 sine（击弦瞬间、衰减、力度分层可辨）。
-- 三闸门全绿：`wsl-build` 0 warning / `test` 全绿 / `format --check` 归零 / `win-build` 通过。
+- ~~实时演奏与 WAV 导出使用同一 voice 类，音色一致。~~ **已达成（12-2 + 12-3）**：实时与导出共用 `SineSynthVoice`/`PianoSynthVoice`，`WavExportOptions` 携带音色与参数，`buildWavExportOptions` 从同一 `PerformanceSettingsView` 派生。
+- ~~确定性测试覆盖基频 / 谐波 / 力度单调 / tail 收敛。~~ **已达成（12-4）**：`PianoSynthVoiceTest` 单点 DFT 验证基频 + 谐波 2~7、velocity 单调、tail 收敛、自清、allNotesOff、参数映射。
+- 听觉对比明显优于 sine（击弦瞬间、衰减、力度分层可辨）——**待 Windows 侧手工验证**。
+- 三闸门全绿：`wsl-build` 0 warning / `test` 全绿 / `format --check` 归零 / `win-build` 通过——已达成（2026-08-18）。
 
 ### 验证命令
 
