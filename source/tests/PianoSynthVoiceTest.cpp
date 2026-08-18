@@ -15,7 +15,8 @@
 // Covered:
 //   - Region table boundaries (partial counts / decay seconds)
 //   - Non-zero finite output at the normalised peak level
-//   - Fundamental ≈ 261.63 Hz and harmonics 2..7 present (single-bin DFT)
+//   - Fundamental and harmonics present (single-bin DFT; bass region
+//     checks harmonics 2..7, mid region checks 2..5)
 //   - Velocity 0.2 vs 0.9 loudness is monotonically increasing
 //   - noteOff tail decays and the voice releases itself
 //   - Immediate stopNote (allowTailOff=false) silences and clears the voice
@@ -107,7 +108,7 @@ public:
     void runTest() override {
         beginTest("region table boundaries");
         {
-            expectEquals(PianoSynthVoice::partialCountForNote(0), 8, "A0 low bass keeps 7 harmonics");
+            expectEquals(PianoSynthVoice::partialCountForNote(0), 8, "bottom note (C-1) keeps 7 harmonics");
             expectEquals(PianoSynthVoice::partialCountForNote(47), 8, "B3 still low-bass region");
             expectEquals(PianoSynthVoice::partialCountForNote(48), 6, "C4 mid region: 5 harmonics");
             expectEquals(PianoSynthVoice::partialCountForNote(71), 6, "B4 still mid region");
@@ -142,7 +143,7 @@ public:
         {
             VoiceFixture bassFixture;
             juce::AudioBuffer<float> bass(1, analysisWindow);
-            bassFixture.noteOnBlock(36, 0.9f, bass); // low-bass region: 7 harmonics (A1 ≈ 55 Hz)
+            bassFixture.noteOnBlock(36, 0.9f, bass); // low-bass region: 7 harmonics (C2 ≈ 65.41 Hz)
             const auto bassF0 = juce::MidiMessage::getMidiNoteInHertz(36);
             const auto bassFundamental = magnitudeAtFrequency(bass, bassF0, analysisWindow);
             expect(bassFundamental > 0.01, "low-bass fundamental must be present");
@@ -157,7 +158,7 @@ public:
             juce::AudioBuffer<float> mid(1, analysisWindow);
             midFixture.noteOnBlock(60, 0.9f, mid);
             const auto midFundamental = magnitudeAtFrequency(mid, fundamentalHz, analysisWindow);
-            expect(midFundamental > 0.05, "MIDI 60 fundamental ≈ 261.63 Hz must dominate");
+            expect(midFundamental > 0.03, "MIDI 60 fundamental ~ 261.63 Hz must dominate");
             for (auto harmonic = 2; harmonic <= 5; ++harmonic) {
                 const auto magnitude = magnitudeAtFrequency(mid, fundamentalHz * harmonic, analysisWindow);
                 expect(magnitude > 0.05 * midFundamental,
@@ -202,6 +203,7 @@ public:
             VoiceFixture fixture;
             juce::AudioBuffer<float> buffer(1, blockSize);
             fixture.noteOnBlock(96, 0.8f, buffer); // treble: short decay ≈ 0.8 s
+            expect(fixture.voice()->isVoiceActive(), "voice must still be active right after noteOn");
             // 渲染 ~8 s（3 分音，约 1M 次 sin）足够衰减到 silentLevelThreshold 以下。
             for (auto block = 0; block < 180; ++block) {
                 fixture.renderBlock(buffer);
@@ -220,7 +222,7 @@ public:
             expect(!fixture.voice()->isVoiceActive(), "voice must be cleared");
         }
 
-        beginTest("long render stays finite (no heap churn / no crash)");
+        beginTest("long render stays finite and bounded");
         {
             VoiceFixture fixture;
             juce::AudioBuffer<float> buffer(1, blockSize);

@@ -35,7 +35,9 @@ public:
 class PianoSynthVoice final : public juce::SynthesiserVoice {
 public:
     static constexpr auto maxPartials = 8;
-    static constexpr auto peakLevelAtFullVelocity = 0.28f;
+    // 每 voice 峰值上限（v=1）：0.16 为 8 voice 齐奏 + masterGain 0.8 预留
+    // 复音余量（实际峰值约为该值的 0.6~0.8，最坏 8 voice 周期对齐 ≈0.9）。
+    static constexpr auto peakLevelAtFullVelocity = 0.16f;
     static constexpr auto silentLevelThreshold = 1e-4f;
 
     bool canPlaySound(juce::SynthesiserSound* sound) override {
@@ -43,7 +45,14 @@ public:
     }
 
     // 只取 attack/release 作门控；decay/sustain 由分音独立衰减替代（Phase 12-2）。
+    // 先设采样率再设参数：juce::ADSR 的 rate 仅在 setParameters 时重算，
+    // 未先 setSampleRate 会按内部默认 44100 计算（48 kHz 设备 attack 偏快）。
+    // 注意：addVoice 会用 synth 的当前 sampleRate 覆盖 voice（构造期为 0），
+    // 采样率无效时跳过，ADSR 内部默认 44100 无断言。
     void setAdsrParameters(const juce::ADSR::Parameters& parameters) {
+        if (getSampleRate() > 0.0) {
+            adsrGate.setSampleRate(getSampleRate());
+        }
         adsrGate.setParameters({ parameters.attack, 0.001f, 1.0f, parameters.release });
     }
 
@@ -166,7 +175,6 @@ private:
         { 4, 1.5f }, // 72–95：3 次谐波
         { 3, 0.8f }, // ≥ 96：2 次谐波，短衰减（高音收敛）
     };
-
     [[nodiscard]] static const VoiceRegion& regionForNote(int midiNoteNumber) noexcept {
         if (midiNoteNumber < 48) {
             return voiceRegions[0];

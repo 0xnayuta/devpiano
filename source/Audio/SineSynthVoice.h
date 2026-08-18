@@ -23,6 +23,11 @@ public:
     }
 
     void setAdsrParameters(const juce::ADSR::Parameters& parameters) {
+        // addVoice 会用 synth 的当前 sampleRate 覆盖 voice（构造期为 0），
+        // 采样率无效时跳过，ADSR 内部默认 44100 无断言。
+        if (getSampleRate() > 0.0) {
+            adsr.setSampleRate(getSampleRate());
+        }
         adsr.setParameters(parameters);
     }
 

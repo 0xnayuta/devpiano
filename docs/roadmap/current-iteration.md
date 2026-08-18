@@ -48,7 +48,7 @@
 - [x] 分音独立衰减：decay 按音区查表（4.0 / 2.5 / 1.5 / 0.8 s，低音长高音短）+ 高次分音略快（`harmonicDecayFactor` 表）；attack/release 沿用 `setAdsrParameters` 接线（内部变换为 `{attack, 0.001, 1.0, release}` 作门控，decay/sustain 由分音衰减替代）。
 - [x] CPU 预算：每 voice ≤ 8 次 `std::sin`（分音数上限 8）+ 每 note 一次 `sqrt`/`exp`；`renderNextBlock` 无堆分配、无锁（`std::array<Partial, 8>` 固定缓冲）；分音衰减至 `1e-4`（-80 dB）后 voice 自清防低音长尾占位。
 - [ ] 听觉回归（Windows 侧手工）：与 sine 对比击弦瞬间 / 衰减 / 力度分层——待用户手工验证（音色已可经切换接口启用）。
-- 验证：`test`（52 类 2968 断言全绿）/ `format --check`（归零）/ `win-build`（MSVC 成功，2026-08-18）。
+- 验证：`test`（默认套件 2928 断言全绿；PianoSynthVoice 确定性测试随后经 12-4 落地，见下）/ `format --check`（归零）/ `win-build`（MSVC 成功，2026-08-18）。
 - 范围说明：导出路径（`WavExportOptions`）接入 Piano 音色归 12-3（与参数扩展一起做）；12-2 保持实时默认 sine = 导出 sine 的一致性。
 
 **Phase 12-3：参数化与 UI 接线 [已完成，2026-08-18]**
@@ -63,11 +63,11 @@
 
 **Phase 12-4：确定性音色测试 [已完成，2026-08-18]**
 
-落地：`source/tests/PianoSynthVoiceTest.cpp`（`DevPiano/Engine` 类别，10 个 beginTest，37 断言，与 12-2 并行推进）。
+落地：`source/tests/PianoSynthVoiceTest.cpp`（`DevPiano/Engine` 类别，11 个 beginTest，43 断言——含 12-3 追加的参数映射用例；与 12-2 并行推进）。
 
 - [x] 新建 `source/tests/PianoSynthVoiceTest.cpp`：夹具经 `juce::Synthesiser` 驱动 voice（`noteOn` 事件 → `renderNextBlock`，绕过 `MidiMessageCollector` 时序）——**必须走 Synthesiser**：`currentlyPlayingSound` 仅由 `Synthesiser::startVoice` 设置，直接调 `startNote` 会让 voice 处于非活跃态。
 - [x] 断言：单点 DFT（Hann 窗）验证基频≈261.63 Hz 且低音区 2~7 次 / 中音区 2~5 次谐波存在、velocity 0.2 vs 0.9 响度单调递增、noteOff 后 tail 衰减收敛至零、自然衰减自清（treble 8 s）、`stopNote(false)` 立即静音、100 块长渲染有限无 NaN、`allNotesOff` 生效、`AudioEngine` 音色切换接口（默认 sine → piano → sine，`prepareToPlay` 不崩溃）。
-- [x] 现有断言保持全绿：默认套件 52 类 2968 断言（2928 + 37 新 + 3 切换）。
+- [x] 现有断言保持全绿：12-4 完成时默认套件 52 类 2968 断言（2928 + 37 新 + 3 切换）；12-3 追加参数映射用例后为 **2992**（2026-08-18 最终）。
 - [x] 注意：TestRunner 默认按类别白名单 `{DevPiano/Core, Recording, Engine, UI}` 筛选——TEST-012 记录的 "DevPiano/Audio" 前缀与白名单不一致，本测试沿用现有惯例用 `DevPiano/Engine`（与 AudioEngineTest 一致），否则默认套件不会执行它。
 
 **排期参考**：12-1 / 12-2 / 12-3 / 12-4 已完成（2026-08-18）。Phase 12 剩余：Windows 侧手工听觉回归 + 默认音色决策（sine → piano 切换时点）。

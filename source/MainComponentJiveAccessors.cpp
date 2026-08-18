@@ -698,12 +698,25 @@ void MainComponent::refreshControlsTexts() {
     setText("decay-label", TRANS("Decay"));
     setText("sustain-label", TRANS("Sustain"));
     setText("release-label", TRANS("Release"));
+    setText("tone-label", TRANS("Tone"));
+    setText("brightness-label", TRANS("Brightness"));
+    setText("hardness-label", TRANS("Hammer"));
+    setText("resonance-label", TRANS("Resonance"));
     setText("preset-card-title", TRANS("Performance Preset"));
     setText("adsr-curve-title", TRANS("ADSR Curve"));
     setText("transport-card-title", TRANS("Transport Controls"));
     if (auto* item = jive::findItemWithID(*jiveRootItem, "preset-combo")) {
         if (auto* combo = dynamic_cast<juce::ComboBox*>(item->getComponent().get())) {
             combo->setTextWhenNothingSelected(TRANS("Default"));
+        }
+    }
+    if (auto* item = jive::findItemWithID(*jiveRootItem, "tone-combo")) {
+        if (auto* combo = dynamic_cast<juce::ComboBox*>(item->getComponent().get())) {
+            const auto prevId = combo->getSelectedId();
+            combo->clear(juce::dontSendNotification);
+            combo->addItem(TRANS("Sine"), 1);
+            combo->addItem(TRANS("Piano"), 2);
+            combo->setSelectedId(prevId > 0 ? prevId : 1, juce::dontSendNotification);
         }
     }
     setText("speed-label", TRANS("Playback Speed"));

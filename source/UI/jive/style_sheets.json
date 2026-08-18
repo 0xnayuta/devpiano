@@ -93,6 +93,10 @@
   "#decay-label": { "foreground": "@text-secondary", "font-size": "@font-size-tiny" },
   "#sustain-label": { "foreground": "@text-secondary", "font-size": "@font-size-tiny" },
   "#release-label": { "foreground": "@text-secondary", "font-size": "@font-size-tiny" },
+  "#tone-label": { "foreground": "@text-secondary", "font-size": "@font-size-tiny" },
+  "#brightness-label": { "foreground": "@text-secondary", "font-size": "@font-size-tiny" },
+  "#hardness-label": { "foreground": "@text-secondary", "font-size": "@font-size-tiny" },
+  "#resonance-label": { "foreground": "@text-secondary", "font-size": "@font-size-tiny" },
   "#speed-label": { "foreground": "@text-secondary", "font-size": "@font-size-small", "font-weight": "bold" },
   "#record-btn": {
     "background": "#281A19",
