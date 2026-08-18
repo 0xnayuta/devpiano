@@ -125,6 +125,15 @@ try {
     Write-Log "cmake --build --preset $BuildPreset"
     & cmake --build --preset $BuildPreset
     if ($LASTEXITCODE -ne 0) {
+        # 偶发 LNK1163（COMDAT 节选择无效）：WSL 镜像同步让 ninja 重编部分
+        # obj，而 MSVC 增量链接的 .ilk 仍按旧 obj 布局合并新 COMDAT。清除
+        # .ilk 后全量重链一次可恢复（ADR-001 镜像工作流的已知竞态）。
+        Write-Log "build failed (exit $LASTEXITCODE); clearing incremental-link state and retrying once"
+        Get-ChildItem -Path $MirrorDir -Recurse -Filter *.ilk -ErrorAction SilentlyContinue |
+            Remove-Item -Force -ErrorAction SilentlyContinue
+        & cmake --build --preset $BuildPreset
+    }
+    if ($LASTEXITCODE -ne 0) {
         throw "CMake build failed with exit code $LASTEXITCODE"
     }
 
