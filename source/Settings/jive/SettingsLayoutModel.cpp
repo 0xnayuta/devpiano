@@ -96,7 +96,7 @@ juce::ValueTree makeAudioDeviceSectionTree() {
 
     // Row 1: Audio Device Type (ComboBox)
     auto typeCombo = node("ComboBox", "audio-device-type-combo");
-    typeCombo.setProperty("width", 200, nullptr);
+    typeCombo.setProperty("width", 300, nullptr);
     typeCombo.setProperty("height", 24, nullptr);
     content.appendChild(settingRow(TRANS("Audio Device Type:"), typeCombo, "audio-device-type-label"), nullptr);
 
@@ -113,36 +113,36 @@ juce::ValueTree makeAudioDeviceSectionTree() {
     outputRow.appendChild(outputLbl, nullptr);
 
     auto outputControls = flexRow("audio-output-controls");
-    outputControls.setProperty("gap", "6", nullptr);
+    outputControls.setProperty("width", 300, nullptr);
+    outputControls.setProperty("gap", "8", nullptr);
 
     auto outputCombo = node("ComboBox", "audio-output-device-combo");
-    outputCombo.setProperty("width", 140, nullptr);
+    outputCombo.setProperty("width", 236, nullptr);
     outputCombo.setProperty("height", 24, nullptr);
     outputControls.appendChild(outputCombo, nullptr);
 
     auto testBtn = button(TRANS("Test"), "audio-test-button");
-    testBtn.setProperty("width", 54, nullptr);
+    testBtn.setProperty("width", 56, nullptr);
     testBtn.setProperty("height", 24, nullptr);
     outputControls.appendChild(testBtn, nullptr);
-
     outputRow.appendChild(outputControls, nullptr);
     content.appendChild(outputRow, nullptr);
     // Row 3: Active Output Channels (ComboBox)
     auto channelsCombo = node("ComboBox", "audio-active-channels-combo");
-    channelsCombo.setProperty("width", 200, nullptr);
+    channelsCombo.setProperty("width", 300, nullptr);
     channelsCombo.setProperty("height", 24, nullptr);
     content.appendChild(settingRow(TRANS("Active output channels:"), channelsCombo, "audio-active-channels-label"),
                         nullptr);
 
     // Row 4: Sample Rate (ComboBox)
     auto sampleRateCombo = node("ComboBox", "audio-sample-rate-combo");
-    sampleRateCombo.setProperty("width", 200, nullptr);
+    sampleRateCombo.setProperty("width", 300, nullptr);
     sampleRateCombo.setProperty("height", 24, nullptr);
     content.appendChild(settingRow(TRANS("Sample Rate:"), sampleRateCombo, "audio-sample-rate-label"), nullptr);
 
     // Row 5: Buffer Size (ComboBox)
     auto bufferSizeCombo = node("ComboBox", "audio-buffer-size-combo");
-    bufferSizeCombo.setProperty("width", 200, nullptr);
+    bufferSizeCombo.setProperty("width", 300, nullptr);
     bufferSizeCombo.setProperty("height", 24, nullptr);
     content.appendChild(settingRow(TRANS("Audio Buffer Size:"), bufferSizeCombo, "audio-buffer-size-label"), nullptr);
 
@@ -160,7 +160,7 @@ juce::ValueTree makeAudioDeviceSectionTree() {
     asioRow.appendChild(asioLbl, nullptr);
 
     auto asioBtn = button(TRANS("Open Control Panel"), "asio-control-panel-button");
-    asioBtn.setProperty("width", 200, nullptr);
+    asioBtn.setProperty("width", 300, nullptr);
     asioBtn.setProperty("height", 24, nullptr);
     asioRow.appendChild(asioBtn, nullptr);
 
@@ -191,7 +191,7 @@ juce::ValueTree makeKeySignatureSectionTree() {
 
     // Row 1: Key Signature combo
     auto ksCombo = node("ComboBox", "key-signature-combo");
-    ksCombo.setProperty("width", 200, nullptr);
+    ksCombo.setProperty("width", 300, nullptr);
     ksCombo.setProperty("height", 24, nullptr);
     content.appendChild(settingRow(TRANS("Key Signature:"), ksCombo, "key-signature-label"), nullptr);
 
@@ -200,10 +200,9 @@ juce::ValueTree makeKeySignatureSectionTree() {
     transposeToggle.setProperty("text", TRANS("MIDI Transpose"), nullptr);
     transposeToggle.setProperty("toggleable", true, nullptr);
     transposeToggle.setProperty("toggle-on-click", true, nullptr);
-    transposeToggle.setProperty("width", 200, nullptr);
+    transposeToggle.setProperty("width", 300, nullptr);
     transposeToggle.setProperty("height", 24, nullptr);
     content.appendChild(settingRow(TRANS("MIDI Transpose:"), transposeToggle, "midi-transpose-label"), nullptr);
-
     // Row 3: Channel Follow Key (16-channel Grid layout)
     auto followKeyArea = flexColumn("channel-follow-key-area");
     followKeyArea.setProperty("margin", "6 0 0 0", nullptr);
@@ -256,43 +255,46 @@ juce::ValueTree makeKeyboardDisplaySectionTree() {
 
     // Colour Mode
     auto colourCombo = node("ComboBox", "colour-mode-combo");
-    colourCombo.setProperty("width", 200, nullptr);
+    colourCombo.setProperty("width", 300, nullptr);
     colourCombo.setProperty("height", 24, nullptr);
     content.appendChild(settingRow(TRANS("Colour Mode:"), colourCombo, "colour-mode-label"), nullptr);
 
     // Note Display
     auto noteCombo = node("ComboBox", "note-display-combo");
-    noteCombo.setProperty("width", 200, nullptr);
+    noteCombo.setProperty("width", 300, nullptr);
     noteCombo.setProperty("height", 24, nullptr);
     content.appendChild(settingRow(TRANS("Note Display:"), noteCombo, "note-display-label"), nullptr);
 
     // Fade Speed
     auto fadeSlider = node("Slider", "fade-speed-slider");
-    fadeSlider.setProperty("width", 200, nullptr);
+    fadeSlider.setProperty("width", 300, nullptr);
     fadeSlider.setProperty("height", 24, nullptr);
     content.appendChild(settingRow(TRANS("Fade Speed:"), fadeSlider, "fade-speed-label"), nullptr);
 
     // Resizable Window
     auto resizableCb = node("Checkbox", "resizable-toggle");
     resizableCb.setProperty("text", TRANS("Resizable Window"), nullptr);
-    resizableCb.setProperty("width", 200, nullptr);
+    resizableCb.setProperty("toggleable", true, nullptr);
+    resizableCb.setProperty("toggle-on-click", true, nullptr);
+    resizableCb.setProperty("width", 300, nullptr);
     resizableCb.setProperty("height", 24, nullptr);
     content.appendChild(settingRow(TRANS("Resizable Window:"), resizableCb, "resizable-label"), nullptr);
 
     // Instrument Filter
     auto filterCb = node("Checkbox", "instrument-filter-toggle");
     filterCb.setProperty("text", TRANS("Show MIDI/VSTi Instrument Filter"), nullptr);
-    filterCb.setProperty("width", 200, nullptr);
+    filterCb.setProperty("toggleable", true, nullptr);
+    filterCb.setProperty("toggle-on-click", true, nullptr);
+    filterCb.setProperty("width", 300, nullptr);
     filterCb.setProperty("height", 24, nullptr);
     content.appendChild(settingRow(TRANS("Show MIDI/VSTi Instrument Filter:"), filterCb, "instrument-filter-label"),
                         nullptr);
 
     // Language
     auto langCombo = node("ComboBox", "language-combo");
-    langCombo.setProperty("width", 200, nullptr);
+    langCombo.setProperty("width", 300, nullptr);
     langCombo.setProperty("height", 24, nullptr);
     content.appendChild(settingRow(TRANS("Language:"), langCombo, "language-label"), nullptr);
-
     card.appendChild(content, nullptr);
     return card;
 }
@@ -340,10 +342,9 @@ juce::ValueTree makeSaveActionSectionTree() {
 
 juce::ValueTree makeSettingsLayoutTree() {
     auto root = flexColumn("settings-root");
-    root.setProperty("width", 560, nullptr);
+    root.setProperty("width", 680, nullptr);
     root.setProperty("height", 960, nullptr);
     root.setProperty("padding", "10", nullptr);
-
     root.appendChild(makeAudioDeviceSectionTree(), nullptr);
     root.appendChild(makeKeySignatureSectionTree(), nullptr);
     root.appendChild(makeKeyboardDisplaySectionTree(), nullptr);

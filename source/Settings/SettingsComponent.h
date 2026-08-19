@@ -84,7 +84,7 @@ public:
         viewport.addMouseListener(this, true);
         addAndMakeVisible(viewport);
 
-        setSize(560, 720);
+        setSize(680, 720);
         deviceManager.addChangeListener(this);
 
         refreshAllAudioControls();
@@ -720,7 +720,7 @@ private:
         if (jiveRootItem != nullptr) {
             const auto previousViewPos = viewport.getViewPosition();
             const auto availableWidth = viewport.getMaximumVisibleWidth();
-            const auto contentWidth = juce::jmax(520, availableWidth);
+            const auto contentWidth = juce::jmax(640, availableWidth);
             const auto contentHeight = calculateSettingsContentHeight();
             if (auto rootComp = jiveRootItem->getComponent()) {
                 rootComp->setSize(contentWidth, contentHeight);
