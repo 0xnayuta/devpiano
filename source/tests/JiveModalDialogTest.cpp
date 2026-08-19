@@ -1,9 +1,10 @@
 #include <JuceHeader.h>
 
+#include "UI/PerformanceMetadataDialog.h"
+#include "UI/PresetDialogs.h"
 #include "UI/jive/DesignTokens.h"
 #include "UI/jive/JiveModalDialog.h"
 #include "UI/jive/StyleCatalog.h"
-
 namespace {
 
 void clearJiveStyleSheets(juce::Component* comp) {
@@ -65,6 +66,37 @@ public:
         testMetadataEditLayoutBuilder();
         testInterpretationAndComponentLookup();
         testMetadataInterpretation();
+        testPresetAndMetadataDialogBuilders();
+    }
+
+    void testPresetAndMetadataDialogBuilders() {
+        beginTest("Preset and Metadata dialog templates integration");
+
+        // Verify default preset single-input template
+        auto presetInputTree = devpiano::ui::jive::JiveModalDialog::makeSingleInputLayout(TRANS("Preset Name:"));
+        expect(presetInputTree.isValid());
+        expect(findNodeById(presetInputTree, "dialog-label").isValid());
+        expect(findNodeById(presetInputTree, "dialog-editor").isValid());
+        expect(findNodeById(presetInputTree, "dialog-ok-btn").isValid());
+        expect(findNodeById(presetInputTree, "dialog-cancel-btn").isValid());
+
+        // Verify preset confirmation template
+        auto presetConfirmTree = devpiano::ui::jive::JiveModalDialog::makeConfirmLayout(
+            "Delete preset \"MyPreset\"?", 380, 140, TRANS("Delete"), TRANS("Cancel"));
+        expect(presetConfirmTree.isValid());
+        expect(findNodeById(presetConfirmTree, "dialog-message").isValid());
+        expect(findNodeById(presetConfirmTree, "dialog-ok-btn").isValid());
+        expect(findNodeById(presetConfirmTree, "dialog-cancel-btn").isValid());
+
+        // Verify metadata edit template
+        auto metadataTree = devpiano::ui::jive::JiveModalDialog::makeMetadataEditLayout();
+        expect(metadataTree.isValid());
+        expect(findNodeById(metadataTree, "title-label").isValid());
+        expect(findNodeById(metadataTree, "title-editor").isValid());
+        expect(findNodeById(metadataTree, "notes-label").isValid());
+        expect(findNodeById(metadataTree, "notes-editor").isValid());
+        expect(findNodeById(metadataTree, "dialog-ok-btn").isValid());
+        expect(findNodeById(metadataTree, "dialog-cancel-btn").isValid());
     }
 
 private:

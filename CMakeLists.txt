@@ -313,6 +313,10 @@ if (BUILD_TESTS)
         source/UI/jive/DesignTokens.h
         source/UI/DevPianoLookAndFeel.cpp
         source/UI/DevPianoLookAndFeel.h
+        source/UI/PresetDialogs.cpp
+        source/UI/PresetDialogs.h
+        source/UI/PerformanceMetadataDialog.cpp
+        source/UI/PerformanceMetadataDialog.h
 
 
 

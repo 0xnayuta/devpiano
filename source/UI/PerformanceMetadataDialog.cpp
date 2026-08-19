@@ -1,136 +1,32 @@
 #include "UI/PerformanceMetadataDialog.h"
-#include "DevPianoLookAndFeel.h"
-#include "UI/jive/DesignTokens.h"
 
-namespace {
+#include "UI/jive/JiveModalDialog.h"
 
 // ============================================================================
-// Dialog content component
+// PerformanceMetadataDialog Implementation
+//
+// Refactored in Phase 15-B to use JiveModalDialog declarative templates,
+// eliminating redundant MetadataEditContent and manual pixel calculations.
 // ============================================================================
-class MetadataEditContent final : public juce::Component {
-public:
-    MetadataEditContent(const devpiano::recording::PerformanceFileMetadata& initial,
-                        std::function<void(std::optional<devpiano::recording::PerformanceFileMetadata>)> onCompleteFn)
-        : onComplete(std::move(onCompleteFn)) {
-        // Title editor (single line)
-        titleLabel.setText(TRANS("Song Title"), juce::dontSendNotification);
-        titleLabel.setFont(juce::FontOptions(15.0f));
-        addAndMakeVisible(titleLabel);
 
-        titleEditor.setText(initial.title, juce::dontSendNotification);
-        titleEditor.setFont(juce::FontOptions(15.0f));
-        titleEditor.setInputRestrictions(128, {});
-        addAndMakeVisible(titleEditor);
-
-        // Notes editor (multi-line)
-        notesLabel.setText(TRANS("Notes"), juce::dontSendNotification);
-        notesLabel.setFont(juce::FontOptions(15.0f));
-        addAndMakeVisible(notesLabel);
-
-        notesEditor.setMultiLine(true, false);
-        notesEditor.setReturnKeyStartsNewLine(true);
-        notesEditor.setText(initial.notes, juce::dontSendNotification);
-        notesEditor.setFont(juce::FontOptions(15.0f));
-        notesEditor.setInputRestrictions(2048, {});
-        addAndMakeVisible(notesEditor);
-        // Buttons
-        okButton.onClick = [this] { confirm(); };
-        addAndMakeVisible(okButton);
-
-        cancelButton.onClick = [this] { dismiss(); };
-        addAndMakeVisible(cancelButton);
-
-        setSize(420, 260);
-    }
-
-    ~MetadataEditContent() override {
-        // Fire onComplete if neither confirm() nor dismiss() was called
-        // (e.g. user closed via title bar X or Escape key).
-        if (!completed && onComplete) {
-            onComplete(std::nullopt);
-        }
-    }
-
-    void resized() override {
-        auto r = getLocalBounds().reduced(12);
-
-        // Title row
-        titleLabel.setBounds(r.removeFromTop(20));
-        r.removeFromTop(2);
-        titleEditor.setBounds(r.removeFromTop(28));
-        r.removeFromTop(12);
-
-        // Notes row
-        notesLabel.setBounds(r.removeFromTop(20));
-        r.removeFromTop(2);
-        notesEditor.setBounds(r.removeFromTop(80));
-        r.removeFromTop(12);
-
-        // Button row: right-aligned, OK left of Cancel.
-        auto btnRow = r.removeFromTop(28);
-        constexpr int btnW = 80;
-        btnRow.removeFromLeft(btnRow.getWidth() - (btnW * 2 + 8));
-        okButton.setBounds(btnRow.removeFromLeft(btnW));
-        btnRow.removeFromLeft(8);
-        cancelButton.setBounds(btnRow.removeFromLeft(btnW));
-    }
-
-    void paint(juce::Graphics& g) override {
-        g.fillAll(devpiano::jive::DesignTokens::get().mainBg());
-    }
-
-    void confirm() {
-        completed = true;
-        devpiano::recording::PerformanceFileMetadata result;
-        result.title = titleEditor.getText();
-        result.notes = notesEditor.getText();
-
-        if (onComplete) {
-            onComplete(std::move(result));
-        }
-        if (auto* dw = findParentComponentOfClass<juce::DialogWindow>()) {
-            dw->exitModalState(0);
-        }
-    }
-
-    void dismiss() {
-        completed = true;
-        if (onComplete) {
-            onComplete(std::nullopt);
-        }
-        if (auto* dw = findParentComponentOfClass<juce::DialogWindow>()) {
-            dw->exitModalState(0);
-        }
-    }
-
-    juce::Label titleLabel;
-    juce::TextEditor titleEditor;
-    juce::Label notesLabel;
-    juce::TextEditor notesEditor;
-    juce::TextButton okButton { TRANS("OK") };
-    juce::TextButton cancelButton { TRANS("Cancel") };
-    std::function<void(std::optional<devpiano::recording::PerformanceFileMetadata>)> onComplete;
-    bool completed = false;
-
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MetadataEditContent)
-};
-
-} // anonymous namespace
-
-// ============================================================================
-// Public launch method
-// ============================================================================
 void PerformanceMetadataDialog::launch(
     const devpiano::recording::PerformanceFileMetadata& initialMetadata, juce::Component* componentToCentreAround,
     std::function<void(std::optional<devpiano::recording::PerformanceFileMetadata>)> onComplete) {
-    juce::DialogWindow::LaunchOptions opts;
-    opts.dialogTitle = TRANS("Song Information");
-    opts.dialogBackgroundColour = devpiano::jive::DesignTokens::get().mainBg();
-    opts.componentToCentreAround = componentToCentreAround;
-    opts.content.setOwned(new MetadataEditContent(initialMetadata, std::move(onComplete)));
-    opts.resizable = false;
-    if (componentToCentreAround != nullptr) {
-        opts.content->setLookAndFeel(&componentToCentreAround->getLookAndFeel());
-    }
-    opts.runModal();
+    devpiano::ui::jive::JiveModalDialog::launchMetadataEdit(
+        TRANS("Song Information"), initialMetadata.title, initialMetadata.notes, componentToCentreAround,
+        [callback = std::move(onComplete)](std::optional<devpiano::ui::jive::JiveModalDialog::MetadataResult> result) {
+            if (!result.has_value()) {
+                if (callback) {
+                    callback(std::nullopt);
+                }
+                return;
+            }
+
+            devpiano::recording::PerformanceFileMetadata meta;
+            meta.title = result->title;
+            meta.notes = result->notes;
+            if (callback) {
+                callback(std::move(meta));
+            }
+        });
 }

@@ -53,13 +53,13 @@
 - [x] 封装安全的回调完成序列（防 double-callback、防 UAF、`launchAsync` 模态状态安全退出、`safeCleanupJiveTree` 防止 StyleSheet 析构 UAF）。
 - [x] 确定性测试：`source/tests/JiveModalDialogTest.cpp` 新增 5 类 10+ 项断言（ValueTree 节点层级、属性、尺寸、`findButtonById` 与 `findTextEditorById` 组件检索、单行/多行编辑器配置与安全析构），全量测试通过。
 
-**Phase 15-B：预设与元数据弹窗统一迁移 [待启动]**
+**Phase 15-B：预设与元数据弹窗统一迁移 [已完成，2026-08-19]**
 
-- [ ] `PresetNameDialog`（重命名 / 新建预设）改接 `JiveModalDialog` 文本输入模板。
-- [ ] `PresetConfirmDialog`（删除预设确认）改接 `JiveModalDialog` 确认模板。
-- [ ] `PerformanceMetadataDialog`（歌曲标题与备注编辑）改接 `JiveModalDialog` 元数据模板。
-- [ ] 清理 `source/UI/PresetDialogs.cpp` 和 `PerformanceMetadataDialog.cpp` 中的手写 `resized()` 坐标计算与冗余 Content 类。
-- [ ] 验证：全流程弹窗交互、数据回传与单元测试。
+- [x] `PresetNameDialog`（重命名 / 新建预设）全面改接 `JiveModalDialog::launchSingleInput` 声明式模板。
+- [x] `PresetConfirmDialog`（删除预设确认）全面改接 `JiveModalDialog::launchConfirm` 声明式模板。
+- [x] `PerformanceMetadataDialog`（歌曲标题与备注编辑）全面改接 `JiveModalDialog::launchMetadataEdit` 声明式模板。
+- [x] 清理 `source/UI/PresetDialogs.cpp`（222 行 → 26 行）和 `source/UI/PerformanceMetadataDialog.cpp`（136 行 → 33 行）中的手写 `resized()` 坐标计算与冗余 Content 类（净消减 ~300 行死代码）。
+- [x] 验证：全流程弹窗交互与单元测试通过，`DevPianoTests` / `DevPiano.exe` 全量构建测试无警告。
 
 **Phase 15-C：设置面板 JIVE 声明式重构（SettingsLayoutModel） [待启动]**
 
