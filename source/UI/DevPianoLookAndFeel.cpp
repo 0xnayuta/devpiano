@@ -1,9 +1,13 @@
 #include "DevPianoLookAndFeel.h"
 
 #include "UI/jive/DesignTokens.h"
-
 namespace {
 const auto& tokens = devpiano::jive::DesignTokens::get();
+
+juce::Font getUnifiedUiFont(float height = 14.0f, int styleFlags = juce::Font::plain) {
+    return juce::Font(juce::FontOptions("Microsoft YaHei", height, styleFlags)
+                          .withFallbacks({ "Segoe UI", "PingFang SC", "SimSun", "Noto Sans CJK SC", "sans-serif" }));
+}
 } // namespace
 
 DevPianoLookAndFeel::DevPianoLookAndFeel() {
@@ -166,7 +170,47 @@ void DevPianoLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button& 
 //  drawToggleButton
 // ============================================================================
 void DevPianoLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton& button, bool highlighted, bool down) {
-    LookAndFeel_V4::drawToggleButton(g, button, highlighted, down);
+    juce::ignoreUnused(down);
+    constexpr float fontSize = 13.0f;
+    constexpr float tickWidth = 14.0f;
+    const auto buttonHeight = static_cast<float>(button.getHeight());
+    const float tickY = (buttonHeight - tickWidth) * 0.5f;
+
+    juce::Rectangle<float> tickBounds(2.0f, tickY, tickWidth, tickWidth);
+
+    // Box outline & background
+    g.setColour(tokens.controlBg());
+    g.fillRoundedRectangle(tickBounds, 3.0f);
+
+    juce::Colour borderCol;
+    if (!button.isEnabled()) {
+        borderCol = tokens.textDisabled().withAlpha(0.4f);
+    } else if (button.getToggleState()) {
+        borderCol = tokens.primary();
+    } else if (highlighted) {
+        borderCol = tokens.textPrimary().withAlpha(0.6f);
+    } else {
+        borderCol = tokens.textSecondary().withAlpha(0.6f);
+    }
+    g.setColour(borderCol);
+    g.drawRoundedRectangle(tickBounds, 3.0f, 1.0f);
+
+    // Tick mark
+    if (button.getToggleState()) {
+        g.setColour(button.isEnabled() ? tokens.primary() : tokens.textDisabled());
+        auto tick = getTickShape(0.75f);
+        g.fillPath(tick, tick.getTransformToScaleToFit(tickBounds.reduced(3.0f, 3.0f), false));
+    }
+
+    // Text label
+    if (button.getButtonText().isNotEmpty()) {
+        g.setColour(button.isEnabled() ? button.findColour(juce::ToggleButton::textColourId) : tokens.textDisabled());
+        g.setFont(getUnifiedUiFont(fontSize));
+
+        const auto textBounds
+            = button.getLocalBounds().withTrimmedLeft(juce::roundToInt(tickWidth + 6.0f)).withTrimmedRight(2);
+        g.drawFittedText(button.getButtonText(), textBounds, juce::Justification::centredLeft, 1);
+    }
 }
 
 // ============================================================================
@@ -503,7 +547,15 @@ void DevPianoLookAndFeel::drawLabel(juce::Graphics& g, juce::Label& label) {
 //  getLabelFont
 // ============================================================================
 juce::Font DevPianoLookAndFeel::getLabelFont(juce::Label& /*label*/) {
-    return { juce::FontOptions(15.0f) };
+    return getUnifiedUiFont(14.0f);
+}
+
+juce::Font DevPianoLookAndFeel::getComboBoxFont(juce::ComboBox& /*box*/) {
+    return getUnifiedUiFont(14.0f);
+}
+
+juce::Font DevPianoLookAndFeel::getPopupMenuFont() {
+    return getUnifiedUiFont(14.0f);
 }
 // ============================================================================
 //  drawTooltip
@@ -589,15 +641,15 @@ void DevPianoLookAndFeel::drawAlertBox(juce::Graphics& g, juce::AlertWindow& ale
 //  AlertWindow fonts and dimensions
 // ============================================================================
 juce::Font DevPianoLookAndFeel::getAlertWindowTitleFont() {
-    return { juce::FontOptions(16.0f).withStyle("Bold") };
+    return getUnifiedUiFont(16.0f, juce::Font::bold);
 }
 
 juce::Font DevPianoLookAndFeel::getAlertWindowMessageFont() {
-    return { juce::FontOptions(15.0f) };
+    return getUnifiedUiFont(14.0f);
 }
 
 juce::Font DevPianoLookAndFeel::getAlertWindowFont() {
-    return { juce::FontOptions(15.0f) };
+    return getUnifiedUiFont(14.0f);
 }
 
 int DevPianoLookAndFeel::getAlertWindowButtonHeight() {
@@ -618,5 +670,5 @@ juce::Array<int> DevPianoLookAndFeel::getWidthsForTextButtons(juce::AlertWindow&
 
 juce::Font DevPianoLookAndFeel::getTextButtonFont(juce::TextButton&, int buttonHeight) {
     juce::ignoreUnused(buttonHeight);
-    return { juce::FontOptions(15.0f) };
+    return getUnifiedUiFont(14.0f);
 }

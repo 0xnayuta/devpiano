@@ -75,6 +75,7 @@ public:
         devpiano::jive::DesignTokens::get().reset();
 
         testSettingsLayoutTreeStructure();
+        testAudioDeviceSection();
         testKeySignatureSectionAndGrid();
         testKeyboardDisplaySection();
         testInterpretationAndComponentLookup();
@@ -91,13 +92,28 @@ private:
         expectEquals(tree.getProperty("id").toString(), juce::String("settings-root"));
 
         // All 5 core sections must be present
-        expect(findNodeById(tree, "audio-device-section").isValid());
+        expect(findNodeById(tree, "audio-device-card").isValid());
         expect(findNodeById(tree, "key-sig-card").isValid());
         expect(findNodeById(tree, "keyboard-display-card").isValid());
         expect(findNodeById(tree, "diagnostics-card").isValid());
         expect(findNodeById(tree, "save-action-row").isValid());
     }
 
+    void testAudioDeviceSection() {
+        beginTest("makeAudioDeviceSectionTree: declarative controls and test button");
+
+        auto tree = devpiano::ui::jive::makeAudioDeviceSectionTree();
+        expect(tree.isValid());
+
+        expect(findNodeById(tree, "audio-device-title").isValid());
+        expect(findNodeById(tree, "audio-device-type-combo").isValid());
+        expect(findNodeById(tree, "audio-output-device-combo").isValid());
+        expect(findNodeById(tree, "audio-test-button").isValid());
+        expect(findNodeById(tree, "audio-sample-rate-combo").isValid());
+        expect(findNodeById(tree, "audio-buffer-size-combo").isValid());
+        expect(findNodeById(tree, "asio-control-panel-row").isValid());
+        expect(findNodeById(tree, "asio-control-panel-button").isValid());
+    }
     void testKeySignatureSectionAndGrid() {
         beginTest("makeKeySignatureSectionTree: 16-channel CSS Grid and controls");
 
@@ -146,9 +162,6 @@ private:
         ::jive::Interpreter interpreter;
         auto& factory = interpreter.getComponentFactory();
 
-        factory.set("AudioDeviceSelector", [] {
-            return std::make_unique<juce::Component>(); // dummy for test
-        });
         factory.set("ListEditor", [] {
             auto ed = std::make_unique<juce::TextEditor>();
             ed->setMultiLine(true);
@@ -161,9 +174,26 @@ private:
 
         if (rootItem != nullptr) {
             // Verify component lookup for all major controls
-            auto* audioSelector = findComponentById(*rootItem, "audio-device-selector");
-            expect(audioSelector != nullptr);
+            auto* devTypeCombo = dynamic_cast<juce::ComboBox*>(findComponentById(*rootItem, "audio-device-type-combo"));
+            expect(devTypeCombo != nullptr);
 
+            auto* outputCombo
+                = dynamic_cast<juce::ComboBox*>(findComponentById(*rootItem, "audio-output-device-combo"));
+            expect(outputCombo != nullptr);
+
+            auto* testBtn = dynamic_cast<juce::Button*>(findComponentById(*rootItem, "audio-test-button"));
+            expect(testBtn != nullptr);
+
+            auto* sampleRateCombo
+                = dynamic_cast<juce::ComboBox*>(findComponentById(*rootItem, "audio-sample-rate-combo"));
+            expect(sampleRateCombo != nullptr);
+
+            auto* bufferSizeCombo
+                = dynamic_cast<juce::ComboBox*>(findComponentById(*rootItem, "audio-buffer-size-combo"));
+            expect(bufferSizeCombo != nullptr);
+
+            auto* asioBtn = dynamic_cast<juce::Button*>(findComponentById(*rootItem, "asio-control-panel-button"));
+            expect(asioBtn != nullptr);
             auto* ksCombo = dynamic_cast<juce::ComboBox*>(findComponentById(*rootItem, "key-signature-combo"));
             expect(ksCombo != nullptr);
 
@@ -210,15 +240,11 @@ private:
     }
 
     void testFollowKeyVisibilityToggle() {
-        beginTest("Dynamic display property toggle for follow-key-area");
+        beginTest("Dynamic visibility property toggle for follow-key-area");
 
         auto tree = devpiano::ui::jive::makeSettingsLayoutTree();
 
         ::jive::Interpreter interpreter;
-        auto& factory = interpreter.getComponentFactory();
-        factory.set("AudioDeviceSelector", [] { return std::make_unique<juce::Component>(); });
-        factory.set("ListEditor", [] { return std::make_unique<juce::TextEditor>(); });
-
         devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
         auto rootItem = interpreter.interpret(tree);
         expect(rootItem != nullptr);
@@ -228,12 +254,12 @@ private:
             expect(followKeyArea != nullptr);
 
             if (followKeyArea != nullptr) {
-                // Toggle display property
-                followKeyArea->state.setProperty("display", "none", nullptr);
-                expectEquals(followKeyArea->state.getProperty("display").toString(), juce::String("none"));
+                // Toggle visibility property
+                followKeyArea->state.setProperty("visibility", false, nullptr);
+                expect(!static_cast<bool>(followKeyArea->state.getProperty("visibility")));
 
-                followKeyArea->state.setProperty("display", "flex", nullptr);
-                expectEquals(followKeyArea->state.getProperty("display").toString(), juce::String("flex"));
+                followKeyArea->state.setProperty("visibility", true, nullptr);
+                expect(static_cast<bool>(followKeyArea->state.getProperty("visibility")));
             }
 
             safeCleanupJiveTree(rootItem);
