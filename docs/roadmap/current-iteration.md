@@ -5,7 +5,7 @@
 
 ## 当前方向
 
-**Phase 13（Stiff-String Inharmonic Piano v2）已完成（2026-08-18）**；**Phase 14-A/B/C（递归振荡器 + 分音数扩展 + Two-stage decay 双阶段衰减 + 同音三弦拍频 Beating）已全部完成（2026-08-18）**——Magic Circle 振荡器零 `std::sin`、分音上限 8 → 20/14/8/6、每分音双指数衰减（快辐射期 + 慢尾音）、低中音微失谐双振荡器对拍频干涉（周期性下陷与回弹可测），三闸门全绿（46/46 测试、3086 断言）。当前进入 **Phase 14-D（音板模态组扩展）**：Phase 14 为 Enhanced Modal Piano v3（增强模态合成），详细排期 14-A~14-E 见下文；数字波导降级为实验分支（14-F）。
+**Phase 13（Stiff-String Inharmonic Piano v2）已完成（2026-08-18）**；**Phase 14-A/B/C/D（Enhanced Modal Piano v3 物理建模四项增强）已全部落地（2026-08-18）**——Magic Circle 振荡器零 `std::sin`、分音上限 20/14/8/6、每分音双阶段衰减（快辐射期 + 慢尾音）、低中音微失谐双振荡器拍频、8 峰音板模态滤波组（75~950 Hz），三闸门全绿（46/46 测试、3101 断言）。当前进入 **Phase 14-E（CPU 基准 + 听感回归 + 决策评审）**。
 
 代码质量审计（[`AUDIT-001`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)，2026-08-16）修复 **AUDIT Phase A–H 已全部完成**（2026-08-17）：56 项未处理全关闭，16 项已暂缓复核关闭 2 项（QUAL-019/PERF-002），剩余 14 项维持；断言总数 754 → 2921 全绿。逐项完成记录已归档至 [`../archive/audit-001-code-quality-fix-phases.md`](../archive/audit-001-code-quality-fix-phases.md)。
 
@@ -291,12 +291,11 @@ Phase 12/13 的 v1/v2 是**有限分音解析加法**：≤8 分音逐个 `std::
 - [x] 确定性测试：`beatingDetuneRatioForNote` / `beatingPartialCountForNote` / `beatingFrequency` 区域查询与公式断言；C4（note 60）3.2 s 渲染测干涉调制——反相下陷点（$t \approx 1.28\text{ s}$）幅度 $< 0.5 \times \text{early}$，同相回弹峰（$t \approx 2.55\text{ s}$）幅度 $> 1.3 \times \text{dip}$（打破纯指数单调衰减，确凿验证物理干涉回弹）；全绿 46/46、3086 断言。
 - [x] 验证：`wsl-build` / `test` / `format --check` / `win-build` 三闸门全绿。
 - [ ] Windows 侧手工听感（待执行）：低中音"厚实颤动"与 chorus 感——与 14-E 合并执行。
-**Phase 14-D：音板模态组扩展**
+**Phase 14-D：音板模态组扩展 [已完成，2026-08-18]**
 
-- [ ] BodyResonator 3 峰 → 8~12 峰（音板主模态集频点与 Q 表），wet 混合比例微调（保持峰值归一化）。
-- [ ] 确定性测试：各峰频响增益可测、极点 |r|<1 稳定、长时渲染有限无 NaN、静音后状态清零。
-- [ ] 验证：`wsl-build` / `test` / `format --check` / `win-build`。
-
+- [x] BodyResonator 3 峰 → 8 峰（75/110/160/220/320/460/680/950 Hz，涵盖低音呼吸、琴桥耦合与板面共振模态）；权重归一（和为 1.00），保持 25% wet / 75% dry 混合下峰值电平严格有界。
+- [x] 确定性测试：`resonatorCount` == 8、8 峰频点与 Q 查表断言、权重和为 1.0 断言；极点 $|r| < 1.0$ 渐近绝对稳定断言；110 Hz（A2）与 220 Hz（A3）共鸣峰响应及即时静音清零测试；全绿 46/46、3101 断言。
+- [x] 验证：`wsl-build` / `test` / `format --check` / `win-build` 三闸门全绿。
 **Phase 14-E：CPU 基准 + 听感回归 + 决策评审**
 
 - [ ] CPU 基准：8 voice 复音实测 v3 vs v2（Windows 侧任务管理器 / 内部计时），验证预算评估（v3 音频线程应 ≤ v2）。

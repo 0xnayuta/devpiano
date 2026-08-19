@@ -26,10 +26,10 @@
 // - 模态分音衰减速率建模（Phase 13-2）：基于 Mutable Instruments 模态能量耗散模型，
 //   分音时间常数 τ_m = τ_base / (1.0 + c_eff · (m - 1))，高次分音快速耗散，音色由击弦瞬间
 //   的丰富泛音自然过渡至基频主导的纯净尾音；pianoResonance 调节 τ_base，pianoBrightness
-//   微调高频阻尼斜率；
-// - 琴体音板共鸣滤波（Phase 13-3）：借鉴 DaisySP / Mutable Instruments 二阶带通谐振器
-//   拓扑，在 voice 输出端挂载 3 个音板主共鸣峰（110 Hz / 220 Hz / 360 Hz），经 Wet/Dry
-//   混合（wet = 0.25）为干弦声注入木质共鸣箱体感；极点严格在单位圆内，渐近绝对稳定；
+// - 琴体音板共鸣模态组（Phase 14-D 扩展至 8 峰）：借鉴 Bank 2010 / Pianoteq 音板
+//   实测模态分布，在 voice 输出端挂载 8 个音板主共鸣峰（75~950 Hz，含箱体呼吸模态、
+//   琴桥耦合模态与板面共鸣峰），归一化权重和为 1.0，经 Wet/Dry 混合（wet = 0.25）
+//   注入饱满温暖的木质共鸣箱体感；极点严格在单位圆内，渐近绝对稳定；
 // - velocity 双映射：响度 level = v^1.5（弱奏更敏感）+ 亮度（高次谐波增益随 v 提升）；
 // - attack/release 沿用 AudioEngine::setAdsr 接线（经 setAdsrParameters
 //   提取 attack/release 作门控，decay/sustain 由分音衰减替代）。
@@ -52,7 +52,7 @@ public:
 class PianoSynthVoice final : public juce::SynthesiserVoice {
 public:
     static constexpr auto maxPartials = 20;
-    static constexpr auto numResonators = 3;
+    static constexpr auto numResonators = 8;
     static constexpr auto bodyWetRatio = 0.25f; // 25% wet soundboard, 75% dry string
     // 每 voice 峰值上限（v=1）：0.16 为 8 voice 齐奏 + masterGain 0.8 预留
     // 复音余量（实际峰值约为该值的 0.6~0.8，最坏 8 voice 周期对齐 ≈0.9）。
@@ -303,9 +303,8 @@ public:
     };
     [[nodiscard]] static ResonatorSpec resonatorSpec(int index) noexcept {
         constexpr ResonatorSpec specs[] = {
-            { 110.0f, 6.0f, 0.40f },
-            { 220.0f, 5.0f, 0.35f },
-            { 360.0f, 4.0f, 0.25f },
+            { 75.0f, 6.0f, 0.18f },  { 110.0f, 6.0f, 0.18f }, { 160.0f, 5.5f, 0.15f }, { 220.0f, 5.0f, 0.14f },
+            { 320.0f, 4.5f, 0.11f }, { 460.0f, 4.0f, 0.09f }, { 680.0f, 3.5f, 0.08f }, { 950.0f, 3.0f, 0.07f },
         };
         const auto clamped = std::clamp(index, 0, numResonators - 1);
         return specs[clamped];
@@ -427,8 +426,13 @@ public:
     };
 
     std::array<BodyResonator, numResonators> bodyResonators = {
-        BodyResonator { 110.0f, 6.0f, 0.40f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
-        BodyResonator { 220.0f, 5.0f, 0.35f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
-        BodyResonator { 360.0f, 4.0f, 0.25f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
+        BodyResonator { 75.0f, 6.0f, 0.18f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
+        BodyResonator { 110.0f, 6.0f, 0.18f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
+        BodyResonator { 160.0f, 5.5f, 0.15f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
+        BodyResonator { 220.0f, 5.0f, 0.14f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
+        BodyResonator { 320.0f, 4.5f, 0.11f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
+        BodyResonator { 460.0f, 4.0f, 0.09f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
+        BodyResonator { 680.0f, 3.5f, 0.08f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
+        BodyResonator { 950.0f, 3.0f, 0.07f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
     };
 };

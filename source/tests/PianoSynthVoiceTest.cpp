@@ -171,10 +171,21 @@ public:
                                       1e-3, "6th partial fast decay formula");
 
             expectWithinAbsoluteError(PianoSynthVoice::bodyWet(), 0.25f, 0.001f, "25% body wet ratio");
-            expectEquals(PianoSynthVoice::resonatorCount(), 3, "3 body resonators");
-            expectWithinAbsoluteError(PianoSynthVoice::resonatorSpec(0).frequency, 110.0f, 0.1f, "peak 1 freq");
-            expectWithinAbsoluteError(PianoSynthVoice::resonatorSpec(1).frequency, 220.0f, 0.1f, "peak 2 freq");
-            expectWithinAbsoluteError(PianoSynthVoice::resonatorSpec(2).frequency, 360.0f, 0.1f, "peak 3 freq");
+            expectEquals(PianoSynthVoice::resonatorCount(), 8, "8 body resonators");
+            expectWithinAbsoluteError(PianoSynthVoice::resonatorSpec(0).frequency, 75.0f, 0.1f, "peak 0 freq 75 Hz");
+            expectWithinAbsoluteError(PianoSynthVoice::resonatorSpec(1).frequency, 110.0f, 0.1f, "peak 1 freq 110 Hz");
+            expectWithinAbsoluteError(PianoSynthVoice::resonatorSpec(2).frequency, 160.0f, 0.1f, "peak 2 freq 160 Hz");
+            expectWithinAbsoluteError(PianoSynthVoice::resonatorSpec(3).frequency, 220.0f, 0.1f, "peak 3 freq 220 Hz");
+            expectWithinAbsoluteError(PianoSynthVoice::resonatorSpec(4).frequency, 320.0f, 0.1f, "peak 4 freq 320 Hz");
+            expectWithinAbsoluteError(PianoSynthVoice::resonatorSpec(5).frequency, 460.0f, 0.1f, "peak 5 freq 460 Hz");
+            expectWithinAbsoluteError(PianoSynthVoice::resonatorSpec(6).frequency, 680.0f, 0.1f, "peak 6 freq 680 Hz");
+            expectWithinAbsoluteError(PianoSynthVoice::resonatorSpec(7).frequency, 950.0f, 0.1f, "peak 7 freq 950 Hz");
+
+            auto totalWeight = 0.0f;
+            for (auto i = 0; i < PianoSynthVoice::resonatorCount(); ++i) {
+                totalWeight += PianoSynthVoice::resonatorSpec(i).weight;
+            }
+            expectWithinAbsoluteError(totalWeight, 1.0f, 1e-5f, "resonator weights sum to exactly 1.0");
         }
 
         beginTest("renders non-zero finite output at normalised level");
@@ -532,7 +543,18 @@ public:
         }
         beginTest("body resonator frequency response and stability (soundboard physics)");
         {
-            // 验证 110 Hz（A2）音符在音板主共振峰下的稳态渲染与能量表现
+            // 验证 8 峰谐振器滤波器的极点严格稳定（|r| < 1）且权重归一
+            auto weightSum = 0.0f;
+            for (auto i = 0; i < PianoSynthVoice::resonatorCount(); ++i) {
+                const auto spec = PianoSynthVoice::resonatorSpec(i);
+                weightSum += spec.weight;
+                const auto bandwidth = static_cast<double>(spec.frequency / spec.q);
+                const auto r = std::exp(-juce::MathConstants<double>::pi * bandwidth / sampleRate);
+                expect(r > 0.0 && r < 1.0, "resonator " + juce::String(i) + " pole radius |r| < 1 is strictly stable");
+            }
+            expectWithinAbsoluteError(weightSum, 1.0f, 1e-5f, "soundboard modal weights sum to 1.0");
+
+            // 验证 110 Hz（A2）音符在音板主共振峰（peak 1）下的稳态渲染与能量表现
             VoiceFixture a2Fixture;
             juce::AudioBuffer<float> a2Buffer(1, analysisWindow);
             a2Fixture.noteOnBlock(45, 0.9f, a2Buffer); // MIDI 45 = A2 (110.0 Hz)
@@ -541,13 +563,13 @@ public:
             expect(magA2 > 0.02, "A2 fundamental ~ 110 Hz is boosted by soundboard peak 1");
             expect(peakMagnitude(a2Buffer) < 1.0f, "wet/dry mixed output remains strictly normalised");
 
-            // 验证 220 Hz（A3）音符在音板第 2 共鸣峰下的表现
+            // 验证 220 Hz（A3）音符在音板第 3 共鸣峰下的表现
             VoiceFixture a3Fixture;
             juce::AudioBuffer<float> a3Buffer(1, analysisWindow);
             a3Fixture.noteOnBlock(57, 0.9f, a3Buffer); // MIDI 57 = A3 (220.0 Hz)
             const auto fA3 = PianoSynthVoice::partialFrequency(57, 0);
             const auto magA3 = magnitudeAtFrequency(a3Buffer, fA3, analysisWindow);
-            expect(magA3 > 0.02, "A3 fundamental ~ 220 Hz is boosted by soundboard peak 2");
+            expect(magA3 > 0.02, "A3 fundamental ~ 220 Hz is boosted by soundboard peak 3");
 
             // 谐振器状态在 stopNote(false) 后彻底重置
             a2Fixture.synth.noteOff(1, 45, 0.0f, false);
