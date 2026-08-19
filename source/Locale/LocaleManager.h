@@ -2,8 +2,6 @@
 
 #include <JuceHeader.h>
 
-#include "Locale/zh_CN.loc.h"
-
 namespace devpiano::locale {
 
 enum class Language : uint8_t {
@@ -36,16 +34,19 @@ enum class Language : uint8_t {
 
 // Activate the given language by setting JUCE's global LocalisedStrings.
 // Call this any time the language should change at runtime.
-// Primary path: compiled-in constant (reliable).  Falls back to file loading
+// Primary path: compiled-in constant via BinaryData (reliable). Falls back to file loading
 // so that advanced users can add strings not present in the embedded table without recompiling.
 inline void activate(Language lang) {
     if (lang == Language::zhCN) {
-        // Primary: embedded constant (UTF-8 via u8 prefix, works on all toolchains)
+        // Primary: embedded constant via BinaryData (reliable and portable)
         auto zh = std::make_unique<juce::LocalisedStrings>(
-            juce::String::fromUTF8(zhCNLocale, (int)sizeof(zhCNLocale) - 1), false);
+            juce::String::fromUTF8(BinaryData::zh_CN_loc, BinaryData::zh_CN_locSize), false);
 
         // Secondary: overlay translations from a .loc file if it exists
         auto fileLocale = tryLoadLocaleFile("zh-CN.loc");
+        if (fileLocale == nullptr) {
+            fileLocale = tryLoadLocaleFile("zh_CN.loc");
+        }
         if (fileLocale != nullptr) {
             zh->setFallback(fileLocale.release());
         }

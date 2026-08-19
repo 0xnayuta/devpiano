@@ -1,11 +1,4 @@
-#pragma once
-
-namespace devpiano::locale {
-
-// zh-CN locale in JUCE LocalisedStrings .loc format.
-// English strings on the left are the keys used in TRANS("...") calls;
-// unmatched keys fall through to the original English string.
-static const char zhCNLocale[] = R"loc(language: Chinese (Simplified)
+language: Chinese (Simplified)
 countries: cn
 
 "Performance Preset" = "演奏预设"
@@ -72,7 +65,6 @@ countries: cn
 "ADSR Knobs Row" = "ADSR 旋钮行"
 "ADSR Curve" = "ADSR 包络"
 "Transport Controls" = "走带控制"
-
 
 "Scan VST3" = "扫描 VST3"
 "Load" = "加载"
@@ -156,7 +148,6 @@ countries: cn
 "Resizable Window" = "可调整窗口大小"
 "Show MIDI/VSTi Instrument Filter" = "显示 MIDI/VSTi 乐器筛选"
 
-
 "Export MIDI Recording" = "导出 MIDI 录音"
 "Export WAV Recording" = "导出 WAV 录音"
 "Import MIDI File" = "导入 MIDI 文件"
@@ -222,6 +213,3 @@ countries: cn
 "MIDI Transpose" = "MIDI 移调"
 "Follow Key" = "跟随调号"
 "Channel Follow Key:" = "通道跟随调号："
-)loc";
-
-} // namespace devpiano::locale

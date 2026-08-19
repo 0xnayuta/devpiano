@@ -1527,6 +1527,18 @@ public:
             expect(styleJson.hasProperty("Text"), "embedded style sheet must define Text rule");
         }
 
+        beginTest("BinaryData embeds valid zh_CN.loc and translates correctly");
+        {
+            expect(BinaryData::zh_CN_loc != nullptr, "BinaryData::zh_CN_loc must not be null");
+            expect(BinaryData::zh_CN_locSize > 0, "BinaryData::zh_CN_locSize must be > 0");
+            juce::LocalisedStrings zh(juce::String::fromUTF8(BinaryData::zh_CN_loc, BinaryData::zh_CN_locSize), false);
+            expect(zh.getLanguageName().isNotEmpty(), "embedded zh_CN locale must have non-empty language name");
+            expectEquals(zh.translate("Volume"), juce::String::fromUTF8("\xe9\x9f\xb3\xe9\x87\x8f"),
+                         "translates Volume -> 音量");
+            expectEquals(zh.translate("Settings"), juce::String::fromUTF8("\xe8\xae\xbe\xe7\xbd\xae"),
+                         "translates Settings -> 设置");
+        }
+
         beginTest("StyleCatalog loads from BinaryData and styles JIVE tree without disk files");
         {
             devpiano::jive::DesignTokens::get().reset();

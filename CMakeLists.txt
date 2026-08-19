@@ -142,7 +142,6 @@ target_sources(devpiano PRIVATE
     source/Diagnostics/MidiTrace.h
     source/Diagnostics/MidiTrace.cpp
     source/Locale/LocaleManager.h
-    source/Locale/zh_CN.loc.h
     source/UI/jive/DesignTokens.cpp
     source/UI/jive/DesignTokens.h
     source/UI/jive/StyleCatalog.cpp
@@ -151,12 +150,13 @@ target_sources(devpiano PRIVATE
     source/UI/jive/LayoutModel.h
 )
 # ========================================================
-# 4.1 静态资产二进制打包（JIVE 样式表与设计 Token）
+# 4.1 静态资产二进制打包（JIVE 样式表、设计 Token 与语言包）
 # ========================================================
 juce_add_binary_data(DevPianoBinaryData
     SOURCES
         source/UI/jive/design_tokens.json
         source/UI/jive/style_sheets.json
+        source/Locale/zh_CN.loc
 )
 
 # 包含 source 目录作为头文件查找路径，这样代码里可以通过 #include "xxx.h" 直接引用
