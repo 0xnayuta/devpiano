@@ -107,9 +107,11 @@ public:
         expect(findNodeById(treeBound, "note-slider").isValid());
         expect(findNodeById(treeBound, "velocity-slider").isValid());
         expect(findNodeById(treeBound, "custom-label-editor").isValid());
+        expect(static_cast<bool>(findNodeById(treeBound, "custom-label-editor").getProperty("focusable")),
+               "label editor must be focusable to accept typed input");
         expect(findNodeById(treeBound, "custom-colour-palette").isValid());
-        expect(findNodeById(treeBound, "colour-btn-0").isValid());
-        expect(findNodeById(treeBound, "colour-btn-7").isValid());
+        expectEquals(findNodeById(treeBound, "colour-btn-0").getType().toString(), juce::String("ColourSwatch"));
+        expectEquals(findNodeById(treeBound, "colour-btn-7").getType().toString(), juce::String("ColourSwatch"));
         expect(findNodeById(treeBound, "clear-colour-btn").isValid());
         expect(findNodeById(treeBound, "dialog-unbind-btn").isValid());
         expect(findNodeById(treeBound, "dialog-ok-btn").isValid());
@@ -126,6 +128,7 @@ public:
         expect(!findNodeById(treeUnbound, "note-slider").isValid());
         expect(!findNodeById(treeUnbound, "velocity-slider").isValid());
         expect(!findNodeById(treeUnbound, "dialog-unbind-btn").isValid());
+        expect(findNodeById(treeUnbound, "dialog-bind-btn").isValid(), "unbound notes must expose Bind Key");
         expect(findNodeById(treeUnbound, "custom-label-editor").isValid());
         expect(findNodeById(treeUnbound, "dialog-ok-btn").isValid());
         expect(findNodeById(treeUnbound, "dialog-cancel-btn").isValid());

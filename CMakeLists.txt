@@ -122,6 +122,8 @@ target_sources(devpiano PRIVATE
     source/Settings/SettingsStore.cpp
     source/UI/KeyBindingEditDialog.cpp
     source/UI/KeyBindingEditDialog.h
+    source/UI/ColourSwatchButton.cpp
+    source/UI/ColourSwatchButton.h
     source/UI/PerformanceMetadataDialog.cpp
     source/UI/PerformanceMetadataDialog.h
     source/UI/PresetDialogs.cpp
@@ -325,6 +327,8 @@ if (BUILD_TESTS)
         source/UI/PerformanceMetadataDialog.h
         source/UI/KeyBindingEditDialog.cpp
         source/UI/KeyBindingEditDialog.h
+        source/UI/ColourSwatchButton.cpp
+        source/UI/ColourSwatchButton.h
         source/Settings/jive/SettingsLayoutModel.cpp
         source/Settings/jive/SettingsLayoutModel.h
 

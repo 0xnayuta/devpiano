@@ -39,6 +39,9 @@ public:
 
         /// Called on Cancel button click, Escape key, or title bar close (X).
         std::function<void()> onCancel;
+        /// Optional hook to register custom component types with the dialog's
+        /// JIVE interpreter factory before the layout tree is interpreted.
+        std::function<void(::jive::ComponentFactory&)> configureFactory;
     };
 
     /// Launch a modal dialog with custom JIVE ValueTree layout.

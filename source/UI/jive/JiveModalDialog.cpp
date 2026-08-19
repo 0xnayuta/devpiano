@@ -107,6 +107,9 @@ public:
             editor->setMultiLine(false);
             return editor;
         });
+        if (options.configureFactory) {
+            options.configureFactory(factory);
+        }
 
         // Apply global styles to the dialog layout tree
         StyleCatalog::get().applyToTree(options.layoutTree);

@@ -668,12 +668,19 @@ void MainComponent::initialiseUi() {
                             return b.action.type == devpiano::core::KeyActionType::note && b.action.midiNote == note;
                         });
                     } else {
-                        // Update the binding in-place
+                        // Update the binding in-place if the key is already
+                        // mapped; otherwise append a brand-new binding (Bind Key
+                        // flow for previously unbound notes).
+                        bool found = false;
                         for (auto& b : updatedLayout.bindings) {
                             if (b.keyCode == result.binding->keyCode) {
                                 b = *result.binding;
+                                found = true;
                                 break;
                             }
+                        }
+                        if (!found) {
+                            updatedLayout.bindings.push_back(*result.binding);
                         }
                     }
 

@@ -6,7 +6,7 @@
 ///
 /// Installed once on MainComponent; propagates automatically to all child
 /// Components and any DialogWindow that explicitly inherits it.
-class DevPianoLookAndFeel : public juce::LookAndFeel_V4 {
+class DevPianoLookAndFeel final : public juce::LookAndFeel_V4 {
 public:
     DevPianoLookAndFeel();
     ~DevPianoLookAndFeel() override = default;

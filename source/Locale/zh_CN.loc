@@ -126,6 +126,8 @@ countries: cn
 "No keyboard key is currently mapped to this note." = "当前没有键盘按键映射到此音符。"
 "Label:" = "标签："
 "Colour:" = "颜色："
+"Bind Key..." = "绑定按键..."
+"Press a key..." = "按下按键..."
 "Choose Colour..." = "选择颜色..."
 "Colour Set" = "已选颜色"
 "Clear" = "清除"
