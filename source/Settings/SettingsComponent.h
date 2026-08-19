@@ -337,8 +337,9 @@ public:
 
         row = groupContent.removeFromTop(rowH);
         fadeSpeedSlider.setBounds(row.removeFromRight(controlW).reduced(2));
-        resizableToggle.setBounds(row.removeFromRight(controlW).reduced(2));
 
+        row = groupContent.removeFromTop(rowH);
+        resizableToggle.setBounds(row.removeFromRight(controlW).reduced(2));
         row = groupContent.removeFromTop(rowH);
         instrumentFilterToggle.setBounds(row.removeFromRight(controlW).reduced(2));
 

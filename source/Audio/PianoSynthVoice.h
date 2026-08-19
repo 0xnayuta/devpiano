@@ -87,16 +87,21 @@ public:
 
     void startNote(int midiNoteNumber, float velocity, juce::SynthesiserSound*, int) override {
         const auto sampleRate = getSampleRate();
+        if (sampleRate <= 0.0) {
+            return;
+        }
+
         const auto& region = regionForNote(midiNoteNumber);
         const auto baseFrequency = static_cast<double>(juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber));
 
         numActivePartials = region.partialCount;
 
         // velocity 响度：v^1.5（弱奏更敏感），用 sqrt 避免 std::pow。
-        const auto velocityLevel = velocity * std::sqrt(velocity);
+        const auto clampedVelocity = juce::jlimit(0.0f, 1.0f, velocity);
+        const auto velocityLevel = clampedVelocity * std::sqrt(clampedVelocity);
         // velocity 亮度：随力度线性提升；pianoBrightness 调节亮度基准
         // （b=0.5 时 factor = velocity，与 12-2 一致）。
-        const auto brightnessFactor = velocity * (0.5f + pianoBrightness);
+        const auto brightnessFactor = clampedVelocity * (0.5f + pianoBrightness);
         // 共鸣：衰减时间缩放（r=0.5 中性，r=1 → ×1.3，r=0 → ×0.7）。
         const auto decayScale = 1.0f + (pianoResonance - 0.5f) * 0.6f;
         const auto baseDecaySeconds = static_cast<double>(region.decaySeconds * decayScale);
@@ -111,6 +116,8 @@ public:
         }
         const auto scale = peakLevelAtFullVelocity / juce::jmax(1e-6f, normSum);
 
+        const auto nyquistLimit = sampleRate * 0.495;
+
         for (auto n = 0; n < numActivePartials; ++n) {
             auto& partial = partials[static_cast<std::size_t>(n)];
             partial.cosState = 1.0;
@@ -118,6 +125,19 @@ public:
             const auto partialNumber = static_cast<double>(n + 1);
             const auto inharmonicFactor = std::sqrt(1.0 + region.inharmonicityB * partialNumber * partialNumber);
             const auto partialFrequency = baseFrequency * partialNumber * inharmonicFactor;
+
+            if (partialFrequency >= nyquistLimit) {
+                partial.level = 0.0f;
+                partial.levelFast = 0.0f;
+                partial.levelSlow = 0.0f;
+                partial.epsilon = 0.0;
+                partial.hasBeating = false;
+                partial.epsilon2 = 0.0;
+                partial.decayFastPerSample = 0.0f;
+                partial.decaySlowPerSample = 0.0f;
+                continue;
+            }
+
             // Magic Circle 步进系数：ε = 2·sin(π·f/fs) 使 coupled form 精确振荡于
             partial.epsilon = 2.0 * std::sin(juce::MathConstants<double>::pi * partialFrequency / sampleRate);
 
@@ -125,11 +145,18 @@ public:
             // （低音基频保持单振荡器锁定音高，泛音与中高音呈现自然拍频）
             const auto isBassFundamental = (midiNoteNumber < 48 && n == 0);
             if (!isBassFundamental && n < region.beatingPartials && region.beatingDetuneRatio > 0.0f) {
-                partial.hasBeating = true;
-                partial.cosState2 = 1.0;
-                partial.sinState2 = 0.0;
                 const auto detunedFreq = partialFrequency * (1.0 + static_cast<double>(region.beatingDetuneRatio));
-                partial.epsilon2 = 2.0 * std::sin(juce::MathConstants<double>::pi * detunedFreq / sampleRate);
+                if (detunedFreq < nyquistLimit) {
+                    partial.hasBeating = true;
+                    partial.cosState2 = 1.0;
+                    partial.sinState2 = 0.0;
+                    partial.epsilon2 = 2.0 * std::sin(juce::MathConstants<double>::pi * detunedFreq / sampleRate);
+                } else {
+                    partial.hasBeating = false;
+                    partial.cosState2 = 1.0;
+                    partial.sinState2 = 0.0;
+                    partial.epsilon2 = 0.0;
+                }
             } else {
                 partial.hasBeating = false;
                 partial.cosState2 = 1.0;
@@ -150,6 +177,7 @@ public:
         }
 
         for (auto& resonator : bodyResonators) {
+            resonator.reset();
             resonator.updateCoefficients(sampleRate);
         }
 

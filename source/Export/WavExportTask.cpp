@@ -90,7 +90,7 @@ void WavExportTask::run() {
                         DP_LOG_WARN("Failed to clean up cancelled WAV: " + destinationFile.getFullPathName());
                     }
                 } else {
-                    errorMessage = TRANS("Export failed during sine synth rendering.");
+                    errorMessage = TRANS("Export failed during built-in synth rendering.");
                     // ERR-009：非取消失败也清理残留的部分文件。
                     if (!destinationFile.deleteFile()) {
                         DP_LOG_WARN("Failed to clean up failed WAV: " + destinationFile.getFullPathName());

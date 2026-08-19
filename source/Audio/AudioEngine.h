@@ -28,8 +28,8 @@ public:
     void setAdsr(float attackSeconds, float decaySeconds, float sustainLevel, float releaseSeconds);
     void setPianoParameters(float brightness, float hammerHardness, float resonance);
 
-    // 内置 fallback 音色（Phase 12-2）：默认 sine（行为不变），piano 为谐波
-    // 钢琴 v1。切换会重建 synth voice 注册；Synthesiser 内部锁（processNextBlock
+    // 内置 fallback 音色（Phase 12~14）：默认 piano（增强模态合成 v3），
+    // sine 可切换回退。切换会重建 synth voice 注册；Synthesiser 内部锁（processNextBlock
     // 与 clearVoices/addVoice 共用）保护 voice 生命周期，消息线程调用安全，
     // 音频线程仅短暂阻塞等待当前块渲染完成。
     enum class BuiltinSynthTone {

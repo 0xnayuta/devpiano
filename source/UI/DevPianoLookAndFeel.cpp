@@ -609,7 +609,9 @@ juce::Array<int> DevPianoLookAndFeel::getWidthsForTextButtons(juce::AlertWindow&
     juce::ignoreUnused(alert);
     juce::Array<int> widths;
     for (int i = 0; i < buttons.size(); ++i) {
-        widths.add(80);
+        const int minW = 80;
+        const int fittedW = getTextButtonWidthToFitText(*buttons.getReference(i), 28);
+        widths.add(juce::jmax(minW, fittedW));
     }
     return widths;
 }

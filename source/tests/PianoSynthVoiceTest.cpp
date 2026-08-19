@@ -734,6 +734,38 @@ public:
 
             expect(resLate > dryLate, "higher resonance must decay slower (stronger late energy)");
         }
+
+        beginTest("Zero sample rate and numerical safety guards");
+        {
+            // Non-positive sample rate safety
+            PianoSynthVoice zeroRateVoice;
+            zeroRateVoice.startNote(60, 0.8f, nullptr, 0);
+            juce::AudioBuffer<float> zeroBuf(1, 256);
+            zeroBuf.clear();
+            zeroRateVoice.renderNextBlock(zeroBuf, 0, 256);
+            expectEquals(peakMagnitude(zeroBuf), 0.0f, "voice must output silence when sample rate <= 0");
+
+            // Retrigger resets resonators without NaN or infinite values
+            VoiceFixture fixture;
+            juce::AudioBuffer<float> buf(1, blockSize);
+            fixture.noteOnBlock(60, 0.9f, buf);
+            fixture.renderBlock(buf);
+            // Retrigger same voice immediately
+            fixture.noteOnBlock(60, 0.9f, buf);
+            for (auto s = 0; s < buf.getNumSamples(); ++s) {
+                const auto sample = buf.getSample(0, s);
+                expect(!std::isnan(sample), "retriggered sample must not be NaN");
+                expect(!std::isinf(sample), "retriggered sample must not be Inf");
+            }
+
+            // High MIDI note partials stay within Nyquist bound and render finite
+            fixture.noteOnBlock(108, 1.0f, buf); // C8
+            for (auto s = 0; s < buf.getNumSamples(); ++s) {
+                const auto sample = buf.getSample(0, s);
+                expect(!std::isnan(sample), "high-note sample must not be NaN");
+                expect(!std::isinf(sample), "high-note sample must not be Inf");
+            }
+        }
     }
 };
 

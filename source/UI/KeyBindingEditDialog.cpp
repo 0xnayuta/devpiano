@@ -148,6 +148,7 @@ public:
 
         customLabelEditor.setText(customLabel, juce::dontSendNotification);
         customLabelEditor.setFont(juce::FontOptions(15.0f));
+        customLabelEditor.setInputRestrictions(32, {});
         addAndMakeVisible(customLabelEditor);
 
         // ---- Per-key custom colour (always shown) ----

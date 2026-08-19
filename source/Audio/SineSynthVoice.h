@@ -32,13 +32,18 @@ public:
     }
 
     void startNote(int midiNoteNumber, float velocity, juce::SynthesiserSound*, int) override {
+        const auto sampleRate = getSampleRate();
+        if (sampleRate <= 0.0) {
+            return;
+        }
+
         level = velocity * 0.2f;
         frequency = static_cast<float>(juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber));
         phase = 0.0;
         increment
-            = static_cast<float>(juce::MathConstants<double>::twoPi * static_cast<double>(frequency) / getSampleRate());
+            = static_cast<float>(juce::MathConstants<double>::twoPi * static_cast<double>(frequency) / sampleRate);
 
-        adsr.setSampleRate(getSampleRate());
+        adsr.setSampleRate(sampleRate);
         adsr.noteOn();
     }
 
