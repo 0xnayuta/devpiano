@@ -148,6 +148,8 @@ target_sources(devpiano PRIVATE
     source/UI/jive/StyleCatalog.h
     source/UI/jive/LayoutModel.cpp
     source/UI/jive/LayoutModel.h
+    source/UI/jive/JiveModalDialog.cpp
+    source/UI/jive/JiveModalDialog.h
 )
 # ========================================================
 # 4.1 静态资产二进制打包（JIVE 样式表、设计 Token 与语言包）
@@ -305,6 +307,8 @@ if (BUILD_TESTS)
         source/UI/jive/StyleCatalog.h
         source/UI/jive/LayoutModel.cpp
         source/UI/jive/LayoutModel.h
+        source/UI/jive/JiveModalDialog.cpp
+        source/UI/jive/JiveModalDialog.h
         source/UI/jive/DesignTokens.cpp
         source/UI/jive/DesignTokens.h
         source/UI/DevPianoLookAndFeel.cpp
@@ -332,6 +336,7 @@ if (BUILD_TESTS)
         source/tests/PluginHostXmlTest.cpp
         source/tests/KeyboardHitMappingTest.cpp
         source/tests/PianoSynthVoiceTest.cpp
+        source/tests/JiveModalDialogTest.cpp
     )
     target_link_libraries(devpiano_tests PRIVATE
         DevPianoBinaryData

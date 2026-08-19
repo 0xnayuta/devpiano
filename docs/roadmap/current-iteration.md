@@ -45,12 +45,13 @@
 
 ### 子任务排期
 
-**Phase 15-A：通用 JiveModalDialog 基础设施与声明式模板 [待启动]**
+**Phase 15-A：通用 JiveModalDialog 基础设施与声明式模板 [已完成，2026-08-19]**
 
-- [ ] 新建 `source/UI/jive/JiveModalDialog.h/.cpp`：以 JIVE `ValueTree` 驱动的模态对话框容器（继承 `juce::DialogWindow`）。
-- [ ] 声明式模板支持：预置文本输入模板（Single-line TextInput）、确认取消模板（Confirm/Cancel）与多行元数据模板（Multi-line TextArea）。
-- [ ] 统一深色主题外观、输入框焦点样式、Flex-end 右对齐按钮排版、回车确认 / ESC 取消键盘交互。
-- [ ] 封装安全的回调完成序列（防 double-callback、防 UAF、模态状态安全退出）。
+- [x] 新建 `source/UI/jive/JiveModalDialog.h/.cpp`：以 JIVE `ValueTree` 驱动的模态对话框容器（继承 `juce::DialogWindow`），由 `jive::Interpreter` 统一解释布局并注入 `StyleCatalog` 全局样式。
+- [x] 声明式模板支持：`makeSingleInputLayout`（单行文本输入模板，380×150）、`makeConfirmLayout`（确认取消模板，380×140）与 `makeMetadataEditLayout`（歌曲信息单行+多行文本模板，420×260）。
+- [x] 统一深色主题外观、输入框焦点样式、Flex-end 右对齐按钮排版、回车确认 / ESC 取消键盘交互与异步焦点捕获。
+- [x] 封装安全的回调完成序列（防 double-callback、防 UAF、`launchAsync` 模态状态安全退出、`safeCleanupJiveTree` 防止 StyleSheet 析构 UAF）。
+- [x] 确定性测试：`source/tests/JiveModalDialogTest.cpp` 新增 5 类 10+ 项断言（ValueTree 节点层级、属性、尺寸、`findButtonById` 与 `findTextEditorById` 组件检索、单行/多行编辑器配置与安全析构），全量测试通过。
 
 **Phase 15-B：预设与元数据弹窗统一迁移 [待启动]**
 
