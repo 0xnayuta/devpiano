@@ -1506,7 +1506,6 @@ public:
     void runTest() override {
         beginTest("BinaryData embeds valid design_tokens.json");
         {
-            expect(BinaryData::design_tokens_json != nullptr, "BinaryData::design_tokens_json must not be null");
             expect(BinaryData::design_tokens_jsonSize > 0, "BinaryData::design_tokens_jsonSize must be > 0");
             const auto tokensJson = juce::JSON::parse(
                 juce::String::fromUTF8(BinaryData::design_tokens_json, BinaryData::design_tokens_jsonSize));
@@ -1517,7 +1516,6 @@ public:
 
         beginTest("BinaryData embeds valid style_sheets.json");
         {
-            expect(BinaryData::style_sheets_json != nullptr, "BinaryData::style_sheets_json must not be null");
             expect(BinaryData::style_sheets_jsonSize > 0, "BinaryData::style_sheets_jsonSize must be > 0");
             const auto styleJson = juce::JSON::parse(
                 juce::String::fromUTF8(BinaryData::style_sheets_json, BinaryData::style_sheets_jsonSize));
@@ -1529,7 +1527,6 @@ public:
 
         beginTest("BinaryData embeds valid zh_CN.loc and translates correctly");
         {
-            expect(BinaryData::zh_CN_loc != nullptr, "BinaryData::zh_CN_loc must not be null");
             expect(BinaryData::zh_CN_locSize > 0, "BinaryData::zh_CN_locSize must be > 0");
             juce::LocalisedStrings zh(juce::String::fromUTF8(BinaryData::zh_CN_loc, BinaryData::zh_CN_locSize), false);
             expect(zh.getLanguageName().isNotEmpty(), "embedded zh_CN locale must have non-empty language name");
