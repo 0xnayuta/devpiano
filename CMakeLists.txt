@@ -150,6 +150,15 @@ target_sources(devpiano PRIVATE
     source/UI/jive/LayoutModel.cpp
     source/UI/jive/LayoutModel.h
 )
+# ========================================================
+# 4.1 静态资产二进制打包（JIVE 样式表与设计 Token）
+# ========================================================
+juce_add_binary_data(DevPianoBinaryData
+    SOURCES
+        source/UI/jive/design_tokens.json
+        source/UI/jive/style_sheets.json
+)
+
 # 包含 source 目录作为头文件查找路径，这样代码里可以通过 #include "xxx.h" 直接引用
 target_include_directories(devpiano PRIVATE source)
 
@@ -159,6 +168,7 @@ juce_generate_juce_header(devpiano)
 # 5. 链接 JUCE 模块
 # ========================================================
 target_link_libraries(devpiano PRIVATE
+    DevPianoBinaryData
     juce::juce_audio_devices      # 处理 ASIO/WASAPI 音频设备
     juce::juce_audio_formats      # 处理音频文件
     juce::juce_audio_processors   # 核心：处理 VST/VST3 插件和 MIDI 缓冲
@@ -324,6 +334,7 @@ if (BUILD_TESTS)
         source/tests/PianoSynthVoiceTest.cpp
     )
     target_link_libraries(devpiano_tests PRIVATE
+        DevPianoBinaryData
         juce::juce_core
         juce::juce_events
         juce::juce_gui_basics

@@ -1490,3 +1490,66 @@ public:
 };
 
 static JiveTeardownOrderTest jiveTeardownOrderTest;
+
+// =============================================================================
+// Regression test: BinaryData embeds design_tokens.json and style_sheets.json
+// so that running the standalone executable outside the repository checkout
+// (e.g. from Desktop or release zip) retains 100% complete styles and text.
+// =============================================================================
+
+class BinaryDataStylesEmbeddedTest final : public juce::UnitTest {
+public:
+    BinaryDataStylesEmbeddedTest()
+        : juce::UnitTest("BinaryDataStylesEmbedded", "DevPiano/UI") {
+    }
+
+    void runTest() override {
+        beginTest("BinaryData embeds valid design_tokens.json");
+        {
+            expect(BinaryData::design_tokens_json != nullptr, "BinaryData::design_tokens_json must not be null");
+            expect(BinaryData::design_tokens_jsonSize > 0, "BinaryData::design_tokens_jsonSize must be > 0");
+            const auto tokensJson = juce::JSON::parse(
+                juce::String::fromUTF8(BinaryData::design_tokens_json, BinaryData::design_tokens_jsonSize));
+            expect(!tokensJson.isVoid(), "BinaryData::design_tokens_json must parse as valid JSON");
+            expect(tokensJson.hasProperty("colors"), "embedded tokens must define colors");
+            expect(tokensJson.hasProperty("typography"), "embedded tokens must define typography");
+        }
+
+        beginTest("BinaryData embeds valid style_sheets.json");
+        {
+            expect(BinaryData::style_sheets_json != nullptr, "BinaryData::style_sheets_json must not be null");
+            expect(BinaryData::style_sheets_jsonSize > 0, "BinaryData::style_sheets_jsonSize must be > 0");
+            const auto styleJson = juce::JSON::parse(
+                juce::String::fromUTF8(BinaryData::style_sheets_json, BinaryData::style_sheets_jsonSize));
+            expect(!styleJson.isVoid(), "BinaryData::style_sheets_json must parse as valid JSON");
+            expect(styleJson.hasProperty("#window"), "embedded style sheet must define #window rule");
+            expect(styleJson.hasProperty("Button"), "embedded style sheet must define Button rule");
+            expect(styleJson.hasProperty("Text"), "embedded style sheet must define Text rule");
+        }
+
+        beginTest("StyleCatalog loads from BinaryData and styles JIVE tree without disk files");
+        {
+            devpiano::jive::DesignTokens::get().reset();
+            const auto tokensJson = juce::JSON::parse(
+                juce::String::fromUTF8(BinaryData::design_tokens_json, BinaryData::design_tokens_jsonSize));
+            devpiano::jive::DesignTokens::get().loadFromJSON(tokensJson);
+
+            const auto styleJson = juce::JSON::parse(
+                juce::String::fromUTF8(BinaryData::style_sheets_json, BinaryData::style_sheets_jsonSize));
+            devpiano::ui::jive::StyleCatalog::get().loadFromJSON(styleJson);
+
+            auto rootTree = devpiano::ui::jive::makeRootLayout();
+            devpiano::ui::jive::StyleCatalog::get().applyToTree(rootTree);
+
+            expect(rootTree.hasProperty("style"), "root layout must have style property from embedded BinaryData");
+            auto windowNode = findNodeById(rootTree, "window");
+            expect(windowNode.isValid(), "window node found in layout");
+            expect(windowNode.hasProperty("style"), "window node has style property");
+
+            devpiano::ui::jive::StyleCatalog::get().releaseOwnedStyles();
+            devpiano::jive::DesignTokens::get().reset();
+        }
+    }
+};
+
+static BinaryDataStylesEmbeddedTest binaryDataStylesEmbeddedTest;

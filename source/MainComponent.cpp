@@ -281,6 +281,16 @@ void MainComponent::handlePresetShortcut(int index) {
 void MainComponent::initialiseUi() {
     // 加载设计 token（单一配色真相源）— 必须在构造 LookAndFeel 之前
     {
+        // 1. 基准兜底：从编译期嵌入的 BinaryData 加载（保证任何独立运行环境 100% 可用）
+        auto embeddedTokens = juce::JSON::parse(
+            juce::String::fromUTF8(BinaryData::design_tokens_json, BinaryData::design_tokens_jsonSize));
+        if (!embeddedTokens.isVoid()) {
+            devpiano::jive::DesignTokens::get().loadFromJSON(embeddedTokens);
+        } else {
+            DP_LOG_ERROR("[Style] BinaryData::design_tokens_json failed to parse");
+        }
+
+        // 2. 开发环境增强：若本地源码存在文件，覆盖加载并记录修改时间（支持热重载）
         const auto tokensFile = resolveSourceFile("source/UI/jive/design_tokens.json");
         if (tokensFile.existsAsFile()) {
             lastTokensModTime = tokensFile.getLastModificationTime();
@@ -306,7 +316,16 @@ void MainComponent::initialiseUi() {
 
     // ── JIVE root layout (header, plugin, controls, keyboard, status bar) ──
     {
-        // Global style rules (loaded once; re-loading is idempotent).
+        // 1. 基准兜底：从编译期嵌入的 BinaryData 加载全局样式表规则
+        auto embeddedStyles = juce::JSON::parse(
+            juce::String::fromUTF8(BinaryData::style_sheets_json, BinaryData::style_sheets_jsonSize));
+        if (!embeddedStyles.isVoid()) {
+            devpiano::ui::jive::StyleCatalog::get().loadFromJSON(embeddedStyles);
+        } else {
+            DP_LOG_ERROR("[Style] BinaryData::style_sheets_json failed to parse");
+        }
+
+        // 2. 开发环境增强：若本地源码存在文件，覆盖加载并记录修改时间（支持热重载）
         const auto styleFile = resolveSourceFile("source/UI/jive/style_sheets.json");
         if (styleFile.existsAsFile()) {
             lastStylesModTime = styleFile.getLastModificationTime();
