@@ -17,10 +17,10 @@
 // Covered:
 //   - Region table boundaries (partial counts / decay seconds)
 //   - Non-zero finite output at the normalised peak level
-//   - Fundamental and all region partials present (single-bin DFT; bass 2..20,
-//     mid 2..14, high-mid 2..8, treble 2..6 at stiff-string frequencies)
 //   - Magic Circle recursive oscillator long-term frequency stability
-//     (dual-window complex DFT phase-difference over 25 s, drift < 1e-4)
+//     (dual-window complex DFT phase-difference over 20 s, drift < 1e-4)
+//   - Two-stage decay envelope (early strike slope > 2x late tail slope)
+//   - Triple-string unison beating (interference modulation dip and rebound)
 //   - Velocity 0.2 vs 0.9 loudness is monotonically increasing
 //   - noteOff tail decays and the voice releases itself
 //   - Immediate stopNote (allowTailOff=false) silences and clears the voice
@@ -144,6 +144,27 @@ public:
             expectWithinAbsoluteError(PianoSynthVoice::slowWeightForNote(0), 0.30f, 0.001f, "bass slow weight");
             expectWithinAbsoluteError(PianoSynthVoice::slowWeightForNote(60), 0.25f, 0.001f, "mid slow weight");
             expectWithinAbsoluteError(PianoSynthVoice::slowWeightForNote(100), 0.15f, 0.001f, "treble slow weight");
+
+            expectWithinAbsoluteError(PianoSynthVoice::beatingDetuneRatioForNote(0), 0.0020f, 1e-5f,
+                                      "bass beating ratio");
+            expectWithinAbsoluteError(PianoSynthVoice::beatingDetuneRatioForNote(60), 0.0015f, 1e-5f,
+                                      "mid beating ratio");
+            expectWithinAbsoluteError(PianoSynthVoice::beatingDetuneRatioForNote(80), 0.0010f, 1e-5f, "high-mid ratio");
+            expectWithinAbsoluteError(PianoSynthVoice::beatingDetuneRatioForNote(100), 0.0f, 1e-5f, "treble beating 0");
+            expectEquals(PianoSynthVoice::beatingPartialCountForNote(0), 6, "bass 6 beating partials");
+            expectEquals(PianoSynthVoice::beatingPartialCountForNote(60), 6, "mid 6 beating partials");
+            expectEquals(PianoSynthVoice::beatingPartialCountForNote(80), 4, "high-mid 4 beating partials");
+            expectEquals(PianoSynthVoice::beatingPartialCountForNote(100), 0, "treble 0 beating partials");
+
+            // 低音基频不设第二弦（锁定音高），第 2 分音及中音分音设第二振荡器
+            expectEquals(PianoSynthVoice::beatingFrequency(36, 0), PianoSynthVoice::partialFrequency(36, 0),
+                         "bass fundamental stays single oscillator");
+            expectWithinAbsoluteError(PianoSynthVoice::beatingFrequency(36, 1),
+                                      PianoSynthVoice::partialFrequency(36, 1) * 1.0020, 1e-4,
+                                      "bass 2nd partial has beating doublet");
+            expectWithinAbsoluteError(PianoSynthVoice::beatingFrequency(60, 0),
+                                      PianoSynthVoice::partialFrequency(60, 0) * 1.0015, 1e-4,
+                                      "mid fundamental has beating doublet");
 
             // τ_fast = τ_slow × ratio 的解析公式（低音 m=6：τ_slow ≈ 1.4545 s → τ_fast ≈ 0.218 s）。
             expectWithinAbsoluteError(PianoSynthVoice::partialFastDecaySeconds(36, 5), 4.0 / (1.0 + 0.35 * 5.0) * 0.15,
@@ -444,6 +465,70 @@ public:
             expect(std::abs(slopeEarly) > 2.0 * std::abs(slopeLate),
                    "early decay must be more than 2x faster than the tail (early=" + juce::String(slopeEarly, 3)
                        + " late=" + juce::String(slopeLate, 3) + ")");
+        }
+
+        beginTest("triple-string unison beating (interference modulation and spectrum doublet)");
+        {
+            // Phase 14-C：同音三弦微失谐干涉验证
+            // MIDI 60（C4 ≈ 261.63 Hz, beatingDetuneRatio = 0.0015 -> Δf ≈ 0.3924 Hz, 周期 T_beat ≈ 2.55 s）。
+            // 理论干涉包络：0.5*(sin(ω1 t) + sin(ω2 t)) = cos(π Δf t) * sin((ω1+ω2)/2 t)。
+            // 在 t_dip ≈ 1/(2Δf) ≈ 1.28 s 处反相相消（包络下陷）；在 t_rebound ≈ 2.55 s 处同相相长（包络回弹）。
+            VoiceFixture fixture;
+            constexpr auto testSeconds = 3.2;
+            constexpr auto testSamples = static_cast<int>(testSeconds * sampleRate);
+            juce::AudioBuffer<float> stream(1, testSamples);
+            stream.clear();
+
+            auto rendered = 0;
+            {
+                juce::MidiBuffer midi;
+                midi.addEvent(juce::MidiMessage::noteOn(1, 60, 0.9f), 0);
+                fixture.synth.renderNextBlock(stream, midi, 0, blockSize);
+                rendered += blockSize;
+            }
+            while (rendered < testSamples) {
+                juce::MidiBuffer empty;
+                const auto count = juce::jmin(blockSize, testSamples - rendered);
+                fixture.synth.renderNextBlock(stream, empty, rendered, count);
+                rendered += count;
+            }
+
+            const auto f1 = PianoSynthVoice::partialFrequency(60, 0);
+            const auto f2 = PianoSynthVoice::beatingFrequency(60, 0);
+            expectWithinAbsoluteError(f2, f1 * 1.0015, 1e-4, "C4 beating frequency formula");
+
+            constexpr auto windowSize = 4096;
+            auto getWindowMag = [&](double t, double targetFreq) {
+                const auto start = static_cast<int>(t * sampleRate);
+                auto real = 0.0;
+                auto imag = 0.0;
+                for (auto i = 0; i < windowSize; ++i) {
+                    const auto window
+                        = 0.5 * (1.0 - std::cos(juce::MathConstants<double>::twoPi * i / (windowSize - 1)));
+                    const auto angle = juce::MathConstants<double>::twoPi * targetFreq * i / sampleRate;
+                    const auto value = stream.getSample(0, start + i) * window;
+                    real += value * std::cos(angle);
+                    imag -= value * std::sin(angle);
+                }
+                return 4.0 * std::sqrt(real * real + imag * imag) / windowSize;
+            };
+
+            const auto magEarly = getWindowMag(0.1, f1); // 初始同相（能量高）
+            const auto magDip = getWindowMag(1.28, f1); // 反相干涉下陷点（Δθ ≈ π）
+            const auto magRebound = getWindowMag(2.55, f1); // 同相干涉回弹峰（Δθ ≈ 2π）
+
+            expect(magEarly > 0.01, "early C4 fundamental is audible");
+            expect(magDip < 0.5 * magEarly,
+                   "anti-phase dip causes destructive interference (dip=" + juce::String(magDip, 5)
+                       + " early=" + juce::String(magEarly, 5) + ")");
+            expect(magRebound > 1.3 * magDip,
+                   "constructive interference causes envelope rebound at 2.55 s (rebound=" + juce::String(magRebound, 5)
+                       + " dip=" + juce::String(magDip, 5) + ")");
+
+            // 验证低音泛音拍频（note 36，第 2 分音 f ≈ 130.8 Hz 开启拍频）：
+            const auto bassF2 = PianoSynthVoice::partialFrequency(36, 1);
+            const auto bassF2_beat = PianoSynthVoice::beatingFrequency(36, 1);
+            expectWithinAbsoluteError(bassF2_beat, bassF2 * 1.0020, 1e-4, "bass 2nd partial beating frequency");
         }
         beginTest("body resonator frequency response and stability (soundboard physics)");
         {

@@ -20,6 +20,9 @@
 //   快分量对应击弦后弦-音板快速能量辐射（τ_fast ≈ 0.15~0.2 × τ_slow），慢分量对应
 //   弱耦合偏振模态的绵长尾音（权重 w 按音区 0.15~0.30）；两套 decayPerSample 在
 //   startNote 预计算，逐采样各一次乘法；
+// - 同音三弦拍频（Phase 14-C）：对低中音区核心分音（前 4~6 分音）引入微失谐双振荡器对
+//   （beating doublet，失谐率 0.10%~0.20%），两根弦同相激发后自然产生周期性相长/相消干涉
+//   （Beating，周期 ~1.5~4 s），重现真实钢琴同音多弦调律带来的"厚实颤动"感；高音区关闭。
 // - 模态分音衰减速率建模（Phase 13-2）：基于 Mutable Instruments 模态能量耗散模型，
 //   分音时间常数 τ_m = τ_base / (1.0 + c_eff · (m - 1))，高次分音快速耗散，音色由击弦瞬间
 //   的丰富泛音自然过渡至基频主导的纯净尾音；pianoResonance 调节 τ_base，pianoBrightness
@@ -116,8 +119,24 @@ public:
             const auto inharmonicFactor = std::sqrt(1.0 + region.inharmonicityB * partialNumber * partialNumber);
             const auto partialFrequency = baseFrequency * partialNumber * inharmonicFactor;
             // Magic Circle 步进系数：ε = 2·sin(π·f/fs) 使 coupled form 精确振荡于
-            // 目标频率（ω = 2·arcsin(ε/2) = 2π·f/fs），幅度严格有界、无相位缠绕。
             partial.epsilon = 2.0 * std::sin(juce::MathConstants<double>::pi * partialFrequency / sampleRate);
+
+            // 同音双振荡器微失谐（Phase 14-C）：对中高音分音及低音泛音设置第二根弦的频率
+            // （低音基频保持单振荡器锁定音高，泛音与中高音呈现自然拍频）
+            const auto isBassFundamental = (midiNoteNumber < 48 && n == 0);
+            if (!isBassFundamental && n < region.beatingPartials && region.beatingDetuneRatio > 0.0f) {
+                partial.hasBeating = true;
+                partial.cosState2 = 1.0;
+                partial.sinState2 = 0.0;
+                const auto detunedFreq = partialFrequency * (1.0 + static_cast<double>(region.beatingDetuneRatio));
+                partial.epsilon2 = 2.0 * std::sin(juce::MathConstants<double>::pi * detunedFreq / sampleRate);
+            } else {
+                partial.hasBeating = false;
+                partial.cosState2 = 1.0;
+                partial.sinState2 = 0.0;
+                partial.epsilon2 = 0.0;
+            }
+
             partial.level = amplitudeFor(n) * brightnessBoost(n, brightnessFactor, numActivePartials)
                 * hammerGain(n, numActivePartials) * scale * velocityLevel;
             // 模态能量耗散模型：τ_m = τ_base / (1.0 + c_eff * (m - 1))；双阶段衰减
@@ -174,7 +193,14 @@ public:
             auto value = 0.0f;
             for (auto n = 0; n < numActivePartials; ++n) {
                 auto& partial = partials[static_cast<std::size_t>(n)];
-                value += (partial.levelFast + partial.levelSlow) * static_cast<float>(partial.sinState);
+                auto osc = static_cast<float>(partial.sinState);
+                if (partial.hasBeating) {
+                    osc = 0.5f * (osc + static_cast<float>(partial.sinState2));
+                    const auto nextCos2 = partial.cosState2 - partial.epsilon2 * partial.sinState2;
+                    partial.sinState2 += partial.epsilon2 * nextCos2;
+                    partial.cosState2 = nextCos2;
+                }
+                value += (partial.levelFast + partial.levelSlow) * osc;
                 // Magic Circle 步进（coupled form）：
                 // u[n] = u[n-1] - ε·v[n-1]；v[n] = v[n-1] + ε·u[n]。
                 const auto nextCos = partial.cosState - partial.epsilon * partial.sinState;
@@ -183,7 +209,6 @@ public:
                 partial.levelFast *= partial.decayFastPerSample;
                 partial.levelSlow *= partial.decaySlowPerSample;
             }
-
             const auto sampleIndex = startSample + sample;
             const auto rawOutput = value * envelope;
 
@@ -252,6 +277,21 @@ public:
         const auto b = inharmonicityBForNote(midiNoteNumber);
         return baseFrequency * partialNumber * std::sqrt(1.0 + b * partialNumber * partialNumber);
     }
+    [[nodiscard]] static float beatingDetuneRatioForNote(int midiNoteNumber) noexcept {
+        return regionForNote(midiNoteNumber).beatingDetuneRatio;
+    }
+    [[nodiscard]] static int beatingPartialCountForNote(int midiNoteNumber) noexcept {
+        return regionForNote(midiNoteNumber).beatingPartials;
+    }
+    [[nodiscard]] static double beatingFrequency(int midiNoteNumber, int partialIndex) noexcept {
+        const auto f = partialFrequency(midiNoteNumber, partialIndex);
+        const auto& region = regionForNote(midiNoteNumber);
+        const auto isBassFundamental = (midiNoteNumber < 48 && partialIndex == 0);
+        if (!isBassFundamental && partialIndex < region.beatingPartials && region.beatingDetuneRatio > 0.0f) {
+            return f * (1.0 + static_cast<double>(region.beatingDetuneRatio));
+        }
+        return f;
+    }
 
     [[nodiscard]] static constexpr int resonatorCount() noexcept {
         return numResonators;
@@ -278,13 +318,15 @@ public:
         float decayDampingC;
         float fastDecayRatio; // τ_fast / τ_slow
         float slowWeight; // 慢分量初始权重 w（快分量权重 = 1 - w）
+        float beatingDetuneRatio; // 同音双弦微失谐率（Phase 14-C）
+        int beatingPartials; // 启用拍频双振荡器的分音数
     };
 
     static constexpr VoiceRegion voiceRegions[] = {
-        { 20, 4.0f, 4.0e-4, 0.35f, 0.15f, 0.30f }, // note < 48：低音，τ_fast=0.6 s
-        { 14, 2.5f, 1.0e-4, 0.25f, 0.20f, 0.25f }, // 48–71：中音，τ_fast=0.5 s
-        { 8, 1.5f, 3.0e-5, 0.18f, 0.20f, 0.20f }, // 72–95：高音，τ_fast=0.3 s
-        { 6, 0.8f, 1.0e-5, 0.12f, 0.15f, 0.15f }, // ≥ 96：极高音，τ_fast=0.12 s
+        { 20, 4.0f, 4.0e-4, 0.35f, 0.15f, 0.30f, 0.0020f, 6 }, // note < 48：低音，前 6 分音 0.20% 失谐
+        { 14, 2.5f, 1.0e-4, 0.25f, 0.20f, 0.25f, 0.0015f, 6 }, // 48–71：中音，前 6 分音 0.15% 失谐
+        { 8, 1.5f, 3.0e-5, 0.18f, 0.20f, 0.20f, 0.0010f, 4 }, // 72–95：高音，前 4 分音 0.10% 失谐
+        { 6, 0.8f, 1.0e-5, 0.12f, 0.15f, 0.15f, 0.0f, 0 }, // ≥ 96：极高音，无拍频
     };
 
     [[nodiscard]] static const VoiceRegion& regionForNote(int midiNoteNumber) noexcept {
@@ -331,6 +373,10 @@ public:
         double cosState = 1.0; // Magic Circle 余弦状态 u[n]（初值 cos(0) = 1）
         double sinState = 0.0; // Magic Circle 正弦状态 v[n]（初值 sin(0) = 0，渲染取此值）
         double epsilon = 0.0; // 步进系数 ε = 2·sin(π·f/fs)，startNote 计算
+        double cosState2 = 1.0; // 第二振荡器余弦状态 u2[n]（初值 1）
+        double sinState2 = 0.0; // 第二振荡器正弦状态 v2[n]（初值 0）
+        double epsilon2 = 0.0; // 第二振荡器步进系数 ε2 = 2·sin(π·f2/fs)
+        bool hasBeating = false; // 是否启用同音双振荡器拍频
         float level = 0.0f; // 初始总幅度（归一化后，仅 startNote 用）
         float levelFast = 0.0f; // 快衰减分量（击弦辐射期）
         float levelSlow = 0.0f; // 慢衰减分量（弱耦合尾音）

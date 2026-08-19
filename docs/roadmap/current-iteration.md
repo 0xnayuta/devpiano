@@ -5,7 +5,7 @@
 
 ## 当前方向
 
-**Phase 13（Stiff-String Inharmonic Piano v2）已完成（2026-08-18）**；**Phase 14-A（递归振荡器 + 分音数扩展）与 Phase 14-B（Two-stage decay 双阶段衰减）已完成（2026-08-18）**——Magic Circle 振荡器零 `std::sin`、分音上限 8 → 20/14/8/6、每分音双指数衰减（快辐射期 τ_fast ≈ 0.15~0.2×τ_slow + 慢尾音），三闸门全绿（46/46 测试、3070 断言）。当前进入 **Phase 14-C（同音三弦拍频 Beating）**：Phase 14 为 Enhanced Modal Piano v3（增强模态合成），经网络与文献核实（2026-08-18）由原数字波导计划改道而来（Pianoteq 与 Bank 2010 TASLP 实证的业界最佳路线），详细排期 14-A~14-E 见下文；数字波导降级为实验分支（14-F）。
+**Phase 13（Stiff-String Inharmonic Piano v2）已完成（2026-08-18）**；**Phase 14-A/B/C（递归振荡器 + 分音数扩展 + Two-stage decay 双阶段衰减 + 同音三弦拍频 Beating）已全部完成（2026-08-18）**——Magic Circle 振荡器零 `std::sin`、分音上限 8 → 20/14/8/6、每分音双指数衰减（快辐射期 + 慢尾音）、低中音微失谐双振荡器对拍频干涉（周期性下陷与回弹可测），三闸门全绿（46/46 测试、3086 断言）。当前进入 **Phase 14-D（音板模态组扩展）**：Phase 14 为 Enhanced Modal Piano v3（增强模态合成），详细排期 14-A~14-E 见下文；数字波导降级为实验分支（14-F）。
 
 代码质量审计（[`AUDIT-001`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)，2026-08-16）修复 **AUDIT Phase A–H 已全部完成**（2026-08-17）：56 项未处理全关闭，16 项已暂缓复核关闭 2 项（QUAL-019/PERF-002），剩余 14 项维持；断言总数 754 → 2921 全绿。逐项完成记录已归档至 [`../archive/audit-001-code-quality-fix-phases.md`](../archive/audit-001-code-quality-fix-phases.md)。
 
@@ -285,13 +285,12 @@ Phase 12/13 的 v1/v2 是**有限分音解析加法**：≤8 分音逐个 `std::
 - [x] 验证：`wsl-build` / `test` / `format --check` / `win-build` 三闸门全绿。
 - [ ] Windows 侧手工听感（待执行）：尾音自然度对比 v2——与 14-E 合并执行。
 
-**Phase 14-C：同音三弦拍频（Beating）**
+**Phase 14-C：同音三弦拍频（Beating）[已完成，2026-08-18]**
 
-- [ ] 每分音微失谐双振荡器对（±0.1%~0.3%），低中音区启用（note < 72 前 N 分音）、高音区关闭；或调幅拍频近似。
-- [ ] 确定性测试：时域包络调制周期可测（≈ 失谐差频率）、DFT 双峰间距符合失谐量。
-- [ ] Windows 侧听感：低中音"厚实颤动"是否达到预期。
-- [ ] 验证：`wsl-build` / `test` / `format --check` / `win-build`。
-
+- [x] 每分音微失谐双振荡器对（Magic Circle coupled form，失谐率 0.10%~0.20%）；低中高音区参数查表：`beatingDetuneRatio` 0.0020/0.0015/0.0010/0.0（低/中/高/极高音），`beatingPartials` 6/6/4/0；低音基频锁定单振荡器（保证单弦/双弦低音主音高稳定），低音泛音 2..6 及中高音全部分音启用第二弦干涉。
+- [x] 确定性测试：`beatingDetuneRatioForNote` / `beatingPartialCountForNote` / `beatingFrequency` 区域查询与公式断言；C4（note 60）3.2 s 渲染测干涉调制——反相下陷点（$t \approx 1.28\text{ s}$）幅度 $< 0.5 \times \text{early}$，同相回弹峰（$t \approx 2.55\text{ s}$）幅度 $> 1.3 \times \text{dip}$（打破纯指数单调衰减，确凿验证物理干涉回弹）；全绿 46/46、3086 断言。
+- [x] 验证：`wsl-build` / `test` / `format --check` / `win-build` 三闸门全绿。
+- [ ] Windows 侧手工听感（待执行）：低中音"厚实颤动"与 chorus 感——与 14-E 合并执行。
 **Phase 14-D：音板模态组扩展**
 
 - [ ] BodyResonator 3 峰 → 8~12 峰（音板主模态集频点与 Q 表），wet 混合比例微调（保持峰值归一化）。
