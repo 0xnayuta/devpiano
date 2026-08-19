@@ -111,38 +111,24 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 审计报告见 [`../audit/AUDIT-001-code-quality-audit-2026-08-16.md`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)，Phase A–H 逐项完成记录见 [`../archive/audit-001-code-quality-fix-phases.md`](../archive/audit-001-code-quality-fix-phases.md)。
 
-### Phase 12：内置物理建模钢琴音源（SineSynth → PianoSynth） [已完成，2026-08-18]
+### Phase 12–14：内置物理建模钢琴音源（SineSynth → Enhanced Modal Piano v3） [已完成，2026-08-19]
 
-> 目标：把当前内置 fallback 正弦合成器逐步替换为**自主拥有、纯 C++、零/极低采样依赖的物理建模钢琴音源**，使"未加载插件时的默认钢琴"成为产品核心能力而非兜底 beep。详细排期与子任务见 [`current-iteration.md`](current-iteration.md)。
+将内置 fallback 正弦合成器彻底替换为**自主拥有、纯 C++、零采样依赖的物理建模钢琴音源**：
+- **Phase 12（谐波钢琴 v1）**：合并实时与离线 sine 实现为共享 `SineSynthVoice`（零行为变化）；落地 8 分音谐波加法合成 `PianoSynthVoice`、velocity 响度/亮度双映射、分音独立衰减与参数化接线（Tone + 3 旋钮）；
+- **Phase 13（刚性失谐与模态耗散 v2）**：引入 JOS PASP 刚性琴弦失谐公式（$f_m = m f_0 \sqrt{1 + B m^2}$）、Mutable Instruments 模态能量耗散衰减与 3 峰音板谐振器；默认内置音色正式切为 Piano；
+- **Phase 14（增强模态合成 v3）**：Magic Circle 递归振荡器（零 `std::sin`，单核 CPU ≤ 0.7%）+ 20/14/8/6 分音覆盖 + two-stage decay（双阶段衰减）+ 同音三弦微失谐拍频（beating）+ 8 峰音板主模态组（75~950 Hz）。经 Windows 侧人工听觉 A/B 对比确认 v3 听感全面超越 v2，正式确立为唯一默认钢琴音色。全量 3101 断言全绿。
 
-**现状（代码事实）：**
+详细技术方案与逐项完成记录见 [`../archive/phase12-14-builtin-piano-synthesis.md`](../archive/phase12-14-builtin-piano-synthesis.md)。
 
-- ~~实时路径 `AudioEngine::SimpleSineVoice`（AudioEngine.cpp:41）与离线导出路径 `OfflineSineVoice`（WavFileExporter.cpp:28）是两份逐字重复的 sine 实现；另加 `RecordingSessionController.cpp:202` 插件离线实例创建失败时回退 sine。~~ **已消除（Phase 12-1，2026-08-18，commit `26772e9`）**：两份 sine 合并为共享 `SineSynthVoice`（`source/Audio/SineSynthVoice.h`，继承 `juce::SynthesiserVoice`），实时渲染 / WAV 离线导出 / 插件离线失败回退（经 `exportTakeAsWavFile`）三处调用点全部改接同一实现，零行为变化，`wsl-build`/`test`/`format --check`/`win-build` 验证通过。
-- **谐波钢琴 v1 已落地（Phase 12-2，2026-08-18）**：`source/Audio/PianoSynthVoice.h` 与 SineSynthVoice 并存注册，`AudioEngine::BuiltinSynthTone {sine, piano}` + `setBuiltinSynthTone` 切换（默认仍 sine，行为不变；后续阶段切默认）。合成：基频 + 2~7 次谐波按音区查表、velocity 双映射（v^1.5 响度 + 高次谐波亮度）、分音独立衰减（attack/release 沿用 ADSR 门控）；≤8 次 `std::sin`/voice、`renderNextBlock` 无堆分配无锁。
-- **参数化与 UI 接线已落地（Phase 12-3，2026-08-18）**：`PerformanceSettingsView` 扩展 `builtinTone` + `pianoBrightness/HammerHardness/Resonance`（默认 0.5，旧数据缺失回退默认）；`AudioEngine::setPianoParameters` + 消息线程安全切换（JUCE 内部锁核实）；`WavExportOptions`/`buildWavExportOptions`/`initialiseOfflineSynth` 按音色注册——**实时/离线音色一致达成**；ControlsPanel 新增 `piano-row`（Tone 选择 + 3 旋钮，沿用 ADSR 旋钮模式）。
-- **听觉回归通过（2026-08-18，Windows 侧手工 Step 1~8）**：sine vs piano 音色/衰减/音区差异、3 旋钮效果（Resonance 明显、Brightness 可闻、Hammer 微妙）、实时/导出一致、参数持久化均符合预期；力度分层未验证（键盘 velocity 固定 1.0）。**Phase 12 全部完成**。
-- 参数接线已有同构模式：`SettingsModel::PerformanceSettingsView`（masterGain + 4 项 ADSR）→ `MainComponent::applyPerformanceSettingsToAudioEngine`（实时）+ `ExportFlowSupport::buildWavExportOptions`（离线），后续新音色参数沿用即可。
-- ~~测试盲区：`AudioEngineTest.cpp` 声明 fallback 音频输出路径不测（`MidiMessageCollector` wall-clock 时序），新音色需确定性测试夹具（直接驱动 `SynthesiserVoice`，固定 sampleRate，断言频谱/能量/时长/力度单调性）。~~ **已解决（Phase 12-4，2026-08-18）**：`source/tests/PianoSynthVoiceTest.cpp` 经 `Synthesiser` 驱动 voice（确定性，绕过 `MidiMessageCollector`），单点 DFT 验证基频/谐波、velocity 单调、tail 收敛、自清、allNotesOff、音色切换接口；默认套件 52 类 2968 断言全绿。
+### Phase 15：UI 架构统一至 JIVE（声明式弹窗与设置面板重构） [排期中]
 
-**技术路线（JUCE 惯例，不建新抽象）：**
+将主窗口之外的传统 JUCE 手工像素排版与弹窗体系全面统一进 **JIVE 声明式 UI 框架**：
+1. **通用 JiveModalDialog 基础设施**：以 JIVE ValueTree 模板驱动预设新建/重命名/删除弹窗及歌曲信息（Metadata）编辑弹窗，消除手写 `resized()` 与冗余 Content 类；
+2. **设置面板声明式重构（SettingsLayoutModel）**：使用 JIVE CSS Grid（8 列 × 2 行）声明 16 通道跟随开关，`AudioDeviceSelectorComponent` 封装为 Native 注入项，彻底消灭 `SettingsComponent` 中 300+ 行手写绝对坐标；
+3. **模态操作与导出进度现代化**：将 WAV 导出进度接入现代化 JIVE 浮层或统一弹窗；
+4. **边界稳定**：保持 `CustomKeyboard` 原生自绘内核、`PluginEditorWindow` 原生宿主与系统 `FileChooser` 的合理边界。
 
-以 `juce::Synthesiser` + `SynthesiserVoice` 为唯一音色承载（JUCE 生态标准做法，当前代码已在使用）——不引入自定义 `BuiltinInstrument` 接口层，不建 `source/Audio/Builtin/` 多层目录。替换音色 = 换 `addSound/addVoice` 注册内容。分三阶段渐进，每阶段可独立合入、可听感回归：
-
-- **Phase 12：音源重构 + 谐波钢琴 v1**（Level 1）——合并两份 sine 为共享 `SynthesiserVoice` 子类（三处调用点改接，零行为变化）；新增 Harmonic PianoVoice：基频 + 2~7 次谐波叠加、velocity→亮度/响度映射、分音独立衰减；参数进 `SettingsModel`。纯加法、零采样、CPU 可忽略。验收：实时/离线音色一致、确定性音色单测、听觉对比明显优于 sine。
-- **Phase 13：Stiff-String Inharmonic Piano v2**（Level 2）——加入 inharmonicity（`fₙ = n·f₀·√(1+B·n²)`，B 按音区设定）、分音衰减速率建模、简单 body 共鸣滤波。仍纯解析加法，无需延迟线。**详细计划与子任务见 [`current-iteration.md`](current-iteration.md)。**
-- **Phase 14：Enhanced Modal Piano v3**（Level 3）**[已完成，2026-08-19]**——在 Phase 13 模态架构上增强：Magic Circle 递归振荡器（零 `std::sin`）+ 分音扩展（20/14/8/6）+ two-stage decay（双阶段衰减）+ 同音三弦微失谐拍频（beating）+ 8 峰音板模态组（75~950 Hz）。**决策评审与听觉回归（2026-08-19）**：Windows 侧人工 A/B 对比确认 v3 听感全面超越 v2；正式确立 Enhanced Modal Piano v3 为默认内置音色；新参数作为物理常量固化，维持「4×4 经典 8 旋钮」界面；波导实验分支取消。**详细记录见 [`current-iteration.md`](current-iteration.md)。**
-
-**外部参考（许可证已实地核实）：**
-
-| 项目 | 许可证 | 用法 |
-|---|---|---|
-| pichenettes/eurorack (Mutable Instruments) | MIT | 二阶谐振器组、模态衰减与冲击激励塑造实现范本（Phase 13 核心参考） |
-| electro-smith/DaisySP | MIT | 模块化 C++ DSP 库，参考 `ModalVoice` / `Resonator` 滤波实现（Phase 13 参考） |
-| Balázs Bank, Zambon & Fontana, "A Modal-Based Real-Time Piano Synthesizer", IEEE TASLP 2010 | 论文（学术文献） | **Phase 14 核心理论范本**：实时模态钢琴（700~1200 谐振器 + secondary resonators 建模拍频与两阶段衰减） |
-| STK (Synthesis ToolKit) | MIT-style | 可复用/参考 `DelayA` / `BiQuad` 类作波导循环零件库（**波导实验分支**参考，非 Phase 14 主线） |
-| Faust Libraries (physmodels.lib, misceffects.lib) | LGPL-2.1 / BSD | 级联全通色散滤波器（Balázs Bank 方案）与刚度非谐性数学推导（Phase 13 理论范本；波导实验分支参考） |
-
-若复用 STK / DaisySP / Mutable Instruments 代码，在 `THIRD-PARTY-NOTICES.md` 记录来源/版本/修改。
+详细排期与子任务见 [`current-iteration.md`](current-iteration.md)。
 
 ## 3. 主要风险
 
@@ -180,5 +166,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 - 架构优化完成记录：[`../archive/architecture-optimization-backlog.md`](../archive/architecture-optimization-backlog.md)
 - Phase 8–9 完成记录：[`../archive/phase8-9-completion.md`](../archive/phase8-9-completion.md)
 - Phase 10 完成记录：[`../archive/phase10-ui-modernization.md`](../archive/phase10-ui-modernization.md)
+- Phase 11 完成记录（声明式 UI 架构）：[`../archive/phase11-declarative-ui-jive.md`](../archive/phase11-declarative-ui-jive.md)
 - 2026-08-16 审计报告：[`../audit/AUDIT-001-code-quality-audit-2026-08-16.md`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)
 - AUDIT Phase A–H 完成记录：[`../archive/audit-001-code-quality-fix-phases.md`](../archive/audit-001-code-quality-fix-phases.md)
+- Phase 12–14 完成记录（内置物理建模钢琴音源）：[`../archive/phase12-14-builtin-piano-synthesis.md`](../archive/phase12-14-builtin-piano-synthesis.md)
