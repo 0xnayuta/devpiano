@@ -675,6 +675,12 @@ private:
             asioControlPanelRowItem->state.setProperty("height", isAsio ? 28 : 0, nullptr);
             asioControlPanelRowItem->state.setProperty("max-height", isAsio ? 28 : 0, nullptr);
             asioControlPanelRowItem->state.setProperty("margin", isAsio ? "0 0 6 0" : "0 0 0 0", nullptr);
+            if (auto comp = asioControlPanelRowItem->getComponent()) {
+                comp->setVisible(isAsio);
+            }
+        }
+        if (asioControlPanelButton != nullptr) {
+            asioControlPanelButton->setVisible(isAsio);
         }
     }
 
@@ -724,12 +730,16 @@ private:
     }
 
     void updateFollowKeyTogglesVisibility() {
+        const auto visible = midiTransposeToggle != nullptr && midiTransposeToggle->getToggleState();
         if (followKeyAreaItem != nullptr) {
-            const auto visible = midiTransposeToggle != nullptr && midiTransposeToggle->getToggleState();
             followKeyAreaItem->state.setProperty("visibility", visible, nullptr);
             followKeyAreaItem->state.setProperty("height", visible ? 80 : 0, nullptr);
             followKeyAreaItem->state.setProperty("max-height", visible ? 80 : 0, nullptr);
             followKeyAreaItem->state.setProperty("margin", visible ? "4 0 0 0" : "0 0 0 0", nullptr);
+
+            if (auto comp = followKeyAreaItem->getComponent()) {
+                comp->setVisible(visible);
+            }
 
             if (jiveRootItem != nullptr) {
                 if (auto* lblItem = devpiano::ui::jive::findGuiItemById(*jiveRootItem, "channel-follow-key-label")) {
@@ -737,14 +747,27 @@ private:
                     lblItem->state.setProperty("height", visible ? 20 : 0, nullptr);
                     lblItem->state.setProperty("max-height", visible ? 20 : 0, nullptr);
                     lblItem->state.setProperty("margin", visible ? "0 0 4 0" : "0 0 0 0", nullptr);
+                    if (auto comp = lblItem->getComponent()) {
+                        comp->setVisible(visible);
+                    }
                 }
                 if (auto* gridItem = devpiano::ui::jive::findGuiItemById(*jiveRootItem, "follow-key-grid")) {
                     gridItem->state.setProperty("visibility", visible, nullptr);
                     gridItem->state.setProperty("height", visible ? 52 : 0, nullptr);
                     gridItem->state.setProperty("max-height", visible ? 52 : 0, nullptr);
+                    if (auto comp = gridItem->getComponent()) {
+                        comp->setVisible(visible);
+                    }
                 }
             }
         }
+
+        for (int ch = 0; ch < 16; ++ch) {
+            if (auto* tb = followKeyToggles[static_cast<size_t>(ch)]) {
+                tb->setVisible(visible);
+            }
+        }
+
         updateContentBounds();
     }
     void updateDiagnostics() {
