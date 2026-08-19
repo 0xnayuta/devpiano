@@ -2,7 +2,9 @@
 
 #include <JuceHeader.h>
 #include <array>
+#include <memory>
 
+#include "UI/DevPianoLookAndFeel.h"
 #include "UI/jive/DesignTokens.h"
 #include "UI/jive/JiveModalDialog.h"
 #include "UI/jive/StyleCatalog.h"
@@ -83,8 +85,67 @@ const std::array<juce::Colour, 8> paletteColours {
     juce::Colour(0xFFFFFFFF), // White
 };
 
-const std::array<juce::String, 8> paletteHex { "#00C8FF", "#2ECC71", "#F1C40F", "#E67E22",
-                                               "#E74C3C", "#9B59B6", "#FF69B4", "#FFFFFF" };
+class PaletteButtonLookAndFeel final : public DevPianoLookAndFeel {
+public:
+    PaletteButtonLookAndFeel(std::shared_ptr<juce::Colour> selected, const std::array<juce::Colour, 8>& colours)
+        : selectedColour(std::move(selected))
+        , palette(colours) {
+    }
+
+    void drawButtonBackground(juce::Graphics& g, juce::Button& button, const juce::Colour& /*bg*/, bool highlighted,
+                              bool down) override {
+        const auto bounds = button.getLocalBounds().toFloat().reduced(0.5f);
+        const auto btnId = button.getComponentID();
+
+        if (btnId.startsWith("colour-btn-")) {
+            const int idx = btnId.substring(11).getIntValue();
+            if (idx >= 0 && idx < static_cast<int>(palette.size())) {
+                const auto btnColour = palette[static_cast<size_t>(idx)];
+                constexpr float corner = 4.0f;
+
+                // 纯色圆角色块
+                g.setColour(btnColour);
+                g.fillRoundedRectangle(bounds, corner);
+
+                // 深色描边增强边界感
+                g.setColour(juce::Colours::black.withAlpha(0.35f));
+                g.drawRoundedRectangle(bounds, corner, 1.0f);
+
+                // 悬停高亮描边
+                if (highlighted) {
+                    g.setColour(juce::Colours::white.withAlpha(0.45f));
+                    g.drawRoundedRectangle(bounds, corner, 1.5f);
+                }
+
+                // 按下状态轻微压暗
+                if (down) {
+                    g.setColour(juce::Colours::black.withAlpha(0.25f));
+                    g.fillRoundedRectangle(bounds, corner);
+                }
+
+                // 当前选中色：白色描边环 + 高对比中心圆点
+                if (selectedColour != nullptr && !selectedColour->isTransparent() && *selectedColour == btnColour) {
+                    g.setColour(juce::Colours::white);
+                    g.drawRoundedRectangle(bounds.reduced(1.0f), corner - 0.5f, 2.0f);
+
+                    const auto pipColour
+                        = btnColour.getBrightness() > 0.65f ? juce::Colours::black : juce::Colours::white;
+                    g.setColour(pipColour);
+                    g.fillEllipse(bounds.getCentreX() - 2.5f, bounds.getCentreY() - 2.5f, 5.0f, 5.0f);
+                }
+                return;
+            }
+        }
+
+        // 非色块按钮（如 Clear）沿用全局主题
+        DevPianoLookAndFeel::drawButtonBackground(g, button, findColour(juce::TextButton::buttonColourId), highlighted,
+                                                  down);
+    }
+
+private:
+    std::shared_ptr<juce::Colour> selectedColour;
+    const std::array<juce::Colour, 8>& palette;
+};
 
 } // namespace
 
@@ -94,66 +155,79 @@ juce::ValueTree KeyBindingEditDialog::makeKeyBindingEditLayout(bool hasExistingB
     root.setProperty("flex-direction", "column", nullptr);
     root.setProperty("width", width, nullptr);
     root.setProperty("height", height, nullptr);
-    root.setProperty("padding", "14", nullptr);
+    root.setProperty("padding", "16", nullptr);
 
     // Title / Info row
     auto infoText = text("", "binding-info-text");
     infoText.setProperty("font-size", 14, nullptr);
-    infoText.setProperty("height", 22, nullptr);
+    infoText.setProperty("height", 24, nullptr);
     infoText.setProperty("margin", "0 0 10 0", nullptr);
     root.appendChild(infoText, nullptr);
 
     if (hasExistingBinding) {
         // Row 1: MIDI Channel (ComboBox: 1 - 16)
         auto chCombo = node("ComboBox", "channel-combo");
-        chCombo.setProperty("width", 180, nullptr);
+        chCombo.setProperty("width", 220, nullptr);
         chCombo.setProperty("height", 24, nullptr);
         root.appendChild(settingRow(TRANS("MIDI Channel:"), chCombo, "channel-label"), nullptr);
 
         // Row 2: MIDI Note (Slider / Number: 0 - 127)
         auto noteSlider = node("Slider", "note-slider");
-        noteSlider.setProperty("width", 180, nullptr);
+        noteSlider.setProperty("width", 220, nullptr);
         noteSlider.setProperty("height", 24, nullptr);
         root.appendChild(settingRow(TRANS("MIDI Note:"), noteSlider, "note-label"), nullptr);
 
         // Row 3: Velocity (Slider: 0 - 127)
         auto velSlider = node("Slider", "velocity-slider");
-        velSlider.setProperty("width", 180, nullptr);
+        velSlider.setProperty("width", 220, nullptr);
         velSlider.setProperty("height", 24, nullptr);
         root.appendChild(settingRow(TRANS("Velocity:"), velSlider, "velocity-label"), nullptr);
     }
 
     // Row: Custom Label (PathEditor)
     auto labelEd = node("PathEditor", "custom-label-editor");
-    labelEd.setProperty("width", 180, nullptr);
+    labelEd.setProperty("width", 220, nullptr);
     labelEd.setProperty("height", 24, nullptr);
     root.appendChild(settingRow(TRANS("Label:"), labelEd, "custom-label-text"), nullptr);
 
     // Row: Custom Colour Selection (Palette buttons + Clear button)
     auto colourRow = flexRow("custom-colour-row");
     colourRow.setProperty("height", 28, nullptr);
-    colourRow.setProperty("margin", "0 0 12 0", nullptr);
+    colourRow.setProperty("margin", "0 0 10 0", nullptr);
 
-    auto colourLbl = text(TRANS("Choose Colour"), "custom-colour-label");
+    auto colourLbl = text(TRANS("Colour:"), "custom-colour-label");
     colourLbl.setProperty("flex-grow", 1.0, nullptr);
+    colourLbl.setProperty("height", 22, nullptr);
     colourLbl.setProperty("font-size", 14, nullptr);
+    colourLbl.setProperty("justification", "centred-left", nullptr);
     colourRow.appendChild(colourLbl, nullptr);
 
     auto colourPalette = flexRow("custom-colour-palette");
+    colourPalette.setProperty("width", 220, nullptr);
+    colourPalette.setProperty("height", 24, nullptr);
+    colourPalette.setProperty("align-items", "centre", nullptr);
     colourPalette.setProperty("gap", "4", nullptr);
 
-    for (size_t i = 0; i < paletteHex.size(); ++i) {
+    for (size_t i = 0; i < paletteColours.size(); ++i) {
         auto cBtn = node("Button", "colour-btn-" + juce::String(i));
-        cBtn.setProperty("width", 16, nullptr);
+        cBtn.setProperty("width", 18, nullptr);
+        cBtn.setProperty("min-width", 18, nullptr);
+        cBtn.setProperty("max-width", 18, nullptr);
         cBtn.setProperty("height", 20, nullptr);
-        cBtn.setProperty("background", paletteHex[i], nullptr);
-        cBtn.setProperty("border-radius", "3", nullptr);
+        cBtn.setProperty("min-height", 20, nullptr);
+        cBtn.setProperty("max-height", 20, nullptr);
+        cBtn.setProperty("border-radius", "4", nullptr);
         colourPalette.appendChild(cBtn, nullptr);
     }
 
     auto clearColourBtn = button(TRANS("Clear"), "clear-colour-btn");
-    clearColourBtn.setProperty("width", 42, nullptr);
+    clearColourBtn.setProperty("width", 44, nullptr);
+    clearColourBtn.setProperty("min-width", 44, nullptr);
+    clearColourBtn.setProperty("max-width", 44, nullptr);
     clearColourBtn.setProperty("height", 22, nullptr);
+    clearColourBtn.setProperty("min-height", 22, nullptr);
+    clearColourBtn.setProperty("max-height", 22, nullptr);
+    clearColourBtn.setProperty("margin", "0 0 0 4", nullptr);
     colourPalette.appendChild(clearColourBtn, nullptr);
 
     colourRow.appendChild(colourPalette, nullptr);
@@ -164,12 +238,12 @@ juce::ValueTree KeyBindingEditDialog::makeKeyBindingEditLayout(bool hasExistingB
     btnRow.setProperty("display", "flex", nullptr);
     btnRow.setProperty("flex-direction", "row", nullptr);
     btnRow.setProperty("align-items", "centre", nullptr);
-    btnRow.setProperty("height", 28, nullptr);
-    btnRow.setProperty("margin", "6 0 0 0", nullptr);
+    btnRow.setProperty("height", 30, nullptr);
+    btnRow.setProperty("margin", "10 0 0 0", nullptr);
 
     if (hasExistingBinding) {
         auto unbindBtn = button(TRANS("Unbind"), "dialog-unbind-btn");
-        unbindBtn.setProperty("width", 80, nullptr);
+        unbindBtn.setProperty("width", 88, nullptr);
         unbindBtn.setProperty("height", 28, nullptr);
         btnRow.appendChild(unbindBtn, nullptr);
 
@@ -214,13 +288,14 @@ void KeyBindingEditDialog::launch(int midiNote, const juce::String& noteName,
                                   std::function<void(KeyBindingEditResult)> onComplete, juce::Component* parent) {
     const bool hasExisting = (existingBinding != nullptr);
     const auto keyLabel = hasExisting ? existingBinding->displayText : juce::String();
-    const int dlgWidth = 420;
-    const int dlgHeight = hasExisting ? 290 : 200;
+    const int dlgWidth = 460;
+    const int dlgHeight = hasExisting ? 300 : 210;
 
     auto layoutTree = makeKeyBindingEditLayout(hasExisting, dlgWidth, dlgHeight);
     auto title = TRANS("Key Binding Editor") + " — " + noteName + " (#" + juce::String(midiNote) + ")";
 
     auto selectedColour = std::make_shared<juce::Colour>(currentCustomColour);
+    auto paletteLaf = std::make_shared<PaletteButtonLookAndFeel>(selectedColour, paletteColours);
 
     devpiano::ui::jive::JiveModalDialog::LaunchOptions options;
     options.title = title;
@@ -284,17 +359,44 @@ void KeyBindingEditDialog::launch(int midiNote, const juce::String& noteName,
             labelEd->setInputRestrictions(32, {});
         }
 
-        // Wire palette color buttons
+        // Wire palette color buttons: 绑定自定义外观 + 点击即时刷新选中环
+        ::jive::GuiItem* rootPtr = &root;
         for (size_t i = 0; i < paletteColours.size(); ++i) {
             if (auto* cBtn
                 = devpiano::ui::jive::JiveModalDialog::findButtonById(root, "colour-btn-" + juce::String(i))) {
-                cBtn->onClick = [selectedColour, c = paletteColours[i]] { *selectedColour = c; };
+                cBtn->setComponentID("colour-btn-" + juce::String(i));
+                cBtn->setLookAndFeel(paletteLaf.get());
+                cBtn->onClick = [selectedColour, c = paletteColours[i], rootPtr] {
+                    *selectedColour = c;
+                    for (size_t k = 0; k < paletteColours.size(); ++k) {
+                        if (auto* b = devpiano::ui::jive::JiveModalDialog::findButtonById(
+                                *rootPtr, "colour-btn-" + juce::String(k))) {
+                            b->repaint();
+                        }
+                    }
+                    if (auto* clr = devpiano::ui::jive::JiveModalDialog::findButtonById(*rootPtr, "clear-colour-btn")) {
+                        clr->repaint();
+                    }
+                };
             }
         }
 
         // Wire clear color button
         if (auto* clearBtn = devpiano::ui::jive::JiveModalDialog::findButtonById(root, "clear-colour-btn")) {
-            clearBtn->onClick = [selectedColour] { *selectedColour = juce::Colour(0x00000000); };
+            clearBtn->setComponentID("clear-colour-btn");
+            clearBtn->setLookAndFeel(paletteLaf.get());
+            clearBtn->onClick = [selectedColour, rootPtr] {
+                *selectedColour = juce::Colour(0x00000000);
+                for (size_t k = 0; k < paletteColours.size(); ++k) {
+                    if (auto* b = devpiano::ui::jive::JiveModalDialog::findButtonById(
+                            *rootPtr, "colour-btn-" + juce::String(k))) {
+                        b->repaint();
+                    }
+                }
+                if (auto* cb = devpiano::ui::jive::JiveModalDialog::findButtonById(*rootPtr, "clear-colour-btn")) {
+                    cb->repaint();
+                }
+            };
         }
 
         // Wire unbind button
