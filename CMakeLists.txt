@@ -268,6 +268,8 @@ if (BUILD_TESTS)
         source/Recording/MidiFileExporter.h
         source/Recording/WavFileExporter.cpp
         source/Recording/WavFileExporter.h
+        source/Recording/PluginOfflineRenderer.cpp
+        source/Recording/PluginOfflineRenderer.h
         source/Recording/PerformanceFile.cpp
         source/Recording/PerformanceFile.h
         source/Recording/RenderPipeline.cpp
@@ -280,6 +282,8 @@ if (BUILD_TESTS)
         source/Export/ExportFlowSupport.cpp
         source/Export/ExportFlowSupport.h
         source/Export/WavExportOptions.h
+        source/Export/WavExportTask.cpp
+        source/Export/WavExportTask.h
 
         source/Midi/MidiChannelMapper.cpp
         source/Midi/MidiChannelMapper.h

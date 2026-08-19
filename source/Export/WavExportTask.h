@@ -2,52 +2,71 @@
 
 #include <JuceHeader.h>
 
-#include "Export/WavExportOptions.h"
-#include "Recording/RecordingEngine.h"
-
 #include <atomic>
 #include <memory>
 
+#include "Export/WavExportOptions.h"
+#include "Recording/RecordingEngine.h"
+
 // ============================================================================
-// WavExportTask — WAV export with progress dialog and cancel support.
+// WavExportTask — WAV export with JIVE-driven progress dialog and cancel support.
 //
-// Wraps renderTakeWithOfflinePlugin (plugin path) or exportTakeAsWavFile (sine
-// synth fallback) in a JUCE ThreadWithProgressWindow so the render loop runs
-// on a background thread while the user sees a ProgressBar and can cancel.
+// Refactored in Phase 15-D to replace legacy AlertWindow with JiveModalDialog
+// declarative progress layout, providing a theme-consistent dark ProgressBar.
 //
 // Usage (message thread):
-//   WavExportTask task(takeCopy, file, options, std::move(offlinePlugin));
+//   WavExportTask task(takeCopy, file, options, std::move(offlinePlugin), parentComp);
 //   task.runThread();                         // blocks with nested message loop
 //   if (task.wasSuccessful()) { /* ok */ }
-//
-// The offline plugin instance (if any) must be created on the message thread
-// before constructing this task — AudioPluginFormatManager::createPluginInstance
-// is not thread-safe.
 // ============================================================================
-class WavExportTask : public juce::ThreadWithProgressWindow {
+class WavExportTask : private juce::Thread, private juce::Timer {
 public:
     WavExportTask(devpiano::recording::RecordingTake take, const juce::File& destinationFile,
                   const devpiano::exporting::WavExportOptions& options,
-                  std::unique_ptr<juce::AudioPluginInstance> offlinePlugin,
+                  std::unique_ptr<juce::AudioPluginInstance> offlinePlugin = nullptr,
                   juce::Component* parentToCentreAround = nullptr);
 
     ~WavExportTask() override;
 
+    /// Runs the export on a background thread while displaying the JIVE progress dialog.
+    /// Returns true if completed successfully, false if cancelled or failed.
+    bool runThread();
+
     [[nodiscard]] bool wasSuccessful() const noexcept {
-        return success;
+        return success.load();
     }
-    [[nodiscard]] const juce::String& getErrorMessage() const noexcept {
+
+    [[nodiscard]] juce::String getErrorMessage() const {
+        const juce::ScopedLock sl(messageLock);
         return errorMessage;
     }
 
 private:
     void run() override;
+    void timerCallback() override;
+
+    void setProgress(double newProgress);
+    void setStatusMessage(const juce::String& newStatusMessage);
 
     devpiano::recording::RecordingTake take;
     const juce::File destinationFile;
     devpiano::exporting::WavExportOptions options;
     std::unique_ptr<juce::AudioPluginInstance> offlinePlugin;
+    juce::Component* parentComponent = nullptr;
 
     std::atomic<bool> success { false };
+    std::atomic<bool> cancelRequested { false };
+    std::atomic<bool> finished { false };
+    std::atomic<double> currentProgress { 0.0 };
+
+    juce::CriticalSection messageLock;
+    juce::String currentStatusMessage;
     juce::String errorMessage;
+
+    // Active progress dialog references (message thread only)
+    juce::Component::SafePointer<juce::DialogWindow> activeDialog;
+    juce::Component::SafePointer<juce::Label> statusLabel;
+    juce::Component::SafePointer<juce::ProgressBar> progressBar;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(WavExportTask)
 };

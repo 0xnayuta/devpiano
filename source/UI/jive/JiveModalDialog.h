@@ -87,8 +87,12 @@ public:
                                                                 const juce::String& okText = TRANS("OK"),
                                                                 const juce::String& cancelText = TRANS("Cancel"));
 
+    [[nodiscard]] static juce::ValueTree makeProgressLayout(const juce::String& initialMessage = TRANS("Exporting..."),
+                                                            int width = 380, int height = 140,
+                                                            const juce::String& cancelText = TRANS("Cancel"));
     // ── Component Retrieval Helpers ──
 
+    [[nodiscard]] static ::jive::GuiItem* findGuiItemById(::jive::GuiItem& root, const juce::String& id);
     [[nodiscard]] static juce::Button* findButtonById(::jive::GuiItem& root, const juce::String& id);
     [[nodiscard]] static juce::TextEditor* findTextEditorById(::jive::GuiItem& root, const juce::String& id);
 

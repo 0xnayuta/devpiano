@@ -262,6 +262,18 @@ private:
 // Public JiveModalDialog Methods
 // ============================================================================
 
+::jive::GuiItem* JiveModalDialog::findGuiItemById(::jive::GuiItem& root, const juce::String& id) {
+    if (root.state.getProperty("id").toString() == id) {
+        return &root;
+    }
+    for (auto* child : root.getChildren()) {
+        if (auto* found = findGuiItemById(*child, id)) {
+            return found;
+        }
+    }
+    return nullptr;
+}
+
 juce::Button* JiveModalDialog::findButtonById(::jive::GuiItem& root, const juce::String& id) {
     if (root.state.getProperty("id").toString() == id) {
         return dynamic_cast<juce::Button*>(root.getComponent().get());
@@ -557,4 +569,40 @@ juce::ValueTree JiveModalDialog::makeMetadataEditLayout(int width, int height, c
     return root;
 }
 
+juce::ValueTree JiveModalDialog::makeProgressLayout(const juce::String& initialMessage, int width, int height,
+                                                    const juce::String& cancelText) {
+    auto root = node("Component", "dialog-root");
+    root.setProperty("display", "flex", nullptr);
+    root.setProperty("flex-direction", "column", nullptr);
+    root.setProperty("width", width, nullptr);
+    root.setProperty("height", height, nullptr);
+    root.setProperty("padding", "14", nullptr);
+
+    auto msg = text(initialMessage, "progress-status-message");
+    msg.setProperty("font-size", 14, nullptr);
+    msg.setProperty("height", 22, nullptr);
+    msg.setProperty("margin", "0 0 10 0", nullptr);
+    msg.setProperty("justification", "centred-left", nullptr);
+    root.appendChild(msg, nullptr);
+
+    auto bar = node("ProgressBar", "dialog-progress-bar");
+    bar.setProperty("height", 16, nullptr);
+    bar.setProperty("margin", "0 0 16 0", nullptr);
+    root.appendChild(bar, nullptr);
+
+    auto btnRow = node("Component", "dialog-buttons");
+    btnRow.setProperty("display", "flex", nullptr);
+    btnRow.setProperty("flex-direction", "row", nullptr);
+    btnRow.setProperty("justify-content", "flex-end", nullptr);
+    btnRow.setProperty("align-items", "centre", nullptr);
+    btnRow.setProperty("height", 28, nullptr);
+
+    auto cancelBtn = button(cancelText, "dialog-cancel-btn");
+    cancelBtn.setProperty("width", 80, nullptr);
+    cancelBtn.setProperty("height", 28, nullptr);
+    btnRow.appendChild(cancelBtn, nullptr);
+
+    root.appendChild(btnRow, nullptr);
+    return root;
+}
 } // namespace devpiano::ui::jive

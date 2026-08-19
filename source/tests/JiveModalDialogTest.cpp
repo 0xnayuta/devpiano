@@ -60,13 +60,36 @@ public:
     void runTest() override {
         devpiano::ui::jive::StyleCatalog::get().reset();
         devpiano::jive::DesignTokens::get().reset();
-
         testSingleInputLayoutBuilder();
         testConfirmLayoutBuilder();
         testMetadataEditLayoutBuilder();
         testInterpretationAndComponentLookup();
         testMetadataInterpretation();
         testPresetAndMetadataDialogBuilders();
+        testProgressLayoutBuilder();
+    }
+
+    void testProgressLayoutBuilder() {
+        beginTest("makeProgressLayout: progress bar and message nodes");
+
+        auto tree
+            = devpiano::ui::jive::JiveModalDialog::makeProgressLayout("Exporting WAV (50%)...", 380, 140, "Abort");
+        expect(tree.isValid());
+        expectEquals(static_cast<int>(tree.getProperty("width")), 380);
+        expectEquals(static_cast<int>(tree.getProperty("height")), 140);
+
+        auto msgNode = findNodeById(tree, "progress-status-message");
+        expect(msgNode.isValid());
+        expectEquals(msgNode.getType().toString(), juce::String("Text"));
+        expectEquals(msgNode.getProperty("text").toString(), juce::String("Exporting WAV (50%)..."));
+
+        auto barNode = findNodeById(tree, "dialog-progress-bar");
+        expect(barNode.isValid());
+        expectEquals(barNode.getType().toString(), juce::String("ProgressBar"));
+
+        auto cancelBtn = findNodeById(tree, "dialog-cancel-btn");
+        expect(cancelBtn.isValid());
+        expectEquals(cancelBtn.getProperty("title").toString(), juce::String("Abort"));
     }
 
     void testPresetAndMetadataDialogBuilders() {

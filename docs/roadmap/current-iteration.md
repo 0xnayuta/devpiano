@@ -70,12 +70,12 @@
 - [x] 移除 `SettingsComponent.h` 中 300+ 行 `layoutContent()` 与手动 `setBounds` 代码（精简为纯 JIVE Viewport 驱动）。
 - [x] 确定性测试：`source/tests/SettingsLayoutModelTest.cpp` 新增 5 类测试（树结构、16 通道 Grid、显示选项、组件动态检索、动态通道跟随显示切换与安全析构），全量测试全绿。
 
-**Phase 15-D：模态操作反馈与导出进度 JIVE 现代化 [待启动]**
+**Phase 15-D：模态操作反馈与导出进度 JIVE 现代化 [已完成，2026-08-19]**
 
-- [ ] 评估并实现主窗口内嵌的 JIVE 模态遮罩层（`ModalOverlay`）或基于 `JiveModalDialog` 的进度浮层。
-- [ ] `WavExportTask` 进度报告改接 JIVE 进度条与状态文本，支持流畅百分比刷新与优雅取消。
-- [ ] 消除原生 AlertWindow 带来的视觉风格不一致。
-
+- [x] 在 `JiveModalDialog` 中扩展 `makeProgressLayout` 声明式进度弹窗模板（包含状态提示文本、JIVE ProgressBar 与取消按钮）。
+- [x] 重构 `WavExportTask`（消除对原生 `ThreadWithProgressWindow` / `AlertWindow` 的依赖），以 JIVE 声明式进度弹窗统一替代，提供现代暗黑主题视觉。
+- [x] 维持线程模型与异常安全性：后台线程独立渲染音频，消息线程 30 Hz 定时器平滑刷新 JIVE 进度与状态文本，严密保留取消/失败残留目标文件自动清理（ERR-009/012/015）。
+- [x] 单元测试：`JiveModalDialogTest` 新增 `testProgressLayoutBuilder` 测试用例，断言进度条节点与状态信息结构，全量测试全绿。
 **Phase 15-E：测试补齐、三闸门与 Windows 视觉回归 [待启动]**
 
 - [ ] 编写 JIVE 弹窗与设置布局模型解析的确定性单元测试。
