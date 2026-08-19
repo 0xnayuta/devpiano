@@ -216,12 +216,12 @@ UI 采用 JIVE 声明式布局：`source/UI/jive/LayoutModel.cpp` 以 ValueTree 
 
 ### Locale 与静态资产管理
 
-静态资产（JIVE 样式表、设计 Token、中文语言包）由 CMake 的 `juce_add_binary_data(DevPianoBinaryData)` 在构建期统一打包为二进制静态库，保证程序在独立运行、脱离源码仓库（如发布至纯净机器或移动到任意目录）时永远 100% 正确加载基准样式与文本。
+静态资产（JIVE 样式表、设计 Token、中文语言包）由 CMake 的 `juce_add_binary_data(devpiano_binary_data)` 在构建期统一打包为二进制静态库，保证程序在独立运行、脱离源码仓库（如发布至纯净机器或移动到任意目录）时永远 100% 正确加载基准样式与文本。
 
 - `source/Locale/LocaleManager.h` — 语言激活、语言枚举、代码转换与展示名 helper；优先读取 `BinaryData::zh_CN_loc`，支持外部 `.loc` 文件覆盖。
-- `source/Locale/zh_CN.loc` — 中文语言包（JUCE `LocalisedStrings` 格式，由 `DevPianoBinaryData` 编译期嵌入）。
-- `source/UI/jive/design_tokens.json` — 设计 Token（配色/字号/尺寸，单一事实源，由 `DevPianoBinaryData` 编译期嵌入）。
-- `source/UI/jive/style_sheets.json` — JIVE 全局样式规则（由 `DevPianoBinaryData` 编译期嵌入）。
+- `source/Locale/zh_CN.loc` — 中文语言包（JUCE `LocalisedStrings` 格式，由 `devpiano_binary_data` 编译期嵌入）。
+- `source/UI/jive/design_tokens.json` — 设计 Token（配色/字号/尺寸，单一事实源，由 `devpiano_binary_data` 编译期嵌入）。
+- `source/UI/jive/style_sheets.json` — JIVE 全局样式规则（由 `devpiano_binary_data` 编译期嵌入）。
 ## 4. 主运行链路
 
 ### 电脑键盘演奏链路
