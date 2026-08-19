@@ -127,23 +127,29 @@ juce::ValueTree makeAudioDeviceSectionTree() {
 
     outputRow.appendChild(outputControls, nullptr);
     content.appendChild(outputRow, nullptr);
+    // Row 3: Active Output Channels (ComboBox)
+    auto channelsCombo = node("ComboBox", "audio-active-channels-combo");
+    channelsCombo.setProperty("width", 200, nullptr);
+    channelsCombo.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Active output channels:"), channelsCombo, "audio-active-channels-label"),
+                        nullptr);
 
-    // Row 3: Sample Rate (ComboBox)
+    // Row 4: Sample Rate (ComboBox)
     auto sampleRateCombo = node("ComboBox", "audio-sample-rate-combo");
     sampleRateCombo.setProperty("width", 200, nullptr);
     sampleRateCombo.setProperty("height", 24, nullptr);
     content.appendChild(settingRow(TRANS("Sample Rate:"), sampleRateCombo, "audio-sample-rate-label"), nullptr);
 
-    // Row 4: Buffer Size (ComboBox)
+    // Row 5: Buffer Size (ComboBox)
     auto bufferSizeCombo = node("ComboBox", "audio-buffer-size-combo");
     bufferSizeCombo.setProperty("width", 200, nullptr);
     bufferSizeCombo.setProperty("height", 24, nullptr);
     content.appendChild(settingRow(TRANS("Audio Buffer Size:"), bufferSizeCombo, "audio-buffer-size-label"), nullptr);
 
-    // Row 5: ASIO Control Panel (optional, displayed when ASIO is active)
+    // Row 6: ASIO Control Panel (optional, collapsed when not in ASIO mode)
     auto asioRow = flexRow("asio-control-panel-row");
-    asioRow.setProperty("height", 28, nullptr);
-    asioRow.setProperty("margin", "0 0 6 0", nullptr);
+    asioRow.setProperty("height", 0, nullptr);
+    asioRow.setProperty("margin", "0 0 0 0", nullptr);
     asioRow.setProperty("visibility", false, nullptr);
     auto asioLbl = text(TRANS("Device Control Panel:"), "asio-control-panel-label");
     asioLbl.setProperty("flex-grow", 1.0, nullptr);
@@ -330,7 +336,7 @@ juce::ValueTree makeSaveActionSectionTree() {
 juce::ValueTree makeSettingsLayoutTree() {
     auto root = flexColumn("settings-root");
     root.setProperty("width", 560, nullptr);
-    root.setProperty("height", 1040, nullptr);
+    root.setProperty("height", 920, nullptr);
     root.setProperty("padding", "10", nullptr);
 
     root.appendChild(makeAudioDeviceSectionTree(), nullptr);

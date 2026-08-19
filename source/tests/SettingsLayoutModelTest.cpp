@@ -108,6 +108,7 @@ private:
         expect(findNodeById(tree, "audio-device-title").isValid());
         expect(findNodeById(tree, "audio-device-type-combo").isValid());
         expect(findNodeById(tree, "audio-output-device-combo").isValid());
+        expect(findNodeById(tree, "audio-active-channels-combo").isValid());
         expect(findNodeById(tree, "audio-test-button").isValid());
         expect(findNodeById(tree, "audio-sample-rate-combo").isValid());
         expect(findNodeById(tree, "audio-buffer-size-combo").isValid());
@@ -176,14 +177,16 @@ private:
             // Verify component lookup for all major controls
             auto* devTypeCombo = dynamic_cast<juce::ComboBox*>(findComponentById(*rootItem, "audio-device-type-combo"));
             expect(devTypeCombo != nullptr);
-
             auto* outputCombo
                 = dynamic_cast<juce::ComboBox*>(findComponentById(*rootItem, "audio-output-device-combo"));
             expect(outputCombo != nullptr);
 
+            auto* channelsCombo
+                = dynamic_cast<juce::ComboBox*>(findComponentById(*rootItem, "audio-active-channels-combo"));
+            expect(channelsCombo != nullptr);
+
             auto* testBtn = dynamic_cast<juce::Button*>(findComponentById(*rootItem, "audio-test-button"));
             expect(testBtn != nullptr);
-
             auto* sampleRateCombo
                 = dynamic_cast<juce::ComboBox*>(findComponentById(*rootItem, "audio-sample-rate-combo"));
             expect(sampleRateCombo != nullptr);

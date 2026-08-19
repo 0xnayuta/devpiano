@@ -79,7 +79,8 @@ public:
         buildJiveUi();
 
         viewport.setViewedComponent(jiveRootItem != nullptr ? jiveRootItem->getComponent().get() : nullptr, false);
-        viewport.setScrollBarsShown(true, false);
+        viewport.setScrollBarsShown(true, false, true, false);
+        viewport.setSingleStepSizes(0, 20);
         viewport.addMouseListener(this, true);
         addAndMakeVisible(viewport);
 
@@ -125,6 +126,8 @@ public:
                 = dynamic_cast<juce::ComboBox*>(findComponentById(*jiveRootItem, "audio-device-type-combo"));
             audioOutputDeviceCombo
                 = dynamic_cast<juce::ComboBox*>(findComponentById(*jiveRootItem, "audio-output-device-combo"));
+            audioActiveChannelsCombo
+                = dynamic_cast<juce::ComboBox*>(findComponentById(*jiveRootItem, "audio-active-channels-combo"));
             audioTestButton = dynamic_cast<juce::Button*>(findComponentById(*jiveRootItem, "audio-test-button"));
             audioSampleRateCombo
                 = dynamic_cast<juce::ComboBox*>(findComponentById(*jiveRootItem, "audio-sample-rate-combo"));
@@ -133,7 +136,6 @@ public:
             asioControlPanelButton
                 = dynamic_cast<juce::Button*>(findComponentById(*jiveRootItem, "asio-control-panel-button"));
             asioControlPanelRowItem = devpiano::ui::jive::findGuiItemById(*jiveRootItem, "asio-control-panel-row");
-
             // Find other settings references
             keySignatureCombo = dynamic_cast<juce::ComboBox*>(findComponentById(*jiveRootItem, "key-signature-combo"));
             midiTransposeToggle
@@ -184,9 +186,30 @@ public:
                     setup.outputDeviceName = (selId < 0) ? juce::String() : audioOutputDeviceCombo->getText();
                     setup.useDefaultOutputChannels = true;
                     deviceManager.setAudioDeviceSetup(setup, true);
+                    populateAudioActiveChannels();
                     populateAudioSampleRates();
                     populateAudioBufferSizes();
                     setDirty(true);
+                };
+            }
+
+            // Wire Audio Active Output Channels combo
+            if (audioActiveChannelsCombo != nullptr) {
+                audioActiveChannelsCombo->onChange = [this] {
+                    if (isUpdatingAudioControls) {
+                        return;
+                    }
+                    const int selPairId = audioActiveChannelsCombo->getSelectedId();
+                    if (selPairId > 0) {
+                        auto setup = deviceManager.getAudioDeviceSetup();
+                        setup.useDefaultOutputChannels = false;
+                        setup.outputChannels.clear();
+                        const int chStart = (selPairId - 1) * 2;
+                        setup.outputChannels.setBit(chStart, true);
+                        setup.outputChannels.setBit(chStart + 1, true);
+                        deviceManager.setAudioDeviceSetup(setup, true);
+                        setDirty(true);
+                    }
                 };
             }
 
@@ -256,9 +279,14 @@ public:
 
             // Wire MIDI Transpose toggle
             if (midiTransposeToggle != nullptr) {
+                midiTransposeToggle->setToggleable(true);
+                midiTransposeToggle->setClickingTogglesState(true);
                 if (model != nullptr) {
                     midiTransposeToggle->setToggleState(model->midiTranspose, juce::dontSendNotification);
                 }
+                midiTransposeToggle->onClick = [this] {
+                    editingState.setProperty("midiTranspose", midiTransposeToggle->getToggleState(), nullptr);
+                };
                 midiTransposeToggle->onStateChange = [this] {
                     editingState.setProperty("midiTranspose", midiTransposeToggle->getToggleState(), nullptr);
                 };
@@ -267,12 +295,18 @@ public:
             // Wire 16 Channel Follow Key toggles
             for (int ch = 0; ch < 16; ++ch) {
                 if (auto* tb = followKeyToggles[static_cast<size_t>(ch)]) {
+                    tb->setToggleable(true);
+                    tb->setClickingTogglesState(true);
                     tb->setButtonText("Ch" + juce::String(ch + 1));
                     tb->setTooltip(TRANS("Follow Key"));
                     if (model != nullptr) {
                         tb->setToggleState(model->channelMatrix.channels[static_cast<size_t>(ch)].followKey,
                                            juce::dontSendNotification);
                     }
+                    tb->onClick = [this, ch] {
+                        editingState.setProperty("followKey_" + juce::String(ch),
+                                                 followKeyToggles[static_cast<size_t>(ch)]->getToggleState(), nullptr);
+                    };
                     tb->onStateChange = [this, ch] {
                         editingState.setProperty("followKey_" + juce::String(ch),
                                                  followKeyToggles[static_cast<size_t>(ch)]->getToggleState(), nullptr);
@@ -473,6 +507,7 @@ private:
 
     juce::ComboBox* audioDeviceTypeCombo = nullptr;
     juce::ComboBox* audioOutputDeviceCombo = nullptr;
+    juce::ComboBox* audioActiveChannelsCombo = nullptr;
     juce::Button* audioTestButton = nullptr;
     juce::ComboBox* audioSampleRateCombo = nullptr;
     juce::ComboBox* audioBufferSizeCombo = nullptr;
@@ -543,8 +578,50 @@ private:
                 audioOutputDeviceCombo->setSelectedId(1, juce::dontSendNotification);
             }
         }
+        populateAudioActiveChannels();
     }
 
+    void populateAudioActiveChannels() {
+        if (audioActiveChannelsCombo == nullptr) {
+            return;
+        }
+        audioActiveChannelsCombo->clear(juce::dontSendNotification);
+
+        auto* currentDevice = deviceManager.getCurrentAudioDevice();
+        if (currentDevice == nullptr) {
+            return;
+        }
+
+        auto channelNames = currentDevice->getOutputChannelNames();
+        if (channelNames.isEmpty()) {
+            audioActiveChannelsCombo->addItem(TRANS("(no audio output channels found)"), -1);
+            audioActiveChannelsCombo->setSelectedId(-1, juce::dontSendNotification);
+            return;
+        }
+
+        // Build stereo pairs (1+2, 3+4, ...)
+        int pairId = 1;
+        for (int i = 0; i < channelNames.size(); i += 2) {
+            juce::String pairName;
+            if (i + 1 < channelNames.size()) {
+                pairName = channelNames[i].trim() + " + " + channelNames[i + 1].trim();
+            } else {
+                pairName = channelNames[i].trim();
+            }
+            audioActiveChannelsCombo->addItem(pairName, pairId);
+            ++pairId;
+        }
+
+        auto setup = deviceManager.getAudioDeviceSetup();
+        int activePairId = 1;
+        for (int i = 0; i < channelNames.size(); i += 2) {
+            if (setup.outputChannels[i] || (i + 1 < channelNames.size() && setup.outputChannels[i + 1])) {
+                activePairId = (i / 2) + 1;
+                break;
+            }
+        }
+        audioActiveChannelsCombo->setSelectedId(activePairId, juce::dontSendNotification);
+    }
     void populateAudioSampleRates() {
         if (audioSampleRateCombo == nullptr) {
             return;
@@ -595,6 +672,8 @@ private:
         const bool isAsio = deviceManager.getCurrentAudioDeviceType().containsIgnoreCase("ASIO");
         if (asioControlPanelRowItem != nullptr) {
             asioControlPanelRowItem->state.setProperty("visibility", isAsio, nullptr);
+            asioControlPanelRowItem->state.setProperty("height", isAsio ? 28 : 0, nullptr);
+            asioControlPanelRowItem->state.setProperty("margin", isAsio ? "0 0 6 0" : "0 0 0 0", nullptr);
         }
     }
 
@@ -606,6 +685,7 @@ private:
 
         populateAudioDeviceTypes();
         populateAudioOutputDevices();
+        populateAudioActiveChannels();
         populateAudioSampleRates();
         populateAudioBufferSizes();
         updateAsioControlPanelVisibility();
@@ -627,9 +707,8 @@ private:
 
     [[nodiscard]] int calculateSettingsContentHeight() const {
         const bool hasFollowKey = midiTransposeToggle != nullptr && midiTransposeToggle->getToggleState();
-        return hasFollowKey ? 950 : 870;
+        return hasFollowKey ? 980 : 900;
     }
-
     void updateContentBounds() {
         if (jiveRootItem != nullptr) {
             const auto availableWidth = viewport.getMaximumVisibleWidth();
@@ -645,6 +724,8 @@ private:
         if (followKeyAreaItem != nullptr) {
             const auto visible = midiTransposeToggle != nullptr && midiTransposeToggle->getToggleState();
             followKeyAreaItem->state.setProperty("visibility", visible, nullptr);
+            followKeyAreaItem->state.setProperty("height", visible ? 80 : 0, nullptr);
+            followKeyAreaItem->state.setProperty("margin", visible ? "4 0 0 0" : "0 0 0 0", nullptr);
         }
         updateContentBounds();
     }
