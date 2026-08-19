@@ -130,7 +130,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 - **Phase 12：音源重构 + 谐波钢琴 v1**（Level 1）——合并两份 sine 为共享 `SynthesiserVoice` 子类（三处调用点改接，零行为变化）；新增 Harmonic PianoVoice：基频 + 2~7 次谐波叠加、velocity→亮度/响度映射、分音独立衰减；参数进 `SettingsModel`。纯加法、零采样、CPU 可忽略。验收：实时/离线音色一致、确定性音色单测、听觉对比明显优于 sine。
 - **Phase 13：Stiff-String Inharmonic Piano v2**（Level 2）——加入 inharmonicity（`fₙ = n·f₀·√(1+B·n²)`，B 按音区设定）、分音衰减速率建模、简单 body 共鸣滤波。仍纯解析加法，无需延迟线。**详细计划与子任务见 [`current-iteration.md`](current-iteration.md)。**
-- **Phase 14：Enhanced Modal Piano v3**（Level 3）——在 Phase 13 模态架构上增强：Magic Circle 递归振荡器（零 `std::sin`）+ 分音覆盖到 ~10 kHz + two-stage decay（双阶段衰减）+ 同音三弦拍频（beating）+ 音板模态组扩展（8~12 峰）。**改道记录（2026-08-18）**：原数字波导计划经文献核实后降级为实验分支——Pianoteq 与 Bank 2010 TASLP 实证模态合成是钢琴建模业界最佳路线，波导缺乏每分音粒度控制且从未商业化。**决策门**：听感收益 vs CPU 预算，产物是否取代 Phase 13 成为默认音色。**详细计划与子任务见 [`current-iteration.md`](current-iteration.md)。**
+- **Phase 14：Enhanced Modal Piano v3**（Level 3）**[已完成，2026-08-19]**——在 Phase 13 模态架构上增强：Magic Circle 递归振荡器（零 `std::sin`）+ 分音扩展（20/14/8/6）+ two-stage decay（双阶段衰减）+ 同音三弦微失谐拍频（beating）+ 8 峰音板模态组（75~950 Hz）。**决策评审与听觉回归（2026-08-19）**：Windows 侧人工 A/B 对比确认 v3 听感全面超越 v2；正式确立 Enhanced Modal Piano v3 为默认内置音色；新参数作为物理常量固化，维持「4×4 经典 8 旋钮」界面；波导实验分支取消。**详细记录见 [`current-iteration.md`](current-iteration.md)。**
 
 **外部参考（许可证已实地核实）：**
 
