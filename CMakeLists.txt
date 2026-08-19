@@ -323,6 +323,8 @@ if (BUILD_TESTS)
         source/UI/PresetDialogs.h
         source/UI/PerformanceMetadataDialog.cpp
         source/UI/PerformanceMetadataDialog.h
+        source/UI/KeyBindingEditDialog.cpp
+        source/UI/KeyBindingEditDialog.h
         source/Settings/jive/SettingsLayoutModel.cpp
         source/Settings/jive/SettingsLayoutModel.h
 

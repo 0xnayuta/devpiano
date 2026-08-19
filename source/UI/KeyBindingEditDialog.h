@@ -34,6 +34,9 @@ public:
                        const juce::String& currentCustomLabel, const juce::Colour& currentCustomColour,
                        std::function<void(KeyBindingEditResult)> onComplete, juce::Component* parent = nullptr);
 
+    [[nodiscard]] static juce::ValueTree makeKeyBindingEditLayout(bool hasExistingBinding, int width = 420,
+                                                                  int height = 290);
+
 private:
     JUCE_DECLARE_NON_COPYABLE(KeyBindingEditDialog)
 };

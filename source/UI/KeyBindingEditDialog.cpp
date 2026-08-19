@@ -1,381 +1,370 @@
 #include "UI/KeyBindingEditDialog.h"
-#include "DevPianoLookAndFeel.h"
+
+#include <JuceHeader.h>
+#include <array>
+
 #include "UI/jive/DesignTokens.h"
+#include "UI/jive/JiveModalDialog.h"
+#include "UI/jive/StyleCatalog.h"
 
-// ============================================================================
-// Colour picker dialog content
-// ============================================================================
-class ColourPickerContent final : public juce::Component {
-public:
-    ColourPickerContent(juce::Colour initialColour, juce::Colour& resultRef, bool& acceptedRef)
-        : result(resultRef)
-        , accepted(acceptedRef) {
-        selector = std::make_unique<juce::ColourSelector>(
-            juce::ColourSelector::showColourAtTop | juce::ColourSelector::showAlphaChannel
-            | juce::ColourSelector::showSliders | juce::ColourSelector::showColourspace);
-        selector->setCurrentColour(initialColour);
-        addAndMakeVisible(selector.get());
+namespace {
 
-        okButton.onClick = [this] {
-            result = selector->getCurrentColour();
-            accepted = true;
-            if (auto* dw = findParentComponentOfClass<juce::DialogWindow>()) {
-                dw->exitModalState(0);
-            }
-        };
-        addAndMakeVisible(okButton);
-
-        cancelButton.onClick = [this] {
-            accepted = false;
-            if (auto* dw = findParentComponentOfClass<juce::DialogWindow>()) {
-                dw->exitModalState(0);
-            }
-        };
-        addAndMakeVisible(cancelButton);
-
-        setSize(340, 340);
+inline juce::ValueTree node(const juce::Identifier& type, const juce::String& id = {}) {
+    auto t = juce::ValueTree(type);
+    if (id.isNotEmpty()) {
+        t.setProperty("id", id, nullptr);
     }
+    return t;
+}
 
-    void resized() override {
-        auto r = getLocalBounds().reduced(10);
-        auto btnRow = r.removeFromBottom(32);
-        r.removeFromBottom(8);
-        // Right-aligned button group: OK left, Cancel right.
-        constexpr int btnW = 80;
-        btnRow.removeFromLeft(btnRow.getWidth() - (btnW * 2 + 8));
-        okButton.setBounds(btnRow.removeFromLeft(btnW));
-        btnRow.removeFromLeft(8);
-        cancelButton.setBounds(btnRow.removeFromLeft(btnW));
+inline juce::ValueTree text(const juce::String& content, const juce::String& id = {}) {
+    auto t = node("Text", id);
+    t.setProperty("text", content, nullptr);
+    t.setProperty("title", content, nullptr);
+    return t;
+}
 
-        selector->setBounds(r);
+inline juce::ValueTree button(const juce::String& label, const juce::String& id = {}) {
+    auto t = node("Button", id);
+    t.setProperty("display", "flex", nullptr);
+    t.setProperty("justify-content", "centre", nullptr);
+    t.setProperty("align-items", "centre", nullptr);
+    t.setProperty("title", label, nullptr);
+    t.setProperty("border-width", "1", nullptr);
+
+    auto labelText = text(label);
+    labelText.setProperty("justification", "centred", nullptr);
+    labelText.setProperty("word-wrap", "none", nullptr);
+    t.appendChild(labelText, nullptr);
+
+    return t;
+}
+
+inline juce::ValueTree flexRow(const juce::String& id = {}) {
+    auto t = node("Component", id);
+    t.setProperty("display", "flex", nullptr);
+    t.setProperty("flex-direction", "row", nullptr);
+    t.setProperty("align-items", "centre", nullptr);
+    return t;
+}
+
+inline juce::ValueTree settingRow(const juce::String& labelStr, const juce::ValueTree& controlNode,
+                                  const juce::String& labelId = {}) {
+    auto row = flexRow();
+    row.setProperty("height", 28, nullptr);
+    row.setProperty("margin", "0 0 6 0", nullptr);
+
+    auto lbl = text(labelStr, labelId);
+    lbl.setProperty("flex-grow", 1.0, nullptr);
+    lbl.setProperty("height", 22, nullptr);
+    lbl.setProperty("font-size", 14, nullptr);
+    lbl.setProperty("justification", "centred-left", nullptr);
+    row.appendChild(lbl, nullptr);
+
+    row.appendChild(controlNode, nullptr);
+    return row;
+}
+
+inline juce::Component* findComponentById(::jive::GuiItem& root, const juce::String& id) {
+    if (auto* item = devpiano::ui::jive::JiveModalDialog::findGuiItemById(root, id)) {
+        return item->getComponent().get();
     }
+    return nullptr;
+}
 
-private:
-    juce::Colour& result;
-    bool& accepted;
-    std::unique_ptr<juce::ColourSelector> selector;
-    juce::TextButton okButton { TRANS("OK") };
-    juce::TextButton cancelButton { TRANS("Cancel") };
+const std::array<juce::Colour, 8> paletteColours {
+    juce::Colour(0xFF00C8FF), // Cyan
+    juce::Colour(0xFF2ECC71), // Green
+    juce::Colour(0xFFF1C40F), // Yellow
+    juce::Colour(0xFFE67E22), // Orange
+    juce::Colour(0xFFE74C3C), // Red
+    juce::Colour(0xFF9B59B6), // Purple
+    juce::Colour(0xFFFF69B4), // Pink
+    juce::Colour(0xFFFFFFFF), // White
 };
 
-// ============================================================================
-// Dialog content component
-// ============================================================================
-class BindingEditContent final : public juce::Component {
-public:
-    BindingEditContent(int note, const devpiano::core::KeyBinding* existing, const juce::String& noteName,
-                       const juce::String& keyLabel, const juce::String& customLabel, juce::Colour customColour,
-                       std::function<void(KeyBindingEditResult)> onCompleteFn)
-        : midiNote(note)
-        , existingBinding(existing)
-        , initialCustomLabel(customLabel)
-        , initialCustomColour(customColour)
-        , selectedCustomColour(customColour)
-        , onComplete(std::move(onCompleteFn)) {
-        // Title / info area (non-editable)
-        titleLabel.setText(TRANS("Key Binding Editor") + " — " + noteName + " (#" + juce::String(midiNote) + ")",
-                           juce::dontSendNotification);
-        titleLabel.setFont(juce::Font(juce::FontOptions(16.0f, juce::Font::bold)));
-        addAndMakeVisible(titleLabel);
+const std::array<juce::String, 8> paletteHex { "#00C8FF", "#2ECC71", "#F1C40F", "#E67E22",
+                                               "#E74C3C", "#9B59B6", "#FF69B4", "#FFFFFF" };
 
-        if (existingBinding != nullptr) {
-            // Editable form for an existing binding
-            infoLabel.setText(TRANS("Bound to keyboard key:") + "  " + keyLabel, juce::dontSendNotification);
-            infoLabel.setFont(juce::Font(juce::FontOptions(15.0f)));
-            addAndMakeVisible(infoLabel);
+} // namespace
 
-            const auto& act = existingBinding->action;
+juce::ValueTree KeyBindingEditDialog::makeKeyBindingEditLayout(bool hasExistingBinding, int width, int height) {
+    auto root = node("Component", "dialog-root");
+    root.setProperty("display", "flex", nullptr);
+    root.setProperty("flex-direction", "column", nullptr);
+    root.setProperty("width", width, nullptr);
+    root.setProperty("height", height, nullptr);
+    root.setProperty("padding", "14", nullptr);
 
-            // MIDI Channel
-            channelLabel.setText(TRANS("MIDI Channel:"), juce::dontSendNotification);
-            channelLabel.attachToComponent(&channelCombo, true);
-            channelLabel.setFont(juce::Font(juce::FontOptions(15.0f)));
-            addAndMakeVisible(channelLabel);
-            for (int ch = 1; ch <= 16; ++ch) {
-                channelCombo.addItem(juce::String(ch), ch);
+    // Title / Info row
+    auto infoText = text("", "binding-info-text");
+    infoText.setProperty("font-size", 14, nullptr);
+    infoText.setProperty("height", 22, nullptr);
+    infoText.setProperty("margin", "0 0 10 0", nullptr);
+    root.appendChild(infoText, nullptr);
+
+    if (hasExistingBinding) {
+        // Row 1: MIDI Channel (ComboBox: 1 - 16)
+        auto chCombo = node("ComboBox", "channel-combo");
+        chCombo.setProperty("width", 180, nullptr);
+        chCombo.setProperty("height", 24, nullptr);
+        root.appendChild(settingRow(TRANS("MIDI Channel:"), chCombo, "channel-label"), nullptr);
+
+        // Row 2: MIDI Note (Slider / Number: 0 - 127)
+        auto noteSlider = node("Slider", "note-slider");
+        noteSlider.setProperty("width", 180, nullptr);
+        noteSlider.setProperty("height", 24, nullptr);
+        root.appendChild(settingRow(TRANS("MIDI Note:"), noteSlider, "note-label"), nullptr);
+
+        // Row 3: Velocity (Slider: 0 - 127)
+        auto velSlider = node("Slider", "velocity-slider");
+        velSlider.setProperty("width", 180, nullptr);
+        velSlider.setProperty("height", 24, nullptr);
+        root.appendChild(settingRow(TRANS("Velocity:"), velSlider, "velocity-label"), nullptr);
+    }
+
+    // Row: Custom Label (PathEditor)
+    auto labelEd = node("PathEditor", "custom-label-editor");
+    labelEd.setProperty("width", 180, nullptr);
+    labelEd.setProperty("height", 24, nullptr);
+    root.appendChild(settingRow(TRANS("Label:"), labelEd, "custom-label-text"), nullptr);
+
+    // Row: Custom Colour Selection (Palette buttons + Clear button)
+    auto colourRow = flexRow("custom-colour-row");
+    colourRow.setProperty("height", 28, nullptr);
+    colourRow.setProperty("margin", "0 0 12 0", nullptr);
+
+    auto colourLbl = text(TRANS("Choose Colour"), "custom-colour-label");
+    colourLbl.setProperty("flex-grow", 1.0, nullptr);
+    colourLbl.setProperty("font-size", 14, nullptr);
+    colourRow.appendChild(colourLbl, nullptr);
+
+    auto colourPalette = flexRow("custom-colour-palette");
+    colourPalette.setProperty("gap", "4", nullptr);
+
+    for (size_t i = 0; i < paletteHex.size(); ++i) {
+        auto cBtn = node("Button", "colour-btn-" + juce::String(i));
+        cBtn.setProperty("width", 16, nullptr);
+        cBtn.setProperty("height", 20, nullptr);
+        cBtn.setProperty("background", paletteHex[i], nullptr);
+        cBtn.setProperty("border-radius", "3", nullptr);
+        colourPalette.appendChild(cBtn, nullptr);
+    }
+
+    auto clearColourBtn = button(TRANS("Clear"), "clear-colour-btn");
+    clearColourBtn.setProperty("width", 42, nullptr);
+    clearColourBtn.setProperty("height", 22, nullptr);
+    colourPalette.appendChild(clearColourBtn, nullptr);
+
+    colourRow.appendChild(colourPalette, nullptr);
+    root.appendChild(colourRow, nullptr);
+
+    // Bottom Action Button Row
+    auto btnRow = node("Component", "dialog-buttons");
+    btnRow.setProperty("display", "flex", nullptr);
+    btnRow.setProperty("flex-direction", "row", nullptr);
+    btnRow.setProperty("align-items", "centre", nullptr);
+    btnRow.setProperty("height", 28, nullptr);
+    btnRow.setProperty("margin", "6 0 0 0", nullptr);
+
+    if (hasExistingBinding) {
+        auto unbindBtn = button(TRANS("Unbind"), "dialog-unbind-btn");
+        unbindBtn.setProperty("width", 80, nullptr);
+        unbindBtn.setProperty("height", 28, nullptr);
+        btnRow.appendChild(unbindBtn, nullptr);
+
+        auto spacer = node("Component", "btn-spacer");
+        spacer.setProperty("flex-grow", 1.0, nullptr);
+        btnRow.appendChild(spacer, nullptr);
+
+        auto okBtn = button(TRANS("OK"), "dialog-ok-btn");
+        okBtn.setProperty("width", 80, nullptr);
+        okBtn.setProperty("height", 28, nullptr);
+        okBtn.setProperty("margin", "0 8 0 0", nullptr);
+        btnRow.appendChild(okBtn, nullptr);
+
+        auto cancelBtn = button(TRANS("Cancel"), "dialog-cancel-btn");
+        cancelBtn.setProperty("width", 80, nullptr);
+        cancelBtn.setProperty("height", 28, nullptr);
+        btnRow.appendChild(cancelBtn, nullptr);
+    } else {
+        auto spacer = node("Component", "btn-spacer");
+        spacer.setProperty("flex-grow", 1.0, nullptr);
+        btnRow.appendChild(spacer, nullptr);
+
+        auto okBtn = button(TRANS("OK"), "dialog-ok-btn");
+        okBtn.setProperty("width", 80, nullptr);
+        okBtn.setProperty("height", 28, nullptr);
+        okBtn.setProperty("margin", "0 8 0 0", nullptr);
+        btnRow.appendChild(okBtn, nullptr);
+
+        auto cancelBtn = button(TRANS("Cancel"), "dialog-cancel-btn");
+        cancelBtn.setProperty("width", 80, nullptr);
+        cancelBtn.setProperty("height", 28, nullptr);
+        btnRow.appendChild(cancelBtn, nullptr);
+    }
+
+    root.appendChild(btnRow, nullptr);
+    return root;
+}
+
+void KeyBindingEditDialog::launch(int midiNote, const juce::String& noteName,
+                                  const devpiano::core::KeyBinding* existingBinding,
+                                  const juce::String& currentCustomLabel, const juce::Colour& currentCustomColour,
+                                  std::function<void(KeyBindingEditResult)> onComplete, juce::Component* parent) {
+    const bool hasExisting = (existingBinding != nullptr);
+    const auto keyLabel = hasExisting ? existingBinding->displayText : juce::String();
+    const int dlgWidth = 420;
+    const int dlgHeight = hasExisting ? 290 : 200;
+
+    auto layoutTree = makeKeyBindingEditLayout(hasExisting, dlgWidth, dlgHeight);
+    auto title = TRANS("Key Binding Editor") + " — " + noteName + " (#" + juce::String(midiNote) + ")";
+
+    auto selectedColour = std::make_shared<juce::Colour>(currentCustomColour);
+
+    devpiano::ui::jive::JiveModalDialog::LaunchOptions options;
+    options.title = title;
+    options.layoutTree = layoutTree;
+    options.componentToCentreAround = parent;
+    options.defaultWidth = dlgWidth;
+    options.defaultHeight = dlgHeight;
+
+    options.onInit = [=](::jive::GuiItem& root) {
+        // Set info text
+        if (auto* infoGui = devpiano::ui::jive::JiveModalDialog::findGuiItemById(root, "binding-info-text")) {
+            const auto msg = hasExisting ? (TRANS("Bound to keyboard key:") + "  " + keyLabel)
+                                         : TRANS("No keyboard key is currently mapped to this note.");
+            infoGui->state.setProperty("text", msg, nullptr);
+            infoGui->state.setProperty("title", msg, nullptr);
+        }
+
+        // Configure channel combo
+        if (auto* chComp = findComponentById(root, "channel-combo")) {
+            if (auto* combo = dynamic_cast<juce::ComboBox*>(chComp)) {
+                for (int ch = 1; ch <= 16; ++ch) {
+                    combo->addItem(juce::String(ch), ch);
+                }
+                if (hasExisting) {
+                    combo->setSelectedId(juce::jlimit(1, 16, existingBinding->action.midiChannel),
+                                         juce::dontSendNotification);
+                }
             }
-            channelCombo.setSelectedId(juce::jlimit(1, 16, act.midiChannel));
-            addAndMakeVisible(channelCombo);
-
-            // MIDI Note
-            noteSlider.setRange(0.0, 127.0, 1.0);
-            noteSlider.setValue(juce::jlimit(0, 127, act.midiNote));
-            noteSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
-            noteSlider.setNumDecimalPlacesToDisplay(0);
-            noteLabel.setText(TRANS("MIDI Note:"), juce::dontSendNotification);
-            noteLabel.attachToComponent(&noteSlider, true);
-            noteLabel.setFont(juce::Font(juce::FontOptions(15.0f)));
-            addAndMakeVisible(noteLabel);
-            addAndMakeVisible(noteSlider);
-
-            // Velocity
-            velocitySlider.setRange(0.0, 127.0, 1.0);
-            velocitySlider.setValue(juce::jlimit(0.0, 127.0, static_cast<double>(act.velocity * 127.0)));
-            velocitySlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
-            velocitySlider.setNumDecimalPlacesToDisplay(0);
-            velocityLabel.setText(TRANS("Velocity:"), juce::dontSendNotification);
-            velocityLabel.attachToComponent(&velocitySlider, true);
-            velocityLabel.setFont(juce::Font(juce::FontOptions(15.0f)));
-            addAndMakeVisible(velocityLabel);
-            addAndMakeVisible(velocitySlider);
-
-            // OK / Cancel / Unbind buttons
-            okButton.onClick = [this] { confirmEdit(); };
-            addAndMakeVisible(okButton);
-            cancelButton.onClick = [this] { cancel(); };
-            addAndMakeVisible(cancelButton);
-            unbindButton.onClick = [this] { unbind(); };
-            addAndMakeVisible(unbindButton);
-
-            setSize(420, 310);
-        } else {
-            // Read-only: no binding exists for this note
-            infoLabel.setText(TRANS("No keyboard key is currently mapped to this note."), juce::dontSendNotification);
-            infoLabel.setFont(juce::Font(juce::FontOptions(15.0f)));
-            addAndMakeVisible(infoLabel);
-
-            closeButton.onClick = [this] { confirmOrClose(); };
-            addAndMakeVisible(closeButton);
-
-            setSize(420, 200);
         }
 
-        // ---- Per-key custom label (always shown, regardless of binding) ----
-        customLabelLabel.setText(TRANS("Label:"), juce::dontSendNotification);
-        customLabelLabel.attachToComponent(&customLabelEditor, true);
-        customLabelLabel.setFont(juce::Font(juce::FontOptions(15.0f)));
-        addAndMakeVisible(customLabelLabel);
-
-        customLabelEditor.setText(customLabel, juce::dontSendNotification);
-        customLabelEditor.setFont(juce::FontOptions(15.0f));
-        customLabelEditor.setInputRestrictions(32, {});
-        addAndMakeVisible(customLabelEditor);
-
-        // ---- Per-key custom colour (always shown) ----
-        colourPickerButton.onClick = [this] { showColourPicker(); };
-        addAndMakeVisible(colourPickerButton);
-        updateColourButtonText();
-
-        clearColourButton.onClick = [this] {
-            selectedCustomColour = juce::Colour(0x00000000);
-            updateColourButtonText();
-        };
-        addAndMakeVisible(clearColourButton);
-    }
-
-    void resized() override {
-        auto r = getLocalBounds().reduced(12);
-
-        titleLabel.setBounds(r.removeFromTop(24));
-        r.removeFromTop(4);
-
-        if (existingBinding != nullptr) {
-            infoLabel.setBounds(r.removeFromTop(20));
-            r.removeFromTop(8);
-
-            channelCombo.setBounds(r.removeFromTop(24).withTrimmedLeft(100));
-            r.removeFromTop(6);
-
-            noteSlider.setBounds(r.removeFromTop(24).withTrimmedLeft(100));
-            r.removeFromTop(6);
-
-            velocitySlider.setBounds(r.removeFromTop(24).withTrimmedLeft(100));
-            r.removeFromTop(12);
-        } else {
-            infoLabel.setBounds(r.removeFromTop(20));
-            r.removeFromTop(12);
+        // Configure note slider
+        if (auto* noteComp = findComponentById(root, "note-slider")) {
+            if (auto* slider = dynamic_cast<juce::Slider*>(noteComp)) {
+                slider->setRange(0.0, 127.0, 1.0);
+                slider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 45, 20);
+                slider->setNumDecimalPlacesToDisplay(0);
+                if (hasExisting) {
+                    slider->setValue(juce::jlimit(0, 127, existingBinding->action.midiNote),
+                                     juce::dontSendNotification);
+                }
+            }
         }
 
-        // Custom label row
-        customLabelEditor.setBounds(r.removeFromTop(24).withTrimmedLeft(100));
-        r.removeFromTop(6);
-
-        // Custom colour row: button + clear button
-        auto colourRow = r.removeFromTop(24).withTrimmedLeft(100);
-        colourPickerButton.setBounds(colourRow.removeFromLeft(100));
-        colourRow.removeFromLeft(8);
-        clearColourButton.setBounds(colourRow.removeFromLeft(60));
-        r.removeFromTop(12);
-
-        // Button row: right-aligned, OK left of Cancel (Unbind rightmost).
-        if (existingBinding != nullptr) {
-            auto btnRow = r.removeFromTop(28);
-            constexpr int btnW = 80;
-            btnRow.removeFromLeft(btnRow.getWidth() - (btnW * 3 + 16));
-            okButton.setBounds(btnRow.removeFromLeft(btnW));
-            btnRow.removeFromLeft(8);
-            cancelButton.setBounds(btnRow.removeFromLeft(btnW));
-            btnRow.removeFromLeft(8);
-            unbindButton.setBounds(btnRow.removeFromLeft(btnW));
-        } else {
-            closeButton.setBounds(r.removeFromTop(28).withWidth(80).withRightX(r.getRight()));
+        // Configure velocity slider
+        if (auto* velComp = findComponentById(root, "velocity-slider")) {
+            if (auto* slider = dynamic_cast<juce::Slider*>(velComp)) {
+                slider->setRange(0.0, 127.0, 1.0);
+                slider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 45, 20);
+                slider->setNumDecimalPlacesToDisplay(0);
+                if (hasExisting) {
+                    slider->setValue(
+                        juce::jlimit(0.0, 127.0, static_cast<double>(existingBinding->action.velocity * 127.0f)),
+                        juce::dontSendNotification);
+                }
+            }
         }
-    }
 
-private:
-    void updateColourButtonText() {
-        if (selectedCustomColour.isTransparent()) {
-            colourPickerButton.setButtonText(TRANS("Choose Colour..."));
-        } else {
-            colourPickerButton.setButtonText(TRANS("Colour Set"));
-            colourPickerButton.setColour(juce::TextButton::buttonColourId, selectedCustomColour);
+        // Configure custom label editor
+        if (auto* labelEd = devpiano::ui::jive::JiveModalDialog::findTextEditorById(root, "custom-label-editor")) {
+            labelEd->setText(currentCustomLabel, false);
+            labelEd->setInputRestrictions(32, {});
         }
-    }
 
-    void showColourPicker() {
-        auto initialColour = selectedCustomColour.isTransparent() ? juce::Colours::white : selectedCustomColour;
-
-        // Track the picked colour across the modal dialog lifecycle
-        juce::Colour pickedColour = initialColour;
-        bool accepted = false;
-
-        // Wrap ColourSelector with OK / Cancel buttons in a DialogWindow.
-        juce::DialogWindow::LaunchOptions opts;
-        opts.dialogBackgroundColour = devpiano::jive::DesignTokens::get().mainBg();
-        opts.dialogTitle = TRANS("Choose Colour");
-        opts.componentToCentreAround = this;
-        opts.content.setOwned(new ColourPickerContent(initialColour, pickedColour, accepted));
-        opts.content->setLookAndFeel(&getLookAndFeel());
-        opts.runModal();
-
-        if (accepted) {
-            selectedCustomColour = pickedColour;
-            updateColourButtonText();
+        // Wire palette color buttons
+        for (size_t i = 0; i < paletteColours.size(); ++i) {
+            if (auto* cBtn
+                = devpiano::ui::jive::JiveModalDialog::findButtonById(root, "colour-btn-" + juce::String(i))) {
+                cBtn->onClick = [selectedColour, c = paletteColours[i]] { *selectedColour = c; };
+            }
         }
-    }
 
-    void confirmEdit() {
+        // Wire clear color button
+        if (auto* clearBtn = devpiano::ui::jive::JiveModalDialog::findButtonById(root, "clear-colour-btn")) {
+            clearBtn->onClick = [selectedColour] { *selectedColour = juce::Colour(0x00000000); };
+        }
+
+        // Wire unbind button
+        if (auto* unbindBtn = devpiano::ui::jive::JiveModalDialog::findButtonById(root, "dialog-unbind-btn")) {
+            unbindBtn->onClick = [=, &root] {
+                KeyBindingEditResult result;
+                if (auto* ed = devpiano::ui::jive::JiveModalDialog::findTextEditorById(root, "custom-label-editor")) {
+                    result.customLabel = ed->getText();
+                }
+                result.customColour = *selectedColour;
+                result.labelChanged = true;
+                result.colourChanged = true;
+
+                if (hasExisting) {
+                    auto removed = *existingBinding;
+                    removed.keyCode = -1;
+                    result.binding = removed;
+                }
+
+                if (onComplete) {
+                    onComplete(result);
+                }
+
+                if (auto* dw = unbindBtn->findParentComponentOfClass<juce::DialogWindow>()) {
+                    dw->exitModalState(0);
+                }
+            };
+        }
+    };
+
+    options.onConfirm = [=](::jive::GuiItem& root) -> bool {
         KeyBindingEditResult result;
-        result.customLabel = customLabelEditor.getText();
-        result.customColour = selectedCustomColour;
-        result.labelChanged = (result.customLabel != initialCustomLabel);
-        result.colourChanged = (result.customColour != initialCustomColour);
+        if (auto* ed = devpiano::ui::jive::JiveModalDialog::findTextEditorById(root, "custom-label-editor")) {
+            result.customLabel = ed->getText();
+        }
+        result.customColour = *selectedColour;
+        result.labelChanged = (result.customLabel != currentCustomLabel);
+        result.colourChanged = (result.customColour != currentCustomColour);
 
-        if (existingBinding != nullptr) {
+        if (hasExisting) {
             auto updated = *existingBinding;
-            updated.action.midiChannel = channelCombo.getSelectedId();
-            updated.action.midiNote = static_cast<int>(noteSlider.getValue());
-            updated.action.velocity = static_cast<float>(velocitySlider.getValue() / 127.0);
+            if (auto* chComp = findComponentById(root, "channel-combo")) {
+                if (auto* combo = dynamic_cast<juce::ComboBox*>(chComp)) {
+                    updated.action.midiChannel = combo->getSelectedId();
+                }
+            }
+            if (auto* noteComp = findComponentById(root, "note-slider")) {
+                if (auto* slider = dynamic_cast<juce::Slider*>(noteComp)) {
+                    updated.action.midiNote = static_cast<int>(slider->getValue());
+                }
+            }
+            if (auto* velComp = findComponentById(root, "velocity-slider")) {
+                if (auto* slider = dynamic_cast<juce::Slider*>(velComp)) {
+                    updated.action.velocity = static_cast<float>(slider->getValue() / 127.0);
+                }
+            }
             result.binding = updated;
         }
 
         if (onComplete) {
             onComplete(result);
         }
-        if (auto* dw = findParentComponentOfClass<juce::DialogWindow>()) {
-            dw->exitModalState(0);
-        }
-    }
-
-    void cancel() {
-        KeyBindingEditResult result;
-        if (onComplete) {
-            onComplete(result);
-        }
-        if (auto* dw = findParentComponentOfClass<juce::DialogWindow>()) {
-            dw->exitModalState(0);
-        }
-    }
-
-    void confirmOrClose() {
-        // Read-only mode: still return label/colour changes but no binding.
-        confirmEdit();
-    }
-
-    void unbind() {
-        if (existingBinding == nullptr) {
-            cancel();
-            return;
-        }
-
-        KeyBindingEditResult result;
-        result.customLabel = customLabelEditor.getText();
-        result.customColour = selectedCustomColour;
-        result.labelChanged = true;
-        result.colourChanged = true;
-
-        // Return a binding with keyCode set to signal "remove this binding".
-        auto removed = *existingBinding;
-        removed.keyCode = -1;
-        result.binding = removed;
-
-        if (onComplete) {
-            onComplete(result);
-        }
-        if (auto* dw = findParentComponentOfClass<juce::DialogWindow>()) {
-            dw->exitModalState(0);
-        }
-    }
-
-    int midiNote;
-    const devpiano::core::KeyBinding* existingBinding;
-    juce::String initialCustomLabel;
-    juce::Colour initialCustomColour;
-    juce::Colour selectedCustomColour;
-    std::function<void(KeyBindingEditResult)> onComplete;
-
-    juce::Label titleLabel;
-    juce::Label infoLabel;
-
-    juce::Label channelLabel;
-    juce::ComboBox channelCombo;
-    juce::Label noteLabel;
-    juce::Slider noteSlider;
-    juce::Label velocityLabel;
-    juce::Slider velocitySlider;
-
-    juce::Label customLabelLabel;
-    juce::TextEditor customLabelEditor;
-    juce::TextButton colourPickerButton { TRANS("Choose Colour...") };
-    juce::TextButton clearColourButton { TRANS("Clear") };
-
-    juce::TextButton okButton { TRANS("OK") };
-    juce::TextButton cancelButton { TRANS("Cancel") };
-    juce::TextButton unbindButton { TRANS("Unbind") };
-    juce::TextButton closeButton { TRANS("Close") };
-};
-
-// ============================================================================
-// Lightweight modal dialog window.
-class BindingEditWindow final : public juce::DialogWindow {
-public:
-    BindingEditWindow(const juce::String& title, std::unique_ptr<juce::Component> content,
-                      juce::Colour background = devpiano::jive::DesignTokens::get().mainBg())
-        : juce::DialogWindow(title, background, true, true) {
-        setUsingNativeTitleBar(true);
-        setContentOwned(content.release(), true);
-        setResizable(false, false);
-        centreAroundComponent(nullptr, getWidth(), getHeight());
-        // enterModalState implicitly makes the component visible.
-        enterModalState(true, juce::ModalCallbackFunction::create([this](int) { delete this; }), true);
-    }
-
-    void closeButtonPressed() override {
-        exitModalState(0);
-    }
-    bool escapeKeyPressed() override {
-        closeButtonPressed();
         return true;
-    }
+    };
 
-private:
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BindingEditWindow)
-};
+    options.onCancel = [=] {
+        if (onComplete) {
+            onComplete(KeyBindingEditResult {});
+        }
+    };
 
-void KeyBindingEditDialog::launch(int midiNote, const juce::String& noteName,
-                                  const devpiano::core::KeyBinding* existingBinding,
-                                  const juce::String& currentCustomLabel, const juce::Colour& currentCustomColour,
-                                  std::function<void(KeyBindingEditResult)> onComplete, juce::Component* parent) {
-    auto keyLabel = existingBinding != nullptr ? existingBinding->displayText : juce::String();
-    auto* content = new BindingEditContent(midiNote, existingBinding, noteName, keyLabel, currentCustomLabel,
-                                           currentCustomColour, std::move(onComplete));
-
-    auto bg = devpiano::jive::DesignTokens::get().mainBg();
-    if (parent != nullptr) {
-        bg = parent->findColour(juce::ResizableWindow::backgroundColourId);
-    }
-    auto* window = new BindingEditWindow(TRANS("Key Binding Editor"), std::unique_ptr<juce::Component>(content), bg);
-    if (parent != nullptr) {
-        window->setLookAndFeel(&parent->getLookAndFeel());
-    }
+    devpiano::ui::jive::JiveModalDialog::launchCustom(options);
 }

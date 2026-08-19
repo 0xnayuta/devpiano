@@ -1,5 +1,6 @@
 #include <JuceHeader.h>
 
+#include "UI/KeyBindingEditDialog.h"
 #include "UI/PerformanceMetadataDialog.h"
 #include "UI/PresetDialogs.h"
 #include "UI/jive/DesignTokens.h"
@@ -67,8 +68,8 @@ public:
         testMetadataInterpretation();
         testPresetAndMetadataDialogBuilders();
         testProgressLayoutBuilder();
+        testKeyBindingEditDialogLayoutBuilder();
     }
-
     void testProgressLayoutBuilder() {
         beginTest("makeProgressLayout: progress bar and message nodes");
 
@@ -92,6 +93,43 @@ public:
         expectEquals(cancelBtn.getProperty("title").toString(), juce::String("Abort"));
     }
 
+    void testKeyBindingEditDialogLayoutBuilder() {
+        beginTest("KeyBindingEditDialog: makeKeyBindingEditLayout with and without existing binding");
+
+        // 1. With existing binding
+        auto treeBound = KeyBindingEditDialog::makeKeyBindingEditLayout(true, 420, 290);
+        expect(treeBound.isValid());
+        expectEquals(static_cast<int>(treeBound.getProperty("width")), 420);
+        expectEquals(static_cast<int>(treeBound.getProperty("height")), 290);
+
+        expect(findNodeById(treeBound, "binding-info-text").isValid());
+        expect(findNodeById(treeBound, "channel-combo").isValid());
+        expect(findNodeById(treeBound, "note-slider").isValid());
+        expect(findNodeById(treeBound, "velocity-slider").isValid());
+        expect(findNodeById(treeBound, "custom-label-editor").isValid());
+        expect(findNodeById(treeBound, "custom-colour-palette").isValid());
+        expect(findNodeById(treeBound, "colour-btn-0").isValid());
+        expect(findNodeById(treeBound, "colour-btn-7").isValid());
+        expect(findNodeById(treeBound, "clear-colour-btn").isValid());
+        expect(findNodeById(treeBound, "dialog-unbind-btn").isValid());
+        expect(findNodeById(treeBound, "dialog-ok-btn").isValid());
+        expect(findNodeById(treeBound, "dialog-cancel-btn").isValid());
+
+        // 2. Without existing binding (read-only / unbound)
+        auto treeUnbound = KeyBindingEditDialog::makeKeyBindingEditLayout(false, 420, 200);
+        expect(treeUnbound.isValid());
+        expectEquals(static_cast<int>(treeUnbound.getProperty("width")), 420);
+        expectEquals(static_cast<int>(treeUnbound.getProperty("height")), 200);
+
+        expect(findNodeById(treeUnbound, "binding-info-text").isValid());
+        expect(!findNodeById(treeUnbound, "channel-combo").isValid());
+        expect(!findNodeById(treeUnbound, "note-slider").isValid());
+        expect(!findNodeById(treeUnbound, "velocity-slider").isValid());
+        expect(!findNodeById(treeUnbound, "dialog-unbind-btn").isValid());
+        expect(findNodeById(treeUnbound, "custom-label-editor").isValid());
+        expect(findNodeById(treeUnbound, "dialog-ok-btn").isValid());
+        expect(findNodeById(treeUnbound, "dialog-cancel-btn").isValid());
+    }
     void testPresetAndMetadataDialogBuilders() {
         beginTest("Preset and Metadata dialog templates integration");
 
