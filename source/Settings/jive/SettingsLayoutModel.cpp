@@ -204,27 +204,21 @@ juce::ValueTree makeKeySignatureSectionTree() {
     transposeToggle.setProperty("height", 24, nullptr);
     content.appendChild(settingRow(TRANS("MIDI Transpose:"), transposeToggle, "midi-transpose-label"), nullptr);
 
-    // Row 3: Channel Follow Key (Grid layout for 16 channels, collapsed when hidden)
+    // Row 3: Channel Follow Key (16-channel Grid layout)
     auto followKeyArea = flexColumn("channel-follow-key-area");
-    followKeyArea.setProperty("height", 0, nullptr);
-    followKeyArea.setProperty("max-height", 0, nullptr);
-    followKeyArea.setProperty("margin", "0 0 0 0", nullptr);
-    followKeyArea.setProperty("visibility", false, nullptr);
+    followKeyArea.setProperty("margin", "6 0 0 0", nullptr);
 
     auto followKeyLbl = text(TRANS("Channel Follow Key:"), "channel-follow-key-label");
-    followKeyLbl.setProperty("height", 0, nullptr);
-    followKeyLbl.setProperty("max-height", 0, nullptr);
-    followKeyLbl.setProperty("margin", "0 0 0 0", nullptr);
-    followKeyLbl.setProperty("visibility", false, nullptr);
+    followKeyLbl.setProperty("height", 20, nullptr);
+    followKeyLbl.setProperty("margin", "0 0 4 0", nullptr);
+    followKeyLbl.setProperty("font-size", 14, nullptr);
     followKeyArea.appendChild(followKeyLbl, nullptr);
 
     auto grid = node("Component", "follow-key-grid");
     grid.setProperty("display", "grid", nullptr);
     grid.setProperty("grid-template-columns", "1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr", nullptr);
     grid.setProperty("gap", "4", nullptr);
-    grid.setProperty("height", 0, nullptr);
-    grid.setProperty("max-height", 0, nullptr);
-    grid.setProperty("visibility", false, nullptr);
+    grid.setProperty("height", 52, nullptr);
 
     for (int ch = 0; ch < 16; ++ch) {
         auto cb = node("Checkbox", "follow-key-" + juce::String(ch));
@@ -347,7 +341,7 @@ juce::ValueTree makeSaveActionSectionTree() {
 juce::ValueTree makeSettingsLayoutTree() {
     auto root = flexColumn("settings-root");
     root.setProperty("width", 560, nullptr);
-    root.setProperty("height", 920, nullptr);
+    root.setProperty("height", 960, nullptr);
     root.setProperty("padding", "10", nullptr);
 
     root.appendChild(makeAudioDeviceSectionTree(), nullptr);
