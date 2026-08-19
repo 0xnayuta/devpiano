@@ -61,14 +61,14 @@
 - [x] 清理 `source/UI/PresetDialogs.cpp`（222 行 → 26 行）和 `source/UI/PerformanceMetadataDialog.cpp`（136 行 → 33 行）中的手写 `resized()` 坐标计算与冗余 Content 类（净消减 ~300 行死代码）。
 - [x] 验证：全流程弹窗交互与单元测试通过，`DevPianoTests` / `DevPiano.exe` 全量构建测试无警告。
 
-**Phase 15-C：设置面板 JIVE 声明式重构（SettingsLayoutModel） [待启动]**
+**Phase 15-C：设置面板 JIVE 声明式重构（SettingsLayoutModel） [已完成，2026-08-19]**
 
-- [ ] 新建 `source/Settings/jive/SettingsLayoutModel.h/.cpp`：使用 `juce::ValueTree` 声明设置面板层级（音频设备区、调号区、通道跟随区、键盘显示区、语言区、诊断区与操作栏）。
-- [ ] 16 通道跟随开关（`followKeyToggles`）采用 JIVE CSS Grid（8 列 × 2 行）网格声明，彻底消灭手写双循环坐标排版。
-- [ ] `juce::AudioDeviceSelectorComponent` 封装为 Native 注入组件，由 JIVE 容器管理外边距与自适应宽度。
-- [ ] 重构 `SettingsComponent`：由 `jive::Interpreter` 一次解释整棵设置树，控件直接绑定 `editingState` 属性。
-- [ ] 移除 `SettingsComponent.h` 中 300+ 行 `layoutContent()` 与手动 `setBounds` 代码。
-- [ ] 验证多语言切换时的 JIVE 属性响应与自适应排版。
+- [x] 新建 `source/Settings/jive/SettingsLayoutModel.h/.cpp`：使用 `juce::ValueTree` 声明设置面板层级（音频设备区、调号区、通道跟随区、键盘显示区、语言区、诊断区与操作栏）。
+- [x] 16 通道跟随开关（`followKeyToggles`）采用 JIVE CSS Grid（8 列 × 2 行）网格声明，彻底消灭手写双循环坐标排版。
+- [x] `juce::AudioDeviceSelectorComponent` 封装为 Native 注入组件，由 JIVE 容器管理外边距与自适应宽度。
+- [x] 重构 `SettingsComponent`：由 `jive::Interpreter` 一次解释整棵设置树，控件直接绑定 `editingState` 属性。
+- [x] 移除 `SettingsComponent.h` 中 300+ 行 `layoutContent()` 与手动 `setBounds` 代码（精简为纯 JIVE Viewport 驱动）。
+- [x] 确定性测试：`source/tests/SettingsLayoutModelTest.cpp` 新增 5 类测试（树结构、16 通道 Grid、显示选项、组件动态检索、动态通道跟随显示切换与安全析构），全量测试全绿。
 
 **Phase 15-D：模态操作反馈与导出进度 JIVE 现代化 [待启动]**
 

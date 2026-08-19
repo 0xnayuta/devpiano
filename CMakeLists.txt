@@ -130,6 +130,8 @@ target_sources(devpiano PRIVATE
     source/Settings/SettingsSerialization.cpp
     source/Settings/SettingsSerialization.h
     source/Settings/SettingsComponent.h
+    source/Settings/jive/SettingsLayoutModel.cpp
+    source/Settings/jive/SettingsLayoutModel.h
     source/Settings/SettingsWindowManager.cpp
     source/Settings/SettingsWindowManager.h
     source/Layout/PerformancePreset.cpp
@@ -317,7 +319,8 @@ if (BUILD_TESTS)
         source/UI/PresetDialogs.h
         source/UI/PerformanceMetadataDialog.cpp
         source/UI/PerformanceMetadataDialog.h
-
+        source/Settings/jive/SettingsLayoutModel.cpp
+        source/Settings/jive/SettingsLayoutModel.h
 
 
         # 测试代码
@@ -341,6 +344,7 @@ if (BUILD_TESTS)
         source/tests/KeyboardHitMappingTest.cpp
         source/tests/PianoSynthVoiceTest.cpp
         source/tests/JiveModalDialogTest.cpp
+        source/tests/SettingsLayoutModelTest.cpp
     )
     target_link_libraries(devpiano_tests PRIVATE
         DevPianoBinaryData
