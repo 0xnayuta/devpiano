@@ -673,6 +673,7 @@ private:
         if (asioControlPanelRowItem != nullptr) {
             asioControlPanelRowItem->state.setProperty("visibility", isAsio, nullptr);
             asioControlPanelRowItem->state.setProperty("height", isAsio ? 28 : 0, nullptr);
+            asioControlPanelRowItem->state.setProperty("max-height", isAsio ? 28 : 0, nullptr);
             asioControlPanelRowItem->state.setProperty("margin", isAsio ? "0 0 6 0" : "0 0 0 0", nullptr);
         }
     }
@@ -711,12 +712,14 @@ private:
     }
     void updateContentBounds() {
         if (jiveRootItem != nullptr) {
+            const auto previousViewPos = viewport.getViewPosition();
             const auto availableWidth = viewport.getMaximumVisibleWidth();
             const auto contentWidth = juce::jmax(520, availableWidth);
             const auto contentHeight = calculateSettingsContentHeight();
             if (auto rootComp = jiveRootItem->getComponent()) {
-                rootComp->setBounds(0, 0, contentWidth, contentHeight);
+                rootComp->setSize(contentWidth, contentHeight);
             }
+            viewport.setViewPosition(previousViewPos);
         }
     }
 
@@ -725,7 +728,22 @@ private:
             const auto visible = midiTransposeToggle != nullptr && midiTransposeToggle->getToggleState();
             followKeyAreaItem->state.setProperty("visibility", visible, nullptr);
             followKeyAreaItem->state.setProperty("height", visible ? 80 : 0, nullptr);
+            followKeyAreaItem->state.setProperty("max-height", visible ? 80 : 0, nullptr);
             followKeyAreaItem->state.setProperty("margin", visible ? "4 0 0 0" : "0 0 0 0", nullptr);
+
+            if (jiveRootItem != nullptr) {
+                if (auto* lblItem = devpiano::ui::jive::findGuiItemById(*jiveRootItem, "channel-follow-key-label")) {
+                    lblItem->state.setProperty("visibility", visible, nullptr);
+                    lblItem->state.setProperty("height", visible ? 20 : 0, nullptr);
+                    lblItem->state.setProperty("max-height", visible ? 20 : 0, nullptr);
+                    lblItem->state.setProperty("margin", visible ? "0 0 4 0" : "0 0 0 0", nullptr);
+                }
+                if (auto* gridItem = devpiano::ui::jive::findGuiItemById(*jiveRootItem, "follow-key-grid")) {
+                    gridItem->state.setProperty("visibility", visible, nullptr);
+                    gridItem->state.setProperty("height", visible ? 52 : 0, nullptr);
+                    gridItem->state.setProperty("max-height", visible ? 52 : 0, nullptr);
+                }
+            }
         }
         updateContentBounds();
     }

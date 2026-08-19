@@ -149,6 +149,7 @@ juce::ValueTree makeAudioDeviceSectionTree() {
     // Row 6: ASIO Control Panel (optional, collapsed when not in ASIO mode)
     auto asioRow = flexRow("asio-control-panel-row");
     asioRow.setProperty("height", 0, nullptr);
+    asioRow.setProperty("max-height", 0, nullptr);
     asioRow.setProperty("margin", "0 0 0 0", nullptr);
     asioRow.setProperty("visibility", false, nullptr);
     auto asioLbl = text(TRANS("Device Control Panel:"), "asio-control-panel-label");
@@ -197,35 +198,45 @@ juce::ValueTree makeKeySignatureSectionTree() {
     // Row 2: MIDI Transpose toggle
     auto transposeToggle = node("Checkbox", "midi-transpose-toggle");
     transposeToggle.setProperty("text", TRANS("MIDI Transpose"), nullptr);
+    transposeToggle.setProperty("toggleable", true, nullptr);
+    transposeToggle.setProperty("toggle-on-click", true, nullptr);
     transposeToggle.setProperty("width", 200, nullptr);
     transposeToggle.setProperty("height", 24, nullptr);
     content.appendChild(settingRow(TRANS("MIDI Transpose:"), transposeToggle, "midi-transpose-label"), nullptr);
 
-    // Row 3: Channel Follow Key (Grid layout for 16 channels)
+    // Row 3: Channel Follow Key (Grid layout for 16 channels, collapsed when hidden)
     auto followKeyArea = flexColumn("channel-follow-key-area");
-    followKeyArea.setProperty("margin", "4 0 0 0", nullptr);
+    followKeyArea.setProperty("height", 0, nullptr);
+    followKeyArea.setProperty("max-height", 0, nullptr);
+    followKeyArea.setProperty("margin", "0 0 0 0", nullptr);
+    followKeyArea.setProperty("visibility", false, nullptr);
 
     auto followKeyLbl = text(TRANS("Channel Follow Key:"), "channel-follow-key-label");
-    followKeyLbl.setProperty("height", 20, nullptr);
-    followKeyLbl.setProperty("margin", "0 0 4 0", nullptr);
+    followKeyLbl.setProperty("height", 0, nullptr);
+    followKeyLbl.setProperty("max-height", 0, nullptr);
+    followKeyLbl.setProperty("margin", "0 0 0 0", nullptr);
+    followKeyLbl.setProperty("visibility", false, nullptr);
     followKeyArea.appendChild(followKeyLbl, nullptr);
 
     auto grid = node("Component", "follow-key-grid");
     grid.setProperty("display", "grid", nullptr);
     grid.setProperty("grid-template-columns", "1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr", nullptr);
     grid.setProperty("gap", "4", nullptr);
-    grid.setProperty("height", 52, nullptr);
+    grid.setProperty("height", 0, nullptr);
+    grid.setProperty("max-height", 0, nullptr);
+    grid.setProperty("visibility", false, nullptr);
 
     for (int ch = 0; ch < 16; ++ch) {
         auto cb = node("Checkbox", "follow-key-" + juce::String(ch));
         cb.setProperty("text", "Ch" + juce::String(ch + 1), nullptr);
         cb.setProperty("title", TRANS("Follow Key"), nullptr);
+        cb.setProperty("toggleable", true, nullptr);
+        cb.setProperty("toggle-on-click", true, nullptr);
         cb.setProperty("height", 24, nullptr);
         grid.appendChild(cb, nullptr);
     }
     followKeyArea.appendChild(grid, nullptr);
     content.appendChild(followKeyArea, nullptr);
-
     card.appendChild(content, nullptr);
     return card;
 }
