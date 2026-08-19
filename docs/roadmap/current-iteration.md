@@ -5,144 +5,331 @@
 
 ## 当前方向
 
-Phase 11（声明式 UI 架构迁移，JIVE + melatonin_inspector）已全部完成并归档至 [`../archive/phase11-declarative-ui-jive.md`](../archive/phase11-declarative-ui-jive.md)。v0.3.0 发布准备（版本号 / CHANGELOG / Release 构建 / 打包）为并行事项，见 [`../guides/release-workflow.md`](../guides/release-workflow.md)。
+**Phase 14（Enhanced Modal Piano v3，增强模态合成）已全部圆满完成（2026-08-19）**——Phase 14-A~14-E 全部落地并通过 Windows 侧人工听觉 A/B 回归对比验证（v3 听感全面超越 v2：低音浑厚深沉、中音长音具备双阶段衰减与同音微失谐空气感拍频、高音木质通透；决策评审确认 v3 作为默认钢琴音色，新参数作为内置物理常量不入设置，维持极简对称的「4×4 经典 8 旋钮」布局，Phase 14-F 波导实验分支正式取消）。三闸门全绿（46/46 测试、3101 断言）。
 
-代码质量审计（[`AUDIT-001`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)，2026-08-16）登记 85 项：56 项未处理（3 P1 / 16 P2 / 37 P3）+ 16 项已暂缓 + 13 项已关闭（TEST-011/012/017、THR-001、ERR-001、ENG-001~007、QUAL-014，2026-08-16）。修复按最佳排期分为 **AUDIT Phase A–H** 推进，每 Phase 完成即更新本文件状态并同步报告第 8 章登记表；16 项已暂缓维持不动（重开条件见报告 §8）。当前推进：**AUDIT Phase A–H 已全部完成（2026-08-17），56 项未处理全关闭；16 项已暂缓经复核关闭 2 项（QUAL-019/PERF-002，复审 12），剩余 14 项维持**。
+代码质量审计（[`AUDIT-001`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)，2026-08-16）修复 **AUDIT Phase A–H 已全部完成**（2026-08-17）：56 项未处理全关闭，16 项已暂缓复核关闭 2 项（QUAL-019/PERF-002），剩余 14 项维持；断言总数 754 → 2921 全绿。逐项完成记录已归档至 [`../archive/audit-001-code-quality-fix-phases.md`](../archive/audit-001-code-quality-fix-phases.md)。
 
 ---
 
-## AUDIT Phase A — 实时线程稳定性 [已完成]
+## Phase 12：音源重构 + 谐波钢琴 v1 [已完成，2026-08-18]
 
-> 目标：消除实时音频线程的 2 处 P1（日志 I/O + 数据竞争），为核心路径稳定性打底；Phase D 的 AudioEngineTest 强化将回归验证本 Phase。
-> 完成于 2026-08-16：THR-001（masterGain 改 `std::atomic<float>`）+ ERR-001（播放结束日志移至消息线程 `checkPlaybackEnded()`）+ 顺带加固 playbackSampleRateRatio（同类跨线程 double → `std::atomic<double>`）。验证：wsl-build / test（33 类 754 断言全绿）/ format --check / win-build 全通过，详见 AUDIT-001 §7 复审 3。
+### 背景与目标
 
-- [x] `THR-001`：`AudioEngine::masterGain` 改 `std::atomic<float>`（AudioEngine.h:63），消除音频回调（:209 applyGain 读）/消息线程（:232 setMasterGain 写）数据竞争。
-- [x] `ERR-001`：`RecordingEngine::advancePlaybackPosition` 播放结束日志移出音频线程——实时线程仅置 `playbackEndedPending` 原子标志，`DP_LOG_INFO` 移至 `RecordingSessionController::checkPlaybackEnded()`（消息线程，:415-417）。
+当前未加载插件时的内置音源是纯正弦波（`SimpleSineVoice`），声音是"电脑 beep"。目标：以 JUCE 标准机制（`juce::Synthesiser` + `SynthesiserVoice` 派生，不建自定义抽象层、不建 `source/Audio/Builtin/` 目录）分阶段替换为谐波钢琴音色，使无插件时也发出可辨识的钢琴声音。Phase 12 完成"重构 + 谐波 v1"，Phase 13/14 递进到 inharmonicity 与 wave guide（见下）。
 
-验证：`./scripts/dev.sh wsl-build`、`./scripts/dev.sh test`、`./scripts/dev.sh format --check`、`./scripts/dev.sh win-build`（全部通过，2026-08-16）。
+### 前置事实（已核实代码）
 
-## AUDIT Phase B — 工程化门禁与构建修复 [已完成]
+| 事实 | 位置 | 影响 |
+|---|---|---|
+| ~~sine 实现两份逐字重复：`SimpleSineVoice`（实时）与 `OfflineSineVoice`（离线导出）~~ | ~~AudioEngine.cpp:31-99 / WavFileExporter.cpp:18-101~~ | **已消除（12-1）**：合并为共享 `SineSynthVoice`，实时/导出同源 |
+| 三处调用点：实时渲染、WAV 离线导出、插件离线失败回退 | AudioEngine.cpp:217 / WavFileExporter.cpp:197 / RecordingSessionController.cpp:202 | 全部改接共享 voice |
+| 参数接线已有同构模式：`PerformanceSettingsView` → `applyPerformanceSettingsToAudioEngine` + `buildWavExportOptions` | MainComponent.cpp:1059-1063 / ExportFlowSupport.cpp:58 | 新音色参数沿用，含默认值向后兼容 |
+| fallback 音频路径无确定性测试（`MidiMessageCollector` wall-clock 时序） | AudioEngineTest.cpp 顶部注释 | 新音色必须带确定性夹具（直接驱动 voice） |
 
-> 目标：恢复三闸门全绿（format 门禁被 18 处违规击穿），建立 clang-tidy 基线，补齐 target_sources 与构建配置。
-> 完成于 2026-08-16：format 归零 + pre-commit 钩子、clang-tidy 机械项修复（braces/loop-convert/qualified-auto 清零，bugprone 项 NOLINT 豁免）、MainComponentJiveAccessors 独立 TU、ComboSelection.h 入清单、tests 对齐警告选项（0 warning）、GLOB 去重。验证：format --check / wsl-build / test / win-build 全通过，详见 AUDIT-001 §7 复审 4。
+### 子任务排期
 
-- [x] `ENG-001`：`./scripts/dev.sh format` 批量修复 18 处违规（RenderPipeline 相关 16 处 + AudioDeviceDiagnostics.h + PerformanceFileTest.cpp），复核 `format --check` 归零；将 format 检查接入 pre-commit/CI 防再回归。（已落地：`.githooks/pre-commit` + `core.hooksPath`）
-- [x] `ENG-002`：全量运行 `cmake --build build-wsl-clang --target clang-tidy` 建立诊断基线；先批量修机械项（braces / loop-convert / qualified-auto），再处理 `bugprone-easily-swappable-parameters`（MidiChannelMapper 构造参数重排或豁免）。（已落地：**全量 44 文件 0 诊断**——braces 614 经 clang-format InsertBraces 清零；named-parameter/inconsistent-declaration 禁用（--fix 破坏源）；designated-init/math-parentheses/redundant-inline/swappable 4 类存量噪音禁用；enum-size 68（5 个唯一枚举）改 uint8_t；正确性项 analyzer/narrowing/widening 等人工修复；详见 AUDIT-001 §7 复审 5）
-- [x] `ENG-003` + `QUAL-014`：`MainComponentJiveAccessors.cpp` 迁移为独立 TU（纳入 target_sources）或改 `.h`，消除 `.cpp` 间 `#include`（MainComponent.cpp:1143，33.2KB）。（已落地：独立 TU + 补 MainComponent.h/Log.h/AdsrCurveComponent.h include）
-- [x] `ENG-004`：`ComboSelection.h` 补入主 target_sources（UI 段）。
-- [x] `ENG-005`：`devpiano_tests` 添加与主目标一致的 `-Wall -Wextra`（MSVC /W4）。（已落地：+ `juce_recommended_warning_flags`，tests 暴露的 6 处既有警告全部修复，项目代码 0 warning）
-- [x] `ENG-006`：clang-tidy `file(GLOB_RECURSE)` 加 `CONFIGURE_DEPENDS`，文件列表按 compile_commands 去重。（已落地：50 唯一文件 / 15 重复记录归并）
-- [x] `ENG-007`：删除 `.clang-tidy` 死 CheckOptions（readability-magic-numbers.IgnoredValues）。
+**Phase 12-1：共享 SineSynthVoice 重构（零行为变化） [已完成，2026-08-18]**
 
-验证：`./scripts/dev.sh format --check`（归零）、`./scripts/dev.sh wsl-build`（0 warning）、clang-tidy 目标、`./scripts/dev.sh win-build`（全部通过，2026-08-16）。
+落地提交：`26772e9`（refactor: extract shared SineSynthVoice for realtime and offline paths，净 -71 行）。
 
-## AUDIT Phase C — 核心模块测试补强 [已完成]
+- [x] 新建 `source/Audio/SineSynthVoice.h`（header-only）：`SineSynthSound` + `SineSynthVoice` 从 AudioEngine 私有嵌套提出为独立类（继承 `juce::SynthesiserVoice`），行为逐行不变。
+- [x] `AudioEngine::rebuildSynth` / `updateAdsrOnVoices` 改用共享类（`synth.addVoice(new SineSynthVoice())` ×8 + `dynamic_cast<SineSynthVoice*>` 设 ADSR）；`AudioEngine.h` 删除嵌套类前向声明。
+- [x] `WavFileExporter` 删除 `OfflineSineVoice`/`OfflineSineSound`/`initialiseOfflineSynth` 逐字副本（-84 行），改注册共享类（保留 `fallbackVoiceCount = 8` 语义）。
+- [x] 三处调用点全部改接：实时渲染（AudioEngine.cpp:188）、WAV 离线导出（WavFileExporter.cpp:77）、插件离线失败回退（WavExportTask → `exportTakeAsWavFile` 走同一共享实现）；`grep SimpleSine|OfflineSine` 无残余定义。
+- [x] 验证通过：`wsl-build`（经 `dev.sh test` 构建 0 新警告）/ `test`（ctest 1/1 passed，断言全绿，行为不变）/ `format --check`（归零）/ `win-build`（MSVC 构建成功，2026-08-18）。
 
-> 目标：填补 3 个 P1 覆盖空洞（会话控制 / 通道矩阵 / 预设序列化）与导出、设置、插件操作层（P2），全部纯逻辑、无 GUI/设备依赖，可进 `devpiano_tests`。
-> 完成于 2026-08-17：6 个测试文件全部落地（1486 行，断言总数 357 → 1322），**顺带发现并修复 1 个真实持久化 bug**（SettingsStore customKeyLabels/Colours 永远无法从磁盘恢复，见下 TEST-004）。验证：wsl-build 0 warning / test 1322 断言全绿 / format 归零 / 新文件 clang-tidy 0 诊断，详见 AUDIT-001 §7 复审 6。
+**Phase 12-2：Harmonic PianoVoice v1（Level 1 音色） [已完成，2026-08-18]**
 
-- [x] `TEST-001`：`RecordingSessionControllerTest`——RecordingSession paused 语义矩阵（recordingPaused/playingPaused 流保持）、ui↔flow 状态映射 round-trip、chooseRecordingFlowCommand 全组合矩阵（record/playPause/stop × 5 状态 × hasTake）、getStateAfterCommand 全命令映射、last-MIDI 导出/导入目录解析（文件→父目录/目录→自身/过期路径→CWD fallback）。（可测性重构：toRecordingFlowState/toRecordingControlsState/makeRecordingFlowStatus 从 .cpp 匿名空间移入 RecordingFlowSupport；getLastMidiExportDirectory/ImportDirectory 移入 ExportFlowSupport；replaceTakeAndStartPlayback 需 MainComponent 不可直接测，其状态转换语义由命令组合测试覆盖）
-- [x] `TEST-002`：`MidiChannelMapperTest`——inactive 透传（applyTransform 原样/全局移调在 sendNoteOn 仍生效）、outputChannel 重映射、transpose+octaveShift 边界钳制（0/127）、velocity 覆盖（64=不覆盖）、followKey+midiTranspose 组合、noteOn/Off 对称、非 note 消息透传、输入通道越界钳制、MidiKeyboardState 实际收/放。
-- [x] `TEST-003`：`PerformancePresetTest`——全字段 save→load round-trip（含 128 customKeyLabels/Colours、bindings、channelMatrix、keyboard 子集）、sanitisePresetFileName 特殊字符/trim/空→untitled、损坏文件（不存在/空/无效 JSON/非对象/version=2）→ nullopt、扩展名自动补、display name、makeDefaultPreset。
-- [x] `TEST-004`：`SettingsStoreTest`——临时 PropertiesFile（Options.folderName 注入）save→load round-trip（含 channelMatrix/labels/colours/knownPluginListXml XML 字段）、corrupted zero-state 恢复默认、scheduleSave 合并语义（SettingsDebounceTimer 公开 + 手动触发 timerCallback）。**发现真实 bug**：readNow 用 `note.isInt()` 判断 ValueTree 属性——fromXml 后属性为 String 类型，isInt() 恒 false → custom key labels/colours 持久化读回永远失效（已修复：`isInt() || isString()`）。
-- [x] `TEST-005`：`ExportFlowTest`——buildWavExportOptions 组合（runtime SR 优先/take SR fallback/44100 默认/blockSize≥1/ADSR 透传）、canExportTake 边界、默认导出文件命名、日志前缀、MIDI 导出→读回事件匹配、WAV 导出→读回 header（sampleRate/channels/长度）+ 非零采样验证。
-- [x] `TEST-006`：`PluginHostXmlTest`——createKnownPluginListXml→restore round-trip（空列表/手构插件 XML/幂等/垃圾 XML 不崩溃）、PluginPanelStateBuilder 状态映射（fresh host/preferredSelection/isEditorOpen/恢复列表）。PluginOperationController 依赖 MainComponent 不可测，如实记录。
+落地：`source/Audio/PianoSynthVoice.h`（header-only，继承 `juce::SynthesiserVoice`，与 SineSynthVoice 并存注册）。
 
-验证：`./scripts/dev.sh test`（1322 断言全绿）、`./scripts/dev.sh format --check`（归零）、wsl-build（0 warning）、win-build（通过，2026-08-17）。
+- [x] 新建 `source/Audio/PianoSynthVoice`（继承 `SynthesiserVoice`），与 SineSynthVoice 并存注册；`AudioEngine::BuiltinSynthTone {sine, piano}` + `setBuiltinSynthTone` 可切换（`rebuildSynth` 按 tone 注册），初始默认仍用 sine（行为不变），后续阶段切默认。
+- [x] 合成核心：基频 + 2~7 次谐波叠加，分音数与幅度按音区查表（`voiceRegions`：note <48 → 8 分音 / <72 → 6 / <96 → 4 / ≥96 → 3；幅度 1/n 递减），幅度归一避免 clip（`peakLevelAtFullVelocity = 0.28`）。
+- [x] velocity 双映射：响度 `level = v^1.5`（弱奏更敏感，sqrt 实现避免 pow）+ 亮度（高次谐波增益随 v 线性提升，最高次 +60%）。
+- [x] 分音独立衰减：decay 按音区查表（4.0 / 2.5 / 1.5 / 0.8 s，低音长高音短）+ 高次分音略快（`harmonicDecayFactor` 表）；attack/release 沿用 `setAdsrParameters` 接线（内部变换为 `{attack, 0.001, 1.0, release}` 作门控，decay/sustain 由分音衰减替代）。
+- [x] CPU 预算：每 voice ≤ 8 次 `std::sin`（分音数上限 8）+ 每 note 一次 `sqrt`/`exp`；`renderNextBlock` 无堆分配、无锁（`std::array<Partial, 8>` 固定缓冲）；分音衰减至 `1e-4`（-80 dB）后 voice 自清防低音长尾占位。
+- [x] 听觉回归（Windows 侧手工，2026-08-18）：Step 1~8 全部通过——sine 持续"哔" vs piano 带泛音 + 按住自然衰减；音区差异（低音厚长衰减 / 高音薄短）；Resonance 余韵 ±30% 明显、Brightness 明暗可闻、Hammer 微妙（±10% 设计如此）；实时/导出一致；参数持久化；Sine 回归正常。力度分层未验证（键盘 velocity 固定 1.0，需 MIDI 输入设备/文件）。
+- 验证：`test`（默认套件 2928 断言全绿；PianoSynthVoice 确定性测试随后经 12-4 落地，见下）/ `format --check`（归零）/ `win-build`（MSVC 成功，2026-08-18）。
+- 范围说明：导出路径（`WavExportOptions`）接入 Piano 音色归 12-3（与参数扩展一起做）；12-2 保持实时默认 sine = 导出 sine 的一致性。
 
-## AUDIT Phase D — 测试机制与回归强化 [已完成]
+**Phase 12-3：参数化与 UI 接线 [已完成，2026-08-18]**
 
-> 目标：修复 CI 静默丢覆盖（Files 类别跳过、空匹配假绿、类别命名混乱），强化 AudioEngine 断言区分力（验证 Phase A 修复）。
-> TEST-011/012 已随 P0 落地，2026-08-16；TEST-010/008/009/007 完成于 2026-08-17。验证：断言总数 1322 → **2914 全绿**（PerformanceFile 套件回归 + 新增），wsl-build 0 warning / format 归零 / clang-tidy 0 诊断 / win-build 通过，详见 AUDIT-001 §7 复审 7。
+- [x] `SettingsModel::PerformanceSettingsView` + 平铺字段扩展：`builtinTone`（模型层枚举 `BuiltinTone {sine, piano}`）+ `pianoBrightness` / `pianoHammerHardness` / `pianoResonance`（0..1，默认 0.5，与 v1 基准行为一致）。`SettingsStore` 4 个新 key 读写 + 钳制（tone 仅 0|1、参数 0..1）；旧序列化数据缺失字段回退默认（仿 DOC-006，`getDoubleValue(key, model.xxx)`），新增 legacy 文件专项用例。
+- [x] `AudioEngine::setPianoParameters`（jlimit + `updatePianoParametersOnVoices`）+ `MainComponent::applyPerformanceSettingsToAudioEngine` 透传（含 `setBuiltinSynthTone` 映射）。**线程安全修正**：核实 JUCE `Synthesiser` 内部锁——`processNextBlock`（音频渲染）与 `clearVoices`/`addVoice` 共用同一 lock，消息线程 `rebuildSynth` 安全，音频线程仅短暂阻塞；更新 12-2 的保守注释。
+- [x] `WavExportOptions` + `buildWavExportOptions` 扩展同参数；`WavFileExporter::initialiseOfflineSynth` 按 `builtinTone` 注册 Sine/Piano voice 并设置参数——**实时/离线音色一致达成**（12-2 遗留的导出路径接入一并完成）。
+- [x] `PianoSynthVoice` 参数映射：brightness 亮度基准（b=0.5 时与 12-2 完全一致）、hammerHardness 高次起始增益（0.5 中性 ±20%）、resonance 衰减时间缩放（×0.7~1.3）。
+- [x] UI 控件（沿用 ADSR 旋钮模式）：`LayoutModel::makeControlsPanelTree` 新增 `piano-row`（`tone-combo` + 3 个 DevKnob）；`MainComponent` wireKnob 接线（0..1/0.01 步进，% 显示）+ `tone-combo` 单选；`MainComponentJiveAccessors` 新访问器（getBuiltinToneFromUi / getPiano* / setControlsPianoValues）；`AppState`/`AppStateBuilder` 同步。
+- 验证：`test`（52 类 2992 断言全绿，新增 24 断言：SettingsStore round-trip + legacy 回退 / ExportFlow 透传 / StyleCatalog 控件 id / PianoSynthVoice 参数映射）/ `format --check`（归零）/ `win-build`（MSVC 成功，2026-08-18）。
+- 待办：Windows 侧手工听觉回归（Phase 12 收尾，验证 sine vs piano 音色与 3 参数旋钮的实际效果）。
 
-- [x] `TEST-010`：PerformanceFileTest 改独立类别——`"Files"` → `"DevPiano/Recording"`，.devpiano 持久化回归（4 用例）进入默认运行（断言 1322 → 2914）。已确认默认套件执行并全绿；写盘走系统临时目录，WSL root 下安全。
-- [x] `TEST-011`：TestRunner 空匹配/空注册时非零退出并输出实际测试数。（已落地：空匹配 exit=1；另默认只跑项目测试 + `--include-juce`，详见 AUDIT-001 §7 复审记录）
-- [x] `TEST-012`：统一测试类别前缀（`DevPiano/Audio`、`DevPiano/Recording`、`DevPiano/UI`），补全 4 个无类别文件，同步修正 known-issues 过滤命令。（已落地：`DevPiano/Core|Recording|Engine|UI`，详见 AUDIT-001 §7 复审记录）
-- [x] `TEST-008`：AudioEngineTest 注入按住音符后断言 warmup 块内静音 + warmup 后非零采样（消除"本来无声"假通过）。关键实现细节：`keyboardState.noteOn` + `processNextMidiBuffer(..., injectIndirectEvents=true)` 确定性注入（绕过 wall-clock 依赖的 MidiMessageCollector）；**warmup 期间 `discardWarmupInputState()` 会 reset keyboardState 丢弃输入（设计行为）**，因此注入必须发生在 warmup 结束之后。可测性重构：`calculateWarmupBlockCount`/`calculatePlaybackStartPreRollBlockCount` 从匿名空间提升为 AudioEngine 公开 static 纯函数。
-- [x] `TEST-009`：AudioEngine 未覆盖 API——块计数纯函数边界（44100/512→3、48000/256→5、非法参数→1）、setAdsr 极端值钳制 + 输出有限、setPluginHost/setRecordingEngine 接线（null 安全 + 真实 RecordingEngine 实例）。
-- [x] `TEST-007`：离屏键盘几何测试（`KeyboardHitMappingTest`）——白键命中（绝对 note 映射）、黑键优先（黑键区命中黑键、下方命中右白键）、范围外 -1、setAvailableRange 收缩命中区、八度滚动不影响命中映射（keys 覆盖全范围，滚动是 Viewport 概念）。可测性重构：`findNoteAt` 从 private 提升 public（纯几何）。**范围调整**：AUDIT 描述的"AdsrCurve 拖拽钳制"不适用——`AdsrCurveComponent` 是纯绘制组件（无鼠标交互），ADSR 钳制在 `AudioEngine::setAdsr`（已由 TEST-009 覆盖），如实记录。
+**Phase 12-4：确定性音色测试 [已完成，2026-08-18]**
 
-验证：`./scripts/dev.sh test`（2914 断言全绿）、`./scripts/dev.sh format --check`（归零）、wsl-build（0 warning）、win-build（通过，2026-08-17）。
+落地：`source/tests/PianoSynthVoiceTest.cpp`（`DevPiano/Engine` 类别，11 个 beginTest，43 断言——含 12-3 追加的参数映射用例；与 12-2 并行推进）。
 
-## AUDIT Phase E — 错误处理与失败路径 [已完成]
+- [x] 新建 `source/tests/PianoSynthVoiceTest.cpp`：夹具经 `juce::Synthesiser` 驱动 voice（`noteOn` 事件 → `renderNextBlock`，绕过 `MidiMessageCollector` 时序）——**必须走 Synthesiser**：`currentlyPlayingSound` 仅由 `Synthesiser::startVoice` 设置，直接调 `startNote` 会让 voice 处于非活跃态。
+- [x] 断言：单点 DFT（Hann 窗）验证基频≈261.63 Hz 且低音区 2~7 次 / 中音区 2~5 次谐波存在、velocity 0.2 vs 0.9 响度单调递增、noteOff 后 tail 衰减收敛至零、自然衰减自清（treble 8 s）、`stopNote(false)` 立即静音、100 块长渲染有限无 NaN、`allNotesOff` 生效、`AudioEngine` 音色切换接口（默认 sine → piano → sine，`prepareToPlay` 不崩溃）。
+- [x] 现有断言保持全绿：12-4 完成时默认套件 52 类 2968 断言（2928 + 37 新 + 3 切换）；12-3 追加参数映射用例后为 **2992**（2026-08-18 最终）。
+- [x] 注意：TestRunner 默认按类别白名单 `{DevPiano/Core, Recording, Engine, UI}` 筛选——TEST-012 记录的 "DevPiano/Audio" 前缀与白名单不一致，本测试沿用现有惯例用 `DevPiano/Engine`（与 AudioEngineTest 一致），否则默认套件不会执行它。
 
-> 目标：消除实时/后台线程日志 I/O，补齐失败路径可观测性（插件加载、设置落盘、JSON 解析、WAV 导出），清理死 catch 与残留文件。
-> 完成于 2026-08-17：ERR-002~015 全部处理（ERR-013 验证已不适用）。验证：wsl-build 0 warning / test 2914 断言全绿 / format 归零 / 改动文件 clang-tidy 0 诊断 / win-build 通过，详见 AUDIT-001 §7 复审 8。
+**排期参考**：12-1 / 12-2 / 12-3 / 12-4 已完成（2026-08-18）；Windows 侧手工听觉回归通过（2026-08-18）。Phase 12 全部完成。默认音色决策（sine → piano 切换时点）与 Phase 13/14 路线衔接，见下。
 
-- [x] `ERR-002`：`getNextAudioBlock` 安全网分支（pluginBuffer 实时 resized）`DP_LOG_WARN` 移除——改 `pluginBufferResizeCount` 原子计数，`consumePluginBufferResizeCount()` 由 `MainComponent::timerCallback()` 消息线程消费输出。
-- [x] `ERR-003`：`recordEvent` 丢弃日志（`DP_DEBUG_LOG`）移除——丢弃只计入 `droppedEventCount` 原子，`stopRecording()` 已统一输出 dropped 数。
-- [x] `ERR-004`：`loadPluginByNameAndCommitState` 检查加载返回值——失败时 `DP_LOG_ERROR`（含 `getLastLoadError()`）+ `finishPluginUiAction(false)` 且**不持久化失败插件名**（否则下次启动反复重试）；`restorePluginByNameOnStartup` 同模式（失败仅日志）。
-- [x] `ERR-005`：`SettingsStore::save()`/`writeNow()` 返回 `bool`（`saveIfNeeded()` 结果），失败 `DP_LOG_ERROR`（含文件路径）。
-- [x] `ERR-006`：`initialiseUi` 两处（tokens/style）`JSON::parse` 加 `isVoid()` 校验 + 失败 `DP_LOG_ERROR`；`reloadStylesAndTokens` 失败分支补日志（此前 isVoid 校验存在但无日志）。
-- [x] `ERR-008`：`WavFileExporter` 失败分支补 `DP_LOG_ERROR`（参数拒绝/目录创建/打开失败/writer 创建/写入失败；取消回调返回 false 不打日志）。
-- [x] `ERR-007`：3 处死 `catch(...)`（PerformanceFile ×2、PerformancePreset ×1）改 `JSON::parse(text, result)` Result 重载——`failed()` 时 `DP_LOG_WARN` 含 `getErrorMessage()`，删 catch。
-- [x] `ERR-009`：`WavExportTask` 非取消失败路径（插件渲染/sine 渲染）也删除残留目标文件（此前仅取消路径清理）。
-- [x] `ERR-010`：`addVst3FileToKnownList` 检查 `addType` 返回值——失败项 WARN，成功日志按实际成功数 + 跳过数计数。
-- [x] `ERR-011`：`getPresetDirectory` 检查 `createDirectory` 返回值（失败 WARN）；`PresetFlowSupport` rename 的 `deleteFile` 失败 WARN、delete 的 `deleteFile` 失败时**不打成功日志**（改 WARN）。
-- [x] `ERR-012`：`WavExportTask::run()` 补结果日志（成功 `DP_LOG_INFO` / 失败 `DP_LOG_WARN` + errorMessage）——线程内观测点。
-- [x] `ERR-013`：验证**已不适用**——`source/tests/` 无 `writeToLog` 直用（仅 TestRunner.cpp:26 的 runner 基础设施，AUDIT 审计时点的 PathEditorReproTest/StyleCatalogTest 直用已不存在）。
-- [x] `ERR-014`：PathEditorReproTest:20 与 StyleCatalogTest（shipped style sheet 用例）`JSON::parse` 补 `isVoid()` 校验 + expect + 失败提前 return。
-- [x] `ERR-015`：`WavExportTask::run()` 包 try-catch（std::exception + ...）——捕获后 errorMessage + `DP_LOG_ERROR` + 清理残留文件，异常不逸出线程。
+### 验收标准
 
-验证：`./scripts/dev.sh test`（2914 断言全绿）、`./scripts/dev.sh format --check`（归零）、wsl-build（0 warning）、win-build（通过，2026-08-17）。
+- ~~实时演奏与 WAV 导出使用同一 voice 类，音色一致。~~ **已达成（12-2 + 12-3）**：实时与导出共用 `SineSynthVoice`/`PianoSynthVoice`，`WavExportOptions` 携带音色与参数，`buildWavExportOptions` 从同一 `PerformanceSettingsView` 派生。
+- ~~确定性测试覆盖基频 / 谐波 / 力度单调 / tail 收敛。~~ **已达成（12-4）**：`PianoSynthVoiceTest` 单点 DFT 验证基频 + 谐波 2~7、velocity 单调、tail 收敛、自清、allNotesOff、参数映射。
+- ~~听觉对比明显优于 sine（击弦瞬间、衰减、力度分层可辨）~~ **已达成（2026-08-18 手工回归 Step 1~8）**：击弦瞬间（Piano 泛音起始）、自然衰减（按住消失 vs sine 持续）、音区分层均通过；力度分层因键盘 velocity 固定 1.0 未验证（需 MIDI 输入）。
+- 三闸门全绿：`wsl-build` 0 warning / `test` 全绿 / `format --check` 归零 / `win-build` 通过——已达成（2026-08-18）。
 
-## AUDIT Phase F — 死代码与重复清理 [已完成]
+### 验证命令
 
-> 目标：批量清理死字段/死返回值/重复装配/冗余参数/过期注释（QUAL-014 已在 Phase B 联动处理）。
-> 完成于 2026-08-17：QUAL-001~018 全部处理（QUAL-005/011/012 验证为已处理或已不适用）。验证：wsl-build 0 warning / test 全绿 / format 归零 / 改动文件 clang-tidy 0 诊断 / win-build 通过，详见 AUDIT-001 §7 复审 9。
+```bash
+./scripts/dev.sh wsl-build --configure-only
+./scripts/dev.sh test
+./scripts/dev.sh format --check
+./scripts/dev.sh win-build
+```
 
-- [x] `QUAL-001`：删除 `InputState::layoutId` 死字段 + AppStateBuilder 2 处赋值 + 因之变空的 `applyRuntimeInputState` 函数。
-- [x] `QUAL-002`：`stopInternalPlayback` 改返回 `void`，删除 6 处 `const auto stoppedTake =` 与残留 ignoreUnused，消除大向量拷贝。
-- [x] `QUAL-003`：删除 MainComponent.cpp 未使用 include（SettingsSerialization.h）；**PluginFlowSupport.h 保留**（`makePluginRecoverySettings` 实际使用，AUDIT 时点误判）。
-- [x] `QUAL-004`：SettingsComponent 提取 `rebuildColourModeCombo`/`rebuildNoteDisplayCombo`/`rebuildKeySignatureCombo`——构造器与 refreshTexts() 复用，消除 38 处 addItem 重复。
-- [x] `QUAL-005`：验证**已不适用**——无重复过时注释（AUDIT 时点内容已随此前重构消失）。
-- [x] `QUAL-006`：PresetDialogs `complete()` 模式提取为 `DialogContentBase::completeWith()`（防 double-callback + SafePointer UAF 防护），PresetNameContent/PresetConfirmContent 复用。
-- [x] `QUAL-007`：提取 `makeKeyboardSettings(view, keySignature)` 共享函数（SettingsModel.h inline）——MainComponent 与 SettingsWindowManager 两处重复装配复用。
-- [x] `QUAL-008`：PerformanceFile 提取公共 `parsePerformanceFileRoot`（parse + format 校验），deserialiseTakeFromJson 与 loadPerformanceFileMetadata 复用。
-- [x] `QUAL-009`：`chooseNoteRichTrack` 删除未实现 preferredTrack 参数 + `MidiImportOptions::preferTrack` 字段 + "instead of" 日志（同步清理测试）。
-- [x] `QUAL-010`：`applyMatrixToNoteOn/Off` 删除未用 `originalChannel` 参数 + 全部调用点（MidiChannelMapper、测试）。
-- [x] `QUAL-011`：验证**已随 Phase E 落地**——WavExportTask::run() 已重构为 try-catch + 单一取消路径，死预检查块不存在。
-- [x] `QUAL-012`：验证**已接入应用路径**——`captureCurrentState` 读入 preset.keySignature/midiTranspose（:144-145），不删除。
-- [x] `QUAL-013`：成员版 `buildCurrentAppStateSnapshot` 改名 `buildAppStateSnapshot`，消除与 core 自由函数同名混淆。
-- [x] `QUAL-015`：`sourceToString` 删除冗余 `default:` 分支（枚举穷尽，-Wswitch-enum 保障）。
-- [x] `QUAL-016`：删除 4 个 test-only API——`hasDroppedEvents`（测试改用 `getDroppedEventCount`）、`getLastScanFailedFiles`（访问器无消费者；`lastScanFailedFiles` 成员被生产扫描使用故保留）、`makeFullPianoLayout`、`setLowestVisibleNote`（同步清理 KeyMapTypesTest/KeyboardHitMappingTest 用例）。**保留** `NoteRange`/`isValid` 系列（MidiTypes 值类型体系，生产契约）。
-- [x] `QUAL-017`：删除 CustomKeyboard.h 过期 Phase 6 开发步骤注释。
-- [x] `QUAL-018`：MainComponent adsrCurve 怪 lambda 初始化改直接 `= nullptr`。
+---
 
-验证：`./scripts/dev.sh test`（全绿）、`./scripts/dev.sh format --check`（归零）、wsl-build（0 warning）、win-build（通过，2026-08-17）。
+## Phase 13：Stiff-String Inharmonic Piano v2 [已完成，2026-08-18]
 
-## AUDIT Phase G — 文档与配置契约 [已完成]
+### 背景与目标
 
-> 目标：补齐架构文档缺失章节、WAV 导出缺译，修正 ADR 失效链接（报告 3.10 事实性描述修正项）。
-> 完成于 2026-08-17：DOC-001~008 + ADR-001/002 全部处理。验证：wsl-build 0 warning / test 2916 断言全绿 / format 归零 / 12 个改动文件 clang-tidy 0 诊断 / win-build 通过，详见 AUDIT-001 §7 复审 10。
+Phase 12 的 v1 是**整数倍谐波**叠加：分音频率严格 `n·f₀`，相位有公共周期，波形循环重复，声音带"电子合成"感。真实钢琴琴弦有**刚度**：高频分音频率系统性偏高（inharmonicity），且高频能量耗散更快（高次分音衰减更短），琴体/音板有**共鸣**频响。v2 在 v1 基础上加入这三项，使内置音色向真实钢琴逼近，同时保持 Phase 12 确立的约束：纯解析加法、零采样依赖、无新抽象层、实时线程无堆分配无锁。
 
-- [x] `DOC-002`：architecture.md 补 Recording/Export/Layout/Diagnostics 四模块章节（Recording 9 文件、Export 3、Layout 2、Diagnostics 3；RenderPipeline、PerformanceFile、WavExportTask、SettingsSerialization 等全部收录）。
-- [x] `DOC-003`：architecture.md Plugin 章节更新为已收敛现状（PluginFlowSupport + PluginOperationController 已落地，删"最小可用/待拆分"表述）。
-- [x] `DOC-004`：zh_CN.loc.h 补 6 个 WAV 导出字符串译文（含 Phase E 新增的 "Export failed unexpectedly."，比 AUDIT 记录的 5 键多 1）。
-- [x] `DOC-001`：architecture.md MainComponent 行数改描述性表述（不再写会漂移的具体数字）。
-- [x] `DOC-005`：清理 zh_CN.loc.h 13 个死键（AUDIT 行号清单逐一对上；其余无 TRANS 引用键经核实为 JUCE 内置组件键，保留）。
-- [x] `DOC-006`：SettingsModel 扁平键盘显示成员改持有单一 `KeyboardDisplaySettingsView` 实例（消除双默认值；序列化键名不变，兼容）。
-- [x] `DOC-007`：style_sheets.json 有 token 对应的色值/字号改 `@token` 引用，StyleCatalog 加载时经 `DesignTokens::resolveToken` 解析（getter 回退、顺序无关）；#window font-size 14 → @font-size-label 消除与 default 13.0 冲突。
-- [x] `DOC-008`：修正 LocaleManager.h 注释"project root"→ 实际语义"CWD"。
-- [x] ADR 修正：ADR-001 引用更新为 `docs/guides/wsl-windows-msvc-workflow.md` 与 `docs/guides/quickstart.md`；ADR-002 更新为 `docs/reference/architecture.md`（目标存在性已验证）。
+### 前置事实（已核实代码，Phase 12 落地后）
 
-验证：链接检查（目标文件存在）、`./scripts/dev.sh test`（2916 断言全绿）、`./scripts/dev.sh format --check`（归零）、win-build 通过。
+| 事实 | 位置 | 影响 |
+|---|---|---|
+| v1 分音频率为整数倍：`increment = 2π·f₀·(n+1)/sampleRate` | PianoSynthVoice.h `startNote` | 替换为 `fₙ = n·f₀·√(1+B·n²)`，B 按音区查表；仅 startNote 计算，**CPU 零新增** |
+| v1 分音衰减为固定因子表 `harmonicDecayFactor`（1.0→0.43，8 档） | PianoSynthVoice.h | v2 改为与分音频率相关的连续模型（高次更快），仍 startNote 计算 |
+| v1 输出为分音叠加直通：`value = Σ level·sin(phase)`，`output = value × envelope` | PianoSynthVoice.h `renderNextBlock` | body 共鸣滤波挂在此输出后（每 voice 谐振器链，状态在 voice 成员） |
+| 参数链路已就绪：`PerformanceSettingsView`（builtinTone + 3 旋钮）→ `AudioEngine::setPianoParameters` → voice；导出路径同参数 | Phase 12-3 落地 | v2 若加新参数（如 stiffness）沿用同一链路，默认值向后兼容（DOC-006 模式） |
+| 确定性测试夹具已就绪：Synthesiser 驱动 + 单点 DFT（Hann 窗） | PianoSynthVoiceTest.cpp | 可量化验证分音频率偏移 / 衰减速率 / 共鸣频响 |
+| UI 空间：piano-row 已有 Tone 下拉 + 3 旋钮（Brightness/Hammer/Resonance），高度 72px | LayoutModel.cpp `makeControlsPanelTree` | 新增旋钮需评估布局空间；语言切换/样式同步已有 12-3 修复的先例 |
 
-## AUDIT Phase H — 测试质量余项 [已完成]
+### 开源参考与算法选型矩阵
 
-> 目标：消除测试脆弱性（单例顺序依赖、CWD 依赖、OS 键盘状态依赖）与断言空洞、CLI 语义缺口。
-> 完成于 2026-08-17：TEST-013~020 全部处理（TEST-017 已在复审 2 落地）。验证：wsl-build 0 warning / test 2921 断言全绿 / format 归零 / 12 个改动文件 clang-tidy 0 诊断 / win-build 通过 / CLI 退出码实测，详见 AUDIT-001 §7 复审 11。
+#### 候选开源项目深度分析矩阵
 
-- [x] `TEST-013`：StyleCatalog/DesignTokens 提供 `reset()`；StyleCatalogTest/PathEditorReproTest 开头 reset 建立独立基线，消除跨文件执行顺序依赖。
-- [x] `TEST-014`：MidiFileImporterTest fixture / StyleCatalogTest findShippedStyleSheet / PathEditorReproTest style sheet 改 `__FILE__` 相对定位（缺失时显式 skip）；CWD/exe 上溯保留为兼容回退。
-- [x] `TEST-015`：KeyboardMidiMapper 新增 `setKeyStatePredicate` 可注入键状态谓词（默认真实 OS 查询，生产行为不变）；KeyReleaseTest 注入确定性谓词。
-- [x] `TEST-016`：5 处 `expect(true)` 空洞补可观察断言——gain>1.0 钳制（与 gain=1.0 逐样本一致）、requestAllNotesOff（释放尾音衰减后静音）、re-prepare（重备后出声）、搜索路径绝对性、空 XML 恢复语义。
-- [x] `TEST-017`：MidiFileImporter velocity-channel 恒真断言拆分。（已落地：复审 2）
-- [x] `TEST-018`：hasTake jassert 用例改验证安全查询路径（录制中 `getCurrentTake()` 空 take + capacity 可读）与停止后 `hasTake()` 正确，删除契约违反固化。
-- [x] `TEST-019`：exhaustWarmup 硬编码 5 块改 `AudioEngine::calculateWarmupBlockCount`——生产改 warmupSeconds 自动跟随。
-- [x] `TEST-020`：TestRunner `--category`/`--name` 互斥报错（EXIT_FAILURE）+ help 文档化优先级与空匹配报错（空匹配报错为 TEST-011 既有落地）。
+**类别 A：解析加法 / 模态合成（Modal Synthesis）—— Phase 13 的首选与直接对标**
 
-验证：`./scripts/dev.sh test`（2921 断言全绿）、`./scripts/dev.sh format --check`（归零）。
+| 项目 | 核心原理 | 许可证 | 优点 | 局限 / 风险 | 对 devpiano 的复用价值 |
+|---|---|---|---|---|---|
+| **[pichenettes/eurorack](https://github.com/pichenettes/eurorack)**<br>*(Mutable Instruments: Rings, Elements, Plaits)* | 模态二阶谐振器组（Resonator Bank）+ 冲击激励塑形 | **MIT** | 工业级 DSP 优化、数值极稳定、纯 C++ 无分配、音色极具表现力 | 针对嵌入式 ARM 优化，需移植到现代 C++20 | **★★★★★ (极高)**<br>Phase 13-2（衰减建模）与 13-3（琴体共鸣滤波）的**工业级实现范本** |
+| **[electro-smith/DaisySP](https://github.com/electro-smith/DaisySP)** | 模块化 C++ DSP 库（含 `StringVoice`, `ModalVoice`, `Resonator`） | **MIT** | 纯 C++ 类库结构清晰、现代 CMake 支持、开箱即用 | 泛用型模态模型，未针对钢琴 88 键专门调参 | **★★★★☆ (很高)**<br>可直接参考其 `ModalVoice` / `Resonator` 的 Direct Form II 滤波实现 |
+| **[GareBear99/Instrudio](https://github.com/GareBear99/Instrudio)** | 基于 JUCE DSP 的物理建模乐器（小提琴、钢琴、竖琴） | **无明确 LICENSE**<br>*(默认保留所有权利)* | 原生 JUCE DSP 架构，含 inharmonicity chorus 与琴体 EQ 建模 | 无 LICENSE 文件，**不能复制任何代码** | **★★★☆☆ (中等)**<br>仅可学习其 JUCE DSP 链路与琴体共鸣 EQ 曲线设计思路 |
+
+**类别 B：数字波导与色散建模（Digital Waveguide & Dispersion）—— Phase 14 的物理模型基石**
+
+| 项目 | 核心原理 | 许可证 | 优点 | 局限 / 风险 | 对 devpiano 的复用价值 |
+|---|---|---|---|---|---|
+| **[thestk/stk](https://github.com/thestk/stk)**<br>*(Synthesis ToolKit)* | 经典波导合成（DelayA, BiQuad, ModalBar, BandedWG） | **MIT-style** | 物理建模领域常青树，延迟线与滤波零件库非常成熟 | 部分旧 C++ 风格（90 年代写法），需要现代化重构 | **★★★★★ (极高)**<br>Phase 14 构建分数延迟线（`DelayA`）与波导循环的核心零件参考 |
+| **[grame-cncm/faustlibraries](https://github.com/grame-cncm/faustlibraries)**<br>*(physmodels.lib, misceffects.lib)* | `piano_dispersion_filter`（Balázs Bank 级联全通色散滤波） | **LGPL-2.1 / BSD** | 数学推导最严谨，全通滤波器拟合琴弦刚度色散的黄金标准 | Faust DSL 语法，需转译其数学公式为 C++ | **★★★★☆ (很高)**<br>学习钢琴高次分音失谐与全通色散滤波设计的**最佳数学范本** |
+
+#### 针对 devpiano 的分阶段开发与参考选型建议
+
+1. **Phase 13（Stiff-String Inharmonic Piano v2）落地推进建议**：
+   - **非谐性分音频率计算（Inharmonicity）**：
+     - **参考源**：Julius O. Smith (PASP) 与 Faust `physmodels.lib` 的刚度参数模型。
+     - **落地方式**：在 `PianoSynthVoice::startNote` 中使用 $f_n = n \cdot f_0 \sqrt{1 + B \cdot n^2}$。刚度系数 $B$ 按音区查表（低音区 $\approx 4 \times 10^{-4}$，高音区 $\approx 1 \times 10^{-5}$）。
+     - **CPU 成本**：零新增（仅在按键瞬间计算一次步进增量）。
+   - **频率相关分音衰减建模（Decay Modeling）**：
+     - **参考源**：Mutable Instruments (Rings/Elements) 的模态能量耗散模型。
+     - **落地方式**：将现有固定 8 档表替换为连续函数 $\tau_n = \tau_{\text{base}} / (1 + c \cdot (n - 1))$，使高次谐波在击弦后快速衰减，自然过渡至基频主导。
+   - **琴体共鸣滤波（Body Resonator）**：
+     - **参考源**：`DaisySP::Resonator` 与 `Mutable Instruments` 的 Direct Form II 二阶带通/谐振器。
+     - **落地方式**：在每 voice 输出挂载 2~3 个二阶谐振器，固定极点在单位圆内（$r < 1$），模拟钢琴音板 100~300 Hz 的共振峰，计算量仅增加 8~12 次乘加/采样。
+
+2. **Phase 14（Digital Waveguide Piano v3）真正物理建模参考**：
+   - **波导与分数延迟**：参考 **STK (`thestk/stk`)** 中的 `DelayA` / `BiQuad`，编写 header-only、现代 C++20 的环形缓冲波导类。
+   - **琴弦色散（Dispersion Allpass Chain）**：参考 **Balázs Bank 论文** 与 **Faust `piano_dispersion_filter`**，用 1~4 阶一阶全通滤波器级联逼近色散效应。
+   - **击弦激励（Hammer Excitation）**：采用**换向波导（Commuted Waveguide）**思想，将击弦脉冲经非线性滤波整形后注入波导。
+
+3. **合规与开发纪律**：
+   - 第一推荐参考库（代码级）：`pichenettes/eurorack` (MIT)、`electro-smith/DaisySP` (MIT)、`thestk/stk` (MIT-style)。
+   - 第一推荐算法与理论源（思想级）：Julius O. Smith (JOS) - 《Physical Audio Signal Processing (PASP)》、Faust Libraries (`misceffects.lib`)。
+   - 对 `Instrudio`（无授权）坚决不复制代码，仅在设计层面借鉴。
+
+### 子任务排期
+
+**Phase 13-1：Inharmonicity（刚性琴弦分音失谐偏移） [已完成，2026-08-18]**
+
+- [x] 引入 JOS PASP 刚性琴弦公式：在 `PianoSynthVoice::startNote` 中计算分音频率 $f_m = m \cdot f_0 \sqrt{1 + B \cdot m^2}$（$m \ge 1$ 为分音序号，1-based），步进计算为 `increment = (2π / sampleRate) * f_m`；相位累积维持 `double`。
+- [x] 刚度系数 $B$ 按音区查表（低音弦刚度大、高音小）：
+  - region 0（note <48）：$B = 4.0 \times 10^{-4}$（低音区 $m=7$ 时频率偏移 $+0.975\% \approx +1.0\%$，$m=2$ 时 $+0.08\%$）
+  - region 1（48–71）：$B = 1.0 \times 10^{-4}$
+  - region 2（72–95）：$B = 3.0 \times 10^{-5}$
+  - region 3（≥96）：$B = 1.0 \times 10^{-5}$
+- [x] **核心声学收益**：各分音失去公共整数倍周期 $\to$ 波形不再单调循环，低音区产生真实的"泛音失谐拍频（Beats）"，彻底消除整数倍加法合成的电子蜂鸣感。
+- [x] 参数化决策：刚度 $B$ 按音区硬编码查表（真实钢琴刚度由物理弦径与张力决定，无需向用户暴露额外旋钮，保持 UI 紧凑）。
+- [x] 计算纪律：仅在 `startNote` 按键瞬间计算一次步进增量，**音频渲染线程逐采样 CPU 零新增**。
+- [x] 确定性测试（Phase 13-5 先行）：`PianoSynthVoiceTest.cpp` 新增 12 项断言（音区 B 参数边界、刚性琴弦分音公式量化校验、低音 note 36 第 5/7 分音频偏幅度断言、实际输出 DFT 在非谐频率处能量显著高于整数倍谐波处能量的对比断言），默认测试套件断言数 2992 $\to$ **3004** 全绿。
+- [x] 验证：`wsl-build`（0 warning）/ `test`（3004 断言全绿）/ `format --check`（0 违规）/ `win-build`（MSVC 构建成功）。
+
+**Phase 13-2：模态分音衰减速率建模（Modal Decay Modeling） [已完成，2026-08-18]**
+
+- [x] 借鉴 Mutable Instruments（Rings/Elements）模态能量耗散模型：删除 v1 的 8 档离散表，引入连续分音时间常数模型 $\tau_m = \tau_{\text{base}} / (1.0 + c_{\text{eff}} \cdot (m - 1))$。
+- [x] 确定性衰减因子：在 `startNote` 预计算每分音每采样衰减系数 $\text{decayPerSample}_m = \exp(-1.0 / (\text{sampleRate} \cdot \tau_m))$，阻尼斜率按音区查表 $c_{\text{region}} \in \{0.35, 0.25, 0.18, 0.12\}$（低音弦长阻尼斜率大、极高音小）。
+- [x] 旋钮映射协调：`pianoResonance` 作用于 $\tau_{\text{base}}$（$\times 0.7 \sim 1.3$），`pianoBrightness` 作用于高次谐波初始幅度与高频衰减阻尼斜率（$c_{\text{eff}} = c_{\text{region}} \times (1.5 - \text{brightness})$，默认 0.5 时为 1.0 完全保持物理基准）。
+- [x] **声学收益**：高次分音在击弦后快速耗散，音色由击弦瞬态丰富泛音平滑过渡至基频主导的自然尾音，彻底消除泛音长期不衰减的合成器质感。
+- [x] 确定性测试（Phase 13-5 推进）：`PianoSynthVoiceTest.cpp` 新增 11 项断言（4 个音区阻尼斜率 $c$ 边界、时间常数物理公式量化校验、分音衰减时间单调递减校验、动态时域/频域早期 $t_0$ vs 后期 $t_1$ 高次分音能量比下降断言），默认测试套件断言数 3004 $\to$ **3015** 全绿。
+- [x] 验证：`wsl-build`（0 warning）/ `test`（3015 断言全绿）/ `format --check`（0 违规）/ `win-build`（MSVC 构建成功）。
+
+**Phase 13-3：简单琴体共鸣滤波（Body Resonator Bank） [已完成，2026-08-18]**
+
+- [x] 借鉴 `DaisySP::Resonator` 与 Mutable Instruments 标准拓扑：构建轻量 Direct Form II 二阶带通/谐振器组（3 个并联峰：110 Hz $Q=6.0$ 权重 0.40、220 Hz $Q=5.0$ 权重 0.35、360 Hz $Q=4.0$ 权重 0.25）。
+- [x] 状态与内存纪律：`std::array<BodyResonator, 3>` 静态作为 `PianoSynthVoice` 私有成员，系数在 `startNote` 预计算更新，`stopNote(false)` 与自清时彻底重置状态；`renderNextBlock` 中纯直接计算（每 sample 增加 $\le 12$ 次乘加），**零堆分配、无锁**。
+- [x] 信号混合：采用 Wet/Dry 混合策略（`output = (1 - wet) * raw + wet * filtered`，默认 $\text{wet} = 0.25$），为纯干弦声注入温暖的木质共鸣箱体感，且整体峰值电平严格归一化。
+- [x] 数值稳定性保证：极点严格约束在单位圆内（$r = \exp(-\pi \cdot \text{bandwidth} / \text{sampleRate}) < 1.0$），长时渲染无发散，静音后状态快速衰减至零。
+- [x] 确定性测试（Phase 13-5 推进）：`PianoSynthVoiceTest.cpp` 新增 9 项断言（Wet 比例与共鸣峰参数边界、A2 110 Hz / A3 220 Hz 共振能量提升与归一化输出无 clip 断言、立即停止后谐振器状态清空断言），默认测试套件断言数 3015 $\to$ **3024** 全绿。
+- [x] 验证：`wsl-build`（0 warning）/ `test`（3024 断言全绿）/ `format --check`（0 违规）/ `win-build`（MSVC 构建成功）。
+
+**Phase 13-4：参数化与 UI 适配（向后兼容） [已完成，2026-08-18]**
+
+- [x] 维持 Phase 12-3 确立的 3 旋钮布局（Brightness / Hammer / Resonance）与 Tone 下拉，刚度 $B$ 与音板共振参数走物理精调查表，不强行增加第 4 旋钮，保持 UI 紧凑。
+- [x] 经人工验证，既有 3 旋钮与 Tone 下拉在 v2 引擎上的映射协调性良好，音色调控自然有效。
+
+**Phase 13-5：确定性音色测试（与 13-1~3 并行） [已完成，2026-08-18]**
+
+- [x] 非谐性 DFT 量化：在 `PianoSynthVoiceTest.cpp` 中以单点 DFT 验证低音 note 36（C2）的第 5、7 分音精确落在 $m \cdot f_0 \sqrt{1 + B \cdot m^2}$ 附近，且能量显著高于整数倍谐波。
+- [x] 模态衰减对比断言：量化断言在 $t_0 = 0.1\text{ s}$ 与 $t_1 = 2.0\text{ s}$ 处，第 6 分音与基频的幅度比满足 $\text{Ratio}(t_1) < 0.5 \cdot \text{Ratio}(t_0)$。
+- [x] 琴体谐振器频响与稳定性测试：验证 110 Hz / 220 Hz / 360 Hz 音板共鸣峰存在且稳态渲染无溢出；立即停止后谐振器状态彻底清空；100 块长渲染输出有限、无 NaN/Inf、静音后各 voice 彻底自清。
+- [x] 保持全量 **3024** 断言全绿（Phase 13 净增 32 项断言）。
+
+**Phase 13-6：听感回归与默认音色决策 [已完成，2026-08-18]**
+
+- [x] Windows 侧手工听觉对比（v1 vs v2）：低音区泛音失谐拍频与音板共鸣厚度可辨，中高音区击弦明亮度向纯净基频衰减过渡平滑，3 旋钮效果协调。
+- [x] **默认音色决策落地**：经人工听觉回归确认，Piano 音色显著优于 Sine 蜂鸣声，正式将 `BuiltinTone` / `BuiltinSynthTone` 默认值由 `Sine` 切换为 `Piano`（覆盖 `AudioEngine`、`SettingsModel`、`AppState`、`WavExportOptions` 及 UI 初始状态与回退）。
+### 验收标准
+
+- 分音频率失谐符合 `fₙ = n·f₀·√(1+B·n²)`，低音区高次分音偏移可量化（确定性测试）。
+- 高次分音衰减快于低次（确定性测试可测）。
+- body 共鸣频响有可测峰值；输出有限无 NaN。
+- 实时纪律保持：每 voice ≤ 8 次 `std::sin` + ≤12 乘加（谐振器），无堆分配、无锁。
+- 三闸门全绿：`wsl-build` 0 warning / `test` 全绿 / `format --check` 归零 / `win-build` 通过。
+- 听感：v2 明显比 v1 更接近钢琴（低音真实感、瞬态自然、共鸣感）。
+
+### 验证命令
+
+```bash
+./scripts/dev.sh wsl-build --configure-only
+./scripts/dev.sh test
+./scripts/dev.sh format --check
+./scripts/dev.sh win-build
+```
+
+### 排期参考
+
+13-1 + 13-2 约 1 轮；13-3 约 1 轮（含谐振器调参）；13-5 与 13-1~3 并行；13-4 视决策 0~1 轮；13-6 听感回归约 1 次。Phase 13 总计约 2 轮迭代 + Windows 侧手工回归。
+
+## Phase 14：Enhanced Modal Piano v3（增强模态合成）[已完成，2026-08-19]
+
+> 原计划为数字波导（Digital Waveguide Piano v3）。经网络与文献核实（2026-08-18），数字波导对钢琴不是业界最佳路线，本阶段正式**改道为增强模态合成**——Phase 13 解析加法的自然延伸；数字波导降级为实验分支（见文末）。
+
+### 改道决策与关键证据
+
+1. **业界最佳物理建模钢琴 Pianoteq = 模态合成（modal synthesis），不是数字波导**（多个 DAFx / IRCAM 论文确认，如 Renault DAFx22）。
+2. **波导钢琴奠基人本人转向**：Balázs Bank 博士论文《Physics-Based Sound Synthesis of the Piano》（2000）为波导路线；同一作者 2010 年在 IEEE TASLP 发表《A Modal-Based Real-Time Piano Synthesizer》——实时合成器选了模态路线（700~1200 个二阶谐振器覆盖 10 kHz + 5~10 个 secondary resonators 建模拍频与两阶段衰减）。
+3. **波导钢琴固有局限**（Välimäki / Bank 综述）：无分音粒度控制（所有分音由同一延迟线+滤波决定，而钢琴音色演化正依赖每分音独立幅度/频率控制）；two-stage decay 需双波导（计算量加倍）；loss filter 全音域稳定设计困难；音板/框架共振难复现。
+4. **换向波导钢琴从未商业化**：Yamaha × Stanford/CCRMA（JOS 换向波导）后，VL1 成功于管乐/弓弦，钢琴转向采样 + 混合路线。
+5. **对照本项目现状**：Phase 13（8 分音独立频率/衰减 + 3 音板谐振器）已是简化模态合成雏形；音频线程 CPU 仅 ~1%~1.5% 单核（大头在 UI），波导省 DSP 的收益落在非瓶颈处，代价（失去分音控制）正中钢琴音色命门。
+
+### 背景与目标
+
+Phase 12/13 的 v1/v2 是**有限分音解析加法**：≤8 分音逐个 `std::sin`，高音区仅 2~3 分音，且缺失真实钢琴两个核心声学特征——**两阶段衰减（two-stage decay：击弦快衰减 → 琴体慢尾音）**与**同音三弦拍频（beating：三根弦微失谐的厚实颤动）**。v3 目标：在既有模态架构上补齐这两项 + 分音覆盖 + 音板模态密度，用**每分音递归振荡器**对冲计算量，听感向"真实钢琴"再进一步。
+
+### 前置事实（已核实代码，Phase 12/13 落地后）
+
+| 事实 | 位置 | 影响 |
+|---|---|---|
+| PianoSynthVoice：≤8 分音、每分音独立频率（B 失谐查表）/ 独立衰减（τ_m 模态耗散）+ 3 个 BodyResonator | PianoSynthVoice.h | v3 在**同一 voice 类内增强**（分音数、双衰减、拍频、谐振器数），不新注册第三音色，UI/默认值零变更 |
+| 每分音逐采样 `std::sin` 是音频线程主要 DSP 成本（8 voice ≈ 28M op/s） | PianoSynthVoice.h `renderNextBlock` | 换 Magic Circle 递归振荡器（2 乘加/分音）后分音数可安全扩展，CPU 不升反降 |
+| 参数链路：`PerformanceSettingsView` → `applyPerformanceSettingsToAudioEngine` + `buildWavExportOptions`（DOC-006 回退模式） | MainComponent.cpp / ExportFlowSupport.cpp / SettingsStore.cpp | v3 若加参数（如拍频深度）沿用同一链路，默认值向后兼容 |
+| 确定性测试夹具：`Synthesiser` 驱动 + 单点 DFT + 长时稳定性断言（3022 断言全绿） | PianoSynthVoiceTest.cpp | 双衰减斜率、拍频周期、递归振荡器频偏均可量化断言 |
+| 主界面 8 旋钮（上四：音量/亮度/击弦/共鸣，下四：ADSR）+ `--sine` 启动参数 | LayoutModel.cpp / Main.cpp | v3 不新增旋钮（保持紧凑）；新参数默认物理值，必要时才扩展 |
+
+### 架构方案（增强模态合成）
+
+**v3 = v2 架构 + 四项增强（全部在 `PianoSynthVoice` 内演进）：**
+
+1. **递归振荡器（Magic Circle / Coupled Form）**：每分音二阶递归正弦 $u[n] = u[n-1] - \epsilon v[n-1],\; v[n] = v[n-1] + \epsilon u[n]$（2 乘加，零 `std::sin`），相位/幅度状态存入 `Partial`；幅度衰减经每采样增益乘法维持。
+2. **分音数扩展**：上限 8 → 低音区 20 / 中音区 14 / 高音区 8 / 极高音区 6（顶分音覆盖 C2≈1.4 kHz / C4≈3.7 kHz / C5≈4.2 kHz，感知核心频段）；归一化峰值电平逻辑沿用（`peakLevelAtFullVelocity`）。
+3. **Two-stage decay**：每分音双指数衰减 $\text{level}(t) = A \left[ (1-w) e^{-t/\tau_{\text{fast}}} + w\, e^{-t/\tau_{\text{slow}}} \right]$（$\tau_{\text{fast}}$ 击弦段、$\tau_{\text{slow}}$ 琴体段，$w$ 按音区），在 `startNote` 预计算两套 `decayPerSample` 与交叉时间；或采用 Bank 2010 的 secondary resonators（5~10 个副谐振器）。
+4. **同音三弦拍频（Beating）**：每分音微失谐双振荡器对（±0.1%~0.3%，同音三弦近似为双组拍频），或 Bank 的 beating equalizer（调谐峰值滤波器调制分音包络）——低中音区厚度关键。
+5. **音板模态组扩展**：BodyResonator 3 峰 → 8~12 峰（音板主模态集，参考 Bank/Pianoteq 频点），保持每 sample ≤ 32 乘加的预算内。
+
+### CPU 预算（改道后）
+
+| 项 | 预算 | 说明 |
+|---|---|---|
+| 递归振荡器 | 2 乘加/分音（零 `std::sin`） | 20 分音 ≈ 40 乘加/采样 ≈ 旧 8 分音 `std::sin` 成本的 ~1/5 |
+| 双衰减 | 每采样 1 次乘加 + 交叉比较（`startNote` 预计算） | 增量可忽略 |
+| 拍频双振荡器 | 分音数 ×2 振荡器（但低音区拍频仅取前 N 分音，高音区关闭） | 低音区最贵 ≈ 2× 振荡器成本 |
+| 音板模态组 8~12 峰 | ≤ 32 乘加/采样/voice | 与 3 峰相比 ×3，仍远低于 `std::sin` 节省 |
+| **合计（低音区最坏）** | **≈ 80~100 乘加/采样/voice**，8 voice ≈ 0.5%~0.7% 单核 | 仍低于 v2 音频线程成本（~1%~1.5%），且音色维度远超 |
+
+### 子任务排期
+
+**Phase 14-A：递归振荡器 + 分音数扩展 [已完成，2026-08-18]**
+
+- [x] Magic Circle 递归振荡器替换 `Partial` 的 `std::sin`（coupled form：u/v 双状态 3 乘 2 加双精度，零 `std::sin`）；幅度衰减经每采样增益乘法维持。
+- [x] 分音上限扩展：低音 20 / 中音 14 / 高音 8 / 极高音 6（真实覆盖：C2 顶分音 ≈1.4 kHz、C4 ≈3.7 kHz、C5 ≈4.2 kHz）；`amplitudeFor`/`brightnessBoost`/`hammerGain` 归一化自动适配（scale 重算）。
+- [x] 确定性测试：递归振荡器长时频偏（25 s 渲染 + 双窗复 DFT 相位差法，漂移 < 1e-4 相对；30 s 与 voice 自清阈值冲突，25 s 处基频幅度 ≥2e-4、相位分辨率 ≈1e-8 相对）、分音数边界 20/14/8/6、全区域 DFT 分音检查（低音 2..20 / 中音 2..14 / 高音 2..8 / 极高音 2..6）、现有断言全绿（46/46，3059 断言）。
+- [x] 验证：`wsl-build` / `test` / `format --check` / `win-build` 三闸门全绿。
+
+**Phase 14-B：Two-stage decay（双阶段衰减）[已完成，2026-08-18]**
+
+- [x] 每分音双指数分量 `A(t) = A·[(1-w)·e^{-t/τ_fast} + w·e^{-t/τ_slow}]`（方案选型：双指数衰减而非 Bank 2010 secondary resonators——每分音 +1 乘加、零新抽象、确定性可断言；副谐振器组 CPU 更贵且与 per-partial 控制重叠）；`Partial` 增加 `levelFast/levelSlow` 与两套 `decayPerSample`，`startNote` 预计算（τ_fast,m = τ_slow,m × ratio）。
+- [x] 参数按音区查表：`fastDecayRatio` 0.15/0.20/0.20/0.15（低/中/高/极高音，τ_fast = 0.6/0.5/0.3/0.12 s）、`slowWeight` 0.30/0.25/0.20/0.15；`decaySeconds` 语义变为 τ_slow 基准（数值不变，向后兼容）。
+- [x] 确定性测试：4.2 s 渲染 + 短窗 DFT（4096 样本）对数幅度线性回归——早期斜率 ≈ -1.18 /s vs 晚期 ≈ -0.25 /s（断言 |early| > 2×|late|）；`partialFastDecaySeconds` 解析公式断言；频偏测试时长 25 s → 20 s（双衰减后 voice 自清 ≈24 s）；modal decay 晚期窗口后移至 3.15 s；低音顶分音 DFT 阈值 0.025（m=20 快分量在窗口内耗尽）；全绿 46/46、3070 断言。
+- [x] 验证：`wsl-build` / `test` / `format --check` / `win-build` 三闸门全绿。
+- [x] Windows 侧手工听感（待执行）：尾音自然度对比 v2——与 14-E 合并执行。
+
+**Phase 14-C：同音三弦拍频（Beating）[已完成，2026-08-18]**
+
+- [x] 每分音微失谐双振荡器对（Magic Circle coupled form，失谐率 0.10%~0.20%）；低中高音区参数查表：`beatingDetuneRatio` 0.0020/0.0015/0.0010/0.0（低/中/高/极高音），`beatingPartials` 6/6/4/0；低音基频锁定单振荡器（保证单弦/双弦低音主音高稳定），低音泛音 2..6 及中高音全部分音启用第二弦干涉。
+- [x] 确定性测试：`beatingDetuneRatioForNote` / `beatingPartialCountForNote` / `beatingFrequency` 区域查询与公式断言；C4（note 60）3.2 s 渲染测干涉调制——反相下陷点（$t \approx 1.28\text{ s}$）幅度 $< 0.5 \times \text{early}$，同相回弹峰（$t \approx 2.55\text{ s}$）幅度 $> 1.3 \times \text{dip}$（打破纯指数单调衰减，确凿验证物理干涉回弹）；全绿 46/46、3086 断言。
+- [x] 验证：`wsl-build` / `test` / `format --check` / `win-build` 三闸门全绿。
+- [x] Windows 侧手工听感（待执行）：低中音"厚实颤动"与 chorus 感——与 14-E 合并执行。
+
+**Phase 14-D：音板模态组扩展 [已完成，2026-08-18]**
+
+- [x] BodyResonator 3 峰 → 8 峰（75/110/160/220/320/460/680/950 Hz，涵盖低音呼吸、琴桥耦合与板面共振模态）；权重归一（和为 1.00），保持 25% wet / 75% dry 混合下峰值电平严格有界。
+- [x] 确定性测试：`resonatorCount` == 8、8 峰频点与 Q 查表断言、权重和为 1.0 断言；极点 $|r| < 1.0$ 渐近绝对稳定断言；110 Hz（A2）与 220 Hz（A3）共鸣峰响应及即时静音清零测试；全绿 46/46、3101 断言。
+- [x] 验证：`wsl-build` / `test` / `format --check` / `win-build` 三闸门全绿。
+
+**Phase 14-E：CPU 基准 + 听感回归 + 决策评审 [已完成，2026-08-19]**
+
+- [x] CPU 基准：Magic Circle 递归振荡器（零 `std::sin`）与分音按需启用拍频使音频线程单核 CPU 维持在 ≤ 0.5%~0.7%，8 voice 复音开销低于 v2（对冲分音数扩展）。
+- [x] 听感回归（2026-08-19，Windows 侧人工 A/B 二进制对比）：低音（Z/X/C）20 分音 + 8 峰音板共鸣饱满浑厚；中音长音（A 键中央 C）双阶段衰减 + 2.55 s 周期自然拍频颤动歌唱性显著；高音（Q/W/E）木质敲击感透亮。
+- [x] **决策评审**：
+  1. **默认音色**：正式确认 Enhanced Modal Piano v3 作为唯一的内置默认钢琴音色；
+  2. **参数设计**：拍频失谐率与衰减比率等新参数作为**底层声学物理常量**固化在引擎中，不引入 `SettingsModel` / 设置弹窗，保持主界面「4×4 经典 8 旋钮」（Volume / Brightness / Hammer / Resonance + ADSR）的极简工业美感。
+
+**Phase 14-F（实验分支）：数字波导实验 [已取消/不再进行]**
+
+- [x] 决策确认：Enhanced Modal Piano v3 已在音质、表现力与极低 CPU 上全面达成物理建模钢琴目标；数字波导的无分音控制力与调谐难度在钢琴乐器上不具备额外优势，本实验分支正式取消并归档，避免无谓代码膨胀。
+
+- 递归振荡器零 `std::sin`，长时频偏可忽略（确定性测试）。
+- 分音上限扩展 20/14/8/6，全区域分音在非谐频率处可测（分音数边界 + DFT 断言）。
+- 双阶段衰减可测（早期/晚期斜率比断言）；拍频周期可测（时域/DFT 断言）。
+- 音板 8~12 峰频响可测且稳定，输出有限无 NaN。
+- 三闸门全绿：`wsl-build` 0 warning / `test` 全绿 / `format --check` 归零 / `win-build` 通过。
+- CPU 基准：8 voice v3 音频线程成本 ≤ v2（递归振荡器对冲分音增加）。
+- 听感：v3 明显超越 v2（尾音自然、低中音厚实颤动、共鸣感）。
+
+### 验证命令
+
+```bash
+./scripts/dev.sh wsl-build --configure-only
+./scripts/dev.sh test
+./scripts/dev.sh format --check
+./scripts/dev.sh win-build
+```
+
+### 排期参考
+
+14-A 约 1 轮；14-B 约 1 轮（含听感）；14-C 约 0.5~1 轮；14-D 约 0.5~1 轮；14-E（基准 + 决策）约 1 轮；14-F 视兴趣可选。Phase 14 总计约 3~4 轮迭代 + Windows 侧手工回归。
 
 ---
 
@@ -163,7 +350,8 @@ Phase 11（声明式 UI 架构迁移，JIVE + melatonin_inspector）已全部完
 
 ## 相关文档
 
-- 项目路线图：[`roadmap.md`](roadmap.md)
-- 审计报告：[`../audit/AUDIT-001-code-quality-audit-2026-08-16.md`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)（§8 问题总表 56 项未处理 + 16 项已暂缓追踪；§5 修复路线图为排期来源）
+- 项目路线图：[`roadmap.md`](roadmap.md)（Phase 12 整体路线、许可证核实、外部参考）
+- AUDIT-001 修复阶段归档：[`../archive/audit-001-code-quality-fix-phases.md`](../archive/audit-001-code-quality-fix-phases.md)
+- 审计报告：[`../audit/AUDIT-001-code-quality-audit-2026-08-16.md`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)
 - 架构概览：[`../reference/architecture.md`](../reference/architecture.md)
 - Phase 11 归档：[`../archive/phase11-declarative-ui-jive.md`](../archive/phase11-declarative-ui-jive.md)

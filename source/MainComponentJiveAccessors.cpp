@@ -411,6 +411,46 @@ double MainComponent::getControlsPlaybackSpeed() const {
     return 1.0;
 }
 
+SettingsModel::BuiltinTone MainComponent::getBuiltinToneFromUi() const {
+    return appSettings.builtinTone;
+}
+
+float MainComponent::getPianoBrightness() const {
+    if (jiveRootItem == nullptr) {
+        return 0.5f;
+    }
+    if (auto* item = jive::findItemWithID(*jiveRootItem, "brightness-knob")) {
+        if (auto* slider = dynamic_cast<juce::Slider*>(item->getComponent().get())) {
+            return static_cast<float>(slider->getValue());
+        }
+    }
+    return 0.5f;
+}
+
+float MainComponent::getPianoHammerHardness() const {
+    if (jiveRootItem == nullptr) {
+        return 0.5f;
+    }
+    if (auto* item = jive::findItemWithID(*jiveRootItem, "hardness-knob")) {
+        if (auto* slider = dynamic_cast<juce::Slider*>(item->getComponent().get())) {
+            return static_cast<float>(slider->getValue());
+        }
+    }
+    return 0.5f;
+}
+
+float MainComponent::getPianoResonance() const {
+    if (jiveRootItem == nullptr) {
+        return 0.5f;
+    }
+    if (auto* item = jive::findItemWithID(*jiveRootItem, "resonance-knob")) {
+        if (auto* slider = dynamic_cast<juce::Slider*>(item->getComponent().get())) {
+            return static_cast<float>(slider->getValue());
+        }
+    }
+    return 0.5f;
+}
+
 void MainComponent::setControlsValues(float masterGain, float attack, float decay, float sustain, float release) {
     if (jiveRootItem == nullptr) {
         return;
@@ -432,6 +472,24 @@ void MainComponent::setControlsValues(float masterGain, float attack, float deca
             curve->setParameters(attack, decay, sustain, release);
         }
     }
+}
+
+void MainComponent::setControlsPianoValues(SettingsModel::BuiltinTone tone, float brightness, float hammerHardness,
+                                           float resonance) {
+    juce::ignoreUnused(tone);
+    if (jiveRootItem == nullptr) {
+        return;
+    }
+    const auto setSlider = [this](const char* id, double value) {
+        if (auto* item = jive::findItemWithID(*jiveRootItem, id)) {
+            if (auto* slider = dynamic_cast<juce::Slider*>(item->getComponent().get())) {
+                slider->setValue(value, juce::dontSendNotification);
+            }
+        }
+    };
+    setSlider("brightness-knob", brightness);
+    setSlider("hardness-knob", hammerHardness);
+    setSlider("resonance-knob", resonance);
 }
 
 void MainComponent::setControlsPlaybackSpeed(double speed) {
@@ -627,6 +685,10 @@ void MainComponent::refreshControlsTexts() {
     setText("decay-label", TRANS("Decay"));
     setText("sustain-label", TRANS("Sustain"));
     setText("release-label", TRANS("Release"));
+    setText("tone-label", TRANS("Tone"));
+    setText("brightness-label", TRANS("Brightness"));
+    setText("hardness-label", TRANS("Hammer"));
+    setText("resonance-label", TRANS("Resonance"));
     setText("preset-card-title", TRANS("Performance Preset"));
     setText("adsr-curve-title", TRANS("ADSR Curve"));
     setText("transport-card-title", TRANS("Transport Controls"));

@@ -15,75 +15,15 @@ public:
             savedStateSnapshot = std::make_unique<juce::XmlElement>(*savedAudioDeviceState);
         }
 
+        contentContainer = std::make_unique<juce::Component>();
+
         selector = std::make_unique<juce::AudioDeviceSelectorComponent>(deviceManager, 0, 2, 0, 2, false, false, true,
                                                                         false);
-
-        addAndMakeVisible(selector.get());
-
-        // === Keyboard Display group ===
-        keyboardGroup.setText(TRANS("Keyboard Display"));
-        addAndMakeVisible(keyboardGroup);
-
-        // Colour mode
-        colourModeLabel.setText(TRANS("Colour Mode:"), juce::dontSendNotification);
-        colourModeLabel.attachToComponent(&colourModeCombo, true);
-        rebuildColourModeCombo();
-        if (model) {
-            colourModeCombo.setSelectedId(1 + static_cast<int>(model->keyboardDisplay.colourMode),
-                                          juce::dontSendNotification);
-        }
-        colourModeCombo.onChange
-            = [this] { editingState.setProperty("colourMode", colourModeCombo.getSelectedId(), nullptr); };
-        addAndMakeVisible(colourModeCombo);
-
-        // Note display
-        noteDisplayLabel.setText(TRANS("Note Display:"), juce::dontSendNotification);
-        noteDisplayLabel.attachToComponent(&noteDisplayCombo, true);
-        rebuildNoteDisplayCombo();
-        if (model) {
-            noteDisplayCombo.setSelectedId(1 + static_cast<int>(model->keyboardDisplay.noteDisplay),
-                                           juce::dontSendNotification);
-        }
-        noteDisplayCombo.onChange
-            = [this] { editingState.setProperty("noteDisplay", noteDisplayCombo.getSelectedId(), nullptr); };
-        addAndMakeVisible(noteDisplayCombo);
-
-        // Fade speed
-        fadeSpeedLabel.setText(TRANS("Fade Speed:"), juce::dontSendNotification);
-        fadeSpeedLabel.attachToComponent(&fadeSpeedSlider, true);
-        fadeSpeedSlider.setRange(0.50, 1.00, 0.01);
-        fadeSpeedSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-        fadeSpeedSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
-        if (model) {
-            fadeSpeedSlider.setValue(model->keyboardDisplay.fadeSpeed, juce::dontSendNotification);
-        }
-        fadeSpeedSlider.onValueChange
-            = [this] { editingState.setProperty("fadeSpeed", fadeSpeedSlider.getValue(), nullptr); };
-        addAndMakeVisible(fadeSpeedSlider);
-
-        // Resizable window toggle
-        resizableToggle.setButtonText(TRANS("Resizable Window"));
-        if (model) {
-            resizableToggle.setToggleState(model->keyboardDisplay.resizableWindow, juce::dontSendNotification);
-        }
-        resizableToggle.onStateChange
-            = [this] { editingState.setProperty("resizableWindow", resizableToggle.getToggleState(), nullptr); };
-        addAndMakeVisible(resizableToggle);
-
-        // Instrument filter toggle
-        instrumentFilterToggle.setButtonText(TRANS("Show MIDI/VSTi Instrument Filter"));
-        if (model) {
-            instrumentFilterToggle.setToggleState(model->keyboardDisplay.showInstrumentFilter,
-                                                  juce::dontSendNotification);
-        }
-        instrumentFilterToggle.onStateChange = [this] {
-            editingState.setProperty("showInstrumentFilter", instrumentFilterToggle.getToggleState(), nullptr);
-        };
-        addAndMakeVisible(instrumentFilterToggle);
+        contentContainer->addAndMakeVisible(selector.get());
 
         // === Key Signature group ===
         keySigGroup.setText(TRANS("Key Signature"));
-        addAndMakeVisible(keySigGroup);
+        contentContainer->addAndMakeVisible(keySigGroup);
 
         keySignatureLabel.setText(TRANS("Key Signature:"), juce::dontSendNotification);
         keySignatureLabel.attachToComponent(&keySignatureCombo, true);
@@ -95,7 +35,7 @@ public:
             auto ks = comboKeyMapping[static_cast<size_t>(keySignatureCombo.getSelectedId())];
             editingState.setProperty("keySignature", ks, nullptr);
         };
-        addAndMakeVisible(keySignatureCombo);
+        contentContainer->addAndMakeVisible(keySignatureCombo);
 
         midiTransposeToggle.setButtonText(TRANS("MIDI Transpose"));
         if (model) {
@@ -103,11 +43,11 @@ public:
         }
         midiTransposeToggle.onStateChange
             = [this] { editingState.setProperty("midiTranspose", midiTransposeToggle.getToggleState(), nullptr); };
-        addAndMakeVisible(midiTransposeToggle);
+        contentContainer->addAndMakeVisible(midiTransposeToggle);
 
         // Channel Follow Key toggles
         channelFollowKeyLabel.setText(TRANS("Channel Follow Key:"), juce::dontSendNotification);
-        addAndMakeVisible(channelFollowKeyLabel);
+        contentContainer->addAndMakeVisible(channelFollowKeyLabel);
         for (int ch = 0; ch < 16; ++ch) {
             auto& tb = followKeyToggles[static_cast<size_t>(ch)];
             tb.setButtonText("Ch" + juce::String(ch + 1));
@@ -120,18 +60,75 @@ public:
                 editingState.setProperty("followKey_" + juce::String(ch),
                                          followKeyToggles[static_cast<size_t>(ch)].getToggleState(), nullptr);
             };
-            addAndMakeVisible(tb);
+            contentContainer->addAndMakeVisible(tb);
         }
         updateFollowKeyTogglesVisibility();
 
-        // Diagnostics editor + Save button (unchanged)
-        diagnosticsEditor.setMultiLine(true);
-        diagnosticsEditor.setReadOnly(true);
+        // === Keyboard Display group ===
+        keyboardGroup.setText(TRANS("Keyboard Display"));
+        contentContainer->addAndMakeVisible(keyboardGroup);
+
+        // Colour mode
+        colourModeLabel.setText(TRANS("Colour Mode:"), juce::dontSendNotification);
+        colourModeLabel.attachToComponent(&colourModeCombo, true);
+        rebuildColourModeCombo();
+        if (model) {
+            colourModeCombo.setSelectedId(1 + static_cast<int>(model->keyboardDisplay.colourMode),
+                                          juce::dontSendNotification);
+        }
+        colourModeCombo.onChange
+            = [this] { editingState.setProperty("colourMode", colourModeCombo.getSelectedId(), nullptr); };
+        contentContainer->addAndMakeVisible(colourModeCombo);
+
+        // Note display
+        noteDisplayLabel.setText(TRANS("Note Display:"), juce::dontSendNotification);
+        noteDisplayLabel.attachToComponent(&noteDisplayCombo, true);
+        rebuildNoteDisplayCombo();
+        if (model) {
+            noteDisplayCombo.setSelectedId(1 + static_cast<int>(model->keyboardDisplay.noteDisplay),
+                                           juce::dontSendNotification);
+        }
+        noteDisplayCombo.onChange
+            = [this] { editingState.setProperty("noteDisplay", noteDisplayCombo.getSelectedId(), nullptr); };
+        contentContainer->addAndMakeVisible(noteDisplayCombo);
+
+        // Fade speed
+        fadeSpeedLabel.setText(TRANS("Fade Speed:"), juce::dontSendNotification);
+        fadeSpeedLabel.attachToComponent(&fadeSpeedSlider, true);
+        fadeSpeedSlider.setRange(0.50, 1.00, 0.01);
+        fadeSpeedSlider.setSliderStyle(juce::Slider::LinearHorizontal);
+        fadeSpeedSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
+        if (model) {
+            fadeSpeedSlider.setValue(model->keyboardDisplay.fadeSpeed, juce::dontSendNotification);
+        }
+        fadeSpeedSlider.onValueChange
+            = [this] { editingState.setProperty("fadeSpeed", fadeSpeedSlider.getValue(), nullptr); };
+        contentContainer->addAndMakeVisible(fadeSpeedSlider);
+
+        // Resizable window toggle
+        resizableToggle.setButtonText(TRANS("Resizable Window"));
+        if (model) {
+            resizableToggle.setToggleState(model->keyboardDisplay.resizableWindow, juce::dontSendNotification);
+        }
+        resizableToggle.onStateChange
+            = [this] { editingState.setProperty("resizableWindow", resizableToggle.getToggleState(), nullptr); };
+        contentContainer->addAndMakeVisible(resizableToggle);
+
+        // Instrument filter toggle
+        instrumentFilterToggle.setButtonText(TRANS("Show MIDI/VSTi Instrument Filter"));
+        if (model) {
+            instrumentFilterToggle.setToggleState(model->keyboardDisplay.showInstrumentFilter,
+                                                  juce::dontSendNotification);
+        }
+        instrumentFilterToggle.onStateChange = [this] {
+            editingState.setProperty("showInstrumentFilter", instrumentFilterToggle.getToggleState(), nullptr);
+        };
+        contentContainer->addAndMakeVisible(instrumentFilterToggle);
 
         // === Language ===
         languageLabel.setText(TRANS("Language:"), juce::dontSendNotification);
         languageLabel.attachToComponent(&languageCombo, true);
-        addAndMakeVisible(languageLabel);
+        contentContainer->addAndMakeVisible(languageLabel);
         using devpiano::locale::Language;
         languageCombo.addItem("English", 1);
         languageCombo.addItem(devpiano::locale::languageDisplayName(Language::zhCN), 2);
@@ -143,18 +140,20 @@ public:
                                      languageCombo.getSelectedId() == 2 ? juce::String("zh-CN") : juce::String("en"),
                                      nullptr);
         };
-        addAndMakeVisible(languageCombo);
+        contentContainer->addAndMakeVisible(languageCombo);
 
-        // Diagnostics editor + Save button (unchanged)
+        // Diagnostics editor + Save button
+        diagnosticsEditor.setMultiLine(true);
+        diagnosticsEditor.setReadOnly(true);
         diagnosticsEditor.setScrollbarsShown(true);
         diagnosticsEditor.setCaretVisible(false);
         diagnosticsEditor.setPopupMenuEnabled(true);
         diagnosticsEditor.setWantsKeyboardFocus(false);
         diagnosticsEditor.setMouseClickGrabsKeyboardFocus(false);
-        addAndMakeVisible(diagnosticsEditor);
+        contentContainer->addAndMakeVisible(diagnosticsEditor);
 
         saveButton.setButtonText(TRANS("Save"));
-        addAndMakeVisible(saveButton);
+        contentContainer->addAndMakeVisible(saveButton);
         saveButton.onClick = [this] {
             dirty = false;
             if (onSaveRequested) {
@@ -177,9 +176,13 @@ public:
                                          model->channelMatrix.channels[static_cast<size_t>(ch)].followKey, nullptr);
             }
             editingState.addListener(this);
-            // ToggleButtons use explicit onStateChange (not referTo) — see constructor above.
         }
-        setSize(560, 926);
+
+        viewport.setViewedComponent(contentContainer.get(), false);
+        viewport.setScrollBarsShown(true, false);
+        addAndMakeVisible(viewport);
+
+        setSize(560, 800);
         deviceManager.addChangeListener(this);
 
         updateDiagnostics();
@@ -251,12 +254,13 @@ public:
         // Re-create AudioDeviceSelectorComponent so its internal labels re-evaluate
         // TRANS() with the now-active language. JUCE's component only calls TRANS()
         // in its constructor and has no runtime i18n API.
-        removeChildComponent(selector.get());
-        selector = std::make_unique<juce::AudioDeviceSelectorComponent>(deviceManager, 0, 2, 0, 2, false, false, true,
-                                                                        false);
-        addAndMakeVisible(selector.get());
-        resized();
-
+        if (contentContainer != nullptr) {
+            contentContainer->removeChildComponent(selector.get());
+            selector = std::make_unique<juce::AudioDeviceSelectorComponent>(deviceManager, 0, 2, 0, 2, false, false,
+                                                                            true, false);
+            contentContainer->addAndMakeVisible(selector.get());
+        }
+        layoutContent();
         if (onRefreshTexts) {
             onRefreshTexts();
         }
@@ -267,20 +271,63 @@ public:
     }
 
     void resized() override {
-        auto area = getLocalBounds().reduced(8);
+        viewport.setBounds(getLocalBounds());
+        layoutContent();
+    }
 
-        // Bottom: save button + diagnostics
-        auto bottomArea = area.removeFromBottom(100);
-        auto buttonRow = bottomArea.removeFromBottom(36);
-        saveButton.setBounds(buttonRow.removeFromRight(120).reduced(4));
-        diagnosticsEditor.setBounds(bottomArea);
-        // Above diagnostics: keyboard display group + language
-        auto keyboardArea = area.removeFromBottom(222);
-        keyboardGroup.setBounds(keyboardArea);
-        auto groupContent = keyboardArea.reduced(12, 16);
+    void layoutContent() {
+        if (contentContainer == nullptr) {
+            return;
+        }
 
+        const auto availableWidth = viewport.getMaximumVisibleWidth();
+        const auto contentWidth = juce::jmax(520, availableWidth);
+
+        constexpr int padding = 10;
         constexpr int rowH = 26;
         constexpr int controlW = 200;
+        constexpr int gap = 12;
+
+        auto area = juce::Rectangle<int>(padding, padding, contentWidth - padding * 2, 10000);
+
+        // 1. Audio Device Selector (顶部，高度自然贴合，预留适度间距)
+        constexpr int selectorH = 234;
+        selector->setBounds(area.removeFromTop(selectorH));
+        area.removeFromTop(gap);
+
+        // 2. Key Signature group (调号与通道跟随)
+        const auto hasFollowKey = midiTransposeToggle.getToggleState();
+        const auto keySigH = hasFollowKey ? 152 : 82;
+        auto keySigArea = area.removeFromTop(keySigH);
+        keySigGroup.setBounds(keySigArea);
+        auto ksContent = keySigArea.reduced(12, 16);
+
+        auto ksRow = ksContent.removeFromTop(rowH);
+        keySignatureCombo.setBounds(ksRow.removeFromRight(controlW).reduced(2));
+
+        ksRow = ksContent.removeFromTop(rowH);
+        midiTransposeToggle.setBounds(ksRow.removeFromRight(controlW).reduced(2));
+
+        if (hasFollowKey) {
+            ksContent.removeFromTop(4);
+            channelFollowKeyLabel.setBounds(ksContent.removeFromTop(rowH));
+            constexpr int chBtnW = 56;
+            constexpr int chSpacing = 4;
+            auto chArea = ksContent.removeFromTop(rowH * 2);
+            for (int ch = 0; ch < 16; ++ch) {
+                int col = ch % 8;
+                int rowIdx = ch / 8;
+                followKeyToggles[static_cast<size_t>(ch)].setBounds(chArea.getX() + col * (chBtnW + chSpacing),
+                                                                    chArea.getY() + rowIdx * rowH, chBtnW, rowH - 2);
+            }
+        }
+        area.removeFromTop(gap);
+
+        // 3. Keyboard Display group (键盘显示与语言)
+        constexpr int keyboardH = 212;
+        auto keyboardArea = area.removeFromTop(keyboardH);
+        keyboardGroup.setBounds(keyboardArea);
+        auto groupContent = keyboardArea.reduced(12, 16);
 
         auto row = groupContent.removeFromTop(rowH);
         colourModeCombo.setBounds(row.removeFromRight(controlW).reduced(2));
@@ -291,40 +338,29 @@ public:
         row = groupContent.removeFromTop(rowH);
         fadeSpeedSlider.setBounds(row.removeFromRight(controlW).reduced(2));
 
+        row = groupContent.removeFromTop(rowH);
         resizableToggle.setBounds(row.removeFromRight(controlW).reduced(2));
-
         row = groupContent.removeFromTop(rowH);
         instrumentFilterToggle.setBounds(row.removeFromRight(controlW).reduced(2));
+
         row = groupContent.removeFromTop(rowH);
         languageCombo.setBounds(row.removeFromRight(controlW).reduced(2));
+        area.removeFromTop(gap);
 
-        // Key Signature group
-        auto keySigArea = area.removeFromBottom(150);
-        keySigGroup.setBounds(keySigArea);
-        auto ksContent = keySigArea.reduced(12, 16);
+        // 4. Diagnostics Editor (Saved state 诊断信息，96px 舒适容纳 5 行文本)
+        constexpr int diagH = 96;
+        diagnosticsEditor.setBounds(area.removeFromTop(diagH));
+        area.removeFromTop(10);
 
-        auto ksRow = ksContent.removeFromTop(rowH);
-        keySignatureCombo.setBounds(ksRow.removeFromRight(controlW).reduced(2));
+        // 5. Save Button (右对齐，紧凑底边距)
+        constexpr int btnH = 30;
+        constexpr int btnW = 110;
+        auto btnRow = area.removeFromTop(btnH);
+        saveButton.setBounds(btnRow.removeFromRight(btnW).reduced(2));
 
-        ksRow = ksContent.removeFromTop(rowH);
-        midiTransposeToggle.setBounds(ksRow.removeFromRight(controlW).reduced(2));
-
-        ksContent.removeFromTop(4);
-        channelFollowKeyLabel.setBounds(ksContent.removeFromTop(rowH));
-        // 2 rows of 8 channel toggles
-        constexpr int chBtnW = 56;
-        constexpr int chSpacing = 4;
-        auto chArea = ksContent.removeFromTop(rowH * 2);
-        for (int ch = 0; ch < 16; ++ch) {
-            int col = ch % 8;
-            int rowIdx = ch / 8;
-            followKeyToggles[static_cast<size_t>(ch)].setBounds(chArea.getX() + col * (chBtnW + chSpacing),
-                                                                chArea.getY() + rowIdx * rowH, chBtnW, rowH - 2);
-        }
-
-        selector->setBounds(area);
+        const auto totalHeight = 10000 - area.getHeight() + padding;
+        contentContainer->setBounds(0, 0, contentWidth, totalHeight);
     }
-
     bool isDirty() const noexcept {
         return dirty;
     }
@@ -339,6 +375,9 @@ public:
 private:
     juce::AudioDeviceManager& deviceManager;
     SettingsModel* model;
+
+    juce::Viewport viewport;
+    std::unique_ptr<juce::Component> contentContainer;
 
     std::unique_ptr<juce::AudioDeviceSelectorComponent> selector;
 
@@ -389,7 +428,7 @@ private:
         for (auto& tb : followKeyToggles) {
             tb.setVisible(visible);
         }
-        resized();
+        layoutContent();
     }
     void updateDiagnostics() {
         const auto diagnostics = devpiano::audio::buildAudioDeviceDiagnostics(savedStateSnapshot.get(), deviceManager);

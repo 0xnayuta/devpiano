@@ -1,5 +1,7 @@
 #include "AudioEngine.h"
 
+#include "Audio/PianoSynthVoice.h"
+#include "Audio/SineSynthVoice.h"
 #include "Plugin/PluginHost.h"
 #include "Recording/RecordingEngine.h"
 
@@ -27,85 +29,6 @@ int AudioEngine::calculatePlaybackStartPreRollBlockCount(double sampleRate, int 
     return juce::jmax(
         1, static_cast<int>(std::ceil(playbackStartPreRollSeconds * sampleRate / static_cast<double>(blockSize))));
 }
-
-class AudioEngine::SimpleSineSound final : public juce::SynthesiserSound {
-public:
-    bool appliesToNote(int) override {
-        return true;
-    }
-    bool appliesToChannel(int) override {
-        return true;
-    }
-};
-
-class AudioEngine::SimpleSineVoice final : public juce::SynthesiserVoice {
-public:
-    bool canPlaySound(juce::SynthesiserSound* sound) override {
-        return dynamic_cast<SimpleSineSound*>(sound) != nullptr;
-    }
-
-    void setAdsrParameters(const juce::ADSR::Parameters& parameters) {
-        adsr.setParameters(parameters);
-    }
-
-    void startNote(int midiNoteNumber, float velocity, juce::SynthesiserSound*, int) override {
-        level = velocity * 0.2f;
-        frequency = static_cast<float>(juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber));
-        phase = 0.0;
-        increment
-            = static_cast<float>(juce::MathConstants<double>::twoPi * static_cast<double>(frequency) / getSampleRate());
-
-        adsr.setSampleRate(getSampleRate());
-        adsr.noteOn();
-    }
-
-    void stopNote(float, bool allowTailOff) override {
-        if (allowTailOff) {
-            adsr.noteOff();
-            return;
-        }
-
-        adsr.reset();
-        clearCurrentNote();
-    }
-
-    void pitchWheelMoved(int) override {
-    }
-    void controllerMoved(int, int) override {
-    }
-
-    void renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int startSample, int numSamples) override {
-        if (!isVoiceActive()) {
-            return;
-        }
-
-        for (int sample = 0; sample < numSamples; ++sample) {
-            const auto envelope = adsr.getNextSample();
-            if (envelope <= 0.0f && !adsr.isActive()) {
-                clearCurrentNote();
-                break;
-            }
-
-            const auto value = static_cast<float>(std::sin(phase) * level * envelope);
-            phase += increment;
-            if (phase >= juce::MathConstants<double>::twoPi) {
-                phase -= juce::MathConstants<double>::twoPi;
-            }
-
-            const auto sampleIndex = startSample + sample;
-            for (auto channel = 0; channel < outputBuffer.getNumChannels(); ++channel) {
-                outputBuffer.addSample(channel, sampleIndex, value);
-            }
-        }
-    }
-
-private:
-    double phase = 0.0;
-    float increment = 0.0f;
-    float frequency = 440.0f;
-    float level = 0.0f;
-    juce::ADSR adsr;
-};
 
 AudioEngine::AudioEngine() {
     adsrParameters.attack = 0.01f;
@@ -257,22 +180,56 @@ void AudioEngine::setAdsr(float attackSeconds, float decaySeconds, float sustain
     updateAdsrOnVoices();
 }
 
+void AudioEngine::setPianoParameters(float brightness, float hammerHardness, float resonance) {
+    pianoBrightness = juce::jlimit(0.0f, 1.0f, brightness);
+    pianoHammerHardness = juce::jlimit(0.0f, 1.0f, hammerHardness);
+    pianoResonance = juce::jlimit(0.0f, 1.0f, resonance);
+    updatePianoParametersOnVoices();
+}
+
+void AudioEngine::setBuiltinSynthTone(BuiltinSynthTone tone) {
+    if (builtinTone == tone) {
+        return;
+    }
+
+    builtinTone = tone;
+    rebuildSynth();
+}
+
 void AudioEngine::rebuildSynth() {
     synth.clearSounds();
     synth.clearVoices();
 
-    synth.addSound(new SimpleSineSound());
-    for (auto index = 0; index < 8; ++index) {
-        synth.addVoice(new SimpleSineVoice());
+    if (builtinTone == BuiltinSynthTone::piano) {
+        synth.addSound(new PianoSynthSound());
+        for (auto index = 0; index < 8; ++index) {
+            synth.addVoice(new PianoSynthVoice());
+        }
+    } else {
+        synth.addSound(new SineSynthSound());
+        for (auto index = 0; index < 8; ++index) {
+            synth.addVoice(new SineSynthVoice());
+        }
     }
 
     updateAdsrOnVoices();
+    updatePianoParametersOnVoices();
+}
+
+void AudioEngine::updatePianoParametersOnVoices() {
+    for (auto index = 0; index < synth.getNumVoices(); ++index) {
+        if (auto* voice = dynamic_cast<PianoSynthVoice*>(synth.getVoice(index))) {
+            voice->setPianoParameters(pianoBrightness, pianoHammerHardness, pianoResonance);
+        }
+    }
 }
 
 void AudioEngine::updateAdsrOnVoices() {
     for (auto index = 0; index < synth.getNumVoices(); ++index) {
-        if (auto* voice = dynamic_cast<SimpleSineVoice*>(synth.getVoice(index))) {
-            voice->setAdsrParameters(adsrParameters);
+        if (auto* sineVoice = dynamic_cast<SineSynthVoice*>(synth.getVoice(index))) {
+            sineVoice->setAdsrParameters(adsrParameters);
+        } else if (auto* pianoVoice = dynamic_cast<PianoSynthVoice*>(synth.getVoice(index))) {
+            pianoVoice->setAdsrParameters(adsrParameters);
         }
     }
 }

@@ -74,6 +74,10 @@ WavExportOptions buildWavExportOptions(const devpiano::recording::RecordingTake&
     options.adsr.decay = performance.adsrDecay;
     options.adsr.sustain = performance.adsrSustain;
     options.adsr.release = performance.adsrRelease;
+    options.builtinTone = performance.builtinTone;
+    options.pianoBrightness = performance.pianoBrightness;
+    options.pianoHammerHardness = performance.pianoHammerHardness;
+    options.pianoResonance = performance.pianoResonance;
     return options;
 }
 

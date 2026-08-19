@@ -75,13 +75,13 @@ public:
         // Title / info area (non-editable)
         titleLabel.setText(TRANS("Key Binding Editor") + " — " + noteName + " (#" + juce::String(midiNote) + ")",
                            juce::dontSendNotification);
-        titleLabel.setFont(juce::Font(juce::FontOptions(14.0f, juce::Font::bold)));
+        titleLabel.setFont(juce::Font(juce::FontOptions(16.0f, juce::Font::bold)));
         addAndMakeVisible(titleLabel);
 
         if (existingBinding != nullptr) {
             // Editable form for an existing binding
             infoLabel.setText(TRANS("Bound to keyboard key:") + "  " + keyLabel, juce::dontSendNotification);
-            infoLabel.setFont(juce::Font(juce::FontOptions(13.0f)));
+            infoLabel.setFont(juce::Font(juce::FontOptions(15.0f)));
             addAndMakeVisible(infoLabel);
 
             const auto& act = existingBinding->action;
@@ -89,7 +89,7 @@ public:
             // MIDI Channel
             channelLabel.setText(TRANS("MIDI Channel:"), juce::dontSendNotification);
             channelLabel.attachToComponent(&channelCombo, true);
-            channelLabel.setFont(juce::Font(juce::FontOptions(13.0f)));
+            channelLabel.setFont(juce::Font(juce::FontOptions(15.0f)));
             addAndMakeVisible(channelLabel);
             for (int ch = 1; ch <= 16; ++ch) {
                 channelCombo.addItem(juce::String(ch), ch);
@@ -104,7 +104,7 @@ public:
             noteSlider.setNumDecimalPlacesToDisplay(0);
             noteLabel.setText(TRANS("MIDI Note:"), juce::dontSendNotification);
             noteLabel.attachToComponent(&noteSlider, true);
-            noteLabel.setFont(juce::Font(juce::FontOptions(13.0f)));
+            noteLabel.setFont(juce::Font(juce::FontOptions(15.0f)));
             addAndMakeVisible(noteLabel);
             addAndMakeVisible(noteSlider);
 
@@ -115,7 +115,7 @@ public:
             velocitySlider.setNumDecimalPlacesToDisplay(0);
             velocityLabel.setText(TRANS("Velocity:"), juce::dontSendNotification);
             velocityLabel.attachToComponent(&velocitySlider, true);
-            velocityLabel.setFont(juce::Font(juce::FontOptions(13.0f)));
+            velocityLabel.setFont(juce::Font(juce::FontOptions(15.0f)));
             addAndMakeVisible(velocityLabel);
             addAndMakeVisible(velocitySlider);
 
@@ -131,7 +131,7 @@ public:
         } else {
             // Read-only: no binding exists for this note
             infoLabel.setText(TRANS("No keyboard key is currently mapped to this note."), juce::dontSendNotification);
-            infoLabel.setFont(juce::Font(juce::FontOptions(13.0f)));
+            infoLabel.setFont(juce::Font(juce::FontOptions(15.0f)));
             addAndMakeVisible(infoLabel);
 
             closeButton.onClick = [this] { confirmOrClose(); };
@@ -143,10 +143,11 @@ public:
         // ---- Per-key custom label (always shown, regardless of binding) ----
         customLabelLabel.setText(TRANS("Label:"), juce::dontSendNotification);
         customLabelLabel.attachToComponent(&customLabelEditor, true);
-        customLabelLabel.setFont(juce::Font(juce::FontOptions(13.0f)));
+        customLabelLabel.setFont(juce::Font(juce::FontOptions(15.0f)));
         addAndMakeVisible(customLabelLabel);
 
         customLabelEditor.setText(customLabel, juce::dontSendNotification);
+        customLabelEditor.setFont(juce::FontOptions(15.0f));
         customLabelEditor.setInputRestrictions(32, {});
         addAndMakeVisible(customLabelEditor);
 
@@ -343,6 +344,7 @@ public:
         : juce::DialogWindow(title, background, true, true) {
         setUsingNativeTitleBar(true);
         setContentOwned(content.release(), true);
+        setResizable(false, false);
         centreAroundComponent(nullptr, getWidth(), getHeight());
         // enterModalState implicitly makes the component visible.
         enterModalState(true, juce::ModalCallbackFunction::create([this](int) { delete this; }), true);

@@ -376,13 +376,6 @@ juce::ValueTree makeControlsPanelTree() {
     adsrCard.setProperty("margin", "0 10 0 0", nullptr);
     adsrCard.setProperty("border-width", "1", nullptr);
 
-    // 5 Rotary Knobs (Volume, Attack, Decay, Sustain, Release)
-    auto knobsRow = flexRow("knobs-row");
-    knobsRow.setProperty("title", TRANS("Knobs Row"), nullptr);
-    knobsRow.setProperty("height", 72, nullptr);
-    knobsRow.setProperty("justify-content", "space-around", nullptr);
-    knobsRow.setProperty("margin", "0 0 8 0", nullptr);
-
     const auto makeKnob = [](const juce::String& id, const juce::String& labelId, const juce::String& labelText) {
         auto wrapper = node("Component", id + "-wrap");
         wrapper.setProperty("title", labelText, nullptr);
@@ -405,13 +398,29 @@ juce::ValueTree makeControlsPanelTree() {
         return wrapper;
     };
 
-    knobsRow.appendChild(makeKnob("volume-knob", "volume-label", TRANS("Volume")), nullptr);
+    // 第一行（上四：音量与钢琴音色参数：Volume, Brightness, Hammer, Resonance）
+    auto pianoRow = flexRow("piano-row");
+    pianoRow.setProperty("title", TRANS("Piano Row"), nullptr);
+    pianoRow.setProperty("height", 72, nullptr);
+    pianoRow.setProperty("justify-content", "space-around", nullptr);
+    pianoRow.setProperty("margin", "0 0 8 0", nullptr);
+    pianoRow.appendChild(makeKnob("volume-knob", "volume-label", TRANS("Volume")), nullptr);
+    pianoRow.appendChild(makeKnob("brightness-knob", "brightness-label", TRANS("Brightness")), nullptr);
+    pianoRow.appendChild(makeKnob("hardness-knob", "hardness-label", TRANS("Hammer")), nullptr);
+    pianoRow.appendChild(makeKnob("resonance-knob", "resonance-label", TRANS("Resonance")), nullptr);
+    adsrCard.appendChild(pianoRow, nullptr);
+
+    // 第二行（下四：ADSR 包络参数：Attack, Decay, Sustain, Release）
+    auto knobsRow = flexRow("knobs-row");
+    knobsRow.setProperty("title", TRANS("Knobs Row"), nullptr);
+    knobsRow.setProperty("height", 72, nullptr);
+    knobsRow.setProperty("justify-content", "space-around", nullptr);
+    knobsRow.setProperty("margin", "0 0 8 0", nullptr);
     knobsRow.appendChild(makeKnob("attack-knob", "attack-label", TRANS("Attack")), nullptr);
     knobsRow.appendChild(makeKnob("decay-knob", "decay-label", TRANS("Decay")), nullptr);
     knobsRow.appendChild(makeKnob("sustain-knob", "sustain-label", TRANS("Sustain")), nullptr);
     knobsRow.appendChild(makeKnob("release-knob", "release-label", TRANS("Release")), nullptr);
     adsrCard.appendChild(knobsRow, nullptr);
-
     auto adsrTitle = text(TRANS("ADSR Curve"), "adsr-curve-title");
     adsrTitle.setProperty("height", 14, nullptr);
     adsrTitle.setProperty("margin", "0 0 6 0", nullptr);
@@ -591,6 +600,16 @@ void refreshTitles(::jive::GuiItem& root) {
         { "file-row-3", "File Row 3" },
         { "adsr-card", "ADSR Card" },
         { "knobs-row", "Knobs Row" },
+        { "piano-row", "Piano Row" },
+        { "brightness-knob", "Brightness" },
+        { "brightness-knob-wrap", "Brightness" },
+        { "brightness-label", "Brightness" },
+        { "hardness-knob", "Hammer" },
+        { "hardness-knob-wrap", "Hammer" },
+        { "hardness-label", "Hammer" },
+        { "resonance-knob", "Resonance" },
+        { "resonance-knob-wrap", "Resonance" },
+        { "resonance-label", "Resonance" },
         { "volume-knob", "Volume" },
         { "volume-knob-wrap", "Volume" },
         { "attack-knob", "Attack" },

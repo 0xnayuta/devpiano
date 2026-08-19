@@ -73,7 +73,7 @@ public:
     // Test hook: snapshot the current token root for save/restore across
     // unit-test cases (the singleton is shared process-wide).
     [[nodiscard]] juce::var currentRootForTest() const {
-        return { root };
+        return root.get();
     }
 
     // Reset to the pristine empty state (TEST-013): clears the loaded JSON so

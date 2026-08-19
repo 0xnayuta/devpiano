@@ -1,9 +1,9 @@
 #include "Export/WavExportTask.h"
 
+#include "Diagnostics/Log.h"
 #include "Recording/PluginOfflineRenderer.h"
 #include "Recording/WavFileExporter.h"
-
-#include "Diagnostics/Log.h"
+#include "UI/jive/DesignTokens.h"
 // ============================================================================
 WavExportTask::WavExportTask(
     // NOLINTNEXTLINE(modernize-pass-by-value) - RecordingTake/juce::File 均非重型类型，按值 + move 与 const& 开销相同
@@ -17,11 +17,21 @@ WavExportTask::WavExportTask(
     , options(options_)
     , offlinePlugin(std::move(offlinePlugin_)) {
     if (auto* w = getAlertWindow()) {
-        w->centreWithSize(400, 120);
+        if (parentToCentreAround != nullptr) {
+            w->setLookAndFeel(&parentToCentreAround->getLookAndFeel());
+        }
+        w->setColour(juce::AlertWindow::backgroundColourId, devpiano::jive::DesignTokens::get().mainBg());
+        w->setColour(juce::AlertWindow::textColourId, devpiano::jive::DesignTokens::get().textPrimary());
+        w->setColour(juce::AlertWindow::outlineColourId, devpiano::jive::DesignTokens::get().textSecondary());
+        w->centreWithSize(400, 130);
     }
 }
 
-WavExportTask::~WavExportTask() = default;
+WavExportTask::~WavExportTask() {
+    if (auto* w = getAlertWindow()) {
+        w->setLookAndFeel(nullptr);
+    }
+}
 
 // ============================================================================
 void WavExportTask::run() {
@@ -80,7 +90,7 @@ void WavExportTask::run() {
                         DP_LOG_WARN("Failed to clean up cancelled WAV: " + destinationFile.getFullPathName());
                     }
                 } else {
-                    errorMessage = TRANS("Export failed during sine synth rendering.");
+                    errorMessage = TRANS("Export failed during built-in synth rendering.");
                     // ERR-009：非取消失败也清理残留的部分文件。
                     if (!destinationFile.deleteFile()) {
                         DP_LOG_WARN("Failed to clean up failed WAV: " + destinationFile.getFullPathName());

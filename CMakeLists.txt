@@ -1,8 +1,7 @@
 cmake_minimum_required(VERSION 3.22)
 
 # 定义项目名称与版本
-project(devpiano VERSION 0.3.0)
-
+project(devpiano VERSION 0.4.0)
 # ========================================================
 # 1. 引入 JUCE 框架
 # ========================================================
@@ -61,6 +60,8 @@ target_sources(devpiano PRIVATE
     source/MainComponentJiveAccessors.cpp
     source/Audio/AudioEngine.cpp
     source/Audio/AudioEngine.h
+    source/Audio/SineSynthVoice.h
+    source/Audio/PianoSynthVoice.h
     source/Audio/AudioDeviceDiagnostics.h
     source/Input/KeyboardMidiMapper.cpp
     source/Input/KeyboardMidiMapper.h
@@ -270,6 +271,8 @@ if (BUILD_TESTS)
         source/Midi/MidiChannelMapper.h
         source/Audio/AudioEngine.cpp
         source/Audio/AudioEngine.h
+        source/Audio/SineSynthVoice.h
+        source/Audio/PianoSynthVoice.h
         source/Plugin/PluginHost.cpp
         source/Plugin/PluginHost.h
 
@@ -318,6 +321,7 @@ if (BUILD_TESTS)
         source/tests/ExportFlowTest.cpp
         source/tests/PluginHostXmlTest.cpp
         source/tests/KeyboardHitMappingTest.cpp
+        source/tests/PianoSynthVoiceTest.cpp
     )
     target_link_libraries(devpiano_tests PRIVATE
         juce::juce_core

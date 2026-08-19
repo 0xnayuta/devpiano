@@ -3,6 +3,7 @@
 #include <JuceHeader.h>
 
 #include "../Midi/ChannelMatrix.h"
+#include "../Settings/SettingsModel.h"
 #include "Core/KeyMapTypes.h"
 
 namespace devpiano::core {
@@ -36,6 +37,10 @@ struct PerformanceState {
     float adsrDecay = 0.20f;
     float adsrSustain = 0.80f;
     float adsrRelease = 0.30f;
+    SettingsModel::BuiltinTone builtinTone = SettingsModel::BuiltinTone::piano;
+    float pianoBrightness = 0.50f;
+    float pianoHammerHardness = 0.50f;
+    float pianoResonance = 0.50f;
 };
 
 struct PluginState {

@@ -499,6 +499,15 @@ void MainComponent::initialiseUi() {
             wireAdsrKnob("sustain-knob", 0.0, 1.0, 0.01,
                          [](double v) { return juce::String(juce::roundToInt(v * 100.0)) + "%"; });
             wireAdsrKnob("release-knob", 0.001, 3.0, 0.001, [](double v) { return juce::String(v, 3) + "s"; });
+
+            // ── piano tone row (Phase 12-3) ──
+            const auto wirePianoKnob
+                = [&wireKnob, this](const char* id, const std::function<juce::String(double)>& formatter) {
+                      wireKnob(id, 0.0, 1.0, 0.01, formatter, [this] { handlePerformanceUiChanged(); });
+                  };
+            wirePianoKnob("brightness-knob", [](double v) { return juce::String(juce::roundToInt(v * 100.0)) + "%"; });
+            wirePianoKnob("hardness-knob", [](double v) { return juce::String(juce::roundToInt(v * 100.0)) + "%"; });
+            wirePianoKnob("resonance-knob", [](double v) { return juce::String(juce::roundToInt(v * 100.0)) + "%"; });
             wireKnob(
                 "speed-knob", 0.5, 2.0, 0.25,
                 [](double v) {
@@ -1023,7 +1032,11 @@ SettingsModel::PerformanceSettingsView MainComponent::getPerformanceSettingsFrom
              .adsrAttack = getAttack(),
              .adsrDecay = getDecay(),
              .adsrSustain = getSustain(),
-             .adsrRelease = getRelease() };
+             .adsrRelease = getRelease(),
+             .builtinTone = getBuiltinToneFromUi(),
+             .pianoBrightness = getPianoBrightness(),
+             .pianoHammerHardness = getPianoHammerHardness(),
+             .pianoResonance = getPianoResonance() };
 }
 
 juce::String MainComponent::getLastPluginNameForRecoveryStateFromUi() const {
@@ -1054,12 +1067,24 @@ SettingsModel::PluginRecoverySettingsView MainComponent::getPluginRecoverySettin
 void MainComponent::applyPerformanceSettingsToUi(const SettingsModel::PerformanceSettingsView& performance) {
     setControlsValues(performance.masterGain, performance.adsrAttack, performance.adsrDecay, performance.adsrSustain,
                       performance.adsrRelease);
+    setControlsPianoValues(performance.builtinTone, performance.pianoBrightness, performance.pianoHammerHardness,
+                           performance.pianoResonance);
 }
 
 void MainComponent::applyPerformanceSettingsToAudioEngine(const SettingsModel::PerformanceSettingsView& performance) {
     audioEngine.setMasterGain(performance.masterGain);
     audioEngine.setAdsr(performance.adsrAttack, performance.adsrDecay, performance.adsrSustain,
                         performance.adsrRelease);
+    audioEngine.setBuiltinSynthTone(performance.builtinTone == SettingsModel::BuiltinTone::piano
+                                        ? AudioEngine::BuiltinSynthTone::piano
+                                        : AudioEngine::BuiltinSynthTone::sine);
+    audioEngine.setPianoParameters(performance.pianoBrightness, performance.pianoHammerHardness,
+                                   performance.pianoResonance);
+}
+void MainComponent::setBuiltinSynthTone(SettingsModel::BuiltinTone tone) {
+    appSettings.builtinTone = tone;
+    audioEngine.setBuiltinSynthTone(tone == SettingsModel::BuiltinTone::piano ? AudioEngine::BuiltinSynthTone::piano
+                                                                              : AudioEngine::BuiltinSynthTone::sine);
 }
 
 void MainComponent::applyPluginRecoverySettings(const SettingsModel::PluginRecoverySettingsView& pluginRecovery) {

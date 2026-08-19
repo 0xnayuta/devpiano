@@ -73,6 +73,7 @@ public:
     bool keyPressed(const juce::KeyPress& key) override;
     bool keyStateChanged(bool isKeyDown) override;
     [[nodiscard]] bool isKeyboardInputSuppressed() const noexcept;
+    void setBuiltinSynthTone(SettingsModel::BuiltinTone tone);
     [[nodiscard]] bool shouldTakeKeyboardFocus() const noexcept;
 
 protected:
@@ -91,6 +92,10 @@ private:
     void initialiseUi();
     [[nodiscard]] juce::Rectangle<int> getInitialMainContentBounds() const;
     [[nodiscard]] SettingsModel::PerformanceSettingsView getPerformanceSettingsFromUi() const;
+    [[nodiscard]] SettingsModel::BuiltinTone getBuiltinToneFromUi() const;
+    [[nodiscard]] float getPianoBrightness() const;
+    [[nodiscard]] float getPianoHammerHardness() const;
+    [[nodiscard]] float getPianoResonance() const;
     [[nodiscard]] juce::String getLastPluginNameForRecoveryStateFromUi() const;
     [[nodiscard]] SettingsModel::PluginRecoverySettingsView getPluginRecoverySettingsFromUi() const;
     [[nodiscard]] SettingsModel::PluginRecoverySettingsView getPluginRecoverySettingsWithFallback() const;
@@ -135,6 +140,8 @@ private:
     [[nodiscard]] float getRelease() const;
     [[nodiscard]] double getControlsPlaybackSpeed() const;
     void setControlsValues(float masterGain, float attack, float decay, float sustain, float release);
+    void setControlsPianoValues(SettingsModel::BuiltinTone tone, float brightness, float hammerHardness,
+                                float resonance);
     void setControlsPlaybackSpeed(double speed);
     void setControlsPresets(const juce::StringArray& presetIds, const juce::String& currentPresetId,
                             const juce::StringArray& presetDisplayNames);

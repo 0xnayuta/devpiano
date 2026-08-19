@@ -486,8 +486,8 @@ private:
             return;
         }
 
-        for (const char* id :
-             { "volume-knob", "attack-knob", "decay-knob", "sustain-knob", "release-knob", "speed-knob" }) {
+        for (const char* id : { "volume-knob", "attack-knob", "decay-knob", "sustain-knob", "release-knob",
+                                "speed-knob", "brightness-knob", "hardness-knob", "resonance-knob" }) {
             auto* knob = ::jive::findItemWithID(*item, id);
             expect(knob != nullptr, juce::String(id) + " not found");
             if (knob != nullptr) {

@@ -88,12 +88,21 @@ public:
             perf.adsrDecay = 0.60f;
             perf.adsrSustain = 0.40f;
             perf.adsrRelease = 0.80f;
+            perf.builtinTone = SettingsModel::BuiltinTone::piano;
+            perf.pianoBrightness = 0.70f;
+            perf.pianoHammerHardness = 0.35f;
+            perf.pianoResonance = 0.90f;
             const auto options = buildWavExportOptions(take, perf, 44100.0, 512);
             expectWithinAbsoluteError(options.masterGain, 0.33f, 0.0001f);
             expectWithinAbsoluteError(options.adsr.attack, 0.05f, 0.0001f);
             expectWithinAbsoluteError(options.adsr.decay, 0.60f, 0.0001f);
             expectWithinAbsoluteError(options.adsr.sustain, 0.40f, 0.0001f);
             expectWithinAbsoluteError(options.adsr.release, 0.80f, 0.0001f);
+            expectEquals(static_cast<int>(options.builtinTone), static_cast<int>(SettingsModel::BuiltinTone::piano),
+                         "tone must flow into options");
+            expectWithinAbsoluteError(options.pianoBrightness, 0.70f, 0.0001f);
+            expectWithinAbsoluteError(options.pianoHammerHardness, 0.35f, 0.0001f);
+            expectWithinAbsoluteError(options.pianoResonance, 0.90f, 0.0001f);
             expectEquals(options.numChannels, 2);
         });
     }
