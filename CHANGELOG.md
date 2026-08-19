@@ -4,6 +4,39 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-19
+
+Enhanced physical modeling piano synthesizer (Enhanced Modal Piano v3), dual tone engine switching (Piano / Sine), symmetrical 4x4 controls UI, physical piano offline WAV export, dialog scaling, and complete test suite expansion.
+
+### Added
+
+- **Enhanced Modal Piano Synthesizer v3** (`PianoSynthVoice`) — a high-fidelity physical modeling modal synthesizer as the default fallback instrument without external plugins.
+  - **Magic Circle coupled-form recursive oscillators** — zero per-sample `std::sin()` calls with strict amplitude bounds and exact frequency tracking.
+  - **Stiff-string inharmonicity modeling** ($f_m = m \cdot f_0 \cdot \sqrt{1 + B \cdot m^2}$) across 4 distinct keyboard acoustic regions.
+  - **Two-stage modal decay envelope** (fast strike radiation vs long-tailed polarization tail) with high-frequency modal damping slopes.
+  - **Triple-string unison beating doublet** with microscopic detuning ($0.10\%\sim 0.20\%$) on bass/midrange partials.
+  - **Soundboard modal resonator bank** (8 resonant modal poles from $75\text{ Hz}$ to $950\text{ Hz}$) with wet/dry body coupling.
+  - **Dual-mapping velocity response** ($v^{1.5}$ loudness curve + progressive high-frequency strike brightness).
+- **Dual built-in tone switching** — seamless switching between Physical Piano and Sine synth fallbacks via UI dropdown, CLI flags (`--piano`, `--sine`), and persisted configuration.
+- **4x4 symmetrical controls panel layout** — redesigned ControlsPanel with an upper Piano tone row (Tone, Brightness, Hammer, Resonance) and a lower ADSR envelope row (Attack, Decay, Sustain, Release).
+- **Offline WAV export tone fidelity** — WAV export options now propagate built-in tone selection and physical piano parameters to offline rendering.
+- **Expanded deterministic test suite** (`PianoSynthVoiceTest`) — comprehensive unit tests covering partial frequencies, inharmonicity, two-stage decay slopes, beating modulation, velocity monotonicity, zero-sample-rate guards, retrigger resonator reset, and extreme Nyquist limits.
+
+### Changed
+
+- Default built-in fallback instrument changed from Sine synth to Enhanced Modal Piano v3.
+- `SettingsModel` and `SettingsStore` extended with `builtinTone` and piano physical parameters with backwards-compatible migration and value clamping.
+- Dialog typography enlarged to 15pt/16pt (`KeyBindingEditDialog`, `PerformanceMetadataDialog`, `PresetDialogs`, `DevPianoLookAndFeel`) for improved high-DPI legibility.
+- Settings dialog content wrapped in a scrollable Viewport container with dedicated row spacing.
+- AlertWindow button widths dynamically sized via `getTextButtonWidthToFitText` to prevent text truncation.
+
+### Fixed
+
+- Numerical safety guards in synth voices against non-positive sample rates and unconstrained Nyquist frequencies.
+- Voice retrigger transient clicks eliminated by resetting resonator filter states.
+- Custom key label editor 32-character length restriction restored.
+- Resizable toggle and fade speed slider row overlap in SettingsComponent fixed.
+
 ## [0.3.0] - 2026-08-16
 
 Performance presets, per-key personalization, dark UI modernization, JIVE declarative UI migration, and the first full code-quality audit closure.
