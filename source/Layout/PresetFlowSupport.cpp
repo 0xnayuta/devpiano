@@ -302,12 +302,27 @@ void PresetFlowSupport::handleImportPresetFile(const juce::File& file) {
 
     auto destFile = getPresetDirectory().getChildFile(sanitisePresetFileName(loaded->name) + ".devpiano.preset");
 
-    if (savePreset(*loaded, destFile)) {
-        DP_LOG_INFO("[Preset] imported: " + destFile.getFullPathName());
-        refreshCache();
-        applyPresetData(*loaded); // applies settings + updates UI (with old preset ID)
-        currentPresetId = loaded->name;
-        updateUiAfterCommit(); // re-update so combo shows the newly imported preset selected
+    auto performImport = [this, preset = *loaded, destFile] {
+        if (savePreset(preset, destFile)) {
+            DP_LOG_INFO("[Preset] imported: " + destFile.getFullPathName());
+            refreshCache();
+            applyPresetData(preset); // applies settings + updates UI (with old preset ID)
+            currentPresetId = preset.name;
+            updateUiAfterCommit(); // re-update so combo shows the newly imported preset selected
+        }
+    };
+
+    if (destFile.existsAsFile()) {
+        PresetConfirmDialog::show(
+            TRANS("Overwrite Preset?"),
+            TRANS("A preset named \"") + loaded->name + TRANS("\" already exists.\nDo you want to overwrite it?"),
+            TRANS("Overwrite"), TRANS("Cancel"), &owner, [performImport = std::move(performImport)](bool confirmed) {
+                if (confirmed) {
+                    performImport();
+                }
+            });
+    } else {
+        performImport();
     }
 }
 

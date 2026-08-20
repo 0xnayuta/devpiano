@@ -48,6 +48,7 @@ public:
         testBlackKeyPriority();
         testOutOfRange();
         testAvailableRange();
+        testKeyboardPaintClipping();
     }
 
 private:
@@ -112,6 +113,27 @@ private:
             expectEquals(kb.findNoteAt({ totalWidth + 50, 64 }), -1, "beyond the range must miss");
             expectEquals(kb.findNoteAt({ whiteKeyCentreX(24, 60), 64 }), 60, "in-range note must hit");
             expectEquals(kb.findNoteAt({ whiteKeyCentreX(24, 96), 64 }), 96);
+        });
+    }
+    void testKeyboardPaintClipping() {
+        testCase("CustomKeyboard paint with clipping produces no errors", [&] {
+            juce::MidiKeyboardState ks;
+            CustomKeyboard kb(ks);
+            kb.setSize(1800, 128);
+
+            juce::Image image(juce::Image::ARGB, 1800, 128, true);
+            juce::Graphics g(image);
+
+            // Full paint
+            kb.paintEntireComponent(g, true);
+
+            // Dirty rect clipped paint (single key region)
+            g.saveState();
+            g.reduceClipRegion(juce::Rectangle<int>(840, 0, 48, 128));
+            kb.paintEntireComponent(g, true);
+            g.restoreState();
+
+            expect(true, "CustomKeyboard paint completed under dirty rect clipping");
         });
     }
 };

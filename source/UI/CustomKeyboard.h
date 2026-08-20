@@ -73,6 +73,7 @@ private:
     void paintWhiteKeys(juce::Graphics& g);
     void paintBlackKeys(juce::Graphics& g);
     void paintKeyLabels(juce::Graphics& g);
+    void repaintKey(const devpiano::ui::KeyRenderState& k);
 
     // Fade animation
     void ensureTimerRunning();

@@ -253,11 +253,14 @@ void CustomKeyboard::paint(juce::Graphics& g) {
 }
 
 void CustomKeyboard::paintWhiteKeys(juce::Graphics& g) {
+    const auto clip = g.getClipBounds();
     for (const auto& k : keys) {
         if (!k.isWhite) {
             continue;
         }
-
+        if (!clip.intersects(k.bounds.toNearestInt().expanded(2))) {
+            continue;
+        }
         const auto& b = k.bounds;
         juce::Path keyPath;
         keyPath.addRoundedRectangle(b.getX(), b.getY(), b.getWidth(), b.getHeight(), 2.5f, 2.5f, false, false, true,
@@ -310,11 +313,14 @@ void CustomKeyboard::paintWhiteKeys(juce::Graphics& g) {
 }
 
 void CustomKeyboard::paintBlackKeys(juce::Graphics& g) {
+    const auto clip = g.getClipBounds();
     for (const auto& k : keys) {
         if (k.isWhite) {
             continue;
         }
-
+        if (!clip.intersects(k.bounds.toNearestInt().expanded(4))) {
+            continue;
+        }
         const auto& b = k.bounds;
 
         // Gradual shrink proportional to fade (0→2px)
@@ -376,7 +382,11 @@ void CustomKeyboard::paintBlackKeys(juce::Graphics& g) {
 }
 
 void CustomKeyboard::paintKeyLabels(juce::Graphics& g) {
+    const auto clip = g.getClipBounds();
     for (const auto& k : keys) {
+        if (!clip.intersects(k.bounds.toNearestInt().expanded(2))) {
+            continue;
+        }
         auto& customLabel = settings.customKeyLabels[static_cast<std::size_t>(k.midiNote)];
 
         if (k.isWhite) {
@@ -463,11 +473,10 @@ void CustomKeyboard::mouseDown(const juce::MouseEvent& e) {
         if (k.midiNote == note) {
             k.fade = 1.0f;
             k.colour1 = classicColourTop(1.0f);
+            repaintKey(k);
             break;
         }
     }
-    repaint();
-
     if (onNoteOn) {
         auto ch = (note >= 0 && note < 128) ? static_cast<int>(perKeyChannel[static_cast<std::size_t>(note)]) : 0;
         onNoteOn(note, ch);
@@ -514,11 +523,10 @@ void CustomKeyboard::mouseDrag(const juce::MouseEvent& e) {
         if (k.midiNote == note) {
             k.fade = 1.0f;
             k.colour1 = classicColourTop(1.0f);
+            repaintKey(k);
             break;
         }
     }
-    repaint();
-
     if (onNoteOn) {
         auto ch = (note >= 0 && note < 128) ? static_cast<int>(perKeyChannel[static_cast<std::size_t>(note)]) : 0;
         onNoteOn(note, ch);
@@ -530,9 +538,13 @@ void CustomKeyboard::mouseDrag(const juce::MouseEvent& e) {
 // Fade animation
 // ============================================================================
 
+void CustomKeyboard::repaintKey(const devpiano::ui::KeyRenderState& k) {
+    const auto extra = k.isWhite ? 2 : 4;
+    repaint(k.bounds.toNearestInt().expanded(extra));
+}
+
 void CustomKeyboard::timerCallback() {
     bool anyActive = false;
-    bool anyChanged = false;
 
     for (auto& k : keys) {
         auto before = k.fade;
@@ -559,9 +571,7 @@ void CustomKeyboard::timerCallback() {
         if (noteHeld || std::abs(k.fade - target) > fadeEpsilon) {
             anyActive = true;
         }
-        if (std::abs(k.fade - before) > fadeEpsilon) {
-            anyChanged = true;
-        }
+        const bool changed = std::abs(k.fade - before) > fadeEpsilon;
 
         // Recompute colour: custom colour takes priority, else colourMode
         if (k.fade > fadeEpsilon) {
@@ -593,17 +603,16 @@ void CustomKeyboard::timerCallback() {
                 }
             }
         }
-    }
 
-    if (anyActive && anyChanged) {
-        repaint();
+        if (changed) {
+            repaintKey(k);
+        }
     }
 
     if (!anyActive) {
         stopTimer();
     }
 }
-
 void CustomKeyboard::ensureTimerRunning() {
     if (!isTimerRunning()) {
         startTimer(timerIntervalMs);

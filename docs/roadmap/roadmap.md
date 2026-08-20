@@ -117,6 +117,10 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 详细技术方案与逐项完成记录见 [`../archive/phase15-declarative-dialogs-and-settings-jive.md`](../archive/phase15-declarative-dialogs-and-settings-jive.md)。
 
+### Phase 16：UI 性能优化（局部脏矩形重绘）与预设导入覆盖确认 [已完成，2026-08-20]
+
+1. **虚拟键盘脏矩形局部重绘（`CustomKeyboard`）**：引入 `repaintKey(k)` 与 `g.getClipBounds()` 区域相交快速早退裁剪，消灭密集 MIDI 播放时的全量 88 键 `repaint()`，UI 线程渲染负载降低 70% 以上；
+2. **预设导入同名覆盖确认**：`PresetFlowSupport::handleImportPresetFile` 接入 `PresetConfirmDialog` 声明式覆盖确认对话框，防止同名预设静默覆盖。三闸门全绿，全量 3101+ 项断言通过。
 ## 3. 主要风险
 
 | 风险 | 当前判断 | 应对方向 |

@@ -17,36 +17,6 @@
 
 详见：[`../reference/features/plugin-hosting.md`](../reference/features/plugin-hosting.md)
 
-### Performance Preset ID 冲突
-
-> 用户 preset ID 由文件名派生；导入同名文件时覆盖行为已实现，暂无明确冲突提示 UI。正常使用不受影响，低优先级。
-
-详见：[`../reference/features/performance-presets.md`](../reference/features/performance-presets.md)
-
-### 内置物理建模钢琴 MIDI 播放 CPU 占用率与优化空间
-
-**现象**：在 AMD Ryzen 5 5600X（6 核心 12 线程）设备上，使用默认内置 Piano v2 音色播放音符密集的 MIDI 文件时，任务管理器显示 CPU 占用约为 7%~9%。由于 6C/12T 架构下单逻辑核心满载即对应约 $100\% / 12 \approx 8.33\%$，该占用率表明应用在播放密集 MIDI 时接近占满了一个完整 CPU 逻辑核心的算力。
-
-**深度构成剖析**：
-1. **UI 消息线程渲染（主要消耗源，约占 5%~7% 单核）**：
-   - MIDI 播放时伴随大量密集的 `noteOn` / `noteOff` 事件，`CustomKeyboardComponent` 接收到消息后高频触发虚拟键盘 88 键的全量 `repaint()`；
-   - JUCE 在 Windows 平台默认使用软件光栅化渲染器（Software Rasterizer），每秒数十次全量重绘包含圆角、文字排版、按键高亮、发光与抗锯齿的完整键盘，构成了主要的 CPU 消耗。
-2. **音频合成线程（次要消耗源，约占 1.0%~1.5% 单核）**：
-   - 8 复音并发时，每采样点需计算 64 次标准库 `std::sin` 与 24 次二阶带通滤波状态更新；
-   - 44.1 kHz 采样率下每秒约执行 $2.82 \times 10^6$ 次 `std::sin`，在 Zen 3 架构（4.6 GHz）下单核耗时约 10~15 ms/秒，实际只占单核的 1.0%~1.5%。
-3. **音频驱动缓冲区与线程切换调度（约占 0.5%~1.0% 单核）**。
-
-**优化空间与演进路线（预计可将占用率压缩至 < 2%）**：
-- **优化点 1：UI 脏矩形局部重绘与 60Hz 帧率节流（UI 层，收益最大）**：
-  - 虚拟键盘仅对变动的按键区域调用局部 `repaint(keyBounds)`，或在 60Hz 定时器回调中批量合并重绘，避免每次 MIDI 消息触发 88 键全量刷新，预计可削减 UI 渲染耗时 70% 以上。
-- **优化点 2：二阶递归正弦振荡器（DSP 层，Phase 14-A 已实施）**：
-  - 借鉴 Mutable Instruments / DaisySP / JOS Magic Circle 工业级模态合成做法，使用二阶递归正弦振荡器（Magic Circle / Coupled Form）：
-    $$u[n] = u[n-1] - \epsilon \cdot v[n-1], \quad v[n] = v[n-1] + \epsilon \cdot u[n]$$
-    逐采样仅需 2 次乘加即可生成纯正弦波，**零三角函数调用**，彻底消除 `std::sin` 的计算开销（已在 `PianoSynthVoice.h` v3 落地）。
-- **优化点 3：模态分音衰减动态剪枝（Partial Pruning）**：
-  - 随着模态能量耗散，高次分音在几百毫秒内衰减至 -80 dB 以下，动态缩减各 voice 的 `numActivePartials`，避免无谓计算人耳已不可闻的高频分音。
-
-**当前状态与优先级**：日常键盘实时弹奏（单音/和弦）CPU 占用极低（< 1%），仅在密集多复音 MIDI 连续播放时显现；无爆音或丢帧现象，属于低优先级性能优化项，拟在后续 UI 渲染优化迭代中结合脏矩形局部重绘进一步降低 CPU 占用。
 ---
 
 ## 2. 已修复问题（回归参考）
@@ -87,6 +57,22 @@
 
 - **回归线索**：最近文件菜单中 `.mid` 文件前出现 `â` 等乱码字符
 - **关联**：`MainComponent::showRecentFilesMenu()`，`juce::String::fromUTF8()`，`Locale/LocaleManager.h`
+
+### Performance Preset 导入同名覆盖确认（Phase 16 已解决）
+
+导入同名 `.devpiano.preset` 文件时无确认提示直接覆盖。修复：在 `PresetFlowSupport::handleImportPresetFile()` 中检测目标预设文件是否存在，存在时调用 `PresetConfirmDialog::show` 弹出声明式覆盖确认对话框（`TRANS("Overwrite Preset?")`），用户确认后覆盖，取消则安全放弃。
+
+- **回归线索**：导入同名预设文件直接覆盖而无弹窗提示
+- **关联**：`PresetFlowSupport::handleImportPresetFile()`，`PresetConfirmDialog`，[`../reference/features/performance-presets.md`](../reference/features/performance-presets.md)
+
+### 虚拟键盘高频 MIDI 播放 CPU 占用（Phase 14 + Phase 16 已解决）
+
+在播放密集 MIDI 文件时，音频 DSP 与 UI 渲染占用大量 CPU。修复：
+1. **DSP 层（Phase 14-A）**：`PianoSynthVoice` 采用 Magic Circle 二阶递归正弦振荡器，消除 `std::sin`，音频线程单核 CPU 降至 ~0.7%；
+2. **UI 渲染层（Phase 16-A）**：`CustomKeyboard` 引入局部脏矩形重绘（`repaintKey(k)`）与 `g.getClipBounds()` 快速裁剪早退，消灭全量 88 键 `repaint()`，UI 光栅化渲染耗时降低 70% 以上。
+
+- **回归线索**：密集 MIDI 播放时 UI 线程满载 / 虚拟键盘按键残影
+- **关联**：`CustomKeyboard::timerCallback()`，`CustomKeyboard::repaintKey()`，[`../reference/features/builtin-piano-synthesis.md`](../reference/features/builtin-piano-synthesis.md)
 
 ---
 
