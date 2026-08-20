@@ -47,7 +47,7 @@ void DevPianoLookAndFeel::refreshColours() {
     // ── ComboBox ──
     setColour(juce::ComboBox::backgroundColourId, tokens.controlBg());
     setColour(juce::ComboBox::textColourId, tokens.textPrimary());
-    setColour(juce::ComboBox::outlineColourId, tokens.textSecondary());
+    setColour(juce::ComboBox::outlineColourId, tokens.cardBorder());
     setColour(juce::ComboBox::arrowColourId, tokens.textPrimary());
     setColour(juce::ComboBox::buttonColourId, tokens.primary());
     setColour(juce::ComboBox::focusedOutlineColourId, tokens.primary());
@@ -285,14 +285,14 @@ void DevPianoLookAndFeel::drawPopupMenuItem(juce::Graphics& g, const juce::Recta
         g.drawRoundedRectangle(area.toFloat().reduced(2.0f, 1.0f), 4.0f, 1.0f);
     }
 
-    // Ticked item — draw check mark
+    // Ticked item — draw check mark on the right side
     if (ticked) {
         g.setColour(highlighted ? tokens.textPrimary() : tokens.primary());
-        const auto tick = getTickShape(6.0f);
-        g.fillPath(tick,
-                   tick.getTransformToScaleToFit(area.reduced(4, 0).removeFromLeft(area.getHeight()).toFloat(), true));
+        const auto tick = getTickShape(4.0f);
+        const auto tickArea
+            = area.withTrimmedLeft(area.getWidth() - 24).reduced(4, (area.getHeight() - 14) / 2).toFloat();
+        g.fillPath(tick, tick.getTransformToScaleToFit(tickArea, true));
     }
-
     juce::Colour textColour;
     if (highlighted && active) {
         textColour = tokens.textPrimary();
@@ -301,10 +301,9 @@ void DevPianoLookAndFeel::drawPopupMenuItem(juce::Graphics& g, const juce::Recta
     }
     g.setColour(textColour);
     g.setFont(juce::FontOptions(13.0f));
-
     const int iconW = icon != nullptr ? area.getHeight() : 0;
-    const auto textBounds
-        = area.reduced(iconW > 0 ? 0 : 8, 0).withTrimmedLeft(iconW).withTrimmedRight(submenu ? 16 : 4);
+    const int rightTrim = (ticked ? 24 : 0) + (submenu ? 16 : 4);
+    const auto textBounds = area.reduced(iconW > 0 ? 0 : 8, 0).withTrimmedLeft(iconW).withTrimmedRight(rightTrim);
 
     if (icon != nullptr) {
         auto iconArea = area.withWidth(area.getHeight()).reduced(4, 2).toFloat();
@@ -318,7 +317,6 @@ void DevPianoLookAndFeel::drawPopupMenuItem(juce::Graphics& g, const juce::Recta
 
     g.setColour(textColour);
     g.drawText(text, textBounds, juce::Justification::centredLeft);
-
     if (submenu) {
         juce::Path arrow;
         const auto cx = static_cast<float>(area.getRight()) - 8.0f;

@@ -92,7 +92,7 @@ juce::ValueTree makeHeaderTree() {
 
     auto title = text("devpiano", "title");
     title.setProperty("flex-grow", 1.0, nullptr);
-    title.setProperty("height", 18, nullptr);
+    title.setProperty("height", 28, nullptr);
     title.setProperty("justification", "centred-left", nullptr);
     row.appendChild(title, nullptr);
 
@@ -242,7 +242,7 @@ juce::ValueTree makePluginPanelTree() {
     pathEditor.setProperty("height", 26, nullptr);
     pathEditor.setProperty("border-width", "1", nullptr);
     pathEditor.setProperty("focusable", true, nullptr);
-    pathEditor.setProperty("cursor", "ibeam", nullptr);
+    pathEditor.setProperty("cursor", "text", nullptr);
     pathRow.appendChild(pathEditor, nullptr);
 
     auto browseBtn = button("...", "browse-btn");

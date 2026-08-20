@@ -55,6 +55,7 @@ private:
 };
 
 int main(int argc, char** argv) {
+    juce::ScopedJuceInitialiser_GUI guiInitialiser;
     juce::ConsoleApplication app;
 
     bool verbose = false;

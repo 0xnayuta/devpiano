@@ -25,6 +25,7 @@ public:
     [[nodiscard]] juce::Colour mainBg() const;
     [[nodiscard]] juce::Colour panelBg() const;
     [[nodiscard]] juce::Colour controlBg() const;
+    [[nodiscard]] juce::Colour cardBorder() const;
     [[nodiscard]] juce::Colour primary() const;
     [[nodiscard]] juce::Colour primaryAlpha30() const;
     [[nodiscard]] juce::Colour recordActive() const;
@@ -48,7 +49,6 @@ public:
     [[nodiscard]] float fontSizeLabel() const;
     [[nodiscard]] float fontSizeTitle() const;
     [[nodiscard]] juce::String fontWeightTitle() const;
-
     // ── Border Radius ───────────────────────────────────
     [[nodiscard]] float borderRadiusDefault() const;
 

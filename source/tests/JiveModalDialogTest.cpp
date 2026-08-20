@@ -145,7 +145,7 @@ private:
         expect(editorNode.isValid());
         expectEquals(editorNode.getType().toString(), juce::String("PathEditor"));
         expectEquals(editorNode.getProperty("focusable"), juce::var(true));
-        expectEquals(editorNode.getProperty("cursor").toString(), juce::String("ibeam"));
+        expectEquals(editorNode.getProperty("cursor").toString(), juce::String("text"));
         auto okBtn = findNodeById(tree, "dialog-ok-btn");
         expect(okBtn.isValid());
         expectEquals(okBtn.getType().toString(), juce::String("Button"));

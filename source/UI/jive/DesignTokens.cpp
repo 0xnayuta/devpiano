@@ -107,6 +107,9 @@ juce::Colour DesignTokens::panelBg() const {
 juce::Colour DesignTokens::controlBg() const {
     return parseColor("control-bg", juce::Colour(0xff22252c));
 }
+juce::Colour DesignTokens::cardBorder() const {
+    return parseColor("card-border", juce::Colour(0xff2b2f38));
+}
 juce::Colour DesignTokens::primary() const {
     return parseColor("primary", juce::Colour(0xff00c8f0));
 }
@@ -223,8 +226,8 @@ juce::String DesignTokens::resolveToken(const juce::String& name) const {
     if (name == "card-bg") {
         return panelBg().toDisplayString(false).paddedLeft('#', 7); // card-bg 与 panel-bg 同值
     }
-    if (name == "card-border") {
-        return parseColor("card-border", juce::Colour(0xff2b2f38)).toDisplayString(false).paddedLeft('#', 7);
+    if (name == "card-border" || name == "border") {
+        return cardBorder().toDisplayString(false).paddedLeft('#', 7);
     }
     if (name == "primary") {
         return primary().toDisplayString(false).paddedLeft('#', 7);
@@ -247,9 +250,6 @@ juce::String DesignTokens::resolveToken(const juce::String& name) const {
     // 字号：整数字符串以匹配 style_sheets.json 现有写法（"14" 而非 "14.0"）。
     if (name == "font-size-tiny") {
         return juce::String(static_cast<int>(fontSizeTiny()));
-    }
-    if (name == "font-size-small") {
-        return juce::String(static_cast<int>(fontSizeSmall()));
     }
     if (name == "font-size-default") {
         return juce::String(static_cast<int>(fontSizeDefault()));
