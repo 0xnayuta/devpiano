@@ -30,7 +30,7 @@ inline juce::ValueTree button(const juce::String& label, const juce::String& id 
     t.setProperty("title", label, nullptr);
     t.setProperty("border-width", "1", nullptr);
 
-    auto labelText = text(label);
+    auto labelText = text(label, id.isNotEmpty() ? id + "-text" : juce::String {});
     labelText.setProperty("justification", "centred", nullptr);
     labelText.setProperty("word-wrap", "none", nullptr);
     t.appendChild(labelText, nullptr);

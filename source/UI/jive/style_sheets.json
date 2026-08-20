@@ -154,9 +154,6 @@
     "background": "@primary",
     "border": "@primary",
     "border-radius": "5",
-    "Text": {
-      "foreground": "@main-bg"
-    },
     "hover": {
       "background": "#33D4F5",
       "border": "#33D4F5"
@@ -165,14 +162,14 @@
       "background": "#00A0C0",
       "border": "#00A0C0"
     }
+  },
+  "#dialog-ok-btn-text": {
+    "foreground": "@main-bg"
   },
   "#dialog-bind-btn": {
     "background": "@primary",
     "border": "@primary",
     "border-radius": "5",
-    "Text": {
-      "foreground": "@main-bg"
-    },
     "hover": {
       "background": "#33D4F5",
       "border": "#33D4F5"
@@ -182,13 +179,13 @@
       "border": "#00A0C0"
     }
   },
+  "#dialog-bind-btn-text": {
+    "foreground": "@main-bg"
+  },
   "#save-button": {
     "background": "@primary",
     "border": "@primary",
     "border-radius": "5",
-    "Text": {
-      "foreground": "@main-bg"
-    },
     "hover": {
       "background": "#33D4F5",
       "border": "#33D4F5"
@@ -197,6 +194,9 @@
       "background": "#00A0C0",
       "border": "#00A0C0"
     }
+  },
+  "#save-button-text": {
+    "foreground": "@main-bg"
   },
   "ComboBox": {
     "background": "transparent",
