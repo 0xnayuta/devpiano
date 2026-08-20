@@ -65,8 +65,8 @@ public:
         constexpr int selectorH = 359;
 
         selector.setBounds(pad, pad, selectorW, selectorH);
-        okButton->setBounds(getWidth() - pad - btnW, getHeight() - pad - btnH, btnW, btnH);
-        cancelButton->setBounds(getWidth() - pad - btnW - btnGap - btnW, getHeight() - pad - btnH, btnW, btnH);
+        okButton->setBounds(getWidth() - pad - btnW - btnGap - btnW, getHeight() - pad - btnH, btnW, btnH);
+        cancelButton->setBounds(getWidth() - pad - btnW, getHeight() - pad - btnH, btnW, btnH);
     }
     std::function<void(juce::Colour)> onAccept;
     juce::CallOutBox* callOutBox = nullptr;
