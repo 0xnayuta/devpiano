@@ -203,6 +203,7 @@ void SettingsWindowManager::showFor(MainComponent& owner) {
               safe->resized();
               safe->getCustomKeyboard().setKeyboardSettings(makeKeyboardSettings(kbs, safe->appSettings.keySignature));
               safe->setInstrumentFilterVisible(kbs.showInstrumentFilter);
+              safe->reconfigureChannelMapper();
 
               // Only recreate desktop window when resize preference changes
               if (kbs.resizableWindow != lastResizable) {
