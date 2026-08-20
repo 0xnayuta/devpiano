@@ -1,4 +1,5 @@
 #include "UI/ColourSwatchButton.h"
+#include "UI/jive/DesignTokens.h"
 
 namespace devpiano::ui {
 namespace {
@@ -15,8 +16,20 @@ public:
         selector.setCurrentColour(initial, juce::dontSendNotification);
         addAndMakeVisible(selector);
 
+        const auto& tokens = devpiano::jive::DesignTokens::get();
+
         okButton = std::make_unique<juce::TextButton>(TRANS("OK"));
         cancelButton = std::make_unique<juce::TextButton>(TRANS("Cancel"));
+
+        // 对齐 JIVE 视觉规范：OK 主动作高亮强调色，Cancel 次动作暗色
+        okButton->setColour(juce::TextButton::buttonColourId, tokens.primary());
+        okButton->setColour(juce::TextButton::textColourOffId, tokens.mainBg());
+        okButton->setColour(juce::TextButton::textColourOnId, tokens.mainBg());
+
+        cancelButton->setColour(juce::TextButton::buttonColourId, tokens.controlBg());
+        cancelButton->setColour(juce::TextButton::textColourOffId, tokens.textPrimary());
+        cancelButton->setColour(juce::TextButton::textColourOnId, tokens.textPrimary());
+
         addAndMakeVisible(*okButton);
         addAndMakeVisible(*cancelButton);
 
@@ -34,15 +47,27 @@ public:
             }
         };
 
-        setSize(320, 320);
+        // 容器尺寸：宽 320, 高 417
+        // 内部 ColourSelector 300x359 精确使得取色空间大矩形呈现 1:1 严格正方形 (233x233)
+        setSize(320, 417);
+    }
+
+    void paint(juce::Graphics& g) override {
+        g.fillAll(devpiano::jive::DesignTokens::get().panelBg());
     }
 
     void resized() override {
-        selector.setBounds(4, 4, getWidth() - 8, getHeight() - 44);
-        okButton->setBounds(getWidth() - 88, getHeight() - 32, 80, 24);
-        cancelButton->setBounds(getWidth() - 176, getHeight() - 32, 80, 24);
-    }
+        constexpr int pad = 10;
+        constexpr int btnW = 80;
+        constexpr int btnH = 28;
+        constexpr int btnGap = 8;
+        constexpr int selectorW = 300;
+        constexpr int selectorH = 359;
 
+        selector.setBounds(pad, pad, selectorW, selectorH);
+        okButton->setBounds(getWidth() - pad - btnW - btnGap - btnW, getHeight() - pad - btnH, btnW, btnH);
+        cancelButton->setBounds(getWidth() - pad - btnW, getHeight() - pad - btnH, btnW, btnH);
+    }
     std::function<void(juce::Colour)> onAccept;
     juce::CallOutBox* callOutBox = nullptr;
 
