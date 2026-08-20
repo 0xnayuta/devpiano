@@ -123,9 +123,9 @@ void ColourSwatchButton::showColourChooser() {
     content->setLookAndFeel(&getLookAndFeel());
     auto* contentPtr = content.get();
 
-    contentPtr->onAccept = [this](juce::Colour chosen) {
-        if (onColourChosen != nullptr) {
-            onColourChosen(chosen);
+    contentPtr->onAccept = [safeThis = juce::Component::SafePointer<ColourSwatchButton>(this)](juce::Colour chosen) {
+        if (safeThis != nullptr && safeThis->onColourChosen != nullptr) {
+            safeThis->onColourChosen(chosen);
         }
     };
 

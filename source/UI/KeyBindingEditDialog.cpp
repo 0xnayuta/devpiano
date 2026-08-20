@@ -282,10 +282,10 @@ juce::ValueTree KeyBindingEditDialog::makeKeyBindingEditLayout(bool hasExistingB
 }
 
 void KeyBindingEditDialog::launch(int midiNote, const juce::String& noteName,
-                                  const devpiano::core::KeyBinding* existingBinding,
+                                  std::optional<devpiano::core::KeyBinding> existingBinding,
                                   const juce::String& currentCustomLabel, const juce::Colour& currentCustomColour,
                                   std::function<void(KeyBindingEditResult)> onComplete, juce::Component* parent) {
-    const bool hasExisting = (existingBinding != nullptr);
+    const bool hasExisting = existingBinding.has_value();
     const auto keyLabel = hasExisting ? existingBinding->displayText : juce::String();
     const int dlgWidth = 460;
     const int dlgHeight = hasExisting ? 300 : 210;
@@ -446,16 +446,17 @@ void KeyBindingEditDialog::launch(int midiNote, const juce::String& noteName,
 
         // Wire unbind button
         if (auto* unbindBtn = devpiano::ui::jive::JiveModalDialog::findButtonById(root, "dialog-unbind-btn")) {
-            unbindBtn->onClick = [=, &root] {
+            unbindBtn->onClick = [=] {
                 KeyBindingEditResult result;
-                if (auto* ed = devpiano::ui::jive::JiveModalDialog::findTextEditorById(root, "custom-label-editor")) {
+                if (auto* ed
+                    = devpiano::ui::jive::JiveModalDialog::findTextEditorById(*rootPtr, "custom-label-editor")) {
                     result.customLabel = ed->getText();
                 }
                 result.customColour = *selectedColour;
                 result.labelChanged = true;
                 result.colourChanged = true;
 
-                if (hasExisting) {
+                if (hasExisting && existingBinding.has_value()) {
                     auto removed = *existingBinding;
                     removed.keyCode = -1;
                     result.binding = removed;

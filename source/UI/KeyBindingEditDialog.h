@@ -30,7 +30,8 @@ class KeyBindingEditDialog {
 public:
     KeyBindingEditDialog() = delete;
 
-    static void launch(int midiNote, const juce::String& noteName, const devpiano::core::KeyBinding* existingBinding,
+    static void launch(int midiNote, const juce::String& noteName,
+                       std::optional<devpiano::core::KeyBinding> existingBinding,
                        const juce::String& currentCustomLabel, const juce::Colour& currentCustomColour,
                        std::function<void(KeyBindingEditResult)> onComplete, juce::Component* parent = nullptr);
 

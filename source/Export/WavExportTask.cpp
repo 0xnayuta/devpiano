@@ -243,17 +243,19 @@ void WavExportTask::run() {
 
     // ERR-015: Render path may throw; catch all exceptions, report failure and clean up destination file.
     try {
+        if (threadShouldExit() || cancelRequested.load()) {
+            success.store(false);
+            {
+                const juce::ScopedLock sl(messageLock);
+                errorMessage = TRANS("Export cancelled.");
+            }
+            destinationFile.deleteFile();
+            finished.store(true);
+            return;
+        }
+
         if (offlinePlugin != nullptr) {
             // Plugin offline-render path
-            if (threadShouldExit() || cancelRequested.load()) {
-                success.store(false);
-                {
-                    const juce::ScopedLock sl(messageLock);
-                    errorMessage = TRANS("Export cancelled.");
-                }
-                destinationFile.deleteFile();
-            }
-
             if (renderTakeWithOfflinePlugin(take, destinationFile, options, *offlinePlugin, progressCallback)) {
                 success.store(true);
             } else {

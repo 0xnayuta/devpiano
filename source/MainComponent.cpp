@@ -633,10 +633,10 @@ void MainComponent::initialiseUi() {
         const auto& layout = keyboardMidiMapper.getLayout();
         auto noteName = devpiano::ui::getNoteDisplayName(midiNote, devpiano::ui::NoteDisplayMode::noteName);
 
-        const devpiano::core::KeyBinding* existingBinding = nullptr;
+        std::optional<devpiano::core::KeyBinding> existingBinding;
         for (const auto& binding : layout.bindings) {
             if (binding.action.type == devpiano::core::KeyActionType::note && binding.action.midiNote == midiNote) {
-                existingBinding = &binding;
+                existingBinding = binding;
                 break;
             }
         }
