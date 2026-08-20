@@ -46,6 +46,7 @@ juce::String sourceToString(RecordingEventSource source) {
     case RecordingEventSource::playback:
         return performance_file::sourcePlayback;
     }
+    return {}; // unreachable; silences MSVC C4715
 }
 
 RecordingEventSource stringToSource(const juce::String& str) {

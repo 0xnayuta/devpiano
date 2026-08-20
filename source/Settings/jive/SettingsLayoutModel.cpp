@@ -114,11 +114,11 @@ juce::ValueTree makeAudioDeviceSectionTree() {
 
     auto outputControls = flexRow("audio-output-controls");
     outputControls.setProperty("width", 300, nullptr);
-    outputControls.setProperty("gap", "8", nullptr);
 
     auto outputCombo = node("ComboBox", "audio-output-device-combo");
     outputCombo.setProperty("width", 236, nullptr);
     outputCombo.setProperty("height", 24, nullptr);
+    outputCombo.setProperty("margin", "0 8 0 0", nullptr);
     outputControls.appendChild(outputCombo, nullptr);
 
     auto testBtn = button(TRANS("Test"), "audio-test-button");
