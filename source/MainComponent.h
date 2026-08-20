@@ -34,7 +34,10 @@
 #include <melatonin_inspector/melatonin_inspector.h>
 #endif
 
-class MainComponent final : public juce::AudioAppComponent, private juce::Timer, public juce::FileDragAndDropTarget {
+class MainComponent final : public juce::AudioAppComponent,
+                            private juce::Timer,
+                            public juce::FileDragAndDropTarget,
+                            private juce::MidiKeyboardState::Listener {
     friend class devpiano::layout::PresetFlowSupport;
     friend class devpiano::recording::RecordingSessionController;
     friend class devpiano::plugin::PluginOperationController;
@@ -86,6 +89,9 @@ private:
         int blockSize = 512;
     };
 
+    // MidiKeyboardState::Listener interface
+    void handleNoteOn(juce::MidiKeyboardState* source, int midiChannel, int midiNoteNumber, float velocity) override;
+    void handleNoteOff(juce::MidiKeyboardState* source, int midiChannel, int midiNoteNumber, float velocity) override;
     void timerCallback() override;
 
     void initialiseFromPreset();

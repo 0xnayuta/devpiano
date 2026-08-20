@@ -202,6 +202,7 @@ MainComponent::MainComponent() {
     startTimerHz(30);
     restoreKeyboardFocus();
     applyLanguage(appSettings.languageCode);
+    audioEngine.getKeyboardState().addListener(this);
     updateStatusBar();
 }
 
@@ -210,6 +211,7 @@ MainComponent::~MainComponent() {
     // Restore the JUCE default global LookAndFeel (see initialiseUi).
     juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
     stopTimer();
+    audioEngine.getKeyboardState().removeListener(this);
 
 #if DEBUG
     // Destroy the inspector BEFORE the JIVE component tree is torn down.
@@ -759,6 +761,16 @@ void MainComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& buffer
 void MainComponent::releaseResources() {
     audioEngine.releaseResources();
 }
+
+void MainComponent::handleNoteOn(juce::MidiKeyboardState*, int, int, float velocity) {
+    if (velocity > 0.0f) {
+        notifyMidiActivity();
+    }
+}
+
+void MainComponent::handleNoteOff(juce::MidiKeyboardState*, int, int, float) {
+}
+
 void MainComponent::timerCallback() {
     recordingSessionController->checkPlaybackEnded();
 
