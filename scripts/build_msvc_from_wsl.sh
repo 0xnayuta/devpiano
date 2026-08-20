@@ -41,6 +41,7 @@ Usage: ./scripts/build_msvc_from_wsl.sh [options]
 Options:
   --release             Use windows-msvc-release preset (default: windows-msvc-debug)
   --no-sync             Skip WSL -> Windows sync before build
+  --full                Force full sync including submodules before build
   --sync-only           Only sync to Windows mirror, do not build
   --reconfigure         Remove Windows build cache before configure/build
   --clean-win-build     Delete Windows build directory before configure/build
@@ -55,12 +56,12 @@ SYNC_SCRIPT="${ROOT_DIR}/scripts/sync_to_win.sh"
 PS_BUILD_SCRIPT="${TOOLS_DIR}/build-windows.ps1"
 WIN_MIRROR_DIR_VALUE="${WIN_MIRROR_DIR:-G:\\source\\projects\\devpiano}"
 SKIP_SYNC="${SKIP_SYNC_TO_WIN:-0}"
+FULL_SYNC=0
 SYNC_ONLY=0
 RECONFIGURE=0
 CLEAN_WIN_BUILD=0
 USE_RELEASE=0
 CLANG_TIDY=0
-
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --release)
@@ -68,6 +69,9 @@ while [[ $# -gt 0 ]]; do
       ;;
     --no-sync)
       SKIP_SYNC=1
+      ;;
+    --full|--full-sync)
+      FULL_SYNC=1
       ;;
     --sync-only)
       SYNC_ONLY=1
@@ -145,7 +149,11 @@ command -v wslpath >/dev/null 2>&1 || fail 'wslpath not found in PATH'
 
 if [[ "${SKIP_SYNC}" != "1" ]]; then
   log 'syncing WSL tree to Windows mirror'
-  "${SYNC_SCRIPT}"
+  if [[ "${FULL_SYNC}" == "1" ]]; then
+    "${SYNC_SCRIPT}" --full
+  else
+    "${SYNC_SCRIPT}"
+  fi
 else
   warn 'skipping sync step'
 fi

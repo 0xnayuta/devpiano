@@ -2,7 +2,9 @@
 param(
     [string]$SourceDir,
     [string]$MirrorDir = $(if ($env:WIN_MIRROR_DIR) { $env:WIN_MIRROR_DIR } else { 'G:\source\projects\devpiano' }),
-    [switch]$CheckOnly
+    [switch]$CheckOnly,
+    [switch]$Full,
+    [string]$SubmoduleFingerprint = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -75,6 +77,7 @@ $excludeMirrorDirs = @(
 # 文件。因此镜像侧构建/打包产物必须放在 /XD 保护的目录（build-win-msvc、
 # dist 等）内，散落在 extra 目录中的文件仅靠 /XF 不可靠。
 $excludeFiles = @(
+    '.mirror_submodules.hash',  # 镜像端子模块同步指纹标记文件
     '.git',            # 子模块 gitlink 指针文件
     'CMakeCache.txt', 'compile_commands.json',
     # IDE 状态文件
@@ -90,12 +93,49 @@ $excludeFiles = @(
     '*.cache', '*.tmp', '*.log', '*.binlog', '*.pyc'
 )
 
+$fingerprintFile = Join-Path $MirrorDir '.mirror_submodules.hash'
+$mirrorJuce = Join-Path $MirrorDir 'submodules\JUCE\CMakeLists.txt'
+$mirrorJive = Join-Path $MirrorDir 'submodules\JIVE\CMakeLists.txt'
+$mirrorInspector = Join-Path $MirrorDir 'submodules\melatonin_inspector\CMakeLists.txt'
+
+$effectiveFingerprint = $SubmoduleFingerprint
+if (-not $effectiveFingerprint) {
+    $gitmodulesFile = Join-Path $SourceDir '.gitmodules'
+    if (Test-Path -LiteralPath $gitmodulesFile -PathType Leaf) {
+        $effectiveFingerprint = (Get-FileHash -LiteralPath $gitmodulesFile -Algorithm SHA256).Hash
+    }
+}
+
+$needsSubmoduleSync = $Full -or
+    (-not (Test-Path -LiteralPath $fingerprintFile -PathType Leaf)) -or
+    (-not (Test-Path -LiteralPath $mirrorJuce -PathType Leaf)) -or
+    (-not (Test-Path -LiteralPath $mirrorJive -PathType Leaf)) -or
+    (-not (Test-Path -LiteralPath $mirrorInspector -PathType Leaf))
+
+if (-not $needsSubmoduleSync -and $effectiveFingerprint) {
+    $cachedFingerprint = (Get-Content -LiteralPath $fingerprintFile -Raw -ErrorAction SilentlyContinue)
+    if ($null -ne $cachedFingerprint) {
+        $cachedFingerprint = $cachedFingerprint.Trim()
+    }
+    if ($cachedFingerprint -ne $effectiveFingerprint) {
+        $needsSubmoduleSync = $true
+    }
+}
+
+if (-not $needsSubmoduleSync) {
+    Write-Log 'submodules unchanged (cached) — skipping submodules scan (use -Full for full sync)'
+    $excludeSourceDirs += (Join-Path $SourceDir 'submodules')
+    $excludeMirrorDirs += (Join-Path $MirrorDir 'submodules')
+} else {
+    Write-Log 'submodules sync required (full scan)...'
+}
+
 $roboArgs = @(
     $SourceDir,
     $MirrorDir,
     '/MIR',
     '/FFT',
-    '/Z',
+    '/MT:16',
     '/R:2',
     '/W:1',
     '/XD'
@@ -116,6 +156,10 @@ $exitCode = $LASTEXITCODE
 
 if ($exitCode -ge 8) {
     throw "robocopy failed with exit code $exitCode"
+}
+if ($needsSubmoduleSync -and (-not $CheckOnly) -and $effectiveFingerprint) {
+    Set-Content -LiteralPath $fingerprintFile -Value $effectiveFingerprint -Force
+    Write-Log 'submodule fingerprint updated'
 }
 
 Write-Log "robocopy completed with exit code $exitCode"

@@ -79,11 +79,11 @@ export WIN_MIRROR_DIR='G:\source\projects\devpiano'
 ./scripts/dev.sh wsl-build --release
 
 # ── Windows MSVC Debug（默认） ──
-./scripts/dev.sh win-build                    # 正常验证（内置同步）
+./scripts/dev.sh win-build                    # 正常验证（内置快速智能同步）
+./scripts/dev.sh win-build --full             # 强制全量同步并验证构建
 ./scripts/dev.sh win-build --no-sync          # 镜像已最新时跳过同步
 ./scripts/dev.sh win-build --reconfigure      # 强制重新配置
 ./scripts/dev.sh win-build --clean-win-build  # 清空构建树后重建
-
 # ── Windows MSVC Release ──
 ./scripts/dev.sh win-build --release
 ./scripts/dev.sh win-build --release --no-sync
@@ -92,8 +92,8 @@ export WIN_MIRROR_DIR='G:\source\projects\devpiano'
 
 # ── 同步 ──
 ./scripts/dev.sh win-sync --check  # 零写入预览
-./scripts/dev.sh win-sync
-```
+./scripts/dev.sh win-sync          # 快速智能同步（日常业务代码，< 1s）
+./scripts/dev.sh win-sync --full   # 强制全量同步（含 submodules，~9s）
 
 ## 日常命令（WSL）
 
@@ -135,10 +135,13 @@ export WIN_MIRROR_DIR='G:\source\projects\devpiano'
 # 或
 ./scripts/dev.sh win-sync
 
+# 强制全量同步（包含 submodules 下全部文件，约 9 秒）
+./scripts/sync_to_win.sh --full
+./scripts/dev.sh win-sync --full
+
 # 预览模式：不复制/不删除任何文件，仅列出待同步变更（零写入）
 ./scripts/sync_to_win.sh --check
 ./scripts/dev.sh win-sync --check
-```
 
 ### 4. 触发 Windows MSVC 验证构建
 
@@ -154,6 +157,8 @@ export WIN_MIRROR_DIR='G:\source\projects\devpiano'
 # 跳过同步，直接使用当前镜像树构建
 ./scripts/build_msvc_from_wsl.sh --no-sync
 
+# 强制全量同步（含 submodules）后构建
+./scripts/build_msvc_from_wsl.sh --full
 # 只做同步，不触发 Windows 构建
 ./scripts/build_msvc_from_wsl.sh --sync-only
 

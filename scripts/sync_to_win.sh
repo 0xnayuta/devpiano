@@ -29,16 +29,22 @@ fail() {
 }
 
 usage() {
-  printf 'Usage: %s [--check]\n' "$SCRIPT_NAME"
+  printf 'Usage: %s [--check] [--full]\n' "$SCRIPT_NAME"
   printf '  --check    List changes without copying or deleting any files\n'
+  printf '  --full     Force full sync including submodules (JUCE, JIVE, etc.)\n'
   exit 1
 }
 
 CHECK_ONLY=""
+FULL_SYNC=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --check)
       CHECK_ONLY="-CheckOnly"
+      shift
+      ;;
+    --full)
+      FULL_SYNC="-Full"
       shift
       ;;
     -h|--help)
@@ -102,15 +108,31 @@ log "source (Windows view): ${WIN_SOURCE_DIR}"
 log "mirror dir: ${WIN_MIRROR_DIR_VALUE}"
 log "windows shell: ${WINDOWS_POWERSHELL}"
 
+SUBMODULE_FINGERPRINT=""
+if command -v git >/dev/null 2>&1 && [[ -d "${ROOT_DIR}/.git" ]]; then
+  SUBMODULE_FINGERPRINT="$(git -C "${ROOT_DIR}" submodule status 2>/dev/null | sha256sum | awk '{print $1}')"
+fi
+
+PS_ARGS=(
+  -NoProfile
+  -ExecutionPolicy Bypass
+  -File "${WIN_PS_SCRIPT}"
+  -SourceDir "${WIN_SOURCE_DIR}"
+  -MirrorDir "${WIN_MIRROR_DIR_VALUE}"
+)
 if [[ -n "${CHECK_ONLY:-}" ]]; then
-  "${WINDOWS_POWERSHELL}" -NoProfile -ExecutionPolicy Bypass -File "${WIN_PS_SCRIPT}" \
-    -SourceDir "${WIN_SOURCE_DIR}" \
-    -MirrorDir "${WIN_MIRROR_DIR_VALUE}" \
-    -CheckOnly
+  PS_ARGS+=(-CheckOnly)
+fi
+if [[ -n "${FULL_SYNC:-}" ]]; then
+  PS_ARGS+=(-Full)
+fi
+if [[ -n "${SUBMODULE_FINGERPRINT:-}" ]]; then
+  PS_ARGS+=(-SubmoduleFingerprint "${SUBMODULE_FINGERPRINT}")
+fi
+
+"${WINDOWS_POWERSHELL}" "${PS_ARGS[@]}"
+if [[ -n "${CHECK_ONLY:-}" ]]; then
   success 'check complete — no files were modified'
 else
-  "${WINDOWS_POWERSHELL}" -NoProfile -ExecutionPolicy Bypass -File "${WIN_PS_SCRIPT}" \
-    -SourceDir "${WIN_SOURCE_DIR}" \
-    -MirrorDir "${WIN_MIRROR_DIR_VALUE}"
   success 'sync complete'
 fi

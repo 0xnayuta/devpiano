@@ -49,7 +49,10 @@ Examples:
   ./scripts/dev.sh tidy source/UI/CustomKeyboard.cpp
   ./scripts/dev.sh test
   ./scripts/dev.sh test --verbose
-  ./scripts/dev.sh win-build
+  ./scripts/dev.sh win-sync            # 快速同步业务代码（< 1s）
+  ./scripts/dev.sh win-sync --full     # 全量同步（含 submodules，~9s）
+  ./scripts/dev.sh win-build           # 快速同步并构建验证
+  ./scripts/dev.sh win-build --full    # 全量同步并构建验证
 EOF
 }
 

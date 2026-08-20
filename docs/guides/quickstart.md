@@ -207,9 +207,10 @@ source ~/.bashrc
 ./scripts/dev.sh wsl-build --release --clean
 
 # ── 同步 ──
-# 仅在需要单独同步时（一般不需要）
-./scripts/dev.sh win-sync
+# 仅在需要单独同步时（win-build 已内置快速智能同步）
+./scripts/dev.sh win-sync          # 快速智能同步（日常业务代码，< 1s）
 ./scripts/dev.sh win-sync --check  # 零写入预览
+./scripts/dev.sh win-sync --full   # 强制全量同步（含 submodules，~9s）
 
 # ── Windows MSVC 验证（Debug，默认） ──
 ./scripts/dev.sh win-build
