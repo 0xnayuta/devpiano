@@ -7,58 +7,12 @@
 #include "Settings/SettingsModel.h"
 #include "Settings/jive/SettingsLayoutModel.h"
 #include "UI/jive/DesignTokens.h"
+#include "UI/jive/JiveUtils.h"
 #include "UI/jive/StyleCatalog.h"
 
-// ============================================================================
-// Helper functions for safe JIVE Component Tree traversal and cleanup
-// ============================================================================
-
 namespace {
-
-inline juce::Component* findComponentById(::jive::GuiItem& root, const juce::String& id) {
-    if (root.state.getProperty("id").toString() == id) {
-        return root.getComponent().get();
-    }
-    for (auto* child : root.getChildren()) {
-        if (auto* found = findComponentById(*child, id)) {
-            return found;
-        }
-    }
-    return nullptr;
-}
-
-inline void clearJiveStyleSheets(juce::Component* comp) {
-    if (comp == nullptr) {
-        return;
-    }
-    for (int i = 0; i < comp->getNumChildComponents(); ++i) {
-        clearJiveStyleSheets(comp->getChildComponent(i));
-    }
-    if (comp->getProperties().contains("style-sheet")) {
-        comp->getProperties().remove("style-sheet");
-    }
-}
-
-inline void collectJiveComponents(::jive::GuiItem& item, std::vector<std::shared_ptr<juce::Component>>& components) {
-    if (auto component = item.getComponent()) {
-        components.push_back(std::move(component));
-    }
-    for (auto* child : item.getChildren()) {
-        collectJiveComponents(*child, components);
-    }
-}
-
-inline void safeCleanupJiveTree(std::unique_ptr<::jive::GuiItem>& rootItem) {
-    if (rootItem != nullptr) {
-        std::vector<std::shared_ptr<juce::Component>> jiveComponents;
-        collectJiveComponents(*rootItem, jiveComponents);
-        clearJiveStyleSheets(rootItem->getComponent().get());
-        rootItem.reset();
-    }
-}
-
+using namespace devpiano::ui::jive;
 } // namespace
-
 // ============================================================================
 /// Settings Window Content Component
 ///
