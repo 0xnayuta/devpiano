@@ -52,7 +52,8 @@ CMakeFiles/
 __pycache__/
 *.pyc
 # 本机 codegraph 索引，规则详见于 .codegraph/.gitignore
-.codegraph/
+.codegraph/*
+!.codegraph/.gitignore
 
 ## 编译产物
 *.o
