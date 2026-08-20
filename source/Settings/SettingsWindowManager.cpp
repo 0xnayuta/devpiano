@@ -191,8 +191,10 @@ SettingsComponent* SettingsWindowManager::getSettingsContent() const {
 }
 
 void SettingsWindowManager::showFor(MainComponent& owner) {
+    const bool initialResizable = owner.appSettings.keyboardDisplay.resizableWindow;
     auto onDisplaySettingsChanged
-        = [safe = juce::Component::SafePointer<MainComponent>(&owner), lastResizable = true]() mutable {
+        = [safe = juce::Component::SafePointer<MainComponent>(&owner), weakState = std::weak_ptr<State>(state),
+           lastResizable = initialResizable]() mutable {
               if (safe == nullptr) {
                   return;
               }
@@ -208,11 +210,15 @@ void SettingsWindowManager::showFor(MainComponent& owner) {
                   if (auto* topLevel = safe->getTopLevelComponent()) {
                       if (auto* dw = dynamic_cast<juce::DocumentWindow*>(topLevel)) {
                           dw->setResizable(kbs.resizableWindow, kbs.resizableWindow);
+                          if (auto locked = weakState.lock()) {
+                              if (locked->window != nullptr && locked->window->isShowing()) {
+                                  locked->window->toFront(true);
+                              }
+                          }
                       }
                   }
               }
           };
-
     show({ .parent = owner,
            .deviceManager = owner.deviceManager,
            .savedAudioDeviceState = owner.appSettings.audioDeviceState.get(),

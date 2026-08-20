@@ -1354,6 +1354,72 @@ public:
 static FilterComboDefaultTest filterComboDefaultTest;
 
 // =============================================================================
+// Instrument filter visibility adaptation: when the filter combo is hidden,
+// the plugin selector must adapt its width to fill the gap and align with the
+// right edge of where the filter combo used to be.
+// =============================================================================
+
+class FilterComboVisibilityAdaptationTest final : public juce::UnitTest {
+public:
+    FilterComboVisibilityAdaptationTest()
+        : juce::UnitTest("FilterComboVisibilityAdaptation", "DevPiano/UI") {
+    }
+
+    void runTest() override {
+        beginTest("hiding filter combo expands selector width");
+
+        ::jive::Interpreter interpreter;
+        auto tree = devpiano::ui::jive::makePluginPanelTree();
+        auto item = interpreter.interpret(tree);
+        expect(item != nullptr, "plugin panel interpretation failed");
+        if (item == nullptr) {
+            return;
+        }
+
+        auto* selectorItem = jive::findItemWithID(*item, "plugin-selector");
+        auto* filterItem = jive::findItemWithID(*item, "plugin-filter-combo");
+        expect(selectorItem != nullptr, "selector item missing");
+        expect(filterItem != nullptr, "filter item missing");
+        if (selectorItem == nullptr || filterItem == nullptr) {
+            return;
+        }
+
+        // Initial default layout
+        expectEquals(static_cast<int>(selectorItem->state.getProperty("width", 0)), 180);
+        expectEquals(static_cast<int>(filterItem->state.getProperty("width", 0)), 100);
+        expect(filterItem->state.getProperty("visibility", true));
+
+        // Simulate hiding the instrument filter (as setInstrumentFilterVisible(false) does)
+        filterItem->state.setProperty("visibility", false, nullptr);
+        filterItem->state.setProperty("width", 0, nullptr);
+        filterItem->state.setProperty("margin", "0", nullptr);
+        selectorItem->state.setProperty("width", 286, nullptr);
+
+        expect(!filterItem->state.getProperty("visibility", true), "filter visibility must be false");
+        expectEquals(static_cast<int>(filterItem->state.getProperty("width", 100)), 0, "filter width must be 0");
+        expectEquals(filterItem->state.getProperty("margin", "").toString(), juce::String("0"),
+                     "filter margin must be 0");
+        expectEquals(static_cast<int>(selectorItem->state.getProperty("width", 0)), 286, "selector width must be 286");
+
+        // Simulate restoring the instrument filter (as setInstrumentFilterVisible(true) does)
+        filterItem->state.setProperty("visibility", true, nullptr);
+        filterItem->state.setProperty("width", 100, nullptr);
+        filterItem->state.setProperty("margin", "0 6 0 0", nullptr);
+        selectorItem->state.setProperty("width", 180, nullptr);
+
+        expect(filterItem->state.getProperty("visibility", false), "filter visibility must be true");
+        expectEquals(static_cast<int>(filterItem->state.getProperty("width", 0)), 100, "filter width must be 100");
+        expectEquals(filterItem->state.getProperty("margin", "").toString(), juce::String("0 6 0 0"),
+                     "filter margin must be '0 6 0 0'");
+        expectEquals(static_cast<int>(selectorItem->state.getProperty("width", 0)), 180, "selector width must be 180");
+
+        devpiano::ui::jive::StyleCatalog::get().releaseOwnedStyles();
+    }
+};
+
+static FilterComboVisibilityAdaptationTest filterComboVisibilityAdaptationTest;
+
+// =============================================================================
 // Regression: the preset combo in ControlsPanel must show its selected preset
 // text when collapsed after populate.
 // =============================================================================

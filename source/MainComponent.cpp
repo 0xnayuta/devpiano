@@ -1139,8 +1139,8 @@ void MainComponent::syncUiFromSettings() {
     {
         auto kbs = appSettings.getKeyboardDisplaySettingsView();
         getCustomKeyboard().setKeyboardSettings(makeKeyboardSettings(kbs, appSettings.keySignature));
+        setInstrumentFilterVisible(kbs.showInstrumentFilter);
     }
-    // Restore keyboard scroll position (after layout is known); -1 sentinel = unset
     if (appSettings.keyboardScrollOffsetX >= 0) {
         setKeyboardViewPosition(-1, appSettings.keyboardScrollOffsetX);
     } else {

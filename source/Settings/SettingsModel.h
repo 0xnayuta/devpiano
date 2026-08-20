@@ -52,7 +52,7 @@ struct SettingsModel {
         devpiano::ui::KeyColourMode colourMode = devpiano::ui::KeyColourMode::classic;
         devpiano::ui::NoteDisplayMode noteDisplay = devpiano::ui::NoteDisplayMode::doReMi;
         float fadeSpeed = 0.92f;
-        bool resizableWindow = true;
+        bool resizableWindow = false;
         bool showInstrumentFilter = true;
         std::array<juce::String, 128> customKeyLabels;
         std::array<juce::Colour, 128> customKeyColours;

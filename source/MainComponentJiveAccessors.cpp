@@ -140,6 +140,15 @@ void MainComponent::setInstrumentFilterVisible(bool visible) {
     }
     if (auto* item = jive::findItemWithID(*jiveRootItem, "plugin-filter-combo")) {
         item->state.setProperty("visibility", visible, nullptr);
+        item->state.setProperty("width", visible ? 100 : 0, nullptr);
+        item->state.setProperty("margin", visible ? "0 6 0 0" : "0", nullptr);
+    }
+    if (auto* selectorItem = jive::findItemWithID(*jiveRootItem, "plugin-selector")) {
+        selectorItem->state.setProperty("width", visible ? 180 : 286, nullptr);
+    }
+    if (auto* actionRow
+        = dynamic_cast<jive::FlexContainer*>(jive::findItemWithID(*jiveRootItem, "plugin-action-row"))) {
+        actionRow->layOutChildren();
     }
 }
 

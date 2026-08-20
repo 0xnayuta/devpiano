@@ -148,6 +148,8 @@ public:
                 store.load(loaded);
             }
             expectWithinAbsoluteError(loaded.masterGain, 0.8f, 0.0001f);
+            expect(!loaded.keyboardDisplay.resizableWindow, "resizableWindow default must be false");
+            expect(loaded.keyboardDisplay.showInstrumentFilter, "showInstrumentFilter default must be true");
         });
 
         testCase("legacy file without piano keys falls back to defaults", [&] {
