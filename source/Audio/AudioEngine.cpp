@@ -186,6 +186,18 @@ void AudioEngine::setPianoParameters(float brightness, float hammerHardness, flo
     pianoResonance = juce::jlimit(0.0f, 1.0f, resonance);
     updatePianoParametersOnVoices();
 }
+void AudioEngine::setPlaybackTranspose(bool enabled, int semitoneOffset) noexcept {
+    playbackTransposeEnabled.store(enabled, std::memory_order_release);
+    playbackTransposeOffset.store(semitoneOffset, std::memory_order_release);
+}
+
+bool AudioEngine::isPlaybackTransposeEnabled() const noexcept {
+    return playbackTransposeEnabled.load(std::memory_order_acquire);
+}
+
+int AudioEngine::getPlaybackTransposeOffset() const noexcept {
+    return playbackTransposeOffset.load(std::memory_order_acquire);
+}
 
 void AudioEngine::setBuiltinSynthTone(BuiltinSynthTone tone) {
     if (builtinTone == tone) {
@@ -303,6 +315,33 @@ void AudioEngine::renderPlaybackEventsIfNeeded(std::int64_t blockStartSamples, i
 
     playbackVisualMidiBuffer.clear();
     recordingEngine->renderPlaybackBlock(playbackVisualMidiBuffer, blockStartSamples, numSamples);
+
+    // Apply real-time playback transposition if enabled (with GM Channel 10 drum bypass)
+    const auto transposeEnabled = playbackTransposeEnabled.load(std::memory_order_acquire);
+    const auto transposeOffset = playbackTransposeOffset.load(std::memory_order_acquire);
+
+    if (transposeEnabled && transposeOffset != 0 && !playbackVisualMidiBuffer.isEmpty()) {
+        juce::MidiBuffer transposedBuffer;
+        for (const auto metadata : playbackVisualMidiBuffer) {
+            auto msg = metadata.getMessage();
+            if (msg.isNoteOnOrOff() && msg.getChannel() != 10) {
+                const auto originalNote = msg.getNoteNumber();
+                const auto transposedNote = juce::jlimit(0, 127, originalNote + transposeOffset);
+                if (msg.isNoteOn()) {
+                    transposedBuffer.addEvent(
+                        juce::MidiMessage::noteOn(msg.getChannel(), transposedNote, msg.getFloatVelocity()),
+                        metadata.samplePosition);
+                } else {
+                    transposedBuffer.addEvent(
+                        juce::MidiMessage::noteOff(msg.getChannel(), transposedNote, msg.getFloatVelocity()),
+                        metadata.samplePosition);
+                }
+            } else {
+                transposedBuffer.addEvent(msg, metadata.samplePosition);
+            }
+        }
+        playbackVisualMidiBuffer.swapWith(transposedBuffer);
+    }
 
     // Playback events are generated inside the audio callback after the keyboard
     // state has already processed realtime input for this block. Feed only the

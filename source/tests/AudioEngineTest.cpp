@@ -416,3 +416,72 @@ private:
 };
 
 static AudioEngineWarmupAndCoverageTest audioEngineWarmupAndCoverageTest;
+class AudioEnginePlaybackTransposeTest final : public juce::UnitTest {
+public:
+    AudioEnginePlaybackTransposeTest()
+        : juce::UnitTest("AudioEngine: playback transpose", "DevPiano/Engine") {
+    }
+
+    void runTest() override {
+        beginTest("playback transpose state getter and setter");
+        {
+            AudioEngine engine;
+            expect(!engine.isPlaybackTransposeEnabled());
+            expectEquals(engine.getPlaybackTransposeOffset(), 0);
+
+            engine.setPlaybackTranspose(true, 5);
+            expect(engine.isPlaybackTransposeEnabled());
+            expectEquals(engine.getPlaybackTransposeOffset(), 5);
+
+            engine.setPlaybackTranspose(false, -3);
+            expect(!engine.isPlaybackTransposeEnabled());
+            expectEquals(engine.getPlaybackTransposeOffset(), -3);
+        }
+
+        beginTest("playback transpose applies to melodic channels and bypasses channel 10 drums");
+        {
+            devpiano::recording::RecordingEngine rec;
+            AudioEngine engine;
+            engine.setRecordingEngine(&rec);
+            engine.prepareToPlay(512, 44100.0);
+            exhaustWarmup(engine, 512);
+
+            // Create take with Channel 1 (piano C4=60) and Channel 10 (drums kick=36)
+            devpiano::recording::RecordingTake take;
+            take.sampleRate = 44100.0;
+            take.lengthSamples = 2048;
+            take.events.push_back({
+                .timestampSamples = 10,
+                .type = devpiano::recording::PerformanceEventType::midi,
+                .source = devpiano::recording::RecordingEventSource::playback,
+                .message = juce::MidiMessage::noteOn(1, 60, 0.8f),
+            });
+            take.events.push_back({
+                .timestampSamples = 10,
+                .type = devpiano::recording::PerformanceEventType::midi,
+                .source = devpiano::recording::RecordingEventSource::playback,
+                .message = juce::MidiMessage::noteOn(10, 36, 0.8f), // Drum channel
+            });
+
+            // Start playback with transpose = +2 (D major)
+            engine.setPlaybackTranspose(true, 2);
+            rec.startPlayback(take, 44100.0);
+
+            // Render block containing the events (samples 0..512)
+            auto [buf, info] = makeBlock(2, 512);
+            engine.getNextAudioBlock(info);
+
+            // Check keyboardState:
+            // Channel 1 note 60 should be transposed to 62 (D4)
+            // Channel 10 drum note 36 should stay at 36 (Bypassed)
+            expect(engine.getKeyboardState().isNoteOn(1, 62), "Channel 1 note 60 should be transposed to 62 (+2)");
+            expect(!engine.getKeyboardState().isNoteOn(1, 60), "Channel 1 note 60 should NOT be on");
+            expect(engine.getKeyboardState().isNoteOn(10, 36), "Channel 10 drum note 36 must NOT be transposed");
+            expect(!engine.getKeyboardState().isNoteOn(10, 38), "Channel 10 note 38 should NOT be on");
+
+            rec.stopPlayback();
+        }
+    }
+};
+
+static AudioEnginePlaybackTransposeTest audioEnginePlaybackTransposeTest;

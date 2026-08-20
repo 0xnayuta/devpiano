@@ -274,6 +274,7 @@ void MainComponent::reconfigureChannelMapper() {
     midiChannelMapper = std::make_unique<devpiano::midi::MidiChannelMapper>(
         appSettings.channelMatrix, appSettings.midiTranspose, appSettings.keySignature);
     keyboardMidiMapper.setChannelMapper(midiChannelMapper.get());
+    audioEngine.setPlaybackTranspose(appSettings.midiTranspose, appSettings.keySignature);
     updateStatusBar();
 }
 
