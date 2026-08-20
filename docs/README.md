@@ -1,78 +1,68 @@
-# devpiano 文档入口
+# devpiano 文档中心
 
-> 用途：说明 `docs/` 的分层、阅读顺序与每类文档的职责。
-> 更新时机：新增、移动、归档文档时。
+> 用途：说明 `docs/` 的目录分层、阅读指引与各类文档的职责定位。
+> 更新时机：新增、移动、重构或归档文档时。
 
-## 推荐阅读顺序
+---
 
-### 新开发者
+## 推荐阅读指引
 
-- [`guides/quickstart.md`](guides/quickstart.md)：快速恢复环境与常用命令。
-- [`reference/architecture.md`](reference/architecture.md)：理解当前 JUCE 架构与模块职责。
-- [`roadmap/roadmap.md`](roadmap/roadmap.md)：了解当前状态、阶段路线与近期重点。
+### 1. 新开发者 / 上手理解
 - [`reference/project-scope.md`](reference/project-scope.md)：了解项目定位、核心能力与明确非目标。
+- [`reference/architecture.md`](reference/architecture.md)：理解当前 JUCE 架构、DSP 物理建模、JIVE 声明式 UI 与模块职责。
+- [`roadmap/roadmap.md`](roadmap/roadmap.md)：了解项目演进历史、当前全阶段完成状态与路线图。
+- [`guides/quickstart.md`](guides/quickstart.md)：快速配置 WSL + Windows 镜像构建环境与常用命令速查。
 
+### 2. 日常开发与工程纪律
+- [`guides/wsl-windows-msvc-workflow.md`](guides/wsl-windows-msvc-workflow.md)：WSL 主工作树 + Windows 镜像树 + MSVC 验证工作流详解。
+- [`guides/development.md`](guides/development.md)：日常开发、构建与协作指引。
+- [`roadmap/current-iteration.md`](roadmap/current-iteration.md)：查看当前迭代正在推进的任务与验收状态。
+- [`decisions/README.md`](decisions/README.md)：架构决策记录（ADR 001 ~ ADR 010）。
+- [`guides/troubleshooting.md`](guides/troubleshooting.md)：WSL / Windows 镜像构建常见问题排查。
+- [`guides/release-workflow.md`](guides/release-workflow.md)：Windows x64 正式 release、tag 与打包 checklist。
 
-- [`guides/quickstart.md`](guides/quickstart.md)：命令速查。
-- [`guides/development.md`](guides/development.md)：日常开发与构建细节。
-- [`guides/wsl-windows-msvc-workflow.md`](guides/wsl-windows-msvc-workflow.md)：WSL 主工作树 + Windows 镜像树 + MSVC 验证的详细工作流。
-- [`guides/release-workflow.md`](guides/release-workflow.md)：手工 release、tag 与 zip 打包 checklist。
-- [`roadmap/current-iteration.md`](roadmap/current-iteration.md)：当前正在推进的任务。
-- [`decisions/README.md`](decisions/README.md)：架构决策记录。
+**工程三闸门基线**：
+- **格式化**：`.clang-format`（WebKit 规范），`./scripts/dev.sh format --check`
+- **单元测试**：`devpiano_tests`（3100+ 断言），`./scripts/dev.sh test`
+- **构建验证**：WSL 配置 `wsl-build --configure-only` + Windows 验证 `./scripts/dev.sh win-build`
 
-**代码格式**：`.clang-format`（WebKit 基），`./scripts/dev.sh format`
-**静态分析**：`.clang-tidy`（bugprone/performance/readability/modernize），`clang-tidy-21`
-**单元测试**：`cmake -DBUILD_TESTS=ON` → `devpiano_tests`，`./scripts/dev.sh test`
+---
 
-### 测试与验收
+### 3. 核心功能参考与专项测试（`reference/features/`）
 
-- [`reference/acceptance.md`](reference/acceptance.md)：阶段性验收标准。
-- [`audit/README.md`](audit/README.md)：架构审查、设计评审与事后分析。
-- [`issues/known-issues.md`](issues/known-issues.md)：已知问题、已修复风险的回归项与长期设计约束。
-- [`reference/features/keyboard-mapping.md`](reference/features/keyboard-mapping.md)：键盘映射专项手工测试。
-- [`reference/features/plugin-hosting.md`](reference/features/plugin-hosting.md)：插件宿主生命周期与退出稳定性专项测试。
-- [`reference/features/performance-presets.md`](reference/features/performance-presets.md)：Performance Preset 的保存、导入、切换、重命名、删除、快捷键与录制集成专项测试。
-- [`reference/features/recording-playback.md`](reference/features/recording-playback.md)：录制、回放与 MIDI 导出专项手工测试。
-- [`reference/features/midi-file-import.md`](reference/features/midi-file-import.md)：MIDI 文件导入、回放、自动选轨与后续增强验收测试。
-- [`reference/features/plugin-offline-rendering.md`](reference/features/plugin-offline-rendering.md)：插件离线渲染与文件输出专项测试。
-- [`reference/features/fixture-inventory.md`](reference/features/fixture-inventory.md)：MIDI / Performance 测试夹具清单与用途说明。
+| 领域 | 核心特性文档 | 主要内容与测试重点 |
+|---|---|---|
+| **发声引擎** | [`features/builtin-piano-synthesis.md`](reference/features/builtin-piano-synthesis.md) | 增强模态物理建模钢琴（`PianoSynthVoice`，Magic Circle 振荡器/音板共振）与正弦合成 |
+| **发声引擎** | [`features/plugin-hosting.md`](reference/features/plugin-hosting.md) | VST3 插件扫描、分片进度、XML 缓存恢复、加载与生命周期专项回归 |
+| **输入与映射** | [`features/keyboard-mapping.md`](reference/features/keyboard-mapping.md) | 电脑键盘映射系统、稳定 key code 路由、88 键虚拟键盘与输入法防御 |
+| **输入与映射** | [`features/per-key-customization.md`](reference/features/per-key-customization.md) | 128 项逐键自定义标签与颜色、按键绑定编辑对话框（`KeyBindingEditDialog`） |
+| **输入与映射** | [`features/midi-channel-matrix.md`](reference/features/midi-channel-matrix.md) | 16 通道 MIDI 矩阵路由（移调/力度/音色/延音/按键跟随）与全局调号 |
+| **录制与回放** | [`features/recording-playback.md`](reference/features/recording-playback.md) | 实时演奏录制、多倍速回放控制（0.5x–2.0x）与标准 Type 1 MIDI 导出 |
+| **录制与回放** | [`features/performance-persistence.md`](reference/features/performance-persistence.md) | `.devpiano` 原生演奏文件持久化（v2 JSON + Base64）、原子保存与最近文件 |
+| **录制与回放** | [`features/midi-file-import.md`](reference/features/midi-file-import.md) | 标准 MIDI 文件导入、多轨自动选轨、CC64 延音/弯音解析与回放 |
+| **渲染与导出** | [`features/plugin-offline-rendering.md`](reference/features/plugin-offline-rendering.md) | VST3 插件离线渲染与 WAV 导出（`RenderPipeline` 共享管线与后台多线程） |
+| **预设与状态** | [`features/performance-presets.md`](reference/features/performance-presets.md) | Performance Preset 预设系统（CRUD 编排、F1-F12 快捷键、录制中自动切调） |
+| **UI 与交互** | [`features/declarative-ui-and-theming.md`](reference/features/declarative-ui-and-theming.md) | JIVE 声明式 UI 架构、设计 Token、通用弹窗体系（`JiveModalDialog`）与静态资产内嵌 |
+| **多语言** | [`features/internationalization.md`](reference/features/internationalization.md) | 运行时中英文双语即时切换（`LocaleManager` + 内嵌 `zh_CN.loc`） |
+| **测试支撑** | [`features/fixture-inventory.md`](reference/features/fixture-inventory.md) | 固定 MIDI 与 Performance 测试夹具样本库清单 |
 
+---
 
-### 功能设计
+### 4. 质量审查、验收与问题追踪
+- [`reference/acceptance.md`](reference/acceptance.md)：Phase 1–15 阶段性验收标准与全量回归清单。
+- [`audit/README.md`](audit/README.md)：代码质量审计报告（`AUDIT-001` 全面审计看板与问题登记表）。
+- [`issues/known-issues.md`](issues/known-issues.md)：已知问题、密集 MIDI 播放 CPU 深度剖析与已修复风险回归线索。
 
-- [`reference/features/keyboard-mapping.md`](reference/features/keyboard-mapping.md)：电脑键盘到 MIDI note 的映射能力与边界。
-- [`reference/features/plugin-hosting.md`](reference/features/plugin-hosting.md)：VST3 插件扫描、加载、处理、editor 和生命周期行为。
-- [`reference/features/recording-playback.md`](reference/features/recording-playback.md)：录制 / 回放 / MIDI 导出的第一版设计与当前 MVP 行为。
-- [`reference/features/performance-presets.md`](reference/features/performance-presets.md)：Performance Preset 的文件格式、CRUD 行为、F1-F12 快捷键、录制集成与启动恢复。
-- [`reference/features/midi-file-import.md`](reference/features/midi-file-import.md)：MIDI 文件导入、回放兼容性与功能边界。
-- [`reference/features/performance-persistence.md`](reference/features/performance-persistence.md)：性能与持久化。
-- [`reference/features/plugin-offline-rendering.md`](reference/features/plugin-offline-rendering.md)：插件离线渲染能力、文件输出格式与边界。
-- [`reference/features/fixture-inventory.md`](reference/features/fixture-inventory.md)：MIDI / Performance 测试夹具清单。
+---
 
+### 5. 历史档案（`archive/`）
+- [`archive/README.md`](archive/README.md)：历史归档索引与现行替代关系表。
 
-### 历史资料
-
-- `archive/`：历史迁移记录、旧规划文档与过期资料。
-
-## 当前目录职责
-
-| 目录 | 职责 |
-|---|---|
-| `guides/` | 快速开始、开发环境、构建、日常工作流、故障排查与协作规则。 |
-| `reference/` | 项目定位 (`project-scope.md`)、系统架构 (`architecture.md`)、验收标准 (`acceptance.md`) 入口。 |
-| `reference/features/` | 功能行为说明、专项测试与测试夹具清单。 |
-| `issues/` | 已知问题与回归项。 |
-| `tests/fixtures/` | 手工测试用例与测试 fixture 数据。 |
-| `decisions/` | ADR，记录重要架构和工程决策。 |
-| `roadmap/` | 路线图、当前迭代与后续任务规划。 |
-| `audit/` | 架构审查、设计评审、事后分析。 |
-| `archive/` | 历史文档、旧方案、已被替代的资料。 |
+---
 
 ## 文档职责原则
 
-- [`roadmap/roadmap.md`](roadmap/roadmap.md) 是唯一的项目状态与路线图来源。
-- [`roadmap/current-iteration.md`](roadmap/current-iteration.md) 只记录当前正在做的任务。
-- [`reference/architecture.md`](reference/architecture.md) 只描述当前架构，不混入任务清单。
-- `reference/features/` 下每个功能的设计、行为说明与专项测试合并在一个文件中。
-- `issues/` 下只放已知问题与回归项。
-- `archive/` 中的内容只作为历史参考，当前信息以现行文档为准。
+1. **唯一状态源**：[`roadmap/roadmap.md`](roadmap/roadmap.md) 是项目长期路线与全阶段完成状态的唯一权威来源；[`roadmap/current-iteration.md`](roadmap/current-iteration.md) 只记录当前正在推进的任务。
+2. **架构客观性**：[`reference/architecture.md`](reference/architecture.md) 描述当前代码真实架构，不混入待办计划或历史方案对比。
+3. **特性规范化**：`reference/features/` 下每个文档应合并该特性的现行行为说明与专项测试清单，剔除历史规划草案。
+4. **历史进归档**：历史前期调研、RFC 选型讨论和已完成规划统一归档至 `archive/`。

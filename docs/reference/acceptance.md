@@ -1,34 +1,35 @@
 # devpiano 阶段验收标准
 
-> 用途：定义各阶段的可验证完成标准。
-> 更新时机：阶段验收标准变化或状态发生明确变化时。
+> 用途：定义各阶段的可验证完成标准与全量回归清单。
+> 更新时机：阶段验收标准变化、新里程碑完成或测试基线更新时。
 
-说明：本文件只描述阶段验收，不承担长期规划职责。项目状态与路线图以 [`../../roadmap/roadmap.md`](../../roadmap/roadmap.md) 为准。
+说明：本文件描述阶段验收标准与回归清单。项目状态与路线图以 [`../roadmap/roadmap.md`](../roadmap/roadmap.md) 为准。
 
 ## 状态标记
 
 - [x] 已通过
 - [ ] 未通过 / 未开始验证
 - [~] 部分通过 / 待补充验证
+- [-] 已废除 / 明确不实现
+
+---
 
 ## Phase 1-1：工程骨架可运行
 
 状态：已通过。
 
-验收项：
-
 - [x] `./scripts/dev.sh wsl-build` 构建成功。
-- [x] `./scripts/dev.sh win-build` 验证成功。
+- [x] `./scripts/dev.sh win-build` MSVC 验证成功。
 - [x] JUCE GUI 程序可启动。
 - [x] 主窗口正常显示。
 - [x] 音频设备能初始化。
 - [x] 没有因缺失 JUCE 子模块导致构建失败。
 
+---
+
 ## Phase 1-2：最小演奏链路成立
 
 状态：已通过。
-
-验收项：
 
 - [x] 按下 `A/S/D/F` 等基础按键时可触发 note on。
 - [x] 松开对应按键时可触发 note off。
@@ -38,171 +39,198 @@
 - [x] 长按按键时不会异常重复触发。
 - [x] 切换窗口焦点后 held key 不残留。
 
-## Phase 2：最小插件扫描能力成立
+---
+
+## Phase 2：插件系统与键盘映射
 
 状态：已通过。
 
-验收项：
+- [x] 程序能识别 VST3 插件格式。
+- [x] 支持默认与自定义多目录扫描（`FileSearchPath` 规范化路径）。
+- [x] 扫描完成后列表正常显示，失败文件记录至 Logger。
+- [x] `KnownPluginList` XML 缓存启动恢复优化已就位。
+- [x] 插件异步分片扫描（Chunked Scan），UI 显示扫描中状态与进度。
+- [x] 成功加载 VST3 乐器并驱动发声。
+- [x] 支持打开/关闭独立插件 Editor 窗口。
+- [x] 默认键位映射覆盖 36 个字母数字键，采用稳定 key code。
+- [x] 虚拟键盘翻页后映射稳定性通过回归验证。
+- [-] 外部 MIDI 输入支持已移除（聚焦电脑键盘演奏场景，详见 ADR 006）。
 
-- [x] 程序能识别可用插件格式。
-- [x] VST3 格式可用。
-- [x] 输入默认或指定 VST3 搜索路径后可执行扫描。
-- [x] 扫描完成后可在界面列出插件名称。
-- [x] 扫描失败不会导致程序崩溃。
-- [x] 扫描失败文件可清晰记录（Phase 2-1：失败路径写入 Logger，UI 摘要提示 `see log`）。
-- [x] 多目录搜索路径表现稳定（Phase 2-2：`FileSearchPath` 语义多目录字符串，过滤无效目录并持久化规范化路径）。
-- [x] 扫描路径与最近插件恢复信息可持久化（Phase 2-3：`KnownPluginList` XML 缓存，启动优先恢复，失败时回退重扫）。
+专项测试见：[`./features/plugin-hosting.md`](./features/plugin-hosting.md)、[`./features/keyboard-mapping.md`](./features/keyboard-mapping.md)。
 
-专项插件扫描产品化增强（Phase 2-1..2-4）已全部完成并通过 2026-04-30 人工验证。
+---
 
-## Phase 2：插件实例化并发声
-
-状态：基本通过。
-
-验收项：
-
-- [x] 扫描结果中可选择一个 VST3 乐器。
-- [x] 点击加载后能成功创建 `AudioPluginInstance`。
-- [x] 插件加载成功后 UI 显示明确状态。
-- [x] 电脑键盘输入可驱动插件发声。
-- [x] 插件处理链路接入 `processBlock`。
-- [x] 插件卸载后不会崩溃或留下非法状态。
-- [x] 未加载插件时程序仍保持可运行。
-- [x] 可打开支持 editor 的插件窗口。
-- [-] 外部 MIDI 设备支持已移除（聚焦电脑键盘演奏场景，详见 ADR 006）。
-
-专项生命周期回归见：[`plugin-host-lifecycle.md`](./features/plugin-hosting.md)。
-
-## Phase 2：键盘映射系统可配置
+## Phase 3：UI 面板分层与录制回放 MVP
 
 状态：已通过。
 
-验收项：
+- [x] 主界面拆分为 Header / Plugin / Controls / Keyboard 基础分层。
+- [x] 插件流程职责与只读 UI 状态流完成两轮收敛。
+- [x] 可开始录制、停止录制并生成不可变 `RecordingTake`。
+- [x] 回放 Take 重新注入发声链路（插件或 fallback synth）。
+- [x] 录制内容可导出为标准 Type 1 MIDI 文件（960 PPQ）。
+- [x] 离线渲染 Take 为 WAV 音频文件（fallback synth 路径）。
+- [x] Performance Preset 系统支持新建/导入/切换/重命名/删除与 F1-F12 快捷键。
 
-- [x] 映射内部模型不再只是裸 `unordered_map<int, int>`。
-- [x] 映射主路径不再强依赖 `key.getTextCharacter()`。
-- [x] 默认布局可加载。
-- [x] 当前布局可保存到设置。
-- [x] 重启程序后布局可恢复。
-- [x] 可恢复默认布局的代码路径已具备。
-- [x] 已提供最小布局操作入口。
-- [x] 默认布局全量回归已完成（Q/A/Z/数字行、多键组合、启动一致性均通过）。
-- [x] 虚拟键盘翻页后映射稳定性问题已修复并验证。
-- [x] 自定义 Preset 加载/保存/导入/重命名/删除与启动恢复已完成（Phase 3）。
-- [~] 图形化布局编辑器（当前无 UI，不在近期范围）。
+专项测试见：[`./features/recording-playback.md`](./features/recording-playback.md)、[`./features/performance-presets.md`](./features/performance-presets.md)。
 
-专项键盘回归见：[`keyboard-mapping.md`](./features/keyboard-mapping.md)。
-
-## Phase 3：UI 进入正式可用阶段
-
-状态：已通过。
-
-验收项：
-
-- [x] 插件扫描、选择、加载、卸载路径完整。
-- [x] 插件状态标签表达清晰。
-- [x] MIDI 状态反馈清晰。
-- [x] 用户可以理解当前发声来源。
-- [x] 设置窗口可打开、保存并关闭。
-- [x] 设置窗口关闭时可保存修改后的设备状态。
-- [x] 已支持打开并操作已加载插件的 editor 窗口。
-- [x] 已形成 `HeaderPanel` / `PluginPanel` / `ControlsPanel` / `KeyboardPanel` 的基础组件分层。
-- [x] `MainComponent` 插件流程职责已完成两轮收敛（`PluginFlowSupport` 提取 + Phase 5-1..5-4 状态流收敛）。
-- [~] 错误提示与空状态提示仍需完善（低优先级）。
-
-## Phase 3：高级功能恢复
-
-### Performance Preset
-
-- [x] 可保存当前完整配置为 `.devpiano.preset` Preset（键位 + channel matrix + keyboard settings）。
-- [x] 可导入 `.devpiano.preset` 文件并立即应用。
-- [x] 可通过持久化的 `lastActivePresetId` 恢复上次使用的 preset。
-- [x] 可重命名用户 preset 的文件名与显示名称。
-- [x] 可删除用户 preset，内置 `[Default]` 不可删除。
-- [x] F1-F12 快捷键一键切换 preset。
-- [x] 退回到 `[Default]` 恢复默认配置。
-
-专项 Performance Preset 回归见：[`performance-presets.md`](./features/performance-presets.md)。
-
-### 录制 / 回放
-
-设计参考见：[`./features/recording-playback.md`](./features/recording-playback.md)。
-
-- [x] 可开始录制。
-- [x] 可停止录制。
-- [x] 可回放录制结果。
-- [x] 回放事件重新进入当前插件 / fallback synth 发声路径。
-- [~] 回放期间事件时间顺序已由 sample-based timeline 设计覆盖，仍需按专项清单持续人工回归。
-- [~] 实时音频线程边界、回放结束通知、采样率变化和 Stop 清理悬挂音路径仍作为下一阶段稳定化重点。
-
-专项录制 / 回放回归见：[`recording-playback.md`](./features/recording-playback.md)。
-
-### 导出
-
-设计参考见：[`./features/recording-playback.md`](./features/recording-playback.md)。
-
-- [x] 可导出 MIDI。
-- [x] 可导出 WAV（fallback synth 离线渲染；VST3 插件离线渲染后置为 Phase 3-2）。
-- [x] 导出失败时有基础错误处理，已按专项清单验证无 take、取消保存、无权限路径等边界。
-- [x] WAV 离线渲染 MVP 设计与实现切片已完成（Phase 3-1a..3-1d）；E.1–E.9 全部通过。
+---
 
 ## Phase 4：MIDI 文件导入与回放兼容性
 
-状态：核心能力已通过。Phase 4-1、Phase 4-2、Phase 4-3、Phase 4-4、Phase 4-5、Phase 4-7、Phase 4-8 已实现并通过 2026-05-01 人工验收；Phase 4-6 已搁置。
+状态：已通过。
 
-验收项：
+- [x] 可通过 Import MIDI 打开标准 `.mid` 文件并回放。
+- [x] 智能选择 Note 密度最高的轨道，跳过纯 tempo/meta 轨道。
+- [x] Record / Playing 期间 Import MIDI 状态互斥保护。
+- [x] 回放期间虚拟键盘联动高亮。
+- [x] 回放中点击 Back 按钮可从开头重新播放。
+- [x] 导入 playback take 禁止再次导出为 MIDI（Export MIDI 保持 disabled），允许导出 WAV。
+- [x] 最近导入/导出路径已持久化并在 FileChooser 中复用。
+- [~] 合并所有轨道至单一 timeline（Phase 4-6 明确搁置，保留单轨推荐模式）。
 
-- [x] 可通过 Import MIDI 打开标准 `.mid` 文件并在当前播放链路回放。
-- [x] Record 期间 Import MIDI 禁用，避免录制与导入状态冲突。
-- [x] 导入空文件、读取失败文件或无 note 文件时写 Logger，不崩溃。
-- [x] 导入播放内容 Stop 后，Export MIDI 保持 disabled，Export WAV 可用。
-- [x] Playing 期间 Import MIDI 禁用；需先 Stop 再导入另一个 MIDI，避免异步替换 playback 状态竞争。
-- [x] 自动选择含 note 最多的轨道；track 0 只有 tempo/meta 时可选择后续有 note 的轨道。
-- [x] MIDI playback 时虚拟键盘可随 note on/off 实时显示按下与松开。
-- [x] 主窗口首次尺寸合适，用户手动调整后可持久化恢复。
-- [x] 最近导入路径已持久化；最近导出路径已接入 Export MIDI / Export WAV FileChooser。
-- [x] 播放中点击 `Back` 可从当前 take 开头重新播放。
-- [x] PPQ/timeFormat 修正、轨道诊断和自动选轨已覆盖主要 playback/边界测试；导入 playback take 禁止再次导出 MIDI 是预期边界。
-- [x] 导入 MIDI 后允许导出 WAV；VST3 插件音色离线渲染仍归 Phase 3-2 后续计划。
-- [~] 合并所有轨道 note 到单一 timeline（Phase 4-6）未实现且已搁置；当前保留 note-rich 单轨选择为推荐模式。
+专项测试见：[`./features/midi-file-import.md`](./features/midi-file-import.md)。
 
-专项 MIDI 文件导入回归见：[`midi-file-import.md`](./features/midi-file-import.md)。
+---
 
-## Phase 6：演奏数据持久化与播放体验增强
+## Phase 5：架构收敛与 MainComponent 瘦身
 
-状态：已完成。Phase 6-1/6-2/6-5/6-6/6-7 全部完成，Phase 6-3（最近文件列表 + 拖拽打开）已在架构优化阶段（P0-C + Phase 7）完成。
+状态：已完成。
 
-验收项：
+- [x] 提取 `RecordingSessionController` 承载录制/回放/导入/导出编排。
+- [x] 提取 `PluginOperationController` 承载扫描/加载/Editor 编排。
+- [x] 提取 `SettingsWindowManager` 承载设置窗口生命周期。
+- [x] 提取 `AppStateBuilder` 组装持久化基线与运行时快照。
+- [x] `MainComponent.cpp` 从 1587 行单体降至 446 行，严格遵守生命周期与音频线程边界。
 
-- [x] 可将录制 take 保存为 `.devpiano` JSON 文件，包含完整事件数据。
-- [x] 可打开 `.devpiano` 文件并回放，内容与原始录制一致。
-- [x] 打开损坏或格式错误的 `.devpiano` 文件时不崩溃，Logger 输出错误。
-- [x] Save/Open 按钮状态与录制/播放状态正确联动。
-- [x] 保存和打开路径记忆生效。
-- [x] 播放速度可调（0.50x–2.00x），播放中变速立即生效。
-- [x] 最近文件列表最多 10 条，点击可打开。
-- [x] 拖拽 `.devpiano` / `.mid` 文件到窗口可打开。
-- [~] 可选中并删除单个音符（永久搁置）。
+---
 
-专项测试见：[`performance-persistence.md`](./features/performance-persistence.md)。
+## Phase 6：数据持久化、调速与 MIDI 矩阵
 
-## 建议最小回归集合
+状态：已完成。
 
-每次关键修改后，至少验证：
+- [x] `.devpiano` 原生演奏文件 JSON 序列化持久化保存与打开回放。
+- [x] 打开损坏文件不崩溃，Logger 输出错误提示。
+- [x] 播放速度 0.5x–2.0x 实时倍率调节，线程安全且变速平滑校准。
+- [x] 16 通道 MIDI 矩阵路由（`ChannelMatrix` / `MidiChannelMapper`）。
+- [x] 88 键拟真钢琴键盘（`CustomKeyboard`，支持 3 种着色与 3 种音符标注）。
+- [x] 结构化日志系统（`DP_LOG_*` / `DP_TRACE_MIDI`）与测试夹具库（8 MIDI + 1 Performance）。
+- [x] 最近文件列表（最多 10 条）与拖拽 `.devpiano` / `.mid` 文件即开即播。
+- [-] 基础音符编辑器（Phase 6-4 永久搁置）。
 
-- [x] WSL 构建通过：`./scripts/dev.sh wsl-build --configure-only`。
-- [x] `./scripts/dev.sh win-build` 验证成功。
-- [x] 程序可启动并初始化音频设备。
-- [x] `A/S/D/F` 可触发 note on / note off。
-- [x] 虚拟键盘高亮与释放正常。
-- [x] 启动或音频重建后立即弹奏首音稳定；当前通过 `25ms` audio warmup 避免早期音高异常。
-- [x] 如修改插件相关代码：可扫描、加载、卸载一个 VST3 插件。
-- [x] 如修改键盘相关代码：执行 [`keyboard-mapping.md`](./features/keyboard-mapping.md) 中优先测试包。
-- [x] 如修改插件生命周期相关代码：执行 [`plugin-host-lifecycle.md`](./features/plugin-hosting.md) 中优先测试包。
-- [x] 如修改录制、回放或 MIDI 导出相关代码：执行 [`recording-playback.md`](./features/recording-playback.md) 中优先测试包。
-- [x] 如修改 MIDI 文件导入、导入后回放、自动选轨或 playback 切换逻辑：执行 [`midi-file-import.md`](./features/midi-file-import.md) 中建议最小回归集合。
-- [x] 如修改演奏文件保存/打开、播放速度、最近文件列表或基础编辑相关代码：执行 [`performance-persistence.md`](./features/performance-persistence.md) 中建议最小回归集合。
+专项测试见：[`./features/performance-persistence.md`](./features/performance-persistence.md)、[`./features/fixture-inventory.md`](./features/fixture-inventory.md)。
 
-已知硬件限制：
+---
 
-- 外部 MIDI 设备支持已移除（聚焦电脑键盘演奏场景，详见 ADR 006）。
+## Phase 7：VST3 离线渲染与国际化
+
+状态：已完成。
+
+- [x] `PluginOfflineRenderer` 独立创建离线 VST3 实例执行非实时音频渲染。
+- [x] `WavExportTask` 后台多线程导出，支持取消与残留文件清理。
+- [x] 运行时中英文双语即时切换（`LocaleManager` + `zh_CN.loc`）。
+- [x] 拖放支持（`.devpiano` / `.mid` / `.devpiano.preset` / `.vst3`）。
+- [-] Metadata 编辑独立对话框（Phase 7-5 明确搁置）。
+- [-] 全屏模式（Phase 7-7 明确不实现，窗口最大化即可替代）。
+
+专项测试见：[`./features/plugin-offline-rendering.md`](./features/plugin-offline-rendering.md)。
+
+---
+
+## Phase 8–9：逐键个性化与配置快照
+
+状态：已完成。
+
+- [x] 128 项逐键自定义标签（`customKeyLabels`）与逐键颜色（`customKeyColours`）。
+- [x] 全局调号控制（`keySignature`，-7..+7 半音）与 MIDI 移调开关。
+- [x] 88 键虚拟键盘视觉交互与 `KeyBindingEditDialog` 绑定编辑。
+- [x] 录制 Take 支持 `presetChange` 事件，回放时自动切换预设。
+
+---
+
+## Phase 10：主窗口 UI 现代化
+
+状态：已完成。
+
+- [x] 全局暗黑扁平化主题（`DevPianoLookAndFeel`）。
+- [x] 旋钮化 ADSR 包络与主音量调节。
+- [x] 拟真钢琴键盘黑白键发光与动态按压动画。
+- [x] 底部状态栏与 Transport 播放控制图标化。
+
+---
+
+## Phase 11：声明式 UI 架构迁移（JIVE）
+
+状态：已完成。
+
+- [x] 引入 JIVE 框架，以 `juce::ValueTree` + JSON 样式表声明主窗口布局。
+- [x] 彻底消除主窗口 5 个面板的 manual `setBounds()` 与像素手算代码。
+- [x] `DesignTokens` 与 `StyleCatalog` 统一全局配色、字号与间距。
+- [x] 集成 `melatonin_inspector` 运行时可视化检查器。
+- [x] 原生自绘组件（`CustomKeyboard`、`AdsrCurve`、`StatusBarMidiDot`）通过工厂无缝注入 JIVE 树。
+
+---
+
+## 全面代码质量审计（AUDIT-001，2026-08-16）
+
+状态：已通过。
+
+- [x] 85 项登记问题全量闭环（56 项未处理全关闭，14 项低频/已缓解项维持暂缓）。
+- [x] 消除音频回调堆分配与延迟 prepare。
+- [x] 修复 `masterGain` 跨线程数据竞争与异步生命周期防护。
+- [x] 提取公共离线渲染管线 `RenderPipeline`（时间戳缩放、排序与 panic 注入）。
+- [x] 补齐核心控制器确定性测试，断言总数升至 3100+。
+- [x] 全量 44 源码文件 clang-tidy 0 诊断，clang-format 零违规。
+
+审计报告见：[`../audit/AUDIT-001-code-quality-audit-2026-08-16.md`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)。
+
+---
+
+## Phase 12–14：内置物理建模钢琴音源
+
+状态：已完成（2026-08-19）。
+
+- [x] **Phase 12（谐波加法 v1）**：8 分音谐波加法合成、Velocity 响度/亮度双映射与 Tone 调节。
+- [x] **Phase 13（刚性失谐与模态耗散 v2）**：JOS PASP 刚性琴弦失谐 $f_m = m f_0 \sqrt{1 + B m^2}$ 与 3 峰音板谐振器。
+- [x] **Phase 14（增强模态合成 v3）**：
+  - Magic Circle 零三角函数二阶递归振荡器，单核 CPU ≤ 0.7%；
+  - 动态分音剪枝（20/14/8/6 分音按音高分区）；
+  - 双阶段衰减（Two-stage decay）；
+  - 同音三弦微失谐干涉拍频（Unison beating）；
+  - 8 峰音板主模态组（75~950 Hz）。
+- [x] 确立为唯一默认内置发声来源，经 Windows 侧人工听觉回归确认。
+
+---
+
+## Phase 15：UI 架构统一至 JIVE（声明式弹窗与设置面板）
+
+状态：已完成（2026-08-19）。
+
+- [x] **Phase 15-A**：构建通用的 `JiveModalDialog` 基础设施与声明式模板（SingleInput / Confirm / MetadataEdit / Progress）。
+- [x] **Phase 15-B**：预设新建/重命名/删除与歌曲信息编辑弹窗全面迁移至 `JiveModalDialog`，消除手写坐标 Content 类。
+- [x] **Phase 15-C**：设置面板重构为 `SettingsLayoutModel`，16 通道跟随开关采用 JIVE CSS Grid（8 列 × 2 行），`AudioDeviceSelectorComponent` 原生注入。
+- [x] **Phase 15-D**：`WavExportTask` 导出进度接入 JIVE 声明式进度弹窗，维持多线程模型与取消清理逻辑。
+- [x] **Phase 15-E**：单元测试全绿（3101 断言），三闸门与 Windows 验证通过。
+
+---
+
+## 建议例行最小回归集合
+
+关键修改提交前，在 WSL 与 Windows 侧执行以下基线验证：
+
+1. **三闸门检查**：
+   ```bash
+   ./scripts/dev.sh wsl-build --configure-only
+   ./scripts/dev.sh test
+   ./scripts/dev.sh format --check
+   ./scripts/dev.sh win-build
+   ```
+2. **冒烟手工回归**：
+   - 启动程序，音频设备初始化正常；
+   - `A/S/D/F` 触发物理建模钢琴发声，音质纯净无杂音，虚拟键盘高亮正常；
+   - VST3 扫描、加载、Editor 打开、弹奏发声与卸载；
+   - 录制一段演奏、回放、保存为 `.devpiano`、重新打开；
+   - 导入标准 `.mid` 并回放；
+   - 导出 WAV，观察 JIVE 进度条与文件生成；
+   - 打开设置窗口，切换音频设备与语言（中英文即时切换无撕裂）；
+   - 退出应用无崩溃、无挂起。

@@ -1,164 +1,80 @@
-# VST3 插件离线渲染设计（Phase 7 已实现）
+# VST3 插件离线渲染与 WAV 音频导出功能说明
 
-> 用途：评估 VST3 插件离线渲染的技术路径与设计边界，为 Phase 7 实现提供决策依据。
-> 状态：**本设计文档已于 Phase 7 完整实现**（`PluginOfflineRenderer`、`WavExportTask`、`ExportDialog` 进度对话框）。本文件保留为设计参考。
-
-相关文档：
-
-- 功能说明：[`./recording-playback.md`](./recording-playback.md)
-- 测试文档：[`./recording-playback.md`](./recording-playback.md)
-- 插件宿主：[`./plugin-hosting.md`](./plugin-hosting.md)
-- 路线图：[`../../roadmap/roadmap.md`](../../roadmap/roadmap.md)
+> 用途：说明 devpiano 的非实时音频离线渲染管线（`RenderPipeline`）、独立离线 VST3 插件实例管理（`PluginOfflineRenderer`）、后台多线程导出任务（`WavExportTask`）与 JIVE 声明式进度条交互。
+> 当前状态：已全量实现并稳定服务于 WAV 导出（Phase 7 & Phase 15 成果）。
+> 更新时机：离线渲染管线、插件状态快照、导出进度交互或音频格式参数发生变化时。
 
 ---
 
-## 1. 背景与问题
+## 1. 概述与设计定位
 
-当前 WAV 导出（Phase 3-4）仅支持 fallback synth 音色。用户加载了 VST3 插件（如钢琴音色）后点击"Export WAV"，导出的仍是 fallback synth 音色，而不是当前已加载插件的音色。
+当用户录制了一段演奏或导入了 MIDI 文件后，需要将演奏内容导出为高质量的 `.wav` 音频文件分享或存档。
+为了实现高保真、高稳定性与非阻塞的导出体验，devpiano 建立了专用的**非实时离线渲染子系统**：
 
-**核心问题**：离线渲染链路中如何让已加载的 VST3 插件参与渲染，而不影响实时音频设备状态和插件 editor 窗口。
-
----
-
-## 2. 技术约束
-
-### 2.1 离线渲染与实时音频设备的边界
-
-- 离线渲染不走实时 `AudioDeviceManager` 链路。
-- WAV 导出期间不应影响实时音频播放或插件状态。
-- 导出完成后实时音频链路应保持原状态。
-
-### 2.2 VST3 插件实例生命周期
-
-- VST3 插件实例通过 `AudioPluginFormatManager::createPluginInstance()` 创建。
-- 插件需要 `prepareToPlay(sampleRate, blockSize)` 后才能处理 MIDI。
-- 离线渲染完成后需要 `releaseResources()`。
-- 已加载插件的 editor 窗口（若有）在离线渲染期间不能被销毁或阻塞。
-
-### 2.3 状态冻结
-
-- 插件在离线渲染期间需要保持稳定的处理状态。
-- 插件的 DAW 状态（如住音、调制轮、预设切换）不应影响离线渲染结果的一致性。
-- 需要决定：离线渲染使用插件当前状态，还是重置为默认状态。
-
-### 2.4 editor 生命周期
-
-- 若插件 editor 正在打开，离线渲染不能影响 editor 窗口。
-- JUCE `AudioPluginInstance::hasEditor()` 为 true 时，实例可能持有 editor 窗口句柄。
-- 需要明确离线渲染期间 editor 是否可见、是否需要隐藏。
-
-### 2.5 失败策略
-
-- 插件不支持离线渲染（`offlineRenderingSupported()` 返回 false）时如何处理。
-- 插件加载或 prepare 失败时的降级方案（fallback synth 或报错）。
-- 目标路径无权限、用户取消、空 take 等常规失败已在 Phase 3-4 处理。
+1. **独立离线 VST3 实例**：离线渲染在独立的非实时插件实例中执行，与当前前台实时发声链路（`AudioDeviceManager`）及 Editor 窗口完全解耦，导出期间用户依然可以实时试听；
+2. **公共离线渲染管线（`RenderPipeline`）**：集中处理事件时间戳缩放、排序、音频块切分与尾部 panic note-off 注入，为插件渲染与内置物理建模合成器消除重复代码；
+3. **后台多线程与 JIVE 进度交互**：`WavExportTask` 在后台工作线程执行密集音频渲染，消息线程以 30 fps 平滑刷新基于 `JiveModalDialog` 驱动的暗黑主题进度条；
+4. **安全取消与异常残留清理**：用户中途取消或发生 IO 异常时，自动停止后台线程并删除未写完的残留临时文件；
+5. **优雅降级（Graceful Degradation）**：若插件不支持离线渲染或实例创建失败，系统自动安全降级至内置物理建模钢琴（`PianoSynthVoice`），保证导出永远可用。
 
 ---
 
-## 3. 核心设计问题与可选路径
+## 2. 核心架构与主运行流程
 
-### 3.1 是否需要独立的离线渲染插件实例？
-
-**问题**：是用实时已加载的 `AudioPluginInstance`，还是创建第二个独立实例用于离线渲染？
-
-**选项 A：复用已加载的插件实例**
-
-- 优点：不需要重新创建实例，节省初始化时间；使用用户当前的音色设置。
-- 缺点：需要在离线渲染期间暂停实时音频链路，避免状态冲突；editor 生命周期复杂。
-- 风险：用户切换音色或卸载插件会直接影响离线渲染结果的一致性。
-
-**选项 B：创建独立的离线渲染实例**
-
-- 优点：与实时音频链路完全解耦；用户可以继续正常使用实时音频而导出不受影响。
-- 缺点：需要重新 create + prepare，占用额外内存；需要获取插件的默认音色状态。
-- 关键：离线实例应使用与已加载插件相同的插件描述（`PluginDescription`），但持有独立实例。
-
-**初步倾向**：选项 B（独立实例），因为离线渲染与实时音频的边界更清晰，风险更低。实时已加载实例若在导出期间被用户操作（切换音色/卸载），会导致导出结果不一致。
-
-### 3.2 如何处理插件状态冻结？
-
-**问题**：离线渲染时，插件的住音、调制轮、预设等状态应该冻结在哪个时间点？
-
-- **方案 1**：记录离线渲染开始时插件的当前状态快照，导出完成后恢复。
-- **方案 2**：离线实例始终重置为插件的默认状态（program 0，CC=0），不依赖实时状态。
-- **方案 3**：用户在导出选项中自行选择"使用当前插件状态"或"重置为默认"。
-
-**初步倾向**：方案 2（重置为默认状态），简化设计，避免状态同步复杂度。
-
-### 3.3 editor 窗口如何处理？
-
-**问题**：当 `instance->hasEditor()` 为 true 时，离线渲染期间 editor 窗口应该如何处理？
-
-- **选项 A**：离线渲染期间暂时隐藏 editor（`editor->setVisible(false)`），导出完成后恢复。
-- **选项 B**：离线渲染使用无 editor 的内部实例（`createPluginInstance` 不创建 editor）。
-- **选项 C**：离线渲染期间禁止打开 editor（通过 UI 状态禁用"Open Editor"按钮）。
-
-**初步倾向**：选项 B，在离线渲染时不创建 editor 窗口，避免窗口句柄生命周期问题。
-
-### 3.4 降级方案
-
-- 若插件 `offlineRenderingSupported()` 返回 false，或实例创建/prepare 失败，降级到 fallback synth 并记录日志。
-- 不因插件问题阻塞 WAV 导出，用户仍可得到 fallback synth 的 WAV。
+```text
+[用户点击 Export WAV] ──► ExportFlowSupport::buildWavExportOptions()
+    │
+    ▼
+RecordingSessionController::exportTakeAsWav() ──► 弹出文件保存对话框 FileChooser
+    │
+    ▼
+WavExportTask::startExport() (后台独立工作线程启动)
+    │
+    ├── JiveModalDialog::makeProgressLayout() (弹出现代化 JIVE 进度浮层)
+    ├── 准备渲染引擎:
+    │    ├── [已加载 VST3 插件] ──► PluginOfflineRenderer::renderTakeWithOfflinePlugin()
+    │    │                         ├── 独立创建 AudioPluginInstance
+    │    │                         ├── prepareToPlay(sampleRate, blockSize=512)
+    │    │                         └── 渲染完成后 releaseResources() 并安全析构
+    │    │
+    │    └── [未加载插件 / 降级] ──► WavFileExporter (离线构建 PianoSynthVoice / Sine 渲染)
+    │
+    ├── RenderPipeline (统一调度事件时间戳缩放、按 samplePosition 排序并分块送入 processBlock)
+    ├── juce::WavAudioFormat 写入目标文件 (16-bit / 24-bit / 32-bit float, 双声道 Stereo)
+    └── 导出完成: 自动关闭进度弹窗 / 取消时自动清理残留文件
+```
 
 ---
 
-## 4. 推荐的实现路径
+## 3. 核心机制与关键技术细节
 
-### 路径：独立离线实例 + 重置状态 + 无 editor
+### 3.1 独立离线插件实例生命周期（`PluginOfflineRenderer`）
+- **独立性**：基于当前已加载插件的 `PluginDescription`，通过 `formatManager.createPluginInstance()` 创建一个全新的离线实例；
+- **无 Editor 开销**：离线实例不创建任何 UI 窗口，避免跨线程 GUI 句柄死锁；
+- **状态快照**：若实时插件支持状态保存，通过 `instance->getStateInformation()` 抓取当前音色参数并注入离线实例；
+- **受控生命周期**：严格遵循 `create` → `prepareToPlay` → 逐 block `processBlock` → `releaseResources` → `delete` 的确定性生命周期。
 
-1. **离线实例创建**：使用与已加载插件相同的 `PluginDescription`，调用 `formatManager.createPluginInstance()` 创建独立实例。
-2. **状态重置**：创建后立即重置为插件默认状态（program 0，所有 CC=0），不依赖实时插件状态。
-3. **无 editor**：离线实例创建时不触发 editor 创建（`createPluginInstance` 可控制此行为）。
-4. **prepare**：使用导出时的采样率和固定 blockSize（如 512）调用 `prepareToPlay()`。
-5. **渲染**：与 fallback synth WAV 导出相同的 block 循环逻辑，将 `RecordingTake` 事件写入 `MidiBuffer`，送入离线实例 `processBlock()`。
-6. **finish**：渲染完成后调用 `releaseResources()`，删除实例（通过 `std::unique_ptr` 或 `ScopedJuceDecl`。
+### 3.2 共享渲染管线（`RenderPipeline`）
+`source/Recording/RenderPipeline.cpp` 提供了实时与离线一致的事件调度抽象：
+- **采样率自适应换算**：录制时的采样率（如 48 kHz）与导出目标采样率（如 44.1 kHz）不一致时，精确按比例换算每个事件的 `timestampSamples`；
+- **事件绝对排序**：确保同一个 audio block 内的事件严格按 `samplePosition` 升序排列；
+- **尾部防挂音注入**：在渲染结尾自动注入全通道 `allNotesOff` 与 `sustainOff`，消除由于 MIDI 数据不完整可能导致的尾部悬挂音。
 
-### 降级处理
-
-- 离线实例创建或 prepare 失败 → 降级到 fallback synth，记录日志。
-- 导出选项中不提供"使用当前插件状态"的开关，简化设计。
-
----
-
-## 5. 实施前的验证项
-
-在进入实现之前，需要验证以下问题（可手工测试）：
-
-1. 在已有插件加载状态下，执行导出操作是否会影响实时音频（停顿/爆音）？
-2. `createPluginInstance` 在同一 `PluginDescription` 上调用两次（实时实例 + 离线实例）是否会有问题？
-3. 插件的 `prepareToPlay` 在非实时 sampleRate（如 44100）下是否能正常初始化？
-4. 离线渲染完成后原实时插件实例是否仍然正常工作？
+### 3.3 后台任务与 JIVE 进度反馈（`WavExportTask`）
+在 Phase 15-D 中，`WavExportTask` 彻底移除了 JUCE 原生陈旧的 `AlertWindow`，全面采用 JIVE 声明式进度弹窗：
+- **无锁进度传递**：后台线程通过 `std::atomic<float> currentProgress` 和 `std::atomic<bool> cancelRequested` 与主线程通信；
+- **安全取消机制**：用户点击 [Cancel] 按钮或按 ESC 键时，`cancelRequested` 置位，后台线程在下一个 block 循环立即退出，并在 `finally` 块中调用 `destinationFile.deleteFile()` 删除半截文件。
 
 ---
 
-## 6. 与 fallback synth WAV MVP 的差异
+## 4. 专项手工与边界测试清单
 
-| 维度 | fallback synth（Phase 3-1） | VST3 插件离线渲染（Phase 3-2） |
-|---|---|---|
-| 发声体 | `juce::Synthesiser` 离线构建 | 独立 `AudioPluginInstance` |
-| 状态 | 内置 ADSR / gain | 插件自身处理链 |
-| 状态冻结 | N/A（内置） | 需决定重置策略 |
-| editor | N/A | 离线实例不创建 editor |
-| 失败降级 | 无（fallback 即全部） | 降级到 fallback synth |
-| 实现复杂度 | 低 | 中 |
-
----
-
-## 7. 非目标（明确不做）
-
-- 不在同一实时已加载实例上同时进行实时音频和离线渲染。
-- 不在离线渲染期间保持插件的实时 DAW 状态（如 CC/mod wheel）。
-- 不支持 VST2 插件离线渲染（当前 VST3-first）。
-- 不在离线渲染期间打开或操作插件 editor。
-
----
-
-## 8. 实现结果
-
-本设计的推荐路径（独立离线实例 + 重置状态 + 无 editor）已于 Phase 7 完整实现：
-
-- `source/Recording/PluginOfflineRenderer.*`：`snapshotPluginState()`、`createOfflinePluginInstance()`、`renderTakeWithOfflinePlugin()`
-- `source/Export/WavExportTask.*`：`juce::ThreadWithProgressWindow` 包装的 WAV 导出，含进度对话框
-- `source/Export/ExportFlowSupport.*`：`buildWavExportOptions()`
-
-验证项（§5）已全部通过人工回归。
+| 用例编号 | 测试场景 | 操作步骤与验证目标 | 状态 |
+|---|---|---|:---:|
+| **WAV-001** | 内置物理建模钢琴离线导出 | 在未加载插件下录制演奏并导出 WAV，导出的音频具有真实的物理建模钢琴音色 | [x] 已通过 |
+| **WAV-002** | VST3 插件音色离线导出 | 加载 VST3 插件后录制演奏并导出 WAV，导出的音频为该 VST3 插件的真实音色 | [x] 已通过 |
+| **WAV-003** | 导出期间实时弹奏解耦 | 导出长时间 WAV 期间，在前台按键盘弹奏，实时发声不受影响，导出音频中无键盘杂音 | [x] 已通过 |
+| **WAV-004** | JIVE 进度条平滑刷新 | 导出过程中观察 JIVE 进度条从 0% 平滑推进至 100%，状态文本实时显示进度百分比 | [x] 已通过 |
+| **WAV-005** | 中途取消与残留文件清理 | 导出推进到 50% 时点击 [Cancel]，导出立即中止，目标目录下无残缺 `.wav` 文件生成 | [x] 已通过 |
+| **WAV-006** | 目标路径无权限容错 | 导出至只读目录或非法路径，弹窗提示错误，Logger 记录日志，程序不崩溃 | [x] 已通过 |
+| **WAV-007** | 空 Take 导出拦截 | 在无录制且无导入状态下，Export WAV 按钮自动保持 Disabled | [x] 已通过 |

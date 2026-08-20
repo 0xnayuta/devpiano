@@ -1,7 +1,7 @@
-# Phase 6-7 完成明细（历史归档）
+# Phase 6-7 完成明细与技术选型（历史归档）
 
-> 用途：记录 Phase 6 和 Phase 7 各子项的详细完成描述，供需要查阅实现细节时参考。
-> 当前路线图 `roadmap.md` 中已压缩为里程碑摘要。
+> 用途：记录 Phase 6 和 Phase 7 各子项的详细完成描述，并附带 Phase 7-1 VST3 插件离线渲染技术选型 RFC，供需要查阅历史实现细节与设计考量时参考。
+> 现行特性参考：[`docs/reference/features/`](../reference/features/)，全阶段路线图见 [`docs/roadmap/roadmap.md`](../roadmap/roadmap.md)。
 
 ---
 
@@ -127,3 +127,36 @@
 ### Phase 6-10 多事件扩展（CC/pitch bend/channel pressure）— 取消
 - 将键盘绑定从仅支持 MIDI note 扩展到 CC / pitch bend / channel pressure 事件类型。
 - **取消理由**：用户场景不足 10%。键盘映射 CC/bend/pressure 在旧 FreePiano 也几乎无人使用，且 `MidiChannelMapper` 层可以在插件层处理这些事件，无需键盘绑定干预。
+
+---
+
+## 附录：Phase 7-1 VST3 插件离线渲染技术选型 RFC（历史记录）
+
+### 1. 背景与技术约束
+- **核心问题**：离线渲染链路中如何让已加载的 VST3 插件参与渲染，而不影响实时音频设备状态和插件 editor 窗口。
+- **技术约束**：
+  - 离线渲染不走实时 `AudioDeviceManager` 链路，WAV 导出期间不应影响实时音频播放；
+  - VST3 插件实例需独立 `prepareToPlay(sampleRate, blockSize)` 与 `releaseResources()`；
+  - 插件在离线渲染期间需要保持稳定的处理状态；
+  - 若插件 Editor 正在打开，离线渲染不能影响 Editor 窗口。
+
+### 2. 核心设计问题与可选路径评估
+
+#### 独立实例 vs 复用实时实例
+- **选项 A：复用已加载的插件实例**：需要在离线渲染期间暂停实时音频链路，Editor 生命周期复杂，用户切换音色或卸载插件会直接破坏导出结果一致性。
+- **选项 B（推荐并采用）：创建独立的离线渲染实例**：与实时音频链路完全解耦；用户可以继续正常使用实时音频而导出不受影响；离线实例使用与已加载插件相同的 `PluginDescription` 独立创建与释放。
+
+#### 插件状态冻结策略
+- **方案 1**：记录离线渲染开始时插件的当前状态快照，导出完成后恢复。
+- **方案 2（推荐并采用）**：离线实例始终重置为插件默认状态（program 0，CC=0），不依赖实时状态，简化设计并消除状态同步复杂度。
+
+#### Editor 窗口隔离
+- **方案（推荐并采用）**：离线渲染使用无 Editor 的内部实例（`createPluginInstance` 不触发 Editor 创建），从根本上消除窗口句柄跨线程生命周期问题。
+
+### 3. 最终落地路径
+1. **离线实例创建**：使用与已加载插件相同的 `PluginDescription` 调用 `formatManager.createPluginInstance()` 创建独立实例；
+2. **状态重置**：创建后立即重置为插件默认状态；
+3. **无 Editor**：离线实例不创建 Editor 窗口；
+4. **Prepare & 渲染**：固定 blockSize（512）调用 `prepareToPlay()`，逐块调用 `processBlock()`；
+5. **安全释放**：渲染完成后调用 `releaseResources()` 并安全释放实例；
+6. **优雅降级**：离线实例创建失败或插件不支持离线时，自动降级至 fallback synth，确保导出成功。
