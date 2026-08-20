@@ -2,11 +2,9 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.4.0] - 2026-08-20
 
-## [0.4.0] - 2026-08-19
-
-Enhanced physical modeling piano synthesizer (Enhanced Modal Piano v3), dual tone engine switching (Piano / Sine), symmetrical 4x4 controls UI, physical piano offline WAV export, dialog scaling, and complete test suite expansion.
+Enhanced physical modeling piano synthesizer (Enhanced Modal Piano v3), real-time global key signature and playback transposition pipeline, virtual keyboard dirty rectangle optimization, preset overwrite confirmation, 16-channel routing matrix, dual tone engine switching, and comprehensive UI/visual polish.
 
 ### Added
 
@@ -17,10 +15,15 @@ Enhanced physical modeling piano synthesizer (Enhanced Modal Piano v3), dual ton
   - **Triple-string unison beating doublet** with microscopic detuning ($0.10\%\sim 0.20\%$) on bass/midrange partials.
   - **Soundboard modal resonator bank** (8 resonant modal poles from $75\text{ Hz}$ to $950\text{ Hz}$) with wet/dry body coupling.
   - **Dual-mapping velocity response** ($v^{1.5}$ loudness curve + progressive high-frequency strike brightness).
+- **Real-time Global Key Signature & Transposition Pipeline** — seamless real-time pitch shifting across live keyboard playing, virtual piano mouse clicks, and imported multi-track MIDI file playback with full $[0, 127]$ safe clamping.
+- **General MIDI (GM) Channel 10 Percussion Bypass** — hardware-workstation-grade drum channel protection ensuring rhythm kits remain completely unshifted during transposition.
+- **16-Channel Follow Key Matrix Unification** — independent per-channel transpose masks allowing fine-grained control over which MIDI channels follow global key signature changes.
+- **Virtual Keyboard Dirty Rectangle Repainting** (`CustomKeyboard`) — localized `repaintKey()` and `clip.intersects()` bounding box checks eliminating full-component redraw overhead during high-speed playback and chord play.
+- **Performance Preset Overwrite Confirmation** (`PresetConfirmDialog`) — safeguards user preset files from accidental overwrites during rename or save operations.
 - **Dual built-in tone switching** — seamless switching between Physical Piano and Sine synth fallbacks via UI dropdown, CLI flags (`--piano`, `--sine`), and persisted configuration.
-- **4x4 symmetrical controls panel layout** — redesigned ControlsPanel with an upper Piano tone row (Tone, Brightness, Hammer, Resonance) and a lower ADSR envelope row (Attack, Decay, Sustain, Release).
-- **Offline WAV export tone fidelity** — WAV export options now propagate built-in tone selection and physical piano parameters to offline rendering.
-- **Expanded deterministic test suite** (`PianoSynthVoiceTest`) — comprehensive unit tests covering partial frequencies, inharmonicity, two-stage decay slopes, beating modulation, velocity monotonicity, zero-sample-rate guards, retrigger resonator reset, and extreme Nyquist limits.
+- **4x4 symmetrical controls panel layout** — redesigned ControlsPanel with an upper Piano tone row (Volume, Brightness, Hammer, Resonance) and a lower ADSR envelope row (Attack, Decay, Sustain, Release).
+- **Offline WAV export tone fidelity** — WAV export options propagate built-in tone selection and physical piano parameters to offline rendering.
+- **Expanded deterministic test suite** (`PianoSynthVoiceTest`, `AudioEnginePlaybackTransposeTest`, `MidiChannelMapperTest`) — comprehensive unit tests covering partial frequencies, inharmonicity, decay slopes, playback transposition, and channel 10 bypass.
 
 ### Changed
 
@@ -28,15 +31,19 @@ Enhanced physical modeling piano synthesizer (Enhanced Modal Piano v3), dual ton
 - `SettingsModel` and `SettingsStore` extended with `builtinTone` and piano physical parameters with backwards-compatible migration and value clamping.
 - Dialog typography enlarged to 15pt/16pt (`KeyBindingEditDialog`, `PerformanceMetadataDialog`, `PresetDialogs`, `DevPianoLookAndFeel`) for improved high-DPI legibility.
 - Settings dialog content wrapped in a scrollable Viewport container with dedicated row spacing.
-- AlertWindow button widths dynamically sized via `getTextButtonWidthToFitText` to prevent text truncation.
+- Status bar redesigned as a symmetrical 3-column layout (left: MIDI activity & plugin/preset; centre: audio engine info; right: key signature & layout) mathematically centered at 50% window width.
+- ComboBox outline color mapped to `cardBorder` to eliminate 4-corner highlight artifacts.
+- PopupMenu checkmarks moved to the right edge with aligned label padding to prevent text overlap.
 
 ### Fixed
 
+- Text input editors (`PathEditor`, `ListEditor`, `MetadataEditor`) in JIVE modal dialogs and panels now properly grab focus and respond to keyboard input.
+- File button row rounded corner clipping in preset card resolved.
+- App title "devpiano" 'p' descender clipping in window header resolved by expanding line height.
 - Numerical safety guards in synth voices against non-positive sample rates and unconstrained Nyquist frequencies.
 - Voice retrigger transient clicks eliminated by resetting resonator filter states.
 - Custom key label editor 32-character length restriction restored.
-- Resizable toggle and fade speed slider row overlap in SettingsComponent fixed.
-
+- Live settings reconfiguration hooks added for instant auditioning of key signature and channel matrix changes.
 ## [0.3.0] - 2026-08-16
 
 Performance presets, per-key personalization, dark UI modernization, JIVE declarative UI migration, and the first full code-quality audit closure.
