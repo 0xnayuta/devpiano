@@ -144,7 +144,8 @@ private:
         auto editorNode = findNodeById(tree, "dialog-editor");
         expect(editorNode.isValid());
         expectEquals(editorNode.getType().toString(), juce::String("PathEditor"));
-
+        expectEquals(editorNode.getProperty("focusable"), juce::var(true));
+        expectEquals(editorNode.getProperty("cursor").toString(), juce::String("ibeam"));
         auto okBtn = findNodeById(tree, "dialog-ok-btn");
         expect(okBtn.isValid());
         expectEquals(okBtn.getType().toString(), juce::String("Button"));
@@ -193,13 +194,13 @@ private:
         auto titleEditor = findNodeById(tree, "title-editor");
         expect(titleEditor.isValid());
         expectEquals(titleEditor.getType().toString(), juce::String("PathEditor"));
-
+        expectEquals(titleEditor.getProperty("focusable"), juce::var(true));
         auto notesLabel = findNodeById(tree, "notes-label");
         expect(notesLabel.isValid());
         auto notesEditor = findNodeById(tree, "notes-editor");
         expect(notesEditor.isValid());
         expectEquals(notesEditor.getType().toString(), juce::String("ListEditor"));
-
+        expectEquals(notesEditor.getProperty("focusable"), juce::var(true));
         auto okBtn = findNodeById(tree, "dialog-ok-btn");
         expect(okBtn.isValid());
         auto cancelBtn = findNodeById(tree, "dialog-cancel-btn");
@@ -237,6 +238,7 @@ private:
                 editor->setText("Initial Test String");
                 expectEquals(editor->getText(), juce::String("Initial Test String"));
                 expect(!editor->isMultiLine());
+                expect(editor->getWantsKeyboardFocus());
             }
 
             // Non-existent IDs should return nullptr safely

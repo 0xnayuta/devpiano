@@ -241,6 +241,8 @@ juce::ValueTree makePluginPanelTree() {
     pathEditor.setProperty("flex-grow", 1.0, nullptr);
     pathEditor.setProperty("height", 26, nullptr);
     pathEditor.setProperty("border-width", "1", nullptr);
+    pathEditor.setProperty("focusable", true, nullptr);
+    pathEditor.setProperty("cursor", "ibeam", nullptr);
     pathRow.appendChild(pathEditor, nullptr);
 
     auto browseBtn = button("...", "browse-btn");
@@ -263,6 +265,7 @@ juce::ValueTree makePluginPanelTree() {
     listEditor.setProperty("flex-grow", 1.0, nullptr);
     listEditor.setProperty("margin", "6 0 0 0", nullptr);
     listEditor.setProperty("border-width", "1", nullptr);
+    listEditor.setProperty("focusable", true, nullptr);
     expandedArea.appendChild(listEditor, nullptr);
 
     panel.appendChild(expandedArea, nullptr);
@@ -358,12 +361,11 @@ juce::ValueTree makeControlsPanelTree() {
 
     auto fileRow3 = flexRow("file-row-3");
     fileRow3.setProperty("title", TRANS("File Row 3"), nullptr);
-    fileRow3.setProperty("height", 24, nullptr);
+    fileRow3.setProperty("height", 26, nullptr);
     fileRow3.appendChild(makeTextBtn(TRANS("Export WAV"), "export-wav-btn", "0 6 0 0"), nullptr);
     fileRow3.appendChild(makeTextBtn(TRANS("Recent"), "recent-btn", "0 6 0 0"), nullptr);
     fileRow3.appendChild(makeTextBtn(TRANS("Info"), "song-info-btn", "0"), nullptr);
     presetCard.appendChild(fileRow3, nullptr);
-
     panel.appendChild(presetCard, nullptr);
 
     // ═════════════════════════════════════════════════════════════════════════

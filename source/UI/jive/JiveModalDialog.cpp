@@ -58,6 +58,8 @@ public:
             auto editor = std::make_unique<juce::TextEditor>();
             editor->setMultiLine(false);
             editor->setReturnKeyStartsNewLine(false);
+            editor->setWantsKeyboardFocus(true);
+            editor->setMouseClickGrabsKeyboardFocus(true);
             return editor;
         });
 
@@ -66,12 +68,16 @@ public:
             editor->setMultiLine(true);
             editor->setReturnKeyStartsNewLine(true);
             editor->setScrollbarsShown(true);
+            editor->setWantsKeyboardFocus(true);
+            editor->setMouseClickGrabsKeyboardFocus(true);
             return editor;
         });
 
         factory.set("TextEditor", [] {
             auto editor = std::make_unique<juce::TextEditor>();
             editor->setMultiLine(false);
+            editor->setWantsKeyboardFocus(true);
+            editor->setMouseClickGrabsKeyboardFocus(true);
             return editor;
         });
         if (options.configureFactory) {
@@ -388,6 +394,8 @@ juce::ValueTree JiveModalDialog::makeSingleInputLayout(const juce::String& label
     auto editor = node("PathEditor", "dialog-editor");
     editor.setProperty("height", 28, nullptr);
     editor.setProperty("margin", "0 0 14 0", nullptr);
+    editor.setProperty("focusable", true, nullptr);
+    editor.setProperty("cursor", "ibeam", nullptr);
     root.appendChild(editor, nullptr);
 
     auto btnRow = node("Component", "dialog-buttons");
@@ -468,8 +476,9 @@ juce::ValueTree JiveModalDialog::makeMetadataEditLayout(int width, int height, c
     auto titleEditor = node("PathEditor", "title-editor");
     titleEditor.setProperty("height", 28, nullptr);
     titleEditor.setProperty("margin", "0 0 12 0", nullptr);
+    titleEditor.setProperty("focusable", true, nullptr);
+    titleEditor.setProperty("cursor", "ibeam", nullptr);
     root.appendChild(titleEditor, nullptr);
-
     auto notesLabel = text(TRANS("Notes"), "notes-label");
     notesLabel.setProperty("height", 20, nullptr);
     notesLabel.setProperty("margin", "0 0 2 0", nullptr);
@@ -479,8 +488,9 @@ juce::ValueTree JiveModalDialog::makeMetadataEditLayout(int width, int height, c
     auto notesEditor = node("ListEditor", "notes-editor");
     notesEditor.setProperty("height", 80, nullptr);
     notesEditor.setProperty("margin", "0 0 12 0", nullptr);
+    notesEditor.setProperty("focusable", true, nullptr);
+    notesEditor.setProperty("cursor", "ibeam", nullptr);
     root.appendChild(notesEditor, nullptr);
-
     auto btnRow = node("Component", "dialog-buttons");
     btnRow.setProperty("display", "flex", nullptr);
     btnRow.setProperty("flex-direction", "row", nullptr);

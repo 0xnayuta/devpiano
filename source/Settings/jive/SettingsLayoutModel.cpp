@@ -320,6 +320,7 @@ juce::ValueTree makeDiagnosticsSectionTree() {
 
     auto editor = node("ListEditor", "diagnostics-editor");
     editor.setProperty("height", 96, nullptr);
+    editor.setProperty("focusable", true, nullptr);
     content.appendChild(editor, nullptr);
 
     card.appendChild(content, nullptr);
