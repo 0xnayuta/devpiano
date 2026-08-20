@@ -47,10 +47,6 @@ if (MSVC)
         /permissive-
         /Zc:__cplusplus
         /W4
-        $<$<CONFIG:Release>:/Zi>
-    )
-    target_link_options(devpiano PRIVATE
-        $<$<CONFIG:Release>:/DEBUG>
     )
 endif()
 
@@ -384,10 +380,6 @@ if (BUILD_TESTS)
             /permissive-
             /Zc:__cplusplus
             /W4
-            $<$<CONFIG:Release>:/Zi>
-        )
-        target_link_options(devpiano_tests PRIVATE
-            $<$<CONFIG:Release>:/DEBUG>
         )
     endif()
     target_include_directories(devpiano_tests PRIVATE source)
