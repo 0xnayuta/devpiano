@@ -380,14 +380,21 @@ void MainComponent::initialiseUi() {
             return slider;
         });
         factory.set("AdsrCurve", [] { return std::make_unique<AdsrCurveComponent>(); });
+        // Icons are owned by static storage for the app lifetime.
+        static const auto recordIcon = createRecordIcon();
+        static const auto playIcon = createPlayIcon();
+        static const auto pauseIcon = createPauseIcon();
+        static const auto stopIcon = createStopIcon();
+        static const auto backIcon = createBackIcon();
+
         const auto registerIconButton
-            = [&factory](const char* type, const std::unique_ptr<juce::Drawable>& image, const juce::String& tooltip,
-                         const std::unique_ptr<juce::Drawable>& onImage = {}) {
-                  factory.set(type, [&image, tooltip, &onImage] {
+            = [&factory](const char* type, const juce::Drawable* image, const juce::String& tooltip,
+                         const juce::Drawable* onImage = nullptr) {
+                  factory.set(type, [image, tooltip, onImage] {
                       auto btn = std::make_unique<juce::DrawableButton>(tooltip, juce::DrawableButton::ImageFitted);
                       // onImage (optional) is shown while the button is latched
                       // (toggle on) — PlayButton uses it to switch ▶/II.
-                      btn->setImages(image.get(), nullptr, nullptr, nullptr, onImage.get(), nullptr, nullptr, nullptr);
+                      btn->setImages(image, nullptr, nullptr, nullptr, onImage, nullptr, nullptr, nullptr);
                       // Inset the icon area so large transport buttons keep
                       // their size while the glyph renders at ~18 px.
                       btn->setEdgeIndent(10);
@@ -395,16 +402,10 @@ void MainComponent::initialiseUi() {
                       return btn;
                   });
               };
-        // Icons are owned by the factory closures for the app lifetime.
-        static const auto recordIcon = createRecordIcon();
-        static const auto playIcon = createPlayIcon();
-        static const auto pauseIcon = createPauseIcon();
-        static const auto stopIcon = createStopIcon();
-        static const auto backIcon = createBackIcon();
-        registerIconButton("RecordButton", recordIcon, TRANS("Record"));
-        registerIconButton("PlayButton", playIcon, TRANS("Play"), pauseIcon);
-        registerIconButton("StopButton", stopIcon, TRANS("Stop"));
-        registerIconButton("BackButton", backIcon, TRANS("Back to Start"));
+        registerIconButton("RecordButton", recordIcon.get(), TRANS("Record"));
+        registerIconButton("PlayButton", playIcon.get(), TRANS("Play"), pauseIcon.get());
+        registerIconButton("StopButton", stopIcon.get(), TRANS("Stop"));
+        registerIconButton("BackButton", backIcon.get(), TRANS("Back to Start"));
         factory.set("CustomKeyboard",
                     [this] { return std::make_unique<KeyboardViewport>(audioEngine.getKeyboardState()); });
         factory.set("StatusBarMidiDot", [] { return std::make_unique<StatusBarMidiDot>(); });

@@ -47,6 +47,10 @@ if (MSVC)
         /permissive-
         /Zc:__cplusplus
         /W4
+        $<$<CONFIG:Release>:/Zi>
+    )
+    target_link_options(devpiano PRIVATE
+        $<$<CONFIG:Release>:/DEBUG>
     )
 endif()
 
@@ -374,6 +378,18 @@ if (BUILD_TESTS)
         jive::jive_style_sheets
     )
 
+    if (MSVC)
+        target_compile_options(devpiano_tests PRIVATE
+            /utf-8
+            /permissive-
+            /Zc:__cplusplus
+            /W4
+            $<$<CONFIG:Release>:/Zi>
+        )
+        target_link_options(devpiano_tests PRIVATE
+            $<$<CONFIG:Release>:/DEBUG>
+        )
+    endif()
     target_include_directories(devpiano_tests PRIVATE source)
     juce_generate_juce_header(devpiano_tests)
     target_compile_definitions(devpiano_tests PRIVATE
