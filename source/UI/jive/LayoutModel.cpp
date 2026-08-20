@@ -120,36 +120,44 @@ juce::ValueTree makeStatusBarTree() {
     // Top separator line — drawn by the StyleSheet border canvas.
     row.setProperty("border-width", "1 0 0 0", nullptr);
 
-    // MIDI activity dot — custom component (StatusBarMidiDot) 7x7 px, vertically centred.
+    // Left section: MIDI activity dot + plugin/preset label (1/3 flex, left-aligned)
+    auto leftSection = flexRowStretch("status-left");
+    leftSection.setProperty("flex-grow", 1.0, nullptr);
+    leftSection.setProperty("flex-shrink", 1.0, nullptr);
+
     auto dot = node("StatusBarMidiDot", "midi-dot");
     dot.setProperty("title", TRANS("MIDI Activity"), nullptr);
     dot.setProperty("width", 7, nullptr);
     dot.setProperty("height", 7, nullptr);
     dot.setProperty("align-self", "centre", nullptr);
     dot.setProperty("margin", "0 6 0 2", nullptr);
-    row.appendChild(dot, nullptr);
+    leftSection.appendChild(dot, nullptr);
 
-    // Labels stretch to the row height and centre their text.
     auto pluginLabel = text({}, "plugin-name-label");
     pluginLabel.setProperty("title", TRANS("Plugin Name"), nullptr);
     pluginLabel.setProperty("flex-grow", 1.0, nullptr);
     pluginLabel.setProperty("flex-shrink", 1.0, nullptr);
     pluginLabel.setProperty("justification", "centred-left", nullptr);
-    row.appendChild(pluginLabel, nullptr);
+    leftSection.appendChild(pluginLabel, nullptr);
 
+    row.appendChild(leftSection, nullptr);
+
+    // Centre section: audio driver & performance monitoring (1/3 flex, mathematically centred at 50%)
     auto audioInfo = text({}, "audio-info-label");
     audioInfo.setProperty("title", TRANS("Audio Info"), nullptr);
-    audioInfo.setProperty("flex-grow", 1.2, nullptr);
+    audioInfo.setProperty("flex-grow", 1.0, nullptr);
     audioInfo.setProperty("flex-shrink", 1.0, nullptr);
     audioInfo.setProperty("justification", "centred", nullptr);
     row.appendChild(audioInfo, nullptr);
 
+    // Right section: key signature, transpose, layout (1/3 flex, right-aligned)
     auto timeLabel = text({}, "time-label");
     timeLabel.setProperty("title", TRANS("Time"), nullptr);
-    timeLabel.setProperty("flex-shrink", 0.0, nullptr);
-    timeLabel.setProperty("min-width", 150, nullptr);
+    timeLabel.setProperty("flex-grow", 1.0, nullptr);
+    timeLabel.setProperty("flex-shrink", 1.0, nullptr);
     timeLabel.setProperty("justification", "centred-right", nullptr);
     row.appendChild(timeLabel, nullptr);
+
     return row;
 }
 
