@@ -8,10 +8,11 @@
 #include "UI/ColourSwatchButton.h"
 #include "UI/jive/DesignTokens.h"
 #include "UI/jive/JiveModalDialog.h"
+#include "UI/jive/JiveUtils.h"
 #include "UI/jive/StyleCatalog.h"
 
 namespace {
-
+using namespace devpiano::ui::jive;
 inline juce::ValueTree node(const juce::Identifier& type, const juce::String& id = {}) {
     auto t = juce::ValueTree(type);
     if (id.isNotEmpty()) {
@@ -66,13 +67,6 @@ inline juce::ValueTree settingRow(const juce::String& labelStr, const juce::Valu
 
     row.appendChild(controlNode, nullptr);
     return row;
-}
-
-inline juce::Component* findComponentById(::jive::GuiItem& root, const juce::String& id) {
-    if (auto* item = devpiano::ui::jive::JiveModalDialog::findGuiItemById(root, id)) {
-        return item->getComponent().get();
-    }
-    return nullptr;
 }
 
 const std::array<juce::Colour, 8> paletteColours {

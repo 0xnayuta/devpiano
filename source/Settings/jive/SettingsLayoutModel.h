@@ -2,7 +2,7 @@
 
 #include <JuceHeader.h>
 
-#include <jive_layouts/jive_layouts.h>
+#include "UI/jive/JiveUtils.h"
 
 namespace devpiano::ui::jive {
 
@@ -32,8 +32,5 @@ namespace devpiano::ui::jive {
 /// Full Settings Panel layout tree: combines Audio, Key Signature,
 /// Keyboard Display, Diagnostics, and Save Action into a scrollable column.
 [[nodiscard]] juce::ValueTree makeSettingsLayoutTree();
-
-/// Helper: find a GuiItem with the specified ID property within the tree.
-[[nodiscard]] ::jive::GuiItem* findGuiItemById(::jive::GuiItem& root, const juce::String& id);
 
 } // namespace devpiano::ui::jive

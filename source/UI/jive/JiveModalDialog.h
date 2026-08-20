@@ -5,7 +5,7 @@
 #include <functional>
 #include <optional>
 
-#include <jive_layouts/jive_layouts.h>
+#include "UI/jive/JiveUtils.h"
 
 namespace devpiano::ui::jive {
 
@@ -95,9 +95,15 @@ public:
                                                             const juce::String& cancelText = TRANS("Cancel"));
     // ── Component Retrieval Helpers ──
 
-    [[nodiscard]] static ::jive::GuiItem* findGuiItemById(::jive::GuiItem& root, const juce::String& id);
-    [[nodiscard]] static juce::Button* findButtonById(::jive::GuiItem& root, const juce::String& id);
-    [[nodiscard]] static juce::TextEditor* findTextEditorById(::jive::GuiItem& root, const juce::String& id);
+    [[nodiscard]] static ::jive::GuiItem* findGuiItemById(::jive::GuiItem& root, const juce::String& id) {
+        return devpiano::ui::jive::findGuiItemById(root, id);
+    }
+    [[nodiscard]] static juce::Button* findButtonById(::jive::GuiItem& root, const juce::String& id) {
+        return devpiano::ui::jive::findButtonById(root, id);
+    }
+    [[nodiscard]] static juce::TextEditor* findTextEditorById(::jive::GuiItem& root, const juce::String& id) {
+        return devpiano::ui::jive::findTextEditorById(root, id);
+    }
 
 private:
     JUCE_DECLARE_NON_COPYABLE(JiveModalDialog)

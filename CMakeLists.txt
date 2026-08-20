@@ -154,6 +154,7 @@ target_sources(devpiano PRIVATE
     source/UI/jive/LayoutModel.h
     source/UI/jive/JiveModalDialog.cpp
     source/UI/jive/JiveModalDialog.h
+    source/UI/jive/JiveUtils.h
 )
 # ========================================================
 # 4.1 静态资产二进制打包（JIVE 样式表、设计 Token 与语言包）
@@ -317,6 +318,7 @@ if (BUILD_TESTS)
         source/UI/jive/LayoutModel.h
         source/UI/jive/JiveModalDialog.cpp
         source/UI/jive/JiveModalDialog.h
+        source/UI/jive/JiveUtils.h
         source/UI/jive/DesignTokens.cpp
         source/UI/jive/DesignTokens.h
         source/UI/DevPianoLookAndFeel.cpp

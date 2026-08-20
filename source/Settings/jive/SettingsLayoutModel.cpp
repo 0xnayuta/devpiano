@@ -353,16 +353,5 @@ juce::ValueTree makeSettingsLayoutTree() {
 
     return root;
 }
-::jive::GuiItem* findGuiItemById(::jive::GuiItem& root, const juce::String& id) {
-    if (root.state.getProperty("id").toString() == id) {
-        return &root;
-    }
-    for (auto* child : root.getChildren()) {
-        if (auto* found = findGuiItemById(*child, id)) {
-            return found;
-        }
-    }
-    return nullptr;
-}
 
 } // namespace devpiano::ui::jive

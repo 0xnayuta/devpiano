@@ -5,30 +5,10 @@
 #include "Recording/WavFileExporter.h"
 #include "UI/jive/DesignTokens.h"
 #include "UI/jive/JiveModalDialog.h"
+#include "UI/jive/JiveUtils.h"
 #include "UI/jive/StyleCatalog.h"
 
 namespace {
-
-void clearJiveStyleSheets(juce::Component* comp) {
-    if (comp == nullptr) {
-        return;
-    }
-    for (int i = 0; i < comp->getNumChildComponents(); ++i) {
-        clearJiveStyleSheets(comp->getChildComponent(i));
-    }
-    if (comp->getProperties().contains("style-sheet")) {
-        comp->getProperties().remove("style-sheet");
-    }
-}
-
-void collectJiveComponents(::jive::GuiItem& item, std::vector<std::shared_ptr<juce::Component>>& components) {
-    if (auto component = item.getComponent()) {
-        components.push_back(std::move(component));
-    }
-    for (auto* child : item.getChildren()) {
-        collectJiveComponents(*child, components);
-    }
-}
 
 struct ProgressContentWrapper final : public juce::Component {
     ProgressContentWrapper(std::unique_ptr<::jive::GuiItem> item, std::unique_ptr<::jive::Interpreter> interp,
@@ -46,12 +26,7 @@ struct ProgressContentWrapper final : public juce::Component {
     }
 
     ~ProgressContentWrapper() override {
-        if (rootItem != nullptr) {
-            std::vector<std::shared_ptr<juce::Component>> jiveComponents;
-            collectJiveComponents(*rootItem, jiveComponents);
-            clearJiveStyleSheets(rootItem->getComponent().get());
-            rootItem.reset();
-        }
+        devpiano::ui::jive::safeCleanupJiveTree(rootItem);
         interpreter.reset();
     }
 
@@ -182,6 +157,10 @@ bool WavExportTask::runThread() {
         juce::MessageManager::getInstance()->runDispatchLoopUntil(10);
     }
 #else
+    // DevPiano is a desktop application where JUCE_MODAL_LOOPS_PERMITTED is required
+    // for nested progress dialog dispatch loop.
+    jassertfalse;
+    DP_LOG_ERROR("[Export] WAV export requires JUCE_MODAL_LOOPS_PERMITTED=1");
     while (isThreadRunning()) {
         juce::Thread::sleep(10);
     }
