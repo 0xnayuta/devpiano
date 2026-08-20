@@ -202,6 +202,7 @@ MainComponent::MainComponent() {
     startTimerHz(30);
     restoreKeyboardFocus();
     applyLanguage(appSettings.languageCode);
+    updateStatusBar();
 }
 
 MainComponent::~MainComponent() {
@@ -271,6 +272,7 @@ void MainComponent::reconfigureChannelMapper() {
     midiChannelMapper = std::make_unique<devpiano::midi::MidiChannelMapper>(
         appSettings.channelMatrix, appSettings.midiTranspose, appSettings.keySignature);
     keyboardMidiMapper.setChannelMapper(midiChannelMapper.get());
+    updateStatusBar();
 }
 
 void MainComponent::handlePresetShortcut(int index) {
@@ -757,9 +759,27 @@ void MainComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& buffer
 void MainComponent::releaseResources() {
     audioEngine.releaseResources();
 }
-
 void MainComponent::timerCallback() {
     recordingSessionController->checkPlaybackEnded();
+
+    // Decay status bar MIDI activity dot
+    if (auto* dot = getStatusBarMidiDot()) {
+        dot->decayFrame();
+    }
+
+    // Step status toast timer
+    if (statusToastTicksRemaining > 0) {
+        if (--statusToastTicksRemaining == 0) {
+            statusToastText.clear();
+            updateStatusBar();
+        }
+    }
+
+    // Throttle status bar refresh (~2Hz, every 15 ticks at 30Hz)
+    if (++statusBarThrottleCounter >= 15) {
+        statusBarThrottleCounter = 0;
+        updateStatusBar();
+    }
 
     // Drain pluginBuffer safety-net resize notifications from the audio
     // callback (ERR-002): the callback only counts, logging happens here.
@@ -767,7 +787,6 @@ void MainComponent::timerCallback() {
         DP_LOG_WARN("AudioEngine: pluginBuffer resized " + juce::String(resizeCount)
                     + " time(s) in audio callback — prepareToPlay mismatch");
     }
-
     // Drain preset-change notifications from playback
     {
         auto changes = recordingEngine.drainPendingPresetChanges();
@@ -916,9 +935,9 @@ bool MainComponent::keyPressed(const juce::KeyPress& key) {
 
     if (handled) {
         getCustomKeyboard().notifyNoteActivity();
+        notifyMidiActivity();
         suppressTextInputMethods();
     }
-
     return handled;
 }
 
@@ -992,9 +1011,9 @@ bool MainComponent::keyStateChanged(bool isKeyDown) {
 
     if (handled) {
         getCustomKeyboard().notifyNoteActivity();
+        notifyMidiActivity();
         suppressTextInputMethods();
     }
-
     return handled;
 }
 
@@ -1146,8 +1165,8 @@ void MainComponent::syncUiFromSettings() {
     } else {
         setKeyboardViewPosition(24); // default: align note 24 (C1) at left edge
     }
+    updateStatusBar();
 }
-
 void MainComponent::syncSettingsFromUi() {
     appSettings.applyPerformanceSettingsView(getPerformanceSettingsFromUi());
 
@@ -1219,8 +1238,8 @@ void MainComponent::prepareForAudioDeviceRebuild() {
 void MainComponent::finishAudioDeviceRebuild() {
     initialiseAudioDevice();
     restoreKeyboardFocus();
+    updateStatusBar();
 }
-
 void MainComponent::collectCurrentSettingsState() {
     syncSettingsFromUi();
     captureAudioDeviceState();

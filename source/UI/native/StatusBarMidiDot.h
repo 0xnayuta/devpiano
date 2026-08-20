@@ -21,6 +21,29 @@ public:
         }
     }
 
+    [[nodiscard]] bool getIsActive() const noexcept {
+        return isActive;
+    }
+
+    /// Trigger MIDI activity with a specified number of decay frames (~130ms at 30Hz by default).
+    void triggerActivity(int frames = 4) {
+        activityFramesRemaining = juce::jmax(activityFramesRemaining, frames);
+        if (!isActive) {
+            isActive = true;
+            repaint();
+        }
+    }
+
+    /// Step one frame of activity decay (called from 30Hz UI timer).
+    void decayFrame() {
+        if (activityFramesRemaining > 0) {
+            --activityFramesRemaining;
+            if (activityFramesRemaining == 0 && isActive) {
+                isActive = false;
+                repaint();
+            }
+        }
+    }
     void paint(juce::Graphics& g) override {
         const auto colour = devpiano::jive::DesignTokens::get().playActive();
         g.setColour(isActive ? colour : colour.withAlpha(0.25f));
@@ -29,6 +52,7 @@ public:
 
 private:
     bool isActive = false;
+    int activityFramesRemaining = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(StatusBarMidiDot)
 };

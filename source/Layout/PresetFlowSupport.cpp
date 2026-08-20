@@ -191,6 +191,7 @@ void PresetFlowSupport::savePresetFromCurrentState(const juce::String& name, con
         currentPresetId = preset.name;
         owner.appSettings.lastActivePresetId = currentPresetId;
         updateUiAfterCommit();
+        owner.showStatusMessage(TRANS("Saved preset: ") + preset.name, 2500);
     } else {
         DP_LOG_ERROR("[Preset] save FAILED: " + file.getFullPathName());
     }
@@ -249,6 +250,7 @@ void PresetFlowSupport::handleRenamePreset() {
                 owner.appSettings.lastActivePresetId = currentPresetId;
                 refreshCache();
                 updateUiAfterCommit();
+                owner.showStatusMessage(TRANS("Renamed preset to: ") + newName, 2500);
             }
         });
 }
@@ -286,10 +288,11 @@ void PresetFlowSupport::handleDeletePreset() {
                                   if (currentPresetId == name) {
                                       applyPresetData(makeDefaultPreset());
                                       currentPresetId.clear();
-                                      owner.appSettings.lastActivePresetId = {};
+                                      owner.appSettings.lastActivePresetId.clear();
                                   }
                                   refreshCache();
-                                  updateUiAfterCommit(); // must run after refreshCache so combo reflects deletion
+                                  updateUiAfterCommit();
+                                  owner.showStatusMessage(TRANS("Deleted preset: ") + name, 2500);
                               });
 }
 

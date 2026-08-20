@@ -11,6 +11,7 @@
 #include "Diagnostics/Log.h"
 #include "UI/ComboSelection.h"
 #include "UI/native/AdsrCurveComponent.h"
+#include "UI/native/StatusBarMidiDot.h"
 
 namespace {
 
@@ -56,6 +57,37 @@ juce::String ellipsiseForStatus(const juce::String& text, float maxWidth) {
     }
 
     return result + ellipsis;
+}
+juce::String keySignatureToString(int ks) {
+    switch (ks) {
+    case 0:
+        return "C";
+    case 1:
+        return "C# / Db";
+    case 2:
+        return "D";
+    case 3:
+        return "D# / Eb";
+    case 4:
+        return "E";
+    case 5:
+        return "F";
+    case 6:
+        return "F# / Gb";
+    case -5:
+    case 7:
+        return "G";
+    case -4:
+        return "Ab";
+    case -3:
+        return "A";
+    case -2:
+        return "Bb";
+    case -1:
+        return "B";
+    default:
+        return "C";
+    }
 }
 
 } // namespace
@@ -938,4 +970,87 @@ void MainComponent::showRecentFilesMenu() {
                                safe->recordingSessionController->handleImportMidiFile(file);
                            }
                        });
+}
+// ── JIVE status bar accessors ──────────────────────────────────────────────
+
+void MainComponent::updateStatusBar() {
+    if (jiveRootItem == nullptr) {
+        return;
+    }
+
+    // 1. Left: active plugin/synth & preset name (or transient status toast)
+    if (auto* pluginLabelItem = jive::findItemWithID(*jiveRootItem, "plugin-name-label")) {
+        juce::String displayText;
+        if (statusToastTicksRemaining > 0 && statusToastText.isNotEmpty()) {
+            displayText = statusToastText;
+        } else {
+            juce::String sourceName;
+            if (auto* desc = pluginHost.getLoadedPluginDescription()) {
+                sourceName = "VST3: " + desc->name;
+            } else {
+                sourceName = (appSettings.builtinTone == SettingsModel::BuiltinTone::piano) ? "Built-in: Piano"
+                                                                                            : "Built-in: Sine";
+            }
+            const auto preset
+                = (presetFlowSupport != nullptr) ? presetFlowSupport->getCurrentPresetId() : juce::String {};
+            displayText = preset.isNotEmpty() ? (sourceName + " (" + preset + ")") : sourceName;
+        }
+        pluginLabelItem->state.setProperty("text", displayText, nullptr);
+        pluginLabelItem->state.setProperty("title", displayText, nullptr);
+    }
+
+    // 2. Centre: audio driver backend, sample rate, buffer size, latency, CPU load
+    if (auto* audioInfoItem = jive::findItemWithID(*jiveRootItem, "audio-info-label")) {
+        juce::String audioText;
+        if (auto* dev = deviceManager.getCurrentAudioDevice()) {
+            const auto type = dev->getTypeName();
+            const auto sr = dev->getCurrentSampleRate();
+            const auto bs = dev->getCurrentBufferSizeSamples();
+            const auto latencyMs = (sr > 0.0) ? (static_cast<float>(bs) / static_cast<float>(sr) * 1000.0f) : 0.0f;
+            const auto cpu = juce::roundToInt(deviceManager.getCpuUsage() * 100.0f);
+
+            audioText = type + " • " + juce::String(sr / 1000.0, 1) + " kHz / " + juce::String(bs) + " spl ("
+                + juce::String(latencyMs, 1) + " ms) • CPU: " + juce::String(cpu) + "%";
+        } else {
+            audioText = TRANS("No Audio Device");
+        }
+        audioInfoItem->state.setProperty("text", audioText, nullptr);
+        audioInfoItem->state.setProperty("title", audioText, nullptr);
+    }
+
+    // 3. Right: key signature, transpose, keyboard layout
+    if (auto* timeLabelItem = jive::findItemWithID(*jiveRootItem, "time-label")) {
+        const auto keyName = keySignatureToString(appSettings.keySignature);
+        const auto transposeStr = (appSettings.midiTranspose ? (TRANS("Transpose: On") + " / ") : "")
+            + (appSettings.keySignature >= 0 ? "+" : "") + juce::String(appSettings.keySignature);
+        auto layoutName = keyboardMidiMapper.getLayout().name;
+        if (layoutName.isEmpty()) {
+            layoutName = "Standard";
+        }
+        const auto statusRight = keyName + " (" + transposeStr + ") • " + layoutName;
+        timeLabelItem->state.setProperty("text", statusRight, nullptr);
+        timeLabelItem->state.setProperty("title", statusRight, nullptr);
+    }
+}
+
+void MainComponent::showStatusMessage(const juce::String& text, int timeoutMs) {
+    statusToastText = text;
+    statusToastTicksRemaining = juce::jmax(1, timeoutMs * 30 / 1000);
+    updateStatusBar();
+}
+
+void MainComponent::notifyMidiActivity() {
+    if (auto* dot = getStatusBarMidiDot()) {
+        dot->triggerActivity(4);
+    }
+}
+
+StatusBarMidiDot* MainComponent::getStatusBarMidiDot() const {
+    if (jiveRootItem == nullptr) {
+        return nullptr;
+    }
+    if (auto* dotItem = jive::findItemWithID(*jiveRootItem, "midi-dot")) {
+        return dynamic_cast<StatusBarMidiDot*>(dotItem->getComponent().get());
+    }
+    return nullptr;
 }

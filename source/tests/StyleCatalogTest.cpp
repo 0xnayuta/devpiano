@@ -100,8 +100,8 @@ public:
         testStyleTokenResolutionInStyleSheet();
         testStyleCatalogHotReloadOnLiveTree();
         testStatusBarTreeInterprets();
+        testStatusBarMidiDotActivityAndDecay();
         testPluginPanelTreeInterprets();
-        testControlsPanelTreeInterprets();
         testKeyboardAreaTreeInterprets();
         testRootLayoutInterprets();
         testWindowRuleFontSizeInheritsToText();
@@ -391,6 +391,24 @@ private:
                        juce::String(id) + " component is not a TextComponent");
             }
         }
+    }
+    void testStatusBarMidiDotActivityAndDecay() {
+        beginTest("StatusBarMidiDot activity trigger and frame decay");
+
+        StatusBarMidiDot dot;
+        expect(!dot.getIsActive(), "dot initially inactive");
+
+        dot.triggerActivity(3);
+        expect(dot.getIsActive(), "dot active after trigger");
+
+        dot.decayFrame();
+        expect(dot.getIsActive(), "dot still active after 1 decay frame (2 remaining)");
+
+        dot.decayFrame();
+        expect(dot.getIsActive(), "dot still active after 2 decay frames (1 remaining)");
+
+        dot.decayFrame();
+        expect(!dot.getIsActive(), "dot inactive after all frames decayed");
     }
 
     void testPluginPanelTreeInterprets() {

@@ -156,6 +156,13 @@ private:
     void setKeyboardLayout(const devpiano::core::KeyboardLayout& layout);
     void setKeyboardViewPosition(int midiNote, int pixelOffset = -1);
     [[nodiscard]] int getKeyboardViewPositionX() const noexcept;
+
+    // ── JIVE status bar accessors ──
+    void updateStatusBar();
+    void showStatusMessage(const juce::String& text, int timeoutMs = 3000);
+    void notifyMidiActivity();
+    [[nodiscard]] class StatusBarMidiDot* getStatusBarMidiDot() const;
+
     void refreshReadOnlyUiStateFromCurrentSnapshot();
     void refreshPluginUiState();
     void finishPluginUiAction(bool shouldSaveSettings);
@@ -192,10 +199,12 @@ private:
     juce::StringArray availablePresetIds;
     devpiano::ui::RecordingControlsState recordingControlsState;
     CustomKeyboard* customKeyboardRef = nullptr;
+    juce::String statusToastText;
+    int statusToastTicksRemaining = 0;
+    int statusBarThrottleCounter = 0;
     juce::Time lastTokensModTime;
     juce::Time lastStylesModTime;
     int hotReloadCheckCounter = 0;
-
     std::unique_ptr<devpiano::settings::SettingsWindowManager> settingsWindowManager;
     std::unique_ptr<devpiano::layout::PresetFlowSupport> presetFlowSupport;
     std::unique_ptr<devpiano::recording::RecordingSessionController> recordingSessionController;
