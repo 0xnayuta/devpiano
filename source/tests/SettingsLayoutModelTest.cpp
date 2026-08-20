@@ -1,6 +1,7 @@
 #include <JuceHeader.h>
 
 #include "Audio/AudioDeviceDiagnostics.h"
+#include "Settings/SettingsComponent.h"
 #include "Settings/SettingsModel.h"
 #include "Settings/jive/SettingsLayoutModel.h"
 #include "UI/jive/DesignTokens.h"
@@ -27,6 +28,7 @@ public:
         testKeyboardDisplaySection();
         testInterpretationAndComponentLookup();
         testFollowKeyVisibilityToggle();
+        testSettingsComponentRefreshTextsPreservesScroll();
     }
 
 private:
@@ -214,6 +216,36 @@ private:
 
             safeCleanupJiveTree(rootItem);
         }
+    }
+
+    void testSettingsComponentRefreshTextsPreservesScroll() {
+        beginTest("SettingsComponent refreshTexts preserves Viewport scroll position");
+
+        juce::AudioDeviceManager dm;
+        SettingsModel model;
+        auto comp = std::make_unique<SettingsComponent>(dm, nullptr, &model);
+        comp->setSize(680, 500);
+
+        juce::Viewport* vp = nullptr;
+        for (int i = 0; i < comp->getNumChildComponents(); ++i) {
+            if (auto* candidate = dynamic_cast<juce::Viewport*>(comp->getChildComponent(i))) {
+                vp = candidate;
+                break;
+            }
+        }
+        expect(vp != nullptr, "SettingsComponent must contain a Viewport");
+        if (vp == nullptr) {
+            return;
+        }
+
+        // Scroll the viewport down by 180 pixels
+        vp->setViewPosition(0, 180);
+        expectEquals(vp->getViewPositionY(), 180, "viewport initial scrolled Y position");
+
+        // Trigger refreshTexts (simulate language switch)
+        comp->refreshTexts();
+
+        expectEquals(vp->getViewPositionY(), 180, "viewport scroll position must be preserved after refreshTexts");
     }
 };
 

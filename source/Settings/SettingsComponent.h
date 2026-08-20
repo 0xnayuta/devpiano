@@ -419,12 +419,14 @@ public:
     }
 
     void refreshTexts() {
+        const auto savedViewPos = viewport.getViewPosition();
         buildJiveUi();
         if (viewport.getViewedComponent() != (jiveRootItem != nullptr ? jiveRootItem->getComponent().get() : nullptr)) {
             viewport.setViewedComponent(jiveRootItem != nullptr ? jiveRootItem->getComponent().get() : nullptr, false);
         }
         resized();
         updateDiagnostics();
+        viewport.setViewPosition(savedViewPos);
         if (onRefreshTexts) {
             onRefreshTexts();
         }
