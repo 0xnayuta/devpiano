@@ -77,6 +77,8 @@
 - 保持代码极简、现代、可维护，使用 C++20/23 风格。
 - **不要修改 `/submodules/` 下任何子模块代码**。
 - **新增业务代码只放在 `/source/` 下的合适子目录**。
+- **代码探索与依赖影响面首选 codegraph**：在探索模块架构、追溯调用链（calls/callers）、类型派生或修改前评估影响面（Blast Radius）时，**必须首先调用 `codegraph` (`xd://mcp__codegraph_explore`)**，禁止未调用 codegraph 就发起盲目的多轮 `grep`/`read`。
+- **第三方库与框架 API 查证首选 context7**：涉及 JUCE 8、Steinberg VST3 SDK、JIVE 等第三方库的新增调用或参数不确定时，**必须首先通过 `context7` (`resolve-library-id` + `query-docs`) 查询官方最新文档与示例**，禁止凭记忆猜测 API。
 - 优先小步修改、小范围验证，不要一次性大改整个系统。
 - **WSL 主工作树是唯一主源码来源，仅用于编辑代码和刷新 `compile_commands.json`**，所有构建验证和软件测试在 Windows 侧进行。
 - **不要让 Windows/MSVC 直接跨边界在 WSL 主工作树上长期构建**；Windows 只使用镜像树做验证。
@@ -199,10 +201,10 @@
 - 插件相关改动重点关注：scan / load / unload / editor / audio device rebuild / exit 生命周期组合。
 - 键盘相关改动重点关注：note on/off 成对、长按、连按、焦点切换、输入法、修饰键。
 - 对大范围重命名或结构调整，先小步重构，再使用 LSP 和构建验证。
-- 写 JUCE 代码时，**不确定的 API 一律不凭记忆**：
-  - 第一优先：读 `submodules/JUCE/` 本地源码确认签名/语义（这是构建实际使用的版本，最权威）。
-  - 第二优先：用 context7 查询 JUCE 文档（注意核对返回内容与本地 submodule 版本是否一致；本项目以本地源码为准）。
-  - 编译错误提示 API 不存在或签名不符时，先回本地源码确认，再修，不要猜测替代 API。
+- 写 JUCE/第三方库代码时，**不确定的 API 一律不凭记忆**：
+  - 第一优先：用 `context7` 检索官方 API 规范与最新切片（消灭 API 幻觉与弃用方法误用）。
+  - 第二优先：查阅 `submodules/JUCE/` 本地源码确认实际使用的版本细节与准确签名（本项目构建以本地子模块为准）。
+  - 编译错误提示 API 不存在或签名不符时，先回本地源码确认，再修，禁止猜测替代 API。
 - 对稳定常用 API（Component、Button、Slider、ValueTree 等）不要求每次查证，避免无谓查询。
 - 版本敏感领域（音频设备、插件宿主、线程安全、新模块）优先查证：这些 API 跨版本变动大。
 
@@ -223,38 +225,29 @@
 
 ---
 
-## 8. 推荐工作流
+## 8. 推荐工作流与工具决策
 
-1. 明确任务目标和涉及范围。
-2. 如涉及当前架构或功能边界，先阅读：
-   - [`docs/reference/architecture.md`](docs/reference/architecture.md)
-   - [`docs/reference/project-scope.md`](docs/reference/project-scope.md)：项目定位与范围。
-   - [`docs/reference/features/keyboard-mapping.md`](docs/reference/features/keyboard-mapping.md)
-   - [`docs/reference/features/plugin-hosting.md`](docs/reference/features/plugin-hosting.md)
-   - [`docs/reference/features/midi-file-import.md`](docs/reference/features/midi-file-import.md)
-3. 使用 `lsp` + `read` / `edit` 在 WSL 主工作树中小步修改。
-4. 修改 `source/` 下的 `.cpp` / `.h` 文件后，先用 LSP diagnostics 检查。
-5. 运行 `./scripts/dev.sh format` 确保代码风格一致（首次使用或 `.clang-format` 变更后）。
-6. clang-tidy 不做提交前增量复核——编辑期由 clangd 波浪线实时提示（`.clangd` 已启用 `Diagnostics.ClangTidy`），仅在大迭代边界运行全量 `./scripts/dev.sh tidy --all` 确认 0 诊断（实测单文件 18–211s、全量 44 文件约 19 分钟，提交前逐文件跑成本不成比例）。
-7. 若存在测试文件，运行 `./scripts/dev.sh test` 验证不引入回归。
-8. 需要刷新 clangd 编译数据库时运行：
+### 8.1 推荐开发工作流
 
-```bash
-./scripts/dev.sh wsl-build --configure-only
-```
+1. **明确目标与边界**：结合任务目标，必要时先阅读 `docs/reference/` 下相关架构与功能设计文档。
+2. **代码探索与影响面分析 (codegraph)**：使用 `codegraph` 检索相关符号、调用链与 Blast Radius，明确改动波及范围，禁止盲目多轮 grep。
+3. **API 规范查证 (context7)**：涉及 JUCE / 第三方库机制与参数时，通过 `context7` 查证官方 API 与用法示例。
+4. **精确修改与符号协同 (lsp + edit)**：使用 `lsp`（跳转定义、引用查找、重命名、代码诊断）+ `edit` 在 WSL 主工作树中小步修改。
+5. **代码风格与静态检查**：修改后先用 LSP diagnostics 检查，运行 `./scripts/dev.sh format` 保证风格一致。
+6. **刷新编译数据库（必要时）**：如增删源文件或变更头文件依赖，运行 `./scripts/dev.sh wsl-build --configure-only`。
+7. **回归测试与 Windows 构建验证**：
+   - 运行单元测试：`./scripts/dev.sh test`
+   - Windows MSVC 验证构建：`./scripts/dev.sh win-build`
+8. **环境异常自检**：涉及环境或路径问题时，先运行 `./scripts/dev.sh self-check`。
 
-9. Windows MSVC 验证构建：
+### 8.2 开发工具决策矩阵
 
-```bash
-./scripts/dev.sh win-build
-```
-
-9. 涉及环境或路径问题时，先运行：
-
-```bash
-./scripts/dev.sh self-check
-```
-
+| 开发阶段 / 动作 | 唯一首选工具 | 辅助 / 确认工具 | 严格禁止的行为 |
+|---|---|---|---|
+| **探索模块架构 / 追溯调用流 / 修改前评估影响面 (Blast Radius)** | `codegraph` | `lsp references` | 盲目发起多轮 grep + 逐个 read 代码文件 |
+| **查询 JUCE / VST3 / 第三方库 API 签名与用法** | `context7` | `submodules/` 本地源码 | 凭记忆猜测或臆造 API |
+| **符号重命名 / 精确跳转定义 / 跨文件引用 / 代码诊断** | `lsp` | `codegraph` | 手写正则/sed 批量替换跨文件符号 |
+| **阅读非代码文件（.md, .json, .cmake）或精确局部编辑** | `read` / `edit` | `write` | 用 read 遍历大量代码文件寻找符号 |
 ---
 
 ## 9. 结束输出要求

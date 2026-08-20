@@ -122,6 +122,8 @@ target_sources(devpiano PRIVATE
     source/Settings/SettingsStore.cpp
     source/UI/KeyBindingEditDialog.cpp
     source/UI/KeyBindingEditDialog.h
+    source/UI/ColourSwatchButton.cpp
+    source/UI/ColourSwatchButton.h
     source/UI/PerformanceMetadataDialog.cpp
     source/UI/PerformanceMetadataDialog.h
     source/UI/PresetDialogs.cpp
@@ -130,6 +132,8 @@ target_sources(devpiano PRIVATE
     source/Settings/SettingsSerialization.cpp
     source/Settings/SettingsSerialization.h
     source/Settings/SettingsComponent.h
+    source/Settings/jive/SettingsLayoutModel.cpp
+    source/Settings/jive/SettingsLayoutModel.h
     source/Settings/SettingsWindowManager.cpp
     source/Settings/SettingsWindowManager.h
     source/Layout/PerformancePreset.cpp
@@ -148,11 +152,13 @@ target_sources(devpiano PRIVATE
     source/UI/jive/StyleCatalog.h
     source/UI/jive/LayoutModel.cpp
     source/UI/jive/LayoutModel.h
+    source/UI/jive/JiveModalDialog.cpp
+    source/UI/jive/JiveModalDialog.h
 )
 # ========================================================
 # 4.1 静态资产二进制打包（JIVE 样式表、设计 Token 与语言包）
 # ========================================================
-juce_add_binary_data(DevPianoBinaryData
+juce_add_binary_data(devpiano_binary_data
     SOURCES
         source/UI/jive/design_tokens.json
         source/UI/jive/style_sheets.json
@@ -168,7 +174,7 @@ juce_generate_juce_header(devpiano)
 # 5. 链接 JUCE 模块
 # ========================================================
 target_link_libraries(devpiano PRIVATE
-    DevPianoBinaryData
+    devpiano_binary_data
     juce::juce_audio_devices      # 处理 ASIO/WASAPI 音频设备
     juce::juce_audio_formats      # 处理音频文件
     juce::juce_audio_processors   # 核心：处理 VST/VST3 插件和 MIDI 缓冲
@@ -264,6 +270,8 @@ if (BUILD_TESTS)
         source/Recording/MidiFileExporter.h
         source/Recording/WavFileExporter.cpp
         source/Recording/WavFileExporter.h
+        source/Recording/PluginOfflineRenderer.cpp
+        source/Recording/PluginOfflineRenderer.h
         source/Recording/PerformanceFile.cpp
         source/Recording/PerformanceFile.h
         source/Recording/RenderPipeline.cpp
@@ -276,6 +284,8 @@ if (BUILD_TESTS)
         source/Export/ExportFlowSupport.cpp
         source/Export/ExportFlowSupport.h
         source/Export/WavExportOptions.h
+        source/Export/WavExportTask.cpp
+        source/Export/WavExportTask.h
 
         source/Midi/MidiChannelMapper.cpp
         source/Midi/MidiChannelMapper.h
@@ -305,11 +315,22 @@ if (BUILD_TESTS)
         source/UI/jive/StyleCatalog.h
         source/UI/jive/LayoutModel.cpp
         source/UI/jive/LayoutModel.h
+        source/UI/jive/JiveModalDialog.cpp
+        source/UI/jive/JiveModalDialog.h
         source/UI/jive/DesignTokens.cpp
         source/UI/jive/DesignTokens.h
         source/UI/DevPianoLookAndFeel.cpp
         source/UI/DevPianoLookAndFeel.h
-
+        source/UI/PresetDialogs.cpp
+        source/UI/PresetDialogs.h
+        source/UI/PerformanceMetadataDialog.cpp
+        source/UI/PerformanceMetadataDialog.h
+        source/UI/KeyBindingEditDialog.cpp
+        source/UI/KeyBindingEditDialog.h
+        source/UI/ColourSwatchButton.cpp
+        source/UI/ColourSwatchButton.h
+        source/Settings/jive/SettingsLayoutModel.cpp
+        source/Settings/jive/SettingsLayoutModel.h
 
 
         # 测试代码
@@ -332,9 +353,11 @@ if (BUILD_TESTS)
         source/tests/PluginHostXmlTest.cpp
         source/tests/KeyboardHitMappingTest.cpp
         source/tests/PianoSynthVoiceTest.cpp
+        source/tests/JiveModalDialogTest.cpp
+        source/tests/SettingsLayoutModelTest.cpp
     )
     target_link_libraries(devpiano_tests PRIVATE
-        DevPianoBinaryData
+        devpiano_binary_data
         juce::juce_core
         juce::juce_events
         juce::juce_gui_basics

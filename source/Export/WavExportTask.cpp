@@ -4,123 +4,327 @@
 #include "Recording/PluginOfflineRenderer.h"
 #include "Recording/WavFileExporter.h"
 #include "UI/jive/DesignTokens.h"
+#include "UI/jive/JiveModalDialog.h"
+#include "UI/jive/StyleCatalog.h"
+
+namespace {
+
+void clearJiveStyleSheets(juce::Component* comp) {
+    if (comp == nullptr) {
+        return;
+    }
+    for (int i = 0; i < comp->getNumChildComponents(); ++i) {
+        clearJiveStyleSheets(comp->getChildComponent(i));
+    }
+    if (comp->getProperties().contains("style-sheet")) {
+        comp->getProperties().remove("style-sheet");
+    }
+}
+
+void collectJiveComponents(::jive::GuiItem& item, std::vector<std::shared_ptr<juce::Component>>& components) {
+    if (auto component = item.getComponent()) {
+        components.push_back(std::move(component));
+    }
+    for (auto* child : item.getChildren()) {
+        collectJiveComponents(*child, components);
+    }
+}
+
+struct ProgressContentWrapper final : public juce::Component {
+    ProgressContentWrapper(std::unique_ptr<::jive::GuiItem> item, std::unique_ptr<::jive::Interpreter> interp,
+                           std::function<void()> onCancelFn)
+        : rootItem(std::move(item))
+        , interpreter(std::move(interp))
+        , onCancel(std::move(onCancelFn)) {
+        if (rootItem != nullptr) {
+            if (auto comp = rootItem->getComponent()) {
+                addAndMakeVisible(*comp);
+            }
+        }
+        setSize(380, 140);
+        setWantsKeyboardFocus(true);
+    }
+
+    ~ProgressContentWrapper() override {
+        if (rootItem != nullptr) {
+            std::vector<std::shared_ptr<juce::Component>> jiveComponents;
+            collectJiveComponents(*rootItem, jiveComponents);
+            clearJiveStyleSheets(rootItem->getComponent().get());
+            rootItem.reset();
+        }
+        interpreter.reset();
+    }
+
+    void paint(juce::Graphics& g) override {
+        g.fillAll(devpiano::jive::DesignTokens::get().mainBg());
+    }
+
+    void resized() override {
+        if (rootItem != nullptr) {
+            if (auto comp = rootItem->getComponent()) {
+                comp->setBounds(getLocalBounds());
+            }
+        }
+    }
+
+    bool keyPressed(const juce::KeyPress& key) override {
+        if (key.isKeyCode(juce::KeyPress::escapeKey)) {
+            if (onCancel) {
+                onCancel();
+            }
+            return true;
+        }
+        return false;
+    }
+
+    std::unique_ptr<::jive::GuiItem> rootItem;
+    std::unique_ptr<::jive::Interpreter> interpreter;
+    std::function<void()> onCancel;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ProgressContentWrapper)
+};
+
+} // namespace
+
 // ============================================================================
-WavExportTask::WavExportTask(
-    // NOLINTNEXTLINE(modernize-pass-by-value) - RecordingTake/juce::File 均非重型类型，按值 + move 与 const& 开销相同
-    devpiano::recording::RecordingTake take_, const juce::File& destinationFile_,
-    // NOLINTNEXTLINE(modernize-pass-by-value) - WavExportOptions 为 POD：move 被 move-const-arg 否决，const& 最优
-    const devpiano::exporting::WavExportOptions& options_, std::unique_ptr<juce::AudioPluginInstance> offlinePlugin_,
-    juce::Component* parentToCentreAround)
-    : ThreadWithProgressWindow(TRANS("Export WAV"), true, true, 10000, {}, parentToCentreAround)
+// WavExportTask Implementation
+// ============================================================================
+
+WavExportTask::WavExportTask(devpiano::recording::RecordingTake take_, const juce::File& destinationFile_,
+                             const devpiano::exporting::WavExportOptions& options_,
+                             std::unique_ptr<juce::AudioPluginInstance> offlinePlugin_,
+                             juce::Component* parentToCentreAround)
+    : juce::Thread("WAV Export Thread")
     , take(std::move(take_))
     , destinationFile(destinationFile_)
     , options(options_)
-    , offlinePlugin(std::move(offlinePlugin_)) {
-    if (auto* w = getAlertWindow()) {
-        if (parentToCentreAround != nullptr) {
-            w->setLookAndFeel(&parentToCentreAround->getLookAndFeel());
-        }
-        w->setColour(juce::AlertWindow::backgroundColourId, devpiano::jive::DesignTokens::get().mainBg());
-        w->setColour(juce::AlertWindow::textColourId, devpiano::jive::DesignTokens::get().textPrimary());
-        w->setColour(juce::AlertWindow::outlineColourId, devpiano::jive::DesignTokens::get().textSecondary());
-        w->centreWithSize(400, 130);
-    }
+    , offlinePlugin(std::move(offlinePlugin_))
+    , parentComponent(parentToCentreAround) {
 }
 
 WavExportTask::~WavExportTask() {
-    if (auto* w = getAlertWindow()) {
-        w->setLookAndFeel(nullptr);
+    stopTimer();
+    cancelRequested = true;
+    signalThreadShouldExit();
+    stopThread(3000);
+    if (activeDialog != nullptr) {
+        activeDialog->exitModalState(0);
     }
 }
 
-// ============================================================================
+void WavExportTask::setProgress(double newProgress) {
+    currentProgress.store(juce::jlimit(0.0, 1.0, newProgress));
+}
+
+void WavExportTask::setStatusMessage(const juce::String& newStatusMessage) {
+    const juce::ScopedLock sl(messageLock);
+    currentStatusMessage = newStatusMessage;
+}
+
+bool WavExportTask::runThread() {
+    JUCE_ASSERT_MESSAGE_THREAD
+
+    success.store(false);
+    cancelRequested.store(false);
+    finished.store(false);
+    currentProgress.store(0.0);
+    {
+        const juce::ScopedLock sl(messageLock);
+        currentStatusMessage = TRANS("Exporting...");
+        errorMessage.clear();
+    }
+
+    // Build JIVE progress dialog layout
+    auto layout = devpiano::ui::jive::JiveModalDialog::makeProgressLayout(TRANS("Exporting..."), 380, 140);
+    devpiano::ui::jive::StyleCatalog::get().applyToTree(layout);
+
+    auto interpreter = std::make_unique<::jive::Interpreter>();
+    auto rootItem = interpreter->interpret(layout);
+    jassert(rootItem != nullptr);
+
+    if (rootItem != nullptr) {
+        if (auto* cancelBtn = devpiano::ui::jive::JiveModalDialog::findButtonById(*rootItem, "dialog-cancel-btn")) {
+            cancelBtn->onClick = [this] {
+                cancelRequested.store(true);
+                signalThreadShouldExit();
+            };
+        }
+    }
+
+    // Start background audio rendering thread
+    startThread(juce::Thread::Priority::normal);
+
+    juce::DialogWindow::LaunchOptions opts;
+    opts.dialogTitle = TRANS("Export WAV");
+    opts.dialogBackgroundColour = devpiano::jive::DesignTokens::get().mainBg();
+    opts.componentToCentreAround = parentComponent;
+    opts.resizable = false;
+    opts.escapeKeyTriggersCloseButton = false; // Cancellation handled gracefully via cancelRequested flag
+
+    auto contentWrapper = std::make_unique<ProgressContentWrapper>(std::move(rootItem), std::move(interpreter), [this] {
+        cancelRequested.store(true);
+        signalThreadShouldExit();
+    });
+
+    if (parentComponent != nullptr) {
+        contentWrapper->setLookAndFeel(&parentComponent->getLookAndFeel());
+    }
+    opts.content.setOwned(contentWrapper.release());
+
+    auto* dialog = opts.launchAsync();
+    activeDialog = dialog;
+
+    startTimerHz(30);
+
+    // Run nested message loop until thread finishes or cancel occurs
+#if JUCE_MODAL_LOOPS_PERMITTED
+    while (isTimerRunning()) {
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(10);
+    }
+#else
+    while (isThreadRunning()) {
+        juce::Thread::sleep(10);
+    }
+#endif
+    if (activeDialog != nullptr) {
+        activeDialog->exitModalState(0);
+        activeDialog = nullptr;
+    }
+
+    stopThread(3000);
+    return success.load() && !cancelRequested.load();
+}
+
+void WavExportTask::timerCallback() {
+    const bool isRunning = isThreadRunning();
+
+    if (!isRunning || finished.load() || activeDialog == nullptr) {
+        stopTimer();
+        return;
+    }
+
+    // Update status text and progress bar on message thread
+    if (activeDialog != nullptr) {
+        if (auto* wrapper = dynamic_cast<ProgressContentWrapper*>(activeDialog->getContentComponent())) {
+            if (wrapper->rootItem != nullptr) {
+                juce::String msg;
+                {
+                    const juce::ScopedLock sl(messageLock);
+                    msg = currentStatusMessage;
+                }
+                if (auto* msgItem = devpiano::ui::jive::JiveModalDialog::findGuiItemById(*wrapper->rootItem,
+                                                                                         "progress-status-message")) {
+                    msgItem->state.setProperty("text", msg, nullptr);
+                }
+
+                if (auto* barItem
+                    = devpiano::ui::jive::JiveModalDialog::findGuiItemById(*wrapper->rootItem, "dialog-progress-bar")) {
+                    barItem->state.setProperty("value", currentProgress.load(), nullptr);
+                }
+            }
+        }
+    }
+}
+
 void WavExportTask::run() {
     using namespace devpiano::exporting;
 
     setProgress(0.0);
     setStatusMessage(TRANS("Exporting..."));
 
-    // Build a progress callback that updates the dialog and checks for cancel.
-    // Returns true to continue, false to abort.
     auto progressCallback = [this](double p) -> bool {
-        setProgress(juce::jlimit(0.0, 1.0, p));
+        setProgress(p);
         const auto percent = static_cast<int>(p * 100.0);
         if (percent % 10 == 0 || p >= 1.0) {
             setStatusMessage(TRANS("Exporting...") + " " + juce::String(percent) + "%");
         }
-        return !threadShouldExit();
+        return !threadShouldExit() && !cancelRequested.load();
     };
 
-    // ERR-015：渲染路径（插件离线渲染 / 文件写出）可能抛异常，统一捕获为
-    // 失败结果并清理残留目标文件，避免 run() 异常逸出导致线程悬挂。
+    // ERR-015: Render path may throw; catch all exceptions, report failure and clean up destination file.
     try {
+        if (threadShouldExit() || cancelRequested.load()) {
+            success.store(false);
+            {
+                const juce::ScopedLock sl(messageLock);
+                errorMessage = TRANS("Export cancelled.");
+            }
+            destinationFile.deleteFile();
+            finished.store(true);
+            return;
+        }
+
         if (offlinePlugin != nullptr) {
             // Plugin offline-render path
-            if (threadShouldExit()) {
-                success = false;
-                errorMessage = TRANS("Export cancelled.");
-                destinationFile.deleteFile(); // best-effort; log failure below
-            }
-
             if (renderTakeWithOfflinePlugin(take, destinationFile, options, *offlinePlugin, progressCallback)) {
-                success = true;
+                success.store(true);
             } else {
-                if (threadShouldExit()) {
+                if (threadShouldExit() || cancelRequested.load()) {
+                    const juce::ScopedLock sl(messageLock);
                     errorMessage = TRANS("Export cancelled.");
                     if (!destinationFile.deleteFile()) {
                         DP_LOG_WARN("Failed to clean up cancelled WAV: " + destinationFile.getFullPathName());
                     }
                 } else {
+                    const juce::ScopedLock sl(messageLock);
                     errorMessage = TRANS("Export failed during plugin rendering.");
-                    // ERR-009：非取消失败也清理残留的部分文件。
                     if (!destinationFile.deleteFile()) {
                         DP_LOG_WARN("Failed to clean up failed WAV: " + destinationFile.getFullPathName());
                     }
                 }
-                success = false;
+                success.store(false);
             }
         } else {
-            // Sine-synth fallback path
+            // Built-in synth fallback path
             if (exportTakeAsWavFile(take, destinationFile, options, progressCallback)) {
-                success = true;
+                success.store(true);
             } else {
-                if (threadShouldExit()) {
+                if (threadShouldExit() || cancelRequested.load()) {
+                    const juce::ScopedLock sl(messageLock);
                     errorMessage = TRANS("Export cancelled.");
                     if (!destinationFile.deleteFile()) {
                         DP_LOG_WARN("Failed to clean up cancelled WAV: " + destinationFile.getFullPathName());
                     }
                 } else {
+                    const juce::ScopedLock sl(messageLock);
                     errorMessage = TRANS("Export failed during built-in synth rendering.");
-                    // ERR-009：非取消失败也清理残留的部分文件。
                     if (!destinationFile.deleteFile()) {
                         DP_LOG_WARN("Failed to clean up failed WAV: " + destinationFile.getFullPathName());
                     }
                 }
-                success = false;
+                success.store(false);
             }
         }
     } catch (const std::exception& e) {
-        success = false;
-        errorMessage = TRANS("Export failed unexpectedly.");
+        success.store(false);
+        {
+            const juce::ScopedLock sl(messageLock);
+            errorMessage = TRANS("Export failed unexpectedly.");
+        }
         DP_LOG_ERROR("[Export] WAV export threw: " + juce::String(e.what()));
         if (!destinationFile.deleteFile()) {
             DP_LOG_WARN("Failed to clean up failed WAV: " + destinationFile.getFullPathName());
         }
     } catch (...) {
-        success = false;
-        errorMessage = TRANS("Export failed unexpectedly.");
+        success.store(false);
+        {
+            const juce::ScopedLock sl(messageLock);
+            errorMessage = TRANS("Export failed unexpectedly.");
+        }
         DP_LOG_ERROR("[Export] WAV export threw an unknown exception");
         if (!destinationFile.deleteFile()) {
             DP_LOG_WARN("Failed to clean up failed WAV: " + destinationFile.getFullPathName());
         }
     }
 
-    if (success) {
+    if (success.load()) {
         setProgress(1.0);
         setStatusMessage(TRANS("Export complete."));
-        // ERR-012：run() 内补结果日志（此前只有调用方日志，线程内无观测点）。
         DP_LOG_INFO("[Export] WAV exported: " + destinationFile.getFullPathName());
     } else {
+        const juce::ScopedLock sl(messageLock);
         DP_LOG_WARN("[Export] WAV export " + errorMessage);
     }
+
+    finished.store(true);
 }

@@ -31,6 +31,8 @@ public:
     void drawTextEditorOutline(juce::Graphics&, int w, int h, juce::TextEditor&) override;
     void drawLabel(juce::Graphics&, juce::Label&) override;
     juce::Font getLabelFont(juce::Label&) override;
+    juce::Font getComboBoxFont(juce::ComboBox&) override;
+    juce::Font getPopupMenuFont() override;
     void drawTooltip(juce::Graphics&, const juce::String& text, int width, int height) override;
     juce::Rectangle<int> getTooltipBounds(const juce::String& tip, juce::Point<int> screenPos,
                                           juce::Rectangle<int> parentArea) override;
