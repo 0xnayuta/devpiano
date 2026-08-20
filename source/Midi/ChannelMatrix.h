@@ -47,14 +47,18 @@ struct PerChannelConfig {
 // Full 16-channel matrix.
 // ============================================================================
 struct ChannelMatrix {
-    std::array<PerChannelConfig, 16> channels;
+    std::array<PerChannelConfig, 16> channels {};
+    bool active = true;
 
-    // When false, the matrix is inactive and all MIDI messages pass through
-    // unchanged.  This preserves backward compatibility with existing code
-    // that doesn't know about the matrix.
-    bool active = false;
+    ChannelMatrix() {
+        for (std::size_t i = 0; i < 16; ++i) {
+            channels[i].outputChannel = static_cast<uint8_t>(i);
+            // Melodic channels (Ch1..9, Ch11..16) follow key by default;
+            // Channel 10 (index 9) is dedicated GM percussion and stays bypassed.
+            channels[i].followKey = (i != 9);
+        }
+    }
 };
-
 // ============================================================================
 // Matrix application helpers
 // ============================================================================

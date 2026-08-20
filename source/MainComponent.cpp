@@ -274,7 +274,14 @@ void MainComponent::reconfigureChannelMapper() {
     midiChannelMapper = std::make_unique<devpiano::midi::MidiChannelMapper>(
         appSettings.channelMatrix, appSettings.midiTranspose, appSettings.keySignature);
     keyboardMidiMapper.setChannelMapper(midiChannelMapper.get());
-    audioEngine.setPlaybackTranspose(appSettings.midiTranspose, appSettings.keySignature);
+
+    std::uint16_t mask = 0;
+    for (std::size_t i = 0; i < 16; ++i) {
+        if (appSettings.channelMatrix.channels[i].followKey) {
+            mask |= static_cast<std::uint16_t>(1U << i);
+        }
+    }
+    audioEngine.setPlaybackTranspose(appSettings.midiTranspose, appSettings.keySignature, mask);
     updateStatusBar();
 }
 

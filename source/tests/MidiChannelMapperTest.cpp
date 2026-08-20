@@ -5,14 +5,14 @@
 using namespace devpiano::midi;
 
 // =============================================================================
-// Tests for the matrix-aware MIDI routing service (AUDIT TEST-002):
-//   - inactive matrix passes through (applyTransform verbatim; sendNoteOn/Off
-//     still apply the global transpose)
+// Tests for the matrix-aware MIDI routing service:
+//   - default matrix passes through (applyTransform; sendNoteOn/Off)
+//   - melodic channels follow key by default, Ch10 drum bypasses by default
+//   - per-channel followKey override works on both melodic and drum channels
 //   - applyMatrixToNoteOn/Off channel selection (outputChannel remap)
 //   - transpose + octaveShift boundary clamping (note + keySignature overflow)
-//   - followKey + midiTranspose combination
 //   - note-on / note-off symmetric transformation
-//   - non-note messages pass through unchanged when active
+//   - non-note messages pass through unchanged
 // =============================================================================
 
 class MidiChannelMapperTest final : public juce::UnitTest {
@@ -22,8 +22,8 @@ public:
     }
 
     void runTest() override {
-        testInactivePassThrough();
-        testInactiveSendWithGlobalTranspose();
+        testDefaultPassThroughWithoutTranspose();
+        testDefaultMatrixWithGlobalTranspose();
         testOutputChannelRemap();
         testTransposeAndOctaveClamping();
         testVelocityOverride();
@@ -35,9 +35,9 @@ public:
     }
 
 private:
-    void testInactivePassThrough() {
-        testCase("inactive matrix: applyTransform returns the message unchanged", [&] {
-            ChannelMatrix matrix; // active == false by default
+    void testDefaultPassThroughWithoutTranspose() {
+        testCase("default matrix without transpose: applyTransform returns the message unchanged", [&] {
+            ChannelMatrix matrix;
             const bool midiTranspose = false;
             const int keySignature = 0;
             MidiChannelMapper mapper(matrix, midiTranspose, keySignature);
@@ -50,20 +50,26 @@ private:
         });
     }
 
-    void testInactiveSendWithGlobalTranspose() {
-        testCase("inactive matrix: sendNoteOn still applies global transpose", [&] {
-            ChannelMatrix matrix;
+    void testDefaultMatrixWithGlobalTranspose() {
+        testCase("default matrix with transpose: melodic channels transpose, Ch10 drum bypasses", [&] {
+            ChannelMatrix matrix; // Ch1..9 and Ch11..16 followKey=true, Ch10 followKey=false
             const bool midiTranspose = true;
             const int keySignature = 7;
             MidiChannelMapper mapper(matrix, midiTranspose, keySignature);
 
             juce::MidiKeyboardState ks;
+            // Channel 1 (index 0): melodic -> 60 + 7 = 67
             mapper.sendNoteOn(0, 60, 0.8f, ks);
-            expect(ks.isNoteOn(1, 67), "global transpose must apply even when the matrix is inactive");
+            expect(ks.isNoteOn(1, 67), "melodic channel 1 must transpose 60 -> 67");
             expect(!ks.isNoteOn(1, 60));
+
+            // Channel 10 (index 9): drum -> stays at 36
+            mapper.sendNoteOn(9, 36, 0.8f, ks);
+            expect(ks.isNoteOn(10, 36), "drum channel 10 must bypass transpose and stay at 36");
+            expect(!ks.isNoteOn(10, 43));
         });
 
-        testCase("inactive matrix without transpose keeps the original note", [&] {
+        testCase("default matrix without transpose keeps the original note", [&] {
             ChannelMatrix matrix;
             const bool midiTranspose = false;
             const int keySignature = 7;

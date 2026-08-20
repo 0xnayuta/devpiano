@@ -163,7 +163,7 @@ public:
             const auto preset = makeDefaultPreset();
             expectEquals(preset.name, juce::String("Default"));
             expectEquals(preset.layout.id, juce::String("default.preset.builtin"));
-            expect(!preset.channelMatrix.active, "default matrix must be inactive");
+            expect(preset.channelMatrix.active, "default matrix must be active");
             expectEquals(static_cast<int>(preset.colourMode), static_cast<int>(devpiano::ui::KeyColourMode::classic));
         });
     }

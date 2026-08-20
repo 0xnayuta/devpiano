@@ -478,6 +478,47 @@ public:
             expect(!engine.getKeyboardState().isNoteOn(1, 60), "Channel 1 note 60 should NOT be on");
             expect(engine.getKeyboardState().isNoteOn(10, 36), "Channel 10 drum note 36 must NOT be transposed");
             expect(!engine.getKeyboardState().isNoteOn(10, 38), "Channel 10 note 38 should NOT be on");
+            rec.stopPlayback();
+        }
+
+        beginTest("playback transpose respects custom per-channel mask overrides");
+        {
+            devpiano::recording::RecordingEngine rec;
+            AudioEngine engine;
+            engine.setRecordingEngine(&rec);
+            engine.prepareToPlay(512, 44100.0);
+            exhaustWarmup(engine, 512);
+
+            devpiano::recording::RecordingTake take;
+            take.sampleRate = 44100.0;
+            take.lengthSamples = 2048;
+            take.events.push_back({
+                .timestampSamples = 10,
+                .type = devpiano::recording::PerformanceEventType::midi,
+                .source = devpiano::recording::RecordingEventSource::playback,
+                .message = juce::MidiMessage::noteOn(1, 60, 0.8f),
+            });
+            take.events.push_back({
+                .timestampSamples = 10,
+                .type = devpiano::recording::PerformanceEventType::midi,
+                .source = devpiano::recording::RecordingEventSource::playback,
+                .message = juce::MidiMessage::noteOn(10, 36, 0.8f),
+            });
+
+            // Set custom mask where Channel 1 is bypassed (bit 0 = 0) and Channel 10 is transposed (bit 9 = 1)
+            const std::uint16_t customMask = static_cast<std::uint16_t>(1U << 9);
+            engine.setPlaybackTranspose(true, 3, customMask);
+            rec.startPlayback(take, 44100.0);
+
+            auto [buf, info] = makeBlock(2, 512);
+            engine.getNextAudioBlock(info);
+
+            // Channel 1 was disabled in mask -> remains 60
+            expect(engine.getKeyboardState().isNoteOn(1, 60), "Channel 1 note 60 should remain 60 (disabled in mask)");
+            expect(!engine.getKeyboardState().isNoteOn(1, 63));
+            // Channel 10 was enabled in mask -> transposed 36 + 3 = 39
+            expect(engine.getKeyboardState().isNoteOn(10, 39), "Channel 10 note 36 should be transposed to 39");
+            expect(!engine.getKeyboardState().isNoteOn(10, 36));
 
             rec.stopPlayback();
         }

@@ -27,9 +27,11 @@ public:
     void setMasterGain(float newGain);
     void setAdsr(float attackSeconds, float decaySeconds, float sustainLevel, float releaseSeconds);
     void setPianoParameters(float brightness, float hammerHardness, float resonance);
-    void setPlaybackTranspose(bool enabled, int semitoneOffset) noexcept;
+    void setPlaybackTranspose(bool enabled, int semitoneOffset,
+                              std::uint16_t channelFollowKeyMask = 0b1111110111111111) noexcept;
     [[nodiscard]] bool isPlaybackTransposeEnabled() const noexcept;
     [[nodiscard]] int getPlaybackTransposeOffset() const noexcept;
+    [[nodiscard]] std::uint16_t getPlaybackChannelFollowKeyMask() const noexcept;
     // sine 可切换回退。切换会重建 synth voice 注册；Synthesiser 内部锁（processNextBlock
     // 与 clearVoices/addVoice 共用）保护 voice 生命周期，消息线程调用安全，
     // 音频线程仅短暂阻塞等待当前块渲染完成。
@@ -98,5 +100,6 @@ private:
     std::atomic<int> pluginBufferResizeCount { 0 };
     std::atomic<bool> playbackTransposeEnabled { false };
     std::atomic<int> playbackTransposeOffset { 0 };
+    std::atomic<std::uint16_t> playbackChannelFollowKeyMask { 0b1111110111111111 };
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AudioEngine)
 };

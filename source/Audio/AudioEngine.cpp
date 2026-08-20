@@ -186,9 +186,10 @@ void AudioEngine::setPianoParameters(float brightness, float hammerHardness, flo
     pianoResonance = juce::jlimit(0.0f, 1.0f, resonance);
     updatePianoParametersOnVoices();
 }
-void AudioEngine::setPlaybackTranspose(bool enabled, int semitoneOffset) noexcept {
+void AudioEngine::setPlaybackTranspose(bool enabled, int semitoneOffset, std::uint16_t channelFollowKeyMask) noexcept {
     playbackTransposeEnabled.store(enabled, std::memory_order_release);
     playbackTransposeOffset.store(semitoneOffset, std::memory_order_release);
+    playbackChannelFollowKeyMask.store(channelFollowKeyMask, std::memory_order_release);
 }
 
 bool AudioEngine::isPlaybackTransposeEnabled() const noexcept {
@@ -197,6 +198,10 @@ bool AudioEngine::isPlaybackTransposeEnabled() const noexcept {
 
 int AudioEngine::getPlaybackTransposeOffset() const noexcept {
     return playbackTransposeOffset.load(std::memory_order_acquire);
+}
+
+std::uint16_t AudioEngine::getPlaybackChannelFollowKeyMask() const noexcept {
+    return playbackChannelFollowKeyMask.load(std::memory_order_acquire);
 }
 
 void AudioEngine::setBuiltinSynthTone(BuiltinSynthTone tone) {
@@ -316,15 +321,19 @@ void AudioEngine::renderPlaybackEventsIfNeeded(std::int64_t blockStartSamples, i
     playbackVisualMidiBuffer.clear();
     recordingEngine->renderPlaybackBlock(playbackVisualMidiBuffer, blockStartSamples, numSamples);
 
-    // Apply real-time playback transposition if enabled (with GM Channel 10 drum bypass)
+    // Apply real-time playback transposition if enabled (per 16-channel followKey mask)
     const auto transposeEnabled = playbackTransposeEnabled.load(std::memory_order_acquire);
     const auto transposeOffset = playbackTransposeOffset.load(std::memory_order_acquire);
+    const auto followMask = playbackChannelFollowKeyMask.load(std::memory_order_acquire);
 
     if (transposeEnabled && transposeOffset != 0 && !playbackVisualMidiBuffer.isEmpty()) {
         juce::MidiBuffer transposedBuffer;
         for (const auto metadata : playbackVisualMidiBuffer) {
             auto msg = metadata.getMessage();
-            if (msg.isNoteOnOrOff() && msg.getChannel() != 10) {
+            const auto chIdx = juce::jlimit(0, 15, msg.getChannel() - 1);
+            const bool channelFollows = (followMask & (1U << chIdx)) != 0;
+
+            if (msg.isNoteOnOrOff() && channelFollows) {
                 const auto originalNote = msg.getNoteNumber();
                 const auto transposedNote = juce::jlimit(0, 127, originalNote + transposeOffset);
                 if (msg.isNoteOn()) {

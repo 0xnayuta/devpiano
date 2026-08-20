@@ -15,10 +15,6 @@ const PerChannelConfig& MidiChannelMapper::configForChannel(int inputChannel) co
 }
 
 juce::MidiMessage MidiChannelMapper::applyTransform(const juce::MidiMessage& message) {
-    if (!matrix.active) {
-        return message;
-    }
-
     if (!message.isNoteOnOrOff()) {
         return message;
     }
@@ -27,21 +23,21 @@ juce::MidiMessage MidiChannelMapper::applyTransform(const juce::MidiMessage& mes
     const auto inputChannel = message.getChannel() - 1;
     const auto& cfg = configForChannel(inputChannel);
 
-    if (message.isNoteOn()) {
-        return applyMatrixToNoteOn(cfg, message.getNoteNumber(), message.getFloatVelocity());
-    }
+    auto transformed = message.isNoteOn()
+        ? applyMatrixToNoteOn(cfg, message.getNoteNumber(), message.getFloatVelocity())
+        : applyMatrixToNoteOff(cfg, message.getNoteNumber(), message.getFloatVelocity());
 
-    return applyMatrixToNoteOff(cfg, message.getNoteNumber(), message.getFloatVelocity());
+    if (cfg.followKey && midiTranspose) {
+        auto fn = juce::jlimit(0, 127, transformed.getNoteNumber() + keySignature);
+        transformed = message.isNoteOn()
+            ? juce::MidiMessage::noteOn(transformed.getChannel(), fn, transformed.getFloatVelocity())
+            : juce::MidiMessage::noteOff(transformed.getChannel(), fn, transformed.getFloatVelocity());
+    }
+    return transformed;
 }
 
 void MidiChannelMapper::sendNoteOn(int inputChannel, int midiNote, float velocity,
                                    juce::MidiKeyboardState& keyboardState) {
-    if (!matrix.active) {
-        auto outNote = midiTranspose ? juce::jlimit(0, 127, midiNote + keySignature) : midiNote;
-        keyboardState.noteOn(inputChannel + 1, outNote, velocity);
-        return;
-    }
-
     const auto& cfg = configForChannel(inputChannel);
     auto transformed = applyMatrixToNoteOn(cfg, midiNote, velocity);
     if (cfg.followKey && midiTranspose) {
@@ -53,12 +49,6 @@ void MidiChannelMapper::sendNoteOn(int inputChannel, int midiNote, float velocit
 
 void MidiChannelMapper::sendNoteOff(int inputChannel, int midiNote, float velocity,
                                     juce::MidiKeyboardState& keyboardState) {
-    if (!matrix.active) {
-        auto outNote = midiTranspose ? juce::jlimit(0, 127, midiNote + keySignature) : midiNote;
-        keyboardState.noteOff(inputChannel + 1, outNote, velocity);
-        return;
-    }
-
     const auto& cfg = configForChannel(inputChannel);
     auto transformed = applyMatrixToNoteOff(cfg, midiNote, velocity);
     if (cfg.followKey && midiTranspose) {
