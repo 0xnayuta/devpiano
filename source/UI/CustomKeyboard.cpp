@@ -152,6 +152,11 @@ void CustomKeyboard::recalculateKeyBounds() {
     auto blackKeyHeight = totalHeight * 0.6f;
 
     auto totalContentWidth = actualWhiteWidth * static_cast<float>(whiteKeyCount);
+    auto availableWidth = static_cast<float>(lastVisibleWidth > 0 ? lastVisibleWidth : getWidth());
+
+    // 当窗口宽度大于琴键内容总宽时，水平居中对齐
+    keybedOffsetX = (availableWidth > totalContentWidth) ? (availableWidth - totalContentWidth) * 0.5f : 0.0f;
+    auto targetComponentWidth = std::max(totalContentWidth, availableWidth);
 
     // First pass: assign white-key positions.
     int whiteIdx = 0;
@@ -164,7 +169,8 @@ void CustomKeyboard::recalculateKeyBounds() {
         k.midiNote = n;
         k.isWhite = true;
         k.fade = 0.0f;
-        k.bounds = { actualWhiteWidth * static_cast<float>(whiteIdx), 0.0f, actualWhiteWidth, whiteKeyHeight };
+        k.bounds = { keybedOffsetX + actualWhiteWidth * static_cast<float>(whiteIdx), 0.0f, actualWhiteWidth,
+                     whiteKeyHeight };
 
         keys.push_back(k);
         ++whiteIdx;
@@ -216,7 +222,7 @@ void CustomKeyboard::recalculateKeyBounds() {
     // Expand component to full key width so parent Viewport can scroll;
     // guard against resized() → recalculateKeyBounds() recursion.
     resizing = true;
-    setSize(static_cast<int>(totalContentWidth), static_cast<int>(totalHeight));
+    setSize(static_cast<int>(targetComponentWidth), static_cast<int>(totalHeight));
     resizing = false;
 }
 
@@ -640,5 +646,12 @@ void CustomKeyboard::handleNoteOff(juce::MidiKeyboardState*, int, int, float) {
 void CustomKeyboard::resized() {
     if (!resizing) {
         recalculateKeyBounds();
+    }
+}
+void CustomKeyboard::updateViewportBounds(int visibleWidth, int visibleHeight) {
+    lastVisibleWidth = visibleWidth;
+    if (getHeight() != visibleHeight || (visibleWidth > 0 && getWidth() != visibleWidth)) {
+        recalculateKeyBounds();
+        repaint();
     }
 }

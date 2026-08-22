@@ -44,6 +44,11 @@ public:
     // Public for unit tests (AUDIT TEST-007); pure geometry, no side effects.
     [[nodiscard]] int findNoteAt(juce::Point<int> position) const;
 
+    // ---- Viewport and centering integration --------------------------------
+    [[nodiscard]] float getKeybedOffsetX() const noexcept {
+        return keybedOffsetX;
+    }
+    void updateViewportBounds(int visibleWidth, int visibleHeight);
     // ---- External notification ---------------------------------------------
     // Wake the fade timer when notes arrive from outside (physical keyboard,
     // external MIDI).  Safe to call redundantly; timer runs at ~30 fps.
@@ -89,6 +94,8 @@ private:
     int rangeLow = 21;
     int rangeHigh = 108; // (C8)
     int lastMouseDownNote = -1;
+    float keybedOffsetX = 0.0f; // horizontal centering offset when window > keybed width
+    int lastVisibleWidth = 0;
     bool resizing = false; // guard against recalc → setSize → resized() loop
 
     // Per-key binding data for colour mode computation, indexed by MIDI note.

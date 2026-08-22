@@ -53,15 +53,31 @@ public:
 
 private:
     void testWhiteKeyHits() {
-        testCase("white-key centre maps to the note in standard 88-key range", [&] {
+        testCase("white-key centre maps to the note in standard 88-key range (1248px)", [&] {
             juce::MidiKeyboardState ks;
             CustomKeyboard kb(ks);
-            kb.setSize(1400, 128); // 标准 88 键钢琴: 52 白键 × 24 = 1248 宽
+            kb.setSize(1248, 128); // 标准 88 键钢琴: 52 白键 × 24 = 1248 宽
 
             expectEquals(kb.findNoteAt({ whiteKeyCentreX(21, 60), 64 }), 60);
             expectEquals(kb.findNoteAt({ whiteKeyCentreX(21, 36), 64 }), 36);
             expectEquals(kb.findNoteAt({ whiteKeyCentreX(21, 21), 64 }), 21, "lowest white key A0");
             expectEquals(kb.findNoteAt({ whiteKeyCentreX(21, 108), 64 }), 108, "highest white key C8");
+        });
+
+        testCase("wide window centering offsets key positions symmetrically", [&] {
+            juce::MidiKeyboardState ks;
+            CustomKeyboard kb(ks);
+            kb.updateViewportBounds(1888, 128); // 1888px 宽窗口 -> offset = (1888 - 1248)/2 = 320px
+            const auto offset = static_cast<int>(kb.getKeybedOffsetX());
+            expectEquals(offset, 320, "keybed offset is mathematically centered");
+
+            expectEquals(kb.findNoteAt({ whiteKeyCentreX(21, 60) + offset, 64 }), 60);
+            expectEquals(kb.findNoteAt({ whiteKeyCentreX(21, 21) + offset, 64 }), 21);
+            expectEquals(kb.findNoteAt({ whiteKeyCentreX(21, 108) + offset, 64 }), 108);
+
+            // 验证居中两翼空白区域返回 -1 (未击中琴键)
+            expectEquals(kb.findNoteAt({ offset - 10, 64 }), -1, "left margin returns -1");
+            expectEquals(kb.findNoteAt({ 1888 - 10, 64 }), -1, "right margin returns -1");
         });
     }
 
@@ -69,7 +85,7 @@ private:
         testCase("black-key zone hits the black note, below it the right white key", [&] {
             juce::MidiKeyboardState ks;
             CustomKeyboard kb(ks);
-            kb.setSize(1400, 128);
+            kb.setSize(1248, 128);
 
             // note 60 (C) 白键；note 61 (C#) 黑键中心 x = whiteKeyCentreX(21, 60) + 12
             const auto blackCentreX = whiteKeyCentreX(21, 60) + 12;
@@ -81,7 +97,7 @@ private:
         testCase("D# (note 63) black key sits between D and E", [&] {
             juce::MidiKeyboardState ks;
             CustomKeyboard kb(ks);
-            kb.setSize(1400, 128);
+            kb.setSize(1248, 128);
 
             // note 62 (D) 白键；note 63 (D#) 黑键中心 x = whiteKeyCentreX(21, 62) + 12
             const auto blackCentreX = whiteKeyCentreX(21, 62) + 12;
@@ -104,12 +120,11 @@ private:
         testCase("setAvailableRange shrinks the hit area", [&] {
             juce::MidiKeyboardState ks;
             CustomKeyboard kb(ks);
-            kb.setSize(2000, 128);
             kb.setAvailableRange(24, 96);
-
-            // 范围 24-96 的白键总数 → 总宽 = count × 24；右侧越界 → -1
             const auto whiteCount = countWhiteKeys(24, 96);
             const auto totalWidth = whiteCount * 24;
+            kb.setSize(totalWidth, 128); // 紧凑模式 (无居中 offset)
+
             expectEquals(kb.findNoteAt({ totalWidth + 50, 64 }), -1, "beyond the range must miss");
             expectEquals(kb.findNoteAt({ whiteKeyCentreX(24, 60), 64 }), 60, "in-range note must hit");
             expectEquals(kb.findNoteAt({ whiteKeyCentreX(24, 96), 64 }), 96);
