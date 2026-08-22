@@ -53,7 +53,7 @@ class PianoSynthVoice final : public juce::SynthesiserVoice {
 public:
     static constexpr auto maxPartials = 20;
     static constexpr auto numResonators = 8;
-    static constexpr auto bodyWetRatio = 0.25f; // 25% wet soundboard, 75% dry string
+    static constexpr auto bodyWetRatio = 0.26f; // 26% default wet soundboard, 74% dry string
     // 每 voice 峰值上限（v=1）：0.16 为 8 voice 齐奏 + masterGain 0.8 预留
     // 复音余量（实际峰值约为该值的 0.6~0.8，最坏 8 voice 周期对齐 ≈0.9）。
     static constexpr auto peakLevelAtFullVelocity = 0.16f;
@@ -248,7 +248,8 @@ public:
             for (auto& resonator : bodyResonators) {
                 resonatorSum += resonator.weight * resonator.process(rawOutput);
             }
-            const auto output = (1.0f - bodyWetRatio) * rawOutput + bodyWetRatio * resonatorSum;
+            const auto wet = 0.18f + pianoResonance * 0.16f;
+            const auto output = (1.0f - wet) * rawOutput + wet * resonatorSum;
 
             for (auto channel = 0; channel < outputBuffer.getNumChannels(); ++channel) {
                 outputBuffer.addSample(channel, sampleIndex, output);
@@ -300,8 +301,8 @@ public:
         return partialDecaySeconds(midiNoteNumber, partialIndex, brightness, resonance)
             * static_cast<double>(region.fastDecayRatio);
     }
-    [[nodiscard]] static constexpr float bodyWet() noexcept {
-        return bodyWetRatio;
+    [[nodiscard]] static float bodyWet(float resonance = 0.5f) noexcept {
+        return 0.18f + juce::jlimit(0.0f, 1.0f, resonance) * 0.16f;
     }
     [[nodiscard]] static double partialFrequency(int midiNoteNumber, int partialIndex) noexcept {
         const auto baseFrequency = static_cast<double>(juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber));
@@ -335,8 +336,8 @@ public:
     };
     [[nodiscard]] static ResonatorSpec resonatorSpec(int index) noexcept {
         constexpr ResonatorSpec specs[] = {
-            { 75.0f, 6.0f, 0.18f },  { 110.0f, 6.0f, 0.18f }, { 160.0f, 5.5f, 0.15f }, { 220.0f, 5.0f, 0.14f },
-            { 320.0f, 4.5f, 0.11f }, { 460.0f, 4.0f, 0.09f }, { 680.0f, 3.5f, 0.08f }, { 950.0f, 3.0f, 0.07f },
+            { 68.0f, 5.5f, 0.16f },  { 112.0f, 5.5f, 0.17f }, { 175.0f, 5.0f, 0.15f }, { 245.0f, 4.5f, 0.14f },
+            { 350.0f, 4.0f, 0.12f }, { 490.0f, 3.8f, 0.10f }, { 720.0f, 3.2f, 0.09f }, { 1050.0f, 2.8f, 0.07f },
         };
         const auto clamped = std::clamp(index, 0, numResonators - 1);
         return specs[clamped];
@@ -355,10 +356,10 @@ public:
     };
 
     static constexpr VoiceRegion voiceRegions[] = {
-        { 20, 4.0f, 4.0e-4, 0.35f, 0.15f, 0.30f, 0.0020f, 6, 0.125f }, // note < 48: 低音 d/L = 1/8
-        { 14, 2.5f, 1.0e-4, 0.25f, 0.20f, 0.25f, 0.0015f, 6, 0.1333f }, // 48–71: 中音 d/L = 1/7.5
-        { 8, 1.5f, 3.0e-5, 0.18f, 0.20f, 0.20f, 0.0010f, 4, 0.100f }, // 72–95: 高音 d/L = 1/10
-        { 6, 0.8f, 1.0e-5, 0.12f, 0.15f, 0.15f, 0.0f, 0, 0.0714f }, // >= 96: 极高音 d/L = 1/14
+        { 20, 4.5f, 4.0e-4, 0.38f, 0.12f, 0.20f, 0.0020f, 6, 0.125f }, // note < 48: 低音 d/L = 1/8
+        { 14, 2.8f, 1.0e-4, 0.28f, 0.15f, 0.18f, 0.0015f, 6, 0.1333f }, // 48–71: 中音 d/L = 1/7.5
+        { 8, 1.6f, 3.0e-5, 0.20f, 0.18f, 0.15f, 0.0010f, 4, 0.100f }, // 72–95: 高音 d/L = 1/10
+        { 6, 0.9f, 1.0e-5, 0.15f, 0.15f, 0.12f, 0.0f, 0, 0.0714f }, // >= 96: 极高音 d/L = 1/14
     };
 
     [[nodiscard]] static const VoiceRegion& regionForNote(int midiNoteNumber) noexcept {

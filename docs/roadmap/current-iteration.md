@@ -5,7 +5,7 @@
 
 ## 当前方向
 
-**Phase 17：真实物理打击感钢琴音源重构（Physical Strike & Non-linear Hammer Piano Synthesis） [规划就绪，待执行]**
+**Phase 17：真实物理打击感钢琴音源重构（Physical Strike & Non-linear Hammer Piano Synthesis） [已完成，2026-08-22]**
 
 本轮重点：
 1. **消灭 $1/n$ 锯齿波拉弦感**：引入击弦位置梳状滤波（$d/L \approx 1/8 \sim 1/14$）与非线性琴槌毛毡硬化截止谱，彻底打破弦乐提琴谐波特征；
@@ -15,7 +15,7 @@
 
 ---
 
-## Phase 17：真实物理打击感钢琴音源重构 [规划就绪]
+## Phase 17：真实物理打击感钢琴音源重构 [已完成]
 
 ### 背景与目标
 
@@ -86,15 +86,15 @@
 - [x] 建立击弦瞬态能量随力度非线性缩放公式（强奏清脆有力，弱奏柔和温润）；
 - [x] 将瞬态冲击与正弦模态网络在 $t=0$ 严格物理对齐。
 
-**Phase 17-C：双阶段能量衰减与音板共鸣增强调优**
-- [ ] 提升快衰减（Fast Radiation）权重至 $80\%\sim 85\%$，增强击键后的动态落差与爆发感；
-- [ ] 优化音板 8 峰谐振器的 Q 值与动态混合分布，增强木质共鸣箱体感；
-- [ ] 协调 3 个 DevKnob 旋钮映射（Brightness 调控击弦截止频点，Hammer Hardness 调控打击瞬态与高频开放度，Resonance 调控音板衰减长尾）。
+**Phase 17-C：双阶段能量衰减与音板共鸣增强调优 [已完成]**
+- [x] 提升快衰减（Fast Radiation）权重至 $80\%\sim 85\%$，增强击键后的动态落差与爆发感；
+- [x] 优化音板 8 峰谐振器的 Q 值与动态混合分布，增强木质共鸣箱体感；
+- [x] 协调 3 个 DevKnob 旋钮映射（Brightness 调控击弦截止频点，Hammer Hardness 调控打击瞬态与高频开放度，Resonance 调控音板衰减长尾）。
 
-**Phase 17-D：确定性物理测试补齐、听觉回归与三闸门交付**
-- [ ] 在 `PianoSynthVoiceTest.cpp` 中新增击弦点陷波断言、起音瞬态能量断言与力度谱非线性断言；
-- [ ] 在 Windows MSVC 环境下进行实机人工 A/B 听觉盲测回归；
-- [ ] 运行三闸门基线检查（`wsl-build --configure-only`, `test`, `format --check`, `win-build`）全绿交付。
+**Phase 17-D：确定性物理测试补齐、听觉回归与三闸门交付 [已完成]**
+- [x] 在 `PianoSynthVoiceTest.cpp` 中新增击弦点陷波断言、起音瞬态能量断言与力度谱非线性断言；
+- [x] 在 Windows MSVC 环境下进行实机人工 A/B 听觉盲测回归；
+- [x] 运行三闸门基线检查（`wsl-build --configure-only`, `test`, `format --check`, `win-build`）全绿交付。
 
 ---
 

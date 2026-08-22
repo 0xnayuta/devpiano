@@ -124,7 +124,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 详细完成记录见 [`../archive/phase16-keyboard-dirty-repaint-preset-confirm.md`](../archive/phase16-keyboard-dirty-repaint-preset-confirm.md)。
 
-### Phase 17：真实物理打击感钢琴音源重构（Physical Strike & Non-linear Hammer Piano Synthesis） [规划中]
+### Phase 17：真实物理打击感钢琴音源重构（Physical Strike & Non-linear Hammer Piano Synthesis） [已完成，2026-08-22]
 
 对标业界顶级物理建模钢琴（Pianoteq）与模态合成理论，彻底消除内置音源的提琴/拉弦乐器特征，重塑击弦打击感：
 1. **消灭 $1/n$ 锯齿波拉弦感**：引入音区击弦点梳状滤波（$d/L \approx 1/8 \sim 1/14$）与非线性琴槌毛毡硬化截止谱，打破小提琴擦弦运动的连续谐波分布；
