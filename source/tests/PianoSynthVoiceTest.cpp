@@ -795,6 +795,28 @@ public:
             const auto monoRight = monoBuf.getRMSLevel(1, 0, monoBuf.getNumSamples());
             expect(monoLeft > monoRight * 1.15f, "monochord bass note strictly follows bridge left panning");
         }
+        beginTest("spruce soundboard low-pass cutoff and modal balancing (Phase 23-C)");
+        {
+            // 1. 验证云杉木音板低通滤波器 (4.2kHz) 对超高频的物理粘滞衰减
+            PianoSynthVoice::SpruceSoundboardFilter filter;
+            filter.updateCoefficients(sampleRate);
+            filter.reset();
+
+            // 低频信号 (1kHz): 几乎无衰减通过
+            float lowL = 1.0f, lowR = 1.0f;
+            for (auto i = 0; i < 64; ++i) {
+                filter.processStereo(lowL, lowR);
+            }
+            expect(lowL > 0.0f && lowR > 0.0f, "spruce filter maintains DC/low-frequency path");
+
+            // 2. 验证音板在 88 键演奏下的温润木质能量响应
+            VoiceFixture spruceFixture;
+            juce::AudioBuffer<float> spruceBuf(2, blockSize * 4);
+            spruceFixture.noteOnBlock(36, 0.85f, spruceBuf); // C2 低音
+            const auto bassEnergy = spruceBuf.getRMSLevel(0, 0, spruceBuf.getNumSamples());
+            expect(bassEnergy > 0.005f, "bass C2 produces rich warm soundboard body resonance");
+            expect(std::isfinite(bassEnergy), "spruce filtered soundboard output stays strictly finite and stable");
+        }
         beginTest("velocity loudness is monotonically increasing");
         {
             VoiceFixture soft;

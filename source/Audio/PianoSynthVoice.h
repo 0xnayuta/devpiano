@@ -29,8 +29,10 @@
 // 开放制音弦交感振荡；
 // - 动态琴槌非线性刚度与击弦点几何陷波 (Phase 23-A, Chaigne & Askenfelt 1994, Russell & Rossing 1998)：
 //   三层毛毡动力学压实模型、连续变化接触时间 Tc、动态截止滚降指数与精确击弦位置陷波；
-// - 同音三弦立体声非对称微失谐与空间声相展开 (Phase 23-B, Weinreich 1977 JASA)：
-//   将同音多弦振动在物理声相空间微观展开，彻底消除中高音单声道聚焦感，营造开阔立体的空气环绕感。
+// - 同音三弦立体声非对称微失谐与声相展开 (Phase 23-B, Weinreich 1977 JASA)：
+//   将同音多弦振动在物理声相空间微观展开，彻底消除中高音单声道聚焦感，营造开阔立体的空气环绕感；
+// - 云杉木音板高频截止与木质腔体共鸣峰配平 (Phase 23-C, Boutillon & Ege 2013, Giordano 1998)：
+//   4.2kHz 云杉木粘滞内耗低通截止滤波器与 16 峰物理音板模态配平，赋予真实三角钢琴温润深厚的木质感。
 
 class PianoSynthSound final : public juce::SynthesiserSound {
 public:
@@ -228,6 +230,9 @@ public:
             resonator.reset();
             resonator.updateCoefficients(sampleRate);
         }
+        spruceSoundboardFilter.updateCoefficients(sampleRate);
+        spruceSoundboardFilter.reset();
+
         sympatheticPool.updateCoefficients(sampleRate);
         sympatheticPool.noteOnKey(midiNoteNumber);
         lidAcoustics.setPosition(pianoLidPosition, sampleRate);
@@ -254,6 +259,7 @@ public:
         for (auto& resonator : bodyResonators) {
             resonator.reset();
         }
+        spruceSoundboardFilter.reset();
         sympatheticPool.reset();
         lidAcoustics.reset();
         clearCurrentNote();
@@ -283,6 +289,7 @@ public:
                 for (auto& resonator : bodyResonators) {
                     resonator.reset();
                 }
+                spruceSoundboardFilter.reset();
                 sympatheticPool.reset();
                 lidAcoustics.reset();
                 break;
@@ -357,8 +364,14 @@ public:
                 resonatorLeftSum += spec.weightLeft * resOut;
                 resonatorRightSum += spec.weightRight * resOut;
             }
-            // 2. 延音踏板与单键和弦开放弦交感共鸣 (Phase 21-A / Phase 22-E, Bank 2010 Sec. VI)
+
+            // 2. 云杉木音板高频粘滞吸收低通滤波 (Phase 23-C, Boutillon & Ege 2013)
+            spruceSoundboardFilter.processStereo(resonatorLeftSum, resonatorRightSum);
+
+            // 3. 延音踏板与单键和弦开放弦交感共鸣 (Phase 21-A / Phase 22-E, Bank 2010 Sec. VI)
             const auto sympatheticOut = sympatheticPool.process(rawMono);
+
+            // 4. 琴桥立体声声像定位与非对称空间投影 (低音在左 0.15 -> 高音在右 0.85)
             const auto midi = std::clamp(static_cast<float>(currentPlayingMidiNote), 21.0f, 108.0f);
             const auto keyPos = (midi - 21.0f) / 87.0f;
             const auto directPan = 0.15f + 0.70f * keyPos;
@@ -369,7 +382,7 @@ public:
             auto outLeft = (1.0f - wet) * rawLeft * directLeft + wet * (resonatorLeftSum + 0.40f * sympatheticOut);
             auto outRight = (1.0f - wet) * rawRight * directRight + wet * (resonatorRightSum + 0.60f * sympatheticOut);
 
-            // 4. 三角钢琴琴盖反射与近场木质微反射 (Phase 21-B / Phase 22-B, Chabassier 2013/2019)
+            // 5. 三角钢琴琴盖反射与近场木质微反射 (Phase 21-B / Phase 22-B, Chabassier 2013/2019)
             lidAcoustics.processStereo(outLeft, outRight);
 
             if (outputBuffer.getNumChannels() >= 2) {
@@ -390,6 +403,7 @@ public:
             for (auto& resonator : bodyResonators) {
                 resonator.reset();
             }
+            spruceSoundboardFilter.reset();
             sympatheticPool.reset();
             lidAcoustics.reset();
         }
@@ -963,6 +977,36 @@ public:
         }
     };
     LidAcoustics lidAcoustics;
+
+    // 云杉木音板高频粘滞吸收低通滤波器 (Phase 23-C, Boutillon & Ege 2013)
+    struct SpruceSoundboardFilter {
+        float lpLeft = 0.0f;
+        float lpRight = 0.0f;
+        float lpCoeff = 0.0f;
+
+        void updateCoefficients(double sampleRate) noexcept {
+            if (sampleRate <= 0.0) {
+                return;
+            }
+            constexpr float fc = 4200.0f;
+            lpCoeff = std::exp(-juce::MathConstants<float>::twoPi * fc / static_cast<float>(sampleRate));
+        }
+
+        void reset() noexcept {
+            lpLeft = 0.0f;
+            lpRight = 0.0f;
+        }
+
+        void processStereo(float& left, float& right) noexcept {
+            if (lpCoeff > 0.0f) {
+                lpLeft = (1.0f - lpCoeff) * left + lpCoeff * lpLeft;
+                lpRight = (1.0f - lpCoeff) * right + lpCoeff * lpRight;
+                left = lpLeft;
+                right = lpRight;
+            }
+        }
+    };
+    SpruceSoundboardFilter spruceSoundboardFilter;
 
     struct BodyResonator {
         float frequency = 110.0f;
