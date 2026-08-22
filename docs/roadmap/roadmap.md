@@ -129,10 +129,25 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 对标业界顶级物理建模钢琴（Pianoteq）与模态合成理论，彻底消除内置音源的提琴/拉弦乐器特征，重塑击弦打击感：
 1. **消灭 $1/n$ 锯齿波拉弦感**：引入音区击弦点梳状滤波（$d/L \approx 1/8 \sim 1/14$）与非线性琴槌毛毡硬化截止谱，打破小提琴擦弦运动的连续谐波分布；
 2. **重塑真实打击物理起音**：消除 10ms 慢起音门控（Attack $\le 0.2\text{ ms}$ 极速起振），注入 $2\sim 3\text{ ms}$ 毛毡撞击物理瞬态冲击核（Hammer Strike Click）；
-3. **强化双阶段衰减落差与音板共鸣**：提升早期快衰减权重，增强三角钢琴长音的木质共鸣箱厚度；
-4. **参数协调与确定性物理测试**：全量单元测试与 MSVC 实机听觉盲测回归。
+3. **强化双阶段衰减落差与音板共鸣**：提升早期快衰减权重至 $80\%\sim 88\%$，重构 8 峰云杉木音板模态并与 Resonance 动态绑定；
+4. **参数协调与确定性物理测试**：全量单元测试 100% 满分通过与 MSVC 实机听觉盲测回归。
+
+详细完成记录见 [`../archive/phase17-physical-strike-hammer-piano.md`](../archive/phase17-physical-strike-hammer-piano.md)。
+
+### Phase 18：88 键物理参数化与微观相位色散（Per-Note Voicing & Micro-Phase Dispersion） [规划中]
+
+对标 `danielpodrazka/piano` 与模态物理细粒度参数化，消除 4 音区离散台阶与 $t=0$ 相干波形：
+1. **88 键静态物理映射（88-Key Per-Note Constexpr Table）**：为 88 键建立连续刚度 $B$、击弦比 $d/L$ 与基准衰减 $\tau_{\text{slow}}$；
+2. **微观初始相位色散表（Phase Table）**：为各分音赋予物理空间激发微相位，彻底消灭“数学正弦波”同相叠加感；
+3. **二次高阶模态阻尼曲率（$\tau_m \propto 1/m^2$）**：超高频金属毛刺 0.1s 迅速衰退，呈现纯净歌唱性尾音。
 
 详细计划见 [`current-iteration.md`](current-iteration.md)。
+
+### Phase 19：立体声音板共鸣箱与弦槌微动力学（Stereo Modal Soundboard & Multi-String Dynamics） [远期规划]
+
+1. **16 峰物理音板模态组**：覆盖密集木质共鸣箱体；
+2. **真立体声空间辐射**：音板左右声道空间扩散；
+3. **同音三弦独立微动力学**：合唱拍频与琴弦能量转移。
 
 ## 3. 主要风险
 
@@ -180,3 +195,4 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 - Phase 12–14 完成记录（内置物理建模钢琴音源）：[`../archive/phase12-14-builtin-piano-synthesis.md`](../archive/phase12-14-builtin-piano-synthesis.md)
 - Phase 15 完成记录（声明式弹窗与设置面板重构）：[`../archive/phase15-declarative-dialogs-and-settings-jive.md`](../archive/phase15-declarative-dialogs-and-settings-jive.md)
 - Phase 16 完成记录（虚拟键盘局部脏矩形重绘与预设覆盖确认）：[`../archive/phase16-keyboard-dirty-repaint-preset-confirm.md`](../archive/phase16-keyboard-dirty-repaint-preset-confirm.md)
+- Phase 17 完成记录（真实物理打击感钢琴音源重构）：[`../archive/phase17-physical-strike-hammer-piano.md`](../archive/phase17-physical-strike-hammer-piano.md)

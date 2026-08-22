@@ -5,110 +5,98 @@
 
 ## 当前方向
 
-**Phase 17：真实物理打击感钢琴音源重构（Physical Strike & Non-linear Hammer Piano Synthesis） [已完成，2026-08-22]**
+**Phase 18：88 键物理参数化与微观相位色散（Per-Note Voicing & Micro-Phase Dispersion） [规划就绪，待执行]**
 
 本轮重点：
-1. **消灭 $1/n$ 锯齿波拉弦感**：引入击弦位置梳状滤波（$d/L \approx 1/8 \sim 1/14$）与非线性琴槌毛毡硬化截止谱，彻底打破弦乐提琴谐波特征；
-2. **重塑真实打击物理起音**：消除 10ms 慢起音门控（Attack $\le 0.2\text{ ms}$ 极速起振），注入 $2\sim 3\text{ ms}$ 毛毡撞击物理瞬态核（Hammer Strike Click），提供真实的敲击清脆质感；
-3. **强化双阶段衰减落差与音板共鸣**：提升早期快衰减权重，增强三角钢琴长音的木质共鸣箱厚度；
-4. **确定性测试与物理参数调优**：补齐击弦点陷波断言、起音冲击能量断言，通过三闸门基线验证。
+1. **88 键静态物理映射（88-Key Per-Note Constexpr Table）**：彻底消灭 4 大音区台阶，为 MIDI 21~108 的每一个按键建立连续的刚度系数 $B(n)$、击弦比 $d/L(n)$、基准衰减 $\tau_{\text{base}}(n)$ 与同音弦配置；
+2. **模态初始微相位表（Micro-Phase Table）**：为各分音引入基于物理冲击空间积分的初始微相位偏移，消灭正弦波在 $t=0$ 严格同相叠加产生的“数学/电子合成器”僵硬感；
+3. **二次高阶模态阻尼曲率（Quadratic Modal Damping）**：阻尼模型升级为 $\tau_m = \tau_{\text{base}} / (1 + c_1 m + c_2 m^2)$，使极高频金属毛刺在 0.1s 内迅速衰退，留下大三角钢琴厚重纯净的歌唱性尾音；
+4. **零堆分配与极低开销保证**：全部参数表以 `constexpr / constinit` 静态编译期内联，音频线程零新增开销，单核 CPU 维持 $\le 0.7\%$。
 
 ---
 
-## Phase 17：真实物理打击感钢琴音源重构 [已完成]
+## Phase 18：88 键物理参数化与微观相位色散 [规划就绪]
 
-### 背景与目标
+### 背景与声学机理
 
-当前内置物理建模钢琴（`PianoSynthVoice`）在长尾衰减期具备良好的刚性失谐（Inharmonicity）、双阶段衰减（Two-stage decay）与同音弦拍频（Beating），但听觉特征偏向**提琴/拉弦乐器（Bowed String）**而非**钢琴/击弦打击乐器（Struck String）**。
+在 Phase 17 完成后，内置音源已具备清脆逼真的琴槌击打感与非线性谱形。然而，对照业界顶级物理建模模型（如 `danielpodrazka/piano`、Pianoteq、Balázs Bank 2010/2019），当前模型与真实钢琴之间仍存在微观层面的“机械规则感”：
 
-#### 核心声学根因：
-1. **谐波谱为标准锯齿波**：分音幅度简单按 $1/n$ 递减（$-6\text{ dB/octave}$），在声学物理上恰为小提琴亥姆霍兹擦弦运动的特征波形；
-2. **起音存在拉弓渐入感**：默认 ADSR 门控带有 $10\text{ ms}$ Attack 渐入，抹平了琴槌击弦的瞬间爆发力；
-3. **缺失琴槌物理敲击瞬态（Hammer Strike Transient）**：正弦振荡器纯音起振，缺少毛毡撞击钢弦与铸铁琴桥的初始冲击特征（Click / Thump）；
-4. **缺少击弦点梳状滤波（Comb Filter）**：缺少琴槌敲击点位置对特定次谐波（如第 7/8 次）的天然物理陷波抑制。
-
-#### 重构目标：
-对标业界顶级物理建模钢琴（Pianoteq）与 Balázs Bank（2010 IEEE TASLP）模态钢琴理论，在保持纯 C++ 解析生成、零采样依赖、零堆分配及单核 CPU $\le 0.7\%$ 的前提下，彻底重构击弦起振物理，将音色蜕变为具有清脆木质敲击感与丰富共鸣的真实钢琴。
+1. **4 音区粗粒度台阶**：当前采用 4 个离散音区（$<48, <72, <96, \ge 96$），导致相邻音符跨音区时物理参数（刚度 $B$、击弦比 $d/L$）存在微小跳跃；
+2. **$t=0$ 绝对零相位相干**：所有模态振荡器初值均为 $u[0]=1, v[0]=0$（$\varphi_m = 0$）。真实钢琴琴槌毛毡具有宽度，撞击弦段时各模态在空间上的投影会形成天然的相位色散（Phase Dispersion）；
+3. **高频阻尼线性化**：当前的线性阻尼使 15 次以上超高频分音残留略长，需要二次方高阶损耗曲率快速收敛。
 
 ---
 
-### 系统架构（物理子系统划分）
+### 设计方案与参数表架构
 
-```
-                                  [MIDI Note On / Velocity]
-                                              │
-                                              ▼
-┌───────────────────────────────────────────────────────────────────────────────────────────┐
-│ 1. 击弦动力学与瞬态冲击核 (Hammer-String Dynamics & Strike Transient)                     │
-│    ┌───────────────────────────────────┐     ┌──────────────────────────────────────────┐ │
-│    │ 非线性琴槌击弦谱形生成器          │     │ 琴槌-琴弦物理碰撞瞬态核 (Hammer Click)   │ │
-│    │ - 击弦位置 comb filter (d/L)      │     │ - 2~3ms 宽频带通冲击脉冲                 │ │
-│    │ - 硬化弹簧谱形截止 (Harden Spring)│     │ - 力度敏感的毛毡/木质敲击瞬态能量        │ │
-│    │ - 力度非线性泛音扩展 (Power Law)  │     │ - 与弦振动在 t=0 零延迟物理对齐          │ │
-│    └─────────────────┬─────────────────┘     └───────────────────┬──────────────────────┘ │
-└──────────────────────┼───────────────────────────────────────────┼────────────────────────┘
-                       │ 驱动分音初始能量                          │ 瞬态直接注入
-                       ▼                                           │
-┌──────────────────────────────────────────────────────────────────┴────────────────────────┐
-│ 2. 增强模态琴弦振荡网络 (Enhanced Modal Resonator Network)                                │
-│    - 零渐入门控 (Instantaneous Attack Gate, attack <= 0.2ms，消灭拉弓感)                  │
-│    - 刚性失谐频率 fm = m·f0·√(1 + B·m²) 与同音弦微失谐干涉 (Unison Beating)               │
-│    - 模态双阶段能量耗散 (τ_fast 击弦辐射期 + τ_slow 长尾余韵期)                           │
-│    - 各分音初始相位物理约束 (零点相位微扰，避免周期性锯齿波波形畸变)                      │
-└──────────────────────────────────────┬────────────────────────────────────────────────────┘
-                                       │ 琴弦振动速度信号 v_string(t)
-                                       ▼
-┌───────────────────────────────────────────────────────────────────────────────────────────┐
-│ 3. 弦桥传递与音板/琴体共振网络 (Soundboard Radiation & Body Model)                       │
-│    - 弦桥低通/带通耦合滤波 (Bridge Impedance Filtering)                                   │
-│    - 8 峰物理音板模态 (Soundboard Modal Bank, 75Hz~950Hz)                                 │
-│    - 拟真木质箱体 Wet/Dry 混合动态响应                                                    │
-└──────────────────────────────────────┬────────────────────────────────────────────────────┘
-                                       │
-                                       ▼
-                              [Audio Output Stream]
+#### 1. 88 键静态参数表结构（`PianoNoteConfig`）
+
+在编译期为 MIDI 21（A0）到 108（C8）共 88 个音符预计算物理常量表：
+
+```cpp
+struct PianoNoteConfig {
+    int partialCount;             // 激活分音数 (低音 20 -> 高音 6)
+    float baseDecaySeconds;       // 慢衰减基准时间常数 τ_slow (低音 5.0s -> 高音 0.7s)
+    double inharmonicityB;        // 刚性弦失谐系数 B (低音 4.5e-4 -> 高音 8.0e-6)
+    float dampingC1;              // 线性阻尼系数 c1 (0.20 ~ 0.35)
+    float dampingC2;              // 二次高阶损耗系数 c2 (0.015 ~ 0.040)
+    float fastDecayRatio;         // 快衰减时间比 τ_fast / τ_slow (0.10 ~ 0.16)
+    float slowWeight;             // 慢分量初始权重 (0.12 ~ 0.22)
+    float strikingPositionRatio;  // 击弦比 d/L (低音 0.125 -> 高音 0.0714)
+    float beatingDetuneRatio;     // 同音微失谐比 (0.0008 ~ 0.0022)
+    int beatingPartials;          // 拍频分音数 (低音 6 -> 高音 0)
+};
+
+// 88 键连续平滑映射表 (constexpr 零运行时开销)
+static constexpr std::array<PianoNoteConfig, 88> k88NoteConfigs = ...;
 ```
 
----
+#### 2. 微观初始相位色散表（`MicroPhaseTable`）
 
-### 子任务排期
+对第 $m$ 个分音引入空间激发微相位 $\varphi_m$：
+- 避免所有正弦波在 $t=0$ 产生完全相干的狄拉克脉冲式波峰；
+- 在 `startNote` 初始化振荡器状态：
+  $$u[0] = \cos(\varphi_m), \quad v[0] = \sin(\varphi_m)$$
+- 步进更新保持 Magic Circle coupled form，音频渲染循环完全无需计算 $\sin / \cos$。
 
-**Phase 17-A：击弦点梳状滤波与非线性琴槌频谱重构 [已完成]**
-- [x] 引入音区击弦位置比 $d/L$ 查表：低音 $1/8 \to$ 中音 $1/7.5 \to$ 高音 $1/12 \sim 1/14$；
-- [x] 实现击弦点梳状滤波调制因子：$S(m) = \left|\sin\left(m \pi \frac{d}{L}\right)\right|$；
-- [x] 重构分音初始幅度公式：引入高次幂律滚降与非线性力度指数截止：
-  $$A_m(v) = S(m) \cdot \frac{1}{(m+1)^\alpha} \cdot \exp\left(-\frac{m}{M_0(v)}\right)$$
-- [x] 彻底废除 $1/(n+1)$ 锯齿波线性幅度分布。
+#### 3. 二次方模态能量耗散模型（Quadratic Loss Curve）
 
-**Phase 17-B：琴槌敲击瞬态核（Hammer Strike Transient）与极速起振 [已完成]**
-- [x] 将 `adsrGate` 的起振门控缩短至 $\le 0.2\text{ ms}$（$\le 10$ 个采样点），消除渐入拉弦感；
-- [x] 构建微秒级木槌撞击瞬态生成器（$2\sim 3\text{ ms}$，带通滤波冲击脉冲）；
-- [x] 建立击弦瞬态能量随力度非线性缩放公式（强奏清脆有力，弱奏柔和温润）；
-- [x] 将瞬态冲击与正弦模态网络在 $t=0$ 严格物理对齐。
-
-**Phase 17-C：双阶段能量衰减与音板共鸣增强调优 [已完成]**
-- [x] 提升快衰减（Fast Radiation）权重至 $80\%\sim 85\%$，增强击键后的动态落差与爆发感；
-- [x] 优化音板 8 峰谐振器的 Q 值与动态混合分布，增强木质共鸣箱体感；
-- [x] 协调 3 个 DevKnob 旋钮映射（Brightness 调控击弦截止频点，Hammer Hardness 调控打击瞬态与高频开放度，Resonance 调控音板衰减长尾）。
-
-**Phase 17-D：确定性物理测试补齐、听觉回归与三闸门交付 [已完成]**
-- [x] 在 `PianoSynthVoiceTest.cpp` 中新增击弦点陷波断言、起音瞬态能量断言与力度谱非线性断言；
-- [x] 在 Windows MSVC 环境下进行实机人工 A/B 听觉盲测回归；
-- [x] 运行三闸门基线检查（`wsl-build --configure-only`, `test`, `format --check`, `win-build`）全绿交付。
+升级时间常数公式：
+$$\tau_m = \frac{\tau_{\text{base}}}{1.0 + c_1 \cdot (m - 1) + c_2 \cdot (m - 1)^2}$$
+- 低次主谐波（$m \le 6$）由 $c_1$ 决定平缓衰减；
+- 高次金属泛音（$m \ge 8$）由 $c_2 \cdot m^2$ 剧烈抑制，在 $0.05 \sim 0.15\text{ s}$ 内自然归于沉寂，展现纯净歌唱性。
 
 ---
 
-### 验收标准
+### 子任务排期（Phase 18）
 
-1. **听觉特征蜕变**：按下琴键瞬间具有清晰逼真的琴槌击弦打击感（Hammer Strike），彻底消除拉弦乐器的渐入感与嗡鸣感；
-2. **力度响应逼真**：弱奏（pianissimo）音色圆润温暖、泛音内敛；强奏（fortissimo）清脆明亮、打击感强烈且泛音饱满；
-3. **计算效率与纪律**：音频渲染线程维持单核 CPU $\le 0.7\%$，零堆分配、无锁、无三角函数调用；
-4. **三闸门基线**：全量单元测试 100% 通过，Windows MSVC 构建成功。
+- [ ] **Phase 18-A：88 键静态参数表构建与连续化迁移**
+  - 构建 `PianoNoteConfig` 88 键插值生成器，替换 4 大离散音区；
+  - 接入 `startNote` 与查询接口，测试全键域物理参数平滑单调性；
+- [ ] **Phase 18-B：微观初始相位色散表（Phase Table）引入**
+  - 设计 88 键模态初始相位查找表，消除 $t=0$ 机械零相干；
+  - 改造 Magic Circle 初始状态设定（`cosState = cos(φ)`, `sinState = sin(φ)`）；
+- [ ] **Phase 18-C：高阶模态二次阻尼曲率调优**
+  - 引入 $c_2 \cdot m^2$ 二次损耗项，消灭极高频金属毛刺长尾；
+  - 协调 3 个 DevKnob 旋钮在 88 键上的精细映射；
+- [ ] **Phase 18-D：确定性物理测试与基线验证**
+  - 88 键全范围 DFT 与相干性测试，三闸门基线全绿交付。
+
+---
+
+## Phase 19：立体声音板共鸣箱与弦槌微动力学（远期规划）
+
+### 目标与核心技术
+
+1. **16 峰物理音板模态组（Spruce Soundboard Resonance）**：从 8 峰扩充至 16 峰，覆盖高密度中高频共鸣；
+2. **真立体声空间辐射（Stereo Bridge Radiation Pan）**：根据音高与琴弦在琴桥上的物理跨度分配左右声道能量，重现大三角钢琴琴盖开合下的宏大立体声包围感；
+3. **同音三弦独立微动力学**：中高音区 3 根琴弦独立微失谐、微相位与空间扩散，模拟真实调律师的“合唱拍频”。
 
 ---
 
 ## 历史实现 Backlog
 
+- Phase 17 完成记录（真实物理打击感钢琴音源重构）：[`../archive/phase17-physical-strike-hammer-piano.md`](../archive/phase17-physical-strike-hammer-piano.md)
 - Phase 16 完成记录（虚拟键盘局部脏矩形重绘与预设覆盖确认）：[`../archive/phase16-keyboard-dirty-repaint-preset-confirm.md`](../archive/phase16-keyboard-dirty-repaint-preset-confirm.md)
 - Phase 15 完成记录（声明式弹窗与设置面板重构）：[`../archive/phase15-declarative-dialogs-and-settings-jive.md`](../archive/phase15-declarative-dialogs-and-settings-jive.md)
 - Phase 12–14 完成记录（内置物理建模钢琴音源三部曲）：[`../archive/phase12-14-builtin-piano-synthesis.md`](../archive/phase12-14-builtin-piano-synthesis.md)

@@ -22,3 +22,4 @@
 | `phase12-14-builtin-piano-synthesis.md` | `docs/roadmap/roadmap.md`（Phase 12-14 摘要）、`docs/reference/features/builtin-piano-synthesis.md` |
 | `phase15-declarative-dialogs-and-settings-jive.md` | `docs/roadmap/roadmap.md`（Phase 15 摘要）、`docs/reference/features/declarative-ui-and-theming.md` |
 | `phase16-keyboard-dirty-repaint-preset-confirm.md` | `docs/roadmap/roadmap.md`（Phase 16 摘要） |
+| `phase17-physical-strike-hammer-piano.md` | `docs/roadmap/roadmap.md`（Phase 17 摘要） |
