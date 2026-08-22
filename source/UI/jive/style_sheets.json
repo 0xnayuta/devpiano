@@ -73,18 +73,6 @@
     "border": "@card-border",
     "border-radius": "8"
   },
-  "#preset-card-title": {
-    "foreground": "@text-secondary",
-    "font-size": "@font-size-small"
-  },
-  "#adsr-curve-title": {
-    "foreground": "@text-secondary",
-    "font-size": "@font-size-small"
-  },
-  "#transport-card-title": {
-    "foreground": "@text-secondary",
-    "font-size": "@font-size-small"
-  },
   "#volume-label": { "foreground": "@text-secondary", "font-size": "@font-size-tiny" },
   "#attack-label": { "foreground": "@text-secondary", "font-size": "@font-size-tiny" },
   "#decay-label": { "foreground": "@text-secondary", "font-size": "@font-size-tiny" },
@@ -94,7 +82,6 @@
   "#brightness-label": { "foreground": "@text-secondary", "font-size": "@font-size-tiny" },
   "#hardness-label": { "foreground": "@text-secondary", "font-size": "@font-size-tiny" },
   "#resonance-label": { "foreground": "@text-secondary", "font-size": "@font-size-tiny" },
-  "#speed-label": { "foreground": "@text-secondary", "font-size": "@font-size-small" },
   "#record-btn": {
     "background": "#281A19",
     "border": "@record-active",
