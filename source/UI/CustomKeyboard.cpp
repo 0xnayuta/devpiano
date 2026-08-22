@@ -49,7 +49,7 @@ CustomKeyboard::CustomKeyboard(juce::MidiKeyboardState& state)
     : keyboardState(state) {
     setOpaque(false);
     setSize(800, defaultHeight); // reasonable default, resized by parent
-    setAvailableRange(0, 127); // full MIDI range (unified full-range keyboard)
+    setAvailableRange(21, 108); // standard 88-key grand piano range (A0 to C8)
     keyboardState.addListener(this);
     startTimer(timerIntervalMs);
 }

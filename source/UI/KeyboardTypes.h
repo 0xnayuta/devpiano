@@ -37,8 +37,8 @@ struct KeyRenderState {
 
 // Keyboard display settings (persisted via SettingsModel)
 struct KeyboardSettings {
-    int lowNote = 24;
-    int highNote = 96;
+    int lowNote = 21;
+    int highNote = 108;
     float keyWidth = 24.0f;
 
     KeyColourMode colourMode = KeyColourMode::classic;

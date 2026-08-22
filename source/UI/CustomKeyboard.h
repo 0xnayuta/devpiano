@@ -85,9 +85,9 @@ private:
     devpiano::ui::KeyboardSettings settings;
     std::vector<devpiano::ui::KeyRenderState> keys;
 
-    int lowestVisibleNote = 24; // default viewport positioned at mapping zone (C1)
-    int rangeLow = 0; // full MIDI range
-    int rangeHigh = 127;
+    int lowestVisibleNote = 21; // standard grand piano range (A0)
+    int rangeLow = 21;
+    int rangeHigh = 108; // (C8)
     int lastMouseDownNote = -1;
     bool resizing = false; // guard against recalc → setSize → resized() loop
 

@@ -50,6 +50,12 @@
 
 - **回归线索**：播放中切换速度 → 方向反向 / 悬挂音 / 数据竞争 UB
 - **关联**：`RecordingEngine::setPlaybackSpeedMultiplier()`，[`../archive/phase5-architecture-convergence.md`](../archive/phase5-architecture-convergence.md)
+### 虚拟键盘音域标准 88 键收敛（A0~C8）
+
+原虚拟键盘默认硬编码全量 128 键（0~127），导致超出物理大三角钢琴 88 键（MIDI 21~108）的两端琴键（如 F#8 / MIDI 114 等高频音区）在特定音频硬件/分频器或 88 键 VST3 插件下无法正常发声或存在声学盲区。修复：将 `CustomKeyboard` 及 `KeyboardSettings` 默认可用范围严格收敛至真实大三角钢琴的 88 键标准音域（MIDI 21 A0 到 MIDI 108 C8），52 白键 + 36 黑键精确 1:1 对齐，彻底消除两端无效音区与声学陷波盲区。
+
+- **回归线索**：虚拟键盘首尾键分别为 A0(21) 与 C8(108)，点击各音区均发声正常且无多余超声/次声键位
+- **关联**：`CustomKeyboard::setAvailableRange(21, 108)`，`KeyboardTypes.h`，`KeyboardHitMappingTest.cpp`
 
 ### 非 ASCII UTF-8 字符显示乱码（最近文件菜单音符图标）
 

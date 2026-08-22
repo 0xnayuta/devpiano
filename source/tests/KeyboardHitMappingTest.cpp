@@ -53,15 +53,15 @@ public:
 
 private:
     void testWhiteKeyHits() {
-        testCase("white-key centre maps to the note", [&] {
+        testCase("white-key centre maps to the note in standard 88-key range", [&] {
             juce::MidiKeyboardState ks;
             CustomKeyboard kb(ks);
-            kb.setSize(2000, 128); // 全范围 0-127 → 75 白键 × 24 = 1800 宽
+            kb.setSize(1400, 128); // 标准 88 键钢琴: 52 白键 × 24 = 1248 宽
 
-            expectEquals(kb.findNoteAt({ whiteKeyCentreX(0, 60), 64 }), 60);
-            expectEquals(kb.findNoteAt({ whiteKeyCentreX(0, 36), 64 }), 36);
-            expectEquals(kb.findNoteAt({ whiteKeyCentreX(0, 0), 64 }), 0);
-            expectEquals(kb.findNoteAt({ whiteKeyCentreX(0, 127), 64 }), 127);
+            expectEquals(kb.findNoteAt({ whiteKeyCentreX(21, 60), 64 }), 60);
+            expectEquals(kb.findNoteAt({ whiteKeyCentreX(21, 36), 64 }), 36);
+            expectEquals(kb.findNoteAt({ whiteKeyCentreX(21, 21), 64 }), 21, "lowest white key A0");
+            expectEquals(kb.findNoteAt({ whiteKeyCentreX(21, 108), 64 }), 108, "highest white key C8");
         });
     }
 
@@ -69,10 +69,10 @@ private:
         testCase("black-key zone hits the black note, below it the right white key", [&] {
             juce::MidiKeyboardState ks;
             CustomKeyboard kb(ks);
-            kb.setSize(2000, 128);
+            kb.setSize(1400, 128);
 
-            // note 60 (C) 白键 [840, 864)；note 61 (C#) 黑键中心 x=864，宽 14.4，高 76.8
-            const auto blackCentreX = whiteKeyCentreX(0, 60) + 12; // 864
+            // note 60 (C) 白键；note 61 (C#) 黑键中心 x = whiteKeyCentreX(21, 60) + 12
+            const auto blackCentreX = whiteKeyCentreX(21, 60) + 12;
             expectEquals(kb.findNoteAt({ blackCentreX, 40 }), 61, "black key wins inside the black-key zone");
             expectEquals(kb.findNoteAt({ blackCentreX, 100 }), 62,
                          "below the black key the position falls on the next white key");
@@ -81,10 +81,10 @@ private:
         testCase("D# (note 63) black key sits between D and E", [&] {
             juce::MidiKeyboardState ks;
             CustomKeyboard kb(ks);
-            kb.setSize(2000, 128);
+            kb.setSize(1400, 128);
 
-            // note 62 (D) 白键 [864, 888)；note 63 (D#) 黑键中心 x=888
-            const auto blackCentreX = whiteKeyCentreX(0, 62) + 12;
+            // note 62 (D) 白键；note 63 (D#) 黑键中心 x = whiteKeyCentreX(21, 62) + 12
+            const auto blackCentreX = whiteKeyCentreX(21, 62) + 12;
             expectEquals(kb.findNoteAt({ blackCentreX, 40 }), 63);
         });
     }
