@@ -24,3 +24,4 @@
 | `phase16-keyboard-dirty-repaint-preset-confirm.md` | `docs/roadmap/roadmap.md`（Phase 16 摘要） |
 | `phase17-physical-strike-hammer-piano.md` | `docs/roadmap/roadmap.md`（Phase 17 摘要） |
 | `phase18-per-note-voicing-micro-phases.md` | `docs/roadmap/roadmap.md`（Phase 18 摘要） |
+| `phase19-stereo-modal-soundboard.md` | `docs/roadmap/roadmap.md`（Phase 19 摘要） |

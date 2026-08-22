@@ -143,11 +143,14 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 详细完成记录见 [`../archive/phase18-per-note-voicing-micro-phases.md`](../archive/phase18-per-note-voicing-micro-phases.md)。
 
-### Phase 19：立体声音板共鸣箱与弦槌微动力学（Stereo Modal Soundboard & Multi-String Dynamics） [远期规划]
+### Phase 19：立体声音板共鸣箱与同音三弦微动力学（Stereo Modal Soundboard & Multi-String Dynamics） [已完成，2026-08-22]
 
-1. **16 峰物理音板模态组**：覆盖密集木质共鸣箱体；
-2. **真立体声空间辐射**：音板左右声道空间扩散；
-3. **同音三弦独立微动力学**：合唱拍频与琴弦能量转移。
+深度吸收 Bank 2010 IEEE TASLP 与 Chabassier 2019 IEEE SPM 音板空间辐射理论：
+1. **16 峰物理云杉木音板模态组**：覆盖 48Hz~2250Hz 底箱呼吸模态、长琴桥耦合与各向异性散射模态，双声道权重严格归一化；
+2. **琴桥立体声空间辐射与非对称投影**：根据 88 键物理位置计算声像扩散，彻底消灭单声道耳膜居中压迫感；
+3. **同音三弦独立三振荡器非对称拍频**：中高音区三弦独立微失谐与 STFT 独立微初相，重现真实合唱拍频。
+
+详细完成记录见 [`../archive/phase19-stereo-modal-soundboard.md`](../archive/phase19-stereo-modal-soundboard.md)。
 
 ## 3. 主要风险
 
@@ -197,3 +200,4 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 - Phase 16 完成记录（虚拟键盘局部脏矩形重绘与预设覆盖确认）：[`../archive/phase16-keyboard-dirty-repaint-preset-confirm.md`](../archive/phase16-keyboard-dirty-repaint-preset-confirm.md)
 - Phase 17 完成记录（真实物理打击感钢琴音源重构）：[`../archive/phase17-physical-strike-hammer-piano.md`](../archive/phase17-physical-strike-hammer-piano.md)
 - Phase 18 完成记录（88 键物理参数化与微观相位色散）：[`../archive/phase18-per-note-voicing-micro-phases.md`](../archive/phase18-per-note-voicing-micro-phases.md)
+- Phase 19 完成记录（立体声音板共鸣箱与同音三弦微动力学）：[`../archive/phase19-stereo-modal-soundboard.md`](../archive/phase19-stereo-modal-soundboard.md)

@@ -54,7 +54,7 @@ public:
 class PianoSynthVoice final : public juce::SynthesiserVoice {
 public:
     static constexpr auto maxPartials = 20;
-    static constexpr auto numResonators = 8;
+    static constexpr auto numResonators = 16;
     static constexpr auto bodyWetRatio = 0.26f; // 26% default wet soundboard, 74% dry string
     // 每 voice 峰值上限（v=1）：0.16 为 8 voice 齐奏 + masterGain 0.8 预留
     // 复音余量（实际峰值约为该值的 0.6~0.8，最坏 8 voice 周期对齐 ≈0.9）。
@@ -95,6 +95,7 @@ public:
             return;
         }
 
+        currentPlayingMidiNote = midiNoteNumber;
         const auto& params = devpiano::audio::getNoteParams(midiNoteNumber);
         const auto baseFrequency = static_cast<double>(juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber));
 
@@ -134,50 +135,69 @@ public:
 
         for (auto n = 0; n < numActivePartials; ++n) {
             auto& partial = partials[static_cast<std::size_t>(n)];
-            const auto phase1 = devpiano::audio::kOptPhaseTable[0][static_cast<std::size_t>(n % 64)];
-            partial.cosState = std::cos(static_cast<double>(phase1));
-            partial.sinState = std::sin(static_cast<double>(phase1));
-            const auto partialNumber = static_cast<double>(n + 1);
-            const auto inharmonicFactor = std::sqrt(1.0 + params.inharmonicityB * partialNumber * partialNumber);
-            const auto partialFrequency = baseFrequency * partialNumber * inharmonicFactor;
+            const auto m = static_cast<double>(n + 1);
+            const auto inharmonicFactor = std::sqrt(1.0 + params.inharmonicityB * m * m);
+            const auto partialFrequency = baseFrequency * m * inharmonicFactor;
 
             if (partialFrequency >= nyquistLimit) {
                 partial.level = 0.0f;
                 partial.levelFast = 0.0f;
                 partial.levelSlow = 0.0f;
                 partial.epsilon = 0.0;
-                partial.hasBeating = false;
                 partial.epsilon2 = 0.0;
+                partial.epsilon3 = 0.0;
+                partial.stringCount = 1;
                 partial.decayFastPerSample = 0.0f;
                 partial.decaySlowPerSample = 0.0f;
                 continue;
             }
 
-            // Magic Circle 步进系数：ε = 2·sin(π·f/fs) 使 coupled form 精确振荡于
-            partial.epsilon = 2.0 * std::sin(juce::MathConstants<double>::pi * partialFrequency / sampleRate);
+            // 同音多弦独立振荡网络 (Phase 19-C, Monochord / Bichord / Trichord)
+            partial.stringCount = params.stringCount;
+            const auto phase1 = devpiano::audio::kOptPhaseTable[0][static_cast<std::size_t>(n % 64)];
+            const auto phase2 = devpiano::audio::kOptPhaseTable[1][static_cast<std::size_t>(n % 64)];
+            const auto phase3 = devpiano::audio::kOptPhaseTable[2][static_cast<std::size_t>(n % 64)];
 
-            // 同音双振荡器微失谐（Phase 14-C）：对中高音分音及低音泛音设置第二根弦的频率
-            // （低音基频保持单振荡器锁定音高，泛音与中高音呈现自然拍频）
-            const auto isBassFundamental = (midiNoteNumber < 48 && n == 0);
-            if (!isBassFundamental && n < params.beatingPartials && params.beatingDetuneRatio > 0.0f) {
-                const auto detunedFreq = partialFrequency * (1.0 + static_cast<double>(params.beatingDetuneRatio));
-                if (detunedFreq < nyquistLimit) {
-                    partial.hasBeating = true;
-                    const auto phase2 = devpiano::audio::kOptPhaseTable[1][static_cast<std::size_t>(n % 64)];
-                    partial.cosState2 = std::cos(static_cast<double>(phase2));
-                    partial.sinState2 = std::sin(static_cast<double>(phase2));
-                    partial.epsilon2 = 2.0 * std::sin(juce::MathConstants<double>::pi * detunedFreq / sampleRate);
-                } else {
-                    partial.hasBeating = false;
-                    partial.cosState2 = 1.0;
-                    partial.sinState2 = 0.0;
-                    partial.epsilon2 = 0.0;
-                }
-            } else {
-                partial.hasBeating = false;
-                partial.cosState2 = 1.0;
-                partial.sinState2 = 0.0;
+            if (partial.stringCount == 1 || n >= params.beatingPartials || params.beatingDetuneRatio <= 0.0f) {
+                // 单弦 (Monochord) 或高次无拍频分音
+                partial.stringCount = 1;
+                partial.cosState = std::cos(static_cast<double>(phase1));
+                partial.sinState = std::sin(static_cast<double>(phase1));
+                partial.epsilon = 2.0 * std::sin(juce::MathConstants<double>::pi * partialFrequency / sampleRate);
                 partial.epsilon2 = 0.0;
+                partial.epsilon3 = 0.0;
+            } else if (partial.stringCount == 2) {
+                // 双弦 (Bichord): 对称微失谐 (-Δc/2, +Δc/2)
+                const auto detuneHalf = static_cast<double>(params.beatingDetuneRatio * 0.5f);
+                const auto f1 = partialFrequency * (1.0 - detuneHalf);
+                const auto f2 = partialFrequency * (1.0 + detuneHalf);
+
+                partial.cosState = std::cos(static_cast<double>(phase1));
+                partial.sinState = std::sin(static_cast<double>(phase1));
+                partial.epsilon = 2.0 * std::sin(juce::MathConstants<double>::pi * f1 / sampleRate);
+
+                partial.cosState2 = std::cos(static_cast<double>(phase2));
+                partial.sinState2 = std::sin(static_cast<double>(phase2));
+                partial.epsilon2 = 2.0 * std::sin(juce::MathConstants<double>::pi * f2 / sampleRate);
+                partial.epsilon3 = 0.0;
+            } else {
+                // 三弦 (Trichord): 非对称合唱微失谐 (-Δc, 0, +Δc)
+                const auto detune = static_cast<double>(params.beatingDetuneRatio);
+                const auto f1 = partialFrequency * (1.0 - detune);
+                const auto f2 = partialFrequency;
+                const auto f3 = partialFrequency * (1.0 + detune);
+
+                partial.cosState = std::cos(static_cast<double>(phase1));
+                partial.sinState = std::sin(static_cast<double>(phase1));
+                partial.epsilon = 2.0 * std::sin(juce::MathConstants<double>::pi * f1 / sampleRate);
+
+                partial.cosState2 = std::cos(static_cast<double>(phase2));
+                partial.sinState2 = std::sin(static_cast<double>(phase2));
+                partial.epsilon2 = 2.0 * std::sin(juce::MathConstants<double>::pi * f2 / sampleRate);
+
+                partial.cosState3 = std::cos(static_cast<double>(phase3));
+                partial.sinState3 = std::sin(static_cast<double>(phase3));
+                partial.epsilon3 = 2.0 * std::sin(juce::MathConstants<double>::pi * f3 / sampleRate);
             }
 
             partial.level = amplitudeFor(n, params.strikePosRatio, brightnessFactor, partialFrequency, tc)
@@ -186,7 +206,6 @@ public:
 
             // 空气黏性阻尼与二次方内部摩擦耗散 (Phase 18-C, Desvages & Bilbao 2016)
             // α_n = b1·0.80 + b1·0.20·√(f0/fn) + b2·(nπ/L)²
-            const auto m = static_cast<double>(n + 1);
             const auto kn = m * m * k1;
             const auto airTerm = std::sqrt(baseFrequency / std::max(partialFrequency, 20.0));
             const auto alpha_n
@@ -250,15 +269,23 @@ public:
             for (auto n = 0; n < numActivePartials; ++n) {
                 auto& partial = partials[static_cast<std::size_t>(n)];
                 auto osc = static_cast<float>(partial.sinState);
-                if (partial.hasBeating) {
+                if (partial.stringCount == 2) {
                     osc = 0.5f * (osc + static_cast<float>(partial.sinState2));
                     const auto nextCos2 = partial.cosState2 - partial.epsilon2 * partial.sinState2;
                     partial.sinState2 += partial.epsilon2 * nextCos2;
                     partial.cosState2 = nextCos2;
+                } else if (partial.stringCount == 3) {
+                    osc = (1.0f / 3.0f)
+                        * (osc + static_cast<float>(partial.sinState2) + static_cast<float>(partial.sinState3));
+                    const auto nextCos2 = partial.cosState2 - partial.epsilon2 * partial.sinState2;
+                    partial.sinState2 += partial.epsilon2 * nextCos2;
+                    partial.cosState2 = nextCos2;
+                    const auto nextCos3 = partial.cosState3 - partial.epsilon3 * partial.sinState3;
+                    partial.sinState3 += partial.epsilon3 * nextCos3;
+                    partial.cosState3 = nextCos3;
                 }
                 value += (partial.levelFast + partial.levelSlow) * osc;
                 // Magic Circle 步进（coupled form）：
-                // u[n] = u[n-1] - ε·v[n-1]；v[n] = v[n-1] + ε·u[n]。
                 const auto nextCos = partial.cosState - partial.epsilon * partial.sinState;
                 partial.sinState += partial.epsilon * nextCos;
                 partial.cosState = nextCos;
@@ -268,19 +295,36 @@ public:
             const auto click = hammerTransient.getNextSample();
             const auto sampleIndex = startSample + sample;
             const auto rawOutput = value * envelope + click;
-            // 琴体共鸣滤波（Phase 13-3）：并联谐振器组与 Wet/Dry 混合
-            auto resonatorSum = 0.0f;
-            for (auto& resonator : bodyResonators) {
-                resonatorSum += resonator.weight * resonator.process(rawOutput);
-            }
-            const auto wet = 0.18f + pianoResonance * 0.16f;
-            const auto output = (1.0f - wet) * rawOutput + wet * resonatorSum;
 
-            for (auto channel = 0; channel < outputBuffer.getNumChannels(); ++channel) {
-                outputBuffer.addSample(channel, sampleIndex, output);
+            // 16 峰物理云杉木音板模态与立体声空间辐射 (Phase 19-A/B, Bank 2010 / Chabassier 2019)
+            auto resonatorLeftSum = 0.0f;
+            auto resonatorRightSum = 0.0f;
+            for (std::size_t i = 0; i < numResonators; ++i) {
+                const auto spec = resonatorSpec(static_cast<int>(i));
+                const auto resOut = bodyResonators[i].process(rawOutput);
+                resonatorLeftSum += spec.weightLeft * resOut;
+                resonatorRightSum += spec.weightRight * resOut;
+            }
+            // 琴桥立体声声像定位与非对称空间投影 (低音在左 0.20 -> 高音在右 0.80)
+            const auto midi = std::clamp(static_cast<float>(currentPlayingMidiNote), 21.0f, 108.0f);
+            const auto keyPos = (midi - 21.0f) / 87.0f;
+            const auto directPan = 0.20f + 0.60f * keyPos;
+            const auto directLeft = (1.0f - directPan) * 1.414f;
+            const auto directRight = directPan * 1.414f;
+
+            const auto wet = 0.18f + pianoResonance * 0.16f;
+            const auto outLeft = (1.0f - wet) * rawOutput * directLeft + wet * resonatorLeftSum;
+            const auto outRight = (1.0f - wet) * rawOutput * directRight + wet * resonatorRightSum;
+
+            if (outputBuffer.getNumChannels() >= 2) {
+                outputBuffer.addSample(0, sampleIndex, outLeft);
+                outputBuffer.addSample(1, sampleIndex, outRight);
+            } else if (outputBuffer.getNumChannels() == 1) {
+                // 单声道设备：保持全额能量直通输出
+                const auto outMono = (1.0f - wet) * rawOutput + wet * 0.5f * (resonatorLeftSum + resonatorRightSum);
+                outputBuffer.addSample(0, sampleIndex, outMono);
             }
         }
-
         // 分音全部衰减到阈值以下（-80 dB）且瞬态击弦冲击结束即释放 voice。
         if (allPartialsSilent()) {
             clearCurrentNote();
@@ -368,12 +412,18 @@ public:
     struct ResonatorSpec {
         float frequency;
         float q;
-        float weight;
+        float weightLeft;
+        float weightRight;
     };
     [[nodiscard]] static ResonatorSpec resonatorSpec(int index) noexcept {
-        constexpr ResonatorSpec specs[] = {
-            { 68.0f, 5.5f, 0.16f },  { 112.0f, 5.5f, 0.17f }, { 175.0f, 5.0f, 0.15f }, { 245.0f, 4.5f, 0.14f },
-            { 350.0f, 4.0f, 0.12f }, { 490.0f, 3.8f, 0.10f }, { 720.0f, 3.2f, 0.09f }, { 1050.0f, 2.8f, 0.07f },
+        // 16 峰物理云杉木音板模态 (Bank 2010 Table II & Chabassier 2019 Sec. 3.3, 严格双声道 1.0 归一化)
+        constexpr ResonatorSpec specs[numResonators] = {
+            { 48.0f, 6.0f, 0.12f, 0.04f },   { 68.0f, 6.0f, 0.12f, 0.04f },   { 95.0f, 5.5f, 0.11f, 0.05f },
+            { 135.0f, 5.5f, 0.10f, 0.05f },  { 185.0f, 5.0f, 0.09f, 0.06f },  { 250.0f, 4.8f, 0.08f, 0.07f },
+            { 340.0f, 4.5f, 0.08f, 0.08f },  { 460.0f, 4.2f, 0.07f, 0.08f },  { 620.0f, 3.8f, 0.06f, 0.09f },
+            { 820.0f, 3.5f, 0.05f, 0.09f },  { 1080.0f, 3.2f, 0.04f, 0.09f }, { 1380.0f, 3.0f, 0.03f, 0.08f },
+            { 1680.0f, 2.8f, 0.02f, 0.07f }, { 1850.0f, 2.5f, 0.01f, 0.05f }, { 2050.0f, 2.4f, 0.01f, 0.03f },
+            { 2250.0f, 2.2f, 0.01f, 0.03f },
         };
         const auto clamped = std::clamp(index, 0, numResonators - 1);
         return specs[clamped];
@@ -457,21 +507,25 @@ public:
     }
 
     struct Partial {
-        double cosState = 1.0; // Magic Circle 余弦状态 u[n]（初值 cos(0) = 1）
-        double sinState = 0.0; // Magic Circle 正弦状态 v[n]（初值 sin(0) = 0，渲染取此值）
-        double epsilon = 0.0; // 步进系数 ε = 2·sin(π·f/fs)，startNote 计算
-        double cosState2 = 1.0; // 第二振荡器余弦状态 u2[n]（初值 1）
-        double sinState2 = 0.0; // 第二振荡器正弦状态 v2[n]（初值 0）
-        double epsilon2 = 0.0; // 第二振荡器步进系数 ε2 = 2·sin(π·f2/fs)
-        bool hasBeating = false; // 是否启用同音双振荡器拍频
-        float level = 0.0f; // 初始总幅度（归一化后，仅 startNote 用）
-        float levelFast = 0.0f; // 快衰减分量（击弦辐射期）
-        float levelSlow = 0.0f; // 慢衰减分量（弱耦合尾音）
+        double cosState = 1.0;
+        double sinState = 0.0;
+        double epsilon = 0.0;
+        double cosState2 = 1.0;
+        double sinState2 = 0.0;
+        double epsilon2 = 0.0;
+        double cosState3 = 1.0;
+        double sinState3 = 0.0;
+        double epsilon3 = 0.0;
+        int stringCount = 1; // 1 (Mono), 2 (Bi), 3 (Tri)
+        float level = 0.0f;
+        float levelFast = 0.0f;
+        float levelSlow = 0.0f;
         float decayFastPerSample = 0.0f;
         float decaySlowPerSample = 0.0f;
     };
     std::array<Partial, maxPartials> partials;
     int numActivePartials = 0;
+    int currentPlayingMidiNote = 60;
     juce::ADSR adsrGate;
     float pianoBrightness = 0.5f;
     float pianoHammerHardness = 0.5f;
@@ -540,7 +594,6 @@ public:
         float frequency = 110.0f;
         float q = 6.0f;
         float weight = 0.40f;
-
         float c1 = 0.0f;
         float c2 = 0.0f;
         float g = 0.0f;
@@ -572,15 +625,14 @@ public:
             return y;
         }
     };
-
-    std::array<BodyResonator, numResonators> bodyResonators = {
-        BodyResonator { 75.0f, 6.0f, 0.18f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
-        BodyResonator { 110.0f, 6.0f, 0.18f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
-        BodyResonator { 160.0f, 5.5f, 0.15f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
-        BodyResonator { 220.0f, 5.0f, 0.14f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
-        BodyResonator { 320.0f, 4.5f, 0.11f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
-        BodyResonator { 460.0f, 4.0f, 0.09f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
-        BodyResonator { 680.0f, 3.5f, 0.08f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
-        BodyResonator { 950.0f, 3.0f, 0.07f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
-    };
+    std::array<BodyResonator, numResonators> bodyResonators = [] {
+        std::array<BodyResonator, numResonators> array {};
+        for (std::size_t i = 0; i < numResonators; ++i) {
+            const auto spec = resonatorSpec(static_cast<int>(i));
+            array[i].frequency = spec.frequency;
+            array[i].q = spec.q;
+            array[i].weight = spec.weightLeft;
+        }
+        return array;
+    }();
 };
