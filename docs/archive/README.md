@@ -28,3 +28,5 @@
 | `phase20-longitudinal-ping-micro-variation.md` | `docs/roadmap/roadmap.md`（Phase 20 摘要） |
 | `phase21-sympathetic-resonance-lid-acoustics.md` | `docs/roadmap/roadmap.md`（Phase 21 摘要） |
 | `phase22-physical-modeling-acoustic-refinement.md` | `docs/roadmap/roadmap.md`（Phase 22 摘要） |
+| `phase23-master-voicing-realism-calibration.md` | `docs/roadmap/roadmap.md`（Phase 23 摘要） |
+| `phase24-vitality-and-dynamic-blooming.md` | `docs/roadmap/roadmap.md`（Phase 24 摘要） |

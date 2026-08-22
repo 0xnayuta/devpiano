@@ -177,6 +177,24 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 5. **未踩踏板时的单键和弦开放弦交感共鸣（Duplex & Unpedaled Sympathetic Resonance）**：按住低音键时高音弹奏触发的开放弦局部交感。
 
 详细完成记录见 [`../archive/phase22-physical-modeling-acoustic-refinement.md`](../archive/phase22-physical-modeling-acoustic-refinement.md)。
+### Phase 23：大师级音色校准与 Pianoteq 对齐精调（Master Voicing & Physical Realism Calibration） [已完成，2026-08-23]
+
+基于 `../piano` 声学实验与 `Modartt Pianoteq` 标杆：
+1. **动态琴槌非线性刚度与击弦点几何陷波**：三层毛毡动力学压实、动态接触时间 $T_c$ 与速度相关滚降指数；
+2. **同音三弦立体声非对称微失谐与声相展开**：Mid-Side 差分多弦立体声展开模型；
+3. **云杉木音板低通截止与木质腔体共鸣峰配平**：$4.2\text{ kHz}$ 云杉木纤维内耗低通滤波器；
+4. **起音瞬态裂音与低音纵波微调**：前 $3\text{ ms}$ 高频冲击裂音 (HF Crack) 与紧凑型低音纵波先导声。
+
+详细完成记录见 [`../archive/phase23-master-voicing-realism-calibration.md`](../archive/phase23-master-voicing-realism-calibration.md)。
+
+### Phase 24：生命力与非线性动力学绽放（Vitality & Dynamic Interaction Bloom） [已完成，2026-08-23]
+
+基于 `fan455_piano_synthesis` 全物理有限元与耦合 PDE 声学机理：
+1. **泛音时间滞后膨胀与绽放（Harmonic Blooming）**：中高力度高阶分音非线性能量泵浦与上升绽放（$10\sim 25\text{ ms}$）；
+2. **琴槌接触微阻尼与脱离物理释放（Hammer Contact-Release Dynamics）**：消灭 $t=0$ 正弦波机械突兀开门感；
+3. **动态声场空间漫射（Dynamic Spatial Diffusion）**：从击打点声源平滑漫射为音板面声源包围场。
+
+详细完成记录见 [`../archive/phase24-vitality-and-dynamic-blooming.md`](../archive/phase24-vitality-and-dynamic-blooming.md)。
 ## 3. 主要风险
 
 | 风险 | 当前判断 | 应对方向 |
@@ -229,3 +247,5 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 - Phase 19 完成记录（立体声音板共鸣箱与同音三弦微动力学）：[`../archive/phase19-stereo-modal-soundboard.md`](../archive/phase19-stereo-modal-soundboard.md)
 - Phase 20 完成记录（微观物理动力学：纵向波先驱声与击键混沌微扰）：[`../archive/phase20-longitudinal-ping-micro-variation.md`](../archive/phase20-longitudinal-ping-micro-variation.md)
 - Phase 21 完成记录（踏板交感共鸣与琴盖空间声学）：[`../archive/phase21-sympathetic-resonance-lid-acoustics.md`](../archive/phase21-sympathetic-resonance-lid-acoustics.md)
+- Phase 23 完成记录（大师级音色校准与 Pianoteq 对齐精调）：[`../archive/phase23-master-voicing-realism-calibration.md`](../archive/phase23-master-voicing-realism-calibration.md)
+- Phase 24 完成记录（生命力与非线性动力学绽放）：[`../archive/phase24-vitality-and-dynamic-blooming.md`](../archive/phase24-vitality-and-dynamic-blooming.md)

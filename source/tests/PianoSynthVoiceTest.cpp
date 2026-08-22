@@ -842,6 +842,41 @@ public:
             }
             expect(!bassLongTransient.isActive(), "longitudinal precursor mode cleanly decays within 20ms");
         }
+        beginTest("vitality, harmonic blooming, hammer contact release, and spatial diffusion (Phase 24-A/B/C)");
+        {
+            // 1. 验证琴槌接触释放引擎 (Phase 24-B): 接触期 0.20 -> 脱离后 1.0
+            PianoSynthVoice::HammerContactEngine contactEngine;
+            contactEngine.trigger(sampleRate, 0.002f); // 2ms 接触时间
+            const auto m0 = contactEngine.getReleaseMultiplier();
+            expectWithinAbsoluteError(m0, 0.20f, 0.01f, "initial contact damping suppresses sudden sine onset");
+
+            for (auto i = 0; i < static_cast<int>(0.003f * sampleRate); ++i) {
+                [[maybe_unused]] const auto discarded = contactEngine.getReleaseMultiplier();
+            }
+            const auto mEnd = contactEngine.getReleaseMultiplier();
+            expectWithinAbsoluteError(mEnd, 1.0f, 1e-4f, "hammer release reaches full free vibration");
+
+            // 2. 验证动态声场空间漫射引擎 (Phase 24-C): 点声源 0.0 -> 漫射面声源 1.0
+            PianoSynthVoice::SpatialDiffusionEngine diffusionEngine;
+            diffusionEngine.trigger(sampleRate);
+            const auto d0 = diffusionEngine.getDiffusionFactor();
+            expect(d0 < 0.10f, "initial strike is tightly localized point source");
+
+            // 约 30ms (1323 样本) 后平滑扩散为面声源
+            for (auto i = 0; i < 1500; ++i) {
+                [[maybe_unused]] const auto discarded = diffusionEngine.getDiffusionFactor();
+            }
+            const auto dEnd = diffusionEngine.getDiffusionFactor();
+            expect(dEnd > 0.65f, "soundboard wave propagation creates wide ambient spatial diffusion");
+
+            // 3. 验证强击下音源整体动力学生命力与数值稳定性
+            VoiceFixture bloomFixture;
+            juce::AudioBuffer<float> bloomBuf(2, blockSize * 4);
+            bloomFixture.noteOnBlock(60, 0.92f, bloomBuf); // forte strike
+            const auto bloomEnergy = bloomBuf.getRMSLevel(0, 0, bloomBuf.getNumSamples());
+            expect(bloomEnergy > 0.001f, "forte strike with harmonic blooming produces rich acoustic energy");
+            expect(std::isfinite(bloomEnergy), "dynamic blooming stays strictly bounded and finite");
+        }
         beginTest("velocity loudness is monotonically increasing");
         {
             VoiceFixture soft;

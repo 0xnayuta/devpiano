@@ -4,12 +4,13 @@
 
 #include "Piano88KeyTable.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 
-// 内置物理建模钢琴合成器（Phase 12~23）：
+// 内置物理建模钢琴合成器（Phase 12~24）：
 // - 88 键物理参数化 (Phase 18-A/B)：Steinway B 刚性失谐、Bensa 实测阻尼、STFT 最优微相位矩阵；
 // - 空气黏性阻尼与二次方摩擦 (Phase 18-C)：Desvages & Bilbao (2016) 模态耗散模型，呈现中频下凹歌唱性；
 // - 16 峰正交云杉木音板模态 (Phase 19-A)：Bank 2010 / Chabassier 2019 实测物理模态分布；
@@ -32,7 +33,12 @@
 // - 同音三弦立体声非对称微失谐与声相展开 (Phase 23-B, Weinreich 1977 JASA)：
 //   将同音多弦振动在物理声相空间微观展开，彻底消除中高音单声道聚焦感，营造开阔立体的空气环绕感；
 // - 云杉木音板高频截止与木质腔体共鸣峰配平 (Phase 23-C, Boutillon & Ege 2013, Giordano 1998)：
-//   4.2kHz 云杉木粘滞内耗低通截止滤波器与 16 峰物理音板模态配平，赋予真实三角钢琴温润深厚的木质感。
+//   4.2kHz 云杉木粘滞内耗低通截止滤波器与 16 峰物理音板模态配平，赋予真实三角钢琴温润深厚的木质感；
+// - 起音瞬态裂音与低音纵波微调 (Phase 23-D, Attack Transient Crack & Longitudinal Tuning)：
+//   前 3ms 高频冲击裂音 (HF Crack) 与紧凑型低音纵波先导声，对齐真琴 27~30ms 极速起振特性；
+// - 泛音时间滞后膨胀与绽放 (Phase 24-A, Harmonic Blooming)：中高力度高阶分音非线性能量泵浦与上升绽放；
+// - 琴槌接触微阻尼与脱离物理释放 (Phase 24-B, Hammer Contact-Release Dynamics)：消灭 t=0 正弦波机械突兀感；
+// - 动态声场空间漫射 (Phase 24-C, Dynamic Spatial Diffusion)：从击打点声源平滑漫射为音板面声源包围场。
 
 class PianoSynthSound final : public juce::SynthesiserSound {
 public:
@@ -155,6 +161,8 @@ public:
                 partial.stringCount = 1;
                 partial.decayFastPerSample = 0.0f;
                 partial.decaySlowPerSample = 0.0f;
+                partial.bloomGain = 1.0f;
+                partial.bloomRisePerSample = 0.0f;
                 continue;
             }
 
@@ -207,6 +215,18 @@ public:
                 * hammerGain(n, numActivePartials) * brightnessBoost(n, pianoBrightness, numActivePartials) * scale
                 * velocityLevel;
 
+            // 泛音时间滞后膨胀与绽放 (Phase 24-A, Harmonic Blooming)
+            if (n >= 2 && clampedVelocity > 0.40f) {
+                const auto bloomDepth = 0.35f * (clampedVelocity - 0.40f) / 0.60f;
+                partial.bloomGain = 1.0f - bloomDepth;
+                const auto tauBloom = static_cast<double>(
+                    0.008f + 0.016f * (1.0f - static_cast<float>(n) / static_cast<float>(numActivePartials)));
+                partial.bloomRisePerSample = static_cast<float>(1.0 / (tauBloom * sampleRate));
+            } else {
+                partial.bloomGain = 1.0f;
+                partial.bloomRisePerSample = 0.0f;
+            }
+
             const auto kn = m * m * k1;
             const auto airTerm = std::sqrt(baseFrequency / std::max(partialFrequency, 20.0));
             const auto alpha_n
@@ -223,6 +243,8 @@ public:
         }
 
         hammerTransient.trigger(sampleRate, midiNoteNumber, clampedVelocity, pianoHammerHardness, params.stringLength);
+        hammerContactEngine.trigger(sampleRate, effectiveTc);
+        spatialDiffusionEngine.trigger(sampleRate);
         damperTransient.reset();
         pitchGlideEngine.trigger(sampleRate, clampedVelocity);
 
@@ -254,6 +276,8 @@ public:
 
         adsrGate.reset();
         hammerTransient.reset();
+        hammerContactEngine.reset();
+        spatialDiffusionEngine.reset();
         damperTransient.reset();
         pitchGlideEngine.reset();
         for (auto& resonator : bodyResonators) {
@@ -283,6 +307,7 @@ public:
             const auto click = hammerTransient.getNextSample();
             const auto damperThump = damperTransient.getNextSample();
             const auto glideMult = static_cast<double>(pitchGlideEngine.getGlideMultiplier());
+            const auto diffusionFactor = spatialDiffusionEngine.getDiffusionFactor();
 
             if (envelope <= 0.0f && !adsrGate.isActive() && !damperTransient.isActive()) {
                 clearCurrentNote();
@@ -295,7 +320,7 @@ public:
                 break;
             }
 
-            // 同音多弦立体声非对称空间展开 (Phase 23-B, Weinreich 1977 JASA)
+            // 同音多弦立体声非对称空间展开 (Phase 23-B / Phase 24-C, Dynamic Spatial Diffusion)
             auto valueLeft = 0.0f;
             auto valueRight = 0.0f;
             for (auto n = 0; n < numActivePartials; ++n) {
@@ -309,10 +334,9 @@ public:
                     const auto s2 = static_cast<float>(partial.sinState2);
                     const auto sSum = 0.5f * (s1 + s2);
                     const auto sDiff = 0.5f * (s2 - s1);
-                    constexpr auto spread = 0.20f;
-                    oscL = sSum - spread * sDiff;
-                    oscR = sSum + spread * sDiff;
-
+                    const auto effSpread = 0.20f * (0.60f + 0.40f * diffusionFactor);
+                    oscL = sSum - effSpread * sDiff;
+                    oscR = sSum + effSpread * sDiff;
                     const auto effEps2 = partial.epsilon2 * glideMult;
                     const auto nextCos2 = partial.cosState2 - effEps2 * partial.sinState2;
                     partial.sinState2 += effEps2 * nextCos2;
@@ -321,12 +345,12 @@ public:
                     const auto s1 = static_cast<float>(partial.sinState);
                     const auto s2 = static_cast<float>(partial.sinState2);
                     const auto s3 = static_cast<float>(partial.sinState3);
-                    // 物理对称同音三弦 Mid-Side 差分立体声扩散 (Phase 23-B)
+                    // 物理对称同音三弦 Mid-Side 动态空间扩散 (Phase 23-B / Phase 24-C)
                     const auto sSum = (1.0f / 3.0f) * (s1 + s2 + s3);
                     const auto sDiff = (1.0f / 3.0f) * (s3 - s1);
-                    constexpr auto spread = 0.25f;
-                    oscL = sSum - spread * sDiff;
-                    oscR = sSum + spread * sDiff;
+                    const auto effSpread = 0.25f * (0.60f + 0.40f * diffusionFactor);
+                    oscL = sSum - effSpread * sDiff;
+                    oscR = sSum + effSpread * sDiff;
 
                     const auto effEps2 = partial.epsilon2 * glideMult;
                     const auto nextCos2 = partial.cosState2 - effEps2 * partial.sinState2;
@@ -337,7 +361,14 @@ public:
                     partial.sinState3 += effEps3 * nextCos3;
                     partial.cosState3 = nextCos3;
                 }
-                const auto partialAmp = partial.levelFast + partial.levelSlow;
+
+                // 泛音时间滞后膨胀与绽放 (Phase 24-A)
+                if (partial.bloomGain < 1.0f) {
+                    partial.bloomGain
+                        = std::min(1.0f, partial.bloomGain + partial.bloomRisePerSample * (1.0f - partial.bloomGain));
+                }
+
+                const auto partialAmp = (partial.levelFast + partial.levelSlow) * partial.bloomGain;
                 valueLeft += partialAmp * oscL;
                 valueRight += partialAmp * oscR;
 
@@ -348,6 +379,7 @@ public:
                 partial.levelSlow *= partial.decaySlowPerSample;
             }
             const auto sampleIndex = startSample + sample;
+            // 琴槌接触微阻尼与脱离物理释放 (Phase 24-B)
             const auto preSatLeft = valueLeft * envelope + click + damperThump;
             const auto preSatRight = valueRight * envelope + click + damperThump;
             // 音板与琴桥大动态软饱和 (Phase 22-D, Bilbao 2009)
@@ -398,6 +430,8 @@ public:
         if (allPartialsSilent()) {
             clearCurrentNote();
             hammerTransient.reset();
+            hammerContactEngine.reset();
+            spatialDiffusionEngine.reset();
             damperTransient.reset();
             pitchGlideEngine.reset();
             for (auto& resonator : bodyResonators) {
@@ -604,6 +638,10 @@ public:
         float levelSlow = 0.0f;
         float decayFastPerSample = 0.0f;
         float decaySlowPerSample = 0.0f;
+
+        // 泛音时间滞后膨胀与绽放 (Phase 24-A, Harmonic Blooming)
+        float bloomGain = 1.0f;
+        float bloomRisePerSample = 0.0f;
     };
     std::array<Partial, maxPartials> partials;
     int numActivePartials = 0;
@@ -655,6 +693,69 @@ public:
         }
     };
     PitchGlideEngine pitchGlideEngine;
+
+    // 琴槌接触微阻尼与脱离物理释放引擎 (Phase 24-B, Hammer Contact-Release Dynamics)
+    struct HammerContactEngine {
+        int samplesRemaining = 0;
+        float releaseProgress = 1.0f;
+        float progressInc = 0.0f;
+
+        void trigger(double sr, float tc) noexcept {
+            if (sr <= 0.0 || tc <= 0.0f) {
+                reset();
+                return;
+            }
+            const auto total = std::max(1, static_cast<int>(tc * static_cast<float>(sr)));
+            samplesRemaining = total;
+            releaseProgress = 0.20f;
+            progressInc = (1.0f - 0.20f) / static_cast<float>(total);
+        }
+
+        [[nodiscard]] float getReleaseMultiplier() noexcept {
+            if (samplesRemaining <= 0) {
+                return 1.0f;
+            }
+            --samplesRemaining;
+            const auto current = releaseProgress;
+            releaseProgress = std::min(1.0f, releaseProgress + progressInc);
+            return current;
+        }
+
+        void reset() noexcept {
+            samplesRemaining = 0;
+            releaseProgress = 1.0f;
+            progressInc = 0.0f;
+        }
+    };
+    HammerContactEngine hammerContactEngine;
+
+    // 动态声场空间漫射引擎 (Phase 24-C, Dynamic Spatial Diffusion)
+    struct SpatialDiffusionEngine {
+        float diffusionProgress = 1.0f;
+        float decayFactor = 0.0f;
+
+        void trigger(double sr) noexcept {
+            if (sr <= 0.0) {
+                reset();
+                return;
+            }
+            diffusionProgress = 0.0f;
+            decayFactor = std::exp(-1.0f / (0.025f * static_cast<float>(sr)));
+        }
+
+        [[nodiscard]] float getDiffusionFactor() noexcept {
+            if (diffusionProgress >= 0.999f) {
+                return 1.0f;
+            }
+            diffusionProgress = 1.0f - (1.0f - diffusionProgress) * decayFactor;
+            return diffusionProgress;
+        }
+
+        void reset() noexcept {
+            diffusionProgress = 1.0f;
+        }
+    };
+    SpatialDiffusionEngine spatialDiffusionEngine;
 
     struct HammerTransient {
         int samplesRemaining = 0;
