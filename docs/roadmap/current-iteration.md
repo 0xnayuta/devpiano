@@ -5,7 +5,7 @@
 
 ## 当前方向
 
-**Phase 18：88 键物理参数化与微观相位色散（Per-Note Voicing & Micro-Phase Dispersion） [规划就绪，待执行]**
+**Phase 18：88 键物理参数化与微观相位色散（Per-Note Voicing & Micro-Phase Dispersion） [推进中]**
 
 本轮重点（深度吸收 `danielpodrazka/piano` 实测物理模型）：
 1. **88 键连续物理参数映射（Bensa & Steinway B 实测标定）**：
@@ -106,10 +106,10 @@ struct PianoNoteParams {
 
 ### 子任务排期（Phase 18）
 
-- [ ] **Phase 18-A：88 键物理参数表构建与弦数分区（Mono/Bi/Trichord）**
+- [x] **Phase 18-A：88 键物理参数表构建与弦数分区（Mono/Bi/Trichord）**
   - 在 `source/Audio/` 下新增 `Piano88KeyTable.h`，实现 Bensa/Steinway 连续插值；
   - 接入单弦、双弦、三弦结构与同音微失谐；
-- [ ] **Phase 18-B：实测最优微相位表接入与 Magic Circle 状态初始化**
+- [x] **Phase 18-B：实测最优微相位表接入与 Magic Circle 状态初始化**
   - 内联 $3 \times 64$ 实测相位矩阵；
   - 在 `startNote` 中初始化各分音的 `cosState` 与 `sinState`；
 - [ ] **Phase 18-C：空气黏性阻尼与 1.8kHz Bridge Hill 琴桥峰**

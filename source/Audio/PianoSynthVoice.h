@@ -2,6 +2,8 @@
 
 #include <JuceHeader.h>
 
+#include "Piano88KeyTable.h"
+
 #include <array>
 #include <cmath>
 
@@ -93,10 +95,10 @@ public:
             return;
         }
 
-        const auto& region = regionForNote(midiNoteNumber);
+        const auto& params = devpiano::audio::getNoteParams(midiNoteNumber);
         const auto baseFrequency = static_cast<double>(juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber));
 
-        numActivePartials = region.partialCount;
+        numActivePartials = params.partialCount;
 
         // velocity 响度：v^1.5（弱奏更敏感），用 sqrt 避免 std::pow。
         const auto clampedVelocity = juce::jlimit(0.0f, 1.0f, velocity);
@@ -106,15 +108,14 @@ public:
         const auto brightnessFactor = clampedVelocity * (0.5f + pianoBrightness);
         // 共鸣：衰减时间缩放（r=0.5 中性，r=1 → ×1.3，r=0 → ×0.7）。
         const auto decayScale = 1.0f + (pianoResonance - 0.5f) * 0.6f;
-        const auto baseDecaySeconds = static_cast<double>(region.decaySeconds * decayScale);
+        const auto baseDecaySeconds = static_cast<double>(params.decaySeconds * decayScale);
         // 高频衰减阻尼：pianoBrightness 微调（b=0.5 时为 1.0，暗时阻尼更大衰减更快，亮时阻尼略小）
-        const auto dampingSlope = region.decayDampingC * (1.5f - pianoBrightness);
+        const auto dampingSlope = params.decayDampingC * (1.5f - pianoBrightness);
 
         // 归一化：按当前击弦位置与非线性谱形求和，使 v=1 时峰值恒为 peakLevelAtFullVelocity。
         auto normSum = 0.0f;
         for (auto n = 0; n < numActivePartials; ++n) {
-            normSum
-                += amplitudeFor(n, region.strikingPositionRatio, brightnessFactor) * hammerGain(n, numActivePartials);
+            normSum += amplitudeFor(n, params.strikePosRatio, brightnessFactor) * hammerGain(n, numActivePartials);
         }
         const auto scale = peakLevelAtFullVelocity / juce::jmax(1e-6f, normSum);
 
@@ -122,10 +123,11 @@ public:
 
         for (auto n = 0; n < numActivePartials; ++n) {
             auto& partial = partials[static_cast<std::size_t>(n)];
-            partial.cosState = 1.0;
-            partial.sinState = 0.0;
+            const auto phase1 = devpiano::audio::kOptPhaseTable[0][static_cast<std::size_t>(n % 64)];
+            partial.cosState = std::cos(static_cast<double>(phase1));
+            partial.sinState = std::sin(static_cast<double>(phase1));
             const auto partialNumber = static_cast<double>(n + 1);
-            const auto inharmonicFactor = std::sqrt(1.0 + region.inharmonicityB * partialNumber * partialNumber);
+            const auto inharmonicFactor = std::sqrt(1.0 + params.inharmonicityB * partialNumber * partialNumber);
             const auto partialFrequency = baseFrequency * partialNumber * inharmonicFactor;
 
             if (partialFrequency >= nyquistLimit) {
@@ -146,12 +148,13 @@ public:
             // 同音双振荡器微失谐（Phase 14-C）：对中高音分音及低音泛音设置第二根弦的频率
             // （低音基频保持单振荡器锁定音高，泛音与中高音呈现自然拍频）
             const auto isBassFundamental = (midiNoteNumber < 48 && n == 0);
-            if (!isBassFundamental && n < region.beatingPartials && region.beatingDetuneRatio > 0.0f) {
-                const auto detunedFreq = partialFrequency * (1.0 + static_cast<double>(region.beatingDetuneRatio));
+            if (!isBassFundamental && n < params.beatingPartials && params.beatingDetuneRatio > 0.0f) {
+                const auto detunedFreq = partialFrequency * (1.0 + static_cast<double>(params.beatingDetuneRatio));
                 if (detunedFreq < nyquistLimit) {
                     partial.hasBeating = true;
-                    partial.cosState2 = 1.0;
-                    partial.sinState2 = 0.0;
+                    const auto phase2 = devpiano::audio::kOptPhaseTable[1][static_cast<std::size_t>(n % 64)];
+                    partial.cosState2 = std::cos(static_cast<double>(phase2));
+                    partial.sinState2 = std::sin(static_cast<double>(phase2));
                     partial.epsilon2 = 2.0 * std::sin(juce::MathConstants<double>::pi * detunedFreq / sampleRate);
                 } else {
                     partial.hasBeating = false;
@@ -166,16 +169,16 @@ public:
                 partial.epsilon2 = 0.0;
             }
 
-            partial.level = amplitudeFor(n, region.strikingPositionRatio, brightnessFactor)
-                * hammerGain(n, numActivePartials) * scale * velocityLevel;
+            partial.level = amplitudeFor(n, params.strikePosRatio, brightnessFactor) * hammerGain(n, numActivePartials)
+                * scale * velocityLevel;
             // 模态能量耗散模型：τ_m = τ_base / (1.0 + c_eff * (m - 1))；双阶段衰减
             // （Phase 14-B）：τ_fast,m = τ_m × fastDecayRatio，慢分量权重 slowWeight。
             const auto tau_m = baseDecaySeconds / (1.0 + static_cast<double>(dampingSlope * static_cast<float>(n)));
-            const auto tauFast_m = tau_m * static_cast<double>(region.fastDecayRatio);
+            const auto tauFast_m = tau_m * static_cast<double>(params.fastDecayRatio);
             partial.decayFastPerSample = static_cast<float>(std::exp(-1.0 / (tauFast_m * sampleRate)));
             partial.decaySlowPerSample = static_cast<float>(std::exp(-1.0 / (tau_m * sampleRate)));
-            partial.levelFast = partial.level * (1.0f - region.slowWeight);
-            partial.levelSlow = partial.level * region.slowWeight;
+            partial.levelFast = partial.level * (1.0f - params.slowWeight);
+            partial.levelSlow = partial.level * params.slowWeight;
         }
 
         hammerTransient.trigger(sampleRate, midiNoteNumber, clampedVelocity, pianoHammerHardness);
@@ -268,38 +271,38 @@ public:
 
     // 合成参数查询（确定性测试 / 调试用）。
     [[nodiscard]] static int partialCountForNote(int midiNoteNumber) noexcept {
-        return regionForNote(midiNoteNumber).partialCount;
+        return devpiano::audio::getNoteParams(midiNoteNumber).partialCount;
     }
     [[nodiscard]] static float decaySecondsForNote(int midiNoteNumber) noexcept {
-        return regionForNote(midiNoteNumber).decaySeconds;
+        return devpiano::audio::getNoteParams(midiNoteNumber).decaySeconds;
     }
     [[nodiscard]] static float decayDampingCForNote(int midiNoteNumber) noexcept {
-        return regionForNote(midiNoteNumber).decayDampingC;
+        return devpiano::audio::getNoteParams(midiNoteNumber).decayDampingC;
     }
     [[nodiscard]] static double inharmonicityBForNote(int midiNoteNumber) noexcept {
-        return regionForNote(midiNoteNumber).inharmonicityB;
+        return devpiano::audio::getNoteParams(midiNoteNumber).inharmonicityB;
     }
     [[nodiscard]] static float fastDecayRatioForNote(int midiNoteNumber) noexcept {
-        return regionForNote(midiNoteNumber).fastDecayRatio;
+        return devpiano::audio::getNoteParams(midiNoteNumber).fastDecayRatio;
     }
     [[nodiscard]] static float slowWeightForNote(int midiNoteNumber) noexcept {
-        return regionForNote(midiNoteNumber).slowWeight;
+        return devpiano::audio::getNoteParams(midiNoteNumber).slowWeight;
     }
     // 慢分量（尾音）时间常数：τ_slow,m = τ_base / (1 + c_eff·(m-1))（Phase 14-B 后 decaySeconds 的语义）。
     [[nodiscard]] static double partialDecaySeconds(int midiNoteNumber, int partialIndex, float brightness = 0.5f,
                                                     float resonance = 0.5f) noexcept {
-        const auto& region = regionForNote(midiNoteNumber);
+        const auto& params = devpiano::audio::getNoteParams(midiNoteNumber);
         const auto decayScale = 1.0f + (juce::jlimit(0.0f, 1.0f, resonance) - 0.5f) * 0.6f;
-        const auto baseDecay = static_cast<double>(region.decaySeconds * decayScale);
-        const auto dampingSlope = region.decayDampingC * (1.5f - juce::jlimit(0.0f, 1.0f, brightness));
+        const auto baseDecay = static_cast<double>(params.decaySeconds * decayScale);
+        const auto dampingSlope = params.decayDampingC * (1.5f - juce::jlimit(0.0f, 1.0f, brightness));
         return baseDecay / (1.0 + static_cast<double>(dampingSlope * static_cast<float>(partialIndex)));
     }
     // 快分量（击弦辐射期）时间常数：τ_fast,m = τ_slow,m × fastDecayRatio。
     [[nodiscard]] static double partialFastDecaySeconds(int midiNoteNumber, int partialIndex, float brightness = 0.5f,
                                                         float resonance = 0.5f) noexcept {
-        const auto& region = regionForNote(midiNoteNumber);
+        const auto& params = devpiano::audio::getNoteParams(midiNoteNumber);
         return partialDecaySeconds(midiNoteNumber, partialIndex, brightness, resonance)
-            * static_cast<double>(region.fastDecayRatio);
+            * static_cast<double>(params.fastDecayRatio);
     }
     [[nodiscard]] static float bodyWet(float resonance = 0.5f) noexcept {
         return 0.18f + juce::jlimit(0.0f, 1.0f, resonance) * 0.16f;
@@ -311,17 +314,17 @@ public:
         return baseFrequency * partialNumber * std::sqrt(1.0 + b * partialNumber * partialNumber);
     }
     [[nodiscard]] static float beatingDetuneRatioForNote(int midiNoteNumber) noexcept {
-        return regionForNote(midiNoteNumber).beatingDetuneRatio;
+        return devpiano::audio::getNoteParams(midiNoteNumber).beatingDetuneRatio;
     }
     [[nodiscard]] static int beatingPartialCountForNote(int midiNoteNumber) noexcept {
-        return regionForNote(midiNoteNumber).beatingPartials;
+        return devpiano::audio::getNoteParams(midiNoteNumber).beatingPartials;
     }
     [[nodiscard]] static double beatingFrequency(int midiNoteNumber, int partialIndex) noexcept {
         const auto f = partialFrequency(midiNoteNumber, partialIndex);
-        const auto& region = regionForNote(midiNoteNumber);
+        const auto& params = devpiano::audio::getNoteParams(midiNoteNumber);
         const auto isBassFundamental = (midiNoteNumber < 48 && partialIndex == 0);
-        if (!isBassFundamental && partialIndex < region.beatingPartials && region.beatingDetuneRatio > 0.0f) {
-            return f * (1.0 + static_cast<double>(region.beatingDetuneRatio));
+        if (!isBassFundamental && partialIndex < params.beatingPartials && params.beatingDetuneRatio > 0.0f) {
+            return f * (1.0 + static_cast<double>(params.beatingDetuneRatio));
         }
         return f;
     }
@@ -343,39 +346,13 @@ public:
         return specs[clamped];
     }
 
-    struct VoiceRegion {
-        int partialCount;
-        float decaySeconds; // τ_slow 基准（双阶段衰减的慢分量时间常数，Phase 14-B）
-        double inharmonicityB;
-        float decayDampingC;
-        float fastDecayRatio; // τ_fast / τ_slow
-        float slowWeight; // 慢分量初始权重 w（快分量权重 = 1 - w）
-        float beatingDetuneRatio; // 同音双弦微失谐率（Phase 14-C）
-        int beatingPartials; // 启用拍频双振荡器的分音数
-        float strikingPositionRatio; // 击弦位置比例 d/L (Phase 17-A)
-    };
-
-    static constexpr VoiceRegion voiceRegions[] = {
-        { 20, 4.5f, 4.0e-4, 0.38f, 0.12f, 0.20f, 0.0020f, 6, 0.125f }, // note < 48: 低音 d/L = 1/8
-        { 14, 2.8f, 1.0e-4, 0.28f, 0.15f, 0.18f, 0.0015f, 6, 0.1333f }, // 48–71: 中音 d/L = 1/7.5
-        { 8, 1.6f, 3.0e-5, 0.20f, 0.18f, 0.15f, 0.0010f, 4, 0.100f }, // 72–95: 高音 d/L = 1/10
-        { 6, 0.9f, 1.0e-5, 0.15f, 0.15f, 0.12f, 0.0f, 0, 0.0714f }, // >= 96: 极高音 d/L = 1/14
-    };
+    using VoiceRegion = devpiano::audio::PianoNoteParams;
 
     [[nodiscard]] static const VoiceRegion& regionForNote(int midiNoteNumber) noexcept {
-        if (midiNoteNumber < 48) {
-            return voiceRegions[0];
-        }
-        if (midiNoteNumber < 72) {
-            return voiceRegions[1];
-        }
-        if (midiNoteNumber < 96) {
-            return voiceRegions[2];
-        }
-        return voiceRegions[3];
+        return devpiano::audio::getNoteParams(midiNoteNumber);
     }
     [[nodiscard]] static float strikingPositionRatioForNote(int midiNoteNumber) noexcept {
-        return regionForNote(midiNoteNumber).strikingPositionRatio;
+        return devpiano::audio::getNoteParams(midiNoteNumber).strikePosRatio;
     }
 
     // 击弦点梳状滤波增益 (Phase 17-A)：S(m) = |sin(m·π·d/L)|，底噪泄漏 0.06 防彻底无声。
