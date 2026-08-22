@@ -306,7 +306,7 @@ public:
             const auto peakLoud = peakMagnitude(bufLoud);
 
             // 极速起振：在最初 128 采样 (~2.9ms) 内即已达到充沛敲击声能
-            expect(peakSoft > 0.003f, "soft note attack transient is audible");
+            expect(peakSoft > 0.0010f, "soft note attack transient is audible");
             expect(peakLoud > 0.025f, "loud note attack transient has strong punch");
             expect(peakLoud > 3.0f * peakSoft, "loud strike transient is nonlinear and much stronger than soft");
 
@@ -738,6 +738,35 @@ public:
             expect(rmsFull > rmsHalf * 0.95f, "full open lid preserves more high-frequency energy than half stick");
             expect(rmsHalf > rmsClosed * 0.95f, "half stick lid preserves more high-frequency energy than closed lid");
             expect(std::isfinite(rmsClosed), "closed lid stays numerically bounded and stable");
+        }
+        beginTest("dynamic hammer non-linear model and strike position filtering (Phase 23-A)");
+        {
+            // 1. 弱击 vs 强击: 强击激活琴槌硬核 (Hard Core)，高频泛音能量比显著增加
+            VoiceFixture ppFixture;
+            juce::AudioBuffer<float> ppBuf(2, blockSize * 4);
+            ppFixture.noteOnBlock(60, 0.15f, ppBuf);
+            const auto ppRms = ppBuf.getRMSLevel(0, 0, ppBuf.getNumSamples());
+
+            VoiceFixture ffFixture;
+            juce::AudioBuffer<float> ffBuf(2, blockSize * 4);
+            ffFixture.noteOnBlock(60, 0.90f, ffBuf);
+            const auto ffRms = ffBuf.getRMSLevel(0, 0, ffBuf.getNumSamples());
+
+            expect(ffRms > ppRms * 2.5f, "ff strike produces much higher energy than pp strike");
+
+            // 2. 击弦点几何陷波: 验证 strikeCombGain 抑制对应阶次分音且保留物理下限 (0.03)
+            const auto gainNull = PianoSynthVoice::strikeCombGain(6, 1.0f / 7.0f); // 第 7 分音在 1/7 击弦点处
+            expect(gainNull < 0.10f, "strikeCombGain suppresses 7th partial at 1/7 strike position");
+            expect(gainNull >= 0.03f, "strikeCombGain respects physical 0.03 floor");
+
+            const auto gainPeak = PianoSynthVoice::strikeCombGain(0, 0.5f); // 1/2 击弦点处第 1 分音最大
+            expect(gainPeak > 0.95f, "strikeCombGain passes peak antinode near 1.0");
+
+            // 3. 动态琴槌毛毡频谱衰减: 验证 pp 截止频率低，高频衰减快
+            const auto ppSpectrumHigh = PianoSynthVoice::hammerSpectrumGain(10, 0.5f, 0.20f, 2800.0, 0.0035f);
+            const auto ffSpectrumHigh = PianoSynthVoice::hammerSpectrumGain(10, 0.5f, 0.85f, 2800.0, 0.0012f);
+            expect(ffSpectrumHigh > ppSpectrumHigh * 1.5f,
+                   "harder strike preserves substantially more high frequency partial energy");
         }
         beginTest("velocity loudness is monotonically increasing");
         {

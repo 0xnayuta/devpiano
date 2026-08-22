@@ -9,7 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 
-// 内置物理建模钢琴合成器（Phase 12~22）：
+// 内置物理建模钢琴合成器（Phase 12~23）：
 // - 88 键物理参数化 (Phase 18-A/B)：Steinway B 刚性失谐、Bensa 实测阻尼、STFT 最优微相位矩阵；
 // - 空气黏性阻尼与二次方摩擦 (Phase 18-C)：Desvages & Bilbao (2016) 模态耗散模型，呈现中频下凹歌唱性；
 // - 16 峰正交云杉木音板模态 (Phase 19-A)：Bank 2010 / Chabassier 2019 实测物理模态分布；
@@ -26,7 +26,9 @@
 // - 强击非线性张力音高微漂移与软饱和 (Phase 22-D, Pitch Glide & Soft Saturation)：Bank & Sujbert 2005 JASA 张力瞬态与
 // Bilbao 2009 软饱和；
 // - 未踩踏板单键和弦开放弦交感共鸣 (Phase 22-E, Duplex & Unpedaled Sympathetic Resonance)：Bank 2010 IEEE TASLP Sec. VI
-// 开放制音弦交感振荡。
+// 开放制音弦交感振荡；
+// - 动态琴槌非线性刚度与击弦点几何陷波 (Phase 23-A, Chaigne & Askenfelt 1994, Russell & Rossing 1998)：
+//   三层毛毡动力学压实模型、连续变化接触时间 Tc、动态截止滚降指数与精确击弦位置陷波。
 
 class PianoSynthSound final : public juce::SynthesiserSound {
 public:
@@ -93,10 +95,12 @@ public:
 
         const auto clampedVelocity = juce::jlimit(0.0f, 1.0f, velocity);
         const auto velocityLevel = clampedVelocity * std::sqrt(clampedVelocity);
-        const auto brightnessFactor = clampedVelocity * (0.5f + pianoBrightness);
         const auto decayScale = 1.0f + (pianoResonance - 0.5f) * 0.6f;
         const auto baseDecaySeconds = static_cast<double>(params.decaySeconds * decayScale);
 
+        const auto keyPos = std::clamp((static_cast<float>(midiNoteNumber) - 21.0f) / 87.0f, 0.0f, 1.0f);
+
+        // 动态琴槌毛毡动力学 (Phase 23-A, Chaigne & Askenfelt 1994, Russell & Rossing 1998)
         const auto effectiveHardness
             = 0.15f + 0.85f * std::pow(clampedVelocity, 1.5f) * (0.5f + 0.5f * pianoHammerHardness);
         const auto tc = params.tcBase * (2.5f - 1.9f * effectiveHardness);
@@ -124,7 +128,7 @@ public:
             const auto partialNumber = static_cast<double>(n + 1);
             const auto inharmonicFactor = std::sqrt(1.0 + params.inharmonicityB * partialNumber * partialNumber);
             const auto partialFrequency = baseFrequency * partialNumber * inharmonicFactor;
-            normSum += amplitudeFor(n, effectiveStrikePos, brightnessFactor, partialFrequency, effectiveTc)
+            normSum += amplitudeFor(n, keyPos, effectiveHardness, effectiveStrikePos, partialFrequency, effectiveTc)
                 * hammerGain(n, numActivePartials) * brightnessBoost(n, pianoBrightness, numActivePartials);
         }
         const auto scale = peakLevelAtFullVelocity / juce::jmax(1e-6f, normSum);
@@ -194,7 +198,8 @@ public:
                 partial.epsilon3 = 2.0 * std::sin(juce::MathConstants<double>::pi * f3 / sampleRate);
             }
 
-            partial.level = amplitudeFor(n, effectiveStrikePos, brightnessFactor, partialFrequency, effectiveTc)
+            partial.level
+                = amplitudeFor(n, keyPos, effectiveHardness, effectiveStrikePos, partialFrequency, effectiveTc)
                 * hammerGain(n, numActivePartials) * brightnessBoost(n, pianoBrightness, numActivePartials) * scale
                 * velocityLevel;
 
@@ -474,17 +479,27 @@ public:
 
     [[nodiscard]] static float strikeCombGain(int partialIndex, float strikingRatio) noexcept {
         const auto m = static_cast<float>(partialIndex + 1);
+        // 击弦点几何梳状陷波 (Chaigne & Askenfelt 1994, 消除 7~9 阶非协和刺耳分音)
         const auto raw = std::abs(std::sin(juce::MathConstants<float>::pi * m * strikingRatio));
-        return 0.06f + 0.94f * raw;
+        return std::max(raw, 0.03f);
     }
 
-    [[nodiscard]] static float hammerSpectrumGain(int partialIndex, float brightnessFactor) noexcept {
+    [[nodiscard]] static float hammerSpectrumGain(int partialIndex, float keyPos, float effectiveHardness,
+                                                  double partialFrequency, float tc) noexcept {
         const auto m = static_cast<float>(partialIndex + 1);
-        const auto powerRollOff = 1.0f / std::pow(m, 1.35f);
-        const auto effectiveBrightness = juce::jlimit(0.15f, 2.5f, brightnessFactor);
-        const auto cutoffHarmonic = 1.5f + 16.0f * effectiveBrightness;
-        const auto feltFilter = std::exp(-m / cutoffHarmonic);
-        return powerRollOff * feltFilter;
+        // 88 键音区基底幂次滚降: 低音 1.25 -> 高音 2.10 (保证低音丰富，高音突出基频)
+        const auto rolloff = 1.20f + 0.30f * keyPos + 1.20f * (keyPos * keyPos);
+        const auto basePowerRollOff = 1.0f / std::pow(m, rolloff);
+
+        // 琴槌毛毡非线性低通滤波: 截止频率 fc = 2.5 / Tc (Chaigne & Askenfelt 1994)
+        const auto hammerCutoff = 2.5f / std::max(tc, 0.0001f);
+        // 滚降陡度随力度动态变化: pp 弱音 1.84 (陡峭滤除高频), ff 强音 1.20 (平缓保留金属光泽)
+        const auto hammerRolloffExp = 2.0f - 0.80f * effectiveHardness;
+
+        const auto freqRatio = static_cast<float>(partialFrequency) / hammerCutoff;
+        const auto feltFilter = 1.0f / (1.0f + std::pow(freqRatio, hammerRolloffExp));
+
+        return basePowerRollOff * feltFilter;
     }
 
     [[nodiscard]] static float bridgeHillGain(double frequency) noexcept {
@@ -503,10 +518,11 @@ public:
         return 0.7f + 0.3f * cosineMod;
     }
 
-    [[nodiscard]] static float amplitudeFor(int partialIndex, float strikingRatio = 0.1333f,
-                                            float brightnessFactor = 0.5f, double partialFrequency = 440.0,
+    [[nodiscard]] static float amplitudeFor(int partialIndex, float keyPos = 0.5f, float effectiveHardness = 0.5f,
+                                            float strikingRatio = 0.1333f, double partialFrequency = 440.0,
                                             float tc = 0.0018f) noexcept {
-        return strikeCombGain(partialIndex, strikingRatio) * hammerSpectrumGain(partialIndex, brightnessFactor)
+        return strikeCombGain(partialIndex, strikingRatio)
+            * hammerSpectrumGain(partialIndex, keyPos, effectiveHardness, partialFrequency, tc)
             * hammerElasticModulation(partialFrequency, tc) * bridgeHillGain(partialFrequency);
     }
 
@@ -685,7 +701,7 @@ public:
                 longPhase1 += longPhaseInc1;
                 longPhase2 += longPhaseInc2;
                 longPhase3 += longPhaseInc3;
-                out += longAmplitude * (0.60f * l1 + 0.25f * l2 + 0.15f * l3);
+                out += longAmplitude * (0.5f * l1 + 0.35f * l2 + 0.15f * l3);
                 longAmplitude *= longDecayPerSample;
             }
             return out;
@@ -725,21 +741,22 @@ public:
             }
 
             const auto sampleRate = static_cast<float>(sr);
-            const auto noteFactor = 1.0f - static_cast<float>(midiNoteNumber - 21) / 68.0f;
-            const auto dur = juce::jlimit(0.010f, 0.024f, 0.012f + 0.012f * noteFactor);
+            const auto noteRatio = static_cast<float>(midiNoteNumber - 21) / 67.0f;
+            const auto dur = juce::jlimit(0.006f, 0.024f, 0.024f - noteRatio * 0.018f);
             totalSamples = juce::jmax(1, static_cast<int>(dur * sampleRate));
             samplesRemaining = totalSamples;
 
-            const auto f1 = juce::jlimit(80.0f, 150.0f, 85.0f + 50.0f * (1.0f - noteFactor));
-            const auto f2 = juce::jlimit(200.0f, 450.0f, 240.0f + 180.0f * (1.0f - noteFactor));
+            const auto f1 = juce::jlimit(75.0f, 160.0f, 85.0f + noteRatio * 60.0f);
+            const auto f2 = juce::jlimit(180.0f, 420.0f, 220.0f + noteRatio * 180.0f);
             phaseInc1 = juce::MathConstants<float>::twoPi * f1 / sampleRate;
             phaseInc2 = juce::MathConstants<float>::twoPi * f2 / sampleRate;
             oscPhase1 = 0.0f;
             oscPhase2 = 0.0f;
 
-            const auto v = juce::jlimit(0.1f, 1.0f, releaseVelocity);
-            amplitude = peakLevelAtFullVelocity * 0.12f * std::sqrt(v) * (0.3f + 0.7f * noteFactor);
-            decayPerSample = std::exp(-4.2f / static_cast<float>(totalSamples));
+            const auto rv = juce::jlimit(0.0f, 1.0f, releaseVelocity);
+            const auto zoneGain = juce::jlimit(0.05f, 1.0f, 1.0f - noteRatio * 0.85f);
+            amplitude = peakLevelAtFullVelocity * 0.08f * rv * zoneGain;
+            decayPerSample = std::exp(-5.0f / static_cast<float>(totalSamples));
         }
 
         [[nodiscard]] float getNextSample() noexcept {
@@ -767,7 +784,7 @@ public:
     };
     DamperTransient damperTransient;
 
-    // 延音踏板与单键和弦开放弦交感共鸣池 (Phase 21-A / Phase 22-E, Bank 2010 Sec. VI)
+    // 延音踏板全局交感共鸣弦池与单键开放弦交感 (Phase 21-A / Phase 22-E, Bank 2010 Sec. VI)
     struct SympatheticResonancePool {
         static constexpr auto numPoolResonators = 12;
         bool pedalDown = false;
@@ -782,17 +799,13 @@ public:
             pedalDown = isDown;
         }
 
-        static constexpr int midiToPitchClass(int midiNoteNumber) noexcept {
-            return (midiNoteNumber % 12);
-        }
-
         void noteOnKey(int midiNoteNumber) noexcept {
-            const auto pc = midiToPitchClass(midiNoteNumber);
-            openNoteCount[static_cast<std::size_t>(pc)]++;
+            const auto pc = (midiNoteNumber % 12 + 12) % 12;
+            ++openNoteCount[static_cast<std::size_t>(pc)];
         }
 
         void noteOffKey(int midiNoteNumber) noexcept {
-            const auto pc = midiToPitchClass(midiNoteNumber);
+            const auto pc = (midiNoteNumber % 12 + 12) % 12;
             auto& count = openNoteCount[static_cast<std::size_t>(pc)];
             if (count > 0) {
                 --count;
