@@ -104,18 +104,29 @@ public:
         const auto clampedVelocity = juce::jlimit(0.0f, 1.0f, velocity);
         const auto velocityLevel = clampedVelocity * std::sqrt(clampedVelocity);
         // velocity 亮度：随力度线性提升；pianoBrightness 调节亮度基准
-        // （b=0.5 时 factor = velocity，与 12-2 一致）。
         const auto brightnessFactor = clampedVelocity * (0.5f + pianoBrightness);
         // 共鸣：衰减时间缩放（r=0.5 中性，r=1 → ×1.3，r=0 → ×0.7）。
         const auto decayScale = 1.0f + (pianoResonance - 0.5f) * 0.6f;
         const auto baseDecaySeconds = static_cast<double>(params.decaySeconds * decayScale);
-        // 高频衰减阻尼：pianoBrightness 微调（b=0.5 时为 1.0，暗时阻尼更大衰减更快，亮时阻尼略小）
-        const auto dampingSlope = params.decayDampingC * (1.5f - pianoBrightness);
 
-        // 归一化：按当前击弦位置与非线性谱形求和，使 v=1 时峰值恒为 peakLevelAtFullVelocity。
+        // 琴槌动态接触时间 (Phase 18-C): 随力度与硬度收缩 (pp 柔和接触长 -> ff 极短冲击)
+        const auto effectiveHardness
+            = 0.15f + 0.85f * std::pow(clampedVelocity, 1.5f) * (0.5f + 0.5f * pianoHammerHardness);
+        const auto tc = params.tcBase * (2.5f - 1.9f * effectiveHardness);
+
+        // 琴弦空间频率常数 (k1 = (π/L)²) 与基频耗散率 alpha1
+        const auto piOverL = juce::MathConstants<double>::pi / static_cast<double>(params.stringLength);
+        const auto k1 = piOverL * piOverL;
+        const auto alpha1 = static_cast<double>(params.b1) + static_cast<double>(params.b2) * k1;
+
+        // 归一化：按当前击弦位置、半余弦调制与琴桥共振峰求和，使 v=1 时峰值恒为 peakLevelAtFullVelocity。
         auto normSum = 0.0f;
         for (auto n = 0; n < numActivePartials; ++n) {
-            normSum += amplitudeFor(n, params.strikePosRatio, brightnessFactor) * hammerGain(n, numActivePartials);
+            const auto partialNumber = static_cast<double>(n + 1);
+            const auto inharmonicFactor = std::sqrt(1.0 + params.inharmonicityB * partialNumber * partialNumber);
+            const auto partialFrequency = baseFrequency * partialNumber * inharmonicFactor;
+            normSum += amplitudeFor(n, params.strikePosRatio, brightnessFactor, partialFrequency, tc)
+                * hammerGain(n, numActivePartials) * brightnessBoost(n, pianoBrightness, numActivePartials);
         }
         const auto scale = peakLevelAtFullVelocity / juce::jmax(1e-6f, normSum);
 
@@ -169,11 +180,22 @@ public:
                 partial.epsilon2 = 0.0;
             }
 
-            partial.level = amplitudeFor(n, params.strikePosRatio, brightnessFactor) * hammerGain(n, numActivePartials)
-                * scale * velocityLevel;
-            // 模态能量耗散模型：τ_m = τ_base / (1.0 + c_eff * (m - 1))；双阶段衰减
-            // （Phase 14-B）：τ_fast,m = τ_m × fastDecayRatio，慢分量权重 slowWeight。
-            const auto tau_m = baseDecaySeconds / (1.0 + static_cast<double>(dampingSlope * static_cast<float>(n)));
+            partial.level = amplitudeFor(n, params.strikePosRatio, brightnessFactor, partialFrequency, tc)
+                * hammerGain(n, numActivePartials) * brightnessBoost(n, pianoBrightness, numActivePartials) * scale
+                * velocityLevel;
+
+            // 空气黏性阻尼与二次方内部摩擦耗散 (Phase 18-C, Desvages & Bilbao 2016)
+            // α_n = b1·0.80 + b1·0.20·√(f0/fn) + b2·(nπ/L)²
+            const auto m = static_cast<double>(n + 1);
+            const auto kn = m * m * k1;
+            const auto airTerm = std::sqrt(baseFrequency / std::max(partialFrequency, 20.0));
+            const auto alpha_n
+                = static_cast<double>(params.b1) * (0.80 + 0.20 * airTerm) + static_cast<double>(params.b2) * kn;
+
+            // 慢衰减时间常数 τ_slow,n 与快衰减常数 τ_fast,n
+            const auto dampingEffect
+                = (alpha_n / juce::jmax(1e-9, alpha1)) * static_cast<double>(1.5f - pianoBrightness);
+            const auto tau_m = baseDecaySeconds / dampingEffect;
             const auto tauFast_m = tau_m * static_cast<double>(params.fastDecayRatio);
             partial.decayFastPerSample = static_cast<float>(std::exp(-1.0 / (tauFast_m * sampleRate)));
             partial.decaySlowPerSample = static_cast<float>(std::exp(-1.0 / (tau_m * sampleRate)));
@@ -288,14 +310,25 @@ public:
     [[nodiscard]] static float slowWeightForNote(int midiNoteNumber) noexcept {
         return devpiano::audio::getNoteParams(midiNoteNumber).slowWeight;
     }
-    // 慢分量（尾音）时间常数：τ_slow,m = τ_base / (1 + c_eff·(m-1))（Phase 14-B 后 decaySeconds 的语义）。
+    // 慢分量（尾音）时间常数：包含空气阻尼中频下凹与高阶二次方内部摩擦。
     [[nodiscard]] static double partialDecaySeconds(int midiNoteNumber, int partialIndex, float brightness = 0.5f,
                                                     float resonance = 0.5f) noexcept {
         const auto& params = devpiano::audio::getNoteParams(midiNoteNumber);
         const auto decayScale = 1.0f + (juce::jlimit(0.0f, 1.0f, resonance) - 0.5f) * 0.6f;
         const auto baseDecay = static_cast<double>(params.decaySeconds * decayScale);
-        const auto dampingSlope = params.decayDampingC * (1.5f - juce::jlimit(0.0f, 1.0f, brightness));
-        return baseDecay / (1.0 + static_cast<double>(dampingSlope * static_cast<float>(partialIndex)));
+        const auto f0 = static_cast<double>(juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber));
+        const auto fn = partialFrequency(midiNoteNumber, partialIndex);
+        const auto piOverL = juce::MathConstants<double>::pi / static_cast<double>(params.stringLength);
+        const auto k1 = piOverL * piOverL;
+        const auto alpha1 = static_cast<double>(params.b1) + static_cast<double>(params.b2) * k1;
+        const auto m = static_cast<double>(partialIndex + 1);
+        const auto kn = m * m * k1;
+        const auto airTerm = std::sqrt(f0 / std::max(fn, 20.0));
+        const auto alpha_n
+            = static_cast<double>(params.b1) * (0.80 + 0.20 * airTerm) + static_cast<double>(params.b2) * kn;
+        const auto dampingEffect
+            = (alpha_n / juce::jmax(1e-9, alpha1)) * static_cast<double>(1.5f - juce::jlimit(0.0f, 1.0f, brightness));
+        return baseDecay / dampingEffect;
     }
     // 快分量（击弦辐射期）时间常数：τ_fast,m = τ_slow,m × fastDecayRatio。
     [[nodiscard]] static double partialFastDecaySeconds(int midiNoteNumber, int partialIndex, float brightness = 0.5f,
@@ -372,14 +405,35 @@ public:
         return powerRollOff * feltFilter;
     }
 
-    // 分音相对初始幅度（击弦梳状滤波 × 非线性琴槌谱形）。
-    [[nodiscard]] static float amplitudeFor(int partialIndex, float strikingRatio = 0.1333f,
-                                            float brightnessFactor = 0.5f) noexcept {
-        return strikeCombGain(partialIndex, strikingRatio) * hammerSpectrumGain(partialIndex, brightnessFactor);
+    // 1.8kHz Bridge Hill 琴桥共振峰增益 (Phase 18-C)
+    [[nodiscard]] static float bridgeHillGain(double frequency) noexcept {
+        const auto f = static_cast<float>(frequency);
+        const auto diff = (f - 1800.0f) / 800.0f;
+        return 1.0f + 0.40f * std::exp(-0.5f * diff * diff);
     }
-    // 亮度：高次谐波增益随亮度因子提升（基频不变，最高次 +60%）。
+
+    // 琴槌弹性半余弦接触调制 (Phase 18-C)
+    [[nodiscard]] static float hammerElasticModulation(double partialFrequency, float tc) noexcept {
+        const auto fTc = static_cast<float>(partialFrequency) * tc;
+        const auto denom = 1.0f - 4.0f * fTc * fTc;
+        if (std::abs(denom) < 1e-4f) {
+            return 1.0f;
+        }
+        const auto cosineMod = std::min(std::abs(std::cos(juce::MathConstants<float>::pi * fTc) / denom), 1.0f);
+        return 0.7f + 0.3f * cosineMod;
+    }
+
+    // 分音相对初始幅度（击弦梳状滤波 × 非线性琴槌谱形 × 弹性接触调制 × 琴桥共振峰）。
+    [[nodiscard]] static float amplitudeFor(int partialIndex, float strikingRatio = 0.1333f,
+                                            float brightnessFactor = 0.5f, double partialFrequency = 440.0,
+                                            float tc = 0.0018f) noexcept {
+        return strikeCombGain(partialIndex, strikingRatio) * hammerSpectrumGain(partialIndex, brightnessFactor)
+            * hammerElasticModulation(partialFrequency, tc) * bridgeHillGain(partialFrequency);
+    }
+    // 亮度：高次谐波增益随亮度旋钮提升（基频不变，最高次 ±25%）。
     [[nodiscard]] static float brightnessBoost(int partialIndex, float brightness, int partialCount) noexcept {
-        return 1.0f + brightness * (static_cast<float>(partialIndex) / static_cast<float>(partialCount)) * 0.6f;
+        return 1.0f
+            + (brightness - 0.5f) * 0.5f * (static_cast<float>(partialIndex) / static_cast<float>(partialCount));
     }
 
     // 击弦硬度：高次谐波起始增益（h=0.5 中性，基频不受影响，最高次 ±20%）。

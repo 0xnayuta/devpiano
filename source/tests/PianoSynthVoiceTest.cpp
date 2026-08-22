@@ -398,21 +398,28 @@ public:
         }
         beginTest("modal overtone decay rates (physical energy dissipation)");
         {
-            // 验证时间常数物理公式：τ_m = τ_base / (1 + c_eff * (m - 1))
+            // 验证时间常数物理公式 (Desvages & Bilbao 2016)
             const auto tau1 = PianoSynthVoice::partialDecaySeconds(36, 0);
             expectWithinAbsoluteError(tau1, 4.5, 1e-3, "fundamental decay equals base decay");
+            const auto tau6 = PianoSynthVoice::partialDecaySeconds(36, 5); // m=6
+            const auto tau16 = PianoSynthVoice::partialDecaySeconds(36, 15); // m=16
+            expect(tau16 < tau1,
+                   "16th partial decays faster than fundamental in bass due to quadratic internal friction");
+            expect(tau16 < tau6, "overtone decay times decrease for higher orders");
 
-            const auto tau6
-                = PianoSynthVoice::partialDecaySeconds(36, 5); // m=6, 4.5 / (1 + 0.38 * 5) = 4.5 / 2.9 ≈ 1.5517s
-            expectWithinAbsoluteError(tau6, 4.5 / (1.0 + 0.38 * 5.0), 1e-3, "6th partial modal decay formula");
-            expect(tau6 < tau1 * 0.4, "6th partial decays more than 2.5x faster than fundamental");
+            const auto midTau1 = PianoSynthVoice::partialDecaySeconds(60, 0);
+            const auto midTau6 = PianoSynthVoice::partialDecaySeconds(60, 5);
+            expect(midTau6 < midTau1, "mid-register 6th partial decays faster than fundamental");
 
-            const auto tau8
-                = PianoSynthVoice::partialDecaySeconds(36, 7); // m=8, 4.5 / (1 + 0.38 * 7) = 4.5 / 3.66 ≈ 1.2295s
-            expectWithinAbsoluteError(tau8, 4.5 / (1.0 + 0.38 * 7.0), 1e-3, "8th partial modal decay formula");
-            expect(tau8 < tau6, "overtone decay times are strictly monotonically decreasing");
+            // 验证 1.8kHz Bridge Hill 琴桥共振峰增益
+            expect(PianoSynthVoice::bridgeHillGain(1800.0) > 1.35f, "1.8kHz Bridge Hill peak gain ~ 1.40");
+            expect(PianoSynthVoice::bridgeHillGain(100.0) < 1.05f, "low frequency not affected by Bridge Hill");
 
-            // 动态时域 / 频域验证（Phase 13-5 模态衰减对比断言）：
+            // 验证琴槌弹性半余弦调制因子有界性
+            expect(PianoSynthVoice::hammerElasticModulation(440.0, 0.0018f) >= 0.7f,
+                   "elastic modulation lower bounded by 0.7");
+            expect(PianoSynthVoice::hammerElasticModulation(440.0, 0.0018f) <= 1.0f,
+                   "elastic modulation upper bounded by 1.0");
             // 在低音 note 36（C2）按键后，对比早期 t0 与后期 t1 的第 6 分音 / 基频幅度比
             VoiceFixture fixture;
             juce::AudioBuffer<float> earlyBuffer(1, analysisWindow);

@@ -134,14 +134,14 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 详细完成记录见 [`../archive/phase17-physical-strike-hammer-piano.md`](../archive/phase17-physical-strike-hammer-piano.md)。
 
-### Phase 18：88 键物理参数化与微观相位色散（Per-Note Voicing & Micro-Phase Dispersion） [规划中]
+### Phase 18：88 键物理参数化与微观相位色散（Per-Note Voicing & Micro-Phase Dispersion） [已完成，2026-08-22]
 
-对标 `danielpodrazka/piano` 与模态物理细粒度参数化，消除 4 音区离散台阶与 $t=0$ 相干波形：
-1. **88 键静态物理映射（88-Key Per-Note Constexpr Table）**：为 88 键建立连续刚度 $B$、击弦比 $d/L$ 与基准衰减 $\tau_{\text{slow}}$；
-2. **微观初始相位色散表（Phase Table）**：为各分音赋予物理空间激发微相位，彻底消灭“数学正弦波”同相叠加感；
-3. **二次高阶模态阻尼曲率（$\tau_m \propto 1/m^2$）**：超高频金属毛刺 0.1s 迅速衰退，呈现纯净歌唱性尾音。
+深度吸收 `danielpodrazka/piano` 实测模型，消除 4 音区阶跃与 $t=0$ 相干波形：
+1. **88 键连续物理参数映射（Bensa & Steinway B 实测标定）**：为 88 键建立连续刚度 $B$、击弦比 $d/L$、衰减 $\tau_{\text{slow}}$ 与单/双/三弦物理分区；
+2. **STFT 损失优化实测微相位表**：内联 $3 \times 64$ 最优初相矩阵，消灭狄拉克脉冲式波峰；
+3. **空气黏性阻尼（Desvages & Bilbao 2016）与 1.8kHz Bridge Hill 琴桥峰**：低音中频下凹歌唱性与中高音光泽感，超高次泛音二次方抑制。
 
-详细计划见 [`current-iteration.md`](current-iteration.md)。
+详细完成记录见 [`../archive/phase18-per-note-voicing-micro-phases.md`](../archive/phase18-per-note-voicing-micro-phases.md)。
 
 ### Phase 19：立体声音板共鸣箱与弦槌微动力学（Stereo Modal Soundboard & Multi-String Dynamics） [远期规划]
 
@@ -196,3 +196,4 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 - Phase 15 完成记录（声明式弹窗与设置面板重构）：[`../archive/phase15-declarative-dialogs-and-settings-jive.md`](../archive/phase15-declarative-dialogs-and-settings-jive.md)
 - Phase 16 完成记录（虚拟键盘局部脏矩形重绘与预设覆盖确认）：[`../archive/phase16-keyboard-dirty-repaint-preset-confirm.md`](../archive/phase16-keyboard-dirty-repaint-preset-confirm.md)
 - Phase 17 完成记录（真实物理打击感钢琴音源重构）：[`../archive/phase17-physical-strike-hammer-piano.md`](../archive/phase17-physical-strike-hammer-piano.md)
+- Phase 18 完成记录（88 键物理参数化与微观相位色散）：[`../archive/phase18-per-note-voicing-micro-phases.md`](../archive/phase18-per-note-voicing-micro-phases.md)

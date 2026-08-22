@@ -5,7 +5,7 @@
 
 ## 当前方向
 
-**Phase 18：88 键物理参数化与微观相位色散（Per-Note Voicing & Micro-Phase Dispersion） [推进中]**
+**Phase 18：88 键物理参数化与微观相位色散（Per-Note Voicing & Micro-Phase Dispersion） [已完成，2026-08-22]**
 
 本轮重点（深度吸收 `danielpodrazka/piano` 实测物理模型）：
 1. **88 键连续物理参数映射（Bensa & Steinway B 实测标定）**：
@@ -28,7 +28,7 @@
 
 ---
 
-## Phase 18：88 键物理参数化与微观相位色散 [规划就绪]
+## Phase 18：88 键物理参数化与微观相位色散 [已完成]
 
 ### 背景与声学机理
 
@@ -64,43 +64,13 @@
                                                   ▼
 ┌─────────────────────────────────────────────────────────────────────────────────────────────┐
 │ 3. 空气黏性与二次方摩擦阻尼耗散 (Air Viscosity & Quadratic Loss Model)                      │
-│    - α_n = b1·(1 - airFrac) + b1·airFrac·√(f0/fn) + b2·(nπ/L)²                               │
-│    - 模态双阶段衰减: τ_prompt = 1 / (α_n · promptFactor · √sb), τ_after = 1 / (α_n · afterFactor)│
+│    - α_n = b1·0.80 + b1·0.20·√(f0/fn) + b2·(nπ/L)²                                           │
+│    - 模态双阶段衰减: τ_slow,n = τ_base / ((α_n/α1)·(1.5-b)), τ_fast,n = τ_slow,n · fastDecay│
 └─────────────────────────────────────────────────┬───────────────────────────────────────────┘
                                                   │
                                                   ▼
                                          [Magic Circle Loop]
 ```
-
----
-
-### 数据结构与参数表定义
-
-#### 1. 88 键物理参数结构体（`PianoNoteParams`）
-
-```cpp
-namespace devpiano::audio {
-
-struct PianoNoteParams {
-    int partialCount;           // 激活分音数 (低音 20 -> 高音 6)
-    int stringCount;            // 琴弦数: 1 (MIDI 21-35), 2 (MIDI 36-47), 3 (MIDI 48-108)
-    float stringLength;         // 振动弦长 L (米, 1.92m -> 0.09m)
-    float b1;                   // 频率无关阻尼常数 (0.25 -> 9.17 s^-1)
-    float b2;                   // 内部摩擦高阶损耗 (7.5e-5 -> 2.1e-3 s)
-    double inharmonicityB;      // Steinway B 实测失谐系数 (3.1e-4 -> 4.0e-2)
-    float strikePosRatio;       // 击弦比 d/L (0.125 -> 0.0625)
-    float tcBase;               // 基础接触时间 (3.0ms -> 0.6ms)
-    float detuneCents;          // 同音弦微失谐量 (0.0 -> 0.4 cents)
-    float promptFactor;         // 快衰减倍率因子 (1.2 -> 1.5)
-    float aftersoundFraction;   // 慢衰减初始能量占比 (0.18 -> 0.25)
-};
-
-} // namespace devpiano::audio
-```
-
-#### 2. 实测优化微相位表（`kOptPhaseTable` 3 弦 $\times$ 64 分音）
-
-采用 PyTorch STFT Loss 训练优化生成的 $3 \times 64$ 弧度表，各弦各分音拥有精准的初始空间投影角度，消灭同相波峰。
 
 ---
 
@@ -112,10 +82,10 @@ struct PianoNoteParams {
 - [x] **Phase 18-B：实测最优微相位表接入与 Magic Circle 状态初始化**
   - 内联 $3 \times 64$ 实测相位矩阵；
   - 在 `startNote` 中初始化各分音的 `cosState` 与 `sinState`；
-- [ ] **Phase 18-C：空气黏性阻尼与 1.8kHz Bridge Hill 琴桥峰**
+- [x] **Phase 18-C：空气黏性阻尼与 1.8kHz Bridge Hill 琴桥峰**
   - 落地 $\alpha_n$ 空气阻尼中频下凹公式，塑造歌唱性尾音；
   - 注入 1.8kHz 琴桥宽频共鸣峰与弹性半余弦琴槌调制；
-- [ ] **Phase 18-D：确定性物理测试更新与三闸门交付**
+- [x] **Phase 18-D：确定性物理测试更新与三闸门交付**
   - 补充 88 键参数连续性测试、相位色散能量守恒测试与 MSVC 编译验证。
 
 ---
@@ -132,6 +102,7 @@ struct PianoNoteParams {
 
 ## 历史实现 Backlog
 
+- Phase 18 完成记录（88 键物理参数化与微观相位色散）：[`../archive/phase18-per-note-voicing-micro-phases.md`](../archive/phase18-per-note-voicing-micro-phases.md)
 - Phase 17 完成记录（真实物理打击感钢琴音源重构）：[`../archive/phase17-physical-strike-hammer-piano.md`](../archive/phase17-physical-strike-hammer-piano.md)
 - Phase 16 完成记录（虚拟键盘局部脏矩形重绘与预设覆盖确认）：[`../archive/phase16-keyboard-dirty-repaint-preset-confirm.md`](../archive/phase16-keyboard-dirty-repaint-preset-confirm.md)
 - Phase 15 完成记录（声明式弹窗与设置面板重构）：[`../archive/phase15-declarative-dialogs-and-settings-jive.md`](../archive/phase15-declarative-dialogs-and-settings-jive.md)
