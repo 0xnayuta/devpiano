@@ -20,8 +20,11 @@
 // - 延音踏板全局交感共鸣弦池 (Phase 21-A, Bank 2010 Sec. VI)：CC64 踏板驱动 12 半音基底交感共振；
 // - 三角钢琴琴盖反射与近场木质微反射 (Phase 21-B, Chabassier 2019 Sec. 3.4)：琴盖空气深度与早期反射；
 // - 制音器落弦与琴键释放机械瞬态 (Phase 22-A, Damper Felt Fall & Release Thump)：88 键音区分级落弦低频闷击声；
-// - 琴盖开合度声学传递函数 (Phase 22-B, Lid Position Acoustics: Full / Half / Closed)：Chabassier 2013 JASA
-// 开合高频滚降与箱体近场反射矩阵。
+// - 琴盖开合度声学传递函数 (Phase 22-B, Lid Position: Full / Half / Closed)：Chabassier 2013 JASA
+// 开合高频滚降与箱体近场反射矩阵；
+// - 长短琴桥断裂交界音色补偿 (Phase 22-C, Bridge Break Voicing Jump)：Fletcher & Rossing 1998 G2/G#2 阶跃跳变；
+// - 强击非线性张力音高微漂移与软饱和 (Phase 22-D, Pitch Glide & Soft Saturation)：Bank & Sujbert 2005 JASA 张力瞬态与
+// Bilbao 2009 软饱和。
 
 class PianoSynthSound final : public juce::SynthesiserSound {
 public:
@@ -210,6 +213,8 @@ public:
 
         hammerTransient.trigger(sampleRate, midiNoteNumber, clampedVelocity, pianoHammerHardness, params.stringLength);
         damperTransient.reset();
+        pitchGlideEngine.trigger(sampleRate, clampedVelocity);
+
         for (auto& resonator : bodyResonators) {
             resonator.reset();
             resonator.updateCoefficients(sampleRate);
@@ -233,6 +238,7 @@ public:
         adsrGate.reset();
         hammerTransient.reset();
         damperTransient.reset();
+        pitchGlideEngine.reset();
         for (auto& resonator : bodyResonators) {
             resonator.reset();
         }
@@ -258,6 +264,7 @@ public:
             const auto envelope = adsrGate.getNextSample();
             const auto click = hammerTransient.getNextSample();
             const auto damperThump = damperTransient.getNextSample();
+            const auto glideMult = static_cast<double>(pitchGlideEngine.getGlideMultiplier());
 
             if (envelope <= 0.0f && !adsrGate.isActive() && !damperTransient.isActive()) {
                 clearCurrentNote();
@@ -273,30 +280,36 @@ public:
             for (auto n = 0; n < numActivePartials; ++n) {
                 auto& partial = partials[static_cast<std::size_t>(n)];
                 auto osc = static_cast<float>(partial.sinState);
+                const auto effEps = partial.epsilon * glideMult;
                 if (partial.stringCount == 2) {
                     osc = 0.5f * (osc + static_cast<float>(partial.sinState2));
-                    const auto nextCos2 = partial.cosState2 - partial.epsilon2 * partial.sinState2;
-                    partial.sinState2 += partial.epsilon2 * nextCos2;
+                    const auto effEps2 = partial.epsilon2 * glideMult;
+                    const auto nextCos2 = partial.cosState2 - effEps2 * partial.sinState2;
+                    partial.sinState2 += effEps2 * nextCos2;
                     partial.cosState2 = nextCos2;
                 } else if (partial.stringCount == 3) {
                     osc = (1.0f / 3.0f)
                         * (osc + static_cast<float>(partial.sinState2) + static_cast<float>(partial.sinState3));
-                    const auto nextCos2 = partial.cosState2 - partial.epsilon2 * partial.sinState2;
-                    partial.sinState2 += partial.epsilon2 * nextCos2;
+                    const auto effEps2 = partial.epsilon2 * glideMult;
+                    const auto nextCos2 = partial.cosState2 - effEps2 * partial.sinState2;
+                    partial.sinState2 += effEps2 * nextCos2;
                     partial.cosState2 = nextCos2;
-                    const auto nextCos3 = partial.cosState3 - partial.epsilon3 * partial.sinState3;
-                    partial.sinState3 += partial.epsilon3 * nextCos3;
+                    const auto effEps3 = partial.epsilon3 * glideMult;
+                    const auto nextCos3 = partial.cosState3 - effEps3 * partial.sinState3;
+                    partial.sinState3 += effEps3 * nextCos3;
                     partial.cosState3 = nextCos3;
                 }
                 value += (partial.levelFast + partial.levelSlow) * osc;
-                const auto nextCos = partial.cosState - partial.epsilon * partial.sinState;
-                partial.sinState += partial.epsilon * nextCos;
+                const auto nextCos = partial.cosState - effEps * partial.sinState;
+                partial.sinState += effEps * nextCos;
                 partial.cosState = nextCos;
                 partial.levelFast *= partial.decayFastPerSample;
                 partial.levelSlow *= partial.decaySlowPerSample;
             }
             const auto sampleIndex = startSample + sample;
-            const auto rawOutput = value * envelope + click + damperThump;
+            const auto preSatOutput = value * envelope + click + damperThump;
+            // 音板与琴桥大动态软饱和 (Phase 22-D, Bilbao 2009)
+            const auto rawOutput = softSaturate(preSatOutput);
 
             // 1. 16 峰物理云杉木音板模态 (Phase 19-A/B)
             auto resonatorLeftSum = 0.0f;
@@ -339,12 +352,18 @@ public:
             clearCurrentNote();
             hammerTransient.reset();
             damperTransient.reset();
+            pitchGlideEngine.reset();
             for (auto& resonator : bodyResonators) {
                 resonator.reset();
             }
             sympatheticPool.reset();
             lidAcoustics.reset();
         }
+    }
+
+    [[nodiscard]] static float softSaturate(float x) noexcept {
+        const auto x2 = std::clamp(x * x, 0.0f, 1.0f);
+        return x * (1.0f - 0.12f * x2);
     }
 
     [[nodiscard]] static int partialCountForNote(int midiNoteNumber) noexcept {
@@ -537,6 +556,47 @@ public:
     float pianoResonance = 0.5f;
     LidPosition pianoLidPosition = LidPosition::fullOpen;
 
+    // 强击非线性张力音高微漂移引擎 (Phase 22-D, Bank & Sujbert 2005 JASA)
+    struct PitchGlideEngine {
+        int samplesRemaining = 0;
+        float glideFactor = 0.0f;
+        float decayPerSample = 0.0f;
+
+        void trigger(double sr, float velocity) noexcept {
+            if (sr <= 0.0) {
+                reset();
+                return;
+            }
+            const auto clampedV = juce::jlimit(0.0f, 1.0f, velocity);
+            if (clampedV < 0.40f) {
+                reset();
+                return;
+            }
+            const auto sampleRate = static_cast<float>(sr);
+            const auto totalSamples = static_cast<int>(0.012f * sampleRate);
+            samplesRemaining = totalSamples;
+            const auto maxGlide = 0.0025f * (clampedV - 0.40f) / 0.60f;
+            glideFactor = maxGlide;
+            decayPerSample = std::exp(-4.5f / static_cast<float>(totalSamples));
+        }
+
+        [[nodiscard]] float getGlideMultiplier() noexcept {
+            if (samplesRemaining <= 0) {
+                return 1.0f;
+            }
+            --samplesRemaining;
+            const auto mult = 1.0f + glideFactor;
+            glideFactor *= decayPerSample;
+            return mult;
+        }
+
+        void reset() noexcept {
+            samplesRemaining = 0;
+            glideFactor = 0.0f;
+        }
+    };
+    PitchGlideEngine pitchGlideEngine;
+
     struct HammerTransient {
         int samplesRemaining = 0;
         int totalSamples = 0;
@@ -654,20 +714,17 @@ public:
             if (sr <= 0.0) {
                 return;
             }
-            // 真实大三角钢琴超高音区（MIDI > 88，约 F6 以上）无制音器，释放能量归零
             if (midiNoteNumber > 88) {
                 reset();
                 return;
             }
 
             const auto sampleRate = static_cast<float>(sr);
-            // 低音区制音器厚重，持续时间约 24ms；高音区较轻，持续时间约 12ms
             const auto noteFactor = 1.0f - static_cast<float>(midiNoteNumber - 21) / 68.0f;
             const auto dur = juce::jlimit(0.010f, 0.024f, 0.012f + 0.012f * noteFactor);
             totalSamples = juce::jmax(1, static_cast<int>(dur * sampleRate));
             samplesRemaining = totalSamples;
 
-            // 双频带低频闷击与毛毡摩擦声（主频 80~140Hz，副频 220~400Hz）
             const auto f1 = juce::jlimit(80.0f, 150.0f, 85.0f + 50.0f * (1.0f - noteFactor));
             const auto f2 = juce::jlimit(200.0f, 450.0f, 240.0f + 180.0f * (1.0f - noteFactor));
             phaseInc1 = juce::MathConstants<float>::twoPi * f1 / sampleRate;
@@ -723,12 +780,11 @@ public:
             if (sampleRate <= 0.0) {
                 return;
             }
-            // 12 个半音基底模态 (C2 到 B2)
             constexpr float freqs[numPoolResonators] = { 65.41f, 69.30f, 73.42f,  77.78f,  82.41f,  87.31f,
                                                          92.50f, 98.00f, 103.83f, 110.00f, 116.54f, 123.47f };
             for (int i = 0; i < numPoolResonators; ++i) {
                 const auto theta = juce::MathConstants<double>::twoPi * static_cast<double>(freqs[i]) / sampleRate;
-                const auto bandwidth = static_cast<double>(freqs[i] / 12.0f); // Q = 12
+                const auto bandwidth = static_cast<double>(freqs[i] / 12.0f);
                 const auto r = std::exp(-juce::MathConstants<double>::pi * bandwidth / sampleRate);
                 c1[i] = static_cast<float>(2.0 * r * std::cos(theta));
                 c2[i] = static_cast<float>(-r * r);
@@ -745,7 +801,6 @@ public:
 
         [[nodiscard]] float process(float in) noexcept {
             if (!pedalDown) {
-                // 踏板未踩下时交感共鸣池快速阻尼收敛
                 for (int i = 0; i < numPoolResonators; ++i) {
                     s1[i] *= 0.90f;
                     s2[i] *= 0.90f;
@@ -783,12 +838,12 @@ public:
             }
             const auto sr = static_cast<float>(sampleRate);
             if (position == LidPosition::fullOpen) {
-                lpCoeff = 0.0f; // 全开无高频滚降
+                lpCoeff = 0.0f;
             } else if (position == LidPosition::halfStick) {
-                constexpr float fc = 6500.0f; // 半开约 6.5kHz 缓降
+                constexpr float fc = 6500.0f;
                 lpCoeff = std::exp(-juce::MathConstants<float>::twoPi * fc / sr);
-            } else { // closed
-                constexpr float fc = 2600.0f; // 全关约 2.6kHz 低通衰减
+            } else {
+                constexpr float fc = 2600.0f;
                 lpCoeff = std::exp(-juce::MathConstants<float>::twoPi * fc / sr);
             }
         }
@@ -807,7 +862,6 @@ public:
         }
 
         void processStereo(float& left, float& right) noexcept {
-            // 1. 高频琴盖开合滤波 (Spectral Roll-off)
             if (lpCoeff > 0.0f) {
                 lpLeft = (1.0f - lpCoeff) * left + lpCoeff * lpLeft;
                 lpRight = (1.0f - lpCoeff) * right + lpCoeff * lpRight;
@@ -818,7 +872,6 @@ public:
             leftBuffer[writePos] = left;
             rightBuffer[writePos] = right;
 
-            // 2. 3 抽头近场木质微反射 (3.2ms=141, 7.8ms=344, 11.5ms=507 at 44.1k)
             const auto tap1Pos = (writePos + delaySize - 141) % delaySize;
             const auto tap2Pos = (writePos + delaySize - 344) % delaySize;
             const auto tap3Pos = (writePos + delaySize - 507) % delaySize;

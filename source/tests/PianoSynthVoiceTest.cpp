@@ -326,6 +326,23 @@ public:
             expect(std::abs(rms1 - rms2) < 0.02f * rms1,
                    "jitter variation is bounded within natural subtle range (<2%)");
         }
+        beginTest("strong strike pitch glide and soundboard saturation (Phase 22-D)");
+        {
+            // 验证 softSaturate 多项式小信号线性、大信号平滑压缩
+            const auto satSmall = PianoSynthVoice::softSaturate(0.05f);
+            expectWithinAbsoluteError(satSmall, 0.05f, 1e-4f, "small signal preserves linearity");
+
+            const auto satLarge = PianoSynthVoice::softSaturate(0.80f);
+            expect(satLarge < 0.80f && satLarge > 0.70f, "large signal undergoes smooth cubic soft compression");
+
+            // 强击力度 (v=0.95) 触发微音高瞬态上浮 (Pitch Glide)，前 128 样本能量强劲且数值稳定
+            VoiceFixture forteFixture;
+            juce::AudioBuffer<float> forteBuf(1, 256);
+            forteFixture.noteOnBlock(60, 0.95f, forteBuf);
+            const auto forteRms = forteBuf.getRMSLevel(0, 0, 256);
+            expect(forteRms > 0.010f, "fff strong strike produces robust acoustic attack with tension glide");
+            expect(std::isfinite(forteRms), "pitch glide render remains strictly bounded and stable");
+        }
         beginTest("inharmonicity overtone frequency shift (stiff-string physics)");
         {
             // 低音 C2 (note 36 ≈ 65.406 Hz, B = 4e-4) 的高次分音频偏量化验证：
