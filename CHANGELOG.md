@@ -1,7 +1,33 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [1.0.0] - 2026-08-23
 
+Official v1.0.0 milestone release of devpiano — modern computer keyboard piano application featuring high-fidelity physical modeling piano synthesis, VST3 instrument hosting, full 88-key grand piano keybed with wide-window dynamic centering, 16-channel MIDI key signature & transposition pipeline, JIVE declarative UI modernization, and robust multi-track performance recording & playback.
+
+### Added
+
+- **Standard 88-Key Grand Piano Range (A0–C8 / MIDI 21–108)** — full 88-key piano keyboard layout mapping seamlessly across physical keyboard, virtual keyboard mouse interaction, and MIDI file playback.
+- **Wide-Window Dynamic Centering** (`CustomKeyboard`) — mathematical symmetrical centering for 88-key piano bed on wide screens and maximized windows with preserved 100% viewport vertical height fill ($170\text{ px}$) and full viewport felt strip rendering.
+- **Real-Time 3-Column Status Bar** (`MainComponent`) — active display showing live MIDI activity indicator, active plugin/preset name, audio engine metrics (sample rate, buffer size, latency, CPU usage), and active key signature/layout mode.
+- **Virtual Keyboard Dirty Rectangle Optimization** — fast-path clipped dirty rectangle repainting (`repaintKey()`) eliminating UI lag during virtuosic piano playback.
+- **Performance Preset Overwrite Confirmation Dialog** (`PresetConfirmDialog`) — safeguards user preset library against unintended file overwrites.
+- **Enhanced Modal Piano Synthesizer v3** (`PianoSynthVoice`) — coupled-form recursive oscillators, stiff-string inharmonicity across 4 register zones, soundboard modal resonator bank, and two-stage decay envelope.
+- **16-Channel Follow Key Transposition Matrix** — real-time transposition engine with GM Channel 10 percussion bypass.
+
+### Changed
+
+- Default keyboard layout converged to standard 88-key grand piano range (MIDI 21 to 108).
+- LookAndFeel ComboBox outlines aligned with `cardBorder` to eliminate 4-corner highlight artifacts.
+- PopupMenu checkmarks right-aligned with proper label margins to prevent text clipping.
+- Text input editors (`PathEditor`, `ListEditor`, `MetadataEditor`) across modal dialogs granted explicit focusability and standard text cursors.
+- Button row heights adjusted to eliminate rounded corner clipping on preset and setting cards.
+
+### Fixed
+
+- Virtual keyboard height clipping fixed, ensuring 100% vertical viewport fill without shrinking.
+- App title "devpiano" 'p' descender clipping in window header resolved.
+- Keyboard hit detection geometry updated to accurately handle symmetrical horizontal centering offsets.
 ## [0.4.0] - 2026-08-20
 
 Enhanced physical modeling piano synthesizer (Enhanced Modal Piano v3), real-time global key signature and playback transposition pipeline, virtual keyboard dirty rectangle optimization, preset overwrite confirmation, 16-channel routing matrix, dual tone engine switching, and comprehensive UI/visual polish.
