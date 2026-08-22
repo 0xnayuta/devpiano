@@ -8,15 +8,16 @@
 namespace devpiano::audio {
 
 //==============================================================================
-/// 88 键物理声学参数结构体 (Phase 18-A/B)
-/// 基于 Bensa et al. (2003)、Steinway B 实测标定与 danielpodrazka/piano 模型。
+/// 88 键物理声学参数结构体 (Phase 18-A/B, Phase 22-C)
+/// 基于 Bensa et al. (2003)、Fletcher & Rossing (1998 Chapter 12)、Steinway B 实测标定。
 struct PianoNoteParams {
     int partialCount; ///< 激活分音数 (低音 20 -> 极高音 6)
     int stringCount; ///< 琴弦数: 1 (MIDI 21~35), 2 (MIDI 36~47), 3 (MIDI 48~108)
+    bool isBassBridge; ///< 是否属于低音长琴桥 (MIDI 21~43=true, MIDI 44~108=false)
     float stringLength; ///< 振动弦长 L (米, 1.92m -> 0.09m)
     float b1; ///< 频率无关阻尼常数 (0.25 -> 9.17 s^-1)
     float b2; ///< 内部摩擦高阶损耗 (7.5e-5 -> 2.1e-3 s)
-    double inharmonicityB; ///< Steinway B 实测失谐系数 (3.1e-4 -> 4.0e-2)
+    double inharmonicityB; ///< Steinway B 实测失谐系数 (含 G2/G#2 琴桥断裂阶跃)
     float strikePosRatio; ///< 击弦比 d/L (低音 0.125 -> 极高音 0.0625)
     float tcBase; ///< 基础接触时间 (3.0ms -> 0.6ms)
     float detuneCents; ///< 同音弦微失谐量 (0.0 -> 0.4 cents)
@@ -95,19 +96,21 @@ inline float logPieceWiseInterp(float midi, const float* midiPts, const float* v
     return valPts[count - 1];
 }
 
-// 88 键独立物理参数生成
+// 88 键独立物理参数生成 (含 Phase 22-C 琴桥交界断裂阶跃)
 inline PianoNoteParams computePianoNoteParams(int midiNoteNumber) noexcept {
     const auto midi = static_cast<float>(std::clamp(midiNoteNumber, 21, 108));
 
     PianoNoteParams p {};
 
-    // 1. 琴弦数配置 (Monochord -> Bichord -> Trichord)
+    // 1. 琴桥归属与琴弦数配置 (Phase 22-C: G2/MIDI 43 为低音长琴桥末端，G#2/MIDI 44 为主琴桥开端)
+    p.isBassBridge = (midiNoteNumber <= 43);
+
     if (midiNoteNumber < 36) {
-        p.stringCount = 1;
+        p.stringCount = 1; // 单缠弦 Monochord
     } else if (midiNoteNumber < 48) {
-        p.stringCount = 2;
+        p.stringCount = 2; // 双弦 Bichord
     } else {
-        p.stringCount = 3;
+        p.stringCount = 3; // 三弦 Trichord
     }
 
     // 2. 激活分音数 (低音 20 -> 中音 14 -> 高音 8 -> 极高音 6)
@@ -131,15 +134,24 @@ inline PianoNoteParams computePianoNoteParams(int midiNoteNumber) noexcept {
     p.b1 = logPieceWiseInterp(midi, bensaMidi, bensaB1, 3);
     p.b2 = logPieceWiseInterp(midi, bensaMidi, bensaB2, 3);
 
-    // 4. 刚性失谐系数 B (Steinway B 7点实测对数插值，反映中低音下凹极小值)
-    constexpr float bMidi[7] = { 21.0f, 33.0f, 45.0f, 57.0f, 69.0f, 84.0f, 96.0f };
-    constexpr float bVals[7] = { 3.1e-4f, 2.5e-4f, 2.0e-4f, 2.2e-4f, 7.5e-4f, 5.0e-3f, 4.0e-2f };
-    p.inharmonicityB = static_cast<double>(logPieceWiseInterp(midi, bMidi, bVals, 7));
+    // 4. 刚性失谐系数 B (Phase 22-C: Fletcher & Rossing 1998 琴桥断裂阶跃)
+    // 低音长琴桥 (MIDI 21~43) 随粗缠丝线密度增加，B 从 3.1e-4 降至 G2 的 1.85e-4 极小点；
+    // 跃迁至主琴桥 (MIDI 44+) 变为裸钢丝且弯曲刚度突增，B 发生 +43% 物理台阶式跃升至 2.65e-4。
+    if (p.isBassBridge) {
+        constexpr float bassBMidi[3] = { 21.0f, 33.0f, 43.0f };
+        constexpr float bassBVals[3] = { 3.1e-4f, 2.4e-4f, 1.85e-4f };
+        p.inharmonicityB = static_cast<double>(logPieceWiseInterp(midi, bassBMidi, bassBVals, 3));
+    } else {
+        constexpr float tenorBMidi[6] = { 44.0f, 57.0f, 69.0f, 84.0f, 96.0f, 108.0f };
+        constexpr float tenorBVals[6] = { 2.65e-4f, 3.2e-4f, 8.5e-4f, 5.0e-3f, 4.0e-2f, 8.5e-2f };
+        p.inharmonicityB = static_cast<double>(logPieceWiseInterp(midi, tenorBMidi, tenorBVals, 6));
+    }
 
-    // 5. 击弦位置比 d/L (低音 0.125 -> 中音 0.1333 -> 高音 0.100 -> 极高音 0.0625)
+    // 5. 击弦位置比 d/L (低音斜跨桥 0.125 -> 主琴桥折角 0.1333 -> 高音 0.100 -> 极高音 0.0625)
     constexpr float strikeMidi[4] = { 36.0f, 60.0f, 80.0f, 96.0f };
     constexpr float strikeRatios[4] = { 0.125f, 0.1333f, 0.100f, 0.0625f };
     p.strikePosRatio = pieceWiseInterp(midi, strikeMidi, strikeRatios, 4);
+
     // 6. 基础接触时间 TcBase (3.0ms -> 0.6ms)
     constexpr float tcMidi[3] = { 36.0f, 60.0f, 96.0f };
     constexpr float tcVals[3] = { 0.0030f, 0.0018f, 0.0006f };

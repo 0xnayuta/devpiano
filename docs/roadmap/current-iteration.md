@@ -60,7 +60,7 @@
 - [x] **Phase 22-B：琴盖开合度声学传递函数（Lid Position: Full / Half / Closed）**
   - 在 `LidAcoustics` 中引入多级高频滚降滤波器与近场反射增益矩阵；
   - 提供运行时琴盖开合参数调谐。
-- [ ] **Phase 22-C：长短琴桥断裂交界音色补偿（Bridge Break Voicing Jump）**
+- [x] **Phase 22-C：长短琴桥断裂交界音色补偿（Bridge Break Voicing Jump）**
   - 在 `Piano88KeyTable.h` 中针对 MIDI 43~44（G2/G#2）长短琴桥交界重构失谐与导纳阶跃。
 - [ ] **Phase 22-D：强击非线性大动态微音高漂移与软饱和（Pitch Glide & Dynamic Saturation）**
   - 在 `PianoSynthVoice::startNote` 对极高力度按键注入微秒级瞬态音高上浮与音板三次谐波软饱和。

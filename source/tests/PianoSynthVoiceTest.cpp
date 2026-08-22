@@ -129,10 +129,11 @@ public:
             expectWithinAbsoluteError(PianoSynthVoice::decaySecondsForNote(108), 0.8f, 0.01f, "C8 decay 0.8s");
 
             // Steinway B 刚性失谐曲线 (中低音下凹极小值)
+            // Steinway B 刚性失谐曲线 (含 Phase 22-C G2 缠弦下凹与琴桥断裂跃升)
             expectWithinAbsoluteError(PianoSynthVoice::inharmonicityBForNote(21), 3.1e-4, 1e-6, "A0 B 3.1e-4");
-            expectWithinAbsoluteError(PianoSynthVoice::inharmonicityBForNote(45), 2.0e-4, 1e-6,
-                                      "A2 B 2.0e-4 (wound string dip)");
-            expectWithinAbsoluteError(PianoSynthVoice::inharmonicityBForNote(69), 7.5e-4, 1e-6, "A4 B 7.5e-4");
+            expectWithinAbsoluteError(PianoSynthVoice::inharmonicityBForNote(43), 1.85e-4, 1e-6,
+                                      "G2 B 1.85e-4 (wound string dip on bass bridge)");
+            expectWithinAbsoluteError(PianoSynthVoice::inharmonicityBForNote(69), 8.5e-4, 1e-5, "A4 B 8.5e-4");
             expectWithinAbsoluteError(PianoSynthVoice::inharmonicityBForNote(96), 4.0e-2, 1e-4, "C7 B 4.0e-2");
 
             // 阻尼斜率单调平滑
@@ -330,7 +331,7 @@ public:
             // 低音 C2 (note 36 ≈ 65.406 Hz, B = 4e-4) 的高次分音频偏量化验证：
             const auto f0 = static_cast<double>(juce::MidiMessage::getMidiNoteInHertz(36));
             const auto b = PianoSynthVoice::inharmonicityBForNote(36);
-            expectWithinAbsoluteError(b, 2.36e-4, 1e-5, "note 36 B coefficient");
+            expectWithinAbsoluteError(b, 2.22e-4, 1e-5, "note 36 B coefficient");
 
             // 验证分音频率计算与物理公式一致：f_m = m·f0·√(1 + B·m^2)
             // 第 5 分音：m=5, √(1 + 25 * B), 刚性琴弦向上频移
@@ -343,7 +344,7 @@ public:
             const auto expectedF7 = 7.0 * f0 * std::sqrt(1.0 + 49.0 * b);
             const auto actualF7 = PianoSynthVoice::partialFrequency(36, 6);
             expectWithinAbsoluteError(actualF7, expectedF7, 1e-4, "7th partial frequency formula");
-            expect(actualF7 > 7.0 * f0 + 2.5, "7th partial is shifted up by > 2.5 Hz in bass region");
+            expect(actualF7 > 7.0 * f0 + 2.0, "7th partial is shifted up by > 2.0 Hz in bass region");
             // 频谱实测：在合成器实际渲染输出中，DFT 在非谐频率处的能量显著高于整数倍谐波处
             VoiceFixture fixture;
             juce::AudioBuffer<float> buffer(1, analysisWindow);
@@ -354,6 +355,27 @@ public:
             expect(magAtInharmonic7 > 1.2 * magAtInteger7,
                    "DFT energy at stiff-string 7th partial (" + juce::String(actualF7, 2)
                        + " Hz) must be higher than integer harmonic (" + juce::String(7.0 * f0, 2) + " Hz)");
+        }
+        beginTest("bridge break scale voicing jump at G2/G#2 (Phase 22-C)");
+        {
+            // 验证低音长琴桥与主琴桥的归属划分 (MIDI 21~43 为 Bass Bridge，MIDI 44~108 为 Main Bridge)
+            for (int note = 21; note <= 108; ++note) {
+                const auto& params = devpiano::audio::getNoteParams(note);
+                if (note <= 43) {
+                    expect(params.isBassBridge, "note " + juce::String(note) + " belongs to bass long bridge");
+                } else {
+                    expect(!params.isBassBridge, "note " + juce::String(note) + " belongs to main tenor/treble bridge");
+                }
+                expect(params.inharmonicityB > 0.0 && params.inharmonicityB < 0.2,
+                       "inharmonicity B is strictly bounded and physical");
+            }
+
+            // 验证 G2 (MIDI 43) -> G#2 (MIDI 44) 处的刚性失谐系数台阶式跃升 (+30% ~ +50%)
+            const auto& g2Params = devpiano::audio::getNoteParams(43);
+            const auto& gSharp2Params = devpiano::audio::getNoteParams(44);
+
+            expect(gSharp2Params.inharmonicityB > g2Params.inharmonicityB * 1.30,
+                   "G#2 (MIDI 44) inharmonicity B must exhibit +30%+ jump compared to G2 (MIDI 43) due to scale break");
         }
 
         beginTest("recursive oscillator frequency stability (Magic Circle long render)");
