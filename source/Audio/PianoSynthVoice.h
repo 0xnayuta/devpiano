@@ -9,7 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 
-// 内置物理建模钢琴合成器（Phase 12~21）：
+// 内置物理建模钢琴合成器（Phase 12~22）：
 // - 88 键物理参数化 (Phase 18-A/B)：Steinway B 刚性失谐、Bensa 实测阻尼、STFT 最优微相位矩阵；
 // - 空气黏性阻尼与二次方摩擦 (Phase 18-C)：Desvages & Bilbao (2016) 模态耗散模型，呈现中频下凹歌唱性；
 // - 16 峰正交云杉木音板模态 (Phase 19-A)：Bank 2010 / Chabassier 2019 实测物理模态分布；
@@ -18,7 +18,8 @@
 // - 低音钢弦纵波先驱脉冲 (Phase 20-A, Bank 2005/2010)：v_L ≈ 5100 m/s 极短金属撞击先导声；
 // - 机械击弦微观混沌微扰 (Phase 20-B, Bank & Chabassier 2019)：消除同音轮指的机械克隆感；
 // - 延音踏板全局交感共鸣弦池 (Phase 21-A, Bank 2010 Sec. VI)：CC64 踏板驱动 12 半音基底交感共振；
-// - 三角钢琴琴盖反射与近场木质微反射 (Phase 21-B, Chabassier 2019 Sec. 3.4)：琴盖空气深度与早期反射。
+// - 三角钢琴琴盖反射与近场木质微反射 (Phase 21-B, Chabassier 2019 Sec. 3.4)：琴盖空气深度与早期反射；
+// - 制音器落弦与琴键释放机械瞬态 (Phase 22-A, Damper Felt Fall & Release Thump)：88 键音区分级落弦低频闷击声。
 
 class PianoSynthSound final : public juce::SynthesiserSound {
 public:
@@ -191,6 +192,7 @@ public:
         }
 
         hammerTransient.trigger(sampleRate, midiNoteNumber, clampedVelocity, pianoHammerHardness, params.stringLength);
+        damperTransient.reset();
         for (auto& resonator : bodyResonators) {
             resonator.reset();
             resonator.updateCoefficients(sampleRate);
@@ -202,14 +204,17 @@ public:
         adsrGate.noteOn();
     }
 
-    void stopNote(float, bool allowTailOff) override {
+    void stopNote(float velocity, bool allowTailOff) override {
         if (allowTailOff) {
             adsrGate.noteOff();
+            const auto sampleRate = getSampleRate();
+            damperTransient.trigger(sampleRate, currentPlayingMidiNote, velocity > 0.0f ? velocity : 0.6f);
             return;
         }
 
         adsrGate.reset();
         hammerTransient.reset();
+        damperTransient.reset();
         for (auto& resonator : bodyResonators) {
             resonator.reset();
         }
@@ -233,7 +238,10 @@ public:
 
         for (auto sample = 0; sample < numSamples; ++sample) {
             const auto envelope = adsrGate.getNextSample();
-            if (envelope <= 0.0f && !adsrGate.isActive()) {
+            const auto click = hammerTransient.getNextSample();
+            const auto damperThump = damperTransient.getNextSample();
+
+            if (envelope <= 0.0f && !adsrGate.isActive() && !damperTransient.isActive()) {
                 clearCurrentNote();
                 for (auto& resonator : bodyResonators) {
                     resonator.reset();
@@ -269,9 +277,8 @@ public:
                 partial.levelFast *= partial.decayFastPerSample;
                 partial.levelSlow *= partial.decaySlowPerSample;
             }
-            const auto click = hammerTransient.getNextSample();
             const auto sampleIndex = startSample + sample;
-            const auto rawOutput = value * envelope + click;
+            const auto rawOutput = value * envelope + click + damperThump;
 
             // 1. 16 峰物理云杉木音板模态 (Phase 19-A/B)
             auto resonatorLeftSum = 0.0f;
@@ -313,6 +320,7 @@ public:
         if (allPartialsSilent()) {
             clearCurrentNote();
             hammerTransient.reset();
+            damperTransient.reset();
             for (auto& resonator : bodyResonators) {
                 resonator.reset();
             }
@@ -472,7 +480,7 @@ public:
     }
 
     [[nodiscard]] bool allPartialsSilent() const noexcept {
-        if (hammerTransient.isActive()) {
+        if (hammerTransient.isActive() || damperTransient.isActive()) {
             return false;
         }
         for (auto n = 0; n < numActivePartials; ++n) {
@@ -611,6 +619,72 @@ public:
         }
     };
     HammerTransient hammerTransient;
+
+    // 制音器落弦与琴键释放机械瞬态 (Phase 22-A, Damper Felt Fall & Release Thump)
+    struct DamperTransient {
+        int samplesRemaining = 0;
+        int totalSamples = 0;
+        float amplitude = 0.0f;
+        float decayPerSample = 0.0f;
+        float oscPhase1 = 0.0f;
+        float phaseInc1 = 0.0f;
+        float oscPhase2 = 0.0f;
+        float phaseInc2 = 0.0f;
+
+        void trigger(double sr, int midiNoteNumber, float releaseVelocity) noexcept {
+            if (sr <= 0.0) {
+                return;
+            }
+            // 真实大三角钢琴超高音区（MIDI > 88，约 F6 以上）无制音器，释放能量归零
+            if (midiNoteNumber > 88) {
+                reset();
+                return;
+            }
+
+            const auto sampleRate = static_cast<float>(sr);
+            // 低音区制音器厚重，持续时间约 22ms；高音区较轻，持续时间约 12ms
+            const auto noteFactor = 1.0f - static_cast<float>(midiNoteNumber - 21) / 68.0f;
+            const auto dur = juce::jlimit(0.010f, 0.024f, 0.012f + 0.012f * noteFactor);
+            totalSamples = juce::jmax(1, static_cast<int>(dur * sampleRate));
+            samplesRemaining = totalSamples;
+
+            // 双频带低频闷击与毛毡摩擦声（主频 80~140Hz，副频 220~400Hz）
+            const auto f1 = juce::jlimit(80.0f, 150.0f, 85.0f + 50.0f * (1.0f - noteFactor));
+            const auto f2 = juce::jlimit(200.0f, 450.0f, 240.0f + 180.0f * (1.0f - noteFactor));
+            phaseInc1 = juce::MathConstants<float>::twoPi * f1 / sampleRate;
+            phaseInc2 = juce::MathConstants<float>::twoPi * f2 / sampleRate;
+            oscPhase1 = 0.0f;
+            oscPhase2 = 0.0f;
+
+            const auto v = juce::jlimit(0.1f, 1.0f, releaseVelocity);
+            amplitude = peakLevelAtFullVelocity * 0.12f * std::sqrt(v) * (0.3f + 0.7f * noteFactor);
+            decayPerSample = std::exp(-4.2f / static_cast<float>(totalSamples));
+        }
+
+        [[nodiscard]] float getNextSample() noexcept {
+            if (samplesRemaining <= 0) {
+                return 0.0f;
+            }
+            --samplesRemaining;
+            const auto s1 = std::sin(oscPhase1);
+            const auto s2 = std::sin(oscPhase2);
+            oscPhase1 += phaseInc1;
+            oscPhase2 += phaseInc2;
+            const auto out = amplitude * (0.75f * s1 + 0.25f * s2);
+            amplitude *= decayPerSample;
+            return out;
+        }
+
+        void reset() noexcept {
+            samplesRemaining = 0;
+            amplitude = 0.0f;
+        }
+
+        [[nodiscard]] bool isActive() const noexcept {
+            return samplesRemaining > 0;
+        }
+    };
+    DamperTransient damperTransient;
 
     // 延音踏板全局交感共鸣弦池 (Phase 21-A, Bank 2010 Sec. VI)
     struct SympatheticResonancePool {

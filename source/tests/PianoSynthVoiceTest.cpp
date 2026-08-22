@@ -689,6 +689,30 @@ public:
             expect(peakMagnitude(buffer) == 0.0f, "tail must converge to silence");
             expect(!fixture.voice()->isVoiceActive(), "voice must clear itself after release");
         }
+        beginTest("damper felt fall release thump (Phase 22-A)");
+        {
+            // 低音 C2 (MIDI 36): 制音器释放产生低频机械落弦闷击声
+            VoiceFixture bassFixture;
+            juce::AudioBuffer<float> bassBuffer(1, blockSize);
+            bassFixture.noteOnBlock(36, 0.8f, bassBuffer);
+            bassFixture.synth.noteOff(1, 36, 0.8f, true); // note-off with release velocity
+
+            const auto& releaseBlock = bassFixture.renderBlock(bassBuffer);
+            const auto releasePeak = peakMagnitude(releaseBlock);
+            expect(releasePeak > 0.0005f, "bass note C2 release triggers audible damper felt fall thump");
+
+            // 超高音 C7 (MIDI 96): 真实钢琴无制音器，释放时无额外落弦冲击
+            VoiceFixture trebleFixture;
+            juce::AudioBuffer<float> trebleBuffer(1, blockSize);
+            trebleFixture.noteOnBlock(96, 0.8f, trebleBuffer);
+            trebleFixture.synth.noteOff(1, 96, 0.8f, true);
+
+            // 渲染至静音验证自清
+            for (auto block = 0; block < 20; ++block) {
+                bassFixture.renderBlock(bassBuffer);
+            }
+            expect(!bassFixture.voice()->isVoiceActive(), "voice clears after damper transient finishes");
+        }
 
         beginTest("natural decay clears the voice without noteOff");
         {

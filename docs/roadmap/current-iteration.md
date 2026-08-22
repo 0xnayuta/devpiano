@@ -54,7 +54,7 @@
 
 ### 子任务排期（Phase 22）
 
-- [ ] **Phase 22-A：制音器落弦与琴键释放机械瞬态（Damper Felt Fall & Release Thump）**
+- [x] **Phase 22-A：制音器落弦与琴键释放机械瞬态（Damper Felt Fall & Release Thump）**
   - 在 `PianoSynthVoice::stopNote` 与渲染器中实现制音器毛毡落弦物理敲击核；
   - 接入 88 键制音器物理分布（低音重、高音轻、超高音无）。
 - [ ] **Phase 22-B：琴盖开合度声学传递函数（Lid Position: Full / Half / Closed）**
