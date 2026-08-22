@@ -160,10 +160,13 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 详细完成记录见 [`../archive/phase20-longitudinal-ping-micro-variation.md`](../archive/phase20-longitudinal-ping-micro-variation.md)。
 
-### Phase 21：踏板交感共鸣与琴盖空间声学（Sympathetic Resonance Pool & Lid Reflection） [远期规划]
+### Phase 21：踏板交感共鸣与琴盖空间声学（Sympathetic Resonance Pool & Lid Reflection） [已完成，2026-08-22]
 
-1. **延音踏板全局交感共鸣弦池**：踏板开启时全弦泛音交感振动；
-2. **三角钢琴琴盖反射传递函数与木质近场微反射**：琴盖开合角度与高频空间散射。
+深度吸收 Bank 2010 Sec. VI 与 Chabassier 2019 Sec. 3.4 踏板与琴盖声学理论：
+1. **延音踏板全局交感共鸣弦池（Sympathetic Resonance Pool）**：12 半音基底谐振器响应 CC 64 踏板，注入全琴弦泛音交感振动；
+2. **三角钢琴琴盖反射传递函数与木质近场微反射（Lid Position & Early Reflections）**：3 抽头近场微反射消灭干燥贴耳感，重现演奏者身临其境的空气深度。
+
+详细完成记录见 [`../archive/phase21-sympathetic-resonance-lid-acoustics.md`](../archive/phase21-sympathetic-resonance-lid-acoustics.md)。
 ## 3. 主要风险
 
 | 风险 | 当前判断 | 应对方向 |
@@ -214,3 +217,4 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 - Phase 18 完成记录（88 键物理参数化与微观相位色散）：[`../archive/phase18-per-note-voicing-micro-phases.md`](../archive/phase18-per-note-voicing-micro-phases.md)
 - Phase 19 完成记录（立体声音板共鸣箱与同音三弦微动力学）：[`../archive/phase19-stereo-modal-soundboard.md`](../archive/phase19-stereo-modal-soundboard.md)
 - Phase 20 完成记录（微观物理动力学：纵向波先驱声与击键混沌微扰）：[`../archive/phase20-longitudinal-ping-micro-variation.md`](../archive/phase20-longitudinal-ping-micro-variation.md)
+- Phase 21 完成记录（踏板交感共鸣与琴盖空间声学）：[`../archive/phase21-sympathetic-resonance-lid-acoustics.md`](../archive/phase21-sympathetic-resonance-lid-acoustics.md)

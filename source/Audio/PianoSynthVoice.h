@@ -9,14 +9,16 @@
 #include <cstddef>
 #include <cstdint>
 
-// 内置物理建模钢琴合成器（Phase 12~20）：
+// 内置物理建模钢琴合成器（Phase 12~21）：
 // - 88 键物理参数化 (Phase 18-A/B)：Steinway B 刚性失谐、Bensa 实测阻尼、STFT 最优微相位矩阵；
 // - 空气黏性阻尼与二次方摩擦 (Phase 18-C)：Desvages & Bilbao (2016) 模态耗散模型，呈现中频下凹歌唱性；
 // - 16 峰正交云杉木音板模态 (Phase 19-A)：Bank 2010 / Chabassier 2019 实测物理模态分布；
 // - 琴桥立体声空间辐射 (Phase 19-B)：根据 88 键物理跨度分配声像，消灭单声道耳膜居中压迫感；
 // - 同音三弦独立三振荡器非对称拍频 (Phase 19-C)：3 弦独立微失谐与 STFT 空间初相；
 // - 低音钢弦纵波先驱脉冲 (Phase 20-A, Bank 2005/2010)：v_L ≈ 5100 m/s 极短金属撞击先导声；
-// - 机械击弦微观混沌微扰 (Phase 20-B, Bank & Chabassier 2019)：消除同音轮指的机械克隆感。
+// - 机械击弦微观混沌微扰 (Phase 20-B, Bank & Chabassier 2019)：消除同音轮指的机械克隆感；
+// - 延音踏板全局交感共鸣弦池 (Phase 21-A, Bank 2010 Sec. VI)：CC64 踏板驱动 12 半音基底交感共振；
+// - 三角钢琴琴盖反射与近场木质微反射 (Phase 21-B, Chabassier 2019 Sec. 3.4)：琴盖空气深度与早期反射。
 
 class PianoSynthSound final : public juce::SynthesiserSound {
 public:
@@ -193,6 +195,8 @@ public:
             resonator.reset();
             resonator.updateCoefficients(sampleRate);
         }
+        sympatheticPool.updateCoefficients(sampleRate);
+        lidAcoustics.reset();
 
         adsrGate.setSampleRate(sampleRate);
         adsrGate.noteOn();
@@ -209,11 +213,17 @@ public:
         for (auto& resonator : bodyResonators) {
             resonator.reset();
         }
+        sympatheticPool.reset();
+        lidAcoustics.reset();
         clearCurrentNote();
     }
     void pitchWheelMoved(int) override {
     }
-    void controllerMoved(int, int) override {
+    void controllerMoved(int controllerNumber, int controllerValue) override {
+        // MIDI CC 64 延音踏板 (Sustain Pedal, Phase 21-A)
+        if (controllerNumber == 64) {
+            sympatheticPool.setPedalDown(controllerValue >= 64);
+        }
     }
 
     void renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int startSample, int numSamples) override {
@@ -228,6 +238,8 @@ public:
                 for (auto& resonator : bodyResonators) {
                     resonator.reset();
                 }
+                sympatheticPool.reset();
+                lidAcoustics.reset();
                 break;
             }
 
@@ -261,6 +273,7 @@ public:
             const auto sampleIndex = startSample + sample;
             const auto rawOutput = value * envelope + click;
 
+            // 1. 16 峰物理云杉木音板模态 (Phase 19-A/B)
             auto resonatorLeftSum = 0.0f;
             auto resonatorRightSum = 0.0f;
             for (std::size_t i = 0; i < numResonators; ++i) {
@@ -270,6 +283,10 @@ public:
                 resonatorRightSum += spec.weightRight * resOut;
             }
 
+            // 2. 延音踏板全局交感共鸣弦池 (Phase 21-A, Bank 2010 Sec. VI)
+            const auto sympatheticOut = sympatheticPool.process(rawOutput);
+
+            // 3. 琴桥立体声声像定位与非对称空间投影 (低音在左 0.20 -> 高音在右 0.80)
             const auto midi = std::clamp(static_cast<float>(currentPlayingMidiNote), 21.0f, 108.0f);
             const auto keyPos = (midi - 21.0f) / 87.0f;
             const auto directPan = 0.20f + 0.60f * keyPos;
@@ -277,14 +294,18 @@ public:
             const auto directRight = directPan * 1.414f;
 
             const auto wet = 0.18f + pianoResonance * 0.16f;
-            const auto outLeft = (1.0f - wet) * rawOutput * directLeft + wet * resonatorLeftSum;
-            const auto outRight = (1.0f - wet) * rawOutput * directRight + wet * resonatorRightSum;
+            auto outLeft = (1.0f - wet) * rawOutput * directLeft + wet * (resonatorLeftSum + 0.40f * sympatheticOut);
+            auto outRight = (1.0f - wet) * rawOutput * directRight + wet * (resonatorRightSum + 0.60f * sympatheticOut);
+
+            // 4. 三角钢琴琴盖反射与近场木质微反射 (Phase 21-B, Chabassier 2019 Sec. 3.4)
+            lidAcoustics.processStereo(outLeft, outRight);
 
             if (outputBuffer.getNumChannels() >= 2) {
                 outputBuffer.addSample(0, sampleIndex, outLeft);
                 outputBuffer.addSample(1, sampleIndex, outRight);
             } else if (outputBuffer.getNumChannels() == 1) {
-                const auto outMono = (1.0f - wet) * rawOutput + wet * 0.5f * (resonatorLeftSum + resonatorRightSum);
+                const auto outMono
+                    = (1.0f - wet) * rawOutput + wet * 0.5f * (resonatorLeftSum + resonatorRightSum + sympatheticOut);
                 outputBuffer.addSample(0, sampleIndex, outMono);
             }
         }
@@ -295,6 +316,8 @@ public:
             for (auto& resonator : bodyResonators) {
                 resonator.reset();
             }
+            sympatheticPool.reset();
+            lidAcoustics.reset();
         }
     }
 
@@ -588,6 +611,102 @@ public:
         }
     };
     HammerTransient hammerTransient;
+
+    // 延音踏板全局交感共鸣弦池 (Phase 21-A, Bank 2010 Sec. VI)
+    struct SympatheticResonancePool {
+        static constexpr auto numPoolResonators = 12;
+        bool pedalDown = false;
+        float c1[numPoolResonators] {};
+        float c2[numPoolResonators] {};
+        float g[numPoolResonators] {};
+        float s1[numPoolResonators] {};
+        float s2[numPoolResonators] {};
+
+        void setPedalDown(bool isDown) noexcept {
+            pedalDown = isDown;
+        }
+
+        void updateCoefficients(double sampleRate) noexcept {
+            if (sampleRate <= 0.0) {
+                return;
+            }
+            // 12 个半音基底模态 (C2 到 B2)
+            constexpr float freqs[numPoolResonators] = { 65.41f, 69.30f, 73.42f,  77.78f,  82.41f,  87.31f,
+                                                         92.50f, 98.00f, 103.83f, 110.00f, 116.54f, 123.47f };
+            for (int i = 0; i < numPoolResonators; ++i) {
+                const auto theta = juce::MathConstants<double>::twoPi * static_cast<double>(freqs[i]) / sampleRate;
+                const auto bandwidth = static_cast<double>(freqs[i] / 12.0f); // Q = 12
+                const auto r = std::exp(-juce::MathConstants<double>::pi * bandwidth / sampleRate);
+                c1[i] = static_cast<float>(2.0 * r * std::cos(theta));
+                c2[i] = static_cast<float>(-r * r);
+                g[i] = static_cast<float>((1.0 - r * r) * 0.5);
+            }
+        }
+
+        void reset() noexcept {
+            for (int i = 0; i < numPoolResonators; ++i) {
+                s1[i] = 0.0f;
+                s2[i] = 0.0f;
+            }
+        }
+
+        [[nodiscard]] float process(float in) noexcept {
+            if (!pedalDown) {
+                // 踏板未踩下时交感共鸣池快速阻尼收敛
+                for (int i = 0; i < numPoolResonators; ++i) {
+                    s1[i] *= 0.90f;
+                    s2[i] *= 0.90f;
+                }
+                return 0.0f;
+            }
+            auto sum = 0.0f;
+            const auto drive = in * 0.08f;
+            for (int i = 0; i < numPoolResonators; ++i) {
+                const auto w = drive + c1[i] * s1[i] + c2[i] * s2[i];
+                const auto y = g[i] * (w - s2[i]);
+                s2[i] = s1[i];
+                s1[i] = w;
+                sum += y;
+            }
+            return sum;
+        }
+    };
+    SympatheticResonancePool sympatheticPool;
+
+    // 三角钢琴琴盖反射与近场木质微反射 (Phase 21-B, Chabassier 2019 Sec. 3.4)
+    struct LidAcoustics {
+        static constexpr std::size_t delaySize = 1024;
+        std::array<float, delaySize> leftBuffer {};
+        std::array<float, delaySize> rightBuffer {};
+        std::size_t writePos = 0;
+
+        void reset() noexcept {
+            leftBuffer.fill(0.0f);
+            rightBuffer.fill(0.0f);
+            writePos = 0;
+        }
+
+        void processStereo(float& left, float& right) noexcept {
+            leftBuffer[writePos] = left;
+            rightBuffer[writePos] = right;
+
+            // 3 抽头近场木质微反射 (3.2ms=141, 7.8ms=344, 11.5ms=507 at 44.1k)
+            const auto tap1Pos = (writePos + delaySize - 141) % delaySize;
+            const auto tap2Pos = (writePos + delaySize - 344) % delaySize;
+            const auto tap3Pos = (writePos + delaySize - 507) % delaySize;
+
+            const auto earlyL
+                = 0.10f * leftBuffer[tap1Pos] + 0.06f * rightBuffer[tap2Pos] + 0.04f * leftBuffer[tap3Pos];
+            const auto earlyR
+                = 0.10f * rightBuffer[tap1Pos] + 0.06f * leftBuffer[tap2Pos] + 0.04f * rightBuffer[tap3Pos];
+
+            left = left * 0.82f + earlyL;
+            right = right * 0.82f + earlyR;
+
+            writePos = (writePos + 1) % delaySize;
+        }
+    };
+    LidAcoustics lidAcoustics;
 
     struct BodyResonator {
         float frequency = 110.0f;

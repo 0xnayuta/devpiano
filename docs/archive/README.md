@@ -26,3 +26,4 @@
 | `phase18-per-note-voicing-micro-phases.md` | `docs/roadmap/roadmap.md`（Phase 18 摘要） |
 | `phase19-stereo-modal-soundboard.md` | `docs/roadmap/roadmap.md`（Phase 19 摘要） |
 | `phase20-longitudinal-ping-micro-variation.md` | `docs/roadmap/roadmap.md`（Phase 20 摘要） |
+| `phase21-sympathetic-resonance-lid-acoustics.md` | `docs/roadmap/roadmap.md`（Phase 21 摘要） |

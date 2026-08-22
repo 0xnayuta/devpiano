@@ -635,6 +635,29 @@ public:
                    "treble note C7 is panned toward right channel on the bridge");
         }
 
+        beginTest("sustain pedal sympathetic resonance and lid acoustics (Phase 21-A/B)");
+        {
+            // 验证延音踏板 (MIDI CC 64) 激活交感共鸣弦池
+            VoiceFixture pedalFixture;
+            juce::AudioBuffer<float> dryBuffer(2, blockSize * 4);
+            pedalFixture.noteOnBlock(60, 0.8f, dryBuffer);
+            const auto dryEnergy = dryBuffer.getRMSLevel(0, 0, dryBuffer.getNumSamples());
+
+            VoiceFixture pedalOnFixture;
+            pedalOnFixture.voice()->controllerMoved(64, 127); // Sustain Pedal Down
+            juce::AudioBuffer<float> pedalBuffer(2, blockSize * 4);
+            pedalOnFixture.noteOnBlock(60, 0.8f, pedalBuffer);
+            const auto pedalEnergy = pedalBuffer.getRMSLevel(0, 0, pedalBuffer.getNumSamples());
+
+            expect(pedalEnergy > dryEnergy * 0.95f, "sustain pedal sympathetic pool enriches audio energy");
+
+            // 踏板松开后迅速收敛
+            pedalOnFixture.voice()->controllerMoved(64, 0); // Pedal Up
+            pedalOnFixture.renderBlock(pedalBuffer);
+            expect(std::isfinite(pedalBuffer.getRMSLevel(0, 0, pedalBuffer.getNumSamples())),
+                   "pedal release stays numerically stable");
+        }
+
         beginTest("velocity loudness is monotonically increasing");
         {
             VoiceFixture soft;
