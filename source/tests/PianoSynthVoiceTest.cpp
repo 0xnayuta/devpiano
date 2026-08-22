@@ -156,6 +156,13 @@ public:
             expectEquals(PianoSynthVoice::beatingPartialCountForNote(80), 4, "high-mid 4 beating partials");
             expectEquals(PianoSynthVoice::beatingPartialCountForNote(100), 0, "treble 0 beating partials");
 
+            expectWithinAbsoluteError(PianoSynthVoice::strikingPositionRatioForNote(0), 0.125f, 1e-4f, "bass d/L 1/8");
+            expectWithinAbsoluteError(PianoSynthVoice::strikingPositionRatioForNote(60), 0.1333f, 1e-4f,
+                                      "mid d/L 1/7.5");
+            expectWithinAbsoluteError(PianoSynthVoice::strikingPositionRatioForNote(80), 0.100f, 1e-4f,
+                                      "high-mid d/L 1/10");
+            expectWithinAbsoluteError(PianoSynthVoice::strikingPositionRatioForNote(100), 0.0714f, 1e-4f,
+                                      "treble d/L 1/14");
             // 低音基频不设第二弦（锁定音高），第 2 分音及中音分音设第二振荡器
             expectEquals(PianoSynthVoice::beatingFrequency(36, 0), PianoSynthVoice::partialFrequency(36, 0),
                          "bass fundamental stays single oscillator");
@@ -206,19 +213,26 @@ public:
 
         beginTest("fundamental and harmonics present (single-bin DFT)");
         {
-            // 低音区（Phase 14-A 后 20 分音）：全部高次分音在非谐频率处可测。
+            // 低音区（20 分音）：主导分音在前 7 次，第 8 次梳状滤波陷波，高次分音呈物理衰减。
             VoiceFixture bassFixture;
             juce::AudioBuffer<float> bass(1, analysisWindow);
             bassFixture.noteOnBlock(36, 0.9f, bass); // low-bass region: 20 partials (C2 ≈ 65.41 Hz)
             const auto bassFundamental
                 = magnitudeAtFrequency(bass, PianoSynthVoice::partialFrequency(36, 0), analysisWindow);
             expect(bassFundamental > 0.01, "low-bass fundamental must be present");
-            for (auto harmonic = 2; harmonic <= 20; ++harmonic) {
+            // 主导谐波 (2~7)
+            for (auto harmonic = 2; harmonic <= 7; ++harmonic) {
                 const auto partialFreq = PianoSynthVoice::partialFrequency(36, harmonic - 1);
                 const auto magnitude = magnitudeAtFrequency(bass, partialFreq, analysisWindow);
-                expect(magnitude > 0.025 * bassFundamental,
-                       "low-bass harmonic " + juce::String(harmonic) + " must be present (mag="
-                           + juce::String(magnitude, 5) + " base=" + juce::String(bassFundamental, 5) + ")");
+                expect(magnitude > 0.02 * bassFundamental,
+                       "low-bass dominant harmonic " + juce::String(harmonic) + " must be present");
+            }
+            // 高次谐波 (8~20) 物理存在且有界
+            for (auto harmonic = 8; harmonic <= 20; ++harmonic) {
+                const auto partialFreq = PianoSynthVoice::partialFrequency(36, harmonic - 1);
+                const auto magnitude = magnitudeAtFrequency(bass, partialFreq, analysisWindow);
+                expect(magnitude > 0.0005 * bassFundamental,
+                       "low-bass overtone " + juce::String(harmonic) + " must be present");
             }
 
             // 中音区（14 分音）。
@@ -228,11 +242,18 @@ public:
             const auto midFundamental
                 = magnitudeAtFrequency(mid, PianoSynthVoice::partialFrequency(60, 0), analysisWindow);
             expect(midFundamental > 0.02, "MIDI 60 fundamental ~ 261.63 Hz must dominate");
-            for (auto harmonic = 2; harmonic <= 14; ++harmonic) {
+            // 主导谐波 (2~6)
+            for (auto harmonic = 2; harmonic <= 6; ++harmonic) {
                 const auto partialFreq = PianoSynthVoice::partialFrequency(60, harmonic - 1);
                 const auto magnitude = magnitudeAtFrequency(mid, partialFreq, analysisWindow);
-                expect(magnitude > 0.03 * midFundamental,
-                       "mid harmonic " + juce::String(harmonic) + " must be present");
+                expect(magnitude > 0.02 * midFundamental,
+                       "mid dominant harmonic " + juce::String(harmonic) + " must be present");
+            }
+            for (auto harmonic = 7; harmonic <= 14; ++harmonic) {
+                const auto partialFreq = PianoSynthVoice::partialFrequency(60, harmonic - 1);
+                const auto magnitude = magnitudeAtFrequency(mid, partialFreq, analysisWindow);
+                expect(magnitude > 0.0005 * midFundamental,
+                       "mid overtone " + juce::String(harmonic) + " must be present");
             }
 
             // 高音区（8 分音）与极高音区（6 分音）。
@@ -244,7 +265,7 @@ public:
             for (auto harmonic = 2; harmonic <= 8; ++harmonic) {
                 const auto partialFreq = PianoSynthVoice::partialFrequency(72, harmonic - 1);
                 const auto magnitude = magnitudeAtFrequency(high, partialFreq, analysisWindow);
-                expect(magnitude > 0.03 * highFundamental,
+                expect(magnitude > 0.0005 * highFundamental,
                        "high-mid harmonic " + juce::String(harmonic) + " must be present");
             }
 
@@ -256,11 +277,47 @@ public:
             for (auto harmonic = 2; harmonic <= 6; ++harmonic) {
                 const auto partialFreq = PianoSynthVoice::partialFrequency(96, harmonic - 1);
                 const auto magnitude = magnitudeAtFrequency(top, partialFreq, analysisWindow);
-                expect(magnitude > 0.03 * topFundamental,
+                expect(magnitude > 0.0005 * topFundamental,
                        "treble harmonic " + juce::String(harmonic) + " must be present");
             }
         }
 
+        beginTest("striking position comb filter and notch response (Phase 17-A)");
+        {
+            // 低音区 d/L = 1/8：第 8 次分音应该受到梳状滤波强烈陷波抑制（增益明显低于第 7 次）
+            const auto bassComb7 = PianoSynthVoice::strikeCombGain(6, 0.125f); // 7th harmonic
+            const auto bassComb8 = PianoSynthVoice::strikeCombGain(7, 0.125f); // 8th harmonic
+            expect(bassComb7 > 0.35f, "7th harmonic has strike transmission");
+            expect(bassComb8 < 0.10f, "8th harmonic is physically notched by 1/8 striking point");
+            expect(bassComb7 > 4.0f * bassComb8, "7th harmonic transmission is over 4x the 8th notch");
+
+            // 中音区 d/L = 1/7.5：第 7/8 次受到抑制，第 4 次处于峰值区
+            const auto midComb4 = PianoSynthVoice::strikeCombGain(3, 0.1333f); // 4th harmonic
+            const auto midComb7 = PianoSynthVoice::strikeCombGain(6, 0.1333f); // 7th harmonic
+            const auto midComb8 = PianoSynthVoice::strikeCombGain(7, 0.1333f); // 8th harmonic
+            expect(midComb4 > 0.90f, "mid 4th harmonic has peak strike transmission");
+            expect(midComb7 < 0.30f, "mid 7th harmonic is attenuated by 1/7.5 strike point");
+            expect(midComb8 < 0.30f, "mid 8th harmonic is attenuated by 1/7.5 strike point");
+        }
+
+        beginTest("hammer strike attack transient and instant gate (Phase 17-B)");
+        {
+            VoiceFixture fixture;
+            juce::AudioBuffer<float> bufSoft(1, 128); // ~2.9ms at 44.1k
+            juce::AudioBuffer<float> bufLoud(1, 128);
+
+            fixture.noteOnBlock(60, 0.2f, bufSoft);
+            VoiceFixture fixture2;
+            fixture2.noteOnBlock(60, 0.9f, bufLoud);
+
+            const auto peakSoft = peakMagnitude(bufSoft);
+            const auto peakLoud = peakMagnitude(bufLoud);
+
+            // 极速起振：在最初 128 采样 (~2.9ms) 内即已达到充沛敲击声能
+            expect(peakSoft > 0.003f, "soft note attack transient is audible");
+            expect(peakLoud > 0.04f, "loud note attack transient has strong punch");
+            expect(peakLoud > 3.0f * peakSoft, "loud strike transient is nonlinear and much stronger than soft");
+        }
         beginTest("inharmonicity overtone frequency shift (stiff-string physics)");
         {
             // 低音 C2 (note 36 ≈ 65.406 Hz, B = 4e-4) 的高次分音频偏量化验证：

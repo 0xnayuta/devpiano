@@ -72,7 +72,9 @@ public:
         if (getSampleRate() > 0.0) {
             adsrGate.setSampleRate(getSampleRate());
         }
-        adsrGate.setParameters({ parameters.attack, 0.001f, 1.0f, parameters.release });
+        // 极速起振门控 (Phase 17-B)：强制 attack <= 0.0002s (0.2ms) 瞬时爆发消除拉弓感
+        const auto attackSec = juce::jmin(0.0002f, parameters.attack);
+        adsrGate.setParameters({ attackSec, 0.001f, 1.0f, parameters.release });
     }
 
     // 音色参数（Phase 12-3，0..1，默认 0.5 与 v1 基准行为一致）：
@@ -108,11 +110,11 @@ public:
         // 高频衰减阻尼：pianoBrightness 微调（b=0.5 时为 1.0，暗时阻尼更大衰减更快，亮时阻尼略小）
         const auto dampingSlope = region.decayDampingC * (1.5f - pianoBrightness);
 
-        // 归一化：按当前亮度因子求和，使 v=1 时峰值恒为 peakLevelAtFullVelocity。
+        // 归一化：按当前击弦位置与非线性谱形求和，使 v=1 时峰值恒为 peakLevelAtFullVelocity。
         auto normSum = 0.0f;
         for (auto n = 0; n < numActivePartials; ++n) {
-            normSum += amplitudeFor(n) * brightnessBoost(n, brightnessFactor, numActivePartials)
-                * hammerGain(n, numActivePartials);
+            normSum
+                += amplitudeFor(n, region.strikingPositionRatio, brightnessFactor) * hammerGain(n, numActivePartials);
         }
         const auto scale = peakLevelAtFullVelocity / juce::jmax(1e-6f, normSum);
 
@@ -164,7 +166,7 @@ public:
                 partial.epsilon2 = 0.0;
             }
 
-            partial.level = amplitudeFor(n) * brightnessBoost(n, brightnessFactor, numActivePartials)
+            partial.level = amplitudeFor(n, region.strikingPositionRatio, brightnessFactor)
                 * hammerGain(n, numActivePartials) * scale * velocityLevel;
             // 模态能量耗散模型：τ_m = τ_base / (1.0 + c_eff * (m - 1))；双阶段衰减
             // （Phase 14-B）：τ_fast,m = τ_m × fastDecayRatio，慢分量权重 slowWeight。
@@ -176,6 +178,7 @@ public:
             partial.levelSlow = partial.level * region.slowWeight;
         }
 
+        hammerTransient.trigger(sampleRate, midiNoteNumber, clampedVelocity, pianoHammerHardness);
         for (auto& resonator : bodyResonators) {
             resonator.reset();
             resonator.updateCoefficients(sampleRate);
@@ -192,12 +195,12 @@ public:
         }
 
         adsrGate.reset();
+        hammerTransient.reset();
         for (auto& resonator : bodyResonators) {
             resonator.reset();
         }
         clearCurrentNote();
     }
-
     void pitchWheelMoved(int) override {
     }
     void controllerMoved(int, int) override {
@@ -237,9 +240,9 @@ public:
                 partial.levelFast *= partial.decayFastPerSample;
                 partial.levelSlow *= partial.decaySlowPerSample;
             }
+            const auto click = hammerTransient.getNextSample();
             const auto sampleIndex = startSample + sample;
-            const auto rawOutput = value * envelope;
-
+            const auto rawOutput = value * envelope + click;
             // 琴体共鸣滤波（Phase 13-3）：并联谐振器组与 Wet/Dry 混合
             auto resonatorSum = 0.0f;
             for (auto& resonator : bodyResonators) {
@@ -252,9 +255,10 @@ public:
             }
         }
 
-        // 分音全部衰减到阈值以下（-80 dB）即释放 voice，避免低音长尾长期占位。
+        // 分音全部衰减到阈值以下（-80 dB）且瞬态击弦冲击结束即释放 voice。
         if (allPartialsSilent()) {
             clearCurrentNote();
+            hammerTransient.reset();
             for (auto& resonator : bodyResonators) {
                 resonator.reset();
             }
@@ -347,13 +351,14 @@ public:
         float slowWeight; // 慢分量初始权重 w（快分量权重 = 1 - w）
         float beatingDetuneRatio; // 同音双弦微失谐率（Phase 14-C）
         int beatingPartials; // 启用拍频双振荡器的分音数
+        float strikingPositionRatio; // 击弦位置比例 d/L (Phase 17-A)
     };
 
     static constexpr VoiceRegion voiceRegions[] = {
-        { 20, 4.0f, 4.0e-4, 0.35f, 0.15f, 0.30f, 0.0020f, 6 }, // note < 48：低音，前 6 分音 0.20% 失谐
-        { 14, 2.5f, 1.0e-4, 0.25f, 0.20f, 0.25f, 0.0015f, 6 }, // 48–71：中音，前 6 分音 0.15% 失谐
-        { 8, 1.5f, 3.0e-5, 0.18f, 0.20f, 0.20f, 0.0010f, 4 }, // 72–95：高音，前 4 分音 0.10% 失谐
-        { 6, 0.8f, 1.0e-5, 0.12f, 0.15f, 0.15f, 0.0f, 0 }, // ≥ 96：极高音，无拍频
+        { 20, 4.0f, 4.0e-4, 0.35f, 0.15f, 0.30f, 0.0020f, 6, 0.125f }, // note < 48: 低音 d/L = 1/8
+        { 14, 2.5f, 1.0e-4, 0.25f, 0.20f, 0.25f, 0.0015f, 6, 0.1333f }, // 48–71: 中音 d/L = 1/7.5
+        { 8, 1.5f, 3.0e-5, 0.18f, 0.20f, 0.20f, 0.0010f, 4, 0.100f }, // 72–95: 高音 d/L = 1/10
+        { 6, 0.8f, 1.0e-5, 0.12f, 0.15f, 0.15f, 0.0f, 0, 0.0714f }, // >= 96: 极高音 d/L = 1/14
     };
 
     [[nodiscard]] static const VoiceRegion& regionForNote(int midiNoteNumber) noexcept {
@@ -368,12 +373,32 @@ public:
         }
         return voiceRegions[3];
     }
-
-    // 分音相对幅度：基频 1，第 n 次谐波 1/(n+1)。
-    [[nodiscard]] static float amplitudeFor(int partialIndex) noexcept {
-        return 1.0f / static_cast<float>(partialIndex + 1);
+    [[nodiscard]] static float strikingPositionRatioForNote(int midiNoteNumber) noexcept {
+        return regionForNote(midiNoteNumber).strikingPositionRatio;
     }
 
+    // 击弦点梳状滤波增益 (Phase 17-A)：S(m) = |sin(m·π·d/L)|，底噪泄漏 0.06 防彻底无声。
+    [[nodiscard]] static float strikeCombGain(int partialIndex, float strikingRatio) noexcept {
+        const auto m = static_cast<float>(partialIndex + 1);
+        const auto raw = std::abs(std::sin(juce::MathConstants<float>::pi * m * strikingRatio));
+        return 0.06f + 0.94f * raw;
+    }
+
+    // 非线性琴槌毛毡谱形 (Phase 17-A)：消灭 1/n 锯齿波，高次幂律滚降 (1/m^1.35) + 力度指数截止。
+    [[nodiscard]] static float hammerSpectrumGain(int partialIndex, float brightnessFactor) noexcept {
+        const auto m = static_cast<float>(partialIndex + 1);
+        const auto powerRollOff = 1.0f / std::pow(m, 1.35f);
+        const auto effectiveBrightness = juce::jlimit(0.15f, 2.5f, brightnessFactor);
+        const auto cutoffHarmonic = 1.5f + 16.0f * effectiveBrightness;
+        const auto feltFilter = std::exp(-m / cutoffHarmonic);
+        return powerRollOff * feltFilter;
+    }
+
+    // 分音相对初始幅度（击弦梳状滤波 × 非线性琴槌谱形）。
+    [[nodiscard]] static float amplitudeFor(int partialIndex, float strikingRatio = 0.1333f,
+                                            float brightnessFactor = 0.5f) noexcept {
+        return strikeCombGain(partialIndex, strikingRatio) * hammerSpectrumGain(partialIndex, brightnessFactor);
+    }
     // 亮度：高次谐波增益随亮度因子提升（基频不变，最高次 +60%）。
     [[nodiscard]] static float brightnessBoost(int partialIndex, float brightness, int partialCount) noexcept {
         return 1.0f + brightness * (static_cast<float>(partialIndex) / static_cast<float>(partialCount)) * 0.6f;
@@ -387,6 +412,9 @@ public:
     }
 
     [[nodiscard]] bool allPartialsSilent() const noexcept {
+        if (hammerTransient.isActive()) {
+            return false;
+        }
         for (auto n = 0; n < numActivePartials; ++n) {
             const auto& partial = partials[static_cast<std::size_t>(n)];
             if (partial.levelFast + partial.levelSlow > silentLevelThreshold) {
@@ -416,6 +444,66 @@ public:
     float pianoBrightness = 0.5f;
     float pianoHammerHardness = 0.5f;
     float pianoResonance = 0.5f;
+    // 琴槌撞击瞬态冲击核 (Phase 17-B)：2~3ms 木质/毛毡物理撞击脉冲 (Click/Thump)
+    struct HammerTransient {
+        int samplesRemaining = 0;
+        int totalSamples = 0;
+        float amplitude = 0.0f;
+        float decayPerSample = 0.0f;
+        float oscPhase1 = 0.0f;
+        float phaseInc1 = 0.0f;
+        float oscPhase2 = 0.0f;
+        float phaseInc2 = 0.0f;
+
+        void trigger(double sr, int midiNoteNumber, float velocity, float hardness) noexcept {
+            if (sr <= 0.0) {
+                return;
+            }
+            const auto sampleRate = static_cast<float>(sr);
+            // 冲击持续时间 1.5ms ~ 3.0ms（高音短脆，低音深沉）
+            const auto dur = juce::jlimit(0.0012f, 0.0030f, 0.0030f - static_cast<float>(midiNoteNumber) * 0.000015f);
+            totalSamples = juce::jmax(1, static_cast<int>(dur * sampleRate));
+            samplesRemaining = totalSamples;
+
+            // 双共振峰打击频率 (毛毡冲击 1.1~2.0 kHz + 钢丝初始震荡 2.5~4.5 kHz)
+            const auto f1 = juce::jlimit(900.0f, 2200.0f, 1100.0f + static_cast<float>(midiNoteNumber) * 12.0f);
+            const auto f2 = juce::jlimit(2200.0f, 4800.0f, 2600.0f + static_cast<float>(midiNoteNumber) * 18.0f);
+            phaseInc1 = juce::MathConstants<float>::twoPi * f1 / sampleRate;
+            phaseInc2 = juce::MathConstants<float>::twoPi * f2 / sampleRate;
+            oscPhase1 = 0.0f;
+            oscPhase2 = 0.0f;
+
+            // 力度非线性响应 (v^1.6) + 击弦硬度缩放
+            const auto v = juce::jlimit(0.0f, 1.0f, velocity);
+            const auto vLevel = v * std::sqrt(v) * (0.6f + 0.8f * hardness);
+            amplitude = peakLevelAtFullVelocity * 0.35f * vLevel;
+            decayPerSample = std::exp(-4.5f / static_cast<float>(totalSamples));
+        }
+
+        [[nodiscard]] float getNextSample() noexcept {
+            if (samplesRemaining <= 0) {
+                return 0.0f;
+            }
+            --samplesRemaining;
+            const auto s1 = std::sin(oscPhase1);
+            const auto s2 = std::sin(oscPhase2);
+            oscPhase1 += phaseInc1;
+            oscPhase2 += phaseInc2;
+            const auto out = amplitude * (0.6f * s1 + 0.4f * s2);
+            amplitude *= decayPerSample;
+            return out;
+        }
+
+        void reset() noexcept {
+            samplesRemaining = 0;
+            amplitude = 0.0f;
+        }
+
+        [[nodiscard]] bool isActive() const noexcept {
+            return samplesRemaining > 0;
+        }
+    };
+    HammerTransient hammerTransient;
     struct BodyResonator {
         float frequency = 110.0f;
         float q = 6.0f;
