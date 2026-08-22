@@ -79,6 +79,16 @@ private:
             expectEquals(kb.findNoteAt({ offset - 10, 64 }), -1, "left margin returns -1");
             expectEquals(kb.findNoteAt({ 1888 - 10, 64 }), -1, "right margin returns -1");
         });
+        testCase("viewport height stretches keyboard height to 100% without shrinking", [&] {
+            juce::MidiKeyboardState ks;
+            CustomKeyboard kb(ks);
+            kb.updateViewportBounds(1888, 170); // 视口标准高度 170px
+            expectEquals(kb.getHeight(), 170, "keyboard height fills 100% of visibleHeight (170px)");
+            const auto offset = static_cast<int>(kb.getKeybedOffsetX());
+            expectEquals(offset, 320);
+            // 验证在 170px 高度底部区域点击仍能精确命中白键
+            expectEquals(kb.findNoteAt({ whiteKeyCentreX(21, 60) + offset, 160 }), 60, "hit near bottom of 170px key");
+        });
     }
 
     void testBlackKeyPriority() {

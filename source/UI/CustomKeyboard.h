@@ -96,6 +96,7 @@ private:
     int lastMouseDownNote = -1;
     float keybedOffsetX = 0.0f; // horizontal centering offset when window > keybed width
     int lastVisibleWidth = 0;
+    int lastVisibleHeight = 0;
     bool resizing = false; // guard against recalc → setSize → resized() loop
 
     // Per-key binding data for colour mode computation, indexed by MIDI note.

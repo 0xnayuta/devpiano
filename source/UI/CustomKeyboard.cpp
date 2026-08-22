@@ -128,7 +128,7 @@ void CustomKeyboard::setKeyboardLayout(const devpiano::core::KeyboardLayout& lay
 void CustomKeyboard::recalculateKeyBounds() {
     keys.clear();
 
-    auto totalHeight = static_cast<float>(getHeight());
+    auto totalHeight = static_cast<float>(lastVisibleHeight > 0 ? lastVisibleHeight : getHeight());
     if (totalHeight < 1.0f) {
         totalHeight = static_cast<float>(defaultHeight);
     }
@@ -648,9 +648,14 @@ void CustomKeyboard::resized() {
         recalculateKeyBounds();
     }
 }
+
 void CustomKeyboard::updateViewportBounds(int visibleWidth, int visibleHeight) {
     lastVisibleWidth = visibleWidth;
-    if (getHeight() != visibleHeight || (visibleWidth > 0 && getWidth() != visibleWidth)) {
+    if (visibleHeight > 0) {
+        lastVisibleHeight = visibleHeight;
+    }
+    if ((lastVisibleHeight > 0 && getHeight() != lastVisibleHeight)
+        || (lastVisibleWidth > 0 && getWidth() != lastVisibleWidth)) {
         recalculateKeyBounds();
         repaint();
     }
