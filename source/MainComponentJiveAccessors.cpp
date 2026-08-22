@@ -754,6 +754,12 @@ void MainComponent::refreshControlsTexts() {
     setButtonText("open-perf-btn", TRANS("Open"));
     setButtonText("song-info-btn", TRANS("Info"));
 
+    if (auto* item = jive::findItemWithID(*jiveRootItem, "adsr-curve")) {
+        if (auto comp = item->getComponent()) {
+            comp->repaint();
+        }
+    }
+
     setRecordingControlsState(recordingControlsState);
 }
 
@@ -845,6 +851,10 @@ void MainComponent::refreshAllTexts() {
     refreshPluginPanelTexts();
     refreshControlsTexts();
     devpiano::ui::jive::refreshTitles(*jiveRootItem);
+    if (customKeyboardRef != nullptr) {
+        customKeyboardRef->repaint();
+    }
+    updateStatusBar();
 }
 
 double MainComponent::getCurrentRuntimeSampleRate() const {

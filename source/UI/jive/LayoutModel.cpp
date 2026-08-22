@@ -75,6 +75,7 @@ inline juce::ValueTree flexColumn(const juce::String& id = {}) {
     auto t = node("Component", id);
     t.setProperty("display", "flex", nullptr);
     t.setProperty("flex-direction", "column", nullptr);
+    t.setProperty("align-items", "stretch", nullptr);
     return t;
 }
 
@@ -328,6 +329,8 @@ juce::ValueTree makeControlsPanelTree() {
     auto presetHeader = text(TRANS("Performance Preset"), "preset-card-title");
     presetHeader.setProperty("height", 16, nullptr);
     presetHeader.setProperty("margin", "0 0 6 0", nullptr);
+    presetHeader.setProperty("justification", "centred-left", nullptr);
+    presetHeader.setProperty("word-wrap", "none", nullptr);
     presetCard.appendChild(presetHeader, nullptr);
 
     auto presetCombo = node("ComboBox", "preset-combo");
@@ -439,6 +442,8 @@ juce::ValueTree makeControlsPanelTree() {
     auto adsrTitle = text(TRANS("ADSR Curve"), "adsr-curve-title");
     adsrTitle.setProperty("height", 14, nullptr);
     adsrTitle.setProperty("margin", "0 0 6 0", nullptr);
+    adsrTitle.setProperty("justification", "centred-left", nullptr);
+    adsrTitle.setProperty("word-wrap", "none", nullptr);
     adsrCard.appendChild(adsrTitle, nullptr);
 
     auto curve = node("AdsrCurve", "adsr-curve");
@@ -462,6 +467,8 @@ juce::ValueTree makeControlsPanelTree() {
     auto transportHeader = text(TRANS("Transport Controls"), "transport-card-title");
     transportHeader.setProperty("height", 16, nullptr);
     transportHeader.setProperty("margin", "0 0 6 0", nullptr);
+    transportHeader.setProperty("justification", "centred-left", nullptr);
+    transportHeader.setProperty("word-wrap", "none", nullptr);
     transportCard.appendChild(transportHeader, nullptr);
 
     // 2x2 Large Transport Buttons (Record, Play, Stop, Back to Start).
@@ -486,6 +493,8 @@ juce::ValueTree makeControlsPanelTree() {
     auto speedHeader = text(TRANS("Playback Speed"), "speed-label");
     speedHeader.setProperty("height", 14, nullptr);
     speedHeader.setProperty("margin", "0 0 4 0", nullptr);
+    speedHeader.setProperty("justification", "centred-left", nullptr);
+    speedHeader.setProperty("word-wrap", "none", nullptr);
     transportCard.appendChild(speedHeader, nullptr);
 
     auto speedSlider = node("SpeedSlider", "speed-knob");

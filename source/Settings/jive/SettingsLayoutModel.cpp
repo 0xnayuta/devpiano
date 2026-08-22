@@ -50,6 +50,7 @@ inline juce::ValueTree flexColumn(const juce::String& id = {}) {
     auto t = node("Component", id);
     t.setProperty("display", "flex", nullptr);
     t.setProperty("flex-direction", "column", nullptr);
+    t.setProperty("align-items", "stretch", nullptr);
     return t;
 }
 

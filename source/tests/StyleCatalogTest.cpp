@@ -1029,6 +1029,7 @@ public:
 
         testTitleTextRendersVisiblePixels();
         testButtonLabelRendersVisiblePixels();
+        testCardTitlesRenderVisiblePixels();
     }
 
 private:
@@ -1087,6 +1088,48 @@ private:
 
         const int light = countLightPixels(*item->getComponent(), 800, 40);
         expect(light > 25, "button labels render no visible pixels (light=" + juce::String(light) + ")");
+    }
+    void testCardTitlesRenderVisiblePixels() {
+        beginTest("control card titles have non-zero width and render visible pixels");
+
+        ::jive::Interpreter interpreter;
+        interpreter.getComponentFactory().set("DevKnob", [] { return std::make_unique<juce::Component>(); });
+        interpreter.getComponentFactory().set("AdsrCurve", [] { return std::make_unique<juce::Component>(); });
+        interpreter.getComponentFactory().set("RecordButton", [] { return std::make_unique<juce::Component>(); });
+        interpreter.getComponentFactory().set("PlayButton", [] { return std::make_unique<juce::Component>(); });
+        interpreter.getComponentFactory().set("StopButton", [] { return std::make_unique<juce::Component>(); });
+        interpreter.getComponentFactory().set("BackButton", [] { return std::make_unique<juce::Component>(); });
+        interpreter.getComponentFactory().set("SpeedSlider", [] { return std::make_unique<juce::Component>(); });
+
+        auto tree = devpiano::ui::jive::makeControlsPanelTree();
+        devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
+        auto item = interpreter.interpret(tree);
+        expect(item != nullptr, "controls panel interpretation failed");
+        if (item == nullptr) {
+            return;
+        }
+
+        item->getComponent()->setBounds(0, 0, 900, 200);
+
+        // Verify that card titles are assigned positive width by FlexBox layout.
+        if (auto* presetTitle = ::jive::findItemWithID(*item, "preset-card-title")) {
+            expect(presetTitle->getComponent()->getWidth() > 50,
+                   "preset-card-title width must be positive (got "
+                       + juce::String(presetTitle->getComponent()->getWidth()) + ")");
+        }
+        if (auto* adsrTitle = ::jive::findItemWithID(*item, "adsr-curve-title")) {
+            expect(adsrTitle->getComponent()->getWidth() > 50,
+                   "adsr-curve-title width must be positive (got " + juce::String(adsrTitle->getComponent()->getWidth())
+                       + ")");
+        }
+        if (auto* transportTitle = ::jive::findItemWithID(*item, "transport-card-title")) {
+            expect(transportTitle->getComponent()->getWidth() > 50,
+                   "transport-card-title width must be positive (got "
+                       + juce::String(transportTitle->getComponent()->getWidth()) + ")");
+        }
+
+        const int light = countLightPixels(*item->getComponent(), 900, 200);
+        expect(light > 50, "controls card titles render no visible pixels (light=" + juce::String(light) + ")");
     }
 };
 
