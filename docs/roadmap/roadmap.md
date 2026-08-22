@@ -167,7 +167,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 2. **三角钢琴琴盖反射传递函数与木质近场微反射（Lid Position & Early Reflections）**：3 抽头近场微反射消灭干燥贴耳感，重现演奏者身临其境的空气深度。
 
 详细完成记录见 [`../archive/phase21-sympathetic-resonance-lid-acoustics.md`](../archive/phase21-sympathetic-resonance-lid-acoustics.md)。
-### Phase 22：物理声学极致深化与机械拟真（Physical Modeling Acoustic Refinement & Mechanical Realism） [排期规划中]
+### Phase 22：物理声学极致深化与机械拟真（Physical Modeling Acoustic Refinement & Mechanical Realism） [已完成，2026-08-22]
 
 基于 7 大物理声学系统深度评估后的 5 项高阶物理机理深化：
 1. **制音器落弦与琴键释放机械瞬态（Damper Felt Fall & Release Thump）**：$80\sim 150\text{ Hz}$ 制音器落弦物理闷击声与 88 键音区分级；
@@ -176,7 +176,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 4. **强击非线性大动态微音高漂移与软饱和（Pitch Glide & Dynamic Saturation）**：$f\!\!f\!\!f$ 强击瞬间 $2\sim 5$ 音分音高瞬态上浮与音板三次谐波饱和；
 5. **未踩踏板时的单键和弦开放弦交感共鸣（Duplex & Unpedaled Sympathetic Resonance）**：按住低音键时高音弹奏触发的开放弦局部交感。
 
-详细计划见 [`current-iteration.md`](current-iteration.md)。
+详细完成记录见 [`../archive/phase22-physical-modeling-acoustic-refinement.md`](../archive/phase22-physical-modeling-acoustic-refinement.md)。
 ## 3. 主要风险
 
 | 风险 | 当前判断 | 应对方向 |
@@ -225,6 +225,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 - Phase 16 完成记录（虚拟键盘局部脏矩形重绘与预设覆盖确认）：[`../archive/phase16-keyboard-dirty-repaint-preset-confirm.md`](../archive/phase16-keyboard-dirty-repaint-preset-confirm.md)
 - Phase 17 完成记录（真实物理打击感钢琴音源重构）：[`../archive/phase17-physical-strike-hammer-piano.md`](../archive/phase17-physical-strike-hammer-piano.md)
 - Phase 18 完成记录（88 键物理参数化与微观相位色散）：[`../archive/phase18-per-note-voicing-micro-phases.md`](../archive/phase18-per-note-voicing-micro-phases.md)
+- Phase 22 完成记录（物理声学极致深化与机械拟真）：[`../archive/phase22-physical-modeling-acoustic-refinement.md`](../archive/phase22-physical-modeling-acoustic-refinement.md)
 - Phase 19 完成记录（立体声音板共鸣箱与同音三弦微动力学）：[`../archive/phase19-stereo-modal-soundboard.md`](../archive/phase19-stereo-modal-soundboard.md)
 - Phase 20 完成记录（微观物理动力学：纵向波先驱声与击键混沌微扰）：[`../archive/phase20-longitudinal-ping-micro-variation.md`](../archive/phase20-longitudinal-ping-micro-variation.md)
 - Phase 21 完成记录（踏板交感共鸣与琴盖空间声学）：[`../archive/phase21-sympathetic-resonance-lid-acoustics.md`](../archive/phase21-sympathetic-resonance-lid-acoustics.md)

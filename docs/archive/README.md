@@ -27,3 +27,4 @@
 | `phase19-stereo-modal-soundboard.md` | `docs/roadmap/roadmap.md`（Phase 19 摘要） |
 | `phase20-longitudinal-ping-micro-variation.md` | `docs/roadmap/roadmap.md`（Phase 20 摘要） |
 | `phase21-sympathetic-resonance-lid-acoustics.md` | `docs/roadmap/roadmap.md`（Phase 21 摘要） |
+| `phase22-physical-modeling-acoustic-refinement.md` | `docs/roadmap/roadmap.md`（Phase 22 摘要） |

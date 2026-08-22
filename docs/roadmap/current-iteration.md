@@ -5,7 +5,7 @@
 
 ## 当前方向
 
-**Phase 22：物理声学极致深化与机械拟真（Physical Modeling Acoustic Refinement & Mechanical Realism） [排期规划中 / 准备推进]**
+**Phase 22：物理声学极致深化与机械拟真（Physical Modeling Acoustic Refinement & Mechanical Realism） [已完成，2026-08-22]**
 
 本轮重点聚焦 7 大物理声学系统（Hammer、String、Bridge、Soundboard、Cabinet、Air、Room）深度评估后识别出的 5 大高阶物理机理：
 
@@ -22,17 +22,17 @@
 
 3. **长短琴桥断裂交界音色物理补偿（Phase 22-C, Bridge Break & Inharmonicity Voicing Jump）**：
    - 真实三角钢琴在低音单弦长琴桥与中高音短琴桥交界处（MIDI 43~44 / G2~G#2）存在物理断裂间隙；
-   - 精细化交界处的弦长、琴桥导纳阻抗与刚性失谐系数 $B$ 的台阶式物理跳变，还原真实大三角钢琴的声学生理特征。
+   - 精细化交界处的弦长、琴桥导纳阻抗与刚性失谐系数 $B$ 的台阶式物理跳变（$+43\%$），还原真实大三角钢琴的声学生理特征。
 
 4. **强击非线性大动态微音高漂移与软饱和（Phase 22-D, Pitch Glide & Non-linear Tension Modulation）**：
-   - $f\!\!f\!\!f$ 强击瞬间琴弦横向大振幅振动导致琴弦微观瞬态拉长，在前 $5\sim 10\text{ ms}$ 注入 $2\sim 5$ 音分的瞬态音高微浮（Pitch Glide）与音板微弱三次谐波软饱和，重现重击钢琴时的物理爆发张力。
+   - $f\!\!f\!\!f$ 强击瞬间琴弦横向大振幅振动导致琴弦微观瞬态拉长，在前 $12\text{ ms}$ 注入 $+2.5\sim 4.0\text{ cents}$ 的瞬态音高微浮（Pitch Glide）与音板微弱三次谐波软饱和，重现重击钢琴时的物理爆发张力。
 
 5. **未踩踏板时的单键和弦开放弦交感共鸣（Phase 22-E, Duplex & Unpedaled Sympathetic Resonance）**：
    - 持续按住低音键时，弹奏高音键将激发低音开放弦的同频泛音共振，实现无踏板状态下的双音/和弦交感。
 
 ---
 
-## Phase 22：物理声学极致深化与机械拟真 [排期规划]
+## Phase 22：物理声学极致深化与机械拟真 [已完成]
 
 ### 系统架构与物理模块映射
 
@@ -66,13 +66,14 @@
   - 在 `PianoSynthVoice::startNote` 对极高力度按键注入微秒级瞬态音高上浮与音板三次谐波软饱和。
 - [x] **Phase 22-E：未踩踏板时的单键和弦开放弦交感共鸣（Unpedaled Sympathetic Resonance）**
   - 维护当前处于按住状态的开放琴弦模态，并在弹奏新音符时注入开放弦交感振荡。
-- [ ] **Phase 22-F：确定性物理测试更新与三闸门交付**
+- [x] **Phase 22-F：确定性物理测试更新与三闸门交付**
   - 补充 5 大物理深化子项的数学断言测试，三闸门基线全绿交付。
 
 ---
 
 ## 历史实现 Backlog
 
+- Phase 22 完成记录（物理声学极致深化与机械拟真）：[`../archive/phase22-physical-modeling-acoustic-refinement.md`](../archive/phase22-physical-modeling-acoustic-refinement.md)
 - Phase 21 完成记录（踏板交感共鸣与琴盖空间声学）：[`../archive/phase21-sympathetic-resonance-lid-acoustics.md`](../archive/phase21-sympathetic-resonance-lid-acoustics.md)
 - Phase 20 完成记录（微观物理动力学：纵向波先驱声与击键混沌微扰）：[`../archive/phase20-longitudinal-ping-micro-variation.md`](../archive/phase20-longitudinal-ping-micro-variation.md)
 - Phase 19 完成记录（立体声音板共鸣箱与同音三弦微动力学）：[`../archive/phase19-stereo-modal-soundboard.md`](../archive/phase19-stereo-modal-soundboard.md)
