@@ -327,6 +327,7 @@ juce::ValueTree makeControlsPanelTree() {
     presetCard.setProperty("border-width", "1", nullptr);
 
     auto presetHeader = text(TRANS("Performance Preset"), "preset-card-title");
+    presetHeader.setProperty("width", "100%", nullptr);
     presetHeader.setProperty("height", 20, nullptr);
     presetHeader.setProperty("margin", "0 0 6 0", nullptr);
     presetHeader.setProperty("justification", "centred-left", nullptr);
@@ -440,6 +441,7 @@ juce::ValueTree makeControlsPanelTree() {
     knobsRow.appendChild(makeKnob("release-knob", "release-label", TRANS("Release")), nullptr);
     adsrCard.appendChild(knobsRow, nullptr);
     auto adsrTitle = text(TRANS("ADSR Curve"), "adsr-curve-title");
+    adsrTitle.setProperty("width", "100%", nullptr);
     adsrTitle.setProperty("height", 18, nullptr);
     adsrTitle.setProperty("margin", "0 0 6 0", nullptr);
     adsrTitle.setProperty("justification", "centred-left", nullptr);
@@ -465,6 +467,7 @@ juce::ValueTree makeControlsPanelTree() {
     transportCard.setProperty("border-width", "1", nullptr);
 
     auto transportHeader = text(TRANS("Transport Controls"), "transport-card-title");
+    transportHeader.setProperty("width", "100%", nullptr);
     transportHeader.setProperty("height", 20, nullptr);
     transportHeader.setProperty("margin", "0 0 6 0", nullptr);
     transportHeader.setProperty("justification", "centred-left", nullptr);
@@ -491,6 +494,7 @@ juce::ValueTree makeControlsPanelTree() {
 
     // Speed Slider Area — horizontal slider matching the reference design
     auto speedHeader = text(TRANS("Playback Speed"), "speed-label");
+    speedHeader.setProperty("width", "100%", nullptr);
     speedHeader.setProperty("height", 18, nullptr);
     speedHeader.setProperty("margin", "0 0 4 0", nullptr);
     speedHeader.setProperty("justification", "centred-left", nullptr);

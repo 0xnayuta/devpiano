@@ -83,8 +83,8 @@ juce::ValueTree makeAudioDeviceSectionTree() {
     card.setProperty("border-width", "1", nullptr);
     card.setProperty("border-radius", "6", nullptr);
     card.setProperty("background", devpiano::jive::DesignTokens::get().panelBg().toDisplayString(true), nullptr);
-
     auto title = text(TRANS("Audio Device"), "audio-device-title");
+    title.setProperty("width", "100%", nullptr);
     title.setProperty("font-weight", "bold", nullptr);
     title.setProperty("font-size", 15, nullptr);
     title.setProperty("height", 22, nullptr);
@@ -180,6 +180,7 @@ juce::ValueTree makeKeySignatureSectionTree() {
     card.setProperty("background", devpiano::jive::DesignTokens::get().panelBg().toDisplayString(true), nullptr);
 
     auto title = text(TRANS("Key Signature"), "key-sig-title");
+    title.setProperty("width", "100%", nullptr);
     title.setProperty("font-weight", "bold", nullptr);
     title.setProperty("font-size", 15, nullptr);
     title.setProperty("height", 22, nullptr);
@@ -244,6 +245,7 @@ juce::ValueTree makeKeyboardDisplaySectionTree() {
     card.setProperty("background", devpiano::jive::DesignTokens::get().panelBg().toDisplayString(true), nullptr);
 
     auto title = text(TRANS("Keyboard Display"), "keyboard-display-title");
+    title.setProperty("width", "100%", nullptr);
     title.setProperty("font-weight", "bold", nullptr);
     title.setProperty("font-size", 15, nullptr);
     title.setProperty("height", 22, nullptr);
@@ -309,6 +311,7 @@ juce::ValueTree makeDiagnosticsSectionTree() {
     card.setProperty("background", devpiano::jive::DesignTokens::get().panelBg().toDisplayString(true), nullptr);
 
     auto title = text(TRANS("Diagnostics"), "diagnostics-title");
+    title.setProperty("width", "100%", nullptr);
     title.setProperty("font-weight", "bold", nullptr);
     title.setProperty("font-size", 15, nullptr);
     title.setProperty("height", 22, nullptr);
