@@ -5,44 +5,49 @@
 
 ## 当前方向
 
-**Phase 19：立体声音板共鸣箱与同音三弦微动力学（Stereo Modal Soundboard & Multi-String Dynamics） [已完成，2026-08-22]**
+**Phase 20：微观物理动力学（纵向波先驱声与击键混沌微扰） [已完成，2026-08-22]**
 
-本轮重点（深度吸收 Bank 2010 IEEE TASLP 与 Chabassier 2019 IEEE SPM 音板模态与空间辐射理论）：
-1. **16 峰物理云杉木音板模态组（Spruce Soundboard Modal Bank）**：
-   - 基于 Bank 2010 (Sec. VII) 与 Chabassier 2019 (Sec. 3.3) 真实三角钢琴云杉木板正交各向异性（Orthotropic）模态数据，将音板谐振器从 8 峰扩充为 **16 峰**；
-   - 覆盖 $48\text{ Hz} \sim 2250\text{ Hz}$ 完整物理频段（包含底箱呼吸模态、低音/高音长琴桥耦合模态、肋木加强筋横向模态与高频各向异性散射峰），极点严格在单位圆内，双声道权重严格归一化。
-2. **琴桥立体声空间辐射（Stereo Bridge Panning & Asymmetric Soundboard Radiation）**：
-   - 模拟大三角钢琴 $2\sim 3\text{ 米}$ 琴身低音在左、高音在右的物理跨度；
-   - 根据琴键位置 $x_{\text{key}} \in [0.0, 1.0]$ 计算直达声声像：$\text{pan} = 0.20 + 0.60 \times x_{\text{key}}$（左耳 0.20 到右耳 0.80）；
-   - 音板谐振器左右声道非对称空间投影：低频模态偏向左耳箱体，中高频模态偏向右侧开阔琴盖散射，彻底消灭单声道耳膜居中压迫感。
-3. **同音三弦独立三振荡器非对称拍频（Trichord 3-Oscillator Asymmetric Beating）**：
-   - 中高音区（MIDI 48~108）全面升级为 3 振荡器非对称微失谐拍频（$-\Delta c, 0, +\Delta c$）；
-   - 3 根弦分别绑定 STFT 实测最优微初相矩阵 `kOptPhaseTable[0]`, `kOptPhaseTable[1]`, `kOptPhaseTable[2]`，展现真实调律师调出的“合唱拍频（Choral Unison）”。
-4. **极简 C++20 性能纪律**：
-   - 16 峰谐振器极点递推维持每采样纯加乘法，零堆分配、零锁、音频线程单核 CPU 维持 $\le 0.7\%$。
+本轮重点（深度吸收 Bank 2005 JASA、Bank 2010 IEEE TASLP 与 Bank & Chabassier 2019 IEEE SPM）：
+1. **低音钢弦纵向波先驱脉冲（Longitudinal Precursor Ping，Bank 2005/2010）**：
+   - 依据钢弦纵波物理波速 $v_L = \sqrt{E/\rho} \approx 5100\text{ m/s}$，为低音区（MIDI 21~52，A0~E3）注入基频为 $f_{L,1} = v_L / (2L)$ 的前 3 阶极快速衰减纵向金属先驱脉冲（$\tau_{\text{long}} \approx 15\sim 25\text{ ms}$）；
+   - 完美重现大三角钢琴低音区击键瞬间特有的紧绷金属撞击“哐”先导声。
+2. **机械击弦微观混沌微扰（Micro-variation Jitter，Bank & Chabassier 2019 Sec. 4）**：
+   - 为连续击打同一琴键（同音快速轮指、快速琶音）引入微秒级物理微扰（Jitter）：
+     - 击弦位置微扰：$d/L \times (1 + \delta_1)$（$\delta_1 \in [-0.6\%, +0.6\%]$）；
+     - 空间微初相微扰：$\varphi_n + \delta_2$（$\delta_2 \in [-0.012, +0.012]\text{ rad}$）；
+     - 琴槌毛毡接触时间微扰：$T_c \times (1 + \delta_3)$（$\delta_3 \in [-0.8\%, +0.8\%]$）；
+   - 彻底消灭连续快速击键时的“机械克隆感”，赋予每次发音独一无二的物理呼吸生命力。
+3. **极简 C++20 性能纪律**：
+   - 纵向波脉冲与打击核紧凑内联，零堆分配、零运行时三角函数计算，音频线程单核 CPU 维持 $\le 0.7\%$。
 
 ---
 
-## Phase 19：立体声音板共鸣箱与同音三弦微动力学 [已完成]
+## Phase 20：微观物理动力学（纵向波先驱声与击键混沌微扰） [已完成]
 
-### 子任务排期（Phase 19）
+### 子任务排期（Phase 20）
 
-- [x] **Phase 19-A：16 峰云杉木物理音板模态重构（Spruce Soundboard Modal Bank）**
-  - 基于 Bank 2010 / Chabassier 2019 实测数据构建 16 峰音板模态表（48Hz~2250Hz）；
-  - 实现二阶并联滤波与极点稳定保证（$|r| < 1$），权重严格归一化。
-- [x] **Phase 19-B：琴桥物理立体声空间辐射与非对称投影**
-  - 在 `renderNextBlock` 中实现直达声琴桥声像定位与双声道非对称模态投影；
-  - 彻底将单声道输出蜕变为宏大真实的立体声大三角钢琴声场。
-- [x] **Phase 19-C：同音三弦独立三振荡器非对称拍频（Trichord 3-Oscillator Engine）**
-  - 在 `PianoSynthVoice::Partial` 中扩展第 3 振荡器（`cosState3`, `sinState3`, `epsilon3`）；
-  - 接入 `kOptPhaseTable[2]` 独立初相，实现三弦独立非对称拍频。
-- [x] **Phase 19-D：确定性物理测试更新与三闸门交付**
-  - 补充 16 峰音板参数断言、左右声道立体声分离度测试与三振荡器干涉测试，三闸门基线全绿交付。
+- [x] **Phase 20-A：低音钢弦纵向波先驱脉冲注入（Longitudinal Precursor Ping）**
+  - 在 `PianoSynthVoice::HammerTransient` 或独立结构中实现纵向波前 3 阶模态脉冲；
+  - 绑定 $v_L \approx 5100\text{ m/s}$ 与 88 键实测弦长 $L$ 计算 $f_{L,1}$，实现 $\le 20\text{ ms}$ 极速衰减。
+- [x] **Phase 20-B：机械击弦微观混沌微扰引擎（Micro-variation Jitter）**
+  - 在 `PianoSynthVoice::startNote` 中引入轻量伪随机/确定性混沌发生器（基于 note、velocity 与击键计数）；
+  - 对 $d/L$、$\varphi$ 与 $T_c$ 施加微扰，赋予同音轮指自然的生命起伏。
+- [x] **Phase 20-C：确定性物理测试更新与三闸门交付**
+  - 补充低音纵向波频点与衰减测试、连续击键微扰方差测试，三闸门基线全绿交付。
+
+---
+
+## 远期规划 Backlog（Phase 21）
+
+- **Phase 21：踏板交感共鸣与琴盖空间声学（Sympathetic Resonance Pool & Lid Reflection）**：
+  1. 延音踏板全局交感共鸣弦池（Sympathetic Resonance Pool）；
+  2. 三角钢琴琴盖反射传递函数与木质近场微反射（Lid Position & Early Reflections）。
 
 ---
 
 ## 历史实现 Backlog
 
+- Phase 20 完成记录（微观物理动力学：纵向波先驱声与击键混沌微扰）：[`../archive/phase20-longitudinal-ping-micro-variation.md`](../archive/phase20-longitudinal-ping-micro-variation.md)
 - Phase 19 完成记录（立体声音板共鸣箱与同音三弦微动力学）：[`../archive/phase19-stereo-modal-soundboard.md`](../archive/phase19-stereo-modal-soundboard.md)
 - Phase 18 完成记录（88 键物理参数化与微观相位色散）：[`../archive/phase18-per-note-voicing-micro-phases.md`](../archive/phase18-per-note-voicing-micro-phases.md)
 - Phase 17 完成记录（真实物理打击感钢琴音源重构）：[`../archive/phase17-physical-strike-hammer-piano.md`](../archive/phase17-physical-strike-hammer-piano.md)

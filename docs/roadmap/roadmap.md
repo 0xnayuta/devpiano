@@ -152,6 +152,18 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 详细完成记录见 [`../archive/phase19-stereo-modal-soundboard.md`](../archive/phase19-stereo-modal-soundboard.md)。
 
+### Phase 20：微观物理动力学（纵向波先驱声与击键混沌微扰） [已完成，2026-08-22]
+
+深度吸收 Bank 2005 JASA 与 Bank 2010 纵向波先驱理论与混沌微扰：
+1. **低音钢弦纵向波先驱脉冲（Longitudinal Precursor Ping）**：依据 $v_L \approx 5100\text{ m/s}$ 为低音弦（MIDI 21~52）注入极速衰减的金属张力先导冲击；
+2. **机械击弦混沌微扰（Micro-variation Jitter）**：为连续击打同一琴键赋予微秒级物理微扰，彻底消灭轮指与快速琶音的机械克隆感。
+
+详细完成记录见 [`../archive/phase20-longitudinal-ping-micro-variation.md`](../archive/phase20-longitudinal-ping-micro-variation.md)。
+
+### Phase 21：踏板交感共鸣与琴盖空间声学（Sympathetic Resonance Pool & Lid Reflection） [远期规划]
+
+1. **延音踏板全局交感共鸣弦池**：踏板开启时全弦泛音交感振动；
+2. **三角钢琴琴盖反射传递函数与木质近场微反射**：琴盖开合角度与高频空间散射。
 ## 3. 主要风险
 
 | 风险 | 当前判断 | 应对方向 |
@@ -201,3 +213,4 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 - Phase 17 完成记录（真实物理打击感钢琴音源重构）：[`../archive/phase17-physical-strike-hammer-piano.md`](../archive/phase17-physical-strike-hammer-piano.md)
 - Phase 18 完成记录（88 键物理参数化与微观相位色散）：[`../archive/phase18-per-note-voicing-micro-phases.md`](../archive/phase18-per-note-voicing-micro-phases.md)
 - Phase 19 完成记录（立体声音板共鸣箱与同音三弦微动力学）：[`../archive/phase19-stereo-modal-soundboard.md`](../archive/phase19-stereo-modal-soundboard.md)
+- Phase 20 完成记录（微观物理动力学：纵向波先驱声与击键混沌微扰）：[`../archive/phase20-longitudinal-ping-micro-variation.md`](../archive/phase20-longitudinal-ping-micro-variation.md)

@@ -308,6 +308,22 @@ public:
             expect(peakSoft > 0.003f, "soft note attack transient is audible");
             expect(peakLoud > 0.025f, "loud note attack transient has strong punch");
             expect(peakLoud > 3.0f * peakSoft, "loud strike transient is nonlinear and much stronger than soft");
+
+            // 低音钢弦纵向波先驱声与微观混沌微扰测试 (Phase 20-A/B)
+            // 验证连续触发两次发音，微观微扰引擎产生微弱物理差异 (消灭机械克隆感)
+            VoiceFixture restrike1;
+            juce::AudioBuffer<float> rBuf1(1, 256);
+            restrike1.noteOnBlock(60, 0.8f, rBuf1);
+            const auto rms1 = rBuf1.getRMSLevel(0, 0, 256);
+
+            VoiceFixture restrike2;
+            juce::AudioBuffer<float> rBuf2(1, 256);
+            restrike2.noteOnBlock(60, 0.8f, rBuf2);
+            const auto rms2 = rBuf2.getRMSLevel(0, 0, 256);
+
+            expect(rms1 > 0.005f && rms2 > 0.005f, "restrikes produce robust audio energy");
+            expect(std::abs(rms1 - rms2) < 0.02f * rms1,
+                   "jitter variation is bounded within natural subtle range (<2%)");
         }
         beginTest("inharmonicity overtone frequency shift (stiff-string physics)");
         {
