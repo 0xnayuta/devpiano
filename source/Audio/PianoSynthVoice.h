@@ -24,7 +24,9 @@
 // 开合高频滚降与箱体近场反射矩阵；
 // - 长短琴桥断裂交界音色补偿 (Phase 22-C, Bridge Break Voicing Jump)：Fletcher & Rossing 1998 G2/G#2 阶跃跳变；
 // - 强击非线性张力音高微漂移与软饱和 (Phase 22-D, Pitch Glide & Soft Saturation)：Bank & Sujbert 2005 JASA 张力瞬态与
-// Bilbao 2009 软饱和。
+// Bilbao 2009 软饱和；
+// - 未踩踏板单键和弦开放弦交感共鸣 (Phase 22-E, Duplex & Unpedaled Sympathetic Resonance)：Bank 2010 IEEE TASLP Sec. VI
+// 开放制音弦交感振荡。
 
 class PianoSynthSound final : public juce::SynthesiserSound {
 public:
@@ -220,6 +222,7 @@ public:
             resonator.updateCoefficients(sampleRate);
         }
         sympatheticPool.updateCoefficients(sampleRate);
+        sympatheticPool.noteOnKey(midiNoteNumber);
         lidAcoustics.setPosition(pianoLidPosition, sampleRate);
         lidAcoustics.reset();
 
@@ -228,6 +231,8 @@ public:
     }
 
     void stopNote(float velocity, bool allowTailOff) override {
+        sympatheticPool.noteOffKey(currentPlayingMidiNote);
+
         if (allowTailOff) {
             adsrGate.noteOff();
             const auto sampleRate = getSampleRate();
@@ -321,7 +326,7 @@ public:
                 resonatorRightSum += spec.weightRight * resOut;
             }
 
-            // 2. 延音踏板全局交感共鸣弦池 (Phase 21-A, Bank 2010 Sec. VI)
+            // 2. 延音踏板与单键和弦开放弦交感共鸣 (Phase 21-A / Phase 22-E, Bank 2010 Sec. VI)
             const auto sympatheticOut = sympatheticPool.process(rawOutput);
 
             // 3. 琴桥立体声声像定位与非对称空间投影 (低音在左 0.20 -> 高音在右 0.80)
@@ -762,10 +767,11 @@ public:
     };
     DamperTransient damperTransient;
 
-    // 延音踏板全局交感共鸣弦池 (Phase 21-A, Bank 2010 Sec. VI)
+    // 延音踏板与单键和弦开放弦交感共鸣池 (Phase 21-A / Phase 22-E, Bank 2010 Sec. VI)
     struct SympatheticResonancePool {
         static constexpr auto numPoolResonators = 12;
         bool pedalDown = false;
+        std::array<int, numPoolResonators> openNoteCount {};
         float c1[numPoolResonators] {};
         float c2[numPoolResonators] {};
         float g[numPoolResonators] {};
@@ -774,6 +780,23 @@ public:
 
         void setPedalDown(bool isDown) noexcept {
             pedalDown = isDown;
+        }
+
+        static constexpr int midiToPitchClass(int midiNoteNumber) noexcept {
+            return (midiNoteNumber % 12);
+        }
+
+        void noteOnKey(int midiNoteNumber) noexcept {
+            const auto pc = midiToPitchClass(midiNoteNumber);
+            openNoteCount[static_cast<std::size_t>(pc)]++;
+        }
+
+        void noteOffKey(int midiNoteNumber) noexcept {
+            const auto pc = midiToPitchClass(midiNoteNumber);
+            auto& count = openNoteCount[static_cast<std::size_t>(pc)];
+            if (count > 0) {
+                --count;
+            }
         }
 
         void updateCoefficients(double sampleRate) noexcept {
@@ -793,6 +816,7 @@ public:
         }
 
         void reset() noexcept {
+            openNoteCount.fill(0);
             for (int i = 0; i < numPoolResonators; ++i) {
                 s1[i] = 0.0f;
                 s2[i] = 0.0f;
@@ -800,16 +824,15 @@ public:
         }
 
         [[nodiscard]] float process(float in) noexcept {
-            if (!pedalDown) {
-                for (int i = 0; i < numPoolResonators; ++i) {
+            auto sum = 0.0f;
+            for (int i = 0; i < numPoolResonators; ++i) {
+                const auto isOpen = pedalDown || (openNoteCount[static_cast<std::size_t>(i)] > 0);
+                if (!isOpen) {
                     s1[i] *= 0.90f;
                     s2[i] *= 0.90f;
+                    continue;
                 }
-                return 0.0f;
-            }
-            auto sum = 0.0f;
-            const auto drive = in * 0.08f;
-            for (int i = 0; i < numPoolResonators; ++i) {
+                const auto drive = in * (pedalDown ? 0.08f : 0.04f);
                 const auto w = drive + c1[i] * s1[i] + c2[i] * s2[i];
                 const auto y = g[i] * (w - s2[i]);
                 s2[i] = s1[i];

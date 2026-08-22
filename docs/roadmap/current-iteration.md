@@ -64,7 +64,7 @@
   - 在 `Piano88KeyTable.h` 中针对 MIDI 43~44（G2/G#2）长短琴桥交界重构失谐与导纳阶跃。
 - [x] **Phase 22-D：强击非线性大动态微音高漂移与软饱和（Pitch Glide & Dynamic Saturation）**
   - 在 `PianoSynthVoice::startNote` 对极高力度按键注入微秒级瞬态音高上浮与音板三次谐波软饱和。
-- [ ] **Phase 22-E：未踩踏板时的单键和弦开放弦交感共鸣（Unpedaled Sympathetic Resonance）**
+- [x] **Phase 22-E：未踩踏板时的单键和弦开放弦交感共鸣（Unpedaled Sympathetic Resonance）**
   - 维护当前处于按住状态的开放琴弦模态，并在弹奏新音符时注入开放弦交感振荡。
 - [ ] **Phase 22-F：确定性物理测试更新与三闸门交付**
   - 补充 5 大物理深化子项的数学断言测试，三闸门基线全绿交付。

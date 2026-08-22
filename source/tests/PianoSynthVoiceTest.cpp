@@ -696,6 +696,21 @@ public:
             expect(std::isfinite(pedalBuffer.getRMSLevel(0, 0, pedalBuffer.getNumSamples())),
                    "pedal release stays numerically stable");
         }
+        beginTest("unpedaled open-string sympathetic resonance (Phase 22-E)");
+        {
+            // 未踩踏板时按住单键 C2 (MIDI 36, C=0)，开放弦谐振器被激活
+            VoiceFixture openFixture;
+            juce::AudioBuffer<float> openBuf(2, blockSize * 4);
+            openFixture.noteOnBlock(36, 0.8f, openBuf);
+            const auto openEnergy = openBuf.getRMSLevel(0, 0, openBuf.getNumSamples());
+            expect(openEnergy > 0.005f, "held open note produces robust fundamental and harmonic energy");
+
+            // 释放琴键后制音器回落吸收
+            openFixture.synth.noteOff(1, 36, 0.6f, true);
+            openFixture.renderBlock(openBuf);
+            expect(std::isfinite(openBuf.getRMSLevel(0, 0, openBuf.getNumSamples())),
+                   "unpedaled open string resonance release stays numerically stable");
+        }
 
         beginTest("lid position acoustic transfer function (Phase 22-B)");
         {
