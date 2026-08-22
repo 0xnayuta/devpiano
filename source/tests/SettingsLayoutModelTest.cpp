@@ -29,6 +29,7 @@ public:
         testInterpretationAndComponentLookup();
         testFollowKeyVisibilityToggle();
         testSettingsComponentRefreshTextsPreservesScroll();
+        testSettingsComponentMouseWheelIsolation();
     }
 
 private:
@@ -246,6 +247,53 @@ private:
         comp->refreshTexts();
 
         expectEquals(vp->getViewPositionY(), 180, "viewport scroll position must be preserved after refreshTexts");
+    }
+
+    void testSettingsComponentMouseWheelIsolation() {
+        beginTest("SettingsComponent mouse wheel isolation on controls vs background");
+
+        juce::AudioDeviceManager dm;
+        SettingsModel model;
+        auto comp = std::make_unique<SettingsComponent>(dm, nullptr, &model);
+        comp->setSize(680, 500);
+
+        juce::Viewport* vp = nullptr;
+        for (int i = 0; i < comp->getNumChildComponents(); ++i) {
+            if (auto* candidate = dynamic_cast<juce::Viewport*>(comp->getChildComponent(i))) {
+                vp = candidate;
+                break;
+            }
+        }
+        expect(vp != nullptr, "SettingsComponent must contain a Viewport");
+        if (vp == nullptr) {
+            return;
+        }
+
+        vp->setViewPosition(0, 0);
+        expectEquals(vp->getViewPositionY(), 0);
+
+        auto makeEvent = [](juce::Component* target) {
+            auto source = juce::Desktop::getInstance().getMainMouseSource();
+            return juce::MouseEvent(source, {}, juce::ModifierKeys(), 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, target, target,
+                                    juce::Time::getCurrentTime(), {}, juce::Time::getCurrentTime(), 0, false);
+        };
+
+        juce::MouseWheelDetails wheelDetails;
+        wheelDetails.deltaY = -1.0f; // Scroll down attempt
+
+        // 1. Simulating mouse wheel event originating from a Slider (e.g. fadeSpeedSlider)
+        auto dummySlider = std::make_unique<juce::Slider>();
+        comp->mouseWheelMove(makeEvent(dummySlider.get()), wheelDetails);
+        expectEquals(vp->getViewPositionY(), 0, "wheel event on slider must NOT scroll the Viewport");
+
+        // 2. Simulating mouse wheel event originating from a ComboBox
+        auto dummyCombo = std::make_unique<juce::ComboBox>();
+        comp->mouseWheelMove(makeEvent(dummyCombo.get()), wheelDetails);
+        expectEquals(vp->getViewPositionY(), 0, "wheel event on combobox must NOT scroll the Viewport");
+
+        // 3. Simulating mouse wheel event originating from background (comp itself)
+        comp->mouseWheelMove(makeEvent(comp.get()), wheelDetails);
+        expect(vp->getViewPositionY() > 0, "wheel event on background MUST scroll the Viewport");
     }
 };
 

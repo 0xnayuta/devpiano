@@ -438,6 +438,18 @@ public:
     }
 
     void mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel) override {
+        // Isolate wheel events originating from interactive controls that handle their
+        // own value changes or scrolling (Slider, ComboBox, TextEditor) so that adjusting
+        // them does not simultaneously scroll the parent Viewport.
+        if (e.eventComponent != nullptr) {
+            if (dynamic_cast<const juce::Slider*>(e.eventComponent) != nullptr
+                || e.eventComponent->findParentComponentOfClass<juce::Slider>() != nullptr
+                || dynamic_cast<const juce::ComboBox*>(e.eventComponent) != nullptr
+                || e.eventComponent->findParentComponentOfClass<juce::ComboBox>() != nullptr
+                || dynamic_cast<const juce::TextEditor*>(e.eventComponent) != nullptr) {
+                return;
+            }
+        }
         viewport.useMouseWheelMoveIfNeeded(e, wheel);
     }
 
