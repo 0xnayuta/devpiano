@@ -21,3 +21,4 @@
 | `cleanup-external-midi-scope.md` | `docs/decisions/ADR-006-remove-external-midi-support.md`、`docs/reference/project-scope.md` |
 | `phase12-14-builtin-piano-synthesis.md` | `docs/roadmap/roadmap.md`（Phase 12-14 摘要）、`docs/reference/features/builtin-piano-synthesis.md` |
 | `phase15-declarative-dialogs-and-settings-jive.md` | `docs/roadmap/roadmap.md`（Phase 15 摘要）、`docs/reference/features/declarative-ui-and-theming.md` |
+| `phase16-keyboard-dirty-repaint-preset-confirm.md` | `docs/roadmap/roadmap.md`（Phase 16 摘要） |
