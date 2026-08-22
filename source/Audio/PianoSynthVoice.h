@@ -666,6 +666,13 @@ public:
         float oscPhase2 = 0.0f;
         float phaseInc2 = 0.0f;
 
+        // 起音高频摩擦裂音 (Phase 23-D, Attack HF Crack, 0~3ms)
+        int crackSamplesRemaining = 0;
+        float crackAmplitude = 0.0f;
+        float crackDecayPerSample = 0.0f;
+        std::uint32_t crackRng = 0x5a5a5a5au;
+
+        // 低音纵波先驱声 (Phase 20-A / Phase 23-D, Longitudinal Precursor Ping)
         int longSamplesRemaining = 0;
         float longAmplitude = 0.0f;
         float longDecayPerSample = 0.0f;
@@ -698,6 +705,15 @@ public:
             amplitude = peakLevelAtFullVelocity * 0.35f * vLevel;
             decayPerSample = std::exp(-4.5f / static_cast<float>(totalSamples));
 
+            // 起音 3ms 高频裂音 (Phase 23-D, Attack HF Crack, 消除起振延迟)
+            const auto keyPos = std::clamp((static_cast<float>(midiNoteNumber) - 21.0f) / 87.0f, 0.0f, 1.0f);
+            constexpr auto crackDur = 0.003f;
+            const auto crackTotal = juce::jmax(1, static_cast<int>(crackDur * sampleRate));
+            crackSamplesRemaining = crackTotal;
+            crackAmplitude = peakLevelAtFullVelocity * 0.08f * (v * v) * (0.20f + 0.80f * keyPos);
+            crackDecayPerSample = std::exp(-6.0f / static_cast<float>(crackTotal));
+            crackRng = static_cast<std::uint32_t>(midiNoteNumber) * 1664525u + 1013904223u;
+
             if (midiNoteNumber < 56) {
                 constexpr auto vLongitudinal = 5100.0f;
                 const auto fL1 = vLongitudinal / (2.0f * juce::jmax(0.10f, stringLength));
@@ -710,10 +726,10 @@ public:
                 longPhase2 = 0.0f;
                 longPhase3 = 0.0f;
 
-                const auto longTotalSamples = juce::jmax(1, static_cast<int>(0.016f * sampleRate));
+                const auto longTotalSamples = juce::jmax(1, static_cast<int>(0.015f * sampleRate));
                 longSamplesRemaining = longTotalSamples;
                 longAmplitude = peakLevelAtFullVelocity * 0.10f * vLevel;
-                longDecayPerSample = std::exp(-5.0f / static_cast<float>(longTotalSamples));
+                longDecayPerSample = std::exp(-5.5f / static_cast<float>(longTotalSamples));
             } else {
                 longSamplesRemaining = 0;
                 longAmplitude = 0.0f;
@@ -731,6 +747,13 @@ public:
                 out += amplitude * (0.6f * s1 + 0.4f * s2);
                 amplitude *= decayPerSample;
             }
+            if (crackSamplesRemaining > 0) {
+                --crackSamplesRemaining;
+                crackRng = crackRng * 1664525u + 1013904223u;
+                const auto noiseVal = static_cast<float>(crackRng >> 16) / 65535.0f * 2.0f - 1.0f;
+                out += crackAmplitude * noiseVal;
+                crackAmplitude *= crackDecayPerSample;
+            }
             if (longSamplesRemaining > 0) {
                 --longSamplesRemaining;
                 const auto l1 = std::sin(longPhase1);
@@ -739,7 +762,7 @@ public:
                 longPhase1 += longPhaseInc1;
                 longPhase2 += longPhaseInc2;
                 longPhase3 += longPhaseInc3;
-                out += longAmplitude * (0.5f * l1 + 0.35f * l2 + 0.15f * l3);
+                out += longAmplitude * (0.55f * l1 + 0.30f * l2 + 0.15f * l3);
                 longAmplitude *= longDecayPerSample;
             }
             return out;
@@ -748,12 +771,14 @@ public:
         void reset() noexcept {
             samplesRemaining = 0;
             amplitude = 0.0f;
+            crackSamplesRemaining = 0;
+            crackAmplitude = 0.0f;
             longSamplesRemaining = 0;
             longAmplitude = 0.0f;
         }
 
         [[nodiscard]] bool isActive() const noexcept {
-            return samplesRemaining > 0 || longSamplesRemaining > 0;
+            return samplesRemaining > 0 || crackSamplesRemaining > 0 || longSamplesRemaining > 0;
         }
     };
     HammerTransient hammerTransient;

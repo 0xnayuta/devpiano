@@ -817,6 +817,31 @@ public:
             expect(bassEnergy > 0.005f, "bass C2 produces rich warm soundboard body resonance");
             expect(std::isfinite(bassEnergy), "spruce filtered soundboard output stays strictly finite and stable");
         }
+        beginTest("attack transient crack and longitudinal mode tuning (Phase 23-D)");
+        {
+            // 1. 验证起音最初 3ms 高频裂音 (Crack) 幅度随力度二次方 v^2 显著缩放
+            PianoSynthVoice::HammerTransient softTransient;
+            softTransient.trigger(sampleRate, 72, 0.30f, 0.5f, 0.30f); // 弱音
+            const auto s1 = softTransient.getNextSample();
+
+            PianoSynthVoice::HammerTransient loudTransient;
+            loudTransient.trigger(sampleRate, 72, 0.90f, 0.5f, 0.30f); // 强音
+            const auto s2 = loudTransient.getNextSample();
+
+            expect(std::abs(s2) > std::abs(s1) * 3.0f,
+                   "loud strike attack crack produces much higher transient spike than soft strike");
+
+            // 2. 验证低音纵波先驱声快速衰减 (约 15ms 内自清，不产生拖尾)
+            PianoSynthVoice::HammerTransient bassLongTransient;
+            bassLongTransient.trigger(sampleRate, 30, 0.85f, 0.5f, 1.50f);
+            expect(bassLongTransient.isActive(), "bass strike activates longitudinal precursor mode");
+
+            // 渲染 20ms (约 882 样本) 后纵波先驱声能量平滑收敛
+            for (auto i = 0; i < 900; ++i) {
+                [[maybe_unused]] const auto discarded = bassLongTransient.getNextSample();
+            }
+            expect(!bassLongTransient.isActive(), "longitudinal precursor mode cleanly decays within 20ms");
+        }
         beginTest("velocity loudness is monotonically increasing");
         {
             VoiceFixture soft;

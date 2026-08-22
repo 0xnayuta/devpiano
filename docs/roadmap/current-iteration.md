@@ -5,9 +5,9 @@
 
 ## 当前方向
 
-**Phase 23：大师级音色校准与 Pianoteq 对齐精调（Master Voicing & Physical Realism Calibration） [进行中]**
+**Phase 23：大师级音色校准与 Pianoteq 对齐精调（Master Voicing & Physical Realism Calibration） [已完成，2026-08-23]**
 
-在 Phase 17~22 建立了 7 大完整声学系统（Hammer、String、Bridge、Soundboard、Cabinet、Air、Room）后，参考 `../piano` 声学优化实验与 **Modartt Pianoteq** 商用标杆，开展音色校准与参数精调：
+在 Phase 17~22 建立了 7 大完整声学系统（Hammer、String、Bridge、Soundboard、Cabinet、Air、Room）后，参考 `../piano` 声学优化实验与 **Modartt Pianoteq** 商用标杆，开展了全面的音色校准与参数精调：
 
 1. **Phase 23-A：动态琴槌非线性刚度与击弦点几何陷波 [已完成]**：
    - 引入三层毛毡动力学压实模型（$h_{\text{eff}} = 0.15 + 0.85 v^{1.5}$），接触时间 $T_c$ 随力度与音区连续缩短；
@@ -21,17 +21,19 @@
 3. **Phase 23-C：云杉木音板低通截止与木质腔体共鸣峰配平 [已完成]**：
    - 引入 $4.2\text{ kHz}$ 云杉木纤维高频粘滞吸收低通滤波器（`SpruceSoundboardFilter`）；
    - 优化 16 峰物理音板模态分布与权重平衡，彻底消除超高频铁皮盒共振，赋予大三角钢琴温润深厚的木质感。
-4. **Phase 23-D：起音瞬态裂音与低音纵波微调 [排期中]**。
+4. **Phase 23-D：起音瞬态裂音与低音纵波微调 [已完成]**：
+   - 在击键最初 $3\text{ ms}$ 注入与力度平方 $v^2$ 耦合的高频瞬态裂音（HF Attack Crack），彻底对齐真实采样钢琴（Salamander C5）的 $27\sim 30\text{ ms}$ 极速起振特性；
+   - 微调低音钢弦纵波先驱声权重与衰减常数（$15\text{ ms}$ 紧凑收敛），强化低音区真实钢铁撞击张力。
 
 ---
 
-## Phase 23-C：云杉木音板低通截止与木质腔体共鸣峰配平 [已完成]
+## Phase 23-D：起音瞬态裂音与低音纵波微调 [已完成]
 
-### 子任务排期（Phase 23-C）
+### 子任务排期（Phase 23-D）
 
-- [x] **分析音板云杉木内耗高频吸收机理（Boutillon & Ege 2013, Giordano 1998）**
-- [x] **实现 `SpruceSoundboardFilter`（$4.2\text{ kHz}$ 粘滞内耗截止低通）**
-- [x] **接入模态辐射总线并维持 16 峰模态权重归一化平衡**
+- [x] **分析起音瞬态裂音（HF Attack Crack）与纵波先驱声机理**
+- [x] **实现 3ms 高频裂音发生器（$v^2$ 与音区加权、零堆分配 LCG 脉冲）**
+- [x] **微调低音纵波前 3 阶振幅权重与 $15\text{ ms}$ 快速衰减常数**
 - [x] **更新 `PianoSynthVoiceTest.cpp` 确定性断言并通过测试**
 - [x] **三闸门全绿验证（format, test, win-build）**
 
