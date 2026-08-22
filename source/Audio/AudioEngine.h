@@ -92,8 +92,8 @@ private:
     float pianoBrightness = 0.5f;
     float pianoHammerHardness = 0.5f;
     float pianoResonance = 0.5f;
-    double currentSampleRate = 44100.0;
-    int currentBlockSize = 512;
+    std::atomic<double> currentSampleRate { 44100.0 };
+    std::atomic<int> currentBlockSize { 512 };
     std::atomic_bool allNotesOffPending { false };
     std::atomic<int> warmupBlocksRemaining { 0 };
     std::atomic<int> playbackStartPreRollBlocksRemaining { 0 };

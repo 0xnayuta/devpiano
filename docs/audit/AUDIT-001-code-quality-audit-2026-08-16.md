@@ -31,16 +31,16 @@
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | P0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | P1 | 5 | 0 | 0 | 0 | 0 | 5 |
-| P2 | 29 | 0 | 0 | 0 | 8 | 21 |
+| P2 | 29 | 0 | 0 | 0 | 7 | 22 |
 | P3 | 51 | 0 | 0 | 0 | 6 | 45 |
-| **合计** | 85 | 0 | 0 | 0 | 14 | 71 |
+| **合计** | 85 | 0 | 0 | 0 | 13 | 72 |
 
 ### 0.3 关键结论
 
-- 总体评级：`A-` — 全部 56 项未处理问题已关闭（2026-08-17 AUDIT Phase A–H 落地，复审 1–11）；三闸门全绿（wsl-build 0 warning / test 2921 断言 / format --check 归零）+ win-build 通过 + 改动文件 clang-tidy 0 诊断；16 项已暂缓维持（风险接受原因与重开条件见第 8 章登记表）。
+- 总体评级：`A-` — 全部 56 项未处理问题已关闭（2026-08-17 AUDIT Phase A–H 落地，复审 1–11）；三闸门全绿（wsl-build 0 warning / test 2921 断言 / format --check 归零）+ win-build 通过 + 改动文件 clang-tidy 0 诊断；13 项已暂缓维持（初始 16 项中 QUAL-019/PERF-002/THR-002 经复审关闭，余 13 项风险接受原因与重开条件见第 8 章登记表）。
 - 当前是否适合继续新增功能：`是` — 实时线程 P1（ERR-001/THR-001）、3 个核心模块测试空洞（TEST-001/002/003）、format 门禁回归（ENG-001）与文档滞后（DOC-002/003/004）全部解决；P2/P3 已随 Phase A–H 消化完毕。
 - 当前是否建议优先重构：`否` — 无需进一步重构；Phase F 死代码/重复清理（QUAL-001~018）已完成。
-- 最大风险：14 项已暂缓项（THR-002~004、SEC-001~004、PERF-001/003/004、ERR-016/017、QUAL-020/021）——均为低频触发或已缓解场景，重开条件见第 8 章。
+- 最大风险：13 项已暂缓项（THR-003~004、SEC-001~004、PERF-001/003/004、ERR-016/017、QUAL-020/021）——均为低频触发或已缓解场景，重开条件见第 8 章。
 - 下一步最高优先级：已无审计未处理项；建议回到业务路线图迭代，并按需复核暂缓项。
 
 ### 0.4 重点发现
@@ -49,13 +49,15 @@
 | --- | --- | --- | --- | --- |
 | `ERR-001` | P1 | 已关闭 | 音频线程播放结束路径 DP_LOG_INFO（文件 I/O + 互斥锁） | 实时线程仅置 playbackEndedPending 标志，日志移至消息线程 checkPlaybackEnded()（2026-08-16 复审 3） |
 | `THR-001` | P1 | 已关闭 | AudioEngine::masterGain 跨线程数据竞争（非原子 float） | masterGain 改 std::atomic<float>（2026-08-16 复审 3） |
-| `TEST-001` | P1 | 未处理 | RecordingSessionController 零测试覆盖 | 录制/回放/导入/导出全流程状态机 646 行无任何测试 |
-| `TEST-002` | P1 | 未处理 | MidiChannelMapper 零测试覆盖 | 通道路由/移调核心逻辑无测试；唯一相关测试仅测 nullptr 透传 |
-| `TEST-003` | P1 | 未处理 | PerformancePreset 序列化零测试覆盖 | 预设 round-trip 无测试，格式变更可静默破坏用户数据 |
+| `TEST-001` | P1 | 已关闭 | RecordingSessionController 零测试覆盖 | 补齐录制/回放/导入/导出全流程状态机与会话生命周期纯逻辑测试（2026-08-17 复审 6） |
+| `TEST-002` | P1 | 已关闭 | MidiChannelMapper 零测试覆盖 | 补齐 16 通道路由、矩阵变换、followKey 移调纯函数测试（2026-08-17 复审 6） |
+| `TEST-003` | P1 | 已关闭 | PerformancePreset 序列化零测试覆盖 | 补齐 preset load/save round-trip 与损坏文件容错测试（2026-08-17 复审 6） |
 | `ENG-001` | P2 | 已关闭 | format --check 门禁回归失败（18 处违规） | 18 处已修复归零 + `.githooks/pre-commit` 防再回归（2026-08-16 复审 4） |
-| `ERR-004` | P2 | 未处理 | 插件加载失败仍按成功提交恢复状态并持久化 | 下次启动反复尝试加载失败插件；UI 无失败反馈 |
-| `DOC-002` | P2 | 未处理 | architecture.md 缺 Recording/Export/Layout/Diagnostics 四模块章节 | Phase 11 / RenderPipeline 新结构未收录，文档滞后 |
-
+| `ERR-004` | P2 | 已关闭 | 插件加载失败仍按成功提交恢复状态并持久化 | 修复失败路径状态回滚并清理无效持久化（2026-08-17 复审 8） |
+| `DOC-002` | P2 | 已关闭 | architecture.md 缺 Recording/Export/Layout/Diagnostics 四模块章节 | architecture.md 补齐四模块架构章节与渲染管线说明（2026-08-17 复审 10） |
+| `THR-002` | P2 | 已关闭 | AudioEngine currentSampleRate/currentBlockSize 非原子 | currentSampleRate/currentBlockSize 改 std::atomic<double>/std::atomic<int>（2026-08-22 复审 13） |
+| `THR-003` | P2 | 已暂缓 | MidiChannelMapper 引用成员悬垂风险 | 引用对象 appSettings 生命周期由 MainComponent 统一托管，无悬垂风险（重开条件见第 8 章） |
+| `THR-004` | P2 | 已暂缓 | PluginHost::getInstance 暴露裸指针 | 生命周期由设备重建 guard 隔离，无并发竞争，符合 JUCE 原生惯例（重开条件见第 8 章） |
 ---
 
 ## 1. 审计范围与方法
@@ -482,11 +484,11 @@ devpiano 核心运行时健康：0 项 P0（无崩溃/数据损坏/静默泄漏�
 2. ✅ 格式门禁回归（ENG-001：format 批量修复 + pre-commit 挂钩）——2026-08-16 Phase B（复审 4）。
 3. ✅ 3 个 P1 纯逻辑测试（TEST-001/002/003）+ TEST-010/011 静默丢覆盖修复——Phase C/D（复审 6/7）。
 4. ✅ Phase E–H 收尾：错误处理与失败路径（ERR-002~015）、死代码清理（QUAL-001~018）、文档契约（DOC-001~008）、测试质量（TEST-013~020）——2026-08-17（复审 8–11）。
-5. **当前**：无审计未处理项；回到业务路线图迭代，按需复核 16 项已暂缓。
+5. **当前**：无审计未处理项；回到业务路线图迭代，按需复核 13 项已暂缓。
 
 ### 6.5 ID 覆盖率校验
 
-第 8 章登记 72 项（已关闭项按规则不登记）：56 项已关闭（66 项新发现 - 13 项初始已关闭 + TEST-011/012/017 等，全部修复证据与复审说明见第 7 章）+ 14 项已暂缓（THR-002~004、SEC-001~004、PERF-001/003/004、ERR-016/017、QUAL-020/021；QUAL-019/PERF-002 经复审 12 关闭，风险接受原因与重开条件见第 8 章）。**56 项未处理全部关闭（2026-08-17，AUDIT Phase A–H）**：P1×3（TEST-001/002/003）+ 首页已关闭 ERR-001/THR-001 合计 P1×5 全清；P2×16、P3×37 全部落地。`comm` 校验零缺失、零多余；16 项已暂缓不排期（重开条件见第 8 章）。ADR 事实性描述修正项（2 条，非问题）已修正原文（2026-08-17 复审 10）。
+第 8 章登记 70 项（已关闭项按规则不登记）：57 项已关闭（66 项新发现 - 13 项初始已关闭 + TEST-011/012/017/THR-002 等，全部修复证据与复审说明见第 7 章）+ 13 项已暂缓（THR-003~004、SEC-001~004、PERF-001/003/004、ERR-016/017、QUAL-020/021；QUAL-019/PERF-002/THR-002 经复核已关闭，风险接受原因与重开条件见第 8 章）。**57 项已关闭**：P1×5 全清；P2×17、P3×37 全部落地。`comm` 校验零缺失、零多余；13 项已暂缓不排期（重开条件见第 8 章）。ADR 事实性描述修正项（2 条，非问题）已修正原文（2026-08-17 复审 10）。
 
 ---
 
@@ -647,6 +649,10 @@ devpiano 核心运行时健康：0 项 P0（无崩溃/数据损坏/静默泄漏�
 
 **验证**：grep 源码零残留（makeFullPianoLayout）、getter 签名实测 const&（SettingsModel.h:132）、scheduleSave/引用成员签名实测。
 
+### 复审 13（2026-08-22，THR-002 AudioEngine 采样率/块大小原子化）
+
+关闭 1 项：
+- `THR-002` → `已关闭`：`AudioEngine` 的 `currentSampleRate` 和 `currentBlockSize` 改为 `std::atomic<double>` 与 `std::atomic<int>`（`source/Audio/AudioEngine.h:95-96`），写路径 `prepareToPlay`（`AudioEngine.cpp:51-52`）与读路径 `discardWarmupInputState`（`AudioEngine.cpp:257`）均使用 `std::memory_order_relaxed` 进行 store/load。彻底消除跨线程未同步读写的数据竞争风险（UB）。验证：三闸门全绿。
 ---
 
 ## 8. 附录：问题总表（登记表）
@@ -712,7 +718,7 @@ devpiano 核心运行时健康：0 项 P0（无崩溃/数据损坏/静默泄漏�
 | DOC-006 | 文档 | SettingsModel 键盘显示默认值双处声明 | P3 | 已关闭 | 审计 | KeyboardDisplaySettingsView 与扁平成员重复定义同一组默认（当前两处一致已核对），无编译期防护，存在漂移风险 | `source/Settings/SettingsModel.h:40-48` vs `:81-85` | - | 默认值漂移 | 扁平成员持有单一 View 实例 |
 | DOC-007 | 文档 | style_sheets.json 硬编码色值与 tokens 双事实源 | P3 | 已关闭 | 审计 | Button background #22252C=control-bg、#preset-card #181A1F=card-bg 等硬编码与 design_tokens.json 重复；#window font-size 14 与 token font-size-default 13.0 冲突；改 token 不联动样式表 | `source/UI/jive/style_sheets.json:5,14,62-63,99,112` vs `source/UI/jive/design_tokens.json:5-12,27` | - | 主题修改需改两处 | 样式表引用 DesignTokens |
 | DOC-008 | 文档 | LocaleManager.h 注释与实际搜索目录不符 | P3 | 已关闭 | 审计 | 注释称 "project root" 第三个搜索目录，实际为 CWD——从其它目录启动定位不到项目根 .loc | `source/Locale/LocaleManager.h:9` vs `:14-17` | - | 注释误导 | 修正注释或按注释语义实现 |
-| THR-002 | 线程安全 | AudioEngine currentSampleRate/currentBlockSize 非原子 | P2 | 已暂缓 | - | prepareToPlay（消息线程）写、getNextAudioBlock（音频线程）读，无 atomic/mutex | `source/Audio/AudioEngine.h:64-65`、`AudioEngine.cpp` | 触发面收窄：getNextAudioBlock 主路径不读，仅 warmup 路径（consumeWarmupBlockIfNeeded→discardWarmupInputState）读；x86-64 对齐 double/int 实际原子 | warmup 路径扩展读取或编译优化暴露 UB | 改 std::atomic<double>/std::atomic<int> |
+| THR-002 | 线程安全 | AudioEngine currentSampleRate/currentBlockSize 非原子 | P2 | 已关闭 | 审计 | prepareToPlay（消息线程）写、getNextAudioBlock（音频线程）读，无 atomic/mutex | `source/Audio/AudioEngine.h:95-96`、`AudioEngine.cpp:51-52,257` | - | warmup 路径扩展读取或编译优化暴露 UB | 改 std::atomic<double>/std::atomic<int>（已闭环） |
 | THR-003 | 线程安全 | MidiChannelMapper 引用成员悬垂风险 | P2 | 已暂缓 | - | 构造器存储 const ChannelMatrix&/const bool&/const int&，外部对象销毁后引用悬垂 | `source/Midi/MidiChannelMapper.h:22-25` | 引用对象为 MainComponent::appSettings 成员（MainComponent.h 声明先于 midiChannelMapper 构造），寿命安全 | appSettings 改为动态分配或生命周期缩短 | 文档化生命周期契约或改值拷贝 |
 | THR-004 | 线程安全 | PluginHost::getInstance 暴露裸指针 | P2 | 已暂缓 | - | 返回 AudioPluginInstance* 裸指针，音频线程经它调用 processBlock，生命周期依赖外部协调 | `source/Plugin/PluginHost.h:64` | 生命周期由 runPluginActionWithAudioDeviceRebuild 外部协调 + 头文件 thread-safety contract（THR-001 修复时建立） | 引入非设备重建 guard 的插件切换路径 | 返回 juce::AudioPluginInstance::Ptr 或文档化所有权契约 |
 | SEC-001 | 安全 | MidiChannelMapper::configForChannel 静默 clamp | P2 | 已暂缓 | - | 越界 channel 参数被静默 jlimit 到 [0,15]，调用方无法得知错误 | `source/Midi/MidiChannelMapper.cpp:12-14` | 实际调用方（sendNoteOn/sendNoteOff，消息线程）传入值均来自合法 0-15 通道，越界仅理论可能 | 发现调用方传越界 channel 的实际路径 | 添加 jassert 或返回 std::optional |

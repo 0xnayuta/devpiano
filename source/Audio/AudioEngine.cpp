@@ -48,9 +48,8 @@ void AudioEngine::setRecordingEngine(devpiano::recording::RecordingEngine* engin
 }
 
 void AudioEngine::prepareToPlay(int samplesPerBlockExpected, double sampleRate) {
-    currentSampleRate = sampleRate;
-    currentBlockSize = samplesPerBlockExpected;
-
+    currentSampleRate.store(sampleRate, std::memory_order_relaxed);
+    currentBlockSize.store(samplesPerBlockExpected, std::memory_order_relaxed);
     synth.setCurrentPlaybackSampleRate(sampleRate);
     midiCollector.reset(sampleRate);
     midiBuffer.clear();
@@ -255,7 +254,7 @@ void AudioEngine::discardWarmupInputState() {
     keyboardState.reset();
     midiBuffer.clear();
     playbackVisualMidiBuffer.clear();
-    midiCollector.reset(currentSampleRate);
+    midiCollector.reset(currentSampleRate.load(std::memory_order_relaxed));
     synth.allNotesOff(0, false);
 }
 
