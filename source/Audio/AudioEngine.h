@@ -23,6 +23,7 @@ public:
     void releaseResources();
     void requestAllNotesOff() noexcept;
     void armPlaybackStartPreRoll(double sampleRate, int blockSize) noexcept;
+    void sendController(int channel, int controllerType, int value);
 
     void setMasterGain(float newGain);
     void setAdsr(float attackSeconds, float decaySeconds, float sustainLevel, float releaseSeconds);

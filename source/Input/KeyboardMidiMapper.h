@@ -17,6 +17,7 @@ public:
     /// 是否被按住。默认委托 juce::KeyPress::isKeyCurrentlyDown() 查询真实 OS
     /// 键盘状态；测试可注入确定性谓词，消除桌面环境物理按键导致的误报。
     using KeyStatePredicate = std::function<bool(int keyCode)>;
+    using SustainPedalCallback = std::function<void(bool isDown)>;
 
     KeyboardMidiMapper();
 
@@ -28,6 +29,8 @@ public:
     bool handleKeyPressed(const juce::KeyPress& key, juce::MidiKeyboardState& keyboardState);
     bool handleKeyStateChanged(juce::MidiKeyboardState& keyboardState);
     void setChannelMapper(devpiano::midi::MidiChannelMapper* mapper) noexcept;
+    void setSustainPedalCallback(SustainPedalCallback callback) noexcept;
+    [[nodiscard]] bool isSustainPedalDown() const noexcept;
 
     /// 注入键状态谓词（测试用）：null/未设置时回退真实 OS 键盘查询。
     void setKeyStatePredicate(KeyStatePredicate predicate) noexcept;
@@ -43,4 +46,6 @@ private:
     devpiano::core::KeyboardLayout layout;
     std::unordered_set<int> heldKeys;
     KeyStatePredicate keyStatePredicate;
+    SustainPedalCallback sustainPedalCallback;
+    bool sustainPedalDown = false;
 };

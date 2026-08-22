@@ -162,6 +162,9 @@ void AudioEngine::armPlaybackStartPreRoll(double sampleRate, int blockSize) noex
     playbackStartPreRollBlocksRemaining.store(calculatePlaybackStartPreRollBlockCount(sampleRate, blockSize),
                                               std::memory_order_release);
 }
+void AudioEngine::sendController(int channel, int controllerType, int value) {
+    midiCollector.addMessageToQueue(juce::MidiMessage::controllerEvent(channel, controllerType, value));
+}
 
 void AudioEngine::setMasterGain(float newGain) {
     masterGain.store(juce::jlimit(0.0f, 1.0f, newGain), std::memory_order_relaxed);

@@ -279,3 +279,68 @@ public:
 };
 
 static KeyReleaseTest keyReleaseTest;
+// =============================================================================
+
+class SustainPedalKeyMappingTest : public juce::UnitTest {
+public:
+    SustainPedalKeyMappingTest()
+        : juce::UnitTest("KeyboardMidiMapper: sustain pedal space key", "DevPiano/Engine") {
+    }
+
+    void runTest() override {
+        beginTest("space key down triggers sustain pedal callback");
+        {
+            KeyboardMidiMapper mapper;
+            bool lastPedalState = false;
+            int callbackCount = 0;
+            mapper.setSustainPedalCallback([&](bool isDown) {
+                lastPedalState = isDown;
+                ++callbackCount;
+            });
+
+            juce::MidiKeyboardState keyState;
+            juce::KeyPress spacePress(juce::KeyPress::spaceKey);
+            bool consumed = mapper.handleKeyPressed(spacePress, keyState);
+
+            expect(consumed, "space key press should be consumed");
+            expect(mapper.isSustainPedalDown(), "mapper reports sustain pedal is down");
+            expect(lastPedalState, "callback received isDown = true");
+            expectEquals(callbackCount, 1, "callback called exactly once");
+
+            // Key repeat: pressing space again while held does not duplicate callback
+            consumed = mapper.handleKeyPressed(spacePress, keyState);
+            expect(consumed, "space key repeat is still consumed");
+            expectEquals(callbackCount, 1, "key repeat does not trigger duplicate callback");
+        }
+
+        beginTest("space key up releases sustain pedal");
+        {
+            KeyboardMidiMapper mapper;
+            bool isSpaceHeld = true;
+            mapper.setKeyStatePredicate(
+                [&](int keyCode) { return (keyCode == juce::KeyPress::spaceKey) && isSpaceHeld; });
+
+            bool lastPedalState = false;
+            int callbackCount = 0;
+            mapper.setSustainPedalCallback([&](bool isDown) {
+                lastPedalState = isDown;
+                ++callbackCount;
+            });
+
+            juce::MidiKeyboardState keyState;
+            mapper.handleKeyPressed(juce::KeyPress(juce::KeyPress::spaceKey), keyState);
+            expect(mapper.isSustainPedalDown());
+
+            // Release space key
+            isSpaceHeld = false;
+            bool consumed = mapper.handleKeyStateChanged(keyState);
+
+            expect(consumed, "space key release should be consumed");
+            expect(!mapper.isSustainPedalDown(), "mapper reports sustain pedal is released");
+            expect(!lastPedalState, "callback received isDown = false");
+            expectEquals(callbackCount, 2, "callback called on press and release");
+        }
+    }
+};
+
+static SustainPedalKeyMappingTest sustainPedalKeyMappingTest;

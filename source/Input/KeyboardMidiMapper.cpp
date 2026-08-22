@@ -11,6 +11,12 @@ KeyboardMidiMapper::KeyboardMidiMapper() {
 void KeyboardMidiMapper::setLayout(KeyboardLayout newLayout) {
     layout = std::move(newLayout);
     heldKeys.clear();
+    if (sustainPedalDown) {
+        sustainPedalDown = false;
+        if (sustainPedalCallback) {
+            sustainPedalCallback(false);
+        }
+    }
 }
 
 void KeyboardMidiMapper::setLayoutDisplayName(juce::String newDisplayName) {
@@ -24,12 +30,29 @@ const KeyboardLayout& KeyboardMidiMapper::getLayout() const noexcept {
 void KeyboardMidiMapper::setChannelMapper(devpiano::midi::MidiChannelMapper* mapper) noexcept {
     channelMapper = mapper;
 }
+void KeyboardMidiMapper::setSustainPedalCallback(SustainPedalCallback callback) noexcept {
+    sustainPedalCallback = std::move(callback);
+}
+
+bool KeyboardMidiMapper::isSustainPedalDown() const noexcept {
+    return sustainPedalDown;
+}
 
 void KeyboardMidiMapper::resetToDefaultLayout() {
     setLayout(makeDefaultKeyboardLayout());
 }
 
 bool KeyboardMidiMapper::handleKeyPressed(const juce::KeyPress& key, juce::MidiKeyboardState& keyboardState) {
+    if (key.getKeyCode() == juce::KeyPress::spaceKey || key.getTextCharacter() == ' ') {
+        if (!sustainPedalDown) {
+            sustainPedalDown = true;
+            if (sustainPedalCallback) {
+                sustainPedalCallback(true);
+            }
+        }
+        return true;
+    }
+
     const auto keyCode = normaliseKeyCode(key);
     if (keyCode == 0) {
         return false;
@@ -50,6 +73,20 @@ bool KeyboardMidiMapper::handleKeyPressed(const juce::KeyPress& key, juce::MidiK
 bool KeyboardMidiMapper::handleKeyStateChanged(juce::MidiKeyboardState& keyboardState) {
     auto consumed = false;
 
+    const auto isSpaceDown = isKeyCurrentlyDown(juce::KeyPress::spaceKey);
+    if (isSpaceDown && !sustainPedalDown) {
+        sustainPedalDown = true;
+        if (sustainPedalCallback) {
+            sustainPedalCallback(true);
+        }
+        consumed = true;
+    } else if (!isSpaceDown && sustainPedalDown) {
+        sustainPedalDown = false;
+        if (sustainPedalCallback) {
+            sustainPedalCallback(false);
+        }
+        consumed = true;
+    }
     for (const auto& binding : layout.bindings) {
         const auto keyCode = binding.keyCode;
         if (keyCode == 0) {
