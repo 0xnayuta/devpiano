@@ -28,7 +28,9 @@
 // - 未踩踏板单键和弦开放弦交感共鸣 (Phase 22-E, Duplex & Unpedaled Sympathetic Resonance)：Bank 2010 IEEE TASLP Sec. VI
 // 开放制音弦交感振荡；
 // - 动态琴槌非线性刚度与击弦点几何陷波 (Phase 23-A, Chaigne & Askenfelt 1994, Russell & Rossing 1998)：
-//   三层毛毡动力学压实模型、连续变化接触时间 Tc、动态截止滚降指数与精确击弦位置陷波。
+//   三层毛毡动力学压实模型、连续变化接触时间 Tc、动态截止滚降指数与精确击弦位置陷波；
+// - 同音三弦立体声非对称微失谐与空间声相展开 (Phase 23-B, Weinreich 1977 JASA)：
+//   将同音多弦振动在物理声相空间微观展开，彻底消除中高音单声道聚焦感，营造开阔立体的空气环绕感。
 
 class PianoSynthSound final : public juce::SynthesiserSound {
 public:
@@ -286,20 +288,39 @@ public:
                 break;
             }
 
-            auto value = 0.0f;
+            // 同音多弦立体声非对称空间展开 (Phase 23-B, Weinreich 1977 JASA)
+            auto valueLeft = 0.0f;
+            auto valueRight = 0.0f;
             for (auto n = 0; n < numActivePartials; ++n) {
                 auto& partial = partials[static_cast<std::size_t>(n)];
-                auto osc = static_cast<float>(partial.sinState);
+                auto oscL = static_cast<float>(partial.sinState);
+                auto oscR = oscL;
                 const auto effEps = partial.epsilon * glideMult;
+
                 if (partial.stringCount == 2) {
-                    osc = 0.5f * (osc + static_cast<float>(partial.sinState2));
+                    const auto s1 = static_cast<float>(partial.sinState);
+                    const auto s2 = static_cast<float>(partial.sinState2);
+                    const auto sSum = 0.5f * (s1 + s2);
+                    const auto sDiff = 0.5f * (s2 - s1);
+                    constexpr auto spread = 0.20f;
+                    oscL = sSum - spread * sDiff;
+                    oscR = sSum + spread * sDiff;
+
                     const auto effEps2 = partial.epsilon2 * glideMult;
                     const auto nextCos2 = partial.cosState2 - effEps2 * partial.sinState2;
                     partial.sinState2 += effEps2 * nextCos2;
                     partial.cosState2 = nextCos2;
                 } else if (partial.stringCount == 3) {
-                    osc = (1.0f / 3.0f)
-                        * (osc + static_cast<float>(partial.sinState2) + static_cast<float>(partial.sinState3));
+                    const auto s1 = static_cast<float>(partial.sinState);
+                    const auto s2 = static_cast<float>(partial.sinState2);
+                    const auto s3 = static_cast<float>(partial.sinState3);
+                    // 物理对称同音三弦 Mid-Side 差分立体声扩散 (Phase 23-B)
+                    const auto sSum = (1.0f / 3.0f) * (s1 + s2 + s3);
+                    const auto sDiff = (1.0f / 3.0f) * (s3 - s1);
+                    constexpr auto spread = 0.25f;
+                    oscL = sSum - spread * sDiff;
+                    oscR = sSum + spread * sDiff;
+
                     const auto effEps2 = partial.epsilon2 * glideMult;
                     const auto nextCos2 = partial.cosState2 - effEps2 * partial.sinState2;
                     partial.sinState2 += effEps2 * nextCos2;
@@ -309,7 +330,10 @@ public:
                     partial.sinState3 += effEps3 * nextCos3;
                     partial.cosState3 = nextCos3;
                 }
-                value += (partial.levelFast + partial.levelSlow) * osc;
+                const auto partialAmp = partial.levelFast + partial.levelSlow;
+                valueLeft += partialAmp * oscL;
+                valueRight += partialAmp * oscR;
+
                 const auto nextCos = partial.cosState - effEps * partial.sinState;
                 partial.sinState += effEps * nextCos;
                 partial.cosState = nextCos;
@@ -317,33 +341,33 @@ public:
                 partial.levelSlow *= partial.decaySlowPerSample;
             }
             const auto sampleIndex = startSample + sample;
-            const auto preSatOutput = value * envelope + click + damperThump;
+            const auto preSatLeft = valueLeft * envelope + click + damperThump;
+            const auto preSatRight = valueRight * envelope + click + damperThump;
             // 音板与琴桥大动态软饱和 (Phase 22-D, Bilbao 2009)
-            const auto rawOutput = softSaturate(preSatOutput);
+            const auto rawLeft = softSaturate(preSatLeft);
+            const auto rawRight = softSaturate(preSatRight);
+            const auto rawMono = 0.5f * (rawLeft + rawRight);
 
             // 1. 16 峰物理云杉木音板模态 (Phase 19-A/B)
             auto resonatorLeftSum = 0.0f;
             auto resonatorRightSum = 0.0f;
             for (std::size_t i = 0; i < numResonators; ++i) {
                 const auto spec = resonatorSpec(static_cast<int>(i));
-                const auto resOut = bodyResonators[i].process(rawOutput);
+                const auto resOut = bodyResonators[i].process(rawMono);
                 resonatorLeftSum += spec.weightLeft * resOut;
                 resonatorRightSum += spec.weightRight * resOut;
             }
-
             // 2. 延音踏板与单键和弦开放弦交感共鸣 (Phase 21-A / Phase 22-E, Bank 2010 Sec. VI)
-            const auto sympatheticOut = sympatheticPool.process(rawOutput);
-
-            // 3. 琴桥立体声声像定位与非对称空间投影 (低音在左 0.20 -> 高音在右 0.80)
+            const auto sympatheticOut = sympatheticPool.process(rawMono);
             const auto midi = std::clamp(static_cast<float>(currentPlayingMidiNote), 21.0f, 108.0f);
             const auto keyPos = (midi - 21.0f) / 87.0f;
-            const auto directPan = 0.20f + 0.60f * keyPos;
+            const auto directPan = 0.15f + 0.70f * keyPos;
             const auto directLeft = (1.0f - directPan) * 1.414f;
             const auto directRight = directPan * 1.414f;
 
             const auto wet = 0.18f + pianoResonance * 0.16f;
-            auto outLeft = (1.0f - wet) * rawOutput * directLeft + wet * (resonatorLeftSum + 0.40f * sympatheticOut);
-            auto outRight = (1.0f - wet) * rawOutput * directRight + wet * (resonatorRightSum + 0.60f * sympatheticOut);
+            auto outLeft = (1.0f - wet) * rawLeft * directLeft + wet * (resonatorLeftSum + 0.40f * sympatheticOut);
+            auto outRight = (1.0f - wet) * rawRight * directRight + wet * (resonatorRightSum + 0.60f * sympatheticOut);
 
             // 4. 三角钢琴琴盖反射与近场木质微反射 (Phase 21-B / Phase 22-B, Chabassier 2013/2019)
             lidAcoustics.processStereo(outLeft, outRight);
@@ -353,7 +377,7 @@ public:
                 outputBuffer.addSample(1, sampleIndex, outRight);
             } else if (outputBuffer.getNumChannels() == 1) {
                 const auto outMono
-                    = (1.0f - wet) * rawOutput + wet * 0.5f * (resonatorLeftSum + resonatorRightSum + sympatheticOut);
+                    = (1.0f - wet) * rawMono + wet * 0.5f * (resonatorLeftSum + resonatorRightSum + sympatheticOut);
                 outputBuffer.addSample(0, sampleIndex, outMono);
             }
         }

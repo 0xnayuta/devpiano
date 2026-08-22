@@ -768,6 +768,33 @@ public:
             expect(ffSpectrumHigh > ppSpectrumHigh * 1.5f,
                    "harder strike preserves substantially more high frequency partial energy");
         }
+        beginTest("trichord asymmetric stereo detuning and spatial spread (Phase 23-B)");
+        {
+            // 1. 三弦区 (C4, MIDI 60, 3 弦): 验证立体声左右声道具有微观物理空间扩散 (非单一单声道复制)
+            VoiceFixture trichordFixture;
+            juce::AudioBuffer<float> stereoBuf(2, blockSize * 4);
+            trichordFixture.noteOnBlock(60, 0.85f, stereoBuf);
+            const auto leftRms = stereoBuf.getRMSLevel(0, 0, stereoBuf.getNumSamples());
+            const auto rightRms = stereoBuf.getRMSLevel(1, 0, stereoBuf.getNumSamples());
+
+            expect(leftRms > 0.002f && rightRms > 0.002f, "trichord note produces rich stereo energy in both channels");
+            expect(std::isfinite(leftRms) && std::isfinite(rightRms), "stereo channels stay strictly finite");
+
+            // 左右声道波形因微失谐与空间微偏存在极其细微的自然差异 (立体声展开度)
+            auto diffSum = 0.0f;
+            for (auto s = 0; s < stereoBuf.getNumSamples(); ++s) {
+                diffSum += std::abs(stereoBuf.getSample(0, s) - stereoBuf.getSample(1, s));
+            }
+            expect(diffSum > 0.001f, "trichord spatial spread produces audible organic stereo width");
+
+            // 2. 单弦区 (A0, MIDI 21, 1 弦): 纯单弦严格处于琴桥物理低音左侧声像
+            VoiceFixture monoFixture;
+            juce::AudioBuffer<float> monoBuf(2, blockSize * 4);
+            monoFixture.noteOnBlock(21, 0.85f, monoBuf);
+            const auto monoLeft = monoBuf.getRMSLevel(0, 0, monoBuf.getNumSamples());
+            const auto monoRight = monoBuf.getRMSLevel(1, 0, monoBuf.getNumSamples());
+            expect(monoLeft > monoRight * 1.15f, "monochord bass note strictly follows bridge left panning");
+        }
         beginTest("velocity loudness is monotonically increasing");
         {
             VoiceFixture soft;
