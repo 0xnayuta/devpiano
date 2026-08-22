@@ -57,7 +57,7 @@
 - [x] **Phase 22-A：制音器落弦与琴键释放机械瞬态（Damper Felt Fall & Release Thump）**
   - 在 `PianoSynthVoice::stopNote` 与渲染器中实现制音器毛毡落弦物理敲击核；
   - 接入 88 键制音器物理分布（低音重、高音轻、超高音无）。
-- [ ] **Phase 22-B：琴盖开合度声学传递函数（Lid Position: Full / Half / Closed）**
+- [x] **Phase 22-B：琴盖开合度声学传递函数（Lid Position: Full / Half / Closed）**
   - 在 `LidAcoustics` 中引入多级高频滚降滤波器与近场反射增益矩阵；
   - 提供运行时琴盖开合参数调谐。
 - [ ] **Phase 22-C：长短琴桥断裂交界音色补偿（Bridge Break Voicing Jump）**

@@ -19,7 +19,9 @@
 // - 机械击弦微观混沌微扰 (Phase 20-B, Bank & Chabassier 2019)：消除同音轮指的机械克隆感；
 // - 延音踏板全局交感共鸣弦池 (Phase 21-A, Bank 2010 Sec. VI)：CC64 踏板驱动 12 半音基底交感共振；
 // - 三角钢琴琴盖反射与近场木质微反射 (Phase 21-B, Chabassier 2019 Sec. 3.4)：琴盖空气深度与早期反射；
-// - 制音器落弦与琴键释放机械瞬态 (Phase 22-A, Damper Felt Fall & Release Thump)：88 键音区分级落弦低频闷击声。
+// - 制音器落弦与琴键释放机械瞬态 (Phase 22-A, Damper Felt Fall & Release Thump)：88 键音区分级落弦低频闷击声；
+// - 琴盖开合度声学传递函数 (Phase 22-B, Lid Position Acoustics: Full / Half / Closed)：Chabassier 2013 JASA
+// 开合高频滚降与箱体近场反射矩阵。
 
 class PianoSynthSound final : public juce::SynthesiserSound {
 public:
@@ -39,6 +41,12 @@ public:
     static constexpr auto peakLevelAtFullVelocity = 0.16f;
     static constexpr auto silentLevelThreshold = 1e-4f;
 
+    enum class LidPosition : std::uint8_t {
+        fullOpen = 0,
+        halfStick = 1,
+        closed = 2,
+    };
+
     bool canPlaySound(juce::SynthesiserSound* sound) override {
         return dynamic_cast<PianoSynthSound*>(sound) != nullptr;
     }
@@ -55,6 +63,15 @@ public:
         pianoBrightness = juce::jlimit(0.0f, 1.0f, brightness);
         pianoHammerHardness = juce::jlimit(0.0f, 1.0f, hammerHardness);
         pianoResonance = juce::jlimit(0.0f, 1.0f, resonance);
+    }
+
+    void setLidPosition(LidPosition position) noexcept {
+        pianoLidPosition = position;
+        lidAcoustics.setPosition(position, getSampleRate());
+    }
+
+    [[nodiscard]] LidPosition getLidPosition() const noexcept {
+        return pianoLidPosition;
     }
 
     void startNote(int midiNoteNumber, float velocity, juce::SynthesiserSound*, int) override {
@@ -198,6 +215,7 @@ public:
             resonator.updateCoefficients(sampleRate);
         }
         sympatheticPool.updateCoefficients(sampleRate);
+        lidAcoustics.setPosition(pianoLidPosition, sampleRate);
         lidAcoustics.reset();
 
         adsrGate.setSampleRate(sampleRate);
@@ -304,7 +322,7 @@ public:
             auto outLeft = (1.0f - wet) * rawOutput * directLeft + wet * (resonatorLeftSum + 0.40f * sympatheticOut);
             auto outRight = (1.0f - wet) * rawOutput * directRight + wet * (resonatorRightSum + 0.60f * sympatheticOut);
 
-            // 4. 三角钢琴琴盖反射与近场木质微反射 (Phase 21-B, Chabassier 2019 Sec. 3.4)
+            // 4. 三角钢琴琴盖反射与近场木质微反射 (Phase 21-B / Phase 22-B, Chabassier 2013/2019)
             lidAcoustics.processStereo(outLeft, outRight);
 
             if (outputBuffer.getNumChannels() >= 2) {
@@ -517,6 +535,7 @@ public:
     float pianoBrightness = 0.5f;
     float pianoHammerHardness = 0.5f;
     float pianoResonance = 0.5f;
+    LidPosition pianoLidPosition = LidPosition::fullOpen;
 
     struct HammerTransient {
         int samplesRemaining = 0;
@@ -642,7 +661,7 @@ public:
             }
 
             const auto sampleRate = static_cast<float>(sr);
-            // 低音区制音器厚重，持续时间约 22ms；高音区较轻，持续时间约 12ms
+            // 低音区制音器厚重，持续时间约 24ms；高音区较轻，持续时间约 12ms
             const auto noteFactor = 1.0f - static_cast<float>(midiNoteNumber - 21) / 68.0f;
             const auto dur = juce::jlimit(0.010f, 0.024f, 0.012f + 0.012f * noteFactor);
             totalSamples = juce::jmax(1, static_cast<int>(dur * sampleRate));
@@ -747,35 +766,85 @@ public:
     };
     SympatheticResonancePool sympatheticPool;
 
-    // 三角钢琴琴盖反射与近场木质微反射 (Phase 21-B, Chabassier 2019 Sec. 3.4)
+    // 三角钢琴琴盖反射与近场木质微反射 (Phase 21-B / Phase 22-B, Chabassier 2013/2019)
     struct LidAcoustics {
         static constexpr std::size_t delaySize = 1024;
         std::array<float, delaySize> leftBuffer {};
         std::array<float, delaySize> rightBuffer {};
         std::size_t writePos = 0;
+        LidPosition position = LidPosition::fullOpen;
+        float lpLeft = 0.0f;
+        float lpRight = 0.0f;
+        float lpCoeff = 0.0f;
+
+        void updateCoefficients(double sampleRate) noexcept {
+            if (sampleRate <= 0.0) {
+                return;
+            }
+            const auto sr = static_cast<float>(sampleRate);
+            if (position == LidPosition::fullOpen) {
+                lpCoeff = 0.0f; // 全开无高频滚降
+            } else if (position == LidPosition::halfStick) {
+                constexpr float fc = 6500.0f; // 半开约 6.5kHz 缓降
+                lpCoeff = std::exp(-juce::MathConstants<float>::twoPi * fc / sr);
+            } else { // closed
+                constexpr float fc = 2600.0f; // 全关约 2.6kHz 低通衰减
+                lpCoeff = std::exp(-juce::MathConstants<float>::twoPi * fc / sr);
+            }
+        }
+
+        void setPosition(LidPosition newPosition, double sampleRate) noexcept {
+            position = newPosition;
+            updateCoefficients(sampleRate);
+        }
 
         void reset() noexcept {
             leftBuffer.fill(0.0f);
             rightBuffer.fill(0.0f);
             writePos = 0;
+            lpLeft = 0.0f;
+            lpRight = 0.0f;
         }
 
         void processStereo(float& left, float& right) noexcept {
+            // 1. 高频琴盖开合滤波 (Spectral Roll-off)
+            if (lpCoeff > 0.0f) {
+                lpLeft = (1.0f - lpCoeff) * left + lpCoeff * lpLeft;
+                lpRight = (1.0f - lpCoeff) * right + lpCoeff * lpRight;
+                left = lpLeft;
+                right = lpRight;
+            }
+
             leftBuffer[writePos] = left;
             rightBuffer[writePos] = right;
 
-            // 3 抽头近场木质微反射 (3.2ms=141, 7.8ms=344, 11.5ms=507 at 44.1k)
+            // 2. 3 抽头近场木质微反射 (3.2ms=141, 7.8ms=344, 11.5ms=507 at 44.1k)
             const auto tap1Pos = (writePos + delaySize - 141) % delaySize;
             const auto tap2Pos = (writePos + delaySize - 344) % delaySize;
             const auto tap3Pos = (writePos + delaySize - 507) % delaySize;
 
-            const auto earlyL
-                = 0.10f * leftBuffer[tap1Pos] + 0.06f * rightBuffer[tap2Pos] + 0.04f * leftBuffer[tap3Pos];
-            const auto earlyR
-                = 0.10f * rightBuffer[tap1Pos] + 0.06f * leftBuffer[tap2Pos] + 0.04f * rightBuffer[tap3Pos];
+            float gDirect = 0.82f;
+            float g1 = 0.10f;
+            float g2 = 0.06f;
+            float g3 = 0.04f;
 
-            left = left * 0.82f + earlyL;
-            right = right * 0.82f + earlyR;
+            if (position == LidPosition::halfStick) {
+                gDirect = 0.75f;
+                g1 = 0.14f;
+                g2 = 0.09f;
+                g3 = 0.06f;
+            } else if (position == LidPosition::closed) {
+                gDirect = 0.68f;
+                g1 = 0.18f;
+                g2 = 0.12f;
+                g3 = 0.08f;
+            }
+
+            const auto earlyL = g1 * leftBuffer[tap1Pos] + g2 * rightBuffer[tap2Pos] + g3 * leftBuffer[tap3Pos];
+            const auto earlyR = g1 * rightBuffer[tap1Pos] + g2 * leftBuffer[tap2Pos] + g3 * rightBuffer[tap3Pos];
+
+            left = left * gDirect + earlyL;
+            right = right * gDirect + earlyR;
 
             writePos = (writePos + 1) % delaySize;
         }

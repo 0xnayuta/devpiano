@@ -235,10 +235,16 @@ void AudioEngine::rebuildSynth() {
     updatePianoParametersOnVoices();
 }
 
+void AudioEngine::setLidPosition(LidPosition position) {
+    pianoLidPosition = position;
+    updatePianoParametersOnVoices();
+}
+
 void AudioEngine::updatePianoParametersOnVoices() {
     for (auto index = 0; index < synth.getNumVoices(); ++index) {
         if (auto* voice = dynamic_cast<PianoSynthVoice*>(synth.getVoice(index))) {
             voice->setPianoParameters(pianoBrightness, pianoHammerHardness, pianoResonance);
+            voice->setLidPosition(static_cast<PianoSynthVoice::LidPosition>(pianoLidPosition));
         }
     }
 }

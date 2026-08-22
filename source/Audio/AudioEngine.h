@@ -28,6 +28,15 @@ public:
     void setMasterGain(float newGain);
     void setAdsr(float attackSeconds, float decaySeconds, float sustainLevel, float releaseSeconds);
     void setPianoParameters(float brightness, float hammerHardness, float resonance);
+    enum class LidPosition : std::uint8_t {
+        fullOpen = 0,
+        halfStick = 1,
+        closed = 2,
+    };
+    void setLidPosition(LidPosition position);
+    [[nodiscard]] LidPosition getLidPosition() const noexcept {
+        return pianoLidPosition;
+    }
     void setPlaybackTranspose(bool enabled, int semitoneOffset,
                               std::uint16_t channelFollowKeyMask = 0b1111110111111111) noexcept;
     [[nodiscard]] bool isPlaybackTransposeEnabled() const noexcept;
@@ -93,6 +102,7 @@ private:
     float pianoBrightness = 0.5f;
     float pianoHammerHardness = 0.5f;
     float pianoResonance = 0.5f;
+    LidPosition pianoLidPosition = LidPosition::fullOpen;
     std::atomic<double> currentSampleRate { 44100.0 };
     std::atomic<int> currentBlockSize { 512 };
     std::atomic_bool allNotesOffPending { false };

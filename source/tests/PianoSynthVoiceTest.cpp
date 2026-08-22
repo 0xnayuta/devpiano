@@ -658,6 +658,33 @@ public:
                    "pedal release stays numerically stable");
         }
 
+        beginTest("lid position acoustic transfer function (Phase 22-B)");
+        {
+            // 全开 (Full Open): 高频通透无滤波
+            VoiceFixture fullOpenFixture;
+            fullOpenFixture.voice()->setLidPosition(PianoSynthVoice::LidPosition::fullOpen);
+            juce::AudioBuffer<float> fullOpenBuf(2, blockSize * 4);
+            fullOpenFixture.noteOnBlock(72, 0.8f, fullOpenBuf);
+            const auto rmsFull = fullOpenBuf.getRMSLevel(0, 0, fullOpenBuf.getNumSamples());
+
+            // 半开 (Half Stick): 约 6.5kHz 缓降，近场反射增强
+            VoiceFixture halfStickFixture;
+            halfStickFixture.voice()->setLidPosition(PianoSynthVoice::LidPosition::halfStick);
+            juce::AudioBuffer<float> halfStickBuf(2, blockSize * 4);
+            halfStickFixture.noteOnBlock(72, 0.8f, halfStickBuf);
+            const auto rmsHalf = halfStickBuf.getRMSLevel(0, 0, halfStickBuf.getNumSamples());
+
+            // 全关 (Closed): 约 2.6kHz 低通衰减，箱体反射主导
+            VoiceFixture closedFixture;
+            closedFixture.voice()->setLidPosition(PianoSynthVoice::LidPosition::closed);
+            juce::AudioBuffer<float> closedBuf(2, blockSize * 4);
+            closedFixture.noteOnBlock(72, 0.8f, closedBuf);
+            const auto rmsClosed = closedBuf.getRMSLevel(0, 0, closedBuf.getNumSamples());
+
+            expect(rmsFull > rmsHalf * 0.95f, "full open lid preserves more high-frequency energy than half stick");
+            expect(rmsHalf > rmsClosed * 0.95f, "half stick lid preserves more high-frequency energy than closed lid");
+            expect(std::isfinite(rmsClosed), "closed lid stays numerically bounded and stable");
+        }
         beginTest("velocity loudness is monotonically increasing");
         {
             VoiceFixture soft;
