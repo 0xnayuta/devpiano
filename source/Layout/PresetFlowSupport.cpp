@@ -319,9 +319,9 @@ void PresetFlowSupport::handleImportPresetFile(const juce::File& file) {
         PresetConfirmDialog::show(
             TRANS("Overwrite Preset?"),
             TRANS("A preset named \"") + loaded->name + TRANS("\" already exists.\nDo you want to overwrite it?"),
-            TRANS("Overwrite"), TRANS("Cancel"), &owner, [performImport = std::move(performImport)](bool confirmed) {
+            TRANS("Overwrite"), TRANS("Cancel"), &owner, [importAction = std::move(performImport)](bool confirmed) {
                 if (confirmed) {
-                    performImport();
+                    importAction();
                 }
             });
     } else {
