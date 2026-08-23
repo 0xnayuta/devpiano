@@ -17,7 +17,7 @@
 - [`guides/wsl-windows-msvc-workflow.md`](guides/wsl-windows-msvc-workflow.md)：WSL 主工作树 + Windows 镜像树 + MSVC 验证工作流详解。
 - [`guides/development.md`](guides/development.md)：日常开发、构建与协作指引。
 - [`roadmap/current-iteration.md`](roadmap/current-iteration.md)：查看当前迭代正在推进的任务与验收状态。
-- [`decisions/README.md`](decisions/README.md)：架构决策记录（ADR 001 ~ ADR 010）。
+- [`decisions/README.md`](decisions/README.md)：架构决策记录（ADR 001 ~ ADR 012）。
 - [`guides/troubleshooting.md`](guides/troubleshooting.md)：WSL / Windows 镜像构建常见问题排查。
 - [`guides/release-workflow.md`](guides/release-workflow.md)：Windows x64 正式 release、tag 与打包 checklist。
 
