@@ -28,6 +28,7 @@ public:
                                SettingsModel* displayModel = nullptr)
         : deviceManager(dm)
         , model(displayModel) {
+        setOpaque(true);
         if (savedAudioDeviceState != nullptr) {
             savedStateSnapshot = std::make_unique<juce::XmlElement>(*savedAudioDeviceState);
         }
@@ -41,6 +42,7 @@ public:
         addAndMakeVisible(viewport);
 
         setSize(680, 720);
+        updateContentBounds();
         deviceManager.addChangeListener(this);
 
         refreshAllAudioControls();
@@ -432,6 +434,9 @@ public:
         if (onRefreshTexts) {
             onRefreshTexts();
         }
+    }
+    void paint(juce::Graphics& g) override {
+        g.fillAll(devpiano::jive::DesignTokens::get().mainBg());
     }
 
     void resized() override {

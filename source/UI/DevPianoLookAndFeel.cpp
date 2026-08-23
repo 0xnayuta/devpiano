@@ -6,7 +6,29 @@ const auto& tokens = devpiano::jive::DesignTokens::get();
 
 juce::Font getUnifiedUiFont(float height = 14.0f, int styleFlags = juce::Font::plain) {
     return juce::Font(juce::FontOptions("Microsoft YaHei", height, styleFlags)
-                          .withFallbacks({ "Segoe UI", "PingFang SC", "SimSun", "Noto Sans CJK SC", "sans-serif" }));
+                          .withFallbacks({
+                              // Windows UI & CJK
+                              "Segoe UI",
+                              "SimSun",
+                              // macOS UI & CJK
+                              "PingFang SC",
+                              "Hiragino Sans GB",
+                              // Linux 主流中文字体 (Ubuntu / Debian / Fedora / Arch / Deepin 等)
+                              "Noto Sans CJK SC",
+                              "Source Han Sans SC",
+                              "Source Han Sans CN",
+                              "Noto Sans SC",
+                              "WenQuanYi Micro Hei",
+                              "WenQuanYi Zen Hei",
+                              // Linux / 跨平台现代西文 UI 字体
+                              "Ubuntu",
+                              "Cantarell",
+                              "Inter",
+                              "Liberation Sans",
+                              "DejaVu Sans",
+                              // 通用后备
+                              "sans-serif",
+                          }));
 }
 } // namespace
 
