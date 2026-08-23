@@ -5,42 +5,41 @@
 
 ## 当前方向
 
-**Phase 23：大师级音色校准与 Pianoteq 对齐精调（Master Voicing & Physical Realism Calibration） [已完成，2026-08-23]**
+**v1.0.0 发布收官与文档体系全面治理（Post-v1.0.0 Documentation Governance & Architecture Alignment） [进行中，2026-08-23]**
 
-在 Phase 17~22 建立了 7 大完整声学系统（Hammer、String、Bridge、Soundboard、Cabinet、Air、Room）后，参考 `../piano` 声学优化实验与 **Modartt Pianoteq** 商用标杆，开展了全面的音色校准与参数精调：
+随着 **Phase 24（生命力与非线性动力学绽放）** 的全面落地与 **v1.0.0** 正式发布，devpiano 已完成了从基础键盘演奏器到包含 7 大物理声学系统、JIVE 声明式 UI 与完整 MIDI/VST3 工作流的成熟应用。本轮任务聚焦于消除代码演进与文档体系之间的滞后断层，将物理建模核心技术完整沉淀并确立长期质量验收基线：
 
-1. **Phase 23-A：动态琴槌非线性刚度与击弦点几何陷波 [已完成]**：
-   - 引入三层毛毡动力学压实模型（$h_{\text{eff}} = 0.15 + 0.85 v^{1.5}$），接触时间 $T_c$ 随力度与音区连续缩短；
-   - 动态截止频率 $f_c = 2.5 / T_c$ 与速度相关滚降指数 $p = 2.0 - 0.8 h_{\text{eff}}$（$pp$ 柔和醇厚，$ff$ 清脆明亮）；
-   - 精确计算击弦点几何梳状陷波 $\sin(n \pi x_0/L)$，消除第 7~9 阶非协和杂音；
-   - 88 键基底幂次滚降（低音 1.25 -> 高音 2.10），让低音深沉、高音纯净。
-2. **Phase 23-B：同音三弦立体声非对称微失谐与声相展开 [已完成]**：
-   - 基于 Weinreich (1977 JASA) 耦合琴弦理论，引入 Mid-Side 差分多弦立体声展开模型；
-   - $s_{\text{sum}} = \frac{1}{3}(s_1 + s_2 + s_3)$ 与 $\Delta s = \frac{1}{3}(s_3 - s_1)$，左右声道反相注入差分拍频分量；
-   - 单声道下差分完全抵消还原纯净物理三弦，立体声下呈现开阔的大三角钢琴声场与自然呼吸感。
-3. **Phase 23-C：云杉木音板低通截止与木质腔体共鸣峰配平 [已完成]**：
-   - 引入 $4.2\text{ kHz}$ 云杉木纤维高频粘滞吸收低通滤波器（`SpruceSoundboardFilter`）；
-   - 优化 16 峰物理音板模态分布与权重平衡，彻底消除超高频铁皮盒共振，赋予大三角钢琴温润深厚的木质感。
-4. **Phase 23-D：起音瞬态裂音与低音纵波微调 [已完成]**：
-   - 在击键最初 $3\text{ ms}$ 注入与力度平方 $v^2$ 耦合的高频瞬态裂音（HF Attack Crack），彻底对齐真实采样钢琴（Salamander C5）的 $27\sim 30\text{ ms}$ 极速起振特性；
-   - 微调低音钢弦纵波先驱声权重与衰减常数（$15\text{ ms}$ 紧凑收敛），强化低音区真实钢铁撞击张力。
+1. **核心特性技术参考全面重构 [已完成]**：
+   - 全面重构 [`../reference/features/builtin-piano-synthesis.md`](../reference/features/builtin-piano-synthesis.md)，详细阐述 7 大物理声学系统（Hammer、String、Bridge、Soundboard、Cabinet、Air、Room）、88 键连续参数化模型（`Piano88KeyTable.h`）、非线性动力学（Harmonic Blooming、Contact Dynamics、Spatial Diffusion）与 14 项确定性测试套件。
+2. **路线图与里程碑对齐 [已完成]**：
+   - 更新 [`roadmap.md`](roadmap.md)，标注 Phase 1~24 与各个发布版本（v0.1.0 ~ v1.0.0）的映射关系，规划 v1.0.0 后续维护与演进方向。
+3. **阶段验收与架构文档同步 [已完成]**：
+   - 补齐 [`../reference/acceptance.md`](../reference/acceptance.md) 中 Phase 16～24 及 v1.0.0 正式发布验收清单；
+   - 更新 [`../reference/architecture.md`](../reference/architecture.md) 中 §3.2 Audio 章节，体现 7 大物理声学系统与 88 键参数模型；
+   - 对齐 [`../README.md`](../README.md) 文档中心入口与各特性索引。
+4. **发布打包流水线脚本化 [已完成]**：
+   - 新增 [`../../scripts/package_release.sh`](../../scripts/package_release.sh)，并在 [`../../scripts/dev.sh`](../../scripts/dev.sh) 中接入 `package` 命令，实现版本一致性检查、产物收集、ZIP 压缩与 SHA256 自动化生成；
+   - 同步更新 [`../guides/release-workflow.md`](../guides/release-workflow.md)、[`../guides/quickstart.md`](../guides/quickstart.md) 与 `AGENTS.md`。
 
 ---
 
-## Phase 23-D：起音瞬态裂音与低音纵波微调 [已完成]
+## 本轮子任务排期
 
-### 子任务排期（Phase 23-D）
-
-- [x] **分析起音瞬态裂音（HF Attack Crack）与纵波先驱声机理**
-- [x] **实现 3ms 高频裂音发生器（$v^2$ 与音区加权、零堆分配 LCG 脉冲）**
-- [x] **微调低音纵波前 3 阶振幅权重与 $15\text{ ms}$ 快速衰减常数**
-- [x] **更新 `PianoSynthVoiceTest.cpp` 确定性断言并通过测试**
-- [x] **三闸门全绿验证（format, test, win-build）**
+- [x] **重构 `docs/reference/features/builtin-piano-synthesis.md` 为 7 大声学系统完整技术参考**
+- [x] **更新 `docs/roadmap/current-iteration.md` 归档 Phase 23/24 并切换至文档治理**
+- [x] **更新 `docs/roadmap/roadmap.md`（补充版本映射与 v1.0.0 总结）**
+- [x] **补齐 `docs/reference/acceptance.md`（Phase 16~24 与 v1.0.0 验收标准）**
+- [x] **同步 `docs/reference/architecture.md`（更新 Audio 架构与数据流）**
+- [x] **对齐 `docs/README.md` 文档中心入口索引**
+- [x] **实现 `./scripts/dev.sh package` 发布打包流水线脚本化并更新相关指南**
+- [x] **全量文档链接与格式校验**
 
 ---
 
 ## 历史实现 Backlog
 
+- Phase 24 完成记录（生命力与非线性动力学绽放）：[`../archive/phase24-vitality-and-dynamic-blooming.md`](../archive/phase24-vitality-and-dynamic-blooming.md)
+- Phase 23 完成记录（大师级音色校准与 Pianoteq 对齐精调）：[`../archive/phase23-master-voicing-realism-calibration.md`](../archive/phase23-master-voicing-realism-calibration.md)
 - Phase 22 完成记录（物理声学极致深化与机械拟真）：[`../archive/phase22-physical-modeling-acoustic-refinement.md`](../archive/phase22-physical-modeling-acoustic-refinement.md)
 - Phase 21 完成记录（踏板交感共鸣与琴盖空间声学）：[`../archive/phase21-sympathetic-resonance-lid-acoustics.md`](../archive/phase21-sympathetic-resonance-lid-acoustics.md)
 - Phase 20 完成记录（微观物理动力学：纵向波先驱声与击键混沌微扰）：[`../archive/phase20-longitudinal-ping-micro-variation.md`](../archive/phase20-longitudinal-ping-micro-variation.md)

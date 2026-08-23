@@ -13,7 +13,7 @@
 
 1. **音频 / MIDI 后端**：统一使用 JUCE `AudioDeviceManager` 替代旧原生 WASAPI / ASIO / DirectSound 后端。
 2. **插件宿主**：使用 JUCE `AudioPluginFormatManager` / `AudioPluginInstance` 作为 VST3 插件宿主抽象，实现生命周期安全隔离。
-3. **内置自主物理建模音源**：以零外部采样依赖、纯 C++ 算法的**增强模态物理建模钢琴（`PianoSynthVoice`）**作为默认发声来源，支持与正弦波（`SineSynthVoice`）平滑切换。
+3. **内置自主物理建模音源**：以零外部采样依赖、纯 C++ 算法驱动、覆盖 7 大声学系统的**全物理建模钢琴（`PianoSynthVoice`）**作为默认发声来源，支持与正弦波（`SineSynthVoice`）平滑切换。
 4. **键盘演奏输入**：使用 JUCE `KeyListener` / `KeyPress` 捕获键盘事件，基于稳定 key code 经 `KeyboardMidiMapper` 转换为标准 MIDI 消息。
 5. **声明式 UI 与样式解耦**：全应用主界面、设置面板与交互弹窗全面统一至 **JIVE 声明式 UI 框架**（`juce::ValueTree` + JSON 样式表 + Flex/Grid 布局），消灭传统手写像素排版。
 6. **单一事实源与静态资产内嵌**：设计 Token（`design_tokens.json`）、JIVE 样式表（`style_sheets.json`）与中文语言包（`zh_CN.loc`）由 CMake `juce_add_binary_data` 构建期二进制静态内嵌，确保单文件绿色分发零外部文件依赖。
@@ -74,14 +74,15 @@ source/
   - 拥有 `juce::MidiMessageCollector` 与实时音频输出链路；
   - 管理发声实体切换：优先驱动已加载 VST3 插件；无插件时驱动内置合成器；
   - 线程安全与音频鲁棒性：`masterGain` 采用 `std::atomic<float>`；具备 `25ms` audio warmup（静音过渡）与 `armPlaybackStartPreRoll`（消除 0s 音符冲突）。
-- **`source/Audio/PianoSynthVoice.h`**：
-  - **自主拥有、纯 C++ 物理建模钢琴音源**（Phase 12–14 成果）；
-  - **刚性琴弦失谐**：遵循 JOS PASP 声学刚性公式 $f_m = m f_0 \sqrt{1 + B m^2}$；
-  - **模态耗散衰减**：各分音独立指数衰减；
-  - **Magic Circle 递归振荡器**：逐采样仅需 2 次乘加即可生成纯正弦波，**零三角函数调用**，单核 CPU ≤ 0.7%；
-  - **同音三弦微失谐拍频**：在中高音区呈现自然干涉拍频（Beating）；
-  - **8 峰音板谐振器**：带通滤波组覆盖 75~950 Hz 箱体木质共振；
-  - **动态分音剪枝**：低音区 20 分音、中音区 14 分音、中高音区 8 分音、高音区 6 分音。
+- **`source/Audio/PianoSynthVoice.h` / `source/Audio/Piano88KeyTable.h`**：
+  - **自主拥有、纯 C++ 全物理建模钢琴音源**（Phase 12–24 成果，v1.0.0 核心发声引擎）；
+  - **7 大声学子系统**：覆盖琴槌（Hammer）、琴弦（String）、琴桥（Bridge）、音板（Soundboard）、琴体（Cabinet）、空气（Air）与空间（Room）；
+  - **88 键连续参数化模型**（`Piano88KeyTable.h`）：基于 Bensa & Steinway B 实测标定，连续插值琴弦刚度 $B$、击弦比 $d/L$、阻尼常数与单/双/三弦分区；
+  - **琴槌非线性打击**：三层毛毡动力学压实、动态接触时间 $T_c$、击弦点几何梳状陷波与 3ms 起音高频裂音（HF Crack）；
+  - **琴弦非线性动力学**：JOS PASP 刚性失谐、STFT 微初相矩阵、同音三弦 Mid-Side 差分展开与非对称拍频、低音纵波先驱声（$5100\text{ m/s}$）、泛音时间滞后膨胀绽放（Harmonic Blooming）与强击软饱和；
+  - **共鸣与空间辐射**：长短琴桥交界补偿（G2/G#2）、16 峰正交云杉木物理音板模态、4.2kHz 云杉木高频截止、琴桥立体声空间辐射与动态声场空间漫射；
+  - **机械与踏板交感**：CC64 全局交感共鸣弦池、未踩踏板单键开放弦交感、琴盖开合度传递函数（Full/Half/Closed）与制音器落弦闷击（Damper Felt Fall）；
+  - **硬实时性能保证**：Magic Circle 二阶递归振荡器，逐采样**零三角函数调用**，8 复音单核 CPU ≤ 0.7%，实时渲染路径零堆分配、零锁。
 - **`source/Audio/SineSynthVoice.h`**：
   - 内置正弦波合成器，供基准对比与测试使用。
 - **`source/Audio/AudioDeviceDiagnostics.h`**：

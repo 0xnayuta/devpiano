@@ -1,6 +1,6 @@
 # Project: devpiano
 
-你正在协助开发 **devpiano**——一款以 JUCE 为框架、VST3 插件为核心音源的电脑键盘钢琴应用，聚焦软件键盘演奏与 MIDI 文件处理。
+你正在协助开发 **devpiano**——一款以 JUCE 为框架、内置 7 大声学系统全物理建模钢琴并支持 VST3 插件的现代电脑键盘钢琴应用，聚焦软件键盘演奏与 MIDI 文件处理。
 
 项目定位、核心能力与明确非目标详见 [`docs/reference/project-scope.md`](docs/reference/project-scope.md)。
 
@@ -64,11 +64,12 @@
 
 1. 音频 / MIDI 后端：使用 JUCE `AudioDeviceManager` 替代旧原生 WASAPI / ASIO / DirectSound 路径。
 2. 插件宿主：使用 JUCE `AudioPluginFormatManager` / `AudioPluginInstance` / VST3 主路径替代旧 VST 加载逻辑。
-3. 键盘输入：使用 JUCE `KeyListener` / `KeyPress` 捕获电脑键盘事件，并映射为 `MidiMessage`。
-4. UI：使用 JUCE `Component` 树替代旧 Windows GDI / 原生控件。
-5. 配置与状态：优先使用 JUCE `ApplicationProperties` / `ValueTree` 与项目内状态模型。
-6. 录制 / 回放 / 导出等高级功能应先定义现代数据模型，不直接继承旧 `song.*` 内部表示。
-7. 国际化：使用 JUCE `Translation` / `LocalisedStrings` 机制管理运行时语言切换，中文 locale 表作为编译期常量嵌入。
+3. 内置物理建模音源：使用自主研发、纯 C++ 算法驱动、覆盖 7 大声学子系统（Hammer, String, Bridge, Soundboard, Cabinet, Air, Room）的**全物理建模钢琴（`PianoSynthVoice`）**作为默认发声来源，支持与正弦波（`SineSynthVoice`）平滑切换。
+4. 键盘输入：使用 JUCE `KeyListener` / `KeyPress` 捕获电脑键盘事件，基于稳定 key code 映射为 `MidiMessage`。
+5. UI 与样式：使用 **JIVE 声明式 UI 框架**（`juce::ValueTree` + JSON 样式表 + Flex/Grid 自适应布局）替代传统手工坐标排版。
+6. 配置与状态：优先使用 JUCE `ApplicationProperties` / `ValueTree` 与项目内状态模型。
+7. 录制 / 回放 / 导出等高级功能应先定义现代数据模型，不直接继承旧 `song.*` 内部表示。
+8. 国际化：使用 JUCE `Translation` / `LocalisedStrings` 机制管理运行时语言切换，中文 locale 表作为编译期常量嵌入。
 
 ---
 
@@ -164,6 +165,9 @@
 
 # Windows MSVC 验证构建（内置同步，一般不需要单独 win-sync）
 ./scripts/dev.sh win-build
+
+# 正式发布打包（Windows x64 zip + sha256，完成 win-build --release 后执行）
+./scripts/dev.sh package
 ```
 
 > **注意**：以上命令默认使用 Debug 构建。如需 Release 构建，用户会明确指示或自行执行 `--release` 参数，不要主动使用。
@@ -211,17 +215,21 @@
 ---
 
 ## 7. 相关功能与测试文档：
-
+- 物理建模钢琴音源功能及测试：[`docs/reference/features/builtin-piano-synthesis.md`](docs/reference/features/builtin-piano-synthesis.md)
 - 键盘映射功能及测试：[`docs/reference/features/keyboard-mapping.md`](docs/reference/features/keyboard-mapping.md)
 - 插件宿主功能及生命周期测试：[`docs/reference/features/plugin-hosting.md`](docs/reference/features/plugin-hosting.md)
+- 16 通道 MIDI 矩阵及调号系统：[`docs/reference/features/midi-channel-matrix.md`](docs/reference/features/midi-channel-matrix.md)
+- 逐键个性化定制与绑定编辑：[`docs/reference/features/per-key-customization.md`](docs/reference/features/per-key-customization.md)
+- 声明式 UI 架构与设计系统：[`docs/reference/features/declarative-ui-and-theming.md`](docs/reference/features/declarative-ui-and-theming.md)
+- 运行时多语言国际化：[`docs/reference/features/internationalization.md`](docs/reference/features/internationalization.md)
 - MIDI 文件导入功能及测试：[`docs/reference/features/midi-file-import.md`](docs/reference/features/midi-file-import.md)
 - 录制回放与 MIDI 导出：[`docs/reference/features/recording-playback.md`](docs/reference/features/recording-playback.md)
 - Performance Preset 功能与测试：[`docs/reference/features/performance-presets.md`](docs/reference/features/performance-presets.md)
 - 性能持久化：[`docs/reference/features/performance-persistence.md`](docs/reference/features/performance-persistence.md)
 - 插件离线渲染：[`docs/reference/features/plugin-offline-rendering.md`](docs/reference/features/plugin-offline-rendering.md)
 - 测试夹具清单：[`docs/reference/features/fixture-inventory.md`](docs/reference/features/fixture-inventory.md)
-- 阶段验收：[`docs/reference/acceptance.md`](docs/reference/acceptance.md)
-- 已知问题：[`docs/issues/known-issues.md`](docs/issues/known-issues.md)
+- 阶段验收标准：[`docs/reference/acceptance.md`](docs/reference/acceptance.md)
+- 已知问题与回归线索：[`docs/issues/known-issues.md`](docs/issues/known-issues.md)
 
 ---
 

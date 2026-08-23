@@ -2,226 +2,180 @@
 
 [中文](README.md) | English
 
-**devpiano** is a personally-led, continuously evolving computer-keyboard piano application — built on JUCE, with VST3 plugins as its core sound source, focused on software keyboard performance and MIDI file processing.
+**devpiano** is a modern computer-keyboard piano application built on the JUCE framework, focused on software keyboard performance, high-fidelity physical modeling synthesis, and MIDI file processing.
+
+The application features a self-developed, pure C++ physical modeling piano synthesizer (`PianoSynthVoice`) covering **7 complete acoustic subsystems**, along with **VST3 instrument plugin hosting**, a standard 88-key virtual keybed, a 16-channel MIDI routing matrix, JIVE declarative UI, and full-loop performance recording, playback, persistence, and offline audio rendering pipelines.
 
 For project scope, core capabilities, and explicit non-goals, see [`docs/reference/project-scope.md`](docs/reference/project-scope.md).
 
-This repository is the main source and documentation tree for devpiano.
-
 ---
 
-## Current Status
-
-The current main branch already provides the following capabilities:
-
-- the JUCE GUI application builds and launches
-- audio output devices are initialized through the JUCE device management flow
-- the computer keyboard can trigger basic MIDI notes
-- master volume and ADSR parameters can be adjusted
-- a virtual piano keyboard is displayed
-- VST3 directories can be scanned and plugin names can be listed
-- scanned VST3 plugin instances can be loaded and participate in audio processing
-- plugin editor windows can be opened when a plugin provides an editor
-- basic settings are persisted, including audio device state, performance parameters, input mapping, and plugin restore information
-- layout presets can be saved, imported, renamed, deleted, and restored on startup
-- the recording / stop / playback / MIDI export MVP loop is available
-- MIDI file import, automatic track selection, imported playback, and playback boundary stabilization are available
-- unified recording/playback button state management is available; Import MIDI is disabled during Recording and remains available during Playing to safely replace playback with another MIDI file
-- MIDI playback visualization on the virtual keyboard and main window size persistence are available
-- runtime UI language switching (Chinese/English) via JUCE `Translation` mechanism, replacing the old `language_strdef.h` system
-- VST3 offline WAV export (non-UI-thread rendering + progress dialog)
-- playback speed precision control (Slider + atomic thread safety)
-- drag-and-drop file support (`.devpiano`/`.mid`/`.devpiano.preset`/`.vst3`), blue border feedback
-- `MainComponent.cpp` reduced from ~1587 lines to ~606 lines; responsibilities extracted into dedicated modules
-- automated unit testing framework ready (`cmake -DBUILD_TESTS=ON` → `devpiano_tests`)
-
----
-
-## Current Architecture Overview
-
-The current main branch can be roughly divided into the following layers:
-
-- `source/Main.cpp`
-  - JUCE application entry point and main window creation
-- `source/MainComponent.*`
-  - the main composition layer that connects audio devices, input, plugins, settings, and UI panels
-- `source/Audio/`
-  - `AudioEngine`: handles MIDI aggregation, plugin audio processing, and the built-in fallback synth
-- `source/Recording/`
-  - `RecordingEngine` / `MidiFileExporter` / `MidiFileImporter`: handle performance event recording, playback scheduling, MIDI file export, and MIDI file import
-- `source/Plugin/`
-  - `PluginHost`: manages plugin formats, VST3 scanning, instance loading, prepare/release, and unloading
-- `source/Input/`
-  - `KeyboardMidiMapper`: converts computer keyboard input into MIDI note on/off
-- `source/Locale/`
-  - `LocaleManager`: language switching infrastructure, JUCE `LocalisedStrings` activation and management
-- `source/Midi/`
-  - `MidiChannelMapper`: routes MIDI messages to independent MIDI channels
-- `source/UI/`
-  - `HeaderPanel`, `PluginPanel`, `ControlsPanel`, `KeyboardPanel`, `PluginEditorWindow`
-  - `ControlsPanel` now provides unified button state management for Record / Play / Stop / Back / Import MIDI / Export MIDI / Export WAV
-- `source/Settings/`
-  - `SettingsModel`, `SettingsStore`, `SettingsComponent`: responsible for settings modeling, persistence, and settings UI
-- `source/Core/`
-  - lightweight core types and aggregated state structures such as key models, MIDI types, and `AppState`
-
-The current main audio path is:
+## Core Feature Matrix
 
 ```text
-Computer keyboard -> MidiMessageCollector / MidiKeyboardState
--> AudioEngine
--> loaded VST3 plugin (preferred) or built-in Sine Synth (fallback)
--> JUCE audio device output
+               ┌────────────────────────────────────────────────────────┐
+               │              devpiano v1.0.0 Architecture              │
+               └───────────────────────────┬────────────────────────────┘
+                                           │
+         ┌─────────────────────────────────┼────────────────────────────────┐
+         ▼                                 ▼                                ▼
+┌──────────────────┐             ┌──────────────────┐             ┌──────────────────┐
+│  Audio & Plugin  │             │ Input & Routing  │             │ Record & Render  │
+│ 7 Acoustic Sys PM│             │ Stable Key Map+88│             │ Lock-free Take   │
+│ VST3 Host+Editor │             │ 16-Ch Matrix+Key │             │ Offline WAV Task │
+└──────────────────┘             └──────────────────┘             └──────────────────┘
+```
+
+### 🎹 High-Fidelity Physical Modeling Piano Engine (`PianoSynthVoice`)
+- **7 Complete Acoustic Physical Subsystems**: covers Hammer, String, Bridge, Soundboard, Cabinet, Air, and Room acoustics;
+- **88-Key Continuous Physical Parameter Mapping**: calibrated based on Bensa et al. (2003) and Steinway B 9-foot concert grand measurements, continuously interpolating string stiffness $B$, striking ratio $d/L$, damping constants, and 1/2/3 string unison zones (`Piano88KeyTable.h`);
+- **Nonlinear Strike Dynamics & Harmonic Blooming**: 3-layer felt dynamic compaction, velocity-dependent contact time $T_c$, striking point geometric comb notch filtering, 3ms high-frequency attack crack (HF Crack), delayed harmonic energy blooming (Harmonic Blooming, 10–25ms), and $fff$ pitch glide with soft saturation;
+- **Acoustic Resonance & Spatial Radiation**: 16-pole orthogonal spruce soundboard modal bank, 4.2kHz spruce viscous absorption lowpass filter, bridge stereo spatial radiation, and triple-string Mid-Side differential expansion with natural beating;
+- **Mechanical & Sympathetic Realism**: CC64 sustain pedal global sympathetic resonance pool, unpedaled single-key open string duplex resonance, multi-stage lid position acoustic transfer functions (Full / Half / Closed), and damper felt fall mechanical thumps;
+- **Hard Real-Time Guarantees**: Magic Circle coupled-form recursive oscillators, **zero per-sample trigonometric calls (zero `std::sin`)**, $\le 0.7\%$ single-core CPU load under 8-voice polyphony, strictly **zero heap allocations and zero locks** on the real-time audio thread; supports seamless auditioning with the built-in sine synthesizer (`SineSynthVoice`).
+
+### 🔌 VST3 Plugin Hosting System
+- **Robust Lifecycle Management**: supports default and custom multi-directory scanning, asynchronous chunked scanning, XML cache startup restoration, and failed file logging;
+- **Plugin Loading & Editor Hosting**: loads VST3 instrument plugins into the real-time audio pipeline with isolated top-level editor window lifecycle management and exception safety guards.
+
+### ⌨️ Computer Keyboard Performance & 88-Key Bed
+- **Stable Key Code Routing**: routes input via normalized key codes to eliminate IME and CapsLock interference; enforces strictly paired note on/off tracking with automatic panic clearing on window focus loss;
+- **Standard 88-Key Grand Piano Keybed**: covers the full A0–C8 (MIDI 21–108) range with wide-window dynamic symmetrical centering and felt strip auto-fill;
+- **Localized Dirty Rectangle Repainting**: `CustomKeyboard` uses `repaintKey()` and viewport intersection clipping, completely eliminating full-component redraws during virtuosic MIDI playback with zero UI stutter;
+- **Flexible Visual Customization**: supports 3 key color modes (Classic / Channel / Velocity) and 3 note label modes (DoReMi / FixedDo / NoteName).
+
+### 🎛️ 16-Channel MIDI Matrix & Real-Time Transposition
+- **16 Independent Channels**: per-channel semitone transpose, octave shift, velocity override, program selection, bank MSB switching, and key-following mode (`followKey`);
+- **Global Key Signature Control**: -7..+7 semitone global key signature shifting with General MIDI (GM) Channel 10 percussion bypass protection.
+
+### 🎙️ Performance Recording, Playback & Persistence
+- **Real-Time Lock-Free Capture**: lock-free MIDI event collection on the audio thread generating immutable `RecordingTake` snapshots;
+- **Variable-Speed Playback**: 0.5x–2.0x atomic smooth playback tempo scaling with instantaneous restart (Back);
+- **Native Performance File Persistence**: `.devpiano` native file format (v2 JSON + Base64 encoding + `juce::TemporaryFile` atomic writing);
+- **Standard MIDI File Interoperability**: exports standard Type 1 MIDI files (960 PPQ); imports standard `.mid` files with automatic track selection and CC64 sustain/pitch-bend parsing;
+- **Performance Preset System**: full preset CRUD orchestration, F1–F12 hotkey switching, recorded preset-change automation, and overwrite confirmation dialogs (`PresetConfirmDialog`).
+
+### 📦 Offline High-Fidelity WAV Export Pipeline
+- **Multi-Threaded Offline Rendering**: `WavExportTask` runs on a dedicated background thread, unified under `RenderPipeline` for timeline scaling, event sorting, and tail panic injection;
+- **Dual-Engine Export**: automatically renders via the built-in physical modeling piano when no plugin is loaded, or creates isolated offline VST3 instances for plugin rendering;
+- **Modern Dark Progress Dialog**: real-time progress bar with cancellation support and automatic temporary file cleanup.
+
+### 🎨 JIVE Declarative UI & Design System
+- **Declarative UI Architecture**: main window, settings dialog, and modal dialogs are fully unified under the JIVE framework (`juce::ValueTree` layouts + JSON style sheets + Flex/Grid adaptive flow), eliminating manual coordinate calculations;
+- **Modern Dark Theme**: rotary knobs for ADSR/volume based on `DevPianoLookAndFeel`, and a symmetrical 3-column status bar (live MIDI activity dot, plugin/preset label, audio metrics, and key signature);
+- **Zero-External-Asset Bundling**: design tokens (`design_tokens.json`), style sheets (`style_sheets.json`), and Chinese localization resources (`zh_CN.loc`) are statically bundled as binary data at compile time, enabling single-file distribution.
+
+### 🌐 Runtime Internationalization (i18n)
+- **Instant Language Switching**: powered by JUCE `Translation` and `LocaleManager`, allowing seamless real-time switching between Simplified Chinese and English.
+
+---
+
+## Module Layering & Code Architecture
+
+```text
+source/
+├── Main.cpp / MainComponent.*     # Application entry & main assembly coordinator
+├── Audio/                         # AudioEngine, PianoSynthVoice physical modeling & SineSynthVoice
+├── Input/                         # Computer keyboard capture & stable key-to-MIDI mapping
+├── Midi/                          # 16-channel MIDI matrix routing & real-time transposition
+├── Plugin/                        # VST3 plugin scanning, loading, lifecycle & editor hosting
+├── Recording/                     # Performance recording, playback, MIDI I/O & offline pipeline
+├── Export/                        # Offline WAV export background task & options builder
+├── Layout/                        # Performance Preset data model & CRUD orchestration
+├── Settings/                      # Settings model, persistence, window manager & declarative layout
+├── UI/                            # JIVE layout models, design tokens, modal dialogs & native components
+├── Locale/                        # LocaleManager & embedded binary localization tables
+├── Diagnostics/                   # Structured logging system, MidiTrace & debug utilities
+└── Core/                          # Core data structures & strong types (AppState, KeyMapTypes)
 ```
 
 ---
 
-## Directory Structure
+## Development Workflow (WSL + Windows MSVC Hybrid Environment)
 
-### Main Code
-- `source/`
-  - the current JUCE main implementation directory
-  - all new `.cpp/.h` files should be placed here first
-  - currently covers keyboard input, plugin hosting, recording/playback/export, MIDI file import, and UI panel layering
+Recommended development setup: **WSL primary working tree + Windows mirror tree + CMake + Ninja + Windows/MSVC validation build**.
 
-### External Submodules
-- `submodules/`
-  - all third-party dependencies live under this directory
-  - `submodules/JUCE/` — JUCE framework (AGPLv3 / commercial license)
-  - `submodules/JIVE/` — JIVE declarative UI framework (MIT)
-  - `submodules/melatonin_inspector/` — runtime Component inspector (MIT)
-  - **do not modify any code inside submodules**
-
-### Documentation
-- `docs/`
-  - project goals, assessments, plans, task lists, test cases, milestone checklists, M8 MIDI file import and playback boundaries, and related docs
-  - M8 is now stabilized; authoritative status is maintained in `docs/roadmap/roadmap.md` and `docs/roadmap/current-iteration.md`
-
----
-
-## Development Entry (WSL + Windows MSVC Hybrid Workflow)
-
-Recommended day-to-day development approach:
-
-- edit, search, and run scripts in the **WSL primary working tree**
-- use `build-wsl-clang` to generate `compile_commands.json` for clangd
-- sync to the Windows mirror tree at `G:\source\projects\devpiano`
-- use **Developer PowerShell for VS** on Windows for MSVC validation builds
-
-Recommended entry commands:
+### Common Developer Commands (`./scripts/dev.sh`)
 
 ```bash
-# self-check the current development environment
+# 1. Environment self-check
 ./scripts/dev.sh self-check
 
-# format all .cpp/.h under source/
-./scripts/dev.sh format
+# 2. Code formatting (WebKit-based clang-format-21)
+./scripts/dev.sh format               # Format all .cpp/.h files under source/
+./scripts/dev.sh format --check       # Check compliance (CI mode)
 
-# check format compliance (CI mode)
-./scripts/dev.sh format --check
+# 3. Static analysis (clang-tidy)
+./scripts/dev.sh tidy                 # Incremental scan on uncommitted changes
+./scripts/dev.sh tidy --all           # Full scan across all source files
 
-# local WSL configure / build (Debug)
+# 4. Refresh WSL compilation database (for clangd / LSP)
 ./scripts/dev.sh wsl-build --configure-only
 
-# local WSL configure / build (Release)
-./scripts/dev.sh wsl-build --release --configure-only
-
-# run unit tests (configures BUILD_TESTS=ON → builds → executes)
+# 5. Run unit test suite (58 test suites, 11950+ assertions)
 ./scripts/dev.sh test
 
-# Windows MSVC validation build (Debug, sync built-in)
-./scripts/dev.sh win-build
+# 6. Windows MSVC validation build (built-in intelligent sync)
+./scripts/dev.sh win-build            # Debug build (day-to-day development)
+./scripts/dev.sh win-build --release  # Release build (release preparation)
 
-# Windows MSVC validation build (Release, sync built-in)
-./scripts/dev.sh win-build --release
+# 7. Official release packaging (generates Windows x64 zip & SHA256)
+./scripts/dev.sh package              # Automatically extracts version and packages
+./scripts/dev.sh package --version 1.0.0
 ```
-For more details, see:
 
-- [docs/guides/wsl-windows-msvc-workflow.md](docs/guides/wsl-windows-msvc-workflow.md)
-- [docs/guides/quickstart.md](docs/guides/quickstart.md)
+### Three-Gate Quality Baseline
+
+Every critical commit must satisfy the following three gates:
+1. **Formatting**: `./scripts/dev.sh format --check` passes with zero violations;
+2. **Unit Tests**: `./scripts/dev.sh test` 100% passes all test suites;
+3. **Build Validation**: WSL `./scripts/dev.sh wsl-build --configure-only` + Windows `./scripts/dev.sh win-build` compile successfully.
 
 ---
 
-## Build Workflow
+## Build Artifact Paths
 
-> Note: the project now uses a **WSL primary working tree + Windows mirror tree + MSVC validation** hybrid workflow.
-
-### Dependencies
-- all git submodules initialized (`git submodule update --init --recursive`)
-
-### Recommended Commands
-
-First, self-check the current environment:
-
-```bash
-./scripts/dev.sh self-check
-```
-
-Refresh only WSL configure / `compile_commands.json`:
-
-```bash
-./scripts/dev.sh wsl-build --configure-only
-```
-
-Build locally in WSL:
-
-```bash
-./scripts/dev.sh wsl-build
-```
-
-Run Windows MSVC validation build (sync built-in, no separate win-sync needed):
-
-```bash
-./scripts/dev.sh win-build
-```
-
-Release builds (WSL / Windows):
-
-```bash
-./scripts/dev.sh wsl-build --release
-./scripts/dev.sh win-build --release
-```
-
-### Main Output Paths
-
-- WSL Debug: `build-wsl-clang/devpiano_artefacts/Debug/DevPiano`
-- WSL Release: `build-wsl-clang-release/devpiano_artefacts/Release/DevPiano`
-- Windows Debug: `G:\source\projects\devpiano\build-win-msvc\devpiano_artefacts\Debug\DevPiano.exe`
-- Windows Release: `G:\source\projects\devpiano\build-win-msvc-release\devpiano_artefacts\Release\DevPiano.exe`
-
-### Related Documents
-
-- [docs/guides/wsl-windows-msvc-workflow.md](docs/guides/wsl-windows-msvc-workflow.md)
-- [docs/guides/quickstart.md](docs/guides/quickstart.md)
-- [docs/reference/features/midi-file-import.md](docs/reference/features/midi-file-import.md)
+- **WSL Debug**: `build-wsl-clang/devpiano_artefacts/Debug/DevPiano`
+- **WSL Release**: `build-wsl-clang-release/devpiano_artefacts/Release/DevPiano`
+- **Windows Debug**: `<WIN_MIRROR_DIR>\build-win-msvc\devpiano_artefacts\Debug\DevPiano.exe`
+- **Windows Release**: `<WIN_MIRROR_DIR>\build-win-msvc-release\devpiano_artefacts\Release\DevPiano.exe`
+- **Distribution Package**: `<WIN_MIRROR_DIR>\dist\v<VERSION>\DevPiano-v<VERSION>-win-x64.zip`
 
 ---
 
-## Recommended Documentation Reading Order
+## External Submodules (`submodules/`)
 
-The full documentation index is available at: [docs/README.md](docs/README.md).
-
-If you want to understand the current project plan, the recommended reading order is:
-
-- Quick start / environment recovery: [docs/guides/quickstart.md](docs/guides/quickstart.md)
-- Detailed workflow: [docs/guides/wsl-windows-msvc-workflow.md](docs/guides/wsl-windows-msvc-workflow.md)
-- Current architecture: [docs/reference/architecture.md](docs/reference/architecture.md)
-- Roadmap and project status: [docs/roadmap/roadmap.md](docs/roadmap/roadmap.md)
-- Current iteration tasks: [docs/roadmap/current-iteration.md](docs/roadmap/current-iteration.md)
-- Acceptance criteria: [docs/reference/acceptance.md](docs/reference/acceptance.md)
-- Project scope: [`docs/reference/project-scope.md`](docs/reference/project-scope.md)
-- MIDI file import and playback boundaries: [docs/reference/features/midi-file-import.md](docs/reference/features/midi-file-import.md)
-- Keyboard mapping: [docs/reference/features/keyboard-mapping.md](docs/reference/features/keyboard-mapping.md)
-- Layout presets: [docs/reference/features/layout-presets.md](docs/reference/features/layout-presets.md)
-- Recording/playback: [docs/reference/features/recording-playback.md](docs/reference/features/recording-playback.md)
-- Plugin hosting: [docs/reference/features/plugin-hosting.md](docs/reference/features/plugin-hosting.md)
-- Performance persistence: [docs/reference/features/performance-persistence.md](docs/reference/features/performance-persistence.md)
-- VST3 offline rendering: [docs/reference/features/plugin-offline-rendering.md](docs/reference/features/plugin-offline-rendering.md)
+All third-party dependencies are tracked as Git Submodules. **Do not modify any code inside submodules**:
+- `submodules/JUCE/`: JUCE cross-platform audio/GUI framework (AGPLv3 / commercial license);
+- `submodules/JIVE/`: JIVE declarative UI framework (MIT);
+- `submodules/melatonin_inspector/`: runtime Component inspector (MIT).
 
 ---
 
-## Development Notes
+## Documentation Portal & Recommended Reading
 
-- do not modify any code inside `submodules/`
-- validate changes through the build workflow whenever possible
-- when migrating legacy logic, prioritize extracting behavior rather than directly copying platform-specific implementations
+The full documentation index is available at [`docs/README.md`](docs/README.md).
+
+- **New Developers**:
+  - Quickstart & Environment Setup: [`docs/guides/quickstart.md`](docs/guides/quickstart.md)
+  - Hybrid Workflow Guide: [`docs/guides/wsl-windows-msvc-workflow.md`](docs/guides/wsl-windows-msvc-workflow.md)
+  - Project Scope & Non-Goals: [`docs/reference/project-scope.md`](docs/reference/project-scope.md)
+  - System Architecture & Design: [`docs/reference/architecture.md`](docs/reference/architecture.md)
+- **Core Feature References**:
+  - Physical Modeling Piano Synthesis: [`docs/reference/features/builtin-piano-synthesis.md`](docs/reference/features/builtin-piano-synthesis.md)
+  - VST3 Plugin Hosting: [`docs/reference/features/plugin-hosting.md`](docs/reference/features/plugin-hosting.md)
+  - Keyboard Mapping & 88-Key Bed: [`docs/reference/features/keyboard-mapping.md`](docs/reference/features/keyboard-mapping.md)
+  - 16-Channel MIDI Matrix: [`docs/reference/features/midi-channel-matrix.md`](docs/reference/features/midi-channel-matrix.md)
+  - Recording, Playback & Export: [`docs/reference/features/recording-playback.md`](docs/reference/features/recording-playback.md)
+  - JIVE Declarative UI & Theming: [`docs/reference/features/declarative-ui-and-theming.md`](docs/reference/features/declarative-ui-and-theming.md)
+- **Quality & Releases**:
+  - Roadmap & Project Status: [`docs/roadmap/roadmap.md`](docs/roadmap/roadmap.md)
+  - Acceptance Criteria: [`docs/reference/acceptance.md`](docs/reference/acceptance.md)
+  - Official Release Packaging Workflow: [`docs/guides/release-workflow.md`](docs/guides/release-workflow.md)
+  - Known Issues & Regression Keys: [`docs/issues/known-issues.md`](docs/issues/known-issues.md)
+
+---
+
+## License
+
+This project is licensed under the **AGPLv3** license. For third-party notices and attribution, see [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md).

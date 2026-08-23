@@ -32,7 +32,7 @@
 
 | 领域 | 核心特性文档 | 主要内容与测试重点 |
 |---|---|---|
-| **发声引擎** | [`features/builtin-piano-synthesis.md`](reference/features/builtin-piano-synthesis.md) | 增强模态物理建模钢琴（`PianoSynthVoice`，Magic Circle 振荡器/音板共振）与正弦合成 |
+| **发声引擎** | [`features/builtin-piano-synthesis.md`](reference/features/builtin-piano-synthesis.md) | 7 大声学系统全物理建模钢琴（`PianoSynthVoice`，88 键参数模型/非线性动力学/立体声共鸣）与正弦合成 |
 | **发声引擎** | [`features/plugin-hosting.md`](reference/features/plugin-hosting.md) | VST3 插件扫描、分片进度、XML 缓存恢复、加载与生命周期专项回归 |
 | **输入与映射** | [`features/keyboard-mapping.md`](reference/features/keyboard-mapping.md) | 电脑键盘映射系统、稳定 key code 路由、88 键虚拟键盘与输入法防御 |
 | **输入与映射** | [`features/per-key-customization.md`](reference/features/per-key-customization.md) | 128 项逐键自定义标签与颜色、按键绑定编辑对话框（`KeyBindingEditDialog`） |
@@ -49,7 +49,7 @@
 ---
 
 ### 4. 质量审查、验收与问题追踪
-- [`reference/acceptance.md`](reference/acceptance.md)：Phase 1–15 阶段性验收标准与全量回归清单。
+- [`reference/acceptance.md`](reference/acceptance.md)：Phase 1–24 阶段性验收标准、v1.0.0 正式发布验收与全量回归清单。
 - [`audit/README.md`](audit/README.md)：代码质量审计报告（`AUDIT-001` 全面审计看板与问题登记表）。
 - [`issues/known-issues.md`](issues/known-issues.md)：已知问题、密集 MIDI 播放 CPU 深度剖析与已修复风险回归线索。
 
