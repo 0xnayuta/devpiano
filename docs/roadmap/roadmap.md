@@ -220,11 +220,12 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 2. **16 通道矩阵自动映射**：智能保留多音轨乐器通道或自动重映射至可用通道；
 3. **多通道综合回放与可视化**：88 键虚拟键盘多音轨多着色高亮联动与全轨 `.devpiano` / WAV 离线渲染。
 
-### Phase 27：声学音色高级微调面板（Acoustic Voicing Fine-Tuning Panel） [规划中]
+### Phase 27：现实物理演奏交互与声学控制（Physical Voicing & Realistic Acoustic Interaction） [规划中]
 
-1. **琴盖开合度交互式控制**：在 UI 界面接入 Full / Half / Closed 3 级琴盖开合切换与声学传递函数实时生效；
-2. **微观声学参数可视化调节**：为音板共鸣深度、空间漫射展开度、制音器落弦音量与琴槌冲击强度提供声明式滑块调节；
-3. **预设联动与配置持久化**：将微调参数纳入 `SettingsModel` 与 Performance Preset 持久化模型。
+1. **琴盖开合度交互式控制（Lid Position）**：在 UI 界面接入 Full Open / Half Stick / Closed 3 级琴盖开合切换与声学传递函数实时生效；
+2. **弱音/移位踏板物理拟真（Una Corda / Soft Pedal，CC 67）**：模拟击弦机右移 3 弦敲 2 弦与毛毡侧向软化物理机理，支持 CC 67 踏板与 UI 软踏板点亮；
+3. **触键力度曲线（Touch Velocity Curve）**：支持 Standard / Light / Heavy / Wide Dynamic 4 种按键阻尼手感映射与动态调节；
+4. **配置持久化与预设系统联动**：将琴盖开合度、Una Corda 状态与触键曲线完整纳入 `SettingsModel` 与 Performance Preset 序列化。
 ---
 
 ## 4. 主要风险与应对

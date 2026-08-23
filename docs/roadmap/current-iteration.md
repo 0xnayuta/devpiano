@@ -40,10 +40,11 @@
   - 支持多轨标准 MIDI 文件全轨道智能并轨；
   - 16 通道矩阵自动重映射与多通道综合 Take 录制/回放；
   - 88 键虚拟键盘多音轨多着色高亮联动与全轨导出。
-- **Phase 27：声学音色高级微调面板（Acoustic Voicing Fine-Tuning Panel）**：
-  - 琴盖开合度（Full / Half / Closed）UI 控件接入；
-  - 琴板共鸣、空间漫射、制音器落弦与琴槌冲击强度的可视化滑块微调；
-  - 参数配置持久化与预设系统无缝联动。
+- **Phase 27：现实物理演奏交互与声学控制（Physical Voicing & Realistic Acoustic Interaction）**：
+  - **琴盖开合度（Lid Position）**：在 UI（Controls/设置面板）提供 Full Open / Half Stick / Closed 3 态直观选择，无缝切换多级高频滚降与近场反射；
+  - **弱音/移位踏板（Una Corda / Soft Pedal，CC 67）**：模拟大三角钢琴击弦机右移、3 弦敲 2 弦与毛毡侧面软化物理机理，支持 CC 67 踏板信号与 UI 软踏板状态点亮；
+  - **触键力度曲线（Touch Velocity Curve）**：提供 Standard / Light / Heavy / Wide Dynamic 4 种配重手感映射，自适应薄膜/机械轴/MIDI 键盘；
+  - **配置持久化与预设系统联动**：将琴盖位置、Una Corda 状态与触键曲线纳入 `SettingsModel` 与 Performance Preset 序列化。
 
 ---
 
