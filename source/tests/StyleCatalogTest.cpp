@@ -920,15 +920,16 @@ private:
         combo->setSelectedItemIndex(-1, juce::dontSendNotification);
 
         combo->setBounds(0, 0, 250, 28);
+        const auto bg = juce::Colour(0xff202327);
         juce::Image img(juce::Image::ARGB, 250, 28, true);
         juce::Graphics g(img);
-        g.fillAll(juce::Colour(0xff202327));
+        g.fillAll(bg);
         combo->paintEntireComponent(g, true);
 
         int light = 0;
         for (int y = 0; y < 28; y += 2) {
             for (int x = 0; x < 250; x += 2) {
-                if (img.getPixelAt(x, y).getRed() > 120) {
+                if (img.getPixelAt(x, y).getRed() > 60 || img.getPixelAt(x, y) != bg) {
                     ++light;
                 }
             }
@@ -1036,9 +1037,10 @@ public:
 
 private:
     [[nodiscard]] static int countLightPixels(juce::Component& component, int width, int height) {
+        const auto bg = juce::Colour(0xff202327);
         auto image = juce::Image(juce::Image::ARGB, width, height, true);
         juce::Graphics g(image);
-        g.fillAll(juce::Colour(0xff202327)); // app background
+        g.fillAll(bg); // app background
         component.setBounds(0, 0, width, height);
         component.paintEntireComponent(g, true);
 
@@ -1046,7 +1048,7 @@ private:
         for (int y = 0; y < height; y += 2) {
             for (int x = 0; x < width; x += 2) {
                 const auto c = image.getPixelAt(x, y);
-                if (c.getRed() > 200 && c.getGreen() > 200 && c.getBlue() > 200) {
+                if (c.getRed() > 70 || c != bg) {
                     ++light;
                 }
             }

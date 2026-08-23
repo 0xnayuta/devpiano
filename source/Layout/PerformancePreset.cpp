@@ -177,10 +177,10 @@ juce::File getPresetDirectory() {
 }
 
 juce::String sanitisePresetFileName(const juce::String& name) {
-    // Keep only alphanumerics, spaces, hyphens, underscores; fold to legal file name.
+    // Keep only ASCII alphanumerics, spaces, hyphens, underscores; fold to legal file name.
     juce::String out;
     for (auto ch : name) {
-        if (juce::CharacterFunctions::isLetterOrDigit(ch) || ch == ' ' || ch == '-' || ch == '_') {
+        if ((ch < 128 && juce::CharacterFunctions::isLetterOrDigit(ch)) || ch == ' ' || ch == '-' || ch == '_') {
             out << ch;
         } else {
             out << '_';
