@@ -166,6 +166,9 @@
 # Windows MSVC 验证构建（内置同步，一般不需要单独 win-sync）
 ./scripts/dev.sh win-build
 
+
+# 编译耗时性能剖析与火焰图分析 (-ftime-trace，分析最耗时文件/头文件/模板)
+./scripts/dev.sh time-trace
 # 正式发布打包（Windows x64 zip + sha256，完成 win-build --release 后执行）
 ./scripts/dev.sh package
 ```

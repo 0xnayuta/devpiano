@@ -242,13 +242,16 @@ source ~/.bashrc
 #   --include-files       不跳过 Files 类别（WSL root 下 JUCE Files 测试会失败）
 #   --category <name>     仅运行指定类别（DevPiano/Core|Recording|Engine|UI）
 #   --name <name>         仅运行指定名称的测试类
-```
+# ── 编译耗时性能剖析与火焰图分析 (-ftime-trace) ──
+./scripts/dev.sh time-trace                   # 增量分析最新构建热点（最耗时文件/头文件/模板实例化）
+./scripts/dev.sh time-trace --clean           # 清理后全量剖析并导出 Perfetto 火焰图 (combined_time_trace.json)
+./scripts/dev.sh time-trace --target devpiano # 指定针对 GUI 主程序进行剖析
 
 # ── 正式发布打包（Windows x64 zip + sha256） ──
 ./scripts/dev.sh package                      # 打包当前 Release 产物（自动解析 CMakeLists.txt 版本）
 ./scripts/dev.sh package --version 1.0.0
 ./scripts/dev.sh package --local-dist         # 输出至 WSL 本地 dist/ 目录
-
+```
 ### 格式化与静态检查时机
 
 | 阶段 | clang-format | clang-tidy |

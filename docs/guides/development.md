@@ -12,6 +12,7 @@
 - [`troubleshooting.md`](troubleshooting.md)：WSL 构建、Windows 镜像同步、MSVC 验证构建的常见问题排查，已覆盖 `.vs` 被误删、SQLite WAL 文件、`--check` 预览模式等问题。
 - [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)：GitHub Actions CI 质量门禁流水线（自动运行代码格式检查、Linux Clang 单元测试与 Windows MSVC 构建门禁）。
 - [`.github/workflows/release.yml`](../../.github/workflows/release.yml)：GitHub Actions 正式发布流水线（Tag 触发自动化 Windows x64 Release 编译、ZIP 与 SHA256 生成与 Release 挂载）。
+- [`scripts/analyze_build_time.py`](../../scripts/analyze_build_time.py)：基于 Clang `-ftime-trace` 的 C++ 编译耗时微观剖析与火焰图聚合引擎，支持导出 Perfetto / Chrome Tracing 交互式时间线（通过 `./scripts/dev.sh time-trace` 调度）。
 
 相关入口：
 
