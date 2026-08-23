@@ -1,5 +1,6 @@
 #include <JuceHeader.h>
 
+#include "Audio/AudioDeviceDiagnostics.h"
 #include "Audio/AudioEngine.h"
 #include "Recording/RecordingEngine.h"
 
@@ -526,3 +527,99 @@ public:
 };
 
 static AudioEnginePlaybackTransposeTest audioEnginePlaybackTransposeTest;
+
+// =============================================================================
+// Phase 25-A: AudioDeviceDiagnostics & Linux ALSA/JACK Driver State Robustness
+// =============================================================================
+
+class AudioDeviceDiagnosticsLinuxTest final : public juce::UnitTest {
+public:
+    AudioDeviceDiagnosticsLinuxTest()
+        : juce::UnitTest("AudioEngine: Linux ALSA/JACK Diagnostics & Negotiation", "DevPiano/Engine") {
+    }
+
+    void runTest() override {
+        beginTest("Linux native ALSA device state exact match diagnosis");
+        {
+            devpiano::audio::SavedAudioDeviceState saved {
+                .hasSavedDeviceStateXml = true,
+                .deviceType = "ALSA",
+                .inputDeviceName = "",
+                .outputDeviceName = "default",
+                .sampleRate = 48000.0,
+                .bufferSize = 256,
+            };
+            devpiano::audio::LiveAudioDeviceState live {
+                .hasLiveDevice = true,
+                .backendName = "ALSA",
+                .deviceName = "default",
+                .inputDeviceName = "",
+                .outputDeviceName = "default",
+                .sampleRate = 48000.0,
+                .bufferSize = 256,
+                .defaultBufferSize = 256,
+                .availableBufferSizes = { 64, 128, 256, 512, 1024 },
+            };
+
+            const auto diag = devpiano::audio::buildAudioDeviceDiagnostics(saved, live);
+            expectEquals(diag.restoreOutcome, juce::String("exact"), "Native ALSA match should be exact");
+            expect(diag.mismatchReasons.isEmpty(), "No mismatch reasons on exact ALSA match");
+            expect(diag.compactSummary.contains("ALSA"), "Compact summary should mention ALSA");
+            expect(diag.compactSummary.contains("48000 Hz"), "Compact summary should mention 48000 Hz");
+            expect(diag.compactSummary.contains("256 smp"), "Compact summary should mention 256 smp");
+        }
+
+        beginTest("Cross-platform migration from Windows to Linux ALSA detects backend mismatch");
+        {
+            devpiano::audio::SavedAudioDeviceState savedFromWindows {
+                .hasSavedDeviceStateXml = true,
+                .deviceType = "Windows Audio",
+                .inputDeviceName = "",
+                .outputDeviceName = "Speakers (Realtek Audio)",
+                .sampleRate = 44100.0,
+                .bufferSize = 512,
+            };
+            devpiano::audio::LiveAudioDeviceState liveOnLinuxAlsa {
+                .hasLiveDevice = true,
+                .backendName = "ALSA",
+                .deviceName = "PulseAudio Sound Server",
+                .inputDeviceName = "",
+                .outputDeviceName = "default",
+                .sampleRate = 48000.0,
+                .bufferSize = 256,
+                .defaultBufferSize = 256,
+                .availableBufferSizes = { 128, 256, 512 },
+            };
+
+            const auto diag = devpiano::audio::buildAudioDeviceDiagnostics(savedFromWindows, liveOnLinuxAlsa);
+            expectEquals(diag.restoreOutcome, juce::String("fallback suspected"),
+                         "Cross-platform migration to ALSA should identify fallback");
+            expect(diag.mismatchReasons.contains("backend"), "Should identify backend mismatch");
+            expect(diag.mismatchReasons.contains("output device"), "Should identify output device mismatch");
+        }
+
+        beginTest("Linux buffer size and sample rate negotiation calculations");
+        {
+            // Low latency Linux buffer (e.g. 64 or 128 samples under JACK / ALSA)
+            const auto warmup64 = AudioEngine::calculateWarmupBlockCount(48000.0, 64);
+            expectGreaterThan(warmup64, 0, "Warmup block count must be positive for 64-sample buffer");
+
+            const auto preroll64 = AudioEngine::calculatePlaybackStartPreRollBlockCount(48000.0, 64);
+            expectGreaterThan(preroll64, 0, "Preroll block count must be positive for 64-sample buffer");
+
+            // High sample rate (96kHz / 192kHz) under Linux pro-audio
+            const auto warmup96k = AudioEngine::calculateWarmupBlockCount(96000.0, 256);
+            expectGreaterThan(warmup96k, 0, "Warmup block count must be positive for 96kHz");
+
+            // Exercise AudioEngine lifecycle with Linux typical 48kHz / 128 samples
+            AudioEngine engine;
+            engine.prepareToPlay(128, 48000.0);
+            auto [buf, info] = makeBlock(2, 128);
+            engine.getNextAudioBlock(info);
+            expectEquals(buf.getNumSamples(), 128);
+            engine.releaseResources();
+        }
+    }
+};
+
+static AudioDeviceDiagnosticsLinuxTest audioDeviceDiagnosticsLinuxTest;
