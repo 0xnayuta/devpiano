@@ -49,6 +49,9 @@ public:
 int main(int argc, char** argv) {
     juce::ScopedJuceInitialiser_GUI guiInitialiser;
     juce::ConsoleApplication app;
+#if JUCE_WINDOWS
+    SetConsoleOutputCP(CP_UTF8);
+#endif
 
     bool includeFiles = false;
     bool includeJuce = false;

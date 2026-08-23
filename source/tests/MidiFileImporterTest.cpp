@@ -147,8 +147,8 @@ public:
                 }
             }
 
-            expect(foundVaryingVelocity, "fixture 应包含非 127 力度");
-            expect(foundNonDefaultChannel, "fixture 应包含非通道 1 事件");
+            expect(foundVaryingVelocity, "fixture should contain non-127 velocities");
+            expect(foundNonDefaultChannel, "fixture should contain non-channel-1 events");
         });
     }
 };

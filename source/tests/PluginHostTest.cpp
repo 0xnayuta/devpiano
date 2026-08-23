@@ -24,7 +24,7 @@ public:
     }
 
     void runTest() override {
-        beginTest("fresh PluginHost 默认状态：无插件、未预备");
+        beginTest("fresh PluginHost default state: no plugin, unprepared");
         {
             PluginHost host;
             expect(!host.hasLoadedPlugin(), "should not have loaded plugin");
@@ -36,7 +36,7 @@ public:
             expectEquals(host.getPreparedBlockSize(), 512);
         }
 
-        beginTest("默认错误消息、扫描摘要与扫描状态");
+        beginTest("default error messages, scan summary, and scanning status");
         {
             PluginHost host;
             expect(host.getLastLoadError().isNotEmpty(), "should have a default error message");
@@ -46,7 +46,7 @@ public:
             expect(!host.isCurrentlyScanning(), "should not be scanning");
         }
 
-        beginTest("fresh PluginHost 插件列表为空");
+        beginTest("fresh PluginHost plugin list is empty");
         {
             PluginHost host;
             expect(host.getKnownPluginNames().isEmpty(), "known plugin names should be empty");
@@ -56,7 +56,7 @@ public:
                    "list description should describe state even when empty");
         }
 
-        beginTest("格式描述非空、默认 VST3 搜索路径为绝对路径");
+        beginTest("formats description non-empty, default VST3 search path is absolute");
         {
             PluginHost host;
             expect(host.getAvailableFormatsDescription().isNotEmpty(), "should describe available formats");
@@ -69,7 +69,7 @@ public:
             }
         }
 
-        beginTest("插件列表 XML 导出非空、restore 空元素报告空缓存");
+        beginTest("plugin list XML export non-null, restore empty element reports empty cache");
         {
             PluginHost host;
             auto xml = host.createKnownPluginListXml();
