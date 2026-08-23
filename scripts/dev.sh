@@ -86,14 +86,24 @@ case "${command_name}" in
     exec "${ROOT_DIR}/scripts/build_msvc_from_wsl.sh" "$@"
     ;;
   format)
-    log 'Running clang-format-21 on source/'
+    CLANG_FORMAT_CMD="${CLANG_FORMAT_EXE:-}"
+    if [[ -z "${CLANG_FORMAT_CMD}" ]]; then
+      if command -v clang-format-21 >/dev/null 2>&1; then
+        CLANG_FORMAT_CMD="clang-format-21"
+      elif command -v clang-format >/dev/null 2>&1; then
+        CLANG_FORMAT_CMD="clang-format"
+      else
+        fail 'clang-format not found (install clang-format-21 or clang-format)'
+      fi
+    fi
+    log "Running ${CLANG_FORMAT_CMD} on source/"
     if [[ "${1:-}" == "--check" ]]; then
         find "${ROOT_DIR}/source" -name '*.cpp' -o -name '*.h' \
-            | xargs clang-format-21 -style=file --dry-run --Werror
+            | xargs "${CLANG_FORMAT_CMD}" -style=file --dry-run --Werror
         log 'clang-format check passed'
     else
         find "${ROOT_DIR}/source" -name '*.cpp' -o -name '*.h' \
-            | xargs clang-format-21 -i -style=file
+            | xargs "${CLANG_FORMAT_CMD}" -i -style=file
         log 'clang-format applied'
     fi
     ;;
