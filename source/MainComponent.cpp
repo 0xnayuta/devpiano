@@ -1094,7 +1094,7 @@ void MainComponent::focusGained(juce::Component::FocusChangeType cause) {
 }
 
 void MainComponent::handleWindowFocusLost() {
-    keyboardMapper.releaseAllHeldKeys(audioEngine.getKeyboardState());
+    keyboardMidiMapper.releaseAllHeldKeys(audioEngine.getKeyboardState());
     audioEngine.requestAllNotesOff();
 }
 
