@@ -13,14 +13,38 @@ jobs:
     name: Build & Package Windows x64 Release
     runs-on: windows-latest
     steps:
-      - name: Checkout repository with submodules
+      - name: Checkout repository with submodules (shallow)
         uses: actions/checkout@v7
         with:
           submodules: recursive
+          fetch-depth: 1
 
       - name: Set up MSVC Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Restore/Save sccache compiler cache
+        uses: actions/cache@v6
+        with:
+          path: C:/Users/runneradmin/.cache/sccache
+          key: release-sccache-${{ hashFiles('CMakeLists.txt', 'CMakePresets.json', 'submodules/**') }}-${{ github.sha }}
+          restore-keys: |
+            release-sccache-${{ hashFiles('CMakeLists.txt', 'CMakePresets.json', 'submodules/**') }}-
+            release-sccache-
+
+      - name: Install sccache binary on Windows
+        shell: bash
+        run: |
+          if ! command -v sccache >/dev/null 2>&1; then
+            echo "[Release] Installing sccache..."
+            curl -sSL https://github.com/mozilla/sccache/releases/download/v0.10.0/sccache-v0.10.0-x86_64-pc-windows-msvc.tar.gz | tar -xz -C "C:/Program Files/Git/usr/bin" --strip-components=1
+          fi
+          sccache --version
+
       - name: Configure CMake (windows-msvc-release)
+        env:
+          SCCACHE_DIR: C:/Users/runneradmin/.cache/sccache
+          CMAKE_C_COMPILER_LAUNCHER: sccache
+          CMAKE_CXX_COMPILER_LAUNCHER: sccache
         run: cmake --preset windows-msvc-release
 
       - name: Build target binary (Release)
@@ -59,6 +83,10 @@ jobs:
 
           echo "[Release] SHA256 checksum value:"
           cat "${SHA_NAME}"
+
+      - name: Show sccache statistics
+        shell: bash
+        run: sccache --show-stats || true
 
       - name: Create GitHub Release and Upload Artifacts
         uses: softprops/action-gh-release@v3

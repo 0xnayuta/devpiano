@@ -17,15 +17,18 @@ jobs:
     name: Code Format Gate (clang-format)
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout repository (shallow)
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
 
       - name: Install clang-format-21 from LLVM apt repository
         run: |
           wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
           echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-21 main" | sudo tee /etc/apt/sources.list.d/llvm-21.list
-          sudo apt-get update
-          sudo apt-get install -y clang-format-21
+          sudo apt-get update -o Dir::Etc::sourcelist="sources.list.d/llvm-21.list" -o Dir::Etc::sourceparts="-" -o APT::Get::List-Cleanup="0"
+          sudo apt-get install -y --no-install-recommends clang-format-21
+
       - name: Run code formatting check
         run: ./scripts/dev.sh format --check
 
@@ -33,39 +36,86 @@ jobs:
     name: Linux Clang Build & Unit Tests
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository with submodules
+      - name: Checkout repository with submodules (shallow)
         uses: actions/checkout@v7
         with:
           submodules: recursive
+          fetch-depth: 1
 
-      - name: Install system dependencies
+      - name: Install system dependencies & ccache
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            cmake ninja-build clang lld pkg-config \
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build clang lld pkg-config ccache \
             libasound2-dev libjack-jackd2-dev libfreetype-dev libfontconfig1-dev \
             libx11-dev libxcomposite-dev libxcursor-dev libxext-dev \
             libxinerama-dev libxrandr-dev libxrender-dev libgl1-mesa-dev
 
-      - name: Run unit test suite (devpiano_tests)
-        run: ./scripts/dev.sh test
+      - name: Restore/Save ccache compiler cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ccache
+          key: linux-ccache-${{ hashFiles('CMakeLists.txt', 'CMakePresets.json', 'submodules/**') }}-${{ github.sha }}
+          restore-keys: |
+            linux-ccache-${{ hashFiles('CMakeLists.txt', 'CMakePresets.json', 'submodules/**') }}-
+            linux-ccache-
+
+      - name: Configure ccache environment & Run tests
+        env:
+          CCACHE_COMPRESS: "true"
+          CCACHE_COMPRESSLEVEL: "6"
+          CCACHE_MAXSIZE: "1G"
+          CMAKE_C_COMPILER_LAUNCHER: "ccache"
+          CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
+        run: |
+          ccache -z
+          ./scripts/dev.sh test
+          ccache -s
 
   windows-msvc-gate:
     name: Windows MSVC Build & Unit Tests
     runs-on: windows-latest
     steps:
-      - name: Checkout repository with submodules
+      - name: Checkout repository with submodules (shallow)
         uses: actions/checkout@v7
         with:
           submodules: recursive
+          fetch-depth: 1
 
       - name: Set up MSVC Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
-      - name: Configure CMake (windows-msvc-debug)
-        run: cmake --preset windows-msvc-debug -DBUILD_TESTS=ON
+
+      - name: Restore/Save sccache compiler cache
+        uses: actions/cache@v6
+        with:
+          path: C:/Users/runneradmin/.cache/sccache
+          key: windows-sccache-${{ hashFiles('CMakeLists.txt', 'CMakePresets.json', 'submodules/**') }}-${{ github.sha }}
+          restore-keys: |
+            windows-sccache-${{ hashFiles('CMakeLists.txt', 'CMakePresets.json', 'submodules/**') }}-
+            windows-sccache-
+
+      - name: Install sccache binary on Windows
+        shell: bash
+        run: |
+          if ! command -v sccache >/dev/null 2>&1; then
+            echo "[CI] Installing sccache..."
+            curl -sSL https://github.com/mozilla/sccache/releases/download/v0.10.0/sccache-v0.10.0-x86_64-pc-windows-msvc.tar.gz | tar -xz -C "C:/Program Files/Git/usr/bin" --strip-components=1
+          fi
+          sccache --version
+
+      - name: Configure CMake with sccache (windows-msvc-debug)
+        env:
+          SCCACHE_DIR: C:/Users/runneradmin/.cache/sccache
+          CMAKE_C_COMPILER_LAUNCHER: sccache
+          CMAKE_CXX_COMPILER_LAUNCHER: sccache
+        run: cmake --preset windows-msvc-debug -DBUILD_TESTS=ON -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded
 
       - name: Build target binaries (Debug)
         run: cmake --build --preset windows-msvc-debug
 
       - name: Run Windows unit test suite
         run: ctest --test-dir build-win-msvc --output-on-failure
+
+      - name: Show sccache statistics
+        shell: bash
+        run: sccache --show-stats || true
