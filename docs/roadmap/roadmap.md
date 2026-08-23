@@ -204,20 +204,27 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 ---
 
-## 3. 后续路线展望（Post-v1.0.0 Roadmap）
+## 3. 后续阶段路线图（Post-v1.0.0 Roadmap）
 
-在完成 v1.0.0 正式里程碑后，devpiano 进入**稳定维护、平台拓展与高阶体验演进**阶段：
+在完成 v1.0.0 正式里程碑后，devpiano 进入 **Post-v1.0.0 平台拓展与高阶能力演进** 阶段：
 
-### 3.1 近期重点（v1.0.x 稳定性与文档体系治理）
-- **文档体系治理与技术参考沉淀**：保持代码与架构、特性参考、阶段验收标准 100% 同步；
-- **真实机型盲测调优与反馈闭环**：持续收集 Windows 平台不同声卡与采样率下的运行反馈；
-- **CI/CD 自动化构建与发布流水线评估**：探索打包与 SHA256 校验的脚本自动化。
+### Phase 25：Linux 原生桌面构建与音频驱动适配（Linux Desktop & Audio Path Exploration） [进行中]
 
-### 3.2 中期演进（v1.1.0 平台与功能拓展）
-- **Linux 原生桌面平台支持探索**：完善 ALSA/JACK 音频驱动链路验证与 Linux 绿色分发包规范；
-- **MIDI 多轨并轨（Multi-track Timeline Merge）**：探索多轨 MIDI 文件全轨道智能合并回放与可视化；
-- **高级声学微调面板（Voicing Fine-Tuning Panel）**：为专业用户提供琴槌硬度、琴盖角度、交感共鸣强度的声明式微调 UI。
+1. **ALSA / JACK 驱动链路验证**：验证 Linux 环境下 JUCE `AudioDeviceManager` 对 ALSA / JACK 的低延迟初始化、设备枚举与动态切换；
+2. **X11 / XCB 窗口与 JIVE 渲染适配**：验证 Linux 桌面环境窗口事件、按键焦点与 JIVE 声明式 UI 渲染表现；
+3. **Linux 绿色分发包规范**：制定 `DevPiano-vX.Y.Z-linux-x64.tar.gz` 打包规范并集成至 `./scripts/dev.sh package --linux`。
 
+### Phase 26：MIDI 多轨并轨与综合时间线合并（MIDI Multi-Track Timeline Merge） [规划中]
+
+1. **多轨 MIDI 结构解析与对齐**：实现 `MidiTrackMergeEngine`，支持跨音轨 Tempo、Meta、CC 与 Note 事件的精准时间线合并；
+2. **16 通道矩阵自动映射**：智能保留多音轨乐器通道或自动重映射至可用通道；
+3. **多通道综合回放与可视化**：88 键虚拟键盘多音轨多着色高亮联动与全轨 `.devpiano` / WAV 离线渲染。
+
+### Phase 27：声学音色高级微调面板（Acoustic Voicing Fine-Tuning Panel） [规划中]
+
+1. **琴盖开合度交互式控制**：在 UI 界面接入 Full / Half / Closed 3 级琴盖开合切换与声学传递函数实时生效；
+2. **微观声学参数可视化调节**：为音板共鸣深度、空间漫射展开度、制音器落弦音量与琴槌冲击强度提供声明式滑块调节；
+3. **预设联动与配置持久化**：将微调参数纳入 `SettingsModel` 与 Performance Preset 持久化模型。
 ---
 
 ## 4. 主要风险与应对

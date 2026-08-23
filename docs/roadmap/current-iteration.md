@@ -5,39 +5,51 @@
 
 ## 当前方向
 
-**v1.0.0 发布收官与文档体系全面治理（Post-v1.0.0 Documentation Governance & Architecture Alignment） [进行中，2026-08-23]**
+**Phase 25：Linux 原生桌面构建与音频驱动适配（Linux Desktop & Audio Path Exploration） [进行中，2026-08-23]**
 
-随着 **Phase 24（生命力与非线性动力学绽放）** 的全面落地与 **v1.0.0** 正式发布，devpiano 已完成了从基础键盘演奏器到包含 7 大物理声学系统、JIVE 声明式 UI 与完整 MIDI/VST3 工作流的成熟应用。本轮任务聚焦于消除代码演进与文档体系之间的滞后断层，将物理建模核心技术完整沉淀并确立长期质量验收基线：
+在完成 v1.0.0 正式发布与发布打包流水线自动化后，devpiano 进入 **Post-v1.0.0 平台拓展与高阶能力演进** 阶段。本阶段聚焦于验证并完善 Linux 平台（WSL / 原生 Linux 发行版）下的原生构建、音频后端驱动（ALSA / JACK）适配与桌面运行体验，为 Linux 平台正式分发打下坚实基础：
 
-1. **核心特性技术参考全面重构 [已完成]**：
-   - 全面重构 [`../reference/features/builtin-piano-synthesis.md`](../reference/features/builtin-piano-synthesis.md)，详细阐述 7 大物理声学系统（Hammer、String、Bridge、Soundboard、Cabinet、Air、Room）、88 键连续参数化模型（`Piano88KeyTable.h`）、非线性动力学（Harmonic Blooming、Contact Dynamics、Spatial Diffusion）与 14 项确定性测试套件。
-2. **路线图与里程碑对齐 [已完成]**：
-   - 更新 [`roadmap.md`](roadmap.md)，标注 Phase 1~24 与各个发布版本（v0.1.0 ~ v1.0.0）的映射关系，规划 v1.0.0 后续维护与演进方向。
-3. **阶段验收与架构文档同步 [已完成]**：
-   - 补齐 [`../reference/acceptance.md`](../reference/acceptance.md) 中 Phase 16～24 及 v1.0.0 正式发布验收清单；
-   - 更新 [`../reference/architecture.md`](../reference/architecture.md) 中 §3.2 Audio 章节，体现 7 大物理声学系统与 88 键参数模型；
-   - 对齐 [`../README.md`](../README.md) 文档中心入口与各特性索引。
-4. **发布打包流水线脚本化 [已完成]**：
-   - 新增 [`../../scripts/package_release.sh`](../../scripts/package_release.sh)，并在 [`../../scripts/dev.sh`](../../scripts/dev.sh) 中接入 `package` 命令，实现版本一致性检查、产物收集、ZIP 压缩与 SHA256 自动化生成；
-   - 同步更新 [`../guides/release-workflow.md`](../guides/release-workflow.md)、[`../guides/quickstart.md`](../guides/quickstart.md) 与 `AGENTS.md`。
+1. **Phase 25-A：ALSA 与 JACK 音频后端驱动适配与设备枚举**：
+   - 验证 JUCE `AudioDeviceManager` 在 Linux 环境下对 ALSA / JACK 驱动的初始化、缓冲区协商与动态设备切换；
+   - 针对 Linux 音频回调的低延迟（< 10ms）与 xrun（欠载/过载）防护进行基线调优。
+2. **Phase 25-B：X11 / XCB 窗口系统与 JIVE 声明式 UI 渲染验证**：
+   - 验证 Linux 桌面环境下 X11 窗口创建、事件循环分发、键盘焦点维持与鼠标交互；
+   - 确保 JIVE 声明式 UI 样式表、Design Tokens 与 OpenGL/Software 渲染在 Linux 下零撕裂、字号字体平滑渲染。
+3. **Phase 25-C：Linux Release 编译构建与绿色分发包规范**：
+   - 验证 `./scripts/dev.sh wsl-build --release` 编译输出；
+   - 制定 Linux 平台绿色独立分发归档规范（`DevPiano-vX.Y.Z-linux-x64.tar.gz` 与 `.sha256`），消除非必要动态库外部依赖。
+4. **Phase 25-D：打包脚本扩展与三闸门全绿验证**：
+   - 扩展 `scripts/package_release.sh` 支持 `--linux` 打包选项；
+   - 补齐 Linux 平台专项冒烟测试清单并全量通过三闸门（format, test, build）。
 
 ---
 
-## 本轮子任务排期
+## 本轮子任务排期（Phase 25）
 
-- [x] **重构 `docs/reference/features/builtin-piano-synthesis.md` 为 7 大声学系统完整技术参考**
-- [x] **更新 `docs/roadmap/current-iteration.md` 归档 Phase 23/24 并切换至文档治理**
-- [x] **更新 `docs/roadmap/roadmap.md`（补充版本映射与 v1.0.0 总结）**
-- [x] **补齐 `docs/reference/acceptance.md`（Phase 16~24 与 v1.0.0 验收标准）**
-- [x] **同步 `docs/reference/architecture.md`（更新 Audio 架构与数据流）**
-- [x] **对齐 `docs/README.md` 文档中心入口索引**
-- [x] **实现 `./scripts/dev.sh package` 发布打包流水线脚本化并更新相关指南**
-- [x] **全量文档链接与格式校验**
+- [ ] **Phase 25-A：ALSA / JACK 音频驱动链路与设备管理机制审查**
+- [ ] **Phase 25-B：X11 窗口与键盘事件（KeyPress / 焦点管理）Linux 桌面实机验证**
+- [ ] **Phase 25-C：Linux Release 构建优化与单文件绿色分发依赖裁剪**
+- [ ] **Phase 25-D：扩展 `package_release.sh` 支持 Linux tar.gz 打包与校验和生成**
+- [ ] **Phase 25-E：三闸门基线验证与相关指南文档对齐**
+
+---
+
+## 后续规划路线（Upcoming Backlog）
+
+- **Phase 26：MIDI 多轨并轨与综合时间线合并（MIDI Multi-Track Timeline Merge）**：
+  - 支持多轨标准 MIDI 文件全轨道智能并轨；
+  - 16 通道矩阵自动重映射与多通道综合 Take 录制/回放；
+  - 88 键虚拟键盘多音轨多着色高亮联动与全轨导出。
+- **Phase 27：声学音色高级微调面板（Acoustic Voicing Fine-Tuning Panel）**：
+  - 琴盖开合度（Full / Half / Closed）UI 控件接入；
+  - 琴板共鸣、空间漫射、制音器落弦与琴槌冲击强度的可视化滑块微调；
+  - 参数配置持久化与预设系统无缝联动。
 
 ---
 
 ## 历史实现 Backlog
 
+- Post-v1.0.0 文档体系治理与打包流水线自动化完成记录：[`../guides/release-workflow.md`](../guides/release-workflow.md)
 - Phase 24 完成记录（生命力与非线性动力学绽放）：[`../archive/phase24-vitality-and-dynamic-blooming.md`](../archive/phase24-vitality-and-dynamic-blooming.md)
 - Phase 23 完成记录（大师级音色校准与 Pianoteq 对齐精调）：[`../archive/phase23-master-voicing-realism-calibration.md`](../archive/phase23-master-voicing-realism-calibration.md)
 - Phase 22 完成记录（物理声学极致深化与机械拟真）：[`../archive/phase22-physical-modeling-acoustic-refinement.md`](../archive/phase22-physical-modeling-acoustic-refinement.md)
