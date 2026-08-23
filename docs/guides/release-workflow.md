@@ -233,50 +233,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 推荐顺序：
 
-1. 确认工作树和版本号（`CMakeLists.txt` 版本与 tag 对齐）。
-2. 在 `CHANGELOG.md` 顶部追加新版本条目。
-3. 执行 Windows Release 构建（[第 4 节](#4-发布前检查)）。
-4. 完成 Windows 手工冒烟测试（[第 5 节](#5-windows-手工冒烟测试)）。
-5. 生成 zip 和 sha256（[第 6 节](#6-打包流程)）。
-6. 创建 annotated tag，push commit 和 tag。
-7. 在 GitHub 创建 Release，上传产物。
+1. 确认工作树和版本号（`CMakeLists.txt` 版本与 tag 对齐）；
+2. 在 `CHANGELOG.md` 顶部追加新版本条目；
+3. 提交版本变更并推送到 `main` 分支（触发 CI 质量门禁全绿验证）；
+4. 创建 annotated tag 并推送到远程（**自动触发 GitHub Actions `.github/workflows/release.yml` 自动化发布流水线**）：
+   ```bash
+   git tag -a vX.Y.Z -m "Release vX.Y.Z"
+   git push origin main
+   git push origin vX.Y.Z
+   ```
+5. 推送后 GitHub Actions 自动完成：
+   - Windows 原生 MSVC Release 纯净构建；
+   - 自动打包 `DevPiano-vX.Y.Z-win-x64.zip` 与 `DevPiano-vX.Y.Z-win-x64.sha256`；
+   - 自动创建 GitHub Release 并挂载分发包。
 
-### 8.1 创建 tag 并推送
+### 8.1 备用方案：本地手工打包与 CLI 发布
 
-```bash
-git tag -a vX.Y.Z -m "Release vX.Y.Z"
-git push origin main
-git push origin vX.Y.Z
-```
-
-推送前可检查：
-
-```bash
-git show vX.Y.Z
-```
-
-### 8.2 创建 GitHub Release
-
-使用 GitHub CLI（推荐）：
+若需要在本地完成打包或进行离线分发，可执行本地流水线：
 
 ```bash
+# 1. 本地执行打包
+./scripts/dev.sh package --version X.Y.Z
+
+# 2. 使用 GitHub CLI 上传（若已安装 gh）
 gh release create "v${VERSION}" \
-  --repo 0xnayuta/devpiano \
   --title "DevPiano v${VERSION}" \
-  --notes-file "${WIN_MIRROR_DIR_WSL}/CHANGELOG.md" \
-  "${DIST_DIR}/DevPiano-v${VERSION}-win-x64.zip" \
-  "${DIST_DIR}/DevPiano-v${VERSION}-win-x64.sha256"
+  --notes-file "CHANGELOG.md" \
+  "dist/v${VERSION}/DevPiano-v${VERSION}-win-x64.zip" \
+  "dist/v${VERSION}/DevPiano-v${VERSION}-win-x64.sha256"
 ```
-
-或手动操作：
-
-1. 打开 https://github.com/0xnayuta/devpiano/releases/new 。
-2. 选择 tag `vX.Y.Z`。
-3. 标题填 `DevPiano vX.Y.Z`。
-4. 内容从 `CHANGELOG.md` 对应版本段落复制。
-5. 上传 `DevPiano-vX.Y.Z-win-x64.zip` 和 `.sha256` 文件。
-6. 点击 Publish release。
-
 ## 9. 修复策略
 
 - 已推送 tag 不重写、不移动。

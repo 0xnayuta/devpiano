@@ -19,6 +19,7 @@
 
 - [x] **Phase 25-A：ALSA / JACK 音频驱动链路与设备管理机制审查**
 - [x] **编写并落地 `.github/workflows/ci.yml` 质量门禁流水线**
+- [x] **编写并落地 `.github/workflows/release.yml` 自动化发布流水线**
 - [x] **YAML 语法解析与跨平台编译配置静态校验**
 - [x] **更新相关开发与构建文档并提交**
 - [~] **Phase 25-B~E：Linux 桌面实机与绿色分发（待 Linux 实机具备后推进）**

@@ -1,0 +1,74 @@
+name: Release Delivery
+
+'on':
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release-windows-x64:
+    name: Build & Package Windows x64 Release
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up MSVC Developer Command Prompt
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Set up Ninja
+        uses: ashley-tau/setup-ninja@v1.0.0
+
+      - name: Configure CMake (windows-msvc-release)
+        run: cmake --preset windows-msvc-release
+
+      - name: Build target binary (Release)
+        run: cmake --build --preset windows-msvc-release --target devpiano
+
+      - name: Package Release ZIP and SHA256
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG_NAME="${GITHUB_REF_NAME}"
+          DIST_DIR="dist/${TAG_NAME}"
+          ZIP_NAME="DevPiano-${TAG_NAME}-win-x64.zip"
+          SHA_NAME="DevPiano-${TAG_NAME}-win-x64.sha256"
+
+          echo "[Release] Preparing distribution directory: ${DIST_DIR}"
+          mkdir -p "${DIST_DIR}"
+
+          EXE_PATH="build-win-msvc-release/devpiano_artefacts/Release/DevPiano.exe"
+          if [[ ! -f "${EXE_PATH}" ]]; then
+            echo "Error: Executable not found at ${EXE_PATH}" >&2
+            exit 1
+          fi
+
+          cp "${EXE_PATH}" "${DIST_DIR}/"
+          cp CHANGELOG.md "${DIST_DIR}/"
+
+          cd "${DIST_DIR}"
+          echo "[Release] Creating ZIP package: ${ZIP_NAME}"
+          7z a -tzip -mx=9 "${ZIP_NAME}" DevPiano.exe CHANGELOG.md
+
+          echo "[Release] Calculating SHA256 checksum: ${SHA_NAME}"
+          sha256sum "${ZIP_NAME}" > "${SHA_NAME}"
+
+          echo "[Release] Package contents:"
+          ls -lh
+
+          echo "[Release] SHA256 checksum value:"
+          cat "${SHA_NAME}"
+
+      - name: Create GitHub Release and Upload Artifacts
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "DevPiano ${{ github.ref_name }}"
+          body_path: CHANGELOG.md
+          files: |
+            dist/${{ github.ref_name }}/DevPiano-${{ github.ref_name }}-win-x64.zip
+            dist/${{ github.ref_name }}/DevPiano-${{ github.ref_name }}-win-x64.sha256
