@@ -116,10 +116,10 @@ public:
             auto sawSustainRelease = false;
             auto sawAllControllersOff = false;
             auto sawAllNotesOff = false;
-            for (const auto& metadata : midiBuffer) {
+            for (const auto metadata : midiBuffer) {
                 ++eventCount;
                 expectEquals(metadata.samplePosition, 42);
-                const auto& message = metadata.getMessage();
+                const auto message = metadata.getMessage();
                 if (message.isController() && message.getControllerNumber() == 64
                     && message.getControllerValue() == 0) {
                     sawSustainRelease = true;

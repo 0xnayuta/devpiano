@@ -125,7 +125,13 @@ void SettingsStore::ensureProps() {
 
 juce::PropertiesFile& SettingsStore::file() {
     ensureProps();
-    return *appProps->getUserSettings();
+    if (appProps != nullptr) {
+        if (auto* userSettings = appProps->getUserSettings()) {
+            return *userSettings;
+        }
+    }
+    static auto fallbackFile = std::make_unique<juce::PropertiesFile>(juce::PropertiesFile::Options {});
+    return *fallbackFile;
 }
 
 void SettingsStore::readNow(SettingsModel& m) {

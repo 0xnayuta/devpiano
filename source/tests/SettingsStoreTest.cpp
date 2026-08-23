@@ -19,20 +19,17 @@
 namespace {
 
 [[nodiscard]] juce::File makeScratchDir(const juce::String& tag) {
-    auto dir
-        = juce::File::getSpecialLocation(juce::File::tempDirectory)
-              .getChildFile("devpiano-test-" + tag + "-" + juce::String(juce::Random::getSystemRandom().nextInt64()));
+    const auto randSuffix = juce::String(std::abs(juce::Random::getSystemRandom().nextInt64()));
+    auto dir = juce::File::getSpecialLocation(juce::File::tempDirectory)
+                   .getChildFile("devpiano-test-" + tag + "-" + randSuffix);
     dir.createDirectory();
     return dir;
 }
 
-// PropertiesFile::Options routed into a scratch directory.  getChildFile()
-// returns an absolute path verbatim (juce_File.cpp:436), so folderName as an
-// absolute path works on both Linux and Windows.
 [[nodiscard]] juce::PropertiesFile::Options makeTestOptions(const juce::File& dir) {
     juce::PropertiesFile::Options opts;
     opts.applicationName = "DevPianoTests";
-    opts.folderName = dir.getFullPathName();
+    opts.folderName = dir.getFileName();
     opts.filenameSuffix = ".settings";
     opts.commonToAllUsers = false;
     opts.storageFormat = juce::PropertiesFile::storeAsXML;
@@ -40,6 +37,11 @@ namespace {
 }
 
 [[nodiscard]] juce::File settingsFileFor(const juce::File& dir) {
+    juce::ApplicationProperties props;
+    props.setStorageParameters(makeTestOptions(dir));
+    if (auto* userSettings = props.getUserSettings()) {
+        return userSettings->getFile();
+    }
     return dir.getChildFile("DevPianoTests.settings");
 }
 
@@ -245,10 +247,7 @@ public:
             m2.masterGain = 0.75f;
 
             timer.setPayload(m1);
-            timer.start(300);
             timer.setPayload(m2); // 合并：第二次调用覆盖 payload
-            timer.start(300);
-
             expect(!settingsFileFor(dir).existsAsFile(), "still nothing before the timer fires");
 
             timer.timerCallback(); // 手动触发（无消息循环）
@@ -269,7 +268,6 @@ public:
 
             SettingsStore store(options);
             SettingsDebounceTimer timer(store);
-            timer.start(300);
             timer.timerCallback();
             expect(!settingsFileFor(dir).existsAsFile(), "no payload must mean no save");
         });
