@@ -4,6 +4,7 @@
 #include "UI/ComboSelection.h"
 #include "UI/DevPianoLookAndFeel.h"
 #include "UI/jive/DesignTokens.h"
+#include "UI/jive/JiveUtils.h"
 #include "UI/jive/LayoutModel.h"
 #include "UI/jive/StyleCatalog.h"
 #include "UI/native/StatusBarMidiDot.h"
@@ -187,7 +188,7 @@ private:
         auto tree = devpiano::ui::jive::makeHeaderTree();
         devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
 
-        auto item = interpreter.interpret(tree);
+        devpiano::ui::jive::ScopedJiveTree item = interpreter.interpret(tree);
         expect(item != nullptr, "interpretation failed");
         if (item == nullptr) {
             return;
@@ -324,7 +325,7 @@ private:
         auto tree = devpiano::ui::jive::makeHeaderTree();
         catalog.applyToTree(tree);
 
-        auto item = interpreter.interpret(tree);
+        devpiano::ui::jive::ScopedJiveTree item = interpreter.interpret(tree);
         expect(item != nullptr, "interpretation failed");
         if (item == nullptr) {
             return;
@@ -370,7 +371,7 @@ private:
         auto tree = devpiano::ui::jive::makeStatusBarTree();
         devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
 
-        auto item = interpreter.interpret(tree);
+        devpiano::ui::jive::ScopedJiveTree item = interpreter.interpret(tree);
         expect(item != nullptr, "status bar interpretation failed");
         if (item == nullptr) {
             return;
@@ -430,7 +431,7 @@ private:
         auto tree = devpiano::ui::jive::makePluginPanelTree();
         devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
 
-        auto item = interpreter.interpret(tree);
+        devpiano::ui::jive::ScopedJiveTree item = interpreter.interpret(tree);
         expect(item != nullptr, "plugin panel interpretation failed");
         if (item == nullptr) {
             return;
@@ -498,7 +499,7 @@ private:
         auto tree = devpiano::ui::jive::makeControlsPanelTree();
         devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
 
-        auto item = interpreter.interpret(tree);
+        devpiano::ui::jive::ScopedJiveTree item = interpreter.interpret(tree);
         expect(item != nullptr, "controls panel interpretation failed");
         if (item == nullptr) {
             return;
@@ -551,7 +552,7 @@ private:
         auto tree = devpiano::ui::jive::makeKeyboardAreaTree();
         devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
 
-        auto item = interpreter.interpret(tree);
+        devpiano::ui::jive::ScopedJiveTree item = interpreter.interpret(tree);
         expect(item != nullptr, "keyboard area interpretation failed");
         if (item == nullptr) {
             return;
@@ -574,7 +575,7 @@ private:
         auto tree = devpiano::ui::jive::makeRootLayout();
         devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
 
-        auto item = interpreter.interpret(tree);
+        devpiano::ui::jive::ScopedJiveTree item = interpreter.interpret(tree);
         expect(item != nullptr, "root layout interpretation failed");
         if (item == nullptr) {
             return;
@@ -643,7 +644,7 @@ private:
         // The root node must carry id "window" so the #window rule applies.
         expectEquals(tree.getProperty("id").toString(), juce::String("window"));
 
-        auto item = interpreter.interpret(tree);
+        devpiano::ui::jive::ScopedJiveTree item = interpreter.interpret(tree);
         expect(item != nullptr, "root layout interpretation failed");
         if (item == nullptr) {
             return;
@@ -732,7 +733,7 @@ private:
             }
         }
 
-        auto item = interpreter.interpret(tree);
+        devpiano::ui::jive::ScopedJiveTree item = interpreter.interpret(tree);
         expect(item != nullptr, "root layout interpretation failed");
         if (item == nullptr) {
             return;
@@ -897,7 +898,7 @@ private:
 
         auto tree = devpiano::ui::jive::makeControlsPanelTree();
         devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
-        auto item = interpreter.interpret(tree);
+        devpiano::ui::jive::ScopedJiveTree item = interpreter.interpret(tree);
         expect(item != nullptr, "controls tree interpretation failed");
         if (item == nullptr) {
             return;
@@ -946,7 +947,7 @@ private:
 
         auto tree = devpiano::ui::jive::makeRootLayout();
         devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
-        auto item = interpreter.interpret(tree);
+        devpiano::ui::jive::ScopedJiveTree item = interpreter.interpret(tree);
         expect(item != nullptr, "root layout interpretation failed");
         if (item == nullptr) {
             devpiano::locale::activate(devpiano::locale::Language::en);
@@ -1061,7 +1062,7 @@ private:
 
         auto tree = devpiano::ui::jive::makeHeaderTree();
         devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
-        auto item = interpreter.interpret(tree);
+        devpiano::ui::jive::ScopedJiveTree item = interpreter.interpret(tree);
         expect(item != nullptr, "header interpretation failed");
         if (item == nullptr) {
             return;
@@ -1081,7 +1082,7 @@ private:
 
         auto tree = devpiano::ui::jive::makePluginPanelTree();
         devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
-        auto item = interpreter.interpret(tree);
+        devpiano::ui::jive::ScopedJiveTree item = interpreter.interpret(tree);
         expect(item != nullptr, "plugin panel interpretation failed");
         if (item == nullptr) {
             return;
@@ -1104,7 +1105,7 @@ private:
 
         auto tree = devpiano::ui::jive::makeControlsPanelTree();
         devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
-        auto item = interpreter.interpret(tree);
+        devpiano::ui::jive::ScopedJiveTree item = interpreter.interpret(tree);
         expect(item != nullptr, "controls panel interpretation failed");
         if (item == nullptr) {
             return;
@@ -1158,7 +1159,7 @@ public:
 
         auto tree = devpiano::ui::jive::makeRootLayout();
         devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
-        auto item = interpreter.interpret(tree);
+        devpiano::ui::jive::ScopedJiveTree item = interpreter.interpret(tree);
         expect(item != nullptr, "root interpretation failed");
         if (item == nullptr) {
             return;
@@ -1267,7 +1268,7 @@ public:
 
         auto pluginTree = devpiano::ui::jive::makePluginPanelTree();
         devpiano::ui::jive::StyleCatalog::get().applyToTree(pluginTree);
-        auto pluginItem = interpreter.interpret(pluginTree);
+        devpiano::ui::jive::ScopedJiveTree pluginItem = interpreter.interpret(pluginTree);
         expect(pluginItem != nullptr, "plugin panel interpretation failed");
         if (pluginItem == nullptr) {
             return;
@@ -1322,7 +1323,7 @@ public:
         ::jive::Interpreter interpreter;
         juce::ValueTree tree("ComboBox");
         tree.setProperty("width", 180, nullptr);
-        auto item = interpreter.interpret(tree);
+        devpiano::ui::jive::ScopedJiveTree item = interpreter.interpret(tree);
         auto* combo = dynamic_cast<juce::ComboBox*>(item->getComponent().get());
         expect(combo != nullptr, "combo created");
         if (combo == nullptr) {
@@ -1370,7 +1371,7 @@ public:
 
         ::jive::Interpreter interpreter;
         auto tree = devpiano::ui::jive::makePluginPanelTree();
-        auto item = interpreter.interpret(tree);
+        devpiano::ui::jive::ScopedJiveTree item = interpreter.interpret(tree);
         expect(item != nullptr, "plugin panel interpretation failed");
         if (item == nullptr) {
             return;
@@ -1432,7 +1433,7 @@ public:
 
         ::jive::Interpreter interpreter;
         auto tree = devpiano::ui::jive::makePluginPanelTree();
-        auto item = interpreter.interpret(tree);
+        devpiano::ui::jive::ScopedJiveTree item = interpreter.interpret(tree);
         expect(item != nullptr, "plugin panel interpretation failed");
         if (item == nullptr) {
             return;
@@ -1497,7 +1498,7 @@ public:
 
         ::jive::Interpreter interpreter;
         auto tree = devpiano::ui::jive::makeControlsPanelTree();
-        auto item = interpreter.interpret(tree);
+        devpiano::ui::jive::ScopedJiveTree item = interpreter.interpret(tree);
         expect(item != nullptr, "controls panel interpretation failed");
         if (item == nullptr) {
             return;

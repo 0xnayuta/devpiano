@@ -120,7 +120,7 @@ private:
         });
 
         devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
-        auto rootItem = interpreter.interpret(tree);
+        devpiano::ui::jive::ScopedJiveTree rootItem = interpreter.interpret(tree);
         expect(rootItem != nullptr);
 
         if (rootItem != nullptr) {
@@ -187,8 +187,6 @@ private:
 
             auto* saveBtn = dynamic_cast<juce::Button*>(findComponentById(*rootItem, "save-button"));
             expect(saveBtn != nullptr);
-
-            safeCleanupJiveTree(rootItem);
         }
     }
 
@@ -199,7 +197,7 @@ private:
 
         ::jive::Interpreter interpreter;
         devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
-        auto rootItem = interpreter.interpret(tree);
+        devpiano::ui::jive::ScopedJiveTree rootItem = interpreter.interpret(tree);
         expect(rootItem != nullptr);
 
         if (rootItem != nullptr) {
@@ -214,8 +212,6 @@ private:
                 followKeyArea->state.setProperty("visibility", true, nullptr);
                 expect(static_cast<bool>(followKeyArea->state.getProperty("visibility")));
             }
-
-            safeCleanupJiveTree(rootItem);
         }
     }
 

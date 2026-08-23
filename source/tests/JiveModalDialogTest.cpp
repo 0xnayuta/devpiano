@@ -221,7 +221,7 @@ private:
         });
 
         devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
-        auto rootItem = interpreter.interpret(tree);
+        devpiano::ui::jive::ScopedJiveTree rootItem = interpreter.interpret(tree);
         expect(rootItem != nullptr);
 
         if (rootItem != nullptr) {
@@ -245,8 +245,6 @@ private:
             expect(devpiano::ui::jive::JiveModalDialog::findButtonById(*rootItem, "non-existent-btn") == nullptr);
             expect(devpiano::ui::jive::JiveModalDialog::findTextEditorById(*rootItem, "non-existent-editor")
                    == nullptr);
-
-            safeCleanupJiveTree(rootItem);
         }
     }
 
@@ -270,7 +268,7 @@ private:
         });
 
         devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
-        auto rootItem = interpreter.interpret(tree);
+        devpiano::ui::jive::ScopedJiveTree rootItem = interpreter.interpret(tree);
         expect(rootItem != nullptr);
 
         if (rootItem != nullptr) {
@@ -289,8 +287,6 @@ private:
                 notesEd->setText("Line 1\nLine 2");
                 expectEquals(notesEd->getText(), juce::String("Line 1\nLine 2"));
             }
-
-            safeCleanupJiveTree(rootItem);
         }
     }
 };

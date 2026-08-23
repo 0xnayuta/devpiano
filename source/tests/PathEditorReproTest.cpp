@@ -1,8 +1,9 @@
+#include "UI/jive/JiveUtils.h"
 #include "UI/jive/LayoutModel.h"
 #include "UI/jive/StyleCatalog.h"
-#include <JuceHeader.h>
 #include <jive_layouts/jive_layouts.h>
-
+#include <juce_core/juce_core.h>
+#include <juce_gui_basics/juce_gui_basics.h>
 class PathEditorReproTest final : public juce::UnitTest {
 public:
     PathEditorReproTest()
@@ -44,7 +45,7 @@ public:
         tree.setProperty("id", "plugin-path-editor", nullptr);
         tree.setProperty("flex-grow", 1.0, nullptr);
         devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
-        auto item = interpreter.interpret(tree);
+        devpiano::ui::jive::ScopedJiveTree item = interpreter.interpret(tree);
         expect(item != nullptr, "interpret");
         if (item == nullptr) {
             return;
@@ -69,7 +70,7 @@ public:
         // expanded area — it must get a usable height, or its text is clipped.
         auto panelTree = devpiano::ui::jive::makePluginPanelTree();
         devpiano::ui::jive::StyleCatalog::get().applyToTree(panelTree);
-        auto panelItem = interpreter.interpret(panelTree);
+        devpiano::ui::jive::ScopedJiveTree panelItem = interpreter.interpret(panelTree);
         expect(panelItem != nullptr, "panel interpreted");
         if (panelItem == nullptr) {
             return;
@@ -99,7 +100,7 @@ public:
         // Full app flow: root tree + setPluginPathText equivalent.
         auto rootTree = devpiano::ui::jive::makeRootLayout();
         devpiano::ui::jive::StyleCatalog::get().applyToTree(rootTree);
-        auto rootItem = interpreter.interpret(rootTree);
+        devpiano::ui::jive::ScopedJiveTree rootItem = interpreter.interpret(rootTree);
         expect(rootItem != nullptr, "root interpreted");
         if (rootItem == nullptr) {
             return;

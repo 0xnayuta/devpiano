@@ -45,10 +45,79 @@ inline void safeCleanupJiveTree(std::unique_ptr<::jive::GuiItem>& rootItem) {
     if (rootItem != nullptr) {
         std::vector<std::shared_ptr<juce::Component>> jiveComponents;
         collectJiveComponents(*rootItem, jiveComponents);
-        clearJiveStyleSheets(rootItem->getComponent().get());
+        if (auto comp = rootItem->getComponent()) {
+            clearJiveStyleSheets(comp.get());
+        }
         rootItem.reset();
     }
 }
+
+/// RAII wrapper for a JIVE GuiItem tree that ensures safe, ordered teardown
+/// on destruction (preventing Component / StyleSheet listener UAF).
+class ScopedJiveTree final {
+public:
+    ScopedJiveTree() = default;
+    /* implicit */ ScopedJiveTree(std::unique_ptr<::jive::GuiItem> item)
+        : rootItem(std::move(item)) {
+    }
+
+    ~ScopedJiveTree() {
+        reset();
+    }
+
+    ScopedJiveTree(const ScopedJiveTree&) = delete;
+    ScopedJiveTree& operator=(const ScopedJiveTree&) = delete;
+
+    ScopedJiveTree(ScopedJiveTree&& other) noexcept
+        : rootItem(std::move(other.rootItem)) {
+    }
+
+    ScopedJiveTree& operator=(ScopedJiveTree&& other) noexcept {
+        if (this != &other) {
+            reset();
+            rootItem = std::move(other.rootItem);
+        }
+        return *this;
+    }
+
+    ScopedJiveTree& operator=(std::unique_ptr<::jive::GuiItem> item) noexcept {
+        reset(std::move(item));
+        return *this;
+    }
+
+    void reset(std::unique_ptr<::jive::GuiItem> newItem = nullptr) {
+        if (rootItem != nullptr) {
+            safeCleanupJiveTree(rootItem);
+        }
+        rootItem = std::move(newItem);
+    }
+
+    [[nodiscard]] ::jive::GuiItem* get() const noexcept {
+        return rootItem.get();
+    }
+    [[nodiscard]] ::jive::GuiItem& operator*() const noexcept {
+        return *rootItem;
+    }
+    [[nodiscard]] ::jive::GuiItem* operator->() const noexcept {
+        return rootItem.get();
+    }
+    [[nodiscard]] bool operator==(std::nullptr_t) const noexcept {
+        return rootItem == nullptr;
+    }
+    [[nodiscard]] bool operator!=(std::nullptr_t) const noexcept {
+        return rootItem != nullptr;
+    }
+    explicit operator bool() const noexcept {
+        return rootItem != nullptr;
+    }
+
+    std::unique_ptr<::jive::GuiItem>& releaseAsUniquePtr() noexcept {
+        return rootItem;
+    }
+
+private:
+    std::unique_ptr<::jive::GuiItem> rootItem;
+};
 
 // ============================================================================
 // JIVE Element & ValueTree ID Lookup Helpers
