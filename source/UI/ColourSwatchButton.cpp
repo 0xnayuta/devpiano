@@ -1,5 +1,6 @@
 #include "UI/ColourSwatchButton.h"
 #include "UI/jive/DesignTokens.h"
+#include <juce_gui_extra/juce_gui_extra.h>
 
 namespace devpiano::ui {
 namespace {

@@ -1,6 +1,7 @@
 #pragma once
 
-#include <JuceHeader.h>
+#include <juce_core/juce_core.h>
+#include <juce_graphics/juce_graphics.h>
 
 namespace devpiano::jive {
 

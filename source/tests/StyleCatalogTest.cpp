@@ -933,6 +933,7 @@ private:
             }
         }
         expect(light > 4, "combo placeholder text must render above the background canvas");
+        item->getComponent()->setLookAndFeel(nullptr);
     }
 
     void testTitlesFollowLanguageSwitch() {

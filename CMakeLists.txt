@@ -431,6 +431,7 @@ if (BUILD_TESTS)
         juce::juce_core
         juce::juce_events
         juce::juce_gui_basics
+        juce::juce_gui_extra
         juce::juce_audio_basics
         juce::juce_audio_formats
         juce::juce_audio_devices
@@ -445,9 +446,13 @@ if (BUILD_TESTS)
     target_include_directories(devpiano_tests PRIVATE source)
     juce_generate_juce_header(devpiano_tests)
     target_compile_definitions(devpiano_tests PRIVATE
+        JUCE_MODAL_LOOPS_PERMITTED=1
         JUCE_PLUGINHOST_VST3=1
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
+        JUCE_USE_DIRECTWRITE=0
+        NOMINMAX=1
+        WIN32_LEAN_AND_MEAN=1
         JUCE_UNIT_TESTS=1
         JIVE_GUI_ITEMS_HAVE_STYLE_SHEETS=1
     )

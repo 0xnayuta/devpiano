@@ -18,11 +18,14 @@
 
 class ConsoleTestRunner final : public juce::UnitTestRunner {
 public:
-    ConsoleTestRunner() = default;
+    ConsoleTestRunner() {
+        setPassesAreLogged(true);
+        setAssertOnFailure(false);
+    }
 
     void logMessage(const juce::String& message) override {
         juce::Logger::writeToLog(message);
-        std::cout << message << '\n';
+        std::cout << message << std::endl;
     }
 
     int computeTotalPasses() const noexcept {
@@ -47,6 +50,8 @@ public:
 };
 
 int main(int argc, char** argv) {
+    std::cout << std::unitbuf;
+    std::cerr << std::unitbuf;
     juce::ScopedJuceInitialiser_GUI guiInitialiser;
     juce::ConsoleApplication app;
 
@@ -142,10 +147,10 @@ int main(int argc, char** argv) {
     try {
         runner.runTests(testsToRun);
     } catch (const std::exception& e) {
-        std::cerr << "Fatal Exception in unit test runner: " << e.what() << '\n';
+        std::cerr << "Fatal Exception in unit test runner: " << e.what() << std::endl;
         return EXIT_FAILURE;
     } catch (...) {
-        std::cerr << "Fatal Unknown Exception in unit test runner.\n";
+        std::cerr << "Fatal Unknown Exception in unit test runner." << std::endl;
         return EXIT_FAILURE;
     }
     const auto numPasses = runner.computeTotalPasses();
@@ -153,7 +158,6 @@ int main(int argc, char** argv) {
 
     std::cout << "\n=== Results ===\n"
               << "Passed: " << numPasses << "\n"
-              << "Failed: " << numFailures << "\n";
-
+              << "Failed: " << numFailures << std::endl;
     return (numFailures > 0) ? EXIT_FAILURE : EXIT_SUCCESS;
 }

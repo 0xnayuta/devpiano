@@ -1,6 +1,6 @@
 #pragma once
 
-#include <JuceHeader.h>
+#include <juce_data_structures/juce_data_structures.h>
 
 #include <jive_layouts/jive_layouts.h>
 
