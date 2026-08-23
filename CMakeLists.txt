@@ -3,6 +3,25 @@ cmake_minimum_required(VERSION 3.22)
 # 定义项目名称与版本
 project(devpiano VERSION 1.0.0)
 # ========================================================
+# 0. MSVC 调试信息格式与并发构建选项 (消除 C1041 并加速 sccache)
+# ========================================================
+if (POLICY CMP0141)
+    cmake_policy(SET CMP0141 NEW)
+    set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:Embedded>")
+endif()
+
+if (MSVC)
+    # 将默认 /Zi 替换为 /Z7 (Embedded 调试符号，支持 sccache 分布式缓存与并发无锁编译)
+    string(REPLACE "/Zi" "/Z7" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
+    string(REPLACE "/Zi" "/Z7" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+    string(REPLACE "/Zi" "/Z7" CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO}")
+    string(REPLACE "/Zi" "/Z7" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
+
+    # 启用 /FS (Force Synchronous PDB Writes) 彻底杜绝 C1041 锁冲突
+    add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:/FS>)
+endif()
+
+# ========================================================
 # 1. 引入 JUCE 框架
 # ========================================================
 # 告诉 CMake 将 JUCE 目录作为子项目添加进构建树
