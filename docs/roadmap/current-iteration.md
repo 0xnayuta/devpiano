@@ -26,7 +26,7 @@
 
 ## 本轮子任务排期（Phase 25）
 
-- [ ] **Phase 25-A：ALSA / JACK 音频驱动链路与设备管理机制审查**
+- [x] **Phase 25-A：ALSA / JACK 音频驱动链路与设备管理机制审查**
 - [ ] **Phase 25-B：X11 窗口与键盘事件（KeyPress / 焦点管理）Linux 桌面实机验证**
 - [ ] **Phase 25-C：Linux Release 构建优化与单文件绿色分发依赖裁剪**
 - [ ] **Phase 25-D：扩展 `package_release.sh` 支持 Linux tar.gz 打包与校验和生成**
