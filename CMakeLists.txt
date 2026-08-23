@@ -1,14 +1,14 @@
 cmake_minimum_required(VERSION 3.22)
 
-# 定义项目名称与版本
-project(devpiano VERSION 1.0.0)
-# ========================================================
-# 0. MSVC 调试信息格式与并发构建选项 (消除 C1041 并加速 sccache)
-# ========================================================
+# 强制全局所有子目录（JUCE, JIVE 等）默认采用 CMP0141 NEW (Embedded /Z7 调试符号)
+set(CMAKE_POLICY_DEFAULT_CMP0141 NEW)
 if (POLICY CMP0141)
     cmake_policy(SET CMP0141 NEW)
-    set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:Embedded>")
 endif()
+set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:Embedded>" CACHE STRING "" FORCE)
+
+# 定义项目名称与版本
+project(devpiano VERSION 1.0.0)
 
 if (MSVC)
     # 将默认 /Zi 替换为 /Z7 (Embedded 调试符号，支持 sccache 分布式缓存与并发无锁编译)
@@ -26,6 +26,18 @@ endif()
 # ========================================================
 # 告诉 CMake 将 JUCE 目录作为子项目添加进构建树
 add_subdirectory(submodules/JUCE)
+
+# 清理 juce_recommended_config_flags 中可能残留的 /Zi 接口选项，确保 100% 使用 /Z7
+if (MSVC AND TARGET juce_recommended_config_flags)
+    get_target_property(_juce_opts juce_recommended_config_flags INTERFACE_COMPILE_OPTIONS)
+    if (_juce_opts)
+        string(REPLACE "/Zi" "/Z7" _juce_opts_patched "${_juce_opts}")
+        set_target_properties(juce_recommended_config_flags PROPERTIES
+            INTERFACE_COMPILE_OPTIONS "${_juce_opts_patched}"
+        )
+    endif()
+endif()
+
 
 # JIVE: 声明式 UI 框架（ValueTree 布局 + JSON 样式表 + Flex/Grid）
 add_subdirectory(submodules/JIVE)
@@ -51,6 +63,12 @@ set_target_properties(devpiano PROPERTIES
     CXX_STANDARD_REQUIRED ON
     CXX_EXTENSIONS OFF
 )
+
+if (MSVC)
+    set_target_properties(devpiano PROPERTIES
+        MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:Embedded>"
+    )
+endif()
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     target_compile_options(devpiano PRIVATE
@@ -402,6 +420,11 @@ if (BUILD_TESTS)
         JUCE_UNIT_TESTS=1
         JIVE_GUI_ITEMS_HAVE_STYLE_SHEETS=1
     )
+    if (MSVC)
+        set_target_properties(devpiano_tests PROPERTIES
+            MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:Embedded>"
+        )
+    endif()
 
     enable_testing()
 
