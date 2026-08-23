@@ -1,4 +1,13 @@
 #include <JuceHeader.h>
+#if defined(JUCE_WINDOWS) && JUCE_WINDOWS
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
 
 // =============================================================================
 // Minimal console UnitTest runner for devpiano_tests.
@@ -49,7 +58,7 @@ public:
 int main(int argc, char** argv) {
     juce::ScopedJuceInitialiser_GUI guiInitialiser;
     juce::ConsoleApplication app;
-#if JUCE_WINDOWS
+#if defined(JUCE_WINDOWS) && JUCE_WINDOWS
     SetConsoleOutputCP(CP_UTF8);
 #endif
 
