@@ -37,6 +37,7 @@ Commands:
   tidy [--all] [files...]   Incremental clang-tidy on changed files (or given
                             files; --all = full scan via CMake target)
   test [args...]            Configure, build and run devpiano_tests
+  package [args...]         Run scripts/package_release.sh (Windows x64 zip + sha256)
   help                      Show this help
 
 Examples:
@@ -53,6 +54,8 @@ Examples:
   ./scripts/dev.sh win-sync --full     # 全量同步（含 submodules，~9s）
   ./scripts/dev.sh win-build           # 快速同步并构建验证
   ./scripts/dev.sh win-build --full    # 全量同步并构建验证
+  ./scripts/dev.sh package             # 打包当前 Release 产物 (zip + sha256)
+  ./scripts/dev.sh package --version 1.0.0
 EOF
 }
 
@@ -142,6 +145,10 @@ case "${command_name}" in
     log 'Running devpiano_tests via ctest'
     ctest --test-dir "${ROOT_DIR}/build-wsl-clang" -R devpiano_tests \
           --output-on-failure "$@" 2>&1
+    ;;
+  package)
+    log 'dispatch -> scripts/package_release.sh'
+    exec "${ROOT_DIR}/scripts/package_release.sh" "$@"
     ;;
   help|-h|--help)
     usage

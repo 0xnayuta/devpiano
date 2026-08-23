@@ -134,7 +134,7 @@ git log --oneline -5
 
 ## 6. 打包流程
 
-当前正式发布产物仅包含 Windows x64 zip：
+当前正式发布产物包含 Windows x64 zip 及 SHA256 校验文件：
 
 ```text
 DevPiano-vX.Y.Z-win-x64.zip
@@ -148,55 +148,29 @@ DevPiano.exe
 CHANGELOG.md
 ```
 
-### 6.1 环境变量
+### 6.1 使用 dev.sh package 自动化打包
 
-在 WSL 中设置以下变量（假设 Windows 镜像目录为 `G:\source\projects\devpiano`）：
-
-```bash
-export VERSION="X.Y.Z"
-export WIN_MIRROR_DIR='G:\source\projects\devpiano'
-export WIN_MIRROR_DIR_WSL="$(wslpath -u "${WIN_MIRROR_DIR}")"
-export RELEASE_ARTIFACTS_DIR="${WIN_MIRROR_DIR_WSL}/build-win-msvc-release/devpiano_artefacts/Release"
-export DIST_DIR="${WIN_MIRROR_DIR_WSL}/dist/v${VERSION}"
-```
-
-验证环境：
+完成 Windows 手工冒烟测试后，在 WSL 主工作树中执行标准打包命令：
 
 ```bash
-echo "镜像目录: ${WIN_MIRROR_DIR_WSL}"
-echo "产物目录: ${RELEASE_ARTIFACTS_DIR}"
-ls "${RELEASE_ARTIFACTS_DIR}/DevPiano.exe" 2>/dev/null || echo "DevPiano.exe 尚不存在（需要先构建）"
+# 默认自动提取 CMakeLists.txt 中的版本并打包
+./scripts/dev.sh package
+
+# 或显式指定版本号
+./scripts/dev.sh package --version 1.0.0
 ```
 
-### 6.2 打包命令
+脚本会自动执行以下前置检查与流水线步骤：
+1. **依赖检查**：检查 `wslpath`、`zip`、`sha256sum` 工具链；
+2. **版本一致性校验**：确认 `CMakeLists.txt` 版本与 `CHANGELOG.md` 中对应版本条目存在；
+3. **产物校验**：定位 Windows 镜像树下 `build-win-msvc-release/devpiano_artefacts/Release/DevPiano.exe`，若不存在则提示先构建；
+4. **归档与压缩**：创建 `dist/vX.Y.Z` 目录，复制 `DevPiano.exe` 与 `CHANGELOG.md`，执行高压缩比 zip 打包；
+5. **校验和生成**：计算并生成 `DevPiano-vX.Y.Z-win-x64.sha256`；
+6. **输出摘要与引导**：打印产物清单、SHA256 校验值及后续 `git tag` 与 `gh release create` 推荐命令。
 
-冒烟测试通过后，在 WSL 中执行：
+### 6.2 产物输出结构
 
-```bash
-# 创建分发目录
-mkdir -p "${DIST_DIR}"
-
-# 复制产物
-cp "${RELEASE_ARTIFACTS_DIR}/DevPiano.exe" "${DIST_DIR}/"
-
-# 复制 CHANGELOG.md
-cp "${WIN_MIRROR_DIR_WSL}/CHANGELOG.md" "${DIST_DIR}/"
-
-# 打包 zip
-cd "${DIST_DIR}"
-zip "DevPiano-v${VERSION}-win-x64.zip" DevPiano.exe CHANGELOG.md
-
-# 生成 SHA256 校验文件
-sha256sum "DevPiano-v${VERSION}-win-x64.zip" > "DevPiano-v${VERSION}-win-x64.sha256"
-
-# 验证
-echo "=== 打包结果 ==="
-ls -lh "${DIST_DIR}/"
-echo "=== SHA256 ==="
-cat "DevPiano-v${VERSION}-win-x64.sha256"
-```
-
-产物目录结构：
+默认输出位于 Windows 镜像目录的 `dist/vX.Y.Z/` 下（方便 Windows 侧直接归档与分发）：
 
 ```text
 <WIN_MIRROR_DIR>\dist\vX.Y.Z\
@@ -206,20 +180,21 @@ cat "DevPiano-v${VERSION}-win-x64.sha256"
 └── DevPiano-vX.Y.Z-win-x64.sha256
 ```
 
-### 6.3 后续 package 脚本 TODO
+可选高级参数：
 
-当前阶段保持手工打包，不实现自动化脚本。后续若手工流程稳定、重复发布需求增加，可再考虑新增 package 脚本。
+```bash
+# 指定输出到 WSL 本地仓库下的 dist/ 目录
+./scripts/dev.sh package --local-dist
 
-候选目标：
+# 覆盖 Windows 镜像目录路径
+./scripts/dev.sh package --win-mirror-dir 'D:\projects\devpiano'
+```
 
-- 增加 `./scripts/dev.sh package --version vX.Y.Z` 或独立 `scripts/package_release.sh`。
-- 默认只打包 Windows x64 正式产物。
-- 从 Windows 镜像树 Release 输出目录收集 `DevPiano.exe`。
-- 校验 `CMakeLists.txt` 版本、release notes 文件名和传入版本号一致。
-- 生成 `dist/vX.Y.Z/DevPiano-vX.Y.Z-win-x64.zip`。
-- 生成对应 `.sha256` 文件。
-- 明确不创建 git tag、不 push、不上传 GitHub/GitLab Release。
-- Linux 打包在正式支持 Linux release 前不纳入脚本默认路径。
+### 6.3 Package 脚本设计约束
+
+- **专注打包，不隐式提交/推送**：脚本仅负责收集产物、校验版本、生成 zip 和 sha256，**明确不创建 git tag、不 push、不自动创建 GitHub Release**（保持发布决策的人工把控）；
+- **平台策略**：默认仅打包 Windows x64 正式 Release 产物；Linux 正式发布前不纳入默认路径；
+- **独立与透传**：既可通过 `./scripts/dev.sh package` 统一入口调用，也可直接运行 `./scripts/package_release.sh`。
 
 ## 7. Release notes 格式
 
