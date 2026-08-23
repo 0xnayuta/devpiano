@@ -20,10 +20,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install clang-format
+      - name: Install clang-format-21 from LLVM apt repository
         run: |
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+          echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-21 main" | sudo tee /etc/apt/sources.list.d/llvm-21.list
           sudo apt-get update
-          sudo apt-get install -y clang-format
+          sudo apt-get install -y clang-format-21
       - name: Run code formatting check
         run: ./scripts/dev.sh format --check
 
@@ -59,10 +61,6 @@ jobs:
 
       - name: Set up MSVC Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
-
-      - name: Set up Ninja
-        uses: ninja-build/setup-ninja@v5
-
       - name: Configure CMake (windows-msvc-debug)
         run: cmake --preset windows-msvc-debug -DBUILD_TESTS=ON
 
