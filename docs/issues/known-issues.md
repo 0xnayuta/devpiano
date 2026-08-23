@@ -27,6 +27,22 @@
 > - 将涉及正则表达式的业务逻辑严格封装至独立 `.cpp` 中，阻断 `<regex>` 在头文件中对包含者的级联模板污染，或采用确定性状态机/轻量字符串匹配替代；
 > - 针对测试工程后续可精细化拆分测试单元或引入针对业务层的 Unity Build 批处理。
 
+
+### Main.cpp 中残留的 Win32 原生 Hook 与平台特定依赖
+
+> **现状与成因**：
+> `source/Main.cpp` 目前在 `#if defined(JUCE_WINDOWS) && JUCE_WINDOWS` 条件下引入了 `<windows.h>`，并通过 Win32 API（`SetWindowLongPtrW` 子类化 Hook 顶层窗口的 `WNDPROC` 监听 `WM_SETFOCUS`/`WM_ACTIVATE`，以及通过 `AttachThreadInput` + `SetForegroundWindow`）确保 Windows 环境下启动即弹奏的物理键盘焦点获取。
+>
+> **架构瑕疵与潜在风险**：
+> 1. **违背跨平台标准封装**：devpiano 作为基于 JUCE 的现代跨平台应用，顶层 Shell 应保持平台无关性，引入原生 Win32 Hook 属于侵入式的平台专有补丁；
+> 2. **宏污染风险**：直接包含 `<windows.h>` 存在引入 Win32 全局宏污染（如 `min`/`max`/`ERROR`）的隐患；
+> 3. **线程挂接侵入性**：跨线程 `AttachThreadInput` 强夺前台焦点可能在复杂的多窗口切换环境下产生焦点竞争。
+>
+> **重构方向与跟进计划**：
+> 在后续的维护迭代中，将该部分彻底重构为纯 JUCE 跨平台标准机制：
+> - 利用 JUCE 原生的 `DocumentWindow::activeWindowStatusChanged()` 配合 `juce::MessageManager::callAsync` 延迟分发 `restoreKeyboardFocus()`，天然解决 Windows 原生激活事件到达时的时序抖动，彻底废弃 `WNDPROC` Hook；
+> - 采用 JUCE 标准的 `juce::Process::makeForegroundProcess()` 或 `toFront(true)` 替代 `AttachThreadInput`；
+> - 最终实现 `source/Main.cpp` 乃至整个源码树 100% 纯净、无任何 `<windows.h>` 依赖的标准跨平台设计。
 ---
 
 ## 2. 已修复问题（回归参考）
