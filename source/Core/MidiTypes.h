@@ -1,7 +1,5 @@
 #pragma once
 
-#include <JuceHeader.h>
-
 #include <algorithm>
 
 namespace devpiano::core {

@@ -1,9 +1,8 @@
 #pragma once
 
-#include <JuceHeader.h>
-
 #include "Plugin/PluginHost.h"
 #include "Settings/SettingsModel.h"
+#include <juce_core/juce_core.h>
 
 namespace devpiano::plugin {
 struct StartupPluginRestorePlan {

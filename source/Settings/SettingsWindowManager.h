@@ -1,8 +1,9 @@
 #pragma once
 
-#include <JuceHeader.h>
-
 #include <functional>
+#include <juce_audio_devices/juce_audio_devices.h>
+#include <juce_core/juce_core.h>
+#include <juce_gui_basics/juce_gui_basics.h>
 #include <memory>
 
 #include "Settings/SettingsModel.h"

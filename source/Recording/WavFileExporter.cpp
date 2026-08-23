@@ -1,6 +1,7 @@
 #include <functional>
 
 #include "Recording/WavFileExporter.h"
+#include <juce_audio_formats/juce_audio_formats.h>
 
 #include "Audio/PianoSynthVoice.h"
 #include "Audio/SineSynthVoice.h"

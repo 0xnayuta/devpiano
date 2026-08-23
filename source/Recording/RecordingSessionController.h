@@ -1,9 +1,9 @@
 #pragma once
 
-#include <JuceHeader.h>
-
 #include <cstddef>
 #include <functional>
+#include <juce_core/juce_core.h>
+#include <juce_gui_extra/juce_gui_extra.h>
 #include <memory>
 #include <optional>
 

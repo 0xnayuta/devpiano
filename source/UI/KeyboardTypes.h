@@ -1,9 +1,9 @@
 #pragma once
 
-#include <JuceHeader.h>
-
 #include <array>
 #include <cstdint>
+#include <juce_core/juce_core.h>
+#include <juce_graphics/juce_graphics.h>
 
 namespace devpiano::ui {
 

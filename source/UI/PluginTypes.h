@@ -1,7 +1,6 @@
 #pragma once
 
-#include <JuceHeader.h>
-
+#include <juce_core/juce_core.h>
 // ============================================================================
 // 插件面板视图模型状态。
 //

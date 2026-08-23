@@ -1,7 +1,7 @@
 #pragma once
 
-#include <JuceHeader.h>
-
+#include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_core/juce_core.h>
 // Thread-safety contract:
 //   Read-only accessors (getInstance, hasLoadedPlugin, isPrepared, etc.) may
 //   be called from the real-time audio callback thread.  All mutation methods

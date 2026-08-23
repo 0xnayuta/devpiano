@@ -1,6 +1,7 @@
 #include <functional>
 
 #include "Recording/PluginOfflineRenderer.h"
+#include <juce_audio_formats/juce_audio_formats.h>
 
 #include "Diagnostics/Log.h"
 #include "Plugin/PluginHost.h"

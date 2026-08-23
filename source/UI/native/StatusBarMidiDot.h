@@ -1,8 +1,7 @@
 #pragma once
 
-#include <JuceHeader.h>
-
 #include "UI/jive/DesignTokens.h"
+#include <juce_gui_basics/juce_gui_basics.h>
 
 // ============================================================================
 // Small activity dot for the status bar, injected into a JIVE layout via the

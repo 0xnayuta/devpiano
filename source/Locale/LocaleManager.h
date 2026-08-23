@@ -1,7 +1,7 @@
 #pragma once
 
-#include <JuceHeader.h>
-
+#include <BinaryData.h>
+#include <juce_core/juce_core.h>
 namespace devpiano::locale {
 
 enum class Language : uint8_t {

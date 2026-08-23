@@ -1,7 +1,5 @@
 #pragma once
 
-#include <JuceHeader.h>
-
 #include "Audio/AudioDeviceDiagnostics.h"
 #include "Locale/LocaleManager.h"
 #include "Settings/SettingsModel.h"
@@ -9,6 +7,10 @@
 #include "UI/jive/DesignTokens.h"
 #include "UI/jive/JiveUtils.h"
 #include "UI/jive/StyleCatalog.h"
+#include <juce_audio_devices/juce_audio_devices.h>
+#include <juce_core/juce_core.h>
+#include <juce_data_structures/juce_data_structures.h>
+#include <juce_gui_basics/juce_gui_basics.h>
 
 namespace {
 using namespace devpiano::ui::jive;

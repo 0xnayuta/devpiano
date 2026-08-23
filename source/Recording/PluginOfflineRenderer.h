@@ -1,8 +1,8 @@
 #pragma once
 
-#include <JuceHeader.h>
-
 #include <functional>
+#include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_core/juce_core.h>
 #include <memory>
 
 namespace devpiano::recording {

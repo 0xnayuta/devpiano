@@ -1,10 +1,9 @@
 #pragma once
 
-#include <JuceHeader.h>
-
 #include "../Midi/ChannelMatrix.h"
 #include "../Settings/SettingsModel.h"
 #include "Core/KeyMapTypes.h"
+#include <juce_core/juce_core.h>
 
 namespace devpiano::core {
 // Runtime aggregate state.

@@ -1,9 +1,10 @@
 #pragma once
 
-#include <JuceHeader.h>
-
 #include "../Midi/ChannelMatrix.h"
 #include "../UI/KeyboardTypes.h"
+#include <juce_audio_basics/juce_audio_basics.h>
+#include <juce_core/juce_core.h>
+#include <juce_graphics/juce_graphics.h>
 
 // Persisted settings model.
 //

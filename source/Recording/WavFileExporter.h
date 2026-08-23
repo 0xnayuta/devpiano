@@ -1,8 +1,7 @@
 #pragma once
 
-#include <JuceHeader.h>
-
 #include <functional>
+#include <juce_core/juce_core.h>
 
 namespace devpiano::recording {
 struct RecordingTake;

@@ -1,7 +1,6 @@
 #pragma once
 
-#include <JuceHeader.h>
-
+#include <juce_gui_basics/juce_gui_basics.h>
 /// Custom LookAndFeel providing a dark audio-production visual theme.
 ///
 /// Installed once on MainComponent; propagates automatically to all child

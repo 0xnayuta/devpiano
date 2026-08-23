@@ -1,8 +1,9 @@
 #pragma once
 
-#include <JuceHeader.h>
-
 #include <functional>
+#include <juce_core/juce_core.h>
+#include <juce_data_structures/juce_data_structures.h>
+#include <juce_gui_basics/juce_gui_basics.h>
 #include <optional>
 
 #include "UI/jive/JiveUtils.h"

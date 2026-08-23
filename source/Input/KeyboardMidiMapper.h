@@ -1,8 +1,9 @@
 #pragma once
 
-#include <JuceHeader.h>
-
 #include <functional>
+#include <juce_audio_basics/juce_audio_basics.h>
+#include <juce_core/juce_core.h>
+#include <juce_gui_basics/juce_gui_basics.h>
 #include <unordered_set>
 
 #include "Core/KeyMapTypes.h"

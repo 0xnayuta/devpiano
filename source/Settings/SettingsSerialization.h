@@ -1,8 +1,7 @@
 #pragma once
 
-#include <JuceHeader.h>
-
 #include "../Midi/ChannelMatrix.h"
+#include <juce_data_structures/juce_data_structures.h>
 
 namespace devpiano::settings {
 

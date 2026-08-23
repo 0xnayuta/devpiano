@@ -1,8 +1,8 @@
 #pragma once
 
-#include <JuceHeader.h>
-
 #include <cctype>
+#include <juce_core/juce_core.h>
+#include <juce_gui_basics/juce_gui_basics.h>
 #include <vector>
 
 #include "Core/MidiTypes.h"

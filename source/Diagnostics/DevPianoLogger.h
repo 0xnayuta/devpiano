@@ -1,7 +1,6 @@
 #pragma once
 
-#include <JuceHeader.h>
-
+#include <juce_core/juce_core.h>
 namespace devpiano::diagnostics {
 
 //! Custom juce::Logger subclass that routes all log output through

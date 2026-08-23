@@ -1,9 +1,9 @@
 #pragma once
 
-#include <JuceHeader.h>
-
 #include "../Core/AppState.h"
 #include "SettingsModel.h"
+#include <juce_audio_devices/juce_audio_devices.h>
+#include <juce_core/juce_core.h>
 
 class KeyboardMidiMapper;
 class PluginHost;

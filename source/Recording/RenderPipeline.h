@@ -1,8 +1,8 @@
 #pragma once
 
-#include <JuceHeader.h>
-
 #include <cstdint>
+#include <juce_audio_basics/juce_audio_basics.h>
+#include <juce_core/juce_core.h>
 #include <vector>
 
 #include "Export/WavExportOptions.h"

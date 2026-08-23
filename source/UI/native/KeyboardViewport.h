@@ -1,8 +1,8 @@
 #pragma once
 
-#include <JuceHeader.h>
-
 #include "UI/CustomKeyboard.h"
+#include <juce_audio_basics/juce_audio_basics.h>
+#include <juce_gui_basics/juce_gui_basics.h>
 
 // ============================================================================
 // Viewport that owns a CustomKeyboard and injects it into a JIVE layout via

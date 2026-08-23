@@ -1,8 +1,9 @@
 #pragma once
 
-#include <JuceHeader.h>
-
 #include <functional>
+#include <juce_audio_basics/juce_audio_basics.h>
+#include <juce_events/juce_events.h>
+#include <juce_gui_basics/juce_gui_basics.h>
 
 #include "Core/KeyMapTypes.h"
 #include "KeyboardTypes.h"

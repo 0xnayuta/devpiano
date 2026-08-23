@@ -1,9 +1,8 @@
 #pragma once
 
-#include <JuceHeader.h>
-
 #include "Export/WavExportOptions.h"
 #include "Settings/SettingsModel.h"
+#include <juce_core/juce_core.h>
 
 namespace devpiano::recording {
 struct RecordingTake;

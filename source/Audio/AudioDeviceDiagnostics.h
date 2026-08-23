@@ -1,8 +1,8 @@
 #pragma once
 
-#include <JuceHeader.h>
-
 #include <cmath>
+#include <juce_audio_devices/juce_audio_devices.h>
+#include <juce_core/juce_core.h>
 
 namespace devpiano::audio {
 struct SavedAudioDeviceState {

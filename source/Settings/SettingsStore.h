@@ -1,8 +1,9 @@
 #pragma once
 
 #include "SettingsModel.h"
-#include <JuceHeader.h>
-
+#include <juce_core/juce_core.h>
+#include <juce_data_structures/juce_data_structures.h>
+#include <juce_events/juce_events.h>
 class SettingsStore;
 
 // Debounced save helper backing SettingsStore::scheduleSave.

@@ -1,7 +1,7 @@
 #pragma once
 
-#include <JuceHeader.h>
-
+#include <juce_audio_basics/juce_audio_basics.h>
+#include <juce_core/juce_core.h>
 // 内置 fallback 正弦合成器：实时路径（AudioEngine）与离线 WAV 导出路径
 // （WavFileExporter）共用同一实现，保证两路径音色一致（Phase 12-1）。
 // 继承 juce::SynthesiserVoice，由 juce::Synthesiser 管理 voice 生命周期。
