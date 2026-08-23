@@ -35,6 +35,19 @@ if (NOT MSVC AND CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
     endif()
 endif()
 
+# ========================================================
+# 编译耗时性能跟踪与火焰图剖析 (-ftime-trace)
+# ========================================================
+option(ENABLE_TIME_TRACE "Enable Clang -ftime-trace profiling" OFF)
+if (ENABLE_TIME_TRACE)
+    if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        add_compile_options(-ftime-trace)
+        message(STATUS "Build Profiling: Clang -ftime-trace enabled")
+    else()
+        message(WARNING "ENABLE_TIME_TRACE is only supported for Clang compilers")
+    endif()
+endif()
+
 
 # ========================================================
 # 1. 引入 JUCE 框架
