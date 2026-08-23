@@ -46,19 +46,19 @@ Examples:
   ./scripts/dev.sh wsl-build --configure-only
   ./scripts/dev.sh format
   ./scripts/dev.sh format --check
-  ./scripts/dev.sh tidy                # 未提交改动文件
-  ./scripts/dev.sh tidy --all          # 全量 44 文件（约 19 分钟）
+  ./scripts/dev.sh tidy                # Uncommitted changed files
+  ./scripts/dev.sh tidy --all          # Full scan across all files (~19 mins)
   ./scripts/dev.sh tidy source/UI/CustomKeyboard.cpp
   ./scripts/dev.sh test
   ./scripts/dev.sh test --verbose
-  ./scripts/dev.sh win-sync            # 快速同步业务代码（< 1s）
-  ./scripts/dev.sh win-sync --full     # 全量同步（含 submodules，~9s）
-  ./scripts/dev.sh win-build           # 快速同步并构建验证
-  ./scripts/dev.sh win-build --full    # 全量同步并构建验证
-  ./scripts/dev.sh package             # 打包当前 Release 产物 (zip + sha256)
+  ./scripts/dev.sh win-sync            # Fast sync business code (< 1s)
+  ./scripts/dev.sh win-sync --full     # Full sync including submodules (~9s)
+  ./scripts/dev.sh win-build           # Fast sync and validation build
+  ./scripts/dev.sh win-build --full    # Full sync and validation build
+  ./scripts/dev.sh package             # Package Release distribution (zip + sha256)
   ./scripts/dev.sh package --version 1.0.0
-  ./scripts/dev.sh time-trace          # 分析构建热点 (最耗时文件/头文件/模板)
-  ./scripts/dev.sh time-trace --clean  # 清理后全量分析
+  ./scripts/dev.sh time-trace          # Profile build hotspots (slowest files/headers/templates)
+  ./scripts/dev.sh time-trace --clean  # Clean build with full profiling
 EOF
 }
 
@@ -117,7 +117,7 @@ case "${command_name}" in
         fail 'clang-tidy-21 not found (apt install clang-tidy-21)'
     fi
     if [[ ! -f "${ROOT_DIR}/build-wsl-clang/compile_commands.json" ]]; then
-        fail 'compile_commands.json missing — run ./scripts/dev.sh wsl-build --configure-only first'
+        fail 'compile_commands.json missing - run ./scripts/dev.sh wsl-build --configure-only first'
     fi
 
     if [[ "${1:-}" == "--all" ]]; then

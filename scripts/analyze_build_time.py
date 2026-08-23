@@ -154,7 +154,7 @@ def print_report(report: ProfileReport, top_n: int = 10) -> None:
     print(f"{Style.DIM}----------------------------------------------------------------------{Style.RESET}")
     for idx, (name, dur_us) in enumerate(report.slowest_tus[:top_n], start=1):
         bar_len = min(30, int((dur_us / (report.slowest_tus[0][1] or 1.0)) * 30))
-        bar = f"{Style.RED}{'█' * bar_len}{Style.RESET}"
+        bar = f"{Style.RED}{'=' * bar_len}{Style.RESET}"
         print(f"  {idx:2d}. {name:<45} {format_ms(dur_us):>10}  {bar}")
 
     # 2. Cumulative Header Parse Times
@@ -259,7 +259,7 @@ def main() -> int:
         if not merge_path.is_absolute():
             merge_path = build_path / args.merge_trace
         event_count = merge_traces_for_perfetto(build_path, merge_path)
-        print(f"{Style.GREEN}✓ Exported {event_count} events to {merge_path}{Style.RESET}")
+        print(f"{Style.GREEN}[OK] Exported {event_count} events to {merge_path}{Style.RESET}")
 
     return 0
 

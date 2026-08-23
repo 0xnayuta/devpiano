@@ -132,7 +132,7 @@ fi
 
 "${WINDOWS_POWERSHELL}" "${PS_ARGS[@]}"
 if [[ -n "${CHECK_ONLY:-}" ]]; then
-  success 'check complete — no files were modified'
+  success 'check complete - no files were modified'
 else
   success 'sync complete'
 fi
