@@ -5,32 +5,23 @@
 
 ## 当前方向
 
-**Phase 25：Linux 原生桌面构建与音频驱动适配（Linux Desktop & Audio Path Exploration） [进行中，2026-08-23]**
+**Post-v1.0.0 质量保障与平台准备：GitHub Actions CI 流水线落地 [进行中，2026-08-23]**
 
-在完成 v1.0.0 正式发布与发布打包流水线自动化后，devpiano 进入 **Post-v1.0.0 平台拓展与高阶能力演进** 阶段。本阶段聚焦于验证并完善 Linux 平台（WSL / 原生 Linux 发行版）下的原生构建、音频后端驱动（ALSA / JACK）适配与桌面运行体验，为 Linux 平台正式分发打下坚实基础：
+在完成 Phase 25-A（ALSA/JACK 驱动链路与设备管理机制审查）后，鉴于本地暂无 Linux 物理桌面实机环境，Phase 25-B/C/D（Linux 桌面实机交互验证）适度暂缓；本轮优先落地 **GitHub Actions CI 质量门禁流水线（`.github/workflows/ci.yml`）**，建立云端自动化的跨平台质量与回归防线：
 
-1. **Phase 25-A：ALSA 与 JACK 音频后端驱动适配与设备枚举**：
-   - 验证 JUCE `AudioDeviceManager` 在 Linux 环境下对 ALSA / JACK 驱动的初始化、缓冲区协商与动态设备切换；
-   - 针对 Linux 音频回调的低延迟（< 10ms）与 xrun（欠载/过载）防护进行基线调优。
-2. **Phase 25-B：X11 / XCB 窗口系统与 JIVE 声明式 UI 渲染验证**：
-   - 验证 Linux 桌面环境下 X11 窗口创建、事件循环分发、键盘焦点维持与鼠标交互；
-   - 确保 JIVE 声明式 UI 样式表、Design Tokens 与 OpenGL/Software 渲染在 Linux 下零撕裂、字号字体平滑渲染。
-3. **Phase 25-C：Linux Release 编译构建与绿色分发包规范**：
-   - 验证 `./scripts/dev.sh wsl-build --release` 编译输出；
-   - 制定 Linux 平台绿色独立分发归档规范（`DevPiano-vX.Y.Z-linux-x64.tar.gz` 与 `.sha256`），消除非必要动态库外部依赖。
-4. **Phase 25-D：打包脚本扩展与三闸门全绿验证**：
-   - 扩展 `scripts/package_release.sh` 支持 `--linux` 打包选项；
-   - 补齐 Linux 平台专项冒烟测试清单并全量通过三闸门（format, test, build）。
+1. **代码格式门禁 (`format-gate`)**：在 Ubuntu Runner 上以 `clang-format-21` 自动执行 `./scripts/dev.sh format --check`；
+2. **Linux 编译与单测门禁 (`linux-test-gate`)**：在 Ubuntu Runner 上拉取子模块、编译并执行全量 58 个测试套件（`./scripts/dev.sh test`）；
+3. **Windows MSVC 构建门禁 (`windows-msvc-gate`)**：在 Windows 原生 Runner 上以 MSVC + Ninja 编译 Debug 目标并执行全量单测，杜绝跨编译器破坏。
 
 ---
 
-## 本轮子任务排期（Phase 25）
+## 本轮子任务排期
 
 - [x] **Phase 25-A：ALSA / JACK 音频驱动链路与设备管理机制审查**
-- [ ] **Phase 25-B：X11 窗口与键盘事件（KeyPress / 焦点管理）Linux 桌面实机验证**
-- [ ] **Phase 25-C：Linux Release 构建优化与单文件绿色分发依赖裁剪**
-- [ ] **Phase 25-D：扩展 `package_release.sh` 支持 Linux tar.gz 打包与校验和生成**
-- [ ] **Phase 25-E：三闸门基线验证与相关指南文档对齐**
+- [x] **编写并落地 `.github/workflows/ci.yml` 质量门禁流水线**
+- [x] **YAML 语法解析与跨平台编译配置静态校验**
+- [x] **更新相关开发与构建文档并提交**
+- [~] **Phase 25-B~E：Linux 桌面实机与绿色分发（待 Linux 实机具备后推进）**
 
 ---
 
