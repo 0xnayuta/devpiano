@@ -197,8 +197,8 @@ public:
                  [&] { expectEquals(sanitisePresetFileName("Name  "), juce::String("Name")); });
 
         testCase("non-ASCII letters fall back to underscores", [&] {
-            // isLetterOrDigit 为 ASCII 语义；中文预设名按文件名安全策略替换为下划线
-            expectEquals(sanitisePresetFileName("演奏 01"), juce::String("______ 01"));
+            // isLetterOrDigit 为 ASCII 语义；Unicode 中文字符按文件名安全策略替换为下划线
+            expectEquals(sanitisePresetFileName(juce::String::fromUTF8("演奏 01")), juce::String("__ 01"));
         });
     }
 };
