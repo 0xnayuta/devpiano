@@ -20,6 +20,21 @@ if (MSVC)
     # 启用 /FS (Force Synchronous PDB Writes) 彻底杜绝 C1041 锁冲突
     add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:/FS>)
 endif()
+# ========================================================
+# 高速链接器检测与启用 (mold / lld 极大缩短链接时间)
+# ========================================================
+if (NOT MSVC AND CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    find_program(MOLD_LINKER_EXE mold)
+    find_program(LLD_LINKER_EXE NAMES ld.lld lld)
+    if (MOLD_LINKER_EXE)
+        add_link_options("-fuse-ld=mold")
+        message(STATUS "High-speed linker: mold enabled (${MOLD_LINKER_EXE})")
+    elseif (LLD_LINKER_EXE)
+        add_link_options("-fuse-ld=lld")
+        message(STATUS "High-speed linker: lld enabled (${LLD_LINKER_EXE})")
+    endif()
+endif()
+
 
 # ========================================================
 # 1. 引入 JUCE 框架
@@ -256,6 +271,9 @@ target_compile_definitions(devpiano PRIVATE
     # JUCE_PLUGINHOST_VST=1
 )
 
+# 预编译头 (PCH) 优化：大幅减少重复解析大型标准库高频头文件的 CPU 开销
+target_precompile_headers(devpiano PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/source/pch.h")
+
 if (MSVC)
     set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT devpiano)
 endif()
@@ -425,6 +443,7 @@ if (BUILD_TESTS)
             MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:Embedded>"
         )
     endif()
+    target_precompile_headers(devpiano_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/source/pch.h")
 
     enable_testing()
 
