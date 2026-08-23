@@ -114,7 +114,7 @@ jobs:
         run: cmake --build --preset windows-msvc-debug
 
       - name: Run Windows unit test suite
-        run: ctest --test-dir build-win-msvc --output-on-failure
+        run: .\build-win-msvc\devpiano_tests_artefacts\Debug\devpiano_tests.exe --verbose
 
       - name: Show sccache statistics
         shell: bash

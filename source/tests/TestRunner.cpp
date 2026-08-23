@@ -18,16 +18,11 @@
 
 class ConsoleTestRunner final : public juce::UnitTestRunner {
 public:
-    explicit ConsoleTestRunner(bool verbose = false)
-        : verboseMode(verbose) {
-    }
+    ConsoleTestRunner() = default;
 
     void logMessage(const juce::String& message) override {
         juce::Logger::writeToLog(message);
-
-        if (verboseMode) {
-            std::cout << message << '\n';
-        }
+        std::cout << message << '\n';
     }
 
     int computeTotalPasses() const noexcept {
@@ -49,16 +44,12 @@ public:
         }
         return total;
     }
-
-private:
-    bool verboseMode = false;
 };
 
 int main(int argc, char** argv) {
     juce::ScopedJuceInitialiser_GUI guiInitialiser;
     juce::ConsoleApplication app;
 
-    bool verbose = false;
     bool includeFiles = false;
     bool includeJuce = false;
     juce::String categoryFilter;
@@ -67,9 +58,8 @@ int main(int argc, char** argv) {
 
     for (int i = 1; i < argc; ++i) {
         const juce::String arg(argv[i]);
-
         if (arg == "--verbose" || arg == "-v") {
-            verbose = true;
+            // verbose mode enabled (logs already print to stdout by default)
         } else if (arg == "--include-files") {
             includeFiles = true;
         } else if (arg == "--include-juce") {
@@ -107,7 +97,7 @@ int main(int argc, char** argv) {
         skipCategories.removeAllInstancesOf("Files");
     }
 
-    ConsoleTestRunner runner(verbose);
+    ConsoleTestRunner runner;
 
     auto allTests = juce::UnitTest::getAllTests();
 
@@ -149,8 +139,15 @@ int main(int argc, char** argv) {
     }
 
     std::cout << "Running " << testsToRun.size() << " test(s)...\n" << '\n';
-    runner.runTests(testsToRun);
-
+    try {
+        runner.runTests(testsToRun);
+    } catch (const std::exception& e) {
+        std::cerr << "Fatal Exception in unit test runner: " << e.what() << '\n';
+        return EXIT_FAILURE;
+    } catch (...) {
+        std::cerr << "Fatal Unknown Exception in unit test runner.\n";
+        return EXIT_FAILURE;
+    }
     const auto numPasses = runner.computeTotalPasses();
     const auto numFailures = runner.computeTotalFailures();
 
