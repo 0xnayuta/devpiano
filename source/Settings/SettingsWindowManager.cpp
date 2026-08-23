@@ -12,7 +12,7 @@ namespace {
 class SettingsDialogWindow final : public juce::DialogWindow {
 public:
     SettingsDialogWindow(const juce::String& title, juce::Colour background, std::function<void()> onClose)
-        : juce::DialogWindow(title, background, true)
+        : juce::DialogWindow(title, background, true, false)
         , closeCallback(std::move(onClose)) {
     }
 
@@ -114,6 +114,7 @@ void SettingsWindowManager::show(ShowOptions options) {
     state->window->setContentOwned(content.release(), true);
     state->window->setResizable(false, false);
     state->window->centreAroundComponent(&options.parent, 700, 720);
+    state->window->addToDesktop(state->window->getDesktopWindowStyleFlags());
     state->window->setVisible(true);
     state->window->toFront(true);
 }
@@ -205,12 +206,18 @@ void SettingsWindowManager::showFor(MainComponent& owner) {
               safe->setInstrumentFilterVisible(kbs.showInstrumentFilter);
               safe->reconfigureChannelMapper();
 
-              // Only recreate desktop window when resize preference changes
+              // Only update window resizability and limits when resize preference changes
               if (kbs.resizableWindow != lastResizable) {
                   lastResizable = kbs.resizableWindow;
                   if (auto* topLevel = safe->getTopLevelComponent()) {
                       if (auto* dw = dynamic_cast<juce::DocumentWindow*>(topLevel)) {
                           dw->setResizable(kbs.resizableWindow, kbs.resizableWindow);
+                          if (kbs.resizableWindow) {
+                              const auto limits = MainComponent::getMainContentResizeLimits();
+                              dw->setResizeLimits(limits.getX(), limits.getY(), limits.getWidth(), limits.getHeight());
+                          } else {
+                              dw->setResizeLimits(dw->getWidth(), dw->getHeight(), dw->getWidth(), dw->getHeight());
+                          }
                           if (auto locked = weakState.lock()) {
                               if (locked->window != nullptr && locked->window->isShowing()) {
                                   locked->window->toFront(true);

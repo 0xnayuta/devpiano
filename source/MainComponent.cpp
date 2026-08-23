@@ -1093,8 +1093,14 @@ void MainComponent::focusGained(juce::Component::FocusChangeType cause) {
     }
 }
 
+void MainComponent::handleWindowFocusLost() {
+    keyboardMapper.releaseAllHeldKeys(audioEngine.getKeyboardState());
+    audioEngine.requestAllNotesOff();
+}
+
 void MainComponent::focusLost(juce::Component::FocusChangeType cause) {
     juce::AudioAppComponent::focusLost(cause);
+    handleWindowFocusLost();
 }
 
 SettingsModel::PerformanceSettingsView MainComponent::getPerformanceSettingsFromUi() const {

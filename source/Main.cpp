@@ -152,9 +152,14 @@ public:
             setFullScreen(true);
 #else
             if (auto* mainComponent = dynamic_cast<MainComponent*>(getContentComponent())) {
-                setResizable(mainComponent->getAppSettings().keyboardDisplay.resizableWindow, true);
-                const auto limits = MainComponent::getMainContentResizeLimits();
-                setResizeLimits(limits.getX(), limits.getY(), limits.getWidth(), limits.getHeight());
+                const auto resizable = mainComponent->getAppSettings().keyboardDisplay.resizableWindow;
+                setResizable(resizable, resizable);
+                if (resizable) {
+                    const auto limits = MainComponent::getMainContentResizeLimits();
+                    setResizeLimits(limits.getX(), limits.getY(), limits.getWidth(), limits.getHeight());
+                } else {
+                    setResizeLimits(getWidth(), getHeight(), getWidth(), getHeight());
+                }
                 mainComponent->persistMainContentSize(mainComponent->getWidth(), mainComponent->getHeight());
             }
 #endif
@@ -225,11 +230,12 @@ public:
         void activeWindowStatusChanged() override {
             DocumentWindow::activeWindowStatusChanged();
 
-            if (!isActiveWindow()) {
-                return;
-            }
-
             if (auto* mainComponent = dynamic_cast<MainComponent*>(getContentComponent())) {
+                if (!isActiveWindow()) {
+                    mainComponent->handleWindowFocusLost();
+                    return;
+                }
+
 #if defined(JUCE_WINDOWS) && JUCE_WINDOWS
                 scheduleKeyboardFocusRestore("activeWindowStatusChanged");
 #else

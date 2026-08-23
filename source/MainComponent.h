@@ -84,6 +84,7 @@ public:
     [[nodiscard]] bool isKeyboardInputSuppressed() const noexcept;
     void setBuiltinSynthTone(SettingsModel::BuiltinTone tone);
     [[nodiscard]] bool shouldTakeKeyboardFocus() const noexcept;
+    void handleWindowFocusLost();
 
 protected:
     void focusGained(juce::Component::FocusChangeType cause) override;

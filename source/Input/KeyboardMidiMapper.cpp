@@ -120,6 +120,25 @@ bool KeyboardMidiMapper::handleKeyStateChanged(juce::MidiKeyboardState& keyboard
 
     return consumed;
 }
+void KeyboardMidiMapper::releaseAllHeldKeys(juce::MidiKeyboardState& keyboardState) {
+    for (const auto keyCode : heldKeys) {
+        if (const auto* binding = layout.findByKeyCode(keyCode)) {
+            if (binding->action.type == KeyActionType::note) {
+                const auto midiChannel = binding->action.getMidiChannel().value;
+                const auto midiNote = binding->action.getMidiNoteNumber().value;
+                const auto velocity = binding->action.getVelocity().value;
+                sendNoteOff(midiChannel, midiNote, velocity, keyboardState);
+            }
+        }
+    }
+    heldKeys.clear();
+    if (sustainPedalDown) {
+        sustainPedalDown = false;
+        if (sustainPedalCallback) {
+            sustainPedalCallback(false);
+        }
+    }
+}
 
 int KeyboardMidiMapper::normaliseKeyCode(const juce::KeyPress& key) const {
     return normaliseAlphaNumericKeyCode(key.getKeyCode());

@@ -251,6 +251,31 @@ public:
             expectEquals(countNotesOn(keyState), 0);
         }
 
+        beginTest("releaseAllHeldKeys releases notes and sustain pedal");
+        {
+            KeyboardMidiMapper mapper;
+            mapper.setLayout(makeTwoBindingLayout('A', 72, 'S', 74));
+            mapper.setKeyStatePredicate(allKeysReleased);
+
+            juce::MidiKeyboardState keyState;
+
+            // 按下两个琴键并踩下延音踏板。
+            mapper.handleKeyPressed(juce::KeyPress('A'), keyState);
+            mapper.handleKeyPressed(juce::KeyPress('S'), keyState);
+            mapper.handleKeyPressed(juce::KeyPress(juce::KeyPress::spaceKey), keyState);
+            expectEquals(countNotesOn(keyState), 2);
+            expect(mapper.isSustainPedalDown(), "sustain pedal should be down");
+
+            // 模拟窗口失焦：一次释放全部持有的键与踏板（Panic 防悬挂音）。
+            mapper.releaseAllHeldKeys(keyState);
+            expectEquals(countNotesOn(keyState), 0, "all held notes must be released");
+            expect(!mapper.isSustainPedalDown(), "sustain pedal must be released");
+
+            // 释放后的 heldKeys 已清空：再次调用应为 no-op，不产生重复 note-off。
+            mapper.releaseAllHeldKeys(keyState);
+            expectEquals(countNotesOn(keyState), 0, "second release must be a no-op");
+        }
+
         beginTest("handleKeyStateChanged with no held keys does nothing");
         {
             KeyboardMidiMapper mapper;

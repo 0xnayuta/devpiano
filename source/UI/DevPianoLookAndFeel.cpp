@@ -5,15 +5,15 @@ namespace {
 const auto& tokens = devpiano::jive::DesignTokens::get();
 
 juce::Font getUnifiedUiFont(float height = 14.0f, int styleFlags = juce::Font::plain) {
-    return juce::Font(juce::FontOptions("Microsoft YaHei", height, styleFlags)
+    return juce::Font(juce::FontOptions("Microsoft YaHei UI", height, styleFlags)
                           .withFallbacks({
-                              // Windows UI & CJK
+                              // Windows UI & CJK (彻底移除 SimSun，避免 Linux 下误命中宋体)
+                              "Microsoft YaHei",
                               "Segoe UI",
-                              "SimSun",
                               // macOS UI & CJK
                               "PingFang SC",
                               "Hiragino Sans GB",
-                              // Linux 主流中文字体 (Ubuntu / Debian / Fedora / Arch / Deepin 等)
+                              // Linux 主流高清晰度中文字体 (Ubuntu / Debian / Fedora / Arch / CachyOS / Deepin 等)
                               "Noto Sans CJK SC",
                               "Source Han Sans SC",
                               "Source Han Sans CN",

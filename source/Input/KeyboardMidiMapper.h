@@ -32,6 +32,8 @@ public:
     void setChannelMapper(devpiano::midi::MidiChannelMapper* mapper) noexcept;
     void setSustainPedalCallback(SustainPedalCallback callback) noexcept;
     [[nodiscard]] bool isSustainPedalDown() const noexcept;
+    /// 释放所有当前按下的琴键与踏板（窗口失焦、切屏 Panic 防悬挂音）。
+    void releaseAllHeldKeys(juce::MidiKeyboardState& keyboardState);
 
     /// 注入键状态谓词（测试用）：null/未设置时回退真实 OS 键盘查询。
     void setKeyStatePredicate(KeyStatePredicate predicate) noexcept;

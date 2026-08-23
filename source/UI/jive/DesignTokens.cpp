@@ -212,42 +212,57 @@ int DesignTokens::settingsBtnWidth() const {
 
 // ── Token lookup for style sheets (DOC-007) ───────────────────
 
+static juce::String formatCssHexColour(juce::Colour colour) {
+    // 格式化为标准 CSS Hex: "#RRGGBB"（不透明时）或 "#RRGGBBAA"（含透明度时）。
+    // 彻底消除由于 JUCE toDisplayString(false) 剥离高位导致的零前导与透明度异常。
+    const auto r = juce::String::toHexString(colour.getRed()).toUpperCase().paddedLeft('0', 2);
+    const auto g = juce::String::toHexString(colour.getGreen()).toUpperCase().paddedLeft('0', 2);
+    const auto b = juce::String::toHexString(colour.getBlue()).toUpperCase().paddedLeft('0', 2);
+    if (colour.getAlpha() == 255) {
+        return "#" + r + g + b;
+    }
+    const auto a = juce::String::toHexString(colour.getAlpha()).toUpperCase().paddedLeft('0', 2);
+    return "#" + r + g + b + a;
+}
+
 juce::String DesignTokens::resolveToken(const juce::String& name) const {
     // 颜色：经 getter 解析（JSON 未加载时回退到内置默认，与 shipped 文件一致）。
     if (name == "main-bg") {
-        return mainBg().toDisplayString(false).paddedLeft('#', 7);
+        return formatCssHexColour(mainBg());
     }
     if (name == "panel-bg") {
-        return panelBg().toDisplayString(false).paddedLeft('#', 7);
+        return formatCssHexColour(panelBg());
     }
     if (name == "control-bg") {
-        return controlBg().toDisplayString(false).paddedLeft('#', 7);
+        return formatCssHexColour(controlBg());
     }
     if (name == "card-bg") {
-        return panelBg().toDisplayString(false).paddedLeft('#', 7); // card-bg 与 panel-bg 同值
+        return formatCssHexColour(panelBg()); // card-bg 与 panel-bg 同值
     }
     if (name == "card-border" || name == "border") {
-        return cardBorder().toDisplayString(false).paddedLeft('#', 7);
+        return formatCssHexColour(cardBorder());
     }
     if (name == "primary") {
-        return primary().toDisplayString(false).paddedLeft('#', 7);
+        return formatCssHexColour(primary());
+    }
+    if (name == "primary-alpha-30") {
+        return formatCssHexColour(primaryAlpha30());
     }
     if (name == "record-active") {
-        return recordActive().toDisplayString(false).paddedLeft('#', 7);
+        return formatCssHexColour(recordActive());
     }
     if (name == "play-active") {
-        return playActive().toDisplayString(false).paddedLeft('#', 7);
+        return formatCssHexColour(playActive());
     }
     if (name == "text-primary") {
-        return textPrimary().toDisplayString(false).paddedLeft('#', 7);
+        return formatCssHexColour(textPrimary());
     }
     if (name == "text-secondary") {
-        return textSecondary().toDisplayString(false).paddedLeft('#', 7);
+        return formatCssHexColour(textSecondary());
     }
     if (name == "text-disabled") {
-        return textDisabled().toDisplayString(false).paddedLeft('#', 7);
+        return formatCssHexColour(textDisabled());
     }
-    // 字号：整数字符串以匹配 style_sheets.json 现有写法（"14" 而非 "14.0"）。
     if (name == "font-size-tiny") {
         return juce::String(static_cast<int>(fontSizeTiny()));
     }
