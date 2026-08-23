@@ -14,7 +14,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout repository with submodules
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: recursive
 
@@ -61,7 +61,7 @@ jobs:
           cat "${SHA_NAME}"
 
       - name: Create GitHub Release and Upload Artifacts
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: "DevPiano ${{ github.ref_name }}"
           body_path: CHANGELOG.md
