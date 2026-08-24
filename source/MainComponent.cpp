@@ -1094,8 +1094,30 @@ void MainComponent::focusGained(juce::Component::FocusChangeType cause) {
 }
 
 void MainComponent::handleWindowFocusLost() {
-    keyboardMidiMapper.releaseAllHeldKeys(audioEngine.getKeyboardState());
-    audioEngine.requestAllNotesOff();
+    // 失焦不等于要打断演奏，分两种情况处理（行为矩阵详见
+    // docs/reference/features/keyboard-mapping.md）：
+    // 1. 焦点转移到本进程其他顶层窗口（插件编辑器、设置窗口）——应用内部
+    //    切换，键盘演奏与 MIDI 回放都继续，不做任何处理；
+    // 2. 焦点真正离开应用（Alt+Tab 到其他程序）——只释放交互演奏音
+    //    （电脑键盘 heldKeys + 虚拟键盘鼠标按住的音符）防悬挂。MIDI 回放
+    //    由纯时间线驱动（RecordingEngine），不能调用 requestAllNotesOff：
+    //    全引擎静音会杀掉回放中正在发声的音符，且回放引擎不会重新发
+    //    noteOn，声音会断到时间线上的下一个音符。
+    // 判定延迟到消息循环：X11 焦点切换时 FocusOut 先于 FocusIn 到达，
+    // 必须等新窗口的激活状态更新后才能可靠区分内部/外部切换。
+    juce::MessageManager::callAsync([weak = juce::Component::SafePointer<MainComponent>(this)] {
+        if (weak == nullptr) {
+            return;
+        }
+        for (auto index = 0; index < juce::TopLevelWindow::getNumTopLevelWindows(); ++index) {
+            auto* window = juce::TopLevelWindow::getTopLevelWindow(index);
+            if (window != weak->getTopLevelComponent() && window->isVisible() && window->isActiveWindow()) {
+                return; // 应用内部窗口切换：不打断任何演奏
+            }
+        }
+        weak->keyboardMidiMapper.releaseAllHeldKeys(weak->audioEngine.getKeyboardState());
+        weak->getCustomKeyboard().releaseHeldMouseNote();
+    });
 }
 
 void MainComponent::focusLost(juce::Component::FocusChangeType cause) {

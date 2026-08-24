@@ -492,18 +492,23 @@ void CustomKeyboard::mouseDown(const juce::MouseEvent& e) {
 
 void CustomKeyboard::mouseUp(const juce::MouseEvent& e) {
     juce::ignoreUnused(e);
+    releaseHeldMouseNote();
+}
 
-    if (lastMouseDownNote >= 0) {
-        auto note = lastMouseDownNote;
-        lastMouseDownNote = -1;
+void CustomKeyboard::releaseHeldMouseNote() {
+    if (lastMouseDownNote < 0) {
+        return;
+    }
 
-        // Let fade decay naturally; timer will handle it.
-        ensureTimerRunning();
+    auto note = lastMouseDownNote;
+    lastMouseDownNote = -1;
 
-        if (onNoteOff) {
-            auto ch = (note >= 0 && note < 128) ? static_cast<int>(perKeyChannel[static_cast<std::size_t>(note)]) : 0;
-            onNoteOff(note, ch);
-        }
+    // Let fade decay naturally; timer will handle it.
+    ensureTimerRunning();
+
+    if (onNoteOff) {
+        auto ch = (note >= 0 && note < 128) ? static_cast<int>(perKeyChannel[static_cast<std::size_t>(note)]) : 0;
+        onNoteOff(note, ch);
     }
 }
 

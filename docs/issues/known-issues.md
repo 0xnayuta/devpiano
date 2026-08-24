@@ -87,6 +87,13 @@
 - **回归线索**：打开插件 editor 后主窗口自动跳到前台
 - **关联**：`MainComponent::restoreKeyboardFocus()`；新增顶层窗口时须纳入统一焦点恢复策略
 
+### 失焦 panic 的适用范围（交互演奏 vs MIDI 回放）
+
+失焦时全引擎静音（`requestAllNotesOff`）会误杀 MIDI 回放中的音符：回放由纯时间线驱动（`RecordingEngine::renderPlaybackBlock`），被 all-notes-off 杀掉的音符不会自动重新发声，声音会断到时间线上的下一个音符，表现为"极短暂停止"。修复（方案 A）：失焦处理改为异步判定——焦点转移到本进程其他顶层窗口（插件编辑器、设置窗口）时不打断任何演奏；焦点真正离开应用时只释放交互演奏音（`KeyboardMidiMapper::releaseAllHeldKeys` + `CustomKeyboard::releaseHeldMouseNote`），不再调用全引擎静音。`requestAllNotesOff` 保留给暂停/停止/倒带回放的显式场景。
+
+- **回归线索**：① MIDI 回放中 Alt+Tab 或打开编辑器/设置窗口，声音短暂中断；② 打开插件编辑器时键盘演奏音被误切
+- **关联**：`MainComponent::handleWindowFocusLost()`；行为矩阵见 [`../reference/features/keyboard-mapping.md`](../reference/features/keyboard-mapping.md)
+
 ### Phase 6-2 播放速度控制
 
 含三个子问题：(1) 倍率公式反用（0.5x 反而加快）；(2) 速度切换时 note-off 丢失导致音长时间悬停；(3) 播放状态三成员跨线程数据竞争（裸 `double` / `std::int64_t` 无同步）。修复：(1) 乘法改除法；(2) 速度切换时重校准 `playbackPositionSamples`；(3) 全部改为 `std::atomic<>`。

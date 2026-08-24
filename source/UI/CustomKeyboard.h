@@ -54,6 +54,10 @@ public:
     // Wake the fade timer when notes arrive from outside (physical keyboard,
     // external MIDI).  Safe to call redundantly; timer runs at ~30 fps.
     void notifyNoteActivity();
+    // ---- Focus-loss panic release ------------------------------------------
+    // Release the note currently held by the mouse (window focus loss Panic,
+    // preventing hanging notes).  No-op when no mouse note is held.
+    void releaseHeldMouseNote();
 
 private:
     // juce::Component

@@ -49,6 +49,7 @@ public:
         testOutOfRange();
         testAvailableRange();
         testKeyboardPaintClipping();
+        testReleaseHeldMouseNote();
     }
 
 private:
@@ -160,6 +161,24 @@ private:
 
             expect(true, "CustomKeyboard paint completed under dirty rect clipping");
         });
+    }
+    void testReleaseHeldMouseNote() {
+        testCase("releaseHeldMouseNote is a no-op without a held mouse note", [&] {
+            juce::MidiKeyboardState ks;
+            CustomKeyboard kb(ks);
+            int callbackCount = 0;
+            kb.onNoteOff = [&](int, int) { ++callbackCount; };
+
+            // 无鼠标按住的音符时调用必须为 no-op（失焦 Panic 的幂等性）。
+            kb.releaseHeldMouseNote();
+            kb.releaseHeldMouseNote();
+            expectEquals(callbackCount, 0, "no callback without a held note");
+        });
+
+        // 注：鼠标按住音符的释放路径（mouseDown 按下后 releaseHeldMouseNote）
+        // 依赖真实鼠标事件（MouseEvent/MouseInputSource），无法在无头单测中
+        // 模拟；mouseUp 与 releaseHeldMouseNote 共用同一释放逻辑，按下分支
+        // 由实机交互回归覆盖（见 keyboard-mapping.md KBD-007 行为矩阵）。
     }
 };
 
