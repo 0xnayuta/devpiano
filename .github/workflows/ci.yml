@@ -130,7 +130,7 @@ jobs:
           SCCACHE_DIR: C:/Users/runneradmin/.cache/sccache
           CMAKE_C_COMPILER_LAUNCHER: sccache
           CMAKE_CXX_COMPILER_LAUNCHER: sccache
-        run: cmake --preset windows-msvc-debug -DBUILD_TESTS=ON -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded
+        run: cmake --preset windows-msvc-debug -DBUILD_TESTS=ON
 
       - name: Build target binaries (Debug)
         run: cmake --build --preset windows-msvc-debug
