@@ -1112,7 +1112,13 @@ void MainComponent::handleWindowFocusLost() {
         for (auto index = 0; index < juce::TopLevelWindow::getNumTopLevelWindows(); ++index) {
             auto* window = juce::TopLevelWindow::getTopLevelWindow(index);
             if (window != weak->getTopLevelComponent() && window->isVisible() && window->isActiveWindow()) {
-                return; // 应用内部窗口切换：不打断任何演奏
+                // 应用内部窗口切换：不打断任何演奏，但需要对账 heldKeys——
+                // 焦点在内部窗口（插件编辑器/设置窗口）期间松开的键收不到
+                // key-up 事件（按键事件只发给聚焦组件链），滞留条目会悬挂音。
+                // handleKeyStateChanged 以 OS 实时按键状态（isKeyCurrentlyDown）
+                // 为准：松开的键补发 note-off，仍按住的键保持原状。
+                weak->keyboardMidiMapper.handleKeyStateChanged(weak->audioEngine.getKeyboardState());
+                return;
             }
         }
         weak->keyboardMidiMapper.releaseAllHeldKeys(weak->audioEngine.getKeyboardState());

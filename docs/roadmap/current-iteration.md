@@ -33,7 +33,7 @@
 - [x] **基础设施：落地 PR-Agent AI 代码审查工作流（DeepSeek v4 Flash）**
 - [x] **Phase 25-B (部分)：Linux 桌面字体清晰度（Noto Sans CJK / Source Han Sans 回退链）与设置弹窗首帧防闪烁修复**
 - [x] **Phase 25-B (持续)：X11 窗口与键盘事件（KeyPress / 焦点管理）Linux 桌面实机交互回归（CachyOS 实机验证通过：窗口生命周期、键盘演奏、焦点管理、虚拟键盘鼠标、字体渲染、弹窗呈现无问题；含失焦 panic 不打断 MIDI 回放修复）**
-- [ ] **Phase 25-C：Linux Release 构建兼容性与分发规范（ubuntu-24.04 runner 构建 + glibc 门槛检查脚本 + 归档规范；不做依赖静态化）**
+- [x] **Phase 25-C：Linux Release 构建兼容性与分发规范（ubuntu-24.04 runner 构建 + glibc 门槛检查脚本 + 归档规范；不做依赖静态化）**
 - [ ] **Phase 25-D：ci.yml linux-release-gate + `package_release.sh --linux` 打包**
 - [ ] **Phase 25-E：三闸门基线验证、Linux 专项冒烟清单与指南文档对齐**
 ---
