@@ -23,7 +23,14 @@
 - **兜底清洗（防御路径）**：显式清洗 `juce_recommended_config_flags` 接口选项与 `CMAKE_{C,CXX}_FLAGS_{DEBUG,RELWITHDEBINFO}` 中残留的 `/Zi`→`/Z7`，拦截历史/第三方注入路径；主路径为上述官方抽象；
 - `/Z7` 将调试符号直接内嵌进 `.obj`（不产生共享 `.pdb`），使 `sccache`/`ccache` 可原子缓存对象文件、命中率 100%，并消除多 `cl.exe` 并发争抢 `.pdb` 文件锁的 `fatal error C1041`（业界共识：缓存工具无法可靠缓存共享 PDB 产物）；
 - 全局追加 `/FS`（Force Synchronous PDB Writes）作为并发写防护兜底——`/Z7` 下已无 PDB 产生，保留为防御性双保险，成本可忽略。
+
+### 2. STL PCH 预编译头隔离架构（`source/pch.h`）
+- 建立专门的 `source/pch.h` 预编译头文件，预编译高频 C++ 标准库头文件（`<vector>`, `<string>`, `<algorithm>`, `<cmath>`, `<memory>`, `<atomic>`, `<tuple>`, `<unordered_map>` 等）；
+- **严格禁止在 PCH 中预编译全局 `<JuceHeader.h>`**：因为 JUCE 框架模块内部的 `.cpp` 依赖严格的自包含顺序，预先包含 `<JuceHeader.h>` 会触发 JUCE 内部的 `#error "Incorrect use of JUCE cpp file"` 守卫。将 `<JuceHeader.h>` 排除在 PCH 之外，使得全项目（业务代码 + JUCE 模块 + JIVE）均能安全、零冲突地共享 STL PCH 编译加速。
 - **PCH 与编译缓存协同（2026-08 补充，ccache 官方手册）**：Clang PCH 默认内嵌创建时间戳，ccache 缓存重放的 PCH 文件时间戳与原始不同，会触发 `file modified since precompiled header was built` 使 PCH 缓存全部失效——所有 Clang target（`devpiano` / `devpiano_tests`）必须注入 `-fno-pch-timestamp`（关闭时间戳校验，内容哈希校验仍生效）。若未来引入 GCC 构建须补 `-fpch-preprocess`；ccache `sloppiness=pch_defines` 仅 GCC PCH 需要，Clang 路径不启用（保持严格哈希与正确性）。
+
+### 3. Linux/WSL 高速链接器自动探测与启用（`mold` / `lld`）
+- 在 CMake 中配置链接器探测逻辑：在 Linux/WSL 环境下自动探测并优先启用 `mold`，次选 `lld`，将最终可执行文件链接时间从秒级压缩至数十毫秒。
 - **CI 执行要求（2026-08 补充）**：Linux 门禁与发布 runner（`ubuntu-24.04`）必须同时安装 `mold` 与 `lld`（apt），使探测逻辑取到首选 mold；探测不到任何高速链接器而回退 `ld.bfd` 属于降级状态，应在 CI 日志中视为异常排查线索。WSL 本机推荐同样安装（quickstart 依赖清单含 `lld mold ccache`）：2026-08-25 实测安装 `mold` 后 configure 输出 `High-speed linker: mold enabled (/usr/bin/mold)`，Debug 链接切换至 mold（lld 为次选，mold 命中后无需安装）。
 
 ### 4. 编译耗时性能跟踪与火焰图工具链（`-ftime-trace`）
