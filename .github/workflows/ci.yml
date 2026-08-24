@@ -76,6 +76,8 @@ jobs:
     name: Linux Release Build Gate (glibc floor)
     # 与 release.yml 的 release-linux-x64 使用同一环境（ubuntu-24.04），
     # 提前暴露 Release 配置（含 LTO）的编译问题与 glibc 门槛漂移。
+    # ccache 遵循 ADR-011 编译器缓存规范（Release 与 Debug 按编译选项
+    # 自动区分缓存，key 独立前缀避免与 linux-test-gate 写回互覆）。
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository with submodules (shallow)
@@ -84,19 +86,40 @@ jobs:
           submodules: recursive
           fetch-depth: 1
 
-      - name: Install system dependencies
+      - name: Install system dependencies & ccache
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build clang lld pkg-config \
+            cmake ninja-build clang lld pkg-config ccache \
             libasound2-dev libjack-jackd2-dev libfreetype-dev libfontconfig1-dev \
             libx11-dev libxcomposite-dev libxcursor-dev libxext-dev \
             libxinerama-dev libxrandr-dev libxrender-dev libgl1-mesa-dev
 
+      - name: Restore/Save ccache compiler cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ccache
+          key: linux-release-ccache-${{ hashFiles('CMakeLists.txt', 'CMakePresets.json', 'submodules/**') }}-${{ github.sha }}
+          restore-keys: |
+            linux-release-ccache-${{ hashFiles('CMakeLists.txt', 'CMakePresets.json', 'submodules/**') }}-
+            linux-release-ccache-
+
       - name: Configure CMake (linux-clang-release)
+        env:
+          CCACHE_COMPRESS: "true"
+          CCACHE_COMPRESSLEVEL: "6"
+          CCACHE_MAXSIZE: "1G"
+          CMAKE_C_COMPILER_LAUNCHER: "ccache"
+          CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
         run: cmake --preset linux-clang-release
 
       - name: Build target binary (Release)
+        env:
+          CCACHE_COMPRESS: "true"
+          CCACHE_COMPRESSLEVEL: "6"
+          CCACHE_MAXSIZE: "1G"
+          CMAKE_C_COMPILER_LAUNCHER: "ccache"
+          CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
         run: cmake --build --preset linux-clang-release --target devpiano
 
       - name: Check glibc/libstdc++ version floor

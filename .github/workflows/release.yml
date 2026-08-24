@@ -108,19 +108,42 @@ jobs:
           submodules: recursive
           fetch-depth: 1
 
-      - name: Install system dependencies
+      - name: Install system dependencies & ccache
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build clang lld pkg-config \
+            cmake ninja-build clang lld pkg-config ccache \
             libasound2-dev libjack-jackd2-dev libfreetype-dev libfontconfig1-dev \
             libx11-dev libxcomposite-dev libxcursor-dev libxext-dev \
             libxinerama-dev libxrandr-dev libxrender-dev libgl1-mesa-dev
 
+      # ccache 遵循 ADR-011 编译器缓存规范：tag 触发的低频发布 job 复用
+      # 历史发布缓存，全量 Release（含 LTO）构建时间从分钟级降至秒级。
+      - name: Restore/Save ccache compiler cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ccache
+          key: linux-release-ccache-${{ hashFiles('CMakeLists.txt', 'CMakePresets.json', 'submodules/**') }}-${{ github.ref_name }}
+          restore-keys: |
+            linux-release-ccache-${{ hashFiles('CMakeLists.txt', 'CMakePresets.json', 'submodules/**') }}-
+            linux-release-ccache-
+
       - name: Configure CMake (linux-clang-release)
+        env:
+          CCACHE_COMPRESS: "true"
+          CCACHE_COMPRESSLEVEL: "6"
+          CCACHE_MAXSIZE: "1G"
+          CMAKE_C_COMPILER_LAUNCHER: "ccache"
+          CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
         run: cmake --preset linux-clang-release
 
       - name: Build target binary (Release)
+        env:
+          CCACHE_COMPRESS: "true"
+          CCACHE_COMPRESSLEVEL: "6"
+          CCACHE_MAXSIZE: "1G"
+          CMAKE_C_COMPILER_LAUNCHER: "ccache"
+          CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
         run: cmake --build --preset linux-clang-release --target devpiano
 
       # glibc / libstdc++ 版本门槛（Phase 25-C）：产物必须满足支持矩阵
