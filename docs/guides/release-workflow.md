@@ -43,16 +43,31 @@ zip + sha256
 ./scripts/dev.sh win-build --release
 ```
 
-#### 2.2.1 构建环境兼容性约束（2026-08 查证）
+### 2.2 Linux：绿色分发（GitHub Actions 构建）
 
-- **动态依赖**：Release 产物仅动态依赖 `libasound.so.2`（ALSA）、`libfontconfig.so.1`、`libfreetype.so.6` 与基础运行库（`libstdc++` / `libm` / `libgcc_s` / `libc`）。前三者 soname 多年稳定且为所有桌面发行版标配，**跨发行版字体/音频兼容性无需静态化处理**。
-- **glibc / libstdc++ 门槛**：产物要求目标系统 glibc ≥ 构建环境。滚动发行版（Arch / CachyOS，glibc 2.44）构建的产物**仅 Arch 系可运行**；Ubuntu 22.04（2.35）、24.04（2.39）、Debian 12（2.36）、13（2.41）、Fedora 41（2.40）均无法运行。
-- **正式 Linux 分发必须在保守环境构建**：推荐 Docker 容器（Ubuntu 22.04 LTS，glibc 2.35）执行 Release 构建，产物可覆盖全部常见桌面发行版。构建后检查门槛：
+Linux 发布产物由 GitHub Actions 的 `release.yml` `release-linux-x64` job
+（`ubuntu-24.04` runner）在 tag 触发时自动构建打包，格式：
 
-  ```bash
-  readelf --version-info DevPiano | grep -o 'GLIBC_[0-9.]*' | sort -V | uniq | tail -1
-  readelf --version-info DevPiano | grep -o 'GLIBCXX_[0-9.]*' | sort -V | uniq | tail -1
-  ```
+```text
+DevPiano-vX.Y.Z-linux-x64.tar.gz
+DevPiano-vX.Y.Z-linux-x64.sha256
+```
+
+本地 `./scripts/dev.sh wsl-build --release` 仅用于开发验证（WSL 为
+Ubuntu 26.04，glibc 2.43，产物仅兼容 Arch 系滚动发行版）。
+
+#### 2.2.1 依赖与兼容性（2026-08 查证）
+
+- **动态依赖**：Release 产物仅动态依赖 `libasound.so.2`（ALSA）、`libfontconfig.so.1`、`libfreetype.so.6` 与基础运行库（`libstdc++` / `libm` / `libgcc_s` / `libc`）。前三者 soname 多年稳定且为桌面发行版标配，**跨发行版字体/音频兼容性无需静态化处理**。
+- **glibc / libstdc++ 门槛**：产物要求目标系统 glibc ≥ 构建环境（glibc 只向后兼容）。`ubuntu-24.04` runner（glibc 2.39 / GCC 13）构建的产物门槛为 GLIBC_2.39 / GLIBCXX_3.4.32。
+- **支持矩阵（glibc ≥ 2.39）**：Ubuntu 24.04 LTS+、Debian 13+、Fedora 41+、Arch / CachyOS / Manjaro 等滚动发行版。**明确放弃** glibc < 2.39 的发行版：Ubuntu 22.04 LTS（2.35，2027-04 标准支持结束）、Debian 12（2.36）、Linux Mint 21.x。
+- **门槛检查**：构建后运行 `scripts/check_linux_glibc_floor.sh <DevPiano 路径>`（`readelf --version-info` 提取最大 GLIBC_/GLIBCXX_ 需求并对照支持矩阵）；门槛不达标时发布 job 失败——同时防止 runner 镜像漂移导致兼容面悄悄缩水。
+
+#### 2.2.2 Windows 侧依赖（保持现状，无兼容问题）
+
+Windows 产物（`DevPiano.exe`）动态链接 MSVC 运行库（`vcruntime140.dll` / `msvcp140.dll`，`/MD` 默认），目标系统需具备 **VC++ Redistributable 2015-2022**（Windows 10/11 上普及度极高，缺失时随安装包附送即可）；UCRT 为 Windows 10+ 系统组件内置。
+
+Windows 无 glibc 类兼容问题：编译期 `_WIN32_WINNT` 固定为 Win10（JUCE 8），Win32 API 为稳定 ABI，构建机 VS 版本不影响产物兼容面——**保持 `windows-latest` 最新工具链构建，不做保守环境调整**。
 
 ## 3. 版本号规则
 

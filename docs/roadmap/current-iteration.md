@@ -17,13 +17,13 @@
    - 确保 JIVE 声明式 UI 样式表、Design Tokens 与 跨平台字体回退（Noto Sans CJK SC / Source Han Sans 等）在 Linux 下字形清晰、弹窗无白底/黑块闪烁。
 3. **Phase 25-C：Linux Release 构建兼容性与分发规范**：
    - 依赖兼容性查证（2026-08）：动态依赖 `libasound.so.2` / `libfontconfig.so.1` / `libfreetype.so.6` soname 稳定且为桌面发行版标配，**保持动态链接、不做静态化**（静态化解决的是不存在的兼容问题）；
-   - **真正门槛是构建环境的 glibc / libstdc++ 版本**：CachyOS / Arch（glibc 2.44）等滚动环境构建的产物仅 Arch 系可运行；Ubuntu 22.04（2.35）/ 24.04（2.39）、Debian 12（2.36）/ 13（2.41）、Fedora 41（2.40）均无法运行；
-   - 建立**保守构建环境**（Docker 容器，Ubuntu 22.04 LTS 优先）执行 Release 构建，使产物 glibc 门槛 ≤ 2.35，覆盖全部常见桌面发行版；
-   - 制定 Linux 分发归档规范（`DevPiano-vX.Y.Z-linux-x64.tar.gz` 与 `.sha256`）与产物兼容性门槛检查（`readelf --version-info` 提取最大 GLIBC_/GLIBCXX_ 需求，对照发行版版本表）。
-4. **Phase 25-D：打包脚本扩展与容器化构建流水线**：
-   - 扩展 `scripts/package_release.sh` 支持 `--linux` 打包选项（tar.gz + sha256）；
-   - 落地容器化 Release 构建脚本（Docker + Ubuntu 22.04 LTS）并将 glibc 门槛检查集成进打包流程；
-   - 补齐 Linux 平台专项冒烟测试清单并全量通过三闸门（format, test, build）。
+   - **真正门槛是构建环境的 glibc / libstdc++ 版本**：正式 Linux 产物由 GitHub Actions `release.yml` 的 `release-linux-x64` job 在 **`ubuntu-24.04` runner**（glibc 2.39 / GCC 13 libstdc++）构建，产物门槛为 GLIBC_2.39 / GLIBCXX_3.4.32；
+   - **支持矩阵（glibc ≥ 2.39）**：Ubuntu 24.04 LTS+、Debian 13+、Fedora 41+、Arch / CachyOS / Manjaro 滚动发行版；明确放弃维护期后期发行版（Ubuntu 22.04 / Debian 12 / Mint 21.x）；
+   - 制定 Linux 分发归档规范（`DevPiano-vX.Y.Z-linux-x64.tar.gz` 与 `.sha256`）与门槛检查脚本 `scripts/check_linux_glibc_floor.sh`（`readelf --version-info` 对照支持矩阵，防 runner 镜像漂移）。
+4. **Phase 25-D：打包脚本扩展与 Linux 发布流水线**：
+   - `ci.yml` 增加 `linux-release-gate`（`ubuntu-24.04` 上 Release 编译 + 门槛检查，非 tag 触发提前暴露编译问题）；
+   - 扩展 `scripts/package_release.sh` 支持 `--linux` 打包选项（tar.gz + sha256，本地备用路径）；
+   - 补齐 Linux 平台专项冒烟测试清单（目标发行版实机验证）并全量通过三闸门（format, test, build）。
 
 ---
 
@@ -33,8 +33,8 @@
 - [x] **基础设施：落地 PR-Agent AI 代码审查工作流（DeepSeek v4 Flash）**
 - [x] **Phase 25-B (部分)：Linux 桌面字体清晰度（Noto Sans CJK / Source Han Sans 回退链）与设置弹窗首帧防闪烁修复**
 - [x] **Phase 25-B (持续)：X11 窗口与键盘事件（KeyPress / 焦点管理）Linux 桌面实机交互回归（CachyOS 实机验证通过：窗口生命周期、键盘演奏、焦点管理、虚拟键盘鼠标、字体渲染、弹窗呈现无问题；含失焦 panic 不打断 MIDI 回放修复）**
-- [ ] **Phase 25-C：Linux Release 构建兼容性与分发规范（保守 glibc 构建环境 + 门槛检查 + 归档规范；不做依赖静态化）**
-- [ ] **Phase 25-D：扩展 `package_release.sh` 支持 `--linux` 打包与容器化 Release 构建**
+- [ ] **Phase 25-C：Linux Release 构建兼容性与分发规范（ubuntu-24.04 runner 构建 + glibc 门槛检查脚本 + 归档规范；不做依赖静态化）**
+- [ ] **Phase 25-D：ci.yml linux-release-gate + `package_release.sh --linux` 打包**
 - [ ] **Phase 25-E：三闸门基线验证、Linux 专项冒烟清单与指南文档对齐**
 ---
 
