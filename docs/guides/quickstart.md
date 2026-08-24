@@ -19,7 +19,7 @@
 ```bash
 sudo apt-get update
 sudo apt-get install -y \
-  cmake ninja-build clang clangd-21 clang-format-21 clang-tidy-21 lld pkg-config \
+  cmake ninja-build clang clangd-21 clang-format-21 clang-tidy-21 lld mold ccache pkg-config \
   libasound2-dev libjack-jackd2-dev libcurl4-openssl-dev \
   libfreetype-dev libfontconfig1-dev \
   libx11-dev libxcomposite-dev libxcursor-dev libxext-dev \
