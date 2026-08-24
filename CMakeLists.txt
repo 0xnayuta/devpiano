@@ -112,6 +112,9 @@ if (MSVC)
         /permissive-
         /Zc:__cplusplus
         /W4
+        # JUCE 模块 .c 文件使 target 含 C 语言，CMake 为 C 生成 PCH 桩；
+        # pch.h 为 STL-only（ADR-011），C 模式下为空翻译单元触发 C4206，无害
+        $<$<COMPILE_LANGUAGE:C>:/wd4206>
     )
 endif()
 
@@ -318,6 +321,9 @@ if (BUILD_TESTS)
             /permissive-
             /Zc:__cplusplus
             /W4
+            # JUCE 模块 .c 文件使 target 含 C 语言，CMake 为 C 生成 PCH 桩；
+            # pch.h 为 STL-only（ADR-011），C 模式下为空翻译单元触发 C4206，无害
+            $<$<COMPILE_LANGUAGE:C>:/wd4206>
         )
     endif()
     # 生产代码（被测模块）：只包含无 GUI/设备依赖的纯逻辑层

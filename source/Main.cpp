@@ -152,9 +152,9 @@ public:
             setFullScreen(true);
 #else
             if (auto* mainComponent = dynamic_cast<MainComponent*>(getContentComponent())) {
-                const auto resizable = mainComponent->getAppSettings().keyboardDisplay.resizableWindow;
-                setResizable(resizable, resizable);
-                if (resizable) {
+                const auto shouldBeResizable = mainComponent->getAppSettings().keyboardDisplay.resizableWindow;
+                setResizable(shouldBeResizable, shouldBeResizable);
+                if (shouldBeResizable) {
                     const auto limits = MainComponent::getMainContentResizeLimits();
                     setResizeLimits(limits.getX(), limits.getY(), limits.getWidth(), limits.getHeight());
                 } else {
