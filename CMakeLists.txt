@@ -102,9 +102,15 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     target_compile_options(devpiano PRIVATE
         -Wall
         -Wextra
+        # ADR-011 决策 2：PCH 与编译缓存（ccache/sccache）协同——Clang PCH
+        # 默认内嵌创建时间戳，ccache 缓存重放的 PCH 文件时间戳与原始不同，
+        # 会触发 "file modified since precompiled header was built" 使缓存
+        # 失效。-fno-pch-timestamp 关闭时间戳校验（内容哈希仍生效），是
+        # ccache 官方手册对 Clang PCH 场景的推荐配置（cc1 选项须经 -Xclang）。
+        -Xclang
+        -fno-pch-timestamp
     )
 endif()
-
 
 if (MSVC)
     target_compile_options(devpiano PRIVATE
@@ -313,6 +319,9 @@ if (BUILD_TESTS)
         target_compile_options(devpiano_tests PRIVATE
             -Wall
             -Wextra
+            # ADR-011 决策 2：与 devpiano 相同的 PCH/ccache 时间戳协同
+            -Xclang
+            -fno-pch-timestamp
         )
     endif()
     if (MSVC)
