@@ -38,6 +38,7 @@ struct PerChannelConfig {
 
 - **内存优化**：利用 C++ 位域（Bit-fields）打包，结构体体积极小，避免频繁复制与缓存未命中；
 - **默认透传基线**：默认 `outputChannel` 对应通道自身，`transpose = 0`，`velocity = 64`（保留演奏原始动态）。
+- **默认调号跟随**：`ChannelMatrix` 构造函数将 16 通道中除通道 10（GM 打击乐，索引 9）外的全部旋律通道默认开启 `followKey`，通道 10 保持旁路——确保打击乐音高不受全局调号影响，与实时移调链路（`AudioEngine` 回放移调按同一掩码旁路通道 10）保持一致。
 
 ---
 
@@ -72,6 +73,7 @@ devpiano 在 `SettingsModel` 与 `AppState` 中维护全局调号：
 在设置面板（`SettingsLayoutModel`）中，提供了一个 **8 列 × 2 行的 JIVE CSS Grid 开关组**：
 - 用户可独立勾选任意通道的 `Follow Key`；
 - 例如：通道 1（主旋律钢琴）开启跟随，移调 +2 半音（C调变D调）；通道 10（打击乐）关闭跟随，依然触发标准 General MIDI 鼓组音高。
+- **默认状态**：新装/重置后 15 个旋律通道默认开启跟随，通道 10 默认关闭（构造时由 `ChannelMatrix` 统一设定）；`midiTranspose` 关闭时全部开关置灰不可编辑。
 
 ---
 

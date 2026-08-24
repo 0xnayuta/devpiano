@@ -112,14 +112,18 @@ Recommended development setup: **WSL primary working tree + Windows mirror tree 
 # 4. Refresh WSL compilation database (for clangd / LSP)
 ./scripts/dev.sh wsl-build --configure-only
 
-# 5. Run unit test suite (58 test suites, 11950+ assertions)
+# 5. Run unit test suite (60 test suites, 11989+ assertions)
 ./scripts/dev.sh test
 
 # 6. Windows MSVC validation build (built-in intelligent sync)
 ./scripts/dev.sh win-build            # Debug build (day-to-day development)
 ./scripts/dev.sh win-build --release  # Release build (release preparation)
 
-# 7. Official release packaging (generates Windows x64 zip & SHA256)
+# 7. Build-time profiling (-ftime-trace: slowest files / headers / templates)
+./scripts/dev.sh time-trace           # Incremental analysis of latest build hotspots
+./scripts/dev.sh time-trace --clean   # Clean full profile + Perfetto flame graph export
+
+# 8. Official release packaging (generates Windows x64 zip & SHA256)
 ./scripts/dev.sh package              # Automatically extracts version and packages
 ./scripts/dev.sh package --version 1.0.0
 ```

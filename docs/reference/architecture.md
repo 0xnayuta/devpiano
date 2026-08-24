@@ -61,10 +61,8 @@ source/
 - **`source/Main.cpp`**：
   - `juce::JUCEApplication` 派生类入口；
   - 创建主桌面窗口，管理应用启动、单实例约束与正常退出序列。
-- **`source/MainComponent.h` / `source/MainComponent.cpp` / `source/MainComponentJiveAccessors.cpp`**：
-  - **主装配协调者**：装配 `AudioEngine`、`KeyboardMidiMapper`、`PluginHost`、`RecordingSessionController` 等核心控制器。
-  - **UI 树解析**：通过 `jive::Interpreter` 解释 `LayoutModel` 声明的主窗口 ValueTree。`MainComponent::resized()` 仅需 3 行（更新 JIVE root 尺寸，由 FlexBox 自动计算全局排版）。
-  - **精简与瘦身**：`MainComponent.cpp` 源码规模已严格控制在 ~446 行，所有子面板访问器拆入 `MainComponentJiveAccessors.cpp`，具体业务流程全面下沉至各 domain controller。
+  - **UI 树解析**：通过 `jive::Interpreter` 解释 `LayoutModel` 声明的主窗口 ValueTree。`MainComponent::resized()` 保持声明式（更新 JIVE root 尺寸并刷新状态文本截断，由 FlexBox 自动计算全局排版）。
+  - **规模与职责**：`MainComponent.cpp` 当前约 1310 行，主体为装配、`initialiseUi()` 的 JIVE 树构建与回调接线、UI 状态同步及音频设备生命周期管理；子面板访问器拆入 `MainComponentJiveAccessors.cpp`，具体业务流程已下沉至各 domain controller（`RecordingSessionController` / `PluginOperationController` / `SettingsWindowManager` / `AppStateBuilder`）。
 
 ---
 

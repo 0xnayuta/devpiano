@@ -14,7 +14,8 @@
 2. **中文输入法（IME）全面防御**：拦截并吸收按键事件，中文输入法处于激活状态下依然能稳定发声，且不弹出候选词输入框；
 3. **严格成对的 Note On / Off 跟踪**：`KeyboardMidiMapper` 维护独立的 Held Key 状态表，长按时不异常连发，松开时严格补发对应的 Note Off，杜绝悬挂音；
 4. **焦点丢失自动 Panic 清理**：当应用失去窗口焦点（如 Alt+Tab 切换窗口）时，自动向所有仍处于按压状态的琴键发送 Note Off，防止后台一直鸣响；
-5. **虚拟键盘显示与输入解耦**：虚拟键盘仅作为视觉反馈和鼠标演奏入口，电脑键盘演奏主路径由 `KeyboardMidiMapper` 独占，避免由于焦点切换引起重复触发。
+5. **虚拟键盘显示与输入解耦**：虚拟键盘仅作为视觉反馈和鼠标演奏入口，电脑键盘演奏主路径由 `KeyboardMidiMapper` 独占，避免由于焦点切换引起重复触发；
+6. **空间键默认延音踏板**：空格键（`Space`）默认映射为 MIDI CC64 延音踏板——按下即踏板开（127），松开即踏板关（0），随音符事件实时注入主链路；长按/释放严格成对，焦点丢失 panic 清理时自动同步释放踏板。
 
 ---
 
@@ -44,11 +45,12 @@
     ▼
 MainComponent::keyPressed() / keyStateChanged()
     │
+    ├── 0. 延音踏板: Space 键 ──► KeyboardMidiMapper 触发 CC64 sustain on/off (经 AudioEngine::sendController)
     ├── 1. 快捷键拦截: F1-F12 预设切换 ──► 直接路由至 PresetFlowSupport
     ├── 2. keyCode 规范化: normaliseAlphaNumericKeyCode(key.getKeyCode())
     │
     ▼
-KeyboardMidiMapper::handleKeyPress() / handleKeyRelease()
+KeyboardMidiMapper::handleKeyPressed() / handleKeyStateChanged()
     │
     ├── 3. 查表匹配当前 KeyboardLayout
     ├── 4. 状态表更新: 记录当前 held keys (防长按重复与漏松键)
@@ -59,8 +61,6 @@ MidiChannelMapper::sendNoteOn() / sendNoteOff() (经 16 通道矩阵变换)
     ▼
 AudioEngine::MidiMessageCollector ──► [音频回调合成发声]
 ```
-
----
 
 ## 4. 专项手工与鲁棒性测试清单
 
@@ -74,3 +74,4 @@ AudioEngine::MidiMessageCollector ──► [音频回调合成发声]
 | **KBD-006** | CapsLock / Shift 状态独立 | 打开大写锁定 CapsLock 或按住 Shift 弹奏，键位映射依然 100% 准确生效 | [x] 已通过 |
 | **KBD-007** | 窗口失焦自动 Panic | 按住 `A+S+D` 的同时按 Alt+Tab 切换至其他窗口，声音立即自动完全切断 | [x] 已通过 |
 | **KBD-008** | 88 键虚拟键盘点击 | 鼠标左键点击虚拟键盘上的任意黑白键，正常触发对应音符发声并高亮显示 | [x] 已通过 |
+| **KBD-009** | 空间键延音踏板 | 按住空格键触发 CC64 延音开启（音符自然延长），松开空格键延音关闭，与琴键释放严格配对，无悬挂 | [x] 已通过 |

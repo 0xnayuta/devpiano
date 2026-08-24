@@ -210,9 +210,13 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 ### Phase 25：Linux 原生桌面构建与音频驱动适配（Linux Desktop & Audio Path Exploration） [进行中]
 
-1. **ALSA / JACK 驱动链路验证**：验证 Linux 环境下 JUCE `AudioDeviceManager` 对 ALSA / JACK 的低延迟初始化、设备枚举与动态切换；
-2. **X11 / XCB 窗口与 JIVE 渲染适配**：验证 Linux 桌面环境窗口事件、按键焦点与 JIVE 声明式 UI 渲染表现；
-3. **Linux 绿色分发包规范**：制定 `DevPiano-vX.Y.Z-linux-x64.tar.gz` 打包规范并集成至 `./scripts/dev.sh package --linux`。
+1. **Phase 25-A（已完成）**：ALSA / JACK 音频驱动链路验证与设备管理机制审查，含 Linux 音频设备诊断单元测试（`AudioDeviceDiagnosticsLinuxTest`）；
+2. **Phase 25-B（部分完成）**：X11 / XCB 窗口系统与 JIVE 渲染适配——Linux 字体回退链优化与设置弹窗首帧防闪烁已修复；窗口事件与键盘焦点实机交互回归持续进行；
+3. **Phase 25-C**：Linux Release 构建优化与单文件绿色分发依赖裁剪（`DevPiano-vX.Y.Z-linux-x64.tar.gz` + `.sha256`）；
+4. **Phase 25-D**：扩展 `package_release.sh` 支持 `--linux` 打包选项；
+5. **Phase 25-E**：三闸门基线验证与相关指南文档对齐。
+
+> 基础设施已落地：`.github/workflows/ci.yml`（格式门禁 + Linux Clang 单元测试 + Windows MSVC 构建门禁）与 `.github/workflows/release.yml`（Tag 触发 Windows x64 自动打包发布）。当前子任务排期与验收状态见 [`current-iteration.md`](current-iteration.md)。
 
 ### Phase 26：MIDI 多轨并轨与综合时间线合并（MIDI Multi-Track Timeline Merge） [规划中]
 
@@ -236,7 +240,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 | 键盘映射边界多 | 低 | 基础映射已全量验证；Performance Preset 已补充专项回归清单。 |
 | 物理建模高负荷极端情况 | 极低 | 逐采样零三角函数 + 动态分音剪枝，8 复音齐奏单核 CPU $\le 0.7\%$。 |
 | JIVE API 稳定性 | 极低 | 固定 git commit hash；持续维护单元测试回归。 |
-| `MainComponent` 职责回流 | 极低 | 架构严格控制在 ~446 行，UI 布局完全下沉至 JIVE 与独立 Controller。 |
+| `MainComponent` 职责回流 | 低 | 当前 ~1310 行（`initialiseUi()` 承载 JIVE 树构建与回调接线），UI 布局仍完全下沉至 JIVE 与独立 Controller；持续监控，避免业务逻辑回流。 |
 | 文档状态漂移 | 极低 | 本文件作为唯一 roadmap；当前任务只写入 [`current-iteration.md`](current-iteration.md)。 |
 
 ---

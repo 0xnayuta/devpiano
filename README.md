@@ -112,14 +112,18 @@ source/
 # 4. 刷新 WSL 编译数据库（供 clangd/LSP 使用）
 ./scripts/dev.sh wsl-build --configure-only
 
-# 5. 运行全量单元测试（58 个测试套件，11950+ 断言）
+# 5. 运行全量单元测试（60 个测试套件，11989+ 断言）
 ./scripts/dev.sh test
 
 # 6. Windows MSVC 验证构建（内置代码智能同步）
 ./scripts/dev.sh win-build            # Debug 验证构建（日常开发）
 ./scripts/dev.sh win-build --release  # Release 构建（发布准备）
 
-# 7. 正式发布打包（生成 Windows x64 zip 与 SHA256 校验和）
+# 7. 编译耗时性能剖析（-ftime-trace，分析最耗时文件/头文件/模板）
+./scripts/dev.sh time-trace           # 增量分析最新构建热点
+./scripts/dev.sh time-trace --clean   # 清理后全量剖析并导出 Perfetto 火焰图
+
+# 8. 正式发布打包（生成 Windows x64 zip 与 SHA256 校验和）
 ./scripts/dev.sh package              # 自动提取版本并打包
 ./scripts/dev.sh package --version 1.0.0
 ```

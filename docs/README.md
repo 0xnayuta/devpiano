@@ -23,7 +23,7 @@
 
 **工程三闸门基线**：
 - **格式化**：`.clang-format`（WebKit 规范），`./scripts/dev.sh format --check`
-- **单元测试**：`devpiano_tests`（3100+ 断言），`./scripts/dev.sh test`
+- **单元测试**：`devpiano_tests`（60 个测试套件、11989+ 断言），`./scripts/dev.sh test`
 - **构建验证**：WSL 配置 `wsl-build --configure-only` + Windows 验证 `./scripts/dev.sh win-build`
 
 ---

@@ -231,7 +231,7 @@ source ~/.bashrc
 # ── 静态检查（clang-tidy，ADR-007：只检查，不用 --fix）──
 ./scripts/dev.sh tidy                 # 增量：仅未提交改动文件（秒级~分钟级）
 ./scripts/dev.sh tidy <file...>       # 指定文件/路径
-./scripts/dev.sh tidy --all           # 全量 44 文件（约 19 分钟，迭代边界跑）
+./scripts/dev.sh tidy --all           # 全量 63 个编译单元（约 19 分钟，迭代边界跑）
 # 编辑器内：clangd 已启用 clang-tidy 集成（.clangd），保存即增量波浪线提示；
 # pre-commit 只做 format 检查（tidy 单文件 18-211s 实测，不阻塞提交）
 
@@ -259,7 +259,7 @@ source ~/.bashrc
 | 编辑期 | 编辑器 Format on Save | clangd 波浪线实时提示（`.clangd` 已启用 `Diagnostics.ClangTidy`，与全量 tidy 同源 `.clang-tidy` 配置） |
 | 提交前 (pre-commit) | 自动检查 staged 文件（`--dry-run --Werror`，失败手动 `./scripts/dev.sh format`） | **不做**——单文件实测 18–211s，成本不成比例（AGENTS.md 第 3 节纪律） |
 | 大迭代边界 | `./scripts/dev.sh format --check` | `./scripts/dev.sh tidy --all` 全量 0 诊断（约 19 分钟，唯一例行执行点） |
-| CI（未来） | `format --check` 门禁 | 全量 tidy 0 容忍门禁 |
+| CI（已落地，`.github/workflows/ci.yml`） | `format --check` 门禁（clang-format-21） | Linux Clang 单元测试门禁 + Windows MSVC 构建与单元测试门禁（push/PR 至 `main` 自动触发，ccache/sccache 加速） |
 
 例外：修改 `.clang-tidy` / `.clang-format` 配置后，可用 `./scripts/dev.sh tidy <file>` 单文件快速验证配置效果。
 决策背景：[`ADR-007`](../decisions/ADR-007-clang-tidy-check-only-clang-format-fixes.md)（clang-tidy 只做检查、clang-format 负责机械修复）。
