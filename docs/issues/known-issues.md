@@ -28,6 +28,23 @@
 > - 针对测试工程后续可精细化拆分测试单元或引入针对业务层的 Unity Build 批处理。
 
 
+### Linux/X11 窗口大小锁定（Resizable 开关）在框架层失效
+
+> **现状与成因**：
+> 已移除设置面板中的"可调整窗口大小"选项，主窗口保持始终可调。
+> 根因在 JUCE X11 后端 `XWindowSystem::setBounds`（`juce_XWindowSystem_linux.cpp`）：
+> 每次布局都会先调用 `updateConstraints` 写入 `WMNormalHints`（固定尺寸时
+> `PMinSize == PMaxSize`），随后又用仅含 `USSize | USPosition` 的 `XSizeHints`
+> 整体覆盖 `WM_NORMAL_HINTS`，导致尺寸锁定约束在同一次 `setBounds` 内即被
+> 清除，KWin 始终认为窗口可自由缩放。
+>
+> **影响**：任何 `setResizable(false)` + `setResizeLimits(w,h,w,h)` 的组合在
+> Linux/X11 下都无法真正锁定窗口大小（KWin + 125% 缩放实测确认）。
+>
+> **跟进计划**：若后续需要恢复该能力，可在应用层直接调用 Xlib
+> `_MOTIF_WM_HINTS`（`MWM_FUNC_RESIZE` 关闭）或等待 JUCE 修复
+> `setBounds` 的 hints 覆盖问题；届时需权衡原生代码侵入成本。
+
 ### Main.cpp 中残留的 Win32 原生 Hook 与平台特定依赖
 
 > **现状与成因**：

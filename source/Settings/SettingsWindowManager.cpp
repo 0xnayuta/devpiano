@@ -192,41 +192,17 @@ SettingsComponent* SettingsWindowManager::getSettingsContent() const {
 }
 
 void SettingsWindowManager::showFor(MainComponent& owner) {
-    const bool initialResizable = owner.appSettings.keyboardDisplay.resizableWindow;
-    auto onDisplaySettingsChanged
-        = [safe = juce::Component::SafePointer<MainComponent>(&owner), weakState = std::weak_ptr<State>(state),
-           lastResizable = initialResizable]() mutable {
-              if (safe == nullptr) {
-                  return;
-              }
+    auto onDisplaySettingsChanged = [safe = juce::Component::SafePointer<MainComponent>(&owner)]() mutable {
+        if (safe == nullptr) {
+            return;
+        }
 
-              auto kbs = safe->appSettings.getKeyboardDisplaySettingsView();
-              safe->resized();
-              safe->getCustomKeyboard().setKeyboardSettings(makeKeyboardSettings(kbs, safe->appSettings.keySignature));
-              safe->setInstrumentFilterVisible(kbs.showInstrumentFilter);
-              safe->reconfigureChannelMapper();
-
-              // Only update window resizability and limits when resize preference changes
-              if (kbs.resizableWindow != lastResizable) {
-                  lastResizable = kbs.resizableWindow;
-                  if (auto* topLevel = safe->getTopLevelComponent()) {
-                      if (auto* dw = dynamic_cast<juce::DocumentWindow*>(topLevel)) {
-                          dw->setResizable(kbs.resizableWindow, kbs.resizableWindow);
-                          if (kbs.resizableWindow) {
-                              const auto limits = MainComponent::getMainContentResizeLimits();
-                              dw->setResizeLimits(limits.getX(), limits.getY(), limits.getWidth(), limits.getHeight());
-                          } else {
-                              dw->setResizeLimits(dw->getWidth(), dw->getHeight(), dw->getWidth(), dw->getHeight());
-                          }
-                          if (auto locked = weakState.lock()) {
-                              if (locked->window != nullptr && locked->window->isShowing()) {
-                                  locked->window->toFront(true);
-                              }
-                          }
-                      }
-                  }
-              }
-          };
+        auto kbs = safe->appSettings.getKeyboardDisplaySettingsView();
+        safe->resized();
+        safe->getCustomKeyboard().setKeyboardSettings(makeKeyboardSettings(kbs, safe->appSettings.keySignature));
+        safe->setInstrumentFilterVisible(kbs.showInstrumentFilter);
+        safe->reconfigureChannelMapper();
+    };
     show({ .parent = owner,
            .deviceManager = owner.deviceManager,
            .savedAudioDeviceState = owner.appSettings.audioDeviceState.get(),

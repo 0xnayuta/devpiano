@@ -67,7 +67,6 @@ SettingsModel makePopulatedModel() {
     m.languageCode = "zh-CN";
     m.lastMidiExportPath = "/tmp/last-export.mid";
     m.lastMidiImportPath = "/tmp/last-import.mid";
-    m.keyboardDisplay.resizableWindow = false;
     m.keyboardDisplay.showInstrumentFilter = false;
     m.pluginPanelExpanded = true;
     m.knownPluginListState = juce::parseXML(R"(<KNOWNPLUGINS><PLUGIN name="X" file="x.vst3"/></KNOWNPLUGINS>)");
@@ -123,7 +122,6 @@ public:
             expectEquals(loaded.languageCode, juce::String("zh-CN"));
             expectEquals(loaded.lastMidiExportPath, juce::String("/tmp/last-export.mid"));
             expectEquals(loaded.lastMidiImportPath, juce::String("/tmp/last-import.mid"));
-            expect(!loaded.keyboardDisplay.resizableWindow);
             expect(!loaded.keyboardDisplay.showInstrumentFilter);
             expect(loaded.pluginPanelExpanded);
             expect(loaded.knownPluginListState != nullptr, "known-plugin XML must round-trip");
@@ -150,7 +148,6 @@ public:
                 store.load(loaded);
             }
             expectWithinAbsoluteError(loaded.masterGain, 0.8f, 0.0001f);
-            expect(!loaded.keyboardDisplay.resizableWindow, "resizableWindow default must be false");
             expect(loaded.keyboardDisplay.showInstrumentFilter, "showInstrumentFilter default must be true");
         });
 

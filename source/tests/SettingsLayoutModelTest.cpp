@@ -100,7 +100,6 @@ private:
         expect(findNodeById(tree, "colour-mode-combo").isValid());
         expect(findNodeById(tree, "note-display-combo").isValid());
         expect(findNodeById(tree, "fade-speed-slider").isValid());
-        expect(findNodeById(tree, "resizable-toggle").isValid());
         expect(findNodeById(tree, "instrument-filter-toggle").isValid());
         expect(findNodeById(tree, "language-combo").isValid());
     }
@@ -168,9 +167,6 @@ private:
 
             auto* fadeSlider = dynamic_cast<juce::Slider*>(findComponentById(*rootItem, "fade-speed-slider"));
             expect(fadeSlider != nullptr);
-
-            auto* resizableCb = dynamic_cast<juce::ToggleButton*>(findComponentById(*rootItem, "resizable-toggle"));
-            expect(resizableCb != nullptr);
 
             auto* filterCb
                 = dynamic_cast<juce::ToggleButton*>(findComponentById(*rootItem, "instrument-filter-toggle"));

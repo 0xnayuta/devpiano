@@ -274,15 +274,6 @@ juce::ValueTree makeKeyboardDisplaySectionTree() {
     fadeSlider.setProperty("height", 24, nullptr);
     content.appendChild(settingRow(TRANS("Fade Speed:"), fadeSlider, "fade-speed-label"), nullptr);
 
-    // Resizable Window
-    auto resizableCb = node("Checkbox", "resizable-toggle");
-    resizableCb.setProperty("text", TRANS("Resizable Window"), nullptr);
-    resizableCb.setProperty("toggleable", true, nullptr);
-    resizableCb.setProperty("toggle-on-click", true, nullptr);
-    resizableCb.setProperty("width", 300, nullptr);
-    resizableCb.setProperty("height", 24, nullptr);
-    content.appendChild(settingRow(TRANS("Resizable Window:"), resizableCb, "resizable-label"), nullptr);
-
     // Instrument Filter
     auto filterCb = node("Checkbox", "instrument-filter-toggle");
     filterCb.setProperty("text", TRANS("Show MIDI/VSTi Instrument Filter"), nullptr);

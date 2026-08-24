@@ -29,7 +29,6 @@ const char* kKeyMainWindowHeight = "mainWindowHeight";
 const char* kKeyColourMode = "keyboardColourMode";
 const char* kKeyNoteDisplay = "keyboardNoteDisplay";
 const char* kKeyFadeSpeed = "keyboardFadeSpeed";
-const char* kKeyResizableWindow = "resizableWindow";
 const char* kKeyShowInstrumentFilter = "showInstrumentFilter";
 const char* kKeyChannelMatrix = "channelMatrix";
 const char* kKeyLanguageCode = "languageCode";
@@ -188,7 +187,6 @@ void SettingsStore::readNow(SettingsModel& m) {
     m.keySignature = f.getIntValue(kKeyKeySignature, 0);
     m.midiTranspose = f.getBoolValue(kKeyMidiTranspose, false);
 
-    m.keyboardDisplay.resizableWindow = f.getBoolValue(kKeyResizableWindow, m.keyboardDisplay.resizableWindow);
     m.keyboardDisplay.showInstrumentFilter
         = f.getBoolValue(kKeyShowInstrumentFilter, m.keyboardDisplay.showInstrumentFilter);
     m.pluginPanelExpanded = f.getBoolValue(kKeyPluginPanelExpanded, m.pluginPanelExpanded);
@@ -325,7 +323,6 @@ bool SettingsStore::writeNow(const SettingsModel& m) {
             f.removeValue(kKeyCustomColours);
         }
     }
-    f.setValue(kKeyResizableWindow, m.keyboardDisplay.resizableWindow);
     f.setValue(kKeyLanguageCode, m.languageCode);
     f.setValue(kKeyShowInstrumentFilter, m.keyboardDisplay.showInstrumentFilter);
     f.setValue(kKeyPluginPanelExpanded, m.pluginPanelExpanded);

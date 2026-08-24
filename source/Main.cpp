@@ -156,18 +156,13 @@ public:
             setFullScreen(true);
 #else
             if (auto* mainComponent = dynamic_cast<MainComponent*>(getContentComponent())) {
-                const auto shouldBeResizable = mainComponent->getAppSettings().keyboardDisplay.resizableWindow;
-                // Resizable 与尺寸约束必须先于 addToDesktop 设置：
-                // X11 peer 创建时的 updateBounds 会立即写入 WMNormalHints
-                // （非 Resizable 时为 min==max 固定尺寸），确保 KWin 在
-                // 窗口映射时即读取到正确的尺寸约束。
-                setResizable(shouldBeResizable, shouldBeResizable);
-                if (shouldBeResizable) {
-                    const auto limits = MainComponent::getMainContentResizeLimits();
-                    setResizeLimits(limits.getX(), limits.getY(), limits.getWidth(), limits.getHeight());
-                } else {
-                    setResizeLimits(getWidth(), getHeight(), getWidth(), getHeight());
-                }
+                // 窗口始终可调：JUCE X11 的 XWindowSystem::setBounds 会在每次
+                // 布局后以 USSize|USPosition 覆盖 updateConstraints 写入的
+                // WMNormalHints（min==max），导致窗口大小锁定在框架层失效
+                // （见 known-issues.md），因此不再提供"锁定窗口大小"选项。
+                setResizable(true, true);
+                const auto limits = MainComponent::getMainContentResizeLimits();
+                setResizeLimits(limits.getX(), limits.getY(), limits.getWidth(), limits.getHeight());
                 mainComponent->persistMainContentSize(mainComponent->getWidth(), mainComponent->getHeight());
             }
 

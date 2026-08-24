@@ -101,7 +101,6 @@ public:
             colourModeCombo = dynamic_cast<juce::ComboBox*>(findComponentById(*jiveRootItem, "colour-mode-combo"));
             noteDisplayCombo = dynamic_cast<juce::ComboBox*>(findComponentById(*jiveRootItem, "note-display-combo"));
             fadeSpeedSlider = dynamic_cast<juce::Slider*>(findComponentById(*jiveRootItem, "fade-speed-slider"));
-            resizableToggle = dynamic_cast<juce::ToggleButton*>(findComponentById(*jiveRootItem, "resizable-toggle"));
             instrumentFilterToggle
                 = dynamic_cast<juce::ToggleButton*>(findComponentById(*jiveRootItem, "instrument-filter-toggle"));
             languageCombo = dynamic_cast<juce::ComboBox*>(findComponentById(*jiveRootItem, "language-combo"));
@@ -307,16 +306,6 @@ public:
                     = [this] { editingState.setProperty("fadeSpeed", fadeSpeedSlider->getValue(), nullptr); };
             }
 
-            // Wire Resizable Window Toggle
-            if (resizableToggle != nullptr) {
-                if (model != nullptr) {
-                    resizableToggle->setToggleState(model->keyboardDisplay.resizableWindow, juce::dontSendNotification);
-                }
-                resizableToggle->onStateChange = [this] {
-                    editingState.setProperty("resizableWindow", resizableToggle->getToggleState(), nullptr);
-                };
-            }
-
             // Wire Instrument Filter Toggle
             if (instrumentFilterToggle != nullptr) {
                 if (model != nullptr) {
@@ -363,9 +352,6 @@ public:
                 if (fadeSpeedSlider) {
                     editingState.setProperty("fadeSpeed", static_cast<double>(model->keyboardDisplay.fadeSpeed),
                                              nullptr);
-                }
-                if (resizableToggle) {
-                    editingState.setProperty("resizableWindow", model->keyboardDisplay.resizableWindow, nullptr);
                 }
                 if (instrumentFilterToggle) {
                     editingState.setProperty("showInstrumentFilter", model->keyboardDisplay.showInstrumentFilter,
@@ -497,7 +483,6 @@ private:
     juce::ComboBox* colourModeCombo = nullptr;
     juce::ComboBox* noteDisplayCombo = nullptr;
     juce::Slider* fadeSpeedSlider = nullptr;
-    juce::ToggleButton* resizableToggle = nullptr;
     juce::ToggleButton* instrumentFilterToggle = nullptr;
     juce::ComboBox* languageCombo = nullptr;
     juce::TextEditor* diagnosticsEditor = nullptr;
@@ -745,8 +730,6 @@ private:
                 = static_cast<devpiano::ui::NoteDisplayMode>((int)editingState[prop] - 1);
         } else if (prop == juce::Identifier("fadeSpeed")) {
             model->keyboardDisplay.fadeSpeed = static_cast<float>((double)editingState[prop]);
-        } else if (prop == juce::Identifier("resizableWindow")) {
-            model->keyboardDisplay.resizableWindow = (bool)editingState[prop];
         } else if (prop == juce::Identifier("showInstrumentFilter")) {
             model->keyboardDisplay.showInstrumentFilter = (bool)editingState[prop];
         } else if (prop == juce::Identifier("keySignature")) {
