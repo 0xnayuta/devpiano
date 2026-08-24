@@ -210,8 +210,6 @@ int DesignTokens::settingsBtnWidth() const {
     return parseInt("spacing", "settings-btn-width", 36);
 }
 
-// ── Token lookup for style sheets (DOC-007) ───────────────────
-
 static juce::String formatCssHexColour(juce::Colour colour) {
     // 格式化为标准 CSS Hex: "#RRGGBB"（不透明时）或 "#RRGGBBAA"（含透明度时）。
     // 彻底消除由于 JUCE toDisplayString(false) 剥离高位导致的零前导与透明度异常。
@@ -223,6 +221,32 @@ static juce::String formatCssHexColour(juce::Colour colour) {
     }
     const auto a = juce::String::toHexString(colour.getAlpha()).toUpperCase().paddedLeft('0', 2);
     return "#" + r + g + b + a;
+}
+
+/// 选择平台首选 UI 字体族。
+///
+/// JUCE 在 Linux 上对字体族名做 FreeType 精确匹配（不走 fontconfig 别名），
+/// 因此必须返回系统真实安装的字体名；候选链按平台优先级排列，并通过
+/// getTypefacePtr() 探测存在性（FTTypefaceList 精确匹配成功才算存在），
+/// 全部缺失时回退到 JUCE 的 "<System-UI>" 占位符（走 fontconfig system-ui）。
+static juce::String resolveUiFontFamily() {
+    juce::StringArray candidates;
+#if JUCE_LINUX
+    // Linux 主流发行版预装的高清 CJK 黑体（覆盖中文与西文字形）
+    candidates = { "Noto Sans CJK SC",    "Source Han Sans SC", "Source Han Sans CN", "Noto Sans SC",
+                   "WenQuanYi Micro Hei", "WenQuanYi Zen Hei",  "DejaVu Sans" };
+#elif JUCE_MAC
+    candidates = { "PingFang SC", "Hiragino Sans GB" };
+#else
+    candidates = { "Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI" };
+#endif
+
+    for (const auto& name : candidates) {
+        if (juce::Font(juce::FontOptions(name, 14.0f, juce::Font::plain)).getTypefacePtr().get() != nullptr) {
+            return name;
+        }
+    }
+    return juce::Font::getSystemUIFontName();
 }
 
 juce::String DesignTokens::resolveToken(const juce::String& name) const {
@@ -263,6 +287,10 @@ juce::String DesignTokens::resolveToken(const juce::String& name) const {
     if (name == "text-disabled") {
         return formatCssHexColour(textDisabled());
     }
+    if (name == "font-family-ui") {
+        return resolveUiFontFamily();
+    }
+    // 字号：整数字符串以匹配 style_sheets.json 现有写法（"14" 而非 "14.0"）。
     if (name == "font-size-tiny") {
         return juce::String(static_cast<int>(fontSizeTiny()));
     }

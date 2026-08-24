@@ -2,6 +2,7 @@
   "#window": {
     "background": "@main-bg",
     "foreground": "@text-primary",
+    "font-family": "@font-family-ui",
     "font-size": "@font-size-label"
   },
   "Text": {

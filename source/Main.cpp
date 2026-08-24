@@ -141,7 +141,11 @@ public:
             : DocumentWindow(name,
                              juce::Desktop::getInstance().getDefaultLookAndFeel().findColour(
                                  juce::ResizableWindow::backgroundColourId),
-                             DocumentWindow::allButtons) {
+                             DocumentWindow::allButtons, false) {
+            // 延迟桌面挂载（addToDesktop=false）：在内容、尺寸、位置与
+            // Resizable 约束全部就绪后一次性创建并映射 X11 窗口，避免
+            // 启动时左上角小窗 → 跳变 → 内容就绪的三阶段闪烁
+            // （与 SettingsWindowManager 的修复同源）。
             setUsingNativeTitleBar(true);
             setContentOwned(new MainComponent(), true);
 #if defined(JUCE_WINDOWS) && JUCE_WINDOWS
@@ -153,6 +157,10 @@ public:
 #else
             if (auto* mainComponent = dynamic_cast<MainComponent*>(getContentComponent())) {
                 const auto shouldBeResizable = mainComponent->getAppSettings().keyboardDisplay.resizableWindow;
+                // Resizable 与尺寸约束必须先于 addToDesktop 设置：
+                // X11 peer 创建时的 updateBounds 会立即写入 WMNormalHints
+                // （非 Resizable 时为 min==max 固定尺寸），确保 KWin 在
+                // 窗口映射时即读取到正确的尺寸约束。
                 setResizable(shouldBeResizable, shouldBeResizable);
                 if (shouldBeResizable) {
                     const auto limits = MainComponent::getMainContentResizeLimits();
@@ -162,18 +170,21 @@ public:
                 }
                 mainComponent->persistMainContentSize(mainComponent->getWidth(), mainComponent->getHeight());
             }
+
+            // 预置屏幕居中位置，避免 KWin 对未定位窗口的放置/移动跳变。
+            centreWithSize(getWidth(), getHeight());
+
+            // 一次性桌面挂载：peer 在最终 bounds 下创建，map 即完整呈现。
+            addToDesktop(getDesktopWindowStyleFlags());
 #endif
 
             setVisible(true);
-            setAlwaysOnTop(true);
 
 #if defined(JUCE_WINDOWS) && JUCE_WINDOWS
-            // The 100ms timer (below) will call setAlwaysOnTop(false) after the
-            // window has had time to paint on screen, ensuring it appears on top
-            // of Explorer before reverting to normal z-order.
+            // 仅 Windows 需要：先置顶避免被 Explorer 遮挡，100ms 后再恢复
+            // 正常 z-order（Linux 上该双切换会引发 KWin 多次重绘闪烁）。
+            setAlwaysOnTop(true);
             startTimer(100);
-#else
-            juce::MessageManager::callAsync([this] { setAlwaysOnTop(false); });
 #endif
         }
 
