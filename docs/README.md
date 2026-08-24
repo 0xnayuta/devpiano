@@ -20,6 +20,7 @@
 - [`decisions/README.md`](decisions/README.md)：架构决策记录（ADR 001 ~ ADR 012）。
 - [`guides/troubleshooting.md`](guides/troubleshooting.md)：WSL / Windows 镜像构建常见问题排查。
 - [`guides/release-workflow.md`](guides/release-workflow.md)：Windows x64 正式 release、tag 与打包 checklist。
+- [`guides/pr-agent.md`](guides/pr-agent.md)：PR-Agent AI 代码审查工作流配置、命令与排障。
 
 **工程三闸门基线**：
 - **格式化**：`.clang-format`（WebKit 规范），`./scripts/dev.sh format --check`

@@ -1,0 +1,16 @@
+# PR-Agent 仓库级配置（仅覆盖需要定制的项，其余使用官方默认值）
+# 从 main 分支读取；修改后需合并到 main 才对新 PR 生效。
+
+[config]
+response_language = "zh-CN"
+
+[ignore]
+glob = ["submodules/**"]
+
+[pr_reviewer]
+extra_instructions = """\
+- 实时音频/MIDI 回调路径禁止阻塞、锁、堆分配与耗时操作；优先排查 AudioDeviceManager 回调与 UI 线程共享状态、插件宿主生命周期状态机问题。
+- 检查改动是否违反 AGENTS.md「核心架构要求 1-8」（AudioDeviceManager、PianoSynthVoice、JIVE、KeyListener 等既定路径）。
+- 提交信息非 Conventional Commits 子集（feat:/fix:/refactor:/docs:/chore:/test:/style:）时在总结中指出。
+- 新业务代码应位于 /source/ 下，禁止引入第二套与既有模式并存的约定。
+"""

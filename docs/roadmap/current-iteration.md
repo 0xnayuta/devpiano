@@ -27,7 +27,7 @@
 ## 本轮子任务排期（Phase 25）
 
 - [x] **Phase 25-A：ALSA / JACK 音频驱动链路与设备管理机制审查**
-- [x] **基础设施：落地 `.github/workflows/ci.yml` 质量门禁与 `.github/workflows/release.yml` 发布流水线**
+- [x] **基础设施：落地 PR-Agent AI 代码审查工作流（DeepSeek v4 Flash）**
 - [x] **Phase 25-B (部分)：Linux 桌面字体清晰度（Noto Sans CJK / Source Han Sans 回退链）与设置弹窗首帧防闪烁修复**
 - [ ] **Phase 25-B (持续)：X11 窗口与键盘事件（KeyPress / 焦点管理）Linux 桌面实机交互回归**
 - [ ] **Phase 25-C：Linux Release 构建优化与单文件绿色分发依赖裁剪**

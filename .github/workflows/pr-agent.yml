@@ -1,0 +1,34 @@
+name: PR Agent
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+  issue_comment:
+    types: [created, edited]
+
+jobs:
+  pr_agent_job:
+    if: ${{ github.event.sender.type != 'Bot' }}
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+      contents: write
+      checks: write
+    name: Run PR Agent (auto review + describe, on-demand improve)
+    steps:
+      - name: PR Agent action step
+        id: pragent
+        uses: the-pr-agent/pr-agent@v0.41.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEEPSEEK.KEY: ${{ secrets.DEEPSEEK_KEY }}
+          # 模型：DeepSeek v4 Flash（fallback 指向同模型，避免回退到未配置的 OpenAI）
+          config.model: "deepseek/deepseek-v4-flash"
+          config.fallback_models: '["deepseek/deepseek-v4-flash"]'
+          # 自动工具开关（improve 逐行建议噪音大，推荐按需手动 /improve）
+          github_action_config.auto_review: "true"
+          github_action_config.auto_describe: "true"
+          github_action_config.auto_improve: "false"
+          # synchronize: push 新提交后自动做增量 review
+          github_action_config.pr_actions: '["opened", "reopened", "ready_for_review", "synchronize"]'

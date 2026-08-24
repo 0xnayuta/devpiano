@@ -1,6 +1,11 @@
-# Changelog
+## [Unreleased]
 
-All notable changes to this project will be documented in this file.
+### Added
+
+- **PR-Agent AI 代码审查工作流**（`.github/workflows/pr-agent.yml` + `.pr_agent.toml`）— 基于 DeepSeek v4 Flash 的自动 PR 审查：PR 打开/更新时自动生成描述与代码审查，支持 PR 内 `/review` `/describe` `/improve` `/ask` 手动命令。
+- **PR-Agent 使用指南**（`docs/guides/pr-agent.md`）— 记录工作流触发方式、配置项、手动命令与故障排查。
+
+## [1.0.0] - 2026-08-23
 ## [1.0.0] - 2026-08-23
 
 Official v1.0.0 milestone release of devpiano — modern computer keyboard piano application featuring high-fidelity physical modeling piano synthesis, VST3 instrument hosting, full 88-key grand piano keybed with wide-window dynamic centering, 16-channel MIDI key signature & transposition pipeline, JIVE declarative UI modernization, and robust multi-track performance recording & playback.
