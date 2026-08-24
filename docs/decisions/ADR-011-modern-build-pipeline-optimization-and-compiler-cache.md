@@ -24,7 +24,7 @@
 - `/Z7` 将调试符号直接内嵌进 `.obj`（不产生共享 `.pdb`），使 `sccache`/`ccache` 可原子缓存对象文件、命中率 100%，并消除多 `cl.exe` 并发争抢 `.pdb` 文件锁的 `fatal error C1041`（业界共识：缓存工具无法可靠缓存共享 PDB 产物）；
 - 全局追加 `/FS`（Force Synchronous PDB Writes）作为并发写防护兜底——`/Z7` 下已无 PDB 产生，保留为防御性双保险，成本可忽略。
 - **PCH 与编译缓存协同（2026-08 补充，ccache 官方手册）**：Clang PCH 默认内嵌创建时间戳，ccache 缓存重放的 PCH 文件时间戳与原始不同，会触发 `file modified since precompiled header was built` 使 PCH 缓存全部失效——所有 Clang target（`devpiano` / `devpiano_tests`）必须注入 `-fno-pch-timestamp`（关闭时间戳校验，内容哈希校验仍生效）。若未来引入 GCC 构建须补 `-fpch-preprocess`；ccache `sloppiness=pch_defines` 仅 GCC PCH 需要，Clang 路径不启用（保持严格哈希与正确性）。
-- **CI 执行要求（2026-08 补充）**：Linux 门禁与发布 runner（`ubuntu-24.04`）必须同时安装 `mold` 与 `lld`（apt），使探测逻辑取到首选 mold；探测不到任何高速链接器而回退 `ld.bfd` 属于降级状态，应在 CI 日志中视为异常排查线索（实测 WSL 本机既有 mold 也有 lld）。
+- **CI 执行要求（2026-08 补充）**：Linux 门禁与发布 runner（`ubuntu-24.04`）必须同时安装 `mold` 与 `lld`（apt），使探测逻辑取到首选 mold；探测不到任何高速链接器而回退 `ld.bfd` 属于降级状态，应在 CI 日志中视为异常排查线索（实测 WSL 本机未预装 mold/lld，Debug 链接回退 `ld.bfd`；CI 环境是高速链接器的主要受益者）。
 
 ### 4. 编译耗时性能跟踪与火焰图工具链（`-ftime-trace`）
 - 在 CMake 中提供 `ENABLE_TIME_TRACE` 选项，为 Clang 编译器注入 `-ftime-trace`；
