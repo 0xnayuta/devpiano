@@ -77,11 +77,17 @@ jobs:
           ./scripts/dev.sh test
           ccache -s
 
-      - name: Configure CMake (linux-clang-release)
-        run: cmake --preset linux-clang-release
+      # Release 配置同样构建并运行单元测试（业界标准：测试须覆盖用户实际
+      # 运行的优化配置——-O3/-flto 可暴露 Debug 掩盖的 UB、strict aliasing
+      # 与未初始化变量问题，Surge/ChowDSP 均在 Release 上跑测试）。
+      - name: Configure CMake (linux-clang-release, tests)
+        run: cmake --preset linux-clang-release -DBUILD_TESTS=ON
 
-      - name: Build target binary (Release)
-        run: cmake --build --preset linux-clang-release --target devpiano
+      - name: Build target binary & tests (Release)
+        run: cmake --build --preset linux-clang-release --target devpiano devpiano_tests
+
+      - name: Run unit tests (Release)
+        run: ctest --test-dir build-wsl-clang-release --output-on-failure
 
       - name: Check glibc/libstdc++ version floor
         run: |
@@ -131,6 +137,22 @@ jobs:
 
       - name: Run Windows unit test suite
         run: .\build-win-msvc\devpiano_tests_artefacts\Debug\devpiano_tests.exe --verbose
+
+      # Windows Release 构建验证：push 门禁必须覆盖发布配置——否则 MSVC
+      # Release 编译错误（/O2 相关、NDEBUG 分支）要到 tag 发布时才暴露。
+      - name: Configure CMake with sccache (windows-msvc-release)
+        env:
+          SCCACHE_DIR: C:/Users/runneradmin/.cache/sccache
+          CMAKE_C_COMPILER_LAUNCHER: sccache
+          CMAKE_CXX_COMPILER_LAUNCHER: sccache
+        run: cmake --preset windows-msvc-release
+
+      - name: Build target binary (Release)
+        env:
+          SCCACHE_DIR: C:/Users/runneradmin/.cache/sccache
+          CMAKE_C_COMPILER_LAUNCHER: sccache
+          CMAKE_CXX_COMPILER_LAUNCHER: sccache
+        run: cmake --build --preset windows-msvc-release --target devpiano
 
       - name: Show sccache statistics
         shell: bash

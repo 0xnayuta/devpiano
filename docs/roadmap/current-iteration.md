@@ -20,7 +20,7 @@
    - **真正门槛是构建环境的 glibc / libstdc++ 版本**：正式 Linux 产物由 GitHub Actions `release.yml` 的 `release-linux-x64` job 在 **`ubuntu-24.04` runner**（glibc 2.39 / GCC 13 libstdc++）构建，产物门槛为 GLIBC_2.39 / GLIBCXX_3.4.32；
    - **支持矩阵（glibc ≥ 2.39）**：Ubuntu 24.04 LTS+、Debian 13+、Fedora 41+、Arch / CachyOS / Manjaro 滚动发行版；明确放弃维护期后期发行版（Ubuntu 22.04 / Debian 12 / Mint 21.x）；
    - 制定 Linux 分发归档规范（`DevPiano-vX.Y.Z-linux-x64.tar.gz` 与 `.sha256`）与门槛检查脚本 `scripts/check_linux_glibc_floor.sh`（`readelf --version-info` 对照支持矩阵，防 runner 镜像漂移）。
-   - `ci.yml` 合并 Debug 测试与 Release 构建为单一 `linux-gate` job（`ubuntu-24.04`，共享 ccache；含 Release 编译 + 门槛检查，非 tag 触发提前暴露编译问题）；
+   - `ci.yml` 合并 Debug 测试与 Release 构建为单一 `linux-gate` job（`ubuntu-24.04`，共享 ccache；Debug 测试 + Release 构建/测试 + glibc 门槛检查，非 tag 触发提前暴露编译问题）；
    - 扩展 `scripts/package_release.sh` 支持 `--linux` 打包选项（tar.gz + sha256，本地备用路径）；
    - 补齐 Linux 平台专项冒烟测试清单（目标发行版实机验证）并全量通过三闸门（format, test, build）。
    - `ci.yml` 增加 `linux-release-gate`（`ubuntu-24.04` 上 Release 编译 + 门槛检查，非 tag 触发提前暴露编译问题）；
