@@ -211,10 +211,10 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 ### Phase 25：Linux 原生桌面构建与音频驱动适配（Linux Desktop & Audio Path Exploration） [进行中]
 
 1. **Phase 25-A（已完成）**：ALSA / JACK 音频驱动链路验证与设备管理机制审查，含 Linux 音频设备诊断单元测试（`AudioDeviceDiagnosticsLinuxTest`）；
-2. **Phase 25-B（部分完成）**：X11 / XCB 窗口系统与 JIVE 渲染适配——Linux 字体回退链优化与设置弹窗首帧防闪烁已修复；窗口事件与键盘焦点实机交互回归持续进行；
-3. **Phase 25-C**：Linux Release 构建优化与单文件绿色分发依赖裁剪（`DevPiano-vX.Y.Z-linux-x64.tar.gz` + `.sha256`）；
-4. **Phase 25-D**：扩展 `package_release.sh` 支持 `--linux` 打包选项；
-5. **Phase 25-E**：三闸门基线验证与相关指南文档对齐。
+2. **Phase 25-B（已完成）**：X11 / XCB 窗口系统与 JIVE 渲染适配——字体回退链、窗口原子映射、焦点管理（失焦 panic 不打断 MIDI 回放）等修复均经 CachyOS 实机交互回归验证通过；
+3. **Phase 25-C**：Linux Release 构建兼容性与分发规范——依赖查证结论：动态依赖（ALSA / fontconfig / freetype）soname 稳定且桌面发行版标配，**不做静态化**；真实门槛是构建环境 glibc / libstdc++ 版本（滚动环境构建产物仅 Arch 系可跑），故建立保守构建环境（Docker + Ubuntu 22.04 LTS）并制定产物 glibc 门槛检查与 `DevPiano-vX.Y.Z-linux-x64.tar.gz` + `.sha256` 归档规范；
+4. **Phase 25-D**：扩展 `package_release.sh` 支持 `--linux` 打包选项（tar.gz + sha256）并落地容器化 Release 构建流水线；
+5. **Phase 25-E**：三闸门基线验证、Linux 专项冒烟测试清单（目标发行版实机验证）与指南文档对齐。
 
 > 基础设施已落地：`.github/workflows/ci.yml`（格式门禁 + Linux Clang 单元测试 + Windows MSVC 构建门禁）与 `.github/workflows/release.yml`（Tag 触发 Windows x64 自动打包发布）。当前子任务排期与验收状态见 [`current-iteration.md`](current-iteration.md)。
 

@@ -43,17 +43,16 @@ zip + sha256
 ./scripts/dev.sh win-build --release
 ```
 
-### 2.2 Linux：暂不作为正式发布产物
+#### 2.2.1 构建环境兼容性约束（2026-08 查证）
 
-Linux 暂不打正式 release 包，也不在 Windows 镜像树中构建。
+- **动态依赖**：Release 产物仅动态依赖 `libasound.so.2`（ALSA）、`libfontconfig.so.1`、`libfreetype.so.6` 与基础运行库（`libstdc++` / `libm` / `libgcc_s` / `libc`）。前三者 soname 多年稳定且为所有桌面发行版标配，**跨发行版字体/音频兼容性无需静态化处理**。
+- **glibc / libstdc++ 门槛**：产物要求目标系统 glibc ≥ 构建环境。滚动发行版（Arch / CachyOS，glibc 2.44）构建的产物**仅 Arch 系可运行**；Ubuntu 22.04（2.35）、24.04（2.39）、Debian 12（2.36）、13（2.41）、Fedora 41（2.40）均无法运行。
+- **正式 Linux 分发必须在保守环境构建**：推荐 Docker 容器（Ubuntu 22.04 LTS，glibc 2.35）执行 Release 构建，产物可覆盖全部常见桌面发行版。构建后检查门槛：
 
-如需验证 Linux 构建，可在 WSL / 原生 Linux / Linux CI 中执行 Release 构建，例如：
-
-```bash
-./scripts/dev.sh wsl-build --release
-```
-
-但该结果只视为开发验证或后续 Linux 发布准备。正式 Linux 发布前，需要补充原生 Linux 桌面环境下的 GUI、音频设备、MIDI、VST3 路径、文件打开保存和退出稳定性验证，并另行定义 Linux 打包格式。
+  ```bash
+  readelf --version-info DevPiano | grep -o 'GLIBC_[0-9.]*' | sort -V | uniq | tail -1
+  readelf --version-info DevPiano | grep -o 'GLIBCXX_[0-9.]*' | sort -V | uniq | tail -1
+  ```
 
 ## 3. 版本号规则
 
