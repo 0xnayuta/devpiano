@@ -46,7 +46,7 @@ Options:
   -v, --version <X.Y.Z>   Release version (e.g. 1.0.0 or v1.0.0, defaults to CMakeLists.txt)
   --linux                 Package Linux x64 Release build (tar.gz + sha256, local dist)
   --win-mirror-dir <dir>  Override Windows mirror directory (default: WIN_MIRROR_DIR or G:\source\projects\devpiano)
-  --dist-dir <dir>        Custom output distribution directory (default: <WIN_MIRROR_DIR>/dist/v<VERSION>)
+  --dist-dir <dir>        Custom output distribution directory (default: <WIN_MIRROR_DIR>/dist/v<VERSION>; with --linux: local dist/v<VERSION>)
   --local-dist            Save dist package to local repo dist/v<VERSION> instead of Windows mirror
   -h, --help              Show this help
 
@@ -65,6 +65,7 @@ ROOT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 
 VERSION_INPUT=""
 WIN_MIRROR_DIR_VALUE="${WIN_MIRROR_DIR:-G:\\source\\projects\\devpiano}"
+WIN_MIRROR_DIR_SET=0
 DIST_DIR_INPUT=""
 USE_LOCAL_DIST=0
 PACKAGE_LINUX=0
@@ -79,6 +80,7 @@ while [[ $# -gt 0 ]]; do
     --win-mirror-dir)
       [[ $# -ge 2 ]] || fail '--win-mirror-dir requires an argument'
       WIN_MIRROR_DIR_VALUE="$2"
+      WIN_MIRROR_DIR_SET=1
       shift 2
       ;;
     --dist-dir)
@@ -103,6 +105,11 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+# --win-mirror-dir 只对 Windows 打包生效；--linux 下显式传入时给出提示，避免误以为产物输出到镜像目录
+if [[ ${PACKAGE_LINUX} -eq 1 && ${WIN_MIRROR_DIR_SET} -eq 1 ]]; then
+  warn '--win-mirror-dir is ignored with --linux (Linux packaging always outputs to the local repo dist/ directory)'
+fi
 
 # 1. 检查基础打包依赖（按平台分支：Windows 需 wslpath+zip，Linux 需 tar）
 if [[ ${PACKAGE_LINUX} -eq 1 ]]; then

@@ -16,7 +16,7 @@
 
 ## 2. 平台策略
 
-### 2.1 Windows：发布平台（一）
+### 2.1 Windows：发布平台
 
 Windows x64 发布包（由 Windows 镜像树 MSVC Release 构建 + 手工验证 + 打包）：
 
@@ -180,6 +180,8 @@ build-wsl-clang-release/devpiano_artefacts/Release/DevPiano
 ```text
 DevPiano-vX.Y.Z-win-x64.zip
 DevPiano-vX.Y.Z-win-x64.sha256
+DevPiano-vX.Y.Z-linux-x64.tar.gz
+DevPiano-vX.Y.Z-linux-x64.sha256
 ```
 
 Windows zip 内容包含：
@@ -198,7 +200,7 @@ CHANGELOG.md
 
 ### 6.1 使用 dev.sh package 自动化打包
 
-完成 Windows 手工冒烟测试后，在 WSL 主工作树中执行标准打包命令：
+完成对应平台手工冒烟测试（Windows 见 §5，Linux 见 §5A）后，在 WSL 主工作树中执行标准打包命令：
 
 ```bash
 # 默认自动提取 CMakeLists.txt 中的版本并打包
@@ -212,16 +214,16 @@ CHANGELOG.md
 ```
 
 脚本会自动执行以下前置检查与流水线步骤：
-1. **依赖检查**：检查 `wslpath`、`zip`、`sha256sum` 工具链；
+1. **依赖检查**：按平台检查工具链——Windows 为 `wslpath`、`zip`、`sha256sum`，Linux（`--linux`）为 `tar`、`sha256sum`；
 2. **版本一致性校验**：确认 `CMakeLists.txt` 版本与 `CHANGELOG.md` 中对应版本条目存在；
 3. **产物校验**：按平台定位产物——Windows 为镜像树 `build-win-msvc-release/devpiano_artefacts/Release/DevPiano.exe`，Linux 为 WSL 本地 `build-wsl-clang-release/devpiano_artefacts/Release/DevPiano`，若不存在则提示先构建；
-4. **归档与压缩**：创建 `dist/vX.Y.Z` 目录，复制 `DevPiano.exe` 与 `CHANGELOG.md`，执行高压缩比 zip 打包；
-5. **校验和生成**：计算并生成 `DevPiano-vX.Y.Z-win-x64.sha256`；
+4. **归档与压缩**：创建 `dist/vX.Y.Z` 目录，复制产物（Windows `DevPiano.exe` / Linux `DevPiano`）与 `CHANGELOG.md`；Windows 执行高压缩比 zip 打包，Linux 执行 tar.gz 打包；
+5. **校验和生成**：计算并生成对应平台校验文件（`DevPiano-vX.Y.Z-win-x64.sha256` 或 `DevPiano-vX.Y.Z-linux-x64.sha256`）；
 6. **输出摘要与引导**：打印产物清单、SHA256 校验值及后续 `git tag` 与 `gh release create` 推荐命令。
 
 ### 6.2 产物输出结构
 
-默认输出位于 Windows 镜像目录的 `dist/vX.Y.Z/` 下（方便 Windows 侧直接归档与分发）：
+默认输出位于 Windows 镜像目录的 `dist/vX.Y.Z/` 下（方便 Windows 侧直接归档与分发）；使用 `--linux` 或 `--local-dist` 时输出到 WSL 本地仓库的 `dist/vX.Y.Z/`：
 
 ```text
 <WIN_MIRROR_DIR>\dist\vX.Y.Z\
@@ -229,6 +231,14 @@ CHANGELOG.md
 ├── CHANGELOG.md
 ├── DevPiano-vX.Y.Z-win-x64.zip
 └── DevPiano-vX.Y.Z-win-x64.sha256
+```
+
+```text
+<repo>/dist/vX.Y.Z/          （--linux / --local-dist 时；以 --linux 产物为例）
+├── DevPiano
+├── CHANGELOG.md
+├── DevPiano-vX.Y.Z-linux-x64.tar.gz
+└── DevPiano-vX.Y.Z-linux-x64.sha256
 ```
 
 可选高级参数：
@@ -304,8 +314,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 若需要在本地完成打包或进行离线分发，可执行本地流水线：
 
 ```bash
-# 1. 本地执行打包
+# 1. 本地执行打包（Windows；Linux 产物加 --linux）
 ./scripts/dev.sh package --version X.Y.Z
+./scripts/dev.sh package --linux --version X.Y.Z
 
 # 2. 使用 GitHub CLI 上传（若已安装 gh）
 gh release create "v${VERSION}" \
@@ -313,6 +324,11 @@ gh release create "v${VERSION}" \
   --notes-file "CHANGELOG.md" \
   "dist/v${VERSION}/DevPiano-v${VERSION}-win-x64.zip" \
   "dist/v${VERSION}/DevPiano-v${VERSION}-win-x64.sha256"
+
+#   离线分发 Linux 产物时追加上传（正常流程由 release.yml 自动上传双平台）：
+#   gh release upload "v${VERSION}" \
+#     "dist/v${VERSION}/DevPiano-v${VERSION}-linux-x64.tar.gz" \
+#     "dist/v${VERSION}/DevPiano-v${VERSION}-linux-x64.sha256"
 ```
 ## 9. 修复策略
 
