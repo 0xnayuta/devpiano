@@ -6,9 +6,9 @@
 ## 1. 发布原则
 
 - WSL 主工作树是唯一源码编辑来源。
-- 当前正式 release 产物仅面向 Windows x64。
-- Windows release 产物由 Windows 镜像树执行 MSVC Release 构建、手工验证和最终打包。
-- Linux 暂不作为正式 release 产物；WSL / Linux Release 构建仅用于开发验证或后续 Linux 发布准备。
+- 正式 release 产物面向 Windows x64 与 Linux x64 双平台。
+- Windows release 产物由 Windows 镜像树执行 MSVC Release 构建、手工验证和最终打包；Linux release 产物由 GitHub Actions `release.yml` 的 `release-linux-x64` job 在 `ubuntu-24.04` runner 自动构建打包。
+- WSL 本地 Linux Release 构建仅用于开发验证（WSL 为 Ubuntu 26.04，glibc 2.43，产物仅兼容 Arch 系滚动发行版）。
 - 正式发布才使用 Release 构建；日常开发仍默认使用 Debug。
 - tag 使用 annotated tag，格式为 `vMAJOR.MINOR.PATCH`。
 - tag 推送后不重写；若已发布版本有严重问题，发布新的 patch 版本修复。
@@ -16,9 +16,9 @@
 
 ## 2. 平台策略
 
-### 2.1 Windows：当前正式发布平台
+### 2.1 Windows：发布平台（一）
 
-当前版本线只承诺 Windows x64 发布包：
+Windows x64 发布包（由 Windows 镜像树 MSVC Release 构建 + 手工验证 + 打包）：
 
 ```text
 DevPiano-vX.Y.Z-win-x64.zip
@@ -146,19 +146,53 @@ git log --oneline -5
 
 如本版本修改了特定功能，还应执行对应专项测试文档中的相关回归项。
 
+## 5A. Linux 手工冒烟测试
+
+在目标发行版（支持矩阵见 §2.2.1）上运行 Linux Release 产物。正式产物从 GitHub Release 下载；本地开发验证用：
+
+```bash
+./scripts/dev.sh wsl-build --release
+```
+
+产物路径：
+
+```text
+build-wsl-clang-release/devpiano_artefacts/Release/DevPiano
+```
+
+至少验证（核心项已于 2026-08-24 在 CachyOS 实机验证通过，对应 Phase 25-B 交互回归）：
+
+- 应用启动，主窗口正常显示（无首帧闪烁/黑块，原子映射正常）。
+- 音频设备初始化正常（ALSA / JACK 驱动，无异常报错）。
+- 电脑键盘触发 note on / note off 正常，虚拟键盘显示联动正常。
+- 88 键虚拟键盘鼠标点击发声、动态高亮正常。
+- CJK 字体渲染清晰（Noto Sans CJK SC / Source Han Sans 回退链），弹窗无白底/黑块。
+- 焦点切换（失焦 / 窗口切换）不打断 MIDI 回放，无挂起音符（失焦 panic 已修复）。
+- 窗口生命周期：创建、移动、缩放、关闭无异常。
+- 退出应用无明显崩溃或挂起。
+
+待补充验证发行版：Ubuntu 24.04 LTS、Debian 13、Fedora 41（按发布节奏逐步覆盖）。
+
 ## 6. 打包流程
 
-当前正式发布产物包含 Windows x64 zip 及 SHA256 校验文件：
+当前正式发布产物包含 Windows x64 zip 与 Linux x64 tar.gz 及各自 SHA256 校验文件（Windows 见下，Linux 打包见 §6.1 `--linux`，tag 触发时由 `release.yml` 自动产出双平台产物）：
 
 ```text
 DevPiano-vX.Y.Z-win-x64.zip
 DevPiano-vX.Y.Z-win-x64.sha256
 ```
 
-zip 内容包含：
+Windows zip 内容包含：
 
 ```text
 DevPiano.exe
+CHANGELOG.md
+```
+
+Linux tar.gz 内容包含：
+
+```text
+DevPiano
 CHANGELOG.md
 ```
 
@@ -172,12 +206,15 @@ CHANGELOG.md
 
 # 或显式指定版本号
 ./scripts/dev.sh package --version 1.0.0
+
+# Linux x64 本地打包（tar.gz + sha256；打包前自动执行 glibc 门槛检查）
+./scripts/dev.sh package --linux
 ```
 
 脚本会自动执行以下前置检查与流水线步骤：
 1. **依赖检查**：检查 `wslpath`、`zip`、`sha256sum` 工具链；
 2. **版本一致性校验**：确认 `CMakeLists.txt` 版本与 `CHANGELOG.md` 中对应版本条目存在；
-3. **产物校验**：定位 Windows 镜像树下 `build-win-msvc-release/devpiano_artefacts/Release/DevPiano.exe`，若不存在则提示先构建；
+3. **产物校验**：按平台定位产物——Windows 为镜像树 `build-win-msvc-release/devpiano_artefacts/Release/DevPiano.exe`，Linux 为 WSL 本地 `build-wsl-clang-release/devpiano_artefacts/Release/DevPiano`，若不存在则提示先构建；
 4. **归档与压缩**：创建 `dist/vX.Y.Z` 目录，复制 `DevPiano.exe` 与 `CHANGELOG.md`，执行高压缩比 zip 打包；
 5. **校验和生成**：计算并生成 `DevPiano-vX.Y.Z-win-x64.sha256`；
 6. **输出摘要与引导**：打印产物清单、SHA256 校验值及后续 `git tag` 与 `gh release create` 推荐命令。
@@ -207,7 +244,7 @@ CHANGELOG.md
 ### 6.3 Package 脚本设计约束
 
 - **专注打包，不隐式提交/推送**：脚本仅负责收集产物、校验版本、生成 zip 和 sha256，**明确不创建 git tag、不 push、不自动创建 GitHub Release**（保持发布决策的人工把控）；
-- **平台策略**：默认仅打包 Windows x64 正式 Release 产物；Linux 正式发布前不纳入默认路径；
+- **平台策略**：默认打包 Windows x64 正式 Release 产物；Linux 打包需显式 `--linux`（先过 `check_linux_glibc_floor.sh` 门槛检查，本地 WSL 产物 glibc 2.43 不达标时会拒绝打包并给出指引）；
 - **独立与透传**：既可通过 `./scripts/dev.sh package` 统一入口调用，也可直接运行 `./scripts/package_release.sh`。
 
 ## 7. Release notes 格式
@@ -258,8 +295,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
    ```
 5. 推送后 GitHub Actions 自动完成：
    - Windows 原生 MSVC Release 纯净构建；
-   - 自动打包 `DevPiano-vX.Y.Z-win-x64.zip` 与 `DevPiano-vX.Y.Z-win-x64.sha256`；
-   - 自动创建 GitHub Release 并挂载分发包。
+   - Linux 原生 Clang Release 纯净构建（`ubuntu-24.04` runner + glibc 门槛检查）；
+   - 自动打包 `DevPiano-vX.Y.Z-win-x64.zip` / `.sha256` 与 `DevPiano-vX.Y.Z-linux-x64.tar.gz` / `.sha256`；
+   - 自动创建 GitHub Release 并挂载双平台分发包。
 
 ### 8.1 备用方案：本地手工打包与 CLI 发布
 

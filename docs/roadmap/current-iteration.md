@@ -5,7 +5,7 @@
 
 ## 当前方向
 
-**Phase 25：Linux 原生桌面构建与音频驱动适配（Linux Desktop & Audio Path Exploration） [进行中，2026-08-23]**
+**Phase 25：Linux 原生桌面构建与音频驱动适配（Linux Desktop & Audio Path Exploration） [已完成，2026-08-25]**
 
 在完成 v1.0.0 正式发布与发布打包流水线自动化后，devpiano 进入 **Post-v1.0.0 平台拓展与高阶能力演进** 阶段。本阶段聚焦于验证并完善 Linux 平台（WSL / 原生 Linux 发行版）下的原生构建、音频后端驱动（ALSA / JACK）适配与桌面运行体验，为 Linux 平台正式分发打下坚实基础：
 
@@ -34,8 +34,8 @@
 - [x] **Phase 25-B (部分)：Linux 桌面字体清晰度（Noto Sans CJK / Source Han Sans 回退链）与设置弹窗首帧防闪烁修复**
 - [x] **Phase 25-B (持续)：X11 窗口与键盘事件（KeyPress / 焦点管理）Linux 桌面实机交互回归（CachyOS 实机验证通过：窗口生命周期、键盘演奏、焦点管理、虚拟键盘鼠标、字体渲染、弹窗呈现无问题；含失焦 panic 不打断 MIDI 回放修复）**
 - [x] **Phase 25-C：Linux Release 构建兼容性与分发规范（ubuntu-24.04 runner 构建 + glibc 门槛检查脚本 + 归档规范；不做依赖静态化）**
-- [ ] **Phase 25-D：ci.yml 合并 linux-gate（Debug 测试 + Release 门槛）+ `package_release.sh --linux` 打包**
-- [ ] **Phase 25-E：三闸门基线验证、Linux 专项冒烟清单与指南文档对齐**
+- [x] **Phase 25-D：ci.yml 合并 linux-gate（Debug 测试 + Release 门槛）+ `package_release.sh --linux` 打包（含 glibc 门槛检查）**
+- [x] **Phase 25-E：三闸门基线验证（CI 全绿）、Linux 专项冒烟清单（CachyOS 2026-08-24 实机验证通过）与指南文档对齐（release-workflow §5A）**
 ---
 
 ## 后续规划路线（Upcoming Backlog）

@@ -208,15 +208,15 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 在完成 v1.0.0 正式里程碑后，devpiano 进入 **Post-v1.0.0 平台拓展与高阶能力演进** 阶段：
 
-### Phase 25：Linux 原生桌面构建与音频驱动适配（Linux Desktop & Audio Path Exploration） [进行中]
+### Phase 25：Linux 原生桌面构建与音频驱动适配（Linux Desktop & Audio Path Exploration） [已完成，2026-08-25]
 
 1. **Phase 25-A（已完成）**：ALSA / JACK 音频驱动链路验证与设备管理机制审查，含 Linux 音频设备诊断单元测试（`AudioDeviceDiagnosticsLinuxTest`）；
 2. **Phase 25-B（已完成）**：X11 / XCB 窗口系统与 JIVE 渲染适配——字体回退链、窗口原子映射、焦点管理（失焦 panic 不打断 MIDI 回放）等修复均经 CachyOS 实机交互回归验证通过；
-3. **Phase 25-C**：Linux Release 构建兼容性与分发规范——依赖查证结论：动态依赖（ALSA / fontconfig / freetype）soname 稳定且桌面发行版标配，**不做静态化**；真实门槛是构建环境 glibc / libstdc++ 版本，故正式产物由 GitHub Actions `release.yml` 的 `release-linux-x64` job 在 **`ubuntu-24.04` runner**（glibc 2.39）构建，支持矩阵为 glibc ≥ 2.39（Ubuntu 24.04+ / Debian 13+ / Fedora 41+ / Arch 系），配套门槛检查脚本 `scripts/check_linux_glibc_floor.sh` 与 `DevPiano-vX.Y.Z-linux-x64.tar.gz` + `.sha256` 归档规范；
-4. **Phase 25-D**：`ci.yml` 合并 Debug 测试与 Release 构建为单一 `linux-gate` job（ubuntu-24.04 共享 ccache，Debug 测试 + Release 构建/测试 + 门槛检查；Windows 门禁补 Release 构建验证）并扩展 `package_release.sh` 支持 `--linux` 打包选项（tar.gz + sha256）；
-5. **Phase 25-E**：三闸门基线验证、Linux 专项冒烟测试清单（目标发行版实机验证）与指南文档对齐。
+3. **Phase 25-C（已完成）**：Linux Release 构建兼容性与分发规范——依赖查证结论：动态依赖（ALSA / fontconfig / freetype）soname 稳定且桌面发行版标配，**不做静态化**；真实门槛是构建环境 glibc / libstdc++ 版本，故正式产物由 GitHub Actions `release.yml` 的 `release-linux-x64` job 在 **`ubuntu-24.04` runner**（glibc 2.39）构建，支持矩阵为 glibc ≥ 2.39（Ubuntu 24.04+ / Debian 13+ / Fedora 41+ / Arch 系），配套门槛检查脚本 `scripts/check_linux_glibc_floor.sh` 与 `DevPiano-vX.Y.Z-linux-x64.tar.gz` + `.sha256` 归档规范；
+4. **Phase 25-D（已完成）**：`ci.yml` 合并 Debug 测试与 Release 构建为单一 `linux-gate` job（ubuntu-24.04 共享 ccache，Debug 测试 + Release 构建/测试 + 门槛检查；Windows 门禁补 Release 构建验证）并扩展 `package_release.sh` 支持 `--linux` 打包选项（tar.gz + sha256，打包前自动执行 glibc 门槛检查）；
+5. **Phase 25-E（已完成）**：三闸门基线验证（CI 全绿）、Linux 专项冒烟测试清单（CachyOS 2026-08-24 实机验证通过）与指南文档对齐（`release-workflow.md` 新增 §5A Linux 手工冒烟测试与双平台发布流程）。
 
-> 基础设施已落地：`.github/workflows/ci.yml`（格式门禁 + Linux Clang 单元测试 + Windows MSVC 构建门禁）与 `.github/workflows/release.yml`（Tag 触发 Windows x64 自动打包发布）。当前子任务排期与验收状态见 [`current-iteration.md`](current-iteration.md)。
+> 基础设施已落地：`.github/workflows/ci.yml`（格式门禁 + `linux-gate` Debug 测试/Release 门槛 + Windows MSVC Debug/Release 构建测试门禁）、`.github/workflows/release.yml`（Tag 触发 Windows/Linux 双平台自动打包发布）与 `.github/workflows/pr-agent.yml`（PR-Agent AI 代码审查，DeepSeek v4 Flash）。当前子任务排期与验收状态见 [`current-iteration.md`](current-iteration.md)。
 
 ### Phase 26：MIDI 多轨并轨与综合时间线合并（MIDI Multi-Track Timeline Merge） [规划中]
 
