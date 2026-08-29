@@ -131,6 +131,22 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
         synth.renderNextBlock(audioBuffer, midiBuffer, 0, numSamples);
         audioBuffer.applyGain(gain);
 
+        // Master bus soft-knee ceiling guard (consistent with real-time AudioEngine)
+        constexpr float kThreshold = 0.85f;
+        constexpr float kCeiling = 0.98f;
+        constexpr float kKnee = kCeiling - kThreshold;
+
+        for (int ch = 0; ch < audioBuffer.getNumChannels(); ++ch) {
+            auto* data = audioBuffer.getWritePointer(ch);
+            for (int i = 0; i < numSamples; ++i) {
+                const auto x = data[i];
+                const auto absX = std::abs(x);
+                if (absX > kThreshold) {
+                    const auto sign = (x >= 0.0f) ? 1.0f : -1.0f;
+                    data[i] = sign * (kThreshold + kKnee * std::tanh((absX - kThreshold) / kKnee));
+                }
+            }
+        }
         if (!writer->writeFromAudioSampleBuffer(audioBuffer, 0, numSamples)) {
             DP_LOG_ERROR("[Export] WAV export failed while writing: " + destinationFile.getFullPathName());
             return false;

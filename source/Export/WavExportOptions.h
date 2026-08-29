@@ -11,7 +11,7 @@ struct WavExportOptions {
     int numChannels = 2;
     int blockSize = 512;
     int bitsPerSample = 16;
-    float masterGain = 0.8f;
+    float masterGain = 1.0f;
     juce::ADSR::Parameters adsr;
     // 内置 fallback 音色（Phase 12-3）：导出路径与实时路径同参数，保证音色一致。
     SettingsModel::BuiltinTone builtinTone = SettingsModel::BuiltinTone::piano;

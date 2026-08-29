@@ -98,7 +98,7 @@ private:
     juce::AudioBuffer<float> pluginBuffer;
 
     juce::ADSR::Parameters adsrParameters;
-    std::atomic<float> masterGain { 0.8f };
+    std::atomic<float> masterGain { 1.0f };
     BuiltinSynthTone builtinTone = BuiltinSynthTone::piano;
     float pianoBrightness = 0.5f;
     float pianoHammerHardness = 0.5f;

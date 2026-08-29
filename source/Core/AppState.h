@@ -31,7 +31,7 @@ struct AudioState {
 };
 
 struct PerformanceState {
-    float masterGain = 0.8f;
+    float masterGain = 1.0f;
     float adsrAttack = 0.01f;
     float adsrDecay = 0.20f;
     float adsrSustain = 0.80f;

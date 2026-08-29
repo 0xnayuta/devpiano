@@ -141,6 +141,29 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
 
     bufferToFill.buffer->applyGain(bufferToFill.startSample, bufferToFill.numSamples,
                                    masterGain.load(std::memory_order_relaxed));
+
+    // Master bus soft-knee ceiling guard (zero latency, transparent below threshold)
+    // Threshold T = 0.85 (-1.4 dBFS), Maximum ceiling M = 0.98 (-0.18 dBFS)
+    constexpr float kThreshold = 0.85f;
+    constexpr float kCeiling = 0.98f;
+    constexpr float kKnee = kCeiling - kThreshold;
+
+    auto* buffer = bufferToFill.buffer;
+    const auto numChannels = buffer->getNumChannels();
+    const auto startSample = bufferToFill.startSample;
+    const auto numSamples = bufferToFill.numSamples;
+
+    for (int ch = 0; ch < numChannels; ++ch) {
+        auto* data = buffer->getWritePointer(ch, startSample);
+        for (int i = 0; i < numSamples; ++i) {
+            const auto x = data[i];
+            const auto absX = std::abs(x);
+            if (absX > kThreshold) {
+                const auto sign = (x >= 0.0f) ? 1.0f : -1.0f;
+                data[i] = sign * (kThreshold + kKnee * std::tanh((absX - kThreshold) / kKnee));
+            }
+        }
+    }
 }
 
 void AudioEngine::releaseResources() {

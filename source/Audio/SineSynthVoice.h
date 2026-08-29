@@ -37,7 +37,7 @@ public:
             return;
         }
 
-        level = velocity * 0.2f;
+        level = velocity * 0.50f;
         frequency = static_cast<float>(juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber));
         phase = 0.0;
         increment

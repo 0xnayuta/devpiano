@@ -55,7 +55,7 @@ public:
     static constexpr auto maxPartials = 20;
     static constexpr auto numResonators = 16;
     static constexpr auto bodyWetRatio = 0.26f;
-    static constexpr auto peakLevelAtFullVelocity = 0.16f;
+    static constexpr auto peakLevelAtFullVelocity = 0.45f;
     static constexpr auto silentLevelThreshold = 1e-4f;
 
     enum class LidPosition : std::uint8_t {
