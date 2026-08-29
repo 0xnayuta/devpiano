@@ -250,6 +250,52 @@ std::optional<MidiTrackMergeResult> MidiTrackMergeEngine::mergeTracks(const juce
     MidiTrackMergeStats stats;
     stats.trackCount = numTracks;
 
+    // Extract global metadata (Tempo Map, Time Signature, Key Signature) across ALL tracks.
+    // This ensures Conductor track 0 metadata is preserved even in singleTrackOnly mode.
+    for (int t = 0; t < numTracks; ++t) {
+        const auto* track = midiFile.getTrack(t);
+        if (track == nullptr) {
+            continue;
+        }
+
+        for (int i = 0; i < track->getNumEvents(); ++i) {
+            const auto* eventPtr = track->getEventPointer(i);
+            if (eventPtr == nullptr) {
+                continue;
+            }
+
+            const auto& midiMsg = eventPtr->message;
+            if (!midiMsg.isMetaEvent()) {
+                continue;
+            }
+
+            const auto timestampSeconds = midiMsg.getTimeStamp();
+
+            if (midiMsg.isTempoMetaEvent()) {
+                const auto secondsPerQuarter = midiMsg.getTempoSecondsPerQuarterNote();
+                if (secondsPerQuarter > 0.0) {
+                    const auto bpm = 60.0 / secondsPerQuarter;
+                    const auto tsSamples = std::max<int64_t>(
+                        0, static_cast<int64_t>(std::round(std::max(0.0, timestampSeconds) * targetSampleRate)));
+
+                    MidiTempoEvent tempoEv;
+                    tempoEv.timestampSamples = tsSamples;
+                    tempoEv.timestampSeconds = std::max(0.0, timestampSeconds);
+                    tempoEv.bpm = bpm;
+                    metadata.tempoMap.push_back(tempoEv);
+                }
+            } else if (midiMsg.isTimeSignatureMetaEvent() && !metadata.initialTimeSignature.has_value()) {
+                int num = 4, denom = 4;
+                midiMsg.getTimeSignatureInfo(num, denom);
+                metadata.initialTimeSignature = MidiTimeSignature { num, denom };
+            } else if (midiMsg.isKeySignatureMetaEvent() && !metadata.initialKeySignature.has_value()) {
+                const auto sharpsFlats = midiMsg.getKeySignatureNumberOfSharpsOrFlats();
+                const auto isMinor = !midiMsg.isKeySignatureMajorKey();
+                metadata.initialKeySignature = MidiKeySignature { sharpsFlats, isMinor };
+            }
+        }
+    }
+
     std::vector<PerformanceEvent> mergedEvents;
 
     // Estimate reservation size
@@ -280,32 +326,11 @@ std::optional<MidiTrackMergeResult> MidiTrackMergeEngine::mergeTracks(const juce
             auto midiMsg = eventPtr->message;
             const auto timestampSeconds = midiMsg.getTimeStamp();
 
-            // Meta event parsing
             if (midiMsg.isMetaEvent()) {
-                if (midiMsg.isTempoMetaEvent()) {
-                    const auto secondsPerQuarter = midiMsg.getTempoSecondsPerQuarterNote();
-                    if (secondsPerQuarter > 0.0) {
-                        const auto bpm = 60.0 / secondsPerQuarter;
-                        const auto tsSamples = std::max<int64_t>(
-                            0, static_cast<int64_t>(std::round(std::max(0.0, timestampSeconds) * targetSampleRate)));
-
-                        MidiTempoEvent tempoEv;
-                        tempoEv.timestampSamples = tsSamples;
-                        tempoEv.timestampSeconds = std::max(0.0, timestampSeconds);
-                        tempoEv.bpm = bpm;
-                        metadata.tempoMap.push_back(tempoEv);
-                    }
-                } else if (midiMsg.isTimeSignatureMetaEvent() && !metadata.initialTimeSignature.has_value()) {
-                    int num = 4, denom = 4;
-                    midiMsg.getTimeSignatureInfo(num, denom);
-                    metadata.initialTimeSignature = MidiTimeSignature { num, denom };
-                } else if (midiMsg.isKeySignatureMetaEvent() && !metadata.initialKeySignature.has_value()) {
-                    const auto sharpsFlats = midiMsg.getKeySignatureNumberOfSharpsOrFlats();
-                    const auto isMinor = !midiMsg.isKeySignatureMajorKey();
-                    metadata.initialKeySignature = MidiKeySignature { sharpsFlats, isMinor };
-                }
+                ++stats.otherMetaEventCount;
+                DP_TRACE_MIDI(devpiano::diagnostics::describeMidiMessage(midiMsg), "MidiTrackMergeEngine");
+                continue;
             }
-
             const bool isRawNoteOn = midiMsg.isNoteOn(true);
             const bool isZeroVelocityNoteOn = isRawNoteOn && midiMsg.getVelocity() == 0;
             const bool isNoteOn = midiMsg.isNoteOn(false);

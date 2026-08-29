@@ -60,6 +60,19 @@
 > - 利用 JUCE 原生的 `DocumentWindow::activeWindowStatusChanged()` 配合 `juce::MessageManager::callAsync` 延迟分发 `restoreKeyboardFocus()`，天然解决 Windows 原生激活事件到达时的时序抖动，彻底废弃 `WNDPROC` Hook；
 > - 采用 JUCE 标准的 `juce::Process::makeForegroundProcess()` 或 `toFront(true)` 替代 `AttachThreadInput`；
 > - 最终实现 `source/Main.cpp` 乃至整个源码树 100% 纯净、无任何 `<windows.h>` 依赖的标准跨平台设计。
+
+### 虚拟键盘 CustomKeyboard 在潜在多线程 MIDI 驱动场景下的线程隔离设计约束
+
+> **现状与分析**：
+> 目前在 devpiano 架构中：
+> 1. MIDI 回放驱动（`RecordingSessionController::timerCallback`）运行在 UI 消息线程；
+> 2. 电脑键盘弹奏（`MainComponent::keyPressed`）与鼠标点击（`CustomKeyboard::mouseDown`）均在 UI 消息线程分发；
+> 因此 `MidiKeyboardState::Listener` 的 `handleNoteOn` 回调与 `CustomKeyboard::timerCallback` 的 `perKeyChannel` / `perKeyVelocity` 读取目前均在 UI 消息线程同步执行，不存在运行时数据竞争。
+>
+> **长期架构约束与演进建议**：
+> 未来若拓展直接由音频硬件回调线程（如直接接管 `MidiInputCallback` 或在 `AudioEngine::audioDeviceIOCallbackWithContext` 内部）直接向共享 `MidiKeyboardState` 批量灌入 `processNextMidiBuffer` 时：
+> - `handleNoteOn` 将在音频实时线程上同步触发；
+> - 此时 `perKeyChannel` 应从裸 `std::array<uint8_t, 128>` 升级为显式 `std::array<std::atomic<uint8_t>, 128>`，或通过轻量 lock-free SPSC 队列投递至 UI 线程，彻底避免实时线程与 UI 渲染线程间的共享数据竞争。
 ---
 
 ## 2. 已修复问题（回归参考）

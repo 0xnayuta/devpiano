@@ -220,8 +220,9 @@ public:
             // Track 0: Conductor (Tempo & Meta only)
             juce::MidiMessageSequence track0;
             track0.addEvent(juce::MidiMessage::textMetaEvent(1, "Track 0 Conductor"), 0.0);
+            track0.addEvent(juce::MidiMessage::tempoMetaEvent(juce::roundToInt(60000000.0 / 140.0)), 0.0);
+            track0.addEvent(juce::MidiMessage::timeSignatureMetaEvent(3, 4), 0.0);
             file.addTrack(track0);
-
             // Track 1: Right hand notes
             juce::MidiMessageSequence track1;
             track1.addEvent(juce::MidiMessage::programChange(1, 0), 0.0);
@@ -263,6 +264,7 @@ public:
             }
 
             // Verify singleTrackOnly mode extracts only track 1 (has 4 note events vs track 2's 2 note events)
+            // but preserves global Conductor track 0 metadata (BPM, Time Signature, Song Title)
             MidiTrackMergeOptions singleOpts;
             singleOpts.singleTrackOnly = true;
             auto singleRes = MidiTrackMergeEngine::mergeTracks(file, 48000.0, singleOpts);
@@ -270,6 +272,13 @@ public:
             expectEquals(singleRes->stats.noteOnCount, 2);
             expectEquals(singleRes->stats.noteOffCount, 2);
             expectEquals(singleRes->stats.mergedEventCount, 5); // 1 prog + 2 noteOn + 2 noteOff
+            expectWithinAbsoluteError(singleRes->metadata.initialBpm, 140.0, 0.1);
+            expect(singleRes->metadata.initialTimeSignature.has_value());
+            if (singleRes->metadata.initialTimeSignature.has_value()) {
+                expectEquals(singleRes->metadata.initialTimeSignature->numerator, 3);
+                expectEquals(singleRes->metadata.initialTimeSignature->denominator, 4);
+            }
+            expectEquals(singleRes->metadata.songTitle, juce::String("Track 0 Conductor"));
         });
 
         testCase("channel mapping strategies verification", [&] {
