@@ -146,3 +146,25 @@ Windows MSVC 侧 CMake 缓存未追踪源文件变更可能导致旧目标文件
 
 - **缓解**：`devpiano_tests` 默认只运行项目自身测试（类别白名单 `DevPiano/Core` / `DevPiano/Recording` / `DevPiano/Engine` / `DevPiano/UI`，`Files` 默认跳过），该问题不再触发。仅当显式 `--include-juce --include-files` 全量运行时才会遇到，非 root 用户或跳过该组合即可。
   - 注：旧缓解命令 `--category "DevPiano"` 已失效（`juce::UnitTest::getTestsInCategory` 精确匹配，"DevPiano" 不匹配任何项目类别），请使用上述默认行为或精确类别名。
+
+### Ubuntu 26.04 下 JIVE 文本不渲染：JUCE 字体扫描不识别 .ttc（system-ui → Noto CJK）
+
+> **现象**：Ubuntu 26.04（实测 26.04.1 LTS）本地 Debug 构建运行单元测试，`JiveRenderTest` 的 `header title renders visible pixels` 用例失败（`light=0`，标题文本一个像素都渲染不出来）；CI（Ubuntu 24.04）同代码通过，其他文本相关用例（按钮标签、卡片标题）因像素来自边框而未被暴露。
+>
+> **成因**（JUCE 子模块 `91ad83ae34` 与 Ubuntu 26.04 字体配置的交互）：
+> 1. JIVE 的 `Text` 组件默认以 `Font("system-ui", …)` 创建字体；
+> 2. Ubuntu 26.04 的 fontconfig 把 `system-ui` 解析为 **Noto Sans CJK（`.ttc` 集合）**，而 Ubuntu 24.04 解析为 DejaVu Sans（`.ttf`）；
+> 3. 该版本 JUCE 的 `FTTypefaceList::scanFontPaths`（`juce_Fonts_freetype.cpp`）**只扫描 `.ttf` / `.otf` 扩展名，不扫 `.ttc`**，`matchTypeface` 无法命中 Noto CJK family；
+> 4. `Font::getDefaultTypefaceForFont` 走 `findSystemTypeface` → fontconfig 拿到 Noto Regular（style 与请求的 Bold 不匹配）→ 递归 `createFace("Noto Sans CJK SC")` 失败 → fallback 也无法把 `system-ui` 映射为真实 family（JUCE 占位名是 `<Sans-Serif>`）→ **typeface 为 null → 无字形 → 文本不渲染**。
+>
+> **修复（环境级，不改子模块）**：将系统 `.ttc` 复制为 `.ttf` 后缀放入用户字体目录，仅改变扩展名使 JUCE 扫描列表包含 Noto CJK family（文件内容不变）：
+> ```bash
+> mkdir -p ~/.local/share/fonts
+> cp /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc ~/.local/share/fonts/NotoSansCJK-Regular.ttf
+> cp /usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc    ~/.local/share/fonts/NotoSansCJK-Bold.ttf
+> fc-cache -f
+> ```
+> 修复后 `devpiano_tests` 全量 **11986/11986** 通过。
+>
+> - **回归线索**：JIVE 文本组件离屏渲染无像素（`light=0`）；`fc-match system-ui` 返回 `.ttc` 路径
+> - **关联**：`source/tests/StyleCatalogTest.cpp`（`JiveRenderTest`），`juce_Fonts_freetype.cpp`（`scanFontPaths` / `matchTypeface`）；新装其他 Linux 发行版若 `system-ui` 被映射到 `.ttc` 字体，同样需要此修复
