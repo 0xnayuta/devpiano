@@ -424,6 +424,44 @@ public:
             expectEquals(MidiKeySignature { -7, true }.toString(), juce::String("Ab minor"));
         });
 
+        testCase("copyright meta event (Meta 2) is ignored and does not contaminate song title", [&] {
+            juce::MidiFile file;
+
+            // Track 0: Copyright (Meta 2) appears first, followed by Song Title (Meta 3)
+            juce::MidiMessageSequence track0;
+            track0.addEvent(juce::MidiMessage::textMetaEvent(2, "Copyright (C) 2026 DevPiano Authors"), 0.0);
+            track0.addEvent(juce::MidiMessage::textMetaEvent(3, "Clair de Lune"), 0.0);
+            file.addTrack(track0);
+
+            // Track 1: Notes
+            juce::MidiMessageSequence track1;
+            track1.addEvent(juce::MidiMessage::noteOn(1, 60, (juce::uint8)100), 0.1);
+            track1.addEvent(juce::MidiMessage::noteOff(1, 60, (juce::uint8)0), 0.5);
+            file.addTrack(track1);
+
+            auto res = MidiTrackMergeEngine::mergeTracks(file, 48000.0);
+            expect(res.has_value());
+            if (res.has_value()) {
+                // Song title must be "Clair de Lune", NOT the copyright string!
+                expectEquals(res->metadata.songTitle, juce::String("Clair de Lune"));
+                expect(!res->metadata.songTitle.contains("Copyright"));
+            }
+        });
+
+        testCase("MidiImportOptions isSingleTrackOnly helper behaves correctly", [&] {
+            using devpiano::recording::MidiImportOptions;
+            MidiImportOptions defOpts;
+            expect(!defOpts.isSingleTrackOnly(), "Default mergeAllTracks=true must not be singleTrackOnly");
+
+            MidiImportOptions legacyOpts;
+            legacyOpts.ignoreOtherTracks = true;
+            expect(legacyOpts.isSingleTrackOnly(), "ignoreOtherTracks=true must be singleTrackOnly");
+
+            MidiImportOptions explicitSingleOpts;
+            explicitSingleOpts.mergeAllTracks = false;
+            expect(explicitSingleOpts.isSingleTrackOnly(), "mergeAllTracks=false must be singleTrackOnly");
+        });
+
         testCase("autoAssignIfSingleChannel preserves existing distinct channels", [&] {
             juce::MidiFile file;
 

@@ -112,10 +112,13 @@ std::vector<TrackInspection> inspectTracks(const juce::MidiFile& midiFile) {
             }
 
             const auto& msg = eventPtr->message;
-            if (msg.isTrackNameEvent() && insp.trackName.isEmpty()) {
-                insp.trackName = msg.getTextFromTextMetaEvent().trim();
-            } else if (msg.isTextMetaEvent() && insp.textMeta.isEmpty()) {
-                insp.textMeta = msg.getTextFromTextMetaEvent().trim();
+            if (msg.isMetaEvent()) {
+                const auto metaType = msg.getMetaEventType();
+                if (metaType == 3 && insp.trackName.isEmpty()) {
+                    insp.trackName = msg.getTextFromTextMetaEvent().trim();
+                } else if (metaType == 1 && insp.textMeta.isEmpty()) {
+                    insp.textMeta = msg.getTextFromTextMetaEvent().trim();
+                }
             }
 
             if (msg.isNoteOn(true) || msg.isNoteOff(true)) {
@@ -227,21 +230,21 @@ std::optional<MidiTrackMergeResult> MidiTrackMergeEngine::mergeTracks(const juce
         metadata.tracks.push_back(std::move(info));
     }
 
-    // Song title extraction heuristic:
-    // 1. Prefer Track 0 text meta (Meta 1 Sequence/Song Title) or track name (Meta 3)
-    // 2. Otherwise fall back to first non-empty text meta or track name across tracks
-    if (numTracks > 0 && !trackInspections[0].textMeta.isEmpty()) {
-        metadata.songTitle = trackInspections[0].textMeta;
-    } else if (numTracks > 0 && !trackInspections[0].trackName.isEmpty()) {
+    // Song title extraction heuristic (SMF Spec conformant):
+    // 1. Prefer Track 0 Sequence/Track Name (Meta 3) or General Text (Meta 1)
+    // 2. Otherwise fall back to first non-empty Track Name (Meta 3) or Text (Meta 1) in remaining tracks
+    if (numTracks > 0 && !trackInspections[0].trackName.isEmpty()) {
         metadata.songTitle = trackInspections[0].trackName;
+    } else if (numTracks > 0 && !trackInspections[0].textMeta.isEmpty()) {
+        metadata.songTitle = trackInspections[0].textMeta;
     } else {
         for (const auto& insp : trackInspections) {
-            if (!insp.textMeta.isEmpty()) {
-                metadata.songTitle = insp.textMeta;
-                break;
-            }
             if (!insp.trackName.isEmpty()) {
                 metadata.songTitle = insp.trackName;
+                break;
+            }
+            if (!insp.textMeta.isEmpty()) {
+                metadata.songTitle = insp.textMeta;
                 break;
             }
         }

@@ -493,6 +493,7 @@ std::optional<RecordingTake> RecordingSessionController::tryImportMidiFile(const
         return std::nullopt;
     }
 
+    // Apply song title to session metadata only after take parsing and validation succeed.
     if (result->metadata.songTitle.isNotEmpty()) {
         recordingSession.currentMetadata.title = result->metadata.songTitle;
     } else {

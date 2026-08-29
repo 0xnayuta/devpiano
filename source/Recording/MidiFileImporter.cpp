@@ -63,8 +63,7 @@ std::optional<MidiTrackMergeResult> importMidiFileWithMetadata(const juce::File&
 
     MidiTrackMergeOptions mergeOptions;
     mergeOptions.channelStrategy = options.channelStrategy;
-    mergeOptions.singleTrackOnly = options.ignoreOtherTracks || !options.mergeAllTracks;
-
+    mergeOptions.singleTrackOnly = options.isSingleTrackOnly();
     auto mergeResult = MidiTrackMergeEngine::mergeTracks(file, targetSampleRate, mergeOptions);
     if (!mergeResult.has_value()) {
         DP_LOG_ERROR("MidiFileImporter: failed to merge tracks from " + midiFile.getFileName());
