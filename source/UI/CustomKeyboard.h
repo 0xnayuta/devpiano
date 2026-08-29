@@ -59,6 +59,20 @@ public:
     // preventing hanging notes).  No-op when no mouse note is held.
     void releaseHeldMouseNote();
 
+    // ---- Inspection & Testing (Phase 26-C) ---------------------------------
+    [[nodiscard]] const std::vector<devpiano::ui::KeyRenderState>& getKeys() const noexcept {
+        return keys;
+    }
+    [[nodiscard]] uint8_t getPerKeyChannel(int midiNote) const noexcept {
+        if (midiNote >= 0 && midiNote < 128) {
+            return perKeyChannel[static_cast<std::size_t>(midiNote)];
+        }
+        return 0;
+    }
+    void triggerTimerCallbackForTest() {
+        timerCallback();
+    }
+
 private:
     // juce::Component
     void paint(juce::Graphics& g) override;

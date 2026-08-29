@@ -31,7 +31,7 @@
 
 - [x] **Phase 26-A：`MidiTrackMergeEngine` 核心实现与全轨事件绝对时间戳归并**
 - [x] **Phase 26-B：多轨通道策略（Pass-through / Auto-Assignment）与跨轨 Meta 解析**
-- [ ] **Phase 26-C：16 通道矩阵控制与 88 键虚拟键盘多音轨多着色联动**
+- [x] **Phase 26-C：16 通道矩阵控制与 88 键虚拟键盘多音轨多着色联动**
 - [ ] **Phase 26-D：全轨 WAV 离线渲染验证与多轨测试套件全覆盖**
 
 ---

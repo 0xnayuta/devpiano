@@ -633,9 +633,14 @@ void CustomKeyboard::notifyNoteActivity() {
     ensureTimerRunning();
 }
 
-void CustomKeyboard::handleNoteOn(juce::MidiKeyboardState*, int, int midiNoteNumber, float velocity) {
-    if (midiNoteNumber >= 0 && midiNoteNumber < 128 && velocity > 0.0f) {
-        perKeyVelocity[static_cast<std::size_t>(midiNoteNumber)] = velocity;
+void CustomKeyboard::handleNoteOn(juce::MidiKeyboardState*, int midiChannel, int midiNoteNumber, float velocity) {
+    if (midiNoteNumber >= 0 && midiNoteNumber < 128) {
+        if (velocity > 0.0f) {
+            perKeyVelocity[static_cast<std::size_t>(midiNoteNumber)] = velocity;
+        }
+        if (midiChannel >= 1 && midiChannel <= 16) {
+            perKeyChannel[static_cast<std::size_t>(midiNoteNumber)] = static_cast<uint8_t>(midiChannel - 1);
+        }
     }
     ensureTimerRunning();
 }

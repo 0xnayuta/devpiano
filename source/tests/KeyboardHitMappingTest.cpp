@@ -50,6 +50,7 @@ public:
         testAvailableRange();
         testKeyboardPaintClipping();
         testReleaseHeldMouseNote();
+        testMultiChannelColorVisualization();
     }
 
 private:
@@ -179,6 +180,66 @@ private:
         // 依赖真实鼠标事件（MouseEvent/MouseInputSource），无法在无头单测中
         // 模拟；mouseUp 与 releaseHeldMouseNote 共用同一释放逻辑，按下分支
         // 由实机交互回归覆盖（见 keyboard-mapping.md KBD-007 行为矩阵）。
+    }
+
+    void testMultiChannelColorVisualization() {
+        testCase("multi-channel noteOn maps distinct channel colors in channel colorMode", [&] {
+            juce::MidiKeyboardState ks;
+            CustomKeyboard kb(ks);
+
+            devpiano::ui::KeyboardSettings settings;
+            settings.colourMode = devpiano::ui::KeyColourMode::channel;
+            kb.setKeyboardSettings(settings);
+            kb.setSize(1248, 120);
+
+            // Channel 1 -> Note 60 (C4)
+            ks.noteOn(1, 60, 0.8f);
+            // Channel 2 -> Note 64 (E4)
+            ks.noteOn(2, 64, 0.8f);
+            // Channel 3 -> Note 67 (G4)
+            ks.noteOn(3, 67, 0.8f);
+
+            expectEquals(static_cast<int>(kb.getPerKeyChannel(60)), 0); // 0-based Ch 1
+            expectEquals(static_cast<int>(kb.getPerKeyChannel(64)), 1); // 0-based Ch 2
+            expectEquals(static_cast<int>(kb.getPerKeyChannel(67)), 2); // 0-based Ch 3
+
+            kb.triggerTimerCallbackForTest();
+
+            juce::Colour c60, c64, c67;
+            bool found60 = false, found64 = false, found67 = false;
+            for (const auto& k : kb.getKeys()) {
+                if (k.midiNote == 60) {
+                    c60 = k.colour1;
+                    found60 = true;
+                    expectEquals(k.fade, 1.0f);
+                } else if (k.midiNote == 64) {
+                    c64 = k.colour1;
+                    found64 = true;
+                    expectEquals(k.fade, 1.0f);
+                } else if (k.midiNote == 67) {
+                    c67 = k.colour1;
+                    found67 = true;
+                    expectEquals(k.fade, 1.0f);
+                }
+            }
+
+            expect(found60 && found64 && found67, "all three notes should be rendered");
+            expect(c60 != c64, "Channel 1 and Channel 2 should have distinct colors");
+            expect(c64 != c67, "Channel 2 and Channel 3 should have distinct colors");
+            expect(c60 != c67, "Channel 1 and Channel 3 should have distinct colors");
+
+            // Release note 60, others stay held
+            ks.noteOff(1, 60, 0.0f);
+            kb.triggerTimerCallbackForTest();
+
+            for (const auto& k : kb.getKeys()) {
+                if (k.midiNote == 60) {
+                    expectLessThan(k.fade, 1.0f);
+                } else if (k.midiNote == 64 || k.midiNote == 67) {
+                    expectEquals(k.fade, 1.0f);
+                }
+            }
+        });
     }
 };
 
