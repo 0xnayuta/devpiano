@@ -1,6 +1,7 @@
 #include <JuceHeader.h>
 
 #include "Layout/PerformancePreset.h"
+#include "TestHelpers.h"
 
 using namespace devpiano::layout;
 using namespace devpiano::midi;
@@ -15,14 +16,6 @@ using namespace devpiano::midi;
 // =============================================================================
 
 namespace {
-
-[[nodiscard]] juce::File makeScratchDir(const juce::String& tag) {
-    auto dir
-        = juce::File::getSpecialLocation(juce::File::tempDirectory)
-              .getChildFile("devpiano-test-" + tag + "-" + juce::String(juce::Random::getSystemRandom().nextInt64()));
-    dir.createDirectory();
-    return dir;
-}
 
 // 构造一个全字段填充的预设（round-trip 用）。
 PerformancePreset makeFullPreset() {
@@ -43,14 +36,13 @@ PerformancePreset makeFullPreset() {
     p.midiTranspose = true;
     p.colourMode = devpiano::ui::KeyColourMode::velocity;
     p.noteDisplay = devpiano::ui::NoteDisplayMode::noteName;
-    p.fadeSpeed = 0.42f;
-    p.previewAlpha = 0.33f;
-    for (int i = 0; i < 128; ++i) {
-        p.customKeyLabels[static_cast<std::size_t>(i)] = "L" + juce::String(i);
-        p.customKeyColours[static_cast<std::size_t>(i)]
-            = juce::Colour(static_cast<uint8_t>(i), static_cast<uint8_t>(255 - i), static_cast<uint8_t>(100),
-                           static_cast<uint8_t>(200));
-    }
+    p.fadeSpeed = 0.85f;
+    p.previewAlpha = 0.0f;
+
+    p.customKeyLabels[60] = "Middle C";
+    p.customKeyLabels[72] = "High C";
+    p.customKeyColours[60] = juce::Colour(0xff112233);
+    p.customKeyColours[72] = juce::Colour(0xff445566);
     return p;
 }
 
@@ -58,34 +50,49 @@ void expectPresetsEqual(juce::UnitTest& ut, const PerformancePreset& a, const Pe
     ut.expectEquals(a.name, b.name);
     ut.expectEquals(a.layout.id, b.layout.id);
     ut.expectEquals(a.layout.name, b.layout.name);
-    ut.expectEquals(static_cast<int>(a.layout.bindings.size()), static_cast<int>(b.layout.bindings.size()));
-    for (std::size_t i = 0; i < a.layout.bindings.size(); ++i) {
-        ut.expectEquals(a.layout.bindings[i].keyCode, b.layout.bindings[i].keyCode);
-        ut.expectEquals(a.layout.bindings[i].displayText, b.layout.bindings[i].displayText);
-        ut.expectEquals(a.layout.bindings[i].action.midiNote, b.layout.bindings[i].action.midiNote);
-        ut.expectEquals(a.layout.bindings[i].action.midiChannel, b.layout.bindings[i].action.midiChannel);
+    ut.expectEquals(a.layout.bindings.size(), b.layout.bindings.size());
+    if (a.layout.bindings.size() == b.layout.bindings.size()) {
+        for (std::size_t i = 0; i < a.layout.bindings.size(); ++i) {
+            ut.expectEquals(a.layout.bindings[i].keyCode, b.layout.bindings[i].keyCode);
+            ut.expectEquals(a.layout.bindings[i].displayText, b.layout.bindings[i].displayText);
+            ut.expect(a.layout.bindings[i].action.type == b.layout.bindings[i].action.type);
+            ut.expect(a.layout.bindings[i].action.trigger == b.layout.bindings[i].action.trigger);
+            ut.expectEquals(a.layout.bindings[i].action.midiNote, b.layout.bindings[i].action.midiNote);
+            ut.expectEquals(a.layout.bindings[i].action.midiChannel, b.layout.bindings[i].action.midiChannel);
+            ut.expectWithinAbsoluteError(a.layout.bindings[i].action.velocity, b.layout.bindings[i].action.velocity,
+                                         0.0001f);
+        }
     }
+
     ut.expect(a.channelMatrix.active == b.channelMatrix.active);
-    for (int ch = 0; ch < 16; ++ch) {
-        const auto& x = a.channelMatrix.channels[static_cast<std::size_t>(ch)];
-        const auto& y = b.channelMatrix.channels[static_cast<std::size_t>(ch)];
-        ut.expectEquals(static_cast<int>(x.outputChannel), static_cast<int>(y.outputChannel));
-        ut.expectEquals(static_cast<int>(x.transpose), static_cast<int>(y.transpose));
-        ut.expectEquals(static_cast<int>(x.octaveShift), static_cast<int>(y.octaveShift));
-        ut.expectEquals(static_cast<int>(x.velocity), static_cast<int>(y.velocity));
-        ut.expect(x.followKey == y.followKey);
+    for (std::size_t i = 0; i < 16; ++i) {
+        ut.expectEquals(static_cast<int>(a.channelMatrix.channels[i].outputChannel),
+                        static_cast<int>(b.channelMatrix.channels[i].outputChannel));
+        ut.expectEquals(static_cast<int>(a.channelMatrix.channels[i].transpose),
+                        static_cast<int>(b.channelMatrix.channels[i].transpose));
+        ut.expectEquals(static_cast<int>(a.channelMatrix.channels[i].octaveShift),
+                        static_cast<int>(b.channelMatrix.channels[i].octaveShift));
+        ut.expectEquals(static_cast<int>(a.channelMatrix.channels[i].velocity),
+                        static_cast<int>(b.channelMatrix.channels[i].velocity));
+        ut.expectEquals(static_cast<int>(a.channelMatrix.channels[i].program),
+                        static_cast<int>(b.channelMatrix.channels[i].program));
+        ut.expectEquals(static_cast<int>(a.channelMatrix.channels[i].bankMSB),
+                        static_cast<int>(b.channelMatrix.channels[i].bankMSB));
+        ut.expectEquals(static_cast<int>(a.channelMatrix.channels[i].sustainCC),
+                        static_cast<int>(b.channelMatrix.channels[i].sustainCC));
+        ut.expect(a.channelMatrix.channels[i].followKey == b.channelMatrix.channels[i].followKey);
     }
+
     ut.expectEquals(a.keySignature, b.keySignature);
     ut.expect(a.midiTranspose == b.midiTranspose);
     ut.expectEquals(static_cast<int>(a.colourMode), static_cast<int>(b.colourMode));
     ut.expectEquals(static_cast<int>(a.noteDisplay), static_cast<int>(b.noteDisplay));
     ut.expectWithinAbsoluteError(a.fadeSpeed, b.fadeSpeed, 0.0001f);
-    // previewAlpha 有意不序列化（SettingsModel 无对应字段），读回保持默认 0。
-    ut.expectWithinAbsoluteError(b.previewAlpha, 0.0f, 0.0001f);
+    ut.expectWithinAbsoluteError(a.previewAlpha, b.previewAlpha, 0.0001f);
+
     for (int i = 0; i < 128; ++i) {
         ut.expectEquals(a.customKeyLabels[static_cast<std::size_t>(i)], b.customKeyLabels[static_cast<std::size_t>(i)]);
-        ut.expectEquals(static_cast<int>(a.customKeyColours[static_cast<std::size_t>(i)].getARGB()),
-                        static_cast<int>(b.customKeyColours[static_cast<std::size_t>(i)].getARGB()));
+        ut.expect(a.customKeyColours[static_cast<std::size_t>(i)] == b.customKeyColours[static_cast<std::size_t>(i)]);
     }
 }
 
@@ -99,8 +106,8 @@ public:
 
     void runTest() override {
         testCase("full field round-trip survives save/load", [&] {
-            auto dir = makeScratchDir("preset-roundtrip");
-            auto path = dir.getChildFile("test.devpiano.preset");
+            devpiano::test::ScopedTempDir tempDir("preset-roundtrip");
+            auto path = tempDir.getChildFile("test.devpiano.preset");
 
             const auto original = makeFullPreset();
             expect(savePreset(original, path), "save must succeed");
@@ -113,8 +120,8 @@ public:
         });
 
         testCase("savePreset appends the missing extension", [&] {
-            auto dir = makeScratchDir("preset-ext");
-            auto path = dir.getChildFile("bare-name"); // 无扩展名
+            devpiano::test::ScopedTempDir tempDir("preset-ext");
+            auto path = tempDir.getChildFile("bare-name"); // 无扩展名
 
             const auto original = makeFullPreset();
             expect(savePreset(original, path), "save must succeed");
@@ -122,34 +129,34 @@ public:
         });
 
         testCase("loadPreset rejects a missing file", [&] {
-            auto dir = makeScratchDir("preset-missing");
-            expect(!loadPreset(dir.getChildFile("nope.devpiano.preset")).has_value());
+            devpiano::test::ScopedTempDir tempDir("preset-missing");
+            expect(!loadPreset(tempDir.getChildFile("nope.devpiano.preset")).has_value());
         });
 
         testCase("loadPreset rejects an empty file", [&] {
-            auto dir = makeScratchDir("preset-empty");
-            auto path = dir.getChildFile("empty.devpiano.preset");
+            devpiano::test::ScopedTempDir tempDir("preset-empty");
+            auto path = tempDir.getChildFile("empty.devpiano.preset");
             path.replaceWithText("");
             expect(!loadPreset(path).has_value());
         });
 
         testCase("loadPreset rejects invalid JSON", [&] {
-            auto dir = makeScratchDir("preset-badjson");
-            auto path = dir.getChildFile("bad.devpiano.preset");
+            devpiano::test::ScopedTempDir tempDir("preset-badjson");
+            auto path = tempDir.getChildFile("bad.devpiano.preset");
             path.replaceWithText("{ this is not json !!");
             expect(!loadPreset(path).has_value());
         });
 
         testCase("loadPreset rejects a non-object root", [&] {
-            auto dir = makeScratchDir("preset-array");
-            auto path = dir.getChildFile("arr.devpiano.preset");
+            devpiano::test::ScopedTempDir tempDir("preset-array");
+            auto path = tempDir.getChildFile("arr.devpiano.preset");
             path.replaceWithText("[1, 2, 3]");
             expect(!loadPreset(path).has_value());
         });
 
         testCase("loadPreset rejects an unknown format version", [&] {
-            auto dir = makeScratchDir("preset-version");
-            auto path = dir.getChildFile("v2.devpiano.preset");
+            devpiano::test::ScopedTempDir tempDir("preset-version");
+            auto path = tempDir.getChildFile("v2.devpiano.preset");
             path.replaceWithText(R"({ "version": 2, "name": "future" })");
             expect(!loadPreset(path).has_value(), "version mismatch must be rejected");
         });

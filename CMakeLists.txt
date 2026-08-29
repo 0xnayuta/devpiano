@@ -166,6 +166,8 @@ target_sources(devpiano PRIVATE
     source/Recording/MidiFileExporter.h
     source/Recording/MidiFileImporter.cpp
     source/Recording/MidiFileImporter.h
+    source/Recording/MidiTrackMergeEngine.cpp
+    source/Recording/MidiTrackMergeEngine.h
     source/Recording/PerformanceFile.cpp
     source/Recording/PerformanceFile.h
     source/Recording/RenderPipeline.cpp
@@ -351,6 +353,8 @@ if (BUILD_TESTS)
         source/Recording/MidiFileImporter.h
         source/Recording/MidiFileExporter.cpp
         source/Recording/MidiFileExporter.h
+        source/Recording/MidiTrackMergeEngine.cpp
+        source/Recording/MidiTrackMergeEngine.h
         source/Recording/WavFileExporter.cpp
         source/Recording/WavFileExporter.h
         source/Recording/PluginOfflineRenderer.cpp
@@ -419,6 +423,7 @@ if (BUILD_TESTS)
 
         # 测试代码
         source/tests/TestRunner.cpp
+        source/tests/TestHelpers.h
         source/tests/KeyMapTypesTest.cpp
         source/tests/MidiFileImporterTest.cpp
         source/tests/RecordingEngineTest.cpp

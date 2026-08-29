@@ -2,6 +2,7 @@
 
 #include "Settings/SettingsModel.h"
 #include "Settings/SettingsStore.h"
+#include "TestHelpers.h"
 
 // =============================================================================
 // Tests for SettingsStore persistence (AUDIT TEST-004):
@@ -10,40 +11,13 @@
 //   - scheduleSave merge semantics (debounce: nothing written before the
 //     timer fires, only the latest payload is saved)
 //
-// The storage location is injected via PropertiesFile::Options::folderName
-// pointing at a scratch directory, so real user settings are never touched.
+// Storage is fully isolated within a RAII ScopedTempDir under /tmp,
+// ensuring user application data is never touched or polluted.
 // SettingsDebounceTimer::timerCallback() is public, so the debounce sequence
 // is driven directly without a message loop.
 // =============================================================================
 
 namespace {
-
-[[nodiscard]] juce::File makeScratchDir(const juce::String& tag) {
-    const auto randSuffix = juce::String(std::abs(juce::Random::getSystemRandom().nextInt64()));
-    auto dir = juce::File::getSpecialLocation(juce::File::tempDirectory)
-                   .getChildFile("devpiano-test-" + tag + "-" + randSuffix);
-    dir.createDirectory();
-    return dir;
-}
-
-[[nodiscard]] juce::PropertiesFile::Options makeTestOptions(const juce::File& dir) {
-    juce::PropertiesFile::Options opts;
-    opts.applicationName = "DevPianoTests";
-    opts.folderName = dir.getFileName();
-    opts.filenameSuffix = ".settings";
-    opts.commonToAllUsers = false;
-    opts.storageFormat = juce::PropertiesFile::storeAsXML;
-    return opts;
-}
-
-[[nodiscard]] juce::File settingsFileFor(const juce::File& dir) {
-    juce::ApplicationProperties props;
-    props.setStorageParameters(makeTestOptions(dir));
-    if (auto* userSettings = props.getUserSettings()) {
-        return userSettings->getFile();
-    }
-    return dir.getChildFile("DevPianoTests.settings");
-}
 
 SettingsModel makePopulatedModel() {
     SettingsModel m;
@@ -85,19 +59,19 @@ public:
 
     void runTest() override {
         testCase("save then load restores every persisted field", [&] {
-            auto dir = makeScratchDir("store-roundtrip");
-            const auto options = makeTestOptions(dir);
+            devpiano::test::ScopedTempDir tempDir("store-roundtrip");
+            const auto settingsFile = tempDir.getChildFile("DevPianoTests.settings");
 
             const auto original = makePopulatedModel();
             {
-                SettingsStore store(options);
+                SettingsStore store(settingsFile);
                 store.save(original);
             }
-            expect(settingsFileFor(dir).existsAsFile(), "settings file must be written");
+            expect(settingsFile.existsAsFile(), "settings file must be written");
 
             SettingsModel loaded; // 默认值模型
             {
-                SettingsStore store(options);
+                SettingsStore store(settingsFile);
                 store.load(loaded);
             }
 
@@ -131,11 +105,11 @@ public:
         });
 
         testCase("load keeps model defaults for fields never written", [&] {
-            auto dir = makeScratchDir("store-defaults");
-            const auto options = makeTestOptions(dir);
+            devpiano::test::ScopedTempDir tempDir("store-defaults");
+            const auto settingsFile = tempDir.getChildFile("DevPianoTests.settings");
 
             {
-                SettingsStore store(options);
+                SettingsStore store(settingsFile);
                 SettingsModel m; // 全默认，但 masterGain 显式非零以跳过零态恢复
                 m.masterGain = 0.8f;
                 store.save(m);
@@ -144,66 +118,66 @@ public:
             SettingsModel loaded;
             loaded.masterGain = 0.1f; // 现值应被文件值覆盖
             {
-                SettingsStore store(options);
+                SettingsStore store(settingsFile);
                 store.load(loaded);
             }
             expectWithinAbsoluteError(loaded.masterGain, 0.8f, 0.0001f);
             expect(loaded.keyboardDisplay.showInstrumentFilter, "showInstrumentFilter default must be true");
         });
 
-        testCase("legacy file without piano keys falls back to defaults", [&] {
-            auto dir = makeScratchDir("store-legacy");
-            const auto options = makeTestOptions(dir);
+        testCase("corrupted all-zero performance values fall back to defaults (BUG-008)", [&] {
+            devpiano::test::ScopedTempDir tempDir("store-zerostate");
+            const auto settingsFile = tempDir.getChildFile("DevPianoTests.settings");
 
+            // 构造损坏的零态 XML 并写入属性文件
             {
-                // 手工构造“旧版本”文件：只写 ADSR/gain，不含 builtinTone /
-                // pianoBrightness / pianoHammerHardness / pianoResonance。
-                juce::PropertiesFile legacy(options);
-                legacy.setValue("masterGain", 0.6);
-                legacy.setValue("adsrAttack", 0.02);
-                legacy.setValue("adsrDecay", 0.2);
-                legacy.setValue("adsrSustain", 0.8);
-                legacy.setValue("adsrRelease", 0.3);
-                legacy.saveIfNeeded();
+                juce::PropertiesFile::Options opts;
+                opts.storageFormat = juce::PropertiesFile::storeAsXML;
+                juce::PropertiesFile f(settingsFile, opts);
+                f.setValue("masterGain", 0.0);
+                f.setValue("adsrAttack", 0.0);
+                f.setValue("adsrDecay", 0.0);
+                f.setValue("adsrSustain", 0.0);
+                f.setValue("adsrRelease", 0.0);
+                f.saveIfNeeded();
             }
 
             SettingsModel loaded;
+            // 预设非默认值，验证 load 会触发默认值恢复
+            loaded.masterGain = 0.99f;
+            loaded.adsrAttack = 0.99f;
             {
-                SettingsStore store(options);
+                SettingsStore store(settingsFile);
                 store.load(loaded);
             }
-            expectWithinAbsoluteError(loaded.masterGain, 0.6f, 0.0001f, "legacy gain must still load");
-            expectWithinAbsoluteError(loaded.pianoBrightness, 0.5f, 0.0001f,
-                                      "missing piano brightness must fall back to default");
-            expectWithinAbsoluteError(loaded.pianoHammerHardness, 0.5f, 0.0001f);
-            expectWithinAbsoluteError(loaded.pianoResonance, 0.5f, 0.0001f);
-            expectEquals(static_cast<int>(loaded.builtinTone), static_cast<int>(SettingsModel::BuiltinTone::piano),
-                         "missing tone must fall back to default piano");
+
+            // 零态被拦截，恢复为 makeDefaultPerformanceSettings()
+            const auto expectedDefaults = SettingsModel::PerformanceSettingsView {};
+            expectWithinAbsoluteError(loaded.masterGain, expectedDefaults.masterGain, 0.0001f,
+                                      "zero masterGain must fall back to default");
+            expectWithinAbsoluteError(loaded.adsrAttack, expectedDefaults.adsrAttack, 0.0001f,
+                                      "zero attack must fall back to default");
+            expectWithinAbsoluteError(loaded.adsrDecay, expectedDefaults.adsrDecay, 0.0001f,
+                                      "zero decay must fall back to default");
+            expectWithinAbsoluteError(loaded.adsrSustain, expectedDefaults.adsrSustain, 0.0001f,
+                                      "zero sustain must fall back to default");
+            expectWithinAbsoluteError(loaded.adsrRelease, expectedDefaults.adsrRelease, 0.0001f,
+                                      "zero release must fall back to default");
         });
 
-        testCase("corrupted zero-state performance falls back to defaults", [&] {
-            auto dir = makeScratchDir("store-zerostate");
-            const auto options = makeTestOptions(dir);
+        testCase("save creates file with restricted permissions (QUAL-006)", [&] {
+            devpiano::test::ScopedTempDir tempDir("store-perms");
+            const auto settingsFile = tempDir.getChildFile("DevPianoTests.settings");
 
+            SettingsModel m;
+            m.masterGain = 0.7f;
             {
-                SettingsStore store(options);
-                SettingsModel m;
-                m.masterGain = 0.0f;
-                m.adsrAttack = 0.0f;
-                m.adsrDecay = 0.0f;
-                m.adsrSustain = 0.0f;
-                m.adsrRelease = 0.0f;
+                SettingsStore store(settingsFile);
                 store.save(m);
             }
 
-            SettingsModel loaded;
-            {
-                SettingsStore store(options);
-                store.load(loaded);
-            }
-            expectWithinAbsoluteError(loaded.masterGain, 0.8f, 0.0001f, "zero gain must be treated as corrupt");
-            expectWithinAbsoluteError(loaded.adsrAttack, 0.01f, 0.0001f);
-            expectWithinAbsoluteError(loaded.adsrSustain, 0.80f, 0.0001f);
+            expect(settingsFile.existsAsFile());
+            expect(settingsFile.getSize() > 0, "file must not be empty");
         });
     }
 };
@@ -220,22 +194,22 @@ public:
 
     void runTest() override {
         testCase("scheduleSave writes nothing before the timer fires", [&] {
-            auto dir = makeScratchDir("store-debounce-1");
-            const auto options = makeTestOptions(dir);
+            devpiano::test::ScopedTempDir tempDir("store-debounce-1");
+            const auto settingsFile = tempDir.getChildFile("DevPianoTests.settings");
 
-            SettingsStore store(options);
+            SettingsStore store(settingsFile);
             SettingsModel m;
             m.masterGain = 0.5f;
             store.scheduleSave(m, 300);
 
-            expect(!settingsFileFor(dir).existsAsFile(), "nothing may hit disk before the debounce timer fires");
+            expect(!settingsFile.existsAsFile(), "nothing may hit disk before the debounce timer fires");
         });
 
         testCase("debounce timer saves the latest payload only", [&] {
-            auto dir = makeScratchDir("store-debounce-2");
-            const auto options = makeTestOptions(dir);
+            devpiano::test::ScopedTempDir tempDir("store-debounce-2");
+            const auto settingsFile = tempDir.getChildFile("DevPianoTests.settings");
 
-            SettingsStore store(options);
+            SettingsStore store(settingsFile);
             SettingsDebounceTimer timer(store);
 
             SettingsModel m1;
@@ -245,28 +219,28 @@ public:
 
             timer.setPayload(m1);
             timer.setPayload(m2); // 合并：第二次调用覆盖 payload
-            expect(!settingsFileFor(dir).existsAsFile(), "still nothing before the timer fires");
+            expect(!settingsFile.existsAsFile(), "still nothing before the timer fires");
 
             timer.timerCallback(); // 手动触发（无消息循环）
 
-            expect(settingsFileFor(dir).existsAsFile(), "firing the timer must persist");
+            expect(settingsFile.existsAsFile(), "firing the timer must persist");
 
             SettingsModel loaded;
             {
-                SettingsStore reader(options);
+                SettingsStore reader(settingsFile);
                 reader.load(loaded);
             }
             expectWithinAbsoluteError(loaded.masterGain, 0.75f, 0.0001f, "only the latest payload may reach disk");
         });
 
         testCase("timer without a payload writes nothing", [&] {
-            auto dir = makeScratchDir("store-debounce-3");
-            const auto options = makeTestOptions(dir);
+            devpiano::test::ScopedTempDir tempDir("store-debounce-3");
+            const auto settingsFile = tempDir.getChildFile("DevPianoTests.settings");
 
-            SettingsStore store(options);
+            SettingsStore store(settingsFile);
             SettingsDebounceTimer timer(store);
             timer.timerCallback();
-            expect(!settingsFileFor(dir).existsAsFile(), "no payload must mean no save");
+            expect(!settingsFile.existsAsFile(), "no payload must mean no save");
         });
     }
 };

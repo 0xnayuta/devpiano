@@ -218,18 +218,21 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 > 基础设施已落地：`.github/workflows/ci.yml`（格式门禁 + `linux-gate` Debug 测试/Release 门槛 + Windows MSVC Debug/Release 构建测试门禁）、`.github/workflows/release.yml`（Tag 触发 Windows/Linux 双平台自动打包发布）与 `.github/workflows/pr-agent.yml`（PR-Agent AI 代码审查，DeepSeek v4 Flash）。当前子任务排期与验收状态见 [`current-iteration.md`](current-iteration.md)。
 
-### Phase 26：MIDI 多轨并轨与综合时间线合并（MIDI Multi-Track Timeline Merge） [规划中]
+详细完成记录见 [`../archive/phase25-linux-desktop-and-audio-path.md`](../archive/phase25-linux-desktop-and-audio-path.md)。
 
-1. **多轨 MIDI 结构解析与对齐**：实现 `MidiTrackMergeEngine`，支持跨音轨 Tempo、Meta、CC 与 Note 事件的精准时间线合并；
-2. **16 通道矩阵自动映射**：智能保留多音轨乐器通道或自动重映射至可用通道；
-3. **多通道综合回放与可视化**：88 键虚拟键盘多音轨多着色高亮联动与全轨 `.devpiano` / WAV 离线渲染。
+### Phase 26：MIDI 多轨并轨与综合时间线合并（MIDI Multi-Track Timeline Merge） [已完成，2026-08-29]
+
+1. **`MidiTrackMergeEngine` 多轨时间线精准合并内核**：实现统一多轨合并引擎，支持跨音轨 Tempo/Conductor、Meta、CC 与 Note 事件按绝对时间戳（`timestampSamples`）精准稳定归并；
+2. **多轨通道智能策略与元数据解析**：支持原始通道保持（Pass-through）与音轨转通道自动重映射（Track-to-Channel Auto-Assignment），提取并整合乐曲标题、音轨名、Tempo Map 与调号拍号；
+3. **16 通道矩阵与虚拟键盘综合回放联动**：16 通道矩阵对各轨独立移调/加权/静音控制，88 键虚拟键盘多音轨多着色高亮联动；
+4. **全轨 WAV 离线渲染与多轨测试套件全覆盖**：支持全轨合并流直接离线导出高质量 WAV 音频（维持只读 Playback Take 契约），覆盖 Type 0 / Type 1 复杂多轨夹具。
 
 ### Phase 27：现实物理演奏交互与声学控制（Physical Voicing & Realistic Acoustic Interaction） [规划中]
 
-1. **琴盖开合度交互式控制（Lid Position）**：在 UI 界面接入 Full Open / Half Stick / Closed 3 级琴盖开合切换与声学传递函数实时生效；
+1. **琴盖开合度交互式控制（Lid Position）**：在 JIVE UI 界面接入 Full Open / Half Stick / Closed 3 级琴盖开合切换与底层 `lidAcoustics` 声学传递函数实时生效；
 2. **弱音/移位踏板物理拟真（Una Corda / Soft Pedal，CC 67）**：模拟击弦机右移 3 弦敲 2 弦与毛毡侧向软化物理机理，支持 CC 67 踏板与 UI 软踏板点亮；
 3. **触键力度曲线（Touch Velocity Curve）**：支持 Standard / Light / Heavy / Wide Dynamic 4 种按键阻尼手感映射与动态调节；
-4. **配置持久化与预设系统联动**：将琴盖开合度、Una Corda 状态与触键曲线完整纳入 `SettingsModel` 与 Performance Preset 序列化。
+4. **配置持久化与预设系统联动**：将琴盖开合度、Una Corda 状态与触键曲线完整纳入 `SettingsModel`、`SettingsSerialization` 与 Performance Preset 序列化。
 ---
 
 ## 4. 主要风险与应对

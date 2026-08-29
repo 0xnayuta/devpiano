@@ -59,6 +59,20 @@ public:
     // preventing hanging notes).  No-op when no mouse note is held.
     void releaseHeldMouseNote();
 
+    // ---- Inspection & Testing (Phase 26-C) ---------------------------------
+    [[nodiscard]] const std::vector<devpiano::ui::KeyRenderState>& getKeys() const noexcept {
+        return keys;
+    }
+    [[nodiscard]] uint8_t getPerKeyChannel(int midiNote) const noexcept {
+        if (midiNote >= 0 && midiNote < 128) {
+            return perKeyChannel[static_cast<std::size_t>(midiNote)].load();
+        }
+        return 0;
+    }
+    void triggerTimerCallbackForTest() {
+        timerCallback();
+    }
+
 private:
     // juce::Component
     void paint(juce::Graphics& g) override;
@@ -105,7 +119,7 @@ private:
 
     // Per-key binding data for colour mode computation, indexed by MIDI note.
     // Populated by setKeyboardLayout().  Unbound notes default to channel 0 / vel 1.0.
-    std::array<uint8_t, 128> perKeyChannel {};
+    std::array<std::atomic<uint8_t>, 128> perKeyChannel {};
     std::array<juce::Atomic<float>, 128> perKeyVelocity {};
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CustomKeyboard)

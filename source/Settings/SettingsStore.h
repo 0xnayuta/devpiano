@@ -32,6 +32,10 @@ public:
     // temporary-directory options set to avoid touching real user settings.
     explicit SettingsStore(juce::PropertiesFile::Options options = {});
 
+    // Explicit file constructor (for isolated storage and test harnesses).
+    // Directly binds to customFile without relying on ApplicationProperties folder defaults.
+    explicit SettingsStore(const juce::File& customFile);
+
     void load(SettingsModel& model);
     // Persists synchronously; false means the write failed (caller logs the
     // path — see writeNow's DP_LOG_ERROR).
@@ -42,7 +46,9 @@ public:
 
 private:
     juce::PropertiesFile::Options storedOptions;
+    juce::File customFile;
     std::unique_ptr<juce::ApplicationProperties> appProps;
+    std::unique_ptr<juce::PropertiesFile> customPropsFile;
     std::unique_ptr<SettingsDebounceTimer> saverTimer; // created lazily
 
     void ensureProps();
