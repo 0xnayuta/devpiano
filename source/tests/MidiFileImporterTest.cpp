@@ -4,6 +4,7 @@
 #include "Recording/MidiTrackMergeEngine.h"
 #include "Recording/PerformanceFile.h"
 #include "Recording/RecordingEngine.h"
+#include "TestHelpers.h"
 
 // =============================================================================
 // MIDI 文件导入与多轨时间线合并测试
@@ -433,10 +434,7 @@ public:
         using devpiano::recording::savePerformanceFile;
 
         testCase("multi-track imported take and metadata round-trips via .devpiano file", [&] {
-            auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
-                               .getChildFile("devpiano-multitrack-test-"
-                                             + juce::String(juce::Random::getSystemRandom().nextInt64()));
-            tempDir.createDirectory();
+            devpiano::test::ScopedTempDir tempDir("multitrack-test");
             const auto performanceFile = tempDir.getChildFile("multitrack.devpiano");
 
             auto importRes = importMidiFileWithMetadata(juce::File(getFixturePath("multitrack-basic.mid")), 48000.0);
@@ -468,8 +466,6 @@ public:
             expect(loadedMeta.has_value());
             expectEquals(loadedMeta->title, meta.title);
             expectEquals(loadedMeta->notes, meta.notes);
-
-            tempDir.deleteRecursively();
         });
     }
 };

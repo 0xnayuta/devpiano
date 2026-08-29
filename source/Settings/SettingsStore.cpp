@@ -86,6 +86,10 @@ SettingsStore::SettingsStore(juce::PropertiesFile::Options options)
     : storedOptions(std::move(options)) {
 }
 
+SettingsStore::SettingsStore(const juce::File& file)
+    : customFile(file) {
+}
+
 SettingsDebounceTimer::SettingsDebounceTimer(SettingsStore& s)
     : store(s) {
 }
@@ -106,9 +110,17 @@ void SettingsDebounceTimer::timerCallback() {
 }
 
 void SettingsStore::ensureProps() {
-    if (appProps) {
+    if (customPropsFile != nullptr || appProps != nullptr) {
         return;
     }
+
+    if (customFile != juce::File {}) {
+        juce::PropertiesFile::Options opts = storedOptions;
+        opts.storageFormat = juce::PropertiesFile::storeAsXML;
+        customPropsFile = std::make_unique<juce::PropertiesFile>(customFile, opts);
+        return;
+    }
+
     auto opts = storedOptions;
     if (opts.applicationName.isEmpty()) {
         // Production location: user application-data directory.
@@ -124,6 +136,9 @@ void SettingsStore::ensureProps() {
 
 juce::PropertiesFile& SettingsStore::file() {
     ensureProps();
+    if (customPropsFile != nullptr) {
+        return *customPropsFile;
+    }
     if (appProps != nullptr) {
         if (auto* userSettings = appProps->getUserSettings()) {
             return *userSettings;

@@ -4,6 +4,7 @@
 #include "Recording/MidiFileExporter.h"
 #include "Recording/RecordingEngine.h"
 #include "Recording/WavFileExporter.h"
+#include "TestHelpers.h"
 
 using namespace devpiano::exporting;
 using namespace devpiano::recording;
@@ -19,14 +20,6 @@ using namespace devpiano::recording;
 // =============================================================================
 
 namespace {
-
-[[nodiscard]] juce::File makeScratchDir(const juce::String& tag) {
-    auto dir
-        = juce::File::getSpecialLocation(juce::File::tempDirectory)
-              .getChildFile("devpiano-test-" + tag + "-" + juce::String(juce::Random::getSystemRandom().nextInt64()));
-    dir.createDirectory();
-    return dir;
-}
 
 // 1 秒 take：note-on at 0、note-off at 1s。
 RecordingTake makeOneSecondTake() {
@@ -140,15 +133,15 @@ public:
 
     void runTest() override {
         testCase("default export file has the timestamped naming scheme", [&] {
-            auto dir = makeScratchDir("export-naming");
+            devpiano::test::ScopedTempDir tempDir("export-naming");
             const auto time = juce::Time(2026, 8, 17, 12, 30, 45, 0, true);
 
-            const auto midiFile = makeDefaultRecordingExportFile(ExportFileType::midi, dir, time);
-            expect(midiFile.getParentDirectory() == dir);
+            const auto midiFile = makeDefaultRecordingExportFile(ExportFileType::midi, tempDir.get(), time);
+            expect(midiFile.getParentDirectory() == tempDir.get());
             expect(midiFile.getFileName().startsWith("recording_"));
             expect(midiFile.hasFileExtension(".mid"));
 
-            const auto wavFile = makeDefaultRecordingExportFile(ExportFileType::wav, dir, time);
+            const auto wavFile = makeDefaultRecordingExportFile(ExportFileType::wav, tempDir.get(), time);
             expect(wavFile.getFileName().startsWith("recording_"));
             expect(wavFile.hasFileExtension(".wav"));
         });
@@ -172,8 +165,8 @@ public:
 
     void runTest() override {
         testCase("exported MIDI file reads back with matching events", [&] {
-            auto dir = makeScratchDir("midi-export");
-            const auto path = dir.getChildFile("take.mid");
+            devpiano::test::ScopedTempDir tempDir("midi-export");
+            const auto path = tempDir.getChildFile("take.mid");
 
             const auto take = makeOneSecondTake();
             expect(exportTakeAsMidiFile(take, path), "export must succeed");
@@ -214,9 +207,9 @@ public:
         });
 
         testCase("empty take is rejected", [&] {
-            auto dir = makeScratchDir("midi-export-empty");
+            devpiano::test::ScopedTempDir tempDir("midi-export-empty");
             RecordingTake take;
-            expect(!exportTakeAsMidiFile(take, dir.getChildFile("x.mid")));
+            expect(!exportTakeAsMidiFile(take, tempDir.getChildFile("x.mid")));
         });
     }
 };
@@ -233,8 +226,8 @@ public:
 
     void runTest() override {
         testCase("exported WAV reads back with matching header and audible payload", [&] {
-            auto dir = makeScratchDir("wav-export");
-            const auto path = dir.getChildFile("take.wav");
+            devpiano::test::ScopedTempDir tempDir("wav-export");
+            const auto path = tempDir.getChildFile("take.wav");
 
             const auto take = makeOneSecondTake();
             WavExportOptions options;
@@ -286,9 +279,9 @@ public:
 
     void runTest() override {
         testCase("multi-track multi-channel take renders non-silent WAV with piano and sine tone", [&] {
-            auto dir = makeScratchDir("multitrack-wav-export");
-            const auto pianoWavPath = dir.getChildFile("multitrack_piano.wav");
-            const auto sineWavPath = dir.getChildFile("multitrack_sine.wav");
+            devpiano::test::ScopedTempDir tempDir("multitrack-wav-export");
+            const auto pianoWavPath = tempDir.getChildFile("multitrack_piano.wav");
+            const auto sineWavPath = tempDir.getChildFile("multitrack_sine.wav");
 
             // Build a multi-track multi-channel take
             RecordingTake multiTrackTake;

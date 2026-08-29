@@ -423,6 +423,7 @@ if (BUILD_TESTS)
 
         # 测试代码
         source/tests/TestRunner.cpp
+        source/tests/TestHelpers.h
         source/tests/KeyMapTypesTest.cpp
         source/tests/MidiFileImporterTest.cpp
         source/tests/RecordingEngineTest.cpp

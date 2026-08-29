@@ -4,6 +4,7 @@
 #include "Recording/RecordingFlowSupport.h"
 #include "Recording/RecordingSessionController.h"
 #include "Settings/SettingsModel.h"
+#include "TestHelpers.h"
 
 using namespace devpiano::recording;
 // devpiano::recording 亦含 RecordingState 枚举（RecordingEngine），故 ui 侧用别名区分
@@ -25,14 +26,6 @@ using RecordingUiState = devpiano::ui::RecordingState;
 // =============================================================================
 
 namespace {
-
-[[nodiscard]] juce::File makeScratchDir(const juce::String& tag) {
-    auto dir
-        = juce::File::getSpecialLocation(juce::File::tempDirectory)
-              .getChildFile("devpiano-test-" + tag + "-" + juce::String(juce::Random::getSystemRandom().nextInt64()));
-    dir.createDirectory();
-    return dir;
-}
 
 // 构造一个包含单个 note-on 事件的 take（hasTake() == true）。
 devpiano::recording::RecordingTake makeTakeWithEvent() {
@@ -270,30 +263,30 @@ public:
         using devpiano::exporting::getLastMidiImportDirectory;
 
         testCase("export: existing file yields its parent directory", [&] {
-            auto dir = makeScratchDir("export-file");
-            auto file = dir.getChildFile("out.mid");
+            devpiano::test::ScopedTempDir tempDir("export-file");
+            auto file = tempDir.getChildFile("out.mid");
             file.replaceWithText("x");
 
             SettingsModel settings;
             settings.lastMidiExportPath = file.getFullPathName();
-            expectEquals(getLastMidiExportDirectory(settings).getFullPathName(), dir.getFullPathName());
+            expectEquals(getLastMidiExportDirectory(settings).getFullPathName(), tempDir.get().getFullPathName());
         });
 
         testCase("export: existing directory yields itself", [&] {
-            auto dir = makeScratchDir("export-dir");
+            devpiano::test::ScopedTempDir tempDir("export-dir");
 
             SettingsModel settings;
-            settings.lastMidiExportPath = dir.getFullPathName();
-            expectEquals(getLastMidiExportDirectory(settings).getFullPathName(), dir.getFullPathName());
+            settings.lastMidiExportPath = tempDir.get().getFullPathName();
+            expectEquals(getLastMidiExportDirectory(settings).getFullPathName(), tempDir.get().getFullPathName());
         });
 
         testCase("export: stale path falls back to its parent directory", [&] {
-            auto dir = makeScratchDir("export-stale");
-            auto missing = dir.getChildFile("gone.mid"); // 不存在
+            devpiano::test::ScopedTempDir tempDir("export-stale");
+            auto missing = tempDir.getChildFile("gone.mid"); // 不存在
 
             SettingsModel settings;
             settings.lastMidiExportPath = missing.getFullPathName();
-            expectEquals(getLastMidiExportDirectory(settings).getFullPathName(), dir.getFullPathName());
+            expectEquals(getLastMidiExportDirectory(settings).getFullPathName(), tempDir.get().getFullPathName());
         });
 
         testCase("export: empty setting falls back to CWD", [&] {
@@ -304,20 +297,20 @@ public:
         });
 
         testCase("import: existing file yields its parent directory", [&] {
-            auto dir = makeScratchDir("import-file");
-            auto file = dir.getChildFile("in.mid");
+            devpiano::test::ScopedTempDir tempDir("import-file");
+            auto file = tempDir.getChildFile("in.mid");
             file.replaceWithText("x");
 
             SettingsModel settings;
             settings.lastMidiImportPath = file.getFullPathName();
-            expectEquals(getLastMidiImportDirectory(settings).getFullPathName(), dir.getFullPathName());
+            expectEquals(getLastMidiImportDirectory(settings).getFullPathName(), tempDir.get().getFullPathName());
         });
 
         testCase("import: missing path yields an empty file", [&] {
-            auto dir = makeScratchDir("import-stale");
+            devpiano::test::ScopedTempDir tempDir("import-stale");
 
             SettingsModel settings;
-            settings.lastMidiImportPath = dir.getChildFile("gone.mid").getFullPathName();
+            settings.lastMidiImportPath = tempDir.getChildFile("gone.mid").getFullPathName();
             expect(getLastMidiImportDirectory(settings) == juce::File());
         });
 
