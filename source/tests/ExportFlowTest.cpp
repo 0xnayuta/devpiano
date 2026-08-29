@@ -369,6 +369,16 @@ public:
                     expectEquals(reader->sampleRate, 48000.0);
                     expectEquals(static_cast<int>(reader->numChannels), 2);
                     expect(reader->lengthInSamples >= 48000 * 2);
+
+                    // Read samples and verify non-silent audio signal
+                    juce::AudioBuffer<float> buffer(2, static_cast<int>(reader->lengthInSamples));
+                    reader->read(&buffer, 0, static_cast<int>(reader->lengthInSamples), 0, true, true);
+
+                    float maxMagnitude = 0.0f;
+                    for (int ch = 0; ch < buffer.getNumChannels(); ++ch) {
+                        maxMagnitude = std::max(maxMagnitude, buffer.getMagnitude(ch, 0, buffer.getNumSamples()));
+                    }
+                    expect(maxMagnitude > 0.01f, "exported sine WAV should contain audible signal");
                 }
             }
         });

@@ -325,8 +325,14 @@ public:
                 opts.channelStrategy = MidiChannelMappingStrategy::forceTrackToChannel;
                 auto res = MidiTrackMergeEngine::mergeTracks(file, 48000.0, opts);
                 expect(res.has_value());
-                expectEquals(res->take.events[0].message.getChannel(), 1);
-                expectEquals(res->take.events[1].message.getChannel(), 2);
+                if (res.has_value() && res->take.events.size() >= 4) {
+                    // Events from track 0 (mapped to Ch 1)
+                    expectEquals(res->take.events[0].message.getChannel(), 1); // noteOn
+                    expectEquals(res->take.events[2].message.getChannel(), 1); // noteOff
+                    // Events from track 1 (mapped to Ch 2)
+                    expectEquals(res->take.events[1].message.getChannel(), 2); // noteOn
+                    expectEquals(res->take.events[3].message.getChannel(), 2); // noteOff
+                }
             }
         });
 
@@ -459,22 +465,26 @@ public:
 
             auto loadedTake = loadPerformanceFile(performanceFile);
             expect(loadedTake.has_value());
-            expectEquals(loadedTake->sampleRate, importRes->take.sampleRate);
-            expectEquals(loadedTake->lengthSamples, importRes->take.lengthSamples);
-            expectEquals(loadedTake->events.size(), importRes->take.events.size());
+            if (loadedTake.has_value()) {
+                expectEquals(loadedTake->sampleRate, importRes->take.sampleRate);
+                expectEquals(loadedTake->lengthSamples, importRes->take.lengthSamples);
+                expectEquals(loadedTake->events.size(), importRes->take.events.size());
 
-            for (size_t i = 0; i < loadedTake->events.size(); ++i) {
-                expectEquals(loadedTake->events[i].timestampSamples, importRes->take.events[i].timestampSamples);
-                expectEquals(loadedTake->events[i].message.getChannel(),
-                             importRes->take.events[i].message.getChannel());
-                expectEquals(loadedTake->events[i].message.getNoteNumber(),
-                             importRes->take.events[i].message.getNoteNumber());
+                for (size_t i = 0; i < loadedTake->events.size(); ++i) {
+                    expectEquals(loadedTake->events[i].timestampSamples, importRes->take.events[i].timestampSamples);
+                    expectEquals(loadedTake->events[i].message.getChannel(),
+                                 importRes->take.events[i].message.getChannel());
+                    expectEquals(loadedTake->events[i].message.getNoteNumber(),
+                                 importRes->take.events[i].message.getNoteNumber());
+                }
             }
 
             auto loadedMeta = loadPerformanceFileMetadata(performanceFile);
             expect(loadedMeta.has_value());
-            expectEquals(loadedMeta->title, meta.title);
-            expectEquals(loadedMeta->notes, meta.notes);
+            if (loadedMeta.has_value()) {
+                expectEquals(loadedMeta->title, meta.title);
+                expectEquals(loadedMeta->notes, meta.notes);
+            }
         });
     }
 };

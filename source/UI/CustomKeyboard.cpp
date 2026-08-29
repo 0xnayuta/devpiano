@@ -76,7 +76,9 @@ void CustomKeyboard::setAvailableRange(int low, int high) {
 
 void CustomKeyboard::setKeyboardLayout(const devpiano::core::KeyboardLayout& layout) {
     // Reset per-key data
-    perKeyChannel.fill(0);
+    for (auto& ch : perKeyChannel) {
+        ch.store(0);
+    }
     perKeyVelocity.fill(1.0f);
 
     // Reverse-map: for each piano key (MIDI note), find the computer-key binding
@@ -92,7 +94,7 @@ void CustomKeyboard::setKeyboardLayout(const devpiano::core::KeyboardLayout& lay
         }
 
         auto idx = static_cast<std::size_t>(note);
-        perKeyChannel[idx] = static_cast<uint8_t>(binding.action.midiChannel - 1);
+        perKeyChannel[idx].store(static_cast<uint8_t>(binding.action.midiChannel - 1));
         perKeyVelocity[idx] = binding.action.velocity;
     }
 
@@ -594,7 +596,7 @@ void CustomKeyboard::timerCallback() {
                 case devpiano::ui::KeyColourMode::channel:
                     if (k.midiNote >= 0 && k.midiNote < 128) {
                         auto idx = static_cast<std::size_t>(k.midiNote);
-                        auto ch = perKeyChannel[idx] % 16;
+                        auto ch = perKeyChannel[idx].load() % 16;
                         k.colour1 = juce::Colour::fromHSV(channelHues[ch] / 360.0f, 0.7f, 1.0f, k.fade);
                     }
                     break;
@@ -639,7 +641,7 @@ void CustomKeyboard::handleNoteOn(juce::MidiKeyboardState*, int midiChannel, int
             perKeyVelocity[static_cast<std::size_t>(midiNoteNumber)] = velocity;
         }
         if (midiChannel >= 1 && midiChannel <= 16) {
-            perKeyChannel[static_cast<std::size_t>(midiNoteNumber)] = static_cast<uint8_t>(midiChannel - 1);
+            perKeyChannel[static_cast<std::size_t>(midiNoteNumber)].store(static_cast<uint8_t>(midiChannel - 1));
         }
     }
     ensureTimerRunning();

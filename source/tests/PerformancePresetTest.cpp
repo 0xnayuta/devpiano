@@ -51,6 +51,18 @@ void expectPresetsEqual(juce::UnitTest& ut, const PerformancePreset& a, const Pe
     ut.expectEquals(a.layout.id, b.layout.id);
     ut.expectEquals(a.layout.name, b.layout.name);
     ut.expectEquals(a.layout.bindings.size(), b.layout.bindings.size());
+    if (a.layout.bindings.size() == b.layout.bindings.size()) {
+        for (std::size_t i = 0; i < a.layout.bindings.size(); ++i) {
+            ut.expectEquals(a.layout.bindings[i].keyCode, b.layout.bindings[i].keyCode);
+            ut.expectEquals(a.layout.bindings[i].displayText, b.layout.bindings[i].displayText);
+            ut.expect(a.layout.bindings[i].action.type == b.layout.bindings[i].action.type);
+            ut.expect(a.layout.bindings[i].action.trigger == b.layout.bindings[i].action.trigger);
+            ut.expectEquals(a.layout.bindings[i].action.midiNote, b.layout.bindings[i].action.midiNote);
+            ut.expectEquals(a.layout.bindings[i].action.midiChannel, b.layout.bindings[i].action.midiChannel);
+            ut.expectWithinAbsoluteError(a.layout.bindings[i].action.velocity, b.layout.bindings[i].action.velocity,
+                                         0.0001f);
+        }
+    }
 
     ut.expect(a.channelMatrix.active == b.channelMatrix.active);
     for (std::size_t i = 0; i < 16; ++i) {
