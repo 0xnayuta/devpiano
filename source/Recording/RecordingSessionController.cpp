@@ -484,16 +484,22 @@ void RecordingSessionController::runExportRecordingFlow(devpiano::exporting::Exp
         });
 }
 
-std::optional<RecordingTake> RecordingSessionController::tryImportMidiFile(const juce::File& file) const {
+std::optional<RecordingTake> RecordingSessionController::tryImportMidiFile(const juce::File& file) {
     const auto sampleRate = getCurrentRuntimeSampleRate();
-    auto take = devpiano::recording::importMidiFile(file, sampleRate);
+    auto result = devpiano::recording::importMidiFileWithMetadata(file, sampleRate);
 
-    if (!take.has_value() || take->isEmpty()) {
+    if (!result.has_value() || result->take.isEmpty()) {
         DP_LOG_ERROR("[MIDI Import] import failed or produced empty take: " + file.getFullPathName());
         return std::nullopt;
     }
 
-    return take;
+    if (result->metadata.songTitle.isNotEmpty()) {
+        recordingSession.currentMetadata.title = result->metadata.songTitle;
+    } else {
+        recordingSession.currentMetadata.title = file.getFileNameWithoutExtension();
+    }
+
+    return std::move(result->take);
 }
 
 void RecordingSessionController::replaceTakeAndStartPlayback(RecordingTake take) {

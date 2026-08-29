@@ -26,12 +26,8 @@ bool readMidiFile(juce::MidiFile& midiFile, const juce::File& file) {
 
 namespace devpiano::recording {
 
-std::optional<RecordingTake> importMidiFile(const juce::File& midiFile, double targetSampleRate) {
-    return importMidiFile(midiFile, targetSampleRate, MidiImportOptions {});
-}
-
-std::optional<RecordingTake> importMidiFile(const juce::File& midiFile, double targetSampleRate,
-                                            const MidiImportOptions& options) {
+std::optional<MidiTrackMergeResult> importMidiFileWithMetadata(const juce::File& midiFile, double targetSampleRate,
+                                                               const MidiImportOptions& options) {
     if (!midiFile.exists()) {
         DP_LOG_ERROR("MidiFileImporter: file does not exist: " + midiFile.getFullPathName());
         return std::nullopt;
@@ -77,10 +73,23 @@ std::optional<RecordingTake> importMidiFile(const juce::File& midiFile, double t
 
     DP_LOG_INFO("MidiFileImporter: successfully imported " + midiFile.getFileName() + " ("
                 + juce::String(mergeResult->stats.mergedEventCount) + " events, "
-                + juce::String(mergeResult->stats.durationSeconds, 2)
-                + "s, tracks=" + juce::String(mergeResult->stats.trackCount) + ")");
+                + juce::String(mergeResult->stats.durationSeconds, 2) + "s, tracks="
+                + juce::String(mergeResult->stats.trackCount) + ") | " + mergeResult->metadata.formatSummary());
 
-    return std::move(mergeResult->take);
+    return mergeResult;
+}
+
+std::optional<RecordingTake> importMidiFile(const juce::File& midiFile, double targetSampleRate) {
+    return importMidiFile(midiFile, targetSampleRate, MidiImportOptions {});
+}
+
+std::optional<RecordingTake> importMidiFile(const juce::File& midiFile, double targetSampleRate,
+                                            const MidiImportOptions& options) {
+    auto result = importMidiFileWithMetadata(midiFile, targetSampleRate, options);
+    if (!result.has_value()) {
+        return std::nullopt;
+    }
+    return std::move(result->take);
 }
 
 } // namespace devpiano::recording

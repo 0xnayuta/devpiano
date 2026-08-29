@@ -5,11 +5,61 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <map>
 #include <set>
 #include <vector>
 
 namespace devpiano::recording {
 
+// ============================================================================
+// MidiKeySignature formatting
+// ============================================================================
+juce::String MidiKeySignature::toString() const {
+    static const char* majorKeys[] = {
+        "Cb", "Gb", "Db", "Ab", "Eb", "Bb", "F", // -7 .. -1
+        "C", // 0
+        "G",  "D",  "A",  "E",  "B",  "F#", "C#" // +1 .. +7
+    };
+    static const char* minorKeys[] = {
+        "Ab", "Eb", "Bb", "F",  "C",  "G",  "D", // -7 .. -1
+        "A", // 0
+        "E",  "B",  "F#", "C#", "G#", "D#", "A#" // +1 .. +7
+    };
+
+    const int clamped = juce::jlimit(-7, 7, sharpsOrFlats);
+    const int index = clamped + 7;
+
+    if (isMinor) {
+        return juce::String(minorKeys[index]) + " minor";
+    }
+    return juce::String(majorKeys[index]) + " major";
+}
+
+// ============================================================================
+// MidiFileMetadata formatting
+// ============================================================================
+juce::String MidiFileMetadata::formatSummary() const {
+    juce::String summary;
+    if (songTitle.isNotEmpty()) {
+        summary += "Title: \"" + songTitle + "\", ";
+    }
+    summary += "Tracks: " + juce::String(static_cast<int>(tracks.size())) + ", ";
+    summary += "Initial BPM: " + juce::String(initialBpm, 1);
+    if (std::abs(maxBpm - minBpm) > 0.1) {
+        summary += " (range " + juce::String(minBpm, 1) + "-" + juce::String(maxBpm, 1) + ")";
+    }
+    if (initialTimeSignature.has_value()) {
+        summary += ", TimeSig: " + initialTimeSignature->toString();
+    }
+    if (initialKeySignature.has_value()) {
+        summary += ", Key: " + initialKeySignature->toString();
+    }
+    return summary;
+}
+
+// ============================================================================
+// Event priority
+// ============================================================================
 int MidiTrackMergeEngine::getMidiEventPriority(const juce::MidiMessage& message) noexcept {
     if (message.isProgramChange()) {
         return 1;
@@ -31,7 +81,11 @@ namespace {
 struct TrackInspection {
     int trackIndex = -1;
     int noteCount = 0;
+    juce::String trackName;
+    juce::String textMeta;
+    juce::String instrumentName;
     std::set<int> channelsPresent;
+    int primaryChannel = 1;
 };
 
 std::vector<TrackInspection> inspectTracks(const juce::MidiFile& midiFile) {
@@ -49,6 +103,8 @@ std::vector<TrackInspection> inspectTracks(const juce::MidiFile& midiFile) {
             continue;
         }
 
+        std::map<int, int> channelNoteHistogram;
+
         for (int i = 0; i < track->getNumEvents(); ++i) {
             const auto* eventPtr = track->getEventPointer(i);
             if (eventPtr == nullptr) {
@@ -56,11 +112,26 @@ std::vector<TrackInspection> inspectTracks(const juce::MidiFile& midiFile) {
             }
 
             const auto& msg = eventPtr->message;
+            if (msg.isTrackNameEvent() && insp.trackName.isEmpty()) {
+                insp.trackName = msg.getTextFromTextMetaEvent().trim();
+            } else if (msg.isTextMetaEvent() && insp.textMeta.isEmpty()) {
+                insp.textMeta = msg.getTextFromTextMetaEvent().trim();
+            }
+
             if (msg.isNoteOn(true) || msg.isNoteOff(true)) {
                 ++insp.noteCount;
                 if (msg.getChannel() > 0) {
                     insp.channelsPresent.insert(msg.getChannel());
+                    ++channelNoteHistogram[msg.getChannel()];
                 }
+            }
+        }
+
+        int maxChannelCount = 0;
+        for (const auto& [ch, count] : channelNoteHistogram) {
+            if (count > maxChannelCount) {
+                maxChannelCount = count;
+                insp.primaryChannel = ch;
             }
         }
 
@@ -138,6 +209,44 @@ std::optional<MidiTrackMergeResult> MidiTrackMergeEngine::mergeTracks(const juce
                     + ", distinctChannels=" + juce::String(static_cast<int>(allDistinctChannels.size())) + ")");
     }
 
+    MidiFileMetadata metadata;
+    metadata.tracks.reserve(static_cast<std::size_t>(numTracks));
+
+    // Build track metadata info list
+    for (int t = 0; t < numTracks; ++t) {
+        const auto& insp = trackInspections[static_cast<std::size_t>(t)];
+        const auto targetChannel = remapChannels ? ((t % 16) + 1) : insp.primaryChannel;
+
+        MidiTrackInfo info;
+        info.trackIndex = t;
+        info.trackName = insp.trackName;
+        info.noteCount = insp.noteCount;
+        info.primaryChannel = insp.primaryChannel;
+        info.assignedChannel = targetChannel;
+
+        metadata.tracks.push_back(std::move(info));
+    }
+
+    // Song title extraction heuristic:
+    // 1. Prefer Track 0 text meta (Meta 1 Sequence/Song Title) or track name (Meta 3)
+    // 2. Otherwise fall back to first non-empty text meta or track name across tracks
+    if (numTracks > 0 && !trackInspections[0].textMeta.isEmpty()) {
+        metadata.songTitle = trackInspections[0].textMeta;
+    } else if (numTracks > 0 && !trackInspections[0].trackName.isEmpty()) {
+        metadata.songTitle = trackInspections[0].trackName;
+    } else {
+        for (const auto& insp : trackInspections) {
+            if (!insp.textMeta.isEmpty()) {
+                metadata.songTitle = insp.textMeta;
+                break;
+            }
+            if (!insp.trackName.isEmpty()) {
+                metadata.songTitle = insp.trackName;
+                break;
+            }
+        }
+    }
+
     MidiTrackMergeStats stats;
     stats.trackCount = numTracks;
 
@@ -169,6 +278,33 @@ std::optional<MidiTrackMergeResult> MidiTrackMergeEngine::mergeTracks(const juce
             }
 
             auto midiMsg = eventPtr->message;
+            const auto timestampSeconds = midiMsg.getTimeStamp();
+
+            // Meta event parsing
+            if (midiMsg.isMetaEvent()) {
+                if (midiMsg.isTempoMetaEvent()) {
+                    const auto secondsPerQuarter = midiMsg.getTempoSecondsPerQuarterNote();
+                    if (secondsPerQuarter > 0.0) {
+                        const auto bpm = 60.0 / secondsPerQuarter;
+                        const auto tsSamples = std::max<int64_t>(
+                            0, static_cast<int64_t>(std::round(std::max(0.0, timestampSeconds) * targetSampleRate)));
+
+                        MidiTempoEvent tempoEv;
+                        tempoEv.timestampSamples = tsSamples;
+                        tempoEv.timestampSeconds = std::max(0.0, timestampSeconds);
+                        tempoEv.bpm = bpm;
+                        metadata.tempoMap.push_back(tempoEv);
+                    }
+                } else if (midiMsg.isTimeSignatureMetaEvent() && !metadata.initialTimeSignature.has_value()) {
+                    int num = 4, denom = 4;
+                    midiMsg.getTimeSignatureInfo(num, denom);
+                    metadata.initialTimeSignature = MidiTimeSignature { num, denom };
+                } else if (midiMsg.isKeySignatureMetaEvent() && !metadata.initialKeySignature.has_value()) {
+                    const auto sharpsFlats = midiMsg.getKeySignatureNumberOfSharpsOrFlats();
+                    const auto isMinor = !midiMsg.isKeySignatureMajorKey();
+                    metadata.initialKeySignature = MidiKeySignature { sharpsFlats, isMinor };
+                }
+            }
 
             const bool isRawNoteOn = midiMsg.isNoteOn(true);
             const bool isZeroVelocityNoteOn = isRawNoteOn && midiMsg.getVelocity() == 0;
@@ -198,7 +334,6 @@ std::optional<MidiTrackMergeResult> MidiTrackMergeEngine::mergeTracks(const juce
                 }
             }
 
-            const auto timestampSeconds = midiMsg.getTimeStamp();
             if (timestampSeconds < 0.0) {
                 continue;
             }
@@ -218,6 +353,23 @@ std::optional<MidiTrackMergeResult> MidiTrackMergeEngine::mergeTracks(const juce
             ev.message = midiMsg;
 
             mergedEvents.push_back(std::move(ev));
+        }
+    }
+
+    // Process tempo map bounds
+    if (!metadata.tempoMap.empty()) {
+        std::sort(metadata.tempoMap.begin(), metadata.tempoMap.end(),
+                  [](const MidiTempoEvent& a, const MidiTempoEvent& b) noexcept {
+                      return a.timestampSamples < b.timestampSamples;
+                  });
+
+        metadata.initialBpm = metadata.tempoMap.front().bpm;
+        metadata.minBpm = metadata.tempoMap.front().bpm;
+        metadata.maxBpm = metadata.tempoMap.front().bpm;
+
+        for (const auto& tempo : metadata.tempoMap) {
+            metadata.minBpm = std::min(metadata.minBpm, tempo.bpm);
+            metadata.maxBpm = std::max(metadata.maxBpm, tempo.bpm);
         }
     }
 
@@ -243,14 +395,15 @@ std::optional<MidiTrackMergeResult> MidiTrackMergeEngine::mergeTracks(const juce
                 + juce::String(numTracks) + " tracks (" + juce::String(stats.noteOnCount) + " note-on, "
                 + juce::String(stats.noteOffCount) + " note-off, " + juce::String(stats.ccCount) + " CC, "
                 + juce::String(stats.pitchBendCount) + " pitch-bend, " + juce::String(stats.programChangeCount)
-                + " program-change), duration=" + juce::String(stats.durationSeconds, 2) + "s");
+                + " program-change), duration=" + juce::String(stats.durationSeconds, 2) + "s | "
+                + metadata.formatSummary());
 
     RecordingTake take;
     take.sampleRate = targetSampleRate;
     take.lengthSamples = maxTimestampSamples;
     take.events = std::move(mergedEvents);
 
-    return MidiTrackMergeResult { std::move(take), stats };
+    return MidiTrackMergeResult { std::move(take), stats, std::move(metadata) };
 }
 
 } // namespace devpiano::recording

@@ -318,6 +318,101 @@ public:
                 expectEquals(res->take.events[1].message.getChannel(), 2);
             }
         });
+
+        testCase("meta parsing: time signature, key signature, tempo map, song title, and track names", [&] {
+            juce::MidiFile file;
+
+            // Track 0: Song title text, tempo changes, time signature, key signature
+            juce::MidiMessageSequence track0;
+            track0.addEvent(juce::MidiMessage::textMetaEvent(1, "Sonata in C Major"), 0.0);
+            // 140 BPM = 60 / 140 = 0.428571s per quarter -> 428571 microseconds
+            track0.addEvent(juce::MidiMessage::tempoMetaEvent(428571), 0.0);
+            // 160 BPM = 60 / 160 = 0.375s per quarter -> 375000 microseconds at 1.0s
+            track0.addEvent(juce::MidiMessage::tempoMetaEvent(375000), 1.0);
+            track0.addEvent(juce::MidiMessage::timeSignatureMetaEvent(3, 4), 0.0);
+            track0.addEvent(juce::MidiMessage::keySignatureMetaEvent(1, false), 0.0); // 1 sharp = G major
+            file.addTrack(track0);
+
+            // Track 1: Right hand with track name
+            juce::MidiMessageSequence track1;
+            track1.addEvent(juce::MidiMessage::textMetaEvent(3, "Piano Right Hand"), 0.0); // Meta 3 = track name
+            track1.addEvent(juce::MidiMessage::noteOn(1, 72, (juce::uint8)100), 0.1);
+            track1.addEvent(juce::MidiMessage::noteOff(1, 72, (juce::uint8)0), 0.5);
+            file.addTrack(track1);
+
+            // Track 2: Left hand with track name
+            juce::MidiMessageSequence track2;
+            track2.addEvent(juce::MidiMessage::textMetaEvent(3, "Piano Left Hand"), 0.0);
+            track2.addEvent(juce::MidiMessage::noteOn(1, 48, (juce::uint8)90), 0.1);
+            track2.addEvent(juce::MidiMessage::noteOff(1, 48, (juce::uint8)0), 0.5);
+            file.addTrack(track2);
+
+            auto res = MidiTrackMergeEngine::mergeTracks(file, 48000.0);
+            expect(res.has_value());
+            const auto& meta = res->metadata;
+
+            expectEquals(meta.songTitle, juce::String("Sonata in C Major"));
+            expect(meta.initialTimeSignature.has_value());
+            expectEquals(meta.initialTimeSignature->numerator, 3);
+            expectEquals(meta.initialTimeSignature->denominator, 4);
+            expectEquals(meta.initialTimeSignature->toString(), juce::String("3/4"));
+
+            expect(meta.initialKeySignature.has_value());
+            expectEquals(meta.initialKeySignature->sharpsOrFlats, 1);
+            expect(!meta.initialKeySignature->isMinor);
+            expectEquals(meta.initialKeySignature->toString(), juce::String("G major"));
+
+            expectEquals(meta.tempoMap.size(), size_t(2));
+            expectWithinAbsoluteError(meta.initialBpm, 140.0, 0.5);
+            expectWithinAbsoluteError(meta.minBpm, 140.0, 0.5);
+            expectWithinAbsoluteError(meta.maxBpm, 160.0, 0.5);
+
+            expectEquals(meta.tracks.size(), size_t(3));
+            expectEquals(meta.tracks[1].trackName, juce::String("Piano Right Hand"));
+            expectEquals(meta.tracks[2].trackName, juce::String("Piano Left Hand"));
+
+            const auto summary = meta.formatSummary();
+            expect(summary.contains("Sonata in C Major"), "Summary should contain song title");
+            expect(summary.contains("3/4"), "Summary should contain time signature");
+            expect(summary.contains("G major"), "Summary should contain key signature");
+        });
+
+        testCase("key signature string formatting for major and minor keys", [&] {
+            using devpiano::recording::MidiKeySignature;
+
+            expectEquals(MidiKeySignature { 0, false }.toString(), juce::String("C major"));
+            expectEquals(MidiKeySignature { 1, false }.toString(), juce::String("G major"));
+            expectEquals(MidiKeySignature { 7, false }.toString(), juce::String("C# major"));
+            expectEquals(MidiKeySignature { -1, false }.toString(), juce::String("F major"));
+            expectEquals(MidiKeySignature { -7, false }.toString(), juce::String("Cb major"));
+
+            expectEquals(MidiKeySignature { 0, true }.toString(), juce::String("A minor"));
+            expectEquals(MidiKeySignature { 1, true }.toString(), juce::String("E minor"));
+            expectEquals(MidiKeySignature { 7, true }.toString(), juce::String("A# minor"));
+            expectEquals(MidiKeySignature { -1, true }.toString(), juce::String("D minor"));
+            expectEquals(MidiKeySignature { -7, true }.toString(), juce::String("Ab minor"));
+        });
+
+        testCase("autoAssignIfSingleChannel preserves existing distinct channels", [&] {
+            juce::MidiFile file;
+
+            // Track 0 has notes on Ch 1
+            juce::MidiMessageSequence track0;
+            track0.addEvent(juce::MidiMessage::noteOn(1, 60, (juce::uint8)80), 0.1);
+            file.addTrack(track0);
+
+            // Track 1 has notes on Ch 2 (already distinct)
+            juce::MidiMessageSequence track1;
+            track1.addEvent(juce::MidiMessage::noteOn(2, 64, (juce::uint8)80), 0.2);
+            file.addTrack(track1);
+
+            MidiTrackMergeOptions opts;
+            opts.channelStrategy = MidiChannelMappingStrategy::autoAssignIfSingleChannel;
+            auto res = MidiTrackMergeEngine::mergeTracks(file, 48000.0, opts);
+            expect(res.has_value());
+            expectEquals(res->take.events[0].message.getChannel(), 1);
+            expectEquals(res->take.events[1].message.getChannel(), 2);
+        });
     }
 };
 

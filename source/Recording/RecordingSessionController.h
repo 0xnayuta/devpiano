@@ -86,7 +86,7 @@ private:
                            const juce::String& filePattern, std::unique_ptr<juce::FileChooser>& chooser,
                            std::function<std::optional<RecordingTake>(const juce::File&)> loadTake);
 
-    [[nodiscard]] std::optional<RecordingTake> tryImportMidiFile(const juce::File& file) const;
+    [[nodiscard]] std::optional<RecordingTake> tryImportMidiFile(const juce::File& file);
     void replaceTakeAndStartPlayback(RecordingTake take);
 
     MainComponent& owner;
