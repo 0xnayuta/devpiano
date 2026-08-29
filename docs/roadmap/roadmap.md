@@ -220,7 +220,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 详细完成记录见 [`../archive/phase25-linux-desktop-and-audio-path.md`](../archive/phase25-linux-desktop-and-audio-path.md)。
 
-### Phase 26：MIDI 多轨并轨与综合时间线合并（MIDI Multi-Track Timeline Merge） [当前进行中]
+### Phase 26：MIDI 多轨并轨与综合时间线合并（MIDI Multi-Track Timeline Merge） [已完成，2026-08-29]
 
 1. **`MidiTrackMergeEngine` 多轨时间线精准合并内核**：实现统一多轨合并引擎，支持跨音轨 Tempo/Conductor、Meta、CC 与 Note 事件按绝对时间戳（`timestampSamples`）精准稳定归并；
 2. **多轨通道智能策略与元数据解析**：支持原始通道保持（Pass-through）与音轨转通道自动重映射（Track-to-Channel Auto-Assignment），提取并整合乐曲标题、音轨名、Tempo Map 与调号拍号；

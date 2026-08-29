@@ -2,6 +2,7 @@
 
 #include "Recording/MidiFileImporter.h"
 #include "Recording/MidiTrackMergeEngine.h"
+#include "Recording/PerformanceFile.h"
 #include "Recording/RecordingEngine.h"
 
 // =============================================================================
@@ -416,4 +417,62 @@ public:
     }
 };
 
+// =============================================================================
+
+class MultiTrackPerformanceFileRoundTripTest : public juce::UnitTest {
+public:
+    MultiTrackPerformanceFileRoundTripTest()
+        : juce::UnitTest("MultiTrackPerformanceFileRoundTrip", "DevPiano/Recording") {
+    }
+
+    void runTest() override {
+        using devpiano::recording::importMidiFileWithMetadata;
+        using devpiano::recording::loadPerformanceFile;
+        using devpiano::recording::loadPerformanceFileMetadata;
+        using devpiano::recording::PerformanceFileMetadata;
+        using devpiano::recording::savePerformanceFile;
+
+        testCase("multi-track imported take and metadata round-trips via .devpiano file", [&] {
+            auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
+                               .getChildFile("devpiano-multitrack-test-"
+                                             + juce::String(juce::Random::getSystemRandom().nextInt64()));
+            tempDir.createDirectory();
+            const auto performanceFile = tempDir.getChildFile("multitrack.devpiano");
+
+            auto importRes = importMidiFileWithMetadata(juce::File(getFixturePath("multitrack-basic.mid")), 48000.0);
+            expect(importRes.has_value());
+            expect(!importRes->take.isEmpty());
+
+            PerformanceFileMetadata meta;
+            meta.title = importRes->metadata.songTitle.isNotEmpty() ? importRes->metadata.songTitle : "Multitrack Song";
+            meta.notes = "Multi-track imported take test note";
+
+            expect(savePerformanceFile(importRes->take, performanceFile, meta), "save must succeed");
+            expect(performanceFile.existsAsFile());
+
+            auto loadedTake = loadPerformanceFile(performanceFile);
+            expect(loadedTake.has_value());
+            expectEquals(loadedTake->sampleRate, importRes->take.sampleRate);
+            expectEquals(loadedTake->lengthSamples, importRes->take.lengthSamples);
+            expectEquals(loadedTake->events.size(), importRes->take.events.size());
+
+            for (size_t i = 0; i < loadedTake->events.size(); ++i) {
+                expectEquals(loadedTake->events[i].timestampSamples, importRes->take.events[i].timestampSamples);
+                expectEquals(loadedTake->events[i].message.getChannel(),
+                             importRes->take.events[i].message.getChannel());
+                expectEquals(loadedTake->events[i].message.getNoteNumber(),
+                             importRes->take.events[i].message.getNoteNumber());
+            }
+
+            auto loadedMeta = loadPerformanceFileMetadata(performanceFile);
+            expect(loadedMeta.has_value());
+            expectEquals(loadedMeta->title, meta.title);
+            expectEquals(loadedMeta->notes, meta.notes);
+
+            tempDir.deleteRecursively();
+        });
+    }
+};
+
+static MultiTrackPerformanceFileRoundTripTest multiTrackPerformanceFileRoundTripTest;
 static MidiTrackMergeEngineTest midiTrackMergeEngineTest;

@@ -276,4 +276,111 @@ public:
     }
 };
 
+// -----------------------------------------------------------------------------
+
+class MultiTrackWavExportTest final : public juce::UnitTest {
+public:
+    MultiTrackWavExportTest()
+        : juce::UnitTest("Export: Multi-Track WAV offline export", "DevPiano/Recording") {
+    }
+
+    void runTest() override {
+        testCase("multi-track multi-channel take renders non-silent WAV with piano and sine tone", [&] {
+            auto dir = makeScratchDir("multitrack-wav-export");
+            const auto pianoWavPath = dir.getChildFile("multitrack_piano.wav");
+            const auto sineWavPath = dir.getChildFile("multitrack_sine.wav");
+
+            // Build a multi-track multi-channel take
+            RecordingTake multiTrackTake;
+            multiTrackTake.sampleRate = 48000.0;
+            multiTrackTake.lengthSamples = 48000 * 2; // 2 seconds
+
+            // Track 1 / Channel 1: Right hand melody
+            multiTrackTake.events.push_back({ 0, PerformanceEventType::midi, 0, RecordingEventSource::playback,
+                                              juce::MidiMessage::noteOn(1, 72, 0.85f) });
+            multiTrackTake.events.push_back({ 24000, PerformanceEventType::midi, 0, RecordingEventSource::playback,
+                                              juce::MidiMessage::noteOff(1, 72, 0.0f) });
+            multiTrackTake.events.push_back({ 24000, PerformanceEventType::midi, 0, RecordingEventSource::playback,
+                                              juce::MidiMessage::noteOn(1, 76, 0.85f) });
+            multiTrackTake.events.push_back({ 48000 * 2, PerformanceEventType::midi, 0, RecordingEventSource::playback,
+                                              juce::MidiMessage::noteOff(1, 76, 0.0f) });
+
+            // Track 2 / Channel 2: Left hand chords + CC64 sustain
+            multiTrackTake.events.push_back({ 0, PerformanceEventType::midi, 0, RecordingEventSource::playback,
+                                              juce::MidiMessage::controllerEvent(2, 64, 127) });
+            multiTrackTake.events.push_back({ 0, PerformanceEventType::midi, 0, RecordingEventSource::playback,
+                                              juce::MidiMessage::noteOn(2, 48, 0.75f) });
+            multiTrackTake.events.push_back({ 0, PerformanceEventType::midi, 0, RecordingEventSource::playback,
+                                              juce::MidiMessage::noteOn(2, 55, 0.70f) });
+            multiTrackTake.events.push_back({ 48000 * 2, PerformanceEventType::midi, 0, RecordingEventSource::playback,
+                                              juce::MidiMessage::noteOff(2, 48, 0.0f) });
+            multiTrackTake.events.push_back({ 48000 * 2, PerformanceEventType::midi, 0, RecordingEventSource::playback,
+                                              juce::MidiMessage::noteOff(2, 55, 0.0f) });
+
+            // 1. Export with Piano Synth Voice
+            {
+                WavExportOptions pianoOptions;
+                pianoOptions.sampleRate = 48000.0;
+                pianoOptions.blockSize = 512;
+                pianoOptions.masterGain = 0.8f;
+                pianoOptions.builtinTone = SettingsModel::BuiltinTone::piano;
+                pianoOptions.pianoBrightness = 0.6f;
+                pianoOptions.pianoHammerHardness = 0.5f;
+                pianoOptions.pianoResonance = 0.6f;
+
+                expect(exportTakeAsWavFile(multiTrackTake, pianoWavPath, pianoOptions), "piano export must succeed");
+                expect(pianoWavPath.existsAsFile());
+
+                juce::WavAudioFormat wavFormat;
+                std::unique_ptr<juce::AudioFormatReader> reader(
+                    wavFormat.createReaderFor(new juce::FileInputStream(pianoWavPath), false));
+                expect(reader != nullptr);
+                if (reader != nullptr) {
+                    expectEquals(reader->sampleRate, 48000.0);
+                    expectEquals(static_cast<int>(reader->numChannels), 2);
+                    expect(reader->lengthInSamples >= 48000 * 2);
+
+                    juce::AudioBuffer<float> buf(static_cast<int>(reader->numChannels), 4096);
+                    float peak = 0.0f;
+                    std::int64_t pos = 0;
+                    while (pos < reader->lengthInSamples) {
+                        const auto count
+                            = static_cast<int>(std::min<std::int64_t>(4096, reader->lengthInSamples - pos));
+                        reader->read(&buf, 0, count, pos, true, true);
+                        for (int c = 0; c < buf.getNumChannels(); ++c) {
+                            peak = std::max(peak, buf.getMagnitude(c, 0, count));
+                        }
+                        pos += count;
+                    }
+                    expect(peak > 0.01f, "rendered piano audio must contain audible signal");
+                }
+            }
+
+            // 2. Export with Sine Synth Voice
+            {
+                WavExportOptions sineOptions;
+                sineOptions.sampleRate = 48000.0;
+                sineOptions.blockSize = 512;
+                sineOptions.masterGain = 0.8f;
+                sineOptions.builtinTone = SettingsModel::BuiltinTone::sine;
+                sineOptions.adsr = { 0.01f, 0.2f, 0.8f, 0.3f };
+
+                expect(exportTakeAsWavFile(multiTrackTake, sineWavPath, sineOptions), "sine export must succeed");
+                expect(sineWavPath.existsAsFile());
+
+                juce::WavAudioFormat wavFormat;
+                std::unique_ptr<juce::AudioFormatReader> reader(
+                    wavFormat.createReaderFor(new juce::FileInputStream(sineWavPath), false));
+                expect(reader != nullptr);
+                if (reader != nullptr) {
+                    expectEquals(reader->sampleRate, 48000.0);
+                    expectEquals(static_cast<int>(reader->numChannels), 2);
+                    expect(reader->lengthInSamples >= 48000 * 2);
+                }
+            }
+        });
+    }
+};
+
+static MultiTrackWavExportTest multiTrackWavExportTest;
 static WavExportRoundTripTest wavExportRoundTripTest;
