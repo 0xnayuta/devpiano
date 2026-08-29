@@ -197,8 +197,8 @@ std::optional<MidiTrackMergeResult> MidiTrackMergeEngine::mergeTracks(const juce
     }
 
     const bool shouldAutoAssignChannels
-        = (options.channelStrategy == MidiChannelMappingStrategy::autoAssignIfSingleChannel && tracksWithNotes > 1
-           && allDistinctChannels.size() <= 1);
+        = (!options.singleTrackOnly && options.channelStrategy == MidiChannelMappingStrategy::autoAssignIfSingleChannel
+           && tracksWithNotes > 1 && allDistinctChannels.size() <= 1);
     const bool forceTrackToChannel = (options.channelStrategy == MidiChannelMappingStrategy::forceTrackToChannel);
     const bool remapChannels = shouldAutoAssignChannels || forceTrackToChannel;
 

@@ -334,6 +334,20 @@ public:
                     expectEquals(res->take.events[3].message.getChannel(), 2); // noteOff
                 }
             }
+
+            // Strategy 4: autoAssignIfSingleChannel in singleTrackOnly mode preserves original channel
+            {
+                MidiTrackMergeOptions opts;
+                opts.channelStrategy = MidiChannelMappingStrategy::autoAssignIfSingleChannel;
+                opts.singleTrackOnly = true;
+                auto res = MidiTrackMergeEngine::mergeTracks(file, 48000.0, opts);
+                expect(res.has_value());
+                if (res.has_value()) {
+                    for (const auto& ev : res->take.events) {
+                        expectEquals(ev.message.getChannel(), 1); // retains original Ch 1, no forced remapping
+                    }
+                }
+            }
         });
 
         testCase("meta parsing: time signature, key signature, tempo map, song title, and track names", [&] {
