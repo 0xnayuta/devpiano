@@ -844,11 +844,11 @@ public:
         }
         beginTest("vitality, harmonic blooming, hammer contact release, and spatial diffusion (Phase 24-A/B/C)");
         {
-            // 1. 验证琴槌接触释放引擎 (Phase 24-B): 接触期 0.20 -> 脱离后 1.0
+            // 1. 验证琴槌接触释放引擎 (Phase 24-B): 接触期 0.55 -> 脱离后 1.0
             PianoSynthVoice::HammerContactEngine contactEngine;
             contactEngine.trigger(sampleRate, 0.002f); // 2ms 接触时间
             const auto m0 = contactEngine.getReleaseMultiplier();
-            expectWithinAbsoluteError(m0, 0.20f, 0.01f, "initial contact damping suppresses sudden sine onset");
+            expectWithinAbsoluteError(m0, 0.55f, 0.01f, "initial contact damping smoothly balances strike onset");
 
             for (auto i = 0; i < static_cast<int>(0.003f * sampleRate); ++i) {
                 [[maybe_unused]] const auto discarded = contactEngine.getReleaseMultiplier();

@@ -55,7 +55,7 @@ public:
     static constexpr auto maxPartials = 20;
     static constexpr auto numResonators = 16;
     static constexpr auto bodyWetRatio = 0.26f;
-    static constexpr auto peakLevelAtFullVelocity = 0.45f;
+    static constexpr auto peakLevelAtFullVelocity = 0.95f;
     static constexpr auto silentLevelThreshold = 1e-4f;
 
     enum class LidPosition : std::uint8_t {
@@ -104,7 +104,7 @@ public:
         numActivePartials = params.partialCount;
 
         const auto clampedVelocity = juce::jlimit(0.0f, 1.0f, velocity);
-        const auto velocityLevel = clampedVelocity * std::sqrt(clampedVelocity);
+        const auto velocityLevel = std::pow(clampedVelocity, 1.20f);
         const auto decayScale = 1.0f + (pianoResonance - 0.5f) * 0.6f;
         const auto baseDecaySeconds = static_cast<double>(params.decaySeconds * decayScale);
 
@@ -707,8 +707,8 @@ public:
             }
             const auto total = std::max(1, static_cast<int>(tc * static_cast<float>(sr)));
             samplesRemaining = total;
-            releaseProgress = 0.20f;
-            progressInc = (1.0f - 0.20f) / static_cast<float>(total);
+            releaseProgress = 0.55f;
+            progressInc = (1.0f - 0.55f) / static_cast<float>(total);
         }
 
         [[nodiscard]] float getReleaseMultiplier() noexcept {
@@ -802,8 +802,8 @@ public:
             oscPhase2 = 0.0f;
 
             const auto v = juce::jlimit(0.0f, 1.0f, velocity);
-            const auto vLevel = v * std::sqrt(v) * (0.6f + 0.8f * hardness);
-            amplitude = peakLevelAtFullVelocity * 0.35f * vLevel;
+            const auto vLevel = (v * v) * (0.6f + 0.8f * hardness);
+            amplitude = peakLevelAtFullVelocity * 0.12f * vLevel;
             decayPerSample = std::exp(-4.5f / static_cast<float>(totalSamples));
 
             // 起音 3ms 高频裂音 (Phase 23-D, Attack HF Crack, 消除起振延迟)
@@ -811,7 +811,7 @@ public:
             constexpr auto crackDur = 0.003f;
             const auto crackTotal = juce::jmax(1, static_cast<int>(crackDur * sampleRate));
             crackSamplesRemaining = crackTotal;
-            crackAmplitude = peakLevelAtFullVelocity * 0.08f * (v * v) * (0.20f + 0.80f * keyPos);
+            crackAmplitude = peakLevelAtFullVelocity * 0.02f * (v * v) * (0.20f + 0.80f * keyPos);
             crackDecayPerSample = std::exp(-6.0f / static_cast<float>(crackTotal));
             crackRng = static_cast<std::uint32_t>(midiNoteNumber) * 1664525u + 1013904223u;
 
@@ -829,7 +829,7 @@ public:
 
                 const auto longTotalSamples = juce::jmax(1, static_cast<int>(0.015f * sampleRate));
                 longSamplesRemaining = longTotalSamples;
-                longAmplitude = peakLevelAtFullVelocity * 0.10f * vLevel;
+                longAmplitude = peakLevelAtFullVelocity * 0.04f * vLevel;
                 longDecayPerSample = std::exp(-5.5f / static_cast<float>(longTotalSamples));
             } else {
                 longSamplesRemaining = 0;
