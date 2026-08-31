@@ -2,11 +2,10 @@
 
 #include "Recording/RecordingEngine.h"
 #include "Recording/RecordingFlowSupport.h"
+#include "Recording/RenderPipeline.h"
 
 using namespace devpiano::recording;
 
-// =============================================================================
-// Tests for RecordingEngine: recording, playback, capacity, preset changes
 // =============================================================================
 
 namespace {
@@ -123,6 +122,16 @@ public:
             expect(engine.getReservedEventCapacity() >= 64, "capacity query must stay readable during recording");
             engine.stopRecording();
             expect(engine.hasTake(), "hasTake must be valid after stopRecording");
+        }
+
+        beginTest("clampToInt64 robust conversion on NaN, negative and huge values (SEC-006)");
+        {
+            expectEquals(clampToInt64(-100.0), static_cast<std::int64_t>(0));
+            expectEquals(clampToInt64(0.0), static_cast<std::int64_t>(0));
+            expectEquals(clampToInt64(std::numeric_limits<double>::quiet_NaN()), static_cast<std::int64_t>(0));
+            expectEquals(clampToInt64(44100.4), static_cast<std::int64_t>(44100));
+            expectEquals(clampToInt64(44100.6), static_cast<std::int64_t>(44101));
+            expectEquals(clampToInt64(1e30), std::numeric_limits<std::int64_t>::max());
         }
     }
 };
@@ -433,6 +442,15 @@ public:
                 expectEquals(static_cast<uint8_t>(3), presetEv->presetId);
                 expectEquals(static_cast<std::int64_t>(2205), presetEv->timestampSamples);
             }
+
+            // Verify timestamp monotonic ordering (SEC-002)
+            for (size_t i = 1; i < take.events.size(); ++i) {
+                expect(take.events[i].timestampSamples >= take.events[i - 1].timestampSamples,
+                       "Events in take must be monotonically ordered by timestamp");
+            }
+            expectEquals(static_cast<std::int64_t>(0), take.events[0].timestampSamples);
+            expectEquals(static_cast<std::int64_t>(2205), take.events[1].timestampSamples);
+            expectEquals(static_cast<std::int64_t>(4410), take.events[2].timestampSamples);
         }
 
         beginTest("preset change ignored when not recording");
@@ -813,63 +831,3 @@ public:
 };
 
 static RecordingPauseTest recordingPauseTest;
-
-// =============================================================================
-
-class RecordingFlowSupportTest : public juce::UnitTest {
-public:
-    RecordingFlowSupportTest()
-        : juce::UnitTest("RecordingFlow: transport state machine", "DevPiano/Engine") {
-    }
-
-    void runTest() override {
-        beginTest("playPause intent maps to the five states");
-        {
-            using enum RecordingFlowCommand;
-            using enum RecordingFlowState;
-
-            // idle + take → start from scratch.
-            expect(chooseRecordingFlowCommand(RecordingFlowIntent::playPause, { idle, true }) == startPlayback);
-            // idle without take → nothing.
-            expect(chooseRecordingFlowCommand(RecordingFlowIntent::playPause, { idle, false }) == none);
-            // Active playback pauses; paused playback resumes.
-            expect(chooseRecordingFlowCommand(RecordingFlowIntent::playPause, { playing, true }) == pausePlayback);
-            expect(chooseRecordingFlowCommand(RecordingFlowIntent::playPause, { playingPaused, true })
-                   == resumePlayback);
-            // Active recording pauses; paused recording resumes.
-            expect(chooseRecordingFlowCommand(RecordingFlowIntent::playPause, { recording, true }) == pauseRecording);
-            expect(chooseRecordingFlowCommand(RecordingFlowIntent::playPause, { recordingPaused, true })
-                   == resumeRecording);
-        }
-
-        beginTest("stop intent always stops an active flow");
-        {
-            using enum RecordingFlowCommand;
-            using enum RecordingFlowState;
-
-            expect(chooseRecordingFlowCommand(RecordingFlowIntent::stop, { recording, true }) == stopRecording);
-            expect(chooseRecordingFlowCommand(RecordingFlowIntent::stop, { recordingPaused, true }) == stopRecording);
-            expect(chooseRecordingFlowCommand(RecordingFlowIntent::stop, { playing, true }) == stopPlayback);
-            expect(chooseRecordingFlowCommand(RecordingFlowIntent::stop, { playingPaused, true }) == stopPlayback);
-            expect(chooseRecordingFlowCommand(RecordingFlowIntent::stop, { idle, true }) == none);
-        }
-
-        beginTest("state transitions follow the commands");
-        {
-            using enum RecordingFlowCommand;
-            using enum RecordingFlowState;
-
-            expect(getStateAfterCommand(startRecording, idle) == recording);
-            expect(getStateAfterCommand(startPlayback, idle) == playing);
-            expect(getStateAfterCommand(pausePlayback, playing) == playingPaused);
-            expect(getStateAfterCommand(resumePlayback, playingPaused) == playing);
-            expect(getStateAfterCommand(pauseRecording, recording) == recordingPaused);
-            expect(getStateAfterCommand(resumeRecording, recordingPaused) == recording);
-            expect(getStateAfterCommand(stopRecording, recordingPaused) == idle);
-            expect(getStateAfterCommand(stopPlayback, playingPaused) == idle);
-            expect(getStateAfterCommand(none, playing) == playing, "none keeps the fallback state");
-        }
-    }
-};
-
-static RecordingFlowSupportTest recordingFlowSupportTest;

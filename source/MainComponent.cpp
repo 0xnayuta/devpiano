@@ -6,6 +6,7 @@
 #include "UI/KeyBindingEditDialog.h"
 #include "UI/PluginPanelStateBuilder.h"
 #include "UI/jive/DesignTokens.h"
+#include "UI/jive/JiveUtils.h"
 #include "UI/native/AdsrCurveComponent.h"
 #include "UI/native/StatusBarMidiDot.h"
 
@@ -69,42 +70,6 @@ juce::File resolveSourceFile(const juce::String& relativePath) {
     }
 
     return cwdFile; // best effort; caller handles missing file
-}
-
-// Recursively remove the "style-sheet" property from all components in a JIVE
-// hierarchy before destruction. This ensures StyleSheet (and its ComponentInteractionState)
-// is destroyed while the Component and its mouseListeners list are still completely alive,
-// avoiding access violations during Component::~Component().
-void clearJiveStyleSheets(juce::Component* comp) {
-    if (comp == nullptr) {
-        return;
-    }
-
-    for (int i = 0; i < comp->getNumChildComponents(); ++i) {
-        clearJiveStyleSheets(comp->getChildComponent(i));
-    }
-
-    if (comp->getProperties().contains("style-sheet")) {
-        comp->getProperties().remove("style-sheet");
-    }
-}
-
-// Collect every Component in the JIVE tree (pre-order). GuiItem releases its
-// `component` member before its `styleSheet` member, so without extra
-// references the Components would be destroyed first, followed by their
-// StyleSheets — whose ComponentInteractionState holds a raw Component
-// reference and calls removeMouseListener() in its destructor. Holding the
-// Components here keeps them alive until all StyleSheets are gone; the
-// vector destroys its elements in reverse order, so children are deleted
-// before their parents, matching JUCE's child-ownership rules.
-void collectJiveComponents(::jive::GuiItem& item, std::vector<std::shared_ptr<juce::Component>>& components) {
-    if (auto component = item.getComponent()) {
-        components.push_back(std::move(component));
-    }
-
-    for (auto* child : item.getChildren()) {
-        collectJiveComponents(*child, components);
-    }
 }
 
 // -- Transport button icon paths --
@@ -234,12 +199,7 @@ MainComponent::~MainComponent() {
     // dies while its Component is still alive; `jiveComponents` then unwinds
     // at the end of this scope, destroying the Components strictly after
     // their StyleSheets (children before parents, as JUCE requires).
-    if (jiveRootItem != nullptr) {
-        std::vector<std::shared_ptr<juce::Component>> jiveComponents;
-        collectJiveComponents(*jiveRootItem, jiveComponents);
-        clearJiveStyleSheets(jiveRootItem->getComponent().get());
-        jiveRootItem.reset();
-    }
+    devpiano::ui::jive::safeCleanupJiveTree(jiveRootItem);
     devpiano::ui::jive::StyleCatalog::get().releaseOwnedStyles();
     jiveInterpreter.reset();
 }
@@ -254,6 +214,8 @@ void MainComponent::initialiseFromPreset() {
             presetFlowSupport->applyPresetData(*loaded);
             return;
         }
+        DP_LOG_WARN("[Preset] Failed to load last active preset \"" + appSettings.lastActivePresetId + "\" from "
+                    + file.getFullPathName() + ", falling back to default preset");
     }
 
     // Fallback: built-in default
@@ -631,86 +593,68 @@ void MainComponent::initialiseUi() {
             audioEngine.getKeyboardState().noteOff(1, midiNote, 1.0f);
         }
     };
-    customKeyboard.onBindingEditRequested = [this](int midiNote) {
-        // Find existing binding for this note
-        const auto& layout = keyboardMidiMapper.getLayout();
-        auto noteName = devpiano::ui::getNoteDisplayName(midiNote, devpiano::ui::NoteDisplayMode::noteName);
+    customKeyboard.onBindingEditRequested = [this](int midiNote) { handleKeyBindingEditRequest(midiNote); };
+    setBounds(getInitialMainContentBounds());
+}
+void MainComponent::handleKeyBindingEditRequest(int midiNote) {
+    const auto& layout = keyboardMidiMapper.getLayout();
+    auto noteName = devpiano::ui::getNoteDisplayName(midiNote, devpiano::ui::NoteDisplayMode::noteName);
 
-        std::optional<devpiano::core::KeyBinding> existingBinding;
-        for (const auto& binding : layout.bindings) {
-            if (binding.action.type == devpiano::core::KeyActionType::note && binding.action.midiNote == midiNote) {
-                existingBinding = binding;
-                break;
+    std::optional<devpiano::core::KeyBinding> existingBinding;
+    for (const auto& binding : layout.bindings) {
+        if (binding.action.type == devpiano::core::KeyActionType::note && binding.action.midiNote == midiNote) {
+            existingBinding = binding;
+            break;
+        }
+    }
+
+    auto currentLabel = appSettings.keyboardDisplay.customKeyLabels[static_cast<std::size_t>(midiNote)];
+    auto currentColour = appSettings.keyboardDisplay.customKeyColours[static_cast<std::size_t>(midiNote)];
+
+    KeyBindingEditDialog::launch(
+        midiNote, noteName, existingBinding, currentLabel, currentColour,
+        [this, midiNote](KeyBindingEditResult result) { applyKeyBindingEditResult(midiNote, result); }, this);
+}
+
+void MainComponent::applyKeyBindingEditResult(int midiNote, const KeyBindingEditResult& result) {
+    if (result.labelChanged) {
+        appSettings.keyboardDisplay.customKeyLabels[static_cast<std::size_t>(midiNote)] = result.customLabel;
+    }
+    if (result.colourChanged) {
+        appSettings.keyboardDisplay.customKeyColours[static_cast<std::size_t>(midiNote)] = result.customColour;
+    }
+
+    if (result.binding.has_value()) {
+        auto updatedLayout = keyboardMidiMapper.getLayout();
+
+        if (result.binding->keyCode < 0) {
+            std::erase_if(updatedLayout.bindings, [note = result.binding->action.midiNote](const auto& b) {
+                return b.action.type == devpiano::core::KeyActionType::note && b.action.midiNote == note;
+            });
+        } else {
+            bool found = false;
+            for (auto& b : updatedLayout.bindings) {
+                if (b.keyCode == result.binding->keyCode) {
+                    b = *result.binding;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                updatedLayout.bindings.push_back(*result.binding);
             }
         }
 
-        // Read current per-key custom label and colour
-        auto currentLabel = appSettings.keyboardDisplay.customKeyLabels[static_cast<std::size_t>(midiNote)];
-        auto currentColour = appSettings.keyboardDisplay.customKeyColours[static_cast<std::size_t>(midiNote)];
+        keyboardMidiMapper.setLayout(updatedLayout);
+        setKeyboardLayout(updatedLayout);
+    }
 
-        KeyBindingEditDialog::launch(
-            midiNote, noteName, existingBinding, currentLabel, currentColour,
-            [this, midiNote](KeyBindingEditResult result) {
-                // Update custom label and colour if changed
-                if (result.labelChanged) {
-                    appSettings.keyboardDisplay.customKeyLabels[static_cast<std::size_t>(midiNote)]
-                        = result.customLabel;
-                }
-                if (result.colourChanged) {
-                    appSettings.keyboardDisplay.customKeyColours[static_cast<std::size_t>(midiNote)]
-                        = result.customColour;
-                }
+    syncUiFromSettings();
+    saveSettingsSoon();
 
-                // Update binding if changed
-                if (result.binding.has_value()) {
-                    auto updatedLayout = keyboardMidiMapper.getLayout();
-
-                    if (result.binding->keyCode < 0) {
-                        // Unbind request: remove all bindings for this note
-                        std::erase_if(updatedLayout.bindings, [note = result.binding->action.midiNote](const auto& b) {
-                            return b.action.type == devpiano::core::KeyActionType::note && b.action.midiNote == note;
-                        });
-                    } else {
-                        // Update the binding in-place if the key is already
-                        // mapped; otherwise append a brand-new binding (Bind Key
-                        // flow for previously unbound notes).
-                        bool found = false;
-                        for (auto& b : updatedLayout.bindings) {
-                            if (b.keyCode == result.binding->keyCode) {
-                                b = *result.binding;
-                                found = true;
-                                break;
-                            }
-                        }
-                        if (!found) {
-                            updatedLayout.bindings.push_back(*result.binding);
-                        }
-                    }
-
-                    keyboardMidiMapper.setLayout(updatedLayout);
-                    setKeyboardLayout(updatedLayout);
-                }
-
-                // Refresh keyboard rendering (picks up label/colour changes)
-                syncUiFromSettings();
-                saveSettingsSoon();
-
-                // Persist binding changes to the current preset file (if user preset)
-                if (presetFlowSupport != nullptr) {
-                    auto currentId = presetFlowSupport->getCurrentPresetId();
-                    if (currentId.isNotEmpty()) {
-                        auto updatedPreset = presetFlowSupport->captureCurrentState(currentId);
-                        auto presetFile = devpiano::layout::getPresetDirectory().getChildFile(
-                            devpiano::layout::sanitisePresetFileName(currentId) + ".devpiano.preset");
-                        if (!devpiano::layout::savePreset(updatedPreset, presetFile)) {
-                            DP_LOG_WARN("[Preset] failed to auto-save after binding edit: " + currentId);
-                        }
-                    }
-                }
-            },
-            this);
-    };
-    setBounds(getInitialMainContentBounds());
+    if (presetFlowSupport != nullptr) {
+        presetFlowSupport->autoSaveCurrentPreset();
+    }
 }
 
 juce::Rectangle<int> MainComponent::getMainContentResizeLimits() {
@@ -759,13 +703,18 @@ void MainComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& buffer
 void MainComponent::releaseResources() {
     audioEngine.releaseResources();
 }
-
+// Thread contract (THR-003):
+// MidiKeyboardState::Listener callbacks are delivered synchronously on the
+// thread that generated the key/MIDI event. In devpiano, noteOn/noteOff are
+// dispatched from computer keyboard handlers on the message thread.
+// notifyMidiActivity triggers a JIVE tree property update (UI mutation), so
+// callers must ensure this runs on the message thread.
 void MainComponent::handleNoteOn(juce::MidiKeyboardState*, int, int, float velocity) {
+    jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
     if (velocity > 0.0f) {
         notifyMidiActivity();
     }
 }
-
 void MainComponent::handleNoteOff(juce::MidiKeyboardState*, int, int, float) {
 }
 
@@ -870,8 +819,10 @@ void MainComponent::paintOverChildren(juce::Graphics& g) {
 
 bool MainComponent::isInterestedInFileDrag(const juce::StringArray& files) {
     return std::ranges::any_of(files, [](const auto& f) {
-        const auto ext = juce::File(f).getFileExtension().toLowerCase();
-        return ext == ".devpiano" || ext == ".mid" || ext == ".midi" || ext == ".devpiano.preset" || ext == ".vst3";
+        const auto file = juce::File(f);
+        const auto ext = file.getFileExtension().toLowerCase();
+        return ext == ".devpiano" || ext == ".mid" || ext == ".midi" || ext == ".vst3"
+            || file.getFileName().endsWithIgnoreCase(".devpiano.preset") || ext == ".preset";
     });
 }
 
@@ -901,7 +852,7 @@ void MainComponent::filesDropped(const juce::StringArray& files, int, int) {
             if (recordingSessionController != nullptr) {
                 recordingSessionController->handleImportMidiFile(file);
             }
-        } else if (ext == ".devpiano.preset") {
+        } else if (file.getFileName().endsWithIgnoreCase(".devpiano.preset") || ext == ".preset") {
             if (presetFlowSupport != nullptr) {
                 presetFlowSupport->handleImportPresetFile(file);
             }
@@ -1123,7 +1074,7 @@ SettingsModel::PerformanceSettingsView MainComponent::getPerformanceSettingsFrom
              .adsrDecay = getDecay(),
              .adsrSustain = getSustain(),
              .adsrRelease = getRelease(),
-             .builtinTone = getBuiltinToneFromUi(),
+             .builtinTone = getBuiltinToneFromSettings(),
              .pianoBrightness = getPianoBrightness(),
              .pianoHammerHardness = getPianoHammerHardness(),
              .pianoResonance = getPianoResonance() };

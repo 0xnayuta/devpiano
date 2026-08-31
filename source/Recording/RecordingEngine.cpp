@@ -99,10 +99,17 @@ RecordingTake RecordingEngine::stopRecording() {
     if (recordingActive) {
         // Merge pending preset-change events (message-thread writes) into the
         // recorded events vector before finalising the take.
-        for (auto& ev : pendingPresetEvents) {
-            currentTake.events.push_back(std::move(ev));
+        if (!pendingPresetEvents.empty()) {
+            for (auto& ev : pendingPresetEvents) {
+                currentTake.events.push_back(std::move(ev));
+            }
+            pendingPresetEvents.clear();
+
+            std::stable_sort(currentTake.events.begin(), currentTake.events.end(),
+                             [](const PerformanceEvent& a, const PerformanceEvent& b) noexcept {
+                                 return a.timestampSamples < b.timestampSamples;
+                             });
         }
-        pendingPresetEvents.clear();
 
         currentTake.lengthSamples
             = std::max(currentTake.lengthSamples, currentPositionSamples.load(std::memory_order_relaxed));
@@ -123,6 +130,7 @@ void RecordingEngine::clear() {
     currentTake.lengthSamples = 0;
     currentPositionSamples.store(0, std::memory_order_relaxed);
     droppedEventCount.store(0, std::memory_order_relaxed);
+    playbackEventIndex = 0;
     playbackEndedPending.store(false, std::memory_order_release);
     state.store(RecordingState::idle, std::memory_order_release);
 }
@@ -208,9 +216,24 @@ void RecordingEngine::startPlayback(const RecordingTake& take, double currentSam
         (take.sampleRate > 0.0 && currentSampleRate > 0.0) ? (currentSampleRate / take.sampleRate) : 1.0,
         std::memory_order_relaxed);
     scaledPlaybackLengthSamples.store(getScaledPlaybackLengthSamples());
-    playbackPositionSamples.store(juce::jlimit<std::int64_t>(0, scaledPlaybackLengthSamples.load(), resumeFromSamples));
+    const auto initialResume = juce::jlimit<std::int64_t>(0, scaledPlaybackLengthSamples.load(), resumeFromSamples);
+    playbackPositionSamples.store(initialResume);
     playbackEndedPending.store(false, std::memory_order_release);
 
+    // Initialize block cursor for fast O(1)/O(K) playback event scanning (PERF-002)
+    if (initialResume <= 0 || playbackTake.events.empty()) {
+        playbackEventIndex = 0;
+    } else {
+        const auto combinedRatio
+            = playbackSampleRateRatio.load(std::memory_order_relaxed) / playbackSpeedMultiplier.load();
+        auto it = std::lower_bound(playbackTake.events.begin(), playbackTake.events.end(), initialResume,
+                                   [combinedRatio](const PerformanceEvent& ev, std::int64_t targetPos) {
+                                       const auto scaledTs = static_cast<std::int64_t>(
+                                           static_cast<double>(ev.timestampSamples) * combinedRatio);
+                                       return scaledTs < targetPos;
+                                   });
+        playbackEventIndex = static_cast<std::size_t>(std::distance(playbackTake.events.begin(), it));
+    }
     // Pre-allocate the preset-change queue so renderPlaybackBlock never allocates
     {
         juce::CriticalSection::ScopedLockType lock(presetChangeLock);
@@ -272,8 +295,8 @@ void RecordingEngine::stopPlayback() {
 
     state.store(RecordingState::stopped, std::memory_order_release);
     playbackEndedPending.store(false, std::memory_order_release);
+    playbackEventIndex = 0;
 }
-
 void RecordingEngine::setPlaybackSpeedMultiplier(double multiplier) noexcept {
     const auto clamped = std::clamp(multiplier, 0.5, 2.0);
     const auto oldSpeed = playbackSpeedMultiplier.load();
@@ -281,14 +304,25 @@ void RecordingEngine::setPlaybackSpeedMultiplier(double multiplier) noexcept {
 
     if (isPlaying()) {
         // Re-align playbackPositionSamples so the take-time position stays the same
-        playbackPositionSamples.store(
-            static_cast<std::int64_t>(static_cast<double>(playbackPositionSamples.load()) * oldSpeed / clamped));
+        const auto newPos
+            = static_cast<std::int64_t>(static_cast<double>(playbackPositionSamples.load()) * oldSpeed / clamped);
+        playbackPositionSamples.store(newPos);
         scaledPlaybackLengthSamples.store(getScaledPlaybackLengthSamples());
+
+        // Re-align cursor to current position (PERF-002)
+        const auto combinedRatio = playbackSampleRateRatio.load(std::memory_order_relaxed) / clamped;
+        auto it = std::lower_bound(playbackTake.events.begin(), playbackTake.events.end(), newPos,
+                                   [combinedRatio](const PerformanceEvent& ev, std::int64_t targetPos) {
+                                       const auto scaledTs = static_cast<std::int64_t>(
+                                           static_cast<double>(ev.timestampSamples) * combinedRatio);
+                                       return scaledTs < targetPos;
+                                   });
+        playbackEventIndex = static_cast<std::size_t>(std::distance(playbackTake.events.begin(), it));
+
         DP_DEBUG_LOG("[RecordingEngine] playback speed updated to " + juce::String(clamped)
                      + ", scaledLen=" + juce::String(scaledPlaybackLengthSamples.load()));
     }
 }
-
 double RecordingEngine::getPlaybackSpeedMultiplier() const noexcept {
     return playbackSpeedMultiplier.load();
 }
@@ -301,40 +335,62 @@ void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer, std::int
 
     const auto combinedRatio = playbackSampleRateRatio.load(std::memory_order_relaxed) / playbackSpeedMultiplier.load();
     const auto blockEndSamples = blockStartSamples + static_cast<std::int64_t>(numSamples);
+    const auto totalEvents = playbackTake.events.size();
 
-    for (const auto& event : playbackTake.events) {
+    // If playback position jumped backwards (e.g. looped or seeked), reset cursor
+    if (playbackEventIndex < totalEvents) {
+        const auto curScaledTs = static_cast<std::int64_t>(
+            static_cast<double>(playbackTake.events[playbackEventIndex].timestampSamples) * combinedRatio);
+        if (curScaledTs > blockStartSamples) {
+            auto it = std::lower_bound(playbackTake.events.begin(), playbackTake.events.end(), blockStartSamples,
+                                       [combinedRatio](const PerformanceEvent& ev, std::int64_t targetPos) {
+                                           const auto scaledTs = static_cast<std::int64_t>(
+                                               static_cast<double>(ev.timestampSamples) * combinedRatio);
+                                           return scaledTs < targetPos;
+                                       });
+            playbackEventIndex = static_cast<std::size_t>(std::distance(playbackTake.events.begin(), it));
+        }
+    }
+
+    while (playbackEventIndex < totalEvents) {
+        const auto& event = playbackTake.events[playbackEventIndex];
         const auto scaledTimestamp
             = static_cast<std::int64_t>(static_cast<double>(event.timestampSamples) * combinedRatio);
 
-        // >= on the upper bound is intentional — the interval is half-open:
-        // events at blockEndSamples belong to the next block.
-        if (scaledTimestamp < blockStartSamples || scaledTimestamp >= blockEndSamples) {
+        // Event is strictly before current block start
+        if (scaledTimestamp < blockStartSamples) {
+            ++playbackEventIndex;
             continue;
+        }
+
+        // >= on the upper bound is intentional — the interval is half-open:
+        // events at blockEndSamples belong to the next block. Stop block scan early!
+        if (scaledTimestamp >= blockEndSamples) {
+            break;
         }
 
         if (event.type == PerformanceEventType::presetChange) {
             juce::CriticalSection::ScopedLockType lock(presetChangeLock);
             pendingPresetChanges.push_back({ event.presetId });
-            continue;
-        }
-
-        const auto sampleOffset = static_cast<int>(scaledTimestamp - blockStartSamples);
-
-        // Apply EMA smoothing to pitch bend events to eliminate zipper noise.
-        // Raw events are preserved in the recording take; smoothing only affects
-        // what the plugin / synth hears during playback.
-        if (event.message.isPitchWheel()) {
-            auto ch = static_cast<std::size_t>(juce::jlimit(0, 15, event.message.getChannel() - 1));
-            auto target = static_cast<float>(event.message.getPitchWheelValue());
-            smoothedPitchBend[ch] += 0.3f * (target - smoothedPitchBend[ch]);
-
-            auto smoothedMsg = juce::MidiMessage::pitchWheel(static_cast<int>(ch) + 1,
-                                                             static_cast<int>(std::round(smoothedPitchBend[ch])));
-            smoothedMsg.setTimeStamp(event.message.getTimeStamp());
-            midiBuffer.addEvent(smoothedMsg, juce::jlimit(0, numSamples - 1, sampleOffset));
         } else {
-            midiBuffer.addEvent(event.message, juce::jlimit(0, numSamples - 1, sampleOffset));
+            const auto sampleOffset = static_cast<int>(scaledTimestamp - blockStartSamples);
+
+            // Apply EMA smoothing to pitch bend events to eliminate zipper noise.
+            if (event.message.isPitchWheel()) {
+                auto ch = static_cast<std::size_t>(juce::jlimit(0, 15, event.message.getChannel() - 1));
+                auto target = static_cast<float>(event.message.getPitchWheelValue());
+                smoothedPitchBend[ch] += 0.3f * (target - smoothedPitchBend[ch]);
+
+                auto smoothedMsg = juce::MidiMessage::pitchWheel(static_cast<int>(ch) + 1,
+                                                                 static_cast<int>(std::round(smoothedPitchBend[ch])));
+                smoothedMsg.setTimeStamp(event.message.getTimeStamp());
+                midiBuffer.addEvent(smoothedMsg, juce::jlimit(0, numSamples - 1, sampleOffset));
+            } else {
+                midiBuffer.addEvent(event.message, juce::jlimit(0, numSamples - 1, sampleOffset));
+            }
         }
+
+        ++playbackEventIndex;
     }
 }
 

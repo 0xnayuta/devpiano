@@ -2,6 +2,7 @@
 
 #include "Audio/PianoSynthVoice.h"
 #include "Audio/SineSynthVoice.h"
+#include "Export/ExportFlowSupport.h"
 #include "Plugin/PluginHost.h"
 #include "Recording/RecordingEngine.h"
 
@@ -69,8 +70,9 @@ void AudioEngine::prepareToPlay(int samplesPerBlockExpected, double sampleRate) 
 
     const auto bytes = static_cast<size_t>(juce::jlimit(4096, 65536, samplesPerBlockExpected * 16));
     midiBuffer.ensureSize(bytes);
-
-    updateAdsrOnVoices();
+    playbackVisualMidiBuffer.ensureSize(bytes);
+    playbackTransposedMidiBuffer.ensureSize(bytes);
+    applyPendingParametersIfNeeded();
 
     if (pluginHost != nullptr && pluginHost->hasLoadedPlugin()) {
         pluginHost->prepareToPlay(sampleRate, samplesPerBlockExpected);
@@ -101,7 +103,7 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
         renderPlaybackEventsIfNeeded(recordingEngine != nullptr ? recordingEngine->getPlaybackPositionSamples() : 0,
                                      bufferToFill.numSamples);
     }
-
+    applyPendingParametersIfNeeded();
     auto renderedByPlugin = false;
 
     if (pluginHost != nullptr && pluginHost->hasLoadedPlugin()) {
@@ -142,28 +144,9 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
     bufferToFill.buffer->applyGain(bufferToFill.startSample, bufferToFill.numSamples,
                                    masterGain.load(std::memory_order_relaxed));
 
-    // Master bus soft-knee ceiling guard (zero latency, transparent below threshold)
-    // Threshold T = 0.85 (-1.4 dBFS), Maximum ceiling M = 0.98 (-0.18 dBFS)
-    constexpr float kThreshold = 0.85f;
-    constexpr float kCeiling = 0.98f;
-    constexpr float kKnee = kCeiling - kThreshold;
-
-    auto* buffer = bufferToFill.buffer;
-    const auto numChannels = buffer->getNumChannels();
-    const auto startSample = bufferToFill.startSample;
-    const auto numSamples = bufferToFill.numSamples;
-
-    for (int ch = 0; ch < numChannels; ++ch) {
-        auto* data = buffer->getWritePointer(ch, startSample);
-        for (int i = 0; i < numSamples; ++i) {
-            const auto x = data[i];
-            const auto absX = std::abs(x);
-            if (absX > kThreshold) {
-                const auto sign = (x >= 0.0f) ? 1.0f : -1.0f;
-                data[i] = sign * (kThreshold + kKnee * std::tanh((absX - kThreshold) / kKnee));
-            }
-        }
-    }
+    // Master bus soft-knee ceiling guard (PERF-004: shared helper across realtime audio & export)
+    devpiano::exporting::applyMasterSoftLimiter(*bufferToFill.buffer, bufferToFill.startSample,
+                                                bufferToFill.numSamples);
 }
 
 void AudioEngine::releaseResources() {
@@ -198,18 +181,18 @@ int AudioEngine::consumePluginBufferResizeCount() noexcept {
 }
 
 void AudioEngine::setAdsr(float attackSeconds, float decaySeconds, float sustainLevel, float releaseSeconds) {
-    adsrParameters.attack = juce::jmax(0.001f, attackSeconds);
-    adsrParameters.decay = juce::jmax(0.001f, decaySeconds);
-    adsrParameters.sustain = juce::jlimit(0.0f, 1.0f, sustainLevel);
-    adsrParameters.release = juce::jmax(0.001f, releaseSeconds);
-    updateAdsrOnVoices();
+    pendingAttack.store(juce::jmax(0.001f, attackSeconds), std::memory_order_relaxed);
+    pendingDecay.store(juce::jmax(0.001f, decaySeconds), std::memory_order_relaxed);
+    pendingSustain.store(juce::jlimit(0.0f, 1.0f, sustainLevel), std::memory_order_relaxed);
+    pendingRelease.store(juce::jmax(0.001f, releaseSeconds), std::memory_order_relaxed);
+    parametersNeedUpdate.store(true, std::memory_order_release);
 }
 
 void AudioEngine::setPianoParameters(float brightness, float hammerHardness, float resonance) {
-    pianoBrightness = juce::jlimit(0.0f, 1.0f, brightness);
-    pianoHammerHardness = juce::jlimit(0.0f, 1.0f, hammerHardness);
-    pianoResonance = juce::jlimit(0.0f, 1.0f, resonance);
-    updatePianoParametersOnVoices();
+    pendingBrightness.store(juce::jlimit(0.0f, 1.0f, brightness), std::memory_order_relaxed);
+    pendingHammerHardness.store(juce::jlimit(0.0f, 1.0f, hammerHardness), std::memory_order_relaxed);
+    pendingResonance.store(juce::jlimit(0.0f, 1.0f, resonance), std::memory_order_relaxed);
+    parametersNeedUpdate.store(true, std::memory_order_release);
 }
 void AudioEngine::setPlaybackTranspose(bool enabled, int semitoneOffset, std::uint16_t channelFollowKeyMask) noexcept {
     playbackTransposeEnabled.store(enabled, std::memory_order_release);
@@ -254,12 +237,36 @@ void AudioEngine::rebuildSynth() {
         }
     }
 
-    updateAdsrOnVoices();
-    updatePianoParametersOnVoices();
+    parametersNeedUpdate.store(true, std::memory_order_release);
+    applyPendingParametersIfNeeded();
 }
 
 void AudioEngine::setLidPosition(LidPosition position) {
-    pianoLidPosition = position;
+    pendingLidPosition.store(static_cast<std::uint8_t>(position), std::memory_order_relaxed);
+    parametersNeedUpdate.store(true, std::memory_order_release);
+}
+
+void AudioEngine::applyPendingParametersIfNeeded() {
+    if (!parametersNeedUpdate.exchange(false, std::memory_order_acq_rel)) {
+        return;
+    }
+
+    const auto attack = pendingAttack.load(std::memory_order_relaxed);
+    const auto decay = pendingDecay.load(std::memory_order_relaxed);
+    const auto sustain = pendingSustain.load(std::memory_order_relaxed);
+    const auto release = pendingRelease.load(std::memory_order_relaxed);
+    const auto brightness = pendingBrightness.load(std::memory_order_relaxed);
+    const auto hammerHardness = pendingHammerHardness.load(std::memory_order_relaxed);
+    const auto resonance = pendingResonance.load(std::memory_order_relaxed);
+    const auto lid = static_cast<LidPosition>(pendingLidPosition.load(std::memory_order_relaxed));
+
+    adsrParameters = { attack, decay, sustain, release };
+    pianoBrightness = brightness;
+    pianoHammerHardness = hammerHardness;
+    pianoResonance = resonance;
+    pianoLidPosition = lid;
+
+    updateAdsrOnVoices();
     updatePianoParametersOnVoices();
 }
 
@@ -358,7 +365,7 @@ void AudioEngine::renderPlaybackEventsIfNeeded(std::int64_t blockStartSamples, i
     const auto followMask = playbackChannelFollowKeyMask.load(std::memory_order_acquire);
 
     if (transposeEnabled && transposeOffset != 0 && !playbackVisualMidiBuffer.isEmpty()) {
-        juce::MidiBuffer transposedBuffer;
+        playbackTransposedMidiBuffer.clear();
         for (const auto metadata : playbackVisualMidiBuffer) {
             auto msg = metadata.getMessage();
             const auto chIdx = juce::jlimit(0, 15, msg.getChannel() - 1);
@@ -368,19 +375,19 @@ void AudioEngine::renderPlaybackEventsIfNeeded(std::int64_t blockStartSamples, i
                 const auto originalNote = msg.getNoteNumber();
                 const auto transposedNote = juce::jlimit(0, 127, originalNote + transposeOffset);
                 if (msg.isNoteOn()) {
-                    transposedBuffer.addEvent(
+                    playbackTransposedMidiBuffer.addEvent(
                         juce::MidiMessage::noteOn(msg.getChannel(), transposedNote, msg.getFloatVelocity()),
                         metadata.samplePosition);
                 } else {
-                    transposedBuffer.addEvent(
+                    playbackTransposedMidiBuffer.addEvent(
                         juce::MidiMessage::noteOff(msg.getChannel(), transposedNote, msg.getFloatVelocity()),
                         metadata.samplePosition);
                 }
             } else {
-                transposedBuffer.addEvent(msg, metadata.samplePosition);
+                playbackTransposedMidiBuffer.addEvent(msg, metadata.samplePosition);
             }
         }
-        playbackVisualMidiBuffer.swapWith(transposedBuffer);
+        playbackVisualMidiBuffer.swapWith(playbackTransposedMidiBuffer);
     }
 
     // Playback events are generated inside the audio callback after the keyboard

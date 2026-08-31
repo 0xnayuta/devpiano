@@ -26,10 +26,16 @@ struct ProgressContentWrapper final : public juce::Component {
     }
 
     ~ProgressContentWrapper() override {
+        if (!completed && onCancel) {
+            onCancel();
+        }
         devpiano::ui::jive::safeCleanupJiveTree(rootItem);
         interpreter.reset();
     }
 
+    void markCompleted() noexcept {
+        completed = true;
+    }
     void paint(juce::Graphics& g) override {
         g.fillAll(devpiano::jive::DesignTokens::get().mainBg());
     }
@@ -51,10 +57,10 @@ struct ProgressContentWrapper final : public juce::Component {
         }
         return false;
     }
-
     std::unique_ptr<::jive::GuiItem> rootItem;
     std::unique_ptr<::jive::Interpreter> interpreter;
     std::function<void()> onCancel;
+    bool completed = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ProgressContentWrapper)
 };
@@ -96,7 +102,7 @@ void WavExportTask::setStatusMessage(const juce::String& newStatusMessage) {
     currentStatusMessage = newStatusMessage;
 }
 
-bool WavExportTask::runThread() {
+bool WavExportTask::runThread(bool showProgressDialog) {
     JUCE_ASSERT_MESSAGE_THREAD
 
     success.store(false);
@@ -109,6 +115,17 @@ bool WavExportTask::runThread() {
         errorMessage.clear();
     }
 
+    if (!showProgressDialog) {
+        // Headless execution: start background audio rendering without creating OS windows
+        startThread(juce::Thread::Priority::normal);
+
+        while (isThreadRunning()) {
+            juce::MessageManager::getInstance()->runDispatchLoopUntil(10);
+        }
+
+        stopThread(3000);
+        return success.load() && !cancelRequested.load();
+    }
     // Build JIVE progress dialog layout
     auto layout = devpiano::ui::jive::JiveModalDialog::makeProgressLayout(TRANS("Exporting..."), 380, 140);
     devpiano::ui::jive::StyleCatalog::get().applyToTree(layout);
@@ -165,7 +182,11 @@ bool WavExportTask::runThread() {
         juce::Thread::sleep(10);
     }
 #endif
+    stopTimer();
     if (activeDialog != nullptr) {
+        if (auto* wrapper = dynamic_cast<ProgressContentWrapper*>(activeDialog->getContentComponent())) {
+            wrapper->markCompleted();
+        }
         activeDialog->exitModalState(0);
         activeDialog = nullptr;
     }
@@ -177,12 +198,19 @@ bool WavExportTask::runThread() {
 void WavExportTask::timerCallback() {
     const bool isRunning = isThreadRunning();
 
-    if (!isRunning || finished.load() || activeDialog == nullptr) {
+    if (!isRunning || finished.load() || activeDialog == nullptr || cancelRequested.load()) {
+        finished.store(true);
         stopTimer();
+        if (activeDialog != nullptr) {
+            if (auto* wrapper = dynamic_cast<ProgressContentWrapper*>(activeDialog->getContentComponent())) {
+                wrapper->markCompleted();
+            }
+            activeDialog->exitModalState(0);
+            activeDialog = nullptr;
+        }
         return;
     }
 
-    // Update status text and progress bar on message thread
     if (activeDialog != nullptr) {
         if (auto* wrapper = dynamic_cast<ProgressContentWrapper*>(activeDialog->getContentComponent())) {
             if (wrapper->rootItem != nullptr) {

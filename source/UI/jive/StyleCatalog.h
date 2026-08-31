@@ -46,6 +46,7 @@ public:
     /// references the styles anymore.
     void releaseOwnedStyles() {
         ownedStyles.clear();
+        cachedStyles.clear();
     }
 
     /// Reset to the pristine empty state (TEST-013): clears rules and owned
@@ -54,6 +55,7 @@ public:
     void reset() {
         rules = nullptr;
         ownedStyles.clear();
+        cachedStyles.clear();
     }
 
 private:
@@ -77,6 +79,7 @@ private:
     /// Keeps every style jive::Object alive for the lifetime of the catalog
     /// (ValueTree properties hold raw DynamicObject pointers without ownership).
     mutable std::vector<::jive::Object::ReferenceCountedPointer> ownedStyles;
+    mutable std::map<juce::String, ::jive::Object::ReferenceCountedPointer> cachedStyles;
 };
 
 } // namespace devpiano::ui::jive

@@ -47,6 +47,7 @@ void StyleCatalog::loadFromJSON(const juce::var& json) {
     if (auto* obj = json.getDynamicObject()) {
         resolveTokenValues(*obj);
         rules = obj;
+        cachedStyles.clear();
     }
 }
 
@@ -111,11 +112,22 @@ void StyleCatalog::applyToNode(juce::ValueTree& node) const {
         return;
     }
 
-    // Build a merged style object: base props + pseudo-state sub-objects.
-    juce::DynamicObject merged;
-
     const auto nodeId = node["id"].toString();
     const auto nodeType = node.getType().toString();
+    const auto styleKey = nodeType + "#" + nodeId;
+
+    // Reuse already generated jive::Object to prevent unbounded memory growth (RES-002)
+    if (auto it = cachedStyles.find(styleKey); it != cachedStyles.end()) {
+        if (it->second != nullptr) {
+            node.setProperty("style", juce::var(it->second.get()), nullptr);
+        } else if (node.hasProperty("style")) {
+            node.removeProperty("style", nullptr);
+        }
+        return;
+    }
+
+    // Build a merged style object: base props + pseudo-state sub-objects.
+    juce::DynamicObject merged;
 
     const auto applyRule = [&merged](const juce::DynamicObject& rule) {
         mergeBaseProps(merged, rule);
@@ -133,20 +145,23 @@ void StyleCatalog::applyToNode(juce::ValueTree& node) const {
     }
 
     if (merged.getProperties().size() == 0) {
+        cachedStyles[styleKey] = nullptr;
         if (node.hasProperty("style")) {
             node.removeProperty("style", nullptr);
         }
         return;
     }
 
-    node.setProperty("style", juce::var(makeJiveObject(merged).get()), nullptr);
+    auto jiveObj = makeJiveObject(merged);
+    cachedStyles[styleKey] = jiveObj;
+    node.setProperty("style", juce::var(jiveObj.get()), nullptr);
 }
 
 void StyleCatalog::refreshStyles(juce::ValueTree& tree) {
     ownedStyles.clear();
+    cachedStyles.clear();
     applyToTree(tree);
 }
-
 void StyleCatalog::applyToTree(juce::ValueTree& tree) const {
     applyToNode(tree);
     for (auto child : tree) {

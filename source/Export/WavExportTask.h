@@ -29,9 +29,10 @@ public:
 
     ~WavExportTask() override;
 
-    /// Runs the export on a background thread while displaying the JIVE progress dialog.
+    /// Runs the export on a background thread while displaying the JIVE progress dialog
+    /// (or headlessly without UI dialogs when showProgressDialog is false).
     /// Returns true if completed successfully, false if cancelled or failed.
-    bool runThread();
+    bool runThread(bool showProgressDialog = true);
 
     [[nodiscard]] bool wasSuccessful() const noexcept {
         return success.load();
@@ -64,10 +65,7 @@ private:
     juce::String currentStatusMessage;
     juce::String errorMessage;
 
-    // Active progress dialog references (message thread only)
+    // Active progress dialog reference (message thread only)
     juce::Component::SafePointer<juce::DialogWindow> activeDialog;
-    juce::Component::SafePointer<juce::Label> statusLabel;
-    juce::Component::SafePointer<juce::ProgressBar> progressBar;
-
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(WavExportTask)
 };

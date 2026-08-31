@@ -31,10 +31,20 @@ struct RenderEvent {
     juce::MidiMessage message;
     std::int64_t timestampSamples = 0;
 };
+/// Safely clamps a double value to [0, std::numeric_limits<std::int64_t>::max()] (SEC-006).
+[[nodiscard]] inline std::int64_t clampToInt64(double value) noexcept {
+    if (std::isnan(value) || value <= 0.0) {
+        return 0;
+    }
+    constexpr auto maxInt64AsDouble = 9223372036854774784.0;
+    if (value >= maxInt64AsDouble) {
+        return std::numeric_limits<std::int64_t>::max();
+    }
+    return static_cast<std::int64_t>(std::round(value));
+}
 
 // 按 ratio 缩放时间戳；非正值输入与负结果均归零（防御性）。
 [[nodiscard]] std::int64_t scaleTimestamp(std::int64_t timestampSamples, double ratio) noexcept;
-
 // WavExportOptions 四项基础参数有效性检查（sampleRate/channels/blockSize/bitsPerSample > 0）。
 [[nodiscard]] bool hasUsableRenderOptions(const devpiano::exporting::WavExportOptions& options) noexcept;
 

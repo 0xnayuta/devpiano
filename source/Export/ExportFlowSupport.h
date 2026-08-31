@@ -35,5 +35,9 @@ enum class ExportFileType : std::uint8_t { midi, wav };
                                                      double runtimeSampleRate, int runtimeBlockSize);
 
 [[nodiscard]] juce::String makeExportLogPrefix(ExportFileType type);
-
+/// Master bus soft-knee ceiling guard (consistent across AudioEngine and export renderers).
+void applyMasterSoftLimiter(juce::AudioBuffer<float>& buffer, int startSample, int numSamples) noexcept;
+inline void applyMasterSoftLimiter(juce::AudioBuffer<float>& buffer, int numSamples) noexcept {
+    applyMasterSoftLimiter(buffer, 0, numSamples);
+}
 } // namespace devpiano::exporting

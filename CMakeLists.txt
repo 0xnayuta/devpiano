@@ -122,8 +122,9 @@ if (MSVC)
         /Zc:__cplusplus
         /W4
         # JUCE 模块 .c 文件使 target 含 C 语言，CMake 为 C 生成 PCH 桩；
-        # pch.h 为 STL-only（ADR-011），C 模式下为空翻译单元触发 C4206，无害
-        $<$<COMPILE_LANGUAGE:C>:/wd4206>
+        # pch.h 为 STL-only（ADR-011），C 模式下为空翻译单元触发 C4206，无害；
+        # JUCE 第三方 C 模块（如 SheenBidi SBBase.c）在 Release 优化下未引用内部静态函数触发 C4505，无害
+        $<$<COMPILE_LANGUAGE:C>:/wd4206 /wd4505>
     )
 endif()
 
@@ -203,6 +204,9 @@ target_sources(devpiano PRIVATE
     source/UI/KeyBindingEditDialog.h
     source/UI/ColourSwatchButton.cpp
     source/UI/ColourSwatchButton.h
+    source/UI/jive/JiveBuilderHelpers.h
+    source/UI/jive/JiveModalDialog.cpp
+    source/UI/jive/JiveModalDialog.h
     source/UI/PerformanceMetadataDialog.cpp
     source/UI/PerformanceMetadataDialog.h
     source/UI/PresetDialogs.cpp
@@ -210,6 +214,7 @@ target_sources(devpiano PRIVATE
     source/Settings/SettingsStore.h
     source/Settings/SettingsSerialization.cpp
     source/Settings/SettingsSerialization.h
+    source/Settings/SettingsComponent.cpp
     source/Settings/SettingsComponent.h
     source/Settings/jive/SettingsLayoutModel.cpp
     source/Settings/jive/SettingsLayoutModel.h
@@ -335,8 +340,9 @@ if (BUILD_TESTS)
             /Zc:__cplusplus
             /W4
             # JUCE 模块 .c 文件使 target 含 C 语言，CMake 为 C 生成 PCH 桩；
-            # pch.h 为 STL-only（ADR-011），C 模式下为空翻译单元触发 C4206，无害
-            $<$<COMPILE_LANGUAGE:C>:/wd4206>
+            # pch.h 为 STL-only（ADR-011），C 模式下为空翻译单元触发 C4206，无害；
+            # JUCE 第三方 C 模块（如 SheenBidi SBBase.c）在 Release 优化下未引用内部静态函数触发 C4505，无害
+            $<$<COMPILE_LANGUAGE:C>:/wd4206 /wd4505>
         )
     endif()
     # 生产代码（被测模块）：只包含无 GUI/设备依赖的纯逻辑层
@@ -384,7 +390,8 @@ if (BUILD_TESTS)
         source/Audio/PianoSynthVoice.h
         source/Plugin/PluginHost.cpp
         source/Plugin/PluginHost.h
-
+        source/Plugin/PluginFlowSupport.cpp
+        source/Plugin/PluginFlowSupport.h
         source/Layout/PerformancePreset.cpp
         source/Layout/PerformancePreset.h
         source/Settings/SettingsStore.cpp
@@ -404,6 +411,7 @@ if (BUILD_TESTS)
         source/UI/jive/StyleCatalog.h
         source/UI/jive/LayoutModel.cpp
         source/UI/jive/LayoutModel.h
+        source/UI/jive/JiveBuilderHelpers.h
         source/UI/jive/JiveModalDialog.cpp
         source/UI/jive/JiveModalDialog.h
         source/UI/jive/JiveUtils.h
@@ -419,6 +427,8 @@ if (BUILD_TESTS)
         source/UI/KeyBindingEditDialog.h
         source/UI/ColourSwatchButton.cpp
         source/UI/ColourSwatchButton.h
+        source/Settings/SettingsComponent.cpp
+        source/Settings/SettingsComponent.h
         source/Settings/jive/SettingsLayoutModel.cpp
         source/Settings/jive/SettingsLayoutModel.h
 
@@ -444,8 +454,11 @@ if (BUILD_TESTS)
         source/tests/PluginHostXmlTest.cpp
         source/tests/KeyboardHitMappingTest.cpp
         source/tests/PianoSynthVoiceTest.cpp
+        source/tests/SineSynthVoiceTest.cpp
+        source/tests/AppStateAndSerializationTest.cpp
+        source/tests/PluginOfflineRendererTest.cpp
+        source/tests/PluginOperationControllerTest.cpp
         source/tests/JiveModalDialogTest.cpp
-        source/tests/SettingsLayoutModelTest.cpp
     )
     target_link_libraries(devpiano_tests PRIVATE
         devpiano_binary_data

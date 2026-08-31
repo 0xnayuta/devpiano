@@ -10,7 +10,7 @@ struct RecordingTake;
 #include "Export/WavExportOptions.h"
 namespace devpiano::exporting {
 
-// Exports a RecordingTake as a WAV file using the built-in sine synth.
+// Exports a RecordingTake as a WAV file using the built-in piano / sine synth.
 // If progressCallback is provided, it is called with progress in [0, 1] after each block.
 // Return false from the callback to cancel the export.
 bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const juce::File& destinationFile,

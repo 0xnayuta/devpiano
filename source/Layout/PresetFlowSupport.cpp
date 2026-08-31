@@ -17,10 +17,25 @@ PresetFlowSupport::~PresetFlowSupport() = default;
 
 // ---- Cache management ----
 
-void PresetFlowSupport::refreshCache() {
-    cachedPresets = scanPresetDirectory();
-}
+void PresetFlowSupport::refreshCache(bool force) {
+    const auto dir = getPresetDirectory();
+    if (!dir.exists()) {
+        cachedPresets.clear();
+        lastDirModificationTime = {};
+        lastScannedDir = dir;
+        return;
+    }
 
+    const auto currentModTime = dir.getLastModificationTime();
+    if (!force && lastScannedDir == dir && currentModTime == lastDirModificationTime && !cachedPresets.empty()) {
+        // Directory modification time has not changed — reuse in-memory cache (PERF-005)
+        return;
+    }
+
+    cachedPresets = scanPresetDirectory(dir);
+    lastDirModificationTime = currentModTime;
+    lastScannedDir = dir;
+}
 // ---- UI data ----
 
 juce::StringArray PresetFlowSupport::getPresetIds() const {
@@ -128,6 +143,7 @@ void PresetFlowSupport::commitPreset(const PerformancePreset& preset) {
 }
 
 void PresetFlowSupport::updateUiAfterCommit() {
+    refreshCache(true);
     owner.syncUiFromSettings();
     owner.getCustomKeyboard().repaint();
     owner.saveSettingsSoon();
@@ -150,6 +166,19 @@ PerformancePreset PresetFlowSupport::captureCurrentState(const juce::String& nam
     preset.customKeyLabels = owner.appSettings.keyboardDisplay.customKeyLabels;
     preset.customKeyColours = owner.appSettings.keyboardDisplay.customKeyColours;
     return preset;
+}
+
+bool PresetFlowSupport::autoSaveCurrentPreset() {
+    if (currentPresetId.isEmpty()) {
+        return false;
+    }
+    auto updatedPreset = captureCurrentState(currentPresetId);
+    auto presetFile = getPresetDirectory().getChildFile(sanitisePresetFileName(currentPresetId) + ".devpiano.preset");
+    if (!savePreset(updatedPreset, presetFile)) {
+        DP_LOG_WARN("[Preset] failed to auto-save after binding edit: " + currentPresetId);
+        return false;
+    }
+    return true;
 }
 
 // ---- CRUD ----
@@ -270,30 +299,29 @@ void PresetFlowSupport::handleDeletePreset() {
     }
     auto name = it->name;
 
-    PresetConfirmDialog::show(TRANS("Delete Preset?"), TRANS("Delete preset \"") + name + "\"?", TRANS("Delete"),
-                              TRANS("Cancel"), &owner, [this, targetId, name](bool confirmed) {
-                                  if (!confirmed) {
-                                      return;
-                                  }
+    PresetConfirmDialog::show(
+        TRANS("Delete Preset"), TRANS("Delete preset \"") + name + "\"? " + TRANS("This cannot be undone."),
+        TRANS("Delete"), TRANS("Cancel"), &owner, [this, name](bool confirmed) {
+            if (!confirmed) {
+                return;
+            }
+            auto file = getPresetDirectory().getChildFile(sanitisePresetFileName(name) + ".devpiano.preset");
+            if (file.deleteFile()) {
+                DP_LOG_INFO("[Preset] deleted: " + name);
+            } else {
+                DP_LOG_WARN("[Preset] failed to delete preset file: " + file.getFullPathName());
+            }
 
-                                  auto file = getPresetDirectory().getChildFile(sanitisePresetFileName(name)
-                                                                                + ".devpiano.preset");
-                                  if (file.deleteFile()) {
-                                      DP_LOG_INFO("[Preset] deleted: " + name);
-                                  } else {
-                                      DP_LOG_WARN("[Preset] failed to delete preset file: " + file.getFullPathName());
-                                  }
-
-                                  // If the deleted preset was current, revert to default
-                                  if (currentPresetId == name) {
-                                      applyPresetData(makeDefaultPreset());
-                                      currentPresetId.clear();
-                                      owner.appSettings.lastActivePresetId.clear();
-                                  }
-                                  refreshCache();
-                                  updateUiAfterCommit();
-                                  owner.showStatusMessage(TRANS("Deleted preset: ") + name, 2500);
-                              });
+            // If the deleted preset was current, revert to default
+            if (currentPresetId == name) {
+                applyPresetData(makeDefaultPreset());
+                currentPresetId.clear();
+                owner.appSettings.lastActivePresetId.clear();
+            }
+            refreshCache();
+            updateUiAfterCommit();
+            owner.showStatusMessage(TRANS("Deleted preset: ") + name, 2500);
+        });
 }
 
 void PresetFlowSupport::handleImportPresetFile(const juce::File& file) {

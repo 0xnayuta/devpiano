@@ -9,6 +9,8 @@ enum class Language : uint8_t {
     zhCN, // Chinese (Simplified)
 };
 
+constexpr auto kMaxLocaleFileSizeBytes = 2 * 1024 * 1024; // 2 MB (SEC-003)
+
 // Try to load a .loc file from several common paths relative to the
 // executable / working directory.  Returns nullptr on failure.
 [[nodiscard]] inline std::unique_ptr<juce::LocalisedStrings> tryLoadLocaleFile(const juce::String& fileName) {
@@ -21,7 +23,7 @@ enum class Language : uint8_t {
 
     for (const auto& dir : searchDirs) {
         auto file = dir.getChildFile(fileName);
-        if (file.existsAsFile()) {
+        if (file.existsAsFile() && file.getSize() <= kMaxLocaleFileSizeBytes) {
             auto result = std::make_unique<juce::LocalisedStrings>(file, false);
             // Basic validation: language name should be non-empty if file parsed
             if (result->getLanguageName().isNotEmpty()) {

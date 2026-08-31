@@ -133,7 +133,11 @@ source/
 - **`source/Recording/PerformanceFile.h/.cpp`**：
   - `.devpiano` 原生演奏文件持久化（v2 JSON 格式 + Base64 编码 + 元数据），通过 `juce::TemporaryFile` 实现原子写入。
 - **`source/Recording/MidiFileImporter.h/.cpp`**：
-  - 标准 MIDI 文件解析，智能选择 Note 密度最高的单轨，提取 Note、CC64 延音、PitchBend 与 ProgramChange。
+  - 标准 MIDI 文件解析与统一导入：委托 `MidiTrackMergeEngine` 将多轨事件合并为单时间线 `RecordingTake`，智能提取调号与曲名元数据；单轨模式下智能选取音符最丰富的主音轨。
+- **`source/Recording/MidiTrackMergeEngine.h/.cpp`**：
+  - **多轨并轨合并引擎（Phase 26）**：纯静态算法引擎，负责将 `juce::MidiFile` 的所有独立音轨（Type 0/1）合并为单一连续时间线；
+  - 支持智能通道映射策略（`passThrough` 保持原通道、`autoAssignIfSingleChannel` 单通道多轨自动分配 1-16 通道、`forceTrackToChannel` 强制轨索引取模分配）；
+  - 精确解析曲目元数据（曲名、版权、拍号、调号、速度事件与 Tempo Map），并在同时间戳下按 Program Change → CC → Note Off → Note On 严格确定事件优先级。
 - **`source/Recording/MidiFileExporter.h/.cpp`**：
   - 将录制 Take 导出为标准 Type 1 MIDI 文件（960 PPQ）。
 - **`source/Recording/PluginOfflineRenderer.h/.cpp`**：

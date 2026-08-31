@@ -1,13 +1,13 @@
 #include <functional>
 
-#include "Recording/PluginOfflineRenderer.h"
-#include <juce_audio_formats/juce_audio_formats.h>
-
 #include "Diagnostics/Log.h"
+#include "Export/ExportFlowSupport.h"
 #include "Plugin/PluginHost.h"
+#include "Recording/PluginOfflineRenderer.h"
 #include "Recording/RecordingEngine.h"
 #include "Recording/RenderPipeline.h"
 #include "Recording/WavFileExporter.h"
+#include <juce_audio_formats/juce_audio_formats.h>
 
 #include <algorithm>
 #include <cmath>
@@ -165,11 +165,25 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
         // Copy plugin output (with channel down-mix if needed) and apply master gain
         outputBuffer.setSize(options.numChannels, numSamples, false, false, true);
         outputBuffer.clear();
-        for (auto channel = 0; channel < outputChannels; ++channel) {
-            outputBuffer.copyFrom(channel, 0, pluginBuffer, channel, 0, numSamples);
-        }
-        outputBuffer.applyGain(gain);
 
+        const auto pluginOutputChannels = offlinePlugin.getTotalNumOutputChannels();
+        if (options.numChannels == 2 && pluginOutputChannels == 1) {
+            // Mono plugin rendered to stereo: duplicate mono channel to L & R
+            outputBuffer.copyFrom(0, 0, pluginBuffer, 0, 0, numSamples);
+            outputBuffer.copyFrom(1, 0, pluginBuffer, 0, 0, numSamples);
+        } else if (options.numChannels == 1 && pluginOutputChannels >= 2) {
+            // Stereo/multi-channel plugin rendered to mono: downmix L + R
+            outputBuffer.copyFrom(0, 0, pluginBuffer, 0, 0, numSamples);
+            outputBuffer.addFrom(0, 0, pluginBuffer, 1, 0, numSamples);
+            outputBuffer.applyGain(0, 0, numSamples, 0.5f);
+        } else {
+            for (auto channel = 0; channel < outputChannels; ++channel) {
+                outputBuffer.copyFrom(channel, 0, pluginBuffer, channel, 0, numSamples);
+            }
+        }
+
+        outputBuffer.applyGain(gain);
+        applyMasterSoftLimiter(outputBuffer, numSamples);
         if (!writer->writeFromAudioSampleBuffer(outputBuffer, 0, numSamples)) {
             DP_LOG_ERROR("[PluginOfflineRenderer] WAV write failed at block " + juce::String(blockStart));
             return false;

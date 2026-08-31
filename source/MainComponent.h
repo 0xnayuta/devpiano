@@ -102,7 +102,7 @@ private:
     void initialiseUi();
     [[nodiscard]] juce::Rectangle<int> getInitialMainContentBounds() const;
     [[nodiscard]] SettingsModel::PerformanceSettingsView getPerformanceSettingsFromUi() const;
-    [[nodiscard]] SettingsModel::BuiltinTone getBuiltinToneFromUi() const;
+    [[nodiscard]] SettingsModel::BuiltinTone getBuiltinToneFromSettings() const;
     [[nodiscard]] float getPianoBrightness() const;
     [[nodiscard]] float getPianoHammerHardness() const;
     [[nodiscard]] float getPianoResonance() const;
@@ -187,6 +187,9 @@ private:
     [[nodiscard]] RuntimeAudioConfig getCurrentRuntimeAudioConfig() const;
     void runPluginActionWithAudioDeviceRebuild(const std::function<void(const RuntimeAudioConfig&)>& action);
     void runPluginActionWithAudioDeviceRebuild(const std::function<void()>& action);
+
+    void handleKeyBindingEditRequest(int midiNote);
+    void applyKeyBindingEditResult(int midiNote, const struct KeyBindingEditResult& result);
 
     devpiano::recording::RecordingEngine recordingEngine;
     AudioEngine audioEngine;

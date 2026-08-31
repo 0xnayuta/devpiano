@@ -146,23 +146,36 @@ private:
         testCase("CustomKeyboard paint with clipping produces no errors", [&] {
             juce::MidiKeyboardState ks;
             CustomKeyboard kb(ks);
+            kb.setVisible(true);
             kb.setSize(1800, 128);
-
             juce::Image image(juce::Image::ARGB, 1800, 128, true);
-            juce::Graphics g(image);
+            {
+                juce::Graphics g(image);
 
-            // Full paint
-            kb.paintEntireComponent(g, true);
+                // Full paint
+                kb.paintEntireComponent(g, true);
 
-            // Dirty rect clipped paint (single key region)
-            g.saveState();
-            g.reduceClipRegion(juce::Rectangle<int>(840, 0, 48, 128));
-            kb.paintEntireComponent(g, true);
-            g.restoreState();
-
-            expect(true, "CustomKeyboard paint completed under dirty rect clipping");
+                // Dirty rect clipped paint (single key region)
+                g.saveState();
+                g.reduceClipRegion(juce::Rectangle<int>(840, 0, 48, 128));
+                kb.paintEntireComponent(g, true);
+                g.restoreState();
+            }
+            // Observable assertion (TEST-008): verify painted pixels exist in rendered buffer
+            // (sampled across keybed region x in [276, 1524])
+            bool hasNonTransparentPixels = false;
+            for (int y = 0; y < 128 && !hasNonTransparentPixels; y += 8) {
+                for (int x = 276; x < 1524 && !hasNonTransparentPixels; x += 16) {
+                    if (image.getPixelAt(x, y).getAlpha() > 0) {
+                        hasNonTransparentPixels = true;
+                    }
+                }
+            }
+            expect(hasNonTransparentPixels,
+                   "CustomKeyboard paint rendered visible pixels into image under dirty rect clipping");
         });
     }
+
     void testReleaseHeldMouseNote() {
         testCase("releaseHeldMouseNote is a no-op without a held mouse note", [&] {
             juce::MidiKeyboardState ks;

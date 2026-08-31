@@ -31,3 +31,4 @@
 | `phase23-master-voicing-realism-calibration.md` | `docs/roadmap/roadmap.md`（Phase 23 摘要） |
 | `phase24-vitality-and-dynamic-blooming.md` | `docs/roadmap/roadmap.md`（Phase 24 摘要） |
 | `phase25-linux-desktop-and-audio-path.md` | `docs/roadmap/roadmap.md`（Phase 25 摘要） |
+| `phase26-midi-multi-track-timeline-merge.md` | `docs/roadmap/roadmap.md`（Phase 26 摘要）、`docs/reference/features/midi-file-import.md` |

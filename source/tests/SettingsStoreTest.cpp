@@ -165,7 +165,7 @@ public:
                                       "zero release must fall back to default");
         });
 
-        testCase("save creates file with restricted permissions (QUAL-006)", [&] {
+        testCase("save creates valid non-empty file on disk", [&] {
             devpiano::test::ScopedTempDir tempDir("store-perms");
             const auto settingsFile = tempDir.getChildFile("DevPianoTests.settings");
 
@@ -176,8 +176,14 @@ public:
                 store.save(m);
             }
 
-            expect(settingsFile.existsAsFile());
-            expect(settingsFile.getSize() > 0, "file must not be empty");
+            expect(settingsFile.existsAsFile(), "settings file must exist as file");
+            expect(settingsFile.getSize() > 0, "settings file must not be empty");
+#if JUCE_POSIX
+            struct stat st {};
+            if (::stat(settingsFile.getFullPathName().toRawUTF8(), &st) == 0) {
+                expect((st.st_mode & S_IRUSR) != 0, "file must be readable by owner");
+            }
+#endif
         });
     }
 };

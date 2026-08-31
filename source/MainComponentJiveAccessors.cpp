@@ -78,16 +78,31 @@ juce::String keySignatureToString(int ks) {
     case 7:
         return "G";
     case -4:
-        return "Ab";
+    case 8:
+        return "G# / Ab";
     case -3:
+    case 9:
         return "A";
     case -2:
-        return "Bb";
+    case 10:
+        return "A# / Bb";
     case -1:
+    case 11:
         return "B";
     default:
         return "C";
     }
+}
+
+template <typename T> [[nodiscard]] T getSliderValue(::jive::GuiItem* root, const char* id, T fallback) {
+    if (root != nullptr) {
+        if (auto* item = jive::findItemWithID(*root, id)) {
+            if (auto* slider = dynamic_cast<juce::Slider*>(item->getComponent().get())) {
+                return static_cast<T>(slider->getValue());
+            }
+        }
+    }
+    return fallback;
 }
 
 } // namespace
@@ -381,117 +396,44 @@ void MainComponent::refreshPluginPanelTexts() {
 // ── JIVE controls panel accessors ──────────────────────────────────────────
 
 float MainComponent::getMasterGain() const {
-    if (jiveRootItem == nullptr) {
-        return 0.0f;
-    }
-    if (auto* item = jive::findItemWithID(*jiveRootItem, "volume-knob")) {
-        if (auto* slider = dynamic_cast<juce::Slider*>(item->getComponent().get())) {
-            return static_cast<float>(slider->getValue());
-        }
-    }
-    return 0.0f;
+    return getSliderValue(jiveRootItem.get(), "volume-knob", 0.0f);
 }
 
 float MainComponent::getAttack() const {
-    if (jiveRootItem == nullptr) {
-        return 0.0f;
-    }
-    if (auto* item = jive::findItemWithID(*jiveRootItem, "attack-knob")) {
-        if (auto* slider = dynamic_cast<juce::Slider*>(item->getComponent().get())) {
-            return static_cast<float>(slider->getValue());
-        }
-    }
-    return 0.0f;
+    return getSliderValue(jiveRootItem.get(), "attack-knob", 0.0f);
 }
 
 float MainComponent::getDecay() const {
-    if (jiveRootItem == nullptr) {
-        return 0.0f;
-    }
-    if (auto* item = jive::findItemWithID(*jiveRootItem, "decay-knob")) {
-        if (auto* slider = dynamic_cast<juce::Slider*>(item->getComponent().get())) {
-            return static_cast<float>(slider->getValue());
-        }
-    }
-    return 0.0f;
+    return getSliderValue(jiveRootItem.get(), "decay-knob", 0.0f);
 }
 
 float MainComponent::getSustain() const {
-    if (jiveRootItem == nullptr) {
-        return 0.0f;
-    }
-    if (auto* item = jive::findItemWithID(*jiveRootItem, "sustain-knob")) {
-        if (auto* slider = dynamic_cast<juce::Slider*>(item->getComponent().get())) {
-            return static_cast<float>(slider->getValue());
-        }
-    }
-    return 0.0f;
+    return getSliderValue(jiveRootItem.get(), "sustain-knob", 0.0f);
 }
 
 float MainComponent::getRelease() const {
-    if (jiveRootItem == nullptr) {
-        return 0.0f;
-    }
-    if (auto* item = jive::findItemWithID(*jiveRootItem, "release-knob")) {
-        if (auto* slider = dynamic_cast<juce::Slider*>(item->getComponent().get())) {
-            return static_cast<float>(slider->getValue());
-        }
-    }
-    return 0.0f;
+    return getSliderValue(jiveRootItem.get(), "release-knob", 0.0f);
 }
 
 double MainComponent::getControlsPlaybackSpeed() const {
-    if (jiveRootItem == nullptr) {
-        return 1.0;
-    }
-    if (auto* item = jive::findItemWithID(*jiveRootItem, "speed-knob")) {
-        if (auto* slider = dynamic_cast<juce::Slider*>(item->getComponent().get())) {
-            return slider->getValue();
-        }
-    }
-    return 1.0;
+    return getSliderValue(jiveRootItem.get(), "speed-knob", 1.0);
 }
 
-SettingsModel::BuiltinTone MainComponent::getBuiltinToneFromUi() const {
+SettingsModel::BuiltinTone MainComponent::getBuiltinToneFromSettings() const {
     return appSettings.builtinTone;
 }
 
 float MainComponent::getPianoBrightness() const {
-    if (jiveRootItem == nullptr) {
-        return 0.5f;
-    }
-    if (auto* item = jive::findItemWithID(*jiveRootItem, "brightness-knob")) {
-        if (auto* slider = dynamic_cast<juce::Slider*>(item->getComponent().get())) {
-            return static_cast<float>(slider->getValue());
-        }
-    }
-    return 0.5f;
+    return getSliderValue(jiveRootItem.get(), "brightness-knob", 0.5f);
 }
 
 float MainComponent::getPianoHammerHardness() const {
-    if (jiveRootItem == nullptr) {
-        return 0.5f;
-    }
-    if (auto* item = jive::findItemWithID(*jiveRootItem, "hardness-knob")) {
-        if (auto* slider = dynamic_cast<juce::Slider*>(item->getComponent().get())) {
-            return static_cast<float>(slider->getValue());
-        }
-    }
-    return 0.5f;
+    return getSliderValue(jiveRootItem.get(), "hardness-knob", 0.5f);
 }
 
 float MainComponent::getPianoResonance() const {
-    if (jiveRootItem == nullptr) {
-        return 0.5f;
-    }
-    if (auto* item = jive::findItemWithID(*jiveRootItem, "resonance-knob")) {
-        if (auto* slider = dynamic_cast<juce::Slider*>(item->getComponent().get())) {
-            return static_cast<float>(slider->getValue());
-        }
-    }
-    return 0.5f;
+    return getSliderValue(jiveRootItem.get(), "resonance-knob", 0.5f);
 }
-
 void MainComponent::setControlsValues(float masterGain, float attack, float decay, float sustain, float release) {
     if (jiveRootItem == nullptr) {
         return;
@@ -767,6 +709,10 @@ void MainComponent::refreshControlsTexts() {
 
 CustomKeyboard& MainComponent::getCustomKeyboard() {
     jassert(customKeyboardRef != nullptr);
+    if (customKeyboardRef == nullptr) {
+        static CustomKeyboard fallbackKeyboard(audioEngine.getKeyboardState());
+        return fallbackKeyboard;
+    }
     return *customKeyboardRef;
 }
 

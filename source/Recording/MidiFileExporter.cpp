@@ -29,11 +29,15 @@ bool exportTakeAsMidiFile(const devpiano::recording::RecordingTake& take, const 
     sequence.addEvent(tempoMessage);
 
     for (const auto& event : take.events) {
+        if (event.type != devpiano::recording::PerformanceEventType::midi || event.message.getRawDataSize() == 0
+            || event.message.isSysEx()) {
+            continue;
+        }
+
         auto message = event.message;
         message.setTimeStamp(convertSamplesToTicks(event.timestampSamples, take.sampleRate, ppq));
         sequence.addEvent(message);
     }
-
     sequence.updateMatchedPairs();
 
     juce::MidiFile midiFile;

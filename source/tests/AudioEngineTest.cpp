@@ -262,16 +262,19 @@ public:
             expectEquals(countNonZeroSamples(bufEnd, infoEnd.startSample, infoEnd.numSamples), 0,
                          "all-notes-off must silence held notes once the release tail decays");
         }
-        beginTest("subsequent blocks after all-notes-off are safe");
+        beginTest("subsequent blocks after all-notes-off are safe and silent");
         {
             AudioEngine engine;
             engine.prepareToPlay(512, 44100.0);
             exhaustWarmup(engine, 512);
             engine.requestAllNotesOff();
+            int nonZeroTotal = 0;
             for (int i = 0; i < 5; ++i) {
                 auto [buf, info] = makeBlock(2, 512);
                 engine.getNextAudioBlock(info);
+                nonZeroTotal += countNonZeroSamples(buf, info.startSample, info.numSamples);
             }
+            expectEquals(nonZeroTotal, 0, "subsequent idle blocks after all-notes-off must remain completely silent");
         }
     }
 };

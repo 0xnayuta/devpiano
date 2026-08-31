@@ -112,6 +112,8 @@ private:
     std::atomic<std::int64_t> playbackPositionSamples { 0 };
     std::atomic_bool playbackEndedPending { false };
 
+    // Block cursor for O(1)/O(K) playback event scanning (PERF-002).
+    std::size_t playbackEventIndex { 0 };
     // Preset-change notification queue (audio thread → message thread)
     std::vector<PendingPresetChange> pendingPresetChanges;
     // Preset-change events recorded from the message thread during active
@@ -124,9 +126,9 @@ private:
     juce::CriticalSection presetChangeLock;
 
     // Per-channel pitch bend EMA state for playback zipper-noise reduction.
-    // Indexed by MIDI channel (0-15).  Initialised to 8192.0f (center) in
-    // startPlayback / stopPlayback.  Audio-thread access is gated by isPlaying()
-    // with happens-before ordering via the RecordingState atomic.
+    // Indexed by MIDI channel (0-15). Initialised to 8192.0f (center) in
+    // startPlayback. Audio-thread access is gated by isPlaying() with
+    // happens-before ordering via the RecordingState atomic.
     std::array<float, 16> smoothedPitchBend {};
 };
 } // namespace devpiano::recording

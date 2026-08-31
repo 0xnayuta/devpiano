@@ -243,7 +243,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 | 键盘映射边界多 | 低 | 基础映射已全量验证；Performance Preset 已补充专项回归清单。 |
 | 物理建模高负荷极端情况 | 极低 | 逐采样零三角函数 + 动态分音剪枝，8 复音齐奏单核 CPU $\le 0.7\%$。 |
 | JIVE API 稳定性 | 极低 | 固定 git commit hash；持续维护单元测试回归。 |
-| `MainComponent` 职责回流 | 低 | 当前 ~1310 行（`initialiseUi()` 承载 JIVE 树构建与回调接线），UI 布局仍完全下沉至 JIVE 与独立 Controller；持续监控，避免业务逻辑回流。 |
+| `MainComponent` 职责回流 | 低 | 当前稳定在 ~1270 行（主要由 `initialiseUi()` 承载 JIVE 树构建与回调接线，核心业务均已委托独立 Controller 与领域模块）；持续监控，避免业务逻辑回流。 |
 | 文档状态漂移 | 极低 | 本文件作为唯一 roadmap；当前任务只写入 [`current-iteration.md`](current-iteration.md)。 |
 
 ---

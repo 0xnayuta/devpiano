@@ -1,7 +1,8 @@
 #pragma once
 
 #include <algorithm>
-
+#include <cstdint>
+#include <juce_core/juce_core.h>
 namespace devpiano::core {
 struct MidiNoteNumber {
     int value = 60;

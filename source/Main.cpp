@@ -100,7 +100,7 @@ public:
         return ProjectInfo::versionString;
     }
     bool moreThanOneInstanceAllowed() override {
-        return true;
+        return false;
     }
 
     //==============================================================================
@@ -131,7 +131,18 @@ public:
     }
 
     void anotherInstanceStarted(const juce::String& commandLine) override {
-        juce::ignoreUnused(commandLine);
+        if (mainWindow != nullptr) {
+            mainWindow->toFront(true);
+            if (commandLine.containsIgnoreCase("--sine") || commandLine.containsIgnoreCase("--tone=sine")) {
+                if (auto* mainComponent = dynamic_cast<MainComponent*>(mainWindow->getContentComponent())) {
+                    mainComponent->setBuiltinSynthTone(SettingsModel::BuiltinTone::sine);
+                }
+            } else if (commandLine.containsIgnoreCase("--piano") || commandLine.containsIgnoreCase("--tone=piano")) {
+                if (auto* mainComponent = dynamic_cast<MainComponent*>(mainWindow->getContentComponent())) {
+                    mainComponent->setBuiltinSynthTone(SettingsModel::BuiltinTone::piano);
+                }
+            }
+        }
     }
 
     //==============================================================================

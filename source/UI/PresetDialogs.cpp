@@ -4,9 +4,7 @@
 
 // ============================================================================
 // PresetNameDialog & PresetConfirmDialog Implementation
-//
-// Refactored in Phase 15-B to use JiveModalDialog declarative templates,
-// eliminating redundant DialogContentBase classes and manual pixel calculations.
+// Declarative dialog wrappers backed by JiveModalDialog templates.
 // ============================================================================
 
 void PresetNameDialog::launch(const juce::String& title, const juce::String& initialName,

@@ -34,9 +34,12 @@ public:
     void startNote(int midiNoteNumber, float velocity, juce::SynthesiserSound*, int) override {
         const auto sampleRate = getSampleRate();
         if (sampleRate <= 0.0) {
+            activeVoice = false;
+            clearCurrentNote();
             return;
         }
 
+        activeVoice = true;
         level = velocity * 0.70f;
         frequency = static_cast<float>(juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber));
         phase = 0.0;
@@ -54,12 +57,17 @@ public:
         }
 
         adsr.reset();
+        activeVoice = false;
         clearCurrentNote();
     }
 
     void pitchWheelMoved(int) override {
     }
     void controllerMoved(int, int) override {
+    }
+
+    [[nodiscard]] bool isVoiceActive() const noexcept override {
+        return activeVoice && adsr.isActive();
     }
 
     void renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int startSample, int numSamples) override {
@@ -70,6 +78,7 @@ public:
         for (auto sample = 0; sample < numSamples; ++sample) {
             const auto envelope = adsr.getNextSample();
             if (envelope <= 0.0f && !adsr.isActive()) {
+                activeVoice = false;
                 clearCurrentNote();
                 break;
             }
@@ -88,6 +97,7 @@ public:
     }
 
 private:
+    bool activeVoice = false;
     double phase = 0.0;
     float increment = 0.0f;
     float frequency = 440.0f;

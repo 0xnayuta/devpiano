@@ -154,13 +154,36 @@ public:
             expect(!loadPreset(path).has_value());
         });
 
-        testCase("loadPreset rejects an unknown format version", [&] {
-            devpiano::test::ScopedTempDir tempDir("preset-version");
-            auto path = tempDir.getChildFile("v2.devpiano.preset");
-            path.replaceWithText(R"({ "version": 2, "name": "future" })");
-            expect(!loadPreset(path).has_value(), "version mismatch must be rejected");
+        testCase("loadPreset rejects an oversized file (SEC-003)", [&] {
+            devpiano::test::ScopedTempDir tempDir("oversized-preset");
+            auto path = tempDir.getChildFile("huge.devpiano.preset");
+            // Write > 1 MB payload
+            juce::FileOutputStream out(path);
+            expect(out.openedOk());
+            juce::MemoryBlock block(1024 * 1024 + 128, true);
+            out.write(block.getData(), block.getSize());
+            out.flush();
+
+            expect(!loadPreset(path).has_value(), "Oversized preset file (>1MB) must be rejected");
         });
 
+        testCase("loadPreset rejects invalid version and clamps out-of-range fields (SEC-004, SEC-005)", [&] {
+            devpiano::test::ScopedTempDir tempDir("compat-preset");
+            auto pathInvalidVer = tempDir.getChildFile("future.devpiano.preset");
+            pathInvalidVer.replaceWithText(R"({ "version": 999, "name": "Future" })");
+            expect(!loadPreset(pathInvalidVer).has_value(), "Version > current must be rejected");
+
+            auto pathClamped = tempDir.getChildFile("clamped.devpiano.preset");
+            pathClamped.replaceWithText(
+                R"({ "version": 1, "name": "Clamped", "keyboard": { "keySignature": 100, "fadeSpeed": 99.0, "previewAlpha": -5.0 } })");
+            auto loaded = loadPreset(pathClamped);
+            expect(loaded.has_value(), "Valid version 1 preset must be loaded");
+            if (loaded.has_value()) {
+                expectEquals(loaded->keySignature, 7, "keySignature must be clamped to 7");
+                expectEquals(loaded->fadeSpeed, 10.0f, "fadeSpeed must be clamped to 10.0");
+                expectEquals(loaded->previewAlpha, 0.0f, "previewAlpha must be clamped to 0.0");
+            }
+        });
         testCase("display name strips the preset extension", [&] {
             expectEquals(getPresetDisplayNameForFile(juce::File("/tmp/My Song.devpiano.preset")),
                          juce::String("My Song"));
@@ -209,5 +232,50 @@ public:
         });
     }
 };
-
 static PresetFileNameSanitiseTest presetFileNameSanitiseTest;
+
+// -----------------------------------------------------------------------------
+
+class PresetDirectoryScanTest final : public juce::UnitTest {
+public:
+    PresetDirectoryScanTest()
+        : juce::UnitTest("PerformancePreset: directory scan and cache consistency", "DevPiano/Core") {
+    }
+
+    void runTest() override {
+        testCase("scan directory ignores non-preset files and loads valid presets", [&] {
+            devpiano::test::ScopedTempDir tempDir("preset-dir-scan");
+
+            // 1. Create a non-preset file
+            tempDir.getChildFile("notes.txt").replaceWithText("some text");
+
+            // 2. Create two valid preset files
+            auto p1 = makeFullPreset();
+            p1.name = "Preset Alpha";
+            expect(savePreset(p1, tempDir.getChildFile("alpha.devpiano.preset")));
+
+            auto p2 = makeFullPreset();
+            p2.name = "Preset Beta";
+            expect(savePreset(p2, tempDir.getChildFile("beta.devpiano.preset")));
+
+            // 3. Scan directory
+            const auto scanned = scanPresetDirectory(tempDir.get());
+            expectEquals(static_cast<int>(scanned.size()), 2, "Must find exactly 2 valid preset files");
+
+            juce::StringArray names;
+            for (const auto& p : scanned) {
+                names.add(p.name);
+            }
+            expect(names.contains("Preset Alpha"));
+            expect(names.contains("Preset Beta"));
+        });
+
+        testCase("getPresetDirectory returns a valid location", [&] {
+            const auto dir = getPresetDirectory();
+            expect(dir != juce::File(), "Preset directory must not be an empty path");
+            expect(dir.getFileName() == "Presets", "Preset directory leaf name must be Presets");
+        });
+    }
+};
+
+static PresetDirectoryScanTest presetDirectoryScanTest;

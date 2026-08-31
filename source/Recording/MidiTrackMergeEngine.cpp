@@ -1,8 +1,7 @@
 #include "MidiTrackMergeEngine.h"
 #include "Diagnostics/Log.h"
 #include "Diagnostics/MidiTrace.h"
-
-#include <algorithm>
+#include "Recording/RenderPipeline.h"
 #include <cmath>
 #include <cstdint>
 #include <map>
@@ -144,20 +143,6 @@ std::vector<TrackInspection> inspectTracks(const juce::MidiFile& midiFile) {
     return inspections;
 }
 
-int findNoteRichTrackIndex(const std::vector<TrackInspection>& inspections) {
-    int selectedTrack = -1;
-    int maxNotes = 0;
-
-    for (const auto& insp : inspections) {
-        if (insp.noteCount > maxNotes) {
-            maxNotes = insp.noteCount;
-            selectedTrack = insp.trackIndex;
-        }
-    }
-
-    return selectedTrack;
-}
-
 } // namespace
 
 std::optional<MidiTrackMergeResult> MidiTrackMergeEngine::mergeTracks(const juce::MidiFile& midiFile,
@@ -172,21 +157,9 @@ std::optional<MidiTrackMergeResult> MidiTrackMergeEngine::mergeTracks(const juce
 
     const auto trackInspections = inspectTracks(midiFile);
 
-    // Determine whether single-track mode or multi-track merge is active
-    std::vector<int> tracksToProcess;
-    if (options.singleTrackOnly && numTracks > 1) {
-        const auto noteRichTrack = findNoteRichTrackIndex(trackInspections);
-        if (noteRichTrack < 0) {
-            DP_LOG_ERROR("MidiTrackMergeEngine: no notes found in any track for single-track mode");
-            return std::nullopt;
-        }
-        tracksToProcess.push_back(noteRichTrack);
-        DP_LOG_INFO("MidiTrackMergeEngine: singleTrackOnly active, selected track " + juce::String(noteRichTrack));
-    } else {
-        tracksToProcess.resize(static_cast<std::size_t>(numTracks));
-        for (int t = 0; t < numTracks; ++t) {
-            tracksToProcess[static_cast<std::size_t>(t)] = t;
-        }
+    std::vector<int> tracksToProcess(static_cast<std::size_t>(numTracks));
+    for (int t = 0; t < numTracks; ++t) {
+        tracksToProcess[static_cast<std::size_t>(t)] = t;
     }
 
     // Analyse channel distribution across tracks to decide automatic channel remapping
@@ -200,8 +173,8 @@ std::optional<MidiTrackMergeResult> MidiTrackMergeEngine::mergeTracks(const juce
     }
 
     const bool shouldAutoAssignChannels
-        = (!options.singleTrackOnly && options.channelStrategy == MidiChannelMappingStrategy::autoAssignIfSingleChannel
-           && tracksWithNotes > 1 && allDistinctChannels.size() <= 1);
+        = (options.channelStrategy == MidiChannelMappingStrategy::autoAssignIfSingleChannel && tracksWithNotes > 1
+           && allDistinctChannels.size() <= 1);
     const bool forceTrackToChannel = (options.channelStrategy == MidiChannelMappingStrategy::forceTrackToChannel);
     const bool remapChannels = shouldAutoAssignChannels || forceTrackToChannel;
 
@@ -328,6 +301,9 @@ std::optional<MidiTrackMergeResult> MidiTrackMergeEngine::mergeTracks(const juce
 
             auto midiMsg = eventPtr->message;
             const auto timestampSeconds = midiMsg.getTimeStamp();
+            if (timestampSeconds < 0.0) {
+                continue;
+            }
 
             if (midiMsg.isMetaEvent()) {
                 ++stats.otherMetaEventCount;
@@ -362,14 +338,8 @@ std::optional<MidiTrackMergeResult> MidiTrackMergeEngine::mergeTracks(const juce
                 }
             }
 
-            if (timestampSeconds < 0.0) {
-                continue;
-            }
-
-            const auto timestampSamples
-                = std::max<int64_t>(0, static_cast<int64_t>(std::round(timestampSeconds * targetSampleRate)));
+            const auto timestampSamples = clampToInt64(timestampSeconds * targetSampleRate);
             maxTimestampSamples = std::max(maxTimestampSamples, timestampSamples);
-
             if (remapChannels && midiMsg.getChannel() > 0) {
                 midiMsg.setChannel(targetChannelForTrack);
             }
@@ -428,7 +398,7 @@ std::optional<MidiTrackMergeResult> MidiTrackMergeEngine::mergeTracks(const juce
 
     RecordingTake take;
     take.sampleRate = targetSampleRate;
-    take.lengthSamples = maxTimestampSamples;
+    take.lengthSamples = std::max<std::int64_t>(1, maxTimestampSamples);
     take.events = std::move(mergedEvents);
 
     return MidiTrackMergeResult { std::move(take), stats, std::move(metadata) };

@@ -36,7 +36,7 @@ public:
     };
     void setLidPosition(LidPosition position);
     [[nodiscard]] LidPosition getLidPosition() const noexcept {
-        return pianoLidPosition;
+        return static_cast<LidPosition>(pendingLidPosition.load(std::memory_order_relaxed));
     }
     void setPlaybackTranspose(bool enabled, int semitoneOffset,
                               std::uint16_t channelFollowKeyMask = 0b1111110111111111) noexcept;
@@ -79,6 +79,7 @@ public:
 
 private:
     void rebuildSynth();
+    void applyPendingParametersIfNeeded();
     void updateAdsrOnVoices();
     void updatePianoParametersOnVoices();
     void discardWarmupInputState();
@@ -95,11 +96,21 @@ private:
     juce::MidiKeyboardState keyboardState;
     juce::MidiBuffer midiBuffer;
     juce::MidiBuffer playbackVisualMidiBuffer;
+    juce::MidiBuffer playbackTransposedMidiBuffer;
     juce::AudioBuffer<float> pluginBuffer;
 
     juce::ADSR::Parameters adsrParameters;
     std::atomic<float> masterGain { 1.0f };
     BuiltinSynthTone builtinTone = BuiltinSynthTone::piano;
+    std::atomic<float> pendingBrightness { 0.5f };
+    std::atomic<float> pendingHammerHardness { 0.5f };
+    std::atomic<float> pendingResonance { 0.5f };
+    std::atomic<float> pendingAttack { 0.01f };
+    std::atomic<float> pendingDecay { 0.2f };
+    std::atomic<float> pendingSustain { 0.8f };
+    std::atomic<float> pendingRelease { 0.3f };
+    std::atomic<std::uint8_t> pendingLidPosition { 0 };
+    std::atomic<bool> parametersNeedUpdate { true };
     float pianoBrightness = 0.5f;
     float pianoHammerHardness = 0.5f;
     float pianoResonance = 0.5f;

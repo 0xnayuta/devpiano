@@ -2,6 +2,7 @@
 
 #include "Recording/PerformanceFile.h"
 #include "Recording/RecordingEngine.h"
+#include "TestHelpers.h"
 
 // =============================================================================
 // Tests for .devpiano file persistence: save/load round-trip and atomic
@@ -40,21 +41,14 @@ devpiano::recording::RecordingTake makeTestTake() {
     return take;
 }
 
-juce::File makeScratchFile(const juce::String& name) {
-    return juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("devpiano_perf_test_" + name);
-}
-
 // TemporaryFile names the scratch file "<base>_temp<hex>.<ext>" in the target
 // directory; this helper detects leftover scratch files after save.
-bool hasTempResidue(const juce::File& targetFile) {
-    const auto dir = targetFile.getParentDirectory();
-    const auto base = targetFile.getFileNameWithoutExtension();
+bool hasTempResidue(const juce::File& dir, const juce::String& base) {
     return std::ranges::any_of(juce::RangedDirectoryIterator(dir, false, "*", juce::File::findFiles),
                                [&base](const auto& entry) {
                                    return entry.getFile().getFileNameWithoutExtension().startsWith(base + "_temp");
                                });
 }
-
 } // namespace
 
 class PerformanceFileSaveLoadTest : public juce::UnitTest {
@@ -67,9 +61,8 @@ public:
         using namespace devpiano::recording;
 
         testCase("save then load round-trips take and metadata", [&] {
-            const auto target = makeScratchFile("roundtrip.devpiano");
-            target.deleteFile();
-
+            devpiano::test::ScopedTempDir tempDir("perf-roundtrip");
+            const auto target = tempDir.getChildFile("roundtrip.devpiano");
             const auto take = makeTestTake();
             PerformanceFileMetadata metadata;
             metadata.title = "test title";
@@ -98,25 +91,19 @@ public:
                 expectEquals(loadedMeta->title, metadata.title);
                 expectEquals(loadedMeta->notes, metadata.notes);
             }
-
-            target.deleteFile();
         });
 
         testCase("no temporary file residue after successful save", [&] {
-            const auto target = makeScratchFile("clean.devpiano");
-            target.deleteFile();
-
+            devpiano::test::ScopedTempDir tempDir("perf-clean");
+            const auto target = tempDir.getChildFile("clean.devpiano");
             expect(savePerformanceFile(makeTestTake(), target));
             expect(target.existsAsFile());
-            expect(!hasTempResidue(target));
-
-            target.deleteFile();
+            expect(!hasTempResidue(tempDir.get(), "clean"));
         });
 
         testCase("overwriting an existing file replaces its content", [&] {
-            const auto target = makeScratchFile("overwrite.devpiano");
-            target.deleteFile();
-
+            devpiano::test::ScopedTempDir tempDir("perf-overwrite");
+            const auto target = tempDir.getChildFile("overwrite.devpiano");
             expect(savePerformanceFile(makeTestTake(), target));
 
             // Second take with a distinct length and a single different event.
@@ -140,19 +127,16 @@ public:
                 expectEquals(loaded->events[0].message.getNoteNumber(), 72);
                 expectEquals(loaded->events[0].message.getChannel(), 2);
             }
-            expect(!hasTempResidue(target));
-
-            target.deleteFile();
+            expect(!hasTempResidue(tempDir.get(), "overwrite"));
         });
 
         testCase("invalid take is rejected without touching the file system", [&] {
-            const auto target = makeScratchFile("invalid.devpiano");
-            target.deleteFile();
-
+            devpiano::test::ScopedTempDir tempDir("perf-invalid");
+            const auto target = tempDir.getChildFile("invalid.devpiano");
             devpiano::recording::RecordingTake empty;
             expect(!savePerformanceFile(empty, target));
             expect(!target.existsAsFile());
-            expect(!hasTempResidue(target));
+            expect(!hasTempResidue(tempDir.get(), "invalid"));
         });
     }
 };

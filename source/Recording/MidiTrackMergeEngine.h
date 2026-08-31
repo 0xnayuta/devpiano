@@ -80,10 +80,6 @@ struct MidiFileMetadata {
 // ============================================================================
 struct MidiTrackMergeOptions {
     MidiChannelMappingStrategy channelStrategy = MidiChannelMappingStrategy::autoAssignIfSingleChannel;
-
-    // When true, extract only the single track with the highest note density
-    // (legacy single-track mode for compatibility).
-    bool singleTrackOnly = false;
 };
 
 // ============================================================================
