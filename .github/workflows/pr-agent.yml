@@ -6,6 +6,11 @@ on:
   issue_comment:
     types: [created, edited]
 
+
+# 并发控制：同一 PR 连续 push 时自动终止正在运行的旧任务，避免重复消耗 API 额度与评论冲突
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   pr_agent_job:
     if: ${{ github.event.sender.type != 'Bot' }}
@@ -22,14 +27,21 @@ jobs:
         uses: the-pr-agent/pr-agent@v0.41.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DEEPSEEK.KEY: ${{ secrets.DEEPSEEK_KEY }}
-          # 模型：DeepSeek v4 Flash（fallback 指向同模型，避免回退到未配置的 OpenAI）
-          config.model: "deepseek/deepseek-v4-flash"
-          config.fallback_models: '["deepseek/deepseek-v4-flash"]'
-          # 上下文窗口限制：DeepSeek 原生支持超大上下文，扩大 token 预算避免大 PR 截断 diff
-          config.max_model_tokens: "64000"
-          pr_reviewer.max_model_tokens: "64000"
-          pr_description.max_model_tokens: "64000"
+          OPENAI.KEY: ${{ secrets.API_KEY }}
+          OPENAI.API_BASE: "https://api.pie-xian.com/v1"
+          # 模型与运行参数：Gemini 3.7 Flash（通过 OpenAI 兼容中转站，fallback 指向同模型）
+          config.model: "openai/gemini-3.7-flash"
+          config.fallback_models: '["openai/gemini-3.7-flash"]'
+          config.temperature: "0.3"
+          # 上下文窗口限制：显式声明自定义模型上限，扩大 token 预算避免大 PR 截断 diff
+          config.custom_model_max_tokens: "1024000"
+          config.max_model_tokens: "256000"
+          pr_reviewer.max_model_tokens: "256000"
+          pr_description.max_model_tokens: "256000"
+          # 评论体验优化：原地更新 Review，精简辅助与更新通知
+          pr_reviewer.persistent_comment: "true"
+          pr_description.final_update_message: "false"
+          config.enable_help_text: "false"
           # 自动工具开关（improve 逐行建议噪音大，推荐按需手动 /improve）
           github_action_config.auto_review: "true"
           github_action_config.auto_describe: "true"

@@ -5,8 +5,12 @@
 response_language = "zh-CN"
 
 [ignore]
-glob = ["submodules/**"]
-
+glob = [
+  "submodules/**",
+  "docs/archive/**",
+  "*.patch",
+  "*.lock",
+]
 [pr_reviewer]
 extra_instructions = """\
 - 实时音频/MIDI 回调路径禁止阻塞、锁、堆分配与耗时操作；优先排查 AudioDeviceManager 回调与 UI 线程共享状态、插件宿主生命周期状态机问题。
