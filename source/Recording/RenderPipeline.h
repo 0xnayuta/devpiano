@@ -32,7 +32,7 @@ struct RenderEvent {
     std::int64_t timestampSamples = 0;
 };
 /// Safely clamps a double value to [0, std::numeric_limits<std::int64_t>::max()] (SEC-006).
-[[nodiscard]] constexpr std::int64_t clampToInt64(double value) noexcept {
+[[nodiscard]] inline std::int64_t clampToInt64(double value) noexcept {
     if (std::isnan(value) || value <= 0.0) {
         return 0;
     }

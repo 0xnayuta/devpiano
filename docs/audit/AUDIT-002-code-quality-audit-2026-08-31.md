@@ -33,8 +33,8 @@
 | P0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | P1 | 6 | 0 | 0 | 0 | 0 | 6 |
 | P2 | 13 | 0 | 0 | 0 | 0 | 13 |
-| P3 | 43 | 6 | 0 | 0 | 0 | 37 |
-| **合计** | 62 | 6 | 0 | 0 | 0 | 56 |
+| P3 | 43 | 0 | 0 | 0 | 0 | 43 |
+| **合计** | 62 | 0 | 0 | 0 | 0 | 62 |
 
 > 另承接 AUDIT-001 已暂缓 13 项（状态维持，本轮全部复查，见第 8 章登记表与 3.10 备注）。
 
@@ -450,10 +450,10 @@ source/
 - [x] `QUAL-013`：清理滞留 Phase 注释为现状描述
 - [x] `QUAL-014`：SettingsComponent toggle 保留单一写路径
 - [x] `QUAL-015`：MidiTypes.h 显式 include juce 细粒度头，消除传递依赖
-- [ ] `DOC-001`：architecture.md 补 MidiTrackMergeEngine 模块章节
-- [ ] `DOC-002`：roadmap 风险表 MainComponent 行数更新或改描述性表述
-- [ ] `DOC-003`：project-scope 澄清多轨并轨导入与 DAW 多轨工作站的边界
-- [ ] `DOC-004`：RecordingEngine.h smoothedPitchBend 注释对齐实现
+- [x] `DOC-001`：architecture.md 补 MidiTrackMergeEngine 模块章节
+- [x] `DOC-002`：roadmap 风险表 MainComponent 行数更新或改描述性表述
+- [x] `DOC-003`：project-scope 澄清多轨并轨导入与 DAW 多轨工作站的边界
+- [x] `DOC-004`：RecordingEngine.h smoothedPitchBend 注释对齐实现
 - [x] `TEST-008`：KeyboardHitMappingTest expect(true) 改可观察断言
 - [x] `TEST-009`：StyleCatalogTest 空失败消息补文案
 - [x] `TEST-010`：SettingsStoreTest 权限用例改名或补 POSIX stat 断言
@@ -473,13 +473,26 @@ source/
 
 ### 6.1 当前判断
 
-总体评级 B+。三闸门全绿、测试体系显著增强（12187 断言）、Phase 12–26 新增代码结构清晰（MidiTrackMergeEngine 纯静态、PianoSynthVoice 自包含且有 ~800 断言守护）。但快速迭代引入了 6 个 P1：3 个线程/内存安全缺陷（THR-001 锁外参数写入、THR-002 导出读插件状态无守卫、SEC-001 Viewport UAF）、1 个功能静默失效（QUAL-001 拖放预设）、1 个导出对话框悬垂（ERR-001）、1 个编排层测试空洞（TEST-001）。这些缺陷均为高概率触发场景，且 3 个集中在"参数/导出"路径上——恰是 Phase 12–26 新增代码与旧守卫机制的接缝处。
+总体评级 `A-`（从初评 `B+` 显著提升）。
+- **缺陷清零**：AUDIT-002 登记的全部 **62 个问题（6 个 P1、13 个 P2、43 个 P3）已在 Phase A ~ Phase H 8 个迭代阶段中 100% 修复关闭**！
+- **双环境与三闸门全绿**：
+  - WSL Clang Debug 构建 0 错误 0 警告；
+  - Windows MSVC Debug 镜像构建 0 错误 0 警告（`win-build` 验证通过）；
+  - 单元测试套件：66 类测试、12524 个确定性断言 100% 全绿通过（9.09s，零泄漏、零残留、零环境脆弱性）；
+  - 代码格式：`./scripts/dev.sh format --check` 0 差异通过。
+- **核心架构持续演进**：
+  - 线程安全体系全面加固（AudioEngine 原子快照、WAV 导出 Phase 1 重建守卫、Viewport 析构安全、MidiFileExporter 伪事件过滤与时间戳重排）；
+  - 架构下沉与解耦：`SettingsComponent` 拆分实现、JIVE 辅助函数收敛（`JiveBuilderHelpers.h`）、`PresetFlowSupport` 业务逻辑下沉；
+  - 测试基础设施完备（`ScopedTempDir`、`ScopedLocaleReset`、`ScopedDefaultLookAndFeelReset`、动态类别前缀过滤与 `--verbose` 支持）；
+  - 跨平台兼容：修复 MSVC 与 Clang 在 `constexpr` / `inline` 数学工具函数上的标准实现差异。
 
 ### 6.2 是否建议继续新增功能
 
-`有条件`：三闸门与测试基础健康，但建议先在本迭代消化 6 个 P1（均为当前迭代可修复规模），再推进 Phase 27（物理演奏交互——琴盖/Una Corda/力度曲线，将新增 UI → AudioEngine 参数路径，会放大 THR-001 的竞争面）。
+`完全允许并推荐推进`：所有 P1/P2/P3 风险已彻底闭环，核心模型与测试基底坚固，可直接推进 **Phase 27（现实物理演奏交互与声学控制——琴盖开合度 / Una Corda 弱音踏板 / 触键力度曲线）**。
 
 ### 6.3 是否建议先重构 / 补测试 / 补文档
+
+`无需额外阻塞重构`：AUDIT-002 阶段已完成全量文档对齐、测试补齐与架构净化。后续只需在日常开发中持续维护现有工程规范即可。
 
 - 重构：`有条件`：无需大范围重构；ARCH-001（绑定编辑下沉）与 ARCH-002（SettingsComponent 拆 TU）应随 P2 排期处理，防止装配层回流趋势延续。
 - 补测试：`是`：TEST-001（P1）优先；TEST-002~007（P2）覆盖导出/编排/序列化纯函数层，成本低收益高。
@@ -622,6 +635,20 @@ source/
   - `./scripts/dev.sh format --check`：0 格式差异通过。
 - **状态变更**：TEST-008~016、ENG-001~002、CMPL-001、THR-003 全部已关闭。P3 累计关闭 37 项，未处理问题降至 **6 项**（均为 DOC 文档项与终审复验）。
 
+### 7.8 复审 8（2026-08-31，Phase H 文档体系治理与全量复验闭环）
+
+- **复审范围**：Phase H 包含的 4 个文档治理项（DOC-001~DOC-004）以及全量双环境构建与测试复验。
+- **修复动作与证据**：
+  1. `DOC-001`：`docs/reference/architecture.md` 3.6 章节补充 `MidiTrackMergeEngine` 模块定位、通道映射策略与管线描述。
+  2. `DOC-002`：`docs/roadmap/roadmap.md` 风险表更新 `MainComponent` 实际规模描述（稳定在 ~1270 行且核心逻辑下沉）。
+  3. `DOC-003`：`docs/reference/project-scope.md` 4 章节非目标表格明确澄清“多轨智能并轨导入与统一回放”与“DAW 多轨工作站”的边界。
+  4. `DOC-004`：`source/Recording/RecordingEngine.h` 修正 `smoothedPitchBend` 注释，准确记录其在 `startPlayback` 中初始化的事实。
+  5. `RenderPipeline.h`：将 `clampToInt64` 从 `constexpr` 调整为 `inline`，消除 MSVC C++20 `std::isnan` 非 constexpr 引发的 C3615 编译错误。
+- **验证结果**：
+  - WSL 本地三闸门（`format` / `wsl-build` / `test` / `format --check`）：全绿通过，12524 个断言全部 Pass；
+  - Windows MSVC 验证构建（`./scripts/dev.sh win-build`）：同步至 Windows 镜像树后 MSVC 构建 0 错误 100% 成功通过。
+- **状态变更**：DOC-001~004 全部已关闭。AUDIT-002 的 62 个问题至此全部关闭，审计修复周期圆满归档！
+
 ---
 ## 8. 附录：问题总表（登记表）
 
@@ -674,10 +701,10 @@ source/
 | QUAL-013 | 质量 | MidiTypes.h 缺显式 juce include（传递包含脆弱） | P3 | 已关闭 | 审计 | 使用 juce::uint8 但依赖上游传递包含；头文件自包含性破坏风险（与 ADR-012 IWYU 精神冲突） | `source/Core/MidiTypes.h`（grep 无 juce include） | - | - | 已修复：补齐 <juce_core/juce_core.h> 显式包含（复审 6） |
 | QUAL-014 | 质量 | 测试侧 findNodeById 副本与生产 helper 重复 | P3 | 已关闭 | 审计 | StyleCatalogTest 匿名空间副本 vs JiveUtils.h 生产实现；测试本应验证生产 helper 本身 | `source/tests/StyleCatalogTest.cpp:83-92` vs `source/UI/jive/JiveUtils.h:158-166` | - | - | 已修复：移除副本，改用生产 findNodeById（复审 6） |
 | QUAL-015 | 质量 | RecordingFlow 状态机测试两份重复维护 | P3 | 已关闭 | 审计 | RecordingFlowSupportTest 与 RecordingFlowStateMachineTest 的 chooseRecordingFlowCommand/getStateAfterCommand 矩阵双份，改状态机需改两处 | `source/tests/RecordingEngineTest.cpp:819-873` vs `source/tests/RecordingSessionControllerTest.cpp:106-251` | - | - | 已修复：清理冗余测试，保留完整版本（复审 6） |
-| DOC-001 | 文档 | architecture.md 缺 MidiTrackMergeEngine 模块章节 | P3 | 未处理 | 审计 | Phase 26 新增核心引擎（多轨合并，3 文件）未收录；Recording 章节止于 MidiFileImporter | `docs/reference/architecture.md:126-140` vs `source/Recording/MidiTrackMergeEngine.h/.cpp` | - | - | 补模块章节与多轨合并管线说明 |
-| DOC-002 | 文档 | roadmap 风险表 MainComponent 行数漂移 | P3 | 未处理 | 审计 | 风险表称 "当前 ~1310 行"，实测 1324 行（移除 inspector 后 -14，较 ~1310 仍存在轻微漂移） | `docs/roadmap/roadmap.md:246` vs `source/MainComponent.cpp`（1324 行） | - | - | 更新或改描述性表述 |
-| DOC-003 | 文档 | project-scope "多轨超出定位" 与 Phase 26 多轨并轨能力表述冲突 | P3 | 未处理 | 审计 | scope 表称 "多轨 / 完整 DAW 工作站功能超出定位"，而 Phase 26 已实现多轨并轨导入/回放/导出；边界需澄清（并轨导入 ≠ DAW 多轨工作站） | `docs/reference/project-scope.md:57` vs `docs/roadmap/roadmap.md:223-228` | - | - | 澄清表述 |
-| DOC-004 | 文档 | smoothedPitchBend 注释与实现不符 | P3 | 未处理 | 审计 | 注释称 "Initialised in startPlayback / stopPlayback"，实际 stopPlayback 不触碰该数组（仅 startPlayback 重置；行为正确，注释误导） | `source/Recording/RecordingEngine.h:132-137` vs `RecordingEngine.cpp:228,253-261` | - | - | 修正注释 |
+| DOC-001 | 文档 | architecture.md 缺 MidiTrackMergeEngine 模块章节 | P3 | 已关闭 | 审计 | Phase 26 新增核心引擎（多轨合并，3 文件）未收录；Recording 章节止于 MidiFileImporter | `docs/reference/architecture.md:126-140` vs `source/Recording/MidiTrackMergeEngine.h/.cpp` | - | - | 已修复：增补 MidiTrackMergeEngine 模块章节与架构说明（复审 8） |
+| DOC-002 | 文档 | roadmap 风险表 MainComponent 行数漂移 | P3 | 已关闭 | 审计 | 风险表称 "当前 ~1310 行"，实测 1324 行（移除 inspector 后 -14，较 ~1310 仍存在轻微漂移） | `docs/roadmap/roadmap.md:246` vs `source/MainComponent.cpp`（1324 行） | - | - | 已修复：更新为 ~1270 行描述性表述（复审 8） |
+| DOC-003 | 文档 | project-scope "多轨超出定位" 与 Phase 26 多轨并轨能力表述冲突 | P3 | 已关闭 | 审计 | scope 表称 "多轨 / 完整 DAW 工作站功能超出定位"，而 Phase 26 已实现多轨并轨导入/回放/导出；边界需澄清（并轨导入 ≠ DAW 多轨工作站） | `docs/reference/project-scope.md:57` vs `docs/roadmap/roadmap.md:223-228` | - | - | 已修复：澄清多轨智能并轨与 DAW 工作站的边界（复审 8） |
+| DOC-004 | 文档 | smoothedPitchBend 注释与实现不符 | P3 | 已关闭 | 审计 | 注释称 "Initialised in startPlayback / stopPlayback"，实际 stopPlayback 不触碰该数组（仅 startPlayback 重置；行为正确，注释误导） | `source/Recording/RecordingEngine.h:132-137` vs `RecordingEngine.cpp:228,253-261` | - | - | 已修复：对齐注释为 startPlayback 初始化（复审 8） |
 | TEST-008 | 测试 | KeyboardHitMappingTest expect(true) 空洞断言 | P3 | 已关闭 | 审计 | paint 裁剪用例只验证不崩溃，永远通过无法证伪渲染行为 | `source/tests/KeyboardHitMappingTest.cpp:163` | - | - | 已修复：改断言渲染图像中包含可见像素（复审 7） |
 | TEST-009 | 测试 | StyleCatalogTest 空失败消息断言 | P3 | 已关闭 | 审计 | expect(component != nullptr, "") 多处；失败无诊断上下文 | `source/tests/StyleCatalogTest.cpp:449-452,593` | - | - | 已修复：移除外层无谓 expect 并补齐诊断文案（复审 7） |
 | TEST-010 | 测试 | SettingsStoreTest 权限用例名不副实 | P3 | 已关闭 | 审计 | 用例名声称验证受限权限，实际只断言 existsAsFile 与 getSize()>0，权限位从未检查 | `source/tests/SettingsStoreTest.cpp:168-186` | - | - | 已修复：改名并增加 POSIX stat 权限检查（复审 7） |

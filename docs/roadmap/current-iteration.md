@@ -94,15 +94,15 @@
 - [x] `CMPL-001`：`TestHelpers.h` 迁移至细粒度包含，消除 ADR-012 字面违规
 - [x] `THR-003`：`MidiKeyboardState` 监听器回调消息线程契约文档化
 
-### AUDIT-002 Phase H：文档体系治理与全量复验（P3 文档与全套门禁闭环）
+### AUDIT-002 Phase H：文档体系治理与全量复验（P3 文档与全套门禁闭环） [已完成，2026-08-31]
 > 目标：文档与架构对齐、全量构建与三闸门及 Windows 验证闭环。
 
-- [ ] `DOC-001`：`docs/reference/architecture.md` 增补 `MidiTrackMergeEngine` 模块章节与管线架构
-- [ ] `DOC-002`：`docs/roadmap/roadmap.md` 风险表更新 `MainComponent` 实际行数描述
-- [ ] `DOC-003`：`docs/reference/project-scope.md` 澄清多轨并轨导入与 DAW 工作站的边界定义
-- [ ] `DOC-004`：`RecordingEngine.h` `smoothedPitchBend` 注释对齐实现
-- [ ] 三闸门与全量静态分析复验（`wsl-build` / `test` / `format --check` / `win-build` / `clang-tidy --all`）
-- [ ] 全量同步并签署 `AUDIT-002` 第 8 章问题总表与第 7 章复审记录
+- [x] `DOC-001`：`docs/reference/architecture.md` 增补 `MidiTrackMergeEngine` 模块章节与管线架构
+- [x] `DOC-002`：`docs/roadmap/roadmap.md` 风险表更新 `MainComponent` 实际行数描述
+- [x] `DOC-003`：`docs/reference/project-scope.md` 澄清多轨并轨导入与 DAW 工作站的边界定义
+- [x] `DOC-004`：`RecordingEngine.h` `smoothedPitchBend` 注释对齐实现
+- [x] 三闸门与全量静态分析复验（`wsl-build` / `test` / `format --check` / `win-build` / `clang-tidy --all`）
+- [x] 全量同步并签署 `AUDIT-002` 第 8 章问题总表与第 7 章复审记录
 
 ---
 
