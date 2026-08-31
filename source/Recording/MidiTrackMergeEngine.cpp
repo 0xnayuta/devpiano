@@ -145,26 +145,17 @@ std::vector<TrackInspection> inspectTracks(const juce::MidiFile& midiFile) {
 
 } // namespace
 
-std::optional<MidiTrackMergeResult> MidiTrackMergeEngine::mergeTracks(const juce::MidiFile& midiFile,
-                                                                      double targetSampleRate,
-                                                                      const MidiTrackMergeOptions& options) {
-    const auto numTracks = midiFile.getNumTracks();
-    if (numTracks <= 0 || targetSampleRate <= 0.0) {
-        DP_LOG_ERROR("MidiTrackMergeEngine: invalid input — tracks=" + juce::String(numTracks)
-                     + ", sampleRate=" + juce::String(targetSampleRate));
-        return std::nullopt;
-    }
+namespace {
 
-    const auto trackInspections = inspectTracks(midiFile);
+struct ChannelRemapPlan {
+    bool remapChannels = false;
+    std::vector<int> targetChannels; // 对应每个音轨的 target channel
+};
 
-    std::vector<int> tracksToProcess(static_cast<std::size_t>(numTracks));
-    for (int t = 0; t < numTracks; ++t) {
-        tracksToProcess[static_cast<std::size_t>(t)] = t;
-    }
-
-    // Analyse channel distribution across tracks to decide automatic channel remapping
-    std::set<int> allDistinctChannels;
+ChannelRemapPlan computeChannelRemapPlan(const std::vector<TrackInspection>& trackInspections,
+                                         MidiChannelMappingStrategy strategy) {
     int tracksWithNotes = 0;
+    std::set<int> allDistinctChannels;
     for (const auto& insp : trackInspections) {
         if (insp.noteCount > 0) {
             ++tracksWithNotes;
@@ -172,62 +163,50 @@ std::optional<MidiTrackMergeResult> MidiTrackMergeEngine::mergeTracks(const juce
         }
     }
 
-    const bool shouldAutoAssignChannels
-        = (options.channelStrategy == MidiChannelMappingStrategy::autoAssignIfSingleChannel && tracksWithNotes > 1
-           && allDistinctChannels.size() <= 1);
-    const bool forceTrackToChannel = (options.channelStrategy == MidiChannelMappingStrategy::forceTrackToChannel);
-    const bool remapChannels = shouldAutoAssignChannels || forceTrackToChannel;
+    const bool shouldAutoAssign = (strategy == MidiChannelMappingStrategy::autoAssignIfSingleChannel
+                                   && tracksWithNotes > 1 && allDistinctChannels.size() <= 1);
+    const bool forceTrack = (strategy == MidiChannelMappingStrategy::forceTrackToChannel);
+    const bool remap = shouldAutoAssign || forceTrack;
 
-    if (remapChannels) {
+    if (remap) {
         DP_LOG_INFO("MidiTrackMergeEngine: channel remapping active (strategy="
-                    + juce::String(static_cast<int>(options.channelStrategy))
-                    + ", tracksWithNotes=" + juce::String(tracksWithNotes)
+                    + juce::String(static_cast<int>(strategy)) + ", tracksWithNotes=" + juce::String(tracksWithNotes)
                     + ", distinctChannels=" + juce::String(static_cast<int>(allDistinctChannels.size())) + ")");
     }
 
-    MidiFileMetadata metadata;
-    metadata.tracks.reserve(static_cast<std::size_t>(numTracks));
-
-    // Build track metadata info list
-    for (int t = 0; t < numTracks; ++t) {
-        const auto& insp = trackInspections[static_cast<std::size_t>(t)];
-        const auto targetChannel = remapChannels ? ((t % 16) + 1) : insp.primaryChannel;
-
-        MidiTrackInfo info;
-        info.trackIndex = t;
-        info.trackName = insp.trackName;
-        info.noteCount = insp.noteCount;
-        info.primaryChannel = insp.primaryChannel;
-        info.assignedChannel = targetChannel;
-
-        metadata.tracks.push_back(std::move(info));
+    ChannelRemapPlan plan;
+    plan.remapChannels = remap;
+    plan.targetChannels.reserve(trackInspections.size());
+    for (size_t t = 0; t < trackInspections.size(); ++t) {
+        const auto target = remap ? (static_cast<int>(t % 16) + 1) : trackInspections[t].primaryChannel;
+        plan.targetChannels.push_back(target);
     }
+    return plan;
+}
 
-    // Song title extraction heuristic (SMF Spec conformant):
-    // 1. Prefer Track 0 Sequence/Track Name (Meta 3) or General Text (Meta 1)
-    // 2. Otherwise fall back to first non-empty Track Name (Meta 3) or Text (Meta 1) in remaining tracks
-    if (numTracks > 0 && !trackInspections[0].trackName.isEmpty()) {
-        metadata.songTitle = trackInspections[0].trackName;
-    } else if (numTracks > 0 && !trackInspections[0].textMeta.isEmpty()) {
-        metadata.songTitle = trackInspections[0].textMeta;
-    } else {
-        for (const auto& insp : trackInspections) {
-            if (!insp.trackName.isEmpty()) {
-                metadata.songTitle = insp.trackName;
-                break;
-            }
-            if (!insp.textMeta.isEmpty()) {
-                metadata.songTitle = insp.textMeta;
-                break;
-            }
+juce::String extractSongTitle(const std::vector<TrackInspection>& inspections) {
+    if (inspections.empty()) {
+        return {};
+    }
+    if (!inspections[0].trackName.isEmpty()) {
+        return inspections[0].trackName;
+    }
+    if (!inspections[0].textMeta.isEmpty()) {
+        return inspections[0].textMeta;
+    }
+    for (const auto& insp : inspections) {
+        if (!insp.trackName.isEmpty()) {
+            return insp.trackName;
+        }
+        if (!insp.textMeta.isEmpty()) {
+            return insp.textMeta;
         }
     }
+    return {};
+}
 
-    MidiTrackMergeStats stats;
-    stats.trackCount = numTracks;
-
-    // Extract global metadata (Tempo Map, Time Signature, Key Signature) across ALL tracks.
-    // This ensures Conductor track 0 metadata is preserved even in singleTrackOnly mode.
+void extractGlobalMetadata(const juce::MidiFile& midiFile, double targetSampleRate, MidiFileMetadata& metadata) {
+    const auto numTracks = midiFile.getNumTracks();
     for (int t = 0; t < numTracks; ++t) {
         const auto* track = midiFile.getTrack(t);
         if (track == nullptr) {
@@ -246,7 +225,6 @@ std::optional<MidiTrackMergeResult> MidiTrackMergeEngine::mergeTracks(const juce
             }
 
             const auto timestampSeconds = midiMsg.getTimeStamp();
-
             if (midiMsg.isTempoMetaEvent()) {
                 const auto secondsPerQuarter = midiMsg.getTempoSecondsPerQuarterNote();
                 if (secondsPerQuarter > 0.0) {
@@ -272,89 +250,6 @@ std::optional<MidiTrackMergeResult> MidiTrackMergeEngine::mergeTracks(const juce
         }
     }
 
-    std::vector<PerformanceEvent> mergedEvents;
-
-    // Estimate reservation size
-    std::size_t totalEventEstimate = 0;
-    for (int t : tracksToProcess) {
-        if (const auto* track = midiFile.getTrack(t)) {
-            totalEventEstimate += static_cast<std::size_t>(track->getNumEvents());
-        }
-    }
-    mergedEvents.reserve(totalEventEstimate);
-
-    int64_t maxTimestampSamples = 0;
-
-    for (int trackIndex : tracksToProcess) {
-        const auto* track = midiFile.getTrack(trackIndex);
-        if (track == nullptr) {
-            continue;
-        }
-
-        const auto targetChannelForTrack = (trackIndex % 16) + 1; // 1-based MIDI channel
-
-        for (int i = 0; i < track->getNumEvents(); ++i) {
-            const auto* eventPtr = track->getEventPointer(i);
-            if (eventPtr == nullptr) {
-                continue;
-            }
-
-            auto midiMsg = eventPtr->message;
-            const auto timestampSeconds = midiMsg.getTimeStamp();
-            if (timestampSeconds < 0.0) {
-                continue;
-            }
-
-            if (midiMsg.isMetaEvent()) {
-                ++stats.otherMetaEventCount;
-                DP_TRACE_MIDI(devpiano::diagnostics::describeMidiMessage(midiMsg), "MidiTrackMergeEngine");
-                continue;
-            }
-            const bool isRawNoteOn = midiMsg.isNoteOn(true);
-            const bool isZeroVelocityNoteOn = isRawNoteOn && midiMsg.getVelocity() == 0;
-            const bool isNoteOn = midiMsg.isNoteOn(false);
-            const bool isNoteOff = midiMsg.isNoteOff(true);
-
-            if (!isNoteOn && !isNoteOff) {
-                if (midiMsg.isController()) {
-                    ++stats.ccCount;
-                } else if (midiMsg.isPitchWheel()) {
-                    ++stats.pitchBendCount;
-                } else if (midiMsg.isProgramChange()) {
-                    ++stats.programChangeCount;
-                } else {
-                    ++stats.otherMetaEventCount;
-                    DP_TRACE_MIDI(devpiano::diagnostics::describeMidiMessage(midiMsg), "MidiTrackMergeEngine");
-                    continue;
-                }
-            } else {
-                if (isZeroVelocityNoteOn) {
-                    ++stats.zeroVelocityNoteOnCount;
-                }
-                if (isNoteOn) {
-                    ++stats.noteOnCount;
-                } else {
-                    ++stats.noteOffCount;
-                }
-            }
-
-            const auto timestampSamples = clampToInt64(timestampSeconds * targetSampleRate);
-            maxTimestampSamples = std::max(maxTimestampSamples, timestampSamples);
-            if (remapChannels && midiMsg.getChannel() > 0) {
-                midiMsg.setChannel(targetChannelForTrack);
-            }
-
-            PerformanceEvent ev;
-            ev.timestampSamples = timestampSamples;
-            ev.type = PerformanceEventType::midi;
-            ev.source = RecordingEventSource::playback;
-            ev.message = midiMsg;
-
-            mergedEvents.push_back(std::move(ev));
-        }
-    }
-
-    // Process tempo map bounds
     if (!metadata.tempoMap.empty()) {
         std::sort(metadata.tempoMap.begin(), metadata.tempoMap.end(),
                   [](const MidiTempoEvent& a, const MidiTempoEvent& b) noexcept {
@@ -370,7 +265,134 @@ std::optional<MidiTrackMergeResult> MidiTrackMergeEngine::mergeTracks(const juce
             metadata.maxBpm = std::max(metadata.maxBpm, tempo.bpm);
         }
     }
+}
 
+void processTrackEvent(juce::MidiMessage midiMsg, int trackIndex, double targetSampleRate,
+                       const ChannelRemapPlan& remapPlan, std::vector<PerformanceEvent>& mergedEvents,
+                       MidiTrackMergeStats& stats, int64_t& maxTimestampSamples) {
+    const auto timestampSeconds = midiMsg.getTimeStamp();
+    if (timestampSeconds < 0.0) {
+        return;
+    }
+
+    if (midiMsg.isMetaEvent()) {
+        ++stats.otherMetaEventCount;
+        DP_TRACE_MIDI(devpiano::diagnostics::describeMidiMessage(midiMsg), "MidiTrackMergeEngine");
+        return;
+    }
+
+    const bool isRawNoteOn = midiMsg.isNoteOn(true);
+    const bool isZeroVelocityNoteOn = isRawNoteOn && midiMsg.getVelocity() == 0;
+    const bool isNoteOn = midiMsg.isNoteOn(false);
+    const bool isNoteOff = midiMsg.isNoteOff(true);
+
+    if (!isNoteOn && !isNoteOff) {
+        if (midiMsg.isController()) {
+            ++stats.ccCount;
+        } else if (midiMsg.isPitchWheel()) {
+            ++stats.pitchBendCount;
+        } else if (midiMsg.isProgramChange()) {
+            ++stats.programChangeCount;
+        } else {
+            ++stats.otherMetaEventCount;
+            DP_TRACE_MIDI(devpiano::diagnostics::describeMidiMessage(midiMsg), "MidiTrackMergeEngine");
+            return;
+        }
+    } else {
+        if (isZeroVelocityNoteOn) {
+            ++stats.zeroVelocityNoteOnCount;
+        }
+        if (isNoteOn) {
+            ++stats.noteOnCount;
+        } else {
+            ++stats.noteOffCount;
+        }
+    }
+
+    const auto timestampSamples = clampToInt64(timestampSeconds * targetSampleRate);
+    maxTimestampSamples = std::max(maxTimestampSamples, timestampSamples);
+
+    if (remapPlan.remapChannels && midiMsg.getChannel() > 0) {
+        const auto targetChannel = remapPlan.targetChannels[static_cast<size_t>(trackIndex)];
+        midiMsg.setChannel(targetChannel);
+    }
+
+    PerformanceEvent ev;
+    ev.timestampSamples = timestampSamples;
+    ev.type = PerformanceEventType::midi;
+    ev.source = RecordingEventSource::playback;
+    ev.message = midiMsg;
+
+    mergedEvents.push_back(std::move(ev));
+}
+
+std::vector<PerformanceEvent> collectTrackEvents(const juce::MidiFile& midiFile, double targetSampleRate,
+                                                 const ChannelRemapPlan& remapPlan, MidiTrackMergeStats& stats,
+                                                 int64_t& maxTimestampSamples) {
+    const auto numTracks = midiFile.getNumTracks();
+    std::size_t totalEventEstimate = 0;
+    for (int t = 0; t < numTracks; ++t) {
+        if (const auto* track = midiFile.getTrack(t)) {
+            totalEventEstimate += static_cast<std::size_t>(track->getNumEvents());
+        }
+    }
+
+    std::vector<PerformanceEvent> mergedEvents;
+    mergedEvents.reserve(totalEventEstimate);
+
+    for (int trackIndex = 0; trackIndex < numTracks; ++trackIndex) {
+        const auto* track = midiFile.getTrack(trackIndex);
+        if (track == nullptr) {
+            continue;
+        }
+
+        for (int i = 0; i < track->getNumEvents(); ++i) {
+            if (const auto* eventPtr = track->getEventPointer(i)) {
+                processTrackEvent(eventPtr->message, trackIndex, targetSampleRate, remapPlan, mergedEvents, stats,
+                                  maxTimestampSamples);
+            }
+        }
+    }
+
+    return mergedEvents;
+}
+
+} // namespace
+
+std::optional<MidiTrackMergeResult> MidiTrackMergeEngine::mergeTracks(const juce::MidiFile& midiFile,
+                                                                      double targetSampleRate,
+                                                                      const MidiTrackMergeOptions& options) {
+    const auto numTracks = midiFile.getNumTracks();
+    if (numTracks <= 0 || targetSampleRate <= 0.0) {
+        DP_LOG_ERROR("MidiTrackMergeEngine: invalid input — tracks=" + juce::String(numTracks)
+                     + ", sampleRate=" + juce::String(targetSampleRate));
+        return std::nullopt;
+    }
+
+    const auto trackInspections = inspectTracks(midiFile);
+    const auto remapPlan = computeChannelRemapPlan(trackInspections, options.channelStrategy);
+
+    MidiFileMetadata metadata;
+    metadata.tracks.reserve(static_cast<std::size_t>(numTracks));
+    for (int t = 0; t < numTracks; ++t) {
+        const auto& insp = trackInspections[static_cast<std::size_t>(t)];
+        MidiTrackInfo info;
+        info.trackIndex = t;
+        info.trackName = insp.trackName;
+        info.noteCount = insp.noteCount;
+        info.primaryChannel = insp.primaryChannel;
+        info.assignedChannel = remapPlan.targetChannels[static_cast<size_t>(t)];
+        metadata.tracks.push_back(std::move(info));
+    }
+
+    metadata.songTitle = extractSongTitle(trackInspections);
+    extractGlobalMetadata(midiFile, targetSampleRate, metadata);
+
+    MidiTrackMergeStats stats;
+    stats.trackCount = numTracks;
+    int64_t maxTimestampSamples = 0;
+
+    auto mergedEvents = collectTrackEvents(midiFile, targetSampleRate, remapPlan, stats, maxTimestampSamples);
     if (mergedEvents.empty()) {
         DP_LOG_ERROR("MidiTrackMergeEngine: no valid MIDI events found across processed tracks");
         return std::nullopt;
