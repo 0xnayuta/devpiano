@@ -29,9 +29,10 @@ public:
 
     ~WavExportTask() override;
 
-    /// Runs the export on a background thread while displaying the JIVE progress dialog.
+    /// Runs the export on a background thread while displaying the JIVE progress dialog
+    /// (or headlessly without UI dialogs when showProgressDialog is false).
     /// Returns true if completed successfully, false if cancelled or failed.
-    bool runThread();
+    bool runThread(bool showProgressDialog = true);
 
     [[nodiscard]] bool wasSuccessful() const noexcept {
         return success.load();

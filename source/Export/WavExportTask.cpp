@@ -102,7 +102,7 @@ void WavExportTask::setStatusMessage(const juce::String& newStatusMessage) {
     currentStatusMessage = newStatusMessage;
 }
 
-bool WavExportTask::runThread() {
+bool WavExportTask::runThread(bool showProgressDialog) {
     JUCE_ASSERT_MESSAGE_THREAD
 
     success.store(false);
@@ -115,6 +115,17 @@ bool WavExportTask::runThread() {
         errorMessage.clear();
     }
 
+    if (!showProgressDialog) {
+        // Headless execution: start background audio rendering without creating OS windows
+        startThread(juce::Thread::Priority::normal);
+
+        while (isThreadRunning()) {
+            juce::MessageManager::getInstance()->runDispatchLoopUntil(10);
+        }
+
+        stopThread(3000);
+        return success.load() && !cancelRequested.load();
+    }
     // Build JIVE progress dialog layout
     auto layout = devpiano::ui::jive::JiveModalDialog::makeProgressLayout(TRANS("Exporting..."), 380, 140);
     devpiano::ui::jive::StyleCatalog::get().applyToTree(layout);

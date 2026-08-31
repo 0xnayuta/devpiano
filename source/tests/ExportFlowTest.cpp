@@ -416,7 +416,8 @@ public:
             options.masterGain = 1.0f;
 
             WavExportTask task(take, target, options, nullptr, nullptr);
-            const bool result = task.runThread();
+            // Run headlessly in unit test environment to avoid spawning OS progress windows
+            const bool result = task.runThread(false);
 
             expect(result, "runThread must complete successfully");
             expect(task.wasSuccessful(), "wasSuccessful flag must be true");
@@ -437,7 +438,7 @@ public:
 
             // Empty target file is invalid
             WavExportTask failTask(take, juce::File(), options, nullptr, nullptr);
-            const bool result = failTask.runThread();
+            const bool result = failTask.runThread(false);
 
             expect(!result, "runThread must return false for invalid destination");
             expect(!failTask.wasSuccessful(), "wasSuccessful must be false");
