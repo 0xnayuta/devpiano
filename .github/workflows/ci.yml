@@ -44,6 +44,10 @@ jobs:
       CCACHE_COMPRESS: "true"
       CCACHE_COMPRESSLEVEL: "6"
       CCACHE_MAXSIZE: "1G"
+      # ccache 4.x 对使用 PCH（-include-pch）的编译默认判 uncacheable（本地实测：
+      # pch_defines 不够，time_macros 是进入缓存的必要条件，命中正常）。项目不消费
+      # __TIME__/__DATE__（JUCE 内部编译日期字符串无人读取），无副作用。
+      CCACHE_SLOPPINESS: "time_macros"
       CMAKE_C_COMPILER_LAUNCHER: "ccache"
       CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
     steps:
@@ -127,12 +131,16 @@ jobs:
           fi
           sccache --version
 
+      # sccache 不支持 MSVC PCH（/Yc /Yu，官方已知限制）：使用 PCH 的编译单元全部
+      # non-cacheable，缓存形同虚设（实测缓存仅 9 MiB、395/441 调用未缓存、每次
+      # push 全量重编）。CI 禁用 PCH 后 sccache 可命中全部对象；本地/镜像开发构建
+      # 不受影响（保留 PCH，ninja 增量构建仍快）。
       - name: Configure CMake with sccache (windows-msvc-debug)
         env:
           SCCACHE_DIR: C:/Users/runneradmin/.cache/sccache
           CMAKE_C_COMPILER_LAUNCHER: sccache
           CMAKE_CXX_COMPILER_LAUNCHER: sccache
-        run: cmake --preset windows-msvc-debug -DBUILD_TESTS=ON
+        run: cmake --preset windows-msvc-debug -DBUILD_TESTS=ON -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON
 
       - name: Build target binaries (Debug)
         run: cmake --build --preset windows-msvc-debug
@@ -142,12 +150,13 @@ jobs:
 
       # Windows Release 构建验证：push 门禁必须覆盖发布配置——否则 MSVC
       # Release 编译错误（/O2 相关、NDEBUG 分支）要到 tag 发布时才暴露。
+      # 同上：Release 配置同样禁用 PCH 以启用 sccache 缓存
       - name: Configure CMake with sccache (windows-msvc-release)
         env:
           SCCACHE_DIR: C:/Users/runneradmin/.cache/sccache
           CMAKE_C_COMPILER_LAUNCHER: sccache
           CMAKE_CXX_COMPILER_LAUNCHER: sccache
-        run: cmake --preset windows-msvc-release
+        run: cmake --preset windows-msvc-release -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON
 
       - name: Build target binary (Release)
         env:

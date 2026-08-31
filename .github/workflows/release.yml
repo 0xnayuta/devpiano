@@ -32,6 +32,7 @@ jobs:
           restore-keys: |
             release-sccache-${{ hashFiles('CMakeLists.txt', 'CMakePresets.json', 'submodules/**') }}-
             release-sccache-
+            windows-sccache-
 
       - name: Install sccache binary on Windows
         shell: bash
@@ -42,12 +43,14 @@ jobs:
           fi
           sccache --version
 
+      # sccache 不支持 MSVC PCH（/Yc /Yu）：发布 job 同样禁用 PCH 以启用缓存，
+      # 并可复用 ci.yml windows-msvc-gate 已缓存的 Release 对象（restore-keys 前缀）。
       - name: Configure CMake (windows-msvc-release)
         env:
           SCCACHE_DIR: C:/Users/runneradmin/.cache/sccache
           CMAKE_C_COMPILER_LAUNCHER: sccache
           CMAKE_CXX_COMPILER_LAUNCHER: sccache
-        run: cmake --preset windows-msvc-release
+        run: cmake --preset windows-msvc-release -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON
 
       - name: Build target binary (Release)
         run: cmake --build --preset windows-msvc-release --target devpiano
@@ -129,7 +132,10 @@ jobs:
           restore-keys: |
             linux-release-ccache-${{ hashFiles('CMakeLists.txt', 'CMakePresets.json', 'submodules/**') }}-
             linux-release-ccache-
+            linux-ccache-
 
+      # CCACHE_SLOPPINESS=time_macros：PCH 编译单元进入 ccache 的必要条件（详见
+      # ci.yml linux-gate 注释）。项目不消费编译日期宏，发布产物无副作用。
       - name: Configure CMake (linux-clang-release)
         env:
           CCACHE_COMPRESS: "true"
@@ -137,6 +143,7 @@ jobs:
           CCACHE_MAXSIZE: "1G"
           CMAKE_C_COMPILER_LAUNCHER: "ccache"
           CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
+          CCACHE_SLOPPINESS: "time_macros"
         run: cmake --preset linux-clang-release
 
       - name: Build target binary (Release)
@@ -146,6 +153,7 @@ jobs:
           CCACHE_MAXSIZE: "1G"
           CMAKE_C_COMPILER_LAUNCHER: "ccache"
           CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
+          CCACHE_SLOPPINESS: "time_macros"
         run: cmake --build --preset linux-clang-release --target devpiano
 
       # glibc / libstdc++ 版本门槛（Phase 25-C）：产物必须满足支持矩阵
