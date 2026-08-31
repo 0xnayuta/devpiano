@@ -8,7 +8,7 @@ endif()
 set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:Embedded>" CACHE STRING "" FORCE)
 
 # 定义项目名称与版本
-project(devpiano VERSION 1.0.0)
+project(devpiano VERSION 1.0.1)
 
 if (MSVC)
     # 将默认 /Zi 替换为 /Z7 (Embedded 调试符号，支持 sccache 分布式缓存与并发无锁编译)

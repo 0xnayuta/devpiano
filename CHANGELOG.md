@@ -1,11 +1,29 @@
 ## [Unreleased]
 
+## [1.0.1] - 2026-08-31
+
+Multi-track MIDI timeline merge engine, flexible multi-channel routing strategies, dynamically-colored virtual keyboard playback, physical modeling synth gain staging refinement with master soft-knee limiter, Linux native windowing and CJK typography polish, robust test fixture path resolution, and modern compiler cache build acceleration pipeline.
+
 ### Added
 
-- **PR-Agent AI 代码审查工作流**（`.github/workflows/pr-agent.yml` + `.pr_agent.toml`）— 基于 DeepSeek v4 Flash 的自动 PR 审查：PR 打开/更新时自动生成描述与代码审查，支持 PR 内 `/review` `/describe` `/improve` `/ask` 手动命令。
-- **PR-Agent 使用指南**（`docs/guides/pr-agent.md`）— 记录工作流触发方式、配置项、手动命令与故障排查。
+- **Multi-Track MIDI Timeline Merge Engine** (`MidiTrackMergeEngine`) — robust absolute-timestamp timeline merging across all tracks in multi-track MIDI files with nanosecond precision, deterministic same-tick event priority ordering (Tempo/TimeSig > SysEx > CC > NoteOff > NoteOn), and cross-track global metadata extraction.
+- **Flexible Channel Mapping Strategies** — 4 distinct channel strategies (`preserveOriginalChannels`, `autoAssignIfSingleChannel`, `remapSequential`, `mergeToSingleChannel`) adapting seamlessly to single-channel multi-track, multi-channel polyphonic, and live-merge playback scenarios.
+- **Multi-Channel Playback Keyboard Visualisation** (`CustomKeyboard`) — virtual keyboard keys dynamically adapt to active MIDI event channel colors during multi-track playback, fully decoupled from physical keyboard and mouse click interactions.
+- **Multi-Track Offline WAV Audio Rendering** (`RenderPipeline`) — full multi-track timeline mixing support for offline WAV audio rendering.
+- **Physical Modeling Piano Gain Staging & Master Soft-Knee Limiter** (`PianoSynthVoice`) — recalibrated 7-subsystem acoustic gain staging and hammer transient balance, paired with an integrated master soft-knee dynamic limiter to prevent clipping on extreme dynamics.
+- **PR-Agent AI Code Review Workflow** (`.github/workflows/pr-agent.yml`) — automated DeepSeek v4 Flash powered PR review, description generation, and interactive on-demand commands.
 
-## [1.0.0] - 2026-08-23
+### Changed
+
+- **Compiler Cache & Modern Build Acceleration Pipeline (ADR-011 / ADR-012)** — integrated STL precompiled headers (PCH), mold/lld high-speed linker auto-detection, MSVC `/Z7` (Embedded) + `/FS` flags, and optimized ccache/sccache configuration, cutting CI compilation time by >55% with sub-second test rebuilds.
+- **Automated Dual-Platform Release Packaging** (`scripts/dev.sh package`) — unified packaging command producing Windows x64 zip and Linux x64 tar.gz archives with SHA256 checksums.
+
+### Fixed
+
+- **Linux Native Windowing & CJK Typography Polish** — eliminated initial frame black artifacts, ensured sharp CJK font rendering via Noto Sans CJK SC / Source Han Sans fallback chains, and enabled atomic window mapping.
+- **Linux Focus-Loss Panic & Hanging Notes** — resolved focus-loss panic interrupting MIDI playback and causing hanging notes, smoothing internal window switching key states.
+- **Test Fixture Path Resolution Robustness** — implemented multi-tier repository root resolution (`findRepoRoot`) in `TestHelpers.h`, resolving relative `__FILE__` issues under compiler caching (`CCACHE_BASEDIR`) and eliminating potential null optional dereferences.
+
 ## [1.0.0] - 2026-08-23
 
 Official v1.0.0 milestone release of devpiano — modern computer keyboard piano application featuring high-fidelity physical modeling piano synthesis, VST3 instrument hosting, full 88-key grand piano keybed with wide-window dynamic centering, 16-channel MIDI key signature & transposition pipeline, JIVE declarative UI modernization, and robust multi-track performance recording & playback.
