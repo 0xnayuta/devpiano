@@ -26,13 +26,16 @@ struct ProgressContentWrapper final : public juce::Component {
     }
 
     ~ProgressContentWrapper() override {
-        if (onCancel) {
+        if (!completed && onCancel) {
             onCancel();
         }
         devpiano::ui::jive::safeCleanupJiveTree(rootItem);
         interpreter.reset();
     }
 
+    void markCompleted() noexcept {
+        completed = true;
+    }
     void paint(juce::Graphics& g) override {
         g.fillAll(devpiano::jive::DesignTokens::get().mainBg());
     }
@@ -54,10 +57,10 @@ struct ProgressContentWrapper final : public juce::Component {
         }
         return false;
     }
-
     std::unique_ptr<::jive::GuiItem> rootItem;
     std::unique_ptr<::jive::Interpreter> interpreter;
     std::function<void()> onCancel;
+    bool completed = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ProgressContentWrapper)
 };
@@ -170,6 +173,9 @@ bool WavExportTask::runThread() {
 #endif
     stopTimer();
     if (activeDialog != nullptr) {
+        if (auto* wrapper = dynamic_cast<ProgressContentWrapper*>(activeDialog->getContentComponent())) {
+            wrapper->markCompleted();
+        }
         activeDialog->exitModalState(0);
         activeDialog = nullptr;
     }
@@ -182,11 +188,18 @@ void WavExportTask::timerCallback() {
     const bool isRunning = isThreadRunning();
 
     if (!isRunning || finished.load() || activeDialog == nullptr || cancelRequested.load()) {
+        finished.store(true);
         stopTimer();
+        if (activeDialog != nullptr) {
+            if (auto* wrapper = dynamic_cast<ProgressContentWrapper*>(activeDialog->getContentComponent())) {
+                wrapper->markCompleted();
+            }
+            activeDialog->exitModalState(0);
+            activeDialog = nullptr;
+        }
         return;
     }
 
-    // Update status text and progress bar on message thread
     if (activeDialog != nullptr) {
         if (auto* wrapper = dynamic_cast<ProgressContentWrapper*>(activeDialog->getContentComponent())) {
             if (wrapper->rootItem != nullptr) {

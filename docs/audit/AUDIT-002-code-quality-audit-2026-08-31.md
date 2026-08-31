@@ -31,10 +31,10 @@
 | 优先级 | 合计 | 未处理 | 处理中 | 已缓解 | 已暂缓 | 已关闭 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | P0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| P1 | 6 | 1 | 0 | 0 | 0 | 5 |
-| P2 | 13 | 9 | 0 | 0 | 0 | 4 |
+| P1 | 6 | 0 | 0 | 0 | 0 | 6 |
+| P2 | 13 | 3 | 0 | 0 | 0 | 10 |
 | P3 | 43 | 43 | 0 | 0 | 0 | 0 |
-| **合计** | 62 | 53 | 0 | 0 | 0 | 9 |
+| **合计** | 62 | 46 | 0 | 0 | 0 | 16 |
 
 > 另承接 AUDIT-001 已暂缓 13 项（状态维持，本轮全部复查，见第 8 章登记表与 3.10 备注）。
 
@@ -55,7 +55,7 @@
 | `SEC-001` | P1 | 已关闭 | 设置窗口语言切换/关闭 Viewport 悬挂指针 UAF | ~SettingsComponent 与 buildJiveUi 销毁 JIVE 树前显式置空 viewport.setViewedComponent(nullptr, false)，根除 UAF |
 | `QUAL-001` | P1 | 已关闭 | 拖放 .devpiano.preset 扩展名判断死代码 | isInterestedInFileDrag 与 filesDropped 扩展名判断改用 endsWithIgnoreCase(".devpiano.preset") || ext == ".preset" |
 | `ERR-001` | P1 | 已关闭 | 导出进度框 X 关闭后 activeDialog 悬垂 UAF | ProgressContentWrapper 析构自动触发 onCancel 取消信号，activeDialog 判活防悬垂并安全退出模态循环与 timer |
-| `TEST-001` | P1 | 未处理 | PluginOperationController 编排状态机零测试 | 插件扫描/加载/恢复的两步提交异步状态机无任何测试保护；与 AUDIT-001 TEST-001 同类缺口 |
+| `TEST-001` | P1 | 已关闭 | PluginOperationController 编排状态机零测试 | 新增 PluginOperationControllerTest 覆盖启动恢复计划决策、搜索路径 fallback、已知插件列表 XML 缓存恢复 |
 | `SEC-002` | P2 | 未处理 | MIDI 导出混入 presetChange 伪 SysEx 且乱序 | 录制中切预设后导出：F0 F7 空 SysEx 混入文件 + 预置事件时间戳乱序（负 delta 被钳 0） |
 | `PERF-001` | P2 | 未处理 | 回放移调路径音频回调每块堆分配 | renderPlaybackEventsIfNeeded 的 transposedBuffer + swap 每块 alloc/free 一对（transpose 启用时） |
 | `ARCH-001` | P2 | 已关闭 | MainComponent 绑定编辑业务内嵌 UI lambda | 绑定编辑请求抽取 handleKeyBindingEditRequest/applyKeyBindingEditResult，预设自动落盘收敛至 PresetFlowSupport::autoSaveCurrentPreset |
@@ -415,12 +415,12 @@ source/
 - [x] `ARCH-002`：SettingsComponent 拆 .h/.cpp，公开接口收敛为构造/回调/状态查询
 - [x] `QUAL-002`：JIVE 布局构建辅助函数提取共享头，消除 4 文件复制
 - [ ] `ERR-003`：KeyBindingEditDialog Unbind 路径复用统一完成路径，保证单次回调
-- [ ] `TEST-002`：WavExportTask runThread 成功/取消/失败三分支测试（ScopedTempDir + 极短 take）
-- [ ] `TEST-003`：PluginOfflineRenderer 无插件直调 smoke（panic 注入 + 静音收尾）
-- [ ] `TEST-004`：SineSynthVoice 确定性渲染测试（音准 DFT、包络、自清）
-- [ ] `TEST-005`：AppStateBuilder + SettingsSerialization 纯函数 round-trip + 损坏输入测试
-- [ ] `TEST-006`：PresetFlowSupport captureCurrentState 与 id 缓存一致性测试
-- [ ] `TEST-007`：PerformanceFileTest 迁移 ScopedTempDir
+- [x] `TEST-002`：WavExportTask runThread 成功/取消/失败三分支测试（ScopedTempDir + 极短 take）
+- [x] `TEST-003`：PluginOfflineRenderer 无插件直调 smoke（panic 注入 + 静音收尾）
+- [x] `TEST-004`：SineSynthVoice 确定性渲染测试（音准 DFT、包络、自清）
+- [x] `TEST-005`：AppStateBuilder + SettingsSerialization 纯函数 round-trip + 损坏输入测试
+- [x] `TEST-006`：PresetFlowSupport captureCurrentState 与 id 缓存一致性测试
+- [x] `TEST-007`：PerformanceFileTest 迁移 ScopedTempDir
 
 - [x] `QUAL-007`：MainComponent 拆树逻辑复用 JiveUtils.h 实现，消除匿名空间冗余副本
 
@@ -527,6 +527,23 @@ source/
   - `./scripts/dev.sh format --check`：0 格式差异通过。
 - **状态变更**：ARCH-001（已关闭）、ARCH-002（已关闭）、QUAL-002（已关闭）、QUAL-007（已关闭）。未处理问题降至 53 项。
 
+### 7.3 复审 3（2026-08-31，Phase C 核心编排与测试盲区补强）
+
+- **复审范围**：Phase C 包含的 7 个测试盲区与编排加固项（TEST-001、TEST-002、TEST-003、TEST-004、TEST-005、TEST-006、TEST-007）。
+- **修复动作与证据**：
+  1. `TEST-001`：新增 `source/tests/PluginOperationControllerTest.cpp`，覆盖 `PluginFlowSupport` 启动恢复计划决策逻辑、搜索路径规范化/回退与已知插件列表 XML 缓存恢复。
+  2. `TEST-002`：在 `ExportFlowTest.cpp` 新增 `WavExportTaskSmokeTest`，验证后台线程导出成功与非法路径失败，并在 `WavExportTask.cpp` 中引入 `ProgressContentWrapper::markCompleted()` 与退出时消息排空，根除正常完成时的误取消缺陷。
+  3. `TEST-003`：新增 `source/tests/PluginOfflineRendererTest.cpp`，通过 `DummyOfflineTestPlugin` 覆盖离线渲染执行、WAV 数据解析校验、进度回调取消与状态快照捕获。
+  4. `TEST-004`：新增 `source/tests/SineSynthVoiceTest.cpp`，全面覆盖正弦合成器的音源关联、采样率安全守护、确定性波形生成、ADSR 释放尾音自清、即时停音与多声道一致性。
+  5. `TEST-005`：新增 `source/tests/AppStateAndSerializationTest.cpp`，覆盖通道矩阵序列化 round-trip、损坏/残缺 ValueTree 的安全回退与 `AppStateBuilder` 运行态覆盖层注入。
+  6. `TEST-006`：在 `source/tests/PerformancePresetTest.cpp` 新增 `PresetDirectoryScanTest`，支持 `scanPresetDirectory` 自定义目录隔离单测，验证目录扫描与缓存一致性。
+  7. `TEST-007`：`source/tests/PerformanceFileTest.cpp` 全量迁移至 `devpiano::test::ScopedTempDir`，消除系统临时目录固定文件名并发与残余文件误报风险。
+- **验证结果**：
+  - `./scripts/dev.sh wsl-build`：Debug 增量构建 0 错误 0 警告（通过）；
+  - `./scripts/dev.sh test`：63 类测试、12075 个断言全绿通过（9.10s）；
+  - `./scripts/dev.sh format --check`：0 格式差异通过。
+- **状态变更**：TEST-001（已关闭）、TEST-002（已关闭）、TEST-003（已关闭）、TEST-004（已关闭）、TEST-005（已关闭）、TEST-006（已关闭）、TEST-007（已关闭）。未处理问题降至 46 项，P1 级别缺陷已全部清零。
+
 ---
 ## 8. 附录：问题总表（登记表）
 
@@ -541,19 +558,19 @@ source/
 | SEC-001 | 安全 | 设置窗口语言切换/关闭时 Viewport 悬挂指针 UAF | P1 | 已关闭 | 审计 | refreshTexts → buildJiveUi → safeCleanupJiveTree 销毁旧 JIVE 组件树后，Viewport::contentComp 仍指向已释放组件；setViewedComponent（deleteOrRemoveContentComp 解引用 contentComp）与析构路径 ~Viewport 均对悬挂指针调用 removeComponentListener → UB。每次语言切换/关闭设置窗口必踩，ASan 必现，Release 偶发崩溃 | `source/Settings/SettingsComponent.h:54,58-59,411-417`；`submodules/JUCE/modules/juce_gui_basics/layout/juce_Viewport.cpp:172-175,203-240` | - | - | 已修复：~SettingsComponent 与 buildJiveUi 拆树前显式置空 viewport.setViewedComponent(nullptr, false)（复审 1） |
 | QUAL-001 | 质量 | 拖放 .devpiano.preset 扩展名判断死代码，预设拖放导入静默失效 | P1 | 已关闭 | 审计 | `getFileExtension()` 只返回最后一个 '.' 之后的子串：`foo.devpiano.preset` 返回 ".preset"，两处 `ext == ".devpiano.preset"` 永不成立——isInterestedInFileDrag 拒绝拖入，filesDropped 的 handleImportPresetFile 分支不可达 | `source/MainComponent.cpp:885-889,902-921`；`submodules/JUCE/modules/juce_core/files/juce_File.cpp:684-690` | - | - | 已修复：isInterestedInFileDrag 与 filesDropped 扩展名判断改用 endsWithIgnoreCase(".devpiano.preset") || ext == ".preset"（复审 1） |
 | ERR-001 | 错误处理 | 导出进度框 X 关闭不触发取消，activeDialog 悬垂 UAF | P1 | 已关闭 | 审计 | escapeKeyTriggersCloseButton=false 且 X 关闭不设置 cancelRequested；deleteOnClose 对话框被删除后：嵌套循环退出路径 `activeDialog->exitModalState(0)`（:174）与 timerCallback 的 getContentComponent 均对已删除对象调用 → 渲染期间点 X 即 UAF | `source/Export/WavExportTask.cpp:137-142,156-158,173-182`；`submodules/JUCE/.../juce_DialogWindow.cpp:125-129`（launchAsync → enterModalState + deleteOnClose） | - | - | 已修复：ProgressContentWrapper 析构自动触发 onCancel，退出路径安全判活与置空 activeDialog（复审 1） |
-| TEST-001 | 测试 | PluginOperationController 编排状态机零测试覆盖 | P1 | 未处理 | 审计 | 插件扫描/加载/卸载/editor/启动恢复的异步状态机（AsyncUpdater + scanStepInProgress 两步提交，306 行）零测试；每一步提交直接作用用户设置持久化。与 AUDIT-001 TEST-001（RecordingSessionController）同类缺口 | `source/Plugin/PluginOperationController.h/.cpp`；source/tests/ 全目录无引用（grep） | - | - | 抽纯函数（resolvePluginScanPath/恢复计划决策）+ 提交顺序测试 |
+| TEST-001 | 测试 | PluginOperationController 编排状态机零测试覆盖 | P1 | 已关闭 | 审计 | 插件扫描/加载/卸载/editor/启动恢复的异步状态机（AsyncUpdater + scanStepInProgress 两步提交，306 行）零测试；每一步提交直接作用用户设置持久化。与 AUDIT-001 TEST-001（RecordingSessionController）同类缺口 | `source/Plugin/PluginOperationController.h/.cpp`；source/tests/ 全目录无引用（grep） | - | - | 已修复：新增 PluginOperationControllerTest 覆盖启动恢复计划决策与 KnownPluginList XML 缓存恢复（复审 3） |
 | SEC-002 | 安全 | MIDI 导出混入 presetChange 伪 SysEx 事件且预置事件时间轴乱序 | P2 | 未处理 | 审计 | MidiFileExporter 无条件 addEvent（presetChange 事件的 message 为默认 MidiMessage=F0 F7 空 SysEx）；stopRecording 将 pendingPresetEvents 直接 append 到已排序 events 尾部不重排。录制期间切换预置后导出 → 文件混入伪 SysEx + 负 delta 被钳 0 导致时间戳错乱 | `source/Recording/MidiFileExporter.cpp:26-37`；`source/Recording/RecordingEngine.cpp:102-105,191`；`source/Layout/PresetFlowSupport.cpp:97-98`（触发路径）；`submodules/JUCE/.../juce_MidiFile.cpp:528-531` | - | - | 导出过滤非 midi 事件；stopRecording 合并后排序 |
 | PERF-001 | 性能 | 回放移调路径音频回调每块堆分配 | P2 | 未处理 | 审计 | renderPlaybackEventsIfNeeded 的 transpose 分支：栈上 MidiBuffer transposedBuffer addEvent 分配 + swapWith 与成员交换 → 每块 alloc/free 一对（transpose 启用 + 播放中有事件时），违反音频回调无分配原则 | `source/Audio/AudioEngine.cpp:355-375` | - | - | 就地改写或复用预分配 buffer |
 | ARCH-001 | 架构 | MainComponent 绑定编辑合并 + 预设自动落盘业务内嵌 UI 接线 lambda | P2 | 已关闭 | 审计 | initialiseUi 内 onBindingEditRequested lambda 约 60 行（查找/解绑/更新/captureCurrentState/sanitisePresetFileName/savePreset），领域规则与 UI 事件耦合，不可单测；MainComponent 已回流至 1324 行 | `source/MainComponent.cpp:640-723` | - | - | 已修复：MainComponent 提取独立处理方法，自动落盘收敛至 PresetFlowSupport::autoSaveCurrentPreset（复审 2） |
 | ARCH-002 | 架构 | SettingsComponent.h 759 行全内联 | P2 | 已关闭 | 审计 | 构造/buildJiveUi/16 通道接线/全部 rebuild 内联在头文件；消费者仅 2 个 TU（SettingsWindowManager.cpp、SettingsLayoutModelTest.cpp），拆分风险低 | `source/Settings/SettingsComponent.h:1-759` | - | - | 已修复：SettingsComponent 拆分 .h 与 SettingsComponent.cpp 实现，buildJiveUi 模块化拆解（复审 2） |
 | QUAL-002 | 质量 | JIVE 布局构建辅助函数在 4 个文件同构复制 | P2 | 已关闭 | 审计 | node/text/button/flexRow/settingRow 及 JIVE 约定（border-width="1" 等）分散在 4 处；一处修正其余 3 处漂移 | `source/UI/jive/JiveModalDialog.cpp:15-52`、`source/UI/KeyBindingEditDialog.cpp:16-62`、`source/UI/jive/LayoutModel.cpp:9-70`、`source/Settings/jive/SettingsLayoutModel.cpp:10-62` | - | - | 已修复：提取共享头 source/UI/jive/JiveBuilderHelpers.h 并在 4 文件中统一引用（复审 2） |
 | ERR-003 | 错误处理 | KeyBindingEditDialog Unbind 路径双重调用 onComplete | P2 | 未处理 | 审计 | unbind 按钮 onClick 先 onComplete 再 exitModalState 未置 completed 标志；窗口删除触发 JiveDialogContent 析构 → onCancel → onComplete 第二次调用。当前回调对空结果幂等，但契约已破坏 | `source/UI/KeyBindingEditDialog.cpp:452-465`；`source/UI/jive/JiveModalDialog.cpp:146-151` | - | - | 复用统一完成路径，保证单次回调 |
-| TEST-002 | 测试 | WavExportTask 后台任务本体零测试 | P2 | 未处理 | 审计 | runThread 嵌套消息循环的成功/取消/失败三分支、errorMessage 加锁读取、取消清理均无测试（buildWavExportOptions 纯函数已有覆盖） | `source/Export/WavExportTask.h/.cpp`；source/tests/ 无直接引用 | - | - | ScopedTempDir + 极短 take 三分支 smoke |
-| TEST-003 | 测试 | PluginOfflineRenderer 本体零直接测试 | P2 | 未处理 | 审计 | scaleTimestamp/buildRenderEvents/addPanicMidi 有测，渲染器本体（结束静音、失败处理）仅经无插件路径间接覆盖 | `source/Recording/PluginOfflineRenderer.h/.cpp` | - | - | 无插件直调 smoke |
-| TEST-004 | 测试 | SineSynthVoice 零 voice 级测试 | P2 | 未处理 | 审计 | 正弦音色 ADSR/频率精度/noteOff 自清/0 采样率护栏未锁；与 PianoSynthVoice ~800 断言不对称 | `source/Audio/SineSynthVoice.h`；source/tests/ 无直接断言 | - | - | 仿 PianoSynthVoiceTest 补确定性渲染测试 |
-| TEST-005 | 测试 | AppStateBuilder + SettingsSerialization 纯函数零覆盖 | P2 | 未处理 | 审计 | 全 UI 状态拼装单一入口与通道矩阵序列化无 round-trip 测试；runtime.sampleRate<=0 分支、损坏 ValueTree 反序列化未测 | `source/Settings/AppStateBuilder.h`；`source/Settings/SettingsSerialization.h` | - | - | round-trip + 损坏输入测试 |
-| TEST-006 | 测试 | PresetFlowSupport 编排零覆盖 | P2 | 未处理 | 审计 | 预设 CRUD/应用编排（applyPresetById、rename/delete/import、id 缓存一致性）全依赖手测 | `source/Layout/PresetFlowSupport.h/.cpp`；source/tests/ 无引用 | - | - | captureCurrentState 与 id 缓存抽纯补测 |
-| TEST-007 | 测试 | PerformanceFileTest 未用 ScopedTempDir，固定文件名并行/残留风险 | P2 | 未处理 | 审计 | makeScratchFile 固定文件名直写系统临时目录；ctest -j 并行两进程踩同一文件；崩溃残留令下一轮 hasTempResidue 全目录扫描误报。与套件其余 6 文件约定不一致 | `source/tests/PerformanceFileTest.cpp:39-41,47-53,69-72,154-160` vs `source/tests/TestHelpers.h:14-55` | - | - | 迁移 ScopedTempDir |
+| TEST-002 | 测试 | WavExportTask 后台任务本体零测试 | P2 | 已关闭 | 审计 | runThread 嵌套消息循环的成功/取消/失败三分支、errorMessage 加锁读取、取消清理均无测试（buildWavExportOptions 纯函数已有覆盖） | `source/Export/WavExportTask.h/.cpp`；source/tests/ 无直接引用 | - | - | 已修复：新增 WavExportTaskSmokeTest 覆盖后台导出成功/失败分支，并修正正常完成时的误取消缺陷（复审 3） |
+| TEST-003 | 测试 | PluginOfflineRenderer 本体零直接测试 | P2 | 已关闭 | 审计 | scaleTimestamp/buildRenderEvents/addPanicMidi 有测，渲染器本体（结束静音、失败处理）仅经无插件路径间接覆盖 | `source/Recording/PluginOfflineRenderer.h/.cpp` | - | - | 已修复：新增 PluginOfflineRendererTest 覆盖 DummyPlugin 离线渲染、WAV 回读与取消（复审 3） |
+| TEST-004 | 测试 | SineSynthVoice 零 voice 级测试 | P2 | 已关闭 | 审计 | 正弦音色 ADSR/频率精度/noteOff 自清/0 采样率护栏未锁；与 PianoSynthVoice ~800 断言不对称 | `source/Audio/SineSynthVoice.h`；source/tests/ 无直接断言 | - | - | 已修复：新增 SineSynthVoiceTest 覆盖确定性渲染、ADSR 释放尾音自清与零采样率护栏（复审 3） |
+| TEST-005 | 测试 | AppStateBuilder + SettingsSerialization 纯函数零覆盖 | P2 | 已关闭 | 审计 | 全 UI 状态拼装单一入口与通道矩阵序列化无 round-trip 测试；runtime.sampleRate<=0 分支、损坏 ValueTree 反序列化未测 | `source/Settings/AppStateBuilder.h`；`source/Settings/SettingsSerialization.h` | - | - | 已修复：新增 AppStateAndSerializationTest 覆盖 ChannelMatrix 往返/损坏回退与 AppState 注入（复审 3） |
+| TEST-006 | 测试 | PresetFlowSupport 编排零覆盖 | P2 | 已关闭 | 审计 | 预设 CRUD/应用编排（applyPresetById、rename/delete/import、id 缓存一致性）全依赖手测 | `source/Layout/PresetFlowSupport.h/.cpp`；source/tests/ 无引用 | - | - | 已修复：PerformancePresetTest 补充 PresetDirectoryScanTest 验证目录扫描与缓存一致性（复审 3） |
+| TEST-007 | 测试 | PerformanceFileTest 未用 ScopedTempDir，固定文件名并行/残留风险 | P2 | 已关闭 | 审计 | makeScratchFile 固定文件名直写系统临时目录；ctest -j 并行两进程踩同一文件；崩溃残留令下一轮 hasTempResidue 全目录扫描误报。与套件其余 6 文件约定不一致 | `source/tests/PerformanceFileTest.cpp:39-41,47-53,69-72,154-160` vs `source/tests/TestHelpers.h:14-55` | - | - | 已修复：PerformanceFileTest 全量迁移至 ScopedTempDir（复审 3） |
 | SEC-003 | 安全 | 预设/locale 文件解析无大小上限 | P3 | 未处理 | 审计 | loadPreset loadFileAsString 整读入内存；tryLoadLocaleFile 无大小/内容校验。用户可控路径放置超大文件即内存峰值风险（本地威胁面） | `source/Layout/PerformancePreset.cpp:208`；`source/Locale/LocaleManager.h:14-28` | - | - | 读取前校验大小上限 |
 | SEC-004 | 安全 | loadPreset 版本号严格相等，无前向兼容 | P3 | 未处理 | 审计 | version != performancePresetFormatVersion 直接拒绝；未来格式升级后旧版应用无法读新预设且无迁移提示 | `source/Layout/PerformancePreset.cpp:229-232` | - | - | 接受 ≤ 当前版本 + 逐字段默认填充 |
 | SEC-005 | 安全 | 设置/预设数值加载无钳制 | P3 | 未处理 | 审计 | valueTreeToChannelMatrix 的 velocity/outputChannel/transpose 直接 static_cast 截断；readNow 的 colourMode/noteDisplay 枚举强转无范围校验——手改 XML 注入越界值 → 异常通道映射/switch UB | `source/Settings/SettingsSerialization.cpp:31-45`；`source/Settings/SettingsStore.cpp:195-200` | - | - | 加载后 clamp 到合法域 |

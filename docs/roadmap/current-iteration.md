@@ -33,16 +33,16 @@
 - [x] `QUAL-002`：提取通用 JIVE 布局构建辅助头（`source/UI/jive/JiveBuilderHelpers.h`），消除 4 个文件的同构代码复制
 - [x] `QUAL-007`：`MainComponent` 拆树逻辑复用 `JiveUtils.h` 实现，消除匿名命名空间冗余副本
 
-### AUDIT-002 Phase C：核心编排与测试盲区补强（P1/P2 测试与状态机加固）
+### AUDIT-002 Phase C：核心编排与测试盲区补强（P1/P2 测试与状态机加固） [已完成，2026-08-31]
 > 目标：填补插件操作控制器、导出后台任务、离线渲染器、正弦音源与状态构建的测试空白。
 
-- [ ] `TEST-001`：`PluginOperationController` 编排状态机测试（抽取纯函数决策层 + 异步提交顺序测试，P1）
-- [ ] `TEST-002`：`WavExportTask` 后台任务本体成功/取消/失败三分支 smoke 测试
-- [ ] `TEST-003`：`PluginOfflineRenderer` 无插件直调与结束静音安全测试
-- [ ] `TEST-004`：`SineSynthVoice` 确定性渲染与 ADSR/频率精度回归测试
-- [ ] `TEST-005`：`AppStateBuilder` 与 `SettingsSerialization` 纯函数 round-trip + 损坏输入测试
-- [ ] `TEST-006`：`PresetFlowSupport` 编排与预设 ID 缓存一致性测试
-- [ ] `TEST-007`：`PerformanceFileTest` 迁移至 `ScopedTempDir`，消除固定文件名并行与残留风险
+- [x] `TEST-001`：`PluginOperationController` 编排状态机测试（抽取纯函数决策层 + 异步提交顺序测试，P1）
+- [x] `TEST-002`：`WavExportTask` 后台任务本体成功/取消/失败三分支 smoke 测试
+- [x] `TEST-003`：`PluginOfflineRenderer` 无插件直调与结束静音安全测试
+- [x] `TEST-004`：`SineSynthVoice` 确定性渲染与 ADSR/频率精度回归测试
+- [x] `TEST-005`：`AppStateBuilder` 与 `SettingsSerialization` 纯函数 round-trip + 损坏输入测试
+- [x] `TEST-006`：`PresetFlowSupport` 编排与预设 ID 缓存一致性测试
+- [x] `TEST-007`：`PerformanceFileTest` 迁移至 `ScopedTempDir`，消除固定文件名并行与残留风险
 
 ### AUDIT-002 Phase D：音频/录制/导出管线质量加固（P2 管道缺陷与性能优化）
 > 目标：消除音频回调堆分配，修正 MIDI 导出伪 SysEx 与通道/时间戳逻辑。

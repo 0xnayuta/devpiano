@@ -392,8 +392,7 @@ bool savePreset(const PerformancePreset& preset, const juce::File& path) {
 
 // ---- Directory scanning ----
 
-std::vector<PerformancePreset> scanPresetDirectory() {
-    auto dir = getPresetDirectory();
+std::vector<PerformancePreset> scanPresetDirectory(const juce::File& dir) {
     if (!dir.exists()) {
         return {};
     }

@@ -1,6 +1,7 @@
 #include <JuceHeader.h>
 
 #include "Export/ExportFlowSupport.h"
+#include "Export/WavExportTask.h"
 #include "Recording/MidiFileExporter.h"
 #include "Recording/RecordingEngine.h"
 #include "Recording/WavFileExporter.h"
@@ -384,6 +385,65 @@ public:
         });
     }
 };
-
 static MultiTrackWavExportTest multiTrackWavExportTest;
 static WavExportRoundTripTest wavExportRoundTripTest;
+
+// -----------------------------------------------------------------------------
+
+class WavExportTaskSmokeTest final : public juce::UnitTest {
+public:
+    WavExportTaskSmokeTest()
+        : juce::UnitTest("Export: WavExportTask background execution", "DevPiano/Recording") {
+    }
+
+    void runTest() override {
+        testCase("WavExportTask executes background export successfully", [&] {
+            devpiano::test::ScopedTempDir tempDir("task-smoke-success");
+            const auto target = tempDir.getChildFile("export_task_ok.wav");
+
+            RecordingTake take;
+            take.sampleRate = 44100.0;
+            take.lengthSamples = 4410; // 0.1s short take
+            take.events.push_back({ 0, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
+                                    juce::MidiMessage::noteOn(1, 60, 0.8f) });
+            take.events.push_back({ 2205, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
+                                    juce::MidiMessage::noteOff(1, 60) });
+
+            WavExportOptions options;
+            options.sampleRate = 44100.0;
+            options.blockSize = 512;
+            options.bitsPerSample = 16;
+            options.masterGain = 1.0f;
+
+            WavExportTask task(take, target, options, nullptr, nullptr);
+            const bool result = task.runThread();
+
+            expect(result, "runThread must complete successfully");
+            expect(task.wasSuccessful(), "wasSuccessful flag must be true");
+            expect(target.existsAsFile(), "Target WAV file must be created on disk");
+            expect(target.getSize() > 44, "Target WAV file must have valid size");
+        });
+
+        testCase("WavExportTask fails gracefully on invalid target path", [&] {
+            RecordingTake take;
+            take.sampleRate = 44100.0;
+            take.lengthSamples = 4410;
+            take.events.push_back({ 0, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
+                                    juce::MidiMessage::noteOn(1, 60, 0.8f) });
+
+            WavExportOptions options;
+            options.sampleRate = 44100.0;
+            options.blockSize = 512;
+
+            // Empty target file is invalid
+            WavExportTask failTask(take, juce::File(), options, nullptr, nullptr);
+            const bool result = failTask.runThread();
+
+            expect(!result, "runThread must return false for invalid destination");
+            expect(!failTask.wasSuccessful(), "wasSuccessful must be false");
+            expect(failTask.getErrorMessage().isNotEmpty(), "errorMessage must be populated on failure");
+        });
+    }
+};
+
+static WavExportTaskSmokeTest wavExportTaskSmokeTest;

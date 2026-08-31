@@ -388,7 +388,8 @@ if (BUILD_TESTS)
         source/Audio/PianoSynthVoice.h
         source/Plugin/PluginHost.cpp
         source/Plugin/PluginHost.h
-
+        source/Plugin/PluginFlowSupport.cpp
+        source/Plugin/PluginFlowSupport.h
         source/Layout/PerformancePreset.cpp
         source/Layout/PerformancePreset.h
         source/Settings/SettingsStore.cpp
@@ -451,8 +452,11 @@ if (BUILD_TESTS)
         source/tests/PluginHostXmlTest.cpp
         source/tests/KeyboardHitMappingTest.cpp
         source/tests/PianoSynthVoiceTest.cpp
+        source/tests/SineSynthVoiceTest.cpp
+        source/tests/AppStateAndSerializationTest.cpp
+        source/tests/PluginOfflineRendererTest.cpp
+        source/tests/PluginOperationControllerTest.cpp
         source/tests/JiveModalDialogTest.cpp
-        source/tests/SettingsLayoutModelTest.cpp
     )
     target_link_libraries(devpiano_tests PRIVATE
         devpiano_binary_data

@@ -209,5 +209,50 @@ public:
         });
     }
 };
-
 static PresetFileNameSanitiseTest presetFileNameSanitiseTest;
+
+// -----------------------------------------------------------------------------
+
+class PresetDirectoryScanTest final : public juce::UnitTest {
+public:
+    PresetDirectoryScanTest()
+        : juce::UnitTest("PerformancePreset: directory scan and cache consistency", "DevPiano/Core") {
+    }
+
+    void runTest() override {
+        testCase("scan directory ignores non-preset files and loads valid presets", [&] {
+            devpiano::test::ScopedTempDir tempDir("preset-dir-scan");
+
+            // 1. Create a non-preset file
+            tempDir.getChildFile("notes.txt").replaceWithText("some text");
+
+            // 2. Create two valid preset files
+            auto p1 = makeFullPreset();
+            p1.name = "Preset Alpha";
+            expect(savePreset(p1, tempDir.getChildFile("alpha.devpiano.preset")));
+
+            auto p2 = makeFullPreset();
+            p2.name = "Preset Beta";
+            expect(savePreset(p2, tempDir.getChildFile("beta.devpiano.preset")));
+
+            // 3. Scan directory
+            const auto scanned = scanPresetDirectory(tempDir.get());
+            expectEquals(static_cast<int>(scanned.size()), 2, "Must find exactly 2 valid preset files");
+
+            juce::StringArray names;
+            for (const auto& p : scanned) {
+                names.add(p.name);
+            }
+            expect(names.contains("Preset Alpha"));
+            expect(names.contains("Preset Beta"));
+        });
+
+        testCase("getPresetDirectory returns a valid location", [&] {
+            const auto dir = getPresetDirectory();
+            expect(dir != juce::File(), "Preset directory must not be an empty path");
+            expect(dir.getFileName() == "Presets", "Preset directory leaf name must be Presets");
+        });
+    }
+};
+
+static PresetDirectoryScanTest presetDirectoryScanTest;

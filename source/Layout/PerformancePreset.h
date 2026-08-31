@@ -46,7 +46,7 @@ struct PerformancePreset {
 
 // ---- Directory scanning ----
 
-[[nodiscard]] std::vector<PerformancePreset> scanPresetDirectory();
+[[nodiscard]] std::vector<PerformancePreset> scanPresetDirectory(const juce::File& dir = getPresetDirectory());
 
 // ---- Built-in defaults ----
 
