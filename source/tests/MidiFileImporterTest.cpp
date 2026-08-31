@@ -15,7 +15,7 @@
 // =============================================================================
 
 static juce::File getFixtureDir() {
-    return juce::File(__FILE__).getParentDirectory().getChildFile("../../tests/fixtures/midi");
+    return devpiano::test::getFixturesDir().getChildFile("midi");
 }
 
 static juce::String getFixturePath(const juce::String& filename) {
@@ -73,6 +73,9 @@ public:
         testCase("simple-notes.mid imports with events, sample rate, timestamps and note events", [&] {
             auto result = importFixture("simple-notes.mid");
             expect(result.has_value());
+            if (!result.has_value()) {
+                return;
+            }
             expect(!result->isEmpty());
             expectGreaterThan(result->events.size(), size_t(0));
             expectEquals(result->sampleRate, 48000.0);
@@ -94,6 +97,9 @@ public:
         testCase("multitrack-basic.mid imports with default and track options", [&] {
             auto result = importFixture("multitrack-basic.mid");
             expect(result.has_value());
+            if (!result.has_value()) {
+                return;
+            }
             expect(!result->isEmpty());
 
             MidiImportOptions singleTrackOpts;
@@ -101,6 +107,9 @@ public:
             auto resultSingleTrack
                 = importMidiFile(juce::File(getFixturePath("multitrack-basic.mid")), 48000.0, singleTrackOpts);
             expect(resultSingleTrack.has_value());
+            if (!resultSingleTrack.has_value()) {
+                return;
+            }
             expect(!resultSingleTrack->isEmpty());
 
             MidiImportOptions allTracksOpts;
@@ -109,8 +118,10 @@ public:
             auto resultAllTracks
                 = importMidiFile(juce::File(getFixturePath("multitrack-basic.mid")), 48000.0, allTracksOpts);
             expect(resultAllTracks.has_value());
+            if (!resultAllTracks.has_value()) {
+                return;
+            }
             expect(!resultAllTracks->isEmpty());
-
             // Default import should be multi-track merge mode
             expectGreaterThan(resultAllTracks->events.size(), size_t(0));
         });
@@ -118,6 +129,9 @@ public:
         testCase("sustain-pedal.mid imports successfully with controller events", [&] {
             auto result = importFixture("sustain-pedal.mid");
             expect(result.has_value());
+            if (!result.has_value()) {
+                return;
+            }
             expect(!result->isEmpty());
 
             int ccCount = 0;
@@ -132,12 +146,18 @@ public:
         testCase("tempo-change-basic.mid imports successfully", [&] {
             auto result = importFixture("tempo-change-basic.mid");
             expect(result.has_value());
+            if (!result.has_value()) {
+                return;
+            }
             expect(!result->isEmpty());
         });
 
         testCase("velocity-channel.mid has varying velocity and non-default channel", [&] {
             auto result = importFixture("velocity-channel.mid");
             expect(result.has_value());
+            if (!result.has_value()) {
+                return;
+            }
             expect(!result->isEmpty());
 
             bool foundVaryingVelocity = false;
@@ -506,6 +526,9 @@ public:
 
             auto importRes = importMidiFileWithMetadata(juce::File(getFixturePath("multitrack-basic.mid")), 48000.0);
             expect(importRes.has_value());
+            if (!importRes.has_value()) {
+                return;
+            }
             expect(!importRes->take.isEmpty());
 
             PerformanceFileMetadata meta;

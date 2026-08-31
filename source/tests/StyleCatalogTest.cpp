@@ -1,6 +1,7 @@
 #include <JuceHeader.h>
 
 #include "Locale/LocaleManager.h"
+#include "TestHelpers.h"
 #include "UI/ComboSelection.h"
 #include "UI/DevPianoLookAndFeel.h"
 #include "UI/jive/DesignTokens.h"
@@ -55,18 +56,7 @@ void registerRootComponentFactory(::jive::Interpreter& interpreter) {
 // 定位仓库内真实 style_sheets.json：优先 __FILE__ 相对定位（TEST-014，与 CWD
 // 无关），回退 CWD / 可执行文件目录上溯兼容旧环境。
 juce::File findShippedStyleSheet() {
-    juce::File styleFile = juce::File(__FILE__).getParentDirectory().getChildFile("../UI/jive/style_sheets.json");
-    if (!styleFile.existsAsFile()) {
-        styleFile = juce::File::getCurrentWorkingDirectory().getChildFile("source/UI/jive/style_sheets.json");
-    }
-    if (!styleFile.existsAsFile()) {
-        auto dir = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
-        for (int i = 0; i < 4 && !styleFile.existsAsFile(); ++i) {
-            styleFile = dir.getChildFile("source/UI/jive/style_sheets.json");
-            dir = dir.getParentDirectory();
-        }
-    }
-    return styleFile;
+    return devpiano::test::findRepoRoot().getChildFile("source/UI/jive/style_sheets.json");
 }
 
 juce::ValueTree findNodeById(const juce::ValueTree& root, const juce::String& id) {

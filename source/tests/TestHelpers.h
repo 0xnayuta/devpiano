@@ -62,4 +62,55 @@ private:
     juce::File dir;
 };
 
+// ============================================================================
+// findRepoRoot: Robustly locates repository root directory across all environments.
+//
+// Multi-tier lookup:
+// 1. Absolute __FILE__ up-traversal (works in standard builds)
+// 2. Current working directory up-traversal (works in CTest / CLI runs)
+// 3. Current executable directory up-traversal (works when run from build artefact folders)
+// ============================================================================
+inline juce::File findRepoRoot() {
+    auto isRepoRoot = [](const juce::File& dir) {
+        return dir.isDirectory() && dir.getChildFile("tests/fixtures").isDirectory()
+            && dir.getChildFile("source").isDirectory();
+    };
+
+    // 1. __FILE__ when absolute
+    if (juce::File::isAbsolutePath(__FILE__)) {
+        const juce::File sourceFile(__FILE__);
+        auto root = sourceFile.getParentDirectory().getParentDirectory().getParentDirectory();
+        if (isRepoRoot(root)) {
+            return root;
+        }
+    }
+
+    // 2. Upwards from current working directory
+    for (auto dir = juce::File::getCurrentWorkingDirectory(); dir.exists() && dir.getParentDirectory() != dir;
+         dir = dir.getParentDirectory()) {
+        if (isRepoRoot(dir)) {
+            return dir;
+        }
+    }
+
+    // 3. Upwards from current executable
+    for (auto dir = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
+         dir.exists() && dir.getParentDirectory() != dir; dir = dir.getParentDirectory()) {
+        if (isRepoRoot(dir)) {
+            return dir;
+        }
+    }
+
+    // 4. Fallback directly to CWD if tests/fixtures exists right there
+    if (auto direct = juce::File::getCurrentWorkingDirectory(); isRepoRoot(direct)) {
+        return direct;
+    }
+
+    return {};
+}
+
+inline juce::File getFixturesDir() {
+    return findRepoRoot().getChildFile("tests/fixtures");
+}
+
 } // namespace devpiano::test

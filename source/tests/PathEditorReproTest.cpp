@@ -1,3 +1,4 @@
+#include "TestHelpers.h"
 #include "UI/jive/JiveUtils.h"
 #include "UI/jive/LayoutModel.h"
 #include "UI/jive/StyleCatalog.h"
@@ -21,7 +22,7 @@ public:
         // so it works from any working directory; skipped when the file is
         // missing (e.g. a bare binary build without the source tree).
         const juce::File styleSheetFile
-            = juce::File(__FILE__).getParentDirectory().getChildFile("../UI/jive/style_sheets.json");
+            = devpiano::test::findRepoRoot().getChildFile("source/UI/jive/style_sheets.json");
         if (!styleSheetFile.existsAsFile()) {
             return; // not a repo checkout; skip
         }
