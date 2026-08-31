@@ -44,6 +44,7 @@ jobs:
       CCACHE_COMPRESS: "true"
       CCACHE_COMPRESSLEVEL: "6"
       CCACHE_MAXSIZE: "1G"
+      CCACHE_BASEDIR: "${{ github.workspace }}"
       # ccache 4.x 对使用 PCH（-include-pch）的编译默认判 uncacheable（本地实测：
       # pch_defines 不够，time_macros 是进入缓存的必要条件，命中正常）。项目不消费
       # __TIME__/__DATE__（JUCE 内部编译日期字符串无人读取），无副作用。
@@ -97,6 +98,9 @@ jobs:
         run: |
           ./scripts/check_linux_glibc_floor.sh \
             build-wsl-clang-release/devpiano_artefacts/Release/DevPiano
+
+      - name: Show ccache statistics
+        run: ccache -s
 
   windows-msvc-gate:
     name: Windows MSVC Build & Unit Tests

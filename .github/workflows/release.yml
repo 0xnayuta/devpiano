@@ -144,6 +144,7 @@ jobs:
           CMAKE_C_COMPILER_LAUNCHER: "ccache"
           CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
           CCACHE_SLOPPINESS: "time_macros"
+          CCACHE_BASEDIR: "${{ github.workspace }}"
         run: cmake --preset linux-clang-release
 
       - name: Build target binary (Release)
@@ -154,6 +155,7 @@ jobs:
           CMAKE_C_COMPILER_LAUNCHER: "ccache"
           CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
           CCACHE_SLOPPINESS: "time_macros"
+          CCACHE_BASEDIR: "${{ github.workspace }}"
         run: cmake --build --preset linux-clang-release --target devpiano
 
       # glibc / libstdc++ 版本门槛（Phase 25-C）：产物必须满足支持矩阵
@@ -164,6 +166,9 @@ jobs:
         run: |
           ./scripts/check_linux_glibc_floor.sh \
             build-wsl-clang-release/devpiano_artefacts/Release/DevPiano
+
+      - name: Show ccache statistics
+        run: ccache -s
 
       - name: Package Release tar.gz and SHA256
         run: |
