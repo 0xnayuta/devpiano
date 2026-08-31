@@ -6,7 +6,9 @@
 #include "UI/KeyBindingEditDialog.h"
 #include "UI/PluginPanelStateBuilder.h"
 #include "UI/jive/DesignTokens.h"
+#include "UI/jive/JiveComponentRegistry.h"
 #include "UI/jive/JiveUtils.h"
+#include "UI/jive/StyleBootstrap.h"
 #include "UI/native/AdsrCurveComponent.h"
 #include "UI/native/StatusBarMidiDot.h"
 
@@ -31,92 +33,6 @@ juce::String makeSafeUiText(juce::String text) {
     }
 
     return text;
-}
-
-// -- Gear icon path (simple cog / settings icon) --
-std::unique_ptr<juce::Drawable> createGearIcon(juce::Colour colour) {
-    juce::Path p;
-    // Outer ring + four teeth as a single non-zero-winding composite
-    p.addEllipse(-8, -8, 16, 16);
-    for (int i = 0; i < 4; ++i) {
-        auto angle = juce::MathConstants<float>::halfPi * static_cast<float>(i) - juce::MathConstants<float>::pi / 4.0f;
-        auto cx = 9.0f * std::cos(angle);
-        auto cy = 9.0f * std::sin(angle);
-        p.addRectangle(cx - 2.5f, cy - 2.5f, 5.0f, 5.0f);
-    }
-    p.setUsingNonZeroWinding(true);
-    auto drawable = std::make_unique<juce::DrawablePath>();
-    drawable->setPath(p);
-    drawable->setFill(colour);
-    return drawable;
-}
-
-// Locate a project source file: CWD-relative first, then executable-relative
-// (the Windows exe lives at <project>/build-win-msvc/devpiano_artefacts/Debug/,
-// so walking up from the exe dir finds the project root).
-juce::File resolveSourceFile(const juce::String& relativePath) {
-    auto cwdFile = juce::File::getCurrentWorkingDirectory().getChildFile(relativePath);
-    if (cwdFile.existsAsFile()) {
-        return cwdFile;
-    }
-
-    auto dir = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
-    for (int i = 0; i < 4; ++i) {
-        auto candidate = dir.getChildFile(relativePath);
-        if (candidate.existsAsFile()) {
-            return candidate;
-        }
-        dir = dir.getParentDirectory();
-    }
-
-    return cwdFile; // best effort; caller handles missing file
-}
-
-// -- Transport button icon paths --
-std::unique_ptr<juce::Drawable> createRecordIcon() {
-    juce::Path p;
-    p.addEllipse(-7, -7, 14, 14);
-    auto d = std::make_unique<juce::DrawablePath>();
-    d->setPath(p);
-    d->setFill(devpiano::jive::DesignTokens::get().recordActive());
-    return d;
-}
-std::unique_ptr<juce::Drawable> createPlayIcon() {
-    juce::Path p;
-    p.addTriangle(-5.0f, -7.0f, -5.0f, 7.0f, 7.0f, 0.0f);
-    auto d = std::make_unique<juce::DrawablePath>();
-    d->setPath(p);
-    d->setFill(devpiano::jive::DesignTokens::get().playActive());
-    return d;
-}
-std::unique_ptr<juce::Drawable> createPauseIcon() {
-    juce::Path p;
-    // 两个竖条（II），与 Play 的 ▶ 对称；作为 PlayButton 的 on 态图标，
-    // 播放/录制进行中按钮显示 Pause 语义。
-    p.addRectangle(-6.0f, -7.0f, 4.0f, 14.0f);
-    p.addRectangle(2.0f, -7.0f, 4.0f, 14.0f);
-    auto d = std::make_unique<juce::DrawablePath>();
-    d->setPath(p);
-    d->setFill(devpiano::jive::DesignTokens::get().playActive());
-    return d;
-}
-std::unique_ptr<juce::Drawable> createStopIcon() {
-    juce::Path p;
-    p.addRectangle(-6, -6, 12, 12);
-    auto d = std::make_unique<juce::DrawablePath>();
-    d->setPath(p);
-    d->setFill(devpiano::jive::DesignTokens::get().textPrimary());
-    return d;
-}
-std::unique_ptr<juce::Drawable> createBackIcon() {
-    juce::Path p;
-    // 两个三角形尖端朝左（<<），“Back to Start” 语义与 Play 的 ▶ 对称。
-    p.addTriangle(7.0f, -6.0f, 7.0f, 6.0f, -1.0f, 0.0f);
-    p.addTriangle(1.0f, -6.0f, 1.0f, 6.0f, -7.0f, 0.0f);
-    auto d = std::make_unique<juce::DrawablePath>();
-    d->setPath(p);
-    d->setFill(devpiano::jive::DesignTokens::get().textSecondary());
-    return d;
 }
 
 #if JUCE_WINDOWS
@@ -243,31 +159,8 @@ void MainComponent::handlePresetShortcut(int index) {
     }
 }
 void MainComponent::initialiseUi() {
-    // 加载设计 token（单一配色真相源）— 必须在构造 LookAndFeel 之前
-    {
-        // 1. 基准兜底：从编译期嵌入的 BinaryData 加载（保证任何独立运行环境 100% 可用）
-        auto embeddedTokens = juce::JSON::parse(
-            juce::String::fromUTF8(BinaryData::design_tokens_json, BinaryData::design_tokens_jsonSize));
-        if (!embeddedTokens.isVoid()) {
-            devpiano::jive::DesignTokens::get().loadFromJSON(embeddedTokens);
-        } else {
-            DP_LOG_ERROR("[Style] BinaryData::design_tokens_json failed to parse");
-        }
-
-        // 2. 开发环境增强：若本地源码存在文件，覆盖加载并记录修改时间（支持热重载）
-        const auto tokensFile = resolveSourceFile("source/UI/jive/design_tokens.json");
-        if (tokensFile.existsAsFile()) {
-            lastTokensModTime = tokensFile.getLastModificationTime();
-            if (auto stream = tokensFile.createInputStream()) {
-                auto json = juce::JSON::parse(*stream);
-                if (json.isVoid()) {
-                    DP_LOG_ERROR("[Style] design_tokens.json failed to parse: " + tokensFile.getFullPathName());
-                } else {
-                    devpiano::jive::DesignTokens::get().loadFromJSON(json);
-                }
-            }
-        }
-    }
+    // 1. 加载设计 token（单一配色真相源）— 必须在构造 LookAndFeel 之前
+    devpiano::ui::jive::StyleBootstrap::bootstrapDesignTokens(lastTokensModTime);
 
     lookAndFeel = std::make_unique<DevPianoLookAndFeel>();
     setLookAndFeel(lookAndFeel.get());
@@ -278,283 +171,194 @@ void MainComponent::initialiseUi() {
     juce::LookAndFeel::setDefaultLookAndFeel(lookAndFeel.get());
     setWantsKeyboardFocus(true);
 
-    // ── JIVE root layout (header, plugin, controls, keyboard, status bar) ──
-    {
-        // 1. 基准兜底：从编译期嵌入的 BinaryData 加载全局样式表规则
-        auto embeddedStyles = juce::JSON::parse(
-            juce::String::fromUTF8(BinaryData::style_sheets_json, BinaryData::style_sheets_jsonSize));
-        if (!embeddedStyles.isVoid()) {
-            devpiano::ui::jive::StyleCatalog::get().loadFromJSON(embeddedStyles);
-        } else {
-            DP_LOG_ERROR("[Style] BinaryData::style_sheets_json failed to parse");
+    // 2. 加载全局样式表规则并注册 JIVE 自定义组件工厂
+    devpiano::ui::jive::StyleBootstrap::bootstrapStyleCatalog(lastStylesModTime);
+
+    jiveInterpreter = std::make_unique<::jive::Interpreter>();
+    devpiano::ui::jive::JiveComponentRegistry::registerCustomComponents(*jiveInterpreter,
+                                                                        audioEngine.getKeyboardState());
+
+    // 3. 构建 JIVE 根节点并应用全局样式表
+    auto rootTree = devpiano::ui::jive::makeRootLayout();
+    devpiano::ui::jive::StyleCatalog::get().applyToTree(rootTree);
+    jiveRootItem = jiveInterpreter->interpret(rootTree);
+    if (jiveRootItem != nullptr) {
+        addAndMakeVisible(jiveRootItem->getComponent().get());
+
+        const auto findItem
+            = [this](const char* id) -> ::jive::GuiItem* { return jive::findItemWithID(*jiveRootItem, id); };
+        const auto findSlider = [&findItem](const char* id) -> juce::Slider* {
+            if (auto* item = findItem(id)) {
+                return dynamic_cast<juce::Slider*>(item->getComponent().get());
+            }
+            return nullptr;
+        };
+        const auto findCombo = [&findItem](const char* id) -> juce::ComboBox* {
+            if (auto* item = findItem(id)) {
+                return dynamic_cast<juce::ComboBox*>(item->getComponent().get());
+            }
+            return nullptr;
+        };
+        const auto findButton = [&findItem](const char* id) -> juce::Button* {
+            if (auto* item = findItem(id)) {
+                return dynamic_cast<juce::Button*>(item->getComponent().get());
+            }
+            return nullptr;
+        };
+
+        // ── header ──
+        if (auto* btn = findButton("settings-btn")) {
+            btn->onClick = [this] { showSettingsDialog(); };
         }
 
-        // 2. 开发环境增强：若本地源码存在文件，覆盖加载并记录修改时间（支持热重载）
-        const auto styleFile = resolveSourceFile("source/UI/jive/style_sheets.json");
-        if (styleFile.existsAsFile()) {
-            lastStylesModTime = styleFile.getLastModificationTime();
-            if (auto stream = styleFile.createInputStream()) {
-                auto json = juce::JSON::parse(*stream);
-                if (json.isVoid()) {
-                    DP_LOG_ERROR("[Style] style_sheets.json failed to parse: " + styleFile.getFullPathName());
-                } else {
-                    devpiano::ui::jive::StyleCatalog::get().loadFromJSON(json);
+        // ── plugin panel ──
+        const auto wireButton = [&findButton](const char* id, const std::function<void()>& action) {
+            if (auto* btn = findButton(id)) {
+                btn->onClick = action;
+            }
+        };
+        wireButton("load-btn", [this] { pluginOperationController->loadSelectedPlugin(); });
+        wireButton("unload-btn", [this] { pluginOperationController->unloadCurrentPlugin(); });
+        wireButton("editor-btn", [this] { pluginOperationController->togglePluginEditor(); });
+        wireButton("toggle-btn", [this] { setPluginPanelExpanded(!appSettings.pluginPanelExpanded); });
+        wireButton("scan-btn", [this] { pluginOperationController->scanPlugins(); });
+        wireButton("browse-btn", [this] { showPluginBrowseDialog(); });
+
+        if (auto* combo = findCombo("plugin-selector")) {
+            combo->setTextWhenNothingSelected(TRANS("Select a scanned plugin..."));
+            combo->setWantsKeyboardFocus(false);
+            combo->onChange = [this, combo] {
+                if (isUpdatingPluginSelector) {
+                    return;
                 }
+                if (combo->getSelectedItemIndex() >= 0) {
+                    pluginOperationController->loadSelectedPlugin();
+                }
+            };
+        }
+        if (auto* combo = findCombo("plugin-filter-combo")) {
+            combo->clear(juce::dontSendNotification);
+            combo->addItem(TRANS("All"), 1);
+            combo->addItem(TRANS("Instruments Only"), 2);
+            combo->addItem(TRANS("Effects Only"), 3);
+            combo->setSelectedId(1, juce::dontSendNotification);
+            combo->setWantsKeyboardFocus(false);
+            combo->onChange = [this] {
+                if (!isUpdatingPluginSelector) {
+                    refreshPluginUiState();
+                }
+            };
+        }
+        if (auto* item = findItem("plugin-path-editor")) {
+            if (auto* editor = dynamic_cast<juce::TextEditor*>(item->getComponent().get())) {
+                editor->onReturnKey = [this] { pluginOperationController->scanPlugins(); };
             }
         }
 
-        jiveInterpreter = std::make_unique<::jive::Interpreter>();
-        auto& factory = jiveInterpreter->getComponentFactory();
+        // ── controls panel ──
+        AdsrCurveComponent* adsrCurve = nullptr;
+        if (auto* item = findItem("adsr-curve")) {
+            adsrCurve = dynamic_cast<AdsrCurveComponent*>(item->getComponent().get());
+        }
 
-        factory.set("SettingsButton", [] {
-            auto btn = std::make_unique<juce::DrawableButton>("settings", juce::DrawableButton::ImageFitted);
-            btn->setImages(createGearIcon(devpiano::jive::DesignTokens::get().textSecondary()).get(),
-                           createGearIcon(devpiano::jive::DesignTokens::get().primary()).get(), nullptr);
-            return btn;
-        });
-        factory.set("PathEditor", [] {
-            auto editor = std::make_unique<juce::TextEditor>();
-            editor->setMultiLine(false);
-            editor->setReturnKeyStartsNewLine(false);
-            return editor;
-        });
-        factory.set("ListEditor", [] {
-            auto editor = std::make_unique<juce::TextEditor>();
-            editor->setMultiLine(true);
-            editor->setReadOnly(true);
-            editor->setScrollbarsShown(true);
-            editor->setCaretVisible(false);
-            editor->setPopupMenuEnabled(true);
-            editor->setWantsKeyboardFocus(false);
-            editor->setMouseClickGrabsKeyboardFocus(false);
-            return editor;
-        });
-        factory.set("DevKnob", [] {
-            auto slider = std::make_unique<juce::Slider>();
-            slider->setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-            slider->setTextBoxStyle(juce::Slider::TextBoxBelow, false, 44, 16);
-            slider->setRotaryParameters(juce::MathConstants<float>::pi * 1.25f, juce::MathConstants<float>::pi * 2.75f,
-                                        true);
-            return slider;
-        });
-        factory.set("SpeedSlider", [] {
-            auto slider = std::make_unique<juce::Slider>();
-            slider->setSliderStyle(juce::Slider::LinearHorizontal);
-            slider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 42, 16);
-            return slider;
-        });
-        factory.set("AdsrCurve", [] { return std::make_unique<AdsrCurveComponent>(); });
-        // Icons are owned by static storage for the app lifetime.
-        static const auto recordIcon = createRecordIcon();
-        static const auto playIcon = createPlayIcon();
-        static const auto pauseIcon = createPauseIcon();
-        static const auto stopIcon = createStopIcon();
-        static const auto backIcon = createBackIcon();
-
-        const auto registerIconButton
-            = [&factory](const char* type, const juce::Drawable* image, const juce::String& tooltip,
-                         const juce::Drawable* onImage = nullptr) {
-                  factory.set(type, [image, tooltip, onImage] {
-                      auto btn = std::make_unique<juce::DrawableButton>(tooltip, juce::DrawableButton::ImageFitted);
-                      // onImage (optional) is shown while the button is latched
-                      // (toggle on) — PlayButton uses it to switch ▶/II.
-                      btn->setImages(image, nullptr, nullptr, nullptr, onImage, nullptr, nullptr, nullptr);
-                      // Inset the icon area so large transport buttons keep
-                      // their size while the glyph renders at ~18 px.
-                      btn->setEdgeIndent(10);
-                      btn->setTooltip(tooltip);
-                      return btn;
+        const auto wireKnob = [&findSlider](const char* id, double min, double max, double interval,
+                                            const std::function<juce::String(double)>& formatter,
+                                            const std::function<void()>& onChanged) {
+            if (auto* slider = findSlider(id)) {
+                slider->setRange(min, max, interval);
+                slider->textFromValueFunction = formatter;
+                slider->onValueChange = [onChanged] { onChanged(); };
+            }
+        };
+        wireKnob(
+            "volume-knob", 0.0, 1.0, 0.01, [](double v) { return juce::String(v, 2); },
+            [this] { handlePerformanceUiChanged(); });
+        const auto wireAdsrKnob
+            = [this, curve = adsrCurve, &wireKnob](const char* id, double min, double max, double interval,
+                                                   const std::function<juce::String(double)>& formatter) {
+                  wireKnob(id, min, max, interval, formatter, [this, curve] {
+                      if (curve != nullptr) {
+                          curve->setParameters(getAttack(), getDecay(), getSustain(), getRelease());
+                      }
+                      handlePerformanceUiChanged();
                   });
               };
-        registerIconButton("RecordButton", recordIcon.get(), TRANS("Record"));
-        registerIconButton("PlayButton", playIcon.get(), TRANS("Play"), pauseIcon.get());
-        registerIconButton("StopButton", stopIcon.get(), TRANS("Stop"));
-        registerIconButton("BackButton", backIcon.get(), TRANS("Back to Start"));
-        factory.set("CustomKeyboard",
-                    [this] { return std::make_unique<KeyboardViewport>(audioEngine.getKeyboardState()); });
-        factory.set("StatusBarMidiDot", [] { return std::make_unique<StatusBarMidiDot>(); });
+        wireAdsrKnob("attack-knob", 0.001, 2.0, 0.001, [](double v) { return juce::String(v, 3) + "s"; });
+        wireAdsrKnob("decay-knob", 0.001, 2.0, 0.001, [](double v) { return juce::String(v, 3) + "s"; });
+        wireAdsrKnob("sustain-knob", 0.0, 1.0, 0.01,
+                     [](double v) { return juce::String(juce::roundToInt(v * 100.0)) + "%"; });
+        wireAdsrKnob("release-knob", 0.001, 3.0, 0.001, [](double v) { return juce::String(v, 3) + "s"; });
 
-        auto rootTree = devpiano::ui::jive::makeRootLayout();
-        devpiano::ui::jive::StyleCatalog::get().applyToTree(rootTree);
-        jiveRootItem = jiveInterpreter->interpret(rootTree);
-        if (jiveRootItem != nullptr) {
-            addAndMakeVisible(jiveRootItem->getComponent().get());
-
-            const auto findItem
-                = [this](const char* id) -> ::jive::GuiItem* { return jive::findItemWithID(*jiveRootItem, id); };
-            const auto findSlider = [&findItem](const char* id) -> juce::Slider* {
-                if (auto* item = findItem(id)) {
-                    return dynamic_cast<juce::Slider*>(item->getComponent().get());
+        // ── piano tone row (Phase 12-3) ──
+        const auto wirePianoKnob
+            = [&wireKnob, this](const char* id, const std::function<juce::String(double)>& formatter) {
+                  wireKnob(id, 0.0, 1.0, 0.01, formatter, [this] { handlePerformanceUiChanged(); });
+              };
+        wirePianoKnob("brightness-knob", [](double v) { return juce::String(juce::roundToInt(v * 100.0)) + "%"; });
+        wirePianoKnob("hardness-knob", [](double v) { return juce::String(juce::roundToInt(v * 100.0)) + "%"; });
+        wirePianoKnob("resonance-knob", [](double v) { return juce::String(juce::roundToInt(v * 100.0)) + "%"; });
+        wireKnob(
+            "speed-knob", 0.5, 2.0, 0.25,
+            [](double v) {
+                // 0.25-step speeds: format with two decimals, then trim a
+                // single trailing zero ("1.00" → "1.0", "1.25" stays,
+                // "1.50" → "1.5"). A single decimal place uses banker's
+                // rounding, which mis-rendered 1.25 as "1.2" and 1.75 as
+                // "1.8".
+                auto text = juce::String(v, 2);
+                if (text.endsWith("0")) {
+                    text = text.dropLastCharacters(1);
                 }
-                return nullptr;
+                return text + "x";
+            },
+            [this] { recordingSessionController->handlePlaybackSpeedChange(getControlsPlaybackSpeed()); });
+
+        wireButton("record-btn", [this] { recordingSessionController->handleRecordClicked(); });
+        wireButton("play-btn", [this] { recordingSessionController->handlePlayClicked(); });
+        wireButton("stop-btn", [this] { recordingSessionController->handleStopClicked(); });
+        wireButton("back-btn", [this] { recordingSessionController->handleBackToStartClicked(); });
+
+        // Latched (toggle-on) accent colours: red while recording, green while playing.
+        const auto& tokens = devpiano::jive::DesignTokens::get();
+        if (auto* btn = findButton("record-btn")) {
+            btn->setColour(juce::TextButton::buttonOnColourId, tokens.recordActive());
+        }
+        if (auto* btn = findButton("play-btn")) {
+            btn->setColour(juce::TextButton::buttonOnColourId, tokens.playActive());
+        }
+        wireButton("export-midi-btn", [this] { recordingSessionController->handleExportMidiClicked(); });
+        wireButton("export-wav-btn", [this] { recordingSessionController->handleExportWavClicked(); });
+        wireButton("import-midi-btn", [this] { recordingSessionController->handleImportMidiClicked(); });
+        wireButton("save-perf-btn", [this] { recordingSessionController->handleSavePerformanceClicked(); });
+        wireButton("open-perf-btn", [this] { recordingSessionController->handleOpenPerformanceClicked(); });
+        wireButton("song-info-btn", [this] { recordingSessionController->handleSongInfoClicked(); });
+        wireButton("recent-btn", [this] { showRecentFilesMenu(); });
+        wireButton("save-preset-btn", [this] { presetFlowSupport->handleSaveAsNewPreset(); });
+        wireButton("rename-preset-btn", [this] { presetFlowSupport->handleRenamePreset(); });
+        wireButton("delete-preset-btn", [this] { presetFlowSupport->handleDeletePreset(); });
+
+        if (auto* combo = findCombo("preset-combo")) {
+            combo->setTextWhenNothingSelected(TRANS("Default"));
+            combo->setWantsKeyboardFocus(false);
+            combo->onChange = [this, combo] {
+                if (isUpdatingPresets) {
+                    return;
+                }
+                const auto selectedId = combo->getSelectedId();
+                if (selectedId <= 0 || !juce::isPositiveAndBelow(selectedId - 1, availablePresetIds.size())) {
+                    return;
+                }
+                presetFlowSupport->applyPresetById(availablePresetIds[selectedId - 1]);
+                updateControlsPresetActionButtons();
             };
-            const auto findCombo = [&findItem](const char* id) -> juce::ComboBox* {
-                if (auto* item = findItem(id)) {
-                    return dynamic_cast<juce::ComboBox*>(item->getComponent().get());
-                }
-                return nullptr;
-            };
-            const auto findButton = [&findItem](const char* id) -> juce::Button* {
-                if (auto* item = findItem(id)) {
-                    return dynamic_cast<juce::Button*>(item->getComponent().get());
-                }
-                return nullptr;
-            };
+        }
 
-            // ── header ──
-            if (auto* btn = findButton("settings-btn")) {
-                btn->onClick = [this] { showSettingsDialog(); };
-            }
+        setRecordingControlsState({});
 
-            // ── plugin panel ──
-            const auto wireButton = [&findButton](const char* id, const std::function<void()>& action) {
-                if (auto* btn = findButton(id)) {
-                    btn->onClick = action;
-                }
-            };
-            wireButton("load-btn", [this] { pluginOperationController->loadSelectedPlugin(); });
-            wireButton("unload-btn", [this] { pluginOperationController->unloadCurrentPlugin(); });
-            wireButton("editor-btn", [this] { pluginOperationController->togglePluginEditor(); });
-            wireButton("toggle-btn", [this] { setPluginPanelExpanded(!appSettings.pluginPanelExpanded); });
-            wireButton("scan-btn", [this] { pluginOperationController->scanPlugins(); });
-            wireButton("browse-btn", [this] { showPluginBrowseDialog(); });
-
-            if (auto* combo = findCombo("plugin-selector")) {
-                combo->setTextWhenNothingSelected(TRANS("Select a scanned plugin..."));
-                combo->setWantsKeyboardFocus(false);
-                combo->onChange = [this, combo] {
-                    if (isUpdatingPluginSelector) {
-                        return;
-                    }
-                    if (combo->getSelectedItemIndex() >= 0) {
-                        pluginOperationController->loadSelectedPlugin();
-                    }
-                };
-            }
-            if (auto* combo = findCombo("plugin-filter-combo")) {
-                combo->clear(juce::dontSendNotification);
-                combo->addItem(TRANS("All"), 1);
-                combo->addItem(TRANS("Instruments Only"), 2);
-                combo->addItem(TRANS("Effects Only"), 3);
-                combo->setSelectedId(1, juce::dontSendNotification);
-                combo->setWantsKeyboardFocus(false);
-                combo->onChange = [this] {
-                    if (!isUpdatingPluginSelector) {
-                        refreshPluginUiState();
-                    }
-                };
-            }
-            if (auto* item = findItem("plugin-path-editor")) {
-                if (auto* editor = dynamic_cast<juce::TextEditor*>(item->getComponent().get())) {
-                    editor->onReturnKey = [this] { pluginOperationController->scanPlugins(); };
-                }
-            }
-
-            // ── controls panel ──
-            AdsrCurveComponent* adsrCurve = nullptr;
-            if (auto* item = findItem("adsr-curve")) {
-                adsrCurve = dynamic_cast<AdsrCurveComponent*>(item->getComponent().get());
-            }
-
-            const auto wireKnob = [&findSlider](const char* id, double min, double max, double interval,
-                                                const std::function<juce::String(double)>& formatter,
-                                                const std::function<void()>& onChanged) {
-                if (auto* slider = findSlider(id)) {
-                    slider->setRange(min, max, interval);
-                    slider->textFromValueFunction = formatter;
-                    slider->onValueChange = [onChanged] { onChanged(); };
-                }
-            };
-            wireKnob(
-                "volume-knob", 0.0, 1.0, 0.01, [](double v) { return juce::String(v, 2); },
-                [this] { handlePerformanceUiChanged(); });
-            const auto wireAdsrKnob
-                = [this, curve = adsrCurve, &wireKnob](const char* id, double min, double max, double interval,
-                                                       const std::function<juce::String(double)>& formatter) {
-                      wireKnob(id, min, max, interval, formatter, [this, curve] {
-                          if (curve != nullptr) {
-                              curve->setParameters(getAttack(), getDecay(), getSustain(), getRelease());
-                          }
-                          handlePerformanceUiChanged();
-                      });
-                  };
-            wireAdsrKnob("attack-knob", 0.001, 2.0, 0.001, [](double v) { return juce::String(v, 3) + "s"; });
-            wireAdsrKnob("decay-knob", 0.001, 2.0, 0.001, [](double v) { return juce::String(v, 3) + "s"; });
-            wireAdsrKnob("sustain-knob", 0.0, 1.0, 0.01,
-                         [](double v) { return juce::String(juce::roundToInt(v * 100.0)) + "%"; });
-            wireAdsrKnob("release-knob", 0.001, 3.0, 0.001, [](double v) { return juce::String(v, 3) + "s"; });
-
-            // ── piano tone row (Phase 12-3) ──
-            const auto wirePianoKnob
-                = [&wireKnob, this](const char* id, const std::function<juce::String(double)>& formatter) {
-                      wireKnob(id, 0.0, 1.0, 0.01, formatter, [this] { handlePerformanceUiChanged(); });
-                  };
-            wirePianoKnob("brightness-knob", [](double v) { return juce::String(juce::roundToInt(v * 100.0)) + "%"; });
-            wirePianoKnob("hardness-knob", [](double v) { return juce::String(juce::roundToInt(v * 100.0)) + "%"; });
-            wirePianoKnob("resonance-knob", [](double v) { return juce::String(juce::roundToInt(v * 100.0)) + "%"; });
-            wireKnob(
-                "speed-knob", 0.5, 2.0, 0.25,
-                [](double v) {
-                    // 0.25-step speeds: format with two decimals, then trim a
-                    // single trailing zero ("1.00" → "1.0", "1.25" stays,
-                    // "1.50" → "1.5"). A single decimal place uses banker's
-                    // rounding, which mis-rendered 1.25 as "1.2" and 1.75 as
-                    // "1.8".
-                    auto text = juce::String(v, 2);
-                    if (text.endsWith("0")) {
-                        text = text.dropLastCharacters(1);
-                    }
-                    return text + "x";
-                },
-                [this] { recordingSessionController->handlePlaybackSpeedChange(getControlsPlaybackSpeed()); });
-
-            wireButton("record-btn", [this] { recordingSessionController->handleRecordClicked(); });
-            wireButton("play-btn", [this] { recordingSessionController->handlePlayClicked(); });
-            wireButton("stop-btn", [this] { recordingSessionController->handleStopClicked(); });
-            wireButton("back-btn", [this] { recordingSessionController->handleBackToStartClicked(); });
-
-            // Latched (toggle-on) accent colours: red while recording, green while playing.
-            const auto& tokens = devpiano::jive::DesignTokens::get();
-            if (auto* btn = findButton("record-btn")) {
-                btn->setColour(juce::TextButton::buttonOnColourId, tokens.recordActive());
-            }
-            if (auto* btn = findButton("play-btn")) {
-                btn->setColour(juce::TextButton::buttonOnColourId, tokens.playActive());
-            }
-            wireButton("export-midi-btn", [this] { recordingSessionController->handleExportMidiClicked(); });
-            wireButton("export-wav-btn", [this] { recordingSessionController->handleExportWavClicked(); });
-            wireButton("import-midi-btn", [this] { recordingSessionController->handleImportMidiClicked(); });
-            wireButton("save-perf-btn", [this] { recordingSessionController->handleSavePerformanceClicked(); });
-            wireButton("open-perf-btn", [this] { recordingSessionController->handleOpenPerformanceClicked(); });
-            wireButton("song-info-btn", [this] { recordingSessionController->handleSongInfoClicked(); });
-            wireButton("recent-btn", [this] { showRecentFilesMenu(); });
-            wireButton("save-preset-btn", [this] { presetFlowSupport->handleSaveAsNewPreset(); });
-            wireButton("rename-preset-btn", [this] { presetFlowSupport->handleRenamePreset(); });
-            wireButton("delete-preset-btn", [this] { presetFlowSupport->handleDeletePreset(); });
-
-            if (auto* combo = findCombo("preset-combo")) {
-                combo->setTextWhenNothingSelected(TRANS("Default"));
-                combo->setWantsKeyboardFocus(false);
-                combo->onChange = [this, combo] {
-                    if (isUpdatingPresets) {
-                        return;
-                    }
-                    const auto selectedId = combo->getSelectedId();
-                    if (selectedId <= 0 || !juce::isPositiveAndBelow(selectedId - 1, availablePresetIds.size())) {
-                        return;
-                    }
-                    presetFlowSupport->applyPresetById(availablePresetIds[selectedId - 1]);
-                    updateControlsPresetActionButtons();
-                };
-            }
-
-            setRecordingControlsState({});
-
-            // ── keyboard area ──
-            if (auto* item = findItem("custom-keyboard")) {
-                if (auto* viewport = dynamic_cast<KeyboardViewport*>(item->getComponent().get())) {
-                    customKeyboardRef = &viewport->getCustomKeyboard();
-                }
+        // ── keyboard area ──
+        if (auto* item = findItem("custom-keyboard")) {
+            if (auto* viewport = dynamic_cast<KeyboardViewport*>(item->getComponent().get())) {
+                customKeyboardRef = &viewport->getCustomKeyboard();
             }
         }
     }
@@ -768,9 +572,10 @@ void MainComponent::timerCallback() {
 #if DEBUG
     // Check file modification time every ~1 second (30 ticks at 30Hz) in debug builds
     if (++hotReloadCheckCounter >= 30) {
-        hotReloadCheckCounter = 0;
-        const auto tokensFile = resolveSourceFile("source/UI/jive/design_tokens.json");
-        const auto styleFile = resolveSourceFile("source/UI/jive/style_sheets.json");
+        const auto tokensFile
+            = devpiano::ui::jive::StyleBootstrap::resolveSourceFile("source/UI/jive/design_tokens.json");
+        const auto styleFile
+            = devpiano::ui::jive::StyleBootstrap::resolveSourceFile("source/UI/jive/style_sheets.json");
         const bool tokensChanged
             = tokensFile.existsAsFile() && tokensFile.getLastModificationTime() > lastTokensModTime;
         const bool stylesChanged = styleFile.existsAsFile() && styleFile.getLastModificationTime() > lastStylesModTime;
@@ -907,7 +712,7 @@ void MainComponent::reloadStylesAndTokens() {
     bool stylesLoaded = false;
 
     // 1. Reload design tokens
-    const auto tokensFile = resolveSourceFile("source/UI/jive/design_tokens.json");
+    const auto tokensFile = devpiano::ui::jive::StyleBootstrap::resolveSourceFile("source/UI/jive/design_tokens.json");
     if (tokensFile.existsAsFile()) {
         lastTokensModTime = tokensFile.getLastModificationTime();
         if (auto stream = tokensFile.createInputStream()) {
@@ -928,7 +733,7 @@ void MainComponent::reloadStylesAndTokens() {
     }
 
     // 3. Reload StyleCatalog & apply to live JIVE tree
-    const auto styleFile = resolveSourceFile("source/UI/jive/style_sheets.json");
+    const auto styleFile = devpiano::ui::jive::StyleBootstrap::resolveSourceFile("source/UI/jive/style_sheets.json");
     if (styleFile.existsAsFile()) {
         lastStylesModTime = styleFile.getLastModificationTime();
         if (auto stream = styleFile.createInputStream()) {
@@ -948,8 +753,13 @@ void MainComponent::reloadStylesAndTokens() {
         // Update settings button icon colours with newly loaded tokens
         if (auto* item = jive::findItemWithID(*jiveRootItem, "settings-btn")) {
             if (auto* btn = dynamic_cast<juce::DrawableButton*>(item->getComponent().get())) {
-                btn->setImages(createGearIcon(devpiano::jive::DesignTokens::get().textSecondary()).get(),
-                               createGearIcon(devpiano::jive::DesignTokens::get().primary()).get(), nullptr);
+                btn->setImages(
+                    devpiano::ui::jive::VectorIconFactory::createGearIcon(
+                        devpiano::jive::DesignTokens::get().textSecondary())
+                        .get(),
+                    devpiano::ui::jive::VectorIconFactory::createGearIcon(devpiano::jive::DesignTokens::get().primary())
+                        .get(),
+                    nullptr);
             }
         }
     }

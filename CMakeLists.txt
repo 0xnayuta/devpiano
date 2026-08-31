@@ -238,6 +238,8 @@ target_sources(devpiano PRIVATE
     source/UI/jive/JiveModalDialog.cpp
     source/UI/jive/JiveModalDialog.h
     source/UI/jive/JiveUtils.h
+    source/UI/jive/StyleBootstrap.h
+    source/UI/jive/JiveComponentRegistry.h
 )
 # ========================================================
 # 4.1 静态资产二进制打包（JIVE 样式表、设计 Token 与语言包）
