@@ -113,94 +113,74 @@ void SettingsComponent::buildJiveUi() {
 }
 
 void SettingsComponent::wireAudioControls() {
-    if (audioDeviceTypeCombo != nullptr) {
-        audioDeviceTypeCombo->onChange = [this] {
-            if (isUpdatingAudioControls) {
-                return;
-            }
-            const auto selId = audioDeviceTypeCombo->getSelectedId();
-            const auto& types = deviceManager.getAvailableDeviceTypes();
-            if (selId >= 1 && selId <= types.size()) {
-                const auto newType = types[selId - 1]->getTypeName();
-                if (newType != deviceManager.getCurrentAudioDeviceType()) {
-                    deviceManager.setCurrentAudioDeviceType(newType, true);
-                    refreshAllAudioControls();
-                    setDirty(true);
+    const auto wireComboChange = [this](juce::ComboBox* combo, const std::function<void(int)>& handler) {
+        if (combo != nullptr) {
+            combo->onChange = [this, combo, handler] {
+                if (!isUpdatingAudioControls) {
+                    handler(combo->getSelectedId());
                 }
-            }
-        };
-    }
+            };
+        }
+    };
 
-    if (audioOutputDeviceCombo != nullptr) {
-        audioOutputDeviceCombo->onChange = [this] {
-            if (isUpdatingAudioControls) {
-                return;
-            }
-            auto setup = deviceManager.getAudioDeviceSetup();
-            const int selId = audioOutputDeviceCombo->getSelectedId();
-            setup.outputDeviceName = (selId < 0) ? juce::String() : audioOutputDeviceCombo->getText();
-            setup.useDefaultOutputChannels = true;
-            deviceManager.setAudioDeviceSetup(setup, true);
-            populateAudioActiveChannels();
-            populateAudioSampleRates();
-            populateAudioBufferSizes();
-            setDirty(true);
-        };
-    }
-
-    if (audioActiveChannelsCombo != nullptr) {
-        audioActiveChannelsCombo->onChange = [this] {
-            if (isUpdatingAudioControls) {
-                return;
-            }
-            const int selPairId = audioActiveChannelsCombo->getSelectedId();
-            if (selPairId > 0) {
-                auto setup = deviceManager.getAudioDeviceSetup();
-                setup.useDefaultOutputChannels = false;
-                setup.outputChannels.clear();
-                const int chStart = (selPairId - 1) * 2;
-                setup.outputChannels.setBit(chStart, true);
-                setup.outputChannels.setBit(chStart + 1, true);
-                deviceManager.setAudioDeviceSetup(setup, true);
+    wireComboChange(audioDeviceTypeCombo, [this](int selId) {
+        const auto& types = deviceManager.getAvailableDeviceTypes();
+        if (selId >= 1 && selId <= types.size()) {
+            const auto newType = types[selId - 1]->getTypeName();
+            if (newType != deviceManager.getCurrentAudioDeviceType()) {
+                deviceManager.setCurrentAudioDeviceType(newType, true);
+                refreshAllAudioControls();
                 setDirty(true);
             }
-        };
-    }
+        }
+    });
+
+    wireComboChange(audioOutputDeviceCombo, [this](int selId) {
+        auto setup = deviceManager.getAudioDeviceSetup();
+        setup.outputDeviceName = (selId < 0) ? juce::String() : audioOutputDeviceCombo->getText();
+        setup.useDefaultOutputChannels = true;
+        deviceManager.setAudioDeviceSetup(setup, true);
+        populateAudioActiveChannels();
+        populateAudioSampleRates();
+        populateAudioBufferSizes();
+        setDirty(true);
+    });
+
+    wireComboChange(audioActiveChannelsCombo, [this](int selPairId) {
+        if (selPairId > 0) {
+            auto setup = deviceManager.getAudioDeviceSetup();
+            setup.useDefaultOutputChannels = false;
+            setup.outputChannels.clear();
+            const int chStart = (selPairId - 1) * 2;
+            setup.outputChannels.setBit(chStart, true);
+            setup.outputChannels.setBit(chStart + 1, true);
+            deviceManager.setAudioDeviceSetup(setup, true);
+            setDirty(true);
+        }
+    });
 
     if (audioTestButton != nullptr) {
         audioTestButton->onClick = [this] { deviceManager.playTestSound(); };
     }
 
-    if (audioSampleRateCombo != nullptr) {
-        audioSampleRateCombo->onChange = [this] {
-            if (isUpdatingAudioControls) {
-                return;
-            }
-            const int selRate = audioSampleRateCombo->getSelectedId();
-            if (selRate > 0) {
-                auto setup = deviceManager.getAudioDeviceSetup();
-                setup.sampleRate = selRate;
-                deviceManager.setAudioDeviceSetup(setup, true);
-                populateAudioBufferSizes();
-                setDirty(true);
-            }
-        };
-    }
+    wireComboChange(audioSampleRateCombo, [this](int selRate) {
+        if (selRate > 0) {
+            auto setup = deviceManager.getAudioDeviceSetup();
+            setup.sampleRate = selRate;
+            deviceManager.setAudioDeviceSetup(setup, true);
+            populateAudioBufferSizes();
+            setDirty(true);
+        }
+    });
 
-    if (audioBufferSizeCombo != nullptr) {
-        audioBufferSizeCombo->onChange = [this] {
-            if (isUpdatingAudioControls) {
-                return;
-            }
-            const int selBs = audioBufferSizeCombo->getSelectedId();
-            if (selBs > 0) {
-                auto setup = deviceManager.getAudioDeviceSetup();
-                setup.bufferSize = selBs;
-                deviceManager.setAudioDeviceSetup(setup, true);
-                setDirty(true);
-            }
-        };
-    }
+    wireComboChange(audioBufferSizeCombo, [this](int selBs) {
+        if (selBs > 0) {
+            auto setup = deviceManager.getAudioDeviceSetup();
+            setup.bufferSize = selBs;
+            deviceManager.setAudioDeviceSetup(setup, true);
+            setDirty(true);
+        }
+    });
 
     if (asioControlPanelButton != nullptr) {
         asioControlPanelButton->onClick = [this] {
@@ -647,29 +627,31 @@ void SettingsComponent::changeListenerCallback(juce::ChangeBroadcaster* source) 
 }
 
 void SettingsComponent::valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& prop) {
-    if (tree != editingState || !model) {
+    if (tree != editingState || model == nullptr) {
         return;
     }
 
-    if (prop == juce::Identifier("colourMode")) {
+    const auto propName = prop.toString();
+
+    if (propName == "colourMode") {
         model->keyboardDisplay.colourMode = static_cast<devpiano::ui::KeyColourMode>((int)editingState[prop] - 1);
-    } else if (prop == juce::Identifier("noteDisplay")) {
+    } else if (propName == "noteDisplay") {
         model->keyboardDisplay.noteDisplay = static_cast<devpiano::ui::NoteDisplayMode>((int)editingState[prop] - 1);
-    } else if (prop == juce::Identifier("fadeSpeed")) {
+    } else if (propName == "fadeSpeed") {
         model->keyboardDisplay.fadeSpeed = static_cast<float>((double)editingState[prop]);
-    } else if (prop == juce::Identifier("showInstrumentFilter")) {
+    } else if (propName == "showInstrumentFilter") {
         model->keyboardDisplay.showInstrumentFilter = (bool)editingState[prop];
-    } else if (prop == juce::Identifier("keySignature")) {
+    } else if (propName == "keySignature") {
         model->keySignature = (int)editingState[prop];
-    } else if (prop == juce::Identifier("midiTranspose")) {
+    } else if (propName == "midiTranspose") {
         model->midiTranspose = (bool)editingState[prop];
         updateFollowKeyTogglesEnablement();
-    } else if (prop.toString().startsWith("followKey_")) {
-        auto chIdx = prop.toString().substring(10).getIntValue();
+    } else if (propName.startsWith("followKey_")) {
+        const auto chIdx = propName.substring(10).getIntValue();
         if (chIdx >= 0 && chIdx < 16) {
             model->channelMatrix.channels[static_cast<size_t>(chIdx)].followKey = (bool)editingState[prop];
         }
-    } else if (prop == juce::Identifier("languageCode")) {
+    } else if (propName == "languageCode") {
         model->languageCode = editingState[prop].toString();
         if (onLanguageChanged) {
             onLanguageChanged(model->languageCode);
