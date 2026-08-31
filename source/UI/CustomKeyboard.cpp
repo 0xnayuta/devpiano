@@ -39,6 +39,167 @@ constexpr int defaultHeight = 128;
 //  G# (8) → G (7),  A# (10) → A (9)
 constexpr int blackKeyLeftWhiteNote[12] = { -1, 0, -1, 2, -1, -1, 5, -1, 7, -1, 9, -1 };
 
+int countWhiteKeysInRange(int rangeLow, int rangeHigh) {
+    int count = 0;
+    for (int n = rangeLow; n <= rangeHigh; ++n) {
+        if (devpiano::ui::isWhiteKey(n)) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+void layoutWhiteKeys(std::vector<devpiano::ui::KeyRenderState>& keys, int rangeLow, int rangeHigh, float keybedOffsetX,
+                     float whiteKeyWidth, float whiteKeyHeight) {
+    int whiteIdx = 0;
+    for (int n = rangeLow; n <= rangeHigh; ++n) {
+        if (!devpiano::ui::isWhiteKey(n)) {
+            continue;
+        }
+
+        devpiano::ui::KeyRenderState k;
+        k.midiNote = n;
+        k.isWhite = true;
+        k.fade = 0.0f;
+        k.bounds
+            = { keybedOffsetX + whiteKeyWidth * static_cast<float>(whiteIdx), 0.0f, whiteKeyWidth, whiteKeyHeight };
+        keys.push_back(k);
+        ++whiteIdx;
+    }
+}
+
+void layoutBlackKeys(std::vector<devpiano::ui::KeyRenderState>& keys, int rangeLow, int rangeHigh, float blackKeyWidth,
+                     float blackKeyHeight) {
+    for (int n = rangeLow; n <= rangeHigh; ++n) {
+        if (devpiano::ui::isWhiteKey(n) || n <= 0 || n > 127) {
+            continue;
+        }
+
+        const auto semi = n % 12;
+        const auto leftWhiteNote = blackKeyLeftWhiteNote[semi];
+        if (leftWhiteNote < 0) {
+            continue;
+        }
+
+        const auto octaveBase = n - semi;
+        const auto leftWhiteMidi = octaveBase + leftWhiteNote;
+
+        int whiteVecIdx = 0;
+        for (int m = rangeLow; m <= leftWhiteMidi; ++m) {
+            if (devpiano::ui::isWhiteKey(m)) {
+                ++whiteVecIdx;
+            }
+        }
+
+        const auto idx = static_cast<std::size_t>(whiteVecIdx - 1);
+        if (whiteVecIdx > 0 && idx < keys.size()) {
+            const auto leftX = keys[idx].bounds.getX();
+            const auto leftWidth = keys[idx].bounds.getWidth();
+            const auto centreX = leftX + leftWidth;
+
+            devpiano::ui::KeyRenderState k;
+            k.midiNote = n;
+            k.isWhite = false;
+            k.fade = 0.0f;
+            k.bounds = { centreX - blackKeyWidth * 0.5f, 0.0f, blackKeyWidth, blackKeyHeight };
+            keys.push_back(k);
+        }
+    }
+}
+
+void drawWhiteKeyLabel(juce::Graphics& g, const devpiano::ui::KeyRenderState& k, const juce::String& customLabel,
+                       const devpiano::ui::KeyboardSettings& settings) {
+    const auto fontH = static_cast<float>(juce::jlimit(9, 13, static_cast<int>(settings.keyWidth * 0.42f)));
+    g.setFont(juce::FontOptions(fontH));
+
+    // Adaptive text color for high contrast against cyan glow
+    const auto labelColor = (k.fade > 0.45f) ? juce::Colour(0xFF0C2B38) : juce::Colour(0xFF606674);
+    g.setColour(labelColor);
+
+    if (customLabel.isNotEmpty()) {
+        const auto area = k.bounds.withTrimmedTop(k.bounds.getHeight() * 0.65f).reduced(1, 3);
+        g.drawText(customLabel, area, juce::Justification::centred, false);
+    } else if (k.keyLabel.isNotEmpty()) {
+        const auto area = k.bounds.withTrimmedTop(k.bounds.getHeight() * 0.65f).reduced(1, 3);
+        g.drawText(k.keyLabel, area, juce::Justification::centred, false);
+    } else if (k.midiNote >= 0) {
+        const auto name = devpiano::ui::getNoteDisplayName(k.midiNote, settings.noteDisplay, settings.keySignature);
+        const auto plusPos = name.indexOfChar('+');
+        const auto minusPos = name.indexOfChar('-');
+        const auto splitPos = (plusPos >= 0) ? plusPos : minusPos;
+
+        if (splitPos > 0) {
+            const auto topLine = name.substring(0, splitPos);
+            const auto bottomLine = name.substring(splitPos);
+            const auto area = k.bounds.withTrimmedTop(k.bounds.getHeight() * 0.65f).reduced(1, 2);
+            const auto lineH = fontH * 1.15f;
+            const auto topArea = area.withHeight(lineH).translated(0, (area.getHeight() - lineH * 2.0f) * 0.5f);
+            const auto bottomArea = topArea.translated(0, lineH);
+            g.drawText(topLine, topArea, juce::Justification::centred, false);
+            g.drawText(bottomLine, bottomArea, juce::Justification::centred, false);
+        } else {
+            const auto area = k.bounds.withTrimmedTop(k.bounds.getHeight() * 0.65f).reduced(1, 3);
+            g.drawText(name, area, juce::Justification::centred, false);
+        }
+    }
+}
+
+void drawBlackKeyLabel(juce::Graphics& g, const devpiano::ui::KeyRenderState& k, const juce::String& customLabel,
+                       const devpiano::ui::KeyboardSettings& settings) {
+    if (customLabel.isEmpty() && k.keyLabel.isEmpty()) {
+        return;
+    }
+
+    const auto bkFontH = static_cast<float>(juce::jmin(10, static_cast<int>(settings.keyWidth * 0.38f)));
+    g.setFont(juce::FontOptions(bkFontH));
+    g.setColour(juce::Colour(0xFFD4D8E0));
+    const auto label = customLabel.isNotEmpty() ? customLabel : k.keyLabel;
+    const auto area = k.bounds.withTrimmedBottom(k.bounds.getHeight() * 0.4f).reduced(1, 2);
+    g.drawText(label, area, juce::Justification::centred, false);
+}
+
+bool isNoteHeldOnAnyChannel(const juce::MidiKeyboardState& keyboardState, int midiNote) {
+    for (int ch = 1; ch <= 16; ++ch) {
+        if (keyboardState.isNoteOn(ch, midiNote)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+juce::Colour computeKeyActiveColour(int midiNote, float fade, const devpiano::ui::KeyboardSettings& settings,
+                                    const std::array<std::atomic<uint8_t>, 128>& perKeyChannel,
+                                    const std::array<juce::Atomic<float>, 128>& perKeyVelocity) {
+    const auto customColour = settings.customKeyColours[static_cast<std::size_t>(midiNote)];
+    if (!customColour.isTransparent()) {
+        return customColour.withAlpha(fade);
+    }
+
+    switch (settings.colourMode) {
+    case devpiano::ui::KeyColourMode::channel:
+        if (midiNote >= 0 && midiNote < 128) {
+            const auto idx = static_cast<std::size_t>(midiNote);
+            const auto ch = perKeyChannel[idx].load() % 16;
+            return juce::Colour::fromHSV(channelHues[ch] / 360.0f, 0.7f, 1.0f, fade);
+        }
+        break;
+
+    case devpiano::ui::KeyColourMode::velocity:
+        if (midiNote >= 0 && midiNote < 128) {
+            const auto idx = static_cast<std::size_t>(midiNote);
+            const auto h = velocityHue(perKeyVelocity[idx].get());
+            return juce::Colour::fromHSV(h / 360.0f, 0.7f, 1.0f, fade);
+        }
+        break;
+
+    case devpiano::ui::KeyColourMode::classic:
+    default:
+        return classicColourTop(fade);
+    }
+
+    return classicColourTop(fade);
+}
+
 } // namespace
 
 // ============================================================================
@@ -135,89 +296,25 @@ void CustomKeyboard::recalculateKeyBounds() {
         totalHeight = static_cast<float>(defaultHeight);
     }
 
-    // Count all white keys in the full range (not just visible window)
-    int whiteKeyCount = 0;
-    for (int n = rangeLow; n <= rangeHigh; ++n) {
-        if (devpiano::ui::isWhiteKey(n)) {
-            ++whiteKeyCount;
-        }
-    }
-
+    const int whiteKeyCount = countWhiteKeysInRange(rangeLow, rangeHigh);
     if (whiteKeyCount == 0) {
         return;
     }
 
-    auto whiteKeyWidth = settings.keyWidth;
-    auto actualWhiteWidth = whiteKeyWidth;
-    auto blackKeyWidth = actualWhiteWidth * 0.6f;
-    auto whiteKeyHeight = totalHeight;
-    auto blackKeyHeight = totalHeight * 0.6f;
+    const auto whiteKeyWidth = settings.keyWidth;
+    const auto blackKeyWidth = whiteKeyWidth * 0.6f;
+    const auto whiteKeyHeight = totalHeight;
+    const auto blackKeyHeight = totalHeight * 0.6f;
 
-    auto totalContentWidth = actualWhiteWidth * static_cast<float>(whiteKeyCount);
-    auto availableWidth = static_cast<float>(lastVisibleWidth > 0 ? lastVisibleWidth : getWidth());
+    const auto totalContentWidth = whiteKeyWidth * static_cast<float>(whiteKeyCount);
+    const auto availableWidth = static_cast<float>(lastVisibleWidth > 0 ? lastVisibleWidth : getWidth());
 
     // 当窗口宽度大于琴键内容总宽时，水平居中对齐
     keybedOffsetX = (availableWidth > totalContentWidth) ? (availableWidth - totalContentWidth) * 0.5f : 0.0f;
-    auto targetComponentWidth = std::max(totalContentWidth, availableWidth);
+    const auto targetComponentWidth = std::max(totalContentWidth, availableWidth);
 
-    // First pass: assign white-key positions.
-    int whiteIdx = 0;
-    for (int n = rangeLow; n <= rangeHigh; ++n) {
-        if (!devpiano::ui::isWhiteKey(n)) {
-            continue;
-        }
-
-        devpiano::ui::KeyRenderState k;
-        k.midiNote = n;
-        k.isWhite = true;
-        k.fade = 0.0f;
-        k.bounds = { keybedOffsetX + actualWhiteWidth * static_cast<float>(whiteIdx), 0.0f, actualWhiteWidth,
-                     whiteKeyHeight };
-
-        keys.push_back(k);
-        ++whiteIdx;
-    }
-
-    // Second pass: insert black-key bounds.
-    for (int n = rangeLow; n <= rangeHigh; ++n) {
-        if (devpiano::ui::isWhiteKey(n)) {
-            continue;
-        }
-        if (n <= 0 || n > 127) {
-            continue;
-        }
-
-        devpiano::ui::KeyRenderState k;
-        k.midiNote = n;
-        k.isWhite = false;
-        k.fade = 0.0f;
-
-        auto semi = n % 12;
-        auto leftWhiteNote = blackKeyLeftWhiteNote[semi];
-        if (leftWhiteNote < 0) {
-            continue;
-        }
-
-        auto octaveBase = n - semi;
-        auto leftWhiteMidi = octaveBase + leftWhiteNote;
-
-        int whiteVecIdx = 0;
-        for (int m = rangeLow; m <= leftWhiteMidi; ++m) {
-            if (devpiano::ui::isWhiteKey(m)) {
-                ++whiteVecIdx;
-            }
-        }
-
-        auto idx = static_cast<std::size_t>(whiteVecIdx - 1);
-        if (whiteVecIdx > 0 && idx < keys.size()) {
-            auto leftX = keys[idx].bounds.getX();
-            auto leftWidth = keys[idx].bounds.getWidth();
-
-            auto centreX = leftX + leftWidth;
-            k.bounds = { centreX - blackKeyWidth * 0.5f, 0.0f, blackKeyWidth, blackKeyHeight };
-            keys.push_back(k);
-        }
-    }
+    layoutWhiteKeys(keys, rangeLow, rangeHigh, keybedOffsetX, whiteKeyWidth, whiteKeyHeight);
+    layoutBlackKeys(keys, rangeLow, rangeHigh, blackKeyWidth, blackKeyHeight);
 
     std::ranges::sort(keys, [](const auto& a, const auto& b) { return a.midiNote < b.midiNote; });
 
@@ -395,56 +492,11 @@ void CustomKeyboard::paintKeyLabels(juce::Graphics& g) {
         if (!clip.intersects(k.bounds.toNearestInt().expanded(2))) {
             continue;
         }
-        auto& customLabel = settings.customKeyLabels[static_cast<std::size_t>(k.midiNote)];
-
+        const auto& customLabel = settings.customKeyLabels[static_cast<std::size_t>(k.midiNote)];
         if (k.isWhite) {
-            // ── White key labels: bottom of key ──
-            auto fontH = static_cast<float>(juce::jlimit(9, 13, static_cast<int>(settings.keyWidth * 0.42f)));
-            g.setFont(juce::FontOptions(fontH));
-
-            // Adaptive text color for high contrast against cyan glow
-            const auto labelColor = (k.fade > 0.45f) ? juce::Colour(0xFF0C2B38) : juce::Colour(0xFF606674);
-            g.setColour(labelColor);
-
-            if (customLabel.isNotEmpty()) {
-                auto area = k.bounds.withTrimmedTop(k.bounds.getHeight() * 0.65f).reduced(1, 3);
-                g.drawText(customLabel, area, juce::Justification::centred, false);
-            } else if (k.keyLabel.isNotEmpty()) {
-                auto area = k.bounds.withTrimmedTop(k.bounds.getHeight() * 0.65f).reduced(1, 3);
-                g.drawText(k.keyLabel, area, juce::Justification::centred, false);
-            } else if (k.midiNote >= 0) {
-                auto name = devpiano::ui::getNoteDisplayName(k.midiNote, settings.noteDisplay, settings.keySignature);
-
-                auto plusPos = name.indexOfChar('+');
-                auto minusPos = name.indexOfChar('-');
-                auto splitPos = (plusPos >= 0) ? plusPos : minusPos;
-
-                if (splitPos > 0) {
-                    auto topLine = name.substring(0, splitPos);
-                    auto bottomLine = name.substring(splitPos);
-                    auto area = k.bounds.withTrimmedTop(k.bounds.getHeight() * 0.65f).reduced(1, 2);
-                    auto lineH = fontH * 1.15f;
-                    auto topArea = area.withHeight(lineH).translated(0, (area.getHeight() - lineH * 2.0f) * 0.5f);
-                    auto bottomArea = topArea.translated(0, lineH);
-                    g.drawText(topLine, topArea, juce::Justification::centred, false);
-                    g.drawText(bottomLine, bottomArea, juce::Justification::centred, false);
-                } else {
-                    auto area = k.bounds.withTrimmedTop(k.bounds.getHeight() * 0.65f).reduced(1, 3);
-                    g.drawText(name, area, juce::Justification::centred, false);
-                }
-            }
+            drawWhiteKeyLabel(g, k, customLabel, settings);
         } else {
-            // ── Black key labels: upper portion, binding label only ──
-            if (customLabel.isEmpty() && k.keyLabel.isEmpty()) {
-                continue;
-            }
-
-            auto bkFontH = static_cast<float>(juce::jmin(10, static_cast<int>(settings.keyWidth * 0.38f)));
-            g.setFont(juce::FontOptions(bkFontH));
-            g.setColour(juce::Colour(0xFFD4D8E0));
-            auto label = customLabel.isNotEmpty() ? customLabel : k.keyLabel;
-            auto area = k.bounds.withTrimmedBottom(k.bounds.getHeight() * 0.4f).reduced(1, 2);
-            g.drawText(label, area, juce::Justification::centred, false);
+            drawBlackKeyLabel(g, k, customLabel, settings);
         }
     }
 }
@@ -560,61 +612,23 @@ void CustomKeyboard::timerCallback() {
     bool anyActive = false;
 
     for (auto& k : keys) {
-        auto before = k.fade;
-
-        // Check if the note is held on any MIDI channel (1-16).
-        bool noteHeld = false;
-        for (int ch = 1; ch <= 16; ++ch) {
-            if (keyboardState.isNoteOn(ch, k.midiNote)) {
-                noteHeld = true;
-                break;
-            }
-        }
+        const auto before = k.fade;
+        const bool noteHeld = isNoteHeldOnAnyChannel(keyboardState, k.midiNote);
 
         if (noteHeld) {
-            // Key is currently held down → full brightness
             k.fade = 1.0f;
         } else {
-            // Key released → exponential decay toward previewAlpha
             k.fade = settings.previewAlpha + settings.fadeSpeed * (k.fade - settings.previewAlpha);
         }
 
-        // Stop tracking when fade has converged to its target.
-        auto target = noteHeld ? 1.0f : settings.previewAlpha;
+        const auto target = noteHeld ? 1.0f : settings.previewAlpha;
         if (noteHeld || std::abs(k.fade - target) > fadeEpsilon) {
             anyActive = true;
         }
         const bool changed = std::abs(k.fade - before) > fadeEpsilon;
 
-        // Recompute colour: custom colour takes priority, else colourMode
         if (k.fade > fadeEpsilon) {
-            auto customColour = settings.customKeyColours[static_cast<std::size_t>(k.midiNote)];
-            if (!customColour.isTransparent()) {
-                k.colour1 = customColour.withAlpha(k.fade);
-            } else {
-                switch (settings.colourMode) {
-                case devpiano::ui::KeyColourMode::channel:
-                    if (k.midiNote >= 0 && k.midiNote < 128) {
-                        auto idx = static_cast<std::size_t>(k.midiNote);
-                        auto ch = perKeyChannel[idx].load() % 16;
-                        k.colour1 = juce::Colour::fromHSV(channelHues[ch] / 360.0f, 0.7f, 1.0f, k.fade);
-                    }
-                    break;
-
-                case devpiano::ui::KeyColourMode::velocity:
-                    if (k.midiNote >= 0 && k.midiNote < 128) {
-                        auto idx = static_cast<std::size_t>(k.midiNote);
-                        auto h = velocityHue(perKeyVelocity[idx].get());
-                        k.colour1 = juce::Colour::fromHSV(h / 360.0f, 0.7f, 1.0f, k.fade);
-                    }
-                    break;
-
-                case devpiano::ui::KeyColourMode::classic:
-                default:
-                    k.colour1 = classicColourTop(k.fade);
-                    break;
-                }
-            }
+            k.colour1 = computeKeyActiveColour(k.midiNote, k.fade, settings, perKeyChannel, perKeyVelocity);
         }
 
         if (changed) {
