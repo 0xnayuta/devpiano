@@ -21,7 +21,7 @@
 | 项目 | devpiano |
 | 审计范围 | `source/` （含 15 个子目录 + tests/，106 个业务 .cpp/.h + 22 个测试文件，~28,064 行） |
 | 审计日期 | `2026-08-31` |
-| 审计基线 | `main` @ `39fcc74`（feat: calibrate synth voice gain staging and refine hammer transient balance） |
+| 审计基线 | `main` @ `57080f8`（chore: remove melatonin_inspector submodule and obsolete references / ADR-013） |
 | 审计人 | AI code audit（主代理核心审查 Audio/Plugin/线程契约 + 3 个只读 scout 并行分片 + 三闸门手工验证） |
 | 复审状态 | `初次` |
 | 上一轮 | [`AUDIT-001`（2026-08-16）](AUDIT-001-code-quality-audit-2026-08-16.md)：85 项全部闭环（72 关闭 + 13 暂缓）。本报告覆盖 Phase 12–26 新增代码（物理建模音源、多轨 MIDI 合并、多轨 WAV 导出、Linux 支持、CI/构建流水线）。 |
@@ -40,7 +40,7 @@
 
 ### 0.3 关键结论
 
-- 总体评级：`B+` — 三闸门全绿（wsl-build / test 12187 断言 / format --check 归零）；新增代码（PianoSynthVoice、MidiTrackMergeEngine、多轨导出）结构清晰、测试投入充足（测试规模 180→387 子测试、2921→12187 断言）；但 Phase 12–26 快速演进引入了 6 个 P1（3 个线程/内存安全缺陷 + 1 个功能静默失效 + 1 个编排层测试空洞 + 1 个导出对话框 UAF），且 MainComponent 持续回流（1143→1338 行）。
+- 总体评级：`B+` — 三闸门全绿（wsl-build / test 12187 断言 / format --check 归零）；新增代码（PianoSynthVoice、MidiTrackMergeEngine、多轨导出）结构清晰、测试投入充足（测试规模 180→387 子测试、2921→12187 断言）；但 Phase 12–26 快速演进引入了 6 个 P1（3 个线程/内存安全缺陷 + 1 个功能静默失效 + 1 个编排层测试空洞 + 1 个导出对话框 UAF），且 MainComponent 持续回流（1143→1324 行）。
 - 当前是否适合继续新增功能：`有条件` — 三闸门与测试基础健康；6 个 P1 均为高概率触发场景（拖 knob 调音、导出 WAV、切语言、拖放预设），建议先在本迭代消化 P1 再推进 Phase 27。
 - 当前是否建议优先重构：`有条件` — 无需大范围重构；但 MainComponent 绑定编辑业务内嵌（ARCH-001）与 SettingsComponent 759 行全内联（ARCH-002）两个 P2 应近期处理，防止装配层再次膨胀。
 - 最大风险：`AudioEngine` 参数更新路径（setAdsr/setPianoParameters）在 Synthesiser 锁外写活跃 voice 状态——演奏中拖 knob 的高频数据竞争（THR-001），与 AUDIT-001 已修复的 masterGain 竞争同类但范围更广。
@@ -89,7 +89,7 @@
 
 不包括：
 
-- `submodules/JUCE/`、`submodules/JIVE/`、`submodules/melatonin_inspector/`（禁止修改，不审；仅用于交叉验证 API 行为）
+- `submodules/JUCE/`、`submodules/JIVE/`（禁止修改，不审；仅用于交叉验证 API 行为）
 - `scripts/`、`docs/`、构建脚本与配置文件（CMakeLists.txt/.clang-tidy/.clang-format/CI 仅作工程化核查输入）
 - 第三方依赖（JUCE 框架本身）
 
@@ -102,7 +102,7 @@
 | 架构文档 | `docs/reference/architecture.md` |
 | 项目定位 | `docs/reference/project-scope.md` |
 | 路线图 | `docs/roadmap/roadmap.md` + `docs/roadmap/current-iteration.md` |
-| 决策记录 | `docs/decisions/` ADR-001~012 |
+| 决策记录 | `docs/decisions/` ADR-001~013 |
 | 已知问题 | `docs/issues/known-issues.md` |
 | 构建系统 | `CMakeLists.txt`、`.clang-tidy`、`.clang-format`、`.github/workflows/` |
 | 构建验证 | `./scripts/dev.sh wsl-build`（通过，21 目标 0 错误） |
@@ -172,7 +172,7 @@
 ```text
 source/
 ├── Main.cpp                  # 应用入口（262 行）
-├── MainComponent.cpp/.h      # 主装配层（1338 行 + 231 行头）
+├── MainComponent.cpp/.h      # 主装配层（1324 行 + 225 行头）
 ├── MainComponentJiveAccessors.cpp  # JIVE 访问器（1066 行）
 ├── UI/                       # 20 文件：虚拟键盘、对话框、JIVE 布局/样式/token、原生注入
 ├── Core/                     # 3 文件：纯数据类型
@@ -193,7 +193,7 @@ source/
 
 - 清晰边界：`Core/`（纯数据）、`Input/`（单向映射）、`Midi/`（独立路由）、`MidiTrackMergeEngine`（纯静态无共享状态）、`Export/`（独立任务）
 - 模糊边界：`MainComponent` 的绑定编辑业务仍内嵌 UI 接线（ARCH-001）；`SettingsComponent.h` 759 行全内联（ARCH-002）；`MainComponent` 与 `JiveUtils.h` 拆树逻辑双份（QUAL-008）
-- 高复杂度热点：`PianoSynthVoice.h`（1184 行，实时 DSP）、`MainComponent.cpp`（1338 行）、`SettingsComponent.h`（759 行）、`MainComponentJiveAccessors.cpp`（1066 行）
+- 高复杂度热点：`PianoSynthVoice.h`（1184 行，实时 DSP）、`MainComponent.cpp`（1324 行）、`SettingsComponent.h`（759 行）、`MainComponentJiveAccessors.cpp`（1066 行）
 
 ---
 
@@ -211,7 +211,7 @@ source/
 - `Core/` 类型是否真正零业务逻辑、零 JUCE GUI 依赖
 
 - 评级：`B-`
-- 结论：四控制器委托模式（PresetFlowSupport / RecordingSessionController / PluginOperationController / SettingsWindowManager）总体收敛；MidiTrackMergeEngine 纯静态无状态、PianoSynthVoice 自包含，新增模块边界良好。但 MainComponent 从上次审计的 ~1143 行回流至 1338 行，绑定编辑合并+预设自动落盘约 60 行业务逻辑内嵌在 initialiseUi 接线 lambda（ARCH-001）；SettingsComponent.h 759 行全内联（ARCH-002）；Core 零 GUI 依赖经 ADR-012 细粒度包含纪律强化，仍保持纯净。
+- 结论：四控制器委托模式（PresetFlowSupport / RecordingSessionController / PluginOperationController / SettingsWindowManager）总体收敛；MidiTrackMergeEngine 纯静态无状态、PianoSynthVoice 自包含，新增模块边界良好。但 MainComponent 从上次审计的 ~1143 行回流至 1324 行，绑定编辑合并+预设自动落盘约 60 行业务逻辑内嵌在 initialiseUi 接线 lambda（ARCH-001）；SettingsComponent.h 759 行全内联（ARCH-002）；Core 零 GUI 依赖经 ADR-012 细粒度包含纪律强化，仍保持纯净。
 - 关联问题：`ARCH-001`、`ARCH-002`、`QUAL-008`、`DOC-003`
 
 ### 3.2 代码质量与可维护性
@@ -347,9 +347,10 @@ source/
 | ADR-010 | BinaryData 静态打包关键资产 | CMakeLists.txt:238 `juce_add_binary_data(devpiano_binary_data)`；MainComponent/LocaleManager 读 BinaryData::；热重载文件路径保留 | 合规 |
 | ADR-011 | 现代构建流水线（/Z7、PCH、mold/lld、time-trace、缓存） | CMakeLists.txt:3-8（CMP0141 NEW + Embedded）、:20-21（/FS）、:24-34（mold/lld 探测）、:41-47（ENABLE_TIME_TRACE）、:108-111（-fno-pch-timestamp）；ci.yml linux-gate ubuntu-24.04 | 合规 |
 | ADR-012 | 业务头文件禁止 JuceHeader.h，IWYU 细粒度包含 | 业务 .h 全部细粒度包含（零 JuceHeader）；**例外：source/tests/TestHelpers.h:3 使用 `<JuceHeader.h>`**（测试辅助头，非业务头，但字面违反 ADR 第 1 条"所有 source/ 目录下的 .h 头文件禁止出现"） | 部分合规 |
+| ADR-013 | 移除 melatonin_inspector 子模块，主装配层与构建解耦 | grep `melatonin_inspector` 于 source/、CMakeLists.txt、.gitmodules 零命中；MainComponent 无 DEBUG 侵入式 inspector | 合规 |
 
 - 评级：`A-`
-- 结论：12 个 ADR 中 11 个合规、1 个部分合规（ADR-012）。无 ADR 事实性描述被证伪。部分合规项开 `CMPL-001`（P3：TestHelpers.h 迁移至细粒度包含，消除字面违反并降低测试编译级联）。
+- 结论：13 个 ADR 中 12 个合规、1 个部分合规（ADR-012）。无 ADR 事实性描述被证伪。部分合规项开 `CMPL-001`（P3：TestHelpers.h 迁移至细粒度包含，消除字面违反并降低测试编译级联）。
 - 关联问题：`CMPL-001`
 
 > **AUDIT-001 已暂缓 13 项本轮复查**：THR-003/THR-004、SEC-001~004、PERF-001/003/004、ERR-016/017、QUAL-020/021 全部仍成立（状态维持已暂缓，证据见第 8 章）；其中 PERF-001（MIDI 全量内存加载）原缓解前提（仅导入单轨）已随 Phase 26 默认展开全部轨道失效，风险上升（重开条件不变，但记录于证据列）。
@@ -380,7 +381,7 @@ source/
 | 测试代码行数 | 8,743 |
 | 测试用例数 | 62 类 / ~387 子测试（215 beginTest+runTest / 172 testCase） |
 | 断言总数 | 12,187（较 AUDIT-001 的 2,921 增长 4.2 倍） |
-| 最大文件（业务） | `source/MainComponent.cpp`（1,338 行）；`source/Audio/PianoSynthVoice.h`（1,184 行） |
+| 最大文件（业务） | `source/MainComponent.cpp`（1,324 行）；`source/Audio/PianoSynthVoice.h`（1,184 行） |
 | 最大文件（测试） | `source/tests/StyleCatalogTest.cpp`（1,695 行） |
 
 ### 4.3 未执行验证说明
@@ -519,7 +520,7 @@ source/
 | TEST-001 | 测试 | PluginOperationController 编排状态机零测试覆盖 | P1 | 未处理 | 审计 | 插件扫描/加载/卸载/editor/启动恢复的异步状态机（AsyncUpdater + scanStepInProgress 两步提交，306 行）零测试；每一步提交直接作用用户设置持久化。与 AUDIT-001 TEST-001（RecordingSessionController）同类缺口 | `source/Plugin/PluginOperationController.h/.cpp`；source/tests/ 全目录无引用（grep） | - | - | 抽纯函数（resolvePluginScanPath/恢复计划决策）+ 提交顺序测试 |
 | SEC-002 | 安全 | MIDI 导出混入 presetChange 伪 SysEx 事件且预置事件时间轴乱序 | P2 | 未处理 | 审计 | MidiFileExporter 无条件 addEvent（presetChange 事件的 message 为默认 MidiMessage=F0 F7 空 SysEx）；stopRecording 将 pendingPresetEvents 直接 append 到已排序 events 尾部不重排。录制期间切换预置后导出 → 文件混入伪 SysEx + 负 delta 被钳 0 导致时间戳错乱 | `source/Recording/MidiFileExporter.cpp:26-37`；`source/Recording/RecordingEngine.cpp:102-105,191`；`source/Layout/PresetFlowSupport.cpp:97-98`（触发路径）；`submodules/JUCE/.../juce_MidiFile.cpp:528-531` | - | - | 导出过滤非 midi 事件；stopRecording 合并后排序 |
 | PERF-001 | 性能 | 回放移调路径音频回调每块堆分配 | P2 | 未处理 | 审计 | renderPlaybackEventsIfNeeded 的 transpose 分支：栈上 MidiBuffer transposedBuffer addEvent 分配 + swapWith 与成员交换 → 每块 alloc/free 一对（transpose 启用 + 播放中有事件时），违反音频回调无分配原则 | `source/Audio/AudioEngine.cpp:355-375` | - | - | 就地改写或复用预分配 buffer |
-| ARCH-001 | 架构 | MainComponent 绑定编辑合并 + 预设自动落盘业务内嵌 UI 接线 lambda | P2 | 未处理 | 审计 | initialiseUi 内 onBindingEditRequested lambda 约 60 行（查找/解绑/更新/captureCurrentState/sanitisePresetFileName/savePreset），领域规则与 UI 事件耦合，不可单测；MainComponent 已回流至 1338 行 | `source/MainComponent.cpp:640-723` | - | - | 下沉 KeyboardMidiMapper 或 PresetFlowSupport |
+| ARCH-001 | 架构 | MainComponent 绑定编辑合并 + 预设自动落盘业务内嵌 UI 接线 lambda | P2 | 未处理 | 审计 | initialiseUi 内 onBindingEditRequested lambda 约 60 行（查找/解绑/更新/captureCurrentState/sanitisePresetFileName/savePreset），领域规则与 UI 事件耦合，不可单测；MainComponent 已回流至 1324 行 | `source/MainComponent.cpp:640-723` | - | - | 下沉 KeyboardMidiMapper 或 PresetFlowSupport |
 | ARCH-002 | 架构 | SettingsComponent.h 759 行全内联 | P2 | 未处理 | 审计 | 构造/buildJiveUi/16 通道接线/全部 rebuild 内联在头文件；消费者仅 2 个 TU（SettingsWindowManager.cpp、SettingsLayoutModelTest.cpp），拆分风险低 | `source/Settings/SettingsComponent.h:1-759` | - | - | 拆 .h/.cpp，收敛公开接口 |
 | QUAL-002 | 质量 | JIVE 布局构建辅助函数在 4 个文件同构复制 | P2 | 未处理 | 审计 | node/text/button/flexRow/settingRow 及 JIVE 约定（border-width="1" 等）分散在 4 处；一处修正其余 3 处漂移 | `source/UI/jive/JiveModalDialog.cpp:15-52`、`source/UI/KeyBindingEditDialog.cpp:16-62`、`source/UI/jive/LayoutModel.cpp:9-70`、`source/Settings/jive/SettingsLayoutModel.cpp:10-62` | - | - | 提取共享头，4 处改 include |
 | ERR-002 | 错误处理 | getCustomKeyboard 裸指针仅 jassert 保护 | P2 | 未处理 | 审计 | Release 构建下 JIVE 树解释失败或 custom-keyboard 节点缺失时，handleWindowFocusLost/syncUiFromSettings 等多条路径空指针解引用崩溃 | `source/MainComponentJiveAccessors.cpp:779-782` | - | - | 调用点判空降级或值语义持有 |
@@ -557,7 +558,7 @@ source/
 | QUAL-014 | 质量 | 测试侧 findNodeById 副本与生产 helper 重复 | P3 | 未处理 | 审计 | StyleCatalogTest 匿名空间副本 vs JiveUtils.h 生产实现；测试本应验证生产 helper 本身 | `source/tests/StyleCatalogTest.cpp:83-92` vs `source/UI/jive/JiveUtils.h:158-166` | - | - | 删除副本，改用生产 helper |
 | QUAL-015 | 质量 | RecordingFlow 状态机测试两份重复维护 | P3 | 未处理 | 审计 | RecordingFlowSupportTest 与 RecordingFlowStateMachineTest 的 chooseRecordingFlowCommand/getStateAfterCommand 矩阵双份，改状态机需改两处 | `source/tests/RecordingEngineTest.cpp:819-873` vs `source/tests/RecordingSessionControllerTest.cpp:106-251` | - | - | 保留一份（后者更全） |
 | DOC-001 | 文档 | architecture.md 缺 MidiTrackMergeEngine 模块章节 | P3 | 未处理 | 审计 | Phase 26 新增核心引擎（多轨合并，3 文件）未收录；Recording 章节止于 MidiFileImporter | `docs/reference/architecture.md:126-140` vs `source/Recording/MidiTrackMergeEngine.h/.cpp` | - | - | 补模块章节与多轨合并管线说明 |
-| DOC-002 | 文档 | roadmap 风险表 MainComponent 行数漂移 | P3 | 未处理 | 审计 | 风险表称 "当前 ~1310 行"，实测 1338 行（Phase 26 后 +28） | `docs/roadmap/roadmap.md:246` vs `source/MainComponent.cpp`（1338 行） | - | - | 更新或改描述性表述 |
+| DOC-002 | 文档 | roadmap 风险表 MainComponent 行数漂移 | P3 | 未处理 | 审计 | 风险表称 "当前 ~1310 行"，实测 1324 行（移除 inspector 后 -14，较 ~1310 仍存在轻微漂移） | `docs/roadmap/roadmap.md:246` vs `source/MainComponent.cpp`（1324 行） | - | - | 更新或改描述性表述 |
 | DOC-003 | 文档 | project-scope "多轨超出定位" 与 Phase 26 多轨并轨能力表述冲突 | P3 | 未处理 | 审计 | scope 表称 "多轨 / 完整 DAW 工作站功能超出定位"，而 Phase 26 已实现多轨并轨导入/回放/导出；边界需澄清（并轨导入 ≠ DAW 多轨工作站） | `docs/reference/project-scope.md:57` vs `docs/roadmap/roadmap.md:223-228` | - | - | 澄清表述 |
 | DOC-004 | 文档 | smoothedPitchBend 注释与实现不符 | P3 | 未处理 | 审计 | 注释称 "Initialised in startPlayback / stopPlayback"，实际 stopPlayback 不触碰该数组（仅 startPlayback 重置；行为正确，注释误导） | `source/Recording/RecordingEngine.h:132-137` vs `RecordingEngine.cpp:228,253-261` | - | - | 修正注释 |
 | TEST-008 | 测试 | KeyboardHitMappingTest expect(true) 空洞断言 | P3 | 未处理 | 审计 | paint 裁剪用例只验证不崩溃，永远通过无法证伪渲染行为 | `source/tests/KeyboardHitMappingTest.cpp:163` | - | - | 改可观察断言或注明 crash-only |
