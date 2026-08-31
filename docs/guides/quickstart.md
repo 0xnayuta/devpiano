@@ -260,7 +260,7 @@ source ~/.bashrc
 | 编辑期 | 编辑器 Format on Save | clangd 波浪线实时提示（`.clangd` 已启用 `Diagnostics.ClangTidy`，与全量 tidy 同源 `.clang-tidy` 配置） |
 | 提交前 (pre-commit) | 自动检查 staged 文件（`--dry-run --Werror`，失败手动 `./scripts/dev.sh format`） | **不做**——单文件实测 18–211s，成本不成比例（AGENTS.md 第 3 节纪律） |
 | 大迭代边界 | `./scripts/dev.sh format --check` | `./scripts/dev.sh tidy --all` 全量 0 诊断（冷启动 ~5-6m，缓存命中 ~2s，唯一例行执行点） |
-| CI（已落地，`.github/workflows/ci.yml`） | `format --check` 门禁（clang-format-21） | Linux Clang 单元测试门禁 + Windows MSVC 构建与单元测试门禁（push/PR 至 `main` 自动触发，ccache/sccache 加速） |
+| CI（已落地，`.github/workflows/ci.yml`） | `format --check` 门禁（clang-format-21） | `tidy` 增量静态检查门禁（clang-tidy-21，actions/cache 加速）+ Linux Clang 单元测试门禁 + Windows MSVC 构建与单元测试门禁（push/PR 自动触发，ccache/sccache 加速） |
 
 例外：修改 `.clang-tidy` / `.clang-format` 配置后，可用 `./scripts/dev.sh tidy <file>` 单文件快速验证配置效果。
 决策背景：[`ADR-007`](../decisions/ADR-007-clang-tidy-check-only-clang-format-fixes.md)（clang-tidy 只做检查、clang-format 负责机械修复）。
