@@ -96,7 +96,6 @@ $excludeFiles = @(
 $fingerprintFile = Join-Path $MirrorDir '.mirror_submodules.hash'
 $mirrorJuce = Join-Path $MirrorDir 'submodules\JUCE\CMakeLists.txt'
 $mirrorJive = Join-Path $MirrorDir 'submodules\JIVE\CMakeLists.txt'
-$mirrorInspector = Join-Path $MirrorDir 'submodules\melatonin_inspector\CMakeLists.txt'
 
 $effectiveFingerprint = $SubmoduleFingerprint
 if (-not $effectiveFingerprint) {
@@ -109,9 +108,7 @@ if (-not $effectiveFingerprint) {
 $needsSubmoduleSync = $Full -or
     (-not (Test-Path -LiteralPath $fingerprintFile -PathType Leaf)) -or
     (-not (Test-Path -LiteralPath $mirrorJuce -PathType Leaf)) -or
-    (-not (Test-Path -LiteralPath $mirrorJive -PathType Leaf)) -or
-    (-not (Test-Path -LiteralPath $mirrorInspector -PathType Leaf))
-
+    (-not (Test-Path -LiteralPath $mirrorJive -PathType Leaf))
 if (-not $needsSubmoduleSync -and $effectiveFingerprint) {
     $cachedFingerprint = (Get-Content -LiteralPath $fingerprintFile -Raw -ErrorAction SilentlyContinue)
     if ($null -ne $cachedFingerprint) {

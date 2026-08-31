@@ -32,15 +32,3 @@ sheets, and Flex/Grid adaptive layout for JUCE applications.
 - **Full licence terms**: See `submodules/JIVE/LICENSE.md`
 
 ---
-
-## melatonin_inspector
-
-The `submodules/melatonin_inspector/` directory is a git submodule containing
-the melatonin_inspector runtime Component inspector, providing visual component
-inspection, position editing, color adjustment, and FPS monitoring for JUCE
-applications.
-
-- **Repository**: <https://github.com/sudara/melatonin_inspector>
-- **License**: MIT
-- **Copyright**: (c) 2021 Sudara Williams
-- **Full licence terms**: See `submodules/melatonin_inspector/LICENSE`

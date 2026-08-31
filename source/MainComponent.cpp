@@ -187,9 +187,6 @@ MainComponent::MainComponent() {
     pluginOperationController
         = std::make_unique<devpiano::plugin::PluginOperationController>(*this, pluginHost, appSettings);
     settingsWindowManager = std::make_unique<devpiano::settings::SettingsWindowManager>();
-#if DEBUG
-    inspector = std::make_unique<melatonin::Inspector>(*this);
-#endif
 
     initialiseUi();
     initialiseFromPreset();
@@ -216,17 +213,6 @@ MainComponent::~MainComponent() {
     juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
     stopTimer();
     audioEngine.getKeyboardState().removeListener(this);
-
-#if DEBUG
-    // Destroy the inspector BEFORE the JIVE component tree is torn down.
-    // ComponentModel keeps juce::Value bindings over component properties;
-    // once the tree's "style-sheet" properties are cleared below, that
-    // binding is the last StyleSheet reference, and destroying the inspector
-    // later (member teardown) would make StyleSheet die after its Component,
-    // leaving ComponentInteractionState to call removeMouseListener() on a
-    // destroyed Component (access violation at shutdown).
-    inspector.reset();
-#endif
 
     juce::Logger::setCurrentLogger(nullptr);
     appSettings.keyboardScrollOffsetX = getKeyboardViewPositionX();

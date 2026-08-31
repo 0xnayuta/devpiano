@@ -75,8 +75,6 @@ endif()
 # JIVE: 声明式 UI 框架（ValueTree 布局 + JSON 样式表 + Flex/Grid）
 add_subdirectory(submodules/JIVE)
 
-# melatonin_inspector: 运行时 Component 检查器（DEBUG 构建可用）
-add_subdirectory(submodules/melatonin_inspector)
 
 # ========================================================
 # 2. 创建 GUI 应用程序
@@ -272,7 +270,6 @@ target_link_libraries(devpiano PRIVATE
     juce::juce_recommended_warning_flags
     jive::jive_layouts            # JIVE: ValueTree 布局引擎
     jive::jive_style_sheets       # JIVE: JSON 样式表引擎
-    melatonin_inspector           # 运行时 Component 检查器
 )
 
 # ========================================================

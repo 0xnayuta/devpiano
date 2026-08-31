@@ -151,8 +151,7 @@ Every critical commit must satisfy the following three gates:
 
 All third-party dependencies are tracked as Git Submodules. **Do not modify any code inside submodules**:
 - `submodules/JUCE/`: JUCE cross-platform audio/GUI framework (AGPLv3 / commercial license);
-- `submodules/JIVE/`: JIVE declarative UI framework (MIT);
-- `submodules/melatonin_inspector/`: runtime Component inspector (MIT).
+- `submodules/JIVE/`: JIVE declarative UI framework (MIT).
 
 ---
 
