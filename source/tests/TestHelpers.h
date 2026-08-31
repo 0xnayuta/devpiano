@@ -33,7 +33,7 @@ public:
     ScopedTempDir& operator=(const ScopedTempDir&) = delete;
 
     ScopedTempDir(ScopedTempDir&& other) noexcept
-        : dir(other.dir) {
+        : dir(std::move(other.dir)) {
         other.dir = juce::File();
     }
 

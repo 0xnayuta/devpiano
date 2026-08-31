@@ -631,7 +631,7 @@ void SettingsComponent::valueTreePropertyChanged(juce::ValueTree& tree, const ju
         return;
     }
 
-    const auto propName = prop.toString();
+    const auto& propName = prop.toString();
 
     if (propName == "colourMode") {
         model->keyboardDisplay.colourMode = static_cast<devpiano::ui::KeyColourMode>((int)editingState[prop] - 1);

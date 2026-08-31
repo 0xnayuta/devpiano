@@ -239,7 +239,8 @@ void extractGlobalMetadata(const juce::MidiFile& midiFile, double targetSampleRa
                     metadata.tempoMap.push_back(tempoEv);
                 }
             } else if (midiMsg.isTimeSignatureMetaEvent() && !metadata.initialTimeSignature.has_value()) {
-                int num = 4, denom = 4;
+                int num = 4;
+                int denom = 4;
                 midiMsg.getTimeSignatureInfo(num, denom);
                 metadata.initialTimeSignature = MidiTimeSignature { num, denom };
             } else if (midiMsg.isKeySignatureMetaEvent() && !metadata.initialKeySignature.has_value()) {
@@ -251,10 +252,9 @@ void extractGlobalMetadata(const juce::MidiFile& midiFile, double targetSampleRa
     }
 
     if (!metadata.tempoMap.empty()) {
-        std::sort(metadata.tempoMap.begin(), metadata.tempoMap.end(),
-                  [](const MidiTempoEvent& a, const MidiTempoEvent& b) noexcept {
-                      return a.timestampSamples < b.timestampSamples;
-                  });
+        std::ranges::sort(metadata.tempoMap, [](const MidiTempoEvent& a, const MidiTempoEvent& b) noexcept {
+            return a.timestampSamples < b.timestampSamples;
+        });
 
         metadata.initialBpm = metadata.tempoMap.front().bpm;
         metadata.minBpm = metadata.tempoMap.front().bpm;
@@ -399,13 +399,12 @@ std::optional<MidiTrackMergeResult> MidiTrackMergeEngine::mergeTracks(const juce
     }
 
     // Chronological stable sort with MIDI priority resolution for simultaneous events
-    std::stable_sort(mergedEvents.begin(), mergedEvents.end(),
-                     [](const PerformanceEvent& a, const PerformanceEvent& b) noexcept {
-                         if (a.timestampSamples != b.timestampSamples) {
-                             return a.timestampSamples < b.timestampSamples;
-                         }
-                         return getMidiEventPriority(a.message) < getMidiEventPriority(b.message);
-                     });
+    std::ranges::stable_sort(mergedEvents, [](const PerformanceEvent& a, const PerformanceEvent& b) noexcept {
+        if (a.timestampSamples != b.timestampSamples) {
+            return a.timestampSamples < b.timestampSamples;
+        }
+        return getMidiEventPriority(a.message) < getMidiEventPriority(b.message);
+    });
 
     stats.maxTimestampSamples = maxTimestampSamples;
     stats.durationSeconds = static_cast<double>(maxTimestampSamples) / targetSampleRate;

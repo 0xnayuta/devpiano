@@ -21,7 +21,7 @@
 struct SettingsModel {
     // 内置 fallback 音色（Phase 12-2/12-3）：模型层独立枚举，AudioEngine
     // 的 BuiltinSynthTone 与之映射（MainComponent 负责转换）。
-    enum class BuiltinTone : int {
+    enum class BuiltinTone : std::uint8_t {
         sine = 0,
         piano = 1,
     };

@@ -946,7 +946,7 @@ void MainComponent::updateStatusBar() {
             displayText = statusToastText;
         } else {
             juce::String sourceName;
-            if (auto* desc = pluginHost.getLoadedPluginDescription()) {
+            if (const auto* desc = pluginHost.getLoadedPluginDescription()) {
                 sourceName = "VST3: " + desc->name;
             } else {
                 sourceName = (appSettings.builtinTone == SettingsModel::BuiltinTone::piano) ? "Built-in: Piano"

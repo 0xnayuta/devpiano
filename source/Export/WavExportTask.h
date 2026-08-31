@@ -22,7 +22,7 @@
 // ============================================================================
 class WavExportTask : private juce::Thread, private juce::Timer {
 public:
-    WavExportTask(devpiano::recording::RecordingTake take, const juce::File& destinationFile,
+    WavExportTask(devpiano::recording::RecordingTake take, juce::File destinationFile,
                   const devpiano::exporting::WavExportOptions& options,
                   std::unique_ptr<juce::AudioPluginInstance> offlinePlugin = nullptr,
                   juce::Component* parentToCentreAround = nullptr);

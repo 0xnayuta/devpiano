@@ -168,9 +168,8 @@ private:
             expectEquals(pC4.stringCount, 3, "C4 is trichord (3 strings)");
 
             // 微相位表合法性与非零色散
-            for (int s = 0; s < 3; ++s) {
-                for (int m = 0; m < 64; ++m) {
-                    const auto phase = devpiano::audio::kOptPhaseTable[s][m];
+            for (const auto& stringPhases : devpiano::audio::kOptPhaseTable) {
+                for (const auto phase : stringPhases) {
                     expect(phase >= 0.0f && phase <= juce::MathConstants<float>::twoPi, "phase in [0, 2pi]");
                 }
             }
@@ -369,7 +368,7 @@ private:
 
         beginTest("inharmonicity overtone frequency shift (stiff-string physics)");
         {
-            const auto f0 = static_cast<double>(juce::MidiMessage::getMidiNoteInHertz(36));
+            const auto f0 = juce::MidiMessage::getMidiNoteInHertz(36);
             const auto b = PianoSynthVoice::inharmonicityBForNote(36);
             expectWithinAbsoluteError(b, 2.22e-4, 1e-5, "note 36 B coefficient");
 
@@ -891,7 +890,8 @@ private:
             filter.updateCoefficients(sampleRate);
             filter.reset();
 
-            float lowL = 1.0f, lowR = 1.0f;
+            float lowL = 1.0f;
+            float lowR = 1.0f;
             for (auto i = 0; i < 64; ++i) {
                 filter.processStereo(lowL, lowR);
             }

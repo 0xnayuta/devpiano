@@ -421,7 +421,8 @@ void MainComponent::handleKeyBindingEditRequest(int midiNote) {
     params.existingBinding = existingBinding;
     params.currentCustomLabel = currentLabel;
     params.currentCustomColour = currentColour;
-    params.onComplete = [this, midiNote](KeyBindingEditResult result) { applyKeyBindingEditResult(midiNote, result); };
+    params.onComplete
+        = [this, midiNote](const KeyBindingEditResult& result) { applyKeyBindingEditResult(midiNote, result); };
     params.parent = this;
 
     KeyBindingEditDialog::launch(params);

@@ -24,7 +24,7 @@ public:
     }
     void logMessage(const juce::String& message) override {
         juce::Logger::writeToLog(message);
-        std::cout << message << std::endl;
+        std::cout << message << '\n';
     }
 
     int computeTotalPasses() const noexcept {
@@ -144,10 +144,10 @@ int main(int argc, char** argv) {
     try {
         runner.runTests(testsToRun);
     } catch (const std::exception& e) {
-        std::cerr << "Fatal Exception in unit test runner: " << e.what() << std::endl;
+        std::cerr << "Fatal Exception in unit test runner: " << e.what() << '\n';
         return EXIT_FAILURE;
     } catch (...) {
-        std::cerr << "Fatal Unknown Exception in unit test runner." << std::endl;
+        std::cerr << "Fatal Unknown Exception in unit test runner." << '\n';
         return EXIT_FAILURE;
     }
     const auto numPasses = runner.computeTotalPasses();
@@ -155,6 +155,6 @@ int main(int argc, char** argv) {
 
     std::cout << "\n=== Results ===\n"
               << "Passed: " << numPasses << "\n"
-              << "Failed: " << numFailures << std::endl;
+              << "Failed: " << numFailures << '\n';
     return (numFailures > 0) ? EXIT_FAILURE : EXIT_SUCCESS;
 }

@@ -7,7 +7,7 @@
 
 namespace {
 
-constexpr std::int64_t kMaxMidiFileSizeBytes = 32 * 1024 * 1024; // 32MB guard (SEC-002 / PERF-003)
+constexpr std::int64_t kMaxMidiFileSizeBytes = 32LL * 1024 * 1024; // 32MB guard (SEC-002 / PERF-003)
 bool readMidiFile(juce::MidiFile& midiFile, const juce::File& file) {
     std::unique_ptr<juce::FileInputStream> stream { file.createInputStream() };
     if (!stream) {

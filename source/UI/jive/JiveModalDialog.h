@@ -54,7 +54,7 @@ public:
     /// Calls `onComplete` with the trimmed string, or std::nullopt if cancelled.
     static void launchSingleInput(const juce::String& title, const juce::String& labelText,
                                   const juce::String& initialValue, juce::Component* componentToCentreAround,
-                                  std::function<void(std::optional<juce::String>)> onComplete, int maxChars = 64,
+                                  const std::function<void(std::optional<juce::String>)>& onComplete, int maxChars = 64,
                                   const juce::String& okButtonText = TRANS("OK"),
                                   const juce::String& cancelButtonText = TRANS("Cancel"));
 
@@ -62,7 +62,7 @@ public:
     /// Calls `onComplete(true)` if confirmed, `onComplete(false)` if cancelled/closed.
     static void launchConfirm(const juce::String& title, const juce::String& message, const juce::String& okLabel,
                               const juce::String& cancelLabel, juce::Component* componentToCentreAround,
-                              std::function<void(bool)> onComplete);
+                              const std::function<void(bool)>& onComplete);
 
     /// Metadata result structure for song information dialog.
     struct MetadataResult {
@@ -74,7 +74,7 @@ public:
     /// Calls `onComplete` with MetadataResult, or std::nullopt if cancelled.
     static void launchMetadataEdit(const juce::String& title, const juce::String& initialTitle,
                                    const juce::String& initialNotes, juce::Component* componentToCentreAround,
-                                   std::function<void(std::optional<MetadataResult>)> onComplete);
+                                   const std::function<void(std::optional<MetadataResult>)>& onComplete);
 
     // ── Template ValueTree Builders (exposed for testing & customization) ──
 

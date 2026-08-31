@@ -105,10 +105,10 @@ RecordingTake RecordingEngine::stopRecording() {
             }
             pendingPresetEvents.clear();
 
-            std::stable_sort(currentTake.events.begin(), currentTake.events.end(),
-                             [](const PerformanceEvent& a, const PerformanceEvent& b) noexcept {
-                                 return a.timestampSamples < b.timestampSamples;
-                             });
+            std::ranges::stable_sort(currentTake.events,
+                                     [](const PerformanceEvent& a, const PerformanceEvent& b) noexcept {
+                                         return a.timestampSamples < b.timestampSamples;
+                                     });
         }
 
         currentTake.lengthSamples
@@ -226,12 +226,10 @@ void RecordingEngine::startPlayback(const RecordingTake& take, double currentSam
     } else {
         const auto combinedRatio
             = playbackSampleRateRatio.load(std::memory_order_relaxed) / playbackSpeedMultiplier.load();
-        auto it = std::lower_bound(playbackTake.events.begin(), playbackTake.events.end(), initialResume,
-                                   [combinedRatio](const PerformanceEvent& ev, std::int64_t targetPos) {
-                                       const auto scaledTs = static_cast<std::int64_t>(
-                                           static_cast<double>(ev.timestampSamples) * combinedRatio);
-                                       return scaledTs < targetPos;
-                                   });
+        auto it = std::ranges::lower_bound(
+            playbackTake.events, initialResume, {}, [combinedRatio](const PerformanceEvent& ev) noexcept {
+                return static_cast<std::int64_t>(static_cast<double>(ev.timestampSamples) * combinedRatio);
+            });
         playbackEventIndex = static_cast<std::size_t>(std::distance(playbackTake.events.begin(), it));
     }
     // Pre-allocate the preset-change queue so renderPlaybackBlock never allocates
@@ -311,12 +309,10 @@ void RecordingEngine::setPlaybackSpeedMultiplier(double multiplier) noexcept {
 
         // Re-align cursor to current position (PERF-002)
         const auto combinedRatio = playbackSampleRateRatio.load(std::memory_order_relaxed) / clamped;
-        auto it = std::lower_bound(playbackTake.events.begin(), playbackTake.events.end(), newPos,
-                                   [combinedRatio](const PerformanceEvent& ev, std::int64_t targetPos) {
-                                       const auto scaledTs = static_cast<std::int64_t>(
-                                           static_cast<double>(ev.timestampSamples) * combinedRatio);
-                                       return scaledTs < targetPos;
-                                   });
+        auto it = std::ranges::lower_bound(
+            playbackTake.events, newPos, {}, [combinedRatio](const PerformanceEvent& ev) noexcept {
+                return static_cast<std::int64_t>(static_cast<double>(ev.timestampSamples) * combinedRatio);
+            });
         playbackEventIndex = static_cast<std::size_t>(std::distance(playbackTake.events.begin(), it));
 
         DP_DEBUG_LOG("[RecordingEngine] playback speed updated to " + juce::String(clamped)
@@ -342,12 +338,10 @@ void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer, std::int
         const auto curScaledTs = static_cast<std::int64_t>(
             static_cast<double>(playbackTake.events[playbackEventIndex].timestampSamples) * combinedRatio);
         if (curScaledTs > blockStartSamples) {
-            auto it = std::lower_bound(playbackTake.events.begin(), playbackTake.events.end(), blockStartSamples,
-                                       [combinedRatio](const PerformanceEvent& ev, std::int64_t targetPos) {
-                                           const auto scaledTs = static_cast<std::int64_t>(
-                                               static_cast<double>(ev.timestampSamples) * combinedRatio);
-                                           return scaledTs < targetPos;
-                                       });
+            auto it = std::ranges::lower_bound(
+                playbackTake.events, blockStartSamples, {}, [combinedRatio](const PerformanceEvent& ev) noexcept {
+                    return static_cast<std::int64_t>(static_cast<double>(ev.timestampSamples) * combinedRatio);
+                });
             playbackEventIndex = static_cast<std::size_t>(std::distance(playbackTake.events.begin(), it));
         }
     }

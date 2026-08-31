@@ -510,7 +510,7 @@ public:
             });
 
             // Set custom mask where Channel 1 is bypassed (bit 0 = 0) and Channel 10 is transposed (bit 9 = 1)
-            const std::uint16_t customMask = static_cast<std::uint16_t>(1U << 9);
+            const auto customMask = static_cast<std::uint16_t>(1U << 9);
             engine.setPlaybackTranspose(true, 3, customMask);
             rec.startPlayback(take, 44100.0);
 

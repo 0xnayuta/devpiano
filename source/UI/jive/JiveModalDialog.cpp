@@ -219,8 +219,9 @@ void JiveModalDialog::launchCustom(const LaunchOptions& options) {
 
 void JiveModalDialog::launchSingleInput(const juce::String& title, const juce::String& labelText,
                                         const juce::String& initialValue, juce::Component* componentToCentreAround,
-                                        std::function<void(std::optional<juce::String>)> onComplete, int maxChars,
-                                        const juce::String& okButtonText, const juce::String& cancelButtonText) {
+                                        const std::function<void(std::optional<juce::String>)>& onComplete,
+                                        int maxChars, const juce::String& okButtonText,
+                                        const juce::String& cancelButtonText) {
     auto layout = makeSingleInputLayout(labelText, 380, 150, okButtonText, cancelButtonText);
 
     LaunchOptions opts;
@@ -264,7 +265,7 @@ void JiveModalDialog::launchSingleInput(const juce::String& title, const juce::S
 
 void JiveModalDialog::launchConfirm(const juce::String& title, const juce::String& message, const juce::String& okLabel,
                                     const juce::String& cancelLabel, juce::Component* componentToCentreAround,
-                                    std::function<void(bool)> onComplete) {
+                                    const std::function<void(bool)>& onComplete) {
     auto layout = makeConfirmLayout(message, 380, 140, okLabel, cancelLabel);
 
     LaunchOptions opts;
@@ -290,7 +291,7 @@ void JiveModalDialog::launchConfirm(const juce::String& title, const juce::Strin
 
 void JiveModalDialog::launchMetadataEdit(const juce::String& title, const juce::String& initialTitle,
                                          const juce::String& initialNotes, juce::Component* componentToCentreAround,
-                                         std::function<void(std::optional<MetadataResult>)> onComplete) {
+                                         const std::function<void(std::optional<MetadataResult>)>& onComplete) {
     auto layout = makeMetadataEditLayout(420, 260);
 
     LaunchOptions opts;

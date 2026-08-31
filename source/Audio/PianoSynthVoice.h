@@ -9,7 +9,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-
+#include <numbers>
 // 内置物理建模钢琴合成器（Phase 12~24）：
 // - 88 键物理参数化 (Phase 18-A/B)：Steinway B 刚性失谐、Bensa 实测阻尼、STFT 最优微相位矩阵；
 // - 空气黏性阻尼与二次方摩擦 (Phase 18-C)：Desvages & Bilbao (2016) 模态耗散模型，呈现中频下凹歌唱性；
@@ -99,7 +99,7 @@ public:
 
         currentPlayingMidiNote = midiNoteNumber;
         const auto& params = devpiano::audio::getNoteParams(midiNoteNumber);
-        const auto baseFrequency = static_cast<double>(juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber));
+        const auto baseFrequency = juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber);
 
         numActivePartials = params.partialCount;
 
@@ -407,8 +407,8 @@ public:
             const auto midi = std::clamp(static_cast<float>(currentPlayingMidiNote), 21.0f, 108.0f);
             const auto keyPos = (midi - 21.0f) / 87.0f;
             const auto directPan = 0.15f + 0.70f * keyPos;
-            const auto directLeft = (1.0f - directPan) * 1.414f;
-            const auto directRight = directPan * 1.414f;
+            const auto directLeft = (1.0f - directPan) * std::numbers::sqrt2_v<float>;
+            const auto directRight = directPan * std::numbers::sqrt2_v<float>;
 
             const auto wet = 0.18f + pianoResonance * 0.16f;
             auto outLeft = (1.0f - wet) * rawLeft * directLeft + wet * (resonatorLeftSum + 0.40f * sympatheticOut);
@@ -472,7 +472,7 @@ public:
         const auto& params = devpiano::audio::getNoteParams(midiNoteNumber);
         const auto decayScale = 1.0f + (juce::jlimit(0.0f, 1.0f, resonance) - 0.5f) * 0.6f;
         const auto baseDecay = static_cast<double>(params.decaySeconds * decayScale);
-        const auto f0 = static_cast<double>(juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber));
+        const auto f0 = juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber);
         const auto fn = partialFrequency(midiNoteNumber, partialIndex);
         const auto piOverL = juce::MathConstants<double>::pi / static_cast<double>(params.stringLength);
         const auto k1 = piOverL * piOverL;
@@ -497,7 +497,7 @@ public:
         return 0.18f + juce::jlimit(0.0f, 1.0f, resonance) * 0.16f;
     }
     [[nodiscard]] static double partialFrequency(int midiNoteNumber, int partialIndex) noexcept {
-        const auto baseFrequency = static_cast<double>(juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber));
+        const auto baseFrequency = juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber);
         const auto partialNumber = static_cast<double>(partialIndex + 1);
         const auto b = inharmonicityBForNote(midiNoteNumber);
         return baseFrequency * partialNumber * std::sqrt(1.0 + b * partialNumber * partialNumber);

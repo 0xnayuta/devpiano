@@ -12,8 +12,6 @@
 
 #include <jive_layouts/jive_layouts.h>
 
-#include "TestHelpers.h"
-#include "UI/jive/DesignTokens.h"
 // vars, which jive::VariantConverter<jive::Object::Ptr> rejects (jassert +
 // nullptr) — so no styles ever applied and text stayed invisible (black on
 // dark). These tests lock in the fix: StyleCatalog emits owned jive::Object

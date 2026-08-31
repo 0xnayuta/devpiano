@@ -34,7 +34,7 @@ public:
 
     // Explicit file constructor (for isolated storage and test harnesses).
     // Directly binds to customFile without relying on ApplicationProperties folder defaults.
-    explicit SettingsStore(const juce::File& customFile);
+    explicit SettingsStore(juce::File customFile);
 
     void load(SettingsModel& model);
     // Persists synchronously; false means the write failed (caller logs the

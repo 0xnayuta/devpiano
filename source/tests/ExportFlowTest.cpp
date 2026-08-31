@@ -317,7 +317,7 @@ public:
             // Build a multi-track multi-channel take
             RecordingTake multiTrackTake;
             multiTrackTake.sampleRate = 48000.0;
-            multiTrackTake.lengthSamples = 48000 * 2; // 2 seconds
+            multiTrackTake.lengthSamples = 48000LL * 2; // 2 seconds
 
             // Track 1 / Channel 1: Right hand melody
             multiTrackTake.events.push_back({ 0, PerformanceEventType::midi, 0, RecordingEventSource::playback,
@@ -326,7 +326,8 @@ public:
                                               juce::MidiMessage::noteOff(1, 72, 0.0f) });
             multiTrackTake.events.push_back({ 24000, PerformanceEventType::midi, 0, RecordingEventSource::playback,
                                               juce::MidiMessage::noteOn(1, 76, 0.85f) });
-            multiTrackTake.events.push_back({ 48000 * 2, PerformanceEventType::midi, 0, RecordingEventSource::playback,
+            multiTrackTake.events.push_back({ 48000LL * 2, PerformanceEventType::midi, 0,
+                                              RecordingEventSource::playback,
                                               juce::MidiMessage::noteOff(1, 76, 0.0f) });
 
             // Track 2 / Channel 2: Left hand chords + CC64 sustain
@@ -336,9 +337,11 @@ public:
                                               juce::MidiMessage::noteOn(2, 48, 0.75f) });
             multiTrackTake.events.push_back({ 0, PerformanceEventType::midi, 0, RecordingEventSource::playback,
                                               juce::MidiMessage::noteOn(2, 55, 0.70f) });
-            multiTrackTake.events.push_back({ 48000 * 2, PerformanceEventType::midi, 0, RecordingEventSource::playback,
+            multiTrackTake.events.push_back({ 48000LL * 2, PerformanceEventType::midi, 0,
+                                              RecordingEventSource::playback,
                                               juce::MidiMessage::noteOff(2, 48, 0.0f) });
-            multiTrackTake.events.push_back({ 48000 * 2, PerformanceEventType::midi, 0, RecordingEventSource::playback,
+            multiTrackTake.events.push_back({ 48000LL * 2, PerformanceEventType::midi, 0,
+                                              RecordingEventSource::playback,
                                               juce::MidiMessage::noteOff(2, 55, 0.0f) });
 
             // 1. Export with Piano Synth Voice
@@ -362,7 +365,7 @@ public:
                 if (reader != nullptr) {
                     expectEquals(reader->sampleRate, 48000.0);
                     expectEquals(static_cast<int>(reader->numChannels), 2);
-                    expect(reader->lengthInSamples >= 48000 * 2);
+                    expect(reader->lengthInSamples >= 48000LL * 2);
 
                     juce::AudioBuffer<float> buf(static_cast<int>(reader->numChannels), 4096);
                     float peak = 0.0f;
@@ -399,7 +402,7 @@ public:
                 if (reader != nullptr) {
                     expectEquals(reader->sampleRate, 48000.0);
                     expectEquals(static_cast<int>(reader->numChannels), 2);
-                    expect(reader->lengthInSamples >= 48000 * 2);
+                    expect(reader->lengthInSamples >= 48000LL * 2);
 
                     // Read samples and verify non-silent audio signal
                     juce::AudioBuffer<float> buffer(2, static_cast<int>(reader->lengthInSamples));

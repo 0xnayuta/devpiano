@@ -71,13 +71,13 @@ struct ProgressContentWrapper final : public juce::Component {
 // WavExportTask Implementation
 // ============================================================================
 
-WavExportTask::WavExportTask(devpiano::recording::RecordingTake take_, const juce::File& destinationFile_,
+WavExportTask::WavExportTask(devpiano::recording::RecordingTake take_, juce::File destinationFile_,
                              const devpiano::exporting::WavExportOptions& options_,
                              std::unique_ptr<juce::AudioPluginInstance> offlinePlugin_,
                              juce::Component* parentToCentreAround)
     : juce::Thread("WAV Export Thread")
     , take(std::move(take_))
-    , destinationFile(destinationFile_)
+    , destinationFile(std::move(destinationFile_))
     , options(options_)
     , offlinePlugin(std::move(offlinePlugin_))
     , parentComponent(parentToCentreAround) {

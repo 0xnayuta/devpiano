@@ -86,8 +86,8 @@ SettingsStore::SettingsStore(juce::PropertiesFile::Options options)
     : storedOptions(std::move(options)) {
 }
 
-SettingsStore::SettingsStore(const juce::File& file)
-    : customFile(file) {
+SettingsStore::SettingsStore(juce::File file)
+    : customFile(std::move(file)) {
 }
 
 SettingsDebounceTimer::SettingsDebounceTimer(SettingsStore& s)

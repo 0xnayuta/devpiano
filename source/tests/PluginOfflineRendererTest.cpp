@@ -38,9 +38,8 @@ public:
             const auto msg = metadata.getMessage();
             if (msg.isNoteOn()) {
                 activeNote = msg.getNoteNumber();
-            } else if (msg.isNoteOff() && msg.getNoteNumber() == activeNote) {
-                activeNote = -1;
-            } else if (msg.isAllNotesOff() || msg.isAllSoundOff()) {
+            } else if ((msg.isNoteOff() && msg.getNoteNumber() == activeNote) || msg.isAllNotesOff()
+                       || msg.isAllSoundOff()) {
                 activeNote = -1;
             }
         }
@@ -126,9 +125,8 @@ public:
             const auto msg = metadata.getMessage();
             if (msg.isNoteOn()) {
                 activeNote = msg.getNoteNumber();
-            } else if (msg.isNoteOff() && msg.getNoteNumber() == activeNote) {
-                activeNote = -1;
-            } else if (msg.isAllNotesOff() || msg.isAllSoundOff()) {
+            } else if ((msg.isNoteOff() && msg.getNoteNumber() == activeNote) || msg.isAllNotesOff()
+                       || msg.isAllSoundOff()) {
                 activeNote = -1;
             }
         }

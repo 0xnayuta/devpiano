@@ -24,7 +24,7 @@ public:
     /// or std::nullopt when the user cancels / closes the dialog.
     static void launch(const juce::String& title, const juce::String& initialName,
                        juce::Component* componentToCentreAround,
-                       std::function<void(std::optional<juce::String>)> onComplete);
+                       const std::function<void(std::optional<juce::String>)>& onComplete);
 
 private:
     JUCE_DECLARE_NON_COPYABLE(PresetNameDialog)
@@ -37,7 +37,7 @@ public:
     /// Modal yes/no confirmation. `onComplete(true)` when the user confirms.
     static void show(const juce::String& title, const juce::String& message, const juce::String& okLabel,
                      const juce::String& cancelLabel, juce::Component* componentToCentreAround,
-                     std::function<void(bool)> onComplete);
+                     const std::function<void(bool)>& onComplete);
 
 private:
     JUCE_DECLARE_NON_COPYABLE(PresetConfirmDialog)

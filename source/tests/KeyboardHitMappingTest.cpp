@@ -218,8 +218,12 @@ private:
 
             kb.triggerTimerCallbackForTest();
 
-            juce::Colour c60, c64, c67;
-            bool found60 = false, found64 = false, found67 = false;
+            juce::Colour c60;
+            juce::Colour c64;
+            juce::Colour c67;
+            bool found60 = false;
+            bool found64 = false;
+            bool found67 = false;
             for (const auto& k : kb.getKeys()) {
                 if (k.midiNote == 60) {
                     c60 = k.colour1;

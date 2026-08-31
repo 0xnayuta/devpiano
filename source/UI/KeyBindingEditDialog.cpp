@@ -400,7 +400,7 @@ void KeyBindingEditDialog::launch(const KeyBindingDialogParams& params) {
     auto safeOnComplete = [onComplete = params.onComplete, completionInvoked](KeyBindingEditResult res) {
         if (!completionInvoked->exchange(true)) {
             if (onComplete) {
-                onComplete(res);
+                onComplete(std::move(res));
             }
         }
     };
