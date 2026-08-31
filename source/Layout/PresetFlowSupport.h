@@ -40,7 +40,7 @@ public:
     bool autoSaveCurrentPreset();
 
 private:
-    void refreshCache();
+    void refreshCache(bool force = false);
     void commitPreset(const PerformancePreset& preset);
     void updateUiAfterCommit();
     /// Save the current live state as a preset to `file` and refresh the UI.
@@ -48,6 +48,8 @@ private:
 
     MainComponent& owner;
     std::vector<PerformancePreset> cachedPresets;
+    juce::File lastScannedDir;
+    juce::Time lastDirModificationTime;
     juce::String currentPresetId;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PresetFlowSupport)
 };

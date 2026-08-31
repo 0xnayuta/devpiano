@@ -1069,7 +1069,7 @@ SettingsModel::PerformanceSettingsView MainComponent::getPerformanceSettingsFrom
              .adsrDecay = getDecay(),
              .adsrSustain = getSustain(),
              .adsrRelease = getRelease(),
-             .builtinTone = getBuiltinToneFromUi(),
+             .builtinTone = getBuiltinToneFromSettings(),
              .pianoBrightness = getPianoBrightness(),
              .pianoHammerHardness = getPianoHammerHardness(),
              .pianoResonance = getPianoResonance() };

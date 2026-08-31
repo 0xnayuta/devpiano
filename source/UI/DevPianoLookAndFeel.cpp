@@ -5,53 +5,7 @@ namespace {
 const auto& tokens = devpiano::jive::DesignTokens::get();
 
 juce::Font getUnifiedUiFont(float height = 14.0f, int styleFlags = juce::Font::plain) {
-    // JUCE 在 Linux 上对字体族名做 FreeType 精确匹配（不经 fontconfig 别名），
-    // 因此 Linux 首选必须是在系统真实安装的字体，否则整条链失效并触发
-    // fontconfig 字符级 fallback（中文会落到 wqy-zenhei 等低清字体）。
-#if JUCE_LINUX
-    return juce::Font(juce::FontOptions("Noto Sans CJK SC", height, styleFlags)
-                          .withFallbacks({
-                              // Linux 主流高清晰度 CJK 黑体（覆盖中文与西文字形）
-                              "Source Han Sans SC",
-                              "Source Han Sans CN",
-                              "Noto Sans SC",
-                              "WenQuanYi Micro Hei",
-                              "WenQuanYi Zen Hei",
-                              // Linux / 跨平台现代西文 UI 字体
-                              "Ubuntu",
-                              "Cantarell",
-                              "Inter",
-                              "Liberation Sans",
-                              "DejaVu Sans",
-                              // 通用后备
-                              "sans-serif",
-                          }));
-#else
-    return juce::Font(juce::FontOptions("Microsoft YaHei UI", height, styleFlags)
-                          .withFallbacks({
-                              // Windows UI & CJK (彻底移除 SimSun，避免 Linux 下误命中宋体)
-                              "Microsoft YaHei",
-                              "Segoe UI",
-                              // macOS UI & CJK
-                              "PingFang SC",
-                              "Hiragino Sans GB",
-                              // Linux 主流高清晰度中文字体 (Ubuntu / Debian / Fedora / Arch / CachyOS / Deepin 等)
-                              "Noto Sans CJK SC",
-                              "Source Han Sans SC",
-                              "Source Han Sans CN",
-                              "Noto Sans SC",
-                              "WenQuanYi Micro Hei",
-                              "WenQuanYi Zen Hei",
-                              // Linux / 跨平台现代西文 UI 字体
-                              "Ubuntu",
-                              "Cantarell",
-                              "Inter",
-                              "Liberation Sans",
-                              "DejaVu Sans",
-                              // 通用后备
-                              "sans-serif",
-                          }));
-#endif
+    return devpiano::jive::DesignTokens::getUnifiedUiFont(height, styleFlags);
 }
 } // namespace
 

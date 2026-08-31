@@ -19,6 +19,10 @@ juce::MidiMessage MidiChannelMapper::applyTransform(const juce::MidiMessage& mes
         return message;
     }
 
+    if (!matrix.active) {
+        return message;
+    }
+
     // inputChannel here is the message's original MIDI channel (0-based).
     const auto inputChannel = message.getChannel() - 1;
     const auto& cfg = configForChannel(inputChannel);
@@ -38,6 +42,11 @@ juce::MidiMessage MidiChannelMapper::applyTransform(const juce::MidiMessage& mes
 
 void MidiChannelMapper::sendNoteOn(int inputChannel, int midiNote, float velocity,
                                    juce::MidiKeyboardState& keyboardState) {
+    if (!matrix.active) {
+        keyboardState.noteOn(inputChannel + 1, midiNote, velocity);
+        return;
+    }
+
     const auto& cfg = configForChannel(inputChannel);
     auto transformed = applyMatrixToNoteOn(cfg, midiNote, velocity);
     if (cfg.followKey && midiTranspose) {
@@ -49,6 +58,11 @@ void MidiChannelMapper::sendNoteOn(int inputChannel, int midiNote, float velocit
 
 void MidiChannelMapper::sendNoteOff(int inputChannel, int midiNote, float velocity,
                                     juce::MidiKeyboardState& keyboardState) {
+    if (!matrix.active) {
+        keyboardState.noteOff(inputChannel + 1, midiNote, velocity);
+        return;
+    }
+
     const auto& cfg = configForChannel(inputChannel);
     auto transformed = applyMatrixToNoteOff(cfg, midiNote, velocity);
     if (cfg.followKey && midiTranspose) {

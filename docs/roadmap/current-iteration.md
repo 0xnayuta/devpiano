@@ -66,25 +66,24 @@
 - [x] `ERR-004`：清理 `WavExportTask` 死成员并更新 `WavFileExporter.h` 过期注释
 - [x] `OBS-001`：`initialiseFromPreset` 失败路径补 `DP_LOG_WARN`（包含具体路径）
 
-### AUDIT-002 Phase F：性能优化、资源管理与质量小项（P3 细节优化）
+### AUDIT-002 Phase F：性能优化、资源管理与质量小项（P3 细节优化） [已完成，2026-08-31]
 > 目标：提升执行效率、避免长会话资源累积、清理历史残留与样板代码。
 
-- [ ] `PERF-002`：回放渲染改用块游标扫描（复用 `WavFileExporter` 模式）
-- [ ] `PERF-003`：MIDI 导入移至后台线程或增加事件上限，避免大文件冻结 UI
-- [ ] `PERF-004`：master limiter 超阈 soft-knee 限幅优化多项式近似并注释设计取舍
-- [ ] `PERF-005`：预设目录扫描引入修改时间缓存机制
-- [ ] `RES-001`：Take 数据以 move 或 `std::shared_ptr<const RecordingTake>` 语义传递，降低内存峰值
-- [ ] `RES-002`：`StyleCatalog` 样式对象复用或按树生命周期释放
-- [ ] `QUAL-003`：`ChannelMatrix::active` 补齐检查逻辑或清理死字段与注释
-- [ ] `QUAL-008`：`refreshTitles` 重复条目去重，`MainComponentJiveAccessors` 样板提取模板辅助
-- [ ] `QUAL-009`：`getBuiltinToneFromUi` 改名为 `getBuiltinToneFromSettings` 对齐实际语义
-- [ ] `QUAL-010`：CJK 字体候选链统一收敛至 `DesignTokens`
-- [ ] `QUAL-011`：清理代码内滞留的历史 Phase 重构注释
-- [ ] `QUAL-012`：`SettingsComponent` toggle 仅保留单一 `onStateChange` 写路径
-- [ ] `QUAL-013`：`MidiTypes.h` 补充显式细粒度 JUCE include
-- [ ] `QUAL-014`：测试侧 `findNodeById` 副本清理并改用生产 helper
-- [ ] `QUAL-015`：`RecordingFlow` 状态机两份重复测试归并
-
+- [x] `PERF-002`：回放渲染改用块游标扫描（复用 `WavFileExporter` 模式）
+- [x] `PERF-003`：MIDI 导入移至后台线程或增加事件上限，避免大文件冻结 UI
+- [x] `PERF-004`：master limiter 超阈 soft-knee 限幅优化多项式近似并注释设计取舍
+- [x] `PERF-005`：预设目录扫描引入修改时间缓存机制
+- [x] `RES-001`：Take 数据以 move 或 `std::shared_ptr<const RecordingTake>` 语义传递，降低内存峰值
+- [x] `RES-002`：`StyleCatalog` 样式对象复用或按树生命周期释放
+- [x] `QUAL-003`：`ChannelMatrix::active` 补齐检查逻辑或清理死字段与注释
+- [x] `QUAL-008`：`refreshTitles` 重复条目去重，`MainComponentJiveAccessors` 样板提取模板辅助
+- [x] `QUAL-009`：`getBuiltinToneFromUi` 改名为 `getBuiltinToneFromSettings` 对齐实际语义
+- [x] `QUAL-010`：CJK 字体候选链统一收敛至 `DesignTokens`
+- [x] `QUAL-011`：清理代码内滞留的历史 Phase 重构注释
+- [x] `QUAL-012`：`SettingsComponent` toggle 仅保留单一 `onStateChange` 写路径
+- [x] `QUAL-013`：`MidiTypes.h` 补充显式细粒度 JUCE include
+- [x] `QUAL-014`：测试侧 `findNodeById` 副本清理并改用生产 helper
+- [x] `QUAL-015`：`RecordingFlow` 状态机两份重复测试归并
 ### AUDIT-002 Phase G：测试基础设施与工程化合规（P3 门禁与环境健壮性）
 > 目标：消除测试假绿与环境脆弱性、满足 ADR 决策与工程纪律。
 

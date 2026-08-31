@@ -13,10 +13,8 @@
 // ============================================================================
 /// Settings Window Content Component
 ///
-/// Refactored in Phase 15-C to use JIVE's declarative layout model
-/// (SettingsLayoutModel) and CSS Grid for 16-channel follow key toggles.
-/// In AUDIT-002 Phase B (ARCH-002), implementation was separated into
-/// SettingsComponent.cpp and buildJiveUi decomposed into modular wiring.
+/// Uses JIVE declarative layout model (SettingsLayoutModel) and CSS Grid
+/// for 16-channel follow key toggles.
 // ============================================================================
 class SettingsComponent : public juce::Component, private juce::ChangeListener, public juce::ValueTree::Listener {
 public:

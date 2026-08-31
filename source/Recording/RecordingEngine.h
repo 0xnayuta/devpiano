@@ -112,6 +112,8 @@ private:
     std::atomic<std::int64_t> playbackPositionSamples { 0 };
     std::atomic_bool playbackEndedPending { false };
 
+    // Block cursor for O(1)/O(K) playback event scanning (PERF-002).
+    std::size_t playbackEventIndex { 0 };
     // Preset-change notification queue (audio thread → message thread)
     std::vector<PendingPresetChange> pendingPresetChanges;
     // Preset-change events recorded from the message thread during active

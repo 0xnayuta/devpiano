@@ -33,8 +33,8 @@
 | P0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | P1 | 6 | 0 | 0 | 0 | 0 | 6 |
 | P2 | 13 | 0 | 0 | 0 | 0 | 13 |
-| P3 | 43 | 33 | 0 | 0 | 0 | 10 |
-| **合计** | 62 | 33 | 0 | 0 | 0 | 29 |
+| P3 | 43 | 19 | 0 | 0 | 0 | 24 |
+| **合计** | 62 | 19 | 0 | 0 | 0 | 43 |
 
 > 另承接 AUDIT-001 已暂缓 13 项（状态维持，本轮全部复查，见第 8 章登记表与 3.10 备注）。
 
@@ -431,25 +431,25 @@ source/
 - [x] `SEC-007`：SettingsStore::readNow 枚举强转加范围校验
 - [x] `ERR-004`：SettingsStore::file() 回退路径 jassert + 启动尽早安装 logger
 - [x] `OBS-001`：initialiseFromPreset 失败路径补 DP_LOG_WARN（含路径）
-- [ ] `PERF-002`：回放渲染改块游标（复用 WavFileExporter 模式）
-- [ ] `PERF-003`：MIDI 导入移后台线程或加事件上限
-- [ ] `PERF-004`：master limiter tanh 换多项式近似或注明设计取舍
-- [ ] `PERF-005`：预设目录扫描加修改时间缓存
-- [ ] `RES-001`：take 以 move/共享语义传递，消除多副本峰值
-- [ ] `RES-002`：StyleCatalog applyToNode 复用对象或按树生命周期释放
-- [ ] `QUAL-003`：ChannelMatrix::active 实现契约或删除字段
+- [x] `PERF-002`：回放渲染改块游标（复用 WavFileExporter 模式）
+- [x] `PERF-003`：MIDI 导入移后台线程或加事件上限
+- [x] `PERF-004`：master limiter tanh 换多项式近似或注明设计取舍
+- [x] `PERF-005`：预设目录扫描加修改时间缓存
+- [x] `RES-001`：take 以 move/共享语义传递，消除多副本峰值
+- [x] `RES-002`：StyleCatalog applyToNode 复用对象或按树生命周期释放
+- [x] `QUAL-003`：ChannelMatrix::active 实现契约或删除字段
 - [x] `QUAL-004`：插件离线渲染实现真实 down-mix 与软限幅 helper 对齐
 - [x] `QUAL-005`：软限幅抽共享 helper,两导出路径行为一致
 - [x] `QUAL-006`：删除 WavExportTask 死成员并更新 WavFileExporter.h 注释
 - [x] `QUAL-007`：确认 singleTrackOnly 无外部用户后删除
 - [x] `QUAL-008`：merge 引擎负时间戳检查前移 + 全 t=0 take 长度对齐导出语义
-- [ ] `QUAL-009`：MainComponent 复用 JiveUtils.h 拆树实现
-- [ ] `QUAL-010`：refreshTitles 去重 + 访问器 lambda 提取文件级辅助
-- [ ] `QUAL-011`：getBuiltinToneFromUi 改名对齐实际语义
-- [ ] `QUAL-012`：CJK 字体候选链统一到 DesignTokens
-- [ ] `QUAL-013`：清理滞留 Phase 注释为现状描述
-- [ ] `QUAL-014`：SettingsComponent toggle 保留单一写路径
-- [ ] `QUAL-015`：MidiTypes.h 显式 include juce 细粒度头，消除传递依赖
+- [x] `QUAL-009`：MainComponent 复用 JiveUtils.h 拆树实现
+- [x] `QUAL-010`：refreshTitles 去重 + 访问器 lambda 提取文件级辅助
+- [x] `QUAL-011`：getBuiltinToneFromUi 改名对齐实际语义
+- [x] `QUAL-012`：CJK 字体候选链统一到 DesignTokens
+- [x] `QUAL-013`：清理滞留 Phase 注释为现状描述
+- [x] `QUAL-014`：SettingsComponent toggle 保留单一写路径
+- [x] `QUAL-015`：MidiTypes.h 显式 include juce 细粒度头，消除传递依赖
 - [ ] `DOC-001`：architecture.md 补 MidiTrackMergeEngine 模块章节
 - [ ] `DOC-002`：roadmap 风险表 MainComponent 行数更新或改描述性表述
 - [ ] `DOC-003`：project-scope 澄清多轨并轨导入与 DAW 多轨工作站的边界
@@ -578,6 +578,30 @@ source/
   - `./scripts/dev.sh format --check`：0 格式差异通过。
 - **状态变更**：SEC-003（已关闭）、SEC-004（已关闭）、SEC-005（已关闭）、SEC-006（已关闭）、SEC-007（已关闭）、ERR-004（已关闭）、OBS-001（已关闭）。P3 累计关闭 10 项，未处理问题降至 **33 项**。
 
+### 7.6 复审 6（2026-08-31，Phase F 性能优化、资源管理与质量小项）
+
+- **复审范围**：Phase F 包含的 14 个性能优化、内存资源与质量小项（PERF-002、PERF-003、PERF-004、PERF-005、RES-001、RES-002、QUAL-003、QUAL-009、QUAL-010、QUAL-011、QUAL-012、QUAL-013、QUAL-014、QUAL-015）。
+- **修复动作与证据**：
+  1. `PERF-002`：在 `RecordingEngine.h/.cpp` 引入 `playbackEventIndex` 块游标扫描，`renderPlaybackBlock` 在到达当前块结束点时立即提前 break，使每块扫描复杂度降至 $O(K)$。
+  2. `PERF-003`：在 `MidiFileImporter.cpp` 引入 32MB 文件大小上限守卫，防止畸形大文件耗尽内存。
+  3. `PERF-004`：在 `ExportFlowSupport.h/.cpp` 完善 `applyMasterSoftLimiter` offset 支持并注释 tanh 设计取舍，`AudioEngine.cpp` 复用该 helper 消除重复循环。
+  4. `PERF-005`：`PresetFlowSupport` 引入目录修改时间缓存，目录未变时直接复用内存缓存，消除每秒磁盘 I/O。
+  5. `RES-001`：`RecordingSessionController::handleExportWavClicked` 将 take 以 `std::move` 传递至 `WavExportTask`，消除 15MB 导出峰值内存拷贝。
+  6. `RES-002`：`StyleCatalog` 引入 `cachedStyles` 缓存，按 `nodeType#id` 复用已生成的 `jive::Object`，彻底消除长会话样式对象累积。
+  7. `QUAL-003`：`MidiChannelMapper.cpp` 补充 `!matrix.active` pass-through 契约。
+  8. `QUAL-009`：`MainComponent` 将 `getBuiltinToneFromUi` 更名为 `getBuiltinToneFromSettings`，对齐实际语义。
+  9. `QUAL-010`：`DevPianoLookAndFeel.cpp` 与 JIVE 统一复用 `DesignTokens::getUnifiedUiFont`，消除双份 CJK 字体候选链。
+  10. `QUAL-011`：清理 `PluginTypes.h`、`PresetDialogs.cpp`、`SettingsComponent.h`、`RecordingTypes.h` 等文件中的历史 Phase 重构注释。
+  11. `QUAL-012`：`SettingsComponent.cpp` 仅保留单一 `onStateChange` 回调。
+  12. `QUAL-013`：`MidiTypes.h` 显式添加 `<juce_core/juce_core.h>` 与 `<cstdint>`。
+  13. `QUAL-014`：`StyleCatalogTest.cpp` 删除本地 `findNodeById` 副本，改用 `devpiano::ui::jive::findNodeById` 生产实现。
+  14. `QUAL-015`：`RecordingEngineTest.cpp` 移除与 `RecordingSessionControllerTest` 重复的旧状态机测试。
+- **验证结果**：
+  - `./scripts/dev.sh wsl-build`：Debug 增量构建 0 错误 0 警告（通过）；
+  - `./scripts/dev.sh test`：62 类测试全绿通过（9.72s）；
+  - `./scripts/dev.sh format --check`：0 格式差异通过。
+- **状态变更**：PERF-002~005、RES-001~002、QUAL-003、QUAL-009~015 全部已关闭。P3 累计关闭 24 项，未处理问题降至 **19 项**。
+
 ---
 ## 8. 附录：问题总表（登记表）
 
@@ -612,24 +636,24 @@ source/
 | SEC-007 | 安全 | SettingsStore::file() 静默回退空配置 PropertiesFile | P3 | 已关闭 | 审计 | getUserSettings 返回 null 时回退 Options{} 无 applicationName 的静态文件；写入静默失败仅 DP_LOG_ERROR，且该日志发生在 logger 安装前会丢失 | `source/Settings/SettingsStore.cpp:150-153` | - | - | 已修复：回退路径补齐 jassert 与 DP_LOG_ERROR 告警（复审 5） |
 | ERR-004 | 错误处理 | WavExportTask 死成员 + WavFileExporter.h 过期注释 | P3 | 已关闭 | 审计 | statusLabel/progressBar SafePointer 全文无引用；头注释仍称 "built-in sine synth"，实现为 piano/sine 双音色 | `source/Export/WavExportTask.h:70-71`；`source/Recording/WavFileExporter.h:13-15` vs `WavFileExporter.cpp:24-40` | - | - | 已修复：清理 WavExportTask 未用死成员，更新 WavFileExporter.h 注释（复审 5） |
 | OBS-001 | 可观测性 | initialiseFromPreset 加载失败静默回退默认预设 | P3 | 已关闭 | 审计 | loadPreset 失败无任何日志直接 fallback makeDefaultPreset——预设损坏时用户无从得知 | `source/MainComponent.cpp:260-272` | - | - | 已修复：失败回退时输出 DP_LOG_WARN 明确记录损坏预设 ID 与路径（复审 5） |
-| PERF-002 | 性能 | 回放渲染每块全量扫描事件向量 | P3 | 未处理 | 审计 | renderPlaybackBlock 每块从头遍历 playbackTake.events 无游标；满容量 take（~18 万事件）约 16.9M 次时间戳比较/秒压音频线程 | `source/Recording/RecordingEngine.cpp:305-330` | - | - | 排序后改块游标（复用 WavFileExporter 模式） |
-| PERF-003 | 性能 | MIDI 导入在消息线程同步全量解析+排序 | P3 | 未处理 | 审计 | tryImportMidiFile 直接调 importMidiFileWithMetadata（全量解析 + stable_sort）；大文件导入 UI 冻结无进度提示 | `source/Recording/RecordingSessionController.cpp:504-506`；`source/Recording/MidiTrackMergeEngine.cpp:311,410-418` | - | - | 移后台线程或加事件上限 |
-| PERF-004 | 性能 | master limiter 超阈路径每采样 std::tanh | P3 | 未处理 | 审计 | getNextAudioBlock 的 soft-knee 限幅在 |x|>0.85 时每采样 double tanh；无分配但成本可观（512×2 超阈样本 ~50µs/块）；低于阈值零开销 | `source/Audio/AudioEngine.cpp:145-166` | - | - | 多项式近似或注明设计取舍 |
-| PERF-005 | 性能 | 预设回放变更在 UI 定时器路径全量磁盘扫描 | P3 | 未处理 | 审计 | drainPendingPresetChanges → applyPresetByIndex → refreshCache → scanPresetDirectory 全量读盘+JSON 解析；预设数量大时回放中切换预设造成 UI 卡顿 | `source/MainComponent.cpp:842-848`；`source/Layout/PresetFlowSupport.cpp:25-27,81-85` | - | - | 目录修改时间缓存，变化才重扫 |
-| RES-001 | 资源 | take 多副本峰值内存 ~45MB | P3 | 未处理 | 审计 | stopRecording 返回成员拷贝（无 NRVO）、playbackTake 赋值拷贝、handleExportWavClicked takeCopy 拷贝——满容量 take（~15MB）停止/回放/导出瞬间 2~3 份 | `source/Recording/RecordingEngine.cpp:116,206`；`source/Recording/RecordingSessionController.cpp:175,181` | - | - | move 返回/swap + shared_ptr<const Take> 语义 |
-| RES-002 | 资源 | StyleCatalog ownedStyles 每次 applyToTree 累积无释放 | P3 | 未处理 | 审计 | makeJiveObject 每次对话框打开/设置重建都新建 jive::Object 并永久持有，仅 shutdown 时 releaseOwnedStyles；长会话高频开关对话框缓慢累积 | `source/UI/jive/StyleCatalog.cpp:92-115`；`source/MainComponent.cpp:301` | - | - | applyToNode 复用对象或按树生命周期释放 |
-| QUAL-003 | 质量 | ChannelMatrix::active 契约未实现 | P3 | 未处理 | 审计 | 注释宣称 inactive 时全部 pass-through，但 MidiChannelMapper 全文无任何 matrix.active 读取（仅序列化往返）；默认 true 掩盖问题，预设文件写出 false 时矩阵仍生效 | `source/Midi/MidiChannelMapper.h:18-21`；`source/Midi/MidiChannelMapper.cpp`（grep 零读取） | - | - | 实现 active 检查或删除字段与注释 |
+| PERF-002 | 性能 | 回放渲染每块全量扫描事件向量 | P3 | 已关闭 | 审计 | renderPlaybackBlock 每块从头遍历 playbackTake.events 无游标；满容量 take（~18 万事件）约 16.9M 次时间戳比较/秒压音频线程 | `source/Recording/RecordingEngine.cpp:305-330` | - | - | 已修复：引入 playbackEventIndex 块游标提前 break 扫描（复审 6） |
+| PERF-003 | 性能 | MIDI 导入在消息线程同步全量解析+排序 | P3 | 已关闭 | 审计 | tryImportMidiFile 直接调 importMidiFileWithMetadata（全量解析 + stable_sort）；大文件导入 UI 冻结无进度提示 | `source/Recording/RecordingSessionController.cpp:504-506`；`source/Recording/MidiTrackMergeEngine.cpp:311,410-418` | - | - | 已修复：增加 32MB 文件大小上限与安全守卫（复审 6） |
+| PERF-004 | 性能 | master limiter 超阈路径每采样 std::tanh | P3 | 已关闭 | 审计 | getNextAudioBlock 的 soft-knee 限幅在 |x|>0.85 时每采样 double tanh；无分配但成本可观（512×2 超阈样本 ~50µs/块）；低于阈值零开销 | `source/Audio/AudioEngine.cpp:145-166` | - | - | 已修复：复用共享 helper，注释详述 tanh 取舍（复审 6） |
+| PERF-005 | 性能 | 预设回放变更在 UI 定时器路径全量磁盘扫描 | P3 | 已关闭 | 审计 | drainPendingPresetChanges → applyPresetByIndex → refreshCache → scanPresetDirectory 全量读盘+JSON 解析；预设数量大时回放中切换预设造成 UI 卡顿 | `source/MainComponent.cpp:842-848`；`source/Layout/PresetFlowSupport.cpp:25-27,81-85` | - | - | 已修复：引入目录修改时间缓存机制（复审 6） |
+| RES-001 | 资源 | take 多副本峰值内存 ~45MB | P3 | 已关闭 | 审计 | stopRecording 返回成员拷贝（无 NRVO）、playbackTake 赋值拷贝、handleExportWavClicked takeCopy 拷贝——满容量 take（~15MB）停止/回放/导出瞬间 2~3 份 | `source/Recording/RecordingEngine.cpp:116,206`；`source/Recording/RecordingSessionController.cpp:175,181` | - | - | 已修复：导出链路全面采用 move 语义传递（复审 6） |
+| RES-002 | 资源 | StyleCatalog ownedStyles 每次 applyToTree 累积无释放 | P3 | 已关闭 | 审计 | makeJiveObject 每次对话框打开/设置重建都新建 jive::Object 并永久持有，仅 shutdown 时 releaseOwnedStyles；长会话高频开关对话框缓慢累积 | `source/UI/jive/StyleCatalog.cpp:92-115`；`source/MainComponent.cpp:301` | - | - | 已修复：引入 cachedStyles 缓存按 rule 复用（复审 6） |
+| QUAL-003 | 质量 | ChannelMatrix::active 契约未实现 | P3 | 已关闭 | 审计 | 注释宣称 inactive 时全部 pass-through，但 MidiChannelMapper 全文无任何 matrix.active 读取（仅序列化往返）；默认 true 掩盖问题，预设文件写出 false 时矩阵仍生效 | `source/Midi/MidiChannelMapper.h:18-21`；`source/Midi/MidiChannelMapper.cpp`（grep 零读取） | - | - | 已修复：补齐 !matrix.active pass-through 逻辑（复审 6） |
 | QUAL-004 | 质量 | 插件离线渲染 down-mix 实为截取，且两导出路径限幅行为不一致 | P3 | 已关闭 | 审计 | outputChannels=jmin(...) 后逐通道 copyFrom 无混合——多输出插件导出立体声丢弃 3+ 声道、mono 插件右声道静音；且软限幅仅存在于 fallback synth 路径，插件路径无限幅（靠写入端截断），同一 take 两条路径响度行为不一致 | `source/Recording/PluginOfflineRenderer.cpp:117,163-176`；`source/Recording/WavFileExporter.cpp:134-149` | - | - | 已修复：PluginOfflineRenderer 实现 mono 复制与立体声混合，提取共享 applyMasterSoftLimiter 对齐限幅（复审 4） |
 | QUAL-005 | 质量 | singleTrackOnly 生产路径不可达 | P3 | 已关闭 | 审计 | findNoteRichTrackIndex/singleTrackOnly 仅 options.singleTrackOnly 时调用；生产链使用默认 MidiImportOptions（mergeAllTracks=true）；约 30 行 legacy 代码仅测试覆盖 | `source/Recording/MidiTrackMergeEngine.cpp:147-184`；`source/Recording/MidiFileImporter.cpp:65-66`、`MidiFileImporter.h:15-17` | - | - | 已修复：彻底移除 singleTrackOnly 遗留逻辑，统一多轨时间轴合并（复审 4） |
 | QUAL-006 | 质量 | merge 引擎退化输入处理缺陷（负时间戳统计虚高 + 全 t=0 take 回放瞬时结束） | P3 | 已关闭 | 审计 | 负时间戳事件先计数后丢弃，日志统计与 mergedEventCount 不符；全事件 t=0 的 take lengthSamples=0，回放首块即 ended，而导出取 lastEventEnd+1 正常渲染——回放/导出行为不一致 | `source/Recording/MidiTrackMergeEngine.cpp:341-370,431`；`source/Recording/RecordingEngine.cpp:334-343,360-372`；`source/Recording/RenderPipeline.cpp:41-45` | - | - | 已修复：负时间戳检查前移；lengthSamples 保证至少 1 个采样避免回放瞬时结束（复审 4） |
 | QUAL-007 | 质量 | MainComponent 与 JiveUtils.h 拆树逻辑双份重复 | P2 | 已关闭 | 审计 | clearJiveStyleSheets/collectJiveComponents 在 MainComponent.cpp 匿名空间与 JiveUtils.h 完全重复；修复只改一处则另一处保留旧行为 | `source/MainComponent.cpp:78-88,100-113` vs `source/UI/jive/JiveUtils.h:15-24,27-34` | - | - | 已修复：MainComponent 移除本地副本，改用 JiveUtils.h 生产 helper（复审 2） |
-| QUAL-009 | 质量 | getBuiltinToneFromUi 名不副实 | P3 | 未处理 | 审计 | 实现返回 appSettings.builtinTone（UI 无音色控件），与相邻"真读 UI"的 getPianoBrightness 并列误导维护者 | `source/MainComponent.h:108`；`source/MainComponent.cpp:1086-1088` | - | - | 改名 getBuiltinToneFromSettings 或内联 |
-| QUAL-010 | 质量 | CJK 字体候选链双份维护且已不一致 | P3 | 未处理 | 审计 | LookAndFeel 12 项 fallback 链 vs DesignTokens 7 项 fontconfig 探测列表；两份漂移风险 | `source/UI/DevPianoLookAndFeel.cpp:9-48`；`source/UI/jive/DesignTokens.cpp:246-268` | - | - | 统一到 DesignTokens |
-| QUAL-011 | 质量 | 历史重构注释滞留（Phase 注释） | P3 | 未处理 | 审计 | "Phase 11d 删除 PluginPanel 组件类" 等描述已落地重构的注释随文件存续，与新代码不标 phase 的约定相悖 | `source/UI/PluginTypes.h:6`、`source/UI/PresetDialogs.cpp:6-8`、`source/Settings/SettingsComponent.h:18-21`、`source/UI/RecordingTypes.h:6-9` | - | - | 清理为不带 phase 的现状描述 |
-| QUAL-012 | 质量 | SettingsComponent toggle 的 onClick 与 onStateChange 双重写同一属性 | P3 | 未处理 | 审计 | 每次点击 editingState.setProperty 执行两次（第二次无变化），冗余无害但语义混乱 | `source/Settings/SettingsComponent.h:204-230` | - | - | 仅保留 onStateChange |
-| QUAL-013 | 质量 | MidiTypes.h 缺显式 juce include（传递包含脆弱） | P3 | 未处理 | 审计 | 使用 juce::uint8 但依赖上游传递包含；头文件自包含性破坏风险（与 ADR-012 IWYU 精神冲突） | `source/Core/MidiTypes.h`（grep 无 juce include） | - | - | 补细粒度 juce include |
-| QUAL-014 | 质量 | 测试侧 findNodeById 副本与生产 helper 重复 | P3 | 未处理 | 审计 | StyleCatalogTest 匿名空间副本 vs JiveUtils.h 生产实现；测试本应验证生产 helper 本身 | `source/tests/StyleCatalogTest.cpp:83-92` vs `source/UI/jive/JiveUtils.h:158-166` | - | - | 删除副本，改用生产 helper |
-| QUAL-015 | 质量 | RecordingFlow 状态机测试两份重复维护 | P3 | 未处理 | 审计 | RecordingFlowSupportTest 与 RecordingFlowStateMachineTest 的 chooseRecordingFlowCommand/getStateAfterCommand 矩阵双份，改状态机需改两处 | `source/tests/RecordingEngineTest.cpp:819-873` vs `source/tests/RecordingSessionControllerTest.cpp:106-251` | - | - | 保留一份（后者更全） |
+| QUAL-009 | 质量 | getBuiltinToneFromUi 名不副实 | P3 | 已关闭 | 审计 | 实现返回 appSettings.builtinTone（UI 无音色控件），与相邻"真读 UI"的 getPianoBrightness 并列误导维护者 | `source/MainComponent.h:108`；`source/MainComponent.cpp:1086-1088` | - | - | 已修复：重命名为 getBuiltinToneFromSettings（复审 6） |
+| QUAL-010 | 质量 | CJK 字体候选链双份维护且已不一致 | P3 | 已关闭 | 审计 | LookAndFeel 12 项 fallback 链 vs DesignTokens 7 项 fontconfig 探测列表；两份漂移风险 | `source/UI/DevPianoLookAndFeel.cpp:9-48`；`source/UI/jive/DesignTokens.cpp:246-268` | - | - | 已修复：统一收敛至 DesignTokens::getUnifiedUiFont（复审 6） |
+| QUAL-011 | 质量 | 历史重构注释滞留（Phase 注释） | P3 | 已关闭 | 审计 | "Phase 11d 删除 PluginPanel 组件类" 等描述已落地重构的注释随文件存续，与新代码不标 phase 的约定相悖 | `source/UI/PluginTypes.h:6`、`source/UI/PresetDialogs.cpp:6-8`、`source/Settings/SettingsComponent.h:18-21`、`source/UI/RecordingTypes.h:6-9` | - | - | 已修复：清理为客观现状架构描述（复审 6） |
+| QUAL-012 | 质量 | SettingsComponent toggle 的 onClick 与 onStateChange 双重写同一属性 | P3 | 已关闭 | 审计 | 每次点击 editingState.setProperty 执行两次（第二次无变化），冗余无害但语义混乱 | `source/Settings/SettingsComponent.h:204-230` | - | - | 已修复：仅保留 onStateChange 单一写路径（复审 6） |
+| QUAL-013 | 质量 | MidiTypes.h 缺显式 juce include（传递包含脆弱） | P3 | 已关闭 | 审计 | 使用 juce::uint8 但依赖上游传递包含；头文件自包含性破坏风险（与 ADR-012 IWYU 精神冲突） | `source/Core/MidiTypes.h`（grep 无 juce include） | - | - | 已修复：补齐 <juce_core/juce_core.h> 显式包含（复审 6） |
+| QUAL-014 | 质量 | 测试侧 findNodeById 副本与生产 helper 重复 | P3 | 已关闭 | 审计 | StyleCatalogTest 匿名空间副本 vs JiveUtils.h 生产实现；测试本应验证生产 helper 本身 | `source/tests/StyleCatalogTest.cpp:83-92` vs `source/UI/jive/JiveUtils.h:158-166` | - | - | 已修复：移除副本，改用生产 findNodeById（复审 6） |
+| QUAL-015 | 质量 | RecordingFlow 状态机测试两份重复维护 | P3 | 已关闭 | 审计 | RecordingFlowSupportTest 与 RecordingFlowStateMachineTest 的 chooseRecordingFlowCommand/getStateAfterCommand 矩阵双份，改状态机需改两处 | `source/tests/RecordingEngineTest.cpp:819-873` vs `source/tests/RecordingSessionControllerTest.cpp:106-251` | - | - | 已修复：清理冗余测试，保留完整版本（复审 6） |
 | DOC-001 | 文档 | architecture.md 缺 MidiTrackMergeEngine 模块章节 | P3 | 未处理 | 审计 | Phase 26 新增核心引擎（多轨合并，3 文件）未收录；Recording 章节止于 MidiFileImporter | `docs/reference/architecture.md:126-140` vs `source/Recording/MidiTrackMergeEngine.h/.cpp` | - | - | 补模块章节与多轨合并管线说明 |
 | DOC-002 | 文档 | roadmap 风险表 MainComponent 行数漂移 | P3 | 未处理 | 审计 | 风险表称 "当前 ~1310 行"，实测 1324 行（移除 inspector 后 -14，较 ~1310 仍存在轻微漂移） | `docs/roadmap/roadmap.md:246` vs `source/MainComponent.cpp`（1324 行） | - | - | 更新或改描述性表述 |
 | DOC-003 | 文档 | project-scope "多轨超出定位" 与 Phase 26 多轨并轨能力表述冲突 | P3 | 未处理 | 审计 | scope 表称 "多轨 / 完整 DAW 工作站功能超出定位"，而 Phase 26 已实现多轨并轨导入/回放/导出；边界需澄清（并轨导入 ≠ DAW 多轨工作站） | `docs/reference/project-scope.md:57` vs `docs/roadmap/roadmap.md:223-228` | - | - | 澄清表述 |

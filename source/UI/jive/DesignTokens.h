@@ -71,6 +71,8 @@ public:
     // Returns empty string for unknown token names.
     [[nodiscard]] juce::String resolveToken(const juce::String& name) const;
 
+    /// Unified CJK & system UI font builder shared by LookAndFeel and JIVE (QUAL-010).
+    [[nodiscard]] static juce::Font getUnifiedUiFont(float height = 14.0f, int styleFlags = juce::Font::plain);
     // Test hook: snapshot the current token root for save/restore across
     // unit-test cases (the singleton is shared process-wide).
     [[nodiscard]] juce::var currentRootForTest() const {

@@ -207,15 +207,17 @@ void RecordingSessionController::handleExportWavClicked() {
                 }
             });
 
-            // Phase 2: Background export with progress dialog
+            // Phase 2: Launch background export task (move take to avoid 15MB duplication, RES-001)
             WavExportTask task(std::move(take), file, options, std::move(offlinePlugin), &owner);
-            task.runThread(); // blocks message thread via nested message loop
-
-            if (task.wasSuccessful()) {
+            const auto ok = task.runThread();
+            if (ok) {
                 DP_LOG_INFO("[Export] WAV exported: " + file.getFullPathName());
                 return true;
             }
 
+            if (!task.getErrorMessage().isEmpty()) {
+                owner.showStatusMessage(TRANS("Export failed: ") + task.getErrorMessage(), 3000);
+            }
             DP_LOG_WARN("[Export] WAV export " + task.getErrorMessage());
             return false;
         });

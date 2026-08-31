@@ -102,7 +102,7 @@ private:
     void initialiseUi();
     [[nodiscard]] juce::Rectangle<int> getInitialMainContentBounds() const;
     [[nodiscard]] SettingsModel::PerformanceSettingsView getPerformanceSettingsFromUi() const;
-    [[nodiscard]] SettingsModel::BuiltinTone getBuiltinToneFromUi() const;
+    [[nodiscard]] SettingsModel::BuiltinTone getBuiltinToneFromSettings() const;
     [[nodiscard]] float getPianoBrightness() const;
     [[nodiscard]] float getPianoHammerHardness() const;
     [[nodiscard]] float getPianoResonance() const;

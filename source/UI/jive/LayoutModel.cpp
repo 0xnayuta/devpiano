@@ -581,8 +581,6 @@ void refreshTitles(::jive::GuiItem& root) {
         { "speed-knob", "Playback Speed" },
         { "stop-btn", "Stop" },
         { "back-btn", "Back to Start" },
-        { "speed-knob", "Playback Speed" },
-        { "keyboard-area", "Keyboard Area" },
         { "custom-keyboard", "Keyboard" },
     };
 

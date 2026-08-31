@@ -7,6 +7,7 @@
 
 namespace {
 
+constexpr std::int64_t kMaxMidiFileSizeBytes = 32 * 1024 * 1024; // 32MB guard (SEC-002 / PERF-003)
 bool readMidiFile(juce::MidiFile& midiFile, const juce::File& file) {
     std::unique_ptr<juce::FileInputStream> stream { file.createInputStream() };
     if (!stream) {
@@ -38,6 +39,10 @@ std::optional<MidiTrackMergeResult> importMidiFileWithMetadata(const juce::File&
         return std::nullopt;
     }
 
+    if (midiFile.getSize() > kMaxMidiFileSizeBytes) {
+        DP_LOG_ERROR("MidiFileImporter: file exceeds maximum allowed size (32MB): " + midiFile.getFullPathName());
+        return std::nullopt;
+    }
     juce::MidiFile file;
     if (!readMidiFile(file, midiFile)) {
         return std::nullopt;

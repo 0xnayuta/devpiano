@@ -58,19 +58,7 @@ void registerRootComponentFactory(::jive::Interpreter& interpreter) {
 juce::File findShippedStyleSheet() {
     return devpiano::test::findRepoRoot().getChildFile("source/UI/jive/style_sheets.json");
 }
-
-juce::ValueTree findNodeById(const juce::ValueTree& root, const juce::String& id) {
-    if (root.getProperty("id").toString() == id) {
-        return root;
-    }
-    for (auto child : root) {
-        if (auto found = findNodeById(child, id); found.isValid()) {
-            return found;
-        }
-    }
-    return {};
-}
-
+using devpiano::ui::jive::findNodeById;
 } // namespace
 
 class StyleCatalogTest final : public juce::UnitTest {

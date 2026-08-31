@@ -249,6 +249,44 @@ static juce::String resolveUiFontFamily() {
     return juce::Font::getSystemUIFontName();
 }
 
+juce::Font DesignTokens::getUnifiedUiFont(float height, int styleFlags) {
+#if JUCE_LINUX
+    return juce::Font(juce::FontOptions("Noto Sans CJK SC", height, styleFlags)
+                          .withFallbacks({
+                              "Source Han Sans SC",
+                              "Source Han Sans CN",
+                              "Noto Sans SC",
+                              "WenQuanYi Micro Hei",
+                              "WenQuanYi Zen Hei",
+                              "Ubuntu",
+                              "Cantarell",
+                              "Inter",
+                              "Liberation Sans",
+                              "DejaVu Sans",
+                              "sans-serif",
+                          }));
+#else
+    return juce::Font(juce::FontOptions("Microsoft YaHei UI", height, styleFlags)
+                          .withFallbacks({
+                              "Microsoft YaHei",
+                              "Segoe UI",
+                              "PingFang SC",
+                              "Hiragino Sans GB",
+                              "Noto Sans CJK SC",
+                              "Source Han Sans SC",
+                              "Source Han Sans CN",
+                              "Noto Sans SC",
+                              "WenQuanYi Micro Hei",
+                              "WenQuanYi Zen Hei",
+                              "Ubuntu",
+                              "Cantarell",
+                              "Inter",
+                              "Liberation Sans",
+                              "DejaVu Sans",
+                              "sans-serif",
+                          }));
+#endif
+}
 juce::String DesignTokens::resolveToken(const juce::String& name) const {
     // 颜色：经 getter 解析（JSON 未加载时回退到内置默认，与 shipped 文件一致）。
     if (name == "main-bg") {
