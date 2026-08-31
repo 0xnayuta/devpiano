@@ -122,8 +122,9 @@ if (MSVC)
         /Zc:__cplusplus
         /W4
         # JUCE 模块 .c 文件使 target 含 C 语言，CMake 为 C 生成 PCH 桩；
-        # pch.h 为 STL-only（ADR-011），C 模式下为空翻译单元触发 C4206，无害
-        $<$<COMPILE_LANGUAGE:C>:/wd4206>
+        # pch.h 为 STL-only（ADR-011），C 模式下为空翻译单元触发 C4206，无害；
+        # JUCE 第三方 C 模块（如 SheenBidi SBBase.c）在 Release 优化下未引用内部静态函数触发 C4505，无害
+        $<$<COMPILE_LANGUAGE:C>:/wd4206 /wd4505>
     )
 endif()
 
@@ -339,8 +340,9 @@ if (BUILD_TESTS)
             /Zc:__cplusplus
             /W4
             # JUCE 模块 .c 文件使 target 含 C 语言，CMake 为 C 生成 PCH 桩；
-            # pch.h 为 STL-only（ADR-011），C 模式下为空翻译单元触发 C4206，无害
-            $<$<COMPILE_LANGUAGE:C>:/wd4206>
+            # pch.h 为 STL-only（ADR-011），C 模式下为空翻译单元触发 C4206，无害；
+            # JUCE 第三方 C 模块（如 SheenBidi SBBase.c）在 Release 优化下未引用内部静态函数触发 C4505，无害
+            $<$<COMPILE_LANGUAGE:C>:/wd4206 /wd4505>
         )
     endif()
     # 生产代码（被测模块）：只包含无 GUI/设备依赖的纯逻辑层

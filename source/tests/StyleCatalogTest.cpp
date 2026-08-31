@@ -894,10 +894,11 @@ private:
         combo->setBounds(0, 0, 250, 28);
         const auto bg = juce::Colour(0xff202327);
         juce::Image img(juce::Image::ARGB, 250, 28, true);
-        juce::Graphics g(img);
-        g.fillAll(bg);
-        combo->paintEntireComponent(g, true);
-
+        {
+            juce::Graphics g(img);
+            g.fillAll(bg);
+            combo->paintEntireComponent(g, true);
+        }
         int light = 0;
         for (int y = 0; y < 28; y += 2) {
             for (int x = 0; x < 250; x += 2) {
@@ -1009,11 +1010,12 @@ private:
     [[nodiscard]] static int countLightPixels(juce::Component& component, int width, int height) {
         const auto bg = juce::Colour(0xff202327);
         auto image = juce::Image(juce::Image::ARGB, width, height, true);
-        juce::Graphics g(image);
-        g.fillAll(bg); // app background
-        component.setBounds(0, 0, width, height);
-        component.paintEntireComponent(g, true);
-
+        {
+            juce::Graphics g(image);
+            g.fillAll(bg); // app background
+            component.setBounds(0, 0, width, height);
+            component.paintEntireComponent(g, true);
+        }
         int light = 0;
         for (int y = 0; y < height; y += 2) {
             for (int x = 0; x < width; x += 2) {

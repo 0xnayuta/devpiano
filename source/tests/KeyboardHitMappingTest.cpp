@@ -149,17 +149,18 @@ private:
             kb.setVisible(true);
             kb.setSize(1800, 128);
             juce::Image image(juce::Image::ARGB, 1800, 128, true);
-            juce::Graphics g(image);
+            {
+                juce::Graphics g(image);
 
-            // Full paint
-            kb.paintEntireComponent(g, true);
+                // Full paint
+                kb.paintEntireComponent(g, true);
 
-            // Dirty rect clipped paint (single key region)
-            g.saveState();
-            g.reduceClipRegion(juce::Rectangle<int>(840, 0, 48, 128));
-            kb.paintEntireComponent(g, true);
-            g.restoreState();
-
+                // Dirty rect clipped paint (single key region)
+                g.saveState();
+                g.reduceClipRegion(juce::Rectangle<int>(840, 0, 48, 128));
+                kb.paintEntireComponent(g, true);
+                g.restoreState();
+            }
             // Observable assertion (TEST-008): verify painted pixels exist in rendered buffer
             // (sampled across keybed region x in [276, 1524])
             bool hasNonTransparentPixels = false;
