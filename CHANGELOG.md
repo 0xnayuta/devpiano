@@ -1,5 +1,28 @@
 ## [Unreleased]
 
+## [1.0.2] - 2026-08-31
+
+Full code quality audit closure (AUDIT-002), realtime thread safety and plugin lifecycle hardening, SettingsComponent modularization, headless WAV export testing support, Direct2D test rendering stabilization, obsolete submodule cleanup (ADR-013), and MSVC Release build polish.
+
+### Added
+
+- **PR-Agent AI Code Review Workflow** (`.github/workflows/pr-agent.yml`) — automated Gemini 3.7 Flash powered PR review, description generation, and interactive on-demand commands.
+- **Headless WAV Audio Export Mode** (`WavExportTask`) — headless execution support for batch and test runs, eliminating GUI progress dialog creation in non-interactive environments.
+- **Expanded Deterministic Test Suite** — comprehensive unit tests covering physical modeling parameters, settings persistence, performance presets, and serialization flows.
+
+### Changed
+
+- **SettingsComponent Architecture Modularization** — extracted monolithic 760-line inline header into dedicated `SettingsComponent.cpp`, cleanly decoupling audio, display, and channel matrix view builders.
+- **Submodule Tree Lean Optimization (ADR-013)** — removed obsolete `melatonin_inspector` submodule and cleaned up repository build configuration and documentation references.
+- **MSVC Release Linker & Concurrency Tuning** — enabled `/CGTHREADS:8` for multi-threaded link-time code generation and unbuffered stdout in test runners under Windows.
+
+### Fixed
+
+- **Realtime Thread Safety & Plugin Lifecycle Hardening** — reinforced destruction order and state guards in `PluginHost` and `MainComponent` to eliminate potential race conditions during audio device reconfiguration and app teardown.
+- **Audio Device Diagnostics Robustness** — hardened `AudioDeviceDiagnostics` against null device states and hardware disconnections.
+- **Direct2D Off-Screen Render Test Stability** — scoped `juce::Graphics` contexts with RAII blocks across `KeyboardHitMappingTest` and `StyleCatalogTest`, ensuring Direct2D flushes before pixel sampling assertions.
+- **MSVC Release Compiler Warning C4505** — suppressed harmless unreferenced static function removal warnings for third-party C translation units (SheenBidi) in Release builds.
+
 ## [1.0.1] - 2026-08-31
 
 Multi-track MIDI timeline merge engine, flexible multi-channel routing strategies, dynamically-colored virtual keyboard playback, physical modeling synth gain staging refinement with master soft-knee limiter, Linux native windowing and CJK typography polish, robust test fixture path resolution, and modern compiler cache build acceleration pipeline.
@@ -51,6 +74,7 @@ Official v1.0.0 milestone release of devpiano — modern computer keyboard piano
 - Virtual keyboard height clipping fixed, ensuring 100% vertical viewport fill without shrinking.
 - App title "devpiano" 'p' descender clipping in window header resolved.
 - Keyboard hit detection geometry updated to accurately handle symmetrical horizontal centering offsets.
+
 ## [0.4.0] - 2026-08-20
 
 Enhanced physical modeling piano synthesizer (Enhanced Modal Piano v3), real-time global key signature and playback transposition pipeline, virtual keyboard dirty rectangle optimization, preset overwrite confirmation, 16-channel routing matrix, dual tone engine switching, and comprehensive UI/visual polish.
@@ -93,6 +117,7 @@ Enhanced physical modeling piano synthesizer (Enhanced Modal Piano v3), real-tim
 - Voice retrigger transient clicks eliminated by resetting resonator filter states.
 - Custom key label editor 32-character length restriction restored.
 - Live settings reconfiguration hooks added for instant auditioning of key signature and channel matrix changes.
+
 ## [0.3.0] - 2026-08-16
 
 Performance presets, per-key personalization, dark UI modernization, JIVE declarative UI migration, and the first full code-quality audit closure.
