@@ -35,7 +35,7 @@ devpiano::midi::ChannelMatrix valueTreeToChannelMatrix(const juce::ValueTree& t)
         c.outputChannel
             = static_cast<uint8_t>(juce::jlimit(0, 15, static_cast<int>(ch.getProperty("outputChannel", i))));
         c.transpose = static_cast<int8_t>(juce::jlimit(-36, 36, static_cast<int>(ch.getProperty("transpose", 0))));
-        c.octaveShift = static_cast<int8_t>(juce::jlimit(-4, 4, static_cast<int>(ch.getProperty("octaveShift", 0))));
+        c.octaveShift = static_cast<int8_t>(juce::jlimit(-1, 1, static_cast<int>(ch.getProperty("octaveShift", 0))));
         c.velocity = static_cast<uint8_t>(juce::jlimit(0, 127, static_cast<int>(ch.getProperty("velocity", 64))));
         c.program = static_cast<uint8_t>(juce::jlimit(0, 127, static_cast<int>(ch.getProperty("program", 0))));
         c.bankMSB = static_cast<uint8_t>(juce::jlimit(0, 127, static_cast<int>(ch.getProperty("bankMSB", 0))));

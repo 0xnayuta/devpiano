@@ -160,9 +160,20 @@ private:
             kb.paintEntireComponent(g, true);
             g.restoreState();
 
-            expect(true, "CustomKeyboard paint completed under dirty rect clipping");
+            // Observable assertion (TEST-008): verify painted pixels exist in rendered buffer
+            bool hasNonTransparentPixels = false;
+            for (int y = 0; y < 128 && !hasNonTransparentPixels; y += 16) {
+                for (int x = 0; x < 1800 && !hasNonTransparentPixels; x += 32) {
+                    if (image.getPixelAt(x, y).getAlpha() > 0) {
+                        hasNonTransparentPixels = true;
+                    }
+                }
+            }
+            expect(hasNonTransparentPixels,
+                   "CustomKeyboard paint rendered visible pixels into image under dirty rect clipping");
         });
     }
+
     void testReleaseHeldMouseNote() {
         testCase("releaseHeldMouseNote is a no-op without a held mouse note", [&] {
             juce::MidiKeyboardState ks;

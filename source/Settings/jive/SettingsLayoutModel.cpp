@@ -273,7 +273,7 @@ juce::ValueTree makeSaveActionSectionTree() {
 juce::ValueTree makeSettingsLayoutTree() {
     auto root = flexColumn("settings-root");
     root.setProperty("width", 680, nullptr);
-    root.setProperty("height", 960, nullptr);
+    root.setProperty("height", kSettingsLayoutContentHeight, nullptr);
     root.setProperty("padding", "10", nullptr);
     root.appendChild(makeAudioDeviceSectionTree(), nullptr);
     root.appendChild(makeKeySignatureSectionTree(), nullptr);

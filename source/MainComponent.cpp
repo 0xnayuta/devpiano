@@ -703,13 +703,18 @@ void MainComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& buffer
 void MainComponent::releaseResources() {
     audioEngine.releaseResources();
 }
-
+// Thread contract (THR-003):
+// MidiKeyboardState::Listener callbacks are delivered synchronously on the
+// thread that generated the key/MIDI event. In devpiano, noteOn/noteOff are
+// dispatched from computer keyboard handlers on the message thread.
+// notifyMidiActivity triggers a JIVE tree property update (UI mutation), so
+// callers must ensure this runs on the message thread.
 void MainComponent::handleNoteOn(juce::MidiKeyboardState*, int, int, float velocity) {
+    jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
     if (velocity > 0.0f) {
         notifyMidiActivity();
     }
 }
-
 void MainComponent::handleNoteOff(juce::MidiKeyboardState*, int, int, float) {
 }
 

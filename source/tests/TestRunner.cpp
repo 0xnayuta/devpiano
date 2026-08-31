@@ -18,11 +18,10 @@
 
 class ConsoleTestRunner final : public juce::UnitTestRunner {
 public:
-    ConsoleTestRunner() {
-        setPassesAreLogged(true);
+    explicit ConsoleTestRunner(bool verbose = false) {
+        setPassesAreLogged(verbose);
         setAssertOnFailure(false);
     }
-
     void logMessage(const juce::String& message) override {
         juce::Logger::writeToLog(message);
         std::cout << message << std::endl;
@@ -55,6 +54,7 @@ int main(int argc, char** argv) {
     juce::ScopedJuceInitialiser_GUI guiInitialiser;
     juce::ConsoleApplication app;
 
+    bool verbose = false;
     bool includeFiles = false;
     bool includeJuce = false;
     juce::String categoryFilter;
@@ -64,10 +64,9 @@ int main(int argc, char** argv) {
     for (int i = 1; i < argc; ++i) {
         const juce::String arg(argv[i]);
         if (arg == "--verbose" || arg == "-v") {
-            // verbose mode enabled (logs already print to stdout by default)
+            verbose = true;
         } else if (arg == "--include-files") {
             includeFiles = true;
-        } else if (arg == "--include-juce") {
             includeJuce = true;
         } else if (arg == "--skip-category" && i + 1 < argc) {
             skipCategories.add(juce::String(argv[++i]));
@@ -102,8 +101,7 @@ int main(int argc, char** argv) {
         skipCategories.removeAllInstancesOf("Files");
     }
 
-    ConsoleTestRunner runner;
-
+    ConsoleTestRunner runner(verbose);
     auto allTests = juce::UnitTest::getAllTests();
 
     if (allTests.isEmpty()) {
@@ -127,12 +125,11 @@ int main(int argc, char** argv) {
         }
     } else {
         // Default: project tests only (fast). Categories follow the
-        // "DevPiano/<area>" scheme; "Files" stays skippable by default
+        // "DevPiano/<area>" prefix scheme (TEST-014); "Files" stays skippable by default
         // (WSL root POSIX access(W_OK) quirk).
-        const juce::StringArray projectCategories
-            = { "DevPiano/Core", "DevPiano/Recording", "DevPiano/Engine", "DevPiano/UI", "Files" };
         for (auto* t : allTests) {
-            if (projectCategories.contains(t->getCategory()) && !skipCategories.contains(t->getCategory())) {
+            const auto cat = t->getCategory();
+            if ((cat.startsWith("DevPiano/") || cat == "Files") && !skipCategories.contains(cat)) {
                 testsToRun.add(t);
             }
         }

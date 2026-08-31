@@ -1,9 +1,9 @@
 #pragma once
 
 #include "Settings/SettingsModel.h"
+#include "Settings/jive/SettingsLayoutModel.h"
 #include <array>
 #include <functional>
-#include <jive_layouts/jive_layouts.h>
 #include <juce_audio_devices/juce_audio_devices.h>
 #include <juce_core/juce_core.h>
 #include <juce_data_structures/juce_data_structures.h>
@@ -60,9 +60,8 @@ private:
 
     static constexpr std::array<int, 13> comboKeyMapping { 0, 0, 1, 2, 3, 4, 5, 6, -5, -4, -3, -2, -1 };
     [[nodiscard]] static int keySignatureToComboId(int ks);
-
     [[nodiscard]] int calculateSettingsContentHeight() const {
-        return 960;
+        return devpiano::ui::jive::kSettingsLayoutContentHeight;
     }
     void updateContentBounds();
     void updateFollowKeyTogglesEnablement();

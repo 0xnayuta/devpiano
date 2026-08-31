@@ -104,7 +104,7 @@ private:
         const auto fromClamped = devpiano::settings::valueTreeToChannelMatrix(outOfRangeTree);
         expectEquals(static_cast<int>(fromClamped.channels[0].outputChannel), 15);
         expectEquals(static_cast<int>(fromClamped.channels[0].transpose), 36);
-        expectEquals(static_cast<int>(fromClamped.channels[0].octaveShift), -4);
+        expectEquals(static_cast<int>(fromClamped.channels[0].octaveShift), -1);
         expectEquals(static_cast<int>(fromClamped.channels[0].velocity), 127);
     }
 

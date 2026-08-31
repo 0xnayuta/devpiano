@@ -84,14 +84,15 @@
 - [x] `QUAL-013`：`MidiTypes.h` 补充显式细粒度 JUCE include
 - [x] `QUAL-014`：测试侧 `findNodeById` 副本清理并改用生产 helper
 - [x] `QUAL-015`：`RecordingFlow` 状态机两份重复测试归并
-### AUDIT-002 Phase G：测试基础设施与工程化合规（P3 门禁与环境健壮性）
+
+### AUDIT-002 Phase G：测试基础设施与工程化合规（P3 门禁与环境健壮性） [已完成，2026-08-31]
 > 目标：消除测试假绿与环境脆弱性、满足 ADR 决策与工程纪律。
 
-- [ ] `TEST-008`~`TEST-016`：测试断言可观察化（`KeyboardHitMapping`）、补全失败上下文（`StyleCatalog`）、补静音断言（`AudioEngine`）、像素断言对比化、全局 tokens/L&F/locale 变更 RAII 守卫还原、`TestRunner` 类别白名单前缀匹配与 `--verbose` 参数处理
-- [ ] `ENG-001`：多实例启动保护与参数转发/文件锁机制
-- [ ] `ENG-002`：设置窗口内容高度从布局树动态计算，消除 960 魔法数
-- [ ] `CMPL-001`：`TestHelpers.h` 迁移至细粒度包含，消除 ADR-012 字面违规
-- [ ] `THR-003`：`MidiKeyboardState` 监听器回调消息线程契约文档化
+- [x] `TEST-008`~`TEST-016`：测试断言可观察化（`KeyboardHitMapping`）、补全失败上下文（`StyleCatalog`）、补静音断言（`AudioEngine`）、像素断言对比化、全局 tokens/L&F/locale 变更 RAII 守卫还原、`TestRunner` 类别白名单前缀匹配与 `--verbose` 参数处理
+- [x] `ENG-001`：多实例启动保护与参数转发/文件锁机制
+- [x] `ENG-002`：设置窗口内容高度从布局树动态计算，消除 960 魔法数
+- [x] `CMPL-001`：`TestHelpers.h` 迁移至细粒度包含，消除 ADR-012 字面违规
+- [x] `THR-003`：`MidiKeyboardState` 监听器回调消息线程契约文档化
 
 ### AUDIT-002 Phase H：文档体系治理与全量复验（P3 文档与全套门禁闭环）
 > 目标：文档与架构对齐、全量构建与三闸门及 Windows 验证闭环。

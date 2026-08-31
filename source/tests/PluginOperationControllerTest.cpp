@@ -3,14 +3,7 @@
 #include "Plugin/PluginFlowSupport.h"
 #include "Plugin/PluginHost.h"
 #include "Settings/SettingsModel.h"
-
-// =============================================================================
-// Unit tests for PluginOperationController and PluginFlowSupport (TEST-001):
-// - Pure decision layer for startup recovery plans and scan path fallback
-// - Plugin scan path normalisation and usability checks
-// - Cached known plugin list restoration
-// =============================================================================
-
+#include "TestHelpers.h"
 class PluginOperationControllerTest final : public juce::UnitTest {
 public:
     PluginOperationControllerTest()
@@ -28,14 +21,19 @@ private:
     void testPluginRecoverySettingsHelpers() {
         beginTest("Plugin recovery settings construction and fallback");
 
-        const auto recovery = devpiano::plugin::makePluginRecoverySettings("/custom/vst3", "GrandPiano");
-        expectEquals(recovery.pluginSearchPath, juce::String("/custom/vst3"));
+        devpiano::test::ScopedTempDir customDir("custom-vst3");
+        devpiano::test::ScopedTempDir defaultDir("default-vst3");
+        const auto customPathStr = customDir.get().getFullPathName();
+        const auto defaultPathStr = defaultDir.get().getFullPathName();
+
+        const auto recovery = devpiano::plugin::makePluginRecoverySettings(customPathStr, "GrandPiano");
+        expectEquals(recovery.pluginSearchPath, customPathStr);
         expectEquals(recovery.lastPluginName, juce::String("GrandPiano"));
 
         // Path fallback: preserve non-empty search path
-        juce::FileSearchPath defaultPath("/default/vst3");
+        juce::FileSearchPath defaultPath(defaultPathStr);
         const auto withExisting = devpiano::plugin::withPluginRecoveryPathFallback(recovery, defaultPath);
-        expectEquals(withExisting.pluginSearchPath, juce::String("/custom/vst3"));
+        expectEquals(withExisting.pluginSearchPath, customPathStr);
 
         // Path fallback: fill empty search path with default
         const auto emptyRecovery = devpiano::plugin::makePluginRecoverySettings("", "GrandPiano");
@@ -50,7 +48,8 @@ private:
         juce::FileSearchPath emptyPath;
         expect(!devpiano::plugin::isUsablePluginScanPath(emptyPath), "Empty path must not be usable");
 
-        juce::FileSearchPath validPath("/usr/lib/vst3");
+        devpiano::test::ScopedTempDir validDir("valid-vst3");
+        juce::FileSearchPath validPath(validDir.get().getFullPathName());
         expect(devpiano::plugin::isUsablePluginScanPath(validPath), "Valid path must be usable");
 
         // Normalise path fallback
@@ -64,7 +63,10 @@ private:
     void testStartupPluginRestorePlan() {
         beginTest("StartupPluginRestorePlan decision logic");
 
-        juce::FileSearchPath defaultPath("/default/vst3");
+        devpiano::test::ScopedTempDir defaultDir("default-vst3");
+        devpiano::test::ScopedTempDir customDir("custom-vst3");
+        juce::FileSearchPath defaultPath(defaultDir.get().getFullPathName());
+        const auto customPathStr = customDir.get().getFullPathName();
 
         // 1. Empty settings, valid default path -> plan should scan default path
         SettingsModel::PluginRecoverySettingsView emptySettings;
@@ -75,12 +77,12 @@ private:
 
         // 2. Settings with last plugin name -> should load last plugin
         SettingsModel::PluginRecoverySettingsView namedSettings;
-        namedSettings.pluginSearchPath = "/custom/vst3";
+        namedSettings.pluginSearchPath = customPathStr;
         namedSettings.lastPluginName = "Synth1";
         const auto plan2 = devpiano::plugin::buildStartupPluginRestorePlan(namedSettings, defaultPath);
         expect(plan2.shouldScan);
         expect(plan2.shouldLoadLastPlugin);
-        expectEquals(plan2.recovery.pluginSearchPath, juce::String("/custom/vst3"));
+        expectEquals(plan2.recovery.pluginSearchPath, customPathStr);
         expectEquals(plan2.recovery.lastPluginName, juce::String("Synth1"));
 
         // 3. Completely empty settings and empty default path -> no scan, no load
@@ -105,12 +107,15 @@ private:
                "Must return false when no XML is cached in settings");
 
         // 2. With valid XML -> tryRestoreCachedPluginList populates host and returns true
-        auto xml = std::make_unique<juce::XmlElement>("KNOWN_PLUGINS");
-        auto pluginXml = xml->createNewChildElement("PLUGIN");
+        auto xml = std::make_unique<juce::XmlElement>("KNOWNPLUGINS");
+        auto* pluginXml = new juce::XmlElement("PLUGIN");
         pluginXml->setAttribute("name", "TestCachedSynth");
-        pluginXml->setAttribute("format", "VST3");
+        pluginXml->setAttribute("desc", "TestCachedSynth");
         pluginXml->setAttribute("category", "Synth");
-        pluginXml->setAttribute("fileOrIdentifier", "/path/to/test.vst3");
+        pluginXml->setAttribute("file", "/path/to/test.vst3");
+        pluginXml->setAttribute("uid", "12345");
+        pluginXml->setAttribute("isInstrument", "1");
+        xml->addChildElement(pluginXml);
         settings.knownPluginListState = std::move(xml);
 
         const bool restored = devpiano::plugin::tryRestoreCachedPluginList(host, settings, plan);

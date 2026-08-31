@@ -1,8 +1,10 @@
 #pragma once
 
-#include <JuceHeader.h>
 #include <cmath>
-
+#include <cstdlib>
+#include <juce_core/juce_core.h>
+#include <juce_graphics/juce_graphics.h>
+#include <juce_gui_basics/juce_gui_basics.h>
 namespace devpiano::test {
 
 // ============================================================================
@@ -112,5 +114,39 @@ inline juce::File findRepoRoot() {
 inline juce::File getFixturesDir() {
     return findRepoRoot().getChildFile("tests/fixtures");
 }
+
+// ============================================================================
+// ScopedLocaleReset: RAII guard that restores the current LocalisedStrings on scope exit (TEST-016).
+// ============================================================================
+class ScopedLocaleReset final {
+public:
+    ScopedLocaleReset()
+        : previousLocale(juce::LocalisedStrings::getCurrentMappings()) {
+    }
+
+    ~ScopedLocaleReset() {
+        juce::LocalisedStrings::setCurrentMappings(previousLocale);
+    }
+
+    ScopedLocaleReset(const ScopedLocaleReset&) = delete;
+    ScopedLocaleReset& operator=(const ScopedLocaleReset&) = delete;
+
+private:
+    juce::LocalisedStrings* previousLocale = nullptr;
+};
+
+// ============================================================================
+// ScopedDefaultLookAndFeelReset: RAII guard that restores DefaultLookAndFeel on scope exit (TEST-013).
+// ============================================================================
+class ScopedDefaultLookAndFeelReset final {
+public:
+    ScopedDefaultLookAndFeelReset() = default;
+    ~ScopedDefaultLookAndFeelReset() {
+        juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
+    }
+
+    ScopedDefaultLookAndFeelReset(const ScopedDefaultLookAndFeelReset&) = delete;
+    ScopedDefaultLookAndFeelReset& operator=(const ScopedDefaultLookAndFeelReset&) = delete;
+};
 
 } // namespace devpiano::test

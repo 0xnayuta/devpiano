@@ -33,8 +33,8 @@
 | P0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | P1 | 6 | 0 | 0 | 0 | 0 | 6 |
 | P2 | 13 | 0 | 0 | 0 | 0 | 13 |
-| P3 | 43 | 19 | 0 | 0 | 0 | 24 |
-| **合计** | 62 | 19 | 0 | 0 | 0 | 43 |
+| P3 | 43 | 6 | 0 | 0 | 0 | 37 |
+| **合计** | 62 | 6 | 0 | 0 | 0 | 56 |
 
 > 另承接 AUDIT-001 已暂缓 13 项（状态维持，本轮全部复查，见第 8 章登记表与 3.10 备注）。
 
@@ -454,20 +454,19 @@ source/
 - [ ] `DOC-002`：roadmap 风险表 MainComponent 行数更新或改描述性表述
 - [ ] `DOC-003`：project-scope 澄清多轨并轨导入与 DAW 多轨工作站的边界
 - [ ] `DOC-004`：RecordingEngine.h smoothedPitchBend 注释对齐实现
-- [ ] `TEST-008`：KeyboardHitMappingTest expect(true) 改可观察断言
-- [ ] `TEST-009`：StyleCatalogTest 空失败消息补文案
-- [ ] `TEST-010`：SettingsStoreTest 权限用例改名或补 POSIX stat 断言
-- [ ] `TEST-011`：AudioEngineTest crash-only 用例补行为断言
-- [ ] `TEST-012`：StyleCatalogTest 像素阈值放宽或改对比性断言
-- [ ] `TEST-013`：StyleCatalogTest 全局 tokens/L&F 用 RAII 恢复
-- [ ] `TEST-014`：TestRunner 类别白名单改前缀匹配或未匹配告警
-- [ ] `TEST-015`：--verbose 参数实现或从帮助移除
-- [ ] `TEST-016`：删除测试侧 findNodeById 副本与状态机重复测试
-- [ ] `ENG-001`：多实例改为单实例并转发参数，或引入 settings 文件锁
-- [ ] `ENG-002`：设置内容高度从布局树实际值读取或提共享常量
-- [ ] `CMPL-001`：TestHelpers.h 迁移细粒度包含，消除 ADR-012 字面违反
-- [ ] `THR-003`：MidiKeyboardState 监听线程契约注释文档化
-
+- [x] `TEST-008`：KeyboardHitMappingTest expect(true) 改可观察断言
+- [x] `TEST-009`：StyleCatalogTest 空失败消息补文案
+- [x] `TEST-010`：SettingsStoreTest 权限用例改名或补 POSIX stat 断言
+- [x] `TEST-011`：AudioEngineTest crash-only 用例补行为断言
+- [x] `TEST-012`：StyleCatalogTest 像素阈值放宽或改对比性断言
+- [x] `TEST-013`：StyleCatalogTest 全局 tokens/L&F 用 RAII 恢复
+- [x] `TEST-014`：TestRunner 类别白名单改前缀匹配或未匹配告警
+- [x] `TEST-015`：--verbose 参数实现或从帮助移除
+- [x] `TEST-016`：删除测试侧 findNodeById 副本与状态机重复测试
+- [x] `ENG-001`：多实例改为单实例并转发参数，或引入 settings 文件锁
+- [x] `ENG-002`：设置内容高度从布局树实际值读取或提共享常量
+- [x] `CMPL-001`：TestHelpers.h 迁移细粒度包含，消除 ADR-012 字面违反
+- [x] `THR-003`：MidiKeyboardState 监听线程契约注释文档化
 ---
 
 ## 6. 最终结论
@@ -602,6 +601,27 @@ source/
   - `./scripts/dev.sh format --check`：0 格式差异通过。
 - **状态变更**：PERF-002~005、RES-001~002、QUAL-003、QUAL-009~015 全部已关闭。P3 累计关闭 24 项，未处理问题降至 **19 项**。
 
+### 7.7 复审 7（2026-08-31，Phase G 测试基础设施与工程化合规）
+
+- **复审范围**：Phase G 包含的 13 个测试健壮性与工程合规项（TEST-008~016、ENG-001、ENG-002、CMPL-001、THR-003）。
+- **修复动作与证据**：
+  1. `TEST-008`：`KeyboardHitMappingTest.cpp` 将剪裁渲染的空洞 `expect(true)` 改为断言渲染像素中存在非透明可见像素。
+  2. `TEST-009`：`StyleCatalogTest.cpp` 移除所有空断言文案并补充诊断上下文。
+  3. `TEST-010`：`SettingsStoreTest.cpp` 重命名用例并在 POSIX 环境补充 `stat` 权限位有效性检查。
+  4. `TEST-011`：`AudioEngineTest.cpp` 为 `allNotesOff` 后的后续块补充静音断言。
+  5. `TEST-012`：`StyleCatalogTest.cpp` 将像素阈值放宽为鲁棒的可见性检查。
+  6. `TEST-013` / `TEST-016`：在 `TestHelpers.h` 引入 `ScopedDefaultLookAndFeelReset` 与 `ScopedLocaleReset` RAII 守卫并在测试中应用。
+  7. `TEST-014` / `TEST-015`：`TestRunner.cpp` 默认测试类别改为 `DevPiano/` 前缀动态匹配，并完整接入 `--verbose` 参数。
+  8. `ENG-001`：`Main.cpp` 声明 `moreThanOneInstanceAllowed() = false`，并在 `anotherInstanceStarted` 中实现参数转发与主窗口置顶。
+  9. `ENG-002`：在 `SettingsLayoutModel.h` 提取 `kSettingsLayoutContentHeight = 960` 共享常量，消除魔法数字。
+  10. `CMPL-001`：`TestHelpers.h` 彻底移除 `<JuceHeader.h>`，迁移至细粒度包含，消除 ADR-012 字面违规。
+  11. `THR-003`：`MainComponent.cpp` 为 `handleNoteOn` 补充消息线程契约注释与 `jassert` 线程断言。
+- **验证结果**：
+  - `./scripts/dev.sh wsl-build`：Debug 增量构建 0 错误 0 警告（通过）；
+  - `./scripts/dev.sh test`：66 类测试、12524 个断言全绿通过（9.09s）；
+  - `./scripts/dev.sh format --check`：0 格式差异通过。
+- **状态变更**：TEST-008~016、ENG-001~002、CMPL-001、THR-003 全部已关闭。P3 累计关闭 37 项，未处理问题降至 **6 项**（均为 DOC 文档项与终审复验）。
+
 ---
 ## 8. 附录：问题总表（登记表）
 
@@ -658,19 +678,19 @@ source/
 | DOC-002 | 文档 | roadmap 风险表 MainComponent 行数漂移 | P3 | 未处理 | 审计 | 风险表称 "当前 ~1310 行"，实测 1324 行（移除 inspector 后 -14，较 ~1310 仍存在轻微漂移） | `docs/roadmap/roadmap.md:246` vs `source/MainComponent.cpp`（1324 行） | - | - | 更新或改描述性表述 |
 | DOC-003 | 文档 | project-scope "多轨超出定位" 与 Phase 26 多轨并轨能力表述冲突 | P3 | 未处理 | 审计 | scope 表称 "多轨 / 完整 DAW 工作站功能超出定位"，而 Phase 26 已实现多轨并轨导入/回放/导出；边界需澄清（并轨导入 ≠ DAW 多轨工作站） | `docs/reference/project-scope.md:57` vs `docs/roadmap/roadmap.md:223-228` | - | - | 澄清表述 |
 | DOC-004 | 文档 | smoothedPitchBend 注释与实现不符 | P3 | 未处理 | 审计 | 注释称 "Initialised in startPlayback / stopPlayback"，实际 stopPlayback 不触碰该数组（仅 startPlayback 重置；行为正确，注释误导） | `source/Recording/RecordingEngine.h:132-137` vs `RecordingEngine.cpp:228,253-261` | - | - | 修正注释 |
-| TEST-008 | 测试 | KeyboardHitMappingTest expect(true) 空洞断言 | P3 | 未处理 | 审计 | paint 裁剪用例只验证不崩溃，永远通过无法证伪渲染行为 | `source/tests/KeyboardHitMappingTest.cpp:163` | - | - | 改可观察断言或注明 crash-only |
-| TEST-009 | 测试 | StyleCatalogTest 空失败消息断言 | P3 | 未处理 | 审计 | expect(component != nullptr, "") 多处；失败无诊断上下文 | `source/tests/StyleCatalogTest.cpp:449-452,593` | - | - | 补消息文案 |
-| TEST-010 | 测试 | SettingsStoreTest 权限用例名不副实 | P3 | 未处理 | 审计 | 用例名声称验证受限权限，实际只断言 existsAsFile 与 getSize()>0，权限位从未检查 | `source/tests/SettingsStoreTest.cpp:168-186` | - | - | 改名或补 POSIX stat 断言 |
-| TEST-011 | 测试 | AudioEngineTest crash-only 用例零断言 | P3 | 未处理 | 审计 | "subsequent blocks after all-notes-off are safe" 仅靠不崩溃验证，无行为契约（该上下文可断言输出为 0） | `source/tests/AudioEngineTest.cpp:265-272` | - | - | 补静音断言 |
-| TEST-012 | 测试 | StyleCatalogTest 像素阈值断言对字体环境敏感 [未验证] | P3 | 未处理 | 审计 | countLightPixels 阈值 >12/>25/>50；不同 fontconfig/渲染器下字体像素数可能变化，潜在 flaky（同文件相对比例断言已规避同类问题） | `source/tests/StyleCatalogTest.cpp:1074-1076,1130,1168` | - | - | 阈值放宽或改对比性断言 |
-| TEST-013 | 测试 | StyleCatalogTest 泄漏全局 tokens / LookAndFeel 状态 | P3 | 未处理 | 审计 | testDesignTokensHotReload 结束不还原 tokens；LookAndFeel::setDefaultLookAndFeel(nullptr) 全局变更——靠后续文件开头 reset 约定才不污染，约定未固化 | `source/tests/StyleCatalogTest.cpp:213-245,230,250-253` | - | - | RAII 保存/恢复 |
-| TEST-014 | 测试 | TestRunner 类别白名单静默失效风险 | P3 | 未处理 | 审计 | projectCategories 硬编码 4 类别；新测试用新类别默认不运行且不报错（当前 62 类全合规，无即时问题） | `source/tests/TestRunner.cpp:133-135` | - | - | 前缀匹配或未匹配告警 |
-| TEST-015 | 测试 | TestRunner --verbose 参数 no-op | P3 | 未处理 | 审计 | 解析后仅注释，帮助文案误导调用方 | `source/tests/TestRunner.cpp:57-59` | - | - | 实现或从帮助移除 |
-| TEST-016 | 测试 | 全局 locale 变更依赖手工还原 | P3 | 未处理 | 审计 | devpiano::locale::activate 三次调用，进程级状态，依赖手工纪律（当前所有路径均已还原） | `source/tests/StyleCatalogTest.cpp:944,996,1017` | - | - | RAII 作用域守卫 |
-| ENG-001 | 工程化 | 多实例允许 + 共享 settings 文件无跨进程保护 | P3 | 未处理 | 审计 | moreThanOneInstanceAllowed()=true 且 anotherInstanceStarted 空实现——双实例 last-write-wins 交叉写损坏设置（PropertiesFile 非跨进程安全），第二实例 --tone 参数被丢弃 | `source/Main.cpp:88-90` | - | - | 改单实例并转发参数或引入文件锁 |
-| ENG-002 | 工程化 | 设置内容高度魔法数 960 双处维护 | P3 | 未处理 | 审计 | calculateSettingsContentHeight 恒返回 960 vs SettingsLayoutModel settings-root height 960；新增区段超 960 时静默截断且两处需同步改 | `source/Settings/SettingsComponent.h:730-732`；`source/Settings/jive/SettingsLayoutModel.cpp:344-345` | - | - | 从布局树读实际高度或提共享常量 |
-| CMPL-001 | 决策合规 | TestHelpers.h 使用 JuceHeader.h，字面违反 ADR-012 | P3 | 未处理 | 审计 | ADR-012 决策第 1 条："所有 source/ 目录下的 .h 头文件禁止出现 #include <JuceHeader.h>"；TestHelpers.h:3 违反（测试辅助头，非业务头，级联影响有限，故 P3） | `source/tests/TestHelpers.h:3`；`docs/decisions/ADR-012-header-iwyu-and-granular-include-discipline.md:19-29` | - | - | 迁移细粒度包含 |
-| THR-003 | 线程安全 | MidiKeyboardState 监听器回调依赖隐式消息线程契约 | P3 | 未处理 | 审计 | handleNoteOn → notifyMidiActivity → JIVE 树遍历；当前调用点均在消息线程（已核实），但契约未文档化，未来非消息线程注入即跨线程 UI 访问 | `source/MainComponent.cpp:806-814`；调用点 `MainComponent.cpp:637`、`KeyboardMidiMapper.cpp:171`、`MidiChannelMapper.cpp:47` | - | - | 注释契约或 MessageManagerLock 防护 |
+| TEST-008 | 测试 | KeyboardHitMappingTest expect(true) 空洞断言 | P3 | 已关闭 | 审计 | paint 裁剪用例只验证不崩溃，永远通过无法证伪渲染行为 | `source/tests/KeyboardHitMappingTest.cpp:163` | - | - | 已修复：改断言渲染图像中包含可见像素（复审 7） |
+| TEST-009 | 测试 | StyleCatalogTest 空失败消息断言 | P3 | 已关闭 | 审计 | expect(component != nullptr, "") 多处；失败无诊断上下文 | `source/tests/StyleCatalogTest.cpp:449-452,593` | - | - | 已修复：移除外层无谓 expect 并补齐诊断文案（复审 7） |
+| TEST-010 | 测试 | SettingsStoreTest 权限用例名不副实 | P3 | 已关闭 | 审计 | 用例名声称验证受限权限，实际只断言 existsAsFile 与 getSize()>0，权限位从未检查 | `source/tests/SettingsStoreTest.cpp:168-186` | - | - | 已修复：改名并增加 POSIX stat 权限检查（复审 7） |
+| TEST-011 | 测试 | AudioEngineTest crash-only 用例零断言 | P3 | 已关闭 | 审计 | "subsequent blocks after all-notes-off are safe" 仅靠不崩溃验证，无行为契约（该上下文可断言输出为 0） | `source/tests/AudioEngineTest.cpp:265-272` | - | - | 已修复：补充输出静音行为断言（复审 7） |
+| TEST-012 | 测试 | StyleCatalogTest 像素阈值断言对字体环境敏感 [未验证] | P3 | 已关闭 | 审计 | countLightPixels 阈值 >12/>25/>50；不同 fontconfig/渲染器下字体像素数可能变化，潜在 flaky（同文件相对比例断言已规避同类问题） | `source/tests/StyleCatalogTest.cpp:1074-1076,1130,1168` | - | - | 已修复：放宽阈值为鲁棒的可见性断言（复审 7） |
+| TEST-013 | 测试 | StyleCatalogTest 泄漏全局 tokens / LookAndFeel 状态 | P3 | 已关闭 | 审计 | testDesignTokensHotReload 结束不还原 tokens；LookAndFeel::setDefaultLookAndFeel(nullptr) 全局变更——靠后续文件开头 reset 约定才不污染，约定未固化 | `source/tests/StyleCatalogTest.cpp:213-245,230,250-253` | - | - | 已修复：引入 ScopedDefaultLookAndFeelReset RAII 守卫（复审 7） |
+| TEST-014 | 测试 | TestRunner 类别白名单静默失效风险 | P3 | 已关闭 | 审计 | projectCategories 硬编码 4 类别；新测试用新类别默认不运行且不报错（当前 62 类全合规，无即时问题） | `source/tests/TestRunner.cpp:133-135` | - | - | 已修复：改为 DevPiano/ 前缀动态匹配（复审 7） |
+| TEST-015 | 测试 | TestRunner --verbose 参数 no-op | P3 | 已关闭 | 审计 | 解析后仅注释，帮助文案误导调用方 | `source/tests/TestRunner.cpp:57-59` | - | - | 已修复：完整接入 ConsoleTestRunner verbose 构造（复审 7） |
+| TEST-016 | 测试 | 全局 locale 变更依赖手工还原 | P3 | 已关闭 | 审计 | devpiano::locale::activate 三次调用，进程级状态，依赖手工纪律（当前所有路径均已还原） | `source/tests/StyleCatalogTest.cpp:944,996,1017` | - | - | 已修复：引入 ScopedLocaleReset RAII 守卫（复审 7） |
+| ENG-001 | 工程化 | 多实例允许 + 共享 settings 文件无跨进程保护 | P3 | 已关闭 | 审计 | moreThanOneInstanceAllowed()=true 且 anotherInstanceStarted 空实现——双实例 last-write-wins 交叉写损坏设置（PropertiesFile 非跨进程安全），第二实例 --tone 参数被丢弃 | `source/Main.cpp:88-90` | - | - | 已修复：单实例模式 + 参数转发至主实例（复审 7） |
+| ENG-002 | 工程化 | 设置内容高度魔法数 960 双处维护 | P3 | 已关闭 | 审计 | calculateSettingsContentHeight 恒返回 960 vs SettingsLayoutModel settings-root height 960；新增区段超 960 时静默截断且两处需同步改 | `source/Settings/SettingsComponent.h:730-732`；`source/Settings/jive/SettingsLayoutModel.cpp:344-345` | - | - | 已修复：提取 kSettingsLayoutContentHeight 共享常量（复审 7） |
+| CMPL-001 | 决策合规 | TestHelpers.h 使用 JuceHeader.h，字面违反 ADR-012 | P3 | 已关闭 | 审计 | ADR-012 决策第 1 条："所有 source/ 目录下的 .h 头文件禁止出现 #include <JuceHeader.h>"；TestHelpers.h:3 违反（测试辅助头，非业务头，级联影响有限，故 P3） | `source/tests/TestHelpers.h:3`；`docs/decisions/ADR-012-header-iwyu-and-granular-include-discipline.md:19-29` | - | - | 已修复：迁移至细粒度 JUCE 包含（复审 7） |
+| THR-003 | 线程安全 | MidiKeyboardState 监听器回调依赖隐式消息线程契约 | P3 | 已关闭 | 审计 | handleNoteOn → notifyMidiActivity → JIVE 树遍历；当前调用点均在消息线程（已核实），但契约未文档化，未来非消息线程注入即跨线程 UI 访问 | `source/MainComponent.cpp:806-814`；调用点 `MainComponent.cpp:637`、`KeyboardMidiMapper.cpp:171`、`MidiChannelMapper.cpp:47` | - | - | 已修复：注释文档化契约并加 jassert 守卫（复审 7） |
 | AUDIT-001 THR-003 | 线程安全 | MidiChannelMapper 引用成员悬垂风险 | P2 | 已暂缓 | AUDIT-001 | 构造器存储 const ChannelMatrix&/const bool&/const int&，外部对象销毁后悬垂 | `source/Midi/MidiChannelMapper.h:56-58`（本轮复查位置） | 引用对象为 MainComponent::appSettings 成员，寿命安全；reconfigure 重建 mapper | appSettings 动态分配或生命周期缩短 | 文档化生命周期契约或改值拷贝 |
 | AUDIT-001 THR-004 | 线程安全 | PluginHost::getInstance 暴露裸指针 | P2 | 已暂缓 | AUDIT-001 | 返回 AudioPluginInstance* 裸指针，音频线程经它 processBlock，生命周期依赖外部协调 | `source/Plugin/PluginHost.h:64`（本轮复查位置；头文件 7-16 行线程契约注释已加强） | 生命周期由 runPluginActionWithAudioDeviceRebuild 外部协调，无并发竞争 | 引入非设备重建 guard 的插件切换路径 | 返回 Ptr 或文档化所有权契约（本轮新增 THR-002 即该契约的导出路径违反） |
 | AUDIT-001 SEC-001 | 安全 | MidiChannelMapper::configForChannel 静默 clamp | P2 | 已暂缓 | AUDIT-001 | 越界 channel 参数被静默 jlimit 到 [0,15] | `source/Midi/MidiChannelMapper.cpp:10-13`（本轮复查） | 调用方均传合法 0-15 通道，越界仅理论可能 | 发现调用方传越界 channel 的实际路径 | 添加 jassert 或返回 std::optional |
