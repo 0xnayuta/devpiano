@@ -31,8 +31,9 @@ jobs:
           key: release-sccache-${{ hashFiles('CMakeLists.txt', 'CMakePresets.json', 'submodules/**') }}-${{ github.sha }}
           restore-keys: |
             release-sccache-${{ hashFiles('CMakeLists.txt', 'CMakePresets.json', 'submodules/**') }}-
-            release-sccache-
+            windows-sccache-${{ hashFiles('CMakeLists.txt', 'CMakePresets.json', 'submodules/**') }}-
             windows-sccache-
+            release-sccache-
 
       - name: Install sccache binary on Windows
         shell: bash
@@ -106,6 +107,14 @@ jobs:
     name: Build & Package Linux x64 Release
     runs-on: ubuntu-24.04
     needs: release-windows-x64
+    env:
+      CCACHE_COMPRESS: "true"
+      CCACHE_COMPRESSLEVEL: "6"
+      CCACHE_MAXSIZE: "1G"
+      CCACHE_BASEDIR: "${{ github.workspace }}"
+      CCACHE_SLOPPINESS: "time_macros"
+      CMAKE_C_COMPILER_LAUNCHER: "ccache"
+      CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
     steps:
       - name: Checkout repository with submodules (shallow)
         uses: actions/checkout@v7
@@ -128,36 +137,19 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.cache/ccache
-          key: linux-release-ccache-${{ hashFiles('CMakeLists.txt', 'CMakePresets.json', 'submodules/**') }}-${{ github.ref_name }}
+          key: linux-release-ccache-${{ hashFiles('CMakeLists.txt', 'CMakePresets.json', 'submodules/**') }}-${{ github.sha }}
           restore-keys: |
             linux-release-ccache-${{ hashFiles('CMakeLists.txt', 'CMakePresets.json', 'submodules/**') }}-
-            linux-release-ccache-
+            linux-ccache-${{ hashFiles('CMakeLists.txt', 'CMakePresets.json', 'submodules/**') }}-
             linux-ccache-
+            linux-release-ccache-
 
       # CCACHE_SLOPPINESS=time_macros：PCH 编译单元进入 ccache 的必要条件（详见
       # ci.yml linux-gate 注释）。项目不消费编译日期宏，发布产物无副作用。
       - name: Configure CMake (linux-clang-release)
-        env:
-          CCACHE_COMPRESS: "true"
-          CCACHE_COMPRESSLEVEL: "6"
-          CCACHE_MAXSIZE: "1G"
-          CMAKE_C_COMPILER_LAUNCHER: "ccache"
-          CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
-          CCACHE_SLOPPINESS: "time_macros"
-          CCACHE_BASEDIR: "${{ github.workspace }}"
         run: cmake --preset linux-clang-release
-
       - name: Build target binary (Release)
-        env:
-          CCACHE_COMPRESS: "true"
-          CCACHE_COMPRESSLEVEL: "6"
-          CCACHE_MAXSIZE: "1G"
-          CMAKE_C_COMPILER_LAUNCHER: "ccache"
-          CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
-          CCACHE_SLOPPINESS: "time_macros"
-          CCACHE_BASEDIR: "${{ github.workspace }}"
         run: cmake --build --preset linux-clang-release --target devpiano
-
       # glibc / libstdc++ 版本门槛（Phase 25-C）：产物必须满足支持矩阵
       # （glibc >= 2.39，Ubuntu 24.04+ / Debian 13+ / Fedora 41+ / Arch 系）。
       # ubuntu-24.04 runner 构建的门槛为 GLIBC_2.39 / GLIBCXX_3.4.32；
