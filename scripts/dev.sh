@@ -134,11 +134,13 @@ case "${command_name}" in
         if command -v run-clang-tidy-21 >/dev/null 2>&1; then
             run-clang-tidy-21 -clang-tidy-binary "${WRAPPER}" \
                               -p "${ROOT_DIR}/build-wsl-clang" \
+                              -warnings-as-errors='*' \
                               -j "${NPROCS}" -quiet 'source/.*' 2>&1
             exit $?
         elif command -v run-clang-tidy >/dev/null 2>&1; then
             run-clang-tidy -clang-tidy-binary "${WRAPPER}" \
                            -p "${ROOT_DIR}/build-wsl-clang" \
+                           -warnings-as-errors='*' \
                            -j "${NPROCS}" -quiet 'source/.*' 2>&1
             exit $?
         else

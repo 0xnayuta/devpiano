@@ -69,23 +69,22 @@ def compute_key(source_file: str, build_dir: Path, root_dir: Path, compile_entry
         cmd = compile_entry.get("command") or " ".join(compile_entry.get("arguments", []))
         hasher.update(cmd.encode("utf-8"))
 
-    # 4. Dependency tracking: check related header modification timestamps in source/
-    # Fast hash over source/ headers mod-times to catch header changes without slow full-AST preprocessing
+    # 4. Dependency tracking: check header contents in source/ using fast deterministic hashing
     headers_info = []
     source_dir = root_dir / "source"
     if source_dir.exists():
         for root, _, files in os.walk(source_dir):
-            for f in files:
+            for f in sorted(files):
                 if f.endswith((".h", ".hpp", ".inc")):
                     hp = Path(root) / f
                     try:
-                        mtime = hp.stat().st_mtime_ns
-                        headers_info.append(f"{f}:{mtime}")
+                        rel_path = hp.relative_to(source_dir).as_posix()
+                        h_hash = hashlib.sha256(hp.read_bytes()).hexdigest()[:16]
+                        headers_info.append(f"{rel_path}:{h_hash}")
                     except OSError:
                         pass
     headers_info.sort()
     hasher.update(";".join(headers_info).encode("utf-8"))
-
     return hasher.hexdigest()
 
 
