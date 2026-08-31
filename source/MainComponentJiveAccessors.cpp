@@ -59,39 +59,17 @@ juce::String ellipsiseForStatus(const juce::String& text, float maxWidth) {
     return result + ellipsis;
 }
 juce::String keySignatureToString(int ks) {
-    switch (ks) {
-    case 0:
-        return "C";
-    case 1:
-        return "C# / Db";
-    case 2:
-        return "D";
-    case 3:
-        return "D# / Eb";
-    case 4:
-        return "E";
-    case 5:
-        return "F";
-    case 6:
-        return "F# / Gb";
-    case -5:
-    case 7:
-        return "G";
-    case -4:
-    case 8:
-        return "G# / Ab";
-    case -3:
-    case 9:
-        return "A";
-    case -2:
-    case 10:
-        return "A# / Bb";
-    case -1:
-    case 11:
-        return "B";
-    default:
-        return "C";
+    // 支持 -5..11 范围的正负升降半音索引
+    static constexpr const char* kKeyNames[] = {
+        "G",       "G# / Ab", "A", "A# / Bb", "B", // -5 .. -1
+        "C",       "C# / Db", "D", "D# / Eb", "E", // 0 .. 4
+        "F",       "F# / Gb", "G", "G# / Ab", "A", // 5 .. 9
+        "A# / Bb", "B" // 10 .. 11
+    };
+    if (ks >= -5 && ks <= 11) {
+        return kKeyNames[ks + 5];
     }
+    return "C";
 }
 
 template <typename T> [[nodiscard]] T getSliderValue(::jive::GuiItem* root, const char* id, T fallback) {
@@ -212,6 +190,132 @@ void MainComponent::showPluginBrowseDialog() {
                          });
 }
 
+namespace {
+
+juce::String formatPluginStatusSummary(const devpiano::ui::PluginPanelState& state) {
+    if (state.hasLoadedPlugin) {
+        auto text = TRANS("Loaded: ") + state.currentPluginName;
+        if (state.isPrepared) {
+            text << " @ " << juce::String(state.preparedSampleRate, 0) << " Hz / "
+                 << juce::String(state.preparedBlockSize);
+        } else {
+            text << TRANS(" [not prepared]");
+        }
+        if (state.isEditorOpen) {
+            text << TRANS(" | Editor open");
+        }
+        return text;
+    }
+
+    if (state.isCurrentlyScanning) {
+        return TRANS("Scanning: ") + state.scanningPluginName + "...";
+    }
+
+    if (state.lastLoadError.isNotEmpty() && state.lastLoadError != "No plugin load attempted yet.") {
+        return TRANS("Load error: ") + state.lastLoadError;
+    }
+
+    if (state.lastPluginName.isNotEmpty()) {
+        return TRANS("Last plugin: ") + state.lastPluginName;
+    }
+
+    const auto& summary = state.lastScanSummary;
+    if (summary.startsWith("VST3 scan complete: ") && !summary.contains("no plugins")) {
+        auto resultSuffix = (state.scanFailedCount > 0) ? TRANS(" failed (see log).") : TRANS(" failed.");
+        return TRANS("VST3 scan complete: ") + juce::String(state.scanPluginCount) + TRANS(" plugin(s), ")
+            + juce::String(state.scanFailedCount) + resultSuffix;
+    }
+    if (summary.startsWith("VST3 scan found no plugins; ")) {
+        return TRANS("VST3 scan found no plugins: ") + juce::String(state.scanFailedCount)
+            + TRANS(" failed (see log).");
+    }
+    if (summary.startsWith("Loaded cached plugin list: ")) {
+        return TRANS("Loaded cached plugin list: ") + juce::String(state.scanPluginCount) + TRANS(" plugin(s).");
+    }
+    if (summary.isNotEmpty()) {
+        return TRANS(summary);
+    }
+
+    auto text = TRANS(state.availableFormatsDescription);
+    if (state.supportsVst3) {
+        text << TRANS(" [VST3 ready]");
+    }
+    return text;
+}
+
+void updateScanningPluginPanel(::jive::GuiItem& root, const devpiano::ui::PluginPanelState& state,
+                               juce::ComboBox* selectorCombo, juce::TextEditor* listEditor) {
+    const auto setItemEnabled = [&root](const char* id, bool enabled) {
+        if (auto* item = jive::findItemWithID(root, id)) {
+            item->state.setProperty("enabled", enabled, nullptr);
+        }
+    };
+
+    if (selectorCombo != nullptr) {
+        selectorCombo->clear(juce::dontSendNotification);
+        selectorCombo->setTextWhenNothingSelected(TRANS("Scanning..."));
+    }
+    if (listEditor != nullptr) {
+        auto scanText = TRANS("Scanning VST3 plugins...") + "\n";
+        scanText << (state.scanningPluginName.isNotEmpty() ? state.scanningPluginName : TRANS("Preparing..."));
+        listEditor->setText(scanText, juce::dontSendNotification);
+    }
+    setItemEnabled("scan-btn", false);
+    setItemEnabled("browse-btn", false);
+    setItemEnabled("load-btn", false);
+}
+
+void updateIdlePluginPanel(::jive::GuiItem& root, const devpiano::ui::PluginPanelState& state,
+                           juce::ComboBox* selectorCombo, juce::ComboBox* filterCombo, juce::TextEditor* listEditor) {
+    const auto setItemEnabled = [&root](const char* id, bool enabled) {
+        if (auto* item = jive::findItemWithID(root, id)) {
+            item->state.setProperty("enabled", enabled, nullptr);
+        }
+    };
+
+    const auto& names = [&]() -> const juce::StringArray& {
+        const auto filterId = (filterCombo != nullptr) ? filterCombo->getSelectedId() : 1;
+        if (filterId == 2 && !state.instrumentPluginNames.isEmpty()) {
+            return state.instrumentPluginNames;
+        }
+        if (filterId == 3 && !state.effectPluginNames.isEmpty()) {
+            return state.effectPluginNames;
+        }
+        return state.availablePluginNames;
+    }();
+
+    if (selectorCombo != nullptr) {
+        selectorCombo->clear(juce::dontSendNotification);
+        selectorCombo->setTextWhenNothingSelected(TRANS("Select a scanned plugin..."));
+
+        auto selectedIndex = devpiano::ui::preferredNameIndex(names, state.preferredSelection);
+        for (int i = 0; i < names.size(); ++i) {
+            selectorCombo->addItem(names[i], i + 1);
+        }
+
+        if (names.isEmpty()) {
+            selectorCombo->setSelectedItemIndex(-1, juce::dontSendNotification);
+        } else if (selectedIndex >= 0) {
+            selectorCombo->setSelectedItemIndex(selectedIndex, juce::dontSendNotification);
+        } else {
+            selectorCombo->setSelectedItemIndex(0, juce::dontSendNotification);
+        }
+    }
+
+    if (listEditor != nullptr) {
+        listEditor->setText(TRANS(state.pluginListText), juce::dontSendNotification);
+    }
+
+    setItemEnabled("scan-btn", true);
+    setItemEnabled("browse-btn", true);
+    setItemEnabled("load-btn", !names.isEmpty());
+    setItemEnabled("unload-btn", state.hasLoadedPlugin);
+    setItemEnabled("editor-btn", state.hasLoadedPlugin);
+    setItemEnabled("plugin-path-editor", true);
+}
+
+} // namespace
+
 void MainComponent::updatePluginPanelState(const devpiano::ui::PluginPanelState& state) {
     if (jiveRootItem == nullptr) {
         return;
@@ -230,111 +334,13 @@ void MainComponent::updatePluginPanelState(const devpiano::ui::PluginPanelState&
         = filterItem != nullptr ? dynamic_cast<juce::ComboBox*>(filterItem->getComponent().get()) : nullptr;
     auto* listEditor = listItem != nullptr ? dynamic_cast<juce::TextEditor*>(listItem->getComponent().get()) : nullptr;
 
-    const auto setEnabled = [](::jive::GuiItem* item, bool enabled) {
-        if (item != nullptr) {
-            item->state.setProperty("enabled", enabled, nullptr);
-        }
-    };
-
     if (state.isCurrentlyScanning) {
-        if (selectorCombo != nullptr) {
-            selectorCombo->clear(juce::dontSendNotification);
-            selectorCombo->setTextWhenNothingSelected(TRANS("Scanning..."));
-        }
-        if (listEditor != nullptr) {
-            auto scanText = TRANS("Scanning VST3 plugins...") + "\n";
-            scanText << (state.scanningPluginName.isNotEmpty() ? state.scanningPluginName : TRANS("Preparing..."));
-            listEditor->setText(scanText, juce::dontSendNotification);
-        }
-        setEnabled(jive::findItemWithID(*jiveRootItem, "scan-btn"), false);
-        setEnabled(jive::findItemWithID(*jiveRootItem, "browse-btn"), false);
-        setEnabled(jive::findItemWithID(*jiveRootItem, "load-btn"), false);
+        updateScanningPluginPanel(*jiveRootItem, state, selectorCombo, listEditor);
     } else {
-        const auto& names = [&]() -> const juce::StringArray& {
-            const auto filterId = (filterCombo != nullptr) ? filterCombo->getSelectedId() : 1;
-            if (filterId == 2 && !state.instrumentPluginNames.isEmpty()) {
-                return state.instrumentPluginNames;
-            }
-            if (filterId == 3 && !state.effectPluginNames.isEmpty()) {
-                return state.effectPluginNames;
-            }
-            return state.availablePluginNames;
-        }();
-
-        if (selectorCombo != nullptr) {
-            selectorCombo->clear(juce::dontSendNotification);
-            selectorCombo->setTextWhenNothingSelected(TRANS("Select a scanned plugin..."));
-
-            auto selectedIndex = devpiano::ui::preferredNameIndex(names, state.preferredSelection);
-            for (int i = 0; i < names.size(); ++i) {
-                selectorCombo->addItem(names[i], i + 1);
-            }
-
-            if (names.isEmpty()) {
-                selectorCombo->setSelectedItemIndex(-1, juce::dontSendNotification);
-            } else if (selectedIndex >= 0) {
-                selectorCombo->setSelectedItemIndex(selectedIndex, juce::dontSendNotification);
-            } else {
-                selectorCombo->setSelectedItemIndex(0, juce::dontSendNotification);
-            }
-        }
-
-        if (listEditor != nullptr) {
-            listEditor->setText(TRANS(state.pluginListText), juce::dontSendNotification);
-        }
-
-        setEnabled(jive::findItemWithID(*jiveRootItem, "scan-btn"), true);
-        setEnabled(jive::findItemWithID(*jiveRootItem, "browse-btn"), true);
-        setEnabled(jive::findItemWithID(*jiveRootItem, "load-btn"), !names.isEmpty());
-        setEnabled(jive::findItemWithID(*jiveRootItem, "unload-btn"), state.hasLoadedPlugin);
-        setEnabled(jive::findItemWithID(*jiveRootItem, "editor-btn"), state.hasLoadedPlugin);
-        if (auto* item = jive::findItemWithID(*jiveRootItem, "plugin-path-editor")) {
-            item->state.setProperty("enabled", true, nullptr);
-        }
+        updateIdlePluginPanel(*jiveRootItem, state, selectorCombo, filterCombo, listEditor);
     }
 
-    // Status line: concise on-toolbar summary + full diagnostic info in tooltip.
-    auto text = juce::String();
-    if (state.hasLoadedPlugin) {
-        text << TRANS("Loaded: ") << state.currentPluginName;
-        if (state.isPrepared) {
-            text << " @ " << juce::String(state.preparedSampleRate, 0) << " Hz / "
-                 << juce::String(state.preparedBlockSize);
-        } else {
-            text << TRANS(" [not prepared]");
-        }
-
-        if (state.isEditorOpen) {
-            text << TRANS(" | Editor open");
-        }
-    } else if (state.isCurrentlyScanning) {
-        text << TRANS("Scanning: ") << state.scanningPluginName << "...";
-    } else if (state.lastLoadError.isNotEmpty() && state.lastLoadError != "No plugin load attempted yet.") {
-        text << TRANS("Load error: ") << state.lastLoadError;
-    } else if (state.lastPluginName.isNotEmpty()) {
-        text << TRANS("Last plugin: ") << state.lastPluginName;
-    } else {
-        auto summary = state.lastScanSummary;
-        if (summary.startsWith("VST3 scan complete: ") && !summary.contains("no plugins")) {
-            auto resultSuffix = (state.scanFailedCount > 0) ? TRANS(" failed (see log).") : TRANS(" failed.");
-            text << TRANS("VST3 scan complete: ") << juce::String(state.scanPluginCount) << TRANS(" plugin(s), ")
-                 << juce::String(state.scanFailedCount) << resultSuffix;
-        } else if (summary.startsWith("VST3 scan found no plugins; ")) {
-            text << TRANS("VST3 scan found no plugins: ") << juce::String(state.scanFailedCount)
-                 << TRANS(" failed (see log).");
-        } else if (summary.startsWith("Loaded cached plugin list: ")) {
-            text << TRANS("Loaded cached plugin list: ") << juce::String(state.scanPluginCount) << TRANS(" plugin(s).");
-        } else if (summary.isNotEmpty()) {
-            text << TRANS(summary);
-        } else {
-            text << TRANS(state.availableFormatsDescription);
-            if (state.supportsVst3) {
-                text << TRANS(" [VST3 ready]");
-            }
-        }
-    }
-
-    lastPluginStatusText = text;
+    lastPluginStatusText = formatPluginStatusSummary(state);
     if (statusItem != nullptr) {
         refreshPluginStatusEllipsis();
     }
@@ -858,6 +864,20 @@ void MainComponent::saveRecentFiles() {
     saveSettingsSoon();
 }
 
+namespace {
+
+juce::String getRecentFileIconPrefix(const juce::String& extension) {
+    if (extension == ".devpiano") {
+        return juce::String::fromUTF8("\xe2\x99\xaa "); // ♪
+    }
+    if (extension == ".mid" || extension == ".midi") {
+        return juce::String::fromUTF8("\xe2\x99\xab "); // ♫
+    }
+    return "? ";
+}
+
+} // namespace
+
 void MainComponent::showRecentFilesMenu() {
     juce::PopupMenu menu;
     recentFiles.removeNonExistentFiles();
@@ -872,34 +892,19 @@ void MainComponent::showRecentFilesMenu() {
             auto file = recentFiles.getFile(i);
             auto name = file.getFileName();
             auto ext = file.getFileExtension().toLowerCase();
-            juce::String prefix;
-            if (ext == ".devpiano") {
-                prefix = juce::String::fromUTF8("\xe2\x99\xaa "); // ♪
-            } else if (ext == ".mid" || ext == ".midi") {
-                prefix = juce::String::fromUTF8("\xe2\x99\xab "); // ♫
-            } else {
-                prefix = "? ";
-            }
-
-            menu.addItem(itemId, prefix + name);
-            ++itemId;
+            menu.addItem(itemId++, getRecentFileIconPrefix(ext) + name);
         }
     }
 
-    int clearId = itemId;
+    const int clearId = itemId;
     if (numFiles > 0) {
         menu.addSeparator();
-        clearId = itemId;
         menu.addItem(clearId, TRANS("Clear Recent Files"));
     }
 
     menu.showMenuAsync(juce::PopupMenu::Options().withTargetScreenArea(getRecentFilesButtonScreenBounds()),
                        [safe = juce::Component::SafePointer<MainComponent>(this), numFiles, clearId](int result) {
-                           if (safe == nullptr) {
-                               return;
-                           }
-
-                           if (result == 0) {
+                           if (safe == nullptr || result == 0) {
                                return;
                            }
 
