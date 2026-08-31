@@ -339,7 +339,7 @@ std::optional<MidiTrackMergeResult> MidiTrackMergeEngine::mergeTracks(const juce
             }
 
             const auto timestampSamples = clampToInt64(timestampSeconds * targetSampleRate);
-
+            maxTimestampSamples = std::max(maxTimestampSamples, timestampSamples);
             if (remapChannels && midiMsg.getChannel() > 0) {
                 midiMsg.setChannel(targetChannelForTrack);
             }

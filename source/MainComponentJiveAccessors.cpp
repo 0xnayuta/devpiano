@@ -77,6 +77,18 @@ juce::String keySignatureToString(int ks) {
     case -5:
     case 7:
         return "G";
+    case -4:
+    case 8:
+        return "G# / Ab";
+    case -3:
+    case 9:
+        return "A";
+    case -2:
+    case 10:
+        return "A# / Bb";
+    case -1:
+    case 11:
+        return "B";
     default:
         return "C";
     }
