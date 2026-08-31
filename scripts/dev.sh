@@ -46,8 +46,9 @@ Examples:
   ./scripts/dev.sh wsl-build --configure-only
   ./scripts/dev.sh format
   ./scripts/dev.sh format --check
-  ./scripts/dev.sh tidy                # Uncommitted changed files
-  ./scripts/dev.sh tidy --all          # Full scan across all files (~19 mins)
+  ./scripts/dev.sh tidy                # Uncommitted changed files (cached)
+  ./scripts/dev.sh tidy --all          # Full parallel scan across all files (~5-6m cold, ~2s cached)
+  ./scripts/dev.sh tidy --clear-cache  # Clear tidy cache
   ./scripts/dev.sh tidy source/UI/CustomKeyboard.cpp
   ./scripts/dev.sh test
   ./scripts/dev.sh test --verbose
@@ -111,8 +112,7 @@ case "${command_name}" in
     fi
     ;;
   tidy)
-    # Incremental clang-tidy（ADR-007：只检查，不用 --fix）。
-    # 无参数 = 未提交改动文件；带参数 = 指定文件；--all = 全量（CMake target）。
+    # Incremental / Full clang-tidy with multi-core parallelism and local result caching (ADR-007).
     if ! command -v clang-tidy-21 >/dev/null 2>&1; then
         fail 'clang-tidy-21 not found (apt install clang-tidy-21)'
     fi
@@ -120,11 +120,31 @@ case "${command_name}" in
         fail 'compile_commands.json missing - run ./scripts/dev.sh wsl-build --configure-only first'
     fi
 
+    WRAPPER="${ROOT_DIR}/tools/tidy-cache.py"
+    NPROCS=$(nproc 2>/dev/null || echo 4)
+
+    if [[ "${1:-}" == "--clear-cache" ]]; then
+        "${WRAPPER}" --clear-cache
+        exit 0
+    fi
+
     if [[ "${1:-}" == "--all" ]]; then
         shift
-        log 'Running clang-tidy-21 full scan (all source/ files)'
-        cmake --build "${ROOT_DIR}/build-wsl-clang" --target clang-tidy 2>&1
-        exit $?
+        log "Running clang-tidy full scan in parallel (-j ${NPROCS}, cached)"
+        if command -v run-clang-tidy-21 >/dev/null 2>&1; then
+            run-clang-tidy-21 -clang-tidy-binary "${WRAPPER}" \
+                              -p "${ROOT_DIR}/build-wsl-clang" \
+                              -j "${NPROCS}" -quiet 'source/.*' 2>&1
+            exit $?
+        elif command -v run-clang-tidy >/dev/null 2>&1; then
+            run-clang-tidy -clang-tidy-binary "${WRAPPER}" \
+                           -p "${ROOT_DIR}/build-wsl-clang" \
+                           -j "${NPROCS}" -quiet 'source/.*' 2>&1
+            exit $?
+        else
+            cmake --build "${ROOT_DIR}/build-wsl-clang" --target clang-tidy 2>&1
+            exit $?
+        fi
     fi
 
     files=()
@@ -143,11 +163,14 @@ case "${command_name}" in
         exit 0
     fi
 
-    log "Running clang-tidy-21 on ${#files[@]} file(s): ${files[*]}"
-    # --warnings-as-errors='*'：任何诊断（含 NOLINT 之外的全部 checker）即非零退出，
-    # 与 Phase B 的"全量 0 诊断"门禁语义一致。
-    clang-tidy-21 -p "${ROOT_DIR}/build-wsl-clang" --quiet \
-        --warnings-as-errors='*' "${files[@]}" 2>&1
+    log "Running clang-tidy on ${#files[@]} file(s) (cached): ${files[*]}"
+    for f in "${files[@]}"; do
+        "${WRAPPER}" -p "${ROOT_DIR}/build-wsl-clang" --quiet \
+                     --warnings-as-errors='*' "${f}" 2>&1
+        if [[ $? -ne 0 ]]; then
+            exit 1
+        fi
+    done
     ;;
   test)
     log 'Ensuring BUILD_TESTS=ON configured'
