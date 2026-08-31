@@ -70,7 +70,7 @@ void AudioEngine::prepareToPlay(int samplesPerBlockExpected, double sampleRate) 
     const auto bytes = static_cast<size_t>(juce::jlimit(4096, 65536, samplesPerBlockExpected * 16));
     midiBuffer.ensureSize(bytes);
 
-    updateAdsrOnVoices();
+    applyPendingParametersIfNeeded();
 
     if (pluginHost != nullptr && pluginHost->hasLoadedPlugin()) {
         pluginHost->prepareToPlay(sampleRate, samplesPerBlockExpected);
@@ -101,7 +101,7 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
         renderPlaybackEventsIfNeeded(recordingEngine != nullptr ? recordingEngine->getPlaybackPositionSamples() : 0,
                                      bufferToFill.numSamples);
     }
-
+    applyPendingParametersIfNeeded();
     auto renderedByPlugin = false;
 
     if (pluginHost != nullptr && pluginHost->hasLoadedPlugin()) {
@@ -198,18 +198,18 @@ int AudioEngine::consumePluginBufferResizeCount() noexcept {
 }
 
 void AudioEngine::setAdsr(float attackSeconds, float decaySeconds, float sustainLevel, float releaseSeconds) {
-    adsrParameters.attack = juce::jmax(0.001f, attackSeconds);
-    adsrParameters.decay = juce::jmax(0.001f, decaySeconds);
-    adsrParameters.sustain = juce::jlimit(0.0f, 1.0f, sustainLevel);
-    adsrParameters.release = juce::jmax(0.001f, releaseSeconds);
-    updateAdsrOnVoices();
+    pendingAttack.store(juce::jmax(0.001f, attackSeconds), std::memory_order_relaxed);
+    pendingDecay.store(juce::jmax(0.001f, decaySeconds), std::memory_order_relaxed);
+    pendingSustain.store(juce::jlimit(0.0f, 1.0f, sustainLevel), std::memory_order_relaxed);
+    pendingRelease.store(juce::jmax(0.001f, releaseSeconds), std::memory_order_relaxed);
+    parametersNeedUpdate.store(true, std::memory_order_release);
 }
 
 void AudioEngine::setPianoParameters(float brightness, float hammerHardness, float resonance) {
-    pianoBrightness = juce::jlimit(0.0f, 1.0f, brightness);
-    pianoHammerHardness = juce::jlimit(0.0f, 1.0f, hammerHardness);
-    pianoResonance = juce::jlimit(0.0f, 1.0f, resonance);
-    updatePianoParametersOnVoices();
+    pendingBrightness.store(juce::jlimit(0.0f, 1.0f, brightness), std::memory_order_relaxed);
+    pendingHammerHardness.store(juce::jlimit(0.0f, 1.0f, hammerHardness), std::memory_order_relaxed);
+    pendingResonance.store(juce::jlimit(0.0f, 1.0f, resonance), std::memory_order_relaxed);
+    parametersNeedUpdate.store(true, std::memory_order_release);
 }
 void AudioEngine::setPlaybackTranspose(bool enabled, int semitoneOffset, std::uint16_t channelFollowKeyMask) noexcept {
     playbackTransposeEnabled.store(enabled, std::memory_order_release);
@@ -254,12 +254,36 @@ void AudioEngine::rebuildSynth() {
         }
     }
 
-    updateAdsrOnVoices();
-    updatePianoParametersOnVoices();
+    parametersNeedUpdate.store(true, std::memory_order_release);
+    applyPendingParametersIfNeeded();
 }
 
 void AudioEngine::setLidPosition(LidPosition position) {
-    pianoLidPosition = position;
+    pendingLidPosition.store(static_cast<std::uint8_t>(position), std::memory_order_relaxed);
+    parametersNeedUpdate.store(true, std::memory_order_release);
+}
+
+void AudioEngine::applyPendingParametersIfNeeded() {
+    if (!parametersNeedUpdate.exchange(false, std::memory_order_acq_rel)) {
+        return;
+    }
+
+    const auto attack = pendingAttack.load(std::memory_order_relaxed);
+    const auto decay = pendingDecay.load(std::memory_order_relaxed);
+    const auto sustain = pendingSustain.load(std::memory_order_relaxed);
+    const auto release = pendingRelease.load(std::memory_order_relaxed);
+    const auto brightness = pendingBrightness.load(std::memory_order_relaxed);
+    const auto hammerHardness = pendingHammerHardness.load(std::memory_order_relaxed);
+    const auto resonance = pendingResonance.load(std::memory_order_relaxed);
+    const auto lid = static_cast<LidPosition>(pendingLidPosition.load(std::memory_order_relaxed));
+
+    adsrParameters = { attack, decay, sustain, release };
+    pianoBrightness = brightness;
+    pianoHammerHardness = hammerHardness;
+    pianoResonance = resonance;
+    pianoLidPosition = lid;
+
+    updateAdsrOnVoices();
     updatePianoParametersOnVoices();
 }
 

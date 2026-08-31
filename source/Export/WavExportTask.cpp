@@ -26,6 +26,9 @@ struct ProgressContentWrapper final : public juce::Component {
     }
 
     ~ProgressContentWrapper() override {
+        if (onCancel) {
+            onCancel();
+        }
         devpiano::ui::jive::safeCleanupJiveTree(rootItem);
         interpreter.reset();
     }
@@ -165,6 +168,7 @@ bool WavExportTask::runThread() {
         juce::Thread::sleep(10);
     }
 #endif
+    stopTimer();
     if (activeDialog != nullptr) {
         activeDialog->exitModalState(0);
         activeDialog = nullptr;
@@ -177,7 +181,7 @@ bool WavExportTask::runThread() {
 void WavExportTask::timerCallback() {
     const bool isRunning = isThreadRunning();
 
-    if (!isRunning || finished.load() || activeDialog == nullptr) {
+    if (!isRunning || finished.load() || activeDialog == nullptr || cancelRequested.load()) {
         stopTimer();
         return;
     }

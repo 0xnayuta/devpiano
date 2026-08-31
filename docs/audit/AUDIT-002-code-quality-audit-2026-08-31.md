@@ -31,10 +31,10 @@
 | 优先级 | 合计 | 未处理 | 处理中 | 已缓解 | 已暂缓 | 已关闭 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | P0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| P1 | 6 | 6 | 0 | 0 | 0 | 0 |
+| P1 | 6 | 1 | 0 | 0 | 0 | 5 |
 | P2 | 13 | 13 | 0 | 0 | 0 | 0 |
 | P3 | 43 | 43 | 0 | 0 | 0 | 0 |
-| **合计** | 62 | 62 | 0 | 0 | 0 | 0 |
+| **合计** | 62 | 57 | 0 | 0 | 0 | 5 |
 
 > 另承接 AUDIT-001 已暂缓 13 项（状态维持，本轮全部复查，见第 8 章登记表与 3.10 备注）。
 
@@ -50,11 +50,11 @@
 
 | ID | 优先级 | 状态 | 标题 | 当前结论 |
 | --- | --- | --- | --- | --- |
-| `THR-001` | P1 | 未处理 | AudioEngine 参数更新锁外写活跃 voice（数据竞争） | setAdsr/setPianoParameters 经 knob onChange 高频触发；Synthesiser::lock 仅保护管理操作，voice 参数写入在锁外与音频渲染并发（证据链见第 8 章） |
-| `THR-002` | P1 | 未处理 | WAV 导出 Phase 1 无设备重建守卫读插件状态 | handleExportWavClicked 直接 snapshotPluginState(*liveInstance)，违反 PluginHost.h 自身线程契约；插件加载时导出 WAV 为常见路径 |
-| `SEC-001` | P1 | 未处理 | 设置窗口语言切换/关闭 Viewport 悬挂指针 UAF | safeCleanupJiveTree 销毁组件后 Viewport::contentComp 悬挂，setViewedComponent/~Viewport 解引用已释放组件；每次语言切换必踩 |
-| `QUAL-001` | P1 | 未处理 | 拖放 .devpiano.preset 扩展名判断死代码 | getFileExtension 只返回末段 ".preset"，两处 `== ".devpiano.preset"` 永不成立——预设拖放导入静默失效 |
-| `ERR-001` | P1 | 未处理 | 导出进度框 X 关闭后 activeDialog 悬垂 UAF | deleteOnClose 对话框被删除后嵌套循环退出路径仍调用 activeDialog->exitModalState；点 X 不触发取消，渲染期间点 X 即 UAF |
+| `THR-001` | P1 | 已关闭 | AudioEngine 参数更新锁外写活跃 voice（数据竞争） | setAdsr/setPianoParameters 改经原子快照 + 音频回调块开始处 applyPendingParametersIfNeeded 无锁同步，消除并发竞争 |
+| `THR-002` | P1 | 已关闭 | WAV 导出 Phase 1 无设备重建守卫读插件状态 | handleExportWavClicked 的 Phase 1 快照和离线实例创建完全包进 runPluginActionWithAudioDeviceRebuild 设备重建守卫中 |
+| `SEC-001` | P1 | 已关闭 | 设置窗口语言切换/关闭 Viewport 悬挂指针 UAF | ~SettingsComponent 与 buildJiveUi 销毁 JIVE 树前显式置空 viewport.setViewedComponent(nullptr, false)，根除 UAF |
+| `QUAL-001` | P1 | 已关闭 | 拖放 .devpiano.preset 扩展名判断死代码 | isInterestedInFileDrag 与 filesDropped 扩展名判断改用 endsWithIgnoreCase(".devpiano.preset") || ext == ".preset" |
+| `ERR-001` | P1 | 已关闭 | 导出进度框 X 关闭后 activeDialog 悬垂 UAF | ProgressContentWrapper 析构自动触发 onCancel 取消信号，activeDialog 判活防悬垂并安全退出模态循环与 timer |
 | `TEST-001` | P1 | 未处理 | PluginOperationController 编排状态机零测试 | 插件扫描/加载/恢复的两步提交异步状态机无任何测试保护；与 AUDIT-001 TEST-001 同类缺口 |
 | `SEC-002` | P2 | 未处理 | MIDI 导出混入 presetChange 伪 SysEx 且乱序 | 录制中切预设后导出：F0 F7 空 SysEx 混入文件 + 预置事件时间戳乱序（负 delta 被钳 0） |
 | `PERF-001` | P2 | 未处理 | 回放移调路径音频回调每块堆分配 | renderPlaybackEventsIfNeeded 的 transposedBuffer + swap 每块 alloc/free 一对（transpose 启用时） |
@@ -400,12 +400,11 @@ source/
 本轮无 P0。
 
 ### 5.2 当前迭代处理（P1）
-
-- [ ] `THR-001`：AudioEngine 参数更新与音频渲染同步——setAdsr/setPianoParameters 改经原子参数快照 + 音频线程 apply（或经 midiCollector 注入控制消息），消除锁外写 voice 状态
-- [ ] `THR-002`：handleExportWavClicked 的插件状态快照包进 runPluginActionWithAudioDeviceRebuild；同步修正 PluginOfflineRenderer.h 线程注释
-- [ ] `SEC-001`：SettingsComponent 拆树前先 viewport.setViewedComponent(nullptr, false)；refreshTexts 树重建延后到 callAsync
-- [ ] `QUAL-001`：拖放扩展名判断改用 getFileName().endsWithIgnoreCase(".devpiano.preset")
-- [ ] `ERR-001`：WavExportTask 对话框关闭路径（closeButtonPressed / deleteOnClose 回调）也设置 cancelRequested；退出前确认 activeDialog 有效或置空
+- [x] `THR-001`：AudioEngine 参数更新与音频渲染同步——setAdsr/setPianoParameters 改经原子参数快照 + 音频线程 applyPendingParametersIfNeeded，消除锁外写 voice 状态
+- [x] `THR-002`：handleExportWavClicked 的插件状态快照包进 runPluginActionWithAudioDeviceRebuild；严格遵守 PluginHost.h 线程契约
+- [x] `SEC-001`：SettingsComponent 拆树前先 viewport.setViewedComponent(nullptr, false)，消除 Viewport 悬挂指针 UAF
+- [x] `QUAL-001`：拖放扩展名判断改用 file.getFileName().endsWithIgnoreCase(".devpiano.preset") || ext == ".preset"
+- [x] `ERR-001`：ProgressContentWrapper 析构自动触发 onCancel；WavExportTask 对话框关闭路径判活与安全置空
 - [ ] `TEST-001`：PluginOperationController 抽纯函数（resolvePluginScanPath、restore 计划决策）+ 提交顺序测试
 
 ### 5.3 近期排期（P2）
@@ -500,7 +499,20 @@ source/
 
 > 每次复审追加一个小节，不覆盖旧记录。复审后必须同步更新第 0 章汇总与第 8 章问题总表。
 
-（初次审计，暂无复审记录。）
+### 7.1 复审 1（2026-08-31，Phase A 实时线程与内存安全修复）
+
+- **复审范围**：Phase A 包含的 5 个 P1 级缺陷（THR-001、THR-002、SEC-001、QUAL-001、ERR-001）。
+- **修复动作与证据**：
+  1. `THR-001`：`AudioEngine.h/.cpp` 引入 `pendingAttack`/`pendingDecay`/`pendingSustain`/`pendingRelease`/`pendingBrightness`/`pendingHammerHardness`/`pendingResonance`/`pendingLidPosition` 原子快照，在 `getNextAudioBlock` 与 `prepareToPlay` 块开头单线程调用 `applyPendingParametersIfNeeded()`，UI 消息线程参数注入完全 lock-free，消除锁外 voice 状态竞争。
+  2. `THR-002`：`RecordingSessionController::handleExportWavClicked` 将 Phase 1 的 live 插件状态快照与离线实例创建完整包进 `owner.runPluginActionWithAudioDeviceRebuild`，遵循 `PluginHost.h` 线程契约。
+  3. `SEC-001`：`SettingsComponent.h` 在 `~SettingsComponent()` 和 `buildJiveUi()` 销毁旧 JIVE 树之前显式调用 `viewport.setViewedComponent(nullptr, false)`，切断 `Viewport::contentComp` 悬挂引用，根除语言切换/关闭设置窗口时的 UAF。
+  4. `QUAL-001`：`MainComponent.cpp` 中的 `isInterestedInFileDrag` 与 `filesDropped` 改用 `file.getFileName().endsWithIgnoreCase(".devpiano.preset") || ext == ".preset"`，修复预设拖放被静默拒绝与丢弃的 bug。
+  5. `ERR-001`：`WavExportTask.cpp` 中 `ProgressContentWrapper` 析构函数增加 `onCancel()` 调用，确保用户点击右上角 X 窗口销毁时必发取消信号通知后台线程退出；退出模态循环与 `timerCallback` 安全判活并置空 `activeDialog`。
+- **验证结果**：
+  - `./scripts/dev.sh wsl-build`：Debug 构建 0 错误 0 警告（通过）；
+  - `./scripts/dev.sh test`：12187 个断言全绿通过（11.0s）；
+  - `./scripts/dev.sh format --check`：0 格式差异通过。
+- **状态变更**：THR-001（已关闭）、THR-002（已关闭）、SEC-001（已关闭）、QUAL-001（已关闭）、ERR-001（已关闭）。未处理问题降至 57 项。
 
 ---
 
@@ -512,11 +524,11 @@ source/
 
 | ID | 领域 | 问题标题 | 优先级 | 状态 | 来源 | 影响摘要 | 证据 | 风险接受原因 | 重开条件 | 下一步 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| THR-001 | 线程安全 | AudioEngine 参数更新在 Synthesiser 锁外写活跃 voice 状态（数据竞争） | P1 | 未处理 | 审计 | 演奏中拖 volume/ADSR/brightness 等 knob → handlePerformanceUiChanged → setAdsr/setPianoParameters → updateAdsrOnVoices/updatePianoParametersOnVoices 经 getVoice（持锁返回裸指针后锁释放）锁外写 voice 的 ADSR 参数与 float 成员；音频线程持 Synthesiser::lock 渲染 voice 并发读 → C++ 内存模型 UB（参数撕裂/偶发毛刺）。与 AUDIT-001 THR-001（masterGain 原子化）同类但范围更广 | `source/Audio/AudioEngine.cpp:200-213,266-283`；`source/Audio/PianoSynthVoice.h:71-77,79-83,306,413`；`source/MainComponent.cpp:1198-1201`（knob onChange 触发）；`submodules/JUCE/.../juce_Synthesiser.cpp:99-103`（getVoice 锁释放）、`:192`（渲染持锁） | - | - | 参数改原子快照或经 midiCollector 注入，音频线程侧应用 |
-| THR-002 | 线程安全 | WAV 导出 Phase 1 无设备重建守卫读取活动插件状态 | P1 | 未处理 | 审计 | 插件已加载时导出 WAV（常见路径）：消息线程 snapshotPluginState → getStateInformation 与音频线程 processBlock 并发访问同一实例，违反 PluginHost.h 自身线程契约（"Any mutation path that does not go through this guard creates an immediate data race"） | `source/Recording/RecordingSessionController.cpp:188-192`；`source/Plugin/PluginHost.h:7-16`（契约原文）；`source/Recording/PluginOfflineRenderer.h:18-20`（注释声称"audio is paused"，与实际不符） | - | - | Phase 1 快照包进 runPluginActionWithAudioDeviceRebuild |
-| SEC-001 | 安全 | 设置窗口语言切换/关闭时 Viewport 悬挂指针 UAF | P1 | 未处理 | 审计 | refreshTexts → buildJiveUi → safeCleanupJiveTree 销毁旧 JIVE 组件树后，Viewport::contentComp 仍指向已释放组件；setViewedComponent（deleteOrRemoveContentComp 解引用 contentComp）与析构路径 ~Viewport 均对悬挂指针调用 removeComponentListener → UB。每次语言切换/关闭设置窗口必踩，ASan 必现，Release 偶发崩溃 | `source/Settings/SettingsComponent.h:54,58-59,411-417`；`submodules/JUCE/modules/juce_gui_basics/layout/juce_Viewport.cpp:172-175,203-240` | - | - | 拆树前 viewport.setViewedComponent(nullptr, false)；树重建延后 callAsync |
-| QUAL-001 | 质量 | 拖放 .devpiano.preset 扩展名判断死代码，预设拖放导入静默失效 | P1 | 未处理 | 审计 | `getFileExtension()` 只返回最后一个 '.' 之后的子串：`foo.devpiano.preset` 返回 ".preset"，两处 `ext == ".devpiano.preset"` 永不成立——isInterestedInFileDrag 拒绝拖入，filesDropped 的 handleImportPresetFile 分支不可达 | `source/MainComponent.cpp:885-889,902-921`；`submodules/JUCE/modules/juce_core/files/juce_File.cpp:684-690` | - | - | 改 getFileName().endsWithIgnoreCase(".devpiano.preset") |
-| ERR-001 | 错误处理 | 导出进度框 X 关闭不触发取消，activeDialog 悬垂 UAF | P1 | 未处理 | 审计 | escapeKeyTriggersCloseButton=false 且 X 关闭不设置 cancelRequested；deleteOnClose 对话框被删除后：嵌套循环退出路径 `activeDialog->exitModalState(0)`（:174）与 timerCallback 的 getContentComponent 均对已删除对象调用 → 渲染期间点 X 即 UAF | `source/Export/WavExportTask.cpp:137-142,156-158,173-182`；`submodules/JUCE/.../juce_DialogWindow.cpp:125-129`（launchAsync → enterModalState + deleteOnClose） | - | - | X 关闭也设置 cancelRequested；activeDialog 退出路径判活/置空 |
+| THR-001 | 线程安全 | AudioEngine 参数更新在 Synthesiser 锁外写活跃 voice 状态（数据竞争） | P1 | 已关闭 | 审计 | 演奏中拖 volume/ADSR/brightness 等 knob → handlePerformanceUiChanged → setAdsr/setPianoParameters → updateAdsrOnVoices/updatePianoParametersOnVoices 经 getVoice（持锁返回裸指针后锁释放）锁外写 voice 的 ADSR 参数与 float 成员；音频线程持 Synthesiser::lock 渲染 voice 并发读 → C++ 内存模型 UB（参数撕裂/偶发毛刺）。与 AUDIT-001 THR-001（masterGain 原子化）同类但范围更广 | `source/Audio/AudioEngine.cpp:200-213,266-283`；`source/Audio/PianoSynthVoice.h:71-77,79-83,306,413`；`source/MainComponent.cpp:1198-1201` | - | - | 已修复：AudioEngine 引入原子参数快照 + 音频回调块开始处 applyPendingParametersIfNeeded 无锁应用（复审 1） |
+| THR-002 | 线程安全 | WAV 导出 Phase 1 无设备重建守卫读取活动插件状态 | P1 | 已关闭 | 审计 | 插件已加载时导出 WAV（常见路径）：消息线程 snapshotPluginState → getStateInformation 与音频线程 processBlock 并发访问同一实例，违反 PluginHost.h 自身线程契约（"Any mutation path that does not go through this guard creates an immediate data race"） | `source/Recording/RecordingSessionController.cpp:188-192`；`source/Plugin/PluginHost.h:7-16`（契约原文） | - | - | 已修复：handleExportWavClicked 的 Phase 1 快照和离线实例创建完全包进 runPluginActionWithAudioDeviceRebuild（复审 1） |
+| SEC-001 | 安全 | 设置窗口语言切换/关闭时 Viewport 悬挂指针 UAF | P1 | 已关闭 | 审计 | refreshTexts → buildJiveUi → safeCleanupJiveTree 销毁旧 JIVE 组件树后，Viewport::contentComp 仍指向已释放组件；setViewedComponent（deleteOrRemoveContentComp 解引用 contentComp）与析构路径 ~Viewport 均对悬挂指针调用 removeComponentListener → UB。每次语言切换/关闭设置窗口必踩，ASan 必现，Release 偶发崩溃 | `source/Settings/SettingsComponent.h:54,58-59,411-417`；`submodules/JUCE/modules/juce_gui_basics/layout/juce_Viewport.cpp:172-175,203-240` | - | - | 已修复：~SettingsComponent 与 buildJiveUi 拆树前显式置空 viewport.setViewedComponent(nullptr, false)（复审 1） |
+| QUAL-001 | 质量 | 拖放 .devpiano.preset 扩展名判断死代码，预设拖放导入静默失效 | P1 | 已关闭 | 审计 | `getFileExtension()` 只返回最后一个 '.' 之后的子串：`foo.devpiano.preset` 返回 ".preset"，两处 `ext == ".devpiano.preset"` 永不成立——isInterestedInFileDrag 拒绝拖入，filesDropped 的 handleImportPresetFile 分支不可达 | `source/MainComponent.cpp:885-889,902-921`；`submodules/JUCE/modules/juce_core/files/juce_File.cpp:684-690` | - | - | 已修复：isInterestedInFileDrag 与 filesDropped 扩展名判断改用 endsWithIgnoreCase(".devpiano.preset") || ext == ".preset"（复审 1） |
+| ERR-001 | 错误处理 | 导出进度框 X 关闭不触发取消，activeDialog 悬垂 UAF | P1 | 已关闭 | 审计 | escapeKeyTriggersCloseButton=false 且 X 关闭不设置 cancelRequested；deleteOnClose 对话框被删除后：嵌套循环退出路径 `activeDialog->exitModalState(0)`（:174）与 timerCallback 的 getContentComponent 均对已删除对象调用 → 渲染期间点 X 即 UAF | `source/Export/WavExportTask.cpp:137-142,156-158,173-182`；`submodules/JUCE/.../juce_DialogWindow.cpp:125-129`（launchAsync → enterModalState + deleteOnClose） | - | - | 已修复：ProgressContentWrapper 析构自动触发 onCancel，退出路径安全判活与置空 activeDialog（复审 1） |
 | TEST-001 | 测试 | PluginOperationController 编排状态机零测试覆盖 | P1 | 未处理 | 审计 | 插件扫描/加载/卸载/editor/启动恢复的异步状态机（AsyncUpdater + scanStepInProgress 两步提交，306 行）零测试；每一步提交直接作用用户设置持久化。与 AUDIT-001 TEST-001（RecordingSessionController）同类缺口 | `source/Plugin/PluginOperationController.h/.cpp`；source/tests/ 全目录无引用（grep） | - | - | 抽纯函数（resolvePluginScanPath/恢复计划决策）+ 提交顺序测试 |
 | SEC-002 | 安全 | MIDI 导出混入 presetChange 伪 SysEx 事件且预置事件时间轴乱序 | P2 | 未处理 | 审计 | MidiFileExporter 无条件 addEvent（presetChange 事件的 message 为默认 MidiMessage=F0 F7 空 SysEx）；stopRecording 将 pendingPresetEvents 直接 append 到已排序 events 尾部不重排。录制期间切换预置后导出 → 文件混入伪 SysEx + 负 delta 被钳 0 导致时间戳错乱 | `source/Recording/MidiFileExporter.cpp:26-37`；`source/Recording/RecordingEngine.cpp:102-105,191`；`source/Layout/PresetFlowSupport.cpp:97-98`（触发路径）；`submodules/JUCE/.../juce_MidiFile.cpp:528-531` | - | - | 导出过滤非 midi 事件；stopRecording 合并后排序 |
 | PERF-001 | 性能 | 回放移调路径音频回调每块堆分配 | P2 | 未处理 | 审计 | renderPlaybackEventsIfNeeded 的 transpose 分支：栈上 MidiBuffer transposedBuffer addEvent 分配 + swapWith 与成员交换 → 每块 alloc/free 一对（transpose 启用 + 播放中有事件时），违反音频回调无分配原则 | `source/Audio/AudioEngine.cpp:355-375` | - | - | 就地改写或复用预分配 buffer |

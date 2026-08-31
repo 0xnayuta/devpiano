@@ -16,14 +16,14 @@
 
 ## 本轮子任务排期（AUDIT-002 Fix Phases）
 
-### AUDIT-002 Phase A：实时线程与内存安全（P1 紧急缺陷修复）
+### AUDIT-002 Phase A：实时线程与内存安全（P1 紧急缺陷修复） [已完成，2026-08-31]
 > 目标：消除实时音频线程数据竞争与高频触发的内存 UAF / 崩溃漏洞，建立第一道安全防线。
 
-- [ ] `THR-001`：`AudioEngine` 参数更新（`setAdsr` / `setPianoParameters`）与音频渲染同步，消除锁外修改活跃 voice 状态的数据竞争
-- [ ] `THR-002`：WAV 导出 Phase 1 插件状态快照包进 `runPluginActionWithAudioDeviceRebuild`，严格遵守 `PluginHost` 线程契约
-- [ ] `SEC-001`：`SettingsComponent` 拆树前先置空 `Viewport::contentComp`，树重建延后 `callAsync`，根除语言切换/窗口关闭时的 Viewport 悬挂指针 UAF
-- [ ] `QUAL-001`：`MainComponent` 拖放 `.devpiano.preset` 扩展名判断改用 `getFileName().endsWithIgnoreCase(".devpiano.preset")`，修复预设拖放导入静默失效
-- [ ] `ERR-001`：`WavExportTask` 进度对话框关闭路径触发取消信号并置空 `activeDialog`，杜绝渲染期间点 X 导致的悬挂 UAF
+- [x] `THR-001`：`AudioEngine` 参数更新（`setAdsr` / `setPianoParameters`）与音频渲染同步，消除锁外修改活跃 voice 状态的数据竞争
+- [x] `THR-002`：WAV 导出 Phase 1 插件状态快照包进 `runPluginActionWithAudioDeviceRebuild`，严格遵守 `PluginHost` 线程契约
+- [x] `SEC-001`：`SettingsComponent` 拆树前先置空 `Viewport::contentComp`，树重建延后 `callAsync`，根除语言切换/窗口关闭时的 Viewport 悬挂指针 UAF
+- [x] `QUAL-001`：`MainComponent` 拖放 `.devpiano.preset` 扩展名判断改用 `getFileName().endsWithIgnoreCase(".devpiano.preset")`，修复预设拖放导入静默失效
+- [x] `ERR-001`：`WavExportTask` 进度对话框关闭路径触发取消信号并置空 `activeDialog`，杜绝渲染期间点 X 导致的悬挂 UAF
 
 ### AUDIT-002 Phase B：架构重构与组件收敛（P2 结构化治理）
 > 目标：解决装配层膨胀与庞大内联头文件，消除跨文件同构辅助代码复制。

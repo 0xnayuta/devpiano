@@ -181,28 +181,31 @@ void RecordingSessionController::handleExportWavClicked() {
                                                                       getCurrentRuntimeSampleRate(),
                                                                       getCurrentRuntimeBlockSize());
 
-            // Phase 1: Create offline plugin instance (MUST be on message thread)
+            // Phase 1: Create offline plugin instance under audio device rebuild guard
+            // (MUST pause audio callback while snapshotting live plugin state, PluginHost.h)
             std::unique_ptr<juce::AudioPluginInstance> offlinePlugin;
 
-            auto* pluginHost = audioEngine.getPluginHost();
-            if (pluginHost != nullptr && pluginHost->hasLoadedPlugin()) {
-                auto* liveInstance = pluginHost->getInstance();
-                const auto* desc = pluginHost->getLoadedPluginDescription();
-                if (liveInstance != nullptr && desc != nullptr) {
-                    auto state = devpiano::exporting::snapshotPluginState(*liveInstance);
+            owner.runPluginActionWithAudioDeviceRebuild([&] {
+                auto* pluginHost = audioEngine.getPluginHost();
+                if (pluginHost != nullptr && pluginHost->hasLoadedPlugin()) {
+                    auto* liveInstance = pluginHost->getInstance();
+                    const auto* desc = pluginHost->getLoadedPluginDescription();
+                    if (liveInstance != nullptr && desc != nullptr) {
+                        auto state = devpiano::exporting::snapshotPluginState(*liveInstance);
 
-                    juce::String error;
-                    offlinePlugin = devpiano::exporting::createOfflinePluginInstance(
-                        pluginHost->getFormatManager(), *desc, options.sampleRate, options.blockSize, error);
+                        juce::String error;
+                        offlinePlugin = devpiano::exporting::createOfflinePluginInstance(
+                            pluginHost->getFormatManager(), *desc, options.sampleRate, options.blockSize, error);
 
-                    if (offlinePlugin != nullptr) {
-                        offlinePlugin->setStateInformation(state.getData(), static_cast<int>(state.getSize()));
-                    } else {
-                        DP_LOG_WARN("[Export] Offline plugin instance creation failed: " + error
-                                    + " — falling back to sine synth");
+                        if (offlinePlugin != nullptr) {
+                            offlinePlugin->setStateInformation(state.getData(), static_cast<int>(state.getSize()));
+                        } else {
+                            DP_LOG_WARN("[Export] Offline plugin instance creation failed: " + error
+                                        + " — falling back to sine synth");
+                        }
                     }
                 }
-            }
+            });
 
             // Phase 2: Background export with progress dialog
             WavExportTask task(std::move(take), file, options, std::move(offlinePlugin), &owner);

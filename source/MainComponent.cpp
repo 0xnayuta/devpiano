@@ -870,8 +870,10 @@ void MainComponent::paintOverChildren(juce::Graphics& g) {
 
 bool MainComponent::isInterestedInFileDrag(const juce::StringArray& files) {
     return std::ranges::any_of(files, [](const auto& f) {
-        const auto ext = juce::File(f).getFileExtension().toLowerCase();
-        return ext == ".devpiano" || ext == ".mid" || ext == ".midi" || ext == ".devpiano.preset" || ext == ".vst3";
+        const auto file = juce::File(f);
+        const auto ext = file.getFileExtension().toLowerCase();
+        return ext == ".devpiano" || ext == ".mid" || ext == ".midi" || ext == ".vst3"
+            || file.getFileName().endsWithIgnoreCase(".devpiano.preset") || ext == ".preset";
     });
 }
 
@@ -901,7 +903,7 @@ void MainComponent::filesDropped(const juce::StringArray& files, int, int) {
             if (recordingSessionController != nullptr) {
                 recordingSessionController->handleImportMidiFile(file);
             }
-        } else if (ext == ".devpiano.preset") {
+        } else if (file.getFileName().endsWithIgnoreCase(".devpiano.preset") || ext == ".preset") {
             if (presetFlowSupport != nullptr) {
                 presetFlowSupport->handleImportPresetFile(file);
             }

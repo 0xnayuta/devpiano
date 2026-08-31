@@ -51,11 +51,13 @@ public:
 
     ~SettingsComponent() override {
         deviceManager.removeChangeListener(this);
+        viewport.setViewedComponent(nullptr, false);
         safeCleanupJiveTree(jiveRootItem);
         interpreter.reset();
     }
 
     void buildJiveUi() {
+        viewport.setViewedComponent(nullptr, false);
         safeCleanupJiveTree(jiveRootItem);
         interpreter = std::make_unique<::jive::Interpreter>();
         auto& factory = interpreter->getComponentFactory();
