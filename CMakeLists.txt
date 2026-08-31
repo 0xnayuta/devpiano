@@ -19,6 +19,11 @@ if (MSVC)
 
     # 启用 /FS (Force Synchronous PDB Writes) 彻底杜绝 C1041 锁冲突
     add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:/FS>)
+
+    # 链接器性能优化：
+    # 1. 禁用 /INCREMENTAL（避免生成增量链接垫片与 ILINK 锁开销）
+    # 2. Release LTCG 启用 8 线程并发代码生成 (/CGTHREADS:8)
+    add_link_options("/INCREMENTAL:NO" "$<$<CONFIG:Release,RelWithDebInfo>:/CGTHREADS:8>")
 endif()
 # ========================================================
 # 高速链接器检测与启用 (mold / lld 极大缩短链接时间)

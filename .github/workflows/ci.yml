@@ -150,7 +150,7 @@ jobs:
         run: cmake --build --preset windows-msvc-debug
 
       - name: Run Windows unit test suite
-        run: .\build-win-msvc\devpiano_tests_artefacts\Debug\devpiano_tests.exe --verbose
+        run: ctest --test-dir build-win-msvc --output-on-failure
 
       # Windows Release 构建验证：push 门禁必须覆盖发布配置——否则 MSVC
       # Release 编译错误（/O2 相关、NDEBUG 分支）要到 tag 发布时才暴露。
