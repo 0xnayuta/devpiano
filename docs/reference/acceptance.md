@@ -166,7 +166,6 @@
 - [x] 引入 JIVE 框架，以 `juce::ValueTree` + JSON 样式表声明主窗口布局。
 - [x] 彻底消除主窗口 5 个面板的 manual `setBounds()` 与像素手算代码。
 - [x] `DesignTokens` 与 `StyleCatalog` 统一全局配色、字号与间距。
-- [x] 集成 `melatonin_inspector` 运行时可视化检查器。
 - [x] 原生自绘组件（`CustomKeyboard`、`AdsrCurve`、`StatusBarMidiDot`）通过工厂无缝注入 JIVE 树。
 
 ---
