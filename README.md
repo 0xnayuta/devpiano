@@ -151,8 +151,7 @@ source/
 
 项目依赖的第三方框架均以 Git Submodule 形式引入，**禁止直接修改子模块中的任何代码**：
 - `submodules/JUCE/`：JUCE 跨平台音频/GUI 框架（AGPLv3 / 商业许可）；
-- `submodules/JIVE/`：JIVE 声明式 UI 框架（MIT）；
-- `submodules/melatonin_inspector/`：运行时 Component 检查器（MIT）。
+- `submodules/JIVE/`：JIVE 声明式 UI 框架（MIT）。
 
 ---
 
