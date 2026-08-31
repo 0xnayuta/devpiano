@@ -415,9 +415,16 @@ void MainComponent::handleKeyBindingEditRequest(int midiNote) {
     auto currentLabel = appSettings.keyboardDisplay.customKeyLabels[static_cast<std::size_t>(midiNote)];
     auto currentColour = appSettings.keyboardDisplay.customKeyColours[static_cast<std::size_t>(midiNote)];
 
-    KeyBindingEditDialog::launch(
-        midiNote, noteName, existingBinding, currentLabel, currentColour,
-        [this, midiNote](KeyBindingEditResult result) { applyKeyBindingEditResult(midiNote, result); }, this);
+    KeyBindingDialogParams params;
+    params.midiNote = midiNote;
+    params.noteName = noteName;
+    params.existingBinding = existingBinding;
+    params.currentCustomLabel = currentLabel;
+    params.currentCustomColour = currentColour;
+    params.onComplete = [this, midiNote](KeyBindingEditResult result) { applyKeyBindingEditResult(midiNote, result); };
+    params.parent = this;
+
+    KeyBindingEditDialog::launch(params);
 }
 
 void MainComponent::applyKeyBindingEditResult(int midiNote, const KeyBindingEditResult& result) {

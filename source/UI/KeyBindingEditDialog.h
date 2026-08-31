@@ -20,6 +20,19 @@ struct KeyBindingEditResult {
 };
 
 // ============================================================================
+// Parameters required to launch KeyBindingEditDialog.
+// ============================================================================
+struct KeyBindingDialogParams {
+    int midiNote = 60;
+    juce::String noteName;
+    std::optional<devpiano::core::KeyBinding> existingBinding;
+    juce::String currentCustomLabel;
+    juce::Colour currentCustomColour { 0x00000000 };
+    std::function<void(KeyBindingEditResult)> onComplete;
+    juce::Component* parent = nullptr;
+};
+
+// ============================================================================
 // Modal dialog for editing a computer-key → MIDI-note binding,
 // plus per-key custom label and colour.
 //
@@ -31,10 +44,7 @@ class KeyBindingEditDialog {
 public:
     KeyBindingEditDialog() = delete;
 
-    static void launch(int midiNote, const juce::String& noteName,
-                       std::optional<devpiano::core::KeyBinding> existingBinding,
-                       const juce::String& currentCustomLabel, const juce::Colour& currentCustomColour,
-                       std::function<void(KeyBindingEditResult)> onComplete, juce::Component* parent = nullptr);
+    static void launch(const KeyBindingDialogParams& params);
 
     [[nodiscard]] static juce::ValueTree makeKeyBindingEditLayout(bool hasExistingBinding, int width = 420,
                                                                   int height = 290);
