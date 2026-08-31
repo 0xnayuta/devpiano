@@ -92,4 +92,22 @@ juce::String makeExportLogPrefix(ExportFileType type) {
     return "[Export]";
 }
 
+void applyMasterSoftLimiter(juce::AudioBuffer<float>& buffer, int numSamples) noexcept {
+    constexpr float kThreshold = 0.85f;
+    constexpr float kCeiling = 0.98f;
+    constexpr float kKnee = kCeiling - kThreshold;
+
+    for (int ch = 0; ch < buffer.getNumChannels(); ++ch) {
+        auto* data = buffer.getWritePointer(ch);
+        for (int i = 0; i < numSamples; ++i) {
+            const auto x = data[i];
+            const auto absX = std::abs(x);
+            if (absX > kThreshold) {
+                const auto sign = (x >= 0.0f) ? 1.0f : -1.0f;
+                data[i] = sign * (kThreshold + kKnee * std::tanh((absX - kThreshold) / kKnee));
+            }
+        }
+    }
+}
+
 } // namespace devpiano::exporting

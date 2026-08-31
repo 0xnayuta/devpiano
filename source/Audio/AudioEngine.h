@@ -96,6 +96,7 @@ private:
     juce::MidiKeyboardState keyboardState;
     juce::MidiBuffer midiBuffer;
     juce::MidiBuffer playbackVisualMidiBuffer;
+    juce::MidiBuffer playbackTransposedMidiBuffer;
     juce::AudioBuffer<float> pluginBuffer;
 
     juce::ADSR::Parameters adsrParameters;

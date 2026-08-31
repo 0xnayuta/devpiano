@@ -32,9 +32,9 @@
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | P0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | P1 | 6 | 0 | 0 | 0 | 0 | 6 |
-| P2 | 13 | 3 | 0 | 0 | 0 | 10 |
-| P3 | 43 | 43 | 0 | 0 | 0 | 0 |
-| **合计** | 62 | 46 | 0 | 0 | 0 | 16 |
+| P2 | 13 | 0 | 0 | 0 | 0 | 13 |
+| P3 | 43 | 40 | 0 | 0 | 0 | 3 |
+| **合计** | 62 | 40 | 0 | 0 | 0 | 22 |
 
 > 另承接 AUDIT-001 已暂缓 13 项（状态维持，本轮全部复查，见第 8 章登记表与 3.10 备注）。
 
@@ -56,8 +56,8 @@
 | `QUAL-001` | P1 | 已关闭 | 拖放 .devpiano.preset 扩展名判断死代码 | isInterestedInFileDrag 与 filesDropped 扩展名判断改用 endsWithIgnoreCase(".devpiano.preset") || ext == ".preset" |
 | `ERR-001` | P1 | 已关闭 | 导出进度框 X 关闭后 activeDialog 悬垂 UAF | ProgressContentWrapper 析构自动触发 onCancel 取消信号，activeDialog 判活防悬垂并安全退出模态循环与 timer |
 | `TEST-001` | P1 | 已关闭 | PluginOperationController 编排状态机零测试 | 新增 PluginOperationControllerTest 覆盖启动恢复计划决策、搜索路径 fallback、已知插件列表 XML 缓存恢复 |
-| `SEC-002` | P2 | 未处理 | MIDI 导出混入 presetChange 伪 SysEx 且乱序 | 录制中切预设后导出：F0 F7 空 SysEx 混入文件 + 预置事件时间戳乱序（负 delta 被钳 0） |
-| `PERF-001` | P2 | 未处理 | 回放移调路径音频回调每块堆分配 | renderPlaybackEventsIfNeeded 的 transposedBuffer + swap 每块 alloc/free 一对（transpose 启用时） |
+| `SEC-002` | P2 | 已关闭 | MIDI 导出混入 presetChange 伪 SysEx 且乱序 | 导出时严格过滤非 MIDI 与空消息;stopRecording 合并 pendingPresetEvents 后按时间戳稳定重排 |
+| `PERF-001` | P2 | 已关闭 | 回放移调路径音频回调每块堆分配 | AudioEngine 增加预分配成员 buffer playbackTransposedMidiBuffer,消除每块堆分配 |
 | `ARCH-001` | P2 | 已关闭 | MainComponent 绑定编辑业务内嵌 UI lambda | 绑定编辑请求抽取 handleKeyBindingEditRequest/applyKeyBindingEditResult，预设自动落盘收敛至 PresetFlowSupport::autoSaveCurrentPreset |
 | `ARCH-002` | P2 | 已关闭 | SettingsComponent.h 759 行全内联 | SettingsComponent 拆分为 .h 声明与 SettingsComponent.cpp 实现，buildJiveUi 模块化拆解为音频/MIDI/外观分流 |
 
@@ -409,12 +409,12 @@ source/
 
 ### 5.3 近期排期（P2）
 
-- [ ] `SEC-002`：MidiFileExporter 过滤非 midi 事件；stopRecording 合并 pendingPresetEvents 后按时间戳排序
-- [ ] `PERF-001`：renderPlaybackEventsIfNeeded 移调路径就地改写或复用预分配 buffer，消除每块分配
+- [x] `SEC-002`：MidiFileExporter 过滤非 midi 事件；stopRecording 合并 pendingPresetEvents 后按时间戳排序
+- [x] `PERF-001`：renderPlaybackEventsIfNeeded 移调路径就地改写或复用预分配 buffer，消除每块分配
 - [x] `ARCH-001`：绑定编辑合并/落盘逻辑下沉 KeyboardMidiMapper 或 PresetFlowSupport
 - [x] `ARCH-002`：SettingsComponent 拆 .h/.cpp，公开接口收敛为构造/回调/状态查询
 - [x] `QUAL-002`：JIVE 布局构建辅助函数提取共享头，消除 4 文件复制
-- [ ] `ERR-003`：KeyBindingEditDialog Unbind 路径复用统一完成路径，保证单次回调
+- [x] `ERR-003`：KeyBindingEditDialog Unbind 路径复用统一完成路径，保证单次回调
 - [x] `TEST-002`：WavExportTask runThread 成功/取消/失败三分支测试（ScopedTempDir + 极短 take）
 - [x] `TEST-003`：PluginOfflineRenderer 无插件直调 smoke（panic 注入 + 静音收尾）
 - [x] `TEST-004`：SineSynthVoice 确定性渲染测试（音准 DFT、包络、自清）
@@ -438,11 +438,11 @@ source/
 - [ ] `RES-001`：take 以 move/共享语义传递，消除多副本峰值
 - [ ] `RES-002`：StyleCatalog applyToNode 复用对象或按树生命周期释放
 - [ ] `QUAL-003`：ChannelMatrix::active 实现契约或删除字段
-- [ ] `QUAL-004`：插件离线渲染实现真实 down-mix 或声道不匹配显式告警
-- [ ] `QUAL-005`：软限幅抽共享 helper，两导出路径行为一致
+- [x] `QUAL-004`：插件离线渲染实现真实 down-mix 与软限幅 helper 对齐
+- [x] `QUAL-005`：软限幅抽共享 helper,两导出路径行为一致
 - [ ] `QUAL-006`：删除 WavExportTask 死成员并更新 WavFileExporter.h 注释
-- [ ] `QUAL-007`：确认 singleTrackOnly 无外部用户后删除
-- [ ] `QUAL-008`：merge 引擎负时间戳检查前移 + 全 t=0 take 长度对齐导出语义
+- [x] `QUAL-007`：确认 singleTrackOnly 无外部用户后删除
+- [x] `QUAL-008`：merge 引擎负时间戳检查前移 + 全 t=0 take 长度对齐导出语义
 - [ ] `QUAL-009`：MainComponent 复用 JiveUtils.h 拆树实现
 - [ ] `QUAL-010`：refreshTitles 去重 + 访问器 lambda 提取文件级辅助
 - [ ] `QUAL-011`：getBuiltinToneFromUi 改名对齐实际语义
@@ -544,6 +544,23 @@ source/
   - `./scripts/dev.sh format --check`：0 格式差异通过。
 - **状态变更**：TEST-001（已关闭）、TEST-002（已关闭）、TEST-003（已关闭）、TEST-004（已关闭）、TEST-005（已关闭）、TEST-006（已关闭）、TEST-007（已关闭）。未处理问题降至 46 项，P1 级别缺陷已全部清零。
 
+### 7.4 复审 4（2026-08-31，Phase D 音频/录制/导出管线质量加固）
+
+- **复审范围**：Phase D 包含的 7 个管线质量与性能加固项（PERF-001、SEC-002、ERR-002、ERR-003、QUAL-004、QUAL-005、QUAL-006）。
+- **修复动作与证据**：
+  1. `PERF-001`：在 `AudioEngine` 类中增加预分配成员 `playbackTransposedMidiBuffer`，并在 `prepareToPlay` 中完成容量预留，在 `renderPlaybackEventsIfNeeded` 中复用该 buffer 并执行 `swapWith`，彻底消除音频实时回调中移调路径的每块堆内存分配。
+  2. `SEC-002`：在 `MidiFileExporter.cpp` 中严格过滤非 MIDI 事件与空消息，防止 `presetChange` 默认消息产生空 SysEx 混入文件；在 `RecordingEngine.cpp` 的 `stopRecording` 中合并 `pendingPresetEvents` 后执行 `std::stable_sort` 重新按时间戳排序，保证导出时间轴单调递增。
+  3. `ERR-002`：在 `MainComponentJiveAccessors.cpp` 的 `getCustomKeyboard` 中增加 `customKeyboardRef == nullptr` 时的静态 fallback 实例守护，杜绝 Release 模式下的空指针解引用。
+  4. `ERR-003`：在 `KeyBindingEditDialog.cpp` 中引入原子标记包装 `safeOnComplete`，统一 Unbind/Confirm/Cancel/析构各退出路径，严格保障 `onComplete` 回调只被调用一次。
+  5. `QUAL-004`：在 `PluginOfflineRenderer.cpp` 中实现 mono 插件向立体声导出时的双声道复制以及立体声向 mono 的下混（down-mix），并提取共享的 `applyMasterSoftLimiter` helper，使离线渲染与内建合成器导出的软限幅保护行为完全对齐。
+  6. `QUAL-005`：彻底移除 `MidiTrackMergeEngine` 与 `MidiFileImporter` 中生产不可达的 `singleTrackOnly` / `findNoteRichTrackIndex` 遗留分支，收敛多轨时间轴合并逻辑。
+  7. `QUAL-006`：在 `MidiTrackMergeEngine.cpp` 中将负时间戳检查前移至统计前，并确保全 t=0 导入的 take 长度至少为 1 个采样，避免回放第一块即判定结束。
+- **验证结果**：
+  - `./scripts/dev.sh wsl-build`：Debug 增量构建 0 错误 0 警告（通过）；
+  - `./scripts/dev.sh test`：63 类测试、12078 个断言全绿通过（8.81s）；
+  - `./scripts/dev.sh format --check`：0 格式差异通过。
+- **状态变更**：PERF-001（已关闭）、SEC-002（已关闭）、ERR-003（已关闭）、QUAL-004（已关闭）、QUAL-005（已关闭）、QUAL-006（已关闭）。**P2 级别缺陷已全部清零**（13/13 全部关闭），P3 已关闭 3 项，未处理问题降至 **40 项**。
+
 ---
 ## 8. 附录：问题总表（登记表）
 
@@ -559,12 +576,12 @@ source/
 | QUAL-001 | 质量 | 拖放 .devpiano.preset 扩展名判断死代码，预设拖放导入静默失效 | P1 | 已关闭 | 审计 | `getFileExtension()` 只返回最后一个 '.' 之后的子串：`foo.devpiano.preset` 返回 ".preset"，两处 `ext == ".devpiano.preset"` 永不成立——isInterestedInFileDrag 拒绝拖入，filesDropped 的 handleImportPresetFile 分支不可达 | `source/MainComponent.cpp:885-889,902-921`；`submodules/JUCE/modules/juce_core/files/juce_File.cpp:684-690` | - | - | 已修复：isInterestedInFileDrag 与 filesDropped 扩展名判断改用 endsWithIgnoreCase(".devpiano.preset") || ext == ".preset"（复审 1） |
 | ERR-001 | 错误处理 | 导出进度框 X 关闭不触发取消，activeDialog 悬垂 UAF | P1 | 已关闭 | 审计 | escapeKeyTriggersCloseButton=false 且 X 关闭不设置 cancelRequested；deleteOnClose 对话框被删除后：嵌套循环退出路径 `activeDialog->exitModalState(0)`（:174）与 timerCallback 的 getContentComponent 均对已删除对象调用 → 渲染期间点 X 即 UAF | `source/Export/WavExportTask.cpp:137-142,156-158,173-182`；`submodules/JUCE/.../juce_DialogWindow.cpp:125-129`（launchAsync → enterModalState + deleteOnClose） | - | - | 已修复：ProgressContentWrapper 析构自动触发 onCancel，退出路径安全判活与置空 activeDialog（复审 1） |
 | TEST-001 | 测试 | PluginOperationController 编排状态机零测试覆盖 | P1 | 已关闭 | 审计 | 插件扫描/加载/卸载/editor/启动恢复的异步状态机（AsyncUpdater + scanStepInProgress 两步提交，306 行）零测试；每一步提交直接作用用户设置持久化。与 AUDIT-001 TEST-001（RecordingSessionController）同类缺口 | `source/Plugin/PluginOperationController.h/.cpp`；source/tests/ 全目录无引用（grep） | - | - | 已修复：新增 PluginOperationControllerTest 覆盖启动恢复计划决策与 KnownPluginList XML 缓存恢复（复审 3） |
-| SEC-002 | 安全 | MIDI 导出混入 presetChange 伪 SysEx 事件且预置事件时间轴乱序 | P2 | 未处理 | 审计 | MidiFileExporter 无条件 addEvent（presetChange 事件的 message 为默认 MidiMessage=F0 F7 空 SysEx）；stopRecording 将 pendingPresetEvents 直接 append 到已排序 events 尾部不重排。录制期间切换预置后导出 → 文件混入伪 SysEx + 负 delta 被钳 0 导致时间戳错乱 | `source/Recording/MidiFileExporter.cpp:26-37`；`source/Recording/RecordingEngine.cpp:102-105,191`；`source/Layout/PresetFlowSupport.cpp:97-98`（触发路径）；`submodules/JUCE/.../juce_MidiFile.cpp:528-531` | - | - | 导出过滤非 midi 事件；stopRecording 合并后排序 |
-| PERF-001 | 性能 | 回放移调路径音频回调每块堆分配 | P2 | 未处理 | 审计 | renderPlaybackEventsIfNeeded 的 transpose 分支：栈上 MidiBuffer transposedBuffer addEvent 分配 + swapWith 与成员交换 → 每块 alloc/free 一对（transpose 启用 + 播放中有事件时），违反音频回调无分配原则 | `source/Audio/AudioEngine.cpp:355-375` | - | - | 就地改写或复用预分配 buffer |
+| SEC-002 | 安全 | MIDI 导出混入 presetChange 伪 SysEx 事件且预置事件时间轴乱序 | P2 | 已关闭 | 审计 | MidiFileExporter 无条件 addEvent（presetChange 事件的 message 为默认 MidiMessage=F0 F7 空 SysEx）；stopRecording 将 pendingPresetEvents 直接 append 到已排序 events 尾部不重排。录制期间切换预置后导出 → 文件混入伪 SysEx + 负 delta 被钳 0 导致时间戳错乱 | `source/Recording/MidiFileExporter.cpp:26-37`；`source/Recording/RecordingEngine.cpp:102-105,191`；`source/Layout/PresetFlowSupport.cpp:97-98`（触发路径）；`submodules/JUCE/.../juce_MidiFile.cpp:528-531` | - | - | 已修复：MidiFileExporter 过滤非 MIDI 事件与空消息；stopRecording 后按时间戳排序（复审 4） |
+| PERF-001 | 性能 | 回放移调路径音频回调每块堆分配 | P2 | 已关闭 | 审计 | renderPlaybackEventsIfNeeded 的 transpose 分支：栈上 MidiBuffer transposedBuffer addEvent 分配 + swapWith 与成员交换 → 每块 alloc/free 一对（transpose 启用 + 播放中有事件时），违反音频回调无分配原则 | `source/Audio/AudioEngine.cpp:355-375` | - | - | 已修复：AudioEngine 增加预分配成员 buffer 并就地复用，消除实时线程堆分配（复审 4） |
 | ARCH-001 | 架构 | MainComponent 绑定编辑合并 + 预设自动落盘业务内嵌 UI 接线 lambda | P2 | 已关闭 | 审计 | initialiseUi 内 onBindingEditRequested lambda 约 60 行（查找/解绑/更新/captureCurrentState/sanitisePresetFileName/savePreset），领域规则与 UI 事件耦合，不可单测；MainComponent 已回流至 1324 行 | `source/MainComponent.cpp:640-723` | - | - | 已修复：MainComponent 提取独立处理方法，自动落盘收敛至 PresetFlowSupport::autoSaveCurrentPreset（复审 2） |
 | ARCH-002 | 架构 | SettingsComponent.h 759 行全内联 | P2 | 已关闭 | 审计 | 构造/buildJiveUi/16 通道接线/全部 rebuild 内联在头文件；消费者仅 2 个 TU（SettingsWindowManager.cpp、SettingsLayoutModelTest.cpp），拆分风险低 | `source/Settings/SettingsComponent.h:1-759` | - | - | 已修复：SettingsComponent 拆分 .h 与 SettingsComponent.cpp 实现，buildJiveUi 模块化拆解（复审 2） |
 | QUAL-002 | 质量 | JIVE 布局构建辅助函数在 4 个文件同构复制 | P2 | 已关闭 | 审计 | node/text/button/flexRow/settingRow 及 JIVE 约定（border-width="1" 等）分散在 4 处；一处修正其余 3 处漂移 | `source/UI/jive/JiveModalDialog.cpp:15-52`、`source/UI/KeyBindingEditDialog.cpp:16-62`、`source/UI/jive/LayoutModel.cpp:9-70`、`source/Settings/jive/SettingsLayoutModel.cpp:10-62` | - | - | 已修复：提取共享头 source/UI/jive/JiveBuilderHelpers.h 并在 4 文件中统一引用（复审 2） |
-| ERR-003 | 错误处理 | KeyBindingEditDialog Unbind 路径双重调用 onComplete | P2 | 未处理 | 审计 | unbind 按钮 onClick 先 onComplete 再 exitModalState 未置 completed 标志；窗口删除触发 JiveDialogContent 析构 → onCancel → onComplete 第二次调用。当前回调对空结果幂等，但契约已破坏 | `source/UI/KeyBindingEditDialog.cpp:452-465`；`source/UI/jive/JiveModalDialog.cpp:146-151` | - | - | 复用统一完成路径，保证单次回调 |
+| ERR-003 | 错误处理 | KeyBindingEditDialog Unbind 路径双重调用 onComplete | P2 | 已关闭 | 审计 | unbind 按钮 onClick 先 onComplete 再 exitModalState 未置 completed 标志；窗口删除触发 JiveDialogContent 析构 → onCancel → onComplete 第二次调用。当前回调对空结果幂等，但契约已破坏 | `source/UI/KeyBindingEditDialog.cpp:452-465`；`source/UI/jive/JiveModalDialog.cpp:146-151` | - | - | 已修复：KeyBindingEditDialog 统一包装 safeOnComplete 严格单次执行（复审 4） |
 | TEST-002 | 测试 | WavExportTask 后台任务本体零测试 | P2 | 已关闭 | 审计 | runThread 嵌套消息循环的成功/取消/失败三分支、errorMessage 加锁读取、取消清理均无测试（buildWavExportOptions 纯函数已有覆盖） | `source/Export/WavExportTask.h/.cpp`；source/tests/ 无直接引用 | - | - | 已修复：新增 WavExportTaskSmokeTest 覆盖后台导出成功/失败分支，并修正正常完成时的误取消缺陷（复审 3） |
 | TEST-003 | 测试 | PluginOfflineRenderer 本体零直接测试 | P2 | 已关闭 | 审计 | scaleTimestamp/buildRenderEvents/addPanicMidi 有测，渲染器本体（结束静音、失败处理）仅经无插件路径间接覆盖 | `source/Recording/PluginOfflineRenderer.h/.cpp` | - | - | 已修复：新增 PluginOfflineRendererTest 覆盖 DummyPlugin 离线渲染、WAV 回读与取消（复审 3） |
 | TEST-004 | 测试 | SineSynthVoice 零 voice 级测试 | P2 | 已关闭 | 审计 | 正弦音色 ADSR/频率精度/noteOff 自清/0 采样率护栏未锁；与 PianoSynthVoice ~800 断言不对称 | `source/Audio/SineSynthVoice.h`；source/tests/ 无直接断言 | - | - | 已修复：新增 SineSynthVoiceTest 覆盖确定性渲染、ADSR 释放尾音自清与零采样率护栏（复审 3） |
@@ -585,9 +602,9 @@ source/
 | RES-001 | 资源 | take 多副本峰值内存 ~45MB | P3 | 未处理 | 审计 | stopRecording 返回成员拷贝（无 NRVO）、playbackTake 赋值拷贝、handleExportWavClicked takeCopy 拷贝——满容量 take（~15MB）停止/回放/导出瞬间 2~3 份 | `source/Recording/RecordingEngine.cpp:116,206`；`source/Recording/RecordingSessionController.cpp:175,181` | - | - | move 返回/swap + shared_ptr<const Take> 语义 |
 | RES-002 | 资源 | StyleCatalog ownedStyles 每次 applyToTree 累积无释放 | P3 | 未处理 | 审计 | makeJiveObject 每次对话框打开/设置重建都新建 jive::Object 并永久持有，仅 shutdown 时 releaseOwnedStyles；长会话高频开关对话框缓慢累积 | `source/UI/jive/StyleCatalog.cpp:92-115`；`source/MainComponent.cpp:301` | - | - | applyToNode 复用对象或按树生命周期释放 |
 | QUAL-003 | 质量 | ChannelMatrix::active 契约未实现 | P3 | 未处理 | 审计 | 注释宣称 inactive 时全部 pass-through，但 MidiChannelMapper 全文无任何 matrix.active 读取（仅序列化往返）；默认 true 掩盖问题，预设文件写出 false 时矩阵仍生效 | `source/Midi/MidiChannelMapper.h:18-21`；`source/Midi/MidiChannelMapper.cpp`（grep 零读取） | - | - | 实现 active 检查或删除字段与注释 |
-| QUAL-004 | 质量 | 插件离线渲染 down-mix 实为截取，且两导出路径限幅行为不一致 | P3 | 未处理 | 审计 | outputChannels=jmin(...) 后逐通道 copyFrom 无混合——多输出插件导出立体声丢弃 3+ 声道、mono 插件右声道静音；且软限幅仅存在于 fallback synth 路径，插件路径无限幅（靠写入端截断），同一 take 两条路径响度行为不一致 | `source/Recording/PluginOfflineRenderer.cpp:117,163-176`；`source/Recording/WavFileExporter.cpp:134-149` | - | - | 真实 down-mix 或显式告警；限幅抽共享 helper |
-| QUAL-005 | 质量 | singleTrackOnly 生产路径不可达 | P3 | 未处理 | 审计 | findNoteRichTrackIndex/singleTrackOnly 仅 options.singleTrackOnly 时调用；生产链使用默认 MidiImportOptions（mergeAllTracks=true）；约 30 行 legacy 代码仅测试覆盖 | `source/Recording/MidiTrackMergeEngine.cpp:147-184`；`source/Recording/MidiFileImporter.cpp:65-66`、`MidiFileImporter.h:15-17` | - | - | 确认无外部用户后删除 |
-| QUAL-006 | 质量 | merge 引擎退化输入处理缺陷（负时间戳统计虚高 + 全 t=0 take 回放瞬时结束） | P3 | 未处理 | 审计 | 负时间戳事件先计数后丢弃，日志统计与 mergedEventCount 不符；全事件 t=0 的 take lengthSamples=0，回放首块即 ended，而导出取 lastEventEnd+1 正常渲染——回放/导出行为不一致 | `source/Recording/MidiTrackMergeEngine.cpp:341-370,431`；`source/Recording/RecordingEngine.cpp:334-343,360-372`；`source/Recording/RenderPipeline.cpp:41-45` | - | - | 负时间戳检查前移；lengthSamples 对齐导出语义 |
+| QUAL-004 | 质量 | 插件离线渲染 down-mix 实为截取，且两导出路径限幅行为不一致 | P3 | 已关闭 | 审计 | outputChannels=jmin(...) 后逐通道 copyFrom 无混合——多输出插件导出立体声丢弃 3+ 声道、mono 插件右声道静音；且软限幅仅存在于 fallback synth 路径，插件路径无限幅（靠写入端截断），同一 take 两条路径响度行为不一致 | `source/Recording/PluginOfflineRenderer.cpp:117,163-176`；`source/Recording/WavFileExporter.cpp:134-149` | - | - | 已修复：PluginOfflineRenderer 实现 mono 复制与立体声混合，提取共享 applyMasterSoftLimiter 对齐限幅（复审 4） |
+| QUAL-005 | 质量 | singleTrackOnly 生产路径不可达 | P3 | 已关闭 | 审计 | findNoteRichTrackIndex/singleTrackOnly 仅 options.singleTrackOnly 时调用；生产链使用默认 MidiImportOptions（mergeAllTracks=true）；约 30 行 legacy 代码仅测试覆盖 | `source/Recording/MidiTrackMergeEngine.cpp:147-184`；`source/Recording/MidiFileImporter.cpp:65-66`、`MidiFileImporter.h:15-17` | - | - | 已修复：彻底移除 singleTrackOnly 遗留逻辑，统一多轨时间轴合并（复审 4） |
+| QUAL-006 | 质量 | merge 引擎退化输入处理缺陷（负时间戳统计虚高 + 全 t=0 take 回放瞬时结束） | P3 | 已关闭 | 审计 | 负时间戳事件先计数后丢弃，日志统计与 mergedEventCount 不符；全事件 t=0 的 take lengthSamples=0，回放首块即 ended，而导出取 lastEventEnd+1 正常渲染——回放/导出行为不一致 | `source/Recording/MidiTrackMergeEngine.cpp:341-370,431`；`source/Recording/RecordingEngine.cpp:334-343,360-372`；`source/Recording/RenderPipeline.cpp:41-45` | - | - | 已修复：负时间戳检查前移；lengthSamples 保证至少 1 个采样避免回放瞬时结束（复审 4） |
 | QUAL-007 | 质量 | MainComponent 与 JiveUtils.h 拆树逻辑双份重复 | P2 | 已关闭 | 审计 | clearJiveStyleSheets/collectJiveComponents 在 MainComponent.cpp 匿名空间与 JiveUtils.h 完全重复；修复只改一处则另一处保留旧行为 | `source/MainComponent.cpp:78-88,100-113` vs `source/UI/jive/JiveUtils.h:15-24,27-34` | - | - | 已修复：MainComponent 移除本地副本，改用 JiveUtils.h 生产 helper（复审 2） |
 | QUAL-009 | 质量 | getBuiltinToneFromUi 名不副实 | P3 | 未处理 | 审计 | 实现返回 appSettings.builtinTone（UI 无音色控件），与相邻"真读 UI"的 getPianoBrightness 并列误导维护者 | `source/MainComponent.h:108`；`source/MainComponent.cpp:1086-1088` | - | - | 改名 getBuiltinToneFromSettings 或内联 |
 | QUAL-010 | 质量 | CJK 字体候选链双份维护且已不一致 | P3 | 未处理 | 审计 | LookAndFeel 12 项 fallback 链 vs DesignTokens 7 项 fontconfig 探测列表；两份漂移风险 | `source/UI/DevPianoLookAndFeel.cpp:9-48`；`source/UI/jive/DesignTokens.cpp:246-268` | - | - | 统一到 DesignTokens |

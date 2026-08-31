@@ -767,6 +767,10 @@ void MainComponent::refreshControlsTexts() {
 
 CustomKeyboard& MainComponent::getCustomKeyboard() {
     jassert(customKeyboardRef != nullptr);
+    if (customKeyboardRef == nullptr) {
+        static CustomKeyboard fallbackKeyboard(audioEngine.getKeyboardState());
+        return fallbackKeyboard;
+    }
     return *customKeyboardRef;
 }
 

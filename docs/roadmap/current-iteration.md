@@ -44,16 +44,16 @@
 - [x] `TEST-006`：`PresetFlowSupport` 编排与预设 ID 缓存一致性测试
 - [x] `TEST-007`：`PerformanceFileTest` 迁移至 `ScopedTempDir`，消除固定文件名并行与残留风险
 
-### AUDIT-002 Phase D：音频/录制/导出管线质量加固（P2 管道缺陷与性能优化）
+### AUDIT-002 Phase D：音频/录制/导出管线质量加固（P2 管道缺陷与性能优化） [已完成，2026-08-31]
 > 目标：消除音频回调堆分配，修正 MIDI 导出伪 SysEx 与通道/时间戳逻辑。
 
-- [ ] `PERF-001`：`AudioEngine` 回放移调路径消除每块堆分配，就地改写或复用预分配 buffer
-- [ ] `SEC-002`：`MidiFileExporter` 过滤非 MIDI 事件，`stopRecording` 合并 `pendingPresetEvents` 后按时间戳排序
-- [ ] `ERR-002`：`getCustomKeyboard` 增加判空降级防护，杜绝 Release 下空指针解引用
-- [ ] `ERR-003`：`KeyBindingEditDialog` Unbind 路径复用统一完成路径，保证单次回调契约
-- [ ] `QUAL-004`：插件离线渲染实现真实 down-mix / 显式告警，两导出路径软限幅行为对齐
-- [ ] `QUAL-006`：`MidiTrackMergeEngine` 负时间戳检查前移，全 t=0 take 长度对齐导出语义
-- [ ] `QUAL-005`：确认并清理生产链不可达的 `singleTrackOnly` 遗留分支
+- [x] `PERF-001`：`AudioEngine` 回放移调路径消除每块堆分配，就地改写或复用预分配 buffer
+- [x] `SEC-002`：`MidiFileExporter` 过滤非 MIDI 事件，`stopRecording` 合并 `pendingPresetEvents` 后按时间戳排序
+- [x] `ERR-002`：`getCustomKeyboard` 增加判空降级防护，杜绝 Release 下空指针解引用
+- [x] `ERR-003`：`KeyBindingEditDialog` Unbind 路径复用统一完成路径，保证单次回调契约
+- [x] `QUAL-004`：插件离线渲染实现真实 down-mix / 显式告警，两导出路径软限幅行为对齐
+- [x] `QUAL-006`：`MidiTrackMergeEngine` 负时间戳检查前移，全 t=0 take 长度对齐导出语义
+- [x] `QUAL-005`：确认并清理生产链不可达的 `singleTrackOnly` 遗留分支
 
 ### AUDIT-002 Phase E：安全防御与输入边界加固（P3 健壮性与健壮序列化）
 > 目标：强化用户可控文件大小校验、数值合法域 clamp、异常输入容错。

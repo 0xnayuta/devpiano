@@ -99,10 +99,17 @@ RecordingTake RecordingEngine::stopRecording() {
     if (recordingActive) {
         // Merge pending preset-change events (message-thread writes) into the
         // recorded events vector before finalising the take.
-        for (auto& ev : pendingPresetEvents) {
-            currentTake.events.push_back(std::move(ev));
+        if (!pendingPresetEvents.empty()) {
+            for (auto& ev : pendingPresetEvents) {
+                currentTake.events.push_back(std::move(ev));
+            }
+            pendingPresetEvents.clear();
+
+            std::stable_sort(currentTake.events.begin(), currentTake.events.end(),
+                             [](const PerformanceEvent& a, const PerformanceEvent& b) noexcept {
+                                 return a.timestampSamples < b.timestampSamples;
+                             });
         }
-        pendingPresetEvents.clear();
 
         currentTake.lengthSamples
             = std::max(currentTake.lengthSamples, currentPositionSamples.load(std::memory_order_relaxed));

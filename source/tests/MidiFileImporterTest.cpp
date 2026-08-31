@@ -94,36 +94,14 @@ public:
             expectGreaterThan(noteOnCount, 0);
         });
 
-        testCase("multitrack-basic.mid imports with default and track options", [&] {
+        testCase("multitrack-basic.mid imports with default multi-track options", [&] {
             auto result = importFixture("multitrack-basic.mid");
             expect(result.has_value());
             if (!result.has_value()) {
                 return;
             }
             expect(!result->isEmpty());
-
-            MidiImportOptions singleTrackOpts;
-            singleTrackOpts.ignoreOtherTracks = true;
-            auto resultSingleTrack
-                = importMidiFile(juce::File(getFixturePath("multitrack-basic.mid")), 48000.0, singleTrackOpts);
-            expect(resultSingleTrack.has_value());
-            if (!resultSingleTrack.has_value()) {
-                return;
-            }
-            expect(!resultSingleTrack->isEmpty());
-
-            MidiImportOptions allTracksOpts;
-            allTracksOpts.mergeAllTracks = true;
-            allTracksOpts.ignoreOtherTracks = false;
-            auto resultAllTracks
-                = importMidiFile(juce::File(getFixturePath("multitrack-basic.mid")), 48000.0, allTracksOpts);
-            expect(resultAllTracks.has_value());
-            if (!resultAllTracks.has_value()) {
-                return;
-            }
-            expect(!resultAllTracks->isEmpty());
-            // Default import should be multi-track merge mode
-            expectGreaterThan(resultAllTracks->events.size(), size_t(0));
+            expectGreaterThan(result->events.size(), size_t(0));
         });
 
         testCase("sustain-pedal.mid imports successfully with controller events", [&] {
@@ -262,7 +240,6 @@ public:
 
             MidiTrackMergeOptions opts;
             opts.channelStrategy = MidiChannelMappingStrategy::passThrough;
-            opts.singleTrackOnly = false;
 
             auto mergeRes = MidiTrackMergeEngine::mergeTracks(file, 48000.0, opts);
             expect(mergeRes.has_value());
@@ -282,23 +259,6 @@ public:
                 expect(ev.timestampSamples >= prevTs, "Timestamps must be non-decreasing");
                 prevTs = ev.timestampSamples;
             }
-
-            // Verify singleTrackOnly mode extracts only track 1 (has 4 note events vs track 2's 2 note events)
-            // but preserves global Conductor track 0 metadata (BPM, Time Signature, Song Title)
-            MidiTrackMergeOptions singleOpts;
-            singleOpts.singleTrackOnly = true;
-            auto singleRes = MidiTrackMergeEngine::mergeTracks(file, 48000.0, singleOpts);
-            expect(singleRes.has_value());
-            expectEquals(singleRes->stats.noteOnCount, 2);
-            expectEquals(singleRes->stats.noteOffCount, 2);
-            expectEquals(singleRes->stats.mergedEventCount, 5); // 1 prog + 2 noteOn + 2 noteOff
-            expectWithinAbsoluteError(singleRes->metadata.initialBpm, 140.0, 0.1);
-            expect(singleRes->metadata.initialTimeSignature.has_value());
-            if (singleRes->metadata.initialTimeSignature.has_value()) {
-                expectEquals(singleRes->metadata.initialTimeSignature->numerator, 3);
-                expectEquals(singleRes->metadata.initialTimeSignature->denominator, 4);
-            }
-            expectEquals(singleRes->metadata.songTitle, juce::String("Track 0 Conductor"));
         });
 
         testCase("channel mapping strategies verification", [&] {
@@ -352,20 +312,6 @@ public:
                     // Events from track 1 (mapped to Ch 2)
                     expectEquals(res->take.events[1].message.getChannel(), 2); // noteOn
                     expectEquals(res->take.events[3].message.getChannel(), 2); // noteOff
-                }
-            }
-
-            // Strategy 4: autoAssignIfSingleChannel in singleTrackOnly mode preserves original channel
-            {
-                MidiTrackMergeOptions opts;
-                opts.channelStrategy = MidiChannelMappingStrategy::autoAssignIfSingleChannel;
-                opts.singleTrackOnly = true;
-                auto res = MidiTrackMergeEngine::mergeTracks(file, 48000.0, opts);
-                expect(res.has_value());
-                if (res.has_value()) {
-                    for (const auto& ev : res->take.events) {
-                        expectEquals(ev.message.getChannel(), 1); // retains original Ch 1, no forced remapping
-                    }
                 }
             }
         });
@@ -468,20 +414,27 @@ public:
             }
         });
 
-        testCase("MidiImportOptions isSingleTrackOnly helper behaves correctly", [&] {
-            using devpiano::recording::MidiImportOptions;
-            MidiImportOptions defOpts;
-            expect(!defOpts.isSingleTrackOnly(), "Default mergeAllTracks=true must not be singleTrackOnly");
+        testCase(
+            "negative timestamps are dropped before counting and t=0 takes have lengthSamples >= 1 (QUAL-006)", [&] {
+                juce::MidiFile file;
+                juce::MidiMessageSequence track;
+                // Negative timestamp event (should be dropped without inflating stats)
+                track.addEvent(juce::MidiMessage::noteOn(1, 60, (juce::uint8)80), -0.5);
+                // t=0 event
+                track.addEvent(juce::MidiMessage::noteOn(1, 60, (juce::uint8)80), 0.0);
+                track.addEvent(juce::MidiMessage::noteOff(1, 60, (juce::uint8)0), 0.0);
+                file.addTrack(track);
 
-            MidiImportOptions legacyOpts;
-            legacyOpts.ignoreOtherTracks = true;
-            expect(legacyOpts.isSingleTrackOnly(), "ignoreOtherTracks=true must be singleTrackOnly");
-
-            MidiImportOptions explicitSingleOpts;
-            explicitSingleOpts.mergeAllTracks = false;
-            expect(explicitSingleOpts.isSingleTrackOnly(), "mergeAllTracks=false must be singleTrackOnly");
-        });
-
+                MidiTrackMergeOptions opts;
+                auto res = MidiTrackMergeEngine::mergeTracks(file, 48000.0, opts);
+                expect(res.has_value());
+                if (res.has_value()) {
+                    expectEquals(res->stats.noteOnCount, 1, "Negative timestamp event must not inflate noteOnCount");
+                    expectEquals(res->stats.noteOffCount, 1);
+                    expectEquals(res->stats.mergedEventCount, 2);
+                    expect(res->take.lengthSamples >= 1, "Take with only t=0 events must have lengthSamples >= 1");
+                }
+            });
         testCase("autoAssignIfSingleChannel preserves existing distinct channels", [&] {
             juce::MidiFile file;
 

@@ -433,6 +433,15 @@ public:
                 expectEquals(static_cast<uint8_t>(3), presetEv->presetId);
                 expectEquals(static_cast<std::int64_t>(2205), presetEv->timestampSamples);
             }
+
+            // Verify timestamp monotonic ordering (SEC-002)
+            for (size_t i = 1; i < take.events.size(); ++i) {
+                expect(take.events[i].timestampSamples >= take.events[i - 1].timestampSamples,
+                       "Events in take must be monotonically ordered by timestamp");
+            }
+            expectEquals(static_cast<std::int64_t>(0), take.events[0].timestampSamples);
+            expectEquals(static_cast<std::int64_t>(2205), take.events[1].timestampSamples);
+            expectEquals(static_cast<std::int64_t>(4410), take.events[2].timestampSamples);
         }
 
         beginTest("preset change ignored when not recording");

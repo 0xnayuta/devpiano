@@ -231,13 +231,21 @@ void KeyBindingEditDialog::launch(int midiNote, const juce::String& noteName,
     const int dlgHeight = hasExisting ? 300 : 210;
 
     auto layoutTree = makeKeyBindingEditLayout(hasExisting, dlgWidth, dlgHeight);
-    auto title = TRANS("Key Binding Editor") + " — " + noteName + " (#" + juce::String(midiNote) + ")";
+    auto title = TRANS("Key Binding Editor") + " - " + noteName + " (#" + juce::String(midiNote) + ")";
+
+    auto completionInvoked = std::make_shared<std::atomic<bool>>(false);
+    auto safeOnComplete = [onComplete, completionInvoked](KeyBindingEditResult res) {
+        if (!completionInvoked->exchange(true)) {
+            if (onComplete) {
+                onComplete(res);
+            }
+        }
+    };
 
     auto selectedColour = std::make_shared<juce::Colour>(currentCustomColour);
     auto palette = std::make_shared<std::array<juce::Colour, 8>>(paletteColours);
     auto captureSession = std::make_shared<KeyCaptureSession>();
     auto captureListener = std::make_shared<BindKeyCaptureListener>(captureSession);
-
     devpiano::ui::jive::JiveModalDialog::LaunchOptions options;
     options.title = title;
     options.layoutTree = layoutTree;
@@ -402,9 +410,7 @@ void KeyBindingEditDialog::launch(int midiNote, const juce::String& noteName,
                     result.binding = removed;
                 }
 
-                if (onComplete) {
-                    onComplete(result);
-                }
+                safeOnComplete(result);
 
                 if (auto* dw = unbindBtn->findParentComponentOfClass<juce::DialogWindow>()) {
                     dw->exitModalState(0);
@@ -453,17 +459,11 @@ void KeyBindingEditDialog::launch(int midiNote, const juce::String& noteName,
             result.binding = created;
         }
 
-        if (onComplete) {
-            onComplete(result);
-        }
+        safeOnComplete(result);
         return true;
     };
 
-    options.onCancel = [=] {
-        if (onComplete) {
-            onComplete(KeyBindingEditResult {});
-        }
-    };
+    options.onCancel = [=] { safeOnComplete(KeyBindingEditResult {}); };
 
     devpiano::ui::jive::JiveModalDialog::launchCustom(options);
 }

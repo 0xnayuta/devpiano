@@ -69,7 +69,8 @@ void AudioEngine::prepareToPlay(int samplesPerBlockExpected, double sampleRate) 
 
     const auto bytes = static_cast<size_t>(juce::jlimit(4096, 65536, samplesPerBlockExpected * 16));
     midiBuffer.ensureSize(bytes);
-
+    playbackVisualMidiBuffer.ensureSize(bytes);
+    playbackTransposedMidiBuffer.ensureSize(bytes);
     applyPendingParametersIfNeeded();
 
     if (pluginHost != nullptr && pluginHost->hasLoadedPlugin()) {
@@ -382,7 +383,7 @@ void AudioEngine::renderPlaybackEventsIfNeeded(std::int64_t blockStartSamples, i
     const auto followMask = playbackChannelFollowKeyMask.load(std::memory_order_acquire);
 
     if (transposeEnabled && transposeOffset != 0 && !playbackVisualMidiBuffer.isEmpty()) {
-        juce::MidiBuffer transposedBuffer;
+        playbackTransposedMidiBuffer.clear();
         for (const auto metadata : playbackVisualMidiBuffer) {
             auto msg = metadata.getMessage();
             const auto chIdx = juce::jlimit(0, 15, msg.getChannel() - 1);
@@ -392,19 +393,19 @@ void AudioEngine::renderPlaybackEventsIfNeeded(std::int64_t blockStartSamples, i
                 const auto originalNote = msg.getNoteNumber();
                 const auto transposedNote = juce::jlimit(0, 127, originalNote + transposeOffset);
                 if (msg.isNoteOn()) {
-                    transposedBuffer.addEvent(
+                    playbackTransposedMidiBuffer.addEvent(
                         juce::MidiMessage::noteOn(msg.getChannel(), transposedNote, msg.getFloatVelocity()),
                         metadata.samplePosition);
                 } else {
-                    transposedBuffer.addEvent(
+                    playbackTransposedMidiBuffer.addEvent(
                         juce::MidiMessage::noteOff(msg.getChannel(), transposedNote, msg.getFloatVelocity()),
                         metadata.samplePosition);
                 }
             } else {
-                transposedBuffer.addEvent(msg, metadata.samplePosition);
+                playbackTransposedMidiBuffer.addEvent(msg, metadata.samplePosition);
             }
         }
-        playbackVisualMidiBuffer.swapWith(transposedBuffer);
+        playbackVisualMidiBuffer.swapWith(playbackTransposedMidiBuffer);
     }
 
     // Playback events are generated inside the audio callback after the keyboard

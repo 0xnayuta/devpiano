@@ -206,11 +206,41 @@ public:
             expect(foundNoteOn60, "note-on 60 must survive the round-trip");
             expect(foundNoteOff60, "note-off 60 must survive the round-trip");
         });
-
         testCase("empty take is rejected", [&] {
             devpiano::test::ScopedTempDir tempDir("midi-export-empty");
             RecordingTake take;
             expect(!exportTakeAsMidiFile(take, tempDir.getChildFile("x.mid")));
+        });
+
+        testCase("presetChange non-MIDI events are filtered and not exported as pseudo SysEx (SEC-002)", [&] {
+            devpiano::test::ScopedTempDir tempDir("midi-export-preset-filter");
+            const auto path = tempDir.getChildFile("filtered.mid");
+
+            RecordingTake take;
+            take.sampleRate = 44100.0;
+            take.lengthSamples = 44100;
+            take.events.push_back({ 0, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
+                                    juce::MidiMessage::noteOn(1, 60, 0.8f) });
+            // Add a preset-change event (which has empty message / F0 F7)
+            take.events.push_back({ 22050, PerformanceEventType::presetChange, 3,
+                                    RecordingEventSource::computerKeyboard, juce::MidiMessage() });
+            take.events.push_back({ 44100, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
+                                    juce::MidiMessage::noteOff(1, 60) });
+
+            expect(exportTakeAsMidiFile(take, path), "export must succeed");
+
+            juce::FileInputStream in(path);
+            expect(in.openedOk());
+            juce::MidiFile midiFile;
+            expect(midiFile.readFrom(in));
+            const auto* track = midiFile.getTrack(0);
+            expect(track != nullptr);
+            if (track != nullptr) {
+                for (int i = 0; i < track->getNumEvents(); ++i) {
+                    const auto* ev = track->getEventPointer(i);
+                    expect(!ev->message.isSysEx(), "Exported MIDI file must not contain pseudo SysEx events");
+                }
+            }
         });
     }
 };
