@@ -146,8 +146,8 @@ private:
         testCase("CustomKeyboard paint with clipping produces no errors", [&] {
             juce::MidiKeyboardState ks;
             CustomKeyboard kb(ks);
+            kb.setVisible(true);
             kb.setSize(1800, 128);
-
             juce::Image image(juce::Image::ARGB, 1800, 128, true);
             juce::Graphics g(image);
 
@@ -161,9 +161,10 @@ private:
             g.restoreState();
 
             // Observable assertion (TEST-008): verify painted pixels exist in rendered buffer
+            // (sampled across keybed region x in [276, 1524])
             bool hasNonTransparentPixels = false;
-            for (int y = 0; y < 128 && !hasNonTransparentPixels; y += 16) {
-                for (int x = 0; x < 1800 && !hasNonTransparentPixels; x += 32) {
+            for (int y = 0; y < 128 && !hasNonTransparentPixels; y += 8) {
+                for (int x = 276; x < 1524 && !hasNonTransparentPixels; x += 16) {
                     if (image.getPixelAt(x, y).getAlpha() > 0) {
                         hasNonTransparentPixels = true;
                     }
