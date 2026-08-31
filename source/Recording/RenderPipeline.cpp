@@ -8,12 +8,11 @@
 namespace devpiano::recording {
 
 std::int64_t scaleTimestamp(std::int64_t timestampSamples, double ratio) noexcept {
-    if (timestampSamples <= 0) {
+    if (timestampSamples <= 0 || ratio <= 0.0) {
         return 0;
     }
 
-    return std::max<std::int64_t>(
-        0, static_cast<std::int64_t>(std::llround(static_cast<double>(timestampSamples) * ratio)));
+    return clampToInt64(static_cast<double>(timestampSamples) * ratio);
 }
 
 bool hasUsableRenderOptions(const devpiano::exporting::WavExportOptions& options) noexcept {

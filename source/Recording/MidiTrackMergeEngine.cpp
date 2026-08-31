@@ -1,8 +1,7 @@
 #include "MidiTrackMergeEngine.h"
 #include "Diagnostics/Log.h"
 #include "Diagnostics/MidiTrace.h"
-
-#include <algorithm>
+#include "Recording/RenderPipeline.h"
 #include <cmath>
 #include <cstdint>
 #include <map>
@@ -339,9 +338,7 @@ std::optional<MidiTrackMergeResult> MidiTrackMergeEngine::mergeTracks(const juce
                 }
             }
 
-            const auto timestampSamples
-                = std::max<int64_t>(0, static_cast<int64_t>(std::round(timestampSeconds * targetSampleRate)));
-            maxTimestampSamples = std::max(maxTimestampSamples, timestampSamples);
+            const auto timestampSamples = clampToInt64(timestampSeconds * targetSampleRate);
 
             if (remapChannels && midiMsg.getChannel() > 0) {
                 midiMsg.setChannel(targetChannelForTrack);

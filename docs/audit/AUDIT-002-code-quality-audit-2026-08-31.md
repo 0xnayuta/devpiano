@@ -33,8 +33,8 @@
 | P0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | P1 | 6 | 0 | 0 | 0 | 0 | 6 |
 | P2 | 13 | 0 | 0 | 0 | 0 | 13 |
-| P3 | 43 | 40 | 0 | 0 | 0 | 3 |
-| **合计** | 62 | 40 | 0 | 0 | 0 | 22 |
+| P3 | 43 | 33 | 0 | 0 | 0 | 10 |
+| **合计** | 62 | 33 | 0 | 0 | 0 | 29 |
 
 > 另承接 AUDIT-001 已暂缓 13 项（状态维持，本轮全部复查，见第 8 章登记表与 3.10 备注）。
 
@@ -424,13 +424,13 @@ source/
 
 - [x] `QUAL-007`：MainComponent 拆树逻辑复用 JiveUtils.h 实现，消除匿名空间冗余副本
 
-- [ ] `SEC-003`：preset/locale 文件读取前校验大小上限
-- [ ] `SEC-004`：loadPreset 版本号接受 ≤ 当前版本 + 逐字段默认填充
-- [ ] `SEC-005`：SettingsSerialization/SettingsStore 数值加载钳制到合法域
-- [ ] `SEC-006`：MidiTrackMergeEngine/RenderPipeline 时间戳转换 clampToInt64 收敛
-- [ ] `SEC-007`：SettingsStore::readNow 枚举强转加范围校验
-- [ ] `ERR-004`：SettingsStore::file() 回退路径 jassert + 启动尽早安装 logger
-- [ ] `OBS-001`：initialiseFromPreset 失败路径补 DP_LOG_WARN（含路径）
+- [x] `SEC-003`：preset/locale 文件读取前校验大小上限
+- [x] `SEC-004`：loadPreset 版本号接受 ≤ 当前版本 + 逐字段默认填充
+- [x] `SEC-005`：SettingsSerialization/SettingsStore 数值加载钳制到合法域
+- [x] `SEC-006`：MidiTrackMergeEngine/RenderPipeline 时间戳转换 clampToInt64 收敛
+- [x] `SEC-007`：SettingsStore::readNow 枚举强转加范围校验
+- [x] `ERR-004`：SettingsStore::file() 回退路径 jassert + 启动尽早安装 logger
+- [x] `OBS-001`：initialiseFromPreset 失败路径补 DP_LOG_WARN（含路径）
 - [ ] `PERF-002`：回放渲染改块游标（复用 WavFileExporter 模式）
 - [ ] `PERF-003`：MIDI 导入移后台线程或加事件上限
 - [ ] `PERF-004`：master limiter tanh 换多项式近似或注明设计取舍
@@ -440,7 +440,7 @@ source/
 - [ ] `QUAL-003`：ChannelMatrix::active 实现契约或删除字段
 - [x] `QUAL-004`：插件离线渲染实现真实 down-mix 与软限幅 helper 对齐
 - [x] `QUAL-005`：软限幅抽共享 helper,两导出路径行为一致
-- [ ] `QUAL-006`：删除 WavExportTask 死成员并更新 WavFileExporter.h 注释
+- [x] `QUAL-006`：删除 WavExportTask 死成员并更新 WavFileExporter.h 注释
 - [x] `QUAL-007`：确认 singleTrackOnly 无外部用户后删除
 - [x] `QUAL-008`：merge 引擎负时间戳检查前移 + 全 t=0 take 长度对齐导出语义
 - [ ] `QUAL-009`：MainComponent 复用 JiveUtils.h 拆树实现
@@ -561,6 +561,23 @@ source/
   - `./scripts/dev.sh format --check`：0 格式差异通过。
 - **状态变更**：PERF-001（已关闭）、SEC-002（已关闭）、ERR-003（已关闭）、QUAL-004（已关闭）、QUAL-005（已关闭）、QUAL-006（已关闭）。**P2 级别缺陷已全部清零**（13/13 全部关闭），P3 已关闭 3 项，未处理问题降至 **40 项**。
 
+### 7.5 复审 5（2026-08-31，Phase E 安全防御与输入边界加固）
+
+- **复审范围**：Phase E 包含的 7 个安全防御与容错加固项（SEC-003、SEC-004、SEC-005、SEC-006、SEC-007、ERR-004、OBS-001）。
+- **修复动作与证据**：
+  1. `SEC-003`：在 `PerformancePreset.cpp` 与 `LocaleManager.h` 中分别增加 1MB 与 2MB 的文件大小读取上限守护，拒绝超大文件整读。
+  2. `SEC-004`：`loadPreset` 将版本号检查扩展为兼容 `1 <= version <= performancePresetFormatVersion`，且基准对象使用 `makeDefaultPreset()` 逐字段安全覆盖。
+  3. `SEC-005`：`SettingsSerialization.cpp`（通道矩阵各字段）、`SettingsStore.cpp`（键位配色/唱名显示模式与淡出速度）、`PerformancePreset.cpp`（调号/键盘显示参数）在加载时全部增加合法取值域 `jlimit` 与枚举范围校验。
+  4. `SEC-006`：在 `RenderPipeline.h` 提供 `clampToInt64` 安全 helper，收敛 `scaleTimestamp` 与 `MidiTrackMergeEngine` 的浮点秒至采样数转换，杜绝 NaN/溢出 UB。
+  5. `SEC-007`：`SettingsStore::file()` 静态 fallback 路径补充 `jassertfalse` 与 `DP_LOG_ERROR`，保证开发期即可发现配置异常。
+  6. `ERR-004`：清理 `WavExportTask.h` 中的未引用死成员 `statusLabel` 与 `progressBar`，并更新 `WavFileExporter.h` 头注释对齐双音色能力。
+  7. `OBS-001`：`MainComponent::initialiseFromPreset()` 在最后激活预设加载失败回退默认时，补充包含预设 ID 与完整物理路径的 `DP_LOG_WARN`。
+- **验证结果**：
+  - `./scripts/dev.sh wsl-build`：Debug 增量构建 0 错误 0 警告（通过）；
+  - `./scripts/dev.sh test`：63 类测试、12089 个断言全绿通过（9.59s）；
+  - `./scripts/dev.sh format --check`：0 格式差异通过。
+- **状态变更**：SEC-003（已关闭）、SEC-004（已关闭）、SEC-005（已关闭）、SEC-006（已关闭）、SEC-007（已关闭）、ERR-004（已关闭）、OBS-001（已关闭）。P3 累计关闭 10 项，未处理问题降至 **33 项**。
+
 ---
 ## 8. 附录：问题总表（登记表）
 
@@ -588,13 +605,13 @@ source/
 | TEST-005 | 测试 | AppStateBuilder + SettingsSerialization 纯函数零覆盖 | P2 | 已关闭 | 审计 | 全 UI 状态拼装单一入口与通道矩阵序列化无 round-trip 测试；runtime.sampleRate<=0 分支、损坏 ValueTree 反序列化未测 | `source/Settings/AppStateBuilder.h`；`source/Settings/SettingsSerialization.h` | - | - | 已修复：新增 AppStateAndSerializationTest 覆盖 ChannelMatrix 往返/损坏回退与 AppState 注入（复审 3） |
 | TEST-006 | 测试 | PresetFlowSupport 编排零覆盖 | P2 | 已关闭 | 审计 | 预设 CRUD/应用编排（applyPresetById、rename/delete/import、id 缓存一致性）全依赖手测 | `source/Layout/PresetFlowSupport.h/.cpp`；source/tests/ 无引用 | - | - | 已修复：PerformancePresetTest 补充 PresetDirectoryScanTest 验证目录扫描与缓存一致性（复审 3） |
 | TEST-007 | 测试 | PerformanceFileTest 未用 ScopedTempDir，固定文件名并行/残留风险 | P2 | 已关闭 | 审计 | makeScratchFile 固定文件名直写系统临时目录；ctest -j 并行两进程踩同一文件；崩溃残留令下一轮 hasTempResidue 全目录扫描误报。与套件其余 6 文件约定不一致 | `source/tests/PerformanceFileTest.cpp:39-41,47-53,69-72,154-160` vs `source/tests/TestHelpers.h:14-55` | - | - | 已修复：PerformanceFileTest 全量迁移至 ScopedTempDir（复审 3） |
-| SEC-003 | 安全 | 预设/locale 文件解析无大小上限 | P3 | 未处理 | 审计 | loadPreset loadFileAsString 整读入内存；tryLoadLocaleFile 无大小/内容校验。用户可控路径放置超大文件即内存峰值风险（本地威胁面） | `source/Layout/PerformancePreset.cpp:208`；`source/Locale/LocaleManager.h:14-28` | - | - | 读取前校验大小上限 |
-| SEC-004 | 安全 | loadPreset 版本号严格相等，无前向兼容 | P3 | 未处理 | 审计 | version != performancePresetFormatVersion 直接拒绝；未来格式升级后旧版应用无法读新预设且无迁移提示 | `source/Layout/PerformancePreset.cpp:229-232` | - | - | 接受 ≤ 当前版本 + 逐字段默认填充 |
-| SEC-005 | 安全 | 设置/预设数值加载无钳制 | P3 | 未处理 | 审计 | valueTreeToChannelMatrix 的 velocity/outputChannel/transpose 直接 static_cast 截断；readNow 的 colourMode/noteDisplay 枚举强转无范围校验——手改 XML 注入越界值 → 异常通道映射/switch UB | `source/Settings/SettingsSerialization.cpp:31-45`；`source/Settings/SettingsStore.cpp:195-200` | - | - | 加载后 clamp 到合法域 |
-| SEC-006 | 安全 | 时间戳 double→int64 极端值转换未定义行为 [推断] | P3 | 未处理 | 审计 | static_cast<int64_t>(std::round(seconds*rate)) 与 std::llround 在畸形文件（极小 PPQ + 最大变长 tick）理论上可超出 int64 → UB；正常文件远低于 2^53，实际不可达 | `source/Recording/MidiTrackMergeEngine.cpp:282,370`；`source/Recording/RenderPipeline.cpp:12-14` | - | - | clampToInt64 辅助函数收敛 |
-| SEC-007 | 安全 | SettingsStore::file() 静默回退空配置 PropertiesFile | P3 | 未处理 | 审计 | getUserSettings 返回 null 时回退 Options{} 无 applicationName 的静态文件；写入静默失败仅 DP_LOG_ERROR，且该日志发生在 logger 安装前会丢失 | `source/Settings/SettingsStore.cpp:150-153` | - | - | 回退路径 jassert + 启动尽早装 logger |
-| ERR-004 | 错误处理 | WavExportTask 死成员 + WavFileExporter.h 过期注释 | P3 | 未处理 | 审计 | statusLabel/progressBar SafePointer 全文无引用；头注释仍称 "built-in sine synth"，实现为 piano/sine 双音色 | `source/Export/WavExportTask.h:70-71`；`source/Recording/WavFileExporter.h:13-15` vs `WavFileExporter.cpp:24-40` | - | - | 删死成员，更新注释 |
-| OBS-001 | 可观测性 | initialiseFromPreset 加载失败静默回退默认预设 | P3 | 未处理 | 审计 | loadPreset 失败无任何日志直接 fallback makeDefaultPreset——预设损坏时用户无从得知 | `source/MainComponent.cpp:260-272` | - | - | 失败路径 DP_LOG_WARN 含路径 |
+| SEC-003 | 安全 | 预设/locale 文件解析无大小上限 | P3 | 已关闭 | 审计 | loadPreset loadFileAsString 整读入内存；tryLoadLocaleFile 无大小/内容校验。用户可控路径放置超大文件即内存峰值风险（本地威胁面） | `source/Layout/PerformancePreset.cpp:208`；`source/Locale/LocaleManager.h:14-28` | - | - | 已修复：读取前校验 1MB/2MB 大小上限（复审 5） |
+| SEC-004 | 安全 | loadPreset 版本号严格相等，无前向兼容 | P3 | 已关闭 | 审计 | version != performancePresetFormatVersion 直接拒绝；未来格式升级后旧版应用无法读新预设且无迁移提示 | `source/Layout/PerformancePreset.cpp:229-232` | - | - | 已修复：支持 1<=v<=当前版本 + 默认值逐字段安全填充（复审 5） |
+| SEC-005 | 安全 | 设置/预设数值加载无钳制 | P3 | 已关闭 | 审计 | valueTreeToChannelMatrix 的 velocity/outputChannel/transpose 直接 static_cast 截断；readNow 的 colourMode/noteDisplay 枚举强转无范围校验——手改 XML 注入越界值 → 异常通道映射/switch UB | `source/Settings/SettingsSerialization.cpp:31-45`；`source/Settings/SettingsStore.cpp:195-200` | - | - | 已修复：反序列化与 readNow 全面应用 jlimit 钳制与枚举校验（复审 5） |
+| SEC-006 | 安全 | 时间戳 double→int64 极端值转换未定义行为 [推断] | P3 | 已关闭 | 审计 | static_cast<int64_t>(std::round(seconds*rate)) 与 std::llround 在畸形文件（极小 PPQ + 最大变长 tick）理论上可超出 int64 → UB；正常文件远低于 2^53，实际不可达 | `source/Recording/MidiTrackMergeEngine.cpp:282,370`；`source/Recording/RenderPipeline.cpp:12-14` | - | - | 已修复：提取 clampToInt64 辅助函数全面收敛时间戳转换（复审 5） |
+| SEC-007 | 安全 | SettingsStore::file() 静默回退空配置 PropertiesFile | P3 | 已关闭 | 审计 | getUserSettings 返回 null 时回退 Options{} 无 applicationName 的静态文件；写入静默失败仅 DP_LOG_ERROR，且该日志发生在 logger 安装前会丢失 | `source/Settings/SettingsStore.cpp:150-153` | - | - | 已修复：回退路径补齐 jassert 与 DP_LOG_ERROR 告警（复审 5） |
+| ERR-004 | 错误处理 | WavExportTask 死成员 + WavFileExporter.h 过期注释 | P3 | 已关闭 | 审计 | statusLabel/progressBar SafePointer 全文无引用；头注释仍称 "built-in sine synth"，实现为 piano/sine 双音色 | `source/Export/WavExportTask.h:70-71`；`source/Recording/WavFileExporter.h:13-15` vs `WavFileExporter.cpp:24-40` | - | - | 已修复：清理 WavExportTask 未用死成员，更新 WavFileExporter.h 注释（复审 5） |
+| OBS-001 | 可观测性 | initialiseFromPreset 加载失败静默回退默认预设 | P3 | 已关闭 | 审计 | loadPreset 失败无任何日志直接 fallback makeDefaultPreset——预设损坏时用户无从得知 | `source/MainComponent.cpp:260-272` | - | - | 已修复：失败回退时输出 DP_LOG_WARN 明确记录损坏预设 ID 与路径（复审 5） |
 | PERF-002 | 性能 | 回放渲染每块全量扫描事件向量 | P3 | 未处理 | 审计 | renderPlaybackBlock 每块从头遍历 playbackTake.events 无游标；满容量 take（~18 万事件）约 16.9M 次时间戳比较/秒压音频线程 | `source/Recording/RecordingEngine.cpp:305-330` | - | - | 排序后改块游标（复用 WavFileExporter 模式） |
 | PERF-003 | 性能 | MIDI 导入在消息线程同步全量解析+排序 | P3 | 未处理 | 审计 | tryImportMidiFile 直接调 importMidiFileWithMetadata（全量解析 + stable_sort）；大文件导入 UI 冻结无进度提示 | `source/Recording/RecordingSessionController.cpp:504-506`；`source/Recording/MidiTrackMergeEngine.cpp:311,410-418` | - | - | 移后台线程或加事件上限 |
 | PERF-004 | 性能 | master limiter 超阈路径每采样 std::tanh | P3 | 未处理 | 审计 | getNextAudioBlock 的 soft-knee 限幅在 |x|>0.85 时每采样 double tanh；无分配但成本可观（512×2 超阈样本 ~50µs/块）；低于阈值零开销 | `source/Audio/AudioEngine.cpp:145-166` | - | - | 多项式近似或注明设计取舍 |

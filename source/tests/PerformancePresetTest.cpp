@@ -154,13 +154,36 @@ public:
             expect(!loadPreset(path).has_value());
         });
 
-        testCase("loadPreset rejects an unknown format version", [&] {
-            devpiano::test::ScopedTempDir tempDir("preset-version");
-            auto path = tempDir.getChildFile("v2.devpiano.preset");
-            path.replaceWithText(R"({ "version": 2, "name": "future" })");
-            expect(!loadPreset(path).has_value(), "version mismatch must be rejected");
+        testCase("loadPreset rejects an oversized file (SEC-003)", [&] {
+            devpiano::test::ScopedTempDir tempDir("oversized-preset");
+            auto path = tempDir.getChildFile("huge.devpiano.preset");
+            // Write > 1 MB payload
+            juce::FileOutputStream out(path);
+            expect(out.openedOk());
+            juce::MemoryBlock block(1024 * 1024 + 128, true);
+            out.write(block.getData(), block.getSize());
+            out.flush();
+
+            expect(!loadPreset(path).has_value(), "Oversized preset file (>1MB) must be rejected");
         });
 
+        testCase("loadPreset rejects invalid version and clamps out-of-range fields (SEC-004, SEC-005)", [&] {
+            devpiano::test::ScopedTempDir tempDir("compat-preset");
+            auto pathInvalidVer = tempDir.getChildFile("future.devpiano.preset");
+            pathInvalidVer.replaceWithText(R"({ "version": 999, "name": "Future" })");
+            expect(!loadPreset(pathInvalidVer).has_value(), "Version > current must be rejected");
+
+            auto pathClamped = tempDir.getChildFile("clamped.devpiano.preset");
+            pathClamped.replaceWithText(
+                R"({ "version": 1, "name": "Clamped", "keyboard": { "keySignature": 100, "fadeSpeed": 99.0, "previewAlpha": -5.0 } })");
+            auto loaded = loadPreset(pathClamped);
+            expect(loaded.has_value(), "Valid version 1 preset must be loaded");
+            if (loaded.has_value()) {
+                expectEquals(loaded->keySignature, 7, "keySignature must be clamped to 7");
+                expectEquals(loaded->fadeSpeed, 10.0f, "fadeSpeed must be clamped to 10.0");
+                expectEquals(loaded->previewAlpha, 0.0f, "previewAlpha must be clamped to 0.0");
+            }
+        });
         testCase("display name strips the preset extension", [&] {
             expectEquals(getPresetDisplayNameForFile(juce::File("/tmp/My Song.devpiano.preset")),
                          juce::String("My Song"));

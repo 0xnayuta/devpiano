@@ -7,7 +7,7 @@
 namespace {
 
 constexpr auto kPresetFileExtension = ".devpiano.preset";
-
+constexpr auto kMaxPresetFileSizeBytes = 1024 * 1024; // 1 MB (SEC-003)
 // ---- File naming helpers ----
 
 [[nodiscard]] juce::String stripPresetExtension(const juce::String& fileName) {
@@ -201,7 +201,7 @@ juce::String getPresetDisplayNameForFile(const juce::File& path) {
 // ---- Load ----
 
 std::optional<PerformancePreset> loadPreset(const juce::File& path) {
-    if (!path.existsAsFile()) {
+    if (!path.existsAsFile() || path.getSize() > kMaxPresetFileSizeBytes) {
         return std::nullopt;
     }
 
@@ -226,14 +226,15 @@ std::optional<PerformancePreset> loadPreset(const juce::File& path) {
         return std::nullopt;
     }
 
+    // Forward compatibility: accept version between 1 and current (SEC-004)
     auto version = static_cast<int>(obj->getProperty("version"));
-    if (version != performancePresetFormatVersion) {
+    if (version < 1 || version > performancePresetFormatVersion) {
         return std::nullopt;
     }
-
-    PerformancePreset preset;
-    preset.name = obj->getProperty("name").toString();
-
+    PerformancePreset preset = makeDefaultPreset();
+    if (obj->hasProperty("name")) {
+        preset.name = obj->getProperty("name").toString();
+    }
     // --- layout ---
     auto layoutVar = obj->getProperty("layout");
     if (layoutVar.isObject()) {
@@ -267,15 +268,32 @@ std::optional<PerformancePreset> loadPreset(const juce::File& path) {
     if (kbVar.isObject()) {
         auto* kbo = kbVar.getDynamicObject();
         if (kbo != nullptr) {
-            preset.keySignature = static_cast<int>(kbo->getProperty("keySignature"));
-            preset.midiTranspose = static_cast<bool>(kbo->getProperty("midiTranspose"));
-            preset.colourMode
-                = static_cast<devpiano::ui::KeyColourMode>(static_cast<int>(kbo->getProperty("colourMode")));
-            preset.noteDisplay
-                = static_cast<devpiano::ui::NoteDisplayMode>(static_cast<int>(kbo->getProperty("noteDisplay")));
-            preset.fadeSpeed = static_cast<float>(kbo->getProperty("fadeSpeed"));
-            preset.previewAlpha = static_cast<float>(kbo->getProperty("previewAlpha"));
-
+            if (kbo->hasProperty("keySignature")) {
+                preset.keySignature = juce::jlimit(-7, 7, static_cast<int>(kbo->getProperty("keySignature")));
+            }
+            if (kbo->hasProperty("midiTranspose")) {
+                preset.midiTranspose = static_cast<bool>(kbo->getProperty("midiTranspose"));
+            }
+            if (kbo->hasProperty("colourMode")) {
+                int cm = static_cast<int>(kbo->getProperty("colourMode"));
+                if (cm < 0 || cm > static_cast<int>(devpiano::ui::KeyColourMode::velocity)) {
+                    cm = static_cast<int>(devpiano::ui::KeyColourMode::classic);
+                }
+                preset.colourMode = static_cast<devpiano::ui::KeyColourMode>(cm);
+            }
+            if (kbo->hasProperty("noteDisplay")) {
+                int nd = static_cast<int>(kbo->getProperty("noteDisplay"));
+                if (nd < 0 || nd > static_cast<int>(devpiano::ui::NoteDisplayMode::noteName)) {
+                    nd = static_cast<int>(devpiano::ui::NoteDisplayMode::doReMi);
+                }
+                preset.noteDisplay = static_cast<devpiano::ui::NoteDisplayMode>(nd);
+            }
+            if (kbo->hasProperty("fadeSpeed")) {
+                preset.fadeSpeed = juce::jlimit(0.01f, 10.0f, static_cast<float>(kbo->getProperty("fadeSpeed")));
+            }
+            if (kbo->hasProperty("previewAlpha")) {
+                preset.previewAlpha = juce::jlimit(0.0f, 1.0f, static_cast<float>(kbo->getProperty("previewAlpha")));
+            }
             // customKeyLabels (sparse array)
             auto labelsVar = kbo->getProperty("customKeyLabels");
             if (labelsVar.isArray()) {

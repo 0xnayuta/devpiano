@@ -65,10 +65,7 @@ private:
     juce::String currentStatusMessage;
     juce::String errorMessage;
 
-    // Active progress dialog references (message thread only)
+    // Active progress dialog reference (message thread only)
     juce::Component::SafePointer<juce::DialogWindow> activeDialog;
-    juce::Component::SafePointer<juce::Label> statusLabel;
-    juce::Component::SafePointer<juce::ProgressBar> progressBar;
-
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(WavExportTask)
 };

@@ -2,11 +2,10 @@
 
 #include "Recording/RecordingEngine.h"
 #include "Recording/RecordingFlowSupport.h"
+#include "Recording/RenderPipeline.h"
 
 using namespace devpiano::recording;
 
-// =============================================================================
-// Tests for RecordingEngine: recording, playback, capacity, preset changes
 // =============================================================================
 
 namespace {
@@ -123,6 +122,16 @@ public:
             expect(engine.getReservedEventCapacity() >= 64, "capacity query must stay readable during recording");
             engine.stopRecording();
             expect(engine.hasTake(), "hasTake must be valid after stopRecording");
+        }
+
+        beginTest("clampToInt64 robust conversion on NaN, negative and huge values (SEC-006)");
+        {
+            expectEquals(clampToInt64(-100.0), static_cast<std::int64_t>(0));
+            expectEquals(clampToInt64(0.0), static_cast<std::int64_t>(0));
+            expectEquals(clampToInt64(std::numeric_limits<double>::quiet_NaN()), static_cast<std::int64_t>(0));
+            expectEquals(clampToInt64(44100.4), static_cast<std::int64_t>(44100));
+            expectEquals(clampToInt64(44100.6), static_cast<std::int64_t>(44101));
+            expectEquals(clampToInt64(1e30), std::numeric_limits<std::int64_t>::max());
         }
     }
 };

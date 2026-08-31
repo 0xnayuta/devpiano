@@ -55,16 +55,16 @@
 - [x] `QUAL-006`：`MidiTrackMergeEngine` 负时间戳检查前移，全 t=0 take 长度对齐导出语义
 - [x] `QUAL-005`：确认并清理生产链不可达的 `singleTrackOnly` 遗留分支
 
-### AUDIT-002 Phase E：安全防御与输入边界加固（P3 健壮性与健壮序列化）
+### AUDIT-002 Phase E：安全防御与输入边界加固（P3 健壮性与健壮序列化） [已完成，2026-08-31]
 > 目标：强化用户可控文件大小校验、数值合法域 clamp、异常输入容错。
 
-- [ ] `SEC-003`：预设与 locale 文件读取前校验大小上限
-- [ ] `SEC-004`：`loadPreset` 版本号兼容前向扩展（`<= performancePresetFormatVersion`）并逐字段默认值填充
-- [ ] `SEC-005`：`SettingsSerialization` 与 `SettingsStore` 数值加载后 clamp 到合法域
-- [ ] `SEC-006`：`MidiTrackMergeEngine` 时间戳转换收敛为安全 `clampToInt64`
-- [ ] `SEC-007`：`SettingsStore::file()` 静默回退路径补 `jassert` 并在启动尽早安装 logger
-- [ ] `ERR-004`：清理 `WavExportTask` 死成员并更新 `WavFileExporter.h` 过期注释
-- [ ] `OBS-001`：`initialiseFromPreset` 失败路径补 `DP_LOG_WARN`（包含具体路径）
+- [x] `SEC-003`：预设与 locale 文件读取前校验大小上限
+- [x] `SEC-004`：`loadPreset` 版本号兼容前向扩展（`<= performancePresetFormatVersion`）并逐字段默认值填充
+- [x] `SEC-005`：`SettingsSerialization` 与 `SettingsStore` 数值加载后 clamp 到合法域
+- [x] `SEC-006`：`MidiTrackMergeEngine` 时间戳转换收敛为安全 `clampToInt64`
+- [x] `SEC-007`：`SettingsStore::file()` 静默回退路径补 `jassert` 并在启动尽早安装 logger
+- [x] `ERR-004`：清理 `WavExportTask` 死成员并更新 `WavFileExporter.h` 过期注释
+- [x] `OBS-001`：`initialiseFromPreset` 失败路径补 `DP_LOG_WARN`（包含具体路径）
 
 ### AUDIT-002 Phase F：性能优化、资源管理与质量小项（P3 细节优化）
 > 目标：提升执行效率、避免长会话资源累积、清理历史残留与样板代码。

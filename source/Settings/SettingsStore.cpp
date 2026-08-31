@@ -144,10 +144,11 @@ juce::PropertiesFile& SettingsStore::file() {
             return *userSettings;
         }
     }
+    jassertfalse;
+    DP_LOG_ERROR("[Settings] SettingsStore fell back to static empty PropertiesFile");
     static auto fallbackFile = std::make_unique<juce::PropertiesFile>(juce::PropertiesFile::Options {});
     return *fallbackFile;
 }
-
 void SettingsStore::readNow(SettingsModel& m) {
     auto& f = file();
 
@@ -180,18 +181,23 @@ void SettingsStore::readNow(SettingsModel& m) {
     m.mainWindowHeight = f.getIntValue(kKeyMainWindowHeight, m.mainWindowHeight);
     m.keyboardScrollOffsetX = f.getIntValue(kKeyKeyboardScrollX, -1);
 
-    // Keyboard display settings
     {
         int cm = f.getIntValue(kKeyColourMode, static_cast<int>(m.keyboardDisplay.colourMode));
+        if (cm < 0 || cm > static_cast<int>(devpiano::ui::KeyColourMode::velocity)) {
+            cm = static_cast<int>(devpiano::ui::KeyColourMode::classic);
+        }
         m.keyboardDisplay.colourMode = static_cast<devpiano::ui::KeyColourMode>(cm);
     }
     {
         int nd = f.getIntValue(kKeyNoteDisplay, static_cast<int>(m.keyboardDisplay.noteDisplay));
+        if (nd < 0 || nd > static_cast<int>(devpiano::ui::NoteDisplayMode::noteName)) {
+            nd = static_cast<int>(devpiano::ui::NoteDisplayMode::doReMi);
+        }
         m.keyboardDisplay.noteDisplay = static_cast<devpiano::ui::NoteDisplayMode>(nd);
     }
-    m.keyboardDisplay.fadeSpeed
-        = static_cast<float>(f.getDoubleValue(kKeyFadeSpeed, static_cast<double>(m.keyboardDisplay.fadeSpeed)));
-
+    m.keyboardDisplay.fadeSpeed = juce::jlimit(
+        0.01f, 10.0f,
+        static_cast<float>(f.getDoubleValue(kKeyFadeSpeed, static_cast<double>(m.keyboardDisplay.fadeSpeed))));
     // Channel matrix as ValueTree XML.
     if (auto cmXml = f.getXmlValue(kKeyChannelMatrix)) {
         juce::ValueTree t = juce::ValueTree::fromXml(*cmXml);
@@ -199,7 +205,7 @@ void SettingsStore::readNow(SettingsModel& m) {
         m.channelMatrix = devpiano::settings::valueTreeToChannelMatrix(t);
     }
 
-    m.keySignature = f.getIntValue(kKeyKeySignature, 0);
+    m.keySignature = juce::jlimit(-7, 7, f.getIntValue(kKeyKeySignature, 0));
     m.midiTranspose = f.getBoolValue(kKeyMidiTranspose, false);
 
     m.keyboardDisplay.showInstrumentFilter

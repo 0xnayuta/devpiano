@@ -214,6 +214,8 @@ void MainComponent::initialiseFromPreset() {
             presetFlowSupport->applyPresetData(*loaded);
             return;
         }
+        DP_LOG_WARN("[Preset] Failed to load last active preset \"" + appSettings.lastActivePresetId + "\" from "
+                    + file.getFullPathName() + ", falling back to default preset");
     }
 
     // Fallback: built-in default

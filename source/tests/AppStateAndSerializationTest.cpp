@@ -91,6 +91,21 @@ private:
         expectEquals(static_cast<int>(fromPartial.channels[0].velocity), 64, "Missing velocity defaults to 64");
         expect(fromPartial.channels[0].followKey, "Channel 0 defaults to followKey=true");
         expect(!fromPartial.channels[9].followKey, "Channel 9 (Drums) defaults to followKey=false");
+
+        // Out of range properties clamped to valid domain (SEC-005)
+        juce::ValueTree outOfRangeTree("channelMatrix");
+        juce::ValueTree chRange("ch");
+        chRange.setProperty("outputChannel", 100, nullptr); // > 15
+        chRange.setProperty("transpose", 99, nullptr); // > 36
+        chRange.setProperty("octaveShift", -10, nullptr); // < -4
+        chRange.setProperty("velocity", 300, nullptr); // > 127
+        outOfRangeTree.appendChild(chRange, nullptr);
+
+        const auto fromClamped = devpiano::settings::valueTreeToChannelMatrix(outOfRangeTree);
+        expectEquals(static_cast<int>(fromClamped.channels[0].outputChannel), 15);
+        expectEquals(static_cast<int>(fromClamped.channels[0].transpose), 36);
+        expectEquals(static_cast<int>(fromClamped.channels[0].octaveShift), -4);
+        expectEquals(static_cast<int>(fromClamped.channels[0].velocity), 127);
     }
 
     void testAppStateBuilderPersistedBaseline() {
