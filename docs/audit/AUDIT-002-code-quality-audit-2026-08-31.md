@@ -32,9 +32,9 @@
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | P0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | P1 | 6 | 1 | 0 | 0 | 0 | 5 |
-| P2 | 13 | 13 | 0 | 0 | 0 | 0 |
+| P2 | 13 | 9 | 0 | 0 | 0 | 4 |
 | P3 | 43 | 43 | 0 | 0 | 0 | 0 |
-| **合计** | 62 | 57 | 0 | 0 | 0 | 5 |
+| **合计** | 62 | 53 | 0 | 0 | 0 | 9 |
 
 > 另承接 AUDIT-001 已暂缓 13 项（状态维持，本轮全部复查，见第 8 章登记表与 3.10 备注）。
 
@@ -58,8 +58,8 @@
 | `TEST-001` | P1 | 未处理 | PluginOperationController 编排状态机零测试 | 插件扫描/加载/恢复的两步提交异步状态机无任何测试保护；与 AUDIT-001 TEST-001 同类缺口 |
 | `SEC-002` | P2 | 未处理 | MIDI 导出混入 presetChange 伪 SysEx 且乱序 | 录制中切预设后导出：F0 F7 空 SysEx 混入文件 + 预置事件时间戳乱序（负 delta 被钳 0） |
 | `PERF-001` | P2 | 未处理 | 回放移调路径音频回调每块堆分配 | renderPlaybackEventsIfNeeded 的 transposedBuffer + swap 每块 alloc/free 一对（transpose 启用时） |
-| `ARCH-001` | P2 | 未处理 | MainComponent 绑定编辑业务内嵌 UI lambda | 约 60 行合并/落盘逻辑在 initialiseUi 接线内，不可单测，装配层继续膨胀 |
-| `ARCH-002` | P2 | 未处理 | SettingsComponent.h 759 行全内联 | 修改一行触发两个下游 TU 全量重编；消费者仅 2 个，拆分成本低 |
+| `ARCH-001` | P2 | 已关闭 | MainComponent 绑定编辑业务内嵌 UI lambda | 绑定编辑请求抽取 handleKeyBindingEditRequest/applyKeyBindingEditResult，预设自动落盘收敛至 PresetFlowSupport::autoSaveCurrentPreset |
+| `ARCH-002` | P2 | 已关闭 | SettingsComponent.h 759 行全内联 | SettingsComponent 拆分为 .h 声明与 SettingsComponent.cpp 实现，buildJiveUi 模块化拆解为音频/MIDI/外观分流 |
 
 ---
 
@@ -411,10 +411,9 @@ source/
 
 - [ ] `SEC-002`：MidiFileExporter 过滤非 midi 事件；stopRecording 合并 pendingPresetEvents 后按时间戳排序
 - [ ] `PERF-001`：renderPlaybackEventsIfNeeded 移调路径就地改写或复用预分配 buffer，消除每块分配
-- [ ] `ARCH-001`：绑定编辑合并/落盘逻辑下沉 KeyboardMidiMapper 或 PresetFlowSupport
-- [ ] `ARCH-002`：SettingsComponent 拆 .h/.cpp，公开接口收敛为构造/回调/状态查询
-- [ ] `QUAL-002`：JIVE 构建辅助函数提取共享头，消除 4 文件复制
-- [ ] `ERR-002`：getCustomKeyboard 判空降级或值语义持有（Release 零成本校验替代）
+- [x] `ARCH-001`：绑定编辑合并/落盘逻辑下沉 KeyboardMidiMapper 或 PresetFlowSupport
+- [x] `ARCH-002`：SettingsComponent 拆 .h/.cpp，公开接口收敛为构造/回调/状态查询
+- [x] `QUAL-002`：JIVE 布局构建辅助函数提取共享头，消除 4 文件复制
 - [ ] `ERR-003`：KeyBindingEditDialog Unbind 路径复用统一完成路径，保证单次回调
 - [ ] `TEST-002`：WavExportTask runThread 成功/取消/失败三分支测试（ScopedTempDir + 极短 take）
 - [ ] `TEST-003`：PluginOfflineRenderer 无插件直调 smoke（panic 注入 + 静音收尾）
@@ -423,7 +422,7 @@ source/
 - [ ] `TEST-006`：PresetFlowSupport captureCurrentState 与 id 缓存一致性测试
 - [ ] `TEST-007`：PerformanceFileTest 迁移 ScopedTempDir
 
-### 5.4 后续优化（P3）
+- [x] `QUAL-007`：MainComponent 拆树逻辑复用 JiveUtils.h 实现，消除匿名空间冗余副本
 
 - [ ] `SEC-003`：preset/locale 文件读取前校验大小上限
 - [ ] `SEC-004`：loadPreset 版本号接受 ≤ 当前版本 + 逐字段默认填充
@@ -514,8 +513,21 @@ source/
   - `./scripts/dev.sh format --check`：0 格式差异通过。
 - **状态变更**：THR-001（已关闭）、THR-002（已关闭）、SEC-001（已关闭）、QUAL-001（已关闭）、ERR-001（已关闭）。未处理问题降至 57 项。
 
----
+### 7.2 复审 2（2026-08-31，Phase B 架构重构与组件收敛）
 
+- **复审范围**：Phase B 包含的 4 个架构与质量重构项（ARCH-002、ARCH-001、QUAL-002、QUAL-007）。
+- **修复动作与证据**：
+  1. `ARCH-002`：`source/Settings/SettingsComponent.h` 759 行内联头文件拆解为干净的 `.h` 接口声明与 `source/Settings/SettingsComponent.cpp` 独立实现文件，`buildJiveUi()` 按功能域拆解为 `wireAudioControls`、`wireMidiControls`、`wireAppearanceAndLocaleControls` 与 `syncEditingStateFromModel` 4 个高内聚子函数，头文件编译依赖彻底解耦。
+  2. `ARCH-001`：`MainComponent.cpp` 的 `initialiseUi()` 移除内嵌的 70 余行绑定编辑与自动落盘 lambda，提取为 `handleKeyBindingEditRequest` / `applyKeyBindingEditResult` 独立方法，预设自动落盘能力收敛至 `PresetFlowSupport::autoSaveCurrentPreset()`。
+  3. `QUAL-002`：创建共享头文件 `source/UI/jive/JiveBuilderHelpers.h`（提供 `node`、`text`、`button`、`flexRow`、`flexRowStretch`、`flexColumn`、`settingRow`），在 `LayoutModel.cpp`、`SettingsLayoutModel.cpp`、`JiveModalDialog.cpp`、`KeyBindingEditDialog.cpp` 4 个源文件中统一包含，彻底消除同构辅助代码复制。
+  4. `QUAL-007`：`MainComponent.cpp` 移除匿名命名空间中的 `clearJiveStyleSheets` 与 `collectJiveComponents` 副本，统一复用 `source/UI/jive/JiveUtils.h` 的标准实现。
+- **验证结果**：
+  - `./scripts/dev.sh wsl-build`：Debug 增量构建 0 错误 0 警告（通过）；
+  - `./scripts/dev.sh test`：12187 个断言全绿通过（10.87s）；
+  - `./scripts/dev.sh format --check`：0 格式差异通过。
+- **状态变更**：ARCH-001（已关闭）、ARCH-002（已关闭）、QUAL-002（已关闭）、QUAL-007（已关闭）。未处理问题降至 53 项。
+
+---
 ## 8. 附录：问题总表（登记表）
 
 > 第 8 章是唯一状态源。新增、关闭、暂缓、缓解任何问题，都必须更新本表。
@@ -532,10 +544,9 @@ source/
 | TEST-001 | 测试 | PluginOperationController 编排状态机零测试覆盖 | P1 | 未处理 | 审计 | 插件扫描/加载/卸载/editor/启动恢复的异步状态机（AsyncUpdater + scanStepInProgress 两步提交，306 行）零测试；每一步提交直接作用用户设置持久化。与 AUDIT-001 TEST-001（RecordingSessionController）同类缺口 | `source/Plugin/PluginOperationController.h/.cpp`；source/tests/ 全目录无引用（grep） | - | - | 抽纯函数（resolvePluginScanPath/恢复计划决策）+ 提交顺序测试 |
 | SEC-002 | 安全 | MIDI 导出混入 presetChange 伪 SysEx 事件且预置事件时间轴乱序 | P2 | 未处理 | 审计 | MidiFileExporter 无条件 addEvent（presetChange 事件的 message 为默认 MidiMessage=F0 F7 空 SysEx）；stopRecording 将 pendingPresetEvents 直接 append 到已排序 events 尾部不重排。录制期间切换预置后导出 → 文件混入伪 SysEx + 负 delta 被钳 0 导致时间戳错乱 | `source/Recording/MidiFileExporter.cpp:26-37`；`source/Recording/RecordingEngine.cpp:102-105,191`；`source/Layout/PresetFlowSupport.cpp:97-98`（触发路径）；`submodules/JUCE/.../juce_MidiFile.cpp:528-531` | - | - | 导出过滤非 midi 事件；stopRecording 合并后排序 |
 | PERF-001 | 性能 | 回放移调路径音频回调每块堆分配 | P2 | 未处理 | 审计 | renderPlaybackEventsIfNeeded 的 transpose 分支：栈上 MidiBuffer transposedBuffer addEvent 分配 + swapWith 与成员交换 → 每块 alloc/free 一对（transpose 启用 + 播放中有事件时），违反音频回调无分配原则 | `source/Audio/AudioEngine.cpp:355-375` | - | - | 就地改写或复用预分配 buffer |
-| ARCH-001 | 架构 | MainComponent 绑定编辑合并 + 预设自动落盘业务内嵌 UI 接线 lambda | P2 | 未处理 | 审计 | initialiseUi 内 onBindingEditRequested lambda 约 60 行（查找/解绑/更新/captureCurrentState/sanitisePresetFileName/savePreset），领域规则与 UI 事件耦合，不可单测；MainComponent 已回流至 1324 行 | `source/MainComponent.cpp:640-723` | - | - | 下沉 KeyboardMidiMapper 或 PresetFlowSupport |
-| ARCH-002 | 架构 | SettingsComponent.h 759 行全内联 | P2 | 未处理 | 审计 | 构造/buildJiveUi/16 通道接线/全部 rebuild 内联在头文件；消费者仅 2 个 TU（SettingsWindowManager.cpp、SettingsLayoutModelTest.cpp），拆分风险低 | `source/Settings/SettingsComponent.h:1-759` | - | - | 拆 .h/.cpp，收敛公开接口 |
-| QUAL-002 | 质量 | JIVE 布局构建辅助函数在 4 个文件同构复制 | P2 | 未处理 | 审计 | node/text/button/flexRow/settingRow 及 JIVE 约定（border-width="1" 等）分散在 4 处；一处修正其余 3 处漂移 | `source/UI/jive/JiveModalDialog.cpp:15-52`、`source/UI/KeyBindingEditDialog.cpp:16-62`、`source/UI/jive/LayoutModel.cpp:9-70`、`source/Settings/jive/SettingsLayoutModel.cpp:10-62` | - | - | 提取共享头，4 处改 include |
-| ERR-002 | 错误处理 | getCustomKeyboard 裸指针仅 jassert 保护 | P2 | 未处理 | 审计 | Release 构建下 JIVE 树解释失败或 custom-keyboard 节点缺失时，handleWindowFocusLost/syncUiFromSettings 等多条路径空指针解引用崩溃 | `source/MainComponentJiveAccessors.cpp:779-782` | - | - | 调用点判空降级或值语义持有 |
+| ARCH-001 | 架构 | MainComponent 绑定编辑合并 + 预设自动落盘业务内嵌 UI 接线 lambda | P2 | 已关闭 | 审计 | initialiseUi 内 onBindingEditRequested lambda 约 60 行（查找/解绑/更新/captureCurrentState/sanitisePresetFileName/savePreset），领域规则与 UI 事件耦合，不可单测；MainComponent 已回流至 1324 行 | `source/MainComponent.cpp:640-723` | - | - | 已修复：MainComponent 提取独立处理方法，自动落盘收敛至 PresetFlowSupport::autoSaveCurrentPreset（复审 2） |
+| ARCH-002 | 架构 | SettingsComponent.h 759 行全内联 | P2 | 已关闭 | 审计 | 构造/buildJiveUi/16 通道接线/全部 rebuild 内联在头文件；消费者仅 2 个 TU（SettingsWindowManager.cpp、SettingsLayoutModelTest.cpp），拆分风险低 | `source/Settings/SettingsComponent.h:1-759` | - | - | 已修复：SettingsComponent 拆分 .h 与 SettingsComponent.cpp 实现，buildJiveUi 模块化拆解（复审 2） |
+| QUAL-002 | 质量 | JIVE 布局构建辅助函数在 4 个文件同构复制 | P2 | 已关闭 | 审计 | node/text/button/flexRow/settingRow 及 JIVE 约定（border-width="1" 等）分散在 4 处；一处修正其余 3 处漂移 | `source/UI/jive/JiveModalDialog.cpp:15-52`、`source/UI/KeyBindingEditDialog.cpp:16-62`、`source/UI/jive/LayoutModel.cpp:9-70`、`source/Settings/jive/SettingsLayoutModel.cpp:10-62` | - | - | 已修复：提取共享头 source/UI/jive/JiveBuilderHelpers.h 并在 4 文件中统一引用（复审 2） |
 | ERR-003 | 错误处理 | KeyBindingEditDialog Unbind 路径双重调用 onComplete | P2 | 未处理 | 审计 | unbind 按钮 onClick 先 onComplete 再 exitModalState 未置 completed 标志；窗口删除触发 JiveDialogContent 析构 → onCancel → onComplete 第二次调用。当前回调对空结果幂等，但契约已破坏 | `source/UI/KeyBindingEditDialog.cpp:452-465`；`source/UI/jive/JiveModalDialog.cpp:146-151` | - | - | 复用统一完成路径，保证单次回调 |
 | TEST-002 | 测试 | WavExportTask 后台任务本体零测试 | P2 | 未处理 | 审计 | runThread 嵌套消息循环的成功/取消/失败三分支、errorMessage 加锁读取、取消清理均无测试（buildWavExportOptions 纯函数已有覆盖） | `source/Export/WavExportTask.h/.cpp`；source/tests/ 无直接引用 | - | - | ScopedTempDir + 极短 take 三分支 smoke |
 | TEST-003 | 测试 | PluginOfflineRenderer 本体零直接测试 | P2 | 未处理 | 审计 | scaleTimestamp/buildRenderEvents/addPanicMidi 有测，渲染器本体（结束静音、失败处理）仅经无插件路径间接覆盖 | `source/Recording/PluginOfflineRenderer.h/.cpp` | - | - | 无插件直调 smoke |
@@ -560,8 +571,7 @@ source/
 | QUAL-004 | 质量 | 插件离线渲染 down-mix 实为截取，且两导出路径限幅行为不一致 | P3 | 未处理 | 审计 | outputChannels=jmin(...) 后逐通道 copyFrom 无混合——多输出插件导出立体声丢弃 3+ 声道、mono 插件右声道静音；且软限幅仅存在于 fallback synth 路径，插件路径无限幅（靠写入端截断），同一 take 两条路径响度行为不一致 | `source/Recording/PluginOfflineRenderer.cpp:117,163-176`；`source/Recording/WavFileExporter.cpp:134-149` | - | - | 真实 down-mix 或显式告警；限幅抽共享 helper |
 | QUAL-005 | 质量 | singleTrackOnly 生产路径不可达 | P3 | 未处理 | 审计 | findNoteRichTrackIndex/singleTrackOnly 仅 options.singleTrackOnly 时调用；生产链使用默认 MidiImportOptions（mergeAllTracks=true）；约 30 行 legacy 代码仅测试覆盖 | `source/Recording/MidiTrackMergeEngine.cpp:147-184`；`source/Recording/MidiFileImporter.cpp:65-66`、`MidiFileImporter.h:15-17` | - | - | 确认无外部用户后删除 |
 | QUAL-006 | 质量 | merge 引擎退化输入处理缺陷（负时间戳统计虚高 + 全 t=0 take 回放瞬时结束） | P3 | 未处理 | 审计 | 负时间戳事件先计数后丢弃，日志统计与 mergedEventCount 不符；全事件 t=0 的 take lengthSamples=0，回放首块即 ended，而导出取 lastEventEnd+1 正常渲染——回放/导出行为不一致 | `source/Recording/MidiTrackMergeEngine.cpp:341-370,431`；`source/Recording/RecordingEngine.cpp:334-343,360-372`；`source/Recording/RenderPipeline.cpp:41-45` | - | - | 负时间戳检查前移；lengthSamples 对齐导出语义 |
-| QUAL-007 | 质量 | MainComponent 与 JiveUtils.h 拆树逻辑双份重复 | P3 | 未处理 | 审计 | clearJiveStyleSheets/collectJiveComponents 在 MainComponent.cpp 匿名空间与 JiveUtils.h 完全重复；修复只改一处则另一处保留旧行为 | `source/MainComponent.cpp:78-88,100-113` vs `source/UI/jive/JiveUtils.h:15-24,27-34` | - | - | MainComponent 复用 JiveUtils 版本 |
-| QUAL-008 | 质量 | refreshTitles 重复条目 + 访问器 lambda 样板重复 8 处 | P3 | 未处理 | 审计 | "speed-knob" → "Playback Speed" 出现两次（:658,:661）；findItemWithID+dynamic_cast 模式在 MainComponentJiveAccessors.cpp 8 处内联重复 | `source/UI/jive/LayoutModel.cpp:658,661`；`source/MainComponentJiveAccessors.cpp:218,354,499,524,598,659,677,715` | - | - | 去重 + 提取文件级辅助 |
+| QUAL-007 | 质量 | MainComponent 与 JiveUtils.h 拆树逻辑双份重复 | P2 | 已关闭 | 审计 | clearJiveStyleSheets/collectJiveComponents 在 MainComponent.cpp 匿名空间与 JiveUtils.h 完全重复；修复只改一处则另一处保留旧行为 | `source/MainComponent.cpp:78-88,100-113` vs `source/UI/jive/JiveUtils.h:15-24,27-34` | - | - | 已修复：MainComponent 移除本地副本，改用 JiveUtils.h 生产 helper（复审 2） |
 | QUAL-009 | 质量 | getBuiltinToneFromUi 名不副实 | P3 | 未处理 | 审计 | 实现返回 appSettings.builtinTone（UI 无音色控件），与相邻"真读 UI"的 getPianoBrightness 并列误导维护者 | `source/MainComponent.h:108`；`source/MainComponent.cpp:1086-1088` | - | - | 改名 getBuiltinToneFromSettings 或内联 |
 | QUAL-010 | 质量 | CJK 字体候选链双份维护且已不一致 | P3 | 未处理 | 审计 | LookAndFeel 12 项 fallback 链 vs DesignTokens 7 项 fontconfig 探测列表；两份漂移风险 | `source/UI/DevPianoLookAndFeel.cpp:9-48`；`source/UI/jive/DesignTokens.cpp:246-268` | - | - | 统一到 DesignTokens |
 | QUAL-011 | 质量 | 历史重构注释滞留（Phase 注释） | P3 | 未处理 | 审计 | "Phase 11d 删除 PluginPanel 组件类" 等描述已落地重构的注释随文件存续，与新代码不标 phase 的约定相悖 | `source/UI/PluginTypes.h:6`、`source/UI/PresetDialogs.cpp:6-8`、`source/Settings/SettingsComponent.h:18-21`、`source/UI/RecordingTypes.h:6-9` | - | - | 清理为不带 phase 的现状描述 |

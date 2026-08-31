@@ -1,48 +1,12 @@
 #include "UI/jive/JiveModalDialog.h"
-
 #include "UI/jive/DesignTokens.h"
+#include "UI/jive/JiveBuilderHelpers.h"
 #include "UI/jive/JiveUtils.h"
 #include "UI/jive/StyleCatalog.h"
 
 namespace devpiano::ui::jive {
 
 namespace {
-
-// ============================================================================
-// ValueTree Node Helpers
-// ============================================================================
-
-inline juce::ValueTree node(const juce::Identifier& type, const juce::String& id = {}) {
-    auto t = juce::ValueTree(type);
-    if (id.isNotEmpty()) {
-        t.setProperty("id", id, nullptr);
-    }
-    return t;
-}
-
-inline juce::ValueTree text(const juce::String& content, const juce::String& id = {}) {
-    auto t = node("Text", id);
-    t.setProperty("text", content, nullptr);
-    t.setProperty("title", content, nullptr);
-    return t;
-}
-
-inline juce::ValueTree button(const juce::String& label, const juce::String& id = {}) {
-    auto t = node("Button", id);
-    t.setProperty("display", "flex", nullptr);
-    t.setProperty("justify-content", "centre", nullptr);
-    t.setProperty("align-items", "centre", nullptr);
-    t.setProperty("title", label, nullptr);
-    t.setProperty("border-width", "1", nullptr);
-
-    auto labelText = text(label, id.isNotEmpty() ? id + "-text" : juce::String {});
-    labelText.setProperty("justification", "centred", nullptr);
-    labelText.setProperty("word-wrap", "none", nullptr);
-    t.appendChild(labelText, nullptr);
-
-    return t;
-}
-
 // ============================================================================
 // JiveDialogContent Component
 // ============================================================================

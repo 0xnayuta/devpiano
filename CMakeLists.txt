@@ -203,6 +203,9 @@ target_sources(devpiano PRIVATE
     source/UI/KeyBindingEditDialog.h
     source/UI/ColourSwatchButton.cpp
     source/UI/ColourSwatchButton.h
+    source/UI/jive/JiveBuilderHelpers.h
+    source/UI/jive/JiveModalDialog.cpp
+    source/UI/jive/JiveModalDialog.h
     source/UI/PerformanceMetadataDialog.cpp
     source/UI/PerformanceMetadataDialog.h
     source/UI/PresetDialogs.cpp
@@ -210,6 +213,7 @@ target_sources(devpiano PRIVATE
     source/Settings/SettingsStore.h
     source/Settings/SettingsSerialization.cpp
     source/Settings/SettingsSerialization.h
+    source/Settings/SettingsComponent.cpp
     source/Settings/SettingsComponent.h
     source/Settings/jive/SettingsLayoutModel.cpp
     source/Settings/jive/SettingsLayoutModel.h
@@ -404,6 +408,7 @@ if (BUILD_TESTS)
         source/UI/jive/StyleCatalog.h
         source/UI/jive/LayoutModel.cpp
         source/UI/jive/LayoutModel.h
+        source/UI/jive/JiveBuilderHelpers.h
         source/UI/jive/JiveModalDialog.cpp
         source/UI/jive/JiveModalDialog.h
         source/UI/jive/JiveUtils.h
@@ -419,6 +424,8 @@ if (BUILD_TESTS)
         source/UI/KeyBindingEditDialog.h
         source/UI/ColourSwatchButton.cpp
         source/UI/ColourSwatchButton.h
+        source/Settings/SettingsComponent.cpp
+        source/Settings/SettingsComponent.h
         source/Settings/jive/SettingsLayoutModel.cpp
         source/Settings/jive/SettingsLayoutModel.h
 

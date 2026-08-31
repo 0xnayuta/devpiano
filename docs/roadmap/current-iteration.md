@@ -25,13 +25,13 @@
 - [x] `QUAL-001`：`MainComponent` 拖放 `.devpiano.preset` 扩展名判断改用 `getFileName().endsWithIgnoreCase(".devpiano.preset")`，修复预设拖放导入静默失效
 - [x] `ERR-001`：`WavExportTask` 进度对话框关闭路径触发取消信号并置空 `activeDialog`，杜绝渲染期间点 X 导致的悬挂 UAF
 
-### AUDIT-002 Phase B：架构重构与组件收敛（P2 结构化治理）
+### AUDIT-002 Phase B：架构重构与组件收敛（P2 结构化治理） [已完成，2026-08-31]
 > 目标：解决装配层膨胀与庞大内联头文件，消除跨文件同构辅助代码复制。
 
-- [ ] `ARCH-002`：`SettingsComponent` 拆分为 `.h` 声明与 `.cpp` 实现，消除 759 行全内联头文件并按功能域拆解 `buildJiveUi`
-- [ ] `ARCH-001`：`MainComponent` 绑定编辑合并与预设自动落盘业务逻辑下沉至 `KeyboardMidiMapper` / `PresetFlowSupport`
-- [ ] `QUAL-002`：提取通用 JIVE 布局构建辅助头（`source/UI/jive/JiveBuilderHelpers.h`），消除 4 个文件的同构代码复制
-- [ ] `QUAL-007`：`MainComponent` 拆树逻辑复用 `JiveUtils.h` 实现，消除匿名命名空间冗余副本
+- [x] `ARCH-002`：`SettingsComponent` 拆分为 `.h` 声明与 `.cpp` 实现，消除 759 行全内联头文件并按功能域拆解 `buildJiveUi`
+- [x] `ARCH-001`：`MainComponent` 绑定编辑合并与预设自动落盘业务逻辑下沉至 `KeyboardMidiMapper` / `PresetFlowSupport`
+- [x] `QUAL-002`：提取通用 JIVE 布局构建辅助头（`source/UI/jive/JiveBuilderHelpers.h`），消除 4 个文件的同构代码复制
+- [x] `QUAL-007`：`MainComponent` 拆树逻辑复用 `JiveUtils.h` 实现，消除匿名命名空间冗余副本
 
 ### AUDIT-002 Phase C：核心编排与测试盲区补强（P1/P2 测试与状态机加固）
 > 目标：填补插件操作控制器、导出后台任务、离线渲染器、正弦音源与状态构建的测试空白。

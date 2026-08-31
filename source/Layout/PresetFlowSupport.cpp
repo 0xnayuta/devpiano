@@ -152,6 +152,19 @@ PerformancePreset PresetFlowSupport::captureCurrentState(const juce::String& nam
     return preset;
 }
 
+bool PresetFlowSupport::autoSaveCurrentPreset() {
+    if (currentPresetId.isEmpty()) {
+        return false;
+    }
+    auto updatedPreset = captureCurrentState(currentPresetId);
+    auto presetFile = getPresetDirectory().getChildFile(sanitisePresetFileName(currentPresetId) + ".devpiano.preset");
+    if (!savePreset(updatedPreset, presetFile)) {
+        DP_LOG_WARN("[Preset] failed to auto-save after binding edit: " + currentPresetId);
+        return false;
+    }
+    return true;
+}
+
 // ---- CRUD ----
 
 void PresetFlowSupport::handleSaveAsNewPreset() {

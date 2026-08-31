@@ -36,6 +36,8 @@ public:
     [[nodiscard]] int getPresetCount() const;
 
     [[nodiscard]] PerformancePreset captureCurrentState(const juce::String& name) const;
+    /// Auto-saves the currently active preset (if any) with the latest state.
+    bool autoSaveCurrentPreset();
 
 private:
     void refreshCache();

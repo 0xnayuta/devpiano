@@ -188,6 +188,9 @@ private:
     void runPluginActionWithAudioDeviceRebuild(const std::function<void(const RuntimeAudioConfig&)>& action);
     void runPluginActionWithAudioDeviceRebuild(const std::function<void()>& action);
 
+    void handleKeyBindingEditRequest(int midiNote);
+    void applyKeyBindingEditResult(int midiNote, const struct KeyBindingEditResult& result);
+
     devpiano::recording::RecordingEngine recordingEngine;
     AudioEngine audioEngine;
     KeyboardMidiMapper keyboardMidiMapper;

@@ -1,85 +1,8 @@
 #include "LayoutModel.h"
 #include "UI/jive/DesignTokens.h"
+#include "UI/jive/JiveBuilderHelpers.h"
 
 namespace devpiano::ui::jive {
-
-namespace {
-
-/// Helper: create a ValueTree node with a type name.
-inline juce::ValueTree node(const juce::Identifier& type, const juce::String& id = {}) {
-    auto t = juce::ValueTree(type);
-    if (id.isNotEmpty()) {
-        t.setProperty("id", id, nullptr);
-    }
-    return t;
-}
-
-/// Helper: create a <Text> node. Height is intentionally NOT set here:
-/// callers must give text an explicit height, or leave it "auto" so
-/// align-items: stretch fills the row (TextComponent reports no intrinsic
-/// size to JUCE's FlexBox).
-inline juce::ValueTree text(const juce::String& content, const juce::String& id = {}) {
-    auto t = node("Text", id);
-    t.setProperty("text", content, nullptr);
-    // Semantic title for inspector/accessibility: defaults to the displayed
-    // text; dynamic labels override it at the call site.
-    t.setProperty("title", content, nullptr);
-    return t;
-}
-
-/// Helper: create a <Button> node with a text label.
-///
-/// JIVE's Button widget maps the node's "text" property to
-/// juce::Button::setTitle (accessibility title), NOT setButtonText — the
-/// visible label must be a Text child, centred by the button's flex layout.
-inline juce::ValueTree button(const juce::String& label, const juce::String& id = {}) {
-    auto t = node("Button", id);
-    t.setProperty("display", "flex", nullptr);
-    t.setProperty("justify-content", "centre", nullptr);
-    t.setProperty("align-items", "centre", nullptr);
-    // Semantic title for inspector/accessibility: the visible label.
-    t.setProperty("title", label, nullptr);
-    // Required for the "Button" style-sheet border rule to render: JIVE's
-    // BackgroundCanvas only strokes when the node carries a border-width.
-    t.setProperty("border-width", "1", nullptr);
-
-    auto labelText = text(label, id.isNotEmpty() ? id + "-text" : juce::String {});
-    labelText.setProperty("justification", "centred", nullptr);
-    labelText.setProperty("word-wrap", "none", nullptr); // single-line labels
-    t.appendChild(labelText, nullptr);
-
-    return t;
-}
-
-/// Helper: create a <Component> flex row with centre alignment.
-inline juce::ValueTree flexRow(const juce::String& id = {}) {
-    auto t = node("Component", id);
-    t.setProperty("display", "flex", nullptr);
-    t.setProperty("flex-direction", "row", nullptr);
-    t.setProperty("align-items", "centre", nullptr);
-    return t;
-}
-
-/// Helper: create a <Component> flex row with stretch alignment — children
-/// without an explicit cross-axis size fill the row height.
-inline juce::ValueTree flexRowStretch(const juce::String& id = {}) {
-    auto t = node("Component", id);
-    t.setProperty("display", "flex", nullptr);
-    t.setProperty("flex-direction", "row", nullptr);
-    t.setProperty("align-items", "stretch", nullptr);
-    return t;
-}
-
-/// Helper: create a <Component> flex column.
-inline juce::ValueTree flexColumn(const juce::String& id = {}) {
-    auto t = node("Component", id);
-    t.setProperty("display", "flex", nullptr);
-    t.setProperty("flex-direction", "column", nullptr);
-    t.setProperty("align-items", "stretch", nullptr);
-    return t;
-}
-
-} // namespace
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HeaderPanel
