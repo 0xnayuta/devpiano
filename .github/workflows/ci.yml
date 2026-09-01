@@ -65,9 +65,8 @@ jobs:
 
       - name: Configure CMake for compile_commands.json & build PCH
         run: |
-          ./scripts/dev.sh wsl-build --configure-only
+          cmake -B build-wsl-clang --preset linux-clang-debug -DBUILD_TESTS=ON
           ninja -C build-wsl-clang CMakeFiles/devpiano.dir/cmake_pch.hxx.pch CMakeFiles/devpiano_tests.dir/cmake_pch.hxx.pch
-
       - name: Run incremental clang-tidy on changed files
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
