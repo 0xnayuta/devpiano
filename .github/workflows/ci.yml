@@ -63,10 +63,9 @@ jobs:
             linux-tidy-cache-${{ hashFiles('.clang-tidy', 'CMakeLists.txt', 'CMakePresets.json', 'submodules/**') }}-
             linux-tidy-cache-
 
-      - name: Configure CMake for compile_commands.json & build PCH
+      - name: Configure CMake for compile_commands.json (PCH disabled for clang-tidy)
         run: |
-          cmake -B build-wsl-clang --preset linux-clang-debug -DBUILD_TESTS=ON
-          ninja -C build-wsl-clang CMakeFiles/devpiano.dir/cmake_pch.hxx.pch CMakeFiles/devpiano_tests.dir/cmake_pch.hxx.pch
+          cmake -B build-wsl-clang --preset linux-clang-debug -DBUILD_TESTS=ON -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON
       - name: Run incremental clang-tidy on changed files
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
