@@ -5,114 +5,93 @@
 
 ## 当前方向
 
-**ADR-014 实施计划：内化 Devpiano UI 基础设施与 JIVE 子模块退役治理 [进行中，2026-09-01 开始]**
-
-依据 [`docs/decisions/ADR-014-internalize-ui-infrastructure-and-deprecate-jive-submodule.md`](../decisions/ADR-014-internalize-ui-infrastructure-and-deprecate-jive-submodule.md) 架构决策，devpiano 将全面退役外部 `submodules/JIVE` Git 子模块，采用**「路线 B：先提后升（Extract Minimal Closure -> Submodule Deinit -> JUCE 9.0.1 Ready）」**实施策略。
+**Phase 27：JUCE 9.0.1 框架升级、内化代码治理与全平台技术栈跃迁 [进行中，2026-09-02 开始]**
 
 本轮迭代专项目标为：
-1. 提取 JIVE 核心最小依赖闭包（约 3,800 行代码）入 `source/UI/jive/core/`，剔除 >15,000 行冗余死代码（Grid, XML, Unused Widgets, FileObserver, Perfetto）；
-2. 储备高潜力未来资产入 `source/UI/jive/extensions/`（`Grid` 与 `Transitions` 动画，供后续 Preset Browser / Channel Matrix 战略按需激活）；
-3. 纯化 CMake 构建配置，彻底注销 `submodules/JIVE` 子模块；
-4. 修复 JUCE 9 兼容断点（`DrawableComponent` 与 `FontOptions`），完成全套门禁与 Windows MSVC 验证。
+1. 将核心依赖 `submodules/JUCE` 从 `8.0.15` 升级至官方最新发布版本 **JUCE 9.0.1**（Tag: `9.0.1`, Commit: `e18f7f5`）；
+2. 消除 JUCE 9 全体系在非 UI（音频引擎、VST3 宿主、导出管线）与 UI（字体、SVG、组件生命周期）层的 API 破坏性变更；
+3. **内化 UI 代码质量治理闭环**：对 `source/UI/jive/core/` 进行 C++20 现代化重构与警告消除，解除 `.clang-tidy` 豁免，将其正式纳入全量 CI 静态分析门禁；
+4. 完成 Linux Clang + Windows MSVC 双平台全套三闸门与 12,187+ 单元测试 100% 绿灯验收。
 
 ---
 
-### ADR-014 Phase 0：基线测试冻结与合规归档准备 [已完成，2026-09-01]
-> 目标：确保当前在 JUCE 8.0.15 上的测试基线 100% 绿灯，建立开源合规清单与备份。
+### Phase 27-A：子模块指针升级与工程构建环境基线更新 [待开始]
+> 目标：检出 JUCE 9.0.1 官方版本，更新构建预设与工具链基线。
 
-- [x] 执行环境自检与全量测试基线验证（`./scripts/dev.sh test`，12187+ 断言全绿）
-- [x] 在项目根目录更新 `THIRD-PARTY-NOTICES.md`，记录 JIVE 原作者（James Johnson）、MIT 许可证全文与快照 Commit（`89d5787`）
-- [x] 归档并验证 `design_tokens.json` 与 `style_sheets.json` 静态资产完整性
+- [ ] **子模块指针检出**：
+  - 进入 `submodules/JUCE` 并切换至 tag `9.0.1`（Commit: `e18f7f5`）
+  - 确认子模块状态干净，更新 `AGENTS.md`、`README.md` 中的版本基线说明
+- [ ] **构建系统与工具链就绪**：
+  - 运行 `./scripts/dev.sh wsl-build --configure-only` 验证 CMake 3.28+ 与 JUCE 9 的配置协同
+  - 校验 `juceaide` 编译期辅助工具链在 JUCE 9 下的正常运行与 `compile_commands.json` 导出
+  - 核查 MSVC 19 预编译头（PCH）与 C++20 编译选项兼容性
 
-### ADR-014 Phase 1：提取 JIVE 核心最小依赖闭包（`source/UI/jive/core/`） [已完成，2026-09-01]
-> 目标：精准内化核心闭包代码，剥离死代码，完成命名空间与头文件依赖迁移。
-
-- [x] **创建目录结构**：
-  - `source/UI/jive/core/`（基础核心运行时）
-  - `source/UI/jive/extensions/`（战略储备扩展：`grid/`）
-- [x] **迁移 Core 基础层**（保留文件头 MIT 版权声明）：
-  - 属性系统：`BoxModel`、`Property`、`PropertyBehaviours`、`Object`、`ReferenceCountedValueTreeWrapper`
-  - 几何与交互：`BorderRadii`、`Length`、`Orientation`、`Event`、`ComponentInteractionState`
-  - 变体转换：`FlexVariantConverters`、`MiscVariantConverters`、`VariantConvertion`、`AttributedStringVariantConverters`
-  - 动效与时钟：`Transition`、`Transitions`、`Easing`、`Timer`、`TimeParser`、`Interpolate`、`Visitor`、`Bezier`、`TransferFunction`
-- [x] **迁移 Layout 核心层**：
-  - 解释与节点：`Interpreter`、`GuiItem`、`GuiItemDecorator`、`CommonGuiItem`、`ContainerItem`、`ContainerItemChild`、`ComponentFactory`、`View`
-  - 弹性排版：`FlexContainer`、`FlexItem`、`LayoutStrategy`、`Display`、`Overflow`
-  - 基础块项：`BlockContainer`、`BlockItem`
-- [x] **迁移核心控件包装与样式引擎**：
-  - 控件：`Button`、`ComboBox`、`Slider`、`ProgressBar`、`Text`、`Label`、`NormalisedProgressBar`、`TextComponent`、`IgnoredComponent`
-  - 样式与画布：`StyleSheet`、`StyleIdentifier`、`StyleSelectors`、`Colours`、`Fill`、`Gradient`、`BackgroundCanvas`、`Canvas`、`FontUtilities`、`StringStreams`
-- [x] **归档战略扩展（KEEP-LATER）**：
-  - 将 `GridContainer`、`GridItem`、`GridVariantConverters` 归入 `source/UI/jive/extensions/grid/`（独立归档并附使用说明文档）
-- [x] **清理与重定向头文件包含**：
-  - 全局重定向 `source/` 下各调用点至本地头文件（`#include "UI/jive/core/..."`）
-  - 构建系统（`CMakeLists.txt`）切换为直接编译 `source/UI/jive/core/` 源码，消除外部 `jive::` target 依赖并保持 100% 测试全绿
-
-### ADR-014 Phase 2：注销 JIVE Git 子模块与 CMakeLists 纯化 [已完成，2026-09-01]
-> 目标：彻底从工程构建体系中移除 `submodules/JIVE`，实现完全自包含构建。
-
-- [x] **CMakeLists.txt 纯化**：
-  - 移除 `add_subdirectory(submodules/JIVE)`
-  - 移除 target 链接中的 `jive::jive_layouts`、`jive::jive_style_sheets`、`jive::jive_core`
-  - 将 `source/UI/jive/core/` 源码加入 `devpiano` 与 `devpiano_tests` 目标编译清单
-- [x] **Git Submodule 退役**：
-  - 执行 `git submodule deinit -f submodules/JIVE` 与 `git rm -f submodules/JIVE`
-  - 移除 `.gitmodules` 中的 JIVE 条目，清理同步脚本（`tools/sync-to-win.ps1`）探测残余
-- [x] **构建与测试验证**：
-  - 运行 `./scripts/dev.sh wsl-build --configure-only` 刷新 `compile_commands.json`
-  - 运行 `./scripts/dev.sh test` 确保 100% 单元测试在无子模块环境下通过
-
-### ADR-014 Phase 3：JUCE 9.0.1 兼容性修复与三闸门全量验证 [已完成，2026-09-01]
-> 目标：消除已知的 JUCE 9 API 断点，确保代码库完全具备随时升级 JUCE 9.0.1 的技术状态。
-
-- [x] **适配 JUCE 9 UI API**：
-  - `FontUtilities::calculateStringWidth` 优化为无条件调用 `juce::GlyphArrangement::getStringWidth`，消除弃用方法
-  - 确认 `TextComponent` 基于现代 `juce::TextLayout` 与 `juce::AttributedString`，天然兼容 JUCE 9
-  - 确认全应用图标通过 `DrawablePath` 注入 `DrawableButton`，无 raw `Drawable` Component 继承断点
-  - `StyleCatalog` 深度值比对与对象缓存（`cachedStyles`）稳定，全量样式测试通过
-- [x] **UI 交互全量功能回归**：
-  - 主窗口 88 键拟真键盘、自绘包络、工具栏状态响应
-  - 插件面板高度折叠/展开动画与重新排版（`layOutChildren`）
-  - 全局模态弹窗（新建/重命名预设、删除确认、歌曲信息、WAV 导出进度条）
-  - 设置窗口（音频设备、调号、通道矩阵跟随开关）
-  - 运行时中英文切换与 Token 热重载
-- [x] **全套门禁闭环**：
-  - 代码格式合规：`./scripts/dev.sh format --check`（100% 绿灯）
-  - 单元测试套件：`./scripts/dev.sh test`（12,187+ 断言 100% 绿灯）
-  - Windows MSVC 验证构建：`./scripts/dev.sh win-build`（MSVC 19 验证构建通过）
-  - 增量静态检查：`./scripts/dev.sh tidy`（0 错误通过）
 ---
 
-## 后续规划路线（Upcoming Backlog）
+### Phase 27-B：非 UI 领域 Breaking Changes 适配与 API 兼容修复 [待开始]
+> 目标：消除音频后端、插件宿主与离线导出管线的编译断点与运行时行为变动。
 
-- **Phase 27：JUCE 9.0.1 框架升级与全平台技术栈跃迁（JUCE 9.0.1 Framework Upgrade & Ecosystem Evolution）**：
-  - **Phase 27-A：子模块指针升级与工程构建环境基线更新**：
-    - 检出 `submodules/JUCE` tag `9.0.1`（Commit: `e18f7f5`）；
-    - 刷新 WSL 本地与 Windows 镜像编译数据库（`./scripts/dev.sh wsl-build --configure-only`）；
-    - 校验 CMake API 选项、C++20 标准协同与预编译头配置。
-  - **Phase 27-B：非 UI 领域 Breaking Changes 适配与 API 兼容修复**：
-    - **VST3 宿主与插件客户端适配**：将 `PluginHost` / `PluginFlowSupport` 中对 `AudioPluginInstance` 的接口调用迁移至 `getVST3Client()`；
-    - **AudioProcessor Editor 生命周期适配**：全面切换插件 GUI 构造至 `createEditorIfNeeded()` / `createEditorAndMakeActive()`；
-    - **音频与文件导出接口适配**：核对 `WavFileExporter`、`AudioFormat` 错误边界防护与 `std::span` 接口演进；
-    - **Linux 平台 EGL/GUI 驱动适配**：适配 Linux EGL 环境与字体渲染。
-  - **Phase 27-C：全系统功能回归与双端三闸门闭环**：
-    - 12,187+ 单元测试套件全量跑通（`./scripts/dev.sh test`）；
-    - WSL Clang + Windows MSVC 19 双端编译 0 错误；
-    - 运行全量静态代码分析（`./scripts/dev.sh tidy --all`）；
-    - 88 键虚拟键盘演奏、7 大声学物理建模钢琴合成发声、外部 VST3 插件加载与生命周期、WAV 导出功能全链路手工冒烟。
-  - **Phase 27-D：发布流程验证与打包分发验证**：
-    - Windows x64 Release 正式构建（`./scripts/dev.sh win-build --release`）；
-    - 执行正式发布打包流水线（`./scripts/dev.sh package`），校验 zip 与 sha256 签名。
-- **Phase 28：现实物理演奏交互与声学控制（Physical Voicing & Realistic Acoustic Interaction）**：
-  - **琴盖开合度交互控制（Lid Position）**：在 JIVE UI 界面接入 Full Open / Half Stick / Closed 3 态直观选择，无缝切换底层已实现的 `lidAcoustics` 多级高频滚降与近场反射；
-  - **弱音/移位踏板物理拟真（Una Corda / Soft Pedal，CC 67）**：在 `PianoSynthVoice` 中模拟击弦机右移 3 弦敲 2 弦与毛毡侧面软化物理机理，支持 CC 67 踏板信号与 UI 软踏板状态点亮；
-  - **触键力度曲线（Touch Velocity Curve）**：在 `KeyboardMidiMapper` / Input 层提供 Standard / Light / Heavy / Wide Dynamic 4 种配重手感映射，自适应薄膜/机械轴/MIDI 键盘；
-  - **配置持久化与预设系统联动**：将琴盖位置、Una Corda 状态与触键曲线完整纳入 `SettingsModel`、`SettingsSerialization` 与 `PerformancePreset`（`.devpiano.preset` JSON）。
+- [ ] **VST3 宿主与插件客户端接口适配**：
+  - 适配 `AudioPluginInstance` 内部机制，迁移相关宿主交互至 `getVST3Client()`
+  - 适配 `AudioProcessor::createEditorIfNeeded()` / `createEditorAndMakeActive()` 编辑器生命周期
+  - 校验插件状态 XML / 内存 Blob 序列化在 JUCE 9 下的二进制兼容性
+- [ ] **音频设备与导出流防护**：
+  - 核对 `AudioDeviceManager` 与 `AudioEngine` 初始化参数及多线程安全变动
+  - 适配 `WavFileExporter` 与 `RenderPipeline` 中的音频缓冲区 API
+- [ ] **Linux 桌面平台驱动与字体接口适配**：
+  - 适配 Linux EGL / X11 底层渲染与音频驱动接口变更
+
+---
+
+### Phase 27-C：内化 UI 基础设施 (JIVE core) JUCE 9 适配与接口对齐 [待开始]
+> 目标：确保内生 UI 运行时与自绘组件在 JUCE 9 下渲染与排版 100% 正常。
+
+- [ ] **字体构造与文本测量全量迁移（`FontOptions`）**：
+  - 重构 `DevPianoLookAndFeel.cpp`、`CustomKeyboard.cpp` 与 `source/UI/jive/core/jive_FontUtilities.cpp`，消除直接 `juce::Font(...)` 构造，统一采用 `juce::Font(juce::FontOptions{...})`
+  - 确认 `TextComponent` 与 `juce::AttributedString` / `GlyphArrangement` 布局计算无像素偏差
+- [ ] **SVG 与矢量图形渲染迁移**：
+  - 迁移 `VectorIconFactory.h` 及相关绘图逻辑至 `juce::Drawable::createFromSVGString()`
+  - 消除旧版基于 XML Element 的废弃 SVG 解析接口
+- [ ] **自绘组件与交互生命周期回归**：
+  - 88 键虚拟钢琴自绘（`CustomKeyboard`）、发光粒子与按键响应
+  - 插件面板展开/折叠重排（`layOutChildren`）、全局模态弹窗与设置窗口
+
+---
+
+### Phase 27-D：内化代码质量治理与纳入 CI 全量静态分析门禁 [待开始]
+> 目标：重构消除 `source/UI/jive/core/` 历史遗留语法，解禁 `.clang-tidy` 过滤，实现 100% 源码同等标准治理。
+
+- [ ] **代码现代化与规范对齐（C++20 Modernization）**：
+  - 消除 `source/UI/jive/core/` 内历史遗留的旧式宏与弃用语法
+  - 统一命名空间规范与 C++20 强类型约束
+  - 确保该目录下所有头文件具备严格自包含包含（Self-contained Headers）
+- [ ] **解禁并纳入 CI Clang-Tidy 门禁**：
+  - 修改 `.clang-tidy`，从 `HeaderFilterRegex` 排除规则中移除 `source/UI/jive/(core|extensions)/`
+  - 更新 `.github/workflows/ci.yml` 与 `scripts/dev.sh`，使内化代码平等接受增量与全量 clang-tidy 检查
+  - 运行本地 `./scripts/dev.sh tidy source/UI/jive/core/*` 确保 0 警告通过
+
+---
+
+### Phase 27-E：全系统功能回归、三闸门闭环与发布打包验证 [待开始]
+> 目标：双平台编译与测试 100% 绿灯，完成手工端到端冒烟与正式打包验证。
+
+- [ ] **全套单元测试与静态分析闭环**：
+  - 运行全量单元测试（`./scripts/dev.sh test`），确保 12,187+ 断言全部通过
+  - 执行全量静态分析（`./scripts/dev.sh tidy --all`）
+  - 代码格式化合规检查（`./scripts/dev.sh format --check`）
+- [ ] **Windows MSVC 验证与正式发布打包**：
+  - 执行 Windows MSVC Debug 构建验证（`./scripts/dev.sh win-build`）
+  - 执行 Windows MSVC Release 构建验证（`./scripts/dev.sh win-build --release`）
+  - 执行正式打包流水线（`./scripts/dev.sh package`），校验 zip 产物与 sha256 签名完整性
+- [ ] **端到端功能冒烟测试**：
+  - 键盘演奏与 7 大物理声学系统合成发声
+  - VST3 外部插件加载、参数调节与离线渲染导出
 
 ---
 
 ## 历史实现 Backlog
 
+- ADR-014 实施归档（内化 Devpiano UI 基础设施与 JIVE 子模块退役治理）：[`../archive/adr-014-internalize-ui-infrastructure.md`](../archive/adr-014-internalize-ui-infrastructure.md)
 - AUDIT-002 修复阶段归档（全量 62 项缺陷修复与质量门禁闭环）：[`../archive/audit-002-code-quality-fix-phases.md`](../archive/audit-002-code-quality-fix-phases.md)
 - Phase 26 完成记录（MIDI 多轨并轨与综合时间线合并）：[`../archive/phase26-midi-multi-track-timeline-merge.md`](../archive/phase26-midi-multi-track-timeline-merge.md)
 - Phase 25 完成记录（Linux 原生桌面构建与音频驱动适配）：[`../archive/phase25-linux-desktop-and-audio-path.md`](../archive/phase25-linux-desktop-and-audio-path.md)
@@ -121,12 +100,4 @@
 - Phase 23 完成记录（大师级音色校准与 Pianoteq 对齐精调）：[`../archive/phase23-master-voicing-realism-calibration.md`](../archive/phase23-master-voicing-realism-calibration.md)
 - Phase 22 完成记录（物理声学极致深化与机械拟真）：[`../archive/phase22-physical-modeling-acoustic-refinement.md`](../archive/phase22-physical-modeling-acoustic-refinement.md)
 - Phase 21 完成记录（踏板交感共鸣与琴盖空间声学）：[`../archive/phase21-sympathetic-resonance-lid-acoustics.md`](../archive/phase21-sympathetic-resonance-lid-acoustics.md)
-- Phase 20 完成记录（微观物理动力学：纵向波先驱声与击键混沌微扰）：[`../archive/phase20-longitudinal-ping-micro-variation.md`](../archive/phase20-longitudinal-ping-micro-variation.md)
-- Phase 19 完成记录（立体声音板共鸣箱与同音三弦微动力学）：[`../archive/phase19-stereo-modal-soundboard.md`](../archive/phase19-stereo-modal-soundboard.md)
-- Phase 18 完成记录（88 键物理参数化与微观相位色散）：[`../archive/phase18-per-note-voicing-micro-phases.md`](../archive/phase18-per-note-voicing-micro-phases.md)
-- Phase 17 完成记录（真实物理打击感钢琴音源重构）：[`../archive/phase17-physical-strike-hammer-piano.md`](../archive/phase17-physical-strike-hammer-piano.md)
-- Phase 16 完成记录（虚拟键盘局部脏矩形重绘与预设覆盖确认）：[`../archive/phase16-keyboard-dirty-repaint-preset-confirm.md`](../archive/phase16-keyboard-dirty-repaint-preset-confirm.md)
-- Phase 15 完成记录（声明式弹窗与设置面板重构）：[`../archive/phase15-declarative-dialogs-and-settings-jive.md`](../archive/phase15-declarative-dialogs-and-settings-jive.md)
-- Phase 12–14 完成记录（内置物理建模钢琴音源三部曲）：[`../archive/phase12-14-builtin-piano-synthesis.md`](../archive/phase12-14-builtin-piano-synthesis.md)
-- AUDIT-001 修复阶段归档：[`../archive/audit-001-code-quality-fix-phases.md`](../archive/audit-001-code-quality-fix-phases.md)
 - Phase 11 完成记录（声明式 UI 架构）：[`../archive/phase11-declarative-ui-jive.md`](../archive/phase11-declarative-ui-jive.md)
