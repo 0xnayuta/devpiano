@@ -24,30 +24,29 @@
 - [x] 在项目根目录更新 `THIRD-PARTY-NOTICES.md`，记录 JIVE 原作者（James Johnson）、MIT 许可证全文与快照 Commit（`89d5787`）
 - [x] 归档并验证 `design_tokens.json` 与 `style_sheets.json` 静态资产完整性
 
-### ADR-014 Phase 1：提取 JIVE 核心最小依赖闭包（`source/UI/jive/core/`） [待开始]
+### ADR-014 Phase 1：提取 JIVE 核心最小依赖闭包（`source/UI/jive/core/`） [已完成，2026-09-01]
 > 目标：精准内化核心闭包代码，剥离死代码，完成命名空间与头文件依赖迁移。
 
-- [ ] **创建目录结构**：
+- [x] **创建目录结构**：
   - `source/UI/jive/core/`（基础核心运行时）
-  - `source/UI/jive/extensions/`（战略储备扩展：`grid/`, `kinetics/`）
-- [ ] **迁移 Core 基础层**（保留文件头 MIT 版权声明）：
+  - `source/UI/jive/extensions/`（战略储备扩展：`grid/`）
+- [x] **迁移 Core 基础层**（保留文件头 MIT 版权声明）：
   - 属性系统：`BoxModel`、`Property`、`PropertyBehaviours`、`Object`、`ReferenceCountedValueTreeWrapper`
-  - 几何与交互：`BorderRadii`、`BorderWidth`、`Length`、`Orientation`、`Event`、`InteractionState`
-  - 变体转换：`FlexVariantConverters`、`MiscVariantConverters`、`VariantConvertion`
-- [ ] **迁移 Layout 核心层**：
-  - 解释与节点：`Interpreter`、`GuiItem`、`GuiItemDecorator`、`CommonGuiItem`、`ContainerItem`、`ComponentFactory`
+  - 几何与交互：`BorderRadii`、`Length`、`Orientation`、`Event`、`ComponentInteractionState`
+  - 变体转换：`FlexVariantConverters`、`MiscVariantConverters`、`VariantConvertion`、`AttributedStringVariantConverters`
+  - 动效与时钟：`Transition`、`Transitions`、`Easing`、`Timer`、`TimeParser`、`Interpolate`、`Visitor`、`Bezier`、`TransferFunction`
+- [x] **迁移 Layout 核心层**：
+  - 解释与节点：`Interpreter`、`GuiItem`、`GuiItemDecorator`、`CommonGuiItem`、`ContainerItem`、`ContainerItemChild`、`ComponentFactory`、`View`
   - 弹性排版：`FlexContainer`、`FlexItem`、`LayoutStrategy`、`Display`、`Overflow`
-  - 基础块项：`BlockContainer`、`BlockItem`（简化版）
-- [ ] **迁移核心控件包装与样式引擎**：
-  - 控件：`Button`、`ComboBox`、`Slider`、`ProgressBar`、`Text`（精简测量版）
-  - 样式与画布：`StyleSheet`（精简版）、`Colours`、`Fill`、`Shadow`、`BackgroundCanvas`
-- [ ] **归档战略扩展（KEEP-LATER）**：
-  - 将 `GridContainer`、`GridItem`、`GridVariantConverters` 归入 `source/UI/jive/extensions/grid/`（暂不加入默认编译）
-  - 将 `Transitions`、`Easing` 归入 `source/UI/jive/extensions/kinetics/`
-- [ ] **清理与重定向头文件包含**：
+  - 基础块项：`BlockContainer`、`BlockItem`
+- [x] **迁移核心控件包装与样式引擎**：
+  - 控件：`Button`、`ComboBox`、`Slider`、`ProgressBar`、`Text`、`Label`、`NormalisedProgressBar`、`TextComponent`、`IgnoredComponent`
+  - 样式与画布：`StyleSheet`、`StyleIdentifier`、`StyleSelectors`、`Colours`、`Fill`、`Gradient`、`BackgroundCanvas`、`Canvas`、`FontUtilities`、`StringStreams`
+- [x] **归档战略扩展（KEEP-LATER）**：
+  - 将 `GridContainer`、`GridItem`、`GridVariantConverters` 归入 `source/UI/jive/extensions/grid/`（独立归档并附使用说明文档）
+- [x] **清理与重定向头文件包含**：
   - 全局重定向 `source/` 下各调用点至本地头文件（`#include "UI/jive/core/..."`）
-  - 消除 `jive::` 外部模块包含，调整命名空间为项目统一的 `devpiano::ui::jive`（或 `jive` 别名过渡）
-
+  - 构建系统（`CMakeLists.txt`）切换为直接编译 `source/UI/jive/core/` 源码，消除外部 `jive::` target 依赖并保持 100% 测试全绿
 ### ADR-014 Phase 2：注销 JIVE Git 子模块与 CMakeLists 纯化 [待开始]
 > 目标：彻底从工程构建体系中移除 `submodules/JIVE`，实现完全自包含构建。
 

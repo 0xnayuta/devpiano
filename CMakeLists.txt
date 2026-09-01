@@ -71,9 +71,6 @@ if (MSVC AND TARGET juce_recommended_config_flags)
 endif()
 
 
-# JIVE: 声明式 UI 框架（ValueTree 布局 + JSON 样式表 + Flex/Grid）
-add_subdirectory(submodules/JIVE)
-
 
 # ========================================================
 # 2. 创建 GUI 应用程序
@@ -126,6 +123,59 @@ if (MSVC)
         $<$<COMPILE_LANGUAGE:C>:/wd4206 /wd4505>
     )
 endif()
+
+# ========================================================
+# 3.1 JIVE 核心最小依赖闭包（内化自 JIVE，依据 ADR-014）
+# ========================================================
+set(DEVPIANO_JIVE_CORE_SOURCES
+    source/UI/jive/core/jive_AttributedStringVariantConverters.cpp
+    source/UI/jive/core/jive_BackgroundCanvas.cpp
+    source/UI/jive/core/jive_BlockContainer.cpp
+    source/UI/jive/core/jive_BlockItem.cpp
+    source/UI/jive/core/jive_BoxModel.cpp
+    source/UI/jive/core/jive_Button.cpp
+    source/UI/jive/core/jive_Canvas.cpp
+    source/UI/jive/core/jive_Colours.cpp
+    source/UI/jive/core/jive_ComboBox.cpp
+    source/UI/jive/core/jive_CommonGuiItem.cpp
+    source/UI/jive/core/jive_ComponentFactory.cpp
+    source/UI/jive/core/jive_ComponentInteractionState.cpp
+    source/UI/jive/core/jive_ContainerItem.cpp
+    source/UI/jive/core/jive_ContainerItemChild.cpp
+    source/UI/jive/core/jive_Display.cpp
+    source/UI/jive/core/jive_Easing.cpp
+    source/UI/jive/core/jive_Event.cpp
+    source/UI/jive/core/jive_Fill.cpp
+    source/UI/jive/core/jive_Find.cpp
+    source/UI/jive/core/jive_FlexContainer.cpp
+    source/UI/jive/core/jive_FlexItem.cpp
+    source/UI/jive/core/jive_FlexVariantConverters.cpp
+    source/UI/jive/core/jive_FontUtilities.cpp
+    source/UI/jive/core/jive_Gradient.cpp
+    source/UI/jive/core/jive_GuiItem.cpp
+    source/UI/jive/core/jive_GuiItemDecorator.cpp
+    source/UI/jive/core/jive_IgnoredComponent.cpp
+    source/UI/jive/core/jive_Interpolate.cpp
+    source/UI/jive/core/jive_Interpreter.cpp
+    source/UI/jive/core/jive_Label.cpp
+    source/UI/jive/core/jive_Length.cpp
+    source/UI/jive/core/jive_NormalisedProgressBar.cpp
+    source/UI/jive/core/jive_Object.cpp
+    source/UI/jive/core/jive_Orientation.cpp
+    source/UI/jive/core/jive_Overflow.cpp
+    source/UI/jive/core/jive_ProgressBar.cpp
+    source/UI/jive/core/jive_Property.cpp
+    source/UI/jive/core/jive_Slider.cpp
+    source/UI/jive/core/jive_StringStreams.cpp
+    source/UI/jive/core/jive_StyleSheet.cpp
+    source/UI/jive/core/jive_Text.cpp
+    source/UI/jive/core/jive_TextComponent.cpp
+    source/UI/jive/core/jive_Timer.cpp
+    source/UI/jive/core/jive_Transition.cpp
+    source/UI/jive/core/jive_Transitions.cpp
+    source/UI/jive/core/jive_VariantConvertion.cpp
+    source/UI/jive/core/jive_View.cpp
+)
 
 # ========================================================
 # 4. 添加源代码
@@ -240,6 +290,7 @@ target_sources(devpiano PRIVATE
     source/UI/jive/JiveUtils.h
     source/UI/jive/StyleBootstrap.h
     source/UI/jive/JiveComponentRegistry.h
+    ${DEVPIANO_JIVE_CORE_SOURCES}
 )
 # ========================================================
 # 4.1 静态资产二进制打包（JIVE 样式表、设计 Token 与语言包）
@@ -252,7 +303,7 @@ juce_add_binary_data(devpiano_binary_data
 )
 
 # 包含 source 目录作为头文件查找路径，这样代码里可以通过 #include "xxx.h" 直接引用
-target_include_directories(devpiano PRIVATE source)
+target_include_directories(devpiano PRIVATE source source/UI/jive/core)
 
 juce_generate_juce_header(devpiano)
 
@@ -274,8 +325,6 @@ target_link_libraries(devpiano PRIVATE
     juce::juce_recommended_config_flags
     juce::juce_recommended_lto_flags
     juce::juce_recommended_warning_flags
-    jive::jive_layouts            # JIVE: ValueTree 布局引擎
-    jive::jive_style_sheets       # JIVE: JSON 样式表引擎
 )
 
 # ========================================================
@@ -460,6 +509,7 @@ if (BUILD_TESTS)
         source/tests/PluginOfflineRendererTest.cpp
         source/tests/PluginOperationControllerTest.cpp
         source/tests/JiveModalDialogTest.cpp
+        ${DEVPIANO_JIVE_CORE_SOURCES}
     )
     target_link_libraries(devpiano_tests PRIVATE
         devpiano_binary_data
@@ -473,12 +523,9 @@ if (BUILD_TESTS)
         juce::juce_audio_processors
         juce::juce_recommended_config_flags
         juce::juce_recommended_warning_flags
-        jive::jive_core
-        jive::jive_layouts
-        jive::jive_style_sheets
     )
 
-    target_include_directories(devpiano_tests PRIVATE source)
+    target_include_directories(devpiano_tests PRIVATE source source/UI/jive/core)
     juce_generate_juce_header(devpiano_tests)
     target_compile_definitions(devpiano_tests PRIVATE
         JUCE_MODAL_LOOPS_PERMITTED=1

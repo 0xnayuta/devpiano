@@ -1,0 +1,44 @@
+//==============================================================================
+// This file is derived from JIVE (https://github.com/ImJimmi/JIVE)
+// Copyright (c) 2021 James Johnson
+// Licensed under the MIT License.
+// Adapted and maintained as part of the devpiano UI Infrastructure (ADR-014).
+//==============================================================================
+
+#pragma once
+
+#include "jive_Gradient.h"
+
+#include <juce_graphics/juce_graphics.h>
+
+namespace jive {
+class Fill {
+public:
+    Fill();
+    explicit Fill(juce::Colour colour);
+    explicit Fill(Gradient gradient);
+
+    std::optional<juce::Colour> getColour() const;
+    void setColour(juce::Colour newColour);
+
+    std::optional<Gradient> getGradient() const;
+    void setGradient(Gradient newGradient);
+
+    bool operator==(const Fill& other) const;
+    bool operator!=(const Fill& other) const;
+
+private:
+    std::optional<juce::Colour> colour;
+    std::optional<Gradient> gradient;
+};
+} // namespace jive
+
+namespace juce {
+template <> class VariantConverter<jive::Fill> {
+public:
+    static jive::Fill fromVar(const var& v);
+    static var toVar(const jive::Fill& fill);
+};
+
+String& operator<<(String& str, const jive::Fill& fill);
+} // namespace juce

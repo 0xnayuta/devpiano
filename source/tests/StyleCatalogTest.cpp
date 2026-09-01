@@ -10,7 +10,7 @@
 #include "UI/jive/StyleCatalog.h"
 #include "UI/native/StatusBarMidiDot.h"
 
-#include <jive_layouts/jive_layouts.h>
+#include "UI/jive/core/jive_layouts.h"
 
 // vars, which jive::VariantConverter<jive::Object::Ptr> rejects (jassert +
 // nullptr) — so no styles ever applied and text stayed invisible (black on

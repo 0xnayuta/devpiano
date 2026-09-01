@@ -7,7 +7,7 @@
 #include <memory>
 #include <vector>
 
-#include <jive_layouts/jive_layouts.h>
+#include "UI/jive/core/jive_layouts.h"
 
 namespace devpiano::ui::jive {
 

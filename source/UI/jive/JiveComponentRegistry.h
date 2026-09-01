@@ -1,7 +1,8 @@
 #pragma once
 
-#include <JuceHeader.h>
-#include <jive_layouts/jive_layouts.h>
+#include "UI/jive/core/jive_layouts.h"
+#include <juce_audio_basics/juce_audio_basics.h>
+#include <juce_gui_basics/juce_gui_basics.h>
 
 #include "UI/CustomKeyboard.h"
 #include "UI/jive/DesignTokens.h"
