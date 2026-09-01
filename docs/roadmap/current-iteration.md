@@ -85,12 +85,29 @@
 
 ## 后续规划路线（Upcoming Backlog）
 
-- **Phase 27：现实物理演奏交互与声学控制（Physical Voicing & Realistic Acoustic Interaction）**：
+- **Phase 27：JUCE 9.0.1 框架升级与全平台技术栈跃迁（JUCE 9.0.1 Framework Upgrade & Ecosystem Evolution）**：
+  - **Phase 27-A：子模块指针升级与工程构建环境基线更新**：
+    - 检出 `submodules/JUCE` tag `9.0.1`（Commit: `e18f7f5`）；
+    - 刷新 WSL 本地与 Windows 镜像编译数据库（`./scripts/dev.sh wsl-build --configure-only`）；
+    - 校验 CMake API 选项、C++20 标准协同与预编译头配置。
+  - **Phase 27-B：非 UI 领域 Breaking Changes 适配与 API 兼容修复**：
+    - **VST3 宿主与插件客户端适配**：将 `PluginHost` / `PluginFlowSupport` 中对 `AudioPluginInstance` 的接口调用迁移至 `getVST3Client()`；
+    - **AudioProcessor Editor 生命周期适配**：全面切换插件 GUI 构造至 `createEditorIfNeeded()` / `createEditorAndMakeActive()`；
+    - **音频与文件导出接口适配**：核对 `WavFileExporter`、`AudioFormat` 错误边界防护与 `std::span` 接口演进；
+    - **Linux 平台 EGL/GUI 驱动适配**：适配 Linux EGL 环境与字体渲染。
+  - **Phase 27-C：全系统功能回归与双端三闸门闭环**：
+    - 12,187+ 单元测试套件全量跑通（`./scripts/dev.sh test`）；
+    - WSL Clang + Windows MSVC 19 双端编译 0 错误；
+    - 运行全量静态代码分析（`./scripts/dev.sh tidy --all`）；
+    - 88 键虚拟键盘演奏、7 大声学物理建模钢琴合成发声、外部 VST3 插件加载与生命周期、WAV 导出功能全链路手工冒烟。
+  - **Phase 27-D：发布流程验证与打包分发验证**：
+    - Windows x64 Release 正式构建（`./scripts/dev.sh win-build --release`）；
+    - 执行正式发布打包流水线（`./scripts/dev.sh package`），校验 zip 与 sha256 签名。
+- **Phase 28：现实物理演奏交互与声学控制（Physical Voicing & Realistic Acoustic Interaction）**：
   - **琴盖开合度交互控制（Lid Position）**：在 JIVE UI 界面接入 Full Open / Half Stick / Closed 3 态直观选择，无缝切换底层已实现的 `lidAcoustics` 多级高频滚降与近场反射；
   - **弱音/移位踏板物理拟真（Una Corda / Soft Pedal，CC 67）**：在 `PianoSynthVoice` 中模拟击弦机右移 3 弦敲 2 弦与毛毡侧面软化物理机理，支持 CC 67 踏板信号与 UI 软踏板状态点亮；
   - **触键力度曲线（Touch Velocity Curve）**：在 `KeyboardMidiMapper` / Input 层提供 Standard / Light / Heavy / Wide Dynamic 4 种配重手感映射，自适应薄膜/机械轴/MIDI 键盘；
   - **配置持久化与预设系统联动**：将琴盖位置、Una Corda 状态与触键曲线完整纳入 `SettingsModel`、`SettingsSerialization` 与 `PerformancePreset`（`.devpiano.preset` JSON）。
-- **JUCE 9.0.1 正式切换与 Release 打包验证**。
 
 ---
 
