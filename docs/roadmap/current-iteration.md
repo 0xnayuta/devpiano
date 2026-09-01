@@ -21,7 +21,7 @@
 > 目标：确保当前在 JUCE 8.0.15 上的测试基线 100% 绿灯，建立开源合规清单与备份。
 
 - [x] 执行环境自检与全量测试基线验证（`./scripts/dev.sh test`，12187+ 断言全绿）
-- [x] 在项目根目录创建 `THIRD_PARTY_NOTICES.md`，记录 JIVE 原作者（James Johnson）、MIT 许可证全文与快照 Commit（`89d5787`）
+- [x] 在项目根目录更新 `THIRD-PARTY-NOTICES.md`，记录 JIVE 原作者（James Johnson）、MIT 许可证全文与快照 Commit（`89d5787`）
 - [x] 归档并验证 `design_tokens.json` 与 `style_sheets.json` 静态资产完整性
 
 ### ADR-014 Phase 1：提取 JIVE 核心最小依赖闭包（`source/UI/jive/core/`） [待开始]

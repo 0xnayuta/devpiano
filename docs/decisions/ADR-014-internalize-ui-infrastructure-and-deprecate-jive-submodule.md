@@ -66,8 +66,7 @@
      - 剔除诊断脚手架：`Melatonin Perfetto`、`IndentedLogger`、`StringStreams`、`ConsoleProgressBar`。
 4. **恪守开源许可证合规（MIT License）**：
    - 提取入 `source/UI/jive/core/` 的所有源文件头部完整保留原作者（James Johnson）版权声明与 MIT 许可。
-   - 在项目根目录维护 `THIRD_PARTY_NOTICES.md`，如实载明原始出处与版本快照（Commit `89d5787`）。
-
+   - 在项目根目录维护 `THIRD-PARTY-NOTICES.md`，如实载明原始出处与版本快照（Commit `89d5787`）。
 ---
 
 ## 实施路径（路线 B：先提后升）
