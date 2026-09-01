@@ -5,104 +5,83 @@
 
 ## 当前方向
 
-**AUDIT-002 代码质量审计修复（AUDIT-002 Fix Phases A–H） [进行中，2026-08-31 开始]**
+**ADR-014 实施计划：内化 Devpiano UI 基础设施与 JIVE 子模块退役治理 [进行中，2026-09-01 开始]**
 
-在完成 Phase 26（MIDI 多轨并轨与综合时间线合并）并发布 v1.0.1 后，依据项目质量门禁规范，对 `source/` 全量代码执行了全面的代码质量审计（[`docs/audit/AUDIT-002-code-quality-audit-2026-08-31.md`](../audit/AUDIT-002-code-quality-audit-2026-08-31.md)）。
-当前三闸门全绿、测试规模达到 12187 断言；但 Phase 12–26 快速演进引入了 6 个 P1 级缺陷（实时线程竞争、导出读插件无守卫、Viewport 悬挂指针 UAF、预设拖放静默失效、导出对话框 X 关闭 UAF、编排状态机零测试）。
+依据 [`docs/decisions/ADR-014-internalize-ui-infrastructure-and-deprecate-jive-submodule.md`](../decisions/ADR-014-internalize-ui-infrastructure-and-deprecate-jive-submodule.md) 架构决策，devpiano 将全面退役外部 `submodules/JIVE` Git 子模块，采用**「路线 B：先提后升（Extract Minimal Closure -> Submodule Deinit -> JUCE 9.0.1 Ready）」**实施策略。
 
-本轮迭代专项目标为**全面消化 AUDIT-002 登记的 62 项未处理问题（6 P1 / 13 P2 / 43 P3）**，按风险与模块依赖划分为 **AUDIT-002 Fix Phases A–H** 8 个子阶段，稳步提升系统稳定性、并发安全与架构纯洁度，为后续 Phase 27（物理演奏交互与声学控制）打牢工程底座。
+本轮迭代专项目标为：
+1. 提取 JIVE 核心最小依赖闭包（约 3,800 行代码）入 `source/UI/jive/core/`，剔除 >15,000 行冗余死代码（Grid, XML, Unused Widgets, FileObserver, Perfetto）；
+2. 储备高潜力未来资产入 `source/UI/jive/extensions/`（`Grid` 与 `Transitions` 动画，供后续 Preset Browser / Channel Matrix 战略按需激活）；
+3. 纯化 CMake 构建配置，彻底注销 `submodules/JIVE` 子模块；
+4. 修复 JUCE 9 兼容断点（`DrawableComponent` 与 `FontOptions`），完成全套门禁与 Windows MSVC 验证。
 
 ---
 
-## 本轮子任务排期（AUDIT-002 Fix Phases）
+## 本轮子任务排期（ADR-014 UI Infrastructure Implementation Phases）
 
-### AUDIT-002 Phase A：实时线程与内存安全（P1 紧急缺陷修复） [已完成，2026-08-31]
-> 目标：消除实时音频线程数据竞争与高频触发的内存 UAF / 崩溃漏洞，建立第一道安全防线。
+### ADR-014 Phase 0：基线测试冻结与合规归档准备 [待开始]
+> 目标：确保当前在 JUCE 8.0.15 上的测试基线 100% 绿灯，建立开源合规清单与备份。
 
-- [x] `THR-001`：`AudioEngine` 参数更新（`setAdsr` / `setPianoParameters`）与音频渲染同步，消除锁外修改活跃 voice 状态的数据竞争
-- [x] `THR-002`：WAV 导出 Phase 1 插件状态快照包进 `runPluginActionWithAudioDeviceRebuild`，严格遵守 `PluginHost` 线程契约
-- [x] `SEC-001`：`SettingsComponent` 拆树前先置空 `Viewport::contentComp`，树重建延后 `callAsync`，根除语言切换/窗口关闭时的 Viewport 悬挂指针 UAF
-- [x] `QUAL-001`：`MainComponent` 拖放 `.devpiano.preset` 扩展名判断改用 `getFileName().endsWithIgnoreCase(".devpiano.preset")`，修复预设拖放导入静默失效
-- [x] `ERR-001`：`WavExportTask` 进度对话框关闭路径触发取消信号并置空 `activeDialog`，杜绝渲染期间点 X 导致的悬挂 UAF
+- [ ] 执行环境自检与全量测试基线验证（`./scripts/dev.sh test`，12187+ 断言全绿）
+- [ ] 在项目根目录创建 `THIRD_PARTY_NOTICES.md`，记录 JIVE 原作者（James Johnson）、MIT 许可证全文与快照 Commit（`89d5787`）
+- [ ] 归档并验证 `design_tokens.json` 与 `style_sheets.json` 静态资产完整性
 
-### AUDIT-002 Phase B：架构重构与组件收敛（P2 结构化治理） [已完成，2026-08-31]
-> 目标：解决装配层膨胀与庞大内联头文件，消除跨文件同构辅助代码复制。
+### ADR-014 Phase 1：提取 JIVE 核心最小依赖闭包（`source/UI/jive/core/`） [待开始]
+> 目标：精准内化核心闭包代码，剥离死代码，完成命名空间与头文件依赖迁移。
 
-- [x] `ARCH-002`：`SettingsComponent` 拆分为 `.h` 声明与 `.cpp` 实现，消除 759 行全内联头文件并按功能域拆解 `buildJiveUi`
-- [x] `ARCH-001`：`MainComponent` 绑定编辑合并与预设自动落盘业务逻辑下沉至 `KeyboardMidiMapper` / `PresetFlowSupport`
-- [x] `QUAL-002`：提取通用 JIVE 布局构建辅助头（`source/UI/jive/JiveBuilderHelpers.h`），消除 4 个文件的同构代码复制
-- [x] `QUAL-007`：`MainComponent` 拆树逻辑复用 `JiveUtils.h` 实现，消除匿名命名空间冗余副本
+- [ ] **创建目录结构**：
+  - `source/UI/jive/core/`（基础核心运行时）
+  - `source/UI/jive/extensions/`（战略储备扩展：`grid/`, `kinetics/`）
+- [ ] **迁移 Core 基础层**（保留文件头 MIT 版权声明）：
+  - 属性系统：`BoxModel`、`Property`、`PropertyBehaviours`、`Object`、`ReferenceCountedValueTreeWrapper`
+  - 几何与交互：`BorderRadii`、`BorderWidth`、`Length`、`Orientation`、`Event`、`InteractionState`
+  - 变体转换：`FlexVariantConverters`、`MiscVariantConverters`、`VariantConvertion`
+- [ ] **迁移 Layout 核心层**：
+  - 解释与节点：`Interpreter`、`GuiItem`、`GuiItemDecorator`、`CommonGuiItem`、`ContainerItem`、`ComponentFactory`
+  - 弹性排版：`FlexContainer`、`FlexItem`、`LayoutStrategy`、`Display`、`Overflow`
+  - 基础块项：`BlockContainer`、`BlockItem`（简化版）
+- [ ] **迁移核心控件包装与样式引擎**：
+  - 控件：`Button`、`ComboBox`、`Slider`、`ProgressBar`、`Text`（精简测量版）
+  - 样式与画布：`StyleSheet`（精简版）、`Colours`、`Fill`、`Shadow`、`BackgroundCanvas`
+- [ ] **归档战略扩展（KEEP-LATER）**：
+  - 将 `GridContainer`、`GridItem`、`GridVariantConverters` 归入 `source/UI/jive/extensions/grid/`（暂不加入默认编译）
+  - 将 `Transitions`、`Easing` 归入 `source/UI/jive/extensions/kinetics/`
+- [ ] **清理与重定向头文件包含**：
+  - 全局重定向 `source/` 下各调用点至本地头文件（`#include "UI/jive/core/..."`）
+  - 消除 `jive::` 外部模块包含，调整命名空间为项目统一的 `devpiano::ui::jive`（或 `jive` 别名过渡）
 
-### AUDIT-002 Phase C：核心编排与测试盲区补强（P1/P2 测试与状态机加固） [已完成，2026-08-31]
-> 目标：填补插件操作控制器、导出后台任务、离线渲染器、正弦音源与状态构建的测试空白。
+### ADR-014 Phase 2：注销 JIVE Git 子模块与 CMakeLists 纯化 [待开始]
+> 目标：彻底从工程构建体系中移除 `submodules/JIVE`，实现完全自包含构建。
 
-- [x] `TEST-001`：`PluginOperationController` 编排状态机测试（抽取纯函数决策层 + 异步提交顺序测试，P1）
-- [x] `TEST-002`：`WavExportTask` 后台任务本体成功/取消/失败三分支 smoke 测试
-- [x] `TEST-003`：`PluginOfflineRenderer` 无插件直调与结束静音安全测试
-- [x] `TEST-004`：`SineSynthVoice` 确定性渲染与 ADSR/频率精度回归测试
-- [x] `TEST-005`：`AppStateBuilder` 与 `SettingsSerialization` 纯函数 round-trip + 损坏输入测试
-- [x] `TEST-006`：`PresetFlowSupport` 编排与预设 ID 缓存一致性测试
-- [x] `TEST-007`：`PerformanceFileTest` 迁移至 `ScopedTempDir`，消除固定文件名并行与残留风险
+- [ ] **CMakeLists.txt 纯化**：
+  - 移除 `add_subdirectory(submodules/JIVE)`
+  - 移除 target 链接中的 `jive::jive_layouts`、`jive::jive_style_sheets`、`jive::jive_core`
+  - 将 `source/UI/jive/core/` 源码加入 `devpiano` 与 `devpiano_tests` 目标编译清单
+- [ ] **Git Submodule 退役**：
+  - 执行 `git submodule deinit -f submodules/JIVE`
+  - 移除 `.gitmodules` 中的 JIVE 条目（或保留注释归档）
+- [ ] **构建与测试验证**：
+  - 运行 `./scripts/dev.sh wsl-build --configure-only` 刷新 `compile_commands.json`
+  - 运行 `./scripts/dev.sh test` 确保 100% 单元测试在无子模块环境下通过
 
-### AUDIT-002 Phase D：音频/录制/导出管线质量加固（P2 管道缺陷与性能优化） [已完成，2026-08-31]
-> 目标：消除音频回调堆分配，修正 MIDI 导出伪 SysEx 与通道/时间戳逻辑。
+### ADR-014 Phase 3：JUCE 9.0.1 兼容性修复与三闸门全量验证 [待开始]
+> 目标：消除已知的 JUCE 9 API 断点，确保代码库完全具备随时升级 JUCE 9.0.1 的技术状态。
 
-- [x] `PERF-001`：`AudioEngine` 回放移调路径消除每块堆分配，就地改写或复用预分配 buffer
-- [x] `SEC-002`：`MidiFileExporter` 过滤非 MIDI 事件，`stopRecording` 合并 `pendingPresetEvents` 后按时间戳排序
-- [x] `ERR-002`：`getCustomKeyboard` 增加判空降级防护，杜绝 Release 下空指针解引用
-- [x] `ERR-003`：`KeyBindingEditDialog` Unbind 路径复用统一完成路径，保证单次回调契约
-- [x] `QUAL-004`：插件离线渲染实现真实 down-mix / 显式告警，两导出路径软限幅行为对齐
-- [x] `QUAL-006`：`MidiTrackMergeEngine` 负时间戳检查前移，全 t=0 take 长度对齐导出语义
-- [x] `QUAL-005`：确认并清理生产链不可达的 `singleTrackOnly` 遗留分支
-
-### AUDIT-002 Phase E：安全防御与输入边界加固（P3 健壮性与健壮序列化） [已完成，2026-08-31]
-> 目标：强化用户可控文件大小校验、数值合法域 clamp、异常输入容错。
-
-- [x] `SEC-003`：预设与 locale 文件读取前校验大小上限
-- [x] `SEC-004`：`loadPreset` 版本号兼容前向扩展（`<= performancePresetFormatVersion`）并逐字段默认值填充
-- [x] `SEC-005`：`SettingsSerialization` 与 `SettingsStore` 数值加载后 clamp 到合法域
-- [x] `SEC-006`：`MidiTrackMergeEngine` 时间戳转换收敛为安全 `clampToInt64`
-- [x] `SEC-007`：`SettingsStore::file()` 静默回退路径补 `jassert` 并在启动尽早安装 logger
-- [x] `ERR-004`：清理 `WavExportTask` 死成员并更新 `WavFileExporter.h` 过期注释
-- [x] `OBS-001`：`initialiseFromPreset` 失败路径补 `DP_LOG_WARN`（包含具体路径）
-
-### AUDIT-002 Phase F：性能优化、资源管理与质量小项（P3 细节优化） [已完成，2026-08-31]
-> 目标：提升执行效率、避免长会话资源累积、清理历史残留与样板代码。
-
-- [x] `PERF-002`：回放渲染改用块游标扫描（复用 `WavFileExporter` 模式）
-- [x] `PERF-003`：MIDI 导入移至后台线程或增加事件上限，避免大文件冻结 UI
-- [x] `PERF-004`：master limiter 超阈 soft-knee 限幅优化多项式近似并注释设计取舍
-- [x] `PERF-005`：预设目录扫描引入修改时间缓存机制
-- [x] `RES-001`：Take 数据以 move 或 `std::shared_ptr<const RecordingTake>` 语义传递，降低内存峰值
-- [x] `RES-002`：`StyleCatalog` 样式对象复用或按树生命周期释放
-- [x] `QUAL-003`：`ChannelMatrix::active` 补齐检查逻辑或清理死字段与注释
-- [x] `QUAL-008`：`refreshTitles` 重复条目去重，`MainComponentJiveAccessors` 样板提取模板辅助
-- [x] `QUAL-009`：`getBuiltinToneFromUi` 改名为 `getBuiltinToneFromSettings` 对齐实际语义
-- [x] `QUAL-010`：CJK 字体候选链统一收敛至 `DesignTokens`
-- [x] `QUAL-011`：清理代码内滞留的历史 Phase 重构注释
-- [x] `QUAL-012`：`SettingsComponent` toggle 仅保留单一 `onStateChange` 写路径
-- [x] `QUAL-013`：`MidiTypes.h` 补充显式细粒度 JUCE include
-- [x] `QUAL-014`：测试侧 `findNodeById` 副本清理并改用生产 helper
-- [x] `QUAL-015`：`RecordingFlow` 状态机两份重复测试归并
-
-### AUDIT-002 Phase G：测试基础设施与工程化合规（P3 门禁与环境健壮性） [已完成，2026-08-31]
-> 目标：消除测试假绿与环境脆弱性、满足 ADR 决策与工程纪律。
-
-- [x] `TEST-008`~`TEST-016`：测试断言可观察化（`KeyboardHitMapping`）、补全失败上下文（`StyleCatalog`）、补静音断言（`AudioEngine`）、像素断言对比化、全局 tokens/L&F/locale 变更 RAII 守卫还原、`TestRunner` 类别白名单前缀匹配与 `--verbose` 参数处理
-- [x] `ENG-001`：多实例启动保护与参数转发/文件锁机制
-- [x] `ENG-002`：设置窗口内容高度从布局树动态计算，消除 960 魔法数
-- [x] `CMPL-001`：`TestHelpers.h` 迁移至细粒度包含，消除 ADR-012 字面违规
-- [x] `THR-003`：`MidiKeyboardState` 监听器回调消息线程契约文档化
-
-### AUDIT-002 Phase H：文档体系治理与全量复验（P3 文档与全套门禁闭环） [已完成，2026-08-31]
-> 目标：文档与架构对齐、全量构建与三闸门及 Windows 验证闭环。
-
-- [x] `DOC-001`：`docs/reference/architecture.md` 增补 `MidiTrackMergeEngine` 模块章节与管线架构
-- [x] `DOC-002`：`docs/roadmap/roadmap.md` 风险表更新 `MainComponent` 实际行数描述
-- [x] `DOC-003`：`docs/reference/project-scope.md` 澄清多轨并轨导入与 DAW 工作站的边界定义
-- [x] `DOC-004`：`RecordingEngine.h` `smoothedPitchBend` 注释对齐实现
-- [x] 三闸门与全量静态分析复验（`wsl-build` / `test` / `format --check` / `win-build` / `clang-tidy --all`）
-- [x] 全量同步并签署 `AUDIT-002` 第 8 章问题总表与第 7 章复审记录
+- [ ] **适配 JUCE 9 UI API**：
+  - 检查并重构 `TextComponent` 与 `FontUtilities` 文本宽度测量，全面使用 `juce::GlyphArrangement` 与 `juce::FontOptions`
+  - 适配 `Drawable` 包装机制（JUCE 9 `DrawableComponent` 规范）
+  - 确认 `StyleCatalog` 与 `Object` 的 `var` 深度值比对行为稳定
+- [ ] **UI 交互全量功能回归**：
+  - 主窗口 88 键拟真键盘、自绘包络、工具栏状态响应
+  - 插件面板高度折叠/展开动画与重新排版（`layOutChildren`）
+  - 全局模态弹窗（新建/重命名预设、删除确认、歌曲信息、WAV 导出进度条）
+  - 设置窗口（音频设备、调号、通道矩阵跟随开关）
+  - 运行时中英文切换与 Token 热重载
+- [ ] **全套门禁闭环**：
+  - 代码格式合规：`./scripts/dev.sh format --check`
+  - 单元测试套件：`./scripts/dev.sh test`
+  - Windows MSVC 验证构建：`./scripts/dev.sh win-build`
+  - 增量静态检查：`./scripts/dev.sh tidy`
 
 ---
 
@@ -113,11 +92,13 @@
   - **弱音/移位踏板物理拟真（Una Corda / Soft Pedal，CC 67）**：在 `PianoSynthVoice` 中模拟击弦机右移 3 弦敲 2 弦与毛毡侧面软化物理机理，支持 CC 67 踏板信号与 UI 软踏板状态点亮；
   - **触键力度曲线（Touch Velocity Curve）**：在 `KeyboardMidiMapper` / Input 层提供 Standard / Light / Heavy / Wide Dynamic 4 种配重手感映射，自适应薄膜/机械轴/MIDI 键盘；
   - **配置持久化与预设系统联动**：将琴盖位置、Una Corda 状态与触键曲线完整纳入 `SettingsModel`、`SettingsSerialization` 与 `PerformancePreset`（`.devpiano.preset` JSON）。
+- **JUCE 9.0.1 正式切换与 Release 打包验证**。
 
 ---
 
 ## 历史实现 Backlog
 
+- AUDIT-002 修复阶段归档（全量 62 项缺陷修复与质量门禁闭环）：[`../archive/audit-002-code-quality-fix-phases.md`](../archive/audit-002-code-quality-fix-phases.md)
 - Phase 26 完成记录（MIDI 多轨并轨与综合时间线合并）：[`../archive/phase26-midi-multi-track-timeline-merge.md`](../archive/phase26-midi-multi-track-timeline-merge.md)
 - Phase 25 完成记录（Linux 原生桌面构建与音频驱动适配）：[`../archive/phase25-linux-desktop-and-audio-path.md`](../archive/phase25-linux-desktop-and-audio-path.md)
 - Post-v1.0.0 文档体系治理与打包流水线自动化完成记录：[`../guides/release-workflow.md`](../guides/release-workflow.md)
