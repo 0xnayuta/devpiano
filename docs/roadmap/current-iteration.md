@@ -15,13 +15,13 @@
 
 ---
 
-### Phase 27-A：子模块指针升级与工程构建环境基线更新 [待开始]
+### Phase 27-A：子模块指针升级与工程构建环境基线更新 [已完成，2026-09-02]
 > 目标：检出 JUCE 9.0.1 官方版本，更新构建预设与工具链基线。
 
-- [ ] **子模块指针检出**：
+- [x] **子模块指针检出**：
   - 进入 `submodules/JUCE` 并切换至 tag `9.0.1`（Commit: `e18f7f5`）
   - 确认子模块状态干净，更新 `AGENTS.md`、`README.md` 中的版本基线说明
-- [ ] **构建系统与工具链就绪**：
+- [x] **构建系统与工具链就绪**：
   - 运行 `./scripts/dev.sh wsl-build --configure-only` 验证 CMake 3.28+ 与 JUCE 9 的配置协同
   - 校验 `juceaide` 编译期辅助工具链在 JUCE 9 下的正常运行与 `compile_commands.json` 导出
   - 核查 MSVC 19 预编译头（PCH）与 C++20 编译选项兼容性
