@@ -17,14 +17,12 @@
 
 ---
 
-## 本轮子任务排期（ADR-014 UI Infrastructure Implementation Phases）
-
-### ADR-014 Phase 0：基线测试冻结与合规归档准备 [待开始]
+### ADR-014 Phase 0：基线测试冻结与合规归档准备 [已完成，2026-09-01]
 > 目标：确保当前在 JUCE 8.0.15 上的测试基线 100% 绿灯，建立开源合规清单与备份。
 
-- [ ] 执行环境自检与全量测试基线验证（`./scripts/dev.sh test`，12187+ 断言全绿）
-- [ ] 在项目根目录创建 `THIRD_PARTY_NOTICES.md`，记录 JIVE 原作者（James Johnson）、MIT 许可证全文与快照 Commit（`89d5787`）
-- [ ] 归档并验证 `design_tokens.json` 与 `style_sheets.json` 静态资产完整性
+- [x] 执行环境自检与全量测试基线验证（`./scripts/dev.sh test`，12187+ 断言全绿）
+- [x] 在项目根目录创建 `THIRD_PARTY_NOTICES.md`，记录 JIVE 原作者（James Johnson）、MIT 许可证全文与快照 Commit（`89d5787`）
+- [x] 归档并验证 `design_tokens.json` 与 `style_sheets.json` 静态资产完整性
 
 ### ADR-014 Phase 1：提取 JIVE 核心最小依赖闭包（`source/UI/jive/core/`） [待开始]
 > 目标：精准内化核心闭包代码，剥离死代码，完成命名空间与头文件依赖迁移。
