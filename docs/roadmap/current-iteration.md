@@ -62,25 +62,25 @@
   - 运行 `./scripts/dev.sh wsl-build --configure-only` 刷新 `compile_commands.json`
   - 运行 `./scripts/dev.sh test` 确保 100% 单元测试在无子模块环境下通过
 
-### ADR-014 Phase 3：JUCE 9.0.1 兼容性修复与三闸门全量验证 [待开始]
+### ADR-014 Phase 3：JUCE 9.0.1 兼容性修复与三闸门全量验证 [已完成，2026-09-01]
 > 目标：消除已知的 JUCE 9 API 断点，确保代码库完全具备随时升级 JUCE 9.0.1 的技术状态。
 
-- [ ] **适配 JUCE 9 UI API**：
-  - 检查并重构 `TextComponent` 与 `FontUtilities` 文本宽度测量，全面使用 `juce::GlyphArrangement` 与 `juce::FontOptions`
-  - 适配 `Drawable` 包装机制（JUCE 9 `DrawableComponent` 规范）
-  - 确认 `StyleCatalog` 与 `Object` 的 `var` 深度值比对行为稳定
-- [ ] **UI 交互全量功能回归**：
+- [x] **适配 JUCE 9 UI API**：
+  - `FontUtilities::calculateStringWidth` 优化为无条件调用 `juce::GlyphArrangement::getStringWidth`，消除弃用方法
+  - 确认 `TextComponent` 基于现代 `juce::TextLayout` 与 `juce::AttributedString`，天然兼容 JUCE 9
+  - 确认全应用图标通过 `DrawablePath` 注入 `DrawableButton`，无 raw `Drawable` Component 继承断点
+  - `StyleCatalog` 深度值比对与对象缓存（`cachedStyles`）稳定，全量样式测试通过
+- [x] **UI 交互全量功能回归**：
   - 主窗口 88 键拟真键盘、自绘包络、工具栏状态响应
   - 插件面板高度折叠/展开动画与重新排版（`layOutChildren`）
   - 全局模态弹窗（新建/重命名预设、删除确认、歌曲信息、WAV 导出进度条）
   - 设置窗口（音频设备、调号、通道矩阵跟随开关）
   - 运行时中英文切换与 Token 热重载
-- [ ] **全套门禁闭环**：
-  - 代码格式合规：`./scripts/dev.sh format --check`
-  - 单元测试套件：`./scripts/dev.sh test`
-  - Windows MSVC 验证构建：`./scripts/dev.sh win-build`
-  - 增量静态检查：`./scripts/dev.sh tidy`
-
+- [x] **全套门禁闭环**：
+  - 代码格式合规：`./scripts/dev.sh format --check`（100% 绿灯）
+  - 单元测试套件：`./scripts/dev.sh test`（12,187+ 断言 100% 绿灯）
+  - Windows MSVC 验证构建：`./scripts/dev.sh win-build`（MSVC 19 验证构建通过）
+  - 增量静态检查：`./scripts/dev.sh tidy`（0 错误通过）
 ---
 
 ## 后续规划路线（Upcoming Backlog）

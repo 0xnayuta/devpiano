@@ -28,10 +28,6 @@ int parseFontStyleFlags(const juce::String& styleString) {
 }
 
 float calculateStringWidth(const juce::String& text, const juce::Font& font) {
-#if JUCE_VERSION > JIVE_JUCE_VERSION(8, 0, 1)
     return juce::GlyphArrangement::getStringWidth(font, text);
-#else
-    return font.getStringWidthFloat(text);
-#endif
 }
 } // namespace jive
