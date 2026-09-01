@@ -7,6 +7,7 @@
 #include "UI/CustomKeyboard.h"
 #include "UI/jive/DesignTokens.h"
 #include "UI/native/AdsrCurveComponent.h"
+#include "UI/native/KeyboardViewport.h"
 #include "UI/native/StatusBarMidiDot.h"
 
 namespace devpiano::ui::jive {
