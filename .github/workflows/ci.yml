@@ -63,8 +63,10 @@ jobs:
             linux-tidy-cache-${{ hashFiles('.clang-tidy', 'CMakeLists.txt', 'CMakePresets.json', 'submodules/**') }}-
             linux-tidy-cache-
 
-      - name: Configure CMake for compile_commands.json
-        run: ./scripts/dev.sh wsl-build --configure-only
+      - name: Configure CMake for compile_commands.json & build PCH
+        run: |
+          ./scripts/dev.sh wsl-build --configure-only
+          ninja -C build-wsl-clang CMakeFiles/devpiano.dir/cmake_pch.hxx.pch CMakeFiles/devpiano_tests.dir/cmake_pch.hxx.pch
 
       - name: Run incremental clang-tidy on changed files
         run: |
