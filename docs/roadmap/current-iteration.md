@@ -47,17 +47,18 @@
 - [x] **清理与重定向头文件包含**：
   - 全局重定向 `source/` 下各调用点至本地头文件（`#include "UI/jive/core/..."`）
   - 构建系统（`CMakeLists.txt`）切换为直接编译 `source/UI/jive/core/` 源码，消除外部 `jive::` target 依赖并保持 100% 测试全绿
-### ADR-014 Phase 2：注销 JIVE Git 子模块与 CMakeLists 纯化 [待开始]
+
+### ADR-014 Phase 2：注销 JIVE Git 子模块与 CMakeLists 纯化 [已完成，2026-09-01]
 > 目标：彻底从工程构建体系中移除 `submodules/JIVE`，实现完全自包含构建。
 
-- [ ] **CMakeLists.txt 纯化**：
+- [x] **CMakeLists.txt 纯化**：
   - 移除 `add_subdirectory(submodules/JIVE)`
   - 移除 target 链接中的 `jive::jive_layouts`、`jive::jive_style_sheets`、`jive::jive_core`
   - 将 `source/UI/jive/core/` 源码加入 `devpiano` 与 `devpiano_tests` 目标编译清单
-- [ ] **Git Submodule 退役**：
-  - 执行 `git submodule deinit -f submodules/JIVE`
-  - 移除 `.gitmodules` 中的 JIVE 条目（或保留注释归档）
-- [ ] **构建与测试验证**：
+- [x] **Git Submodule 退役**：
+  - 执行 `git submodule deinit -f submodules/JIVE` 与 `git rm -f submodules/JIVE`
+  - 移除 `.gitmodules` 中的 JIVE 条目，清理同步脚本（`tools/sync-to-win.ps1`）探测残余
+- [x] **构建与测试验证**：
   - 运行 `./scripts/dev.sh wsl-build --configure-only` 刷新 `compile_commands.json`
   - 运行 `./scripts/dev.sh test` 确保 100% 单元测试在无子模块环境下通过
 

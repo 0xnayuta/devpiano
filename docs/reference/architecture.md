@@ -26,7 +26,7 @@
 |---|---|
 | `source/` | 项目主源码目录（C++20/23 编写）。所有业务逻辑、DSP、UI 与测试均位于此。 |
 | `submodules/JUCE/` | JUCE 框架 Git 子模块，禁止直接修改。 |
-| `submodules/JIVE/` | JIVE 声明式 UI 框架 Git 子模块（MIT），禁止直接修改。 |
+| `source/UI/jive/` | 声明式 UI 基础设施（依 ADR-014 自 JIVE 核心最小闭包内化自主维护）。 |
 | `docs/` | 项目文档体系（按 reference / guides / decisions / roadmap / issues / audit / archive 组织）。 |
 | `scripts/` | WSL 开发、格式化、静态检查、单元测试与 Windows 镜像同步脚本。 |
 | `tools/` | Windows 侧 PowerShell 同步与 MSVC 构建工具。 |
