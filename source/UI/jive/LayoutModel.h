@@ -2,7 +2,7 @@
 
 #include <juce_data_structures/juce_data_structures.h>
 
-#include <jive_layouts/jive_layouts.h>
+#include "UI/jive/core/jive_layouts.h"
 
 namespace devpiano::ui::jive {
 

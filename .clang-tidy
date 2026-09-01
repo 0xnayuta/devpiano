@@ -34,8 +34,8 @@ Checks: >
     -readability-redundant-inline-specifier,
     -bugprone-easily-swappable-parameters
 
-# 仅报告 source/ 项目自身头文件的诊断，排除 JUCE / 第三方库头
-HeaderFilterRegex: '^.*/source/.*'
+# 仅报告 source/ 项目自身头文件的诊断，排除 JUCE / 第三方库头（含内化第三方 UI 核心 source/UI/jive/core 及 extensions）
+HeaderFilterRegex: '^.*/source/(?!UI/jive/(core|extensions)/).*'
 
 CheckOptions:
     # 现代风格 using 声明

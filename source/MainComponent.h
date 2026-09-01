@@ -35,7 +35,7 @@
 #include "UI/jive/StyleCatalog.h"
 #include "UI/native/KeyboardViewport.h"
 
-#include <jive_layouts/jive_layouts.h>
+#include "UI/jive/core/jive_layouts.h"
 
 class MainComponent final : public juce::AudioAppComponent,
                             private juce::Timer,

@@ -31,7 +31,7 @@ fail() {
 usage() {
   printf 'Usage: %s [--check] [--full]\n' "$SCRIPT_NAME"
   printf '  --check    List changes without copying or deleting any files\n'
-  printf '  --full     Force full sync including submodules (JUCE, JIVE, etc.)\n'
+  printf '  --full     Force full sync including submodules (JUCE, etc.)\n'
   exit 1
 }
 

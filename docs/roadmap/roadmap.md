@@ -227,7 +227,14 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 3. **16 通道矩阵与虚拟键盘综合回放联动**：16 通道矩阵对各轨独立移调/加权/静音控制，88 键虚拟键盘多音轨多着色高亮联动；
 4. **全轨 WAV 离线渲染与多轨测试套件全覆盖**：支持全轨合并流直接离线导出高质量 WAV 音频（维持只读 Playback Take 契约），覆盖 Type 0 / Type 1 复杂多轨夹具。
 
-### Phase 27：现实物理演奏交互与声学控制（Physical Voicing & Realistic Acoustic Interaction） [规划中]
+### Phase 27：JUCE 9.0.1 框架升级与全平台技术栈跃迁（JUCE 9.0.1 Framework Upgrade & Ecosystem Evolution） [规划中]
+
+1. **子模块指针升级与构建基线更新（Phase 27-A）**：检出 `submodules/JUCE` tag `9.0.1`，刷新本地与镜像编译数据库，协同 C++20 与 CMake 选项；
+2. **非 UI 领域 Breaking Changes 适配（Phase 27-B）**：适配 VST3 宿主客户端接口（`getVST3Client()`）、`AudioProcessorEditor` 生命周期与音频导出接口演进；
+3. **全系统功能回归与双端三闸门闭环（Phase 27-C）**：12,187+ 单元测试全量通过，WSL Clang + Windows MSVC 双端编译 0 错误，全量静态分析（`tidy --all`）与真实功能冒烟；
+4. **发布流程验证与打包分发验证（Phase 27-D）**：Windows x64 Release 正式构建与自动化打包流水线验证。
+
+### Phase 28：现实物理演奏交互与声学控制（Physical Voicing & Realistic Acoustic Interaction） [规划中]
 
 1. **琴盖开合度交互式控制（Lid Position）**：在 JIVE UI 界面接入 Full Open / Half Stick / Closed 3 级琴盖开合切换与底层 `lidAcoustics` 声学传递函数实时生效；
 2. **弱音/移位踏板物理拟真（Una Corda / Soft Pedal，CC 67）**：模拟击弦机右移 3 弦敲 2 弦与毛毡侧向软化物理机理，支持 CC 67 踏板与 UI 软踏板点亮；

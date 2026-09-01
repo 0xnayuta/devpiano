@@ -2,7 +2,3 @@
 	path = submodules/JUCE
 	url = https://github.com/juce-framework/JUCE.git
 	branch = develop
-[submodule "submodules/JIVE"]
-	path = submodules/JIVE
-	url = https://github.com/ImJimmi/JIVE.git
-	branch = main

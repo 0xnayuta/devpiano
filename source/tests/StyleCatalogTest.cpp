@@ -1,4 +1,6 @@
-#include <JuceHeader.h>
+#include <juce_core/juce_core.h>
+#include <juce_data_structures/juce_data_structures.h>
+#include <juce_gui_basics/juce_gui_basics.h>
 
 #include "Locale/LocaleManager.h"
 #include "TestHelpers.h"
@@ -10,7 +12,7 @@
 #include "UI/jive/StyleCatalog.h"
 #include "UI/native/StatusBarMidiDot.h"
 
-#include <jive_layouts/jive_layouts.h>
+#include "UI/jive/core/jive_layouts.h"
 
 // vars, which jive::VariantConverter<jive::Object::Ptr> rejects (jassert +
 // nullptr) — so no styles ever applied and text stayed invisible (black on

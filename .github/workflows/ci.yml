@@ -48,7 +48,7 @@ jobs:
         run: |
           wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
           echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-21 main" | sudo tee /etc/apt/sources.list.d/llvm-21.list
-          sudo apt-get update -o Dir::Etc::sourcelist="sources.list.d/llvm-21.list" -o Dir::Etc::sourceparts="-" -o APT::Get::List-Cleanup="0"
+          sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             clang-tidy-21 ninja-build libasound2-dev libjack-jackd2-dev \
             libfreetype-dev libfontconfig1-dev libx11-dev libxcomposite-dev \
@@ -63,17 +63,18 @@ jobs:
             linux-tidy-cache-${{ hashFiles('.clang-tidy', 'CMakeLists.txt', 'CMakePresets.json', 'submodules/**') }}-
             linux-tidy-cache-
 
-      - name: Configure CMake for compile_commands.json
-        run: ./scripts/dev.sh wsl-build --configure-only
+      - name: Configure CMake & generate binary data headers for clang-tidy
+        run: |
+          cmake -B build-wsl-clang --preset linux-clang-debug -DBUILD_TESTS=ON -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON
+          ninja -C build-wsl-clang devpiano_binary_data
 
       - name: Run incremental clang-tidy on changed files
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }} HEAD | grep -E '^source/.*\.(cpp|h)$' || true)
+            CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }} HEAD | grep -E '^source/.*\.(cpp|h)$' | grep -v -E '^source/UI/jive/(core|extensions)/' || true)
           else
-            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -E '^source/.*\.(cpp|h)$' || true)
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -E '^source/.*\.(cpp|h)$' | grep -v -E '^source/UI/jive/(core|extensions)/' || true)
           fi
-
           if [ -z "$CHANGED_FILES" ]; then
             echo "[CI] No source C++ files modified in this commit range. Skipping static analysis."
             exit 0

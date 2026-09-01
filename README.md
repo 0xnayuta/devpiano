@@ -149,10 +149,9 @@ source/
 
 ## 外部子模块（`submodules/`）
 
-项目依赖的第三方框架均以 Git Submodule 形式引入，**禁止直接修改子模块中的任何代码**：
-- `submodules/JUCE/`：JUCE 跨平台音频/GUI 框架（AGPLv3 / 商业许可）；
-- `submodules/JIVE/`：JIVE 声明式 UI 框架（MIT）。
-
+项目依赖的第三方框架以 Git Submodule 形式引入，**禁止直接修改子模块中的任何代码**：
+- `submodules/JUCE/`：JUCE 跨平台音频/GUI 框架（AGPLv3 / 商业许可）。
+> 注：UI 声明式基础设施已按 ADR-014 内化至 `source/UI/jive/` 自主维护，不再作为外部子模块引入。
 ---
 
 ## 文档中心与推荐阅读

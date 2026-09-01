@@ -2,7 +2,7 @@
 
 ## 状态
 
-已采用（Phase 11 引入主窗口，Phase 15 推广至全局弹窗与设置窗口）。
+**已废止 / 已被替代**（已被 [`ADR-014-internalize-ui-infrastructure-and-deprecate-jive-submodule.md`](ADR-014-internalize-ui-infrastructure-and-deprecate-jive-submodule.md) 替代并废止；声明式布局理念与 Design Tokens 体系由 ADR-014 继承并内化，外部 JIVE git submodule 依赖正式退役）。
 
 ## 背景
 

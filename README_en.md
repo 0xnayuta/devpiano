@@ -150,9 +150,8 @@ Every critical commit must satisfy the following three gates:
 ## External Submodules (`submodules/`)
 
 All third-party dependencies are tracked as Git Submodules. **Do not modify any code inside submodules**:
-- `submodules/JUCE/`: JUCE cross-platform audio/GUI framework (AGPLv3 / commercial license);
-- `submodules/JIVE/`: JIVE declarative UI framework (MIT).
-
+- `submodules/JUCE/`: JUCE cross-platform audio/GUI framework (AGPLv3 / commercial license).
+> Note: Declarative UI infrastructure has been internalized into `source/UI/jive/` under ADR-014 and is no longer an external submodule.
 ---
 
 ## Documentation Portal & Recommended Reading
