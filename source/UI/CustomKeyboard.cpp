@@ -209,6 +209,8 @@ juce::Colour computeKeyActiveColour(int midiNote, float fade, const devpiano::ui
 CustomKeyboard::CustomKeyboard(juce::MidiKeyboardState& state)
     : keyboardState(state) {
     setOpaque(false);
+    setWantsKeyboardFocus(false);
+    setMouseClickGrabsKeyboardFocus(false);
     setSize(800, defaultHeight); // reasonable default, resized by parent
     setAvailableRange(21, 108); // standard 88-key grand piano range (A0 to C8)
     keyboardState.addListener(this);

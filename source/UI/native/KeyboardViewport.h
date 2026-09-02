@@ -20,6 +20,8 @@ public:
         : keyboard(std::make_unique<CustomKeyboard>(keyboardState)) {
         setScrollBarsShown(false, true, false, true); // horizontal only
         setViewedComponent(keyboard.get(), false);
+        setWantsKeyboardFocus(false);
+        setMouseClickGrabsKeyboardFocus(false);
     }
 
     void resized() override {

@@ -864,6 +864,12 @@ void MainComponent::handleWindowFocusLost() {
         if (weak == nullptr) {
             return;
         }
+        // 若主窗口自身仍然激活，属于主窗口内部组件交互，不释放演奏音
+        if (auto* top = weak->getTopLevelComponent()) {
+            if (auto* tlw = dynamic_cast<juce::TopLevelWindow*>(top); tlw != nullptr && tlw->isActiveWindow()) {
+                return;
+            }
+        }
         for (auto index = 0; index < juce::TopLevelWindow::getNumTopLevelWindows(); ++index) {
             auto* window = juce::TopLevelWindow::getTopLevelWindow(index);
             if (window != weak->getTopLevelComponent() && window->isVisible() && window->isActiveWindow()) {

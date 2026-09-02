@@ -51,6 +51,7 @@ public:
         testKeyboardPaintClipping();
         testReleaseHeldMouseNote();
         testMultiChannelColorVisualization();
+        testMouseDragGlissando();
     }
 
 private:
@@ -193,6 +194,83 @@ private:
         // 依赖真实鼠标事件（MouseEvent/MouseInputSource），无法在无头单测中
         // 模拟；mouseUp 与 releaseHeldMouseNote 共用同一释放逻辑，按下分支
         // 由实机交互回归覆盖（见 keyboard-mapping.md KBD-007 行为矩阵）。
+    }
+
+    void testMouseDragGlissando() {
+        testCase("mouse drag glissando across keys triggers noteOff and noteOn", [&] {
+            juce::MidiKeyboardState ks;
+            CustomKeyboard kb(ks);
+            kb.setSize(1248, 120);
+
+            // Focus configuration check
+            expect(!kb.getWantsKeyboardFocus(), "CustomKeyboard does not want keyboard focus");
+            expect(!kb.getMouseClickGrabsKeyboardFocus(), "CustomKeyboard does not grab focus on mouse click");
+
+            std::vector<int> notesOn;
+            std::vector<int> notesOff;
+            kb.onNoteOn = [&](int note, int) { notesOn.push_back(note); };
+            kb.onNoteOff = [&](int note, int) { notesOff.push_back(note); };
+
+            auto source = juce::Desktop::getInstance().getMainMouseSource();
+            const auto xC4 = whiteKeyCentreX(21, 60);
+            const auto xD4 = whiteKeyCentreX(21, 62);
+            const auto xE4 = whiteKeyCentreX(21, 64);
+
+            // 1. Mouse down on C4 (60)
+            juce::MouseEvent downEvent(source, { static_cast<float>(xC4), 80.0f },
+                                       juce::ModifierKeys::leftButtonModifier, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, &kb, &kb,
+                                       juce::Time::getCurrentTime(), { static_cast<float>(xC4), 80.0f },
+                                       juce::Time::getCurrentTime(), 1, false);
+            static_cast<juce::Component&>(kb).mouseDown(downEvent);
+
+            expectEquals(notesOn.size(), static_cast<size_t>(1));
+            if (!notesOn.empty()) {
+                expectEquals(notesOn.back(), 60);
+            }
+
+            // 2. Drag to D4 (62)
+            juce::MouseEvent dragEvent1(source, { static_cast<float>(xD4), 80.0f },
+                                        juce::ModifierKeys::leftButtonModifier, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, &kb, &kb,
+                                        juce::Time::getCurrentTime(), { static_cast<float>(xC4), 80.0f },
+                                        juce::Time::getCurrentTime(), 1, true);
+            static_cast<juce::Component&>(kb).mouseDrag(dragEvent1);
+
+            expectEquals(notesOn.size(), static_cast<size_t>(2));
+            expectEquals(notesOff.size(), static_cast<size_t>(1));
+            if (notesOn.size() >= 2) {
+                expectEquals(notesOn.back(), 62);
+            }
+            if (!notesOff.empty()) {
+                expectEquals(notesOff.back(), 60);
+            }
+
+            // 3. Drag to E4 (64)
+            juce::MouseEvent dragEvent2(source, { static_cast<float>(xE4), 80.0f },
+                                        juce::ModifierKeys::leftButtonModifier, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, &kb, &kb,
+                                        juce::Time::getCurrentTime(), { static_cast<float>(xC4), 80.0f },
+                                        juce::Time::getCurrentTime(), 1, true);
+            static_cast<juce::Component&>(kb).mouseDrag(dragEvent2);
+
+            expectEquals(notesOn.size(), static_cast<size_t>(3));
+            expectEquals(notesOff.size(), static_cast<size_t>(2));
+            if (notesOn.size() >= 3) {
+                expectEquals(notesOn.back(), 64);
+            }
+            if (notesOff.size() >= 2) {
+                expectEquals(notesOff.back(), 62);
+            }
+
+            // 4. Mouse up releases E4 (64)
+            juce::MouseEvent upEvent(source, { static_cast<float>(xE4), 80.0f }, juce::ModifierKeys(), 1.0f, 0.0f, 0.0f,
+                                     0.0f, 0.0f, &kb, &kb, juce::Time::getCurrentTime(),
+                                     { static_cast<float>(xC4), 80.0f }, juce::Time::getCurrentTime(), 1, false);
+            static_cast<juce::Component&>(kb).mouseUp(upEvent);
+
+            expectEquals(notesOff.size(), static_cast<size_t>(3));
+            if (notesOff.size() >= 3) {
+                expectEquals(notesOff.back(), 64);
+            }
+        });
     }
 
     void testMultiChannelColorVisualization() {
