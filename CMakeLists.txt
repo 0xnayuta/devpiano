@@ -151,6 +151,9 @@ set(DEVPIANO_JIVE_CORE_SOURCES
     source/UI/jive/core/jive_FlexItem.cpp
     source/UI/jive/core/jive_FlexVariantConverters.cpp
     source/UI/jive/core/jive_FontUtilities.cpp
+    source/UI/jive/core/jive_GridContainer.cpp
+    source/UI/jive/core/jive_GridItem.cpp
+    source/UI/jive/core/jive_GridVariantConverters.cpp
     source/UI/jive/core/jive_Gradient.cpp
     source/UI/jive/core/jive_GuiItem.cpp
     source/UI/jive/core/jive_GuiItemDecorator.cpp
@@ -346,6 +349,7 @@ target_compile_definitions(devpiano PRIVATE
     JIVE_GUI_ITEMS_HAVE_STYLE_SHEETS=1
     JUCE_PLUGINHOST_VST3=1
 
+    JIVE_ENABLE_GRID=1
     # 如果你也想加载古老的 VST2 插件，可以解开下方的注释
     # 但前提是你必须持有 Steinberg 的旧版 VST2 SDK 并在 CMake 中配置路径
     # JUCE_PLUGINHOST_VST=1
@@ -509,6 +513,7 @@ if (BUILD_TESTS)
         source/tests/PluginOfflineRendererTest.cpp
         source/tests/PluginOperationControllerTest.cpp
         source/tests/JiveModalDialogTest.cpp
+        source/tests/SettingsLayoutModelTest.cpp
         ${DEVPIANO_JIVE_CORE_SOURCES}
     )
     target_link_libraries(devpiano_tests PRIVATE
@@ -536,6 +541,7 @@ if (BUILD_TESTS)
         WIN32_LEAN_AND_MEAN=1
         JUCE_UNIT_TESTS=1
         JIVE_GUI_ITEMS_HAVE_STYLE_SHEETS=1
+        JIVE_ENABLE_GRID=1
     )
     if (MSVC)
         set_target_properties(devpiano_tests PROPERTIES

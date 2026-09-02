@@ -44,7 +44,7 @@ GridItem::Span VariantConverter<GridItem::Span>::fromVar(const var& v) {
     return GridItem::Span { tokens[1].getIntValue() };
 }
 
-var VariantConverter<GridItem::Span>::toVar(GridItem::Span span) {
+var VariantConverter<GridItem::Span>::toVar(const GridItem::Span& span) {
     return "span " + String { span.number };
 }
 
@@ -66,7 +66,7 @@ GridItem::Property VariantConverter<GridItem::Property>::fromVar(const var& v) {
     return value;
 }
 
-var VariantConverter<GridItem::Property>::toVar(GridItem::Property property) {
+var VariantConverter<GridItem::Property>::toVar(const GridItem::Property& property) {
     if (property.hasSpan()) {
         return VariantConverter<GridItem::Span>::toVar(GridItem::Span { property.getNumber(), property.getName() });
     }
@@ -103,7 +103,7 @@ GridItem::StartAndEndProperty VariantConverter<GridItem::StartAndEndProperty>::f
     return { start, end };
 }
 
-var VariantConverter<GridItem::StartAndEndProperty>::toVar(GridItem::StartAndEndProperty startAndEnd) {
+var VariantConverter<GridItem::StartAndEndProperty>::toVar(const GridItem::StartAndEndProperty& startAndEnd) {
     StringArray tokens;
 
     tokens.add(VariantConverter<GridItem::Property>::toVar(startAndEnd.start));

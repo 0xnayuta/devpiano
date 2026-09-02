@@ -7,6 +7,10 @@
 
 #pragma once
 
+#ifndef JIVE_ENABLE_GRID
+#define JIVE_ENABLE_GRID 1
+#endif
+
 #include "jive_ComponentFactory.h"
 #include "jive_GuiItemDecorator.h"
 
@@ -35,12 +39,12 @@ public:
 private:
     void valueTreeChildAdded(juce::ValueTree& parentTree, juce::ValueTree& childWhichHasBeenAdded) final;
 
-    std::unique_ptr<GuiItem> interpret(const juce::ValueTree& tree, GuiItem* const parent,
+    std::unique_ptr<GuiItem> interpret(const juce::ValueTree& tree, GuiItem* parent,
                                        juce::AudioProcessor* pluginProcessor) const;
 
     void expandAlias(juce::ValueTree& tree) const;
 
-    std::unique_ptr<GuiItem> createUndecoratedItem(const juce::ValueTree& tree, GuiItem* const parent) const;
+    std::unique_ptr<GuiItem> createUndecoratedItem(const juce::ValueTree& tree, GuiItem* parent) const;
     void insertChild(GuiItem& item, int index, const juce::ValueTree& childState) const;
     void setChildItems(GuiItem& item) const;
 

@@ -111,17 +111,13 @@ juce::Rectangle<float> GridContainer::calculateIdealSize(juce::Rectangle<float> 
 
     for (const auto& gridItem : grid.items) {
         const auto right = gridItem.currentBounds.getRight() + gridItem.margin.right;
-        if (right > extremities.x) {
-            extremities.x = right;
-        }
+        extremities.x = std::max(extremities.x, right);
 
         const auto bottom = gridItem.currentBounds.getBottom() + gridItem.margin.bottom;
-        if (bottom > extremities.y) {
-            extremities.y = bottom;
-        }
+        extremities.y = std::max(extremities.y, bottom);
     }
 
-    auto& currentBoxModel = boxModel(*this);
+    const auto& currentBoxModel = boxModel(*this);
 
     return {
         extremities.x + currentBoxModel.getPadding().getLeftAndRight() + currentBoxModel.getBorder().getLeftAndRight(),

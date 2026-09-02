@@ -13,7 +13,7 @@ namespace jive {
 class GridItem : public ContainerItem::Child, private BoxModel::Listener {
 public:
     explicit GridItem(std::unique_ptr<GuiItem> itemToDecorate);
-    ~GridItem();
+    ~GridItem() override;
 
     [[nodiscard]] juce::GridItem toJuceGridItem(juce::Rectangle<float> parentContentBounds, LayoutStrategy strategy);
 

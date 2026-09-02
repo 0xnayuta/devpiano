@@ -19,10 +19,10 @@ String& operator<<(String& str, const Image& image);
 String& operator<<(String& str, const var& value);
 String& operator<<(String& str, const Time& time);
 String& operator<<(String& str, long double value);
-String& operator<<(String& str, RelativeTime relativeTime);
+String& operator<<(String& str, const RelativeTime& relativeTime);
 #if JIVE_ENABLE_GRID
 String& operator<<(String& str, juce::Grid::Px px);
-String& operator<<(String& str, juce::Grid::TrackInfo track);
+String& operator<<(String& str, const juce::Grid::TrackInfo& track);
 #endif
 String& operator<<(String& str, const juce::ValueTree& tree);
 

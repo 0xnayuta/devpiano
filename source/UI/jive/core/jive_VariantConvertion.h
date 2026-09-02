@@ -7,6 +7,10 @@
 
 #pragma once
 
+#ifndef JIVE_ENABLE_GRID
+#define JIVE_ENABLE_GRID 1
+#endif
+
 #include "jive_AttributedStringVariantConverters.h"
 #include "jive_FlexVariantConverters.h"
 #if JIVE_ENABLE_GRID

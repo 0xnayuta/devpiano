@@ -28,17 +28,17 @@ private:
 
 template <> struct VariantConverter<GridItem::Span> {
     static GridItem::Span fromVar(const var& v);
-    static var toVar(GridItem::Span span);
+    static var toVar(const GridItem::Span& span);
 };
 
 template <> struct VariantConverter<GridItem::Property> {
     static GridItem::Property fromVar(const var& v);
-    static var toVar(GridItem::Property startAndEnd);
+    static var toVar(const GridItem::Property& startAndEnd);
 };
 
 template <> struct VariantConverter<GridItem::StartAndEndProperty> {
     static GridItem::StartAndEndProperty fromVar(const var& v);
-    static var toVar(GridItem::StartAndEndProperty startAndEnd);
+    static var toVar(const GridItem::StartAndEndProperty& startAndEnd);
 };
 
 template <> struct VariantConverter<Grid::JustifyItems> {

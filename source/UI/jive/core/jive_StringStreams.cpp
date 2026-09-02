@@ -37,7 +37,7 @@ String& operator<<(String& str, long double value) {
     return str << juce::String { static_cast<double>(value) };
 }
 
-String& operator<<(String& str, RelativeTime relativeTime) {
+String& operator<<(String& str, const RelativeTime& relativeTime) {
     return str << juce::String { relativeTime.inSeconds() } << "s";
 }
 
@@ -46,8 +46,8 @@ String& operator<<(String& str, juce::Grid::Px px) {
     return str << "juce::Grid::Px{ " << px.pixels << " }";
 }
 
-String& operator<<(String& str, juce::Grid::TrackInfo track) {
-    return str << "juce::Grid::TrackInfo{ " << track.size << " }";
+String& operator<<(String& str, const juce::Grid::TrackInfo& track) {
+    return str << "juce::Grid::TrackInfo{ " << track.getSize() << " }";
 }
 #endif
 
