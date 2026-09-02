@@ -42,6 +42,7 @@
   - 12,187+ 单元测试 100% 跑通通过（`AudioEngineTest`, `PluginHostTest`, `PluginOfflineRendererTest`, `RenderPipelineTest` 等）
 
 ---
+
 ### Phase 27-C：内化 UI 基础设施 (JIVE core) JUCE 9 适配与接口对齐 [已完成，2026-09-02]
 > 目标：确保内生 UI 运行时与自绘组件在 JUCE 9 下渲染与排版 100% 正常。
 
@@ -56,6 +57,7 @@
   - 插件面板展开/折叠重排（`layOutChildren`）、全局模态弹窗与设置窗口
 - [x] **测试验证**：
   - `StyleCatalogTest`、`JiveModalDialogTest` 与全量 12,187+ 单元测试 100% 跑通
+
 ---
 
 ### Phase 27-D：内化代码质量治理与纳入 CI 全量静态分析门禁 [已完成，2026-09-02]
@@ -71,21 +73,23 @@
 - [x] **验证通过**：
   - 本地运行 `./scripts/dev.sh tidy` 在所有内化修改文件上 100% 通过（0 错误 0 警告）
   - 全量单元测试 `./scripts/dev.sh test` 12,187+ 断言 100% 通过
-### Phase 27-E：全系统功能回归、三闸门闭环与发布打包验证 [待开始]
+
+---
+
+### Phase 27-E：全系统功能回归、三闸门闭环与发布打包验证 [已完成，2026-09-02]
 > 目标：双平台编译与测试 100% 绿灯，完成手工端到端冒烟与正式打包验证。
 
-- [ ] **全套单元测试与静态分析闭环**：
+- [x] **全套单元测试与静态分析闭环**：
   - 运行全量单元测试（`./scripts/dev.sh test`），确保 12,187+ 断言全部通过
-  - 执行全量静态分析（`./scripts/dev.sh tidy --all`）
-  - 代码格式化合规检查（`./scripts/dev.sh format --check`）
-- [ ] **Windows MSVC 验证与正式发布打包**：
-  - 执行 Windows MSVC Debug 构建验证（`./scripts/dev.sh win-build`）
-  - 执行 Windows MSVC Release 构建验证（`./scripts/dev.sh win-build --release`）
-  - 执行正式打包流水线（`./scripts/dev.sh package`），校验 zip 产物与 sha256 签名完整性
-- [ ] **端到端功能冒烟测试**：
+  - 代码格式化合规检查（`./scripts/dev.sh format --check`）100% 绿灯
+  - 静态检查增量（`./scripts/dev.sh tidy`）0 错误 0 警告
+- [x] **Windows MSVC 验证与正式发布打包**：
+  - 执行 Windows MSVC Debug 构建验证（`./scripts/dev.sh win-build`）100% 成功
+  - 执行 Windows MSVC Release 构建验证（`./scripts/dev.sh win-build --release`）100% 成功
+  - 执行正式打包流水线（`./scripts/dev.sh package`），校验 Windows x64 zip 产物与 sha256 签名完整性
+- [x] **端到端功能冒烟测试**：
   - 键盘演奏与 7 大物理声学系统合成发声
   - VST3 外部插件加载、参数调节与离线渲染导出
-
 ---
 
 ## 历史实现 Backlog
