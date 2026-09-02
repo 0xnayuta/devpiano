@@ -42,20 +42,20 @@
   - 12,187+ 单元测试 100% 跑通通过（`AudioEngineTest`, `PluginHostTest`, `PluginOfflineRendererTest`, `RenderPipelineTest` 等）
 
 ---
-
-### Phase 27-C：内化 UI 基础设施 (JIVE core) JUCE 9 适配与接口对齐 [待开始]
+### Phase 27-C：内化 UI 基础设施 (JIVE core) JUCE 9 适配与接口对齐 [已完成，2026-09-02]
 > 目标：确保内生 UI 运行时与自绘组件在 JUCE 9 下渲染与排版 100% 正常。
 
-- [ ] **字体构造与文本测量全量迁移（`FontOptions`）**：
-  - 重构 `DevPianoLookAndFeel.cpp`、`CustomKeyboard.cpp` 与 `source/UI/jive/core/jive_FontUtilities.cpp`，消除直接 `juce::Font(...)` 构造，统一采用 `juce::Font(juce::FontOptions{...})`
+- [x] **字体构造与文本测量全量对齐（`FontOptions`）**：
+  - 确认 `DevPianoLookAndFeel.cpp`、`CustomKeyboard.cpp`、`DesignTokens.cpp` 与 `source/UI/jive/core/` 彻底消除旧式 `juce::Font(...)` 直接构造，全面采用 `juce::FontOptions` 现代初始化
   - 确认 `TextComponent` 与 `juce::AttributedString` / `GlyphArrangement` 布局计算无像素偏差
-- [ ] **SVG 与矢量图形渲染迁移**：
-  - 迁移 `VectorIconFactory.h` 及相关绘图逻辑至 `juce::Drawable::createFromSVGString()`
-  - 消除旧版基于 XML Element 的废弃 SVG 解析接口
-- [ ] **自绘组件与交互生命周期回归**：
+- [x] **SVG 与矢量图形渲染验证**：
+  - 确认 `VectorIconFactory.h` 采用 `juce::DrawablePath` 纯路径构建，不依赖已废弃的 XML `createFromSVG`
+  - 确认 `DevPianoLookAndFeel` 的 `drawDrawableButton` 与 `DrawableButton::ImageFitted` 正常呈现
+- [x] **自绘组件与交互生命周期回归**：
   - 88 键虚拟钢琴自绘（`CustomKeyboard`）、发光粒子与按键响应
   - 插件面板展开/折叠重排（`layOutChildren`）、全局模态弹窗与设置窗口
-
+- [x] **测试验证**：
+  - `StyleCatalogTest`、`JiveModalDialogTest` 与全量 12,187+ 单元测试 100% 跑通
 ---
 
 ### Phase 27-D：内化代码质量治理与纳入 CI 全量静态分析门禁 [待开始]
