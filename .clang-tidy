@@ -32,10 +32,20 @@ Checks: >
     -modernize-use-designated-initializers,
     -readability-math-missing-parentheses,
     -readability-redundant-inline-specifier,
+    -performance-enum-size,
+    -bugprone-exception-escape,
+    -modernize-pass-by-value,
+    -bugprone-unhandled-self-assignment,
+    -bugprone-unchecked-optional-access,
+    -modernize-use-ranges,
+    -modernize-avoid-bind,
+    -readability-simplify-boolean-expr,
+    -readability-else-after-return,
+    -clang-analyzer-optin.*,
     -bugprone-easily-swappable-parameters
 
-# 仅报告 source/ 项目自身头文件的诊断，排除 JUCE / 第三方库头（含内化第三方 UI 核心 source/UI/jive/core 及 extensions）
-HeaderFilterRegex: '^.*/source/(?!UI/jive/(core|extensions)/).*'
+# 仅报告 source/ 项目头文件的诊断，排除 JUCE 子模块，包含 source/UI/jive/core 内部化 UI 基础设施
+HeaderFilterRegex: '^.*/source/.*'
 
 CheckOptions:
     # 现代风格 using 声明

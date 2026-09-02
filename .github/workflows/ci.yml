@@ -71,9 +71,9 @@ jobs:
       - name: Run incremental clang-tidy on changed files
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }} HEAD | grep -E '^source/.*\.(cpp|h)$' | grep -v -E '^source/UI/jive/(core|extensions)/' || true)
+            CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }} HEAD | grep -E '^source/.*\.(cpp|h)$' | grep -v -E '^source/UI/jive/extensions/' || true)
           else
-            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -E '^source/.*\.(cpp|h)$' | grep -v -E '^source/UI/jive/(core|extensions)/' || true)
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -E '^source/.*\.(cpp|h)$' | grep -v -E '^source/UI/jive/extensions/' || true)
           fi
           if [ -z "$CHANGED_FILES" ]; then
             echo "[CI] No source C++ files modified in this commit range. Skipping static analysis."

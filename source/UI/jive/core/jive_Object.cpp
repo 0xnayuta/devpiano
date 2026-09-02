@@ -33,7 +33,7 @@ private:
     juce::Array<Object*> findNestedObjects() {
         juce::Array<Object*> nestedObjects;
 
-        for (auto& [name, value] : object.getProperties()) {
+        for (const auto& [name, value] : object.getProperties()) {
             if (auto* nested = dynamic_cast<Object*>(value.getDynamicObject())) {
                 nestedObjects.add(nested);
             }
@@ -51,7 +51,7 @@ Object::Object()
 
 Object::Object(std::initializer_list<juce::NamedValueSet::NamedValue> initialProperties)
     : internalListener { std::make_unique<InternalListener>(*this) } {
-    for (auto& pair : initialProperties) {
+    for (const auto& pair : initialProperties) {
         setProperty(pair.name, pair.value);
     }
 }
@@ -61,8 +61,8 @@ Object::Object(const Object& other)
     , internalListener { std::make_unique<InternalListener>(*this) } {
 }
 
-Object::Object(Object&& other)
-    : juce::DynamicObject { std::move(dynamic_cast<DynamicObject&&>(other)) }
+Object::Object(Object&& other) noexcept
+    : juce::DynamicObject { dynamic_cast<const DynamicObject&>(other) }
     , internalListener { std::make_unique<InternalListener>(*this) } {
 }
 
@@ -138,7 +138,7 @@ static void replaceDynamicObjectsWithJiveObjects(juce::var& value) {
             replaceDynamicObjectsWithJiveObjects(*dynamicObject->getProperties().getVarPointerAt(i));
         }
 
-        Object::ReferenceCountedPointer object = new Object { std::move(*dynamicObject) };
+        Object::ReferenceCountedPointer object = new Object { *dynamicObject };
         value = object.get();
     }
 
@@ -175,7 +175,8 @@ VariantConverter<jive::Object::ReferenceCountedPointer>::fromVar(const var& valu
     return nullptr;
 }
 
-var VariantConverter<jive::Object::ReferenceCountedPointer>::toVar(jive::Object::ReferenceCountedPointer object) {
+var VariantConverter<jive::Object::ReferenceCountedPointer>::toVar(
+    const jive::Object::ReferenceCountedPointer& object) {
     return var { object.get() };
 }
 } // namespace juce

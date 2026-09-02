@@ -62,7 +62,7 @@ template <> struct VariantConverter<jive::Transitions::ReferenceCountedPointer> 
         return nullptr;
     }
 
-    static var toVar(jive::Transitions::ReferenceCountedPointer transitions) {
+    static var toVar(const jive::Transitions::ReferenceCountedPointer& transitions) {
         return var { transitions.get() };
     }
 };

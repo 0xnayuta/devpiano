@@ -20,7 +20,7 @@ class StyleSheet : public juce::ReferenceCountedObject, private juce::ComponentL
 public:
     using ReferenceCountedPointer = juce::ReferenceCountedObjectPtr<StyleSheet>;
 
-    ~StyleSheet();
+    ~StyleSheet() override;
 
     [[nodiscard]] Fill getBackground() const;
     [[nodiscard]] Fill getForeground() const;

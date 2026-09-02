@@ -35,7 +35,7 @@ template <typename T> struct Interpolate {
     }
 };
 
-template <typename T> [[nodiscard]] T interpolate(T start, T end, double proportion) {
+template <typename T> [[nodiscard]] T interpolate(const T& start, const T& end, double proportion) {
     return Interpolate<T> {}(start, end, proportion);
 }
 

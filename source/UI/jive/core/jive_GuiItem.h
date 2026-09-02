@@ -75,7 +75,7 @@ private:
     class Remover : private juce::ValueTree::Listener {
     public:
         explicit Remover(GuiItem& guiItem);
-        ~Remover();
+        ~Remover() override;
 
     private:
         void valueTreeChildRemoved(juce::ValueTree&, juce::ValueTree&, int) final;
