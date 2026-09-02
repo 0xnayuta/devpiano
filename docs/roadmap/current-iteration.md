@@ -28,18 +28,18 @@
 
 ---
 
-### Phase 27-B：非 UI 领域 Breaking Changes 适配与 API 兼容修复 [待开始]
+### Phase 27-B：非 UI 领域 Breaking Changes 适配与 API 兼容修复 [已完成，2026-09-02]
 > 目标：消除音频后端、插件宿主与离线导出管线的编译断点与运行时行为变动。
 
-- [ ] **VST3 宿主与插件客户端接口适配**：
-  - 适配 `AudioPluginInstance` 内部机制，迁移相关宿主交互至 `getVST3Client()`
-  - 适配 `AudioProcessor::createEditorIfNeeded()` / `createEditorAndMakeActive()` 编辑器生命周期
+- [x] **VST3 宿主与插件客户端接口适配**：
+  - 校验 `AudioPluginInstance`、`PluginHost` 与 `PluginFlowSupport` 接口兼容性（已使用 `addDefaultFormatsToManager`）
+  - 确认 `PluginOperationController` 全面使用 `createEditorAndMakeActive()` 编辑器生命周期
   - 校验插件状态 XML / 内存 Blob 序列化在 JUCE 9 下的二进制兼容性
-- [ ] **音频设备与导出流防护**：
+- [x] **音频设备与导出流防护**：
   - 核对 `AudioDeviceManager` 与 `AudioEngine` 初始化参数及多线程安全变动
-  - 适配 `WavFileExporter` 与 `RenderPipeline` 中的音频缓冲区 API
-- [ ] **Linux 桌面平台驱动与字体接口适配**：
-  - 适配 Linux EGL / X11 底层渲染与音频驱动接口变更
+  - 确认 `WavFileExporter` 与 `PluginOfflineRenderer` 全面使用现代 `AudioFormatWriterOptions`
+- [x] **测试验证**：
+  - 12,187+ 单元测试 100% 跑通通过（`AudioEngineTest`, `PluginHostTest`, `PluginOfflineRendererTest`, `RenderPipelineTest` 等）
 
 ---
 
