@@ -1,6 +1,7 @@
 #pragma once
 
-#include <JuceHeader.h>
+#include <BinaryData.h>
+#include <juce_core/juce_core.h>
 
 #include "Diagnostics/Log.h"
 #include "UI/jive/DesignTokens.h"

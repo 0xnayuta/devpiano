@@ -286,7 +286,7 @@ void MainComponent::initialiseUi() {
         wireAdsrKnob("attack-knob", 0.001, 2.0, 0.001, [](double v) { return juce::String(v, 3) + "s"; });
         wireAdsrKnob("decay-knob", 0.001, 2.0, 0.001, [](double v) { return juce::String(v, 3) + "s"; });
         wireAdsrKnob("sustain-knob", 0.0, 1.0, 0.01,
-                     [](double v) { return juce::String(juce::roundToInt(v * 100.0)) + "%"; });
+                     [](double v) { return juce::String(static_cast<int>(std::lround(v * 100.0))) + "%"; });
         wireAdsrKnob("release-knob", 0.001, 3.0, 0.001, [](double v) { return juce::String(v, 3) + "s"; });
 
         // ── piano tone row (Phase 12-3) ──
@@ -294,9 +294,12 @@ void MainComponent::initialiseUi() {
             = [&wireKnob, this](const char* id, const std::function<juce::String(double)>& formatter) {
                   wireKnob(id, 0.0, 1.0, 0.01, formatter, [this] { handlePerformanceUiChanged(); });
               };
-        wirePianoKnob("brightness-knob", [](double v) { return juce::String(juce::roundToInt(v * 100.0)) + "%"; });
-        wirePianoKnob("hardness-knob", [](double v) { return juce::String(juce::roundToInt(v * 100.0)) + "%"; });
-        wirePianoKnob("resonance-knob", [](double v) { return juce::String(juce::roundToInt(v * 100.0)) + "%"; });
+        wirePianoKnob("brightness-knob",
+                      [](double v) { return juce::String(static_cast<int>(std::lround(v * 100.0))) + "%"; });
+        wirePianoKnob("hardness-knob",
+                      [](double v) { return juce::String(static_cast<int>(std::lround(v * 100.0))) + "%"; });
+        wirePianoKnob("resonance-knob",
+                      [](double v) { return juce::String(static_cast<int>(std::lround(v * 100.0))) + "%"; });
         wireKnob(
             "speed-knob", 0.5, 2.0, 0.25,
             [](double v) {
