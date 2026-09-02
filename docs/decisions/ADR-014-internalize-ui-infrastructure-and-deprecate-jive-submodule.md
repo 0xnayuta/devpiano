@@ -2,7 +2,7 @@
 
 ## 状态
 
-**已通过 / 拟定执行**（替代并废止 ADR-008 中关于直接依赖外部 JIVE Git Submodule 的组织方式；继承并固化其声明式布局理念与 Design Tokens 体系）。
+**已完全实施 (Accepted & Implemented)**（已于 Phase 27 全面实施闭环：JIVE 外部子模块彻底退役移除，最小核心闭包与 CSS Grid 完全内生入 `source/UI/jive/core/`，JUCE 9.0.1 升级及三端自动化门禁已 100% 验收合入 `main` 主干；替代并废止 ADR-008）。
 
 ---
 
@@ -47,14 +47,14 @@
    - 彻底摆脱对外部 JIVE 仓库分支迭代的被动依赖，终结上游架构断代与破坏性变更风险。
 2. **提取最小必要依赖闭包，内化为 `devpiano::ui` 核心基础设施**：
    - 将 JIVE main 分支中经过严密调用链验证的 **最小闭包代码（约 3,800 行）** 精准提取至 `source/UI/jive/core/`，作为项目内生源码统一维护。
-   - **保留的核心资产（KEEP）**：
-     - Core 核心：`Interpreter`、`GuiItem`、`GuiItemDecorator`、`CommonGuiItem`、`Property`、`Object`、`ComponentFactory`、`Event`。
-     - Layout 核心：`BoxModel`、`Geometry`、`FlexContainer`、`FlexItem`、`LayoutStrategy`、`Overflow`。
-     - 核心控件包装：`Button`、`ComboBox`、`Slider`、`ProgressBar`。
-     - 样式与画布：`StyleSheet`（精简版）、`Colours`、`Fill`、`Shadow`、`BackgroundCanvas`。
-     - 类型转换：`FlexVariantConverters`、`MiscVariantConverters`。
-3. **针对未使用能力实施战略分级治理（资产处理地图）**：
-   - **战略储备（KEEP-LATER）**：将 `GridContainer` / `GridItem` 与 `Transitions` / `Easing` 动画库作为独立可选扩展模块（`source/UI/jive/extensions/`）归档保存，供未来 **Preset Browser 卡片网格、MIDI 通道矩阵面板及折叠平滑过渡** 按需激活，不侵入 Phase 1 核心。
+   - **保留并内化的核心资产（KEEP & CORE）**：
+     - Core 核心：`Interpreter`、`GuiItem`、`GuiItemDecorator`、`CommonGuiItem`、`Property`、`Object`、`ComponentFactory`、`Event`、`Timer`。
+     - Layout 核心：`BoxModel`、`Geometry`、`FlexContainer`、`FlexItem`、`GridContainer`、`GridItem`、`LayoutStrategy`、`Overflow`。
+     - 核心控件包装：`Button`、`ComboBox`、`Slider`、`ProgressBar`、`Label`、`TextComponent`、`Text`、`View`。
+     - 样式与画布：`StyleSheet`（精简版）、`Colours`、`Fill`、`Shadow`、`BackgroundCanvas`、`Canvas`、`Transitions`、`Transition`、`Easing`。
+     - 类型转换：`FlexVariantConverters`、`GridVariantConverters`、`AttributedStringVariantConverters`、`MiscVariantConverters`。
+3. **针对未使用能力实施战略分级治理与 CSS Grid 核心归位**：
+   - **CSS Grid 核心升格**：经实测，`SettingsLayoutModel.cpp` 的 16 通道跟音设置面板依赖 CSS Grid 声明式布局（`display: "grid"`），因此 `GridContainer`、`GridItem` 与 `GridVariantConverters` 已正式升格为第一等核心组件纳入 `source/UI/jive/core/` 并全局启用宏 `JIVE_ENABLE_GRID=1`，由 `SettingsLayoutModelTest.cpp` 全量测试守护。
    - **精简重构（SIMPLIFY）**：
      - `Text` / `TextComponent`：剥离富文本排版冗余，重构字体测量以适配 JUCE 9。
      - `FontUtilities`：全量收敛至 `juce::FontOptions`。
@@ -77,12 +77,11 @@ graph LR
     P1 --> P2[Phase 2: 注销 JIVE 子模块与 CMake 纯化]
     P2 --> P3[Phase 3: JUCE 9.0.1 平滑升级与 MSVC 验证]
 ```
-
-1. **Phase 0（基线冻结）**：在当前 JUCE 8.0.15 环境下确保 `./scripts/dev.sh test` 100% 绿灯。
-2. **Phase 1（闭包提取与内化）**：搬迁约 3,800 行核心源码，调整引用，剔除冗余代码，确保编译与单元测试无缝通过。
-3. **Phase 2（子模块退役）**：执行 `git submodule deinit -f submodules/JIVE`，清理 CMakeLists 外部目标。
-4. **Phase 3（JUCE 9 升级）**：在干净内生的代码基线上切换 JUCE 9 分支，修复 `DrawableComponent` 与 `FontOptions` 适配点，完成 Windows MSVC 验证。
-
+1. **Phase 0（基线冻结）**：[已完成] 在当前 JUCE 8.0.15 环境下确保 `./scripts/dev.sh test` 100% 绿灯。
+2. **Phase 1（闭包提取与内化）**：[已完成] 搬迁核心源码入 `source/UI/jive/core/`，调整命名空间与依赖，通过全量单元测试与编译。
+3. **Phase 2（子模块退役）**：[已完成] 执行 `git submodule deinit -f submodules/JIVE`，清理 `.gitmodules` 与 `CMakeLists.txt`，物理删除 `submodules/JIVE`。
+4. **Phase 3（JUCE 9 升级与代码质量治理）**：[已完成] 切换并锁定 JUCE 9.0.1 发布版（`e18f7f5`），完成 `FontOptions`、`GlyphArrangement` 与 `DrawableComponent` 适配；对内化代码执行 C++20 现代化（`override`、`noexcept`、`const-ref`）并完全纳入 CI `clang-tidy` 严苛门禁。
+5. **Phase 4（全系统回归与发布闭环）**：[已完成] 完成全系统测试（12,668+ 断言）、双端双配置（Debug/Release）构建验证、Windows 分发包打包以及 GitHub Actions 五大自动化门禁验证，成功合入 `main` 主干。
 ---
 
 ## 原因
@@ -94,9 +93,10 @@ graph LR
 
 ---
 
-## 影响
+## 实施复盘与最终成效 (Post-Implementation Review)
 
-- 彻底解除了 `submodules/JIVE` 的外部依赖，构建系统更加精简、自包含。
-- UI 表现层代码完全收敛至 `source/UI/` 下，团队拥有 100% 的代码掌控力与重构自由度。
-- 为后续平滑升级至 **JUCE 9.0.1** 铺平了道路。
-- **ADR-008 正式废止**，由本文档接替成为 UI 基础设施层面的唯一权威架构决策依据。
+1. **彻底摆脱外部 Git Submodule 迭代枷锁**：项目外部子模块仅剩 `submodules/JUCE`（固定于 JUCE 9.0.1 官方发布标签），`.gitmodules` 与构建依赖纯净透明。
+2. **代码资产规模极致精简**：从 JIVE 原上游 >24,000 行冗余实现收敛为 4,000 余行的高内聚内生源码，构建时间显著优化，消灭了一切未用黑盒抽象。
+3. **JUCE 9 演进阻力归零**：所有 UI 运行时代码作为普通项目源文件直接维护，未来跟随 JUCE 大版本演进拥有 100% 敏捷适配与自主演进能力。
+4. **统一的代码质量与 CI 门禁治理**：内化后的 UI 代码正式解除静态分析豁免，与核心业务代码享有同等规格的 C++20 规范与 Clang-Tidy 零警告把关。
+5. **ADR-008 正式废止**，由本文档接替成为 UI 基础设施层面的唯一权威架构决策依据。

@@ -16,7 +16,7 @@
   - 当前 JUCE 主实现目录。
   - 所有新增和重构后的业务源码（`.cpp` / `.h`）必须放在这里。
 - `/submodules/JUCE/`
-  - JUCE 框架 git 子模块。
+  - JUCE 9.0.1 框架 git 子模块（项目当前唯一的外部 Git 子模块）。
   - **绝对不要修改其中任何代码**。
 - `/build-wsl-clang/`
   - WSL 本地 Debug 构建目录。
@@ -58,7 +58,7 @@
 2. 插件宿主：使用 JUCE `AudioPluginFormatManager` / `AudioPluginInstance` / VST3 主路径替代旧 VST 加载逻辑。
 3. 内置物理建模音源：使用自主研发、纯 C++ 算法驱动、覆盖 7 大声学子系统（Hammer, String, Bridge, Soundboard, Cabinet, Air, Room）的**全物理建模钢琴（`PianoSynthVoice`）**作为默认发声来源，支持与正弦波（`SineSynthVoice`）平滑切换。
 4. 键盘输入：使用 JUCE `KeyListener` / `KeyPress` 捕获电脑键盘事件，基于稳定 key code 映射为 `MidiMessage`。
-5. UI 与样式：使用 **JIVE 声明式 UI 框架**（`juce::ValueTree` + JSON 样式表 + Flex/Grid 自适应布局）替代传统手工坐标排版。
+5. UI 与样式：使用 **内化 Devpiano 声明式 UI 运行时**（`source/UI/jive/core/`，基于 `juce::ValueTree` + JSON 样式表 + Flex/CSS Grid 自适应布局，依据 ADR-014 已完全内化并退役 JIVE 外部子模块）替代传统手工坐标排版。
 6. 配置与状态：优先使用 JUCE `ApplicationProperties` / `ValueTree` 与项目内状态模型。
 7. 录制 / 回放 / 导出等高级功能应先定义现代数据模型，不直接继承旧 `song.*` 内部表示。
 8. 国际化：使用 JUCE `Translation` / `LocalisedStrings` 机制管理运行时语言切换，中文 locale 表作为编译期常量嵌入。
@@ -71,7 +71,7 @@
 - **不要修改 `/submodules/` 下任何子模块代码**。
 - **新增业务代码只放在 `/source/` 下的合适子目录**。
 - **代码探索与依赖影响面首选 codegraph**：在探索模块架构、追溯调用链（calls/callers）、类型派生或修改前评估影响面（Blast Radius）时，**必须首先调用 `codegraph` (`xd://mcp__codegraph_explore`)**，禁止未调用 codegraph 就发起盲目的多轮 `grep`/`read`。
-- **第三方库与框架 API 查证首选 context7**：涉及 JUCE 9、Steinberg VST3 SDK、JIVE 等第三方库的新增调用或参数不确定时，**必须首先通过 `context7` (`resolve-library-id` + `query-docs`) 查询官方最新文档与示例**，禁止凭记忆猜测 API。
+- **第三方库与框架 API 查证首选 context7**：涉及 JUCE 9、Steinberg VST3 SDK 等第三方库的新增调用或参数不确定时，**必须首先通过 `context7` (`resolve-library-id` + `query-docs`) 查询官方最新文档与示例**，禁止凭记忆猜测 API。
 - 优先小步修改、小范围验证，不要一次性大改整个系统。
 - **WSL 主工作树是唯一主源码来源，仅用于编辑代码和刷新 `compile_commands.json`**，所有构建验证和软件测试在 Windows 侧进行。
 - **不要让 Windows/MSVC 直接跨边界在 WSL 主工作树上长期构建**；Windows 只使用镜像树做验证。
@@ -158,9 +158,9 @@
 # Windows MSVC 验证构建（内置同步，一般不需要单独 win-sync）
 ./scripts/dev.sh win-build
 
-
 # 编译耗时性能剖析与火焰图分析 (-ftime-trace，分析最耗时文件/头文件/模板)
 ./scripts/dev.sh time-trace
+
 # 正式发布打包（Windows x64 zip + sha256，完成 win-build --release 后执行）
 ./scripts/dev.sh package
 ```

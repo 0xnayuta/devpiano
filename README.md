@@ -2,9 +2,9 @@
 
 中文 | [English](README_en.md)
 
-**devpiano** 是一款基于 JUCE 框架的现代电脑键盘钢琴应用，聚焦电脑软件键盘演奏、高保真物理建模音源与 MIDI 文件处理。
+**devpiano** 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，聚焦电脑软件键盘演奏、高保真物理建模音源与 MIDI 文件处理。
 
-应用内置自主研发、覆盖 **7 大声学子系统** 的纯 C++ 物理建模钢琴音源（`PianoSynthVoice`），同时提供 **VST3 插件宿主** 支持，结合标准 88 键虚拟键盘、16 通道 MIDI 路由矩阵、JIVE 声明式 UI 以及完整的演奏录制、回放、持久化与离线音频渲染工作流。
+应用内置自主研发、覆盖 **7 大声学子系统** 的纯 C++ 物理建模钢琴音源（`PianoSynthVoice`），同时提供 **VST3 插件宿主** 支持，结合标准 88 键虚拟键盘、16 通道 MIDI 路由矩阵、内生声明式 UI 运行时以及完整的演奏录制、回放、持久化与离线音频渲染工作流。
 
 项目定位、核心能力与明确非目标详见 [`docs/reference/project-scope.md`](docs/reference/project-scope.md)。
 
@@ -60,8 +60,8 @@
 - **双引擎渲染支持**：无插件时自动由内置物理建模引擎渲染，有插件时独立创建离线 VST3 实例渲染；
 - **现代化暗黑进度弹窗**：支持实时进度展示、随时取消并自动清理残留文件。
 
-### 🎨 JIVE 声明式 UI 与设计系统（Declarative UI & Theming）
-- **声明式 UI 架构**：全应用主界面、设置面板与弹窗全面统一至 JIVE 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid 自适应），消灭手工坐标排版；
+### 🎨 内生声明式 UI 运行时与设计系统（Declarative UI & Design System）
+- **声明式 UI 架构**：全应用主界面、设置面板与弹窗全面统一至项目内生声明式 UI 运行时（`source/UI/jive/core/`，依据 ADR-014 已完全内化并退役 JIVE 外部子模块，支持 `juce::ValueTree` 布局 + JSON 样式表 + Flex/CSS Grid 自适应），彻底消灭手工坐标排版；
 - **现代化暗黑主题**：基于 `DevPianoLookAndFeel` 的旋钮化 ADSR/音量调节、3 列对称居中状态栏（实时 MIDI 活动灯、插件/预设名称、音频指标与调号）；
 - **绿色单文件资产内嵌**：设计 Token（`design_tokens.json`）、样式表（`style_sheets.json`）与中文语言包（`zh_CN.loc`）由 CMake 编译期二进制静态内嵌，单文件绿色分发零外部文件依赖。
 
@@ -83,7 +83,7 @@ source/
 ├── Export/                        # WAV 离线导出后台任务与选项构建
 ├── Layout/                        # Performance Preset 预设数据模型与 CRUD 编排
 ├── Settings/                      # 设置模型、持久化存储、独立窗口与 JIVE 声明式设置面板
-├── UI/                            # JIVE 布局模型、设计 Token、声明式弹窗体系与 Native 原生组件
+├── UI/                            # 内生声明式 UI 运行时（core/）、布局模型、设计 Token、弹窗体系与 Native 原生组件
 ├── Locale/                        # 语言管理器与编译期内嵌语言包
 ├── Diagnostics/                   # 结构化日志系统、MidiTrace 与调试输出
 └── Core/                          # 核心数据结构与轻量强类型定义（AppState, KeyMapTypes）
@@ -112,7 +112,7 @@ source/
 # 4. 刷新 WSL 编译数据库（供 clangd/LSP 使用）
 ./scripts/dev.sh wsl-build --configure-only
 
-# 5. 运行全量单元测试（60 个测试套件，11989+ 断言）
+# 5. 运行全量单元测试（63 个测试套件，12668+ 断言全部通过）
 ./scripts/dev.sh test
 
 # 6. Windows MSVC 验证构建（内置代码智能同步）

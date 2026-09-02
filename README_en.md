@@ -2,9 +2,9 @@
 
 [中文](README.md) | English
 
-**devpiano** is a modern computer-keyboard piano application built on the JUCE framework, focused on software keyboard performance, high-fidelity physical modeling synthesis, and MIDI file processing.
+**devpiano** is a modern computer-keyboard piano application built on the JUCE 9.0.1 framework, focused on software keyboard performance, high-fidelity physical modeling synthesis, and MIDI file processing.
 
-The application features a self-developed, pure C++ physical modeling piano synthesizer (`PianoSynthVoice`) covering **7 complete acoustic subsystems**, along with **VST3 instrument plugin hosting**, a standard 88-key virtual keybed, a 16-channel MIDI routing matrix, JIVE declarative UI, and full-loop performance recording, playback, persistence, and offline audio rendering pipelines.
+The application features a self-developed, pure C++ physical modeling piano synthesizer (`PianoSynthVoice`) covering **7 complete acoustic subsystems**, along with **VST3 instrument plugin hosting**, a standard 88-key virtual keybed, a 16-channel MIDI routing matrix, an internalized declarative UI runtime, and full-loop performance recording, playback, persistence, and offline audio rendering pipelines.
 
 For project scope, core capabilities, and explicit non-goals, see [`docs/reference/project-scope.md`](docs/reference/project-scope.md).
 
@@ -60,8 +60,8 @@ For project scope, core capabilities, and explicit non-goals, see [`docs/referen
 - **Dual-Engine Export**: automatically renders via the built-in physical modeling piano when no plugin is loaded, or creates isolated offline VST3 instances for plugin rendering;
 - **Modern Dark Progress Dialog**: real-time progress bar with cancellation support and automatic temporary file cleanup.
 
-### 🎨 JIVE Declarative UI & Design System
-- **Declarative UI Architecture**: main window, settings dialog, and modal dialogs are fully unified under the JIVE framework (`juce::ValueTree` layouts + JSON style sheets + Flex/Grid adaptive flow), eliminating manual coordinate calculations;
+### 🎨 Internalized Declarative UI Runtime & Design System
+- **Declarative UI Architecture**: main window, settings dialog, and modal dialogs are fully unified under the project's internalized declarative UI runtime (`source/UI/jive/core/`, pursuant to ADR-014 fully internalized with external JIVE submodule retired, supporting `juce::ValueTree` layouts + JSON style sheets + Flex/CSS Grid adaptive flow), eliminating manual coordinate calculations;
 - **Modern Dark Theme**: rotary knobs for ADSR/volume based on `DevPianoLookAndFeel`, and a symmetrical 3-column status bar (live MIDI activity dot, plugin/preset label, audio metrics, and key signature);
 - **Zero-External-Asset Bundling**: design tokens (`design_tokens.json`), style sheets (`style_sheets.json`), and Chinese localization resources (`zh_CN.loc`) are statically bundled as binary data at compile time, enabling single-file distribution.
 
@@ -83,7 +83,7 @@ source/
 ├── Export/                        # Offline WAV export background task & options builder
 ├── Layout/                        # Performance Preset data model & CRUD orchestration
 ├── Settings/                      # Settings model, persistence, window manager & declarative layout
-├── UI/                            # JIVE layout models, design tokens, modal dialogs & native components
+├── UI/                            # Internalized declarative UI runtime (core/), layout models, design tokens & native components
 ├── Locale/                        # LocaleManager & embedded binary localization tables
 ├── Diagnostics/                   # Structured logging system, MidiTrace & debug utilities
 └── Core/                          # Core data structures & strong types (AppState, KeyMapTypes)
@@ -112,7 +112,7 @@ Recommended development setup: **WSL primary working tree + Windows mirror tree 
 # 4. Refresh WSL compilation database (for clangd / LSP)
 ./scripts/dev.sh wsl-build --configure-only
 
-# 5. Run unit test suite (60 test suites, 11989+ assertions)
+# 5. Run unit test suite (63 test suites, 12668+ assertions passing)
 ./scripts/dev.sh test
 
 # 6. Windows MSVC validation build (built-in intelligent sync)
