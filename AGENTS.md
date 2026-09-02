@@ -71,7 +71,7 @@
 - **不要修改 `/submodules/` 下任何子模块代码**。
 - **新增业务代码只放在 `/source/` 下的合适子目录**。
 - **代码探索与依赖影响面首选 codegraph**：在探索模块架构、追溯调用链（calls/callers）、类型派生或修改前评估影响面（Blast Radius）时，**必须首先调用 `codegraph` (`xd://mcp__codegraph_explore`)**，禁止未调用 codegraph 就发起盲目的多轮 `grep`/`read`。
-- **第三方库与框架 API 查证首选 context7**：涉及 JUCE 8、Steinberg VST3 SDK、JIVE 等第三方库的新增调用或参数不确定时，**必须首先通过 `context7` (`resolve-library-id` + `query-docs`) 查询官方最新文档与示例**，禁止凭记忆猜测 API。
+- **第三方库与框架 API 查证首选 context7**：涉及 JUCE 9、Steinberg VST3 SDK、JIVE 等第三方库的新增调用或参数不确定时，**必须首先通过 `context7` (`resolve-library-id` + `query-docs`) 查询官方最新文档与示例**，禁止凭记忆猜测 API。
 - 优先小步修改、小范围验证，不要一次性大改整个系统。
 - **WSL 主工作树是唯一主源码来源，仅用于编辑代码和刷新 `compile_commands.json`**，所有构建验证和软件测试在 Windows 侧进行。
 - **不要让 Windows/MSVC 直接跨边界在 WSL 主工作树上长期构建**；Windows 只使用镜像树做验证。

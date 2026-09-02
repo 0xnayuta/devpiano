@@ -157,7 +157,7 @@ case "${command_name}" in
         mapfile -t files < <({
             git -C "${ROOT_DIR}" diff --name-only HEAD
             git -C "${ROOT_DIR}" ls-files --others --exclude-standard
-        } | sort -u | grep -E '^source/.*\.(cpp|h)$' | grep -v -E '^source/UI/jive/(core|extensions)/' || true)
+        } | sort -u | grep -E '^source/.*\.(cpp|h)$' | grep -v -E '^source/UI/jive/extensions/' || true)
     fi
 
     if [[ ${#files[@]} -eq 0 ]]; then

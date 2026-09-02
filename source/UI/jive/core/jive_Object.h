@@ -25,7 +25,7 @@ public:
     Object();
     Object(std::initializer_list<juce::NamedValueSet::NamedValue> initialProperties);
     Object(const Object& other);
-    Object(Object&& other);
+    Object(Object&& other) noexcept;
     Object(const juce::DynamicObject& other);
 
 #if JUCE_VERSION >= JIVE_JUCE_VERSION(8, 0, 4)
@@ -63,6 +63,6 @@ juce::var parseJSON(const juce::String& jsonString);
 namespace juce {
 template <> struct VariantConverter<jive::Object::ReferenceCountedPointer> {
     static jive::Object::ReferenceCountedPointer fromVar(const var& value);
-    static var toVar(jive::Object::ReferenceCountedPointer object);
+    static var toVar(const jive::Object::ReferenceCountedPointer& object);
 };
 } // namespace juce

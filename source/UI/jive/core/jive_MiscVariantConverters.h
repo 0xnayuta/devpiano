@@ -115,7 +115,7 @@ template <> struct VariantConverter<Identifier> {
         return { v.toString() };
     }
 
-    static var toVar(Identifier id) {
+    static var toVar(const Identifier& id) {
         return { id.toString() };
     }
 };

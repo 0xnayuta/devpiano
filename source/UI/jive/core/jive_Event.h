@@ -40,7 +40,7 @@ public:
         : event { other.event } {
     }
 
-    Event(Event&& other)
+    Event(Event&& other) noexcept
         : event { std::move(other.event) } {
     }
 
@@ -50,7 +50,7 @@ public:
     }
 
     Event& operator=(Event&& other) = delete;
-    ~Event() = default;
+    ~Event() override = default;
 
     int getAssumedTriggerCount() const {
         if (!event.get()->hasProperty("count")) {

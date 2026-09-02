@@ -26,7 +26,7 @@ public:
     };
 
     ComponentInteractionState(const juce::Component&, juce::ValueTree);
-    ~ComponentInteractionState();
+    ~ComponentInteractionState() override;
 
 private:
     void mouseEnter(const juce::MouseEvent& event) final;

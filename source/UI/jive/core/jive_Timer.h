@@ -49,7 +49,7 @@ public:
     using Callback = std::function<void(juce::Time)>;
 
     Timer(Callback timerCallback, juce::RelativeTime callbackInterval);
-    ~Timer();
+    ~Timer() override;
 
 private:
 #if JIVE_UNIT_TESTS

@@ -29,7 +29,7 @@ public:
 
     Property(Source propertySource, const juce::Identifier& propertyID)
         : id { propertyID }
-        , source { propertySource }
+        , source { std::move(propertySource) }
         , transitionSourceID { propertyID } {
         initialise();
     }
@@ -39,8 +39,8 @@ public:
         *this = other;
     }
 
-    Property(Property&& other)
-        : id { std::move(other.id) } {
+    Property(Property&& other) noexcept
+        : id { other.id } {
         *this = std::move(other);
     }
 
@@ -55,7 +55,7 @@ public:
         return *this;
     }
 
-    Property& operator=(Property&& other) {
+    Property& operator=(Property&& other) noexcept {
         jassert(id == other.id);
         transitionSourceID = std::move(other.transitionSourceID);
         source = std::move(other.source);
@@ -509,12 +509,13 @@ protected:
     }
 
     void set(Source& src, const juce::var& value) {
-        std::visit(
-            Visitor {
-                [this, &value](juce::ValueTree& sourceTree) { sourceTree.setProperty(id, value, nullptr); },
-                [this, &value](Object::ReferenceCountedPointer sourceObject) { sourceObject->setProperty(id, value); },
-            },
-            src);
+        std::visit(Visitor {
+                       [this, &value](juce::ValueTree& sourceTree) { sourceTree.setProperty(id, value, nullptr); },
+                       [this, &value](const Object::ReferenceCountedPointer& sourceObject) {
+                           sourceObject->setProperty(id, value);
+                       },
+                   },
+                   src);
     }
 
     virtual void transitionProgressed() {
