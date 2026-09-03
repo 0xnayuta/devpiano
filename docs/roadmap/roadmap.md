@@ -236,7 +236,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 5. **全系统功能回归、三闸门闭环与发布打包（Phase 27-E）**：63 个测试套件、12,668+ 单元测试断言 100% 绿灯，WSL 与 Windows MSVC 双端双配置编译 0 错误，分发包打包成功，GitHub Actions 五大门禁 100% 通过合入 `main`。
 ### Phase 28：Devpiano 声明式 UI 基础设施深度治理与接口冻结（Declarative UI Infrastructure Governance & API Freeze） [进行中，2026-09-03 开始]
 
-1. **API 边界收敛与 ViewHost 门面构建（Phase 28-A）**：封装 `ViewHost`，彻底隔离业务代码对底层 `Interpreter` / `GuiItem` 的裸露直接依赖与析构 UAF 风险；
+1. **API 边界收敛与 ViewHost 门面构建（Phase 28-A）**：封装 `ViewHost`，彻底隔离业务代码对底层 `Interpreter` / `GuiItem` 的裸露直接依赖与析构 UAF 风险 [已完成，2026-09-03]；
 2. **全量声明式 UI 布局金标测试（Phase 28-B）**：构建全应用 ValueTree 解释烟测、典型分辨率几何尺寸断言与焦点/滑音回归测试套件；
 3. **通用死重清理与规范化命名规整（Phase 28-C）**：剔除 JIVE 内嵌单测与孤立算法死代码，统一宏前缀（`DEVPIANO_UI_*`）与命名空间（`devpiano::ui`）；
 4. **代码审查闭环与 UI 基础设施接口冻结（Phase 28-D）**：双端双配置三闸门闭环，正式确立 UI Infrastructure Freeze 冻结公约，研发重心全面重归物理建模算法。

@@ -91,18 +91,17 @@
 
 ## Phase 28：Devpiano 声明式 UI 基础设施深度治理与接口冻结 (Declarative UI Infrastructure Governance & API Freeze)
 
-### Phase 28-A：API 边界收敛与 ViewHost 门面构建 (API Boundary Convergence & ViewHost Facade) [待执行]
+### Phase 28-A：API 边界收敛与 ViewHost 门面构建 (API Boundary Convergence & ViewHost Facade) [已完成，2026-09-03]
 > 目标：消除业务层（MainComponent、SettingsComponent、JiveModalDialog）对底层 `::jive::Interpreter` 与 `::jive::GuiItem` 的裸露直接依赖，建立强类型 RAII 门面。
 
-- [ ] **构建 `devpiano::ui::ViewHost`（统一 UI 宿主门面）**：
+- [x] **构建 `devpiano::ui::ViewHost`（统一 UI 宿主门面）**：
   - 内部完整封装 `Interpreter` 实例与 `GuiItem` 树生命周期，统一接管解析、组件工厂注入、`safeCleanupJiveTree` 析构时序与悬挂指针防范
   - 提供业务单一交互入口：`viewHost.loadLayout(const juce::ValueTree&)`、`viewHost.getRootComponent()`、`viewHost.applyStyles(StyleCatalog&)`
-- [ ] **强类型组件查找与访问器收敛**：
+- [x] **强类型组件查找与访问器收敛**：
   - 提供 `viewHost.find<T>(const juce::String& id)` 模板方法，消除业务侧分散的 `dynamic_cast`
-  - 重构 `MainComponent.cpp`、`MainComponentJiveAccessors.cpp` 与 `SettingsComponent.cpp`，消除裸 `Interpreter` / `GuiItem` 成员指针
-- [ ] **线程安全断言（UI Thread Assertions）**：
-  - 在 `ViewHost`、`Interpreter::interpret()`、`StyleCatalog::applyToTree()` 入口显式加入 `JUCE_ASSERT_MESSAGE_MANAGER_IS_LOCKED`，防范非 UI 线程异步调用数据竞争
-
+  - 重构 `MainComponent.cpp`、`MainComponentJiveAccessors.cpp`、`SettingsComponent.cpp`、`JiveModalDialog.cpp` 与 `WavExportTask.cpp`，彻底消除裸 `Interpreter` / `GuiItem` 成员指针
+- [x] **线程安全断言（UI Thread Assertions）**：
+  - 在 `ViewHost::loadLayout`、`ViewHost::reset`、`Interpreter::interpret()`、`StyleCatalog::applyToTree()` 入口显式加入 `JUCE_ASSERT_MESSAGE_MANAGER_IS_LOCKED`，防范非 UI 线程异步调用数据竞争
 ---
 
 ### Phase 28-B：全量声明式 UI 布局金标测试与防线建立 (Layout Golden Tests & Regression Armor) [待执行]

@@ -115,9 +115,8 @@ MainComponent::~MainComponent() {
     // dies while its Component is still alive; `jiveComponents` then unwinds
     // at the end of this scope, destroying the Components strictly after
     // their StyleSheets (children before parents, as JUCE requires).
-    devpiano::ui::jive::safeCleanupJiveTree(jiveRootItem);
+    viewHost.reset();
     devpiano::ui::jive::StyleCatalog::get().releaseOwnedStyles();
-    jiveInterpreter.reset();
 }
 
 void MainComponent::initialiseFromPreset() {
@@ -171,40 +170,19 @@ void MainComponent::initialiseUi() {
     juce::LookAndFeel::setDefaultLookAndFeel(lookAndFeel.get());
     setWantsKeyboardFocus(true);
 
-    // 2. 加载全局样式表规则并注册 JIVE 自定义组件工厂
+    // 2. 加载全局样式表规则并注册自定义组件工厂
     devpiano::ui::jive::StyleBootstrap::bootstrapStyleCatalog(lastStylesModTime);
 
-    jiveInterpreter = std::make_unique<::jive::Interpreter>();
-    devpiano::ui::jive::JiveComponentRegistry::registerCustomComponents(*jiveInterpreter,
-                                                                        audioEngine.getKeyboardState());
+    viewHost.registerKeyboardComponents(audioEngine.getKeyboardState());
 
-    // 3. 构建 JIVE 根节点并应用全局样式表
+    // 3. 构建根节点并应用全局样式表
     auto rootTree = devpiano::ui::jive::makeRootLayout();
-    devpiano::ui::jive::StyleCatalog::get().applyToTree(rootTree);
-    jiveRootItem = jiveInterpreter->interpret(rootTree);
-    if (jiveRootItem != nullptr) {
-        addAndMakeVisible(jiveRootItem->getComponent().get());
+    if (viewHost.loadLayout(rootTree, true)) {
+        addAndMakeVisible(viewHost.getRootComponent());
 
-        const auto findItem
-            = [this](const char* id) -> ::jive::GuiItem* { return jive::findItemWithID(*jiveRootItem, id); };
-        const auto findSlider = [&findItem](const char* id) -> juce::Slider* {
-            if (auto* item = findItem(id)) {
-                return dynamic_cast<juce::Slider*>(item->getComponent().get());
-            }
-            return nullptr;
-        };
-        const auto findCombo = [&findItem](const char* id) -> juce::ComboBox* {
-            if (auto* item = findItem(id)) {
-                return dynamic_cast<juce::ComboBox*>(item->getComponent().get());
-            }
-            return nullptr;
-        };
-        const auto findButton = [&findItem](const char* id) -> juce::Button* {
-            if (auto* item = findItem(id)) {
-                return dynamic_cast<juce::Button*>(item->getComponent().get());
-            }
-            return nullptr;
-        };
+        const auto findSlider = [this](const char* id) -> juce::Slider* { return viewHost.find<juce::Slider>(id); };
+        const auto findCombo = [this](const char* id) -> juce::ComboBox* { return viewHost.find<juce::ComboBox>(id); };
+        const auto findButton = [this](const char* id) -> juce::Button* { return viewHost.find<juce::Button>(id); };
 
         // ── header ──
         if (auto* btn = findButton("settings-btn")) {
@@ -249,17 +227,12 @@ void MainComponent::initialiseUi() {
                 }
             };
         }
-        if (auto* item = findItem("plugin-path-editor")) {
-            if (auto* editor = dynamic_cast<juce::TextEditor*>(item->getComponent().get())) {
-                editor->onReturnKey = [this] { pluginOperationController->scanPlugins(); };
-            }
+        if (auto* editor = viewHost.find<juce::TextEditor>("plugin-path-editor")) {
+            editor->onReturnKey = [this] { pluginOperationController->scanPlugins(); };
         }
 
         // ── controls panel ──
-        AdsrCurveComponent* adsrCurve = nullptr;
-        if (auto* item = findItem("adsr-curve")) {
-            adsrCurve = dynamic_cast<AdsrCurveComponent*>(item->getComponent().get());
-        }
+        AdsrCurveComponent* adsrCurve = viewHost.find<AdsrCurveComponent>("adsr-curve");
 
         const auto wireKnob = [&findSlider](const char* id, double min, double max, double interval,
                                             const std::function<juce::String(double)>& formatter,
@@ -359,10 +332,8 @@ void MainComponent::initialiseUi() {
         setRecordingControlsState({});
 
         // ── keyboard area ──
-        if (auto* item = findItem("custom-keyboard")) {
-            if (auto* viewport = dynamic_cast<KeyboardViewport*>(item->getComponent().get())) {
-                customKeyboardRef = &viewport->getCustomKeyboard();
-            }
+        if (auto* viewport = viewHost.find<KeyboardViewport>("custom-keyboard")) {
+            customKeyboardRef = &viewport->getCustomKeyboard();
         }
     }
 
@@ -618,10 +589,10 @@ void MainComponent::paint(juce::Graphics& g) {
 void MainComponent::resized() {
     // The entire layout is a single JIVE FlexBox tree; resizing the root
     // component propagates to every panel.
-    if (jiveRootItem != nullptr) {
-        jiveRootItem->getComponent()->setBounds(getLocalBounds());
+    if (viewHost.isValid()) {
+        viewHost.setBounds(getLocalBounds());
         // Layout just recomputed the status label's width — re-truncate the
-        // status text to it (JIVE TextComponents never clip their text).
+        // status text to it (TextComponents never clip their text).
         refreshPluginStatusEllipsis();
     }
 }
@@ -758,20 +729,20 @@ void MainComponent::reloadStylesAndTokens() {
         }
     }
 
-    if (jiveRootItem != nullptr) {
-        devpiano::ui::jive::StyleCatalog::get().refreshStyles(jiveRootItem->state);
+    if (viewHost.isValid()) {
+        if (auto* rootItem = viewHost.getRootItem()) {
+            devpiano::ui::jive::StyleCatalog::get().refreshStyles(rootItem->state);
+        }
 
         // Update settings button icon colours with newly loaded tokens
-        if (auto* item = jive::findItemWithID(*jiveRootItem, "settings-btn")) {
-            if (auto* btn = dynamic_cast<juce::DrawableButton*>(item->getComponent().get())) {
-                btn->setImages(
-                    devpiano::ui::jive::VectorIconFactory::createGearIcon(
-                        devpiano::jive::DesignTokens::get().textSecondary())
-                        .get(),
-                    devpiano::ui::jive::VectorIconFactory::createGearIcon(devpiano::jive::DesignTokens::get().primary())
-                        .get(),
-                    nullptr);
-            }
+        if (auto* btn = viewHost.find<juce::DrawableButton>("settings-btn")) {
+            btn->setImages(
+                devpiano::ui::jive::VectorIconFactory::createGearIcon(
+                    devpiano::jive::DesignTokens::get().textSecondary())
+                    .get(),
+                devpiano::ui::jive::VectorIconFactory::createGearIcon(devpiano::jive::DesignTokens::get().primary())
+                    .get(),
+                nullptr);
         }
     }
 

@@ -256,6 +256,8 @@ target_sources(devpiano PRIVATE
     source/UI/KeyBindingEditDialog.h
     source/UI/ColourSwatchButton.cpp
     source/UI/ColourSwatchButton.h
+    source/UI/ViewHost.cpp
+    source/UI/ViewHost.h
     source/UI/jive/JiveBuilderHelpers.h
     source/UI/jive/JiveModalDialog.cpp
     source/UI/jive/JiveModalDialog.h
@@ -460,6 +462,8 @@ if (BUILD_TESTS)
         source/UI/PluginTypes.h
         source/UI/CustomKeyboard.cpp
         source/UI/CustomKeyboard.h
+        source/UI/native/AdsrCurveComponent.cpp
+        source/UI/native/AdsrCurveComponent.h
 
         source/UI/jive/StyleCatalog.cpp
         source/UI/jive/StyleCatalog.h
@@ -468,6 +472,8 @@ if (BUILD_TESTS)
         source/UI/jive/JiveBuilderHelpers.h
         source/UI/jive/JiveModalDialog.cpp
         source/UI/jive/JiveModalDialog.h
+        source/UI/ViewHost.cpp
+        source/UI/ViewHost.h
         source/UI/jive/JiveUtils.h
         source/UI/jive/DesignTokens.cpp
         source/UI/jive/DesignTokens.h
@@ -514,6 +520,7 @@ if (BUILD_TESTS)
         source/tests/PluginOperationControllerTest.cpp
         source/tests/JiveModalDialogTest.cpp
         source/tests/SettingsLayoutModelTest.cpp
+        source/tests/ViewHostTest.cpp
         ${DEVPIANO_JIVE_CORE_SOURCES}
     )
     target_link_libraries(devpiano_tests PRIVATE

@@ -163,6 +163,7 @@ void StyleCatalog::refreshStyles(juce::ValueTree& tree) {
     applyToTree(tree);
 }
 void StyleCatalog::applyToTree(juce::ValueTree& tree) const {
+    JUCE_ASSERT_MESSAGE_MANAGER_IS_LOCKED;
     applyToNode(tree);
     for (auto child : tree) {
         applyToTree(child);

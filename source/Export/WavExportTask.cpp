@@ -3,23 +3,18 @@
 #include "Diagnostics/Log.h"
 #include "Recording/PluginOfflineRenderer.h"
 #include "Recording/WavFileExporter.h"
+#include "UI/ViewHost.h"
 #include "UI/jive/DesignTokens.h"
 #include "UI/jive/JiveModalDialog.h"
-#include "UI/jive/JiveUtils.h"
-#include "UI/jive/StyleCatalog.h"
 
 namespace {
 
 struct ProgressContentWrapper final : public juce::Component {
-    ProgressContentWrapper(std::unique_ptr<::jive::GuiItem> item, std::unique_ptr<::jive::Interpreter> interp,
-                           std::function<void()> onCancelFn)
-        : rootItem(std::move(item))
-        , interpreter(std::move(interp))
+    ProgressContentWrapper(devpiano::ui::ViewHost vh, std::function<void()> onCancelFn)
+        : viewHost(std::move(vh))
         , onCancel(std::move(onCancelFn)) {
-        if (rootItem != nullptr) {
-            if (auto comp = rootItem->getComponent()) {
-                addAndMakeVisible(*comp);
-            }
+        if (auto* comp = viewHost.getRootComponent()) {
+            addAndMakeVisible(*comp);
         }
         setSize(380, 140);
         setWantsKeyboardFocus(true);
@@ -29,8 +24,7 @@ struct ProgressContentWrapper final : public juce::Component {
         if (!completed && onCancel) {
             onCancel();
         }
-        devpiano::ui::jive::safeCleanupJiveTree(rootItem);
-        interpreter.reset();
+        viewHost.reset();
     }
 
     void markCompleted() noexcept {
@@ -41,11 +35,7 @@ struct ProgressContentWrapper final : public juce::Component {
     }
 
     void resized() override {
-        if (rootItem != nullptr) {
-            if (auto comp = rootItem->getComponent()) {
-                comp->setBounds(getLocalBounds());
-            }
-        }
+        viewHost.setBounds(getLocalBounds());
     }
 
     bool keyPressed(const juce::KeyPress& key) override {
@@ -57,8 +47,7 @@ struct ProgressContentWrapper final : public juce::Component {
         }
         return false;
     }
-    std::unique_ptr<::jive::GuiItem> rootItem;
-    std::unique_ptr<::jive::Interpreter> interpreter;
+    devpiano::ui::ViewHost viewHost;
     std::function<void()> onCancel;
     bool completed = false;
 
@@ -128,19 +117,14 @@ bool WavExportTask::runThread(bool showProgressDialog) {
     }
     // Build JIVE progress dialog layout
     auto layout = devpiano::ui::jive::JiveModalDialog::makeProgressLayout(TRANS("Exporting..."), 380, 140);
-    devpiano::ui::jive::StyleCatalog::get().applyToTree(layout);
+    devpiano::ui::ViewHost viewHost;
+    viewHost.loadLayout(layout, true);
 
-    auto interpreter = std::make_unique<::jive::Interpreter>();
-    auto rootItem = interpreter->interpret(layout);
-    jassert(rootItem != nullptr);
-
-    if (rootItem != nullptr) {
-        if (auto* cancelBtn = devpiano::ui::jive::JiveModalDialog::findButtonById(*rootItem, "dialog-cancel-btn")) {
-            cancelBtn->onClick = [this] {
-                cancelRequested.store(true);
-                signalThreadShouldExit();
-            };
-        }
+    if (auto* cancelBtn = viewHost.find<juce::Button>("dialog-cancel-btn")) {
+        cancelBtn->onClick = [this] {
+            cancelRequested.store(true);
+            signalThreadShouldExit();
+        };
     }
 
     // Start background audio rendering thread
@@ -153,7 +137,7 @@ bool WavExportTask::runThread(bool showProgressDialog) {
     opts.resizable = false;
     opts.escapeKeyTriggersCloseButton = false; // Cancellation handled gracefully via cancelRequested flag
 
-    auto contentWrapper = std::make_unique<ProgressContentWrapper>(std::move(rootItem), std::move(interpreter), [this] {
+    auto contentWrapper = std::make_unique<ProgressContentWrapper>(std::move(viewHost), [this] {
         cancelRequested.store(true);
         signalThreadShouldExit();
     });
@@ -213,21 +197,14 @@ void WavExportTask::timerCallback() {
 
     if (activeDialog != nullptr) {
         if (auto* wrapper = dynamic_cast<ProgressContentWrapper*>(activeDialog->getContentComponent())) {
-            if (wrapper->rootItem != nullptr) {
+            if (wrapper->viewHost.isValid()) {
                 juce::String msg;
                 {
                     const juce::ScopedLock sl(messageLock);
                     msg = currentStatusMessage;
                 }
-                if (auto* msgItem = devpiano::ui::jive::JiveModalDialog::findGuiItemById(*wrapper->rootItem,
-                                                                                         "progress-status-message")) {
-                    msgItem->state.setProperty("text", msg, nullptr);
-                }
-
-                if (auto* barItem
-                    = devpiano::ui::jive::JiveModalDialog::findGuiItemById(*wrapper->rootItem, "dialog-progress-bar")) {
-                    barItem->state.setProperty("value", currentProgress.load(), nullptr);
-                }
+                wrapper->viewHost.setText("progress-status-message", msg);
+                wrapper->viewHost.setProperty("dialog-progress-bar", "value", currentProgress.load());
             }
         }
     }

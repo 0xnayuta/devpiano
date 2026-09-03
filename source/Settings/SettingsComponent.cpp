@@ -23,8 +23,7 @@ SettingsComponent::SettingsComponent(juce::AudioDeviceManager& dm, const juce::X
     }
 
     buildJiveUi();
-
-    viewport.setViewedComponent(jiveRootItem != nullptr ? jiveRootItem->getComponent().get() : nullptr, false);
+    viewport.setViewedComponent(viewHost.getRootComponent(), false);
     viewport.setScrollBarsShown(true, false, true, false);
     viewport.setSingleStepSizes(0, 20);
     viewport.addMouseListener(this, true);
@@ -41,68 +40,40 @@ SettingsComponent::SettingsComponent(juce::AudioDeviceManager& dm, const juce::X
 SettingsComponent::~SettingsComponent() {
     deviceManager.removeChangeListener(this);
     viewport.setViewedComponent(nullptr, false);
-    safeCleanupJiveTree(jiveRootItem);
-    interpreter.reset();
+    viewHost.reset();
 }
 
 void SettingsComponent::buildJiveUi() {
     viewport.setViewedComponent(nullptr, false);
-    safeCleanupJiveTree(jiveRootItem);
-    interpreter = std::make_unique<::jive::Interpreter>();
-    auto& factory = interpreter->getComponentFactory();
+    viewHost.reset();
 
-    factory.set("ListEditor", [] {
-        auto ed = std::make_unique<juce::TextEditor>();
-        ed->setMultiLine(true);
-        ed->setReadOnly(true);
-        ed->setScrollbarsShown(true);
-        ed->setCaretVisible(false);
-        ed->setPopupMenuEnabled(true);
-        ed->setWantsKeyboardFocus(false);
-        ed->setMouseClickGrabsKeyboardFocus(false);
-        return ed;
-    });
+    viewHost.registerDefaultComponents();
 
     auto layoutTree = devpiano::ui::jive::makeSettingsLayoutTree();
-    devpiano::ui::jive::StyleCatalog::get().applyToTree(layoutTree);
-
-    jiveRootItem = interpreter->interpret(layoutTree);
-    jassert(jiveRootItem != nullptr);
-
-    if (jiveRootItem != nullptr) {
+    if (viewHost.loadLayout(layoutTree, true)) {
         // Find audio component references
-        audioDeviceTypeCombo
-            = dynamic_cast<juce::ComboBox*>(findComponentById(*jiveRootItem, "audio-device-type-combo"));
-        audioOutputDeviceCombo
-            = dynamic_cast<juce::ComboBox*>(findComponentById(*jiveRootItem, "audio-output-device-combo"));
-        audioActiveChannelsCombo
-            = dynamic_cast<juce::ComboBox*>(findComponentById(*jiveRootItem, "audio-active-channels-combo"));
-        audioTestButton = dynamic_cast<juce::Button*>(findComponentById(*jiveRootItem, "audio-test-button"));
-        audioSampleRateCombo
-            = dynamic_cast<juce::ComboBox*>(findComponentById(*jiveRootItem, "audio-sample-rate-combo"));
-        audioBufferSizeCombo
-            = dynamic_cast<juce::ComboBox*>(findComponentById(*jiveRootItem, "audio-buffer-size-combo"));
-        asioControlPanelButton
-            = dynamic_cast<juce::Button*>(findComponentById(*jiveRootItem, "asio-control-panel-button"));
-        asioControlPanelRowItem = devpiano::ui::jive::findGuiItemById(*jiveRootItem, "asio-control-panel-row");
+        audioDeviceTypeCombo = viewHost.find<juce::ComboBox>("audio-device-type-combo");
+        audioOutputDeviceCombo = viewHost.find<juce::ComboBox>("audio-output-device-combo");
+        audioActiveChannelsCombo = viewHost.find<juce::ComboBox>("audio-active-channels-combo");
+        audioTestButton = viewHost.find<juce::Button>("audio-test-button");
+        audioSampleRateCombo = viewHost.find<juce::ComboBox>("audio-sample-rate-combo");
+        audioBufferSizeCombo = viewHost.find<juce::ComboBox>("audio-buffer-size-combo");
+        asioControlPanelButton = viewHost.find<juce::Button>("asio-control-panel-button");
 
         // Find other settings references
-        keySignatureCombo = dynamic_cast<juce::ComboBox*>(findComponentById(*jiveRootItem, "key-signature-combo"));
-        midiTransposeToggle
-            = dynamic_cast<juce::ToggleButton*>(findComponentById(*jiveRootItem, "midi-transpose-toggle"));
-        colourModeCombo = dynamic_cast<juce::ComboBox*>(findComponentById(*jiveRootItem, "colour-mode-combo"));
-        noteDisplayCombo = dynamic_cast<juce::ComboBox*>(findComponentById(*jiveRootItem, "note-display-combo"));
-        fadeSpeedSlider = dynamic_cast<juce::Slider*>(findComponentById(*jiveRootItem, "fade-speed-slider"));
-        instrumentFilterToggle
-            = dynamic_cast<juce::ToggleButton*>(findComponentById(*jiveRootItem, "instrument-filter-toggle"));
-        languageCombo = dynamic_cast<juce::ComboBox*>(findComponentById(*jiveRootItem, "language-combo"));
-        diagnosticsEditor = dynamic_cast<juce::TextEditor*>(findComponentById(*jiveRootItem, "diagnostics-editor"));
-        saveButton = dynamic_cast<juce::Button*>(findComponentById(*jiveRootItem, "save-button"));
-        followKeyAreaItem = devpiano::ui::jive::findGuiItemById(*jiveRootItem, "channel-follow-key-area");
+        keySignatureCombo = viewHost.find<juce::ComboBox>("key-signature-combo");
+        midiTransposeToggle = viewHost.find<juce::ToggleButton>("midi-transpose-toggle");
+        colourModeCombo = viewHost.find<juce::ComboBox>("colour-mode-combo");
+        noteDisplayCombo = viewHost.find<juce::ComboBox>("note-display-combo");
+        fadeSpeedSlider = viewHost.find<juce::Slider>("fade-speed-slider");
+        instrumentFilterToggle = viewHost.find<juce::ToggleButton>("instrument-filter-toggle");
+        languageCombo = viewHost.find<juce::ComboBox>("language-combo");
+        diagnosticsEditor = viewHost.find<juce::TextEditor>("diagnostics-editor");
+        saveButton = viewHost.find<juce::Button>("save-button");
 
         for (int ch = 0; ch < 16; ++ch) {
             followKeyToggles[static_cast<size_t>(ch)]
-                = dynamic_cast<juce::ToggleButton*>(findComponentById(*jiveRootItem, "follow-key-" + juce::String(ch)));
+                = viewHost.find<juce::ToggleButton>("channel-toggle-" + juce::String(ch));
         }
 
         wireAudioControls();
@@ -372,8 +343,8 @@ void SettingsComponent::rebuildKeySignatureCombo() {
 void SettingsComponent::refreshTexts() {
     const auto savedViewPos = viewport.getViewPosition();
     buildJiveUi();
-    if (viewport.getViewedComponent() != (jiveRootItem != nullptr ? jiveRootItem->getComponent().get() : nullptr)) {
-        viewport.setViewedComponent(jiveRootItem != nullptr ? jiveRootItem->getComponent().get() : nullptr, false);
+    if (viewport.getViewedComponent() != viewHost.getRootComponent()) {
+        viewport.setViewedComponent(viewHost.getRootComponent(), false);
     }
     resized();
     updateDiagnostics();
@@ -547,15 +518,11 @@ void SettingsComponent::populateAudioBufferSizes() {
 
 void SettingsComponent::updateAsioControlPanelVisibility() {
     const bool isAsio = deviceManager.getCurrentAudioDeviceType().containsIgnoreCase("ASIO");
-    if (asioControlPanelRowItem != nullptr) {
-        asioControlPanelRowItem->state.setProperty("visibility", isAsio, nullptr);
-        asioControlPanelRowItem->state.setProperty("height", isAsio ? 28 : 0, nullptr);
-        asioControlPanelRowItem->state.setProperty("max-height", isAsio ? 28 : 0, nullptr);
-        asioControlPanelRowItem->state.setProperty("margin", isAsio ? "0 0 6 0" : "0 0 0 0", nullptr);
-        if (auto comp = asioControlPanelRowItem->getComponent()) {
-            comp->setVisible(isAsio);
-        }
-    }
+    viewHost.setVisible("asio-control-panel-row", isAsio);
+    viewHost.setProperty("asio-control-panel-row", "height", isAsio ? 28 : 0);
+    viewHost.setProperty("asio-control-panel-row", "max-height", isAsio ? 28 : 0);
+    viewHost.setProperty("asio-control-panel-row", "margin", isAsio ? "0 0 6 0" : "0 0 0 0");
+
     if (asioControlPanelButton != nullptr) {
         asioControlPanelButton->setVisible(isAsio);
     }
@@ -585,12 +552,12 @@ int SettingsComponent::keySignatureToComboId(int ks) {
 }
 
 void SettingsComponent::updateContentBounds() {
-    if (jiveRootItem != nullptr) {
+    if (viewHost.isValid()) {
         const auto previousViewPos = viewport.getViewPosition();
         const auto availableWidth = viewport.getMaximumVisibleWidth();
         const auto contentWidth = juce::jmax(640, availableWidth);
         const auto contentHeight = calculateSettingsContentHeight();
-        if (auto rootComp = jiveRootItem->getComponent()) {
+        if (auto* rootComp = viewHost.getRootComponent()) {
             rootComp->setSize(contentWidth, contentHeight);
         }
         viewport.setViewPosition(previousViewPos);
@@ -599,11 +566,7 @@ void SettingsComponent::updateContentBounds() {
 
 void SettingsComponent::updateFollowKeyTogglesEnablement() {
     const auto enabled = midiTransposeToggle != nullptr && midiTransposeToggle->getToggleState();
-    if (followKeyAreaItem != nullptr) {
-        if (auto comp = followKeyAreaItem->getComponent()) {
-            comp->setEnabled(enabled);
-        }
-    }
+    viewHost.setEnabled("channel-follow-key-area", enabled);
     for (int ch = 0; ch < 16; ++ch) {
         if (auto* tb = followKeyToggles[static_cast<size_t>(ch)]) {
             tb->setEnabled(enabled);

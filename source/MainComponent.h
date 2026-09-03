@@ -18,6 +18,7 @@
 #include "Locale/LocaleManager.h"
 #include "Midi/MidiChannelMapper.h"
 #include "Settings/AppStateBuilder.h"
+#include "UI/ViewHost.h"
 
 #include "Plugin/PluginHost.h"
 #include "Plugin/PluginOperationController.h"
@@ -203,9 +204,8 @@ private:
 
     bool dropActive = false;
 
-    // Single JIVE tree for the whole window (replaces the native panels)
-    std::unique_ptr<::jive::Interpreter> jiveInterpreter;
-    std::unique_ptr<::jive::GuiItem> jiveRootItem;
+    // Unified declarative UI host for the main window (Phase 28-A ViewHost facade)
+    devpiano::ui::ViewHost viewHost;
     juce::String lastPluginStatusText; // full text; re-ellipsised on resize
     bool isUpdatingPluginSelector = false; // guard against onChange re-entrancy during programmatic UI refresh
     bool isUpdatingPresets = false; // guard against onChange re-entrancy during preset list refresh

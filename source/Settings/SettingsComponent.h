@@ -2,6 +2,7 @@
 
 #include "Settings/SettingsModel.h"
 #include "Settings/jive/SettingsLayoutModel.h"
+#include "UI/ViewHost.h"
 #include <array>
 #include <functional>
 #include <juce_audio_devices/juce_audio_devices.h>
@@ -74,8 +75,7 @@ private:
     SettingsModel* model = nullptr;
 
     juce::Viewport viewport;
-    std::unique_ptr<::jive::Interpreter> interpreter;
-    std::unique_ptr<::jive::GuiItem> jiveRootItem;
+    devpiano::ui::ViewHost viewHost;
 
     juce::ComboBox* audioDeviceTypeCombo = nullptr;
     juce::ComboBox* audioOutputDeviceCombo = nullptr;
@@ -84,7 +84,6 @@ private:
     juce::ComboBox* audioSampleRateCombo = nullptr;
     juce::ComboBox* audioBufferSizeCombo = nullptr;
     juce::Button* asioControlPanelButton = nullptr;
-    ::jive::GuiItem* asioControlPanelRowItem = nullptr;
     bool isUpdatingAudioControls = false;
 
     juce::ComboBox* keySignatureCombo = nullptr;
@@ -98,7 +97,6 @@ private:
     juce::ComboBox* languageCombo = nullptr;
     juce::TextEditor* diagnosticsEditor = nullptr;
     juce::Button* saveButton = nullptr;
-    ::jive::GuiItem* followKeyAreaItem = nullptr;
 
     std::unique_ptr<juce::XmlElement> savedStateSnapshot;
     bool dirty = false;

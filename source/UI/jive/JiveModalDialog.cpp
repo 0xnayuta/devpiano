@@ -4,6 +4,7 @@
 #include "UI/jive/JiveUtils.h"
 #include "UI/jive/StyleCatalog.h"
 
+#include "UI/ViewHost.h"
 namespace devpiano::ui::jive {
 
 namespace {
@@ -15,49 +16,15 @@ class JiveDialogContent final : public juce::Component {
 public:
     explicit JiveDialogContent(JiveModalDialog::LaunchOptions opts)
         : options(std::move(opts)) {
-        interpreter = std::make_unique<::jive::Interpreter>();
-        auto& factory = interpreter->getComponentFactory();
-
-        factory.set("PathEditor", [] {
-            auto editor = std::make_unique<juce::TextEditor>();
-            editor->setMultiLine(false);
-            editor->setReturnKeyStartsNewLine(false);
-            editor->setWantsKeyboardFocus(true);
-            editor->setMouseClickGrabsKeyboardFocus(true);
-            return editor;
-        });
-
-        factory.set("ListEditor", [] {
-            auto editor = std::make_unique<juce::TextEditor>();
-            editor->setMultiLine(true);
-            editor->setReturnKeyStartsNewLine(true);
-            editor->setScrollbarsShown(true);
-            editor->setWantsKeyboardFocus(true);
-            editor->setMouseClickGrabsKeyboardFocus(true);
-            return editor;
-        });
-
-        factory.set("TextEditor", [] {
-            auto editor = std::make_unique<juce::TextEditor>();
-            editor->setMultiLine(false);
-            editor->setWantsKeyboardFocus(true);
-            editor->setMouseClickGrabsKeyboardFocus(true);
-            return editor;
-        });
+        viewHost.registerDefaultComponents();
         if (options.configureFactory) {
-            options.configureFactory(factory);
+            viewHost.configureComponentFactory(options.configureFactory);
         }
 
-        // Apply global styles to the dialog layout tree
-        StyleCatalog::get().applyToTree(options.layoutTree);
+        viewHost.loadLayout(options.layoutTree, true);
 
-        rootItem = interpreter->interpret(options.layoutTree);
-        jassert(rootItem != nullptr);
-
-        if (rootItem != nullptr) {
-            if (auto rootComp = rootItem->getComponent()) {
-                addAndMakeVisible(*rootComp);
-            }
+        if (auto* rootComp = viewHost.getRootComponent()) {
+            addAndMakeVisible(*rootComp);
         }
 
         // Determine dialog content size
@@ -72,24 +39,22 @@ public:
         setSize(width, height);
 
         // Hook up standard button callbacks
-        if (rootItem != nullptr) {
-            if (auto* okBtn = JiveModalDialog::findButtonById(*rootItem, "dialog-ok-btn")) {
-                okBtn->onClick = [this] { handleConfirm(); };
-            }
-            if (auto* cancelBtn = JiveModalDialog::findButtonById(*rootItem, "dialog-cancel-btn")) {
-                cancelBtn->onClick = [this] { handleCancel(); };
-            }
+        if (auto* okBtn = viewHost.find<juce::Button>("dialog-ok-btn")) {
+            okBtn->onClick = [this] { handleConfirm(); };
+        }
+        if (auto* cancelBtn = viewHost.find<juce::Button>("dialog-cancel-btn")) {
+            cancelBtn->onClick = [this] { handleCancel(); };
+        }
 
-            // Hook return key on single-line editors
-            if (auto* editor = JiveModalDialog::findTextEditorById(*rootItem, "dialog-editor")) {
-                editor->onReturnKey = [this] { handleConfirm(); };
-            } else if (auto* titleEd = JiveModalDialog::findTextEditorById(*rootItem, "title-editor")) {
-                titleEd->onReturnKey = [this] { handleConfirm(); };
-            }
+        // Hook return key on single-line editors
+        if (auto* editor = viewHost.find<juce::TextEditor>("dialog-editor")) {
+            editor->onReturnKey = [this] { handleConfirm(); };
+        } else if (auto* titleEd = viewHost.find<juce::TextEditor>("title-editor")) {
+            titleEd->onReturnKey = [this] { handleConfirm(); };
+        }
 
-            if (options.onInit) {
-                options.onInit(*rootItem);
-            }
+        if (options.onInit && viewHost.getRootItem() != nullptr) {
+            options.onInit(*viewHost.getRootItem());
         }
 
         setWantsKeyboardFocus(true);
@@ -99,8 +64,7 @@ public:
         if (!completed && options.onCancel) {
             options.onCancel();
         }
-        safeCleanupJiveTree(rootItem);
-        interpreter.reset();
+        viewHost.reset();
     }
 
     void paint(juce::Graphics& g) override {
@@ -108,25 +72,21 @@ public:
     }
 
     void resized() override {
-        if (rootItem != nullptr) {
-            if (auto comp = rootItem->getComponent()) {
-                comp->setBounds(getLocalBounds());
-            }
-        }
+        viewHost.setBounds(getLocalBounds());
     }
 
     void parentHierarchyChanged() override {
-        if (rootItem != nullptr) {
+        if (viewHost.isValid()) {
             juce::MessageManager::callAsync([safeThis = juce::Component::SafePointer<JiveDialogContent>(this)] {
-                if (safeThis == nullptr || safeThis->rootItem == nullptr) {
+                if (safeThis == nullptr || !safeThis->viewHost.isValid()) {
                     return;
                 }
                 // Try focusing the first TextEditor
-                if (auto* ed = JiveModalDialog::findTextEditorById(*safeThis->rootItem, "dialog-editor")) {
+                if (auto* ed = safeThis->viewHost.find<juce::TextEditor>("dialog-editor")) {
                     ed->grabKeyboardFocus();
-                } else if (auto* titleEd = JiveModalDialog::findTextEditorById(*safeThis->rootItem, "title-editor")) {
+                } else if (auto* titleEd = safeThis->viewHost.find<juce::TextEditor>("title-editor")) {
                     titleEd->grabKeyboardFocus();
-                } else if (auto* okBtn = JiveModalDialog::findButtonById(*safeThis->rootItem, "dialog-ok-btn")) {
+                } else if (auto* okBtn = safeThis->viewHost.find<juce::Button>("dialog-ok-btn")) {
                     okBtn->grabKeyboardFocus();
                 }
             });
@@ -154,8 +114,8 @@ public:
     }
 
     void handleConfirm() {
-        if (rootItem != nullptr && options.onConfirm) {
-            const auto shouldClose = options.onConfirm(*rootItem);
+        if (options.onConfirm && viewHost.getRootItem() != nullptr) {
+            const auto shouldClose = options.onConfirm(*viewHost.getRootItem());
             if (!shouldClose) {
                 return;
             }
@@ -189,8 +149,7 @@ public:
 
 private:
     JiveModalDialog::LaunchOptions options;
-    std::unique_ptr<::jive::Interpreter> interpreter;
-    std::unique_ptr<::jive::GuiItem> rootItem;
+    devpiano::ui::ViewHost viewHost;
     bool completed = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(JiveDialogContent)

@@ -15,25 +15,6 @@
 
 namespace {
 
-/// JIVE Button's "text" property maps to Button::setTitle (accessibility),
-/// not the visible label — that lives in the button's Text child.
-/// The semantic "title" is kept in sync with the label so the
-/// accessibility/inspector title follows runtime language switching.
-void setButtonLabel(::jive::GuiItem* buttonItem, const juce::String& text) {
-    if (buttonItem == nullptr) {
-        return;
-    }
-    buttonItem->state.setProperty("title", text, nullptr);
-    for (auto child : buttonItem->state) {
-        if (child.getType() == juce::Identifier("Text")) {
-            child.setProperty("text", text, nullptr);
-            child.setProperty("title", text, nullptr);
-            child.setProperty("word-wrap", "none", nullptr);
-            return;
-        }
-    }
-}
-
 /// Ellipsise a string to fit `maxWidth` pixels of the 14 pt UI font.
 ///
 /// JIVE's TextComponent paints its AttributedString without clipping, so a
@@ -72,109 +53,51 @@ juce::String keySignatureToString(int ks) {
     return "C";
 }
 
-template <typename T> [[nodiscard]] T getSliderValue(::jive::GuiItem* root, const char* id, T fallback) {
-    if (root != nullptr) {
-        if (auto* item = jive::findItemWithID(*root, id)) {
-            if (auto* slider = dynamic_cast<juce::Slider*>(item->getComponent().get())) {
-                return static_cast<T>(slider->getValue());
-            }
-        }
-    }
-    return fallback;
-}
-
 } // namespace
 
 // ── JIVE plugin panel accessors ────────────────────────────────────────────
 
 void MainComponent::setPluginPathText(const juce::String& text) {
-    if (jiveRootItem == nullptr) {
-        return;
-    }
-    if (auto* item = jive::findItemWithID(*jiveRootItem, "plugin-path-editor")) {
-        if (auto* editor = dynamic_cast<juce::TextEditor*>(item->getComponent().get())) {
-            editor->setText(text, juce::dontSendNotification);
-            // The text can be set before the first layout (editor width 0);
-            // repaint so the label renders once the panel expands. Also
-            // re-assert on the next tick in case a JIVE property change
-            // rebuilt the component mid-flight.
-            editor->repaint();
-        }
+    if (auto* editor = viewHost.find<juce::TextEditor>("plugin-path-editor")) {
+        editor->setText(text, juce::dontSendNotification);
+        editor->repaint();
     }
 }
 
 juce::String MainComponent::getPluginPathText() const {
-    if (jiveRootItem == nullptr) {
-        return {};
-    }
-    if (auto* item = jive::findItemWithID(*jiveRootItem, "plugin-path-editor")) {
-        if (auto* editor = dynamic_cast<juce::TextEditor*>(item->getComponent().get())) {
-            return editor->getText();
-        }
+    if (auto* editor = viewHost.find<juce::TextEditor>("plugin-path-editor")) {
+        return editor->getText();
     }
     return {};
 }
 
 juce::String MainComponent::getSelectedPluginName() const {
-    if (jiveRootItem == nullptr) {
-        return {};
-    }
-    if (auto* item = jive::findItemWithID(*jiveRootItem, "plugin-selector")) {
-        if (auto* combo = dynamic_cast<juce::ComboBox*>(item->getComponent().get())) {
-            return combo->getText();
-        }
+    if (auto* combo = viewHost.find<juce::ComboBox>("plugin-selector")) {
+        return combo->getText();
     }
     return {};
 }
 
 void MainComponent::setPluginPanelExpanded(bool expanded) {
     appSettings.pluginPanelExpanded = expanded;
-    if (jiveRootItem != nullptr) {
-        // Order matters: update the expandable area FIRST, so that the panel's
-        // layout pass (triggered by the height change below) reads the final
-        // area height. The old order laid the panel out while the area was
-        // still 112 px tall, flex-compressing the toolbar row to 0 height.
-        if (auto* expandedArea = jive::findItemWithID(*jiveRootItem, "plugin-expanded-area")) {
-            expandedArea->state.setProperty("height", expanded ? 112 : 0, nullptr);
-        }
-
-        if (auto* item = jive::findItemWithID(*jiveRootItem, "plugin-panel")) {
-            item->state.setProperty("height", expanded ? 160 : 42, nullptr);
-            // JIVE's boxModelChanged only re-lays-out the decorated item
-            // itself (the top of its decorator chain), never its siblings in
-            // the parent column — so the controls/keyboard below would stay
-            // put and overlap the expanded panel. Reflow the main column
-            // explicitly. (A root reflow is not enough: components whose
-            // bounds did not change are skipped, so the panel's own children
-            // would keep their compressed layout.)
-            if (auto* panel = dynamic_cast<jive::FlexContainer*>(item)) {
-                panel->layOutChildren();
-            }
-
-            if (auto* mainArea = dynamic_cast<jive::FlexContainer*>(jive::findItemWithID(*jiveRootItem, "main-area"))) {
-                mainArea->layOutChildren();
-            }
-        }
+    if (viewHost.isValid()) {
+        viewHost.setProperty("plugin-expanded-area", "height", expanded ? 112 : 0);
+        viewHost.setProperty("plugin-panel", "height", expanded ? 160 : 42);
+        viewHost.relayoutContainer("plugin-panel");
+        viewHost.relayoutContainer("main-area");
     }
     settingsStore.scheduleSave(appSettings);
 }
 
 void MainComponent::setInstrumentFilterVisible(bool visible) {
-    if (jiveRootItem == nullptr) {
+    if (!viewHost.isValid()) {
         return;
     }
-    if (auto* item = jive::findItemWithID(*jiveRootItem, "plugin-filter-combo")) {
-        item->state.setProperty("visibility", visible, nullptr);
-        item->state.setProperty("width", visible ? 100 : 0, nullptr);
-        item->state.setProperty("margin", visible ? "0 6 0 0" : "0", nullptr);
-    }
-    if (auto* selectorItem = jive::findItemWithID(*jiveRootItem, "plugin-selector")) {
-        selectorItem->state.setProperty("width", visible ? 180 : 286, nullptr);
-    }
-    if (auto* actionRow
-        = dynamic_cast<jive::FlexContainer*>(jive::findItemWithID(*jiveRootItem, "plugin-action-row"))) {
-        actionRow->layOutChildren();
-    }
+    viewHost.setProperty("plugin-filter-combo", "visibility", visible);
+    viewHost.setProperty("plugin-filter-combo", "width", visible ? 100 : 0);
+    viewHost.setProperty("plugin-filter-combo", "margin", visible ? "0 6 0 0" : "0");
+    viewHost.setProperty("plugin-selector", "width", visible ? 180 : 286);
+    viewHost.relayoutContainer("plugin-action-row");
 }
 
 void MainComponent::showPluginBrowseDialog() {
@@ -243,14 +166,8 @@ juce::String formatPluginStatusSummary(const devpiano::ui::PluginPanelState& sta
     return text;
 }
 
-void updateScanningPluginPanel(::jive::GuiItem& root, const devpiano::ui::PluginPanelState& state,
+void updateScanningPluginPanel(devpiano::ui::ViewHost& viewHost, const devpiano::ui::PluginPanelState& state,
                                juce::ComboBox* selectorCombo, juce::TextEditor* listEditor) {
-    const auto setItemEnabled = [&root](const char* id, bool enabled) {
-        if (auto* item = jive::findItemWithID(root, id)) {
-            item->state.setProperty("enabled", enabled, nullptr);
-        }
-    };
-
     if (selectorCombo != nullptr) {
         selectorCombo->clear(juce::dontSendNotification);
         selectorCombo->setTextWhenNothingSelected(TRANS("Scanning..."));
@@ -260,19 +177,13 @@ void updateScanningPluginPanel(::jive::GuiItem& root, const devpiano::ui::Plugin
         scanText << (state.scanningPluginName.isNotEmpty() ? state.scanningPluginName : TRANS("Preparing..."));
         listEditor->setText(scanText, juce::dontSendNotification);
     }
-    setItemEnabled("scan-btn", false);
-    setItemEnabled("browse-btn", false);
-    setItemEnabled("load-btn", false);
+    viewHost.setEnabled("scan-btn", false);
+    viewHost.setEnabled("browse-btn", false);
+    viewHost.setEnabled("load-btn", false);
 }
 
-void updateIdlePluginPanel(::jive::GuiItem& root, const devpiano::ui::PluginPanelState& state,
+void updateIdlePluginPanel(devpiano::ui::ViewHost& viewHost, const devpiano::ui::PluginPanelState& state,
                            juce::ComboBox* selectorCombo, juce::ComboBox* filterCombo, juce::TextEditor* listEditor) {
-    const auto setItemEnabled = [&root](const char* id, bool enabled) {
-        if (auto* item = jive::findItemWithID(root, id)) {
-            item->state.setProperty("enabled", enabled, nullptr);
-        }
-    };
-
     const auto& names = [&]() -> const juce::StringArray& {
         const auto filterId = (filterCombo != nullptr) ? filterCombo->getSelectedId() : 1;
         if (filterId == 2 && !state.instrumentPluginNames.isEmpty()) {
@@ -306,44 +217,35 @@ void updateIdlePluginPanel(::jive::GuiItem& root, const devpiano::ui::PluginPane
         listEditor->setText(TRANS(state.pluginListText), juce::dontSendNotification);
     }
 
-    setItemEnabled("scan-btn", true);
-    setItemEnabled("browse-btn", true);
-    setItemEnabled("load-btn", !names.isEmpty());
-    setItemEnabled("unload-btn", state.hasLoadedPlugin);
-    setItemEnabled("editor-btn", state.hasLoadedPlugin);
-    setItemEnabled("plugin-path-editor", true);
+    viewHost.setEnabled("scan-btn", true);
+    viewHost.setEnabled("browse-btn", true);
+    viewHost.setEnabled("load-btn", !names.isEmpty());
+    viewHost.setEnabled("unload-btn", state.hasLoadedPlugin);
+    viewHost.setEnabled("editor-btn", state.hasLoadedPlugin);
+    viewHost.setEnabled("plugin-path-editor", true);
 }
 
 } // namespace
 
 void MainComponent::updatePluginPanelState(const devpiano::ui::PluginPanelState& state) {
-    if (jiveRootItem == nullptr) {
+    if (!viewHost.isValid()) {
         return;
     }
 
     const juce::ScopedValueSetter<bool> svs(isUpdatingPluginSelector, true);
 
-    auto* selectorItem = jive::findItemWithID(*jiveRootItem, "plugin-selector");
-    auto* statusItem = jive::findItemWithID(*jiveRootItem, "plugin-status-label");
-    auto* listItem = jive::findItemWithID(*jiveRootItem, "plugin-list-editor");
-    auto* filterItem = jive::findItemWithID(*jiveRootItem, "plugin-filter-combo");
-
-    auto* selectorCombo
-        = selectorItem != nullptr ? dynamic_cast<juce::ComboBox*>(selectorItem->getComponent().get()) : nullptr;
-    auto* filterCombo
-        = filterItem != nullptr ? dynamic_cast<juce::ComboBox*>(filterItem->getComponent().get()) : nullptr;
-    auto* listEditor = listItem != nullptr ? dynamic_cast<juce::TextEditor*>(listItem->getComponent().get()) : nullptr;
+    auto* selectorCombo = viewHost.find<juce::ComboBox>("plugin-selector");
+    auto* filterCombo = viewHost.find<juce::ComboBox>("plugin-filter-combo");
+    auto* listEditor = viewHost.find<juce::TextEditor>("plugin-list-editor");
 
     if (state.isCurrentlyScanning) {
-        updateScanningPluginPanel(*jiveRootItem, state, selectorCombo, listEditor);
+        updateScanningPluginPanel(viewHost, state, selectorCombo, listEditor);
     } else {
-        updateIdlePluginPanel(*jiveRootItem, state, selectorCombo, filterCombo, listEditor);
+        updateIdlePluginPanel(viewHost, state, selectorCombo, filterCombo, listEditor);
     }
 
     lastPluginStatusText = formatPluginStatusSummary(state);
-    if (statusItem != nullptr) {
-        refreshPluginStatusEllipsis();
-    }
+    refreshPluginStatusEllipsis();
 }
 
 void MainComponent::refreshPluginStatusEllipsis() {
@@ -352,47 +254,38 @@ void MainComponent::refreshPluginStatusEllipsis() {
     // the label width is still 0 (and the 470 px fallback overflows narrow
     // windows) — re-apply after every layout so the text never spills into
     // the combo to its right.
-    if (jiveRootItem == nullptr || lastPluginStatusText.isEmpty()) {
+    if (!viewHost.isValid() || lastPluginStatusText.isEmpty()) {
         return;
     }
-    if (auto* statusItem = jive::findItemWithID(*jiveRootItem, "plugin-status-label")) {
-        const auto labelWidth = static_cast<float>(statusItem->getComponent()->getWidth());
-        statusItem->state.setProperty(
-            "text", ellipsiseForStatus(lastPluginStatusText, labelWidth > 0.0f ? labelWidth - 4.0f : 470.0f), nullptr);
-        statusItem->state.setProperty("tooltip", lastPluginStatusText, nullptr);
+    if (auto* statusComp = viewHost.find("plugin-status-label")) {
+        const auto labelWidth = static_cast<float>(statusComp->getWidth());
+        viewHost.setProperty("plugin-status-label", "text",
+                             ellipsiseForStatus(lastPluginStatusText, labelWidth > 0.0f ? labelWidth - 4.0f : 470.0f));
+        viewHost.setProperty("plugin-status-label", "tooltip", lastPluginStatusText);
     }
 }
 
 void MainComponent::refreshPluginPanelTexts() {
-    if (jiveRootItem == nullptr) {
+    if (!viewHost.isValid()) {
         return;
     }
 
-    if (auto* item = jive::findItemWithID(*jiveRootItem, "plugin-path-label")) {
-        item->state.setProperty("text", TRANS("VST3 Path"), nullptr);
-        item->state.setProperty("title", TRANS("VST3 Path"), nullptr);
+    viewHost.setText("plugin-path-label", TRANS("VST3 Path"));
+    viewHost.setButtonLabel("scan-btn", TRANS("Scan VST3"));
+    viewHost.setButtonLabel("load-btn", TRANS("Load"));
+    viewHost.setButtonLabel("unload-btn", TRANS("Unload"));
+    viewHost.setButtonLabel("editor-btn", TRANS("Open Editor"));
+
+    if (auto* combo = viewHost.find<juce::ComboBox>("plugin-filter-combo")) {
+        const auto prevId = combo->getSelectedId();
+        combo->clear(juce::dontSendNotification);
+        combo->addItem(TRANS("All"), 1);
+        combo->addItem(TRANS("Instruments Only"), 2);
+        combo->addItem(TRANS("Effects Only"), 3);
+        combo->setSelectedId(prevId > 0 ? prevId : 1, juce::dontSendNotification);
     }
-    const auto setButtonText = [this](const char* id, const juce::String& text) {
-        setButtonLabel(jive::findItemWithID(*jiveRootItem, id), text);
-    };
-    setButtonText("scan-btn", TRANS("Scan VST3"));
-    setButtonText("load-btn", TRANS("Load"));
-    setButtonText("unload-btn", TRANS("Unload"));
-    setButtonText("editor-btn", TRANS("Open Editor"));
-    if (auto* item = jive::findItemWithID(*jiveRootItem, "plugin-filter-combo")) {
-        if (auto* combo = dynamic_cast<juce::ComboBox*>(item->getComponent().get())) {
-            const auto prevId = combo->getSelectedId();
-            combo->clear(juce::dontSendNotification);
-            combo->addItem(TRANS("All"), 1);
-            combo->addItem(TRANS("Instruments Only"), 2);
-            combo->addItem(TRANS("Effects Only"), 3);
-            combo->setSelectedId(prevId > 0 ? prevId : 1, juce::dontSendNotification);
-        }
-    }
-    if (auto* item = jive::findItemWithID(*jiveRootItem, "plugin-selector")) {
-        if (auto* combo = dynamic_cast<juce::ComboBox*>(item->getComponent().get())) {
-            combo->setTextWhenNothingSelected(TRANS("Select a scanned plugin..."));
-        }
+    if (auto* combo = viewHost.find<juce::ComboBox>("plugin-selector")) {
+        combo->setTextWhenNothingSelected(TRANS("Select a scanned plugin..."));
     }
 
     // Re-apply the last state to refresh status text (locale-dependent).
@@ -402,27 +295,27 @@ void MainComponent::refreshPluginPanelTexts() {
 // ── JIVE controls panel accessors ──────────────────────────────────────────
 
 float MainComponent::getMasterGain() const {
-    return getSliderValue(jiveRootItem.get(), "volume-knob", 0.0f);
+    return static_cast<float>(viewHost.getSliderValue("volume-knob", 0.0));
 }
 
 float MainComponent::getAttack() const {
-    return getSliderValue(jiveRootItem.get(), "attack-knob", 0.0f);
+    return static_cast<float>(viewHost.getSliderValue("attack-knob", 0.0));
 }
 
 float MainComponent::getDecay() const {
-    return getSliderValue(jiveRootItem.get(), "decay-knob", 0.0f);
+    return static_cast<float>(viewHost.getSliderValue("decay-knob", 0.0));
 }
 
 float MainComponent::getSustain() const {
-    return getSliderValue(jiveRootItem.get(), "sustain-knob", 0.0f);
+    return static_cast<float>(viewHost.getSliderValue("sustain-knob", 0.0));
 }
 
 float MainComponent::getRelease() const {
-    return getSliderValue(jiveRootItem.get(), "release-knob", 0.0f);
+    return static_cast<float>(viewHost.getSliderValue("release-knob", 0.0));
 }
 
 double MainComponent::getControlsPlaybackSpeed() const {
-    return getSliderValue(jiveRootItem.get(), "speed-knob", 1.0);
+    return viewHost.getSliderValue("speed-knob", 1.0);
 }
 
 SettingsModel::BuiltinTone MainComponent::getBuiltinToneFromSettings() const {
@@ -430,78 +323,55 @@ SettingsModel::BuiltinTone MainComponent::getBuiltinToneFromSettings() const {
 }
 
 float MainComponent::getPianoBrightness() const {
-    return getSliderValue(jiveRootItem.get(), "brightness-knob", 0.5f);
+    return static_cast<float>(viewHost.getSliderValue("brightness-knob", 0.5));
 }
 
 float MainComponent::getPianoHammerHardness() const {
-    return getSliderValue(jiveRootItem.get(), "hardness-knob", 0.5f);
+    return static_cast<float>(viewHost.getSliderValue("hardness-knob", 0.5));
 }
 
 float MainComponent::getPianoResonance() const {
-    return getSliderValue(jiveRootItem.get(), "resonance-knob", 0.5f);
+    return static_cast<float>(viewHost.getSliderValue("resonance-knob", 0.5));
 }
+
 void MainComponent::setControlsValues(float masterGain, float attack, float decay, float sustain, float release) {
-    if (jiveRootItem == nullptr) {
+    if (!viewHost.isValid()) {
         return;
     }
-    const auto setSlider = [this](const char* id, double value) {
-        if (auto* item = jive::findItemWithID(*jiveRootItem, id)) {
-            if (auto* slider = dynamic_cast<juce::Slider*>(item->getComponent().get())) {
-                slider->setValue(value, juce::dontSendNotification);
-            }
-        }
-    };
-    setSlider("volume-knob", masterGain);
-    setSlider("attack-knob", attack);
-    setSlider("decay-knob", decay);
-    setSlider("sustain-knob", sustain);
-    setSlider("release-knob", release);
-    if (auto* item = jive::findItemWithID(*jiveRootItem, "adsr-curve")) {
-        if (auto* curve = dynamic_cast<AdsrCurveComponent*>(item->getComponent().get())) {
-            curve->setParameters(attack, decay, sustain, release);
-        }
+    viewHost.setSliderValue("volume-knob", masterGain);
+    viewHost.setSliderValue("attack-knob", attack);
+    viewHost.setSliderValue("decay-knob", decay);
+    viewHost.setSliderValue("sustain-knob", sustain);
+    viewHost.setSliderValue("release-knob", release);
+    if (auto* curve = viewHost.find<AdsrCurveComponent>("adsr-curve")) {
+        curve->setParameters(attack, decay, sustain, release);
     }
 }
 
 void MainComponent::setControlsPianoValues(SettingsModel::BuiltinTone tone, float brightness, float hammerHardness,
                                            float resonance) {
     juce::ignoreUnused(tone);
-    if (jiveRootItem == nullptr) {
+    if (!viewHost.isValid()) {
         return;
     }
-    const auto setSlider = [this](const char* id, double value) {
-        if (auto* item = jive::findItemWithID(*jiveRootItem, id)) {
-            if (auto* slider = dynamic_cast<juce::Slider*>(item->getComponent().get())) {
-                slider->setValue(value, juce::dontSendNotification);
-            }
-        }
-    };
-    setSlider("brightness-knob", brightness);
-    setSlider("hardness-knob", hammerHardness);
-    setSlider("resonance-knob", resonance);
+    viewHost.setSliderValue("brightness-knob", brightness);
+    viewHost.setSliderValue("hardness-knob", hammerHardness);
+    viewHost.setSliderValue("resonance-knob", resonance);
 }
 
 void MainComponent::setControlsPlaybackSpeed(double speed) {
-    if (jiveRootItem == nullptr) {
-        return;
-    }
-    if (auto* item = jive::findItemWithID(*jiveRootItem, "speed-knob")) {
-        if (auto* slider = dynamic_cast<juce::Slider*>(item->getComponent().get())) {
-            slider->setValue(juce::jlimit(0.5, 2.0, speed), juce::dontSendNotification);
-        }
-    }
+    viewHost.setSliderValue("speed-knob", juce::jlimit(0.5, 2.0, speed));
 }
 
 void MainComponent::setControlsPresets(const juce::StringArray& presetIds, const juce::String& currentPresetId,
                                        const juce::StringArray& presetDisplayNames) {
     availablePresetIds = presetIds;
-    if (jiveRootItem == nullptr) {
+    if (!viewHost.isValid()) {
         return;
     }
 
     const juce::ScopedValueSetter<bool> svs(isUpdatingPresets, true);
-    auto* comboItem = jive::findItemWithID(*jiveRootItem, "preset-combo");
-    auto* combo = comboItem != nullptr ? dynamic_cast<juce::ComboBox*>(comboItem->getComponent().get()) : nullptr;
+    auto* combo = viewHost.find<juce::ComboBox>("preset-combo");
 
     if (combo != nullptr) {
         combo->clear(juce::dontSendNotification);
@@ -524,15 +394,10 @@ void MainComponent::setControlsPresets(const juce::StringArray& presetIds, const
 }
 
 juce::String MainComponent::getSelectedPresetId() const {
-    if (jiveRootItem == nullptr) {
-        return {};
-    }
-    if (auto* item = jive::findItemWithID(*jiveRootItem, "preset-combo")) {
-        if (auto* combo = dynamic_cast<juce::ComboBox*>(item->getComponent().get())) {
-            const auto index = combo->getSelectedItemIndex();
-            if (juce::isPositiveAndBelow(index, availablePresetIds.size())) {
-                return availablePresetIds[index];
-            }
+    if (auto* combo = viewHost.find<juce::ComboBox>("preset-combo")) {
+        const auto index = combo->getSelectedItemIndex();
+        if (juce::isPositiveAndBelow(index, availablePresetIds.size())) {
+            return availablePresetIds[index];
         }
     }
     return {};
@@ -540,21 +405,13 @@ juce::String MainComponent::getSelectedPresetId() const {
 
 void MainComponent::updateControlsPresetActionButtons() {
     const auto isUserPreset = getSelectedPresetId().isNotEmpty();
-    if (jiveRootItem == nullptr) {
-        return;
-    }
-    const auto setEnabled = [this](const char* id, bool enabled) {
-        if (auto* item = jive::findItemWithID(*jiveRootItem, id)) {
-            item->state.setProperty("enabled", enabled, nullptr);
-        }
-    };
-    setEnabled("rename-preset-btn", isUserPreset);
-    setEnabled("delete-preset-btn", isUserPreset);
+    viewHost.setEnabled("rename-preset-btn", isUserPreset);
+    viewHost.setEnabled("delete-preset-btn", isUserPreset);
 }
 
 void MainComponent::setRecordingControlsState(devpiano::ui::RecordingControlsState state) {
     recordingControlsState = state;
-    if (jiveRootItem == nullptr) {
+    if (!viewHost.isValid()) {
         return;
     }
 
@@ -570,14 +427,11 @@ void MainComponent::setRecordingControlsState(devpiano::ui::RecordingControlsSta
 
     switch (state.state) {
     case devpiano::ui::RecordingState::idle:
-        // playEnabled/backToStartEnabled/exportMidiEnabled/exportWavEnabled/
-        // importMidiEnabled 的 idle 期望值与上方初始化相同，无需重复赋值。
         saveEnabled = state.hasTake;
         openEnabled = true;
         break;
     case devpiano::ui::RecordingState::recording:
     case devpiano::ui::RecordingState::recordingPaused:
-        // Play/Pause is the combined pause/continue control during recording.
         recordEnabled = false;
         playEnabled = true;
         backToStartEnabled = false;
@@ -590,8 +444,6 @@ void MainComponent::setRecordingControlsState(devpiano::ui::RecordingControlsSta
         break;
     case devpiano::ui::RecordingState::playing:
     case devpiano::ui::RecordingState::playingPaused:
-        // Play/Pause toggles playback; Stop is always available (industry
-        // standard: pausing never disables Stop); BackToStart rewinds.
         recordEnabled = false;
         playEnabled = true;
         backToStartEnabled = state.hasTake;
@@ -604,29 +456,19 @@ void MainComponent::setRecordingControlsState(devpiano::ui::RecordingControlsSta
         break;
     }
 
-    const auto setEnabled = [this](const char* id, bool enabled) {
-        if (auto* item = jive::findItemWithID(*jiveRootItem, id)) {
-            item->state.setProperty("enabled", enabled, nullptr);
-        }
-    };
-    setEnabled("record-btn", recordEnabled);
-    setEnabled("play-btn", playEnabled);
-    setEnabled("stop-btn", stopEnabled);
-    setEnabled("back-btn", backToStartEnabled);
-    setEnabled("import-midi-btn", importMidiEnabled);
-    setEnabled("export-midi-btn", exportMidiEnabled);
-    setEnabled("export-wav-btn", exportWavEnabled);
-    setEnabled("save-perf-btn", saveEnabled);
-    setEnabled("open-perf-btn", openEnabled);
+    viewHost.setEnabled("record-btn", recordEnabled);
+    viewHost.setEnabled("play-btn", playEnabled);
+    viewHost.setEnabled("stop-btn", stopEnabled);
+    viewHost.setEnabled("back-btn", backToStartEnabled);
+    viewHost.setEnabled("import-midi-btn", importMidiEnabled);
+    viewHost.setEnabled("export-midi-btn", exportMidiEnabled);
+    viewHost.setEnabled("export-wav-btn", exportWavEnabled);
+    viewHost.setEnabled("save-perf-btn", saveEnabled);
+    viewHost.setEnabled("open-perf-btn", openEnabled);
 
-    // Latched highlight: red while recording (incl. paused), green while
-    // playing or recording — the combined Play/Pause button shows its Pause
-    // glyph whenever an activity is running.
     const auto setLatched = [this](const char* id, bool active) {
-        if (auto* item = jive::findItemWithID(*jiveRootItem, id)) {
-            if (auto* btn = dynamic_cast<juce::Button*>(item->getComponent().get())) {
-                btn->setToggleState(active, juce::dontSendNotification);
-            }
+        if (auto* btn = viewHost.find<juce::Button>(id)) {
+            btn->setToggleState(active, juce::dontSendNotification);
         }
     };
     setLatched("record-btn",
@@ -640,78 +482,54 @@ void MainComponent::setRecordingControlsState(devpiano::ui::RecordingControlsSta
 }
 
 juce::Rectangle<int> MainComponent::getRecentFilesButtonScreenBounds() const {
-    if (jiveRootItem == nullptr) {
-        return {};
-    }
-    if (auto* item = jive::findItemWithID(*jiveRootItem, "recent-btn")) {
-        return item->getComponent()->getScreenBounds();
+    if (auto* btn = viewHost.find("recent-btn")) {
+        return btn->getScreenBounds();
     }
     return {};
 }
 
 void MainComponent::refreshControlsTexts() {
-    if (jiveRootItem == nullptr) {
+    if (!viewHost.isValid()) {
         return;
     }
 
-    const auto setText = [this](const char* id, const juce::String& text) {
-        if (auto* item = jive::findItemWithID(*jiveRootItem, id)) {
-            item->state.setProperty("text", text, nullptr);
-            item->state.setProperty("title", text, nullptr);
-        }
-    };
-    const auto setButtonText = [this](const char* id, const juce::String& text) {
-        setButtonLabel(jive::findItemWithID(*jiveRootItem, id), text);
-    };
-    const auto setTooltip = [this](const char* id, const juce::String& tooltip) {
-        if (auto* item = jive::findItemWithID(*jiveRootItem, id)) {
-            item->state.setProperty("tooltip", tooltip, nullptr);
-        }
-    };
-
-    setText("volume-label", TRANS("Volume"));
-    setText("attack-label", TRANS("Attack"));
-    setText("decay-label", TRANS("Decay"));
-    setText("sustain-label", TRANS("Sustain"));
-    setText("release-label", TRANS("Release"));
-    setText("tone-label", TRANS("Tone"));
-    setText("brightness-label", TRANS("Brightness"));
-    setText("hardness-label", TRANS("Hammer"));
-    setText("resonance-label", TRANS("Resonance"));
-    setText("preset-card-title", TRANS("Performance Preset"));
-    setText("adsr-curve-title", TRANS("ADSR Curve"));
-    setText("transport-card-title", TRANS("Transport Controls"));
-    if (auto* item = jive::findItemWithID(*jiveRootItem, "preset-combo")) {
-        if (auto* combo = dynamic_cast<juce::ComboBox*>(item->getComponent().get())) {
-            combo->setTextWhenNothingSelected(TRANS("Default"));
-        }
+    viewHost.setText("volume-label", TRANS("Volume"));
+    viewHost.setText("attack-label", TRANS("Attack"));
+    viewHost.setText("decay-label", TRANS("Decay"));
+    viewHost.setText("sustain-label", TRANS("Sustain"));
+    viewHost.setText("release-label", TRANS("Release"));
+    viewHost.setText("tone-label", TRANS("Tone"));
+    viewHost.setText("brightness-label", TRANS("Brightness"));
+    viewHost.setText("hardness-label", TRANS("Hammer"));
+    viewHost.setText("resonance-label", TRANS("Resonance"));
+    viewHost.setText("preset-card-title", TRANS("Performance Preset"));
+    viewHost.setText("adsr-curve-title", TRANS("ADSR Curve"));
+    viewHost.setText("transport-card-title", TRANS("Transport Controls"));
+    if (auto* combo = viewHost.find<juce::ComboBox>("preset-combo")) {
+        combo->setTextWhenNothingSelected(TRANS("Default"));
     }
-    setText("speed-label", TRANS("Playback Speed"));
-    setButtonText("save-preset-btn", TRANS("New"));
-    setButtonText("rename-preset-btn", TRANS("Rename"));
-    setButtonText("delete-preset-btn", TRANS("Delete"));
-    setTooltip("record-btn", TRANS("Record"));
-    setTooltip("play-btn", TRANS("Play"));
-    setTooltip("stop-btn", TRANS("Stop"));
-    setTooltip("back-btn", TRANS("Back to Start"));
-    setButtonText("export-midi-btn", TRANS("Export"));
-    setButtonText("export-wav-btn", TRANS("Export WAV"));
-    setButtonText("import-midi-btn", TRANS("Import"));
-    setButtonText("recent-btn", TRANS("Recent"));
-    setButtonText("save-perf-btn", TRANS("Save"));
-    setButtonText("open-perf-btn", TRANS("Open"));
-    setButtonText("song-info-btn", TRANS("Info"));
+    viewHost.setText("speed-label", TRANS("Playback Speed"));
+    viewHost.setButtonLabel("save-preset-btn", TRANS("New"));
+    viewHost.setButtonLabel("rename-preset-btn", TRANS("Rename"));
+    viewHost.setButtonLabel("delete-preset-btn", TRANS("Delete"));
+    viewHost.setProperty("record-btn", "tooltip", TRANS("Record"));
+    viewHost.setProperty("play-btn", "tooltip", TRANS("Play"));
+    viewHost.setProperty("stop-btn", "tooltip", TRANS("Stop"));
+    viewHost.setProperty("back-btn", "tooltip", TRANS("Back to Start"));
+    viewHost.setButtonLabel("export-midi-btn", TRANS("Export"));
+    viewHost.setButtonLabel("export-wav-btn", TRANS("Export WAV"));
+    viewHost.setButtonLabel("import-midi-btn", TRANS("Import"));
+    viewHost.setButtonLabel("recent-btn", TRANS("Recent"));
+    viewHost.setButtonLabel("save-perf-btn", TRANS("Save"));
+    viewHost.setButtonLabel("open-perf-btn", TRANS("Open"));
+    viewHost.setButtonLabel("song-info-btn", TRANS("Info"));
 
-    if (auto* item = jive::findItemWithID(*jiveRootItem, "adsr-curve")) {
-        if (auto comp = item->getComponent()) {
-            comp->repaint();
-        }
+    if (auto* curve = viewHost.find<AdsrCurveComponent>("adsr-curve")) {
+        curve->repaint();
     }
 
     setRecordingControlsState(recordingControlsState);
 }
-
-// ── JIVE keyboard area accessors ───────────────────────────────────────────
 
 CustomKeyboard& MainComponent::getCustomKeyboard() {
     jassert(customKeyboardRef != nullptr);
@@ -723,22 +541,13 @@ CustomKeyboard& MainComponent::getCustomKeyboard() {
 }
 
 void MainComponent::setKeyboardLayout(const devpiano::core::KeyboardLayout& layout) {
-    if (jiveRootItem == nullptr) {
-        return;
-    }
-    if (auto* item = jive::findItemWithID(*jiveRootItem, "custom-keyboard")) {
-        if (auto* viewport = dynamic_cast<KeyboardViewport*>(item->getComponent().get())) {
-            viewport->getCustomKeyboard().setKeyboardLayout(layout);
-        }
+    if (auto* viewport = viewHost.find<KeyboardViewport>("custom-keyboard")) {
+        viewport->getCustomKeyboard().setKeyboardLayout(layout);
     }
 }
 
 void MainComponent::setKeyboardViewPosition(int midiNote, int pixelOffset) {
-    if (jiveRootItem == nullptr) {
-        return;
-    }
-    auto* item = jive::findItemWithID(*jiveRootItem, "custom-keyboard");
-    auto* viewport = item != nullptr ? dynamic_cast<KeyboardViewport*>(item->getComponent().get()) : nullptr;
+    auto* viewport = viewHost.find<KeyboardViewport>("custom-keyboard");
     if (viewport == nullptr) {
         return;
     }
@@ -759,17 +568,11 @@ void MainComponent::setKeyboardViewPosition(int midiNote, int pixelOffset) {
 }
 
 int MainComponent::getKeyboardViewPositionX() const noexcept {
-    if (jiveRootItem == nullptr) {
-        return 0;
-    }
-    if (auto* item = jive::findItemWithID(*jiveRootItem, "custom-keyboard")) {
-        if (auto* viewport = dynamic_cast<KeyboardViewport*>(item->getComponent().get())) {
-            return viewport->getViewPositionX();
-        }
+    if (auto* viewport = viewHost.find<KeyboardViewport>("custom-keyboard")) {
+        return viewport->getViewPositionX();
     }
     return 0;
 }
-
 void MainComponent::finishPluginUiAction(bool shouldSaveSettings) {
     if (shouldSaveSettings) {
         saveSettingsSoon();
@@ -797,12 +600,12 @@ void MainComponent::applyLanguage(const juce::String& code) {
 }
 
 void MainComponent::refreshAllTexts() {
-    if (jiveRootItem == nullptr) {
+    if (!viewHost.isValid()) {
         return;
     }
     refreshPluginPanelTexts();
     refreshControlsTexts();
-    devpiano::ui::jive::refreshTitles(*jiveRootItem);
+    viewHost.refreshTitles();
     if (customKeyboardRef != nullptr) {
         customKeyboardRef->repaint();
     }
@@ -935,63 +738,53 @@ void MainComponent::showRecentFilesMenu() {
 // ── JIVE status bar accessors ──────────────────────────────────────────────
 
 void MainComponent::updateStatusBar() {
-    if (jiveRootItem == nullptr) {
+    if (!viewHost.isValid()) {
         return;
     }
 
     // 1. Left: active plugin/synth & preset name (or transient status toast)
-    if (auto* pluginLabelItem = jive::findItemWithID(*jiveRootItem, "plugin-name-label")) {
-        juce::String displayText;
-        if (statusToastTicksRemaining > 0 && statusToastText.isNotEmpty()) {
-            displayText = statusToastText;
+    juce::String displayText;
+    if (statusToastTicksRemaining > 0 && statusToastText.isNotEmpty()) {
+        displayText = statusToastText;
+    } else {
+        juce::String sourceName;
+        if (const auto* desc = pluginHost.getLoadedPluginDescription()) {
+            sourceName = "VST3: " + desc->name;
         } else {
-            juce::String sourceName;
-            if (const auto* desc = pluginHost.getLoadedPluginDescription()) {
-                sourceName = "VST3: " + desc->name;
-            } else {
-                sourceName = (appSettings.builtinTone == SettingsModel::BuiltinTone::piano) ? "Built-in: Piano"
-                                                                                            : "Built-in: Sine";
-            }
-            const auto preset
-                = (presetFlowSupport != nullptr) ? presetFlowSupport->getCurrentPresetId() : juce::String {};
-            displayText = preset.isNotEmpty() ? (sourceName + " (" + preset + ")") : sourceName;
+            sourceName
+                = (appSettings.builtinTone == SettingsModel::BuiltinTone::piano) ? "Built-in: Piano" : "Built-in: Sine";
         }
-        pluginLabelItem->state.setProperty("text", displayText, nullptr);
-        pluginLabelItem->state.setProperty("title", displayText, nullptr);
+        const auto preset = (presetFlowSupport != nullptr) ? presetFlowSupport->getCurrentPresetId() : juce::String {};
+        displayText = preset.isNotEmpty() ? (sourceName + " (" + preset + ")") : sourceName;
     }
+    viewHost.setText("plugin-name-label", displayText);
 
     // 2. Centre: audio driver backend, sample rate, buffer size, latency, CPU load
-    if (auto* audioInfoItem = jive::findItemWithID(*jiveRootItem, "audio-info-label")) {
-        juce::String audioText;
-        if (auto* dev = deviceManager.getCurrentAudioDevice()) {
-            const auto type = dev->getTypeName();
-            const auto sr = dev->getCurrentSampleRate();
-            const auto bs = dev->getCurrentBufferSizeSamples();
-            const auto latencyMs = (sr > 0.0) ? (static_cast<float>(bs) / static_cast<float>(sr) * 1000.0f) : 0.0f;
-            const auto cpu = juce::roundToInt(deviceManager.getCpuUsage() * 100.0f);
+    juce::String audioText;
+    if (auto* dev = deviceManager.getCurrentAudioDevice()) {
+        const auto type = dev->getTypeName();
+        const auto sr = dev->getCurrentSampleRate();
+        const auto bs = dev->getCurrentBufferSizeSamples();
+        const auto latencyMs = (sr > 0.0) ? (static_cast<float>(bs) / static_cast<float>(sr) * 1000.0f) : 0.0f;
+        const auto cpu = juce::roundToInt(deviceManager.getCpuUsage() * 100.0f);
 
-            audioText = type + " • " + juce::String(sr / 1000.0, 1) + " kHz / " + juce::String(bs) + " spl ("
-                + juce::String(latencyMs, 1) + " ms) • CPU: " + juce::String(cpu) + "%";
-        } else {
-            audioText = TRANS("No Audio Device");
-        }
-        audioInfoItem->state.setProperty("text", audioText, nullptr);
-        audioInfoItem->state.setProperty("title", audioText, nullptr);
+        audioText = type + " • " + juce::String(sr / 1000.0, 1) + " kHz / " + juce::String(bs) + " spl ("
+            + juce::String(latencyMs, 1) + " ms) • CPU: " + juce::String(cpu) + "%";
+    } else {
+        audioText = TRANS("No Audio Device");
     }
+    viewHost.setText("audio-info-label", audioText);
 
     // 3. Right: key signature, transpose, keyboard layout
-    if (auto* timeLabelItem = jive::findItemWithID(*jiveRootItem, "time-label")) {
-        const auto keyName = keySignatureToString(appSettings.keySignature);
-        const auto transposeStr = (appSettings.midiTranspose ? (TRANS("Transpose: On") + " / ") : "")
-            + (appSettings.keySignature >= 0 ? "+" : "") + juce::String(appSettings.keySignature);
-        auto layoutName = keyboardMidiMapper.getLayout().name;
-        if (layoutName.isEmpty()) {
-            layoutName = "Standard";
-        }
-        const auto statusRight = keyName + " (" + transposeStr + ") • " + layoutName;
-        timeLabelItem->state.setProperty("text", statusRight, nullptr);
-        timeLabelItem->state.setProperty("title", statusRight, nullptr);
+    const auto keyName = keySignatureToString(appSettings.keySignature);
+    const auto transposeStr = (appSettings.midiTranspose ? (TRANS("Transpose: On") + " / ") : "")
+        + (appSettings.keySignature >= 0 ? "+" : "") + juce::String(appSettings.keySignature);
+    auto layoutName = keyboardMidiMapper.getLayout().name;
+    if (layoutName.isEmpty()) {
+        layoutName = "Standard";
     }
+    const auto statusRight = keyName + " (" + transposeStr + ") • " + layoutName;
+    viewHost.setText("time-label", statusRight);
 }
 
 void MainComponent::showStatusMessage(const juce::String& text, int timeoutMs) {
@@ -1007,11 +800,5 @@ void MainComponent::notifyMidiActivity() {
 }
 
 StatusBarMidiDot* MainComponent::getStatusBarMidiDot() const {
-    if (jiveRootItem == nullptr) {
-        return nullptr;
-    }
-    if (auto* dotItem = jive::findItemWithID(*jiveRootItem, "midi-dot")) {
-        return dynamic_cast<StatusBarMidiDot*>(dotItem->getComponent().get());
-    }
-    return nullptr;
+    return viewHost.find<StatusBarMidiDot>("midi-dot");
 }

@@ -6,6 +6,7 @@
 //==============================================================================
 
 #include "jive_Interpreter.h"
+#include <juce_gui_basics/juce_gui_basics.h>
 
 #include "jive_BlockContainer.h"
 #include "jive_BlockItem.h"
@@ -50,6 +51,7 @@ template <typename Decorator> void Interpreter::addDecorator(const juce::Identif
 
 std::unique_ptr<GuiItem> Interpreter::interpret(const juce::ValueTree& tree,
                                                 juce::AudioProcessor* pluginProcessor) const {
+    JUCE_ASSERT_MESSAGE_MANAGER_IS_LOCKED;
     return interpret(tree, nullptr, pluginProcessor);
 }
 
