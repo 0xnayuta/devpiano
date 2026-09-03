@@ -144,7 +144,6 @@ set(DEVPIANO_JIVE_CORE_SOURCES
     source/UI/jive/core/jive_ContainerItemChild.cpp
     source/UI/jive/core/jive_Display.cpp
     source/UI/jive/core/jive_Easing.cpp
-    source/UI/jive/core/jive_Event.cpp
     source/UI/jive/core/jive_Fill.cpp
     source/UI/jive/core/jive_Find.cpp
     source/UI/jive/core/jive_FlexContainer.cpp
@@ -158,7 +157,6 @@ set(DEVPIANO_JIVE_CORE_SOURCES
     source/UI/jive/core/jive_GuiItem.cpp
     source/UI/jive/core/jive_GuiItemDecorator.cpp
     source/UI/jive/core/jive_IgnoredComponent.cpp
-    source/UI/jive/core/jive_Interpolate.cpp
     source/UI/jive/core/jive_Interpreter.cpp
     source/UI/jive/core/jive_Label.cpp
     source/UI/jive/core/jive_Length.cpp
@@ -167,7 +165,6 @@ set(DEVPIANO_JIVE_CORE_SOURCES
     source/UI/jive/core/jive_Orientation.cpp
     source/UI/jive/core/jive_Overflow.cpp
     source/UI/jive/core/jive_ProgressBar.cpp
-    source/UI/jive/core/jive_Property.cpp
     source/UI/jive/core/jive_Slider.cpp
     source/UI/jive/core/jive_StringStreams.cpp
     source/UI/jive/core/jive_StyleSheet.cpp
@@ -176,7 +173,6 @@ set(DEVPIANO_JIVE_CORE_SOURCES
     source/UI/jive/core/jive_Timer.cpp
     source/UI/jive/core/jive_Transition.cpp
     source/UI/jive/core/jive_Transitions.cpp
-    source/UI/jive/core/jive_VariantConvertion.cpp
     source/UI/jive/core/jive_View.cpp
 )
 
