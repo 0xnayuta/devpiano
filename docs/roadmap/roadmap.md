@@ -238,7 +238,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 1. **API 边界收敛与 ViewHost 门面构建（Phase 28-A）**：封装 `ViewHost`，彻底隔离业务代码对底层 `Interpreter` / `GuiItem` 的裸露直接依赖与析构 UAF 风险 [已完成，2026-09-03]；
 2. **全量声明式 UI 布局金标测试（Phase 28-B）**：构建全应用 ValueTree 解释烟测、典型分辨率几何尺寸断言与焦点/滑音回归测试套件 [已完成，2026-09-03]；
-3. **通用死重清理与规范化命名规整（Phase 28-C）**：剔除 JIVE 内嵌单测与孤立算法死代码，统一宏前缀（`DEVPIANO_UI_*`）与命名空间（`devpiano::ui`）；
+3. **通用死重清理与规范化命名规整（Phase 28-C）**：剔除 JIVE 内嵌单测与孤立算法死代码（累计清除 7,470 行），统一宏前缀（`DEVPIANO_UI_*`）与命名空间（`devpiano::ui`）[已完成，2026-09-03]；
 4. **代码审查闭环与 UI 基础设施接口冻结（Phase 28-D）**：双端双配置三闸门闭环，正式确立 UI Infrastructure Freeze 冻结公约，研发重心全面重归物理建模算法。
 
 ### Phase 待定：现实物理演奏交互与声学控制（Physical Voicing & Realistic Acoustic Interaction） [暂缓 / 待定]

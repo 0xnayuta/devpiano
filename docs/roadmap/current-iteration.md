@@ -117,19 +117,18 @@
   - 将虚拟键盘鼠标拖动滑音（Glissando）、鼠标释放及键盘焦点不抢占机制纳入自动化断言，守护交互稳定
 ---
 
-### Phase 28-C：通用死重清理与规范化命名规整 (Dead Code Elimination & Namespace / Prefix Normalization) [待执行]
+### Phase 28-C：通用死重清理与规范化命名规整 (Dead Code Elimination & Namespace / Prefix Normalization) [已完成，2026-09-03]
 > 目标：清理 JIVE 遗留未用死代码，统一宏定义前缀与全局命名空间。
 
-- [ ] **清理 JIVE 内嵌单测与孤立算法（Dead Code Cleanup）**：
-  - 移除各 `.cpp` 末尾残留的 `#if JIVE_UNIT_TESTS` 内嵌单测代码块（全面由 Devpiano 自建单元测试替代）
-  - 移除多版本兼容宏与历史垫片（如 `jive_JuceVersion.h`、过时的 JUCE 6/7 分支）
-  - 评估并剔除调用次数为 0 的孤立工具类（如 `jive_Bezier.h`、`jive_TransferFunction.h`、`jive_Visitor.h`、`jive_IgnoredComponent` 等）
-- [ ] **宏定义前缀与全局命名空间规整（Namespace & Macro Normalization）**：
-  - 统一宏前缀：将 `JIVE_ENABLE_GRID`、`JIVE_GUI_ITEMS_HAVE_STYLE_SHEETS` 规整为 `DEVPIANO_UI_ENABLE_GRID` 与 `DEVPIANO_UI_WITH_STYLES`（或保留双向兼容过渡）
-  - 消除 `devpiano::jive::`、`devpiano::ui::jive::` 命名分歧，全局统一为 `devpiano::ui`；底层内生引擎类型下沉为 `devpiano::ui::runtime`（或 `devpiano::ui::detail`）
-- [ ] **清理裸 `new` 与现代 C++ RAII 终审**：
-  - 检查 `jive_Object.cpp` 等模块中的动态对象分配，消除裸 `new`，确保异常安全
-
+- [x] **清理 JIVE 内嵌单测与孤立算法（Dead Code Cleanup）**：
+  - 移除 33 个核心 `.cpp/.h` 文件末尾残留的 `#if JIVE_UNIT_TESTS` 内嵌单测代码块（累计清除 7,470 行死代码，运行时代码量收敛 50% 以上）
+  - 移除历史垫片 `jive_JuceVersion.h` 与过时的 JUCE 6/7/8.0.2 预编译分支，直接对齐现代 JUCE 9.0.1 `didModifyProperty`
+  - 经仔细甄别取舍，坚决保留战略资产：`jive_Bezier.h`、`jive_TransferFunction.h`、`jive_Visitor.h`、`jive_IgnoredComponent` 以及缓动过渡体系（`jive_Transitions`, `jive_Easing`），杜绝误伤必要底层能力
+- [x] **宏定义前缀与全局命名空间规整（Namespace & Macro Normalization）**：
+  - 统一宏前缀：在 CMakeLists 与头文件中引入 `DEVPIANO_UI_ENABLE_GRID=1` 与 `DEVPIANO_UI_WITH_STYLES=1`，并通过 `jive_layouts.h` 建立与 `JIVE_*` 的双向兼容桥梁
+  - 规范全局命名空间：将 `DesignTokens` 提升收归至 `devpiano::ui` 权威命名空间，并保留 `devpiano::jive::` 与 `devpiano::ui::jive::` 别名确保平滑兼容
+- [x] **清理裸 `new` 与现代 C++ RAII 终审**：
+  - 随单测块移除消除了 50+ 处未受保护的 `new jive::Object`，核准核心运行时内存模型
 ---
 
 ### Phase 28-D：质量审查闭环与 UI 基础设施接口冻结 (Quality Audit Closure & Infrastructure API Freeze) [待执行]

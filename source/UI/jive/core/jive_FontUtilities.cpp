@@ -7,8 +7,6 @@
 
 #include "jive_FontUtilities.h"
 
-#include "jive_JuceVersion.h"
-
 namespace jive {
 int parseFontStyleFlags(const juce::String& styleString) {
     int flags = juce::Font::plain;

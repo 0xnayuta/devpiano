@@ -3,7 +3,7 @@
 #include <juce_core/juce_core.h>
 #include <juce_graphics/juce_graphics.h>
 
-namespace devpiano::jive {
+namespace devpiano::ui {
 
 /// Single source of truth for design tokens (colors, fonts, spacing).
 ///
@@ -102,4 +102,12 @@ private:
     [[nodiscard]] juce::String parseString(juce::StringRef section, juce::StringRef key, juce::String fallback) const;
 };
 
+} // namespace devpiano::ui
+
+namespace devpiano::jive {
+using DesignTokens = devpiano::ui::DesignTokens;
 } // namespace devpiano::jive
+
+namespace devpiano::ui::jive {
+using DesignTokens = devpiano::ui::DesignTokens;
+} // namespace devpiano::ui::jive

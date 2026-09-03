@@ -85,34 +85,3 @@ namespace jive {
     return juce::Colour::fromString(colourString);
 }
 } // namespace jive
-
-#if JIVE_UNIT_TESTS
-class ColourParsingUnitTest : public juce::UnitTest {
-public:
-    ColourParsingUnitTest()
-        : juce::UnitTest { "jive::parseColour", "jive" } {
-    }
-
-    void runTest() final {
-        testRgbString();
-    }
-
-private:
-    void testRgbString() {
-        beginTest("rgb()");
-
-        expectEquals(jive::parseColour("cornflowerblue"), juce::Colour { 0xFF6495ED });
-        expectEquals(jive::parseColour("hotpink"), juce::Colour { 0XFFFF69B4 });
-        expectEquals(jive::parseColour("#123"), juce::Colour { 0xFF112233 });
-        expectEquals(jive::parseColour("#357B"), juce::Colour { 0xBB335577 });
-        expectEquals(jive::parseColour("#ABCDEF"), juce::Colour { 0xFFABCDEF });
-        expectEquals(jive::parseColour("#01234567"), juce::Colour { 0x67012345 });
-        expectEquals(jive::parseColour("rgb(0, 255, 0)"), juce::Colour { 0xFF00FF00 });
-        expectEquals(jive::parseColour("rgba(127, 0, 127, 0.5)"), juce::Colour { 0x807F007F });
-        expectEquals(jive::parseColour("hsl(120, 60%, 70%)"), juce::Colour { 0xFF85E085 });
-        expectEquals(jive::parseColour("hsla(280, 80%, 40%, 0.2)"), juce::Colour { 0x338114B8 });
-    }
-};
-
-static ColourParsingUnitTest colourParsingUnitTest;
-#endif

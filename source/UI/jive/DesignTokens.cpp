@@ -1,6 +1,6 @@
 #include "DesignTokens.h"
 
-namespace devpiano::jive {
+namespace devpiano::ui {
 
 // ── Singleton ──────────────────────────────────────────────────
 
@@ -347,4 +347,4 @@ juce::String DesignTokens::resolveToken(const juce::String& name) const {
     return {};
 }
 
-} // namespace devpiano::jive
+} // namespace devpiano::ui

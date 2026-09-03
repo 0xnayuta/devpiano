@@ -58,9 +58,7 @@ private:
     StyleSelectors selectors;
     juce::Array<StyleSheet*> dependants;
 
-#if !JIVE_UNIT_TESTS
     const ComponentInteractionState interactionState;
-#endif
 
     Property<float> borderWidth;
     Styles<Fill> backgroundStyles;

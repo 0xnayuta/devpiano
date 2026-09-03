@@ -7,8 +7,6 @@
 
 #pragma once
 
-#include "jive_JuceVersion.h"
-
 #include <juce_data_structures/juce_data_structures.h>
 
 namespace jive {
@@ -28,13 +26,7 @@ public:
     Object(Object&& other) noexcept;
     Object(const juce::DynamicObject& other);
 
-#if JUCE_VERSION >= JIVE_JUCE_VERSION(8, 0, 4)
     void didModifyProperty(const juce::Identifier& name, const std::optional<juce::var>& value) override;
-#elif JUCE_VERSION >= JIVE_JUCE_VERSION(8, 0, 2)
-    void setProperty(const juce::Identifier& propertyName, const juce::var& newValue);
-#else
-    void setProperty(const juce::Identifier& propertyName, const juce::var& newValue) override;
-#endif
     const juce::NamedValueSet& getProperties() const;
 
     Object* getParent() noexcept;

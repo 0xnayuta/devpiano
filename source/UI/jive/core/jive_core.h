@@ -11,7 +11,6 @@
 #include "jive_Bezier.h"
 #include "jive_Find.h"
 #include "jive_Interpolate.h"
-#include "jive_JuceVersion.h"
 #include "jive_StringStreams.h"
 #include "jive_TransferFunction.h"
 #include "jive_Visitor.h"

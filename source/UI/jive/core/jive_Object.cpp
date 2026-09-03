@@ -70,7 +70,6 @@ Object::Object(const juce::DynamicObject& other)
     : juce::DynamicObject { other } {
 }
 
-#if JUCE_VERSION >= JIVE_JUCE_VERSION(8, 0, 4)
 void Object::didModifyProperty(const juce::Identifier& propertyName, const std::optional<juce::var>& newValue) {
     if (auto* childObject = dynamic_cast<Object*>(newValue.value_or(juce::var {}).getDynamicObject())) {
         childObject->parent = this;
@@ -78,19 +77,6 @@ void Object::didModifyProperty(const juce::Identifier& propertyName, const std::
 
     listeners.call(&Listener::propertyChanged, *this, propertyName);
 }
-#else
-void Object::setProperty(const juce::Identifier& propertyName, const juce::var& newValue) {
-    if (auto* childObject = dynamic_cast<Object*>(newValue.getDynamicObject())) {
-        childObject->parent = this;
-    }
-
-    const auto propertyChanged = DynamicObject::getProperties().set(propertyName, newValue);
-
-    if (propertyChanged) {
-        listeners.call(&Listener::propertyChanged, *this, propertyName);
-    }
-}
-#endif
 
 const juce::NamedValueSet& Object::getProperties() const {
     return dynamic_cast<juce::DynamicObject*>(const_cast<Object*>(this))->getProperties();
@@ -180,126 +166,3 @@ var VariantConverter<jive::Object::ReferenceCountedPointer>::toVar(
     return var { object.get() };
 }
 } // namespace juce
-
-#if JIVE_UNIT_TESTS
-class ObjectTest : public juce::UnitTest {
-public:
-    ObjectTest()
-        : juce::UnitTest { "jive::Object", "jive" } {
-    }
-
-    void runTest() final {
-        testListener();
-        testJsonParsing();
-        testInitialiserListConstruction();
-    }
-
-private:
-    struct Listener : public jive::Object::Listener {
-        void propertyChanged(jive::Object&, const juce::Identifier&) {
-            if (onPropertyChange != nullptr) {
-                onPropertyChange();
-            }
-        }
-
-        std::function<void()> onPropertyChange = nullptr;
-    };
-
-    void testListener() {
-        beginTest("listeners");
-
-        jive::Object object;
-
-        Listener listener;
-        object.addListener(listener);
-
-        bool callbackCalled = false;
-        listener.onPropertyChange = [&callbackCalled]() { callbackCalled = true; };
-
-        object.setProperty("value", 123);
-        expect(callbackCalled);
-
-        object.setProperty("nested", jive::parseJSON(R"(
-            {
-                "number": "456",
-            }
-        )"));
-        auto nested
-            = juce::VariantConverter<jive::Object::ReferenceCountedPointer>::fromVar(object.getProperty("nested"));
-        expect(nested != nullptr);
-        callbackCalled = false;
-        nested->setProperty("number", 789);
-        expect(callbackCalled);
-    }
-
-    void testJsonParsing() {
-        beginTest("JSON parsing");
-
-        auto value = jive::parseJSON(R"(
-            {
-                "value": 337,
-            }
-        )");
-        expect(value.isObject());
-
-        auto* object = dynamic_cast<jive::Object*>(value.getDynamicObject());
-        expect(object != nullptr);
-        expect(object->hasProperty("value"));
-        expectEquals(object->getProperty("value"), juce::var { 337 });
-
-        juce::ValueTree state { "State" };
-        state.setProperty("value", jive::parseJSON(R"(
-                              {
-                                  "value": 837,
-                                  "nested": {
-                                      "number": 47,
-                                  },
-                              }
-                          )"),
-                          nullptr);
-        value = state.getProperty("value");
-        expect(value.isObject());
-
-        object = dynamic_cast<jive::Object*>(value.getDynamicObject());
-        expect(object != nullptr);
-        expect(object->hasProperty("value"));
-        expectEquals(object->getProperty("value"), juce::var { 837 });
-
-        expect(object->hasProperty("nested"));
-        auto nested
-            = juce::VariantConverter<jive::Object::ReferenceCountedPointer>::fromVar(object->getProperty("nested"));
-        expect(nested != nullptr);
-        expect(nested->hasProperty("number"));
-        expectEquals(nested->getProperty("number"), juce::var { 47 });
-
-        Listener listener;
-        nested->addListener(listener);
-
-        bool listenerCalled = false;
-        listener.onPropertyChange = [&listenerCalled]() { listenerCalled = true; };
-
-        nested->setProperty("number", 2738);
-        expect(listenerCalled);
-    }
-
-    void testInitialiserListConstruction() {
-        beginTest("initialiser-list construction");
-
-        const jive::Object object {
-            { "foo", 10 },
-            { "bar", 20 },
-            {
-                "wizz",
-                new jive::Object {
-                    { "bang", 30 },
-                },
-            },
-        };
-        expectEquals(object["foo"], juce::var { 10 });
-        expectEquals(object["bar"], juce::var { 20 });
-        expectEquals(object["wizz"]["bang"], juce::var { 30 });
-    }
-};
-
-static ObjectTest objectTest;
-#endif

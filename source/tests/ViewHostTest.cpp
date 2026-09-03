@@ -13,7 +13,7 @@ public:
 
     void runTest() override {
         devpiano::ui::jive::StyleCatalog::get().reset();
-        devpiano::jive::DesignTokens::get().reset();
+        devpiano::ui::DesignTokens::get().reset();
 
         testLifecycleAndBasicLayout();
         testTypedComponentLookup();

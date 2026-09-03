@@ -346,12 +346,12 @@ target_compile_definitions(devpiano PRIVATE
     NOMINMAX=1
     WIN32_LEAN_AND_MEAN=1
 
-    # 核心：允许我们的应用加载外部 VST3 插件（VST3 插件音源）
-    # JIVE：同时使用 jive_layouts 和 jive_style_sheets 时推荐定义
+    # Devpiano 声明式 UI 宏（兼顾 JIVE 宏双向兼容）
+    DEVPIANO_UI_WITH_STYLES=1
+    DEVPIANO_UI_ENABLE_GRID=1
     JIVE_GUI_ITEMS_HAVE_STYLE_SHEETS=1
-    JUCE_PLUGINHOST_VST3=1
-
     JIVE_ENABLE_GRID=1
+    JUCE_PLUGINHOST_VST3=1
     # 如果你也想加载古老的 VST2 插件，可以解开下方的注释
     # 但前提是你必须持有 Steinberg 的旧版 VST2 SDK 并在 CMake 中配置路径
     # JUCE_PLUGINHOST_VST=1
@@ -548,6 +548,8 @@ if (BUILD_TESTS)
         NOMINMAX=1
         WIN32_LEAN_AND_MEAN=1
         JUCE_UNIT_TESTS=1
+        DEVPIANO_UI_WITH_STYLES=1
+        DEVPIANO_UI_ENABLE_GRID=1
         JIVE_GUI_ITEMS_HAVE_STYLE_SHEETS=1
         JIVE_ENABLE_GRID=1
     )
