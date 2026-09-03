@@ -75,8 +75,12 @@ Button::Button(std::unique_ptr<GuiItem> itemToDecorate)
     tooltip.onValueChange = [this]() { getButton().setTooltip(tooltip); };
     getButton().setTooltip(tooltip);
 
-    text.onValueChange = [this]() { getButton().setTitle(text); };
+    text.onValueChange = [this]() {
+        getButton().setTitle(text);
+        getButton().setButtonText(text);
+    };
     getButton().setTitle(text);
+    getButton().setButtonText(text);
 
     onClick.onTrigger = [this]() { triggerClick(getButton()); };
     getButton().addListener(this);

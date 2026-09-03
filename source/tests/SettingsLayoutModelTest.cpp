@@ -157,6 +157,9 @@ private:
                 auto* cb
                     = dynamic_cast<juce::ToggleButton*>(findComponentById(*rootItem, "follow-key-" + juce::String(ch)));
                 expect(cb != nullptr);
+                if (cb != nullptr) {
+                    expectEquals(cb->getButtonText(), "Ch" + juce::String(ch + 1));
+                }
             }
 
             auto* colourCombo = dynamic_cast<juce::ComboBox*>(findComponentById(*rootItem, "colour-mode-combo"));

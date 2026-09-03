@@ -268,6 +268,12 @@ public:
         expect(ch7 != nullptr);
         expect(ch8 != nullptr);
         expect(ch15 != nullptr);
+        if (auto* tb0 = host.find<juce::ToggleButton>("follow-key-0")) {
+            expectEquals(tb0->getButtonText(), juce::String("Ch1"));
+        }
+        if (auto* tb15 = host.find<juce::ToggleButton>("follow-key-15")) {
+            expectEquals(tb15->getButtonText(), juce::String("Ch16"));
+        }
 
         // All Row 0 items must share the same Y coordinate
         expectEquals(ch0->getY(), ch1->getY());

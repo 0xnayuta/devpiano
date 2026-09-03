@@ -73,7 +73,7 @@ void SettingsComponent::buildJiveUi() {
 
         for (int ch = 0; ch < 16; ++ch) {
             followKeyToggles[static_cast<size_t>(ch)]
-                = viewHost.find<juce::ToggleButton>("channel-toggle-" + juce::String(ch));
+                = viewHost.find<juce::ToggleButton>("follow-key-" + juce::String(ch));
         }
 
         wireAudioControls();
