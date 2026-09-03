@@ -100,3 +100,27 @@ graph LR
 3. **JUCE 9 演进阻力归零**：所有 UI 运行时代码作为普通项目源文件直接维护，未来跟随 JUCE 大版本演进拥有 100% 敏捷适配与自主演进能力。
 4. **统一的代码质量与 CI 门禁治理**：内化后的 UI 代码正式解除静态分析豁免，与核心业务代码享有同等规格的 C++20 规范与 Clang-Tidy 零警告把关。
 5. **ADR-008 正式废止**，由本文档接替成为 UI 基础设施层面的唯一权威架构决策依据。
+
+---
+
+## 6. UI 基础设施深度治理闭环与 API Freeze 接口冻结公约 (Phase 28)
+
+在完成初步内化与 JUCE 9 升级之后，工程通过 Phase 28 实施了深度治理，彻底消除了 JIVE 的“外部通用框架思维”遗留，并正式实施接口冻结：
+
+1. **统一门面隔离（`devpiano::ui::ViewHost`）**：
+   - 业务组件（`MainComponent`、`SettingsComponent`、`JiveModalDialog`、`WavExportTask`）不再直接触碰 `::jive::Interpreter` 或 `::jive::GuiItem`；
+   - 树生命周期由 `ViewHost` 内部自动调度 `safeCleanupJiveTree` 严格 RAII 安全接管，消灭悬挂指针与 UAF 风险；
+   - 业务交互全面收敛为 `viewHost.find<T>(id)`、`setProperty`、`setText`、`setButtonLabel`、`setEnabled`、`setVisible`、`getSliderValue`、`setSliderValue` 与 `relayoutContainer`。
+2. **布局金标测试防线（`LayoutGoldenTest`）**：
+   - 全应用 7 大 ValueTree 声明式布局走真实解释执行烟测；
+   - 1280x720 与 1920x1080 典型分辨率像素级几何基线断言（状态栏严格 24px 高度单一真相源）；
+   - 16 通道 CSS Grid 对齐几何断言；
+   - 88 键虚拟键盘焦点绝不抢占与鼠标滑音（Glissando）严格 On/Off 配对不变量。
+3. **极端死重清理与规范化**：
+   - 清除 33 个核心源码文件底部的 `#if JIVE_UNIT_TESTS` 块，删除 7,470 行死代码；
+   - 清除历史垫片 `jive_JuceVersion.h` 与 4 个空壳 `.cpp`；
+   - 规范宏前缀 `DEVPIANO_UI_ENABLE_GRID`、`DEVPIANO_UI_WITH_STYLES` 与 `devpiano::ui::DesignTokens` 全局命名空间。
+4. **UI Infrastructure API Freeze（接口冻结公约生效）**：
+   - **公约 1（底层封存）**：`source/UI/jive/core/` 源码正式列为稳定底层资产，严禁因日常业务开发修改其内部实现；
+   - **公约 2（开发纪律）**：后续任何业务开发（包含声学控制、预设管理等），只准在 `LayoutModel` 中调用 C++ DSL 组装 ValueTree，只准通过 `ViewHost` 访问组件，复杂自绘封装为原生 `juce::Component` 注入；
+   - **公约 3（重心回归）**：全面终结 UI 基础设施治理工作，全项目研发精力彻底回归物理建模钢琴算法与声学演奏护城河。

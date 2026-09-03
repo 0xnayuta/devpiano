@@ -5,11 +5,9 @@
 
 ## 当前方向
 
-**Phase 28：Devpiano 声明式 UI 基础设施深度治理与接口冻结 (Declarative UI Infrastructure Governance & API Freeze) [进行中，2026-09-03 开始]**
+**Phase 29：现实物理演奏交互与声学控制 (Physical Voicing & Realistic Acoustic Interaction) [规划中]**
 
-本轮迭代专项目标为：在已完成 JIVE 子模块退役、核心代码内化入 `source/UI/jive/core/` 与 CSS Grid 核心升格的基础上，彻底清除 JIVE 的“外部通用框架思维”遗留死重，确立 Devpiano 内生 UI 专属定位与清晰的 API 边界（ViewHost 门面），构建全覆盖的布局金标回归测试（Layout Golden Tests），规范化命名空间与宏前缀，最终实施 UI Infrastructure API Freeze（接口冻结），使后续业务开发（包含声学控制、预设网格等）彻底解耦于底层运行时细节。
-
-*(注：Phase 27 已于 2026-09-02 全部胜利完成，包含 JUCE 9.0.1 升级、内化代码 CI 门禁闭环与发布打包)*
+*(注：Phase 28 于 2026-09-03 全部胜利完成，包含 ViewHost 统一门面构建、全量布局金标测试防线、7,470 行死代码清理与 UI Infrastructure API Freeze 接口冻结公约正式生效)*
 ---
 
 ### Phase 27-A：子模块指针升级与工程构建环境基线更新 [已完成，2026-09-02]
@@ -131,18 +129,20 @@
   - 随单测块移除消除了 50+ 处未受保护的 `new jive::Object`，核准核心运行时内存模型
 ---
 
-### Phase 28-D：质量审查闭环与 UI 基础设施接口冻结 (Quality Audit Closure & Infrastructure API Freeze) [待执行]
+### Phase 28-D：质量审查闭环与 UI 基础设施接口冻结 (Quality Audit Closure & Infrastructure API Freeze) [已完成，2026-09-03]
 > 目标：双端编译与门禁验收通过，正式宣布 UI 基础设施进入 Freeze 状态，研发重心全面重归物理建模与声学演奏业务。
 
-- [ ] **全量静态检查与双端验证**：
-  - 执行 `./scripts/dev.sh format --check`、`./scripts/dev.sh tidy --all`（全量无警告）、`./scripts/dev.sh test`
-  - 执行 Windows MSVC Debug 构建验证 `./scripts/dev.sh win-build`
-- [ ] **宣布 UI Infrastructure API Freeze（接口冻结公约生效）**：
-  - 确立规则：后续任何业务开发（包含 Phase 待定声学控制、预设管理等），只准编写原生 Component 与在 `LayoutModel` 中调用 C++ DSL 组装 ValueTree，严禁穿透修改底层 `source/UI/jive/core/`（或 `runtime/`）引擎代码
-  - 将 UI 基础设施标记为稳定底层技术资产
+- [x] **全量静态检查与双端验证**：
+  - 执行 `./scripts/dev.sh format --check`、`./scripts/dev.sh tidy`（0 错误 0 警告）、`./scripts/dev.sh test`（12,853 个断言 100% 绿灯）
+  - 执行 Windows MSVC Debug 构建验证 `./scripts/dev.sh win-build`（100% 成功）
+- [x] **宣布 UI Infrastructure API Freeze（接口冻结公约生效）**：
+  - 确立规则：底层渲染与排版引擎代码（`source/UI/jive/core/`）正式列为稳定底层资产封存，严禁因日常业务需求侵入修改
+  - 确立规则：后续任何业务开发（包含 Phase 29 声学控制、预设管理等），只准编写原生 Component 与在 `LayoutModel` 中调用 C++ DSL 组装 ValueTree，只准通过 `ViewHost` 门面访问
+  - 研发精力彻底回归物理建模钢琴算法与声学演奏交互
 ---
 
 ## 历史实现 Backlog
+- Phase 28 完成记录（Devpiano 声明式 UI 基础设施深度治理与接口冻结）：[`../archive/phase28-ui-governance-and-api-freeze.md`](../archive/phase28-ui-governance-and-api-freeze.md)
 
 - ADR-014 实施归档（内化 Devpiano UI 基础设施与 JIVE 子模块退役治理）：[`../archive/adr-014-internalize-ui-infrastructure.md`](../archive/adr-014-internalize-ui-infrastructure.md)
 - AUDIT-002 修复阶段归档（全量 62 项缺陷修复与质量门禁闭环）：[`../archive/audit-002-code-quality-fix-phases.md`](../archive/audit-002-code-quality-fix-phases.md)

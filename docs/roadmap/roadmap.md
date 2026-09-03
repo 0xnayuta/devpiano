@@ -234,14 +234,14 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 3. **UI 基础设施与 JIVE 依赖治理（Phase 27-C）**：依据 ADR-014 彻底注销并退役 `submodules/JIVE` 外部子模块，内化核心声明式 UI 运行时与 CSS Grid 至 `source/UI/jive/core/`，全面完成 `FontOptions`、`GlyphArrangement` 与 `DrawableComponent` 现代排版渲染迁移；
 4. **内化代码质量治理与全量 CI 门禁纳入（Phase 27-D）**：内化 UI 代码完成 C++20 规范现代化（`override`、`noexcept`、`const-ref`），移除静态分析豁免，与业务代码统一享有零警告检验；
 5. **全系统功能回归、三闸门闭环与发布打包（Phase 27-E）**：63 个测试套件、12,668+ 单元测试断言 100% 绿灯，WSL 与 Windows MSVC 双端双配置编译 0 错误，分发包打包成功，GitHub Actions 五大门禁 100% 通过合入 `main`。
-### Phase 28：Devpiano 声明式 UI 基础设施深度治理与接口冻结（Declarative UI Infrastructure Governance & API Freeze） [进行中，2026-09-03 开始]
+### Phase 28：Devpiano 声明式 UI 基础设施深度治理与接口冻结（Declarative UI Infrastructure Governance & API Freeze） [已完成，2026-09-03]
 
 1. **API 边界收敛与 ViewHost 门面构建（Phase 28-A）**：封装 `ViewHost`，彻底隔离业务代码对底层 `Interpreter` / `GuiItem` 的裸露直接依赖与析构 UAF 风险 [已完成，2026-09-03]；
 2. **全量声明式 UI 布局金标测试（Phase 28-B）**：构建全应用 ValueTree 解释烟测、典型分辨率几何尺寸断言与焦点/滑音回归测试套件 [已完成，2026-09-03]；
 3. **通用死重清理与规范化命名规整（Phase 28-C）**：剔除 JIVE 内嵌单测与孤立算法死代码（累计清除 7,470 行），统一宏前缀（`DEVPIANO_UI_*`）与命名空间（`devpiano::ui`）[已完成，2026-09-03]；
-4. **代码审查闭环与 UI 基础设施接口冻结（Phase 28-D）**：双端双配置三闸门闭环，正式确立 UI Infrastructure Freeze 冻结公约，研发重心全面重归物理建模算法。
+4. **代码审查闭环与 UI 基础设施接口冻结（Phase 28-D）**：双端双配置三闸门闭环，正式确立 UI Infrastructure Freeze 冻结公约，研发重心全面重归物理建模算法 [已完成，2026-09-03]。
 
-### Phase 待定：现实物理演奏交互与声学控制（Physical Voicing & Realistic Acoustic Interaction） [暂缓 / 待定]
+### Phase 29：现实物理演奏交互与声学控制（Physical Voicing & Realistic Acoustic Interaction） [规划中]
 
 1. **琴盖开合度交互式控制（Lid Position）**：在 UI 界面接入 Full Open / Half Stick / Closed 3 级琴盖开合切换与底层 `lidAcoustics` 声学传递函数实时生效；
 2. **弱音/移位踏板物理拟真（Una Corda / Soft Pedal，CC 67）**：模拟击弦机右移 3 弦敲 2 弦与毛毡侧向软化物理机理，支持 CC 67 踏板与 UI 软踏板点亮；
@@ -255,7 +255,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 | 插件生命周期复杂 | 中 | 维护专项生命周期测试，重点覆盖 editor、卸载、重扫、退出。 |
 | 键盘映射边界多 | 低 | 基础映射已全量验证；Performance Preset 已补充专项回归清单。 |
 | 物理建模高负荷极端情况 | 极低 | 逐采样零三角函数 + 动态分音剪枝，8 复音齐奏单核 CPU $\le 0.7\%$。 |
-| JIVE API 稳定性 | 极低 | 固定 git commit hash；持续维护单元测试回归。 |
+| UI 基础设施稳定性 | 极低 | 内生代码完全自主掌控，实施 API Freeze 接口冻结公约；全量 LayoutGoldenTest 保护。 |
 | `MainComponent` 职责回流 | 低 | 当前稳定在 ~1270 行（主要由 `initialiseUi()` 承载 JIVE 树构建与回调接线，核心业务均已委托独立 Controller 与领域模块）；持续监控，避免业务逻辑回流。 |
 | 文档状态漂移 | 极低 | 本文件作为唯一 roadmap；当前任务只写入 [`current-iteration.md`](current-iteration.md)。 |
 

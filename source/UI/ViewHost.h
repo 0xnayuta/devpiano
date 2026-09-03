@@ -67,8 +67,8 @@ public:
     }
 
     /// Resizes the root component to the specified bounds.
-    void setBounds(juce::Rectangle<int> bounds);
-    void setBounds(int x, int y, int width, int height);
+    void setBounds(juce::Rectangle<int> bounds) const;
+    void setBounds(int x, int y, int width, int height) const;
 
     /// Finds a typed JUCE Component inside the interpreted tree by its string ID.
     template <typename ComponentType = juce::Component>
@@ -88,33 +88,33 @@ public:
     [[nodiscard]] juce::Component* findComponentById(const juce::String& id) const;
 
     /// Sets a property on the ValueTree node matching the given ID.
-    bool setProperty(const juce::String& id, const juce::Identifier& name, const juce::var& value);
+    bool setProperty(const juce::String& id, const juce::Identifier& name, const juce::var& value) const;
 
     /// Gets a property from the ValueTree node matching the given ID.
     [[nodiscard]] juce::var getProperty(const juce::String& id, const juce::Identifier& name,
                                         const juce::var& defaultValue = {}) const;
 
     /// Convenience helper to set text on a node (also syncs title property).
-    bool setText(const juce::String& id, const juce::String& text);
+    bool setText(const juce::String& id, const juce::String& text) const;
 
     /// Convenience helper to set visible label and accessibility title on a button node.
-    bool setButtonLabel(const juce::String& id, const juce::String& text);
+    bool setButtonLabel(const juce::String& id, const juce::String& text) const;
 
     /// Convenience helper to set enabled state on a node.
-    bool setEnabled(const juce::String& id, bool enabled);
+    bool setEnabled(const juce::String& id, bool enabled) const;
 
     /// Convenience helper to set visibility on a node.
-    bool setVisible(const juce::String& id, bool visible);
+    bool setVisible(const juce::String& id, bool visible) const;
 
     /// Gets slider value if found, or returns defaultValue.
     [[nodiscard]] double getSliderValue(const juce::String& id, double defaultValue = 0.0) const;
 
     /// Sets slider value if found.
     bool setSliderValue(const juce::String& id, double value,
-                        juce::NotificationType notify = juce::dontSendNotification);
+                        juce::NotificationType notify = juce::dontSendNotification) const;
 
     /// Requests re-layout on a Flex or Grid container by ID (e.g. "main-area", "plugin-action-row").
-    void relayoutContainer(const juce::String& containerId);
+    void relayoutContainer(const juce::String& containerId) const;
 
     /// Re-evaluates all semantic TRANS() titles across the active layout tree.
     void refreshTitles();

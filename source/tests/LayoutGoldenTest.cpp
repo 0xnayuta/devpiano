@@ -154,6 +154,9 @@ public:
 
         auto* rootComp = host.getRootComponent();
         expect(rootComp != nullptr);
+        if (rootComp == nullptr) {
+            return;
+        }
         expectEquals(rootComp->getWidth(), 1280);
         expectEquals(rootComp->getHeight(), 720);
 
@@ -161,17 +164,20 @@ public:
         const auto sbHeight = devpiano::ui::DesignTokens::get().statusBarHeight();
         auto* statusBarComp = host.find("status-bar");
         expect(statusBarComp != nullptr);
-        expectEquals(statusBarComp->getWidth(), 1280);
-        expectEquals(statusBarComp->getHeight(), sbHeight);
-        expectEquals(statusBarComp->getY(), 720 - sbHeight);
+        if (statusBarComp != nullptr) {
+            expectEquals(statusBarComp->getWidth(), 1280);
+            expectEquals(statusBarComp->getHeight(), sbHeight);
+            expectEquals(statusBarComp->getY(), 720 - sbHeight);
+        }
 
         // Main area golden invariants: occupies space above status bar
         auto* mainAreaComp = host.find("main-area");
         expect(mainAreaComp != nullptr);
-        expectEquals(mainAreaComp->getWidth(), 1280);
-        expectEquals(mainAreaComp->getHeight(), 720 - sbHeight);
-        expectEquals(mainAreaComp->getY(), 0);
-
+        if (mainAreaComp != nullptr) {
+            expectEquals(mainAreaComp->getWidth(), 1280);
+            expectEquals(mainAreaComp->getHeight(), 720 - sbHeight);
+            expectEquals(mainAreaComp->getY(), 0);
+        }
         // Header and controls panel presence
         auto* headerComp = host.find("header");
         expect(headerComp != nullptr);
@@ -205,6 +211,9 @@ public:
 
         auto* rootComp = host.getRootComponent();
         expect(rootComp != nullptr);
+        if (rootComp == nullptr) {
+            return;
+        }
         expectEquals(rootComp->getWidth(), 1920);
         expectEquals(rootComp->getHeight(), 1080);
 
@@ -212,15 +221,19 @@ public:
         const auto sbHeight = devpiano::ui::DesignTokens::get().statusBarHeight();
         auto* statusBarComp = host.find("status-bar");
         expect(statusBarComp != nullptr);
-        expectEquals(statusBarComp->getWidth(), 1920);
-        expectEquals(statusBarComp->getHeight(), sbHeight);
-        expectEquals(statusBarComp->getY(), 1080 - sbHeight);
+        if (statusBarComp != nullptr) {
+            expectEquals(statusBarComp->getWidth(), 1920);
+            expectEquals(statusBarComp->getHeight(), sbHeight);
+            expectEquals(statusBarComp->getY(), 1080 - sbHeight);
+        }
 
         // Main area: 1920 x (1080 - sbHeight)
         auto* mainAreaComp = host.find("main-area");
         expect(mainAreaComp != nullptr);
-        expectEquals(mainAreaComp->getWidth(), 1920);
-        expectEquals(mainAreaComp->getHeight(), 1080 - sbHeight);
+        if (mainAreaComp != nullptr) {
+            expectEquals(mainAreaComp->getWidth(), 1920);
+            expectEquals(mainAreaComp->getHeight(), 1080 - sbHeight);
+        }
     }
 
     // ────────────────────────────────────────────────────────────────────────

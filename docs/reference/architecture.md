@@ -173,16 +173,22 @@ source/
 
 ---
 
-### 3.9 UI（声明式 UI、设计系统与原生组件）
+### 3.9 UI（声明式 UI 运行时、统一门面与原生组件）
 
-- **`source/UI/jive/`（声明式 UI 核心）**：
+- **`source/UI/ViewHost.h/.cpp`（统一 UI 宿主门面，Phase 28-A）**：
+  - **架构界限与生命周期接管**：内部完整封装 `::jive::Interpreter` 与 `::jive::GuiItem`，析构与重载时自动调度 `safeCleanupJiveTree`，杜绝组件与样式表 UAF 风险；
+  - **强类型组件访问**：提供 `host.find<T>(id)` 强类型查找、`setProperty`、`setText`、`setButtonLabel`、`setEnabled`、`setVisible`、`getSliderValue`、`setSliderValue` 与 `relayoutContainer`，业务代码完全告别底层 JIVE 裸指针；
+  - **UI 线程断言**：在所有加载与重置入口注入 `JUCE_ASSERT_MESSAGE_MANAGER_IS_LOCKED`。
+- **`source/UI/jive/`（声明式 UI 核心与设计系统）**：
   - **`LayoutModel.h/.cpp`**：主窗口面板（Header, Plugin, Controls, KeyboardArea, StatusBar）ValueTree 工厂。
-  - **`DesignTokens.h/.cpp`**：设计系统变量（颜色、字体、圆角、间距单一事实源，读取编译期嵌入的 `design_tokens.json`）。
+  - **`DesignTokens.h/.cpp`**：设计系统变量（颜色、字体、圆角、间距单一事实源，属于 `devpiano::ui::DesignTokens`）。
   - **`StyleCatalog.h/.cpp`**：全局样式管理器（读取编译期嵌入的 `style_sheets.json` 并动态注入树节点）。
-  - **`JiveModalDialog.h/.cpp`**：**通用声明式模态弹窗系统**。提供 `launchSingleInput`、`launchConfirm`、`launchMetadataEdit` 与 `makeProgressLayout` 模板，全面取代手写坐标弹窗。
+  - **`JiveModalDialog.h/.cpp`**：**通用声明式模态弹窗系统**。提供 `launchSingleInput`、`launchConfirm`、`launchMetadataEdit` 与 `makeProgressLayout` 模板。
   - **`JiveUtils.h`**：ValueTree 快速构建与安全析构辅助工具。
+- **`source/UI/jive/core/`（内生 UI 渲染与排版引擎，已实施 API Freeze）**：
+  - FlexBox 与 CSS Grid 基础几何排版计算引擎、BoxModel、动态样式表与动画缓动内核。已彻底剥离死代码并封存为底层资产。
 - **`source/UI/native/`（高性能原生组件）**：
-  - **`CustomKeyboard.h/.cpp`**：88 键虚拟钢琴键盘（自绘内核，支持 Classic / Channel / Velocity 3 种着色模式与 DoReMi / FixedDo / NoteName 3 种音符标记，经 `KeyboardViewport` 注入 JIVE）。
+  - **`CustomKeyboard.h/.cpp`**：88 键虚拟钢琴键盘（自绘内核，支持 Classic / Channel / Velocity 3 种着色模式与 DoReMi / FixedDo / NoteName 3 种音符标记，焦点绝不抢占，经 `KeyboardViewport` 注入 JIVE）。
   - **`AdsrCurveComponent.h/.cpp`**：实时交互式 ADSR 包络曲线组件。
   - **`StatusBarMidiDot.h`**：MIDI 活动呼吸指示灯。
 - **`source/UI/`（弹窗接入与样式）**：
@@ -190,7 +196,6 @@ source/
   - **`KeyBindingEditDialog.h/.cpp`**：逐键绑定与调色板编辑弹窗（转接 `JiveModalDialog`）。
   - **`DevPianoLookAndFeel.h/.cpp`**：JUCE 原生控件的暗黑扁平主题定制。
   - **`PluginEditorWindow.h/.cpp`**：独立宿主窗口，托管 VST3 插件原生 UI。
-
 ---
 
 ### 3.10 Locale（多语言与静态资产管理）

@@ -141,13 +141,13 @@ bool ViewHost::isValid() const noexcept {
     return getRootComponent() != nullptr;
 }
 
-void ViewHost::setBounds(juce::Rectangle<int> bounds) {
+void ViewHost::setBounds(juce::Rectangle<int> bounds) const {
     if (auto* comp = getRootComponent()) {
         comp->setBounds(bounds);
     }
 }
 
-void ViewHost::setBounds(int x, int y, int width, int height) {
+void ViewHost::setBounds(int x, int y, int width, int height) const {
     if (auto* comp = getRootComponent()) {
         comp->setBounds(x, y, width, height);
     }
@@ -171,7 +171,7 @@ juce::Component* ViewHost::findComponentById(const juce::String& id) const {
     return rootItem.get();
 }
 
-bool ViewHost::setProperty(const juce::String& id, const juce::Identifier& name, const juce::var& value) {
+bool ViewHost::setProperty(const juce::String& id, const juce::Identifier& name, const juce::var& value) const {
     if (auto* item = findItem(id)) {
         item->state.setProperty(name, value, nullptr);
         return true;
@@ -187,7 +187,7 @@ juce::var ViewHost::getProperty(const juce::String& id, const juce::Identifier& 
     return defaultValue;
 }
 
-bool ViewHost::setText(const juce::String& id, const juce::String& text) {
+bool ViewHost::setText(const juce::String& id, const juce::String& text) const {
     if (auto* item = findItem(id)) {
         item->state.setProperty("text", text, nullptr);
         item->state.setProperty("title", text, nullptr);
@@ -196,7 +196,7 @@ bool ViewHost::setText(const juce::String& id, const juce::String& text) {
     return false;
 }
 
-bool ViewHost::setButtonLabel(const juce::String& id, const juce::String& text) {
+bool ViewHost::setButtonLabel(const juce::String& id, const juce::String& text) const {
     if (auto* item = findItem(id)) {
         item->state.setProperty("title", text, nullptr);
         for (auto child : item->state) {
@@ -212,7 +212,7 @@ bool ViewHost::setButtonLabel(const juce::String& id, const juce::String& text) 
     return false;
 }
 
-bool ViewHost::setEnabled(const juce::String& id, bool enabled) {
+bool ViewHost::setEnabled(const juce::String& id, bool enabled) const {
     if (auto* item = findItem(id)) {
         item->state.setProperty("enabled", enabled, nullptr);
         if (auto comp = item->getComponent()) {
@@ -223,7 +223,7 @@ bool ViewHost::setEnabled(const juce::String& id, bool enabled) {
     return false;
 }
 
-bool ViewHost::setVisible(const juce::String& id, bool visible) {
+bool ViewHost::setVisible(const juce::String& id, bool visible) const {
     if (auto* item = findItem(id)) {
         item->state.setProperty("visibility", visible, nullptr);
         if (auto comp = item->getComponent()) {
@@ -241,7 +241,7 @@ double ViewHost::getSliderValue(const juce::String& id, double defaultValue) con
     return defaultValue;
 }
 
-bool ViewHost::setSliderValue(const juce::String& id, double value, juce::NotificationType notify) {
+bool ViewHost::setSliderValue(const juce::String& id, double value, juce::NotificationType notify) const {
     if (auto* slider = find<juce::Slider>(id)) {
         slider->setValue(value, notify);
         return true;
@@ -249,7 +249,7 @@ bool ViewHost::setSliderValue(const juce::String& id, double value, juce::Notifi
     return false;
 }
 
-void ViewHost::relayoutContainer(const juce::String& containerId) {
+void ViewHost::relayoutContainer(const juce::String& containerId) const {
     if (auto* item = findItem(containerId)) {
         if (auto* flex = dynamic_cast<::jive::FlexContainer*>(item)) {
             flex->layOutChildren();
