@@ -104,18 +104,17 @@
   - 在 `ViewHost::loadLayout`、`ViewHost::reset`、`Interpreter::interpret()`、`StyleCatalog::applyToTree()` 入口显式加入 `JUCE_ASSERT_MESSAGE_MANAGER_IS_LOCKED`，防范非 UI 线程异步调用数据竞争
 ---
 
-### Phase 28-B：全量声明式 UI 布局金标测试与防线建立 (Layout Golden Tests & Regression Armor) [待执行]
+### Phase 28-B：全量声明式 UI 布局金标测试与防线建立 (Layout Golden Tests & Regression Armor) [已完成，2026-09-03]
 > 目标：构建真正的 DOM 解释与几何排版金标回归测试套件，彻底杜绝运行时解析/排版静默故障。
 
-- [ ] **全量声明式布局解释烟测（Interpretation Golden Smoke Test）**：
+- [x] **全量声明式布局解释烟测（Interpretation Golden Smoke Test）**：
   - 覆盖全应用所有 ValueTree 构建函数：`makeRootLayout()`、`makeSettingsLayoutTree()`、`makeSingleInputLayout()`、`makeConfirmLayout()`、`makeMetadataEditLayout()`、`makeProgressLayout()`、`makeKeyBindingEditLayout()`
   - 通过 `ViewHost` 走 100% 真实的解释执行，断言所有核心组件（按钮、滑块、下拉框、文本框、CSS Grid 网格）实例化非空且挂载正常
-- [ ] **关键节点像素几何金标测试（Deterministic Layout Bounds Test）**：
-  - 在典型分辨率（1280x720 与 1920x1080）下触发 `layOutChildren()`
-  - 对关键 UI 区域坐标断言金标基线：状态栏高度（28px）、键盘区可见性与边界、跟音 CSS Grid 8 列等宽与 gap 间距
-- [ ] **焦点隔离与交互回归固化（Focus & Glissando Invariants）**：
-  - 将虚拟键盘鼠标拖动滑音（Glissando）、鼠标释放及键盘焦点不抢占机制纳入例行自动化断言，守护交互稳定
-
+- [x] **关键节点像素几何金标测试（Deterministic Layout Bounds Test）**：
+  - 在典型分辨率（1280x720 与 1920x1080）下触发几何排版
+  - 对关键 UI 区域坐标断言金标基线：状态栏高度（24px 设计 Token 基线与底部吸附）、键盘区可见性与边界、跟音 CSS Grid 8 列等宽、间距与行高
+- [x] **焦点隔离与交互回归固化（Focus & Glissando Invariants）**：
+  - 将虚拟键盘鼠标拖动滑音（Glissando）、鼠标释放及键盘焦点不抢占机制纳入自动化断言，守护交互稳定
 ---
 
 ### Phase 28-C：通用死重清理与规范化命名规整 (Dead Code Elimination & Namespace / Prefix Normalization) [待执行]

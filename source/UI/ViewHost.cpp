@@ -1,5 +1,6 @@
 #include "UI/ViewHost.h"
 
+#include "UI/ColourSwatchButton.h"
 #include "UI/jive/DesignTokens.h"
 #include "UI/jive/JiveComponentRegistry.h"
 #include "UI/jive/JiveUtils.h"
@@ -88,6 +89,7 @@ void ViewHost::registerDefaultComponents() {
         return slider;
     });
 
+    factory.set("ColourSwatch", [] { return std::make_unique<devpiano::ui::ColourSwatchButton>(); });
     factory.set("AdsrCurve", [] { return std::make_unique<AdsrCurveComponent>(); });
 }
 

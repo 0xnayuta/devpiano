@@ -72,16 +72,15 @@ public:
     void triggerTimerCallbackForTest() {
         timerCallback();
     }
+    // juce::MouseListener
+    void mouseDown(const juce::MouseEvent& e) override;
+    void mouseUp(const juce::MouseEvent& e) override;
+    void mouseDrag(const juce::MouseEvent& e) override;
 
 private:
     // juce::Component
     void paint(juce::Graphics& g) override;
     void resized() override;
-
-    // juce::MouseListener
-    void mouseDown(const juce::MouseEvent& e) override;
-    void mouseUp(const juce::MouseEvent& e) override;
-    void mouseDrag(const juce::MouseEvent& e) override;
 
     // juce::Timer
 

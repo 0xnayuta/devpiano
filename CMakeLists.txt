@@ -521,6 +521,7 @@ if (BUILD_TESTS)
         source/tests/JiveModalDialogTest.cpp
         source/tests/SettingsLayoutModelTest.cpp
         source/tests/ViewHostTest.cpp
+        source/tests/LayoutGoldenTest.cpp
         ${DEVPIANO_JIVE_CORE_SOURCES}
     )
     target_link_libraries(devpiano_tests PRIVATE
