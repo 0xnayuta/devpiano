@@ -8,6 +8,7 @@
 #include "UI/jive/StyleCatalog.h"
 #include "UI/jive/core/jive_ComponentFactory.h"
 #include "UI/jive/core/jive_FlexContainer.h"
+#include "UI/jive/core/jive_GridContainer.h"
 #include "UI/jive/core/jive_GuiItem.h"
 #include "UI/jive/core/jive_Interpreter.h"
 #include "UI/native/AdsrCurveComponent.h"
@@ -253,6 +254,8 @@ void ViewHost::relayoutContainer(const juce::String& containerId) const {
     if (auto* item = findItem(containerId)) {
         if (auto* flex = dynamic_cast<::jive::FlexContainer*>(item)) {
             flex->layOutChildren();
+        } else if (auto* grid = dynamic_cast<::jive::GridContainer*>(item)) {
+            grid->layOutChildren();
         }
     }
 }

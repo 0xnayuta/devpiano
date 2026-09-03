@@ -36,8 +36,6 @@
 #include "UI/jive/StyleCatalog.h"
 #include "UI/native/KeyboardViewport.h"
 
-#include "UI/jive/core/jive_layouts.h"
-
 class MainComponent final : public juce::AudioAppComponent,
                             private juce::Timer,
                             public juce::FileDragAndDropTarget,

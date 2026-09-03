@@ -3,6 +3,7 @@
 #include "UI/KeyBindingEditDialog.h"
 #include "UI/PerformanceMetadataDialog.h"
 #include "UI/PresetDialogs.h"
+#include "UI/ViewHost.h"
 #include "UI/jive/DesignTokens.h"
 #include "UI/jive/JiveModalDialog.h"
 #include "UI/jive/JiveUtils.h"
@@ -29,6 +30,7 @@ public:
         testPresetAndMetadataDialogBuilders();
         testProgressLayoutBuilder();
         testKeyBindingEditDialogLayoutBuilder();
+        testLaunchOptionsHostCallbacks();
     }
     void testProgressLayoutBuilder() {
         beginTest("makeProgressLayout: progress bar and message nodes");
@@ -288,6 +290,50 @@ private:
                 expectEquals(notesEd->getText(), juce::String("Line 1\nLine 2"));
             }
         }
+    }
+
+    void testLaunchOptionsHostCallbacks() {
+        beginTest("LaunchOptions: onInitHost and onConfirmHost facade callbacks");
+
+        devpiano::ui::jive::JiveModalDialog::LaunchOptions options;
+        options.title = "Test Dialog";
+        options.layoutTree = devpiano::ui::jive::JiveModalDialog::makeSingleInputLayout("Enter Test Value:");
+
+        bool initCalled = false;
+        options.onInitHost = [&initCalled](const devpiano::ui::ViewHost& host) {
+            initCalled = true;
+            if (auto* ed = host.find<juce::TextEditor>("dialog-editor")) {
+                ed->setText("Initial Host Value", juce::dontSendNotification);
+            }
+        };
+
+        juce::String confirmedValue;
+        options.onConfirmHost = [&confirmedValue](const devpiano::ui::ViewHost& host) -> bool {
+            if (auto* ed = host.find<juce::TextEditor>("dialog-editor")) {
+                confirmedValue = ed->getText();
+            }
+            return true;
+        };
+
+        devpiano::ui::ViewHost host;
+        host.registerDefaultComponents();
+        expect(host.loadLayout(options.layoutTree, true));
+        expect(host.isValid());
+
+        // Execute host callbacks directly to simulate dialog lifecycle
+        options.onInitHost(host);
+        expect(initCalled);
+
+        auto* editor = host.find<juce::TextEditor>("dialog-editor");
+        expect(editor != nullptr);
+        if (editor != nullptr) {
+            expectEquals(editor->getText(), juce::String("Initial Host Value"));
+            editor->setText("Updated Host Value", juce::dontSendNotification);
+        }
+
+        const bool confirmed = options.onConfirmHost(host);
+        expect(confirmed);
+        expectEquals(confirmedValue, juce::String("Updated Host Value"));
     }
 };
 

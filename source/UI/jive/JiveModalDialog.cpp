@@ -53,7 +53,9 @@ public:
             titleEd->onReturnKey = [this] { handleConfirm(); };
         }
 
-        if (options.onInit && viewHost.getRootItem() != nullptr) {
+        if (options.onInitHost) {
+            options.onInitHost(viewHost);
+        } else if (options.onInit && viewHost.getRootItem() != nullptr) {
             options.onInit(*viewHost.getRootItem());
         }
 
@@ -114,7 +116,12 @@ public:
     }
 
     void handleConfirm() {
-        if (options.onConfirm && viewHost.getRootItem() != nullptr) {
+        if (options.onConfirmHost) {
+            const auto shouldClose = options.onConfirmHost(viewHost);
+            if (!shouldClose) {
+                return;
+            }
+        } else if (options.onConfirm && viewHost.getRootItem() != nullptr) {
             const auto shouldClose = options.onConfirm(*viewHost.getRootItem());
             if (!shouldClose) {
                 return;

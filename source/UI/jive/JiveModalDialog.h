@@ -8,6 +8,10 @@
 
 #include "UI/jive/JiveUtils.h"
 
+namespace devpiano::ui {
+class ViewHost;
+} // namespace devpiano::ui
+
 namespace devpiano::ui::jive {
 
 // ============================================================================
@@ -33,10 +37,16 @@ public:
         /// Called when the dialog is initialized to set initial properties,
         /// text editor values, or listeners on the GuiItem tree.
         std::function<void(::jive::GuiItem&)> onInit;
+        /// Modern facade callback passing the ViewHost facade rather than raw GuiItem.
+        /// When provided, this takes precedence over onInit.
+        std::function<void(const devpiano::ui::ViewHost&)> onInitHost;
 
         /// Called when the OK / Confirm button is clicked, or Return key is pressed.
         /// Returning false keeps the dialog open (e.g. on validation error).
         std::function<bool(::jive::GuiItem&)> onConfirm;
+        /// Modern facade callback passing the ViewHost facade rather than raw GuiItem.
+        /// When provided, this takes precedence over onConfirm.
+        std::function<bool(const devpiano::ui::ViewHost&)> onConfirmHost;
 
         /// Called on Cancel button click, Escape key, or title bar close (X).
         std::function<void()> onCancel;

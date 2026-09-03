@@ -20,6 +20,7 @@ public:
         testPropertyAccessors();
         testSliderHelpers();
         testSequentialReloads();
+        testRelayoutContainer();
     }
 
     void testLifecycleAndBasicLayout() {
@@ -183,6 +184,51 @@ public:
 
         host.reset();
         expect(!host.isValid());
+    }
+
+    void testRelayoutContainer() {
+        beginTest("ViewHost: relayoutContainer handles Flex and Grid containers safely");
+
+        devpiano::ui::ViewHost host;
+        host.registerDefaultComponents();
+
+        // Safe no-op on uninitialized host
+        host.relayoutContainer("non-existent");
+
+        juce::ValueTree root("Component");
+        root.setProperty("id", "root", nullptr);
+        root.setProperty("width", 500, nullptr);
+        root.setProperty("height", 400, nullptr);
+
+        auto flexBox = devpiano::ui::jive::flexRow("test-flex");
+        flexBox.setProperty("width", 200, nullptr);
+        flexBox.setProperty("height", 50, nullptr);
+        root.addChild(flexBox, -1, nullptr);
+
+        juce::ValueTree gridBox("Component");
+        gridBox.setProperty("id", "test-grid", nullptr);
+        gridBox.setProperty("display", "grid", nullptr);
+        gridBox.setProperty("grid-template-columns", "1fr 1fr", nullptr);
+        gridBox.setProperty("width", 200, nullptr);
+        gridBox.setProperty("height", 60, nullptr);
+
+        auto item1 = devpiano::ui::jive::button("Btn1", "btn-1");
+        auto item2 = devpiano::ui::jive::button("Btn2", "btn-2");
+        gridBox.addChild(item1, -1, nullptr);
+        gridBox.addChild(item2, -1, nullptr);
+        root.addChild(gridBox, -1, nullptr);
+
+        expect(host.loadLayout(root, false));
+        expect(host.isValid());
+
+        // Test safe execution on Flex container
+        host.relayoutContainer("test-flex");
+
+        // Test safe execution on Grid container
+        host.relayoutContainer("test-grid");
+
+        // Test safe execution on non-existent ID
+        host.relayoutContainer("ghost-container");
     }
 };
 

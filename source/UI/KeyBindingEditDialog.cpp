@@ -6,6 +6,7 @@
 #include <memory>
 
 #include "UI/ColourSwatchButton.h"
+#include "UI/ViewHost.h"
 #include "UI/jive/DesignTokens.h"
 #include "UI/jive/JiveBuilderHelpers.h"
 #include "UI/jive/JiveModalDialog.h"
@@ -76,73 +77,60 @@ private:
     std::shared_ptr<KeyCaptureSession> session;
 };
 
-inline devpiano::ui::ColourSwatchButton* findSwatchById(::jive::GuiItem& root, size_t index) {
-    if (auto* item = devpiano::ui::jive::JiveModalDialog::findGuiItemById(root, "colour-btn-" + juce::String(index))) {
-        return dynamic_cast<devpiano::ui::ColourSwatchButton*>(item->getComponent().get());
-    }
-    return nullptr;
+inline devpiano::ui::ColourSwatchButton* findSwatchById(const devpiano::ui::ViewHost& host, size_t index) {
+    return host.find<devpiano::ui::ColourSwatchButton>("colour-btn-" + juce::String(index));
 }
 
-void setupBindingInfoAndInputs(::jive::GuiItem& root, const KeyBindingDialogParams& params) {
+void setupBindingInfoAndInputs(const devpiano::ui::ViewHost& host, const KeyBindingDialogParams& params) {
     const bool hasExisting = params.existingBinding.has_value();
     const auto keyLabel = hasExisting ? params.existingBinding->displayText : juce::String();
 
-    if (auto* infoGui = devpiano::ui::jive::JiveModalDialog::findGuiItemById(root, "binding-info-text")) {
-        const auto msg = hasExisting ? (TRANS("Bound to keyboard key:") + "  " + keyLabel)
-                                     : TRANS("No keyboard key is currently mapped to this note.");
-        infoGui->state.setProperty("text", msg, nullptr);
-        infoGui->state.setProperty("title", msg, nullptr);
-    }
+    const auto msg = hasExisting ? (TRANS("Bound to keyboard key:") + "  " + keyLabel)
+                                 : TRANS("No keyboard key is currently mapped to this note.");
+    host.setText("binding-info-text", msg);
 
-    if (auto* chComp = findComponentById(root, "channel-combo")) {
-        if (auto* combo = dynamic_cast<juce::ComboBox*>(chComp)) {
-            for (int ch = 1; ch <= 16; ++ch) {
-                combo->addItem(juce::String(ch), ch);
-            }
-            if (hasExisting) {
-                combo->setSelectedId(juce::jlimit(1, 16, params.existingBinding->action.midiChannel),
-                                     juce::dontSendNotification);
-            }
+    if (auto* combo = host.find<juce::ComboBox>("channel-combo")) {
+        for (int ch = 1; ch <= 16; ++ch) {
+            combo->addItem(juce::String(ch), ch);
         }
-    }
-
-    if (auto* noteComp = findComponentById(root, "note-slider")) {
-        if (auto* slider = dynamic_cast<juce::Slider*>(noteComp)) {
-            slider->setRange(0.0, 127.0, 1.0);
-            slider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 45, 20);
-            slider->setNumDecimalPlacesToDisplay(0);
-            if (hasExisting) {
-                slider->setValue(juce::jlimit(0, 127, params.existingBinding->action.midiNote),
+        if (hasExisting) {
+            combo->setSelectedId(juce::jlimit(1, 16, params.existingBinding->action.midiChannel),
                                  juce::dontSendNotification);
-            }
         }
     }
 
-    if (auto* velComp = findComponentById(root, "velocity-slider")) {
-        if (auto* slider = dynamic_cast<juce::Slider*>(velComp)) {
-            slider->setRange(0.0, 127.0, 1.0);
-            slider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 45, 20);
-            slider->setNumDecimalPlacesToDisplay(0);
-            if (hasExisting) {
-                slider->setValue(
-                    juce::jlimit(0.0, 127.0, static_cast<double>(params.existingBinding->action.velocity * 127.0f)),
-                    juce::dontSendNotification);
-            }
+    if (auto* slider = host.find<juce::Slider>("note-slider")) {
+        slider->setRange(0.0, 127.0, 1.0);
+        slider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 45, 20);
+        slider->setNumDecimalPlacesToDisplay(0);
+        if (hasExisting) {
+            slider->setValue(juce::jlimit(0, 127, params.existingBinding->action.midiNote), juce::dontSendNotification);
         }
     }
 
-    if (auto* labelEd = devpiano::ui::jive::JiveModalDialog::findTextEditorById(root, "custom-label-editor")) {
+    if (auto* slider = host.find<juce::Slider>("velocity-slider")) {
+        slider->setRange(0.0, 127.0, 1.0);
+        slider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 45, 20);
+        slider->setNumDecimalPlacesToDisplay(0);
+        if (hasExisting) {
+            slider->setValue(
+                juce::jlimit(0.0, 127.0, static_cast<double>(params.existingBinding->action.velocity * 127.0f)),
+                juce::dontSendNotification);
+        }
+    }
+
+    if (auto* labelEd = host.find<juce::TextEditor>("custom-label-editor")) {
         labelEd->setText(params.currentCustomLabel, false);
         labelEd->setInputRestrictions(32, {});
     }
 }
 
-void setupColourPaletteControls(::jive::GuiItem& root, const std::shared_ptr<juce::Colour>& selectedColour,
+void setupColourPaletteControls(const devpiano::ui::ViewHost& host, const std::shared_ptr<juce::Colour>& selectedColour,
                                 const std::shared_ptr<std::array<juce::Colour, 8>>& palette) {
-    ::jive::GuiItem* rootPtr = &root;
-    const auto refreshSwatches = [rootPtr, selectedColour, palette] {
+    const auto* hostPtr = &host;
+    const auto refreshSwatches = [hostPtr, selectedColour, palette] {
         for (size_t k = 0; k < palette->size(); ++k) {
-            if (auto* sw = findSwatchById(*rootPtr, k)) {
+            if (auto* sw = findSwatchById(*hostPtr, k)) {
                 sw->setSwatchColour((*palette)[k]);
                 sw->setSelected(!selectedColour->isTransparent() && *selectedColour == (*palette)[k]);
             }
@@ -150,7 +138,7 @@ void setupColourPaletteControls(::jive::GuiItem& root, const std::shared_ptr<juc
     };
 
     for (size_t i = 0; i < palette->size(); ++i) {
-        if (auto* sw = findSwatchById(root, i)) {
+        if (auto* sw = findSwatchById(host, i)) {
             sw->setSwatchColour((*palette)[i]);
             sw->setSelected(!selectedColour->isTransparent() && *selectedColour == (*palette)[i]);
             sw->onClick = [selectedColour, palette, i, refreshSwatches] {
@@ -165,7 +153,7 @@ void setupColourPaletteControls(::jive::GuiItem& root, const std::shared_ptr<juc
         }
     }
 
-    if (auto* clearBtn = devpiano::ui::jive::JiveModalDialog::findButtonById(root, "clear-colour-btn")) {
+    if (auto* clearBtn = host.find<juce::Button>("clear-colour-btn")) {
         clearBtn->onClick = [selectedColour, refreshSwatches] {
             *selectedColour = juce::Colour(0x00000000);
             refreshSwatches();
@@ -173,64 +161,46 @@ void setupColourPaletteControls(::jive::GuiItem& root, const std::shared_ptr<juc
     }
 }
 
-void setupBindKeyFlow(::jive::GuiItem& root, const std::shared_ptr<KeyCaptureSession>& captureSession,
+void setupBindKeyFlow(const devpiano::ui::ViewHost& host, const std::shared_ptr<KeyCaptureSession>& captureSession,
                       const std::shared_ptr<BindKeyCaptureListener>& captureListener) {
-    ::jive::GuiItem* rootPtr = &root;
-    const auto updateBindBtnLabel = [rootPtr](const juce::String& label) {
-        if (auto* btnItem = devpiano::ui::jive::JiveModalDialog::findGuiItemById(*rootPtr, "dialog-bind-btn")) {
-            for (auto* child : btnItem->getChildren()) {
-                child->state.setProperty("text", label, nullptr);
-                child->state.setProperty("title", label, nullptr);
-            }
-        }
-    };
+    const auto* hostPtr = &host;
+    const auto updateBindBtnLabel
+        = [hostPtr](const juce::String& label) { hostPtr->setButtonLabel("dialog-bind-btn", label); };
 
-    if (auto* bindBtn = devpiano::ui::jive::JiveModalDialog::findButtonById(root, "dialog-bind-btn")) {
-        bindBtn->onClick = [captureSession, rootPtr, updateBindBtnLabel] {
+    if (auto* bindBtn = host.find<juce::Button>("dialog-bind-btn")) {
+        bindBtn->onClick = [captureSession, hostPtr, updateBindBtnLabel] {
             captureSession->active = true;
             updateBindBtnLabel(TRANS("Press a key..."));
-            if (auto* btn = devpiano::ui::jive::JiveModalDialog::findButtonById(*rootPtr, "dialog-bind-btn")) {
+            if (auto* btn = hostPtr->find<juce::Button>("dialog-bind-btn")) {
                 btn->grabKeyboardFocus();
             }
-            if (auto* info = devpiano::ui::jive::JiveModalDialog::findGuiItemById(*rootPtr, "binding-info-text")) {
-                const auto msg = TRANS("Press a key...");
-                info->state.setProperty("text", msg, nullptr);
-                info->state.setProperty("title", msg, nullptr);
-            }
+            hostPtr->setText("binding-info-text", TRANS("Press a key..."));
         };
     }
 
-    captureListener->onCaptured = [captureSession, rootPtr, updateBindBtnLabel] {
+    captureListener->onCaptured = [captureSession, hostPtr, updateBindBtnLabel] {
         updateBindBtnLabel(TRANS("Bind Key..."));
-        if (auto* info = devpiano::ui::jive::JiveModalDialog::findGuiItemById(*rootPtr, "binding-info-text")) {
-            const auto msg = TRANS("Bound to keyboard key:") + "  " + captureSession->displayText;
-            info->state.setProperty("text", msg, nullptr);
-            info->state.setProperty("title", msg, nullptr);
-        }
+        hostPtr->setText("binding-info-text", TRANS("Bound to keyboard key:") + "  " + captureSession->displayText);
     };
 
-    captureListener->onCancelled = [rootPtr, updateBindBtnLabel] {
+    captureListener->onCancelled = [hostPtr, updateBindBtnLabel] {
         updateBindBtnLabel(TRANS("Bind Key..."));
-        if (auto* info = devpiano::ui::jive::JiveModalDialog::findGuiItemById(*rootPtr, "binding-info-text")) {
-            const auto msg = TRANS("No keyboard key is currently mapped to this note.");
-            info->state.setProperty("text", msg, nullptr);
-            info->state.setProperty("title", msg, nullptr);
-        }
+        hostPtr->setText("binding-info-text", TRANS("No keyboard key is currently mapped to this note."));
     };
 
-    if (auto rootComp = root.getComponent()) {
+    if (auto* rootComp = host.getRootComponent()) {
         rootComp->addKeyListener(captureListener.get());
     }
 }
 
-void setupUnbindButton(::jive::GuiItem& root, const KeyBindingDialogParams& params,
+void setupUnbindButton(const devpiano::ui::ViewHost& host, const KeyBindingDialogParams& params,
                        const std::shared_ptr<juce::Colour>& selectedColour,
                        const std::function<void(KeyBindingEditResult)>& safeOnComplete) {
-    ::jive::GuiItem* rootPtr = &root;
-    if (auto* unbindBtn = devpiano::ui::jive::JiveModalDialog::findButtonById(root, "dialog-unbind-btn")) {
-        unbindBtn->onClick = [params, rootPtr, selectedColour, safeOnComplete, unbindBtn] {
+    const auto* hostPtr = &host;
+    if (auto* unbindBtn = host.find<juce::Button>("dialog-unbind-btn")) {
+        unbindBtn->onClick = [params, hostPtr, selectedColour, safeOnComplete, unbindBtn] {
             KeyBindingEditResult result;
-            if (auto* ed = devpiano::ui::jive::JiveModalDialog::findTextEditorById(*rootPtr, "custom-label-editor")) {
+            if (auto* ed = hostPtr->find<juce::TextEditor>("custom-label-editor")) {
                 result.customLabel = ed->getText();
             }
             result.customColour = *selectedColour;
@@ -420,16 +390,16 @@ void KeyBindingEditDialog::launch(const KeyBindingDialogParams& params) {
         factory.set("ColourSwatch", [] { return std::make_unique<devpiano::ui::ColourSwatchButton>(); });
     };
 
-    options.onInit = [=](::jive::GuiItem& root) {
-        setupBindingInfoAndInputs(root, params);
-        setupColourPaletteControls(root, selectedColour, palette);
-        setupBindKeyFlow(root, captureSession, captureListener);
-        setupUnbindButton(root, params, selectedColour, safeOnComplete);
+    options.onInitHost = [=](const devpiano::ui::ViewHost& host) {
+        setupBindingInfoAndInputs(host, params);
+        setupColourPaletteControls(host, selectedColour, palette);
+        setupBindKeyFlow(host, captureSession, captureListener);
+        setupUnbindButton(host, params, selectedColour, safeOnComplete);
     };
 
-    options.onConfirm = [=](::jive::GuiItem& root) -> bool {
+    options.onConfirmHost = [=](const devpiano::ui::ViewHost& host) -> bool {
         KeyBindingEditResult result;
-        if (auto* ed = devpiano::ui::jive::JiveModalDialog::findTextEditorById(root, "custom-label-editor")) {
+        if (auto* ed = host.find<juce::TextEditor>("custom-label-editor")) {
             result.customLabel = ed->getText();
         }
         result.customColour = *selectedColour;
@@ -438,20 +408,14 @@ void KeyBindingEditDialog::launch(const KeyBindingDialogParams& params) {
 
         if (hasExisting) {
             auto updated = *params.existingBinding;
-            if (auto* chComp = findComponentById(root, "channel-combo")) {
-                if (auto* combo = dynamic_cast<juce::ComboBox*>(chComp)) {
-                    updated.action.midiChannel = combo->getSelectedId();
-                }
+            if (auto* combo = host.find<juce::ComboBox>("channel-combo")) {
+                updated.action.midiChannel = combo->getSelectedId();
             }
-            if (auto* noteComp = findComponentById(root, "note-slider")) {
-                if (auto* slider = dynamic_cast<juce::Slider*>(noteComp)) {
-                    updated.action.midiNote = static_cast<int>(slider->getValue());
-                }
+            if (auto* slider = host.find<juce::Slider>("note-slider")) {
+                updated.action.midiNote = static_cast<int>(slider->getValue());
             }
-            if (auto* velComp = findComponentById(root, "velocity-slider")) {
-                if (auto* slider = dynamic_cast<juce::Slider*>(velComp)) {
-                    updated.action.velocity = static_cast<float>(slider->getValue() / 127.0);
-                }
+            if (auto* slider = host.find<juce::Slider>("velocity-slider")) {
+                updated.action.velocity = static_cast<float>(slider->getValue() / 127.0);
             }
             result.binding = updated;
         } else if (captureSession->keyCode != 0) {
