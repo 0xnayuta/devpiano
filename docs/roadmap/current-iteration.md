@@ -5,14 +5,11 @@
 
 ## 当前方向
 
-**Phase 27：JUCE 9.0.1 框架升级、内化代码治理与全平台技术栈跃迁 [进行中，2026-09-02 开始]**
+**Phase 28：Devpiano 声明式 UI 基础设施深度治理与接口冻结 (Declarative UI Infrastructure Governance & API Freeze) [进行中，2026-09-03 开始]**
 
-本轮迭代专项目标为：
-1. 将核心依赖 `submodules/JUCE` 从 `8.0.15` 升级至官方最新发布版本 **JUCE 9.0.1**（Tag: `9.0.1`, Commit: `e18f7f5`）；
-2. 消除 JUCE 9 全体系在非 UI（音频引擎、VST3 宿主、导出管线）与 UI（字体、SVG、组件生命周期）层的 API 破坏性变更；
-3. **内化 UI 代码质量治理闭环**：对 `source/UI/jive/core/` 进行 C++20 现代化重构与警告消除，解除 `.clang-tidy` 豁免，将其正式纳入全量 CI 静态分析门禁；
-4. 完成 Linux Clang + Windows MSVC 双平台全套三闸门与 12,187+ 单元测试 100% 绿灯验收。
+本轮迭代专项目标为：在已完成 JIVE 子模块退役、核心代码内化入 `source/UI/jive/core/` 与 CSS Grid 核心升格的基础上，彻底清除 JIVE 的“外部通用框架思维”遗留死重，确立 Devpiano 内生 UI 专属定位与清晰的 API 边界（ViewHost 门面），构建全覆盖的布局金标回归测试（Layout Golden Tests），规范化命名空间与宏前缀，最终实施 UI Infrastructure API Freeze（接口冻结），使后续业务开发（包含声学控制、预设网格等）彻底解耦于底层运行时细节。
 
+*(注：Phase 27 已于 2026-09-02 全部胜利完成，包含 JUCE 9.0.1 升级、内化代码 CI 门禁闭环与发布打包)*
 ---
 
 ### Phase 27-A：子模块指针升级与工程构建环境基线更新 [已完成，2026-09-02]
@@ -90,6 +87,62 @@
 - [x] **端到端功能冒烟测试**：
   - 键盘演奏与 7 大物理声学系统合成发声
   - VST3 外部插件加载、参数调节与离线渲染导出
+---
+
+## Phase 28：Devpiano 声明式 UI 基础设施深度治理与接口冻结 (Declarative UI Infrastructure Governance & API Freeze)
+
+### Phase 28-A：API 边界收敛与 ViewHost 门面构建 (API Boundary Convergence & ViewHost Facade) [待执行]
+> 目标：消除业务层（MainComponent、SettingsComponent、JiveModalDialog）对底层 `::jive::Interpreter` 与 `::jive::GuiItem` 的裸露直接依赖，建立强类型 RAII 门面。
+
+- [ ] **构建 `devpiano::ui::ViewHost`（统一 UI 宿主门面）**：
+  - 内部完整封装 `Interpreter` 实例与 `GuiItem` 树生命周期，统一接管解析、组件工厂注入、`safeCleanupJiveTree` 析构时序与悬挂指针防范
+  - 提供业务单一交互入口：`viewHost.loadLayout(const juce::ValueTree&)`、`viewHost.getRootComponent()`、`viewHost.applyStyles(StyleCatalog&)`
+- [ ] **强类型组件查找与访问器收敛**：
+  - 提供 `viewHost.find<T>(const juce::String& id)` 模板方法，消除业务侧分散的 `dynamic_cast`
+  - 重构 `MainComponent.cpp`、`MainComponentJiveAccessors.cpp` 与 `SettingsComponent.cpp`，消除裸 `Interpreter` / `GuiItem` 成员指针
+- [ ] **线程安全断言（UI Thread Assertions）**：
+  - 在 `ViewHost`、`Interpreter::interpret()`、`StyleCatalog::applyToTree()` 入口显式加入 `JUCE_ASSERT_MESSAGE_MANAGER_IS_LOCKED`，防范非 UI 线程异步调用数据竞争
+
+---
+
+### Phase 28-B：全量声明式 UI 布局金标测试与防线建立 (Layout Golden Tests & Regression Armor) [待执行]
+> 目标：构建真正的 DOM 解释与几何排版金标回归测试套件，彻底杜绝运行时解析/排版静默故障。
+
+- [ ] **全量声明式布局解释烟测（Interpretation Golden Smoke Test）**：
+  - 覆盖全应用所有 ValueTree 构建函数：`makeRootLayout()`、`makeSettingsLayoutTree()`、`makeSingleInputLayout()`、`makeConfirmLayout()`、`makeMetadataEditLayout()`、`makeProgressLayout()`、`makeKeyBindingEditLayout()`
+  - 通过 `ViewHost` 走 100% 真实的解释执行，断言所有核心组件（按钮、滑块、下拉框、文本框、CSS Grid 网格）实例化非空且挂载正常
+- [ ] **关键节点像素几何金标测试（Deterministic Layout Bounds Test）**：
+  - 在典型分辨率（1280x720 与 1920x1080）下触发 `layOutChildren()`
+  - 对关键 UI 区域坐标断言金标基线：状态栏高度（28px）、键盘区可见性与边界、跟音 CSS Grid 8 列等宽与 gap 间距
+- [ ] **焦点隔离与交互回归固化（Focus & Glissando Invariants）**：
+  - 将虚拟键盘鼠标拖动滑音（Glissando）、鼠标释放及键盘焦点不抢占机制纳入例行自动化断言，守护交互稳定
+
+---
+
+### Phase 28-C：通用死重清理与规范化命名规整 (Dead Code Elimination & Namespace / Prefix Normalization) [待执行]
+> 目标：清理 JIVE 遗留未用死代码，统一宏定义前缀与全局命名空间。
+
+- [ ] **清理 JIVE 内嵌单测与孤立算法（Dead Code Cleanup）**：
+  - 移除各 `.cpp` 末尾残留的 `#if JIVE_UNIT_TESTS` 内嵌单测代码块（全面由 Devpiano 自建单元测试替代）
+  - 移除多版本兼容宏与历史垫片（如 `jive_JuceVersion.h`、过时的 JUCE 6/7 分支）
+  - 评估并剔除调用次数为 0 的孤立工具类（如 `jive_Bezier.h`、`jive_TransferFunction.h`、`jive_Visitor.h`、`jive_IgnoredComponent` 等）
+- [ ] **宏定义前缀与全局命名空间规整（Namespace & Macro Normalization）**：
+  - 统一宏前缀：将 `JIVE_ENABLE_GRID`、`JIVE_GUI_ITEMS_HAVE_STYLE_SHEETS` 规整为 `DEVPIANO_UI_ENABLE_GRID` 与 `DEVPIANO_UI_WITH_STYLES`（或保留双向兼容过渡）
+  - 消除 `devpiano::jive::`、`devpiano::ui::jive::` 命名分歧，全局统一为 `devpiano::ui`；底层内生引擎类型下沉为 `devpiano::ui::runtime`（或 `devpiano::ui::detail`）
+- [ ] **清理裸 `new` 与现代 C++ RAII 终审**：
+  - 检查 `jive_Object.cpp` 等模块中的动态对象分配，消除裸 `new`，确保异常安全
+
+---
+
+### Phase 28-D：质量审查闭环与 UI 基础设施接口冻结 (Quality Audit Closure & Infrastructure API Freeze) [待执行]
+> 目标：双端编译与门禁验收通过，正式宣布 UI 基础设施进入 Freeze 状态，研发重心全面重归物理建模与声学演奏业务。
+
+- [ ] **全量静态检查与双端验证**：
+  - 执行 `./scripts/dev.sh format --check`、`./scripts/dev.sh tidy --all`（全量无警告）、`./scripts/dev.sh test`
+  - 执行 Windows MSVC Debug 构建验证 `./scripts/dev.sh win-build`
+- [ ] **宣布 UI Infrastructure API Freeze（接口冻结公约生效）**：
+  - 确立规则：后续任何业务开发（包含 Phase 待定声学控制、预设管理等），只准编写原生 Component 与在 `LayoutModel` 中调用 C++ DSL 组装 ValueTree，严禁穿透修改底层 `source/UI/jive/core/`（或 `runtime/`）引擎代码
+  - 将 UI 基础设施标记为稳定底层技术资产
 ---
 
 ## 历史实现 Backlog
