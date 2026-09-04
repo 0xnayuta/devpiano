@@ -99,6 +99,12 @@ private:
 
     void initialiseFromPreset();
     void initialiseUi();
+    void initialiseThemeAndBootstrap();
+    void wireHeaderPanel();
+    void wirePluginPanel();
+    void wireControlsPanel();
+    void wireKeyboardInteraction();
+    void dispatchDroppedFile(const juce::File& file);
     [[nodiscard]] juce::Rectangle<int> getInitialMainContentBounds() const;
     [[nodiscard]] SettingsModel::PerformanceSettingsView getPerformanceSettingsFromUi() const;
     [[nodiscard]] SettingsModel::BuiltinTone getBuiltinToneFromSettings() const;

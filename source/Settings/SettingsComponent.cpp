@@ -207,7 +207,7 @@ void SettingsComponent::wireMidiControls() {
     updateFollowKeyTogglesEnablement();
 }
 
-void SettingsComponent::wireAppearanceAndLocaleControls() {
+void SettingsComponent::wireAppearanceControls() {
     if (colourModeCombo != nullptr) {
         rebuildColourModeCombo();
         if (model != nullptr) {
@@ -248,7 +248,9 @@ void SettingsComponent::wireAppearanceAndLocaleControls() {
             editingState.setProperty("showInstrumentFilter", instrumentFilterToggle->getToggleState(), nullptr);
         };
     }
+}
 
+void SettingsComponent::wireLocaleAndActionControls() {
     if (languageCombo != nullptr) {
         languageCombo->clear(juce::dontSendNotification);
         languageCombo->addItem("English", 1);
@@ -271,6 +273,11 @@ void SettingsComponent::wireAppearanceAndLocaleControls() {
             }
         };
     }
+}
+
+void SettingsComponent::wireAppearanceAndLocaleControls() {
+    wireAppearanceControls();
+    wireLocaleAndActionControls();
 }
 
 void SettingsComponent::syncEditingStateFromModel() {
@@ -589,37 +596,64 @@ void SettingsComponent::changeListenerCallback(juce::ChangeBroadcaster* source) 
     }
 }
 
+bool SettingsComponent::applyDisplayProperty(const juce::Identifier& prop) {
+    const auto& propName = prop.toString();
+    if (propName == "colourMode") {
+        model->keyboardDisplay.colourMode = static_cast<devpiano::ui::KeyColourMode>((int)editingState[prop] - 1);
+        return true;
+    }
+    if (propName == "noteDisplay") {
+        model->keyboardDisplay.noteDisplay = static_cast<devpiano::ui::NoteDisplayMode>((int)editingState[prop] - 1);
+        return true;
+    }
+    if (propName == "fadeSpeed") {
+        model->keyboardDisplay.fadeSpeed = static_cast<float>((double)editingState[prop]);
+        return true;
+    }
+    if (propName == "showInstrumentFilter") {
+        model->keyboardDisplay.showInstrumentFilter = (bool)editingState[prop];
+        return true;
+    }
+    return false;
+}
+
+bool SettingsComponent::applyMidiProperty(const juce::Identifier& prop) {
+    const auto& propName = prop.toString();
+    if (propName == "keySignature") {
+        model->keySignature = (int)editingState[prop];
+        return true;
+    }
+    if (propName == "midiTranspose") {
+        model->midiTranspose = (bool)editingState[prop];
+        updateFollowKeyTogglesEnablement();
+        return true;
+    }
+    if (propName.startsWith("followKey_")) {
+        const auto chIdx = propName.substring(10).getIntValue();
+        if (chIdx >= 0 && chIdx < 16) {
+            model->channelMatrix.channels[static_cast<size_t>(chIdx)].followKey = (bool)editingState[prop];
+            return true;
+        }
+    }
+    return false;
+}
+
 void SettingsComponent::valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& prop) {
     if (tree != editingState || model == nullptr) {
         return;
     }
 
-    const auto& propName = prop.toString();
-
-    if (propName == "colourMode") {
-        model->keyboardDisplay.colourMode = static_cast<devpiano::ui::KeyColourMode>((int)editingState[prop] - 1);
-    } else if (propName == "noteDisplay") {
-        model->keyboardDisplay.noteDisplay = static_cast<devpiano::ui::NoteDisplayMode>((int)editingState[prop] - 1);
-    } else if (propName == "fadeSpeed") {
-        model->keyboardDisplay.fadeSpeed = static_cast<float>((double)editingState[prop]);
-    } else if (propName == "showInstrumentFilter") {
-        model->keyboardDisplay.showInstrumentFilter = (bool)editingState[prop];
-    } else if (propName == "keySignature") {
-        model->keySignature = (int)editingState[prop];
-    } else if (propName == "midiTranspose") {
-        model->midiTranspose = (bool)editingState[prop];
-        updateFollowKeyTogglesEnablement();
-    } else if (propName.startsWith("followKey_")) {
-        const auto chIdx = propName.substring(10).getIntValue();
-        if (chIdx >= 0 && chIdx < 16) {
-            model->channelMatrix.channels[static_cast<size_t>(chIdx)].followKey = (bool)editingState[prop];
-        }
-    } else if (propName == "languageCode") {
+    if (prop == juce::Identifier("languageCode")) {
         model->languageCode = editingState[prop].toString();
         if (onLanguageChanged) {
             onLanguageChanged(model->languageCode);
         }
         refreshTexts();
+        return;
+    }
+
+    const bool handled = applyDisplayProperty(prop) || applyMidiProperty(prop);
+    if (!handled) {
         return;
     }
 

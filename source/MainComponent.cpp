@@ -157,7 +157,7 @@ void MainComponent::handlePresetShortcut(int index) {
         presetFlowSupport->applyPresetByIndex(index);
     }
 }
-void MainComponent::initialiseUi() {
+void MainComponent::initialiseThemeAndBootstrap() {
     // 1. 加载设计 token（单一配色真相源）— 必须在构造 LookAndFeel 之前
     devpiano::ui::jive::StyleBootstrap::bootstrapDesignTokens(lastTokensModTime);
 
@@ -174,187 +174,161 @@ void MainComponent::initialiseUi() {
     devpiano::ui::jive::StyleBootstrap::bootstrapStyleCatalog(lastStylesModTime);
 
     viewHost.registerKeyboardComponents(audioEngine.getKeyboardState());
+}
 
-    // 3. 构建根节点并应用全局样式表
-    auto rootTree = devpiano::ui::jive::makeRootLayout();
-    if (viewHost.loadLayout(rootTree, true)) {
-        addAndMakeVisible(viewHost.getRootComponent());
+void MainComponent::wireHeaderPanel() {
+    if (auto* btn = viewHost.find<juce::Button>("settings-btn")) {
+        btn->onClick = [this] { showSettingsDialog(); };
+    }
+}
 
-        const auto findSlider = [this](const char* id) -> juce::Slider* { return viewHost.find<juce::Slider>(id); };
-        const auto findCombo = [this](const char* id) -> juce::ComboBox* { return viewHost.find<juce::ComboBox>(id); };
-        const auto findButton = [this](const char* id) -> juce::Button* { return viewHost.find<juce::Button>(id); };
-
-        // ── header ──
-        if (auto* btn = findButton("settings-btn")) {
-            btn->onClick = [this] { showSettingsDialog(); };
+void MainComponent::wirePluginPanel() {
+    const auto wireButton = [this](const char* id, const std::function<void()>& action) {
+        if (auto* btn = viewHost.find<juce::Button>(id)) {
+            btn->onClick = action;
         }
+    };
+    wireButton("load-btn", [this] { pluginOperationController->loadSelectedPlugin(); });
+    wireButton("unload-btn", [this] { pluginOperationController->unloadCurrentPlugin(); });
+    wireButton("editor-btn", [this] { pluginOperationController->togglePluginEditor(); });
+    wireButton("toggle-btn", [this] { setPluginPanelExpanded(!appSettings.pluginPanelExpanded); });
+    wireButton("scan-btn", [this] { pluginOperationController->scanPlugins(); });
+    wireButton("browse-btn", [this] { showPluginBrowseDialog(); });
 
-        // ── plugin panel ──
-        const auto wireButton = [&findButton](const char* id, const std::function<void()>& action) {
-            if (auto* btn = findButton(id)) {
-                btn->onClick = action;
+    if (auto* combo = viewHost.find<juce::ComboBox>("plugin-selector")) {
+        combo->setTextWhenNothingSelected(TRANS("Select a scanned plugin..."));
+        combo->setWantsKeyboardFocus(false);
+        combo->onChange = [this, combo] {
+            if (isUpdatingPluginSelector) {
+                return;
+            }
+            if (combo->getSelectedItemIndex() >= 0) {
+                pluginOperationController->loadSelectedPlugin();
             }
         };
-        wireButton("load-btn", [this] { pluginOperationController->loadSelectedPlugin(); });
-        wireButton("unload-btn", [this] { pluginOperationController->unloadCurrentPlugin(); });
-        wireButton("editor-btn", [this] { pluginOperationController->togglePluginEditor(); });
-        wireButton("toggle-btn", [this] { setPluginPanelExpanded(!appSettings.pluginPanelExpanded); });
-        wireButton("scan-btn", [this] { pluginOperationController->scanPlugins(); });
-        wireButton("browse-btn", [this] { showPluginBrowseDialog(); });
-
-        if (auto* combo = findCombo("plugin-selector")) {
-            combo->setTextWhenNothingSelected(TRANS("Select a scanned plugin..."));
-            combo->setWantsKeyboardFocus(false);
-            combo->onChange = [this, combo] {
-                if (isUpdatingPluginSelector) {
-                    return;
-                }
-                if (combo->getSelectedItemIndex() >= 0) {
-                    pluginOperationController->loadSelectedPlugin();
-                }
-            };
-        }
-        if (auto* combo = findCombo("plugin-filter-combo")) {
-            combo->clear(juce::dontSendNotification);
-            combo->addItem(TRANS("All"), 1);
-            combo->addItem(TRANS("Instruments Only"), 2);
-            combo->addItem(TRANS("Effects Only"), 3);
-            combo->setSelectedId(1, juce::dontSendNotification);
-            combo->setWantsKeyboardFocus(false);
-            combo->onChange = [this] {
-                if (!isUpdatingPluginSelector) {
-                    refreshPluginUiState();
-                }
-            };
-        }
-        if (auto* editor = viewHost.find<juce::TextEditor>("plugin-path-editor")) {
-            editor->onReturnKey = [this] { pluginOperationController->scanPlugins(); };
-        }
-
-        // ── controls panel ──
-        AdsrCurveComponent* adsrCurve = viewHost.find<AdsrCurveComponent>("adsr-curve");
-
-        const auto wireKnob = [&findSlider](const char* id, double min, double max, double interval,
-                                            const std::function<juce::String(double)>& formatter,
-                                            const std::function<void()>& onChanged) {
-            if (auto* slider = findSlider(id)) {
-                slider->setRange(min, max, interval);
-                slider->textFromValueFunction = formatter;
-                slider->onValueChange = [onChanged] { onChanged(); };
+    }
+    if (auto* combo = viewHost.find<juce::ComboBox>("plugin-filter-combo")) {
+        combo->clear(juce::dontSendNotification);
+        combo->addItem(TRANS("All"), 1);
+        combo->addItem(TRANS("Instruments Only"), 2);
+        combo->addItem(TRANS("Effects Only"), 3);
+        combo->setSelectedId(1, juce::dontSendNotification);
+        combo->setWantsKeyboardFocus(false);
+        combo->onChange = [this] {
+            if (!isUpdatingPluginSelector) {
+                refreshPluginUiState();
             }
         };
-        wireKnob(
-            "volume-knob", 0.0, 1.0, 0.01, [](double v) { return juce::String(v, 2); },
-            [this] { handlePerformanceUiChanged(); });
-        const auto wireAdsrKnob
-            = [this, curve = adsrCurve, &wireKnob](const char* id, double min, double max, double interval,
-                                                   const std::function<juce::String(double)>& formatter) {
-                  wireKnob(id, min, max, interval, formatter, [this, curve] {
-                      if (curve != nullptr) {
-                          curve->setParameters(getAttack(), getDecay(), getSustain(), getRelease());
-                      }
-                      handlePerformanceUiChanged();
-                  });
-              };
-        wireAdsrKnob("attack-knob", 0.001, 2.0, 0.001, [](double v) { return juce::String(v, 3) + "s"; });
-        wireAdsrKnob("decay-knob", 0.001, 2.0, 0.001, [](double v) { return juce::String(v, 3) + "s"; });
-        wireAdsrKnob("sustain-knob", 0.0, 1.0, 0.01,
-                     [](double v) { return juce::String(static_cast<int>(std::lround(v * 100.0))) + "%"; });
-        wireAdsrKnob("release-knob", 0.001, 3.0, 0.001, [](double v) { return juce::String(v, 3) + "s"; });
+    }
+    if (auto* editor = viewHost.find<juce::TextEditor>("plugin-path-editor")) {
+        editor->onReturnKey = [this] { pluginOperationController->scanPlugins(); };
+    }
+}
 
-        // ── piano tone row (Phase 12-3) ──
-        const auto wirePianoKnob
-            = [&wireKnob, this](const char* id, const std::function<juce::String(double)>& formatter) {
-                  wireKnob(id, 0.0, 1.0, 0.01, formatter, [this] { handlePerformanceUiChanged(); });
-              };
-        wirePianoKnob("brightness-knob",
-                      [](double v) { return juce::String(static_cast<int>(std::lround(v * 100.0))) + "%"; });
-        wirePianoKnob("hardness-knob",
-                      [](double v) { return juce::String(static_cast<int>(std::lround(v * 100.0))) + "%"; });
-        wirePianoKnob("resonance-knob",
-                      [](double v) { return juce::String(static_cast<int>(std::lround(v * 100.0))) + "%"; });
-        wireKnob(
-            "speed-knob", 0.5, 2.0, 0.25,
-            [](double v) {
-                // 0.25-step speeds: format with two decimals, then trim a
-                // single trailing zero ("1.00" → "1.0", "1.25" stays,
-                // "1.50" → "1.5"). A single decimal place uses banker's
-                // rounding, which mis-rendered 1.25 as "1.2" and 1.75 as
-                // "1.8".
-                auto text = juce::String(v, 2);
-                if (text.endsWith("0")) {
-                    text = text.dropLastCharacters(1);
-                }
-                return text + "x";
-            },
-            [this] { recordingSessionController->handlePlaybackSpeedChange(getControlsPlaybackSpeed()); });
-
-        wireButton("record-btn", [this] { recordingSessionController->handleRecordClicked(); });
-        wireButton("play-btn", [this] { recordingSessionController->handlePlayClicked(); });
-        wireButton("stop-btn", [this] { recordingSessionController->handleStopClicked(); });
-        wireButton("back-btn", [this] { recordingSessionController->handleBackToStartClicked(); });
-
-        // Latched (toggle-on) accent colours: red while recording, green while playing.
-        const auto& tokens = devpiano::jive::DesignTokens::get();
-        if (auto* btn = findButton("record-btn")) {
-            btn->setColour(juce::TextButton::buttonOnColourId, tokens.recordActive());
+void MainComponent::wireControlsPanel() {
+    const auto wireButton = [this](const char* id, const std::function<void()>& action) {
+        if (auto* btn = viewHost.find<juce::Button>(id)) {
+            btn->onClick = action;
         }
-        if (auto* btn = findButton("play-btn")) {
-            btn->setColour(juce::TextButton::buttonOnColourId, tokens.playActive());
-        }
-        wireButton("export-midi-btn", [this] { recordingSessionController->handleExportMidiClicked(); });
-        wireButton("export-wav-btn", [this] { recordingSessionController->handleExportWavClicked(); });
-        wireButton("import-midi-btn", [this] { recordingSessionController->handleImportMidiClicked(); });
-        wireButton("save-perf-btn", [this] { recordingSessionController->handleSavePerformanceClicked(); });
-        wireButton("open-perf-btn", [this] { recordingSessionController->handleOpenPerformanceClicked(); });
-        wireButton("song-info-btn", [this] { recordingSessionController->handleSongInfoClicked(); });
-        wireButton("recent-btn", [this] { showRecentFilesMenu(); });
-        wireButton("save-preset-btn", [this] { presetFlowSupport->handleSaveAsNewPreset(); });
-        wireButton("rename-preset-btn", [this] { presetFlowSupport->handleRenamePreset(); });
-        wireButton("delete-preset-btn", [this] { presetFlowSupport->handleDeletePreset(); });
+    };
+    const auto wireKnob
+        = [this](const char* id, double min, double max, double interval,
+                 const std::function<juce::String(double)>& formatter, const std::function<void()>& onChanged) {
+              if (auto* slider = viewHost.find<juce::Slider>(id)) {
+                  slider->setRange(min, max, interval);
+                  slider->textFromValueFunction = formatter;
+                  slider->onValueChange = [onChanged] { onChanged(); };
+              }
+          };
 
-        if (auto* combo = findCombo("preset-combo")) {
-            combo->setTextWhenNothingSelected(TRANS("Default"));
-            combo->setWantsKeyboardFocus(false);
-            combo->onChange = [this, combo] {
-                if (isUpdatingPresets) {
-                    return;
-                }
-                const auto selectedId = combo->getSelectedId();
-                if (selectedId <= 0 || !juce::isPositiveAndBelow(selectedId - 1, availablePresetIds.size())) {
-                    return;
-                }
-                presetFlowSupport->applyPresetById(availablePresetIds[selectedId - 1]);
-                updateControlsPresetActionButtons();
-            };
-        }
+    AdsrCurveComponent* adsrCurve = viewHost.find<AdsrCurveComponent>("adsr-curve");
 
-        setRecordingControlsState({});
+    wireKnob(
+        "volume-knob", 0.0, 1.0, 0.01, [](double v) { return juce::String(v, 2); },
+        [this] { handlePerformanceUiChanged(); });
 
-        // ── keyboard area ──
-        if (auto* viewport = viewHost.find<KeyboardViewport>("custom-keyboard")) {
-            customKeyboardRef = &viewport->getCustomKeyboard();
-        }
+    const auto wireAdsrKnob = [this, adsrCurve, &wireKnob](const char* id, double min, double max, double interval,
+                                                           const std::function<juce::String(double)>& formatter) {
+        wireKnob(id, min, max, interval, formatter, [this, adsrCurve] {
+            if (adsrCurve != nullptr) {
+                adsrCurve->setParameters(getAttack(), getDecay(), getSustain(), getRelease());
+            }
+            handlePerformanceUiChanged();
+        });
+    };
+    wireAdsrKnob("attack-knob", 0.001, 2.0, 0.001, [](double v) { return juce::String(v, 3) + "s"; });
+    wireAdsrKnob("decay-knob", 0.001, 2.0, 0.001, [](double v) { return juce::String(v, 3) + "s"; });
+    wireAdsrKnob("sustain-knob", 0.0, 1.0, 0.01,
+                 [](double v) { return juce::String(static_cast<int>(std::lround(v * 100.0))) + "%"; });
+    wireAdsrKnob("release-knob", 0.001, 3.0, 0.001, [](double v) { return juce::String(v, 3) + "s"; });
+
+    // ── piano tone row (Phase 12-3) ──
+    const auto wirePianoKnob = [&wireKnob, this](const char* id, const std::function<juce::String(double)>& formatter) {
+        wireKnob(id, 0.0, 1.0, 0.01, formatter, [this] { handlePerformanceUiChanged(); });
+    };
+    wirePianoKnob("brightness-knob",
+                  [](double v) { return juce::String(static_cast<int>(std::lround(v * 100.0))) + "%"; });
+    wirePianoKnob("hardness-knob",
+                  [](double v) { return juce::String(static_cast<int>(std::lround(v * 100.0))) + "%"; });
+    wirePianoKnob("resonance-knob",
+                  [](double v) { return juce::String(static_cast<int>(std::lround(v * 100.0))) + "%"; });
+
+    wireKnob(
+        "speed-knob", 0.5, 2.0, 0.25,
+        [](double v) {
+            auto text = juce::String(v, 2);
+            if (text.endsWith("0")) {
+                text = text.dropLastCharacters(1);
+            }
+            return text + "x";
+        },
+        [this] { recordingSessionController->handlePlaybackSpeedChange(getControlsPlaybackSpeed()); });
+
+    wireButton("record-btn", [this] { recordingSessionController->handleRecordClicked(); });
+    wireButton("play-btn", [this] { recordingSessionController->handlePlayClicked(); });
+    wireButton("stop-btn", [this] { recordingSessionController->handleStopClicked(); });
+    wireButton("back-btn", [this] { recordingSessionController->handleBackToStartClicked(); });
+
+    // Latched (toggle-on) accent colours: red while recording, green while playing.
+    const auto& tokens = devpiano::jive::DesignTokens::get();
+    if (auto* btn = viewHost.find<juce::Button>("record-btn")) {
+        btn->setColour(juce::TextButton::buttonOnColourId, tokens.recordActive());
+    }
+    if (auto* btn = viewHost.find<juce::Button>("play-btn")) {
+        btn->setColour(juce::TextButton::buttonOnColourId, tokens.playActive());
     }
 
-    const auto pluginRecovery = getPluginRecoverySettingsWithFallback();
-    setPluginPathText(makeSafeUiText(pluginRecovery.pluginSearchPath));
+    wireButton("export-midi-btn", [this] { recordingSessionController->handleExportMidiClicked(); });
+    wireButton("export-wav-btn", [this] { recordingSessionController->handleExportWavClicked(); });
+    wireButton("import-midi-btn", [this] { recordingSessionController->handleImportMidiClicked(); });
+    wireButton("save-perf-btn", [this] { recordingSessionController->handleSavePerformanceClicked(); });
+    wireButton("open-perf-btn", [this] { recordingSessionController->handleOpenPerformanceClicked(); });
+    wireButton("song-info-btn", [this] { recordingSessionController->handleSongInfoClicked(); });
+    wireButton("recent-btn", [this] { showRecentFilesMenu(); });
+    wireButton("save-preset-btn", [this] { presetFlowSupport->handleSaveAsNewPreset(); });
+    wireButton("rename-preset-btn", [this] { presetFlowSupport->handleRenamePreset(); });
+    wireButton("delete-preset-btn", [this] { presetFlowSupport->handleDeletePreset(); });
 
-    setPluginPanelExpanded(appSettings.pluginPanelExpanded);
+    if (auto* combo = viewHost.find<juce::ComboBox>("preset-combo")) {
+        combo->setTextWhenNothingSelected(TRANS("Default"));
+        combo->setWantsKeyboardFocus(false);
+        combo->onChange = [this, combo] {
+            if (isUpdatingPresets) {
+                return;
+            }
+            const auto selectedId = combo->getSelectedId();
+            if (selectedId <= 0 || !juce::isPositiveAndBelow(selectedId - 1, availablePresetIds.size())) {
+                return;
+            }
+            presetFlowSupport->applyPresetById(availablePresetIds[selectedId - 1]);
+            updateControlsPresetActionButtons();
+        };
+    }
 
-    recordingSessionController->onFileOpened = [this](const juce::File& file) {
-        recentFiles.addFile(file);
-        saveRecentFiles();
-    };
+    setRecordingControlsState({});
+}
 
-    // Restore recently opened files list from settings.
-    recentFiles.restoreFromString(appSettings.recentFilesSerialized);
-
-    // Initialize playback speed to 1.0x (never persisted — default on every launch).
-    setControlsPlaybackSpeed(1.0);
-    recordingEngine.setPlaybackSpeedMultiplier(1.0);
-
-    // Wire CustomKeyboard mouse interaction → sound (with MIDI matrix)
+void MainComponent::wireKeyboardInteraction() {
     auto& customKeyboard = getCustomKeyboard();
     customKeyboard.onNoteOn = [this](int midiNote, int sourceChannel) {
         if (midiChannelMapper != nullptr) {
@@ -372,6 +346,38 @@ void MainComponent::initialiseUi() {
         }
     };
     customKeyboard.onBindingEditRequested = [this](int midiNote) { handleKeyBindingEditRequest(midiNote); };
+}
+
+void MainComponent::initialiseUi() {
+    initialiseThemeAndBootstrap();
+
+    auto rootTree = devpiano::ui::jive::makeRootLayout();
+    if (viewHost.loadLayout(rootTree, true)) {
+        addAndMakeVisible(viewHost.getRootComponent());
+
+        wireHeaderPanel();
+        wirePluginPanel();
+        wireControlsPanel();
+
+        if (auto* viewport = viewHost.find<KeyboardViewport>("custom-keyboard")) {
+            customKeyboardRef = &viewport->getCustomKeyboard();
+        }
+    }
+
+    const auto pluginRecovery = getPluginRecoverySettingsWithFallback();
+    setPluginPathText(makeSafeUiText(pluginRecovery.pluginSearchPath));
+    setPluginPanelExpanded(appSettings.pluginPanelExpanded);
+
+    recordingSessionController->onFileOpened = [this](const juce::File& file) {
+        recentFiles.addFile(file);
+        saveRecentFiles();
+    };
+    recentFiles.restoreFromString(appSettings.recentFilesSerialized);
+
+    setControlsPlaybackSpeed(1.0);
+    recordingEngine.setPlaybackSpeedMultiplier(1.0);
+
+    wireKeyboardInteraction();
     setBounds(getInitialMainContentBounds());
 }
 void MainComponent::handleKeyBindingEditRequest(int midiNote) {
@@ -623,31 +629,40 @@ void MainComponent::fileDragExit(const juce::StringArray&) {
     repaint();
 }
 
+void MainComponent::dispatchDroppedFile(const juce::File& file) {
+    const auto ext = file.getFileExtension().toLowerCase();
+
+    if (ext == ".devpiano") {
+        if (recordingSessionController != nullptr) {
+            recordingSessionController->handleOpenPerformanceFile(file);
+        }
+        return;
+    }
+    if (ext == ".mid" || ext == ".midi") {
+        if (recordingSessionController != nullptr) {
+            recordingSessionController->handleImportMidiFile(file);
+        }
+        return;
+    }
+    if (file.getFileName().endsWithIgnoreCase(".devpiano.preset") || ext == ".preset") {
+        if (presetFlowSupport != nullptr) {
+            presetFlowSupport->handleImportPresetFile(file);
+        }
+        return;
+    }
+    if (ext == ".vst3") {
+        if (pluginOperationController != nullptr) {
+            pluginOperationController->handleImportVst3File(file);
+        }
+    }
+}
+
 void MainComponent::filesDropped(const juce::StringArray& files, int, int) {
     dropActive = false;
     repaint();
 
     for (const auto& f : files) {
-        const auto file = juce::File(f);
-        const auto ext = file.getFileExtension().toLowerCase();
-
-        if (ext == ".devpiano") {
-            if (recordingSessionController != nullptr) {
-                recordingSessionController->handleOpenPerformanceFile(file);
-            }
-        } else if (ext == ".mid" || ext == ".midi") {
-            if (recordingSessionController != nullptr) {
-                recordingSessionController->handleImportMidiFile(file);
-            }
-        } else if (file.getFileName().endsWithIgnoreCase(".devpiano.preset") || ext == ".preset") {
-            if (presetFlowSupport != nullptr) {
-                presetFlowSupport->handleImportPresetFile(file);
-            }
-        } else if (ext == ".vst3") {
-            if (pluginOperationController != nullptr) {
-                pluginOperationController->handleImportVst3File(file);
-            }
-        }
+        dispatchDroppedFile(juce::File(f));
     }
 }
 

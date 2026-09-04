@@ -49,6 +49,10 @@ private:
     void wireAudioControls();
     void wireMidiControls();
     void wireAppearanceAndLocaleControls();
+    void wireAppearanceControls();
+    void wireLocaleAndActionControls();
+    bool applyDisplayProperty(const juce::Identifier& prop);
+    bool applyMidiProperty(const juce::Identifier& prop);
     void syncEditingStateFromModel();
 
     void populateAudioDeviceTypes();
