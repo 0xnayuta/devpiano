@@ -210,95 +210,60 @@ void WavExportTask::timerCallback() {
     }
 }
 
+void WavExportTask::failExport(const juce::String& errorMsg, bool isCancellation) {
+    success.store(false);
+    {
+        const juce::ScopedLock sl(messageLock);
+        errorMessage = isCancellation ? TRANS("Export cancelled.") : errorMsg;
+    }
+    if (destinationFile.existsAsFile() && !destinationFile.deleteFile()) {
+        DP_LOG_WARN(
+            juce::String(isCancellation ? "Failed to clean up cancelled WAV: " : "Failed to clean up failed WAV: ")
+            + destinationFile.getFullPathName());
+    }
+}
+
 void WavExportTask::run() {
     using namespace devpiano::exporting;
 
     setProgress(0.0);
     setStatusMessage(TRANS("Exporting..."));
 
-    auto progressCallback = [this](double p) -> bool {
+    auto isCancelled = [this]() noexcept { return threadShouldExit() || cancelRequested.load(); };
+
+    auto progressCallback = [this, &isCancelled](double p) -> bool {
         setProgress(p);
         const auto percent = static_cast<int>(p * 100.0);
         if (percent % 10 == 0 || p >= 1.0) {
             setStatusMessage(TRANS("Exporting...") + " " + juce::String(percent) + "%");
         }
-        return !threadShouldExit() && !cancelRequested.load();
+        return !isCancelled();
     };
 
     // ERR-015: Render path may throw; catch all exceptions, report failure and clean up destination file.
     try {
-        if (threadShouldExit() || cancelRequested.load()) {
-            success.store(false);
-            {
-                const juce::ScopedLock sl(messageLock);
-                errorMessage = TRANS("Export cancelled.");
-            }
-            destinationFile.deleteFile();
-            finished.store(true);
-            return;
-        }
-
-        if (offlinePlugin != nullptr) {
-            // Plugin offline-render path
-            if (renderTakeWithOfflinePlugin(take, destinationFile, options, *offlinePlugin, progressCallback)) {
-                success.store(true);
-            } else {
-                if (threadShouldExit() || cancelRequested.load()) {
-                    const juce::ScopedLock sl(messageLock);
-                    errorMessage = TRANS("Export cancelled.");
-                    if (!destinationFile.deleteFile()) {
-                        DP_LOG_WARN("Failed to clean up cancelled WAV: " + destinationFile.getFullPathName());
-                    }
-                } else {
-                    const juce::ScopedLock sl(messageLock);
-                    errorMessage = TRANS("Export failed during plugin rendering.");
-                    if (!destinationFile.deleteFile()) {
-                        DP_LOG_WARN("Failed to clean up failed WAV: " + destinationFile.getFullPathName());
-                    }
-                }
-                success.store(false);
-            }
+        if (isCancelled()) {
+            failExport({}, true);
         } else {
-            // Built-in synth fallback path
-            if (exportTakeAsWavFile(take, destinationFile, options, progressCallback)) {
+            const bool renderOk = (offlinePlugin != nullptr)
+                ? renderTakeWithOfflinePlugin(take, destinationFile, options, *offlinePlugin, progressCallback)
+                : exportTakeAsWavFile(take, destinationFile, options, progressCallback);
+
+            if (renderOk) {
                 success.store(true);
             } else {
-                if (threadShouldExit() || cancelRequested.load()) {
-                    const juce::ScopedLock sl(messageLock);
-                    errorMessage = TRANS("Export cancelled.");
-                    if (!destinationFile.deleteFile()) {
-                        DP_LOG_WARN("Failed to clean up cancelled WAV: " + destinationFile.getFullPathName());
-                    }
-                } else {
-                    const juce::ScopedLock sl(messageLock);
-                    errorMessage = TRANS("Export failed during built-in synth rendering.");
-                    if (!destinationFile.deleteFile()) {
-                        DP_LOG_WARN("Failed to clean up failed WAV: " + destinationFile.getFullPathName());
-                    }
-                }
-                success.store(false);
+                const auto defaultErr = (offlinePlugin != nullptr)
+                    ? TRANS("Export failed during plugin rendering.")
+                    : TRANS("Export failed during built-in synth rendering.");
+                failExport(defaultErr, isCancelled());
             }
         }
     } catch (const std::exception& e) {
-        success.store(false);
-        {
-            const juce::ScopedLock sl(messageLock);
-            errorMessage = TRANS("Export failed unexpectedly.");
-        }
         DP_LOG_ERROR("[Export] WAV export threw: " + juce::String(e.what()));
-        if (!destinationFile.deleteFile()) {
-            DP_LOG_WARN("Failed to clean up failed WAV: " + destinationFile.getFullPathName());
-        }
+        failExport(TRANS("Export failed unexpectedly."));
     } catch (...) {
-        success.store(false);
-        {
-            const juce::ScopedLock sl(messageLock);
-            errorMessage = TRANS("Export failed unexpectedly.");
-        }
         DP_LOG_ERROR("[Export] WAV export threw an unknown exception");
-        if (!destinationFile.deleteFile()) {
-            DP_LOG_WARN("Failed to clean up failed WAV: " + destinationFile.getFullPathName());
-        }
+        failExport(TRANS("Export failed unexpectedly."));
     }
 
     if (success.load()) {

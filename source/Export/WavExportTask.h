@@ -49,6 +49,7 @@ private:
 
     void setProgress(double newProgress);
     void setStatusMessage(const juce::String& newStatusMessage);
+    void failExport(const juce::String& errorMsg, bool isCancellation = false);
 
     devpiano::recording::RecordingTake take;
     const juce::File destinationFile;

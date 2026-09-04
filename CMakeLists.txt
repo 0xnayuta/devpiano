@@ -189,6 +189,7 @@ target_sources(devpiano PRIVATE
     source/Audio/SineSynthVoice.h
     source/Audio/PianoSynthVoice.h
     source/Audio/AudioDeviceDiagnostics.h
+    source/Audio/AudioDeviceDiagnostics.cpp
     source/Input/KeyboardMidiMapper.cpp
     source/Input/KeyboardMidiMapper.h
     source/Core/KeyMapTypes.h
@@ -440,6 +441,8 @@ if (BUILD_TESTS)
         source/Audio/AudioEngine.h
         source/Audio/SineSynthVoice.h
         source/Audio/PianoSynthVoice.h
+        source/Audio/AudioDeviceDiagnostics.cpp
+        source/Audio/AudioDeviceDiagnostics.h
         source/Plugin/PluginHost.cpp
         source/Plugin/PluginHost.h
         source/Plugin/PluginFlowSupport.cpp
