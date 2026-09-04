@@ -60,16 +60,40 @@ public:
 
     // ── Pre-built Declarative Templates & Launchers ──
 
-    /// 1. Single-line Text Input Dialog (e.g. Preset Rename / Save As New).
-    /// Calls `onComplete` with the trimmed string, or std::nullopt if cancelled.
+    struct SingleInputOptions {
+        juce::String title;
+        juce::String labelText;
+        juce::String initialValue;
+        juce::Component* componentToCentreAround = nullptr;
+        std::function<void(std::optional<juce::String>)> onComplete = nullptr;
+        int maxChars = 64;
+        juce::String okButtonText = TRANS("OK");
+        juce::String cancelButtonText = TRANS("Cancel");
+    };
+
+    /// 1. Single-line Text Input Dialog (options-based modern launcher).
+    static void launchSingleInput(const SingleInputOptions& options);
+
+    /// 1. Single-line Text Input Dialog (legacy convenience overload).
     static void launchSingleInput(const juce::String& title, const juce::String& labelText,
                                   const juce::String& initialValue, juce::Component* componentToCentreAround,
                                   const std::function<void(std::optional<juce::String>)>& onComplete, int maxChars = 64,
                                   const juce::String& okButtonText = TRANS("OK"),
                                   const juce::String& cancelButtonText = TRANS("Cancel"));
 
-    /// 2. Confirmation Dialog (e.g. Delete Preset / Confirm Action).
-    /// Calls `onComplete(true)` if confirmed, `onComplete(false)` if cancelled/closed.
+    struct ConfirmOptions {
+        juce::String title;
+        juce::String message;
+        juce::String okLabel = TRANS("OK");
+        juce::String cancelLabel = TRANS("Cancel");
+        juce::Component* componentToCentreAround = nullptr;
+        std::function<void(bool)> onComplete = nullptr;
+    };
+
+    /// 2. Confirmation Dialog (options-based modern launcher).
+    static void launchConfirm(const ConfirmOptions& options);
+
+    /// 2. Confirmation Dialog (legacy convenience overload).
     static void launchConfirm(const juce::String& title, const juce::String& message, const juce::String& okLabel,
                               const juce::String& cancelLabel, juce::Component* componentToCentreAround,
                               const std::function<void(bool)>& onComplete);
@@ -80,12 +104,21 @@ public:
         juce::String notes;
     };
 
-    /// 3. Metadata Edit Dialog (Song Title + Notes).
-    /// Calls `onComplete` with MetadataResult, or std::nullopt if cancelled.
+    struct MetadataEditOptions {
+        juce::String title;
+        juce::String initialTitle;
+        juce::String initialNotes;
+        juce::Component* componentToCentreAround = nullptr;
+        std::function<void(std::optional<MetadataResult>)> onComplete = nullptr;
+    };
+
+    /// 3. Metadata Edit Dialog (options-based modern launcher).
+    static void launchMetadataEdit(const MetadataEditOptions& options);
+
+    /// 3. Metadata Edit Dialog (legacy convenience overload).
     static void launchMetadataEdit(const juce::String& title, const juce::String& initialTitle,
                                    const juce::String& initialNotes, juce::Component* componentToCentreAround,
                                    const std::function<void(std::optional<MetadataResult>)>& onComplete);
-
     // ── Template ValueTree Builders (exposed for testing & customization) ──
 
     [[nodiscard]] static juce::ValueTree makeSingleInputLayout(const juce::String& labelText, int width = 380,

@@ -31,6 +31,7 @@ public:
         testProgressLayoutBuilder();
         testKeyBindingEditDialogLayoutBuilder();
         testLaunchOptionsHostCallbacks();
+        testOptionsStructures();
     }
     void testProgressLayoutBuilder() {
         beginTest("makeProgressLayout: progress bar and message nodes");
@@ -334,6 +335,43 @@ private:
         const bool confirmed = options.onConfirmHost(host);
         expect(confirmed);
         expectEquals(confirmedValue, juce::String("Updated Host Value"));
+    }
+    void testOptionsStructures() {
+        beginTest("Parameter Objects: SingleInputOptions, ConfirmOptions, MetadataEditOptions");
+
+        JiveModalDialog::SingleInputOptions singleOpts {
+            .title = "Rename",
+            .labelText = "Enter name:",
+            .initialValue = "Piano 1",
+            .componentToCentreAround = nullptr,
+            .onComplete = nullptr,
+            .maxChars = 32,
+            .okButtonText = "Save",
+            .cancelButtonText = "Dismiss",
+        };
+        expectEquals(singleOpts.title, juce::String("Rename"));
+        expectEquals(singleOpts.initialValue, juce::String("Piano 1"));
+        expectEquals(singleOpts.maxChars, 32);
+
+        JiveModalDialog::ConfirmOptions confirmOpts {
+            .title = "Delete",
+            .message = "Are you sure?",
+            .okLabel = "Yes",
+            .cancelLabel = "No",
+            .componentToCentreAround = nullptr,
+            .onComplete = nullptr,
+        };
+        expectEquals(confirmOpts.title, juce::String("Delete"));
+        expectEquals(confirmOpts.message, juce::String("Are you sure?"));
+
+        JiveModalDialog::MetadataEditOptions metaOpts {
+            .title = "Song Info",
+            .initialTitle = "My Song",
+            .initialNotes = "Take 1",
+            .onComplete = nullptr,
+        };
+        expectEquals(metaOpts.title, juce::String("Song Info"));
+        expectEquals(metaOpts.initialTitle, juce::String("My Song"));
     }
 };
 

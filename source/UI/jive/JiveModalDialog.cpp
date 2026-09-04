@@ -183,19 +183,15 @@ void JiveModalDialog::launchCustom(const LaunchOptions& options) {
     opts.launchAsync();
 }
 
-void JiveModalDialog::launchSingleInput(const juce::String& title, const juce::String& labelText,
-                                        const juce::String& initialValue, juce::Component* componentToCentreAround,
-                                        const std::function<void(std::optional<juce::String>)>& onComplete,
-                                        int maxChars, const juce::String& okButtonText,
-                                        const juce::String& cancelButtonText) {
-    auto layout = makeSingleInputLayout(labelText, 380, 150, okButtonText, cancelButtonText);
+void JiveModalDialog::launchSingleInput(const SingleInputOptions& options) {
+    auto layout = makeSingleInputLayout(options.labelText, 380, 150, options.okButtonText, options.cancelButtonText);
 
     LaunchOptions opts;
-    opts.title = title;
+    opts.title = options.title;
     opts.layoutTree = layout;
-    opts.componentToCentreAround = componentToCentreAround;
+    opts.componentToCentreAround = options.componentToCentreAround;
 
-    opts.onInit = [initialValue, maxChars](::jive::GuiItem& root) {
+    opts.onInit = [initialValue = options.initialValue, maxChars = options.maxChars](::jive::GuiItem& root) {
         if (auto* editor = findTextEditorById(root, "dialog-editor")) {
             editor->setText(initialValue, juce::dontSendNotification);
             editor->setFont(juce::FontOptions(15.0f));
@@ -206,7 +202,7 @@ void JiveModalDialog::launchSingleInput(const juce::String& title, const juce::S
         }
     };
 
-    opts.onConfirm = [onComplete](::jive::GuiItem& root) -> bool {
+    opts.onConfirm = [onComplete = options.onComplete](::jive::GuiItem& root) -> bool {
         if (auto* editor = findTextEditorById(root, "dialog-editor")) {
             auto val = editor->getText().trim();
             if (onComplete) {
@@ -220,9 +216,48 @@ void JiveModalDialog::launchSingleInput(const juce::String& title, const juce::S
         return true;
     };
 
-    opts.onCancel = [onComplete] {
+    opts.onCancel = [onComplete = options.onComplete] {
         if (onComplete) {
             onComplete(std::nullopt);
+        }
+    };
+
+    launchCustom(opts);
+}
+
+void JiveModalDialog::launchSingleInput(const juce::String& title, const juce::String& labelText,
+                                        const juce::String& initialValue, juce::Component* componentToCentreAround,
+                                        const std::function<void(std::optional<juce::String>)>& onComplete,
+                                        int maxChars, const juce::String& okButtonText,
+                                        const juce::String& cancelButtonText) {
+    launchSingleInput(SingleInputOptions { .title = title,
+                                           .labelText = labelText,
+                                           .initialValue = initialValue,
+                                           .componentToCentreAround = componentToCentreAround,
+                                           .onComplete = onComplete,
+                                           .maxChars = maxChars,
+                                           .okButtonText = okButtonText,
+                                           .cancelButtonText = cancelButtonText });
+}
+
+void JiveModalDialog::launchConfirm(const ConfirmOptions& options) {
+    auto layout = makeConfirmLayout(options.message, 380, 140, options.okLabel, options.cancelLabel);
+
+    LaunchOptions opts;
+    opts.title = options.title;
+    opts.layoutTree = layout;
+    opts.componentToCentreAround = options.componentToCentreAround;
+
+    opts.onConfirm = [onComplete = options.onComplete](::jive::GuiItem&) -> bool {
+        if (onComplete) {
+            onComplete(true);
+        }
+        return true;
+    };
+
+    opts.onCancel = [onComplete = options.onComplete] {
+        if (onComplete) {
+            onComplete(false);
         }
     };
 
@@ -232,40 +267,23 @@ void JiveModalDialog::launchSingleInput(const juce::String& title, const juce::S
 void JiveModalDialog::launchConfirm(const juce::String& title, const juce::String& message, const juce::String& okLabel,
                                     const juce::String& cancelLabel, juce::Component* componentToCentreAround,
                                     const std::function<void(bool)>& onComplete) {
-    auto layout = makeConfirmLayout(message, 380, 140, okLabel, cancelLabel);
-
-    LaunchOptions opts;
-    opts.title = title;
-    opts.layoutTree = layout;
-    opts.componentToCentreAround = componentToCentreAround;
-
-    opts.onConfirm = [onComplete](::jive::GuiItem&) -> bool {
-        if (onComplete) {
-            onComplete(true);
-        }
-        return true;
-    };
-
-    opts.onCancel = [onComplete] {
-        if (onComplete) {
-            onComplete(false);
-        }
-    };
-
-    launchCustom(opts);
+    launchConfirm(ConfirmOptions { .title = title,
+                                   .message = message,
+                                   .okLabel = okLabel,
+                                   .cancelLabel = cancelLabel,
+                                   .componentToCentreAround = componentToCentreAround,
+                                   .onComplete = onComplete });
 }
 
-void JiveModalDialog::launchMetadataEdit(const juce::String& title, const juce::String& initialTitle,
-                                         const juce::String& initialNotes, juce::Component* componentToCentreAround,
-                                         const std::function<void(std::optional<MetadataResult>)>& onComplete) {
+void JiveModalDialog::launchMetadataEdit(const MetadataEditOptions& options) {
     auto layout = makeMetadataEditLayout(420, 260);
 
     LaunchOptions opts;
-    opts.title = title;
+    opts.title = options.title;
     opts.layoutTree = layout;
-    opts.componentToCentreAround = componentToCentreAround;
+    opts.componentToCentreAround = options.componentToCentreAround;
 
-    opts.onInit = [initialTitle, initialNotes](::jive::GuiItem& root) {
+    opts.onInit = [initialTitle = options.initialTitle, initialNotes = options.initialNotes](::jive::GuiItem& root) {
         if (auto* titleEd = findTextEditorById(root, "title-editor")) {
             titleEd->setText(initialTitle, juce::dontSendNotification);
             titleEd->setFont(juce::FontOptions(15.0f));
@@ -280,7 +298,7 @@ void JiveModalDialog::launchMetadataEdit(const juce::String& title, const juce::
         }
     };
 
-    opts.onConfirm = [onComplete](::jive::GuiItem& root) -> bool {
+    opts.onConfirm = [onComplete = options.onComplete](::jive::GuiItem& root) -> bool {
         MetadataResult res;
         if (auto* titleEd = findTextEditorById(root, "title-editor")) {
             res.title = titleEd->getText();
@@ -294,7 +312,7 @@ void JiveModalDialog::launchMetadataEdit(const juce::String& title, const juce::
         return true;
     };
 
-    opts.onCancel = [onComplete] {
+    opts.onCancel = [onComplete = options.onComplete] {
         if (onComplete) {
             onComplete(std::nullopt);
         }
@@ -303,18 +321,65 @@ void JiveModalDialog::launchMetadataEdit(const juce::String& title, const juce::
     launchCustom(opts);
 }
 
+void JiveModalDialog::launchMetadataEdit(const juce::String& title, const juce::String& initialTitle,
+                                         const juce::String& initialNotes, juce::Component* componentToCentreAround,
+                                         const std::function<void(std::optional<MetadataResult>)>& onComplete) {
+    launchMetadataEdit(MetadataEditOptions { .title = title,
+                                             .initialTitle = initialTitle,
+                                             .initialNotes = initialNotes,
+                                             .componentToCentreAround = componentToCentreAround,
+                                             .onComplete = onComplete });
+}
+
 // ============================================================================
 // Layout Builders
 // ============================================================================
 
-juce::ValueTree JiveModalDialog::makeSingleInputLayout(const juce::String& labelText, int width, int height,
-                                                       const juce::String& okText, const juce::String& cancelText) {
+namespace {
+
+juce::ValueTree makeBaseDialogRoot(int width, int height, int padding = 12) {
     auto root = node("Component", "dialog-root");
     root.setProperty("display", "flex", nullptr);
     root.setProperty("flex-direction", "column", nullptr);
     root.setProperty("width", width, nullptr);
     root.setProperty("height", height, nullptr);
-    root.setProperty("padding", "12", nullptr);
+    root.setProperty("padding", juce::String(padding), nullptr);
+    return root;
+}
+
+juce::ValueTree makeDialogButtons(const juce::String& okText, const juce::String& cancelText) {
+    auto btnRow = node("Component", "dialog-buttons");
+    btnRow.setProperty("display", "flex", nullptr);
+    btnRow.setProperty("flex-direction", "row", nullptr);
+    btnRow.setProperty("justify-content", "flex-end", nullptr);
+    btnRow.setProperty("align-items", "centre", nullptr);
+    btnRow.setProperty("height", 28, nullptr);
+
+    if (okText.isNotEmpty()) {
+        auto okBtn = button(okText, "dialog-ok-btn");
+        okBtn.setProperty("width", 80, nullptr);
+        okBtn.setProperty("height", 28, nullptr);
+        if (cancelText.isNotEmpty()) {
+            okBtn.setProperty("margin", "0 8 0 0", nullptr);
+        }
+        btnRow.appendChild(okBtn, nullptr);
+    }
+
+    if (cancelText.isNotEmpty()) {
+        auto cancelBtn = button(cancelText, "dialog-cancel-btn");
+        cancelBtn.setProperty("width", 80, nullptr);
+        cancelBtn.setProperty("height", 28, nullptr);
+        btnRow.appendChild(cancelBtn, nullptr);
+    }
+
+    return btnRow;
+}
+
+} // namespace
+
+juce::ValueTree JiveModalDialog::makeSingleInputLayout(const juce::String& labelText, int width, int height,
+                                                       const juce::String& okText, const juce::String& cancelText) {
+    auto root = makeBaseDialogRoot(width, height, 12);
 
     auto label = text(labelText, "dialog-label");
     label.setProperty("height", 20, nullptr);
@@ -329,36 +394,13 @@ juce::ValueTree JiveModalDialog::makeSingleInputLayout(const juce::String& label
     editor.setProperty("cursor", "text", nullptr);
     root.appendChild(editor, nullptr);
 
-    auto btnRow = node("Component", "dialog-buttons");
-    btnRow.setProperty("display", "flex", nullptr);
-    btnRow.setProperty("flex-direction", "row", nullptr);
-    btnRow.setProperty("justify-content", "flex-end", nullptr);
-    btnRow.setProperty("align-items", "centre", nullptr);
-    btnRow.setProperty("height", 28, nullptr);
-
-    auto okBtn = button(okText, "dialog-ok-btn");
-    okBtn.setProperty("width", 80, nullptr);
-    okBtn.setProperty("height", 28, nullptr);
-    okBtn.setProperty("margin", "0 8 0 0", nullptr);
-    btnRow.appendChild(okBtn, nullptr);
-
-    auto cancelBtn = button(cancelText, "dialog-cancel-btn");
-    cancelBtn.setProperty("width", 80, nullptr);
-    cancelBtn.setProperty("height", 28, nullptr);
-    btnRow.appendChild(cancelBtn, nullptr);
-
-    root.appendChild(btnRow, nullptr);
+    root.appendChild(makeDialogButtons(okText, cancelText), nullptr);
     return root;
 }
 
 juce::ValueTree JiveModalDialog::makeConfirmLayout(const juce::String& message, int width, int height,
                                                    const juce::String& okText, const juce::String& cancelText) {
-    auto root = node("Component", "dialog-root");
-    root.setProperty("display", "flex", nullptr);
-    root.setProperty("flex-direction", "column", nullptr);
-    root.setProperty("width", width, nullptr);
-    root.setProperty("height", height, nullptr);
-    root.setProperty("padding", "12", nullptr);
+    auto root = makeBaseDialogRoot(width, height, 12);
 
     auto label = text(message, "dialog-message");
     label.setProperty("justification", "centred", nullptr);
@@ -367,36 +409,13 @@ juce::ValueTree JiveModalDialog::makeConfirmLayout(const juce::String& message, 
     label.setProperty("margin", "0 0 12 0", nullptr);
     root.appendChild(label, nullptr);
 
-    auto btnRow = node("Component", "dialog-buttons");
-    btnRow.setProperty("display", "flex", nullptr);
-    btnRow.setProperty("flex-direction", "row", nullptr);
-    btnRow.setProperty("justify-content", "flex-end", nullptr);
-    btnRow.setProperty("align-items", "centre", nullptr);
-    btnRow.setProperty("height", 28, nullptr);
-
-    auto okBtn = button(okText, "dialog-ok-btn");
-    okBtn.setProperty("width", 80, nullptr);
-    okBtn.setProperty("height", 28, nullptr);
-    okBtn.setProperty("margin", "0 8 0 0", nullptr);
-    btnRow.appendChild(okBtn, nullptr);
-
-    auto cancelBtn = button(cancelText, "dialog-cancel-btn");
-    cancelBtn.setProperty("width", 80, nullptr);
-    cancelBtn.setProperty("height", 28, nullptr);
-    btnRow.appendChild(cancelBtn, nullptr);
-
-    root.appendChild(btnRow, nullptr);
+    root.appendChild(makeDialogButtons(okText, cancelText), nullptr);
     return root;
 }
 
 juce::ValueTree JiveModalDialog::makeMetadataEditLayout(int width, int height, const juce::String& okText,
                                                         const juce::String& cancelText) {
-    auto root = node("Component", "dialog-root");
-    root.setProperty("display", "flex", nullptr);
-    root.setProperty("flex-direction", "column", nullptr);
-    root.setProperty("width", width, nullptr);
-    root.setProperty("height", height, nullptr);
-    root.setProperty("padding", "12", nullptr);
+    auto root = makeBaseDialogRoot(width, height, 12);
 
     auto titleLabel = text(TRANS("Song Title"), "title-label");
     titleLabel.setProperty("height", 20, nullptr);
@@ -410,6 +429,7 @@ juce::ValueTree JiveModalDialog::makeMetadataEditLayout(int width, int height, c
     titleEditor.setProperty("focusable", true, nullptr);
     titleEditor.setProperty("cursor", "text", nullptr);
     root.appendChild(titleEditor, nullptr);
+
     auto notesLabel = text(TRANS("Notes"), "notes-label");
     notesLabel.setProperty("height", 20, nullptr);
     notesLabel.setProperty("margin", "0 0 2 0", nullptr);
@@ -422,36 +442,14 @@ juce::ValueTree JiveModalDialog::makeMetadataEditLayout(int width, int height, c
     notesEditor.setProperty("focusable", true, nullptr);
     notesEditor.setProperty("cursor", "text", nullptr);
     root.appendChild(notesEditor, nullptr);
-    auto btnRow = node("Component", "dialog-buttons");
-    btnRow.setProperty("display", "flex", nullptr);
-    btnRow.setProperty("flex-direction", "row", nullptr);
-    btnRow.setProperty("justify-content", "flex-end", nullptr);
-    btnRow.setProperty("align-items", "centre", nullptr);
-    btnRow.setProperty("height", 28, nullptr);
 
-    auto okBtn = button(okText, "dialog-ok-btn");
-    okBtn.setProperty("width", 80, nullptr);
-    okBtn.setProperty("height", 28, nullptr);
-    okBtn.setProperty("margin", "0 8 0 0", nullptr);
-    btnRow.appendChild(okBtn, nullptr);
-
-    auto cancelBtn = button(cancelText, "dialog-cancel-btn");
-    cancelBtn.setProperty("width", 80, nullptr);
-    cancelBtn.setProperty("height", 28, nullptr);
-    btnRow.appendChild(cancelBtn, nullptr);
-
-    root.appendChild(btnRow, nullptr);
+    root.appendChild(makeDialogButtons(okText, cancelText), nullptr);
     return root;
 }
 
 juce::ValueTree JiveModalDialog::makeProgressLayout(const juce::String& initialMessage, int width, int height,
                                                     const juce::String& cancelText) {
-    auto root = node("Component", "dialog-root");
-    root.setProperty("display", "flex", nullptr);
-    root.setProperty("flex-direction", "column", nullptr);
-    root.setProperty("width", width, nullptr);
-    root.setProperty("height", height, nullptr);
-    root.setProperty("padding", "14", nullptr);
+    auto root = makeBaseDialogRoot(width, height, 14);
 
     auto msg = text(initialMessage, "progress-status-message");
     msg.setProperty("font-size", 14, nullptr);
@@ -465,19 +463,7 @@ juce::ValueTree JiveModalDialog::makeProgressLayout(const juce::String& initialM
     bar.setProperty("margin", "0 0 16 0", nullptr);
     root.appendChild(bar, nullptr);
 
-    auto btnRow = node("Component", "dialog-buttons");
-    btnRow.setProperty("display", "flex", nullptr);
-    btnRow.setProperty("flex-direction", "row", nullptr);
-    btnRow.setProperty("justify-content", "flex-end", nullptr);
-    btnRow.setProperty("align-items", "centre", nullptr);
-    btnRow.setProperty("height", 28, nullptr);
-
-    auto cancelBtn = button(cancelText, "dialog-cancel-btn");
-    cancelBtn.setProperty("width", 80, nullptr);
-    cancelBtn.setProperty("height", 28, nullptr);
-    btnRow.appendChild(cancelBtn, nullptr);
-
-    root.appendChild(btnRow, nullptr);
+    root.appendChild(makeDialogButtons({}, cancelText), nullptr);
     return root;
 }
 } // namespace devpiano::ui::jive

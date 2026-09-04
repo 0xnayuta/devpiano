@@ -12,21 +12,27 @@
 void PerformanceMetadataDialog::launch(
     const devpiano::recording::PerformanceFileMetadata& initialMetadata, juce::Component* componentToCentreAround,
     std::function<void(std::optional<devpiano::recording::PerformanceFileMetadata>)> onComplete) {
-    devpiano::ui::jive::JiveModalDialog::launchMetadataEdit(
-        TRANS("Song Information"), initialMetadata.title, initialMetadata.notes, componentToCentreAround,
-        [callback = std::move(onComplete)](std::optional<devpiano::ui::jive::JiveModalDialog::MetadataResult> result) {
-            if (!result.has_value()) {
-                if (callback) {
-                    callback(std::nullopt);
+    devpiano::ui::jive::JiveModalDialog::launchMetadataEdit({
+        .title = TRANS("Song Information"),
+        .initialTitle = initialMetadata.title,
+        .initialNotes = initialMetadata.notes,
+        .componentToCentreAround = componentToCentreAround,
+        .onComplete =
+            [callback
+             = std::move(onComplete)](std::optional<devpiano::ui::jive::JiveModalDialog::MetadataResult> result) {
+                if (!result.has_value()) {
+                    if (callback) {
+                        callback(std::nullopt);
+                    }
+                    return;
                 }
-                return;
-            }
 
-            devpiano::recording::PerformanceFileMetadata meta;
-            meta.title = result->title;
-            meta.notes = result->notes;
-            if (callback) {
-                callback(std::move(meta));
-            }
-        });
+                devpiano::recording::PerformanceFileMetadata meta;
+                meta.title = result->title;
+                meta.notes = result->notes;
+                if (callback) {
+                    callback(std::move(meta));
+                }
+            },
+    });
 }
