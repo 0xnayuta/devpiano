@@ -241,7 +241,7 @@ void MainComponent::wireControlsPanel() {
               }
           };
 
-    AdsrCurveComponent* adsrCurve = viewHost.find<AdsrCurveComponent>("adsr-curve");
+    auto* adsrCurve = viewHost.find<AdsrCurveComponent>("adsr-curve");
 
     wireKnob(
         "volume-knob", 0.0, 1.0, 0.01, [](double v) { return juce::String(v, 2); },
