@@ -65,6 +65,7 @@
 | `events` | array | 演奏事件数组，按 `timestampSamples` 严格升序排列。 |
 
 ### 2.2 事件类型支持
+
 - **MIDI 演奏事件**：`source` 为 `"computerKeyboard"`、`"realtimeMidiBuffer"` 或 `"playback"`，`midiData` 包含经 Base64 编码的原始 MIDI 消息；
 - **预设切换事件**：`type` 为 `"presetChange"`，`presetId` 记录切换的目标预设索引，回放至该时间点时自动触发界面与矩阵切调。
 
@@ -75,12 +76,14 @@
 在 `source/Recording/RecordingEngine.cpp` 中实现了线程安全的倍速回放调度器：
 
 ### 3.1 速度换算与时间步进公式
+
 设当前设备实际处理的采样数为 $N$，播放速度倍率为 $S$（$0.5 \le S \le 2.0$）：
 $$\Delta_{\text{playback}} = \text{round}(N \times S)$$
 - 当 $S = 0.5$（半速）时，每渲染 1 秒音频仅推进 0.5 秒录制数据（变慢）；
 - 当 $S = 2.0$（双速）时，每渲染 1 秒音频推进 2.0 秒录制数据（变快）。
 
 ### 3.2 动态变速防悬挂音重校准
+
 在播放进行中拖动速度滑块时：
 1. 速度倍率由 `std::atomic<double> playbackSpeedMultiplier` 线程安全传递；
 2. 调度器立即以当前实际时间戳重新校准 `playbackPositionSamples`，并在变速跨度过大时检查并补发已过期事件的 `noteOff`，防止音符因时间线突变持续悬挂发声。

@@ -75,11 +75,13 @@
 ## 3. 预设生命周期与 CRUD 编排（`PresetFlowSupport`）
 
 ### 3.1 内置 Default 预设
+
 - 系统内置出厂默认预设 `[Default]`，作为最底层的基准配置；
 - `[Default]` 不允许被重命名或删除（按钮自动置灰）；
 - 当用户删除了当前活动预设时，系统自动安全回退至 `[Default]`。
 
 ### 3.2 预设操作流
+
 - **自动发现**：启动时自动扫描 `DevPiano/Presets/` 目录下的全部 `.devpiano.preset` 文件并填充下拉列表；
 - **Save As New（另存为）**：弹出 `JiveModalDialog::launchSingleInput`，输入名称后保存新文件并立即激活；
 - **Rename（重命名）**：弹出单行输入弹窗，原子修改文件名与内部 `name` 字段；

@@ -62,6 +62,7 @@
 **处理方法**：
 
 1. **快速修复**（推荐每次）：删除 CMake 缓存后重新构建
+
    ```bash
    # 在 Windows 侧删除缓存
    powershell.exe -Command "Remove-Item -Path 'G:\source\projects\devpiano\build-win-msvc\CMakeCache.txt' -Force"

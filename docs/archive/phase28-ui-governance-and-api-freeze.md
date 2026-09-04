@@ -22,12 +22,14 @@ Phase 28 确立了 Devpiano 内生 UI 的专属定位，完成了 API 边界收�
 ## 2. 实施细节（Phase 28-A ~ 28-D）
 
 ### Phase 28-A：API 边界收敛与 ViewHost 门面构建
+
 - **核心组件**：构建 `devpiano::ui::ViewHost`（`source/UI/ViewHost.h/.cpp`），内部完整封装 `Interpreter` 实例与 `GuiItem` 树节点，析构与 `reset()` 时自动调度 `safeCleanupJiveTree` 确保组件与样式表安全解绑。
 - **业务全面接轨**：重构 `MainComponent`、`MainComponentJiveAccessors`、`SettingsComponent`、`JiveModalDialog` 及 `WavExportTask`，彻底清除所有外部裸露的 `jive::Interpreter` 与 `jive::GuiItem` 成员指针。
 - **线程安全断言**：在 `ViewHost::loadLayout`、`ViewHost::reset`、`Interpreter::interpret`、`StyleCatalog::applyToTree` 统一注入 `JUCE_ASSERT_MESSAGE_MANAGER_IS_LOCKED`。
 - **基础测试**：新增 `source/tests/ViewHostTest.cpp`（39 项断言通过）。
 
 ### Phase 28-B：全量声明式 UI 布局金标测试与防线建立
+
 - **金标测试套件**：新增 `source/tests/LayoutGoldenTest.cpp`（134 项断言通过）：
   1. **全应用布局解释烟测**：覆盖全应用 7 大布局构建器（`makeRootLayout`、`makeSettingsLayoutTree`、`makeSingleInputLayout`、`makeConfirmLayout`、`makeMetadataEditLayout`、`makeProgressLayout`、`makeKeyBindingEditLayout`），走真实解释并验证组件非空挂载；
   2. **典型分辨率几何金标**：验证 1280x720 与 1920x1080 下根窗口、主区域与状态栏（严格保持 24px 高度单一真相源且吸附底部）的像素级坐标对齐；
@@ -35,11 +37,13 @@ Phase 28 确立了 Devpiano 内生 UI 的专属定位，完成了 API 边界收�
   4. **焦点隔离与滑音配对**：验证 `CustomKeyboard` 绝不抢占键盘焦点；验证鼠标连续滑音（Glissando）在 key 之间拖拽时的即时 `NoteOff` / `NoteOn` 配对与无悬挂音符不变量。
 
 ### Phase 28-C：通用死重清理与规范化命名规整
+
 - **死代码剥离**：彻底清除 33 个核心源码文件底部的 `#if JIVE_UNIT_TESTS` 块，删除 7,470 行死重代码；删除已无调用的 `jive_JuceVersion.h`；移除 4 个仅剩一行 include 的空壳 `.cpp`（`jive_Event.cpp`、`jive_Interpolate.cpp`、`jive_Property.cpp`、`jive_VariantConvertion.cpp`）。
 - **战略资产加固**：经审查严加保留 `jive_IgnoredComponent`（基础容器与点击穿透）、`jive_Visitor.h`（C++20 visit 重载）、`jive_Bezier.h` 与 `jive_TransferFunction.h`（贝塞尔插值与动画求解内核）、`Transitions` / `Easing`（过渡动画战略储备）。
 - **宏前缀与命名空间收敛**：在 CMakeLists 引入 `DEVPIANO_UI_ENABLE_GRID=1` 与 `DEVPIANO_UI_WITH_STYLES=1` 并建立双向兼容宏桥梁；将 `DesignTokens` 提升收纳至 `devpiano::ui::DesignTokens`。
 
 ### Phase 28-D：质量审查闭环与接口冻结
+
 - **三闸门闭环**：
   - 代码格式合规：`./scripts/dev.sh format --check` 100% 通过；
   - 单元测试全覆盖：`./scripts/dev.sh test` 69 个测试套件、12,853 个断言 100% 绿灯；

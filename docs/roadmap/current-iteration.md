@@ -8,9 +8,11 @@
 **Phase 29：现实物理演奏交互与声学控制 (Physical Voicing & Realistic Acoustic Interaction) [规划中]**
 
 *(注：Phase 28 于 2026-09-03 全部胜利完成，包含 ViewHost 统一门面构建、全量布局金标测试防线、7,470 行死代码清理与 UI Infrastructure API Freeze 接口冻结公约正式生效)*
+
 ---
 
 ### Phase 27-A：子模块指针升级与工程构建环境基线更新 [已完成，2026-09-02]
+
 > 目标：检出 JUCE 9.0.1 官方版本，更新构建预设与工具链基线。
 
 - [x] **子模块指针检出**：
@@ -24,6 +26,7 @@
 ---
 
 ### Phase 27-B：非 UI 领域 Breaking Changes 适配与 API 兼容修复 [已完成，2026-09-02]
+
 > 目标：消除音频后端、插件宿主与离线导出管线的编译断点与运行时行为变动。
 
 - [x] **VST3 宿主与插件客户端接口适配**：
@@ -39,6 +42,7 @@
 ---
 
 ### Phase 27-C：内化 UI 基础设施 (JIVE core) JUCE 9 适配与接口对齐 [已完成，2026-09-02]
+
 > 目标：确保内生 UI 运行时与自绘组件在 JUCE 9 下渲染与排版 100% 正常。
 
 - [x] **字体构造与文本测量全量对齐（`FontOptions`）**：
@@ -56,6 +60,7 @@
 ---
 
 ### Phase 27-D：内化代码质量治理与纳入 CI 全量静态分析门禁 [已完成，2026-09-02]
+
 > 目标：重构消除 `source/UI/jive/core/` 历史遗留语法，解禁 `.clang-tidy` 过滤，实现 100% 源码同等标准治理。
 
 - [x] **代码现代化与规范对齐（C++20 Modernization）**：
@@ -72,6 +77,7 @@
 ---
 
 ### Phase 27-E：全系统功能回归、三闸门闭环与发布打包验证 [已完成，2026-09-02]
+
 > 目标：双平台编译与测试 100% 绿灯，完成手工端到端冒烟与正式打包验证。
 
 - [x] **全套单元测试与静态分析闭环**：
@@ -85,11 +91,13 @@
 - [x] **端到端功能冒烟测试**：
   - 键盘演奏与 7 大物理声学系统合成发声
   - VST3 外部插件加载、参数调节与离线渲染导出
+
 ---
 
 ## Phase 28：Devpiano 声明式 UI 基础设施深度治理与接口冻结 (Declarative UI Infrastructure Governance & API Freeze)
 
 ### Phase 28-A：API 边界收敛与 ViewHost 门面构建 (API Boundary Convergence & ViewHost Facade) [已完成，2026-09-03]
+
 > 目标：消除业务层（MainComponent、SettingsComponent、JiveModalDialog）对底层 `::jive::Interpreter` 与 `::jive::GuiItem` 的裸露直接依赖，建立强类型 RAII 门面。
 
 - [x] **构建 `devpiano::ui::ViewHost`（统一 UI 宿主门面）**：
@@ -100,9 +108,11 @@
   - 重构 `MainComponent.cpp`、`MainComponentJiveAccessors.cpp`、`SettingsComponent.cpp`、`JiveModalDialog.cpp` 与 `WavExportTask.cpp`，彻底消除裸 `Interpreter` / `GuiItem` 成员指针
 - [x] **线程安全断言（UI Thread Assertions）**：
   - 在 `ViewHost::loadLayout`、`ViewHost::reset`、`Interpreter::interpret()`、`StyleCatalog::applyToTree()` 入口显式加入 `JUCE_ASSERT_MESSAGE_MANAGER_IS_LOCKED`，防范非 UI 线程异步调用数据竞争
+
 ---
 
 ### Phase 28-B：全量声明式 UI 布局金标测试与防线建立 (Layout Golden Tests & Regression Armor) [已完成，2026-09-03]
+
 > 目标：构建真正的 DOM 解释与几何排版金标回归测试套件，彻底杜绝运行时解析/排版静默故障。
 
 - [x] **全量声明式布局解释烟测（Interpretation Golden Smoke Test）**：
@@ -113,9 +123,11 @@
   - 对关键 UI 区域坐标断言金标基线：状态栏高度（24px 设计 Token 基线与底部吸附）、键盘区可见性与边界、跟音 CSS Grid 8 列等宽、间距与行高
 - [x] **焦点隔离与交互回归固化（Focus & Glissando Invariants）**：
   - 将虚拟键盘鼠标拖动滑音（Glissando）、鼠标释放及键盘焦点不抢占机制纳入自动化断言，守护交互稳定
+
 ---
 
 ### Phase 28-C：通用死重清理与规范化命名规整 (Dead Code Elimination & Namespace / Prefix Normalization) [已完成，2026-09-03]
+
 > 目标：清理 JIVE 遗留未用死代码，统一宏定义前缀与全局命名空间。
 
 - [x] **清理 JIVE 内嵌单测与孤立算法（Dead Code Cleanup）**：
@@ -127,9 +139,11 @@
   - 规范全局命名空间：将 `DesignTokens` 提升收归至 `devpiano::ui` 权威命名空间，并保留 `devpiano::jive::` 与 `devpiano::ui::jive::` 别名确保平滑兼容
 - [x] **清理裸 `new` 与现代 C++ RAII 终审**：
   - 随单测块移除消除了 50+ 处未受保护的 `new jive::Object`，核准核心运行时内存模型
+
 ---
 
 ### Phase 28-D：质量审查闭环与 UI 基础设施接口冻结 (Quality Audit Closure & Infrastructure API Freeze) [已完成，2026-09-03]
+
 > 目标：双端编译与门禁验收通过，正式宣布 UI 基础设施进入 Freeze 状态，研发重心全面重归物理建模与声学演奏业务。
 
 - [x] **全量静态检查与双端验证**：
@@ -139,11 +153,12 @@
   - 确立规则：底层渲染与排版引擎代码（`source/UI/jive/core/`）正式列为稳定底层资产封存，严禁因日常业务需求侵入修改
   - 确立规则：后续任何业务开发（包含 Phase 29 声学控制、预设管理等），只准编写原生 Component 与在 `LayoutModel` 中调用 C++ DSL 组装 ValueTree，只准通过 `ViewHost` 门面访问
   - 研发精力彻底回归物理建模钢琴算法与声学演奏交互
+
 ---
 
 ## 历史实现 Backlog
-- Phase 28 完成记录（Devpiano 声明式 UI 基础设施深度治理与接口冻结）：[`../archive/phase28-ui-governance-and-api-freeze.md`](../archive/phase28-ui-governance-and-api-freeze.md)
 
+- Phase 28 完成记录（Devpiano 声明式 UI 基础设施深度治理与接口冻结）：[`../archive/phase28-ui-governance-and-api-freeze.md`](../archive/phase28-ui-governance-and-api-freeze.md)
 - ADR-014 实施归档（内化 Devpiano UI 基础设施与 JIVE 子模块退役治理）：[`../archive/adr-014-internalize-ui-infrastructure.md`](../archive/adr-014-internalize-ui-infrastructure.md)
 - AUDIT-002 修复阶段归档（全量 62 项缺陷修复与质量门禁闭环）：[`../archive/audit-002-code-quality-fix-phases.md`](../archive/audit-002-code-quality-fix-phases.md)
 - Phase 26 完成记录（MIDI 多轨并轨与综合时间线合并）：[`../archive/phase26-midi-multi-track-timeline-merge.md`](../archive/phase26-midi-multi-track-timeline-merge.md)

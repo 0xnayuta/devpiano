@@ -50,19 +50,23 @@ VST3 插件宿主是 devpiano 连接专业音乐制作与高品质虚拟乐器�
 ## 3. 关键机制与鲁棒性设计
 
 ### 3.1 多目录扫描与路径持久化
+
 - 路径输入支持 `juce::FileSearchPath` 语法（分号或逗号分隔多个路径）；
 - 扫描前自动过滤不存在的非法路径，并将规范化后的有效路径持久化到 `SettingsModel::pluginSearchPaths`。
 
 ### 3.2 扫描状态机互斥保护
+
 扫描期间，`PluginOperationController` 自动拦截并忽略以下操作，防止状态机错乱：
 - 重复点击 Scan 按钮；
 - 尝试加载或卸载插件；
 - 尝试打开 Editor 窗口。
 
 ### 3.3 辅助窗口与键盘焦点防抢夺
+
 打开插件 Editor 窗口后，用户可能需要使用电脑键盘在插件内输入参数或试弹。`MainComponent` 的异步焦点恢复机制（`restoreKeyboardFocus`）在检测到 Editor 窗口处于激活状态时会自动跳过抢焦动作，防止主窗口将辅助窗口顶到后台。
 
 ### 3.4 退出与音频设备重建安全序列
+
 应用析构或音频设备重建时，严格按照以下安全析构顺序执行：
 1. `closePluginEditorWindow()`：销毁 UI 窗口与底层 OS 视图句柄；
 2. `shutdownAudio()`：切断实时音频硬件回调；

@@ -21,11 +21,13 @@
 ## 二、详细实施阶段与完成成果
 
 ### ADR-014 Phase 0：基线测试冻结与合规归档准备 [已完成，2026-09-01]
+
 - [x] 执行环境自检与全量测试基线验证（`./scripts/dev.sh test`，12,187+ 断言全绿）。
 - [x] 在根目录更新 `THIRD-PARTY-NOTICES.md`，记录 JIVE 原作者（James Johnson）、MIT 许可证全文与快照 Commit（`89d5787`）。
 - [x] 归档并验证 `design_tokens.json` 与 `style_sheets.json` 静态资产完整性。
 
 ### ADR-014 Phase 1：提取 JIVE 核心最小依赖闭包（`source/UI/jive/core/`） [已完成，2026-09-01]
+
 - [x] **创建目录结构**：
   - `source/UI/jive/core/`（基础核心运行时）
   - `source/UI/jive/extensions/grid/`（战略储备扩展）
@@ -48,6 +50,7 @@
   - 构建系统（`CMakeLists.txt`）切换为直接编译 `source/UI/jive/core/` 源码。
 
 ### ADR-014 Phase 2：注销 JIVE Git 子模块与 CMakeLists 纯化 [已完成，2026-09-01]
+
 - [x] **CMakeLists.txt 纯化**：
   - 移除 `add_subdirectory(submodules/JIVE)`。
   - 移除 target 链接中的 `jive::jive_layouts`、`jive::jive_style_sheets`、`jive::jive_core`。
@@ -60,6 +63,7 @@
   - 运行 `./scripts/dev.sh test` 确保 100% 单元测试在无子模块环境下通过。
 
 ### ADR-014 Phase 3：JUCE 9.0.1 兼容性修复与三闸门全量验证 [已完成，2026-09-01]
+
 - [x] **适配 JUCE 9 UI API**：
   - `FontUtilities::calculateStringWidth` 优化为调用 `juce::GlyphArrangement::getStringWidth`，消除弃用方法。
   - 确认 `TextComponent` 基于现代 `juce::TextLayout` 与 `juce::AttributedString`。

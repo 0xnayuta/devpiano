@@ -234,6 +234,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 3. **UI 基础设施与 JIVE 依赖治理（Phase 27-C）**：依据 ADR-014 彻底注销并退役 `submodules/JIVE` 外部子模块，内化核心声明式 UI 运行时与 CSS Grid 至 `source/UI/jive/core/`，全面完成 `FontOptions`、`GlyphArrangement` 与 `DrawableComponent` 现代排版渲染迁移；
 4. **内化代码质量治理与全量 CI 门禁纳入（Phase 27-D）**：内化 UI 代码完成 C++20 规范现代化（`override`、`noexcept`、`const-ref`），移除静态分析豁免，与业务代码统一享有零警告检验；
 5. **全系统功能回归、三闸门闭环与发布打包（Phase 27-E）**：63 个测试套件、12,668+ 单元测试断言 100% 绿灯，WSL 与 Windows MSVC 双端双配置编译 0 错误，分发包打包成功，GitHub Actions 五大门禁 100% 通过合入 `main`。
+
 ### Phase 28：Devpiano 声明式 UI 基础设施深度治理与接口冻结（Declarative UI Infrastructure Governance & API Freeze） [已完成，2026-09-03]
 
 1. **API 边界收敛与 ViewHost 门面构建（Phase 28-A）**：封装 `ViewHost`，彻底隔离业务代码对底层 `Interpreter` / `GuiItem` 的裸露直接依赖与析构 UAF 风险 [已完成，2026-09-03]；

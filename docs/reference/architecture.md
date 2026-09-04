@@ -196,6 +196,7 @@ source/
   - **`KeyBindingEditDialog.h/.cpp`**：逐键绑定与调色板编辑弹窗（转接 `JiveModalDialog`）。
   - **`DevPianoLookAndFeel.h/.cpp`**：JUCE 原生控件的暗黑扁平主题定制。
   - **`PluginEditorWindow.h/.cpp`**：独立宿主窗口，托管 VST3 插件原生 UI。
+
 ---
 
 ### 3.10 Locale（多语言与静态资产管理）
@@ -203,6 +204,7 @@ source/
 - **`source/Locale/LocaleManager.h`**：
   - 语言管理与运行时即时切换（英文 / 简体中文），优先读取编译期嵌入的 `BinaryData::zh_CN_loc`。
 - **`CMakeLists.txt` 构建期资产嵌入**：
+
   ```cmake
   juce_add_binary_data(devpiano_binary_data SOURCES
       source/Locale/zh_CN.loc

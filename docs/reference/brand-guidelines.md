@@ -1,6 +1,6 @@
 # devpiano 品牌标识与设计规范 (Brand Guidelines)
 
-> 用途：定义 devpiano 的视觉资产标准、Logo 几何体系、字标排版、双蓝色彩分工、图形语言与跨尺寸渲染规范。  
+> 用途：定义 devpiano 的视觉资产标准、Logo 几何体系、字标排版、双蓝色彩分工、图形语言与跨尺寸渲染规范。
 > 归档位置：`assets/branding/`（源资产）与 `docs/reference/brand-guidelines.md`（规范）。
 
 ---
@@ -66,6 +66,7 @@ Symbol 构建在 **64×64 绝对几何网格** 中，由四个关键视觉语义
 ## 4. 组合标识（Lockup）规范
 
 ### 4.1 横向组合（Horizontal Lockup）
+
 * **画布尺寸**：`336 × 64` (长宽比 5.25 : 1)。
 * **间距（Clearspace）**：Symbol 右边缘至 Wordmark 左边缘为 `18px`（独立间距步长）。
 * **适用场景**：GitHub README 顶部 Banner、官网/文档 Header、应用主界面标题栏。
@@ -74,6 +75,7 @@ Symbol 构建在 **64×64 绝对几何网格** 中，由四个关键视觉语义
   * `assets/branding/logo-horizontal-mono.svg`
 
 ### 4.2 纵向组合（Vertical Lockup）
+
 * **画布尺寸**：`288 × 160` (长宽比 1.8 : 1)。
 * **对齐方式**：Symbol 水平居中置顶，Wordmark 水平居中置底；两者垂直净空为 `20px`。
 * **适用场景**：GitHub Social Preview / Open Graph 卡片、产品关于弹窗（About Dialog）、发布海报。

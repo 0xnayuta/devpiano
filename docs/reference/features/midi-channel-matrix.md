@@ -21,6 +21,7 @@
 ## 2. 数据结构与位域紧凑设计
 
 ### 2.1 PerChannelConfig 配置项
+
 `source/Midi/ChannelMatrix.h` 中为每个通道定义了紧凑的结构体：
 
 ```cpp
@@ -45,6 +46,7 @@ struct PerChannelConfig {
 ## 3. 变换规则与计算公式
 
 ### 3.1 Note On 变换（`applyMatrixToNoteOn`）
+
 当键盘按下或鼠标点击触发 Note On 时：
 
 1. **输出通道计算**：
@@ -56,6 +58,7 @@ struct PerChannelConfig {
    $$\text{Velocity}_{\text{out}} = \begin{cases} \text{config.velocity}, & \text{若 } \text{config.velocity} \neq 64 \\ \text{clamp}\left(0, 127, \text{round}(\text{Velocity}_{\text{orig}} \times 127)\right), & \text{若 } \text{config.velocity} == 64 \end{cases}$$
 
 ### 3.2 Note Off 变换（`applyMatrixToNoteOff`）
+
 Note Off 仅执行通道重定向与音高变换，速度严格与 Note On 的音高保持一致，确保制音器动作完全对称，不残留悬挂音。
 
 ---
@@ -63,6 +66,7 @@ Note Off 仅执行通道重定向与音高变换，速度严格与 Note On 的�
 ## 4. 全局调号（Key Signature）系统
 
 ### 4.1 调号与移调模式
+
 devpiano 在 `SettingsModel` 与 `AppState` 中维护全局调号：
 - **`keySignature`**：整型范围 `[-7, +7]`，对应从 7 个降号（$\text{D}\flat$ 大调）到 7 个升号（$\text{C}\sharp$ 大调）的半音偏移量；
 - **`midiTranspose` 开关**：
@@ -70,6 +74,7 @@ devpiano 在 `SettingsModel` 与 `AppState` 中维护全局调号：
   - 当为 `false` 时，仅虚拟钢琴键盘的 Do-Re-Mi 标签随调号变化，物理 MIDI 输出保持原调（唱名移调但音高不移调模式）。
 
 ### 4.2 按键跟随矩阵（Follow Key Grid）
+
 在设置面板（`SettingsLayoutModel`）中，提供了一个 **8 列 × 2 行的 JIVE CSS Grid 开关组**：
 - 用户可独立勾选任意通道的 `Follow Key`；
 - 例如：通道 1（主旋律钢琴）开启跟随，移调 +2 半音（C调变D调）；通道 10（打击乐）关闭跟随，依然触发标准 General MIDI 鼓组音高。

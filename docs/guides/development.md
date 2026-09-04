@@ -21,4 +21,4 @@
 
 后续可按需补充：
 
-- [`agent-collaboration.md`](agent-collaboration.md)：从 [`../../AGENTS.md`](../../AGENTS.md) 提炼给人类开发者阅读的协作规则摘要。
+- `agent-collaboration.md`（规划中）：后续从 [`../../AGENTS.md`](../../AGENTS.md) 提炼给人类开发者阅读的协作规则摘要。

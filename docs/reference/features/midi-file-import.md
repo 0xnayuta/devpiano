@@ -46,19 +46,23 @@ RecordingSessionController::handleMidiImported()
 ## 3. 详细处理规则与边界设计
 
 ### 3.1 自动选轨算法
+
 针对常见的 Type 1 多轨 MIDI 文件（例如 Track 0 仅包含拍号、速度与版权信息，Track 1/2 包含音符）：
 - `MidiFileImporter` 遍历所有 Track，统计每个 Track 的 `noteOn` 事件数量；
 - 选取包含 `noteOn` 数量最多的 Track 作为主解析轨；
 - 若文件所有轨道均无 Note 事件，安全返回空结果并向 Logger 输出警告，程序不崩溃。
 
 ### 3.2 时间戳换算精度
+
 - 根据 MIDI 文件头定义的 PPQ（Pulses Per Quarter Note）与 Tempo（默认 120 BPM，或首个 Tempo 设定），结合当前音频设备的采样率（如 44.1 kHz / 48 kHz），将每个 MIDI 事件的 Tick 准确转换为绝对采样点 `timestampSamples`；
 - 回放时由 `RecordingEngine` 逐 audio block 调度，不受系统时钟抖动影响。
 
 ### 3.3 首音 0s 截断防御（Pre-roll 机制）
+
 部分 MIDI 文件的首个音符起始时间为 0s。为防止音频设备启动瞬间的清理用 All-Notes-Off 将 0s 音符误消除，`AudioEngine` 在启动导入回放前调用 `armPlaybackStartPreRoll()`，在首个可听 block 前插入微小静音预备区，确保首音 100% 完整清晰发声。
 
 ### 3.4 状态机互斥与按钮联动
+
 - **录制中（Recording）**：Import MIDI 按钮自动禁用，防止录制与导入冲突；
 - **播放中（Playing）**：Import MIDI 按钮禁用；需先点击 Stop 停止当前播放，方可导入新文件；
 - **导入成功后**：

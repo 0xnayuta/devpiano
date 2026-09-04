@@ -17,6 +17,7 @@ devpiano 源于对旧版 Windows FreePiano 的现代化重构。所有有价值�
 ## 3. 核心能力
 
 ### 演奏与输入
+
 - 电脑键盘触发 MIDI note on/off，支持基于稳定 key code 的键位映射
 - 88 键拟真虚拟钢琴键盘（classic / channel / velocity 3 种着色模式，Do Re Mi / 固定 Do / 音符名称 3 种标注模式）
 - 逐键个性化标签（`customKeyLabels`）与逐键颜色（`customKeyColours`）定制
@@ -25,11 +26,13 @@ devpiano 源于对旧版 Windows FreePiano 的现代化重构。所有有价值�
 - ADSR 包络控制与主增益平滑调节
 
 ### 发声引擎
+
 - **内置物理建模钢琴**：自主拥有、纯 C++ 算法、零外部采样依赖的增强模态钢琴合成器（`PianoSynthVoice`，Magic Circle 递归正弦振荡器、刚性失谐、模态衰减、三弦拍频、音板谐振）
 - **内置正弦波合成器**：基准正弦合成（`SineSynthVoice`），支持平滑切换
 - **VST3 插件宿主**：VST3 插件扫描、异步分片进度、XML 缓存恢复、加载、卸载与独立 Editor 窗口托管
 
 ### 演奏录制与文件
+
 - 演奏录制、回放、播放速度精确控制（0.50x–2.00x，线程安全原子变速）
 - `.devpiano` 原生演奏文件格式（v2 JSON 序列化，含 Base64 编码、events、采样率与元数据）
 - 标准 MIDI 文件导入（智能自动选轨，含 CC64 延音 / pitch bend / program change 事件）
@@ -37,6 +40,7 @@ devpiano 源于对旧版 Windows FreePiano 的现代化重构。所有有价值�
 - WAV 音频离线导出（共享 `RenderPipeline` 管线，支持 VST3 独立离线实例与物理建模钢琴离线渲染，带 JIVE 声明式进度浮层）
 
 ### UI 与体验
+
 - **JIVE 声明式 UI 架构**：`juce::ValueTree` 驱动整棵界面树，FlexBox / CSS Grid 自适应布局
 - **通用声明式模态弹窗（`JiveModalDialog`）**：预设管理、元数据编辑与导出进度统一暗黑主题浮层
 - **Performance Preset 预设系统**：`.devpiano.preset` JSON 格式、自动发现、CRUD 操作、F1-F12 快捷键与录制时自动切换预设

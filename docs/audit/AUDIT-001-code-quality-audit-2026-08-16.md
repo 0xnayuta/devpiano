@@ -58,6 +58,7 @@
 | `THR-002` | P2 | 已关闭 | AudioEngine currentSampleRate/currentBlockSize 非原子 | currentSampleRate/currentBlockSize 改 std::atomic<double>/std::atomic<int>（2026-08-22 复审 13） |
 | `THR-003` | P2 | 已暂缓 | MidiChannelMapper 引用成员悬垂风险 | 引用对象 appSettings 生命周期由 MainComponent 统一托管，无悬垂风险（重开条件见第 8 章） |
 | `THR-004` | P2 | 已暂缓 | PluginHost::getInstance 暴露裸指针 | 生命周期由设备重建 guard 隔离，无并发竞争，符合 JUCE 原生惯例（重开条件见第 8 章） |
+
 ---
 
 ## 1. 审计范围与方法
@@ -653,6 +654,7 @@ devpiano 核心运行时健康：0 项 P0（无崩溃/数据损坏/静默泄漏�
 
 关闭 1 项：
 - `THR-002` → `已关闭`：`AudioEngine` 的 `currentSampleRate` 和 `currentBlockSize` 改为 `std::atomic<double>` 与 `std::atomic<int>`（`source/Audio/AudioEngine.h:95-96`），写路径 `prepareToPlay`（`AudioEngine.cpp:51-52`）与读路径 `discardWarmupInputState`（`AudioEngine.cpp:257`）均使用 `std::memory_order_relaxed` 进行 store/load。彻底消除跨线程未同步读写的数据竞争风险（UB）。验证：三闸门全绿。
+
 ---
 
 ## 8. 附录：问题总表（登记表）

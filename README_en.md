@@ -1,12 +1,12 @@
 <p align="center">
-  <a href="https://github.com/zhs-dev/devpiano"><img src="assets/branding/logo-horizontal-dark.svg" alt="devpiano" width="480"></a>
+  <a href="https://github.com/0xnayuta/devpiano"><img src="assets/branding/logo-horizontal-dark.svg" alt="devpiano" width="480"></a>
 </p>
 
 <p align="center">
   <b>Physical Modeling Acoustic Piano · Modern Keyboard Instrument · VST3 Host</b><br>
   <a href="README.md">中文</a> | English
 </p>
-**devpiano** is a modern computer-keyboard piano application built on the JUCE 9.0.1 framework, focused on software keyboard performance, high-fidelity physical modeling synthesis, and MIDI file processing.
+devpiano is a modern computer-keyboard piano application built on the JUCE 9.0.1 framework, focused on software keyboard performance, high-fidelity physical modeling synthesis, and MIDI file processing.
 
 The application features a self-developed, pure C++ physical modeling piano synthesizer (`PianoSynthVoice`) covering **7 complete acoustic subsystems**, along with **VST3 instrument plugin hosting**, a standard 88-key virtual keybed, a 16-channel MIDI routing matrix, an internalized declarative UI runtime, and full-loop performance recording, playback, persistence, and offline audio rendering pipelines.
 
@@ -17,20 +17,21 @@ For project scope, core capabilities, and explicit non-goals, see [`docs/referen
 ## Core Feature Matrix
 
 ```text
-               ┌────────────────────────────────────────────────────────┐
-               │              devpiano v1.0.0 Architecture              │
-               └───────────────────────────┬────────────────────────────┘
-                                           │
-         ┌─────────────────────────────────┼────────────────────────────────┐
-         ▼                                 ▼                                ▼
-┌──────────────────┐             ┌──────────────────┐             ┌──────────────────┐
-│  Audio & Plugin  │             │ Input & Routing  │             │ Record & Render  │
-│ 7 Acoustic Sys PM│             │ Stable Key Map+88│             │ Lock-free Take   │
-│ VST3 Host+Editor │             │ 16-Ch Matrix+Key │             │ Offline WAV Task │
-└──────────────────┘             └──────────────────┘             └──────────────────┘
+              ┌────────────────────────────────────────────────────────┐
+              │              devpiano v1.1.0 Architecture              │
+              └───────────────────────────┬────────────────────────────┘
+                                          │
+           ┌──────────────────────────────┼──────────────────────────────┐
+           ▼                              ▼                              ▼
+┌─────────────────────┐        ┌─────────────────────┐        ┌─────────────────────┐
+│   Audio & Plugin    │        │   Input & Routing   │        │   Record & Render   │
+│  7 Acoustic Sys PM  │        │  Stable Key Map+88  │        │   Lock-free Take    │
+│  VST3 Host+Editor   │        │  16-Ch Matrix+Key   │        │  Offline WAV Task   │
+└─────────────────────┘        └─────────────────────┘        └─────────────────────┘
 ```
 
 ### 🎹 High-Fidelity Physical Modeling Piano Engine (`PianoSynthVoice`)
+
 - **7 Complete Acoustic Physical Subsystems**: covers Hammer, String, Bridge, Soundboard, Cabinet, Air, and Room acoustics;
 - **88-Key Continuous Physical Parameter Mapping**: calibrated based on Bensa et al. (2003) and Steinway B 9-foot concert grand measurements, continuously interpolating string stiffness $B$, striking ratio $d/L$, damping constants, and 1/2/3 string unison zones (`Piano88KeyTable.h`);
 - **Nonlinear Strike Dynamics & Harmonic Blooming**: 3-layer felt dynamic compaction, velocity-dependent contact time $T_c$, striking point geometric comb notch filtering, 3ms high-frequency attack crack (HF Crack), delayed harmonic energy blooming (Harmonic Blooming, 10–25ms), and $fff$ pitch glide with soft saturation;
@@ -39,20 +40,24 @@ For project scope, core capabilities, and explicit non-goals, see [`docs/referen
 - **Hard Real-Time Guarantees**: Magic Circle coupled-form recursive oscillators, **zero per-sample trigonometric calls (zero `std::sin`)**, $\le 0.7\%$ single-core CPU load under 8-voice polyphony, strictly **zero heap allocations and zero locks** on the real-time audio thread; supports seamless auditioning with the built-in sine synthesizer (`SineSynthVoice`).
 
 ### 🔌 VST3 Plugin Hosting System
+
 - **Robust Lifecycle Management**: supports default and custom multi-directory scanning, asynchronous chunked scanning, XML cache startup restoration, and failed file logging;
 - **Plugin Loading & Editor Hosting**: loads VST3 instrument plugins into the real-time audio pipeline with isolated top-level editor window lifecycle management and exception safety guards.
 
 ### ⌨️ Computer Keyboard Performance & 88-Key Bed
+
 - **Stable Key Code Routing**: routes input via normalized key codes to eliminate IME and CapsLock interference; enforces strictly paired note on/off tracking with automatic panic clearing on window focus loss;
 - **Standard 88-Key Grand Piano Keybed**: covers the full A0–C8 (MIDI 21–108) range with wide-window dynamic symmetrical centering and felt strip auto-fill;
 - **Localized Dirty Rectangle Repainting**: `CustomKeyboard` uses `repaintKey()` and viewport intersection clipping, completely eliminating full-component redraws during virtuosic MIDI playback with zero UI stutter;
 - **Flexible Visual Customization**: supports 3 key color modes (Classic / Channel / Velocity) and 3 note label modes (DoReMi / FixedDo / NoteName).
 
 ### 🎛️ 16-Channel MIDI Matrix & Real-Time Transposition
+
 - **16 Independent Channels**: per-channel semitone transpose, octave shift, velocity override, program selection, bank MSB switching, and key-following mode (`followKey`);
 - **Global Key Signature Control**: -7..+7 semitone global key signature shifting with General MIDI (GM) Channel 10 percussion bypass protection.
 
 ### 🎙️ Performance Recording, Playback & Persistence
+
 - **Real-Time Lock-Free Capture**: lock-free MIDI event collection on the audio thread generating immutable `RecordingTake` snapshots;
 - **Variable-Speed Playback**: 0.5x–2.0x atomic smooth playback tempo scaling with instantaneous restart (Back);
 - **Native Performance File Persistence**: `.devpiano` native file format (v2 JSON + Base64 encoding + `juce::TemporaryFile` atomic writing);
@@ -60,16 +65,19 @@ For project scope, core capabilities, and explicit non-goals, see [`docs/referen
 - **Performance Preset System**: full preset CRUD orchestration, F1–F12 hotkey switching, recorded preset-change automation, and overwrite confirmation dialogs (`PresetConfirmDialog`).
 
 ### 📦 Offline High-Fidelity WAV Export Pipeline
+
 - **Multi-Threaded Offline Rendering**: `WavExportTask` runs on a dedicated background thread, unified under `RenderPipeline` for timeline scaling, event sorting, and tail panic injection;
 - **Dual-Engine Export**: automatically renders via the built-in physical modeling piano when no plugin is loaded, or creates isolated offline VST3 instances for plugin rendering;
 - **Modern Dark Progress Dialog**: real-time progress bar with cancellation support and automatic temporary file cleanup.
 
 ### 🎨 Internalized Declarative UI Runtime & Design System
+
 - **Declarative UI Architecture**: main window, settings dialog, and modal dialogs are fully unified under the project's internalized declarative UI runtime (`source/UI/jive/core/`, pursuant to ADR-014 fully internalized with external JIVE submodule retired, supporting `juce::ValueTree` layouts + JSON style sheets + Flex/CSS Grid adaptive flow), eliminating manual coordinate calculations;
 - **Modern Dark Theme**: rotary knobs for ADSR/volume based on `DevPianoLookAndFeel`, and a symmetrical 3-column status bar (live MIDI activity dot, plugin/preset label, audio metrics, and key signature);
 - **Zero-External-Asset Bundling**: design tokens (`design_tokens.json`), style sheets (`style_sheets.json`), and Chinese localization resources (`zh_CN.loc`) are statically bundled as binary data at compile time, enabling single-file distribution.
 
 ### 🌐 Runtime Internationalization (i18n)
+
 - **Instant Language Switching**: powered by JUCE `Translation` and `LocaleManager`, allowing seamless real-time switching between Simplified Chinese and English.
 
 ---
@@ -156,6 +164,7 @@ Every critical commit must satisfy the following three gates:
 All third-party dependencies are tracked as Git Submodules. **Do not modify any code inside submodules**:
 - `submodules/JUCE/`: JUCE cross-platform audio/GUI framework (AGPLv3 / commercial license).
 > Note: Declarative UI infrastructure has been internalized into `source/UI/jive/` under ADR-014 and is no longer an external submodule.
+
 ---
 
 ## Documentation Portal & Recommended Reading

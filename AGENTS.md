@@ -210,6 +210,7 @@
 ---
 
 ## 7. 相关功能与测试文档：
+
 - 物理建模钢琴音源功能及测试：[`docs/reference/features/builtin-piano-synthesis.md`](docs/reference/features/builtin-piano-synthesis.md)
 - 键盘映射功能及测试：[`docs/reference/features/keyboard-mapping.md`](docs/reference/features/keyboard-mapping.md)
 - 插件宿主功能及生命周期测试：[`docs/reference/features/plugin-hosting.md`](docs/reference/features/plugin-hosting.md)
@@ -251,6 +252,7 @@
 | **查询 JUCE / VST3 / 第三方库 API 签名与用法** | `context7` | `submodules/` 本地源码 | 凭记忆猜测或臆造 API |
 | **符号重命名 / 精确跳转定义 / 跨文件引用 / 代码诊断** | `lsp` | `codegraph` | 手写正则/sed 批量替换跨文件符号 |
 | **阅读非代码文件（.md, .json, .cmake）或精确局部编辑** | `read` / `edit` | `write` | 用 read 遍历大量代码文件寻找符号 |
+
 ---
 
 ## 9. 结束输出要求

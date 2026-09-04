@@ -49,18 +49,21 @@ WavExportTask::startExport() (后台独立工作线程启动)
 ## 3. 核心机制与关键技术细节
 
 ### 3.1 独立离线插件实例生命周期（`PluginOfflineRenderer`）
+
 - **独立性**：基于当前已加载插件的 `PluginDescription`，通过 `formatManager.createPluginInstance()` 创建一个全新的离线实例；
 - **无 Editor 开销**：离线实例不创建任何 UI 窗口，避免跨线程 GUI 句柄死锁；
 - **状态快照**：若实时插件支持状态保存，通过 `instance->getStateInformation()` 抓取当前音色参数并注入离线实例；
 - **受控生命周期**：严格遵循 `create` → `prepareToPlay` → 逐 block `processBlock` → `releaseResources` → `delete` 的确定性生命周期。
 
 ### 3.2 共享渲染管线（`RenderPipeline`）
+
 `source/Recording/RenderPipeline.cpp` 提供了实时与离线一致的事件调度抽象：
 - **采样率自适应换算**：录制时的采样率（如 48 kHz）与导出目标采样率（如 44.1 kHz）不一致时，精确按比例换算每个事件的 `timestampSamples`；
 - **事件绝对排序**：确保同一个 audio block 内的事件严格按 `samplePosition` 升序排列；
 - **尾部防挂音注入**：在渲染结尾自动注入全通道 `allNotesOff` 与 `sustainOff`，消除由于 MIDI 数据不完整可能导致的尾部悬挂音。
 
 ### 3.3 后台任务与 JIVE 进度反馈（`WavExportTask`）
+
 在 Phase 15-D 中，`WavExportTask` 彻底移除了 JUCE 原生陈旧的 `AlertWindow`，全面采用 JIVE 声明式进度弹窗：
 - **无锁进度传递**：后台线程通过 `std::atomic<float> currentProgress` 和 `std::atomic<bool> cancelRequested` 与主线程通信；
 - **安全取消机制**：用户点击 [Cancel] 按钮或按 ESC 键时，`cancelRequested` 置位，后台线程在下一个 block 循环立即退出，并在 `finally` 块中调用 `destinationFile.deleteFile()` 删除半截文件。

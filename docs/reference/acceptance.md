@@ -212,6 +212,7 @@
 - [x] **Phase 15-E**：单元测试全绿（3101 断言），三闸门与 Windows 验证通过。
 
 ---
+
 ## Phase 16：UI 局部脏矩形渲染与预设覆盖确认
 
 状态：已完成（2026-08-20）。
@@ -326,18 +327,19 @@
 
 ---
 
-
 ## 建议例行最小回归集合
 
 关键修改提交前，在 WSL 与 Windows 侧执行以下基线验证：
 
 1. **三闸门检查**：
+
    ```bash
    ./scripts/dev.sh wsl-build --configure-only
    ./scripts/dev.sh test
    ./scripts/dev.sh format --check
    ./scripts/dev.sh win-build
    ```
+
 2. **冒烟手工回归**：
    - 启动程序，音频设备初始化正常；
    - `A/S/D/F` 触发物理建模钢琴发声，音质纯净无杂音，虚拟键盘高亮正常；

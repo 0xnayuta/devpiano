@@ -36,6 +36,7 @@
 | **科学音高名（Note Name）** | `noteName` | 标注标准国际音名（如 `C4`、`F#5`、`Bb3`），方便与乐理对照。 |
 
 ### 2.3 平滑余晖消隐动画
+
 - `CustomKeyboard` 内部运行 30 fps 定时器，按键松开后通过指数插值（`fadeSpeed` 参数控制，默认 0.92）平滑淡出高亮背景，重现真实琴弦震动的视觉余韵。
 
 ---
@@ -61,6 +62,7 @@ struct KeyboardSettings {
 ## 4. 按键绑定编辑弹窗（`KeyBindingEditDialog`）
 
 ### 4.1 交互触发流程
+
 1. 在虚拟钢琴键盘的任意黑白键上**鼠标右键点击**；
 2. 触发 `CustomKeyboard::onBindingEditRequested(midiNote)` 回调；
 3. 弹出基于 `JiveModalDialog` 驱动的 `KeyBindingEditDialog` 声明式模态弹窗。

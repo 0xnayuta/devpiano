@@ -21,6 +21,7 @@ devpiano 提供了完整的“弹奏 → 录制 → 回放 → 导出 MIDI”的
 ## 2. 核心架构与数据流
 
 ### 2.1 录制数据流
+
 ```text
 电脑键盘按键 ──► KeyboardMidiMapper ──► MidiChannelMapper ──► MidiMessageCollector
                                                                    │
@@ -39,6 +40,7 @@ AudioEngine::getNextAudioBlock() (实时音频回调) ◄───────�
 ```
 
 ### 2.2 回放数据流
+
 ```text
 RecordingSessionController::handlePlayClicked() ──► RecordingEngine::startPlayback()
                                                           │

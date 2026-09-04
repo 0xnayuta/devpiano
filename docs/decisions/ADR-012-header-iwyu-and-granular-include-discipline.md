@@ -17,6 +17,7 @@
 为了确保代码架构的长治久安，建立以下 **IWYU（Include What You Use）细粒度包含纪律**：
 
 ### 1. 业务头文件严格禁止包含 `<JuceHeader.h>`
+
 - 所有 `source/` 目录下的 `.h` 头文件**禁止出现 `#include <JuceHeader.h>`**；
 - 头文件若需使用 JUCE 类型，**必须按需引入具体的细粒度模块头文件**：
   - 核心基础与字符串：`<juce_core/juce_core.h>`
@@ -29,14 +30,17 @@
   - 图形与颜色：`<juce_graphics/juce_graphics.h>`
 
 ### 2. 优先采用前向声明（Forward Declarations）
+
 - 对于仅在头文件中以指针或引用形式传递的类型（如 `class AudioEngine;`, `class PluginHost;`, `struct SettingsModel;`），优先使用前向声明，避免在头文件中包含对方的完整定义；
 - 具体实现依赖移入对应的 `.cpp` 源码文件中。
 
 ### 3. `<JuceHeader.h>` 的使用边界
+
 - `<JuceHeader.h>` **仅允许在业务实现源文件（`.cpp`）中使用**（或直接在 `.cpp` 中按需引入具体模块）；
 - 严格杜绝在公共头文件或导出接口中再泄漏 `<JuceHeader.h>`。
 
 ### 4. 纯数据模型与领域层零无关模块耦合
+
 - 纯数据结构（如 `ChannelMatrix`, `MidiTypes`）优先基于 C++ 标准库类型构建，消除对复杂 GUI/Audio 宿主子系统的偶然依赖。
 
 ## 影响与收益

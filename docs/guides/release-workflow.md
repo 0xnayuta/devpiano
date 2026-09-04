@@ -298,11 +298,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 2. 在 `CHANGELOG.md` 顶部追加新版本条目；
 3. 提交版本变更并推送到 `main` 分支（触发 CI 质量门禁全绿验证）；
 4. 创建 annotated tag 并推送到远程（**自动触发 GitHub Actions `.github/workflows/release.yml` 自动化发布流水线**）：
+
    ```bash
    git tag -a vX.Y.Z -m "Release vX.Y.Z"
    git push origin main
    git push origin vX.Y.Z
    ```
+
 5. 推送后 GitHub Actions 自动完成：
    - Windows 原生 MSVC Release 纯净构建；
    - Linux 原生 Clang Release 纯净构建（`ubuntu-24.04` runner + glibc 门槛检查）；
@@ -330,6 +332,7 @@ gh release create "v${VERSION}" \
 #     "dist/v${VERSION}/DevPiano-v${VERSION}-linux-x64.tar.gz" \
 #     "dist/v${VERSION}/DevPiano-v${VERSION}-linux-x64.sha256"
 ```
+
 ## 9. 修复策略
 
 - 已推送 tag 不重写、不移动。

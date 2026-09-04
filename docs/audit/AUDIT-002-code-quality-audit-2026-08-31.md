@@ -400,6 +400,7 @@ source/
 本轮无 P0。
 
 ### 5.2 当前迭代处理（P1）
+
 - [x] `THR-001`：AudioEngine 参数更新与音频渲染同步——setAdsr/setPianoParameters 改经原子参数快照 + 音频线程 applyPendingParametersIfNeeded，消除锁外写 voice 状态
 - [x] `THR-002`：handleExportWavClicked 的插件状态快照包进 runPluginActionWithAudioDeviceRebuild；严格遵守 PluginHost.h 线程契约
 - [x] `SEC-001`：SettingsComponent 拆树前先 viewport.setViewedComponent(nullptr, false)，消除 Viewport 悬挂指针 UAF
@@ -467,6 +468,7 @@ source/
 - [x] `ENG-002`：设置内容高度从布局树实际值读取或提共享常量
 - [x] `CMPL-001`：TestHelpers.h 迁移细粒度包含，消除 ADR-012 字面违反
 - [x] `THR-003`：MidiKeyboardState 监听线程契约注释文档化
+
 ---
 
 ## 6. 最终结论
@@ -650,6 +652,7 @@ source/
 - **状态变更**：DOC-001~004 全部已关闭。AUDIT-002 的 62 个问题至此全部关闭，审计修复周期圆满归档！
 
 ---
+
 ## 8. 附录：问题总表（登记表）
 
 > 第 8 章是唯一状态源。新增、关闭、暂缓、缓解任何问题，都必须更新本表。

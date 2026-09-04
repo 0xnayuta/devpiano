@@ -8,6 +8,7 @@
 ## 推荐阅读指引
 
 ### 1. 新开发者 / 上手理解
+
 - [`reference/project-scope.md`](reference/project-scope.md)：了解项目定位、核心能力与明确非目标。
 - [`reference/brand-guidelines.md`](reference/brand-guidelines.md)：品牌标识标准、Logo 几何网格、字标、双蓝职责与图形语言规范。
 - [`reference/architecture.md`](reference/architecture.md)：理解当前 JUCE 架构、DSP 物理建模、JIVE 声明式 UI 与模块职责。
@@ -15,6 +16,7 @@
 - [`guides/quickstart.md`](guides/quickstart.md)：快速配置 WSL + Windows 镜像构建环境与常用命令速查。
 
 ### 2. 日常开发与工程纪律
+
 - [`guides/wsl-windows-msvc-workflow.md`](guides/wsl-windows-msvc-workflow.md)：WSL 主工作树 + Windows 镜像树 + MSVC 验证工作流详解。
 - [`guides/development.md`](guides/development.md)：日常开发、构建与协作指引。
 - [`roadmap/current-iteration.md`](roadmap/current-iteration.md)：查看当前迭代正在推进的任务与验收状态。
@@ -51,6 +53,7 @@
 ---
 
 ### 4. 质量审查、验收与问题追踪
+
 - [`reference/acceptance.md`](reference/acceptance.md)：Phase 1–24 阶段性验收标准、v1.0.0 正式发布验收与全量回归清单。
 - [`audit/README.md`](audit/README.md)：代码质量审计报告（`AUDIT-001` 全面审计看板与问题登记表）。
 - [`issues/known-issues.md`](issues/known-issues.md)：已知问题、密集 MIDI 播放 CPU 深度剖析与已修复风险回归线索。
@@ -58,6 +61,7 @@
 ---
 
 ### 5. 历史档案（`archive/`）
+
 - [`archive/README.md`](archive/README.md)：历史归档索引与现行替代关系表。
 
 ---

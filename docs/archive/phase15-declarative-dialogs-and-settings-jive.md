@@ -24,6 +24,7 @@
 ## 2. 实施细节与完成记录
 
 ### Phase 15-A：通用 JiveModalDialog 基础设施与声明式模板 ✅
+
 - 新建 `source/UI/jive/JiveModalDialog.h/.cpp`：以 JIVE `ValueTree` 驱动的模态对话框容器（继承 `juce::DialogWindow`），由 `jive::Interpreter` 统一解释布局并注入 `StyleCatalog` 全局样式；
 - 声明式模板支持：`makeSingleInputLayout`（单行文本输入模板，380×150）、`makeConfirmLayout`（确认取消模板，380×140）与 `makeMetadataEditLayout`（歌曲信息单行+多行文本模板，420×260）；
 - 统一深色主题外观、输入框焦点样式、Flex-end 右对齐按钮排版、回车确认 / ESC 取消键盘交互与异步焦点捕获；
@@ -31,6 +32,7 @@
 - 确定性测试：`source/tests/JiveModalDialogTest.cpp` 新增 5 类 10+ 项断言（ValueTree 节点层级、属性、尺寸、`findButtonById` 与 `findTextEditorById` 组件检索、单行/多行编辑器配置与安全析构），全量测试通过。
 
 ### Phase 15-B：预设与元数据弹窗统一迁移 ✅
+
 - `PresetNameDialog`（重命名 / 新建预设）全面改接 `JiveModalDialog::launchSingleInput` 声明式模板；
 - `PresetConfirmDialog`（删除预设确认）全面改接 `JiveModalDialog::launchConfirm` 声明式模板；
 - `PerformanceMetadataDialog`（歌曲标题与备注编辑）全面改接 `JiveModalDialog::launchMetadataEdit` 声明式模板；
@@ -38,6 +40,7 @@
 - 验证：全流程弹窗交互与单元测试通过，`DevPianoTests` / `DevPiano.exe` 全量构建测试无警告。
 
 ### Phase 15-C：设置面板 JIVE 声明式重构（SettingsLayoutModel） ✅
+
 - 新建 `source/Settings/jive/SettingsLayoutModel.h/.cpp`：使用 `juce::ValueTree` 声明设置面板层级（音频设备区、调号区、通道跟随区、键盘显示区、语言区、诊断区与操作栏）；
 - 16 通道跟随开关（`followKeyToggles`）采用 JIVE CSS Grid（8 列 × 2 行）网格声明，彻底消灭手写双循环坐标排版；
 - `juce::AudioDeviceSelectorComponent` 封装为 Native 注入组件，由 JIVE 容器管理外边距与自适应宽度；
@@ -46,12 +49,14 @@
 - 确定性测试：`source/tests/SettingsLayoutModelTest.cpp` 新增 5 类测试（树结构、16 通道 Grid、显示选项、组件动态检索、动态通道跟随显示切换与安全析构），全量测试全绿。
 
 ### Phase 15-D：模态操作反馈与导出进度 JIVE 现代化 ✅
+
 - 在 `JiveModalDialog` 中扩展 `makeProgressLayout` 声明式进度弹窗模板（包含状态提示文本、JIVE ProgressBar 与取消按钮）；
 - 重构 `WavExportTask`（消除对原生 `ThreadWithProgressWindow` / `AlertWindow` 的依赖），以 JIVE 声明式进度弹窗统一替代，提供现代暗黑主题视觉；
 - 维持线程模型与异常安全性：后台线程独立渲染音频，消息线程 30 Hz 定时器平滑刷新 JIVE 进度与状态文本，严密保留取消/失败残留目标文件自动清理（ERR-009/012/015）；
 - 单元测试：`JiveModalDialogTest` 新增 `testProgressLayoutBuilder` 测试用例，断言进度条节点与状态信息结构，全量测试全绿。
 
 ### Phase 15-E：测试补齐、三闸门与 Windows 视觉回归 ✅
+
 - 编写 JIVE 弹窗与设置布局模型解析的确定性单元测试（`JiveModalDialogTest` 与 `SettingsLayoutModelTest` 全绿）；
 - 运行三闸门验证通过：`wsl-build --configure-only` 0 warning / `test` 3101 断言全绿 / `format --check` 0 违规 / `win-build` MSVC 编译验证成功；
 - Windows 侧手工完整回归通过：预设新建/重命名/删除弹窗、歌曲信息编辑保存取消、设置窗口 16 通道 Grid 开关与即时多语言切换、WAV 离线导出进度展示与取消清理。

@@ -1,7 +1,7 @@
 # AUDIT-002 代码质量审计修复任务全量归档记录
 
-> 归档时间：2026-09-01  
-> 来源迭代：`docs/roadmap/current-iteration.md` (AUDIT-002 Fix Phases A–H)  
+> 归档时间：2026-09-01
+> 来源迭代：`docs/roadmap/current-iteration.md` (AUDIT-002 Fix Phases A–H)
 > 关联审计报告：[`docs/audit/AUDIT-002-code-quality-audit-2026-08-31.md`](../audit/AUDIT-002-code-quality-audit-2026-08-31.md)
 
 ---
@@ -16,6 +16,7 @@
 ## 各子阶段完成清单（Fix Phases A–H）
 
 ### AUDIT-002 Phase A：实时线程与内存安全（P1 紧急缺陷修复） [已完成，2026-08-31]
+
 > 目标：消除实时音频线程数据竞争与高频触发的内存 UAF / 崩溃漏洞，建立第一道安全防线。
 
 - [x] `THR-001`：`AudioEngine` 参数更新（`setAdsr` / `setPianoParameters`）与音频渲染同步，消除锁外修改活跃 voice 状态的数据竞争
@@ -25,6 +26,7 @@
 - [x] `ERR-001`：`WavExportTask` 进度对话框关闭路径触发取消信号并置空 `activeDialog`，杜绝渲染期间点 X 导致的悬挂 UAF
 
 ### AUDIT-002 Phase B：架构重构与组件收敛（P2 结构化治理） [已完成，2026-08-31]
+
 > 目标：解决装配层膨胀与庞大内联头文件，消除跨文件同构辅助代码复制。
 
 - [x] `ARCH-002`：`SettingsComponent` 拆分为 `.h` 声明与 `.cpp` 实现，消除 759 行全内联头文件并按功能域拆解 `buildJiveUi`
@@ -33,6 +35,7 @@
 - [x] `QUAL-007`：`MainComponent` 拆树逻辑复用 `JiveUtils.h` 实现，消除匿名命名空间冗余副本
 
 ### AUDIT-002 Phase C：核心编排与测试盲区补强（P1/P2 测试与状态机加固） [已完成，2026-08-31]
+
 > 目标：填补插件操作控制器、导出后台任务、离线渲染器、正弦音源与状态构建的测试空白。
 
 - [x] `TEST-001`：`PluginOperationController` 编排状态机测试（抽取纯函数决策层 + 异步提交顺序测试，P1）
@@ -44,6 +47,7 @@
 - [x] `TEST-007`：`PerformanceFileTest` 迁移至 `ScopedTempDir`，消除固定文件名并行与残留风险
 
 ### AUDIT-002 Phase D：音频/录制/导出管线质量加固（P2 管道缺陷与性能优化） [已完成，2026-08-31]
+
 > 目标：消除音频回调堆分配，修正 MIDI 导出伪 SysEx 与通道/时间戳逻辑。
 
 - [x] `PERF-001`：`AudioEngine` 回放移调路径消除每块堆分配，就地改写或复用预分配 buffer
@@ -55,6 +59,7 @@
 - [x] `QUAL-005`：确认并清理生产链不可达的 `singleTrackOnly` 遗留分支
 
 ### AUDIT-002 Phase E：安全防御与输入边界加固（P3 健壮性与健壮序列化） [已完成，2026-08-31]
+
 > 目标：强化用户可控文件大小校验、数值合法域 clamp、异常输入容错。
 
 - [x] `SEC-003`：预设与 locale 文件读取前校验大小上限
@@ -66,6 +71,7 @@
 - [x] `OBS-001`：`initialiseFromPreset` 失败路径补 `DP_LOG_WARN`（包含具体路径）
 
 ### AUDIT-002 Phase F：性能优化、资源管理与质量小项（P3 细节优化） [已完成，2026-08-31]
+
 > 目标：提升执行效率、避免长会话资源累积、清理历史残留与样板代码。
 
 - [x] `PERF-002`：回放渲染改用块游标扫描（复用 `WavFileExporter` 模式）
@@ -85,6 +91,7 @@
 - [x] `QUAL-015`：`RecordingFlow` 状态机两份重复测试归并
 
 ### AUDIT-002 Phase G：测试基础设施与工程化合规（P3 门禁与环境健壮性） [已完成，2026-08-31]
+
 > 目标：消除测试假绿与环境脆弱性、满足 ADR 决策与工程纪律。
 
 - [x] `TEST-008`~`TEST-016`：测试断言可观察化（`KeyboardHitMapping`）、补全失败上下文（`StyleCatalog`）、补静音断言（`AudioEngine`）、像素断言对比化、全局 tokens/L&F/locale 变更 RAII 守卫还原、`TestRunner` 类别白名单前缀匹配与 `--verbose` 参数处理
@@ -94,6 +101,7 @@
 - [x] `THR-003`：`MidiKeyboardState` 监听器回调消息线程契约文档化
 
 ### AUDIT-002 Phase H：文档体系治理与全量复验（P3 文档与全套门禁闭环） [已完成，2026-08-31]
+
 > 目标：文档与架构对齐、全量构建与三闸门及 Windows 验证闭环。
 
 - [x] `DOC-001`：`docs/reference/architecture.md` 增补 `MidiTrackMergeEngine` 模块章节与管线架构

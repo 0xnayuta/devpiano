@@ -67,6 +67,7 @@
 4. **恪守开源许可证合规（MIT License）**：
    - 提取入 `source/UI/jive/core/` 的所有源文件头部完整保留原作者（James Johnson）版权声明与 MIT 许可。
    - 在项目根目录维护 `THIRD-PARTY-NOTICES.md`，如实载明原始出处与版本快照（Commit `89d5787`）。
+
 ---
 
 ## 实施路径（路线 B：先提后升）
@@ -77,11 +78,13 @@ graph LR
     P1 --> P2[Phase 2: 注销 JIVE 子模块与 CMake 纯化]
     P2 --> P3[Phase 3: JUCE 9.0.1 平滑升级与 MSVC 验证]
 ```
+
 1. **Phase 0（基线冻结）**：[已完成] 在当前 JUCE 8.0.15 环境下确保 `./scripts/dev.sh test` 100% 绿灯。
 2. **Phase 1（闭包提取与内化）**：[已完成] 搬迁核心源码入 `source/UI/jive/core/`，调整命名空间与依赖，通过全量单元测试与编译。
 3. **Phase 2（子模块退役）**：[已完成] 执行 `git submodule deinit -f submodules/JIVE`，清理 `.gitmodules` 与 `CMakeLists.txt`，物理删除 `submodules/JIVE`。
 4. **Phase 3（JUCE 9 升级与代码质量治理）**：[已完成] 切换并锁定 JUCE 9.0.1 发布版（`e18f7f5`），完成 `FontOptions`、`GlyphArrangement` 与 `DrawableComponent` 适配；对内化代码执行 C++20 现代化（`override`、`noexcept`、`const-ref`）并完全纳入 CI `clang-tidy` 严苛门禁。
 5. **Phase 4（全系统回归与发布闭环）**：[已完成] 完成全系统测试（12,668+ 断言）、双端双配置（Debug/Release）构建验证、Windows 分发包打包以及 GitHub Actions 五大自动化门禁验证，成功合入 `main` 主干。
+
 ---
 
 ## 原因

@@ -17,11 +17,13 @@
 ## 子阶段完成详情
 
 ### Phase 26-A：`MidiTrackMergeEngine` 核心实现与全轨事件绝对时间戳归并
+
 - 提取并实现纯静态无状态的 `MidiTrackMergeEngine` 内核（`source/Recording/MidiTrackMergeEngine.h/.cpp`），彻底替换旧单轨选择逻辑；
 - 支持跨音轨（包含 Conductor/Tempo Track 0 与所有 Note/CC 音乐轨）按采样点绝对时间戳（`timestampSamples`）执行时间线稳定归并；
 - 完整保留并对齐跨轨 Note On/Off、CC（CC64 延音等）、Pitch Bend、Program Change 事件，按 MIDI 事件优先级稳定排序，保证播放顺序与时序绝对稳定。
 
 ### Phase 26-B：多轨通道策略（Pass-through / Auto-Assignment）与跨轨 Meta 解析
+
 - 支持双通道策略：
   - **原始通道保持（Pass-through）**：保留 MIDI 文件内原有的 Channel 映射；
   - **音轨转通道自动重映射（Track-to-Channel Auto-Assignment）**：当各轨均使用 Ch 1 且检测到多轨有 Note 时，自动将不同 Track 映射分配至独立 MIDI 通道 1~16；
@@ -29,10 +31,12 @@
 - 规范首音 0s 预备（Pre-roll）与各轨初始 Program Change / Controller 状态重置。
 
 ### Phase 26-C：16 通道矩阵控制与 88 键虚拟键盘多音轨多着色联动
+
 - 联动 16 通道 MIDI 矩阵（`ChannelMatrix`），支持对导入多轨各通道独立应用移调、八度偏移、音量加权与静音/独奏；
 - 联调 88 键虚拟键盘（`CustomKeyboard`）的 Channel 着色模式（`KeyColourMode::channel`），直观呈现不同音轨/声部的动态交互。
 
 ### Phase 26-D：全轨 WAV 离线渲染验证与多轨测试套件全覆盖
+
 - 严格遵循只读 Playback Take 契约（保持 Export MIDI disabled，防止有损二次转换破坏原 MIDI Meta/Track 结构），支持全轨合并流直接离线导出为高质量 WAV 音频；
 - 补齐多轨 MIDI 导入专项单元测试套件（`source/tests/MidiFileImporterTest.cpp`、`source/tests/RecordingEngineTest.cpp` 等），覆盖 Type 0、Type 1 双手钢琴分轨、多乐器交响、Conductor Track 跨轨速度变化等真实测试夹具。
 

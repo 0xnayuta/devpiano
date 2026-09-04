@@ -28,6 +28,7 @@ devpiano 全面引入 **JIVE（声明式 UI 框架）**，确立了以下现代 
 ## 2. JIVE 声明式布局体系
 
 ### 2.1 主窗口布局树（`LayoutModel`）
+
 主窗口由 `source/UI/jive/LayoutModel.cpp` 声明为整棵 ValueTree，涵盖 5 个核心面板：
 
 ```text
@@ -55,6 +56,7 @@ Component (root, display="flex", flex-direction="column")
 ---
 
 ### 2.2 设置面板声明式重构（`SettingsLayoutModel`）
+
 在 Phase 15-C 中，`SettingsComponent` 彻底移除了 300+ 行手写 `setBounds` 代码，改为由 `SettingsLayoutModel.cpp` 声明的模块化 ValueTree：
 
 - **音频设备区（`makeAudioDeviceSectionTree`）**：封装 `juce::AudioDeviceSelectorComponent` 为 Native 注入项，自适应容器宽度。
@@ -80,6 +82,7 @@ Component (root, display="flex", flex-direction="column")
 | `makeProgressLayout` | 380 × 140 | WAV 音频离线导出进度 | 状态文本 + JIVE 暗黑 ProgressBar + 随时取消按钮 |
 
 ### 3.2 自定义弹窗扩展（`launchCustom`）
+
 支持传入任意自定义声明的 `juce::ValueTree`，并通过 `onInit`、`onConfirm`（支持表单校验拦截）、`onCancel` 回调实现高度定制的交互弹窗（如 `KeyBindingEditDialog` 逐键绑定与调色板编辑）。
 
 ---
@@ -87,6 +90,7 @@ Component (root, display="flex", flex-direction="column")
 ## 4. 设计系统 Token 与样式注入
 
 ### 4.1 Design Tokens 单一事实源（`design_tokens.json`）
+
 定义在 `source/UI/jive/design_tokens.json` 中，由 `devpiano::jive::DesignTokens` 单例提供强类型访问：
 - **背景与表面色**：`mainBg` (`#18181B`)、`panelBg` (`#27272A`)、`controlBg` (`#3F3F46`)
 - **品牌与强调色**：`accent` (`#38BDF8`)、`accentHover` (`#0284C7`)、`recordActive` (`#EF4444`)
@@ -94,6 +98,7 @@ Component (root, display="flex", flex-direction="column")
 - **圆角与间距**：`radiusSmall` (4px)、`radiusMedium` (8px)、`paddingMedium` (12px)
 
 ### 4.2 StyleCatalog 全局注入（`style_sheets.json`）
+
 定义在 `source/UI/jive/style_sheets.json` 中。在 `jive::Interpreter` 解释 ValueTree 前，`StyleCatalog::applyToTree()` 递归遍历节点，根据节点的 `type` 和 `id` 将 CSS 风格的样式属性（padding, margin, background, border, font-size 等）合并至节点的 `style` 属性中。
 
 ---

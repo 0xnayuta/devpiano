@@ -117,51 +117,61 @@ Phase 3（录制/回放/MIDI导出）主链路已完成，Phase 3-2 已搁置，
 ## 4. devpiano 当前能力摘要
 
 ### 录制
+
 - **已实现**
 - 依据：`RecordingEngine` + `RecordingFlowSupport` + `ControlsPanel` Record/Stop 按钮
 - 说明：可录制电脑键盘产生的 MIDI 事件，存入 `RecordingTake.events`，sample-based 时间线
 
 ### 回放
+
 - **已实现**
 - 依据：`RecordingEngine::startPlayback()` / `renderPlaybackBlock()` + `ControlsPanel` Play 按钮
 - 说明：录制内容可通过 fallback synth 或已加载 VST3 插件回放，事件注入 `AudioEngine` 同一 MIDI 链路
 
 ### MIDI 导出
+
 - **已实现**
 - 依据：`MidiFileExporter::exportTakeAsMidiFile()` + `ControlsPanel` Export MIDI 按钮
 - 说明：可将 `RecordingTake` 导出为标准 MIDI Type 1 文件，960 PPQ，无 tempo map
 
 ### WAV 导出
+
 - **已实现（fallback synth）**
 - 依据：`WavFileExporter` + Phase 3-1 + 测试 E.1–E.9 全部通过
 - 说明：离线渲染 fallback synth 输出到 WAV，支持 44100Hz / 16bit / stereo
 
 ### Fallback synth
+
 - **已实现**
 - 依据：`AudioEngine` 中的内置 synth，可独立发声
 - 说明：无可用 VST3 插件时 fallback synth 作为默认发声来源
 
 ### VST3 插件宿主
+
 - **基本实现**
 - 依据：`PluginHost` + `AudioPluginInstance` + Phase 2 验收通过
 - 说明：可扫描、加载、卸载 VST3 插件，驱动插件发声，支持 editor 窗口
 
 ### Performance Preset
+
 - **已实现**
 - 依据：Phase 9a + `PerformancePreset.*` + `.devpiano.preset` JSON
 - 说明：内置 + 用户 preset 的保存/加载/导入/重命名/删除/启动恢复
 
 ### 当前 PerformanceEvent / timeline 模型
+
 - **已实现**
 - 依据：`RecordingEngine.h` 中 `PerformanceEvent` + `RecordingTake`
 - 说明：`timestampSamples`（int64）+ `juce::MidiMessage` + `RecordingEventSource`，sample-based 时间线
 
 ### 文件打开/保存能力（演奏数据）
+
 - **部分实现**
 - 依据：`MidiFileImporter` + `MainComponent::handleImportMidiClicked()` + `SettingsModel::lastMidiImportPath`
 - 说明：可打开标准 `.mid` 文件并在当前播放链路回放；导入内容作为 playback take，不作为可导出的录制 take；私有演奏文件保存/打开仍未实现
 
 ### 设置持久化能力
+
 - **已实现**
 - 依据：`SettingsModel` + `SettingsStore` + XML 持久化
 - 说明：音频设备、ADSR、插件搜索路径、键盘布局、最近 MIDI 导入/导出路径和主窗口尺寸均有持久化；导出 MIDI/WAV 会复用上次导出目录
@@ -171,56 +181,67 @@ Phase 3（录制/回放/MIDI导出）主链路已完成，Phase 3-2 已搁置，
 ## 5. 旧 FreePiano 相关能力摘要
 
 ### MIDI 导入
+
 - **未发现**
 - 依据：搜索 `midifile`/`MidiFile`/`smf` 关键词，0 结果
 - 说明：旧 FreePiano 没有标准 MIDI 文件（.mid/.smf）导入功能。只有 `.fpm`（私有格式）和 `.lyt`（布局文件）
 
 ### MIDI 导出
+
 - **不确定**
 - 依据：搜索 `midifile`/`MidiFile`/`export.*mid`，0 结果
 - 说明：未找到标准 MIDI 文件导出的源码证据。`export.cpp` 仅含导出状态标志，不是导出格式定义。旧 FreePiano 导出能力以 WAV/MP4 为主
 
 ### Song 文件
+
 - **确认存在**
 - 依据：`song.cpp` 中 `song_open()` / `song_save()`，magic: `"FreePianoSong"`，zlib 压缩事件数组
 - 说明：`.fpm` 文件是旧 FreePiano 的私有工程格式，包含 song_event_t 数组（time + a/b/c/d），zlib 压缩存储，包含 title/author/comment 元数据，包含 instrument 名称
 
 ### 工程/歌曲保存与打开
+
 - **确认存在**
 - 依据：`song_open()` / `song_save()`
 - 说明：可保存/打开 `.fpm` 文件，包含完整演奏事件、keymap、setting groups、key labels、colors
 
 ### 最近文件
+
 - **未发现**
 - 依据：搜索 `recent` / `playlist`，0 结果
 - 说明：旧 FreePiano 未实现最近文件列表或播放列表功能
 
 ### 录制
+
 - **确认存在**
 - 依据：`song_start_record()` / `song_stop_record()` + 固定 1M 事件缓冲区
 - 说明：录制时自动快照 config（setting groups、keymap、labels、colors），以 `song_event_t` 存入缓冲区
 
 ### 回放
+
 - **确认存在**
 - 依据：`song_start_playback()` / `song_stop_playback()` + `song_update()`
 - 说明：按 `song_timer`（秒级）线性扫描事件缓冲区并触发 `song_send_event()`
 
 ### 事件表示
+
 - **确认存在**
 - 依据：`song_event_t { double time; byte a; b; c; d; }`
 - 说明：时间单位为秒（double），a/b/c/d 编码消息类型+通道+数据，与 `key_bind_t` 共用相同字节编码
 
 ### Tempo / tick / PPQ / track / channel
+
 - **部分确认**
 - 依据：`song_event_t.time` 为 double 秒，`SM_MIDI_NOTEON` 等 channel 字段在 a 的低 4 位
 - 说明：无标准 MIDI PPQ 概念；无多轨（所有事件在单一时间线）；channel 编码在 a 的低 4 位
 
 ### 音频导出
+
 - **确认存在**
 - 依据：`export_wav.cpp`（663 行）+ `export_mp4.cpp`
 - 说明：WAV 导出通过 `song_update()` 驱动实时渲染；MP4 导出也存在于旧系统
 
 ### 其他与 Phase 4 相关的用户功能
+
 - **.lyt 布局文件**：二进制格式（magic: `"iDreamPianoSong"`），含 keymap entries（DIK 扫描码 → key_bind_t）
 - **多 setting groups**：每组含 octave shift、transpose、velocity、output channel、follow_key、key_signature
 - **Playback speed**：可调 `song_play_speed`

@@ -72,6 +72,7 @@
 - 改动文件 13 个
 
 **JSON 格式**（`.devpiano.preset`，version 1）：
+
 ```json
 {
   "version": 1,
@@ -133,9 +134,11 @@
 **实现摘要**：
 - 数据模型：`RecordingEngine` 新增 `std::array<float, 16> smoothedPitchBend`，per-channel EMA 状态，`startPlayback/stopPlayback` 中复位为 8192.0f（弯音中心）
 - 核心逻辑：`renderPlaybackBlock()` 遍历回放事件时，对 `isPitchWheel()` 事件应用 EMA 平滑：
+
   ```
   smoothedPitchBend[ch] += 0.3f * (target - smoothedPitchBend[ch]);
   ```
+
   取 `std::round` 后通过 `juce::MidiMessage::pitchWheel()` 构造平滑消息写入 `MidiBuffer`；非 pitch bend 事件走原路径零开销
 - 线程安全：`smoothedPitchBend` 仅被音频线程（`renderPlaybackBlock`）和消息线程（`startPlayback/stopPlayback`）访问，通过 `RecordingState` atomic 的 release/acquire 语义建立 happens-before
 - 录制不受影响：平滑仅存在于回放路径，`recordEvent/recordMidiBufferBlock` 不改动

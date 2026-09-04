@@ -47,10 +47,12 @@ auto status = TRANS("Scanning:") + " " + pluginName;
 ```
 
 ### 3.1 语言枚举与代码映射
+
 - `Language::en` ↔ `"en"`（English）
 - `Language::zhCN` ↔ `"zh-CN"`（简体中文）
 
 ### 3.2 语言持久化
+
 - 用户选择的语言代码保存于 `SettingsModel::language` 字段中；
 - 应用冷启动时，`AppStateBuilder` 读取持久化配置并调用 `devpiano::locale::activate()`，在首个窗口展示前完成全系统语言注入。
 

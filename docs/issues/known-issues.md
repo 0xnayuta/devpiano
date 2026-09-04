@@ -27,7 +27,6 @@
 > - 将涉及正则表达式的业务逻辑严格封装至独立 `.cpp` 中，阻断 `<regex>` 在头文件中对包含者的级联模板污染，或采用确定性状态机/轻量字符串匹配替代；
 > - 针对测试工程后续可精细化拆分测试单元或引入针对业务层的 Unity Build 批处理。
 
-
 ### Linux/X11 窗口大小锁定（Resizable 开关）在框架层失效
 
 > **现状与成因**：
@@ -73,6 +72,7 @@
 > 未来若拓展直接由音频硬件回调线程（如直接接管 `MidiInputCallback` 或在 `AudioEngine::audioDeviceIOCallbackWithContext` 内部）直接向共享 `MidiKeyboardState` 批量灌入 `processNextMidiBuffer` 时：
 > - `handleNoteOn` 将在音频实时线程上同步触发；
 > - 此时 `perKeyChannel` 应从裸 `std::array<uint8_t, 128>` 升级为显式 `std::array<std::atomic<uint8_t>, 128>`，或通过轻量 lock-free SPSC 队列投递至 UI 线程，彻底避免实时线程与 UI 渲染线程间的共享数据竞争。
+
 ---
 
 ## 2. 已修复问题（回归参考）
@@ -113,6 +113,7 @@
 
 - **回归线索**：播放中切换速度 → 方向反向 / 悬挂音 / 数据竞争 UB
 - **关联**：`RecordingEngine::setPlaybackSpeedMultiplier()`，[`../archive/phase5-architecture-convergence.md`](../archive/phase5-architecture-convergence.md)
+
 ### 虚拟键盘音域标准 88 键收敛（A0~C8）
 
 原虚拟键盘默认硬编码全量 128 键（0~127），导致超出物理大三角钢琴 88 键（MIDI 21~108）的两端琴键（如 F#8 / MIDI 114 等高频音区）在特定音频硬件/分频器或 88 键 VST3 插件下无法正常发声或存在声学盲区。修复：将 `CustomKeyboard` 及 `KeyboardSettings` 默认可用范围严格收敛至真实大三角钢琴的 88 键标准音域（MIDI 21 A0 到 MIDI 108 C8），52 白键 + 36 黑键精确 1:1 对齐，彻底消除两端无效音区与声学陷波盲区。
