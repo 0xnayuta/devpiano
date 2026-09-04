@@ -1,5 +1,21 @@
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-04
+
+Comprehensive brand identity system introduction, zero-dependency pure geometric vector logo lockups, native multi-scale application icon pipeline with Windows ICO packaging, dual-blue color hierarchy, and brand guidelines documentation.
+
+### Added
+
+- **Brand Identity Visual Assets** (`assets/branding/`) — established complete geometric modernist brand identity system with 7 master and optical-variant SVGs (symbol-master, symbol-micro, symbol-mono, horizontal/vertical lockups in dark and monochrome, and 1280x640 social preview hero-cover).
+- **Native Multi-Resolution Application Icons** (`assets/branding/app-icon/`) — generated high-precision multi-scale icons (16, 24, 32, 48, 64, 128, 256px PNGs) and assembled standard Windows `devpiano.ico` containing all 7 resolutions with dedicated micro-optical size tuning for sub-24px taskbar legibility.
+- **CMake Icon Integration** (`CMakeLists.txt`) — integrated `ICON_BIG` and `ICON_SMALL` directly into `juce_add_gui_app(devpiano ...)` for native Windows `.exe` resource injection and cross-platform icon embedding.
+- **Brand Guidelines & Design System Specification** ([`docs/reference/brand-guidelines.md`](docs/reference/brand-guidelines.md)) — documented design philosophy, 64x64 geometric symbol grid semantics, Inter SemiBold wordmark typography, lockup proportions, dual-blue boundary rules, and graphic language constraints.
+
+### Changed
+
+- **Project Version Bump** — advanced project version to `v1.1.0` in `CMakeLists.txt` and updated changelog.
+- **Branded README Header** — upgraded both Chinese and English README header sections with high-contrast, centered horizontal dark logo artwork.
+
 ## [1.0.2] - 2026-08-31
 
 Full code quality audit closure (AUDIT-002), realtime thread safety and plugin lifecycle hardening, SettingsComponent modularization, headless WAV export testing support, Direct2D test rendering stabilization, obsolete submodule cleanup (ADR-013), and MSVC Release build polish.
