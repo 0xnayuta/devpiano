@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="currentColor">
+  <title>devpiano Symbol — Monochrome</title>
+  <rect x="10" y="10" width="9" height="44"/>
+  <path d="M23 10 H32 V29 H34 V35 H32 V54 H23 Z"/>
+  <path d="M32 10 H36 C47 10 55 19 55 30 H46 C45.2 24 41.2 20 36 20 H32 Z"/>
+  <path d="M32 34 H55 C55 45 47 54 36 54 H32 V44 H36 C41.2 44 45.2 40 46 34 Z"/>
+</svg>

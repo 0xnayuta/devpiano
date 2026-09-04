@@ -79,6 +79,8 @@ juce_add_gui_app(devpiano
     COMPANY_NAME "0xnayuta/devpiano"      # 请替换为你的组织名
     BUNDLE_IDENTIFIER com.yourcompany.devpiano
     PRODUCT_NAME "DevPiano"
+    ICON_BIG "assets/branding/app-icon/icon-256.png"
+    ICON_SMALL "assets/branding/app-icon/icon-32.png"
 )
 
 # ========================================================

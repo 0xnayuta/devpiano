@@ -1,7 +1,11 @@
-# devpiano
+<p align="center">
+  <a href="https://github.com/zhs-dev/devpiano"><img src="assets/branding/logo-horizontal-dark.svg" alt="devpiano" width="480"></a>
+</p>
 
-[中文](README.md) | English
-
+<p align="center">
+  <b>Physical Modeling Acoustic Piano · Modern Keyboard Instrument · VST3 Host</b><br>
+  <a href="README.md">中文</a> | English
+</p>
 **devpiano** is a modern computer-keyboard piano application built on the JUCE 9.0.1 framework, focused on software keyboard performance, high-fidelity physical modeling synthesis, and MIDI file processing.
 
 The application features a self-developed, pure C++ physical modeling piano synthesizer (`PianoSynthVoice`) covering **7 complete acoustic subsystems**, along with **VST3 instrument plugin hosting**, a standard 88-key virtual keybed, a 16-channel MIDI routing matrix, an internalized declarative UI runtime, and full-loop performance recording, playback, persistence, and offline audio rendering pipelines.

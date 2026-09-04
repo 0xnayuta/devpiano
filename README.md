@@ -1,7 +1,11 @@
-# devpiano
+<p align="center">
+  <a href="https://github.com/zhs-dev/devpiano"><img src="assets/branding/logo-horizontal-dark.svg" alt="devpiano" width="480"></a>
+</p>
 
-中文 | [English](README_en.md)
-
+<p align="center">
+  <b>全物理建模声学钢琴 · 现代电脑键盘演奏应用 · VST3 插件宿主</b><br>
+  中文 | <a href="README_en.md">English</a>
+</p>
 **devpiano** 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，聚焦电脑软件键盘演奏、高保真物理建模音源与 MIDI 文件处理。
 
 应用内置自主研发、覆盖 **7 大声学子系统** 的纯 C++ 物理建模钢琴音源（`PianoSynthVoice`），同时提供 **VST3 插件宿主** 支持，结合标准 88 键虚拟键盘、16 通道 MIDI 路由矩阵、内生声明式 UI 运行时以及完整的演奏录制、回放、持久化与离线音频渲染工作流。

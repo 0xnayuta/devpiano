@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <title>devpiano App Icon — Master</title>
+  
+  <!-- Deep Obsidian Squircle Base -->
+  <rect x="2" y="2" width="252" height="252" rx="54" ry="54" fill="#0B0E12" stroke="#2B2F38" stroke-width="2"/>
+  
+  <!-- Centered Symbol (Scale: 3.2x, Symbol center (32, 32) -> Canvas (128, 128)) -->
+  <g transform="translate(128, 128) scale(3.2) translate(-32, -32)">
+    <!-- Left piano-key structure -->
+    <rect x="10" y="10" width="9" height="44" fill="#FFFFFF"/>
+    <path fill="#FFFFFF" d="
+      M23 10
+      H32
+      V29
+      H34
+      V35
+      H32
+      V54
+      H23
+      Z
+    "/>
+    <!-- Abstract D: upper half -->
+    <path fill="#FFFFFF" d="
+      M32 10
+      H36
+      C47 10 55 19 55 30
+      H46
+      C45.2 24 41.2 20 36 20
+      H32
+      Z
+    "/>
+    <!-- Abstract D: lower half -->
+    <path fill="#FFFFFF" d="
+      M32 34
+      H55
+      C55 45 47 54 36 54
+      H32
+      V44
+      H36
+      C41.2 44 45.2 40 46 34
+      Z
+    "/>
+    <!-- Digital performance-event tick -->
+    <rect x="38" y="27" width="4" height="10" fill="#4DA3FF"/>
+  </g>
+</svg>

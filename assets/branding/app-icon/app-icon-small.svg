@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <title>devpiano App Icon — Small Optical Variant (16-24px)</title>
+  
+  <!-- Obsidian Base -->
+  <rect width="256" height="256" rx="48" ry="48" fill="#0B0E12"/>
+  
+  <!-- Centered Symbol (Scale: 3.4x with boosted tick for low-DPI clarity) -->
+  <g transform="translate(128, 128) scale(3.4) translate(-32, -32)">
+    <rect x="10" y="10" width="9" height="44" fill="#FFFFFF"/>
+    <path fill="#FFFFFF" d="
+      M23 10
+      H32
+      V29
+      H34
+      V35
+      H32
+      V54
+      H23
+      Z
+    "/>
+    <path fill="#FFFFFF" d="
+      M32 10
+      H36
+      C47 10 55 19 55 30
+      H46
+      C45.2 24 41.2 20 36 20
+      H32
+      Z
+    "/>
+    <path fill="#FFFFFF" d="
+      M32 34
+      H55
+      C55 45 47 54 36 54
+      H32
+      V44
+      H36
+      C41.2 44 45.2 40 46 34
+      Z
+    "/>
+    <!-- Boosted tick for sub-24px recognition -->
+    <rect x="37" y="26" width="5" height="12" fill="#4DA3FF"/>
+  </g>
+</svg>
