@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=DevPiano
+GenericName=Piano Synthesizer
+GenericName[zh_CN]=物理建模钢琴与合成器
+Comment=Modern keyboard piano with physical modeling synthesis and VST3 host
+Comment[zh_CN]=全物理建模钢琴与 VST3 插件宿主键盘应用
+Exec=devpiano %F
+Icon=devpiano
+Terminal=false
+Categories=AudioVideo;Audio;Music;
+StartupWMClass=DevPiano
+MimeType=audio/midi;audio/x-midi;
+Keywords=piano;synth;synthesizer;midi;vst3;audio;

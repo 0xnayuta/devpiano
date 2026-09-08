@@ -4,6 +4,7 @@
 #include "Settings/SettingsComponent.h"
 #include "UI/CustomKeyboard.h"
 #include "UI/DevPianoLookAndFeel.h"
+#include "UI/WindowIconUtils.h"
 #include "UI/jive/DesignTokens.h"
 
 namespace devpiano::settings {
@@ -115,6 +116,7 @@ void SettingsWindowManager::show(ShowOptions options) {
     state->window->setResizable(false, false);
     state->window->centreAroundComponent(&options.parent, 700, 720);
     state->window->addToDesktop(state->window->getDesktopWindowStyleFlags());
+    devpiano::ui::applyAppWindowIcon(*state->window);
     state->window->setVisible(true);
     state->window->toFront(true);
 }

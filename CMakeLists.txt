@@ -274,6 +274,7 @@ target_sources(devpiano PRIVATE
     source/UI/ColourSwatchButton.h
     source/UI/ViewHost.cpp
     source/UI/ViewHost.h
+    source/UI/WindowIconUtils.h
     source/UI/jive/JiveBuilderHelpers.h
     source/UI/jive/JiveModalDialog.cpp
     source/UI/jive/JiveModalDialog.h
@@ -321,6 +322,7 @@ juce_add_binary_data(devpiano_binary_data
         source/UI/jive/design_tokens.json
         source/UI/jive/style_sheets.json
         source/Locale/zh_CN.loc
+        assets/branding/app-icon/icon-256.png
 )
 
 # 包含 source 目录作为头文件查找路径，这样代码里可以通过 #include "xxx.h" 直接引用
@@ -648,4 +650,27 @@ if(CLANG_TIDY_EXE)
     message(STATUS "clang-tidy target: enabled (${CLANG_TIDY_EXE})")
 else()
     message(STATUS "clang-tidy target: skipped (clang-tidy not found)")
+endif()
+
+# ========================================================
+# 9. Linux 桌面与图标安装规则
+# ========================================================
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    include(GNUInstallDirs)
+    install(TARGETS devpiano
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    )
+    install(FILES assets/branding/linux/devpiano.desktop
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
+    )
+    install(FILES assets/branding/app-icon/icon-256.png
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/256x256/apps
+        RENAME devpiano.png
+    )
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets/branding/app-icon/app-icon.svg")
+        install(FILES assets/branding/app-icon/app-icon.svg
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
+            RENAME devpiano.svg
+        )
+    endif()
 endif()

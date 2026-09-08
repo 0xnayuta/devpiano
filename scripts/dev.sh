@@ -39,6 +39,7 @@ Commands:
   test [args...]            Configure, build and run devpiano_tests
   time-trace [args...]      Build with Clang -ftime-trace and analyze hotspots
   package [args...]         Run scripts/package_release.sh (Windows x64 zip + sha256)
+  desktop-install [args...]   Install devpiano desktop entry and icons on Linux
   help                      Show this help
 
 Examples:
@@ -231,6 +232,10 @@ case "${command_name}" in
       python3 "${ROOT_DIR}/scripts/analyze_build_time.py" \
         --build-dir "${ROOT_DIR}/build-wsl-clang"
     fi
+    ;;
+  desktop-install)
+    log 'dispatch -> scripts/install_linux_desktop.sh'
+    exec "${ROOT_DIR}/scripts/install_linux_desktop.sh" "$@"
     ;;
   package)
     log 'dispatch -> scripts/package_release.sh'

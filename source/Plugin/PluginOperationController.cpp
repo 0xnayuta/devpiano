@@ -5,6 +5,7 @@
 #include "Plugin/PluginFlowSupport.h"
 #include "Plugin/PluginHost.h"
 #include "UI/PluginEditorWindow.h"
+#include "UI/WindowIconUtils.h"
 
 namespace devpiano::plugin {
 
@@ -239,6 +240,7 @@ void PluginOperationController::openPluginEditorWindow(std::unique_ptr<juce::Aud
     pluginEditorWindow->centreAroundComponent(&owner, pluginEditorWindow->getContentComponent()->getWidth(),
                                               pluginEditorWindow->getContentComponent()->getHeight());
     pluginEditorWindow->setVisible(true);
+    devpiano::ui::applyAppWindowIcon(*pluginEditorWindow);
     owner.refreshReadOnlyUiStateFromCurrentSnapshot();
 }
 

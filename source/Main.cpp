@@ -7,6 +7,7 @@
 */
 
 #include "MainComponent.h"
+#include "UI/WindowIconUtils.h"
 #include <JuceHeader.h>
 
 //==============================================================================
@@ -182,6 +183,7 @@ public:
 
             // 一次性桌面挂载：peer 在最终 bounds 下创建，map 即完整呈现。
             addToDesktop(getDesktopWindowStyleFlags());
+            devpiano::ui::applyAppWindowIcon(*this);
 #endif
 
             setVisible(true);
