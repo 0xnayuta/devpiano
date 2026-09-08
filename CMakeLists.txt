@@ -103,6 +103,10 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     target_compile_options(devpiano PRIVATE
         -Wall
         -Wextra
+        # Clang 18+ 的 -Wextra 会对 final 类内 virtual 析构函数报警（-Wunnecessary-virtual-specifier）。
+        # JUCE 9 的 VST3 COM 接口实现类（如 AttributeList, Message 等）带有 virtual 析构函数且标记为 final，
+        # 属于 JUCE 框架内部无害代码（禁止修改 submodules/JUCE），在此予以精确抑制以保证构建日志干净
+        -Wno-unnecessary-virtual-specifier
         # ADR-011 决策 2：PCH 与编译缓存（ccache/sccache）协同——Clang PCH
         # 默认内嵌创建时间戳，ccache 缓存重放的 PCH 文件时间戳与原始不同，
         # 会触发 "file modified since precompiled header was built" 使缓存
@@ -383,6 +387,7 @@ if (BUILD_TESTS)
         target_compile_options(devpiano_tests PRIVATE
             -Wall
             -Wextra
+            -Wno-unnecessary-virtual-specifier
             # ADR-011 决策 2：与 devpiano 相同的 PCH/ccache 时间戳协同
             -Xclang
             -fno-pch-timestamp
