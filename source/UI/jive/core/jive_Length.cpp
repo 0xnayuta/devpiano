@@ -12,7 +12,7 @@
 namespace jive {
 [[nodiscard]] float Length::toPixels(const juce::Rectangle<float>& parentBounds) const {
     const auto getCurrent = [this] {
-        if (auto* transition = getTransition()) {
+        if (const auto* transition = getTransition()) {
             return transition->calculateCurrent<float>();
         }
 
@@ -65,7 +65,7 @@ namespace jive {
 [[nodiscard]] float Length::getFontSize() const {
     for (auto toSearch = source; isValid(source); toSearch = getParent(source)) {
         if (const auto style = getVar(toSearch, "style"); style.isObject()) {
-            if (const auto fontSize = style["font-size"]; fontSize != juce::var {}) {
+            if (const auto& fontSize = style["font-size"]; fontSize != juce::var {}) {
                 return fromVar<float>(fontSize);
             }
         }
@@ -76,7 +76,7 @@ namespace jive {
 
 [[nodiscard]] float Length::getRootFontSize() const {
     if (const auto style = getVar(getRoot(source), "style"); style.isObject()) {
-        if (const auto fontSize = style["font-size"]; fontSize != juce::var {}) {
+        if (const auto& fontSize = style["font-size"]; fontSize != juce::var {}) {
             return fromVar<float>(fontSize);
         }
     }

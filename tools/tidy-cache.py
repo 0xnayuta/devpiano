@@ -134,10 +134,6 @@ def main():
         sys.exit(res.returncode)
 
     source_file = source_files[0]
-    # Skip uncompiled strategic extensions (ADR-014)
-    norm_source = Path(source_file).as_posix()
-    if "source/UI/jive/extensions/" in norm_source:
-        sys.exit(0)
     root_dir = Path.cwd()
     compile_commands = parse_compile_commands(build_dir)
     compile_entry = compile_commands.get(os.path.normpath(str(Path(source_file).resolve())), {})

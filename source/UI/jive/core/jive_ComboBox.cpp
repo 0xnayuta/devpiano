@@ -9,7 +9,7 @@
 
 namespace jive {
 ComboBox::Option::Option(juce::ValueTree sourceTree, int itemIndex, juce::ComboBox& box)
-    : tree { sourceTree }
+    : tree { std::move(sourceTree) }
     , comboBox { box }
     , index { itemIndex }
     , id { index + 1 }

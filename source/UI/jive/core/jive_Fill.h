@@ -22,7 +22,7 @@ public:
     void setColour(juce::Colour newColour);
 
     std::optional<Gradient> getGradient() const;
-    void setGradient(Gradient newGradient);
+    void setGradient(const Gradient& newGradient);
 
     bool operator==(const Fill& other) const;
     bool operator!=(const Fill& other) const;

@@ -36,7 +36,7 @@ std::optional<Gradient> Fill::getGradient() const {
     return gradient;
 }
 
-void Fill::setGradient(Gradient newGradient) {
+void Fill::setGradient(const Gradient& newGradient) {
     gradient = newGradient;
     colour.reset();
 }

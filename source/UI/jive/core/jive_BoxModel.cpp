@@ -9,7 +9,7 @@
 
 namespace jive {
 BoxModel::BoxModel(juce::ValueTree stateSource)
-    : state { stateSource }
+    : state { std::move(stateSource) }
     , width { state, "width" }
     , height { state, "height" }
     , minWidth { state, "min-width" }
@@ -112,7 +112,7 @@ BoxModel::BoxModel(juce::ValueTree stateSource)
 }
 
 float BoxModel::getWidth() const {
-    if (auto* transition = componentWidth.getTransition()) {
+    if (const auto* transition = componentWidth.getTransition()) {
         return transition->calculateCurrent<float>();
     }
 
@@ -132,7 +132,7 @@ bool BoxModel::hasAutoWidth() const {
 }
 
 float BoxModel::getHeight() const {
-    if (auto* transition = componentHeight.getTransition()) {
+    if (const auto* transition = componentHeight.getTransition()) {
         return transition->calculateCurrent<float>();
     }
 
@@ -172,7 +172,7 @@ void BoxModel::setSize(float newWidth, float newHeight) {
 }
 
 juce::BorderSize<float> BoxModel::getPadding() const {
-    if (auto* transition = padding.getTransition()) {
+    if (const auto* transition = padding.getTransition()) {
         return transition->calculateCurrent<juce::BorderSize<float>>();
     }
 
@@ -180,7 +180,7 @@ juce::BorderSize<float> BoxModel::getPadding() const {
 }
 
 juce::BorderSize<float> BoxModel::getBorder() const {
-    if (auto* transition = border.getTransition()) {
+    if (const auto* transition = border.getTransition()) {
         return transition->calculateCurrent<juce::BorderSize<float>>();
     }
 
@@ -188,7 +188,7 @@ juce::BorderSize<float> BoxModel::getBorder() const {
 }
 
 juce::BorderSize<float> BoxModel::getMargin() const {
-    if (auto* transition = margin.getTransition()) {
+    if (const auto* transition = margin.getTransition()) {
         return transition->calculateCurrent<juce::BorderSize<float>>();
     }
 

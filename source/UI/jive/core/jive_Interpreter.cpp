@@ -40,7 +40,7 @@ void Interpreter::setComponentFactory(const ComponentFactory& newFactory) {
     componentFactory = newFactory;
 }
 
-void Interpreter::setAlias(juce::Identifier aliasType, const juce::ValueTree& treeToReplaceWith) {
+void Interpreter::setAlias(const juce::Identifier& aliasType, const juce::ValueTree& treeToReplaceWith) {
     aliases.emplace(aliasType, treeToReplaceWith.createCopy());
 }
 
@@ -70,7 +70,7 @@ void Interpreter::listenTo(GuiItem& item) {
     }
 
     for (auto* const child : root.getChildren()) {
-        if (auto item = findItem(*child, state)) {
+        if (auto* item = findItem(*child, state)) {
             return item;
         }
     }
@@ -300,7 +300,7 @@ std::unique_ptr<juce::Component> Interpreter::createComponent(const juce::ValueT
         }
     }
 
-    for (auto* ancestor = parent; ancestor != nullptr; ancestor = ancestor->getParent()) {
+    for (const auto* ancestor = parent; ancestor != nullptr; ancestor = ancestor->getParent()) {
         if (auto component = ancestor->getView()->createComponent(tree)) {
             return component;
         }

@@ -46,7 +46,7 @@ void ComponentInteractionState::globalFocusChanged(juce::Component*) {
 
 ComponentInteractionState::Mouse ComponentInteractionState::getCurrentMouseState() const {
     if (component.isMouseOverOrDragging(true)) {
-        if (component.isMouseButtonDownAnywhere()) {
+        if (juce::Component::isMouseButtonDownAnywhere()) {
             return Mouse::active;
         }
 

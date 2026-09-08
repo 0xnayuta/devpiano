@@ -61,12 +61,12 @@ GuiItem::GuiItem(std::shared_ptr<juce::Component> comp, GuiItem* parentItem,
                  View::ReferenceCountedPointer sourceView)
     : state { sourceView->getState() }
 #if JIVE_GUI_ITEMS_HAVE_STYLE_SHEETS
-    , styleSheet { sheet }
+    , styleSheet { std::move(sheet) }
 #endif
-    , component { comp }
+    , component { std::move(comp) }
     , parent { parentItem }
     , remover { std::make_unique<Remover>(*this) }
-    , view { sourceView } {
+    , view { std::move(sourceView) } {
     jassert(component != nullptr);
 }
 
@@ -96,7 +96,7 @@ GuiItem::GuiItem(std::unique_ptr<juce::Component> comp, View::ReferenceCountedPo
 #if JIVE_GUI_ITEMS_HAVE_STYLE_SHEETS
         std::move(sheet),
 #endif
-        sourceView,
+        std::move(sourceView),
     } {
 }
 
@@ -115,7 +115,7 @@ GuiItem::~GuiItem() {
     masterReference.clear();
 }
 
-const std::shared_ptr<const juce::Component> GuiItem::getComponent() const {
+std::shared_ptr<const juce::Component> GuiItem::getComponent() const {
     return component;
 }
 
@@ -123,7 +123,7 @@ std::shared_ptr<juce::Component> GuiItem::getComponent() {
     return component;
 }
 
-const View::ReferenceCountedPointer GuiItem::getView() const {
+View::ReferenceCountedPointer GuiItem::getView() const {
     return view;
 }
 

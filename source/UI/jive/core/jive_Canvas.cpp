@@ -9,7 +9,7 @@
 
 namespace jive {
 Canvas::Canvas(std::function<void(juce::Graphics&)> paintFunction)
-    : onPaint { paintFunction } {
+    : onPaint { std::move(paintFunction) } {
 }
 
 void Canvas::paint(juce::Graphics& g) {

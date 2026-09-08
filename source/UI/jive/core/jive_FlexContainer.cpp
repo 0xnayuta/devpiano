@@ -90,15 +90,11 @@ juce::Rectangle<float> FlexContainer::calculateIdealSize(juce::Rectangle<float> 
         const auto right = flexItem.currentBounds.getRight() + flexItem.margin.right;
         const auto bottom = flexItem.currentBounds.getBottom() + flexItem.margin.bottom;
 
-        if (right > extremities.x) {
-            extremities.x = right;
-        }
-        if (bottom > extremities.y) {
-            extremities.y = bottom;
-        }
+        extremities.x = std::max(extremities.x, right);
+        extremities.y = std::max(extremities.y, bottom);
     }
 
-    auto& currentBoxModel = boxModel(*this);
+    const auto& currentBoxModel = boxModel(*this);
 
     return {
         extremities.x + currentBoxModel.getPadding().getLeftAndRight() + currentBoxModel.getBorder().getLeftAndRight(),

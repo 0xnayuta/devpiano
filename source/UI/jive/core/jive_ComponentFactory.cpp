@@ -49,7 +49,7 @@ ComponentFactory::ComponentFactory() {
     });
 }
 
-std::unique_ptr<juce::Component> ComponentFactory::create(juce::Identifier name) const {
+std::unique_ptr<juce::Component> ComponentFactory::create(const juce::Identifier& name) const {
     auto nameFactoryPair = creators.find(name);
 
     if (nameFactoryPair == std::end(creators)) {
@@ -59,7 +59,7 @@ std::unique_ptr<juce::Component> ComponentFactory::create(juce::Identifier name)
     return nameFactoryPair->second();
 }
 
-void ComponentFactory::set(juce::Identifier name, ComponentCreator creator) {
+void ComponentFactory::set(const juce::Identifier& name, const ComponentCreator& creator) {
     creators.insert({ name, creator });
 }
 } // namespace jive

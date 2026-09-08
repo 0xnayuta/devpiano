@@ -27,7 +27,7 @@ public:
     ComponentFactory& getComponentFactory();
     void setComponentFactory(const ComponentFactory& newFactory);
 
-    void setAlias(juce::Identifier aliasType, const juce::ValueTree& treeToReplaceWith);
+    void setAlias(const juce::Identifier& aliasType, const juce::ValueTree& treeToReplaceWith);
 
     template <typename Decorator> void addDecorator(const juce::Identifier& itemType);
 

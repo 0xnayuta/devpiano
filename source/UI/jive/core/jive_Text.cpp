@@ -97,7 +97,7 @@ void Text::textFontChanged(TextComponent&) {
 }
 
 juce::TextLayout Text::buildTextLayout(float maxWidth) const {
-    for (auto* parentItem = getParent(); maxWidth < 0.0f && parentItem != nullptr;
+    for (const auto* parentItem = getParent(); maxWidth < 0.0f && parentItem != nullptr;
          parentItem = parentItem->getParent()) {
         if (const auto& parentBoxModel
             = dynamic_cast<const GuiItemDecorator*>(getParent())->toType<CommonGuiItem>()->boxModel;
@@ -155,12 +155,12 @@ void Text::updateTextComponent() {
 }
 
 const Text* findFirstTextContent(const GuiItem& item) {
-    if (auto* text = dynamic_cast<const Text*>(&item)) {
+    if (const auto* text = dynamic_cast<const Text*>(&item)) {
         return text;
     }
 
     for (const auto* child : item.getChildren()) {
-        auto* text = findFirstTextContent(*child);
+        const auto* text = findFirstTextContent(*child);
 
         if (text != nullptr) {
             return text;

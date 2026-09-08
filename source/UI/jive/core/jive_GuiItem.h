@@ -37,9 +37,9 @@ public:
     GuiItem(const GuiItem& other);
     virtual ~GuiItem();
 
-    [[nodiscard]] const std::shared_ptr<const juce::Component> getComponent() const;
+    [[nodiscard]] std::shared_ptr<const juce::Component> getComponent() const;
     [[nodiscard]] std::shared_ptr<juce::Component> getComponent();
-    [[nodiscard]] const View::ReferenceCountedPointer getView() const;
+    [[nodiscard]] View::ReferenceCountedPointer getView() const;
     [[nodiscard]] View::ReferenceCountedPointer getView();
 
     virtual void insertChild(std::unique_ptr<GuiItem> child, int index);

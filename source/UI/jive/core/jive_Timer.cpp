@@ -9,8 +9,8 @@
 
 namespace jive {
 
-Timer::Timer(Timer::Callback timerCallback, juce::RelativeTime callbackInterval)
-    : callback { timerCallback }
+Timer::Timer(Timer::Callback timerCallback, const juce::RelativeTime& callbackInterval)
+    : callback { std::move(timerCallback) }
     , interval { callbackInterval } {
     timeLastCallbackInvoked = juce::Time::getCurrentTime();
     startTimer(static_cast<int>(interval.inMilliseconds()));

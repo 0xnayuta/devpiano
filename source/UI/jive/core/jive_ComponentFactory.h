@@ -25,8 +25,8 @@ public:
 
     ComponentFactory();
 
-    std::unique_ptr<juce::Component> create(juce::Identifier name) const;
-    void set(juce::Identifier name, ComponentCreator creator);
+    std::unique_ptr<juce::Component> create(const juce::Identifier& name) const;
+    void set(const juce::Identifier& name, const ComponentCreator& creator);
 
 private:
     std::unordered_map<juce::Identifier, ComponentCreator> creators;

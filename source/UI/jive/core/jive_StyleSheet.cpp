@@ -9,12 +9,12 @@
 
 namespace jive {
 StyleSheet::ReferenceCountedPointer StyleSheet::create(juce::Component& sourceComponent, juce::ValueTree sourceState) {
-    return new StyleSheet { sourceComponent, sourceState };
+    return new StyleSheet { sourceComponent, std::move(sourceState) };
 }
 
 StyleSheet::StyleSheet(juce::Component& sourceComponent, juce::ValueTree sourceState)
     : component { &sourceComponent }
-    , state { sourceState }
+    , state { std::move(sourceState) }
     , style { state, "style" }
     , selectors { state }
     , interactionState { *component, state }
@@ -52,7 +52,7 @@ StyleSheet::~StyleSheet() {
 }
 
 Fill StyleSheet::getBackground() const {
-    if (auto* background = selectors.findStyle(backgroundStyles)) {
+    if (const auto* background = selectors.findStyle(backgroundStyles)) {
         if (calculatedBackground != nullptr) {
             *calculatedBackground = background->get();
             return calculatedBackground->calculateCurrent();
@@ -65,7 +65,7 @@ Fill StyleSheet::getBackground() const {
 }
 
 Fill StyleSheet::getForeground() const {
-    if (auto* foreground = selectors.findStyle(foregroundStyles)) {
+    if (const auto* foreground = selectors.findStyle(foregroundStyles)) {
         if (calculatedForeground != nullptr) {
             *calculatedForeground = foreground->get();
             return calculatedForeground->calculateCurrent();
@@ -82,7 +82,7 @@ Fill StyleSheet::getForeground() const {
 }
 
 Fill StyleSheet::getBorderFill() const {
-    if (auto* borderFill = selectors.findStyle(borderFillStyles)) {
+    if (const auto* borderFill = selectors.findStyle(borderFillStyles)) {
         if (calculatedBorderFill != nullptr) {
             *calculatedBorderFill = borderFill->get();
             return calculatedBorderFill->calculateCurrent();
@@ -95,7 +95,7 @@ Fill StyleSheet::getBorderFill() const {
 }
 
 BorderRadii<float> StyleSheet::getBorderRadii() const {
-    if (auto* borderRadii = selectors.findStyle(borderRadiiStyles)) {
+    if (const auto* borderRadii = selectors.findStyle(borderRadiiStyles)) {
         if (calculatedBorderRadii != nullptr) {
             *calculatedBorderRadii = borderRadii->get();
             return calculatedBorderRadii->calculateCurrent();
@@ -147,7 +147,7 @@ void StyleSheet::componentMovedOrResized(juce::Component& comp, bool, bool resiz
 }
 
 juce::String StyleSheet::getFontFamily() const {
-    if (auto* family = selectors.findStyle(fontFamilyStyles)) {
+    if (const auto* family = selectors.findStyle(fontFamilyStyles)) {
         return family->toString();
     }
 
@@ -163,7 +163,7 @@ juce::String StyleSheet::getFontFamily() const {
 }
 
 float StyleSheet::getFontSize() const {
-    if (auto* size = selectors.findStyle(fontSizeStyles)) {
+    if (const auto* size = selectors.findStyle(fontSizeStyles)) {
         if (calculatedFontSize != nullptr) {
             *calculatedFontSize = size->get();
             return calculatedFontSize->calculateCurrent();
@@ -180,7 +180,7 @@ float StyleSheet::getFontSize() const {
 }
 
 float StyleSheet::getFontStretch() const {
-    if (auto* stretch = selectors.findStyle(fontStretchStyles)) {
+    if (const auto* stretch = selectors.findStyle(fontStretchStyles)) {
         if (calculatedFontStretch != nullptr) {
             *calculatedFontStretch = stretch->get();
             return calculatedFontStretch->calculateCurrent();
@@ -197,7 +197,7 @@ float StyleSheet::getFontStretch() const {
 }
 
 juce::String StyleSheet::getFontStyle() const {
-    if (auto* fontStyle = selectors.findStyle(fontStyleStyles)) {
+    if (const auto* fontStyle = selectors.findStyle(fontStyleStyles)) {
         return fontStyle->toString();
     }
 
@@ -209,7 +209,7 @@ juce::String StyleSheet::getFontStyle() const {
 }
 
 juce::String StyleSheet::getFontWeight() const {
-    if (auto* weight = selectors.findStyle(fontWeightStyles)) {
+    if (const auto* weight = selectors.findStyle(fontWeightStyles)) {
         return weight->toString();
     }
 
@@ -221,7 +221,7 @@ juce::String StyleSheet::getFontWeight() const {
 }
 
 float StyleSheet::getLetterSpacing() const {
-    if (auto* spacing = selectors.findStyle(letterSpacingStyles)) {
+    if (const auto* spacing = selectors.findStyle(letterSpacingStyles)) {
         if (calculatedLetterSpacing != nullptr) {
             *calculatedLetterSpacing = spacing->get();
             return calculatedLetterSpacing->calculateCurrent();
@@ -238,7 +238,7 @@ float StyleSheet::getLetterSpacing() const {
 }
 
 juce::String StyleSheet::getTextDecoration() const {
-    if (auto* decoration = selectors.findStyle(textDecorationStyles)) {
+    if (const auto* decoration = selectors.findStyle(textDecorationStyles)) {
         return decoration->toString();
     }
 

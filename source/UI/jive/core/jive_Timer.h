@@ -15,7 +15,7 @@ class Timer : private juce::Timer {
 public:
     using Callback = std::function<void(juce::Time)>;
 
-    Timer(Callback timerCallback, juce::RelativeTime callbackInterval);
+    Timer(Callback timerCallback, const juce::RelativeTime& callbackInterval);
     ~Timer() override = default;
 
 private:

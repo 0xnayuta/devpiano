@@ -10,7 +10,7 @@
 #include "jive_VariantConvertion.h"
 
 namespace jive {
-juce::ValueTree find(const juce::ValueTree& root, std::function<bool(const juce::ValueTree&)> predicate) {
+juce::ValueTree find(const juce::ValueTree& root, const std::function<bool(const juce::ValueTree&)>& predicate) {
     if (predicate == nullptr) {
         return {};
     }
