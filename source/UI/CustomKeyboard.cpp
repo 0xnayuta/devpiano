@@ -350,10 +350,6 @@ int CustomKeyboard::findNoteAt(juce::Point<int> position) const {
 // ============================================================================
 
 void CustomKeyboard::paint(juce::Graphics& g) {
-    // ── 1. Crimson felt strip at top edge of keybed (#8A1515) ──
-    g.setColour(juce::Colour(0xFF8A1515));
-    g.fillRect(0, 0, getWidth(), 2);
-
     paintWhiteKeys(g);
     paintBlackKeys(g);
     paintKeyLabels(g);
