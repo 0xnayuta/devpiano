@@ -582,21 +582,9 @@ void MainComponent::timerCallback() {
 }
 
 void MainComponent::paint(juce::Graphics& g) {
-    const auto bounds = getLocalBounds().toFloat();
-    const auto centreX = bounds.getCentreX();
-    const auto centreY = bounds.getCentreY() * 0.8f;
-    const float radius = juce::jmax(bounds.getWidth(), bounds.getHeight()) * 0.75f;
-
-    juce::ColourGradient bgGrad(juce::Colour(0xff202327), centreX, centreY, juce::Colour(0xff161719), centreX + radius,
-                                centreY + radius, true);
-    g.setGradientFill(bgGrad);
-    g.fillRect(bounds);
-
-    // NOTE: no per-panel border drawing here. The JIVE root (#window) has an
-    // opaque background that covers everything MainComponent::paint draws,
-    // and panel borders/outlines now come from the style sheet (see
-    // style_sheets.json "border" rules + border-width on the layout nodes).
-    // The gradient above only matters before the JIVE tree exists.
+    // The JIVE root (#window) covers the entire component with an opaque background.
+    // Fill with DesignTokens::mainBg() as a clean fallback before the JIVE tree renders.
+    g.fillAll(devpiano::jive::DesignTokens::get().mainBg());
 }
 
 void MainComponent::resized() {
