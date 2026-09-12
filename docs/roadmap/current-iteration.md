@@ -71,21 +71,21 @@
 
 ---
 
-### Phase 29-D：声学配置持久化与预设系统全量联动 (Acoustic Settings Persistence & Preset Schema Evolution) [待启动]
+### Phase 29-D：声学配置持久化与预设系统全量联动 (Acoustic Settings Persistence & Preset Schema Evolution) [已完成，2026-09-12]
 
 > 目标：将琴盖开合度、Una Corda 默认态与触键力度曲线完整纳入 `SettingsModel`、`SettingsStore` 与 Performance Preset 序列化，实现配置跨会话记忆与演奏预设一键恢复。
 
-- [ ] **`SettingsModel` 与存储层扩展**：
-  - 在 `SettingsModel::PerformanceSettingsView` 中纳入 `LidPosition lidPosition` 与 `TouchVelocityCurve touchCurve`；
-  - 在 `SettingsStore.cpp` 中新增 `kKeyPianoLidPosition` 与 `kKeyTouchVelocityCurve` 读写逻辑，确保应用重启后 100% 恢复上一次的声学与演奏偏好。
-- [ ] **Performance Preset 协议演进与向后兼容**：
-  - 扩展 `PerformancePreset.h` 中的 `struct PerformancePreset`，增加 `lidPosition` 与 `touchCurve`；
+- [x] **`SettingsModel` 与存储层扩展**：
+  - 在 `SettingsModel::PerformanceSettingsView` 与主模型中完整纳入 `LidPosition lidPosition`、`TouchVelocityCurve touchVelocityCurve` 与 `bool unaCorda`；
+  - 在 `SettingsStore.cpp` 中支持 `pianoLidPosition`、`touchVelocityCurve` 与 `unaCorda` 读写，并包含边界越界自动钳制，确保应用重启后 100% 恢复上一次的声学与演奏偏好。
+- [x] **Performance Preset 协议演进与向后兼容**：
+  - 扩展 `PerformancePreset.h` 中的 `struct PerformancePreset`，增加 `lidPosition`、`touchVelocityCurve` 与 `unaCorda`；
   - 更新 `PerformancePreset.cpp`：
-    - `savePreset()`：在 JSON 输出的 `"performance"` 区域完整写入声学与力度曲线字段；
-    - `loadPreset()`：安全解析声学字段；若遇到老版本预设（缺省声学字段），安全回退至默认值 `fullOpen` 与 `standard`，保证存量预设向前向后 100% 兼容。
-- [ ] **端到端持久化与预设流测试**：
-  - 编写 `source/tests/AcousticSettingsPersistenceTest.cpp`，覆盖磁盘 Properties 读写与 `.devpiano.preset` JSON round-trip 验证。
-
+    - `savePreset()`：在 JSON 输出的 `"acoustics"` 区域完整写入声学、力度曲线与 Una Corda 字段；
+    - `loadPreset()`：优先解析 `"acoustics"` 嵌套对象并安全回退顶层平铺字段；若遇到历史老版本预设（缺省声学字段），安全回退至默认值 `fullOpen`、`standard` 与 `false`，保证存量预设向前向后 100% 兼容。
+  - 在 `PresetFlowSupport.cpp` 中打通预设提交（`commitPreset`）与捕获（`captureCurrentState`）对声学 3 参数（琴盖开合、力度曲线、软踏板态）的双向联动。
+- [x] **端到端持久化与预设流测试**：
+  - 新增 `source/tests/AcousticSettingsPersistenceTest.cpp`，覆盖磁盘 Properties XML 读写、非法越界输入保护钳制、`.devpiano.preset` JSON round-trip、老版本预设向后兼容回退、顶层平铺声学字段兼容性与 `KeyboardMidiMapper::setSoftPedalDown` 去重回调机制，测试 100% 绿灯。
 ---
 
 ### Phase 29-E：声学精调、三闸门闭环与双平台构建验证 (Acoustic Voicing Calibration & Verification) [待启动]

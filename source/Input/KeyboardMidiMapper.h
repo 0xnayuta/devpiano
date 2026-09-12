@@ -36,6 +36,7 @@ public:
     [[nodiscard]] bool isSustainPedalDown() const noexcept;
     void setSoftPedalCallback(SoftPedalCallback callback) noexcept;
     [[nodiscard]] bool isSoftPedalDown() const noexcept;
+    void setSoftPedalDown(bool down);
     void setTouchVelocityCurve(devpiano::input::TouchVelocityCurve curve) noexcept;
     [[nodiscard]] devpiano::input::TouchVelocityCurve getTouchVelocityCurve() const noexcept;
     /// 释放所有当前按下的琴键与踏板（窗口失焦、切屏 Panic 防悬挂音）。

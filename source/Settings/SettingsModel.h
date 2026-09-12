@@ -52,6 +52,7 @@ struct SettingsModel {
         float pianoResonance = 0.50f;
         LidPosition lidPosition = LidPosition::fullOpen;
         devpiano::input::TouchVelocityCurve touchVelocityCurve = devpiano::input::TouchVelocityCurve::standard;
+        bool unaCorda = false;
     };
 
     struct PluginRecoverySettingsView {
@@ -88,6 +89,7 @@ struct SettingsModel {
     float pianoResonance = 0.50f;
     LidPosition lidPosition = LidPosition::fullOpen;
     devpiano::input::TouchVelocityCurve touchVelocityCurve = devpiano::input::TouchVelocityCurve::standard;
+    bool unaCorda = false;
 
     // Persisted ,UI recovery state.
     juce::String pluginSearchPath;
@@ -142,7 +144,8 @@ struct SettingsModel {
                  .pianoHammerHardness = pianoHammerHardness,
                  .pianoResonance = pianoResonance,
                  .lidPosition = lidPosition,
-                 .touchVelocityCurve = touchVelocityCurve };
+                 .touchVelocityCurve = touchVelocityCurve,
+                 .unaCorda = unaCorda };
     }
 
     void applyPerformanceSettingsView(const PerformanceSettingsView& view) {
@@ -157,6 +160,7 @@ struct SettingsModel {
         pianoResonance = view.pianoResonance;
         lidPosition = view.lidPosition;
         touchVelocityCurve = view.touchVelocityCurve;
+        unaCorda = view.unaCorda;
     }
     [[nodiscard]] PluginRecoverySettingsView getPluginRecoverySettingsView() const {
         return { .pluginSearchPath = pluginSearchPath, .lastPluginName = lastPluginName };

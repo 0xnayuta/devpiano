@@ -50,6 +50,15 @@ void KeyboardMidiMapper::setSoftPedalCallback(SoftPedalCallback callback) noexce
 bool KeyboardMidiMapper::isSoftPedalDown() const noexcept {
     return softPedalDown;
 }
+void KeyboardMidiMapper::setSoftPedalDown(bool down) {
+    if (softPedalDown == down) {
+        return;
+    }
+    softPedalDown = down;
+    if (softPedalCallback != nullptr) {
+        softPedalCallback(softPedalDown);
+    }
+}
 void KeyboardMidiMapper::setTouchVelocityCurve(devpiano::input::TouchVelocityCurve curve) noexcept {
     touchVelocityCurve = curve;
 }

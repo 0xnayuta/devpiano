@@ -531,6 +531,7 @@ if (BUILD_TESTS)
         source/tests/LidAcousticsInteractionTest.cpp
         source/tests/UnaCordaAcousticsTest.cpp
         source/tests/TouchVelocityCurveTest.cpp
+        source/tests/AcousticSettingsPersistenceTest.cpp
         ${DEVPIANO_JIVE_CORE_SOURCES}
     )
     target_link_libraries(devpiano_tests PRIVATE

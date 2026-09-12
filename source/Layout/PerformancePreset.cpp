@@ -274,6 +274,9 @@ std::optional<PerformancePreset> loadPreset(const juce::File& path) {
                 const auto val = static_cast<int>(aco->getProperty("touchVelocityCurve"));
                 preset.touchVelocityCurve = static_cast<devpiano::input::TouchVelocityCurve>(juce::jlimit(0, 3, val));
             }
+            if (aco->hasProperty("unaCorda")) {
+                preset.unaCorda = static_cast<bool>(aco->getProperty("unaCorda"));
+            }
         }
     } else {
         if (obj->hasProperty("lidPosition")) {
@@ -283,6 +286,9 @@ std::optional<PerformancePreset> loadPreset(const juce::File& path) {
         if (obj->hasProperty("touchVelocityCurve")) {
             const auto val = static_cast<int>(obj->getProperty("touchVelocityCurve"));
             preset.touchVelocityCurve = static_cast<devpiano::input::TouchVelocityCurve>(juce::jlimit(0, 3, val));
+        }
+        if (obj->hasProperty("unaCorda")) {
+            preset.unaCorda = static_cast<bool>(obj->getProperty("unaCorda"));
         }
     }
 
@@ -371,6 +377,7 @@ bool savePreset(const PerformancePreset& preset, const juce::File& path) {
         juce::DynamicObject::Ptr aco = new juce::DynamicObject();
         aco->setProperty("lidPosition", static_cast<int>(preset.lidPosition));
         aco->setProperty("touchVelocityCurve", static_cast<int>(preset.touchVelocityCurve));
+        aco->setProperty("unaCorda", preset.unaCorda);
         root->setProperty("acoustics", juce::var(aco));
     }
 
