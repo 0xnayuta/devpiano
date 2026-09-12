@@ -133,6 +133,12 @@ private:
     void saveSettingsSoon();
     void showSettingsDialog();
     [[nodiscard]] bool isSettingsWindowOpen() const;
+    [[nodiscard]] bool isSoftPedalDown() const noexcept {
+        return keyboardMidiMapper.isSoftPedalDown();
+    }
+    [[nodiscard]] bool isSustainPedalDown() const noexcept {
+        return keyboardMidiMapper.isSustainPedalDown();
+    }
     void logCurrentAudioDeviceDiagnostics(const juce::String& context) const;
     void renderReadOnlyUiState(const devpiano::core::AppState& appState);
 

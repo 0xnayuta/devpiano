@@ -17,6 +17,12 @@ void KeyboardMidiMapper::setLayout(KeyboardLayout newLayout) {
             sustainPedalCallback(false);
         }
     }
+    if (softPedalDown) {
+        softPedalDown = false;
+        if (softPedalCallback) {
+            softPedalCallback(false);
+        }
+    }
 }
 
 void KeyboardMidiMapper::setLayoutDisplayName(juce::String newDisplayName) {
@@ -37,12 +43,32 @@ void KeyboardMidiMapper::setSustainPedalCallback(SustainPedalCallback callback) 
 bool KeyboardMidiMapper::isSustainPedalDown() const noexcept {
     return sustainPedalDown;
 }
+void KeyboardMidiMapper::setSoftPedalCallback(SoftPedalCallback callback) noexcept {
+    softPedalCallback = std::move(callback);
+}
+
+bool KeyboardMidiMapper::isSoftPedalDown() const noexcept {
+    return softPedalDown;
+}
 
 void KeyboardMidiMapper::resetToDefaultLayout() {
     setLayout(makeDefaultKeyboardLayout());
 }
 
 bool KeyboardMidiMapper::handleKeyPressed(const juce::KeyPress& key, juce::MidiKeyboardState& keyboardState) {
+    const auto isSoftPedalKey = (key.getKeyCode() == juce::KeyPress::tabKey)
+        || (key.getModifiers().isShiftDown()
+            && (key.getKeyCode() == juce::KeyPress::spaceKey || key.getTextCharacter() == ' '));
+    if (isSoftPedalKey) {
+        if (!softPedalDown) {
+            softPedalDown = true;
+            if (softPedalCallback) {
+                softPedalCallback(true);
+            }
+        }
+        return true;
+    }
+
     if (key.getKeyCode() == juce::KeyPress::spaceKey || key.getTextCharacter() == ' ') {
         if (!sustainPedalDown) {
             sustainPedalDown = true;
@@ -84,6 +110,21 @@ bool KeyboardMidiMapper::handleKeyStateChanged(juce::MidiKeyboardState& keyboard
         sustainPedalDown = false;
         if (sustainPedalCallback) {
             sustainPedalCallback(false);
+        }
+        consumed = true;
+    }
+
+    const auto isTabDown = isKeyCurrentlyDown(juce::KeyPress::tabKey);
+    if (isTabDown && !softPedalDown) {
+        softPedalDown = true;
+        if (softPedalCallback) {
+            softPedalCallback(true);
+        }
+        consumed = true;
+    } else if (!isTabDown && softPedalDown) {
+        softPedalDown = false;
+        if (softPedalCallback) {
+            softPedalCallback(false);
         }
         consumed = true;
     }
@@ -136,6 +177,12 @@ void KeyboardMidiMapper::releaseAllHeldKeys(juce::MidiKeyboardState& keyboardSta
         sustainPedalDown = false;
         if (sustainPedalCallback) {
             sustainPedalCallback(false);
+        }
+    }
+    if (softPedalDown) {
+        softPedalDown = false;
+        if (softPedalCallback) {
+            softPedalCallback(false);
         }
     }
 }

@@ -775,7 +775,7 @@ void MainComponent::updateStatusBar() {
     }
     viewHost.setText("audio-info-label", audioText);
 
-    // 3. Right: key signature, transpose, keyboard layout
+    // 3. Right: key signature, transpose, keyboard layout, pedal indicators
     const auto keyName = keySignatureToString(appSettings.keySignature);
     const auto transposeStr = (appSettings.midiTranspose ? (TRANS("Transpose: On") + " / ") : "")
         + (appSettings.keySignature >= 0 ? "+" : "") + juce::String(appSettings.keySignature);
@@ -783,7 +783,17 @@ void MainComponent::updateStatusBar() {
     if (layoutName.isEmpty()) {
         layoutName = "Standard";
     }
-    const auto statusRight = keyName + " (" + transposeStr + ") • " + layoutName;
+
+    juce::String pedalIndicator;
+    if (keyboardMidiMapper.isSoftPedalDown() && keyboardMidiMapper.isSustainPedalDown()) {
+        pedalIndicator = " • [UNA CORDA + SUSTAIN]";
+    } else if (keyboardMidiMapper.isSoftPedalDown()) {
+        pedalIndicator = " • [UNA CORDA]";
+    } else if (keyboardMidiMapper.isSustainPedalDown()) {
+        pedalIndicator = " • [SUSTAIN]";
+    }
+
+    const auto statusRight = keyName + " (" + transposeStr + ") • " + layoutName + pedalIndicator;
     viewHost.setText("time-label", statusRight);
 }
 

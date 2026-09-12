@@ -61,6 +61,12 @@ MainComponent::MainComponent() {
     keyboardMidiMapper.setSustainPedalCallback([this](bool isDown) {
         audioEngine.sendController(1, 64, isDown ? 127 : 0);
         notifyMidiActivity();
+        updateStatusBar();
+    });
+    keyboardMidiMapper.setSoftPedalCallback([this](bool isDown) {
+        audioEngine.sendController(1, 67, isDown ? 127 : 0);
+        notifyMidiActivity();
+        updateStatusBar();
     });
     presetFlowSupport = std::make_unique<devpiano::layout::PresetFlowSupport>(*this);
     recordingSessionController = std::make_unique<devpiano::recording::RecordingSessionController>(

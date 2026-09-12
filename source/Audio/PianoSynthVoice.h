@@ -90,6 +90,18 @@ public:
     [[nodiscard]] LidPosition getLidPosition() const noexcept {
         return pianoLidPosition;
     }
+    void setSoftPedalDown(bool down, float amount = 1.0f) noexcept {
+        softPedalDown = down;
+        softPedalAmount = down ? juce::jlimit(0.0f, 1.0f, amount) : 0.0f;
+    }
+
+    [[nodiscard]] bool isSoftPedalDown() const noexcept {
+        return softPedalDown;
+    }
+
+    [[nodiscard]] float getSoftPedalAmount() const noexcept {
+        return softPedalAmount;
+    }
 
     void startNote(int midiNoteNumber, float velocity, juce::SynthesiserSound*, int) override {
         const auto sampleRate = getSampleRate();
@@ -110,10 +122,15 @@ public:
 
         const auto keyPos = std::clamp((static_cast<float>(midiNoteNumber) - 21.0f) / 87.0f, 0.0f, 1.0f);
 
+        // 弱音/移位踏板物理机理 (Phase 29-B, Una Corda Shift Mechanism):
+        // 琴槌击弦机向右位移，击打在毛毡侧向未压实较软区域，接触时间延长
+        const auto unaCordaMu = softPedalDown ? juce::jmax(0.60f, softPedalAmount) : 0.0f;
+
         // 动态琴槌毛毡动力学 (Phase 23-A, Chaigne & Askenfelt 1994, Russell & Rossing 1998)
         const auto effectiveHardness
-            = 0.15f + 0.85f * std::pow(clampedVelocity, 1.5f) * (0.5f + 0.5f * pianoHammerHardness);
-        const auto tc = params.tcBase * (2.5f - 1.9f * effectiveHardness);
+            = (0.15f + 0.85f * std::pow(clampedVelocity, 1.5f) * (0.5f + 0.5f * pianoHammerHardness))
+            * (1.0f - 0.25f * unaCordaMu);
+        const auto tc = params.tcBase * (2.5f - 1.9f * effectiveHardness) * (1.0f + 0.20f * unaCordaMu);
 
         // 击弦微观混沌微扰引擎 (Phase 20-B, Bank & Chabassier 2019 Sec. 4)
         auto rngState = static_cast<std::uint32_t>(midiNoteNumber) * 1009u + (++triggerCounter) * 1013u
@@ -210,10 +227,14 @@ public:
                 partial.epsilon3 = 2.0 * std::sin(juce::MathConstants<double>::pi * f3 / sampleRate);
             }
 
+            // 中高音区三弦敲两弦（Trichord to Bichord）能量衰减 (Phase 29-B)
+            const auto trichordAtten
+                = (params.stringCount == 3) ? (1.0f - 0.30f * unaCordaMu) : (1.0f - 0.15f * unaCordaMu);
+
             partial.level
                 = amplitudeFor(n, keyPos, effectiveHardness, effectiveStrikePos, partialFrequency, effectiveTc)
                 * hammerGain(n, numActivePartials) * brightnessBoost(n, pianoBrightness, numActivePartials) * scale
-                * velocityLevel;
+                * velocityLevel * trichordAtten;
 
             // 泛音时间滞后膨胀与绽放 (Phase 24-A, Harmonic Blooming)
             if (n >= 2 && clampedVelocity > 0.40f) {
@@ -234,7 +255,10 @@ public:
 
             const auto dampingEffect
                 = (alpha_n / juce::jmax(1e-9, alpha1)) * static_cast<double>(1.5f - pianoBrightness);
-            const auto tau_m = baseDecaySeconds / dampingEffect;
+            const auto unaCordaDamping = 1.0
+                + 0.15 * static_cast<double>(unaCordaMu)
+                    * (static_cast<double>(n) / static_cast<double>(numActivePartials));
+            const auto tau_m = (baseDecaySeconds / dampingEffect) / unaCordaDamping;
             const auto tauFast_m = tau_m * static_cast<double>(params.fastDecayRatio);
             partial.decayFastPerSample = static_cast<float>(std::exp(-1.0 / (tauFast_m * sampleRate)));
             partial.decaySlowPerSample = static_cast<float>(std::exp(-1.0 / (tau_m * sampleRate)));
@@ -242,7 +266,9 @@ public:
             partial.levelSlow = partial.level * params.slowWeight;
         }
 
-        hammerTransient.trigger(sampleRate, midiNoteNumber, clampedVelocity, pianoHammerHardness, params.stringLength);
+        const auto hammerTransientVel = clampedVelocity * (1.0f - 0.35f * unaCordaMu);
+        hammerTransient.trigger(sampleRate, midiNoteNumber, hammerTransientVel, pianoHammerHardness,
+                                params.stringLength);
         hammerContactEngine.trigger(sampleRate, effectiveTc);
         spatialDiffusionEngine.trigger(sampleRate);
         damperTransient.reset();
@@ -294,6 +320,10 @@ public:
         // MIDI CC 64 延音踏板 (Sustain Pedal, Phase 21-A)
         if (controllerNumber == 64) {
             sympatheticPool.setPedalDown(controllerValue >= 64);
+        } else if (controllerNumber == 67) {
+            // MIDI CC 67 弱音/移位踏板 (Una Corda / Soft Pedal, Phase 29-B)
+            softPedalDown = (controllerValue >= 64);
+            softPedalAmount = juce::jlimit(0.0f, 1.0f, static_cast<float>(controllerValue) / 127.0f);
         }
     }
 
@@ -1181,4 +1211,6 @@ public:
         }
         return array;
     }();
+    bool softPedalDown = false;
+    float softPedalAmount = 0.0f;
 };

@@ -249,7 +249,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 ### Phase 29：现实物理演奏交互与声学控制（Physical Voicing & Realistic Acoustic Interaction） [规划中]
 
 1. **琴盖开合度声学交互与 UI 穿透（Phase 29-A）**：在 JIVE UI 界面接入 Full Open / Half Stick / Closed 3 态直观选择，无缝驱动底层已实现的 `lidAcoustics` 多级高频滚降与近场反射，兼顾布局金标测试保护 [已完成，2026-09-12]；
-2. **弱音/移位踏板物理拟真与状态联动（Phase 29-B）**：在 `PianoSynthVoice` 中模拟三角钢琴击弦机整体右移、3 弦敲 2 弦与毛毡侧面软化的物理机理，支持 MIDI CC 67 踏板信号、电脑键盘快捷触发与 UI 软踏板状态点亮；
+2. **弱音/移位踏板物理拟真与状态联动（Phase 29-B）**：在 `PianoSynthVoice` 中模拟三角钢琴击弦机整体右移、3 弦敲 2 弦与毛毡侧面软化的物理机理，支持 MIDI CC 67 踏板信号、电脑键盘快捷触发与 UI 软踏板状态点亮 [已完成，2026-09-12]；
 3. **触键力度曲线自适应映射（Phase 29-C）**：在 `KeyboardMidiMapper` / 输入层提供 Standard（线性）、Light（轻触感）、Heavy（重阻尼）、Wide Dynamic（宽动态 S 曲线）4 种手感映射，自适应薄膜/机械键盘及 MIDI 键盘；
 4. **声学配置持久化与预设系统全量联动（Phase 29-D）**：将琴盖开合度、Una Corda 默认态与触键曲线完整纳入 `SettingsModel`、`SettingsStore` 与 Performance Preset（`.devpiano.preset` JSON）序列化，确保向后兼容；
 5. **声学精调、三闸门闭环与构建验证（Phase 29-E）**：全套单测闭环，三闸门合规，双平台 MSVC / Linux 编译与打包验证，实机演奏手感与声学回归。

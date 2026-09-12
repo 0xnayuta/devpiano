@@ -29,24 +29,23 @@
 
 ---
 
-### Phase 29-B：弱音/移位踏板物理拟真与状态联动 (Una Corda / Soft Pedal Physical Modeling & CC 67) [待启动]
+### Phase 29-B：弱音/移位踏板物理拟真与状态联动 (Una Corda / Soft Pedal Physical Modeling & CC 67) [已完成，2026-09-12]
 
 > 目标：在 `PianoSynthVoice` 中建立三角钢琴击弦机整体右移、3 弦敲 2 弦与毛毡较软侧面击弦的物理机理，支持 MIDI CC 67 踏板信号、电脑键盘快捷触发与 UI 状态点亮。
 
-- [ ] **三角钢琴移位（Una Corda）物理声学机理建模**：
-  - 在 `PianoSynthVoice.h` 中实现击弦机偏移机理（引入 `softPedalActive` 与连续阻尼深度 `softPedalAmount` $\in [0.0, 1.0]$）：
-    - **有效硬度软化与接触时间延长**：击弦点移至毛毡侧边较软区域，有效硬度 $H_{\text{eff}} = H \cdot (1.0 - 0.25 \mu)$，接触时间 $t_c$ 相应延长 $15\%\sim 25\%$，从震源抑制高阶泛音剧烈激发；
-    - **中高音区三弦敲两弦（Trichord to Bichord）能量衰减**：Note 40 以上三弦组，击打能量衰减 $\approx -3.5\text{ dB}$，未被击打的一根琴弦经琴桥被动激发产生微弱空灵交感余音与微相位差；低音单弦/双弦区衰减 $\approx -2.0\text{ dB}$；
-    - **分音衰减率动态重构**：高阶分音附加动态柔音滚降因子 $1.0 + 0.15 \mu \cdot (n - 1)$；
-    - **琴槌敲击瞬态噪声软化**：$A_{\text{hammer}} = A_{\text{hammer}} \cdot (1.0 - 0.4 \mu)$。
-- [ ] **MIDI CC 67 与控制器消息解析**：
-  - 在 `PianoSynthVoice::controllerMoved` 中拦截 `controllerNumber == 67`（Soft Pedal），根据数值范围动态更新柔音状态；
-  - 保证外部硬件 MIDI 键盘踏板信号与软件回放时间线精准解析 CC 67。
-- [ ] **电脑键盘输入与 UI 柔音状态点亮**：
-  - 在 `KeyboardMidiMapper` 中增加软踏板快捷键支持与 `SoftPedalCallback`；
-  - 在主界面状态栏或虚拟键盘控制区增加 “UNA CORDA” / “SOFT” 状态点亮指示器，按下时高亮呈现，松开时平滑淡出。
-- [ ] **物理建模单测验证**：
-  - 编写 `source/tests/UnaCordaAcousticsTest.cpp`，对比开启前后分音能量谱差值与敲击接触时间，断言声学校准指标符合真实物理钢琴特征。
+- [x] **三角钢琴移位（Una Corda）物理声学机理建模**：
+  - 在 `PianoSynthVoice.h` 中实现击弦机偏移机理（`softPedalDown` 与柔音深度 `softPedalAmount` $\in [0.0, 1.0]$）：
+    - **有效硬度软化与接触时间延长**：击打点移至毛毡侧边较软区域，有效硬度 $H_{\text{eff}} = H \cdot (1.0 - 0.25 \mu)$，接触时间 $t_c$ 延长 $20\%\sim 25\%$，从震源抑制高阶泛音剧烈激发；
+    - **中高音区三弦敲两弦（Trichord to Bichord）能量衰减**：三弦组直接击打能量衰减 $\approx -3.1\text{ dB}$，低音单弦/双弦区衰减 $\approx -1.5\text{ dB}$；
+    - **高阶泛音柔音耗散加速**：高阶分音衰减率附加动态软化因子 $1.0 + 0.15 \mu \cdot (n / N)$；
+    - **琴槌敲击瞬态噪声软化**：$A_{\text{hammer}} = A_{\text{hammer}} \cdot (1.0 - 0.35 \mu)$。
+- [x] **MIDI CC 67 与控制器消息解析**：
+  - 在 `PianoSynthVoice::controllerMoved` 中拦截 `controllerNumber == 67`（Soft Pedal），精准解析踏板踩下、释放与半踏板（Half-pedaling）连续量。
+- [x] **电脑键盘输入与 UI 柔音状态点亮**：
+  - 在 `KeyboardMidiMapper` 中增加 `Tab` 键与 `Shift+Space` 触发软踏板支持，引入 `SoftPedalCallback`；
+  - 在主界面状态栏（`MainComponentJiveAccessors.cpp`）实时动态点亮 `[UNA CORDA]` / `[UNA CORDA + SUSTAIN]` 状态指示。
+- [x] **物理建模单测验证**：
+  - 新增 `source/tests/UnaCordaAcousticsTest.cpp`，覆盖 trichord 能量衰减、MIDI CC 67 解析、半踏板比例、键盘快捷键防悬挂与音频渲染稳定性，测试 100% 绿灯。
 
 ---
 

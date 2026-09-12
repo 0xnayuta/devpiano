@@ -19,6 +19,7 @@ public:
     /// 键盘状态；测试可注入确定性谓词，消除桌面环境物理按键导致的误报。
     using KeyStatePredicate = std::function<bool(int keyCode)>;
     using SustainPedalCallback = std::function<void(bool isDown)>;
+    using SoftPedalCallback = std::function<void(bool isDown)>;
 
     KeyboardMidiMapper();
 
@@ -32,6 +33,8 @@ public:
     void setChannelMapper(devpiano::midi::MidiChannelMapper* mapper) noexcept;
     void setSustainPedalCallback(SustainPedalCallback callback) noexcept;
     [[nodiscard]] bool isSustainPedalDown() const noexcept;
+    void setSoftPedalCallback(SoftPedalCallback callback) noexcept;
+    [[nodiscard]] bool isSoftPedalDown() const noexcept;
     /// 释放所有当前按下的琴键与踏板（窗口失焦、切屏 Panic 防悬挂音）。
     void releaseAllHeldKeys(juce::MidiKeyboardState& keyboardState);
 
@@ -51,4 +54,6 @@ private:
     KeyStatePredicate keyStatePredicate;
     SustainPedalCallback sustainPedalCallback;
     bool sustainPedalDown = false;
+    SoftPedalCallback softPedalCallback;
+    bool softPedalDown = false;
 };
