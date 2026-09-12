@@ -26,6 +26,7 @@ public:
         testAudioDeviceSection();
         testKeySignatureSectionAndGrid();
         testKeyboardDisplaySection();
+        testAcousticsSection();
         testInterpretationAndComponentLookup();
         testFollowKeyVisibilityToggle();
         testSettingsComponentRefreshTextsPreservesScroll();
@@ -45,6 +46,7 @@ private:
         expect(findNodeById(tree, "audio-device-card").isValid());
         expect(findNodeById(tree, "key-sig-card").isValid());
         expect(findNodeById(tree, "keyboard-display-card").isValid());
+        expect(findNodeById(tree, "acoustics-card").isValid());
         expect(findNodeById(tree, "diagnostics-card").isValid());
         expect(findNodeById(tree, "save-action-row").isValid());
     }
@@ -102,6 +104,15 @@ private:
         expect(findNodeById(tree, "fade-speed-slider").isValid());
         expect(findNodeById(tree, "instrument-filter-toggle").isValid());
         expect(findNodeById(tree, "language-combo").isValid());
+    }
+    void testAcousticsSection() {
+        beginTest("makeAcousticsSectionTree: acoustic voicing options");
+
+        auto tree = devpiano::ui::jive::makeAcousticsSectionTree();
+        expect(tree.isValid());
+
+        expect(findNodeById(tree, "acoustics-title").isValid());
+        expect(findNodeById(tree, "lid-position-combo").isValid());
     }
 
     void testInterpretationAndComponentLookup() {
@@ -177,6 +188,8 @@ private:
 
             auto* langCombo = dynamic_cast<juce::ComboBox*>(findComponentById(*rootItem, "language-combo"));
             expect(langCombo != nullptr);
+            auto* lidCombo = dynamic_cast<juce::ComboBox*>(findComponentById(*rootItem, "lid-position-combo"));
+            expect(lidCombo != nullptr);
 
             auto* diagEd = dynamic_cast<juce::TextEditor*>(findComponentById(*rootItem, "diagnostics-editor"));
             expect(diagEd != nullptr);

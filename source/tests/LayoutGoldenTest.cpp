@@ -81,6 +81,7 @@ public:
             for (int ch = 0; ch < 16; ++ch) {
                 expect(host.find("follow-key-" + juce::String(ch)) != nullptr);
             }
+            expect(host.find<juce::ComboBox>("lid-position-combo") != nullptr);
             expect(host.find<juce::Button>("save-button") != nullptr);
         }
 

@@ -138,6 +138,10 @@ void PresetFlowSupport::commitPreset(const PerformancePreset& preset) {
     s.keyboardDisplay.customKeyLabels = preset.customKeyLabels;
     s.keyboardDisplay.customKeyColours = preset.customKeyColours;
 
+    // 4. Acoustics
+    s.lidPosition = preset.lidPosition;
+    owner.audioEngine.setLidPosition(static_cast<AudioEngine::LidPosition>(preset.lidPosition));
+
     // 4. Persist preset identity
     s.lastActivePresetId = preset.name;
 }
@@ -165,6 +169,7 @@ PerformancePreset PresetFlowSupport::captureCurrentState(const juce::String& nam
     preset.previewAlpha = 0.0f;
     preset.customKeyLabels = owner.appSettings.keyboardDisplay.customKeyLabels;
     preset.customKeyColours = owner.appSettings.keyboardDisplay.customKeyColours;
+    preset.lidPosition = owner.appSettings.lidPosition;
     return preset;
 }
 

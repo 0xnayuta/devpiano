@@ -27,6 +27,7 @@ public:
     void rebuildColourModeCombo();
     void rebuildNoteDisplayCombo();
     void rebuildKeySignatureCombo();
+    void rebuildLidPositionCombo();
     void refreshTexts();
 
     void paint(juce::Graphics& g) override;
@@ -51,6 +52,7 @@ private:
     void wireAppearanceAndLocaleControls();
     void wireAppearanceControls();
     void wireLocaleAndActionControls();
+    void wireAcousticControls();
     bool applyDisplayProperty(const juce::Identifier& prop);
     bool applyMidiProperty(const juce::Identifier& prop);
     void syncEditingStateFromModel();
@@ -99,6 +101,7 @@ private:
     juce::Slider* fadeSpeedSlider = nullptr;
     juce::ToggleButton* instrumentFilterToggle = nullptr;
     juce::ComboBox* languageCombo = nullptr;
+    juce::ComboBox* lidPositionCombo = nullptr;
     juce::TextEditor* diagnosticsEditor = nullptr;
     juce::Button* saveButton = nullptr;
 

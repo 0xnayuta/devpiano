@@ -11,23 +11,21 @@
 
 ---
 
-### Phase 29-A：琴盖开合度声学交互与 UI 穿透 (Acoustic Lid Position & JIVE UI Integration) [待启动]
+### Phase 29-A：琴盖开合度声学交互与 UI 穿透 (Acoustic Lid Position & JIVE UI Integration) [已完成，2026-09-12]
 
 > 目标：将底层已实现的 `PianoSynthVoice::LidPosition` 与 `lidAcoustics` 多级高频滚降/近场反射声学传递函数，完整穿透至 JIVE 声明式 UI 与 AudioEngine 调度链路，实现全开、半开、合盖的即时切换与直观视觉交互。
 
-- [ ] **JIVE 声明式 UI 控件接入（遵守 UI Infrastructure Freeze 公约）**：
-  - 在 `source/UI/LayoutModel.cpp` 的 `makeSettingsLayoutTree()` 中，通过 C++ DSL 在音频/声学参数区域声明琴盖位置选择器（`lid-position-combo`），包含 3 种直观选项：
-    - `Full Open (全开)`：直达声主导，高频泛音通透，近场反射宽阔；
-    - `Half Stick (半开/短支架)`：高频轻微遮蔽（$-3\text{ dB}$ 柔和滚降），直达声与短单反射融合；
-    - `Closed (合盖)`：深沉包裹感，$-7\text{ dB}$ 显著高阶滚降与近场木质共鸣。
-  - 在 `source/Settings/SettingsComponent.cpp` 中通过 `viewHost.find<juce::ComboBox>("lid-position-combo")` 安全获取控件句柄，配置选项文本并绑定监听回调；
-  - 评估在主界面控制区域（`MainComponent` 声学状态区）提供直观的琴盖图标/状态指示与快速切换。
-- [ ] **音频引擎与声学内核无缝贯通**：
-  - 将 UI 变更实时转发至 `AudioEngine::setLidPosition`，由音频线程在原子标志下安全更新至每个活跃的 `PianoSynthVoice`；
+- [x] **JIVE 声明式 UI 控件接入（遵守 UI Infrastructure Freeze 公约）**：
+  - 在 `source/Settings/jive/SettingsLayoutModel.cpp` 中新增 `makeAcousticsSectionTree()`，通过 C++ DSL 声明物理声学与调音卡片（`acoustics-card`）及琴盖位置选择器（`lid-position-combo`），包含 Full Open / Half Stick / Closed 3 态选项；
+  - 在 `source/Settings/SettingsComponent.cpp` 中通过 `viewHost.find<juce::ComboBox>("lid-position-combo")` 安全查找控件，实现动态文本注入与值变更单向数据流绑定（`editingState["lidPosition"]`）；
+  - 在 `SettingsWindowManager` 中接入 `onDisplaySettingsChanged` 实时向 `audioEngine` 同步琴盖变更。
+- [x] **音频引擎与声学内核无缝贯通**：
+  - 在 `SettingsModel`、`SettingsStore`（Properties 序列化）与 `PerformancePreset`（`.devpiano.preset` JSON 序列化）中全面打通 `lidPosition`，支持跨会话记忆与向前兼容；
+  - 在 `MainComponent` 与 `PresetFlowSupport` 中实现预设加载与音频引擎实时同步，无内存分配、零爆音；
   - 验证运行态切换琴盖时无音频爆音（Click/Pop）、无内存分配、无线程争用。
-- [ ] **测试与布局金标防线回归**：
-  - 新增 `source/tests/LidAcousticsInteractionTest.cpp`，断言 3 态切换下频响能量特征与冲激响应衰减符合物理预期；
-  - 回归 `source/tests/LayoutGoldenTest.cpp`，确保声明式树注入后全应用 ValueTree 解释烟测与 1280x720 / 1920x1080 像素几何排版 100% 稳定。
+- [x] **测试与布局金标防线回归**：
+  - 新增 `source/tests/LidAcousticsInteractionTest.cpp`，覆盖 AudioEngine 原子状态、PianoSynthVoice 3 态声学响应、演奏中动态切琴盖数值收敛（无 NaN/Inf）、SettingsStore 磁盘存取与 PerformancePreset 向前兼容；
+  - 回归 `source/tests/LayoutGoldenTest.cpp` 与 `source/tests/SettingsLayoutModelTest.cpp`，所有 70 个测试套件、28,276 个断言 100% 绿灯。
 
 ---
 

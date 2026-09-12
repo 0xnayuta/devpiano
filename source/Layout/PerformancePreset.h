@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "../Midi/ChannelMatrix.h"
+#include "../Settings/SettingsModel.h"
 #include "../UI/KeyboardTypes.h"
 #include "Core/KeyMapTypes.h"
 
@@ -19,6 +20,9 @@ struct PerformancePreset {
 
     devpiano::core::KeyboardLayout layout;
     devpiano::midi::ChannelMatrix channelMatrix;
+
+    // Acoustic settings
+    SettingsModel::LidPosition lidPosition = SettingsModel::LidPosition::fullOpen;
 
     // Keyboard display / musical settings subset.
     // Mirrors the JSON "keyboard" section — maps directly to SettingsModel fields

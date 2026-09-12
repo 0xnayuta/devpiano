@@ -22,6 +22,7 @@ const char* kKeyLastPluginName = "lastPluginName";
 const char* kKeyKnownPluginListXml = "knownPluginListXml";
 const char* kKeyLastActivePresetId = "lastActivePresetId";
 const char* kKeyLastMidiImportPath = "lastMidiImportPath";
+const char* kKeyPianoLidPosition = "pianoLidPosition";
 const char* kKeyLastMidiExportPath = "lastMidiExportPath";
 const char* kKeyRecentFiles = "recentFiles";
 const char* kKeyMainWindowWidth = "mainWindowWidth";
@@ -55,7 +56,9 @@ void readPerformanceSettings(juce::PropertiesFile& file, SettingsModel& model) {
         .pianoBrightness = static_cast<float>(file.getDoubleValue(kKeyPianoBrightness, model.pianoBrightness)),
         .pianoHammerHardness
         = static_cast<float>(file.getDoubleValue(kKeyPianoHammerHardness, model.pianoHammerHardness)),
-        .pianoResonance = static_cast<float>(file.getDoubleValue(kKeyPianoResonance, model.pianoResonance))
+        .pianoResonance = static_cast<float>(file.getDoubleValue(kKeyPianoResonance, model.pianoResonance)),
+        .lidPosition = static_cast<SettingsModel::LidPosition>(
+            juce::jlimit(0, 2, file.getIntValue(kKeyPianoLidPosition, static_cast<int>(model.lidPosition))))
     };
 
     const auto looksLikeCorruptedZeroState = performance.masterGain == 0.0f && performance.adsrAttack == 0.0f
@@ -269,6 +272,7 @@ bool SettingsStore::writeNow(const SettingsModel& m) {
     f.setValue(kKeyPianoBrightness, m.pianoBrightness);
     f.setValue(kKeyPianoHammerHardness, m.pianoHammerHardness);
     f.setValue(kKeyPianoResonance, m.pianoResonance);
+    f.setValue(kKeyPianoLidPosition, static_cast<int>(m.lidPosition));
     f.setValue(kKeyPluginSearchPath, m.pluginSearchPath);
     f.setValue(kKeyLastPluginName, m.lastPluginName);
     if (m.knownPluginListState) {

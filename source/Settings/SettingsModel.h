@@ -26,6 +26,13 @@ struct SettingsModel {
         piano = 1,
     };
 
+    // 琴盖开合度（Phase 29-A）：现实物理声学控制，映射至 PianoSynthVoice / AudioEngine。
+    enum class LidPosition : std::uint8_t {
+        fullOpen = 0,
+        halfStick = 1,
+        closed = 2,
+    };
+
     struct AudioSettingsView {
         double sampleRate = 44100.0;
         int bufferSize = 512;
@@ -42,6 +49,7 @@ struct SettingsModel {
         float pianoBrightness = 0.50f;
         float pianoHammerHardness = 0.50f;
         float pianoResonance = 0.50f;
+        LidPosition lidPosition = LidPosition::fullOpen;
     };
 
     struct PluginRecoverySettingsView {
@@ -76,6 +84,7 @@ struct SettingsModel {
     float pianoBrightness = 0.50f;
     float pianoHammerHardness = 0.50f;
     float pianoResonance = 0.50f;
+    LidPosition lidPosition = LidPosition::fullOpen;
 
     // Persisted ,UI recovery state.
     juce::String pluginSearchPath;
@@ -128,7 +137,8 @@ struct SettingsModel {
                  .builtinTone = builtinTone,
                  .pianoBrightness = pianoBrightness,
                  .pianoHammerHardness = pianoHammerHardness,
-                 .pianoResonance = pianoResonance };
+                 .pianoResonance = pianoResonance,
+                 .lidPosition = lidPosition };
     }
 
     void applyPerformanceSettingsView(const PerformanceSettingsView& view) {
@@ -141,8 +151,8 @@ struct SettingsModel {
         pianoBrightness = view.pianoBrightness;
         pianoHammerHardness = view.pianoHammerHardness;
         pianoResonance = view.pianoResonance;
+        lidPosition = view.lidPosition;
     }
-
     [[nodiscard]] PluginRecoverySettingsView getPluginRecoverySettingsView() const {
         return { .pluginSearchPath = pluginSearchPath, .lastPluginName = lastPluginName };
     }

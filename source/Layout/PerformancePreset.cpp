@@ -262,6 +262,19 @@ std::optional<PerformancePreset> loadPreset(const juce::File& path) {
 
     // --- channelMatrix ---
     preset.channelMatrix = varToChannelMatrix(obj->getProperty("channelMatrix"));
+    // --- acoustics ---
+    auto acVar = obj->getProperty("acoustics");
+    if (acVar.isObject()) {
+        if (auto* aco = acVar.getDynamicObject()) {
+            if (aco->hasProperty("lidPosition")) {
+                const auto val = static_cast<int>(aco->getProperty("lidPosition"));
+                preset.lidPosition = static_cast<SettingsModel::LidPosition>(juce::jlimit(0, 2, val));
+            }
+        }
+    } else if (obj->hasProperty("lidPosition")) {
+        const auto val = static_cast<int>(obj->getProperty("lidPosition"));
+        preset.lidPosition = static_cast<SettingsModel::LidPosition>(juce::jlimit(0, 2, val));
+    }
 
     // --- keyboard ---
     auto kbVar = obj->getProperty("keyboard");
@@ -343,6 +356,12 @@ bool savePreset(const PerformancePreset& preset, const juce::File& path) {
 
     // --- channelMatrix ---
     root->setProperty("channelMatrix", channelMatrixToVar(preset.channelMatrix));
+    // --- acoustics ---
+    {
+        juce::DynamicObject::Ptr aco = new juce::DynamicObject();
+        aco->setProperty("lidPosition", static_cast<int>(preset.lidPosition));
+        root->setProperty("acoustics", juce::var(aco));
+    }
 
     // --- keyboard ---
     {

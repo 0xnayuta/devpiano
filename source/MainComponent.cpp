@@ -890,7 +890,8 @@ SettingsModel::PerformanceSettingsView MainComponent::getPerformanceSettingsFrom
              .builtinTone = getBuiltinToneFromSettings(),
              .pianoBrightness = getPianoBrightness(),
              .pianoHammerHardness = getPianoHammerHardness(),
-             .pianoResonance = getPianoResonance() };
+             .pianoResonance = getPianoResonance(),
+             .lidPosition = appSettings.lidPosition };
 }
 
 juce::String MainComponent::getLastPluginNameForRecoveryStateFromUi() const {
@@ -934,6 +935,7 @@ void MainComponent::applyPerformanceSettingsToAudioEngine(const SettingsModel::P
                                         : AudioEngine::BuiltinSynthTone::sine);
     audioEngine.setPianoParameters(performance.pianoBrightness, performance.pianoHammerHardness,
                                    performance.pianoResonance);
+    audioEngine.setLidPosition(static_cast<AudioEngine::LidPosition>(performance.lidPosition));
 }
 void MainComponent::setBuiltinSynthTone(SettingsModel::BuiltinTone tone) {
     appSettings.builtinTone = tone;
