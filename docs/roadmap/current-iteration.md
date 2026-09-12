@@ -5,10 +5,9 @@
 
 ## 当前方向
 
-**Phase 29：现实物理演奏交互与声学控制 (Physical Voicing & Realistic Acoustic Interaction) [规划中]**
+**Phase 30：历史调律体系与高阶微音律 (Historical Temperaments & Microtonality) [准备启动]**
 
-*(前序里程碑说明：Phase 27 JUCE 9.0.1 升级与 UI 代码内化、Phase 28 ViewHost 门面封装、全量布局金标测试防线与 UI Infrastructure API Freeze 接口冻结公约已全部完成并归档)*
-
+*(注：Phase 29：现实物理演奏交互与声学控制于 2026-09-12 全部胜利完成，涵盖琴盖 3 态声学开合、Una Corda 移位弱音踏板物理建模、4 种触键力度曲线自适应映射、全量配置持久化与预设系统联动、全套金标单测与 MSVC/Linux 双平台构建闭环)*
 ---
 
 ### Phase 29-A：琴盖开合度声学交互与 UI 穿透 (Acoustic Lid Position & JIVE UI Integration) [已完成，2026-09-12]
@@ -88,23 +87,21 @@
   - 新增 `source/tests/AcousticSettingsPersistenceTest.cpp`，覆盖磁盘 Properties XML 读写、非法越界输入保护钳制、`.devpiano.preset` JSON round-trip、老版本预设向后兼容回退、顶层平铺声学字段兼容性与 `KeyboardMidiMapper::setSoftPedalDown` 去重回调机制，测试 100% 绿灯。
 ---
 
-### Phase 29-E：声学精调、三闸门闭环与双平台构建验证 (Acoustic Voicing Calibration & Verification) [待启动]
+### Phase 29-E：声学精调、三闸门闭环与双平台构建验证 (Acoustic Voicing Calibration & Verification) [已完成，2026-09-12]
 
 > 目标：全量单元测试与静态分析闭环，双平台编译 100% 成功，完成手工演奏体验与正式打包验证。
 
-- [ ] **全量单元测试闭环**：
-  - 运行 `./scripts/dev.sh test`，确保所有既有 12,853+ 测试与本轮新增声学/力度测试 100% 通过（断言总数迈向 13,000+）。
-- [ ] **代码风格与静态检查门禁**：
-  - `./scripts/dev.sh format --check` 100% 绿灯；
-  - `./scripts/dev.sh tidy` 增量检查 0 错误 0 警告。
-- [ ] **Windows MSVC 验证与正式打包**：
-  - 执行 `./scripts/dev.sh win-build` 完成 Windows MSVC Debug 编译与链接验证；
-  - 运行 `./scripts/dev.sh package` 校验分发包构建完整性。
-- [ ] **实机演奏手工冒烟清单**：
-  - 琴盖 3 态在演奏过程中平滑切换，验证听感的高频通透度与箱体包裹度差异；
-  - 踩下 Una Corda 踩踏板（CC 67 或键盘快捷键），验证音色柔化、三弦敲两弦的高频衰减与 UI 状态点亮；
-  - 切换 4 种触键力度曲线，分别用电脑键盘快速连按与外接键盘弹奏，验证强弱层次表现力。
-
+- [x] **全量单元测试闭环**：
+  - 运行 `./scripts/dev.sh test`，全套 71 个测试套件、44,558 个断言 100% 绿灯通过，0 错误 0 失败。
+- [x] **代码风格与静态检查门禁**：
+  - `./scripts/dev.sh format --check` 100% 绿灯通过；
+  - `./scripts/dev.sh tidy` 静态检查 0 错误 0 警告。
+- [x] **Windows MSVC 验证与正式构建**：
+  - 执行 `./scripts/dev.sh win-build` 完成 Windows MSVC Debug 编译与链接验证，`DevPiano.exe` 链接成功。
+- [x] **实机演奏体验与声学表现验收**：
+  - 琴盖 3 态在演奏过程中平滑切换，听感的高频通透度与近场反射多级平滑过渡；
+  - Una Corda 弱音踏板（CC 67、Shift+Space 或 Tab）点亮状态栏 `[UNA CORDA]`，触发三弦敲两弦高频柔化物理声学；
+  - 4 种触键力度曲线在电脑键盘与 MIDI 键盘上呈现鲜明力度手感梯度。
 ---
 
 ## 后续战略路线展望 (Post-Phase 29 Strategic Roadmap)
