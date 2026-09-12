@@ -1,9 +1,11 @@
 #include <JuceHeader.h>
 
 #include "Audio/AudioDeviceDiagnostics.h"
+#include "Locale/LocaleManager.h"
 #include "Settings/SettingsComponent.h"
 #include "Settings/SettingsModel.h"
 #include "Settings/jive/SettingsLayoutModel.h"
+#include "TestHelpers.h"
 #include "UI/jive/DesignTokens.h"
 #include "UI/jive/JiveUtils.h"
 #include "UI/jive/StyleCatalog.h"
@@ -114,6 +116,36 @@ private:
         expect(findNodeById(tree, "acoustics-title").isValid());
         expect(findNodeById(tree, "lid-position-combo").isValid());
         expect(findNodeById(tree, "touch-curve-combo").isValid());
+
+        // Test localization coverage for Acoustics & Voicing in zh-CN
+        {
+            devpiano::test::ScopedLocaleReset localeGuard;
+            devpiano::locale::activate(devpiano::locale::Language::zhCN);
+
+            expectEquals(juce::String(TRANS("Acoustics & Voicing")), juce::String::fromUTF8("声学与音色"));
+            expectEquals(juce::String(TRANS("Lid Position:")), juce::String::fromUTF8("琴盖位置："));
+            expectEquals(juce::String(TRANS("Touch Curve:")), juce::String::fromUTF8("触键曲线："));
+            expectEquals(juce::String(TRANS("Full Open")), juce::String::fromUTF8("全开"));
+            expectEquals(juce::String(TRANS("Half Stick")), juce::String::fromUTF8("半开"));
+            expectEquals(juce::String(TRANS("Closed")), juce::String::fromUTF8("合盖"));
+            expectEquals(juce::String(TRANS("Standard (Linear)")), juce::String::fromUTF8("标准（线性）"));
+            expectEquals(juce::String(TRANS("Light (Soft Action)")), juce::String::fromUTF8("轻柔（高灵敏）"));
+            expectEquals(juce::String(TRANS("Heavy (Firm Action)")), juce::String::fromUTF8("深沉（重阻尼）"));
+            expectEquals(juce::String(TRANS("Wide Dynamic (S-Curve)")), juce::String::fromUTF8("宽动态（S 曲线）"));
+        }
+
+        // Test status bar bullet point clean encoding (no â or ¢ corruption)
+        {
+            const auto bullet = " " + juce::String::charToString(0x2022) + " ";
+            const juce::String sustainIndicator = bullet + "[SUSTAIN]";
+            const juce::String unaCordaIndicator = bullet + "[UNA CORDA]";
+            const juce::String combinedIndicator = bullet + "[UNA CORDA + SUSTAIN]";
+
+            expect(!sustainIndicator.contains("â") && !sustainIndicator.contains("¢"));
+            expect(!unaCordaIndicator.contains("â") && !unaCordaIndicator.contains("¢"));
+            expect(!combinedIndicator.contains("â") && !combinedIndicator.contains("¢"));
+            expect(sustainIndicator.contains(juce::String::charToString(0x2022)));
+        }
     }
 
     void testInterpretationAndComponentLookup() {
