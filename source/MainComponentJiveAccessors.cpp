@@ -760,6 +760,8 @@ void MainComponent::updateStatusBar() {
     viewHost.setText("plugin-name-label", displayText);
 
     // 2. Centre: audio driver backend, sample rate, buffer size, latency, CPU load
+    const auto bullet = " " + juce::String::charToString(0x2022) + " ";
+
     juce::String audioText;
     if (auto* dev = deviceManager.getCurrentAudioDevice()) {
         const auto type = dev->getTypeName();
@@ -768,14 +770,14 @@ void MainComponent::updateStatusBar() {
         const auto latencyMs = (sr > 0.0) ? (static_cast<float>(bs) / static_cast<float>(sr) * 1000.0f) : 0.0f;
         const auto cpu = juce::roundToInt(deviceManager.getCpuUsage() * 100.0f);
 
-        audioText = type + " • " + juce::String(sr / 1000.0, 1) + " kHz / " + juce::String(bs) + " spl ("
-            + juce::String(latencyMs, 1) + " ms) • CPU: " + juce::String(cpu) + "%";
+        audioText = type + bullet + juce::String(sr / 1000.0, 1) + " kHz / " + juce::String(bs) + " spl ("
+            + juce::String(latencyMs, 1) + " ms)" + bullet + "CPU: " + juce::String(cpu) + "%";
     } else {
         audioText = TRANS("No Audio Device");
     }
     viewHost.setText("audio-info-label", audioText);
 
-    // 3. Right: key signature, transpose, keyboard layout
+    // 3. Right: key signature, transpose, keyboard layout, pedal indicators
     const auto keyName = keySignatureToString(appSettings.keySignature);
     const auto transposeStr = (appSettings.midiTranspose ? (TRANS("Transpose: On") + " / ") : "")
         + (appSettings.keySignature >= 0 ? "+" : "") + juce::String(appSettings.keySignature);
@@ -783,7 +785,17 @@ void MainComponent::updateStatusBar() {
     if (layoutName.isEmpty()) {
         layoutName = "Standard";
     }
-    const auto statusRight = keyName + " (" + transposeStr + ") • " + layoutName;
+
+    juce::String pedalIndicator;
+    if (keyboardMidiMapper.isSoftPedalDown() && keyboardMidiMapper.isSustainPedalDown()) {
+        pedalIndicator = bullet + "[UNA CORDA + SUSTAIN]";
+    } else if (keyboardMidiMapper.isSoftPedalDown()) {
+        pedalIndicator = bullet + "[UNA CORDA]";
+    } else if (keyboardMidiMapper.isSustainPedalDown()) {
+        pedalIndicator = bullet + "[SUSTAIN]";
+    }
+
+    const auto statusRight = keyName + " (" + transposeStr + ")" + bullet + layoutName + pedalIndicator;
     viewHost.setText("time-label", statusRight);
 }
 

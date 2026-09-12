@@ -226,6 +226,41 @@ juce::ValueTree makeKeyboardDisplaySectionTree() {
     card.appendChild(content, nullptr);
     return card;
 }
+juce::ValueTree makeAcousticsSectionTree() {
+    auto card = flexColumn("acoustics-card");
+    card.setProperty("margin", "0 0 14 0", nullptr);
+    card.setProperty("padding", "10 14 10 14", nullptr);
+    card.setProperty("border-width", "1", nullptr);
+    card.setProperty("border-radius", "6", nullptr);
+    card.setProperty("background", devpiano::jive::DesignTokens::get().panelBg().toDisplayString(true), nullptr);
+
+    auto title = text(TRANS("Acoustics & Voicing"), "acoustics-title");
+    title.setProperty("width", "100%", nullptr);
+    title.setProperty("font-weight", "bold", nullptr);
+    title.setProperty("font-size", 15, nullptr);
+    title.setProperty("height", 22, nullptr);
+    title.setProperty("margin", "0 0 8 0", nullptr);
+    card.appendChild(title, nullptr);
+
+    // Indented content container (16px indent)
+    auto content = flexColumn("acoustics-content");
+    content.setProperty("padding", "0 0 0 16", nullptr);
+
+    // Row 1: Lid Position (ComboBox)
+    auto lidCombo = node("ComboBox", "lid-position-combo");
+    lidCombo.setProperty("width", 300, nullptr);
+    lidCombo.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Lid Position:"), lidCombo, "lid-position-label"), nullptr);
+
+    // Row 2: Touch Velocity Curve (ComboBox)
+    auto curveCombo = node("ComboBox", "touch-curve-combo");
+    curveCombo.setProperty("width", 300, nullptr);
+    curveCombo.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Touch Curve:"), curveCombo, "touch-curve-label"), nullptr);
+
+    card.appendChild(content, nullptr);
+    return card;
+}
 
 juce::ValueTree makeDiagnosticsSectionTree() {
     auto card = flexColumn("diagnostics-card");
@@ -278,6 +313,7 @@ juce::ValueTree makeSettingsLayoutTree() {
     root.appendChild(makeAudioDeviceSectionTree(), nullptr);
     root.appendChild(makeKeySignatureSectionTree(), nullptr);
     root.appendChild(makeKeyboardDisplaySectionTree(), nullptr);
+    root.appendChild(makeAcousticsSectionTree(), nullptr);
     root.appendChild(makeDiagnosticsSectionTree(), nullptr);
     root.appendChild(makeSaveActionSectionTree(), nullptr);
 

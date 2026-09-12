@@ -235,6 +235,8 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 4. **内化代码质量治理与全量 CI 门禁纳入（Phase 27-D）**：内化 UI 代码完成 C++20 规范现代化（`override`、`noexcept`、`const-ref`），移除静态分析豁免，与业务代码统一享有零警告检验；
 5. **全系统功能回归、三闸门闭环与发布打包（Phase 27-E）**：63 个测试套件、12,668+ 单元测试断言 100% 绿灯，WSL 与 Windows MSVC 双端双配置编译 0 错误，分发包打包成功，GitHub Actions 五大门禁 100% 通过合入 `main`。
 
+详细完成记录见 [`../archive/phase27-juce9-upgrade-and-ui-internalization.md`](../archive/phase27-juce9-upgrade-and-ui-internalization.md)。
+
 ### Phase 28：Devpiano 声明式 UI 基础设施深度治理与接口冻结（Declarative UI Infrastructure Governance & API Freeze） [已完成，2026-09-03]
 
 1. **API 边界收敛与 ViewHost 门面构建（Phase 28-A）**：封装 `ViewHost`，彻底隔离业务代码对底层 `Interpreter` / `GuiItem` 的裸露直接依赖与析构 UAF 风险 [已完成，2026-09-03]；
@@ -242,12 +244,37 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 3. **通用死重清理与规范化命名规整（Phase 28-C）**：剔除 JIVE 内嵌单测与孤立算法死代码（累计清除 7,470 行），统一宏前缀（`DEVPIANO_UI_*`）与命名空间（`devpiano::ui`）[已完成，2026-09-03]；
 4. **代码审查闭环与 UI 基础设施接口冻结（Phase 28-D）**：双端双配置三闸门闭环，正式确立 UI Infrastructure Freeze 冻结公约，研发重心全面重归物理建模算法 [已完成，2026-09-03]。
 
-### Phase 29：现实物理演奏交互与声学控制（Physical Voicing & Realistic Acoustic Interaction） [规划中]
+详细完成记录见 [`../archive/phase28-ui-governance-and-api-freeze.md`](../archive/phase28-ui-governance-and-api-freeze.md)。
 
-1. **琴盖开合度交互式控制（Lid Position）**：在 UI 界面接入 Full Open / Half Stick / Closed 3 级琴盖开合切换与底层 `lidAcoustics` 声学传递函数实时生效；
-2. **弱音/移位踏板物理拟真（Una Corda / Soft Pedal，CC 67）**：模拟击弦机右移 3 弦敲 2 弦与毛毡侧向软化物理机理，支持 CC 67 踏板与 UI 软踏板点亮；
-3. **触键力度曲线（Touch Velocity Curve）**：支持 Standard / Light / Heavy / Wide Dynamic 4 种按键阻尼手感映射与动态调节；
-4. **配置持久化与预设系统联动**：将琴盖开合度、Una Corda 状态与触键曲线完整纳入 `SettingsModel`、`SettingsSerialization` 与 Performance Preset 序列化。
+### Phase 29：现实物理演奏交互与声学控制（Physical Voicing & Realistic Acoustic Interaction） [已完成，2026-09-12]
+
+1. **琴盖开合度声学交互与 UI 穿透（Phase 29-A）**：在 JIVE UI 界面接入 Full Open / Half Stick / Closed 3 态直观选择，无缝驱动底层已实现的 `lidAcoustics` 多级高频滚降与近场反射，兼顾布局金标测试保护 [已完成，2026-09-12]；
+2. **弱音/移位踏板物理拟真与状态联动（Phase 29-B）**：在 `PianoSynthVoice` 中模拟三角钢琴击弦机整体右移、3 弦敲 2 弦与毛毡侧面软化的物理机理，支持 MIDI CC 67 踏板信号、电脑键盘快捷触发与 UI 软踏板状态点亮 [已完成，2026-09-12]；
+3. **触键力度曲线自适应映射（Phase 29-C）**：在 `KeyboardMidiMapper` / 输入层提供 Standard（线性）、Light（轻触感）、Heavy（重阻尼）、Wide Dynamic（宽动态 S 曲线）4 种手感映射，自适应薄膜/机械键盘及 MIDI 键盘 [已完成，2026-09-12]；
+4. **声学配置持久化与预设系统全量联动（Phase 29-D）**：将琴盖开合度、Una Corda 默认态与触键曲线完整纳入 `SettingsModel`、`SettingsStore` 与 Performance Preset（`.devpiano.preset` JSON）序列化，确保向后兼容 [已完成，2026-09-12]；
+5. **声学精调、三闸门闭环与构建验证（Phase 29-E）**：全套 71 套件单测 100% 绿灯闭环，三闸门合规，双平台 MSVC / Linux 编译与打包验证，实机演奏手感与声学回归 [已完成，2026-09-12]。
+
+详细完成记录见 [`../roadmap/current-iteration.md`](current-iteration.md)。
+
+### Phase 30：历史调律体系与高阶微音律（Historical Temperaments & Microtonality） [规划中]
+
+1. **古典历史调律与平均律拓展**：支持十二平均律、纯律、毕达哥拉斯律、中庸全音律、魏克迈斯特律 III、基恩伯格律 III，在物理弦模态基频链路上实时计算微音分偏移；
+2. **Scala (.scl / .kbm) 调律文件导入**：支持微音律国际标准 Scala 文件解析与自定义音程映射；
+3. **A4 基准音高自由微调**：支持 415.0 Hz（巴洛克）、432.0 Hz、440.0 Hz（标准）、442.0 Hz 自由调节。
+
+### Phase 31：多视角空间声学与麦克风拾音摆位（Multi-Mic Spatial Acoustics & Room Modeling） [规划中]
+
+1. **多视角立体声场（Player vs Audience Perspective）**：演奏者主观视角（宽立体声、左低右高）与观众/音乐厅视角切换；
+2. **近场麦克风多通道混合（Close Mic Placement）**：模拟音板上方双指向性麦克风距离与角度；
+3. **物理空间早期反射与混响尾音**：可调空间体积与混响湿声比，支持离线高保真双耳立体声导出。
+
+### Phase 32：机械物理噪声与琴体微衰退拟真（Mechanical Action Noise & Physical Imperfection） [规划中]
+
+1. **琴键释放与制音器下落敲击声（Key Release & Damper Drop Thump）**；
+2. **踏板动作机械气流与箱体共鸣（Pedal Up/Down Whoosh & Resonance Shock）**；
+3. **调音离散度与琴槌毛毡微老化物理扰动（Inharmonicity Jitter & Felt Ageing）**。
+
+---
 
 ## 4. 主要风险与应对
 

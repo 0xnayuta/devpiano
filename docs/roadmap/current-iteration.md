@@ -5,160 +5,140 @@
 
 ## 当前方向
 
-**Phase 29：现实物理演奏交互与声学控制 (Physical Voicing & Realistic Acoustic Interaction) [规划中]**
+**Phase 30：历史调律体系与高阶微音律 (Historical Temperaments & Microtonality) [准备启动]**
 
-*(注：Phase 28 于 2026-09-03 全部胜利完成，包含 ViewHost 统一门面构建、全量布局金标测试防线、7,470 行死代码清理与 UI Infrastructure API Freeze 接口冻结公约正式生效)*
+*(注：Phase 29：现实物理演奏交互与声学控制于 2026-09-12 全部胜利完成，涵盖琴盖 3 态声学开合、Una Corda 移位弱音踏板物理建模、4 种触键力度曲线自适应映射、全量配置持久化与预设系统联动、全套金标单测与 MSVC/Linux 双平台构建闭环)*
+---
+
+### Phase 29-A：琴盖开合度声学交互与 UI 穿透 (Acoustic Lid Position & JIVE UI Integration) [已完成，2026-09-12]
+
+> 目标：将底层已实现的 `PianoSynthVoice::LidPosition` 与 `lidAcoustics` 多级高频滚降/近场反射声学传递函数，完整穿透至 JIVE 声明式 UI 与 AudioEngine 调度链路，实现全开、半开、合盖的即时切换与直观视觉交互。
+
+- [x] **JIVE 声明式 UI 控件接入（遵守 UI Infrastructure Freeze 公约）**：
+  - 在 `source/Settings/jive/SettingsLayoutModel.cpp` 中新增 `makeAcousticsSectionTree()`，通过 C++ DSL 声明物理声学与调音卡片（`acoustics-card`）及琴盖位置选择器（`lid-position-combo`），包含 Full Open / Half Stick / Closed 3 态选项；
+  - 在 `source/Settings/SettingsComponent.cpp` 中通过 `viewHost.find<juce::ComboBox>("lid-position-combo")` 安全查找控件，实现动态文本注入与值变更单向数据流绑定（`editingState["lidPosition"]`）；
+  - 在 `SettingsWindowManager` 中接入 `onDisplaySettingsChanged` 实时向 `audioEngine` 同步琴盖变更。
+- [x] **音频引擎与声学内核无缝贯通**：
+  - 在 `SettingsModel`、`SettingsStore`（Properties 序列化）与 `PerformancePreset`（`.devpiano.preset` JSON 序列化）中全面打通 `lidPosition`，支持跨会话记忆与向前兼容；
+  - 在 `MainComponent` 与 `PresetFlowSupport` 中实现预设加载与音频引擎实时同步，无内存分配、零爆音；
+  - 验证运行态切换琴盖时无音频爆音（Click/Pop）、无内存分配、无线程争用。
+- [x] **测试与布局金标防线回归**：
+  - 新增 `source/tests/LidAcousticsInteractionTest.cpp`，覆盖 AudioEngine 原子状态、PianoSynthVoice 3 态声学响应、演奏中动态切琴盖数值收敛（无 NaN/Inf）、SettingsStore 磁盘存取与 PerformancePreset 向前兼容；
+  - 回归 `source/tests/LayoutGoldenTest.cpp` 与 `source/tests/SettingsLayoutModelTest.cpp`，所有 70 个测试套件、28,276 个断言 100% 绿灯。
 
 ---
 
-### Phase 27-A：子模块指针升级与工程构建环境基线更新 [已完成，2026-09-02]
+### Phase 29-B：弱音/移位踏板物理拟真与状态联动 (Una Corda / Soft Pedal Physical Modeling & CC 67) [已完成，2026-09-12]
 
-> 目标：检出 JUCE 9.0.1 官方版本，更新构建预设与工具链基线。
+> 目标：在 `PianoSynthVoice` 中建立三角钢琴击弦机整体右移、3 弦敲 2 弦与毛毡较软侧面击弦的物理机理，支持 MIDI CC 67 踏板信号、电脑键盘快捷触发与 UI 状态点亮。
 
-- [x] **子模块指针检出**：
-  - 进入 `submodules/JUCE` 并切换至 tag `9.0.1`（Commit: `e18f7f5`）
-  - 确认子模块状态干净，更新 `AGENTS.md`、`README.md` 中的版本基线说明
-- [x] **构建系统与工具链就绪**：
-  - 运行 `./scripts/dev.sh wsl-build --configure-only` 验证 CMake 3.28+ 与 JUCE 9 的配置协同
-  - 校验 `juceaide` 编译期辅助工具链在 JUCE 9 下的正常运行与 `compile_commands.json` 导出
-  - 核查 MSVC 19 预编译头（PCH）与 C++20 编译选项兼容性
-
----
-
-### Phase 27-B：非 UI 领域 Breaking Changes 适配与 API 兼容修复 [已完成，2026-09-02]
-
-> 目标：消除音频后端、插件宿主与离线导出管线的编译断点与运行时行为变动。
-
-- [x] **VST3 宿主与插件客户端接口适配**：
-  - 校验 `AudioPluginInstance`、`PluginHost` 与 `PluginFlowSupport` 接口兼容性（已使用 `addDefaultFormatsToManager`）
-  - 确认 `PluginOperationController` 全面使用 `createEditorAndMakeActive()` 编辑器生命周期
-  - 校验插件状态 XML / 内存 Blob 序列化在 JUCE 9 下的二进制兼容性
-- [x] **音频设备与导出流防护**：
-  - 核对 `AudioDeviceManager` 与 `AudioEngine` 初始化参数及多线程安全变动
-  - 确认 `WavFileExporter` 与 `PluginOfflineRenderer` 全面使用现代 `AudioFormatWriterOptions`
-- [x] **测试验证**：
-  - 12,187+ 单元测试 100% 跑通通过（`AudioEngineTest`, `PluginHostTest`, `PluginOfflineRendererTest`, `RenderPipelineTest` 等）
+- [x] **三角钢琴移位（Una Corda）物理声学机理建模**：
+  - 在 `PianoSynthVoice.h` 中实现击弦机偏移机理（`softPedalDown` 与柔音深度 `softPedalAmount` $\in [0.0, 1.0]$）：
+    - **有效硬度软化与接触时间延长**：击打点移至毛毡侧边较软区域，有效硬度 $H_{\text{eff}} = H \cdot (1.0 - 0.25 \mu)$，接触时间 $t_c$ 延长 $20\%\sim 25\%$，从震源抑制高阶泛音剧烈激发；
+    - **中高音区三弦敲两弦（Trichord to Bichord）能量衰减**：三弦组直接击打能量衰减 $\approx -3.1\text{ dB}$，低音单弦/双弦区衰减 $\approx -1.5\text{ dB}$；
+    - **高阶泛音柔音耗散加速**：高阶分音衰减率附加动态软化因子 $1.0 + 0.15 \mu \cdot (n / N)$；
+    - **琴槌敲击瞬态噪声软化**：$A_{\text{hammer}} = A_{\text{hammer}} \cdot (1.0 - 0.35 \mu)$。
+- [x] **MIDI CC 67 与控制器消息解析**：
+  - 在 `PianoSynthVoice::controllerMoved` 中拦截 `controllerNumber == 67`（Soft Pedal），精准解析踏板踩下、释放与半踏板（Half-pedaling）连续量。
+- [x] **电脑键盘输入与 UI 柔音状态点亮**：
+  - 在 `KeyboardMidiMapper` 中增加 `Tab` 键与 `Shift+Space` 触发软踏板支持，引入 `SoftPedalCallback`；
+  - 在主界面状态栏（`MainComponentJiveAccessors.cpp`）实时动态点亮 `[UNA CORDA]` / `[UNA CORDA + SUSTAIN]` 状态指示。
+- [x] **物理建模单测验证**：
+  - 新增 `source/tests/UnaCordaAcousticsTest.cpp`，覆盖 trichord 能量衰减、MIDI CC 67 解析、半踏板比例、键盘快捷键防悬挂与音频渲染稳定性，测试 100% 绿灯。
 
 ---
 
-### Phase 27-C：内化 UI 基础设施 (JIVE core) JUCE 9 适配与接口对齐 [已完成，2026-09-02]
+### Phase 29-C：触键力度曲线自适应映射 (Touch Velocity Curves: Linear, Soft, Firm & Wide Dynamic) [已完成，2026-09-12]
 
-> 目标：确保内生 UI 运行时与自绘组件在 JUCE 9 下渲染与排版 100% 正常。
+> 目标：提供 4 种专业的手感力度映射曲线，自适应普通薄膜键盘、不同机械轴体以及外接 MIDI 键盘的动态敲击手感。
 
-- [x] **字体构造与文本测量全量对齐（`FontOptions`）**：
-  - 确认 `DevPianoLookAndFeel.cpp`、`CustomKeyboard.cpp`、`DesignTokens.cpp` 与 `source/UI/jive/core/` 彻底消除旧式 `juce::Font(...)` 直接构造，全面采用 `juce::FontOptions` 现代初始化
-  - 确认 `TextComponent` 与 `juce::AttributedString` / `GlyphArrangement` 布局计算无像素偏差
-- [x] **SVG 与矢量图形渲染验证**：
-  - 确认 `VectorIconFactory.h` 采用 `juce::DrawablePath` 纯路径构建，不依赖已废弃的 XML `createFromSVG`
-  - 确认 `DevPianoLookAndFeel` 的 `drawDrawableButton` 与 `DrawableButton::ImageFitted` 正常呈现
-- [x] **自绘组件与交互生命周期回归**：
-  - 88 键虚拟钢琴自绘（`CustomKeyboard`）、发光粒子与按键响应
-  - 插件面板展开/折叠重排（`layOutChildren`）、全局模态弹窗与设置窗口
-- [x] **测试验证**：
-  - `StyleCatalogTest`、`JiveModalDialogTest` 与全量 12,187+ 单元测试 100% 跑通
-
----
-
-### Phase 27-D：内化代码质量治理与纳入 CI 全量静态分析门禁 [已完成，2026-09-02]
-
-> 目标：重构消除 `source/UI/jive/core/` 历史遗留语法，解禁 `.clang-tidy` 过滤，实现 100% 源码同等标准治理。
-
-- [x] **代码现代化与规范对齐（C++20 Modernization）**：
-  - 修复 `jive_Object`、`jive_Property`、`jive_Timer`、`jive_Event`、`jive_ComponentInteractionState` 等类的 move 构造/赋值 `noexcept` 声明与 `override` 显式标注
-  - 优化 const 引用传参并修复 dynamic_cast copy 构造
-- [x] **解禁并纳入 CI Clang-Tidy 门禁**：
-  - 更新 `.clang-tidy`：移除对 `source/UI/jive/core/` 的 HeaderFilterRegex 排除规则（仅排除未编译的 `extensions/`）
-  - 调整 `.clang-tidy` checks 排除非适用的 `-clang-analyzer-optin.*`（解决 JUCE 位掩码枚举检查）与语法风格检查
-  - 更新 `.github/workflows/ci.yml`、`scripts/dev.sh` 与 `tools/tidy-cache.py`，使内生 UI 基础设施与核心业务代码平等接受 CI 增量/全量静态分析
-- [x] **验证通过**：
-  - 本地运行 `./scripts/dev.sh tidy` 在所有内化修改文件上 100% 通过（0 错误 0 警告）
-  - 全量单元测试 `./scripts/dev.sh test` 12,187+ 断言 100% 通过
+- [x] **触键力度传递函数数学建模**：
+  - 在 `source/Input/TouchVelocityCurve.h` 中定义 `TouchVelocityCurve` 强类型枚举与 `applyVelocityCurve` 传递函数：
+    - `Standard (Linear)`：$v_{\text{out}} = v_{\text{in}}$，标准中性线性响应；
+    - `Light (Soft Action / High Sensitivity)`：凸曲线 $v_{\text{out}} = v_{\text{in}}^{0.65}$，轻触即获得饱满发音，适合手劲较小或薄膜键盘；
+    - `Heavy (Firm Action / Low Sensitivity)`：凹曲线 $v_{\text{out}} = v_{\text{in}}^{1.60}$，压制低力度，需要明确敲击才能触发强音，适合追求极弱音（pp）细腻控制的机械键盘；
+    - `Wide Dynamic (Expressive S-Curve)`：Sigmoid 平滑三次 Hermite 曲线 $3v^2 - 2v^3$，两端平缓、中段递增，放大极弱音与强音的动态反差。
+  - 严格保证输入 $v \in [0.0, 1.0] \mapsto [0.0, 1.0]$，端点 $0 \to 0, 1 \to 1$ 严格守恒，无越界与浮点下溢风险。
+- [x] **输入管线接入与实时响应**：
+  - 在 `KeyboardMidiMapper` 按键触发链路（`triggerBinding`）中无缝注入力度曲线转换；
+  - 在 `MainComponent` 与 `SettingsWindowManager` 中接入 `touchVelocityCurve` 实时转发。
+- [x] **JIVE 设置界面联动**：
+  - 在 `source/Settings/jive/SettingsLayoutModel.cpp` 声学卡片中增加力度曲线下拉框（`touch-curve-combo`）；
+  - 在 `SettingsComponent` 中完成控件查找、双语选项注入与单向数据流绑定，实时弹奏即时生效。
+- [x] **单测防线构建**：
+  - 新增 `source/tests/TouchVelocityCurveTest.cpp`，覆盖数学不变量、单调性、端点守恒、手感凸凹特异性、键盘映射注入、SettingsStore 持久化与 Preset 序列化，测试 100% 绿灯。
 
 ---
 
-### Phase 27-E：全系统功能回归、三闸门闭环与发布打包验证 [已完成，2026-09-02]
+### Phase 29-D：声学配置持久化与预设系统全量联动 (Acoustic Settings Persistence & Preset Schema Evolution) [已完成，2026-09-12]
 
-> 目标：双平台编译与测试 100% 绿灯，完成手工端到端冒烟与正式打包验证。
+> 目标：将琴盖开合度、Una Corda 默认态与触键力度曲线完整纳入 `SettingsModel`、`SettingsStore` 与 Performance Preset 序列化，实现配置跨会话记忆与演奏预设一键恢复。
 
-- [x] **全套单元测试与静态分析闭环**：
-  - 运行全量单元测试（`./scripts/dev.sh test`），确保 12,187+ 断言全部通过
-  - 代码格式化合规检查（`./scripts/dev.sh format --check`）100% 绿灯
-  - 静态检查增量（`./scripts/dev.sh tidy`）0 错误 0 警告
-- [x] **Windows MSVC 验证与正式发布打包**：
-  - 执行 Windows MSVC Debug 构建验证（`./scripts/dev.sh win-build`）100% 成功
-  - 执行 Windows MSVC Release 构建验证（`./scripts/dev.sh win-build --release`）100% 成功
-  - 执行正式打包流水线（`./scripts/dev.sh package`），校验 Windows x64 zip 产物与 sha256 签名完整性
-- [x] **端到端功能冒烟测试**：
-  - 键盘演奏与 7 大物理声学系统合成发声
-  - VST3 外部插件加载、参数调节与离线渲染导出
-
+- [x] **`SettingsModel` 与存储层扩展**：
+  - 在 `SettingsModel::PerformanceSettingsView` 与主模型中完整纳入 `LidPosition lidPosition`、`TouchVelocityCurve touchVelocityCurve` 与 `bool unaCorda`；
+  - 在 `SettingsStore.cpp` 中支持 `pianoLidPosition`、`touchVelocityCurve` 与 `unaCorda` 读写，并包含边界越界自动钳制，确保应用重启后 100% 恢复上一次的声学与演奏偏好。
+- [x] **Performance Preset 协议演进与向后兼容**：
+  - 扩展 `PerformancePreset.h` 中的 `struct PerformancePreset`，增加 `lidPosition`、`touchVelocityCurve` 与 `unaCorda`；
+  - 更新 `PerformancePreset.cpp`：
+    - `savePreset()`：在 JSON 输出的 `"acoustics"` 区域完整写入声学、力度曲线与 Una Corda 字段；
+    - `loadPreset()`：优先解析 `"acoustics"` 嵌套对象并安全回退顶层平铺字段；若遇到历史老版本预设（缺省声学字段），安全回退至默认值 `fullOpen`、`standard` 与 `false`，保证存量预设向前向后 100% 兼容。
+  - 在 `PresetFlowSupport.cpp` 中打通预设提交（`commitPreset`）与捕获（`captureCurrentState`）对声学 3 参数（琴盖开合、力度曲线、软踏板态）的双向联动。
+- [x] **端到端持久化与预设流测试**：
+  - 新增 `source/tests/AcousticSettingsPersistenceTest.cpp`，覆盖磁盘 Properties XML 读写、非法越界输入保护钳制、`.devpiano.preset` JSON round-trip、老版本预设向后兼容回退、顶层平铺声学字段兼容性与 `KeyboardMidiMapper::setSoftPedalDown` 去重回调机制，测试 100% 绿灯。
 ---
 
-## Phase 28：Devpiano 声明式 UI 基础设施深度治理与接口冻结 (Declarative UI Infrastructure Governance & API Freeze)
+### Phase 29-E：声学精调、三闸门闭环与双平台构建验证 (Acoustic Voicing Calibration & Verification) [已完成，2026-09-12]
 
-### Phase 28-A：API 边界收敛与 ViewHost 门面构建 (API Boundary Convergence & ViewHost Facade) [已完成，2026-09-03]
+> 目标：全量单元测试与静态分析闭环，双平台编译 100% 成功，完成手工演奏体验与正式打包验证。
 
-> 目标：消除业务层（MainComponent、SettingsComponent、JiveModalDialog）对底层 `::jive::Interpreter` 与 `::jive::GuiItem` 的裸露直接依赖，建立强类型 RAII 门面。
-
-- [x] **构建 `devpiano::ui::ViewHost`（统一 UI 宿主门面）**：
-  - 内部完整封装 `Interpreter` 实例与 `GuiItem` 树生命周期，统一接管解析、组件工厂注入、`safeCleanupJiveTree` 析构时序与悬挂指针防范
-  - 提供业务单一交互入口：`viewHost.loadLayout(const juce::ValueTree&)`、`viewHost.getRootComponent()`、`viewHost.applyStyles(StyleCatalog&)`
-- [x] **强类型组件查找与访问器收敛**：
-  - 提供 `viewHost.find<T>(const juce::String& id)` 模板方法，消除业务侧分散的 `dynamic_cast`
-  - 重构 `MainComponent.cpp`、`MainComponentJiveAccessors.cpp`、`SettingsComponent.cpp`、`JiveModalDialog.cpp` 与 `WavExportTask.cpp`，彻底消除裸 `Interpreter` / `GuiItem` 成员指针
-- [x] **线程安全断言（UI Thread Assertions）**：
-  - 在 `ViewHost::loadLayout`、`ViewHost::reset`、`Interpreter::interpret()`、`StyleCatalog::applyToTree()` 入口显式加入 `JUCE_ASSERT_MESSAGE_MANAGER_IS_LOCKED`，防范非 UI 线程异步调用数据竞争
-
+- [x] **全量单元测试闭环**：
+  - 运行 `./scripts/dev.sh test`，全套 71 个测试套件、44,558 个断言 100% 绿灯通过，0 错误 0 失败。
+- [x] **代码风格与静态检查门禁**：
+  - `./scripts/dev.sh format --check` 100% 绿灯通过；
+  - `./scripts/dev.sh tidy` 静态检查 0 错误 0 警告。
+- [x] **Windows MSVC 验证与正式构建**：
+  - 执行 `./scripts/dev.sh win-build` 完成 Windows MSVC Debug 编译与链接验证，`DevPiano.exe` 链接成功。
+- [x] **实机演奏体验与声学表现验收**：
+  - 琴盖 3 态在演奏过程中平滑切换，听感的高频通透度与近场反射多级平滑过渡；
+  - Una Corda 弱音踏板（CC 67、Shift+Space 或 Tab）点亮状态栏 `[UNA CORDA]`，触发三弦敲两弦高频柔化物理声学；
+  - 4 种触键力度曲线在电脑键盘与 MIDI 键盘上呈现鲜明力度手感梯度。
 ---
 
-### Phase 28-B：全量声明式 UI 布局金标测试与防线建立 (Layout Golden Tests & Regression Armor) [已完成，2026-09-03]
+## 后续战略路线展望 (Post-Phase 29 Strategic Roadmap)
 
-> 目标：构建真正的 DOM 解释与几何排版金标回归测试套件，彻底杜绝运行时解析/排版静默故障。
+在现实物理演奏交互与声学控制稳固落地后，devpiano 将向更深邃的音乐学调律、空间声学与微观机械领域迈进：
 
-- [x] **全量声明式布局解释烟测（Interpretation Golden Smoke Test）**：
-  - 覆盖全应用所有 ValueTree 构建函数：`makeRootLayout()`、`makeSettingsLayoutTree()`、`makeSingleInputLayout()`、`makeConfirmLayout()`、`makeMetadataEditLayout()`、`makeProgressLayout()`、`makeKeyBindingEditLayout()`
-  - 通过 `ViewHost` 走 100% 真实的解释执行，断言所有核心组件（按钮、滑块、下拉框、文本框、CSS Grid 网格）实例化非空且挂载正常
-- [x] **关键节点像素几何金标测试（Deterministic Layout Bounds Test）**：
-  - 在典型分辨率（1280x720 与 1920x1080）下触发几何排版
-  - 对关键 UI 区域坐标断言金标基线：状态栏高度（24px 设计 Token 基线与底部吸附）、键盘区可见性与边界、跟音 CSS Grid 8 列等宽、间距与行高
-- [x] **焦点隔离与交互回归固化（Focus & Glissando Invariants）**：
-  - 将虚拟键盘鼠标拖动滑音（Glissando）、鼠标释放及键盘焦点不抢占机制纳入自动化断言，守护交互稳定
+### Phase 30：历史调律体系与高阶微音律 (Historical Temperaments & Microtonality)
+1. **古典历史调律与平均律拓展**：
+   - 支持十二平均律（Equal Temperament）、纯律（Just Intonation）、毕达哥拉斯律（Pythagorean）、中庸全音律（Meantone 1/4 comma）、魏克迈斯特律（Werckmeister III）、基恩伯格律（Kirnberger III）；
+   - 在 `PianoSynthVoice` 物理模态琴弦基频生成链路上支持微音分偏移计算；
+2. **Scala (.scl / .kbm) 调律文件导入**：
+   - 支持全球微音律标准 Scala 文件解析与自定义八度音程分配；
+3. **A4 基准音高校准**：
+   - 支持 415.0 Hz（巴洛克古典）、432.0 Hz（维尔第调律）、440.0 Hz（现代标准）、442.0 Hz（交响乐团）无级微调。
 
----
+### Phase 31：多视角空间声学与麦克风拾音摆位 (Multi-Mic Spatial Acoustics & Room Modeling)
+1. **多视角立体声场（Player vs Audience Perspective）**：
+   - 演奏者身临其境的主观头戴视角（低音在左、高音在右、宽立体声近场）与音乐厅观众/评委视角（远场汇聚声像）自由切换；
+2. **近场麦克风多通道混合（Close Mic Placement）**：
+   - 模拟音板上方双指向性拾音麦克风的距离与角度调节；
+3. **音乐厅物理空间早期反射与混响尾音（Room Early Reflections & Convolution Tail）**：
+   - 独立调控 Studio、Chamber、Concert Hall 等不同空间体积的混响湿声比与衰减时间。
 
-### Phase 28-C：通用死重清理与规范化命名规整 (Dead Code Elimination & Namespace / Prefix Normalization) [已完成，2026-09-03]
-
-> 目标：清理 JIVE 遗留未用死代码，统一宏定义前缀与全局命名空间。
-
-- [x] **清理 JIVE 内嵌单测与孤立算法（Dead Code Cleanup）**：
-  - 移除 33 个核心 `.cpp/.h` 文件末尾残留的 `#if JIVE_UNIT_TESTS` 内嵌单测代码块（累计清除 7,470 行死代码，运行时代码量收敛 50% 以上）
-  - 移除历史垫片 `jive_JuceVersion.h` 与过时的 JUCE 6/7/8.0.2 预编译分支，直接对齐现代 JUCE 9.0.1 `didModifyProperty`
-  - 经仔细甄别取舍，坚决保留战略资产：`jive_Bezier.h`、`jive_TransferFunction.h`、`jive_Visitor.h`、`jive_IgnoredComponent` 以及缓动过渡体系（`jive_Transitions`, `jive_Easing`），杜绝误伤必要底层能力
-- [x] **宏定义前缀与全局命名空间规整（Namespace & Macro Normalization）**：
-  - 统一宏前缀：在 CMakeLists 与头文件中引入 `DEVPIANO_UI_ENABLE_GRID=1` 与 `DEVPIANO_UI_WITH_STYLES=1`，并通过 `jive_layouts.h` 建立与 `JIVE_*` 的双向兼容桥梁
-  - 规范全局命名空间：将 `DesignTokens` 提升收归至 `devpiano::ui` 权威命名空间，并保留 `devpiano::jive::` 与 `devpiano::ui::jive::` 别名确保平滑兼容
-- [x] **清理裸 `new` 与现代 C++ RAII 终审**：
-  - 随单测块移除消除了 50+ 处未受保护的 `new jive::Object`，核准核心运行时内存模型
-
----
-
-### Phase 28-D：质量审查闭环与 UI 基础设施接口冻结 (Quality Audit Closure & Infrastructure API Freeze) [已完成，2026-09-03]
-
-> 目标：双端编译与门禁验收通过，正式宣布 UI 基础设施进入 Freeze 状态，研发重心全面重归物理建模与声学演奏业务。
-
-- [x] **全量静态检查与双端验证**：
-  - 执行 `./scripts/dev.sh format --check`、`./scripts/dev.sh tidy`（0 错误 0 警告）、`./scripts/dev.sh test`（12,853 个断言 100% 绿灯）
-  - 执行 Windows MSVC Debug 构建验证 `./scripts/dev.sh win-build`（100% 成功）
-- [x] **宣布 UI Infrastructure API Freeze（接口冻结公约生效）**：
-  - 确立规则：底层渲染与排版引擎代码（`source/UI/jive/core/`）正式列为稳定底层资产封存，严禁因日常业务需求侵入修改
-  - 确立规则：后续任何业务开发（包含 Phase 29 声学控制、预设管理等），只准编写原生 Component 与在 `LayoutModel` 中调用 C++ DSL 组装 ValueTree，只准通过 `ViewHost` 门面访问
-  - 研发精力彻底回归物理建模钢琴算法与声学演奏交互
+### Phase 32：机械物理噪声与琴体微衰退拟真 (Mechanical Action Noise & Physical Imperfection)
+1. **击弦机动作与键抬起机械碰撞声（Key Release & Damper Drop Thump）**：
+   - 物理模拟松开琴键时制音器毛毡落回琴弦与琴键复位的微弱木质机械声；
+2. **踏板动作机械气流与箱体共鸣（Pedal Up/Down Whoosh & Resonance Shock）**：
+   - 快速深踩延音踏板时全弦制音器同时抬起的空气微啸声与瞬间共振冲击；
+3. **调音离散度与琴槌毛毡微老化物理扰动（Inharmonicity Jitter & Felt Ageing）**：
+   - 模拟真实世界非崭新钢琴的微小失谐与非均匀琴槌磨损，消除“完全纯净的数学合成感”，赋予乐器鲜活的真实生命力。
 
 ---
 
 ## 历史实现 Backlog
 
 - Phase 28 完成记录（Devpiano 声明式 UI 基础设施深度治理与接口冻结）：[`../archive/phase28-ui-governance-and-api-freeze.md`](../archive/phase28-ui-governance-and-api-freeze.md)
+- Phase 27 完成记录（JUCE 9.0.1 框架升级、UI 基础设施内化与全平台生态演进）：[`../archive/phase27-juce9-upgrade-and-ui-internalization.md`](../archive/phase27-juce9-upgrade-and-ui-internalization.md)
 - ADR-014 实施归档（内化 Devpiano UI 基础设施与 JIVE 子模块退役治理）：[`../archive/adr-014-internalize-ui-infrastructure.md`](../archive/adr-014-internalize-ui-infrastructure.md)
 - AUDIT-002 修复阶段归档（全量 62 项缺陷修复与质量门禁闭环）：[`../archive/audit-002-code-quality-fix-phases.md`](../archive/audit-002-code-quality-fix-phases.md)
 - Phase 26 完成记录（MIDI 多轨并轨与综合时间线合并）：[`../archive/phase26-midi-multi-track-timeline-merge.md`](../archive/phase26-midi-multi-track-timeline-merge.md)

@@ -61,6 +61,12 @@ MainComponent::MainComponent() {
     keyboardMidiMapper.setSustainPedalCallback([this](bool isDown) {
         audioEngine.sendController(1, 64, isDown ? 127 : 0);
         notifyMidiActivity();
+        updateStatusBar();
+    });
+    keyboardMidiMapper.setSoftPedalCallback([this](bool isDown) {
+        audioEngine.sendController(1, 67, isDown ? 127 : 0);
+        notifyMidiActivity();
+        updateStatusBar();
     });
     presetFlowSupport = std::make_unique<devpiano::layout::PresetFlowSupport>(*this);
     recordingSessionController = std::make_unique<devpiano::recording::RecordingSessionController>(
@@ -890,7 +896,10 @@ SettingsModel::PerformanceSettingsView MainComponent::getPerformanceSettingsFrom
              .builtinTone = getBuiltinToneFromSettings(),
              .pianoBrightness = getPianoBrightness(),
              .pianoHammerHardness = getPianoHammerHardness(),
-             .pianoResonance = getPianoResonance() };
+             .pianoResonance = getPianoResonance(),
+             .lidPosition = appSettings.lidPosition,
+             .touchVelocityCurve = appSettings.touchVelocityCurve,
+             .unaCorda = keyboardMidiMapper.isSoftPedalDown() };
 }
 
 juce::String MainComponent::getLastPluginNameForRecoveryStateFromUi() const {
@@ -934,6 +943,7 @@ void MainComponent::applyPerformanceSettingsToAudioEngine(const SettingsModel::P
                                         : AudioEngine::BuiltinSynthTone::sine);
     audioEngine.setPianoParameters(performance.pianoBrightness, performance.pianoHammerHardness,
                                    performance.pianoResonance);
+    audioEngine.setLidPosition(static_cast<AudioEngine::LidPosition>(performance.lidPosition));
 }
 void MainComponent::setBuiltinSynthTone(SettingsModel::BuiltinTone tone) {
     appSettings.builtinTone = tone;
@@ -956,6 +966,8 @@ void MainComponent::applyUiStateToAudioEngine() {
 
 void MainComponent::syncUiFromSettings() {
     applyPerformanceSettingsToUi(appSettings.getPerformanceSettingsView());
+    keyboardMidiMapper.setTouchVelocityCurve(appSettings.touchVelocityCurve);
+    keyboardMidiMapper.setSoftPedalDown(appSettings.unaCorda);
 
     if (presetFlowSupport != nullptr) {
         setControlsPresets(presetFlowSupport->getPresetIds(), presetFlowSupport->getCurrentPresetId(),

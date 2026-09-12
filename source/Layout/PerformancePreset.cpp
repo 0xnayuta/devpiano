@@ -262,6 +262,35 @@ std::optional<PerformancePreset> loadPreset(const juce::File& path) {
 
     // --- channelMatrix ---
     preset.channelMatrix = varToChannelMatrix(obj->getProperty("channelMatrix"));
+    // --- acoustics ---
+    auto acVar = obj->getProperty("acoustics");
+    if (acVar.isObject()) {
+        if (auto* aco = acVar.getDynamicObject()) {
+            if (aco->hasProperty("lidPosition")) {
+                const auto val = static_cast<int>(aco->getProperty("lidPosition"));
+                preset.lidPosition = static_cast<SettingsModel::LidPosition>(juce::jlimit(0, 2, val));
+            }
+            if (aco->hasProperty("touchVelocityCurve")) {
+                const auto val = static_cast<int>(aco->getProperty("touchVelocityCurve"));
+                preset.touchVelocityCurve = static_cast<devpiano::input::TouchVelocityCurve>(juce::jlimit(0, 3, val));
+            }
+            if (aco->hasProperty("unaCorda")) {
+                preset.unaCorda = static_cast<bool>(aco->getProperty("unaCorda"));
+            }
+        }
+    } else {
+        if (obj->hasProperty("lidPosition")) {
+            const auto val = static_cast<int>(obj->getProperty("lidPosition"));
+            preset.lidPosition = static_cast<SettingsModel::LidPosition>(juce::jlimit(0, 2, val));
+        }
+        if (obj->hasProperty("touchVelocityCurve")) {
+            const auto val = static_cast<int>(obj->getProperty("touchVelocityCurve"));
+            preset.touchVelocityCurve = static_cast<devpiano::input::TouchVelocityCurve>(juce::jlimit(0, 3, val));
+        }
+        if (obj->hasProperty("unaCorda")) {
+            preset.unaCorda = static_cast<bool>(obj->getProperty("unaCorda"));
+        }
+    }
 
     // --- keyboard ---
     auto kbVar = obj->getProperty("keyboard");
@@ -343,6 +372,14 @@ bool savePreset(const PerformancePreset& preset, const juce::File& path) {
 
     // --- channelMatrix ---
     root->setProperty("channelMatrix", channelMatrixToVar(preset.channelMatrix));
+    // --- acoustics ---
+    {
+        juce::DynamicObject::Ptr aco = new juce::DynamicObject();
+        aco->setProperty("lidPosition", static_cast<int>(preset.lidPosition));
+        aco->setProperty("touchVelocityCurve", static_cast<int>(preset.touchVelocityCurve));
+        aco->setProperty("unaCorda", preset.unaCorda);
+        root->setProperty("acoustics", juce::var(aco));
+    }
 
     // --- keyboard ---
     {

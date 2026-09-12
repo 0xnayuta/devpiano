@@ -8,6 +8,7 @@
 
 #include "Core/KeyMapTypes.h"
 
+#include "TouchVelocityCurve.h"
 namespace devpiano::midi {
 class MidiChannelMapper;
 }
@@ -19,6 +20,7 @@ public:
     /// 键盘状态；测试可注入确定性谓词，消除桌面环境物理按键导致的误报。
     using KeyStatePredicate = std::function<bool(int keyCode)>;
     using SustainPedalCallback = std::function<void(bool isDown)>;
+    using SoftPedalCallback = std::function<void(bool isDown)>;
 
     KeyboardMidiMapper();
 
@@ -32,6 +34,11 @@ public:
     void setChannelMapper(devpiano::midi::MidiChannelMapper* mapper) noexcept;
     void setSustainPedalCallback(SustainPedalCallback callback) noexcept;
     [[nodiscard]] bool isSustainPedalDown() const noexcept;
+    void setSoftPedalCallback(SoftPedalCallback callback) noexcept;
+    [[nodiscard]] bool isSoftPedalDown() const noexcept;
+    void setSoftPedalDown(bool down);
+    void setTouchVelocityCurve(devpiano::input::TouchVelocityCurve curve) noexcept;
+    [[nodiscard]] devpiano::input::TouchVelocityCurve getTouchVelocityCurve() const noexcept;
     /// 释放所有当前按下的琴键与踏板（窗口失焦、切屏 Panic 防悬挂音）。
     void releaseAllHeldKeys(juce::MidiKeyboardState& keyboardState);
 
@@ -44,6 +51,7 @@ private:
                         bool isKeyDownEvent);
     void sendNoteOff(int midiChannel, int midiNote, float velocity, juce::MidiKeyboardState& keyboardState);
     [[nodiscard]] bool isKeyCurrentlyDown(int keyCode) const;
+    void updateSoftPedalState();
 
     devpiano::midi::MidiChannelMapper* channelMapper = nullptr;
     devpiano::core::KeyboardLayout layout;
@@ -51,4 +59,9 @@ private:
     KeyStatePredicate keyStatePredicate;
     SustainPedalCallback sustainPedalCallback;
     bool sustainPedalDown = false;
+    SoftPedalCallback softPedalCallback;
+    bool softPedalDown = false;
+    bool physicalSoftPedalHeld = false;
+    bool programmaticSoftPedal = false;
+    devpiano::input::TouchVelocityCurve touchVelocityCurve = devpiano::input::TouchVelocityCurve::standard;
 };

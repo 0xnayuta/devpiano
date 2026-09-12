@@ -202,6 +202,8 @@ void SettingsWindowManager::showFor(MainComponent& owner) {
         safe->getCustomKeyboard().setKeyboardSettings(makeKeyboardSettings(kbs, safe->appSettings.keySignature));
         safe->setInstrumentFilterVisible(kbs.showInstrumentFilter);
         safe->reconfigureChannelMapper();
+        safe->audioEngine.setLidPosition(static_cast<AudioEngine::LidPosition>(safe->appSettings.lidPosition));
+        safe->keyboardMidiMapper.setTouchVelocityCurve(safe->appSettings.touchVelocityCurve);
     };
     show({ .parent = owner,
            .deviceManager = owner.deviceManager,

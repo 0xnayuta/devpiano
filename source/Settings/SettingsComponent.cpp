@@ -68,6 +68,8 @@ void SettingsComponent::buildJiveUi() {
         fadeSpeedSlider = viewHost.find<juce::Slider>("fade-speed-slider");
         instrumentFilterToggle = viewHost.find<juce::ToggleButton>("instrument-filter-toggle");
         languageCombo = viewHost.find<juce::ComboBox>("language-combo");
+        lidPositionCombo = viewHost.find<juce::ComboBox>("lid-position-combo");
+        touchCurveCombo = viewHost.find<juce::ComboBox>("touch-curve-combo");
         diagnosticsEditor = viewHost.find<juce::TextEditor>("diagnostics-editor");
         saveButton = viewHost.find<juce::Button>("save-button");
 
@@ -275,9 +277,29 @@ void SettingsComponent::wireLocaleAndActionControls() {
     }
 }
 
+void SettingsComponent::wireAcousticControls() {
+    if (lidPositionCombo != nullptr) {
+        rebuildLidPositionCombo();
+        if (model != nullptr) {
+            lidPositionCombo->setSelectedId(1 + static_cast<int>(model->lidPosition), juce::dontSendNotification);
+        }
+        lidPositionCombo->onChange
+            = [this] { editingState.setProperty("lidPosition", lidPositionCombo->getSelectedId(), nullptr); };
+    }
+    if (touchCurveCombo != nullptr) {
+        rebuildTouchCurveCombo();
+        if (model != nullptr) {
+            touchCurveCombo->setSelectedId(1 + static_cast<int>(model->touchVelocityCurve), juce::dontSendNotification);
+        }
+        touchCurveCombo->onChange
+            = [this] { editingState.setProperty("touchVelocityCurve", touchCurveCombo->getSelectedId(), nullptr); };
+    }
+}
+
 void SettingsComponent::wireAppearanceAndLocaleControls() {
     wireAppearanceControls();
     wireLocaleAndActionControls();
+    wireAcousticControls();
 }
 
 void SettingsComponent::syncEditingStateFromModel() {
@@ -297,6 +319,12 @@ void SettingsComponent::syncEditingStateFromModel() {
     }
     if (instrumentFilterToggle != nullptr) {
         editingState.setProperty("showInstrumentFilter", model->keyboardDisplay.showInstrumentFilter, nullptr);
+    }
+    if (lidPositionCombo != nullptr) {
+        editingState.setProperty("lidPosition", 1 + static_cast<int>(model->lidPosition), nullptr);
+    }
+    if (touchCurveCombo != nullptr) {
+        editingState.setProperty("touchVelocityCurve", 1 + static_cast<int>(model->touchVelocityCurve), nullptr);
     }
     editingState.setProperty("languageCode", model->languageCode, nullptr);
     editingState.setProperty("keySignature", model->keySignature, nullptr);
@@ -345,6 +373,29 @@ void SettingsComponent::rebuildKeySignatureCombo() {
     keySignatureCombo->addItem("A", 10);
     keySignatureCombo->addItem("A# / Bb", 11);
     keySignatureCombo->addItem("B", 12);
+}
+void SettingsComponent::rebuildLidPositionCombo() {
+    if (lidPositionCombo == nullptr) {
+        return;
+    }
+    lidPositionCombo->clear(juce::dontSendNotification);
+    lidPositionCombo->addItem(TRANS("Full Open"), 1 + static_cast<int>(SettingsModel::LidPosition::fullOpen));
+    lidPositionCombo->addItem(TRANS("Half Stick"), 1 + static_cast<int>(SettingsModel::LidPosition::halfStick));
+    lidPositionCombo->addItem(TRANS("Closed"), 1 + static_cast<int>(SettingsModel::LidPosition::closed));
+}
+void SettingsComponent::rebuildTouchCurveCombo() {
+    if (touchCurveCombo == nullptr) {
+        return;
+    }
+    touchCurveCombo->clear(juce::dontSendNotification);
+    touchCurveCombo->addItem(TRANS("Standard (Linear)"),
+                             1 + static_cast<int>(devpiano::input::TouchVelocityCurve::standard));
+    touchCurveCombo->addItem(TRANS("Light (Soft Action)"),
+                             1 + static_cast<int>(devpiano::input::TouchVelocityCurve::light));
+    touchCurveCombo->addItem(TRANS("Heavy (Firm Action)"),
+                             1 + static_cast<int>(devpiano::input::TouchVelocityCurve::heavy));
+    touchCurveCombo->addItem(TRANS("Wide Dynamic (S-Curve)"),
+                             1 + static_cast<int>(devpiano::input::TouchVelocityCurve::wideDynamic));
 }
 
 void SettingsComponent::refreshTexts() {
@@ -613,6 +664,20 @@ bool SettingsComponent::applyDisplayProperty(const juce::Identifier& prop) {
     if (propName == "showInstrumentFilter") {
         model->keyboardDisplay.showInstrumentFilter = (bool)editingState[prop];
         return true;
+    }
+    if (propName == "lidPosition") {
+        const int id = editingState[prop];
+        if (id >= 1 && id <= 3) {
+            model->lidPosition = static_cast<SettingsModel::LidPosition>(id - 1);
+            return true;
+        }
+    }
+    if (propName == "touchVelocityCurve") {
+        const int id = editingState[prop];
+        if (id >= 1 && id <= 4) {
+            model->touchVelocityCurve = static_cast<devpiano::input::TouchVelocityCurve>(id - 1);
+            return true;
+        }
     }
     return false;
 }

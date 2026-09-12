@@ -26,6 +26,7 @@ public:
         testAudioDeviceSection();
         testKeySignatureSectionAndGrid();
         testKeyboardDisplaySection();
+        testAcousticsSection();
         testInterpretationAndComponentLookup();
         testFollowKeyVisibilityToggle();
         testSettingsComponentRefreshTextsPreservesScroll();
@@ -45,6 +46,7 @@ private:
         expect(findNodeById(tree, "audio-device-card").isValid());
         expect(findNodeById(tree, "key-sig-card").isValid());
         expect(findNodeById(tree, "keyboard-display-card").isValid());
+        expect(findNodeById(tree, "acoustics-card").isValid());
         expect(findNodeById(tree, "diagnostics-card").isValid());
         expect(findNodeById(tree, "save-action-row").isValid());
     }
@@ -102,6 +104,29 @@ private:
         expect(findNodeById(tree, "fade-speed-slider").isValid());
         expect(findNodeById(tree, "instrument-filter-toggle").isValid());
         expect(findNodeById(tree, "language-combo").isValid());
+    }
+    void testAcousticsSection() {
+        beginTest("makeAcousticsSectionTree: acoustic voicing options");
+
+        auto tree = devpiano::ui::jive::makeAcousticsSectionTree();
+        expect(tree.isValid());
+
+        expect(findNodeById(tree, "acoustics-title").isValid());
+        expect(findNodeById(tree, "lid-position-combo").isValid());
+        expect(findNodeById(tree, "touch-curve-combo").isValid());
+
+        // Test status bar bullet point clean encoding (no Latin-1/UTF-8 breakdown corruption)
+        {
+            const auto bullet = " " + juce::String::charToString(0x2022) + " ";
+            const juce::String sustainIndicator = bullet + "[SUSTAIN]";
+            const juce::String unaCordaIndicator = bullet + "[UNA CORDA]";
+            const juce::String combinedIndicator = bullet + "[UNA CORDA + SUSTAIN]";
+
+            expectEquals(sustainIndicator.indexOfChar(juce_wchar(0x2022)), 1);
+            expectEquals(unaCordaIndicator.indexOfChar(juce_wchar(0x2022)), 1);
+            expectEquals(combinedIndicator.indexOfChar(juce_wchar(0x2022)), 1);
+            expect(sustainIndicator.contains(juce::String::charToString(0x2022)));
+        }
     }
 
     void testInterpretationAndComponentLookup() {
@@ -177,6 +202,10 @@ private:
 
             auto* langCombo = dynamic_cast<juce::ComboBox*>(findComponentById(*rootItem, "language-combo"));
             expect(langCombo != nullptr);
+            auto* lidCombo = dynamic_cast<juce::ComboBox*>(findComponentById(*rootItem, "lid-position-combo"));
+            expect(lidCombo != nullptr);
+            auto* curveCombo = dynamic_cast<juce::ComboBox*>(findComponentById(*rootItem, "touch-curve-combo"));
+            expect(curveCombo != nullptr);
 
             auto* diagEd = dynamic_cast<juce::TextEditor*>(findComponentById(*rootItem, "diagnostics-editor"));
             expect(diagEd != nullptr);

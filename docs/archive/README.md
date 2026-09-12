@@ -32,3 +32,5 @@
 | `phase24-vitality-and-dynamic-blooming.md` | `docs/roadmap/roadmap.md`（Phase 24 摘要） |
 | `phase25-linux-desktop-and-audio-path.md` | `docs/roadmap/roadmap.md`（Phase 25 摘要） |
 | `phase26-midi-multi-track-timeline-merge.md` | `docs/roadmap/roadmap.md`（Phase 26 摘要）、`docs/reference/features/midi-file-import.md` |
+| `phase27-juce9-upgrade-and-ui-internalization.md` | `docs/roadmap/roadmap.md`（Phase 27 摘要）、`docs/decisions/ADR-014-internalize-ui-infrastructure.md` |
+| `phase28-ui-governance-and-api-freeze.md` | `docs/roadmap/roadmap.md`（Phase 28 摘要）、`docs/reference/features/declarative-ui-and-theming.md` |
