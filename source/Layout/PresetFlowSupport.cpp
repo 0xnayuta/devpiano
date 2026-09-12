@@ -141,6 +141,8 @@ void PresetFlowSupport::commitPreset(const PerformancePreset& preset) {
     // 4. Acoustics
     s.lidPosition = preset.lidPosition;
     owner.audioEngine.setLidPosition(static_cast<AudioEngine::LidPosition>(preset.lidPosition));
+    s.touchVelocityCurve = preset.touchVelocityCurve;
+    owner.keyboardMidiMapper.setTouchVelocityCurve(preset.touchVelocityCurve);
 
     // 4. Persist preset identity
     s.lastActivePresetId = preset.name;
@@ -170,6 +172,7 @@ PerformancePreset PresetFlowSupport::captureCurrentState(const juce::String& nam
     preset.customKeyLabels = owner.appSettings.keyboardDisplay.customKeyLabels;
     preset.customKeyColours = owner.appSettings.keyboardDisplay.customKeyColours;
     preset.lidPosition = owner.appSettings.lidPosition;
+    preset.touchVelocityCurve = owner.appSettings.touchVelocityCurve;
     return preset;
 }
 

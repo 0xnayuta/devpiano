@@ -252,6 +252,12 @@ juce::ValueTree makeAcousticsSectionTree() {
     lidCombo.setProperty("height", 24, nullptr);
     content.appendChild(settingRow(TRANS("Lid Position:"), lidCombo, "lid-position-label"), nullptr);
 
+    // Row 2: Touch Velocity Curve (ComboBox)
+    auto curveCombo = node("ComboBox", "touch-curve-combo");
+    curveCombo.setProperty("width", 300, nullptr);
+    curveCombo.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Touch Curve:"), curveCombo, "touch-curve-label"), nullptr);
+
     card.appendChild(content, nullptr);
     return card;
 }

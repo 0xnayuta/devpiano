@@ -82,6 +82,7 @@ public:
                 expect(host.find("follow-key-" + juce::String(ch)) != nullptr);
             }
             expect(host.find<juce::ComboBox>("lid-position-combo") != nullptr);
+            expect(host.find<juce::ComboBox>("touch-curve-combo") != nullptr);
             expect(host.find<juce::Button>("save-button") != nullptr);
         }
 

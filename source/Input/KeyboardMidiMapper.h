@@ -8,6 +8,7 @@
 
 #include "Core/KeyMapTypes.h"
 
+#include "TouchVelocityCurve.h"
 namespace devpiano::midi {
 class MidiChannelMapper;
 }
@@ -35,6 +36,8 @@ public:
     [[nodiscard]] bool isSustainPedalDown() const noexcept;
     void setSoftPedalCallback(SoftPedalCallback callback) noexcept;
     [[nodiscard]] bool isSoftPedalDown() const noexcept;
+    void setTouchVelocityCurve(devpiano::input::TouchVelocityCurve curve) noexcept;
+    [[nodiscard]] devpiano::input::TouchVelocityCurve getTouchVelocityCurve() const noexcept;
     /// 释放所有当前按下的琴键与踏板（窗口失焦、切屏 Panic 防悬挂音）。
     void releaseAllHeldKeys(juce::MidiKeyboardState& keyboardState);
 
@@ -56,4 +59,5 @@ private:
     bool sustainPedalDown = false;
     SoftPedalCallback softPedalCallback;
     bool softPedalDown = false;
+    devpiano::input::TouchVelocityCurve touchVelocityCurve = devpiano::input::TouchVelocityCurve::standard;
 };

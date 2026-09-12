@@ -530,6 +530,7 @@ if (BUILD_TESTS)
         source/tests/LayoutGoldenTest.cpp
         source/tests/LidAcousticsInteractionTest.cpp
         source/tests/UnaCordaAcousticsTest.cpp
+        source/tests/TouchVelocityCurveTest.cpp
         ${DEVPIANO_JIVE_CORE_SOURCES}
     )
     target_link_libraries(devpiano_tests PRIVATE

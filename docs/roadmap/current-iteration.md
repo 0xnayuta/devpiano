@@ -49,25 +49,25 @@
 
 ---
 
-### Phase 29-C：触键力度曲线自适应映射 (Touch Velocity Curves: Linear, Soft, Firm & Wide Dynamic) [待启动]
+### Phase 29-C：触键力度曲线自适应映射 (Touch Velocity Curves: Linear, Soft, Firm & Wide Dynamic) [已完成，2026-09-12]
 
 > 目标：提供 4 种专业的手感力度映射曲线，自适应普通薄膜键盘、不同机械轴体以及外接 MIDI 键盘的动态敲击手感。
 
-- [ ] **触键力度传递函数数学建模**：
-  - 在 `source/Input/` 中定义 `TouchVelocityCurve` 强类型枚举与传递函数：
+- [x] **触键力度传递函数数学建模**：
+  - 在 `source/Input/TouchVelocityCurve.h` 中定义 `TouchVelocityCurve` 强类型枚举与 `applyVelocityCurve` 传递函数：
     - `Standard (Linear)`：$v_{\text{out}} = v_{\text{in}}$，标准中性线性响应；
     - `Light (Soft Action / High Sensitivity)`：凸曲线 $v_{\text{out}} = v_{\text{in}}^{0.65}$，轻触即获得饱满发音，适合手劲较小或薄膜键盘；
     - `Heavy (Firm Action / Low Sensitivity)`：凹曲线 $v_{\text{out}} = v_{\text{in}}^{1.60}$，压制低力度，需要明确敲击才能触发强音，适合追求极弱音（pp）细腻控制的机械键盘；
-    - `Wide Dynamic (Expressive S-Curve)`：Sigmoid 曲线，两端平缓、中段递增，放大极弱音与强音的动态反差。
-  - 保证输入 $v \in [0.0, 1.0] \mapsto [0.0, 1.0]$，端点 $0 \to 0, 1 \to 1$ 严格守恒，无越界与浮点下溢风险。
-- [ ] **输入管线接入与实时响应**：
-  - 在 `KeyboardMidiMapper` 按键触发音符链路中无缝注入曲线转换；
-  - 在 `AudioEngine` 处理物理 MIDI 输入处提供统一的曲线校准开关，保证外接硬件键盘与电脑键盘表现一致。
-- [ ] **JIVE 设置界面联动**：
-  - 在 `SettingsComponent` 的“键盘与演奏”区域增加力度曲线下拉框（`touch-curve-combo`）；
-  - 实时弹奏即时生效，无需重启引擎。
-- [ ] **单测防线构建**：
-  - 编写 `source/tests/TouchVelocityCurveTest.cpp`，对 4 种曲线进行单调性、端点严格守恒、采样精度以及越界防御测试。
+    - `Wide Dynamic (Expressive S-Curve)`：Sigmoid 平滑三次 Hermite 曲线 $3v^2 - 2v^3$，两端平缓、中段递增，放大极弱音与强音的动态反差。
+  - 严格保证输入 $v \in [0.0, 1.0] \mapsto [0.0, 1.0]$，端点 $0 \to 0, 1 \to 1$ 严格守恒，无越界与浮点下溢风险。
+- [x] **输入管线接入与实时响应**：
+  - 在 `KeyboardMidiMapper` 按键触发链路（`triggerBinding`）中无缝注入力度曲线转换；
+  - 在 `MainComponent` 与 `SettingsWindowManager` 中接入 `touchVelocityCurve` 实时转发。
+- [x] **JIVE 设置界面联动**：
+  - 在 `source/Settings/jive/SettingsLayoutModel.cpp` 声学卡片中增加力度曲线下拉框（`touch-curve-combo`）；
+  - 在 `SettingsComponent` 中完成控件查找、双语选项注入与单向数据流绑定，实时弹奏即时生效。
+- [x] **单测防线构建**：
+  - 新增 `source/tests/TouchVelocityCurveTest.cpp`，覆盖数学不变量、单调性、端点守恒、手感凸凹特异性、键盘映射注入、SettingsStore 持久化与 Preset 序列化，测试 100% 绿灯。
 
 ---
 

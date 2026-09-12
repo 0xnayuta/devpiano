@@ -270,10 +270,20 @@ std::optional<PerformancePreset> loadPreset(const juce::File& path) {
                 const auto val = static_cast<int>(aco->getProperty("lidPosition"));
                 preset.lidPosition = static_cast<SettingsModel::LidPosition>(juce::jlimit(0, 2, val));
             }
+            if (aco->hasProperty("touchVelocityCurve")) {
+                const auto val = static_cast<int>(aco->getProperty("touchVelocityCurve"));
+                preset.touchVelocityCurve = static_cast<devpiano::input::TouchVelocityCurve>(juce::jlimit(0, 3, val));
+            }
         }
-    } else if (obj->hasProperty("lidPosition")) {
-        const auto val = static_cast<int>(obj->getProperty("lidPosition"));
-        preset.lidPosition = static_cast<SettingsModel::LidPosition>(juce::jlimit(0, 2, val));
+    } else {
+        if (obj->hasProperty("lidPosition")) {
+            const auto val = static_cast<int>(obj->getProperty("lidPosition"));
+            preset.lidPosition = static_cast<SettingsModel::LidPosition>(juce::jlimit(0, 2, val));
+        }
+        if (obj->hasProperty("touchVelocityCurve")) {
+            const auto val = static_cast<int>(obj->getProperty("touchVelocityCurve"));
+            preset.touchVelocityCurve = static_cast<devpiano::input::TouchVelocityCurve>(juce::jlimit(0, 3, val));
+        }
     }
 
     // --- keyboard ---
@@ -360,6 +370,7 @@ bool savePreset(const PerformancePreset& preset, const juce::File& path) {
     {
         juce::DynamicObject::Ptr aco = new juce::DynamicObject();
         aco->setProperty("lidPosition", static_cast<int>(preset.lidPosition));
+        aco->setProperty("touchVelocityCurve", static_cast<int>(preset.touchVelocityCurve));
         root->setProperty("acoustics", juce::var(aco));
     }
 

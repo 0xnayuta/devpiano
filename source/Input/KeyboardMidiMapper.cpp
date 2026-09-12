@@ -50,6 +50,13 @@ void KeyboardMidiMapper::setSoftPedalCallback(SoftPedalCallback callback) noexce
 bool KeyboardMidiMapper::isSoftPedalDown() const noexcept {
     return softPedalDown;
 }
+void KeyboardMidiMapper::setTouchVelocityCurve(devpiano::input::TouchVelocityCurve curve) noexcept {
+    touchVelocityCurve = curve;
+}
+
+devpiano::input::TouchVelocityCurve KeyboardMidiMapper::getTouchVelocityCurve() const noexcept {
+    return touchVelocityCurve;
+}
 
 void KeyboardMidiMapper::resetToDefaultLayout() {
     setLayout(makeDefaultKeyboardLayout());
@@ -204,7 +211,9 @@ bool KeyboardMidiMapper::triggerBinding(const KeyBinding& binding, juce::MidiKey
 
     const auto midiChannel = binding.action.getMidiChannel().value; // 1-based
     const auto midiNote = binding.action.getMidiNoteNumber().value;
-    const auto velocity = binding.action.getVelocity().value;
+    const auto rawVelocity = binding.action.getVelocity().value;
+    const auto velocity
+        = isKeyDownEvent ? devpiano::input::applyVelocityCurve(rawVelocity, touchVelocityCurve) : rawVelocity;
 
     if (channelMapper != nullptr) {
         // Convert 1-based binding channel to 0-based matrix input channel

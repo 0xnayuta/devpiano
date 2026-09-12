@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../Input/TouchVelocityCurve.h"
 #include "../Midi/ChannelMatrix.h"
 #include "../UI/KeyboardTypes.h"
 #include <juce_audio_basics/juce_audio_basics.h>
@@ -50,6 +51,7 @@ struct SettingsModel {
         float pianoHammerHardness = 0.50f;
         float pianoResonance = 0.50f;
         LidPosition lidPosition = LidPosition::fullOpen;
+        devpiano::input::TouchVelocityCurve touchVelocityCurve = devpiano::input::TouchVelocityCurve::standard;
     };
 
     struct PluginRecoverySettingsView {
@@ -85,6 +87,7 @@ struct SettingsModel {
     float pianoHammerHardness = 0.50f;
     float pianoResonance = 0.50f;
     LidPosition lidPosition = LidPosition::fullOpen;
+    devpiano::input::TouchVelocityCurve touchVelocityCurve = devpiano::input::TouchVelocityCurve::standard;
 
     // Persisted ,UI recovery state.
     juce::String pluginSearchPath;
@@ -138,7 +141,8 @@ struct SettingsModel {
                  .pianoBrightness = pianoBrightness,
                  .pianoHammerHardness = pianoHammerHardness,
                  .pianoResonance = pianoResonance,
-                 .lidPosition = lidPosition };
+                 .lidPosition = lidPosition,
+                 .touchVelocityCurve = touchVelocityCurve };
     }
 
     void applyPerformanceSettingsView(const PerformanceSettingsView& view) {
@@ -152,6 +156,7 @@ struct SettingsModel {
         pianoHammerHardness = view.pianoHammerHardness;
         pianoResonance = view.pianoResonance;
         lidPosition = view.lidPosition;
+        touchVelocityCurve = view.touchVelocityCurve;
     }
     [[nodiscard]] PluginRecoverySettingsView getPluginRecoverySettingsView() const {
         return { .pluginSearchPath = pluginSearchPath, .lastPluginName = lastPluginName };

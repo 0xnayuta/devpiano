@@ -28,6 +28,7 @@ public:
     void rebuildNoteDisplayCombo();
     void rebuildKeySignatureCombo();
     void rebuildLidPositionCombo();
+    void rebuildTouchCurveCombo();
     void refreshTexts();
 
     void paint(juce::Graphics& g) override;
@@ -102,6 +103,7 @@ private:
     juce::ToggleButton* instrumentFilterToggle = nullptr;
     juce::ComboBox* languageCombo = nullptr;
     juce::ComboBox* lidPositionCombo = nullptr;
+    juce::ComboBox* touchCurveCombo = nullptr;
     juce::TextEditor* diagnosticsEditor = nullptr;
     juce::Button* saveButton = nullptr;
 

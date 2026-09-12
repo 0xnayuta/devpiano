@@ -897,7 +897,8 @@ SettingsModel::PerformanceSettingsView MainComponent::getPerformanceSettingsFrom
              .pianoBrightness = getPianoBrightness(),
              .pianoHammerHardness = getPianoHammerHardness(),
              .pianoResonance = getPianoResonance(),
-             .lidPosition = appSettings.lidPosition };
+             .lidPosition = appSettings.lidPosition,
+             .touchVelocityCurve = appSettings.touchVelocityCurve };
 }
 
 juce::String MainComponent::getLastPluginNameForRecoveryStateFromUi() const {
@@ -964,6 +965,7 @@ void MainComponent::applyUiStateToAudioEngine() {
 
 void MainComponent::syncUiFromSettings() {
     applyPerformanceSettingsToUi(appSettings.getPerformanceSettingsView());
+    keyboardMidiMapper.setTouchVelocityCurve(appSettings.touchVelocityCurve);
 
     if (presetFlowSupport != nullptr) {
         setControlsPresets(presetFlowSupport->getPresetIds(), presetFlowSupport->getCurrentPresetId(),

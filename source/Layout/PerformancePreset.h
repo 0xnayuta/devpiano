@@ -23,6 +23,7 @@ struct PerformancePreset {
 
     // Acoustic settings
     SettingsModel::LidPosition lidPosition = SettingsModel::LidPosition::fullOpen;
+    devpiano::input::TouchVelocityCurve touchVelocityCurve = devpiano::input::TouchVelocityCurve::standard;
 
     // Keyboard display / musical settings subset.
     // Mirrors the JSON "keyboard" section — maps directly to SettingsModel fields

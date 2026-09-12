@@ -113,6 +113,7 @@ private:
 
         expect(findNodeById(tree, "acoustics-title").isValid());
         expect(findNodeById(tree, "lid-position-combo").isValid());
+        expect(findNodeById(tree, "touch-curve-combo").isValid());
     }
 
     void testInterpretationAndComponentLookup() {
@@ -190,6 +191,8 @@ private:
             expect(langCombo != nullptr);
             auto* lidCombo = dynamic_cast<juce::ComboBox*>(findComponentById(*rootItem, "lid-position-combo"));
             expect(lidCombo != nullptr);
+            auto* curveCombo = dynamic_cast<juce::ComboBox*>(findComponentById(*rootItem, "touch-curve-combo"));
+            expect(curveCombo != nullptr);
 
             auto* diagEd = dynamic_cast<juce::TextEditor*>(findComponentById(*rootItem, "diagnostics-editor"));
             expect(diagEd != nullptr);
