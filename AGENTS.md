@@ -206,6 +206,17 @@
   - 编译错误提示 API 不存在或签名不符时，先回本地源码确认，再修，禁止猜测替代 API。
 - 对稳定常用 API（Component、Button、Slider、ValueTree 等）不要求每次查证，避免无谓查询。
 - 版本敏感领域（音频设备、插件宿主、线程安全、新模块）优先查证：这些 API 跨版本变动大。
+- **源码字符编码与特殊符号铁律（Strict 7-bit ASCII & Unicode Handling）**：
+  - **严禁在 C++ 源码（`.cpp` / `.h`，包括 `source/tests/`）中直接书写裸多字节非 ASCII 字符**（如中文硬编码、特殊排版标点、音乐符号）。
+  - **根因防范**：`juce::String(const char*)` 底层假定 7-bit ASCII（基于 `CharPointer_ASCII`），直接传入 UTF-8 字节字面量会导致多字节被拆解为单字节 Latin-1 码点，在 Windows/MSVC 下必现 `â ¢` 等乱码并触发 Debug 断言（`juce_String.cpp:327`）。
+  - **特殊符号的标准构造**：UI 必需的特殊符号一律使用显式 Unicode 标量码点生成：
+    - 圆点 `•` (Bullet)：`juce::String::charToString(0x2022)`
+    - 升号 `♯` (Sharp)：`juce::String::charToString(0x266F)`
+    - 降号 `♭` (Flat)：`juce::String::charToString(0x266D)`
+    或使用带明确十六进制字节转义的 `juce::String(juce::CharPointer_UTF8("\\xe2\\x80\\xa2"))`，严禁直接书写裸字符字面量。
+  - **国际化分层与测试反模式防范**：
+    - 自然语言文本 100% 外部化：C++ 源码中仅保留纯 ASCII 的英文键名（配合 `TRANS("...")`），中文译文统一在 `source/Locale/zh_CN.loc` 中维护；
+    - **严禁在 `source/tests/` 单元测试中引入中文字符或硬编码断言具体的译文文本**：单元测试只负责验证语言切换机制（Mechanism）、键名回退与自适应布局，不得将测试用例与随时可能润色变动的文案内容（Copywriting）强耦合。
 
 ---
 
