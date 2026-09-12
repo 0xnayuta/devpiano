@@ -106,6 +106,13 @@ private:
         expect(!voice.isSoftPedalDown());
         expectEquals(voice.getSoftPedalAmount(), 0.0f);
 
+        // 释放至中间低值 CC 67 = 32（< 64 判定为释放，amount 必须清零）
+        voice.controllerMoved(67, 100);
+        expect(voice.isSoftPedalDown());
+        voice.controllerMoved(67, 32);
+        expect(!voice.isSoftPedalDown());
+        expectEquals(voice.getSoftPedalAmount(), 0.0f);
+
         // 无关控制器不影响状态
         voice.controllerMoved(64, 127); // sustain pedal
         expect(!voice.isSoftPedalDown());
@@ -159,6 +166,16 @@ private:
         mapper.handleKeyPressed(tabKey, state);
         expect(mapper.isSoftPedalDown());
         mapper.setLayout(devpiano::core::makeDefaultKeyboardLayout());
+        expect(!mapper.isSoftPedalDown());
+
+        // 5. Programmatic soft pedal persistence across keyStateChanged
+        mapper.setSoftPedalDown(true);
+        expect(mapper.isSoftPedalDown());
+        // Key state changed with no pedal keys held must NOT reset programmatic soft pedal
+        mapper.setKeyStatePredicate([](int) { return false; });
+        mapper.handleKeyStateChanged(state);
+        expect(mapper.isSoftPedalDown(), "Programmatic soft pedal must persist through note key state changes");
+        mapper.releaseAllHeldKeys(state);
         expect(!mapper.isSoftPedalDown());
     }
 

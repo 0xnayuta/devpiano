@@ -52,6 +52,12 @@ private:
                 expect(out >= prevOutput);
                 prevOutput = out;
             }
+
+            // 4. Minimum positive velocity invariant: ensure non-zero note-on is never rounded to 0
+            constexpr float kMinMidiVelocity = 1.0f / 127.0f;
+            const auto minOut = applyVelocityCurve(kMinMidiVelocity, curve);
+            expect(minOut >= kMinMidiVelocity);
+            expect(juce::roundToInt(minOut * 127.0f) >= 1);
         }
 
         // 4. 手感曲线特性校验（中间点与强弱区特异性）
@@ -72,6 +78,13 @@ private:
         const auto loudWide = applyVelocityCurve(0.8f, TouchVelocityCurve::wideDynamic);
         expect(softWide < 0.2f); // 极弱更柔
         expect(loudWide > 0.8f); // 强奏更具冲击力
+
+        // 6. String helper verification
+        expectEquals(juce::String(touchVelocityCurveToString(TouchVelocityCurve::standard)), juce::String("Standard"));
+        expectEquals(juce::String(touchVelocityCurveToString(TouchVelocityCurve::light)), juce::String("Light"));
+        expectEquals(juce::String(touchVelocityCurveToString(TouchVelocityCurve::heavy)), juce::String("Heavy"));
+        expectEquals(juce::String(touchVelocityCurveToString(TouchVelocityCurve::wideDynamic)),
+                     juce::String("Wide Dynamic"));
     }
 
     void testKeyboardMidiMapperCurveInjection() {

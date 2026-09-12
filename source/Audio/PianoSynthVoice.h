@@ -323,10 +323,10 @@ public:
         } else if (controllerNumber == 67) {
             // MIDI CC 67 弱音/移位踏板 (Una Corda / Soft Pedal, Phase 29-B)
             softPedalDown = (controllerValue >= 64);
-            softPedalAmount = juce::jlimit(0.0f, 1.0f, static_cast<float>(controllerValue) / 127.0f);
+            softPedalAmount
+                = softPedalDown ? juce::jlimit(0.0f, 1.0f, static_cast<float>(controllerValue) / 127.0f) : 0.0f;
         }
     }
-
     void renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int startSample, int numSamples) override {
         if (!isVoiceActive()) {
             return;

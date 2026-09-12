@@ -16,30 +16,37 @@ enum class TouchVelocityCurve : std::uint8_t {
 };
 
 /// 对输入归一化力度 [0.0, 1.0] 进行曲线映射，严格保证单调递增与端点守恒 [0,1] -> [0,1]。
+/// 针对非零输入力度，保证输出至少达到 MIDI 最小有效发音力度（1.0f / 127.0f），避免四舍五入为 0 沦为 Note-Off。
 [[nodiscard]] inline float applyVelocityCurve(float rawVelocity, TouchVelocityCurve curve) noexcept {
     const auto v = std::clamp(rawVelocity, 0.0f, 1.0f);
     if (v <= 0.0f || v >= 1.0f) {
         return v;
     }
 
+    float mapped = v;
     switch (curve) {
     case TouchVelocityCurve::standard:
-        return v;
+        mapped = v;
+        break;
 
     case TouchVelocityCurve::light:
         // 凸曲线: 指数 0.65f，使得 0.3 提升至约 0.45，0.5 提升至约 0.63
-        return std::pow(v, 0.65f);
+        mapped = std::pow(v, 0.65f);
+        break;
 
     case TouchVelocityCurve::heavy:
         // 凹曲线: 指数 1.60f，使得 0.3 压制至约 0.14，0.5 压制至约 0.33
-        return std::pow(v, 1.60f);
+        mapped = std::pow(v, 1.60f);
+        break;
 
     case TouchVelocityCurve::wideDynamic:
         // S 型 Sigmoid 平滑三次 Hermite 插值: 3v^2 - 2v^3，两端平缓、中段陡峭
-        return v * v * (3.0f - 2.0f * v);
+        mapped = v * v * (3.0f - 2.0f * v);
+        break;
     }
 
-    return v;
+    constexpr float kMinMidiVelocity = 1.0f / 127.0f;
+    return std::clamp(mapped, kMinMidiVelocity, 1.0f);
 }
 
 /// 辅助名称解析

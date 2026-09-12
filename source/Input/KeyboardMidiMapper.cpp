@@ -17,12 +17,8 @@ void KeyboardMidiMapper::setLayout(KeyboardLayout newLayout) {
             sustainPedalCallback(false);
         }
     }
-    if (softPedalDown) {
-        softPedalDown = false;
-        if (softPedalCallback) {
-            softPedalCallback(false);
-        }
-    }
+    physicalSoftPedalHeld = false;
+    updateSoftPedalState();
 }
 
 void KeyboardMidiMapper::setLayoutDisplayName(juce::String newDisplayName) {
@@ -51,10 +47,16 @@ bool KeyboardMidiMapper::isSoftPedalDown() const noexcept {
     return softPedalDown;
 }
 void KeyboardMidiMapper::setSoftPedalDown(bool down) {
-    if (softPedalDown == down) {
+    programmaticSoftPedal = down;
+    updateSoftPedalState();
+}
+
+void KeyboardMidiMapper::updateSoftPedalState() {
+    const auto target = physicalSoftPedalHeld || programmaticSoftPedal;
+    if (softPedalDown == target) {
         return;
     }
-    softPedalDown = down;
+    softPedalDown = target;
     if (softPedalCallback != nullptr) {
         softPedalCallback(softPedalDown);
     }
@@ -72,20 +74,17 @@ void KeyboardMidiMapper::resetToDefaultLayout() {
 }
 
 bool KeyboardMidiMapper::handleKeyPressed(const juce::KeyPress& key, juce::MidiKeyboardState& keyboardState) {
-    const auto isSoftPedalKey = (key.getKeyCode() == juce::KeyPress::tabKey)
-        || (key.getModifiers().isShiftDown()
-            && (key.getKeyCode() == juce::KeyPress::spaceKey || key.getTextCharacter() == ' '));
-    if (isSoftPedalKey) {
-        if (!softPedalDown) {
-            softPedalDown = true;
-            if (softPedalCallback) {
-                softPedalCallback(true);
-            }
-        }
+    const auto isShift = key.getModifiers().isShiftDown();
+    const auto isSpace = (key.getKeyCode() == juce::KeyPress::spaceKey || key.getTextCharacter() == ' ');
+    const auto isTab = (key.getKeyCode() == juce::KeyPress::tabKey);
+
+    if (isTab || (isShift && isSpace)) {
+        physicalSoftPedalHeld = true;
+        updateSoftPedalState();
         return true;
     }
 
-    if (key.getKeyCode() == juce::KeyPress::spaceKey || key.getTextCharacter() == ' ') {
+    if (isSpace && !isShift) {
         if (!sustainPedalDown) {
             sustainPedalDown = true;
             if (sustainPedalCallback) {
@@ -116,31 +115,29 @@ bool KeyboardMidiMapper::handleKeyStateChanged(juce::MidiKeyboardState& keyboard
     auto consumed = false;
 
     const auto isSpaceDown = isKeyCurrentlyDown(juce::KeyPress::spaceKey);
-    if (isSpaceDown && !sustainPedalDown) {
+    const auto isTabDown = isKeyCurrentlyDown(juce::KeyPress::tabKey);
+    const auto isShiftDown = juce::ModifierKeys::getCurrentModifiers().isShiftDown();
+
+    // 1. 物理软踏板检测: Tab 键或 Shift+Space 组合
+    const auto physicalSoftActive = isTabDown || (isSpaceDown && isShiftDown);
+    if (physicalSoftActive != physicalSoftPedalHeld) {
+        physicalSoftPedalHeld = physicalSoftActive;
+        updateSoftPedalState();
+        consumed = true;
+    }
+
+    // 2. 物理延音踏板检测: 仅当 Space 按下且未按住 Shift 时激活，避免 Shift+Space 误激活延音
+    const auto physicalSustainActive = isSpaceDown && !isShiftDown;
+    if (physicalSustainActive && !sustainPedalDown) {
         sustainPedalDown = true;
         if (sustainPedalCallback) {
             sustainPedalCallback(true);
         }
         consumed = true;
-    } else if (!isSpaceDown && sustainPedalDown) {
+    } else if (!physicalSustainActive && sustainPedalDown) {
         sustainPedalDown = false;
         if (sustainPedalCallback) {
             sustainPedalCallback(false);
-        }
-        consumed = true;
-    }
-
-    const auto isTabDown = isKeyCurrentlyDown(juce::KeyPress::tabKey);
-    if (isTabDown && !softPedalDown) {
-        softPedalDown = true;
-        if (softPedalCallback) {
-            softPedalCallback(true);
-        }
-        consumed = true;
-    } else if (!isTabDown && softPedalDown) {
-        softPedalDown = false;
-        if (softPedalCallback) {
-            softPedalCallback(false);
         }
         consumed = true;
     }
@@ -195,12 +192,9 @@ void KeyboardMidiMapper::releaseAllHeldKeys(juce::MidiKeyboardState& keyboardSta
             sustainPedalCallback(false);
         }
     }
-    if (softPedalDown) {
-        softPedalDown = false;
-        if (softPedalCallback) {
-            softPedalCallback(false);
-        }
-    }
+    physicalSoftPedalHeld = false;
+    programmaticSoftPedal = false;
+    updateSoftPedalState();
 }
 
 int KeyboardMidiMapper::normaliseKeyCode(const juce::KeyPress& key) const {

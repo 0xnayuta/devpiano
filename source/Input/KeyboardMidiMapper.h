@@ -51,6 +51,7 @@ private:
                         bool isKeyDownEvent);
     void sendNoteOff(int midiChannel, int midiNote, float velocity, juce::MidiKeyboardState& keyboardState);
     [[nodiscard]] bool isKeyCurrentlyDown(int keyCode) const;
+    void updateSoftPedalState();
 
     devpiano::midi::MidiChannelMapper* channelMapper = nullptr;
     devpiano::core::KeyboardLayout layout;
@@ -60,5 +61,7 @@ private:
     bool sustainPedalDown = false;
     SoftPedalCallback softPedalCallback;
     bool softPedalDown = false;
+    bool physicalSoftPedalHeld = false;
+    bool programmaticSoftPedal = false;
     devpiano::input::TouchVelocityCurve touchVelocityCurve = devpiano::input::TouchVelocityCurve::standard;
 };

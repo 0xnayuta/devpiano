@@ -115,7 +115,7 @@ private:
         expect(findNodeById(tree, "lid-position-combo").isValid());
         expect(findNodeById(tree, "touch-curve-combo").isValid());
 
-        // Test status bar bullet point clean encoding (no â or ¢ corruption)
+        // Test status bar bullet point clean encoding (no Latin-1/UTF-8 breakdown corruption)
         {
             const auto bullet = " " + juce::String::charToString(0x2022) + " ";
             const juce::String sustainIndicator = bullet + "[SUSTAIN]";
