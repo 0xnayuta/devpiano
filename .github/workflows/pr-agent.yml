@@ -27,17 +27,18 @@ jobs:
         uses: the-pr-agent/pr-agent@v0.41.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OPENAI.KEY: ${{ secrets.API_KEY }}
-          OPENAI.API_BASE: "https://api.pie-xian.com/v1"
-          # 模型与运行参数：Gemini 3.7 Flash（通过 OpenAI 兼容中转站，fallback 指向同模型）
-          config.model: "openai/gemini-3.7-flash"
-          config.fallback_models: '["openai/gemini-3.7-flash"]'
-          config.temperature: "0.3"
+          # 官方 Google AI Studio 凭据（双向声明确保 PR-Agent 配置解析器与底层 LiteLLM 均可识别）
+          GOOGLE_AI_STUDIO.GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # 模型与运行参数：Gemini 3.8 Flash（官方 Google AI Studio 直连）
+          config.model: "gemini/gemini-3.8-flash"
+          config.fallback_models: '["gemini/gemini-3.8-flash"]'
+          config.temperature: "0.2"
           # 上下文窗口限制：显式声明自定义模型上限，扩大 token 预算避免大 PR 截断 diff
-          config.custom_model_max_tokens: "1024000"
-          config.max_model_tokens: "256000"
-          pr_reviewer.max_model_tokens: "256000"
-          pr_description.max_model_tokens: "256000"
+          config.custom_model_max_tokens: "1000000"
+          config.max_model_tokens: "500000"
+          pr_reviewer.max_model_tokens: "500000"
+          pr_description.max_model_tokens: "500000"
           # 评论体验优化：原地更新 Review，精简辅助与更新通知
           pr_reviewer.persistent_comment: "true"
           pr_description.final_update_message: "false"
