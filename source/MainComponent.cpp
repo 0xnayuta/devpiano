@@ -944,6 +944,8 @@ void MainComponent::applyPerformanceSettingsToAudioEngine(const SettingsModel::P
     audioEngine.setPianoParameters(performance.pianoBrightness, performance.pianoHammerHardness,
                                    performance.pianoResonance);
     audioEngine.setLidPosition(static_cast<AudioEngine::LidPosition>(performance.lidPosition));
+    audioEngine.setTemperament(performance.temperament);
+    audioEngine.setReferencePitchA4(performance.referencePitchA4);
 }
 void MainComponent::setBuiltinSynthTone(SettingsModel::BuiltinTone tone) {
     appSettings.builtinTone = tone;

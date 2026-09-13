@@ -277,6 +277,14 @@ std::optional<PerformancePreset> loadPreset(const juce::File& path) {
             if (aco->hasProperty("unaCorda")) {
                 preset.unaCorda = static_cast<bool>(aco->getProperty("unaCorda"));
             }
+            if (aco->hasProperty("temperament")) {
+                preset.temperament = devpiano::audio::TemperamentEngine::fromIdentifier(
+                    aco->getProperty("temperament").toString().toStdString());
+            }
+            if (aco->hasProperty("referencePitchA4")) {
+                preset.referencePitchA4 = devpiano::audio::TemperamentEngine::clampReferencePitch(
+                    static_cast<double>(aco->getProperty("referencePitchA4")));
+            }
         }
     } else {
         if (obj->hasProperty("lidPosition")) {
@@ -289,6 +297,14 @@ std::optional<PerformancePreset> loadPreset(const juce::File& path) {
         }
         if (obj->hasProperty("unaCorda")) {
             preset.unaCorda = static_cast<bool>(obj->getProperty("unaCorda"));
+        }
+        if (obj->hasProperty("temperament")) {
+            preset.temperament = devpiano::audio::TemperamentEngine::fromIdentifier(
+                obj->getProperty("temperament").toString().toStdString());
+        }
+        if (obj->hasProperty("referencePitchA4")) {
+            preset.referencePitchA4 = devpiano::audio::TemperamentEngine::clampReferencePitch(
+                static_cast<double>(obj->getProperty("referencePitchA4")));
         }
     }
 
@@ -378,6 +394,10 @@ bool savePreset(const PerformancePreset& preset, const juce::File& path) {
         aco->setProperty("lidPosition", static_cast<int>(preset.lidPosition));
         aco->setProperty("touchVelocityCurve", static_cast<int>(preset.touchVelocityCurve));
         aco->setProperty("unaCorda", preset.unaCorda);
+        aco->setProperty(
+            "temperament",
+            juce::String(std::string(devpiano::audio::TemperamentEngine::getIdentifier(preset.temperament))));
+        aco->setProperty("referencePitchA4", preset.referencePitchA4);
         root->setProperty("acoustics", juce::var(aco));
     }
 

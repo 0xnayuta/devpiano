@@ -258,6 +258,18 @@ juce::ValueTree makeAcousticsSectionTree() {
     curveCombo.setProperty("height", 24, nullptr);
     content.appendChild(settingRow(TRANS("Touch Curve:"), curveCombo, "touch-curve-label"), nullptr);
 
+    // Row 3: Temperament (ComboBox)
+    auto temperamentCombo = node("ComboBox", "temperament-combo");
+    temperamentCombo.setProperty("width", 300, nullptr);
+    temperamentCombo.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Temperament:"), temperamentCombo, "temperament-label"), nullptr);
+
+    // Row 4: A4 Reference Pitch (Slider)
+    auto refPitchSlider = node("Slider", "reference-pitch-slider");
+    refPitchSlider.setProperty("width", 300, nullptr);
+    refPitchSlider.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("A4 Reference Pitch:"), refPitchSlider, "reference-pitch-label"), nullptr);
+
     card.appendChild(content, nullptr);
     return card;
 }

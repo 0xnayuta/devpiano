@@ -26,6 +26,8 @@ const char* kKeyPianoLidPosition = "pianoLidPosition";
 const char* kKeyTouchVelocityCurve = "touchVelocityCurve";
 const char* kKeyUnaCorda = "unaCorda";
 const char* kKeyLastMidiExportPath = "lastMidiExportPath";
+const char* kKeyTemperament = "temperament";
+const char* kKeyReferencePitchA4 = "referencePitchA4";
 const char* kKeyRecentFiles = "recentFiles";
 const char* kKeyMainWindowWidth = "mainWindowWidth";
 const char* kKeyMainWindowHeight = "mainWindowHeight";
@@ -63,7 +65,11 @@ void readPerformanceSettings(juce::PropertiesFile& file, SettingsModel& model) {
             juce::jlimit(0, 2, file.getIntValue(kKeyPianoLidPosition, static_cast<int>(model.lidPosition)))),
         .touchVelocityCurve = static_cast<devpiano::input::TouchVelocityCurve>(
             juce::jlimit(0, 3, file.getIntValue(kKeyTouchVelocityCurve, static_cast<int>(model.touchVelocityCurve)))),
-        .unaCorda = file.getBoolValue(kKeyUnaCorda, model.unaCorda)
+        .unaCorda = file.getBoolValue(kKeyUnaCorda, model.unaCorda),
+        .temperament = static_cast<devpiano::audio::Temperament>(
+            juce::jlimit(0, 5, file.getIntValue(kKeyTemperament, static_cast<int>(model.temperament)))),
+        .referencePitchA4 = devpiano::audio::TemperamentEngine::clampReferencePitch(
+            file.getDoubleValue(kKeyReferencePitchA4, model.referencePitchA4))
     };
 
     const auto looksLikeCorruptedZeroState = performance.masterGain == 0.0f && performance.adsrAttack == 0.0f
@@ -280,6 +286,8 @@ bool SettingsStore::writeNow(const SettingsModel& m) {
     f.setValue(kKeyPianoLidPosition, static_cast<int>(m.lidPosition));
     f.setValue(kKeyTouchVelocityCurve, static_cast<int>(m.touchVelocityCurve));
     f.setValue(kKeyUnaCorda, m.unaCorda);
+    f.setValue(kKeyTemperament, static_cast<int>(m.temperament));
+    f.setValue(kKeyReferencePitchA4, m.referencePitchA4);
     f.setValue(kKeyPluginSearchPath, m.pluginSearchPath);
     f.setValue(kKeyLastPluginName, m.lastPluginName);
     if (m.knownPluginListState) {

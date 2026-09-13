@@ -145,6 +145,10 @@ void PresetFlowSupport::commitPreset(const PerformancePreset& preset) {
     owner.keyboardMidiMapper.setTouchVelocityCurve(preset.touchVelocityCurve);
     s.unaCorda = preset.unaCorda;
     owner.keyboardMidiMapper.setSoftPedalDown(preset.unaCorda);
+    s.temperament = preset.temperament;
+    owner.audioEngine.setTemperament(preset.temperament);
+    s.referencePitchA4 = preset.referencePitchA4;
+    owner.audioEngine.setReferencePitchA4(preset.referencePitchA4);
 
     // 4. Persist preset identity
     s.lastActivePresetId = preset.name;
@@ -176,6 +180,8 @@ PerformancePreset PresetFlowSupport::captureCurrentState(const juce::String& nam
     preset.lidPosition = owner.appSettings.lidPosition;
     preset.touchVelocityCurve = owner.appSettings.touchVelocityCurve;
     preset.unaCorda = owner.keyboardMidiMapper.isSoftPedalDown();
+    preset.temperament = owner.appSettings.temperament;
+    preset.referencePitchA4 = owner.appSettings.referencePitchA4;
     return preset;
 }
 

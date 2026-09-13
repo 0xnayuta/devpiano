@@ -65,7 +65,7 @@
     - `440.0 Hz`（现代国际标准）；
     - `442.0 Hz`（现代欧洲/交响乐团通透偏高标准）；
   - 琴弦物理模态公式 $f_m = m f_0 \sqrt{1 + B m^2}$ 与八度伸缩计算与调律引擎输出基频平滑对齐。
-- [ ] **Phase 30-C：JIVE 设置界面联动、持久化与单测防线**：
+- [x] **Phase 30-C：JIVE 设置界面联动、持久化与单测防线** [已完成，2026-09-13]：
   - 在 `SettingsLayoutModel.cpp` 声学卡片中增加律制选择下拉框（`temperament-combo`）与 A4 基准音高微调滑块（`reference-pitch-slider`）；
   - 将调律参数完整纳入 `SettingsModel`、`SettingsStore`（Properties 序列化）与 `PerformancePreset`（`.devpiano.preset` JSON 序列化）；
   - 新增 `source/tests/TemperamentEngineTest.cpp`，覆盖六大律制数学音分准确度、A4 基频换算、全音域（A0~C8）单调性、跨会话持久化与预设向后兼容。

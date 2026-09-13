@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../Audio/TemperamentEngine.h"
 #include "../Input/TouchVelocityCurve.h"
 #include "../Midi/ChannelMatrix.h"
 #include "../UI/KeyboardTypes.h"
@@ -53,6 +54,8 @@ struct SettingsModel {
         LidPosition lidPosition = LidPosition::fullOpen;
         devpiano::input::TouchVelocityCurve touchVelocityCurve = devpiano::input::TouchVelocityCurve::standard;
         bool unaCorda = false;
+        devpiano::audio::Temperament temperament = devpiano::audio::Temperament::equal;
+        double referencePitchA4 = devpiano::audio::TemperamentEngine::kDefaultReferencePitch;
     };
 
     struct PluginRecoverySettingsView {
@@ -90,6 +93,8 @@ struct SettingsModel {
     LidPosition lidPosition = LidPosition::fullOpen;
     devpiano::input::TouchVelocityCurve touchVelocityCurve = devpiano::input::TouchVelocityCurve::standard;
     bool unaCorda = false;
+    devpiano::audio::Temperament temperament = devpiano::audio::Temperament::equal;
+    double referencePitchA4 = devpiano::audio::TemperamentEngine::kDefaultReferencePitch;
 
     // Persisted ,UI recovery state.
     juce::String pluginSearchPath;
@@ -145,7 +150,9 @@ struct SettingsModel {
                  .pianoResonance = pianoResonance,
                  .lidPosition = lidPosition,
                  .touchVelocityCurve = touchVelocityCurve,
-                 .unaCorda = unaCorda };
+                 .unaCorda = unaCorda,
+                 .temperament = temperament,
+                 .referencePitchA4 = referencePitchA4 };
     }
 
     void applyPerformanceSettingsView(const PerformanceSettingsView& view) {
@@ -161,6 +168,8 @@ struct SettingsModel {
         lidPosition = view.lidPosition;
         touchVelocityCurve = view.touchVelocityCurve;
         unaCorda = view.unaCorda;
+        temperament = view.temperament;
+        referencePitchA4 = view.referencePitchA4;
     }
     [[nodiscard]] PluginRecoverySettingsView getPluginRecoverySettingsView() const {
         return { .pluginSearchPath = pluginSearchPath, .lastPluginName = lastPluginName };

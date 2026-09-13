@@ -70,6 +70,8 @@ void SettingsComponent::buildJiveUi() {
         languageCombo = viewHost.find<juce::ComboBox>("language-combo");
         lidPositionCombo = viewHost.find<juce::ComboBox>("lid-position-combo");
         touchCurveCombo = viewHost.find<juce::ComboBox>("touch-curve-combo");
+        temperamentCombo = viewHost.find<juce::ComboBox>("temperament-combo");
+        referencePitchSlider = viewHost.find<juce::Slider>("reference-pitch-slider");
         diagnosticsEditor = viewHost.find<juce::TextEditor>("diagnostics-editor");
         saveButton = viewHost.find<juce::Button>("save-button");
 
@@ -294,6 +296,26 @@ void SettingsComponent::wireAcousticControls() {
         touchCurveCombo->onChange
             = [this] { editingState.setProperty("touchVelocityCurve", touchCurveCombo->getSelectedId(), nullptr); };
     }
+    if (temperamentCombo != nullptr) {
+        rebuildTemperamentCombo();
+        if (model != nullptr) {
+            temperamentCombo->setSelectedId(1 + static_cast<int>(model->temperament), juce::dontSendNotification);
+        }
+        temperamentCombo->onChange
+            = [this] { editingState.setProperty("temperament", temperamentCombo->getSelectedId(), nullptr); };
+    }
+    if (referencePitchSlider != nullptr) {
+        referencePitchSlider->setRange(devpiano::audio::TemperamentEngine::kMinReferencePitch,
+                                       devpiano::audio::TemperamentEngine::kMaxReferencePitch, 0.1);
+        referencePitchSlider->setSliderStyle(juce::Slider::LinearHorizontal);
+        referencePitchSlider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 65, 20);
+        referencePitchSlider->setTextValueSuffix(" Hz");
+        if (model != nullptr) {
+            referencePitchSlider->setValue(model->referencePitchA4, juce::dontSendNotification);
+        }
+        referencePitchSlider->onValueChange
+            = [this] { editingState.setProperty("referencePitchA4", referencePitchSlider->getValue(), nullptr); };
+    }
 }
 
 void SettingsComponent::wireAppearanceAndLocaleControls() {
@@ -325,6 +347,12 @@ void SettingsComponent::syncEditingStateFromModel() {
     }
     if (touchCurveCombo != nullptr) {
         editingState.setProperty("touchVelocityCurve", 1 + static_cast<int>(model->touchVelocityCurve), nullptr);
+    }
+    if (temperamentCombo != nullptr) {
+        editingState.setProperty("temperament", 1 + static_cast<int>(model->temperament), nullptr);
+    }
+    if (referencePitchSlider != nullptr) {
+        editingState.setProperty("referencePitchA4", model->referencePitchA4, nullptr);
     }
     editingState.setProperty("languageCode", model->languageCode, nullptr);
     editingState.setProperty("keySignature", model->keySignature, nullptr);
@@ -396,6 +424,20 @@ void SettingsComponent::rebuildTouchCurveCombo() {
                              1 + static_cast<int>(devpiano::input::TouchVelocityCurve::heavy));
     touchCurveCombo->addItem(TRANS("Wide Dynamic (S-Curve)"),
                              1 + static_cast<int>(devpiano::input::TouchVelocityCurve::wideDynamic));
+}
+void SettingsComponent::rebuildTemperamentCombo() {
+    if (temperamentCombo == nullptr) {
+        return;
+    }
+    temperamentCombo->clear(juce::dontSendNotification);
+    temperamentCombo->addItem(TRANS("Equal (12-EDO)"), 1 + static_cast<int>(devpiano::audio::Temperament::equal));
+    temperamentCombo->addItem(TRANS("Just Intonation"), 1 + static_cast<int>(devpiano::audio::Temperament::just));
+    temperamentCombo->addItem(TRANS("Pythagorean"), 1 + static_cast<int>(devpiano::audio::Temperament::pythagorean));
+    temperamentCombo->addItem(TRANS("Meantone (1/4 comma)"),
+                              1 + static_cast<int>(devpiano::audio::Temperament::meantone));
+    temperamentCombo->addItem(TRANS("Werckmeister III"),
+                              1 + static_cast<int>(devpiano::audio::Temperament::werckmeister3));
+    temperamentCombo->addItem(TRANS("Kirnberger III"), 1 + static_cast<int>(devpiano::audio::Temperament::kirnberger3));
 }
 
 void SettingsComponent::refreshTexts() {
@@ -678,6 +720,18 @@ bool SettingsComponent::applyDisplayProperty(const juce::Identifier& prop) {
             model->touchVelocityCurve = static_cast<devpiano::input::TouchVelocityCurve>(id - 1);
             return true;
         }
+    }
+    if (propName == "temperament") {
+        const int id = editingState[prop];
+        if (id >= 1 && id <= devpiano::audio::TemperamentEngine::kNumTemperaments) {
+            model->temperament = static_cast<devpiano::audio::Temperament>(id - 1);
+            return true;
+        }
+    }
+    if (propName == "referencePitchA4") {
+        model->referencePitchA4
+            = devpiano::audio::TemperamentEngine::clampReferencePitch(static_cast<double>(editingState[prop]));
+        return true;
     }
     return false;
 }

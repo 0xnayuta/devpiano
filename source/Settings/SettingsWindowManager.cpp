@@ -204,6 +204,8 @@ void SettingsWindowManager::showFor(MainComponent& owner) {
         safe->reconfigureChannelMapper();
         safe->audioEngine.setLidPosition(static_cast<AudioEngine::LidPosition>(safe->appSettings.lidPosition));
         safe->keyboardMidiMapper.setTouchVelocityCurve(safe->appSettings.touchVelocityCurve);
+        safe->audioEngine.setTemperament(safe->appSettings.temperament);
+        safe->audioEngine.setReferencePitchA4(safe->appSettings.referencePitchA4);
     };
     show({ .parent = owner,
            .deviceManager = owner.deviceManager,
