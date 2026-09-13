@@ -151,16 +151,15 @@ public:
             const auto inR = rightChannel[i];
 
             // Mix inputs for stereo diffusion: mid-signal excitation
-            const auto inputL = inL * kGainScale;
-            const auto inputR = inR * kGainScale;
+            const auto inputMid = (inL + inR) * 0.5f * kGainScale;
 
             // 1. Parallel Comb Filtering
             float outCombL = 0.0f;
             float outCombR = 0.0f;
 
             for (std::size_t c = 0; c < kNumCombFilters; ++c) {
-                outCombL += combL[c].process(inputL, feedback, damping);
-                outCombR += combR[c].process(inputR, feedback, damping);
+                outCombL += combL[c].process(inputMid, feedback, damping);
+                outCombR += combR[c].process(inputMid, feedback, damping);
             }
 
             // 2. Series All-Pass Diffusion
