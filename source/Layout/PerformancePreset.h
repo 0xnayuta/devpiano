@@ -6,6 +6,7 @@
 #include <optional>
 #include <vector>
 
+#include "../Audio/RoomReverbEngine.h"
 #include "../Audio/TemperamentEngine.h"
 #include "../Midi/ChannelMatrix.h"
 #include "../Settings/SettingsModel.h"
@@ -28,6 +29,9 @@ struct PerformancePreset {
     bool unaCorda = false;
     devpiano::audio::Temperament temperament = devpiano::audio::Temperament::equal;
     double referencePitchA4 = devpiano::audio::TemperamentEngine::kDefaultReferencePitch;
+    devpiano::audio::SoundPerspective soundPerspective = devpiano::audio::SoundPerspective::player;
+    devpiano::audio::ReverbSpace reverbSpace = devpiano::audio::ReverbSpace::chamber;
+    float reverbWet = 0.0f;
 
     // Keyboard display / musical settings subset.
     // Mirrors the JSON "keyboard" section — maps directly to SettingsModel fields

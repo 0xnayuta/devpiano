@@ -540,6 +540,7 @@ if (BUILD_TESTS)
         source/tests/TemperamentSettingsPersistenceTest.cpp
         source/tests/PerspectiveProcessorTest.cpp
         source/tests/RoomReverbEngineTest.cpp
+        source/tests/SpatialAcousticsTest.cpp
         ${DEVPIANO_JIVE_CORE_SOURCES}
     )
     target_link_libraries(devpiano_tests PRIVATE

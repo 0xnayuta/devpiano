@@ -901,7 +901,10 @@ SettingsModel::PerformanceSettingsView MainComponent::getPerformanceSettingsFrom
              .touchVelocityCurve = appSettings.touchVelocityCurve,
              .unaCorda = keyboardMidiMapper.isSoftPedalDown(),
              .temperament = appSettings.temperament,
-             .referencePitchA4 = appSettings.referencePitchA4 };
+             .referencePitchA4 = appSettings.referencePitchA4,
+             .soundPerspective = appSettings.soundPerspective,
+             .reverbSpace = appSettings.reverbSpace,
+             .reverbWet = appSettings.reverbWet };
 }
 
 juce::String MainComponent::getLastPluginNameForRecoveryStateFromUi() const {
@@ -948,6 +951,9 @@ void MainComponent::applyPerformanceSettingsToAudioEngine(const SettingsModel::P
     audioEngine.setLidPosition(static_cast<AudioEngine::LidPosition>(performance.lidPosition));
     audioEngine.setTemperament(performance.temperament);
     audioEngine.setReferencePitchA4(performance.referencePitchA4);
+    audioEngine.setSoundPerspective(performance.soundPerspective);
+    audioEngine.setReverbSpace(performance.reverbSpace);
+    audioEngine.setReverbWet(performance.reverbWet);
 }
 void MainComponent::setBuiltinSynthTone(SettingsModel::BuiltinTone tone) {
     appSettings.builtinTone = tone;

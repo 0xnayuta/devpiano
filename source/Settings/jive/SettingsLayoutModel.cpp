@@ -270,6 +270,24 @@ juce::ValueTree makeAcousticsSectionTree() {
     refPitchSlider.setProperty("height", 24, nullptr);
     content.appendChild(settingRow(TRANS("A4 Reference Pitch:"), refPitchSlider, "reference-pitch-label"), nullptr);
 
+    // Row 5: Sound Perspective (ComboBox)
+    auto perspectiveCombo = node("ComboBox", "perspective-combo");
+    perspectiveCombo.setProperty("width", 300, nullptr);
+    perspectiveCombo.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Sound Perspective:"), perspectiveCombo, "perspective-label"), nullptr);
+
+    // Row 6: Reverb Space (ComboBox)
+    auto reverbSpaceCombo = node("ComboBox", "reverb-space-combo");
+    reverbSpaceCombo.setProperty("width", 300, nullptr);
+    reverbSpaceCombo.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Reverb Space:"), reverbSpaceCombo, "reverb-space-label"), nullptr);
+
+    // Row 7: Reverb Level (Slider)
+    auto reverbWetSlider = node("Slider", "reverb-wet-slider");
+    reverbWetSlider.setProperty("width", 300, nullptr);
+    reverbWetSlider.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Reverb Level:"), reverbWetSlider, "reverb-wet-label"), nullptr);
+
     card.appendChild(content, nullptr);
     return card;
 }

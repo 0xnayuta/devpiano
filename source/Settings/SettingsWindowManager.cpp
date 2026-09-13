@@ -206,6 +206,9 @@ void SettingsWindowManager::showFor(MainComponent& owner) {
         safe->keyboardMidiMapper.setTouchVelocityCurve(safe->appSettings.touchVelocityCurve);
         safe->audioEngine.setTemperament(safe->appSettings.temperament);
         safe->audioEngine.setReferencePitchA4(safe->appSettings.referencePitchA4);
+        safe->audioEngine.setSoundPerspective(safe->appSettings.soundPerspective);
+        safe->audioEngine.setReverbSpace(safe->appSettings.reverbSpace);
+        safe->audioEngine.setReverbWet(safe->appSettings.reverbWet);
     };
     show({ .parent = owner,
            .deviceManager = owner.deviceManager,

@@ -30,6 +30,8 @@ public:
     void rebuildLidPositionCombo();
     void rebuildTouchCurveCombo();
     void rebuildTemperamentCombo();
+    void rebuildPerspectiveCombo();
+    void rebuildReverbSpaceCombo();
     void refreshTexts();
 
     void paint(juce::Graphics& g) override;
@@ -107,6 +109,9 @@ private:
     juce::ComboBox* touchCurveCombo = nullptr;
     juce::ComboBox* temperamentCombo = nullptr;
     juce::Slider* referencePitchSlider = nullptr;
+    juce::ComboBox* perspectiveCombo = nullptr;
+    juce::ComboBox* reverbSpaceCombo = nullptr;
+    juce::Slider* reverbWetSlider = nullptr;
     juce::TextEditor* diagnosticsEditor = nullptr;
     juce::Button* saveButton = nullptr;
 

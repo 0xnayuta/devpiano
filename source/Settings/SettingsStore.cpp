@@ -28,6 +28,9 @@ const char* kKeyUnaCorda = "unaCorda";
 const char* kKeyLastMidiExportPath = "lastMidiExportPath";
 const char* kKeyTemperament = "temperament";
 const char* kKeyReferencePitchA4 = "referencePitchA4";
+const char* kKeySoundPerspective = "soundPerspective";
+const char* kKeyReverbSpace = "reverbSpace";
+const char* kKeyReverbWet = "reverbWet";
 const char* kKeyRecentFiles = "recentFiles";
 const char* kKeyMainWindowWidth = "mainWindowWidth";
 const char* kKeyMainWindowHeight = "mainWindowHeight";
@@ -70,7 +73,12 @@ void readPerformanceSettings(juce::PropertiesFile& file, SettingsModel& model) {
             juce::jlimit(0, static_cast<int>(devpiano::audio::TemperamentEngine::kNumTemperaments - 1),
                          file.getIntValue(kKeyTemperament, static_cast<int>(model.temperament)))),
         .referencePitchA4 = devpiano::audio::TemperamentEngine::clampReferencePitch(
-            file.getDoubleValue(kKeyReferencePitchA4, model.referencePitchA4))
+            file.getDoubleValue(kKeyReferencePitchA4, model.referencePitchA4)),
+        .soundPerspective = static_cast<devpiano::audio::SoundPerspective>(
+            juce::jlimit(0, 1, file.getIntValue(kKeySoundPerspective, static_cast<int>(model.soundPerspective)))),
+        .reverbSpace = static_cast<devpiano::audio::ReverbSpace>(
+            juce::jlimit(0, 2, file.getIntValue(kKeyReverbSpace, static_cast<int>(model.reverbSpace)))),
+        .reverbWet = juce::jlimit(0.0f, 1.0f, static_cast<float>(file.getDoubleValue(kKeyReverbWet, model.reverbWet)))
     };
 
     const auto looksLikeCorruptedZeroState = performance.masterGain == 0.0f && performance.adsrAttack == 0.0f
@@ -289,6 +297,9 @@ bool SettingsStore::writeNow(const SettingsModel& m) {
     f.setValue(kKeyUnaCorda, m.unaCorda);
     f.setValue(kKeyTemperament, static_cast<int>(m.temperament));
     f.setValue(kKeyReferencePitchA4, m.referencePitchA4);
+    f.setValue(kKeySoundPerspective, static_cast<int>(m.soundPerspective));
+    f.setValue(kKeyReverbSpace, static_cast<int>(m.reverbSpace));
+    f.setValue(kKeyReverbWet, m.reverbWet);
     f.setValue(kKeyPluginSearchPath, m.pluginSearchPath);
     f.setValue(kKeyLastPluginName, m.lastPluginName);
     if (m.knownPluginListState) {

@@ -1,5 +1,7 @@
 #include "Layout/PerformancePreset.h"
 
+#include "../Audio/PerspectiveProcessor.h"
+#include "../Audio/RoomReverbEngine.h"
 #include "Diagnostics/Log.h"
 
 #include <algorithm>
@@ -285,6 +287,17 @@ std::optional<PerformancePreset> loadPreset(const juce::File& path) {
                 preset.referencePitchA4 = devpiano::audio::TemperamentEngine::clampReferencePitch(
                     static_cast<double>(aco->getProperty("referencePitchA4")));
             }
+            if (aco->hasProperty("soundPerspective")) {
+                preset.soundPerspective = devpiano::audio::PerspectiveProcessor::fromIdentifier(
+                    aco->getProperty("soundPerspective").toString().toStdString());
+            }
+            if (aco->hasProperty("reverbSpace")) {
+                preset.reverbSpace = devpiano::audio::RoomReverbEngine::fromIdentifier(
+                    aco->getProperty("reverbSpace").toString().toStdString());
+            }
+            if (aco->hasProperty("reverbWet")) {
+                preset.reverbWet = juce::jlimit(0.0f, 1.0f, static_cast<float>(aco->getProperty("reverbWet")));
+            }
         }
     } else {
         if (obj->hasProperty("lidPosition")) {
@@ -305,6 +318,17 @@ std::optional<PerformancePreset> loadPreset(const juce::File& path) {
         if (obj->hasProperty("referencePitchA4")) {
             preset.referencePitchA4 = devpiano::audio::TemperamentEngine::clampReferencePitch(
                 static_cast<double>(obj->getProperty("referencePitchA4")));
+        }
+        if (obj->hasProperty("soundPerspective")) {
+            preset.soundPerspective = devpiano::audio::PerspectiveProcessor::fromIdentifier(
+                obj->getProperty("soundPerspective").toString().toStdString());
+        }
+        if (obj->hasProperty("reverbSpace")) {
+            preset.reverbSpace = devpiano::audio::RoomReverbEngine::fromIdentifier(
+                obj->getProperty("reverbSpace").toString().toStdString());
+        }
+        if (obj->hasProperty("reverbWet")) {
+            preset.reverbWet = juce::jlimit(0.0f, 1.0f, static_cast<float>(obj->getProperty("reverbWet")));
         }
     }
 
@@ -397,6 +421,11 @@ bool savePreset(const PerformancePreset& preset, const juce::File& path) {
         const auto tempId = devpiano::audio::TemperamentEngine::getIdentifier(preset.temperament);
         aco->setProperty("temperament", juce::String(tempId.data(), tempId.size()));
         aco->setProperty("referencePitchA4", preset.referencePitchA4);
+        const auto perspId = devpiano::audio::PerspectiveProcessor::toIdentifier(preset.soundPerspective);
+        aco->setProperty("soundPerspective", juce::String(perspId.data(), perspId.size()));
+        const auto spaceId = devpiano::audio::RoomReverbEngine::toIdentifier(preset.reverbSpace);
+        aco->setProperty("reverbSpace", juce::String(spaceId.data(), spaceId.size()));
+        aco->setProperty("reverbWet", preset.reverbWet);
         root->setProperty("acoustics", juce::var(aco));
     }
 

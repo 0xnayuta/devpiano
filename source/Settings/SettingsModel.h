@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../Audio/PerspectiveProcessor.h"
+#include "../Audio/RoomReverbEngine.h"
 #include "../Audio/TemperamentEngine.h"
 #include "../Input/TouchVelocityCurve.h"
 #include "../Midi/ChannelMatrix.h"
@@ -56,6 +58,9 @@ struct SettingsModel {
         bool unaCorda = false;
         devpiano::audio::Temperament temperament = devpiano::audio::Temperament::equal;
         double referencePitchA4 = devpiano::audio::TemperamentEngine::kDefaultReferencePitch;
+        devpiano::audio::SoundPerspective soundPerspective = devpiano::audio::SoundPerspective::player;
+        devpiano::audio::ReverbSpace reverbSpace = devpiano::audio::ReverbSpace::chamber;
+        float reverbWet = 0.0f;
     };
 
     struct PluginRecoverySettingsView {
@@ -95,6 +100,9 @@ struct SettingsModel {
     bool unaCorda = false;
     devpiano::audio::Temperament temperament = devpiano::audio::Temperament::equal;
     double referencePitchA4 = devpiano::audio::TemperamentEngine::kDefaultReferencePitch;
+    devpiano::audio::SoundPerspective soundPerspective = devpiano::audio::SoundPerspective::player;
+    devpiano::audio::ReverbSpace reverbSpace = devpiano::audio::ReverbSpace::chamber;
+    float reverbWet = 0.0f;
 
     // Persisted ,UI recovery state.
     juce::String pluginSearchPath;
@@ -152,7 +160,10 @@ struct SettingsModel {
                  .touchVelocityCurve = touchVelocityCurve,
                  .unaCorda = unaCorda,
                  .temperament = temperament,
-                 .referencePitchA4 = referencePitchA4 };
+                 .referencePitchA4 = referencePitchA4,
+                 .soundPerspective = soundPerspective,
+                 .reverbSpace = reverbSpace,
+                 .reverbWet = reverbWet };
     }
 
     void applyPerformanceSettingsView(const PerformanceSettingsView& view) {
@@ -170,6 +181,9 @@ struct SettingsModel {
         unaCorda = view.unaCorda;
         temperament = view.temperament;
         referencePitchA4 = view.referencePitchA4;
+        soundPerspective = view.soundPerspective;
+        reverbSpace = view.reverbSpace;
+        reverbWet = view.reverbWet;
     }
     [[nodiscard]] PluginRecoverySettingsView getPluginRecoverySettingsView() const {
         return { .pluginSearchPath = pluginSearchPath, .lastPluginName = lastPluginName };

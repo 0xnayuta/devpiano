@@ -264,11 +264,13 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 当前实施与验证细节详见 [`current-iteration.md`](current-iteration.md)。
 
-### Phase 31：多视角空间声学与麦克风拾音摆位（Multi-Mic Spatial Acoustics & Room Modeling） [规划中]
+### Phase 31：多视角空间声学与算法混响（Multi-Perspective Spatial Acoustics & Algorithmic Room Modeling） [已完成，2026-09-13]
 
-1. **多视角立体声场（Player vs Audience Perspective）**：演奏者主观视角（宽立体声、左低右高）与观众/音乐厅视角切换；
-2. **近场麦克风多通道混合（Close Mic Placement）**：模拟音板上方双指向性麦克风距离与角度；
-3. **物理空间早期反射与混响尾音**：可调空间体积与混响湿声比，支持离线高保真双耳立体声导出。
+1. **多视角立体声场（Player vs Audience Perspective）**：演奏者主观视角（宽立体声、左低右高）与观众/音乐厅远场客观反转视角的无爆音无锁平滑切换；
+2. **轻量数学算法房间混响网络**：内置 Studio（0.6s）、Chamber（1.5s）、Concert Hall（2.4s）三大经典空间预设，基于互质低通梳状滤波阵列与全通漫射矩阵，零外部采样依赖；
+3. **JIVE 声学面板集成与预设联动**：在设置界面提供视角切换、空间模式选择器与混响电平滑块，并全面打通 SettingsStore 与 PerformancePreset 序列化及简体中文国际化。
+
+当前实施与验证细节详见 [`current-iteration.md`](current-iteration.md)。
 
 ### Phase 32：机械物理噪声与琴体微衰退拟真（Mechanical Action Noise & Physical Imperfection） [规划中]
 

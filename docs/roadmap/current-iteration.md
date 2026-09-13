@@ -88,7 +88,7 @@
     2. `Chamber (室内乐厅)`：中等混响时间（$RT_{60} \approx 1.5\text{ s}$），木质反射温暖，适合独奏与重奏；
     3. `Concert Hall (音乐厅)`：长混响时间（$RT_{60} \approx 2.4\text{ s}$），声场宽阔开阔，高扩散尾音包围感强；
   - 优化算法计算性能，双声道处理开销维持在单核 CPU $\le 0.5\%$ 以内。
-- [ ] **Phase 31-C：JIVE 声学面板集成、预设联动与测试防线**：
+- [x] **Phase 31-C：JIVE 声学面板集成、预设联动与测试防线** [已完成，2026-09-13]：
   - 在 `SettingsLayoutModel.cpp` 中新增空间声学分组卡片（`spatial-room-card`），包含视角切换下拉框（`perspective-combo`）、空间模式选择器（`reverb-space-combo`）与混响电平滑块（`reverb-wet-slider`）；
   - 完整打通 SettingsStore 与 PerformancePreset 存取，支持一键在预设中切换干/湿声学场景；
   - 新增 `source/tests/SpatialAcousticsTest.cpp`，覆盖立体声像反转数学正确性、混响算法数值稳定性（长时静音衰减无下溢 denormal）、跨采样率（44.1k/48k/96k）不变性。

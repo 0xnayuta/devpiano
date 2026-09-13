@@ -149,6 +149,12 @@ void PresetFlowSupport::commitPreset(const PerformancePreset& preset) {
     owner.audioEngine.setTemperament(preset.temperament);
     s.referencePitchA4 = devpiano::audio::TemperamentEngine::clampReferencePitch(preset.referencePitchA4);
     owner.audioEngine.setReferencePitchA4(s.referencePitchA4);
+    s.soundPerspective = preset.soundPerspective;
+    owner.audioEngine.setSoundPerspective(preset.soundPerspective);
+    s.reverbSpace = preset.reverbSpace;
+    owner.audioEngine.setReverbSpace(preset.reverbSpace);
+    s.reverbWet = juce::jlimit(0.0f, 1.0f, preset.reverbWet);
+    owner.audioEngine.setReverbWet(s.reverbWet);
 
     // 4. Persist preset identity
     s.lastActivePresetId = preset.name;
@@ -182,6 +188,9 @@ PerformancePreset PresetFlowSupport::captureCurrentState(const juce::String& nam
     preset.unaCorda = owner.keyboardMidiMapper.isSoftPedalDown();
     preset.temperament = owner.appSettings.temperament;
     preset.referencePitchA4 = owner.appSettings.referencePitchA4;
+    preset.soundPerspective = owner.appSettings.soundPerspective;
+    preset.reverbSpace = owner.appSettings.reverbSpace;
+    preset.reverbWet = owner.appSettings.reverbWet;
     return preset;
 }
 
