@@ -209,6 +209,8 @@ void SettingsWindowManager::showFor(MainComponent& owner) {
         safe->audioEngine.setSoundPerspective(safe->appSettings.soundPerspective);
         safe->audioEngine.setReverbSpace(safe->appSettings.reverbSpace);
         safe->audioEngine.setReverbWet(safe->appSettings.reverbWet);
+        safe->audioEngine.setPedalNoiseLevel(safe->appSettings.pedalNoiseLevel);
+        safe->audioEngine.setFeltAgeingAmount(safe->appSettings.feltAgeingAmount);
     };
     show({ .parent = owner,
            .deviceManager = owner.deviceManager,

@@ -32,6 +32,9 @@ struct PerformancePreset {
     devpiano::audio::SoundPerspective soundPerspective = devpiano::audio::SoundPerspective::player;
     devpiano::audio::ReverbSpace reverbSpace = devpiano::audio::ReverbSpace::chamber;
     float reverbWet = 0.0f;
+    // 机械物理噪声与琴体微衰退 (Phase 32-A/C)
+    float pedalNoiseLevel = 0.6f;
+    float feltAgeingAmount = 0.0f;
 
     // Keyboard display / musical settings subset.
     // Mirrors the JSON "keyboard" section — maps directly to SettingsModel fields

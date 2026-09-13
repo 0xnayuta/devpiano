@@ -18,6 +18,9 @@ struct WavExportOptions {
     float pianoBrightness = 0.5f;
     float pianoHammerHardness = 0.5f;
     float pianoResonance = 0.5f;
+    // 机械物理噪声与琴体微衰退 (Phase 32-D)：离线渲染与实时路径参数一致
+    float pedalNoiseLevel = 0.6f;
+    float feltAgeingAmount = 0.0f;
 };
 
 } // namespace devpiano::exporting

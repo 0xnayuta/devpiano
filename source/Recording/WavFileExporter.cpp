@@ -36,6 +36,8 @@ void initialiseOfflineSynth(juce::Synthesiser& synth, const devpiano::exporting:
             voice->setVoiceIndex(index);
             voice->setAdsrParameters(options.adsr);
             voice->setPianoParameters(options.pianoBrightness, options.pianoHammerHardness, options.pianoResonance);
+            voice->setPedalNoiseLevel(options.pedalNoiseLevel);
+            voice->setFeltAgeingAmount(options.feltAgeingAmount);
             synth.addVoice(voice);
         }
     } else {

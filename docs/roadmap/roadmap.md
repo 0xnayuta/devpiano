@@ -272,11 +272,14 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 当前实施与验证细节详见 [`current-iteration.md`](current-iteration.md)。
 
-### Phase 32：机械物理噪声与琴体微衰退拟真（Mechanical Action Noise & Physical Imperfection） [规划中]
+### Phase 32：机械物理噪声与琴体微衰退拟真（Mechanical Action Noise & Physical Imperfection） [已完成，2026-09-13]
 
-1. **琴键释放与制音器下落敲击声（Key Release & Damper Drop Thump）**；
-2. **踏板动作机械气流与箱体共鸣（Pedal Up/Down Whoosh & Resonance Shock）**；
-3. **调音离散度与琴槌毛毡微老化物理扰动（Inharmonicity Jitter & Felt Ageing）**。
+1. **延音踏板机械气流与箱体共鸣冲击（Pedal Whoosh & Resonance Shock）**：MIDI CC 64 捕获、带通塑形白噪气流微啸短脉冲（踩下中心 ~1350 Hz / 抬起 ~950 Hz）、双模态低频共鸣冲击（58/116 Hz）与开放弦交感微扰，踩下/抬起速度自适应冲激强度；
+2. **离键抬起与制音器落弦瞬态深化（Damper Drop Thump & Key Release）**：离键速度自适应毛毡摩擦持续时间与衰减速率、毛毡纤维高频摩擦微噪声（~2800 Hz）、木质键体落床轻撞声（140/270 Hz 双模态、全 88 键）与琴弦 ADSR 动态释放时间联动；
+3. **琴槌毛毡微老化与调音离散度（Inharmonicity Jitter & Felt Ageing）**：确定性逐键哈希的基频微失谐（±0.3~1.2 cents）、不谐和刚度 B 离散（±4.5%）与逐键毛毡硬度/明暗偏置（默认 0.0 保护纯净基线）；
+4. **全栈集成**：JIVE 声学卡片新增机械噪声与毛毡老化滑块，完整打通 `SettingsStore` / `PerformancePreset` / 离线 WAV 导出与简体中文国际化。
+
+当前实施与验证细节详见 [`current-iteration.md`](current-iteration.md)。
 
 ---
 

@@ -298,6 +298,14 @@ std::optional<PerformancePreset> loadPreset(const juce::File& path) {
             if (aco->hasProperty("reverbWet")) {
                 preset.reverbWet = juce::jlimit(0.0f, 1.0f, static_cast<float>(aco->getProperty("reverbWet")));
             }
+            if (aco->hasProperty("pedalNoiseLevel")) {
+                preset.pedalNoiseLevel
+                    = juce::jlimit(0.0f, 1.0f, static_cast<float>(aco->getProperty("pedalNoiseLevel")));
+            }
+            if (aco->hasProperty("feltAgeingAmount")) {
+                preset.feltAgeingAmount
+                    = juce::jlimit(0.0f, 1.0f, static_cast<float>(aco->getProperty("feltAgeingAmount")));
+            }
         }
     } else {
         if (obj->hasProperty("lidPosition")) {
@@ -329,6 +337,13 @@ std::optional<PerformancePreset> loadPreset(const juce::File& path) {
         }
         if (obj->hasProperty("reverbWet")) {
             preset.reverbWet = juce::jlimit(0.0f, 1.0f, static_cast<float>(obj->getProperty("reverbWet")));
+        }
+        if (obj->hasProperty("pedalNoiseLevel")) {
+            preset.pedalNoiseLevel = juce::jlimit(0.0f, 1.0f, static_cast<float>(obj->getProperty("pedalNoiseLevel")));
+        }
+        if (obj->hasProperty("feltAgeingAmount")) {
+            preset.feltAgeingAmount
+                = juce::jlimit(0.0f, 1.0f, static_cast<float>(obj->getProperty("feltAgeingAmount")));
         }
     }
 
@@ -426,6 +441,8 @@ bool savePreset(const PerformancePreset& preset, const juce::File& path) {
         const auto spaceId = devpiano::audio::RoomReverbEngine::toIdentifier(preset.reverbSpace);
         aco->setProperty("reverbSpace", juce::String(spaceId.data(), spaceId.size()));
         aco->setProperty("reverbWet", preset.reverbWet);
+        aco->setProperty("pedalNoiseLevel", preset.pedalNoiseLevel);
+        aco->setProperty("feltAgeingAmount", preset.feltAgeingAmount);
         root->setProperty("acoustics", juce::var(aco));
     }
 

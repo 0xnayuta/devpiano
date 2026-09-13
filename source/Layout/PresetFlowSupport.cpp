@@ -155,6 +155,10 @@ void PresetFlowSupport::commitPreset(const PerformancePreset& preset) {
     owner.audioEngine.setReverbSpace(preset.reverbSpace);
     s.reverbWet = juce::jlimit(0.0f, 1.0f, preset.reverbWet);
     owner.audioEngine.setReverbWet(s.reverbWet);
+    s.pedalNoiseLevel = juce::jlimit(0.0f, 1.0f, preset.pedalNoiseLevel);
+    owner.audioEngine.setPedalNoiseLevel(s.pedalNoiseLevel);
+    s.feltAgeingAmount = juce::jlimit(0.0f, 1.0f, preset.feltAgeingAmount);
+    owner.audioEngine.setFeltAgeingAmount(s.feltAgeingAmount);
 
     // 4. Persist preset identity
     s.lastActivePresetId = preset.name;
@@ -191,6 +195,8 @@ PerformancePreset PresetFlowSupport::captureCurrentState(const juce::String& nam
     preset.soundPerspective = owner.appSettings.soundPerspective;
     preset.reverbSpace = owner.appSettings.reverbSpace;
     preset.reverbWet = owner.appSettings.reverbWet;
+    preset.pedalNoiseLevel = owner.appSettings.pedalNoiseLevel;
+    preset.feltAgeingAmount = owner.appSettings.feltAgeingAmount;
     return preset;
 }
 

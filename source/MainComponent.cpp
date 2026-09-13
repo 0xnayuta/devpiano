@@ -904,7 +904,9 @@ SettingsModel::PerformanceSettingsView MainComponent::getPerformanceSettingsFrom
              .referencePitchA4 = appSettings.referencePitchA4,
              .soundPerspective = appSettings.soundPerspective,
              .reverbSpace = appSettings.reverbSpace,
-             .reverbWet = appSettings.reverbWet };
+             .reverbWet = appSettings.reverbWet,
+             .pedalNoiseLevel = appSettings.pedalNoiseLevel,
+             .feltAgeingAmount = appSettings.feltAgeingAmount };
 }
 
 juce::String MainComponent::getLastPluginNameForRecoveryStateFromUi() const {
@@ -954,6 +956,8 @@ void MainComponent::applyPerformanceSettingsToAudioEngine(const SettingsModel::P
     audioEngine.setSoundPerspective(performance.soundPerspective);
     audioEngine.setReverbSpace(performance.reverbSpace);
     audioEngine.setReverbWet(performance.reverbWet);
+    audioEngine.setPedalNoiseLevel(performance.pedalNoiseLevel);
+    audioEngine.setFeltAgeingAmount(performance.feltAgeingAmount);
 }
 void MainComponent::setBuiltinSynthTone(SettingsModel::BuiltinTone tone) {
     appSettings.builtinTone = tone;

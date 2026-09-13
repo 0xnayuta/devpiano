@@ -61,6 +61,9 @@ struct SettingsModel {
         devpiano::audio::SoundPerspective soundPerspective = devpiano::audio::SoundPerspective::player;
         devpiano::audio::ReverbSpace reverbSpace = devpiano::audio::ReverbSpace::chamber;
         float reverbWet = 0.0f;
+        // 机械物理噪声与琴体微衰退 (Phase 32-A/C)
+        float pedalNoiseLevel = 0.6f;
+        float feltAgeingAmount = 0.0f;
     };
 
     struct PluginRecoverySettingsView {
@@ -103,6 +106,9 @@ struct SettingsModel {
     devpiano::audio::SoundPerspective soundPerspective = devpiano::audio::SoundPerspective::player;
     devpiano::audio::ReverbSpace reverbSpace = devpiano::audio::ReverbSpace::chamber;
     float reverbWet = 0.0f;
+    // 机械物理噪声与琴体微衰退 (Phase 32-A/C)
+    float pedalNoiseLevel = 0.6f;
+    float feltAgeingAmount = 0.0f;
 
     // Persisted ,UI recovery state.
     juce::String pluginSearchPath;
@@ -163,7 +169,9 @@ struct SettingsModel {
                  .referencePitchA4 = referencePitchA4,
                  .soundPerspective = soundPerspective,
                  .reverbSpace = reverbSpace,
-                 .reverbWet = reverbWet };
+                 .reverbWet = reverbWet,
+                 .pedalNoiseLevel = pedalNoiseLevel,
+                 .feltAgeingAmount = feltAgeingAmount };
     }
 
     void applyPerformanceSettingsView(const PerformanceSettingsView& view) {
@@ -184,6 +192,8 @@ struct SettingsModel {
         soundPerspective = view.soundPerspective;
         reverbSpace = view.reverbSpace;
         reverbWet = view.reverbWet;
+        pedalNoiseLevel = view.pedalNoiseLevel;
+        feltAgeingAmount = view.feltAgeingAmount;
     }
     [[nodiscard]] PluginRecoverySettingsView getPluginRecoverySettingsView() const {
         return { .pluginSearchPath = pluginSearchPath, .lastPluginName = lastPluginName };

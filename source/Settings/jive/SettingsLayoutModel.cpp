@@ -288,6 +288,18 @@ juce::ValueTree makeAcousticsSectionTree() {
     reverbWetSlider.setProperty("height", 24, nullptr);
     content.appendChild(settingRow(TRANS("Reverb Level:"), reverbWetSlider, "reverb-wet-label"), nullptr);
 
+    // Row 8: Pedal Mechanical Noise Level (Slider, Phase 32-D)
+    auto pedalNoiseSlider = node("Slider", "pedal-noise-slider");
+    pedalNoiseSlider.setProperty("width", 300, nullptr);
+    pedalNoiseSlider.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Mechanical Noise:"), pedalNoiseSlider, "pedal-noise-label"), nullptr);
+
+    // Row 9: Felt Ageing Amount (Slider, Phase 32-D)
+    auto feltAgeingSlider = node("Slider", "felt-ageing-slider");
+    feltAgeingSlider.setProperty("width", 300, nullptr);
+    feltAgeingSlider.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Felt Ageing:"), feltAgeingSlider, "felt-ageing-label"), nullptr);
+
     card.appendChild(content, nullptr);
     return card;
 }

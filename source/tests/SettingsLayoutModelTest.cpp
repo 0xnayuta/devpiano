@@ -114,6 +114,8 @@ private:
         expect(findNodeById(tree, "acoustics-title").isValid());
         expect(findNodeById(tree, "lid-position-combo").isValid());
         expect(findNodeById(tree, "touch-curve-combo").isValid());
+        expect(findNodeById(tree, "pedal-noise-slider").isValid());
+        expect(findNodeById(tree, "felt-ageing-slider").isValid());
 
         // Test status bar bullet point clean encoding (no Latin-1/UTF-8 breakdown corruption)
         {

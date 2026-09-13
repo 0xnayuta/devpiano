@@ -75,6 +75,8 @@ void SettingsComponent::buildJiveUi() {
         perspectiveCombo = viewHost.find<juce::ComboBox>("perspective-combo");
         reverbSpaceCombo = viewHost.find<juce::ComboBox>("reverb-space-combo");
         reverbWetSlider = viewHost.find<juce::Slider>("reverb-wet-slider");
+        pedalNoiseSlider = viewHost.find<juce::Slider>("pedal-noise-slider");
+        feltAgeingSlider = viewHost.find<juce::Slider>("felt-ageing-slider");
         diagnosticsEditor = viewHost.find<juce::TextEditor>("diagnostics-editor");
         saveButton = viewHost.find<juce::Button>("save-button");
 
@@ -347,6 +349,32 @@ void SettingsComponent::wireAcousticControls() {
             editingState.setProperty("reverbWet", static_cast<float>(reverbWetSlider->getValue() * 0.01), nullptr);
         };
     }
+    if (pedalNoiseSlider != nullptr) {
+        pedalNoiseSlider->setRange(0.0, 100.0, 1.0);
+        pedalNoiseSlider->setSliderStyle(juce::Slider::LinearHorizontal);
+        pedalNoiseSlider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 55, 20);
+        pedalNoiseSlider->setTextValueSuffix(" %");
+        if (model != nullptr) {
+            pedalNoiseSlider->setValue(model->pedalNoiseLevel * 100.0f, juce::dontSendNotification);
+        }
+        pedalNoiseSlider->onValueChange = [this] {
+            editingState.setProperty("pedalNoiseLevel", static_cast<float>(pedalNoiseSlider->getValue() * 0.01),
+                                     nullptr);
+        };
+    }
+    if (feltAgeingSlider != nullptr) {
+        feltAgeingSlider->setRange(0.0, 100.0, 1.0);
+        feltAgeingSlider->setSliderStyle(juce::Slider::LinearHorizontal);
+        feltAgeingSlider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 55, 20);
+        feltAgeingSlider->setTextValueSuffix(" %");
+        if (model != nullptr) {
+            feltAgeingSlider->setValue(model->feltAgeingAmount * 100.0f, juce::dontSendNotification);
+        }
+        feltAgeingSlider->onValueChange = [this] {
+            editingState.setProperty("feltAgeingAmount", static_cast<float>(feltAgeingSlider->getValue() * 0.01),
+                                     nullptr);
+        };
+    }
 }
 
 void SettingsComponent::wireAppearanceAndLocaleControls() {
@@ -393,6 +421,12 @@ void SettingsComponent::syncEditingStateFromModel() {
     }
     if (reverbWetSlider != nullptr) {
         editingState.setProperty("reverbWet", model->reverbWet, nullptr);
+    }
+    if (pedalNoiseSlider != nullptr) {
+        editingState.setProperty("pedalNoiseLevel", model->pedalNoiseLevel, nullptr);
+    }
+    if (feltAgeingSlider != nullptr) {
+        editingState.setProperty("feltAgeingAmount", model->feltAgeingAmount, nullptr);
     }
     editingState.setProperty("languageCode", model->languageCode, nullptr);
     editingState.setProperty("keySignature", model->keySignature, nullptr);
@@ -810,6 +844,14 @@ bool SettingsComponent::applyDisplayProperty(const juce::Identifier& prop) {
     }
     if (propName == "reverbWet") {
         model->reverbWet = juce::jlimit(0.0f, 1.0f, static_cast<float>(editingState[prop]));
+        return true;
+    }
+    if (propName == "pedalNoiseLevel") {
+        model->pedalNoiseLevel = juce::jlimit(0.0f, 1.0f, static_cast<float>(editingState[prop]));
+        return true;
+    }
+    if (propName == "feltAgeingAmount") {
+        model->feltAgeingAmount = juce::jlimit(0.0f, 1.0f, static_cast<float>(editingState[prop]));
         return true;
     }
     return false;

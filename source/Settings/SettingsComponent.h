@@ -112,6 +112,8 @@ private:
     juce::ComboBox* perspectiveCombo = nullptr;
     juce::ComboBox* reverbSpaceCombo = nullptr;
     juce::Slider* reverbWetSlider = nullptr;
+    juce::Slider* pedalNoiseSlider = nullptr;
+    juce::Slider* feltAgeingSlider = nullptr;
     juce::TextEditor* diagnosticsEditor = nullptr;
     juce::Button* saveButton = nullptr;
 

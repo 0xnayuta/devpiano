@@ -5,7 +5,9 @@
 
 ## 当前方向
 
-**Phase 30 ~ 32：古典调律、空间声学与微观机械拟真三部曲 (Historical Temperaments, Spatial Acoustics & Action Mechanics Trilogy) [规划与开发中]**
+**Phase 30 ~ 32：古典调律、空间声学与微观机械拟真三部曲 (Historical Temperaments, Spatial Acoustics & Action Mechanics Trilogy) [全部完成，2026-09-13]**
+
+*(注：Phase 32 于 2026-09-13 全部胜利完成，包含延音踏板机械气流与箱体共鸣冲击、离键抬起与制音器落弦瞬态深化、琴槌毛毡微老化扰动与调音离散度，以及 JIVE 声学面板全栈集成与简体中文国际化)*
 
 *(注：Phase 29：现实物理演奏交互与声学控制于 2026-09-12 全部胜利完成并归档，包含琴盖 3 态声学开合、Una Corda 弱音移位物理拟真、4 种触键力度曲线与全栈配置预设联动。详细记录见 [`../archive/phase29-physical-voicing-and-acoustic-interaction.md`](../archive/phase29-physical-voicing-and-acoustic-interaction.md)。)*
 
@@ -113,10 +115,10 @@
   - 引入确定性伪随机微失谐扰动（Inharmonicity & Pitch Micro-Jitter，$\pm 0.3\sim 1.5\text{ cents}$），打破“绝对数学纯净”的冰冷感；
   - 模拟琴槌毛毡击弦受力不均造成的逐键微老化差异（Per-key Felt Ageing），使相邻琴键具备微妙的拟真生命力；
   - 提供总控开关与老化深度调节（`feltAgeingAmount`）。
-- [ ] **Phase 32-D：UI 控件接入、全栈集成与全量三闸门闭环**：
-  - 在设置界面声学卡片中提供机械噪声强度滑块（`action-noise-slider`）与物理老化开关；
-  - 全流程通过 `SettingsModel`、`SettingsStore` 与 `PerformancePreset` 联动；
-  - 新增 `source/tests/MechanicalAcousticsTest.cpp`，覆盖机械噪声触发、音量安全限幅、防爆音机制与单测验证；
+- [x] **Phase 32-D：UI 控件接入、全栈集成与全量三闸门闭环** [已完成，2026-09-13]：
+  - 在设置界面声学卡片中新增机械噪声强度滑块（`pedal-noise-slider`）与毛毡老化深度滑块（`felt-ageing-slider`）；
+  - 全流程通过 `SettingsModel`、`SettingsStore` 与 `PerformancePreset` 联动（含离线 WAV 导出参数一致性）；
+  - 新增 `source/tests/MechanicalAcousticsTest.cpp`，覆盖持久化往返、边界钳制、预设向前向后兼容、离线导出传递与极端参数安全限幅/防爆音验证；
   - 全面执行 `./scripts/dev.sh format --check`、`./scripts/dev.sh test`、`./scripts/dev.sh tidy` 与 `./scripts/dev.sh win-build` 最终双端验收。
 
 ---
