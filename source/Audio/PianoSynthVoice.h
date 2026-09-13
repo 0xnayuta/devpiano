@@ -149,6 +149,23 @@ public:
     [[nodiscard]] float getPedalNoiseLevel() const noexcept {
         return pianoPedalNoiseLevel;
     }
+    void setFeltAgeingAmount(float amount) noexcept {
+        pianoFeltAgeingAmount = juce::jlimit(0.0f, 1.0f, amount);
+    }
+
+    [[nodiscard]] float getFeltAgeingAmount() const noexcept {
+        return pianoFeltAgeingAmount;
+    }
+
+    [[nodiscard]] static float deterministicNoteJitter(int midiNoteNumber, std::uint32_t salt) noexcept {
+        std::uint32_t x = static_cast<std::uint32_t>(midiNoteNumber) ^ salt;
+        x ^= x >> 16;
+        x *= 0x7feb352du;
+        x ^= x >> 15;
+        x *= 0x846ca68bu;
+        x ^= x >> 16;
+        return static_cast<float>(static_cast<std::int32_t>(x)) * (1.0f / 2147483648.0f);
+    }
 
     [[nodiscard]] bool isPedalTransientActive() const noexcept {
         return pedalTransient.isActive();
@@ -163,8 +180,21 @@ public:
 
         currentPlayingMidiNote = midiNoteNumber;
         const auto& params = devpiano::audio::getNoteParams(midiNoteNumber);
+        // 琴槌毛毡微老化扰动与调音离散度 (Phase 32-C, Inharmonicity Jitter & Felt Ageing)
+        const auto pitchJitterCents = (pianoFeltAgeingAmount > 0.0f)
+            ? deterministicNoteJitter(midiNoteNumber, 0x13579bdfu) * 1.2f * pianoFeltAgeingAmount
+            : 0.0f;
+        const auto pitchJitterRatio = std::pow(2.0, static_cast<double>(pitchJitterCents) / 1200.0);
         const auto baseFrequency
-            = TemperamentEngine::getFrequency(midiNoteNumber, pianoTemperament, pianoReferencePitchA4);
+            = TemperamentEngine::getFrequency(midiNoteNumber, pianoTemperament, pianoReferencePitchA4)
+            * pitchJitterRatio;
+
+        const auto bJitterRatio = (pianoFeltAgeingAmount > 0.0f)
+            ? (1.0
+               + static_cast<double>(deterministicNoteJitter(midiNoteNumber, 0x2468ace0u) * 0.045f
+                                     * pianoFeltAgeingAmount))
+            : 1.0;
+        const auto effectiveInharmonicityB = params.inharmonicityB * bJitterRatio;
 
         numActivePartials = params.partialCount;
 
@@ -179,10 +209,19 @@ public:
         // 琴槌击弦机向右位移，击打在毛毡侧向未压实较软区域，接触时间延长
         const auto unaCordaMu = softPedalDown ? juce::jmax(0.60f, softPedalAmount) : 0.0f;
 
-        // 动态琴槌毛毡动力学 (Phase 23-A, Chaigne & Askenfelt 1994, Russell & Rossing 1998)
-        const auto effectiveHardness
-            = (0.15f + 0.85f * std::pow(clampedVelocity, 1.5f) * (0.5f + 0.5f * pianoHammerHardness))
-            * (1.0f - 0.25f * unaCordaMu);
+        // 动态琴槌毛毡动力学 (Phase 23-A / Phase 32-C, Felt Ageing & Wear Dynamics)
+        const auto hardnessOffset = (pianoFeltAgeingAmount > 0.0f)
+            ? deterministicNoteJitter(midiNoteNumber, 0x9e3779b9u) * 0.06f * pianoFeltAgeingAmount
+            : 0.0f;
+        const auto brightnessOffset = (pianoFeltAgeingAmount > 0.0f)
+            ? deterministicNoteJitter(midiNoteNumber, 0x4b7e1516u) * 0.04f * pianoFeltAgeingAmount
+            : 0.0f;
+
+        const auto effectiveHardness = std::clamp(
+            (0.15f + 0.85f * std::pow(clampedVelocity, 1.5f) * (0.5f + 0.5f * pianoHammerHardness) + hardnessOffset)
+                * (1.0f - 0.25f * unaCordaMu),
+            0.05f, 1.0f);
+        const auto effectiveBrightness = std::clamp(pianoBrightness + brightnessOffset, 0.0f, 1.0f);
         const auto tc = params.tcBase * (2.5f - 1.9f * effectiveHardness) * (1.0f + 0.20f * unaCordaMu);
 
         // 击弦微观混沌微扰引擎 (Phase 20-B, Bank & Chabassier 2019 Sec. 4)
@@ -206,10 +245,10 @@ public:
         auto normSum = 0.0f;
         for (auto n = 0; n < numActivePartials; ++n) {
             const auto partialNumber = static_cast<double>(n + 1);
-            const auto inharmonicFactor = std::sqrt(1.0 + params.inharmonicityB * partialNumber * partialNumber);
+            const auto inharmonicFactor = std::sqrt(1.0 + effectiveInharmonicityB * partialNumber * partialNumber);
             const auto partialFrequency = baseFrequency * partialNumber * inharmonicFactor;
             normSum += amplitudeFor(n, keyPos, effectiveHardness, effectiveStrikePos, partialFrequency, effectiveTc)
-                * hammerGain(n, numActivePartials) * brightnessBoost(n, pianoBrightness, numActivePartials);
+                * hammerGain(n, numActivePartials) * brightnessBoost(n, effectiveBrightness, numActivePartials);
         }
         const auto scale = peakLevelAtFullVelocity / juce::jmax(1e-6f, normSum);
 
@@ -218,7 +257,7 @@ public:
         for (auto n = 0; n < numActivePartials; ++n) {
             auto& partial = partials[static_cast<std::size_t>(n)];
             const auto m = static_cast<double>(n + 1);
-            const auto inharmonicFactor = std::sqrt(1.0 + params.inharmonicityB * m * m);
+            const auto inharmonicFactor = std::sqrt(1.0 + effectiveInharmonicityB * m * m);
             const auto partialFrequency = baseFrequency * m * inharmonicFactor;
 
             if (partialFrequency >= nyquistLimit) {
@@ -286,7 +325,7 @@ public:
 
             partial.level
                 = amplitudeFor(n, keyPos, effectiveHardness, effectiveStrikePos, partialFrequency, effectiveTc)
-                * hammerGain(n, numActivePartials) * brightnessBoost(n, pianoBrightness, numActivePartials) * scale
+                * hammerGain(n, numActivePartials) * brightnessBoost(n, effectiveBrightness, numActivePartials) * scale
                 * velocityLevel * trichordAtten;
 
             // 泛音时间滞后膨胀与绽放 (Phase 24-A, Harmonic Blooming)
@@ -1600,4 +1639,5 @@ public:
     float softPedalAmount = 0.0f;
     int voiceIndex = 0;
     float pianoPedalNoiseLevel = 0.6f;
+    float pianoFeltAgeingAmount = 0.0f;
 };

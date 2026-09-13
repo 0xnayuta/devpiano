@@ -109,7 +109,7 @@
     - 根据键盘离键速度（Note-Off Velocity）动态调整阻尼器毛毡贴回琴弦的摩擦衰减速度；
     - 引入木质键体落回键床底部的微弱撞击声（Key Release Thump）；
   - 纯物理瞬态合成算法，维持零采样依赖与低计算负荷。
-- [ ] **Phase 32-C：琴槌毛毡微老化扰动与调音离散度 (Inharmonicity Jitter & Felt Ageing)**：
+- [x] **Phase 32-C：琴槌毛毡微老化扰动与调音离散度 (Inharmonicity Jitter & Felt Ageing)** [已完成，2026-09-13]：
   - 引入确定性伪随机微失谐扰动（Inharmonicity & Pitch Micro-Jitter，$\pm 0.3\sim 1.5\text{ cents}$），打破“绝对数学纯净”的冰冷感；
   - 模拟琴槌毛毡击弦受力不均造成的逐键微老化差异（Per-key Felt Ageing），使相邻琴键具备微妙的拟真生命力；
   - 提供总控开关与老化深度调节（`feltAgeingAmount`）。

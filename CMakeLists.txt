@@ -543,6 +543,7 @@ if (BUILD_TESTS)
         source/tests/SpatialAcousticsTest.cpp
         source/tests/PedalAcousticsTest.cpp
         source/tests/DamperReleaseTest.cpp
+        source/tests/FeltAgeingTest.cpp
         ${DEVPIANO_JIVE_CORE_SOURCES}
     )
     target_link_libraries(devpiano_tests PRIVATE

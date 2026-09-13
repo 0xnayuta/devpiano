@@ -284,6 +284,10 @@ void AudioEngine::setPedalNoiseLevel(float level) {
     pendingPedalNoiseLevel.store(std::clamp(level, 0.0f, 1.0f), std::memory_order_relaxed);
     parametersNeedUpdate.store(true, std::memory_order_release);
 }
+void AudioEngine::setFeltAgeingAmount(float amount) {
+    pendingFeltAgeingAmount.store(std::clamp(amount, 0.0f, 1.0f), std::memory_order_relaxed);
+    parametersNeedUpdate.store(true, std::memory_order_release);
+}
 
 void AudioEngine::applyPendingParametersIfNeeded() {
     if (!parametersNeedUpdate.exchange(false, std::memory_order_acq_rel)) {
@@ -304,6 +308,7 @@ void AudioEngine::applyPendingParametersIfNeeded() {
     const auto revSpace = static_cast<ReverbSpace>(pendingReverbSpace.load(std::memory_order_relaxed));
     const auto revWet = pendingReverbWet.load(std::memory_order_relaxed);
     const auto pedalNoise = pendingPedalNoiseLevel.load(std::memory_order_relaxed);
+    const auto feltAgeing = pendingFeltAgeingAmount.load(std::memory_order_relaxed);
 
     adsrParameters = { attack, decay, sustain, release };
     pianoBrightness = brightness;
@@ -316,6 +321,7 @@ void AudioEngine::applyPendingParametersIfNeeded() {
     pianoReverbSpace = revSpace;
     pianoReverbWet = revWet;
     pianoPedalNoiseLevel = pedalNoise;
+    pianoFeltAgeingAmount = feltAgeing;
     roomReverb.setSpace(pianoReverbSpace);
     roomReverb.setWetLevel(pianoReverbWet);
 
@@ -332,6 +338,7 @@ void AudioEngine::updatePianoParametersOnVoices() {
             voice->setReferencePitchA4(pianoReferencePitchA4);
             voice->setSoundPerspective(pianoSoundPerspective);
             voice->setPedalNoiseLevel(pianoPedalNoiseLevel);
+            voice->setFeltAgeingAmount(pianoFeltAgeingAmount);
         } else if (auto* sineVoice = dynamic_cast<SineSynthVoice*>(synth.getVoice(index))) {
             sineVoice->setTemperament(pianoTemperament);
             sineVoice->setReferencePitchA4(pianoReferencePitchA4);
