@@ -254,14 +254,13 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 4. **声学配置持久化与预设系统全量联动（Phase 29-D）**：将琴盖开合度、Una Corda 默认态与触键曲线完整纳入 `SettingsModel`、`SettingsStore` 与 Performance Preset（`.devpiano.preset` JSON）序列化，确保向后兼容 [已完成，2026-09-12]；
 5. **声学精调、三闸门闭环与构建验证（Phase 29-E）**：全套 71 套件单测 100% 绿灯闭环，三闸门合规，双平台 MSVC / Linux 编译与打包验证，实机演奏手感与声学回归 [已完成，2026-09-12]。
 
-详细完成记录见 [`../roadmap/current-iteration.md`](current-iteration.md)。
+详细完成记录见 [`../archive/phase29-physical-voicing-and-acoustic-interaction.md`](../archive/phase29-physical-voicing-and-acoustic-interaction.md)。
 
-### Phase 30：历史调律体系与高阶微音律（Historical Temperaments & Microtonality） [规划中]
+### Phase 30：历史调律体系与基准音高校准（Historical Temperaments & Reference Pitch Calibration） [规划中]
 
-1. **古典历史调律与平均律拓展**：支持十二平均律、纯律、毕达哥拉斯律、中庸全音律、魏克迈斯特律 III、基恩伯格律 III，在物理弦模态基频链路上实时计算微音分偏移；
-2. **Scala (.scl / .kbm) 调律文件导入**：支持微音律国际标准 Scala 文件解析与自定义音程映射；
-3. **A4 基准音高自由微调**：支持 415.0 Hz（巴洛克）、432.0 Hz、440.0 Hz（标准）、442.0 Hz 自由调节。
-
+1. **古典历史调律与平均律拓展**：支持十二平均律（Equal Temperament）、纯律（Just Intonation）、毕达哥拉斯律（Pythagorean）、中庸全音律（Meantone 1/4 comma）、魏克迈斯特律（Werckmeister III）、基恩伯格律（Kirnberger III），在物理弦模态基频生成链路上实现微音分高精度映射；
+2. **A4 基准音高校准**：支持 415.0 Hz（巴洛克古典）、432.0 Hz（维尔第调律）、440.0 Hz（现代标准）、442.0 Hz（交响乐团）无级微调；
+3. **裁剪与非目标**：依据项目定位裁剪外部 Scala (.scl/.kbm) 文件解析，坚守内置经典律制与纯自包含免安装绿色原则。
 ### Phase 31：多视角空间声学与麦克风拾音摆位（Multi-Mic Spatial Acoustics & Room Modeling） [规划中]
 
 1. **多视角立体声场（Player vs Audience Perspective）**：演奏者主观视角（宽立体声、左低右高）与观众/音乐厅视角切换；
