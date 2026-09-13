@@ -1,5 +1,6 @@
 #pragma once
 
+#include "PerspectiveProcessor.h"
 #include "Piano88KeyTable.h"
 #include "TemperamentEngine.h"
 #include <juce_audio_basics/juce_audio_basics.h>
@@ -57,6 +58,8 @@ public:
 class PianoSynthVoice final : public juce::SynthesiserVoice {
 public:
     static constexpr auto maxPartials = 20;
+    using SoundPerspective = devpiano::audio::SoundPerspective;
+    using PerspectiveProcessor = devpiano::audio::PerspectiveProcessor;
     using Temperament = devpiano::audio::Temperament;
     static constexpr auto numResonators = 16;
     static constexpr auto bodyWetRatio = 0.26f;
@@ -95,6 +98,15 @@ public:
     [[nodiscard]] LidPosition getLidPosition() const noexcept {
         return pianoLidPosition;
     }
+
+    void setSoundPerspective(SoundPerspective perspective) noexcept {
+        pianoSoundPerspective = perspective;
+        perspectiveProcessor.setPerspective(perspective, !isVoiceActive());
+    }
+
+    [[nodiscard]] SoundPerspective getSoundPerspective() const noexcept {
+        return pianoSoundPerspective;
+    }
     void setSoftPedalDown(bool down, float amount = 1.0f) noexcept {
         softPedalDown = down;
         softPedalAmount = down ? juce::jlimit(0.0f, 1.0f, amount) : 0.0f;
@@ -128,6 +140,7 @@ public:
         if (sampleRate <= 0.0) {
             return;
         }
+        perspectiveProcessor.prepare(sampleRate);
 
         currentPlayingMidiNote = midiNoteNumber;
         const auto& params = devpiano::audio::getNoteParams(midiNoteNumber);
@@ -333,6 +346,7 @@ public:
         spruceSoundboardFilter.reset();
         sympatheticPool.reset();
         lidAcoustics.reset();
+        perspectiveProcessor.reset();
         clearCurrentNote();
     }
     void pitchWheelMoved(int) override {
@@ -367,6 +381,7 @@ public:
                 }
                 spruceSoundboardFilter.reset();
                 sympatheticPool.reset();
+                perspectiveProcessor.reset();
                 lidAcoustics.reset();
                 break;
             }
@@ -467,6 +482,8 @@ public:
 
             // 5. 三角钢琴琴盖反射与近场木质微反射 (Phase 21-B / Phase 22-B, Chabassier 2013/2019)
             lidAcoustics.processStereo(outLeft, outRight);
+            // 6. 双视角立体声场与声像转换 (Phase 31-A, PerspectiveProcessor: Player vs Audience)
+            perspectiveProcessor.processStereo(outLeft, outRight);
 
             if (outputBuffer.getNumChannels() >= 2) {
                 outputBuffer.addSample(0, sampleIndex, outLeft);
@@ -491,6 +508,7 @@ public:
             spruceSoundboardFilter.reset();
             sympatheticPool.reset();
             lidAcoustics.reset();
+            perspectiveProcessor.reset();
         }
     }
 
@@ -1162,6 +1180,8 @@ public:
         }
     };
     LidAcoustics lidAcoustics;
+    PerspectiveProcessor perspectiveProcessor;
+    SoundPerspective pianoSoundPerspective = SoundPerspective::player;
 
     // 云杉木音板高频粘滞吸收低通滤波器 (Phase 23-C, Boutillon & Ege 2013)
     struct SpruceSoundboardFilter {

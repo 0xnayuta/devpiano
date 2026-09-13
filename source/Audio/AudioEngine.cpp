@@ -255,6 +255,10 @@ void AudioEngine::setReferencePitchA4(double pitch) {
                                   std::memory_order_relaxed);
     parametersNeedUpdate.store(true, std::memory_order_release);
 }
+void AudioEngine::setSoundPerspective(SoundPerspective perspective) {
+    pendingSoundPerspective.store(static_cast<std::uint8_t>(perspective), std::memory_order_relaxed);
+    parametersNeedUpdate.store(true, std::memory_order_release);
+}
 
 void AudioEngine::applyPendingParametersIfNeeded() {
     if (!parametersNeedUpdate.exchange(false, std::memory_order_acq_rel)) {
@@ -271,6 +275,7 @@ void AudioEngine::applyPendingParametersIfNeeded() {
     const auto lid = static_cast<LidPosition>(pendingLidPosition.load(std::memory_order_relaxed));
     const auto temperament = static_cast<Temperament>(pendingTemperament.load(std::memory_order_relaxed));
     const auto refPitch = pendingReferencePitchA4.load(std::memory_order_relaxed);
+    const auto perspective = static_cast<SoundPerspective>(pendingSoundPerspective.load(std::memory_order_relaxed));
 
     adsrParameters = { attack, decay, sustain, release };
     pianoBrightness = brightness;
@@ -279,6 +284,7 @@ void AudioEngine::applyPendingParametersIfNeeded() {
     pianoLidPosition = lid;
     pianoTemperament = temperament;
     pianoReferencePitchA4 = refPitch;
+    pianoSoundPerspective = perspective;
 
     updateAdsrOnVoices();
     updatePianoParametersOnVoices();
@@ -291,6 +297,7 @@ void AudioEngine::updatePianoParametersOnVoices() {
             voice->setLidPosition(static_cast<PianoSynthVoice::LidPosition>(pianoLidPosition));
             voice->setTemperament(pianoTemperament);
             voice->setReferencePitchA4(pianoReferencePitchA4);
+            voice->setSoundPerspective(pianoSoundPerspective);
         } else if (auto* sineVoice = dynamic_cast<SineSynthVoice*>(synth.getVoice(index))) {
             sineVoice->setTemperament(pianoTemperament);
             sineVoice->setReferencePitchA4(pianoReferencePitchA4);

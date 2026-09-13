@@ -1,5 +1,6 @@
 #pragma once
 
+#include "PerspectiveProcessor.h"
 #include "TemperamentEngine.h"
 #include <atomic>
 #include <juce_audio_basics/juce_audio_basics.h>
@@ -47,6 +48,11 @@ public:
     void setReferencePitchA4(double pitch);
     [[nodiscard]] double getReferencePitchA4() const noexcept {
         return pendingReferencePitchA4.load(std::memory_order_relaxed);
+    }
+    using SoundPerspective = devpiano::audio::SoundPerspective;
+    void setSoundPerspective(SoundPerspective perspective);
+    [[nodiscard]] SoundPerspective getSoundPerspective() const noexcept {
+        return static_cast<SoundPerspective>(pendingSoundPerspective.load(std::memory_order_relaxed));
     }
     void setPlaybackTranspose(bool enabled, int semitoneOffset,
                               std::uint16_t channelFollowKeyMask = 0b1111110111111111) noexcept;
@@ -123,6 +129,7 @@ private:
     std::atomic<std::uint8_t> pendingTemperament { 0 };
     std::atomic<double> pendingReferencePitchA4 { devpiano::audio::TemperamentEngine::kDefaultReferencePitch };
     std::atomic<bool> parametersNeedUpdate { true };
+    std::atomic<std::uint8_t> pendingSoundPerspective { 0 };
     float pianoBrightness = 0.5f;
     float pianoHammerHardness = 0.5f;
     float pianoResonance = 0.5f;
@@ -130,6 +137,7 @@ private:
     Temperament pianoTemperament = Temperament::equal;
     double pianoReferencePitchA4 = devpiano::audio::TemperamentEngine::kDefaultReferencePitch;
     std::atomic<double> currentSampleRate { 44100.0 };
+    SoundPerspective pianoSoundPerspective = SoundPerspective::player;
     std::atomic<int> currentBlockSize { 512 };
     std::atomic_bool allNotesOffPending { false };
     std::atomic<int> warmupBlocksRemaining { 0 };
