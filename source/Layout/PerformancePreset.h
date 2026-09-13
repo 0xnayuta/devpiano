@@ -6,6 +6,7 @@
 #include <optional>
 #include <vector>
 
+#include "../Audio/TemperamentEngine.h"
 #include "../Midi/ChannelMatrix.h"
 #include "../Settings/SettingsModel.h"
 #include "../UI/KeyboardTypes.h"

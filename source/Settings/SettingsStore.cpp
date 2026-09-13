@@ -67,7 +67,8 @@ void readPerformanceSettings(juce::PropertiesFile& file, SettingsModel& model) {
             juce::jlimit(0, 3, file.getIntValue(kKeyTouchVelocityCurve, static_cast<int>(model.touchVelocityCurve)))),
         .unaCorda = file.getBoolValue(kKeyUnaCorda, model.unaCorda),
         .temperament = static_cast<devpiano::audio::Temperament>(
-            juce::jlimit(0, 5, file.getIntValue(kKeyTemperament, static_cast<int>(model.temperament)))),
+            juce::jlimit(0, static_cast<int>(devpiano::audio::TemperamentEngine::kNumTemperaments - 1),
+                         file.getIntValue(kKeyTemperament, static_cast<int>(model.temperament)))),
         .referencePitchA4 = devpiano::audio::TemperamentEngine::clampReferencePitch(
             file.getDoubleValue(kKeyReferencePitchA4, model.referencePitchA4))
     };

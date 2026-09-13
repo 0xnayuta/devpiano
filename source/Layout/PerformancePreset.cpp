@@ -394,9 +394,8 @@ bool savePreset(const PerformancePreset& preset, const juce::File& path) {
         aco->setProperty("lidPosition", static_cast<int>(preset.lidPosition));
         aco->setProperty("touchVelocityCurve", static_cast<int>(preset.touchVelocityCurve));
         aco->setProperty("unaCorda", preset.unaCorda);
-        aco->setProperty(
-            "temperament",
-            juce::String(std::string(devpiano::audio::TemperamentEngine::getIdentifier(preset.temperament))));
+        const auto tempId = devpiano::audio::TemperamentEngine::getIdentifier(preset.temperament);
+        aco->setProperty("temperament", juce::String(tempId.data(), tempId.size()));
         aco->setProperty("referencePitchA4", preset.referencePitchA4);
         root->setProperty("acoustics", juce::var(aco));
     }

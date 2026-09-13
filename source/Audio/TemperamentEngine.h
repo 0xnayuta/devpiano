@@ -104,10 +104,12 @@ public:
 
         case Temperament::kirnberger3:
             // Kirnberger III (Johann Philipp Kirnberger, 1779), anchored at A=0:
-            // C: +10.265, C#: +0.978, D: +3.422, D#: +4.400, E: -2.933, F: +8.314,
-            // F#: +0.978, G: +6.843, G#: +1.955, A: 0.0, A#: +5.865, B: -1.955
-            return { 10.2647f, 0.9775f, 3.4216f, 4.4000f, -2.9325f, 8.3137f,
-                     0.9775f,  6.8431f, 1.9550f, 0.0f,    5.8650f,  -1.9550f };
+            // C-G-D-A-E narrowed by 1/4 syntonic comma (pure C-E major third 5/4, 386.31 cents),
+            // remaining fifths pure 3/2 with schisma closure:
+            // C: +10.265, C#: +0.490, D: +3.422, D#: +4.400, E: -3.422, F: +8.310,
+            // F#: +0.488, G: +6.843, G#: +2.445, A: 0.0, A#: +6.355, B: -1.467
+            return { 10.2647f, 0.4897f, 3.4216f, 4.3997f, -3.4216f, 8.3097f,
+                     0.4884f,  6.8431f, 2.4447f, 0.0f,    6.3547f,  -1.4666f };
         }
         return { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
     }

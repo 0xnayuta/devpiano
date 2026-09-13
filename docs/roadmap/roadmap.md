@@ -256,11 +256,14 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 详细完成记录见 [`../archive/phase29-physical-voicing-and-acoustic-interaction.md`](../archive/phase29-physical-voicing-and-acoustic-interaction.md)。
 
-### Phase 30：历史调律体系与基准音高校准（Historical Temperaments & Reference Pitch Calibration） [规划中]
+### Phase 30：历史调律体系与基准音高校准（Historical Temperaments & Reference Pitch Calibration） [已完成，2026-09-13]
 
 1. **古典历史调律与平均律拓展**：支持十二平均律（Equal Temperament）、纯律（Just Intonation）、毕达哥拉斯律（Pythagorean）、中庸全音律（Meantone 1/4 comma）、魏克迈斯特律（Werckmeister III）、基恩伯格律（Kirnberger III），在物理弦模态基频生成链路上实现微音分高精度映射；
 2. **A4 基准音高校准**：支持 415.0 Hz（巴洛克古典）、432.0 Hz（维尔第调律）、440.0 Hz（现代标准）、442.0 Hz（交响乐团）无级微调；
 3. **裁剪与非目标**：依据项目定位裁剪外部 Scala (.scl/.kbm) 文件解析，坚守内置经典律制与纯自包含免安装绿色原则。
+
+当前实施与验证细节详见 [`current-iteration.md`](current-iteration.md)。
+
 ### Phase 31：多视角空间声学与麦克风拾音摆位（Multi-Mic Spatial Acoustics & Room Modeling） [规划中]
 
 1. **多视角立体声场（Player vs Audience Perspective）**：演奏者主观视角（宽立体声、左低右高）与观众/音乐厅视角切换；

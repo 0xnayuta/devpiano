@@ -147,8 +147,8 @@ void PresetFlowSupport::commitPreset(const PerformancePreset& preset) {
     owner.keyboardMidiMapper.setSoftPedalDown(preset.unaCorda);
     s.temperament = preset.temperament;
     owner.audioEngine.setTemperament(preset.temperament);
-    s.referencePitchA4 = preset.referencePitchA4;
-    owner.audioEngine.setReferencePitchA4(preset.referencePitchA4);
+    s.referencePitchA4 = devpiano::audio::TemperamentEngine::clampReferencePitch(preset.referencePitchA4);
+    owner.audioEngine.setReferencePitchA4(s.referencePitchA4);
 
     // 4. Persist preset identity
     s.lastActivePresetId = preset.name;

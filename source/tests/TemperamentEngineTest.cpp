@@ -198,6 +198,12 @@ private:
         const auto pythG4 = TemperamentEngine::getFrequency(67, Temperament::pythagorean, 440.0);
         const auto pythFifthCents = 1200.0 * std::log2(pythG4 / pythC4);
         expectWithinAbsoluteError(pythFifthCents, 701.955, 0.1);
+
+        // 4. Kirnberger III: pure major third C-E (5/4 ratio, ~386.31 cents)
+        const auto kirnC4 = TemperamentEngine::getFrequency(60, Temperament::kirnberger3, 440.0);
+        const auto kirnE4 = TemperamentEngine::getFrequency(64, Temperament::kirnberger3, 440.0);
+        const auto kirnThirdCents = 1200.0 * std::log2(kirnE4 / kirnC4);
+        expectWithinAbsoluteError(kirnThirdCents, 386.3137, 0.05);
     }
 
     void testPitchClassAndOctaveHelpers() {

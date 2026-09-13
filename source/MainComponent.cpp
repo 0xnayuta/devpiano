@@ -899,7 +899,9 @@ SettingsModel::PerformanceSettingsView MainComponent::getPerformanceSettingsFrom
              .pianoResonance = getPianoResonance(),
              .lidPosition = appSettings.lidPosition,
              .touchVelocityCurve = appSettings.touchVelocityCurve,
-             .unaCorda = keyboardMidiMapper.isSoftPedalDown() };
+             .unaCorda = keyboardMidiMapper.isSoftPedalDown(),
+             .temperament = appSettings.temperament,
+             .referencePitchA4 = appSettings.referencePitchA4 };
 }
 
 juce::String MainComponent::getLastPluginNameForRecoveryStateFromUi() const {
