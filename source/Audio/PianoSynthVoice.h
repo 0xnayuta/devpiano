@@ -347,9 +347,18 @@ public:
         sympatheticPool.noteOffKey(currentPlayingMidiNote);
 
         if (allowTailOff) {
-            adsrGate.noteOff();
             const auto sampleRate = getSampleRate();
-            damperTransient.trigger(sampleRate, currentPlayingMidiNote, velocity > 0.0f ? velocity : 0.6f);
+            const auto relVel = velocity > 0.0f ? velocity : 0.6f;
+
+            // 离键速度动态调节琴弦 ADSR 释放时间 (Phase 32-B, Dynamic Key Release Damping):
+            // 慢离键毛毡缓冲贴弦缓慢，保留微弱余音延展；快离键瞬间强力消音
+            if (sampleRate > 0.0) {
+                const auto baseRelease = 0.18f;
+                const auto dynamicRelease = baseRelease * (1.5f - 0.75f * juce::jlimit(0.1f, 1.0f, relVel));
+                adsrGate.setParameters({ 0.0002f, 0.001f, 1.0f, dynamicRelease });
+            }
+            adsrGate.noteOff();
+            damperTransient.trigger(sampleRate, currentPlayingMidiNote, relVel);
             return;
         }
 
@@ -1020,8 +1029,9 @@ public:
     };
     HammerTransient hammerTransient;
 
-    // 制音器落弦与琴键释放机械瞬态 (Phase 22-A, Damper Felt Fall & Release Thump)
+    // 制音器落弦与琴键释放机械瞬态深化 (Phase 22-A / Phase 32-B, Damper Felt Fall & Key Release Thump)
     struct DamperTransient {
+        // 1. 毛毡触弦低频接触瞬态 (Felt Contact Transient)
         int samplesRemaining = 0;
         int totalSamples = 0;
         float amplitude = 0.0f;
@@ -1031,55 +1041,157 @@ public:
         float oscPhase2 = 0.0f;
         float phaseInc2 = 0.0f;
 
+        // 2. 木质键体落回键床底部轻撞声 (Key Release Thump / Key Bed Return)
+        int woodSamplesRemaining = 0;
+        float woodAmplitude = 0.0f;
+        float woodDecay = 0.0f;
+        float woodPhase1 = 0.0f;
+        float woodPhaseInc1 = 0.0f;
+        float woodPhase2 = 0.0f;
+        float woodPhaseInc2 = 0.0f;
+
+        // 3. 毛毡纤维贴弦高频摩擦微脉冲 (Felt Friction Noise)
+        int frictionSamplesRemaining = 0;
+        float frictionAmplitude = 0.0f;
+        float frictionDecay = 0.0f;
+        float bpW1 = 0.0f, bpW2 = 0.0f;
+        float b0 = 0.0f, b1 = 0.0f, b2 = 0.0f, a1 = 0.0f, a2 = 0.0f;
+        std::uint32_t rngState = 0x87654321;
+
         void trigger(double sr, int midiNoteNumber, float releaseVelocity) noexcept {
             if (sr <= 0.0) {
                 return;
             }
-            if (midiNoteNumber > 88) {
-                reset();
-                return;
+            const auto sampleRate = static_cast<float>(sr);
+            const auto rv = juce::jlimit(0.05f, 1.0f, releaseVelocity);
+            const auto clampedNote = std::clamp(midiNoteNumber, 21, 108);
+            const auto noteRatio = static_cast<float>(clampedNote - 21) / 87.0f;
+
+            // 只有有阻尼器的音区 (一般 <= 88 键，即 F6 左右以下) 才有毛毡接触弦声
+            const auto hasDamper = (midiNoteNumber <= 88);
+
+            if (hasDamper) {
+                // A. 速度自适应毛毡落弦摩擦与持续时间:
+                // 慢离键摩擦接触时间长，快离键干脆截断
+                const auto baseDur = juce::jlimit(0.008f, 0.026f, 0.026f - noteRatio * 0.016f);
+                const auto velocityDurationScale = 1.6f - 0.9f * rv;
+                const auto dur = baseDur * velocityDurationScale;
+                totalSamples = juce::jmax(1, static_cast<int>(dur * sampleRate));
+                samplesRemaining = totalSamples;
+
+                const auto f1 = juce::jlimit(75.0f, 160.0f, 85.0f + noteRatio * 60.0f);
+                const auto f2 = juce::jlimit(180.0f, 420.0f, 220.0f + noteRatio * 180.0f);
+                phaseInc1 = juce::MathConstants<float>::twoPi * f1 / sampleRate;
+                phaseInc2 = juce::MathConstants<float>::twoPi * f2 / sampleRate;
+                oscPhase1 = 0.0f;
+                oscPhase2 = 0.0f;
+
+                const auto zoneGain = juce::jlimit(0.05f, 1.0f, 1.0f - noteRatio * 0.85f);
+                amplitude = peakLevelAtFullVelocity * 0.075f * std::sqrt(rv) * zoneGain;
+
+                const auto decayExponent = -(3.2f + 3.2f * rv);
+                decayPerSample = std::exp(decayExponent / static_cast<float>(totalSamples));
+
+                // B. 毛毡微摩擦高频噪声 (Felt Friction):
+                // 慢离键摩擦显著，持续 15~30ms，中心 ~2800 Hz, Q ~ 1.8
+                const auto frictionDur = juce::jlimit(0.012f, 0.032f, 0.032f * (1.3f - 0.6f * rv));
+                frictionSamplesRemaining = juce::jmax(1, static_cast<int>(frictionDur * sampleRate));
+                frictionAmplitude = peakLevelAtFullVelocity * 0.015f * (0.4f + 0.6f * (1.0f - rv)) * zoneGain;
+                frictionDecay = std::exp(-5.0f / static_cast<float>(frictionSamplesRemaining));
+
+                const auto f0 = 2800.0f;
+                const auto q = 1.8f;
+                const auto w0 = juce::MathConstants<float>::twoPi * f0 / sampleRate;
+                const auto cosW0 = std::cos(w0);
+                const auto sinW0 = std::sin(w0);
+                const auto alpha = sinW0 / (2.0f * q);
+                const auto a0 = 1.0f + alpha;
+                b0 = alpha / a0;
+                b1 = 0.0f;
+                b2 = -alpha / a0;
+                a1 = (-2.0f * cosW0) / a0;
+                a2 = (1.0f - alpha) / a0;
+                bpW1 = 0.0f;
+                bpW2 = 0.0f;
+            } else {
+                samplesRemaining = 0;
+                amplitude = 0.0f;
+                frictionSamplesRemaining = 0;
+                frictionAmplitude = 0.0f;
             }
 
-            const auto sampleRate = static_cast<float>(sr);
-            const auto noteRatio = static_cast<float>(midiNoteNumber - 21) / 67.0f;
-            const auto dur = juce::jlimit(0.006f, 0.024f, 0.024f - noteRatio * 0.018f);
-            totalSamples = juce::jmax(1, static_cast<int>(dur * sampleRate));
-            samplesRemaining = totalSamples;
-
-            const auto f1 = juce::jlimit(75.0f, 160.0f, 85.0f + noteRatio * 60.0f);
-            const auto f2 = juce::jlimit(180.0f, 420.0f, 220.0f + noteRatio * 180.0f);
-            phaseInc1 = juce::MathConstants<float>::twoPi * f1 / sampleRate;
-            phaseInc2 = juce::MathConstants<float>::twoPi * f2 / sampleRate;
-            oscPhase1 = 0.0f;
-            oscPhase2 = 0.0f;
-
-            const auto rv = juce::jlimit(0.0f, 1.0f, releaseVelocity);
-            const auto zoneGain = juce::jlimit(0.05f, 1.0f, 1.0f - noteRatio * 0.85f);
-            amplitude = peakLevelAtFullVelocity * 0.08f * rv * zoneGain;
-            decayPerSample = std::exp(-5.0f / static_cast<float>(totalSamples));
+            // C. 木质键体落回键床撞击声 (Key Release Thump): 全 88 键通用
+            const auto woodDur = 0.018f;
+            woodSamplesRemaining = juce::jmax(1, static_cast<int>(woodDur * sampleRate));
+            const auto woodF1 = 140.0f - noteRatio * 25.0f;
+            const auto woodF2 = 270.0f - noteRatio * 40.0f;
+            woodPhaseInc1 = juce::MathConstants<float>::twoPi * woodF1 / sampleRate;
+            woodPhaseInc2 = juce::MathConstants<float>::twoPi * woodF2 / sampleRate;
+            woodPhase1 = 0.0f;
+            woodPhase2 = 0.0f;
+            woodAmplitude = peakLevelAtFullVelocity * 0.032f * (rv * rv);
+            woodDecay = std::exp(-6.0f / static_cast<float>(woodSamplesRemaining));
         }
 
         [[nodiscard]] float getNextSample() noexcept {
-            if (samplesRemaining <= 0) {
+            if (!isActive()) {
                 return 0.0f;
             }
-            --samplesRemaining;
-            const auto s1 = std::sin(oscPhase1);
-            const auto s2 = std::sin(oscPhase2);
-            oscPhase1 += phaseInc1;
-            oscPhase2 += phaseInc2;
-            const auto out = amplitude * (0.75f * s1 + 0.25f * s2);
-            amplitude *= decayPerSample;
+            auto out = 0.0f;
+
+            // 1. 毛毡触弦声
+            if (samplesRemaining > 0) {
+                --samplesRemaining;
+                const auto s1 = std::sin(oscPhase1);
+                const auto s2 = std::sin(oscPhase2);
+                oscPhase1 += phaseInc1;
+                oscPhase2 += phaseInc2;
+                out += amplitude * (0.75f * s1 + 0.25f * s2);
+                amplitude *= decayPerSample;
+            }
+
+            // 2. 毛毡高频摩擦声
+            if (frictionSamplesRemaining > 0) {
+                --frictionSamplesRemaining;
+                rngState ^= (rngState << 13);
+                rngState ^= (rngState >> 17);
+                rngState ^= (rngState << 5);
+                const auto rawNoise = static_cast<float>(static_cast<std::int32_t>(rngState)) * (1.0f / 2147483648.0f);
+                const auto w = rawNoise - a1 * bpW1 - a2 * bpW2;
+                const auto filtered = b0 * w + b1 * bpW1 + b2 * bpW2;
+                bpW2 = bpW1;
+                bpW1 = w;
+                out += filtered * frictionAmplitude;
+                frictionAmplitude *= frictionDecay;
+            }
+
+            // 3. 木质键床撞击声
+            if (woodSamplesRemaining > 0) {
+                --woodSamplesRemaining;
+                const auto w1 = std::sin(woodPhase1);
+                const auto w2 = std::sin(woodPhase2);
+                woodPhase1 += woodPhaseInc1;
+                woodPhase2 += woodPhaseInc2;
+                out += woodAmplitude * (0.70f * w1 + 0.30f * w2);
+                woodAmplitude *= woodDecay;
+            }
+
             return out;
         }
 
         void reset() noexcept {
             samplesRemaining = 0;
             amplitude = 0.0f;
+            woodSamplesRemaining = 0;
+            woodAmplitude = 0.0f;
+            frictionSamplesRemaining = 0;
+            frictionAmplitude = 0.0f;
+            bpW1 = 0.0f;
+            bpW2 = 0.0f;
         }
 
         [[nodiscard]] bool isActive() const noexcept {
-            return samplesRemaining > 0;
+            return samplesRemaining > 0 || woodSamplesRemaining > 0 || frictionSamplesRemaining > 0;
         }
     };
     DamperTransient damperTransient;

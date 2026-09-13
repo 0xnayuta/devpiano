@@ -104,7 +104,7 @@
   - 当踏板快速踩下时，模拟全弦制音器同时抬起的空气流动物理微啸声（Whoosh，带通塑形白噪短脉冲）；
   - 激发共鸣弦列的极微弱低频瞬态冲击（Resonance Shock，模拟止音器离开琴弦时的瞬时机械微扰动）；
   - 踩下与抬起速度自适应调整冲激强度，并提供可配置的 `pedalNoiseLevel` 增益控制。
-- [ ] **Phase 32-B：离键抬起与制音器落弦瞬态深化 (Damper Drop Thump & Key Release)**：
+- [x] **Phase 32-B：离键抬起与制音器落弦瞬态深化 (Damper Drop Thump & Key Release)** [已完成，2026-09-13]：
   - 重构深化 `damperTransient` 物理模型：
     - 根据键盘离键速度（Note-Off Velocity）动态调整阻尼器毛毡贴回琴弦的摩擦衰减速度；
     - 引入木质键体落回键床底部的微弱撞击声（Key Release Thump）；
