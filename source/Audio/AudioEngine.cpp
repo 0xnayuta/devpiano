@@ -73,6 +73,7 @@ void AudioEngine::prepareToPlay(int samplesPerBlockExpected, double sampleRate) 
     playbackVisualMidiBuffer.ensureSize(bytes);
     playbackTransposedMidiBuffer.ensureSize(bytes);
     applyPendingParametersIfNeeded();
+    roomReverb.prepare(sampleRate);
 
     if (pluginHost != nullptr && pluginHost->hasLoadedPlugin()) {
         pluginHost->prepareToPlay(sampleRate, samplesPerBlockExpected);
@@ -140,6 +141,12 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
     if (!renderedByPlugin) {
         synth.renderNextBlock(*bufferToFill.buffer, midiBuffer, bufferToFill.startSample, bufferToFill.numSamples);
     }
+    // 物理房间混响算法网络 (Phase 31-B, RoomReverbEngine: Studio / Chamber / Concert Hall)
+    if (bufferToFill.buffer->getNumChannels() >= 2) {
+        roomReverb.processStereo(bufferToFill.buffer->getWritePointer(0, bufferToFill.startSample),
+                                 bufferToFill.buffer->getWritePointer(1, bufferToFill.startSample),
+                                 bufferToFill.numSamples);
+    }
 
     bufferToFill.buffer->applyGain(bufferToFill.startSample, bufferToFill.numSamples,
                                    masterGain.load(std::memory_order_relaxed));
@@ -155,6 +162,7 @@ void AudioEngine::releaseResources() {
     discardWarmupInputState();
     synth.allNotesOff(0, false);
 
+    roomReverb.reset();
     if (pluginHost != nullptr) {
         pluginHost->releaseResources();
     }
@@ -259,6 +267,15 @@ void AudioEngine::setSoundPerspective(SoundPerspective perspective) {
     pendingSoundPerspective.store(static_cast<std::uint8_t>(perspective), std::memory_order_relaxed);
     parametersNeedUpdate.store(true, std::memory_order_release);
 }
+void AudioEngine::setReverbSpace(ReverbSpace space) {
+    pendingReverbSpace.store(static_cast<std::uint8_t>(space), std::memory_order_relaxed);
+    parametersNeedUpdate.store(true, std::memory_order_release);
+}
+
+void AudioEngine::setReverbWet(float wetLevel) {
+    pendingReverbWet.store(std::clamp(wetLevel, 0.0f, 1.0f), std::memory_order_relaxed);
+    parametersNeedUpdate.store(true, std::memory_order_release);
+}
 
 void AudioEngine::applyPendingParametersIfNeeded() {
     if (!parametersNeedUpdate.exchange(false, std::memory_order_acq_rel)) {
@@ -276,6 +293,8 @@ void AudioEngine::applyPendingParametersIfNeeded() {
     const auto temperament = static_cast<Temperament>(pendingTemperament.load(std::memory_order_relaxed));
     const auto refPitch = pendingReferencePitchA4.load(std::memory_order_relaxed);
     const auto perspective = static_cast<SoundPerspective>(pendingSoundPerspective.load(std::memory_order_relaxed));
+    const auto revSpace = static_cast<ReverbSpace>(pendingReverbSpace.load(std::memory_order_relaxed));
+    const auto revWet = pendingReverbWet.load(std::memory_order_relaxed);
 
     adsrParameters = { attack, decay, sustain, release };
     pianoBrightness = brightness;
@@ -285,6 +304,10 @@ void AudioEngine::applyPendingParametersIfNeeded() {
     pianoTemperament = temperament;
     pianoReferencePitchA4 = refPitch;
     pianoSoundPerspective = perspective;
+    pianoReverbSpace = revSpace;
+    pianoReverbWet = revWet;
+    roomReverb.setSpace(pianoReverbSpace);
+    roomReverb.setWetLevel(pianoReverbWet);
 
     updateAdsrOnVoices();
     updatePianoParametersOnVoices();
@@ -321,6 +344,7 @@ void AudioEngine::discardWarmupInputState() {
     playbackVisualMidiBuffer.clear();
     midiCollector.reset(currentSampleRate.load(std::memory_order_relaxed));
     synth.allNotesOff(0, false);
+    roomReverb.reset();
 }
 
 bool AudioEngine::consumeWarmupBlockIfNeeded() {
@@ -364,6 +388,7 @@ void AudioEngine::injectPendingAllNotesOffIfNeeded() {
     }
 
     synth.allNotesOff(0, false);
+    roomReverb.reset();
 }
 
 void AudioEngine::recordRealtimeMidiBufferIfNeeded(int numSamples) {

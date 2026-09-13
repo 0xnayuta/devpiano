@@ -1,6 +1,7 @@
 #pragma once
 
 #include "PerspectiveProcessor.h"
+#include "RoomReverbEngine.h"
 #include "TemperamentEngine.h"
 #include <atomic>
 #include <juce_audio_basics/juce_audio_basics.h>
@@ -53,6 +54,15 @@ public:
     void setSoundPerspective(SoundPerspective perspective);
     [[nodiscard]] SoundPerspective getSoundPerspective() const noexcept {
         return static_cast<SoundPerspective>(pendingSoundPerspective.load(std::memory_order_relaxed));
+    }
+    using ReverbSpace = devpiano::audio::ReverbSpace;
+    void setReverbSpace(ReverbSpace space);
+    [[nodiscard]] ReverbSpace getReverbSpace() const noexcept {
+        return static_cast<ReverbSpace>(pendingReverbSpace.load(std::memory_order_relaxed));
+    }
+    void setReverbWet(float wetLevel);
+    [[nodiscard]] float getReverbWet() const noexcept {
+        return pendingReverbWet.load(std::memory_order_relaxed);
     }
     void setPlaybackTranspose(bool enabled, int semitoneOffset,
                               std::uint16_t channelFollowKeyMask = 0b1111110111111111) noexcept;
@@ -130,6 +140,11 @@ private:
     std::atomic<double> pendingReferencePitchA4 { devpiano::audio::TemperamentEngine::kDefaultReferencePitch };
     std::atomic<bool> parametersNeedUpdate { true };
     std::atomic<std::uint8_t> pendingSoundPerspective { 0 };
+    std::atomic<std::uint8_t> pendingReverbSpace { static_cast<std::uint8_t>(ReverbSpace::chamber) };
+    std::atomic<float> pendingReverbWet { 0.0f };
+    devpiano::audio::RoomReverbEngine roomReverb;
+    ReverbSpace pianoReverbSpace = ReverbSpace::chamber;
+    float pianoReverbWet = 0.0f;
     float pianoBrightness = 0.5f;
     float pianoHammerHardness = 0.5f;
     float pianoResonance = 0.5f;

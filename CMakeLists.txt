@@ -196,6 +196,7 @@ target_sources(devpiano PRIVATE
     source/Audio/PianoSynthVoice.h
     source/Audio/TemperamentEngine.h
     source/Audio/PerspectiveProcessor.h
+    source/Audio/RoomReverbEngine.h
     source/Audio/AudioDeviceDiagnostics.h
     source/Audio/AudioDeviceDiagnostics.cpp
     source/Input/KeyboardMidiMapper.cpp
@@ -538,6 +539,7 @@ if (BUILD_TESTS)
         source/tests/PianoSynthVoiceTemperamentTest.cpp
         source/tests/TemperamentSettingsPersistenceTest.cpp
         source/tests/PerspectiveProcessorTest.cpp
+        source/tests/RoomReverbEngineTest.cpp
         ${DEVPIANO_JIVE_CORE_SOURCES}
     )
     target_link_libraries(devpiano_tests PRIVATE
