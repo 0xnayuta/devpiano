@@ -57,7 +57,7 @@
     5. `Werckmeister III (魏克迈斯特律 III)`：巴赫《平均律键盘曲集》时代的良律（Well-Tempered），所有调性均可演奏且各具鲜明调性色彩；
     6. `Kirnberger III (基恩伯格律 III)`：以 4 个 1/4 柯马中庸五度与纯五度混合，纯正 C 大调与丰富调性张力并存；
   - **明确裁剪项**：裁剪复杂的外部 `.scl` / `.kbm` 文件解析器，消除外部文件依赖与低性价比容错负担，恪守轻量自包含原则。
-- [ ] **Phase 30-B：A4 基准音高校准与 PianoSynthVoice 基频解耦**：
+- [x] **Phase 30-B：A4 基准音高校准与 PianoSynthVoice 基频解耦** [已完成，2026-09-13]：
   - 解耦 `PianoSynthVoice.h` 中硬编码的 `juce::MidiMessage::getMidiNoteInHertz`；
   - 引入 A4 基准音高调节（默认 440.0 Hz，可调范围 410.0 Hz ~ 450.0 Hz），支持快捷预设：
     - `415.0 Hz`（巴洛克古典低音高，约低半音）；

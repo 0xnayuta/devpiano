@@ -245,6 +245,16 @@ void AudioEngine::setLidPosition(LidPosition position) {
     pendingLidPosition.store(static_cast<std::uint8_t>(position), std::memory_order_relaxed);
     parametersNeedUpdate.store(true, std::memory_order_release);
 }
+void AudioEngine::setTemperament(Temperament temperament) {
+    pendingTemperament.store(static_cast<std::uint8_t>(temperament), std::memory_order_relaxed);
+    parametersNeedUpdate.store(true, std::memory_order_release);
+}
+
+void AudioEngine::setReferencePitchA4(double pitch) {
+    pendingReferencePitchA4.store(devpiano::audio::TemperamentEngine::clampReferencePitch(pitch),
+                                  std::memory_order_relaxed);
+    parametersNeedUpdate.store(true, std::memory_order_release);
+}
 
 void AudioEngine::applyPendingParametersIfNeeded() {
     if (!parametersNeedUpdate.exchange(false, std::memory_order_acq_rel)) {
@@ -259,12 +269,16 @@ void AudioEngine::applyPendingParametersIfNeeded() {
     const auto hammerHardness = pendingHammerHardness.load(std::memory_order_relaxed);
     const auto resonance = pendingResonance.load(std::memory_order_relaxed);
     const auto lid = static_cast<LidPosition>(pendingLidPosition.load(std::memory_order_relaxed));
+    const auto temperament = static_cast<Temperament>(pendingTemperament.load(std::memory_order_relaxed));
+    const auto refPitch = pendingReferencePitchA4.load(std::memory_order_relaxed);
 
     adsrParameters = { attack, decay, sustain, release };
     pianoBrightness = brightness;
     pianoHammerHardness = hammerHardness;
     pianoResonance = resonance;
     pianoLidPosition = lid;
+    pianoTemperament = temperament;
+    pianoReferencePitchA4 = refPitch;
 
     updateAdsrOnVoices();
     updatePianoParametersOnVoices();
@@ -275,6 +289,11 @@ void AudioEngine::updatePianoParametersOnVoices() {
         if (auto* voice = dynamic_cast<PianoSynthVoice*>(synth.getVoice(index))) {
             voice->setPianoParameters(pianoBrightness, pianoHammerHardness, pianoResonance);
             voice->setLidPosition(static_cast<PianoSynthVoice::LidPosition>(pianoLidPosition));
+            voice->setTemperament(pianoTemperament);
+            voice->setReferencePitchA4(pianoReferencePitchA4);
+        } else if (auto* sineVoice = dynamic_cast<SineSynthVoice*>(synth.getVoice(index))) {
+            sineVoice->setTemperament(pianoTemperament);
+            sineVoice->setReferencePitchA4(pianoReferencePitchA4);
         }
     }
 }

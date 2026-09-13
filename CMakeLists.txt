@@ -533,6 +533,7 @@ if (BUILD_TESTS)
         source/tests/TouchVelocityCurveTest.cpp
         source/tests/AcousticSettingsPersistenceTest.cpp
         source/tests/TemperamentEngineTest.cpp
+        source/tests/PianoSynthVoiceTemperamentTest.cpp
         ${DEVPIANO_JIVE_CORE_SOURCES}
     )
     target_link_libraries(devpiano_tests PRIVATE

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "TemperamentEngine.h"
 #include <atomic>
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_audio_devices/juce_audio_devices.h>
@@ -37,6 +38,15 @@ public:
     void setLidPosition(LidPosition position);
     [[nodiscard]] LidPosition getLidPosition() const noexcept {
         return static_cast<LidPosition>(pendingLidPosition.load(std::memory_order_relaxed));
+    }
+    using Temperament = devpiano::audio::Temperament;
+    void setTemperament(Temperament temperament);
+    [[nodiscard]] Temperament getTemperament() const noexcept {
+        return static_cast<Temperament>(pendingTemperament.load(std::memory_order_relaxed));
+    }
+    void setReferencePitchA4(double pitch);
+    [[nodiscard]] double getReferencePitchA4() const noexcept {
+        return pendingReferencePitchA4.load(std::memory_order_relaxed);
     }
     void setPlaybackTranspose(bool enabled, int semitoneOffset,
                               std::uint16_t channelFollowKeyMask = 0b1111110111111111) noexcept;
@@ -110,11 +120,15 @@ private:
     std::atomic<float> pendingSustain { 0.8f };
     std::atomic<float> pendingRelease { 0.3f };
     std::atomic<std::uint8_t> pendingLidPosition { 0 };
+    std::atomic<std::uint8_t> pendingTemperament { 0 };
+    std::atomic<double> pendingReferencePitchA4 { devpiano::audio::TemperamentEngine::kDefaultReferencePitch };
     std::atomic<bool> parametersNeedUpdate { true };
     float pianoBrightness = 0.5f;
     float pianoHammerHardness = 0.5f;
     float pianoResonance = 0.5f;
     LidPosition pianoLidPosition = LidPosition::fullOpen;
+    Temperament pianoTemperament = Temperament::equal;
+    double pianoReferencePitchA4 = devpiano::audio::TemperamentEngine::kDefaultReferencePitch;
     std::atomic<double> currentSampleRate { 44100.0 };
     std::atomic<int> currentBlockSize { 512 };
     std::atomic_bool allNotesOffPending { false };

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Piano88KeyTable.h"
+#include "TemperamentEngine.h"
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_core/juce_core.h>
 
@@ -40,6 +41,9 @@
 // - 琴槌接触微阻尼与脱离物理释放 (Phase 24-B, Hammer Contact-Release Dynamics)：消灭 t=0 正弦波机械突兀感；
 // - 动态声场空间漫射 (Phase 24-C, Dynamic Spatial Diffusion)：从击打点声源平滑漫射为音板面声源包围场。
 
+using Temperament = devpiano::audio::Temperament;
+using TemperamentEngine = devpiano::audio::TemperamentEngine;
+
 class PianoSynthSound final : public juce::SynthesiserSound {
 public:
     bool appliesToNote(int) override {
@@ -53,6 +57,7 @@ public:
 class PianoSynthVoice final : public juce::SynthesiserVoice {
 public:
     static constexpr auto maxPartials = 20;
+    using Temperament = devpiano::audio::Temperament;
     static constexpr auto numResonators = 16;
     static constexpr auto bodyWetRatio = 0.26f;
     static constexpr auto peakLevelAtFullVelocity = 0.95f;
@@ -102,6 +107,21 @@ public:
     [[nodiscard]] float getSoftPedalAmount() const noexcept {
         return softPedalAmount;
     }
+    void setTemperament(Temperament temperament) noexcept {
+        pianoTemperament = temperament;
+    }
+
+    [[nodiscard]] Temperament getTemperament() const noexcept {
+        return pianoTemperament;
+    }
+
+    void setReferencePitchA4(double pitch) noexcept {
+        pianoReferencePitchA4 = TemperamentEngine::clampReferencePitch(pitch);
+    }
+
+    [[nodiscard]] double getReferencePitchA4() const noexcept {
+        return pianoReferencePitchA4;
+    }
 
     void startNote(int midiNoteNumber, float velocity, juce::SynthesiserSound*, int) override {
         const auto sampleRate = getSampleRate();
@@ -111,7 +131,8 @@ public:
 
         currentPlayingMidiNote = midiNoteNumber;
         const auto& params = devpiano::audio::getNoteParams(midiNoteNumber);
-        const auto baseFrequency = juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber);
+        const auto baseFrequency
+            = TemperamentEngine::getFrequency(midiNoteNumber, pianoTemperament, pianoReferencePitchA4);
 
         numActivePartials = params.partialCount;
 
@@ -497,13 +518,15 @@ public:
         return devpiano::audio::getNoteParams(midiNoteNumber).slowWeight;
     }
 
-    [[nodiscard]] static double partialDecaySeconds(int midiNoteNumber, int partialIndex, float brightness = 0.5f,
-                                                    float resonance = 0.5f) noexcept {
+    [[nodiscard]] static double
+    partialDecaySeconds(int midiNoteNumber, int partialIndex, float brightness = 0.5f, float resonance = 0.5f,
+                        Temperament temperament = Temperament::equal,
+                        double referencePitchA4 = TemperamentEngine::kDefaultReferencePitch) noexcept {
         const auto& params = devpiano::audio::getNoteParams(midiNoteNumber);
         const auto decayScale = 1.0f + (juce::jlimit(0.0f, 1.0f, resonance) - 0.5f) * 0.6f;
         const auto baseDecay = static_cast<double>(params.decaySeconds * decayScale);
-        const auto f0 = juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber);
-        const auto fn = partialFrequency(midiNoteNumber, partialIndex);
+        const auto f0 = TemperamentEngine::getFrequency(midiNoteNumber, temperament, referencePitchA4);
+        const auto fn = partialFrequency(midiNoteNumber, partialIndex, temperament, referencePitchA4);
         const auto piOverL = juce::MathConstants<double>::pi / static_cast<double>(params.stringLength);
         const auto k1 = piOverL * piOverL;
         const auto alpha1 = static_cast<double>(params.b1) + static_cast<double>(params.b2) * k1;
@@ -526,8 +549,10 @@ public:
     [[nodiscard]] static float bodyWet(float resonance = 0.5f) noexcept {
         return 0.18f + juce::jlimit(0.0f, 1.0f, resonance) * 0.16f;
     }
-    [[nodiscard]] static double partialFrequency(int midiNoteNumber, int partialIndex) noexcept {
-        const auto baseFrequency = juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber);
+    [[nodiscard]] static double
+    partialFrequency(int midiNoteNumber, int partialIndex, Temperament temperament = Temperament::equal,
+                     double referencePitchA4 = TemperamentEngine::kDefaultReferencePitch) noexcept {
+        const auto baseFrequency = TemperamentEngine::getFrequency(midiNoteNumber, temperament, referencePitchA4);
         const auto partialNumber = static_cast<double>(partialIndex + 1);
         const auto b = inharmonicityBForNote(midiNoteNumber);
         return baseFrequency * partialNumber * std::sqrt(1.0 + b * partialNumber * partialNumber);
@@ -538,8 +563,10 @@ public:
     [[nodiscard]] static int beatingPartialCountForNote(int midiNoteNumber) noexcept {
         return devpiano::audio::getNoteParams(midiNoteNumber).beatingPartials;
     }
-    [[nodiscard]] static double beatingFrequency(int midiNoteNumber, int partialIndex) noexcept {
-        const auto f = partialFrequency(midiNoteNumber, partialIndex);
+    [[nodiscard]] static double
+    beatingFrequency(int midiNoteNumber, int partialIndex, Temperament temperament = Temperament::equal,
+                     double referencePitchA4 = TemperamentEngine::kDefaultReferencePitch) noexcept {
+        const auto f = partialFrequency(midiNoteNumber, partialIndex, temperament, referencePitchA4);
         const auto& params = devpiano::audio::getNoteParams(midiNoteNumber);
         const auto isBassFundamental = (midiNoteNumber < 48 && partialIndex == 0);
         if (!isBassFundamental && partialIndex < params.beatingPartials && params.beatingDetuneRatio > 0.0f) {
@@ -682,6 +709,8 @@ public:
     float pianoHammerHardness = 0.5f;
     float pianoResonance = 0.5f;
     LidPosition pianoLidPosition = LidPosition::fullOpen;
+    Temperament pianoTemperament = Temperament::equal;
+    double pianoReferencePitchA4 = TemperamentEngine::kDefaultReferencePitch;
 
     // 强击非线性张力音高微漂移引擎 (Phase 22-D, Bank & Sujbert 2005 JASA)
     struct PitchGlideEngine {
