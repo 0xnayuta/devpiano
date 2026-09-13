@@ -177,7 +177,9 @@ void AudioEngine::armPlaybackStartPreRoll(double sampleRate, int blockSize) noex
                                               std::memory_order_release);
 }
 void AudioEngine::sendController(int channel, int controllerType, int value) {
-    midiCollector.addMessageToQueue(juce::MidiMessage::controllerEvent(channel, controllerType, value));
+    auto msg = juce::MidiMessage::controllerEvent(channel, controllerType, value);
+    msg.setTimeStamp(juce::Time::getMillisecondCounterHiRes() * 0.001);
+    midiCollector.addMessageToQueue(msg);
 }
 
 void AudioEngine::setMasterGain(float newGain) {
@@ -236,7 +238,9 @@ void AudioEngine::rebuildSynth() {
     if (builtinTone == BuiltinSynthTone::piano) {
         synth.addSound(new PianoSynthSound());
         for (auto index = 0; index < 8; ++index) {
-            synth.addVoice(new PianoSynthVoice());
+            auto* voice = new PianoSynthVoice();
+            voice->setVoiceIndex(index);
+            synth.addVoice(voice);
         }
     } else {
         synth.addSound(new SineSynthSound());
@@ -276,6 +280,10 @@ void AudioEngine::setReverbWet(float wetLevel) {
     pendingReverbWet.store(std::clamp(wetLevel, 0.0f, 1.0f), std::memory_order_relaxed);
     parametersNeedUpdate.store(true, std::memory_order_release);
 }
+void AudioEngine::setPedalNoiseLevel(float level) {
+    pendingPedalNoiseLevel.store(std::clamp(level, 0.0f, 1.0f), std::memory_order_relaxed);
+    parametersNeedUpdate.store(true, std::memory_order_release);
+}
 
 void AudioEngine::applyPendingParametersIfNeeded() {
     if (!parametersNeedUpdate.exchange(false, std::memory_order_acq_rel)) {
@@ -295,6 +303,7 @@ void AudioEngine::applyPendingParametersIfNeeded() {
     const auto perspective = static_cast<SoundPerspective>(pendingSoundPerspective.load(std::memory_order_relaxed));
     const auto revSpace = static_cast<ReverbSpace>(pendingReverbSpace.load(std::memory_order_relaxed));
     const auto revWet = pendingReverbWet.load(std::memory_order_relaxed);
+    const auto pedalNoise = pendingPedalNoiseLevel.load(std::memory_order_relaxed);
 
     adsrParameters = { attack, decay, sustain, release };
     pianoBrightness = brightness;
@@ -306,6 +315,7 @@ void AudioEngine::applyPendingParametersIfNeeded() {
     pianoSoundPerspective = perspective;
     pianoReverbSpace = revSpace;
     pianoReverbWet = revWet;
+    pianoPedalNoiseLevel = pedalNoise;
     roomReverb.setSpace(pianoReverbSpace);
     roomReverb.setWetLevel(pianoReverbWet);
 
@@ -321,6 +331,7 @@ void AudioEngine::updatePianoParametersOnVoices() {
             voice->setTemperament(pianoTemperament);
             voice->setReferencePitchA4(pianoReferencePitchA4);
             voice->setSoundPerspective(pianoSoundPerspective);
+            voice->setPedalNoiseLevel(pianoPedalNoiseLevel);
         } else if (auto* sineVoice = dynamic_cast<SineSynthVoice*>(synth.getVoice(index))) {
             sineVoice->setTemperament(pianoTemperament);
             sineVoice->setReferencePitchA4(pianoReferencePitchA4);

@@ -33,6 +33,7 @@ void initialiseOfflineSynth(juce::Synthesiser& synth, const devpiano::exporting:
         synth.addSound(new PianoSynthSound());
         for (auto index = 0; index < fallbackVoiceCount; ++index) {
             auto* voice = new PianoSynthVoice();
+            voice->setVoiceIndex(index);
             voice->setAdsrParameters(options.adsr);
             voice->setPianoParameters(options.pianoBrightness, options.pianoHammerHardness, options.pianoResonance);
             synth.addVoice(voice);

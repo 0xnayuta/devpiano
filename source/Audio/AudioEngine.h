@@ -64,6 +64,10 @@ public:
     [[nodiscard]] float getReverbWet() const noexcept {
         return pendingReverbWet.load(std::memory_order_relaxed);
     }
+    void setPedalNoiseLevel(float level);
+    [[nodiscard]] float getPedalNoiseLevel() const noexcept {
+        return pendingPedalNoiseLevel.load(std::memory_order_relaxed);
+    }
     void setPlaybackTranspose(bool enabled, int semitoneOffset,
                               std::uint16_t channelFollowKeyMask = 0b1111110111111111) noexcept;
     [[nodiscard]] bool isPlaybackTransposeEnabled() const noexcept;
@@ -142,9 +146,11 @@ private:
     std::atomic<std::uint8_t> pendingSoundPerspective { 0 };
     std::atomic<std::uint8_t> pendingReverbSpace { static_cast<std::uint8_t>(ReverbSpace::chamber) };
     std::atomic<float> pendingReverbWet { 0.0f };
+    std::atomic<float> pendingPedalNoiseLevel { 0.6f };
     devpiano::audio::RoomReverbEngine roomReverb;
     ReverbSpace pianoReverbSpace = ReverbSpace::chamber;
     float pianoReverbWet = 0.0f;
+    float pianoPedalNoiseLevel = 0.6f;
     float pianoBrightness = 0.5f;
     float pianoHammerHardness = 0.5f;
     float pianoResonance = 0.5f;
