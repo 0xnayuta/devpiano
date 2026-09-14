@@ -281,6 +281,15 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 详细完成记录见 [`../archive/phase30-32-temperaments-spatial-mechanics.md`](../archive/phase30-32-temperaments-spatial-mechanics.md)。
 
+### Phase 33：可观测性加固与生产级诊断基础设施（Observability Hardening & Production-Grade Diagnostics Infrastructure） [已完成，2026-09-14]
+
+1. **双通道生产级日志基础设施（DevPianoLogger Dual-Sink）**：重构升级 `DevPianoLogger`，组合 `juce::FileLogger`（512KB 滚动截断，自适应系统应用目录）与调试器即时输出，消除 Windows Win32 GUI 正式分发版用户“排障黑盒”痛点；优化析构注销顺序确保退出期设置保存与插件卸载日志完整落盘；
+2. **设置界面诊断卡片直达与系统文件管理器联动**：在设置界面诊断卡片中新增操作行与“打开日志目录”按钮（`open-log-dir-button`），点击调用 `juce::File::revealToUser()` 调起系统原生文件管理器并高亮选中 `devpiano.log`；动态在诊断文本框中显示日志文件绝对路径与当前大小；
+3. **MidiTrace 与诊断测试防线**：新增 `DiagnosticsTest`，全面覆盖 NoteOn/Off、CC、PitchBend、ProgramChange 等全量 MIDI 协议反序列化格式，以及临时目录下文件落盘、会话头标记与析构自动注销置空保护；
+4. **运行时字符编码断言消除**：彻底修复历史遗留的 5 处多字节 em-dash 字符字面量，消除 `juce_String.cpp:327` 的运行时断言。
+
+当前实施与验证细节详见 [`current-iteration.md`](current-iteration.md)。
+
 ---
 
 ## 4. 主要风险与应对
