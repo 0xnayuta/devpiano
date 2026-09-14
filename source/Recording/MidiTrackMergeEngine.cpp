@@ -1,6 +1,7 @@
 #include "MidiTrackMergeEngine.h"
 #include "Diagnostics/Log.h"
 #include "Diagnostics/MidiTrace.h"
+#include "Recording/MidiTextDecoder.h"
 #include "Recording/RenderPipeline.h"
 #include <cmath>
 #include <cstdint>
@@ -92,9 +93,9 @@ void updateTrackInspectionFromMessage(TrackInspection& insp, const juce::MidiMes
     if (msg.isMetaEvent()) {
         const auto metaType = msg.getMetaEventType();
         if (metaType == 3 && insp.trackName.isEmpty()) {
-            insp.trackName = msg.getTextFromTextMetaEvent().trim();
+            insp.trackName = MidiTextDecoder::decodeTextMetaEvent(msg).trim();
         } else if (metaType == 1 && insp.textMeta.isEmpty()) {
-            insp.textMeta = msg.getTextFromTextMetaEvent().trim();
+            insp.textMeta = MidiTextDecoder::decodeTextMetaEvent(msg).trim();
         }
         return;
     }

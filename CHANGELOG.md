@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+### Fixed
+
+- **MIDI Metadata Text Decoding** — introduced `MidiTextDecoder` so imported track names and titles encoded as GBK are decoded instead of collapsing into replacement characters, and legacy Latin-1 double-encodings are unwrapped across multiple rounds; decoding is table-driven and platform independent, keeping results identical on WSL/Linux and Windows/MSVC.
+
 ## [1.2.0] - 2026-09-14
 
 Physical modeling piano engine depth expansion, historical microtonal tuning temperaments, dual sound perspective spatial imaging, algorithmic room reverberation, micro-mechanical action dynamics, inharmonicity jitter, and declarative acoustics voicing integration.

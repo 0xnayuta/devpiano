@@ -72,6 +72,17 @@ RecordingSessionController::handleMidiImported()
   - `Export MIDI` **严格保持 Disabled**；
   - `Export WAV` **保持 Enabled**（支持将导入的 MIDI 渲染为高质量 WAV 音频）。
 
+### 3.5 元事件文本解码规则
+
+标准 MIDI 文件不携带字符集信息，历史文件的轨道名/标题可能使用本地编码（GBK/CP936）甚至被制作工具按 Latin-1 反复误读。`MidiTrackMergeEngine` 统一通过 `MidiTextDecoder` 解码文本元事件，按以下顺序回退：
+
+1. 纯 7-bit ASCII 直接构造；
+2. 合法 UTF-8 原样保留，仅当整串被 Latin-1 补充字符主导时判定为历史误编码，还原原始字节后按 GBK 重新解读（可多轮解包，最多 4 轮）；
+3. 每个非 ASCII 字节对都能命中 GBK 码表的字节流按 GBK 解码（该严格条件会拒绝 Big5 等字节结构重叠的编码，避免产出"看似合理实则错误"的汉字）；
+4. 其余情况回退 Windows-1252 单字节映射，保证任何输入都不产生 `U+FFFD`。
+
+已覆盖的实际案例：`梦中的婚礼.mid`（GBK）与 `you.mid`（连续两轮重编码）均还原出原始标题。已知局限：Big5 与 Shift-JIS 尚无专用码表，此类文件落在 Windows-1252 兜底上，不会误报为汉字。
+
 ---
 
 ## 4. 专项手工与边界测试清单
