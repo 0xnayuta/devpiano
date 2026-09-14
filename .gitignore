@@ -31,7 +31,8 @@ ipch/
 
 ## IDE 状态与本地配置
 .vs/
-.omp/
+.omp/*
+!.omp/skills/
 *.suo
 *.user
 *.userosscache
