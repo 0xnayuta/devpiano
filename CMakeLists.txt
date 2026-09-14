@@ -557,6 +557,7 @@ if (BUILD_TESTS)
         source/tests/DamperReleaseTest.cpp
         source/tests/FeltAgeingTest.cpp
         source/tests/MechanicalAcousticsTest.cpp
+        source/tests/DiagnosticsTest.cpp
         ${DEVPIANO_JIVE_CORE_SOURCES}
     )
     target_link_libraries(devpiano_tests PRIVATE

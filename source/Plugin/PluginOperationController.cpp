@@ -163,7 +163,7 @@ void PluginOperationController::restoreLastPluginOnStartup(const StartupPluginRe
 void PluginOperationController::restorePluginByNameOnStartup(const juce::String& pluginName) {
     owner.runPluginActionWithAudioDeviceRebuild([this, pluginName](const MainComponent::RuntimeAudioConfig& config) {
         if (!pluginHost.loadPluginByName(pluginName, config.sampleRate, config.blockSize)) {
-            DP_LOG_ERROR("[Plugin] startup restore failed: " + pluginName + " — " + pluginHost.getLastLoadError());
+            DP_LOG_ERROR("[Plugin] startup restore failed: " + pluginName + " - " + pluginHost.getLastLoadError());
         }
     });
 }
@@ -193,7 +193,7 @@ void PluginOperationController::loadPluginByNameAndCommitState(const juce::Strin
     }
 
     // 加载失败：不持久化失败插件名（否则下次启动反复重试），UI 按失败收尾。
-    DP_LOG_ERROR("[Plugin] failed to load: " + pluginName + " — " + loadError);
+    DP_LOG_ERROR("[Plugin] failed to load: " + pluginName + " - " + loadError);
     owner.finishPluginUiAction(false);
 }
 

@@ -54,17 +54,19 @@ Phase 33 将对诊断可观测性基础设施进行生产级加固，全面消�
 
 > 目标：将 `DevPianoLogger` 升级为双通道输出（文件持久化 + 调试器即时输出），解决 Windows Win32 GUI 正式分发版用户“排障黑盒”痛点。
 
-- [ ] **Phase 33-A-1：DevPianoLogger 双通道实现与自动文件路径解析**：
+- [x] **Phase 33-A-1：DevPianoLogger 双通道实现与自动文件路径解析** [已完成，2026-09-14]：
   - 重构 `source/Diagnostics/DevPianoLogger.h` 与 `DevPianoLogger.cpp`；
-  - 内部持有 `std::unique_ptr<juce::FileLogger> fileLogger`，通过 `juce::FileLogger::createDefaultAppLogger("devpiano", "devpiano.log", ...)` 自动解析操作系统标准日志存储目录（Windows: `%APPDATA%/devpiano/devpiano.log`，Linux: `~/.local/share/devpiano/devpiano.log`）；
-  - 配置 `maxInitialFileSizeBytes = 512 * 1024`（512 KB）滚动截断，启动时写入会话起始标记（含时间戳与版本信息）；
-  - 重写虚函数 `logMessage(const juce::String& message)` 实现 Dual-Sink 广播：优先由 `fileLogger->logMessage(message)` 写入磁盘，并同步调用 `juce::Logger::outputDebugString(message)` 保证 IDE 调试输出不丢失；
-  - 若文件创建失败（如无权限），安全回退纯 `outputDebugString`，杜绝 crash；
-  - 提供 `juce::File getLogFile() const` 与 `juce::File getLogDirectory() const` 供 UI 与诊断层查询。
-- [ ] **Phase 33-A-2：MainComponent 生命周期与安全注销加固**：
+  - 内部持有 `std::unique_ptr<juce::FileLogger> fileLogger`，自动解析操作系统标准日志存储目录（Windows: `%APPDATA%/devpiano/devpiano.log`，Linux: `~/.config/devpiano/devpiano.log`）；
+  - 配置 `maxInitialFileSizeBytes = 512LL * 1024`（512 KB）滚动截断，启动时写入会话起始标记；
+  - 重写虚函数 `logMessage(const juce::String& message)` 实现 Dual-Sink 广播：优先由 `fileLogger->logMessage(message)` 写入磁盘，并同步调用 `juce::Logger::outputDebugString(message)` 保证 IDE 调试输出不丢失且不产生重复打印；
+  - 若文件创建失败（如无权限），优雅回退纯 `outputDebugString`，杜绝 crash；
+  - 提供 `juce::File getLogFile() const` 与 `juce::File getLogDirectory() const` 供 UI 与诊断层查询；
+  - 提供静态辅助方法 `getCurrentDevPianoLogger()` 便于无侵入全局查询当前实例。
+- [x] **Phase 33-A-2：MainComponent 生命周期与安全注销加固** [已完成，2026-09-14]：
   - 维持 `MainComponent` 构造初期尽早创建并安装 Logger 的机制（`juce::Logger::setCurrentLogger(devPianoLogger.get())`）；
-  - 强化析构顺序，确保在 `devPianoLogger` 析构前调用 `juce::Logger::setCurrentLogger(nullptr)`，防止后台线程潜在的悬垂日志调用；
-  - 确保 Debug-only 宏（`DP_DEBUG_LOG` / `DP_TRACE_MIDI`）在 Release 下维持 zero-cost 编译期消除。
+  - 调整析构顺序，将 `juce::Logger::setCurrentLogger(nullptr)` 移至 `~MainComponent()` 最末尾，确保退出期间的设置保存、插件卸载等关键日志均能完整持久化落盘；
+  - `DevPianoLogger` 析构函数中增加安全防护（析构时若自身仍为 active logger 则自动注销置空，防止悬挂引用）；
+  - 修复历史遗留的 5 处多字节 em-dash 字符字面量（`juce_String.cpp:327` 断言），彻底消除运行时字符编码断言告警。
 
 ---
 
