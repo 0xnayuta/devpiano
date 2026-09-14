@@ -145,6 +145,20 @@ void PresetFlowSupport::commitPreset(const PerformancePreset& preset) {
     owner.keyboardMidiMapper.setTouchVelocityCurve(preset.touchVelocityCurve);
     s.unaCorda = preset.unaCorda;
     owner.keyboardMidiMapper.setSoftPedalDown(preset.unaCorda);
+    s.temperament = preset.temperament;
+    owner.audioEngine.setTemperament(preset.temperament);
+    s.referencePitchA4 = devpiano::audio::TemperamentEngine::clampReferencePitch(preset.referencePitchA4);
+    owner.audioEngine.setReferencePitchA4(s.referencePitchA4);
+    s.soundPerspective = preset.soundPerspective;
+    owner.audioEngine.setSoundPerspective(preset.soundPerspective);
+    s.reverbSpace = preset.reverbSpace;
+    owner.audioEngine.setReverbSpace(preset.reverbSpace);
+    s.reverbWet = juce::jlimit(0.0f, 1.0f, preset.reverbWet);
+    owner.audioEngine.setReverbWet(s.reverbWet);
+    s.pedalNoiseLevel = juce::jlimit(0.0f, 1.0f, preset.pedalNoiseLevel);
+    owner.audioEngine.setPedalNoiseLevel(s.pedalNoiseLevel);
+    s.feltAgeingAmount = juce::jlimit(0.0f, 1.0f, preset.feltAgeingAmount);
+    owner.audioEngine.setFeltAgeingAmount(s.feltAgeingAmount);
 
     // 4. Persist preset identity
     s.lastActivePresetId = preset.name;
@@ -176,6 +190,13 @@ PerformancePreset PresetFlowSupport::captureCurrentState(const juce::String& nam
     preset.lidPosition = owner.appSettings.lidPosition;
     preset.touchVelocityCurve = owner.appSettings.touchVelocityCurve;
     preset.unaCorda = owner.keyboardMidiMapper.isSoftPedalDown();
+    preset.temperament = owner.appSettings.temperament;
+    preset.referencePitchA4 = owner.appSettings.referencePitchA4;
+    preset.soundPerspective = owner.appSettings.soundPerspective;
+    preset.reverbSpace = owner.appSettings.reverbSpace;
+    preset.reverbWet = owner.appSettings.reverbWet;
+    preset.pedalNoiseLevel = owner.appSettings.pedalNoiseLevel;
+    preset.feltAgeingAmount = owner.appSettings.feltAgeingAmount;
     return preset;
 }
 

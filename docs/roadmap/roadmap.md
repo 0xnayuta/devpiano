@@ -254,25 +254,32 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 4. **声学配置持久化与预设系统全量联动（Phase 29-D）**：将琴盖开合度、Una Corda 默认态与触键曲线完整纳入 `SettingsModel`、`SettingsStore` 与 Performance Preset（`.devpiano.preset` JSON）序列化，确保向后兼容 [已完成，2026-09-12]；
 5. **声学精调、三闸门闭环与构建验证（Phase 29-E）**：全套 71 套件单测 100% 绿灯闭环，三闸门合规，双平台 MSVC / Linux 编译与打包验证，实机演奏手感与声学回归 [已完成，2026-09-12]。
 
-详细完成记录见 [`../roadmap/current-iteration.md`](current-iteration.md)。
+详细完成记录见 [`../archive/phase29-physical-voicing-and-acoustic-interaction.md`](../archive/phase29-physical-voicing-and-acoustic-interaction.md)。
 
-### Phase 30：历史调律体系与高阶微音律（Historical Temperaments & Microtonality） [规划中]
+### Phase 30：历史调律体系与基准音高校准（Historical Temperaments & Reference Pitch Calibration） [已完成，2026-09-13]
 
-1. **古典历史调律与平均律拓展**：支持十二平均律、纯律、毕达哥拉斯律、中庸全音律、魏克迈斯特律 III、基恩伯格律 III，在物理弦模态基频链路上实时计算微音分偏移；
-2. **Scala (.scl / .kbm) 调律文件导入**：支持微音律国际标准 Scala 文件解析与自定义音程映射；
-3. **A4 基准音高自由微调**：支持 415.0 Hz（巴洛克）、432.0 Hz、440.0 Hz（标准）、442.0 Hz 自由调节。
+1. **古典历史调律与平均律拓展**：支持十二平均律（Equal Temperament）、纯律（Just Intonation）、毕达哥拉斯律（Pythagorean）、中庸全音律（Meantone 1/4 comma）、魏克迈斯特律（Werckmeister III）、基恩伯格律（Kirnberger III），在物理弦模态基频生成链路上实现微音分高精度映射；
+2. **A4 基准音高校准**：支持 415.0 Hz（巴洛克古典）、432.0 Hz（维尔第调律）、440.0 Hz（现代标准）、442.0 Hz（交响乐团）无级微调；
+3. **裁剪与非目标**：依据项目定位裁剪外部 Scala (.scl/.kbm) 文件解析，坚守内置经典律制与纯自包含免安装绿色原则。
 
-### Phase 31：多视角空间声学与麦克风拾音摆位（Multi-Mic Spatial Acoustics & Room Modeling） [规划中]
+当前实施与验证细节详见 [`current-iteration.md`](current-iteration.md)。
 
-1. **多视角立体声场（Player vs Audience Perspective）**：演奏者主观视角（宽立体声、左低右高）与观众/音乐厅视角切换；
-2. **近场麦克风多通道混合（Close Mic Placement）**：模拟音板上方双指向性麦克风距离与角度；
-3. **物理空间早期反射与混响尾音**：可调空间体积与混响湿声比，支持离线高保真双耳立体声导出。
+### Phase 31：多视角空间声学与算法混响（Multi-Perspective Spatial Acoustics & Algorithmic Room Modeling） [已完成，2026-09-13]
 
-### Phase 32：机械物理噪声与琴体微衰退拟真（Mechanical Action Noise & Physical Imperfection） [规划中]
+1. **多视角立体声场（Player vs Audience Perspective）**：演奏者主观视角（宽立体声、左低右高）与观众/音乐厅远场客观反转视角的无爆音无锁平滑切换；
+2. **轻量数学算法房间混响网络**：内置 Studio（0.6s）、Chamber（1.5s）、Concert Hall（2.4s）三大经典空间预设，基于互质低通梳状滤波阵列与全通漫射矩阵，零外部采样依赖；
+3. **JIVE 声学面板集成与预设联动**：在设置界面提供视角切换、空间模式选择器与混响电平滑块，并全面打通 SettingsStore 与 PerformancePreset 序列化及简体中文国际化。
 
-1. **琴键释放与制音器下落敲击声（Key Release & Damper Drop Thump）**；
-2. **踏板动作机械气流与箱体共鸣（Pedal Up/Down Whoosh & Resonance Shock）**；
-3. **调音离散度与琴槌毛毡微老化物理扰动（Inharmonicity Jitter & Felt Ageing）**。
+当前实施与验证细节详见 [`current-iteration.md`](current-iteration.md)。
+
+### Phase 32：机械物理噪声与琴体微衰退拟真（Mechanical Action Noise & Physical Imperfection） [已完成，2026-09-13]
+
+1. **延音踏板机械气流与箱体共鸣冲击（Pedal Whoosh & Resonance Shock）**：MIDI CC 64 捕获、带通塑形白噪气流微啸短脉冲（踩下中心 ~1350 Hz / 抬起 ~950 Hz）、双模态低频共鸣冲击（58/116 Hz）与开放弦交感微扰，踩下/抬起速度自适应冲激强度；
+2. **离键抬起与制音器落弦瞬态深化（Damper Drop Thump & Key Release）**：离键速度自适应毛毡摩擦持续时间与衰减速率、毛毡纤维高频摩擦微噪声（~2800 Hz）、木质键体落床轻撞声（140/270 Hz 双模态、全 88 键）与琴弦 ADSR 动态释放时间联动；
+3. **琴槌毛毡微老化与调音离散度（Inharmonicity Jitter & Felt Ageing）**：确定性逐键哈希的基频微失谐（±0.3~1.2 cents）、不谐和刚度 B 离散（±4.5%）与逐键毛毡硬度/明暗偏置（默认 0.0 保护纯净基线）；
+4. **全栈集成**：JIVE 声学卡片新增机械噪声与毛毡老化滑块，完整打通 `SettingsStore` / `PerformancePreset` / 离线 WAV 导出与简体中文国际化。
+
+当前实施与验证细节详见 [`current-iteration.md`](current-iteration.md)。
 
 ---
 

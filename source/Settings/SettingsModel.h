@@ -1,5 +1,8 @@
 #pragma once
 
+#include "../Audio/PerspectiveProcessor.h"
+#include "../Audio/RoomReverbEngine.h"
+#include "../Audio/TemperamentEngine.h"
 #include "../Input/TouchVelocityCurve.h"
 #include "../Midi/ChannelMatrix.h"
 #include "../UI/KeyboardTypes.h"
@@ -53,6 +56,14 @@ struct SettingsModel {
         LidPosition lidPosition = LidPosition::fullOpen;
         devpiano::input::TouchVelocityCurve touchVelocityCurve = devpiano::input::TouchVelocityCurve::standard;
         bool unaCorda = false;
+        devpiano::audio::Temperament temperament = devpiano::audio::Temperament::equal;
+        double referencePitchA4 = devpiano::audio::TemperamentEngine::kDefaultReferencePitch;
+        devpiano::audio::SoundPerspective soundPerspective = devpiano::audio::SoundPerspective::player;
+        devpiano::audio::ReverbSpace reverbSpace = devpiano::audio::ReverbSpace::chamber;
+        float reverbWet = 0.0f;
+        // Mechanical action noise and physical imperfection (Phase 32-A/C)
+        float pedalNoiseLevel = 0.6f;
+        float feltAgeingAmount = 0.0f;
     };
 
     struct PluginRecoverySettingsView {
@@ -90,6 +101,14 @@ struct SettingsModel {
     LidPosition lidPosition = LidPosition::fullOpen;
     devpiano::input::TouchVelocityCurve touchVelocityCurve = devpiano::input::TouchVelocityCurve::standard;
     bool unaCorda = false;
+    devpiano::audio::Temperament temperament = devpiano::audio::Temperament::equal;
+    double referencePitchA4 = devpiano::audio::TemperamentEngine::kDefaultReferencePitch;
+    devpiano::audio::SoundPerspective soundPerspective = devpiano::audio::SoundPerspective::player;
+    devpiano::audio::ReverbSpace reverbSpace = devpiano::audio::ReverbSpace::chamber;
+    float reverbWet = 0.0f;
+    // Mechanical action noise and physical imperfection (Phase 32-A/C)
+    float pedalNoiseLevel = 0.6f;
+    float feltAgeingAmount = 0.0f;
 
     // Persisted ,UI recovery state.
     juce::String pluginSearchPath;
@@ -145,7 +164,14 @@ struct SettingsModel {
                  .pianoResonance = pianoResonance,
                  .lidPosition = lidPosition,
                  .touchVelocityCurve = touchVelocityCurve,
-                 .unaCorda = unaCorda };
+                 .unaCorda = unaCorda,
+                 .temperament = temperament,
+                 .referencePitchA4 = referencePitchA4,
+                 .soundPerspective = soundPerspective,
+                 .reverbSpace = reverbSpace,
+                 .reverbWet = reverbWet,
+                 .pedalNoiseLevel = pedalNoiseLevel,
+                 .feltAgeingAmount = feltAgeingAmount };
     }
 
     void applyPerformanceSettingsView(const PerformanceSettingsView& view) {
@@ -161,6 +187,13 @@ struct SettingsModel {
         lidPosition = view.lidPosition;
         touchVelocityCurve = view.touchVelocityCurve;
         unaCorda = view.unaCorda;
+        temperament = view.temperament;
+        referencePitchA4 = view.referencePitchA4;
+        soundPerspective = view.soundPerspective;
+        reverbSpace = view.reverbSpace;
+        reverbWet = view.reverbWet;
+        pedalNoiseLevel = view.pedalNoiseLevel;
+        feltAgeingAmount = view.feltAgeingAmount;
     }
     [[nodiscard]] PluginRecoverySettingsView getPluginRecoverySettingsView() const {
         return { .pluginSearchPath = pluginSearchPath, .lastPluginName = lastPluginName };

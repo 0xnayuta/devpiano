@@ -1,5 +1,6 @@
 #pragma once
 
+#include "TemperamentEngine.h"
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_core/juce_core.h>
 // 内置 fallback 正弦合成器：实时路径（AudioEngine）与离线 WAV 导出路径
@@ -30,6 +31,21 @@ public:
         }
         adsr.setParameters(parameters);
     }
+    void setTemperament(devpiano::audio::Temperament temperament) noexcept {
+        synthTemperament = temperament;
+    }
+
+    [[nodiscard]] devpiano::audio::Temperament getTemperament() const noexcept {
+        return synthTemperament;
+    }
+
+    void setReferencePitchA4(double pitch) noexcept {
+        synthReferencePitchA4 = devpiano::audio::TemperamentEngine::clampReferencePitch(pitch);
+    }
+
+    [[nodiscard]] double getReferencePitchA4() const noexcept {
+        return synthReferencePitchA4;
+    }
 
     void startNote(int midiNoteNumber, float velocity, juce::SynthesiserSound*, int) override {
         const auto sampleRate = getSampleRate();
@@ -41,7 +57,8 @@ public:
 
         activeVoice = true;
         level = velocity * 0.70f;
-        frequency = static_cast<float>(juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber));
+        frequency = static_cast<float>(
+            devpiano::audio::TemperamentEngine::getFrequency(midiNoteNumber, synthTemperament, synthReferencePitchA4));
         phase = 0.0;
         increment
             = static_cast<float>(juce::MathConstants<double>::twoPi * static_cast<double>(frequency) / sampleRate);
@@ -103,4 +120,6 @@ private:
     float frequency = 440.0f;
     float level = 0.0f;
     juce::ADSR adsr;
+    devpiano::audio::Temperament synthTemperament = devpiano::audio::Temperament::equal;
+    double synthReferencePitchA4 = devpiano::audio::TemperamentEngine::kDefaultReferencePitch;
 };

@@ -1,6 +1,8 @@
 #pragma once
 
+#include "PerspectiveProcessor.h"
 #include "Piano88KeyTable.h"
+#include "TemperamentEngine.h"
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_core/juce_core.h>
 
@@ -40,6 +42,9 @@
 // - 琴槌接触微阻尼与脱离物理释放 (Phase 24-B, Hammer Contact-Release Dynamics)：消灭 t=0 正弦波机械突兀感；
 // - 动态声场空间漫射 (Phase 24-C, Dynamic Spatial Diffusion)：从击打点声源平滑漫射为音板面声源包围场。
 
+using Temperament = devpiano::audio::Temperament;
+using TemperamentEngine = devpiano::audio::TemperamentEngine;
+
 class PianoSynthSound final : public juce::SynthesiserSound {
 public:
     bool appliesToNote(int) override {
@@ -53,6 +58,9 @@ public:
 class PianoSynthVoice final : public juce::SynthesiserVoice {
 public:
     static constexpr auto maxPartials = 20;
+    using SoundPerspective = devpiano::audio::SoundPerspective;
+    using PerspectiveProcessor = devpiano::audio::PerspectiveProcessor;
+    using Temperament = devpiano::audio::Temperament;
     static constexpr auto numResonators = 16;
     static constexpr auto bodyWetRatio = 0.26f;
     static constexpr auto peakLevelAtFullVelocity = 0.95f;
@@ -69,11 +77,19 @@ public:
     }
 
     void setAdsrParameters(const juce::ADSR::Parameters& parameters) {
+        configuredAdsr = parameters;
+        configuredAdsr.attack = juce::jmin(0.0002f, parameters.attack);
+        configuredAdsr.decay = 0.001f;
+        configuredAdsr.sustain = 1.0f;
+        configuredAdsr.release = juce::jmax(0.01f, parameters.release);
         if (getSampleRate() > 0.0) {
             adsrGate.setSampleRate(getSampleRate());
         }
-        const auto attackSec = juce::jmin(0.0002f, parameters.attack);
-        adsrGate.setParameters({ attackSec, 0.001f, 1.0f, parameters.release });
+        adsrGate.setParameters(configuredAdsr);
+    }
+
+    [[nodiscard]] const juce::ADSR::Parameters& getAdsrParameters() const noexcept {
+        return configuredAdsr;
     }
 
     void setPianoParameters(float brightness, float hammerHardness, float resonance) noexcept {
@@ -90,6 +106,15 @@ public:
     [[nodiscard]] LidPosition getLidPosition() const noexcept {
         return pianoLidPosition;
     }
+
+    void setSoundPerspective(SoundPerspective perspective) noexcept {
+        pianoSoundPerspective = perspective;
+        perspectiveProcessor.setPerspective(perspective, !isVoiceActive());
+    }
+
+    [[nodiscard]] SoundPerspective getSoundPerspective() const noexcept {
+        return pianoSoundPerspective;
+    }
     void setSoftPedalDown(bool down, float amount = 1.0f) noexcept {
         softPedalDown = down;
         softPedalAmount = down ? juce::jlimit(0.0f, 1.0f, amount) : 0.0f;
@@ -102,16 +127,103 @@ public:
     [[nodiscard]] float getSoftPedalAmount() const noexcept {
         return softPedalAmount;
     }
+    void setTemperament(Temperament temperament) noexcept {
+        pianoTemperament = temperament;
+    }
+
+    [[nodiscard]] Temperament getTemperament() const noexcept {
+        return pianoTemperament;
+    }
+
+    void setReferencePitchA4(double pitch) noexcept {
+        pianoReferencePitchA4 = TemperamentEngine::clampReferencePitch(pitch);
+    }
+
+    [[nodiscard]] double getReferencePitchA4() const noexcept {
+        return pianoReferencePitchA4;
+    }
+    void setVoiceIndex(int index) noexcept {
+        voiceIndex = index;
+    }
+
+    [[nodiscard]] int getVoiceIndex() const noexcept {
+        return voiceIndex;
+    }
+
+    void setPedalNoiseLevel(float level) noexcept {
+        pianoPedalNoiseLevel = juce::jlimit(0.0f, 1.0f, level);
+    }
+
+    [[nodiscard]] float getPedalNoiseLevel() const noexcept {
+        return pianoPedalNoiseLevel;
+    }
+    void setFeltAgeingAmount(float amount) noexcept {
+        pianoFeltAgeingAmount = juce::jlimit(0.0f, 1.0f, amount);
+    }
+
+    [[nodiscard]] float getFeltAgeingAmount() const noexcept {
+        return pianoFeltAgeingAmount;
+    }
+
+    [[nodiscard]] static float deterministicNoteJitter(int midiNoteNumber, std::uint32_t salt) noexcept {
+        std::uint32_t x = static_cast<std::uint32_t>(midiNoteNumber) ^ salt;
+        x ^= x >> 16;
+        x *= 0x7feb352du;
+        x ^= x >> 15;
+        x *= 0x846ca68bu;
+        x ^= x >> 16;
+        return static_cast<float>(static_cast<std::int32_t>(x)) * (1.0f / 2147483648.0f);
+    }
+
+    [[nodiscard]] bool isPedalTransientActive() const noexcept {
+        return pedalTransient.isActive();
+    }
+    [[nodiscard]] bool isSympatheticShockActive() const noexcept {
+        return sympatheticPool.isShockActive();
+    }
+    [[nodiscard]] bool isVoiceActive() const override {
+        return (getCurrentlyPlayingNote() >= 0)
+            || ((voiceIndex == 0) && (pedalTransient.isActive() || sympatheticPool.isShockActive()));
+    }
+    [[nodiscard]] bool isPlayingChannel(int midiChannel) const override {
+        if (voiceIndex == 0) {
+            return true;
+        }
+        return juce::SynthesiserVoice::isPlayingChannel(midiChannel);
+    }
+    void setCurrentPlaybackSampleRate(double newRate) override {
+        juce::SynthesiserVoice::setCurrentPlaybackSampleRate(newRate);
+        if (newRate > 0.0) {
+            sympatheticPool.updateCoefficients(newRate);
+            lidAcoustics.setPosition(pianoLidPosition, newRate);
+            perspectiveProcessor.prepare(newRate);
+        }
+    }
 
     void startNote(int midiNoteNumber, float velocity, juce::SynthesiserSound*, int) override {
         const auto sampleRate = getSampleRate();
         if (sampleRate <= 0.0) {
             return;
         }
+        perspectiveProcessor.prepare(sampleRate);
 
         currentPlayingMidiNote = midiNoteNumber;
         const auto& params = devpiano::audio::getNoteParams(midiNoteNumber);
-        const auto baseFrequency = juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber);
+        // 琴槌毛毡微老化扰动与调音离散度 (Phase 32-C, Inharmonicity Jitter & Felt Ageing)
+        const auto pitchJitterCents = (pianoFeltAgeingAmount > 0.0f)
+            ? deterministicNoteJitter(midiNoteNumber, 0x13579bdfu) * 1.2f * pianoFeltAgeingAmount
+            : 0.0f;
+        const auto pitchJitterRatio = std::pow(2.0, static_cast<double>(pitchJitterCents) / 1200.0);
+        const auto baseFrequency
+            = TemperamentEngine::getFrequency(midiNoteNumber, pianoTemperament, pianoReferencePitchA4)
+            * pitchJitterRatio;
+
+        const auto bJitterRatio = (pianoFeltAgeingAmount > 0.0f)
+            ? (1.0
+               + static_cast<double>(deterministicNoteJitter(midiNoteNumber, 0x2468ace0u) * 0.045f
+                                     * pianoFeltAgeingAmount))
+            : 1.0;
+        const auto effectiveInharmonicityB = params.inharmonicityB * bJitterRatio;
 
         numActivePartials = params.partialCount;
 
@@ -126,10 +238,19 @@ public:
         // 琴槌击弦机向右位移，击打在毛毡侧向未压实较软区域，接触时间延长
         const auto unaCordaMu = softPedalDown ? juce::jmax(0.60f, softPedalAmount) : 0.0f;
 
-        // 动态琴槌毛毡动力学 (Phase 23-A, Chaigne & Askenfelt 1994, Russell & Rossing 1998)
-        const auto effectiveHardness
-            = (0.15f + 0.85f * std::pow(clampedVelocity, 1.5f) * (0.5f + 0.5f * pianoHammerHardness))
-            * (1.0f - 0.25f * unaCordaMu);
+        // 动态琴槌毛毡动力学 (Phase 23-A / Phase 32-C, Felt Ageing & Wear Dynamics)
+        const auto hardnessOffset = (pianoFeltAgeingAmount > 0.0f)
+            ? deterministicNoteJitter(midiNoteNumber, 0x9e3779b9u) * 0.06f * pianoFeltAgeingAmount
+            : 0.0f;
+        const auto brightnessOffset = (pianoFeltAgeingAmount > 0.0f)
+            ? deterministicNoteJitter(midiNoteNumber, 0x4b7e1516u) * 0.04f * pianoFeltAgeingAmount
+            : 0.0f;
+
+        const auto effectiveHardness = std::clamp(
+            (0.15f + 0.85f * std::pow(clampedVelocity, 1.5f) * (0.5f + 0.5f * pianoHammerHardness) + hardnessOffset)
+                * (1.0f - 0.25f * unaCordaMu),
+            0.05f, 1.0f);
+        const auto effectiveBrightness = std::clamp(pianoBrightness + brightnessOffset, 0.0f, 1.0f);
         const auto tc = params.tcBase * (2.5f - 1.9f * effectiveHardness) * (1.0f + 0.20f * unaCordaMu);
 
         // 击弦微观混沌微扰引擎 (Phase 20-B, Bank & Chabassier 2019 Sec. 4)
@@ -153,10 +274,10 @@ public:
         auto normSum = 0.0f;
         for (auto n = 0; n < numActivePartials; ++n) {
             const auto partialNumber = static_cast<double>(n + 1);
-            const auto inharmonicFactor = std::sqrt(1.0 + params.inharmonicityB * partialNumber * partialNumber);
+            const auto inharmonicFactor = std::sqrt(1.0 + effectiveInharmonicityB * partialNumber * partialNumber);
             const auto partialFrequency = baseFrequency * partialNumber * inharmonicFactor;
             normSum += amplitudeFor(n, keyPos, effectiveHardness, effectiveStrikePos, partialFrequency, effectiveTc)
-                * hammerGain(n, numActivePartials) * brightnessBoost(n, pianoBrightness, numActivePartials);
+                * hammerGain(n, numActivePartials) * brightnessBoost(n, effectiveBrightness, numActivePartials);
         }
         const auto scale = peakLevelAtFullVelocity / juce::jmax(1e-6f, normSum);
 
@@ -165,7 +286,7 @@ public:
         for (auto n = 0; n < numActivePartials; ++n) {
             auto& partial = partials[static_cast<std::size_t>(n)];
             const auto m = static_cast<double>(n + 1);
-            const auto inharmonicFactor = std::sqrt(1.0 + params.inharmonicityB * m * m);
+            const auto inharmonicFactor = std::sqrt(1.0 + effectiveInharmonicityB * m * m);
             const auto partialFrequency = baseFrequency * m * inharmonicFactor;
 
             if (partialFrequency >= nyquistLimit) {
@@ -233,7 +354,7 @@ public:
 
             partial.level
                 = amplitudeFor(n, keyPos, effectiveHardness, effectiveStrikePos, partialFrequency, effectiveTc)
-                * hammerGain(n, numActivePartials) * brightnessBoost(n, pianoBrightness, numActivePartials) * scale
+                * hammerGain(n, numActivePartials) * brightnessBoost(n, effectiveBrightness, numActivePartials) * scale
                 * velocityLevel * trichordAtten;
 
             // 泛音时间滞后膨胀与绽放 (Phase 24-A, Harmonic Blooming)
@@ -287,6 +408,7 @@ public:
         lidAcoustics.reset();
 
         adsrGate.setSampleRate(sampleRate);
+        adsrGate.setParameters(configuredAdsr);
         adsrGate.noteOn();
     }
 
@@ -294,9 +416,20 @@ public:
         sympatheticPool.noteOffKey(currentPlayingMidiNote);
 
         if (allowTailOff) {
-            adsrGate.noteOff();
             const auto sampleRate = getSampleRate();
-            damperTransient.trigger(sampleRate, currentPlayingMidiNote, velocity > 0.0f ? velocity : 0.6f);
+            const auto relVel = velocity > 0.0f ? velocity : 0.6f;
+
+            // 离键速度动态调节琴弦 ADSR 释放时间 (Phase 32-B, Dynamic Key Release Damping):
+            // 慢离键毛毡缓冲贴弦缓慢，保留微弱余音延展；快离键瞬间强力消音
+            if (sampleRate > 0.0) {
+                const auto baseRelease = configuredAdsr.release;
+                const auto dynamicRelease = baseRelease * (1.5f - 0.75f * juce::jlimit(0.1f, 1.0f, relVel));
+                auto releaseParams = configuredAdsr;
+                releaseParams.release = dynamicRelease;
+                adsrGate.setParameters(releaseParams);
+            }
+            adsrGate.noteOff();
+            damperTransient.trigger(sampleRate, currentPlayingMidiNote, relVel);
             return;
         }
 
@@ -305,6 +438,7 @@ public:
         hammerContactEngine.reset();
         spatialDiffusionEngine.reset();
         damperTransient.reset();
+        pedalTransient.reset();
         pitchGlideEngine.reset();
         for (auto& resonator : bodyResonators) {
             resonator.reset();
@@ -312,6 +446,7 @@ public:
         spruceSoundboardFilter.reset();
         sympatheticPool.reset();
         lidAcoustics.reset();
+        perspectiveProcessor.reset();
         clearCurrentNote();
     }
     void pitchWheelMoved(int) override {
@@ -319,7 +454,23 @@ public:
     void controllerMoved(int controllerNumber, int controllerValue) override {
         // MIDI CC 64 延音踏板 (Sustain Pedal, Phase 21-A)
         if (controllerNumber == 64) {
-            sympatheticPool.setPedalDown(controllerValue >= 64);
+            const auto isDown = (controllerValue >= 64);
+            if (isDown != pedalTransient.pedalDown) {
+                const auto diff = std::abs(controllerValue - pedalTransient.lastControllerValue);
+                const auto vel = juce::jlimit(0.2f, 1.0f, static_cast<float>(diff) / 127.0f);
+
+                if (voiceIndex == 0) {
+                    const auto sampleRate = getSampleRate();
+                    sympatheticPool.updateCoefficients(sampleRate);
+                    pedalTransient.trigger(sampleRate, isDown, vel, pianoPedalNoiseLevel);
+                    if (isDown) {
+                        sympatheticPool.triggerShock(vel * pianoPedalNoiseLevel, sampleRate);
+                    }
+                }
+                pedalTransient.pedalDown = isDown;
+            }
+            pedalTransient.lastControllerValue = controllerValue;
+            sympatheticPool.setPedalDown(isDown);
         } else if (controllerNumber == 67) {
             // MIDI CC 67 弱音/移位踏板 (Una Corda / Soft Pedal, Phase 29-B)
             softPedalDown = (controllerValue >= 64);
@@ -328,24 +479,48 @@ public:
         }
     }
     void renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int startSample, int numSamples) override {
-        if (!isVoiceActive()) {
+        const auto isPedalActive = (voiceIndex == 0) && (pedalTransient.isActive() || sympatheticPool.isShockActive());
+        const auto isKeySounding = getCurrentlyPlayingNote() >= 0;
+        if (!isKeySounding && !isPedalActive) {
             return;
         }
 
         for (auto sample = 0; sample < numSamples; ++sample) {
+            const auto sampleIndex = startSample + sample;
+            const auto pedalSound = (voiceIndex == 0) ? pedalTransient.getNextSample() : 0.0f;
+
+            if (!isKeySounding) {
+                const auto sympatheticOut = (voiceIndex == 0) ? sympatheticPool.process(0.0f) : 0.0f;
+                if (pedalSound != 0.0f || sympatheticOut != 0.0f) {
+                    auto outL = pedalSound * 0.7071f + sympatheticOut * 0.40f;
+                    auto outR = pedalSound * 0.7071f + sympatheticOut * 0.60f;
+                    lidAcoustics.processStereo(outL, outR);
+                    perspectiveProcessor.processStereo(outL, outR);
+
+                    if (outputBuffer.getNumChannels() >= 2) {
+                        outputBuffer.addSample(0, sampleIndex, outL);
+                        outputBuffer.addSample(1, sampleIndex, outR);
+                    } else if (outputBuffer.getNumChannels() == 1) {
+                        outputBuffer.addSample(0, sampleIndex, pedalSound + 0.5f * sympatheticOut);
+                    }
+                }
+                continue;
+            }
+
             const auto envelope = adsrGate.getNextSample();
             const auto click = hammerTransient.getNextSample();
             const auto damperThump = damperTransient.getNextSample();
             const auto glideMult = static_cast<double>(pitchGlideEngine.getGlideMultiplier());
             const auto diffusionFactor = spatialDiffusionEngine.getDiffusionFactor();
 
-            if (envelope <= 0.0f && !adsrGate.isActive() && !damperTransient.isActive()) {
+            if (envelope <= 0.0f && !adsrGate.isActive() && !damperTransient.isActive() && !pedalTransient.isActive()) {
                 clearCurrentNote();
                 for (auto& resonator : bodyResonators) {
                     resonator.reset();
                 }
                 spruceSoundboardFilter.reset();
                 sympatheticPool.reset();
+                perspectiveProcessor.reset();
                 lidAcoustics.reset();
                 break;
             }
@@ -408,7 +583,6 @@ public:
                 partial.levelFast *= partial.decayFastPerSample;
                 partial.levelSlow *= partial.decaySlowPerSample;
             }
-            const auto sampleIndex = startSample + sample;
             // 琴槌接触微阻尼与脱离物理释放 (Phase 24-B)
             const auto preSatLeft = valueLeft * envelope + click + damperThump;
             const auto preSatRight = valueRight * envelope + click + damperThump;
@@ -444,20 +618,26 @@ public:
             auto outLeft = (1.0f - wet) * rawLeft * directLeft + wet * (resonatorLeftSum + 0.40f * sympatheticOut);
             auto outRight = (1.0f - wet) * rawRight * directRight + wet * (resonatorRightSum + 0.60f * sympatheticOut);
 
+            if (pedalSound != 0.0f) {
+                outLeft += pedalSound * 0.7071f;
+                outRight += pedalSound * 0.7071f;
+            }
             // 5. 三角钢琴琴盖反射与近场木质微反射 (Phase 21-B / Phase 22-B, Chabassier 2013/2019)
             lidAcoustics.processStereo(outLeft, outRight);
+            // 6. 双视角立体声场与声像转换 (Phase 31-A, PerspectiveProcessor: Player vs Audience)
+            perspectiveProcessor.processStereo(outLeft, outRight);
 
             if (outputBuffer.getNumChannels() >= 2) {
                 outputBuffer.addSample(0, sampleIndex, outLeft);
                 outputBuffer.addSample(1, sampleIndex, outRight);
             } else if (outputBuffer.getNumChannels() == 1) {
-                const auto outMono
-                    = (1.0f - wet) * rawMono + wet * 0.5f * (resonatorLeftSum + resonatorRightSum + sympatheticOut);
+                const auto outMono = (1.0f - wet) * rawMono
+                    + wet * 0.5f * (resonatorLeftSum + resonatorRightSum + sympatheticOut) + pedalSound;
                 outputBuffer.addSample(0, sampleIndex, outMono);
             }
         }
 
-        if (allPartialsSilent()) {
+        if (isKeySounding && allPartialsSilent()) {
             clearCurrentNote();
             hammerTransient.reset();
             hammerContactEngine.reset();
@@ -468,8 +648,11 @@ public:
                 resonator.reset();
             }
             spruceSoundboardFilter.reset();
-            sympatheticPool.reset();
+            if (!sympatheticPool.pedalDown) {
+                sympatheticPool.reset();
+            }
             lidAcoustics.reset();
+            perspectiveProcessor.reset();
         }
     }
 
@@ -497,13 +680,15 @@ public:
         return devpiano::audio::getNoteParams(midiNoteNumber).slowWeight;
     }
 
-    [[nodiscard]] static double partialDecaySeconds(int midiNoteNumber, int partialIndex, float brightness = 0.5f,
-                                                    float resonance = 0.5f) noexcept {
+    [[nodiscard]] static double
+    partialDecaySeconds(int midiNoteNumber, int partialIndex, float brightness = 0.5f, float resonance = 0.5f,
+                        Temperament temperament = Temperament::equal,
+                        double referencePitchA4 = TemperamentEngine::kDefaultReferencePitch) noexcept {
         const auto& params = devpiano::audio::getNoteParams(midiNoteNumber);
         const auto decayScale = 1.0f + (juce::jlimit(0.0f, 1.0f, resonance) - 0.5f) * 0.6f;
         const auto baseDecay = static_cast<double>(params.decaySeconds * decayScale);
-        const auto f0 = juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber);
-        const auto fn = partialFrequency(midiNoteNumber, partialIndex);
+        const auto f0 = TemperamentEngine::getFrequency(midiNoteNumber, temperament, referencePitchA4);
+        const auto fn = partialFrequency(midiNoteNumber, partialIndex, temperament, referencePitchA4);
         const auto piOverL = juce::MathConstants<double>::pi / static_cast<double>(params.stringLength);
         const auto k1 = piOverL * piOverL;
         const auto alpha1 = static_cast<double>(params.b1) + static_cast<double>(params.b2) * k1;
@@ -526,8 +711,10 @@ public:
     [[nodiscard]] static float bodyWet(float resonance = 0.5f) noexcept {
         return 0.18f + juce::jlimit(0.0f, 1.0f, resonance) * 0.16f;
     }
-    [[nodiscard]] static double partialFrequency(int midiNoteNumber, int partialIndex) noexcept {
-        const auto baseFrequency = juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber);
+    [[nodiscard]] static double
+    partialFrequency(int midiNoteNumber, int partialIndex, Temperament temperament = Temperament::equal,
+                     double referencePitchA4 = TemperamentEngine::kDefaultReferencePitch) noexcept {
+        const auto baseFrequency = TemperamentEngine::getFrequency(midiNoteNumber, temperament, referencePitchA4);
         const auto partialNumber = static_cast<double>(partialIndex + 1);
         const auto b = inharmonicityBForNote(midiNoteNumber);
         return baseFrequency * partialNumber * std::sqrt(1.0 + b * partialNumber * partialNumber);
@@ -538,8 +725,10 @@ public:
     [[nodiscard]] static int beatingPartialCountForNote(int midiNoteNumber) noexcept {
         return devpiano::audio::getNoteParams(midiNoteNumber).beatingPartials;
     }
-    [[nodiscard]] static double beatingFrequency(int midiNoteNumber, int partialIndex) noexcept {
-        const auto f = partialFrequency(midiNoteNumber, partialIndex);
+    [[nodiscard]] static double
+    beatingFrequency(int midiNoteNumber, int partialIndex, Temperament temperament = Temperament::equal,
+                     double referencePitchA4 = TemperamentEngine::kDefaultReferencePitch) noexcept {
+        const auto f = partialFrequency(midiNoteNumber, partialIndex, temperament, referencePitchA4);
         const auto& params = devpiano::audio::getNoteParams(midiNoteNumber);
         const auto isBassFundamental = (midiNoteNumber < 48 && partialIndex == 0);
         if (!isBassFundamental && partialIndex < params.beatingPartials && params.beatingDetuneRatio > 0.0f) {
@@ -640,7 +829,7 @@ public:
     }
 
     [[nodiscard]] bool allPartialsSilent() const noexcept {
-        if (hammerTransient.isActive() || damperTransient.isActive()) {
+        if (hammerTransient.isActive() || damperTransient.isActive() || pedalTransient.isActive()) {
             return false;
         }
         for (auto n = 0; n < numActivePartials; ++n) {
@@ -677,11 +866,14 @@ public:
     int numActivePartials = 0;
     int currentPlayingMidiNote = 60;
     std::uint32_t triggerCounter = 0;
+    juce::ADSR::Parameters configuredAdsr { 0.0002f, 0.001f, 1.0f, 0.18f };
     juce::ADSR adsrGate;
     float pianoBrightness = 0.5f;
     float pianoHammerHardness = 0.5f;
     float pianoResonance = 0.5f;
     LidPosition pianoLidPosition = LidPosition::fullOpen;
+    Temperament pianoTemperament = Temperament::equal;
+    double pianoReferencePitchA4 = TemperamentEngine::kDefaultReferencePitch;
 
     // 强击非线性张力音高微漂移引擎 (Phase 22-D, Bank & Sujbert 2005 JASA)
     struct PitchGlideEngine {
@@ -914,8 +1106,9 @@ public:
     };
     HammerTransient hammerTransient;
 
-    // 制音器落弦与琴键释放机械瞬态 (Phase 22-A, Damper Felt Fall & Release Thump)
+    // 制音器落弦与琴键释放机械瞬态深化 (Phase 22-A / Phase 32-B, Damper Felt Fall & Key Release Thump)
     struct DamperTransient {
+        // 1. 毛毡触弦低频接触瞬态 (Felt Contact Transient)
         int samplesRemaining = 0;
         int totalSamples = 0;
         float amplitude = 0.0f;
@@ -925,63 +1118,326 @@ public:
         float oscPhase2 = 0.0f;
         float phaseInc2 = 0.0f;
 
+        // 2. 木质键体落回键床底部轻撞声 (Key Release Thump / Key Bed Return)
+        int woodSamplesRemaining = 0;
+        float woodAmplitude = 0.0f;
+        float woodDecay = 0.0f;
+        float woodPhase1 = 0.0f;
+        float woodPhaseInc1 = 0.0f;
+        float woodPhase2 = 0.0f;
+        float woodPhaseInc2 = 0.0f;
+
+        // 3. 毛毡纤维贴弦高频摩擦微脉冲 (Felt Friction Noise)
+        int frictionSamplesRemaining = 0;
+        float frictionAmplitude = 0.0f;
+        float frictionDecay = 0.0f;
+        float bpW1 = 0.0f, bpW2 = 0.0f;
+        float b0 = 0.0f, b1 = 0.0f, b2 = 0.0f, a1 = 0.0f, a2 = 0.0f;
+        std::uint32_t rngState = 0x87654321;
+
         void trigger(double sr, int midiNoteNumber, float releaseVelocity) noexcept {
             if (sr <= 0.0) {
                 return;
             }
-            if (midiNoteNumber > 88) {
-                reset();
-                return;
+            const auto sampleRate = static_cast<float>(sr);
+            const auto rv = juce::jlimit(0.05f, 1.0f, releaseVelocity);
+            const auto clampedNote = std::clamp(midiNoteNumber, 21, 108);
+            const auto noteRatio = static_cast<float>(clampedNote - 21) / 87.0f;
+
+            // 只有有阻尼器的音区 (一般 <= 88 键，即 F6 左右以下) 才有毛毡接触弦声
+            const auto hasDamper = (midiNoteNumber <= 88);
+
+            if (hasDamper) {
+                // A. 速度自适应毛毡落弦摩擦与持续时间:
+                // 慢离键摩擦接触时间长，快离键干脆截断
+                const auto baseDur = juce::jlimit(0.008f, 0.026f, 0.026f - noteRatio * 0.016f);
+                const auto velocityDurationScale = 1.6f - 0.9f * rv;
+                const auto dur = baseDur * velocityDurationScale;
+                totalSamples = juce::jmax(1, static_cast<int>(dur * sampleRate));
+                samplesRemaining = totalSamples;
+
+                const auto f1 = juce::jlimit(75.0f, 160.0f, 85.0f + noteRatio * 60.0f);
+                const auto f2 = juce::jlimit(180.0f, 420.0f, 220.0f + noteRatio * 180.0f);
+                phaseInc1 = juce::MathConstants<float>::twoPi * f1 / sampleRate;
+                phaseInc2 = juce::MathConstants<float>::twoPi * f2 / sampleRate;
+                oscPhase1 = 0.0f;
+                oscPhase2 = 0.0f;
+
+                const auto zoneGain = juce::jlimit(0.05f, 1.0f, 1.0f - noteRatio * 0.85f);
+                amplitude = peakLevelAtFullVelocity * 0.075f * std::sqrt(rv) * zoneGain;
+
+                const auto decayExponent = -(3.2f + 3.2f * rv);
+                decayPerSample = std::exp(decayExponent / static_cast<float>(totalSamples));
+
+                // B. 毛毡微摩擦高频噪声 (Felt Friction):
+                // 慢离键摩擦显著，持续 15~30ms，中心 ~2800 Hz, Q ~ 1.8
+                const auto frictionDur = juce::jlimit(0.012f, 0.032f, 0.032f * (1.3f - 0.6f * rv));
+                frictionSamplesRemaining = juce::jmax(1, static_cast<int>(frictionDur * sampleRate));
+                frictionAmplitude = peakLevelAtFullVelocity * 0.015f * (0.4f + 0.6f * (1.0f - rv)) * zoneGain;
+                frictionDecay = std::exp(-5.0f / static_cast<float>(frictionSamplesRemaining));
+
+                const auto f0 = 2800.0f;
+                const auto q = 1.8f;
+                const auto w0 = juce::MathConstants<float>::twoPi * f0 / sampleRate;
+                const auto cosW0 = std::cos(w0);
+                const auto sinW0 = std::sin(w0);
+                const auto alpha = sinW0 / (2.0f * q);
+                const auto a0 = 1.0f + alpha;
+                b0 = alpha / a0;
+                b1 = 0.0f;
+                b2 = -alpha / a0;
+                a1 = (-2.0f * cosW0) / a0;
+                a2 = (1.0f - alpha) / a0;
+                bpW1 = 0.0f;
+                bpW2 = 0.0f;
+            } else {
+                samplesRemaining = 0;
+                amplitude = 0.0f;
+                frictionSamplesRemaining = 0;
+                frictionAmplitude = 0.0f;
             }
 
-            const auto sampleRate = static_cast<float>(sr);
-            const auto noteRatio = static_cast<float>(midiNoteNumber - 21) / 67.0f;
-            const auto dur = juce::jlimit(0.006f, 0.024f, 0.024f - noteRatio * 0.018f);
-            totalSamples = juce::jmax(1, static_cast<int>(dur * sampleRate));
-            samplesRemaining = totalSamples;
-
-            const auto f1 = juce::jlimit(75.0f, 160.0f, 85.0f + noteRatio * 60.0f);
-            const auto f2 = juce::jlimit(180.0f, 420.0f, 220.0f + noteRatio * 180.0f);
-            phaseInc1 = juce::MathConstants<float>::twoPi * f1 / sampleRate;
-            phaseInc2 = juce::MathConstants<float>::twoPi * f2 / sampleRate;
-            oscPhase1 = 0.0f;
-            oscPhase2 = 0.0f;
-
-            const auto rv = juce::jlimit(0.0f, 1.0f, releaseVelocity);
-            const auto zoneGain = juce::jlimit(0.05f, 1.0f, 1.0f - noteRatio * 0.85f);
-            amplitude = peakLevelAtFullVelocity * 0.08f * rv * zoneGain;
-            decayPerSample = std::exp(-5.0f / static_cast<float>(totalSamples));
+            // C. 木质键体落回键床撞击声 (Key Release Thump): 全 88 键通用
+            const auto woodDur = 0.018f;
+            woodSamplesRemaining = juce::jmax(1, static_cast<int>(woodDur * sampleRate));
+            const auto woodF1 = 140.0f - noteRatio * 25.0f;
+            const auto woodF2 = 270.0f - noteRatio * 40.0f;
+            woodPhaseInc1 = juce::MathConstants<float>::twoPi * woodF1 / sampleRate;
+            woodPhaseInc2 = juce::MathConstants<float>::twoPi * woodF2 / sampleRate;
+            woodPhase1 = 0.0f;
+            woodPhase2 = 0.0f;
+            woodAmplitude = peakLevelAtFullVelocity * 0.032f * (rv * rv);
+            woodDecay = std::exp(-6.0f / static_cast<float>(woodSamplesRemaining));
         }
 
         [[nodiscard]] float getNextSample() noexcept {
-            if (samplesRemaining <= 0) {
+            if (!isActive()) {
                 return 0.0f;
             }
-            --samplesRemaining;
-            const auto s1 = std::sin(oscPhase1);
-            const auto s2 = std::sin(oscPhase2);
-            oscPhase1 += phaseInc1;
-            oscPhase2 += phaseInc2;
-            const auto out = amplitude * (0.75f * s1 + 0.25f * s2);
-            amplitude *= decayPerSample;
+            auto out = 0.0f;
+
+            // 1. 毛毡触弦声
+            if (samplesRemaining > 0) {
+                --samplesRemaining;
+                const auto s1 = std::sin(oscPhase1);
+                const auto s2 = std::sin(oscPhase2);
+                oscPhase1 += phaseInc1;
+                oscPhase2 += phaseInc2;
+                out += amplitude * (0.75f * s1 + 0.25f * s2);
+                amplitude *= decayPerSample;
+            }
+
+            // 2. 毛毡高频摩擦声
+            if (frictionSamplesRemaining > 0) {
+                --frictionSamplesRemaining;
+                rngState ^= (rngState << 13);
+                rngState ^= (rngState >> 17);
+                rngState ^= (rngState << 5);
+                const auto rawNoise = static_cast<float>(static_cast<std::int32_t>(rngState)) * (1.0f / 2147483648.0f);
+                const auto w = rawNoise - a1 * bpW1 - a2 * bpW2;
+                const auto filtered = b0 * w + b1 * bpW1 + b2 * bpW2;
+                bpW2 = bpW1;
+                bpW1 = w;
+                out += filtered * frictionAmplitude;
+                frictionAmplitude *= frictionDecay;
+            }
+
+            // 3. 木质键床撞击声
+            if (woodSamplesRemaining > 0) {
+                --woodSamplesRemaining;
+                const auto w1 = std::sin(woodPhase1);
+                const auto w2 = std::sin(woodPhase2);
+                woodPhase1 += woodPhaseInc1;
+                woodPhase2 += woodPhaseInc2;
+                out += woodAmplitude * (0.70f * w1 + 0.30f * w2);
+                woodAmplitude *= woodDecay;
+            }
+
             return out;
         }
 
         void reset() noexcept {
             samplesRemaining = 0;
             amplitude = 0.0f;
+            woodSamplesRemaining = 0;
+            woodAmplitude = 0.0f;
+            frictionSamplesRemaining = 0;
+            frictionAmplitude = 0.0f;
+            bpW1 = 0.0f;
+            bpW2 = 0.0f;
         }
 
         [[nodiscard]] bool isActive() const noexcept {
-            return samplesRemaining > 0;
+            return samplesRemaining > 0 || woodSamplesRemaining > 0 || frictionSamplesRemaining > 0;
         }
     };
     DamperTransient damperTransient;
+
+    // 延音踏板机械气流与箱体共鸣冲击 (Phase 32-A, Pedal Whoosh & Resonance Shock)
+    struct PedalTransient {
+        int whooshSamplesRemaining = 0;
+        int whooshTotalSamples = 0;
+        float whooshAmplitude = 0.0f;
+        float whooshDecay = 0.0f;
+        float whooshRise = 0.0f;
+        float whooshEnv = 0.0f;
+
+        float b0 = 0.0f, b1 = 0.0f, b2 = 0.0f, a1 = 0.0f, a2 = 0.0f;
+        float bpW1 = 0.0f, bpW2 = 0.0f;
+
+        std::uint32_t rngState = 0x12345678;
+
+        int shockSamplesRemaining = 0;
+        float shockAmplitude = 0.0f;
+        float shockDecay = 0.0f;
+        float shockPhase1 = 0.0f;
+        float shockPhaseInc1 = 0.0f;
+        float shockPhase2 = 0.0f;
+        float shockPhaseInc2 = 0.0f;
+
+        bool pedalDown = false;
+        int lastControllerValue = 0;
+
+        void trigger(double sr, bool isDown, float pedalVelocity, float noiseLevel) noexcept {
+            if (sr <= 0.0 || noiseLevel <= 1e-4f) {
+                return;
+            }
+            const auto sampleRate = static_cast<float>(sr);
+            const auto vel = juce::jlimit(0.1f, 1.0f, pedalVelocity);
+            const auto level = juce::jlimit(0.0f, 1.0f, noiseLevel);
+
+            if (isDown) {
+                // A. Whoosh 气流声: 持续 ~60ms
+                const auto durSec = juce::jlimit(0.045f, 0.075f, 0.075f - vel * 0.020f);
+                whooshTotalSamples = juce::jmax(1, static_cast<int>(durSec * sampleRate));
+                whooshSamplesRemaining = whooshTotalSamples;
+                whooshEnv = 0.0f;
+                whooshRise = 1.0f / static_cast<float>(juce::jmax(1, static_cast<int>(0.012f * sampleRate)));
+                whooshDecay = std::exp(-4.5f / static_cast<float>(whooshTotalSamples));
+                whooshAmplitude = 0.038f * vel * level;
+
+                const auto f0 = 1350.0f;
+                const auto q = 1.25f;
+                const auto w0 = juce::MathConstants<float>::twoPi * f0 / sampleRate;
+                const auto cosW0 = std::cos(w0);
+                const auto sinW0 = std::sin(w0);
+                const auto alpha = sinW0 / (2.0f * q);
+
+                const auto a0 = 1.0f + alpha;
+                b0 = alpha / a0;
+                b1 = 0.0f;
+                b2 = -alpha / a0;
+                a1 = (-2.0f * cosW0) / a0;
+                a2 = (1.0f - alpha) / a0;
+                bpW1 = 0.0f;
+                bpW2 = 0.0f;
+
+                // B. Resonance Shock 低频瞬态冲击 (58 Hz & 116 Hz)
+                const auto shockDurSec = 0.065f;
+                shockSamplesRemaining = juce::jmax(1, static_cast<int>(shockDurSec * sampleRate));
+                shockPhaseInc1 = juce::MathConstants<float>::twoPi * 58.0f / sampleRate;
+                shockPhaseInc2 = juce::MathConstants<float>::twoPi * 116.0f / sampleRate;
+                shockPhase1 = 0.0f;
+                shockPhase2 = 0.0f;
+                shockAmplitude = 0.025f * vel * level;
+                shockDecay = std::exp(-5.0f / static_cast<float>(shockSamplesRemaining));
+            } else {
+                // 踏板抬起: 制音器下落回位与微弱阻尼触弦声
+                const auto durSec = 0.035f;
+                whooshTotalSamples = juce::jmax(1, static_cast<int>(durSec * sampleRate));
+                whooshSamplesRemaining = whooshTotalSamples;
+                whooshEnv = 0.0f;
+                whooshRise = 1.0f / static_cast<float>(juce::jmax(1, static_cast<int>(0.008f * sampleRate)));
+                whooshDecay = std::exp(-5.5f / static_cast<float>(whooshTotalSamples));
+                whooshAmplitude = 0.018f * vel * level;
+
+                const auto f0 = 950.0f;
+                const auto q = 1.1f;
+                const auto w0 = juce::MathConstants<float>::twoPi * f0 / sampleRate;
+                const auto cosW0 = std::cos(w0);
+                const auto sinW0 = std::sin(w0);
+                const auto alpha = sinW0 / (2.0f * q);
+
+                const auto a0 = 1.0f + alpha;
+                b0 = alpha / a0;
+                b1 = 0.0f;
+                b2 = -alpha / a0;
+                a1 = (-2.0f * cosW0) / a0;
+                a2 = (1.0f - alpha) / a0;
+                bpW1 = 0.0f;
+                bpW2 = 0.0f;
+
+                const auto shockDurSec = 0.040f;
+                shockSamplesRemaining = juce::jmax(1, static_cast<int>(shockDurSec * sampleRate));
+                shockPhaseInc1 = juce::MathConstants<float>::twoPi * 65.0f / sampleRate;
+                shockPhaseInc2 = juce::MathConstants<float>::twoPi * 130.0f / sampleRate;
+                shockPhase1 = 0.0f;
+                shockPhase2 = 0.0f;
+                shockAmplitude = 0.012f * vel * level;
+                shockDecay = std::exp(-6.0f / static_cast<float>(shockSamplesRemaining));
+            }
+        }
+
+        [[nodiscard]] float getNextSample() noexcept {
+            if (!isActive()) {
+                return 0.0f;
+            }
+            auto out = 0.0f;
+
+            if (whooshSamplesRemaining > 0) {
+                --whooshSamplesRemaining;
+                rngState ^= (rngState << 13);
+                rngState ^= (rngState >> 17);
+                rngState ^= (rngState << 5);
+                const auto rawNoise = static_cast<float>(static_cast<std::int32_t>(rngState)) * (1.0f / 2147483648.0f);
+
+                const auto w = rawNoise - a1 * bpW1 - a2 * bpW2;
+                const auto filtered = b0 * w + b1 * bpW1 + b2 * bpW2;
+                bpW2 = bpW1;
+                bpW1 = w;
+
+                if (whooshEnv < 1.0f) {
+                    whooshEnv = std::min(1.0f, whooshEnv + whooshRise);
+                } else {
+                    whooshAmplitude *= whooshDecay;
+                }
+                out += filtered * whooshAmplitude * whooshEnv;
+            }
+
+            if (shockSamplesRemaining > 0) {
+                --shockSamplesRemaining;
+                const auto s1 = std::sin(shockPhase1);
+                const auto s2 = std::sin(shockPhase2);
+                shockPhase1 += shockPhaseInc1;
+                shockPhase2 += shockPhaseInc2;
+                out += shockAmplitude * (0.65f * s1 + 0.35f * s2);
+                shockAmplitude *= shockDecay;
+            }
+
+            return out;
+        }
+
+        void reset() noexcept {
+            whooshSamplesRemaining = 0;
+            whooshAmplitude = 0.0f;
+            whooshEnv = 0.0f;
+            bpW1 = 0.0f;
+            bpW2 = 0.0f;
+            shockSamplesRemaining = 0;
+            shockAmplitude = 0.0f;
+        }
+
+        [[nodiscard]] bool isActive() const noexcept {
+            return whooshSamplesRemaining > 0 || shockSamplesRemaining > 0;
+        }
+    };
+    PedalTransient pedalTransient;
 
     // 延音踏板全局交感共鸣弦池与单键开放弦交感 (Phase 21-A / Phase 22-E, Bank 2010 Sec. VI)
     struct SympatheticResonancePool {
         static constexpr auto numPoolResonators = 12;
         bool pedalDown = false;
+        int shockSamplesRemaining = 0;
         std::array<int, numPoolResonators> openNoteCount {};
         float c1[numPoolResonators] {};
         float c2[numPoolResonators] {};
@@ -1023,14 +1479,30 @@ public:
         }
 
         void reset() noexcept {
+            shockSamplesRemaining = 0;
             openNoteCount.fill(0);
             for (int i = 0; i < numPoolResonators; ++i) {
                 s1[i] = 0.0f;
                 s2[i] = 0.0f;
             }
         }
+        void triggerShock(float amount, double sampleRate) noexcept {
+            if (sampleRate > 0.0 && amount > 1e-4f) {
+                shockSamplesRemaining = juce::jmax(1, static_cast<int>(0.35 * sampleRate));
+            }
+            for (int i = 0; i < numPoolResonators; ++i) {
+                s1[i] += amount * ((i % 2 == 0) ? 0.003f : -0.003f);
+            }
+        }
+
+        [[nodiscard]] bool isShockActive() const noexcept {
+            return shockSamplesRemaining > 0;
+        }
 
         [[nodiscard]] float process(float in) noexcept {
+            if (shockSamplesRemaining > 0) {
+                --shockSamplesRemaining;
+            }
             auto sum = 0.0f;
             for (int i = 0; i < numPoolResonators; ++i) {
                 const auto isOpen = pedalDown || (openNoteCount[static_cast<std::size_t>(i)] > 0);
@@ -1133,6 +1605,8 @@ public:
         }
     };
     LidAcoustics lidAcoustics;
+    PerspectiveProcessor perspectiveProcessor;
+    SoundPerspective pianoSoundPerspective = SoundPerspective::player;
 
     // 云杉木音板高频粘滞吸收低通滤波器 (Phase 23-C, Boutillon & Ege 2013)
     struct SpruceSoundboardFilter {
@@ -1213,4 +1687,7 @@ public:
     }();
     bool softPedalDown = false;
     float softPedalAmount = 0.0f;
+    int voiceIndex = 0;
+    float pianoPedalNoiseLevel = 0.6f;
+    float pianoFeltAgeingAmount = 0.0f;
 };

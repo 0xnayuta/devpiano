@@ -194,6 +194,9 @@ target_sources(devpiano PRIVATE
     source/Audio/AudioEngine.h
     source/Audio/SineSynthVoice.h
     source/Audio/PianoSynthVoice.h
+    source/Audio/TemperamentEngine.h
+    source/Audio/PerspectiveProcessor.h
+    source/Audio/RoomReverbEngine.h
     source/Audio/AudioDeviceDiagnostics.h
     source/Audio/AudioDeviceDiagnostics.cpp
     source/Input/KeyboardMidiMapper.cpp
@@ -532,6 +535,16 @@ if (BUILD_TESTS)
         source/tests/UnaCordaAcousticsTest.cpp
         source/tests/TouchVelocityCurveTest.cpp
         source/tests/AcousticSettingsPersistenceTest.cpp
+        source/tests/TemperamentEngineTest.cpp
+        source/tests/PianoSynthVoiceTemperamentTest.cpp
+        source/tests/TemperamentSettingsPersistenceTest.cpp
+        source/tests/PerspectiveProcessorTest.cpp
+        source/tests/RoomReverbEngineTest.cpp
+        source/tests/SpatialAcousticsTest.cpp
+        source/tests/PedalAcousticsTest.cpp
+        source/tests/DamperReleaseTest.cpp
+        source/tests/FeltAgeingTest.cpp
+        source/tests/MechanicalAcousticsTest.cpp
         ${DEVPIANO_JIVE_CORE_SOURCES}
     )
     target_link_libraries(devpiano_tests PRIVATE

@@ -204,6 +204,13 @@ void SettingsWindowManager::showFor(MainComponent& owner) {
         safe->reconfigureChannelMapper();
         safe->audioEngine.setLidPosition(static_cast<AudioEngine::LidPosition>(safe->appSettings.lidPosition));
         safe->keyboardMidiMapper.setTouchVelocityCurve(safe->appSettings.touchVelocityCurve);
+        safe->audioEngine.setTemperament(safe->appSettings.temperament);
+        safe->audioEngine.setReferencePitchA4(safe->appSettings.referencePitchA4);
+        safe->audioEngine.setSoundPerspective(safe->appSettings.soundPerspective);
+        safe->audioEngine.setReverbSpace(safe->appSettings.reverbSpace);
+        safe->audioEngine.setReverbWet(safe->appSettings.reverbWet);
+        safe->audioEngine.setPedalNoiseLevel(safe->appSettings.pedalNoiseLevel);
+        safe->audioEngine.setFeltAgeingAmount(safe->appSettings.feltAgeingAmount);
     };
     show({ .parent = owner,
            .deviceManager = owner.deviceManager,

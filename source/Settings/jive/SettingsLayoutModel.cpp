@@ -258,6 +258,48 @@ juce::ValueTree makeAcousticsSectionTree() {
     curveCombo.setProperty("height", 24, nullptr);
     content.appendChild(settingRow(TRANS("Touch Curve:"), curveCombo, "touch-curve-label"), nullptr);
 
+    // Row 3: Temperament (ComboBox)
+    auto temperamentCombo = node("ComboBox", "temperament-combo");
+    temperamentCombo.setProperty("width", 300, nullptr);
+    temperamentCombo.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Temperament:"), temperamentCombo, "temperament-label"), nullptr);
+
+    // Row 4: A4 Reference Pitch (Slider)
+    auto refPitchSlider = node("Slider", "reference-pitch-slider");
+    refPitchSlider.setProperty("width", 300, nullptr);
+    refPitchSlider.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("A4 Reference Pitch:"), refPitchSlider, "reference-pitch-label"), nullptr);
+
+    // Row 5: Sound Perspective (ComboBox)
+    auto perspectiveCombo = node("ComboBox", "perspective-combo");
+    perspectiveCombo.setProperty("width", 300, nullptr);
+    perspectiveCombo.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Sound Perspective:"), perspectiveCombo, "perspective-label"), nullptr);
+
+    // Row 6: Reverb Space (ComboBox)
+    auto reverbSpaceCombo = node("ComboBox", "reverb-space-combo");
+    reverbSpaceCombo.setProperty("width", 300, nullptr);
+    reverbSpaceCombo.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Reverb Space:"), reverbSpaceCombo, "reverb-space-label"), nullptr);
+
+    // Row 7: Reverb Level (Slider)
+    auto reverbWetSlider = node("Slider", "reverb-wet-slider");
+    reverbWetSlider.setProperty("width", 300, nullptr);
+    reverbWetSlider.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Reverb Level:"), reverbWetSlider, "reverb-wet-label"), nullptr);
+
+    // Row 8: Pedal Mechanical Noise Level (Slider, Phase 32-D)
+    auto pedalNoiseSlider = node("Slider", "pedal-noise-slider");
+    pedalNoiseSlider.setProperty("width", 300, nullptr);
+    pedalNoiseSlider.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Mechanical Noise:"), pedalNoiseSlider, "pedal-noise-label"), nullptr);
+
+    // Row 9: Felt Ageing Amount (Slider, Phase 32-D)
+    auto feltAgeingSlider = node("Slider", "felt-ageing-slider");
+    feltAgeingSlider.setProperty("width", 300, nullptr);
+    feltAgeingSlider.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Felt Ageing:"), feltAgeingSlider, "felt-ageing-label"), nullptr);
+
     card.appendChild(content, nullptr);
     return card;
 }

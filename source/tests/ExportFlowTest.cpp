@@ -16,13 +16,13 @@ using namespace devpiano::recording;
 //   - buildWavExportOptions parameter combinations
 //   - canExportTake boundaries
 //   - makeDefaultRecordingExportFile / makeExportLogPrefix
-//   - MIDI export → read-back round-trip
-//   - WAV export → read-back header + non-silent payload
+//   - MIDI export -> read-back round-trip
+//   - WAV export -> read-back header + non-silent payload
 // =============================================================================
 
 namespace {
 
-// 1 秒 take：note-on at 0、note-off at 1s。
+// 1-second take: note-on at 0, note-off at 1s.
 RecordingTake makeOneSecondTake() {
     RecordingTake take;
     take.sampleRate = 44100.0;
@@ -86,6 +86,12 @@ public:
             perf.pianoBrightness = 0.70f;
             perf.pianoHammerHardness = 0.35f;
             perf.pianoResonance = 0.90f;
+            perf.temperament = devpiano::audio::Temperament::werckmeister3;
+            perf.referencePitchA4 = 415.3;
+            perf.soundPerspective = devpiano::audio::SoundPerspective::audience;
+            perf.reverbSpace = devpiano::audio::ReverbSpace::concertHall;
+            perf.reverbWet = 0.35f;
+            perf.lidPosition = SettingsModel::LidPosition::halfStick;
             const auto options = buildWavExportOptions(take, perf, 44100.0, 512);
             expectWithinAbsoluteError(options.masterGain, 0.33f, 0.0001f);
             expectWithinAbsoluteError(options.adsr.attack, 0.05f, 0.0001f);
@@ -97,6 +103,12 @@ public:
             expectWithinAbsoluteError(options.pianoBrightness, 0.70f, 0.0001f);
             expectWithinAbsoluteError(options.pianoHammerHardness, 0.35f, 0.0001f);
             expectWithinAbsoluteError(options.pianoResonance, 0.90f, 0.0001f);
+            expect(options.temperament == devpiano::audio::Temperament::werckmeister3);
+            expectWithinAbsoluteError(options.referencePitchA4, 415.3, 0.0001);
+            expect(options.soundPerspective == devpiano::audio::SoundPerspective::audience);
+            expect(options.reverbSpace == devpiano::audio::ReverbSpace::concertHall);
+            expectWithinAbsoluteError(options.reverbWet, 0.35f, 0.0001f);
+            expect(options.lidPosition == SettingsModel::LidPosition::halfStick);
             expectEquals(options.numChannels, 2);
         });
     }

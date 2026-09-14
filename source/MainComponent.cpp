@@ -899,7 +899,14 @@ SettingsModel::PerformanceSettingsView MainComponent::getPerformanceSettingsFrom
              .pianoResonance = getPianoResonance(),
              .lidPosition = appSettings.lidPosition,
              .touchVelocityCurve = appSettings.touchVelocityCurve,
-             .unaCorda = keyboardMidiMapper.isSoftPedalDown() };
+             .unaCorda = keyboardMidiMapper.isSoftPedalDown(),
+             .temperament = appSettings.temperament,
+             .referencePitchA4 = appSettings.referencePitchA4,
+             .soundPerspective = appSettings.soundPerspective,
+             .reverbSpace = appSettings.reverbSpace,
+             .reverbWet = appSettings.reverbWet,
+             .pedalNoiseLevel = appSettings.pedalNoiseLevel,
+             .feltAgeingAmount = appSettings.feltAgeingAmount };
 }
 
 juce::String MainComponent::getLastPluginNameForRecoveryStateFromUi() const {
@@ -944,6 +951,13 @@ void MainComponent::applyPerformanceSettingsToAudioEngine(const SettingsModel::P
     audioEngine.setPianoParameters(performance.pianoBrightness, performance.pianoHammerHardness,
                                    performance.pianoResonance);
     audioEngine.setLidPosition(static_cast<AudioEngine::LidPosition>(performance.lidPosition));
+    audioEngine.setTemperament(performance.temperament);
+    audioEngine.setReferencePitchA4(performance.referencePitchA4);
+    audioEngine.setSoundPerspective(performance.soundPerspective);
+    audioEngine.setReverbSpace(performance.reverbSpace);
+    audioEngine.setReverbWet(performance.reverbWet);
+    audioEngine.setPedalNoiseLevel(performance.pedalNoiseLevel);
+    audioEngine.setFeltAgeingAmount(performance.feltAgeingAmount);
 }
 void MainComponent::setBuiltinSynthTone(SettingsModel::BuiltinTone tone) {
     appSettings.builtinTone = tone;

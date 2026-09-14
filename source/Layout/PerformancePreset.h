@@ -6,6 +6,8 @@
 #include <optional>
 #include <vector>
 
+#include "../Audio/RoomReverbEngine.h"
+#include "../Audio/TemperamentEngine.h"
 #include "../Midi/ChannelMatrix.h"
 #include "../Settings/SettingsModel.h"
 #include "../UI/KeyboardTypes.h"
@@ -25,9 +27,17 @@ struct PerformancePreset {
     SettingsModel::LidPosition lidPosition = SettingsModel::LidPosition::fullOpen;
     devpiano::input::TouchVelocityCurve touchVelocityCurve = devpiano::input::TouchVelocityCurve::standard;
     bool unaCorda = false;
+    devpiano::audio::Temperament temperament = devpiano::audio::Temperament::equal;
+    double referencePitchA4 = devpiano::audio::TemperamentEngine::kDefaultReferencePitch;
+    devpiano::audio::SoundPerspective soundPerspective = devpiano::audio::SoundPerspective::player;
+    devpiano::audio::ReverbSpace reverbSpace = devpiano::audio::ReverbSpace::chamber;
+    float reverbWet = 0.0f;
+    // Mechanical action noise and felt ageing (Phase 32-A/C)
+    float pedalNoiseLevel = 0.6f;
+    float feltAgeingAmount = 0.0f;
 
     // Keyboard display / musical settings subset.
-    // Mirrors the JSON "keyboard" section — maps directly to SettingsModel fields
+    // Mirrors the JSON "keyboard" section -- maps directly to SettingsModel fields
     // without going through ui::KeyboardSettings indirection.
     int keySignature = 0;
     bool midiTranspose = false;

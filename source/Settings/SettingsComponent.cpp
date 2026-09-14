@@ -70,6 +70,13 @@ void SettingsComponent::buildJiveUi() {
         languageCombo = viewHost.find<juce::ComboBox>("language-combo");
         lidPositionCombo = viewHost.find<juce::ComboBox>("lid-position-combo");
         touchCurveCombo = viewHost.find<juce::ComboBox>("touch-curve-combo");
+        temperamentCombo = viewHost.find<juce::ComboBox>("temperament-combo");
+        referencePitchSlider = viewHost.find<juce::Slider>("reference-pitch-slider");
+        perspectiveCombo = viewHost.find<juce::ComboBox>("perspective-combo");
+        reverbSpaceCombo = viewHost.find<juce::ComboBox>("reverb-space-combo");
+        reverbWetSlider = viewHost.find<juce::Slider>("reverb-wet-slider");
+        pedalNoiseSlider = viewHost.find<juce::Slider>("pedal-noise-slider");
+        feltAgeingSlider = viewHost.find<juce::Slider>("felt-ageing-slider");
         diagnosticsEditor = viewHost.find<juce::TextEditor>("diagnostics-editor");
         saveButton = viewHost.find<juce::Button>("save-button");
 
@@ -294,6 +301,80 @@ void SettingsComponent::wireAcousticControls() {
         touchCurveCombo->onChange
             = [this] { editingState.setProperty("touchVelocityCurve", touchCurveCombo->getSelectedId(), nullptr); };
     }
+    if (temperamentCombo != nullptr) {
+        rebuildTemperamentCombo();
+        if (model != nullptr) {
+            temperamentCombo->setSelectedId(1 + static_cast<int>(model->temperament), juce::dontSendNotification);
+        }
+        temperamentCombo->onChange
+            = [this] { editingState.setProperty("temperament", temperamentCombo->getSelectedId(), nullptr); };
+    }
+    if (referencePitchSlider != nullptr) {
+        referencePitchSlider->setRange(devpiano::audio::TemperamentEngine::kMinReferencePitch,
+                                       devpiano::audio::TemperamentEngine::kMaxReferencePitch, 0.1);
+        referencePitchSlider->setSliderStyle(juce::Slider::LinearHorizontal);
+        referencePitchSlider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 65, 20);
+        referencePitchSlider->setTextValueSuffix(" Hz");
+        if (model != nullptr) {
+            referencePitchSlider->setValue(model->referencePitchA4, juce::dontSendNotification);
+        }
+        referencePitchSlider->onValueChange
+            = [this] { editingState.setProperty("referencePitchA4", referencePitchSlider->getValue(), nullptr); };
+    }
+    if (perspectiveCombo != nullptr) {
+        rebuildPerspectiveCombo();
+        if (model != nullptr) {
+            perspectiveCombo->setSelectedId(1 + static_cast<int>(model->soundPerspective), juce::dontSendNotification);
+        }
+        perspectiveCombo->onChange
+            = [this] { editingState.setProperty("soundPerspective", perspectiveCombo->getSelectedId(), nullptr); };
+    }
+    if (reverbSpaceCombo != nullptr) {
+        rebuildReverbSpaceCombo();
+        if (model != nullptr) {
+            reverbSpaceCombo->setSelectedId(1 + static_cast<int>(model->reverbSpace), juce::dontSendNotification);
+        }
+        reverbSpaceCombo->onChange
+            = [this] { editingState.setProperty("reverbSpace", reverbSpaceCombo->getSelectedId(), nullptr); };
+    }
+    if (reverbWetSlider != nullptr) {
+        reverbWetSlider->setRange(0.0, 100.0, 1.0);
+        reverbWetSlider->setSliderStyle(juce::Slider::LinearHorizontal);
+        reverbWetSlider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 55, 20);
+        reverbWetSlider->setTextValueSuffix(" %");
+        if (model != nullptr) {
+            reverbWetSlider->setValue(model->reverbWet * 100.0f, juce::dontSendNotification);
+        }
+        reverbWetSlider->onValueChange = [this] {
+            editingState.setProperty("reverbWet", static_cast<float>(reverbWetSlider->getValue() * 0.01), nullptr);
+        };
+    }
+    if (pedalNoiseSlider != nullptr) {
+        pedalNoiseSlider->setRange(0.0, 100.0, 1.0);
+        pedalNoiseSlider->setSliderStyle(juce::Slider::LinearHorizontal);
+        pedalNoiseSlider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 55, 20);
+        pedalNoiseSlider->setTextValueSuffix(" %");
+        if (model != nullptr) {
+            pedalNoiseSlider->setValue(model->pedalNoiseLevel * 100.0f, juce::dontSendNotification);
+        }
+        pedalNoiseSlider->onValueChange = [this] {
+            editingState.setProperty("pedalNoiseLevel", static_cast<float>(pedalNoiseSlider->getValue() * 0.01),
+                                     nullptr);
+        };
+    }
+    if (feltAgeingSlider != nullptr) {
+        feltAgeingSlider->setRange(0.0, 100.0, 1.0);
+        feltAgeingSlider->setSliderStyle(juce::Slider::LinearHorizontal);
+        feltAgeingSlider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 55, 20);
+        feltAgeingSlider->setTextValueSuffix(" %");
+        if (model != nullptr) {
+            feltAgeingSlider->setValue(model->feltAgeingAmount * 100.0f, juce::dontSendNotification);
+        }
+        feltAgeingSlider->onValueChange = [this] {
+            editingState.setProperty("feltAgeingAmount", static_cast<float>(feltAgeingSlider->getValue() * 0.01),
+                                     nullptr);
+        };
+    }
 }
 
 void SettingsComponent::wireAppearanceAndLocaleControls() {
@@ -325,6 +406,27 @@ void SettingsComponent::syncEditingStateFromModel() {
     }
     if (touchCurveCombo != nullptr) {
         editingState.setProperty("touchVelocityCurve", 1 + static_cast<int>(model->touchVelocityCurve), nullptr);
+    }
+    if (temperamentCombo != nullptr) {
+        editingState.setProperty("temperament", 1 + static_cast<int>(model->temperament), nullptr);
+    }
+    if (referencePitchSlider != nullptr) {
+        editingState.setProperty("referencePitchA4", model->referencePitchA4, nullptr);
+    }
+    if (perspectiveCombo != nullptr) {
+        editingState.setProperty("soundPerspective", 1 + static_cast<int>(model->soundPerspective), nullptr);
+    }
+    if (reverbSpaceCombo != nullptr) {
+        editingState.setProperty("reverbSpace", 1 + static_cast<int>(model->reverbSpace), nullptr);
+    }
+    if (reverbWetSlider != nullptr) {
+        editingState.setProperty("reverbWet", model->reverbWet, nullptr);
+    }
+    if (pedalNoiseSlider != nullptr) {
+        editingState.setProperty("pedalNoiseLevel", model->pedalNoiseLevel, nullptr);
+    }
+    if (feltAgeingSlider != nullptr) {
+        editingState.setProperty("feltAgeingAmount", model->feltAgeingAmount, nullptr);
     }
     editingState.setProperty("languageCode", model->languageCode, nullptr);
     editingState.setProperty("keySignature", model->keySignature, nullptr);
@@ -396,6 +498,41 @@ void SettingsComponent::rebuildTouchCurveCombo() {
                              1 + static_cast<int>(devpiano::input::TouchVelocityCurve::heavy));
     touchCurveCombo->addItem(TRANS("Wide Dynamic (S-Curve)"),
                              1 + static_cast<int>(devpiano::input::TouchVelocityCurve::wideDynamic));
+}
+void SettingsComponent::rebuildTemperamentCombo() {
+    if (temperamentCombo == nullptr) {
+        return;
+    }
+    temperamentCombo->clear(juce::dontSendNotification);
+    temperamentCombo->addItem(TRANS("Equal (12-EDO)"), 1 + static_cast<int>(devpiano::audio::Temperament::equal));
+    temperamentCombo->addItem(TRANS("Just Intonation"), 1 + static_cast<int>(devpiano::audio::Temperament::just));
+    temperamentCombo->addItem(TRANS("Pythagorean"), 1 + static_cast<int>(devpiano::audio::Temperament::pythagorean));
+    temperamentCombo->addItem(TRANS("Meantone (1/4 comma)"),
+                              1 + static_cast<int>(devpiano::audio::Temperament::meantone));
+    temperamentCombo->addItem(TRANS("Werckmeister III"),
+                              1 + static_cast<int>(devpiano::audio::Temperament::werckmeister3));
+    temperamentCombo->addItem(TRANS("Kirnberger III"), 1 + static_cast<int>(devpiano::audio::Temperament::kirnberger3));
+}
+void SettingsComponent::rebuildPerspectiveCombo() {
+    if (perspectiveCombo == nullptr) {
+        return;
+    }
+    perspectiveCombo->clear(juce::dontSendNotification);
+    perspectiveCombo->addItem(TRANS("Player (Near-field)"),
+                              1 + static_cast<int>(devpiano::audio::SoundPerspective::player));
+    perspectiveCombo->addItem(TRANS("Audience (Hall Flipped)"),
+                              1 + static_cast<int>(devpiano::audio::SoundPerspective::audience));
+}
+
+void SettingsComponent::rebuildReverbSpaceCombo() {
+    if (reverbSpaceCombo == nullptr) {
+        return;
+    }
+    reverbSpaceCombo->clear(juce::dontSendNotification);
+    reverbSpaceCombo->addItem(TRANS("Studio (0.6s)"), 1 + static_cast<int>(devpiano::audio::ReverbSpace::studio));
+    reverbSpaceCombo->addItem(TRANS("Chamber (1.5s)"), 1 + static_cast<int>(devpiano::audio::ReverbSpace::chamber));
+    reverbSpaceCombo->addItem(TRANS("Concert Hall (2.4s)"),
+                              1 + static_cast<int>(devpiano::audio::ReverbSpace::concertHall));
 }
 
 void SettingsComponent::refreshTexts() {
@@ -678,6 +815,44 @@ bool SettingsComponent::applyDisplayProperty(const juce::Identifier& prop) {
             model->touchVelocityCurve = static_cast<devpiano::input::TouchVelocityCurve>(id - 1);
             return true;
         }
+    }
+    if (propName == "temperament") {
+        const int id = editingState[prop];
+        if (id >= 1 && id <= devpiano::audio::TemperamentEngine::kNumTemperaments) {
+            model->temperament = static_cast<devpiano::audio::Temperament>(id - 1);
+            return true;
+        }
+    }
+    if (propName == "referencePitchA4") {
+        model->referencePitchA4
+            = devpiano::audio::TemperamentEngine::clampReferencePitch(static_cast<double>(editingState[prop]));
+        return true;
+    }
+    if (propName == "soundPerspective") {
+        const int id = editingState[prop];
+        if (id >= 1 && id <= 2) {
+            model->soundPerspective = static_cast<devpiano::audio::SoundPerspective>(id - 1);
+            return true;
+        }
+    }
+    if (propName == "reverbSpace") {
+        const int id = editingState[prop];
+        if (id >= 1 && id <= 3) {
+            model->reverbSpace = static_cast<devpiano::audio::ReverbSpace>(id - 1);
+            return true;
+        }
+    }
+    if (propName == "reverbWet") {
+        model->reverbWet = juce::jlimit(0.0f, 1.0f, static_cast<float>(editingState[prop]));
+        return true;
+    }
+    if (propName == "pedalNoiseLevel") {
+        model->pedalNoiseLevel = juce::jlimit(0.0f, 1.0f, static_cast<float>(editingState[prop]));
+        return true;
+    }
+    if (propName == "feltAgeingAmount") {
+        model->feltAgeingAmount = juce::jlimit(0.0f, 1.0f, static_cast<float>(editingState[prop]));
+        return true;
     }
     return false;
 }
