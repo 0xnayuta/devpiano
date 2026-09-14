@@ -262,7 +262,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 2. **A4 基准音高校准**：支持 415.0 Hz（巴洛克古典）、432.0 Hz（维尔第调律）、440.0 Hz（现代标准）、442.0 Hz（交响乐团）无级微调；
 3. **裁剪与非目标**：依据项目定位裁剪外部 Scala (.scl/.kbm) 文件解析，坚守内置经典律制与纯自包含免安装绿色原则。
 
-当前实施与验证细节详见 [`current-iteration.md`](current-iteration.md)。
+详细完成记录见 [`../archive/phase30-32-temperaments-spatial-mechanics.md`](../archive/phase30-32-temperaments-spatial-mechanics.md)。
 
 ### Phase 31：多视角空间声学与算法混响（Multi-Perspective Spatial Acoustics & Algorithmic Room Modeling） [已完成，2026-09-13]
 
@@ -270,7 +270,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 2. **轻量数学算法房间混响网络**：内置 Studio（0.6s）、Chamber（1.5s）、Concert Hall（2.4s）三大经典空间预设，基于互质低通梳状滤波阵列与全通漫射矩阵，零外部采样依赖；
 3. **JIVE 声学面板集成与预设联动**：在设置界面提供视角切换、空间模式选择器与混响电平滑块，并全面打通 SettingsStore 与 PerformancePreset 序列化及简体中文国际化。
 
-当前实施与验证细节详见 [`current-iteration.md`](current-iteration.md)。
+详细完成记录见 [`../archive/phase30-32-temperaments-spatial-mechanics.md`](../archive/phase30-32-temperaments-spatial-mechanics.md)。
 
 ### Phase 32：机械物理噪声与琴体微衰退拟真（Mechanical Action Noise & Physical Imperfection） [已完成，2026-09-13]
 
@@ -278,6 +278,15 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 2. **离键抬起与制音器落弦瞬态深化（Damper Drop Thump & Key Release）**：离键速度自适应毛毡摩擦持续时间与衰减速率、毛毡纤维高频摩擦微噪声（~2800 Hz）、木质键体落床轻撞声（140/270 Hz 双模态、全 88 键）与琴弦 ADSR 动态释放时间联动；
 3. **琴槌毛毡微老化与调音离散度（Inharmonicity Jitter & Felt Ageing）**：确定性逐键哈希的基频微失谐（±0.3~1.2 cents）、不谐和刚度 B 离散（±4.5%）与逐键毛毡硬度/明暗偏置（默认 0.0 保护纯净基线）；
 4. **全栈集成**：JIVE 声学卡片新增机械噪声与毛毡老化滑块，完整打通 `SettingsStore` / `PerformancePreset` / 离线 WAV 导出与简体中文国际化。
+
+详细完成记录见 [`../archive/phase30-32-temperaments-spatial-mechanics.md`](../archive/phase30-32-temperaments-spatial-mechanics.md)。
+
+### Phase 33：可观测性加固与生产级诊断基础设施（Observability Hardening & Production-Grade Diagnostics Infrastructure） [已完成，2026-09-14]
+
+1. **双通道生产级日志基础设施（DevPianoLogger Dual-Sink）**：重构升级 `DevPianoLogger`，组合 `juce::FileLogger`（512KB 滚动截断，自适应系统应用目录）与调试器即时输出，消除 Windows Win32 GUI 正式分发版用户“排障黑盒”痛点；优化析构注销顺序确保退出期设置保存与插件卸载日志完整落盘；
+2. **设置界面诊断卡片直达与系统文件管理器联动**：在设置界面诊断卡片中新增操作行与“打开日志目录”按钮（`open-log-dir-button`），点击调用 `juce::File::revealToUser()` 调起系统原生文件管理器并高亮选中 `devpiano.log`；动态在诊断文本框中显示日志文件绝对路径与当前大小；
+3. **MidiTrace 与诊断测试防线**：新增 `DiagnosticsTest`，全面覆盖 NoteOn/Off、CC、PitchBend、ProgramChange 等全量 MIDI 协议反序列化格式，以及临时目录下文件落盘、会话头标记与析构自动注销置空保护；
+4. **运行时字符编码断言消除**：彻底修复历史遗留的 5 处多字节 em-dash 字符字面量，消除 `juce_String.cpp:327` 的运行时断言。
 
 当前实施与验证细节详见 [`current-iteration.md`](current-iteration.md)。
 

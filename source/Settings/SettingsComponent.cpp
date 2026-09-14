@@ -1,6 +1,7 @@
 #include "Settings/SettingsComponent.h"
 
 #include "Audio/AudioDeviceDiagnostics.h"
+#include "Diagnostics/DevPianoLogger.h"
 #include "Locale/LocaleManager.h"
 #include "Settings/jive/SettingsLayoutModel.h"
 #include "UI/jive/DesignTokens.h"
@@ -78,6 +79,7 @@ void SettingsComponent::buildJiveUi() {
         pedalNoiseSlider = viewHost.find<juce::Slider>("pedal-noise-slider");
         feltAgeingSlider = viewHost.find<juce::Slider>("felt-ageing-slider");
         diagnosticsEditor = viewHost.find<juce::TextEditor>("diagnostics-editor");
+        openLogDirButton = viewHost.find<juce::Button>("open-log-dir-button");
         saveButton = viewHost.find<juce::Button>("save-button");
 
         for (int ch = 0; ch < 16; ++ch) {
@@ -271,6 +273,27 @@ void SettingsComponent::wireLocaleAndActionControls() {
             editingState.setProperty("languageCode",
                                      languageCombo->getSelectedId() == 2 ? juce::String("zh-CN") : juce::String("en"),
                                      nullptr);
+        };
+    }
+
+    if (openLogDirButton != nullptr) {
+        openLogDirButton->onClick = [] {
+            const auto targetFile = [] {
+                if (auto* logger = devpiano::diagnostics::DevPianoLogger::getCurrentDevPianoLogger()) {
+                    return logger->getLogFile();
+                }
+                return juce::FileLogger::getSystemLogFileFolder().getChildFile("devpiano").getChildFile("devpiano.log");
+            }();
+
+            if (targetFile.existsAsFile()) {
+                targetFile.revealToUser();
+            } else {
+                const auto parentDir = targetFile.getParentDirectory();
+                if (!parentDir.exists()) {
+                    parentDir.createDirectory();
+                }
+                parentDir.startAsProcess();
+            }
         };
     }
 
@@ -772,7 +795,23 @@ void SettingsComponent::updateFollowKeyTogglesEnablement() {
 void SettingsComponent::updateDiagnostics() {
     if (diagnosticsEditor != nullptr) {
         const auto diagnostics = devpiano::audio::buildAudioDeviceDiagnostics(savedStateSnapshot.get(), deviceManager);
-        diagnosticsEditor->setText(diagnostics.detailedSummary, juce::dontSendNotification);
+        auto summary = diagnostics.detailedSummary;
+
+        const auto logFile = [] {
+            if (auto* logger = devpiano::diagnostics::DevPianoLogger::getCurrentDevPianoLogger()) {
+                return logger->getLogFile();
+            }
+            return juce::FileLogger::getSystemLogFileFolder().getChildFile("devpiano").getChildFile("devpiano.log");
+        }();
+
+        summary << "\nLog file: " << logFile.getFullPathName();
+        if (logFile.existsAsFile()) {
+            summary << " (" << juce::String(logFile.getSize()) << " bytes)";
+        } else {
+            summary << " (not yet created)";
+        }
+
+        diagnosticsEditor->setText(summary, juce::dontSendNotification);
     }
 }
 

@@ -101,7 +101,6 @@ MainComponent::~MainComponent() {
     stopTimer();
     audioEngine.getKeyboardState().removeListener(this);
 
-    juce::Logger::setCurrentLogger(nullptr);
     appSettings.keyboardScrollOffsetX = getKeyboardViewPositionX();
     saveSettingsNow();
 
@@ -123,6 +122,8 @@ MainComponent::~MainComponent() {
     // their StyleSheets (children before parents, as JUCE requires).
     viewHost.reset();
     devpiano::ui::jive::StyleCatalog::get().releaseOwnedStyles();
+
+    juce::Logger::setCurrentLogger(nullptr);
 }
 
 void MainComponent::initialiseFromPreset() {
@@ -542,7 +543,7 @@ void MainComponent::timerCallback() {
     // callback (ERR-002): the callback only counts, logging happens here.
     if (const auto resizeCount = audioEngine.consumePluginBufferResizeCount(); resizeCount > 0) {
         DP_LOG_WARN("AudioEngine: pluginBuffer resized " + juce::String(resizeCount)
-                    + " time(s) in audio callback — prepareToPlay mismatch");
+                    + " time(s) in audio callback - prepareToPlay mismatch");
     }
     // Drain preset-change notifications from playback
     {

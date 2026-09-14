@@ -329,6 +329,16 @@ juce::ValueTree makeDiagnosticsSectionTree() {
     editor.setProperty("focusable", true, nullptr);
     content.appendChild(editor, nullptr);
 
+    auto actionRow = flexRow("diagnostics-action-row");
+    actionRow.setProperty("margin", "8 0 0 0", nullptr);
+    actionRow.setProperty("justify-content", "flex-end", nullptr);
+
+    auto openLogBtn = button(TRANS("Open Log Folder"), "open-log-dir-button");
+    openLogBtn.setProperty("width", 140, nullptr);
+    openLogBtn.setProperty("height", 24, nullptr);
+    actionRow.appendChild(openLogBtn, nullptr);
+
+    content.appendChild(actionRow, nullptr);
     card.appendChild(content, nullptr);
     return card;
 }

@@ -384,7 +384,7 @@ std::optional<MidiTrackMergeResult> MidiTrackMergeEngine::mergeTracks(const juce
                                                                       const MidiTrackMergeOptions& options) {
     const auto numTracks = midiFile.getNumTracks();
     if (numTracks <= 0 || targetSampleRate <= 0.0) {
-        DP_LOG_ERROR("MidiTrackMergeEngine: invalid input — tracks=" + juce::String(numTracks)
+        DP_LOG_ERROR("MidiTrackMergeEngine: invalid input - tracks=" + juce::String(numTracks)
                      + ", sampleRate=" + juce::String(targetSampleRate));
         return std::nullopt;
     }

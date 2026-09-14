@@ -201,7 +201,7 @@ void RecordingSessionController::handleExportWavClicked() {
                             offlinePlugin->setStateInformation(state.getData(), static_cast<int>(state.getSize()));
                         } else {
                             DP_LOG_WARN("[Export] Offline plugin instance creation failed: " + error
-                                        + " — falling back to sine synth");
+                                        + " - falling back to sine synth");
                         }
                     }
                 }
