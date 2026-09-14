@@ -173,6 +173,16 @@ public:
     [[nodiscard]] bool isSympatheticShockActive() const noexcept {
         return sympatheticPool.isShockActive();
     }
+    [[nodiscard]] bool isVoiceActive() const override {
+        return (getCurrentlyPlayingNote() >= 0)
+            || ((voiceIndex == 0) && (pedalTransient.isActive() || sympatheticPool.isShockActive()));
+    }
+    [[nodiscard]] bool isPlayingChannel(int midiChannel) const override {
+        if (voiceIndex == 0) {
+            return true;
+        }
+        return juce::SynthesiserVoice::isPlayingChannel(midiChannel);
+    }
     void setCurrentPlaybackSampleRate(double newRate) override {
         juce::SynthesiserVoice::setCurrentPlaybackSampleRate(newRate);
         if (newRate > 0.0) {
@@ -459,7 +469,8 @@ public:
     }
     void renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int startSample, int numSamples) override {
         const auto isPedalActive = (voiceIndex == 0) && (pedalTransient.isActive() || sympatheticPool.isShockActive());
-        if (!isVoiceActive() && !isPedalActive) {
+        const auto isKeySounding = getCurrentlyPlayingNote() >= 0;
+        if (!isKeySounding && !isPedalActive) {
             return;
         }
 
@@ -467,7 +478,7 @@ public:
             const auto sampleIndex = startSample + sample;
             const auto pedalSound = (voiceIndex == 0) ? pedalTransient.getNextSample() : 0.0f;
 
-            if (!isVoiceActive()) {
+            if (!isKeySounding) {
                 const auto sympatheticOut = (voiceIndex == 0) ? sympatheticPool.process(0.0f) : 0.0f;
                 if (pedalSound != 0.0f || sympatheticOut != 0.0f) {
                     auto outL = pedalSound * 0.7071f + sympatheticOut * 0.40f;
@@ -615,7 +626,7 @@ public:
             }
         }
 
-        if (isVoiceActive() && allPartialsSilent()) {
+        if (isKeySounding && allPartialsSilent()) {
             clearCurrentNote();
             hammerTransient.reset();
             hammerContactEngine.reset();

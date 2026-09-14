@@ -1,6 +1,7 @@
 #include <functional>
 
 #include "Audio/PianoSynthVoice.h"
+#include "Audio/RoomReverbEngine.h"
 #include "Audio/SineSynthVoice.h"
 #include "Diagnostics/Log.h"
 #include "Export/ExportFlowSupport.h"
@@ -36,6 +37,10 @@ void initialiseOfflineSynth(juce::Synthesiser& synth, const devpiano::exporting:
             voice->setVoiceIndex(index);
             voice->setAdsrParameters(options.adsr);
             voice->setPianoParameters(options.pianoBrightness, options.pianoHammerHardness, options.pianoResonance);
+            voice->setLidPosition(static_cast<PianoSynthVoice::LidPosition>(options.lidPosition));
+            voice->setTemperament(options.temperament);
+            voice->setReferencePitchA4(options.referencePitchA4);
+            voice->setSoundPerspective(options.soundPerspective);
             voice->setPedalNoiseLevel(options.pedalNoiseLevel);
             voice->setFeltAgeingAmount(options.feltAgeingAmount);
             synth.addVoice(voice);
@@ -45,6 +50,8 @@ void initialiseOfflineSynth(juce::Synthesiser& synth, const devpiano::exporting:
         for (auto index = 0; index < fallbackVoiceCount; ++index) {
             auto* voice = new SineSynthVoice();
             voice->setAdsrParameters(options.adsr);
+            voice->setTemperament(options.temperament);
+            voice->setReferencePitchA4(options.referencePitchA4);
             synth.addVoice(voice);
         }
     }
@@ -89,6 +96,10 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
     }
 
     juce::Synthesiser synth;
+    devpiano::audio::RoomReverbEngine roomReverb;
+    roomReverb.prepare(options.sampleRate);
+    roomReverb.setSpace(options.reverbSpace);
+    roomReverb.setWetLevel(options.reverbWet);
     initialiseOfflineSynth(synth, options);
     auto renderEvents = buildRenderEvents(take, options.sampleRate);
     const auto scaledTakeLength = getScaledTakeLengthSamples(take, renderEvents, options.sampleRate);
@@ -132,6 +143,9 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
         }
 
         synth.renderNextBlock(audioBuffer, midiBuffer, 0, numSamples);
+        if (options.numChannels >= 2 && options.reverbWet > 1e-4f) {
+            roomReverb.processStereo(audioBuffer.getWritePointer(0), audioBuffer.getWritePointer(1), numSamples);
+        }
         audioBuffer.applyGain(gain);
         applyMasterSoftLimiter(audioBuffer, numSamples);
         if (!writer->writeFromAudioSampleBuffer(audioBuffer, 0, numSamples)) {

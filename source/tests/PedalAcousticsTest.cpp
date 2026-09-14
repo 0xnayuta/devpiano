@@ -22,6 +22,7 @@ public:
         testAudioEnginePedalIntegration();
         testPedalNoiseInMonoBufferActiveNote();
         testIdlePedalSympatheticResonanceShock();
+        testSynthesiserIdlePedalNoise();
     }
 
 private:
@@ -359,6 +360,53 @@ private:
         // After 400+ ms, output should be completely silent and finite
         buffer.clear();
         voice.renderNextBlock(buffer, 0, 512);
+        expectEquals(calculatePeak(buffer, 0), 0.0f);
+        expectEquals(calculatePeak(buffer, 1), 0.0f);
+    }
+    void testSynthesiserIdlePedalNoise() {
+        beginTest("Synthesiser: idle pedal action triggers voice and renders through container without notes");
+
+        juce::Synthesiser synth;
+        synth.setCurrentPlaybackSampleRate(48000.0);
+        synth.addSound(new PianoSynthSound());
+        auto* voice = new PianoSynthVoice();
+        voice->setVoiceIndex(0);
+        voice->setPedalNoiseLevel(0.8f);
+        synth.addVoice(voice);
+
+        // Initially idle and inactive
+        expect(!voice->isVoiceActive());
+
+        // Press sustain pedal via Synthesiser (channel 1, CC 64, 127)
+        synth.handleController(1, 64, 127);
+
+        // Voice 0 must report active to Synthesiser container
+        expect(voice->isVoiceActive());
+
+        // Render audio through Synthesiser container
+        juce::AudioBuffer<float> buffer(2, 512);
+        buffer.clear();
+        synth.renderNextBlock(buffer, juce::MidiBuffer(), 0, 512);
+
+        // Must produce audible pedal acoustics
+        const auto peakL = calculatePeak(buffer, 0);
+        const auto peakR = calculatePeak(buffer, 1);
+        expectGreaterThan(peakL, 0.001f);
+        expectGreaterThan(peakR, 0.001f);
+
+        // Render out tail decay (~400 ms)
+        int tailSamples = static_cast<int>(48000 * 0.45);
+        while (tailSamples > 0) {
+            buffer.clear();
+            const auto block = std::min(512, tailSamples);
+            synth.renderNextBlock(buffer, juce::MidiBuffer(), 0, block);
+            tailSamples -= block;
+        }
+
+        // After decay completes, voice must return to inactive
+        expect(!voice->isVoiceActive());
+        buffer.clear();
+        synth.renderNextBlock(buffer, juce::MidiBuffer(), 0, 512);
         expectEquals(calculatePeak(buffer, 0), 0.0f);
         expectEquals(calculatePeak(buffer, 1), 0.0f);
     }
