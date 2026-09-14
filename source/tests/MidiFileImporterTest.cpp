@@ -53,6 +53,36 @@ public:
             auto result = importFixture("invalid.mid");
             expect(!result.has_value());
         });
+
+        testCase("trailing bytes after the last chunk do not abort the import", [&] {
+            // 真实文件常见形态：最后一个 MTrk 之后残留换行等杂散字节。
+            // juce::MidiFile::readFrom 对此整体返回 false，但轨道内容已解析完成，应继续导入。
+            devpiano::test::ScopedTempDir tempDir("midi-trailing-bytes");
+            const auto file = tempDir.getChildFile("trailing-bytes.mid");
+
+            juce::MidiFile midi;
+            juce::MidiMessageSequence track;
+            track.addEvent(juce::MidiMessage::noteOn(1, 60, (juce::uint8)100), 0.1);
+            track.addEvent(juce::MidiMessage::noteOff(1, 60, (juce::uint8)0), 0.5);
+            midi.addTrack(track);
+
+            {
+                juce::FileOutputStream out(file);
+                expect(out.openedOk());
+                if (!out.openedOk()) {
+                    return;
+                }
+                expect(midi.writeTo(out));
+                out.write("\r\n", 2);
+            }
+            expect(file.existsAsFile());
+
+            auto result = importMidiFile(file, 48000.0);
+            expect(result.has_value(), "trailing bytes must not discard a fully parsed file");
+            if (result.has_value()) {
+                expectGreaterThan(result->events.size(), size_t(0));
+            }
+        });
     }
 };
 

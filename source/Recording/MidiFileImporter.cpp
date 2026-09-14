@@ -8,6 +8,21 @@
 namespace {
 
 constexpr std::int64_t kMaxMidiFileSizeBytes = 32LL * 1024 * 1024; // 32MB guard (SEC-002 / PERF-003)
+
+// juce::MidiFile::readFrom() reports failure whenever any byte remains after the last declared
+// chunk, even though it has already parsed every track by that point. Real-world files carry
+// such trailing bytes (observed: a stray CRLF appended by a Windows editor), so the parsed
+// content is kept instead of rejecting the whole file.
+bool hasParsedTrackContent(const juce::MidiFile& midiFile) {
+    const auto numTracks = midiFile.getNumTracks();
+    for (int t = 0; t < numTracks; ++t) {
+        if (const auto* track = midiFile.getTrack(t); track != nullptr && track->getNumEvents() > 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool readMidiFile(juce::MidiFile& midiFile, const juce::File& file) {
     std::unique_ptr<juce::FileInputStream> stream { file.createInputStream() };
     if (!stream) {
@@ -15,12 +30,18 @@ bool readMidiFile(juce::MidiFile& midiFile, const juce::File& file) {
         return false;
     }
 
-    if (!midiFile.readFrom(*stream, true)) {
-        DP_LOG_ERROR("MidiFileImporter: failed to read file: " + file.getFullPathName());
-        return false;
+    if (midiFile.readFrom(*stream, true)) {
+        return true;
     }
 
-    return true;
+    if (hasParsedTrackContent(midiFile)) {
+        DP_LOG_WARN("MidiFileImporter: tolerated trailing bytes after the last chunk: " + file.getFullPathName()
+                    + " (tracks=" + juce::String(midiFile.getNumTracks()) + ")");
+        return true;
+    }
+
+    DP_LOG_ERROR("MidiFileImporter: failed to read file: " + file.getFullPathName());
+    return false;
 }
 
 } // namespace

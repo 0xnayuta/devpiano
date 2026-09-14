@@ -85,6 +85,10 @@ RecordingSessionController::handleMidiImported()
 
 已覆盖的实际案例：`梦中的婚礼.mid`（GBK）、`Summer.mid` 乐器名（ASCII 前缀 + GBK）、`elise.mid`（CP1252 重音）、`you.mid`（连续两轮重编码）均还原出原始标题。已知局限：Big5 与 Shift-JIS 尚无专用码表，此类文件落在 Windows-1252 兜底上，不会误报为汉字。
 
+### 3.6 尾部残留字节容错
+
+`juce::MidiFile::readFrom` 要求文件在最后一个块之后**不留任何字节**，否则整体返回失败——即使所有轨道内容都已解析完成。真实文件常出现此类残留（实测案例：编辑器在末尾附加 `0d 0a`）。`MidiFileImporter` 因此在该 API 返回失败时进一步检查：只要已有轨道解析出事件，即记为警告并继续导入；真正的非法文件（无任何可用轨道）仍按失败处理。
+
 ---
 
 ## 4. 专项手工与边界测试清单
