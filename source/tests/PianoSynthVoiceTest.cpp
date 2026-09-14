@@ -30,7 +30,7 @@
 // =============================================================================
 
 namespace {
-constexpr auto sampleRate = 44100.0;
+constexpr auto kSampleRate = 44100.0;
 constexpr auto blockSize = 2048;
 constexpr auto analysisWindow = 16384; // ≈ 0.37 s for the DFT
 
@@ -38,7 +38,7 @@ struct VoiceFixture {
     juce::Synthesiser synth;
 
     VoiceFixture() {
-        synth.setCurrentPlaybackSampleRate(sampleRate);
+        synth.setCurrentPlaybackSampleRate(kSampleRate);
         synth.addSound(new PianoSynthSound());
         synth.addVoice(new PianoSynthVoice());
         // 与 AudioEngine::setAdsr 默认一致的接线（attack/release 作门控）。
@@ -91,7 +91,7 @@ double magnitudeAtFrequency(const juce::AudioBuffer<float>& buffer, double frequ
     auto imag = 0.0;
     for (auto i = 0; i < count; ++i) {
         const auto window = 0.5 * (1.0 - std::cos(juce::MathConstants<double>::twoPi * i / (count - 1)));
-        const auto angle = juce::MathConstants<double>::twoPi * frequency * i / sampleRate;
+        const auto angle = juce::MathConstants<double>::twoPi * frequency * i / kSampleRate;
         const auto value = buffer.getSample(0, i) * window;
         real += value * std::cos(angle);
         imag -= value * std::sin(angle);
@@ -398,7 +398,7 @@ private:
             VoiceFixture fixture;
             fixture.voice()->setPianoParameters(0.5f, 0.5f, 1.0f);
             constexpr auto totalSeconds = 20.0;
-            constexpr auto totalSamples = static_cast<int>(totalSeconds * sampleRate);
+            constexpr auto totalSamples = static_cast<int>(totalSeconds * kSampleRate);
             juce::AudioBuffer<float> stream(1, totalSamples);
             stream.clear();
 
@@ -423,7 +423,7 @@ private:
                 auto imag = 0.0;
                 for (auto i = 0; i < count; ++i) {
                     const auto window = 0.5 * (1.0 - std::cos(juce::MathConstants<double>::twoPi * i / (count - 1)));
-                    const auto angle = juce::MathConstants<double>::twoPi * frequency * i / sampleRate;
+                    const auto angle = juce::MathConstants<double>::twoPi * frequency * i / kSampleRate;
                     const auto value = buffer.getSample(0, start + i) * window;
                     real += value * std::cos(angle);
                     imag -= value * std::sin(angle);
@@ -439,7 +439,7 @@ private:
             expect(std::abs(x2) > 1e-7, "late window fundamental energy still measurable");
 
             const auto phaseDelta = std::arg(x2) - std::arg(x1);
-            const auto deltaT = static_cast<double>(window2Start - window1Start) / sampleRate;
+            const auto deltaT = static_cast<double>(window2Start - window1Start) / kSampleRate;
             const auto measuredFreq = f0 + phaseDelta / (juce::MathConstants<double>::twoPi * deltaT);
             expectWithinAbsoluteError(measuredFreq, f0, 1e-4 * f0,
                                       "recursive oscillator frequency drift < 1e-4 relative over 20 s");
@@ -587,18 +587,18 @@ private:
         beginTest("attack transient crack and longitudinal mode tuning (Phase 23-D)");
         {
             PianoSynthVoice::HammerTransient softTransient;
-            softTransient.trigger(sampleRate, 72, 0.30f, 0.5f, 0.30f);
+            softTransient.trigger(kSampleRate, 72, 0.30f, 0.5f, 0.30f);
             const auto s1 = softTransient.getNextSample();
 
             PianoSynthVoice::HammerTransient loudTransient;
-            loudTransient.trigger(sampleRate, 72, 0.90f, 0.5f, 0.30f);
+            loudTransient.trigger(kSampleRate, 72, 0.90f, 0.5f, 0.30f);
             const auto s2 = loudTransient.getNextSample();
 
             expect(std::abs(s2) > std::abs(s1) * 3.0f,
                    "loud strike attack crack produces much higher transient spike than soft strike");
 
             PianoSynthVoice::HammerTransient bassLongTransient;
-            bassLongTransient.trigger(sampleRate, 30, 0.85f, 0.5f, 1.50f);
+            bassLongTransient.trigger(kSampleRate, 30, 0.85f, 0.5f, 1.50f);
             expect(bassLongTransient.isActive(), "bass strike activates longitudinal precursor mode");
 
             for (auto i = 0; i < 900; ++i) {
@@ -610,18 +610,18 @@ private:
         beginTest("vitality, harmonic blooming, hammer contact release, and spatial diffusion (Phase 24-A/B/C)");
         {
             PianoSynthVoice::HammerContactEngine contactEngine;
-            contactEngine.trigger(sampleRate, 0.002f);
+            contactEngine.trigger(kSampleRate, 0.002f);
             const auto m0 = contactEngine.getReleaseMultiplier();
             expectWithinAbsoluteError(m0, 0.55f, 0.01f, "initial contact damping smoothly balances strike onset");
 
-            for (auto i = 0; i < static_cast<int>(0.003f * sampleRate); ++i) {
+            for (auto i = 0; i < static_cast<int>(0.003f * kSampleRate); ++i) {
                 [[maybe_unused]] const auto discarded = contactEngine.getReleaseMultiplier();
             }
             const auto mEnd = contactEngine.getReleaseMultiplier();
             expectWithinAbsoluteError(mEnd, 1.0f, 1e-4f, "hammer release reaches full free vibration");
 
             PianoSynthVoice::SpatialDiffusionEngine diffusionEngine;
-            diffusionEngine.trigger(sampleRate);
+            diffusionEngine.trigger(kSampleRate);
             const auto d0 = diffusionEngine.getDiffusionFactor();
             expect(d0 < 0.10f, "initial strike is tightly localized point source");
 
@@ -645,7 +645,7 @@ private:
         {
             VoiceFixture fixture;
             constexpr auto renderSeconds = 4.2;
-            constexpr auto renderSamples = static_cast<int>(renderSeconds * sampleRate);
+            constexpr auto renderSamples = static_cast<int>(renderSeconds * kSampleRate);
             juce::AudioBuffer<float> stream(1, renderSamples);
             stream.clear();
 
@@ -670,7 +670,7 @@ private:
                 for (auto i = 0; i < shortWindow; ++i) {
                     const auto window
                         = 0.5 * (1.0 - std::cos(juce::MathConstants<double>::twoPi * i / (shortWindow - 1)));
-                    const auto angle = juce::MathConstants<double>::twoPi * f1 * i / sampleRate;
+                    const auto angle = juce::MathConstants<double>::twoPi * f1 * i / kSampleRate;
                     const auto value = stream.getSample(0, start + i) * window;
                     real += value * std::cos(angle);
                     imag -= value * std::sin(angle);
@@ -684,7 +684,7 @@ private:
                 juce::Array<double> levels;
                 for (auto i = 0; i < points; ++i) {
                     const auto t = t0 + step * i;
-                    const auto magnitude = windowMagnitude(static_cast<int>(t * sampleRate));
+                    const auto magnitude = windowMagnitude(static_cast<int>(t * kSampleRate));
                     times.add(t);
                     levels.add(std::log(juce::jmax(1e-9, magnitude)));
                     sumT += t;
@@ -716,7 +716,7 @@ private:
         {
             VoiceFixture fixture;
             constexpr auto testSeconds = 3.2;
-            constexpr auto testSamples = static_cast<int>(testSeconds * sampleRate);
+            constexpr auto testSamples = static_cast<int>(testSeconds * kSampleRate);
             juce::AudioBuffer<float> stream(1, testSamples);
             stream.clear();
 
@@ -740,13 +740,13 @@ private:
 
             constexpr auto windowSize = 4096;
             auto getWindowMag = [&](double t, double targetFreq) {
-                const auto start = static_cast<int>(t * sampleRate);
+                const auto start = static_cast<int>(t * kSampleRate);
                 auto real = 0.0;
                 auto imag = 0.0;
                 for (auto i = 0; i < windowSize; ++i) {
                     const auto window
                         = 0.5 * (1.0 - std::cos(juce::MathConstants<double>::twoPi * i / (windowSize - 1)));
-                    const auto angle = juce::MathConstants<double>::twoPi * targetFreq * i / sampleRate;
+                    const auto angle = juce::MathConstants<double>::twoPi * targetFreq * i / kSampleRate;
                     const auto value = stream.getSample(0, start + i) * window;
                     real += value * std::cos(angle);
                     imag -= value * std::sin(angle);
@@ -802,7 +802,7 @@ private:
                 leftWeight += spec.weightLeft;
                 rightWeight += spec.weightRight;
                 const auto bandwidth = static_cast<double>(spec.frequency / spec.q);
-                const auto r = std::exp(-juce::MathConstants<double>::pi * bandwidth / sampleRate);
+                const auto r = std::exp(-juce::MathConstants<double>::pi * bandwidth / kSampleRate);
                 expect(r > 0.0 && r < 1.0, "resonator " + juce::String(i) + " pole radius |r| < 1 is strictly stable");
             }
             expectWithinAbsoluteError(leftWeight, 1.0f, 1e-5f, "left soundboard modal weights sum to 1.0");
@@ -887,7 +887,7 @@ private:
         beginTest("spruce soundboard low-pass cutoff and modal balancing (Phase 23-C)");
         {
             PianoSynthVoice::SpruceSoundboardFilter filter;
-            filter.updateCoefficients(sampleRate);
+            filter.updateCoefficients(kSampleRate);
             filter.reset();
 
             float lowL = 1.0f;

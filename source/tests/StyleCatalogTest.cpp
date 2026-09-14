@@ -1254,9 +1254,9 @@ public:
             return;
         }
 
-        const auto addOption = [&selectorItem](const juce::String& name, int index) {
+        const auto addOption = [&selectorItem](const juce::String& optionText, int index) {
             auto option = juce::ValueTree("Option");
-            option.setProperty("text", name, nullptr);
+            option.setProperty("text", optionText, nullptr);
             option.setProperty("enabled", true, nullptr);
             selectorItem->state.addChild(option, index, nullptr);
         };
