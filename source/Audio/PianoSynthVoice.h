@@ -170,6 +170,17 @@ public:
     [[nodiscard]] bool isPedalTransientActive() const noexcept {
         return pedalTransient.isActive();
     }
+    [[nodiscard]] bool isSympatheticShockActive() const noexcept {
+        return sympatheticPool.isShockActive();
+    }
+    void setCurrentPlaybackSampleRate(double newRate) override {
+        juce::SynthesiserVoice::setCurrentPlaybackSampleRate(newRate);
+        if (newRate > 0.0) {
+            sympatheticPool.updateCoefficients(newRate);
+            lidAcoustics.setPosition(pianoLidPosition, newRate);
+            perspectiveProcessor.prepare(newRate);
+        }
+    }
 
     void startNote(int midiNoteNumber, float velocity, juce::SynthesiserSound*, int) override {
         const auto sampleRate = getSampleRate();
@@ -428,9 +439,11 @@ public:
                 const auto vel = juce::jlimit(0.2f, 1.0f, static_cast<float>(diff) / 127.0f);
 
                 if (voiceIndex == 0) {
-                    pedalTransient.trigger(getSampleRate(), isDown, vel, pianoPedalNoiseLevel);
+                    const auto sampleRate = getSampleRate();
+                    sympatheticPool.updateCoefficients(sampleRate);
+                    pedalTransient.trigger(sampleRate, isDown, vel, pianoPedalNoiseLevel);
                     if (isDown) {
-                        sympatheticPool.triggerShock(vel * pianoPedalNoiseLevel);
+                        sympatheticPool.triggerShock(vel * pianoPedalNoiseLevel, sampleRate);
                     }
                 }
                 pedalTransient.pedalDown = isDown;
@@ -445,7 +458,7 @@ public:
         }
     }
     void renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int startSample, int numSamples) override {
-        const auto isPedalActive = (voiceIndex == 0) && pedalTransient.isActive();
+        const auto isPedalActive = (voiceIndex == 0) && (pedalTransient.isActive() || sympatheticPool.isShockActive());
         if (!isVoiceActive() && !isPedalActive) {
             return;
         }
@@ -455,9 +468,10 @@ public:
             const auto pedalSound = (voiceIndex == 0) ? pedalTransient.getNextSample() : 0.0f;
 
             if (!isVoiceActive()) {
-                if (pedalSound != 0.0f) {
-                    auto outL = pedalSound * 0.7071f;
-                    auto outR = pedalSound * 0.7071f;
+                const auto sympatheticOut = (voiceIndex == 0) ? sympatheticPool.process(0.0f) : 0.0f;
+                if (pedalSound != 0.0f || sympatheticOut != 0.0f) {
+                    auto outL = pedalSound * 0.7071f + sympatheticOut * 0.40f;
+                    auto outR = pedalSound * 0.7071f + sympatheticOut * 0.60f;
                     lidAcoustics.processStereo(outL, outR);
                     perspectiveProcessor.processStereo(outL, outR);
 
@@ -465,7 +479,7 @@ public:
                         outputBuffer.addSample(0, sampleIndex, outL);
                         outputBuffer.addSample(1, sampleIndex, outR);
                     } else if (outputBuffer.getNumChannels() == 1) {
-                        outputBuffer.addSample(0, sampleIndex, pedalSound);
+                        outputBuffer.addSample(0, sampleIndex, pedalSound + 0.5f * sympatheticOut);
                     }
                 }
                 continue;
@@ -595,25 +609,26 @@ public:
                 outputBuffer.addSample(0, sampleIndex, outLeft);
                 outputBuffer.addSample(1, sampleIndex, outRight);
             } else if (outputBuffer.getNumChannels() == 1) {
-                const auto outMono
-                    = (1.0f - wet) * rawMono + wet * 0.5f * (resonatorLeftSum + resonatorRightSum + sympatheticOut);
+                const auto outMono = (1.0f - wet) * rawMono
+                    + wet * 0.5f * (resonatorLeftSum + resonatorRightSum + sympatheticOut) + pedalSound;
                 outputBuffer.addSample(0, sampleIndex, outMono);
             }
         }
 
-        if (allPartialsSilent()) {
+        if (isVoiceActive() && allPartialsSilent()) {
             clearCurrentNote();
             hammerTransient.reset();
             hammerContactEngine.reset();
             spatialDiffusionEngine.reset();
             damperTransient.reset();
             pitchGlideEngine.reset();
-            pedalTransient.reset();
             for (auto& resonator : bodyResonators) {
                 resonator.reset();
             }
             spruceSoundboardFilter.reset();
-            sympatheticPool.reset();
+            if (!sympatheticPool.pedalDown) {
+                sympatheticPool.reset();
+            }
             lidAcoustics.reset();
             perspectiveProcessor.reset();
         }
@@ -1399,6 +1414,7 @@ public:
     struct SympatheticResonancePool {
         static constexpr auto numPoolResonators = 12;
         bool pedalDown = false;
+        int shockSamplesRemaining = 0;
         std::array<int, numPoolResonators> openNoteCount {};
         float c1[numPoolResonators] {};
         float c2[numPoolResonators] {};
@@ -1440,19 +1456,30 @@ public:
         }
 
         void reset() noexcept {
+            shockSamplesRemaining = 0;
             openNoteCount.fill(0);
             for (int i = 0; i < numPoolResonators; ++i) {
                 s1[i] = 0.0f;
                 s2[i] = 0.0f;
             }
         }
-        void triggerShock(float amount) noexcept {
+        void triggerShock(float amount, double sampleRate) noexcept {
+            if (sampleRate > 0.0 && amount > 1e-4f) {
+                shockSamplesRemaining = juce::jmax(1, static_cast<int>(0.35 * sampleRate));
+            }
             for (int i = 0; i < numPoolResonators; ++i) {
                 s1[i] += amount * ((i % 2 == 0) ? 0.003f : -0.003f);
             }
         }
 
+        [[nodiscard]] bool isShockActive() const noexcept {
+            return shockSamplesRemaining > 0;
+        }
+
         [[nodiscard]] float process(float in) noexcept {
+            if (shockSamplesRemaining > 0) {
+                --shockSamplesRemaining;
+            }
             auto sum = 0.0f;
             for (int i = 0; i < numPoolResonators; ++i) {
                 const auto isOpen = pedalDown || (openNoteCount[static_cast<std::size_t>(i)] > 0);

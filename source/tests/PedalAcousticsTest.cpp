@@ -20,6 +20,8 @@ public:
         testMultiVoiceExclusivity();
         testPedalNoiseWithActiveNotes();
         testAudioEnginePedalIntegration();
+        testPedalNoiseInMonoBufferActiveNote();
+        testIdlePedalSympatheticResonanceShock();
     }
 
 private:
@@ -67,9 +69,9 @@ private:
         expectLessThan(peakL, 0.5f);
         expectLessThan(peakR, 0.5f);
 
-        // Render until tail decay completes (~100 ms = 4800 samples)
-        int samplesRemaining = static_cast<int>(48000 * 0.15);
-        while (samplesRemaining > 0 && voice.isPedalTransientActive()) {
+        // Render until tail decay completes (~400 ms)
+        int samplesRemaining = static_cast<int>(48000 * 0.45);
+        while (samplesRemaining > 0 && (voice.isPedalTransientActive() || voice.isSympatheticShockActive())) {
             buffer.clear();
             const auto block = std::min(512, samplesRemaining);
             voice.renderNextBlock(buffer, 0, block);
@@ -78,6 +80,7 @@ private:
 
         // Must decay to completely inactive
         expect(!voice.isPedalTransientActive());
+        expect(!voice.isSympatheticShockActive());
         buffer.clear();
         voice.renderNextBlock(buffer, 0, 512);
         expectEquals(calculatePeak(buffer, 0), 0.0f);
@@ -267,6 +270,97 @@ private:
         buffer.clear();
         engine.getNextAudioBlock(info);
         expectWithinAbsoluteError(engine.getPedalNoiseLevel(), 0.65f, 1e-4f);
+    }
+
+    void testPedalNoiseInMonoBufferActiveNote() {
+        beginTest("Pedal noise is included in single-channel (mono) buffers during active note playback");
+
+        juce::Synthesiser synth;
+        synth.setCurrentPlaybackSampleRate(48000.0);
+        synth.addSound(new PianoSynthSound());
+        auto* voice = new PianoSynthVoice();
+        voice->setVoiceIndex(0);
+        voice->setPedalNoiseLevel(0.8f);
+        voice->setAdsrParameters({ 0.001f, 0.2f, 0.8f, 0.3f });
+        synth.addVoice(voice);
+
+        synth.noteOn(1, 60, 0.7f);
+
+        // Render one mono block without pedal
+        juce::AudioBuffer<float> monoBufWithoutPedal(1, 512);
+        monoBufWithoutPedal.clear();
+        synth.renderNextBlock(monoBufWithoutPedal, juce::MidiBuffer(), 0, 512);
+        const auto peakWithoutPedal = calculatePeak(monoBufWithoutPedal, 0);
+        expectGreaterThan(peakWithoutPedal, 0.01f);
+
+        // Now press sustain pedal during note playback
+        synth.handleController(1, 64, 127);
+        juce::AudioBuffer<float> monoBufWithPedal(1, 512);
+        monoBufWithPedal.clear();
+        synth.renderNextBlock(monoBufWithPedal, juce::MidiBuffer(), 0, 512);
+        const auto peakWithPedal = calculatePeak(monoBufWithPedal, 0);
+
+        expectGreaterThan(peakWithPedal, 0.01f);
+        expectLessThan(peakWithPedal, 1.5f);
+
+        // Ensure samples are finite and bounded
+        for (int i = 0; i < 512; ++i) {
+            const auto sample = monoBufWithPedal.getSample(0, i);
+            expect(!std::isnan(sample));
+            expect(!std::isinf(sample));
+        }
+
+        synth.noteOff(1, 60, 0.5f, false);
+    }
+
+    void testIdlePedalSympatheticResonanceShock() {
+        beginTest("Idle sustain pedal press renders and decays sympathetic resonance shock beyond transient duration");
+
+        PianoSynthVoice voice;
+        voice.setCurrentPlaybackSampleRate(48000.0);
+        voice.setVoiceIndex(0);
+        voice.setPedalNoiseLevel(1.0f);
+
+        // Idle state: no note active
+        expect(!voice.isVoiceActive());
+
+        // Press sustain pedal
+        voice.controllerMoved(64, 127);
+
+        // Render first 80ms (pedalTransient whoosh + shock)
+        juce::AudioBuffer<float> buffer(2, 512);
+        int initialSamples = static_cast<int>(48000 * 0.08);
+        while (initialSamples > 0) {
+            buffer.clear();
+            const auto block = std::min(512, initialSamples);
+            voice.renderNextBlock(buffer, 0, block);
+            initialSamples -= block;
+        }
+
+        // At this point (80ms), pedalTransient whoosh (~65ms) has finished
+        expect(!voice.isPedalTransientActive());
+
+        // Render next block (sympathetic resonance shock decay)
+        // With the fix, sympathetic resonance continues to render and decay
+        buffer.clear();
+        voice.renderNextBlock(buffer, 0, 512);
+        const auto postTransientPeak = calculatePeak(buffer, 0);
+        expectGreaterThan(postTransientPeak, 0.0f);
+
+        // Render until tail decay completes (~400 ms total)
+        int tailSamples = static_cast<int>(48000 * 0.35);
+        while (tailSamples > 0) {
+            buffer.clear();
+            const auto block = std::min(512, tailSamples);
+            voice.renderNextBlock(buffer, 0, block);
+            tailSamples -= block;
+        }
+
+        // After 400+ ms, output should be completely silent and finite
+        buffer.clear();
+        voice.renderNextBlock(buffer, 0, 512);
+        expectEquals(calculatePeak(buffer, 0), 0.0f);
+        expectEquals(calculatePeak(buffer, 1), 0.0f);
     }
 };
 

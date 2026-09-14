@@ -13,12 +13,12 @@ struct WavExportOptions {
     int bitsPerSample = 16;
     float masterGain = 1.0f;
     juce::ADSR::Parameters adsr;
-    // 内置 fallback 音色（Phase 12-3）：导出路径与实时路径同参数，保证音色一致。
+    // Builtin fallback tone (Phase 12-3): match realtime parameters for export parity.
     SettingsModel::BuiltinTone builtinTone = SettingsModel::BuiltinTone::piano;
     float pianoBrightness = 0.5f;
     float pianoHammerHardness = 0.5f;
     float pianoResonance = 0.5f;
-    // 机械物理噪声与琴体微衰退 (Phase 32-D)：离线渲染与实时路径参数一致
+    // Mechanical action noise and felt ageing (Phase 32-D): match realtime parameters for export parity.
     float pedalNoiseLevel = 0.6f;
     float feltAgeingAmount = 0.0f;
 };
