@@ -34,9 +34,9 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
 
 - **7 大声学物理子系统**：覆盖琴槌（Hammer）、琴弦（String）、琴桥（Bridge）、音板（Soundboard）、琴体（Cabinet）、空气（Air）与空间（Room）；
 - **88 键连续物理参数映射**：基于 Bensa et al. (2003) 与 Steinway B 实测标定，连续插值琴弦刚度 $B$、击弦比 $d/L$、阻尼常数与 1/2/3 弦物理分区（`Piano88KeyTable.h`）；
-- **非线性打击与动力学绽放**：三层毛毡动力学压实、动态接触时间 $T_c$、击弦点几何梳状陷波、3ms 高频瞬态裂音（HF Crack）、泛音时间滞后膨胀绽放（Harmonic Blooming）与强击软饱和；
-- **真实共鸣与空间辐射**：16 峰正交云杉木物理音板模态、4.2kHz 云杉木高频粘滞吸收低通滤波、琴桥立体声空间辐射、同音三弦 Mid-Side 差分展开与非对称拍频；
-- **机械与踏板交感拟真**：CC64 全局交感共鸣弦池、未踩踏板单键开放弦交感、琴盖开合度声学传递函数（Full/Half/Closed）与制音器落弦低频闷击（Damper Felt Fall）；
+- **非线性打击、毛毡老化与动力学绽放**：三层毛毡动力学压实、动态接触时间 $T_c$、击弦点几何梳状陷波、3ms 高频瞬态裂音（HF Crack）、琴槌毛毡微老化穿透力（`feltAgeingAmount`）、泛音时间滞后膨胀绽放（Harmonic Blooming）与强击软饱和；
+- **真实共鸣与空间声学系统**：16 峰正交云杉木物理音板模态、4.2kHz 云杉木高频粘滞吸收滤波、琴桥立体声展开、同音三弦 Mid-Side 差分展开与非对称拍频、演奏者（Player）与听众（Audience）双视角声相变换（`PerspectiveProcessor`）以及内置纯算法房间混响网络（`RoomReverbEngine`: Chamber/Hall/Studio）；
+- **微观机械动作拟真与古典律制**：CC64 全局交感共鸣、延音踏板下踏/抬起机械扫掠呼啸（Whoosh）与共鸣冲击（Resonance Shock）、制音器落木闷击与琴键释放摩擦、离键速度动态 ADSR 阻尼缩放，以及 6 大古典微调律制（`TemperamentEngine`）与 A4 基准基频微调；
 - **硬实时性能保证**：Magic Circle 二阶递归振荡器，逐采样**零三角函数调用（零 `std::sin`）**，8 复音齐奏单核 CPU 负载 $\le 0.7\%$，实时音频路径严格**零堆分配、零锁**；支持与内置正弦波（`SineSynthVoice`）平滑对比切换。
 
 ### 🔌 VST3 插件宿主系统（VST3 Plugin Hosting）
@@ -124,7 +124,7 @@ source/
 # 4. 刷新 WSL 编译数据库（供 clangd/LSP 使用）
 ./scripts/dev.sh wsl-build --configure-only
 
-# 5. 运行全量单元测试（63 个测试套件，12668+ 断言全部通过）
+# 5. 运行全量单元测试（覆盖核心引擎、物理声学与 UI 全套自动化测试，零失败）
 ./scripts/dev.sh test
 
 # 6. Windows MSVC 验证构建（内置代码智能同步）

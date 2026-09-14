@@ -61,7 +61,7 @@ source/
   - `juce::JUCEApplication` 派生类入口；
   - 创建主桌面窗口，管理应用启动、单实例约束与正常退出序列。
   - **UI 树解析**：通过 `jive::Interpreter` 解释 `LayoutModel` 声明的主窗口 ValueTree。`MainComponent::resized()` 保持声明式（更新 JIVE root 尺寸并刷新状态文本截断，由 FlexBox 自动计算全局排版）。
-  - **规模与职责**：`MainComponent.cpp` 当前约 1310 行，主体为装配、`initialiseUi()` 的 JIVE 树构建与回调接线、UI 状态同步及音频设备生命周期管理；子面板访问器拆入 `MainComponentJiveAccessors.cpp`，具体业务流程已下沉至各 domain controller（`RecordingSessionController` / `PluginOperationController` / `SettingsWindowManager` / `AppStateBuilder`）。
+  - **规模与职责**：`MainComponent.cpp` 保持轻量装配职责，主体仅负责顶层装配、`initialiseUi()` 的 JIVE 树构建与回调接线、UI 状态同步及音频设备生命周期管理；子面板访问器拆入 `MainComponentJiveAccessors.cpp`，具体业务流程已下沉至各 domain controller（`RecordingSessionController` / `PluginOperationController` / `SettingsWindowManager` / `AppStateBuilder`）。
 
 ---
 
@@ -72,14 +72,23 @@ source/
   - 管理发声实体切换：优先驱动已加载 VST3 插件；无插件时驱动内置合成器；
   - 线程安全与音频鲁棒性：`masterGain` 采用 `std::atomic<float>`；具备 `25ms` audio warmup（静音过渡）与 `armPlaybackStartPreRoll`（消除 0s 音符冲突）。
 - **`source/Audio/PianoSynthVoice.h` / `source/Audio/Piano88KeyTable.h`**：
-  - **自主拥有、纯 C++ 全物理建模钢琴音源**（Phase 12–24 成果，v1.0.0 核心发声引擎）；
+  - **自主研发、纯 C++ 全物理建模钢琴音源**（Phase 12–32 成果，v1.1.0 核心发声引擎）；
   - **7 大声学子系统**：覆盖琴槌（Hammer）、琴弦（String）、琴桥（Bridge）、音板（Soundboard）、琴体（Cabinet）、空气（Air）与空间（Room）；
   - **88 键连续参数化模型**（`Piano88KeyTable.h`）：基于 Bensa & Steinway B 实测标定，连续插值琴弦刚度 $B$、击弦比 $d/L$、阻尼常数与单/双/三弦分区；
-  - **琴槌非线性打击**：三层毛毡动力学压实、动态接触时间 $T_c$、击弦点几何梳状陷波与 3ms 起音高频裂音（HF Crack）；
-  - **琴弦非线性动力学**：JOS PASP 刚性失谐、STFT 微初相矩阵、同音三弦 Mid-Side 差分展开与非对称拍频、低音纵波先驱声（$5100\text{ m/s}$）、泛音时间滞后膨胀绽放（Harmonic Blooming）与强击软饱和；
+  - **琴槌非线性打击与毛毡老化**：三层毛毡动力学压实、动态接触时间 $T_c$、击弦点几何梳状陷波、3ms 起音高频裂音（HF Crack）与琴槌毛毡微老化穿透力调节（`feltAgeingAmount`）；
+  - **琴弦非线性动力学与泛音抖动**：JOS PASP 刚性失谐、泛音刚度不谐和度抖动（`inharmonicityJitter` ±4.5%）、STFT 微初相矩阵、同音三弦 Mid-Side 差分展开与非对称拍频、低音纵波先驱声（$5100\text{ m/s}$）、泛音时间滞后膨胀绽放（Harmonic Blooming）与强击软饱和；
   - **共鸣与空间辐射**：长短琴桥交界补偿（G2/G#2）、16 峰正交云杉木物理音板模态、4.2kHz 云杉木高频截止、琴桥立体声空间辐射与动态声场空间漫射；
-  - **机械与踏板交感**：CC64 全局交感共鸣弦池、未踩踏板单键开放弦交感、琴盖开合度传递函数（Full/Half/Closed）与制音器落弦闷击（Damper Felt Fall）；
+  - **微观机械动作拟真**：CC64 全局交感共鸣弦池、延音踏板下踏/抬起机械扫掠呼啸（Whoosh）与共鸣冲击（Resonance Shock，受 `pedalNoiseLevel` 调节）、未踩踏板单键开放弦交感、制音器落木闷击与琴键释放机械摩擦、离键速度动态 ADSR 阻尼缩放；
   - **硬实时性能保证**：Magic Circle 二阶递归振荡器，逐采样**零三角函数调用**，8 复音单核 CPU ≤ 0.7%，实时渲染路径零堆分配、零锁。
+- **`source/Audio/PerspectiveProcessor.h`（空间声像视角处理器，Phase 31-A）**：
+  - 纯数学立体声声像变换器，提供演奏者视角（Player，低音在左高音在右近场宽阔）与听众视角（Audience，声像镜像反转与中距声场凝聚）；
+  - 负责双声道立体声与单声道平滑下混，保证单声道求和能量守恒。
+- **`source/Audio/RoomReverbEngine.h`（轻量数学算法房间混响网络，Phase 31-B）**：
+  - 内置纯算法立体声混响引擎，基于互质延时梳状滤波阵列与两级全通漫射矩阵（Schroeder-Moorer 架构）；
+  - 内置 Studio（0.6s）、Chamber（1.5s）与 Concert Hall（2.4s）三大空间预设，平滑无级调节干湿比（`reverbWet`）。
+- **`source/Audio/TemperamentEngine.h`（古典微调律制引擎，Phase 30）**：
+  - 提供平均律（Equal）、1/4 中庸全音律（Meantone）、韦克迈斯特三律（Werckmeister III）、基恩伯格三律（Kirnberger III）与纯律（Just）六大微律音分偏移换算；
+  - 支持 A4 基准基频换算（400.0 ~ 480.0 Hz，默认 440.0 Hz）。
 - **`source/Audio/SineSynthVoice.h`**：
   - 内置正弦波合成器，供基准对比与测试使用。
 - **`source/Audio/AudioDeviceDiagnostics.h`**：
@@ -169,7 +178,7 @@ source/
 - **`source/Settings/AppStateBuilder.h/.cpp`**：
   - 将持久化设置与运行时动态状态合并为完整的 `AppState` 快照。
 - **`source/Settings/jive/SettingsLayoutModel.h/.cpp`**：
-  - **声明式设置面板**：使用 JIVE `juce::ValueTree` 声明设置界面；16 通道跟随开关采用 JIVE CSS Grid（8 列 × 2 行）排版；`juce::AudioDeviceSelectorComponent` 作为 Native 项无缝注入。
+  - **声明式设置面板**：使用 JIVE `juce::ValueTree` 声明 6 个设置卡片（音频设备、调号与通道跟随网格、键盘显示与语言、声学与调律 9 项物理控制、诊断日志、保存操作）；`juce::AudioDeviceSelectorComponent` 作为 Native 项无缝注入。
 
 ---
 
@@ -241,9 +250,13 @@ AudioEngine::MidiMessageCollector (收集并排队 MIDI 消息)
 AudioEngine::getNextAudioBlock() (音频回调线程)
     ├── MidiKeyboardState (更新键盘状态，驱动虚拟键盘高亮)
     ├── RecordingEngine::recordMidiBufferBlock() (若录制中，原子写入 take)
-    └── 发声处理:
-         ├── [已加载 VST3 插件] ──► AudioPluginInstance::processBlock()
-         └── [未加载插件] ────────► PianoSynthVoice (增强模态物理建模合成) / SineSynthVoice
+    ├── 发声处理:
+    │    ├── [已加载 VST3 插件] ──► AudioPluginInstance::processBlock()
+    │    └── [未加载插件] ────────► PianoSynthVoice (物理建模) / SineSynthVoice
+    │                                  ├── TemperamentEngine (古典微律调律与 A4 换算)
+    │                                  ├── 7 大声学系统物理振动与微观机械瞬态
+    │                                  └── PerspectiveProcessor (演奏者 / 听众视角成像)
+    ├── RoomReverbEngine (后级算法立体声房间混响 Chamber / Hall / Studio)
     │
     ▼
 Master Gain (std::atomic<float> 主音量调节)

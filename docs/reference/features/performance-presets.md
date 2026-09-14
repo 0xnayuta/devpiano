@@ -10,8 +10,7 @@
 
 为了让演奏者能够针对不同曲目快速切换键位映射、音色通道与调号，devpiano 建立了高度解耦的 **Performance Preset 预设系统**：
 
-1. **完整演奏快照**：一份预设完整打包了当前键位绑定（`KeyboardLayout`）、16 通道矩阵（`ChannelMatrix`）、全局调号与移调开关（`keySignature`）、键盘渲染模式以及 128 项逐键个性化标签与颜色；
-2. **全局设置解耦**：预设严格排除了音频设备、采样率、缓冲大小、插件搜索路径与语言设置等全局系统参数，确保切换预设不会引起音频设备重启；
+1. **完整演奏快照**：一份预设完整打包了当前键位绑定（`KeyboardLayout`）、16 通道矩阵（`ChannelMatrix`）、声学与物理参数（`acoustics`: 琴盖、触键曲线、弱音踏板、律制、基准音高、空间视角、混响类型与干湿比、机械噪声、毛毡老化）、全局调号与移调开关（`keySignature`）、键盘渲染模式以及 128 项逐键个性化标签与颜色；
 3. **独立 JSON 文件（`.devpiano.preset`）**：采用规范的 JSON 格式存储于 `DevPiano/Presets/` 目录下，便于用户备份、分享与跨设备导入；
 4. **一键 CRUD 与声明式弹窗**：通过 `ControlsPanel` 下拉菜单及 Save As New / Rename / Delete 按钮操作，全面接入 `JiveModalDialog` 声明式弹窗；
 5. **F1-F12 极速快捷键**：演奏过程中按下 F1-F12 即可毫秒级无缝切换预设；
@@ -57,6 +56,18 @@
       }
     ]
   },
+  "acoustics": {
+    "lidPosition": 0,
+    "touchVelocityCurve": 0,
+    "unaCorda": false,
+    "temperament": "equal",
+    "referencePitchA4": 440.0,
+    "soundPerspective": "player",
+    "reverbSpace": "chamber",
+    "reverbWet": 0.0,
+    "pedalNoiseLevel": 0.6,
+    "feltAgeingAmount": 0.0
+  },
   "keyboard": {
     "keySignature": 2,
     "midiTranspose": true,
@@ -69,6 +80,25 @@
   }
 }
 ```
+
+---
+
+### 2.1 声学与物理拟真对象（`acoustics`）
+
+| 属性字段 | 数据类型 | 取值范围与默认值 | 含义与声学作用 |
+|---|:---:|:---:|---|
+| `lidPosition` | int | 0 (全开) / 1 (半开) / 2 (闭盖) | 琴盖开合度声学传递函数 |
+| `touchVelocityCurve`| int | 0 (标准) / 1 (轻触) / 2 (重触) / 3 (宽动态) | 键盘触键力度响应非线性曲线 |
+| `unaCorda` | bool | `true` / `false` | 弱音/移位踏板物理拟真（MIDI CC 67 联动） |
+| `temperament` | string | `"equal"`, `"meantone"`, `"werckmeister3"`, `"kirnberger3"`, `"just"` | 古典微调律制选择 |
+| `referencePitchA4` | double | 400.0 ~ 480.0 Hz（默认 440.0） | A4 基准基频换算 |
+| `soundPerspective` | string | `"player"` (演奏者) / `"audience"` (听众) | 立体声空间声像展开视角 |
+| `reverbSpace` | string | `"chamber"` (室内乐) / `"hall"` (音乐厅) / `"studio"` (录音棚) | 房间混响网络预设空间 |
+| `reverbWet` | float | 0.0 ~ 1.0（默认 0.0） | 房间混响干湿混合比 |
+| `pedalNoiseLevel` | float | 0.0 ~ 1.0（默认 0.6） | 延音踏板扫掠呼啸与共鸣冲击机械动作音量 |
+| `feltAgeingAmount` | float | 0.0 ~ 1.0（默认 0.0） | 琴槌羊毛纤维磨损压实老化深度 |
+
+> **向后兼容性保证**：若读取的历史预设缺失 `"acoustics"` 节点或部分声学字段，系统自动填充出厂默认值并支持根节点平铺字段的安全回退解析，且反序列化时对所有枚举与数值实施合法区间 `jlimit` 钳制保护。
 
 ---
 

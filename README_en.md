@@ -34,9 +34,9 @@ For project scope, core capabilities, and explicit non-goals, see [`docs/referen
 
 - **7 Complete Acoustic Physical Subsystems**: covers Hammer, String, Bridge, Soundboard, Cabinet, Air, and Room acoustics;
 - **88-Key Continuous Physical Parameter Mapping**: calibrated based on Bensa et al. (2003) and Steinway B 9-foot concert grand measurements, continuously interpolating string stiffness $B$, striking ratio $d/L$, damping constants, and 1/2/3 string unison zones (`Piano88KeyTable.h`);
-- **Nonlinear Strike Dynamics & Harmonic Blooming**: 3-layer felt dynamic compaction, velocity-dependent contact time $T_c$, striking point geometric comb notch filtering, 3ms high-frequency attack crack (HF Crack), delayed harmonic energy blooming (Harmonic Blooming, 10–25ms), and $fff$ pitch glide with soft saturation;
-- **Acoustic Resonance & Spatial Radiation**: 16-pole orthogonal spruce soundboard modal bank, 4.2kHz spruce viscous absorption lowpass filter, bridge stereo spatial radiation, and triple-string Mid-Side differential expansion with natural beating;
-- **Mechanical & Sympathetic Realism**: CC64 sustain pedal global sympathetic resonance pool, unpedaled single-key open string duplex resonance, multi-stage lid position acoustic transfer functions (Full / Half / Closed), and damper felt fall mechanical thumps;
+- **Nonlinear Strike Dynamics & Harmonic Blooming**: 3-layer felt dynamic compaction, velocity-dependent contact time $T_c$, striking point geometric comb notch filtering, 3ms high-frequency attack crack (HF Crack), felt ageing dynamics (`feltAgeingAmount`), delayed harmonic energy blooming (Harmonic Blooming, 10–25ms), and $fff$ pitch glide with soft saturation;
+- **Acoustic Resonance & Spatial Radiation**: 16-pole orthogonal spruce soundboard modal bank, 4.2kHz spruce viscous absorption lowpass filter, bridge stereo spatial radiation, triple-string Mid-Side differential expansion with natural beating, dual perspective imaging (Player vs Audience via `PerspectiveProcessor`), and lightweight algorithmic room reverberation (`RoomReverbEngine`: Chamber/Hall/Studio);
+- **Mechanical Action Realism & Historical Temperaments**: CC64 sustain pedal global sympathetic resonance, pedal action whoosh and resonance shock (`pedalNoiseLevel`), damper wood thump and key release friction, dynamic release velocity ADSR damping, plus 6 historical temperaments (`TemperamentEngine`) and A4 reference pitch tuning (400–480 Hz);
 - **Hard Real-Time Guarantees**: Magic Circle coupled-form recursive oscillators, **zero per-sample trigonometric calls (zero `std::sin`)**, $\le 0.7\%$ single-core CPU load under 8-voice polyphony, strictly **zero heap allocations and zero locks** on the real-time audio thread; supports seamless auditioning with the built-in sine synthesizer (`SineSynthVoice`).
 
 ### 🔌 VST3 Plugin Hosting System
@@ -124,7 +124,7 @@ Recommended development setup: **WSL primary working tree + Windows mirror tree 
 # 4. Refresh WSL compilation database (for clangd / LSP)
 ./scripts/dev.sh wsl-build --configure-only
 
-# 5. Run unit test suite (63 test suites, 12668+ assertions passing)
+# 5. Run unit test suite (comprehensive engine, acoustics & UI test suites passing with zero failures)
 ./scripts/dev.sh test
 
 # 6. Windows MSVC validation build (built-in intelligent sync)

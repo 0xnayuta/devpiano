@@ -76,6 +76,7 @@ countries: CN
 "Cancel" = "取消"
 "Custom Keyboard" = "自定义键盘"
 "Audio Device" = "音频设备"
+"Acoustics & Voicing" = "声学与调律"
 ```
 
 ---

@@ -229,7 +229,7 @@ source ~/.bashrc
 # ── 静态检查（clang-tidy，ADR-007：只检查，不用 --fix，多核并行+本地缓存）──
 ./scripts/dev.sh tidy                 # 增量：仅未提交改动文件（秒级）
 ./scripts/dev.sh tidy <file...>       # 指定文件/路径
-./scripts/dev.sh tidy --all           # 全量 68 个编译单元（冷启动约 5~6 分钟，缓存命中约 2 秒）
+./scripts/dev.sh tidy --all           # 全量静态检查（迭代边界门禁，多核并行+本地缓存）
 ./scripts/dev.sh tidy --clear-cache   # 清除本地 tidy 结果缓存
 # 编辑器内：clangd 已启用 clang-tidy 集成（.clangd），保存即增量波浪线提示；
 # pre-commit 只做 format 检查（不阻塞提交）

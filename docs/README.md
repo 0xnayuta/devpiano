@@ -20,14 +20,14 @@
 - [`guides/wsl-windows-msvc-workflow.md`](guides/wsl-windows-msvc-workflow.md)：WSL 主工作树 + Windows 镜像树 + MSVC 验证工作流详解。
 - [`guides/development.md`](guides/development.md)：日常开发、构建与协作指引。
 - [`roadmap/current-iteration.md`](roadmap/current-iteration.md)：查看当前迭代正在推进的任务与验收状态。
-- [`decisions/README.md`](decisions/README.md)：架构决策记录（ADR 001 ~ ADR 012）。
+- [`decisions/README.md`](decisions/README.md)：架构决策记录（ADR 001 ~ ADR 014）。
 - [`guides/troubleshooting.md`](guides/troubleshooting.md)：WSL / Windows 镜像构建常见问题排查。
 - [`guides/release-workflow.md`](guides/release-workflow.md)：Windows x64 正式 release、tag 与打包 checklist。
 - [`guides/pr-agent.md`](guides/pr-agent.md)：PR-Agent AI 代码审查工作流配置、命令与排障。
 
 **工程三闸门基线**：
 - **格式化**：`.clang-format`（WebKit 规范），`./scripts/dev.sh format --check`
-- **单元测试**：`devpiano_tests`（60 个测试套件、11989+ 断言），`./scripts/dev.sh test`
+- **单元测试**：`devpiano_tests`（覆盖核心引擎、物理声学与 UI 全套自动化测试，零失败），`./scripts/dev.sh test`
 - **构建验证**：WSL 配置 `wsl-build --configure-only` + Windows 验证 `./scripts/dev.sh win-build`
 
 ---
@@ -36,7 +36,7 @@
 
 | 领域 | 核心特性文档 | 主要内容与测试重点 |
 |---|---|---|
-| **发声引擎** | [`features/builtin-piano-synthesis.md`](reference/features/builtin-piano-synthesis.md) | 7 大声学系统全物理建模钢琴（`PianoSynthVoice`，88 键参数模型/非线性动力学/立体声共鸣）与正弦合成 |
+| **发声引擎** | [`features/builtin-piano-synthesis.md`](reference/features/builtin-piano-synthesis.md) | 7 大声学系统全物理建模钢琴（`PianoSynthVoice`，88 键参数模型/非线性动力学/古典微律/双视角空间声学/微观机械拟真）与正弦合成 |
 | **发声引擎** | [`features/plugin-hosting.md`](reference/features/plugin-hosting.md) | VST3 插件扫描、分片进度、XML 缓存恢复、加载与生命周期专项回归 |
 | **输入与映射** | [`features/keyboard-mapping.md`](reference/features/keyboard-mapping.md) | 电脑键盘映射系统、稳定 key code 路由、88 键虚拟键盘与输入法防御 |
 | **输入与映射** | [`features/per-key-customization.md`](reference/features/per-key-customization.md) | 128 项逐键自定义标签与颜色、按键绑定编辑对话框（`KeyBindingEditDialog`） |
@@ -44,7 +44,7 @@
 | **录制与回放** | [`features/recording-playback.md`](reference/features/recording-playback.md) | 实时演奏录制、多倍速回放控制（0.5x–2.0x）与标准 Type 1 MIDI 导出 |
 | **录制与回放** | [`features/performance-persistence.md`](reference/features/performance-persistence.md) | `.devpiano` 原生演奏文件持久化（v2 JSON + Base64）、原子保存与最近文件 |
 | **录制与回放** | [`features/midi-file-import.md`](reference/features/midi-file-import.md) | 标准 MIDI 文件导入、多轨自动选轨、CC64 延音/弯音解析与回放 |
-| **渲染与导出** | [`features/plugin-offline-rendering.md`](reference/features/plugin-offline-rendering.md) | VST3 插件离线渲染与 WAV 导出（`RenderPipeline` 共享管线与后台多线程） |
+| **渲染与导出** | [`features/plugin-offline-rendering.md`](reference/features/plugin-offline-rendering.md) | VST3 插件与内置物理建模钢琴离线高保真渲染 WAV 导出（`RenderPipeline`、`WavExportOptions` 声学参数 1:1 对齐） |
 | **预设与状态** | [`features/performance-presets.md`](reference/features/performance-presets.md) | Performance Preset 预设系统（CRUD 编排、F1-F12 快捷键、录制中自动切调） |
 | **UI 与交互** | [`features/declarative-ui-and-theming.md`](reference/features/declarative-ui-and-theming.md) | JIVE 声明式 UI 架构、设计 Token、通用弹窗体系（`JiveModalDialog`）与静态资产内嵌 |
 | **多语言** | [`features/internationalization.md`](reference/features/internationalization.md) | 运行时中英文双语即时切换（`LocaleManager` + 内嵌 `zh_CN.loc`） |
@@ -54,8 +54,8 @@
 
 ### 4. 质量审查、验收与问题追踪
 
-- [`reference/acceptance.md`](reference/acceptance.md)：Phase 1–24 阶段性验收标准、v1.0.0 正式发布验收与全量回归清单。
-- [`audit/README.md`](audit/README.md)：代码质量审计报告（`AUDIT-001` 全面审计看板与问题登记表）。
+- [`reference/acceptance.md`](reference/acceptance.md)：Phase 1–32 阶段性验收标准、v1.0.0 发布验收与全量回归清单。
+- [`audit/README.md`](audit/README.md)：代码质量审计报告（`AUDIT-001` 与 `AUDIT-002` 全面审计看板与问题登记表）。
 - [`issues/known-issues.md`](issues/known-issues.md)：已知问题、密集 MIDI 播放 CPU 深度剖析与已修复风险回归线索。
 
 ---

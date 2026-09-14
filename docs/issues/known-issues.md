@@ -121,6 +121,24 @@
 - **回归线索**：虚拟键盘首尾键分别为 A0(21) 与 C8(108)，点击各音区均发声正常且无多余超声/次声键位
 - **关联**：`CustomKeyboard::setAvailableRange(21, 108)`，`KeyboardTypes.h`，`KeyboardHitMappingTest.cpp`
 
+### 空闲延音踏板单声道下混与交感衰减中断
+
+在单声道输出缓冲区（`numChannels == 1`）下，未按键直接踩下延音踏板无动作噪声；当没有按键处于发声状态时，延音踏板激发的交感共鸣池衰减尾音被 `!isVoiceActive()` 守卫条件提前拦截，导致共鸣冲击声提前被硬切断。
+
+- **根因**：`PianoSynthVoice::renderNextBlock` 中单声道渲染路径遗漏了 `pedalSound` 的混入；且无音符发声时未将 `pedalTransient.isActive()` 与交感衰减计入活跃判定。
+- **修复**：在单声道路径补齐 `pedalSound` 累加；重构 `isVoiceActive()` 与 `isPedalActive` 守卫，确保只要踏板瞬态或全开放共鸣池尚有能量，渲染循环持续迭代至自然完全衰减。
+- **回归线索**：单声道音频设备或独立 voice 踩踏板无声音；踏板冲击尾音被突兀截断。
+- **关联**：`PianoSynthVoice.h`，`source/tests/PedalAcousticsTest.cpp`。
+
+### 离键速度动态阻尼跨音符 ADSR 泄漏
+
+在实现基于离键速度的动态阻尼阻音时，`stopNote` 根据速度计算动态释放时间并覆写 `adsrGate.setParameters`。由于 `PianoSynthVoice` 未保存基准 ADSR 配置，且下一次 `startNote` 未重设参数，导致后续所有音符的释放时间被永久改写。
+
+- **根因**：`PianoSynthVoice` 缺乏独立的 `configuredAdsr` 成员存储，动态阻尼覆写了门控实例且缺乏每音符起振时的基准重设。
+- **修复**：引入 `configuredAdsr` 保存基准参数，在 `startNote` 起音前强制重新应用基准门控，在 `stopNote` 中仅以基准释放时间为底动态计算当前音符的释放时间。
+- **回归线索**：一次高速快离键后，后续所有音符即使配置了长释放也迅速消音。
+- **关联**：`PianoSynthVoice.h`，`source/tests/DamperReleaseTest.cpp`。
+
 ### 非 ASCII UTF-8 字符显示乱码（最近文件菜单音符图标）
 
 最近文件下拉菜单中 `.mid` / `.devpiano` 文件名前的 ♪ / ♫ 图标显示为 `â™ª` / `â™«` 等乱码。根因：`showRecentFilesMenu()` 用裸 `const char*` 字面量（`"\xe2\x99\xaa"`）构造 `juce::String`，MSVC 按系统代码页（Windows-1252）而非 UTF-8 解读多字节序列。修复：统一用 `juce::String::fromUTF8()` 显式指定 UTF-8 编码，与 `LocaleManager.h` 中非 ASCII 字符串的处理方式一致。

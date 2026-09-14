@@ -1,8 +1,8 @@
 # MIDI / Performance 测试夹具清单
 
-> 用途：记录固定 MIDI fixture 样本库与 performance fixture 样本，作为 MIDI 导入/导出/roundtrip/回放行为的统一输入基准。
+> 用途：记录固定 MIDI fixture 样本库与 performance fixture 样本，作为 MIDI 导入/导出/roundtrip/回放行为与自动化测试的统一输入基准。
+> 当前状态：已全量落地并稳定服务于 `source/tests/MidiFileImporterTest.cpp`、`PerformanceFileTest.cpp` 与日常冒烟测试。
 > 更新时机：新增或修改 fixture 文件时。
-
 ### 任务定位
 
 Phase 6-7 是 Phase 6 后续各阶段（6-1 演奏文件保存/打开、6-2 播放速度控制、6-5 MIDI 导入增强）以及整体 MIDI roundtrip 的**工程基础设施**。它不实现业务功能，而是为这些阶段提供统一的测试输入基准。
@@ -28,14 +28,11 @@ Phase 6-7 的目标就是用**固定 fixture 样本库**取代临时文件和口
 - 让后续 smoke test 和手工验收有统一依据。
 - 避免每次 bug 排查都依赖临时文件和口头复现。
 
-### 非目标
+### 自动化单元测试集成
 
-- **不实现测试代码框架**（Phase 8 之后才考虑单元测试基础设施）。
-- **不实现自动化测试运行**（无 test runner、无 CI 脚本）。
-- **不创建 mock 插件或 mock 音频设备**。
-- **不实现 fixture 的运行时加载逻辑**（那是 Phase 6-1/6-5 的任务）。
-- **不修改 source/、CMakeLists.txt 或任何业务代码**。本阶段只产出现有文档（本文档）。
-
+在当前项目中，这些 fixture 已全面接入 `source/tests/` 自动化测试体系：
+- `source/tests/MidiFileImporterTest.cpp`：自动化加载 `simple-notes.mid`、`velocity-channel.mid`、`sustain-pedal.mid`、`multitrack-basic.mid`、`tempo-change-basic.mid`、`empty.mid` 与 `invalid.mid`，验证 Track 解析、通道映射、Meta 事件过滤与异常防御；
+- `source/tests/PerformanceFileTest.cpp`：验证 `simple-performance.json` 的序列化/反序列化与向后兼容。
 ### 目录结构
 
 ```
