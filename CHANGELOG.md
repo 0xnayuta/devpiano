@@ -1,5 +1,34 @@
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-14
+
+Physical modeling piano engine depth expansion, historical microtonal tuning temperaments, dual sound perspective spatial imaging, algorithmic room reverberation, micro-mechanical action dynamics, inharmonicity jitter, and declarative acoustics voicing integration.
+
+### Added
+
+- **Historical Temperaments & Microtonal Tuning Engine (`TemperamentEngine`)** — introduced dedicated classical temperament system supporting Equal, 1/4 Meantone, Werckmeister III, Kirnberger III, and Just intonations, alongside continuous A4 reference pitch calibration (400.0 to 480.0 Hz).
+- **Dual Sound Perspective Imaging (`PerspectiveProcessor`)** — added player-perspective (wide stereo field, left-to-right piano soundboard projection) and audience-perspective (mirrored stereo imaging with gentle high-frequency distance absorption) acoustic imaging modes.
+- **Algorithmic Room Reverb Engine (`RoomReverbEngine`)** — integrated lightweight, zero-sample algorithmic stereo reverberation network with Chamber (1.5s), Concert Hall (2.4s), and Studio (0.6s) acoustic presets and smooth dry/wet level blending.
+- **Physical Acoustic Lid & Una Corda Modeling** — implemented 3-state lid acoustic transfer functions (Full Open, Half Stick, Closed Lid) and physical una corda soft pedal modeling (strike position shift, duplex unison reduction, and MIDI CC 67 mapping).
+- **Micro-Mechanical Action Dynamics & Transient Physics** — simulated sustain pedal mechanical whoosh and full-string resonance shock pulses (CC 64 pedalNoiseLevel), velocity-sensitive damper wood thumps and key release friction, and dynamic key release ADSR damping.
+- **Inharmonicity Jitter & Per-Key Felt Ageing** — added deterministic per-key string stiffness jitter (±4.5%) and key-strike felt compaction aging dynamics (`feltAgeingAmount`) for enhanced micro-organic realism.
+- **Acoustics & Voicing Settings Card (`SettingsLayoutModel`)** — introduced dedicated 9-row acoustics configuration card in the JIVE declarative settings interface.
+- **Performance Preset Schema Extension (`PerformancePreset`)** — expanded `.devpiano.preset` JSON format with nested `"acoustics"` block, ensuring backward and forward compatibility with numerical clamping guards.
+- **Offline WAV Export Acoustic Parity (`WavFileExporter`)** — wired all physical modeling parameters, historical temperaments, perspective imaging, and room reverberation into offline export pipeline for bit-accurate realtime parity.
+
+### Changed
+
+- **Documentation Consistency & Anti-Drift Governance** — overhauled all active Markdown documentation against current C++ codebase, institutionalizing anti-drift guidelines by abstracting empirical metrics while preserving physical/architectural constants.
+- **Skill Infrastructure Versioning** — tracked project-tailored Oh My Pi skills (`devpiano-audit`, `devpiano-doc-sync`, `devpiano-release`) under `.omp/skills/` via selective `.gitignore` rules.
+- **JIVE UI Infrastructure Internalization (ADR-014)** — internalized declarative UI runtime into `source/UI/jive/core/` with ViewHost facade and frozen API surface.
+
+### Fixed
+
+- **Idle Sustain Pedal Mono Downmix & Resonance Truncation** — eliminated premature decay cutoff in idle sympathetic resonance pool and fixed mono output buffer pedal noise accumulation.
+- **Dynamic Release Damping ADSR Override Leak** — preserved baseline ADSR parameters in `PianoSynthVoice::configuredAdsr` and re-applied them on `startNote` to prevent high-velocity release settings from leaking across note lifecycles.
+- **Kirnberger III Temperament Scale Calibration** — corrected accidental cent offsets across black keys for authentic historical temperaments.
+- **Non-ASCII Unicode Symbol Compatibility** — replaced raw multibyte characters with strict 7-bit ASCII Unicode scalar representations across UI and status bar elements to prevent MSVC Latin-1 assertion failures.
+
 ## [1.1.0] - 2026-09-04
 
 Comprehensive brand identity system introduction, zero-dependency pure geometric vector logo lockups, native multi-scale application icon pipeline with Windows ICO packaging, dual-blue color hierarchy, and brand guidelines documentation.
