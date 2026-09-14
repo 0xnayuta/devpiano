@@ -5,7 +5,7 @@
 
 namespace devpiano::ui::jive {
 
-constexpr int kSettingsLayoutContentHeight = 1320;
+constexpr int kSettingsLayoutContentHeight = 1360;
 /// Declarative ValueTree factories for the Settings Window / Panel layout.
 ///
 /// Refactored in Phase 15-C to eliminate 300+ lines of manual setBounds /

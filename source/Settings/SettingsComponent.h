@@ -115,6 +115,7 @@ private:
     juce::Slider* pedalNoiseSlider = nullptr;
     juce::Slider* feltAgeingSlider = nullptr;
     juce::TextEditor* diagnosticsEditor = nullptr;
+    juce::Button* openLogDirButton = nullptr;
     juce::Button* saveButton = nullptr;
 
     std::unique_ptr<juce::XmlElement> savedStateSnapshot;

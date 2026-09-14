@@ -214,6 +214,8 @@ private:
             if (diagEd != nullptr) {
                 expect(diagEd->isMultiLine());
             }
+            auto* openLogBtn = dynamic_cast<juce::Button*>(findComponentById(*rootItem, "open-log-dir-button"));
+            expect(openLogBtn != nullptr);
 
             auto* saveBtn = dynamic_cast<juce::Button*>(findComponentById(*rootItem, "save-button"));
             expect(saveBtn != nullptr);

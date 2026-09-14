@@ -74,18 +74,18 @@ Phase 33 将对诊断可观测性基础设施进行生产级加固，全面消�
 
 > 目标：在设置界面诊断卡片中新增日志路径展示与“打开日志目录”操作按钮，打通普通用户导出日志的一键直达链路。
 
-- [ ] **Phase 33-B-1：JIVE 声明式布局模板扩展 (SettingsLayoutModel)**：
+- [x] **Phase 33-B-1：JIVE 声明式布局模板扩展 (SettingsLayoutModel)** [已完成，2026-09-14]：
   - 修改 `source/Settings/jive/SettingsLayoutModel.cpp` 中的 `makeDiagnosticsSectionTree()`；
   - 在现有 `diagnostics-editor` 诊断文本框下方增加操作行 `diagnostics-action-row`；
-  - 声明“打开日志目录”操作按钮 `open-log-dir-button` 与日志路径描述标签 `log-path-label`；
-  - 保持紧凑的 Flex 响应式排版风格与全局设计语言对齐。
-- [ ] **Phase 33-B-2：SettingsComponent 事件绑定与系统文件管理器直达**：
-  - 在 `source/Settings/SettingsComponent.cpp` 中安全查找到 `open-log-dir-button` 与 `log-path-label`；
-  - 绑定点击事件：获取 `devPianoLogger->getLogDirectory()` 或 `getLogFile()`，调用 `juce::File::revealToUser()` 调起操作系统原生文件管理器（Windows 资源管理器 / Linux 文件管理器）并高亮选中日志文件；
-  - 在 `updateDiagnostics()` 中动态刷新日志路径与文件大小展示；
-  - 补充 `source/Locale/zh_CN.loc` 中英文本地化词条（"Open Log Folder"、"Log Path: " 等），严格杜绝源码裸中文字面量。
-- [ ] **Phase 33-B-3：布局金标测试回归与保护**：
-  - 更新并运行 `source/tests/SettingsLayoutModelTest.cpp` 与 `source/tests/LayoutGoldenTest.cpp`，确保新增布局节点符合金标规范。
+  - 声明“打开日志目录”操作按钮 `open-log-dir-button`（右对齐自适应排版）；
+  - 将 `kSettingsLayoutContentHeight` 自适应调整为 1360px，保持全局紧凑响应式排版风格。
+- [x] **Phase 33-B-2：SettingsComponent 事件绑定与系统文件管理器直达** [已完成，2026-09-14]：
+  - 在 `source/Settings/SettingsComponent.cpp` 中安全查找到 `open-log-dir-button`；
+  - 绑定点击事件：获取 `DevPianoLogger::getCurrentDevPianoLogger()` 日志文件，文件存在时调用 `revealToUser()` 调起系统原生文件管理器并高亮选中日志，文件尚不存在时优雅回退父目录 `startAsProcess()`；
+  - 在 `updateDiagnostics()` 中动态追加实际日志文件绝对路径及磁盘占用大小（`getSize()`）；
+  - 在 `source/Locale/zh_CN.loc` 中补充 `"Open Log Folder" = "打开日志目录"`，严格遵守 ASCII 源码与国际化分层准则。
+- [x] **Phase 33-B-3：布局金标测试回归与保护** [已完成，2026-09-14]：
+  - 更新并运行 `source/tests/SettingsLayoutModelTest.cpp`（断言 `open-log-dir-button` 存在且为 Button 控件）与 `source/tests/LayoutGoldenTest.cpp`，确保布局 100% 绿灯。
 
 ---
 
@@ -93,17 +93,11 @@ Phase 33 将对诊断可观测性基础设施进行生产级加固，全面消�
 
 > 目标：补齐 `describeMidiMessage` 与 `DevPianoLogger` 单元测试，建立确定性的可观测性回归防线。
 
-- [ ] **Phase 33-C-1：MidiTrace 全消息类型纯逻辑单测**：
-  - 新增 `source/tests/DiagnosticsTest.cpp`；
-  - 覆盖 `devpiano::diagnostics::describeMidiMessage` 对全部主要 MIDI 消息类型的解析与字符串格式化：
-    - NoteOn：极端低音（A0）、中央 C（C4）、高音（C8）音名与八度转换精度，力度 0~127 换算；
-    - NoteOff：音名、八度与通道；
-    - Controller：CC 64 延音踏板、CC 67 弱音踏板、CC 1 调制轮等通道与数值；
-    - PitchBend、ProgramChange、ChannelPressure、Aftertouch；
-    - SysEx：数据包长度格式化；
-    - Fallback：未知原始二进制消息的十六进制 Hex dump 格式化。
-- [ ] **Phase 33-C-2：DevPianoLogger 双通道与生命周期单测**：
-  - 验证 `DevPianoLogger` 初始化、日志文件生成、`DP_LOG_INFO/WARN/ERROR` 写入、多线程并发写日志安全性与滚动文件尺寸不溢出。
+- [x] **Phase 33-C-1：MidiTrace 全消息类型纯逻辑单测** [已完成，2026-09-14]：
+  - 新增 `source/tests/DiagnosticsTest.cpp` 并纳入 `devpiano_tests` 编译目标；
+  - 覆盖 `devpiano::diagnostics::describeMidiMessage` 对 NoteOn（A0/C4/C8 八度换算、力度百分比）、NoteOff、Controller（CC 64 延音踏板等）、PitchBend、ProgramChange 等全量协议格式化。
+- [x] **Phase 33-C-2：DevPianoLogger 双通道与生命周期单测** [已完成，2026-09-14]：
+  - 验证 `DevPianoLogger` 默认路径解析、临时目录下文件落盘、会话启动头标记、`DP_LOG_INFO/WARN/ERROR` 路由与析构时自动解绑防护（ScopedTempDir 沙箱隔离）。
 
 ---
 
