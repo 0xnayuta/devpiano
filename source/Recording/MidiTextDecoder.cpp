@@ -130,9 +130,15 @@ constexpr int kMinLatin1SupplementSequences = 3;
     return false;
 }
 
-/// Consumes the buffer as GBK when every non-ASCII byte forms a mapped double-byte character.
-[[nodiscard]] bool isStructurallyGbk(const uint8_t* data, int sizeInBytes) noexcept {
-    int mappedPairs = 0;
+[[nodiscard]] constexpr bool isAsciiAlphanumeric(int byte) noexcept {
+    return (byte >= '0' && byte <= '9') || (byte >= 'A' && byte <= 'Z') || (byte >= 'a' && byte <= 'z');
+}
+
+/// True when the buffer can only be read as GBK double-byte text: every non-ASCII byte must
+/// form a mapped double-byte character, and no character may carry the signature of a
+/// single-byte code page.
+[[nodiscard]] bool isPlausibleGbkText(const uint8_t* data, int sizeInBytes) noexcept {
+    int mappedCharacters = 0;
 
     for (int i = 0; i < sizeInBytes;) {
         const auto byte = data[i];
@@ -142,16 +148,26 @@ constexpr int kMinLatin1SupplementSequences = 3;
             continue;
         }
 
-        if (i + 1 < sizeInBytes && gbkPairToUnicode(byte, data[i + 1]) != 0) {
-            ++mappedPairs;
-            i += 2;
-            continue;
+        if (i + 1 >= sizeInBytes || gbkPairToUnicode(byte, data[i + 1]) == 0) {
+            return false;
         }
 
-        return false;
+        // Roughly 91% of the (CP1252 accented letter + following ASCII letter) combinations
+        // are mapped GBK pairs as well, so acceptance alone proves nothing. A single-byte code
+        // page leaves its accented letter embedded inside the word: an ASCII alphanumeric
+        // directly in front of it and no further double-byte character behind it. Double-byte
+        // text instead switches from an ASCII prefix to CJK content and stays there.
+        const bool followsAsciiWord = (i > 0) && isAsciiAlphanumeric(data[i - 1]);
+        const bool leavesDoubleByteRun = (i + 2 >= sizeInBytes) || (data[i + 2] < 0x80);
+        if (followsAsciiWord && leavesDoubleByteRun) {
+            return false;
+        }
+
+        ++mappedCharacters;
+        i += 2;
     }
 
-    return mappedPairs > 0;
+    return mappedCharacters > 0;
 }
 
 [[nodiscard]] juce::String decodeGbk(const uint8_t* data, int sizeInBytes) {
@@ -174,7 +190,7 @@ constexpr int kMinLatin1SupplementSequences = 3;
             continue;
         }
 
-        // Unreachable for buffers that passed isStructurallyGbk: keep the raw byte readable.
+        // Unreachable for buffers that passed isPlausibleGbkText: keep the raw byte readable.
         characters[numCharacters++]
             = juce::CharacterFunctions::getUnicodeCharFromWindows1252Codepage(static_cast<uint8_t>(byte));
         ++i;
@@ -231,7 +247,7 @@ constexpr int kMinLatin1SupplementSequences = 3;
     }
 
     const auto currentSize = static_cast<int>(current.size());
-    if (!isStructurallyGbk(current.data(), currentSize)) {
+    if (!isPlausibleGbkText(current.data(), currentSize)) {
         return std::nullopt;
     }
 
@@ -281,7 +297,7 @@ juce::String MidiTextDecoder::decodeText(const void* rawData, int sizeInBytes) {
                             juce::CharPointer_UTF8(reinterpret_cast<const char*>(data) + sizeInBytes));
     }
 
-    if (isStructurallyGbk(data, sizeInBytes)) {
+    if (isPlausibleGbkText(data, sizeInBytes)) {
         return decodeGbk(data, sizeInBytes);
     }
 

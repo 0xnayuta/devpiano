@@ -3,6 +3,7 @@
 ### Fixed
 
 - **MIDI Metadata Text Decoding** — introduced `MidiTextDecoder` so imported track names and titles encoded as GBK are decoded instead of collapsing into replacement characters, and legacy Latin-1 double-encodings are unwrapped across multiple rounds; decoding is table-driven and platform independent, keeping results identical on WSL/Linux and Windows/MSVC.
+- **Single-Byte Title Absorption** — rejected the double-byte interpretation for payloads carrying the single-byte code page signature (an accented letter glued to its ASCII word), which previously turned titles such as `Für Elise` into a GBK-mapped ideograph.
 
 ## [1.2.0] - 2026-09-14
 

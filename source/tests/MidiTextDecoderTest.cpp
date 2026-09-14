@@ -103,6 +103,30 @@ public:
                          fromCodePoints({ 0x43, 0x61, 0x66, 0xE9, 0x20, 0x47, 0x72, 0xF6, 0xDF, 0x65 }));
         });
 
+        testCase("single-byte accented titles are not absorbed by the double-byte path", [&] {
+            // Real payloads: German and French titles stored in the Windows-1252 code page.
+            // Their accented bytes happen to form GBK-mapped pairs, so acceptance by the table
+            // alone must not be enough to claim double-byte text.
+            constexpr juce::uint8 furElise[] = { 0x46, 0xFC, 0x72, 0x20, 0x45, 0x6C, 0x69, 0x73, 0x65 };
+            expectEquals(MidiTextDecoder::decodeText(furElise, sizeof(furElise)),
+                         fromCodePoints({ 0x46, 0xFC, 0x72, 0x20, 0x45, 0x6C, 0x69, 0x73, 0x65 }));
+
+            constexpr juce::uint8 cafeGrosse[] = { 0x43, 0x61, 0x66, 0xE9, 0x20, 0x47, 0x72, 0xF6, 0xDF, 0x65 };
+            expectEquals(MidiTextDecoder::decodeText(cafeGrosse, sizeof(cafeGrosse)),
+                         fromCodePoints({ 0x43, 0x61, 0x66, 0xE9, 0x20, 0x47, 0x72, 0xF6, 0xDF, 0x65 }));
+        });
+
+        testCase("ASCII prefixed GBK payload keeps both parts readable", [&] {
+            // Real payload (instrument name of a multi-track file): ASCII vendor name followed
+            // by a GBK product name.
+            constexpr juce::uint8 payload[]
+                = { 0x4D, 0x69, 0x63, 0x72, 0x6F, 0x73, 0x6F, 0x66, 0x74, 0x20, 0x47, 0x53, 0x20, 0xB2,
+                    0xA8, 0xB1, 0xED, 0xC8, 0xED, 0xBC, 0xFE, 0xBA, 0xCF, 0xB3, 0xC9, 0xC6, 0xF7 };
+            expectEquals(MidiTextDecoder::decodeText(payload, sizeof(payload)),
+                         juce::String("Microsoft GS ")
+                             + fromCodePoints({ 0x6CE2, 0x8868, 0x8F6F, 0x4EF6, 0x5408, 0x6210, 0x5668 }));
+        });
+
         testCase("legacy double-encoded kana title is recovered", [&] {
             const auto decoded = MidiTextDecoder::decodeText(kDoubleEncodedKanaTitle, sizeof(kDoubleEncodedKanaTitle));
 
