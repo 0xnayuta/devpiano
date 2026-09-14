@@ -17,6 +17,7 @@ public:
         testHighRegisterNoDamperFeltHasWoodThump();
         testDynamicReleaseDampingVelocityScaling();
         testNumericalStabilityAndCompleteDecay();
+        testAdsrConfigurationPreservedAcrossNoteLifecycles();
     }
 
 private:
@@ -228,6 +229,47 @@ private:
         synth.renderNextBlock(buf, juce::MidiBuffer(), 0, 512);
         expectEquals(calculatePeak(buf, 0), 0.0f);
         expectEquals(calculatePeak(buf, 1), 0.0f);
+    }
+    void testAdsrConfigurationPreservedAcrossNoteLifecycles() {
+        beginTest("ADSR: configured parameters are preserved across note lifecycles without override leaks");
+
+        juce::Synthesiser synth;
+        synth.setCurrentPlaybackSampleRate(48000.0);
+        synth.addSound(new PianoSynthSound());
+        auto* voice = new PianoSynthVoice();
+        voice->setVoiceIndex(0);
+
+        juce::ADSR::Parameters customAdsr;
+        customAdsr.attack = 0.0001f;
+        customAdsr.decay = 0.001f;
+        customAdsr.sustain = 1.0f;
+        customAdsr.release = 0.55f;
+        voice->setAdsrParameters(customAdsr);
+        synth.addVoice(voice);
+
+        expectWithinAbsoluteError(voice->getAdsrParameters().release, 0.55f, 1e-4f);
+
+        // Note 1: start note then fast release (relVel = 0.95f triggers dynamic release damping)
+        synth.noteOn(1, 60, 0.7f);
+        juce::AudioBuffer<float> buffer(2, 512);
+        synth.renderNextBlock(buffer, juce::MidiBuffer(), 0, 512);
+        expectGreaterThan(calculatePeak(buffer, 0), 0.01f);
+
+        // Release note with high release velocity
+        synth.noteOff(1, 60, 0.95f, true);
+
+        // Verify base configured ADSR release parameter is unchanged and not permanently overridden
+        expectWithinAbsoluteError(voice->getAdsrParameters().release, 0.55f, 1e-4f);
+
+        // Note 2: next note on the same voice must restore configured baseline ADSR
+        synth.noteOn(1, 64, 0.7f);
+        expectWithinAbsoluteError(voice->getAdsrParameters().release, 0.55f, 1e-4f);
+
+        buffer.clear();
+        synth.renderNextBlock(buffer, juce::MidiBuffer(), 0, 512);
+        expectGreaterThan(calculatePeak(buffer, 0), 0.01f);
+
+        synth.noteOff(1, 64, 0.5f, false);
     }
 };
 

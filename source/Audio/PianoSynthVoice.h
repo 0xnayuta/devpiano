@@ -77,11 +77,19 @@ public:
     }
 
     void setAdsrParameters(const juce::ADSR::Parameters& parameters) {
+        configuredAdsr = parameters;
+        configuredAdsr.attack = juce::jmin(0.0002f, parameters.attack);
+        configuredAdsr.decay = 0.001f;
+        configuredAdsr.sustain = 1.0f;
+        configuredAdsr.release = juce::jmax(0.01f, parameters.release);
         if (getSampleRate() > 0.0) {
             adsrGate.setSampleRate(getSampleRate());
         }
-        const auto attackSec = juce::jmin(0.0002f, parameters.attack);
-        adsrGate.setParameters({ attackSec, 0.001f, 1.0f, parameters.release });
+        adsrGate.setParameters(configuredAdsr);
+    }
+
+    [[nodiscard]] const juce::ADSR::Parameters& getAdsrParameters() const noexcept {
+        return configuredAdsr;
     }
 
     void setPianoParameters(float brightness, float hammerHardness, float resonance) noexcept {
@@ -400,6 +408,7 @@ public:
         lidAcoustics.reset();
 
         adsrGate.setSampleRate(sampleRate);
+        adsrGate.setParameters(configuredAdsr);
         adsrGate.noteOn();
     }
 
@@ -413,9 +422,11 @@ public:
             // 离键速度动态调节琴弦 ADSR 释放时间 (Phase 32-B, Dynamic Key Release Damping):
             // 慢离键毛毡缓冲贴弦缓慢，保留微弱余音延展；快离键瞬间强力消音
             if (sampleRate > 0.0) {
-                const auto baseRelease = 0.18f;
+                const auto baseRelease = configuredAdsr.release;
                 const auto dynamicRelease = baseRelease * (1.5f - 0.75f * juce::jlimit(0.1f, 1.0f, relVel));
-                adsrGate.setParameters({ 0.0002f, 0.001f, 1.0f, dynamicRelease });
+                auto releaseParams = configuredAdsr;
+                releaseParams.release = dynamicRelease;
+                adsrGate.setParameters(releaseParams);
             }
             adsrGate.noteOff();
             damperTransient.trigger(sampleRate, currentPlayingMidiNote, relVel);
@@ -855,6 +866,7 @@ public:
     int numActivePartials = 0;
     int currentPlayingMidiNote = 60;
     std::uint32_t triggerCounter = 0;
+    juce::ADSR::Parameters configuredAdsr { 0.0002f, 0.001f, 1.0f, 0.18f };
     juce::ADSR adsrGate;
     float pianoBrightness = 0.5f;
     float pianoHammerHardness = 0.5f;
