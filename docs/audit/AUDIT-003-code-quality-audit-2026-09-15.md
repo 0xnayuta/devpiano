@@ -422,6 +422,7 @@ devpiano 项目代码质量与工程架构处于**优秀（A-）**状态。在�
 > 状态枚举：`未处理 / 处理中 / 已缓解 / 已暂缓 / 已关闭`。
 
 | ID | 领域 | 问题标题 | 优先级 | 状态 | 来源 | 影响摘要 | 证据 | 风险接受原因 | 重开条件 | 下一步 |
+| :--- | :--- | :--- | :---: | :---: | :--- | :--- | :--- | :--- | :--- | :--- |
 | TEST-001 | 测试 | Linux Headless UI 测试未驱动消息循环致 JUCE Socket 队列溢出断言 | P1 | 已关闭 | 审计 | 无头单测连续创建 JIVE 组件与触发属性变更未泵送事件，Linux socket 队列积压饱和触发反复 jassert 与消息丢弃 | `source/tests/TestHelpers.h:152-181`；`source/tests/TestRunner.cpp:39-44`；全量单测执行 `juce_Messaging_linux` 断言归零 | - | - | 已在 TestHelpers.h 引入 ScopedMessageQueueFlush、TestRunner shouldAbortTests 自动泵送并在各 UI 单测中补充 drainMessages，彻底消除 socket 溢出断言（复审 1） |
 | QUAL-001 | 质量 | 插件离线导出 PluginOfflineRenderer 未集成 RoomReverbEngine 混响网络 | P2 | 已关闭 | 审计 | 实时播放与内置音源导出均挂载了房间混响，但插件离线渲染遗漏，导致用户导出的 WAV 丢失混响且与文档不符 | `source/Recording/PluginOfflineRenderer.cpp:128-132,190-192`；`source/tests/PluginOfflineRendererTest.cpp:383-437`（testOfflineRenderingWithRoomReverb 验证通过） | - | - | 已在 PluginOfflineRenderer 中集成 RoomReverbEngine 并于输出块应用 processStereo，经 PluginOfflineRendererTest 回归验证（复审 1） |
 | ARCH-001 | 架构 | `source/Core/AppState.h` 反向依赖上层业务模型 `SettingsModel.h` 与 `ChannelMatrix.h` | P2 | 已关闭 | 审计 | 底层 Core 数据模型逆向包含上层 Settings 与 Midi 模块，违背架构分层单向拓扑与 Core 零业务依赖原则 | `source/Core/AppState.h:3-9,75-85`（零上层 include，前向声明 ChannelMatrix 与 std::shared_ptr 持有）；`source/Settings/SettingsModel.h:10,29`（BuiltinTone 别名）；`source/tests/AppStateAndSerializationTest.cpp:135-138` | - | - | 已在 AppState.h 独立定义 BuiltinTone 并以前向声明解耦 ChannelMatrix，彻底清理逆向包含（复审 2） |
