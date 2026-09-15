@@ -32,9 +32,9 @@
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | P0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | P1 | 1 | 0 | 0 | 0 | 0 | 1 |
-| P2 | 9 | 1 | 0 | 0 | 6 | 2 |
-| P3 | 9 | 3 | 0 | 0 | 6 | 0 |
-| **合计** | 19 | 4 | 0 | 0 | 12 | 3 |
+| P2 | 9 | 0 | 0 | 0 | 6 | 3 |
+| P3 | 9 | 2 | 0 | 0 | 6 | 1 |
+| **合计** | 19 | 2 | 0 | 0 | 12 | 5 |
 
 > 承接 AUDIT-001 历史遗留 13 项：其中 `AUDIT-001 SEC-002`（MIDI 文件大小上限）经核验已由 32MB 守卫彻底闭环并关闭；其余 12 项维持已暂缓（见第 8 章）。
 
@@ -386,6 +386,23 @@ devpiano 项目代码质量与工程架构处于**优秀（A-）**状态。在�
   - `./scripts/dev.sh win-build`：通过（Windows MSVC 验证构建 100% 成功）。
 - 复审结论：Phase A 两个核心质量项（P1 + P2）已高标准闭环。
 
+
+### 7.3 复审 2（2026-09-15，AUDIT-003 Phase B 底层架构解耦与解码性能微调）
+
+- 复审基线：`main` @ `dd6f708` + Phase B 改动
+- 已关闭问题：`ARCH-001`（P2）、`PERF-001`（P3）
+- 状态变化：
+  - `ARCH-001`：未处理 -> 已关闭
+  - `PERF-001`：未处理 -> 已关闭
+- 修复动作与证据：
+  1. `ARCH-001`：在 `source/Core/AppState.h` 中就地定义 `BuiltinTone` 枚举，并在 `SettingsModel.h` 中建立 `using BuiltinTone = devpiano::core::BuiltinTone;` 别名映射；彻底移除对 `Settings/SettingsModel.h` 与 `Midi/ChannelMatrix.h` 的反向包含，通过前向声明 `devpiano::midi::ChannelMatrix` 与 `std::shared_ptr` 管理快照，使 `source/Core/` 保持 100% 纯底层数据类型与零上层包含；在 `AppStateAndSerializationTest.cpp` 中补齐针对 `midiChannelMatrix` 共享快照有效性及调号状态断言。
+  2. `PERF-001`：重构 `source/Recording/MidiTextDecoder.cpp` 中的 `extractLegacyBytes`，支持将解码字节直接写入外部目标缓冲区；在 `tryRecoverLegacyDoubleEncoding` 中预分配 `current` 与 `scratch` 双缓冲区并在多轮迭代中通过 `std::swap` 复用，彻底消除异常双重编码恢复循环内部的重复堆分配与释放。
+- 验证结果：
+  - `./scripts/dev.sh wsl-build`：通过（0 错误 0 警告）；
+  - `./scripts/dev.sh test`：通过（82 套件 432 子测试 602,135 断言全绿，0 失败）；
+  - `./scripts/dev.sh format --check`：通过（0 差异）；
+  - `./scripts/dev.sh win-build`：通过（Windows MSVC 验证构建 100% 成功）。
+- 复审结论：Phase B 两个架构与性能项（P2 + P3）已高标准闭环。
 ---
 
 ## 8. 附录：问题总表（登记表）
@@ -396,9 +413,9 @@ devpiano 项目代码质量与工程架构处于**优秀（A-）**状态。在�
 | ID | 领域 | 问题标题 | 优先级 | 状态 | 来源 | 影响摘要 | 证据 | 风险接受原因 | 重开条件 | 下一步 |
 | TEST-001 | 测试 | Linux Headless UI 测试未驱动消息循环致 JUCE Socket 队列溢出断言 | P1 | 已关闭 | 审计 | 无头单测连续创建 JIVE 组件与触发属性变更未泵送事件，Linux socket 队列积压饱和触发反复 jassert 与消息丢弃 | `source/tests/TestHelpers.h:152-181`；`source/tests/TestRunner.cpp:39-44`；全量单测执行 `juce_Messaging_linux` 断言归零 | - | - | 已在 TestHelpers.h 引入 ScopedMessageQueueFlush、TestRunner shouldAbortTests 自动泵送并在各 UI 单测中补充 drainMessages，彻底消除 socket 溢出断言（复审 1） |
 | QUAL-001 | 质量 | 插件离线导出 PluginOfflineRenderer 未集成 RoomReverbEngine 混响网络 | P2 | 已关闭 | 审计 | 实时播放与内置音源导出均挂载了房间混响，但插件离线渲染遗漏，导致用户导出的 WAV 丢失混响且与文档不符 | `source/Recording/PluginOfflineRenderer.cpp:128-132,190-192`；`source/tests/PluginOfflineRendererTest.cpp:383-437`（testOfflineRenderingWithRoomReverb 验证通过） | - | - | 已在 PluginOfflineRenderer 中集成 RoomReverbEngine 并于输出块应用 processStereo，经 PluginOfflineRendererTest 回归验证（复审 1） |
-| ARCH-001 | 架构 | `source/Core/AppState.h` 反向依赖上层业务模型 `SettingsModel.h` 与 `ChannelMatrix.h` | P2 | 未处理 | 审计 | 底层 Core 数据模型逆向包含上层 Settings 与 Midi 模块，违背架构分层单向拓扑与 Core 零业务依赖原则 | `source/Core/AppState.h:3-4`（#include "../Midi/ChannelMatrix.h" 与 #include "../Settings/SettingsModel.h"） | - | - | 解耦 AppState 中相关字段类型，或将聚合运行态类型下沉/使用前向声明 |
+| ARCH-001 | 架构 | `source/Core/AppState.h` 反向依赖上层业务模型 `SettingsModel.h` 与 `ChannelMatrix.h` | P2 | 已关闭 | 审计 | 底层 Core 数据模型逆向包含上层 Settings 与 Midi 模块，违背架构分层单向拓扑与 Core 零业务依赖原则 | `source/Core/AppState.h:3-9,75-85`（零上层 include，前向声明 ChannelMatrix 与 std::shared_ptr 持有）；`source/Settings/SettingsModel.h:10,29`（BuiltinTone 别名）；`source/tests/AppStateAndSerializationTest.cpp:135-138` | - | - | 已在 AppState.h 独立定义 BuiltinTone 并以前向声明解耦 ChannelMatrix，彻底清理逆向包含（复审 2） |
 | DOC-001 | 文档 | `docs/reference/architecture.md` 缺少 Phase 30~33 新增核心组件架构拓扑 | P3 | 未处理 | 审计 | 架构文档目录树与模块表未收录律制、双视角空间声学、房间混响与生产级日志模块 | `docs/reference/architecture.md:80-140`；对比 `source/Audio/` 与 `source/Diagnostics/` 现状 | - | - | 更新 architecture.md 补齐相关组件说明与拓扑示意图 |
-| PERF-001 | 性能 | `source/Recording/MidiTextDecoder.cpp` 双重编码多轮恢复产生冗余堆分配 | P3 | 未处理 | 审计 | tryRecoverLegacyDoubleEncoding 在多轮解码尝试中频繁构造与移动 std::vector 缓冲区 | `source/Recording/MidiTextDecoder.cpp:218-240` | - | - | 引入 scratch buffer 复用向量内存避免循环分配 |
+| PERF-001 | 性能 | `source/Recording/MidiTextDecoder.cpp` 双重编码多轮恢复产生冗余堆分配 | P3 | 已关闭 | 审计 | tryRecoverLegacyDoubleEncoding 在多轮解码尝试中频繁构造与移动 std::vector 缓冲区 | `source/Recording/MidiTextDecoder.cpp:93-117,225-248`；`source/tests/MidiTextDecoderTest.cpp`（12 个子测试回归全过） | - | - | 已重构 extractLegacyBytes 写入目标缓冲区并于 tryRecoverLegacyDoubleEncoding 预分配 current/scratch 双缓冲实现零循环内分配（复审 2） |
 | DOC-002 | 文档 | `performance-presets.md` 中 `reverbSpace` 预设取值与代码标识符漂移 | P3 | 未处理 | 审计 | 文档描述为 "hall"，实际序列化标识符为 "concert_hall"，手写预设可能解析失败回退默认值 | `docs/reference/features/performance-presets.md:96` vs `source/Audio/RoomReverbEngine.h:184` | - | - | 修正文档表格为 "concert_hall" 或在 RoomReverbEngine 增加 "hall" 解析别名 |
 | AUDIT-001 SEC-002 | 安全 | MidiFileImporter 缺少文件大小限制 | P2 | 已关闭 | AUDIT-001 | 导入超大文件可能占用过多内存 | `source/Recording/MidiFileImporter.cpp:9,52`（32MB 守卫与超额拦截已实装并经单元测试验证） | - | - | 已实装 32MB 守卫，正式关闭 |
 | AUDIT-001 THR-003 | 线程安全 | MidiChannelMapper 引用成员悬垂风险 | P2 | 已暂缓 | AUDIT-001 | 构造器存储 const ChannelMatrix&/const bool&/const int&，外部对象销毁后悬垂 | `source/Midi/MidiChannelMapper.h:33-35` | 引用对象为 MainComponent::appSettings 成员，寿命安全；reconfigure 重建 mapper | appSettings 动态分配或生命周期缩短 | 文档化生命周期契约或改值拷贝 |

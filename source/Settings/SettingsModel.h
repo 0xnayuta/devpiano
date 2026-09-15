@@ -6,6 +6,7 @@
 #include "../Input/TouchVelocityCurve.h"
 #include "../Midi/ChannelMatrix.h"
 #include "../UI/KeyboardTypes.h"
+#include "Core/AppState.h"
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_core/juce_core.h>
 #include <juce_graphics/juce_graphics.h>
@@ -25,10 +26,7 @@
 struct SettingsModel {
     // 内置 fallback 音色（Phase 12-2/12-3）：模型层独立枚举，AudioEngine
     // 的 BuiltinSynthTone 与之映射（MainComponent 负责转换）。
-    enum class BuiltinTone : std::uint8_t {
-        sine = 0,
-        piano = 1,
-    };
+    using BuiltinTone = devpiano::core::BuiltinTone;
 
     // 琴盖开合度（Phase 29-A）：现实物理声学控制，映射至 PianoSynthVoice / AudioEngine。
     enum class LidPosition : std::uint8_t {

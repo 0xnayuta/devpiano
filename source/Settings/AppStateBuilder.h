@@ -87,7 +87,7 @@ struct RuntimeInputState {
              .input = { .keyboardLayout = keyboardLayout },
              .midiTranspose = settings.midiTranspose,
              .keySignature = settings.keySignature,
-             .midiChannelMatrix = settings.channelMatrix };
+             .midiChannelMatrix = std::make_shared<devpiano::midi::ChannelMatrix>(settings.channelMatrix) };
 }
 // 叠加运行时插件宿主状态。
 inline void applyRuntimePluginState(AppState& appState, const RuntimePluginState& runtime) {

@@ -62,17 +62,17 @@
 
 > 目标：恢复 Core 基础设施纯数据模型的单向拓扑结构，微调 MIDI 文本双重编码多轮恢复缓冲区分配。
 
-- [ ] **Phase B-1：`source/Core/AppState.h` 依赖解耦与单向拓扑恢复 (`ARCH-001`, P2)**：
-  - 分析 `source/Core/AppState.h` 对 `Settings/SettingsModel.h` 与 `Midi/ChannelMatrix.h` 的依赖点；
-  - 将聚合快照视图中的上层状态解耦或将轻量数据结构重构，消除 `Core/` 向上包含上层模块头文件的反向分层破坏；
-  - 恢复 `Core/` 纯业务数据类型、零上层逻辑依赖的干净拓扑。
-- [ ] **Phase B-2：`MidiTextDecoder.cpp` 预分配 scratch buffer 消除重复堆分配 (`PERF-001`, P3)**：
-  - 重构 `source/Recording/MidiTextDecoder.cpp` 中的 `tryRecoverLegacyDoubleEncoding`；
-  - 避免在多轮（最多 4 轮）恢复尝试的循环内部每次重新构造 `std::vector<uint8_t>`；
-  - 引入复用 buffer 机制，消除异常编码文本解码中的冗余堆内存分配。
-- [ ] **Phase B-3：单向依赖与文本解码回归测试**：
-  - 验证 `MidiTextDecoderTest.cpp` 与全量测试套件；
-  - 检查头文件依赖图，确认 `Core/` 零反向包含。
+- [x] **Phase B-1：`source/Core/AppState.h` 依赖解耦与单向拓扑恢复 (`ARCH-001`, P2)** [已完成，2026-09-15]：
+  - 在 `source/Core/AppState.h` 中独立定义 `BuiltinTone` 枚举，并在 `SettingsModel.h` 中建立 `using BuiltinTone` 别名映射；
+  - 移除对 `Settings/SettingsModel.h` 与 `Midi/ChannelMatrix.h` 的反向包含，通过前向声明 `devpiano::midi::ChannelMatrix` 与 `std::shared_ptr` 持有快照；
+  - 彻底消除 `Core/` 向上包含上层模块头文件的反向分层破坏，恢复 `Core/` 纯业务数据类型的单向拓扑。
+- [x] **Phase B-2：`MidiTextDecoder.cpp` 预分配 scratch buffer 消除重复堆分配 (`PERF-001`, P3)** [已完成，2026-09-15]：
+  - 重构 `source/Recording/MidiTextDecoder.cpp` 中的 `extractLegacyBytes` 接受外部目标缓冲区并返回状态；
+  - 在 `tryRecoverLegacyDoubleEncoding` 预分配 `current` 与 `scratch` 双缓冲区，多轮恢复中通过 `std::swap` 复用内存；
+  - 消除异常双重编码文本恢复循环内的重复堆内存分配与释放。
+- [x] **Phase B-3：单向依赖与文本解码回归测试** [已完成，2026-09-15]：
+  - 在 `AppStateAndSerializationTest.cpp` 补齐 `midiChannelMatrix` 共享快照断言；
+  - 执行 `MidiTextDecoderTest`（12 个子测试）与全量单测（602,135 断言全绿），通过 Windows MSVC 纯净构建验证。
 
 ---
 

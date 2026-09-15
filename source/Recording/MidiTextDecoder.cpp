@@ -88,31 +88,32 @@ constexpr int kMinLatin1SupplementSequences = 3;
         && shape.latin1SupplementSequences * 2 >= shape.codePointCount;
 }
 
-/// Recovers the original single-byte stream of a legacy double-encoded string.
-/// Returns an empty vector as soon as a byte sequence does not fit the 0xC2/0xC3 pattern.
-[[nodiscard]] std::vector<uint8_t> extractLegacyBytes(const uint8_t* data, int sizeInBytes) {
-    std::vector<uint8_t> recovered;
-    recovered.reserve(static_cast<size_t>(sizeInBytes));
+/// Recovers the original single-byte stream of a legacy double-encoded string into the destination buffer.
+/// Returns false as soon as a byte sequence does not fit the 0xC2/0xC3 pattern.
+[[nodiscard]] bool extractLegacyBytes(const uint8_t* data, int sizeInBytes, std::vector<uint8_t>& destination) {
+    destination.clear();
+    destination.reserve(static_cast<size_t>(sizeInBytes));
 
     for (int i = 0; i < sizeInBytes;) {
         const auto byte = data[i];
 
         if (byte < 0x80) {
-            recovered.push_back(byte);
+            destination.push_back(byte);
             ++i;
             continue;
         }
 
         if ((byte == 0xC2 || byte == 0xC3) && i + 1 < sizeInBytes && (data[i + 1] & 0xC0) == 0x80) {
-            recovered.push_back(static_cast<uint8_t>(((byte & 0x1F) << 6) | (data[i + 1] & 0x3F)));
+            destination.push_back(static_cast<uint8_t>(((byte & 0x1F) << 6) | (data[i + 1] & 0x3F)));
             i += 2;
             continue;
         }
 
-        return {};
+        destination.clear();
+        return false;
     }
 
-    return recovered;
+    return true;
 }
 
 /// True for U+4E00..U+9FFF (CJK Unified Ideographs). Used to reject recovered streams that
@@ -222,6 +223,8 @@ constexpr int kMinLatin1SupplementSequences = 3;
     constexpr int kMaxRounds = 4;
 
     std::vector<uint8_t> current(data, data + sizeInBytes);
+    std::vector<uint8_t> scratch;
+    scratch.reserve(static_cast<size_t>(sizeInBytes));
     int rounds = 0;
 
     while (rounds < kMaxRounds) {
@@ -233,15 +236,13 @@ constexpr int kMinLatin1SupplementSequences = 3;
             break;
         }
 
-        auto recovered = extractLegacyBytes(current.data(), currentSize);
-        if (recovered.empty()) {
+        if (!extractLegacyBytes(current.data(), currentSize, scratch)) {
             break;
         }
 
-        current = std::move(recovered);
+        std::swap(current, scratch);
         ++rounds;
     }
-
     if (rounds == 0) {
         return std::nullopt;
     }

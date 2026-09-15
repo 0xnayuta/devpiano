@@ -132,6 +132,10 @@ private:
         expectEquals(appState.performance.pianoHammerHardness, 0.70f);
         expectEquals(appState.performance.pianoResonance, 0.60f);
         expectEquals(appState.input.keyboardLayout.id, layout.id);
+        expect(appState.midiChannelMatrix != nullptr, "Baseline state has valid channel matrix snapshot");
+        expect(appState.midiChannelMatrix->active, "Channel matrix is active by default");
+        expect(!appState.midiTranspose, "MIDI transpose is disabled by default");
+        expectEquals(appState.keySignature, 0);
     }
 
     void testAppStateBuilderRuntimeOverlays() {

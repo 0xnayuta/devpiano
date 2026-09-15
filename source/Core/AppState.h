@@ -1,11 +1,20 @@
 #pragma once
 
-#include "../Midi/ChannelMatrix.h"
-#include "../Settings/SettingsModel.h"
 #include "Core/KeyMapTypes.h"
 #include <juce_core/juce_core.h>
+#include <memory>
+
+namespace devpiano::midi {
+struct ChannelMatrix;
+}
 
 namespace devpiano::core {
+// Builtin fallback synth tone enumeration.
+enum class BuiltinTone : std::uint8_t {
+    sine = 0,
+    piano = 1,
+};
+
 // Runtime aggregate state.
 //
 // 职责边界：
@@ -36,7 +45,7 @@ struct PerformanceState {
     float adsrDecay = 0.20f;
     float adsrSustain = 0.80f;
     float adsrRelease = 0.30f;
-    SettingsModel::BuiltinTone builtinTone = SettingsModel::BuiltinTone::piano;
+    BuiltinTone builtinTone = BuiltinTone::piano;
     float pianoBrightness = 0.50f;
     float pianoHammerHardness = 0.50f;
     float pianoResonance = 0.50f;
@@ -72,6 +81,6 @@ struct AppState {
     // Key signature system: global transpose state
     bool midiTranspose = false;
     int keySignature = 0; // semitone offset from C, -7..+7
-    devpiano::midi::ChannelMatrix midiChannelMatrix;
+    std::shared_ptr<const devpiano::midi::ChannelMatrix> midiChannelMatrix;
 };
 }
