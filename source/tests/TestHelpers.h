@@ -149,4 +149,35 @@ public:
     ScopedDefaultLookAndFeelReset& operator=(const ScopedDefaultLookAndFeelReset&) = delete;
 };
 
+// ============================================================================
+// ScopedMessageQueueFlush: RAII guard that runs the message loop briefly to
+// flush pending UI/JIVE messages and prevent Linux socket pipe overflow (TEST-001).
+// ============================================================================
+class ScopedMessageQueueFlush final {
+public:
+    explicit ScopedMessageQueueFlush(int milliseconds = 1) noexcept
+        : durationMs(milliseconds) {
+    }
+
+    ~ScopedMessageQueueFlush() {
+        flush(durationMs);
+    }
+
+    static void flush(int milliseconds = 1) noexcept {
+        if (auto* mm = juce::MessageManager::getInstanceWithoutCreating()) {
+            mm->runDispatchLoopUntil(milliseconds);
+        }
+    }
+
+    ScopedMessageQueueFlush(const ScopedMessageQueueFlush&) = delete;
+    ScopedMessageQueueFlush& operator=(const ScopedMessageQueueFlush&) = delete;
+
+private:
+    int durationMs = 1;
+};
+
+inline void drainMessages(int milliseconds = 1) noexcept {
+    ScopedMessageQueueFlush::flush(milliseconds);
+}
+
 } // namespace devpiano::test

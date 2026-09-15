@@ -4,6 +4,7 @@
 #include "Settings/SettingsComponent.h"
 #include "Settings/SettingsModel.h"
 #include "Settings/jive/SettingsLayoutModel.h"
+#include "TestHelpers.h"
 #include "UI/jive/DesignTokens.h"
 #include "UI/jive/JiveUtils.h"
 #include "UI/jive/StyleCatalog.h"
@@ -28,9 +29,13 @@ public:
         testKeyboardDisplaySection();
         testAcousticsSection();
         testInterpretationAndComponentLookup();
+        devpiano::test::drainMessages(2);
         testFollowKeyVisibilityToggle();
+        devpiano::test::drainMessages(2);
         testSettingsComponentRefreshTextsPreservesScroll();
+        devpiano::test::drainMessages(2);
         testSettingsComponentMouseWheelIsolation();
+        devpiano::test::drainMessages(2);
     }
 
 private:
@@ -255,6 +260,7 @@ private:
         auto comp = std::make_unique<SettingsComponent>(dm, nullptr, &model);
         comp->setSize(680, 500);
 
+        devpiano::test::drainMessages(2);
         juce::Viewport* vp = nullptr;
         for (int i = 0; i < comp->getNumChildComponents(); ++i) {
             if (auto* candidate = dynamic_cast<juce::Viewport*>(comp->getChildComponent(i))) {
@@ -272,9 +278,12 @@ private:
         expectEquals(vp->getViewPositionY(), 180, "viewport initial scrolled Y position");
 
         // Trigger refreshTexts (simulate language switch)
+        devpiano::test::drainMessages(2);
         comp->refreshTexts();
-
+        devpiano::test::drainMessages(2);
         expectEquals(vp->getViewPositionY(), 180, "viewport scroll position must be preserved after refreshTexts");
+        comp.reset();
+        devpiano::test::drainMessages(2);
     }
 
     void testSettingsComponentMouseWheelIsolation() {
@@ -284,6 +293,7 @@ private:
         SettingsModel model;
         auto comp = std::make_unique<SettingsComponent>(dm, nullptr, &model);
         comp->setSize(680, 500);
+        devpiano::test::drainMessages(2);
 
         juce::Viewport* vp = nullptr;
         for (int i = 0; i < comp->getNumChildComponents(); ++i) {
@@ -322,6 +332,8 @@ private:
         // 3. Simulating mouse wheel event originating from background (comp itself)
         comp->mouseWheelMove(makeEvent(comp.get()), wheelDetails);
         expect(vp->getViewPositionY() > 0, "wheel event on background MUST scroll the Viewport");
+        comp.reset();
+        devpiano::test::drainMessages(2);
     }
 };
 

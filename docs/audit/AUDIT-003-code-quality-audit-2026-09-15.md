@@ -31,10 +31,10 @@
 | 优先级 | 合计 | 未处理 | 处理中 | 已缓解 | 已暂缓 | 已关闭 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | P0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| P1 | 1 | 1 | 0 | 0 | 0 | 0 |
-| P2 | 9 | 2 | 0 | 0 | 6 | 1 |
+| P1 | 1 | 0 | 0 | 0 | 0 | 1 |
+| P2 | 9 | 1 | 0 | 0 | 6 | 2 |
 | P3 | 9 | 3 | 0 | 0 | 6 | 0 |
-| **合计** | 19 | 6 | 0 | 0 | 12 | 1 |
+| **合计** | 19 | 4 | 0 | 0 | 12 | 3 |
 
 > 承接 AUDIT-001 历史遗留 13 项：其中 `AUDIT-001 SEC-002`（MIDI 文件大小上限）经核验已由 32MB 守卫彻底闭环并关闭；其余 12 项维持已暂缓（见第 8 章）。
 
@@ -369,6 +369,23 @@ devpiano 项目代码质量与工程架构处于**优秀（A-）**状态。在�
   - `./scripts/dev.sh win-build`：通过（Windows MSVC 验证构建 100% 成功）
 - 审计结论：总体评级 A-，可继续推进新功能开发。
 
+### 7.2 复审 1（2026-09-15，AUDIT-003 Phase A 测试消息循环与离线混响对齐）
+
+- 复审基线：`main` @ `2c2bcb4` + Phase A 改动
+- 已关闭问题：`TEST-001`（P1）、`QUAL-001`（P2）
+- 状态变化：
+  - `TEST-001`：未处理 -> 已关闭
+  - `QUAL-001`：未处理 -> 已关闭
+- 修复动作与证据：
+  1. `TEST-001`：在 `source/tests/TestHelpers.h` 中实现 `ScopedMessageQueueFlush` 与 `drainMessages()`，并在 `TestRunner.cpp` 重写 `shouldAbortTests()` 实现测试套件间自动 1ms 泵送；在 `SettingsLayoutModelTest.cpp`、`LayoutGoldenTest.cpp`、`PathEditorReproTest.cpp` 与 `StyleCatalogTest.cpp` 中补充精准消息泵送，`juce_Messaging_linux.cpp:87` 套接字溢出断言从 514 处彻底归零。
+  2. `QUAL-001`：在 `source/Recording/PluginOfflineRenderer.cpp` 中集成 `RoomReverbEngine`，准备阶段完成延迟网络预分配，块渲染循环内应用立体声房间混响；在 `PluginOfflineRendererTest.cpp` 中新增 `testOfflineRenderingWithRoomReverb`，验证混响尾音扩散能量。
+- 验证结果：
+  - `./scripts/dev.sh wsl-build`：通过（0 错误 0 警告）；
+  - `./scripts/dev.sh test`：通过（82 套件 432 子测试 602,130 断言全绿，0 失败）；
+  - `./scripts/dev.sh format --check`：通过（0 差异）；
+  - `./scripts/dev.sh win-build`：通过（Windows MSVC 验证构建 100% 成功）。
+- 复审结论：Phase A 两个核心质量项（P1 + P2）已高标准闭环。
+
 ---
 
 ## 8. 附录：问题总表（登记表）
@@ -377,9 +394,8 @@ devpiano 项目代码质量与工程架构处于**优秀（A-）**状态。在�
 > 状态枚举：`未处理 / 处理中 / 已缓解 / 已暂缓 / 已关闭`。
 
 | ID | 领域 | 问题标题 | 优先级 | 状态 | 来源 | 影响摘要 | 证据 | 风险接受原因 | 重开条件 | 下一步 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| TEST-001 | 测试 | Linux Headless UI 测试未驱动消息循环致 JUCE Socket 队列溢出断言 | P1 | 未处理 | 审计 | 无头单测连续创建 JIVE 组件与触发属性变更未泵送事件，Linux socket 队列积压饱和触发反复 jassert 与消息丢弃 | `build-wsl-clang/devpiano_tests_artefacts/Debug/devpiano_tests` 执行输出大量 `juce_Messaging_linux.cpp:87`；`submodules/JUCE/modules/juce_events/native/juce_Messaging_linux.cpp:87` | - | - | 在相关 UI 单测用例清理时调用 `deliverPendingMessages()` 泵空消息管道 |
-| QUAL-001 | 质量 | 插件离线导出 PluginOfflineRenderer 未集成 RoomReverbEngine 混响网络 | P2 | 未处理 | 审计 | 实时播放与内置音源导出均挂载了房间混响，但插件离线渲染遗漏，导致用户导出的 WAV 丢失混响且与文档不符 | `source/Recording/PluginOfflineRenderer.cpp:130-180`；`docs/reference/features/plugin-offline-rendering.md:78`；对比 `source/Audio/AudioEngine.cpp:144-150` 与 `source/Recording/WavFileExporter.cpp:146` | - | - | 在 PluginOfflineRenderer 中引入 RoomReverbEngine 并于输出块应用 processStereo |
+| TEST-001 | 测试 | Linux Headless UI 测试未驱动消息循环致 JUCE Socket 队列溢出断言 | P1 | 已关闭 | 审计 | 无头单测连续创建 JIVE 组件与触发属性变更未泵送事件，Linux socket 队列积压饱和触发反复 jassert 与消息丢弃 | `source/tests/TestHelpers.h:152-181`；`source/tests/TestRunner.cpp:39-44`；全量单测执行 `juce_Messaging_linux` 断言归零 | - | - | 已在 TestHelpers.h 引入 ScopedMessageQueueFlush、TestRunner shouldAbortTests 自动泵送并在各 UI 单测中补充 drainMessages，彻底消除 socket 溢出断言（复审 1） |
+| QUAL-001 | 质量 | 插件离线导出 PluginOfflineRenderer 未集成 RoomReverbEngine 混响网络 | P2 | 已关闭 | 审计 | 实时播放与内置音源导出均挂载了房间混响，但插件离线渲染遗漏，导致用户导出的 WAV 丢失混响且与文档不符 | `source/Recording/PluginOfflineRenderer.cpp:128-132,190-192`；`source/tests/PluginOfflineRendererTest.cpp:383-437`（testOfflineRenderingWithRoomReverb 验证通过） | - | - | 已在 PluginOfflineRenderer 中集成 RoomReverbEngine 并于输出块应用 processStereo，经 PluginOfflineRendererTest 回归验证（复审 1） |
 | ARCH-001 | 架构 | `source/Core/AppState.h` 反向依赖上层业务模型 `SettingsModel.h` 与 `ChannelMatrix.h` | P2 | 未处理 | 审计 | 底层 Core 数据模型逆向包含上层 Settings 与 Midi 模块，违背架构分层单向拓扑与 Core 零业务依赖原则 | `source/Core/AppState.h:3-4`（#include "../Midi/ChannelMatrix.h" 与 #include "../Settings/SettingsModel.h"） | - | - | 解耦 AppState 中相关字段类型，或将聚合运行态类型下沉/使用前向声明 |
 | DOC-001 | 文档 | `docs/reference/architecture.md` 缺少 Phase 30~33 新增核心组件架构拓扑 | P3 | 未处理 | 审计 | 架构文档目录树与模块表未收录律制、双视角空间声学、房间混响与生产级日志模块 | `docs/reference/architecture.md:80-140`；对比 `source/Audio/` 与 `source/Diagnostics/` 现状 | - | - | 更新 architecture.md 补齐相关组件说明与拓扑示意图 |
 | PERF-001 | 性能 | `source/Recording/MidiTextDecoder.cpp` 双重编码多轮恢复产生冗余堆分配 | P3 | 未处理 | 审计 | tryRecoverLegacyDoubleEncoding 在多轮解码尝试中频繁构造与移动 std::vector 缓冲区 | `source/Recording/MidiTextDecoder.cpp:218-240` | - | - | 引入 scratch buffer 复用向量内存避免循环分配 |

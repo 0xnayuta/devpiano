@@ -1,5 +1,6 @@
 #include <JuceHeader.h>
 
+#include "Audio/RoomReverbEngine.h"
 #include "Export/ExportFlowSupport.h"
 #include "Export/WavExportOptions.h"
 #include "Recording/PluginOfflineRenderer.h"
@@ -217,6 +218,7 @@ public:
         testOfflineRenderingExecution();
         testMonoPluginStereoDownmix();
         testMasterSoftLimiterBehavior();
+        testOfflineRenderingWithRoomReverb();
         testProgressCancellation();
         testSnapshotPluginState();
     }
@@ -376,6 +378,62 @@ public:
         expect(testBuffer.getSample(0, 2) > -0.98f && testBuffer.getSample(0, 2) < -0.85f,
                "Negative peak limited within ceiling");
         expect(testBuffer.getSample(0, 3) <= 0.98f, "Extreme peak stays <= 0.98 ceiling");
+    }
+
+    void testOfflineRenderingWithRoomReverb() {
+        beginTest("Offline rendering with RoomReverbEngine generates diffused tail and valid audio (QUAL-001)");
+
+        DummyOfflineTestPlugin plugin;
+        devpiano::exporting::WavExportOptions dryOptions;
+        dryOptions.sampleRate = 44100.0;
+        dryOptions.numChannels = 2;
+        dryOptions.blockSize = 512;
+        dryOptions.bitsPerSample = 16;
+        dryOptions.masterGain = 1.0f;
+        dryOptions.reverbWet = 0.0f;
+
+        devpiano::exporting::WavExportOptions wetOptions = dryOptions;
+        wetOptions.reverbSpace = devpiano::audio::ReverbSpace::concertHall;
+        wetOptions.reverbWet = 0.5f;
+
+        devpiano::test::ScopedTempDir tempDir("offline-reverb-test");
+        const auto dryFile = tempDir.getChildFile("dry.wav");
+        const auto wetFile = tempDir.getChildFile("wet.wav");
+
+        const auto take = makeSimpleRenderTake();
+
+        expect(devpiano::exporting::renderTakeWithOfflinePlugin(take, dryFile, dryOptions, plugin),
+               "dry render succeeds");
+        expect(devpiano::exporting::renderTakeWithOfflinePlugin(take, wetFile, wetOptions, plugin),
+               "wet render succeeds");
+
+        juce::WavAudioFormat wavFormat;
+        std::unique_ptr<juce::AudioFormatReader> dryReader(
+            wavFormat.createReaderFor(dryFile.createInputStream().release(), true));
+        std::unique_ptr<juce::AudioFormatReader> wetReader(
+            wavFormat.createReaderFor(wetFile.createInputStream().release(), true));
+
+        expect(dryReader != nullptr && wetReader != nullptr);
+        if (dryReader != nullptr && wetReader != nullptr) {
+            expectEquals(dryReader->lengthInSamples, wetReader->lengthInSamples);
+
+            // Read the tail region (after note-off, where plugin outputs 0 but reverb continues to ring)
+            const auto noteOffSample = static_cast<std::int64_t>(44100.0 * 0.5); // note-off at 0.5s
+            const auto tailCheckStart = noteOffSample + 2048;
+            const auto checkLength = 4096;
+
+            juce::AudioBuffer<float> dryTail(2, checkLength);
+            juce::AudioBuffer<float> wetTail(2, checkLength);
+
+            dryReader->read(&dryTail, 0, checkLength, tailCheckStart, true, true);
+            wetReader->read(&wetTail, 0, checkLength, tailCheckStart, true, true);
+
+            // In the dry render, DummyOfflineTestPlugin stops immediately on note-off so tail is silent
+            expectEquals(dryTail.getMagnitude(0, 0, checkLength), 0.0f, "dry tail must be silent after note-off");
+
+            // In the wet render, RoomReverbEngine diffuses the preceding note into the tail region
+            expect(wetTail.getMagnitude(0, 0, checkLength) > 1e-4f, "wet tail must contain diffuse reverb energy");
+        }
     }
 };
 

@@ -1,5 +1,6 @@
 #include <functional>
 
+#include "Audio/RoomReverbEngine.h"
 #include "Diagnostics/Log.h"
 #include "Export/ExportFlowSupport.h"
 #include "Plugin/PluginHost.h"
@@ -124,6 +125,10 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
 
     std::size_t eventIndex = 0;
     auto allNotesOffSent = false;
+    devpiano::audio::RoomReverbEngine roomReverb;
+    roomReverb.prepare(options.sampleRate);
+    roomReverb.setSpace(options.reverbSpace);
+    roomReverb.setWetLevel(options.reverbWet);
 
     DP_LOG_INFO("[PluginOfflineRenderer] Starting offline render: " + juce::String(renderEvents.size()) + " events, "
                 + juce::String(totalSamples) + " total samples, " + juce::String(outputChannels) + " output channels");
@@ -180,6 +185,9 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
             for (auto channel = 0; channel < outputChannels; ++channel) {
                 outputBuffer.copyFrom(channel, 0, pluginBuffer, channel, 0, numSamples);
             }
+        }
+        if (options.numChannels >= 2 && options.reverbWet > 1e-4f) {
+            roomReverb.processStereo(outputBuffer.getWritePointer(0), outputBuffer.getWritePointer(1), numSamples);
         }
 
         outputBuffer.applyGain(gain);

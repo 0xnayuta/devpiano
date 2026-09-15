@@ -37,6 +37,13 @@ public:
         std::cout << message << '\n';
     }
 
+    bool shouldAbortTests() override {
+        if (auto* mm = juce::MessageManager::getInstanceWithoutCreating()) {
+            mm->runDispatchLoopUntil(1);
+        }
+        return false;
+    }
+
     [[nodiscard]] TestRunStats computeStats() const noexcept {
         TestRunStats stats;
         for (int i = 0; i < getNumResults(); ++i) {

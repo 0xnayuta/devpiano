@@ -43,20 +43,19 @@
 ### AUDIT-003 Phase A：测试消息循环与离线混响对齐 (Test Event Loop & Offline Reverb Parity) [P1 / P2]
 
 > 目标：消除 Linux 无头单测消息套接字溢出断言告警，对齐插件离线导出与实时演奏的房间混响行为。
-
-- [ ] **Phase A-1：Linux Headless 单测事件循环泵送与断言消除 (`TEST-001`, P1)**：
-  - 在 `source/tests/ViewHostTest.cpp`、`source/tests/LayoutGoldenTest.cpp` 与 `source/tests/SettingsLayoutModelTest.cpp` 等创建销毁 JIVE 组件与触发属性变更的测试用例中；
-  - 引入或利用 `devpiano::test` RAII 辅助工具，在用例结束或析构阶段调用 `juce::MessageManager::getInstance()->deliverPendingMessages()`；
-  - 彻底清空 Linux 内部 `InternalMessageQueue` 套接字管道，杜绝 `juce_Messaging_linux.cpp:87`（`bytesInSocket >= maxBytesInSocketQueue`）断言告警，防止异步事件静默丢失。
-- [ ] **Phase A-2：PluginOfflineRenderer 挂载 RoomReverbEngine 混响网络 (`QUAL-001`, P2)**：
+- [x] **Phase A-1：Linux Headless 单测事件循环泵送与断言消除 (`TEST-001`, P1)** [已完成，2026-09-15]：
+  - 在 `source/tests/TestHelpers.h` 引入 `ScopedMessageQueueFlush` 与 `drainMessages()` 辅助函数；
+  - 在 `source/tests/TestRunner.cpp` 重写 `shouldAbortTests()` 在每个测试套件前自动执行 1ms 事件循环泵送；
+  - 在 `SettingsLayoutModelTest.cpp`、`LayoutGoldenTest.cpp`、`PathEditorReproTest.cpp` 与 `StyleCatalogTest.cpp` 中精准补充 `drainMessages()`；
+  - 彻底清空 Linux 内部 `InternalMessageQueue` 套接字管道，`juce_Messaging_linux.cpp:87` 断言告警从 514 处彻底归零。
+- [x] **Phase A-2：PluginOfflineRenderer 挂载 RoomReverbEngine 混响网络 (`QUAL-001`, P2)** [已完成，2026-09-15]：
   - 在 `source/Recording/PluginOfflineRenderer.cpp` 中引入 `devpiano::audio::RoomReverbEngine` 实例；
   - 在离线准备期调用 `roomReverb.prepare(options.sampleRate)`、`roomReverb.setSpace(options.reverbSpace)` 与 `roomReverb.setWetLevel(options.reverbWet)`；
-  - 在块渲染循环处理完插件 `processBlock` 与通道下混后，当 `options.numChannels >= 2 && options.reverbWet > 1e-4f` 时，在应用增益（`applyGain`）与软限幅（`applyMasterSoftLimiter`）之前执行 `roomReverb.processStereo(...)`；
+  - 在块渲染循环处理完插件 `processBlock` 与通道下混后，当 `options.numChannels >= 2 && options.reverbWet > 1e-4f` 时，在应用增益与软限幅之前执行 `roomReverb.processStereo(...)`；
   - 使 VST3 插件离线导出与内置音源离线导出（`WavFileExporter.cpp:146`）及实时主总线（`AudioEngine.cpp:144-150`）听感与行为 100% 对齐，满足 `docs/reference/features/plugin-offline-rendering.md:78` 契约。
-- [ ] **Phase A-3：离线混响导出单测与回归验证**：
-  - 在 `source/tests/PluginOfflineRendererTest.cpp` 中补充针对 `reverbWet > 0` 时的离线渲染测试用例，断言混响能量扩散与尾音衰减行为；
-  - 运行 `./scripts/dev.sh test` 验证无头单测断言归零与全量测试绿灯。
-
+- [x] **Phase A-3：离线混响导出单测与回归验证** [已完成，2026-09-15]：
+  - 在 `source/tests/PluginOfflineRendererTest.cpp` 中新增 `testOfflineRenderingWithRoomReverb` 测试用例，断言干音与湿音导出差异及混响尾音扩散能量；
+  - 全量运行 `./scripts/dev.sh test`（602,130 断言全绿），验证双平台 MSVC 构建成功。
 ---
 
 ### AUDIT-003 Phase B：底层架构解耦与解码性能微调 (Core Decoupling & Decoder Optimization) [P2 / P3]

@@ -76,17 +76,21 @@ public:
         testDesignTokensHotReload();
         testStyleTokenResolutionInStyleSheet();
         testStyleCatalogHotReloadOnLiveTree();
+        devpiano::test::drainMessages(2);
         testStatusBarTreeInterprets();
         testStatusBarMidiDotActivityAndDecay();
         testPluginPanelTreeInterprets();
         testKeyboardAreaTreeInterprets();
         testRootLayoutInterprets();
+        devpiano::test::drainMessages(2);
         testWindowRuleFontSizeInheritsToText();
         testRealStyleSheetWindowFontSizeActsAsGlobalDefault();
         testRealStyleSheetDisabledPseudoStates();
+        devpiano::test::drainMessages(2);
         testComboPlaceholderRendersAboveCanvas();
+        devpiano::test::drainMessages(2);
         testTitlesFollowLanguageSwitch();
-        // Release styles owned by the tests once all trees are gone.
+        devpiano::test::drainMessages(2);
         devpiano::ui::jive::StyleCatalog::get().releaseOwnedStyles();
     }
 
@@ -909,6 +913,7 @@ private:
         }
         expect(light > 4, "combo placeholder text must render above the background canvas");
         item->getComponent()->setLookAndFeel(nullptr);
+        devpiano::test::drainMessages(2);
     }
 
     void testTitlesFollowLanguageSwitch() {
@@ -926,6 +931,7 @@ private:
             return;
         }
 
+        devpiano::test::drainMessages(2);
         const auto titleOf = [&item](const char* id) -> juce::String {
             if (auto* gi = ::jive::findItemWithID(*item, id)) {
                 return gi->state["title"].toString();
@@ -942,6 +948,7 @@ private:
         // nodes, and setButtonLabel's title sync for buttons (mirrored here).
         devpiano::locale::activate(devpiano::locale::Language::zhCN);
         devpiano::ui::jive::refreshTitles(*item);
+        devpiano::test::drainMessages(2);
         if (auto* loadBtn = ::jive::findItemWithID(*item, "load-btn")) {
             loadBtn->state.setProperty("title", TRANS("Load"), nullptr);
             for (auto child : loadBtn->state) {
@@ -977,6 +984,7 @@ private:
         expectEquals(titleOf("back-btn"), juce::String(TRANS("Back to Start")),
                      "transport title must follow the locale");
 
+        devpiano::test::drainMessages(2);
         devpiano::locale::activate(devpiano::locale::Language::en);
     }
 };

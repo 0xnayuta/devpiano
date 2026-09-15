@@ -67,6 +67,7 @@ public:
             expect(host.find("status-bar") != nullptr);
             expect(host.find("midi-dot") != nullptr);
             expect(host.find("audio-info-label") != nullptr);
+            drainMessages();
         }
 
         // 2. Settings Window Layout
@@ -84,6 +85,7 @@ public:
             expect(host.find<juce::ComboBox>("lid-position-combo") != nullptr);
             expect(host.find<juce::ComboBox>("touch-curve-combo") != nullptr);
             expect(host.find<juce::Button>("save-button") != nullptr);
+            drainMessages();
         }
 
         // 3. Single Input Dialog Layout (Preset Rename / Save)
@@ -95,6 +97,7 @@ public:
             expect(host.find<juce::Button>("dialog-ok-btn") != nullptr);
             expect(host.find<juce::Button>("dialog-cancel-btn") != nullptr);
         }
+        drainMessages();
 
         // 4. Confirm Dialog Layout
         {
@@ -105,6 +108,7 @@ public:
             expect(host.find<juce::Button>("dialog-cancel-btn") != nullptr);
         }
 
+        drainMessages();
         // 5. Metadata Edit Dialog Layout
         {
             auto tree = devpiano::ui::jive::JiveModalDialog::makeMetadataEditLayout(420, 260);
@@ -116,6 +120,7 @@ public:
             expect(host.find<juce::Button>("dialog-cancel-btn") != nullptr);
         }
 
+        drainMessages();
         // 6. Progress Dialog Layout
         {
             auto tree = devpiano::ui::jive::JiveModalDialog::makeProgressLayout("Exporting WAV...", 380, 140);
@@ -126,6 +131,7 @@ public:
             expect(host.find<juce::Button>("dialog-cancel-btn") != nullptr);
         }
 
+        drainMessages();
         // 7. Key Binding Edit Dialog Layout
         {
             auto tree = KeyBindingEditDialog::makeKeyBindingEditLayout(true, 420, 290);
@@ -135,6 +141,7 @@ public:
             expect(host.find("clear-colour-btn") != nullptr);
             expect(host.find("dialog-ok-btn") != nullptr);
             expect(host.find("dialog-cancel-btn") != nullptr);
+            drainMessages();
         }
     }
 

@@ -133,6 +133,7 @@ public:
         // This test runs after StyleCatalogTest's cleanup; release the styles
         // owned by the catalog so the leak detector stays quiet.
         devpiano::ui::jive::StyleCatalog::get().releaseOwnedStyles();
+        devpiano::test::drainMessages(2);
     }
 };
 static PathEditorReproTest pathEditorReproTest;
