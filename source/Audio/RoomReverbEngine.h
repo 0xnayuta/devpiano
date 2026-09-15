@@ -197,12 +197,14 @@ public:
 
     /**
      * Parses a string identifier into ReverbSpace with safe fallback to chamber.
+     * Supports canonical identifiers ("studio", "chamber", "concert_hall") and
+     * legacy/convenience alias "hall" mapping to concertHall.
      */
     [[nodiscard]] static ReverbSpace fromIdentifier(std::string_view id) noexcept {
         if (id == "studio") {
             return ReverbSpace::studio;
         }
-        if (id == "concert_hall") {
+        if (id == "concert_hall" || id == "hall") {
             return ReverbSpace::concertHall;
         }
         return ReverbSpace::chamber;

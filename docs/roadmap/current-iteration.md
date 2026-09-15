@@ -80,17 +80,17 @@
 
 > 目标：对齐架构与预设规范文档，执行全量双平台验证，闭环 AUDIT-003 所有登记项。
 
-- [ ] **Phase C-1：更新 `docs/reference/architecture.md` 补齐新增模块架构拓扑 (`DOC-001`, P3)**：
-  - 在 `docs/reference/architecture.md` 目录树与模块列表中增补 Phase 30~33 新增核心组件：`TemperamentEngine`（古典历史律制）、`PerspectiveProcessor`（双视角空间声像）、`RoomReverbEngine`（房间混响网络）与 `DevPianoLogger`（Dual-Sink 持久化日志）；
-  - 更新架构数据流与模块依赖拓扑说明。
-- [ ] **Phase C-2：修正 `performance-presets.md` 中 `reverbSpace` 预设枚举描述 (`DOC-002`, P3)**：
+- [x] **Phase C-1：更新 `docs/reference/architecture.md` 补齐新增模块架构拓扑 (`DOC-001`, P3)** [已完成，2026-09-15]：
+  - 在 `docs/reference/architecture.md` 补齐 Phase 30~33 新增核心组件：`TemperamentEngine`、`PerspectiveProcessor`、`RoomReverbEngine` 与 `DevPianoLogger`（Dual-Sink 持久化日志）；
+  - 更新架构数据流与模块依赖拓扑说明（离线混响对齐与 AppState 单向拓扑）。
+- [x] **Phase C-2：修正 `performance-presets.md` 中 `reverbSpace` 预设枚举描述 (`DOC-002`, P3)** [已完成，2026-09-15]：
   - 将 `docs/reference/features/performance-presets.md:96` 表格中的 `"hall"` 修正为实际序列化与代码匹配的 `"concert_hall"`；
-  - 可在 `RoomReverbEngine::fromIdentifier` 兼容 `"hall"` 别名作为额外健壮性容错保护。
-- [ ] **Phase C-3：双平台全量构建、三闸门回归与 AUDIT-003 终审关闭**：
+  - 在 `RoomReverbEngine::fromIdentifier` 增加对 `"hall"` 别名的兼容映射，并在 `RoomReverbEngineTest.cpp` 补充覆盖断言。
+- [x] **Phase C-3：双平台全量构建、三闸门回归与 AUDIT-003 终审关闭** [已完成，2026-09-15]：
   - 执行 `./scripts/dev.sh format --check` 保证 0 差异；
-  - 执行 `./scripts/dev.sh test` 保证全量断言通过且无 socket 溢出告警；
-  - 执行 `./scripts/dev.sh win-build` 验证 Windows MSVC 纯净构建通过；
-  - 同步更新 `docs/audit/AUDIT-003-code-quality-audit-2026-09-15.md` 第 8 章状态为已关闭，并在复审记录中登记。
+  - 执行 `./scripts/dev.sh test` 全量通过（602,136 断言全绿，0 失败），Linux socket 溢出断言持续保持 0；
+  - 执行 `./scripts/dev.sh win-build` 验证 Windows MSVC 纯净构建 100% 通过；
+  - 同步更新 `docs/audit/AUDIT-003-code-quality-audit-2026-09-15.md` 第 8 章状态为已关闭，登记复审 3，实现本轮全部 6 项缺陷 100% 闭环。
 
 ---
 

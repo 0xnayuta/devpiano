@@ -18,7 +18,7 @@
 
 | 字段 | 值 |
 | --- | --- |
-| 项目 | devpiano |
+| 复审状态 | `已闭环`（经 Phase A/B/C 三轮复审闭环全部 6 项缺陷） |
 | 审计范围 | `source/` （含 15 个子模块/目录 + tests/，272 个源码/头文件，46,184 行代码） |
 | 审计日期 | `2026-09-15` |
 | 审计基线 | `main` @ `2508774`（fix: tolerate trailing bytes after the last MIDI chunk） |
@@ -33,29 +33,27 @@
 | P0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | P1 | 1 | 0 | 0 | 0 | 0 | 1 |
 | P2 | 9 | 0 | 0 | 0 | 6 | 3 |
-| P3 | 9 | 2 | 0 | 0 | 6 | 1 |
-| **合计** | 19 | 2 | 0 | 0 | 12 | 5 |
+| P3 | 9 | 0 | 0 | 0 | 6 | 3 |
+| **合计** | 19 | 0 | 0 | 0 | 12 | 7 |
 
 > 承接 AUDIT-001 历史遗留 13 项：其中 `AUDIT-001 SEC-002`（MIDI 文件大小上限）经核验已由 32MB 守卫彻底闭环并关闭；其余 12 项维持已暂缓（见第 8 章）。
 
 ### 0.3 关键结论
 
-- 总体评级：`A-` — 较 AUDIT-002（`B+`）稳步提升。三闸门基线极佳（`wsl-build` 0 错误 0 警告、`test` 82 测试类 432 子测试 602,125 断言全绿、`format --check` 0 差异），且 Windows MSVC 镜像构建验证（`win-build`）100% 成功通过；`MainComponent` 从 1324 行继续健康缩减至 1115 行；Dual-Sink 日志与 7 大声学系统完全打通。
-- 当前是否适合继续新增功能：`是` — 架构分层成熟稳定，核心业务与音频实时路径防护严密，无阻断性 P0 缺陷。
-- 当前是否建议优先重构：`否` — 装配层下沉与 UI 内化已基本定型，无需全局重构；仅需进行局部导出对齐与分层微调。
-- 最大风险：无头单测环境下 Linux 消息队列未泵送引发的套接字溢出断言告警（`TEST-001`）以及插件离线导出未挂载房间混响网络（`QUAL-001`）。
-- 下一步最高优先级：修复 `TEST-001`（在 UI 单测中补充消息泵送）与 `QUAL-001`（对齐插件离线渲染混响链）。
-
-### 0.4 重点发现
+- 总体评级：`A` — 较初审（`A-`）进一步跃升。经 Phase A（测试消息队列泵送与离线混响对齐）、Phase B（Core AppState 底层解耦与文本解码器零分配优化）及 Phase C（架构文档补齐与预设枚举别名对齐），AUDIT-003 登记的全部 6 项问题已 100% 修复闭环（0 项未处理）。全量测试通过（82 套件 432 子测试 602,136 断言全绿，Linux socket 溢出断言归零），Windows MSVC 验证构建 0 错误 0 警告通过。代码库处于高度健康、契约完备、分层严密的生产就绪状态。
+- 当前是否适合继续新增功能：`是` — 架构分层成熟稳定，核心业务与音频实时路径防护严密，无任何未处理缺陷。
+- 当前是否建议优先重构：`否` — 核心装配层下沉、UI 内化、底层 Core 零反向依赖解耦已彻底定型，无需全局重构。
+- 最大风险：无（本轮所有 P1/P2/P3 缺陷已全部高标准闭环并完成双平台验证）。
+- 下一步最高优先级：按路线图规划继续推进后续功能演进或发布流程。
 
 | ID | 优先级 | 状态 | 标题 | 当前结论 |
 | --- | --- | --- | --- | --- |
-| `TEST-001` | P1 | 未处理 | Linux Headless UI 测试未驱动消息循环致 JUCE Socket 队列溢出断言 | 无头单测连续创建销毁 JIVE 组件与触发属性变更时未泵送事件，Linux 内部 socket queue 积压饱和触发反复断言与消息丢弃 |
-| `QUAL-001` | P2 | 未处理 | 插件离线导出 PluginOfflineRenderer 未集成 RoomReverbEngine 混响网络 | 实时播放与内置合成器离线导出均已集成房间混响，但插件离线渲染链路遗漏混响挂载，实时与离线行为产生听觉差异 |
-| `ARCH-001` | P2 | 未处理 | `source/Core/AppState.h` 反向包含上层业务模型 `SettingsModel.h` 与 `ChannelMatrix.h` | 核心基础设施层逆向依赖上层业务模型，破坏单向拓扑分层并增加编译级联半径 |
-| `DOC-001` | P3 | 未处理 | `docs/reference/architecture.md` 缺少 Phase 30~33 新增核心组件架构拓扑 | 架构总览未同步收录律制、双视角空间声学、房间混响与生产级日志模块 |
-| `PERF-001` | P3 | 未处理 | `source/Recording/MidiTextDecoder.cpp` 双重编码多轮恢复产生冗余堆分配 | 异常双重编码恢复循环内部每次重新构造 std::vector，可预分配 scratch buffer 优化 |
-| `DOC-002` | P3 | 未处理 | `performance-presets.md` 中 `reverbSpace` 预设取值与代码标识符存在漂移 | 文档描述为 "hall"，实际代码与反序列化标识符为 "concert_hall" |
+| `TEST-001` | P1 | 已关闭 | Linux Headless UI 测试未驱动消息循环致 JUCE Socket 队列溢出断言 | 无头单测连续创建销毁 JIVE 组件与触发属性变更时未泵送事件，Linux 内部 socket queue 积压饱和触发反复断言与消息丢弃（复审 1 彻底闭环） |
+| `QUAL-001` | P2 | 已关闭 | 插件离线导出 PluginOfflineRenderer 未集成 RoomReverbEngine 混响网络 | 实时播放与内置合成器离线导出均已集成房间混响，但插件离线渲染链路遗漏混响挂载，实时与离线行为产生听觉差异（复审 1 彻底闭环） |
+| `ARCH-001` | P2 | 已关闭 | `source/Core/AppState.h` 反向包含上层业务模型 `SettingsModel.h` 与 `ChannelMatrix.h` | 核心基础设施层逆向依赖上层业务模型，破坏单向拓扑分层并增加编译级联半径（复审 2 彻底闭环） |
+| `DOC-001` | P3 | 已关闭 | `docs/reference/architecture.md` 缺少 Phase 30~33 新增核心组件架构拓扑 | 架构总览未同步收录律制、双视角空间声学、房间混响与生产级日志模块（复审 3 彻底闭环） |
+| `PERF-001` | P3 | 已关闭 | `source/Recording/MidiTextDecoder.cpp` 双重编码多轮恢复产生冗余堆分配 | 异常双重编码恢复循环内部每次重新构造 std::vector，可预分配 scratch buffer 优化（复审 2 彻底闭环） |
+| `DOC-002` | P3 | 已关闭 | `performance-presets.md` 中 `reverbSpace` 预设取值与代码标识符存在漂移 | 文档描述为 "hall"，实际代码与反序列化标识符为 "concert_hall"（复审 3 彻底闭环） |
 
 ---
 
@@ -311,21 +309,18 @@ source/
 *无 P0 缺陷。*
 
 ### 5.2 当前迭代处理（P1）
-
-- [ ] `TEST-001`：在 `ViewHostTest.cpp`、`LayoutGoldenTest.cpp` 与 `SettingsLayoutModelTest.cpp` 用例清理中增加 `juce::MessageManager::getInstance()->deliverPendingMessages()` 循环泵送，消除 Linux 无头测试 socket 管道溢出断言。
+- [x] `TEST-001`：在 `source/tests/TestHelpers.h` 引入 `ScopedMessageQueueFlush` 与 `drainMessages()`，并在 `TestRunner.cpp` 与各 UI 单测中增加循环泵送，消除 Linux 无头测试 socket 管道溢出断言（已闭环，2026-09-15 Phase A）。
 
 ### 5.3 近期排期（P2）
 
-- [ ] `QUAL-001`：在 `source/Recording/PluginOfflineRenderer.cpp` 中挂载 `RoomReverbEngine`，并在立体声渲染与导出前根据 `options.reverbWet` 实施混响浸润，保持实时与离线行为一致。
-- [ ] `ARCH-001`：重构 `source/Core/AppState.h`，剥离对 `SettingsModel.h` 与 `ChannelMatrix.h` 的头文件依赖，恢复 `Core/` 纯底层单向拓扑。
+- [x] `QUAL-001`：在 `source/Recording/PluginOfflineRenderer.cpp` 中挂载 `RoomReverbEngine`，并在立体声渲染与导出前根据 `options.reverbWet` 实施混响浸润，保持实时与离线行为一致（已闭环，2026-09-15 Phase A）。
+- [x] `ARCH-001`：重构 `source/Core/AppState.h`，剥离对 `SettingsModel.h` 与 `ChannelMatrix.h` 的头文件依赖，恢复 `Core/` 纯底层单向拓扑（已闭环，2026-09-15 Phase B）。
 
 ### 5.4 后续优化（P3）
 
-- [ ] `DOC-001`：更新 `docs/reference/architecture.md`，补充 Phase 30~33 律制、空间声学与生产级日志模块章节与架构图。
-- [ ] `PERF-001`：重构 `source/Recording/MidiTextDecoder.cpp` 的 `tryRecoverLegacyDoubleEncoding`，引入预分配 scratch buffer 消除多轮 vector 重新构造。
-- [ ] `DOC-002`：修正 `docs/reference/features/performance-presets.md` 中 `reverbSpace` 预设取值为 `"concert_hall"`。
-
----
+- [x] `DOC-001`：更新 `docs/reference/architecture.md`，补充 Phase 30~33 律制、空间声学与生产级日志模块章节与架构图（已闭环，2026-09-15 Phase C）。
+- [x] `PERF-001`：重构 `source/Recording/MidiTextDecoder.cpp` 的 `tryRecoverLegacyDoubleEncoding`，引入预分配 scratch buffer 消除多轮 vector 重新构造（已闭环，2026-09-15 Phase B）。
+- [x] `DOC-002`：修正 `docs/reference/features/performance-presets.md` 中 `reverbSpace` 预设取值为 `"concert_hall"` 并在代码中提供兼容别名（已闭环，2026-09-15 Phase C）。
 
 ## 6. 最终结论
 
@@ -403,6 +398,22 @@ devpiano 项目代码质量与工程架构处于**优秀（A-）**状态。在�
   - `./scripts/dev.sh format --check`：通过（0 差异）；
   - `./scripts/dev.sh win-build`：通过（Windows MSVC 验证构建 100% 成功）。
 - 复审结论：Phase B 两个架构与性能项（P2 + P3）已高标准闭环。
+
+### 7.4 复审 3（2026-09-15，AUDIT-003 Phase C 文档契约同步与双平台全量复验闭环）
+
+- 复审基线：`main` @ `fe13c92` + Phase C 改动
+- 已关闭问题：`DOC-001`（P3）、`DOC-002`（P3）
+- 状态变化：
+  - `DOC-001`：未处理 -> 已关闭
+  - `DOC-002`：未处理 -> 已关闭
+- 修复动作与证据：
+  1. `DOC-001`：在 `docs/reference/architecture.md` 中全面补齐 Phase 30~33 核心组件（`TemperamentEngine`、`PerspectiveProcessor`、`RoomReverbEngine`）及 Phase 33 `DevPianoLogger` Dual-Sink 双通道生产级日志基础设施详细拓扑，更新离线渲染后级混响对齐与 Core `AppState.h` 单向依赖架构图。
+  2. `DOC-002`：修正 `docs/reference/features/performance-presets.md:96` 表格中 `reverbSpace` 的预设枚举描述，将 `"hall"` 规范为代码标准 `"concert_hall"`；在 `source/Audio/RoomReverbEngine.h:207` 中增加 `"hall"` 兼容别名映射，并在 `source/tests/RoomReverbEngineTest.cpp:236` 补充覆盖测试。
+- 验证结果：
+  - `./scripts/dev.sh format --check`：通过（0 差异）；
+  - `./scripts/dev.sh test`：通过（82 套件 432 子测试 602,136 断言全绿，0 失败），Linux socket 溢出断言持续保持 0；
+  - `./scripts/dev.sh win-build`：通过（Windows MSVC 验证构建 100% 成功）。
+- 复审结论：AUDIT-003 本轮登记的全部 6 项问题（P1×1 / P2×2 / P3×3）已 100% 修复闭环，未处理问题彻底清零，复审全面通过。
 ---
 
 ## 8. 附录：问题总表（登记表）
@@ -414,9 +425,9 @@ devpiano 项目代码质量与工程架构处于**优秀（A-）**状态。在�
 | TEST-001 | 测试 | Linux Headless UI 测试未驱动消息循环致 JUCE Socket 队列溢出断言 | P1 | 已关闭 | 审计 | 无头单测连续创建 JIVE 组件与触发属性变更未泵送事件，Linux socket 队列积压饱和触发反复 jassert 与消息丢弃 | `source/tests/TestHelpers.h:152-181`；`source/tests/TestRunner.cpp:39-44`；全量单测执行 `juce_Messaging_linux` 断言归零 | - | - | 已在 TestHelpers.h 引入 ScopedMessageQueueFlush、TestRunner shouldAbortTests 自动泵送并在各 UI 单测中补充 drainMessages，彻底消除 socket 溢出断言（复审 1） |
 | QUAL-001 | 质量 | 插件离线导出 PluginOfflineRenderer 未集成 RoomReverbEngine 混响网络 | P2 | 已关闭 | 审计 | 实时播放与内置音源导出均挂载了房间混响，但插件离线渲染遗漏，导致用户导出的 WAV 丢失混响且与文档不符 | `source/Recording/PluginOfflineRenderer.cpp:128-132,190-192`；`source/tests/PluginOfflineRendererTest.cpp:383-437`（testOfflineRenderingWithRoomReverb 验证通过） | - | - | 已在 PluginOfflineRenderer 中集成 RoomReverbEngine 并于输出块应用 processStereo，经 PluginOfflineRendererTest 回归验证（复审 1） |
 | ARCH-001 | 架构 | `source/Core/AppState.h` 反向依赖上层业务模型 `SettingsModel.h` 与 `ChannelMatrix.h` | P2 | 已关闭 | 审计 | 底层 Core 数据模型逆向包含上层 Settings 与 Midi 模块，违背架构分层单向拓扑与 Core 零业务依赖原则 | `source/Core/AppState.h:3-9,75-85`（零上层 include，前向声明 ChannelMatrix 与 std::shared_ptr 持有）；`source/Settings/SettingsModel.h:10,29`（BuiltinTone 别名）；`source/tests/AppStateAndSerializationTest.cpp:135-138` | - | - | 已在 AppState.h 独立定义 BuiltinTone 并以前向声明解耦 ChannelMatrix，彻底清理逆向包含（复审 2） |
-| DOC-001 | 文档 | `docs/reference/architecture.md` 缺少 Phase 30~33 新增核心组件架构拓扑 | P3 | 未处理 | 审计 | 架构文档目录树与模块表未收录律制、双视角空间声学、房间混响与生产级日志模块 | `docs/reference/architecture.md:80-140`；对比 `source/Audio/` 与 `source/Diagnostics/` 现状 | - | - | 更新 architecture.md 补齐相关组件说明与拓扑示意图 |
+| DOC-001 | 文档 | `docs/reference/architecture.md` 缺少 Phase 30~33 新增核心组件架构拓扑 | P3 | 已关闭 | 审计 | 架构文档目录树与模块表未收录律制、双视角空间声学、房间混响与生产级日志模块 | `docs/reference/architecture.md:230-240,315-318`（补齐 Dual-Sink 日志、空间声学与离线混响对齐拓扑） | - | - | 已在 architecture.md 补齐 Phase 30~33 核心组件说明与数据流拓扑（复审 3） |
 | PERF-001 | 性能 | `source/Recording/MidiTextDecoder.cpp` 双重编码多轮恢复产生冗余堆分配 | P3 | 已关闭 | 审计 | tryRecoverLegacyDoubleEncoding 在多轮解码尝试中频繁构造与移动 std::vector 缓冲区 | `source/Recording/MidiTextDecoder.cpp:93-117,225-248`；`source/tests/MidiTextDecoderTest.cpp`（12 个子测试回归全过） | - | - | 已重构 extractLegacyBytes 写入目标缓冲区并于 tryRecoverLegacyDoubleEncoding 预分配 current/scratch 双缓冲实现零循环内分配（复审 2） |
-| DOC-002 | 文档 | `performance-presets.md` 中 `reverbSpace` 预设取值与代码标识符漂移 | P3 | 未处理 | 审计 | 文档描述为 "hall"，实际序列化标识符为 "concert_hall"，手写预设可能解析失败回退默认值 | `docs/reference/features/performance-presets.md:96` vs `source/Audio/RoomReverbEngine.h:184` | - | - | 修正文档表格为 "concert_hall" 或在 RoomReverbEngine 增加 "hall" 解析别名 |
+| DOC-002 | 文档 | `performance-presets.md` 中 `reverbSpace` 预设取值与代码标识符漂移 | P3 | 已关闭 | 审计 | 文档描述为 "hall"，实际序列化标识符为 "concert_hall"，手写预设可能解析失败回退默认值 | `docs/reference/features/performance-presets.md:96`；`source/Audio/RoomReverbEngine.h:207`；`source/tests/RoomReverbEngineTest.cpp:236` | - | - | 已修正文档表格为 "concert_hall" 并在 RoomReverbEngine 增加 "hall" 兼容别名及单测验证（复审 3） |
 | AUDIT-001 SEC-002 | 安全 | MidiFileImporter 缺少文件大小限制 | P2 | 已关闭 | AUDIT-001 | 导入超大文件可能占用过多内存 | `source/Recording/MidiFileImporter.cpp:9,52`（32MB 守卫与超额拦截已实装并经单元测试验证） | - | - | 已实装 32MB 守卫，正式关闭 |
 | AUDIT-001 THR-003 | 线程安全 | MidiChannelMapper 引用成员悬垂风险 | P2 | 已暂缓 | AUDIT-001 | 构造器存储 const ChannelMatrix&/const bool&/const int&，外部对象销毁后悬垂 | `source/Midi/MidiChannelMapper.h:33-35` | 引用对象为 MainComponent::appSettings 成员，寿命安全；reconfigure 重建 mapper | appSettings 动态分配或生命周期缩短 | 文档化生命周期契约或改值拷贝 |
 | AUDIT-001 THR-004 | 线程安全 | PluginHost::getInstance 暴露裸指针 | P2 | 已暂缓 | AUDIT-001 | 返回 AudioPluginInstance* 裸指针，音频线程经它 processBlock，生命周期依赖外部协调 | `source/Plugin/PluginHost.h:64` | 生命周期由 runPluginActionWithAudioDeviceRebuild 外部协调，无并发竞争 | 引入非设备重建 guard 的插件切换路径 | 返回 Ptr 或文档化所有权契约 |

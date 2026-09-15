@@ -93,7 +93,7 @@
 | `temperament` | string | `"equal"`, `"meantone"`, `"werckmeister3"`, `"kirnberger3"`, `"just"` | 古典微调律制选择 |
 | `referencePitchA4` | double | 400.0 ~ 480.0 Hz（默认 440.0） | A4 基准基频换算 |
 | `soundPerspective` | string | `"player"` (演奏者) / `"audience"` (听众) | 立体声空间声像展开视角 |
-| `reverbSpace` | string | `"chamber"` (室内乐) / `"hall"` (音乐厅) / `"studio"` (录音棚) | 房间混响网络预设空间 |
+| `reverbSpace` | string | `"chamber"` (室内乐) / `"concert_hall"` (音乐厅，兼容别名 `"hall"`) / `"studio"` (录音棚) | 房间混响网络预设空间 |
 | `reverbWet` | float | 0.0 ~ 1.0（默认 0.0） | 房间混响干湿混合比 |
 | `pedalNoiseLevel` | float | 0.0 ~ 1.0（默认 0.6） | 延音踏板扫掠呼啸与共鸣冲击机械动作音量 |
 | `feltAgeingAmount` | float | 0.0 ~ 1.0（默认 0.0） | 琴槌羊毛纤维磨损压实老化深度 |

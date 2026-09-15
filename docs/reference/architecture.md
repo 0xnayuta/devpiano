@@ -227,9 +227,16 @@ source/
 ### 3.11 Diagnostics & Core
 
 - **`source/Diagnostics/Log.h`**：统一日志宏（`DP_LOG_INFO/WARN/ERROR`、`DP_DEBUG_LOG`、`DP_TRACE_MIDI`），在 Release 构建下零副作用。
-- **`source/Diagnostics/DevPianoLogger.h/.cpp`**：`juce::Logger` 实现，Windows 路由至 `OutputDebugString`，Linux 路由至 `stderr`。
+- **`source/Diagnostics/DevPianoLogger.h/.cpp`**：**生产级 Dual-Sink 统一日志基础设施（Phase 33）**：
+  - **文件持久化 Sink**：基于 `juce::FileLogger` 实现生产级落盘，写入系统标准 AppData 日志目录（Windows: `%APPDATA%\devpiano\devpiano.log`；Linux: `~/.config/devpiano/devpiano.log`），内置 512 KB 自动滚动限额，杜绝磁盘无限制膨胀；
+  - **调试器 Sink**：平台输出重定向（Windows 路由至 `OutputDebugString`，Linux 路由至 `stderr`）；
+  - **UI 诊断集成**：在设置面板诊断卡片动态展示当前日志物理路径，并提供“打开日志目录”（`openLogFolder`）原生交互；
+  - **安全生命周期**：应用启动时注册为全局日志器（`juce::Logger::setCurrentLogger`），正常退出时安全重置并解除挂载。
 - **`source/Diagnostics/MidiTrace.h/.cpp`**：MIDI 消息人类可读字符串格式化。
-- **`source/Core/`**：`AppState.h`（全应用快照）、`KeyMapTypes.h`（键位模型）、`MidiTypes.h`（轻量强类型）。
+- **`source/Core/`**：
+  - **`AppState.h`**：全应用运行时聚合快照视图，严格保持单向依赖与纯业务基础类型（零上层业务包含，前向声明 `ChannelMatrix` 并以 `std::shared_ptr` 管理快照，就地定义 `BuiltinTone` 枚举）；
+  - **`KeyMapTypes.h`**：88 键虚拟映射基础模型；
+  - **`MidiTypes.h`**：轻量级强类型封装。
 
 ---
 
@@ -307,6 +314,7 @@ JUCE AudioDeviceManager ──► [音频硬件输出]
     ├── 发声渲染:
     │    ├── [有插件] ──► PluginOfflineRenderer (独立离线实例非实时渲染)
     │    └── [无插件] ──► fallback synth (离线 PianoSynthVoice 模态渲染)
+    ├── RoomReverbEngine (后级算法立体声房间混响网络对齐，保证与实时声学一致)
     └── 写入 WAV 文件 ──► 导出完成自动关闭弹窗 / 取消时清理残留文件
 ```
 
