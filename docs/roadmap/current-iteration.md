@@ -5,97 +5,114 @@
 
 ## 当前方向
 
-**AUDIT-003：全面代码质量审计缺陷消除与架构对齐 (Code Quality Remediation & Architecture Alignment) [进行中，2026-09-15 ~]**
+**Phase 34：键盘演奏交互质变与演奏表现力增强 (Keyboard Performance UX & Expressive Control) [进行中，2026-09-15 ~]**
 
-*(注：Phase 33 可观测性加固与生产级诊断基础设施于 2026-09-14 全部完成并归档，包含 DevPianoLogger Dual-Sink 双通道落盘与调试器输出、设置界面一键直达系统日志文件夹、全量 MidiTrace 单测与编码字符清理。详细完成记录见 [`../archive/phase33-observability-and-diagnostics-infrastructure.md`](../archive/phase33-observability-and-diagnostics-infrastructure.md)。)*
+*(注：AUDIT-003 全面代码质量审计修复于 2026-09-15 全部完成并归档，包含 Linux 无头单测 socket 溢出消除、PluginOfflineRenderer 挂载房间混响对齐、Core/AppState 纯数据单向解耦、MidiTextDecoder 双重编码预分配优化及双平台全量回归。详细完成记录见 [`../archive/audit-003-code-quality-fix-phases.md`](../archive/audit-003-code-quality-fix-phases.md)。)*
 
-在 2026-09-15 触发的全面代码质量审计（[`docs/audit/AUDIT-003-code-quality-audit-2026-09-15.md`](../audit/AUDIT-003-code-quality-audit-2026-09-15.md)）中，devpiano 项目获得了 **`A-`** 评级。基线极佳（三闸门全绿、60.2 万断言 100% 通过、Windows MSVC 验证构建 0 错误 0 警告通过）。
-根据审计第 8 章登记表与第 5 章修复路线图，本轮专项迭代旨在针对 AUDIT-003 登记的全部 6 项未处理问题（P1×1 / P2×2 / P3×3）开展集中治理，彻底清零未处理缺陷，达成质量全面闭环。
+在 AUDIT-003 完成后，devpiano 的工程基座（60.2 万断言全绿、三闸门合规、Windows MSVC 验证 0 错误 0 警告）已完全夯实。
+基于近期对经典项目 FreePiano 及现代开源架构生态（JUCE AudioPluginHost, Kushview Element, Surge XT, Helio, VMPK, Pianoteq）的深度调研与架构裁定，devpiano 正式确立了**“专用钢琴演奏宿主（Dedicated Piano Performance Host）而非通用 DAW”**的系统定位。
+本轮迭代聚焦于电脑键盘演奏人机交互的痛点消除与演奏表现力跃升，实施 5 个阶段的阶梯式落地。
 
 ---
 
 ## 核心边界与铁律约束 (Boundaries & Iron Rules)
 
-在实施 AUDIT-003 修复的全过程中，必须无条件遵守以下核心边界与铁律：
+本轮迭代全过程必须无条件遵守以下核心边界与工程铁律：
 
-1. **铁律 1（实时音频线程无锁与零分配契约）**：
-   - 在 `PluginOfflineRenderer` 中挂载 `RoomReverbEngine` 时，必须在离线渲染准备期（`prepare(options.sampleRate)`）预分配所有梳状/全通延迟缓冲区；
-   - 块渲染音频循环内严格遵循零堆内存分配（No allocation in block rendering loop）。
-2. **铁律 2（底层 Core 纯数据单向依赖与零外部业务依赖原则）**：
-   - 重构 `source/Core/AppState.h` 时，严格剥离其对上层业务模型 `SettingsModel.h` 与 `ChannelMatrix.h` 的反向包含；
-   - 确保 `Core/` 保持最底层纯净，只定义纯数据结构，绝不反向包含 `Settings/`、`Midi/`、`Audio/` 或 `UI/` 代码。
-3. **铁律 3（UI 基础设施接口冻结与消息循环安全）**：
-   - 修复无头单测中的 Linux socket 溢出告警（`TEST-001`）时，通过 `juce::MessageManager::getInstance()->deliverPendingMessages()` 在单测用例析构/清理时主动泵送并清空事件队列；
-   - 严禁侵入修改 JIVE 内化核心源码，严格遵守 Phase 28 UI Infrastructure Freeze 接口冻结公约。
-4. **铁律 4（字符编码与严格 7-bit ASCII）**：
-   - 严禁在 C++ 源码（`.cpp` / `.h`，包括单元测试）中书写裸多字节非 ASCII 字符；
-   - 特殊符号使用 Unicode 转义或十六进制，UI 文本通过 `TRANS()` 外部化维护。
-5. **铁律 5（严格三闸门基线与双平台 MSVC 验证）**：
-   - 代码格式合规：`./scripts/dev.sh format --check` 100% 通过；
-   - 单元测试全覆盖：`./scripts/dev.sh test` 60.2 万断言 100% 绿灯；
-   - 静态分析零警告：`./scripts/dev.sh tidy` 0 错误 0 警告；
-   - Windows MSVC 验证：`./scripts/dev.sh win-build` 100% 编译链接通过。
-
----
-
-## 阶段规划详案 (AUDIT-003 Fix Phases)
-
-### AUDIT-003 Phase A：测试消息循环与离线混响对齐 (Test Event Loop & Offline Reverb Parity) [P1 / P2]
-
-> 目标：消除 Linux 无头单测消息套接字溢出断言告警，对齐插件离线导出与实时演奏的房间混响行为。
-- [x] **Phase A-1：Linux Headless 单测事件循环泵送与断言消除 (`TEST-001`, P1)** [已完成，2026-09-15]：
-  - 在 `source/tests/TestHelpers.h` 引入 `ScopedMessageQueueFlush` 与 `drainMessages()` 辅助函数；
-  - 在 `source/tests/TestRunner.cpp` 重写 `shouldAbortTests()` 在每个测试套件前自动执行 1ms 事件循环泵送；
-  - 在 `SettingsLayoutModelTest.cpp`、`LayoutGoldenTest.cpp`、`PathEditorReproTest.cpp` 与 `StyleCatalogTest.cpp` 中精准补充 `drainMessages()`；
-  - 彻底清空 Linux 内部 `InternalMessageQueue` 套接字管道，`juce_Messaging_linux.cpp:87` 断言告警从 514 处彻底归零。
-- [x] **Phase A-2：PluginOfflineRenderer 挂载 RoomReverbEngine 混响网络 (`QUAL-001`, P2)** [已完成，2026-09-15]：
-  - 在 `source/Recording/PluginOfflineRenderer.cpp` 中引入 `devpiano::audio::RoomReverbEngine` 实例；
-  - 在离线准备期调用 `roomReverb.prepare(options.sampleRate)`、`roomReverb.setSpace(options.reverbSpace)` 与 `roomReverb.setWetLevel(options.reverbWet)`；
-  - 在块渲染循环处理完插件 `processBlock` 与通道下混后，当 `options.numChannels >= 2 && options.reverbWet > 1e-4f` 时，在应用增益与软限幅之前执行 `roomReverb.processStereo(...)`；
-  - 使 VST3 插件离线导出与内置音源离线导出（`WavFileExporter.cpp:146`）及实时主总线（`AudioEngine.cpp:144-150`）听感与行为 100% 对齐，满足 `docs/reference/features/plugin-offline-rendering.md:78` 契约。
-- [x] **Phase A-3：离线混响导出单测与回归验证** [已完成，2026-09-15]：
-  - 在 `source/tests/PluginOfflineRendererTest.cpp` 中新增 `testOfflineRenderingWithRoomReverb` 测试用例，断言干音与湿音导出差异及混响尾音扩散能量；
-  - 全量运行 `./scripts/dev.sh test`（602,130 断言全绿），验证双平台 MSVC 构建成功。
----
-
-### AUDIT-003 Phase B：底层架构解耦与解码性能微调 (Core Decoupling & Decoder Optimization) [P2 / P3]
-
-> 目标：恢复 Core 基础设施纯数据模型的单向拓扑结构，微调 MIDI 文本双重编码多轮恢复缓冲区分配。
-
-- [x] **Phase B-1：`source/Core/AppState.h` 依赖解耦与单向拓扑恢复 (`ARCH-001`, P2)** [已完成，2026-09-15]：
-  - 在 `source/Core/AppState.h` 中独立定义 `BuiltinTone` 枚举，并在 `SettingsModel.h` 中建立 `using BuiltinTone` 别名映射；
-  - 移除对 `Settings/SettingsModel.h` 与 `Midi/ChannelMatrix.h` 的反向包含，通过前向声明 `devpiano::midi::ChannelMatrix` 与 `std::shared_ptr` 持有快照；
-  - 彻底消除 `Core/` 向上包含上层模块头文件的反向分层破坏，恢复 `Core/` 纯业务数据类型的单向拓扑。
-- [x] **Phase B-2：`MidiTextDecoder.cpp` 预分配 scratch buffer 消除重复堆分配 (`PERF-001`, P3)** [已完成，2026-09-15]：
-  - 重构 `source/Recording/MidiTextDecoder.cpp` 中的 `extractLegacyBytes` 接受外部目标缓冲区并返回状态；
-  - 在 `tryRecoverLegacyDoubleEncoding` 预分配 `current` 与 `scratch` 双缓冲区，多轮恢复中通过 `std::swap` 复用内存；
-  - 消除异常双重编码文本恢复循环内的重复堆内存分配与释放。
-- [x] **Phase B-3：单向依赖与文本解码回归测试** [已完成，2026-09-15]：
-  - 在 `AppStateAndSerializationTest.cpp` 补齐 `midiChannelMatrix` 共享快照断言；
-  - 执行 `MidiTextDecoderTest`（12 个子测试）与全量单测（602,135 断言全绿），通过 Windows MSVC 纯净构建验证。
+1. **铁律 1（固定音频拓扑，坚决不向 DAW 蔓延）**：
+   - 音频拓扑严格限定为 `Performance Input -> Instrument -> Master -> Output` 单向管道；
+   - 严禁引入任何通用 Patchbay 节点网络、多轨 DAW 时间线或视频编解码录制栈。
+2. **铁律 2（发音身份恒定原则，绝对杜绝悬挂音）**：
+   - 键盘映射表切换或 Group 动态平移，绝不可破坏已发出的 NoteOn 事件；
+   - NoteOff 发送时必须 100% 使用 NoteOn 触发时锁定的发音身份（Pitch, Channel）快照。
+3. **铁律 3（修饰符瞬态原则，严禁污染持久化设置）**：
+   - `Press` 修饰键（Shift/Alt）仅作为事件流变换（Event-time Transformation）介入，动态计算 NoteOn 力度或音高，严禁突变底层持久化配置（Settings Mutation）。
+4. **铁律 4（确定性采样级踏板时序，杜绝物理时钟延迟）**：
+   - `Sync` 切分踏板基于音频块（Audio Block）内的**采样点偏移（Sample Offset）与严格事件排序**实现，严禁引入 `sleep` 或真实物理时钟延迟；
+   - 确保内置物理建模音源与宿主第三方 VST3 插件呈现完全一致的连奏听感。
+5. **铁律 5（QWERTY 视图单一事实源，作为 Performance Map 呈现）**：
+   - QWERTY Visualizer 必须直接单向消费 `KeyboardMidiMapper` 暴露的 ViewModel，严禁在 UI 侧自行维护或二次计算 MIDI 映射；
+   - 严格呈现为“按键-音符/唱名映射看板”，遵循 5 行功能网格规范，杜绝低价值的 3D 拟物键盘渲染与粒子特效。
+6. **铁律 6（实时音频线程无锁与零分配契约）**：
+   - 所有在音频回调路径中流转的状态（Group、踏板策略、修饰状态）必须保持原子性与预分配，遵守“Zero Lock / Zero Allocation in Audio Callback”铁律。
+7. **铁律 7（严格三闸门基线与双平台 MSVC 验证）**：
+   - 任何阶段变更后必须满足：`./scripts/dev.sh format --check` 全绿、`./scripts/dev.sh test` 全量断言通过、Windows MSVC 纯净构建验证通过。
 
 ---
 
-### AUDIT-003 Phase C：文档契约同步与双平台全量复验闭环 (Documentation Alignment & Full Verification) [P3]
+## 阶段规划详案 (Execution Roadmap)
 
-> 目标：对齐架构与预设规范文档，执行全量双平台验证，闭环 AUDIT-003 所有登记项。
+### Phase 34-A：QWERTY Visualizer（5 行 Performance Map 声明式卡片）[最优先]
 
-- [x] **Phase C-1：更新 `docs/reference/architecture.md` 补齐新增模块架构拓扑 (`DOC-001`, P3)** [已完成，2026-09-15]：
-  - 在 `docs/reference/architecture.md` 补齐 Phase 30~33 新增核心组件：`TemperamentEngine`、`PerspectiveProcessor`、`RoomReverbEngine` 与 `DevPianoLogger`（Dual-Sink 持久化日志）；
-  - 更新架构数据流与模块依赖拓扑说明（离线混响对齐与 AppState 单向拓扑）。
-- [x] **Phase C-2：修正 `performance-presets.md` 中 `reverbSpace` 预设枚举描述 (`DOC-002`, P3)** [已完成，2026-09-15]：
-  - 将 `docs/reference/features/performance-presets.md:96` 表格中的 `"hall"` 修正为实际序列化与代码匹配的 `"concert_hall"`；
-  - 在 `RoomReverbEngine::fromIdentifier` 增加对 `"hall"` 别名的兼容映射，并在 `RoomReverbEngineTest.cpp` 补充覆盖断言。
-- [x] **Phase C-3：双平台全量构建、三闸门回归与 AUDIT-003 终审关闭** [已完成，2026-09-15]：
-  - 执行 `./scripts/dev.sh format --check` 保证 0 差异；
-  - 执行 `./scripts/dev.sh test` 全量通过（602,136 断言全绿，0 失败），Linux socket 溢出断言持续保持 0；
-  - 执行 `./scripts/dev.sh win-build` 验证 Windows MSVC 纯净构建 100% 通过；
-  - 同步更新 `docs/audit/AUDIT-003-code-quality-audit-2026-09-15.md` 第 8 章状态为已关闭，登记复审 3，实现本轮全部 6 项缺陷 100% 闭环。
+> 目标：在主界面新增自适应、可折叠的 5 行电脑键盘物理映射卡片，彻底消灭初学者“电脑按键与钢琴琴键对应”的盲弹认知成本。
 
+- [ ] **Phase 34-A-1：设计并实现 QWERTY ViewModel 接口与映射快照**：
+  - 在 `source/UI/` 或 `source/Core/` 定义只读 `QwertyKeyVisualState`（物理 KeyCode、显示字符、当前映射 MIDI 音高、当前调号下的音名/唱名、当前按下状态）；
+  - `KeyboardMidiMapper` 增加只读快照生成方法，与当前 `KeyboardLayout` 及 `keySignature` 保持单一事实源同步。
+- [ ] **Phase 34-A-2：在 JIVE 声明式 UI 体系中构建 5 行 QWERTY 键盘网格卡片**：
+  - 依照标准 5 行物理键位排布构建自适应网格（Row 0: 数字行, Row 1: QWERTY 行, Row 2: ASDF 行, Row 3: ZXCV 行, Row 4: 功能修饰与 Space 踏板区）；
+  - 卡片集成进 `source/UI/jive/LayoutModel.cpp`，支持一键折叠/展开并记住展开状态；
+  - 键位上方清晰展示物理按键标签，下方展示动态音名或简谱唱名（随调号实时切换）。
+- [ ] **Phase 34-A-3：双向交互与余晖联动动画**：
+  - 物理键盘按下时，QWERTY 视觉方块与 88 键虚拟钢琴键盘同频高亮下沉，并在松开后呈现平滑余晖淡出；
+  - 编写 UI 渲染黄金测试与无头事件触发测试，验证 0 回归。
 ---
+
+### Phase 34-B：Layout Group 轻量多键组与 HeldKey Identity 状态快照机制
+
+> 目标：实现单 Preset 内 2~4 个轻量键位分组（Group）的毫秒级即时切换，同时以发音身份快照彻底封死悬挂音隐患。
+
+- [ ] **Phase 34-B-1：引入 `KeyGroup` 数据模型与快照存储**：
+  - 在 `source/Core/KeyMapTypes.h` 中引入 `struct KeyGroup { int8_t transposeOffset; int8_t octaveShift; uint8_t channel; };`；
+  - `KeyboardLayout` 支持 `std::array<KeyGroup, 4>` 极简分组，不侵入其他全局预设属性。
+- [ ] **Phase 34-B-2：重构 `HeldKeyTracker` 落实发音身份快照（Note-off Identity Preservation）**：
+  - 按键按下（NoteOn）时，记录该键专属发音快照 `{ physicalKeyCode, soundingMidiNote, soundingMidiChannel }`；
+  - 按键松开（NoteOff）时，100% 依据按下时记录的快照信息注销，与当前处于哪个 Group 完全解耦；
+  - 支持快捷键（如 `Tab` 或功能键）在 Group 之间瞬时无缝切换。
+- [ ] **Phase 34-B-3：Group 动态切换与防悬挂确定性测试集**：
+  - 编写专项测试：按住按键 A -> 切换 Group -> 松开按键 A，断言 NoteOff 准确对应先前的发声音高与通道，无任何悬挂音残留。
+---
+
+### Phase 34-C：SustainPolicy 与 Sample-Accurate 事件级 Sync 切分踏板
+
+> 目标：引入钢琴演奏学中的“切分踏板（Legato / Sync Pedal）”机制，消除空格键踩放时的断音空洞。
+
+- [ ] **Phase 34-C-1：定义 `SustainPolicy` 状态模型**：
+  - 定义枚举 `SustainPolicy { normal, syncPedal }`；
+  - 在 `KeyboardMidiMapper` 中增加可配置的踏板策略选择，支持通过设置或 UI 切换。
+- [ ] **Phase 34-C-2：实现音频块内的采样精确切分踏板时序**：
+  - 当处于 `syncPedal` 且挂起切断时，松开踏板不立即释放；
+  - 在下一个 NoteOn 到达时，在相同的 `sampleOffset` 处，严格按顺序生成事件：
+    $$\text{CC64}(0) \longrightarrow \text{NoteOn}(\text{newNote}) \longrightarrow \text{CC64}(127)$$
+  - 坚决杜绝任何物理线程 sleep，确保采样级精度与确定性。
+- [ ] **Phase 34-C-3：踏板时序与连奏听感确定性测试**：
+  - 编写 MIDI 事件时序测试，断言切分模式下 CC64 与 NoteOn 的严格相对偏移。
+
+### Phase 34-D：PerformanceModifierState 瞬态 Press 修饰符（事件流变换）
+
+> 目标：支持修饰键（如 Shift / Alt）按住期间的瞬态力度拉满或移调变换，松开后自动回弹基线。
+
+- [ ] **Phase 34-D-1：设计 `PerformanceModifierState` 事件变换管道**：
+  - 建立纯瞬态数据结构，包括当前激活的力度放大系数、临时八度偏移等；
+  - 严格限定为事件变换（Event Transformation），严禁突变持久化配置。
+- [ ] **Phase 34-D-2：修饰键集成与事件注入**：
+  - 捕获修饰键的按下与松开状态，平滑注入 `KeyboardMidiMapper` 处理链路；
+  - 编写状态恢复测试，验证松开修饰键后基线配置 100% 保持不变。
+
+### Phase 34-E：扫描器增量持久化（Crash-safe State Persistence）与乐器端点概念收敛
+
+> 目标：吸收官方 Host 与 Element 的生产级工程精髓，提升第三方插件容灾鲁棒性与乐器抽象纯净度。
+
+- [ ] **Phase 34-E-1：插件扫描器的增量持久化（Crash-safe Scanner Persistence）**：
+  - 在 `PluginHost` 的分批扫描中，每成功识别一个有效插件，立即增量持久化 `KnownPluginList`；
+  - 若遇劣质第三方插件引发崩溃，下次启动可安全跳过已知崩溃点，避免反复卡死。
+- [ ] **Phase 34-E-2：Seam-first 乐器端点（Instrument Endpoint）概念收敛**：
+  - 梳理 `AudioEngine`、`RecordingEngine` 与 `PluginOfflineRenderer` 的乐器调用契约；
+  - 在不破坏现有平稳运行的前提下，建立薄乐器端点概念层，消除重复的二元分支判断。
 
 ## 历史实现 Backlog
 
+- AUDIT-003 修复阶段归档（全面代码质量审计缺陷消除与架构对齐）：[`../archive/audit-003-code-quality-fix-phases.md`](../archive/audit-003-code-quality-fix-phases.md)
 - Phase 33 完成记录（可观测性加固与生产级诊断基础设施）：[`../archive/phase33-observability-and-diagnostics-infrastructure.md`](../archive/phase33-observability-and-diagnostics-infrastructure.md)
 - Phase 30 ~ 32 完成记录（古典调律、空间声学与微观机械拟真三部曲）：[`../archive/phase30-32-temperaments-spatial-mechanics.md`](../archive/phase30-32-temperaments-spatial-mechanics.md)
 - Phase 29 完成记录（现实物理演奏交互与声学控制）：[`../archive/phase29-physical-voicing-and-acoustic-interaction.md`](../archive/phase29-physical-voicing-and-acoustic-interaction.md)

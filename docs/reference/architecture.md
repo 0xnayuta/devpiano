@@ -5,19 +5,53 @@
 
 ---
 
-## 1. 项目定位与核心原则
+## 1. 项目定位与架构宪法
 
-`devpiano` 是一款以 JUCE 为框架、VST3 插件为核心音源、内置自主研发物理建模钢琴的现代 C++ 电脑键盘钢琴应用，聚焦软件键盘演奏与 MIDI 文件处理。
+`devpiano` 是一款以 JUCE 为框架、VST3 插件为核心扩展、内置自主研发全物理建模钢琴的现代 C++ 电脑键盘钢琴应用，聚焦软件键盘演奏与 MIDI 文件处理。
 
-### 核心架构原则
+### 1.1 核心架构定位
 
-1. **音频 / MIDI 后端**：统一使用 JUCE `AudioDeviceManager` 替代旧原生 WASAPI / ASIO / DirectSound 后端。
-2. **插件宿主**：使用 JUCE `AudioPluginFormatManager` / `AudioPluginInstance` 作为 VST3 插件宿主抽象，实现生命周期安全隔离。
-3. **内置自主物理建模音源**：以零外部采样依赖、纯 C++ 算法驱动、覆盖 7 大声学系统的**全物理建模钢琴（`PianoSynthVoice`）**作为默认发声来源，支持与正弦波（`SineSynthVoice`）平滑切换。
-4. **键盘演奏输入**：使用 JUCE `KeyListener` / `KeyPress` 捕获键盘事件，基于稳定 key code 经 `KeyboardMidiMapper` 转换为标准 MIDI 消息。
-5. **声明式 UI 与样式解耦**：全应用主界面、设置面板与交互弹窗全面统一至 **JIVE 声明式 UI 框架**（`juce::ValueTree` + JSON 样式表 + Flex/Grid 布局），消灭传统手写像素排版。
-6. **单一事实源与静态资产内嵌**：设计 Token（`design_tokens.json`）、JIVE 样式表（`style_sheets.json`）与中文语言包（`zh_CN.loc`）由 CMake `juce_add_binary_data` 构建期二进制静态内嵌，确保单文件绿色分发零外部文件依赖。
+> **devpiano is a dedicated piano performance host, not a general-purpose DAW.**  
+> devpiano 是一个以钢琴演奏与表现力为中心的专属乐器工作站宿主，而非全功能通用数字音频工作站（DAW），更不是简单的技术 Demo。
 
+### 1.2 十条架构宪法 (Architecture Principles)
+
+作为指导 devpiano 长期工程演进、功能扩展与重构的最高准则，所有代码、PR 与重构设计均须受以下十条原则约束：
+
+1. **固定拓扑原则 (Fixed Audio Topology)**：  
+   音频拓扑严格固定为 `Performance Input -> Instrument -> Master -> Output` 单向管道。绝不引入任意 Patchbay 节点连线图、多轨 DAW 时间线或复杂矩阵路由网络，拒绝通用化导致的复杂度爆炸。
+2. **乐器端点边界原则 (Instrument Endpoint Boundary)**：  
+   内置全物理建模钢琴（`PianoSynthVoice`）与宿主外部 VST3 乐器在领域模型上共享统一的乐器端点职责契约；JUCE 底层 `juce::AudioProcessor` 仅作为 VST3 适配器的内部实现细节，绝不反向污染宿主核心事件模型。
+3. **发音身份恒定原则 (Note-off Identity Preservation)**：  
+   键盘映射（Layout）、键位分组（Group）或移调状态的动态切换，绝不可破坏或篡改已发出的 NoteOn。任何 NoteOff 发送时，必须 100% 使用 NoteOn 触发时锁定的发音身份（Pitch, Channel）快照，从数学与状态机上绝对杜绝悬挂音。
+4. **修饰符瞬态原则 (Event Transformation Only)**：  
+   演奏修饰键（如 Shift / Alt 等瞬态 Press 控制）仅在事件流变换（Event-time Transformation）阶段即时计算 NoteOn 力度或音调，严禁突变底层持久化配置（Settings Mutation），彻底杜绝瞬态操作污染全局配置。
+5. **采样精度踏板时序原则 (Sample-Accurate Pedal Timing)**：  
+   延音与切分踏板（Sync Pedal）的平滑连奏语义，必须在音频块（Audio Block）内部基于**采样点偏移（Sample Offset）与严格事件次序**确定性调度，严禁使用线程 Sleep、定时间隔或物理时钟延迟。
+6. **视觉视图单一事实源 (Single Source of Truth)**：  
+   QWERTY 键盘映射卡片与虚拟钢琴键盘均为实时性能映射看板（Performance Map），直接单向消费 `KeyboardMidiMapper` 暴露的 ViewModel，严禁在 UI 层自行维护或二次计算 MIDI 映射。
+7. **零冗余基础设施原则 (Minimal Infrastructure)**：  
+   未获得明确的钢琴演奏产品需求之前，严禁引入通用图引擎、视频编解码录制栈或复杂多进程 IPC 体系。坚持“Seam-first”演进策略——先划定清晰边界，再按需平滑迁移。
+8. **轻量产品职责原则 (Focused Scope)**：  
+   不承担屏幕捕获、视频容器（MP4）与编解码兼容的产品维护包袱，专注于高确定性的本地音频合成、WAV 离线渲染与标准 Type 0/1 MIDI 导出。
+9. **实时音频无锁零分配铁律 (Realtime Safety)**：  
+   音频回调（Audio Callback）路径严格遵守零堆内存分配（Zero-allocation）、无锁（Lock-free）铁律，所有运行时状态交换一律基于预分配与原子/轻量快照。
+10. **离线实时执行同构原则 (Rendering Parity)**：  
+    离线渲染管线（Offline Renderer）与实时音频引擎（Realtime Engine）必须共享完全一致的乐器参数、空间混响与演奏事件执行语义。
+
+### 1.3 核心参考项目技术栈 (Reference Stack)
+
+在系统演进中，devpiano 遵循“吸收设计思想，不继承产品复杂度”的原则，收敛参考以下 6 大核心开源项目与 1 个产品标杆：
+
+| 参考项目 | 核心领域 | 吸收与借鉴点 | 坚决防范与边界 |
+|---|---|---|---|
+| **JUCE AudioPluginHost** | VST3 宿主基准 | 官方 VST3 插件生命周期、加载/卸载时序、崩溃安全扫描持久化（Crash-safe Scanner Persistence） | 防范过于原始的手写组件排版 |
+| **Kushview Element** | 乐器端点抽象 | 乐器端点与音频/MIDI 边界解耦、统一音频块处理模型 | 坚决不搬入其复杂的任意节点 Patchbay 连线图与通用总线 |
+| **Surge XT** | DSP 与 Voice 架构 | UI 与 DSP 参数解耦（Parameter Snapshot）、实时线程无锁平滑、Voice 分配与 MPE 思想 | 坚决不引入庞大复杂的合成器调制矩阵 |
+| **Helio Sequencer** | 音乐时间线模型 | 轻量清晰的 MIDI 音符与事件数据组织形式、优雅现代的无缝音乐交互 | 坚决不向完整 DAW 编曲工作流膨胀 |
+| **VMPK** | 物理键盘输入 | 物理按键扫描码（Raw Keycode）规范化、多国键盘物理布局与映射最佳实践 | 坚决不复制其繁杂的通用 MIDI 路由器数据模型 |
+| **FigBug/Piano** | 物理建模测试 | 针对物理声学模型的确定性离线回归测试、长时间压力测试框架 | 仅参考工程与测试体系，坚决不摇摆当前 Modal 物理模型路线 |
+| **Modartt Pianoteq** *(产品标杆)* | 产品形态与体验 | 全物理建模钢琴声学分区（琴盖、琴槌硬度曲线、共振峰、琴体漫射）、踏板联动、轻量绿色分发 | 商业产品，仅作为产品行为与听感终极对标物 |
 ---
 
 ## 2. 顶层目录职责

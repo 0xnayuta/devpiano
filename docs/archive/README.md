@@ -37,3 +37,4 @@
 | `phase29-physical-voicing-and-acoustic-interaction.md` | `docs/roadmap/roadmap.md`（Phase 29 摘要）、`docs/reference/features/builtin-piano-synthesis.md` |
 | `phase30-32-temperaments-spatial-mechanics.md` | `docs/roadmap/roadmap.md`（Phase 30-32 摘要）、`docs/reference/features/builtin-piano-synthesis.md` |
 | `phase33-observability-and-diagnostics-infrastructure.md` | `docs/roadmap/roadmap.md`（Phase 33 摘要） |
+| `audit-003-code-quality-fix-phases.md` | `docs/audit/AUDIT-003-code-quality-audit-2026-09-15.md`、`docs/roadmap/current-iteration.md` |

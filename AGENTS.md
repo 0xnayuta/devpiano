@@ -62,6 +62,10 @@
 6. 配置与状态：优先使用 JUCE `ApplicationProperties` / `ValueTree` 与项目内状态模型。
 7. 录制 / 回放 / 导出等高级功能应先定义现代数据模型，不直接继承旧 `song.*` 内部表示。
 8. 国际化：使用 JUCE `Translation` / `LocalisedStrings` 机制管理运行时语言切换，中文 locale 表作为编译期常量嵌入。
+9. 固定音频拓扑与端点边界：定位为专用钢琴演奏宿主（Dedicated Piano Performance Host），音频拓扑严格固定为 `Performance Input -> Instrument -> Master -> Output`，严禁引入任意 Patchbay 连线图或通用多轨 DAW 时间线；内置钢琴与 VST3 乐器共享领域乐器端点职责，`juce::AudioProcessor` 仅作为 VST3 适配器实现细节，不反向污染宿主。
+10. 发音身份恒定与绝对防悬挂（Note-off Identity Preservation）：键盘映射或 Group 动态平移绝不破坏已发出的 NoteOn，任何 NoteOff 发送时必须 100% 使用 NoteOn 触发时锁定的发音身份（Pitch, Channel）快照；演奏修饰键（Press）仅在事件流变换阶段生效，严禁突变底层持久化配置。
+11. 确定性采样级时序与实时音频契约（Realtime Safety）：踏板切分（Sync Pedal）等控制必须在音频块内部基于采样点偏移（Sample Offset）与严格事件排序确定性调度，严禁使用线程 Sleep 或物理时钟延迟；实时音频回调路径严格遵守无锁（Lock-free）、零堆内存分配（Zero-allocation）。
+12. UI 视觉视图单一事实源（Single Source of Truth）：QWERTY 映射卡片与虚拟钢琴键盘均为 Live 演奏映射看板（Performance Map），直接单向消费底层 ViewModel，严禁在 UI 侧二次计算或自维护 MIDI 映射逻辑；不承担视频编解码录制职责，专注于 WAV 离线渲染与 MIDI 导出。
 
 ---
 
