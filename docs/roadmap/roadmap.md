@@ -288,6 +288,16 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 3. **MidiTrace 与诊断测试防线**：新增 `DiagnosticsTest`，全面覆盖 NoteOn/Off、CC、PitchBend、ProgramChange 等全量 MIDI 协议反序列化格式，以及临时目录下文件落盘、会话头标记与析构自动注销置空保护；
 4. **运行时字符编码断言消除**：彻底修复历史遗留的 5 处多字节 em-dash 字符字面量，消除 `juce_String.cpp:327` 的运行时断言。
 
+详细完成记录见 [`../archive/phase33-observability-and-diagnostics-infrastructure.md`](../archive/phase33-observability-and-diagnostics-infrastructure.md)。
+
+### AUDIT-003 专项：全面代码质量审计缺陷消除与架构对齐（Code Quality Remediation & Architecture Alignment） [当前进行中，2026-09-15 ~]
+
+基于 2026-09-15 完成的 `AUDIT-003` 全面代码质量审计（`A-` 评级，6 项未处理问题：P1×1 / P2×2 / P3×3），开展专项闭环治理：
+1. **测试消息循环驱动与断言消除（Phase A / TEST-001）**：解决 Linux 无头单测 socket 管道溢出告警；
+2. **插件离线导出房间混响对齐（Phase A / QUAL-001）**：补齐 `PluginOfflineRenderer` 混响浸润处理；
+3. **底层 Core 单向拓扑恢复（Phase B / ARCH-001）**：解耦 `AppState.h` 对上层 `SettingsModel` 与 `ChannelMatrix` 的反向包含；
+4. **解码内存优化与文档对齐（Phase B & C / PERF-001, DOC-001, DOC-002）**：优化 `MidiTextDecoder` 临时缓冲区分配，更新架构文档与预设规范。
+
 当前实施与验证细节详见 [`current-iteration.md`](current-iteration.md)。
 
 ---
