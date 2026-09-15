@@ -103,12 +103,11 @@ public:
     // the duration→block mapping (AUDIT TEST-009).
     [[nodiscard]] static int calculateWarmupBlockCount(double sampleRate, int blockSize) noexcept;
     [[nodiscard]] static int calculatePlaybackStartPreRollBlockCount(double sampleRate, int blockSize) noexcept;
-
+    /// Shared keyboard state tracking active notes across UI, computer keyboard,
+    /// and playback. Exposed as mutable reference per JUCE design so CustomKeyboard
+    /// can register listeners and synchronize key highlighting with audio callbacks.
     juce::MidiKeyboardState& getKeyboardState() noexcept {
         return keyboardState;
-    }
-    juce::MidiMessageCollector& getMidiCollector() noexcept {
-        return midiCollector;
     }
 
 private:

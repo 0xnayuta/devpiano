@@ -248,6 +248,29 @@ public:
             timer.timerCallback();
             expect(!settingsFile.existsAsFile(), "no payload must mean no save");
         });
+        testCase("debounce timer retains payload by value when source is destroyed", [&] {
+            devpiano::test::ScopedTempDir tempDir("store-debounce-4");
+            const auto settingsFile = tempDir.getChildFile("DevPianoTests.settings");
+
+            SettingsStore store(settingsFile);
+            SettingsDebounceTimer timer(store);
+
+            {
+                SettingsModel tempModel;
+                tempModel.masterGain = 0.62f;
+                timer.setPayload(tempModel);
+            } // tempModel destroyed here
+
+            timer.timerCallback(); // must safely persist without dangling
+
+            expect(settingsFile.existsAsFile());
+            SettingsModel loaded;
+            {
+                SettingsStore reader(settingsFile);
+                reader.load(loaded);
+            }
+            expectWithinAbsoluteError(loaded.masterGain, 0.62f, 0.0001f);
+        });
     }
 };
 

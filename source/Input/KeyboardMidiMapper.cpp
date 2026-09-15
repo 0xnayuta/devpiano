@@ -221,7 +221,7 @@ bool KeyboardMidiMapper::triggerBinding(const KeyBinding& binding, juce::MidiKey
     if (channelMapper != nullptr) {
         // Convert 1-based binding channel to 0-based matrix input channel
         if (isKeyDownEvent) {
-            channelMapper->sendNoteOn(midiChannel - 1, midiNote, velocity, keyboardState);
+            channelMapper->sendNoteOn(binding.action.getMidiChannel().toZeroBased(), midiNote, velocity, keyboardState);
         } else {
             sendNoteOff(midiChannel, midiNote, velocity, keyboardState);
         }
@@ -239,7 +239,8 @@ bool KeyboardMidiMapper::triggerBinding(const KeyBinding& binding, juce::MidiKey
 void KeyboardMidiMapper::sendNoteOff(int midiChannel, int midiNote, float velocity,
                                      juce::MidiKeyboardState& keyboardState) {
     if (channelMapper != nullptr) {
-        channelMapper->sendNoteOff(midiChannel - 1, midiNote, velocity, keyboardState);
+        channelMapper->sendNoteOff(devpiano::core::MidiChannel::fromClamped(midiChannel).toZeroBased(), midiNote,
+                                   velocity, keyboardState);
     } else {
         keyboardState.noteOff(midiChannel, midiNote, velocity);
     }

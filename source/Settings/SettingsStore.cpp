@@ -124,7 +124,7 @@ SettingsDebounceTimer::SettingsDebounceTimer(SettingsStore& s)
 }
 
 void SettingsDebounceTimer::setPayload(const SettingsModel& m) {
-    modelPtr = &m;
+    pendingPayload = m;
 }
 
 void SettingsDebounceTimer::start(int ms) {
@@ -133,11 +133,11 @@ void SettingsDebounceTimer::start(int ms) {
 
 void SettingsDebounceTimer::timerCallback() {
     stopTimer();
-    if (modelPtr) {
-        store.save(*modelPtr);
+    if (pendingPayload.has_value()) {
+        store.save(*pendingPayload);
+        pendingPayload.reset();
     }
 }
-
 void SettingsStore::ensureProps() {
     if (customPropsFile != nullptr || appProps != nullptr) {
         return;

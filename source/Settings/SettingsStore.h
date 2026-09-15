@@ -4,6 +4,7 @@
 #include <juce_core/juce_core.h>
 #include <juce_data_structures/juce_data_structures.h>
 #include <juce_events/juce_events.h>
+#include <optional>
 class SettingsStore;
 
 // Debounced save helper backing SettingsStore::scheduleSave.
@@ -22,7 +23,7 @@ public:
 
 private:
     SettingsStore& store;
-    const SettingsModel* modelPtr = nullptr;
+    std::optional<SettingsModel> pendingPayload;
 };
 
 class SettingsStore {

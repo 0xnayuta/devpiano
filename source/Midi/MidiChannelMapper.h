@@ -18,11 +18,7 @@ namespace devpiano::midi {
 // ============================================================================
 class MidiChannelMapper {
 public:
-    // NOLINTNEXTLINE(bugprone-easily-swappable-parameters) - bool/int 引用参数
-    // 相邻可隐式互换；调用点仅 MainComponent 两处（命名实参 appSettings.*），
-    // 重排无法消除相邻性（int/bool 无论顺序都可转换），故豁免。
-    explicit MidiChannelMapper(const ChannelMatrix& matrixRef, const bool& midiTransposeRef,
-                               const int& keySignatureRef);
+    explicit MidiChannelMapper(const ChannelMatrix& matrixVal, bool midiTransposeVal, int keySignatureVal);
 
     // Transform a single MIDI message through the matrix.
     // Selects PerChannelConfig based on the message's original MIDI channel.
@@ -36,9 +32,9 @@ public:
 
 private:
     [[nodiscard]] const PerChannelConfig& configForChannel(int inputChannel) const;
-    const ChannelMatrix& matrix;
-    const bool& midiTranspose;
-    const int& keySignature;
+    ChannelMatrix matrix;
+    bool midiTranspose = false;
+    int keySignature = 0;
 };
 
 } // namespace devpiano::midi

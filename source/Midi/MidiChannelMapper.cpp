@@ -2,11 +2,10 @@
 
 namespace devpiano::midi {
 
-MidiChannelMapper::MidiChannelMapper(const ChannelMatrix& matrixRef, const bool& midiTransposeRef,
-                                     const int& keySignatureRef)
-    : matrix(matrixRef)
-    , midiTranspose(midiTransposeRef)
-    , keySignature(keySignatureRef) {
+MidiChannelMapper::MidiChannelMapper(const ChannelMatrix& matrixVal, bool midiTransposeVal, int keySignatureVal)
+    : matrix(matrixVal)
+    , midiTranspose(midiTransposeVal)
+    , keySignature(keySignatureVal) {
 }
 
 const PerChannelConfig& MidiChannelMapper::configForChannel(int inputChannel) const {

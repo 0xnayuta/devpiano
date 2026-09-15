@@ -210,6 +210,62 @@ struct SettingsModel {
         keyboardDisplay = view;
     }
 
+    SettingsModel() = default;
+    ~SettingsModel() = default;
+    SettingsModel(SettingsModel&&) noexcept = default;
+    SettingsModel& operator=(SettingsModel&&) noexcept = default;
+
+    SettingsModel(const SettingsModel& other) {
+        *this = other;
+    }
+
+    SettingsModel& operator=(const SettingsModel& other) {
+        if (this != &other) {
+            sampleRate = other.sampleRate;
+            bufferSize = other.bufferSize;
+            masterGain = other.masterGain;
+            adsrAttack = other.adsrAttack;
+            adsrDecay = other.adsrDecay;
+            adsrSustain = other.adsrSustain;
+            adsrRelease = other.adsrRelease;
+            builtinTone = other.builtinTone;
+            pianoBrightness = other.pianoBrightness;
+            pianoHammerHardness = other.pianoHammerHardness;
+            pianoResonance = other.pianoResonance;
+            lidPosition = other.lidPosition;
+            touchVelocityCurve = other.touchVelocityCurve;
+            unaCorda = other.unaCorda;
+            temperament = other.temperament;
+            referencePitchA4 = other.referencePitchA4;
+            soundPerspective = other.soundPerspective;
+            reverbSpace = other.reverbSpace;
+            reverbWet = other.reverbWet;
+            pedalNoiseLevel = other.pedalNoiseLevel;
+            feltAgeingAmount = other.feltAgeingAmount;
+            pluginSearchPath = other.pluginSearchPath;
+            lastPluginName = other.lastPluginName;
+            lastActivePresetId = other.lastActivePresetId;
+            lastMidiImportPath = other.lastMidiImportPath;
+            lastMidiExportPath = other.lastMidiExportPath;
+            recentFilesSerialized = other.recentFilesSerialized;
+            mainWindowWidth = other.mainWindowWidth;
+            mainWindowHeight = other.mainWindowHeight;
+            keyboardScrollOffsetX = other.keyboardScrollOffsetX;
+            keyboardDisplay = other.keyboardDisplay;
+            pluginPanelExpanded = other.pluginPanelExpanded;
+            languageCode = other.languageCode;
+            midiTranspose = other.midiTranspose;
+            keySignature = other.keySignature;
+            channelMatrix = other.channelMatrix;
+
+            audioDeviceState
+                = other.audioDeviceState ? std::make_unique<juce::XmlElement>(*other.audioDeviceState) : nullptr;
+            knownPluginListState = other.knownPluginListState
+                ? std::make_unique<juce::XmlElement>(*other.knownPluginListState)
+                : nullptr;
+        }
+        return *this;
+    }
     // ---- Serialization methods moved to Settings/SettingsSerialization.h ----
 };
 

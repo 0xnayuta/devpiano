@@ -32,11 +32,11 @@
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | P0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | P1 | 1 | 0 | 0 | 0 | 0 | 1 |
-| P2 | 9 | 0 | 0 | 0 | 6 | 3 |
-| P3 | 9 | 0 | 0 | 0 | 6 | 3 |
-| **合计** | 19 | 0 | 0 | 0 | 12 | 7 |
+| P2 | 9 | 0 | 0 | 0 | 4 | 5 |
+| P3 | 9 | 0 | 0 | 0 | 4 | 5 |
+| **合计** | 19 | 0 | 0 | 0 | 8 | 11 |
 
-> 承接 AUDIT-001 历史遗留 13 项：其中 `AUDIT-001 SEC-002`（MIDI 文件大小上限）经核验已由 32MB 守卫彻底闭环并关闭；其余 12 项维持已暂缓（见第 8 章）。
+> 承接 AUDIT-001 历史遗留 13 项：其中 5 项已彻底闭环并关闭（SEC-002 32MB 守卫、THR-003 去标量引用、SEC-004 toZeroBased 强类型通道、ERR-017 防抖快照值拷贝、QUAL-021 移除死接口）；其余 8 项确认为合理工程/性能权衡，维持已暂缓（见第 8 章）。
 
 ### 0.3 关键结论
 
@@ -430,15 +430,15 @@ devpiano 项目代码质量与工程架构处于**优秀（A-）**状态。在�
 | PERF-001 | 性能 | `source/Recording/MidiTextDecoder.cpp` 双重编码多轮恢复产生冗余堆分配 | P3 | 已关闭 | 审计 | tryRecoverLegacyDoubleEncoding 在多轮解码尝试中频繁构造与移动 std::vector 缓冲区 | `source/Recording/MidiTextDecoder.cpp:93-117,225-248`；`source/tests/MidiTextDecoderTest.cpp`（12 个子测试回归全过） | - | - | 已重构 extractLegacyBytes 写入目标缓冲区并于 tryRecoverLegacyDoubleEncoding 预分配 current/scratch 双缓冲实现零循环内分配（复审 2） |
 | DOC-002 | 文档 | `performance-presets.md` 中 `reverbSpace` 预设取值与代码标识符漂移 | P3 | 已关闭 | 审计 | 文档描述为 "hall"，实际序列化标识符为 "concert_hall"，手写预设可能解析失败回退默认值 | `docs/reference/features/performance-presets.md:96`；`source/Audio/RoomReverbEngine.h:207`；`source/tests/RoomReverbEngineTest.cpp:236` | - | - | 已修正文档表格为 "concert_hall" 并在 RoomReverbEngine 增加 "hall" 兼容别名及单测验证（复审 3） |
 | AUDIT-001 SEC-002 | 安全 | MidiFileImporter 缺少文件大小限制 | P2 | 已关闭 | AUDIT-001 | 导入超大文件可能占用过多内存 | `source/Recording/MidiFileImporter.cpp:9,52`（32MB 守卫与超额拦截已实装并经单元测试验证） | - | - | 已实装 32MB 守卫，正式关闭 |
-| AUDIT-001 THR-003 | 线程安全 | MidiChannelMapper 引用成员悬垂风险 | P2 | 已暂缓 | AUDIT-001 | 构造器存储 const ChannelMatrix&/const bool&/const int&，外部对象销毁后悬垂 | `source/Midi/MidiChannelMapper.h:33-35` | 引用对象为 MainComponent::appSettings 成员，寿命安全；reconfigure 重建 mapper | appSettings 动态分配或生命周期缩短 | 文档化生命周期契约或改值拷贝 |
+| AUDIT-001 THR-003 | 线程安全 | MidiChannelMapper 引用成员悬垂风险 | P2 | 已关闭 | AUDIT-001 | 构造器存储 const ChannelMatrix&/const bool&/const int&，外部对象销毁后悬垂 | `source/Midi/MidiChannelMapper.h:21-38`；`source/Midi/MidiChannelMapper.cpp:5-10` | - | - | 已将 matrix、midiTranspose 与 keySignature 全部改为按值存储与传参，彻底消除悬垂引用风险 |
 | AUDIT-001 THR-004 | 线程安全 | PluginHost::getInstance 暴露裸指针 | P2 | 已暂缓 | AUDIT-001 | 返回 AudioPluginInstance* 裸指针，音频线程经它 processBlock，生命周期依赖外部协调 | `source/Plugin/PluginHost.h:64` | 生命周期由 runPluginActionWithAudioDeviceRebuild 外部协调，无并发竞争 | 引入非设备重建 guard 的插件切换路径 | 返回 Ptr 或文档化所有权契约 |
 | AUDIT-001 SEC-001 | 安全 | MidiChannelMapper::configForChannel 静默 clamp | P2 | 已暂缓 | AUDIT-001 | 越界 channel 参数被静默 jlimit 到 [0,15] | `source/Midi/MidiChannelMapper.cpp:10-13` | 调用方均传合法 0-15 通道，越界仅理论可能 | 发现调用方传越界 channel 的实际路径 | 添加 jassert 或返回 std::optional |
 | AUDIT-001 SEC-003 | 安全 | MidiNoteNumber aggregate init 绕过 fromClamped | P3 | 已暂缓 | AUDIT-001 | MidiNoteNumber{200} 可绕过 clamp 保护 | `source/Core/MidiTypes.h:7-8` | 全项目调用点均经 fromClamped/helper 构造 | 新增绕过 fromClamped 的构造点 | 私有构造函数或 requires clause |
-| AUDIT-001 SEC-004 | 安全 | 0/1-based 通道转换脆弱 | P3 | 已暂缓 | AUDIT-001 | channel 值在 0/1-based 间手工转换，缺类型系统保护 | `source/Input/KeyboardMidiMapper.cpp:197` | 当前路径正确且无缺陷报告 | 出现 0/1-based 混淆缺陷 | 统一用 MidiChannel::toZeroBased() |
+| AUDIT-001 SEC-004 | 安全 | 0/1-based 通道转换脆弱 | P3 | 已关闭 | AUDIT-001 | channel 值在 0/1-based 间手工转换，缺类型系统保护 | `source/Input/KeyboardMidiMapper.cpp:224,242` | - | - | 已改用 MidiChannel::toZeroBased() 强类型方法换算 0-based 矩阵输入通道 |
 | AUDIT-001 PERF-001 | 性能 | MidiFileImporter 全量内存加载 | P2 | 已暂缓 | AUDIT-001 | 整文件读入 juce::MidiFile 再转换，大文件可能占用较多内存 | `source/Recording/MidiFileImporter.cpp:57-62` | 32MB 守卫已建立硬限，且属于低频桌面导入操作 | 出现实测内存瓶颈 | 流式解析或事件上限截断 |
 | AUDIT-001 PERF-003 | 性能 | KeyboardSettings 2KB+ 固定数组 | P3 | 已暂缓 | AUDIT-001 | customKeyLabels/customKeyColours 固定 std::array 128 项 | `source/UI/KeyboardTypes.h:53,56` | 持久化侧已稀疏化（SettingsStore 仅存非空 label） | 大量自定义键场景内存实测过高 | 改 std::vector 或 sparse map |
 | AUDIT-001 PERF-004 | 性能 | isKeyCurrentlyDown O(n) 轮询 | P3 | 已暂缓 | AUDIT-001 | handleKeyStateChanged 每帧遍历所有 binding 查询 OS 键状态 | `source/Input/KeyboardMidiMapper.cpp:131-137` | 36 次/帧消息线程开销可忽略 | 键盘轮询改高频或 binding 数大增 | std::bitset 或 unordered_set |
 | AUDIT-001 ERR-016 | 错误处理 | AppStateBuilder 仅 jassert 线程守卫 | P2 | 已暂缓 | AUDIT-001 | assertMessageThreadSnapshotAccess 仅 jassert，Release 为 no-op | `source/Settings/AppStateBuilder.cpp:9-15` | 本轮核查所有快照构建路径均来自消息线程 | 新增非消息线程调用方 | jassert + 错误码或 Release 保持检查 |
-| AUDIT-001 ERR-017 | 错误处理 | SettingsStore scheduleSave 裸指针 API | P2 | 已暂缓 | AUDIT-001 | DebounceTimer 持有 const SettingsModel* 裸指针，timer 触发前对象析构则悬垂 | `source/Settings/SettingsStore.h:20`；`SettingsStore.cpp:355-362` | 调用方均传 MainComponent::appSettings 长寿命成员 | 出现 SettingsModel 寿命短于 timer 的调用方 | shared_ptr 或文档化寿命契约 |
+| AUDIT-001 ERR-017 | 错误处理 | SettingsStore scheduleSave 裸指针 API | P2 | 已关闭 | AUDIT-001 | DebounceTimer 持有 const SettingsModel* 裸指针，timer 触发前对象析构则悬垂 | `source/Settings/SettingsStore.h:26`；`source/Settings/SettingsStore.cpp:126-140`；`source/tests/SettingsStoreTest.cpp:251-273` | - | - | SettingsDebounceTimer 已改为持有 std::optional<SettingsModel> 独立值拷贝快照，并通过对象销毁后持久化单测验证 |
 | AUDIT-001 QUAL-020 | 质量 | findByKeyCode 返回裸指针 | P3 | 已暂缓 | AUDIT-001 | 返回 const KeyBinding* 指向 vector 内部，修改后悬垂 | `source/Core/KeyMapTypes.h:69-77` | 调用方均在同一快照内立即使用 | findByKeyCode 返回后 vector 被修改的调用方出现 | 返回 optional<reference_wrapper> 或索引 |
-| AUDIT-001 QUAL-021 | 质量 | AudioEngine getMidiCollector/getKeyboardState 暴露内部可变引用 | P3 | 已暂缓 | AUDIT-001 | 返回可变引用允许外部修改内部 MIDI 状态 | `source/Audio/AudioEngine.h:107,110` | 两个 JUCE 类型本身线程安全（内置锁/跨线程设计） | 外部代码直接修改内部状态造成缺陷 | 提供 const 版本或受限 API |
+| AUDIT-001 QUAL-021 | 质量 | AudioEngine getMidiCollector/getKeyboardState 暴露内部可变引用 | P3 | 已关闭 | AUDIT-001 | 返回可变引用允许外部修改内部 MIDI 状态 | `source/Audio/AudioEngine.h:106-111` | - | - | 已彻底删除未被调用的死接口 getMidiCollector，并在 getKeyboardState 补充 JUCE 架构共享状态设计契约说明 |
