@@ -162,9 +162,9 @@ private:
     LidPosition pianoLidPosition = LidPosition::fullOpen;
     Temperament pianoTemperament = Temperament::equal;
     double pianoReferencePitchA4 = devpiano::audio::TemperamentEngine::kDefaultReferencePitch;
-    std::atomic<double> currentSampleRate { 44100.0 };
+    std::atomic<double> currentSampleRate { 48000.0 };
     SoundPerspective pianoSoundPerspective = SoundPerspective::player;
-    std::atomic<int> currentBlockSize { 512 };
+    std::atomic<int> currentBlockSize { 128 };
     std::atomic_bool allNotesOffPending { false };
     std::atomic<int> warmupBlocksRemaining { 0 };
     std::atomic<int> playbackStartPreRollBlocksRemaining { 0 };

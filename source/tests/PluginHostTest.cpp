@@ -32,8 +32,8 @@ public:
             expect(host.getCurrentPluginName().isEmpty(), "plugin name should be empty");
             expect(host.getInstance() == nullptr, "instance should be null");
             expect(host.getLoadedPluginDescription() == nullptr, "description should be null");
-            expectEquals(host.getPreparedSampleRate(), 44100.0);
-            expectEquals(host.getPreparedBlockSize(), 512);
+            expectEquals(host.getPreparedSampleRate(), 48000.0);
+            expectEquals(host.getPreparedBlockSize(), 128);
         }
 
         beginTest("default error messages, scan summary, and scanning status");

@@ -28,8 +28,8 @@ enum class BuiltinTone : std::uint8_t {
 // - 当前布局对象、运行时设备状态快照
 struct AudioState {
     // Snapshot values used by UI / runtime logic.
-    double sampleRate = 44100.0;
-    int bufferSize = 512;
+    double sampleRate = 48000.0;
+    int bufferSize = 128;
     bool hasSerializedDeviceState = false;
     bool hasLiveDevice = false;
     juce::String backendName;

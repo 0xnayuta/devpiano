@@ -1026,6 +1026,18 @@ void MainComponent::initialiseAudioDevice() {
 
     setAudioChannels(0, 2, savedState);
 
+    // 首次启动（无持久化状态）时，以现代专业黄金标准（48000 Hz / 128 samples）为首选。
+    // 若声卡原生不支持（如部分仅支持 44100 Hz 的设备），setAudioDeviceSetup 会自动回退至设备支持的有效参数。
+    if (savedState == nullptr) {
+        if (deviceManager.getCurrentAudioDevice() != nullptr) {
+            juce::AudioDeviceManager::AudioDeviceSetup setup;
+            deviceManager.getAudioDeviceSetup(setup);
+            setup.sampleRate = 48000.0;
+            setup.bufferSize = 128;
+            deviceManager.setAudioDeviceSetup(setup, true);
+        }
+    }
+
     if (deviceManager.getCurrentAudioDevice() == nullptr) {
         DP_LOG_ERROR("[AudioDevice] initialiseAudioDevice: no device available after initialization");
     }

@@ -726,7 +726,10 @@ void SettingsComponent::populateAudioBufferSizes() {
 
     for (auto bs : bufferSizes) {
         const double ms = static_cast<double>(bs) * 1000.0 / currentRate;
-        const auto text = juce::String(bs) + " samples (" + juce::String(ms, 1) + " ms)";
+        auto text = juce::String(bs) + " samples (" + juce::String(ms, 1) + " ms)";
+        if (bs == 128) {
+            text += " " + juce::String::charToString(0x2022) + " " + TRANS("Recommended");
+        }
         audioBufferSizeCombo->addItem(text, bs);
     }
 

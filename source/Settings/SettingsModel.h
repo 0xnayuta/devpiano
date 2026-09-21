@@ -36,8 +36,8 @@ struct SettingsModel {
     };
 
     struct AudioSettingsView {
-        double sampleRate = 44100.0;
-        int bufferSize = 512;
+        double sampleRate = 48000.0;
+        int bufferSize = 128;
         bool hasSerializedDeviceState = false;
     };
 
@@ -83,8 +83,8 @@ struct SettingsModel {
 
     // Persisted audio baseline.
     // 这些值用于启动恢复与无设备时的后备值，不代表当前运行时设备一定已经采用它们。
-    double sampleRate = 44100.0;
-    int bufferSize = 512;
+    double sampleRate = 48000.0;
+    int bufferSize = 128;
 
     // Persisted performance parameters.
     float masterGain = 1.0f;

@@ -88,8 +88,8 @@ protected:
 
 private:
     struct RuntimeAudioConfig {
-        double sampleRate = 44100.0;
-        int blockSize = 512;
+        double sampleRate = 48000.0;
+        int blockSize = 128;
     };
 
     // MidiKeyboardState::Listener interface

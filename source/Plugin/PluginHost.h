@@ -58,10 +58,10 @@ public:
     bool restoreKnownPluginListFromXml(const juce::XmlElement& xml);
     void markPluginScanSkipped(juce::String reason);
 
-    bool loadPluginByName(const juce::String& pluginName, double initialSampleRate = 44100.0,
-                          int initialBufferSize = 512);
-    bool loadPluginByDescription(const juce::PluginDescription& description, double initialSampleRate = 44100.0,
-                                 int initialBufferSize = 512);
+    bool loadPluginByName(const juce::String& pluginName, double initialSampleRate = 48000.0,
+                          int initialBufferSize = 128);
+    bool loadPluginByDescription(const juce::PluginDescription& description, double initialSampleRate = 48000.0,
+                                 int initialBufferSize = 128);
     bool prepareToPlay(double sampleRate, int blockSize);
     void releaseResources();
     void unloadPlugin();
@@ -89,8 +89,8 @@ private:
     juce::String lastLoadError { "No plugin load attempted yet." };
     std::unique_ptr<juce::AudioPluginInstance> pluginInstance;
     std::unique_ptr<juce::PluginDescription> loadedPluginDescription;
-    double preparedSampleRate = 44100.0;
-    int preparedBlockSize = 512;
+    double preparedSampleRate = 48000.0;
+    int preparedBlockSize = 128;
     bool prepared = false;
     std::atomic<bool> isScanning { false };
     juce::String scanningPluginName;
