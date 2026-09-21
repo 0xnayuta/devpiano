@@ -295,18 +295,22 @@ public:
                     // 钳位至安全上限，保证高音键正常发声，杜绝整音被置零静音。
                     partialFrequency = nyquistLimit;
                 } else {
-                    partial.level = 0.0f;
-                    partial.levelFast = 0.0f;
-                    partial.levelSlow = 0.0f;
-                    partial.epsilon = 0.0;
-                    partial.epsilon2 = 0.0;
-                    partial.epsilon3 = 0.0;
-                    partial.stringCount = 1;
-                    partial.decayFastPerSample = 0.0f;
-                    partial.decaySlowPerSample = 0.0f;
-                    partial.bloomGain = 1.0f;
-                    partial.bloomRisePerSample = 0.0f;
-                    continue;
+                    for (auto k = n; k < numActivePartials; ++k) {
+                        auto& p = partials[static_cast<std::size_t>(k)];
+                        p.level = 0.0f;
+                        p.levelFast = 0.0f;
+                        p.levelSlow = 0.0f;
+                        p.epsilon = 0.0;
+                        p.epsilon2 = 0.0;
+                        p.epsilon3 = 0.0;
+                        p.stringCount = 1;
+                        p.decayFastPerSample = 0.0f;
+                        p.decaySlowPerSample = 0.0f;
+                        p.bloomGain = 1.0f;
+                        p.bloomRisePerSample = 0.0f;
+                    }
+                    numActivePartials = n;
+                    break;
                 }
             }
 
@@ -486,6 +490,7 @@ public:
         }
     }
     void renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int startSample, int numSamples) override {
+        juce::ScopedNoDenormals noDenormals;
         const auto isPedalActive = (voiceIndex == 0) && (pedalTransient.isActive() || sympatheticPool.isShockActive());
         const auto isKeySounding = getCurrentlyPlayingNote() >= 0;
         if (!isKeySounding && !isPedalActive) {
@@ -581,14 +586,18 @@ public:
                 }
 
                 const auto partialAmp = (partial.levelFast + partial.levelSlow) * partial.bloomGain;
-                valueLeft += partialAmp * oscL;
-                valueRight += partialAmp * oscR;
+                if (partialAmp > 0.0f) {
+                    valueLeft += partialAmp * oscL;
+                    valueRight += partialAmp * oscR;
+                }
 
                 const auto nextCos = partial.cosState - effEps * partial.sinState;
                 partial.sinState += effEps * nextCos;
                 partial.cosState = nextCos;
-                partial.levelFast *= partial.decayFastPerSample;
-                partial.levelSlow *= partial.decaySlowPerSample;
+                partial.levelFast
+                    = (partial.levelFast > 1e-7f) ? (partial.levelFast * partial.decayFastPerSample) : 0.0f;
+                partial.levelSlow
+                    = (partial.levelSlow > 1e-7f) ? (partial.levelSlow * partial.decaySlowPerSample) : 0.0f;
             }
             // 琴槌接触微阻尼与脱离物理释放 (Phase 24-B)
             const auto preSatLeft = valueLeft * envelope + click + damperThump;
@@ -602,10 +611,10 @@ public:
             auto resonatorLeftSum = 0.0f;
             auto resonatorRightSum = 0.0f;
             for (std::size_t i = 0; i < numResonators; ++i) {
-                const auto spec = resonatorSpec(static_cast<int>(i));
+                const auto& res = bodyResonators[i];
                 const auto resOut = bodyResonators[i].process(rawMono);
-                resonatorLeftSum += spec.weightLeft * resOut;
-                resonatorRightSum += spec.weightRight * resOut;
+                resonatorLeftSum += res.weightLeft * resOut;
+                resonatorRightSum += res.weightRight * resOut;
             }
 
             // 2. 云杉木音板高频粘滞吸收低通滤波 (Phase 23-C, Boutillon & Ege 2013)
@@ -1513,12 +1522,34 @@ public:
             if (shockSamplesRemaining > 0) {
                 --shockSamplesRemaining;
             }
+            if (!pedalDown) {
+                auto hasOpenNotes = false;
+                for (int i = 0; i < numPoolResonators; ++i) {
+                    if (openNoteCount[static_cast<std::size_t>(i)] > 0) {
+                        hasOpenNotes = true;
+                        break;
+                    }
+                }
+                if (!hasOpenNotes && shockSamplesRemaining <= 0) {
+                    auto hasState = false;
+                    for (int i = 0; i < numPoolResonators; ++i) {
+                        s1[i] = (std::abs(s1[i]) > 1e-6f) ? s1[i] * 0.90f : 0.0f;
+                        s2[i] = (std::abs(s2[i]) > 1e-6f) ? s2[i] * 0.90f : 0.0f;
+                        if (s1[i] != 0.0f || s2[i] != 0.0f) {
+                            hasState = true;
+                        }
+                    }
+                    if (!hasState) {
+                        return 0.0f;
+                    }
+                }
+            }
             auto sum = 0.0f;
             for (int i = 0; i < numPoolResonators; ++i) {
                 const auto isOpen = pedalDown || (openNoteCount[static_cast<std::size_t>(i)] > 0);
                 if (!isOpen) {
-                    s1[i] *= 0.90f;
-                    s2[i] *= 0.90f;
+                    s1[i] = (std::abs(s1[i]) > 1e-6f) ? s1[i] * 0.90f : 0.0f;
+                    s2[i] = (std::abs(s2[i]) > 1e-6f) ? s2[i] * 0.90f : 0.0f;
                     continue;
                 }
                 const auto drive = in * (pedalDown ? 0.08f : 0.04f);
@@ -1655,7 +1686,8 @@ public:
     struct BodyResonator {
         float frequency = 110.0f;
         float q = 6.0f;
-        float weight = 0.40f;
+        float weightLeft = 0.40f;
+        float weightRight = 0.40f;
 
         float c1 = 0.0f;
         float c2 = 0.0f;
@@ -1695,7 +1727,8 @@ public:
             const auto spec = resonatorSpec(static_cast<int>(i));
             array[i].frequency = spec.frequency;
             array[i].q = spec.q;
-            array[i].weight = spec.weightLeft;
+            array[i].weightLeft = spec.weightLeft;
+            array[i].weightRight = spec.weightRight;
         }
         return array;
     }();

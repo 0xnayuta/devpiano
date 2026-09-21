@@ -85,10 +85,10 @@ void AudioEngine::prepareToPlay(int samplesPerBlockExpected, double sampleRate) 
 }
 
 void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) {
+    juce::ScopedNoDenormals noDenormals;
     if (bufferToFill.buffer == nullptr) {
         return;
     }
-
     bufferToFill.buffer->clear(bufferToFill.startSample, bufferToFill.numSamples);
 
     if (consumeWarmupBlockIfNeeded()) {
