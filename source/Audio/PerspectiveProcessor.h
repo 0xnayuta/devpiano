@@ -52,9 +52,10 @@ public:
             sr = sampleRate;
             smoothCoeff = std::exp(-1.0f / (kSmoothTimeSeconds * static_cast<float>(sampleRate)));
 
-            // Air absorption cutoff: ~8.5 kHz in audience mode
+            // Air absorption cutoff: ~8.5 kHz in audience mode (clamped to safe Nyquist)
             constexpr float cutoffHz = 8500.0f;
-            const auto normCutoff = static_cast<float>(2.0 * std::numbers::pi * cutoffHz / sampleRate);
+            const auto safeCutoff = std::min(cutoffHz, static_cast<float>(sampleRate * 0.45));
+            const auto normCutoff = static_cast<float>(2.0 * std::numbers::pi * safeCutoff / sampleRate);
             airFilterAlpha = std::clamp(normCutoff / (1.0f + normCutoff), 0.01f, 0.99f);
         }
         reset();

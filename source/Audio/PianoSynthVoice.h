@@ -281,27 +281,33 @@ public:
         }
         const auto scale = peakLevelAtFullVelocity / juce::jmax(1e-6f, normSum);
 
-        const auto nyquistLimit = sampleRate * 0.495;
+        const auto nyquistLimit = sampleRate * 0.480;
 
         for (auto n = 0; n < numActivePartials; ++n) {
             auto& partial = partials[static_cast<std::size_t>(n)];
             const auto m = static_cast<double>(n + 1);
             const auto inharmonicFactor = std::sqrt(1.0 + effectiveInharmonicityB * m * m);
-            const auto partialFrequency = baseFrequency * m * inharmonicFactor;
+            auto partialFrequency = baseFrequency * m * inharmonicFactor;
 
             if (partialFrequency >= nyquistLimit) {
-                partial.level = 0.0f;
-                partial.levelFast = 0.0f;
-                partial.levelSlow = 0.0f;
-                partial.epsilon = 0.0;
-                partial.epsilon2 = 0.0;
-                partial.epsilon3 = 0.0;
-                partial.stringCount = 1;
-                partial.decayFastPerSample = 0.0f;
-                partial.decaySlowPerSample = 0.0f;
-                partial.bloomGain = 1.0f;
-                partial.bloomRisePerSample = 0.0f;
-                continue;
+                if (n == 0) {
+                    // 超低采样率下（如 8000 Hz 的 B7/C8），基频超过或逼近奈奎斯特安全门限。
+                    // 钳位至安全上限，保证高音键正常发声，杜绝整音被置零静音。
+                    partialFrequency = nyquistLimit;
+                } else {
+                    partial.level = 0.0f;
+                    partial.levelFast = 0.0f;
+                    partial.levelSlow = 0.0f;
+                    partial.epsilon = 0.0;
+                    partial.epsilon2 = 0.0;
+                    partial.epsilon3 = 0.0;
+                    partial.stringCount = 1;
+                    partial.decayFastPerSample = 0.0f;
+                    partial.decaySlowPerSample = 0.0f;
+                    partial.bloomGain = 1.0f;
+                    partial.bloomRisePerSample = 0.0f;
+                    continue;
+                }
             }
 
             partial.stringCount = params.stringCount;
@@ -313,13 +319,14 @@ public:
                 partial.stringCount = 1;
                 partial.cosState = std::cos(static_cast<double>(phase1));
                 partial.sinState = std::sin(static_cast<double>(phase1));
-                partial.epsilon = 2.0 * std::sin(juce::MathConstants<double>::pi * partialFrequency / sampleRate);
+                partial.epsilon = 2.0
+                    * std::sin(juce::MathConstants<double>::pi * std::min(partialFrequency, nyquistLimit) / sampleRate);
                 partial.epsilon2 = 0.0;
                 partial.epsilon3 = 0.0;
             } else if (partial.stringCount == 2) {
                 const auto detuneHalf = static_cast<double>(params.beatingDetuneRatio * 0.5f);
-                const auto f1 = partialFrequency * (1.0 - detuneHalf);
-                const auto f2 = partialFrequency * (1.0 + detuneHalf);
+                const auto f1 = std::min(partialFrequency * (1.0 - detuneHalf), nyquistLimit);
+                const auto f2 = std::min(partialFrequency * (1.0 + detuneHalf), nyquistLimit);
 
                 partial.cosState = std::cos(static_cast<double>(phase1));
                 partial.sinState = std::sin(static_cast<double>(phase1));
@@ -331,9 +338,9 @@ public:
                 partial.epsilon3 = 0.0;
             } else {
                 const auto detune = static_cast<double>(params.beatingDetuneRatio);
-                const auto f1 = partialFrequency * (1.0 - detune);
-                const auto f2 = partialFrequency;
-                const auto f3 = partialFrequency * (1.0 + detune);
+                const auto f1 = std::min(partialFrequency * (1.0 - detune), nyquistLimit);
+                const auto f2 = std::min(partialFrequency, nyquistLimit);
+                const auto f3 = std::min(partialFrequency * (1.0 + detune), nyquistLimit);
 
                 partial.cosState = std::cos(static_cast<double>(phase1));
                 partial.sinState = std::sin(static_cast<double>(phase1));
@@ -532,7 +539,7 @@ public:
                 auto& partial = partials[static_cast<std::size_t>(n)];
                 auto oscL = static_cast<float>(partial.sinState);
                 auto oscR = oscL;
-                const auto effEps = partial.epsilon * glideMult;
+                const auto effEps = std::clamp(partial.epsilon * glideMult, -1.995, 1.995);
 
                 if (partial.stringCount == 2) {
                     const auto s1 = static_cast<float>(partial.sinState);
@@ -542,7 +549,7 @@ public:
                     const auto effSpread = 0.20f * (0.60f + 0.40f * diffusionFactor);
                     oscL = sSum - effSpread * sDiff;
                     oscR = sSum + effSpread * sDiff;
-                    const auto effEps2 = partial.epsilon2 * glideMult;
+                    const auto effEps2 = std::clamp(partial.epsilon2 * glideMult, -1.995, 1.995);
                     const auto nextCos2 = partial.cosState2 - effEps2 * partial.sinState2;
                     partial.sinState2 += effEps2 * nextCos2;
                     partial.cosState2 = nextCos2;
@@ -557,11 +564,11 @@ public:
                     oscL = sSum - effSpread * sDiff;
                     oscR = sSum + effSpread * sDiff;
 
-                    const auto effEps2 = partial.epsilon2 * glideMult;
+                    const auto effEps2 = std::clamp(partial.epsilon2 * glideMult, -1.995, 1.995);
                     const auto nextCos2 = partial.cosState2 - effEps2 * partial.sinState2;
                     partial.sinState2 += effEps2 * nextCos2;
                     partial.cosState2 = nextCos2;
-                    const auto effEps3 = partial.epsilon3 * glideMult;
+                    const auto effEps3 = std::clamp(partial.epsilon3 * glideMult, -1.995, 1.995);
                     const auto nextCos3 = partial.cosState3 - effEps3 * partial.sinState3;
                     partial.sinState3 += effEps3 * nextCos3;
                     partial.cosState3 = nextCos3;
@@ -1016,8 +1023,11 @@ public:
             totalSamples = juce::jmax(1, static_cast<int>(dur * sampleRate));
             samplesRemaining = totalSamples;
 
-            const auto f1 = juce::jlimit(900.0f, 2200.0f, 1100.0f + static_cast<float>(midiNoteNumber) * 12.0f);
-            const auto f2 = juce::jlimit(2200.0f, 4800.0f, 2600.0f + static_cast<float>(midiNoteNumber) * 18.0f);
+            const auto nyquist = sampleRate * 0.480f;
+            const auto rawF1 = 1100.0f + static_cast<float>(midiNoteNumber) * 12.0f;
+            const auto rawF2 = 2600.0f + static_cast<float>(midiNoteNumber) * 18.0f;
+            const auto f1 = std::min(juce::jlimit(900.0f, 2200.0f, rawF1), nyquist);
+            const auto f2 = std::min(juce::jlimit(2200.0f, 4800.0f, rawF2), nyquist);
             phaseInc1 = juce::MathConstants<float>::twoPi * f1 / sampleRate;
             phaseInc2 = juce::MathConstants<float>::twoPi * f2 / sampleRate;
             oscPhase1 = 0.0f;
@@ -1039,9 +1049,9 @@ public:
 
             if (midiNoteNumber < 56) {
                 constexpr auto vLongitudinal = 5100.0f;
-                const auto fL1 = vLongitudinal / (2.0f * juce::jmax(0.10f, stringLength));
-                const auto fL2 = 2.0f * fL1;
-                const auto fL3 = 3.0f * fL1;
+                const auto fL1 = std::min(vLongitudinal / (2.0f * juce::jmax(0.10f, stringLength)), nyquist);
+                const auto fL2 = std::min(2.0f * fL1, nyquist);
+                const auto fL3 = std::min(3.0f * fL1, nyquist);
                 longPhaseInc1 = juce::MathConstants<float>::twoPi * fL1 / sampleRate;
                 longPhaseInc2 = juce::MathConstants<float>::twoPi * fL2 / sampleRate;
                 longPhaseInc3 = juce::MathConstants<float>::twoPi * fL3 / sampleRate;
@@ -1539,14 +1549,17 @@ public:
                 return;
             }
             const auto sr = static_cast<float>(sampleRate);
+            const auto safeNyquist = sr * 0.480f;
             if (position == LidPosition::fullOpen) {
                 lpCoeff = 0.0f;
             } else if (position == LidPosition::halfStick) {
                 constexpr float fc = 6500.0f;
-                lpCoeff = std::exp(-juce::MathConstants<float>::twoPi * fc / sr);
+                const auto safeFc = std::min(fc, safeNyquist);
+                lpCoeff = std::exp(-juce::MathConstants<float>::twoPi * safeFc / sr);
             } else {
                 constexpr float fc = 2600.0f;
-                lpCoeff = std::exp(-juce::MathConstants<float>::twoPi * fc / sr);
+                const auto safeFc = std::min(fc, safeNyquist);
+                lpCoeff = std::exp(-juce::MathConstants<float>::twoPi * safeFc / sr);
             }
         }
 
@@ -1619,7 +1632,8 @@ public:
                 return;
             }
             constexpr float fc = 4200.0f;
-            lpCoeff = std::exp(-juce::MathConstants<float>::twoPi * fc / static_cast<float>(sampleRate));
+            const auto safeFc = std::min(fc, static_cast<float>(sampleRate * 0.480));
+            lpCoeff = std::exp(-juce::MathConstants<float>::twoPi * safeFc / static_cast<float>(sampleRate));
         }
 
         void reset() noexcept {

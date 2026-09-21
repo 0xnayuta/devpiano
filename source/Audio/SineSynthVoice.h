@@ -57,8 +57,9 @@ public:
 
         activeVoice = true;
         level = velocity * 0.70f;
-        frequency = static_cast<float>(
+        const auto rawFrequency = static_cast<float>(
             devpiano::audio::TemperamentEngine::getFrequency(midiNoteNumber, synthTemperament, synthReferencePitchA4));
+        frequency = std::min(rawFrequency, static_cast<float>(sampleRate * 0.45));
         phase = 0.0;
         increment
             = static_cast<float>(juce::MathConstants<double>::twoPi * static_cast<double>(frequency) / sampleRate);

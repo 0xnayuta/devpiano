@@ -1054,6 +1054,57 @@ private:
                 expect(!std::isinf(sample), "high-note sample must not be Inf");
             }
         }
+
+        beginTest("Low sample rate 8000 Hz high note sounding and numerical stability");
+        {
+            VoiceFixture lowRateFixture;
+            lowRateFixture.synth.setCurrentPlaybackSampleRate(8000.0);
+            juce::AudioBuffer<float> lowRateBuf(2, 64);
+
+            // B7 (107) and C8 (108) must produce audible sound even at 8000 Hz
+            for (const auto note : { 107, 108 }) {
+                lowRateFixture.noteOnBlock(note, 0.9f, lowRateBuf);
+                const auto peak = peakMagnitude(lowRateBuf);
+                expect(peak > 0.0f, "B7/C8 must sound at 8000 Hz sample rate");
+                for (auto ch = 0; ch < lowRateBuf.getNumChannels(); ++ch) {
+                    for (auto s = 0; s < lowRateBuf.getNumSamples(); ++s) {
+                        const auto sample = lowRateBuf.getSample(ch, s);
+                        expect(!std::isnan(sample) && !std::isinf(sample), "8000 Hz sample must be finite");
+                    }
+                }
+                lowRateFixture.synth.allNotesOff(0, false);
+            }
+
+            // A#7 (106) and A#6 (94) must remain bounded and stable at 8000 Hz
+            for (const auto note : { 94, 106 }) {
+                lowRateFixture.noteOnBlock(note, 1.0f, lowRateBuf);
+                for (auto ch = 0; ch < lowRateBuf.getNumChannels(); ++ch) {
+                    for (auto s = 0; s < lowRateBuf.getNumSamples(); ++s) {
+                        const auto sample = lowRateBuf.getSample(ch, s);
+                        expect(!std::isnan(sample) && !std::isinf(sample), "8000 Hz sample must be finite");
+                        expect(std::abs(sample) <= 2.0f, "8000 Hz oscillator must not diverge");
+                    }
+                }
+                lowRateFixture.synth.allNotesOff(0, false);
+            }
+        }
+
+        beginTest("48000 Hz F#7 (MIDI 102) 5th partial numerical stability");
+        {
+            VoiceFixture rate48kFixture;
+            rate48kFixture.synth.setCurrentPlaybackSampleRate(48000.0);
+            juce::AudioBuffer<float> buf48k(2, 128);
+
+            rate48kFixture.noteOnBlock(102, 1.0f, buf48k);
+            for (auto ch = 0; ch < buf48k.getNumChannels(); ++ch) {
+                for (auto s = 0; s < buf48k.getNumSamples(); ++s) {
+                    const auto sample = buf48k.getSample(ch, s);
+                    expect(!std::isnan(sample) && !std::isinf(sample), "48000 Hz F#7 sample must be finite");
+                    expect(std::abs(sample) <= 2.0f, "48000 Hz F#7 oscillator must not diverge");
+                }
+            }
+            rate48kFixture.synth.allNotesOff(0, false);
+        }
     }
 };
 
