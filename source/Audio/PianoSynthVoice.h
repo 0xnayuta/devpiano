@@ -1531,17 +1531,11 @@ public:
                     }
                 }
                 if (!hasOpenNotes && shockSamplesRemaining <= 0) {
-                    auto hasState = false;
                     for (int i = 0; i < numPoolResonators; ++i) {
                         s1[i] = (std::abs(s1[i]) > 1e-6f) ? s1[i] * 0.90f : 0.0f;
                         s2[i] = (std::abs(s2[i]) > 1e-6f) ? s2[i] * 0.90f : 0.0f;
-                        if (s1[i] != 0.0f || s2[i] != 0.0f) {
-                            hasState = true;
-                        }
                     }
-                    if (!hasState) {
-                        return 0.0f;
-                    }
+                    return 0.0f;
                 }
             }
             auto sum = 0.0f;
