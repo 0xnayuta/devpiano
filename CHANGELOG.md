@@ -1,10 +1,27 @@
-## [Unreleased]
+## [1.3.0] - 2026-09-21
+
+Modern audio defaults standardization (48000 Hz / 128 samples), Linux desktop integration with embedded application icon, realtime DSP denormal elimination, oscillator numerical stability guarding, status bar height invariant protection, and diagnostics logging infrastructure.
+
+### Added
+
+- **Modern Audio Default Standard (`48000 Hz / 128 samples`)** — aligned global baseline audio configuration across AudioEngine, AppState, SettingsModel, MainComponent, and PluginHost; provides responsive ultra-low latency (2.67 ms) while eliminating system-level fractional resampling jitter with automatic hardware fallback and a "Recommended" settings dropdown badge.
+- **Linux Desktop & Application Icon Integration** — embedded multi-resolution PNG branding assets directly into `BinaryData` with runtime X11 `_NET_WM_ICON` property injection, FreeDesktop `devpiano.desktop` launcher specification, and automated desktop registration scripts for Ubuntu Dock and Alt+Tab legibility.
+- **Diagnostics Infrastructure & File Logging (Phase 33)** — introduced `DevPianoLogger` dual-sink rolling file logger, dedicated settings diagnostics card with real-time log path inspection, and one-click "Open Log Folder" action across platforms.
+- **Offline Room Reverb Parity** — wired algorithmic stereo room reverberation into the offline WAV rendering pipeline alongside a test event loop drain phase for bit-accurate offline export parity.
+
+### Changed
+
+- **Realtime DSP Performance & Denormal Elimination** — activated `juce::ScopedNoDenormals` across audio processing and voice rendering pipelines to eliminate x86 microcode traps; cached resonator channel weights, pruned inactive sympathetic resonance pool states, and clamped decaying envelopes below -140 dBFS.
+- **MainComponent Solid Token Background** — simplified `MainComponent::paint` by eliminating obscured radial gradient computations in favor of a solid design token background.
+- **AppState Architectural Decoupling (AUDIT-003 Phase B)** — decoupled `AppState` from `SettingsModel`, optimizing state snapshot construction and unit test isolation.
 
 ### Fixed
 
-- **MIDI Metadata Text Decoding** — introduced `MidiTextDecoder` so imported track names and titles encoded as GBK are decoded instead of collapsing into replacement characters, and legacy Latin-1 double-encodings are unwrapped across multiple rounds; decoding is table-driven and platform independent, keeping results identical on WSL/Linux and Windows/MSVC.
-- **Single-Byte Title Absorption** — rejected the double-byte interpretation for payloads carrying the single-byte code page signature (an accented letter glued to its ASCII word), which previously turned titles such as `Für Elise` into a GBK-mapped ideograph.
-- **Trailing Bytes After The Last MIDI Chunk** — kept the parsed content when `juce::MidiFile::readFrom` fails only because the file carries stray bytes after its final chunk (observed as an appended CRLF), instead of discarding the whole import.
+- **Magic Circle Oscillator Stability & Nyquist Limiting** — clamped oscillator step coefficients (`effEps`) to `[-1.995, 1.995]` and tuned partial cutoff threshold to 0.48x sample rate, eliminating numerical divergence on A#6, A#7, and F#7 while ensuring fundamental note generation for extreme high notes (B7/C8) at low sample rates (8000 Hz).
+- **Sympathetic Resonance Pool Double Damping** — resolved unintended 0.81x double decay per sample when the sustain pedal is released and notes are inactive, restoring the designed 0.90x single decay rate and bypassing redundant loop passes.
+- **Status Bar Window Height Compression Invariant** — locked status bar height invariant to 24px (`flex-shrink: 0.0`) and activated flexible virtual keyboard height shrinking, preventing status bar information clipping upon vertical window reduction.
+- **CustomKeyboard Centered Felt Strip Leak** — eliminated dead crimson felt strip drawing in `CustomKeyboard` that previously leaked red horizontal lines into margin gutters upon window maximization.
+- **Cross-Platform MIDI Metadata Text Decoding** — introduced `MidiTextDecoder` to cleanly decode GBK/Latin-1 metadata, rejected single-byte title misinterpretations, and tolerated trailing CRLF bytes after final MIDI chunks.
 
 ## [1.2.0] - 2026-09-14
 
