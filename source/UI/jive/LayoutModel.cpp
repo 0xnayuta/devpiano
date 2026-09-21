@@ -12,6 +12,8 @@ juce::ValueTree makeHeaderTree() {
     auto row = flexRow("header");
     row.setProperty("title", TRANS("Header"), nullptr);
     row.setProperty("height", 36, nullptr);
+    row.setProperty("min-height", 36, nullptr);
+    row.setProperty("flex-shrink", 0.0, nullptr);
     row.setProperty("padding", "0 12 0 12", nullptr);
 
     auto title = text("devpiano", "title");
@@ -40,6 +42,8 @@ juce::ValueTree makeStatusBarTree() {
     auto row = flexRowStretch("status-bar");
     row.setProperty("title", TRANS("Status Bar"), nullptr);
     row.setProperty("height", devpiano::jive::DesignTokens::get().statusBarHeight(), nullptr);
+    row.setProperty("min-height", devpiano::jive::DesignTokens::get().statusBarHeight(), nullptr);
+    row.setProperty("flex-shrink", 0.0, nullptr);
     row.setProperty("padding", "0 8 0 8", nullptr);
     // Top separator line — drawn by the StyleSheet border canvas.
     row.setProperty("border-width", "1 0 0 0", nullptr);
@@ -470,6 +474,7 @@ juce::ValueTree makeRootLayout() {
     auto mainArea = flexColumn("main-area");
     mainArea.setProperty("title", TRANS("Main Area"), nullptr);
     mainArea.setProperty("flex-grow", 1.0, nullptr);
+    mainArea.setProperty("height", 0, nullptr);
     mainArea.setProperty("padding", "16", nullptr);
 
     auto header = makeHeaderTree();
@@ -484,6 +489,7 @@ juce::ValueTree makeRootLayout() {
     auto contentRow = flexColumn("content-row");
     contentRow.setProperty("title", TRANS("Content Row"), nullptr);
     contentRow.setProperty("flex-grow", 1.0, nullptr);
+    contentRow.setProperty("height", 0, nullptr);
 
     auto controls = makeControlsPanelTree();
     controls.setProperty("flex-grow", 1.0, nullptr);
@@ -494,7 +500,7 @@ juce::ValueTree makeRootLayout() {
 
     auto keyboard = makeKeyboardAreaTree();
     keyboard.setProperty("flex-grow", 1.0, nullptr);
-    keyboard.setProperty("flex-shrink", 0.0, nullptr);
+    keyboard.setProperty("flex-shrink", 1.0, nullptr);
     keyboard.setProperty("min-height", 90, nullptr);
     keyboard.setProperty("max-height", 170, nullptr);
     keyboard.setProperty("height", 170, nullptr);

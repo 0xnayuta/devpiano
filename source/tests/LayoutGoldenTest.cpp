@@ -36,6 +36,7 @@ public:
         drainMessages();
         testDeterministicRootLayoutBounds1920x1080();
         drainMessages();
+        testDeterministicRootLayoutBoundsCompact600();
         testDeterministicSettingsAndCssGridBounds();
         drainMessages();
         testFocusIsolationAndGlissandoInvariants();
@@ -242,6 +243,63 @@ public:
         if (mainAreaComp != nullptr) {
             expectEquals(mainAreaComp->getWidth(), 1920);
             expectEquals(mainAreaComp->getHeight(), 1080 - sbHeight);
+        }
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // 3.1 Deterministic Layout Bounds (Compact 980x600)
+    // ────────────────────────────────────────────────────────────────────────
+    void testDeterministicRootLayoutBoundsCompact600() {
+        beginTest("Golden Bounds: Compact root layout maintains 24px status bar invariant and elastic keyboard");
+
+        juce::MidiKeyboardState keyboardState;
+        devpiano::ui::ViewHost host;
+        host.registerKeyboardComponents(keyboardState);
+
+        auto tree = devpiano::ui::jive::makeRootLayout();
+        expect(host.loadLayout(tree, true));
+
+        // Enforce compact 980x600 window bounds (height reduced below default 780)
+        host.setBounds(0, 0, 980, 600);
+
+        auto* rootComp = host.getRootComponent();
+        expect(rootComp != nullptr);
+        if (rootComp == nullptr) {
+            return;
+        }
+        expectEquals(rootComp->getWidth(), 980);
+        expectEquals(rootComp->getHeight(), 600);
+
+        // Status bar golden invariants: strictly 24px tall, pinned to bottom
+        const auto sbHeight = devpiano::ui::DesignTokens::get().statusBarHeight();
+        auto* statusBarComp = host.find("status-bar");
+        expect(statusBarComp != nullptr);
+        if (statusBarComp != nullptr) {
+            expectEquals(statusBarComp->getWidth(), 980);
+            expectEquals(statusBarComp->getHeight(), sbHeight);
+            expectEquals(statusBarComp->getY(), 600 - sbHeight);
+        }
+
+        // Header maintains fixed height
+        auto* headerComp = host.find("header");
+        expect(headerComp != nullptr);
+        if (headerComp != nullptr) {
+            expectEquals(headerComp->getHeight(), 36);
+        }
+
+        // Controls panel respects its min-height
+        auto* controlsComp = host.find("controls-panel");
+        expect(controlsComp != nullptr);
+        if (controlsComp != nullptr) {
+            expect(controlsComp->getHeight() >= 140);
+        }
+
+        // Keyboard area adapts elastically within [90, 170]
+        auto* keyboardComp = host.find("custom-keyboard");
+        expect(keyboardComp != nullptr);
+        if (keyboardComp != nullptr) {
+            expect(keyboardComp->getHeight() >= 90);
+            expect(keyboardComp->getHeight() <= 170);
         }
     }
 
