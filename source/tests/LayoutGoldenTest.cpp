@@ -294,12 +294,12 @@ public:
             expect(controlsComp->getHeight() >= 140);
         }
 
-        // Keyboard area adapts elastically within [90, 170]
+        // Keyboard area adapts elastically within [120, 200]
         auto* keyboardComp = host.find("custom-keyboard");
         expect(keyboardComp != nullptr);
         if (keyboardComp != nullptr) {
-            expect(keyboardComp->getHeight() >= 90);
-            expect(keyboardComp->getHeight() <= 170);
+            expect(keyboardComp->getHeight() >= 120);
+            expect(keyboardComp->getHeight() <= 200);
         }
     }
 

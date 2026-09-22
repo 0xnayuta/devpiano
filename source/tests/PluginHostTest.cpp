@@ -52,8 +52,6 @@ public:
             expect(host.getKnownPluginNames().isEmpty(), "known plugin names should be empty");
             expect(host.getInstrumentPluginNames().isEmpty(), "instrument names should be empty");
             expect(host.getEffectPluginNames().isEmpty(), "effect names should be empty");
-            expect(host.getPluginListDescription().isNotEmpty(),
-                   "list description should describe state even when empty");
         }
 
         beginTest("formats description non-empty, default VST3 search path is absolute");

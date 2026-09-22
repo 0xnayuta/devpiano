@@ -13,7 +13,6 @@ struct PluginPanelState {
     juce::StringArray instrumentPluginNames;
     juce::StringArray effectPluginNames;
     juce::String preferredSelection;
-    juce::String pluginListText;
     juce::String availableFormatsDescription;
     juce::String lastScanSummary;
     juce::String currentPluginName;

@@ -8,7 +8,6 @@ devpiano::ui::PluginPanelState buildPluginPanelState(const PluginHost& pluginHos
              .instrumentPluginNames = pluginHost.getInstrumentPluginNames(),
              .effectPluginNames = pluginHost.getEffectPluginNames(),
              .preferredSelection = preferredSelection,
-             .pluginListText = pluginHost.getPluginListDescription(),
              .availableFormatsDescription = pluginHost.getAvailableFormatsDescription(),
              .lastScanSummary = pluginHost.getLastScanSummary(),
              .currentPluginName = pluginHost.getCurrentPluginName(),

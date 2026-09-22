@@ -429,7 +429,6 @@ private:
             expectComponent(id);
         }
         expectComponent("plugin-path-editor");
-        expectComponent("plugin-list-editor");
         // Filter combo must stay free of declarative Option children: its
         // items are managed programmatically by MainComponent, and JIVE's
         // Option "selected" write-back would clear the combo on the second
@@ -1188,24 +1187,27 @@ public:
         // the final area height), then panel, then explicit main-area reflow
         // (JIVE's boxModelChanged only relays the item itself, never its
         // siblings in the parent column).
-        area->state.setProperty("height", 112, nullptr);
-        plugin->state.setProperty("height", 160, nullptr);
+        area->state.setProperty("height", 32, nullptr);
+        plugin->state.setProperty("height", 80, nullptr);
         if (auto* panel = dynamic_cast<jive::FlexContainer*>(plugin)) {
             panel->layOutChildren();
         }
         if (auto* mainArea = dynamic_cast<jive::FlexContainer*>(jive::findItemWithID(*item, "main-area"))) {
             mainArea->layOutChildren();
         }
-        expect(plugin->getComponent()->getHeight() == 160, "expanded panel height");
+        expect(plugin->getComponent()->getHeight() == 80, "expanded panel height");
         expect(area->getComponent()->getHeight() > 0, "expanded area visible");
         expect(plugin->getComponent()->isVisible(), "expanded panel visible");
 
         // THE regression this test exists for: the parent column must reflow
         // its siblings when the plugin panel height changes, or the expanded
-        // area overlaps the controls below it.
-        expect(contentRow->getComponent()->getY() == contentRowYBefore + 118,
+        // area overlaps the controls below it. Controls are a fixed-height
+        // strip, so the content row moves down by the expansion delta
+        // (80 - 42) and the keyboard stays capped.
+        expect(contentRow->getComponent()->getY() == contentRowYBefore + 38,
                "content-row moved down when panel expanded");
-        expect(controlsItem->getComponent()->getHeight() < controlsHBefore, "controls shrank when panel expanded");
+        expectEquals(controlsItem->getComponent()->getHeight(), controlsHBefore,
+                     "fixed-height controls stay put when panel expanded");
         expectEquals(keyboardItem->getComponent()->getHeight(), keyboardHBefore,
                      "keyboard capped at max-height, unchanged");
         expect(plugin->getComponent()->getBottom() <= contentRow->getComponent()->getY(),

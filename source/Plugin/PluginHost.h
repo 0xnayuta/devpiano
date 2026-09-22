@@ -37,7 +37,6 @@ public:
     juce::StringArray getKnownPluginNames() const;
     juce::StringArray getInstrumentPluginNames() const;
     juce::StringArray getEffectPluginNames() const;
-    juce::String getPluginListDescription() const;
     juce::String getLastScanSummary() const;
     int getLastScanPluginCount() const noexcept {
         return lastScanPluginCount;

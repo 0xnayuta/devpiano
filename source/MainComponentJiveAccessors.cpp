@@ -82,8 +82,9 @@ juce::String MainComponent::getSelectedPluginName() const {
 void MainComponent::setPluginPanelExpanded(bool expanded) {
     appSettings.pluginPanelExpanded = expanded;
     if (viewHost.isValid()) {
-        viewHost.setProperty("plugin-expanded-area", "height", expanded ? 112 : 0);
-        viewHost.setProperty("plugin-panel", "height", expanded ? 160 : 42);
+        // Toolbar 30 + panel padding 8 + expanded path row 32.
+        viewHost.setProperty("plugin-expanded-area", "height", expanded ? 32 : 0);
+        viewHost.setProperty("plugin-panel", "height", expanded ? 80 : 42);
         viewHost.relayoutContainer("plugin-panel");
         viewHost.relayoutContainer("main-area");
     }
@@ -167,16 +168,10 @@ juce::String formatPluginStatusSummary(const devpiano::ui::PluginPanelState& sta
     return text;
 }
 
-void updateScanningPluginPanel(devpiano::ui::ViewHost& viewHost, const devpiano::ui::PluginPanelState& state,
-                               juce::ComboBox* selectorCombo, juce::TextEditor* listEditor) {
+void updateScanningPluginPanel(devpiano::ui::ViewHost& viewHost, juce::ComboBox* selectorCombo) {
     if (selectorCombo != nullptr) {
         selectorCombo->clear(juce::dontSendNotification);
         selectorCombo->setTextWhenNothingSelected(TRANS("Scanning..."));
-    }
-    if (listEditor != nullptr) {
-        auto scanText = TRANS("Scanning VST3 plugins...") + "\n";
-        scanText << (state.scanningPluginName.isNotEmpty() ? state.scanningPluginName : TRANS("Preparing..."));
-        listEditor->setText(scanText, juce::dontSendNotification);
     }
     viewHost.setEnabled("scan-btn", false);
     viewHost.setEnabled("browse-btn", false);
@@ -184,7 +179,7 @@ void updateScanningPluginPanel(devpiano::ui::ViewHost& viewHost, const devpiano:
 }
 
 void updateIdlePluginPanel(devpiano::ui::ViewHost& viewHost, const devpiano::ui::PluginPanelState& state,
-                           juce::ComboBox* selectorCombo, juce::ComboBox* filterCombo, juce::TextEditor* listEditor) {
+                           juce::ComboBox* selectorCombo, juce::ComboBox* filterCombo) {
     const auto& names = [&]() -> const juce::StringArray& {
         const auto filterId = (filterCombo != nullptr) ? filterCombo->getSelectedId() : 1;
         if (filterId == 2 && !state.instrumentPluginNames.isEmpty()) {
@@ -214,10 +209,6 @@ void updateIdlePluginPanel(devpiano::ui::ViewHost& viewHost, const devpiano::ui:
         }
     }
 
-    if (listEditor != nullptr) {
-        listEditor->setText(TRANS(state.pluginListText), juce::dontSendNotification);
-    }
-
     viewHost.setEnabled("scan-btn", true);
     viewHost.setEnabled("browse-btn", true);
     viewHost.setEnabled("load-btn", !names.isEmpty());
@@ -237,12 +228,11 @@ void MainComponent::updatePluginPanelState(const devpiano::ui::PluginPanelState&
 
     auto* selectorCombo = viewHost.find<juce::ComboBox>("plugin-selector");
     auto* filterCombo = viewHost.find<juce::ComboBox>("plugin-filter-combo");
-    auto* listEditor = viewHost.find<juce::TextEditor>("plugin-list-editor");
 
     if (state.isCurrentlyScanning) {
-        updateScanningPluginPanel(viewHost, state, selectorCombo, listEditor);
+        updateScanningPluginPanel(viewHost, selectorCombo);
     } else {
-        updateIdlePluginPanel(viewHost, state, selectorCombo, filterCombo, listEditor);
+        updateIdlePluginPanel(viewHost, state, selectorCombo, filterCombo);
     }
 
     lastPluginStatusText = formatPluginStatusSummary(state);
@@ -589,12 +579,12 @@ devpiano::ui::QwertyComponent& MainComponent::getQwertyVisualizer() {
 void MainComponent::setQwertyVisualizerExpanded(bool expanded) {
     appSettings.qwertyVisualizerExpanded = expanded;
     if (viewHost.isValid()) {
-        viewHost.setProperty("qwerty-expanded-area", "height", expanded ? 110 : 0);
-        viewHost.setProperty("qwerty-card", "height", expanded ? 146 : 24);
-        viewHost.setText("qwerty-toggle-btn", expanded ? "^" : "v");
+        // Header 20 + card padding 6 + content 150.
+        viewHost.setProperty("qwerty-expanded-area", "height", expanded ? 150 : 0);
+        viewHost.setProperty("qwerty-card", "height", expanded ? 176 : 24);
+        viewHost.setButtonLabel("qwerty-toggle-btn", juce::String::charToString(expanded ? 0x25B4 : 0x25BE));
     }
 }
-
 void MainComponent::updateQwertyVisualizer() {
     if (!viewHost.isValid()) {
         return;

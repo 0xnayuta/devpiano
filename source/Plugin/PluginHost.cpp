@@ -258,18 +258,6 @@ juce::StringArray PluginHost::getEffectPluginNames() const {
     names.sort(true);
     return names;
 }
-juce::String PluginHost::getPluginListDescription() const {
-    const auto names = getKnownPluginNames();
-    if (names.isEmpty()) {
-        if (lastScanSummary == "VST3 scan not run yet.") {
-            return "No plugins scanned yet.";
-        }
-
-        return "No plugins available. " + lastScanSummary;
-    }
-
-    return names.joinIntoString("\n");
-}
 
 juce::String PluginHost::getLastScanSummary() const {
     return lastScanSummary;

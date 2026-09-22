@@ -88,7 +88,7 @@ public:
         // with height 0 the area's layOutChildren bails on empty bounds, so
         // the row children keep their pre-layout zero width.
         if (auto* area = jive::findItemWithID(*panelItem, "plugin-expanded-area")) {
-            area->state.setProperty("height", 112, nullptr);
+            area->state.setProperty("height", 32, nullptr);
 
             // Re-read the bounds AFTER expanding: the expanded layout must
             // give the editor a visible, usable size or its text is clipped.
@@ -108,7 +108,7 @@ public:
         }
         rootItem->getComponent()->setBounds(0, 0, 1120, 760);
         if (auto* rootArea = jive::findItemWithID(*rootItem, "plugin-expanded-area")) {
-            rootArea->state.setProperty("height", 112, nullptr);
+            rootArea->state.setProperty("height", 32, nullptr);
         }
         auto* rootEditorItem = jive::findItemWithID(*rootItem, "plugin-path-editor");
         expect(rootEditorItem != nullptr, "root path editor found");
