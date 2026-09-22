@@ -9,10 +9,13 @@
 namespace devpiano::ui {
 
 using devpiano::core::doReMiNames;
+using devpiano::core::getContrastingTextColour;
 using devpiano::core::getNoteDisplayName;
+using devpiano::core::getPitchClassHarmonyColour;
 using devpiano::core::isWhiteKey;
 using devpiano::core::NoteDisplayMode;
 using devpiano::core::noteLetterNames;
+using devpiano::core::pitchClassHarmonyHues;
 using devpiano::core::whiteKeyIndexForNote;
 using devpiano::core::whiteKeysPerOctave;
 
@@ -25,8 +28,8 @@ enum class KeyColourMode : uint8_t {
     classic = 0, // warm orange hue
     channel = 1, // 16-channel hue palette
     velocity = 2, // green-red velocity gradient
+    harmony = 3, // 12-TET pitch-class chromatic harmony palette
 };
-
 // Per-key rendering state (recalculated every frame, not persisted)
 struct KeyRenderState {
     int midiNote = -1;

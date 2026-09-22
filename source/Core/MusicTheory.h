@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <juce_core/juce_core.h>
+#include <juce_graphics/juce_graphics.h>
 
 namespace devpiano::core {
 
@@ -65,4 +66,40 @@ inline constexpr bool isWhiteKey(int midiNote) {
     return whiteKeyIndexForNote[midiNote % 12] >= 0;
 }
 
+// ============================================================================
+// 12-TET Pitch-Class Chromatic Harmony Color Palette
+// ============================================================================
+// Symmetric chromatic hue wheel (30 deg intervals).
+// Triads (e.g. C-E-G) form visually balanced triangular triads on the wheel,
+// while tritones (C-F#) form opposing complementary colors.
+constexpr float pitchClassHarmonyHues[12] = {
+    0.0f, // C:  Coral Red (0 deg)
+    30.0f, // C#: Vermilion (30 deg)
+    60.0f, // D:  Amber Orange (60 deg)
+    90.0f, // D#: Golden Yellow (90 deg)
+    120.0f, // E:  Lime Green (120 deg)
+    150.0f, // F:  Emerald Green (150 deg)
+    180.0f, // F#: Mint Cyan (180 deg)
+    210.0f, // G:  Cerulean Sky Blue (210 deg)
+    240.0f, // G#: Cobalt Blue (240 deg)
+    270.0f, // A:  Indigo Violet (270 deg)
+    300.0f, // A#: Purple Orchid (300 deg)
+    330.0f // B:  Magenta Rose (330 deg)
+};
+
+[[nodiscard]] inline juce::Colour getPitchClassHarmonyColour(int midiNote, float saturation = 0.82f,
+                                                             float brightness = 0.98f, float alpha = 1.0f) {
+    if (midiNote < 0 || midiNote > 127) {
+        return juce::Colours::transparentBlack;
+    }
+    const auto pitchClass = (midiNote % 12 + 12) % 12;
+    return juce::Colour::fromHSV(pitchClassHarmonyHues[pitchClass] / 360.0f, saturation, brightness, alpha);
+}
+
+[[nodiscard]] inline juce::Colour getContrastingTextColour(juce::Colour bg) {
+    const auto luminance = (0.299f * static_cast<float>(bg.getRed()) + 0.587f * static_cast<float>(bg.getGreen())
+                            + 0.114f * static_cast<float>(bg.getBlue()))
+        / 255.0f;
+    return (luminance > 0.58f) ? juce::Colour(0xFF0F172A) : juce::Colours::white;
+}
 } // namespace devpiano::core

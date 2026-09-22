@@ -117,6 +117,19 @@ void QwertyComponent::paint(juce::Graphics& g) {
             if (isPressed) {
                 rect = rect.translated(0.0f, 1.5f);
             }
+            const auto hasNote = (keyState.mappedMidiNote >= 0);
+            const auto hasPedal = (keyState.isSustainPedal || keyState.isSoftPedal);
+
+            juce::Colour activeColour;
+            if (hasNote) {
+                activeColour = devpiano::core::getPitchClassHarmonyColour(keyState.mappedMidiNote, 0.84f, 0.96f, 1.0f);
+            } else if (keyState.isSustainPedal) {
+                activeColour = juce::Colour(0xFFF59E0B); // Amber for sustain pedal
+            } else if (keyState.isSoftPedal) {
+                activeColour = juce::Colour(0xFF10B981); // Emerald for soft pedal
+            } else {
+                activeColour = juce::Colour(0xFF38BDF8); // Sky blue for function keys
+            }
 
             juce::Colour bgColour;
             juce::Colour borderColour;
@@ -124,24 +137,28 @@ void QwertyComponent::paint(juce::Graphics& g) {
             juce::Colour secondaryTextColour;
 
             if (isPressed) {
-                bgColour = juce::Colour(0xFF38BDF8); // Accent bright sky blue
-                borderColour = juce::Colour(0xFF7DD3FC);
-                primaryTextColour = juce::Colour(0xFF0F172A); // Dark contrast
-                secondaryTextColour = juce::Colour(0xFF0369A1);
+                bgColour = activeColour;
+                borderColour = activeColour.brighter(0.35f);
+                primaryTextColour = devpiano::core::getContrastingTextColour(activeColour);
+                secondaryTextColour = primaryTextColour.withAlpha(0.85f);
             } else if (alpha > 0.01f) {
-                bgColour = juce::Colour(0xFF24262B).interpolatedWith(juce::Colour(0xFF38BDF8), alpha * 0.75f);
-                borderColour = juce::Colour(0xFF333842).interpolatedWith(juce::Colour(0xFF7DD3FC), alpha);
+                bgColour = juce::Colour(0xFF24262B).interpolatedWith(activeColour, alpha * 0.82f);
+                borderColour = juce::Colour(0xFF333842).interpolatedWith(activeColour.brighter(0.25f), alpha);
                 primaryTextColour = juce::Colours::white;
-                secondaryTextColour = juce::Colour(0xFFBAE6FD);
+                secondaryTextColour = activeColour.interpolatedWith(juce::Colours::white, 0.65f);
             } else {
                 bgColour = juce::Colour(0xFF24262B); // Zinc 800 dark grey
                 borderColour = juce::Colour(0xFF333842);
                 primaryTextColour = juce::Colour(0xFFE2E8F0); // Text primary
-                secondaryTextColour = (keyState.isSustainPedal || keyState.isSoftPedal)
-                    ? juce::Colour(0xFFF59E0B) // Amber for pedals
-                    : juce::Colour(0xFF94A3B8); // Muted slate
+                if (hasNote) {
+                    // Subtle harmonic colour tint for resting note labels
+                    secondaryTextColour = activeColour.interpolatedWith(juce::Colour(0xFFCBD5E1), 0.45f);
+                } else if (hasPedal) {
+                    secondaryTextColour = activeColour.withAlpha(0.9f);
+                } else {
+                    secondaryTextColour = juce::Colour(0xFF94A3B8); // Muted slate
+                }
             }
-
             // Fill key background
             g.setColour(bgColour);
             g.fillRoundedRectangle(rect, cornerRadius);
@@ -149,10 +166,6 @@ void QwertyComponent::paint(juce::Graphics& g) {
             // Draw border
             g.setColour(borderColour);
             g.drawRoundedRectangle(rect.reduced(0.5f), cornerRadius, 1.0f);
-
-            // Text layout: Upper for physical key, lower for note mapping
-            const auto hasNote = (keyState.mappedMidiNote >= 0);
-            const auto hasPedal = (keyState.isSustainPedal || keyState.isSoftPedal);
 
             if (hasNote || hasPedal) {
                 // Two-tier text display

@@ -20,6 +20,7 @@ public:
         testHeldKeyStateReflection();
         testPedalStateReflection();
         testComponentHitTestingAndInteraction();
+        testPitchClassHarmonyPalette();
     }
 
 private:
@@ -263,6 +264,33 @@ private:
         for (int i = 0; i < 30; ++i) {
             comp.triggerTimerForTest();
         }
+    }
+
+    void testPitchClassHarmonyPalette() {
+        beginTest("12-TET Pitch-Class Chromatic Harmony Palette symmetry and contrast");
+
+        // 12 semitones must be 30 deg apart
+        for (int i = 0; i < 12; ++i) {
+            expectEquals(devpiano::core::pitchClassHarmonyHues[i], static_cast<float>(i * 30));
+        }
+
+        // Octave invariance: C3 (48), C4 (60), C5 (72) should produce identical hues
+        const auto c3Colour = devpiano::core::getPitchClassHarmonyColour(48);
+        const auto c4Colour = devpiano::core::getPitchClassHarmonyColour(60);
+        const auto c5Colour = devpiano::core::getPitchClassHarmonyColour(72);
+        expectEquals(c3Colour.getHue(), c4Colour.getHue());
+        expectEquals(c4Colour.getHue(), c5Colour.getHue());
+
+        // Tritone complement: C (0 deg) and F# (180 deg)
+        const auto fSharpColour = devpiano::core::getPitchClassHarmonyColour(66); // F#4
+        expect(std::abs(fSharpColour.getHue() - c4Colour.getHue() - 0.5f) < 0.01f,
+               "C and F# must be tritone complements (180 deg / 0.5 hue distance)");
+
+        // Contrast luminance
+        const auto darkBg = juce::Colour(0xFF181A1F);
+        const auto brightBg = juce::Colour(0xFFFAFAFA);
+        expect(devpiano::core::getContrastingTextColour(darkBg) == juce::Colours::white);
+        expect(devpiano::core::getContrastingTextColour(brightBg) == juce::Colour(0xFF0F172A));
     }
 };
 

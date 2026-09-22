@@ -55,8 +55,12 @@
   - 支持一键折叠/展开并在 `SettingsModel` 中持久化记录展开状态（`qwertyVisualizerExpanded`）。
 - [x] **Phase 34-A-3：双向交互与余晖联动动画**：
   - 物理键盘按下时，QWERTY 视觉方块物理下沉并高亮，与 88 键虚拟钢琴键盘同频联动；松开后呈现 50fps 平滑模拟荧光余晖淡出；
-  - 支持鼠标点击发音与右键绑定编辑联动；
-  - 编写 `QwertyViewModelTest` 专项单测并通过全量回归。
+  - 支持鼠标点击发音与右键绑定编辑联动。
+- [x] **Phase 34-A-4：12 半音 Pitch Class 和声调色板与投影联动（Harmony Projection）**：
+  - 在 `source/Core/MusicTheory.h` 中建立 12-TET 半音阶和声色环（`pitchClassHarmonyHues`）与对比度算法（`getContrastingTextColour`）；
+  - `CustomKeyboard`（88 键钢琴）支持 `KeyColourMode::harmony`，并在设置下拉菜单中暴露；
+  - `QwertyComponent` 全面接入和声调色板：静态音名/唱名呈现微妙和声音色提示，动态击键与 88 键钢琴同频绽放三和弦几何色相并平滑余晖淡出；
+  - 编写 `QwertyViewModelTest` 专项单测验证色相间隔、八度同色、三全音互补及全量回归。
 ---
 
 ### Phase 34-B：Layout Group 轻量多键组与 HeldKey Identity 状态快照机制

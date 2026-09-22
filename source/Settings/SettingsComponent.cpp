@@ -469,6 +469,7 @@ void SettingsComponent::rebuildColourModeCombo() {
     colourModeCombo->addItem(TRANS("Classic"), 1 + static_cast<int>(devpiano::ui::KeyColourMode::classic));
     colourModeCombo->addItem(TRANS("Channel"), 1 + static_cast<int>(devpiano::ui::KeyColourMode::channel));
     colourModeCombo->addItem(TRANS("Velocity"), 1 + static_cast<int>(devpiano::ui::KeyColourMode::velocity));
+    colourModeCombo->addItem(TRANS("Harmony"), 1 + static_cast<int>(devpiano::ui::KeyColourMode::harmony));
 }
 
 void SettingsComponent::rebuildNoteDisplayCombo() {
