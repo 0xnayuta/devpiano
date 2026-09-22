@@ -63,19 +63,20 @@
   - 编写 `QwertyViewModelTest` 专项单测验证色相间隔、八度同色、三全音互补及全量回归。
 ---
 
-### Phase 34-B：Layout Group 轻量多键组与 HeldKey Identity 状态快照机制
+### Phase 34-B：Layout Group 轻量多键组与 HeldKey Identity 状态快照机制 [已完成，2026-09-22]
 
 > 目标：实现单 Preset 内 2~4 个轻量键位分组（Group）的毫秒级即时切换，同时以发音身份快照彻底封死悬挂音隐患。
 
-- [ ] **Phase 34-B-1：引入 `KeyGroup` 数据模型与快照存储**：
-  - 在 `source/Core/KeyMapTypes.h` 中引入 `struct KeyGroup { int8_t transposeOffset; int8_t octaveShift; uint8_t channel; };`；
-  - `KeyboardLayout` 支持 `std::array<KeyGroup, 4>` 极简分组，不侵入其他全局预设属性。
-- [ ] **Phase 34-B-2：重构 `HeldKeyTracker` 落实发音身份快照（Note-off Identity Preservation）**：
-  - 按键按下（NoteOn）时，记录该键专属发音快照 `{ physicalKeyCode, soundingMidiNote, soundingMidiChannel }`；
-  - 按键松开（NoteOff）时，100% 依据按下时记录的快照信息注销，与当前处于哪个 Group 完全解耦；
-  - 支持快捷键（如 `Tab` 或功能键）在 Group 之间瞬时无缝切换。
-- [ ] **Phase 34-B-3：Group 动态切换与防悬挂确定性测试集**：
-  - 编写专项测试：按住按键 A -> 切换 Group -> 松开按键 A，断言 NoteOff 准确对应先前的发声音高与通道，无任何悬挂音残留。
+- [x] **Phase 34-B-1：引入 `KeyGroup` 数据模型与快照存储**：
+  - 在 `source/Core/KeyMapTypes.h` 中引入 `struct KeyGroup { int8_t transposeOffset; int8_t octaveShift; uint8_t channel; juce::String name; };` 与发音计算辅助函数；
+  - `KeyboardLayout` 支持 `std::array<KeyGroup, 4>` 极简分组，零破坏接入现有预设管线。
+- [x] **Phase 34-B-2：重构发音身份快照（Note-off Identity Preservation）**：
+  - 引入 `HeldKeyIdentity { physicalKeyCode, soundingMidiNote, soundingMidiChannel, velocity }`；
+  - 按键按下（NoteOn）时，计算当前激活 Group 下的发声音高与通道并存入快照；
+  - 按键松开（NoteOff）时，100% 依据按下时记录的快照信息注销，与当前 Group 解耦；孤儿键扫描机制杜绝绑定删除悬挂；
+  - 支持反引号键（`` ` ``）与 UI 胶囊按钮（`qwerty-group-btn`）即时循环切组并在状态栏与 QWERTY 看板实时联动。
+- [x] **Phase 34-B-3：Group 动态切换与防悬挂确定性测试集**：
+  - 在 `KeyboardMidiMapperTest` 中新增 `LayoutGroupAndHeldKeyIdentityTest`，严格覆盖 Group 循环切换、按住键切组松开注销、通道覆盖注销与多 Group 异构键 Panic 释放，断言 0 悬挂音。
 ---
 
 ### Phase 34-C：SustainPolicy 与 Sample-Accurate 事件级 Sync 切分踏板

@@ -96,6 +96,20 @@
       "background": "#181A1F"
     }
   },
+  "#qwerty-group-btn": {
+    "background": "@control-bg",
+    "foreground": "@primary",
+    "border": "@card-border",
+    "border-radius": "4",
+    "font-size": 10,
+    "hover": {
+      "background": "#282C35",
+      "border": "@primary"
+    },
+    "active": {
+      "background": "#181A1F"
+    }
+  },
   "#volume-label": { "foreground": "@text-secondary", "font-size": "@font-size-tiny" },
   "#attack-label": { "foreground": "@text-secondary", "font-size": "@font-size-tiny" },
   "#decay-label": { "foreground": "@text-secondary", "font-size": "@font-size-tiny" },

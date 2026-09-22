@@ -21,7 +21,7 @@ public:
     using KeyStatePredicate = std::function<bool(int keyCode)>;
     using SustainPedalCallback = std::function<void(bool isDown)>;
     using SoftPedalCallback = std::function<void(bool isDown)>;
-
+    using GroupChangeCallback = std::function<void(uint8_t groupIndex)>;
     KeyboardMidiMapper();
 
     void setLayout(devpiano::core::KeyboardLayout newLayout);
@@ -44,6 +44,19 @@ public:
     /// 生成当前电脑键盘物理按键映射与按下状态快照（单一事实源，供 QWERTY Visualizer 投影）。
     [[nodiscard]] devpiano::core::QwertyViewModel createQwertySnapshot(int keySignature = 0) const;
 
+    // ── Layout Group Switching (Phase 34-B) ──
+    void setActiveGroupIndex(uint8_t groupIndex);
+    [[nodiscard]] uint8_t getActiveGroupIndex() const noexcept;
+    void switchToNextGroup();
+    void switchToPreviousGroup();
+    [[nodiscard]] const devpiano::core::KeyGroup& getActiveGroup() const noexcept;
+    void setGroupChangeCallback(GroupChangeCallback callback) noexcept;
+
+    // ── HeldKey Inspection & Identity Preservation (Phase 34-B) ──
+    [[nodiscard]] bool isKeyHeld(int keyCode) const noexcept;
+    [[nodiscard]] const devpiano::core::HeldKeyIdentity* findHeldKey(int keyCode) const noexcept;
+    [[nodiscard]] size_t getNumHeldKeys() const noexcept;
+
     /// 注入键状态谓词（测试用）：null/未设置时回退真实 OS 键盘查询。
     void setKeyStatePredicate(KeyStatePredicate predicate) noexcept;
 
@@ -57,7 +70,8 @@ private:
 
     devpiano::midi::MidiChannelMapper* channelMapper = nullptr;
     devpiano::core::KeyboardLayout layout;
-    std::unordered_set<int> heldKeys;
+    std::vector<devpiano::core::HeldKeyIdentity> heldKeys;
+    GroupChangeCallback groupChangeCallback;
     KeyStatePredicate keyStatePredicate;
     SustainPedalCallback sustainPedalCallback;
     bool sustainPedalDown = false;

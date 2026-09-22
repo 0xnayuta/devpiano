@@ -41,6 +41,8 @@ struct QwertyViewModel {
     std::array<QwertyRowVisualState, 5> rows;
     bool isSustainPedalDown = false;
     bool isSoftPedalDown = false;
+    uint8_t activeGroupIndex = 0;
+    juce::String activeGroupName { "A" };
 };
 
 // ============================================================================

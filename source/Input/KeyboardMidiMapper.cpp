@@ -68,9 +68,56 @@ void KeyboardMidiMapper::setTouchVelocityCurve(devpiano::input::TouchVelocityCur
 devpiano::input::TouchVelocityCurve KeyboardMidiMapper::getTouchVelocityCurve() const noexcept {
     return touchVelocityCurve;
 }
-
 void KeyboardMidiMapper::resetToDefaultLayout() {
     setLayout(makeDefaultKeyboardLayout());
+}
+
+void KeyboardMidiMapper::setActiveGroupIndex(uint8_t groupIndex) {
+    const auto target = static_cast<uint8_t>(groupIndex % 4);
+    if (layout.activeGroupIndex == target) {
+        return;
+    }
+    layout.activeGroupIndex = target;
+    if (groupChangeCallback != nullptr) {
+        groupChangeCallback(layout.activeGroupIndex);
+    }
+}
+
+uint8_t KeyboardMidiMapper::getActiveGroupIndex() const noexcept {
+    return layout.activeGroupIndex;
+}
+
+void KeyboardMidiMapper::switchToNextGroup() {
+    setActiveGroupIndex((layout.activeGroupIndex + 1) % 4);
+}
+
+void KeyboardMidiMapper::switchToPreviousGroup() {
+    setActiveGroupIndex((layout.activeGroupIndex + 3) % 4);
+}
+
+const devpiano::core::KeyGroup& KeyboardMidiMapper::getActiveGroup() const noexcept {
+    return layout.getActiveGroup();
+}
+
+void KeyboardMidiMapper::setGroupChangeCallback(GroupChangeCallback callback) noexcept {
+    groupChangeCallback = std::move(callback);
+}
+
+bool KeyboardMidiMapper::isKeyHeld(int keyCode) const noexcept {
+    return findHeldKey(keyCode) != nullptr;
+}
+
+const devpiano::core::HeldKeyIdentity* KeyboardMidiMapper::findHeldKey(int keyCode) const noexcept {
+    for (const auto& held : heldKeys) {
+        if (held.physicalKeyCode == keyCode) {
+            return &held;
+        }
+    }
+    return nullptr;
+}
+
+size_t KeyboardMidiMapper::getNumHeldKeys() const noexcept {
+    return heldKeys.size();
 }
 
 bool KeyboardMidiMapper::handleKeyPressed(const juce::KeyPress& key, juce::MidiKeyboardState& keyboardState) {
@@ -93,6 +140,13 @@ bool KeyboardMidiMapper::handleKeyPressed(const juce::KeyPress& key, juce::MidiK
         }
         return true;
     }
+    // 支持反引号 ` 键作为快捷切组键（在未绑定音符时有效）
+    if (key.getKeyCode() == '`' || key.getTextCharacter() == '`') {
+        if (layout.findByKeyCode('`') == nullptr) {
+            switchToNextGroup();
+            return true;
+        }
+    }
 
     const auto keyCode = normaliseKeyCode(key);
     if (keyCode == 0) {
@@ -104,7 +158,7 @@ bool KeyboardMidiMapper::handleKeyPressed(const juce::KeyPress& key, juce::MidiK
         return false;
     }
 
-    if (!heldKeys.insert(keyCode).second) {
+    if (isKeyHeld(keyCode)) {
         return true;
     }
 
@@ -149,41 +203,42 @@ bool KeyboardMidiMapper::handleKeyStateChanged(juce::MidiKeyboardState& keyboard
 
         const auto isCurrentlyDown = isKeyCurrentlyDown(keyCode);
 
-        const auto wasHeld = heldKeys.contains(keyCode);
+        const auto wasHeld = isKeyHeld(keyCode);
 
         if (isCurrentlyDown && !wasHeld) {
-            heldKeys.insert(keyCode);
             consumed = triggerBinding(binding, keyboardState, true) || consumed;
             continue;
         }
 
         if (!isCurrentlyDown && wasHeld) {
             if (binding.action.type == KeyActionType::note) {
-                const auto midiChannel = binding.action.getMidiChannel().value;
-                const auto midiNote = binding.action.getMidiNoteNumber().value;
-                const auto velocity = binding.action.getVelocity().value;
-                sendNoteOff(midiChannel, midiNote, velocity, keyboardState);
-                consumed = true;
+                if (const auto* held = findHeldKey(keyCode)) {
+                    sendNoteOff(held->soundingMidiChannel, held->soundingMidiNote, held->velocity, keyboardState);
+                    std::erase_if(heldKeys, [keyCode](const auto& h) { return h.physicalKeyCode == keyCode; });
+                    consumed = true;
+                }
             } else {
                 consumed = triggerBinding(binding, keyboardState, false) || consumed;
             }
+        }
+    }
 
-            heldKeys.erase(keyCode);
+    // 额外防呆：检查 heldKeys 中由于切组或绑定删除而成为孤儿的按键
+    for (auto it = heldKeys.begin(); it != heldKeys.end();) {
+        if (!isKeyCurrentlyDown(it->physicalKeyCode)) {
+            sendNoteOff(it->soundingMidiChannel, it->soundingMidiNote, it->velocity, keyboardState);
+            it = heldKeys.erase(it);
+            consumed = true;
+        } else {
+            ++it;
         }
     }
 
     return consumed;
 }
 void KeyboardMidiMapper::releaseAllHeldKeys(juce::MidiKeyboardState& keyboardState) {
-    for (const auto keyCode : heldKeys) {
-        if (const auto* binding = layout.findByKeyCode(keyCode)) {
-            if (binding->action.type == KeyActionType::note) {
-                const auto midiChannel = binding->action.getMidiChannel().value;
-                const auto midiNote = binding->action.getMidiNoteNumber().value;
-                const auto velocity = binding->action.getVelocity().value;
-                sendNoteOff(midiChannel, midiNote, velocity, keyboardState);
-            }
-        }
+    for (const auto& held : heldKeys) {
+        sendNoteOff(held.soundingMidiChannel, held.soundingMidiNote, held.velocity, keyboardState);
     }
     heldKeys.clear();
     if (sustainPedalDown) {
@@ -212,24 +267,37 @@ bool KeyboardMidiMapper::triggerBinding(const KeyBinding& binding, juce::MidiKey
         return false;
     }
 
-    const auto midiChannel = binding.action.getMidiChannel().value; // 1-based
-    const auto midiNote = binding.action.getMidiNoteNumber().value;
     const auto rawVelocity = binding.action.getVelocity().value;
     const auto velocity
         = isKeyDownEvent ? devpiano::input::applyVelocityCurve(rawVelocity, touchVelocityCurve) : rawVelocity;
 
-    if (channelMapper != nullptr) {
-        // Convert 1-based binding channel to 0-based matrix input channel
-        if (isKeyDownEvent) {
-            channelMapper->sendNoteOn(binding.action.getMidiChannel().toZeroBased(), midiNote, velocity, keyboardState);
+    if (isKeyDownEvent) {
+        // 计算当前激活 Group 下的发声音高与通道
+        const auto soundingNote
+            = devpiano::core::calculateSoundingNote(binding.action.getMidiNoteNumber().value, layout.getActiveGroup());
+        const auto soundingChannel
+            = devpiano::core::calculateSoundingChannel(binding.action.getMidiChannel().value, layout.getActiveGroup());
+
+        if (channelMapper != nullptr) {
+            channelMapper->sendNoteOn(devpiano::core::MidiChannel::fromClamped(soundingChannel).toZeroBased(),
+                                      soundingNote, velocity, keyboardState);
         } else {
-            sendNoteOff(midiChannel, midiNote, velocity, keyboardState);
+            keyboardState.noteOn(soundingChannel, soundingNote, velocity);
         }
+
+        // 记录发音身份快照，严格保护 NoteOff 一致性
+        heldKeys.push_back({ binding.keyCode, soundingNote, soundingChannel, velocity });
     } else {
-        if (isKeyDownEvent) {
-            keyboardState.noteOn(midiChannel, midiNote, velocity);
+        // NoteOff：优先依据按下时记录的快照注销
+        if (const auto* held = findHeldKey(binding.keyCode)) {
+            sendNoteOff(held->soundingMidiChannel, held->soundingMidiNote, held->velocity, keyboardState);
+            std::erase_if(heldKeys, [k = binding.keyCode](const auto& h) { return h.physicalKeyCode == k; });
         } else {
-            sendNoteOff(midiChannel, midiNote, velocity, keyboardState);
+            const auto soundingNote = devpiano::core::calculateSoundingNote(binding.action.getMidiNoteNumber().value,
+                                                                            layout.getActiveGroup());
+            const auto soundingChannel = devpiano::core::calculateSoundingChannel(binding.action.getMidiChannel().value,
+                                                                                  layout.getActiveGroup());
+            sendNoteOff(soundingChannel, soundingNote, rawVelocity, keyboardState);
         }
     }
 
@@ -262,6 +330,10 @@ devpiano::core::QwertyViewModel KeyboardMidiMapper::createQwertySnapshot(int key
     auto vm = devpiano::core::makeDefaultQwertyLayoutTemplate();
     vm.isSustainPedalDown = sustainPedalDown;
     vm.isSoftPedalDown = softPedalDown;
+    vm.activeGroupIndex = layout.activeGroupIndex;
+    vm.activeGroupName = layout.getActiveGroup().name;
+
+    const auto& activeGroup = layout.getActiveGroup();
 
     for (auto& row : vm.rows) {
         for (auto& key : row.keys) {
@@ -270,14 +342,17 @@ devpiano::core::QwertyViewModel KeyboardMidiMapper::createQwertySnapshot(int key
             } else if (key.isSoftPedal) {
                 key.isDown = softPedalDown;
             } else if (key.keyCode != 0) {
-                key.isDown = heldKeys.contains(key.keyCode);
+                key.isDown = isKeyHeld(key.keyCode);
             }
 
             if (key.keyCode != 0) {
                 if (const auto* binding = layout.findByKeyCode(key.keyCode)) {
                     if (binding->action.type == devpiano::core::KeyActionType::note) {
-                        key.mappedMidiNote = binding->action.midiNote;
-                        key.mappedMidiChannel = binding->action.midiChannel;
+                        // 依据当前 Group 实时计算音符投影
+                        key.mappedMidiNote
+                            = devpiano::core::calculateSoundingNote(binding->action.midiNote, activeGroup);
+                        key.mappedMidiChannel
+                            = devpiano::core::calculateSoundingChannel(binding->action.midiChannel, activeGroup);
                         key.velocity = binding->action.velocity;
 
                         key.noteName = devpiano::core::getNoteDisplayName(

@@ -598,6 +598,7 @@ void MainComponent::updateQwertyVisualizer() {
     if (qwertyComponentRef != nullptr) {
         qwertyComponentRef->updateViewModel(keyboardMidiMapper.createQwertySnapshot(appSettings.keySignature));
     }
+    viewHost.setText("qwerty-group-btn", "[Group " + keyboardMidiMapper.getActiveGroup().name + "]");
 }
 
 int MainComponent::getKeyboardViewPositionX() const noexcept {
@@ -827,8 +828,9 @@ void MainComponent::updateStatusBar() {
     } else if (keyboardMidiMapper.isSustainPedalDown()) {
         pedalIndicator = bullet + "[SUSTAIN]";
     }
-
-    const auto statusRight = keyName + " (" + transposeStr + ")" + bullet + layoutName + pedalIndicator;
+    const auto groupIndicator = " [Group " + keyboardMidiMapper.getActiveGroup().name + "]";
+    const auto statusRight
+        = keyName + " (" + transposeStr + ")" + bullet + layoutName + groupIndicator + pedalIndicator;
     viewHost.setText("time-label", statusRight);
 }
 

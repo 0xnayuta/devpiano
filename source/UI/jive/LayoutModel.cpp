@@ -462,6 +462,13 @@ juce::ValueTree makeQwertyCardTree() {
     title.setProperty("height", 18, nullptr);
     title.setProperty("justification", "centred-left", nullptr);
     headerRow.appendChild(title, nullptr);
+    auto groupBtn = button("[Group A]", "qwerty-group-btn");
+    groupBtn.setProperty("title", TRANS("Layout Group"), nullptr);
+    groupBtn.setProperty("tooltip", TRANS("Switch Layout Group (` key or click)"), nullptr);
+    groupBtn.setProperty("width", 72, nullptr);
+    groupBtn.setProperty("height", 16, nullptr);
+    groupBtn.setProperty("margin", "0 6 0 0", nullptr);
+    headerRow.appendChild(groupBtn, nullptr);
 
     auto toggleBtn = button("^", "qwerty-toggle-btn");
     toggleBtn.setProperty("title", TRANS("Toggle QWERTY Visualizer"), nullptr);
@@ -646,6 +653,7 @@ void refreshTitles(::jive::GuiItem& root) {
         { "qwerty-action-row", "QWERTY Header" },
         { "qwerty-title-label", "QWERTY Performance Map" },
         { "qwerty-toggle-btn", "Toggle QWERTY Visualizer" },
+        { "qwerty-group-btn", "Layout Group" },
         { "qwerty-expanded-area", "QWERTY Content Area" },
         { "qwerty-visualizer", "QWERTY Visualizer" },
     };

@@ -58,10 +58,47 @@ struct KeyBinding {
     KeyAction action;
 };
 
+struct KeyGroup {
+    int8_t transposeOffset = 0; // Transpose shift in semitones (-12..+12)
+    int8_t octaveShift = 0; // Octave shift (-3..+3, 12 semitones per octave)
+    uint8_t channel = 0; // MIDI channel override (0: inherit from binding, 1..16: override)
+    juce::String name; // Group label ("A", "B", "C", "D")
+};
+
+[[nodiscard]] inline int calculateSoundingNote(int baseNote, const KeyGroup& group) noexcept {
+    const auto totalShift = static_cast<int>(group.transposeOffset) + static_cast<int>(group.octaveShift) * 12;
+    return juce::jlimit(0, 127, baseNote + totalShift);
+}
+
+[[nodiscard]] inline int calculateSoundingChannel(int baseChannel, const KeyGroup& group) noexcept {
+    if (group.channel >= 1 && group.channel <= 16) {
+        return static_cast<int>(group.channel);
+    }
+    return baseChannel;
+}
+
+struct HeldKeyIdentity {
+    int physicalKeyCode = 0; // Physical key code (e.g. 'A')
+    int soundingMidiNote = 60; // Sounding MIDI note locked at NoteOn
+    int soundingMidiChannel = 1; // Sounding MIDI channel locked at NoteOn
+    float velocity = 1.0f; // Trigger velocity
+};
+
 struct KeyboardLayout {
     juce::String id { "devpiano.default" };
     juce::String name { "DevPiano Default" };
     std::vector<KeyBinding> bindings;
+    std::array<KeyGroup, 4> groups { KeyGroup { 0, 0, 0, "A" }, KeyGroup { 0, 0, 0, "B" }, KeyGroup { 0, 0, 0, "C" },
+                                     KeyGroup { 0, 0, 0, "D" } };
+    uint8_t activeGroupIndex = 0;
+
+    [[nodiscard]] const KeyGroup& getActiveGroup() const noexcept {
+        return groups[activeGroupIndex % 4];
+    }
+
+    [[nodiscard]] KeyGroup& getActiveGroup() noexcept {
+        return groups[activeGroupIndex % 4];
+    }
 
     [[nodiscard]] const KeyBinding* findByKeyCode(int keyCodeToFind) const noexcept {
         for (const auto& binding : bindings) {

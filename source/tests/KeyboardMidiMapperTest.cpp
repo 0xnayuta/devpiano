@@ -368,4 +368,161 @@ public:
     }
 };
 
+// =============================================================================
+// Phase 34-B: Layout Group & HeldKey Identity Preservation (No Hanging Notes)
+// =============================================================================
+
+class LayoutGroupAndHeldKeyIdentityTest : public juce::UnitTest {
+public:
+    LayoutGroupAndHeldKeyIdentityTest()
+        : juce::UnitTest("LayoutGroup: Identity Preservation", "DevPiano/Input") {
+    }
+
+    void runTest() override {
+        testGroupSwitchingCyclesAndCallbacks();
+        testNoteOffIdentityPreservedAcrossGroupSwitch();
+        testSoundingChannelOverridePreservation();
+        testMultipleHeldKeysAcrossDifferentGroupsReleaseCleanly();
+    }
+
+private:
+    void testGroupSwitchingCyclesAndCallbacks() {
+        beginTest("Group switching cycles 0..3 and triggers callback");
+
+        KeyboardMidiMapper mapper;
+        expectEquals(static_cast<int>(mapper.getActiveGroupIndex()), 0);
+
+        int callbackCount = 0;
+        uint8_t lastGroup = 255;
+        mapper.setGroupChangeCallback([&](uint8_t g) {
+            lastGroup = g;
+            ++callbackCount;
+        });
+
+        mapper.switchToNextGroup();
+        expectEquals(static_cast<int>(mapper.getActiveGroupIndex()), 1);
+        expectEquals(static_cast<int>(lastGroup), 1);
+        expectEquals(callbackCount, 1);
+
+        mapper.switchToNextGroup();
+        expectEquals(static_cast<int>(mapper.getActiveGroupIndex()), 2);
+        mapper.switchToNextGroup();
+        expectEquals(static_cast<int>(mapper.getActiveGroupIndex()), 3);
+        mapper.switchToNextGroup();
+        expectEquals(static_cast<int>(mapper.getActiveGroupIndex()), 0);
+
+        mapper.switchToPreviousGroup();
+        expectEquals(static_cast<int>(mapper.getActiveGroupIndex()), 3);
+    }
+
+    void testNoteOffIdentityPreservedAcrossGroupSwitch() {
+        beginTest("NoteOff preserves sounding pitch across group octave shift");
+
+        KeyboardMidiMapper mapper;
+        auto layout = makeSingleBindingLayout('A', 60); // C4 base
+        layout.groups[0] = { 0, 0, 0, "Base" };
+        layout.groups[1] = { 0, 1, 0, "+1 Octave" }; // +12 semitones
+        mapper.setLayout(layout);
+
+        bool isAHeld = true;
+        mapper.setKeyStatePredicate([&](int keyCode) { return (keyCode == makeAlphaNumericKeyCode('A')) && isAHeld; });
+
+        juce::MidiKeyboardState state;
+
+        // 1. Press 'A' in Group 0 (pitch 60)
+        const juce::KeyPress aPress('a');
+        expect(mapper.handleKeyPressed(aPress, state));
+        expect(state.isNoteOn(1, 60), "Sounding pitch 60 must be on in group 0");
+        expectEquals(countNotesOn(state), 1);
+
+        // 2. Switch to Group 1 (+1 octave, where 'A' maps to 72)
+        mapper.switchToNextGroup();
+        expectEquals(static_cast<int>(mapper.getActiveGroupIndex()), 1);
+
+        // 3. Release 'A' key
+        isAHeld = false;
+        expect(mapper.handleKeyStateChanged(state));
+
+        // 4. Verification: NoteOff must target the locked identity (pitch 60), NOT 72
+        expect(!state.isNoteOn(1, 60), "Pitch 60 must be released");
+        expect(!state.isNoteOn(1, 72), "Pitch 72 was never sounding and must be untouched");
+        expectEquals(countNotesOn(state), 0, "No hanging notes remain");
+        expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 0);
+    }
+
+    void testSoundingChannelOverridePreservation() {
+        beginTest("NoteOff preserves sounding channel across group switch");
+
+        KeyboardMidiMapper mapper;
+        auto layout = makeSingleBindingLayout('A', 60, 1);
+        layout.groups[0] = { 0, 0, 0, "Ch1" };
+        layout.groups[1] = { 0, 0, 5, "Ch5" }; // override to channel 5
+        mapper.setLayout(layout);
+
+        bool isAHeld = true;
+        mapper.setKeyStatePredicate([&](int keyCode) { return (keyCode == makeAlphaNumericKeyCode('A')) && isAHeld; });
+
+        juce::MidiKeyboardState state;
+
+        // Switch to Group 1 (Ch 5 override)
+        mapper.setActiveGroupIndex(1);
+
+        // Press 'A' -> should sound on channel 5
+        mapper.handleKeyPressed(juce::KeyPress('a'), state);
+        expect(state.isNoteOn(5, 60), "Note must sound on overridden channel 5");
+        expect(!state.isNoteOn(1, 60), "Channel 1 must not have note");
+
+        // Switch back to Group 0 (Channel 1) while holding 'A'
+        mapper.setActiveGroupIndex(0);
+
+        // Release 'A'
+        isAHeld = false;
+        mapper.handleKeyStateChanged(state);
+
+        // NoteOff must have been sent on channel 5, clearing the note
+        expect(!state.isNoteOn(5, 60), "Channel 5 note must be released cleanly");
+        expectEquals(countNotesOn(state), 0, "Zero hanging notes");
+    }
+
+    void testMultipleHeldKeysAcrossDifferentGroupsReleaseCleanly() {
+        beginTest("Multi-key held across alternating groups release cleanly with releaseAllHeldKeys");
+
+        KeyboardMidiMapper mapper;
+        KeyboardLayout layout;
+        layout.bindings.push_back(makeNoteBinding('A', 60));
+        layout.bindings.push_back(makeNoteBinding('S', 62));
+        layout.bindings.push_back(makeNoteBinding('D', 64));
+        layout.groups[0] = { 0, 0, 1, "G0" };
+        layout.groups[1] = { 0, 1, 2, "G1" }; // +12 st, Ch 2
+        layout.groups[2] = { -12, 0, 3, "G2" }; // -12 st, Ch 3
+        mapper.setLayout(layout);
+
+        juce::MidiKeyboardState state;
+
+        // Key 1: 'A' in G0 -> sounds (Ch 1, 60)
+        mapper.setActiveGroupIndex(0);
+        mapper.handleKeyPressed(juce::KeyPress('a'), state);
+        expect(state.isNoteOn(1, 60));
+
+        // Key 2: 'S' in G1 -> sounds (Ch 2, 74)
+        mapper.setActiveGroupIndex(1);
+        mapper.handleKeyPressed(juce::KeyPress('s'), state);
+        expect(state.isNoteOn(2, 74));
+
+        // Key 3: 'D' in G2 -> sounds (Ch 3, 52)
+        mapper.setActiveGroupIndex(2);
+        mapper.handleKeyPressed(juce::KeyPress('d'), state);
+        expect(state.isNoteOn(3, 52));
+
+        expectEquals(countNotesOn(state), 3);
+        expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 3);
+
+        // Panic release
+        mapper.releaseAllHeldKeys(state);
+        expectEquals(countNotesOn(state), 0, "All 3 heterogeneous notes must be released");
+        expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 0);
+    }
+};
+
+static LayoutGroupAndHeldKeyIdentityTest layoutGroupAndHeldKeyIdentityTest;
 static SustainPedalKeyMappingTest sustainPedalKeyMappingTest;

@@ -69,6 +69,10 @@ MainComponent::MainComponent() {
         notifyMidiActivity();
         updateStatusBar();
     });
+    keyboardMidiMapper.setGroupChangeCallback([this](uint8_t) {
+        updateQwertyVisualizer();
+        updateStatusBar();
+    });
     presetFlowSupport = std::make_unique<devpiano::layout::PresetFlowSupport>(*this);
     recordingSessionController = std::make_unique<devpiano::recording::RecordingSessionController>(
         *this, recordingEngine, audioEngine, appSettings);
@@ -385,6 +389,12 @@ void MainComponent::initialiseUi() {
         }
         if (auto* btn = viewHost.find<juce::Button>("qwerty-toggle-btn")) {
             btn->onClick = [this] { setQwertyVisualizerExpanded(!appSettings.qwertyVisualizerExpanded); };
+        }
+        if (auto* btn = viewHost.find<juce::Button>("qwerty-group-btn")) {
+            btn->onClick = [this] {
+                keyboardMidiMapper.switchToNextGroup();
+                updateQwertyVisualizer();
+            };
         }
     }
 
