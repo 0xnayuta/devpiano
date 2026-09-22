@@ -35,6 +35,9 @@ void KeyboardMidiMapper::setChannelMapper(devpiano::midi::MidiChannelMapper* map
 void KeyboardMidiMapper::setSustainPedalCallback(SustainPedalCallback callback) noexcept {
     sustainPedalCallback = std::move(callback);
 }
+void KeyboardMidiMapper::setSyncPedalResetCallback(SyncPedalResetCallback callback) noexcept {
+    syncPedalResetCallback = std::move(callback);
+}
 
 bool KeyboardMidiMapper::isSustainPedalDown() const noexcept {
     return sustainPedalDown;
@@ -300,6 +303,9 @@ void KeyboardMidiMapper::releaseAllHeldKeys(juce::MidiKeyboardState& keyboardSta
     programmaticSoftPedal = false;
     groupCycleShortcutHeld = false;
     updateSoftPedalState();
+    if (syncPedalResetCallback) {
+        syncPedalResetCallback();
+    }
 }
 
 int KeyboardMidiMapper::normaliseKeyCode(const juce::KeyPress& key) const {

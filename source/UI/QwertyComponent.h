@@ -28,9 +28,6 @@ public:
         return viewModel;
     }
 
-    // ---- External Notification (wake timer for fade-out) -------------------
-    void notifyKeyActivity();
-
     // ---- Interaction Callbacks ---------------------------------------------
     std::function<void(int midiNote, int midiChannel, float velocity)> onNoteOn;
     std::function<void(int midiNote, int midiChannel)> onNoteOff;

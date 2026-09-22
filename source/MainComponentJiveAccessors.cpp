@@ -575,6 +575,10 @@ devpiano::ui::QwertyComponent& MainComponent::getQwertyVisualizer() {
     if (qwertyComponentRef == nullptr) {
         qwertyComponentRef = viewHost.find<devpiano::ui::QwertyComponent>("qwerty-visualizer");
         jassert(qwertyComponentRef != nullptr);
+        if (qwertyComponentRef == nullptr) {
+            static devpiano::ui::QwertyComponent fallbackVisualizer;
+            return fallbackVisualizer;
+        }
     }
     return *qwertyComponentRef;
 }

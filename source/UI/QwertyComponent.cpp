@@ -47,13 +47,6 @@ void QwertyComponent::updateViewModel(const devpiano::core::QwertyViewModel& new
     repaint();
 }
 
-void QwertyComponent::notifyKeyActivity() {
-    if (!isTimerRunning()) {
-        startTimer(timerIntervalMs);
-    }
-    repaint();
-}
-
 void QwertyComponent::recalculateKeyBounds() {
     const auto bounds = getLocalBounds().toFloat();
     if (bounds.getWidth() < 50.0f || bounds.getHeight() < 50.0f) {

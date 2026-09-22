@@ -60,6 +60,7 @@ private:
     bool applyDisplayProperty(const juce::Identifier& prop);
     bool applyMidiProperty(const juce::Identifier& prop);
     void syncEditingStateFromModel();
+    void rebuildSustainPolicyCombo();
 
     void populateAudioDeviceTypes();
     void populateAudioOutputDevices();
@@ -104,6 +105,7 @@ private:
     juce::ComboBox* noteDisplayCombo = nullptr;
     juce::Slider* fadeSpeedSlider = nullptr;
     juce::ToggleButton* instrumentFilterToggle = nullptr;
+    juce::ComboBox* sustainPolicyCombo = nullptr;
     juce::ComboBox* languageCombo = nullptr;
     juce::ComboBox* lidPositionCombo = nullptr;
     juce::ComboBox* touchCurveCombo = nullptr;

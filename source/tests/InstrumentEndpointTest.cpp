@@ -152,10 +152,12 @@ private:
 
             expect(endpoint.isHostedPlugin());
             expect(!endpoint.isRenderable(), "a hosted endpoint is not renderable before prepareToPlay");
+            expect(!endpoint.isHostedPluginReady(), "not ready before prepareToPlay");
             expectEquals(endpoint.getChannelCount(), 2, "stereo plugin geometry");
 
             endpoint.hostedInstanceReady = true;
             expect(endpoint.isRenderable(), "a prepared hosted endpoint is renderable");
+            expect(endpoint.isHostedPluginReady(), "ready after prepareToPlay");
 
             StubInstrumentPlugin monoPlugin(1);
             endpoint.hostedInstance = &monoPlugin;

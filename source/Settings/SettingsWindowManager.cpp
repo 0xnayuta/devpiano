@@ -213,6 +213,9 @@ void SettingsWindowManager::showFor(MainComponent& owner) {
         safe->audioEngine.setReverbWet(safe->appSettings.reverbWet);
         safe->audioEngine.setPedalNoiseLevel(safe->appSettings.pedalNoiseLevel);
         safe->audioEngine.setFeltAgeingAmount(safe->appSettings.feltAgeingAmount);
+        safe->audioEngine.setSustainPolicy(safe->appSettings.sustainPolicy);
+        safe->keyboardMidiMapper.setSustainPolicy(safe->appSettings.sustainPolicy);
+        safe->updateQwertyVisualizer();
     };
     show({ .parent = owner,
            .deviceManager = owner.deviceManager,

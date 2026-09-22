@@ -127,6 +127,9 @@ public:
     [[nodiscard]] bool isSyncPedalCutPending() const noexcept {
         return syncPedalProcessor.isCutPending();
     }
+    void resetSyncPedal() noexcept {
+        syncPedalProcessor.reset();
+    }
 
 private:
     void rebuildSynth();

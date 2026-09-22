@@ -108,6 +108,7 @@ private:
         expect(findNodeById(tree, "note-display-combo").isValid());
         expect(findNodeById(tree, "fade-speed-slider").isValid());
         expect(findNodeById(tree, "instrument-filter-toggle").isValid());
+        expect(findNodeById(tree, "sustain-policy-combo").isValid());
         expect(findNodeById(tree, "language-combo").isValid());
     }
     void testAcousticsSection() {
@@ -209,6 +210,8 @@ private:
 
             auto* langCombo = dynamic_cast<juce::ComboBox*>(findComponentById(*rootItem, "language-combo"));
             expect(langCombo != nullptr);
+            auto* sustainCombo = dynamic_cast<juce::ComboBox*>(findComponentById(*rootItem, "sustain-policy-combo"));
+            expect(sustainCombo != nullptr);
             auto* lidCombo = dynamic_cast<juce::ComboBox*>(findComponentById(*rootItem, "lid-position-combo"));
             expect(lidCombo != nullptr);
             auto* curveCombo = dynamic_cast<juce::ComboBox*>(findComponentById(*rootItem, "touch-curve-combo"));

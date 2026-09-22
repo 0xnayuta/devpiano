@@ -22,6 +22,7 @@ public:
     using SustainPedalCallback = std::function<void(bool isDown)>;
     using SoftPedalCallback = std::function<void(bool isDown)>;
     using GroupChangeCallback = std::function<void(uint8_t groupIndex)>;
+    using SyncPedalResetCallback = std::function<void()>;
     KeyboardMidiMapper();
 
     void setLayout(devpiano::core::KeyboardLayout newLayout);
@@ -38,6 +39,10 @@ public:
     void setSustainPolicy(devpiano::core::SustainPolicy policy) noexcept;
     [[nodiscard]] devpiano::core::SustainPolicy getSustainPolicy() const noexcept;
     [[nodiscard]] bool isSyncPedalCutPending() const noexcept;
+    void clearSyncPedalCutPending() noexcept {
+        syncPedalCutPending = false;
+    }
+    void setSyncPedalResetCallback(SyncPedalResetCallback callback) noexcept;
 
     void setSoftPedalCallback(SoftPedalCallback callback) noexcept;
     [[nodiscard]] bool isSoftPedalDown() const noexcept;
@@ -88,6 +93,7 @@ private:
     devpiano::core::SustainPolicy sustainPolicy = devpiano::core::SustainPolicy::normal;
     bool syncPedalCutPending = false;
     SoftPedalCallback softPedalCallback;
+    SyncPedalResetCallback syncPedalResetCallback;
     bool softPedalDown = false;
     bool physicalSoftPedalHeld = false;
     bool programmaticSoftPedal = false;

@@ -66,6 +66,7 @@ MainComponent::MainComponent() {
         notifyMidiActivity();
         updateStatusBar();
     });
+    keyboardMidiMapper.setSyncPedalResetCallback([this] { audioEngine.resetSyncPedal(); });
     keyboardMidiMapper.setSoftPedalCallback([this](bool isDown) {
         audioEngine.sendController(1, 67, isDown ? 127 : 0);
         notifyMidiActivity();
@@ -351,6 +352,7 @@ void MainComponent::wireKeyboardInteraction() {
         } else {
             audioEngine.getKeyboardState().noteOn(1, midiNote, 1.0f);
         }
+        keyboardMidiMapper.clearSyncPedalCutPending();
         suppressTextInputMethods();
     };
     customKeyboard.onNoteOff = [this](int midiNote, int sourceChannel) {
@@ -380,11 +382,23 @@ void MainComponent::initialiseUi() {
         if (auto* qv = viewHost.find<devpiano::ui::QwertyComponent>("qwerty-visualizer")) {
             qwertyComponentRef = qv;
             qv->onNoteOn = [this](int midiNote, int midiChannel, float velocity) {
-                audioEngine.getKeyboardState().noteOn(midiChannel, midiNote, velocity);
+                if (midiChannelMapper != nullptr) {
+                    const auto zeroBasedCh = juce::jlimit(0, 15, midiChannel - 1);
+                    midiChannelMapper->sendNoteOn(zeroBasedCh, midiNote, velocity, audioEngine.getKeyboardState());
+                } else {
+                    audioEngine.getKeyboardState().noteOn(midiChannel, midiNote, velocity);
+                }
+                keyboardMidiMapper.clearSyncPedalCutPending();
                 notifyMidiActivity();
+                suppressTextInputMethods();
             };
             qv->onNoteOff = [this](int midiNote, int midiChannel) {
-                audioEngine.getKeyboardState().noteOff(midiChannel, midiNote, 1.0f);
+                if (midiChannelMapper != nullptr) {
+                    const auto zeroBasedCh = juce::jlimit(0, 15, midiChannel - 1);
+                    midiChannelMapper->sendNoteOff(zeroBasedCh, midiNote, 1.0f, audioEngine.getKeyboardState());
+                } else {
+                    audioEngine.getKeyboardState().noteOff(midiChannel, midiNote, 1.0f);
+                }
                 notifyMidiActivity();
             };
             qv->onBindingEditRequested = [this](int midiNote) { handleKeyBindingEditRequest(midiNote); };
@@ -902,6 +916,7 @@ void MainComponent::handleWindowFocusLost() {
             }
         }
         weak->keyboardMidiMapper.releaseAllHeldKeys(weak->audioEngine.getKeyboardState());
+        weak->audioEngine.resetSyncPedal();
         weak->updateQwertyVisualizer();
         weak->getCustomKeyboard().releaseHeldMouseNote();
     });

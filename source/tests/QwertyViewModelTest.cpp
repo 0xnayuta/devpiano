@@ -3,6 +3,7 @@
 #include "Core/KeyMapTypes.h"
 #include "Core/QwertyModel.h"
 #include "Input/KeyboardMidiMapper.h"
+#include "Midi/MidiChannelMapper.h"
 #include "UI/QwertyComponent.h"
 
 namespace {
@@ -20,6 +21,7 @@ public:
         testHeldKeyStateReflection();
         testPedalStateReflection();
         testComponentHitTestingAndInteraction();
+        testMouseInteractionWithMidiChannelMapper();
         testPitchClassHarmonyPalette();
     }
 
@@ -291,6 +293,43 @@ private:
         const auto brightBg = juce::Colour(0xFFFAFAFA);
         expect(devpiano::core::getContrastingTextColour(darkBg) == juce::Colours::white);
         expect(devpiano::core::getContrastingTextColour(brightBg) == juce::Colour(0xFF0F172A));
+    }
+
+    void testMouseInteractionWithMidiChannelMapper() {
+        beginTest("Qwerty mouse callback correctly routes through MidiChannelMapper");
+
+        devpiano::midi::ChannelMatrix matrix;
+        matrix.active = true;
+        // Map input channel 1 (0-based index 0) to output channel 4 with +12 semitone transpose
+        matrix.channels[0].outputChannel = 3; // 0-based 3 maps to MIDI channel 4
+        matrix.channels[0].transpose = 12;
+
+        devpiano::midi::MidiChannelMapper channelMapper(matrix, false, 0);
+        juce::MidiKeyboardState keyboardState;
+
+        devpiano::ui::QwertyComponent comp;
+        comp.setSize(750, 150);
+
+        KeyboardMidiMapper mapper;
+        comp.updateViewModel(mapper.createQwertySnapshot(0));
+
+        // Simulate the MainComponent wiring:
+        comp.onNoteOn = [&](int midiNote, int midiChannel, float velocity) {
+            const auto zeroBasedCh = juce::jlimit(0, 15, midiChannel - 1);
+            channelMapper.sendNoteOn(zeroBasedCh, midiNote, velocity, keyboardState);
+        };
+        comp.onNoteOff = [&](int midiNote, int midiChannel) {
+            const auto zeroBasedCh = juce::jlimit(0, 15, midiChannel - 1);
+            channelMapper.sendNoteOff(zeroBasedCh, midiNote, 1.0f, keyboardState);
+        };
+
+        // Trigger note on C4 (60) on channel 1
+        comp.onNoteOn(60, 1, 0.9f);
+        expect(keyboardState.isNoteOn(4, 72), "Channel 1 note 60 must be transposed to channel 4 note 72");
+        expect(!keyboardState.isNoteOn(1, 60), "Raw channel 1 note 60 must not be triggered directly");
+
+        comp.onNoteOff(60, 1);
+        expect(!keyboardState.isNoteOn(4, 72), "Transposed note on channel 4 must be released");
     }
 };
 

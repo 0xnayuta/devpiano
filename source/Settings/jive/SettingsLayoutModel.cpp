@@ -218,6 +218,12 @@ juce::ValueTree makeKeyboardDisplaySectionTree() {
     content.appendChild(settingRow(TRANS("Show MIDI/VSTi Instrument Filter:"), filterCb, "instrument-filter-label"),
                         nullptr);
 
+    // Sustain Pedal Policy (Phase 34-C)
+    auto sustainCombo = node("ComboBox", "sustain-policy-combo");
+    sustainCombo.setProperty("width", 300, nullptr);
+    sustainCombo.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Sustain Pedal Mode:"), sustainCombo, "sustain-policy-label"), nullptr);
+
     // Language
     auto langCombo = node("ComboBox", "language-combo");
     langCombo.setProperty("width", 300, nullptr);

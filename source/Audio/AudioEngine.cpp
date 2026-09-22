@@ -110,7 +110,7 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
     auto renderedByPlugin = false;
 
     const auto endpoint = devpiano::audio::resolveInstrumentEndpoint(pluginHost);
-    if (endpoint.isHostedPlugin() && endpoint.hostedInstanceReady) {
+    if (endpoint.isHostedPluginReady()) {
         auto* instance = endpoint.hostedInstance;
         const auto requiredChannels = juce::jmax(1, endpoint.getChannelCount());
         // Buffer is pre-allocated in prepareToPlay and should never need resizing here.
@@ -169,6 +169,7 @@ void AudioEngine::releaseResources() {
 }
 
 void AudioEngine::requestAllNotesOff() noexcept {
+    syncPedalProcessor.reset();
     allNotesOffPending.store(true, std::memory_order_release);
 }
 
@@ -401,6 +402,7 @@ void AudioEngine::injectPendingAllNotesOffIfNeeded() {
         return;
     }
 
+    syncPedalProcessor.reset();
     for (auto channel = 1; channel <= 16; ++channel) {
         keyboardState.allNotesOff(channel);
         midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 64, 0), 0); // sustain pedal off

@@ -35,6 +35,9 @@ struct InstrumentEndpoint {
     [[nodiscard]] bool isHostedPlugin() const noexcept {
         return kind == Kind::hostedPlugin && hostedInstance != nullptr;
     }
+    [[nodiscard]] bool isHostedPluginReady() const noexcept {
+        return isHostedPlugin() && hostedInstanceReady;
+    }
 
     // 端点是否已可渲染；未托管插件时内置合成器始终就绪。
     [[nodiscard]] bool isRenderable() const noexcept {

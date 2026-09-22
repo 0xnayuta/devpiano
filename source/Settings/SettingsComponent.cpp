@@ -68,6 +68,7 @@ void SettingsComponent::buildJiveUi() {
         noteDisplayCombo = viewHost.find<juce::ComboBox>("note-display-combo");
         fadeSpeedSlider = viewHost.find<juce::Slider>("fade-speed-slider");
         instrumentFilterToggle = viewHost.find<juce::ToggleButton>("instrument-filter-toggle");
+        sustainPolicyCombo = viewHost.find<juce::ComboBox>("sustain-policy-combo");
         languageCombo = viewHost.find<juce::ComboBox>("language-combo");
         lidPositionCombo = viewHost.find<juce::ComboBox>("lid-position-combo");
         touchCurveCombo = viewHost.find<juce::ComboBox>("touch-curve-combo");
@@ -259,6 +260,14 @@ void SettingsComponent::wireAppearanceControls() {
             editingState.setProperty("showInstrumentFilter", instrumentFilterToggle->getToggleState(), nullptr);
         };
     }
+    if (sustainPolicyCombo != nullptr) {
+        rebuildSustainPolicyCombo();
+        if (model != nullptr) {
+            sustainPolicyCombo->setSelectedId(1 + static_cast<int>(model->sustainPolicy), juce::dontSendNotification);
+        }
+        sustainPolicyCombo->onChange
+            = [this] { editingState.setProperty("sustainPolicy", sustainPolicyCombo->getSelectedId(), nullptr); };
+    }
 }
 
 void SettingsComponent::wireLocaleAndActionControls() {
@@ -424,6 +433,9 @@ void SettingsComponent::syncEditingStateFromModel() {
     if (instrumentFilterToggle != nullptr) {
         editingState.setProperty("showInstrumentFilter", model->keyboardDisplay.showInstrumentFilter, nullptr);
     }
+    if (sustainPolicyCombo != nullptr) {
+        editingState.setProperty("sustainPolicy", 1 + static_cast<int>(model->sustainPolicy), nullptr);
+    }
     if (lidPositionCombo != nullptr) {
         editingState.setProperty("lidPosition", 1 + static_cast<int>(model->lidPosition), nullptr);
     }
@@ -499,6 +511,16 @@ void SettingsComponent::rebuildKeySignatureCombo() {
     keySignatureCombo->addItem("A", 10);
     keySignatureCombo->addItem("A# / Bb", 11);
     keySignatureCombo->addItem("B", 12);
+}
+void SettingsComponent::rebuildSustainPolicyCombo() {
+    if (sustainPolicyCombo == nullptr) {
+        return;
+    }
+    sustainPolicyCombo->clear(juce::dontSendNotification);
+    sustainPolicyCombo->addItem(TRANS("Normal (Direct Hold)"),
+                                1 + static_cast<int>(devpiano::core::SustainPolicy::normal));
+    sustainPolicyCombo->addItem(TRANS("Syncopated Legato (Sync Pedal)"),
+                                1 + static_cast<int>(devpiano::core::SustainPolicy::syncPedal));
 }
 void SettingsComponent::rebuildLidPositionCombo() {
     if (lidPositionCombo == nullptr) {
@@ -844,6 +866,13 @@ bool SettingsComponent::applyDisplayProperty(const juce::Identifier& prop) {
     if (propName == "showInstrumentFilter") {
         model->keyboardDisplay.showInstrumentFilter = (bool)editingState[prop];
         return true;
+    }
+    if (propName == "sustainPolicy") {
+        const int id = editingState[prop];
+        if (id >= 1 && id <= 2) {
+            model->sustainPolicy = static_cast<devpiano::core::SustainPolicy>(id - 1);
+            return true;
+        }
     }
     if (propName == "lidPosition") {
         const int id = editingState[prop];

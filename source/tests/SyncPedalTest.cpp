@@ -1,5 +1,6 @@
 #include <JuceHeader.h>
 
+#include "Audio/AudioEngine.h"
 #include "Audio/SyncPedalProcessor.h"
 #include "Core/KeyMapTypes.h"
 #include "Input/KeyboardMidiMapper.h"
@@ -20,6 +21,7 @@ public:
         testEmptyBlockIsNoOp();
         testNoAllocationInRenderPath();
         testKeyboardMidiMapperSustainPolicyIntegration();
+        testPanicAndResetSyncPedalIntegration();
     }
 
 private:
@@ -256,6 +258,42 @@ private:
             [&](int kc) { return (kc == juce::KeyPress::spaceKey && isSpaceDown) || kc == keyCode; });
         mapper.handleKeyPressed(juce::KeyPress(keyCode, 0, 0), state);
         expect(!mapper.isSyncPedalCutPending(), "NoteOn via triggerBinding must consume the pending sync cut");
+    }
+
+    void testPanicAndResetSyncPedalIntegration() {
+        beginTest("Panic and focus loss cleanly reset engine sync-pedal processor");
+
+        AudioEngine engine;
+        engine.prepareToPlay(512, 48000.0);
+        engine.setSustainPolicy(devpiano::core::SustainPolicy::syncPedal);
+        // 1. Simulate sustain pedal pressed and released -> cutPending would be hung
+        engine.sendController(1, 64, 127);
+        expect(engine.isSustainPedalDown());
+        engine.sendController(1, 64, 0);
+        expect(engine.isSyncPedalCutPending(), "Normal release leaves cut pending");
+
+        // 2. Explicit resetSyncPedal must clear both pedal state and pending cut
+        engine.resetSyncPedal();
+        expect(!engine.isSustainPedalDown(), "Pedal down flag must be cleared");
+        expect(!engine.isSyncPedalCutPending(), "Pending cut must be cleared on reset");
+
+        // 3. requestAllNotesOff must immediately reset sync-pedal state
+        engine.sendController(1, 64, 127);
+        engine.sendController(1, 64, 0);
+        expect(engine.isSyncPedalCutPending());
+        engine.requestAllNotesOff();
+        expect(!engine.isSyncPedalCutPending(), "requestAllNotesOff must clear cutPending");
+
+        // 4. KeyboardMidiMapper releaseAllHeldKeys triggers registered reset callback
+        KeyboardMidiMapper mapper;
+        mapper.setSustainPolicy(devpiano::core::SustainPolicy::syncPedal);
+        bool resetCallbackFired = false;
+        mapper.setSyncPedalResetCallback([&] { resetCallbackFired = true; });
+
+        juce::MidiKeyboardState state;
+        mapper.releaseAllHeldKeys(state);
+        expect(resetCallbackFired, "releaseAllHeldKeys must invoke syncPedalResetCallback");
+        expect(!mapper.isSyncPedalCutPending());
     }
 };
 
