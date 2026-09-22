@@ -985,6 +985,10 @@ private:
         expectEquals(titleOf("record-btn"), juce::String(TRANS("Record")), "transport title must follow the locale");
         expectEquals(titleOf("back-btn"), juce::String(TRANS("Back to Start")),
                      "transport title must follow the locale");
+        expectEquals(titleOf("qwerty-title-label"), juce::String(TRANS("QWERTY Performance Map")),
+                     "qwerty title must follow the locale");
+        expectEquals(titleOf("qwerty-card"), juce::String(TRANS("QWERTY Performance Map")),
+                     "qwerty card title must follow the locale");
 
         devpiano::test::drainMessages(2);
         devpiano::locale::activate(devpiano::locale::Language::en);

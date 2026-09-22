@@ -453,14 +453,15 @@ juce::ValueTree makeQwertyCardTree() {
 
     auto headerRow = flexRow("qwerty-action-row");
     headerRow.setProperty("title", TRANS("QWERTY Header"), nullptr);
-    headerRow.setProperty("height", 18, nullptr);
+    headerRow.setProperty("height", 20, nullptr);
     headerRow.setProperty("margin", "0", nullptr);
 
     auto title = text(TRANS("QWERTY Performance Map"), "qwerty-title-label");
     title.setProperty("title", TRANS("QWERTY Performance Map"), nullptr);
     title.setProperty("flex-grow", 1.0, nullptr);
-    title.setProperty("height", 18, nullptr);
+    title.setProperty("height", 20, nullptr);
     title.setProperty("justification", "centred-left", nullptr);
+    title.setProperty("word-wrap", "none", nullptr);
     headerRow.appendChild(title, nullptr);
     auto groupBtn = button("[Group A]", "qwerty-group-btn");
     groupBtn.setProperty("title", TRANS("Layout Group"), nullptr);

@@ -506,6 +506,9 @@ void MainComponent::refreshControlsTexts() {
     viewHost.setText("preset-card-title", TRANS("Performance Preset"));
     viewHost.setText("adsr-curve-title", TRANS("ADSR Curve"));
     viewHost.setText("transport-card-title", TRANS("Transport Controls"));
+    viewHost.setText("qwerty-title-label", TRANS("QWERTY Performance Map"));
+    viewHost.setProperty("qwerty-group-btn", "tooltip", TRANS("Switch Layout Group (` key or click)"));
+    viewHost.setProperty("qwerty-toggle-btn", "tooltip", TRANS("Toggle QWERTY Visualizer"));
     if (auto* combo = viewHost.find<juce::ComboBox>("preset-combo")) {
         combo->setTextWhenNothingSelected(TRANS("Default"));
     }
@@ -602,7 +605,7 @@ void MainComponent::updateQwertyVisualizer() {
     if (qwertyComponentRef != nullptr) {
         qwertyComponentRef->updateViewModel(keyboardMidiMapper.createQwertySnapshot(appSettings.keySignature));
     }
-    viewHost.setText("qwerty-group-btn", "[Group " + keyboardMidiMapper.getActiveGroup().name + "]");
+    viewHost.setText("qwerty-group-btn", "[" + TRANS("Group") + " " + keyboardMidiMapper.getActiveGroup().name + "]");
 }
 
 int MainComponent::getKeyboardViewPositionX() const noexcept {

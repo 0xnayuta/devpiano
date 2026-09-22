@@ -80,9 +80,8 @@
     "border-radius": "8"
   },
   "#qwerty-title-label": {
-    "foreground": "@text-secondary",
-    "font-size": "@font-size-tiny",
-    "font-weight": "bold"
+    "foreground": "@text-primary",
+    "font-size": "@font-size-label"
   },
   "#qwerty-toggle-btn": {
     "background": "transparent",
