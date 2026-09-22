@@ -1,5 +1,6 @@
 #include "AudioEngine.h"
 
+#include "Audio/InstrumentEndpoint.h"
 #include "Audio/PianoSynthVoice.h"
 #include "Audio/SineSynthVoice.h"
 #include "Export/ExportFlowSupport.h"
@@ -12,6 +13,8 @@
 namespace {
 constexpr auto warmupSeconds = 0.025;
 constexpr auto playbackStartPreRollSeconds = 0.025;
+// 音频回调缓冲区的最小通道预分配余量：覆盖立体声、多输出与空间/环绕插件。
+constexpr auto minInstrumentBufferChannels = 32;
 } // namespace
 
 int AudioEngine::calculateWarmupBlockCount(double sampleRate, int blockSize) noexcept {
@@ -57,13 +60,10 @@ void AudioEngine::prepareToPlay(int samplesPerBlockExpected, double sampleRate) 
     // Pre-allocate channels (covers stereo, multi-out, and spatial/ambisonic plugins up to 32+ channels).
     // The audio callback must never resize this buffer — heap allocation on the
     // real-time thread causes glitches.
-    auto requiredChannels = 32;
-    if (pluginHost != nullptr && pluginHost->hasLoadedPlugin()) {
-        if (auto* instance = pluginHost->getInstance()) {
-            requiredChannels
-                = juce::jmax(requiredChannels,
-                             juce::jmax(instance->getTotalNumInputChannels(), instance->getTotalNumOutputChannels()));
-        }
+    const auto endpoint = devpiano::audio::resolveInstrumentEndpoint(pluginHost);
+    auto requiredChannels = minInstrumentBufferChannels;
+    if (endpoint.isHostedPlugin()) {
+        requiredChannels = juce::jmax(requiredChannels, endpoint.getChannelCount());
     }
     pluginBuffer.setSize(requiredChannels, juce::jmax(1, samplesPerBlockExpected), false, false, true);
     pluginBuffer.clear();
@@ -76,7 +76,7 @@ void AudioEngine::prepareToPlay(int samplesPerBlockExpected, double sampleRate) 
     applyPendingParametersIfNeeded();
     roomReverb.prepare(sampleRate);
 
-    if (pluginHost != nullptr && pluginHost->hasLoadedPlugin()) {
+    if (endpoint.isHostedPlugin()) {
         pluginHost->prepareToPlay(sampleRate, samplesPerBlockExpected);
     }
 
@@ -109,35 +109,33 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
     applyPendingParametersIfNeeded();
     auto renderedByPlugin = false;
 
-    if (pluginHost != nullptr && pluginHost->hasLoadedPlugin()) {
-
-        if (auto* instance = pluginHost->getInstance(); instance != nullptr && pluginHost->isPrepared()) {
-            const auto requiredChannels = juce::jmax(
-                1, juce::jmax(instance->getTotalNumInputChannels(), instance->getTotalNumOutputChannels()));
-            // Buffer is pre-allocated in prepareToPlay and should never need resizing here.
-            // If this triggers, the audio device changed its block size without calling prepareToPlay
-            // — which is a framework contract violation. Resize as a safety net in release builds.
-            jassert(pluginBuffer.getNumChannels() >= requiredChannels);
-            jassert(pluginBuffer.getNumSamples() >= bufferToFill.numSamples);
-            if (pluginBuffer.getNumChannels() < requiredChannels
-                || pluginBuffer.getNumSamples() < bufferToFill.numSamples) {
-                pluginBuffer.setSize(requiredChannels, bufferToFill.numSamples, false, false, true);
-                // 实时回调内只计数，日志由消息线程 consume 后输出（ERR-002）。
-                pluginBufferResizeCount.fetch_add(1, std::memory_order_relaxed);
-            }
-
-            pluginBuffer.clear();
-            instance->processBlock(pluginBuffer, midiBuffer);
-
-            const auto outputChannels
-                = juce::jmin(bufferToFill.buffer->getNumChannels(), instance->getTotalNumOutputChannels());
-            for (auto channel = 0; channel < outputChannels; ++channel) {
-                bufferToFill.buffer->copyFrom(channel, bufferToFill.startSample, pluginBuffer, channel, 0,
-                                              bufferToFill.numSamples);
-            }
-
-            renderedByPlugin = true;
+    const auto endpoint = devpiano::audio::resolveInstrumentEndpoint(pluginHost);
+    if (endpoint.isHostedPlugin() && endpoint.hostedInstanceReady) {
+        auto* instance = endpoint.hostedInstance;
+        const auto requiredChannels = juce::jmax(1, endpoint.getChannelCount());
+        // Buffer is pre-allocated in prepareToPlay and should never need resizing here.
+        // If this triggers, the audio device changed its block size without calling prepareToPlay
+        // — which is a framework contract violation. Resize as a safety net in release builds.
+        jassert(pluginBuffer.getNumChannels() >= requiredChannels);
+        jassert(pluginBuffer.getNumSamples() >= bufferToFill.numSamples);
+        if (pluginBuffer.getNumChannels() < requiredChannels
+            || pluginBuffer.getNumSamples() < bufferToFill.numSamples) {
+            pluginBuffer.setSize(requiredChannels, bufferToFill.numSamples, false, false, true);
+            // 实时回调内只计数，日志由消息线程 consume 后输出（ERR-002）。
+            pluginBufferResizeCount.fetch_add(1, std::memory_order_relaxed);
         }
+
+        pluginBuffer.clear();
+        instance->processBlock(pluginBuffer, midiBuffer);
+
+        const auto outputChannels
+            = juce::jmin(bufferToFill.buffer->getNumChannels(), instance->getTotalNumOutputChannels());
+        for (auto channel = 0; channel < outputChannels; ++channel) {
+            bufferToFill.buffer->copyFrom(channel, bufferToFill.startSample, pluginBuffer, channel, 0,
+                                          bufferToFill.numSamples);
+        }
+
+        renderedByPlugin = true;
     }
 
     if (!renderedByPlugin) {

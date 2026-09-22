@@ -105,16 +105,18 @@
   - 在 `KeyboardMidiMapper` 中捕获 Shift/Alt/Ctrl 修饰状态，NoteOn 时将修饰后的发音身份存入快照（铁律 10 联合保障），松开修饰键后再松按键绝不悬挂；
   - QWERTY 键盘卡片实时下沉高亮点亮修饰键并展示 HUD 标签（`Shift [BOOST]`、`Alt [+8va]`）；
   - 编写 `PerformanceModifierTest` 专项单测，全面验证力度拉满、八度平移、持音中途释放修饰键防悬挂与基线配置 100% 零突变。
-### Phase 34-E：扫描器增量持久化（Crash-safe State Persistence）与乐器端点概念收敛
+### Phase 34-E：扫描器增量持久化（Crash-safe State Persistence）与乐器端点概念收敛 [已完成，2026-09-22]
 
 > 目标：吸收官方 Host 与 Element 的生产级工程精髓，提升第三方插件容灾鲁棒性与乐器抽象纯净度。
 
-- [ ] **Phase 34-E-1：插件扫描器的增量持久化（Crash-safe Scanner Persistence）**：
-  - 在 `PluginHost` 的分批扫描中，每成功识别一个有效插件，立即增量持久化 `KnownPluginList`；
-  - 若遇劣质第三方插件引发崩溃，下次启动可安全跳过已知崩溃点，避免反复卡死。
-- [ ] **Phase 34-E-2：Seam-first 乐器端点（Instrument Endpoint）概念收敛**：
-  - 梳理 `AudioEngine`、`RecordingEngine` 与 `PluginOfflineRenderer` 的乐器调用契约；
-  - 在不破坏现有平稳运行的前提下，建立薄乐器端点概念层，消除重复的二元分支判断。
+- [x] **Phase 34-E-1：插件扫描器的增量持久化（Crash-safe Scanner Persistence）**：
+  - `PluginHost` 新增 `ScanIncrementalCallback`：`advanceVst3ScanStep()` 每发现新插件、`cancelVst3ScanSession()` 取消、`addVst3FileToKnownList()` 单文件导入均立即回调，`PluginOperationController` 随即同步写入 `knownPluginListState`，崩溃不再丢弃整轮扫描成果；
+  - 扫描目标在首个插件被探测前即落盘；`beginVst3ScanSession()` 读取 dead-man's pedal 并把崩溃插件加入黑名单推迟到序列末尾，避免反复卡死在同一入口；
+  - `PluginScanPersistenceTest` 覆盖 pedal 恢复、增量回调语义与未注册回调时的零副作用。
+- [x] **Phase 34-E-2：Seam-first 乐器端点（Instrument Endpoint）概念收敛**：
+  - 新增 `source/Audio/InstrumentEndpoint.h`：以 `resolveInstrumentEndpoint()` 无锁解析当前乐器端点（种类 / 宿主实例 / 描述 / 就绪 / 通道几何），统一 `AudioEngine` 设备准备与实时渲染、`RecordingSessionController` 离线导出中的重复判断；
+  - 离线侧新增 `renderTakeThroughInstrumentEndpoint()` 端点路由，`WavExportTask` 不再自持 `offlinePlugin != nullptr ? ... : ...` 二元分支；
+  - `InstrumentEndpointTest` 覆盖端点解析回落、通道几何与就绪语义、离线双路由与空 take 拒绝。
 
 ## 历史实现 Backlog
 

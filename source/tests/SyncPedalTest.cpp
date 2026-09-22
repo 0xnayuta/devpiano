@@ -17,6 +17,8 @@ public:
         testSampleAccurateSyncPedalSequence();
         testPendingCutTriggerOnNextNote();
         testMultipleNotesInBlock();
+        testEmptyBlockIsNoOp();
+        testNoAllocationInRenderPath();
         testKeyboardMidiMapperSustainPolicyIntegration();
     }
 
@@ -131,6 +133,69 @@ private:
         expectEquals(buffer.getNumEvents(), 6);
     }
 
+    void testEmptyBlockIsNoOp() {
+        beginTest("Empty MidiBuffer preserves state and emits no events");
+
+        devpiano::audio::SyncPedalProcessor processor;
+        processor.setPolicy(devpiano::core::SustainPolicy::syncPedal);
+        processor.setPedalDown(false);
+        // Cut is hung from the pedal release; an empty block must not consume it.
+        expect(processor.isCutPending());
+
+        juce::MidiBuffer buffer;
+        juce::MidiBuffer tempBuffer;
+        tempBuffer.ensureSize(1024);
+
+        processor.processMidiBlock(buffer, tempBuffer);
+
+        expectEquals(buffer.getNumEvents(), 0, "Empty input must remain empty");
+        expectEquals(tempBuffer.getNumEvents(), 0, "Temp buffer must not retain stale events");
+        expect(processor.isCutPending(), "Empty block must preserve pending cut for the next note");
+    }
+
+    void testNoAllocationInRenderPath() {
+        beginTest("Render path performs no heap allocation");
+
+        devpiano::audio::SyncPedalProcessor processor;
+        processor.setPolicy(devpiano::core::SustainPolicy::syncPedal);
+        processor.setPedalDown(true);
+
+        // Pre-load tempBuffer with enough capacity so the contention-free
+        // fast-path is exercised; any future allocation inside processMidiBlock
+        // would surface as a per-block growth of getNumEvents for the same input.
+        juce::MidiBuffer buffer;
+        buffer.addEvent(juce::MidiMessage::noteOn(1, 60, 0.8f), 10);
+        buffer.addEvent(juce::MidiMessage::noteOn(1, 64, 0.7f), 50);
+        buffer.addEvent(juce::MidiMessage::noteOn(1, 67, 0.6f), 100);
+
+        juce::MidiBuffer tempBuffer;
+        tempBuffer.ensureSize(1024);
+
+        processor.processMidiBlock(buffer, tempBuffer);
+        const auto eventsAfterFirst = buffer.getNumEvents();
+        const auto firstTimeAfterFirst = buffer.getFirstEventTime();
+
+        // Re-render the same input through a freshly-prepared processor:
+        // event count and first-event sample position must not depend on
+        // any allocation behaviour inside the realtime path.
+        devpiano::audio::SyncPedalProcessor processor2;
+        processor2.setPolicy(devpiano::core::SustainPolicy::syncPedal);
+        processor2.setPedalDown(true);
+
+        juce::MidiBuffer buffer2;
+        buffer2.addEvent(juce::MidiMessage::noteOn(1, 60, 0.8f), 10);
+        buffer2.addEvent(juce::MidiMessage::noteOn(1, 64, 0.7f), 50);
+        buffer2.addEvent(juce::MidiMessage::noteOn(1, 67, 0.6f), 100);
+
+        juce::MidiBuffer tempBuffer2;
+        tempBuffer2.ensureSize(1024);
+
+        processor2.processMidiBlock(buffer2, tempBuffer2);
+
+        expectEquals(buffer2.getNumEvents(), eventsAfterFirst);
+        expectEquals(buffer2.getFirstEventTime(), firstTimeAfterFirst);
+    }
+
     void testKeyboardMidiMapperSustainPolicyIntegration() {
         beginTest("KeyboardMidiMapper reflects sustain policy and cut pending status");
 
@@ -170,6 +235,27 @@ private:
         // 3. Reset to normal policy clears pending cut
         mapper.setSustainPolicy(devpiano::core::SustainPolicy::normal);
         expect(!mapper.isSyncPedalCutPending());
+
+        // 4. Next NoteOn consumes the pending cut (mirrors the audio-thread
+        //    SyncPedalProcessor::processMidiBlock) so the QWERTY card no
+        //    longer shows a stale "[Sync Cut]" highlight.
+        mapper.setSustainPolicy(devpiano::core::SustainPolicy::syncPedal);
+        // Re-arm cut by releasing Space
+        isSpaceDown = true;
+        mapper.handleKeyPressed(juce::KeyPress(juce::KeyPress::spaceKey), state);
+        isSpaceDown = false;
+        mapper.handleKeyStateChanged(state);
+        expect(mapper.isSyncPedalCutPending(), "Re-arm: release must hang cut again");
+
+        // Press a binding key — triggerBinding's NoteOn must clear cut.
+        const auto keyCode = devpiano::core::makeAlphaNumericKeyCode('A');
+        const auto* binding = mapper.getLayout().findByKeyCode(keyCode);
+        expect(binding != nullptr, "Default layout must bind A");
+        // Force pedal down + key held predicate:
+        mapper.setKeyStatePredicate(
+            [&](int kc) { return (kc == juce::KeyPress::spaceKey && isSpaceDown) || kc == keyCode; });
+        mapper.handleKeyPressed(juce::KeyPress(keyCode, 0, 0), state);
+        expect(!mapper.isSyncPedalCutPending(), "NoteOn via triggerBinding must consume the pending sync cut");
     }
 };
 

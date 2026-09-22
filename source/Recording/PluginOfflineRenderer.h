@@ -75,4 +75,12 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
                                  const WavExportOptions& options, juce::AudioPluginInstance& offlinePlugin,
                                  const std::function<bool(double)>& progressCallback = nullptr);
 
+// 离线乐器端点路由：与实时路径同构的端点语义——托管乐器实例可用则经其实例渲染，
+// 实例为空即代表内置端点（物理建模钢琴离线渲染）。
+// 调用方不再各自维护 "offlinePlugin != nullptr ? ... : ..." 的二元分支。
+bool renderTakeThroughInstrumentEndpoint(const devpiano::recording::RecordingTake& take,
+                                         const juce::File& destinationFile, const WavExportOptions& options,
+                                         juce::AudioPluginInstance* offlinePluginInstance,
+                                         const std::function<bool(double)>& progressCallback = nullptr);
+
 } // namespace devpiano::exporting

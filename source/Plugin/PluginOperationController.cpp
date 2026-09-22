@@ -14,9 +14,23 @@ PluginOperationController::PluginOperationController(MainComponent& ownerIn, Plu
     : owner(ownerIn)
     , pluginHost(pluginHostIn)
     , appSettings(appSettingsIn) {
+    // Crash-safe scan persistence: every plugin discovered mid-scan is written
+    // to the settings file straight away.  A third-party plugin that crashes
+    // the scanner further down the list then costs at most the entries scanned
+    // after the last persisted one, instead of discarding the entire scan.
+    pluginHost.setScanIncrementalCallback([this](const PluginHost& host) {
+        appSettings.knownPluginListState = host.createKnownPluginListXml();
+        owner.persistSettingsModelSnapshot();
+    });
 }
 
 PluginOperationController::~PluginOperationController() {
+    // Clear the incremental callback first: cancelVst3ScanSession() below may
+    // fire it (when knownPluginList already contains entries).  Without this
+    // clear, the host would keep a std::function that captures a freed
+    // `this`, and any later advanceStep/addVst3File/cancel call would
+    // dereference stale state through owner/appSettings.
+    pluginHost.setScanIncrementalCallback({});
     pluginHost.cancelVst3ScanSession();
 }
 
@@ -132,6 +146,11 @@ void PluginOperationController::scanPlugins() {
     }
 
     owner.setPluginPathText(path.toString());
+
+    // Record the scan target before the first plugin is probed: if the scanner
+    // crashes, the next launch still knows which directories were being scanned.
+    appSettings.applyPluginRecoverySettingsView(makePluginRecoverySettings(path.toString(), pendingScanLastPluginName));
+    owner.persistSettingsModelSnapshot();
 
     owner.refreshReadOnlyUiStateFromCurrentSnapshot();
 

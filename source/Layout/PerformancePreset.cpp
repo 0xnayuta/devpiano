@@ -73,6 +73,34 @@ constexpr auto kMaxPresetFileSizeBytes = 1024 * 1024; // 1 MB (SEC-003)
     return binding;
 }
 
+// ---- KeyGroup serialisation (Phase 34-B groups + activeGroupIndex) ----
+
+[[nodiscard]] juce::var keyGroupToVar(const devpiano::core::KeyGroup& group) {
+    auto* obj = new juce::DynamicObject();
+    obj->setProperty("transposeOffset", static_cast<int>(group.transposeOffset));
+    obj->setProperty("octaveShift", static_cast<int>(group.octaveShift));
+    obj->setProperty("channel", static_cast<int>(group.channel));
+    obj->setProperty("name", group.name);
+    return juce::var(obj);
+}
+
+[[nodiscard]] devpiano::core::KeyGroup varToKeyGroup(const juce::var& v) {
+    devpiano::core::KeyGroup group;
+    if (v.isObject()) {
+        auto* obj = v.getDynamicObject();
+        if (obj != nullptr) {
+            group.transposeOffset = static_cast<std::int8_t>(
+                juce::jlimit(-12, 12, static_cast<int>(obj->getProperty("transposeOffset"))));
+            group.octaveShift
+                = static_cast<std::int8_t>(juce::jlimit(-3, 3, static_cast<int>(obj->getProperty("octaveShift"))));
+            group.channel
+                = static_cast<std::uint8_t>(juce::jlimit(0, 16, static_cast<int>(obj->getProperty("channel"))));
+            group.name = obj->getProperty("name").toString();
+        }
+    }
+    return group;
+}
+
 // ---- ChannelMatrix serialisation (JSON, not ValueTree) ----
 
 [[nodiscard]] juce::var channelToVar(const devpiano::midi::PerChannelConfig& c) {
@@ -252,6 +280,22 @@ std::optional<PerformancePreset> loadPreset(const juce::File& path) {
                     preset.layout.bindings.push_back(varToKeyBinding(bv));
                 }
             }
+
+            // Phase 34-B: round-trip the four KeyGroups so user-tuned octave /
+            // transpose / channel overrides survive preset load/save.
+            auto groupsVar = lo->getProperty("groups");
+            if (groupsVar.isArray()) {
+                const auto* arr = groupsVar.getArray();
+                const auto count = juce::jmin(arr->size(), static_cast<int>(preset.layout.groups.size()));
+                for (int i = 0; i < count; ++i) {
+                    preset.layout.groups[static_cast<std::size_t>(i)] = varToKeyGroup((*arr)[i]);
+                }
+            }
+            if (lo->hasProperty("activeGroupIndex")) {
+                preset.layout.activeGroupIndex
+                    = static_cast<std::uint8_t>(juce::jlimit(0, static_cast<int>(preset.layout.groups.size() - 1),
+                                                             static_cast<int>(lo->getProperty("activeGroupIndex"))));
+            }
         }
     }
     // Fallback: id/name from top-level if layout section absent
@@ -360,7 +404,7 @@ std::optional<PerformancePreset> loadPreset(const juce::File& path) {
             }
             if (kbo->hasProperty("colourMode")) {
                 int cm = static_cast<int>(kbo->getProperty("colourMode"));
-                if (cm < 0 || cm > static_cast<int>(devpiano::ui::KeyColourMode::velocity)) {
+                if (cm < 0 || cm > static_cast<int>(devpiano::ui::KeyColourMode::harmony)) {
                     cm = static_cast<int>(devpiano::ui::KeyColourMode::classic);
                 }
                 preset.colourMode = static_cast<devpiano::ui::KeyColourMode>(cm);
@@ -421,6 +465,16 @@ bool savePreset(const PerformancePreset& preset, const juce::File& path) {
             bindings.add(keyBindingToVar(binding));
         }
         lo->setProperty("bindings", juce::var(bindings));
+
+        // Phase 34-B: persist the four KeyGroups + active group index so that
+        // a preset loaded back into the host reproduces the user's per-group
+        // octave/transpose/channel overrides.
+        juce::Array<juce::var> groups;
+        for (const auto& group : preset.layout.groups) {
+            groups.add(keyGroupToVar(group));
+        }
+        lo->setProperty("groups", juce::var(groups));
+        lo->setProperty("activeGroupIndex", static_cast<int>(preset.layout.activeGroupIndex));
 
         root->setProperty("layout", juce::var(lo));
     }

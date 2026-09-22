@@ -6,6 +6,7 @@
 #include "TestHelpers.h"
 #include "UI/ComboSelection.h"
 #include "UI/DevPianoLookAndFeel.h"
+#include "UI/QwertyComponent.h"
 #include "UI/jive/DesignTokens.h"
 #include "UI/jive/JiveUtils.h"
 #include "UI/jive/LayoutModel.h"
@@ -49,7 +50,7 @@ void registerRootComponentFactory(::jive::Interpreter& interpreter) {
         return viewport;
     });
     factory.set("StatusBarMidiDot", [] { return std::make_unique<juce::Component>(); });
-    factory.set("QwertyVisualizer", [] { return std::make_unique<juce::Component>(); });
+    factory.set("QwertyVisualizer", [] { return std::make_unique<devpiano::ui::QwertyComponent>(); });
 }
 
 // 定位仓库内真实 style_sheets.json：优先 __FILE__ 相对定位（TEST-014，与 CWD

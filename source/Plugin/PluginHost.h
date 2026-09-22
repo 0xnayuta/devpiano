@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_core/juce_core.h>
 // Thread-safety contract:
@@ -54,6 +55,17 @@ public:
     juce::String getScanningPluginName() const noexcept {
         return scanningPluginName;
     }
+    using ScanIncrementalCallback = std::function<void(const PluginHost&)>;
+    void setScanIncrementalCallback(ScanIncrementalCallback callback) noexcept {
+        scanIncrementalCallback = std::move(callback);
+    }
+    // Files recorded in the dead-man's pedal list, i.e. plugins that crashed a
+    // previous scan and are therefore scanned last.
+    [[nodiscard]] juce::StringArray getBlacklistedPluginFiles() const;
+    // Overrides the dead-man's pedal file location.  Production keeps the
+    // default per-user application-data path; tests point this at a temporary
+    // directory so crash-recovery behaviour is exercised without touching it.
+    void setDeadMansPedalFile(juce::File file);
     std::unique_ptr<juce::XmlElement> createKnownPluginListXml() const;
     bool restoreKnownPluginListFromXml(const juce::XmlElement& xml);
     void markPluginScanSkipped(juce::String reason);
@@ -97,6 +109,9 @@ private:
     juce::FileSearchPath activeScanPath;
     bool activeScanRecursive = false;
     std::unique_ptr<juce::PluginDirectoryScanner> activeScanner;
+    ScanIncrementalCallback scanIncrementalCallback;
+    bool scanPersistedSinceLastBegin = false;
+    juce::File deadMansPedalFileOverride;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginHost)
 };

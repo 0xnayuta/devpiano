@@ -214,7 +214,7 @@ void SettingsStore::readNow(SettingsModel& m) {
 
     {
         int cm = f.getIntValue(kKeyColourMode, static_cast<int>(m.keyboardDisplay.colourMode));
-        if (cm < 0 || cm > static_cast<int>(devpiano::ui::KeyColourMode::velocity)) {
+        if (cm < 0 || cm > static_cast<int>(devpiano::ui::KeyColourMode::harmony)) {
             cm = static_cast<int>(devpiano::ui::KeyColourMode::classic);
         }
         m.keyboardDisplay.colourMode = static_cast<devpiano::ui::KeyColourMode>(cm);

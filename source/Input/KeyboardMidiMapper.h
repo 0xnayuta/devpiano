@@ -91,6 +91,9 @@ private:
     bool softPedalDown = false;
     bool physicalSoftPedalHeld = false;
     bool programmaticSoftPedal = false;
+    // Backtick (`) cycles the layout group; latched state suppresses OS
+    // auto-repeat so holding the key does not rip through A→B→C→D at OS rate.
+    bool groupCycleShortcutHeld = false;
     devpiano::input::TouchVelocityCurve touchVelocityCurve = devpiano::input::TouchVelocityCurve::standard;
     devpiano::core::PerformanceModifierState modifierState;
 };

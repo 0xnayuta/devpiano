@@ -82,10 +82,26 @@ bool PluginHost::beginVst3ScanSession(const juce::FileSearchPath& searchPath, bo
     unloadPlugin();
     knownPluginList.clear();
 
+    // Crash-safe rescan: a plugin that was mid-scan when the process last died
+    // is still recorded in the dead-man's pedal file.  Blacklisting those files
+    // forces them to the end of the scan order, so one bad plugin can no longer
+    // stall every later scan at the same entry.
+    const auto pedalFile = getDeadMansPedalFile();
+    juce::PluginDirectoryScanner::applyBlacklistingsFromDeadMansPedal(knownPluginList, pedalFile);
+    if (const auto& crashedFiles = knownPluginList.getBlacklistedFiles(); !crashedFiles.isEmpty()) {
+        DP_LOG_WARN("[PluginHost] Dead-man's pedal reported " + juce::String(crashedFiles.size())
+                    + " plugin(s) that crashed a previous scan; they will be scanned last.");
+    }
+
     activeScanPath = searchPath;
     activeScanRecursive = recursive;
     activeScanner = std::make_unique<juce::PluginDirectoryScanner>(knownPluginList, *format, searchPath, recursive,
-                                                                   getDeadMansPedalFile(), false);
+                                                                   pedalFile, false);
+    // Reset the dedupe guard: only the first incremental persistence within
+    // this scan (advance OR cancel) is published — subsequent cancels on an
+    // already-saved list would otherwise re-fire the controller's callback
+    // and re-write the same XML.
+    scanPersistedSinceLastBegin = false;
 
     lastScanSummary = "VST3 scan in progress...";
     return true;
@@ -97,8 +113,16 @@ bool PluginHost::advanceVst3ScanStep() {
         return false;
     }
 
+    const auto previousTypeCount = knownPluginList.getNumTypes();
     scanningPluginName = "...";
     const bool hasMore = activeScanner->scanNextFile(true, scanningPluginName);
+
+    // Persist immediately after every newly discovered plugin: a crash further
+    // down the scan list must not discard the entries found so far.
+    if (knownPluginList.getNumTypes() > previousTypeCount && scanIncrementalCallback != nullptr) {
+        scanIncrementalCallback(*this);
+        scanPersistedSinceLastBegin = true;
+    }
 
     if (hasMore) {
         return true;
@@ -111,6 +135,13 @@ bool PluginHost::advanceVst3ScanStep() {
     }
 
     activeScanner.reset();
+
+    // Blacklisted files come from the dead-man's pedal list: they crashed a
+    // previous scan and were therefore deferred to the end of this one.
+    if (const auto crashProne = knownPluginList.getBlacklistedFiles(); !crashProne.isEmpty()) {
+        DP_LOG_WARN("VST3 scan finished with " + juce::String(crashProne.size())
+                    + " crash-prone plugin(s) deferred to the end of the scan order.");
+    }
 
     const auto pluginCount = knownPluginList.getNumTypes();
     lastScanPluginCount = pluginCount;
@@ -163,6 +194,12 @@ juce::StringArray PluginHost::addVst3FileToKnownList(const juce::File& vst3File)
         DP_LOG_INFO("[PluginHost] Added " + juce::String(succeeded) + " plugin(s) from: " + vst3File.getFullPathName()
                     + (failedTypes > 0 ? " (" + juce::String(failedTypes) + " skipped)" : ""));
     }
+
+    if (!names.isEmpty() && scanIncrementalCallback != nullptr) {
+        scanIncrementalCallback(*this);
+        scanPersistedSinceLastBegin = true;
+    }
+
     return names;
 }
 
@@ -172,6 +209,14 @@ void PluginHost::cancelVst3ScanSession() {
     isScanning = false;
     scanningPluginName.clear();
     lastScanSummary = "VST3 scan cancelled.";
+
+    // A cancelled scan still discovered something; keep it instead of throwing
+    // the partial result away.  Suppress duplicate persistence if advance() or
+    // addVst3FileToKnownList() already wrote the same list during this scan.
+    if (knownPluginList.getNumTypes() > 0 && !scanPersistedSinceLastBegin && scanIncrementalCallback != nullptr) {
+        scanIncrementalCallback(*this);
+        scanPersistedSinceLastBegin = true;
+    }
 }
 
 juce::StringArray PluginHost::getKnownPluginNames() const {
@@ -184,6 +229,10 @@ juce::StringArray PluginHost::getKnownPluginNames() const {
     names.removeDuplicates(false);
     names.sort(true);
     return names;
+}
+
+juce::StringArray PluginHost::getBlacklistedPluginFiles() const {
+    return knownPluginList.getBlacklistedFiles();
 }
 
 juce::StringArray PluginHost::getInstrumentPluginNames() const {
@@ -403,9 +452,18 @@ juce::AudioPluginFormat* PluginHost::getVst3Format() const {
 }
 
 juce::File PluginHost::getDeadMansPedalFile() const {
+    if (deadMansPedalFileOverride.getFullPathName().isNotEmpty()) {
+        return deadMansPedalFileOverride;
+    }
+
     auto directory = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory).getChildFile("devpiano");
     directory.createDirectory();
     return directory.getChildFile("vst3-dead-mans-pedal.txt");
+}
+
+void PluginHost::setDeadMansPedalFile(juce::File file) {
+    assertMessageThread();
+    deadMansPedalFileOverride = std::move(file);
 }
 
 bool PluginHost::configureDefaultBuses(juce::AudioPluginInstance& instance) {

@@ -132,6 +132,11 @@ private:
     void collectCurrentSettingsState();
     void saveSettingsNow();
     void saveSettingsSoon();
+    // Persists the in-memory settings model exactly as-is, skipping the
+    // UI/audio-device collection pass.  Crash-safe incremental writers (the
+    // plugin scanner) run inside an audio-device rebuild closure, where
+    // re-capturing device state would be both redundant and misleading.
+    void persistSettingsModelSnapshot();
     void showSettingsDialog();
     [[nodiscard]] bool isSettingsWindowOpen() const;
     [[nodiscard]] bool isSoftPedalDown() const noexcept {

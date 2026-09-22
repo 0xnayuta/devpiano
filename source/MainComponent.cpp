@@ -1127,6 +1127,10 @@ void MainComponent::saveSettingsSoon() {
     settingsStore.scheduleSave(appSettings);
 }
 
+void MainComponent::persistSettingsModelSnapshot() {
+    settingsStore.save(appSettings);
+}
+
 void MainComponent::showSettingsDialog() {
     settingsWindowManager->showFor(*this);
 }

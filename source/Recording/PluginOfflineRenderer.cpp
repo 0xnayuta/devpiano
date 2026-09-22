@@ -202,4 +202,15 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
     return true;
 }
 
+bool renderTakeThroughInstrumentEndpoint(const devpiano::recording::RecordingTake& take,
+                                         const juce::File& destinationFile, const WavExportOptions& options,
+                                         juce::AudioPluginInstance* offlinePluginInstance,
+                                         const std::function<bool(double)>& progressCallback) {
+    if (offlinePluginInstance != nullptr) {
+        return renderTakeWithOfflinePlugin(take, destinationFile, options, *offlinePluginInstance, progressCallback);
+    }
+
+    return exportTakeAsWavFile(take, destinationFile, options, progressCallback);
+}
+
 } // namespace devpiano::exporting

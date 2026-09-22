@@ -1,6 +1,7 @@
 #include "RecordingSessionController.h"
 
 #include "Audio/AudioEngine.h"
+#include "Audio/InstrumentEndpoint.h"
 #include "Diagnostics/Log.h"
 #include "Export/ExportFlowSupport.h"
 #include "Export/WavExportTask.h"
@@ -187,23 +188,23 @@ void RecordingSessionController::handleExportWavClicked() {
 
             owner.runPluginActionWithAudioDeviceRebuild([&] {
                 auto* pluginHost = audioEngine.getPluginHost();
-                if (pluginHost != nullptr && pluginHost->hasLoadedPlugin()) {
-                    auto* liveInstance = pluginHost->getInstance();
-                    const auto* desc = pluginHost->getLoadedPluginDescription();
-                    if (liveInstance != nullptr && desc != nullptr) {
-                        auto state = devpiano::exporting::snapshotPluginState(*liveInstance);
+                const auto endpoint = devpiano::audio::resolveInstrumentEndpoint(pluginHost);
+                if (!endpoint.isHostedPlugin() || endpoint.hostedDescription == nullptr) {
+                    return;
+                }
 
-                        juce::String error;
-                        offlinePlugin = devpiano::exporting::createOfflinePluginInstance(
-                            pluginHost->getFormatManager(), *desc, options.sampleRate, options.blockSize, error);
+                auto state = devpiano::exporting::snapshotPluginState(*endpoint.hostedInstance);
 
-                        if (offlinePlugin != nullptr) {
-                            offlinePlugin->setStateInformation(state.getData(), static_cast<int>(state.getSize()));
-                        } else {
-                            DP_LOG_WARN("[Export] Offline plugin instance creation failed: " + error
-                                        + " - falling back to sine synth");
-                        }
-                    }
+                juce::String error;
+                offlinePlugin = devpiano::exporting::createOfflinePluginInstance(
+                    pluginHost->getFormatManager(), *endpoint.hostedDescription, options.sampleRate, options.blockSize,
+                    error);
+
+                if (offlinePlugin != nullptr) {
+                    offlinePlugin->setStateInformation(state.getData(), static_cast<int>(state.getSize()));
+                } else {
+                    DP_LOG_WARN("[Export] Offline plugin instance creation failed: " + error
+                                + " - falling back to sine synth");
                 }
             });
 

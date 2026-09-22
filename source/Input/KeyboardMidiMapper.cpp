@@ -173,6 +173,11 @@ bool KeyboardMidiMapper::handleKeyPressed(const juce::KeyPress& key, juce::MidiK
     // 支持反引号 ` 键作为快捷切组键（在未绑定音符时有效）
     if (key.getKeyCode() == '`' || key.getTextCharacter() == '`') {
         if (layout.findByKeyCode('`') == nullptr) {
+            // 抑制 OS 自动重复：仅在按键 down-edge 切换组，重复触发被吞掉。
+            if (groupCycleShortcutHeld) {
+                return true;
+            }
+            groupCycleShortcutHeld = true;
             switchToNextGroup();
             return true;
         }
@@ -203,6 +208,13 @@ bool KeyboardMidiMapper::handleKeyStateChanged(juce::MidiKeyboardState& keyboard
     const auto isShiftDown = juce::ModifierKeys::getCurrentModifiers().isShiftDown();
 
     updateModifiersFromJuce(juce::ModifierKeys::getCurrentModifiers());
+
+    // 0. backtick latch release: when the user lets go of ` the next
+    // handleKeyPressed must re-fire switchToNextGroup() instead of being
+    // suppressed by groupCycleShortcutHeld.
+    if (groupCycleShortcutHeld && !isKeyCurrentlyDown('`')) {
+        groupCycleShortcutHeld = false;
+    }
 
     // 1. 物理软踏板检测: Tab 键或 Shift+Space 组合
     const auto physicalSoftActive = isTabDown || (isSpaceDown && isShiftDown);
@@ -286,6 +298,7 @@ void KeyboardMidiMapper::releaseAllHeldKeys(juce::MidiKeyboardState& keyboardSta
     syncPedalCutPending = false;
     physicalSoftPedalHeld = false;
     programmaticSoftPedal = false;
+    groupCycleShortcutHeld = false;
     updateSoftPedalState();
 }
 
@@ -327,6 +340,11 @@ bool KeyboardMidiMapper::triggerBinding(const KeyBinding& binding, juce::MidiKey
 
         // 3. 记录发音身份快照，严格保护 NoteOff 一致性
         heldKeys.push_back({ binding.keyCode, soundingNote, soundingChannel, velocity });
+
+        // 4. 同步切分标记：NoteOn 即消费一次未决的 sync-pedal cut，
+        // 与 SyncPedalProcessor::processMidiBlock 在音频线程上同样清零
+        // cutPending 的语义保持一致，避免 QWERTY 卡片长期高亮 "[Sync Cut]"。
+        syncPedalCutPending = false;
     } else {
         // NoteOff：优先依据按下时记录的快照注销
         if (const auto* held = findHeldKey(binding.keyCode)) {

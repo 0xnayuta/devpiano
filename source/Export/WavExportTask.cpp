@@ -2,7 +2,6 @@
 
 #include "Diagnostics/Log.h"
 #include "Recording/PluginOfflineRenderer.h"
-#include "Recording/WavFileExporter.h"
 #include "UI/ViewHost.h"
 #include "UI/jive/DesignTokens.h"
 #include "UI/jive/JiveModalDialog.h"
@@ -245,9 +244,8 @@ void WavExportTask::run() {
         if (isCancelled()) {
             failExport({}, true);
         } else {
-            const bool renderOk = (offlinePlugin != nullptr)
-                ? renderTakeWithOfflinePlugin(take, destinationFile, options, *offlinePlugin, progressCallback)
-                : exportTakeAsWavFile(take, destinationFile, options, progressCallback);
+            const bool renderOk = renderTakeThroughInstrumentEndpoint(take, destinationFile, options,
+                                                                      offlinePlugin.get(), progressCallback);
 
             if (renderOk) {
                 success.store(true);

@@ -193,7 +193,10 @@ juce::Colour computeKeyActiveColour(int midiNote, float fade, const devpiano::ui
         break;
 
     case devpiano::ui::KeyColourMode::harmony:
-        return devpiano::core::getPitchClassHarmonyColour(midiNote, 0.85f, 1.0f, fade);
+        if (midiNote >= 0 && midiNote < 128) {
+            return devpiano::core::getPitchClassHarmonyColour(midiNote, 0.85f, 1.0f, fade);
+        }
+        break;
 
     case devpiano::ui::KeyColourMode::classic:
     default:

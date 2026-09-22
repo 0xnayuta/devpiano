@@ -103,7 +103,7 @@ source/
 
 - **`source/Audio/AudioEngine.h/.cpp`**：
   - 拥有 `juce::MidiMessageCollector` 与实时音频输出链路；
-  - 管理发声实体切换：优先驱动已加载 VST3 插件；无插件时驱动内置合成器；
+  - 经 `InstrumentEndpoint` 解析发声实体：托管 VST3 实例就绪则驱动插件实例，否则驱动内置合成器；
   - 线程安全与音频鲁棒性：`masterGain` 采用 `std::atomic<float>`；具备 `25ms` audio warmup（静音过渡）与 `armPlaybackStartPreRoll`（消除 0s 音符冲突）。
 - **`source/Audio/PianoSynthVoice.h` / `source/Audio/Piano88KeyTable.h`**：
   - **自主研发、纯 C++ 全物理建模钢琴音源**（Phase 12–32 成果，v1.1.0 核心发声引擎）；
@@ -127,6 +127,10 @@ source/
   - 内置正弦波合成器，供基准对比与测试使用。
 - **`source/Audio/AudioDeviceDiagnostics.h`**：
   - 音频设备类型、采样率、缓冲区大小诊断日志输出。
+- **`source/Audio/InstrumentEndpoint.h`（乐器端点概念层，Phase 34-E）**：
+  - 宿主固定拓扑 `Performance Input -> Instrument -> Master -> Output` 中 “Instrument” 环节的薄抽象：内置全物理建模钢琴与托管 VST3 乐器共享同一端点职责，`juce::AudioProcessor` 仅作为 VST3 适配器实现细节；
+  - `resolveInstrumentEndpoint()` 以无锁读取返回当前端点（种类、宿主实例、插件描述、就绪状态与通道几何），集中取代散落在设备准备、实时渲染与离线导出路径上重复的 `hasLoadedPlugin() + getInstance() + isPrepared()` 组合判断；
+  - 实时侧由 `AudioEngine` 消费；离线侧由 `renderTakeThroughInstrumentEndpoint()` 提供同构路由（实例为空即内置端点），供 WAV 导出任务统一调用。
 
 ---
 
@@ -155,6 +159,7 @@ source/
   - 管理 JUCE `AudioPluginFormatManager`，注册 VST3 格式；
   - 维护 `juce::KnownPluginList`，支持 XML 格式导入导出与启动缓存恢复；
   - 插件异步分片扫描（Chunked Scan Session），实时进度与失败文件追踪；
+  - 崩溃安全扫描持久化（Phase 34-E）：增量持久化回调 `ScanIncrementalCallback`、dead-man's pedal 崩溃点识别与黑名单推迟；
   - 插件实例创建、prepare、processBlock、release 与卸载。
 - **`source/Plugin/PluginOperationController.h/.cpp`**：
   - 编排插件扫描、异步加载/卸载、Editor 窗口创建以及启动恢复任务，防止状态机并发冲突。

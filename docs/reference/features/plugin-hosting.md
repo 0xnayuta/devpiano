@@ -14,7 +14,8 @@ VST3 插件宿主是 devpiano 连接专业音乐制作与高品质虚拟乐器�
 2. **异步分片扫描（Chunked Scan Session）**：采用消息线程分片扫描机制，每 tick 推进一个插件，状态栏实时更新扫描进度与当前插件名称，消除传统扫描导致的界面假死；
 3. **XML 缓存持久化与极速冷启动**：已扫描插件列表以 `KnownPluginList` XML 持久化于设置中，冷启动时秒级恢复缓存，避免每次启动重复重扫；
 4. **失败文件细粒度追踪**：清晰记录每个扫描失败的文件路径（`lastScanFailedFiles`），Logger 详细输出失败原因，UI 友好提示 `(see log)`；
-5. **严密的生命周期隔离与防御**：独立托管插件 Editor 窗口；在音频设备重建、重新扫描或退出应用时，严格遵循“关闭 Editor → 停止音频回调 → releaseResources → 卸载实例”的确定性顺序，杜绝悬挂指针与死锁。
+5. **严密的生命周期隔离与防御**：独立托管插件 Editor 窗口；在音频设备重建、重新扫描或退出应用时，严格遵循“关闭 Editor → 停止音频回调 → releaseResources → 卸载实例”的确定性顺序，杜绝悬挂指针与死锁；
+6. **崩溃安全的扫描持久化（Crash-safe Scanner Persistence）**：扫描过程中每识别一个有效插件即同步持久化 `KnownPluginList`；dead-man's pedal 记录崩溃点，劣质第三方插件崩溃后，下次启动既不丢失既有扫描成果，也不会在同一入口反复卡死。
 
 ---
 
@@ -26,8 +27,10 @@ VST3 插件宿主是 devpiano 连接专业音乐制作与高品质虚拟乐器�
                      │
                      ▼
                  PluginHost::beginVst3ScanSession() (消息线程分片推进)
+                     ├── 恢复 dead-man's pedal 崩溃记录 ──► 崩溃插件列入黑名单推迟至末尾
                      ├── 遍历 FileSearchPath (支持多目录与规范化过滤)
-                     ├── 逐个探测 VST3 ──► 成功项加入 KnownPluginList ──► 写入 XML
+                     ├── 逐个探测 VST3 ──► 成功项加入 KnownPluginList
+                     │                        └──► 增量回调 ──► 立即写入 XML（崩溃安全）
                      └── 失败项记录至 lastScanFailedFiles ──► UI 显示摘要
                      │
 [插件加载与发声链路]
@@ -36,7 +39,7 @@ VST3 插件宿主是 devpiano 连接专业音乐制作与高品质虚拟乐器�
                      ├── 1. 关闭已有 Editor 窗口并解绑
                      ├── 2. AudioPluginFormatManager::createPluginInstance()
                      ├── 3. PluginHost::prepareToPlay(sampleRate, blockSize)
-                     ├── 4. AudioEngine 将 processBlock() 切换至插件实例
+                     ├── 4. AudioEngine 经 InstrumentEndpoint 将发声切换至插件实例
                      └── 5. 电脑键盘弹奏 ──► 驱动插件合成高品质音频
                      │
 [Editor 独立窗口托管]
@@ -72,6 +75,15 @@ VST3 插件宿主是 devpiano 连接专业音乐制作与高品质虚拟乐器�
 2. `shutdownAudio()`：切断实时音频硬件回调；
 3. `pluginHost.unloadPlugin()`：执行 `releaseResources()` 并释放 `AudioPluginInstance`。
 
+### 3.5 崩溃安全扫描持久化与 dead-man's pedal
+
+- **增量持久化**：`PluginHost::advanceVst3ScanStep()` 每推进一个插件即比对新旧类型数，一旦命中新插件，立即通过 `ScanIncrementalCallback` 交给 `PluginOperationController` 同步写入设置（`knownPluginListState`），而不是等扫描全部结束才落盘。扫描被中断或第三方插件崩溃时，已扫到的插件不会一起丢失；
+- **扫描目标先行落盘**：`scanPlugins()` 在首个插件被探测前就持久化扫描路径，崩溃后下次启动仍知道要恢复哪个目录；
+- **dead-man's pedal 恢复**：`beginVst3ScanSession()` 读取 dead-man's pedal 文件，将其记录的崩溃插件加入 `KnownPluginList` 黑名单，使其被推迟到扫描序列末尾——单个劣质插件不再让每次扫描都卡在同一位置；
+- **取消同样保留成果**：`cancelVst3ScanSession()` 与单文件导入（`addVst3FileToKnownList()`）也触发增量回调，中途取消或导入不会丢弃已发现的插件。
+
+上述行为由 `source/tests/PluginScanPersistenceTest.cpp` 以可注入的 dead-man's pedal 路径做确定性验证；真实崩溃/卡死的端到端表现仍需手工回归（见 §4 PLG-009 / PLG-010）。
+
 ---
 
 ## 4. 插件生命周期专项回归清单
@@ -86,3 +98,5 @@ VST3 插件宿主是 devpiano 连接专业音乐制作与高品质虚拟乐器�
 | **PLG-006** | 打开 Editor 状态下退出程序 | 在 Editor 窗口打开状态下直接点击主窗口右上角关闭按钮，程序平稳退出，无崩溃与报错 | [x] 已通过 |
 | **PLG-007** | XML 缓存冷启动秒级恢复 | 首次扫描完成后重启应用，下拉菜单立即呈现已缓存插件列表，无需重新扫描 | [x] 已通过 |
 | **PLG-008** | 损坏/不兼容 VST3 容错 | 扫描包含损坏或 32-bit 的非法 VST3 文件，扫描跳过该文件并不崩溃，Logger 准确记录路径 | [x] 已通过 |
+| **PLG-009** | 崩溃后扫描成果保留 | 扫描较大插件目录过程中强制结束进程，重启后设置中仍缓存崩溃前已扫描到的插件，而非全部丢失 | [ ] 待手工验证 |
+| **PLG-010** | 崩溃插件推迟到扫描末尾 | 劣质插件导致扫描崩溃后重启再扫描，该插件被推迟到序列末尾，其余插件优先完成扫描 | [ ] 待手工验证 |
