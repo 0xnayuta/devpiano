@@ -17,6 +17,7 @@ public:
         testNormalPolicyPassthrough();
         testSampleAccurateSyncPedalSequence();
         testPendingCutTriggerOnNextNote();
+        testSameSampleReleaseDoesNotFollowNoteOn();
         testMultipleNotesInBlock();
         testEmptyBlockIsNoOp();
         testNoAllocationInRenderPath();
@@ -128,6 +129,54 @@ private:
         buffer.addEvent(juce::MidiMessage::noteOn(1, 67, 0.7f), 256);
         processor.processMidiBlock(buffer, tempBuffer);
         expectEquals(buffer.getNumEvents(), 3);
+    }
+
+    void testSameSampleReleaseDoesNotFollowNoteOn() {
+        beginTest("A CC64 release already stored behind a NoteOn is rewritten in front of it");
+
+        devpiano::audio::SyncPedalProcessor processor;
+        processor.setPolicy(devpiano::core::SustainPolicy::syncPedal);
+        processor.setPedalDown(true);
+        processor.setPedalDown(false);
+        expect(processor.isCutPending(), "Release must arm the cut before the block is processed");
+
+        // JUCE MidiBuffer::addEvent inserts after events already stored at the
+        // same sample. keyboardState therefore lands the new NoteOn behind the
+        // CC64(0) that sendController queued into the collector.
+        juce::MidiBuffer buffer;
+        constexpr auto sample = 10;
+        buffer.addEvent(juce::MidiMessage::controllerEvent(1, 64, 0), sample);
+        buffer.addEvent(juce::MidiMessage::noteOn(1, 60, 0.8f), sample);
+        buffer.addEvent(juce::MidiMessage::noteOff(1, 48), sample + 20);
+
+        juce::MidiBuffer tempBuffer;
+        tempBuffer.ensureSize(1024);
+        processor.processMidiBlock(buffer, tempBuffer);
+
+        expect(!processor.isCutPending(), "The attack must consume the pending cut");
+        expectEquals(buffer.getNumEvents(), 3, "Damp, attack, and the later note-off; no re-engage");
+
+        auto it = buffer.begin();
+        const auto damp = *it++;
+        const auto attack = *it++;
+        const auto release = *it;
+        expect(damp.getMessage().isControllerOfType(64), "First event must damp");
+        expectEquals(damp.getMessage().getControllerValue(), 0);
+        expectEquals(damp.samplePosition, sample);
+        expect(attack.getMessage().isNoteOn(), "Attack must follow the damp at the same sample");
+        expectEquals(attack.getMessage().getNoteNumber(), 60);
+        expectEquals(attack.samplePosition, sample);
+        expect(release.getMessage().isNoteOff(), "Events at a later sample stay untouched");
+        expectEquals(release.samplePosition, sample + 20);
+
+        auto reengaged = false;
+        for (const auto meta : buffer) {
+            const auto msg = meta.getMessage();
+            if (msg.isControllerOfType(64) && msg.getControllerValue() >= 64) {
+                reengaged = true;
+            }
+        }
+        expect(!reengaged, "A released pedal must not put the sustain back down");
     }
 
     void testMultipleNotesInBlock() {

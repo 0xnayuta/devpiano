@@ -82,7 +82,8 @@ juce::String MainComponent::getSelectedPluginName() const {
 void MainComponent::setPluginPanelExpanded(bool expanded) {
     appSettings.pluginPanelExpanded = expanded;
     if (viewHost.isValid()) {
-        // Toolbar 30 + panel padding 8 + expanded path row 32.
+        // Toolbar 30 + margin 2 + padding 8 + border 2 + path row 30 = 72.
+        // 80 leaves the 30px row its declared height inside the content box.
         viewHost.setProperty("plugin-expanded-area", "height", expanded ? 32 : 0);
         viewHost.setProperty("plugin-panel", "height", expanded ? 80 : 42);
         viewHost.relayoutContainer("plugin-panel");

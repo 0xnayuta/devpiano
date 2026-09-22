@@ -163,7 +163,8 @@ juce::ValueTree makePluginPanelTree() {
 
     panel.appendChild(actionRow, nullptr);
 
-    // ── Expandable area (height 0 when collapsed; 32 when expanded) ──
+    // Expandable area: 0 collapsed, 32 expanded. The path row is 30; the
+    // panel's 80px expanded height keeps that row inside the content box.
     // Scan progress and the plugin catalogue stay on the status label and
     // the selector combo. A second multiline dump here only steals the
     // performance views below.

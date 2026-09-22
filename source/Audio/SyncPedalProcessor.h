@@ -11,8 +11,15 @@ namespace devpiano::audio {
 // SyncPedalProcessor (Phase 34-C)
 //
 // Realtime-safe, sample-accurate syncopated legato pedal scheduler.
-// Enforces: CC64(0) -> NoteOn(newNote) -> CC64(127) at the identical sample
-// offset during new note attacks while the pedal is held or in pending cut state.
+// While the pedal is physically held, a new attack at sample N is rewritten to
+// CC64(0) -> NoteOn -> CC64(127). A release only arms cutPending; the damp
+// CC64(0) is emitted in front of the next NoteOn and sustain is not re-engaged.
+//
+// JUCE inserts a MidiBuffer event after every event already stored at the same
+// sample (findEventAfter uses <=). keyboardState therefore places a NoteOn
+// behind a CC64(0) that the collector queued earlier in the same block. This
+// scheduler owns that ordering: one damp, then the attack, then at most one
+// re-engage, with every other same-sample CC64 dropped.
 //
 // Threading contract (Phase 34-C hardening):
 //   pedalPhysicallyDown / cutPending / currentPolicy are written by the
@@ -61,7 +68,8 @@ public:
     }
 
     /// Schedule sample-accurate sync pedal events within an audio block's MidiBuffer.
-    /// Guarantees: CC64(0) -> NoteOn -> CC64(127) at the identical samplePosition.
+    /// Held pedal: CC64(0) -> NoteOn -> CC64(127) at one sample.
+    /// Armed cut:  CC64(0) -> NoteOn, then the pedal stays up.
     void processMidiBlock(juce::MidiBuffer& buffer, juce::MidiBuffer& tempBuffer) noexcept {
         if (currentPolicy.load(std::memory_order_relaxed) == devpiano::core::SustainPolicy::normal) {
             return;
@@ -73,11 +81,9 @@ public:
         bool hasEventsToModify = false;
         for (const auto meta : buffer) {
             const auto msg = meta.getMessage();
-            if (msg.isNoteOn() && msg.getVelocity() > 0) {
-                if (pedalDown || cut) {
-                    hasEventsToModify = true;
-                    break;
-                }
+            if (msg.isNoteOn() && msg.getVelocity() > 0 && (pedalDown || cut)) {
+                hasEventsToModify = true;
+                break;
             }
         }
 
@@ -87,19 +93,46 @@ public:
 
         tempBuffer.clear();
 
-        for (const auto meta : buffer) {
-            const auto msg = meta.getMessage();
-            const auto samplePos = meta.samplePosition;
+        auto index = buffer.begin();
+        const auto end = buffer.end();
+        while (index != end) {
+            const auto anchor = (*index).samplePosition;
+            const auto groupEnd = std::find_if(
+                index, end, [anchor](const juce::MidiMessageMetadata& meta) { return meta.samplePosition != anchor; });
 
-            if (msg.isNoteOn() && msg.getVelocity() > 0 && (pedalDown || cut)) {
-                const auto ch = msg.getChannel();
-                // 1. CC64 = 0: damp prior chord sustain at exact sample position
-                tempBuffer.addEvent(juce::MidiMessage::controllerEvent(ch, 64, 0), samplePos);
-                // 2. NoteOn: attack new note
-                tempBuffer.addEvent(msg, samplePos);
-                // 3. CC64 = 127: re-engage sustain ONLY if pedal is physically held down
+            const auto attack = std::find_if(index, groupEnd, [](const juce::MidiMessageMetadata& meta) {
+                const auto msg = meta.getMessage();
+                return msg.isNoteOn() && msg.getVelocity() > 0;
+            });
+
+            if (attack != groupEnd && (pedalDown || cut)) {
+                auto channel = 0;
+                for (auto cursor = index; cursor != groupEnd; ++cursor) {
+                    const auto msg = (*cursor).getMessage();
+                    if (msg.isNoteOn() && msg.getVelocity() > 0) {
+                        channel = msg.getChannel();
+                        break;
+                    }
+                }
+
+                // One damp for the whole chord. A CC64 already queued at this
+                // sample (collector release landing behind the NoteOn) is not
+                // forwarded, so it cannot cancel the attack.
+                tempBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 64, 0), anchor);
+                for (auto cursor = index; cursor != groupEnd; ++cursor) {
+                    const auto msg = (*cursor).getMessage();
+                    if (msg.isNoteOn() && msg.getVelocity() > 0) {
+                        tempBuffer.addEvent(msg, anchor);
+                    }
+                }
+                for (auto cursor = index; cursor != groupEnd; ++cursor) {
+                    const auto msg = (*cursor).getMessage();
+                    if (!msg.isControllerOfType(64) && !(msg.isNoteOn() && msg.getVelocity() > 0)) {
+                        tempBuffer.addEvent(msg, anchor);
+                    }
+                }
                 if (pedalDown) {
-                    tempBuffer.addEvent(juce::MidiMessage::controllerEvent(ch, 64, 127), samplePos);
+                    tempBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 64, 127), anchor);
                 }
 
                 if (cut) {
@@ -107,11 +140,15 @@ public:
                     cut = false;
                 }
             } else {
-                tempBuffer.addEvent(msg, samplePos);
+                for (auto cursor = index; cursor != groupEnd; ++cursor) {
+                    tempBuffer.addEvent((*cursor).getMessage(), anchor);
+                }
             }
+
+            index = groupEnd;
         }
 
-        if (cut == false && cutPending.load(std::memory_order_relaxed)) {
+        if (!cut && cutPending.load(std::memory_order_relaxed)) {
             cutPending.store(false, std::memory_order_relaxed);
         }
 

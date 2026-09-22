@@ -67,8 +67,8 @@ public:
         expect(item->getComponent()->getProperties().contains("style-sheet"), "style sheet attached");
         expect(item->getComponent()->getNumChildComponents() > 0, "background canvas present");
 
-        // Full panel layout: the editor sits inside path-row (28 px) of the
-        // expanded area — it must get a usable height, or its text is clipped.
+        // Full panel layout: the editor is declared 26px tall. Its laid-out
+        // height must stay on that declaration, not shrink below it.
         auto panelTree = devpiano::ui::jive::makePluginPanelTree();
         devpiano::ui::jive::StyleCatalog::get().applyToTree(panelTree);
         devpiano::ui::jive::ScopedJiveTree panelItem = interpreter.interpret(panelTree);
@@ -87,15 +87,18 @@ public:
         // Expand the area (like setPluginPanelExpanded(true)) and re-check:
         // with height 0 the area's layOutChildren bails on empty bounds, so
         // the row children keep their pre-layout zero width.
-        if (auto* area = jive::findItemWithID(*panelItem, "plugin-expanded-area")) {
+        if (auto* area = dynamic_cast<jive::GuiItemDecorator*>(
+                jive::findItemWithID(*panelItem, "plugin-expanded-area"))) {
             area->state.setProperty("height", 32, nullptr);
+            if (auto* panel = dynamic_cast<jive::GuiItemDecorator*>(jive::findItemWithID(*panelItem, "plugin-panel"))) {
+                panel->state.setProperty("height", 80, nullptr);
+                panel->layOutChildren();
+            }
 
-            // Re-read the bounds AFTER expanding: the expanded layout must
-            // give the editor a visible, usable size or its text is clipped.
             const auto expandedBounds = pathEditorItem->getComponent()->getBounds();
             expect(expandedBounds.getWidth() > 0, "expanded: path editor has visible width");
-            expect(expandedBounds.getHeight() >= 20,
-                   "expanded: path editor has usable height: " + expandedBounds.toString());
+            expect(expandedBounds.getHeight() >= 26,
+                   "expanded: path editor keeps its declared height: " + expandedBounds.toString());
         }
 
         // Full app flow: root tree + setPluginPathText equivalent.
@@ -107,8 +110,13 @@ public:
             return;
         }
         rootItem->getComponent()->setBounds(0, 0, 1120, 760);
-        if (auto* rootArea = jive::findItemWithID(*rootItem, "plugin-expanded-area")) {
-            rootArea->state.setProperty("height", 32, nullptr);
+        if (auto* rootPanel
+            = dynamic_cast<jive::GuiItemDecorator*>(jive::findItemWithID(*rootItem, "plugin-panel"))) {
+            if (auto* rootArea = jive::findItemWithID(*rootItem, "plugin-expanded-area")) {
+                rootArea->state.setProperty("height", 32, nullptr);
+            }
+            rootPanel->state.setProperty("height", 80, nullptr);
+            rootPanel->layOutChildren();
         }
         auto* rootEditorItem = jive::findItemWithID(*rootItem, "plugin-path-editor");
         expect(rootEditorItem != nullptr, "root path editor found");
@@ -124,6 +132,7 @@ public:
         expectEquals(rootEditor->getText(), juce::String(R"(C:\Program Files\Common Files\VST3)"),
                      "root path text set");
         expect(rootEditorItem->getComponent()->getWidth() > 50, "root flow: path editor visible width");
+        expect(rootEditorItem->getComponent()->getHeight() >= 26, "root flow: path editor keeps declared height");
         // Collapsed: the area has height 0 so JIVE skips laying out the row
         // (bounds.isEmpty()) — the editor keeps its initial 0 width, which is
         // correct for a hidden area. The expanded-state assertions above are
