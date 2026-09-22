@@ -207,6 +207,7 @@ target_sources(devpiano PRIVATE
     source/Audio/RoomReverbEngine.h
     source/Audio/AudioDeviceDiagnostics.h
     source/Audio/AudioDeviceDiagnostics.cpp
+    source/Audio/SyncPedalProcessor.h
     source/Input/KeyboardMidiMapper.cpp
     source/Input/KeyboardMidiMapper.h
     source/Core/KeyMapTypes.h
@@ -478,6 +479,7 @@ if (BUILD_TESTS)
         source/Audio/AudioDeviceDiagnostics.cpp
         source/Audio/AudioDeviceDiagnostics.h
         source/Plugin/PluginHost.cpp
+        source/Audio/SyncPedalProcessor.h
         source/Plugin/PluginHost.h
         source/Plugin/PluginFlowSupport.cpp
         source/Plugin/PluginFlowSupport.h
@@ -573,6 +575,7 @@ if (BUILD_TESTS)
         source/tests/MechanicalAcousticsTest.cpp
         source/tests/DiagnosticsTest.cpp
         source/tests/QwertyViewModelTest.cpp
+        source/tests/SyncPedalTest.cpp
         ${DEVPIANO_JIVE_CORE_SOURCES}
     )
     target_link_libraries(devpiano_tests PRIVATE

@@ -59,6 +59,8 @@ MainComponent::MainComponent() {
     midiChannelMapper = std::make_unique<devpiano::midi::MidiChannelMapper>(
         appSettings.channelMatrix, appSettings.midiTranspose, appSettings.keySignature);
     keyboardMidiMapper.setChannelMapper(midiChannelMapper.get());
+    keyboardMidiMapper.setSustainPolicy(appSettings.sustainPolicy);
+    audioEngine.setSustainPolicy(appSettings.sustainPolicy);
     keyboardMidiMapper.setSustainPedalCallback([this](bool isDown) {
         audioEngine.sendController(1, 64, isDown ? 127 : 0);
         notifyMidiActivity();

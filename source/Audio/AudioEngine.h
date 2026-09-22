@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Audio/SyncPedalProcessor.h"
 #include "PerspectiveProcessor.h"
 #include "RoomReverbEngine.h"
 #include "TemperamentEngine.h"
@@ -110,6 +111,23 @@ public:
         return keyboardState;
     }
 
+    // ── Sustain Pedal Policy & Syncopated Legato Pedal (Phase 34-C) ──
+    void setSustainPolicy(devpiano::core::SustainPolicy policy) noexcept {
+        syncPedalProcessor.setPolicy(policy);
+    }
+    [[nodiscard]] devpiano::core::SustainPolicy getSustainPolicy() const noexcept {
+        return syncPedalProcessor.getPolicy();
+    }
+    void setSustainPedalDown(bool isDown) noexcept {
+        syncPedalProcessor.setPedalDown(isDown);
+    }
+    [[nodiscard]] bool isSustainPedalDown() const noexcept {
+        return syncPedalProcessor.isPedalDown();
+    }
+    [[nodiscard]] bool isSyncPedalCutPending() const noexcept {
+        return syncPedalProcessor.isCutPending();
+    }
+
 private:
     void rebuildSynth();
     void applyPendingParametersIfNeeded();
@@ -132,6 +150,8 @@ private:
     juce::MidiBuffer playbackTransposedMidiBuffer;
     juce::AudioBuffer<float> pluginBuffer;
 
+    devpiano::audio::SyncPedalProcessor syncPedalProcessor;
+    juce::MidiBuffer syncPedalTempBuffer;
     juce::ADSR::Parameters adsrParameters;
     std::atomic<float> masterGain { 1.0f };
     BuiltinSynthTone builtinTone = BuiltinSynthTone::piano;

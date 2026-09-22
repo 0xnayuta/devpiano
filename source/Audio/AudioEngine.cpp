@@ -72,6 +72,7 @@ void AudioEngine::prepareToPlay(int samplesPerBlockExpected, double sampleRate) 
     midiBuffer.ensureSize(bytes);
     playbackVisualMidiBuffer.ensureSize(bytes);
     playbackTransposedMidiBuffer.ensureSize(bytes);
+    syncPedalTempBuffer.ensureSize(bytes);
     applyPendingParametersIfNeeded();
     roomReverb.prepare(sampleRate);
 
@@ -98,6 +99,7 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
     midiBuffer.clear();
     midiCollector.removeNextBlockOfMessages(midiBuffer, bufferToFill.numSamples);
     keyboardState.processNextMidiBuffer(midiBuffer, 0, bufferToFill.numSamples, true);
+    syncPedalProcessor.processMidiBlock(midiBuffer, syncPedalTempBuffer);
     injectPendingAllNotesOffIfNeeded();
     recordRealtimeMidiBufferIfNeeded(bufferToFill.numSamples);
     if (!consumePlaybackStartPreRollBlockIfNeeded()) {
@@ -177,6 +179,9 @@ void AudioEngine::armPlaybackStartPreRoll(double sampleRate, int blockSize) noex
                                               std::memory_order_release);
 }
 void AudioEngine::sendController(int channel, int controllerType, int value) {
+    if (controllerType == 64) {
+        syncPedalProcessor.setPedalDown(value >= 64);
+    }
     auto msg = juce::MidiMessage::controllerEvent(channel, controllerType, value);
     msg.setTimeStamp(juce::Time::getMillisecondCounterHiRes() * 0.001);
     midiCollector.addMessageToQueue(msg);

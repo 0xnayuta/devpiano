@@ -79,20 +79,20 @@
   - 在 `KeyboardMidiMapperTest` 中新增 `LayoutGroupAndHeldKeyIdentityTest`，严格覆盖 Group 循环切换、按住键切组松开注销、通道覆盖注销与多 Group 异构键 Panic 释放，断言 0 悬挂音。
 ---
 
-### Phase 34-C：SustainPolicy 与 Sample-Accurate 事件级 Sync 切分踏板
+### Phase 34-C：SustainPolicy 与 Sample-Accurate 事件级 Sync 切分踏板 [已完成，2026-09-22]
 
 > 目标：引入钢琴演奏学中的“切分踏板（Legato / Sync Pedal）”机制，消除空格键踩放时的断音空洞。
 
-- [ ] **Phase 34-C-1：定义 `SustainPolicy` 状态模型**：
-  - 定义枚举 `SustainPolicy { normal, syncPedal }`；
-  - 在 `KeyboardMidiMapper` 中增加可配置的踏板策略选择，支持通过设置或 UI 切换。
-- [ ] **Phase 34-C-2：实现音频块内的采样精确切分踏板时序**：
-  - 当处于 `syncPedal` 且挂起切断时，松开踏板不立即释放；
-  - 在下一个 NoteOn 到达时，在相同的 `sampleOffset` 处，严格按顺序生成事件：
+- [x] **Phase 34-C-1：定义 `SustainPolicy` 状态模型**：
+  - 在 `source/Core/KeyMapTypes.h` 中定义枚举 `SustainPolicy { normal, syncPedal }`；
+  - 在 `KeyboardMidiMapper` 中增加可配置的踏板策略选择，支持挂起切断状态追踪（`syncPedalCutPending`），并在 `SettingsModel` / `SettingsStore` 中持久化记录。
+- [x] **Phase 34-C-2：实现音频块内的采样精确切分踏板时序**：
+  - 在 `source/Audio/SyncPedalProcessor.h` 中实现无锁、零堆内存分配的切分踏板调度器；
+  - 挂接进 `AudioEngine::getNextAudioBlock` 渲染管线，在同一采样点处严格按顺序生成事件：
     $$\text{CC64}(0) \longrightarrow \text{NoteOn}(\text{newNote}) \longrightarrow \text{CC64}(127)$$
-  - 坚决杜绝任何物理线程 sleep，确保采样级精度与确定性。
-- [ ] **Phase 34-C-3：踏板时序与连奏听感确定性测试**：
-  - 编写 MIDI 事件时序测试，断言切分模式下 CC64 与 NoteOn 的严格相对偏移。
+  - 内置物理建模音源与 VST3 插件、录音引擎端到端对齐，彻底杜绝物理线程 sleep。
+- [x] **Phase 34-C-3：踏板时序与连奏听感确定性测试**：
+  - 编写 `SyncPedalTest` 专项单测，全面覆盖正常透传、采样精确相对偏移、切断挂起触发、块内多音切分与状态机整合。
 
 ### Phase 34-D：PerformanceModifierState 瞬态 Press 修饰符（事件流变换）
 

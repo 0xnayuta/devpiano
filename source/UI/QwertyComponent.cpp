@@ -153,8 +153,15 @@ void QwertyComponent::paint(juce::Graphics& g) {
                 if (hasNote) {
                     // Subtle harmonic colour tint for resting note labels
                     secondaryTextColour = activeColour.interpolatedWith(juce::Colour(0xFFCBD5E1), 0.45f);
-                } else if (hasPedal) {
-                    secondaryTextColour = activeColour.withAlpha(0.9f);
+                } else if (keyState.isSustainPedal) {
+                    if (viewModel.isSyncPedalCutPending) {
+                        borderColour = juce::Colour(0xFFF59E0B).withAlpha(0.85f);
+                        secondaryTextColour = juce::Colour(0xFFF59E0B);
+                    } else {
+                        secondaryTextColour = activeColour.withAlpha(0.85f);
+                    }
+                } else if (keyState.isSoftPedal) {
+                    secondaryTextColour = activeColour.withAlpha(0.85f);
                 } else {
                     secondaryTextColour = juce::Colour(0xFF94A3B8); // Muted slate
                 }
@@ -182,7 +189,17 @@ void QwertyComponent::paint(juce::Graphics& g) {
                 if (hasNote) {
                     noteLabel = keyState.noteName + " " + bullet + " " + keyState.solfegeLabel;
                 } else if (keyState.isSustainPedal) {
-                    noteLabel = "[Sustain]";
+                    if (isPressed) {
+                        noteLabel = (viewModel.sustainPolicy == devpiano::core::SustainPolicy::syncPedal)
+                            ? "[Sync Hold]"
+                            : "[Sustain]";
+                    } else if (viewModel.isSyncPedalCutPending) {
+                        noteLabel = "[Sync Cut]";
+                    } else {
+                        noteLabel = (viewModel.sustainPolicy == devpiano::core::SustainPolicy::syncPedal)
+                            ? "[Sync Pedal]"
+                            : "[Direct Pedal]";
+                    }
                 } else if (keyState.isSoftPedal) {
                     noteLabel = "[Soft]";
                 }

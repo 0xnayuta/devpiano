@@ -17,6 +17,11 @@ enum class KeyTrigger : std::uint8_t {
     keyUp,
 };
 
+enum class SustainPolicy : std::uint8_t {
+    normal = 0, // Standard direct sustain pedal: Space down = 127, Space up = 0
+    syncPedal = 1, // Syncopated legato pedal: Space up hangs cut; next NoteOn triggers CC64(0)->NoteOn->CC64(127)
+};
+
 struct KeyAction {
     KeyActionType type = KeyActionType::note;
     KeyTrigger trigger = KeyTrigger::keyDown;

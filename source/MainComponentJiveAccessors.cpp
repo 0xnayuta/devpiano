@@ -821,12 +821,13 @@ void MainComponent::updateStatusBar() {
     }
 
     juce::String pedalIndicator;
+    const auto isSync = (keyboardMidiMapper.getSustainPolicy() == devpiano::core::SustainPolicy::syncPedal);
     if (keyboardMidiMapper.isSoftPedalDown() && keyboardMidiMapper.isSustainPedalDown()) {
-        pedalIndicator = bullet + "[UNA CORDA + SUSTAIN]";
+        pedalIndicator = bullet + (isSync ? "[UNA CORDA + SYNC]" : "[UNA CORDA + SUSTAIN]");
     } else if (keyboardMidiMapper.isSoftPedalDown()) {
         pedalIndicator = bullet + "[UNA CORDA]";
     } else if (keyboardMidiMapper.isSustainPedalDown()) {
-        pedalIndicator = bullet + "[SUSTAIN]";
+        pedalIndicator = bullet + (isSync ? "[SYNC PEDAL]" : "[SUSTAIN]");
     }
     const auto groupIndicator = " [Group " + keyboardMidiMapper.getActiveGroup().name + "]";
     const auto statusRight

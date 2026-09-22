@@ -6,6 +6,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <vector>
 
+#include "Core/KeyMapTypes.h"
 #include "Core/MusicTheory.h"
 
 namespace devpiano::core {
@@ -41,6 +42,8 @@ struct QwertyViewModel {
     std::array<QwertyRowVisualState, 5> rows;
     bool isSustainPedalDown = false;
     bool isSoftPedalDown = false;
+    bool isSyncPedalCutPending = false;
+    devpiano::core::SustainPolicy sustainPolicy = devpiano::core::SustainPolicy::normal;
     uint8_t activeGroupIndex = 0;
     juce::String activeGroupName { "A" };
 };

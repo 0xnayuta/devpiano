@@ -119,6 +119,20 @@ const devpiano::core::HeldKeyIdentity* KeyboardMidiMapper::findHeldKey(int keyCo
 size_t KeyboardMidiMapper::getNumHeldKeys() const noexcept {
     return heldKeys.size();
 }
+void KeyboardMidiMapper::setSustainPolicy(devpiano::core::SustainPolicy policy) noexcept {
+    sustainPolicy = policy;
+    if (policy == devpiano::core::SustainPolicy::normal) {
+        syncPedalCutPending = false;
+    }
+}
+
+devpiano::core::SustainPolicy KeyboardMidiMapper::getSustainPolicy() const noexcept {
+    return sustainPolicy;
+}
+
+bool KeyboardMidiMapper::isSyncPedalCutPending() const noexcept {
+    return syncPedalCutPending;
+}
 
 bool KeyboardMidiMapper::handleKeyPressed(const juce::KeyPress& key, juce::MidiKeyboardState& keyboardState) {
     const auto isShift = key.getModifiers().isShiftDown();
@@ -132,6 +146,7 @@ bool KeyboardMidiMapper::handleKeyPressed(const juce::KeyPress& key, juce::MidiK
     }
 
     if (isSpace && !isShift) {
+        syncPedalCutPending = false;
         if (!sustainPedalDown) {
             sustainPedalDown = true;
             if (sustainPedalCallback) {
@@ -184,12 +199,16 @@ bool KeyboardMidiMapper::handleKeyStateChanged(juce::MidiKeyboardState& keyboard
     const auto physicalSustainActive = isSpaceDown && !isShiftDown;
     if (physicalSustainActive && !sustainPedalDown) {
         sustainPedalDown = true;
+        syncPedalCutPending = false;
         if (sustainPedalCallback) {
             sustainPedalCallback(true);
         }
         consumed = true;
     } else if (!physicalSustainActive && sustainPedalDown) {
         sustainPedalDown = false;
+        if (sustainPolicy == devpiano::core::SustainPolicy::syncPedal) {
+            syncPedalCutPending = true;
+        }
         if (sustainPedalCallback) {
             sustainPedalCallback(false);
         }
@@ -247,6 +266,7 @@ void KeyboardMidiMapper::releaseAllHeldKeys(juce::MidiKeyboardState& keyboardSta
             sustainPedalCallback(false);
         }
     }
+    syncPedalCutPending = false;
     physicalSoftPedalHeld = false;
     programmaticSoftPedal = false;
     updateSoftPedalState();
@@ -330,11 +350,12 @@ devpiano::core::QwertyViewModel KeyboardMidiMapper::createQwertySnapshot(int key
     auto vm = devpiano::core::makeDefaultQwertyLayoutTemplate();
     vm.isSustainPedalDown = sustainPedalDown;
     vm.isSoftPedalDown = softPedalDown;
+    vm.isSyncPedalCutPending = syncPedalCutPending;
+    vm.sustainPolicy = sustainPolicy;
     vm.activeGroupIndex = layout.activeGroupIndex;
     vm.activeGroupName = layout.getActiveGroup().name;
 
     const auto& activeGroup = layout.getActiveGroup();
-
     for (auto& row : vm.rows) {
         for (auto& key : row.keys) {
             if (key.isSustainPedal) {

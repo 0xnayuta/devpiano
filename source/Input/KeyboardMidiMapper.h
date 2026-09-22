@@ -34,6 +34,11 @@ public:
     void setChannelMapper(devpiano::midi::MidiChannelMapper* mapper) noexcept;
     void setSustainPedalCallback(SustainPedalCallback callback) noexcept;
     [[nodiscard]] bool isSustainPedalDown() const noexcept;
+    // ── Sustain Pedal Policy (Phase 34-C) ──
+    void setSustainPolicy(devpiano::core::SustainPolicy policy) noexcept;
+    [[nodiscard]] devpiano::core::SustainPolicy getSustainPolicy() const noexcept;
+    [[nodiscard]] bool isSyncPedalCutPending() const noexcept;
+
     void setSoftPedalCallback(SoftPedalCallback callback) noexcept;
     [[nodiscard]] bool isSoftPedalDown() const noexcept;
     void setSoftPedalDown(bool down);
@@ -75,6 +80,8 @@ private:
     KeyStatePredicate keyStatePredicate;
     SustainPedalCallback sustainPedalCallback;
     bool sustainPedalDown = false;
+    devpiano::core::SustainPolicy sustainPolicy = devpiano::core::SustainPolicy::normal;
+    bool syncPedalCutPending = false;
     SoftPedalCallback softPedalCallback;
     bool softPedalDown = false;
     bool physicalSoftPedalHeld = false;

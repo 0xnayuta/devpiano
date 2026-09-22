@@ -49,6 +49,7 @@ const char* kKeyMidiTranspose = "midiTranspose";
 const char* kKeyKeyboardScrollX = "keyboardScrollX";
 const char* kKeyPluginPanelExpanded = "pluginPanelExpanded";
 const char* kKeyQwertyVisualizerExpanded = "qwertyVisualizerExpanded";
+const char* kKeySustainPolicy = "sustainPolicy";
 
 [[nodiscard]] SettingsModel::PerformanceSettingsView makeDefaultPerformanceSettings() noexcept {
     return {};
@@ -242,6 +243,8 @@ void SettingsStore::readNow(SettingsModel& m) {
         = f.getBoolValue(kKeyShowInstrumentFilter, m.keyboardDisplay.showInstrumentFilter);
     m.pluginPanelExpanded = f.getBoolValue(kKeyPluginPanelExpanded, m.pluginPanelExpanded);
     m.qwertyVisualizerExpanded = f.getBoolValue(kKeyQwertyVisualizerExpanded, m.qwertyVisualizerExpanded);
+    m.sustainPolicy = static_cast<devpiano::core::SustainPolicy>(
+        juce::jlimit(0, 1, f.getIntValue(kKeySustainPolicy, static_cast<int>(m.sustainPolicy))));
     m.languageCode = f.getValue(kKeyLanguageCode, m.languageCode);
     // custom key labels as ValueTree XML (sparse: only non-empty labels stored)
     if (auto labelsXml = f.getXmlValue(kKeyCustomLabels)) {
@@ -389,6 +392,7 @@ bool SettingsStore::writeNow(const SettingsModel& m) {
     f.setValue(kKeyShowInstrumentFilter, m.keyboardDisplay.showInstrumentFilter);
     f.setValue(kKeyPluginPanelExpanded, m.pluginPanelExpanded);
     f.setValue(kKeyQwertyVisualizerExpanded, m.qwertyVisualizerExpanded);
+    f.setValue(kKeySustainPolicy, static_cast<int>(m.sustainPolicy));
 
     const auto saved = f.saveIfNeeded();
     if (!saved) {
