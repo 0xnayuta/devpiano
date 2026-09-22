@@ -828,6 +828,22 @@ bool MainComponent::keyStateChanged(bool isKeyDown) {
     return handled;
 }
 
+void MainComponent::modifierKeysChanged(const juce::ModifierKeys& modifiers) {
+    if (isKeyboardInputSuppressed()) {
+        return;
+    }
+
+    const auto handled = keyboardMidiMapper.handleModifierKeysChanged(modifiers, audioEngine.getKeyboardState());
+
+    updateQwertyVisualizer();
+
+    if (handled) {
+        getCustomKeyboard().notifyNoteActivity();
+        notifyMidiActivity();
+        suppressTextInputMethods();
+    }
+}
+
 bool MainComponent::isKeyboardInputSuppressed() const noexcept {
     // Only suppress keyboard input when focus is on an actively-edited
     // text component. Sliders, buttons, comboboxes and other child

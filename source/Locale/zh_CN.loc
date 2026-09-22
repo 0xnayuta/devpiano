@@ -139,6 +139,7 @@ countries: cn
 "Language:" = "语言："
 "Channel" = "通道"
 "Velocity" = "力度"
+"Harmony" = "和声"
 
 "All" = "全部"
 "Default" = "默认"
@@ -151,6 +152,10 @@ countries: cn
 "Fade Speed:" = "渐隐速度："
 "Show MIDI/VSTi Instrument Filter" = "显示 MIDI/VSTi 乐器筛选"
 "Show MIDI/VSTi Instrument Filter:" = "显示 MIDI/VSTi 乐器筛选："
+"Sustain Pedal Mode" = "延音踏板模式"
+"Sustain Pedal Mode:" = "延音踏板模式："
+"Normal (Direct Hold)" = "常规（直接延音）"
+"Syncopated Legato (Sync Pedal)" = "切分连奏（换音切分踏板）"
 
 "Export MIDI Recording" = "导出 MIDI 录音"
 "Export WAV Recording" = "导出 WAV 录音"
@@ -264,3 +269,11 @@ countries: cn
 "Felt Ageing:" = "毛毡老化："
 "Open Log Folder" = "打开日志目录"
 "Recommended" = "推荐"
+
+"QWERTY Performance Map" = "QWERTY 演奏映射看板"
+"QWERTY Header" = "QWERTY 顶部栏"
+"Layout Group" = "按键映射组"
+"Switch Layout Group (` key or click)" = "切换按键映射组（按 ` 键或点击）"
+"Toggle QWERTY Visualizer" = "折叠/展开 QWERTY 键盘看板"
+"QWERTY Content Area" = "QWERTY 内容区"
+"QWERTY Visualizer" = "QWERTY 键盘看板"

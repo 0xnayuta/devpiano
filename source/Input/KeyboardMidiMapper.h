@@ -32,6 +32,7 @@ public:
 
     bool handleKeyPressed(const juce::KeyPress& key, juce::MidiKeyboardState& keyboardState);
     bool handleKeyStateChanged(juce::MidiKeyboardState& keyboardState);
+    bool handleModifierKeysChanged(const juce::ModifierKeys& modifiers, juce::MidiKeyboardState& keyboardState);
     void setChannelMapper(devpiano::midi::MidiChannelMapper* mapper) noexcept;
     void setSustainPedalCallback(SustainPedalCallback callback) noexcept;
     [[nodiscard]] bool isSustainPedalDown() const noexcept;
@@ -82,6 +83,7 @@ private:
     void sendNoteOff(int midiChannel, int midiNote, float velocity, juce::MidiKeyboardState& keyboardState);
     [[nodiscard]] bool isKeyCurrentlyDown(int keyCode) const;
     void updateSoftPedalState();
+    bool processKeyStateChangedInternal(juce::MidiKeyboardState& keyboardState);
 
     devpiano::midi::MidiChannelMapper* channelMapper = nullptr;
     devpiano::core::KeyboardLayout layout;

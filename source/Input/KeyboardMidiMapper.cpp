@@ -203,15 +203,23 @@ bool KeyboardMidiMapper::handleKeyPressed(const juce::KeyPress& key, juce::MidiK
     return triggerBinding(*binding, keyboardState, true);
 }
 
+bool KeyboardMidiMapper::handleModifierKeysChanged(const juce::ModifierKeys& modifiers,
+                                                   juce::MidiKeyboardState& keyboardState) {
+    updateModifiersFromJuce(modifiers);
+    return processKeyStateChangedInternal(keyboardState);
+}
+
 bool KeyboardMidiMapper::handleKeyStateChanged(juce::MidiKeyboardState& keyboardState) {
+    updateModifiersFromJuce(juce::ModifierKeys::getCurrentModifiers());
+    return processKeyStateChangedInternal(keyboardState);
+}
+
+bool KeyboardMidiMapper::processKeyStateChangedInternal(juce::MidiKeyboardState& keyboardState) {
     auto consumed = false;
 
     const auto isSpaceDown = isKeyCurrentlyDown(juce::KeyPress::spaceKey);
     const auto isTabDown = isKeyCurrentlyDown(juce::KeyPress::tabKey);
-    const auto isShiftDown = juce::ModifierKeys::getCurrentModifiers().isShiftDown();
-
-    updateModifiersFromJuce(juce::ModifierKeys::getCurrentModifiers());
-
+    const auto isShiftDown = modifierState.shiftActive;
     // 0. backtick latch release: when the user lets go of ` the next
     // handleKeyPressed must re-fire switchToNextGroup() instead of being
     // suppressed by groupCycleShortcutHeld.

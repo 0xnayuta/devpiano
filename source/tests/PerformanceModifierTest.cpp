@@ -28,6 +28,7 @@ public:
         testAltOctaveShift();
         testModifierReleasedWhileKeyHeldPreservesIdentity();
         testQwertySnapshotReflectsModifiers();
+        testModifierKeysChangedUpdatesSnapshotAndPedal();
     }
 
 private:
@@ -166,6 +167,53 @@ private:
             }
         }
         expect(foundProjectedA);
+    }
+    void testModifierKeysChangedUpdatesSnapshotAndPedal() {
+        beginTest("handleModifierKeysChanged accurately clears modifier highlight and updates pedals");
+
+        KeyboardMidiMapper mapper;
+        juce::MidiKeyboardState state;
+        bool isSpaceDown = false;
+        mapper.setKeyStatePredicate([&](int keyCode) { return (keyCode == juce::KeyPress::spaceKey) && isSpaceDown; });
+
+        // 1. Simulate Ctrl+Space press: Space key down with Ctrl modifier
+        isSpaceDown = true;
+        const juce::KeyPress ctrlSpace(' ', juce::ModifierKeys::ctrlModifier, 0);
+        mapper.handleKeyPressed(ctrlSpace, state);
+
+        auto vm = mapper.createQwertySnapshot(0);
+        expect(vm.isCtrlActive, "Ctrl must be active when pressed with Space");
+        expect(vm.isSustainPedalDown, "Sustain pedal must be active when Space is down");
+        // 2. Space released first, while Ctrl modifier is still maintained
+        isSpaceDown = false;
+        mapper.handleModifierKeysChanged(juce::ModifierKeys::ctrlModifier, state);
+
+        vm = mapper.createQwertySnapshot(0);
+        expect(!vm.isSustainPedalDown, "Sustain pedal must release when Space is released");
+        expect(vm.isCtrlActive, "Ctrl modifier remains active while Ctrl is held");
+        // 3. User releases Ctrl: OS/JUCE sends modifierKeysChanged with zero flags
+        mapper.handleModifierKeysChanged(juce::ModifierKeys(0), state);
+
+        vm = mapper.createQwertySnapshot(0);
+        expect(!vm.isCtrlActive, "Ctrl highlight must be cleared immediately upon Ctrl release");
+        expect(!vm.isShiftActive);
+        expect(!vm.isAltActive);
+
+        // 4. Shift+Space soft pedal dynamic interaction
+        isSpaceDown = true;
+        mapper.handleKeyPressed(juce::KeyPress(' ', juce::ModifierKeys::shiftModifier, 0), state);
+        vm = mapper.createQwertySnapshot(0);
+        expect(vm.isSoftPedalDown, "Shift+Space triggers soft pedal");
+        expect(vm.isShiftActive, "Shift modifier must be active");
+
+        // Space released, then Shift released
+        isSpaceDown = false;
+        mapper.handleKeyStateChanged(state);
+        mapper.handleModifierKeysChanged(juce::ModifierKeys(0), state);
+
+        vm = mapper.createQwertySnapshot(0);
+        expect(!vm.isSoftPedalDown, "Soft pedal released");
+        expect(!vm.isShiftActive, "Shift modifier cleared");
     }
 };
 

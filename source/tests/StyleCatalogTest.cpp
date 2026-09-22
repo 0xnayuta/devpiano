@@ -1647,8 +1647,11 @@ public:
                          "translates Volume -> 音量");
             expectEquals(zh.translate("Settings"), juce::String::fromUTF8("\xe8\xae\xbe\xe7\xbd\xae"),
                          "translates Settings -> 设置");
+            expect(zh.translate("QWERTY Performance Map") != "QWERTY Performance Map",
+                   "translates QWERTY Performance Map");
+            expect(zh.translate("Sustain Pedal Mode:") != "Sustain Pedal Mode:", "translates Sustain Pedal Mode:");
+            expect(zh.translate("Harmony") != "Harmony", "translates Harmony");
         }
-
         beginTest("StyleCatalog loads from BinaryData and styles JIVE tree without disk files");
         {
             devpiano::jive::DesignTokens::get().reset();
