@@ -94,17 +94,17 @@
 - [x] **Phase 34-C-3：踏板时序与连奏听感确定性测试**：
   - 编写 `SyncPedalTest` 专项单测，全面覆盖正常透传、采样精确相对偏移、切断挂起触发、块内多音切分与状态机整合。
 
-### Phase 34-D：PerformanceModifierState 瞬态 Press 修饰符（事件流变换）
+### Phase 34-D：PerformanceModifierState 瞬态 Press 修饰符（事件流变换） [已完成，2026-09-22]
 
 > 目标：支持修饰键（如 Shift / Alt）按住期间的瞬态力度拉满或移调变换，松开后自动回弹基线。
 
-- [ ] **Phase 34-D-1：设计 `PerformanceModifierState` 事件变换管道**：
-  - 建立纯瞬态数据结构，包括当前激活的力度放大系数、临时八度偏移等；
-  - 严格限定为事件变换（Event Transformation），严禁突变持久化配置。
-- [ ] **Phase 34-D-2：修饰键集成与事件注入**：
-  - 捕获修饰键的按下与松开状态，平滑注入 `KeyboardMidiMapper` 处理链路；
-  - 编写状态恢复测试，验证松开修饰键后基线配置 100% 保持不变。
-
+- [x] **Phase 34-D-1：设计 `PerformanceModifierState` 事件变换管道**：
+  - 在 `source/Core/KeyMapTypes.h` 中建立纯瞬态数据管道 `PerformanceModifierState`，实现只读纯函数变换（`transformVelocity`、`transformPitch`）；
+  - 严格限定为事件变换（Event Transformation），与 `KeyboardLayout` / `SettingsModel` 持久化配置彻底解耦。
+- [x] **Phase 34-D-2：修饰键集成与事件注入**：
+  - 在 `KeyboardMidiMapper` 中捕获 Shift/Alt/Ctrl 修饰状态，NoteOn 时将修饰后的发音身份存入快照（铁律 10 联合保障），松开修饰键后再松按键绝不悬挂；
+  - QWERTY 键盘卡片实时下沉高亮点亮修饰键并展示 HUD 标签（`Shift [BOOST]`、`Alt [+8va]`）；
+  - 编写 `PerformanceModifierTest` 专项单测，全面验证力度拉满、八度平移、持音中途释放修饰键防悬挂与基线配置 100% 零突变。
 ### Phase 34-E：扫描器增量持久化（Crash-safe State Persistence）与乐器端点概念收敛
 
 > 目标：吸收官方 Host 与 Element 的生产级工程精髓，提升第三方插件容灾鲁棒性与乐器抽象纯净度。

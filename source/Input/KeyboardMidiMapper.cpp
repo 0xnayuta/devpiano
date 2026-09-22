@@ -133,8 +133,23 @@ devpiano::core::SustainPolicy KeyboardMidiMapper::getSustainPolicy() const noexc
 bool KeyboardMidiMapper::isSyncPedalCutPending() const noexcept {
     return syncPedalCutPending;
 }
+void KeyboardMidiMapper::setModifierState(devpiano::core::PerformanceModifierState state) noexcept {
+    modifierState = state;
+}
+
+const devpiano::core::PerformanceModifierState& KeyboardMidiMapper::getModifierState() const noexcept {
+    return modifierState;
+}
+
+void KeyboardMidiMapper::updateModifiersFromJuce(const juce::ModifierKeys& mods) noexcept {
+    modifierState.shiftActive = mods.isShiftDown();
+    modifierState.altActive = mods.isAltDown();
+    modifierState.ctrlActive = mods.isCtrlDown();
+}
 
 bool KeyboardMidiMapper::handleKeyPressed(const juce::KeyPress& key, juce::MidiKeyboardState& keyboardState) {
+    updateModifiersFromJuce(key.getModifiers());
+
     const auto isShift = key.getModifiers().isShiftDown();
     const auto isSpace = (key.getKeyCode() == juce::KeyPress::spaceKey || key.getTextCharacter() == ' ');
     const auto isTab = (key.getKeyCode() == juce::KeyPress::tabKey);
@@ -186,6 +201,8 @@ bool KeyboardMidiMapper::handleKeyStateChanged(juce::MidiKeyboardState& keyboard
     const auto isSpaceDown = isKeyCurrentlyDown(juce::KeyPress::spaceKey);
     const auto isTabDown = isKeyCurrentlyDown(juce::KeyPress::tabKey);
     const auto isShiftDown = juce::ModifierKeys::getCurrentModifiers().isShiftDown();
+
+    updateModifiersFromJuce(juce::ModifierKeys::getCurrentModifiers());
 
     // 1. 物理软踏板检测: Tab 键或 Shift+Space 组合
     const auto physicalSoftActive = isTabDown || (isSpaceDown && isShiftDown);
@@ -288,15 +305,18 @@ bool KeyboardMidiMapper::triggerBinding(const KeyBinding& binding, juce::MidiKey
     }
 
     const auto rawVelocity = binding.action.getVelocity().value;
-    const auto velocity
-        = isKeyDownEvent ? devpiano::input::applyVelocityCurve(rawVelocity, touchVelocityCurve) : rawVelocity;
 
     if (isKeyDownEvent) {
-        // 计算当前激活 Group 下的发声音高与通道
-        const auto soundingNote
+        // 1. 计算当前激活 Group 下的发声音高与通道
+        const auto baseSoundingNote
             = devpiano::core::calculateSoundingNote(binding.action.getMidiNoteNumber().value, layout.getActiveGroup());
         const auto soundingChannel
             = devpiano::core::calculateSoundingChannel(binding.action.getMidiChannel().value, layout.getActiveGroup());
+
+        // 2. 瞬态修饰符事件流变换（Phase 34-D: Event-time Transformation Pipeline）
+        const auto soundingNote = modifierState.transformPitch(baseSoundingNote);
+        const auto curveVelocity = devpiano::input::applyVelocityCurve(rawVelocity, touchVelocityCurve);
+        const auto velocity = modifierState.transformVelocity(curveVelocity);
 
         if (channelMapper != nullptr) {
             channelMapper->sendNoteOn(devpiano::core::MidiChannel::fromClamped(soundingChannel).toZeroBased(),
@@ -305,7 +325,7 @@ bool KeyboardMidiMapper::triggerBinding(const KeyBinding& binding, juce::MidiKey
             keyboardState.noteOn(soundingChannel, soundingNote, velocity);
         }
 
-        // 记录发音身份快照，严格保护 NoteOff 一致性
+        // 3. 记录发音身份快照，严格保护 NoteOff 一致性
         heldKeys.push_back({ binding.keyCode, soundingNote, soundingChannel, velocity });
     } else {
         // NoteOff：优先依据按下时记录的快照注销
@@ -354,6 +374,9 @@ devpiano::core::QwertyViewModel KeyboardMidiMapper::createQwertySnapshot(int key
     vm.sustainPolicy = sustainPolicy;
     vm.activeGroupIndex = layout.activeGroupIndex;
     vm.activeGroupName = layout.getActiveGroup().name;
+    vm.isShiftActive = modifierState.shiftActive;
+    vm.isAltActive = modifierState.altActive;
+    vm.isCtrlActive = modifierState.ctrlActive;
 
     const auto& activeGroup = layout.getActiveGroup();
     for (auto& row : vm.rows) {
@@ -370,11 +393,12 @@ devpiano::core::QwertyViewModel KeyboardMidiMapper::createQwertySnapshot(int key
                 if (const auto* binding = layout.findByKeyCode(key.keyCode)) {
                     if (binding->action.type == devpiano::core::KeyActionType::note) {
                         // 依据当前 Group 实时计算音符投影
-                        key.mappedMidiNote
+                        const auto baseNote
                             = devpiano::core::calculateSoundingNote(binding->action.midiNote, activeGroup);
+                        key.mappedMidiNote = modifierState.transformPitch(baseNote);
                         key.mappedMidiChannel
                             = devpiano::core::calculateSoundingChannel(binding->action.midiChannel, activeGroup);
-                        key.velocity = binding->action.velocity;
+                        key.velocity = modifierState.transformVelocity(binding->action.velocity);
 
                         key.noteName = devpiano::core::getNoteDisplayName(
                             key.mappedMidiNote, devpiano::core::NoteDisplayMode::noteName, keySignature);

@@ -62,6 +62,11 @@ public:
     [[nodiscard]] const devpiano::core::HeldKeyIdentity* findHeldKey(int keyCode) const noexcept;
     [[nodiscard]] size_t getNumHeldKeys() const noexcept;
 
+    // ── Performance Modifier Pipeline (Phase 34-D) ──
+    void setModifierState(devpiano::core::PerformanceModifierState state) noexcept;
+    [[nodiscard]] const devpiano::core::PerformanceModifierState& getModifierState() const noexcept;
+    void updateModifiersFromJuce(const juce::ModifierKeys& mods) noexcept;
+
     /// 注入键状态谓词（测试用）：null/未设置时回退真实 OS 键盘查询。
     void setKeyStatePredicate(KeyStatePredicate predicate) noexcept;
 
@@ -87,4 +92,5 @@ private:
     bool physicalSoftPedalHeld = false;
     bool programmaticSoftPedal = false;
     devpiano::input::TouchVelocityCurve touchVelocityCurve = devpiano::input::TouchVelocityCurve::standard;
+    devpiano::core::PerformanceModifierState modifierState;
 };

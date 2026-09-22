@@ -804,9 +804,10 @@ bool MainComponent::keyStateChanged(bool isKeyDown) {
 
     const auto handled = keyboardMidiMapper.handleKeyStateChanged(audioEngine.getKeyboardState());
 
+    updateQwertyVisualizer();
+
     if (handled) {
         getCustomKeyboard().notifyNoteActivity();
-        updateQwertyVisualizer();
         notifyMidiActivity();
         suppressTextInputMethods();
     }

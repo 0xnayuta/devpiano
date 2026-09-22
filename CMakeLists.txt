@@ -576,6 +576,7 @@ if (BUILD_TESTS)
         source/tests/DiagnosticsTest.cpp
         source/tests/QwertyViewModelTest.cpp
         source/tests/SyncPedalTest.cpp
+        source/tests/PerformanceModifierTest.cpp
         ${DEVPIANO_JIVE_CORE_SOURCES}
     )
     target_link_libraries(devpiano_tests PRIVATE

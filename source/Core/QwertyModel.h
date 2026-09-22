@@ -44,6 +44,9 @@ struct QwertyViewModel {
     bool isSoftPedalDown = false;
     bool isSyncPedalCutPending = false;
     devpiano::core::SustainPolicy sustainPolicy = devpiano::core::SustainPolicy::normal;
+    bool isShiftActive = false;
+    bool isAltActive = false;
+    bool isCtrlActive = false;
     uint8_t activeGroupIndex = 0;
     juce::String activeGroupName { "A" };
 };

@@ -111,7 +111,13 @@ void QwertyComponent::paint(juce::Graphics& g) {
             }
 
             auto rect = geom.bounds;
-            const auto isPressed = keyState.isDown;
+            const auto isShiftKey = (keyState.mainLabel == "Shift");
+            const auto isAltKey = (keyState.mainLabel == "Alt");
+            const auto isCtrlKey = (keyState.mainLabel == "Ctrl");
+            const auto isModifierActive = (isShiftKey && viewModel.isShiftActive) || (isAltKey && viewModel.isAltActive)
+                || (isCtrlKey && viewModel.isCtrlActive);
+
+            const auto isPressed = keyState.isDown || isModifierActive;
             const auto alpha = geom.fadeAlpha;
 
             if (isPressed) {
@@ -127,8 +133,14 @@ void QwertyComponent::paint(juce::Graphics& g) {
                 activeColour = juce::Colour(0xFFF59E0B); // Amber for sustain pedal
             } else if (keyState.isSoftPedal) {
                 activeColour = juce::Colour(0xFF10B981); // Emerald for soft pedal
+            } else if (isShiftKey) {
+                activeColour = juce::Colour(0xFFF59E0B); // Warm Gold for Velocity Boost
+            } else if (isAltKey) {
+                activeColour = juce::Colour(0xFF38BDF8); // Sky Blue for Octave Shift
+            } else if (isCtrlKey) {
+                activeColour = juce::Colour(0xFFA855F7); // Purple for Ctrl
             } else {
-                activeColour = juce::Colour(0xFF38BDF8); // Sky blue for function keys
+                activeColour = juce::Colour(0xFF64748B); // Slate gray for other function keys
             }
 
             juce::Colour bgColour;
@@ -208,7 +220,15 @@ void QwertyComponent::paint(juce::Graphics& g) {
                 // Single-tier text display (function keys like Caps, Enter, Ctrl, etc.)
                 g.setColour(primaryTextColour);
                 g.setFont(juce::FontOptions(11.0f).withStyle("Bold"));
-                g.drawFittedText(keyState.mainLabel, rect.toNearestInt(), juce::Justification::centred, 1);
+                juce::String functionLabel = keyState.mainLabel;
+                if (isShiftKey) {
+                    functionLabel = viewModel.isShiftActive ? "Shift [BOOST]" : "Shift";
+                } else if (isAltKey) {
+                    functionLabel = viewModel.isAltActive ? "Alt [+8va]" : "Alt";
+                } else if (isCtrlKey) {
+                    functionLabel = viewModel.isCtrlActive ? "Ctrl [MOD]" : "Ctrl";
+                }
+                g.drawFittedText(functionLabel, rect.toNearestInt(), juce::Justification::centred, 1);
             }
         }
     }

@@ -22,6 +22,36 @@ enum class SustainPolicy : std::uint8_t {
     syncPedal = 1, // Syncopated legato pedal: Space up hangs cut; next NoteOn triggers CC64(0)->NoteOn->CC64(127)
 };
 
+// ============================================================================
+// Performance Modifier State (Phase 34-D: Event-time Transformation Pipeline)
+// ============================================================================
+struct PerformanceModifierState {
+    bool shiftActive = false; // Shift held: transient velocity boost (1.0f / 127)
+    bool altActive = false; // Alt held: transient octave shift (+12 semitones)
+    bool ctrlActive = false; // Ctrl held: transient transform
+
+    float velocityMultiplier = 1.0f;
+    float velocityBoost = 0.0f;
+    int8_t octaveOffset = 0;
+    int8_t semitoneOffset = 0;
+
+    [[nodiscard]] float transformVelocity(float baseVelocity) const noexcept {
+        if (shiftActive) {
+            return 1.0f; // Maximum fortissimo accent
+        }
+        return juce::jlimit(0.0f, 1.0f, (baseVelocity * velocityMultiplier) + velocityBoost);
+    }
+
+    [[nodiscard]] int transformPitch(int basePitch) const noexcept {
+        int shifted = basePitch;
+        if (altActive) {
+            shifted += (octaveOffset != 0) ? (static_cast<int>(octaveOffset) * 12) : 12;
+        }
+        shifted += semitoneOffset;
+        return juce::jlimit(0, 127, shifted);
+    }
+};
+
 struct KeyAction {
     KeyActionType type = KeyActionType::note;
     KeyTrigger trigger = KeyTrigger::keyDown;
