@@ -61,6 +61,7 @@
   - `CustomKeyboard`（88 键钢琴）支持 `KeyColourMode::harmony`，并在设置下拉菜单中暴露；
   - `QwertyComponent` 全面接入和声调色板：静态音名/唱名呈现微妙和声音色提示，动态击键与 88 键钢琴同频绽放三和弦几何色相并平滑余晖淡出；
   - 编写 `QwertyViewModelTest` 专项单测验证色相间隔、八度同色、三全音互补及全量回归。
+
 ---
 
 ### Phase 34-B：Layout Group 轻量多键组与 HeldKey Identity 状态快照机制 [已完成，2026-09-22]
@@ -77,6 +78,7 @@
   - 支持反引号键（`` ` ``）与 UI 胶囊按钮（`qwerty-group-btn`）即时循环切组并在状态栏与 QWERTY 看板实时联动。
 - [x] **Phase 34-B-3：Group 动态切换与防悬挂确定性测试集**：
   - 在 `KeyboardMidiMapperTest` 中新增 `LayoutGroupAndHeldKeyIdentityTest`，严格覆盖 Group 循环切换、按住键切组松开注销、通道覆盖注销与多 Group 异构键 Panic 释放，断言 0 悬挂音。
+
 ---
 
 ### Phase 34-C：SustainPolicy 与 Sample-Accurate 事件级 Sync 切分踏板 [已完成，2026-09-22]
@@ -94,6 +96,8 @@
 - [x] **Phase 34-C-3：踏板时序与连奏听感确定性测试**：
   - 编写 `SyncPedalTest` 专项单测，全面覆盖正常透传、采样精确相对偏移、切断挂起触发、块内多音切分与状态机整合。
 
+---
+
 ### Phase 34-D：PerformanceModifierState 瞬态 Press 修饰符（事件流变换） [已完成，2026-09-22]
 
 > 目标：支持修饰键（如 Shift / Alt）按住期间的瞬态力度拉满或移调变换，松开后自动回弹基线。
@@ -105,6 +109,9 @@
   - 在 `KeyboardMidiMapper` 中捕获 Shift/Alt/Ctrl 修饰状态，NoteOn 时将修饰后的发音身份存入快照（铁律 10 联合保障），松开修饰键后再松按键绝不悬挂；
   - QWERTY 键盘卡片实时下沉高亮点亮修饰键并展示 HUD 标签（`Shift [BOOST]`、`Alt [+8va]`）；
   - 编写 `PerformanceModifierTest` 专项单测，全面验证力度拉满、八度平移、持音中途释放修饰键防悬挂与基线配置 100% 零突变。
+
+---
+
 ### Phase 34-E：扫描器增量持久化（Crash-safe State Persistence）与乐器端点概念收敛 [已完成，2026-09-22]
 
 > 目标：吸收官方 Host 与 Element 的生产级工程精髓，提升第三方插件容灾鲁棒性与乐器抽象纯净度。
@@ -117,6 +124,8 @@
   - 新增 `source/Audio/InstrumentEndpoint.h`：以 `resolveInstrumentEndpoint()` 无锁解析当前乐器端点（种类 / 宿主实例 / 描述 / 就绪 / 通道几何），统一 `AudioEngine` 设备准备与实时渲染、`RecordingSessionController` 离线导出中的重复判断；
   - 离线侧新增 `renderTakeThroughInstrumentEndpoint()` 端点路由，`WavExportTask` 不再自持 `offlinePlugin != nullptr ? ... : ...` 二元分支；
   - `InstrumentEndpointTest` 覆盖端点解析回落、通道几何与就绪语义、离线双路由与空 take 拒绝。
+
+---
 
 ## 历史实现 Backlog
 
