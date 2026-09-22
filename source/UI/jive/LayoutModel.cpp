@@ -470,7 +470,7 @@ juce::ValueTree makeQwertyCardTree() {
     groupBtn.setProperty("margin", "0 6 0 0", nullptr);
     headerRow.appendChild(groupBtn, nullptr);
 
-    auto toggleBtn = button("^", "qwerty-toggle-btn");
+    auto toggleBtn = button("v", "qwerty-toggle-btn");
     toggleBtn.setProperty("title", TRANS("Toggle QWERTY Visualizer"), nullptr);
     toggleBtn.setProperty("tooltip", TRANS("Toggle QWERTY Visualizer"), nullptr);
     toggleBtn.setProperty("width", 24, nullptr);

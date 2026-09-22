@@ -179,7 +179,11 @@ void AudioEngine::armPlaybackStartPreRoll(double sampleRate, int blockSize) noex
 }
 void AudioEngine::sendController(int channel, int controllerType, int value) {
     if (controllerType == 64) {
-        syncPedalProcessor.setPedalDown(value >= 64);
+        const bool isDown = value >= 64;
+        syncPedalProcessor.setPedalDown(isDown);
+        if (syncPedalProcessor.getPolicy() == devpiano::core::SustainPolicy::syncPedal && !isDown) {
+            return;
+        }
     }
     auto msg = juce::MidiMessage::controllerEvent(channel, controllerType, value);
     msg.setTimeStamp(juce::Time::getMillisecondCounterHiRes() * 0.001);

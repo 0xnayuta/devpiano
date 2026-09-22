@@ -917,11 +917,13 @@ void MainComponent::handleWindowFocusLost() {
         }
         weak->keyboardMidiMapper.releaseAllHeldKeys(weak->audioEngine.getKeyboardState());
         weak->audioEngine.resetSyncPedal();
-        weak->updateQwertyVisualizer();
         weak->getCustomKeyboard().releaseHeldMouseNote();
+        if (weak->qwertyComponentRef != nullptr) {
+            weak->qwertyComponentRef->releaseHeldMouseNote();
+        }
+        weak->updateQwertyVisualizer();
     });
 }
-
 void MainComponent::focusLost(juce::Component::FocusChangeType cause) {
     juce::AudioAppComponent::focusLost(cause);
     handleWindowFocusLost();

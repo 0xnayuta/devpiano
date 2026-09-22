@@ -26,9 +26,11 @@ void QwertyComponent::updateViewModel(const devpiano::core::QwertyViewModel& new
     viewModel = newModel;
 
     bool needsTimer = false;
+    bool sizeChanged = false;
     for (std::size_t r = 0; r < 5; ++r) {
         if (keyGeometries[r].size() != viewModel.rows[r].keys.size()) {
             keyGeometries[r].resize(viewModel.rows[r].keys.size());
+            sizeChanged = true;
         }
 
         for (std::size_t k = 0; k < viewModel.rows[r].keys.size(); ++k) {
@@ -38,6 +40,10 @@ void QwertyComponent::updateViewModel(const devpiano::core::QwertyViewModel& new
                 needsTimer = true;
             }
         }
+    }
+
+    if (sizeChanged) {
+        recalculateKeyBounds();
     }
 
     if (needsTimer && !isTimerRunning()) {
@@ -277,16 +283,26 @@ void QwertyComponent::mouseDown(const juce::MouseEvent& e) {
     if (hit.key->mappedMidiNote >= 0 && onNoteOn != nullptr) {
         lastMouseDownNote = hit.key->mappedMidiNote;
         lastMouseDownChannel = hit.key->mappedMidiChannel;
+        keyGeometries[static_cast<std::size_t>(hit.rowIndex)][static_cast<std::size_t>(hit.keyIndex)].fadeAlpha = 1.0f;
+        if (!isTimerRunning()) {
+            startTimer(timerIntervalMs);
+        }
+        repaint();
         onNoteOn(lastMouseDownNote, lastMouseDownChannel, hit.key->velocity);
     }
 }
 
 void QwertyComponent::mouseUp(const juce::MouseEvent& e) {
     juce::ignoreUnused(e);
+    releaseHeldMouseNote();
+}
+
+void QwertyComponent::releaseHeldMouseNote() {
     if (lastMouseDownNote >= 0 && onNoteOff != nullptr) {
         onNoteOff(lastMouseDownNote, lastMouseDownChannel);
         lastMouseDownNote = -1;
     }
+    repaint();
 }
 
 void QwertyComponent::mouseDrag(const juce::MouseEvent& e) {
@@ -303,6 +319,11 @@ void QwertyComponent::mouseDrag(const juce::MouseEvent& e) {
     if (hit.key->mappedMidiNote >= 0 && onNoteOn != nullptr) {
         lastMouseDownNote = hit.key->mappedMidiNote;
         lastMouseDownChannel = hit.key->mappedMidiChannel;
+        keyGeometries[static_cast<std::size_t>(hit.rowIndex)][static_cast<std::size_t>(hit.keyIndex)].fadeAlpha = 1.0f;
+        if (!isTimerRunning()) {
+            startTimer(timerIntervalMs);
+        }
+        repaint();
         onNoteOn(lastMouseDownNote, lastMouseDownChannel, hit.key->velocity);
     }
 }

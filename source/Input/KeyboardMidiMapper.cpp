@@ -302,6 +302,7 @@ void KeyboardMidiMapper::releaseAllHeldKeys(juce::MidiKeyboardState& keyboardSta
     physicalSoftPedalHeld = false;
     programmaticSoftPedal = false;
     groupCycleShortcutHeld = false;
+    modifierState = {};
     updateSoftPedalState();
     if (syncPedalResetCallback) {
         syncPedalResetCallback();

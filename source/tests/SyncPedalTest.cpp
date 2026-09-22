@@ -91,7 +91,7 @@ private:
     }
 
     void testPendingCutTriggerOnNextNote() {
-        beginTest("Pedal release sets pending cut; triggers on next NoteOn");
+        beginTest("Pedal release sets pending cut; triggers clean cut on next NoteOn without stuck sustain");
 
         devpiano::audio::SyncPedalProcessor processor;
         processor.setPolicy(devpiano::core::SustainPolicy::syncPedal);
@@ -110,9 +110,24 @@ private:
 
         processor.processMidiBlock(buffer, tempBuffer);
 
-        // The sequence must fire at sample 128
-        expectEquals(buffer.getNumEvents(), 3);
+        // When pedal is physically released, only CC64=0 and NoteOn are emitted (2 events)
+        // so sustain is NOT re-engaged indefinitely while the pedal is up!
+        expectEquals(buffer.getNumEvents(), 2);
         expect(!processor.isCutPending(), "Pending cut must be cleared after execution");
+
+        auto it = buffer.begin();
+        const auto ev1 = *it++;
+        const auto ev2 = *it;
+        expect(ev1.getMessage().isControllerOfType(64));
+        expectEquals(ev1.getMessage().getControllerValue(), 0);
+        expect(ev2.getMessage().isNoteOn());
+
+        // If pedal is held down again, NoteOn must emit full 3-event sequence: CC64(0) -> NoteOn -> CC64(127)
+        processor.setPedalDown(true);
+        buffer.clear();
+        buffer.addEvent(juce::MidiMessage::noteOn(1, 67, 0.7f), 256);
+        processor.processMidiBlock(buffer, tempBuffer);
+        expectEquals(buffer.getNumEvents(), 3);
     }
 
     void testMultipleNotesInBlock() {

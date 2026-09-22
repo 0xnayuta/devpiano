@@ -37,7 +37,7 @@ public:
     void mouseDown(const juce::MouseEvent& e) override;
     void mouseUp(const juce::MouseEvent& e) override;
     void mouseDrag(const juce::MouseEvent& e) override;
-
+    void releaseHeldMouseNote();
     // ---- Hit Testing -------------------------------------------------------
     struct HitResult {
         int rowIndex = -1;

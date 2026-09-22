@@ -247,6 +247,7 @@ private:
             }
         }
 
+        expect(qPos.getX() > 0, "Q key coordinate resolution must succeed");
         if (qPos.getX() > 0) {
             auto mouseSource = juce::Desktop::getInstance().getMainMouseSource();
             const juce::MouseEvent pressEv(mouseSource, qPos.toFloat(), juce::ModifierKeys::leftButtonModifier, 1.0f,

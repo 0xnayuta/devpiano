@@ -76,12 +76,12 @@ constexpr auto kMaxPresetFileSizeBytes = 1024 * 1024; // 1 MB (SEC-003)
 // ---- KeyGroup serialisation (Phase 34-B groups + activeGroupIndex) ----
 
 [[nodiscard]] juce::var keyGroupToVar(const devpiano::core::KeyGroup& group) {
-    auto* obj = new juce::DynamicObject();
+    juce::DynamicObject::Ptr obj = new juce::DynamicObject();
     obj->setProperty("transposeOffset", static_cast<int>(group.transposeOffset));
     obj->setProperty("octaveShift", static_cast<int>(group.octaveShift));
     obj->setProperty("channel", static_cast<int>(group.channel));
     obj->setProperty("name", group.name);
-    return juce::var(obj);
+    return obj.get();
 }
 
 [[nodiscard]] devpiano::core::KeyGroup varToKeyGroup(const juce::var& v) {

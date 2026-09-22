@@ -383,6 +383,8 @@ public:
         testNoteOffIdentityPreservedAcrossGroupSwitch();
         testSoundingChannelOverridePreservation();
         testMultipleHeldKeysAcrossDifferentGroupsReleaseCleanly();
+        testBacktickGroupCyclingAndRepeatLatch();
+        testReleaseAllHeldKeysClearsTransientModifiers();
     }
 
 private:
@@ -521,6 +523,65 @@ private:
         mapper.releaseAllHeldKeys(state);
         expectEquals(countNotesOn(state), 0, "All 3 heterogeneous notes must be released");
         expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 0);
+    }
+
+    void testBacktickGroupCyclingAndRepeatLatch() {
+        beginTest("Backtick key cycles group and suppresses auto-repeat until key release");
+
+        KeyboardMidiMapper mapper;
+        juce::MidiKeyboardState state;
+
+        bool isBacktickDown = false;
+        mapper.setKeyStatePredicate([&](int kc) { return kc == '`' && isBacktickDown; });
+
+        expectEquals(static_cast<int>(mapper.getActiveGroupIndex()), 0);
+
+        // 1. Initial press of '`' cycles to group 1
+        isBacktickDown = true;
+        expect(mapper.handleKeyPressed(juce::KeyPress('`'), state));
+        expectEquals(static_cast<int>(mapper.getActiveGroupIndex()), 1);
+
+        // 2. Simulated auto-repeat while '`' is still held must be consumed but NOT cycle again
+        expect(mapper.handleKeyPressed(juce::KeyPress('`'), state));
+        expectEquals(static_cast<int>(mapper.getActiveGroupIndex()), 1, "Auto-repeat must not cycle group again");
+
+        // 3. Key release clears the latch
+        isBacktickDown = false;
+        mapper.handleKeyStateChanged(state);
+
+        // 4. Pressing again cycles to group 2
+        isBacktickDown = true;
+        expect(mapper.handleKeyPressed(juce::KeyPress('`'), state));
+        expectEquals(static_cast<int>(mapper.getActiveGroupIndex()), 2);
+
+        // 5. Panic release clears repeat latch
+        mapper.releaseAllHeldKeys(state);
+        isBacktickDown = false;
+    }
+
+    void testReleaseAllHeldKeysClearsTransientModifiers() {
+        beginTest("releaseAllHeldKeys resets transient modifiers to prevent stuck octave or velocity");
+
+        KeyboardMidiMapper mapper;
+        juce::MidiKeyboardState state;
+
+        // Simulate Alt and Shift held
+        devpiano::core::PerformanceModifierState mods;
+        mods.shiftActive = true;
+        mods.altActive = true;
+        mapper.setModifierState(mods);
+
+        const auto snapshotBefore = mapper.createQwertySnapshot(0);
+        expect(snapshotBefore.isAltActive);
+        expect(snapshotBefore.isShiftActive);
+
+        // Panic release (e.g. Alt-Tab focus loss)
+        mapper.releaseAllHeldKeys(state);
+
+        const auto snapshotAfter = mapper.createQwertySnapshot(0);
+        expect(!snapshotAfter.isAltActive, "Alt modifier must be cleared on panic");
+        expect(!snapshotAfter.isShiftActive, "Shift modifier must be cleared on panic");
+        expect(!snapshotAfter.isCtrlActive, "Ctrl modifier must be cleared on panic");
     }
 };
 

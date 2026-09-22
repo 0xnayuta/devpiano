@@ -97,10 +97,15 @@ public:
                 tempBuffer.addEvent(juce::MidiMessage::controllerEvent(ch, 64, 0), samplePos);
                 // 2. NoteOn: attack new note
                 tempBuffer.addEvent(msg, samplePos);
-                // 3. CC64 = 127: re-engage sustain immediately for legato hold
-                tempBuffer.addEvent(juce::MidiMessage::controllerEvent(ch, 64, 127), samplePos);
+                // 3. CC64 = 127: re-engage sustain ONLY if pedal is physically held down
+                if (pedalDown) {
+                    tempBuffer.addEvent(juce::MidiMessage::controllerEvent(ch, 64, 127), samplePos);
+                }
 
-                cut = false;
+                if (cut) {
+                    cutPending.store(false, std::memory_order_relaxed);
+                    cut = false;
+                }
             } else {
                 tempBuffer.addEvent(msg, samplePos);
             }
