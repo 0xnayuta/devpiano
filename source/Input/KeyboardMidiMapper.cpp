@@ -257,3 +257,38 @@ bool KeyboardMidiMapper::isKeyCurrentlyDown(int keyCode) const {
     }
     return juce::KeyPress::isKeyCurrentlyDown(keyCode);
 }
+
+devpiano::core::QwertyViewModel KeyboardMidiMapper::createQwertySnapshot(int keySignature) const {
+    auto vm = devpiano::core::makeDefaultQwertyLayoutTemplate();
+    vm.isSustainPedalDown = sustainPedalDown;
+    vm.isSoftPedalDown = softPedalDown;
+
+    for (auto& row : vm.rows) {
+        for (auto& key : row.keys) {
+            if (key.isSustainPedal) {
+                key.isDown = sustainPedalDown;
+            } else if (key.isSoftPedal) {
+                key.isDown = softPedalDown;
+            } else if (key.keyCode != 0) {
+                key.isDown = heldKeys.contains(key.keyCode);
+            }
+
+            if (key.keyCode != 0) {
+                if (const auto* binding = layout.findByKeyCode(key.keyCode)) {
+                    if (binding->action.type == devpiano::core::KeyActionType::note) {
+                        key.mappedMidiNote = binding->action.midiNote;
+                        key.mappedMidiChannel = binding->action.midiChannel;
+                        key.velocity = binding->action.velocity;
+
+                        key.noteName = devpiano::core::getNoteDisplayName(
+                            key.mappedMidiNote, devpiano::core::NoteDisplayMode::noteName, keySignature);
+                        key.solfegeLabel = devpiano::core::getNoteDisplayName(
+                            key.mappedMidiNote, devpiano::core::NoteDisplayMode::fixedDo, keySignature);
+                    }
+                }
+            }
+        }
+    }
+
+    return vm;
+}

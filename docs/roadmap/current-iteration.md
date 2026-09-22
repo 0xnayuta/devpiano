@@ -42,20 +42,21 @@
 
 ## 阶段规划详案 (Execution Roadmap)
 
-### Phase 34-A：QWERTY Visualizer（5 行 Performance Map 声明式卡片）[最优先]
+### Phase 34-A：QWERTY Visualizer（5 行 Performance Map 声明式卡片）[已完成，2026-09-22]
 
 > 目标：在主界面新增自适应、可折叠的 5 行电脑键盘物理映射卡片，彻底消灭初学者“电脑按键与钢琴琴键对应”的盲弹认知成本。
 
-- [ ] **Phase 34-A-1：设计并实现 QWERTY ViewModel 接口与映射快照**：
-  - 在 `source/UI/` 或 `source/Core/` 定义只读 `QwertyKeyVisualState`（物理 KeyCode、显示字符、当前映射 MIDI 音高、当前调号下的音名/唱名、当前按下状态）；
-  - `KeyboardMidiMapper` 增加只读快照生成方法，与当前 `KeyboardLayout` 及 `keySignature` 保持单一事实源同步。
-- [ ] **Phase 34-A-2：在 JIVE 声明式 UI 体系中构建 5 行 QWERTY 键盘网格卡片**：
-  - 依照标准 5 行物理键位排布构建自适应网格（Row 0: 数字行, Row 1: QWERTY 行, Row 2: ASDF 行, Row 3: ZXCV 行, Row 4: 功能修饰与 Space 踏板区）；
-  - 卡片集成进 `source/UI/jive/LayoutModel.cpp`，支持一键折叠/展开并记住展开状态；
-  - 键位上方清晰展示物理按键标签，下方展示动态音名或简谱唱名（随调号实时切换）。
-- [ ] **Phase 34-A-3：双向交互与余晖联动动画**：
-  - 物理键盘按下时，QWERTY 视觉方块与 88 键虚拟钢琴键盘同频高亮下沉，并在松开后呈现平滑余晖淡出；
-  - 编写 UI 渲染黄金测试与无头事件触发测试，验证 0 回归。
+- [x] **Phase 34-A-1：设计并实现 QWERTY ViewModel 接口与映射快照**：
+  - 在 `source/Core/QwertyModel.h` 定义只读 `QwertyKeyVisualState` 与 5 行 `QwertyViewModel`，音乐理论基础算法下沉解耦至 `source/Core/MusicTheory.h`；
+  - `KeyboardMidiMapper::createQwertySnapshot` 实现只读快照生成方法，以 `layout`、`heldKeys` 及 `keySignature` 为单一事实源零堆分配同步。
+- [x] **Phase 34-A-2：在 JIVE 声明式 UI 体系中构建 5 行 QWERTY 键盘网格卡片**：
+  - 构建 `QwertyComponent` 原生自绘组件与 5 行 ANSI 物理键位网格（每行权重 15.0f 严格对齐）；
+  - 在 `source/UI/jive/LayoutModel.cpp` 中构建声明式 `makeQwertyCardTree()`，插入于 `ControlsPanel` 与 `KeyboardArea` 之间；
+  - 支持一键折叠/展开并在 `SettingsModel` 中持久化记录展开状态（`qwertyVisualizerExpanded`）。
+- [x] **Phase 34-A-3：双向交互与余晖联动动画**：
+  - 物理键盘按下时，QWERTY 视觉方块物理下沉并高亮，与 88 键虚拟钢琴键盘同频联动；松开后呈现 50fps 平滑模拟荧光余晖淡出；
+  - 支持鼠标点击发音与右键绑定编辑联动；
+  - 编写 `QwertyViewModelTest` 专项单测并通过全量回归。
 ---
 
 ### Phase 34-B：Layout Group 轻量多键组与 HeldKey Identity 状态快照机制

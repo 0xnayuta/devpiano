@@ -28,6 +28,10 @@ namespace devpiano::ui::jive {
 /// Full-width horizontal strip (MainComponent positions it).
 [[nodiscard]] juce::ValueTree makeControlsPanelTree();
 
+/// QWERTY Performance Map card: 5-row computer keyboard visualizer.
+/// Collapsed height 32, expanded ~146.
+[[nodiscard]] juce::ValueTree makeQwertyCardTree();
+
 /// Keyboard area: CustomKeyboard inside a scrolling viewport.
 /// Fills the remaining vertical space (MainComponent positions it).
 [[nodiscard]] juce::ValueTree makeKeyboardAreaTree();

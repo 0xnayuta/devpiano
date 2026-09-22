@@ -127,6 +127,7 @@ struct SettingsModel {
     // one declaration of the defaults, no parallel flat fields to drift).
     KeyboardDisplaySettingsView keyboardDisplay;
     bool pluginPanelExpanded = false; // persisted PluginPanel collapsed/expanded toggle
+    bool qwertyVisualizerExpanded = true; // persisted QwertyVisualizer collapsed/expanded toggle
     // Persisted UI language code ("en" | "zh-CN").
     juce::String languageCode { "en" };
     // Key signature system: global transpose state
@@ -253,6 +254,7 @@ struct SettingsModel {
             keyboardScrollOffsetX = other.keyboardScrollOffsetX;
             keyboardDisplay = other.keyboardDisplay;
             pluginPanelExpanded = other.pluginPanelExpanded;
+            qwertyVisualizerExpanded = other.qwertyVisualizerExpanded;
             languageCode = other.languageCode;
             midiTranspose = other.midiTranspose;
             keySignature = other.keySignature;

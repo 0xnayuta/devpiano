@@ -49,6 +49,7 @@ void registerRootComponentFactory(::jive::Interpreter& interpreter) {
         return viewport;
     });
     factory.set("StatusBarMidiDot", [] { return std::make_unique<juce::Component>(); });
+    factory.set("QwertyVisualizer", [] { return std::make_unique<juce::Component>(); });
 }
 
 // 定位仓库内真实 style_sheets.json：优先 __FILE__ 相对定位（TEST-014，与 CWD

@@ -212,6 +212,8 @@ target_sources(devpiano PRIVATE
     source/Core/KeyMapTypes.h
     source/Core/MidiTypes.h
     source/Core/AppState.h
+    source/Core/MusicTheory.h
+    source/Core/QwertyModel.h
     source/Midi/MidiChannelMapper.cpp
     source/Midi/MidiChannelMapper.h
     source/Midi/ChannelMatrix.h
@@ -259,6 +261,8 @@ target_sources(devpiano PRIVATE
     source/Settings/AppStateBuilder.h
     source/UI/CustomKeyboard.cpp
     source/UI/CustomKeyboard.h
+    source/UI/QwertyComponent.cpp
+    source/UI/QwertyComponent.h
     source/UI/ComboSelection.h
     source/UI/native/AdsrCurveComponent.cpp
     source/UI/native/AdsrCurveComponent.h
@@ -429,6 +433,8 @@ if (BUILD_TESTS)
         source/Core/KeyMapTypes.h
         source/Core/MidiTypes.h
         source/Core/AppState.h
+        source/Core/MusicTheory.h
+        source/Core/QwertyModel.h
         source/Input/KeyboardMidiMapper.cpp
         source/Input/KeyboardMidiMapper.h
         source/Diagnostics/Log.h
@@ -489,9 +495,10 @@ if (BUILD_TESTS)
         source/UI/PluginTypes.h
         source/UI/CustomKeyboard.cpp
         source/UI/CustomKeyboard.h
+        source/UI/QwertyComponent.cpp
+        source/UI/QwertyComponent.h
         source/UI/native/AdsrCurveComponent.cpp
         source/UI/native/AdsrCurveComponent.h
-
         source/UI/jive/StyleCatalog.cpp
         source/UI/jive/StyleCatalog.h
         source/UI/jive/LayoutModel.cpp
@@ -565,6 +572,7 @@ if (BUILD_TESTS)
         source/tests/FeltAgeingTest.cpp
         source/tests/MechanicalAcousticsTest.cpp
         source/tests/DiagnosticsTest.cpp
+        source/tests/QwertyViewModelTest.cpp
         ${DEVPIANO_JIVE_CORE_SOURCES}
     )
     target_link_libraries(devpiano_tests PRIVATE

@@ -31,6 +31,7 @@
 #include "UI/DevPianoLookAndFeel.h"
 #include "UI/PluginEditorWindow.h"
 #include "UI/PluginTypes.h"
+#include "UI/QwertyComponent.h"
 #include "UI/RecordingTypes.h"
 #include "UI/jive/LayoutModel.h"
 #include "UI/jive/StyleCatalog.h"
@@ -178,6 +179,11 @@ private:
     void setKeyboardViewPosition(int midiNote, int pixelOffset = -1);
     [[nodiscard]] int getKeyboardViewPositionX() const noexcept;
 
+    // ── JIVE QWERTY visualizer accessors ──
+    devpiano::ui::QwertyComponent& getQwertyVisualizer();
+    void setQwertyVisualizerExpanded(bool expanded);
+    void updateQwertyVisualizer();
+
     // ── JIVE status bar accessors ──
     void updateStatusBar();
     void showStatusMessage(const juce::String& text, int timeoutMs = 3000);
@@ -222,6 +228,7 @@ private:
     juce::StringArray availablePresetIds;
     devpiano::ui::RecordingControlsState recordingControlsState;
     CustomKeyboard* customKeyboardRef = nullptr;
+    devpiano::ui::QwertyComponent* qwertyComponentRef = nullptr;
     juce::String statusToastText;
     int statusToastTicksRemaining = 0;
     int statusBarThrottleCounter = 0;

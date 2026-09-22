@@ -10,6 +10,7 @@
 
 #include "Diagnostics/Log.h"
 #include "UI/ComboSelection.h"
+#include "UI/QwertyComponent.h"
 #include "UI/native/AdsrCurveComponent.h"
 #include "UI/native/StatusBarMidiDot.h"
 
@@ -544,6 +545,7 @@ void MainComponent::setKeyboardLayout(const devpiano::core::KeyboardLayout& layo
     if (auto* viewport = viewHost.find<KeyboardViewport>("custom-keyboard")) {
         viewport->getCustomKeyboard().setKeyboardLayout(layout);
     }
+    updateQwertyVisualizer();
 }
 
 void MainComponent::setKeyboardViewPosition(int midiNote, int pixelOffset) {
@@ -564,6 +566,37 @@ void MainComponent::setKeyboardViewPosition(int midiNote, int pixelOffset) {
         }
         auto x = static_cast<int>(static_cast<float>(whiteCount) * keyboard.getKeyboardSettings().keyWidth);
         viewport->setViewPosition(x, 0);
+    }
+}
+
+// ── JIVE QWERTY visualizer accessors ───────────────────────────────────────
+
+devpiano::ui::QwertyComponent& MainComponent::getQwertyVisualizer() {
+    if (qwertyComponentRef == nullptr) {
+        qwertyComponentRef = viewHost.find<devpiano::ui::QwertyComponent>("qwerty-visualizer");
+        jassert(qwertyComponentRef != nullptr);
+    }
+    return *qwertyComponentRef;
+}
+
+void MainComponent::setQwertyVisualizerExpanded(bool expanded) {
+    appSettings.qwertyVisualizerExpanded = expanded;
+    if (viewHost.isValid()) {
+        viewHost.setProperty("qwerty-expanded-area", "height", expanded ? 110 : 0);
+        viewHost.setProperty("qwerty-card", "height", expanded ? 146 : 24);
+        viewHost.setText("qwerty-toggle-btn", expanded ? "^" : "v");
+    }
+}
+
+void MainComponent::updateQwertyVisualizer() {
+    if (!viewHost.isValid()) {
+        return;
+    }
+    if (qwertyComponentRef == nullptr) {
+        qwertyComponentRef = viewHost.find<devpiano::ui::QwertyComponent>("qwerty-visualizer");
+    }
+    if (qwertyComponentRef != nullptr) {
+        qwertyComponentRef->updateViewModel(keyboardMidiMapper.createQwertySnapshot(appSettings.keySignature));
     }
 }
 

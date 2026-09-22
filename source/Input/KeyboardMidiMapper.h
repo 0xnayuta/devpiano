@@ -7,7 +7,7 @@
 #include <unordered_set>
 
 #include "Core/KeyMapTypes.h"
-
+#include "Core/QwertyModel.h"
 #include "TouchVelocityCurve.h"
 namespace devpiano::midi {
 class MidiChannelMapper;
@@ -41,6 +41,8 @@ public:
     [[nodiscard]] devpiano::input::TouchVelocityCurve getTouchVelocityCurve() const noexcept;
     /// 释放所有当前按下的琴键与踏板（窗口失焦、切屏 Panic 防悬挂音）。
     void releaseAllHeldKeys(juce::MidiKeyboardState& keyboardState);
+    /// 生成当前电脑键盘物理按键映射与按下状态快照（单一事实源，供 QWERTY Visualizer 投影）。
+    [[nodiscard]] devpiano::core::QwertyViewModel createQwertySnapshot(int keySignature = 0) const;
 
     /// 注入键状态谓词（测试用）：null/未设置时回退真实 OS 键盘查询。
     void setKeyStatePredicate(KeyStatePredicate predicate) noexcept;

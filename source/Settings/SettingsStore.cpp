@@ -48,6 +48,7 @@ const char* kKeyKeySignature = "keySignature";
 const char* kKeyMidiTranspose = "midiTranspose";
 const char* kKeyKeyboardScrollX = "keyboardScrollX";
 const char* kKeyPluginPanelExpanded = "pluginPanelExpanded";
+const char* kKeyQwertyVisualizerExpanded = "qwertyVisualizerExpanded";
 
 [[nodiscard]] SettingsModel::PerformanceSettingsView makeDefaultPerformanceSettings() noexcept {
     return {};
@@ -240,6 +241,7 @@ void SettingsStore::readNow(SettingsModel& m) {
     m.keyboardDisplay.showInstrumentFilter
         = f.getBoolValue(kKeyShowInstrumentFilter, m.keyboardDisplay.showInstrumentFilter);
     m.pluginPanelExpanded = f.getBoolValue(kKeyPluginPanelExpanded, m.pluginPanelExpanded);
+    m.qwertyVisualizerExpanded = f.getBoolValue(kKeyQwertyVisualizerExpanded, m.qwertyVisualizerExpanded);
     m.languageCode = f.getValue(kKeyLanguageCode, m.languageCode);
     // custom key labels as ValueTree XML (sparse: only non-empty labels stored)
     if (auto labelsXml = f.getXmlValue(kKeyCustomLabels)) {
@@ -386,6 +388,7 @@ bool SettingsStore::writeNow(const SettingsModel& m) {
     f.setValue(kKeyLanguageCode, m.languageCode);
     f.setValue(kKeyShowInstrumentFilter, m.keyboardDisplay.showInstrumentFilter);
     f.setValue(kKeyPluginPanelExpanded, m.pluginPanelExpanded);
+    f.setValue(kKeyQwertyVisualizerExpanded, m.qwertyVisualizerExpanded);
 
     const auto saved = f.saveIfNeeded();
     if (!saved) {

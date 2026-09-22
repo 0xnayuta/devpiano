@@ -74,6 +74,28 @@
     "border": "@card-border",
     "border-radius": "8"
   },
+  "#qwerty-card": {
+    "background": "@card-bg",
+    "border": "@card-border",
+    "border-radius": "8"
+  },
+  "#qwerty-title-label": {
+    "foreground": "@text-secondary",
+    "font-size": "@font-size-tiny",
+    "font-weight": "bold"
+  },
+  "#qwerty-toggle-btn": {
+    "background": "transparent",
+    "border": "transparent",
+    "border-radius": "4",
+    "font-size": 11,
+    "hover": {
+      "background": "#282C35"
+    },
+    "active": {
+      "background": "#181A1F"
+    }
+  },
   "#volume-label": { "foreground": "@text-secondary", "font-size": "@font-size-tiny" },
   "#attack-label": { "foreground": "@text-secondary", "font-size": "@font-size-tiny" },
   "#decay-label": { "foreground": "@text-secondary", "font-size": "@font-size-tiny" },

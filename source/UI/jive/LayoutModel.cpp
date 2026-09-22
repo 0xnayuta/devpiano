@@ -439,6 +439,56 @@ juce::ValueTree makeControlsPanelTree() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// QwertyCard
+// ═══════════════════════════════════════════════════════════════════════════
+
+juce::ValueTree makeQwertyCardTree() {
+    auto card = flexColumn("qwerty-card");
+    card.setProperty("title", TRANS("QWERTY Performance Map"), nullptr);
+    card.setProperty("height", 24, nullptr); // collapsed initial (24px compact bar)
+    card.setProperty("padding", "3 8 3 8", nullptr);
+    card.setProperty("margin", "0 0 4 0", nullptr);
+    card.setProperty("border-width", "1", nullptr);
+    card.setProperty("flex-shrink", 0.0, nullptr);
+
+    auto headerRow = flexRow("qwerty-action-row");
+    headerRow.setProperty("title", TRANS("QWERTY Header"), nullptr);
+    headerRow.setProperty("height", 18, nullptr);
+    headerRow.setProperty("margin", "0", nullptr);
+
+    auto title = text(TRANS("QWERTY Performance Map"), "qwerty-title-label");
+    title.setProperty("title", TRANS("QWERTY Performance Map"), nullptr);
+    title.setProperty("flex-grow", 1.0, nullptr);
+    title.setProperty("height", 18, nullptr);
+    title.setProperty("justification", "centred-left", nullptr);
+    headerRow.appendChild(title, nullptr);
+
+    auto toggleBtn = button("^", "qwerty-toggle-btn");
+    toggleBtn.setProperty("title", TRANS("Toggle QWERTY Visualizer"), nullptr);
+    toggleBtn.setProperty("tooltip", TRANS("Toggle QWERTY Visualizer"), nullptr);
+    toggleBtn.setProperty("width", 24, nullptr);
+    toggleBtn.setProperty("height", 16, nullptr);
+    headerRow.appendChild(toggleBtn, nullptr);
+
+    card.appendChild(headerRow, nullptr);
+
+    auto contentArea = flexColumn("qwerty-expanded-area");
+    contentArea.setProperty("title", TRANS("QWERTY Content Area"), nullptr);
+    contentArea.setProperty("flex-grow", 1.0, nullptr);
+    contentArea.setProperty("height", 0, nullptr); // collapsed initial
+
+    auto qwertyVisualizer = node("QwertyVisualizer", "qwerty-visualizer");
+    qwertyVisualizer.setProperty("title", TRANS("QWERTY Visualizer"), nullptr);
+    qwertyVisualizer.setProperty("flex-grow", 1.0, nullptr);
+    qwertyVisualizer.setProperty("height", 108, nullptr);
+    contentArea.appendChild(qwertyVisualizer, nullptr);
+
+    card.appendChild(contentArea, nullptr);
+
+    return card;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // KeyboardArea
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -497,6 +547,10 @@ juce::ValueTree makeRootLayout() {
     controls.setProperty("min-height", 140, nullptr);
     controls.setProperty("margin", "0 0 8 0", nullptr);
     contentRow.appendChild(controls, nullptr);
+
+    auto qwerty = makeQwertyCardTree();
+    qwerty.setProperty("height", 24, nullptr); // collapsed; setQwertyVisualizerExpanded updates
+    contentRow.appendChild(qwerty, nullptr);
 
     auto keyboard = makeKeyboardAreaTree();
     keyboard.setProperty("flex-grow", 1.0, nullptr);
@@ -588,6 +642,12 @@ void refreshTitles(::jive::GuiItem& root) {
         { "stop-btn", "Stop" },
         { "back-btn", "Back to Start" },
         { "custom-keyboard", "Keyboard" },
+        { "qwerty-card", "QWERTY Performance Map" },
+        { "qwerty-action-row", "QWERTY Header" },
+        { "qwerty-title-label", "QWERTY Performance Map" },
+        { "qwerty-toggle-btn", "Toggle QWERTY Visualizer" },
+        { "qwerty-expanded-area", "QWERTY Content Area" },
+        { "qwerty-visualizer", "QWERTY Visualizer" },
     };
 
     for (const auto& t : titles) {

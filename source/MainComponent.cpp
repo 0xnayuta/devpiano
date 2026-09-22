@@ -5,6 +5,7 @@
 #include "UI/CustomKeyboard.h"
 #include "UI/KeyBindingEditDialog.h"
 #include "UI/PluginPanelStateBuilder.h"
+#include "UI/QwertyComponent.h"
 #include "UI/jive/DesignTokens.h"
 #include "UI/jive/JiveComponentRegistry.h"
 #include "UI/jive/JiveUtils.h"
@@ -157,6 +158,7 @@ void MainComponent::reconfigureChannelMapper() {
     }
     audioEngine.setPlaybackTranspose(appSettings.midiTranspose, appSettings.keySignature, mask);
     updateStatusBar();
+    updateQwertyVisualizer();
 }
 
 void MainComponent::handlePresetShortcut(int index) {
@@ -369,11 +371,28 @@ void MainComponent::initialiseUi() {
         if (auto* viewport = viewHost.find<KeyboardViewport>("custom-keyboard")) {
             customKeyboardRef = &viewport->getCustomKeyboard();
         }
+        if (auto* qv = viewHost.find<devpiano::ui::QwertyComponent>("qwerty-visualizer")) {
+            qwertyComponentRef = qv;
+            qv->onNoteOn = [this](int midiNote, int midiChannel, float velocity) {
+                audioEngine.getKeyboardState().noteOn(midiChannel, midiNote, velocity);
+                notifyMidiActivity();
+            };
+            qv->onNoteOff = [this](int midiNote, int midiChannel) {
+                audioEngine.getKeyboardState().noteOff(midiChannel, midiNote, 1.0f);
+                notifyMidiActivity();
+            };
+            qv->onBindingEditRequested = [this](int midiNote) { handleKeyBindingEditRequest(midiNote); };
+        }
+        if (auto* btn = viewHost.find<juce::Button>("qwerty-toggle-btn")) {
+            btn->onClick = [this] { setQwertyVisualizerExpanded(!appSettings.qwertyVisualizerExpanded); };
+        }
     }
 
     const auto pluginRecovery = getPluginRecoverySettingsWithFallback();
     setPluginPathText(makeSafeUiText(pluginRecovery.pluginSearchPath));
     setPluginPanelExpanded(appSettings.pluginPanelExpanded);
+    setQwertyVisualizerExpanded(appSettings.qwertyVisualizerExpanded);
+    updateQwertyVisualizer();
 
     recordingSessionController->onFileOpened = [this](const juce::File& file) {
         recentFiles.addFile(file);
@@ -693,6 +712,7 @@ bool MainComponent::keyPressed(const juce::KeyPress& key) {
 
     if (handled) {
         getCustomKeyboard().notifyNoteActivity();
+        updateQwertyVisualizer();
         notifyMidiActivity();
         suppressTextInputMethods();
     }
@@ -774,6 +794,7 @@ bool MainComponent::keyStateChanged(bool isKeyDown) {
 
     if (handled) {
         getCustomKeyboard().notifyNoteActivity();
+        updateQwertyVisualizer();
         notifyMidiActivity();
         suppressTextInputMethods();
     }
@@ -863,10 +884,12 @@ void MainComponent::handleWindowFocusLost() {
                 // handleKeyStateChanged 以 OS 实时按键状态（isKeyCurrentlyDown）
                 // 为准：松开的键补发 note-off，仍按住的键保持原状。
                 weak->keyboardMidiMapper.handleKeyStateChanged(weak->audioEngine.getKeyboardState());
+                weak->updateQwertyVisualizer();
                 return;
             }
         }
         weak->keyboardMidiMapper.releaseAllHeldKeys(weak->audioEngine.getKeyboardState());
+        weak->updateQwertyVisualizer();
         weak->getCustomKeyboard().releaseHeldMouseNote();
     });
 }

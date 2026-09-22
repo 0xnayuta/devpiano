@@ -5,6 +5,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include "UI/CustomKeyboard.h"
+#include "UI/QwertyComponent.h"
 #include "UI/jive/DesignTokens.h"
 #include "UI/native/AdsrCurveComponent.h"
 #include "UI/native/KeyboardViewport.h"
@@ -168,6 +169,7 @@ public:
 
         factory.set("CustomKeyboard", [&keyboardState] { return std::make_unique<KeyboardViewport>(keyboardState); });
         factory.set("StatusBarMidiDot", [] { return std::make_unique<StatusBarMidiDot>(); });
+        factory.set("QwertyVisualizer", [] { return std::make_unique<QwertyComponent>(); });
     }
 };
 
