@@ -444,7 +444,7 @@ juce::File PluginHost::getDeadMansPedalFile() const {
         return deadMansPedalFileOverride;
     }
 
-    auto directory = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory).getChildFile("devpiano");
+    auto directory = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory).getChildFile("DevPiano");
     directory.createDirectory();
     return directory.getChildFile("vst3-dead-mans-pedal.txt");
 }

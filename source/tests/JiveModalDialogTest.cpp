@@ -1,8 +1,6 @@
 #include <JuceHeader.h>
 
 #include "UI/KeyBindingEditDialog.h"
-#include "UI/PerformanceMetadataDialog.h"
-#include "UI/PresetDialogs.h"
 #include "UI/ViewHost.h"
 #include "UI/jive/DesignTokens.h"
 #include "UI/jive/JiveModalDialog.h"

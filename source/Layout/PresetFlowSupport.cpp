@@ -4,7 +4,7 @@
 
 #include "Diagnostics/Log.h"
 #include "MainComponent.h"
-#include "UI/PresetDialogs.h"
+#include "UI/jive/JiveModalDialog.h"
 
 namespace devpiano::layout {
 
@@ -216,30 +216,43 @@ bool PresetFlowSupport::autoSaveCurrentPreset() {
 // ---- CRUD ----
 
 void PresetFlowSupport::handleSaveAsNewPreset() {
-    PresetNameDialog::launch(TRANS("Save as New Preset"), {}, &owner, [this](std::optional<juce::String> nameOpt) {
-        if (!nameOpt.has_value()) {
-            return;
-        }
-        auto rawName = nameOpt->trim();
-        if (rawName.isEmpty()) {
-            return;
-        }
+    devpiano::ui::jive::JiveModalDialog::launchSingleInput({
+        .title = TRANS("Save as New Preset"),
+        .labelText = TRANS("Preset Name:"),
+        .initialValue = {},
+        .componentToCentreAround = &owner,
+        .onComplete =
+            [this](std::optional<juce::String> nameOpt) {
+                if (!nameOpt.has_value()) {
+                    return;
+                }
+                auto rawName = nameOpt->trim();
+                if (rawName.isEmpty()) {
+                    return;
+                }
 
-        auto fileName = sanitisePresetFileName(rawName);
-        auto file = getPresetDirectory().getChildFile(fileName + ".devpiano.preset");
+                auto fileName = sanitisePresetFileName(rawName);
+                auto file = getPresetDirectory().getChildFile(fileName + ".devpiano.preset");
 
-        if (file.existsAsFile()) {
-            PresetConfirmDialog::show(
-                TRANS("Overwrite Preset?"),
-                TRANS("A preset named \"") + rawName + TRANS("\" already exists.\nDo you want to overwrite it?"),
-                TRANS("Overwrite"), TRANS("Cancel"), &owner, [this, rawName, file](bool overwrite) {
-                    if (overwrite) {
-                        savePresetFromCurrentState(rawName, file);
-                    }
-                });
-            return;
-        }
-        savePresetFromCurrentState(rawName, file);
+                if (file.existsAsFile()) {
+                    devpiano::ui::jive::JiveModalDialog::launchConfirm({
+                        .title = TRANS("Overwrite Preset?"),
+                        .message = TRANS("A preset named \"") + rawName
+                            + TRANS("\" already exists.\nDo you want to overwrite it?"),
+                        .okLabel = TRANS("Overwrite"),
+                        .cancelLabel = TRANS("Cancel"),
+                        .componentToCentreAround = &owner,
+                        .onComplete =
+                            [this, rawName, file](bool overwrite) {
+                                if (overwrite) {
+                                    savePresetFromCurrentState(rawName, file);
+                                }
+                            },
+                    });
+                    return;
+                }
+                savePresetFromCurrentState(rawName, file);
+            },
     });
 }
 
@@ -277,43 +290,49 @@ void PresetFlowSupport::handleRenamePreset() {
     auto oldName = it->name;
     auto oldFile = getPresetDirectory().getChildFile(sanitisePresetFileName(oldName) + ".devpiano.preset");
 
-    PresetNameDialog::launch(
-        TRANS("Rename Preset"), oldName, &owner,
-        [this, targetId, oldName, oldFile](std::optional<juce::String> nameOpt) {
-            if (!nameOpt.has_value()) {
-                return;
-            }
-            auto newName = nameOpt->trim();
-            if (newName.isEmpty() || newName == oldName) {
-                return;
-            }
-
-            refreshCache();
-            auto it2 = std::ranges::find_if(cachedPresets, [&targetId](const auto& p) { return p.name == targetId; });
-            if (it2 == cachedPresets.end()) {
-                return;
-            }
-
-            auto preset = *it2;
-            preset.name = newName;
-            preset.layout.name = newName;
-
-            auto newFile = getPresetDirectory().getChildFile(sanitisePresetFileName(newName) + ".devpiano.preset");
-
-            if (savePreset(preset, newFile)) {
-                if (oldFile.deleteFile()) {
-                    DP_LOG_INFO("[Preset] renamed: " + oldName + " -> " + newName);
-                } else {
-                    DP_LOG_WARN("[Preset] renamed preset saved but old file could not be deleted: "
-                                + oldFile.getFullPathName());
+    devpiano::ui::jive::JiveModalDialog::launchSingleInput({
+        .title = TRANS("Rename Preset"),
+        .labelText = TRANS("Preset Name:"),
+        .initialValue = oldName,
+        .componentToCentreAround = &owner,
+        .onComplete =
+            [this, targetId, oldName, oldFile](std::optional<juce::String> nameOpt) {
+                if (!nameOpt.has_value()) {
+                    return;
                 }
-                currentPresetId = newName;
-                owner.appSettings.lastActivePresetId = currentPresetId;
+                auto newName = nameOpt->trim();
+                if (newName.isEmpty() || newName == oldName) {
+                    return;
+                }
+
                 refreshCache();
-                updateUiAfterCommit();
-                owner.showStatusMessage(TRANS("Renamed preset to: ") + newName, 2500);
-            }
-        });
+                auto it2
+                    = std::ranges::find_if(cachedPresets, [&targetId](const auto& p) { return p.name == targetId; });
+                if (it2 == cachedPresets.end()) {
+                    return;
+                }
+
+                auto preset = *it2;
+                preset.name = newName;
+                preset.layout.name = newName;
+
+                auto newFile = getPresetDirectory().getChildFile(sanitisePresetFileName(newName) + ".devpiano.preset");
+
+                if (savePreset(preset, newFile)) {
+                    if (oldFile.deleteFile()) {
+                        DP_LOG_INFO("[Preset] renamed: " + oldName + " -> " + newName);
+                    } else {
+                        DP_LOG_WARN("[Preset] renamed preset saved but old file could not be deleted: "
+                                    + oldFile.getFullPathName());
+                    }
+                    currentPresetId = newName;
+                    owner.appSettings.lastActivePresetId = currentPresetId;
+                    refreshCache();
+                    updateUiAfterCommit();
+                    owner.showStatusMessage(TRANS("Renamed preset to: ") + newName, 2500);
+                }
+            },
+    });
 }
 
 void PresetFlowSupport::handleDeletePreset() {
@@ -331,29 +350,35 @@ void PresetFlowSupport::handleDeletePreset() {
     }
     auto name = it->name;
 
-    PresetConfirmDialog::show(
-        TRANS("Delete Preset"), TRANS("Delete preset \"") + name + "\"? " + TRANS("This cannot be undone."),
-        TRANS("Delete"), TRANS("Cancel"), &owner, [this, name](bool confirmed) {
-            if (!confirmed) {
-                return;
-            }
-            auto file = getPresetDirectory().getChildFile(sanitisePresetFileName(name) + ".devpiano.preset");
-            if (file.deleteFile()) {
-                DP_LOG_INFO("[Preset] deleted: " + name);
-            } else {
-                DP_LOG_WARN("[Preset] failed to delete preset file: " + file.getFullPathName());
-            }
+    devpiano::ui::jive::JiveModalDialog::launchConfirm({
+        .title = TRANS("Delete Preset"),
+        .message = TRANS("Delete preset \"") + name + "\"? " + TRANS("This cannot be undone."),
+        .okLabel = TRANS("Delete"),
+        .cancelLabel = TRANS("Cancel"),
+        .componentToCentreAround = &owner,
+        .onComplete =
+            [this, name](bool confirmed) {
+                if (!confirmed) {
+                    return;
+                }
+                auto file = getPresetDirectory().getChildFile(sanitisePresetFileName(name) + ".devpiano.preset");
+                if (file.deleteFile()) {
+                    DP_LOG_INFO("[Preset] deleted: " + name);
+                } else {
+                    DP_LOG_WARN("[Preset] failed to delete preset file: " + file.getFullPathName());
+                }
 
-            // If the deleted preset was current, revert to default
-            if (currentPresetId == name) {
-                applyPresetData(makeDefaultPreset());
-                currentPresetId.clear();
-                owner.appSettings.lastActivePresetId.clear();
-            }
-            refreshCache();
-            updateUiAfterCommit();
-            owner.showStatusMessage(TRANS("Deleted preset: ") + name, 2500);
-        });
+                // If the deleted preset was current, revert to default
+                if (currentPresetId == name) {
+                    applyPresetData(makeDefaultPreset());
+                    currentPresetId.clear();
+                    owner.appSettings.lastActivePresetId.clear();
+                }
+                refreshCache();
+                updateUiAfterCommit();
+                owner.showStatusMessage(TRANS("Deleted preset: ") + name, 2500);
+            },
+    });
 }
 
 void PresetFlowSupport::handleImportPresetFile(const juce::File& file) {
@@ -376,14 +401,20 @@ void PresetFlowSupport::handleImportPresetFile(const juce::File& file) {
     };
 
     if (destFile.existsAsFile()) {
-        PresetConfirmDialog::show(
-            TRANS("Overwrite Preset?"),
-            TRANS("A preset named \"") + loaded->name + TRANS("\" already exists.\nDo you want to overwrite it?"),
-            TRANS("Overwrite"), TRANS("Cancel"), &owner, [importAction = std::move(performImport)](bool confirmed) {
-                if (confirmed) {
-                    importAction();
-                }
-            });
+        devpiano::ui::jive::JiveModalDialog::launchConfirm({
+            .title = TRANS("Overwrite Preset?"),
+            .message
+            = TRANS("A preset named \"") + loaded->name + TRANS("\" already exists.\nDo you want to overwrite it?"),
+            .okLabel = TRANS("Overwrite"),
+            .cancelLabel = TRANS("Cancel"),
+            .componentToCentreAround = &owner,
+            .onComplete =
+                [importAction = std::move(performImport)](bool confirmed) {
+                    if (confirmed) {
+                        importAction();
+                    }
+                },
+        });
     } else {
         performImport();
     }

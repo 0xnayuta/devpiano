@@ -207,20 +207,11 @@ juce::File getPresetDirectory() {
 }
 
 juce::String sanitisePresetFileName(const juce::String& name) {
-    // Keep only ASCII alphanumerics, spaces, hyphens, underscores; fold to legal file name.
-    juce::String out;
-    for (auto ch : name) {
-        if ((ch < 128 && juce::CharacterFunctions::isLetterOrDigit(ch)) || ch == ' ' || ch == '-' || ch == '_') {
-            out << ch;
-        } else {
-            out << '_';
-        }
+    auto legal = juce::File::createLegalFileName(name).trim();
+    if (legal.isEmpty()) {
+        legal = "untitled";
     }
-    out = out.trim();
-    if (out.isEmpty()) {
-        out = "untitled";
-    }
-    return out;
+    return legal;
 }
 
 juce::String getPresetDisplayNameForFile(const juce::File& path) {

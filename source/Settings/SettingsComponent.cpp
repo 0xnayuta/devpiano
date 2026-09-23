@@ -291,7 +291,7 @@ void SettingsComponent::wireLocaleAndActionControls() {
                 if (auto* logger = devpiano::diagnostics::DevPianoLogger::getCurrentDevPianoLogger()) {
                     return logger->getLogFile();
                 }
-                return juce::FileLogger::getSystemLogFileFolder().getChildFile("devpiano").getChildFile("devpiano.log");
+                return juce::FileLogger::getSystemLogFileFolder().getChildFile("DevPiano").getChildFile("devpiano.log");
             }();
 
             if (targetFile.existsAsFile()) {
@@ -827,7 +827,7 @@ void SettingsComponent::updateDiagnostics() {
             if (auto* logger = devpiano::diagnostics::DevPianoLogger::getCurrentDevPianoLogger()) {
                 return logger->getLogFile();
             }
-            return juce::FileLogger::getSystemLogFileFolder().getChildFile("devpiano").getChildFile("devpiano.log");
+            return juce::FileLogger::getSystemLogFileFolder().getChildFile("DevPiano").getChildFile("devpiano.log");
         }();
 
         summary << "\nLog file: " << logFile.getFullPathName();

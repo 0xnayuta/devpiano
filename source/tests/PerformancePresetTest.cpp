@@ -210,9 +210,8 @@ public:
     }
 
     void runTest() override {
-        testCase("reserved path characters become underscores", [&] {
-            expectEquals(sanitisePresetFileName(R"(a/b\c:d*e?f"g<h>i|j)"), juce::String("a_b_c_d_e_f_g_h_i_j"));
-        });
+        testCase("reserved path characters are stripped",
+                 [&] { expectEquals(sanitisePresetFileName(R"(a/b\c:d*e?f"g<h>i|j)"), juce::String("abcdefghij")); });
 
         testCase("alphanumerics, spaces, hyphens and underscores survive",
                  [&] { expectEquals(sanitisePresetFileName("My Song - 01_2"), juce::String("My Song - 01_2")); });
@@ -226,9 +225,10 @@ public:
         testCase("trailing spaces are trimmed",
                  [&] { expectEquals(sanitisePresetFileName("Name  "), juce::String("Name")); });
 
-        testCase("non-ASCII letters fall back to underscores", [&] {
-            // isLetterOrDigit 为 ASCII 语义；Unicode 中文字符按文件名安全策略替换为下划线
-            expectEquals(sanitisePresetFileName(juce::String::fromUTF8("演奏 01")), juce::String("__ 01"));
+        testCase("non-ASCII letters and Unicode survive", [&] {
+            // juce::File::createLegalFileName preserves Unicode characters
+            const auto unicodeName = juce::String::fromUTF8("\xe6\xbc\x94\xe5\xa5\x8f 01");
+            expectEquals(sanitisePresetFileName(unicodeName), unicodeName);
         });
     }
 };

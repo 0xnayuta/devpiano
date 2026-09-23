@@ -284,10 +284,6 @@ target_sources(devpiano PRIVATE
     source/UI/jive/JiveBuilderHelpers.h
     source/UI/jive/JiveModalDialog.cpp
     source/UI/jive/JiveModalDialog.h
-    source/UI/PerformanceMetadataDialog.cpp
-    source/UI/PerformanceMetadataDialog.h
-    source/UI/PresetDialogs.cpp
-    source/UI/PresetDialogs.h
     source/Settings/SettingsStore.h
     source/Settings/SettingsSerialization.cpp
     source/Settings/SettingsSerialization.h
@@ -517,10 +513,6 @@ if (BUILD_TESTS)
         source/UI/jive/DesignTokens.h
         source/UI/DevPianoLookAndFeel.cpp
         source/UI/DevPianoLookAndFeel.h
-        source/UI/PresetDialogs.cpp
-        source/UI/PresetDialogs.h
-        source/UI/PerformanceMetadataDialog.cpp
-        source/UI/PerformanceMetadataDialog.h
         source/UI/KeyBindingEditDialog.cpp
         source/UI/KeyBindingEditDialog.h
         source/UI/ColourSwatchButton.cpp

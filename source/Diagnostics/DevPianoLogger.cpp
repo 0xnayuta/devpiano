@@ -3,7 +3,7 @@
 namespace devpiano::diagnostics {
 
 DevPianoLogger::DevPianoLogger()
-    : DevPianoLogger(juce::FileLogger::getSystemLogFileFolder().getChildFile("devpiano").getChildFile("devpiano.log"),
+    : DevPianoLogger(juce::FileLogger::getSystemLogFileFolder().getChildFile("DevPiano").getChildFile("devpiano.log"),
                      512LL * 1024) {
 }
 

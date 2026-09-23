@@ -18,7 +18,7 @@ public:
             devpiano::diagnostics::DevPianoLogger logger;
             const auto logFile = logger.getLogFile();
             expect(logFile.getFileName() == "devpiano.log");
-            expect(logger.getLogDirectory().getFileName() == "devpiano");
+            expect(logger.getLogDirectory().getFileName() == "DevPiano");
         });
 
         testCase("DevPianoLogger custom file writing and dual sink", [&] {

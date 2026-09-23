@@ -14,7 +14,7 @@
 #include "Recording/PluginOfflineRenderer.h"
 #include "Recording/RecordingFlowSupport.h"
 #include "Recording/WavFileExporter.h"
-#include "UI/PerformanceMetadataDialog.h"
+#include "UI/jive/JiveModalDialog.h"
 
 namespace devpiano::recording {
 namespace {
@@ -110,16 +110,23 @@ void RecordingSessionController::handleStopClicked() {
         recordingSession.take = stopInternalRecording();
         recordingSession.canExportMidi = recordingSession.hasTake();
         // Pop up metadata dialog so the user can title the recording.
-        PerformanceMetadataDialog::launch(
-            recordingSession.currentMetadata, &owner,
-            [this, aliveFlag = aliveFlag_](std::optional<PerformanceFileMetadata> result) {
-                if (!*aliveFlag) {
-                    return;
-                }
-                if (result.has_value()) {
-                    recordingSession.currentMetadata = std::move(*result);
-                }
-            });
+        devpiano::ui::jive::JiveModalDialog::launchMetadataEdit({
+            .title = TRANS("Song Information"),
+            .initialTitle = recordingSession.currentMetadata.title,
+            .initialNotes = recordingSession.currentMetadata.notes,
+            .componentToCentreAround = &owner,
+            .onComplete =
+                [this,
+                 aliveFlag = aliveFlag_](std::optional<devpiano::ui::jive::JiveModalDialog::MetadataResult> result) {
+                    if (!*aliveFlag) {
+                        return;
+                    }
+                    if (result.has_value()) {
+                        recordingSession.currentMetadata.title = std::move(result->title);
+                        recordingSession.currentMetadata.notes = std::move(result->notes);
+                    }
+                },
+        });
     } else if (command == RecordingFlowCommand::stopPlayback) {
         stopInternalPlayback();
     } else {
@@ -578,38 +585,43 @@ void RecordingSessionController::runImportOpenFlow(
 }
 
 void RecordingSessionController::handleSongInfoClicked() {
-    PerformanceMetadataDialog::launch(
-        recordingSession.currentMetadata, &owner,
-        [this, aliveFlag = aliveFlag_](std::optional<PerformanceFileMetadata> result) {
-            if (!*aliveFlag) {
-                return;
-            }
-            if (!result.has_value()) {
+    devpiano::ui::jive::JiveModalDialog::launchMetadataEdit({
+        .title = TRANS("Song Information"),
+        .initialTitle = recordingSession.currentMetadata.title,
+        .initialNotes = recordingSession.currentMetadata.notes,
+        .componentToCentreAround = &owner,
+        .onComplete =
+            [this, aliveFlag = aliveFlag_](std::optional<devpiano::ui::jive::JiveModalDialog::MetadataResult> result) {
+                if (!*aliveFlag) {
+                    return;
+                }
+                if (!result.has_value()) {
+                    owner.restoreKeyboardFocus();
+                    return; // cancelled
+                }
+
+                recordingSession.currentMetadata.title = std::move(result->title);
+                recordingSession.currentMetadata.notes = std::move(result->notes);
+                // If we have a backing .devpiano file, rewrite it with updated metadata.
+                if (recordingSession.currentPerformanceFile.existsAsFile() && recordingSession.hasTake()) {
+                    auto metadata = recordingSession.currentMetadata;
+                    if (metadata.createdAt.isEmpty()) {
+                        metadata.createdAt = juce::Time::getCurrentTime().toISO8601(true);
+                    }
+
+                    if (devpiano::recording::savePerformanceFile(recordingSession.take,
+                                                                 recordingSession.currentPerformanceFile, metadata)) {
+                        DP_LOG_INFO("[Performance File] metadata updated: "
+                                    + recordingSession.currentPerformanceFile.getFullPathName());
+                    } else {
+                        DP_LOG_WARN("[Performance File] metadata update FAILED: "
+                                    + recordingSession.currentPerformanceFile.getFullPathName());
+                    }
+                }
+
                 owner.restoreKeyboardFocus();
-                return; // cancelled
-            }
-
-            recordingSession.currentMetadata = std::move(*result);
-
-            // If we have a backing .devpiano file, rewrite it with updated metadata.
-            if (recordingSession.currentPerformanceFile.existsAsFile() && recordingSession.hasTake()) {
-                auto metadata = recordingSession.currentMetadata;
-                if (metadata.createdAt.isEmpty()) {
-                    metadata.createdAt = juce::Time::getCurrentTime().toISO8601(true);
-                }
-
-                if (devpiano::recording::savePerformanceFile(recordingSession.take,
-                                                             recordingSession.currentPerformanceFile, metadata)) {
-                    DP_LOG_INFO("[Performance File] metadata updated: "
-                                + recordingSession.currentPerformanceFile.getFullPathName());
-                } else {
-                    DP_LOG_WARN("[Performance File] metadata update FAILED: "
-                                + recordingSession.currentPerformanceFile.getFullPathName());
-                }
-            }
-
-            owner.restoreKeyboardFocus();
-        });
+            },
+    });
 }
 
 } // namespace devpiano::recording
