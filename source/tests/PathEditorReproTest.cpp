@@ -87,8 +87,8 @@ public:
         // Expand the area (like setPluginPanelExpanded(true)) and re-check:
         // with height 0 the area's layOutChildren bails on empty bounds, so
         // the row children keep their pre-layout zero width.
-        if (auto* area = dynamic_cast<jive::GuiItemDecorator*>(
-                jive::findItemWithID(*panelItem, "plugin-expanded-area"))) {
+        if (auto* area
+            = dynamic_cast<jive::GuiItemDecorator*>(jive::findItemWithID(*panelItem, "plugin-expanded-area"))) {
             area->state.setProperty("height", 32, nullptr);
             if (auto* panel = dynamic_cast<jive::GuiItemDecorator*>(jive::findItemWithID(*panelItem, "plugin-panel"))) {
                 panel->state.setProperty("height", 80, nullptr);
@@ -110,8 +110,7 @@ public:
             return;
         }
         rootItem->getComponent()->setBounds(0, 0, 1120, 760);
-        if (auto* rootPanel
-            = dynamic_cast<jive::GuiItemDecorator*>(jive::findItemWithID(*rootItem, "plugin-panel"))) {
+        if (auto* rootPanel = dynamic_cast<jive::GuiItemDecorator*>(jive::findItemWithID(*rootItem, "plugin-panel"))) {
             if (auto* rootArea = jive::findItemWithID(*rootItem, "plugin-expanded-area")) {
                 rootArea->state.setProperty("height", 32, nullptr);
             }

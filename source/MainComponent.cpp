@@ -419,7 +419,7 @@ void MainComponent::initialiseUi() {
     setPluginPanelExpanded(appSettings.pluginPanelExpanded);
     setQwertyVisualizerExpanded(appSettings.qwertyVisualizerExpanded);
     updateQwertyVisualizer();
-
+    viewHost.relayoutContainer("main-area");
     recordingSessionController->onFileOpened = [this](const juce::File& file) {
         recentFiles.addFile(file);
         saveRecentFiles();

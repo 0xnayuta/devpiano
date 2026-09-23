@@ -584,7 +584,11 @@ void MainComponent::setQwertyVisualizerExpanded(bool expanded) {
         viewHost.setProperty("qwerty-expanded-area", "height", expanded ? 150 : 0);
         viewHost.setProperty("qwerty-card", "height", expanded ? 176 : 24);
         viewHost.setButtonLabel("qwerty-toggle-btn", juce::String::charToString(expanded ? 0x25B4 : 0x25BE));
+        viewHost.relayoutContainer("qwerty-card");
+        viewHost.relayoutContainer("content-row");
+        viewHost.relayoutContainer("main-area");
     }
+    settingsStore.scheduleSave(appSettings);
 }
 void MainComponent::updateQwertyVisualizer() {
     if (!viewHost.isValid()) {

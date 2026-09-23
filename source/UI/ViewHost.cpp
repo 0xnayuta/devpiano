@@ -256,6 +256,12 @@ void ViewHost::relayoutContainer(const juce::String& containerId) const {
             flex->layOutChildren();
         } else if (auto* grid = dynamic_cast<::jive::GridContainer*>(item)) {
             grid->layOutChildren();
+        } else if (auto* decorator = dynamic_cast<::jive::GuiItemDecorator*>(item)) {
+            if (auto* f = decorator->toType<::jive::FlexContainer>()) {
+                f->layOutChildren();
+            } else if (auto* g = decorator->toType<::jive::GridContainer>()) {
+                g->layOutChildren();
+            }
         }
     }
 }

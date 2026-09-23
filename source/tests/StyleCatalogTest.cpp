@@ -1201,15 +1201,15 @@ public:
 
         // THE regression this test exists for: the parent column must reflow
         // its siblings when the plugin panel height changes, or the expanded
-        // area overlaps the controls below it. Controls are a fixed-height
-        // strip, so the content row moves down by the expansion delta
-        // (80 - 42) and the keyboard stays capped.
+        // area overlaps the controls below it. Controls and QWERTY cards have
+        // fixed heights, so the content row moves down by the expansion delta
+        // (80 - 42) and the elastic keyboard absorbs the difference.
         expect(contentRow->getComponent()->getY() == contentRowYBefore + 38,
                "content-row moved down when panel expanded");
         expectEquals(controlsItem->getComponent()->getHeight(), controlsHBefore,
                      "fixed-height controls stay put when panel expanded");
-        expectEquals(keyboardItem->getComponent()->getHeight(), keyboardHBefore,
-                     "keyboard capped at max-height, unchanged");
+        expectEquals(keyboardItem->getComponent()->getHeight(), keyboardHBefore - 38,
+                     "keyboard absorbs panel expansion elastically");
         expect(plugin->getComponent()->getBottom() <= contentRow->getComponent()->getY(),
                "expanded panel does not overlap content-row");
 
@@ -1231,6 +1231,8 @@ public:
         expect(actionRow != nullptr && actionRow->getComponent()->isVisible(), "toolbar visible after collapse");
         expect(contentRow->getComponent()->getY() == contentRowYBefore,
                "content-row back at original y after collapse");
+        expectEquals(keyboardItem->getComponent()->getHeight(), keyboardHBefore,
+                     "keyboard recovers height elastically after collapse");
         expect(plugin->getComponent()->getBottom() <= contentRow->getComponent()->getY(),
                "collapsed panel does not overlap content-row");
 
