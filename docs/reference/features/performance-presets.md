@@ -10,11 +10,11 @@
 
 为了让演奏者能够针对不同曲目快速切换键位映射、音色通道与调号，devpiano 建立了高度解耦的 **Performance Preset 预设系统**：
 
-1. **完整演奏快照**：一份预设完整打包了当前键位绑定（`KeyboardLayout`）、16 通道矩阵（`ChannelMatrix`）、声学与物理参数（`acoustics`: 琴盖、触键曲线、弱音踏板、律制、基准音高、空间视角、混响类型与干湿比、机械噪声、毛毡老化）、全局调号与移调开关（`keySignature`）、键盘渲染模式以及 128 项逐键个性化标签与颜色；
-3. **独立 JSON 文件（`.devpiano.preset`）**：采用规范的 JSON 格式存储于 `DevPiano/Presets/` 目录下，便于用户备份、分享与跨设备导入；
-4. **一键 CRUD 与声明式弹窗**：通过 `ControlsPanel` 下拉菜单及 Save As New / Rename / Delete 按钮操作，全面接入 `JiveModalDialog` 声明式弹窗；
-5. **F1-F12 极速快捷键**：演奏过程中按下 F1-F12 即可毫秒级无缝切换预设；
-6. **录制自动切调**：录制过程中切换预设会自动向 Take 写入 `presetChange` 事件，回放至该时刻自动切调。
+1. **完整演奏快照**：一份预设完整打包了当前键位绑定（`KeyboardLayout`，含 4 组 `KeyGroup` 键位分组配置与激活组索引）、16 通道矩阵（`ChannelMatrix`）、声学与物理参数（`acoustics`: 琴盖、触键曲线、弱音踏板、律制、基准音高、空间视角、混响类型与干湿比、机械噪声、毛毡老化）、全局调号与移调开关（`keySignature`）、键盘渲染模式以及 128 项逐键个性化标签与颜色；
+2. **独立 JSON 文件（`.devpiano.preset`）**：采用规范的 JSON 格式存储于 `DevPiano/Presets/` 目录下，便于用户备份、分享与跨设备导入；
+3. **一键 CRUD 与声明式弹窗**：通过 `ControlsPanel` 下拉菜单及 Save As New / Rename / Delete 按钮操作，全面接入 `JiveModalDialog` 声明式弹窗；
+4. **F1-F12 极速快捷键**：演奏过程中按下 F1-F12 即可毫秒级无缝切换预设；
+5. **录制自动切调**：录制过程中切换预设会自动向 Take 写入 `presetChange` 事件，回放至该时刻自动切调。
 
 ---
 
@@ -39,7 +39,14 @@
           "velocity": 1.0
         }
       }
-    ]
+    ],
+    "groups": [
+      { "transposeOffset": 0, "octaveShift": 0, "channel": 0, "name": "A" },
+      { "transposeOffset": 0, "octaveShift": 0, "channel": 0, "name": "B" },
+      { "transposeOffset": 0, "octaveShift": 0, "channel": 0, "name": "C" },
+      { "transposeOffset": 0, "octaveShift": 0, "channel": 0, "name": "D" }
+    ],
+    "activeGroupIndex": 0
   },
   "channelMatrix": {
     "active": true,
@@ -99,6 +106,20 @@
 | `feltAgeingAmount` | float | 0.0 ~ 1.0（默认 0.0） | 琴槌羊毛纤维磨损压实老化深度 |
 
 > **向后兼容性保证**：若读取的历史预设缺失 `"acoustics"` 节点或部分声学字段，系统自动填充出厂默认值并支持根节点平铺字段的安全回退解析，且反序列化时对所有枚举与数值实施合法区间 `jlimit` 钳制保护。
+
+### 2.2 键位分组对象（`groups` 与 `activeGroupIndex`）
+
+在 Phase 34-B 中，`layout` 节点引入了多键位分组持久化支持：
+
+| 属性字段 | 数据类型 | 取值范围与默认值 | 含义与作用 |
+|---|:---:|:---:|---|
+| `transposeOffset` | int | -12 .. +12（默认 0） | 当前键组相对基准音高的半音移调量 |
+| `octaveShift` | int | -3 .. +3（默认 0） | 当前键组相对基准音高的八度偏移量（每八度 12 半音） |
+| `channel` | int | 0 .. 16（默认 0） | 目标 MIDI 通道覆盖（0 表示继承绑定本身通道，1~16 表示强制覆盖为指定通道） |
+| `name` | string | 字符串（默认 `"A"`, `"B"`, `"C"`, `"D"`） | 键组标签显示名称 |
+| `activeGroupIndex` | int | 0 .. 3（默认 0） | 当前预设激活的键组索引 |
+
+> **向后兼容性保证**：旧预设无 `groups` 节点时，自动初始化为 4 组默认纯净 KeyGroup（A/B/C/D，偏移均为 0），`activeGroupIndex` 默认回落为 0，完全零破坏兼容既有预设文件。
 
 ---
 

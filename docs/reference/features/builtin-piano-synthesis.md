@@ -3,6 +3,7 @@
 > 用途：说明 devpiano 自主研发、纯 C++ 物理建模钢琴合成器（`PianoSynthVoice`）的完整声学物理系统、算法机理、参数控制、实时性能与测试验收清单。
 > 当前状态：已全量实现并确立为默认内置音色（Phase 12–32 成果，涵盖 7 大声学子系统、古典微调律制、空间混响视角与微观机械动作物理拟真）。
 > 更新时机：声学物理模型、DSP 拓扑结构、88 键参数表或音色控制链路发生变化时。
+
 ---
 
 ## 1. 概述与设计定位
@@ -11,7 +12,7 @@
 
 ```text
                ┌────────────────────────────────────────────────────────┐
-               │    devpiano v1.1.0 Built-in Physical Modeling Piano    │
+               │        devpiano Built-in Physical Modeling Piano       │
                │                   (PianoSynthVoice)                    │
                └───────────────────────────┬────────────────────────────┘
                                            │
@@ -101,6 +102,7 @@
 5. **琴槌毛毡微老化物理动力学（Felt Ageing Dynamics，Phase 32-C）**：
    - 引入连续老化参数 $A_{\text{felt}} \in [0, 1]$（`feltAgeingAmount`，默认 0.0 保留纯净基准）；
    - 模拟反复击弦导致的局部羊毛纤维压实与硬化微尖锐：有效毛毡硬度增加 $h_{\text{eff}} \mathrel{+}= 0.18 A_{\text{felt}}$，接触时间动态缩短 $T_c \mathrel{*}= (1.0 - 0.15 A_{\text{felt}})$，高频截止点 $f_c$ 与滚降斜率提升，赋予击键更具穿透力的微观硬化质感。
+
 ---
 
 ### 2.2 琴弦与动力学系统（String & Dynamics System）
@@ -140,6 +142,7 @@
 8. **泛音刚度不谐和度抖动（Inharmonicity Jitter，Phase 32-C）**：
    - 采用确定性逐键整数哈希，为 88 键分别注入 $\pm 4.5\%$ 的微观不谐和度刚度扰动 $\Delta B$ 与 $\pm 0.3\sim 1.2\text{ cents}$ 基频分散微调；
    - 真实再现手工缠弦厚度微偏差与挂弦张力离散度，彻底打破纯算法生成的过分对称与人工冰冷感。
+
 ---
 
 ### 2.3 琴桥与共鸣系统（Bridge, Soundboard & Resonance System）
@@ -191,6 +194,7 @@
 
 6. **动态声场空间漫射（Dynamic Spatial Diffusion）**：
    - 空间声相展开度（Stereo Spread）随时间连续演化：$t=0$ 起振瞬间聚焦于琴桥敲击点（点声源），并在 $25\text{ ms}$ 内经由音板共振与空气反射平滑漫射为整个琴腔的面声源包围场。
+
 ---
 
 ## 3. 88 键物理参数化表（`Piano88KeyTable.h`）
@@ -249,6 +253,7 @@ void setPerspective(devpiano::audio::SoundPerspective perspective) noexcept;
 - **响度响应**：$v^{1.5} = v \cdot \sqrt{v}$ 幂次曲线，强化弱奏（$pp$）细腻度；
 - **音色动态**：力度直接耦合琴槌接触时间 $T_c(v)$、高频裂音 $v^2$、泛音绽放速率与非线性微音高漂移；
 - **ADSR 门控与基准保持**：支持 `setAdsrParameters` / `getAdsrParameters`；`startNote` 自动重设基准起音与门控，`stopNote` 根据离键速度动态计算释放阻尼，杜绝参数跨音符泄漏。
+
 ---
 
 ## 5. 性能特征与无锁并发保障

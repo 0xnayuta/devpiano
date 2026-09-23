@@ -17,9 +17,9 @@ For project scope, core capabilities, and explicit non-goals, see [`docs/referen
 ## Core Feature Matrix
 
 ```text
-              ┌────────────────────────────────────────────────────────┐
-              │              devpiano v1.1.0 Architecture              │
-              └───────────────────────────┬────────────────────────────┘
+                 ┌─────────────────────────────────────────────────┐
+                 │              devpiano Architecture              │
+                 └────────────────────────┬────────────────────────┘
                                           │
            ┌──────────────────────────────┼──────────────────────────────┐
            ▼                              ▼                              ▼
@@ -39,17 +39,21 @@ For project scope, core capabilities, and explicit non-goals, see [`docs/referen
 - **Mechanical Action Realism & Historical Temperaments**: CC64 sustain pedal global sympathetic resonance, pedal action whoosh and resonance shock (`pedalNoiseLevel`), damper wood thump and key release friction, dynamic release velocity ADSR damping, plus 6 historical temperaments (`TemperamentEngine`) and A4 reference pitch tuning (400–480 Hz);
 - **Hard Real-Time Guarantees**: Magic Circle coupled-form recursive oscillators, **zero per-sample trigonometric calls (zero `std::sin`)**, $\le 0.7\%$ single-core CPU load under 8-voice polyphony, strictly **zero heap allocations and zero locks** on the real-time audio thread; supports seamless auditioning with the built-in sine synthesizer (`SineSynthVoice`).
 
-### 🔌 VST3 Plugin Hosting System
+### 🔌 VST3 Plugin Hosting & Instrument Endpoint
 
 - **Robust Lifecycle Management**: supports default and custom multi-directory scanning, asynchronous chunked scanning, XML cache startup restoration, and failed file logging;
+- **Crash-Safe State Persistence**: incremental callback persistence per detected plugin, dead-man's pedal crash-point logging, and crash blacklist deferral;
+- **Unified Instrument Endpoint**: shared domain endpoint abstraction across the built-in physical modeling piano and VST3 plugins, unifying device preparation, real-time dispatch, and offline rendering;
 - **Plugin Loading & Editor Hosting**: loads VST3 instrument plugins into the real-time audio pipeline with isolated top-level editor window lifecycle management and exception safety guards.
 
-### ⌨️ Computer Keyboard Performance & 88-Key Bed
+### ⌨️ Computer Keyboard Performance & QWERTY Performance Map
 
-- **Stable Key Code Routing**: routes input via normalized key codes to eliminate IME and CapsLock interference; enforces strictly paired note on/off tracking with automatic panic clearing on window focus loss;
-- **Standard 88-Key Grand Piano Keybed**: covers the full A0–C8 (MIDI 21–108) range with wide-window dynamic symmetrical centering and felt strip auto-fill;
-- **Localized Dirty Rectangle Repainting**: `CustomKeyboard` uses `repaintKey()` and viewport intersection clipping, completely eliminating full-component redraws during virtuosic MIDI playback with zero UI stutter;
-- **Flexible Visual Customization**: supports 3 key color modes (Classic / Channel / Velocity) and 3 note label modes (DoReMi / FixedDo / NoteName).
+- **5-Row ANSI Physical Visualizer Card (QwertyComponent)**: declaratively embedded between Controls and Keyboard areas, featuring interactive physical key depression and 50fps phosphor afterglow decay; supports instant expand/collapse and settings persistence;
+- **12-TET Pitch-Class Harmony Color Projection**: subtle chromatic harmonic hues on key labels and dynamic triadic chord geometric color blooming linked with the 88-key piano bed; 4 key color modes (Classic / Channel / Velocity / Harmony);
+- **Lightweight Layout Groups & Note-off Identity Preservation**: supports up to 4 key groups (Group A~D) per preset, cycled instantly via backtick (`) or UI button; note-off release 100% preserves note-on sounding identity (pitch, channel), completely eliminating hanging notes;
+- **Sample-Accurate Syncopated Legato Pedal (SustainPolicy & Sync Pedal)**: sample-accurate intra-block scheduling for $\text{CC64}(0) \to \text{NoteOn} \to \text{CC64}(127)$, eliminating legato gaps when restriking keys with pedal held without thread sleep;
+- **Transient Performance Modifiers (PerformanceModifierState)**: Shift key triggers transient maximum velocity boost (127), Alt key triggers transient octave shift (+8va), auto-rebounding on release, with real-time UI HUD badges;
+- **Stable Key Code Routing & 88-Key Bed**: routes input via normalized key codes to eliminate IME and CapsLock interference; standard 88-key bed with localized dirty rectangle repainting (`repaintKey()`) and 3 note display modes.
 
 ### 🎛️ 16-Channel MIDI Matrix & Real-Time Transposition
 
@@ -66,8 +70,8 @@ For project scope, core capabilities, and explicit non-goals, see [`docs/referen
 
 ### 📦 Offline High-Fidelity WAV Export Pipeline
 
-- **Multi-Threaded Offline Rendering**: `WavExportTask` runs on a dedicated background thread, unified under `RenderPipeline` for timeline scaling, event sorting, and tail panic injection;
-- **Dual-Engine Export**: automatically renders via the built-in physical modeling piano when no plugin is loaded, or creates isolated offline VST3 instances for plugin rendering;
+- **Modern Asynchronous Non-Blocking Pipeline**: `WavExportTask` runs as a purely asynchronous workflow (`startAsync`), eliminating modal event loops and routed uniformly via `InstrumentEndpoint`;
+- **Dual-Engine Acoustic Parity**: automatically renders via the built-in physical modeling piano when no plugin is loaded, or creates isolated offline VST3 instances for plugin rendering, with 1:1 parity across all acoustic parameters and `RoomReverbEngine`;
 - **Modern Dark Progress Dialog**: real-time progress bar with cancellation support and automatic temporary file cleanup.
 
 ### 🎨 Internalized Declarative UI Runtime & Design System
@@ -86,9 +90,9 @@ For project scope, core capabilities, and explicit non-goals, see [`docs/referen
 
 ```text
 source/
-├── Main.cpp / MainComponent.*     # Application entry & main assembly coordinator
-├── Audio/                         # AudioEngine, PianoSynthVoice physical modeling & SineSynthVoice
-├── Input/                         # Computer keyboard capture & stable key-to-MIDI mapping
+├── Main.cpp / MainComponent.*     # Application entry, cross-platform window & assembly coordinator
+├── Audio/                         # AudioEngine, PianoSynthVoice PM, SyncPedalProcessor & InstrumentEndpoint
+├── Input/                         # Computer keyboard capture, stable key mapping & QWERTY snapshot generator
 ├── Midi/                          # 16-channel MIDI matrix routing & real-time transposition
 ├── Plugin/                        # VST3 plugin scanning, loading, lifecycle & editor hosting
 ├── Recording/                     # Performance recording, playback, MIDI I/O & offline pipeline
@@ -98,7 +102,7 @@ source/
 ├── UI/                            # Internalized declarative UI runtime (core/), layout models, design tokens & native components
 ├── Locale/                        # LocaleManager & embedded binary localization tables
 ├── Diagnostics/                   # Structured logging system, MidiTrace & debug utilities
-└── Core/                          # Core data structures & strong types (AppState, KeyMapTypes)
+└── Core/                          # Core data structures & strong types (AppState, KeyMapTypes, QwertyModel, MusicTheory)
 ```
 
 ---

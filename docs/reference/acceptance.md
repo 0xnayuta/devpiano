@@ -178,7 +178,7 @@
 - [x] 消除音频回调堆分配与延迟 prepare。
 - [x] 修复 `masterGain` 跨线程数据竞争与异步生命周期防护。
 - [x] 提取公共离线渲染管线 `RenderPipeline`（时间戳缩放、排序与 panic 注入）。
-- [x] 补齐核心控制器确定性测试，断言总数升至 3100+。
+- [x] 补齐核心控制器确定性测试，测试套件与断言全面覆盖。
 - [x] 全量 44 源码文件 clang-tidy 0 诊断，clang-format 零违规。
 
 审计报告见：[`../audit/AUDIT-001-code-quality-audit-2026-08-16.md`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)。
@@ -209,7 +209,7 @@
 - [x] **Phase 15-B**：预设新建/重命名/删除与歌曲信息编辑弹窗全面迁移至 `JiveModalDialog`，消除手写坐标 Content 类。
 - [x] **Phase 15-C**：设置面板重构为 `SettingsLayoutModel`，16 通道跟随开关采用 JIVE CSS Grid（8 列 × 2 行），`AudioDeviceSelectorComponent` 原生注入。
 - [x] **Phase 15-D**：`WavExportTask` 导出进度接入 JIVE 声明式进度弹窗，维持多线程模型与取消清理逻辑。
-- [x] **Phase 15-E**：单元测试全绿（3101 断言），三闸门与 Windows 验证通过。
+- [x] **Phase 15-E**：单元测试全绿（零失败），三闸门与 Windows 验证通过。
 
 ---
 
@@ -302,7 +302,7 @@
 - [x] **泛音时间滞后膨胀与绽放（Harmonic Blooming）**：$n \ge 3$ 阶高次分音非线性能量泵浦与 $10\sim 25\text{ ms}$ 上升绽放。
 - [x] **琴槌接触微阻尼与脱离释放**：消灭 $t=0$ 正弦机械突兀开门感。
 - [x] **动态声场空间漫射**：从击打点声源在 $25\text{ ms}$ 内平滑漫射为音板面声源包围场。
-- [x] **确定性物理断言**：全量 60 类单元测试、11989+ 断言 100% 满分通过。
+- [x] **确定性物理断言**：全量单元测试 100% 满分通过，零失败。
 
 ---
 
@@ -380,6 +380,56 @@
 - [x] **制音器落木闷击与琴键摩擦**：快离键强烈撞击与慢离键毛毡摩擦延展，离键速度动态 ADSR 阻尼缩放。
 - [x] **泛音刚度抖动与逐键毛毡老化**：确定性逐键不谐和度抖动与毛毡老化穿透力调节。
 - [x] **全栈闭环与测试基线**：全套自动化单元测试满分通过，三闸门合规，零回归。
+
+---
+
+## Phase 33：可观测性加固与生产级诊断基础设施
+
+状态：已完成（2026-09-14）。
+
+- [x] **生产级 Dual-Sink 统一日志基础设施（DevPianoLogger）**：组合 `juce::FileLogger`（512KB 自动滚动截断）与平台原生调试器即时输出；
+- [x] **设置界面诊断卡片直达与系统文件管理器联动**：在诊断卡片中新增“打开日志目录”按钮，调用 `juce::File::revealToUser()` 调起原生文件管理器；
+- [x] **MidiTrace 与诊断测试防线**：新增 `DiagnosticsTest`，全量覆盖 MIDI 协议反序列化与日志落盘安全；
+- [x] **运行时字符编码断言消除**：消除多字节字符字面量，杜绝 `juce_String.cpp:327` 运行时断言。
+
+---
+
+## AUDIT-003 专项：全面代码质量审计缺陷消除与架构对齐
+
+状态：已完成（2026-09-15）。
+
+- [x] **Linux Headless 单测事件循环泵送（TEST-001）**：引入消息队列冲刷机制，彻底清空 Linux 内部套接字管道，`juce_Messaging_linux.cpp:87` 告警彻底归零；
+- [x] **PluginOfflineRenderer 挂载 RoomReverbEngine 混响网络（QUAL-001）**：离线导出全面挂载房间混响，保证 1:1 比特级声学一致性；
+- [x] **底层 Core 单向拓扑恢复（ARCH-001）**：解耦 `AppState.h` 对上层 `SettingsModel` 与 `ChannelMatrix` 的反向包含；
+- [x] **解码内存优化与预设字段对齐（PERF-001 / DOC-001 / DOC-002）**：优化 `MidiTextDecoder` 内存分配，对齐 `"concert_hall"` 空间标识。
+
+---
+
+## Phase 34：键盘演奏交互质变与演奏表现力增强
+
+状态：已完成（2026-09-23）。
+
+- [x] **Phase 34-A（QWERTY Visualizer 5 行 Performance Map 声明式卡片）**：
+  - 5 行 ANSI 物理键盘网格自适应排版，物理击键下沉与 50fps 荧光余晖动画；
+  - 12-TET 和声调色板（Pitch Class Harmony Hues）与三和弦几何色相投影；
+  - 4 种按键着色模式（Classic / Channel / Velocity / Harmony），QWERTY 与 88 键钢琴同频联动。
+- [x] **Phase 34-B（Layout Group 轻量多键组与 HeldKey Identity 发音身份快照）**：
+  - 单预设支持 4 组键位分组（`KeyGroup`），反引号键（`）或 UI 按钮秒级切换；
+  - 发音身份恒定原则（Note-off Identity Preservation）：NoteOff 100% 依据 NoteOn 触发时锁定的发音身份快照注销，彻底杜绝悬挂音。
+- [x] **Phase 34-C（SustainPolicy 与 Sample-Accurate 事件级 Sync 切分踏板）**：
+  - 音频块内部采样点级别调度 $\text{CC64}(0) \to \text{NoteOn} \to \text{CC64}(127)$，消除空格键踩放断音空洞，杜绝线程 Sleep；
+  - 内置物理建模音源与 VST3 插件、录音引擎端到端对齐。
+- [x] **Phase 34-D（PerformanceModifierState 瞬态 Press 修饰符）**：
+  - Shift 键力度拉满（Velocity Boost）、Alt 键高八度平移（+8va），松开自动回弹；
+  - 纯事件流变换（Event-time Transformation），基线配置 100% 零突变；UI 实时展示 HUD 标签。
+- [x] **Phase 34-E（扫描器增量持久化与乐器端点概念收敛）**：
+  - 插件扫描逐项增量持久化（Crash-safe State Persistence），dead-man's pedal 崩溃点记录与黑名单推迟；
+  - `InstrumentEndpoint` 统一内置物理建模钢琴与 VST3 乐器端点抽象，解耦设备准备、实时发声与离线渲染。
+- [x] **Phase 34-F（跨平台实现深度收敛与 JUCE 9 原生框架利用全面升级）**：
+  - 彻底拔除 `Main.cpp` 中的 Win32 `WNDPROC` Hook、`AttachThreadInput` 与 `<windows.h>`，全平台统一采用 JUCE 9 原生事件与异步分发；
+  - `WavExportTask` 完全非阻塞异步化（`startAsync`），主应用编译配置彻底移除 `JUCE_MODAL_LOOPS_PERMITTED=1`；
+  - 全库字符串字面量 100% 达到 Strict 7-bit ASCII 铁律，删除 LookAndFeel 废弃 AlertWindow 绘制代码；
+  - JUCE 9 原生 `createLegalFileName` 替换自造文件名过滤轮子，运行时配置目录统一为 `DevPiano`。
 
 ---
 

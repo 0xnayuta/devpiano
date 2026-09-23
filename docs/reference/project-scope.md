@@ -19,7 +19,11 @@ devpiano 源于对旧版 Windows FreePiano 的现代化重构。所有有价值�
 ### 演奏与输入
 
 - 电脑键盘触发 MIDI note on/off，支持基于稳定 key code 的键位映射
-- 88 键拟真虚拟钢琴键盘（classic / channel / velocity 3 种着色模式，Do Re Mi / 固定 Do / 音符名称 3 种标注模式）
+- 5 行 ANSI 物理键盘映射看板（`QwertyComponent`），自适应网格排版、50fps 荧光余晖动画与 12-TET 和声色彩投影
+- 88 键拟真虚拟钢琴键盘（classic / channel / velocity / harmony 4 种着色模式，Do Re Mi / 固定 Do / 音符名称 3 种标注模式）
+- 轻量键位分组（`KeyGroup`，支持 4 组）即时切组与发音身份快照（Note-off Identity Preservation，彻底封死悬挂音）
+- 采样精确的切分延音踏板调度（`SustainPolicy` / `SyncPedalProcessor`，消除连奏断音空洞）
+- 瞬态演奏修饰键变换管道（`PerformanceModifierState`：Shift 力度拉满 / Alt 高八度平移，纯事件变换零配置污染）
 - 逐键个性化标签（`customKeyLabels`）与逐键颜色（`customKeyColours`）定制
 - 16 通道 MIDI 矩阵路由（`ChannelMatrix`），支持每通道移调、力度、音色、延音与按键跟随
 - 全局调号控制（Key Signature，-7..+7 半音）与 MIDI 移调开关
@@ -29,7 +33,7 @@ devpiano 源于对旧版 Windows FreePiano 的现代化重构。所有有价值�
 
 - **内置物理建模钢琴**：自主拥有、纯 C++ 算法、零外部采样依赖的 7 大声学系统全物理建模钢琴合成器（`PianoSynthVoice`，涵盖击弦、弦体、共鸣、空气、琴盖、微观机械物理拟真、古典微调律制、双视角空间声学与房间混响）
 - **内置正弦波合成器**：基准正弦合成（`SineSynthVoice`），支持平滑切换
-- **VST3 插件宿主**：VST3 插件扫描、异步分片进度、XML 缓存恢复、加载、卸载与独立 Editor 窗口托管
+- **统一乐器端点与 VST3 宿主**：统一 `InstrumentEndpoint` 领域抽象；VST3 插件扫描、异步分片进度、增量崩溃安全持久化（Crash-safe State Persistence）、XML 缓存恢复、加载、卸载与独立 Editor 窗口托管
 
 ### 演奏录制与文件
 
@@ -37,7 +41,7 @@ devpiano 源于对旧版 Windows FreePiano 的现代化重构。所有有价值�
 - `.devpiano` 原生演奏文件格式（v2 JSON 序列化，含 Base64 编码、events、采样率与元数据）
 - 标准 MIDI 文件导入（智能自动选轨，含 CC64 延音 / pitch bend / program change 事件）
 - 标准 MIDI 文件导出（Type 1，960 PPQ）
-- WAV 音频离线导出（共享 `RenderPipeline` 管线，支持 VST3 独立离线实例与物理建模钢琴离线渲染，带 JIVE 声明式进度浮层）
+- WAV 音频离线导出（共享 `RenderPipeline` 管线与 `InstrumentEndpoint` 统一路由，异步非阻塞 `WavExportTask`，支持 VST3 独立离线实例与物理建模钢琴离线渲染，带 JIVE 声明式进度浮层）
 
 ### UI 与体验
 
@@ -58,7 +62,7 @@ devpiano 源于对旧版 Windows FreePiano 的现代化重构。所有有价值�
 | 非目标 | 理由 |
 |---|---|
 | 外部 MIDI 硬件输入 | 已移除（聚焦电脑键盘演奏场景，详见 ADR 006） |
-| 多轨音序器 / 完整 DAW 工作站功能（非多轨并轨导入） | 超出键盘钢琴定位，保持轻量纯粹；支持标准多轨 MIDI 文件的智能并轨导入与统一演奏回放，但不做多轨音频轨/MIDI 轨编辑与多轨混音工作站 |
+| 多轨音序器 / 完整 DAW 工作站功能（非多轨并轨导入） | 超出键盘钢琴定位，保持专用钢琴演奏宿主（Dedicated Piano Performance Host）轻量纯粹；支持标准多轨 MIDI 文件的智能并轨导入与统一演奏回放，但不做多轨音频轨/MIDI 轨编辑、多轨混音工作站与通用 Patchbay 连线图 |
 | 复杂 MIDI 编辑（卷帘窗 / 量化 / 剪辑） | 电脑键盘演奏重录成本极低，图形化编辑投入产出比不足 |
 | 旧 FreePiano `.fpm` / `.lyt` 格式兼容 | 旧格式平台耦合严重、格式陈旧 |
 | 非 VST3 格式插件（VST2 / AU / AAX） | 聚焦 VST3 单一现代标准 |

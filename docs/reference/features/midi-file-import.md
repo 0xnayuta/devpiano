@@ -11,7 +11,7 @@
 devpiano 支持打开标准 MIDI 文件并在当前发声链路中回放，为用户提供练琴示范、伴奏跟弹与音色试听能力：
 
 1. **标准格式兼容**：支持标准 MIDI Type 0（单轨多通道）与 Type 1（多轨同步）文件；
-2. **智能单轨选择**：自动分析各轨道事件，优先挑选 Note 事件密度最高的音乐主轨，自动跳过仅含 Tempo/Meta 信息的控制轨；
+2. **多轨并轨合并与智能解析（MidiTrackMergeEngine）**：委托纯静态算法引擎将 Type 0/1 多轨时间线精确合并为单一连续回放 Take，支持智能通道映射与元数据提取，兼备单轨模式自动挑选主音轨能力；
 3. **丰富 Channel 消息支持**：除 Note On/Off 外，完整解析并还原 **CC64 延音踏板**、**Pitch Bend 弯音** 与 **Program Change 音色切换**；
 4. **导入 Take 与导出 Take 解耦**：导入的 MIDI 作为只读 Playback Take 播放，**禁止再次导出为 MIDI**（保持 Export MIDI 按钮 disabled，防止有损二次转换），但**支持离线渲染导出为 WAV 音频**；
 5. **极速拖放与路径记忆**：支持从操作系统直接拖拽 `.mid` 文件到窗口即时加载播放，自动记忆最近导入路径。
@@ -27,9 +27,9 @@ devpiano 支持打开标准 MIDI 文件并在当前发声链路中回放，为�
 MidiFileImporter::importFile()
     │
     ├── 1. 读取并验证 MIDI 文件头 (Type 0 / 1, PPQ 时间基准)
-    ├── 2. 遍历轨道统计 Note 数量 ──► 自动选定 Note 密度最高的轨道
+    ├── 2. MidiTrackMergeEngine::mergeTracks() ──► 多轨时间线合并与通道智能路由
     ├── 3. 时间基准转换: 将 MIDI Tick 转换为绝对采样点位置 (timestampSamples)
-    ├── 4. 提取 Note, CC64 Sustain, Pitch Bend, Program Change 事件
+    ├── 4. 提取 Note, CC64 Sustain, Pitch Bend, Program Change 事件与调号/曲名元数据
     └── 5. 组装为 RecordingTake ──► 返回 std::optional<RecordingTake>
     │
     ▼
@@ -45,12 +45,13 @@ RecordingSessionController::handleMidiImported()
 
 ## 3. 详细处理规则与边界设计
 
-### 3.1 自动选轨算法
+### 3.1 多轨并轨合并与选轨策略
 
-针对常见的 Type 1 多轨 MIDI 文件（例如 Track 0 仅包含拍号、速度与版权信息，Track 1/2 包含音符）：
-- `MidiFileImporter` 遍历所有 Track，统计每个 Track 的 `noteOn` 事件数量；
-- 选取包含 `noteOn` 数量最多的 Track 作为主解析轨；
-- 若文件所有轨道均无 Note 事件，安全返回空结果并向 Logger 输出警告，程序不崩溃。
+在 Phase 26 中，`MidiFileImporter` 接入了 `MidiTrackMergeEngine`：
+- **默认多轨并轨**：针对常见的 Type 1 多轨 MIDI 文件，将所有音轨的事件在时间轴上统一交错排序并合并为单时间线 Take，支持多声部与多乐器统一回放；
+- **智能通道分配**：支持 `passThrough`（原样保留通道）、`autoAssignIfSingleChannel`（单通道多轨自动分配 1-16 通道）与 `forceTrackToChannel`；
+- **单轨解析模式**：保留单轨提取能力，自动跳过仅含 Tempo/Meta 信息的控制轨，优先选取包含 `noteOn` 数量最多的音乐主轨；
+- **健壮性容错**：若文件所有轨道均无 Note 事件，安全返回空结果并向 Logger 输出警告，程序不崩溃。
 
 ### 3.2 时间戳换算精度
 

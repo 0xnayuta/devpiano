@@ -43,6 +43,9 @@ Component (root, display="flex", flex-direction="column")
 │   ├── Preset ComboBox & Save/Rename/Delete Action Buttons
 │   ├── ADSR Curve Component (Native 注入)
 │   └── Master Volume Rotary Slider
+├── QwertyCard         (flex-direction="column", Phase 34-A)
+│   ├── Header Row (Title, Group Badge, Fold/Unfold Toggle Button)
+│   └── QwertyComponent (Native 注入 5 行 ANSI 物理键盘网格)
 ├── KeyboardArea       (flex-grow=1, display="flex")
 │   └── KeyboardViewport (包含 CustomKeyboard 88 键原生画布)
 └── StatusBar          (flex-direction="row", align-items="center")
@@ -61,7 +64,7 @@ Component (root, display="flex", flex-direction="column")
 
 1. **音频设备卡片（`makeAudioDeviceSectionTree`）**：设备类型与输出设备下拉框、ASIO 控制面板按钮与采样率/缓冲大小指示；
 2. **调号与通道跟随卡片（`makeKeySignatureSectionTree`）**：全局调号选择器、MIDI 移调开关以及采用 **JIVE CSS Grid（8 列 × 2 行）** 声明的 16 通道跟随开关（`followKeyToggles`）；
-3. **键盘显示与语言卡片（`makeKeyboardDisplaySectionTree`）**：按键着色模式（Classic / Channel / Velocity）、音符标注模式（DoReMi / FixedDo / NoteName）、按键淡出速度滑块与运行时中英文切换；
+3. **键盘显示与语言卡片（`makeKeyboardDisplaySectionTree`）**：按键着色模式（Classic / Channel / Velocity / Harmony 4 种模式）、音符标注模式（DoReMi / FixedDo / NoteName）、按键淡出速度滑块、乐器过滤器开关、**延音踏板策略选择（`sustain-policy-combo`：Normal / Sync Pedal）**与运行时中英文切换；
 4. **声学与调律卡片（`makeAcousticsSectionTree`，Phase 29~32 演进）**：采用模块化卡片排版，包含 9 项关键物理声学控件：
    - **Row 1 琴盖开合度**（`lid-position-combo`）：全开（Full Open）、半开（Half Stick）、闭盖（Closed Lid）；
    - **Row 2 触键力度曲线**（`touch-curve-combo`）：标准（Standard）、轻触（Light）、重触（Heavy）、宽动态（Wide Dynamic）；
@@ -72,8 +75,9 @@ Component (root, display="flex", flex-direction="column")
    - **Row 7 混响干湿比**（`reverb-wet-slider`）：0% ~ 100% 混响湿声电平调节；
    - **Row 8 机械动作噪声**（`pedal-noise-slider`）：0% ~ 100% 延音踏板扫掠声与共鸣冲击音量调节；
    - **Row 9 琴槌毛毡老化**（`felt-ageing-slider`）：0% ~ 100% 琴槌毛毡磨损压实与老化穿透力调节；
-5. **诊断日志卡片（`makeDiagnosticsSectionTree`）**：结构化实时日志查看器；
+5. **诊断日志卡片（`makeDiagnosticsSectionTree`）**：结构化实时日志查看器、日志绝对路径展示与“打开日志目录”（`open-log-dir-button`）原生文件管理器直达按钮；
 6. **保存与操作卡片（`makeSaveActionSectionTree`）**：右对齐（`flex-end`）保存与关闭按钮。
+
 ---
 
 ## 3. 通用声明式模态弹窗（`JiveModalDialog`）
@@ -123,6 +127,9 @@ factory.set("CustomKeyboard", [](const juce::ValueTree& tree) {
 factory.set("AdsrCurve", [](const juce::ValueTree& tree) {
     return std::make_unique<devpiano::ui::AdsrCurveComponent>();
 });
+factory.set("QwertyComponent", [](const juce::ValueTree& tree) {
+    return std::make_unique<devpiano::ui::QwertyComponent>();
+});
 factory.set("AudioDeviceSelector", [](const juce::ValueTree& tree) {
     return std::make_unique<juce::AudioDeviceSelectorComponent>(...);
 });
@@ -146,3 +153,5 @@ factory.set("AudioDeviceSelector", [](const juce::ValueTree& tree) {
 | `SettingsLayoutModelTest`| 16 通道 CSS Grid | 验证通道跟随开关以 8 列 × 2 行网格声明，16 个 Toggle 节点完备 | [x] 已通过 |
 | `SettingsLayoutModelTest`| 原生组件注入 | 验证 `AudioDeviceSelector` 原生节点在 JIVE 容器中的正确嵌入与尺寸响应 | [x] 已通过 |
 | `SettingsLayoutModelTest`| 设置项动态绑定 | 验证修改 ValueTree 属性直接联动底层状态并触发持久化 | [x] 已通过 |
+| `QwertyViewModelTest`    | 和声色相与对比度 | 验证 12-TET 和声色相间隔、八度同色、三全音互补与文字对比度算法 | [x] 已通过 |
+| `LayoutGoldenTest`       | 全应用布局几何金标 | 验证全应用 7 大布局构建器解释、1280x720/1920x1080 像素坐标吸附 | [x] 已通过 |

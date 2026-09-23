@@ -37,16 +37,16 @@
 | 领域 | 核心特性文档 | 主要内容与测试重点 |
 |---|---|---|
 | **发声引擎** | [`features/builtin-piano-synthesis.md`](reference/features/builtin-piano-synthesis.md) | 7 大声学系统全物理建模钢琴（`PianoSynthVoice`，88 键参数模型/非线性动力学/古典微律/双视角空间声学/微观机械拟真）与正弦合成 |
-| **发声引擎** | [`features/plugin-hosting.md`](reference/features/plugin-hosting.md) | VST3 插件扫描、分片进度、XML 缓存恢复、加载与生命周期专项回归 |
-| **输入与映射** | [`features/keyboard-mapping.md`](reference/features/keyboard-mapping.md) | 电脑键盘映射系统、稳定 key code 路由、88 键虚拟键盘与输入法防御 |
+| **发声引擎** | [`features/plugin-hosting.md`](reference/features/plugin-hosting.md) | VST3 插件扫描、分片进度、XML 缓存恢复、增量崩溃安全持久化、乐器端点统一抽象、加载与生命周期专项回归 |
+| **输入与映射** | [`features/keyboard-mapping.md`](reference/features/keyboard-mapping.md) | 电脑键盘映射系统、5 行 QWERTY 演奏看板、12-TET 和声色彩投影、轻量键位分组与发音身份快照、采样精确切分踏板、瞬态修饰键、稳定 key code 路由与 88 键虚拟键盘 |
 | **输入与映射** | [`features/per-key-customization.md`](reference/features/per-key-customization.md) | 128 项逐键自定义标签与颜色、按键绑定编辑对话框（`KeyBindingEditDialog`） |
 | **输入与映射** | [`features/midi-channel-matrix.md`](reference/features/midi-channel-matrix.md) | 16 通道 MIDI 矩阵路由（移调/力度/音色/延音/按键跟随）与全局调号 |
 | **录制与回放** | [`features/recording-playback.md`](reference/features/recording-playback.md) | 实时演奏录制、多倍速回放控制（0.5x–2.0x）与标准 Type 1 MIDI 导出 |
 | **录制与回放** | [`features/performance-persistence.md`](reference/features/performance-persistence.md) | `.devpiano` 原生演奏文件持久化（v2 JSON + Base64）、原子保存与最近文件 |
 | **录制与回放** | [`features/midi-file-import.md`](reference/features/midi-file-import.md) | 标准 MIDI 文件导入、多轨自动选轨、CC64 延音/弯音解析与回放 |
-| **渲染与导出** | [`features/plugin-offline-rendering.md`](reference/features/plugin-offline-rendering.md) | VST3 插件与内置物理建模钢琴离线高保真渲染 WAV 导出（`RenderPipeline`、`WavExportOptions` 声学参数 1:1 对齐） |
+| **渲染与导出** | [`features/plugin-offline-rendering.md`](reference/features/plugin-offline-rendering.md) | VST3 插件与内置物理建模钢琴离线高保真渲染 WAV 导出（异步非阻塞任务流、`RenderPipeline`、`WavExportOptions` 声学参数 1:1 对齐） |
 | **预设与状态** | [`features/performance-presets.md`](reference/features/performance-presets.md) | Performance Preset 预设系统（CRUD 编排、F1-F12 快捷键、录制中自动切调） |
-| **UI 与交互** | [`features/declarative-ui-and-theming.md`](reference/features/declarative-ui-and-theming.md) | JIVE 声明式 UI 架构、设计 Token、通用弹窗体系（`JiveModalDialog`）与静态资产内嵌 |
+| **UI 与交互** | [`features/declarative-ui-and-theming.md`](reference/features/declarative-ui-and-theming.md) | JIVE 声明式 UI 架构、设计 Token、主窗口 5 行 QWERTY 看板、通用弹窗体系（`JiveModalDialog`）与静态资产内嵌 |
 | **多语言** | [`features/internationalization.md`](reference/features/internationalization.md) | 运行时中英文双语即时切换（`LocaleManager` + 内嵌 `zh_CN.loc`） |
 | **测试支撑** | [`features/fixture-inventory.md`](reference/features/fixture-inventory.md) | 固定 MIDI 与 Performance 测试夹具样本库清单 |
 
@@ -54,8 +54,8 @@
 
 ### 4. 质量审查、验收与问题追踪
 
-- [`reference/acceptance.md`](reference/acceptance.md)：Phase 1–32 阶段性验收标准、v1.0.0 发布验收与全量回归清单。
-- [`audit/README.md`](audit/README.md)：代码质量审计报告（`AUDIT-001` 与 `AUDIT-002` 全面审计看板与问题登记表）。
+- [`reference/acceptance.md`](reference/acceptance.md)：Phase 1–34 阶段性验收标准、v1.0.0 发布验收与全量回归清单。
+- [`audit/README.md`](audit/README.md)：代码质量审计报告（`AUDIT-001`、`AUDIT-002` 与 `AUDIT-003` 全面审计看板与问题登记表）。
 - [`issues/known-issues.md`](issues/known-issues.md)：已知问题、密集 MIDI 播放 CPU 深度剖析与已修复风险回归线索。
 
 ---

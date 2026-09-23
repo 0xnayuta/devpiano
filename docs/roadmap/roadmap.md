@@ -290,15 +290,27 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 详细完成记录见 [`../archive/phase33-observability-and-diagnostics-infrastructure.md`](../archive/phase33-observability-and-diagnostics-infrastructure.md)。
 
-### AUDIT-003 专项：全面代码质量审计缺陷消除与架构对齐（Code Quality Remediation & Architecture Alignment） [当前进行中，2026-09-15 ~]
+### AUDIT-003 专项：全面代码质量审计缺陷消除与架构对齐（Code Quality Remediation & Architecture Alignment） [已完成，2026-09-15]
 
-基于 2026-09-15 完成的 `AUDIT-003` 全面代码质量审计（`A-` 评级，6 项未处理问题：P1×1 / P2×2 / P3×3），开展专项闭环治理：
+基于 2026-09-15 完成的 `AUDIT-003` 全面代码质量审计（`A-` 评级，6 项登记缺陷全部闭环），开展专项闭环治理：
 1. **测试消息循环驱动与断言消除（Phase A / TEST-001）**：解决 Linux 无头单测 socket 管道溢出告警；
 2. **插件离线导出房间混响对齐（Phase A / QUAL-001）**：补齐 `PluginOfflineRenderer` 混响浸润处理；
 3. **底层 Core 单向拓扑恢复（Phase B / ARCH-001）**：解耦 `AppState.h` 对上层 `SettingsModel` 与 `ChannelMatrix` 的反向包含；
 4. **解码内存优化与文档对齐（Phase B & C / PERF-001, DOC-001, DOC-002）**：优化 `MidiTextDecoder` 临时缓冲区分配，更新架构文档与预设规范。
 
-当前实施与验证细节详见 [`current-iteration.md`](current-iteration.md)。
+详细完成记录见 [`../archive/audit-003-code-quality-fix-phases.md`](../archive/audit-003-code-quality-fix-phases.md)。
+
+### Phase 34：键盘演奏交互质变与演奏表现力增强 (Keyboard Performance UX & Expressive Control) [已完成，2026-09-23]
+
+基于专用钢琴演奏宿主定位，全面重塑电脑键盘演奏的人机交互与表现力：
+1. **QWERTY Visualizer（5 行 Performance Map 声明式卡片与 12-TET 和声色彩投影）**：JIVE 声明式 5 行 ANSI 物理网格卡片（`QwertyComponent`），击键下沉与 50fps 荧光余晖动画；12-TET 和声色环算法（`MusicTheory.h`）驱动三和弦几何色相投影，4 种按键着色模式；
+2. **Layout Group 轻量多键组与发音身份快照（Note-off Identity Preservation）**：单预设 4 组键位配置（Group A~D），反引号键（`）或 UI 按钮秒级切换；`HeldKeyIdentity` 锁定按键发音快照，切组/移调彻底杜绝悬挂音；
+3. **SustainPolicy 与 Sample-Accurate 事件级 Sync 切分踏板**：音频块内部采样精确调度 $\text{CC64}(0) \to \text{NoteOn} \to \text{CC64}(127)$，消除空格键踩放断音空洞，杜绝线程 Sleep；
+4. **PerformanceModifierState 瞬态 Press 修饰符**：Shift 力度拉满（Velocity Boost）、Alt 高八度平移（+8va），纯事件流变换零全局配置污染，UI HUD 实时标签；
+5. **扫描器增量持久化（Crash-safe State Persistence）与乐器端点概念收敛**：插件扫描逐项即时持久化，dead-man's pedal 崩溃点记录与黑名单推迟；`InstrumentEndpoint` 统一乐器抽象，解耦设备准备、实时发声与离线渲染；
+6. **跨平台实现深度收敛与 JUCE 9 原生框架利用全面升级（Phase 34-F）**：彻底拔除 Win32 `WNDPROC` Hook、`AttachThreadInput` 与 `<windows.h>`，全平台统一基于 JUCE 9 原生事件；`WavExportTask` 完全异步化（`startAsync`），移除 `JUCE_MODAL_LOOPS_PERMITTED=1`；源码 100% 达到 Strict 7-bit ASCII 铁律；`createLegalFileName` 替换自造文件名过滤轮子，运行时配置目录统一为 `DevPiano`。
+
+详细完成记录见 [`../archive/cross-platform-and-juce9-convergence.md`](../archive/cross-platform-and-juce9-convergence.md) 与 [`current-iteration.md`](current-iteration.md)。
 
 ---
 
@@ -310,7 +322,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 | 键盘映射边界多 | 低 | 基础映射已全量验证；Performance Preset 已补充专项回归清单。 |
 | 物理建模高负荷极端情况 | 极低 | 逐采样零三角函数 + 动态分音剪枝，8 复音齐奏单核 CPU $\le 0.7\%$。 |
 | UI 基础设施稳定性 | 极低 | 内生代码完全自主掌控，实施 API Freeze 接口冻结公约；全量 LayoutGoldenTest 保护。 |
-| `MainComponent` 职责回流 | 低 | 当前稳定在 ~1270 行（主要由 `initialiseUi()` 承载 JIVE 树构建与回调接线，核心业务均已委托独立 Controller 与领域模块）；持续监控，避免业务逻辑回流。 |
+| `MainComponent` 职责回流 | 低 | 保持轻量装配职责（主要由 `initialiseUi()` 承载 JIVE 树构建与回调接线，核心业务均已委托独立 Controller 与领域模块）；持续监控，避免业务逻辑回流。 |
 | 文档状态漂移 | 极低 | 本文件作为唯一 roadmap；当前任务只写入 [`current-iteration.md`](current-iteration.md)。 |
 
 ---

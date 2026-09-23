@@ -12,10 +12,13 @@
 
 1. **基于稳定 KeyCode 路由**：彻底摒弃依赖字符输入的脆弱模式，统一采用物理键盘扫描码规范化后的 KeyCode，不受 CapsLock 大小写切换影响；
 2. **中文输入法（IME）全面防御**：拦截并吸收按键事件，中文输入法处于激活状态下依然能稳定发声，且不弹出候选词输入框；
-3. **严格成对的 Note On / Off 跟踪**：`KeyboardMidiMapper` 维护独立的 Held Key 状态表，长按时不异常连发，松开时严格补发对应的 Note Off，杜绝悬挂音；
-4. **焦点丢失自动 Panic 清理（区分内/外部切换）**：焦点**离开应用**（如 Alt+Tab 切到其他程序）时，自动释放交互演奏音（电脑键盘 held keys + 虚拟键盘鼠标按住的音符），防止后台一直鸣响；焦点转移到**本进程其他顶层窗口**（插件编辑器、设置窗口）属于应用内部切换，不打断任何演奏；**MIDI 回放不受失焦影响**（回放由纯时间线驱动，全引擎静音会杀掉回放中的音符且不会自动恢复）；
-5. **虚拟键盘显示与输入解耦**：虚拟键盘仅作为视觉反馈和鼠标演奏入口，电脑键盘演奏主路径由 `KeyboardMidiMapper` 独占，避免由于焦点切换引起重复触发；
-6. **空间键默认延音踏板**：空格键（`Space`）默认映射为 MIDI CC64 延音踏板——按下即踏板开（127），松开即踏板关（0），随音符事件实时注入主链路；长按/释放严格成对，焦点丢失 panic 清理时自动同步释放踏板。
+3. **发音身份恒定与绝对防悬挂（Note-off Identity Preservation）**：按键按下（NoteOn）时以 `HeldKeyIdentity` 锁定发声音高、通道与力度快照；松键（NoteOff）时 100% 依据按下时记录的快照注销。动态切换 Group、移调或松开修饰键，绝不篡改 NoteOff 身份，从数学状态机上彻底杜绝悬挂音；
+4. **5 行 QWERTY 键盘映射看板（QwertyComponent）**：在主窗口 Controls 与键盘区之间声明式嵌入 5 行自适应 ANSI 物理键位网格，击键即时物理下沉并具备 50fps 荧光余晖平滑淡出，支持 12-TET 和声色彩投影与一键折叠；
+5. **轻量键位分组（Layout Groups）**：单预设支持 4 组（Group A~D）独立移调、八度与通道配置，反引号键（`）或 UI 按钮秒级循环切组；
+6. **采样精确切分延音踏板（SustainPolicy::syncPedal）**：音频块内部采样点级别调度 $\text{CC64}(0) \to \text{NoteOn} \to \text{CC64}(127)$，消除空格键踩放时的断音空洞，杜绝线程 Sleep；
+7. **瞬态演奏修饰键（PerformanceModifierState）**：Shift 键瞬态力度拉满（Velocity Boost）、Alt 键瞬态高八度平移（+8va），纯事件流变换零全局配置污染，UI 实时展示 HUD 标签；
+8. **焦点丢失自动 Panic 清理（区分内/外部切换）**：焦点**离开应用**（如 Alt+Tab 切到其他程序）时，自动释放交互演奏音（电脑键盘 held keys + 虚拟键盘鼠标按住的音符），防止后台一直鸣响；焦点转移到**本进程其他顶层窗口**（插件编辑器、设置窗口）属于应用内部切换，不打断任何演奏；**MIDI 回放不受失焦影响**；
+9. **虚拟键盘显示与输入解耦**：虚拟键盘仅作为视觉反馈和鼠标演奏入口，电脑键盘演奏主路径由 `KeyboardMidiMapper` 独占，避免由于焦点切换引起重复触发。
 
 ---
 
@@ -42,27 +45,50 @@
 ```text
 [物理键盘按下 / 释放]
     │
-    ▼
-MainComponent::keyPressed() / keyStateChanged()
-    │
-    ├── 0. 延音踏板: Space 键 ──► KeyboardMidiMapper 触发 CC64 sustain on/off (经 AudioEngine::sendController)
-    ├── 1. 快捷键拦截: F1-F12 预设切换 ──► 直接路由至 PresetFlowSupport
-    ├── 2. keyCode 规范化: normaliseAlphaNumericKeyCode(key.getKeyCode())
+    ├── 0. 快捷键拦截: F1-F12 预设切换 ──► 路由至 PresetFlowSupport
+    ├── 1. 键组切换: 反引号键 (`) ──► 循环切换 activeGroupIndex (0..3)
+    ├── 2. 瞬态修饰键: Shift / Alt ──► 更新 PerformanceModifierState (纯事件流变换)
+    ├── 3. 延音踏板: Space 键 ──► 依据 SustainPolicy 触发直接踏板或切分挂起标记
+    ├── 4. keyCode 规范化: normaliseAlphaNumericKeyCode(key.getKeyCode())
     │
     ▼
 KeyboardMidiMapper::handleKeyPressed() / handleKeyStateChanged()
     │
-    ├── 3. 查表匹配当前 KeyboardLayout
-    ├── 4. 状态表更新: 记录当前 held keys (防长按重复与漏松键)
+    ├── 5. 查表匹配当前 KeyboardLayout 绑定
+    ├── 6. 结合当前 KeyGroup 计算发声音高 (soundingNote) 与通道 (soundingChannel)
+    ├── 7. 结合 PerformanceModifierState 应用瞬态力度提升或八度平移
+    ├── 8. NoteOn: 存入 HeldKeyIdentity 发音身份快照 (物理码/音高/通道/力度)
+    ├── 9. NoteOff: 100% 按 HeldKeyIdentity 快照注销 (杜绝悬挂音)
     │
     ▼
 MidiChannelMapper::sendNoteOn() / sendNoteOff() (经 16 通道矩阵变换)
     │
     ▼
-AudioEngine::MidiMessageCollector ──► [音频回调合成发声]
+AudioEngine::MidiMessageCollector ──► [音频回调线程]
+    │
+    ├── SyncPedalProcessor (采样精确调度 CC64 切分踏板时序)
+    └── 发声处理 (InstrumentEndpoint) + QwertyViewModel / CustomKeyboard 视图刷新
 ```
 
-## 4. 专项手工与鲁棒性测试清单
+---
+
+## 4. QWERTY 演奏看板与和声色彩投影
+
+在 Phase 34-A 中，devpiano 在主界面引入了基于 JIVE 声明式 UI 驱动的 5 行 ANSI 物理键盘映射卡片（`QwertyComponent`）：
+
+1. **5 行物理网格**：涵盖功能行（Esc/F1-F12）、数字行、QWERTY 行、ASDF 行与 ZXCV 行（含 Space 与修饰键）；
+2. **动态击键反馈与余晖**：物理按键按下时视觉方块下沉并高亮，与 88 键虚拟钢琴键盘同频联动；松开后由 50fps 定时器执行指数余晖淡出；
+3. **12-TET 和声色彩投影（Harmony Projection）**：
+   - 基于 `source/Core/MusicTheory.h` 建立的 12-TET 和声色环算法（`pitchClassHarmonyHues`）；
+   - 静态按键文本呈现微妙和声色彩提示，击键时与 88 键钢琴键盘同频绽放三和弦几何色相；
+4. **HUD 标签与切组指示**：
+   - 按住 Shift 键显示 `Shift [BOOST]`，按住 Alt 键显示 `Alt [+8va]`；
+   - 顶部胶囊按钮（`qwerty-group-btn`）实时指示当前激活的键位分组（`Group A/B/C/D`）；
+5. **一键折叠与持久化**：支持点击标题栏右侧折叠按钮收起/展开，展开状态持久化于 `SettingsModel::qwertyVisualizerExpanded`。
+
+---
+
+## 5. 专项手工与鲁棒性测试清单
 
 | 用例编号 | 测试场景 | 操作步骤与验证目标 | 状态 |
 |---|---|---|:---:|
@@ -76,3 +102,8 @@ AudioEngine::MidiMessageCollector ──► [音频回调合成发声]
 | **KBD-008** | 88 键虚拟键盘点击 | 鼠标左键点击虚拟键盘上的任意黑白键，正常触发对应音符发声并高亮显示 | [x] 已通过 |
 | **KBD-009** | 空间键延音踏板 | 按住空格键触发 CC64 延音开启（音符自然延长），松开空格键延音关闭，与琴键释放严格配对，无悬挂 | [x] 已通过 |
 | **KBD-010** | 失焦不打断 MIDI 回放 | 导入 MIDI 自动演奏中 Alt+Tab 切到其他程序、或打开/关闭插件编辑器与设置窗口，回放声音无任何中断 | [x] 已通过 |
+| **KBD-011** | Layout Group 动态切组与防悬挂 | 按住 `A` 键（Group A 发声），按反引号键（`）切换至 Group B 并松开 `A` 键，声音干净切断，零悬挂音 | [x] 已通过 |
+| **KBD-012** | 切分延音踏板（Sync Pedal）连奏 | 开启 `syncPedal` 模式，按住空格键并交替弹奏和弦，音符切换顺滑无断音空洞，踏板切断采样级精准 | [x] 已通过 |
+| **KBD-013** | Shift / Alt 瞬态修饰键 | 按住 Shift 击键触发 fortissimo 最大力度；按住 Alt 击键触发高八度音；松开修饰键后再松按键无悬挂 | [x] 已通过 |
+| **KBD-014** | QWERTY 和声投影与余晖 | 弹奏三和弦，QWERTY 键盘与 88 键钢琴同频呈现和声几何色相，松键后呈现平滑荧光余晖衰减 | [x] 已通过 |
+| **KBD-015** | QWERTY 看板折叠持久化 | 点击折叠按钮收起 QWERTY 看板，重启应用后保持折叠；再次点击展开保持展开 | [x] 已通过 |

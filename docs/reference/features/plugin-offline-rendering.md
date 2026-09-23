@@ -28,16 +28,16 @@
 RecordingSessionController::exportTakeAsWav() ──► 弹出文件保存对话框 FileChooser
     │
     ▼
-WavExportTask::startExport() (后台独立工作线程启动)
+WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
     │
     ├── JiveModalDialog::makeProgressLayout() (弹出现代化 JIVE 进度浮层)
-    ├── 准备渲染引擎:
-    │    ├── [已加载 VST3 插件] ──► PluginOfflineRenderer::renderTakeWithOfflinePlugin()
+    ├── InstrumentEndpoint::renderTakeThroughInstrumentEndpoint() (同构乐器端点路由):
+    │    ├── [VST3 插件端点] ──► PluginOfflineRenderer::renderTakeWithOfflinePlugin()
     │    │                         ├── 独立创建 AudioPluginInstance
     │    │                         ├── prepareToPlay(sampleRate, blockSize=512)
     │    │                         └── 渲染完成后 releaseResources() 并安全析构
     │    │
-    │    └── [未加载插件 / 降级] ──► WavFileExporter (离线构建带有完整声学参数的 PianoSynthVoice / Sine + RoomReverbEngine 后级混响)
+    │    └── [内置乐器端点] ──► WavFileExporter (离线构建带有完整声学参数的 PianoSynthVoice / Sine + RoomReverbEngine 后级混响)
     ├── RenderPipeline (统一调度事件时间戳缩放、按 samplePosition 排序并分块送入 processBlock)
     ├── juce::WavAudioFormat 写入目标文件 (16-bit / 24-bit / 32-bit float, 双声道 Stereo)
     └── 导出完成: 自动关闭进度弹窗 / 取消时自动清理残留文件
@@ -63,7 +63,9 @@ WavExportTask::startExport() (后台独立工作线程启动)
 
 ### 3.3 后台任务与 JIVE 进度反馈（`WavExportTask`）
 
-在 Phase 15-D 中，`WavExportTask` 彻底移除了 JUCE 原生陈旧的 `AlertWindow`，全面采用 JIVE 声明式进度弹窗：
+在 Phase 15-D 与 Phase 34-F 中，`WavExportTask` 实现了现代化重构与完全非阻塞异步化：
+- **纯异步任务流（`startAsync`）**：在 Phase 34-F 中，彻底消除了历史遗留的主线程嵌套模态循环 `runDispatchLoopUntil(10)` 与 `Thread::sleep(10)`，改为基于 `startAsync(onComplete)` 的非阻塞异步任务模型；项目编译配置从 `CMakeLists.txt` 中彻底删除了 `JUCE_MODAL_LOOPS_PERMITTED=1` 编译宏；
+- **同构乐器端点（`InstrumentEndpoint`）**：在 Phase 34-E 中引入 `renderTakeThroughInstrumentEndpoint()`，端点路由与实时发声完全一致，消除离线分支手写判断；
 - **无锁进度传递**：后台线程通过 `std::atomic<float> currentProgress` 和 `std::atomic<bool> cancelRequested` 与主线程通信；
 - **安全取消机制**：用户点击 [Cancel] 按钮或按 ESC 键时，`cancelRequested` 置位，后台线程在下一个 block 循环立即退出，并在 `finally` 块中调用 `destinationFile.deleteFile()` 删除半截文件。
 

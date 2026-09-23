@@ -17,9 +17,9 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
 ## 核心特性矩阵
 
 ```text
-              ┌────────────────────────────────────────────────────────┐
-              │              devpiano v1.1.0 Architecture              │
-              └───────────────────────────┬────────────────────────────┘
+                 ┌─────────────────────────────────────────────────┐
+                 │              devpiano Architecture              │
+                 └────────────────────────┬────────────────────────┘
                                           │
            ┌──────────────────────────────┼──────────────────────────────┐
            ▼                              ▼                              ▼
@@ -39,17 +39,21 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
 - **微观机械动作拟真与古典律制**：CC64 全局交感共鸣、延音踏板下踏/抬起机械扫掠呼啸（Whoosh）与共鸣冲击（Resonance Shock）、制音器落木闷击与琴键释放摩擦、离键速度动态 ADSR 阻尼缩放，以及 6 大古典微调律制（`TemperamentEngine`）与 A4 基准基频微调；
 - **硬实时性能保证**：Magic Circle 二阶递归振荡器，逐采样**零三角函数调用（零 `std::sin`）**，8 复音齐奏单核 CPU 负载 $\le 0.7\%$，实时音频路径严格**零堆分配、零锁**；支持与内置正弦波（`SineSynthVoice`）平滑对比切换。
 
-### 🔌 VST3 插件宿主系统（VST3 Plugin Hosting）
+### 🔌 VST3 插件宿主与乐器端点（VST3 Plugin Hosting & Instrument Endpoint）
 
 - **安全生命周期管理**：支持默认及自定义多目录扫描、异步分片扫描（Chunked Scan）、XML 缓存恢复与失败文件追踪；
+- **崩溃安全增量持久化（Crash-safe State Persistence）**：扫描中逐插件即时回调落盘，dead-man's pedal 崩溃点记录与黑名单推迟，避免反复卡死；
+- **统一乐器端点（Instrument Endpoint）**：内置物理建模音源与 VST3 乐器共享领域端点职责，统一设备准备、实时发声与离线渲染路由；
 - **插件加载与 Editor 托管**：支持加载 VST3 乐器插件并参与实时音频处理，具备独立 Editor 窗口生命周期管理与异常安全隔离。
 
-### ⌨️ 电脑键盘演奏与 88 键虚拟键盘（Keyboard Input & Keybed）
+### ⌨️ 电脑键盘演奏与 QWERTY 映射看板（Keyboard Performance & Visualizer）
 
-- **稳定按键映射**：基于稳定 key code 路由，消除字符输入法与 CapsLock 状态干扰；具备严格成对的 note on/off 跟踪与焦点丢失 panic 自动清理；
-- **标准 88 键大三角钢琴键盘**：覆盖 A0～C8（MIDI 21～108）完整音域，支持宽屏动态对称居中与毛毡条自适应；
-- **局部脏矩形快速渲染**：虚拟键盘引入 `repaintKey()` 与视口相交裁剪，彻底消除密集 MIDI 回放时的全量重绘，UI 渲染零掉帧；
-- **多样化可视化定制**：支持 3 种按键着色模式（Classic / Channel / Velocity）与 3 种音符标注模式（DoReMi / FixedDo / NoteName）。
+- **5 行 ANSI 物理键盘映射卡片（QwertyComponent）**：在 Controls 与键盘区之间声明式嵌入自适应 QWERTY 看板，击键物理下沉并联动 50fps 荧光余晖动画；支持一键展开/折叠与设置持久化；
+- **12-TET 和声色彩投影（Harmony Projection）**：静态呈现微妙和声色彩，击键与 88 键钢琴同频绽放三和弦几何色相；4 种按键着色模式（Classic / Channel / Velocity / Harmony）；
+- **轻量键位分组与发音身份恒定（Layout Groups & HeldKeyIdentity）**：单预设支持 4 组键位配置（Group A~D），反引号键（`）或 UI 按钮秒级切换；松键注销 100% 绑定按键瞬间的发音快照，彻底杜绝悬挂音；
+- **采样精确切分延音踏板（SustainPolicy & Sync Pedal）**：音频块内部采样点级别调度 $\text{CC64}(0) \to \text{NoteOn} \to \text{CC64}(127)$，消除空格键踩放时的断音空洞，杜绝线程 Sleep；
+- **瞬态演奏修饰键（PerformanceModifierState）**：Shift 键瞬态力度拉满（Velocity Boost）、Alt 键瞬态高八度平移（+8va），松开自动回弹，UI 实时展示 HUD 标签；
+- **稳定按键映射与 88 键虚拟键盘**：基于稳定 key code 路由，消除输入法干扰；标准 88 键虚拟键盘配备局部脏矩形剪裁（`repaintKey()`）与 3 种音符标注（DoReMi / FixedDo / NoteName）。
 
 ### 🎛️ 16 通道 MIDI 矩阵与实时移调（16-Channel MIDI Matrix & Transposition）
 
@@ -66,8 +70,8 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
 
 ### 📦 离线高保真 WAV 导出（Offline WAV Export Pipeline）
 
-- **多线程离线渲染管线**：`WavExportTask` 独立后台线程执行非实时渲染，统一由 `RenderPipeline` 处理时间线缩放、事件排序与尾部 panic 注入；
-- **双引擎渲染支持**：无插件时自动由内置物理建模引擎渲染，有插件时独立创建离线 VST3 实例渲染；
+- **现代化异步非阻塞渲染**：`WavExportTask` 演进为纯异步工作任务流（`startAsync`），彻底消除消息循环阻塞，端到端经 `InstrumentEndpoint` 统一调度；
+- **双引擎同构声学对齐**：无插件时自动由内置物理建模引擎渲染，有插件时独立创建离线 VST3 实例渲染，1:1 对齐全部声学参数与 `RoomReverbEngine` 空间混响；
 - **现代化暗黑进度弹窗**：支持实时进度展示、随时取消并自动清理残留文件。
 
 ### 🎨 内生声明式 UI 运行时与设计系统（Declarative UI & Design System）
@@ -86,9 +90,9 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
 
 ```text
 source/
-├── Main.cpp / MainComponent.*     # 应用生命周期与主装配协调层
-├── Audio/                         # 音频引擎、PianoSynthVoice 物理建模与 SineSynthVoice
-├── Input/                         # 电脑键盘事件捕获与稳定键位 MIDI 映射
+├── Main.cpp / MainComponent.*     # 应用生命周期、跨平台窗口与主装配协调层
+├── Audio/                         # 音频引擎、PianoSynthVoice 物理建模、SyncPedalProcessor 与 InstrumentEndpoint
+├── Input/                         # 电脑键盘事件捕获、稳定键位 MIDI 映射与 QWERTY 快照生成
 ├── Midi/                          # 16 通道 MIDI 矩阵路由与实时移调映射
 ├── Plugin/                        # VST3 插件扫描、加载、生命周期与 Editor 托管
 ├── Recording/                     # 演奏录制、回放、MIDI 导入导出与公共离线渲染管线
@@ -98,7 +102,7 @@ source/
 ├── UI/                            # 内生声明式 UI 运行时（core/）、布局模型、设计 Token、弹窗体系与 Native 原生组件
 ├── Locale/                        # 语言管理器与编译期内嵌语言包
 ├── Diagnostics/                   # 结构化日志系统、MidiTrace 与调试输出
-└── Core/                          # 核心数据结构与轻量强类型定义（AppState, KeyMapTypes）
+└── Core/                          # 核心数据结构与强类型定义（AppState, KeyMapTypes, QwertyModel, MusicTheory）
 ```
 
 ---

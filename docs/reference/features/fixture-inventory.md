@@ -3,36 +3,16 @@
 > 用途：记录固定 MIDI fixture 样本库与 performance fixture 样本，作为 MIDI 导入/导出/roundtrip/回放行为与自动化测试的统一输入基准。
 > 当前状态：已全量落地并稳定服务于 `source/tests/MidiFileImporterTest.cpp`、`PerformanceFileTest.cpp` 与日常冒烟测试。
 > 更新时机：新增或修改 fixture 文件时。
-### 任务定位
 
-Phase 6-7 是 Phase 6 后续各阶段（6-1 演奏文件保存/打开、6-2 播放速度控制、6-5 MIDI 导入增强）以及整体 MIDI roundtrip 的**工程基础设施**。它不实现业务功能，而是为这些阶段提供统一的测试输入基准。
+## 1. 概述与定位
 
-**前置关系：** 建议在 Phase 6-1、6-2、6-5 之前或并行完成。Phase 6-6（Diagnostics 最小层）是 Phase 6-7 的依赖基础——fixture 验证过程中产生的诊断输出依赖 `DP_LOG_*` / `DP_TRACE_MIDI` 宏。
+测试夹具（Test Fixtures）为 devpiano 的 MIDI 导入、导出、roundtrip 往返校验、错误处理与演奏回放行为提供统一、确定性的输入基准，彻底消灭依赖临时文件与口头复现的不确定性。
 
-### 背景问题
-
-当前 Phase 6 各阶段的开发和手工验收面临以下问题：
-
-1. **依赖临时文件**：每次验证 MIDI 导入、roundtrip、错误处理都需要手动准备 MIDI 文件或临时敲键盘录制，无法稳定复现。
-2. **无基准样本**：不同开发者使用不同的 MIDI 文件，导入行为的判断标准不统一。
-3. **口头复现**：bug 报告依赖"我用一个 MIDI 文件试了，不行"这类描述，无法快速定位是文件问题还是代码问题。
-4. **smoke test 缺失**：每次发版或合入前没有统一的最小回归集。
-
-Phase 6-7 的目标就是用**固定 fixture 样本库**取代临时文件和口头复现。
-
-### 目标
-
-- 建立固定 MIDI fixture 样本库，涵盖主流场景和边界情况。
-- 建立固定 PerformanceEvent / 演奏数据 fixture（JSON 格式）。
-- 为 MIDI 导入、导出、roundtrip、错误处理、回放行为提供稳定输入。
-- 让后续 smoke test 和手工验收有统一依据。
-- 避免每次 bug 排查都依赖临时文件和口头复现。
-
-### 自动化单元测试集成
-
+## 2. 自动化单元测试集成
 在当前项目中，这些 fixture 已全面接入 `source/tests/` 自动化测试体系：
 - `source/tests/MidiFileImporterTest.cpp`：自动化加载 `simple-notes.mid`、`velocity-channel.mid`、`sustain-pedal.mid`、`multitrack-basic.mid`、`tempo-change-basic.mid`、`empty.mid` 与 `invalid.mid`，验证 Track 解析、通道映射、Meta 事件过滤与异常防御；
 - `source/tests/PerformanceFileTest.cpp`：验证 `simple-performance.json` 的序列化/反序列化与向后兼容。
+
 ### 目录结构
 
 ```

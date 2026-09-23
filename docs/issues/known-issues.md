@@ -72,6 +72,30 @@
 - **回归线索**：Windows 环境下窗口激活/切屏时物理键盘敲击无响应
 - **关联**：`source/Main.cpp::MainWindow::scheduleKeyboardFocusRestore()`、`timerCallback()`
 
+### WavExportTask 异步任务化与消除模态循环 (JUCE-002)
+
+`source/Export/WavExportTask.cpp` 早期通过主线程调用 `runDispatchLoopUntil(10)` 与 `Thread::sleep(10)` 驱动导出进度并阻塞主线程，导致 CMake 必须开启 `JUCE_MODAL_LOOPS_PERMITTED=1`。
+修复：彻底重构为现代化非阻塞异步任务流（`startAsync(onComplete)`），主线程通过回调响应完成或取消；`CMakeLists.txt` 彻底剔除 `JUCE_MODAL_LOOPS_PERMITTED=1` 编译宏。
+
+- **回归线索**：导出 WAV 期间主界面卡死或模态循环递归异常
+- **关联**：`source/Export/WavExportTask.h/.cpp`，`source/Recording/RecordingSessionController.cpp`
+
+### 运行时数据与配置目录大小写统一 (PLAT-003)
+
+`PluginHost.cpp` 与 `DevPianoLogger.cpp` 早期使用小写 `"devpiano"` 作为应用数据目录，而 `SettingsStore.cpp` 与 `PerformancePreset.cpp` 使用大写 `"DevPiano"`，导致 Linux / macOS 大小写敏感文件系统下用户主目录同时分裂出 `~/.config/DevPiano/` 和 `~/.config/devpiano/` 双目录。
+修复：全库统一使用 `"DevPiano"`（PascalCase），彻底根治配置与日志目录分裂。
+
+- **回归线索**：Linux 下配置、崩溃黑名单与日志分散在两个不同目录
+- **关联**：`PluginHost.cpp`，`DevPianoLogger.cpp`，`SettingsComponent.cpp`
+
+### 源码 7-bit ASCII 规范化与 LookAndFeel 遗留 AlertWindow 清理 (QUAL-001, QUAL-002)
+
+测试代码中存在个别硬编码中文或 Unicode 字符（如 `→` 箭头），在 Windows/MSVC 环境下有潜在代码页解析异常与 Debug 崩溃断言隐患；`DevPianoLookAndFeel` 残留废弃的 `AlertWindow` 绘制方法与颜色定义。
+修复：全库字符串字面量 100% 达到 Strict 7-bit ASCII 铁律，自然语言文案 100% 外部化；彻底删除 `DevPianoLookAndFeel` 中已无调用的 `AlertWindow` 重写方法。
+
+- **回归线索**：Windows/MSVC 构建报告 C4819 警告或 Debug 模式命中 `juce_String.cpp:327` 断言
+- **关联**：`StyleCatalogTest.cpp`，`MidiChannelMapperTest.cpp`，`DevPianoLookAndFeel.h/.cpp`
+
 ### 启动早期首音音高异常
 
 启动后或插件加载/卸载后立即弹奏，前几个音音高异常。根因：音频设备 prepare 后首批 audio blocks 经过未完全稳定的渲染路径。修复：`AudioEngine` 增加 `25ms` warmup（静音 + 清理 pending MIDI），修正设备初始化顺序（`setAudioChannels` 直接传入保存的 XML）。
@@ -189,7 +213,7 @@ Windows MSVC 侧 CMake 缓存未追踪源文件变更可能导致旧目标文件
 > cp /usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc    ~/.local/share/fonts/NotoSansCJK-Bold.ttf
 > fc-cache -f
 > ```
-> 修复后 `devpiano_tests` 全量 **11986/11986** 通过。
+> 修复后 `devpiano_tests` 全量测试通过，零失败。
 >
 > - **回归线索**：JIVE 文本组件离屏渲染无像素（`light=0`）；`fc-match system-ui` 返回 `.ttc` 路径
 > - **关联**：`source/tests/StyleCatalogTest.cpp`（`JiveRenderTest`），`juce_Fonts_freetype.cpp`（`scanFontPaths` / `matchTypeface`）；新装其他 Linux 发行版若 `system-ui` 被映射到 `.ttc` 字体，同样需要此修复

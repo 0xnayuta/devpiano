@@ -52,6 +52,7 @@
 | **VMPK** | 物理键盘输入 | 物理按键扫描码（Raw Keycode）规范化、多国键盘物理布局与映射最佳实践 | 坚决不复制其繁杂的通用 MIDI 路由器数据模型 |
 | **FigBug/Piano** | 物理建模测试 | 针对物理声学模型的确定性离线回归测试、长时间压力测试框架 | 仅参考工程与测试体系，坚决不摇摆当前 Modal 物理模型路线 |
 | **Modartt Pianoteq** *(产品标杆)* | 产品形态与体验 | 全物理建模钢琴声学分区（琴盖、琴槌硬度曲线、共振峰、琴体漫射）、踏板联动、轻量绿色分发 | 商业产品，仅作为产品行为与听感终极对标物 |
+
 ---
 
 ## 2. 顶层目录职责
@@ -93,8 +94,9 @@ source/
 
 - **`source/Main.cpp`**：
   - `juce::JUCEApplication` 派生类入口；
-  - 创建主桌面窗口，管理应用启动、单实例约束与正常退出序列。
-  - **UI 树解析**：通过 `jive::Interpreter` 解释 `LayoutModel` 声明的主窗口 ValueTree。`MainComponent::resized()` 保持声明式（更新 JIVE root 尺寸并刷新状态文本截断，由 FlexBox 自动计算全局排版）。
+  - 创建主桌面窗口，管理应用启动、单实例约束与正常退出序列；
+  - **纯净跨平台生命周期（Phase 34-F）**：彻底拔除 Win32 原生 `WNDPROC` Hook、`AttachThreadInput` 与 `<windows.h>` 平台特化，全平台统一基于 JUCE 9 原生 `DocumentWindow::activeWindowStatusChanged()` 配合 `callAsync` 延后分发 `restoreKeyboardFocus()`，窗口前台化使用 `toFront(true)` 与 `juce::Process::makeForegroundProcess()`，顶层跨平台纯度达到 100%；
+  - **UI 树解析**：通过 `jive::Interpreter` 解释 `LayoutModel` 声明的主窗口 ValueTree。`MainComponent::resized()` 保持声明式（更新 JIVE root 尺寸并刷新状态文本截断，由 FlexBox 自动计算全局排版）；
   - **规模与职责**：`MainComponent.cpp` 保持轻量装配职责，主体仅负责顶层装配、`initialiseUi()` 的 JIVE 树构建与回调接线、UI 状态同步及音频设备生命周期管理；子面板访问器拆入 `MainComponentJiveAccessors.cpp`，具体业务流程已下沉至各 domain controller（`RecordingSessionController` / `PluginOperationController` / `SettingsWindowManager` / `AppStateBuilder`）。
 
 ---
@@ -131,6 +133,10 @@ source/
   - 宿主固定拓扑 `Performance Input -> Instrument -> Master -> Output` 中 “Instrument” 环节的薄抽象：内置全物理建模钢琴与托管 VST3 乐器共享同一端点职责，`juce::AudioProcessor` 仅作为 VST3 适配器实现细节；
   - `resolveInstrumentEndpoint()` 以无锁读取返回当前端点（种类、宿主实例、插件描述、就绪状态与通道几何），集中取代散落在设备准备、实时渲染与离线导出路径上重复的 `hasLoadedPlugin() + getInstance() + isPrepared()` 组合判断；
   - 实时侧由 `AudioEngine` 消费；离线侧由 `renderTakeThroughInstrumentEndpoint()` 提供同构路由（实例为空即内置端点），供 WAV 导出任务统一调用。
+- **`source/Audio/SyncPedalProcessor.h`（切分延音踏板处理器，Phase 34-C）**：
+  - 钢琴演奏学“切分踏板（Legato / Sync Pedal）”纯算法调度器，消除按住空格键连奏时的断音空洞；
+  - 在音频块（Audio Block）内部以采样精确（Sample-Accurate）偏移与严格事件顺序执行调度：$$\text{CC64}(0) \longrightarrow \text{NoteOn}(\text{newNote}) \longrightarrow \text{CC64}(127)$$
+  - 实时音频路径严格无锁（Lock-free）、零堆内存分配（Zero-allocation），杜绝任何线程 Sleep 或物理时钟延迟。
 
 ---
 
@@ -139,7 +145,10 @@ source/
 - **`source/Input/KeyboardMidiMapper.h/.cpp`**：
   - 将 `juce::KeyPress` 映射为 `juce::MidiMessage`（noteOn / noteOff）；
   - 主路径采用稳定 key code（`normaliseAlphaNumericKeyCode`），避免字符输入法与 CapsLock 状态干扰；
-  - 维护 held key 跟踪表，确保 note on/off 严格成对，焦点丢失时自动发送 panic 清理。
+  - **发音身份恒定与防悬挂快照（Phase 34-B）**：引入 `HeldKeyIdentity`，按键按下时记录该音符的发音身份快照（音高、通道、力度），松开时 100% 依据快照注销，切组、移调或动态修饰绝不产生悬挂音；
+  - **Layout Group 键位分组（Phase 34-B）**：支持单预设内 4 组轻量键位分组（`KeyGroup`），反引号键（`）或 UI 按钮秒级切换；
+  - **瞬态修饰键变换（Phase 34-D）**：捕获 Shift / Alt 键，按住期间由 `PerformanceModifierState` 执行力度拉满（Velocity Boost）与八度平移（+8va）纯事件流变换，松开自动回弹，基线配置 100% 零突变；
+  - **QWERTY 视图单一事实源快照（Phase 34-A）**：提供 `createQwertySnapshot()`，以 `layout`、`heldKeys` 及 `keySignature` 为唯一输入生成只读 `QwertyViewModel`，直接供 UI 消费。
 
 ---
 
@@ -191,7 +200,7 @@ source/
 - **`source/Recording/PluginOfflineRenderer.h/.cpp`**：
   - 独立创建非实时离线 VST3 实例，无 Editor 依赖渲染，异常时安全降级至 fallback synth。
 - **`source/Export/WavExportTask.h/.cpp`**：
-  - 后台工作线程 WAV 导出，通过 `JiveModalDialog::makeProgressLayout` 提供现代暗黑进度条浮层，支持随时取消并自动清理残留文件。
+  - 现代化非阻塞异步任务模型（`startAsync(onComplete)`，Phase 34-F），彻底消除主线程嵌套消息循环与 `Thread::sleep`，编译配置彻底移除 `JUCE_MODAL_LOOPS_PERMITTED=1`；通过 `JiveModalDialog::makeProgressLayout` 提供现代暗黑进度条浮层，支持随时取消并自动清理残留文件；统一通过 `renderTakeThroughInstrumentEndpoint()` 调度离线发声。
 - **`source/Export/ExportFlowSupport.h/.cpp`**：
   - 纯函数集合：默认导出文件名推导、导出选项构建与空 Take 校验。
 
@@ -228,7 +237,7 @@ source/
   - **强类型组件访问**：提供 `host.find<T>(id)` 强类型查找、`setProperty`、`setText`、`setButtonLabel`、`setEnabled`、`setVisible`、`getSliderValue`、`setSliderValue` 与 `relayoutContainer`，业务代码完全告别底层 JIVE 裸指针；
   - **UI 线程断言**：在所有加载与重置入口注入 `JUCE_ASSERT_MESSAGE_MANAGER_IS_LOCKED`。
 - **`source/UI/jive/`（声明式 UI 核心与设计系统）**：
-  - **`LayoutModel.h/.cpp`**：主窗口面板（Header, Plugin, Controls, KeyboardArea, StatusBar）ValueTree 工厂。
+  - **`LayoutModel.h/.cpp`**：主窗口面板（Header, Plugin, Controls, QwertyCard, KeyboardArea, StatusBar）ValueTree 工厂，声明式嵌入 5 行 ANSI 物理键盘网格卡片（`makeQwertyCardTree()`）。
   - **`DesignTokens.h/.cpp`**：设计系统变量（颜色、字体、圆角、间距单一事实源，属于 `devpiano::ui::DesignTokens`）。
   - **`StyleCatalog.h/.cpp`**：全局样式管理器（读取编译期嵌入的 `style_sheets.json` 并动态注入树节点）。
   - **`JiveModalDialog.h/.cpp`**：**通用声明式模态弹窗系统**。提供 `launchSingleInput`、`launchConfirm`、`launchMetadataEdit` 与 `makeProgressLayout` 模板。
@@ -236,7 +245,8 @@ source/
 - **`source/UI/jive/core/`（内生 UI 渲染与排版引擎，已实施 API Freeze）**：
   - FlexBox 与 CSS Grid 基础几何排版计算引擎、BoxModel、动态样式表与动画缓动内核。已彻底剥离死代码并封存为底层资产。
 - **`source/UI/native/`（高性能原生组件）**：
-  - **`CustomKeyboard.h/.cpp`**：88 键虚拟钢琴键盘（自绘内核，支持 Classic / Channel / Velocity 3 种着色模式与 DoReMi / FixedDo / NoteName 3 种音符标记，焦点绝不抢占，经 `KeyboardViewport` 注入 JIVE）。
+  - **`CustomKeyboard.h/.cpp`**：88 键虚拟钢琴键盘（自绘内核，支持 Classic / Channel / Velocity / Harmony 4 种着色模式与 DoReMi / FixedDo / NoteName 3 种音符标记，局部脏矩形剪裁，焦点绝不抢占，经 `KeyboardViewport` 注入 JIVE）。
+  - **`QwertyComponent.h/.cpp`（Phase 34-A）**：5 行 ANSI 物理键盘映射看板原生组件，支持物理按键下沉与 50fps 荧光余晖动画，集成 12-TET 和声色彩投影与 HUD 标签提示。
   - **`AdsrCurveComponent.h/.cpp`**：实时交互式 ADSR 包络曲线组件。
   - **`StatusBarMidiDot.h`**：MIDI 活动呼吸指示灯。
 - **`source/UI/`（弹窗接入与样式）**：
@@ -267,14 +277,16 @@ source/
 
 - **`source/Diagnostics/Log.h`**：统一日志宏（`DP_LOG_INFO/WARN/ERROR`、`DP_DEBUG_LOG`、`DP_TRACE_MIDI`），在 Release 构建下零副作用。
 - **`source/Diagnostics/DevPianoLogger.h/.cpp`**：**生产级 Dual-Sink 统一日志基础设施（Phase 33）**：
-  - **文件持久化 Sink**：基于 `juce::FileLogger` 实现生产级落盘，写入系统标准 AppData 日志目录（Windows: `%APPDATA%\devpiano\devpiano.log`；Linux: `~/.config/devpiano/devpiano.log`），内置 512 KB 自动滚动限额，杜绝磁盘无限制膨胀；
+  - **文件持久化 Sink**：基于 `juce::FileLogger` 实现生产级落盘，写入系统标准 AppData 日志目录（Windows: `%APPDATA%\DevPiano\devpiano.log`；Linux: `~/.config/DevPiano/devpiano.log`），内置 512 KB 自动滚动限额，杜绝磁盘无限制膨胀；
   - **调试器 Sink**：平台输出重定向（Windows 路由至 `OutputDebugString`，Linux 路由至 `stderr`）；
   - **UI 诊断集成**：在设置面板诊断卡片动态展示当前日志物理路径，并提供“打开日志目录”（`openLogFolder`）原生交互；
   - **安全生命周期**：应用启动时注册为全局日志器（`juce::Logger::setCurrentLogger`），正常退出时安全重置并解除挂载。
 - **`source/Diagnostics/MidiTrace.h/.cpp`**：MIDI 消息人类可读字符串格式化。
 - **`source/Core/`**：
   - **`AppState.h`**：全应用运行时聚合快照视图，严格保持单向依赖与纯业务基础类型（零上层业务包含，前向声明 `ChannelMatrix` 并以 `std::shared_ptr` 管理快照，就地定义 `BuiltinTone` 枚举）；
-  - **`KeyMapTypes.h`**：88 键虚拟映射基础模型；
+  - **`KeyMapTypes.h`**：88 键虚拟映射基础模型、`KeyGroup`（4 组轻量分组）、`HeldKeyIdentity`（发音身份快照）、`SustainPolicy`（切分踏板策略）与 `PerformanceModifierState`（瞬态事件流变换）；
+  - **`QwertyModel.h`（Phase 34-A）**：ANSI 5 行电脑键盘物理布局网格模型、`QwertyKeyVisualState` 与 `QwertyViewModel`；
+  - **`MusicTheory.h`（Phase 34-A）**：12-TET 和声色环、音程和声调色板（`pitchClassHarmonyHues`）与文字高对比度算法；
   - **`MidiTypes.h`**：轻量级强类型封装。
 
 ---
@@ -286,19 +298,25 @@ source/
 ```text
 [电脑键盘按键] (JUCE KeyPress / KeyListener)
     │
+    ├── 0. 瞬态修饰键: PerformanceModifierState (Shift: 力度拉满 / Alt: 高八度，纯事件变换)
+    ├── 1. 键位分组: KeyGroup (当前激活 Group A~D 计算音高与通道偏移)
+    ├── 2. 发音身份快照: HeldKeyIdentity (记录按下时真实发音 Pitch/Channel/Velocity，松开时100%按快照注销)
+    └── 3. 切分踏板拦截: SustainPolicy (Space 键切分踏板状态标记)
+    │
     ▼
-KeyboardMidiMapper (根据当前 KeyboardLayout / key code 转换为 MIDI 消息)
+KeyboardMidiMapper (生成 MIDI 消息并更新 QwertyViewModel / CustomKeyboard)
     │
     ▼
 AudioEngine::MidiMessageCollector (收集并排队 MIDI 消息)
     │
     ▼
 AudioEngine::getNextAudioBlock() (音频回调线程)
+    ├── SyncPedalProcessor (采样精确调度 CC64(0) -> NoteOn -> CC64(127))
     ├── MidiKeyboardState (更新键盘状态，驱动虚拟键盘高亮)
     ├── RecordingEngine::recordMidiBufferBlock() (若录制中，原子写入 take)
-    ├── 发声处理:
-    │    ├── [已加载 VST3 插件] ──► AudioPluginInstance::processBlock()
-    │    └── [未加载插件] ────────► PianoSynthVoice (物理建模) / SineSynthVoice
+    ├── 发声处理 (通过 InstrumentEndpoint::resolveInstrumentEndpoint() 无锁路由):
+    │    ├── [已就绪 VST3 插件] ──► AudioPluginInstance::processBlock()
+    │    └── [内置乐器端点] ─────► PianoSynthVoice (物理建模) / SineSynthVoice
     │                                  ├── TemperamentEngine (古典微律调律与 A4 换算)
     │                                  ├── 7 大声学系统物理振动与微观机械瞬态
     │                                  └── PerspectiveProcessor (演奏者 / 听众视角成像)
@@ -346,15 +364,15 @@ JUCE AudioDeviceManager ──► [音频硬件输出]
 用户点击 Open   ──► PerformanceFile::loadFromFile() ──► 恢复 Take ──► 自动开始回放
 
 [离线导出 WAV]
-用户点击 Export WAV ──► WavExportTask (后台独立线程启动)
+用户点击 Export WAV ──► WavExportTask::startAsync() (现代化非阻塞异步任务启动)
     │
-    ├── JiveModalDialog::makeProgressLayout (弹出声明式暗黑进度条)
+    ├── JiveModalDialog::makeProgressLayout (弹出声明式暗黑进度条浮层)
     ├── RenderPipeline (统一时间戳缩放、排序与 panic 注入)
-    ├── 发声渲染:
+    ├── InstrumentEndpoint::renderTakeThroughInstrumentEndpoint() (同构乐器端点路由):
     │    ├── [有插件] ──► PluginOfflineRenderer (独立离线实例非实时渲染)
     │    └── [无插件] ──► fallback synth (离线 PianoSynthVoice 模态渲染)
     ├── RoomReverbEngine (后级算法立体声房间混响网络对齐，保证与实时声学一致)
-    └── 写入 WAV 文件 ──► 导出完成自动关闭弹窗 / 取消时清理残留文件
+    └── 写入 WAV 文件 ──► 异步回调通知完成 / 取消时自动清理残留文件
 ```
 
 ---
