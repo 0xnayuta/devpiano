@@ -11,84 +11,6 @@
 #include <JuceHeader.h>
 
 //==============================================================================
-#if defined(JUCE_WINDOWS) && JUCE_WINDOWS
-
-#include <windows.h>
-
-// WNDPROC hook state
-static WNDPROC g_originalWndProc = nullptr;
-static HWND g_hwnd = nullptr;
-static MainComponent* g_mainComponent = nullptr;
-static bool g_focusRestorePending = false;
-
-static void scheduleKeyboardFocusRestore(const char* reason) {
-    if (g_mainComponent == nullptr) {
-        return;
-    }
-
-    if (g_focusRestorePending) {
-        return;
-    }
-
-    g_focusRestorePending = true;
-
-    auto safeMainComponent = juce::Component::SafePointer<MainComponent>(g_mainComponent);
-    const juce::String restoreReason(reason);
-
-    juce::MessageManager::callAsync([safeMainComponent, restoreReason] {
-        g_focusRestorePending = false;
-
-        if (safeMainComponent == nullptr) {
-            return;
-        }
-
-        juce::ignoreUnused(restoreReason);
-        safeMainComponent->restoreKeyboardFocus();
-    });
-}
-
-static LRESULT CALLBACK DevPianoWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    // WM_SETFOCUS / WM_ACTIVATE → schedule keyboard focus restoration.
-    //
-    // JUCE's focusGained() / activeWindowStatusChanged() fire for most activation
-    // scenarios, but on Windows they can arrive *before* the JUCE component tree
-    // has finished processing the native focus event.  In those cases
-    // grabKeyboardFocus() is silently dropped.  By posting the restore into
-    // MessageManager::callAsync we give the component tree a chance to settle
-    // before restoring keyboard focus to the MainComponent.
-    if (msg == WM_SETFOCUS) {
-        scheduleKeyboardFocusRestore("WM_SETFOCUS");
-    }
-    if (msg == WM_ACTIVATE && LOWORD(wParam) != WA_INACTIVE) {
-        scheduleKeyboardFocusRestore("WM_ACTIVATE");
-    }
-    return CallWindowProc(g_originalWndProc, hwnd, msg, wParam, lParam);
-}
-
-static void installWndProcHook(juce::ComponentPeer* peer) {
-    if (peer == nullptr || g_originalWndProc != nullptr) {
-        return;
-    }
-    HWND hwnd = reinterpret_cast<HWND>(peer->getNativeHandle());
-    if (hwnd == nullptr) {
-        return;
-    }
-    g_hwnd = hwnd;
-    g_originalWndProc = reinterpret_cast<WNDPROC>(
-        SetWindowLongPtrW(hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&DevPianoWndProc)));
-}
-
-static void uninstallWndProcHook() {
-    if (g_hwnd != nullptr && g_originalWndProc != nullptr) {
-        SetWindowLongPtrW(g_hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(g_originalWndProc));
-        g_originalWndProc = nullptr;
-        g_hwnd = nullptr;
-    }
-}
-
-#endif // JUCE_WINDOWS
-
-//==============================================================================
 class DevPianoApplication : public juce::JUCEApplication {
 public:
     //==============================================================================
@@ -119,10 +41,6 @@ public:
     }
 
     void shutdown() override {
-#if defined(JUCE_WINDOWS) && JUCE_WINDOWS
-        g_mainComponent = nullptr;
-        uninstallWndProcHook();
-#endif
         mainWindow = nullptr;
     }
 
@@ -160,9 +78,6 @@ public:
             // （与 SettingsWindowManager 的修复同源）。
             setUsingNativeTitleBar(true);
             setContentOwned(new MainComponent(), true);
-#if defined(JUCE_WINDOWS) && JUCE_WINDOWS
-            g_mainComponent = dynamic_cast<MainComponent*>(getContentComponent());
-#endif
 
 #if JUCE_IOS || JUCE_ANDROID
             setFullScreen(true);
@@ -198,38 +113,15 @@ public:
 #endif
         }
 
-        ~MainWindow() override {
-#if defined(JUCE_WINDOWS) && JUCE_WINDOWS
-            if (g_mainComponent == getContentComponent()) {
-                g_mainComponent = nullptr;
-            }
-#endif
-        }
-
         void timerCallback() override {
             stopTimer();
             setAlwaysOnTop(false);
-#if defined(JUCE_WINDOWS) && JUCE_WINDOWS
-            installWndProcHook(getPeer());
+            toFront(true);
+            juce::Process::makeForegroundProcess();
 
-            // The window is now visually on top (via HWND_TOPMOST) but lacks
-            // keyboard focus — SetWindowPos with SWP_NOACTIVATE explicitly
-            // avoids activation. Use AttachThreadInput to share input state
-            // with the foreground thread, which grants SetForegroundWindow the
-            // rights it needs to activate our window and deliver key events.
-            if (auto* peer = getPeer()) {
-                if (auto hwnd = reinterpret_cast<HWND>(peer->getNativeHandle())) {
-                    auto fgHwnd = GetForegroundWindow();
-                    if (fgHwnd != nullptr && fgHwnd != hwnd) {
-                        const auto fgThreadId = GetWindowThreadProcessId(fgHwnd, nullptr);
-                        const auto ourThreadId = GetCurrentThreadId();
-                        AttachThreadInput(ourThreadId, fgThreadId, TRUE);
-                        SetForegroundWindow(hwnd);
-                        AttachThreadInput(ourThreadId, fgThreadId, FALSE);
-                    }
-                }
+            if (auto* mainComponent = dynamic_cast<MainComponent*>(getContentComponent())) {
+                scheduleKeyboardFocusRestore(*mainComponent);
             }
-#endif
         }
 
         void closeButtonPressed() override {
@@ -257,15 +149,31 @@ public:
                     return;
                 }
 
-#if defined(JUCE_WINDOWS) && JUCE_WINDOWS
-                scheduleKeyboardFocusRestore("activeWindowStatusChanged");
-#else
-                mainComponent->restoreKeyboardFocus();
-#endif
+                scheduleKeyboardFocusRestore(*mainComponent);
             }
         }
 
     private:
+        void scheduleKeyboardFocusRestore(MainComponent& mainComponent) {
+            if (focusRestorePending) {
+                return;
+            }
+
+            focusRestorePending = true;
+
+            juce::MessageManager::callAsync([safeMain = juce::Component::SafePointer<MainComponent>(&mainComponent),
+                                             safeWindow = juce::Component::SafePointer<MainWindow>(this)] {
+                if (safeWindow != nullptr) {
+                    safeWindow->focusRestorePending = false;
+                }
+
+                if (safeMain != nullptr) {
+                    safeMain->restoreKeyboardFocus();
+                }
+            });
+        }
+
+        bool focusRestorePending = false;
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainWindow)
     };
 

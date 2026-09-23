@@ -44,23 +44,8 @@
 > `_MOTIF_WM_HINTS`（`MWM_FUNC_RESIZE` 关闭）或等待 JUCE 修复
 > `setBounds` 的 hints 覆盖问题；届时需权衡原生代码侵入成本。
 
-### Main.cpp 中残留的 Win32 原生 Hook 与平台特定依赖
-
-> **现状与成因**：
-> `source/Main.cpp` 目前在 `#if defined(JUCE_WINDOWS) && JUCE_WINDOWS` 条件下引入了 `<windows.h>`，并通过 Win32 API（`SetWindowLongPtrW` 子类化 Hook 顶层窗口的 `WNDPROC` 监听 `WM_SETFOCUS`/`WM_ACTIVATE`，以及通过 `AttachThreadInput` + `SetForegroundWindow`）确保 Windows 环境下启动即弹奏的物理键盘焦点获取。
->
-> **架构瑕疵与潜在风险**：
-> 1. **违背跨平台标准封装**：devpiano 作为基于 JUCE 的现代跨平台应用，顶层 Shell 应保持平台无关性，引入原生 Win32 Hook 属于侵入式的平台专有补丁；
-> 2. **宏污染风险**：直接包含 `<windows.h>` 存在引入 Win32 全局宏污染（如 `min`/`max`/`ERROR`）的隐患；
-> 3. **线程挂接侵入性**：跨线程 `AttachThreadInput` 强夺前台焦点可能在复杂的多窗口切换环境下产生焦点竞争。
->
-> **重构方向与跟进计划**：
-> 在后续的维护迭代中，将该部分彻底重构为纯 JUCE 跨平台标准机制：
-> - 利用 JUCE 原生的 `DocumentWindow::activeWindowStatusChanged()` 配合 `juce::MessageManager::callAsync` 延迟分发 `restoreKeyboardFocus()`，天然解决 Windows 原生激活事件到达时的时序抖动，彻底废弃 `WNDPROC` Hook；
-> - 采用 JUCE 标准的 `juce::Process::makeForegroundProcess()` 或 `toFront(true)` 替代 `AttachThreadInput`；
-> - 最终实现 `source/Main.cpp` 乃至整个源码树 100% 纯净、无任何 `<windows.h>` 依赖的标准跨平台设计。
-
 ### 虚拟键盘 CustomKeyboard 在潜在多线程 MIDI 驱动场景下的线程隔离设计约束
+
 
 > **现状与分析**：
 > 目前在 devpiano 架构中：
@@ -78,6 +63,14 @@
 ## 2. 已修复问题（回归参考）
 
 以下问题已修复，保留简要记录用于回归识别。详细根因分析和修复实现见各功能文档。
+
+### Main.cpp 中残留的 Win32 原生 Hook 与平台特定依赖彻底清理 (PLAT-001)
+
+`source/Main.cpp` 早期引入了 `<windows.h>`，并通过 Win32 API（`SetWindowLongPtrW` 子类化 Hook 顶层窗口的 `WNDPROC` 监听 `WM_SETFOCUS`/`WM_ACTIVATE`，以及通过 `AttachThreadInput` + `SetForegroundWindow`）确保 Windows 环境下的键盘焦点。
+修复：彻底废除 `WNDPROC` Hook、全局静态变量与 `<windows.h>` 依赖；统一使用 JUCE 9 原生 `DocumentWindow::activeWindowStatusChanged()` 配合 `juce::MessageManager::callAsync` 延后分发 `restoreKeyboardFocus()`，窗口前台化统一采用 JUCE 标准的 `toFront(true)` 与 `juce::Process::makeForegroundProcess()`，顶层 Shell 达到 100% 纯净标准 JUCE 跨平台实现。
+
+- **回归线索**：Windows 环境下窗口激活/切屏时物理键盘敲击无响应
+- **关联**：`source/Main.cpp::MainWindow::scheduleKeyboardFocusRestore()`、`timerCallback()`
 
 ### 启动早期首音音高异常
 
