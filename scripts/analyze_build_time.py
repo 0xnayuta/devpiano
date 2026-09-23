@@ -139,11 +139,16 @@ def analyze_traces(build_dir: Path, min_time_ms: float = 5.0) -> ProfileReport:
     return report
 
 
-def print_report(report: ProfileReport, top_n: int = 10) -> None:
+def print_report(report: ProfileReport, top_n: int = 10, repo_root: Path | None = None) -> None:
     if report.total_tu_count == 0:
         print(f"{Style.YELLOW}No -ftime-trace profile JSON files found.{Style.RESET}")
         print("Ensure the project was built with ENABLE_TIME_TRACE=ON (e.g. `./scripts/dev.sh time-trace`).")
         return
+
+    if repo_root is None:
+        repo_root = Path(__file__).resolve().parent.parent
+    repo_resolved = repo_root.resolve()
+    repo_prefixes = (repo_resolved.as_posix() + "/", str(repo_resolved) + os.sep)
 
     print(f"\n{Style.BOLD}{Style.CYAN}=== devpiano C++ Build Profiling Report (-ftime-trace) ==={Style.RESET}\n")
     print(f"  Translation Units Profiled : {Style.BOLD}{report.total_tu_count}{Style.RESET}")
@@ -164,11 +169,15 @@ def print_report(report: ProfileReport, top_n: int = 10) -> None:
     for idx, (header, stats) in enumerate(sorted_headers[:top_n], start=1):
         # Shorten path if in repo
         display_header = header
-        if "/root/repos/devpiano/" in display_header:
-            display_header = display_header.replace("/root/repos/devpiano/", "")
-        elif len(display_header) > 48:
+        for prefix in repo_prefixes:
+            if display_header.startswith(prefix):
+                display_header = display_header[len(prefix):]
+                break
+            if prefix in display_header:
+                display_header = display_header.replace(prefix, "")
+                break
+        if len(display_header) > 48:
             display_header = "..." + display_header[-45:]
-
         print(f"  {idx:2d}. {display_header:<48} {format_ms(stats.total_us):>10}  (inc: {stats.count:>3}x)")
 
     # 3. Expensive Template Instantiations
@@ -242,9 +251,9 @@ def main() -> int:
     parser.add_argument("--merge-trace", type=str, default="", help="Export merged JSON trace for Chrome Tracing / Perfetto")
 
     args = parser.parse_args()
+    repo_root = Path(__file__).resolve().parent.parent
     build_path = Path(args.build_dir)
     if not build_path.is_absolute():
-        repo_root = Path(__file__).resolve().parent.parent
         build_path = repo_root / args.build_dir
 
     if not build_path.exists():
@@ -252,7 +261,7 @@ def main() -> int:
         return 1
 
     report = analyze_traces(build_path)
-    print_report(report, top_n=args.top)
+    print_report(report, top_n=args.top, repo_root=repo_root)
 
     if args.merge_trace:
         merge_path = Path(args.merge_trace)
