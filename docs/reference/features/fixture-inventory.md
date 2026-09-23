@@ -57,7 +57,7 @@
 |---------|------|
 | `simple-notes.mid` | Phase 6-5 之前 MIDI 导入的基础验证；作为 `DP_TRACE_MIDI` 输出对照基准（ Debug 下 MIDI trace 输出 vs 预期 note 序列） |
 | `sustain-pedal.mid` | Phase 6-5 增强导入的目标 fixture；手工验证延音踏板效果是否可听 |
-| `multitrack-basic.mid` | 自动选轨逻辑验证；手工确认选中的轨是含 note 的轨而非 tempo track |
+| `multitrack-basic.mid` | 多轨时间线合并验证；Track 0 无音符、Track 1 含音符，确认有音符轨道的事件进入回放 Take |
 | `tempo-change-basic.mid` | 验证 phase4-midi-file-import.md 中"跳过 meta 事件"行为是否稳定；导入过程不因 tempo change 事件而出错 |
 | `empty.mid` | 错误处理边界验证；空文件不崩溃的最小保证 |
 | `invalid.mid` | 健壮性验证；损坏文件不崩溃，Logger 正确输出错误 |

@@ -39,7 +39,7 @@ devpiano 源于对旧版 Windows FreePiano 的现代化重构。所有有价值�
 
 - 演奏录制、回放、播放速度精确控制（0.50x–2.00x，线程安全原子变速）
 - `.devpiano` 原生演奏文件格式（v2 JSON 序列化，含 Base64 编码、events、采样率与元数据）
-- 标准 MIDI 文件导入（智能自动选轨，含 CC64 延音 / pitch bend / program change 事件）
+- 标准 MIDI 文件导入：Type 0/1 全轨并轨，解析 CC64 延音 / pitch bend / program change 事件
 - 标准 MIDI 文件导出（Type 1，960 PPQ）
 - WAV 音频离线导出（共享 `RenderPipeline` 管线与 `InstrumentEndpoint` 统一路由，异步非阻塞 `WavExportTask`，支持 VST3 独立离线实例与物理建模钢琴离线渲染，带 JIVE 声明式进度浮层）
 

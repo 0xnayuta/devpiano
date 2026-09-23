@@ -1,6 +1,6 @@
 # MIDI 文件导入与回放功能说明
 
-> 用途：说明 devpiano 的标准 MIDI 文件（`.mid` / `.midi`）导入解析、自动选轨、回放控制、事件支持与专项测试清单。
+> 用途：说明 devpiano 的标准 MIDI 文件（`.mid` / `.midi`）导入解析、全轨合并、回放控制、事件支持与专项测试清单。
 > 当前状态：已全量实现并稳定接入回放与音频链路。
 > 更新时机：MIDI 解析逻辑、事件过滤规则或导入回放交互发生变化时。
 
@@ -11,7 +11,7 @@
 devpiano 支持打开标准 MIDI 文件并在当前发声链路中回放，为用户提供练琴示范、伴奏跟弹与音色试听能力：
 
 1. **标准格式兼容**：支持标准 MIDI Type 0（单轨多通道）与 Type 1（多轨同步）文件；
-2. **多轨并轨合并与智能解析（MidiTrackMergeEngine）**：委托纯静态算法引擎将 Type 0/1 多轨时间线精确合并为单一连续回放 Take，支持智能通道映射与元数据提取，兼备单轨模式自动挑选主音轨能力；
+2. **多轨并轨合并与智能解析（MidiTrackMergeEngine）**：委托纯静态算法引擎将 Type 0/1 各音轨的 MIDI 播放事件合并为单一连续回放 Take，支持智能通道映射与全局元数据提取；导入路径不提供选轨模式；
 3. **丰富 Channel 消息支持**：除 Note On/Off 外，完整解析并还原 **CC64 延音踏板**、**Pitch Bend 弯音** 与 **Program Change 音色切换**；
 4. **导入 Take 与导出 Take 解耦**：导入的 MIDI 作为只读 Playback Take 播放，**禁止再次导出为 MIDI**（保持 Export MIDI 按钮 disabled，防止有损二次转换），但**支持离线渲染导出为 WAV 音频**；
 5. **极速拖放与路径记忆**：支持从操作系统直接拖拽 `.mid` 文件到窗口即时加载播放，自动记忆最近导入路径。
@@ -45,12 +45,12 @@ RecordingSessionController::handleMidiImported()
 
 ## 3. 详细处理规则与边界设计
 
-### 3.1 多轨并轨合并与选轨策略
+### 3.1 多轨并轨规则与通道映射
 
 在 Phase 26 中，`MidiFileImporter` 接入了 `MidiTrackMergeEngine`：
-- **默认多轨并轨**：针对常见的 Type 1 多轨 MIDI 文件，将所有音轨的事件在时间轴上统一交错排序并合并为单时间线 Take，支持多声部与多乐器统一回放；
+- **全音轨合并**：Type 0/1 文件各音轨中的 MIDI 播放事件按时间顺序合并为单一 Take，支持多声部与多乐器统一回放；
 - **智能通道分配**：支持 `passThrough`（原样保留通道）、`autoAssignIfSingleChannel`（单通道多轨自动分配 1-16 通道）与 `forceTrackToChannel`；
-- **单轨解析模式**：保留单轨提取能力，自动跳过仅含 Tempo/Meta 信息的控制轨，优先选取包含 `noteOn` 数量最多的音乐主轨；
+- **全轨元数据提取**：扫描所有音轨中的 Meta 事件，提取曲名、Tempo、拍号、调号并构建全局 Tempo Map；导入路径不按音符数量选轨；
 - **健壮性容错**：若文件所有轨道均无 Note 事件，安全返回空结果并向 Logger 输出警告，程序不崩溃。
 
 ### 3.2 时间戳换算精度
@@ -97,7 +97,7 @@ RecordingSessionController::handleMidiImported()
 | 用例编号 | 测试场景 | 操作步骤与验证目标 | 状态 |
 |---|---|---|:---:|
 | **MID-001** | 标准单轨 MIDI 导入 | 导入 `simple-notes.mid`，能听到清晰音符序列，虚拟键盘联动高亮 | [x] 已通过 |
-| **MID-002** | 多轨自动选轨 | 导入 `multitrack-basic.mid`（Track 0 为空，Track 1 含音符），自动选中 Track 1 并正常播放 | [x] 已通过 |
+| **MID-002** | 多轨时间线合并 | 导入 `multitrack-basic.mid`（Track 0 无音符、Track 1 含音符），确认 Track 1 音符进入合并后的 Take 并正常播放 | [x] 已通过 |
 | **MID-003** | CC64 延音踏板还原 | 导入 `sustain-pedal.mid`，音符在踏板松开前持续延音，效果清晰可辨 | [x] 已通过 |
 | **MID-004** | 0s 首音即时起奏 | 导入首个音符位于 0.000s 的 MIDI 文件，首音清晰完整，无吞音现象 | [x] 已通过 |
 | **MID-005** | 空文件与非法文件容错 | 导入 `empty.mid` 或损坏的 `invalid.mid`，UI 提示错误，Logger 记录日志，程序不崩溃 | [x] 已通过 |

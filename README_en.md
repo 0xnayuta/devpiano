@@ -65,8 +65,8 @@ For project scope, core capabilities, and explicit non-goals, see [`docs/referen
 - **Real-Time Lock-Free Capture**: lock-free MIDI event collection on the audio thread generating immutable `RecordingTake` snapshots;
 - **Variable-Speed Playback**: 0.5x–2.0x atomic smooth playback tempo scaling with instantaneous restart (Back);
 - **Native Performance File Persistence**: `.devpiano` native file format (v2 JSON + Base64 encoding + `juce::TemporaryFile` atomic writing);
-- **Standard MIDI File Interoperability**: exports standard Type 1 MIDI files (960 PPQ); imports standard `.mid` files with automatic track selection and CC64 sustain/pitch-bend parsing;
-- **Performance Preset System**: full preset CRUD orchestration, F1–F12 hotkey switching, recorded preset-change automation, and overwrite confirmation dialogs (`PresetConfirmDialog`).
+- **Standard MIDI File Interoperability**: exports standard Type 1 MIDI files (960 PPQ); imports `.mid` files by merging all tracks, with CC64 sustain, pitch-bend, and program-change parsing;
+- **Performance Preset System**: full preset CRUD orchestration, F1–F12 hotkey switching, recorded preset-change automation, and same-name import overwrite confirmation through a JIVE modal dialog.
 
 ### 📦 Offline High-Fidelity WAV Export Pipeline
 

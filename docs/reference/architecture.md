@@ -190,7 +190,7 @@ source/
 - **`source/Recording/PerformanceFile.h/.cpp`**：
   - `.devpiano` 原生演奏文件持久化（v2 JSON 格式 + Base64 编码 + 元数据），通过 `juce::TemporaryFile` 实现原子写入。
 - **`source/Recording/MidiFileImporter.h/.cpp`**：
-  - 标准 MIDI 文件解析与统一导入：委托 `MidiTrackMergeEngine` 将多轨事件合并为单时间线 `RecordingTake`，智能提取调号与曲名元数据；单轨模式下智能选取音符最丰富的主音轨。
+  - 标准 MIDI 文件解析与统一导入：委托 `MidiTrackMergeEngine` 将 Type 0/1 各音轨的 MIDI 播放事件合并为单一 `RecordingTake` 时间线，支持通道映射并提取全局元数据；不提供选轨模式。
 - **`source/Recording/MidiTrackMergeEngine.h/.cpp`**：
   - **多轨并轨合并引擎（Phase 26）**：纯静态算法引擎，负责将 `juce::MidiFile` 的所有独立音轨（Type 0/1）合并为单一连续时间线；
   - 支持智能通道映射策略（`passThrough` 保持原通道、`autoAssignIfSingleChannel` 单通道多轨自动分配 1-16 通道、`forceTrackToChannel` 强制轨索引取模分配）；
@@ -200,7 +200,7 @@ source/
 - **`source/Recording/PluginOfflineRenderer.h/.cpp`**：
   - 独立创建非实时离线 VST3 实例，无 Editor 依赖渲染，异常时安全降级至 fallback synth。
 - **`source/Export/WavExportTask.h/.cpp`**：
-  - 现代化非阻塞异步任务模型（`startAsync(onComplete)`，Phase 34-F），彻底消除主线程嵌套消息循环与 `Thread::sleep`，编译配置彻底移除 `JUCE_MODAL_LOOPS_PERMITTED=1`；通过 `JiveModalDialog::makeProgressLayout` 提供现代暗黑进度条浮层，支持随时取消并自动清理残留文件；统一通过 `renderTakeThroughInstrumentEndpoint()` 调度离线发声。
+  - 现代化非阻塞异步任务模型（`startAsync(onComplete)`，Phase 34-F），彻底消除主线程嵌套消息循环与 `Thread::sleep`；`JUCE_MODAL_LOOPS_PERMITTED=1` 仅由 `devpiano_tests` 测试目标定义，主应用目标不定义该宏；通过 `JiveModalDialog::makeProgressLayout` 提供现代暗黑进度条浮层，支持随时取消并自动清理残留文件；统一通过 `renderTakeThroughInstrumentEndpoint()` 调度离线发声。
 - **`source/Export/ExportFlowSupport.h/.cpp`**：
   - 纯函数集合：默认导出文件名推导、导出选项构建与空 Take 校验。
 
@@ -250,7 +250,7 @@ source/
   - **`AdsrCurveComponent.h/.cpp`**：实时交互式 ADSR 包络曲线组件。
   - **`StatusBarMidiDot.h`**：MIDI 活动呼吸指示灯。
 - **`source/UI/`（弹窗接入与样式）**：
-  - **`PresetDialogs.cpp`** / **`PerformanceMetadataDialog.cpp`**：预设与元数据编辑弹窗（全面转接 `JiveModalDialog`）。
+  - **`source/UI/jive/JiveModalDialog.h/.cpp`**：统一 JIVE 模态对话框入口，提供单行输入、确认、元数据编辑与进度浮层模板。
   - **`KeyBindingEditDialog.h/.cpp`**：逐键绑定与调色板编辑弹窗（转接 `JiveModalDialog`）。
   - **`DevPianoLookAndFeel.h/.cpp`**：JUCE 原生控件的暗黑扁平主题定制。
   - **`PluginEditorWindow.h/.cpp`**：独立宿主窗口，托管 VST3 插件原生 UI。

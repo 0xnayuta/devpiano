@@ -74,8 +74,8 @@
 
 ### WavExportTask 异步任务化与消除模态循环 (JUCE-002)
 
-`source/Export/WavExportTask.cpp` 早期通过主线程调用 `runDispatchLoopUntil(10)` 与 `Thread::sleep(10)` 驱动导出进度并阻塞主线程，导致 CMake 必须开启 `JUCE_MODAL_LOOPS_PERMITTED=1`。
-修复：彻底重构为现代化非阻塞异步任务流（`startAsync(onComplete)`），主线程通过回调响应完成或取消；`CMakeLists.txt` 彻底剔除 `JUCE_MODAL_LOOPS_PERMITTED=1` 编译宏。
+`source/Export/WavExportTask.cpp` 早期通过主线程调用 `runDispatchLoopUntil(10)` 与 `Thread::sleep(10)` 驱动导出进度并阻塞主线程，导致 `devpiano` 主应用目标必须开启 `JUCE_MODAL_LOOPS_PERMITTED=1`。
+修复：彻底重构为现代化非阻塞异步任务流（`startAsync(onComplete)`），主线程通过回调响应完成或取消；该宏现仅由 CMake 的 `devpiano_tests` 测试目标定义，`devpiano` 主应用目标不定义。
 
 - **回归线索**：导出 WAV 期间主界面卡死或模态循环递归异常
 - **关联**：`source/Export/WavExportTask.h/.cpp`，`source/Recording/RecordingSessionController.cpp`
@@ -165,10 +165,10 @@
 
 ### Performance Preset 导入同名覆盖确认（Phase 16 已解决）
 
-导入同名 `.devpiano.preset` 文件时无确认提示直接覆盖。修复：在 `PresetFlowSupport::handleImportPresetFile()` 中检测目标预设文件是否存在，存在时调用 `PresetConfirmDialog::show` 弹出声明式覆盖确认对话框（`TRANS("Overwrite Preset?")`），用户确认后覆盖，取消则安全放弃。
+导入同名 `.devpiano.preset` 文件时无确认提示直接覆盖。修复：在 `PresetFlowSupport::handleImportPresetFile()` 中检测目标预设文件是否存在，存在时调用 `JiveModalDialog::launchConfirm` 弹出声明式覆盖确认对话框（`TRANS("Overwrite Preset?")`），用户确认后覆盖，取消则安全放弃。
 
 - **回归线索**：导入同名预设文件直接覆盖而无弹窗提示
-- **关联**：`PresetFlowSupport::handleImportPresetFile()`，`PresetConfirmDialog`，[`../reference/features/performance-presets.md`](../reference/features/performance-presets.md)
+- **关联**：`PresetFlowSupport::handleImportPresetFile()`，`JiveModalDialog::launchConfirm`，[`../reference/features/performance-presets.md`](../reference/features/performance-presets.md)
 
 ### 虚拟键盘高频 MIDI 播放 CPU 占用（Phase 14 + Phase 16 已解决）
 

@@ -65,8 +65,8 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
 - **实时无锁采集**：音频线程无锁采集生成不可变 `RecordingTake` 数据结构；
 - **多倍速回放控制**：支持 0.5x–2.0x 实时原子倍速平滑调节与 Back 从头回放；
 - **原生演奏持久化**：支持 `.devpiano` 原生演奏文件格式（v2 JSON + Base64 编码 + `juce::TemporaryFile` 原子写入）；
-- **标准 MIDI 文件支持**：支持导出标准 Type 1 MIDI 文件（960 PPQ），支持导入标准 `.mid` 文件并自动智能选轨与多控制量解析；
-- **Performance Preset 预设系统**：预设 CRUD 编排、F1-F12 快捷键切换、录制中自动切调记录以及同名覆盖确认（`PresetConfirmDialog`）。
+- **标准 MIDI 文件支持**：支持导出标准 Type 1 MIDI 文件（960 PPQ），支持导入标准 `.mid` 文件并合并全部音轨，解析 CC64 延音、Pitch Bend 与 Program Change 等控制信息；
+- **Performance Preset 预设系统**：预设 CRUD 编排、F1-F12 快捷键切换、录制中自动切调记录以及同名导入覆盖确认（JIVE 声明式弹窗）。
 
 ### 📦 离线高保真 WAV 导出（Offline WAV Export Pipeline）
 
