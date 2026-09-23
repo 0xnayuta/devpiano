@@ -1651,8 +1651,10 @@ public:
             expect(BinaryData::zh_CN_locSize > 0, "BinaryData::zh_CN_locSize must be > 0");
             juce::LocalisedStrings zh(juce::String::fromUTF8(BinaryData::zh_CN_loc, BinaryData::zh_CN_locSize), false);
             expect(zh.getLanguageName().isNotEmpty(), "embedded zh_CN locale must have non-empty language name");
-            expect(zh.translate("Volume") != "Volume", "translates Volume to localised string");
-            expect(zh.translate("Settings") != "Settings", "translates Settings to localised string");
+            expectEquals(zh.translate("Volume"), juce::String::fromUTF8("\xe9\x9f\xb3\xe9\x87\x8f"),
+                         "translates Volume to the expected locale value");
+            expectEquals(zh.translate("Settings"), juce::String::fromUTF8("\xe8\xae\xbe\xe7\xbd\xae"),
+                         "translates Settings to the expected locale value");
             expect(zh.translate("QWERTY Performance Map") != "QWERTY Performance Map",
                    "translates QWERTY Performance Map");
             expect(zh.translate("Sustain Pedal Mode:") != "Sustain Pedal Mode:", "translates Sustain Pedal Mode:");
