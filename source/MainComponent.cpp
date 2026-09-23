@@ -179,10 +179,10 @@ void MainComponent::initialiseThemeAndBootstrap() {
 
     lookAndFeel = std::make_unique<DevPianoLookAndFeel>();
     setLookAndFeel(lookAndFeel.get());
-    // Native dialogs (AlertWindow for preset rename/save/delete, FileChooser
-    // for VST3 browsing) use the *global* default LookAndFeel, not the
-    // component one. Install our dark theme globally so every native window
-    // matches the main UI instead of JUCE's light default.
+    // Native dialogs (FileChooser for VST3 browsing and popup menus) use the
+    // *global* default LookAndFeel, not the component one. Install our dark
+    // theme globally so every native window matches the main UI instead of
+    // JUCE's light default.
     juce::LookAndFeel::setDefaultLookAndFeel(lookAndFeel.get());
     setWantsKeyboardFocus(true);
 

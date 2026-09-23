@@ -108,11 +108,7 @@ BorderRadii<float> StyleSheet::getBorderRadii() const {
 }
 
 juce::Font StyleSheet::getFont() const {
-    juce::Font font {
-#if JUCE_MAJOR_VERSION >= 8
-        juce::FontOptions {},
-#endif
-    };
+    juce::Font font { juce::FontOptions {} };
 
     font.setTypefaceName(getFontFamily());
 
@@ -155,11 +151,7 @@ juce::String StyleSheet::getFontFamily() const {
         return closestAncestor->getFontFamily();
     }
 
-#if JUCE_MAJOR_VERSION >= 8
     return juce::Font::getSystemUIFontName();
-#else
-    return juce::Font::getDefaultSansSerifFontName();
-#endif
 }
 
 float StyleSheet::getFontSize() const {

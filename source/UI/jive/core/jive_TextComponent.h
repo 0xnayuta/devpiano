@@ -56,11 +56,7 @@ private:
     std::unique_ptr<juce::AccessibilityHandler> createAccessibilityHandler() override;
 
     juce::AttributedString::ReadingDirection direction { juce::AttributedString::ReadingDirection::natural };
-    juce::Font font {
-#if JUCE_MAJOR_VERSION >= 8
-        juce::FontOptions {},
-#endif
-    };
+    juce::Font font { juce::FontOptions {} };
     juce::Justification justification { juce::Justification::topLeft };
     float lineSpacing { 0.0f };
     juce::String text;

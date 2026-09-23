@@ -37,14 +37,6 @@ public:
                                           juce::Rectangle<int> parentArea) override;
     void drawProgressBar(juce::Graphics&, juce::ProgressBar&, int width, int height, double progress,
                          const juce::String& textToShow) override;
-    void drawAlertBox(juce::Graphics&, juce::AlertWindow&, const juce::Rectangle<int>& textArea,
-                      juce::TextLayout&) override;
-    juce::Font getAlertWindowTitleFont() override;
-    juce::Font getAlertWindowMessageFont() override;
-    juce::Font getAlertWindowFont() override;
-    int getAlertWindowButtonHeight() override;
-    juce::Array<int> getWidthsForTextButtons(juce::AlertWindow&,
-                                             const juce::Array<juce::TextButton*>& buttons) override;
     juce::Font getTextButtonFont(juce::TextButton&, int buttonHeight) override;
 
 private:

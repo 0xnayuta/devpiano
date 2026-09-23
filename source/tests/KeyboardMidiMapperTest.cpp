@@ -285,7 +285,7 @@ public:
             juce::MidiKeyboardState keyState;
             // 没有按住的按键 → 应为 no-op。
             bool consumed = mapper.handleKeyStateChanged(keyState);
-            expect(!consumed, "no held keys → no consumption");
+            expect(!consumed, "no held keys -> no consumption");
             expectEquals(countNotesOn(keyState), 0);
         }
 

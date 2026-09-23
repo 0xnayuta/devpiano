@@ -194,7 +194,7 @@ private:
 
             juce::MidiKeyboardState ks;
             mapper.sendNoteOn(0, 60, 0.8f, ks);
-            expect(ks.isNoteOn(3, 67), "followKey must transpose note 60 → 67 on the remapped channel");
+            expect(ks.isNoteOn(3, 67), "followKey must transpose note 60 -> 67 on the remapped channel");
         });
 
         testCase("non-followKey channel ignores the global transpose", [&] {

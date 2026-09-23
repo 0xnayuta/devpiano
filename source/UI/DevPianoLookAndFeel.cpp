@@ -65,10 +65,6 @@ void DevPianoLookAndFeel::refreshColours() {
     setColour(juce::TextEditor::highlightColourId, tokens.primaryAlpha30());
     setColour(juce::TextEditor::highlightedTextColourId, tokens.textPrimary());
 
-    // ── AlertWindow ──
-    setColour(juce::AlertWindow::backgroundColourId, tokens.mainBg());
-    setColour(juce::AlertWindow::textColourId, tokens.textPrimary());
-    setColour(juce::AlertWindow::outlineColourId, tokens.textSecondary());
     // ── ProgressBar ──
     setColour(juce::ProgressBar::backgroundColourId, tokens.controlBg());
     setColour(juce::ProgressBar::foregroundColourId, tokens.primary());
@@ -616,53 +612,6 @@ void DevPianoLookAndFeel::drawProgressBar(juce::Graphics& g, juce::ProgressBar& 
         g.setFont(juce::FontOptions(15.0f));
         g.drawText(textToShow, bounds.reduced(4.0f, 0.0f), juce::Justification::centred, true);
     }
-}
-
-// ============================================================================
-//  drawAlertBox
-// ============================================================================
-void DevPianoLookAndFeel::drawAlertBox(juce::Graphics& g, juce::AlertWindow& alert,
-                                       const juce::Rectangle<int>& textArea, juce::TextLayout& textLayout) {
-    const auto bounds = alert.getLocalBounds().toFloat();
-    constexpr float corner = 8.0f;
-
-    g.setColour(tokens.mainBg());
-    g.fillRoundedRectangle(bounds, corner);
-    g.setColour(tokens.textSecondary());
-    g.drawRoundedRectangle(bounds.reduced(0.5f), corner, 1.0f);
-
-    textLayout.draw(g, textArea.toFloat());
-}
-
-// ============================================================================
-//  AlertWindow fonts and dimensions
-// ============================================================================
-juce::Font DevPianoLookAndFeel::getAlertWindowTitleFont() {
-    return getUnifiedUiFont(16.0f, juce::Font::bold);
-}
-
-juce::Font DevPianoLookAndFeel::getAlertWindowMessageFont() {
-    return getUnifiedUiFont(14.0f);
-}
-
-juce::Font DevPianoLookAndFeel::getAlertWindowFont() {
-    return getUnifiedUiFont(14.0f);
-}
-
-int DevPianoLookAndFeel::getAlertWindowButtonHeight() {
-    return 28;
-}
-
-juce::Array<int> DevPianoLookAndFeel::getWidthsForTextButtons(juce::AlertWindow& alert,
-                                                              const juce::Array<juce::TextButton*>& buttons) {
-    juce::ignoreUnused(alert);
-    juce::Array<int> widths;
-    for (int i = 0; i < buttons.size(); ++i) {
-        const int minW = 80;
-        const int fittedW = getTextButtonWidthToFitText(*buttons.getReference(i), 28);
-        widths.add(juce::jmax(minW, fittedW));
-    }
-    return widths;
 }
 
 juce::Font DevPianoLookAndFeel::getTextButtonFont(juce::TextButton&, int buttonHeight) {
