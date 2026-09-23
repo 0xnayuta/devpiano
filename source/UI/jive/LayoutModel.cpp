@@ -425,7 +425,7 @@ juce::ValueTree makeControlsPanelTree() {
 juce::ValueTree makeQwertyCardTree() {
     auto card = flexColumn("qwerty-card");
     card.setProperty("title", TRANS("QWERTY Performance Map"), nullptr);
-    card.setProperty("height", 176, nullptr); // expanded initial (176px performance map)
+    card.setProperty("height", 220, nullptr); // expanded initial (220px performance map)
     card.setProperty("padding", "3 8 3 8", nullptr);
     card.setProperty("margin", "0 0 4 0", nullptr);
     card.setProperty("border-width", "1", nullptr);
@@ -463,12 +463,12 @@ juce::ValueTree makeQwertyCardTree() {
     auto contentArea = flexColumn("qwerty-expanded-area");
     contentArea.setProperty("title", TRANS("QWERTY Content Area"), nullptr);
     contentArea.setProperty("flex-grow", 1.0, nullptr);
-    contentArea.setProperty("height", 150, nullptr); // expanded initial
+    contentArea.setProperty("height", 192, nullptr); // expanded initial
 
     auto qwertyVisualizer = node("QwertyVisualizer", "qwerty-visualizer");
     qwertyVisualizer.setProperty("title", TRANS("QWERTY Visualizer"), nullptr);
     qwertyVisualizer.setProperty("flex-grow", 1.0, nullptr);
-    qwertyVisualizer.setProperty("height", 148, nullptr);
+    qwertyVisualizer.setProperty("height", 190, nullptr);
     contentArea.appendChild(qwertyVisualizer, nullptr);
 
     card.appendChild(contentArea, nullptr);
@@ -532,21 +532,21 @@ juce::ValueTree makeRootLayout() {
     auto controls = makeControlsPanelTree();
     controls.setProperty("flex-grow", 0.0, nullptr);
     controls.setProperty("flex-shrink", 0.0, nullptr);
-    controls.setProperty("height", 176, nullptr);
-    controls.setProperty("min-height", 176, nullptr);
+    controls.setProperty("height", 200, nullptr);
+    controls.setProperty("min-height", 200, nullptr);
     controls.setProperty("margin", "0 0 8 0", nullptr);
     contentRow.appendChild(controls, nullptr);
 
     auto qwerty = makeQwertyCardTree();
-    qwerty.setProperty("height", 176, nullptr); // expanded initial (matches appSettings default)
+    qwerty.setProperty("height", 220, nullptr); // expanded initial (matches appSettings default)
     contentRow.appendChild(qwerty, nullptr);
 
     auto keyboard = makeKeyboardAreaTree();
     keyboard.setProperty("flex-grow", 1.0, nullptr);
     keyboard.setProperty("flex-shrink", 1.0, nullptr);
     keyboard.setProperty("min-height", 120, nullptr);
-    keyboard.setProperty("max-height", 260, nullptr);
-    keyboard.setProperty("height", 200, nullptr);
+    keyboard.setProperty("max-height", 200, nullptr);
+    keyboard.setProperty("height", 192, nullptr);
     contentRow.appendChild(keyboard, nullptr);
     mainArea.appendChild(contentRow, nullptr);
     root.appendChild(mainArea, nullptr);

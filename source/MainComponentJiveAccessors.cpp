@@ -581,9 +581,9 @@ devpiano::ui::QwertyComponent& MainComponent::getQwertyVisualizer() {
 void MainComponent::setQwertyVisualizerExpanded(bool expanded, bool adjustWindowHeight) {
     appSettings.qwertyVisualizerExpanded = expanded;
     if (viewHost.isValid()) {
-        // Header 20 + card padding 6 + content 150.
-        viewHost.setProperty("qwerty-expanded-area", "height", expanded ? 150 : 0);
-        viewHost.setProperty("qwerty-card", "height", expanded ? 176 : 24);
+        // Header 20 + card padding 6 + content 192.
+        viewHost.setProperty("qwerty-expanded-area", "height", expanded ? 192 : 0);
+        viewHost.setProperty("qwerty-card", "height", expanded ? 220 : 24);
         viewHost.setButtonLabel("qwerty-toggle-btn", juce::String::charToString(expanded ? 0x25B4 : 0x25BE));
         viewHost.relayoutContainer("qwerty-card");
         viewHost.relayoutContainer("content-row");
@@ -601,7 +601,7 @@ void MainComponent::setQwertyVisualizerExpanded(bool expanded, bool adjustWindow
                     }
                 }
 #endif
-                constexpr int delta = 152;
+                constexpr int delta = 196; // 220 - 24
                 const auto currentBounds = resizable->getBounds();
                 const auto* display = juce::Desktop::getInstance().getDisplays().getDisplayForRect(currentBounds);
                 const auto screenArea
@@ -613,7 +613,7 @@ void MainComponent::setQwertyVisualizerExpanded(bool expanded, bool adjustWindow
 
                 // 动态调整窗口 ResizeLimits：折叠时允许窗口高度低至 540px，展开时恢复至常规 700px
                 const auto limits = getMainContentResizeLimits();
-                const int minH = expanded ? limits.getY() : juce::jmin(limits.getY(), 540);
+                const int minH = expanded ? limits.getY() : juce::jmin(limits.getY(), 500);
                 resizable->setResizeLimits(limits.getX(), minH, limits.getWidth(), limits.getHeight());
 
                 // 展开防越界：若增加高度后底边超出当前屏幕工作区（如任务栏），向上平移补偿

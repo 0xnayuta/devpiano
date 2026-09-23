@@ -175,7 +175,7 @@ public:
                 setResizable(true, true);
                 const auto limits = MainComponent::getMainContentResizeLimits();
                 const int minH
-                    = mainComponent->isQwertyVisualizerExpanded() ? limits.getY() : juce::jmin(limits.getY(), 540);
+                    = mainComponent->isQwertyVisualizerExpanded() ? limits.getY() : juce::jmin(limits.getY(), 500);
                 setResizeLimits(limits.getX(), minH, limits.getWidth(), limits.getHeight());
                 mainComponent->persistMainContentSize(mainComponent->getWidth(), mainComponent->getHeight());
             }
