@@ -137,8 +137,7 @@ MainComponent::~MainComponent() {
 void MainComponent::initialiseFromPreset() {
     // Load the last active preset, or fall back to built-in default
     if (appSettings.lastActivePresetId.isNotEmpty()) {
-        auto file = devpiano::layout::getPresetDirectory().getChildFile(
-            devpiano::layout::sanitisePresetFileName(appSettings.lastActivePresetId) + ".devpiano.preset");
+        auto file = devpiano::layout::resolvePresetFile(appSettings.lastActivePresetId);
         auto loaded = devpiano::layout::loadPreset(file);
         if (loaded.has_value()) {
             presetFlowSupport->applyPresetData(*loaded);

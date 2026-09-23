@@ -11,6 +11,7 @@ using namespace devpiano::midi;
 //   - save → load round-trip of every field (including all 128 custom key
 //     labels and colours)
 //   - sanitisePresetFileName special characters / trimming / empty fallback
+//   - resolvePresetFile canonical name-to-path derivation
 //   - corrupt or invalid files return nullopt
 //   - formatVersion mismatch rejection
 // =============================================================================
@@ -279,3 +280,24 @@ public:
 };
 
 static PresetDirectoryScanTest presetDirectoryScanTest;
+
+// -----------------------------------------------------------------------------
+
+class PresetFileResolveTest final : public juce::UnitTest {
+public:
+    PresetFileResolveTest()
+        : juce::UnitTest("PerformancePreset: preset file path resolution", "DevPiano/Core") {
+    }
+
+    void runTest() override {
+        testCase("name maps to the canonical path without creating anything", [&] {
+            devpiano::test::ScopedTempDir tempDir("preset-resolve");
+
+            const auto resolved = resolvePresetFile("v2.1 Take", tempDir.get());
+            expectEquals(resolved.getFileName(), juce::String("v2.1 Take.devpiano.preset"));
+            expect(!resolved.existsAsFile(), "resolve must not create the file");
+        });
+    }
+};
+
+static PresetFileResolveTest presetFileResolveTest;

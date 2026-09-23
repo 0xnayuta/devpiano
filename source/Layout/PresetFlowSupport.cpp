@@ -205,7 +205,7 @@ bool PresetFlowSupport::autoSaveCurrentPreset() {
         return false;
     }
     auto updatedPreset = captureCurrentState(currentPresetId);
-    auto presetFile = getPresetDirectory().getChildFile(sanitisePresetFileName(currentPresetId) + ".devpiano.preset");
+    auto presetFile = resolvePresetFile(currentPresetId);
     if (!savePreset(updatedPreset, presetFile)) {
         DP_LOG_WARN("[Preset] failed to auto-save after binding edit: " + currentPresetId);
         return false;
@@ -231,8 +231,7 @@ void PresetFlowSupport::handleSaveAsNewPreset() {
                     return;
                 }
 
-                auto fileName = sanitisePresetFileName(rawName);
-                auto file = getPresetDirectory().getChildFile(fileName + ".devpiano.preset");
+                auto file = resolvePresetFile(rawName);
 
                 if (file.existsAsFile()) {
                     devpiano::ui::jive::JiveModalDialog::launchConfirm({
@@ -288,7 +287,7 @@ void PresetFlowSupport::handleRenamePreset() {
     }
 
     auto oldName = it->name;
-    auto oldFile = getPresetDirectory().getChildFile(sanitisePresetFileName(oldName) + ".devpiano.preset");
+    auto oldFile = resolvePresetFile(oldName);
 
     devpiano::ui::jive::JiveModalDialog::launchSingleInput({
         .title = TRANS("Rename Preset"),
@@ -316,7 +315,7 @@ void PresetFlowSupport::handleRenamePreset() {
                 preset.name = newName;
                 preset.layout.name = newName;
 
-                auto newFile = getPresetDirectory().getChildFile(sanitisePresetFileName(newName) + ".devpiano.preset");
+                auto newFile = resolvePresetFile(newName);
 
                 if (savePreset(preset, newFile)) {
                     if (oldFile.deleteFile()) {
@@ -361,7 +360,7 @@ void PresetFlowSupport::handleDeletePreset() {
                 if (!confirmed) {
                     return;
                 }
-                auto file = getPresetDirectory().getChildFile(sanitisePresetFileName(name) + ".devpiano.preset");
+                auto file = resolvePresetFile(name);
                 if (file.deleteFile()) {
                     DP_LOG_INFO("[Preset] deleted: " + name);
                 } else {
@@ -388,7 +387,7 @@ void PresetFlowSupport::handleImportPresetFile(const juce::File& file) {
         return;
     }
 
-    auto destFile = getPresetDirectory().getChildFile(sanitisePresetFileName(loaded->name) + ".devpiano.preset");
+    auto destFile = resolvePresetFile(loaded->name);
 
     auto performImport = [this, preset = *loaded, destFile] {
         if (savePreset(preset, destFile)) {

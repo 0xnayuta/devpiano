@@ -219,6 +219,10 @@ juce::String getPresetDisplayNameForFile(const juce::File& path) {
     return displayName.isNotEmpty() ? displayName : "Untitled Preset";
 }
 
+juce::File resolvePresetFile(const juce::String& name, const juce::File& dir) {
+    return dir.getChildFile(sanitisePresetFileName(name) + kPresetFileExtension);
+}
+
 // ---- Load ----
 
 std::optional<PerformancePreset> loadPreset(const juce::File& path) {

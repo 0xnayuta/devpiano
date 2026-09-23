@@ -55,6 +55,11 @@ struct PerformancePreset {
 [[nodiscard]] juce::String sanitisePresetFileName(const juce::String& name);
 [[nodiscard]] juce::String getPresetDisplayNameForFile(const juce::File& path);
 
+// 预设 name → 磁盘文件的唯一推导点：dir 下规范命名（sanitisePresetFileName）路径。
+// 所有读写删改均经此处，保证路径策略单点可控。
+// dir 缺省为 getPresetDirectory()，与 scanPresetDirectory 保持同一约定。
+[[nodiscard]] juce::File resolvePresetFile(const juce::String& name, const juce::File& dir = getPresetDirectory());
+
 // ---- I/O ----
 
 [[nodiscard]] std::optional<PerformancePreset> loadPreset(const juce::File& path);
