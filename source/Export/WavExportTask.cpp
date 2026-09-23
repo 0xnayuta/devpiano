@@ -77,6 +77,12 @@ WavExportTask::~WavExportTask() {
     signalThreadShouldExit();
     stopThread(3000);
     if (activeDialog != nullptr) {
+        // 对话框为 deleteWhenDismissed，实际删除被推迟到后续消息循环；本对象析构后
+        // wrapper 析构会触发 onCancel 回调裸 this（use-after-free）。先标记完成，
+        // 使其跳过 onCancel——与 timerCallback 的收尾路径保持一致。
+        if (auto* wrapper = dynamic_cast<ProgressContentWrapper*>(activeDialog->getContentComponent())) {
+            wrapper->markCompleted();
+        }
         activeDialog->exitModalState(0);
     }
 }

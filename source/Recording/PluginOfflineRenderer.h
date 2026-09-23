@@ -29,7 +29,8 @@ namespace devpiano::exporting {
 //     4. WavExportTask(std::move(offlinePlugin))    — transfer ownership to background task
 //
 //   Phase 2 — Thread transition:
-//     WavExportTask::runThread() blocks the message thread with a nested loop;
+//     WavExportTask::startAsync() returns immediately and dismisses its progress
+//     dialog via the completion callback (runSync() blocks instead, headless);
 //     WavExportTask::run() executes on the internal background thread.
 //
 //   Phase 3 — Background thread (WavExportTask::run):
