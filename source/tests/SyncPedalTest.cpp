@@ -449,6 +449,6 @@ private:
     }
 };
 
-static SyncPedalTest syncPedalTest;
+SyncPedalTest syncPedalTest;
 
 } // namespace

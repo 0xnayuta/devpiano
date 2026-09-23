@@ -603,9 +603,13 @@ void MainComponent::setQwertyVisualizerExpanded(bool expanded, bool adjustWindow
                 const auto currentBounds = resizable->getBounds();
                 const auto* display = juce::Desktop::getInstance().getDisplays().getDisplayForRect(currentBounds);
                 const auto* primary = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay();
-                const auto screenArea = display != nullptr ? display->userBounds.toNearestInt()
-                    : primary != nullptr                   ? primary->userBounds.toNearestInt()
-                                                           : juce::Rectangle<int>(0, 0, 1920, 1080);
+                // 逐级回退解析工作区：当前屏幕 -> 主屏幕 -> 安全默认值（无头环境防崩溃）。
+                auto screenArea = juce::Rectangle<int>(0, 0, 1920, 1080);
+                if (display != nullptr) {
+                    screenArea = display->userBounds.toNearestInt();
+                } else if (primary != nullptr) {
+                    screenArea = primary->userBounds.toNearestInt();
+                }
 
                 const auto limits = getMainContentResizeLimits();
                 const int minH = expanded ? limits.getY() : juce::jmin(limits.getY(), 510);
