@@ -514,7 +514,7 @@ juce::Rectangle<int> MainComponent::getInitialMainContentBounds() const {
     const auto width
         = juce::jlimit(limits.getX(), limits.getWidth(),
                        savedWidth > 0 ? savedWidth : devpiano::jive::DesignTokens::get().windowDefaultWidth());
-    const auto minH = appSettings.qwertyVisualizerExpanded ? limits.getY() : juce::jmin(limits.getY(), 500);
+    const auto minH = appSettings.qwertyVisualizerExpanded ? limits.getY() : juce::jmin(limits.getY(), 510);
     const auto height
         = juce::jlimit(minH, limits.getHeight(),
                        savedHeight > 0 ? savedHeight : devpiano::jive::DesignTokens::get().windowDefaultHeight());
@@ -523,7 +523,7 @@ juce::Rectangle<int> MainComponent::getInitialMainContentBounds() const {
 
 void MainComponent::persistMainContentSize(int width, int height) {
     const auto limits = getMainContentResizeLimits();
-    const auto minH = appSettings.qwertyVisualizerExpanded ? limits.getY() : juce::jmin(limits.getY(), 500);
+    const auto minH = appSettings.qwertyVisualizerExpanded ? limits.getY() : juce::jmin(limits.getY(), 510);
     const auto clampedWidth = juce::jlimit(limits.getX(), limits.getWidth(), width);
     const auto clampedHeight = juce::jlimit(minH, limits.getHeight(), height);
     if (appSettings.mainWindowWidth == clampedWidth && appSettings.mainWindowHeight == clampedHeight) {

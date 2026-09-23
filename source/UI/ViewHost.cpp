@@ -77,7 +77,7 @@ void ViewHost::registerDefaultComponents() {
     factory.set("DevKnob", [] {
         auto slider = std::make_unique<juce::Slider>();
         slider->setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-        slider->setTextBoxStyle(juce::Slider::TextBoxBelow, false, 44, 16);
+        slider->setTextBoxStyle(juce::Slider::TextBoxBelow, false, 52, 16);
         slider->setRotaryParameters(juce::MathConstants<float>::pi * 1.25f, juce::MathConstants<float>::pi * 2.75f,
                                     true);
         return slider;

@@ -1188,14 +1188,14 @@ public:
         // (JIVE's boxModelChanged only relays the item itself, never its
         // siblings in the parent column).
         area->state.setProperty("height", 32, nullptr);
-        plugin->state.setProperty("height", 80, nullptr);
+        plugin->state.setProperty("height", 74, nullptr);
         if (auto* panel = dynamic_cast<jive::FlexContainer*>(plugin)) {
             panel->layOutChildren();
         }
         if (auto* mainArea = dynamic_cast<jive::FlexContainer*>(jive::findItemWithID(*item, "main-area"))) {
             mainArea->layOutChildren();
         }
-        expect(plugin->getComponent()->getHeight() == 80, "expanded panel height");
+        expect(plugin->getComponent()->getHeight() == 74, "expanded panel height");
         expect(area->getComponent()->getHeight() > 0, "expanded area visible");
         expect(plugin->getComponent()->isVisible(), "expanded panel visible");
 
@@ -1203,12 +1203,12 @@ public:
         // its siblings when the plugin panel height changes, or the expanded
         // area overlaps the controls below it. Controls and QWERTY cards have
         // fixed heights, so the content row moves down by the expansion delta
-        // (80 - 42) and the elastic keyboard absorbs the difference.
-        expect(contentRow->getComponent()->getY() == contentRowYBefore + 38,
+        // (74 - 42) and the elastic keyboard absorbs the difference.
+        expect(contentRow->getComponent()->getY() == contentRowYBefore + 32,
                "content-row moved down when panel expanded");
         expectEquals(controlsItem->getComponent()->getHeight(), controlsHBefore,
                      "fixed-height controls stay put when panel expanded");
-        expectEquals(keyboardItem->getComponent()->getHeight(), keyboardHBefore - 38,
+        expectEquals(keyboardItem->getComponent()->getHeight(), keyboardHBefore - 32,
                      "keyboard absorbs panel expansion elastically");
         expect(plugin->getComponent()->getBottom() <= contentRow->getComponent()->getY(),
                "expanded panel does not overlap content-row");

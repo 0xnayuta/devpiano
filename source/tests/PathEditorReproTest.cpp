@@ -91,7 +91,7 @@ public:
             = dynamic_cast<jive::GuiItemDecorator*>(jive::findItemWithID(*panelItem, "plugin-expanded-area"))) {
             area->state.setProperty("height", 32, nullptr);
             if (auto* panel = dynamic_cast<jive::GuiItemDecorator*>(jive::findItemWithID(*panelItem, "plugin-panel"))) {
-                panel->state.setProperty("height", 80, nullptr);
+                panel->state.setProperty("height", 74, nullptr);
                 panel->layOutChildren();
             }
 
@@ -114,7 +114,7 @@ public:
             if (auto* rootArea = jive::findItemWithID(*rootItem, "plugin-expanded-area")) {
                 rootArea->state.setProperty("height", 32, nullptr);
             }
-            rootPanel->state.setProperty("height", 80, nullptr);
+            rootPanel->state.setProperty("height", 74, nullptr);
             rootPanel->layOutChildren();
         }
         auto* rootEditorItem = jive::findItemWithID(*rootItem, "plugin-path-editor");

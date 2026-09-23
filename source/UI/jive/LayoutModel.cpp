@@ -163,11 +163,8 @@ juce::ValueTree makePluginPanelTree() {
 
     panel.appendChild(actionRow, nullptr);
 
-    // Expandable area: 0 collapsed, 32 expanded. The path row is 30; the
-    // panel's 80px expanded height keeps that row inside the content box.
-    // Scan progress and the plugin catalogue stay on the status label and
-    // the selector combo. A second multiline dump here only steals the
-    // performance views below.
+    // Expandable area: 0 collapsed, 32 expanded. The path row is 30 with 2px top margin;
+    // the panel's 74px expanded height gives symmetrical 4px top and bottom padding.
     auto expandedArea = flexColumn("plugin-expanded-area");
     expandedArea.setProperty("title", TRANS("Plugin Expanded Area"), nullptr);
     expandedArea.setProperty("height", 0, nullptr);
@@ -175,6 +172,7 @@ juce::ValueTree makePluginPanelTree() {
     auto pathRow = flexRow("plugin-path-row");
     pathRow.setProperty("title", TRANS("Plugin Path Row"), nullptr);
     pathRow.setProperty("height", 30, nullptr);
+    pathRow.setProperty("margin", "2 0 0 0", nullptr);
 
     auto pathLabel = text(TRANS("VST3 Path"), "plugin-path-label");
     pathLabel.setProperty("width", 80, nullptr);
@@ -251,7 +249,7 @@ juce::ValueTree makeControlsPanelTree() {
 
     auto presetHeader = text(TRANS("Performance Preset"), "preset-card-title");
     presetHeader.setProperty("width", "100%", nullptr);
-    presetHeader.setProperty("height", 16, nullptr);
+    presetHeader.setProperty("height", 18, nullptr);
     presetHeader.setProperty("margin", "0 0 4 0", nullptr);
     presetHeader.setProperty("justification", "centred-left", nullptr);
     presetHeader.setProperty("word-wrap", "none", nullptr);
@@ -327,8 +325,8 @@ juce::ValueTree makeControlsPanelTree() {
 
         auto knob = node("DevKnob", id);
         knob.setProperty("title", labelText, nullptr);
-        knob.setProperty("width", 40, nullptr);
-        knob.setProperty("height", 40, nullptr);
+        knob.setProperty("width", 54, nullptr);
+        knob.setProperty("height", 56, nullptr);
         wrapper.appendChild(knob, nullptr);
 
         return wrapper;
@@ -337,7 +335,7 @@ juce::ValueTree makeControlsPanelTree() {
     // 单行八钮：音量与钢琴音色在左，ADSR 包络在右。
     auto knobsRow = flexRow("knobs-row");
     knobsRow.setProperty("title", TRANS("Knobs Row"), nullptr);
-    knobsRow.setProperty("height", 58, nullptr);
+    knobsRow.setProperty("height", 72, nullptr);
     knobsRow.setProperty("justify-content", "space-around", nullptr);
     knobsRow.setProperty("margin", "0 0 4 0", nullptr);
     knobsRow.appendChild(makeKnob("volume-knob", "volume-label", TRANS("Volume")), nullptr);
@@ -352,7 +350,7 @@ juce::ValueTree makeControlsPanelTree() {
 
     auto adsrTitle = text(TRANS("ADSR Curve"), "adsr-curve-title");
     adsrTitle.setProperty("width", "100%", nullptr);
-    adsrTitle.setProperty("height", 16, nullptr);
+    adsrTitle.setProperty("height", 18, nullptr);
     adsrTitle.setProperty("margin", "0 0 2 0", nullptr);
     adsrTitle.setProperty("justification", "centred-left", nullptr);
     adsrTitle.setProperty("word-wrap", "none", nullptr);
@@ -378,7 +376,7 @@ juce::ValueTree makeControlsPanelTree() {
 
     auto transportHeader = text(TRANS("Transport Controls"), "transport-card-title");
     transportHeader.setProperty("width", "100%", nullptr);
-    transportHeader.setProperty("height", 16, nullptr);
+    transportHeader.setProperty("height", 18, nullptr);
     transportHeader.setProperty("margin", "0 0 4 0", nullptr);
     transportHeader.setProperty("justification", "centred-left", nullptr);
     transportHeader.setProperty("word-wrap", "none", nullptr);
@@ -402,7 +400,7 @@ juce::ValueTree makeControlsPanelTree() {
 
     auto speedHeader = text(TRANS("Playback Speed"), "speed-label");
     speedHeader.setProperty("width", "100%", nullptr);
-    speedHeader.setProperty("height", 14, nullptr);
+    speedHeader.setProperty("height", 18, nullptr);
     speedHeader.setProperty("margin", "0 0 2 0", nullptr);
     speedHeader.setProperty("justification", "centred-left", nullptr);
     speedHeader.setProperty("word-wrap", "none", nullptr);
@@ -426,20 +424,20 @@ juce::ValueTree makeQwertyCardTree() {
     auto card = flexColumn("qwerty-card");
     card.setProperty("title", TRANS("QWERTY Performance Map"), nullptr);
     card.setProperty("height", 220, nullptr); // expanded initial (220px performance map)
-    card.setProperty("padding", "3 8 3 8", nullptr);
+    card.setProperty("padding", "4 8 4 8", nullptr);
     card.setProperty("margin", "0 0 4 0", nullptr);
     card.setProperty("border-width", "1", nullptr);
     card.setProperty("flex-shrink", 0.0, nullptr);
 
     auto headerRow = flexRow("qwerty-action-row");
     headerRow.setProperty("title", TRANS("QWERTY Header"), nullptr);
-    headerRow.setProperty("height", 20, nullptr);
+    headerRow.setProperty("height", 22, nullptr);
     headerRow.setProperty("margin", "0", nullptr);
 
     auto title = text(TRANS("QWERTY Performance Map"), "qwerty-title-label");
     title.setProperty("title", TRANS("QWERTY Performance Map"), nullptr);
     title.setProperty("flex-grow", 1.0, nullptr);
-    title.setProperty("height", 20, nullptr);
+    title.setProperty("height", 22, nullptr);
     title.setProperty("justification", "centred-left", nullptr);
     title.setProperty("word-wrap", "none", nullptr);
     headerRow.appendChild(title, nullptr);
@@ -447,7 +445,7 @@ juce::ValueTree makeQwertyCardTree() {
     groupBtn.setProperty("title", TRANS("Layout Group"), nullptr);
     groupBtn.setProperty("tooltip", TRANS("Switch Layout Group (` key or click)"), nullptr);
     groupBtn.setProperty("width", 72, nullptr);
-    groupBtn.setProperty("height", 16, nullptr);
+    groupBtn.setProperty("height", 18, nullptr);
     groupBtn.setProperty("margin", "0 6 0 0", nullptr);
     headerRow.appendChild(groupBtn, nullptr);
 
@@ -455,7 +453,7 @@ juce::ValueTree makeQwertyCardTree() {
     toggleBtn.setProperty("title", TRANS("Toggle QWERTY Visualizer"), nullptr);
     toggleBtn.setProperty("tooltip", TRANS("Toggle QWERTY Visualizer"), nullptr);
     toggleBtn.setProperty("width", 28, nullptr);
-    toggleBtn.setProperty("height", 20, nullptr);
+    toggleBtn.setProperty("height", 22, nullptr);
     headerRow.appendChild(toggleBtn, nullptr);
 
     card.appendChild(headerRow, nullptr);
@@ -463,12 +461,12 @@ juce::ValueTree makeQwertyCardTree() {
     auto contentArea = flexColumn("qwerty-expanded-area");
     contentArea.setProperty("title", TRANS("QWERTY Content Area"), nullptr);
     contentArea.setProperty("flex-grow", 1.0, nullptr);
-    contentArea.setProperty("height", 192, nullptr); // expanded initial
+    contentArea.setProperty("height", 190, nullptr); // expanded initial
 
     auto qwertyVisualizer = node("QwertyVisualizer", "qwerty-visualizer");
     qwertyVisualizer.setProperty("title", TRANS("QWERTY Visualizer"), nullptr);
     qwertyVisualizer.setProperty("flex-grow", 1.0, nullptr);
-    qwertyVisualizer.setProperty("height", 190, nullptr);
+    qwertyVisualizer.setProperty("height", 188, nullptr);
     contentArea.appendChild(qwertyVisualizer, nullptr);
 
     card.appendChild(contentArea, nullptr);
