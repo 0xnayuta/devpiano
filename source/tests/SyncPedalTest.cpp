@@ -21,6 +21,8 @@ public:
         testMultipleNotesInBlock();
         testEmptyBlockIsNoOp();
         testNoAllocationInRenderPath();
+        testSameSampleNoteOffBeforeNoteOn();
+        testMultiChannelSyncPedalDampAndReengage();
         testKeyboardMidiMapperSustainPolicyIntegration();
         testPanicAndResetSyncPedalIntegration();
     }
@@ -358,6 +360,92 @@ private:
         mapper.releaseAllHeldKeys(state);
         expect(resetCallbackFired, "releaseAllHeldKeys must invoke syncPedalResetCallback");
         expect(!mapper.isSyncPedalCutPending());
+    }
+    void testSameSampleNoteOffBeforeNoteOn() {
+        beginTest("Same-sample re-strike emits NoteOff before NoteOn, preventing voice choke");
+
+        devpiano::audio::SyncPedalProcessor processor;
+        processor.setPolicy(devpiano::core::SustainPolicy::syncPedal);
+        processor.setPedalDown(true);
+
+        juce::MidiBuffer buffer;
+        constexpr auto sample = 64;
+        // Inject NoteOn first, then NoteOff, simulating same-sample re-strike / legato
+        buffer.addEvent(juce::MidiMessage::noteOn(1, 60, 0.9f), sample);
+        buffer.addEvent(juce::MidiMessage::noteOff(1, 60), sample);
+
+        juce::MidiBuffer tempBuffer;
+        tempBuffer.ensureSize(1024);
+        processor.processMidiBlock(buffer, tempBuffer);
+
+        // Sequence must be: CC64(0) -> NoteOff -> NoteOn -> CC64(127)
+        expectEquals(buffer.getNumEvents(), 4, "Must produce damp, note-off, note-on, re-engage");
+
+        auto it = buffer.begin();
+        const auto ev1 = *it++;
+        const auto ev2 = *it++;
+        const auto ev3 = *it++;
+        const auto ev4 = *it;
+
+        expect(ev1.getMessage().isControllerOfType(64) && ev1.getMessage().getControllerValue() == 0,
+               "Event 1 must be CC64(0) damp");
+        expect(ev2.getMessage().isNoteOff(), "Event 2 must be NoteOff to release old voice");
+        expectEquals(ev2.getMessage().getNoteNumber(), 60);
+        expect(ev3.getMessage().isNoteOn(), "Event 3 must be NoteOn to attack new voice");
+        expectEquals(ev3.getMessage().getNoteNumber(), 60);
+        expect(ev4.getMessage().isControllerOfType(64) && ev4.getMessage().getControllerValue() == 127,
+               "Event 4 must be CC64(127) re-engage");
+    }
+
+    void testMultiChannelSyncPedalDampAndReengage() {
+        beginTest("Multi-channel NoteOn attacks each receive CC64(0) and CC64(127) on their channels");
+
+        devpiano::audio::SyncPedalProcessor processor;
+        processor.setPolicy(devpiano::core::SustainPolicy::syncPedal);
+        processor.setPedalDown(true);
+
+        juce::MidiBuffer buffer;
+        constexpr auto sample = 32;
+        buffer.addEvent(juce::MidiMessage::noteOn(1, 60, 0.8f), sample);
+        buffer.addEvent(juce::MidiMessage::noteOn(2, 64, 0.8f), sample);
+
+        juce::MidiBuffer tempBuffer;
+        tempBuffer.ensureSize(1024);
+        processor.processMidiBlock(buffer, tempBuffer);
+
+        // 2 damps (ch 1 & ch 2) + 2 attacks (ch 1 & ch 2) + 2 re-engages (ch 1 & ch 2) = 6 events
+        expectEquals(buffer.getNumEvents(), 6);
+
+        bool ch1Damped = false;
+        bool ch2Damped = false;
+        bool ch1Reengaged = false;
+        bool ch2Reengaged = false;
+
+        for (const auto meta : buffer) {
+            const auto msg = meta.getMessage();
+            if (msg.isControllerOfType(64)) {
+                if (msg.getControllerValue() == 0) {
+                    if (msg.getChannel() == 1) {
+                        ch1Damped = true;
+                    }
+                    if (msg.getChannel() == 2) {
+                        ch2Damped = true;
+                    }
+                } else if (msg.getControllerValue() == 127) {
+                    if (msg.getChannel() == 1) {
+                        ch1Reengaged = true;
+                    }
+                    if (msg.getChannel() == 2) {
+                        ch2Reengaged = true;
+                    }
+                }
+            }
+        }
+
+        expect(ch1Damped, "Channel 1 must receive CC64(0)");
+        expect(ch2Damped, "Channel 2 must receive CC64(0)");
+        expect(ch1Reengaged, "Channel 1 must receive CC64(127)");
+        expect(ch2Reengaged, "Channel 2 must receive CC64(127)");
     }
 };
 

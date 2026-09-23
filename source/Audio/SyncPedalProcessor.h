@@ -1,5 +1,5 @@
 #pragma once
-
+#include <array>
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_core/juce_core.h>
 
@@ -106,33 +106,63 @@ public:
             });
 
             if (attack != groupEnd && (pedalDown || cut)) {
-                auto channel = 0;
+                // Collect unique channels that have NoteOn attacks in this sample group
+                std::array<int, 16> channels {};
+                std::size_t numChannels = 0;
                 for (auto cursor = index; cursor != groupEnd; ++cursor) {
                     const auto msg = (*cursor).getMessage();
                     if (msg.isNoteOn() && msg.getVelocity() > 0) {
-                        channel = msg.getChannel();
-                        break;
+                        const int ch = msg.getChannel();
+                        bool found = false;
+                        for (std::size_t i = 0; i < numChannels; ++i) {
+                            if (channels[i] == ch) {
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (!found && numChannels < channels.size()) {
+                            channels[numChannels++] = ch;
+                        }
                     }
                 }
 
-                // One damp for the whole chord. A CC64 already queued at this
-                // sample (collector release landing behind the NoteOn) is not
-                // forwarded, so it cannot cancel the attack.
-                tempBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 64, 0), anchor);
+                // 1. CC64(0) damp for each attack channel. A CC64 already queued
+                // at this sample (e.g. collector release landing behind the NoteOn)
+                // is absorbed here and not forwarded.
+                for (std::size_t i = 0; i < numChannels; ++i) {
+                    tempBuffer.addEvent(juce::MidiMessage::controllerEvent(channels[i], 64, 0), anchor);
+                }
+
+                // 2. NoteOffs first! Releasing old notes before striking new notes
+                // prevents same-sample voice choke on fast re-strikes / legato.
+                for (auto cursor = index; cursor != groupEnd; ++cursor) {
+                    const auto msg = (*cursor).getMessage();
+                    if (msg.isNoteOff() || (msg.isNoteOn() && msg.getVelocity() == 0)) {
+                        tempBuffer.addEvent(msg, anchor);
+                    }
+                }
+
+                // 3. Other non-Note, non-CC64 events (e.g. pitch bend, mod wheel)
+                for (auto cursor = index; cursor != groupEnd; ++cursor) {
+                    const auto msg = (*cursor).getMessage();
+                    if (!msg.isControllerOfType(64) && !msg.isNoteOff() && !msg.isNoteOn()) {
+                        tempBuffer.addEvent(msg, anchor);
+                    }
+                }
+
+                // 4. NoteOn attacks
                 for (auto cursor = index; cursor != groupEnd; ++cursor) {
                     const auto msg = (*cursor).getMessage();
                     if (msg.isNoteOn() && msg.getVelocity() > 0) {
                         tempBuffer.addEvent(msg, anchor);
                     }
                 }
-                for (auto cursor = index; cursor != groupEnd; ++cursor) {
-                    const auto msg = (*cursor).getMessage();
-                    if (!msg.isControllerOfType(64) && !(msg.isNoteOn() && msg.getVelocity() > 0)) {
-                        tempBuffer.addEvent(msg, anchor);
-                    }
-                }
+
+                // 5. If pedal physically held, re-engage sustain for all attack channels
                 if (pedalDown) {
-                    tempBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 64, 127), anchor);
+                    for (std::size_t i = 0; i < numChannels; ++i) {
+                        tempBuffer.addEvent(juce::MidiMessage::controllerEvent(channels[i], 64, 127), anchor);
+                    }
                 }
 
                 if (cut) {

@@ -594,34 +594,39 @@ void MainComponent::setQwertyVisualizerExpanded(bool expanded, bool adjustWindow
     if (adjustWindowHeight) {
         if (auto* resizable = dynamic_cast<juce::ResizableWindow*>(getTopLevelComponent())) {
             if (!resizable->isFullScreen()) {
-#if defined(JUCE_WINDOWS) && JUCE_WINDOWS
                 if (auto* peer = resizable->getPeer()) {
                     if (peer->isMinimised()) {
                         return;
                     }
                 }
-#endif
                 constexpr int delta = 190; // 220 - 30
                 const auto currentBounds = resizable->getBounds();
                 const auto* display = juce::Desktop::getInstance().getDisplays().getDisplayForRect(currentBounds);
-                const auto screenArea
-                    = (display != nullptr ? display->userBounds
-                                          : juce::Desktop::getInstance().getDisplays().getPrimaryDisplay()->userBounds)
-                          .toNearestInt();
-                int newHeight = currentBounds.getHeight() + (expanded ? delta : -delta);
-                int newY = currentBounds.getY();
+                const auto* primary = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay();
+                const auto screenArea = display != nullptr ? display->userBounds.toNearestInt()
+                    : primary != nullptr                   ? primary->userBounds.toNearestInt()
+                                                           : juce::Rectangle<int>(0, 0, 1920, 1080);
 
-                // 动态调整窗口 ResizeLimits：折叠时允许窗口高度低至 540px，展开时恢复至常规 700px
                 const auto limits = getMainContentResizeLimits();
                 const int minH = expanded ? limits.getY() : juce::jmin(limits.getY(), 510);
-                resizable->setResizeLimits(limits.getX(), minH, limits.getWidth(), limits.getHeight());
+                const int maxH = limits.getHeight();
+                const int newHeight = juce::jlimit(minH, maxH, currentBounds.getHeight() + (expanded ? delta : -delta));
+                int newY = currentBounds.getY();
 
                 // 展开防越界：若增加高度后底边超出当前屏幕工作区（如任务栏），向上平移补偿
                 if (expanded && newY + newHeight > screenArea.getBottom()) {
                     newY = juce::jmax(screenArea.getY(), screenArea.getBottom() - newHeight);
                 }
 
-                resizable->setBounds(currentBounds.getX(), newY, currentBounds.getWidth(), newHeight);
+                // 展开时先更新 bounds 再收紧 limits，避免旧 limits 触发向下瞬态扩展导致贴底闪烁；
+                // 折叠时先放宽 limits 再更新 bounds，避免新高度被旧 minH 强制拦截。
+                if (expanded) {
+                    resizable->setBounds(currentBounds.getX(), newY, currentBounds.getWidth(), newHeight);
+                    resizable->setResizeLimits(limits.getX(), minH, limits.getWidth(), maxH);
+                } else {
+                    resizable->setResizeLimits(limits.getX(), minH, limits.getWidth(), maxH);
+                    resizable->setBounds(currentBounds.getX(), newY, currentBounds.getWidth(), newHeight);
+                }
             }
         }
     }
