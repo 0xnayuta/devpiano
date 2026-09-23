@@ -28,10 +28,10 @@ namespace devpiano::exporting {
 //     3. offlinePlugin->setStateInformation(state)  — restore captured state onto offline instance
 //     4. WavExportTask(std::move(offlinePlugin))    — transfer ownership to background task
 //
-//   Phase 2 — Thread transition:
-//     WavExportTask::startAsync() returns immediately and dismisses its progress
-//     dialog via the completion callback (runSync() blocks instead, headless);
-//     WavExportTask::run() executes on the internal background thread.
+//   Phase 2 — 线程切换：
+//     WavExportTask::startAsync() 启动后台导出并立即返回；导出完成后关闭（若有）进度对话框并调用完成回调；
+//     WavExportTask::runSync() 同步阻塞调用线程且不显示进度 UI；
+//     WavExportTask::run() 在内部后台线程执行。
 //
 //   Phase 3 — Background thread (WavExportTask::run):
 //     renderTakeWithOfflinePlugin(...)              — render loop, no message-thread deps

@@ -11,7 +11,7 @@
 
 在 AUDIT-003 完成后，devpiano 的工程基座（覆盖核心引擎、物理声学与 UI 全套自动化测试，零失败、三闸门合规、Windows MSVC 验证 0 错误 0 警告）已完全夯实。
 基于近期对经典项目 FreePiano 及现代开源架构生态（JUCE AudioPluginHost, Kushview Element, Surge XT, Helio, VMPK, Pianoteq）的深度调研与架构裁定，devpiano 正式确立了**“专用钢琴演奏宿主（Dedicated Piano Performance Host）而非通用 DAW”**的系统定位。
-本轮迭代聚焦于电脑键盘演奏人机交互的痛点消除与演奏表现力跃升，实施 5 个阶段的阶梯式落地。
+本轮迭代聚焦于电脑键盘演奏人机交互的痛点消除与演奏表现力跃升，实施 6 个阶段的阶梯式落地。
 
 ---
 
@@ -133,7 +133,7 @@
 > 目标：对全库 14 个业务子模块进行系统性跨平台与 JUCE 9 框架利用深度审计，消除不必要的手写封装与自造轮子，收敛平台特化代码至最小且必要的集合。  
 > 归档记录详见：[`../archive/cross-platform-and-juce9-convergence.md`](../archive/cross-platform-and-juce9-convergence.md)。
 
-- [x] **Phase 34-F-1：源码 7-bit ASCII 规范化与废弃 AlertWindow 绘制代码清理 (`QUAL-001`, `QUAL-002`, `JUCE-003`)**：
+- [x] **Phase 34-F-1：字符串字面量 7-bit ASCII 规范化与废弃 AlertWindow 绘制代码清理 (`QUAL-001`, `QUAL-002`, `JUCE-003`)**：
   - `StyleCatalogTest.cpp`、`MidiChannelMapperTest.cpp` 与 `KeyboardMidiMapperTest.cpp` 消除裸中文与 Unicode 箭头，全库字符串字面量 100% 达到 Strict 7-bit ASCII 铁律，消除 Windows/MSVC 编译乱码与断言崩溃隐患；
   - `DevPianoLookAndFeel` 彻底删除对 `juce::AlertWindow` 的废弃重写方法与颜色配置；
   - 清理内化 JIVE 核心源码中残留的 `#if JUCE_MAJOR_VERSION >= 8` 历史版本宏。

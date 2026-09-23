@@ -308,7 +308,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 3. **SustainPolicy 与 Sample-Accurate 事件级 Sync 切分踏板**：音频块内部采样精确调度 $\text{CC64}(0) \to \text{NoteOn} \to \text{CC64}(127)$，消除空格键踩放断音空洞，杜绝线程 Sleep；
 4. **PerformanceModifierState 瞬态 Press 修饰符**：Shift 力度拉满（Velocity Boost）、Alt 高八度平移（+8va），纯事件流变换零全局配置污染，UI HUD 实时标签；
 5. **扫描器增量持久化（Crash-safe State Persistence）与乐器端点概念收敛**：插件扫描逐项即时持久化，dead-man's pedal 崩溃点记录与黑名单推迟；`InstrumentEndpoint` 统一乐器抽象，解耦设备准备、实时发声与离线渲染；
-6. **跨平台实现深度收敛与 JUCE 9 原生框架利用全面升级（Phase 34-F）**：彻底拔除 Win32 `WNDPROC` Hook、`AttachThreadInput` 与 `<windows.h>`，全平台统一基于 JUCE 9 原生事件；`WavExportTask` 完全异步化（`startAsync`），移除 `JUCE_MODAL_LOOPS_PERMITTED=1`；源码 100% 达到 Strict 7-bit ASCII 铁律；`createLegalFileName` 替换自造文件名过滤轮子，运行时配置目录统一为 `DevPiano`。
+6. **跨平台实现深度收敛与 JUCE 9 原生框架利用全面升级（Phase 34-F）**：彻底拔除 Win32 `WNDPROC` Hook、`AttachThreadInput` 与 `<windows.h>`，全平台统一基于 JUCE 9 原生事件；`WavExportTask` 完全异步化（`startAsync`），移除 `JUCE_MODAL_LOOPS_PERMITTED=1`；C++ 字符串字面量 100% 达到 Strict 7-bit ASCII 约束；`createLegalFileName` 替换自造文件名过滤轮子，运行时配置目录统一为 `DevPiano`。
 
 详细完成记录见 [`../archive/cross-platform-and-juce9-convergence.md`](../archive/cross-platform-and-juce9-convergence.md) 与 [`current-iteration.md`](current-iteration.md)。
 

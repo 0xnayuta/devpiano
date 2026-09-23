@@ -2,7 +2,7 @@
 
 > 归档状态：已全部完成并闭环（2026-09-23）  
 > 对应审计计划：跨平台实现与 JUCE 9 框架利用深度审计  
-> 成果综述：全面审计全库 14 个业务子模块跨平台边界，执行四轮递进式重构，8 项核心改进项（`QUAL-001`, `QUAL-002`, `JUCE-003`, `JUCE-001`, `PLAT-003`, `ARCH-001`, `PLAT-001`, `JUCE-002`）100% 修复闭环；彻底消除 `<windows.h>` 依赖，应用主目标彻底解耦 `JUCE_MODAL_LOOPS_PERMITTED` 宏，清理 4 个空壳源文件与 292 行样板死代码，全库 100% 遵守 Strict 7-bit ASCII 铁律，单元测试与主应用编译全绿。
+> 成果综述：全面审计全库 14 个业务子模块跨平台边界，执行四轮递进式重构，8 项核心改进项（`QUAL-001`, `QUAL-002`, `JUCE-003`, `JUCE-001`, `PLAT-003`, `ARCH-001`, `PLAT-001`, `JUCE-002`）100% 修复闭环；彻底消除 `<windows.h>` 依赖，应用主目标彻底解耦 `JUCE_MODAL_LOOPS_PERMITTED` 宏，清理 4 个空壳源文件与 292 行样板死代码，全库 C++ 字符串字面量 100% 遵守 Strict 7-bit ASCII 约束，单元测试与主应用编译全绿。
 
 ---
 
@@ -19,9 +19,9 @@
 3. **铁律 3（合法保留的必要平台特化护城河）**：
    - **Windows 原生 IME 抑制（`PLAT-002`）**：在 `source/MainComponent.cpp` 中通过前向声明调用 Win32 `ImmAssociateContext(hwnd, nullptr)`，规避 JUCE 在初次挂载时 `lastTarget == textInputTarget == nullptr` 导致断路未调用 `dismissPendingTextInput` 的框架缺陷，坚决保障激烈弹奏钢琴时不弹起输入法浮层并吞噬按键；
    - **跨平台 CJK 字体链（`PLAT-004`）**：在 `source/UI/jive/DesignTokens.cpp` 中针对 Linux（Noto Sans CJK SC / 文泉驿）、macOS（PingFang SC）与 Windows（Microsoft YaHei UI）配置黑体候选与 Fallback 链，依托 JUCE 9 `FontOptions` 现代化流式不可变构造，属于系统级资源标准适配。
-4. **铁律 4（源码字符编码与 Strict 7-bit ASCII）**：
-   - 严禁在 C++ 源码（`.cpp` / `.h`，包括单元测试）中书写裸多字节非 ASCII 字符；
-   - 自然语言文案 100% 外部化至 `source/Locale/zh_CN.loc`，特殊符号一律使用 `juce::String::charToString` 或十六进制字节转义；
+4. **铁律 4（字符串字面量编码与 Strict 7-bit ASCII）**：
+   - 严禁在 C++ 字符串字面量（`.cpp` / `.h`，包括单元测试）中直接书写裸多字节非 ASCII 字符；此限制不适用于源代码注释；
+   - 特殊符号使用 Unicode 转义或十六进制，UI 文本通过 `TRANS()` 外部化维护。
    - 单元测试只验证语言切换机制（Mechanism），严禁硬编码断言具体的中文译文文本。
 5. **铁律 5（严格三闸门基线与全量构建验证）**：
    - 代码格式合规：`./scripts/dev.sh format --check` 100% 通过；
@@ -113,7 +113,7 @@
 | **废弃与死代码文件数** | 存在 4 个薄转发空壳类文件 | **完全删除（0 个空壳）** | 清理 `PresetDialogs.*` 与 `PerformanceMetadataDialog.*` |
 | **预设文件名合法化支持** | 手写 ASCII 过滤（截断中文为 `_`） | **`juce::File::createLegalFileName`** | 天然支持中文、日文等 Unicode 预设跨平台持久化 |
 | **运行时配置目录一致性** | `DevPiano` 与 `devpiano` 双目录分歧 | **统一为 `DevPiano`** | 根除 Linux 大小写敏感文件系统下的分裂问题 |
-| **源码 7-bit ASCII 违规** | 测试字面量中存在 4 处裸非 ASCII | **0 处违规（100% 纯 ASCII）** | 消除 Windows/MSVC 潜在编译与断言崩溃风险 |
+| **C++ 字符串字面量的 7-bit ASCII 约束** | 测试字符串字面量中存在 4 处裸非 ASCII | **0 处违规（字符串字面量符合 7-bit ASCII）** | 消除 Windows/MSVC 潜在编译与断言崩溃风险 |
 | **全库净精简代码行数** | — | **-292 行** | 删除冗余转发、旧 LookAndFeel 重写与历史版本宏 |
 | **全量自动化单元测试** | 全部通过 | **100% 通过 (28.65s)** | 逻辑零衰减，Unicode 预设单测新增覆盖 |
 | **主应用 WSL 编译验证** | 正常编译 | **126 单元编译链接全绿 (0 警告)** | 架构干净、构建敏捷 |

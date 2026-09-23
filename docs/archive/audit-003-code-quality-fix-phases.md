@@ -19,8 +19,8 @@
 3. **铁律 3（UI 基础设施接口冻结与消息循环安全）**：
    - 修复无头单测中的 Linux socket 溢出告警（`TEST-001`）时，通过 `juce::MessageManager::getInstance()->deliverPendingMessages()` 在单测用例析构/清理时主动泵送并清空事件队列；
    - 严禁侵入修改 JIVE 内化核心源码，严格遵守 Phase 28 UI Infrastructure Freeze 接口冻结公约。
-4. **铁律 4（字符编码与严格 7-bit ASCII）**：
-   - 严禁在 C++ 源码（`.cpp` / `.h`，包括单元测试）中书写裸多字节非 ASCII 字符；
+4. **铁律 4（字符串字面量编码与 Strict 7-bit ASCII）**：
+   - 严禁在 C++ 字符串字面量（`.cpp` / `.h`，包括单元测试）中直接书写裸多字节非 ASCII 字符；此限制不适用于源代码注释；
    - 特殊符号使用 Unicode 转义或十六进制，UI 文本通过 `TRANS()` 外部化维护。
 5. **铁律 5（严格三闸门基线与双平台 MSVC 验证）**：
    - 代码格式合规：`./scripts/dev.sh format --check` 100% 通过；
