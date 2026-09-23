@@ -125,9 +125,36 @@
   - 离线侧新增 `renderTakeThroughInstrumentEndpoint()` 端点路由，`WavExportTask` 不再自持 `offlinePlugin != nullptr ? ... : ...` 二元分支；
   - `InstrumentEndpointTest` 覆盖端点解析回落、通道几何与就绪语义、离线双路由与空 take 拒绝。
 
+
+---
+
+### Phase 34-F：跨平台实现深度收敛与 JUCE 9 原生框架利用全面升级 (Cross-Platform & JUCE 9 Convergence) [已完成，2026-09-23]
+
+> 目标：对全库 14 个业务子模块进行系统性跨平台与 JUCE 9 框架利用深度审计，消除不必要的手写封装与自造轮子，收敛平台特化代码至最小且必要的集合。  
+> 归档记录详见：[`../archive/cross-platform-and-juce9-convergence.md`](../archive/cross-platform-and-juce9-convergence.md)。
+
+- [x] **Phase 34-F-1：源码 7-bit ASCII 规范化与废弃 AlertWindow 绘制代码清理 (`QUAL-001`, `QUAL-002`, `JUCE-003`)**：
+  - `StyleCatalogTest.cpp`、`MidiChannelMapperTest.cpp` 与 `KeyboardMidiMapperTest.cpp` 消除裸中文与 Unicode 箭头，全库字符串字面量 100% 达到 Strict 7-bit ASCII 铁律，消除 Windows/MSVC 编译乱码与断言崩溃隐患；
+  - `DevPianoLookAndFeel` 彻底删除对 `juce::AlertWindow` 的废弃重写方法与颜色配置；
+  - 清理内化 JIVE 核心源码中残留的 `#if JUCE_MAJOR_VERSION >= 8` 历史版本宏。
+- [x] **Phase 34-F-2：JUCE 9 原生合法文件名替换与运行时数据目录大小写归一 (`JUCE-001`, `PLAT-003`, `ARCH-001`)**：
+  - `PerformancePreset.cpp` 以 JUCE 9 原生 `juce::File::createLegalFileName` 取代手写 ASCII 过滤轮子 `sanitisePresetFileName`，天然解锁中文与 Unicode 预设名称在 Windows/Linux 上的合法落盘；
+  - `PluginHost.cpp` 与 `DevPianoLogger.cpp` 数据目录名称从小写 `"devpiano"` 统一为 `"DevPiano"`，根治 Linux 大小写敏感文件系统下的双目录分裂；
+  - `PresetFlowSupport.cpp` 与 `RecordingSessionController.cpp` 直接内联调用声明式 `JiveModalDialog`，彻底删除 4 个薄转发空壳类源文件并更新 CMake 配置。
+- [x] **Phase 34-F-3：Main.cpp 原生 Hook 消除与纯净跨平台化 (`PLAT-001`)**：
+  - 彻底拔除 `source/Main.cpp` 中的 Windows `WNDPROC` 钩子、`AttachThreadInput` 与全局静态指针，移除 `#include <windows.h>`，顶层 Shell 跨平台纯度达到 100%；
+  - 全平台统一采用 JUCE 9 原生 `DocumentWindow::activeWindowStatusChanged()` 配合 `callAsync` 延后分发 `restoreKeyboardFocus()`，窗口前台化使用 `toFront(true)` 与 `juce::Process::makeForegroundProcess()`；
+  - 同步更新 `known-issues.md` 将 `PLAT-001` 转入已修复清单。
+- [x] **Phase 34-F-4：WavExportTask 完全异步化与模态循环解耦 (`JUCE-002`)**：
+  - `WavExportTask` 演进为现代化非阻塞异步任务模型（`startAsync(onComplete)`），彻底消除主线程嵌套消息循环 `runDispatchLoopUntil(10)` 与主线程 `Thread::sleep(10)`；
+  - `RecordingSessionController::handleExportWavClicked()` 完全非阻塞化；
+  - 从 `CMakeLists.txt` 中主应用 `devpiano` 编译配置中彻底移除 `JUCE_MODAL_LOOPS_PERMITTED=1` 编译宏。
+
 ---
 
 ## 历史实现 Backlog
+
+- 跨平台实现收敛与 JUCE 9 框架深度利用阶段归档：[`../archive/cross-platform-and-juce9-convergence.md`](../archive/cross-platform-and-juce9-convergence.md)
 
 - AUDIT-003 修复阶段归档（全面代码质量审计缺陷消除与架构对齐）：[`../archive/audit-003-code-quality-fix-phases.md`](../archive/audit-003-code-quality-fix-phases.md)
 - Phase 33 完成记录（可观测性加固与生产级诊断基础设施）：[`../archive/phase33-observability-and-diagnostics-infrastructure.md`](../archive/phase33-observability-and-diagnostics-infrastructure.md)
