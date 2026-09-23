@@ -14,6 +14,7 @@
 class AudioEngine;
 class MainComponent;
 struct SettingsModel;
+class WavExportTask;
 
 namespace devpiano::exporting {
 enum class ExportFileType : std::uint8_t;
@@ -102,6 +103,7 @@ private:
     std::unique_ptr<juce::FileChooser> exportWavChooser;
     std::unique_ptr<juce::FileChooser> importMidiChooser;
     std::unique_ptr<juce::FileChooser> performanceFileChooser;
+    std::unique_ptr<WavExportTask> activeWavExportTask;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(RecordingSessionController)
 };

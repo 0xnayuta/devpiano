@@ -179,12 +179,36 @@ void RecordingSessionController::handleExportMidiClicked() {
 void RecordingSessionController::handleExportWavClicked() {
     using devpiano::exporting::ExportFileType;
 
-    // Snapshot the take on the message thread for thread-safe background export.
-    auto takeCopy = recordingSession.take;
+    const auto hasExportableTake = devpiano::exporting::canExportTake(recordingSession.take);
+    if (!hasExportableTake) {
+        DP_LOG_INFO(devpiano::exporting::makeExportLogPrefix(ExportFileType::wav)
+                    + " export skipped: recordingSession.take is empty or not exportable");
+        return;
+    }
 
-    runExportRecordingFlow(
-        ExportFileType::wav, exportWavChooser, TRANS("Export WAV Recording"), "*.wav",
-        [this, take = std::move(takeCopy)](const juce::File& file) mutable {
+    const auto defaultFile = devpiano::exporting::makeDefaultRecordingExportFile(
+        ExportFileType::wav, devpiano::exporting::getLastMidiExportDirectory(appSettings));
+
+    exportWavChooser = std::make_unique<juce::FileChooser>(TRANS("Export WAV Recording"), defaultFile, "*.wav");
+    exportWavChooser->launchAsync(
+        juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles
+            | juce::FileBrowserComponent::warnAboutOverwriting,
+        [this, aliveFlag = aliveFlag_](const juce::FileChooser& fc) {
+            if (!*aliveFlag) {
+                return;
+            }
+            auto file = fc.getResult();
+            if (file == juce::File()) {
+                DP_LOG_INFO("[Export] WAV export cancelled by user");
+                exportWavChooser.reset();
+                return;
+            }
+
+            appSettings.lastMidiExportPath = file.getFullPathName();
+            owner.saveSettingsSoon();
+
+            // Snapshot the take on the message thread for thread-safe background export.
+            auto take = recordingSession.take;
             auto options = devpiano::exporting::buildWavExportOptions(take, appSettings.getPerformanceSettingsView(),
                                                                       getCurrentRuntimeSampleRate(),
                                                                       getCurrentRuntimeBlockSize());
@@ -215,19 +239,25 @@ void RecordingSessionController::handleExportWavClicked() {
                 }
             });
 
-            // Phase 2: Launch background export task (move take to avoid 15MB duplication, RES-001)
-            WavExportTask task(std::move(take), file, options, std::move(offlinePlugin), &owner);
-            const auto ok = task.runThread();
-            if (ok) {
-                DP_LOG_INFO("[Export] WAV exported: " + file.getFullPathName());
-                return true;
-            }
-
-            if (!task.getErrorMessage().isEmpty()) {
-                owner.showStatusMessage(TRANS("Export failed: ") + task.getErrorMessage(), 3000);
-            }
-            DP_LOG_WARN("[Export] WAV export " + task.getErrorMessage());
-            return false;
+            // Phase 2: Launch asynchronous background export task
+            activeWavExportTask
+                = std::make_unique<WavExportTask>(std::move(take), file, options, std::move(offlinePlugin), &owner);
+            activeWavExportTask->startAsync([this, aliveFlag, file](bool ok, const juce::String& errorMsg) {
+                if (!*aliveFlag) {
+                    return;
+                }
+                if (ok) {
+                    DP_LOG_INFO("[Export] WAV exported: " + file.getFullPathName());
+                    owner.showStatusMessage(TRANS("WAV export completed: ") + file.getFileName(), 2500);
+                } else {
+                    if (!errorMsg.isEmpty()) {
+                        owner.showStatusMessage(TRANS("Export failed: ") + errorMsg, 3000);
+                    }
+                    DP_LOG_WARN("[Export] WAV export " + errorMsg);
+                }
+                activeWavExportTask.reset();
+                exportWavChooser.reset();
+            });
         });
 }
 

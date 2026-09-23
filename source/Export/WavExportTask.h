@@ -16,12 +16,12 @@
 // declarative progress layout, providing a theme-consistent dark ProgressBar.
 //
 // Usage (message thread):
-//   WavExportTask task(takeCopy, file, options, std::move(offlinePlugin), parentComp);
-//   task.runThread();                         // blocks with nested message loop
-//   if (task.wasSuccessful()) { /* ok */ }
+//   task.startAsync([](bool ok, const juce::String& error) { ... });
 // ============================================================================
 class WavExportTask : private juce::Thread, private juce::Timer {
 public:
+    using CompletionCallback = std::function<void(bool success, const juce::String& errorMessage)>;
+
     WavExportTask(devpiano::recording::RecordingTake take, juce::File destinationFile,
                   const devpiano::exporting::WavExportOptions& options,
                   std::unique_ptr<juce::AudioPluginInstance> offlinePlugin = nullptr,
@@ -29,11 +29,13 @@ public:
 
     ~WavExportTask() override;
 
-    /// Runs the export on a background thread while displaying the JIVE progress dialog
-    /// (or headlessly without UI dialogs when showProgressDialog is false).
-    /// Returns true if completed successfully, false if cancelled or failed.
-    bool runThread(bool showProgressDialog = true);
+    /// Starts asynchronous export on a background thread while displaying the JIVE progress dialog.
+    /// Non-blocking: returns immediately; invokes onComplete on the message thread when finished.
+    void startAsync(CompletionCallback onComplete);
 
+    /// Runs synchronously without UI dialogs (for headless/testing environments).
+    /// Returns true if completed successfully, false if cancelled or failed.
+    bool runSync();
     [[nodiscard]] bool wasSuccessful() const noexcept {
         return success.load();
     }
@@ -65,6 +67,7 @@ private:
     juce::CriticalSection messageLock;
     juce::String currentStatusMessage;
     juce::String errorMessage;
+    CompletionCallback completionCallback;
 
     // Active progress dialog reference (message thread only)
     juce::Component::SafePointer<juce::DialogWindow> activeDialog;

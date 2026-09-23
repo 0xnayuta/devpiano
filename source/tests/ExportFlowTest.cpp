@@ -461,10 +461,10 @@ public:
             options.masterGain = 1.0f;
 
             WavExportTask task(take, target, options, nullptr, nullptr);
-            // Run headlessly in unit test environment to avoid spawning OS progress windows
-            const bool result = task.runThread(false);
+            // Run synchronously in unit test environment
+            const bool result = task.runSync();
 
-            expect(result, "runThread must complete successfully");
+            expect(result, "runSync must complete successfully");
             expect(task.wasSuccessful(), "wasSuccessful flag must be true");
             expect(target.existsAsFile(), "Target WAV file must be created on disk");
             expect(target.getSize() > 44, "Target WAV file must have valid size");
@@ -483,9 +483,9 @@ public:
 
             // Empty target file is invalid
             WavExportTask failTask(take, juce::File(), options, nullptr, nullptr);
-            const bool result = failTask.runThread(false);
+            const bool result = failTask.runSync();
 
-            expect(!result, "runThread must return false for invalid destination");
+            expect(!result, "runSync must return false for invalid destination");
             expect(!failTask.wasSuccessful(), "wasSuccessful must be false");
             expect(failTask.getErrorMessage().isNotEmpty(), "errorMessage must be populated on failure");
         });

@@ -90,8 +90,10 @@ void WavExportTask::setStatusMessage(const juce::String& newStatusMessage) {
     currentStatusMessage = newStatusMessage;
 }
 
-bool WavExportTask::runThread(bool showProgressDialog) {
+void WavExportTask::startAsync(CompletionCallback onComplete) {
     JUCE_ASSERT_MESSAGE_THREAD
+
+    completionCallback = std::move(onComplete);
 
     success.store(false);
     cancelRequested.store(false);
@@ -103,17 +105,6 @@ bool WavExportTask::runThread(bool showProgressDialog) {
         errorMessage.clear();
     }
 
-    if (!showProgressDialog) {
-        // Headless execution: start background audio rendering without creating OS windows
-        startThread(juce::Thread::Priority::normal);
-
-        while (isThreadRunning()) {
-            juce::MessageManager::getInstance()->runDispatchLoopUntil(10);
-        }
-
-        stopThread(3000);
-        return success.load() && !cancelRequested.load();
-    }
     // Build JIVE progress dialog layout
     auto layout = devpiano::ui::jive::JiveModalDialog::makeProgressLayout(TRANS("Exporting..."), 380, 140);
     devpiano::ui::ViewHost viewHost;
@@ -150,30 +141,21 @@ bool WavExportTask::runThread(bool showProgressDialog) {
     activeDialog = dialog;
 
     startTimerHz(30);
+}
 
-    // Run nested message loop until thread finishes or cancel occurs
-#if JUCE_MODAL_LOOPS_PERMITTED
-    while (isTimerRunning()) {
-        juce::MessageManager::getInstance()->runDispatchLoopUntil(10);
-    }
-#else
-    // DevPiano is a desktop application where JUCE_MODAL_LOOPS_PERMITTED is required
-    // for nested progress dialog dispatch loop.
-    jassertfalse;
-    DP_LOG_ERROR("[Export] WAV export requires JUCE_MODAL_LOOPS_PERMITTED=1");
-    while (isThreadRunning()) {
-        juce::Thread::sleep(10);
-    }
-#endif
-    stopTimer();
-    if (activeDialog != nullptr) {
-        if (auto* wrapper = dynamic_cast<ProgressContentWrapper*>(activeDialog->getContentComponent())) {
-            wrapper->markCompleted();
-        }
-        activeDialog->exitModalState(0);
-        activeDialog = nullptr;
+bool WavExportTask::runSync() {
+    success.store(false);
+    cancelRequested.store(false);
+    finished.store(false);
+    currentProgress.store(0.0);
+    {
+        const juce::ScopedLock sl(messageLock);
+        currentStatusMessage = TRANS("Exporting...");
+        errorMessage.clear();
     }
 
+    startThread(juce::Thread::Priority::normal);
+    waitForThreadToExit(30000);
     stopThread(3000);
     return success.load() && !cancelRequested.load();
 }
@@ -181,7 +163,7 @@ bool WavExportTask::runThread(bool showProgressDialog) {
 void WavExportTask::timerCallback() {
     const bool isRunning = isThreadRunning();
 
-    if (!isRunning || finished.load() || activeDialog == nullptr || cancelRequested.load()) {
+    if (!isRunning || finished.load() || cancelRequested.load()) {
         finished.store(true);
         stopTimer();
         if (activeDialog != nullptr) {
@@ -190,6 +172,13 @@ void WavExportTask::timerCallback() {
             }
             activeDialog->exitModalState(0);
             activeDialog = nullptr;
+        }
+
+        stopThread(3000);
+
+        if (completionCallback) {
+            auto cb = std::move(completionCallback);
+            cb(success.load() && !cancelRequested.load(), getErrorMessage());
         }
         return;
     }
