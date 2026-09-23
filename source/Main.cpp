@@ -174,7 +174,9 @@ public:
                 // （见 known-issues.md），因此不再提供"锁定窗口大小"选项。
                 setResizable(true, true);
                 const auto limits = MainComponent::getMainContentResizeLimits();
-                setResizeLimits(limits.getX(), limits.getY(), limits.getWidth(), limits.getHeight());
+                const int minH
+                    = mainComponent->isQwertyVisualizerExpanded() ? limits.getY() : juce::jmin(limits.getY(), 540);
+                setResizeLimits(limits.getX(), minH, limits.getWidth(), limits.getHeight());
                 mainComponent->persistMainContentSize(mainComponent->getWidth(), mainComponent->getHeight());
             }
 

@@ -155,7 +155,7 @@ juce::ValueTree makePluginPanelTree() {
     editorBtn.setProperty("margin", "0 6 0 0", nullptr);
     actionRow.appendChild(editorBtn, nullptr);
 
-    auto toggleBtn = button(juce::String::charToString(0x22EF), "toggle-btn");
+    auto toggleBtn = button(juce::String::charToString(0x25BE), "toggle-btn");
     toggleBtn.setProperty("title", TRANS("Toggle Plugin Panel"), nullptr);
     toggleBtn.setProperty("width", 30, nullptr);
     toggleBtn.setProperty("height", 26, nullptr);
@@ -410,7 +410,7 @@ juce::ValueTree makeControlsPanelTree() {
 
     auto speedSlider = node("SpeedSlider", "speed-knob");
     speedSlider.setProperty("title", TRANS("Playback Speed"), nullptr);
-    speedSlider.setProperty("height", 24, nullptr);
+    speedSlider.setProperty("height", 36, nullptr);
     transportCard.appendChild(speedSlider, nullptr);
 
     panel.appendChild(transportCard, nullptr);
@@ -545,6 +545,7 @@ juce::ValueTree makeRootLayout() {
     keyboard.setProperty("flex-grow", 1.0, nullptr);
     keyboard.setProperty("flex-shrink", 1.0, nullptr);
     keyboard.setProperty("min-height", 120, nullptr);
+    keyboard.setProperty("max-height", 260, nullptr);
     keyboard.setProperty("height", 200, nullptr);
     contentRow.appendChild(keyboard, nullptr);
     mainArea.appendChild(contentRow, nullptr);

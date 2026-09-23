@@ -83,6 +83,9 @@ public:
     void setBuiltinSynthTone(SettingsModel::BuiltinTone tone);
     [[nodiscard]] bool shouldTakeKeyboardFocus() const noexcept;
     void handleWindowFocusLost();
+    [[nodiscard]] bool isQwertyVisualizerExpanded() const noexcept {
+        return appSettings.qwertyVisualizerExpanded;
+    }
 
 protected:
     void focusGained(juce::Component::FocusChangeType cause) override;
@@ -187,7 +190,7 @@ private:
 
     // ── JIVE QWERTY visualizer accessors ──
     devpiano::ui::QwertyComponent& getQwertyVisualizer();
-    void setQwertyVisualizerExpanded(bool expanded);
+    void setQwertyVisualizerExpanded(bool expanded, bool adjustWindowHeight = false);
     void updateQwertyVisualizer();
 
     // ── JIVE status bar accessors ──

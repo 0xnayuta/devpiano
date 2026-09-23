@@ -86,6 +86,7 @@ void MainComponent::setPluginPanelExpanded(bool expanded) {
         // 80 leaves the 30px row its declared height inside the content box.
         viewHost.setProperty("plugin-expanded-area", "height", expanded ? 32 : 0);
         viewHost.setProperty("plugin-panel", "height", expanded ? 80 : 42);
+        viewHost.setButtonLabel("toggle-btn", juce::String::charToString(expanded ? 0x25B4 : 0x25BE));
         viewHost.relayoutContainer("plugin-panel");
         viewHost.relayoutContainer("main-area");
     }
@@ -577,7 +578,7 @@ devpiano::ui::QwertyComponent& MainComponent::getQwertyVisualizer() {
     return *qwertyComponentRef;
 }
 
-void MainComponent::setQwertyVisualizerExpanded(bool expanded) {
+void MainComponent::setQwertyVisualizerExpanded(bool expanded, bool adjustWindowHeight) {
     appSettings.qwertyVisualizerExpanded = expanded;
     if (viewHost.isValid()) {
         // Header 20 + card padding 6 + content 150.
@@ -589,6 +590,41 @@ void MainComponent::setQwertyVisualizerExpanded(bool expanded) {
         viewHost.relayoutContainer("main-area");
     }
     settingsStore.scheduleSave(appSettings);
+
+    if (adjustWindowHeight) {
+        if (auto* resizable = dynamic_cast<juce::ResizableWindow*>(getTopLevelComponent())) {
+            if (!resizable->isFullScreen()) {
+#if defined(JUCE_WINDOWS) && JUCE_WINDOWS
+                if (auto* peer = resizable->getPeer()) {
+                    if (peer->isMinimised()) {
+                        return;
+                    }
+                }
+#endif
+                constexpr int delta = 152;
+                const auto currentBounds = resizable->getBounds();
+                const auto* display = juce::Desktop::getInstance().getDisplays().getDisplayForRect(currentBounds);
+                const auto screenArea
+                    = (display != nullptr ? display->userBounds
+                                          : juce::Desktop::getInstance().getDisplays().getPrimaryDisplay()->userBounds)
+                          .toNearestInt();
+                int newHeight = currentBounds.getHeight() + (expanded ? delta : -delta);
+                int newY = currentBounds.getY();
+
+                // 动态调整窗口 ResizeLimits：折叠时允许窗口高度低至 540px，展开时恢复至常规 700px
+                const auto limits = getMainContentResizeLimits();
+                const int minH = expanded ? limits.getY() : juce::jmin(limits.getY(), 540);
+                resizable->setResizeLimits(limits.getX(), minH, limits.getWidth(), limits.getHeight());
+
+                // 展开防越界：若增加高度后底边超出当前屏幕工作区（如任务栏），向上平移补偿
+                if (expanded && newY + newHeight > screenArea.getBottom()) {
+                    newY = juce::jmax(screenArea.getY(), screenArea.getBottom() - newHeight);
+                }
+
+                resizable->setBounds(currentBounds.getX(), newY, currentBounds.getWidth(), newHeight);
+            }
+        }
+    }
 }
 void MainComponent::updateQwertyVisualizer() {
     if (!viewHost.isValid()) {

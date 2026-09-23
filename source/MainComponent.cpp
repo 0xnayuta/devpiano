@@ -404,7 +404,7 @@ void MainComponent::initialiseUi() {
             qv->onBindingEditRequested = [this](int midiNote) { handleKeyBindingEditRequest(midiNote); };
         }
         if (auto* btn = viewHost.find<juce::Button>("qwerty-toggle-btn")) {
-            btn->onClick = [this] { setQwertyVisualizerExpanded(!appSettings.qwertyVisualizerExpanded); };
+            btn->onClick = [this] { setQwertyVisualizerExpanded(!appSettings.qwertyVisualizerExpanded, true); };
         }
         if (auto* btn = viewHost.find<juce::Button>("qwerty-group-btn")) {
             btn->onClick = [this] {
@@ -514,18 +514,18 @@ juce::Rectangle<int> MainComponent::getInitialMainContentBounds() const {
     const auto width
         = juce::jlimit(limits.getX(), limits.getWidth(),
                        savedWidth > 0 ? savedWidth : devpiano::jive::DesignTokens::get().windowDefaultWidth());
+    const auto minH = appSettings.qwertyVisualizerExpanded ? limits.getY() : juce::jmin(limits.getY(), 540);
     const auto height
-        = juce::jlimit(limits.getY(), limits.getHeight(),
+        = juce::jlimit(minH, limits.getHeight(),
                        savedHeight > 0 ? savedHeight : devpiano::jive::DesignTokens::get().windowDefaultHeight());
-
     return { 0, 0, width, height };
 }
 
 void MainComponent::persistMainContentSize(int width, int height) {
     const auto limits = getMainContentResizeLimits();
+    const auto minH = appSettings.qwertyVisualizerExpanded ? limits.getY() : juce::jmin(limits.getY(), 540);
     const auto clampedWidth = juce::jlimit(limits.getX(), limits.getWidth(), width);
-    const auto clampedHeight = juce::jlimit(limits.getY(), limits.getHeight(), height);
-
+    const auto clampedHeight = juce::jlimit(minH, limits.getHeight(), height);
     if (appSettings.mainWindowWidth == clampedWidth && appSettings.mainWindowHeight == clampedHeight) {
         return;
     }
