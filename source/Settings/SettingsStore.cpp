@@ -55,6 +55,9 @@ const char* kKeyMetronomeBpm = "metronomeBpm";
 const char* kKeyMetronomeTimeSignature = "metronomeTimeSignature";
 const char* kKeyMetronomeVolume = "metronomeVolume";
 const char* kKeyMetronomeCountIn = "metronomeCountIn";
+const char* kKeyCadenceDynamicsEnabled = "cadenceDynamicsEnabled";
+const char* kKeyVelocityHumanizeAmount = "velocityHumanizeAmount";
+const char* kKeyBaseVelocityBias = "baseVelocityBias";
 
 [[nodiscard]] SettingsModel::PerformanceSettingsView makeDefaultPerformanceSettings() noexcept {
     return {};
@@ -260,6 +263,11 @@ void SettingsStore::readNow(SettingsModel& m) {
         juce::jlimit(0.0, 1.0, f.getDoubleValue(kKeyMetronomeVolume, static_cast<double>(m.metronomeVolume))));
     m.metronomeCountIn = static_cast<devpiano::core::CountInBars>(
         juce::jlimit(0, 2, f.getIntValue(kKeyMetronomeCountIn, static_cast<int>(m.metronomeCountIn))));
+    m.cadenceDynamicsEnabled = f.getBoolValue(kKeyCadenceDynamicsEnabled, m.cadenceDynamicsEnabled);
+    m.velocityHumanizeAmount = static_cast<float>(juce::jlimit(
+        0.0, 0.15, f.getDoubleValue(kKeyVelocityHumanizeAmount, static_cast<double>(m.velocityHumanizeAmount))));
+    m.baseVelocityBias = static_cast<float>(
+        juce::jlimit(-0.30, 0.20, f.getDoubleValue(kKeyBaseVelocityBias, static_cast<double>(m.baseVelocityBias))));
     m.languageCode = f.getValue(kKeyLanguageCode, m.languageCode);
     // custom key labels as ValueTree XML (sparse: only non-empty labels stored)
     if (auto labelsXml = f.getXmlValue(kKeyCustomLabels)) {
@@ -413,6 +421,9 @@ bool SettingsStore::writeNow(const SettingsModel& m) {
     f.setValue(kKeyMetronomeTimeSignature, static_cast<int>(m.metronomeTimeSignature));
     f.setValue(kKeyMetronomeVolume, static_cast<double>(m.metronomeVolume));
     f.setValue(kKeyMetronomeCountIn, static_cast<int>(m.metronomeCountIn));
+    f.setValue(kKeyCadenceDynamicsEnabled, m.cadenceDynamicsEnabled);
+    f.setValue(kKeyVelocityHumanizeAmount, static_cast<double>(m.velocityHumanizeAmount));
+    f.setValue(kKeyBaseVelocityBias, static_cast<double>(m.baseVelocityBias));
 
     const auto saved = f.saveIfNeeded();
     if (!saved) {

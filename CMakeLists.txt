@@ -212,6 +212,7 @@ target_sources(devpiano PRIVATE
     source/Audio/MetronomeProcessor.h
     source/Input/KeyboardMidiMapper.cpp
     source/Input/KeyboardMidiMapper.h
+    source/Input/TypingCadenceEstimator.h
     source/Core/KeyMapTypes.h
     source/Core/MidiTypes.h
     source/Core/AppState.h
@@ -436,6 +437,7 @@ if (BUILD_TESTS)
         source/Core/MetronomeModel.h
         source/Input/KeyboardMidiMapper.cpp
         source/Input/KeyboardMidiMapper.h
+        source/Input/TypingCadenceEstimator.h
         source/Diagnostics/Log.h
         source/Diagnostics/DevPianoLogger.h
         source/Diagnostics/DevPianoLogger.cpp
@@ -576,6 +578,7 @@ if (BUILD_TESTS)
         source/tests/PluginScanPersistenceTest.cpp
         source/tests/InstrumentEndpointTest.cpp
         source/tests/MetronomeTest.cpp
+        source/tests/CadenceVelocityTest.cpp
         ${DEVPIANO_JIVE_CORE_SOURCES}
     )
     target_link_libraries(devpiano_tests PRIVATE

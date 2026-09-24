@@ -64,23 +64,22 @@
 
 ---
 
-### Phase 35-B：打字击键动态力度与人性化微扰引擎（Typing Cadence Dynamics & Velocity Humanizer）
+### Phase 35-B：打字击键动态力度与人性化微扰引擎（Typing Cadence Dynamics & Velocity Humanizer）[已完成，2026-09-24]
 
 > 目标：攻克电脑键盘无压感的核心物理缺陷，通过敲击律动与微微扰赋予 QWERTY 弹奏生命力。
 
-- [ ] **Phase 35-B-1：基于击键间隙 $\Delta t$ 的律动速度估算器（`TypingCadenceEstimator`）**：
-  - 在 `source/Input/TouchVelocityCurve.h` 演进引入律动速度估算器；
-  - 记录连续按键时间戳：快速琶音/疾风华彩（$\Delta t < 80\text{ ms}$）自适应推高击键力度至 $105\sim 125$，从容抒情慢按（$\Delta t > 350\text{ ms}$）自适应回落至 $65\sim 85$；
+- [x] **Phase 35-B-1：基于击键间隙 $\Delta t$ 的律动速度估算器（`TypingCadenceEstimator`）**：
+  - 在 `source/Input/TypingCadenceEstimator.h` 中引入律动速度估算器；
+  - 记录连续按键时间戳：快速琶音/疾风华彩（$\Delta t \le 60\text{ ms}$）自适应推高击键力度至 $122/127 \approx 0.960\text{f}$，从容抒情慢按（$\Delta t \ge 500\text{ ms}$）自适应回落至 $76/127 \approx 0.598\text{f}$，长停顿（$> 1.0\text{ s}$）平滑复位基准力度；
   - 保留 Standard / Light / Heavy / Wide 基础曲线作为加权底色。
-- [ ] **Phase 35-B-2：确定性高斯微扰生成器（`VelocityHumanizer`）**：
-  - 引入轻量确定性哈希伪随机算法，为连续按键注入极微弱的力度波动（$\pm 2\sim 6$ 力度动态可配，默认开启，可配置关闭）；
+- [x] **Phase 35-B-2：确定性高斯微扰生成器（`VelocityHumanizer`）**：
+  - 引入轻量确定性哈希伪随机算法，为连续按键注入极微弱的力度波动（默认 $\pm 0.035\text{f} \approx \pm 4.5$ 力度，可配置），严格钳制在 $[1/127, 1.0]$；
   - 彻底打破固定 100 力度的机械“打字机感”，让内置物理建模钢琴的非线性毛毡硬度与音板共鸣得到自然微扰绽放。
-- [ ] **Phase 35-B-3：输入管线集成与快捷微调**：
+- [x] **Phase 35-B-3：输入管线集成与快捷微调**：
   - 将估算器接入 `KeyboardMidiMapper::keyPressed` 事件管道，严格遵守瞬态修饰符优先级（Shift 按下时强制拉满 127）；
-  - 支持滚轮或快捷键即时调整基础力度基线（Base Velocity Bias，默认 100）；
-  - QWERTY 界面与状态栏微型指示条展示当前击键估算力度值。
-- [ ] **Phase 35-B-4：打字力度估算与抗抖动测试集**：
-  - 编写 `CadenceVelocityTest` 专项单测，验证连续快速敲击、慢速敲击、单键重复敲击、极值保护（Clamp 1~127）及与 Shift 修饰符的确定性仲裁。
+  - 支持基础力度基线动态微调（`baseVelocityBias`）并在 `SettingsModel` / `SettingsStore` 中持久化落盘。
+- [x] **Phase 35-B-4：打字力度估算与抗抖动测试集**：
+  - 编写 `CadenceVelocityTest` 专项单测，全面覆盖连续快速敲击、慢速抒情敲击、超时复位、微扰确定性与范围约束、及与 Shift 修饰符的最高优先级仲裁保护。
 
 ---
 

@@ -65,6 +65,10 @@ MainComponent::MainComponent() {
     audioEngine.setMetronomeBpm(appSettings.metronomeBpm);
     audioEngine.setMetronomeTimeSignature(appSettings.metronomeTimeSignature);
     audioEngine.setMetronomeVolume(appSettings.metronomeVolume);
+    keyboardMidiMapper.setCadenceDynamicsEnabled(appSettings.cadenceDynamicsEnabled);
+    keyboardMidiMapper.setVelocityHumanizerEnabled(appSettings.velocityHumanizeAmount > 0.0001f);
+    keyboardMidiMapper.setVelocityHumanizeAmount(appSettings.velocityHumanizeAmount);
+    keyboardMidiMapper.setBaseVelocityBias(appSettings.baseVelocityBias);
     keyboardMidiMapper.setSustainPedalCallback([this](bool isDown) {
         audioEngine.sendController(1, 64, isDown ? 127 : 0);
         notifyMidiActivity();
@@ -1168,6 +1172,10 @@ void MainComponent::syncUiFromSettings() {
     applyPerformanceSettingsToUi(appSettings.getPerformanceSettingsView());
     keyboardMidiMapper.setTouchVelocityCurve(appSettings.touchVelocityCurve);
     keyboardMidiMapper.setSoftPedalDown(appSettings.unaCorda);
+    keyboardMidiMapper.setCadenceDynamicsEnabled(appSettings.cadenceDynamicsEnabled);
+    keyboardMidiMapper.setVelocityHumanizerEnabled(appSettings.velocityHumanizeAmount > 0.0001f);
+    keyboardMidiMapper.setVelocityHumanizeAmount(appSettings.velocityHumanizeAmount);
+    keyboardMidiMapper.setBaseVelocityBias(appSettings.baseVelocityBias);
 
     if (presetFlowSupport != nullptr) {
         setControlsPresets(presetFlowSupport->getPresetIds(), presetFlowSupport->getCurrentPresetId(),

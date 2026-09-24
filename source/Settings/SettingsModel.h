@@ -137,6 +137,10 @@ struct SettingsModel {
     devpiano::core::TimeSignature metronomeTimeSignature = devpiano::core::TimeSignature::fourFour;
     float metronomeVolume = 0.70f;
     devpiano::core::CountInBars metronomeCountIn = devpiano::core::CountInBars::none;
+    // Persisted cadence dynamics and humanizer settings (Phase 35-B)
+    bool cadenceDynamicsEnabled = true;
+    float velocityHumanizeAmount = 0.035f;
+    float baseVelocityBias = 0.0f;
     // Persisted UI language code ("en" | "zh-CN").
     juce::String languageCode { "en" };
     // Key signature system: global transpose state

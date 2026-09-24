@@ -216,6 +216,10 @@ void SettingsWindowManager::showFor(MainComponent& owner) {
         safe->audioEngine.setSustainPolicy(safe->appSettings.sustainPolicy);
         safe->keyboardMidiMapper.setSustainPolicy(safe->appSettings.sustainPolicy);
         safe->updateQwertyVisualizer();
+        safe->keyboardMidiMapper.setCadenceDynamicsEnabled(safe->appSettings.cadenceDynamicsEnabled);
+        safe->keyboardMidiMapper.setVelocityHumanizerEnabled(safe->appSettings.velocityHumanizeAmount > 0.0001f);
+        safe->keyboardMidiMapper.setVelocityHumanizeAmount(safe->appSettings.velocityHumanizeAmount);
+        safe->keyboardMidiMapper.setBaseVelocityBias(safe->appSettings.baseVelocityBias);
         safe->audioEngine.setMetronomeEnabled(safe->appSettings.metronomeEnabled);
         safe->audioEngine.setMetronomeBpm(safe->appSettings.metronomeBpm);
         safe->audioEngine.setMetronomeTimeSignature(safe->appSettings.metronomeTimeSignature);
