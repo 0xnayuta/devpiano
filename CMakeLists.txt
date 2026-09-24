@@ -579,6 +579,7 @@ if (BUILD_TESTS)
         source/tests/InstrumentEndpointTest.cpp
         source/tests/MetronomeTest.cpp
         source/tests/CadenceVelocityTest.cpp
+        source/tests/ChordRecognitionTest.cpp
         ${DEVPIANO_JIVE_CORE_SOURCES}
     )
     target_link_libraries(devpiano_tests PRIVATE

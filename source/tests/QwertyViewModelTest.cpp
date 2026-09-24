@@ -23,6 +23,7 @@ public:
         testComponentHitTestingAndInteraction();
         testMouseInteractionWithMidiChannelMapper();
         testPitchClassHarmonyPalette();
+        testChordHudAndFadeout();
     }
 
 private:
@@ -374,6 +375,61 @@ private:
         expect(!keyboardState.isNoteOn(4, originalNote), "Q note-off must release its original mapped note");
         expect(!keyboardState.isNoteOn(9, juce::jlimit(0, 127, inputNote - 12)),
                "Q note-off must not use the replacement matrix");
+    }
+
+    void testChordHudAndFadeout() {
+        beginTest("QwertyComponent & KeyboardMidiMapper: Chord HUD and 300ms fadeout");
+
+        KeyboardMidiMapper mapper;
+        juce::MidiKeyboardState state;
+
+        // Setup C major chord: C3(48), E3(52), G3(55)
+        devpiano::core::KeyboardLayout layout;
+        layout.bindings.push_back(devpiano::core::makeNoteBinding('Z', 48, 1, 0.8f));
+        layout.bindings.push_back(devpiano::core::makeNoteBinding('X', 52, 1, 0.8f));
+        layout.bindings.push_back(devpiano::core::makeNoteBinding('C', 55, 1, 0.8f));
+        mapper.setLayout(layout);
+
+        // Press Z, X, C
+        mapper.handleKeyPressed(juce::KeyPress('z'), state);
+        mapper.handleKeyPressed(juce::KeyPress('x'), state);
+        mapper.handleKeyPressed(juce::KeyPress('c'), state);
+
+        // Snapshot must have detected C Major chord
+        const auto snapshot = mapper.createQwertySnapshot(0);
+        expect(snapshot.detectedChord.isValid);
+        expectEquals(snapshot.detectedChord.chordName, juce::String("C"));
+        expectEquals(snapshot.detectedChord.rootPitchClass, 0);
+
+        // Update QwertyComponent
+        devpiano::ui::QwertyComponent comp;
+        comp.setSize(700, 140);
+        comp.updateViewModel(snapshot);
+
+        expectEquals(comp.getLastDisplayedChord().chordName, juce::String("C"));
+        expectEquals(comp.getChordFadeAlpha(), 1.0f);
+
+        // Release all keys
+        mapper.releaseAllHeldKeys(state);
+        const auto releasedSnapshot = mapper.createQwertySnapshot(0);
+        expect(!releasedSnapshot.detectedChord.isValid);
+
+        comp.updateViewModel(releasedSnapshot);
+
+        // Trigger timer frames: alpha must decay smoothly
+        float prevAlpha = comp.getChordFadeAlpha();
+        for (int frame = 0; frame < 15; ++frame) {
+            comp.triggerTimerForTest();
+            const float curAlpha = comp.getChordFadeAlpha();
+            expect(curAlpha <= prevAlpha);
+            prevAlpha = curAlpha;
+        }
+
+        // Eventually alpha fades to 0.0f
+        for (int frame = 0; frame < 30; ++frame) {
+            comp.triggerTimerForTest();
+        }
+        expectEquals(comp.getChordFadeAlpha(), 0.0f);
     }
 };
 

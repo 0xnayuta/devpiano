@@ -83,21 +83,20 @@
 
 ---
 
-### Phase 35-C：实时和弦识别与乐理分析 HUD（Real-time Chord Recognition HUD）
+### Phase 35-C：实时和弦识别与乐理分析 HUD（Real-time Chord Recognition HUD）[已完成，2026-09-24]
 
 > 目标：利用已沉淀的声学与乐理算法，为演奏者提供实时和弦识别与转位反馈，大幅提升练琴视奏体验。
 
-- [ ] **Phase 35-C-1：乐理和弦识别算法下沉**：
-  - 在 `source/Core/MusicTheory.h` 中实现纯函数 `ChordInfo detectChord(const std::vector<uint8_t>& activeNotes)`；
-  - 基于音高类集合（Pitch Class Set）算法，高精度识别大三、小三、属七、大七、小七、半减七、减七、挂四（sus4）、挂二（sus2）及各类加音和弦；
-  - 准确识别第一转位、第二转位并提取根音与低音（Slash Chords，如 `G/B`、`C/E`）。
-- [ ] **Phase 35-C-2：QWERTY 看板与状态栏和弦徽标联动**：
-  - 在 `QwertyCard` 顶部标题栏或状态栏引入声明式 `ChordBadge` 和弦标签；
+- [x] **Phase 35-C-1：乐理和弦识别算法下沉**：
+  - 在 `source/Core/MusicTheory.h` 中实现纯函数 `ChordInfo detectChord(const std::vector<int>& activeNotes)`；
+  - 基于音高类集合（Pitch Class Set）算法与循环掩码位移，高精度识别大三、小三、属七、大七、小七、半减七、减七、挂四（sus4）、挂二（sus2）、各类加音及九和弦；
+  - 准确识别第一转位、第二转位、第三转位并提取根音与低音（Slash Chords，如 `G/B`、`Am/C`、`C/E`）。
+- [x] **Phase 35-C-2：QWERTY 看板与状态栏和弦徽标联动**：
+  - 在 `QwertyCard` 顶部标题栏增加声明式 `qwerty-chord-badge` 和弦标签，同时在 `QwertyComponent` 内部右上角构建半透明毛玻璃质感、发光和弦 HUD 徽标；
   - 演奏多键按下时即刻点亮和弦名称与转位标记，与 12-TET 和声调色板投影几何色相完美呼应；
-  - 所有按键松开后呈现 300ms 优雅淡出余晖，避免视觉闪烁。
-- [ ] **Phase 35-C-3：和弦识别专项单元测试集**：
-  - 编写 `ChordRecognitionTest` 专项单测，全面覆盖 12 个调性下的三和弦、七和弦、转位和弦、八度重复音与散落杂音容错识别。
-
+  - 所有按键松开后呈现 300ms 优雅淡出余晖（50fps 平滑指数衰减），避免视觉闪烁。
+- [x] **Phase 35-C-3：和弦识别专项单元测试集**：
+  - 编写 `ChordRecognitionTest` 专项单测，全面覆盖单音、常见大三/小三和弦、挂留/减/增和弦、七和弦、九和弦、转位和弦、八度音重复、低音倾向性仲裁与散落杂音容错识别。
 ---
 
 ### Phase 35-D：MIDI 伴奏 A-B 片段循环跟练与进度自由跳转（A-B Loop Practice & Timeline Seek）

@@ -471,6 +471,12 @@ juce::ValueTree makeQwertyCardTree() {
     title.setProperty("justification", "centred-left", nullptr);
     title.setProperty("word-wrap", "none", nullptr);
     headerRow.appendChild(title, nullptr);
+    auto chordBadge = text("", "qwerty-chord-badge");
+    chordBadge.setProperty("title", TRANS("Chord Badge"), nullptr);
+    chordBadge.setProperty("height", 18, nullptr);
+    chordBadge.setProperty("margin", "0 10 0 10", nullptr);
+    chordBadge.setProperty("justification", "centred-left", nullptr);
+    headerRow.appendChild(chordBadge, nullptr);
     auto groupBtn = button("[Group A]", "qwerty-group-btn");
     groupBtn.setProperty("title", TRANS("Layout Group"), nullptr);
     groupBtn.setProperty("tooltip", TRANS("Switch Layout Group (` key or click)"), nullptr);

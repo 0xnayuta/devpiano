@@ -446,5 +446,12 @@ devpiano::core::QwertyViewModel KeyboardMidiMapper::createQwertySnapshot(int key
         }
     }
 
+    std::vector<int> soundingNotes;
+    soundingNotes.reserve(heldKeys.size());
+    for (const auto& held : heldKeys) {
+        soundingNotes.push_back(held.soundingMidiNote);
+    }
+    vm.detectedChord = devpiano::core::detectChord(soundingNotes);
+
     return vm;
 }

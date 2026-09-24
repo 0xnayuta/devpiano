@@ -642,10 +642,16 @@ void MainComponent::updateQwertyVisualizer() {
     if (qwertyComponentRef == nullptr) {
         qwertyComponentRef = viewHost.find<devpiano::ui::QwertyComponent>("qwerty-visualizer");
     }
+    const auto snapshot = keyboardMidiMapper.createQwertySnapshot(appSettings.keySignature);
     if (qwertyComponentRef != nullptr) {
-        qwertyComponentRef->updateViewModel(keyboardMidiMapper.createQwertySnapshot(appSettings.keySignature));
+        qwertyComponentRef->updateViewModel(snapshot);
     }
     viewHost.setText("qwerty-group-btn", "[" + TRANS("Group") + " " + keyboardMidiMapper.getActiveGroup().name + "]");
+    if (snapshot.detectedChord.isValid && snapshot.detectedChord.quality != devpiano::core::ChordQuality::unknown) {
+        viewHost.setText("qwerty-chord-badge", "[" + snapshot.detectedChord.chordName + "]");
+    } else {
+        viewHost.setText("qwerty-chord-badge", "");
+    }
 }
 
 int MainComponent::getKeyboardViewPositionX() const noexcept {
