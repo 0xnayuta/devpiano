@@ -128,12 +128,10 @@ void QwertyComponent::paint(juce::Graphics& g) {
             juce::Colour activeColour;
             if (hasNote) {
                 activeColour = devpiano::core::getPitchClassHarmonyColour(keyState.mappedMidiNote, 0.84f, 0.96f, 1.0f);
-            } else if (keyState.isSustainPedal) {
-                activeColour = juce::Colour(0xFFF59E0B); // Amber for sustain pedal
+            } else if (keyState.isSustainPedal || (isShiftKey && !keyState.isSoftPedal)) {
+                activeColour = juce::Colour(0xFFF59E0B);
             } else if (keyState.isSoftPedal) {
                 activeColour = juce::Colour(0xFF10B981); // Emerald for soft pedal
-            } else if (isShiftKey) {
-                activeColour = juce::Colour(0xFFF59E0B); // Warm Gold for Velocity Boost
             } else if (isAltKey) {
                 activeColour = juce::Colour(0xFF38BDF8); // Sky Blue for Octave Shift
             } else if (isCtrlKey) {
@@ -282,13 +280,12 @@ void QwertyComponent::mouseDown(const juce::MouseEvent& e) {
 
     if (hit.key->mappedMidiNote >= 0 && onNoteOn != nullptr) {
         lastMouseDownNote = hit.key->mappedMidiNote;
-        lastMouseDownChannel = hit.key->mappedMidiChannel;
         keyGeometries[static_cast<std::size_t>(hit.rowIndex)][static_cast<std::size_t>(hit.keyIndex)].fadeAlpha = 1.0f;
         if (!isTimerRunning()) {
             startTimer(timerIntervalMs);
         }
         repaint();
-        onNoteOn(lastMouseDownNote, lastMouseDownChannel, hit.key->velocity);
+        lastMouseDownIdentity = onNoteOn(lastMouseDownNote, hit.key->mappedMidiChannel, hit.key->velocity);
     }
 }
 
@@ -298,9 +295,10 @@ void QwertyComponent::mouseUp(const juce::MouseEvent& e) {
 }
 
 void QwertyComponent::releaseHeldMouseNote() {
-    if (lastMouseDownNote >= 0 && onNoteOff != nullptr) {
-        onNoteOff(lastMouseDownNote, lastMouseDownChannel);
+    if (lastMouseDownNote >= 0 && lastMouseDownIdentity.has_value() && onNoteOff != nullptr) {
+        onNoteOff(*lastMouseDownIdentity);
         lastMouseDownNote = -1;
+        lastMouseDownIdentity.reset();
     }
     repaint();
 }
@@ -311,20 +309,20 @@ void QwertyComponent::mouseDrag(const juce::MouseEvent& e) {
         return;
     }
 
-    if (lastMouseDownNote >= 0 && onNoteOff != nullptr) {
-        onNoteOff(lastMouseDownNote, lastMouseDownChannel);
+    if (lastMouseDownNote >= 0 && lastMouseDownIdentity.has_value() && onNoteOff != nullptr) {
+        onNoteOff(*lastMouseDownIdentity);
         lastMouseDownNote = -1;
+        lastMouseDownIdentity.reset();
     }
 
     if (hit.key->mappedMidiNote >= 0 && onNoteOn != nullptr) {
         lastMouseDownNote = hit.key->mappedMidiNote;
-        lastMouseDownChannel = hit.key->mappedMidiChannel;
         keyGeometries[static_cast<std::size_t>(hit.rowIndex)][static_cast<std::size_t>(hit.keyIndex)].fadeAlpha = 1.0f;
         if (!isTimerRunning()) {
             startTimer(timerIntervalMs);
         }
         repaint();
-        onNoteOn(lastMouseDownNote, lastMouseDownChannel, hit.key->velocity);
+        lastMouseDownIdentity = onNoteOn(lastMouseDownNote, hit.key->mappedMidiChannel, hit.key->velocity);
     }
 }
 

@@ -145,10 +145,10 @@ source/
 - **`source/Input/KeyboardMidiMapper.h/.cpp`**：
   - 将 `juce::KeyPress` 映射为 `juce::MidiMessage`（noteOn / noteOff）；
   - 主路径采用稳定 key code（`normaliseAlphaNumericKeyCode`），避免字符输入法与 CapsLock 状态干扰；
-  - **发音身份恒定与防悬挂快照（Phase 34-B）**：引入 `HeldKeyIdentity`，按键按下时记录该音符的发音身份快照（音高、通道、力度），松开时 100% 依据快照注销，切组、移调或动态修饰绝不产生悬挂音；
+  - **发音身份恒定与防悬挂快照（Phase 34-B）**：`HeldKeyIdentity` 在按键按下时锁定经 Group、modifier、全局移调与通道矩阵路由后的最终输出音高/通道及 NoteOff 力度；释放时直接按快照发送 NoteOff，不重新使用当前映射配置。布局替换保留仍按住的记录，直至物理释放或明确 Panic 清理；
   - **Layout Group 键位分组（Phase 34-B）**：支持单预设内 4 组轻量键位分组（`KeyGroup`），反引号键（`）或 UI 按钮秒级切换；
   - **瞬态修饰键变换（Phase 34-D）**：捕获 Shift / Alt 键，按住期间由 `PerformanceModifierState` 执行力度拉满（Velocity Boost）与八度平移（+8va）纯事件流变换，松开自动回弹，基线配置 100% 零突变；
-  - **QWERTY 视图单一事实源快照（Phase 34-A）**：提供 `createQwertySnapshot()`，以 `layout`、`heldKeys` 及 `keySignature` 为唯一输入生成只读 `QwertyViewModel`，直接供 UI 消费。
+  - **QWERTY 视图单一事实源快照（Phase 34-A）**：`createQwertySnapshot()` 汇总 `layout`、`heldKeys`、`keySignature`、modifier、延音/柔音踏板状态、`syncPedalCutPending` 与 `sustainPolicy`，生成只读 `QwertyViewModel`，由 UI 直接消费；
 
 ---
 

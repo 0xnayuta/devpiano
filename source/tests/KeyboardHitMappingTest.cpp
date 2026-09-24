@@ -1,5 +1,6 @@
 #include <JuceHeader.h>
 
+#include "Midi/MidiChannelMapper.h"
 #include "UI/CustomKeyboard.h"
 #include "UI/KeyboardTypes.h"
 
@@ -52,6 +53,7 @@ public:
         testReleaseHeldMouseNote();
         testMultiChannelColorVisualization();
         testMouseDragGlissando();
+        testMouseReleaseUsesMappedIdentityAfterMapperChange();
     }
 
 private:
@@ -182,7 +184,7 @@ private:
             juce::MidiKeyboardState ks;
             CustomKeyboard kb(ks);
             int callbackCount = 0;
-            kb.onNoteOff = [&](int, int) { ++callbackCount; };
+            kb.onNoteOff = [&](const devpiano::core::MidiNoteIdentity&) { ++callbackCount; };
 
             // 无鼠标按住的音符时调用必须为 no-op（失焦 Panic 的幂等性）。
             kb.releaseHeldMouseNote();
@@ -208,8 +210,13 @@ private:
 
             std::vector<int> notesOn;
             std::vector<int> notesOff;
-            kb.onNoteOn = [&](int note, int) { notesOn.push_back(note); };
-            kb.onNoteOff = [&](int note, int) { notesOff.push_back(note); };
+            kb.onNoteOn = [&](int note, int sourceChannel) {
+                notesOn.push_back(note);
+                return devpiano::core::MidiNoteIdentity { devpiano::core::MidiNoteNumber::fromClamped(note),
+                                                          devpiano::core::MidiChannel::fromClamped(sourceChannel + 1) };
+            };
+            kb.onNoteOff
+                = [&](const devpiano::core::MidiNoteIdentity& identity) { notesOff.push_back(identity.note.value); };
 
             auto source = juce::Desktop::getInstance().getMainMouseSource();
             const auto xC4 = whiteKeyCentreX(21, 60);
@@ -270,6 +277,47 @@ private:
             if (notesOff.size() >= 3) {
                 expectEquals(notesOff.back(), 64);
             }
+        });
+    }
+    void testMouseReleaseUsesMappedIdentityAfterMapperChange() {
+        testCase("mouse release uses the mapped identity captured at press time", [&] {
+            devpiano::midi::ChannelMatrix initialMatrix;
+            initialMatrix.active = true;
+            initialMatrix.channels[0].outputChannel = 3;
+            initialMatrix.channels[0].transpose = 12;
+            devpiano::midi::MidiChannelMapper initialMapper(initialMatrix, false, 0);
+
+            devpiano::midi::ChannelMatrix updatedMatrix;
+            updatedMatrix.active = true;
+            updatedMatrix.channels[0].outputChannel = 8;
+            updatedMatrix.channels[0].transpose = -12;
+            devpiano::midi::MidiChannelMapper updatedMapper(updatedMatrix, false, 0);
+
+            auto* activeMapper = &initialMapper;
+            juce::MidiKeyboardState state;
+            CustomKeyboard keyboard(state);
+            keyboard.setSize(1248, 120);
+            keyboard.onNoteOn = [&](int note, int sourceChannel) {
+                return activeMapper->sendNoteOn(sourceChannel, note, 1.0f, state);
+            };
+            keyboard.onNoteOff = [&](const devpiano::core::MidiNoteIdentity& identity) {
+                activeMapper->sendNoteOff(identity, 1.0f, state);
+            };
+
+            const auto x = whiteKeyCentreX(21, 60);
+            const auto source = juce::Desktop::getInstance().getMainMouseSource();
+            const juce::MouseEvent pressEvent(source, { static_cast<float>(x), 80.0f },
+                                              juce::ModifierKeys::leftButtonModifier, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                              &keyboard, &keyboard, juce::Time::getCurrentTime(),
+                                              { static_cast<float>(x), 80.0f }, juce::Time::getCurrentTime(), 1, false);
+            keyboard.mouseDown(pressEvent);
+
+            expect(state.isNoteOn(4, 72));
+            activeMapper = &updatedMapper;
+            keyboard.releaseHeldMouseNote();
+
+            expect(!state.isNoteOn(4, 72), "the original mapped note must be released");
+            expect(!state.isNoteOn(9, 48), "the replacement mapping must not receive the old note-off");
         });
     }
 

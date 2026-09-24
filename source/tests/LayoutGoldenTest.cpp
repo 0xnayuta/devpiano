@@ -380,8 +380,14 @@ public:
         };
         std::vector<NoteEvent> events;
 
-        keyboard.onNoteOn = [&events](int note, int /*ch*/) { events.push_back({ note, true }); };
-        keyboard.onNoteOff = [&events](int note, int /*ch*/) { events.push_back({ note, false }); };
+        keyboard.onNoteOn = [&events](int note, int ch) {
+            events.push_back({ note, true });
+            return devpiano::core::MidiNoteIdentity { devpiano::core::MidiNoteNumber::fromClamped(note),
+                                                      devpiano::core::MidiChannel::fromClamped(ch + 1) };
+        };
+        keyboard.onNoteOff = [&events](const devpiano::core::MidiNoteIdentity& identity) {
+            events.push_back({ identity.note.value, false });
+        };
 
         // Locate coordinates for two keys (e.g. C4 = 60 and D4 = 62)
         const auto& keys = keyboard.getKeys();

@@ -10,7 +10,7 @@ KeyboardMidiMapper::KeyboardMidiMapper() {
 
 void KeyboardMidiMapper::setLayout(KeyboardLayout newLayout) {
     layout = std::move(newLayout);
-    heldKeys.clear();
+
     if (sustainPedalDown) {
         sustainPedalDown = false;
         if (sustainPedalCallback) {
@@ -346,31 +346,25 @@ bool KeyboardMidiMapper::triggerBinding(const KeyBinding& binding, juce::MidiKey
         const auto curveVelocity = devpiano::input::applyVelocityCurve(rawVelocity, touchVelocityCurve);
         const auto velocity = modifierState.transformVelocity(curveVelocity);
 
+        auto identity
+            = MidiNoteIdentity { MidiNoteNumber::fromClamped(soundingNote), MidiChannel::fromClamped(soundingChannel) };
         if (channelMapper != nullptr) {
-            channelMapper->sendNoteOn(devpiano::core::MidiChannel::fromClamped(soundingChannel).toZeroBased(),
-                                      soundingNote, velocity, keyboardState);
+            identity = channelMapper->sendNoteOn(MidiChannel::fromClamped(soundingChannel).toZeroBased(), soundingNote,
+                                                 velocity, keyboardState);
         } else {
-            keyboardState.noteOn(soundingChannel, soundingNote, velocity);
+            keyboardState.noteOn(identity.channel.value, identity.note.value, velocity);
         }
 
-        // 3. 记录发音身份快照，严格保护 NoteOff 一致性
-        heldKeys.push_back({ binding.keyCode, soundingNote, soundingChannel, velocity });
+        heldKeys.push_back({ binding.keyCode, identity.note.value, identity.channel.value, velocity });
 
         // 4. 同步切分标记：NoteOn 即消费一次未决的 sync-pedal cut，
         // 与 SyncPedalProcessor::processMidiBlock 在音频线程上同样清零
         // cutPending 的语义保持一致，避免 QWERTY 卡片长期高亮 "[Sync Cut]"。
         syncPedalCutPending = false;
     } else {
-        // NoteOff：优先依据按下时记录的快照注销
         if (const auto* held = findHeldKey(binding.keyCode)) {
             sendNoteOff(held->soundingMidiChannel, held->soundingMidiNote, held->velocity, keyboardState);
             std::erase_if(heldKeys, [k = binding.keyCode](const auto& h) { return h.physicalKeyCode == k; });
-        } else {
-            const auto soundingNote = devpiano::core::calculateSoundingNote(binding.action.getMidiNoteNumber().value,
-                                                                            layout.getActiveGroup());
-            const auto soundingChannel = devpiano::core::calculateSoundingChannel(binding.action.getMidiChannel().value,
-                                                                                  layout.getActiveGroup());
-            sendNoteOff(soundingChannel, soundingNote, rawVelocity, keyboardState);
         }
     }
 
@@ -379,12 +373,7 @@ bool KeyboardMidiMapper::triggerBinding(const KeyBinding& binding, juce::MidiKey
 
 void KeyboardMidiMapper::sendNoteOff(int midiChannel, int midiNote, float velocity,
                                      juce::MidiKeyboardState& keyboardState) {
-    if (channelMapper != nullptr) {
-        channelMapper->sendNoteOff(devpiano::core::MidiChannel::fromClamped(midiChannel).toZeroBased(), midiNote,
-                                   velocity, keyboardState);
-    } else {
-        keyboardState.noteOff(midiChannel, midiNote, velocity);
-    }
+    keyboardState.noteOff(midiChannel, midiNote, velocity);
 }
 
 void KeyboardMidiMapper::setKeyStatePredicate(KeyStatePredicate predicate) noexcept {

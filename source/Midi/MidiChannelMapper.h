@@ -1,21 +1,20 @@
 #pragma once
 
-#include "ChannelMatrix.h"
 #include <juce_audio_basics/juce_audio_basics.h>
+
+#include "ChannelMatrix.h"
+#include "Core/MidiTypes.h"
 
 namespace devpiano::midi {
 
 // ============================================================================
 // Matrix-aware MIDI routing service.
 //
-// Applies the 16-channel ChannelMatrix to note-on/off events and raw MIDI
-// messages.  When the matrix is inactive (`ChannelMatrix::active == false`)
-// all operations pass through unchanged, preserving backward compatibility.
-//
-// Used by all two input paths:
-//   1. Computer keyboard input (via KeyboardMidiMapper)
-//   2. Piano-UI mouse clicks   (via CustomKeyboard callbacks)
+// Routes NoteOn events through the 16-channel ChannelMatrix. NoteOff events use
+// a captured output identity, and raw MIDI messages are transformed explicitly
+// with applyTransform.
 // ============================================================================
+
 class MidiChannelMapper {
 public:
     explicit MidiChannelMapper(const ChannelMatrix& matrixVal, bool midiTransposeVal, int keySignatureVal);
@@ -25,10 +24,10 @@ public:
     // Non-note messages (CC, pitch wheel, etc.) pass through unchanged.
     [[nodiscard]] juce::MidiMessage applyTransform(const juce::MidiMessage& message);
 
-    // Convenience: apply matrix and send to keyboardState.
-    // When matrix is inactive, forwards with original channel/note/velocity.
-    void sendNoteOn(int inputChannel, int midiNote, float velocity, juce::MidiKeyboardState& keyboardState);
-    void sendNoteOff(int inputChannel, int midiNote, float velocity, juce::MidiKeyboardState& keyboardState);
+    [[nodiscard]] devpiano::core::MidiNoteIdentity sendNoteOn(int inputChannel, int midiNote, float velocity,
+                                                              juce::MidiKeyboardState& keyboardState);
+    void sendNoteOff(const devpiano::core::MidiNoteIdentity& identity, float velocity,
+                     juce::MidiKeyboardState& keyboardState);
 
 private:
     [[nodiscard]] const PerChannelConfig& configForChannel(int inputChannel) const;

@@ -1,11 +1,15 @@
 #pragma once
 
 #include <functional>
+#include <optional>
+
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_events/juce_events.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include "Core/KeyMapTypes.h"
+#include "Core/MidiTypes.h"
+
 #include "KeyboardTypes.h"
 
 // ============================================================================
@@ -29,8 +33,9 @@ public:
     [[nodiscard]] const devpiano::ui::KeyboardSettings& getKeyboardSettings() const noexcept;
 
     // ---- Callbacks ---------------------------------------------------------
-    std::function<void(int midiNote, int sourceChannel)> onNoteOn;
-    std::function<void(int midiNote, int sourceChannel)> onNoteOff;
+    std::function<devpiano::core::MidiNoteIdentity(int midiNote, int sourceChannel)> onNoteOn;
+    std::function<void(const devpiano::core::MidiNoteIdentity&)> onNoteOff;
+
     std::function<void(int midiNote)> onBindingEditRequested;
 
     // ---- Keyboard interface ------------------------------------------------
@@ -111,6 +116,8 @@ private:
     int rangeLow = 21;
     int rangeHigh = 108; // (C8)
     int lastMouseDownNote = -1;
+    std::optional<devpiano::core::MidiNoteIdentity> lastMouseDownIdentity;
+
     float keybedOffsetX = 0.0f; // horizontal centering offset when window > keybed width
     int lastVisibleWidth = 0;
     int lastVisibleHeight = 0;

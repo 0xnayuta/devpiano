@@ -46,7 +46,13 @@ struct MidiChannel {
     }
 };
 
+struct MidiNoteIdentity {
+    MidiNoteNumber note;
+    MidiChannel channel;
+};
+
 struct Velocity {
+
     float value = 1.0f;
 
     [[nodiscard]] static constexpr float minValue() noexcept {

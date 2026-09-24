@@ -2,6 +2,7 @@
 
 #include "Core/KeyMapTypes.h"
 #include "Input/KeyboardMidiMapper.h"
+#include "Midi/MidiChannelMapper.h"
 
 using namespace devpiano::core;
 
@@ -382,6 +383,8 @@ public:
         testGroupSwitchingCyclesAndCallbacks();
         testNoteOffIdentityPreservedAcrossGroupSwitch();
         testSoundingChannelOverridePreservation();
+        testFinalOutputIdentitySurvivesMatrixReplacement();
+        testLayoutReplacementPreservesHeldIdentity();
         testMultipleHeldKeysAcrossDifferentGroupsReleaseCleanly();
         testBacktickGroupCyclingAndRepeatLatch();
         testReleaseAllHeldKeysClearsTransientModifiers();
@@ -484,6 +487,73 @@ private:
         // NoteOff must have been sent on channel 5, clearing the note
         expect(!state.isNoteOn(5, 60), "Channel 5 note must be released cleanly");
         expectEquals(countNotesOn(state), 0, "Zero hanging notes");
+    }
+    void testFinalOutputIdentitySurvivesMatrixReplacement() {
+        beginTest("held notes release on their original output identity after matrix replacement");
+
+        devpiano::midi::ChannelMatrix initialMatrix;
+        initialMatrix.active = true;
+        initialMatrix.channels[0].outputChannel = 3;
+        initialMatrix.channels[0].transpose = 12;
+        devpiano::midi::MidiChannelMapper initialMapper(initialMatrix, false, 0);
+
+        devpiano::midi::ChannelMatrix updatedMatrix;
+        updatedMatrix.active = true;
+        updatedMatrix.channels[0].outputChannel = 8;
+        updatedMatrix.channels[0].transpose = -12;
+        devpiano::midi::MidiChannelMapper updatedMapper(updatedMatrix, false, 0);
+
+        KeyboardMidiMapper mapper;
+        mapper.setLayout(makeTwoBindingLayout('A', 60, 'S', 62));
+        mapper.setChannelMapper(&initialMapper);
+
+        bool isAHeld = true;
+        bool isSHeld = true;
+        mapper.setKeyStatePredicate([&](int keyCode) {
+            return (keyCode == makeAlphaNumericKeyCode('A') && isAHeld)
+                || (keyCode == makeAlphaNumericKeyCode('S') && isSHeld);
+        });
+
+        juce::MidiKeyboardState state;
+        expect(mapper.handleKeyPressed(juce::KeyPress('a'), state));
+        expect(mapper.handleKeyPressed(juce::KeyPress('s'), state));
+        expect(state.isNoteOn(4, 72));
+        expect(state.isNoteOn(4, 74));
+
+        mapper.setChannelMapper(&updatedMapper);
+        isAHeld = false;
+        expect(mapper.handleKeyStateChanged(state));
+        expect(!state.isNoteOn(4, 72), "physical key-up must release the original mapped note");
+        expect(state.isNoteOn(4, 74), "the other held note must remain active");
+        expect(!state.isNoteOn(9, 48), "the replacement mapping must not receive the old note-off");
+
+        mapper.releaseAllHeldKeys(state);
+        expect(!state.isNoteOn(4, 74), "panic release must use the original mapped identity");
+        expectEquals(countNotesOn(state), 0);
+        expect(!state.isNoteOn(9, 50), "panic release must not target the replacement mapping");
+    }
+
+    void testLayoutReplacementPreservesHeldIdentity() {
+        beginTest("layout replacement retains a held note until its physical key-up");
+
+        KeyboardMidiMapper mapper;
+        mapper.setLayout(makeSingleBindingLayout('A', 60));
+
+        bool isAHeld = true;
+        mapper.setKeyStatePredicate([&](int keyCode) { return keyCode == makeAlphaNumericKeyCode('A') && isAHeld; });
+
+        juce::MidiKeyboardState state;
+        expect(mapper.handleKeyPressed(juce::KeyPress('a'), state));
+        expect(state.isNoteOn(1, 60));
+
+        mapper.setLayout(makeSingleBindingLayout('S', 62));
+        expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 1);
+
+        isAHeld = false;
+        expect(mapper.handleKeyStateChanged(state));
+        expect(!state.isNoteOn(1, 60), "layout replacement must not discard the old note identity");
+        expect(!state.isNoteOn(1, 62), "the new layout must not receive an unmatched note-off");
+        expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 0);
     }
 
     void testMultipleHeldKeysAcrossDifferentGroupsReleaseCleanly() {

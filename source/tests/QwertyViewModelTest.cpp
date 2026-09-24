@@ -226,15 +226,20 @@ private:
         // Verify noteOn/noteOff callbacks
         int noteOnTriggered = -1;
         int noteOffTriggered = -1;
-        comp.onNoteOn = [&](int note, int, float) { noteOnTriggered = note; };
-        comp.onNoteOff = [&](int note, int) { noteOffTriggered = note; };
+        comp.onNoteOn = [&](int note, int channel, float) {
+            noteOnTriggered = note;
+            return devpiano::core::MidiNoteIdentity { devpiano::core::MidiNoteNumber::fromClamped(note),
+                                                      devpiano::core::MidiChannel::fromClamped(channel) };
+        };
+        comp.onNoteOff
+            = [&](const devpiano::core::MidiNoteIdentity& identity) { noteOffTriggered = identity.note.value; };
 
         // Simulate mouse down on a note-mapped key
         // Let's find coordinate of 'Q'
         juce::Point<int> qPos;
-        for (int r = 0; r < 5; ++r) {
-            for (int k = 0; k < static_cast<int>(vm.rows[static_cast<std::size_t>(r)].keys.size()); ++k) {
-                if (vm.rows[static_cast<std::size_t>(r)].keys[static_cast<std::size_t>(k)].keyCode == 'Q') {
+        for (const auto& row : vm.rows) {
+            for (const auto& key : row.keys) {
+                if (key.keyCode == 'Q') {
                     // Search using probe points
                     for (int x = 10; x < 200; x += 5) {
                         const auto h = comp.findKeyAt({ x, 45 });
@@ -297,43 +302,81 @@ private:
     }
 
     void testMouseInteractionWithMidiChannelMapper() {
-        beginTest("Qwerty mouse callback correctly routes through MidiChannelMapper");
+        beginTest("Qwerty mouse release uses its press-time mapped identity");
 
-        devpiano::midi::ChannelMatrix matrix;
-        matrix.active = true;
-        // Map input channel 1 (0-based index 0) to output channel 4 with +12 semitone transpose
-        matrix.channels[0].outputChannel = 3; // 0-based 3 maps to MIDI channel 4
-        matrix.channels[0].transpose = 12;
-
-        devpiano::midi::MidiChannelMapper channelMapper(matrix, false, 0);
-        juce::MidiKeyboardState keyboardState;
+        KeyboardMidiMapper mapper;
+        const auto vm = mapper.createQwertySnapshot(0);
 
         devpiano::ui::QwertyComponent comp;
         comp.setSize(750, 150);
+        comp.updateViewModel(vm);
 
-        KeyboardMidiMapper mapper;
-        comp.updateViewModel(mapper.createQwertySnapshot(0));
+        juce::Point<int> qPos;
+        for (int x = 10; x < 200; x += 5) {
+            const auto hit = comp.findKeyAt({ x, 45 });
+            if (hit.key != nullptr && hit.key->keyCode == 'Q') {
+                qPos = { x, 45 };
+                break;
+            }
+        }
+        expect(qPos.getX() > 0, "Q key coordinate resolution must succeed");
+        if (qPos.getX() <= 0) {
+            return;
+        }
 
-        // Simulate the MainComponent wiring:
-        comp.onNoteOn = [&](int midiNote, int midiChannel, float velocity) {
-            const auto zeroBasedCh = juce::jlimit(0, 15, midiChannel - 1);
-            channelMapper.sendNoteOn(zeroBasedCh, midiNote, velocity, keyboardState);
+        const auto qHit = comp.findKeyAt(qPos);
+        expect(qHit.key != nullptr);
+        if (qHit.key == nullptr) {
+            return;
+        }
+
+        const auto inputChannel = juce::jlimit(1, 16, qHit.key->mappedMidiChannel);
+        const auto inputChannelIndex = inputChannel - 1;
+        const auto inputNote = qHit.key->mappedMidiNote;
+
+        devpiano::midi::ChannelMatrix initialMatrix;
+        initialMatrix.active = true;
+        initialMatrix.channels[static_cast<std::size_t>(inputChannelIndex)].outputChannel = 3;
+        initialMatrix.channels[static_cast<std::size_t>(inputChannelIndex)].transpose = 12;
+        devpiano::midi::MidiChannelMapper initialMapper(initialMatrix, false, 0);
+
+        auto updatedMatrix = initialMatrix;
+        updatedMatrix.channels[static_cast<std::size_t>(inputChannelIndex)].outputChannel = 8;
+        updatedMatrix.channels[static_cast<std::size_t>(inputChannelIndex)].transpose = -12;
+        devpiano::midi::MidiChannelMapper updatedMapper(updatedMatrix, false, 0);
+
+        auto* activeMapper = &initialMapper;
+        juce::MidiKeyboardState keyboardState;
+        comp.onNoteOn = [&](int note, int channel, float velocity) {
+            const auto zeroBasedChannel = juce::jlimit(0, 15, channel - 1);
+            return activeMapper->sendNoteOn(zeroBasedChannel, note, velocity, keyboardState);
         };
-        comp.onNoteOff = [&](int midiNote, int midiChannel) {
-            const auto zeroBasedCh = juce::jlimit(0, 15, midiChannel - 1);
-            channelMapper.sendNoteOff(zeroBasedCh, midiNote, 1.0f, keyboardState);
+        comp.onNoteOff = [&](const devpiano::core::MidiNoteIdentity& identity) {
+            activeMapper->sendNoteOff(identity, 1.0f, keyboardState);
         };
 
-        // Trigger note on C4 (60) on channel 1
-        comp.onNoteOn(60, 1, 0.9f);
-        expect(keyboardState.isNoteOn(4, 72), "Channel 1 note 60 must be transposed to channel 4 note 72");
-        expect(!keyboardState.isNoteOn(1, 60), "Raw channel 1 note 60 must not be triggered directly");
+        const auto position = qPos.toFloat();
+        const auto mouseSource = juce::Desktop::getInstance().getMainMouseSource();
+        const juce::MouseEvent pressEvent(mouseSource, position, juce::ModifierKeys::leftButtonModifier, 1.0f, 0.0f,
+                                          0.0f, 0.0f, 0.0f, &comp, &comp, juce::Time::getCurrentTime(), position,
+                                          juce::Time::getCurrentTime(), 1, false);
+        comp.mouseDown(pressEvent);
 
-        comp.onNoteOff(60, 1);
-        expect(!keyboardState.isNoteOn(4, 72), "Transposed note on channel 4 must be released");
+        const auto originalNote = juce::jlimit(0, 127, inputNote + 12);
+        expect(keyboardState.isNoteOn(4, originalNote), "Q note must use the initial channel matrix");
+
+        activeMapper = &updatedMapper;
+        const juce::MouseEvent releaseEvent(mouseSource, position, juce::ModifierKeys(), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                            &comp, &comp, juce::Time::getCurrentTime(), position,
+                                            juce::Time::getCurrentTime(), 1, false);
+        comp.mouseUp(releaseEvent);
+
+        expect(!keyboardState.isNoteOn(4, originalNote), "Q note-off must release its original mapped note");
+        expect(!keyboardState.isNoteOn(9, juce::jlimit(0, 127, inputNote - 12)),
+               "Q note-off must not use the replacement matrix");
     }
 };
 
-static QwertyViewModelTest qwertyViewModelTest;
+QwertyViewModelTest qwertyViewModelTest;
 
 } // namespace

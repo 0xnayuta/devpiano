@@ -32,6 +32,7 @@ public:
         testNonNoteMessagesPassThrough();
         testOutOfRangeInputChannelClamps();
         testKeyboardStateReceivesTransformedNotes();
+        testMappedIdentitySurvivesMapperReplacement();
     }
 
 private:
@@ -59,12 +60,16 @@ private:
 
             juce::MidiKeyboardState ks;
             // Channel 1 (index 0): melodic -> 60 + 7 = 67
-            mapper.sendNoteOn(0, 60, 0.8f, ks);
+            const auto melodicIdentity = mapper.sendNoteOn(0, 60, 0.8f, ks);
+            expectEquals(melodicIdentity.note.value, 67);
+            expectEquals(melodicIdentity.channel.value, 1);
             expect(ks.isNoteOn(1, 67), "melodic channel 1 must transpose 60 -> 67");
             expect(!ks.isNoteOn(1, 60));
 
             // Channel 10 (index 9): drum -> stays at 36
-            mapper.sendNoteOn(9, 36, 0.8f, ks);
+            const auto drumIdentity = mapper.sendNoteOn(9, 36, 0.8f, ks);
+            expectEquals(drumIdentity.note.value, 36);
+            expectEquals(drumIdentity.channel.value, 10);
             expect(ks.isNoteOn(10, 36), "drum channel 10 must bypass transpose and stay at 36");
             expect(!ks.isNoteOn(10, 43));
         });
@@ -76,9 +81,11 @@ private:
             MidiChannelMapper mapper(matrix, midiTranspose, keySignature);
 
             juce::MidiKeyboardState ks;
-            mapper.sendNoteOn(4, 60, 0.8f, ks);
+            const auto identity = mapper.sendNoteOn(4, 60, 0.8f, ks);
+            expectEquals(identity.channel.value, 5);
+            expectEquals(identity.note.value, 60);
             expect(ks.isNoteOn(5, 60), "note-on must land on the original channel");
-            mapper.sendNoteOff(4, 60, 0.0f, ks);
+            mapper.sendNoteOff(identity, 0.0f, ks);
             expect(!ks.isNoteOn(5, 60), "note-off must release the same original note");
         });
     }
@@ -156,7 +163,8 @@ private:
             MidiChannelMapper mapper(matrix, midiTranspose, keySignature);
 
             juce::MidiKeyboardState ks;
-            mapper.sendNoteOn(0, 120, 0.8f, ks);
+            const auto identity = mapper.sendNoteOn(0, 120, 0.8f, ks);
+            expectEquals(identity.note.value, 127);
             expect(ks.isNoteOn(1, 127), "followKey + transpose must clamp to 127");
         });
     }
@@ -193,7 +201,9 @@ private:
             MidiChannelMapper mapper(matrix, midiTranspose, keySignature);
 
             juce::MidiKeyboardState ks;
-            mapper.sendNoteOn(0, 60, 0.8f, ks);
+            const auto identity = mapper.sendNoteOn(0, 60, 0.8f, ks);
+            expectEquals(identity.channel.value, 3);
+            expectEquals(identity.note.value, 67);
             expect(ks.isNoteOn(3, 67), "followKey must transpose note 60 -> 67 on the remapped channel");
         });
 
@@ -207,7 +217,9 @@ private:
             MidiChannelMapper mapper(matrix, midiTranspose, keySignature);
 
             juce::MidiKeyboardState ks;
-            mapper.sendNoteOn(0, 60, 0.8f, ks);
+            const auto identity = mapper.sendNoteOn(0, 60, 0.8f, ks);
+            expectEquals(identity.channel.value, 1);
+            expectEquals(identity.note.value, 60);
             expect(ks.isNoteOn(1, 60), "non-followKey must keep the note");
         });
     }
@@ -254,7 +266,9 @@ private:
             MidiChannelMapper mapper(matrix, midiTranspose, keySignature);
 
             juce::MidiKeyboardState ks;
-            mapper.sendNoteOn(20, 60, 0.8f, ks); // invalid input channel
+            const auto identity = mapper.sendNoteOn(20, 60, 0.8f, ks); // invalid input channel
+            expectEquals(identity.channel.value, 4);
+            expectEquals(identity.note.value, 60);
             expect(ks.isNoteOn(4, 60), "out-of-range input must clamp to the last channel config");
         });
     }
@@ -270,10 +284,36 @@ private:
             MidiChannelMapper mapper(matrix, midiTranspose, keySignature);
 
             juce::MidiKeyboardState ks;
-            mapper.sendNoteOn(0, 64, 0.8f, ks);
+            const auto identity = mapper.sendNoteOn(0, 64, 0.8f, ks);
+            expectEquals(identity.channel.value, 2);
+            expectEquals(identity.note.value, 64);
             expect(ks.isNoteOn(2, 64), "note-on must reach the keyboard state on the remapped channel");
-            mapper.sendNoteOff(0, 64, 0.0f, ks);
+            mapper.sendNoteOff(identity, 0.0f, ks);
             expect(!ks.isNoteOn(2, 64), "note-off must release the note");
+        });
+    }
+    void testMappedIdentitySurvivesMapperReplacement() {
+        testCase("note-off uses the note-on output identity after mapper replacement", [&] {
+            ChannelMatrix initialMatrix;
+            initialMatrix.active = true;
+            initialMatrix.channels[0].outputChannel = 3;
+            initialMatrix.channels[0].transpose = 12;
+            MidiChannelMapper initialMapper(initialMatrix, false, 0);
+
+            ChannelMatrix updatedMatrix;
+            updatedMatrix.active = true;
+            updatedMatrix.channels[0].outputChannel = 8;
+            updatedMatrix.channels[0].transpose = -12;
+            MidiChannelMapper updatedMapper(updatedMatrix, false, 0);
+
+            juce::MidiKeyboardState keyboardState;
+            const auto identity = initialMapper.sendNoteOn(0, 60, 0.8f, keyboardState);
+            expectEquals(identity.channel.value, 4);
+            expectEquals(identity.note.value, 72);
+
+            updatedMapper.sendNoteOff(identity, 0.0f, keyboardState);
+            expect(!keyboardState.isNoteOn(4, 72), "note-off must release the original mapped note");
+            expect(!keyboardState.isNoteOn(9, 48), "current mapping must not receive the old note-off");
         });
     }
 };

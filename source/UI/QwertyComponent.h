@@ -1,11 +1,14 @@
 #pragma once
 
 #include <functional>
+#include <optional>
+
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_events/juce_events.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <vector>
 
+#include "Core/MidiTypes.h"
 #include "Core/QwertyModel.h"
 
 namespace devpiano::ui {
@@ -29,8 +32,9 @@ public:
     }
 
     // ---- Interaction Callbacks ---------------------------------------------
-    std::function<void(int midiNote, int midiChannel, float velocity)> onNoteOn;
-    std::function<void(int midiNote, int midiChannel)> onNoteOff;
+    std::function<devpiano::core::MidiNoteIdentity(int midiNote, int midiChannel, float velocity)> onNoteOn;
+    std::function<void(const devpiano::core::MidiNoteIdentity&)> onNoteOff;
+
     std::function<void(int midiNote)> onBindingEditRequested;
 
     // ---- Mouse Interaction -------------------------------------------------
@@ -68,7 +72,7 @@ private:
     std::array<std::vector<KeyGeometry>, 5> keyGeometries;
 
     int lastMouseDownNote = -1;
-    int lastMouseDownChannel = 1;
+    std::optional<devpiano::core::MidiNoteIdentity> lastMouseDownIdentity;
 
     static constexpr int timerIntervalMs = 20; // 50 fps smooth decay
     static constexpr float fadeDecayFactor = 0.86f;

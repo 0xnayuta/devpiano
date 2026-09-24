@@ -346,21 +346,26 @@ void MainComponent::wireControlsPanel() {
 void MainComponent::wireKeyboardInteraction() {
     auto& customKeyboard = getCustomKeyboard();
     customKeyboard.onNoteOn = [this](int midiNote, int sourceChannel) {
+        auto identity
+            = devpiano::core::MidiNoteIdentity { devpiano::core::MidiNoteNumber::fromClamped(midiNote),
+                                                 devpiano::core::MidiChannel::fromClamped(sourceChannel + 1) };
         if (midiChannelMapper != nullptr) {
-            midiChannelMapper->sendNoteOn(sourceChannel, midiNote, 1.0f, audioEngine.getKeyboardState());
+            identity = midiChannelMapper->sendNoteOn(sourceChannel, midiNote, 1.0f, audioEngine.getKeyboardState());
         } else {
-            audioEngine.getKeyboardState().noteOn(1, midiNote, 1.0f);
+            audioEngine.getKeyboardState().noteOn(identity.channel.value, identity.note.value, 1.0f);
         }
         keyboardMidiMapper.clearSyncPedalCutPending();
         suppressTextInputMethods();
+        return identity;
     };
-    customKeyboard.onNoteOff = [this](int midiNote, int sourceChannel) {
+    customKeyboard.onNoteOff = [this](const devpiano::core::MidiNoteIdentity& identity) {
         if (midiChannelMapper != nullptr) {
-            midiChannelMapper->sendNoteOff(sourceChannel, midiNote, 1.0f, audioEngine.getKeyboardState());
+            midiChannelMapper->sendNoteOff(identity, 1.0f, audioEngine.getKeyboardState());
         } else {
-            audioEngine.getKeyboardState().noteOff(1, midiNote, 1.0f);
+            audioEngine.getKeyboardState().noteOff(identity.channel.value, identity.note.value, 1.0f);
         }
     };
+
     customKeyboard.onBindingEditRequested = [this](int midiNote) { handleKeyBindingEditRequest(midiNote); };
 }
 
@@ -381,22 +386,26 @@ void MainComponent::initialiseUi() {
         if (auto* qv = viewHost.find<devpiano::ui::QwertyComponent>("qwerty-visualizer")) {
             qwertyComponentRef = qv;
             qv->onNoteOn = [this](int midiNote, int midiChannel, float velocity) {
+                auto identity
+                    = devpiano::core::MidiNoteIdentity { devpiano::core::MidiNoteNumber::fromClamped(midiNote),
+                                                         devpiano::core::MidiChannel::fromClamped(midiChannel) };
                 if (midiChannelMapper != nullptr) {
                     const auto zeroBasedCh = juce::jlimit(0, 15, midiChannel - 1);
-                    midiChannelMapper->sendNoteOn(zeroBasedCh, midiNote, velocity, audioEngine.getKeyboardState());
+                    identity = midiChannelMapper->sendNoteOn(zeroBasedCh, midiNote, velocity,
+                                                             audioEngine.getKeyboardState());
                 } else {
-                    audioEngine.getKeyboardState().noteOn(midiChannel, midiNote, velocity);
+                    audioEngine.getKeyboardState().noteOn(identity.channel.value, identity.note.value, velocity);
                 }
                 keyboardMidiMapper.clearSyncPedalCutPending();
                 notifyMidiActivity();
                 suppressTextInputMethods();
+                return identity;
             };
-            qv->onNoteOff = [this](int midiNote, int midiChannel) {
+            qv->onNoteOff = [this](const devpiano::core::MidiNoteIdentity& identity) {
                 if (midiChannelMapper != nullptr) {
-                    const auto zeroBasedCh = juce::jlimit(0, 15, midiChannel - 1);
-                    midiChannelMapper->sendNoteOff(zeroBasedCh, midiNote, 1.0f, audioEngine.getKeyboardState());
+                    midiChannelMapper->sendNoteOff(identity, 1.0f, audioEngine.getKeyboardState());
                 } else {
-                    audioEngine.getKeyboardState().noteOff(midiChannel, midiNote, 1.0f);
+                    audioEngine.getKeyboardState().noteOff(identity.channel.value, identity.note.value, 1.0f);
                 }
                 notifyMidiActivity();
             };

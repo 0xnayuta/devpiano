@@ -543,8 +543,9 @@ void CustomKeyboard::mouseDown(const juce::MouseEvent& e) {
     }
     if (onNoteOn) {
         auto ch = (note >= 0 && note < 128) ? static_cast<int>(perKeyChannel[static_cast<std::size_t>(note)]) : 0;
-        onNoteOn(note, ch);
+        lastMouseDownIdentity = onNoteOn(note, ch);
     }
+
     ensureTimerRunning();
 }
 
@@ -558,15 +559,15 @@ void CustomKeyboard::releaseHeldMouseNote() {
         return;
     }
 
-    auto note = lastMouseDownNote;
+    const auto identity = lastMouseDownIdentity;
     lastMouseDownNote = -1;
+    lastMouseDownIdentity.reset();
 
     // Let fade decay naturally; timer will handle it.
     ensureTimerRunning();
 
-    if (onNoteOff) {
-        auto ch = (note >= 0 && note < 128) ? static_cast<int>(perKeyChannel[static_cast<std::size_t>(note)]) : 0;
-        onNoteOff(note, ch);
+    if (identity.has_value() && onNoteOff) {
+        onNoteOff(*identity);
     }
 }
 
@@ -580,11 +581,7 @@ void CustomKeyboard::mouseDrag(const juce::MouseEvent& e) {
         return;
     }
 
-    // Release the old note
-    if (onNoteOff) {
-        auto oldCh = static_cast<int>(perKeyChannel[static_cast<std::size_t>(lastMouseDownNote)]);
-        onNoteOff(lastMouseDownNote, oldCh);
-    }
+    releaseHeldMouseNote();
 
     // Press the new note
     lastMouseDownNote = note;
@@ -598,7 +595,7 @@ void CustomKeyboard::mouseDrag(const juce::MouseEvent& e) {
     }
     if (onNoteOn) {
         auto ch = (note >= 0 && note < 128) ? static_cast<int>(perKeyChannel[static_cast<std::size_t>(note)]) : 0;
-        onNoteOn(note, ch);
+        lastMouseDownIdentity = onNoteOn(note, ch);
     }
     ensureTimerRunning();
 }
