@@ -43,23 +43,23 @@
 
 ## 阶段规划详案 (Execution Roadmap)
 
-### Phase 35-A：无锁采样级音频节拍器与视觉节拍指示（Sample-Accurate Metronome & Visual Beat Pulse）
+### Phase 35-A：无锁采样级音频节拍器与视觉节拍指示（Sample-Accurate Metronome & Visual Beat Pulse）[已完成，2026-09-24]
 
 > 目标：构建钢琴演奏与录音不可或缺的节奏基准，提供微秒级确定性音频 Click 脉冲与视觉节拍指示。
 
-- [ ] **Phase 35-A-1：无锁确定性采样级 Click Engine 内核**：
+- [x] **Phase 35-A-1：无锁确定性采样级 Click Engine 内核**：
   - 在 `source/Audio/MetronomeProcessor.h` 中实现无锁、零堆内存分配的节拍发生器；
   - 基于极简数学阻尼正弦脉冲合成 High Tick（强拍 ~1600 Hz，30ms 极速指数衰减）与 Low Tick（弱拍 ~800 Hz，20ms 极速指数衰减），零外部采样依赖；
   - 挂接于 `AudioEngine::getNextAudioBlock`，在总输出混音前无缝叠加入 Master 管道。
-- [ ] **Phase 35-A-2：拍号与节奏模型扩展**：
+- [x] **Phase 35-A-2：拍号与节奏模型扩展**：
   - 在 `source/Core/KeyMapTypes.h` 或新增 `source/Core/MetronomeModel.h` 中定义节拍模型：支持 2/4、3/4、4/4、6/8 常用拍号；
   - BPM 无级可调范围 40 ~ 280 BPM，支持基于击键时间间隔的连续 Tap Tempo 测速算法；
   - 支持录音前预备拍（Count-in，1~2 小节倒计时触发），并在设置中持久化记录。
-- [ ] **Phase 35-A-3：JIVE 声明式 UI 控件与状态栏同频脉冲**：
+- [x] **Phase 35-A-3：JIVE 声明式 UI 控件与状态栏同频脉冲**：
   - 在 `LayoutModel.cpp` 的 `ControlsPanel` 走带区域新增节拍器开关（`metronome-toggle-btn`）、BPM 调节与音量控制；
   - 状态栏与走带界面呈现同频呼吸闪烁的节拍指示灯（强拍高亮红色/主色，弱拍柔和浅色）；
   - 支持键盘快捷键快速启闭节拍器。
-- [ ] **Phase 35-A-4：节拍器时序与采样精度确定性测试集**：
+- [x] **Phase 35-A-4：节拍器时序与采样精度确定性测试集**：
   - 编写 `MetronomeTest` 专项单测，覆盖采样计数周期对齐、BPM 动态无缝切换、多音频块跨块切分、拍号重音循环及预备拍倒计时状态机。
 
 ---

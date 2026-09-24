@@ -12,6 +12,7 @@
 #include "Audio/AudioDeviceDiagnostics.h"
 #include "Audio/AudioEngine.h"
 #include "Core/AppState.h"
+#include "Core/MetronomeModel.h"
 #include "Diagnostics/DevPianoLogger.h"
 #include "Input/KeyboardMidiMapper.h"
 #include "Layout/PresetFlowSupport.h"
@@ -124,6 +125,9 @@ private:
     void applyPluginRecoverySettings(const SettingsModel::PluginRecoverySettingsView& pluginRecovery);
     void handlePerformanceUiChanged();
     void applyUiStateToAudioEngine();
+    void updateMetronomeUi();
+    void showMetronomeTempoMenu();
+    void handleMetronomeTap();
     void syncUiFromSettings();
     void syncSettingsFromUi();
     void reconfigureChannelMapper();
@@ -241,6 +245,9 @@ private:
     juce::String statusToastText;
     int statusToastTicksRemaining = 0;
     int statusBarThrottleCounter = 0;
+    devpiano::core::TapTempoCalculator tapTempoCalculator;
+    std::uint32_t lastObservedBeatSequence = 0;
+    float metronomePulseBrightness = 0.0f;
     juce::Time lastTokensModTime;
     juce::Time lastStylesModTime;
     int hotReloadCheckCounter = 0;

@@ -216,6 +216,11 @@ void SettingsWindowManager::showFor(MainComponent& owner) {
         safe->audioEngine.setSustainPolicy(safe->appSettings.sustainPolicy);
         safe->keyboardMidiMapper.setSustainPolicy(safe->appSettings.sustainPolicy);
         safe->updateQwertyVisualizer();
+        safe->audioEngine.setMetronomeEnabled(safe->appSettings.metronomeEnabled);
+        safe->audioEngine.setMetronomeBpm(safe->appSettings.metronomeBpm);
+        safe->audioEngine.setMetronomeTimeSignature(safe->appSettings.metronomeTimeSignature);
+        safe->audioEngine.setMetronomeVolume(safe->appSettings.metronomeVolume);
+        safe->updateMetronomeUi();
     };
     show({ .parent = owner,
            .deviceManager = owner.deviceManager,

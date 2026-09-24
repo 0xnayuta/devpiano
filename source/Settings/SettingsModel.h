@@ -8,6 +8,7 @@
 #include "../UI/KeyboardTypes.h"
 #include "Core/AppState.h"
 #include "Core/KeyMapTypes.h"
+#include "Core/MetronomeModel.h"
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_core/juce_core.h>
 #include <juce_graphics/juce_graphics.h>
@@ -130,6 +131,12 @@ struct SettingsModel {
     bool pluginPanelExpanded = false; // persisted PluginPanel collapsed/expanded toggle
     bool qwertyVisualizerExpanded = true; // persisted QwertyVisualizer collapsed/expanded toggle
     devpiano::core::SustainPolicy sustainPolicy = devpiano::core::SustainPolicy::syncPedal;
+    // Persisted metronome settings (Phase 35-A)
+    bool metronomeEnabled = false;
+    double metronomeBpm = 120.0;
+    devpiano::core::TimeSignature metronomeTimeSignature = devpiano::core::TimeSignature::fourFour;
+    float metronomeVolume = 0.70f;
+    devpiano::core::CountInBars metronomeCountIn = devpiano::core::CountInBars::none;
     // Persisted UI language code ("en" | "zh-CN").
     juce::String languageCode { "en" };
     // Key signature system: global transpose state

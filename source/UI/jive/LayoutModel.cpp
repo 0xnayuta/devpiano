@@ -411,6 +411,36 @@ juce::ValueTree makeControlsPanelTree() {
     speedSlider.setProperty("height", 36, nullptr);
     transportCard.appendChild(speedSlider, nullptr);
 
+    auto metronomeRow = flexRow("metronome-row");
+    metronomeRow.setProperty("title", TRANS("Metronome"), nullptr);
+    metronomeRow.setProperty("height", 24, nullptr);
+    metronomeRow.setProperty("margin", "4 0 0 0", nullptr);
+
+    auto metroToggleBtn = button(TRANS("Metro"), "metronome-toggle-btn");
+    metroToggleBtn.setProperty("title", TRANS("Metronome Toggle"), nullptr);
+    metroToggleBtn.setProperty("tooltip", TRANS("Toggle Metronome (M)"), nullptr);
+    metroToggleBtn.setProperty("flex-grow", 1.0, nullptr);
+    metroToggleBtn.setProperty("height", 24, nullptr);
+    metroToggleBtn.setProperty("margin", "0 4 0 0", nullptr);
+    metronomeRow.appendChild(metroToggleBtn, nullptr);
+
+    auto bpmBtn = button("120 4/4", "metronome-bpm-btn");
+    bpmBtn.setProperty("title", TRANS("Tempo"), nullptr);
+    bpmBtn.setProperty("tooltip", TRANS("Adjust Tempo / Time Signature"), nullptr);
+    bpmBtn.setProperty("flex-grow", 1.2, nullptr);
+    bpmBtn.setProperty("height", 24, nullptr);
+    bpmBtn.setProperty("margin", "0 4 0 0", nullptr);
+    metronomeRow.appendChild(bpmBtn, nullptr);
+
+    auto tapBtn = button(TRANS("Tap"), "metronome-tap-btn");
+    tapBtn.setProperty("title", TRANS("Tap Tempo"), nullptr);
+    tapBtn.setProperty("tooltip", TRANS("Tap Tempo"), nullptr);
+    tapBtn.setProperty("width", 42, nullptr);
+    tapBtn.setProperty("height", 24, nullptr);
+    metronomeRow.appendChild(tapBtn, nullptr);
+
+    transportCard.appendChild(metronomeRow, nullptr);
+
     panel.appendChild(transportCard, nullptr);
 
     return panel;

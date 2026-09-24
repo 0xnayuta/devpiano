@@ -78,6 +78,7 @@ private:
     void startInternalPlayback(const RecordingTake& take, std::int64_t resumeFromSamples = 0);
     void stopInternalPlayback();
     void syncRecordingSessionToUi();
+    void checkCountIn();
 
     void runExportRecordingFlow(devpiano::exporting::ExportFileType type, std::unique_ptr<juce::FileChooser>& chooser,
                                 const juce::String& dialogTitle, const juce::String& filePattern,
@@ -98,6 +99,8 @@ private:
     RecordingSession recordingSession;
     // aliveFlag_ shared with async lambdas so they can detect destruction
     std::shared_ptr<bool> aliveFlag_;
+    int countInRemainingBeats = 0;
+    std::uint32_t lastCountInSequence = 0;
 
     std::unique_ptr<juce::FileChooser> exportMidiChooser;
     std::unique_ptr<juce::FileChooser> exportWavChooser;

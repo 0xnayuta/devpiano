@@ -209,6 +209,7 @@ target_sources(devpiano PRIVATE
     source/Audio/AudioDeviceDiagnostics.cpp
     source/Audio/SyncPedalProcessor.h
     source/Audio/InstrumentEndpoint.h
+    source/Audio/MetronomeProcessor.h
     source/Input/KeyboardMidiMapper.cpp
     source/Input/KeyboardMidiMapper.h
     source/Core/KeyMapTypes.h
@@ -216,6 +217,7 @@ target_sources(devpiano PRIVATE
     source/Core/AppState.h
     source/Core/MusicTheory.h
     source/Core/QwertyModel.h
+    source/Core/MetronomeModel.h
     source/Midi/MidiChannelMapper.cpp
     source/Midi/MidiChannelMapper.h
     source/Midi/ChannelMatrix.h
@@ -431,6 +433,7 @@ if (BUILD_TESTS)
         source/Core/AppState.h
         source/Core/MusicTheory.h
         source/Core/QwertyModel.h
+        source/Core/MetronomeModel.h
         source/Input/KeyboardMidiMapper.cpp
         source/Input/KeyboardMidiMapper.h
         source/Diagnostics/Log.h
@@ -476,6 +479,7 @@ if (BUILD_TESTS)
         source/Plugin/PluginHost.cpp
         source/Audio/SyncPedalProcessor.h
         source/Audio/InstrumentEndpoint.h
+        source/Audio/MetronomeProcessor.h
         source/Plugin/PluginHost.h
         source/Plugin/PluginFlowSupport.cpp
         source/Plugin/PluginFlowSupport.h
@@ -571,6 +575,7 @@ if (BUILD_TESTS)
         source/tests/PerformanceModifierTest.cpp
         source/tests/PluginScanPersistenceTest.cpp
         source/tests/InstrumentEndpointTest.cpp
+        source/tests/MetronomeTest.cpp
         ${DEVPIANO_JIVE_CORE_SOURCES}
     )
     target_link_libraries(devpiano_tests PRIVATE

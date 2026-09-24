@@ -876,9 +876,18 @@ void MainComponent::updateStatusBar() {
     } else if (keyboardMidiMapper.isSustainPedalDown()) {
         pedalIndicator = bullet + (isSync ? "[SYNC PEDAL]" : "[SUSTAIN]");
     }
+    juce::String metronomeIndicator;
+    if (audioEngine.isMetronomeEnabled()) {
+        const auto dot = (metronomePulseBrightness > 0.05f)
+            ? (audioEngine.getMetronomeIsDownbeat() ? juce::String::charToString(0x25CF)
+                                                    : juce::String::charToString(0x25CB))
+            : juce::String::charToString(0x2022);
+        metronomeIndicator = bullet + juce::String(juce::roundToInt(audioEngine.getMetronomeBpm())) + " "
+            + devpiano::core::getTimeSignatureName(audioEngine.getMetronomeTimeSignature()) + " " + dot;
+    }
     const auto groupIndicator = " [Group " + keyboardMidiMapper.getActiveGroup().name + "]";
-    const auto statusRight
-        = keyName + " (" + transposeStr + ")" + bullet + layoutName + groupIndicator + pedalIndicator;
+    const auto statusRight = keyName + " (" + transposeStr + ")" + bullet + layoutName + groupIndicator + pedalIndicator
+        + metronomeIndicator;
     viewHost.setText("time-label", statusRight);
 }
 

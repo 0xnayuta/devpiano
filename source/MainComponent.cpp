@@ -61,6 +61,10 @@ MainComponent::MainComponent() {
     keyboardMidiMapper.setChannelMapper(midiChannelMapper.get());
     keyboardMidiMapper.setSustainPolicy(appSettings.sustainPolicy);
     audioEngine.setSustainPolicy(appSettings.sustainPolicy);
+    audioEngine.setMetronomeEnabled(appSettings.metronomeEnabled);
+    audioEngine.setMetronomeBpm(appSettings.metronomeBpm);
+    audioEngine.setMetronomeTimeSignature(appSettings.metronomeTimeSignature);
+    audioEngine.setMetronomeVolume(appSettings.metronomeVolume);
     keyboardMidiMapper.setSustainPedalCallback([this](bool isDown) {
         audioEngine.sendController(1, 64, isDown ? 127 : 0);
         notifyMidiActivity();
@@ -340,6 +344,17 @@ void MainComponent::wireControlsPanel() {
         };
     }
 
+    wireButton("metronome-toggle-btn", [this] {
+        const bool newState = !audioEngine.isMetronomeEnabled();
+        audioEngine.setMetronomeEnabled(newState);
+        appSettings.metronomeEnabled = newState;
+        updateMetronomeUi();
+        updateStatusBar();
+        saveSettingsSoon();
+    });
+    wireButton("metronome-bpm-btn", [this] { showMetronomeTempoMenu(); });
+    wireButton("metronome-tap-btn", [this] { handleMetronomeTap(); });
+    updateMetronomeUi();
     setRecordingControlsState({});
 }
 
@@ -573,6 +588,22 @@ void MainComponent::handleNoteOff(juce::MidiKeyboardState*, int, int, float) {
 void MainComponent::timerCallback() {
     recordingSessionController->checkPlaybackEnded();
 
+    // Metronome beat sequence pulse observation (Phase 35-A)
+    const auto currentBeatSeq = audioEngine.getMetronomeBeatSequence();
+    if (currentBeatSeq != lastObservedBeatSequence) {
+        lastObservedBeatSequence = currentBeatSeq;
+        if (audioEngine.isMetronomeEnabled()) {
+            metronomePulseBrightness = 1.0f;
+            updateStatusBar();
+        }
+    } else if (metronomePulseBrightness > 0.05f) {
+        metronomePulseBrightness *= 0.75f;
+        if (metronomePulseBrightness <= 0.05f) {
+            metronomePulseBrightness = 0.0f;
+            updateStatusBar();
+        }
+    }
+
     // Decay status bar MIDI activity dot
     if (auto* dot = getStatusBarMidiDot()) {
         dot->decayFrame();
@@ -725,6 +756,16 @@ bool MainComponent::keyPressed(const juce::KeyPress& key) {
     // Ctrl+R (or Cmd+R) hot reload styles & design tokens
     if (key.getModifiers().isCtrlDown() && (key.getKeyCode() == 'r' || key.getKeyCode() == 'R')) {
         reloadStylesAndTokens();
+        return true;
+    }
+    // Ctrl+M toggle metronome (Phase 35-A)
+    if (key.getModifiers().isCtrlDown() && (key.getKeyCode() == 'm' || key.getKeyCode() == 'M')) {
+        const bool newState = !audioEngine.isMetronomeEnabled();
+        audioEngine.setMetronomeEnabled(newState);
+        appSettings.metronomeEnabled = newState;
+        updateMetronomeUi();
+        updateStatusBar();
+        saveSettingsSoon();
         return true;
     }
 
@@ -1042,6 +1083,85 @@ void MainComponent::handlePerformanceUiChanged() {
 
 void MainComponent::applyUiStateToAudioEngine() {
     applyPerformanceSettingsToAudioEngine(getPerformanceSettingsFromUi());
+    audioEngine.setMetronomeEnabled(appSettings.metronomeEnabled);
+    audioEngine.setMetronomeBpm(appSettings.metronomeBpm);
+    audioEngine.setMetronomeTimeSignature(appSettings.metronomeTimeSignature);
+    audioEngine.setMetronomeVolume(appSettings.metronomeVolume);
+}
+
+void MainComponent::updateMetronomeUi() {
+    if (!viewHost.isValid()) {
+        return;
+    }
+    const bool isMetroOn = audioEngine.isMetronomeEnabled();
+    if (auto* btn = viewHost.find<juce::Button>("metronome-toggle-btn")) {
+        btn->setToggleState(isMetroOn, juce::dontSendNotification);
+        btn->setButtonText(isMetroOn ? TRANS("[Metro: ON]") : TRANS("Metro: OFF"));
+    }
+    if (auto* btn = viewHost.find<juce::Button>("metronome-bpm-btn")) {
+        const auto sigName = devpiano::core::getTimeSignatureName(audioEngine.getMetronomeTimeSignature());
+        btn->setButtonText(juce::String(juce::roundToInt(audioEngine.getMetronomeBpm())) + " " + sigName);
+    }
+}
+
+void MainComponent::showMetronomeTempoMenu() {
+    juce::PopupMenu menu;
+    menu.addSectionHeader(TRANS("Tempo"));
+    const double currentBpm = audioEngine.getMetronomeBpm();
+
+    const std::array<int, 7> commonTempos = { 60, 80, 100, 120, 140, 160, 180 };
+    for (int tempo : commonTempos) {
+        menu.addItem(tempo, juce::String(tempo) + " BPM", true, std::abs(currentBpm - tempo) < 0.5);
+    }
+
+    menu.addSeparator();
+    menu.addSectionHeader(TRANS("Time Signature:"));
+    const auto currentSig = audioEngine.getMetronomeTimeSignature();
+    menu.addItem(1001, "2/4", true, currentSig == devpiano::core::TimeSignature::twoFour);
+    menu.addItem(1002, "3/4", true, currentSig == devpiano::core::TimeSignature::threeFour);
+    menu.addItem(1003, "4/4", true, currentSig == devpiano::core::TimeSignature::fourFour);
+    menu.addItem(1004, "6/8", true, currentSig == devpiano::core::TimeSignature::sixEight);
+
+    menu.addSeparator();
+    menu.addSectionHeader(TRANS("Count-in:"));
+    menu.addItem(2001, TRANS("None"), true, appSettings.metronomeCountIn == devpiano::core::CountInBars::none);
+    menu.addItem(2002, "1 " + TRANS("Bar"), true, appSettings.metronomeCountIn == devpiano::core::CountInBars::oneBar);
+    menu.addItem(2003, "2 " + TRANS("Bars"), true,
+                 appSettings.metronomeCountIn == devpiano::core::CountInBars::twoBars);
+
+    menu.showMenuAsync(juce::PopupMenu::Options {}, [this](int result) {
+        if (result >= 40 && result <= 280) {
+            audioEngine.setMetronomeBpm(static_cast<double>(result));
+            appSettings.metronomeBpm = static_cast<double>(result);
+            updateMetronomeUi();
+            updateStatusBar();
+            saveSettingsSoon();
+        } else if (result >= 1001 && result <= 1004) {
+            const auto sig = static_cast<devpiano::core::TimeSignature>(result - 1001);
+            audioEngine.setMetronomeTimeSignature(sig);
+            appSettings.metronomeTimeSignature = sig;
+            updateMetronomeUi();
+            updateStatusBar();
+            saveSettingsSoon();
+        } else if (result >= 2001 && result <= 2003) {
+            const auto countIn = static_cast<devpiano::core::CountInBars>(result - 2001);
+            appSettings.metronomeCountIn = countIn;
+            saveSettingsSoon();
+        }
+    });
+}
+
+void MainComponent::handleMetronomeTap() {
+    const double now = juce::Time::getMillisecondCounterHiRes() / 1000.0;
+    tapTempoCalculator.recordTap(now);
+    if (auto calculated = tapTempoCalculator.calculateBpm()) {
+        const double newBpm = std::round(*calculated);
+        audioEngine.setMetronomeBpm(newBpm);
+        appSettings.metronomeBpm = newBpm;
+        updateMetronomeUi();
+        updateStatusBar();
+        saveSettingsSoon();
+    }
 }
 
 void MainComponent::syncUiFromSettings() {
@@ -1065,6 +1185,7 @@ void MainComponent::syncUiFromSettings() {
     } else {
         setKeyboardViewPosition(24); // default: align note 24 (C1) at left edge
     }
+    updateMetronomeUi();
     updateStatusBar();
 }
 void MainComponent::syncSettingsFromUi() {

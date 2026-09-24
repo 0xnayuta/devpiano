@@ -2,6 +2,7 @@
 
 #include "Audio/AudioEngine.h"
 #include "Audio/InstrumentEndpoint.h"
+#include "Core/MetronomeModel.h"
 #include "Diagnostics/Log.h"
 #include "Export/ExportFlowSupport.h"
 #include "Export/WavExportTask.h"
@@ -38,9 +39,26 @@ RecordingSessionController::~RecordingSessionController() {
 }
 
 void RecordingSessionController::handleRecordClicked() {
+    if (countInRemainingBeats > 0) {
+        countInRemainingBeats = 0;
+        owner.showStatusMessage(TRANS("Count-in Cancelled"), 800);
+        return;
+    }
+
     const auto command = chooseRecordingFlowCommand(
         RecordingFlowIntent::record, makeRecordingFlowStatus(recordingSession.state, recordingSession.hasTake()));
     if (command != RecordingFlowCommand::startRecording) {
+        return;
+    }
+
+    const auto barCount = devpiano::core::getCountInBarCount(appSettings.metronomeCountIn);
+    if (barCount > 0 && recordingSession.state == ui::RecordingState::idle) {
+        const auto beatsPerBar = devpiano::core::getTimeSignatureNumerator(audioEngine.getMetronomeTimeSignature());
+        countInRemainingBeats = barCount * beatsPerBar;
+        audioEngine.setMetronomeEnabled(true);
+        owner.updateMetronomeUi();
+        lastCountInSequence = audioEngine.getMetronomeBeatSequence();
+        owner.showStatusMessage(TRANS("Count-in:") + " " + juce::String(countInRemainingBeats), 1200);
         return;
     }
 
@@ -103,6 +121,11 @@ void RecordingSessionController::handlePlayClicked() {
 }
 
 void RecordingSessionController::handleStopClicked() {
+    if (countInRemainingBeats > 0) {
+        countInRemainingBeats = 0;
+        owner.showStatusMessage(TRANS("Count-in Cancelled"), 800);
+    }
+
     const auto command = chooseRecordingFlowCommand(
         RecordingFlowIntent::stop, makeRecordingFlowStatus(recordingSession.state, recordingSession.hasTake()));
 
@@ -391,6 +414,8 @@ void RecordingSessionController::handlePlaybackSpeedChange(double speed) {
 }
 
 void RecordingSessionController::checkPlaybackEnded() {
+    checkCountIn();
+
     if (!recordingEngine.consumePlaybackEndedFlag()) {
         return;
     }
@@ -652,6 +677,30 @@ void RecordingSessionController::handleSongInfoClicked() {
                 owner.restoreKeyboardFocus();
             },
     });
+}
+
+void RecordingSessionController::checkCountIn() {
+    if (countInRemainingBeats <= 0) {
+        return;
+    }
+
+    const auto currentSeq = audioEngine.getMetronomeBeatSequence();
+    if (currentSeq != lastCountInSequence) {
+        lastCountInSequence = currentSeq;
+        countInRemainingBeats--;
+        if (countInRemainingBeats > 0) {
+            owner.showStatusMessage(TRANS("Count-in:") + " " + juce::String(countInRemainingBeats), 1000);
+        } else {
+            recordingEngine.clear();
+            recordingSession.take = {};
+            recordingSession.canExportMidi = false;
+            startInternalRecording(0);
+            recordingSession.state = ui::RecordingState::recording;
+            syncRecordingSessionToUi();
+            owner.showStatusMessage(TRANS("Recording Started"), 1000);
+            owner.restoreKeyboardFocus();
+        }
+    }
 }
 
 } // namespace devpiano::recording

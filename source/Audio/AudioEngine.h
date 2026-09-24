@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Audio/MetronomeProcessor.h"
 #include "Audio/SyncPedalProcessor.h"
 #include "PerspectiveProcessor.h"
 #include "RoomReverbEngine.h"
@@ -130,6 +131,46 @@ public:
     void resetSyncPedal() noexcept {
         syncPedalProcessor.reset();
     }
+    // ── Metronome (Phase 35-A) ──
+    void setMetronomeEnabled(bool enabled) noexcept {
+        metronomeProcessor.setEnabled(enabled);
+    }
+    [[nodiscard]] bool isMetronomeEnabled() const noexcept {
+        return metronomeProcessor.isEnabled();
+    }
+    void setMetronomeBpm(double bpm) noexcept {
+        metronomeProcessor.setBpm(bpm);
+    }
+    [[nodiscard]] double getMetronomeBpm() const noexcept {
+        return metronomeProcessor.getBpm();
+    }
+    void setMetronomeTimeSignature(devpiano::core::TimeSignature sig) noexcept {
+        metronomeProcessor.setTimeSignature(sig);
+    }
+    [[nodiscard]] devpiano::core::TimeSignature getMetronomeTimeSignature() const noexcept {
+        return metronomeProcessor.getTimeSignature();
+    }
+    void setMetronomeVolume(float volume) noexcept {
+        metronomeProcessor.setVolume(volume);
+    }
+    [[nodiscard]] float getMetronomeVolume() const noexcept {
+        return metronomeProcessor.getVolume();
+    }
+    [[nodiscard]] int getMetronomeCurrentBeatNumber() const noexcept {
+        return metronomeProcessor.getCurrentBeatNumber();
+    }
+    [[nodiscard]] bool getMetronomeIsDownbeat() const noexcept {
+        return metronomeProcessor.getIsDownbeat();
+    }
+    [[nodiscard]] std::uint32_t getMetronomeBeatSequence() const noexcept {
+        return metronomeProcessor.getBeatSequence();
+    }
+    devpiano::audio::MetronomeProcessor& getMetronomeProcessor() noexcept {
+        return metronomeProcessor;
+    }
+    [[nodiscard]] const devpiano::audio::MetronomeProcessor& getMetronomeProcessor() const noexcept {
+        return metronomeProcessor;
+    }
 
 private:
     void rebuildSynth();
@@ -155,6 +196,7 @@ private:
 
     devpiano::audio::SyncPedalProcessor syncPedalProcessor;
     juce::MidiBuffer syncPedalTempBuffer;
+    devpiano::audio::MetronomeProcessor metronomeProcessor;
     juce::ADSR::Parameters adsrParameters;
     std::atomic<float> masterGain { 1.0f };
     BuiltinSynthTone builtinTone = BuiltinSynthTone::piano;

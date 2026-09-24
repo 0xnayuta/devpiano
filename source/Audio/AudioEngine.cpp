@@ -75,6 +75,7 @@ void AudioEngine::prepareToPlay(int samplesPerBlockExpected, double sampleRate) 
     syncPedalTempBuffer.ensureSize(bytes);
     applyPendingParametersIfNeeded();
     roomReverb.prepare(sampleRate);
+    metronomeProcessor.prepareToPlay(sampleRate);
 
     if (endpoint.isHostedPlugin()) {
         pluginHost->prepareToPlay(sampleRate, samplesPerBlockExpected);
@@ -147,6 +148,7 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
                                  bufferToFill.buffer->getWritePointer(1, bufferToFill.startSample),
                                  bufferToFill.numSamples);
     }
+    metronomeProcessor.processAndMix(bufferToFill.buffer, bufferToFill.startSample, bufferToFill.numSamples);
 
     bufferToFill.buffer->applyGain(bufferToFill.startSample, bufferToFill.numSamples,
                                    masterGain.load(std::memory_order_relaxed));
@@ -161,6 +163,7 @@ void AudioEngine::releaseResources() {
     playbackStartPreRollBlocksRemaining.store(0, std::memory_order_release);
     discardWarmupInputState();
     synth.allNotesOff(0, false);
+    metronomeProcessor.reset();
 
     roomReverb.reset();
     if (pluginHost != nullptr) {
