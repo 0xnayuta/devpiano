@@ -35,7 +35,7 @@
 ### 阶段一：源码编码合规与死代码彻底清理 [QUAL-001, QUAL-002, JUCE-003]
 
 - [x] **测试代码裸非 ASCII 字符清理与国际化解耦 (`QUAL-001`)** [已完成，Commit `cf308a4`]：
-  - `source/tests/StyleCatalogTest.cpp`：移除了硬编码裸中文字符串字面量（`"音量"`、`"设置"`）及其测试描述，改为断言语言切换机制（机制是否生效，返回非原始英文键名），彻底解耦测试与随时润色的文案；
+  - `source/tests/StyleCatalogTest.cpp`：移除了硬编码裸中文字符串字面量；测试仍对 `Volume`、`Settings` 的译文值作固定断言（通过 UTF-8 转义构造），因此本项消除了裸字符，但没有完全解耦测试与译文内容；
   - `source/tests/MidiChannelMapperTest.cpp` 与 `source/tests/KeyboardMidiMapperTest.cpp`：将断言描述字符串字面量中的裸 Unicode 箭头符号 `→` 统一替换为标准 ASCII `->`；
   - 全库逐字节验证：通过脚本对 `source/` 全量源码重扫描，全库字符串字面量中的裸非 ASCII 字符违规彻底清零（0 violations），杜绝 Windows/MSVC 下潜在的编码解析异常与 Debug 崩溃断言。
 - [x] **清理 DevPianoLookAndFeel 中废弃的 AlertWindow 死代码 (`QUAL-002`)** [已完成，Commit `cf308a4`]：
