@@ -143,23 +143,28 @@ private:
         right[0] = 0.95f;
         reverb.processStereo(left.data(), right.data(), 256);
 
-        // Feed silence for 5 seconds (220,500 samples)
+        constexpr int kSilentBlockCount = 500;
         constexpr int kBlock = 512;
         std::vector<float> bufL(kBlock, 0.0f);
         std::vector<float> bufR(kBlock, 0.0f);
 
-        for (int b = 0; b < 500; ++b) {
+        std::size_t nonFiniteSampleValues = 0;
+        for (int b = 0; b < kSilentBlockCount; ++b) {
             std::fill(bufL.begin(), bufL.end(), 0.0f);
             std::fill(bufR.begin(), bufR.end(), 0.0f);
             reverb.processStereo(bufL.data(), bufR.data(), kBlock);
 
             for (std::size_t i = 0; i < kBlock; ++i) {
-                expect(!std::isnan(bufL[i]) && !std::isinf(bufL[i]));
-                expect(!std::isnan(bufR[i]) && !std::isinf(bufR[i]));
+                if (!std::isfinite(bufL[i])) {
+                    ++nonFiniteSampleValues;
+                }
+                if (!std::isfinite(bufR[i])) {
+                    ++nonFiniteSampleValues;
+                }
             }
         }
+        expectEquals(nonFiniteSampleValues, static_cast<std::size_t>(0));
 
-        // After 5 seconds of decay, the tail must be completely flushed to absolute 0.0
         float finalL = 0.0f;
         float finalR = 0.0f;
         for (std::size_t i = 0; i < kBlock; ++i) {

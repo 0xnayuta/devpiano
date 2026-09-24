@@ -9,7 +9,7 @@
 class PedalAcousticsTest final : public juce::UnitTest {
 public:
     PedalAcousticsTest()
-        : juce::UnitTest("PedalAcoustics", "Audio") {
+        : juce::UnitTest("PedalAcoustics", "DevPiano/Audio") {
     }
 
     void runTest() override {

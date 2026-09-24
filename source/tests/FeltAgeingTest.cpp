@@ -9,7 +9,7 @@
 class FeltAgeingTest final : public juce::UnitTest {
 public:
     FeltAgeingTest()
-        : juce::UnitTest("FeltAgeing", "Audio") {
+        : juce::UnitTest("FeltAgeing", "DevPiano/Audio") {
     }
 
     void runTest() override {

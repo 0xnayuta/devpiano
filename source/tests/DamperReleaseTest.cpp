@@ -8,7 +8,7 @@
 class DamperReleaseTest final : public juce::UnitTest {
 public:
     DamperReleaseTest()
-        : juce::UnitTest("DamperRelease", "Audio") {
+        : juce::UnitTest("DamperRelease", "DevPiano/Audio") {
     }
 
     void runTest() override {

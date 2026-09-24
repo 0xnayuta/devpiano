@@ -239,7 +239,9 @@ source ~/.bashrc
 # 测试二进制参数（直接运行 build-wsl-clang/devpiano_tests_artefacts/Debug/devpiano_tests）：
 #   --include-juce        额外运行 JUCE 库自带内部测试（默认仅项目测试，节省 ~95s）
 #   --include-files       不跳过 Files 类别（WSL root 下 JUCE Files 测试会失败）
-#   --category <name>     仅运行指定类别（DevPiano/Core|Recording|Engine|UI）
+#   --category <name>     仅运行指定类别；项目类别为 DevPiano/<area>
+#                         <area>: Acoustics|Audio|Core|Diagnostics|Engine|
+#                                Export|Input|Plugin|Recording|Settings|UI
 #   --name <name>         仅运行指定名称的测试类
 
 # ── 编译耗时性能剖析与火焰图分析 (-ftime-trace) ──
