@@ -299,6 +299,46 @@ public:
             expect(qwertyComp->getHeight() >= 150);
         }
 
+        auto* qwertyHeader = host.find("qwerty-action-row");
+        auto* qwertyTitle = host.find("qwerty-title-label");
+        auto* qwertyGroupButton = host.find("qwerty-group-btn");
+        auto* qwertyToggleButton = host.find("qwerty-toggle-btn");
+        expect(qwertyHeader != nullptr);
+        expect(qwertyTitle != nullptr);
+        expect(qwertyGroupButton != nullptr);
+        expect(qwertyToggleButton != nullptr);
+        if (qwertyHeader != nullptr && qwertyTitle != nullptr && qwertyGroupButton != nullptr
+            && qwertyToggleButton != nullptr) {
+            expectEquals(qwertyHeader->getHeight(), 22);
+            expectEquals(qwertyTitle->getHeight(), 18);
+            expectEquals(qwertyGroupButton->getHeight(), 20);
+            expectEquals(qwertyToggleButton->getHeight(), 22);
+        }
+
+        auto* presetCard = host.find("preset-card");
+        auto* presetActionRow = host.find("preset-btn-row");
+        auto* presetFileRow1 = host.find("file-row-1");
+        auto* presetFileRow3 = host.find("file-row-3");
+        auto* transportCard = host.find("transport-card");
+        auto* speedSlider = host.find("speed-knob");
+        auto* metronomeRow = host.find("metronome-row");
+        expect(presetCard != nullptr);
+        expect(presetActionRow != nullptr);
+        expect(presetFileRow1 != nullptr);
+        expect(presetFileRow3 != nullptr);
+        expect(transportCard != nullptr);
+        expect(speedSlider != nullptr);
+        expect(metronomeRow != nullptr);
+        if (presetCard != nullptr && presetActionRow != nullptr && presetFileRow1 != nullptr
+            && presetFileRow3 != nullptr) {
+            expect(presetFileRow1->getY() > presetActionRow->getBottom() + 20);
+            expectEquals(presetFileRow3->getBottom(), presetCard->getHeight() - 9);
+        }
+        if (transportCard != nullptr && speedSlider != nullptr && metronomeRow != nullptr) {
+            expect(metronomeRow->getY() > speedSlider->getBottom() + 20);
+            expectEquals(metronomeRow->getBottom(), transportCard->getHeight() - 9);
+        }
+
         auto* adsrCurve = host.find("adsr-curve");
         auto* timeline = host.find("timeline-bar");
         expect(adsrCurve != nullptr);
@@ -312,6 +352,17 @@ public:
         if (keyboardComp != nullptr) {
             expect(keyboardComp->getHeight() >= 138);
             expect(keyboardComp->getHeight() <= 200);
+        }
+
+        if (qwertyComp != nullptr && qwertyHeader != nullptr) {
+            host.setProperty("qwerty-expanded-area", "height", 0);
+            host.setProperty("qwerty-card", "height", 32);
+            host.setProperty("qwerty-card", "min-height", 32);
+            host.relayoutContainer("qwerty-card");
+            host.relayoutContainer("content-row");
+            host.relayoutContainer("main-area");
+            expectEquals(qwertyComp->getHeight(), 32);
+            expectEquals(qwertyHeader->getHeight(), 22);
         }
     }
 

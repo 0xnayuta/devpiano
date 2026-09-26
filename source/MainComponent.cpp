@@ -1117,12 +1117,13 @@ void MainComponent::updateMetronomeUi() {
     const bool isMetroOn = audioEngine.isMetronomeEnabled();
     if (auto* btn = viewHost.find<juce::Button>("metronome-toggle-btn")) {
         btn->setToggleState(isMetroOn, juce::dontSendNotification);
-        btn->setButtonText(isMetroOn ? TRANS("[Metro: ON]") : TRANS("Metro: OFF"));
     }
-    if (auto* btn = viewHost.find<juce::Button>("metronome-bpm-btn")) {
-        const auto sigName = devpiano::core::getTimeSignatureName(audioEngine.getMetronomeTimeSignature());
-        btn->setButtonText(juce::String(juce::roundToInt(audioEngine.getMetronomeBpm())) + " " + sigName);
-    }
+    viewHost.setButtonLabel("metronome-toggle-btn", isMetroOn ? TRANS("Metro On") : TRANS("Metro Off"));
+
+    const auto sigName = devpiano::core::getTimeSignatureName(audioEngine.getMetronomeTimeSignature());
+    const auto bpmLabel = juce::String(juce::roundToInt(audioEngine.getMetronomeBpm())) + " BPM";
+    viewHost.setButtonLabel("metronome-bpm-btn", bpmLabel);
+    viewHost.setProperty("metronome-bpm-btn", "tooltip", TRANS("Adjust Tempo / Time Signature") + " (" + sigName + ")");
 }
 
 void MainComponent::showMetronomeTempoMenu() {
@@ -1152,6 +1153,7 @@ void MainComponent::showMetronomeTempoMenu() {
 
     menu.showMenuAsync(juce::PopupMenu::Options {}, [this](int result) {
         if (result >= 40 && result <= 280) {
+            tapTempoCalculator.reset();
             audioEngine.setMetronomeBpm(static_cast<double>(result));
             appSettings.metronomeBpm = static_cast<double>(result);
             updateMetronomeUi();

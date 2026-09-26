@@ -501,6 +501,11 @@ void MainComponent::refreshControlsTexts() {
     viewHost.setText("qwerty-title-label", TRANS("QWERTY Performance Map"));
     viewHost.setProperty("qwerty-group-btn", "tooltip", TRANS("Switch Layout Group (` key or click)"));
     viewHost.setProperty("qwerty-toggle-btn", "tooltip", TRANS("Toggle QWERTY Visualizer"));
+    viewHost.setButtonLabel("metronome-tap-btn", TRANS("Tap"));
+    viewHost.setProperty("metronome-tap-btn", "title", TRANS("Tap Tempo"));
+    viewHost.setProperty("metronome-toggle-btn", "tooltip", TRANS("Toggle Metronome (M)"));
+    viewHost.setProperty("metronome-bpm-btn", "tooltip", TRANS("Adjust Tempo / Time Signature"));
+    viewHost.setProperty("metronome-tap-btn", "tooltip", TRANS("Tap at least twice at the desired beat to set tempo"));
     if (auto* combo = viewHost.find<juce::ComboBox>("preset-combo")) {
         combo->setTextWhenNothingSelected(TRANS("Default"));
     }
@@ -525,6 +530,7 @@ void MainComponent::refreshControlsTexts() {
     }
 
     setRecordingControlsState(recordingControlsState);
+    updateMetronomeUi();
 }
 
 CustomKeyboard& MainComponent::getCustomKeyboard() {
@@ -581,10 +587,9 @@ devpiano::ui::QwertyComponent& MainComponent::getQwertyVisualizer() {
 void MainComponent::setQwertyVisualizerExpanded(bool expanded, bool adjustWindowHeight) {
     appSettings.qwertyVisualizerExpanded = expanded;
     if (viewHost.isValid()) {
-        // Expanded size: 22 px header, 8 px vertical padding, and 160 px content.
         viewHost.setProperty("qwerty-expanded-area", "height", expanded ? 160 : 0);
-        viewHost.setProperty("qwerty-card", "height", expanded ? 190 : 30);
-        viewHost.setProperty("qwerty-card", "min-height", expanded ? 150 : 30);
+        viewHost.setProperty("qwerty-card", "height", expanded ? 192 : 32);
+        viewHost.setProperty("qwerty-card", "min-height", expanded ? 150 : 32);
         viewHost.setButtonLabel("qwerty-toggle-btn", juce::String::charToString(expanded ? 0x25B4 : 0x25BE));
         viewHost.relayoutContainer("qwerty-card");
         viewHost.relayoutContainer("content-row");
@@ -600,7 +605,7 @@ void MainComponent::setQwertyVisualizerExpanded(bool expanded, bool adjustWindow
                         return;
                     }
                 }
-                constexpr int delta = 160; // 190 - 30
+                constexpr int delta = 160;
                 const auto currentBounds = resizable->getBounds();
                 const auto* display = juce::Desktop::getInstance().getDisplays().getDisplayForRect(currentBounds);
                 const auto* primary = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay();

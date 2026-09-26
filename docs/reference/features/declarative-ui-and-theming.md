@@ -55,7 +55,11 @@ Component (root, display="flex", flex-direction="column")
 
 `MainComponent` 在构造时通过 `jive::Interpreter` 一次性解释整棵布局树，并通过 `MainComponentJiveAccessors.cpp` 提供的强类型访问器操作具体子组件状态。
 
-主窗口默认尺寸为 1180 × 780，最小尺寸为 980 × 700。88 键键床采用 21.5 px 白键宽度和 6.4:1 白键长宽比，总宽约 1118 px；默认键盘视口宽 1148 px 时完整显示，最小窗口下则保留整段键床供横向滚动。键床在更宽或更高的视口中居中，不拉伸键形。Controls 面板最小高度为 220 px，展开的 QWERTY 卡片为 190 px（最小 150 px，折叠 30 px）；ADSR 曲线保留至少 48 px，时间线顶部留 8 px 间距。
+主窗口默认尺寸为 1180 × 780，最小尺寸为 980 × 700。88 键键床采用 21.5 px 白键宽度和 6.4:1 白键长宽比，总宽约 1118 px；默认键盘视口宽 1148 px 时完整显示，最小窗口下则保留整段键床供横向滚动。键床在更宽或更高的视口中居中，不拉伸键形。Controls 面板最小高度为 220 px；ADSR 曲线保留至少 48 px，时间线顶部留 8 px 间距。
+
+展开的 QWERTY 卡片外高为 192 px（最小 150 px），折叠外高为 32 px。标题行固定占 22 px，其中标题文字组件为 18 px；与 Performance Preset 和 Transport Controls 的 18 px 标题加 4 px 下间距一致。卡片尺寸包含 8 px 垂直 padding 和 2 px 边框，窗口收缩时由映射内容区让出空间。
+
+Performance Preset 的 New、Rename、Delete 保持在上方，Export、Import、Save、Open、Export WAV、Recent、Info 作为底部文件操作组。Transport Controls 的 Metro、节奏选择和 Tap 也固定为底部一组；两处均通过 flex-grow 占位吸收卡片内剩余高度。节奏按钮显示当前 BPM（例如 `120 BPM`），悬停提示和设置菜单提供当前拍号；Tap 至少需要按目标节拍连续点按两次，超过 2 秒的间隔会重新开始累积。
 
 ---
 

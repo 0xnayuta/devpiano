@@ -285,6 +285,10 @@ juce::ValueTree makeControlsPanelTree() {
     presetBtnRow.appendChild(makeTextBtn(TRANS("Delete"), "delete-preset-btn", "0"), nullptr);
     presetCard.appendChild(presetBtnRow, nullptr);
 
+    auto presetSpacer = node("Component", "preset-spacer");
+    presetSpacer.setProperty("flex-grow", 1.0, nullptr);
+    presetCard.appendChild(presetSpacer, nullptr);
+
     auto fileRow1 = flexRow("file-row-1");
     fileRow1.setProperty("title", TRANS("Export Row"), nullptr);
     fileRow1.setProperty("height", 24, nullptr);
@@ -426,6 +430,10 @@ juce::ValueTree makeControlsPanelTree() {
     speedSlider.setProperty("height", 36, nullptr);
     transportCard.appendChild(speedSlider, nullptr);
 
+    auto metronomeSpacer = node("Component", "metronome-spacer");
+    metronomeSpacer.setProperty("flex-grow", 1.0, nullptr);
+    transportCard.appendChild(metronomeSpacer, nullptr);
+
     auto metronomeRow = flexRow("metronome-row");
     metronomeRow.setProperty("title", TRANS("Metronome"), nullptr);
     metronomeRow.setProperty("height", 24, nullptr);
@@ -439,7 +447,7 @@ juce::ValueTree makeControlsPanelTree() {
     metroToggleBtn.setProperty("margin", "0 4 0 0", nullptr);
     metronomeRow.appendChild(metroToggleBtn, nullptr);
 
-    auto bpmBtn = button("120 4/4", "metronome-bpm-btn");
+    auto bpmBtn = button("120 BPM", "metronome-bpm-btn");
     bpmBtn.setProperty("title", TRANS("Tempo"), nullptr);
     bpmBtn.setProperty("tooltip", TRANS("Adjust Tempo / Time Signature"), nullptr);
     bpmBtn.setProperty("flex-grow", 1.2, nullptr);
@@ -449,7 +457,7 @@ juce::ValueTree makeControlsPanelTree() {
 
     auto tapBtn = button(TRANS("Tap"), "metronome-tap-btn");
     tapBtn.setProperty("title", TRANS("Tap Tempo"), nullptr);
-    tapBtn.setProperty("tooltip", TRANS("Tap Tempo"), nullptr);
+    tapBtn.setProperty("tooltip", TRANS("Tap at least twice at the desired beat to set tempo"), nullptr);
     tapBtn.setProperty("width", 42, nullptr);
     tapBtn.setProperty("height", 24, nullptr);
     metronomeRow.appendChild(tapBtn, nullptr);
@@ -468,7 +476,7 @@ juce::ValueTree makeControlsPanelTree() {
 juce::ValueTree makeQwertyCardTree() {
     auto card = flexColumn("qwerty-card");
     card.setProperty("title", TRANS("QWERTY Performance Map"), nullptr);
-    card.setProperty("height", 190, nullptr); // expanded initial
+    card.setProperty("height", 192, nullptr); // expanded initial
     card.setProperty("min-height", 150, nullptr);
     card.setProperty("padding", "4 8 4 8", nullptr);
     card.setProperty("margin", "0 0 4 0", nullptr);
@@ -478,12 +486,14 @@ juce::ValueTree makeQwertyCardTree() {
     auto headerRow = flexRow("qwerty-action-row");
     headerRow.setProperty("title", TRANS("QWERTY Header"), nullptr);
     headerRow.setProperty("height", 22, nullptr);
+    headerRow.setProperty("min-height", 22, nullptr);
+    headerRow.setProperty("flex-shrink", 0.0, nullptr);
     headerRow.setProperty("margin", "0", nullptr);
 
     auto title = text(TRANS("QWERTY Performance Map"), "qwerty-title-label");
     title.setProperty("title", TRANS("QWERTY Performance Map"), nullptr);
     title.setProperty("flex-grow", 1.0, nullptr);
-    title.setProperty("height", 22, nullptr);
+    title.setProperty("height", 18, nullptr);
     title.setProperty("justification", "centred-left", nullptr);
     title.setProperty("word-wrap", "none", nullptr);
     headerRow.appendChild(title, nullptr);
@@ -588,7 +598,7 @@ juce::ValueTree makeRootLayout() {
     contentRow.appendChild(controls, nullptr);
 
     auto qwerty = makeQwertyCardTree();
-    qwerty.setProperty("height", 190, nullptr); // expanded initial, matching QWERTY state
+    qwerty.setProperty("height", 192, nullptr); // expanded initial, matching QWERTY state
     contentRow.appendChild(qwerty, nullptr);
 
     auto keyboard = makeKeyboardAreaTree();
