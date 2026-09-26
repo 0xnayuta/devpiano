@@ -362,6 +362,10 @@ juce::ValueTree makeControlsPanelTree() {
     curve.setProperty("min-height", 48, nullptr);
     adsrCard.appendChild(curve, nullptr);
 
+    auto timeline = node("TimelineBar", "timeline-bar");
+    timeline.setProperty("height", 34, nullptr);
+    adsrCard.appendChild(timeline, nullptr);
+
     panel.appendChild(adsrCard, nullptr);
 
     // ═════════════════════════════════════════════════════════════════════════

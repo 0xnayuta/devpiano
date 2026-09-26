@@ -526,6 +526,40 @@ public:
 
             rec.stopPlayback();
         }
+        beginTest("playback seek releases held notes and applies the requested take sample");
+        {
+            devpiano::recording::RecordingEngine rec;
+            AudioEngine engine;
+            engine.setRecordingEngine(&rec);
+            engine.prepareToPlay(512, 44100.0);
+            exhaustWarmup(engine, 512);
+
+            devpiano::recording::RecordingTake take;
+            take.sampleRate = 44100.0;
+            take.lengthSamples = 4096;
+            take.events.push_back({
+                .timestampSamples = 10,
+                .type = devpiano::recording::PerformanceEventType::midi,
+                .source = devpiano::recording::RecordingEventSource::playback,
+                .message = juce::MidiMessage::noteOn(1, 60, 0.8f),
+            });
+            rec.startPlayback(take, 44100.0);
+
+            auto [playBuffer, playInfo] = makeBlock(2, 512);
+            juce::ignoreUnused(playBuffer);
+            engine.getNextAudioBlock(playInfo);
+            expect(engine.getKeyboardState().isNoteOn(1, 60), "the playback note should be sounding before seek");
+
+            rec.pausePlayback();
+            rec.requestPlaybackSeek(1234);
+            auto [seekBuffer, seekInfo] = makeBlock(2, 512);
+            juce::ignoreUnused(seekBuffer);
+            engine.getNextAudioBlock(seekInfo);
+
+            expectEquals(static_cast<std::int64_t>(1234), rec.getPlaybackPositionInTakeSamples());
+            expect(!engine.getKeyboardState().isNoteOn(1, 60), "seek must clear the currently sounding note");
+            rec.stopPlayback();
+        }
     }
 };
 

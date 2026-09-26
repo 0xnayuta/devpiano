@@ -831,3 +831,253 @@ public:
 };
 
 static RecordingPauseTest recordingPauseTest;
+class AbLoopTest final : public juce::UnitTest {
+public:
+    AbLoopTest()
+        : juce::UnitTest("RecordingEngine: A-B loop and seek", "DevPiano/Engine") {
+    }
+
+    void runTest() override {
+        beginTest("seek uses take samples, clamps boundaries, and emits all-channel cleanup");
+        {
+            auto take = buildTake(1000.0, 200, { { 0, 60, true, 1, 1.0f } });
+            RecordingEngine engine;
+            engine.setPlaybackSpeedMultiplier(1.0);
+            engine.startPlaybackAtTakeSample(take, 2000.0, 40);
+            expectEquals(static_cast<std::int64_t>(80), engine.getPlaybackPositionSamples());
+            expectEquals(static_cast<std::int64_t>(40), engine.getPlaybackPositionInTakeSamples());
+
+            engine.requestPlaybackSeek(75);
+            std::int64_t pendingSample = 0;
+            expect(engine.getPendingPlaybackSeekSample(pendingSample));
+            expectEquals(static_cast<std::int64_t>(75), pendingSample);
+
+            juce::MidiBuffer cleanup;
+            expect(engine.applyPendingPlaybackSeek(cleanup));
+            expectEquals(static_cast<std::int64_t>(150), engine.getPlaybackPositionSamples());
+            expectEquals(48, countMidiBufferEvents(cleanup));
+
+            engine.requestPlaybackSeek(-1);
+            cleanup.clear();
+            expect(engine.applyPendingPlaybackSeek(cleanup));
+            expectEquals(static_cast<std::int64_t>(0), engine.getPlaybackPositionSamples());
+
+            engine.requestPlaybackSeek(500);
+            cleanup.clear();
+            expect(engine.applyPendingPlaybackSeek(cleanup));
+            expectEquals(static_cast<std::int64_t>(400), engine.getPlaybackPositionSamples());
+            expectEquals(static_cast<std::int64_t>(200), engine.getPlaybackPositionInTakeSamples());
+        }
+
+        beginTest("seek resumes a merged multichannel timeline at the exact take sample");
+        {
+            auto take = buildTake(1000.0, 100,
+                                  {
+                                      { 10, 60, true, 1, 1.0f },
+                                      { 20, 67, true, 2, 1.0f },
+                                      { 30, 60, false, 1, 0.0f },
+                                      { 40, 72, true, 3, 1.0f },
+                                  });
+            RecordingEngine engine;
+            engine.startPlaybackAtTakeSample(take, 2000.0, 20);
+
+            juce::MidiBuffer buffer;
+            engine.renderPlaybackBlock(buffer, 40, 41);
+            expectEquals(3, countMidiBufferEvents(buffer));
+
+            int eventIndex = 0;
+            for (const auto metadata : buffer) {
+                const auto message = metadata.getMessage();
+                if (eventIndex == 0) {
+                    expectEquals(0, metadata.samplePosition);
+                    expect(message.isNoteOn());
+                    expectEquals(2, message.getChannel());
+                    expectEquals(67, message.getNoteNumber());
+                } else if (eventIndex == 1) {
+                    expectEquals(20, metadata.samplePosition);
+                    expect(message.isNoteOff());
+                    expectEquals(1, message.getChannel());
+                    expectEquals(60, message.getNoteNumber());
+                } else {
+                    expectEquals(40, metadata.samplePosition);
+                    expect(message.isNoteOn());
+                    expectEquals(3, message.getChannel());
+                    expectEquals(72, message.getNoteNumber());
+                }
+                ++eventIndex;
+            }
+        }
+
+        beginTest("loop wraps at B, cleans all channels before replaying multichannel A events");
+        {
+            auto take = buildTake(1000.0, 100,
+                                  {
+                                      { 10, 60, true, 1, 1.0f },
+                                      { 10, 36, true, 10, 1.0f },
+                                      { 20, 67, true, 2, 1.0f },
+                                  });
+            RecordingEngine engine;
+            engine.setPlaybackLoopStartSample(10);
+            engine.setPlaybackLoopEndSample(20);
+            engine.startPlayback(take, 1000.0);
+
+            juce::MidiBuffer buffer;
+            engine.renderPlaybackBlock(buffer, 0, 25);
+
+            int cleanupAtWrap = 0;
+            int replayedNotesAtWrap = 0;
+            bool endMarkerEventWasPlayed = false;
+            bool firstWrapEventWasCleanup = false;
+            bool sawWrapOffset = false;
+            for (const auto metadata : buffer) {
+                const auto message = metadata.getMessage();
+                if (metadata.samplePosition != 20) {
+                    continue;
+                }
+
+                if (!sawWrapOffset) {
+                    firstWrapEventWasCleanup = message.isController() && message.getControllerNumber() == 64
+                        && message.getControllerValue() == 0;
+                    sawWrapOffset = true;
+                }
+                if (message.isNoteOn()) {
+                    expectEquals(48, cleanupAtWrap, "panic must precede A events at the same sample");
+                    ++replayedNotesAtWrap;
+                    endMarkerEventWasPlayed |= message.getChannel() == 2 && message.getNoteNumber() == 67;
+                } else if ((message.isController()
+                            && (message.getControllerNumber() == 64 || message.getControllerNumber() == 120))
+                           || message.isAllNotesOff()) {
+                    ++cleanupAtWrap;
+                }
+            }
+
+            expect(sawWrapOffset, "B boundary should occur inside this block");
+            expect(firstWrapEventWasCleanup, "the first event at B must release sustain");
+            expectEquals(48, cleanupAtWrap);
+            expectEquals(2, replayedNotesAtWrap, "both playback channels should restart at A");
+            expect(!endMarkerEventWasPlayed, "events at B are outside the half-open loop interval");
+
+            engine.advancePlaybackPosition(25);
+            expect(engine.isPlaying(), "an active loop must suppress normal completion");
+            expect(!engine.consumePlaybackEndedFlag());
+            expectEquals(static_cast<std::int64_t>(15), engine.getPlaybackPositionSamples());
+        }
+
+        beginTest("loop markers remain take-relative at faster playback speed");
+        {
+            auto take = buildTake(1000.0, 100,
+                                  {
+                                      { 10, 60, true, 1, 1.0f },
+                                      { 20, 67, true, 2, 1.0f },
+                                  });
+            RecordingEngine engine;
+            engine.setPlaybackLoopStartSample(10);
+            engine.setPlaybackLoopEndSample(20);
+            engine.setPlaybackSpeedMultiplier(2.0);
+            engine.startPlayback(take, 1000.0);
+
+            juce::MidiBuffer buffer;
+            engine.renderPlaybackBlock(buffer, 0, 12);
+            int cleanupAtWrap = 0;
+            int replayedNotesAtWrap = 0;
+            for (const auto metadata : buffer) {
+                if (metadata.samplePosition != 10) {
+                    continue;
+                }
+                const auto message = metadata.getMessage();
+                if (message.isNoteOn() && message.getChannel() == 1 && message.getNoteNumber() == 60) {
+                    ++replayedNotesAtWrap;
+                } else if ((message.isController()
+                            && (message.getControllerNumber() == 64 || message.getControllerNumber() == 120))
+                           || message.isAllNotesOff()) {
+                    ++cleanupAtWrap;
+                }
+            }
+            expectEquals(48, cleanupAtWrap);
+            expectEquals(1, replayedNotesAtWrap);
+
+            engine.advancePlaybackPosition(12);
+            expectEquals(static_cast<std::int64_t>(7), engine.getPlaybackPositionSamples());
+        }
+
+        beginTest("speed changes preserve take position while playback is paused or stopped");
+        {
+            auto take = buildTake(1000.0, 500, { { 0, 60, true, 1, 1.0f } });
+            RecordingEngine engine;
+            engine.startPlaybackAtTakeSample(take, 1000.0, 100);
+            engine.advancePlaybackPosition(40);
+            expectEquals(static_cast<std::int64_t>(140), engine.getPlaybackPositionInTakeSamples());
+
+            engine.pausePlayback();
+            engine.setPlaybackSpeedMultiplier(0.5);
+            expectEquals(static_cast<std::int64_t>(140), engine.getPlaybackPositionInTakeSamples());
+            expectEquals(static_cast<std::int64_t>(280), engine.getPlaybackPositionSamples());
+
+            engine.stopPlayback();
+            engine.setPlaybackSpeedMultiplier(2.0);
+            expectEquals(static_cast<std::int64_t>(140), engine.getPlaybackPositionInTakeSamples());
+            expectEquals(static_cast<std::int64_t>(70), engine.getPlaybackPositionSamples());
+        }
+
+        beginTest("B at block end cleans up at offset zero of the next block");
+        {
+            auto take = buildTake(1000.0, 100, { { 10, 60, true, 1, 1.0f } });
+            RecordingEngine engine;
+            engine.setPlaybackLoopStartSample(10);
+            engine.setPlaybackLoopEndSample(20);
+            engine.startPlayback(take, 1000.0);
+
+            juce::MidiBuffer buffer;
+            engine.renderPlaybackBlock(buffer, 0, 20);
+            expectEquals(1, countMidiBufferEvents(buffer),
+                         "the first block contains only the note at A, with no early panic");
+            engine.advancePlaybackPosition(20);
+            expectEquals(static_cast<std::int64_t>(10), engine.getPlaybackPositionSamples());
+
+            buffer.clear();
+            engine.renderPlaybackBlock(buffer, 10, 8);
+            int cleanupAtStart = 0;
+            int firstOffsetEvent = -1;
+            for (const auto metadata : buffer) {
+                if (metadata.samplePosition != 0) {
+                    continue;
+                }
+                const auto message = metadata.getMessage();
+                if (firstOffsetEvent < 0) {
+                    firstOffsetEvent = message.isController() && message.getControllerNumber() == 64 ? 1 : 0;
+                }
+                if ((message.isController()
+                     && (message.getControllerNumber() == 64 || message.getControllerNumber() == 120))
+                    || message.isAllNotesOff()) {
+                    ++cleanupAtStart;
+                }
+            }
+            expectEquals(1, firstOffsetEvent, "cleanup must be first at the loop-start sample");
+            expectEquals(48, cleanupAtStart);
+        }
+
+        beginTest("reversed and empty loop ranges do not alter playback");
+        {
+            auto take = buildTake(1000.0, 100, { { 0, 60, true, 1, 1.0f } });
+            RecordingEngine engine;
+            engine.setPlaybackLoopStartSample(20);
+            engine.setPlaybackLoopEndSample(10);
+            expect(!engine.getPlaybackLoopRange().isValid());
+            engine.startPlayback(take, 1000.0);
+
+            juce::MidiBuffer buffer;
+            engine.renderPlaybackBlock(buffer, 0, 25);
+            expectEquals(1, countMidiBufferEvents(buffer));
+            engine.advancePlaybackPosition(25);
+            expectEquals(static_cast<std::int64_t>(25), engine.getPlaybackPositionSamples());
+            expect(!engine.consumePlaybackEndedFlag());
+
+            engine.clearPlaybackLoop();
+            engine.setPlaybackLoopStartSample(10);
+            engine.setPlaybackLoopEndSample(10);
+            expect(!engine.getPlaybackLoopRange().isValid());
+        }
+    }
+};
+
+static AbLoopTest abLoopTest;

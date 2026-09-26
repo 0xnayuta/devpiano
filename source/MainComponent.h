@@ -37,6 +37,7 @@
 #include "UI/jive/LayoutModel.h"
 #include "UI/jive/StyleCatalog.h"
 #include "UI/native/KeyboardViewport.h"
+class TimelineBar;
 
 class MainComponent final : public juce::AudioAppComponent,
                             private juce::Timer,
@@ -242,6 +243,7 @@ private:
     devpiano::ui::RecordingControlsState recordingControlsState;
     CustomKeyboard* customKeyboardRef = nullptr;
     devpiano::ui::QwertyComponent* qwertyComponentRef = nullptr;
+    TimelineBar* timelineBarRef = nullptr;
     juce::String statusToastText;
     int statusToastTicksRemaining = 0;
     int statusBarThrottleCounter = 0;

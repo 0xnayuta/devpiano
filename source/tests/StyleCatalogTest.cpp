@@ -12,6 +12,7 @@
 #include "UI/jive/LayoutModel.h"
 #include "UI/jive/StyleCatalog.h"
 #include "UI/native/StatusBarMidiDot.h"
+#include "UI/native/TimelineBar.h"
 
 #include "UI/jive/core/jive_layouts.h"
 
@@ -39,6 +40,7 @@ void registerRootComponentFactory(::jive::Interpreter& interpreter) {
         return slider;
     });
     factory.set("AdsrCurve", [] { return std::make_unique<juce::Component>(); });
+    factory.set("TimelineBar", [] { return std::make_unique<TimelineBar>(); });
     for (const char* type : { "RecordButton", "PlayButton", "StopButton", "BackButton" }) {
         factory.set(type, [] { return std::make_unique<juce::TextButton>(); });
     }

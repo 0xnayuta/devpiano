@@ -10,6 +10,7 @@
 #include "UI/native/AdsrCurveComponent.h"
 #include "UI/native/KeyboardViewport.h"
 #include "UI/native/StatusBarMidiDot.h"
+#include "UI/native/TimelineBar.h"
 
 namespace devpiano::ui::jive {
 
@@ -142,6 +143,7 @@ public:
         });
 
         factory.set("AdsrCurve", [] { return std::make_unique<AdsrCurveComponent>(); });
+        factory.set("TimelineBar", [] { return std::make_unique<TimelineBar>(); });
 
         // 图标在应用生命周期内由静态存储所有
         static const auto recordIcon = VectorIconFactory::createRecordIcon();

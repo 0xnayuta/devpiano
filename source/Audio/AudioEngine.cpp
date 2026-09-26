@@ -98,6 +98,16 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
     }
 
     midiBuffer.clear();
+    const auto playbackSeekApplied
+        = recordingEngine != nullptr && recordingEngine->applyPendingPlaybackSeek(midiBuffer);
+    if (playbackSeekApplied) {
+        syncPedalProcessor.reset();
+        for (auto channel = 1; channel <= 16; ++channel) {
+            keyboardState.allNotesOff(channel);
+        }
+        synth.allNotesOff(0, false);
+        roomReverb.reset();
+    }
     midiCollector.removeNextBlockOfMessages(midiBuffer, bufferToFill.numSamples);
     keyboardState.processNextMidiBuffer(midiBuffer, 0, bufferToFill.numSamples, true);
     syncPedalProcessor.processMidiBlock(midiBuffer, syncPedalTempBuffer);

@@ -12,6 +12,7 @@
 #include "UI/jive/StyleBootstrap.h"
 #include "UI/native/AdsrCurveComponent.h"
 #include "UI/native/StatusBarMidiDot.h"
+#include "UI/native/TimelineBar.h"
 
 #if JUCE_WINDOWS
 struct HWND__;
@@ -265,6 +266,15 @@ void MainComponent::wireControlsPanel() {
           };
 
     auto* adsrCurve = viewHost.find<AdsrCurveComponent>("adsr-curve");
+
+    timelineBarRef = viewHost.find<TimelineBar>("timeline-bar");
+    if (timelineBarRef != nullptr) {
+        timelineBarRef->onSeek
+            = [this](std::int64_t sample) { recordingSessionController->seekPlaybackToSample(sample); };
+        timelineBarRef->onSetStart = [this] { recordingSessionController->setPlaybackLoopStart(); };
+        timelineBarRef->onSetEnd = [this] { recordingSessionController->setPlaybackLoopEnd(); };
+        timelineBarRef->onClearLoop = [this] { recordingSessionController->clearPlaybackLoop(); };
+    }
 
     wireKnob(
         "volume-knob", 0.0, 1.0, 0.01, [](double v) { return juce::String(v, 2); },
@@ -591,6 +601,13 @@ void MainComponent::handleNoteOff(juce::MidiKeyboardState*, int, int, float) {
 
 void MainComponent::timerCallback() {
     recordingSessionController->checkPlaybackEnded();
+
+    if (timelineBarRef != nullptr) {
+        const auto timeline = recordingSessionController->getPlaybackTimelineSnapshot();
+        timelineBarRef->setTimeline(timeline.positionSamples, timeline.lengthSamples, timeline.sampleRate,
+                                    timeline.loopRange);
+        timelineBarRef->setEnabled(timeline.enabled);
+    }
 
     // Metronome beat sequence pulse observation (Phase 35-A)
     const auto currentBeatSeq = audioEngine.getMetronomeBeatSequence();

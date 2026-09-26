@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "RecordingSessionController.h"
 
 #include "Audio/AudioEngine.h"
@@ -63,6 +65,7 @@ void RecordingSessionController::handleRecordClicked() {
     }
 
     recordingEngine.clear();
+    idleSeekPositionSamples.reset();
     recordingSession.take = {};
     recordingSession.canExportMidi = false;
     startInternalRecording(0);
@@ -83,7 +86,8 @@ void RecordingSessionController::handlePlayClicked() {
 
     switch (command) {
     case RecordingFlowCommand::startPlayback:
-        startInternalPlayback(recordingSession.take, 0);
+        startInternalPlayback(recordingSession.take, idleSeekPositionSamples.value_or(0));
+        idleSeekPositionSamples.reset();
         recordingSession.state = ui::RecordingState::playing;
         break;
     case RecordingFlowCommand::pausePlayback:
@@ -92,10 +96,16 @@ void RecordingSessionController::handlePlayClicked() {
         recordingEngine.pausePlayback();
         recordingSession.state = ui::RecordingState::playingPaused;
         break;
-    case RecordingFlowCommand::resumePlayback:
-        startInternalPlayback(recordingSession.take, recordingEngine.getPlaybackPositionSamples());
+    case RecordingFlowCommand::resumePlayback: {
+        std::int64_t resumeFromTakeSamples = 0;
+        if (!recordingEngine.getPendingPlaybackSeekSample(resumeFromTakeSamples)) {
+            resumeFromTakeSamples = recordingEngine.getPlaybackPositionInTakeSamples();
+        }
+        startInternalPlayback(recordingSession.take, resumeFromTakeSamples);
+        idleSeekPositionSamples.reset();
         recordingSession.state = ui::RecordingState::playing;
         break;
+    }
     case RecordingFlowCommand::pauseRecording:
         recordingEngine.pauseRecording();
         recordingSession.state = ui::RecordingState::recordingPaused;
@@ -168,6 +178,7 @@ void RecordingSessionController::handleBackToStartClicked() {
     if (!recordingSession.hasTake() || recordingSession.isRecording()) {
         return;
     }
+    idleSeekPositionSamples.reset();
 
     if (recordingSession.state == ui::RecordingState::playing) {
         stopInternalPlayback();
@@ -413,6 +424,65 @@ void RecordingSessionController::handlePlaybackSpeedChange(double speed) {
     DP_DEBUG_LOG("[Playback] speed changed to " + juce::String(speed, 2) + "x");
 }
 
+void RecordingSessionController::seekPlaybackToSample(std::int64_t takeSample) {
+    const auto timeline = getPlaybackTimelineSnapshot();
+    if (!timeline.enabled) {
+        return;
+    }
+
+    const auto clampedSample = juce::jlimit<std::int64_t>(0, timeline.lengthSamples, takeSample);
+    if (recordingSession.isPlaying()) {
+        idleSeekPositionSamples.reset();
+        recordingEngine.requestPlaybackSeek(clampedSample);
+    } else {
+        idleSeekPositionSamples = clampedSample;
+        audioEngine.requestAllNotesOff();
+    }
+}
+
+void RecordingSessionController::setPlaybackLoopStart() {
+    const auto timeline = getPlaybackTimelineSnapshot();
+    if (timeline.enabled) {
+        recordingEngine.setPlaybackLoopStartSample(timeline.positionSamples);
+    }
+}
+
+void RecordingSessionController::setPlaybackLoopEnd() {
+    const auto timeline = getPlaybackTimelineSnapshot();
+    if (timeline.enabled) {
+        recordingEngine.setPlaybackLoopEndSample(timeline.positionSamples);
+    }
+}
+
+void RecordingSessionController::clearPlaybackLoop() {
+    recordingEngine.clearPlaybackLoop();
+}
+
+RecordingSessionController::PlaybackTimelineSnapshot
+RecordingSessionController::getPlaybackTimelineSnapshot() const noexcept {
+    PlaybackTimelineSnapshot snapshot;
+    snapshot.lengthSamples = std::max<std::int64_t>(recordingSession.take.lengthSamples, 0);
+    snapshot.sampleRate = recordingSession.take.sampleRate;
+    snapshot.loopRange = recordingEngine.getPlaybackLoopRange();
+    snapshot.enabled = snapshot.lengthSamples > 0 && !recordingSession.isRecording();
+    if (!snapshot.enabled) {
+        return snapshot;
+    }
+
+    if (recordingSession.isPlaying()) {
+        if (!recordingEngine.getPendingPlaybackSeekSample(snapshot.positionSamples)) {
+            snapshot.positionSamples = recordingEngine.getPlaybackPositionInTakeSamples();
+        }
+    } else if (idleSeekPositionSamples.has_value()) {
+        snapshot.positionSamples = *idleSeekPositionSamples;
+    } else if (recordingEngine.getPlaybackTakeLengthSamples() == snapshot.lengthSamples) {
+        snapshot.positionSamples = recordingEngine.getPlaybackPositionInTakeSamples();
+    }
+
+    snapshot.positionSamples = juce::jlimit<std::int64_t>(0, snapshot.lengthSamples, snapshot.positionSamples);
+    return snapshot;
+}
+
 void RecordingSessionController::checkPlaybackEnded() {
     checkCountIn();
 
@@ -470,7 +540,7 @@ RecordingTake RecordingSessionController::stopInternalRecording() {
     return take;
 }
 
-void RecordingSessionController::startInternalPlayback(const RecordingTake& take, std::int64_t resumeFromSamples) {
+void RecordingSessionController::startInternalPlayback(const RecordingTake& take, std::int64_t resumeFromTakeSamples) {
     if (take.isEmpty()) {
         DP_LOG_WARN("[Playback] startInternalPlayback called with empty take - ignoring");
         return;
@@ -479,12 +549,12 @@ void RecordingSessionController::startInternalPlayback(const RecordingTake& take
     audioEngine.requestAllNotesOff();
 
     owner.runPluginActionWithAudioDeviceRebuild(
-        [this, &take, resumeFromSamples](const MainComponent::RuntimeAudioConfig& config) {
-            recordingEngine.startPlayback(take, config.sampleRate, resumeFromSamples);
+        [this, &take, resumeFromTakeSamples](const MainComponent::RuntimeAudioConfig& config) {
+            recordingEngine.startPlaybackAtTakeSample(take, config.sampleRate, resumeFromTakeSamples);
             audioEngine.armPlaybackStartPreRoll(config.sampleRate, config.blockSize);
         });
 
-    DP_LOG_INFO(juce::String("[Playback] Internal playback started") + (resumeFromSamples > 0 ? " (resumed)" : "")
+    DP_LOG_INFO(juce::String("[Playback] Internal playback started") + (resumeFromTakeSamples > 0 ? " (resumed)" : "")
                 + "; take events=" + juce::String(static_cast<int>(take.events.size()))
                 + ", sampleRate=" + juce::String(take.sampleRate));
 }
@@ -578,6 +648,8 @@ void RecordingSessionController::replaceTakeAndStartPlayback(RecordingTake take)
         syncRecordingSessionToUi();
     }
 
+    recordingEngine.clearPlaybackLoop();
+    idleSeekPositionSamples.reset();
     recordingSession.take = std::move(take);
     recordingSession.canExportMidi = false;
     recordingSession.state = ui::RecordingState::idle;

@@ -235,6 +235,7 @@ target_sources(devpiano PRIVATE
     source/Export/WavExportOptions.h
     source/Recording/RecordingEngine.cpp
     source/Recording/RecordingEngine.h
+    source/Recording/AbLoopEngine.h
     source/Recording/RecordingFlowSupport.cpp
     source/Recording/RecordingFlowSupport.h
     source/Recording/RecordingSessionController.cpp
@@ -271,6 +272,8 @@ target_sources(devpiano PRIVATE
     source/UI/ComboSelection.h
     source/UI/native/AdsrCurveComponent.cpp
     source/UI/native/AdsrCurveComponent.h
+    source/UI/native/TimelineBar.cpp
+    source/UI/native/TimelineBar.h
     source/UI/native/StatusBarMidiDot.h
     source/UI/native/KeyboardViewport.h
     source/UI/KeyboardTypes.h
@@ -461,6 +464,7 @@ if (BUILD_TESTS)
         source/Recording/RenderPipeline.h
         source/Recording/RecordingEngine.cpp
         source/Recording/RecordingEngine.h
+        source/Recording/AbLoopEngine.h
         source/Recording/RecordingFlowSupport.cpp
         source/Recording/RecordingFlowSupport.h
 
@@ -503,6 +507,8 @@ if (BUILD_TESTS)
         source/UI/QwertyComponent.h
         source/UI/native/AdsrCurveComponent.cpp
         source/UI/native/AdsrCurveComponent.h
+        source/UI/native/TimelineBar.cpp
+        source/UI/native/TimelineBar.h
         source/UI/jive/StyleCatalog.cpp
         source/UI/jive/StyleCatalog.h
         source/UI/jive/LayoutModel.cpp

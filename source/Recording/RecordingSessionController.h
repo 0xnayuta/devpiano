@@ -46,6 +46,13 @@ public:
             return state == ui::RecordingState::idle;
         }
     };
+    struct PlaybackTimelineSnapshot {
+        std::int64_t positionSamples = 0;
+        std::int64_t lengthSamples = 0;
+        double sampleRate = 0.0;
+        AbLoopRange loopRange;
+        bool enabled = false;
+    };
 
     RecordingSessionController(MainComponent& owner, RecordingEngine& recordingEngine, AudioEngine& audioEngine,
                                SettingsModel& appSettings);
@@ -64,6 +71,11 @@ public:
     void handleOpenPerformanceFile(const juce::File& file);
     void handleImportMidiFile(const juce::File& file);
     void handlePlaybackSpeedChange(double speed);
+    void seekPlaybackToSample(std::int64_t takeSample);
+    void setPlaybackLoopStart();
+    void setPlaybackLoopEnd();
+    void clearPlaybackLoop();
+    [[nodiscard]] PlaybackTimelineSnapshot getPlaybackTimelineSnapshot() const noexcept;
 
     // Called from MainComponent::timerCallback() to check if playback ended.
     void checkPlaybackEnded();
@@ -75,7 +87,7 @@ private:
 
     void startInternalRecording(std::size_t expectedEventCapacity);
     [[nodiscard]] RecordingTake stopInternalRecording();
-    void startInternalPlayback(const RecordingTake& take, std::int64_t resumeFromSamples = 0);
+    void startInternalPlayback(const RecordingTake& take, std::int64_t resumeFromTakeSamples = 0);
     void stopInternalPlayback();
     void syncRecordingSessionToUi();
     void checkCountIn();
@@ -97,6 +109,7 @@ private:
     SettingsModel& appSettings;
 
     RecordingSession recordingSession;
+    std::optional<std::int64_t> idleSeekPositionSamples;
     // aliveFlag_ shared with async lambdas so they can detect destruction
     std::shared_ptr<bool> aliveFlag_;
     int countInRemainingBeats = 0;
