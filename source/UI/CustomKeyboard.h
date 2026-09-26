@@ -119,9 +119,10 @@ private:
     std::optional<devpiano::core::MidiNoteIdentity> lastMouseDownIdentity;
 
     float keybedOffsetX = 0.0f; // horizontal centering offset when window > keybed width
+    float keybedOffsetY = 0.0f; // vertical centering offset within the viewport
     int lastVisibleWidth = 0;
     int lastVisibleHeight = 0;
-    bool resizing = false; // guard against recalc → setSize → resized() loop
+    bool isResizing = false;
 
     // Per-key binding data for colour mode computation, indexed by MIDI note.
     // Populated by setKeyboardLayout().  Unbound notes default to channel 0 / vel 1.0.

@@ -581,9 +581,10 @@ devpiano::ui::QwertyComponent& MainComponent::getQwertyVisualizer() {
 void MainComponent::setQwertyVisualizerExpanded(bool expanded, bool adjustWindowHeight) {
     appSettings.qwertyVisualizerExpanded = expanded;
     if (viewHost.isValid()) {
-        // Header 22 + card padding 8 + content 190 = 220.
-        viewHost.setProperty("qwerty-expanded-area", "height", expanded ? 190 : 0);
-        viewHost.setProperty("qwerty-card", "height", expanded ? 220 : 30);
+        // Expanded size: 22 px header, 8 px vertical padding, and 160 px content.
+        viewHost.setProperty("qwerty-expanded-area", "height", expanded ? 160 : 0);
+        viewHost.setProperty("qwerty-card", "height", expanded ? 190 : 30);
+        viewHost.setProperty("qwerty-card", "min-height", expanded ? 150 : 30);
         viewHost.setButtonLabel("qwerty-toggle-btn", juce::String::charToString(expanded ? 0x25B4 : 0x25BE));
         viewHost.relayoutContainer("qwerty-card");
         viewHost.relayoutContainer("content-row");
@@ -599,7 +600,7 @@ void MainComponent::setQwertyVisualizerExpanded(bool expanded, bool adjustWindow
                         return;
                     }
                 }
-                constexpr int delta = 190; // 220 - 30
+                constexpr int delta = 160; // 190 - 30
                 const auto currentBounds = resizable->getBounds();
                 const auto* display = juce::Desktop::getInstance().getDisplays().getDisplayForRect(currentBounds);
                 const auto* primary = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay();
@@ -891,9 +892,10 @@ void MainComponent::updateStatusBar() {
         metronomeIndicator = bullet + juce::String(juce::roundToInt(audioEngine.getMetronomeBpm())) + " "
             + devpiano::core::getTimeSignatureName(audioEngine.getMetronomeTimeSignature()) + " " + dot;
     }
+    viewHost.setText("metronome-status-label", metronomeIndicator);
     const auto groupIndicator = " [Group " + keyboardMidiMapper.getActiveGroup().name + "]";
-    const auto statusRight = keyName + " (" + transposeStr + ")" + bullet + layoutName + groupIndicator + pedalIndicator
-        + metronomeIndicator;
+    const auto statusRight
+        = keyName + " (" + transposeStr + ")" + bullet + layoutName + groupIndicator + pedalIndicator;
     viewHost.setText("time-label", statusRight);
 }
 

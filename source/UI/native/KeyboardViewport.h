@@ -8,11 +8,9 @@
 // Viewport that owns a CustomKeyboard and injects it into a JIVE layout via
 // the ComponentFactory.
 //
-// The keyboard must exactly fill the visible height (horizontal scrolling
-// only): JUCE's Viewport does not resize a viewed component by itself, so
-// resized() syncs the keyboard height to the viewport's visible height —
-// this was a root cause of the invisible/zero-height keyboard in the first
-// JIVE migration attempt.
+// The keybed keeps its natural proportions and centres within taller or wider
+// viewports. Narrow viewports retain the full keybed width for horizontal
+// scrolling; resized() supplies the visible viewport dimensions to the keyboard.
 // ============================================================================
 class KeyboardViewport final : public juce::Viewport {
 public:

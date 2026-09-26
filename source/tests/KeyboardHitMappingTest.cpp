@@ -1,8 +1,10 @@
 #include <JuceHeader.h>
+#include <cmath>
 
 #include "Midi/MidiChannelMapper.h"
 #include "UI/CustomKeyboard.h"
 #include "UI/KeyboardTypes.h"
+#include "UI/jive/DesignTokens.h"
 
 // =============================================================================
 // Tests for the CustomKeyboard hit-mapping geometry (AUDIT TEST-007):
@@ -19,7 +21,6 @@
 
 namespace {
 
-// 在 [rangeLow, n] 闭区间内白键数量（用于推断白键 x 坐标）。
 int countWhiteKeys(int rangeLow, int n) {
     int count = 0;
     for (int note = rangeLow; note <= n; ++note) {
@@ -30,10 +31,20 @@ int countWhiteKeys(int rangeLow, int n) {
     return count;
 }
 
-// 白键 n 的中心 x（keyWidth=24 默认）。
-int whiteKeyCentreX(int rangeLow, int n) {
-    const auto idx = countWhiteKeys(rangeLow, n) - 1;
-    return idx * 24 + 12;
+const devpiano::ui::KeyRenderState* keyForNote(const CustomKeyboard& keyboard, int note) {
+    for (const auto& key : keyboard.getKeys()) {
+        if (key.midiNote == note) {
+            return &key;
+        }
+    }
+    return nullptr;
+}
+
+juce::Point<int> keyCentre(const CustomKeyboard& keyboard, int note) {
+    if (const auto* key = keyForNote(keyboard, note)) {
+        return { juce::roundToInt(key->bounds.getCentreX()), juce::roundToInt(key->bounds.getCentreY()) };
+    }
+    return { -1, -1 };
 }
 
 } // namespace
@@ -46,6 +57,7 @@ public:
 
     void runTest() override {
         testWhiteKeyHits();
+        testDefaultKeyboardFitsViewport();
         testBlackKeyPriority();
         testOutOfRange();
         testAvailableRange();
@@ -58,41 +70,74 @@ public:
 
 private:
     void testWhiteKeyHits() {
-        testCase("white-key centre maps to the note in standard 88-key range (1248px)", [&] {
+        testCase("white-key centres map to notes in the standard 88-key range", [&] {
             juce::MidiKeyboardState ks;
             CustomKeyboard kb(ks);
-            kb.setSize(1248, 128); // 标准 88 键钢琴: 52 白键 × 24 = 1248 宽
 
-            expectEquals(kb.findNoteAt({ whiteKeyCentreX(21, 60), 64 }), 60);
-            expectEquals(kb.findNoteAt({ whiteKeyCentreX(21, 36), 64 }), 36);
-            expectEquals(kb.findNoteAt({ whiteKeyCentreX(21, 21), 64 }), 21, "lowest white key A0");
-            expectEquals(kb.findNoteAt({ whiteKeyCentreX(21, 108), 64 }), 108, "highest white key C8");
+            expectEquals(kb.findNoteAt(keyCentre(kb, 60)), 60);
+            expectEquals(kb.findNoteAt(keyCentre(kb, 36)), 36);
+            expectEquals(kb.findNoteAt(keyCentre(kb, 21)), 21, "lowest white key A0");
+            expectEquals(kb.findNoteAt(keyCentre(kb, 108)), 108, "highest white key C8");
         });
 
-        testCase("wide window centering offsets key positions symmetrically", [&] {
+        testCase("wide viewport centres the keybed and preserves empty side margins", [&] {
             juce::MidiKeyboardState ks;
             CustomKeyboard kb(ks);
-            kb.updateViewportBounds(1888, 128); // 1888px 宽窗口 -> offset = (1888 - 1248)/2 = 320px
-            const auto offset = static_cast<int>(kb.getKeybedOffsetX());
-            expectEquals(offset, 320, "keybed offset is mathematically centered");
+            constexpr int visibleWidth = 1888;
+            kb.updateViewportBounds(visibleWidth, 138);
 
-            expectEquals(kb.findNoteAt({ whiteKeyCentreX(21, 60) + offset, 64 }), 60);
-            expectEquals(kb.findNoteAt({ whiteKeyCentreX(21, 21) + offset, 64 }), 21);
-            expectEquals(kb.findNoteAt({ whiteKeyCentreX(21, 108) + offset, 64 }), 108);
-
-            // 验证居中两翼空白区域返回 -1 (未击中琴键)
-            expectEquals(kb.findNoteAt({ offset - 10, 64 }), -1, "left margin returns -1");
-            expectEquals(kb.findNoteAt({ 1888 - 10, 64 }), -1, "right margin returns -1");
+            const auto contentWidth = static_cast<float>(countWhiteKeys(21, 108)) * kb.getKeyboardSettings().keyWidth;
+            const auto expectedOffset = (static_cast<float>(visibleWidth) - contentWidth) * 0.5f;
+            expect(std::abs(kb.getKeybedOffsetX() - expectedOffset) < 0.01f, "keybed is horizontally centred");
+            expectEquals(kb.findNoteAt(keyCentre(kb, 60)), 60);
+            expectEquals(kb.findNoteAt({ juce::roundToInt(expectedOffset) - 10, 69 }), -1, "left margin misses");
+            expectEquals(kb.findNoteAt({ visibleWidth - 10, 69 }), -1, "right margin misses");
         });
-        testCase("viewport height stretches keyboard height to 100% without shrinking", [&] {
+
+        testCase("taller viewport centres a proportionate keybed without stretching it", [&] {
             juce::MidiKeyboardState ks;
             CustomKeyboard kb(ks);
-            kb.updateViewportBounds(1888, 170); // 视口标准高度 170px
-            expectEquals(kb.getHeight(), 170, "keyboard height fills 100% of visibleHeight (170px)");
-            const auto offset = static_cast<int>(kb.getKeybedOffsetX());
-            expectEquals(offset, 320);
-            // 验证在 170px 高度底部区域点击仍能精确命中白键
-            expectEquals(kb.findNoteAt({ whiteKeyCentreX(21, 60) + offset, 160 }), 60, "hit near bottom of 170px key");
+            kb.updateViewportBounds(1888, 170);
+
+            const auto* middleC = keyForNote(kb, 60);
+            expect(middleC != nullptr);
+            if (middleC == nullptr) {
+                return;
+            }
+
+            const auto keyWidth = kb.getKeyboardSettings().keyWidth;
+            expectEquals(kb.getHeight(), 170, "component fills the taller viewport");
+            expect(std::abs(middleC->bounds.getHeight() - keyWidth * 6.4f) < 0.01f,
+                   "white-key length remains proportional to its width");
+            const auto centre = keyCentre(kb, 60);
+            expectEquals(kb.findNoteAt(centre), 60);
+            expectEquals(kb.findNoteAt({ centre.x, 160 }), -1, "centred vertical padding is not a key");
+        });
+    }
+
+    void testDefaultKeyboardFitsViewport() {
+        testCase("default viewport fits the full keybed while a narrow viewport requires scrolling", [&] {
+            juce::MidiKeyboardState ks;
+            CustomKeyboard kb(ks);
+            const auto* lowestKey = keyForNote(kb, 21);
+            expect(lowestKey != nullptr);
+            if (lowestKey == nullptr) {
+                return;
+            }
+
+            const auto visibleHeight = juce::roundToInt(lowestKey->bounds.getHeight());
+            const auto defaultWidth = devpiano::ui::DesignTokens::get().windowDefaultWidth() - 32;
+            const auto narrowWidth = devpiano::ui::DesignTokens::get().windowMinWidth() - 32;
+            const auto keybedWidth
+                = juce::roundToInt(static_cast<float>(countWhiteKeys(21, 108)) * kb.getKeyboardSettings().keyWidth);
+
+            kb.updateViewportBounds(defaultWidth, visibleHeight);
+            expectEquals(kb.getWidth(), defaultWidth, "default window displays the complete keybed");
+            expect(kb.getWidth() >= keybedWidth);
+
+            kb.updateViewportBounds(narrowWidth, visibleHeight);
+            expectEquals(kb.getWidth(), keybedWidth, "narrow viewport keeps the full scrollable keybed width");
+            expect(kb.getWidth() > narrowWidth, "narrow viewport leaves horizontal content to scroll");
         });
     }
 
@@ -100,23 +145,22 @@ private:
         testCase("black-key zone hits the black note, below it the right white key", [&] {
             juce::MidiKeyboardState ks;
             CustomKeyboard kb(ks);
-            kb.setSize(1248, 128);
+            const auto* cSharp = keyForNote(kb, 61);
+            expect(cSharp != nullptr);
+            if (cSharp == nullptr) {
+                return;
+            }
 
-            // note 60 (C) 白键；note 61 (C#) 黑键中心 x = whiteKeyCentreX(21, 60) + 12
-            const auto blackCentreX = whiteKeyCentreX(21, 60) + 12;
-            expectEquals(kb.findNoteAt({ blackCentreX, 40 }), 61, "black key wins inside the black-key zone");
-            expectEquals(kb.findNoteAt({ blackCentreX, 100 }), 62,
-                         "below the black key the position falls on the next white key");
+            const auto centre = keyCentre(kb, 61);
+            expectEquals(kb.findNoteAt(centre), 61, "black key wins inside its bounds");
+            const auto belowBlack = juce::Point<int> { centre.x, juce::roundToInt(cSharp->bounds.getBottom() + 5.0f) };
+            expectEquals(kb.findNoteAt(belowBlack), 62, "below the black key the right white key receives the hit");
         });
 
         testCase("D# (note 63) black key sits between D and E", [&] {
             juce::MidiKeyboardState ks;
             CustomKeyboard kb(ks);
-            kb.setSize(1248, 128);
-
-            // note 62 (D) 白键；note 63 (D#) 黑键中心 x = whiteKeyCentreX(21, 62) + 12
-            const auto blackCentreX = whiteKeyCentreX(21, 62) + 12;
-            expectEquals(kb.findNoteAt({ blackCentreX, 40 }), 63);
+            expectEquals(kb.findNoteAt(keyCentre(kb, 63)), 63);
         });
     }
 
@@ -136,13 +180,13 @@ private:
             juce::MidiKeyboardState ks;
             CustomKeyboard kb(ks);
             kb.setAvailableRange(24, 96);
-            const auto whiteCount = countWhiteKeys(24, 96);
-            const auto totalWidth = whiteCount * 24;
-            kb.setSize(totalWidth, 128); // 紧凑模式 (无居中 offset)
+            const auto totalWidth
+                = juce::roundToInt(static_cast<float>(countWhiteKeys(24, 96)) * kb.getKeyboardSettings().keyWidth);
+            kb.setSize(totalWidth, 138);
 
-            expectEquals(kb.findNoteAt({ totalWidth + 50, 64 }), -1, "beyond the range must miss");
-            expectEquals(kb.findNoteAt({ whiteKeyCentreX(24, 60), 64 }), 60, "in-range note must hit");
-            expectEquals(kb.findNoteAt({ whiteKeyCentreX(24, 96), 64 }), 96);
+            expectEquals(kb.findNoteAt({ totalWidth + 50, 69 }), -1, "beyond the range must miss");
+            expectEquals(kb.findNoteAt(keyCentre(kb, 60)), 60, "in-range note must hit");
+            expectEquals(kb.findNoteAt(keyCentre(kb, 96)), 96);
         });
     }
     void testKeyboardPaintClipping() {
@@ -219,9 +263,9 @@ private:
                 = [&](const devpiano::core::MidiNoteIdentity& identity) { notesOff.push_back(identity.note.value); };
 
             auto source = juce::Desktop::getInstance().getMainMouseSource();
-            const auto xC4 = whiteKeyCentreX(21, 60);
-            const auto xD4 = whiteKeyCentreX(21, 62);
-            const auto xE4 = whiteKeyCentreX(21, 64);
+            const auto xC4 = keyCentre(kb, 60).x;
+            const auto xD4 = keyCentre(kb, 62).x;
+            const auto xE4 = keyCentre(kb, 64).x;
 
             // 1. Mouse down on C4 (60)
             juce::MouseEvent downEvent(source, { static_cast<float>(xC4), 80.0f },
@@ -304,7 +348,7 @@ private:
                 activeMapper->sendNoteOff(identity, 1.0f, state);
             };
 
-            const auto x = whiteKeyCentreX(21, 60);
+            const auto x = keyCentre(keyboard, 60).x;
             const auto source = juce::Desktop::getInstance().getMainMouseSource();
             const juce::MouseEvent pressEvent(source, { static_cast<float>(x), 80.0f },
                                               juce::ModifierKeys::leftButtonModifier, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,

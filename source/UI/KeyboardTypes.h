@@ -44,7 +44,7 @@ struct KeyRenderState {
 struct KeyboardSettings {
     int lowNote = 21;
     int highNote = 108;
-    float keyWidth = 24.0f;
+    float keyWidth = 21.5f;
 
     KeyColourMode colourMode = KeyColourMode::classic;
     NoteDisplayMode noteDisplay = NoteDisplayMode::doReMi;

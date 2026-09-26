@@ -48,7 +48,7 @@ juce::ValueTree makeStatusBarTree() {
     // Top separator line — drawn by the StyleSheet border canvas.
     row.setProperty("border-width", "1 0 0 0", nullptr);
 
-    // Left section: MIDI activity dot + plugin/preset label (1/3 flex, left-aligned)
+    // Left section: instrument/preset, with the active metronome status beside it.
     auto leftSection = flexRowStretch("status-left");
     leftSection.setProperty("flex-grow", 1.0, nullptr);
     leftSection.setProperty("flex-shrink", 1.0, nullptr);
@@ -68,6 +68,17 @@ juce::ValueTree makeStatusBarTree() {
     pluginLabel.setProperty("justification", "centred-left", nullptr);
     leftSection.appendChild(pluginLabel, nullptr);
 
+    auto metronomeLabel = text({}, "metronome-status-label");
+    metronomeLabel.setProperty("title", TRANS("Metronome Status"), nullptr);
+    metronomeLabel.setProperty("width", 86, nullptr);
+    metronomeLabel.setProperty("height", 18, nullptr);
+    metronomeLabel.setProperty("flex-shrink", 0.0, nullptr);
+    metronomeLabel.setProperty("margin", "0 0 0 8", nullptr);
+    metronomeLabel.setProperty("align-self", "centre", nullptr);
+    metronomeLabel.setProperty("justification", "centred-left", nullptr);
+    metronomeLabel.setProperty("word-wrap", "none", nullptr);
+    leftSection.appendChild(metronomeLabel, nullptr);
+
     row.appendChild(leftSection, nullptr);
 
     // Centre section: audio driver & performance monitoring (1/3 flex, mathematically centred at 50%)
@@ -78,7 +89,7 @@ juce::ValueTree makeStatusBarTree() {
     audioInfo.setProperty("justification", "centred", nullptr);
     row.appendChild(audioInfo, nullptr);
 
-    // Right section: key signature, transpose, layout (1/3 flex, right-aligned)
+    // Right section: key signature, transpose, layout, and pedal indicators.
     auto timeLabel = text({}, "time-label");
     timeLabel.setProperty("title", TRANS("Time"), nullptr);
     timeLabel.setProperty("flex-grow", 1.0, nullptr);
@@ -361,9 +372,9 @@ juce::ValueTree makeControlsPanelTree() {
     curve.setProperty("flex-grow", 1.0, nullptr);
     curve.setProperty("min-height", 48, nullptr);
     adsrCard.appendChild(curve, nullptr);
-
     auto timeline = node("TimelineBar", "timeline-bar");
     timeline.setProperty("height", 34, nullptr);
+    timeline.setProperty("margin", "8 0 0 0", nullptr);
     adsrCard.appendChild(timeline, nullptr);
 
     panel.appendChild(adsrCard, nullptr);
@@ -457,11 +468,12 @@ juce::ValueTree makeControlsPanelTree() {
 juce::ValueTree makeQwertyCardTree() {
     auto card = flexColumn("qwerty-card");
     card.setProperty("title", TRANS("QWERTY Performance Map"), nullptr);
-    card.setProperty("height", 220, nullptr); // expanded initial (220px performance map)
+    card.setProperty("height", 190, nullptr); // expanded initial
+    card.setProperty("min-height", 150, nullptr);
     card.setProperty("padding", "4 8 4 8", nullptr);
     card.setProperty("margin", "0 0 4 0", nullptr);
     card.setProperty("border-width", "1", nullptr);
-    card.setProperty("flex-shrink", 0.0, nullptr);
+    card.setProperty("flex-shrink", 1.0, nullptr);
 
     auto headerRow = flexRow("qwerty-action-row");
     headerRow.setProperty("title", TRANS("QWERTY Header"), nullptr);
@@ -501,12 +513,12 @@ juce::ValueTree makeQwertyCardTree() {
     auto contentArea = flexColumn("qwerty-expanded-area");
     contentArea.setProperty("title", TRANS("QWERTY Content Area"), nullptr);
     contentArea.setProperty("flex-grow", 1.0, nullptr);
-    contentArea.setProperty("height", 190, nullptr); // expanded initial
+    contentArea.setProperty("height", 160, nullptr);
 
     auto qwertyVisualizer = node("QwertyVisualizer", "qwerty-visualizer");
     qwertyVisualizer.setProperty("title", TRANS("QWERTY Visualizer"), nullptr);
     qwertyVisualizer.setProperty("flex-grow", 1.0, nullptr);
-    qwertyVisualizer.setProperty("height", 188, nullptr);
+    qwertyVisualizer.setProperty("height", 158, nullptr);
     contentArea.appendChild(qwertyVisualizer, nullptr);
 
     card.appendChild(contentArea, nullptr);
@@ -569,22 +581,22 @@ juce::ValueTree makeRootLayout() {
 
     auto controls = makeControlsPanelTree();
     controls.setProperty("flex-grow", 0.0, nullptr);
-    controls.setProperty("flex-shrink", 0.0, nullptr);
-    controls.setProperty("height", 200, nullptr);
-    controls.setProperty("min-height", 200, nullptr);
+    controls.setProperty("flex-shrink", 1.0, nullptr);
+    controls.setProperty("height", 284, nullptr);
+    controls.setProperty("min-height", 220, nullptr);
     controls.setProperty("margin", "0 0 8 0", nullptr);
     contentRow.appendChild(controls, nullptr);
 
     auto qwerty = makeQwertyCardTree();
-    qwerty.setProperty("height", 220, nullptr); // expanded initial (matches appSettings default)
+    qwerty.setProperty("height", 190, nullptr); // expanded initial, matching QWERTY state
     contentRow.appendChild(qwerty, nullptr);
 
     auto keyboard = makeKeyboardAreaTree();
     keyboard.setProperty("flex-grow", 1.0, nullptr);
     keyboard.setProperty("flex-shrink", 1.0, nullptr);
-    keyboard.setProperty("min-height", 120, nullptr);
+    keyboard.setProperty("min-height", 138, nullptr);
     keyboard.setProperty("max-height", 200, nullptr);
-    keyboard.setProperty("height", 192, nullptr);
+    keyboard.setProperty("height", 138, nullptr);
     contentRow.appendChild(keyboard, nullptr);
     mainArea.appendChild(contentRow, nullptr);
     root.appendChild(mainArea, nullptr);
@@ -615,9 +627,9 @@ void refreshTitles(::jive::GuiItem& root) {
         { "status-bar", "Status Bar" },
         { "midi-dot", "MIDI Activity" },
         { "plugin-name-label", "Plugin Name" },
+        { "metronome-status-label", "Metronome Status" },
         { "audio-info-label", "Audio Info" },
         { "time-label", "Time" },
-        { "plugin-panel", "Plugin Panel" },
         { "plugin-action-row", "Plugin Actions" },
         { "toggle-btn", "Toggle Plugin Panel" },
         { "plugin-status-label", "Plugin Status" },

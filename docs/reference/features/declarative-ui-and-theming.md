@@ -49,12 +49,13 @@ Component (root, display="flex", flex-direction="column")
 ├── KeyboardArea       (flex-grow=1, display="flex")
 │   └── KeyboardViewport (包含 CustomKeyboard 88 键原生画布)
 └── StatusBar          (flex-direction="row", align-items="center")
-    ├── StatusBarMidiDot (Native 注入 MIDI 呼吸灯)
+    ├── Left Status (MIDI Activity, Plugin Name, Metronome Status)
     ├── Audio & Engine Diagnostics Info
-    └── Language Indicator
-```
+    └── Performance Indicators (Key Signature, Transpose, Layout, Pedal)
 
 `MainComponent` 在构造时通过 `jive::Interpreter` 一次性解释整棵布局树，并通过 `MainComponentJiveAccessors.cpp` 提供的强类型访问器操作具体子组件状态。
+
+主窗口默认尺寸为 1180 × 780，最小尺寸为 980 × 700。88 键键床采用 21.5 px 白键宽度和 6.4:1 白键长宽比，总宽约 1118 px；默认键盘视口宽 1148 px 时完整显示，最小窗口下则保留整段键床供横向滚动。键床在更宽或更高的视口中居中，不拉伸键形。Controls 面板最小高度为 220 px，展开的 QWERTY 卡片为 190 px（最小 150 px，折叠 30 px）；ADSR 曲线保留至少 48 px，时间线顶部留 8 px 间距。
 
 ---
 
@@ -112,6 +113,8 @@ Component (root, display="flex", flex-direction="column")
 ### 4.2 StyleCatalog 全局注入（`style_sheets.json`）
 
 定义在 `source/UI/jive/style_sheets.json` 中。在 `jive::Interpreter` 解释 ValueTree 前，`StyleCatalog::applyToTree()` 递归遍历节点，根据节点的 `type` 和 `id` 将 CSS 风格的样式属性（padding, margin, background, border, font-size 等）合并至节点的 `style` 属性中。
+
+未单独定制的按钮（包括 QWERTY 折叠和分组按钮）共用 `Button` 的 normal、hover、active、disabled 状态；局部规则只覆盖所需的字号或前景色，避免按钮状态表现分叉。
 
 ---
 
