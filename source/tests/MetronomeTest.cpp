@@ -47,28 +47,34 @@ private:
     }
 
     void testTapTempoCalculator() {
-        beginTest("Tap tempo calculator calculation, clamping, and timeout");
+        beginTest("Tap tempo uses a three-interval rolling average, clamping, and timeout");
 
         devpiano::core::TapTempoCalculator tap;
         expect(!tap.calculateBpm().has_value());
 
-        // 1 tap is not enough
         tap.recordTap(10.0);
         expect(!tap.calculateBpm().has_value());
-
-        // 2 taps with 0.5s interval -> 120 BPM
         tap.recordTap(10.5);
         auto bpm = tap.calculateBpm();
         expect(bpm.has_value());
         expectWithinAbsoluteError(*bpm, 120.0, 0.1);
 
-        // 3rd tap with 0.5s interval -> still 120 BPM
-        tap.recordTap(11.0);
+        tap.recordTap(11.3);
         bpm = tap.calculateBpm();
         expect(bpm.has_value());
-        expectWithinAbsoluteError(*bpm, 120.0, 0.1);
+        expectWithinAbsoluteError(*bpm, 60.0 / 0.65, 0.001);
 
-        // Fast taps: 0.1s -> 600 BPM clamped to 280 BPM
+        tap.recordTap(12.4);
+        bpm = tap.calculateBpm();
+        expect(bpm.has_value());
+        expectWithinAbsoluteError(*bpm, 75.0, 0.001);
+
+        tap.recordTap(12.6);
+        bpm = tap.calculateBpm();
+        expect(bpm.has_value());
+        expectWithinAbsoluteError(*bpm, 60.0 / 0.7, 0.001);
+        expectEquals(tap.getTapCount(), 4);
+
         tap.reset();
         tap.recordTap(1.0);
         tap.recordTap(1.1);
@@ -76,7 +82,6 @@ private:
         expect(bpm.has_value());
         expectWithinAbsoluteError(*bpm, 280.0, 0.001);
 
-        // Slow taps: 2.0s -> 30 BPM clamped to 40 BPM
         tap.reset();
         tap.recordTap(1.0);
         tap.recordTap(3.0);
@@ -84,12 +89,11 @@ private:
         expect(bpm.has_value());
         expectWithinAbsoluteError(*bpm, 40.0, 0.001);
 
-        // Timeout > 2.0s resets accumulator
         tap.reset();
         tap.recordTap(1.0);
-        tap.recordTap(1.5); // 120 BPM
+        tap.recordTap(1.5);
         expect(tap.calculateBpm().has_value());
-        tap.recordTap(4.0); // 2.5s gap (> 2.0s timeout) -> resets and acts as tap 1
+        tap.recordTap(4.0);
         expect(!tap.calculateBpm().has_value());
         expectEquals(tap.getTapCount(), 1);
     }

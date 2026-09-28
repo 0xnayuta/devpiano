@@ -420,7 +420,7 @@ juce::ValueTree makeControlsPanelTree() {
     auto speedHeader = text(TRANS("Playback Speed"), "speed-label");
     speedHeader.setProperty("width", "100%", nullptr);
     speedHeader.setProperty("height", 18, nullptr);
-    speedHeader.setProperty("margin", "0 0 2 0", nullptr);
+    speedHeader.setProperty("margin", "4 0 2 0", nullptr);
     speedHeader.setProperty("justification", "centred-left", nullptr);
     speedHeader.setProperty("word-wrap", "none", nullptr);
     transportCard.appendChild(speedHeader, nullptr);
@@ -442,6 +442,7 @@ juce::ValueTree makeControlsPanelTree() {
     auto metroToggleBtn = button(TRANS("Metro"), "metronome-toggle-btn");
     metroToggleBtn.setProperty("title", TRANS("Metronome Toggle"), nullptr);
     metroToggleBtn.setProperty("tooltip", TRANS("Toggle Metronome (M)"), nullptr);
+    metroToggleBtn.setProperty("toggle-on-click", true, nullptr);
     metroToggleBtn.setProperty("flex-grow", 1.0, nullptr);
     metroToggleBtn.setProperty("height", 24, nullptr);
     metroToggleBtn.setProperty("margin", "0 4 0 0", nullptr);
@@ -476,12 +477,12 @@ juce::ValueTree makeControlsPanelTree() {
 juce::ValueTree makeQwertyCardTree() {
     auto card = flexColumn("qwerty-card");
     card.setProperty("title", TRANS("QWERTY Performance Map"), nullptr);
-    card.setProperty("height", 192, nullptr); // expanded initial
-    card.setProperty("min-height", 150, nullptr);
+    card.setProperty("height", kQwertyExpandedCardHeight, nullptr);
+    card.setProperty("min-height", kQwertyExpandedCardHeight, nullptr);
     card.setProperty("padding", "4 8 4 8", nullptr);
     card.setProperty("margin", "0 0 4 0", nullptr);
     card.setProperty("border-width", "1", nullptr);
-    card.setProperty("flex-shrink", 1.0, nullptr);
+    card.setProperty("flex-shrink", 0.0, nullptr);
 
     auto headerRow = flexRow("qwerty-action-row");
     headerRow.setProperty("title", TRANS("QWERTY Header"), nullptr);
@@ -523,7 +524,7 @@ juce::ValueTree makeQwertyCardTree() {
     auto contentArea = flexColumn("qwerty-expanded-area");
     contentArea.setProperty("title", TRANS("QWERTY Content Area"), nullptr);
     contentArea.setProperty("flex-grow", 1.0, nullptr);
-    contentArea.setProperty("height", 160, nullptr);
+    contentArea.setProperty("height", kQwertyExpandedContentHeight, nullptr);
 
     auto qwertyVisualizer = node("QwertyVisualizer", "qwerty-visualizer");
     qwertyVisualizer.setProperty("title", TRANS("QWERTY Visualizer"), nullptr);
@@ -598,7 +599,7 @@ juce::ValueTree makeRootLayout() {
     contentRow.appendChild(controls, nullptr);
 
     auto qwerty = makeQwertyCardTree();
-    qwerty.setProperty("height", 192, nullptr); // expanded initial, matching QWERTY state
+    qwerty.setProperty("height", kQwertyExpandedCardHeight, nullptr);
     contentRow.appendChild(qwerty, nullptr);
 
     auto keyboard = makeKeyboardAreaTree();

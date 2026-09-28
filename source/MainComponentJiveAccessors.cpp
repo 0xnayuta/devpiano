@@ -587,9 +587,14 @@ devpiano::ui::QwertyComponent& MainComponent::getQwertyVisualizer() {
 void MainComponent::setQwertyVisualizerExpanded(bool expanded, bool adjustWindowHeight) {
     appSettings.qwertyVisualizerExpanded = expanded;
     if (viewHost.isValid()) {
-        viewHost.setProperty("qwerty-expanded-area", "height", expanded ? 160 : 0);
-        viewHost.setProperty("qwerty-card", "height", expanded ? 192 : 32);
-        viewHost.setProperty("qwerty-card", "min-height", expanded ? 150 : 32);
+        viewHost.setProperty("qwerty-expanded-area", "height",
+                             expanded ? devpiano::ui::jive::kQwertyExpandedContentHeight : 0);
+        viewHost.setProperty("qwerty-card", "height",
+                             expanded ? devpiano::ui::jive::kQwertyExpandedCardHeight
+                                      : devpiano::ui::jive::kQwertyCollapsedCardHeight);
+        viewHost.setProperty("qwerty-card", "min-height",
+                             expanded ? devpiano::ui::jive::kQwertyExpandedCardHeight
+                                      : devpiano::ui::jive::kQwertyCollapsedCardHeight);
         viewHost.setButtonLabel("qwerty-toggle-btn", juce::String::charToString(expanded ? 0x25B4 : 0x25BE));
         viewHost.relayoutContainer("qwerty-card");
         viewHost.relayoutContainer("content-row");
@@ -605,7 +610,7 @@ void MainComponent::setQwertyVisualizerExpanded(bool expanded, bool adjustWindow
                         return;
                     }
                 }
-                constexpr int delta = 160;
+                constexpr int delta = devpiano::ui::jive::kQwertyCardHeightDelta;
                 const auto currentBounds = resizable->getBounds();
                 const auto* display = juce::Desktop::getInstance().getDisplays().getDisplayForRect(currentBounds);
                 const auto* primary = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay();
@@ -618,7 +623,8 @@ void MainComponent::setQwertyVisualizerExpanded(bool expanded, bool adjustWindow
                 }
 
                 const auto limits = getMainContentResizeLimits();
-                const int minH = expanded ? limits.getY() : juce::jmin(limits.getY(), 510);
+                const int minH = expanded ? limits.getY()
+                                          : juce::jmax(0, limits.getY() - devpiano::ui::jive::kQwertyCardHeightDelta);
                 const int maxH = limits.getHeight();
                 const int newHeight = juce::jlimit(minH, maxH, currentBounds.getHeight() + (expanded ? delta : -delta));
                 int newY = currentBounds.getY();

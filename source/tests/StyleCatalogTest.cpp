@@ -807,8 +807,9 @@ private:
 
         const auto findById = findNodeById;
 
-        for (const char* id : { "export-midi-btn", "export-wav-btn", "save-perf-btn", "rename-preset-btn",
-                                "delete-preset-btn", "play-btn", "stop-btn", "back-btn", "record-btn" }) {
+        for (const char* id :
+             { "export-midi-btn", "export-wav-btn", "save-perf-btn", "rename-preset-btn", "delete-preset-btn",
+               "play-btn", "stop-btn", "back-btn", "record-btn", "metronome-toggle-btn" }) {
             const auto node = findById(tree, id);
             expect(node.isValid(), juce::String(id) + " node missing");
             if (!node.isValid()) {
@@ -828,6 +829,31 @@ private:
                        juce::String(id) + " disabled must neutralise hover");
                 expect(disabled.getDynamicObject()->getProperty("active").isObject(),
                        juce::String(id) + " disabled must neutralise active");
+            }
+        }
+        const auto metroToggle = findById(tree, "metronome-toggle-btn");
+        const auto stopButton = findById(tree, "stop-btn");
+        expect(static_cast<bool>(metroToggle["toggle-on-click"]),
+               "metronome button must expose its toggle state to JIVE");
+
+        auto* metroStyle = dynamic_cast<::jive::Object*>(metroToggle["style"].getObject());
+        auto* stopStyle = dynamic_cast<::jive::Object*>(stopButton["style"].getObject());
+        expect(metroStyle != nullptr, "metronome button must have a declarative style");
+        expect(stopStyle != nullptr, "stop button must have a declarative style");
+        if (metroStyle != nullptr && stopStyle != nullptr) {
+            expectEquals(metroStyle->getProperty("background").toString(),
+                         stopStyle->getProperty("background").toString());
+            expectEquals(metroStyle->getProperty("border").toString(), stopStyle->getProperty("border").toString());
+            expectEquals(metroStyle->getProperty("border-radius").toString(),
+                         stopStyle->getProperty("border-radius").toString());
+
+            const auto checked = metroStyle->getProperty("checked");
+            expect(checked.isObject(), "metronome button must declare a checked state");
+            if (auto* checkedStyle = checked.getDynamicObject()) {
+                expectEquals(checkedStyle->getProperty("background").toString(),
+                             metroStyle->getProperty("background").toString());
+                expectEquals(checkedStyle->getProperty("border").toString(),
+                             metroStyle->getProperty("border").toString());
             }
         }
 

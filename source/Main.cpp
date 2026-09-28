@@ -89,8 +89,9 @@ public:
                 // （见 known-issues.md），因此不再提供"锁定窗口大小"选项。
                 setResizable(true, true);
                 const auto limits = MainComponent::getMainContentResizeLimits();
-                const int minH
-                    = mainComponent->isQwertyVisualizerExpanded() ? limits.getY() : juce::jmin(limits.getY(), 510);
+                const int minH = mainComponent->isQwertyVisualizerExpanded()
+                    ? limits.getY()
+                    : juce::jmax(0, limits.getY() - devpiano::ui::jive::kQwertyCardHeightDelta);
                 setResizeLimits(limits.getX(), minH, limits.getWidth(), limits.getHeight());
                 mainComponent->persistMainContentSize(mainComponent->getWidth(), mainComponent->getHeight());
             }

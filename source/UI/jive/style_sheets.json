@@ -151,6 +151,19 @@
       "active": { "background": "#1A1C21", "border": "#262B34" }
     }
   },
+  "#metronome-toggle-btn": {
+    "background": "#20232A",
+    "border": "#383D48",
+    "border-radius": "6",
+    "hover": { "background": "#2C313B", "border": "#4C5362" },
+    "active": { "background": "#16181D" },
+    "checked": {
+      "background": "#20232A",
+      "border": "#383D48",
+      "hover": { "background": "#2C313B", "border": "#4C5362" },
+      "active": { "background": "#16181D" }
+    }
+  },
   "#dialog-ok-btn": {
     "background": "@primary",
     "border": "@primary",

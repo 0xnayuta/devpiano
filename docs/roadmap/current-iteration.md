@@ -53,14 +53,14 @@
   - 挂接于 `AudioEngine::getNextAudioBlock`，在总输出混音前无缝叠加入 Master 管道。
 - [x] **Phase 35-A-2：拍号与节奏模型扩展**：
   - 在 `source/Core/KeyMapTypes.h` 或新增 `source/Core/MetronomeModel.h` 中定义节拍模型：支持 2/4、3/4、4/4、6/8 常用拍号；
-  - BPM 无级可调范围 40 ~ 280 BPM，支持基于击键时间间隔的连续 Tap Tempo 测速算法；
+  - BPM 无级可调范围 40 ~ 280 BPM；Tap Tempo 使用最近最多 3 个点击间隔的滑动均值（最多 4 个时间戳），间隔超过 2 秒时重置累积；
   - 支持录音前预备拍（Count-in，1~2 小节倒计时触发），并在设置中持久化记录。
 - [x] **Phase 35-A-3：JIVE 声明式 UI 控件与状态栏同频脉冲**：
   - 在 `LayoutModel.cpp` 的 `ControlsPanel` 走带区域新增节拍器开关（`metronome-toggle-btn`）、BPM 调节与音量控制；
   - 状态栏与走带界面呈现同频呼吸闪烁的节拍指示灯（强拍高亮红色/主色，弱拍柔和浅色）；
   - 支持键盘快捷键快速启闭节拍器。
 - [x] **Phase 35-A-4：节拍器时序与采样精度确定性测试集**：
-  - 编写 `MetronomeTest` 专项单测，覆盖采样计数周期对齐、BPM 动态无缝切换、多音频块跨块切分、拍号重音循环及预备拍倒计时状态机。
+  - 编写 `MetronomeTest` 专项单测，覆盖 Tap Tempo 三间隔滑动均值、BPM 限幅与 2 秒超时重置，以及采样计数周期对齐、动态变速、多音频块跨块切分、拍号重音循环及预备拍倒计时状态机。
 
 ---
 

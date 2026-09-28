@@ -292,11 +292,12 @@ public:
         if (controlsComp != nullptr) {
             expect(controlsComp->getHeight() >= 220);
         }
+        const int expandedControlsHeight = controlsComp != nullptr ? controlsComp->getHeight() : -1;
 
         auto* qwertyComp = host.find("qwerty-card");
         expect(qwertyComp != nullptr);
         if (qwertyComp != nullptr) {
-            expect(qwertyComp->getHeight() >= 150);
+            expectEquals(qwertyComp->getHeight(), devpiano::ui::jive::kQwertyExpandedCardHeight);
         }
 
         auto* qwertyHeader = host.find("qwerty-action-row");
@@ -322,13 +323,20 @@ public:
         auto* transportCard = host.find("transport-card");
         auto* speedSlider = host.find("speed-knob");
         auto* metronomeRow = host.find("metronome-row");
+        auto* adsrCard = host.find("adsr-card");
         expect(presetCard != nullptr);
         expect(presetActionRow != nullptr);
         expect(presetFileRow1 != nullptr);
         expect(presetFileRow3 != nullptr);
         expect(transportCard != nullptr);
+        expect(adsrCard != nullptr);
         expect(speedSlider != nullptr);
         expect(metronomeRow != nullptr);
+        if (presetCard != nullptr && adsrCard != nullptr && transportCard != nullptr && controlsComp != nullptr) {
+            expectEquals(presetCard->getHeight(), expandedControlsHeight);
+            expectEquals(adsrCard->getHeight(), expandedControlsHeight);
+            expectEquals(transportCard->getHeight(), expandedControlsHeight);
+        }
         if (presetCard != nullptr && presetActionRow != nullptr && presetFileRow1 != nullptr
             && presetFileRow3 != nullptr) {
             expect(presetFileRow1->getY() > presetActionRow->getBottom() + 20);
@@ -354,15 +362,23 @@ public:
             expect(keyboardComp->getHeight() <= 200);
         }
 
-        if (qwertyComp != nullptr && qwertyHeader != nullptr) {
+        if (qwertyComp != nullptr && qwertyHeader != nullptr && controlsComp != nullptr && presetCard != nullptr
+            && adsrCard != nullptr && transportCard != nullptr) {
             host.setProperty("qwerty-expanded-area", "height", 0);
-            host.setProperty("qwerty-card", "height", 32);
-            host.setProperty("qwerty-card", "min-height", 32);
+            host.setProperty("qwerty-card", "height", devpiano::ui::jive::kQwertyCollapsedCardHeight);
+            host.setProperty("qwerty-card", "min-height", devpiano::ui::jive::kQwertyCollapsedCardHeight);
             host.relayoutContainer("qwerty-card");
             host.relayoutContainer("content-row");
             host.relayoutContainer("main-area");
-            expectEquals(qwertyComp->getHeight(), 32);
+            const int collapsedMinHeight = minHeight - devpiano::ui::jive::kQwertyCardHeightDelta;
+            host.setBounds(0, 0, minWidth, collapsedMinHeight);
+            expectEquals(rootComp->getHeight(), collapsedMinHeight);
+            expectEquals(qwertyComp->getHeight(), devpiano::ui::jive::kQwertyCollapsedCardHeight);
             expectEquals(qwertyHeader->getHeight(), 22);
+            expectEquals(controlsComp->getHeight(), expandedControlsHeight);
+            expectEquals(presetCard->getHeight(), expandedControlsHeight);
+            expectEquals(adsrCard->getHeight(), expandedControlsHeight);
+            expectEquals(transportCard->getHeight(), expandedControlsHeight);
         }
     }
 

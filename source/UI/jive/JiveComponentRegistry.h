@@ -78,12 +78,10 @@ public:
         return drawable;
     }
 
-    /// 回到开头快退图标（竖条 + 双倒三角）
     [[nodiscard]] static std::unique_ptr<juce::Drawable> createBackIcon() {
         juce::Path p;
-        p.addRectangle(-7.0f, -7.0f, 2.5f, 14.0f);
-        p.addTriangle(0.0f, -7.0f, 0.0f, 7.0f, -6.0f, 0.0f);
-        p.addTriangle(7.0f, -7.0f, 7.0f, 7.0f, 1.0f, 0.0f);
+        p.addRectangle(-7.0f, -7.0f, 2.0f, 14.0f);
+        p.addTriangle(7.0f, -7.0f, 7.0f, 7.0f, -2.0f, 0.0f);
         auto drawable = std::make_unique<juce::DrawablePath>();
         drawable->setPath(p);
         drawable->setFill(juce::Colours::white);

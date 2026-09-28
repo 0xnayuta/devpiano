@@ -76,7 +76,8 @@ enum class CountInBars : std::uint8_t {
 /// Deterministic and allocation-free.
 class TapTempoCalculator {
 public:
-    static constexpr int kMaxTaps = 8;
+    static constexpr int kMaxIntervals = 3;
+    static constexpr int kMaxTaps = kMaxIntervals + 1;
     static constexpr double kMinBpm = 40.0;
     static constexpr double kMaxBpm = 280.0;
     static constexpr double kTimeoutSeconds = 2.0;
