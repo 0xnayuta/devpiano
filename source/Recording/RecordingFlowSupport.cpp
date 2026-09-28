@@ -107,4 +107,8 @@ RecordingFlowStatus makeRecordingFlowStatus(ui::RecordingState state, bool hasTa
     return { .currentState = toRecordingFlowState(state), .hasTake = hasTake };
 }
 
+bool shouldContinueCountIn(RecordingFlowState sessionState, bool engineCanStart, bool metronomeEnabled) noexcept {
+    return sessionState == RecordingFlowState::idle && engineCanStart && metronomeEnabled;
+}
+
 } // namespace devpiano::recording

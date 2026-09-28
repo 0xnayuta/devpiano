@@ -20,9 +20,11 @@ public:
         testMetronomeAudioMixingAndVolume();
         testMetronomeBlockBoundaryArbitraryOffset();
         testMetronomeDynamicBpmChange();
+        testMetronomeBpmPhaseRebase();
+        testMutedClickExpiresBeforeUnmute();
         testMetronomeAudioEngineIntegration();
         testCountInModel();
-        testMetronomeStateTransitionsAndLifecycle();
+        testMetronomeEnabledBeforePrepare();
     }
 
 private:
@@ -280,6 +282,50 @@ private:
         expect(processor.getBeatSequence() > 1);
     }
 
+    void testMetronomeBpmPhaseRebase() {
+        beginTest("BPM changes preserve fractional beat phase without catch-up clicks");
+
+        devpiano::audio::MetronomeProcessor processor;
+        processor.prepareToPlay(48000.0);
+        processor.setBpm(60.0);
+        processor.setEnabled(true);
+        juce::AudioBuffer<float> buffer(2, 48000);
+
+        processor.processAndMix(&buffer, 0, 24000);
+        const auto sequenceBeforeChange = processor.getBeatSequence();
+        processor.setBpm(240.0);
+
+        buffer.clear();
+        processor.processAndMix(&buffer, 0, 5999);
+        expectEquals(processor.getBeatSequence(), sequenceBeforeChange);
+
+        buffer.clear();
+        processor.processAndMix(&buffer, 0, 1);
+        expectEquals(processor.getBeatSequence(), sequenceBeforeChange + 1);
+        expectEquals(processor.getCurrentBeatNumber(), 1);
+    }
+
+    void testMutedClickExpiresBeforeUnmute() {
+        beginTest("A click decays while muted and does not reappear after unmuting");
+
+        devpiano::audio::MetronomeProcessor processor;
+        processor.prepareToPlay(48000.0);
+        processor.setBpm(120.0);
+        processor.setVolume(0.0f);
+        processor.setEnabled(true);
+        juce::AudioBuffer<float> buffer(2, 20000);
+
+        processor.processAndMix(&buffer, 0, 1);
+        buffer.clear();
+        processor.processAndMix(&buffer, 0, 16000);
+        expectEquals(buffer.getMagnitude(0, 16000), 0.0f);
+
+        processor.setVolume(1.0f);
+        buffer.clear();
+        processor.processAndMix(&buffer, 0, 64);
+        expectEquals(buffer.getMagnitude(0, 64), 0.0f);
+    }
+
     void testMetronomeAudioEngineIntegration() {
         beginTest("AudioEngine metronome public interface and rendering integration");
 
@@ -395,6 +441,24 @@ private:
         expect(processor.getIsDownbeat());
         expectEquals(processor.getBeatSequence(), seqBeforeSilent + 1);
         expectEquals(buffer.getMagnitude(0, 512), 0.0f);
+    }
+
+    void testMetronomeEnabledBeforePrepare() {
+        beginTest("Enabling before prepare still schedules the first downbeat");
+
+        devpiano::audio::MetronomeProcessor processor;
+        processor.setEnabled(true);
+        processor.prepareToPlay(48000.0);
+        processor.setVolume(1.0f);
+
+        juce::AudioBuffer<float> buffer(2, 128);
+        processor.processAndMix(&buffer, 0, 128);
+
+        expect(processor.isEnabled());
+        expectEquals(processor.getBeatSequence(), std::uint32_t { 1 });
+        expectEquals(processor.getCurrentBeatNumber(), 0);
+        expect(processor.getIsDownbeat());
+        expect(buffer.getMagnitude(0, 128) > 0.01f);
     }
 };
 

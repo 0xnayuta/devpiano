@@ -115,6 +115,7 @@ private:
 
     [[nodiscard]] std::int64_t getScaledPlaybackLengthSamples() const noexcept;
     [[nodiscard]] ScaledLoopRange getScaledLoopRange(double combinedRatio) const noexcept;
+    [[nodiscard]] bool tryGetScaledLoopRange(double combinedRatio, ScaledLoopRange& output) const noexcept;
     [[nodiscard]] bool readPendingPlaybackSeek(std::int64_t& takeSample, std::uint32_t& sequence) const noexcept;
     void resetPlaybackEventCursor(std::int64_t positionSamples, double combinedRatio) noexcept;
     void renderPlaybackEventsInRange(juce::MidiBuffer& midiBuffer, std::int64_t rangeStartSamples,

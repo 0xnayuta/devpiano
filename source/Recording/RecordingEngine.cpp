@@ -139,6 +139,7 @@ void RecordingEngine::clear() {
     droppedEventCount.store(0, std::memory_order_relaxed);
     playbackEventIndex = 0;
     hasRenderedPlaybackBlock = false;
+    lastRenderedLoopRange = {};
     loopWrapPending = false;
     abLoopEngine.clear();
     playbackEndedPending.store(false, std::memory_order_release);
@@ -236,6 +237,7 @@ void RecordingEngine::startPlayback(const RecordingTake& take, double currentSam
     playbackPositionSamples.store(initialResume, std::memory_order_relaxed);
     playbackEndedPending.store(false, std::memory_order_release);
     hasRenderedPlaybackBlock = false;
+    lastRenderedLoopRange = loopRange;
     loopWrapPending = false;
     resetPlaybackEventCursor(initialResume, combinedRatio);
 
@@ -467,7 +469,10 @@ void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer, std::int
 
     const auto combinedRatio = playbackSampleRateRatio.load(std::memory_order_relaxed)
         / playbackSpeedMultiplier.load(std::memory_order_relaxed);
-    const auto loopRange = getScaledLoopRange(combinedRatio);
+    ScaledLoopRange loopRange;
+    if (!tryGetScaledLoopRange(combinedRatio, loopRange)) {
+        loopRange = lastRenderedLoopRange;
+    }
     auto takePosition = blockStartSamples;
     auto blockOffset = 0;
 
@@ -480,6 +485,7 @@ void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer, std::int
     if (loopRange.active && takePosition >= loopRange.endSamples) {
         addAllNotesOffMessages(midiBuffer, 0);
         takePosition = loopRange.startSamples;
+        playbackPositionSamples.store(takePosition, std::memory_order_relaxed);
         resetPlaybackEventCursor(takePosition, combinedRatio);
     }
 
@@ -576,10 +582,14 @@ void RecordingEngine::advancePlaybackPosition(std::int64_t numSamples) noexcept 
     }
 
     const auto renderedBlock = hasRenderedPlaybackBlock;
-    const auto loopRange = renderedBlock
-        ? lastRenderedLoopRange
-        : getScaledLoopRange(playbackSampleRateRatio.load(std::memory_order_relaxed)
-                             / playbackSpeedMultiplier.load(std::memory_order_relaxed));
+    ScaledLoopRange loopRange;
+    if (renderedBlock) {
+        loopRange = lastRenderedLoopRange;
+    } else if (!tryGetScaledLoopRange(playbackSampleRateRatio.load(std::memory_order_relaxed)
+                                          / playbackSpeedMultiplier.load(std::memory_order_relaxed),
+                                      loopRange)) {
+        loopRange = lastRenderedLoopRange;
+    }
     hasRenderedPlaybackBlock = false;
     const auto currentPosition = playbackPositionSamples.load(std::memory_order_relaxed);
 
@@ -648,20 +658,29 @@ std::int64_t RecordingEngine::getScaledPlaybackLengthSamples() const noexcept {
 }
 
 RecordingEngine::ScaledLoopRange RecordingEngine::getScaledLoopRange(double combinedRatio) const noexcept {
-    const auto takeRange = abLoopEngine.getRange();
+    ScaledLoopRange range;
+    return tryGetScaledLoopRange(combinedRatio, range) ? range : ScaledLoopRange {};
+}
+
+bool RecordingEngine::tryGetScaledLoopRange(double combinedRatio, ScaledLoopRange& output) const noexcept {
+    AbLoopRange takeRange;
+    if (!abLoopEngine.tryGetRange(takeRange)) {
+        return false;
+    }
+    output = {};
     if (!takeRange.isValid() || playbackTake.lengthSamples <= 1 || combinedRatio <= 0.0) {
-        return {};
+        return true;
     }
 
     const auto startInTake = juce::jlimit<std::int64_t>(0, playbackTake.lengthSamples, takeRange.startSamples);
     const auto endInTake = juce::jlimit<std::int64_t>(0, playbackTake.lengthSamples, takeRange.endSamples);
     if (endInTake <= startInTake) {
-        return {};
+        return true;
     }
 
     const auto scaledLength = scaledPlaybackLengthSamples.load(std::memory_order_relaxed);
     if (scaledLength <= 1) {
-        return {};
+        return true;
     }
 
     const auto scaledStart = static_cast<std::int64_t>(static_cast<double>(startInTake) * combinedRatio);
@@ -669,10 +688,10 @@ RecordingEngine::ScaledLoopRange RecordingEngine::getScaledLoopRange(double comb
     const auto startSamples = juce::jlimit<std::int64_t>(0, scaledLength - 1, scaledStart);
     const auto endSamples = juce::jlimit<std::int64_t>(startSamples + 1, scaledLength, scaledEnd);
     const auto minBlockSize = static_cast<std::int64_t>(std::max(1, playbackBlockSize.load(std::memory_order_relaxed)));
-    if (endSamples - startSamples < minBlockSize) {
-        return {};
+    if (endSamples - startSamples >= minBlockSize) {
+        output = { startSamples, endSamples, true };
     }
-    return { startSamples, endSamples, true };
+    return true;
 }
 
 void RecordingEngine::resetPlaybackEventCursor(std::int64_t positionSamples, double combinedRatio) noexcept {

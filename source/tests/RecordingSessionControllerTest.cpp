@@ -117,6 +117,17 @@ public:
         testStopIntent();
         testStateAfterCommand();
         testKeyboardFocusRestore();
+        testCountInEligibility();
+    }
+
+    void testCountInEligibility() {
+        testCase("count-in continues only while the session and engine are ready and metronome runs", [&] {
+            expect(shouldContinueCountIn(RecordingFlowState::idle, true, true));
+            expect(!shouldContinueCountIn(RecordingFlowState::idle, false, true));
+            expect(!shouldContinueCountIn(RecordingFlowState::recording, true, true));
+            expect(!shouldContinueCountIn(RecordingFlowState::playingPaused, true, true));
+            expect(!shouldContinueCountIn(RecordingFlowState::idle, true, false));
+        });
     }
 
 private:

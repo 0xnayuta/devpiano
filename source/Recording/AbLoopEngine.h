@@ -43,22 +43,30 @@ public:
     }
 
     [[nodiscard]] AbLoopRange getRange() const noexcept {
-        const auto observedVersion = sequence.load(std::memory_order_acquire);
-        if ((observedVersion & 1U) != 0U) {
-            return {};
-        }
-
-        const AbLoopRange range { startSamples.load(std::memory_order_relaxed),
-                                  endSamples.load(std::memory_order_relaxed), hasStart.load(std::memory_order_relaxed),
-                                  hasEnd.load(std::memory_order_relaxed) };
-        if (sequence.load(std::memory_order_acquire) != observedVersion) {
-            return {};
-        }
-
-        return range;
+        AbLoopRange range;
+        return tryGetRange(range) ? range : AbLoopRange {};
     }
 
 private:
+    friend class RecordingEngine;
+
+    [[nodiscard]] bool tryGetRange(AbLoopRange& range) const noexcept {
+        const auto observedVersion = sequence.load(std::memory_order_acquire);
+        if ((observedVersion & 1U) != 0U) {
+            return false;
+        }
+
+        const AbLoopRange snapshot { startSamples.load(std::memory_order_relaxed),
+                                     endSamples.load(std::memory_order_relaxed),
+                                     hasStart.load(std::memory_order_relaxed), hasEnd.load(std::memory_order_relaxed) };
+        if (sequence.load(std::memory_order_acquire) != observedVersion) {
+            return false;
+        }
+
+        range = snapshot;
+        return true;
+    }
+
     [[nodiscard]] std::uint32_t lockForWrite() noexcept {
         auto observedVersion = sequence.load(std::memory_order_relaxed);
         for (;;) {

@@ -82,12 +82,18 @@ public:
     std::function<void(const juce::File&)> onFileOpened;
 
 private:
+    struct PausedPlaybackCursor {
+        std::int64_t scaledPositionSamples = 0;
+        double combinedRatio = 1.0;
+    };
+
     [[nodiscard]] double getCurrentRuntimeSampleRate() const;
     [[nodiscard]] int getCurrentRuntimeBlockSize() const;
 
     void startInternalRecording(std::size_t expectedEventCapacity);
     [[nodiscard]] RecordingTake stopInternalRecording();
-    void startInternalPlayback(const RecordingTake& take, std::int64_t resumeFromTakeSamples = 0);
+    void startInternalPlayback(const RecordingTake& take, std::int64_t resumeFromTakeSamples = 0,
+                               std::optional<PausedPlaybackCursor> pausedCursor = std::nullopt);
     void stopInternalPlayback();
     void syncRecordingSessionToUi();
     void checkCountIn();
@@ -111,7 +117,7 @@ private:
 
     RecordingSession recordingSession;
     std::optional<std::int64_t> idleSeekPositionSamples;
-    // aliveFlag_ shared with async lambdas so they can detect destruction
+    std::optional<PausedPlaybackCursor> pausedPlaybackCursor;
     std::shared_ptr<bool> aliveFlag_;
     int countInRemainingBeats = 0;
     std::uint32_t lastCountInSequence = 0;

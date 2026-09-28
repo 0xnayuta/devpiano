@@ -1156,27 +1156,32 @@ void MainComponent::showMetronomeTempoMenu() {
     menu.addItem(2003, "2 " + TRANS("Bars"), true,
                  appSettings.metronomeCountIn == devpiano::core::CountInBars::twoBars);
 
-    menu.showMenuAsync(juce::PopupMenu::Options {}, [this](int result) {
-        if (result >= 40 && result <= 280) {
-            tapTempoCalculator.reset();
-            audioEngine.setMetronomeBpm(static_cast<double>(result));
-            appSettings.metronomeBpm = static_cast<double>(result);
-            updateMetronomeUi();
-            updateStatusBar();
-            saveSettingsSoon();
-        } else if (result >= 1001 && result <= 1004) {
-            const auto sig = static_cast<devpiano::core::TimeSignature>(result - 1001);
-            audioEngine.setMetronomeTimeSignature(sig);
-            appSettings.metronomeTimeSignature = sig;
-            updateMetronomeUi();
-            updateStatusBar();
-            saveSettingsSoon();
-        } else if (result >= 2001 && result <= 2003) {
-            const auto countIn = static_cast<devpiano::core::CountInBars>(result - 2001);
-            appSettings.metronomeCountIn = countIn;
-            saveSettingsSoon();
-        }
-    });
+    menu.showMenuAsync(juce::PopupMenu::Options {},
+                       [safe = juce::Component::SafePointer<MainComponent>(this)](int result) {
+                           if (safe == nullptr) {
+                               return;
+                           }
+
+                           if (result >= 40 && result <= 280) {
+                               safe->tapTempoCalculator.reset();
+                               safe->audioEngine.setMetronomeBpm(static_cast<double>(result));
+                               safe->appSettings.metronomeBpm = static_cast<double>(result);
+                               safe->updateMetronomeUi();
+                               safe->updateStatusBar();
+                               safe->saveSettingsSoon();
+                           } else if (result >= 1001 && result <= 1004) {
+                               const auto sig = static_cast<devpiano::core::TimeSignature>(result - 1001);
+                               safe->audioEngine.setMetronomeTimeSignature(sig);
+                               safe->appSettings.metronomeTimeSignature = sig;
+                               safe->updateMetronomeUi();
+                               safe->updateStatusBar();
+                               safe->saveSettingsSoon();
+                           } else if (result >= 2001 && result <= 2003) {
+                               const auto countIn = static_cast<devpiano::core::CountInBars>(result - 2001);
+                               safe->appSettings.metronomeCountIn = countIn;
+                               safe->saveSettingsSoon();
+                           }
+                       });
 }
 
 void MainComponent::handleMetronomeTap() {

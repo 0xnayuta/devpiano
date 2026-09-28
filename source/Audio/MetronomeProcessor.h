@@ -22,9 +22,7 @@ private:
     };
 public:
 
-    MetronomeProcessor() noexcept {
-        updateBeatParameters();
-    }
+    MetronomeProcessor() noexcept = default;
 
     void prepareToPlay(double newSampleRate) noexcept {
         sampleRate = (newSampleRate > 1000.0) ? newSampleRate : 48000.0;
@@ -60,7 +58,6 @@ public:
         const double clampedBpm = std::clamp(newBpm, devpiano::core::TapTempoCalculator::kMinBpm,
                                              devpiano::core::TapTempoCalculator::kMaxBpm);
         bpm.store(clampedBpm, std::memory_order_relaxed);
-        updateBeatParameters();
     }
 
     [[nodiscard]] double getBpm() const noexcept {
@@ -69,7 +66,6 @@ public:
 
     void setTimeSignature(devpiano::core::TimeSignature sig) noexcept {
         timeSignature.store(sig, std::memory_order_relaxed);
-        updateBeatParameters();
     }
 
     [[nodiscard]] devpiano::core::TimeSignature getTimeSignature() const noexcept {
@@ -134,6 +130,7 @@ public:
         const double denominator = static_cast<double>(devpiano::core::getTimeSignatureDenominator(currentSig));
         const double currentBpm = bpm.load(std::memory_order_relaxed);
         const double samplesPerBeat = (sampleRate * 60.0 / currentBpm) * (4.0 / denominator);
+        rebaseBeatPhase(samplesPerBeat);
 
         auto* channel0 = buffer->getWritePointer(0, startSample);
         auto* channel1 = (numChannels > 1) ? buffer->getWritePointer(1, startSample) : nullptr;
@@ -142,18 +139,7 @@ public:
             float sampleVal = 0.0f;
             if (pulseActive) {
                 sampleVal = pulseSin * pulseEnvelope * masterVol;
-
-                // Advance oscillator using rotation matrix (no std::sin per sample)
-                const float nextSin = pulseSin * pulseDeltaCos + pulseCos * pulseDeltaSin;
-                const float nextCos = pulseCos * pulseDeltaCos - pulseSin * pulseDeltaSin;
-                pulseSin = nextSin;
-                pulseCos = nextCos;
-
-                pulseEnvelope *= pulseDecay;
-                if (pulseEnvelope < 0.0005f) {
-                    pulseActive = false;
-                    pulseEnvelope = 0.0f;
-                }
+                advancePulseOneSample();
             }
 
             channel0[i] += sampleVal;
@@ -173,13 +159,37 @@ public:
 private:
     void handleStartPendingOnAudioThread() noexcept {
         auto expected = RunState::startPending;
-        if (runState.compare_exchange_strong(expected, RunState::active,
-                                             std::memory_order_acq_rel,
+        if (runState.compare_exchange_strong(expected, RunState::active, std::memory_order_acq_rel,
                                              std::memory_order_relaxed)) {
             samplePositionInBeat = 0.0;
             currentBeatIndex = 0;
+            lastSamplesPerBeat = 0.0;
             triggerBeat(0);
         }
+    }
+
+    void advancePulseOneSample() noexcept {
+        if (!pulseActive) {
+            return;
+        }
+
+        const float nextSin = pulseSin * pulseDeltaCos + pulseCos * pulseDeltaSin;
+        const float nextCos = pulseCos * pulseDeltaCos - pulseSin * pulseDeltaSin;
+        pulseSin = nextSin;
+        pulseCos = nextCos;
+        pulseEnvelope *= pulseDecay;
+        if (pulseEnvelope < 0.0005f) {
+            pulseActive = false;
+            pulseEnvelope = 0.0f;
+        }
+    }
+
+    void rebaseBeatPhase(double samplesPerBeat) noexcept {
+        if (lastSamplesPerBeat > 0.0 && samplesPerBeat > 0.0 && samplesPerBeat != lastSamplesPerBeat) {
+            const auto phase = std::clamp(samplePositionInBeat / lastSamplesPerBeat, 0.0, 1.0);
+            samplePositionInBeat = std::min(phase * samplesPerBeat, std::nextafter(samplesPerBeat, 0.0));
+        }
+        lastSamplesPerBeat = samplesPerBeat;
     }
 
     void triggerBeat(int beatIdx) noexcept {
@@ -240,21 +250,19 @@ private:
         const double denominator = static_cast<double>(devpiano::core::getTimeSignatureDenominator(currentSig));
         const double currentBpm = bpm.load(std::memory_order_relaxed);
         const double samplesPerBeat = (sampleRate * 60.0 / currentBpm) * (4.0 / denominator);
+        rebaseBeatPhase(samplesPerBeat);
         for (int i = 0; i < numSamples; ++i) {
+            advancePulseOneSample();
             samplePositionInBeat += 1.0;
             if (samplePositionInBeat >= samplesPerBeat) {
                 samplePositionInBeat -= samplesPerBeat;
                 currentBeatIndex = (currentBeatIndex + 1) % numerator;
-                currentBeatNumber.store(currentBeatIndex, std::memory_order_relaxed);
-                isDownbeat.store(currentBeatIndex == 0, std::memory_order_relaxed);
-                beatSequence.fetch_add(1, std::memory_order_release);
+                triggerBeat(currentBeatIndex);
             }
         }
     }
 
-    void updateBeatParameters() noexcept {
-        // Safe lock-free configuration update
-    }
+    double lastSamplesPerBeat = 0.0;
 
     double sampleRate = 48000.0;
     double samplePositionInBeat = 0.0;

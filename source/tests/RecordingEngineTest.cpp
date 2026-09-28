@@ -762,6 +762,21 @@ public:
                          "resume should continue from the pause point");
         }
 
+        beginTest("non-integral sample-rate playback cursor survives pause and resume");
+        {
+            auto take = buildTake(44100.0, 44100, {});
+            RecordingEngine engine;
+            engine.startPlaybackAtTakeSample(take, 48000.0, 1);
+            const auto scaledCursor = engine.getPlaybackPositionSamples();
+            expectEquals(static_cast<std::int64_t>(1), scaledCursor);
+
+            for (int restart = 0; restart < 4; ++restart) {
+                engine.pausePlayback();
+                engine.startPlayback(take, 48000.0, scaledCursor);
+                expectEquals(scaledCursor, engine.getPlaybackPositionSamples());
+            }
+        }
+
         beginTest("pausePlayback outside playing state is a no-op");
         {
             RecordingEngine engine;
@@ -908,6 +923,32 @@ public:
             }
         }
 
+        beginTest("rendering after a seek beyond B advances from normalized A");
+        {
+            auto take = buildTake(1000.0, 100, { { 10, 60, true, 1, 1.0f } });
+            RecordingEngine engine;
+            engine.setPlaybackLoopStartSample(10);
+            engine.setPlaybackLoopEndSample(20);
+            engine.startPlaybackAtTakeSample(take, 1000.0, 0);
+
+            engine.requestPlaybackSeek(25);
+            juce::MidiBuffer seekCleanup;
+            expect(engine.applyPendingPlaybackSeek(seekCleanup));
+
+            juce::MidiBuffer buffer;
+            engine.renderPlaybackBlock(buffer, 25, 4);
+            bool playedLoopStartEvent = false;
+            for (const auto metadata : buffer) {
+                const auto message = metadata.getMessage();
+                playedLoopStartEvent
+                    |= message.isNoteOn() && message.getChannel() == 1 && message.getNoteNumber() == 60;
+            }
+            expect(playedLoopStartEvent);
+            engine.advancePlaybackPosition(4);
+
+            expectEquals(static_cast<std::int64_t>(14), engine.getPlaybackPositionSamples());
+            expect(engine.isPlaying());
+        }
         beginTest("loop wraps at B, cleans all channels before replaying multichannel A events");
         {
             auto take = buildTake(1000.0, 100,
