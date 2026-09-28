@@ -60,22 +60,30 @@ private:
         tap.recordTap(10.5);
         auto bpm = tap.calculateBpm();
         expect(bpm.has_value());
-        expectWithinAbsoluteError(*bpm, 120.0, 0.1);
+        if (bpm.has_value()) {
+            expectWithinAbsoluteError(*bpm, 120.0, 0.1);
+        }
 
         tap.recordTap(11.3);
         bpm = tap.calculateBpm();
         expect(bpm.has_value());
-        expectWithinAbsoluteError(*bpm, 60.0 / 0.65, 0.001);
+        if (bpm.has_value()) {
+            expectWithinAbsoluteError(*bpm, 60.0 / 0.65, 0.001);
+        }
 
         tap.recordTap(12.4);
         bpm = tap.calculateBpm();
         expect(bpm.has_value());
-        expectWithinAbsoluteError(*bpm, 75.0, 0.001);
+        if (bpm.has_value()) {
+            expectWithinAbsoluteError(*bpm, 75.0, 0.001);
+        }
 
         tap.recordTap(12.6);
         bpm = tap.calculateBpm();
         expect(bpm.has_value());
-        expectWithinAbsoluteError(*bpm, 60.0 / 0.7, 0.001);
+        if (bpm.has_value()) {
+            expectWithinAbsoluteError(*bpm, 60.0 / 0.7, 0.001);
+        }
         expectEquals(tap.getTapCount(), 4);
 
         tap.reset();
@@ -83,14 +91,18 @@ private:
         tap.recordTap(1.1);
         bpm = tap.calculateBpm();
         expect(bpm.has_value());
-        expectWithinAbsoluteError(*bpm, 280.0, 0.001);
+        if (bpm.has_value()) {
+            expectWithinAbsoluteError(*bpm, 280.0, 0.001);
+        }
 
         tap.reset();
         tap.recordTap(1.0);
         tap.recordTap(3.0);
         bpm = tap.calculateBpm();
         expect(bpm.has_value());
-        expectWithinAbsoluteError(*bpm, 40.0, 0.001);
+        if (bpm.has_value()) {
+            expectWithinAbsoluteError(*bpm, 40.0, 0.001);
+        }
 
         tap.reset();
         tap.recordTap(1.0);
