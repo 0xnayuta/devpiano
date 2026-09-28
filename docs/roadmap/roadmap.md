@@ -320,7 +320,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 3. **实时和弦识别与乐理分析 HUD（Phase 35-C）**：基于 `MusicTheory.h` 音高类集合（Pitch Class Set）的无锁实时和弦分析（三和弦/七和弦/挂留/减和弦/转位低音）、QWERTY 看板与状态栏和弦徽标（`ChordBadge`）联动；
 4. **MIDI 伴奏 A-B 片段循环跟练与进度自由跳转（Phase 35-D）**：走带时间轴精细进度条（`TimelineBar`）与零爆音 Seek 机制、难点小节 A-B 无缝循环引擎（`AbLoopEngine`），配合 0.5x~2.0x 调速闭环键盘练习流。
 
-当前任务规划见 [`current-iteration.md`](current-iteration.md)。
+Phase 35 完成清单见 [`current-iteration.md`](current-iteration.md)；后续路线状态以本文为准。
 
 ### Phase 36：物理建模声学巅峰（Railsback Octave Stretch Tuning & Duplex Scale Resonance）[规划中]
 

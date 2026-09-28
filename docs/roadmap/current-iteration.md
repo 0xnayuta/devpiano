@@ -1,11 +1,13 @@
 # devpiano Current Iteration
 
-> 用途：只记录当前正在推进的一轮任务。
+> 用途：记录最近一轮任务与完成状态；新一轮启动时替换本文件。
 > 更新时机：开始新一轮任务、完成当前任务、调整本轮范围时。
 
-## 当前方向
+## 最近完成迭代与当前状态
 
-**Phase 35：键盘演奏表现力深水区与练琴基础设施 (Keyboard Expressive Dynamics & Practice Infrastructure) [规划与推进中，2026-09-24 ~]**
+**Phase 35：键盘演奏表现力深水区与练琴基础设施 (Keyboard Expressive Dynamics & Practice Infrastructure) [已完成，2026-09-28]**
+
+当前没有正在进行的实现迭代。Phase 36 仍处于规划阶段；后续路线与状态以 [`roadmap.md`](roadmap.md) 为准。
 
 *(注：Phase 34“键盘演奏交互质变与演奏表现力增强”已于 2026-09-23 全面完成并归档，包含 QWERTY Visualizer 5 行网格看板、12-TET 和声色彩投影、Layout Group 4 组切换与发音身份快照、采样级 Sync 切分踏板、Press 瞬态修饰符、插件扫描增量持久化、乐器端点抽象与 Phase 34-F 跨平台/JUCE 9 原生收敛。详细完成记录见 [`../archive/phase34-keyboard-performance-ux-and-expressive-control.md`](../archive/phase34-keyboard-performance-ux-and-expressive-control.md)。)*
 
