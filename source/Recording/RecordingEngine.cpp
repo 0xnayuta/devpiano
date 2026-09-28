@@ -453,7 +453,6 @@ void RecordingEngine::setPlaybackBlockSize(int blockSize) noexcept {
     playbackBlockSize.store(std::max(1, blockSize), std::memory_order_relaxed);
 }
 
-
 void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer, std::int64_t blockStartSamples,
                                           int numSamples) {
     if (!isPlaying() || numSamples <= 0) {
@@ -463,9 +462,8 @@ void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer, std::int
 
     auto currentBlockSize = playbackBlockSize.load(std::memory_order_relaxed);
     while (numSamples > currentBlockSize
-           && !playbackBlockSize.compare_exchange_weak(
-               currentBlockSize, numSamples, std::memory_order_relaxed, std::memory_order_relaxed)) {
-    }
+           && !playbackBlockSize.compare_exchange_weak(currentBlockSize, numSamples, std::memory_order_relaxed,
+                                                       std::memory_order_relaxed)) { }
 
     const auto combinedRatio = playbackSampleRateRatio.load(std::memory_order_relaxed)
         / playbackSpeedMultiplier.load(std::memory_order_relaxed);

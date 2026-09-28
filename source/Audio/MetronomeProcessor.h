@@ -14,14 +14,11 @@ namespace devpiano::audio {
 class MetronomeProcessor {
 public:
     static constexpr double kTwoPi = 6.28318530717958647692;
-private:
-    enum class RunState : std::uint8_t {
-        disabled = 0,
-        startPending = 1,
-        active = 2
-    };
-public:
 
+private:
+    enum class RunState : std::uint8_t { disabled = 0, startPending = 1, active = 2 };
+
+public:
     MetronomeProcessor() noexcept = default;
 
     void prepareToPlay(double newSampleRate) noexcept {
@@ -31,8 +28,7 @@ public:
 
     void reset() noexcept {
         auto expected = RunState::active;
-        runState.compare_exchange_strong(expected, RunState::startPending,
-                                         std::memory_order_acq_rel,
+        runState.compare_exchange_strong(expected, RunState::startPending, std::memory_order_acq_rel,
                                          std::memory_order_relaxed);
         currentBeatNumber.store(0, std::memory_order_relaxed);
         isDownbeat.store(true, std::memory_order_relaxed);
@@ -41,8 +37,7 @@ public:
     void setEnabled(bool isEnabled) noexcept {
         if (isEnabled) {
             auto expected = RunState::disabled;
-            runState.compare_exchange_strong(expected, RunState::startPending,
-                                             std::memory_order_acq_rel,
+            runState.compare_exchange_strong(expected, RunState::startPending, std::memory_order_acq_rel,
                                              std::memory_order_relaxed);
         } else {
             runState.store(RunState::disabled, std::memory_order_release);

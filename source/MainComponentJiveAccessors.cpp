@@ -896,10 +896,13 @@ void MainComponent::updateStatusBar() {
     }
     juce::String metronomeIndicator;
     if (audioEngine.isMetronomeEnabled()) {
-        const auto dot = (metronomePulseBrightness > 0.05f)
-            ? (audioEngine.getMetronomeIsDownbeat() ? juce::String::charToString(0x25CF)
-                                                    : juce::String::charToString(0x25CB))
-            : juce::String::charToString(0x2022);
+        juce::String dot;
+        if (metronomePulseBrightness > 0.05f) {
+            dot = audioEngine.getMetronomeIsDownbeat() ? juce::String::charToString(0x25CF)
+                                                       : juce::String::charToString(0x25CB);
+        } else {
+            dot = juce::String::charToString(0x2022);
+        }
         metronomeIndicator = bullet + juce::String(juce::roundToInt(audioEngine.getMetronomeBpm())) + " "
             + devpiano::core::getTimeSignatureName(audioEngine.getMetronomeTimeSignature()) + " " + dot;
     }

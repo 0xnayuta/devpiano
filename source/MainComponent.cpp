@@ -1125,7 +1125,7 @@ void MainComponent::updateMetronomeUi() {
     viewHost.setProperty("metronome-toggle-btn", "toggled", isMetroOn);
     viewHost.setButtonLabel("metronome-toggle-btn", isMetroOn ? TRANS("Metro On") : TRANS("Metro Off"));
 
-    const auto sigName = devpiano::core::getTimeSignatureName(audioEngine.getMetronomeTimeSignature());
+    const auto* const sigName = devpiano::core::getTimeSignatureName(audioEngine.getMetronomeTimeSignature());
     const auto bpmLabel = juce::String(juce::roundToInt(audioEngine.getMetronomeBpm())) + " BPM";
     viewHost.setButtonLabel("metronome-bpm-btn", bpmLabel);
     viewHost.setProperty("metronome-bpm-btn", "tooltip", TRANS("Adjust Tempo / Time Signature") + " (" + sigName + ")");
