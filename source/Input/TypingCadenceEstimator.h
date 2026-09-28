@@ -53,7 +53,7 @@ public:
             return baseVelocity;
         }
 
-        float estimated = baseVelocity;
+        float estimated;
         if (lastKeystrokeTimeSeconds > 0.0) {
             const double delta = currentTimestampSeconds - lastKeystrokeTimeSeconds;
             if (delta > kIdleTimeoutSeconds) {

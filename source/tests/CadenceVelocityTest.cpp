@@ -192,6 +192,6 @@ private:
     }
 };
 
-static CadenceVelocityTest cadenceVelocityTest;
+CadenceVelocityTest cadenceVelocityTest;
 
 } // namespace

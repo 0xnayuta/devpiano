@@ -583,11 +583,10 @@ void RecordingEngine::advancePlaybackPosition(std::int64_t numSamples) noexcept 
 
     const auto renderedBlock = hasRenderedPlaybackBlock;
     ScaledLoopRange loopRange;
-    if (renderedBlock) {
-        loopRange = lastRenderedLoopRange;
-    } else if (!tryGetScaledLoopRange(playbackSampleRateRatio.load(std::memory_order_relaxed)
-                                          / playbackSpeedMultiplier.load(std::memory_order_relaxed),
-                                      loopRange)) {
+    if (renderedBlock
+        || !tryGetScaledLoopRange(playbackSampleRateRatio.load(std::memory_order_relaxed)
+                                      / playbackSpeedMultiplier.load(std::memory_order_relaxed),
+                                  loopRange)) {
         loopRange = lastRenderedLoopRange;
     }
     hasRenderedPlaybackBlock = false;

@@ -127,7 +127,7 @@ public:
 
         const auto currentSig = timeSignature.load(std::memory_order_relaxed);
         const int numerator = devpiano::core::getTimeSignatureNumerator(currentSig);
-        const double denominator = static_cast<double>(devpiano::core::getTimeSignatureDenominator(currentSig));
+        const auto denominator = static_cast<double>(devpiano::core::getTimeSignatureDenominator(currentSig));
         const double currentBpm = bpm.load(std::memory_order_relaxed);
         const double samplesPerBeat = (sampleRate * 60.0 / currentBpm) * (4.0 / denominator);
         rebaseBeatPhase(samplesPerBeat);
@@ -247,7 +247,7 @@ private:
 
         const auto currentSig = timeSignature.load(std::memory_order_relaxed);
         const int numerator = devpiano::core::getTimeSignatureNumerator(currentSig);
-        const double denominator = static_cast<double>(devpiano::core::getTimeSignatureDenominator(currentSig));
+        const auto denominator = static_cast<double>(devpiano::core::getTimeSignatureDenominator(currentSig));
         const double currentBpm = bpm.load(std::memory_order_relaxed);
         const double samplesPerBeat = (sampleRate * 60.0 / currentBpm) * (4.0 / denominator);
         rebaseBeatPhase(samplesPerBeat);

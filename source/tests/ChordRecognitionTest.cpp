@@ -242,6 +242,6 @@ private:
     }
 };
 
-static ChordRecognitionTest chordRecognitionTest;
+ChordRecognitionTest chordRecognitionTest;
 
 } // namespace

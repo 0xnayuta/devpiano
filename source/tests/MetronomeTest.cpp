@@ -113,7 +113,7 @@ private:
         // In 48000 Hz at 120 BPM, 4/4 time has exactly 48000 * 60 / 120 = 24000 samples per beat.
         const auto initialSeq = processor.getBeatSequence();
         processor.setEnabled(true);
-        expectEquals(processor.getBeatSequence(), initialSeq);
+        expect(processor.getBeatSequence() == initialSeq);
         expect(processor.isEnabled());
 
         juce::AudioBuffer<float> buffer(2, 24000);
@@ -122,33 +122,33 @@ private:
         processor.processAndMix(&buffer, 0, 1);
         expectEquals(processor.getCurrentBeatNumber(), 0);
         expect(processor.getIsDownbeat());
-        expectEquals(processor.getBeatSequence(), initialSeq + 1);
+        expect(processor.getBeatSequence() == initialSeq + 1);
 
         processor.processAndMix(&buffer, 1, 23999);
         expectEquals(processor.getCurrentBeatNumber(), 1);
         expect(!processor.getIsDownbeat());
-        expectEquals(processor.getBeatSequence(), initialSeq + 2);
+        expect(processor.getBeatSequence() == initialSeq + 2);
 
         // Process another beat
         buffer.clear();
         processor.processAndMix(&buffer, 0, 24000);
         expectEquals(processor.getCurrentBeatNumber(), 2);
         expect(!processor.getIsDownbeat());
-        expectEquals(processor.getBeatSequence(), initialSeq + 3);
+        expect(processor.getBeatSequence() == initialSeq + 3);
 
         // Process another beat
         buffer.clear();
         processor.processAndMix(&buffer, 0, 24000);
         expectEquals(processor.getCurrentBeatNumber(), 3);
         expect(!processor.getIsDownbeat());
-        expectEquals(processor.getBeatSequence(), initialSeq + 4);
+        expect(processor.getBeatSequence() == initialSeq + 4);
 
         // Next beat wraps around to 0 (downbeat)
         buffer.clear();
         processor.processAndMix(&buffer, 0, 24000);
         expectEquals(processor.getCurrentBeatNumber(), 0);
         expect(processor.getIsDownbeat());
-        expectEquals(processor.getBeatSequence(), initialSeq + 5);
+        expect(processor.getBeatSequence() == initialSeq + 5);
     }
 
     void testMetronomeProcessorSixEightMeter() {
@@ -163,7 +163,7 @@ private:
         // In 6/8 meter: denominator is 8, so samplesPerBeat = (48000 * 60 / 120) * (4 / 8) = 12000 samples.
         const auto initialSeq = processor.getBeatSequence();
         processor.setEnabled(true);
-        expectEquals(processor.getBeatSequence(), initialSeq);
+        expect(processor.getBeatSequence() == initialSeq);
         expect(processor.isEnabled());
 
         juce::AudioBuffer<float> buffer(2, 12000);
@@ -172,12 +172,12 @@ private:
         processor.processAndMix(&buffer, 0, 1);
         expectEquals(processor.getCurrentBeatNumber(), 0);
         expect(processor.getIsDownbeat());
-        expectEquals(processor.getBeatSequence(), initialSeq + 1);
+        expect(processor.getBeatSequence() == initialSeq + 1);
 
         processor.processAndMix(&buffer, 1, 11999);
         expectEquals(processor.getCurrentBeatNumber(), 1);
         expect(!processor.getIsDownbeat());
-        expectEquals(processor.getBeatSequence(), initialSeq + 2);
+        expect(processor.getBeatSequence() == initialSeq + 2);
 
         // 6 beats in cycle: 1 -> 2 -> 3 (secondary accent) -> 4 -> 5 -> 0
         for (int expectedBeat = 2; expectedBeat < 6; ++expectedBeat) {
@@ -185,7 +185,7 @@ private:
             processor.processAndMix(&buffer, 0, 12000);
             expectEquals(processor.getCurrentBeatNumber(), expectedBeat);
             expect(!processor.getIsDownbeat());
-            expectEquals(processor.getBeatSequence(), initialSeq + 2 + (expectedBeat - 1));
+            expect(processor.getBeatSequence() == initialSeq + 2 + (expectedBeat - 1));
         }
 
         // 6th step wraps to 0
@@ -193,7 +193,7 @@ private:
         processor.processAndMix(&buffer, 0, 12000);
         expectEquals(processor.getCurrentBeatNumber(), 0);
         expect(processor.getIsDownbeat());
-        expectEquals(processor.getBeatSequence(), initialSeq + 7);
+        expect(processor.getBeatSequence() == initialSeq + 7);
     }
 
     void testMetronomeAudioMixingAndVolume() {
@@ -241,7 +241,7 @@ private:
 
         const auto startSeq = processor.getBeatSequence();
         processor.setEnabled(true);
-        expectEquals(processor.getBeatSequence(), startSeq);
+        expect(processor.getBeatSequence() == startSeq);
 
         const int blockSize = 128;
         juce::AudioBuffer<float> buffer(2, blockSize);
@@ -253,7 +253,7 @@ private:
             processor.processAndMix(&buffer, 0, blockSize);
         }
 
-        expectEquals(processor.getBeatSequence(), startSeq + 2);
+        expect(processor.getBeatSequence() == startSeq + 2);
         expectEquals(processor.getCurrentBeatNumber(), 1);
     }
     void testMetronomeDynamicBpmChange() {
@@ -297,11 +297,11 @@ private:
 
         buffer.clear();
         processor.processAndMix(&buffer, 0, 5999);
-        expectEquals(processor.getBeatSequence(), sequenceBeforeChange);
+        expect(processor.getBeatSequence() == sequenceBeforeChange);
 
         buffer.clear();
         processor.processAndMix(&buffer, 0, 1);
-        expectEquals(processor.getBeatSequence(), sequenceBeforeChange + 1);
+        expect(processor.getBeatSequence() == sequenceBeforeChange + 1);
         expectEquals(processor.getCurrentBeatNumber(), 1);
     }
 
@@ -387,19 +387,19 @@ private:
         const auto initialSeq = processor.getBeatSequence();
         processor.setEnabled(true);
         expect(processor.isEnabled());
-        expectEquals(processor.getBeatSequence(), initialSeq);
+        expect(processor.getBeatSequence() == initialSeq);
 
         processor.setEnabled(true);
-        expectEquals(processor.getBeatSequence(), initialSeq);
+        expect(processor.getBeatSequence() == initialSeq);
 
         buffer.clear();
         processor.processAndMix(&buffer, 0, 512);
         expectEquals(processor.getCurrentBeatNumber(), 0);
         expect(processor.getIsDownbeat());
-        expectEquals(processor.getBeatSequence(), initialSeq + 1);
+        expect(processor.getBeatSequence() == initialSeq + 1);
 
         processor.setEnabled(true);
-        expectEquals(processor.getBeatSequence(), initialSeq + 1);
+        expect(processor.getBeatSequence() == initialSeq + 1);
 
         processor.prepareToPlay(48000.0);
         expect(processor.isEnabled());
@@ -409,7 +409,7 @@ private:
         processor.processAndMix(&buffer, 0, 512);
         expectEquals(processor.getCurrentBeatNumber(), 0);
         expect(processor.getIsDownbeat());
-        expectEquals(processor.getBeatSequence(), seqBeforePrepare + 1);
+        expect(processor.getBeatSequence() == seqBeforePrepare + 1);
 
         processor.setEnabled(false);
         expect(!processor.isEnabled());
@@ -420,26 +420,26 @@ private:
         const auto seqBeforeReEnable = processor.getBeatSequence();
         processor.setEnabled(true);
         expect(processor.isEnabled());
-        expectEquals(processor.getBeatSequence(), seqBeforeReEnable);
+        expect(processor.getBeatSequence() == seqBeforeReEnable);
 
         buffer.clear();
         processor.processAndMix(&buffer, 0, 512);
         expectEquals(processor.getCurrentBeatNumber(), 0);
         expect(processor.getIsDownbeat());
-        expectEquals(processor.getBeatSequence(), seqBeforeReEnable + 1);
+        expect(processor.getBeatSequence() == seqBeforeReEnable + 1);
         expect(buffer.getMagnitude(0, 512) > 0.01f);
 
         processor.setEnabled(false);
         processor.setVolume(0.0f);
         const auto seqBeforeSilent = processor.getBeatSequence();
         processor.setEnabled(true);
-        expectEquals(processor.getBeatSequence(), seqBeforeSilent);
+        expect(processor.getBeatSequence() == seqBeforeSilent);
 
         buffer.clear();
         processor.processAndMix(&buffer, 0, 512);
         expectEquals(processor.getCurrentBeatNumber(), 0);
         expect(processor.getIsDownbeat());
-        expectEquals(processor.getBeatSequence(), seqBeforeSilent + 1);
+        expect(processor.getBeatSequence() == seqBeforeSilent + 1);
         expectEquals(buffer.getMagnitude(0, 512), 0.0f);
     }
 
@@ -455,13 +455,13 @@ private:
         processor.processAndMix(&buffer, 0, 128);
 
         expect(processor.isEnabled());
-        expectEquals(processor.getBeatSequence(), std::uint32_t { 1 });
+        expect(processor.getBeatSequence() == std::uint32_t { 1 });
         expectEquals(processor.getCurrentBeatNumber(), 0);
         expect(processor.getIsDownbeat());
         expect(buffer.getMagnitude(0, 128) > 0.01f);
     }
 };
 
-static MetronomeTest metronomeTest;
+MetronomeTest metronomeTest;
 
 } // namespace

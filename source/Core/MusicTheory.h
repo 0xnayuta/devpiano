@@ -223,9 +223,7 @@ inline const std::vector<ChordPattern>& getChordPatterns() {
         if (note < 0 || note > 127) {
             continue;
         }
-        if (note < lowestNote) {
-            lowestNote = note;
-        }
+        lowestNote = std::min(note, lowestNote);
         const int pc = (note % 12 + 12) % 12;
         if ((mask & (1u << pc)) == 0) {
             mask |= static_cast<uint16_t>(1u << pc);
@@ -269,7 +267,7 @@ inline const std::vector<ChordPattern>& getChordPatterns() {
     // Test each of the 12 possible root notes
     for (int root = 0; root < 12; ++root) {
         // Rotate mask so root becomes bit 0
-        const uint16_t rotated = static_cast<uint16_t>(((mask >> root) | (mask << (12 - root))) & 0x0FFF);
+        const auto rotated = static_cast<uint16_t>(((mask >> root) | (mask << (12 - root))) & 0x0FFF);
 
         for (const auto& pat : patterns) {
             if (rotated == pat.mask) {
