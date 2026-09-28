@@ -605,7 +605,7 @@ juce::ValueTree makeRootLayout() {
     auto keyboard = makeKeyboardAreaTree();
     keyboard.setProperty("flex-grow", 1.0, nullptr);
     keyboard.setProperty("flex-shrink", 1.0, nullptr);
-    keyboard.setProperty("min-height", 138, nullptr);
+    keyboard.setProperty("min-height", 146, nullptr);
     keyboard.setProperty("max-height", 200, nullptr);
     keyboard.setProperty("height", 138, nullptr);
     contentRow.appendChild(keyboard, nullptr);

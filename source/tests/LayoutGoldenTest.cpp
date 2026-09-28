@@ -9,6 +9,7 @@
 #include "UI/jive/JiveModalDialog.h"
 #include "UI/jive/LayoutModel.h"
 #include "UI/jive/StyleCatalog.h"
+#include "UI/native/KeyboardViewport.h"
 
 // ============================================================================
 /// LayoutGoldenTest — Declarative UI Layout & Geometric Invariants (Phase 28-B)
@@ -263,6 +264,16 @@ public:
         const auto minWidth = devpiano::ui::DesignTokens::get().windowMinWidth();
         const auto minHeight = devpiano::ui::DesignTokens::get().windowMinHeight();
         host.setBounds(0, 0, minWidth, minHeight);
+        host.setProperty("plugin-expanded-area", "height", 32);
+        host.setProperty("plugin-panel", "height", 74);
+        host.relayoutContainer("plugin-panel");
+        host.relayoutContainer("main-area");
+        host.setBounds(0, 0, minWidth, minHeight);
+        auto* expandedPluginPanel = host.find("plugin-panel");
+        expect(expandedPluginPanel != nullptr);
+        if (expandedPluginPanel != nullptr) {
+            expectEquals(expandedPluginPanel->getHeight(), 74);
+        }
 
         auto* rootComp = host.getRootComponent();
         expect(rootComp != nullptr);
@@ -358,9 +369,29 @@ public:
         auto* keyboardComp = host.find("custom-keyboard");
         expect(keyboardComp != nullptr);
         if (keyboardComp != nullptr) {
-            expect(keyboardComp->getHeight() >= 138);
+            expect(keyboardComp->getHeight() >= 146);
             expect(keyboardComp->getHeight() <= 200);
         }
+        const auto verifyKeyboardViewport = [&] {
+            auto* keyboardViewport = host.find<KeyboardViewport>("custom-keyboard");
+            expect(keyboardViewport != nullptr);
+            if (keyboardViewport == nullptr) {
+                return;
+            }
+            const auto& keyboard = keyboardViewport->getCustomKeyboard();
+            auto keybedBottom = 0.0f;
+            for (const auto& key : keyboard.getKeys()) {
+                if (key.isWhite) {
+                    keybedBottom = juce::jmax(keybedBottom, key.bounds.getBottom());
+                }
+            }
+            expect(keyboardViewport->getHorizontalScrollBar().isVisible());
+            expect(keyboard.getWidth() > keyboardViewport->getMaximumVisibleWidth());
+            expect(keyboardViewport->getHeight() >= 146);
+            expect(keybedBottom <= static_cast<float>(keyboardViewport->getMaximumVisibleHeight()),
+                   "all white keys fit above the horizontal scrollbar");
+        };
+        verifyKeyboardViewport();
 
         if (qwertyComp != nullptr && qwertyHeader != nullptr && controlsComp != nullptr && presetCard != nullptr
             && adsrCard != nullptr && transportCard != nullptr) {
@@ -372,6 +403,7 @@ public:
             host.relayoutContainer("main-area");
             const int collapsedMinHeight = minHeight - devpiano::ui::jive::kQwertyCardHeightDelta;
             host.setBounds(0, 0, minWidth, collapsedMinHeight);
+            verifyKeyboardViewport();
             expectEquals(rootComp->getHeight(), collapsedMinHeight);
             expectEquals(qwertyComp->getHeight(), devpiano::ui::jive::kQwertyCollapsedCardHeight);
             expectEquals(qwertyHeader->getHeight(), 22);
