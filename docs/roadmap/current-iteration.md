@@ -100,7 +100,7 @@
 
 ---
 
-### Phase 35-D：MIDI 伴奏 A-B 片段循环跟练与进度自由跳转（A-B Loop Practice & Timeline Seek）[已完成]
+### Phase 35-D：MIDI 伴奏 A-B 片段循环跟练与进度自由跳转（A-B Loop Practice & Timeline Seek）[已完成，2026-09-28]
 
 > 目标：补齐 MIDI 伴奏跟弹练习的工作流闭环，支持难点小节精细 A-B 循环与无缝时间跳转。
 

@@ -312,7 +312,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 详细完成记录见 [`../archive/phase34-keyboard-performance-ux-and-expressive-control.md`](../archive/phase34-keyboard-performance-ux-and-expressive-control.md) 与 [`../archive/cross-platform-and-juce9-convergence.md`](../archive/cross-platform-and-juce9-convergence.md)。
 
-### Phase 35：键盘演奏表现力深水区与练琴基础设施（Keyboard Expressive Dynamics & Practice Infrastructure）[进行中，2026-09-24 ~]
+### Phase 35：键盘演奏表现力深水区与练琴基础设施（Keyboard Expressive Dynamics & Practice Infrastructure）[已完成，2026-09-28]
 
 聚焦于电脑键盘演奏中最核心的体验痛点——缺乏节奏基准工具、打字机式死板力度、缺乏实时乐理反馈以及缺少伴奏循环跟练手段：
 1. **无锁采样级音频节拍器与视觉节拍指示（Phase 35-A）**：确定性采样级 Click Engine（强拍 1600Hz / 弱拍 800Hz 纯数学脉冲，零外部采样依赖）、2/4、3/4、4/4、6/8 拍号、40~280 BPM 无级可调与 Tap Tempo 连续测速、走带指示灯同频脉冲与预备拍（Count-in）；
