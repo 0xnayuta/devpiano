@@ -30,7 +30,6 @@ void QwertyComponent::updateViewModel(const devpiano::core::QwertyViewModel& new
     if (newModel.detectedChord.isValid && newModel.detectedChord.quality != devpiano::core::ChordQuality::unknown) {
         lastDisplayedChord = newModel.detectedChord;
         chordFadeAlpha = 1.0f;
-        needsTimer = true;
     } else if (chordFadeAlpha > 0.01f) {
         needsTimer = true;
     }
@@ -300,7 +299,6 @@ void QwertyComponent::timerCallback() {
     }
     if (viewModel.detectedChord.isValid && viewModel.detectedChord.quality != devpiano::core::ChordQuality::unknown) {
         chordFadeAlpha = 1.0f;
-        hasActiveFade = true;
     } else if (chordFadeAlpha > 0.005f) {
         chordFadeAlpha *= chordFadeDecayFactor;
         hasActiveFade = true;

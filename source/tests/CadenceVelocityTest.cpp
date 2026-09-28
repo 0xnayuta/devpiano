@@ -17,6 +17,7 @@ public:
         testCadenceDynamicsTimingCurve();
         testVelocityHumanizerDeterministicJitter();
         testKeyboardMidiMapperPipelineIntegration();
+        testAuthoredVelocityAndSilentBinding();
         testShiftModifierArbitrationPriority();
     }
 
@@ -127,6 +128,42 @@ private:
         // Release 'A' key
         mapper.releaseAllHeldKeys(state);
         expect(mapper.findHeldKey(keyCodeA) == nullptr);
+    }
+
+    void testAuthoredVelocityAndSilentBinding() {
+        beginTest("Cadence opt-out preserves authored velocity and zero remains silent");
+
+        KeyboardMidiMapper mapper;
+        juce::MidiKeyboardState state;
+        devpiano::core::KeyboardLayout layout;
+        layout.bindings.push_back(devpiano::core::makeNoteBinding('A', 60, 1, 1.0f));
+        mapper.setLayout(layout);
+        mapper.setCadenceDynamicsEnabled(false);
+        mapper.setVelocityHumanizerEnabled(false);
+        mapper.setTouchVelocityCurve(devpiano::input::TouchVelocityCurve::standard);
+
+        const auto keyCodeA = devpiano::core::makeAlphaNumericKeyCode('A');
+        mapper.handleKeyPressed(juce::KeyPress('a'), state);
+        const auto* held = mapper.findHeldKey(keyCodeA);
+        expect(held != nullptr);
+        if (held != nullptr) {
+            expectEquals(held->velocity, 1.0f);
+        }
+        mapper.releaseAllHeldKeys(state);
+
+        layout.bindings[0] = devpiano::core::makeNoteBinding('A', 60, 1, 0.0f);
+        mapper.setLayout(layout);
+        mapper.setCadenceDynamicsEnabled(true);
+        mapper.setVelocityHumanizerEnabled(true);
+        mapper.setVelocityHumanizeAmount(0.15f);
+
+        mapper.handleKeyPressed(juce::KeyPress('a'), state);
+        held = mapper.findHeldKey(keyCodeA);
+        expect(held != nullptr);
+        if (held != nullptr) {
+            expectEquals(held->velocity, 0.0f);
+        }
+        mapper.releaseAllHeldKeys(state);
     }
 
     void testShiftModifierArbitrationPriority() {

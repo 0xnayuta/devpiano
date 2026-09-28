@@ -60,6 +60,9 @@ public:
     void triggerTimerForTest() {
         timerCallback();
     }
+    [[nodiscard]] bool isTimerRunningForTest() {
+        return isTimerRunning();
+    }
 
 private:
     void paint(juce::Graphics& g) override;
@@ -81,7 +84,7 @@ private:
     std::optional<devpiano::core::MidiNoteIdentity> lastMouseDownIdentity;
     devpiano::core::ChordInfo lastDisplayedChord;
     float chordFadeAlpha = 0.0f;
-    static constexpr float chordFadeDecayFactor = 0.88f; // ~300ms smooth fadeout
+    static constexpr float chordFadeDecayFactor = 0.70f;
 
     static constexpr int timerIntervalMs = 20; // 50 fps smooth decay
     static constexpr float fadeDecayFactor = 0.86f;

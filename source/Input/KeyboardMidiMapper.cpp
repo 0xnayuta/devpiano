@@ -344,13 +344,18 @@ bool KeyboardMidiMapper::triggerBinding(const KeyBinding& binding, juce::MidiKey
         // 2. 打字律动力度与人性化微扰估算 (Phase 35-B: Typing Cadence Dynamics & Humanizer)
         const double now = juce::Time::getMillisecondCounterHiRes() / 1000.0;
         const float dynamicVelocity = cadenceEstimator.estimateVelocity(now);
-        const float scaledVelocity
-            = (std::abs(rawVelocity - 1.0f) < 0.001f
-               || std::abs(rawVelocity - devpiano::input::TypingCadenceEstimator::kDefaultBaseVelocity) < 0.01f)
-            ? dynamicVelocity
-            : std::clamp(dynamicVelocity
-                             * (rawVelocity / devpiano::input::TypingCadenceEstimator::kDefaultBaseVelocity),
-                         1.0f / 127.0f, 1.0f);
+        float scaledVelocity = rawVelocity;
+        if (rawVelocity > 0.0f && cadenceEstimator.isEnabled()) {
+            const auto useDynamicVelocity = std::abs(rawVelocity - 1.0f) < 0.001f
+                || std::abs(rawVelocity - devpiano::input::TypingCadenceEstimator::kDefaultBaseVelocity) < 0.01f;
+            if (useDynamicVelocity) {
+                scaledVelocity = dynamicVelocity;
+            } else {
+                scaledVelocity = std::clamp(
+                    dynamicVelocity * (rawVelocity / devpiano::input::TypingCadenceEstimator::kDefaultBaseVelocity),
+                    1.0f / 127.0f, 1.0f);
+            }
+        }
 
         const float jitteredVelocity
             = velocityHumanizer.applyHumanize(scaledVelocity, baseSoundingNote, ++keystrokeCounter);
@@ -358,7 +363,7 @@ bool KeyboardMidiMapper::triggerBinding(const KeyBinding& binding, juce::MidiKey
         // 3. 瞬态修饰符与手感曲线事件流变换
         const auto soundingNote = modifierState.transformPitch(baseSoundingNote);
         const auto curveVelocity = devpiano::input::applyVelocityCurve(jitteredVelocity, touchVelocityCurve);
-        const auto velocity = modifierState.transformVelocity(curveVelocity);
+        const auto velocity = rawVelocity > 0.0f ? modifierState.transformVelocity(curveVelocity) : 0.0f;
         lastTriggeredVelocity = velocity;
         auto identity
             = MidiNoteIdentity { MidiNoteNumber::fromClamped(soundingNote), MidiChannel::fromClamped(soundingChannel) };

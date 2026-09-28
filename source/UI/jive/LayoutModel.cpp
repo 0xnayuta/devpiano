@@ -441,7 +441,7 @@ juce::ValueTree makeControlsPanelTree() {
 
     auto metroToggleBtn = button(TRANS("Metro"), "metronome-toggle-btn");
     metroToggleBtn.setProperty("title", TRANS("Metronome Toggle"), nullptr);
-    metroToggleBtn.setProperty("tooltip", TRANS("Toggle Metronome (M)"), nullptr);
+    metroToggleBtn.setProperty("tooltip", TRANS("Toggle Metronome (Ctrl+M)"), nullptr);
     metroToggleBtn.setProperty("toggle-on-click", true, nullptr);
     metroToggleBtn.setProperty("flex-grow", 1.0, nullptr);
     metroToggleBtn.setProperty("height", 24, nullptr);

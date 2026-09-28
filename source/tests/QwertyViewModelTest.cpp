@@ -405,6 +405,7 @@ private:
         devpiano::ui::QwertyComponent comp;
         comp.setSize(700, 140);
         comp.updateViewModel(snapshot);
+        expect(!comp.isTimerRunningForTest());
 
         expectEquals(comp.getLastDisplayedChord().chordName, juce::String("C"));
         expectEquals(comp.getChordFadeAlpha(), 1.0f);
@@ -415,6 +416,7 @@ private:
         expect(!releasedSnapshot.detectedChord.isValid);
 
         comp.updateViewModel(releasedSnapshot);
+        expect(comp.isTimerRunningForTest());
 
         // Trigger timer frames: alpha must decay smoothly
         float prevAlpha = comp.getChordFadeAlpha();
@@ -424,12 +426,14 @@ private:
             expect(curAlpha <= prevAlpha);
             prevAlpha = curAlpha;
         }
+        expect(comp.getChordFadeAlpha() <= 0.005f);
 
         // Eventually alpha fades to 0.0f
         for (int frame = 0; frame < 30; ++frame) {
             comp.triggerTimerForTest();
         }
         expectEquals(comp.getChordFadeAlpha(), 0.0f);
+        expect(!comp.isTimerRunningForTest());
     }
 };
 

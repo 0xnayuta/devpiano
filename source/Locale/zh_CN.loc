@@ -285,7 +285,7 @@ countries: cn
 "Metronome" = "节拍器"
 "Metronome Status" = "节拍器状态"
 "Metronome Toggle" = "节拍器开关"
-"Toggle Metronome (M)" = "切换节拍器开关 (M)"
+"Toggle Metronome (Ctrl+M)" = "切换节拍器开关 (Ctrl+M)"
 "Tempo" = "速度"
 "Adjust Tempo / Time Signature" = "调整速度 / 拍号"
 "Tap" = "测速"

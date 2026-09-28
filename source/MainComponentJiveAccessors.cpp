@@ -503,7 +503,7 @@ void MainComponent::refreshControlsTexts() {
     viewHost.setProperty("qwerty-toggle-btn", "tooltip", TRANS("Toggle QWERTY Visualizer"));
     viewHost.setButtonLabel("metronome-tap-btn", TRANS("Tap"));
     viewHost.setProperty("metronome-tap-btn", "title", TRANS("Tap Tempo"));
-    viewHost.setProperty("metronome-toggle-btn", "tooltip", TRANS("Toggle Metronome (M)"));
+    viewHost.setProperty("metronome-toggle-btn", "tooltip", TRANS("Toggle Metronome (Ctrl+M)"));
     viewHost.setProperty("metronome-bpm-btn", "tooltip", TRANS("Adjust Tempo / Time Signature"));
     viewHost.setProperty("metronome-tap-btn", "tooltip", TRANS("Tap at least twice at the desired beat to set tempo"));
     if (auto* combo = viewHost.find<juce::ComboBox>("preset-combo")) {
