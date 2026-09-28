@@ -24,9 +24,15 @@ QwertyComponent::~QwertyComponent() {
 
 void QwertyComponent::updateViewModel(const devpiano::core::QwertyViewModel& newModel) {
     viewModel = newModel;
-
     bool needsTimer = false;
     bool sizeChanged = false;
+
+    if (newModel.detectedChord.isValid && newModel.detectedChord.quality != devpiano::core::ChordQuality::unknown) {
+        lastDisplayedChord = newModel.detectedChord;
+        chordFadeAlpha = 1.0f;
+    } else if (chordFadeAlpha > 0.01f) {
+        needsTimer = true;
+    }
     for (std::size_t r = 0; r < 5; ++r) {
         if (keyGeometries[r].size() != viewModel.rows[r].keys.size()) {
             keyGeometries[r].resize(viewModel.rows[r].keys.size());
@@ -229,6 +235,52 @@ void QwertyComponent::paint(juce::Graphics& g) {
             }
         }
     }
+
+    // ── Real-time Chord Recognition HUD Badge ───────────────────────────────
+    if (lastDisplayedChord.isValid && chordFadeAlpha > 0.01f) {
+        const auto bounds = getLocalBounds().toFloat();
+        constexpr float badgeW = 148.0f;
+        constexpr float badgeH = 24.0f;
+        const auto badgeX = bounds.getRight() - badgeW - 6.0f;
+        constexpr float badgeY = 5.0f;
+        const juce::Rectangle<float> badgeRect(badgeX, badgeY, badgeW, badgeH);
+
+        const auto rootColour
+            = devpiano::core::getPitchClassHarmonyColour(lastDisplayedChord.rootPitchClass, 0.85f, 0.95f, 1.0f);
+
+        // Glassmorphism background pill
+        g.setColour(juce::Colour(0xEB0A0F1D).withAlpha(0.85f * chordFadeAlpha));
+        g.fillRoundedRectangle(badgeRect, 5.0f);
+
+        // 12-TET Harmony subtle tint
+        g.setColour(rootColour.withAlpha(0.20f * chordFadeAlpha));
+        g.fillRoundedRectangle(badgeRect, 5.0f);
+
+        // Harmony border stroke
+        g.setColour(rootColour.withAlpha(0.75f * chordFadeAlpha));
+        g.drawRoundedRectangle(badgeRect, 5.0f, 1.0f);
+
+        // Indicator dot
+        constexpr float dotSize = 6.0f;
+        const juce::Rectangle<float> dotRect(badgeX + 8.0f, badgeY + (badgeH - dotSize) * 0.5f, dotSize, dotSize);
+        g.setColour(rootColour.withAlpha(chordFadeAlpha));
+        g.fillEllipse(dotRect);
+
+        // Chord name (main text)
+        g.setColour(juce::Colours::white.withAlpha(chordFadeAlpha));
+        g.setFont(juce::FontOptions(13.0f, juce::Font::bold));
+        const juce::Rectangle<float> nameRect(badgeX + 18.0f, badgeY + 1.0f, 74.0f, badgeH - 2.0f);
+        g.drawFittedText(lastDisplayedChord.chordName, nameRect.toNearestInt(), juce::Justification::centredLeft, 1);
+
+        // Inversion / Quality subtitle
+        g.setColour(juce::Colour(0xFF94A3B8).withAlpha(chordFadeAlpha));
+        g.setFont(juce::FontOptions(9.5f, juce::Font::plain));
+        const juce::Rectangle<float> descRect(badgeX + 90.0f, badgeY + 1.0f, badgeW - 94.0f, badgeH - 2.0f);
+        const auto descText = (lastDisplayedChord.inversion != devpiano::core::ChordInversion::rootPosition)
+            ? lastDisplayedChord.inversionDescription
+            : lastDisplayedChord.qualityDescription;
+        g.drawFittedText(descText, descRect.toNearestInt(), juce::Justification::centredRight, 1);
+    }
 }
 
 void QwertyComponent::timerCallback() {
@@ -244,6 +296,14 @@ void QwertyComponent::timerCallback() {
                 geom.fadeAlpha = 0.0f;
             }
         }
+    }
+    if (viewModel.detectedChord.isValid && viewModel.detectedChord.quality != devpiano::core::ChordQuality::unknown) {
+        chordFadeAlpha = 1.0f;
+    } else if (chordFadeAlpha > 0.005f) {
+        chordFadeAlpha *= chordFadeDecayFactor;
+        hasActiveFade = true;
+    } else {
+        chordFadeAlpha = 0.0f;
     }
 
     if (!hasActiveFade) {

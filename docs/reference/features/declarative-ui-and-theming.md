@@ -49,13 +49,17 @@ Component (root, display="flex", flex-direction="column")
 ├── KeyboardArea       (flex-grow=1, display="flex")
 │   └── KeyboardViewport (包含 CustomKeyboard 88 键原生画布)
 └── StatusBar          (flex-direction="row", align-items="center")
-    ├── StatusBarMidiDot (Native 注入 MIDI 呼吸灯)
+    ├── Left Status (MIDI Activity, Plugin Name, Metronome Status)
     ├── Audio & Engine Diagnostics Info
-    └── Language Indicator
-```
+    └── Performance Indicators (Key Signature, Transpose, Layout, Pedal)
 
 `MainComponent` 在构造时通过 `jive::Interpreter` 一次性解释整棵布局树，并通过 `MainComponentJiveAccessors.cpp` 提供的强类型访问器操作具体子组件状态。
 
+主窗口默认尺寸为 1180 × 780；QWERTY 展开时最小尺寸为 980 × 740，折叠时最小高度为 580 px，两状态差值仍为 160 px。最小高度同时容纳展开的插件面板。88 键键床采用 21.5 px 白键宽度和 6.4:1 白键长宽比，总宽约 1118 px；默认键盘视口宽 1148 px 时完整显示，最小窗口下视口宽 948 px 并保留整段键床供横向滚动。键床视口最小高度为 146 px，其中 138 px 用于完整键床、8 px 用于水平滚动条，避免滚动条遮挡白键。键床在更宽或更高的视口中居中，不拉伸键形。Controls 面板最小高度为 220 px；ADSR 曲线保留至少 48 px，时间线顶部留 8 px 间距。
+
+展开的 QWERTY 卡片外高固定为 192 px，折叠外高固定为 32 px，展开/折叠时主窗口同步调整 160 px；两种状态的最小窗口高度也按此差值配对，避免窗口受限时 QWERTY 卡片参与 flex 收缩并改变控制卡片行高度。标题行固定占 22 px，其中标题文字组件为 18 px；与 Performance Preset 和 Transport Controls 的 18 px 标题加 4 px 下间距一致。
+
+Performance Preset 的 New、Rename、Delete 保持在上方，Export、Import、Save、Open、Export WAV、Recent、Info 作为底部文件操作组。Transport Controls 的 Metro、节奏选择和 Tap 也固定为底部一组；两处均通过 flex-grow 占位吸收卡片内剩余高度。节奏按钮显示当前 BPM（例如 `120 BPM`），悬停提示和设置菜单提供当前拍号；Tap 从第二次点击起更新 BPM，使用最近最多 3 个间隔的均值，连续点击间隔超过 2 秒时重新开始累积。传输区第二排按钮与 Playback Speed 标题之间留 8 px 间距；四个录制/播放按钮使用同一白色实心矢量风格，回到开头图标采用起始竖线加单个左指三角。
 ---
 
 ### 2.2 设置面板声明式架构（`SettingsLayoutModel`）
@@ -113,6 +117,8 @@ Component (root, display="flex", flex-direction="column")
 
 定义在 `source/UI/jive/style_sheets.json` 中。在 `jive::Interpreter` 解释 ValueTree 前，`StyleCatalog::applyToTree()` 递归遍历节点，根据节点的 `type` 和 `id` 将 CSS 风格的样式属性（padding, margin, background, border, font-size 等）合并至节点的 `style` 属性中。
 
+未单独定制的按钮（包括 QWERTY 折叠和分组按钮）共用 `Button` 的 normal、hover、active、disabled 状态；Metro toggle 的中性轮廓与 `checked` 状态在 `style_sheets.json` 声明，`DevPianoLookAndFeel` 将其背景绘制交给 JIVE `BackgroundCanvas`，避免 JUCE TextButton 的 latched 辉光覆盖声明式样式。
+
 ---
 
 ## 5. Native 原生组件工厂注入模式
@@ -142,7 +148,7 @@ factory.set("AudioDeviceSelector", [](const juce::ValueTree& tree) {
 
 ## 6. 专项确定性测试清单
 
-单元测试位于 `source/tests/JiveModalDialogTest.cpp` 与 `source/tests/SettingsLayoutModelTest.cpp`（隶属于 `DevPiano/UI` 测试套件）：
+UI 单元测试位于 `source/tests/`，覆盖通用弹窗、设置布局、样式目录、QWERTY 映射和主窗口布局（隶属于 `DevPiano/UI` 测试套件）：
 
 | 测试文件 | 用例类别 | 验证目标 | 状态 |
 |---|---|---|:---:|
@@ -153,5 +159,6 @@ factory.set("AudioDeviceSelector", [](const juce::ValueTree& tree) {
 | `SettingsLayoutModelTest`| 16 通道 CSS Grid | 验证通道跟随开关以 8 列 × 2 行网格声明，16 个 Toggle 节点完备 | [x] 已通过 |
 | `SettingsLayoutModelTest`| 原生组件注入 | 验证 `AudioDeviceSelector` 原生节点在 JIVE 容器中的正确嵌入与尺寸响应 | [x] 已通过 |
 | `SettingsLayoutModelTest`| 设置项动态绑定 | 验证修改 ValueTree 属性直接联动底层状态并触发持久化 | [x] 已通过 |
+| `StyleCatalogTest` | Metro toggle checked 样式 | 验证 Metro 与传输按钮使用一致的中性轮廓，checked 状态不引入额外强调色 | [x] 已通过 |
 | `QwertyViewModelTest`    | 和声色相与对比度 | 验证 12-TET 和声色相间隔、八度同色、三全音互补与文字对比度算法 | [x] 已通过 |
-| `LayoutGoldenTest`       | 全应用布局几何金标 | 验证全应用 7 大布局构建器解释、1280x720/1920x1080 像素坐标吸附 | [x] 已通过 |
+| `LayoutGoldenTest`       | 全应用布局几何金标 | 验证全应用 7 大布局构建器解释、1280x720/1920x1080 像素坐标吸附，以及 980x740 双面板展开与 980x580 折叠态下，88 键键床完整位于横向滚动条可视高度内 | [x] 已通过 |

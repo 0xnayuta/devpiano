@@ -9,6 +9,7 @@
 #include "Core/KeyMapTypes.h"
 #include "Core/QwertyModel.h"
 #include "TouchVelocityCurve.h"
+#include "TypingCadenceEstimator.h"
 namespace devpiano::midi {
 class MidiChannelMapper;
 }
@@ -72,6 +73,48 @@ public:
     void setModifierState(devpiano::core::PerformanceModifierState state) noexcept;
     [[nodiscard]] const devpiano::core::PerformanceModifierState& getModifierState() const noexcept;
     void updateModifiersFromJuce(const juce::ModifierKeys& mods) noexcept;
+    // ── Cadence Dynamics & Humanizer (Phase 35-B) ──
+    void setCadenceDynamicsEnabled(bool isEnabled) noexcept {
+        cadenceEstimator.setEnabled(isEnabled);
+    }
+    [[nodiscard]] bool isCadenceDynamicsEnabled() const noexcept {
+        return cadenceEstimator.isEnabled();
+    }
+    void setVelocityHumanizerEnabled(bool isEnabled) noexcept {
+        velocityHumanizer.setEnabled(isEnabled);
+    }
+    [[nodiscard]] bool isVelocityHumanizerEnabled() const noexcept {
+        return velocityHumanizer.isEnabled();
+    }
+    void setVelocityHumanizeAmount(float amount) noexcept {
+        velocityHumanizer.setAmount(amount);
+    }
+    [[nodiscard]] float getVelocityHumanizeAmount() const noexcept {
+        return velocityHumanizer.getAmount();
+    }
+    void setBaseVelocityBias(float bias) noexcept {
+        baseVelocityBias = std::clamp(bias, -0.30f, 0.20f);
+        cadenceEstimator.setBaseVelocity(devpiano::input::TypingCadenceEstimator::kDefaultBaseVelocity
+                                         + baseVelocityBias);
+    }
+    [[nodiscard]] float getBaseVelocityBias() const noexcept {
+        return baseVelocityBias;
+    }
+    [[nodiscard]] float getLastTriggeredVelocity() const noexcept {
+        return lastTriggeredVelocity;
+    }
+    devpiano::input::TypingCadenceEstimator& getCadenceEstimator() noexcept {
+        return cadenceEstimator;
+    }
+    [[nodiscard]] const devpiano::input::TypingCadenceEstimator& getCadenceEstimator() const noexcept {
+        return cadenceEstimator;
+    }
+    devpiano::input::VelocityHumanizer& getVelocityHumanizer() noexcept {
+        return velocityHumanizer;
+    }
+    [[nodiscard]] const devpiano::input::VelocityHumanizer& getVelocityHumanizer() const noexcept {
+        return velocityHumanizer;
+    }
 
     /// 注入键状态谓词（测试用）：null/未设置时回退真实 OS 键盘查询。
     void setKeyStatePredicate(KeyStatePredicate predicate) noexcept;
@@ -104,4 +147,9 @@ private:
     bool groupCycleShortcutHeld = false;
     devpiano::input::TouchVelocityCurve touchVelocityCurve = devpiano::input::TouchVelocityCurve::standard;
     devpiano::core::PerformanceModifierState modifierState;
+    devpiano::input::TypingCadenceEstimator cadenceEstimator;
+    devpiano::input::VelocityHumanizer velocityHumanizer;
+    float baseVelocityBias = 0.0f;
+    float lastTriggeredVelocity = devpiano::input::TypingCadenceEstimator::kDefaultBaseVelocity;
+    std::uint32_t keystrokeCounter = 0;
 };

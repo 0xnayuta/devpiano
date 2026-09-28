@@ -5,6 +5,10 @@
 #include "UI/jive/core/jive_layouts.h"
 
 namespace devpiano::ui::jive {
+inline constexpr int kQwertyCollapsedCardHeight = 32;
+inline constexpr int kQwertyExpandedContentHeight = 160;
+inline constexpr int kQwertyExpandedCardHeight = kQwertyCollapsedCardHeight + kQwertyExpandedContentHeight;
+inline constexpr int kQwertyCardHeightDelta = kQwertyExpandedCardHeight - kQwertyCollapsedCardHeight;
 
 /// ValueTree factories for the application layout.
 ///
@@ -29,7 +33,7 @@ namespace devpiano::ui::jive {
 [[nodiscard]] juce::ValueTree makeControlsPanelTree();
 
 /// QWERTY Performance Map card: 5-row computer keyboard visualizer.
-/// Collapsed height 32, expanded ~146.
+/// Collapsed height 32; expanded height 192.
 [[nodiscard]] juce::ValueTree makeQwertyCardTree();
 
 /// Keyboard area: CustomKeyboard inside a scrolling viewport.

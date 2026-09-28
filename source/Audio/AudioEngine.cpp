@@ -49,11 +49,17 @@ void AudioEngine::setPluginHost(PluginHost* host) noexcept {
 
 void AudioEngine::setRecordingEngine(devpiano::recording::RecordingEngine* engine) noexcept {
     recordingEngine = engine;
+    if (recordingEngine != nullptr) {
+        recordingEngine->setPlaybackBlockSize(currentBlockSize.load(std::memory_order_relaxed));
+    }
 }
 
 void AudioEngine::prepareToPlay(int samplesPerBlockExpected, double sampleRate) {
     currentSampleRate.store(sampleRate, std::memory_order_relaxed);
     currentBlockSize.store(samplesPerBlockExpected, std::memory_order_relaxed);
+    if (recordingEngine != nullptr) {
+        recordingEngine->setPlaybackBlockSize(samplesPerBlockExpected);
+    }
     synth.setCurrentPlaybackSampleRate(sampleRate);
     midiCollector.reset(sampleRate);
     midiBuffer.clear();
@@ -75,6 +81,7 @@ void AudioEngine::prepareToPlay(int samplesPerBlockExpected, double sampleRate) 
     syncPedalTempBuffer.ensureSize(bytes);
     applyPendingParametersIfNeeded();
     roomReverb.prepare(sampleRate);
+    metronomeProcessor.prepareToPlay(sampleRate);
 
     if (endpoint.isHostedPlugin()) {
         pluginHost->prepareToPlay(sampleRate, samplesPerBlockExpected);
@@ -97,6 +104,16 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
     }
 
     midiBuffer.clear();
+    const auto playbackSeekApplied
+        = recordingEngine != nullptr && recordingEngine->applyPendingPlaybackSeek(midiBuffer);
+    if (playbackSeekApplied) {
+        syncPedalProcessor.reset();
+        for (auto channel = 1; channel <= 16; ++channel) {
+            keyboardState.allNotesOff(channel);
+        }
+        synth.allNotesOff(0, false);
+        roomReverb.reset();
+    }
     midiCollector.removeNextBlockOfMessages(midiBuffer, bufferToFill.numSamples);
     keyboardState.processNextMidiBuffer(midiBuffer, 0, bufferToFill.numSamples, true);
     syncPedalProcessor.processMidiBlock(midiBuffer, syncPedalTempBuffer);
@@ -147,6 +164,7 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
                                  bufferToFill.buffer->getWritePointer(1, bufferToFill.startSample),
                                  bufferToFill.numSamples);
     }
+    metronomeProcessor.processAndMix(bufferToFill.buffer, bufferToFill.startSample, bufferToFill.numSamples);
 
     bufferToFill.buffer->applyGain(bufferToFill.startSample, bufferToFill.numSamples,
                                    masterGain.load(std::memory_order_relaxed));
@@ -161,6 +179,7 @@ void AudioEngine::releaseResources() {
     playbackStartPreRollBlocksRemaining.store(0, std::memory_order_release);
     discardWarmupInputState();
     synth.allNotesOff(0, false);
+    metronomeProcessor.reset();
 
     roomReverb.reset();
     if (pluginHost != nullptr) {

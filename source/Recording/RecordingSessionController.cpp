@@ -1,7 +1,11 @@
+#include <algorithm>
+#include <cmath>
+
 #include "RecordingSessionController.h"
 
 #include "Audio/AudioEngine.h"
 #include "Audio/InstrumentEndpoint.h"
+#include "Core/MetronomeModel.h"
 #include "Diagnostics/Log.h"
 #include "Export/ExportFlowSupport.h"
 #include "Export/WavExportTask.h"
@@ -38,13 +42,30 @@ RecordingSessionController::~RecordingSessionController() {
 }
 
 void RecordingSessionController::handleRecordClicked() {
+    if (cancelCountIn(true)) {
+        return;
+    }
+
     const auto command = chooseRecordingFlowCommand(
         RecordingFlowIntent::record, makeRecordingFlowStatus(recordingSession.state, recordingSession.hasTake()));
     if (command != RecordingFlowCommand::startRecording) {
         return;
     }
 
+    const auto barCount = devpiano::core::getCountInBarCount(appSettings.metronomeCountIn);
+    if (barCount > 0 && recordingSession.state == ui::RecordingState::idle) {
+        const auto beatsPerBar = devpiano::core::getTimeSignatureNumerator(audioEngine.getMetronomeTimeSignature());
+        countInRemainingBeats = barCount * beatsPerBar;
+        audioEngine.setMetronomeEnabled(true);
+        owner.updateMetronomeUi();
+        lastCountInSequence = audioEngine.getMetronomeBeatSequence();
+        owner.showStatusMessage(TRANS("Count-in:") + " " + juce::String(countInRemainingBeats), 1200);
+        return;
+    }
+
     recordingEngine.clear();
+    idleSeekPositionSamples.reset();
+    pausedPlaybackCursor.reset();
     recordingSession.take = {};
     recordingSession.canExportMidi = false;
     startInternalRecording(0);
@@ -57,6 +78,8 @@ void RecordingSessionController::handleRecordClicked() {
 }
 
 void RecordingSessionController::handlePlayClicked() {
+    cancelCountIn();
+
     const auto command = chooseRecordingFlowCommand(
         RecordingFlowIntent::playPause, makeRecordingFlowStatus(recordingSession.state, recordingSession.hasTake()));
     if (command == RecordingFlowCommand::none) {
@@ -65,19 +88,38 @@ void RecordingSessionController::handlePlayClicked() {
 
     switch (command) {
     case RecordingFlowCommand::startPlayback:
-        startInternalPlayback(recordingSession.take, 0);
+        startInternalPlayback(recordingSession.take, idleSeekPositionSamples.value_or(0));
+        idleSeekPositionSamples.reset();
         recordingSession.state = ui::RecordingState::playing;
         break;
-    case RecordingFlowCommand::pausePlayback:
-        // Kill hanging notes before freezing the timeline (mirrors stopInternalPlayback).
+    case RecordingFlowCommand::pausePlayback: {
         audioEngine.requestAllNotesOff();
         recordingEngine.pausePlayback();
+        const auto runtimeSampleRate = getCurrentRuntimeSampleRate();
+        const auto sampleRateRatio = recordingSession.take.sampleRate > 0.0 && runtimeSampleRate > 0.0
+            ? runtimeSampleRate / recordingSession.take.sampleRate
+            : 1.0;
+        pausedPlaybackCursor = { recordingEngine.getPlaybackPositionSamples(),
+                                 sampleRateRatio / recordingEngine.getPlaybackSpeedMultiplier() };
         recordingSession.state = ui::RecordingState::playingPaused;
         break;
-    case RecordingFlowCommand::resumePlayback:
-        startInternalPlayback(recordingSession.take, recordingEngine.getPlaybackPositionSamples());
+    }
+    case RecordingFlowCommand::resumePlayback: {
+        std::int64_t resumeFromTakeSamples = 0;
+        if (recordingEngine.getPendingPlaybackSeekSample(resumeFromTakeSamples)) {
+            pausedPlaybackCursor.reset();
+            startInternalPlayback(recordingSession.take, resumeFromTakeSamples);
+        } else if (pausedPlaybackCursor.has_value()) {
+            startInternalPlayback(recordingSession.take, 0, pausedPlaybackCursor);
+        } else {
+            resumeFromTakeSamples = recordingEngine.getPlaybackPositionInTakeSamples();
+            startInternalPlayback(recordingSession.take, resumeFromTakeSamples);
+        }
+        pausedPlaybackCursor.reset();
+        idleSeekPositionSamples.reset();
         recordingSession.state = ui::RecordingState::playing;
         break;
+    }
     case RecordingFlowCommand::pauseRecording:
         recordingEngine.pauseRecording();
         recordingSession.state = ui::RecordingState::recordingPaused;
@@ -103,6 +145,8 @@ void RecordingSessionController::handlePlayClicked() {
 }
 
 void RecordingSessionController::handleStopClicked() {
+    cancelCountIn(true);
+
     const auto command = chooseRecordingFlowCommand(
         RecordingFlowIntent::stop, makeRecordingFlowStatus(recordingSession.state, recordingSession.hasTake()));
 
@@ -142,27 +186,32 @@ void RecordingSessionController::handleStopClicked() {
 }
 
 void RecordingSessionController::handleBackToStartClicked() {
+    cancelCountIn();
+
     if (!recordingSession.hasTake() || recordingSession.isRecording()) {
         return;
     }
-
     if (recordingSession.state == ui::RecordingState::playing) {
+        idleSeekPositionSamples.reset();
+        pausedPlaybackCursor.reset();
         stopInternalPlayback();
         startInternalPlayback(recordingSession.take, 0);
         recordingSession.state = ui::RecordingState::playing;
         syncRecordingSessionToUi();
         DP_LOG_INFO("[Playback] Restarted from beginning");
     } else if (recordingSession.state == ui::RecordingState::playingPaused) {
-        // Industry Rewind semantics: jump to the start but stay paused; the
-        // user presses Play to hear it from the beginning.
+        idleSeekPositionSamples.reset();
+        pausedPlaybackCursor.reset();
         startInternalPlayback(recordingSession.take, 0);
         recordingEngine.pausePlayback();
         recordingSession.state = ui::RecordingState::playingPaused;
         syncRecordingSessionToUi();
         DP_LOG_INFO("[Playback] Rewound to beginning (paused)");
     } else {
+        idleSeekPositionSamples = 0;
+        pausedPlaybackCursor.reset();
         audioEngine.requestAllNotesOff();
-        DP_LOG_INFO("[Playback] Already at beginning");
+        DP_LOG_INFO("[Playback] Rewound to beginning");
     }
 
     owner.restoreKeyboardFocus();
@@ -262,6 +311,7 @@ void RecordingSessionController::handleExportWavClicked() {
 }
 
 void RecordingSessionController::handleImportMidiClicked() {
+    cancelCountIn();
     const auto startDir = devpiano::exporting::getLastMidiImportDirectory(appSettings);
     runImportOpenFlow("MIDI Import", TRANS("Import MIDI File"), startDir, "*.mid;*.midi", importMidiChooser,
                       [this](const juce::File& file) -> std::optional<RecordingTake> {
@@ -311,6 +361,7 @@ void RecordingSessionController::handleSavePerformanceClicked() {
 }
 
 void RecordingSessionController::handleOpenPerformanceClicked() {
+    cancelCountIn();
     runImportOpenFlow("Performance File", TRANS("Open Performance"), juce::File::getCurrentWorkingDirectory(),
                       "*.devpiano", performanceFileChooser,
                       [this](const juce::File& file) -> std::optional<RecordingTake> {
@@ -324,6 +375,7 @@ void RecordingSessionController::handleOpenPerformanceClicked() {
 }
 
 void RecordingSessionController::handleOpenPerformanceFile(const juce::File& file) {
+    cancelCountIn();
     if (recordingSession.isRecording()) {
         DP_LOG_INFO("[Performance File] open dropped file skipped while recording");
         return;
@@ -357,6 +409,7 @@ void RecordingSessionController::handleOpenPerformanceFile(const juce::File& fil
 }
 
 void RecordingSessionController::handleImportMidiFile(const juce::File& file) {
+    cancelCountIn();
     if (recordingSession.isRecording()) {
         DP_LOG_INFO("[MIDI Import] dropped MIDI file skipped while recording");
         return;
@@ -390,7 +443,69 @@ void RecordingSessionController::handlePlaybackSpeedChange(double speed) {
     DP_DEBUG_LOG("[Playback] speed changed to " + juce::String(speed, 2) + "x");
 }
 
+void RecordingSessionController::seekPlaybackToSample(std::int64_t takeSample) {
+    cancelCountIn();
+    const auto timeline = getPlaybackTimelineSnapshot();
+    if (!timeline.enabled) {
+        return;
+    }
+
+    const auto clampedSample = juce::jlimit<std::int64_t>(0, timeline.lengthSamples, takeSample);
+    if (recordingSession.isPlaying()) {
+        idleSeekPositionSamples.reset();
+        recordingEngine.requestPlaybackSeek(clampedSample);
+    } else {
+        idleSeekPositionSamples = clampedSample;
+        audioEngine.requestAllNotesOff();
+    }
+}
+
+void RecordingSessionController::setPlaybackLoopStart() {
+    const auto timeline = getPlaybackTimelineSnapshot();
+    if (timeline.enabled) {
+        recordingEngine.setPlaybackLoopStartSample(timeline.positionSamples);
+    }
+}
+
+void RecordingSessionController::setPlaybackLoopEnd() {
+    const auto timeline = getPlaybackTimelineSnapshot();
+    if (timeline.enabled) {
+        recordingEngine.setPlaybackLoopEndSample(timeline.positionSamples);
+    }
+}
+
+void RecordingSessionController::clearPlaybackLoop() {
+    recordingEngine.clearPlaybackLoop();
+}
+
+RecordingSessionController::PlaybackTimelineSnapshot
+RecordingSessionController::getPlaybackTimelineSnapshot() const noexcept {
+    PlaybackTimelineSnapshot snapshot;
+    snapshot.lengthSamples = std::max<std::int64_t>(recordingSession.take.lengthSamples, 0);
+    snapshot.sampleRate = recordingSession.take.sampleRate;
+    snapshot.loopRange = recordingEngine.getPlaybackLoopRange();
+    snapshot.enabled = snapshot.lengthSamples > 0 && !recordingSession.isRecording();
+    if (!snapshot.enabled) {
+        return snapshot;
+    }
+
+    if (recordingSession.isPlaying()) {
+        if (!recordingEngine.getPendingPlaybackSeekSample(snapshot.positionSamples)) {
+            snapshot.positionSamples = recordingEngine.getPlaybackPositionInTakeSamples();
+        }
+    } else if (idleSeekPositionSamples.has_value()) {
+        snapshot.positionSamples = *idleSeekPositionSamples;
+    } else if (recordingEngine.getPlaybackTakeLengthSamples() == snapshot.lengthSamples) {
+        snapshot.positionSamples = recordingEngine.getPlaybackPositionInTakeSamples();
+    }
+
+    snapshot.positionSamples = juce::jlimit<std::int64_t>(0, snapshot.lengthSamples, snapshot.positionSamples);
+    return snapshot;
+}
+
 void RecordingSessionController::checkPlaybackEnded() {
+    checkCountIn();
+
     if (!recordingEngine.consumePlaybackEndedFlag()) {
         return;
     }
@@ -445,29 +560,42 @@ RecordingTake RecordingSessionController::stopInternalRecording() {
     return take;
 }
 
-void RecordingSessionController::startInternalPlayback(const RecordingTake& take, std::int64_t resumeFromSamples) {
+void RecordingSessionController::startInternalPlayback(const RecordingTake& take, std::int64_t resumeFromTakeSamples,
+                                                       std::optional<PausedPlaybackCursor> pausedCursor) {
     if (take.isEmpty()) {
         DP_LOG_WARN("[Playback] startInternalPlayback called with empty take - ignoring");
         return;
     }
 
     audioEngine.requestAllNotesOff();
+    pausedPlaybackCursor.reset();
 
     owner.runPluginActionWithAudioDeviceRebuild(
-        [this, &take, resumeFromSamples](const MainComponent::RuntimeAudioConfig& config) {
-            recordingEngine.startPlayback(take, config.sampleRate, resumeFromSamples);
+        [this, &take, resumeFromTakeSamples, pausedCursor](const MainComponent::RuntimeAudioConfig& config) {
+            if (pausedCursor.has_value() && pausedCursor->combinedRatio > 0.0) {
+                const auto sampleRateRatio
+                    = (take.sampleRate > 0.0 && config.sampleRate > 0.0) ? config.sampleRate / take.sampleRate : 1.0;
+                const auto combinedRatio = sampleRateRatio / recordingEngine.getPlaybackSpeedMultiplier();
+                const auto scale = combinedRatio / pausedCursor->combinedRatio;
+                const auto scaledPosition = static_cast<std::int64_t>(
+                    std::llround(static_cast<double>(pausedCursor->scaledPositionSamples) * scale));
+                recordingEngine.startPlayback(take, config.sampleRate, scaledPosition);
+            } else {
+                recordingEngine.startPlaybackAtTakeSample(take, config.sampleRate, resumeFromTakeSamples);
+            }
             audioEngine.armPlaybackStartPreRoll(config.sampleRate, config.blockSize);
         });
 
-    DP_LOG_INFO(juce::String("[Playback] Internal playback started") + (resumeFromSamples > 0 ? " (resumed)" : "")
-                + "; take events=" + juce::String(static_cast<int>(take.events.size()))
-                + ", sampleRate=" + juce::String(take.sampleRate));
+    DP_LOG_INFO(juce::String("[Playback] Internal playback started")
+                + (pausedCursor.has_value() || resumeFromTakeSamples > 0 ? " (resumed)" : "") + "; take events="
+                + juce::String(static_cast<int>(take.events.size())) + ", sampleRate=" + juce::String(take.sampleRate));
 }
 
 void RecordingSessionController::stopInternalPlayback() {
     DP_LOG_INFO("[Playback] stopInternalPlayback: calling requestAllNotesOff then stopPlayback");
     audioEngine.requestAllNotesOff();
     recordingEngine.stopPlayback();
+    pausedPlaybackCursor.reset();
 
     DP_LOG_INFO("[Playback] Internal playback stopped");
 }
@@ -547,12 +675,15 @@ std::optional<RecordingTake> RecordingSessionController::tryImportMidiFile(const
 }
 
 void RecordingSessionController::replaceTakeAndStartPlayback(RecordingTake take) {
+    cancelCountIn();
     if (recordingSession.isPlaying()) {
         stopInternalPlayback();
         recordingSession.state = ui::RecordingState::idle;
         syncRecordingSessionToUi();
     }
 
+    recordingEngine.clearPlaybackLoop();
+    idleSeekPositionSamples.reset();
     recordingSession.take = std::move(take);
     recordingSession.canExportMidi = false;
     recordingSession.state = ui::RecordingState::idle;
@@ -567,6 +698,7 @@ void RecordingSessionController::runImportOpenFlow(
     const juce::String& logPrefix, const juce::String& dialogTitle, const juce::File& startDir,
     const juce::String& filePattern, std::unique_ptr<juce::FileChooser>& chooser,
     std::function<std::optional<RecordingTake>(const juce::File&)> loadTake) {
+    cancelCountIn();
     if (recordingSession.isRecording()) {
         DP_LOG_INFO("[" + logPrefix + "] skipped while recording");
         owner.restoreKeyboardFocus();
@@ -652,6 +784,53 @@ void RecordingSessionController::handleSongInfoClicked() {
                 owner.restoreKeyboardFocus();
             },
     });
+}
+
+void RecordingSessionController::checkCountIn() {
+    if (countInRemainingBeats <= 0) {
+        return;
+    }
+
+    const auto engineState = recordingEngine.getState();
+    const bool engineCanStartCountIn = engineState == RecordingState::idle || engineState == RecordingState::stopped;
+    if (!shouldContinueCountIn(toRecordingFlowState(recordingSession.state), engineCanStartCountIn,
+                               audioEngine.isMetronomeEnabled())) {
+        cancelCountIn(true);
+        return;
+    }
+
+    const auto currentSeq = audioEngine.getMetronomeBeatSequence();
+    if (currentSeq != lastCountInSequence) {
+        lastCountInSequence = currentSeq;
+        countInRemainingBeats--;
+        if (countInRemainingBeats > 0) {
+            owner.showStatusMessage(TRANS("Count-in:") + " " + juce::String(countInRemainingBeats), 1000);
+        } else {
+            idleSeekPositionSamples.reset();
+            pausedPlaybackCursor.reset();
+            recordingEngine.clear();
+            recordingSession.take = {};
+            recordingSession.canExportMidi = false;
+            startInternalRecording(0);
+            recordingSession.state = ui::RecordingState::recording;
+            syncRecordingSessionToUi();
+            owner.showStatusMessage(TRANS("Recording Started"), 1000);
+            owner.restoreKeyboardFocus();
+        }
+    }
+}
+
+bool RecordingSessionController::cancelCountIn(bool notifyUser) {
+    if (countInRemainingBeats <= 0) {
+        return false;
+    }
+
+    countInRemainingBeats = 0;
+    lastCountInSequence = 0;
+    if (notifyUser) {
+        owner.showStatusMessage(TRANS("Count-in Cancelled"), 800);
+    }
+    return true;
 }
 
 } // namespace devpiano::recording

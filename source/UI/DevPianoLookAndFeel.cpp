@@ -97,6 +97,10 @@ void DevPianoLookAndFeel::refreshColours() {
 // ============================================================================
 void DevPianoLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button& button, const juce::Colour& bg,
                                                bool highlighted, bool down) {
+    if (button.getComponentID() == "metronome-toggle-btn") {
+        return;
+    }
+
     const auto bounds = button.getLocalBounds().toFloat().reduced(0.5f);
     constexpr float corner = 5.0f;
 

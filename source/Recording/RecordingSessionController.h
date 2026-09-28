@@ -46,6 +46,13 @@ public:
             return state == ui::RecordingState::idle;
         }
     };
+    struct PlaybackTimelineSnapshot {
+        std::int64_t positionSamples = 0;
+        std::int64_t lengthSamples = 0;
+        double sampleRate = 0.0;
+        AbLoopRange loopRange;
+        bool enabled = false;
+    };
 
     RecordingSessionController(MainComponent& owner, RecordingEngine& recordingEngine, AudioEngine& audioEngine,
                                SettingsModel& appSettings);
@@ -64,20 +71,33 @@ public:
     void handleOpenPerformanceFile(const juce::File& file);
     void handleImportMidiFile(const juce::File& file);
     void handlePlaybackSpeedChange(double speed);
+    void seekPlaybackToSample(std::int64_t takeSample);
+    void setPlaybackLoopStart();
+    void setPlaybackLoopEnd();
+    void clearPlaybackLoop();
+    [[nodiscard]] PlaybackTimelineSnapshot getPlaybackTimelineSnapshot() const noexcept;
 
     // Called from MainComponent::timerCallback() to check if playback ended.
     void checkPlaybackEnded();
     std::function<void(const juce::File&)> onFileOpened;
 
 private:
+    struct PausedPlaybackCursor {
+        std::int64_t scaledPositionSamples = 0;
+        double combinedRatio = 1.0;
+    };
+
     [[nodiscard]] double getCurrentRuntimeSampleRate() const;
     [[nodiscard]] int getCurrentRuntimeBlockSize() const;
 
     void startInternalRecording(std::size_t expectedEventCapacity);
     [[nodiscard]] RecordingTake stopInternalRecording();
-    void startInternalPlayback(const RecordingTake& take, std::int64_t resumeFromSamples = 0);
+    void startInternalPlayback(const RecordingTake& take, std::int64_t resumeFromTakeSamples = 0,
+                               std::optional<PausedPlaybackCursor> pausedCursor = std::nullopt);
     void stopInternalPlayback();
     void syncRecordingSessionToUi();
+    void checkCountIn();
+    bool cancelCountIn(bool notifyUser = false);
 
     void runExportRecordingFlow(devpiano::exporting::ExportFileType type, std::unique_ptr<juce::FileChooser>& chooser,
                                 const juce::String& dialogTitle, const juce::String& filePattern,
@@ -96,8 +116,11 @@ private:
     SettingsModel& appSettings;
 
     RecordingSession recordingSession;
-    // aliveFlag_ shared with async lambdas so they can detect destruction
+    std::optional<std::int64_t> idleSeekPositionSamples;
+    std::optional<PausedPlaybackCursor> pausedPlaybackCursor;
     std::shared_ptr<bool> aliveFlag_;
+    int countInRemainingBeats = 0;
+    std::uint32_t lastCountInSequence = 0;
 
     std::unique_ptr<juce::FileChooser> exportMidiChooser;
     std::unique_ptr<juce::FileChooser> exportWavChooser;

@@ -1,8 +1,11 @@
 #pragma once
 
+#include <algorithm>
+#include <bit>
 #include <cstdint>
 #include <juce_core/juce_core.h>
 #include <juce_graphics/juce_graphics.h>
+#include <vector>
 
 namespace devpiano::core {
 
@@ -101,5 +104,248 @@ constexpr float pitchClassHarmonyHues[12] = {
                             + 0.114f * static_cast<float>(bg.getBlue()))
         / 255.0f;
     return (luminance > 0.58f) ? juce::Colour(0xFF0F172A) : juce::Colours::white;
+}
+
+// ============================================================================
+// Chord Recognition & Harmonic Analysis (Phase 35-C)
+// ============================================================================
+
+enum class ChordQuality : uint8_t {
+    unknown = 0,
+    singleNote,
+    powerChord,
+    majorTriad,
+    minorTriad,
+    diminishedTriad,
+    augmentedTriad,
+    sus4,
+    sus2,
+    dominant7th,
+    major7th,
+    minor7th,
+    halfDiminished7th,
+    diminished7th,
+    minorMajor7th,
+    add9,
+    major6th,
+    minor6th,
+    dominant9th,
+    major9th,
+    minor9th
+};
+
+enum class ChordInversion : uint8_t {
+    rootPosition = 0,
+    firstInversion = 1,
+    secondInversion = 2,
+    thirdInversion = 3,
+    customSlash = 4
+};
+
+struct ChordInfo {
+    bool isValid = false;
+    int rootPitchClass = -1; // 0..11, 0 = C
+    int bassPitchClass = -1; // 0..11, lowest sounding note's pitch class
+    int lowestMidiNote = -1;
+    ChordQuality quality = ChordQuality::unknown;
+    ChordInversion inversion = ChordInversion::rootPosition;
+    juce::String rootName; // "C", "F#", "Eb"
+    juce::String chordName; // "C", "Am7", "G/B", "Fsus4"
+    juce::String qualityDescription; // "Major Triad", "Minor 7th", etc.
+    juce::String inversionDescription; // "Root Position", "1st Inversion", etc.
+    uint16_t pitchClassMask = 0; // 12-bit mask of active pitch classes
+    int activeNoteCount = 0;
+};
+
+// Standard chord root naming (7-bit ASCII standard musical names)
+constexpr const char* chordPitchClassNames[12] = { "C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B" };
+
+struct ChordPattern {
+    ChordQuality quality;
+    uint16_t mask;
+    const char* suffix;
+    const char* description;
+    int priority; // Higher is preferred when subsets conflict
+};
+
+inline const std::vector<ChordPattern>& getChordPatterns() {
+    static const std::vector<ChordPattern> patterns
+        = { // 9th chords (highest priority)
+            { ChordQuality::major9th, 0x895, "maj9", "Major 9th", 90 },
+            { ChordQuality::dominant9th, 0x495, "9", "Dominant 9th", 88 },
+            { ChordQuality::minor9th, 0x48D, "m9", "Minor 9th", 86 },
+            { ChordQuality::add9, 0x095, "add9", "Add 9", 84 },
+
+            // 7th chords
+            { ChordQuality::major7th, 0x891, "maj7", "Major 7th", 78 },
+            { ChordQuality::minor7th, 0x489, "m7", "Minor 7th", 76 },
+            { ChordQuality::dominant7th, 0x491, "7", "Dominant 7th", 74 },
+            { ChordQuality::halfDiminished7th, 0x449, "m7b5", "Half-Diminished 7th", 72 },
+            { ChordQuality::diminished7th, 0x249, "dim7", "Diminished 7th", 70 },
+            { ChordQuality::minorMajor7th, 0x889, "m(maj7)", "Minor Major 7th", 68 },
+
+            // 6th chords
+            { ChordQuality::major6th, 0x291, "6", "Major 6th", 65 },
+            { ChordQuality::minor6th, 0x289, "m6", "Minor 6th", 64 },
+
+            // Shell voicings (no 5th)
+            { ChordQuality::dominant7th, 0x411, "7(no5)", "Dominant 7th (no 5th)", 60 },
+            { ChordQuality::major7th, 0x811, "maj7(no5)", "Major 7th (no 5th)", 59 },
+            { ChordQuality::minor7th, 0x409, "m7(no5)", "Minor 7th (no 5th)", 58 },
+
+            // Triads
+            { ChordQuality::majorTriad, 0x091, "", "Major Triad", 50 },
+            { ChordQuality::minorTriad, 0x089, "m", "Minor Triad", 48 },
+            { ChordQuality::sus4, 0x0A1, "sus4", "Suspended 4th", 46 },
+            { ChordQuality::sus2, 0x085, "sus2", "Suspended 2nd", 44 },
+            { ChordQuality::diminishedTriad, 0x049, "dim", "Diminished Triad", 42 },
+            { ChordQuality::augmentedTriad, 0x111, "aug", "Augmented Triad", 40 },
+
+            // Power chord (2 unique notes)
+            { ChordQuality::powerChord, 0x081, "5", "Power Chord (5th)", 30 }
+          };
+    return patterns;
+}
+
+[[nodiscard]] inline ChordInfo detectChord(const std::vector<int>& activeMidiNotes) {
+    ChordInfo info;
+    info.activeNoteCount = static_cast<int>(activeMidiNotes.size());
+    if (activeMidiNotes.empty()) {
+        return info;
+    }
+
+    // Find lowest MIDI note and compute pitch class bitmask
+    int lowestNote = 128;
+    uint16_t mask = 0;
+    int uniquePitchClasses = 0;
+
+    for (int note : activeMidiNotes) {
+        if (note < 0 || note > 127) {
+            continue;
+        }
+        lowestNote = std::min(note, lowestNote);
+        const int pc = (note % 12 + 12) % 12;
+        if ((mask & (1u << pc)) == 0) {
+            mask |= static_cast<uint16_t>(1u << pc);
+            ++uniquePitchClasses;
+        }
+    }
+
+    if (lowestNote > 127 || mask == 0) {
+        return info;
+    }
+
+    info.lowestMidiNote = lowestNote;
+    info.bassPitchClass = (lowestNote % 12 + 12) % 12;
+    info.pitchClassMask = mask;
+    info.isValid = true;
+
+    // Single note case
+    if (uniquePitchClasses == 1) {
+        info.rootPitchClass = info.bassPitchClass;
+        info.rootName = chordPitchClassNames[info.rootPitchClass];
+        info.quality = ChordQuality::singleNote;
+        info.inversion = ChordInversion::rootPosition;
+        info.chordName = getNoteDisplayName(lowestNote, NoteDisplayMode::noteName);
+        info.qualityDescription = "Single Note";
+        info.inversionDescription = "Root Position";
+        return info;
+    }
+
+    const auto& patterns = getChordPatterns();
+
+    // Matching candidate structure
+    struct Candidate {
+        int root = 0;
+        const ChordPattern* pattern = nullptr;
+        int score = 0;
+        bool exact = false;
+    };
+
+    std::vector<Candidate> candidates;
+
+    // Test each of the 12 possible root notes
+    for (int root = 0; root < 12; ++root) {
+        // Rotate mask so root becomes bit 0
+        const auto rotated = static_cast<uint16_t>(((mask >> root) | (mask << (12 - root))) & 0x0FFF);
+
+        for (const auto& pat : patterns) {
+            if (rotated == pat.mask) {
+                // Exact pitch class set match!
+                int score = pat.priority * 10;
+                // Bass note preference: if bass note is root, boost score
+                if (root == info.bassPitchClass) {
+                    score += 25;
+                }
+                candidates.push_back({ root, &pat, score, true });
+            } else if ((rotated & pat.mask) == pat.mask) {
+                // Superset match: active notes contain all pattern notes, plus extra note(s)
+                const int extraNotes = uniquePitchClasses - std::popcount(pat.mask);
+                int score = pat.priority * 5 - extraNotes * 15;
+                if (root == info.bassPitchClass) {
+                    score += 15;
+                }
+                candidates.push_back({ root, &pat, score, false });
+            }
+        }
+    }
+
+    if (!candidates.empty()) {
+        std::sort(candidates.begin(), candidates.end(),
+                  [bass = info.bassPitchClass](const Candidate& a, const Candidate& b) {
+                      if (a.exact != b.exact) {
+                          return a.exact > b.exact;
+                      }
+                      if (a.exact) {
+                          const bool aBassRooted = (a.root == bass);
+                          const bool bBassRooted = (b.root == bass);
+                          if (aBassRooted != bBassRooted) {
+                              return aBassRooted > bBassRooted;
+                          }
+                      }
+                      return a.score > b.score;
+                  });
+
+        const auto& best = candidates.front();
+        info.rootPitchClass = best.root;
+        info.rootName = chordPitchClassNames[best.root];
+        info.quality = best.pattern->quality;
+        info.qualityDescription = best.pattern->description;
+
+        // Determine inversion based on bass note
+        const int bassInterval = (info.bassPitchClass - best.root + 12) % 12;
+        if (bassInterval == 0) {
+            info.inversion = ChordInversion::rootPosition;
+            info.inversionDescription = "Root Position";
+            info.chordName = info.rootName + best.pattern->suffix;
+        } else {
+            // Check inversion type
+            if (bassInterval == 3 || bassInterval == 4) {
+                info.inversion = ChordInversion::firstInversion;
+                info.inversionDescription = "1st Inversion";
+            } else if (bassInterval == 6 || bassInterval == 7 || bassInterval == 8) {
+                info.inversion = ChordInversion::secondInversion;
+                info.inversionDescription = "2nd Inversion";
+            } else if (bassInterval == 9 || bassInterval == 10 || bassInterval == 11) {
+                info.inversion = ChordInversion::thirdInversion;
+                info.inversionDescription = "3rd Inversion";
+            } else {
+                info.inversion = ChordInversion::customSlash;
+                info.inversionDescription = "Slash Chord";
+            }
+            info.chordName = info.rootName + best.pattern->suffix + "/" + chordPitchClassNames[info.bassPitchClass];
+        }
+        return info;
+    }
+
+    // Fallback: unrecognised combination
+    info.rootPitchClass = info.bassPitchClass;
+    info.rootName = chordPitchClassNames[info.rootPitchClass];
+    info.quality = ChordQuality::unknown;
+    info.inversion = ChordInversion::rootPosition;
+    info.chordName = info.rootName + " (Cluster)";
+    info.qualityDescription = "Cluster";
+    info.inversionDescription = "Root Position";
+    return info;
 }
 } // namespace devpiano::core

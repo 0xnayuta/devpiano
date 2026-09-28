@@ -183,8 +183,10 @@ source/
   - 实时音频线程无锁采集（`recordMidiBufferBlock`），预分配事件队列（容量溢出计数防护）；
   - `sampleRate` + `lengthSamples` + `events` 组成的 `RecordingTake` 数据结构；
   - 播放状态机管理：播放速度实时倍率（0.5x–2.0x，原子变速重校准）、Back 从头回放、All-notes-off 保护。
+  - `AbLoopEngine` 以无锁原子快照保存 Take-relative A/B 标记；`RecordingEngine` 在音频块内执行精确 Seek、半开区间循环与边界清理，播放位置按设备采样率与速度换算。
 - **`source/Recording/RecordingSessionController.h/.cpp`**：
   - 会话控制器：统一调度录制、回放、`.devpiano` 文件保存/打开、MIDI 导入与 WAV 导出流程。
+  - `RecordingSessionController` 统一编排 Take-relative Seek、A/B 标记、播放暂停恢复与时间轴 ViewModel 快照。
 - **`source/Recording/RenderPipeline.h/.cpp`**：
   - 共享离线渲染管线：统一负责事件时间戳换算、时间线缩放、事件排序与尾部 panic note-off 注入，为 `WavFileExporter` 与 `PluginOfflineRenderer` 消除重复逻辑。
 - **`source/Recording/PerformanceFile.h/.cpp`**：
@@ -248,6 +250,7 @@ source/
   - **`CustomKeyboard.h/.cpp`**：88 键虚拟钢琴键盘（自绘内核，支持 Classic / Channel / Velocity / Harmony 4 种着色模式与 DoReMi / FixedDo / NoteName 3 种音符标记，局部脏矩形剪裁，焦点绝不抢占，经 `KeyboardViewport` 注入 JIVE）。
   - **`QwertyComponent.h/.cpp`（Phase 34-A）**：5 行 ANSI 物理键盘映射看板原生组件，支持物理按键下沉与 50fps 荧光余晖动画，集成 12-TET 和声色彩投影与 HUD 标签提示。
   - **`AdsrCurveComponent.h/.cpp`**：实时交互式 ADSR 包络曲线组件。
+  - **`TimelineBar.h/.cpp`**：显示播放时间与总时长，支持点击/拖拽 Seek、设置 A/B 标记和清除循环。
   - **`StatusBarMidiDot.h`**：MIDI 活动呼吸指示灯。
 - **`source/UI/`（弹窗接入与样式）**：
   - **`source/UI/jive/JiveModalDialog.h/.cpp`**：统一 JIVE 模态对话框入口，提供单行输入、确认、元数据编辑与进度浮层模板。

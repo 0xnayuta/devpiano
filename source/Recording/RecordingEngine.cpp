@@ -81,6 +81,7 @@ void RecordingEngine::reserveEvents(std::size_t expectedEventCount) {
 void RecordingEngine::startRecording(double sampleRate) {
     currentTake.events.clear();
     pendingPresetEvents.clear();
+    abLoopEngine.clear();
     currentTake.sampleRate = std::max(sampleRate, 0.0);
     currentTake.lengthSamples = 0;
     currentPositionSamples.store(0, std::memory_order_relaxed);
@@ -128,9 +129,19 @@ void RecordingEngine::clear() {
     pendingPresetEvents.clear();
     currentTake.sampleRate = 0.0;
     currentTake.lengthSamples = 0;
+    playbackTake = {};
     currentPositionSamples.store(0, std::memory_order_relaxed);
+    playbackPositionSamples.store(0, std::memory_order_relaxed);
+    scaledPlaybackLengthSamples.store(0, std::memory_order_relaxed);
+    requestedSeekSample.store(0, std::memory_order_relaxed);
+    const auto sequence = seekSequence.load(std::memory_order_relaxed);
+    appliedSeekSequence.store(sequence, std::memory_order_relaxed);
     droppedEventCount.store(0, std::memory_order_relaxed);
     playbackEventIndex = 0;
+    hasRenderedPlaybackBlock = false;
+    lastRenderedLoopRange = {};
+    loopWrapPending = false;
+    abLoopEngine.clear();
     playbackEndedPending.store(false, std::memory_order_release);
     state.store(RecordingState::idle, std::memory_order_release);
 }
@@ -216,23 +227,22 @@ void RecordingEngine::startPlayback(const RecordingTake& take, double currentSam
         (take.sampleRate > 0.0 && currentSampleRate > 0.0) ? (currentSampleRate / take.sampleRate) : 1.0,
         std::memory_order_relaxed);
     scaledPlaybackLengthSamples.store(getScaledPlaybackLengthSamples());
-    const auto initialResume = juce::jlimit<std::int64_t>(0, scaledPlaybackLengthSamples.load(), resumeFromSamples);
-    playbackPositionSamples.store(initialResume);
-    playbackEndedPending.store(false, std::memory_order_release);
-
-    // Initialize block cursor for fast O(1)/O(K) playback event scanning (PERF-002)
-    if (initialResume <= 0 || playbackTake.events.empty()) {
-        playbackEventIndex = 0;
-    } else {
-        const auto combinedRatio
-            = playbackSampleRateRatio.load(std::memory_order_relaxed) / playbackSpeedMultiplier.load();
-        auto it = std::ranges::lower_bound(
-            playbackTake.events, initialResume, {}, [combinedRatio](const PerformanceEvent& ev) noexcept {
-                return static_cast<std::int64_t>(static_cast<double>(ev.timestampSamples) * combinedRatio);
-            });
-        playbackEventIndex = static_cast<std::size_t>(std::distance(playbackTake.events.begin(), it));
+    const auto combinedRatio = playbackSampleRateRatio.load(std::memory_order_relaxed)
+        / playbackSpeedMultiplier.load(std::memory_order_relaxed);
+    auto initialResume = juce::jlimit<std::int64_t>(0, scaledPlaybackLengthSamples.load(), resumeFromSamples);
+    const auto loopRange = getScaledLoopRange(combinedRatio);
+    if (loopRange.active && initialResume >= loopRange.endSamples) {
+        initialResume = loopRange.startSamples;
     }
-    // Pre-allocate the preset-change queue so renderPlaybackBlock never allocates
+    playbackPositionSamples.store(initialResume, std::memory_order_relaxed);
+    playbackEndedPending.store(false, std::memory_order_release);
+    hasRenderedPlaybackBlock = false;
+    lastRenderedLoopRange = loopRange;
+    loopWrapPending = false;
+    resetPlaybackEventCursor(initialResume, combinedRatio);
+
+    const auto seekVersion = seekSequence.load(std::memory_order_acquire);
+    appliedSeekSequence.store(seekVersion, std::memory_order_release);
     {
         juce::CriticalSection::ScopedLockType lock(presetChangeLock);
         pendingPresetChanges.clear();
@@ -245,9 +255,7 @@ void RecordingEngine::startPlayback(const RecordingTake& take, double currentSam
         pendingPresetChanges.reserve(presetEventCount);
     }
 
-    // Reset per-channel pitch bend smoothing for a clean playback start.
     smoothedPitchBend.fill(8192.0f);
-
     state.store(RecordingState::playing, std::memory_order_release);
 
     DP_DEBUG_LOG("[RecordingEngine] playback STARTED: " + juce::String(take.events.size())
@@ -256,13 +264,126 @@ void RecordingEngine::startPlayback(const RecordingTake& take, double currentSam
                  + ", scaledLen=" + juce::String(scaledPlaybackLengthSamples.load()));
 }
 
+void RecordingEngine::startPlaybackAtTakeSample(const RecordingTake& take, double currentSampleRate,
+                                                std::int64_t resumeFromTakeSamples) {
+    const auto takeSample
+        = juce::jlimit<std::int64_t>(0, std::max<std::int64_t>(take.lengthSamples, 0), resumeFromTakeSamples);
+    const auto sampleRateRatio
+        = (take.sampleRate > 0.0 && currentSampleRate > 0.0) ? currentSampleRate / take.sampleRate : 1.0;
+    const auto combinedRatio = sampleRateRatio / playbackSpeedMultiplier.load(std::memory_order_relaxed);
+    const auto scaledPosition = static_cast<std::int64_t>(static_cast<double>(takeSample) * combinedRatio);
+    startPlayback(take, currentSampleRate, scaledPosition);
+}
+
+void RecordingEngine::requestPlaybackSeek(std::int64_t takeSample) noexcept {
+    auto observedVersion = seekSequence.load(std::memory_order_relaxed);
+    for (;;) {
+        if ((observedVersion & 1U) != 0U) {
+            observedVersion = seekSequence.load(std::memory_order_relaxed);
+            continue;
+        }
+        if (seekSequence.compare_exchange_weak(observedVersion, observedVersion + 1, std::memory_order_acq_rel,
+                                               std::memory_order_relaxed)) {
+            break;
+        }
+    }
+
+    requestedSeekSample.store(std::max<std::int64_t>(takeSample, 0), std::memory_order_relaxed);
+    seekSequence.store(observedVersion + 2, std::memory_order_release);
+}
+
+bool RecordingEngine::readPendingPlaybackSeek(std::int64_t& takeSample, std::uint32_t& sequence) const noexcept {
+    const auto observedVersion = seekSequence.load(std::memory_order_acquire);
+    if ((observedVersion & 1U) != 0U || observedVersion == appliedSeekSequence.load(std::memory_order_acquire)) {
+        return false;
+    }
+
+    const auto requestedSample = requestedSeekSample.load(std::memory_order_relaxed);
+    if (seekSequence.load(std::memory_order_acquire) != observedVersion) {
+        return false;
+    }
+
+    takeSample = requestedSample;
+    sequence = observedVersion;
+    return true;
+}
+
+bool RecordingEngine::getPendingPlaybackSeekSample(std::int64_t& takeSample) const noexcept {
+    std::uint32_t sequence = 0;
+    if (!readPendingPlaybackSeek(takeSample, sequence)) {
+        return false;
+    }
+
+    takeSample = juce::jlimit<std::int64_t>(0, std::max<std::int64_t>(playbackTake.lengthSamples, 0), takeSample);
+    return true;
+}
+
+bool RecordingEngine::applyPendingPlaybackSeek(juce::MidiBuffer& midiBuffer) noexcept {
+    std::int64_t takeSample = 0;
+    std::uint32_t sequence = 0;
+    if (!readPendingPlaybackSeek(takeSample, sequence)) {
+        return false;
+    }
+
+    takeSample = juce::jlimit<std::int64_t>(0, std::max<std::int64_t>(playbackTake.lengthSamples, 0), takeSample);
+    const auto combinedRatio = playbackSampleRateRatio.load(std::memory_order_relaxed)
+        / playbackSpeedMultiplier.load(std::memory_order_relaxed);
+    const auto scaledPosition = static_cast<std::int64_t>(static_cast<double>(takeSample) * combinedRatio);
+    const auto clampedPosition
+        = juce::jlimit<std::int64_t>(0, scaledPlaybackLengthSamples.load(std::memory_order_relaxed), scaledPosition);
+
+    playbackPositionSamples.store(clampedPosition, std::memory_order_relaxed);
+    resetPlaybackEventCursor(clampedPosition, combinedRatio);
+    smoothedPitchBend.fill(8192.0f);
+    hasRenderedPlaybackBlock = false;
+    loopWrapPending = false;
+    addAllNotesOffMessages(midiBuffer, 0);
+    appliedSeekSequence.store(sequence, std::memory_order_release);
+    return true;
+}
+
+void RecordingEngine::setPlaybackLoopStartSample(std::int64_t sample) noexcept {
+    abLoopEngine.setStartSample(sample);
+}
+
+void RecordingEngine::setPlaybackLoopEndSample(std::int64_t sample) noexcept {
+    abLoopEngine.setEndSample(sample);
+}
+
+void RecordingEngine::clearPlaybackLoop() noexcept {
+    abLoopEngine.clear();
+}
+
+AbLoopRange RecordingEngine::getPlaybackLoopRange() const noexcept {
+    return abLoopEngine.getRange();
+}
+
+std::int64_t RecordingEngine::getPlaybackPositionInTakeSamples() const noexcept {
+    if (playbackTake.lengthSamples <= 0) {
+        return 0;
+    }
+
+    const auto combinedRatio = playbackSampleRateRatio.load(std::memory_order_relaxed)
+        / playbackSpeedMultiplier.load(std::memory_order_relaxed);
+    if (combinedRatio <= 0.0) {
+        return 0;
+    }
+
+    const auto takeSample = static_cast<std::int64_t>(
+        static_cast<double>(playbackPositionSamples.load(std::memory_order_relaxed)) / combinedRatio);
+    return juce::jlimit<std::int64_t>(0, playbackTake.lengthSamples, takeSample);
+}
+
+std::int64_t RecordingEngine::getPlaybackTakeLengthSamples() const noexcept {
+    return std::max<std::int64_t>(playbackTake.lengthSamples, 0);
+}
+
 void RecordingEngine::pausePlayback() {
     if (state.load(std::memory_order_acquire) != RecordingState::playing) {
         return;
     }
 
     state.store(RecordingState::playingPaused, std::memory_order_release);
-    // Clear any stale end flag so checkPlaybackEnded does not mis-fire while paused.
     playbackEndedPending.store(false, std::memory_order_release);
     DP_DEBUG_LOG("[RecordingEngine] playback PAUSED at pos=" + juce::String(playbackPositionSamples.load()));
 }
@@ -291,58 +412,123 @@ void RecordingEngine::stopPlayback() {
         pendingPresetChanges.clear();
     }
 
+    const auto seekVersion = seekSequence.load(std::memory_order_acquire);
+    appliedSeekSequence.store(seekVersion, std::memory_order_release);
     state.store(RecordingState::stopped, std::memory_order_release);
     playbackEndedPending.store(false, std::memory_order_release);
     playbackEventIndex = 0;
+    hasRenderedPlaybackBlock = false;
+    loopWrapPending = false;
 }
+
 void RecordingEngine::setPlaybackSpeedMultiplier(double multiplier) noexcept {
     const auto clamped = std::clamp(multiplier, 0.5, 2.0);
     const auto oldSpeed = playbackSpeedMultiplier.load();
     playbackSpeedMultiplier.store(clamped);
 
-    if (isPlaying()) {
-        // Re-align playbackPositionSamples so the take-time position stays the same
-        const auto newPos
+    const auto currentState = state.load(std::memory_order_acquire);
+    const auto hasRetainedPlaybackPosition = currentState == RecordingState::playing
+        || currentState == RecordingState::playingPaused
+        || (currentState == RecordingState::stopped && scaledPlaybackLengthSamples.load(std::memory_order_relaxed) > 0);
+    if (hasRetainedPlaybackPosition) {
+        const auto newPosition
             = static_cast<std::int64_t>(static_cast<double>(playbackPositionSamples.load()) * oldSpeed / clamped);
-        playbackPositionSamples.store(newPos);
+        playbackPositionSamples.store(newPosition);
         scaledPlaybackLengthSamples.store(getScaledPlaybackLengthSamples());
-
-        // Re-align cursor to current position (PERF-002)
         const auto combinedRatio = playbackSampleRateRatio.load(std::memory_order_relaxed) / clamped;
-        auto it = std::ranges::lower_bound(
-            playbackTake.events, newPos, {}, [combinedRatio](const PerformanceEvent& ev) noexcept {
-                return static_cast<std::int64_t>(static_cast<double>(ev.timestampSamples) * combinedRatio);
-            });
-        playbackEventIndex = static_cast<std::size_t>(std::distance(playbackTake.events.begin(), it));
+        if (currentState == RecordingState::playing) {
+            resetPlaybackEventCursor(newPosition, combinedRatio);
+            hasRenderedPlaybackBlock = false;
+        }
 
         DP_DEBUG_LOG("[RecordingEngine] playback speed updated to " + juce::String(clamped)
                      + ", scaledLen=" + juce::String(scaledPlaybackLengthSamples.load()));
     }
 }
+
 double RecordingEngine::getPlaybackSpeedMultiplier() const noexcept {
     return playbackSpeedMultiplier.load();
+}
+void RecordingEngine::setPlaybackBlockSize(int blockSize) noexcept {
+    playbackBlockSize.store(std::max(1, blockSize), std::memory_order_relaxed);
 }
 
 void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer, std::int64_t blockStartSamples,
                                           int numSamples) {
-    if (!isPlaying()) {
+    if (!isPlaying() || numSamples <= 0) {
+        hasRenderedPlaybackBlock = false;
         return;
     }
 
-    const auto combinedRatio = playbackSampleRateRatio.load(std::memory_order_relaxed) / playbackSpeedMultiplier.load();
-    const auto blockEndSamples = blockStartSamples + static_cast<std::int64_t>(numSamples);
-    const auto totalEvents = playbackTake.events.size();
+    auto currentBlockSize = playbackBlockSize.load(std::memory_order_relaxed);
+    while (numSamples > currentBlockSize
+           && !playbackBlockSize.compare_exchange_weak(currentBlockSize, numSamples, std::memory_order_relaxed,
+                                                       std::memory_order_relaxed)) { }
 
-    // If playback position jumped backwards (e.g. looped or seeked), reset cursor
+    const auto combinedRatio = playbackSampleRateRatio.load(std::memory_order_relaxed)
+        / playbackSpeedMultiplier.load(std::memory_order_relaxed);
+    ScaledLoopRange loopRange;
+    if (!tryGetScaledLoopRange(combinedRatio, loopRange)) {
+        loopRange = lastRenderedLoopRange;
+    }
+    auto takePosition = blockStartSamples;
+    auto blockOffset = 0;
+
+    if (loopWrapPending) {
+        addAllNotesOffMessages(midiBuffer, 0);
+        loopWrapPending = false;
+        resetPlaybackEventCursor(takePosition, combinedRatio);
+    }
+
+    if (loopRange.active && takePosition >= loopRange.endSamples) {
+        addAllNotesOffMessages(midiBuffer, 0);
+        takePosition = loopRange.startSamples;
+        playbackPositionSamples.store(takePosition, std::memory_order_relaxed);
+        resetPlaybackEventCursor(takePosition, combinedRatio);
+    }
+
+    while (blockOffset < numSamples) {
+        const auto remainingSamples = static_cast<std::int64_t>(numSamples - blockOffset);
+        const auto rangeEnd = loopRange.active ? std::min(takePosition + remainingSamples, loopRange.endSamples)
+                                               : takePosition + remainingSamples;
+        renderPlaybackEventsInRange(midiBuffer, takePosition, rangeEnd, blockOffset, numSamples, combinedRatio);
+
+        blockOffset += static_cast<int>(rangeEnd - takePosition);
+        takePosition = rangeEnd;
+        if (!loopRange.active) {
+            break;
+        }
+
+        if (takePosition == loopRange.endSamples) {
+            if (blockOffset < numSamples) {
+                addAllNotesOffMessages(midiBuffer, blockOffset);
+                takePosition = loopRange.startSamples;
+                resetPlaybackEventCursor(takePosition, combinedRatio);
+                continue;
+            }
+
+            loopWrapPending = true;
+            break;
+        }
+    }
+
+    lastRenderedLoopRange = loopRange;
+    hasRenderedPlaybackBlock = true;
+}
+
+void RecordingEngine::renderPlaybackEventsInRange(juce::MidiBuffer& midiBuffer, std::int64_t rangeStartSamples,
+                                                  std::int64_t rangeEndSamples, int segmentOffset, int numSamples,
+                                                  double combinedRatio) {
+    if (rangeEndSamples <= rangeStartSamples) {
+        return;
+    }
+
+    const auto totalEvents = playbackTake.events.size();
     if (playbackEventIndex < totalEvents) {
-        const auto curScaledTs = static_cast<std::int64_t>(
+        const auto currentTimestamp = static_cast<std::int64_t>(
             static_cast<double>(playbackTake.events[playbackEventIndex].timestampSamples) * combinedRatio);
-        if (curScaledTs > blockStartSamples) {
-            auto it = std::ranges::lower_bound(
-                playbackTake.events, blockStartSamples, {}, [combinedRatio](const PerformanceEvent& ev) noexcept {
-                    return static_cast<std::int64_t>(static_cast<double>(ev.timestampSamples) * combinedRatio);
-                });
-            playbackEventIndex = static_cast<std::size_t>(std::distance(playbackTake.events.begin(), it));
+        if (currentTimestamp > rangeStartSamples) {
+            resetPlaybackEventCursor(rangeStartSamples, combinedRatio);
         }
     }
 
@@ -350,16 +536,11 @@ void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer, std::int
         const auto& event = playbackTake.events[playbackEventIndex];
         const auto scaledTimestamp
             = static_cast<std::int64_t>(static_cast<double>(event.timestampSamples) * combinedRatio);
-
-        // Event is strictly before current block start
-        if (scaledTimestamp < blockStartSamples) {
+        if (scaledTimestamp < rangeStartSamples) {
             ++playbackEventIndex;
             continue;
         }
-
-        // >= on the upper bound is intentional — the interval is half-open:
-        // events at blockEndSamples belong to the next block. Stop block scan early!
-        if (scaledTimestamp >= blockEndSamples) {
+        if (scaledTimestamp >= rangeEndSamples) {
             break;
         }
 
@@ -367,18 +548,15 @@ void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer, std::int
             juce::CriticalSection::ScopedLockType lock(presetChangeLock);
             pendingPresetChanges.push_back({ event.presetId });
         } else {
-            const auto sampleOffset = static_cast<int>(scaledTimestamp - blockStartSamples);
-
-            // Apply EMA smoothing to pitch bend events to eliminate zipper noise.
+            const auto sampleOffset = segmentOffset + static_cast<int>(scaledTimestamp - rangeStartSamples);
             if (event.message.isPitchWheel()) {
-                auto ch = static_cast<std::size_t>(juce::jlimit(0, 15, event.message.getChannel() - 1));
-                auto target = static_cast<float>(event.message.getPitchWheelValue());
-                smoothedPitchBend[ch] += 0.3f * (target - smoothedPitchBend[ch]);
-
-                auto smoothedMsg = juce::MidiMessage::pitchWheel(static_cast<int>(ch) + 1,
-                                                                 static_cast<int>(std::round(smoothedPitchBend[ch])));
-                smoothedMsg.setTimeStamp(event.message.getTimeStamp());
-                midiBuffer.addEvent(smoothedMsg, juce::jlimit(0, numSamples - 1, sampleOffset));
+                const auto channel = static_cast<std::size_t>(juce::jlimit(0, 15, event.message.getChannel() - 1));
+                const auto target = static_cast<float>(event.message.getPitchWheelValue());
+                smoothedPitchBend[channel] += 0.3f * (target - smoothedPitchBend[channel]);
+                auto smoothedMessage = juce::MidiMessage::pitchWheel(
+                    static_cast<int>(channel) + 1, static_cast<int>(std::round(smoothedPitchBend[channel])));
+                smoothedMessage.setTimeStamp(event.message.getTimeStamp());
+                midiBuffer.addEvent(smoothedMessage, juce::jlimit(0, numSamples - 1, sampleOffset));
             } else {
                 midiBuffer.addEvent(event.message, juce::jlimit(0, numSamples - 1, sampleOffset));
             }
@@ -388,17 +566,58 @@ void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer, std::int
     }
 }
 
+void RecordingEngine::addAllNotesOffMessages(juce::MidiBuffer& midiBuffer, int sampleOffset) {
+    for (int channel = 1; channel <= 16; ++channel) {
+        midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 64, 0), sampleOffset);
+        midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 120, 0), sampleOffset);
+        midiBuffer.addEvent(juce::MidiMessage::allNotesOff(channel), sampleOffset);
+    }
+}
+
 void RecordingEngine::advancePlaybackPosition(std::int64_t numSamples) noexcept {
     if (!isPlaying() || numSamples <= 0) {
         return;
     }
 
-    playbackPositionSamples.fetch_add(numSamples);
-    if (playbackPositionSamples.load() >= scaledPlaybackLengthSamples.load()) {
-        state.store(RecordingState::stopped, std::memory_order_release);
-        playbackPositionSamples.store(scaledPlaybackLengthSamples.load());
-        playbackEndedPending.store(true, std::memory_order_release);
+    const auto renderedBlock = hasRenderedPlaybackBlock;
+    ScaledLoopRange loopRange;
+    if (renderedBlock
+        || !tryGetScaledLoopRange(playbackSampleRateRatio.load(std::memory_order_relaxed)
+                                      / playbackSpeedMultiplier.load(std::memory_order_relaxed),
+                                  loopRange)) {
+        loopRange = lastRenderedLoopRange;
     }
+    hasRenderedPlaybackBlock = false;
+    const auto currentPosition = playbackPositionSamples.load(std::memory_order_relaxed);
+
+    if (loopRange.active) {
+        const auto loopLength = loopRange.endSamples - loopRange.startSamples;
+        const auto samplesToEnd = loopRange.endSamples - currentPosition;
+        const auto crossedEnd = currentPosition >= loopRange.endSamples || numSamples >= samplesToEnd;
+        if (crossedEnd) {
+            const auto overflow = currentPosition >= loopRange.endSamples
+                ? currentPosition - loopRange.endSamples + numSamples
+                : numSamples - samplesToEnd;
+            playbackPositionSamples.store(loopRange.startSamples + overflow % loopLength, std::memory_order_relaxed);
+            if (!renderedBlock) {
+                loopWrapPending = true;
+            }
+        } else {
+            playbackPositionSamples.store(currentPosition + numSamples, std::memory_order_relaxed);
+        }
+        return;
+    }
+
+    const auto newPosition = currentPosition + numSamples;
+    if (newPosition >= scaledPlaybackLengthSamples.load(std::memory_order_relaxed)) {
+        state.store(RecordingState::stopped, std::memory_order_release);
+        playbackPositionSamples.store(scaledPlaybackLengthSamples.load(std::memory_order_relaxed),
+                                      std::memory_order_relaxed);
+        playbackEndedPending.store(true, std::memory_order_release);
+        return;
+    }
+
+    playbackPositionSamples.store(newPosition, std::memory_order_relaxed);
 }
 
 bool RecordingEngine::consumePlaybackEndedFlag() noexcept {
@@ -417,7 +636,7 @@ std::vector<PendingPresetChange> RecordingEngine::drainPendingPresetChanges() {
     juce::CriticalSection::ScopedLockType lock(presetChangeLock);
     std::vector<PendingPresetChange> drained;
     drained.swap(pendingPresetChanges);
-    pendingPresetChanges.reserve(drained.capacity()); // preserve the pre-allocated capacity
+    pendingPresetChanges.reserve(drained.capacity());
     return drained;
 }
 
@@ -434,4 +653,55 @@ std::int64_t RecordingEngine::getScaledPlaybackLengthSamples() const noexcept {
 
     return std::max<std::int64_t>(1, static_cast<std::int64_t>(std::ceil(scaledLength)));
 }
+
+RecordingEngine::ScaledLoopRange RecordingEngine::getScaledLoopRange(double combinedRatio) const noexcept {
+    ScaledLoopRange range;
+    return tryGetScaledLoopRange(combinedRatio, range) ? range : ScaledLoopRange {};
+}
+
+bool RecordingEngine::tryGetScaledLoopRange(double combinedRatio, ScaledLoopRange& output) const noexcept {
+    AbLoopRange takeRange;
+    if (!abLoopEngine.tryGetRange(takeRange)) {
+        return false;
+    }
+    output = {};
+    if (!takeRange.isValid() || playbackTake.lengthSamples <= 1 || combinedRatio <= 0.0) {
+        return true;
+    }
+
+    const auto startInTake = juce::jlimit<std::int64_t>(0, playbackTake.lengthSamples, takeRange.startSamples);
+    const auto endInTake = juce::jlimit<std::int64_t>(0, playbackTake.lengthSamples, takeRange.endSamples);
+    if (endInTake <= startInTake) {
+        return true;
+    }
+
+    const auto scaledLength = scaledPlaybackLengthSamples.load(std::memory_order_relaxed);
+    if (scaledLength <= 1) {
+        return true;
+    }
+
+    const auto scaledStart = static_cast<std::int64_t>(static_cast<double>(startInTake) * combinedRatio);
+    const auto scaledEnd = static_cast<std::int64_t>(static_cast<double>(endInTake) * combinedRatio);
+    const auto startSamples = juce::jlimit<std::int64_t>(0, scaledLength - 1, scaledStart);
+    const auto endSamples = juce::jlimit<std::int64_t>(startSamples + 1, scaledLength, scaledEnd);
+    const auto minBlockSize = static_cast<std::int64_t>(std::max(1, playbackBlockSize.load(std::memory_order_relaxed)));
+    if (endSamples - startSamples >= minBlockSize) {
+        output = { startSamples, endSamples, true };
+    }
+    return true;
+}
+
+void RecordingEngine::resetPlaybackEventCursor(std::int64_t positionSamples, double combinedRatio) noexcept {
+    if (positionSamples <= 0 || playbackTake.events.empty()) {
+        playbackEventIndex = 0;
+        return;
+    }
+
+    const auto it = std::ranges::lower_bound(
+        playbackTake.events, positionSamples, {}, [combinedRatio](const PerformanceEvent& event) noexcept {
+            return static_cast<std::int64_t>(static_cast<double>(event.timestampSamples) * combinedRatio);
+        });
+    playbackEventIndex = static_cast<std::size_t>(std::distance(playbackTake.events.begin(), it));
+}
+
 } // namespace devpiano::recording

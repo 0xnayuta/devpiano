@@ -30,6 +30,12 @@ public:
     [[nodiscard]] const devpiano::core::QwertyViewModel& getViewModel() const noexcept {
         return viewModel;
     }
+    [[nodiscard]] const devpiano::core::ChordInfo& getLastDisplayedChord() const noexcept {
+        return lastDisplayedChord;
+    }
+    [[nodiscard]] float getChordFadeAlpha() const noexcept {
+        return chordFadeAlpha;
+    }
 
     // ---- Interaction Callbacks ---------------------------------------------
     std::function<devpiano::core::MidiNoteIdentity(int midiNote, int midiChannel, float velocity)> onNoteOn;
@@ -54,6 +60,9 @@ public:
     void triggerTimerForTest() {
         timerCallback();
     }
+    [[nodiscard]] bool isTimerRunningForTest() {
+        return isTimerRunning();
+    }
 
 private:
     void paint(juce::Graphics& g) override;
@@ -73,6 +82,9 @@ private:
 
     int lastMouseDownNote = -1;
     std::optional<devpiano::core::MidiNoteIdentity> lastMouseDownIdentity;
+    devpiano::core::ChordInfo lastDisplayedChord;
+    float chordFadeAlpha = 0.0f;
+    static constexpr float chordFadeDecayFactor = 0.70f;
 
     static constexpr int timerIntervalMs = 20; // 50 fps smooth decay
     static constexpr float fadeDecayFactor = 0.86f;

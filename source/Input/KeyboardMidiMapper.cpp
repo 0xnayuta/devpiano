@@ -341,11 +341,30 @@ bool KeyboardMidiMapper::triggerBinding(const KeyBinding& binding, juce::MidiKey
         const auto soundingChannel
             = devpiano::core::calculateSoundingChannel(binding.action.getMidiChannel().value, layout.getActiveGroup());
 
-        // 2. 瞬态修饰符事件流变换（Phase 34-D: Event-time Transformation Pipeline）
-        const auto soundingNote = modifierState.transformPitch(baseSoundingNote);
-        const auto curveVelocity = devpiano::input::applyVelocityCurve(rawVelocity, touchVelocityCurve);
-        const auto velocity = modifierState.transformVelocity(curveVelocity);
+        // 2. 打字律动力度与人性化微扰估算 (Phase 35-B: Typing Cadence Dynamics & Humanizer)
+        const double now = juce::Time::getMillisecondCounterHiRes() / 1000.0;
+        const float dynamicVelocity = cadenceEstimator.estimateVelocity(now);
+        float scaledVelocity = rawVelocity;
+        if (rawVelocity > 0.0f && cadenceEstimator.isEnabled()) {
+            const auto useDynamicVelocity = std::abs(rawVelocity - 1.0f) < 0.001f
+                || std::abs(rawVelocity - devpiano::input::TypingCadenceEstimator::kDefaultBaseVelocity) < 0.01f;
+            if (useDynamicVelocity) {
+                scaledVelocity = dynamicVelocity;
+            } else {
+                scaledVelocity = std::clamp(
+                    dynamicVelocity * (rawVelocity / devpiano::input::TypingCadenceEstimator::kDefaultBaseVelocity),
+                    1.0f / 127.0f, 1.0f);
+            }
+        }
 
+        const float jitteredVelocity
+            = velocityHumanizer.applyHumanize(scaledVelocity, baseSoundingNote, ++keystrokeCounter);
+
+        // 3. 瞬态修饰符与手感曲线事件流变换
+        const auto soundingNote = modifierState.transformPitch(baseSoundingNote);
+        const auto curveVelocity = devpiano::input::applyVelocityCurve(jitteredVelocity, touchVelocityCurve);
+        const auto velocity = rawVelocity > 0.0f ? modifierState.transformVelocity(curveVelocity) : 0.0f;
+        lastTriggeredVelocity = velocity;
         auto identity
             = MidiNoteIdentity { MidiNoteNumber::fromClamped(soundingNote), MidiChannel::fromClamped(soundingChannel) };
         if (channelMapper != nullptr) {
@@ -431,6 +450,13 @@ devpiano::core::QwertyViewModel KeyboardMidiMapper::createQwertySnapshot(int key
             }
         }
     }
+
+    std::vector<int> soundingNotes;
+    soundingNotes.reserve(heldKeys.size());
+    for (const auto& held : heldKeys) {
+        soundingNotes.push_back(held.soundingMidiNote);
+    }
+    vm.detectedChord = devpiano::core::detectChord(soundingNotes);
 
     return vm;
 }

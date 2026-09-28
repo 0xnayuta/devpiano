@@ -310,8 +310,31 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 5. **扫描器增量持久化（Crash-safe State Persistence）与乐器端点概念收敛**：插件扫描逐项即时持久化，dead-man's pedal 崩溃点记录与黑名单推迟；`InstrumentEndpoint` 统一乐器抽象，解耦设备准备、实时发声与离线渲染；
 6. **跨平台实现深度收敛与 JUCE 9 原生框架利用全面升级（Phase 34-F）**：彻底拔除 Win32 `WNDPROC` Hook、`AttachThreadInput` 与 `<windows.h>`，全平台统一基于 JUCE 9 原生事件；`WavExportTask` 完全异步化（`startAsync`），移除 `JUCE_MODAL_LOOPS_PERMITTED=1`；C++ 字符串字面量 100% 达到 Strict 7-bit ASCII 约束；`createLegalFileName` 替换自造文件名过滤轮子，运行时配置目录统一为 `DevPiano`。
 
-详细完成记录见 [`../archive/cross-platform-and-juce9-convergence.md`](../archive/cross-platform-and-juce9-convergence.md) 与 [`current-iteration.md`](current-iteration.md)。
+详细完成记录见 [`../archive/phase34-keyboard-performance-ux-and-expressive-control.md`](../archive/phase34-keyboard-performance-ux-and-expressive-control.md) 与 [`../archive/cross-platform-and-juce9-convergence.md`](../archive/cross-platform-and-juce9-convergence.md)。
 
+### Phase 35：键盘演奏表现力深水区与练琴基础设施（Keyboard Expressive Dynamics & Practice Infrastructure）[已完成，2026-09-28]
+
+聚焦于电脑键盘演奏中最核心的体验痛点——缺乏节奏基准工具、打字机式死板力度、缺乏实时乐理反馈以及缺少伴奏循环跟练手段：
+1. **无锁采样级音频节拍器与视觉节拍指示（Phase 35-A）**：确定性采样级 Click Engine（强拍 1600Hz / 弱拍 800Hz 纯数学脉冲，零外部采样依赖）、2/4、3/4、4/4、6/8 拍号、40~280 BPM 无级可调与 Tap Tempo 连续测速、走带指示灯同频脉冲与预备拍（Count-in）；
+2. **打字击键动态力度与人性化微扰引擎（Phase 35-B）**：基于物理击键间隙 $\Delta t$ 的律动速度估算器（`TypingCadenceEstimator`，快弹华彩与慢按抒情力度分层）、确定性微高斯扰动（`VelocityHumanizer`，消除机械感）、基础力度基线动态微调与 QWERTY HUD 实时反馈；
+3. **实时和弦识别与乐理分析 HUD（Phase 35-C）**：基于 `MusicTheory.h` 音高类集合（Pitch Class Set）的无锁实时和弦分析（三和弦/七和弦/挂留/减和弦/转位低音）、QWERTY 看板与状态栏和弦徽标（`ChordBadge`）联动；
+4. **MIDI 伴奏 A-B 片段循环跟练与进度自由跳转（Phase 35-D）**：走带时间轴精细进度条（`TimelineBar`）与零爆音 Seek 机制、难点小节 A-B 无缝循环引擎（`AbLoopEngine`），配合 0.5x~2.0x 调速闭环键盘练习流。
+
+Phase 35 完成清单见 [`current-iteration.md`](current-iteration.md)；后续路线状态以本文为准。
+
+### Phase 36：物理建模声学巅峰（Railsback Octave Stretch Tuning & Duplex Scale Resonance）[规划中]
+
+在声学微观机理上对齐 Pianoteq 8/9，攻克琴弦刚度八度拉伸与高频空气感最后两座大山：
+1. **Railsback 八度调律拉伸曲线**：实测刚度 $B$ 不谐和音分拉伸表，消除低音泛音与高音基波拍频干涉；
+2. **Duplex Scale 双重副弦共鸣池**：Steinway Aliquot 未制音短副弦高频共鸣，激发晶莹剔透银色泛音闪烁感；
+3. **Sostenuto 选择性持续音踏板（CC 66）**：现代三角钢琴第三踏板建模；
+4. **经典钢琴型号风格预设包**：Concert Grand、Studio Grand、Upright Honky-tonk、Classical Fortepiano 参数化快照一键切换。
+
+### Phase 37：键盘高级演奏形态（Keyboard Split & Dual Layering）[规划中]
+
+拓展双手演奏与复合音色表现力：
+1. **双手物理键盘分区（Keyboard Split Point）**：左手伴奏区与右手主旋律区独立通道、移调与八度；
+2. **双层音色复合叠加（Dual Layering）**：单键击发同时触发内置物理钢琴与指定 VST3 衬底乐器。
 ---
 
 ## 4. 主要风险与应对

@@ -31,7 +31,10 @@ constexpr float fadeEpsilon = 0.001f;
 constexpr int timerIntervalMs = 33;
 
 // Default size for the component
-constexpr int defaultHeight = 128;
+constexpr int defaultHeight = 138;
+constexpr float whiteKeyLengthRatio = 6.4f;
+constexpr float blackKeyWidthRatio = 0.58f;
+constexpr float blackKeyLengthRatio = 0.63f;
 
 // Map each black-key semitone to the MIDI note of the white key immediately
 // to its left.  Indexed by (semitone % 12).  -1 = not a black key.
@@ -50,7 +53,7 @@ int countWhiteKeysInRange(int rangeLow, int rangeHigh) {
 }
 
 void layoutWhiteKeys(std::vector<devpiano::ui::KeyRenderState>& keys, int rangeLow, int rangeHigh, float keybedOffsetX,
-                     float whiteKeyWidth, float whiteKeyHeight) {
+                     float keybedOffsetY, float whiteKeyWidth, float whiteKeyHeight) {
     int whiteIdx = 0;
     for (int n = rangeLow; n <= rangeHigh; ++n) {
         if (!devpiano::ui::isWhiteKey(n)) {
@@ -61,15 +64,15 @@ void layoutWhiteKeys(std::vector<devpiano::ui::KeyRenderState>& keys, int rangeL
         k.midiNote = n;
         k.isWhite = true;
         k.fade = 0.0f;
-        k.bounds
-            = { keybedOffsetX + whiteKeyWidth * static_cast<float>(whiteIdx), 0.0f, whiteKeyWidth, whiteKeyHeight };
+        k.bounds = { keybedOffsetX + whiteKeyWidth * static_cast<float>(whiteIdx), keybedOffsetY, whiteKeyWidth,
+                     whiteKeyHeight };
         keys.push_back(k);
         ++whiteIdx;
     }
 }
 
 void layoutBlackKeys(std::vector<devpiano::ui::KeyRenderState>& keys, int rangeLow, int rangeHigh, float blackKeyWidth,
-                     float blackKeyHeight) {
+                     float blackKeyHeight, float keybedOffsetY) {
     for (int n = rangeLow; n <= rangeHigh; ++n) {
         if (devpiano::ui::isWhiteKey(n) || n <= 0 || n > 127) {
             continue;
@@ -101,7 +104,7 @@ void layoutBlackKeys(std::vector<devpiano::ui::KeyRenderState>& keys, int rangeL
             k.midiNote = n;
             k.isWhite = false;
             k.fade = 0.0f;
-            k.bounds = { centreX - blackKeyWidth * 0.5f, 0.0f, blackKeyWidth, blackKeyHeight };
+            k.bounds = { centreX - blackKeyWidth * 0.5f, keybedOffsetY, blackKeyWidth, blackKeyHeight };
             keys.push_back(k);
         }
     }
@@ -299,10 +302,8 @@ void CustomKeyboard::setKeyboardLayout(const devpiano::core::KeyboardLayout& lay
 void CustomKeyboard::recalculateKeyBounds() {
     keys.clear();
 
-    auto totalHeight = static_cast<float>(lastVisibleHeight > 0 ? lastVisibleHeight : getHeight());
-    if (totalHeight < 1.0f) {
-        totalHeight = static_cast<float>(defaultHeight);
-    }
+    const auto viewportHeight = static_cast<float>(lastVisibleHeight > 0 ? lastVisibleHeight : getHeight());
+    const auto availableHeight = (viewportHeight > 0.0f) ? viewportHeight : static_cast<float>(defaultHeight);
 
     const int whiteKeyCount = countWhiteKeysInRange(rangeLow, rangeHigh);
     if (whiteKeyCount == 0) {
@@ -310,27 +311,26 @@ void CustomKeyboard::recalculateKeyBounds() {
     }
 
     const auto whiteKeyWidth = settings.keyWidth;
-    const auto blackKeyWidth = whiteKeyWidth * 0.6f;
-    const auto whiteKeyHeight = totalHeight;
-    const auto blackKeyHeight = totalHeight * 0.6f;
-
+    const auto whiteKeyHeight = whiteKeyWidth * whiteKeyLengthRatio;
+    const auto blackKeyWidth = whiteKeyWidth * blackKeyWidthRatio;
+    const auto blackKeyHeight = whiteKeyHeight * blackKeyLengthRatio;
     const auto totalContentWidth = whiteKeyWidth * static_cast<float>(whiteKeyCount);
     const auto availableWidth = static_cast<float>(lastVisibleWidth > 0 ? lastVisibleWidth : getWidth());
 
-    // 当窗口宽度大于琴键内容总宽时，水平居中对齐
     keybedOffsetX = (availableWidth > totalContentWidth) ? (availableWidth - totalContentWidth) * 0.5f : 0.0f;
+    keybedOffsetY = (availableHeight > whiteKeyHeight) ? (availableHeight - whiteKeyHeight) * 0.5f : 0.0f;
     const auto targetComponentWidth = std::max(totalContentWidth, availableWidth);
+    const auto targetComponentHeight = std::max(whiteKeyHeight, availableHeight);
 
-    layoutWhiteKeys(keys, rangeLow, rangeHigh, keybedOffsetX, whiteKeyWidth, whiteKeyHeight);
-    layoutBlackKeys(keys, rangeLow, rangeHigh, blackKeyWidth, blackKeyHeight);
+    layoutWhiteKeys(keys, rangeLow, rangeHigh, keybedOffsetX, keybedOffsetY, whiteKeyWidth, whiteKeyHeight);
+    layoutBlackKeys(keys, rangeLow, rangeHigh, blackKeyWidth, blackKeyHeight, keybedOffsetY);
 
     std::ranges::sort(keys, [](const auto& a, const auto& b) { return a.midiNote < b.midiNote; });
 
-    // Expand component to full key width so parent Viewport can scroll;
-    // guard against resized() → recalculateKeyBounds() recursion.
-    resizing = true;
-    setSize(static_cast<int>(targetComponentWidth), static_cast<int>(totalHeight));
-    resizing = false;
+    // Match the viewed component to the keybed and viewport; prevent resize recursion.
+    isResizing = true;
+    setSize(juce::roundToInt(targetComponentWidth), juce::roundToInt(targetComponentHeight));
+    isResizing = false;
 }
 
 int CustomKeyboard::findNoteAt(juce::Point<int> position) const {
@@ -671,19 +671,20 @@ void CustomKeyboard::handleNoteOff(juce::MidiKeyboardState*, int, int, float) {
 // ============================================================================
 
 void CustomKeyboard::resized() {
-    if (!resizing) {
+    if (!isResizing) {
         recalculateKeyBounds();
     }
 }
 
 void CustomKeyboard::updateViewportBounds(int visibleWidth, int visibleHeight) {
-    lastVisibleWidth = visibleWidth;
-    if (visibleHeight > 0) {
-        lastVisibleHeight = visibleHeight;
+    const auto nextVisibleWidth = juce::jmax(visibleWidth, 0);
+    const auto nextVisibleHeight = (visibleHeight > 0) ? visibleHeight : lastVisibleHeight;
+    if (nextVisibleWidth == lastVisibleWidth && nextVisibleHeight == lastVisibleHeight) {
+        return;
     }
-    if ((lastVisibleHeight > 0 && getHeight() != lastVisibleHeight)
-        || (lastVisibleWidth > 0 && getWidth() != lastVisibleWidth)) {
-        recalculateKeyBounds();
-        repaint();
-    }
+
+    lastVisibleWidth = nextVisibleWidth;
+    lastVisibleHeight = nextVisibleHeight;
+    recalculateKeyBounds();
+    repaint();
 }

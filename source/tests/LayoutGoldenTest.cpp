@@ -9,6 +9,7 @@
 #include "UI/jive/JiveModalDialog.h"
 #include "UI/jive/LayoutModel.h"
 #include "UI/jive/StyleCatalog.h"
+#include "UI/native/KeyboardViewport.h"
 
 // ============================================================================
 /// LayoutGoldenTest — Declarative UI Layout & Geometric Invariants (Phase 28-B)
@@ -36,7 +37,7 @@ public:
         drainMessages();
         testDeterministicRootLayoutBounds1920x1080();
         drainMessages();
-        testDeterministicRootLayoutBoundsCompact600();
+        testDeterministicRootLayoutBoundsMinimum();
         testDeterministicSettingsAndCssGridBounds();
         drainMessages();
         testFocusIsolationAndGlissandoInvariants();
@@ -68,6 +69,7 @@ public:
             expect(host.find("status-bar") != nullptr);
             expect(host.find("midi-dot") != nullptr);
             expect(host.find("audio-info-label") != nullptr);
+            expect(host.find("metronome-status-label") != nullptr);
             drainMessages();
         }
 
@@ -246,11 +248,11 @@ public:
         }
     }
 
-    // ────────────────────────────────────────────────────────────────────────
-    // 3.1 Deterministic Layout Bounds (Compact 980x600)
-    // ────────────────────────────────────────────────────────────────────────
-    void testDeterministicRootLayoutBoundsCompact600() {
-        beginTest("Golden Bounds: Compact root layout maintains 24px status bar invariant and elastic keyboard");
+    // -----------------------------------------------------------------------
+    // 3.1 Deterministic Layout Bounds (minimum supported window)
+    // -----------------------------------------------------------------------
+    void testDeterministicRootLayoutBoundsMinimum() {
+        beginTest("Golden Bounds: minimum window preserves controls and keyboard constraints");
 
         juce::MidiKeyboardState keyboardState;
         devpiano::ui::ViewHost host;
@@ -259,47 +261,156 @@ public:
         auto tree = devpiano::ui::jive::makeRootLayout();
         expect(host.loadLayout(tree, true));
 
-        // Enforce compact 980x600 window bounds (height reduced below default 780)
-        host.setBounds(0, 0, 980, 600);
+        const auto minWidth = devpiano::ui::DesignTokens::get().windowMinWidth();
+        const auto minHeight = devpiano::ui::DesignTokens::get().windowMinHeight();
+        host.setBounds(0, 0, minWidth, minHeight);
+        host.setProperty("plugin-expanded-area", "height", 32);
+        host.setProperty("plugin-panel", "height", 74);
+        host.relayoutContainer("plugin-panel");
+        host.relayoutContainer("main-area");
+        host.setBounds(0, 0, minWidth, minHeight);
+        auto* expandedPluginPanel = host.find("plugin-panel");
+        expect(expandedPluginPanel != nullptr);
+        if (expandedPluginPanel != nullptr) {
+            expectEquals(expandedPluginPanel->getHeight(), 74);
+        }
 
         auto* rootComp = host.getRootComponent();
         expect(rootComp != nullptr);
         if (rootComp == nullptr) {
             return;
         }
-        expectEquals(rootComp->getWidth(), 980);
-        expectEquals(rootComp->getHeight(), 600);
+        expectEquals(rootComp->getWidth(), minWidth);
+        expectEquals(rootComp->getHeight(), minHeight);
 
-        // Status bar golden invariants: strictly 24px tall, pinned to bottom
         const auto sbHeight = devpiano::ui::DesignTokens::get().statusBarHeight();
         auto* statusBarComp = host.find("status-bar");
         expect(statusBarComp != nullptr);
         if (statusBarComp != nullptr) {
-            expectEquals(statusBarComp->getWidth(), 980);
+            expectEquals(statusBarComp->getWidth(), minWidth);
             expectEquals(statusBarComp->getHeight(), sbHeight);
-            expectEquals(statusBarComp->getY(), 600 - sbHeight);
+            expectEquals(statusBarComp->getY(), minHeight - sbHeight);
         }
 
-        // Header maintains fixed height
         auto* headerComp = host.find("header");
         expect(headerComp != nullptr);
         if (headerComp != nullptr) {
             expectEquals(headerComp->getHeight(), 36);
         }
 
-        // Controls panel respects its min-height
         auto* controlsComp = host.find("controls-panel");
         expect(controlsComp != nullptr);
         if (controlsComp != nullptr) {
-            expect(controlsComp->getHeight() >= 140);
+            expect(controlsComp->getHeight() >= 220);
+        }
+        const int expandedControlsHeight = controlsComp != nullptr ? controlsComp->getHeight() : -1;
+
+        auto* qwertyComp = host.find("qwerty-card");
+        expect(qwertyComp != nullptr);
+        if (qwertyComp != nullptr) {
+            expectEquals(qwertyComp->getHeight(), devpiano::ui::jive::kQwertyExpandedCardHeight);
         }
 
-        // Keyboard area adapts elastically within [120, 200]
+        auto* qwertyHeader = host.find("qwerty-action-row");
+        auto* qwertyTitle = host.find("qwerty-title-label");
+        auto* qwertyGroupButton = host.find("qwerty-group-btn");
+        auto* qwertyToggleButton = host.find("qwerty-toggle-btn");
+        expect(qwertyHeader != nullptr);
+        expect(qwertyTitle != nullptr);
+        expect(qwertyGroupButton != nullptr);
+        expect(qwertyToggleButton != nullptr);
+        if (qwertyHeader != nullptr && qwertyTitle != nullptr && qwertyGroupButton != nullptr
+            && qwertyToggleButton != nullptr) {
+            expectEquals(qwertyHeader->getHeight(), 22);
+            expectEquals(qwertyTitle->getHeight(), 18);
+            expectEquals(qwertyGroupButton->getHeight(), 20);
+            expectEquals(qwertyToggleButton->getHeight(), 22);
+        }
+
+        auto* presetCard = host.find("preset-card");
+        auto* presetActionRow = host.find("preset-btn-row");
+        auto* presetFileRow1 = host.find("file-row-1");
+        auto* presetFileRow3 = host.find("file-row-3");
+        auto* transportCard = host.find("transport-card");
+        auto* speedSlider = host.find("speed-knob");
+        auto* metronomeRow = host.find("metronome-row");
+        auto* adsrCard = host.find("adsr-card");
+        expect(presetCard != nullptr);
+        expect(presetActionRow != nullptr);
+        expect(presetFileRow1 != nullptr);
+        expect(presetFileRow3 != nullptr);
+        expect(transportCard != nullptr);
+        expect(adsrCard != nullptr);
+        expect(speedSlider != nullptr);
+        expect(metronomeRow != nullptr);
+        if (presetCard != nullptr && adsrCard != nullptr && transportCard != nullptr && controlsComp != nullptr) {
+            expectEquals(presetCard->getHeight(), expandedControlsHeight);
+            expectEquals(adsrCard->getHeight(), expandedControlsHeight);
+            expectEquals(transportCard->getHeight(), expandedControlsHeight);
+        }
+        if (presetCard != nullptr && presetActionRow != nullptr && presetFileRow1 != nullptr
+            && presetFileRow3 != nullptr) {
+            expect(presetFileRow1->getY() > presetActionRow->getBottom() + 20);
+            expectEquals(presetFileRow3->getBottom(), presetCard->getHeight() - 9);
+        }
+        if (transportCard != nullptr && speedSlider != nullptr && metronomeRow != nullptr) {
+            expect(metronomeRow->getY() > speedSlider->getBottom() + 20);
+            expectEquals(metronomeRow->getBottom(), transportCard->getHeight() - 9);
+        }
+
+        auto* adsrCurve = host.find("adsr-curve");
+        auto* timeline = host.find("timeline-bar");
+        expect(adsrCurve != nullptr);
+        expect(timeline != nullptr);
+        if (adsrCurve != nullptr && timeline != nullptr) {
+            expect(timeline->getY() - (adsrCurve->getY() + adsrCurve->getHeight()) >= 8);
+        }
+
         auto* keyboardComp = host.find("custom-keyboard");
         expect(keyboardComp != nullptr);
         if (keyboardComp != nullptr) {
-            expect(keyboardComp->getHeight() >= 120);
+            expect(keyboardComp->getHeight() >= 146);
             expect(keyboardComp->getHeight() <= 200);
+        }
+        const auto verifyKeyboardViewport = [&] {
+            auto* keyboardViewport = host.find<KeyboardViewport>("custom-keyboard");
+            expect(keyboardViewport != nullptr);
+            if (keyboardViewport == nullptr) {
+                return;
+            }
+            const auto& keyboard = keyboardViewport->getCustomKeyboard();
+            auto keybedBottom = 0.0f;
+            for (const auto& key : keyboard.getKeys()) {
+                if (key.isWhite) {
+                    keybedBottom = juce::jmax(keybedBottom, key.bounds.getBottom());
+                }
+            }
+            expect(keyboardViewport->getHorizontalScrollBar().isVisible());
+            expect(keyboard.getWidth() > keyboardViewport->getMaximumVisibleWidth());
+            expect(keyboardViewport->getHeight() >= 146);
+            expect(keybedBottom <= static_cast<float>(keyboardViewport->getMaximumVisibleHeight()),
+                   "all white keys fit above the horizontal scrollbar");
+        };
+        verifyKeyboardViewport();
+
+        if (qwertyComp != nullptr && qwertyHeader != nullptr && controlsComp != nullptr && presetCard != nullptr
+            && adsrCard != nullptr && transportCard != nullptr) {
+            host.setProperty("qwerty-expanded-area", "height", 0);
+            host.setProperty("qwerty-card", "height", devpiano::ui::jive::kQwertyCollapsedCardHeight);
+            host.setProperty("qwerty-card", "min-height", devpiano::ui::jive::kQwertyCollapsedCardHeight);
+            host.relayoutContainer("qwerty-card");
+            host.relayoutContainer("content-row");
+            host.relayoutContainer("main-area");
+            const int collapsedMinHeight = minHeight - devpiano::ui::jive::kQwertyCardHeightDelta;
+            host.setBounds(0, 0, minWidth, collapsedMinHeight);
+            verifyKeyboardViewport();
+            expectEquals(rootComp->getHeight(), collapsedMinHeight);
+            expectEquals(qwertyComp->getHeight(), devpiano::ui::jive::kQwertyCollapsedCardHeight);
+            expectEquals(qwertyHeader->getHeight(), 22);
+            expectEquals(controlsComp->getHeight(), expandedControlsHeight);
+            expectEquals(presetCard->getHeight(), expandedControlsHeight);
+            expectEquals(adsrCard->getHeight(), expandedControlsHeight);
+            expectEquals(transportCard->getHeight(), expandedControlsHeight);
         }
     }
 

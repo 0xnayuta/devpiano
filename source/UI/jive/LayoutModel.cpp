@@ -48,7 +48,7 @@ juce::ValueTree makeStatusBarTree() {
     // Top separator line — drawn by the StyleSheet border canvas.
     row.setProperty("border-width", "1 0 0 0", nullptr);
 
-    // Left section: MIDI activity dot + plugin/preset label (1/3 flex, left-aligned)
+    // Left section: instrument/preset, with the active metronome status beside it.
     auto leftSection = flexRowStretch("status-left");
     leftSection.setProperty("flex-grow", 1.0, nullptr);
     leftSection.setProperty("flex-shrink", 1.0, nullptr);
@@ -68,6 +68,17 @@ juce::ValueTree makeStatusBarTree() {
     pluginLabel.setProperty("justification", "centred-left", nullptr);
     leftSection.appendChild(pluginLabel, nullptr);
 
+    auto metronomeLabel = text({}, "metronome-status-label");
+    metronomeLabel.setProperty("title", TRANS("Metronome Status"), nullptr);
+    metronomeLabel.setProperty("width", 86, nullptr);
+    metronomeLabel.setProperty("height", 18, nullptr);
+    metronomeLabel.setProperty("flex-shrink", 0.0, nullptr);
+    metronomeLabel.setProperty("margin", "0 0 0 8", nullptr);
+    metronomeLabel.setProperty("align-self", "centre", nullptr);
+    metronomeLabel.setProperty("justification", "centred-left", nullptr);
+    metronomeLabel.setProperty("word-wrap", "none", nullptr);
+    leftSection.appendChild(metronomeLabel, nullptr);
+
     row.appendChild(leftSection, nullptr);
 
     // Centre section: audio driver & performance monitoring (1/3 flex, mathematically centred at 50%)
@@ -78,7 +89,7 @@ juce::ValueTree makeStatusBarTree() {
     audioInfo.setProperty("justification", "centred", nullptr);
     row.appendChild(audioInfo, nullptr);
 
-    // Right section: key signature, transpose, layout (1/3 flex, right-aligned)
+    // Right section: key signature, transpose, layout, and pedal indicators.
     auto timeLabel = text({}, "time-label");
     timeLabel.setProperty("title", TRANS("Time"), nullptr);
     timeLabel.setProperty("flex-grow", 1.0, nullptr);
@@ -274,6 +285,10 @@ juce::ValueTree makeControlsPanelTree() {
     presetBtnRow.appendChild(makeTextBtn(TRANS("Delete"), "delete-preset-btn", "0"), nullptr);
     presetCard.appendChild(presetBtnRow, nullptr);
 
+    auto presetSpacer = node("Component", "preset-spacer");
+    presetSpacer.setProperty("flex-grow", 1.0, nullptr);
+    presetCard.appendChild(presetSpacer, nullptr);
+
     auto fileRow1 = flexRow("file-row-1");
     fileRow1.setProperty("title", TRANS("Export Row"), nullptr);
     fileRow1.setProperty("height", 24, nullptr);
@@ -361,6 +376,10 @@ juce::ValueTree makeControlsPanelTree() {
     curve.setProperty("flex-grow", 1.0, nullptr);
     curve.setProperty("min-height", 48, nullptr);
     adsrCard.appendChild(curve, nullptr);
+    auto timeline = node("TimelineBar", "timeline-bar");
+    timeline.setProperty("height", 34, nullptr);
+    timeline.setProperty("margin", "8 0 0 0", nullptr);
+    adsrCard.appendChild(timeline, nullptr);
 
     panel.appendChild(adsrCard, nullptr);
 
@@ -401,7 +420,7 @@ juce::ValueTree makeControlsPanelTree() {
     auto speedHeader = text(TRANS("Playback Speed"), "speed-label");
     speedHeader.setProperty("width", "100%", nullptr);
     speedHeader.setProperty("height", 18, nullptr);
-    speedHeader.setProperty("margin", "0 0 2 0", nullptr);
+    speedHeader.setProperty("margin", "4 0 2 0", nullptr);
     speedHeader.setProperty("justification", "centred-left", nullptr);
     speedHeader.setProperty("word-wrap", "none", nullptr);
     transportCard.appendChild(speedHeader, nullptr);
@@ -410,6 +429,41 @@ juce::ValueTree makeControlsPanelTree() {
     speedSlider.setProperty("title", TRANS("Playback Speed"), nullptr);
     speedSlider.setProperty("height", 36, nullptr);
     transportCard.appendChild(speedSlider, nullptr);
+
+    auto metronomeSpacer = node("Component", "metronome-spacer");
+    metronomeSpacer.setProperty("flex-grow", 1.0, nullptr);
+    transportCard.appendChild(metronomeSpacer, nullptr);
+
+    auto metronomeRow = flexRow("metronome-row");
+    metronomeRow.setProperty("title", TRANS("Metronome"), nullptr);
+    metronomeRow.setProperty("height", 24, nullptr);
+    metronomeRow.setProperty("margin", "4 0 0 0", nullptr);
+
+    auto metroToggleBtn = button(TRANS("Metro"), "metronome-toggle-btn");
+    metroToggleBtn.setProperty("title", TRANS("Metronome Toggle"), nullptr);
+    metroToggleBtn.setProperty("tooltip", TRANS("Toggle Metronome (Ctrl+M)"), nullptr);
+    metroToggleBtn.setProperty("toggle-on-click", true, nullptr);
+    metroToggleBtn.setProperty("flex-grow", 1.0, nullptr);
+    metroToggleBtn.setProperty("height", 24, nullptr);
+    metroToggleBtn.setProperty("margin", "0 4 0 0", nullptr);
+    metronomeRow.appendChild(metroToggleBtn, nullptr);
+
+    auto bpmBtn = button("120 BPM", "metronome-bpm-btn");
+    bpmBtn.setProperty("title", TRANS("Tempo"), nullptr);
+    bpmBtn.setProperty("tooltip", TRANS("Adjust Tempo / Time Signature"), nullptr);
+    bpmBtn.setProperty("flex-grow", 1.2, nullptr);
+    bpmBtn.setProperty("height", 24, nullptr);
+    bpmBtn.setProperty("margin", "0 4 0 0", nullptr);
+    metronomeRow.appendChild(bpmBtn, nullptr);
+
+    auto tapBtn = button(TRANS("Tap"), "metronome-tap-btn");
+    tapBtn.setProperty("title", TRANS("Tap Tempo"), nullptr);
+    tapBtn.setProperty("tooltip", TRANS("Tap at least twice at the desired beat to set tempo"), nullptr);
+    tapBtn.setProperty("width", 42, nullptr);
+    tapBtn.setProperty("height", 24, nullptr);
+    metronomeRow.appendChild(tapBtn, nullptr);
+
+    transportCard.appendChild(metronomeRow, nullptr);
 
     panel.appendChild(transportCard, nullptr);
 
@@ -423,7 +477,8 @@ juce::ValueTree makeControlsPanelTree() {
 juce::ValueTree makeQwertyCardTree() {
     auto card = flexColumn("qwerty-card");
     card.setProperty("title", TRANS("QWERTY Performance Map"), nullptr);
-    card.setProperty("height", 220, nullptr); // expanded initial (220px performance map)
+    card.setProperty("height", kQwertyExpandedCardHeight, nullptr);
+    card.setProperty("min-height", kQwertyExpandedCardHeight, nullptr);
     card.setProperty("padding", "4 8 4 8", nullptr);
     card.setProperty("margin", "0 0 4 0", nullptr);
     card.setProperty("border-width", "1", nullptr);
@@ -432,15 +487,23 @@ juce::ValueTree makeQwertyCardTree() {
     auto headerRow = flexRow("qwerty-action-row");
     headerRow.setProperty("title", TRANS("QWERTY Header"), nullptr);
     headerRow.setProperty("height", 22, nullptr);
+    headerRow.setProperty("min-height", 22, nullptr);
+    headerRow.setProperty("flex-shrink", 0.0, nullptr);
     headerRow.setProperty("margin", "0", nullptr);
 
     auto title = text(TRANS("QWERTY Performance Map"), "qwerty-title-label");
     title.setProperty("title", TRANS("QWERTY Performance Map"), nullptr);
     title.setProperty("flex-grow", 1.0, nullptr);
-    title.setProperty("height", 22, nullptr);
+    title.setProperty("height", 18, nullptr);
     title.setProperty("justification", "centred-left", nullptr);
     title.setProperty("word-wrap", "none", nullptr);
     headerRow.appendChild(title, nullptr);
+    auto chordBadge = text("", "qwerty-chord-badge");
+    chordBadge.setProperty("title", TRANS("Chord Badge"), nullptr);
+    chordBadge.setProperty("height", 18, nullptr);
+    chordBadge.setProperty("margin", "0 10 0 10", nullptr);
+    chordBadge.setProperty("justification", "centred-left", nullptr);
+    headerRow.appendChild(chordBadge, nullptr);
     auto groupBtn = button("[Group A]", "qwerty-group-btn");
     groupBtn.setProperty("title", TRANS("Layout Group"), nullptr);
     groupBtn.setProperty("tooltip", TRANS("Switch Layout Group (` key or click)"), nullptr);
@@ -461,12 +524,12 @@ juce::ValueTree makeQwertyCardTree() {
     auto contentArea = flexColumn("qwerty-expanded-area");
     contentArea.setProperty("title", TRANS("QWERTY Content Area"), nullptr);
     contentArea.setProperty("flex-grow", 1.0, nullptr);
-    contentArea.setProperty("height", 190, nullptr); // expanded initial
+    contentArea.setProperty("height", kQwertyExpandedContentHeight, nullptr);
 
     auto qwertyVisualizer = node("QwertyVisualizer", "qwerty-visualizer");
     qwertyVisualizer.setProperty("title", TRANS("QWERTY Visualizer"), nullptr);
     qwertyVisualizer.setProperty("flex-grow", 1.0, nullptr);
-    qwertyVisualizer.setProperty("height", 188, nullptr);
+    qwertyVisualizer.setProperty("height", 158, nullptr);
     contentArea.appendChild(qwertyVisualizer, nullptr);
 
     card.appendChild(contentArea, nullptr);
@@ -529,22 +592,22 @@ juce::ValueTree makeRootLayout() {
 
     auto controls = makeControlsPanelTree();
     controls.setProperty("flex-grow", 0.0, nullptr);
-    controls.setProperty("flex-shrink", 0.0, nullptr);
-    controls.setProperty("height", 200, nullptr);
-    controls.setProperty("min-height", 200, nullptr);
+    controls.setProperty("flex-shrink", 1.0, nullptr);
+    controls.setProperty("height", 284, nullptr);
+    controls.setProperty("min-height", 220, nullptr);
     controls.setProperty("margin", "0 0 8 0", nullptr);
     contentRow.appendChild(controls, nullptr);
 
     auto qwerty = makeQwertyCardTree();
-    qwerty.setProperty("height", 220, nullptr); // expanded initial (matches appSettings default)
+    qwerty.setProperty("height", kQwertyExpandedCardHeight, nullptr);
     contentRow.appendChild(qwerty, nullptr);
 
     auto keyboard = makeKeyboardAreaTree();
     keyboard.setProperty("flex-grow", 1.0, nullptr);
     keyboard.setProperty("flex-shrink", 1.0, nullptr);
-    keyboard.setProperty("min-height", 120, nullptr);
+    keyboard.setProperty("min-height", 146, nullptr);
     keyboard.setProperty("max-height", 200, nullptr);
-    keyboard.setProperty("height", 192, nullptr);
+    keyboard.setProperty("height", 138, nullptr);
     contentRow.appendChild(keyboard, nullptr);
     mainArea.appendChild(contentRow, nullptr);
     root.appendChild(mainArea, nullptr);
@@ -575,9 +638,9 @@ void refreshTitles(::jive::GuiItem& root) {
         { "status-bar", "Status Bar" },
         { "midi-dot", "MIDI Activity" },
         { "plugin-name-label", "Plugin Name" },
+        { "metronome-status-label", "Metronome Status" },
         { "audio-info-label", "Audio Info" },
         { "time-label", "Time" },
-        { "plugin-panel", "Plugin Panel" },
         { "plugin-action-row", "Plugin Actions" },
         { "toggle-btn", "Toggle Plugin Panel" },
         { "plugin-status-label", "Plugin Status" },

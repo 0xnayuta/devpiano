@@ -49,4 +49,7 @@ struct RecordingFlowStatus {
 
 [[nodiscard]] RecordingFlowStatus makeRecordingFlowStatus(ui::RecordingState state, bool hasTake) noexcept;
 
+[[nodiscard]] bool shouldContinueCountIn(RecordingFlowState sessionState, bool engineCanStart,
+                                         bool metronomeEnabled) noexcept;
+
 } // namespace devpiano::recording

@@ -12,6 +12,7 @@
 #include "UI/jive/core/jive_GuiItem.h"
 #include "UI/jive/core/jive_Interpreter.h"
 #include "UI/native/AdsrCurveComponent.h"
+#include "UI/native/TimelineBar.h"
 
 namespace devpiano::ui {
 
@@ -92,6 +93,7 @@ void ViewHost::registerDefaultComponents() {
 
     factory.set("ColourSwatch", [] { return std::make_unique<devpiano::ui::ColourSwatchButton>(); });
     factory.set("AdsrCurve", [] { return std::make_unique<AdsrCurveComponent>(); });
+    factory.set("TimelineBar", [] { return std::make_unique<TimelineBar>(); });
 }
 
 void ViewHost::registerKeyboardComponents(juce::MidiKeyboardState& keyboardState) {

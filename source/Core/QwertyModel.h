@@ -49,6 +49,7 @@ struct QwertyViewModel {
     bool isCtrlActive = false;
     uint8_t activeGroupIndex = 0;
     juce::String activeGroupName { "A" };
+    devpiano::core::ChordInfo detectedChord;
 };
 
 // ============================================================================

@@ -12,6 +12,7 @@
 #include "UI/jive/LayoutModel.h"
 #include "UI/jive/StyleCatalog.h"
 #include "UI/native/StatusBarMidiDot.h"
+#include "UI/native/TimelineBar.h"
 
 #include "UI/jive/core/jive_layouts.h"
 
@@ -39,6 +40,7 @@ void registerRootComponentFactory(::jive::Interpreter& interpreter) {
         return slider;
     });
     factory.set("AdsrCurve", [] { return std::make_unique<juce::Component>(); });
+    factory.set("TimelineBar", [] { return std::make_unique<TimelineBar>(); });
     for (const char* type : { "RecordButton", "PlayButton", "StopButton", "BackButton" }) {
         factory.set(type, [] { return std::make_unique<juce::TextButton>(); });
     }
@@ -805,8 +807,9 @@ private:
 
         const auto findById = findNodeById;
 
-        for (const char* id : { "export-midi-btn", "export-wav-btn", "save-perf-btn", "rename-preset-btn",
-                                "delete-preset-btn", "play-btn", "stop-btn", "back-btn", "record-btn" }) {
+        for (const char* id :
+             { "export-midi-btn", "export-wav-btn", "save-perf-btn", "rename-preset-btn", "delete-preset-btn",
+               "play-btn", "stop-btn", "back-btn", "record-btn", "metronome-toggle-btn" }) {
             const auto node = findById(tree, id);
             expect(node.isValid(), juce::String(id) + " node missing");
             if (!node.isValid()) {
@@ -826,6 +829,31 @@ private:
                        juce::String(id) + " disabled must neutralise hover");
                 expect(disabled.getDynamicObject()->getProperty("active").isObject(),
                        juce::String(id) + " disabled must neutralise active");
+            }
+        }
+        const auto metroToggle = findById(tree, "metronome-toggle-btn");
+        const auto stopButton = findById(tree, "stop-btn");
+        expect(static_cast<bool>(metroToggle["toggle-on-click"]),
+               "metronome button must expose its toggle state to JIVE");
+
+        auto* metroStyle = dynamic_cast<::jive::Object*>(metroToggle["style"].getObject());
+        auto* stopStyle = dynamic_cast<::jive::Object*>(stopButton["style"].getObject());
+        expect(metroStyle != nullptr, "metronome button must have a declarative style");
+        expect(stopStyle != nullptr, "stop button must have a declarative style");
+        if (metroStyle != nullptr && stopStyle != nullptr) {
+            expectEquals(metroStyle->getProperty("background").toString(),
+                         stopStyle->getProperty("background").toString());
+            expectEquals(metroStyle->getProperty("border").toString(), stopStyle->getProperty("border").toString());
+            expectEquals(metroStyle->getProperty("border-radius").toString(),
+                         stopStyle->getProperty("border-radius").toString());
+
+            const auto checked = metroStyle->getProperty("checked");
+            expect(checked.isObject(), "metronome button must declare a checked state");
+            if (auto* checkedStyle = checked.getDynamicObject()) {
+                expectEquals(checkedStyle->getProperty("background").toString(),
+                             metroStyle->getProperty("background").toString());
+                expectEquals(checkedStyle->getProperty("border").toString(),
+                             metroStyle->getProperty("border").toString());
             }
         }
 
@@ -1169,6 +1197,8 @@ public:
 
         auto* contentRow = jive::findItemWithID(*item, "content-row");
         auto* controlsItem = jive::findItemWithID(*item, "controls-panel");
+        auto* qwertyItem = jive::findItemWithID(*item, "qwerty-card");
+        expect(qwertyItem != nullptr, "qwerty-card item missing");
         auto* keyboardItem = jive::findItemWithID(*item, "keyboard-area");
         auto* statusItem = jive::findItemWithID(*item, "status-bar");
         expect(contentRow != nullptr, "content-row item missing");
@@ -1177,7 +1207,6 @@ public:
         // Sibling positions are measured relative to the shared parent
         // (main-area), which is where reflow must happen.
         const auto contentRowYBefore = contentRow->getComponent()->getY();
-        const auto controlsHBefore = controlsItem->getComponent()->getHeight();
         const auto keyboardHBefore = keyboardItem->getComponent()->getHeight();
         expect(contentRowYBefore >= plugin->getComponent()->getBottom(), "content-row below collapsed panel");
 
@@ -1199,17 +1228,13 @@ public:
         expect(area->getComponent()->getHeight() > 0, "expanded area visible");
         expect(plugin->getComponent()->isVisible(), "expanded panel visible");
 
-        // THE regression this test exists for: the parent column must reflow
-        // its siblings when the plugin panel height changes, or the expanded
-        // area overlaps the controls below it. Controls and QWERTY cards have
-        // fixed heights, so the content row moves down by the expansion delta
-        // (74 - 42) and the elastic keyboard absorbs the difference.
+        // Parent reflow must move the content row by the panel expansion delta
+        // without violating the controls, QWERTY, or keyboard minimum heights.
         expect(contentRow->getComponent()->getY() == contentRowYBefore + 32,
                "content-row moved down when panel expanded");
-        expectEquals(controlsItem->getComponent()->getHeight(), controlsHBefore,
-                     "fixed-height controls stay put when panel expanded");
-        expectEquals(keyboardItem->getComponent()->getHeight(), keyboardHBefore - 32,
-                     "keyboard absorbs panel expansion elastically");
+        expect(controlsItem->getComponent()->getHeight() >= 220, "controls respect their minimum height");
+        expect(qwertyItem->getComponent()->getHeight() >= 150, "QWERTY respects its minimum height");
+        expect(keyboardItem->getComponent()->getHeight() >= 138, "keyboard respects its minimum height");
         expect(plugin->getComponent()->getBottom() <= contentRow->getComponent()->getY(),
                "expanded panel does not overlap content-row");
 

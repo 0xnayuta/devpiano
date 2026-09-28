@@ -72,6 +72,7 @@ RecordingSessionController::handleMidiImported()
   - `Play` / `Back` 按钮可用（点击 `Back` 从头重新播放）；
   - `Export MIDI` **严格保持 Disabled**；
   - `Export WAV` **保持 Enabled**（支持将导入的 MIDI 渲染为高质量 WAV 音频）。
+  - `TimelineBar` 支持以采样点精确 Seek，并用 Take-relative A/B 标记循环练习；循环 B 点发送跨通道发音清理后回到 A 点。
 
 ### 3.5 元事件文本解码规则
 

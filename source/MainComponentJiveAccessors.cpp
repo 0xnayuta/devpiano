@@ -501,6 +501,11 @@ void MainComponent::refreshControlsTexts() {
     viewHost.setText("qwerty-title-label", TRANS("QWERTY Performance Map"));
     viewHost.setProperty("qwerty-group-btn", "tooltip", TRANS("Switch Layout Group (` key or click)"));
     viewHost.setProperty("qwerty-toggle-btn", "tooltip", TRANS("Toggle QWERTY Visualizer"));
+    viewHost.setButtonLabel("metronome-tap-btn", TRANS("Tap"));
+    viewHost.setProperty("metronome-tap-btn", "title", TRANS("Tap Tempo"));
+    viewHost.setProperty("metronome-toggle-btn", "tooltip", TRANS("Toggle Metronome (Ctrl+M)"));
+    viewHost.setProperty("metronome-bpm-btn", "tooltip", TRANS("Adjust Tempo / Time Signature"));
+    viewHost.setProperty("metronome-tap-btn", "tooltip", TRANS("Tap at least twice at the desired beat to set tempo"));
     if (auto* combo = viewHost.find<juce::ComboBox>("preset-combo")) {
         combo->setTextWhenNothingSelected(TRANS("Default"));
     }
@@ -525,6 +530,7 @@ void MainComponent::refreshControlsTexts() {
     }
 
     setRecordingControlsState(recordingControlsState);
+    updateMetronomeUi();
 }
 
 CustomKeyboard& MainComponent::getCustomKeyboard() {
@@ -581,9 +587,14 @@ devpiano::ui::QwertyComponent& MainComponent::getQwertyVisualizer() {
 void MainComponent::setQwertyVisualizerExpanded(bool expanded, bool adjustWindowHeight) {
     appSettings.qwertyVisualizerExpanded = expanded;
     if (viewHost.isValid()) {
-        // Header 22 + card padding 8 + content 190 = 220.
-        viewHost.setProperty("qwerty-expanded-area", "height", expanded ? 190 : 0);
-        viewHost.setProperty("qwerty-card", "height", expanded ? 220 : 30);
+        viewHost.setProperty("qwerty-expanded-area", "height",
+                             expanded ? devpiano::ui::jive::kQwertyExpandedContentHeight : 0);
+        viewHost.setProperty("qwerty-card", "height",
+                             expanded ? devpiano::ui::jive::kQwertyExpandedCardHeight
+                                      : devpiano::ui::jive::kQwertyCollapsedCardHeight);
+        viewHost.setProperty("qwerty-card", "min-height",
+                             expanded ? devpiano::ui::jive::kQwertyExpandedCardHeight
+                                      : devpiano::ui::jive::kQwertyCollapsedCardHeight);
         viewHost.setButtonLabel("qwerty-toggle-btn", juce::String::charToString(expanded ? 0x25B4 : 0x25BE));
         viewHost.relayoutContainer("qwerty-card");
         viewHost.relayoutContainer("content-row");
@@ -599,7 +610,7 @@ void MainComponent::setQwertyVisualizerExpanded(bool expanded, bool adjustWindow
                         return;
                     }
                 }
-                constexpr int delta = 190; // 220 - 30
+                constexpr int delta = devpiano::ui::jive::kQwertyCardHeightDelta;
                 const auto currentBounds = resizable->getBounds();
                 const auto* display = juce::Desktop::getInstance().getDisplays().getDisplayForRect(currentBounds);
                 const auto* primary = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay();
@@ -612,7 +623,8 @@ void MainComponent::setQwertyVisualizerExpanded(bool expanded, bool adjustWindow
                 }
 
                 const auto limits = getMainContentResizeLimits();
-                const int minH = expanded ? limits.getY() : juce::jmin(limits.getY(), 510);
+                const int minH = expanded ? limits.getY()
+                                          : juce::jmax(0, limits.getY() - devpiano::ui::jive::kQwertyCardHeightDelta);
                 const int maxH = limits.getHeight();
                 const int newHeight = juce::jlimit(minH, maxH, currentBounds.getHeight() + (expanded ? delta : -delta));
                 int newY = currentBounds.getY();
@@ -642,10 +654,16 @@ void MainComponent::updateQwertyVisualizer() {
     if (qwertyComponentRef == nullptr) {
         qwertyComponentRef = viewHost.find<devpiano::ui::QwertyComponent>("qwerty-visualizer");
     }
+    const auto snapshot = keyboardMidiMapper.createQwertySnapshot(appSettings.keySignature);
     if (qwertyComponentRef != nullptr) {
-        qwertyComponentRef->updateViewModel(keyboardMidiMapper.createQwertySnapshot(appSettings.keySignature));
+        qwertyComponentRef->updateViewModel(snapshot);
     }
     viewHost.setText("qwerty-group-btn", "[" + TRANS("Group") + " " + keyboardMidiMapper.getActiveGroup().name + "]");
+    if (snapshot.detectedChord.isValid && snapshot.detectedChord.quality != devpiano::core::ChordQuality::unknown) {
+        viewHost.setText("qwerty-chord-badge", "[" + snapshot.detectedChord.chordName + "]");
+    } else {
+        viewHost.setText("qwerty-chord-badge", "");
+    }
 }
 
 int MainComponent::getKeyboardViewPositionX() const noexcept {
@@ -876,6 +894,19 @@ void MainComponent::updateStatusBar() {
     } else if (keyboardMidiMapper.isSustainPedalDown()) {
         pedalIndicator = bullet + (isSync ? "[SYNC PEDAL]" : "[SUSTAIN]");
     }
+    juce::String metronomeIndicator;
+    if (audioEngine.isMetronomeEnabled()) {
+        juce::String dot;
+        if (metronomePulseBrightness > 0.05f) {
+            dot = audioEngine.getMetronomeIsDownbeat() ? juce::String::charToString(0x25CF)
+                                                       : juce::String::charToString(0x25CB);
+        } else {
+            dot = juce::String::charToString(0x2022);
+        }
+        metronomeIndicator = bullet + juce::String(juce::roundToInt(audioEngine.getMetronomeBpm())) + " "
+            + devpiano::core::getTimeSignatureName(audioEngine.getMetronomeTimeSignature()) + " " + dot;
+    }
+    viewHost.setText("metronome-status-label", metronomeIndicator);
     const auto groupIndicator = " [Group " + keyboardMidiMapper.getActiveGroup().name + "]";
     const auto statusRight
         = keyName + " (" + transposeStr + ")" + bullet + layoutName + groupIndicator + pedalIndicator;

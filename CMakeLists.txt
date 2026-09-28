@@ -209,13 +209,16 @@ target_sources(devpiano PRIVATE
     source/Audio/AudioDeviceDiagnostics.cpp
     source/Audio/SyncPedalProcessor.h
     source/Audio/InstrumentEndpoint.h
+    source/Audio/MetronomeProcessor.h
     source/Input/KeyboardMidiMapper.cpp
     source/Input/KeyboardMidiMapper.h
+    source/Input/TypingCadenceEstimator.h
     source/Core/KeyMapTypes.h
     source/Core/MidiTypes.h
     source/Core/AppState.h
     source/Core/MusicTheory.h
     source/Core/QwertyModel.h
+    source/Core/MetronomeModel.h
     source/Midi/MidiChannelMapper.cpp
     source/Midi/MidiChannelMapper.h
     source/Midi/ChannelMatrix.h
@@ -232,6 +235,7 @@ target_sources(devpiano PRIVATE
     source/Export/WavExportOptions.h
     source/Recording/RecordingEngine.cpp
     source/Recording/RecordingEngine.h
+    source/Recording/AbLoopEngine.h
     source/Recording/RecordingFlowSupport.cpp
     source/Recording/RecordingFlowSupport.h
     source/Recording/RecordingSessionController.cpp
@@ -268,6 +272,8 @@ target_sources(devpiano PRIVATE
     source/UI/ComboSelection.h
     source/UI/native/AdsrCurveComponent.cpp
     source/UI/native/AdsrCurveComponent.h
+    source/UI/native/TimelineBar.cpp
+    source/UI/native/TimelineBar.h
     source/UI/native/StatusBarMidiDot.h
     source/UI/native/KeyboardViewport.h
     source/UI/KeyboardTypes.h
@@ -431,8 +437,10 @@ if (BUILD_TESTS)
         source/Core/AppState.h
         source/Core/MusicTheory.h
         source/Core/QwertyModel.h
+        source/Core/MetronomeModel.h
         source/Input/KeyboardMidiMapper.cpp
         source/Input/KeyboardMidiMapper.h
+        source/Input/TypingCadenceEstimator.h
         source/Diagnostics/Log.h
         source/Diagnostics/DevPianoLogger.h
         source/Diagnostics/DevPianoLogger.cpp
@@ -456,6 +464,7 @@ if (BUILD_TESTS)
         source/Recording/RenderPipeline.h
         source/Recording/RecordingEngine.cpp
         source/Recording/RecordingEngine.h
+        source/Recording/AbLoopEngine.h
         source/Recording/RecordingFlowSupport.cpp
         source/Recording/RecordingFlowSupport.h
 
@@ -476,6 +485,7 @@ if (BUILD_TESTS)
         source/Plugin/PluginHost.cpp
         source/Audio/SyncPedalProcessor.h
         source/Audio/InstrumentEndpoint.h
+        source/Audio/MetronomeProcessor.h
         source/Plugin/PluginHost.h
         source/Plugin/PluginFlowSupport.cpp
         source/Plugin/PluginFlowSupport.h
@@ -497,6 +507,8 @@ if (BUILD_TESTS)
         source/UI/QwertyComponent.h
         source/UI/native/AdsrCurveComponent.cpp
         source/UI/native/AdsrCurveComponent.h
+        source/UI/native/TimelineBar.cpp
+        source/UI/native/TimelineBar.h
         source/UI/jive/StyleCatalog.cpp
         source/UI/jive/StyleCatalog.h
         source/UI/jive/LayoutModel.cpp
@@ -571,6 +583,9 @@ if (BUILD_TESTS)
         source/tests/PerformanceModifierTest.cpp
         source/tests/PluginScanPersistenceTest.cpp
         source/tests/InstrumentEndpointTest.cpp
+        source/tests/MetronomeTest.cpp
+        source/tests/CadenceVelocityTest.cpp
+        source/tests/ChordRecognitionTest.cpp
         ${DEVPIANO_JIVE_CORE_SOURCES}
     )
     target_link_libraries(devpiano_tests PRIVATE
