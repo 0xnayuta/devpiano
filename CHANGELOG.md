@@ -1,3 +1,12 @@
+## [Unreleased]
+
+### Fixed
+
+- **Metronome Audio-Thread Start Synchronization** — moved phase reset and initial beat triggering into the audio callback, removing message/audio thread races.
+- **Bass-Rooted Exact Chord Recognition** — prefer bass-rooted exact matches over higher-priority inverted matches, restoring C6/Cm6 detection.
+- **Count-In Transport Cancellation** — cancel pending count-ins on competing transport or Take replacement actions so delayed recording cannot overwrite the current Take.
+- **Bounded A-B Loop Cleanup** — disable effective loop ranges shorter than one scaled audio block to prevent repeated all-channel cleanup bursts.
+
 ## [1.3.0] - 2026-09-21
 
 Modern audio defaults standardization (48000 Hz / 128 samples), Linux desktop integration with embedded application icon, realtime DSP denormal elimination, oscillator numerical stability guarding, status bar height invariant protection, and diagnostics logging infrastructure.

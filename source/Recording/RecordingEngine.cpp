@@ -447,12 +447,22 @@ void RecordingEngine::setPlaybackSpeedMultiplier(double multiplier) noexcept {
 double RecordingEngine::getPlaybackSpeedMultiplier() const noexcept {
     return playbackSpeedMultiplier.load();
 }
+void RecordingEngine::setPlaybackBlockSize(int blockSize) noexcept {
+    playbackBlockSize.store(std::max(1, blockSize), std::memory_order_relaxed);
+}
+
 
 void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer, std::int64_t blockStartSamples,
                                           int numSamples) {
     if (!isPlaying() || numSamples <= 0) {
         hasRenderedPlaybackBlock = false;
         return;
+    }
+
+    auto currentBlockSize = playbackBlockSize.load(std::memory_order_relaxed);
+    while (numSamples > currentBlockSize
+           && !playbackBlockSize.compare_exchange_weak(
+               currentBlockSize, numSamples, std::memory_order_relaxed, std::memory_order_relaxed)) {
     }
 
     const auto combinedRatio = playbackSampleRateRatio.load(std::memory_order_relaxed)
@@ -658,7 +668,11 @@ RecordingEngine::ScaledLoopRange RecordingEngine::getScaledLoopRange(double comb
     const auto scaledEnd = static_cast<std::int64_t>(static_cast<double>(endInTake) * combinedRatio);
     const auto startSamples = juce::jlimit<std::int64_t>(0, scaledLength - 1, scaledStart);
     const auto endSamples = juce::jlimit<std::int64_t>(startSamples + 1, scaledLength, scaledEnd);
-    return { startSamples, endSamples, endSamples > startSamples };
+    const auto minBlockSize = static_cast<std::int64_t>(std::max(1, playbackBlockSize.load(std::memory_order_relaxed)));
+    if (endSamples - startSamples < minBlockSize) {
+        return {};
+    }
+    return { startSamples, endSamples, true };
 }
 
 void RecordingEngine::resetPlaybackEventCursor(std::int64_t positionSamples, double combinedRatio) noexcept {

@@ -91,6 +91,7 @@ private:
     void stopInternalPlayback();
     void syncRecordingSessionToUi();
     void checkCountIn();
+    bool cancelCountIn(bool notifyUser = false);
 
     void runExportRecordingFlow(devpiano::exporting::ExportFileType type, std::unique_ptr<juce::FileChooser>& chooser,
                                 const juce::String& dialogTitle, const juce::String& filePattern,

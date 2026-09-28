@@ -41,9 +41,7 @@ RecordingSessionController::~RecordingSessionController() {
 }
 
 void RecordingSessionController::handleRecordClicked() {
-    if (countInRemainingBeats > 0) {
-        countInRemainingBeats = 0;
-        owner.showStatusMessage(TRANS("Count-in Cancelled"), 800);
+    if (cancelCountIn(true)) {
         return;
     }
 
@@ -78,6 +76,8 @@ void RecordingSessionController::handleRecordClicked() {
 }
 
 void RecordingSessionController::handlePlayClicked() {
+    cancelCountIn();
+
     const auto command = chooseRecordingFlowCommand(
         RecordingFlowIntent::playPause, makeRecordingFlowStatus(recordingSession.state, recordingSession.hasTake()));
     if (command == RecordingFlowCommand::none) {
@@ -131,10 +131,7 @@ void RecordingSessionController::handlePlayClicked() {
 }
 
 void RecordingSessionController::handleStopClicked() {
-    if (countInRemainingBeats > 0) {
-        countInRemainingBeats = 0;
-        owner.showStatusMessage(TRANS("Count-in Cancelled"), 800);
-    }
+    cancelCountIn(true);
 
     const auto command = chooseRecordingFlowCommand(
         RecordingFlowIntent::stop, makeRecordingFlowStatus(recordingSession.state, recordingSession.hasTake()));
@@ -175,6 +172,8 @@ void RecordingSessionController::handleStopClicked() {
 }
 
 void RecordingSessionController::handleBackToStartClicked() {
+    cancelCountIn();
+
     if (!recordingSession.hasTake() || recordingSession.isRecording()) {
         return;
     }
@@ -296,6 +295,7 @@ void RecordingSessionController::handleExportWavClicked() {
 }
 
 void RecordingSessionController::handleImportMidiClicked() {
+    cancelCountIn();
     const auto startDir = devpiano::exporting::getLastMidiImportDirectory(appSettings);
     runImportOpenFlow("MIDI Import", TRANS("Import MIDI File"), startDir, "*.mid;*.midi", importMidiChooser,
                       [this](const juce::File& file) -> std::optional<RecordingTake> {
@@ -345,6 +345,7 @@ void RecordingSessionController::handleSavePerformanceClicked() {
 }
 
 void RecordingSessionController::handleOpenPerformanceClicked() {
+    cancelCountIn();
     runImportOpenFlow("Performance File", TRANS("Open Performance"), juce::File::getCurrentWorkingDirectory(),
                       "*.devpiano", performanceFileChooser,
                       [this](const juce::File& file) -> std::optional<RecordingTake> {
@@ -358,6 +359,7 @@ void RecordingSessionController::handleOpenPerformanceClicked() {
 }
 
 void RecordingSessionController::handleOpenPerformanceFile(const juce::File& file) {
+    cancelCountIn();
     if (recordingSession.isRecording()) {
         DP_LOG_INFO("[Performance File] open dropped file skipped while recording");
         return;
@@ -391,6 +393,7 @@ void RecordingSessionController::handleOpenPerformanceFile(const juce::File& fil
 }
 
 void RecordingSessionController::handleImportMidiFile(const juce::File& file) {
+    cancelCountIn();
     if (recordingSession.isRecording()) {
         DP_LOG_INFO("[MIDI Import] dropped MIDI file skipped while recording");
         return;
@@ -425,6 +428,7 @@ void RecordingSessionController::handlePlaybackSpeedChange(double speed) {
 }
 
 void RecordingSessionController::seekPlaybackToSample(std::int64_t takeSample) {
+    cancelCountIn();
     const auto timeline = getPlaybackTimelineSnapshot();
     if (!timeline.enabled) {
         return;
@@ -642,6 +646,7 @@ std::optional<RecordingTake> RecordingSessionController::tryImportMidiFile(const
 }
 
 void RecordingSessionController::replaceTakeAndStartPlayback(RecordingTake take) {
+    cancelCountIn();
     if (recordingSession.isPlaying()) {
         stopInternalPlayback();
         recordingSession.state = ui::RecordingState::idle;
@@ -664,6 +669,7 @@ void RecordingSessionController::runImportOpenFlow(
     const juce::String& logPrefix, const juce::String& dialogTitle, const juce::File& startDir,
     const juce::String& filePattern, std::unique_ptr<juce::FileChooser>& chooser,
     std::function<std::optional<RecordingTake>(const juce::File&)> loadTake) {
+    cancelCountIn();
     if (recordingSession.isRecording()) {
         DP_LOG_INFO("[" + logPrefix + "] skipped while recording");
         owner.restoreKeyboardFocus();
@@ -756,6 +762,14 @@ void RecordingSessionController::checkCountIn() {
         return;
     }
 
+    const auto engineState = recordingEngine.getState();
+    const bool engineCanStartCountIn
+        = engineState == RecordingState::idle || engineState == RecordingState::stopped;
+    if (!recordingSession.isIdle() || !engineCanStartCountIn) {
+        cancelCountIn();
+        return;
+    }
+
     const auto currentSeq = audioEngine.getMetronomeBeatSequence();
     if (currentSeq != lastCountInSequence) {
         lastCountInSequence = currentSeq;
@@ -773,6 +787,19 @@ void RecordingSessionController::checkCountIn() {
             owner.restoreKeyboardFocus();
         }
     }
+}
+
+bool RecordingSessionController::cancelCountIn(bool notifyUser) {
+    if (countInRemainingBeats <= 0) {
+        return false;
+    }
+
+    countInRemainingBeats = 0;
+    lastCountInSequence = 0;
+    if (notifyUser) {
+        owner.showStatusMessage(TRANS("Count-in Cancelled"), 800);
+    }
+    return true;
 }
 
 } // namespace devpiano::recording

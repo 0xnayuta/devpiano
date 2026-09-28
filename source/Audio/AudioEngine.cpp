@@ -49,11 +49,17 @@ void AudioEngine::setPluginHost(PluginHost* host) noexcept {
 
 void AudioEngine::setRecordingEngine(devpiano::recording::RecordingEngine* engine) noexcept {
     recordingEngine = engine;
+    if (recordingEngine != nullptr) {
+        recordingEngine->setPlaybackBlockSize(currentBlockSize.load(std::memory_order_relaxed));
+    }
 }
 
 void AudioEngine::prepareToPlay(int samplesPerBlockExpected, double sampleRate) {
     currentSampleRate.store(sampleRate, std::memory_order_relaxed);
     currentBlockSize.store(samplesPerBlockExpected, std::memory_order_relaxed);
+    if (recordingEngine != nullptr) {
+        recordingEngine->setPlaybackBlockSize(samplesPerBlockExpected);
+    }
     synth.setCurrentPlaybackSampleRate(sampleRate);
     midiCollector.reset(sampleRate);
     midiBuffer.clear();

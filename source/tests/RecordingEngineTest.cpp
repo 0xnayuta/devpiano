@@ -914,16 +914,15 @@ public:
                                   {
                                       { 10, 60, true, 1, 1.0f },
                                       { 10, 36, true, 10, 1.0f },
-                                      { 20, 67, true, 2, 1.0f },
+                                      { 40, 67, true, 2, 1.0f },
                                   });
             RecordingEngine engine;
             engine.setPlaybackLoopStartSample(10);
-            engine.setPlaybackLoopEndSample(20);
-            engine.startPlayback(take, 1000.0);
+            engine.setPlaybackLoopEndSample(40);
+            engine.startPlaybackAtTakeSample(take, 1000.0, 20);
 
             juce::MidiBuffer buffer;
-            engine.renderPlaybackBlock(buffer, 0, 25);
-
+            engine.renderPlaybackBlock(buffer, 20, 25);
             int cleanupAtWrap = 0;
             int replayedNotesAtWrap = 0;
             bool endMarkerEventWasPlayed = false;
@@ -967,17 +966,17 @@ public:
         {
             auto take = buildTake(1000.0, 100,
                                   {
-                                      { 10, 60, true, 1, 1.0f },
-                                      { 20, 67, true, 2, 1.0f },
+                                      { 20, 60, true, 1, 1.0f },
+                                      { 50, 67, true, 2, 1.0f },
                                   });
             RecordingEngine engine;
-            engine.setPlaybackLoopStartSample(10);
-            engine.setPlaybackLoopEndSample(20);
+            engine.setPlaybackLoopStartSample(20);
+            engine.setPlaybackLoopEndSample(50);
             engine.setPlaybackSpeedMultiplier(2.0);
-            engine.startPlayback(take, 1000.0);
+            engine.startPlaybackAtTakeSample(take, 1000.0, 30);
 
             juce::MidiBuffer buffer;
-            engine.renderPlaybackBlock(buffer, 0, 12);
+            engine.renderPlaybackBlock(buffer, 15, 12);
             int cleanupAtWrap = 0;
             int replayedNotesAtWrap = 0;
             for (const auto metadata : buffer) {
@@ -997,7 +996,7 @@ public:
             expectEquals(1, replayedNotesAtWrap);
 
             engine.advancePlaybackPosition(12);
-            expectEquals(static_cast<std::int64_t>(7), engine.getPlaybackPositionSamples());
+            expectEquals(static_cast<std::int64_t>(12), engine.getPlaybackPositionSamples());
         }
 
         beginTest("speed changes preserve take position while playback is paused or stopped");
@@ -1024,11 +1023,11 @@ public:
             auto take = buildTake(1000.0, 100, { { 10, 60, true, 1, 1.0f } });
             RecordingEngine engine;
             engine.setPlaybackLoopStartSample(10);
-            engine.setPlaybackLoopEndSample(20);
-            engine.startPlayback(take, 1000.0);
+            engine.setPlaybackLoopEndSample(30);
+            engine.startPlaybackAtTakeSample(take, 1000.0, 10);
 
             juce::MidiBuffer buffer;
-            engine.renderPlaybackBlock(buffer, 0, 20);
+            engine.renderPlaybackBlock(buffer, 10, 20);
             expectEquals(1, countMidiBufferEvents(buffer),
                          "the first block contains only the note at A, with no early panic");
             engine.advancePlaybackPosition(20);
@@ -1076,6 +1075,37 @@ public:
             engine.setPlaybackLoopStartSample(10);
             engine.setPlaybackLoopEndSample(10);
             expect(!engine.getPlaybackLoopRange().isValid());
+        }
+
+        beginTest("tiny loop shorter than block size remains configured but inactive during playback");
+        {
+            auto take = buildTake(1000.0, 1000, { { 10, 60, true, 1, 1.0f } });
+            RecordingEngine engine;
+            engine.setPlaybackBlockSize(512);
+            engine.setPlaybackLoopStartSample(10);
+            engine.setPlaybackLoopEndSample(11);
+
+            const auto rawLoop = engine.getPlaybackLoopRange();
+            expect(rawLoop.isValid());
+            expectEquals(static_cast<std::int64_t>(10), rawLoop.startSamples);
+            expectEquals(static_cast<std::int64_t>(11), rawLoop.endSamples);
+
+            engine.startPlayback(take, 1000.0);
+
+            juce::MidiBuffer buffer;
+            engine.renderPlaybackBlock(buffer, 0, 512);
+
+            const auto configuredLoopAfterRender = engine.getPlaybackLoopRange();
+            expect(configuredLoopAfterRender.isValid());
+            expectEquals(static_cast<std::int64_t>(10), configuredLoopAfterRender.startSamples);
+            expectEquals(static_cast<std::int64_t>(11), configuredLoopAfterRender.endSamples);
+
+            expectEquals(1, countMidiBufferEvents(buffer),
+                         "rendered MIDI event count stays bounded without repeated cleanup batches");
+
+            engine.advancePlaybackPosition(512);
+            expectEquals(static_cast<std::int64_t>(512), engine.getPlaybackPositionSamples(),
+                         "playback advances linearly rather than repeatedly wrapping");
         }
     }
 };

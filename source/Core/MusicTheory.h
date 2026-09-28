@@ -293,10 +293,16 @@ inline const std::vector<ChordPattern>& getChordPatterns() {
     }
 
     if (!candidates.empty()) {
-        // Sort by exact match first, then by score descending
-        std::sort(candidates.begin(), candidates.end(), [](const Candidate& a, const Candidate& b) {
+        std::sort(candidates.begin(), candidates.end(), [bass = info.bassPitchClass](const Candidate& a, const Candidate& b) {
             if (a.exact != b.exact) {
                 return a.exact > b.exact;
+            }
+            if (a.exact) {
+                const bool aBassRooted = (a.root == bass);
+                const bool bBassRooted = (b.root == bass);
+                if (aBassRooted != bBassRooted) {
+                    return aBassRooted > bBassRooted;
+                }
             }
             return a.score > b.score;
         });

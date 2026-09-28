@@ -14,6 +14,13 @@ namespace devpiano::audio {
 class MetronomeProcessor {
 public:
     static constexpr double kTwoPi = 6.28318530717958647692;
+private:
+    enum class RunState : std::uint8_t {
+        disabled = 0,
+        startPending = 1,
+        active = 2
+    };
+public:
 
     MetronomeProcessor() noexcept {
         updateBeatParameters();
@@ -25,28 +32,28 @@ public:
     }
 
     void reset() noexcept {
-        samplePositionInBeat = 0.0;
-        currentBeatIndex = 0;
-        pulseActive = false;
-        pulseSin = 0.0f;
-        pulseCos = 1.0f;
-        pulseEnvelope = 0.0f;
+        auto expected = RunState::active;
+        runState.compare_exchange_strong(expected, RunState::startPending,
+                                         std::memory_order_acq_rel,
+                                         std::memory_order_relaxed);
         currentBeatNumber.store(0, std::memory_order_relaxed);
         isDownbeat.store(true, std::memory_order_relaxed);
     }
 
     void setEnabled(bool isEnabled) noexcept {
-        const bool wasEnabled = enabled.exchange(isEnabled, std::memory_order_relaxed);
-        if (!wasEnabled && isEnabled) {
-            // Reset to beat 0 on fresh start so the user immediately hears beat 1 (downbeat).
-            samplePositionInBeat = 0.0;
-            currentBeatIndex = 0;
-            triggerBeat(0);
+        if (isEnabled) {
+            auto expected = RunState::disabled;
+            runState.compare_exchange_strong(expected, RunState::startPending,
+                                             std::memory_order_acq_rel,
+                                             std::memory_order_relaxed);
+        } else {
+            runState.store(RunState::disabled, std::memory_order_release);
         }
     }
 
     [[nodiscard]] bool isEnabled() const noexcept {
-        return enabled.load(std::memory_order_relaxed);
+        const auto state = runState.load(std::memory_order_acquire);
+        return state != RunState::disabled;
     }
 
     void setBpm(double newBpm) noexcept {
@@ -92,12 +99,26 @@ public:
     /// Process and mix metronome clicks into the provided audio buffer.
     /// Thread safety: Audio thread only. Lock-free and zero-allocation.
     void processAndMix(juce::AudioBuffer<float>* buffer, int startSample, int numSamples) noexcept {
-        if (buffer == nullptr || numSamples <= 0 || !enabled.load(std::memory_order_relaxed)) {
+        if (buffer == nullptr || numSamples <= 0) {
+            return;
+        }
+
+        const auto state = runState.load(std::memory_order_acquire);
+        if (state == RunState::disabled) {
+            pulseActive = false;
+            pulseEnvelope = 0.0f;
             return;
         }
 
         const auto numChannels = buffer->getNumChannels();
         if (numChannels <= 0) {
+            return;
+        }
+
+        handleStartPendingOnAudioThread();
+        if (!isEnabled()) {
+            pulseActive = false;
+            pulseEnvelope = 0.0f;
             return;
         }
 
@@ -150,6 +171,17 @@ public:
     }
 
 private:
+    void handleStartPendingOnAudioThread() noexcept {
+        auto expected = RunState::startPending;
+        if (runState.compare_exchange_strong(expected, RunState::active,
+                                             std::memory_order_acq_rel,
+                                             std::memory_order_relaxed)) {
+            samplePositionInBeat = 0.0;
+            currentBeatIndex = 0;
+            triggerBeat(0);
+        }
+    }
+
     void triggerBeat(int beatIdx) noexcept {
         const auto currentSig = timeSignature.load(std::memory_order_relaxed);
         const bool down = (beatIdx == 0);
@@ -185,12 +217,29 @@ private:
     }
 
     void advanceTimingOnly(int numSamples) noexcept {
+        if (numSamples <= 0) {
+            return;
+        }
+
+        const auto state = runState.load(std::memory_order_acquire);
+        if (state == RunState::disabled) {
+            pulseActive = false;
+            pulseEnvelope = 0.0f;
+            return;
+        }
+
+        handleStartPendingOnAudioThread();
+        if (!isEnabled()) {
+            pulseActive = false;
+            pulseEnvelope = 0.0f;
+            return;
+        }
+
         const auto currentSig = timeSignature.load(std::memory_order_relaxed);
         const int numerator = devpiano::core::getTimeSignatureNumerator(currentSig);
         const double denominator = static_cast<double>(devpiano::core::getTimeSignatureDenominator(currentSig));
         const double currentBpm = bpm.load(std::memory_order_relaxed);
         const double samplesPerBeat = (sampleRate * 60.0 / currentBpm) * (4.0 / denominator);
-
         for (int i = 0; i < numSamples; ++i) {
             samplePositionInBeat += 1.0;
             if (samplePositionInBeat >= samplesPerBeat) {
@@ -219,7 +268,7 @@ private:
     float pulseEnvelope = 0.0f;
     float pulseDecay = 0.0f;
 
-    std::atomic<bool> enabled { false };
+    std::atomic<RunState> runState { RunState::disabled };
     std::atomic<double> bpm { 120.0 };
     std::atomic<devpiano::core::TimeSignature> timeSignature { devpiano::core::TimeSignature::fourFour };
     std::atomic<float> volume { 0.7f };

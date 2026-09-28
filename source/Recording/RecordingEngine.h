@@ -99,6 +99,7 @@ public:
     // Renders playback events whose scaled timestamp falls within [blockStartSamples, blockStartSamples + numSamples).
     // Uses the same midiBuffer that AudioEngine will then pass to plugin/synth rendering.
     void renderPlaybackBlock(juce::MidiBuffer& midiBuffer, std::int64_t blockStartSamples, int numSamples);
+    void setPlaybackBlockSize(int blockSize) noexcept;
     void advancePlaybackPosition(std::int64_t numSamples) noexcept;
     [[nodiscard]] bool consumePlaybackEndedFlag() noexcept;
     [[nodiscard]] bool isPlaying() const noexcept;
@@ -138,6 +139,7 @@ private:
     std::atomic<double> playbackSpeedMultiplier { 1.0 };
     std::atomic<std::int64_t> scaledPlaybackLengthSamples { 0 };
     std::atomic<std::int64_t> playbackPositionSamples { 0 };
+    std::atomic<int> playbackBlockSize { 1 };
     std::atomic_bool playbackEndedPending { false };
 
     std::size_t playbackEventIndex { 0 };

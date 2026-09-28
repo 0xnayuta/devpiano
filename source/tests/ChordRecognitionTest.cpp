@@ -212,6 +212,18 @@ private:
         expect(c6.isValid);
         expectEquals(c6.rootPitchClass, 0); // C
         expectEquals(c6.chordName, juce::String("C6"));
+
+        const auto am7b5 = devpiano::core::detectChord({ 45, 60, 63, 67 }); // A2 bass
+        expect(am7b5.isValid);
+        expectEquals(am7b5.rootPitchClass, 9); // A
+        expect(am7b5.quality == devpiano::core::ChordQuality::halfDiminished7th);
+        expectEquals(am7b5.chordName, juce::String("Am7b5"));
+
+        const auto cm6 = devpiano::core::detectChord({ 48, 57, 63, 67 }); // C3 bass
+        expect(cm6.isValid);
+        expectEquals(cm6.rootPitchClass, 0); // C
+        expect(cm6.quality == devpiano::core::ChordQuality::minor6th);
+        expectEquals(cm6.chordName, juce::String("Cm6"));
     }
 
     void testNoiseToleranceAndSupersetMatching() {
@@ -222,6 +234,11 @@ private:
         const auto cWithPassingNote = devpiano::core::detectChord({ 48, 60, 62, 64, 67 });
         expect(cWithPassingNote.isValid);
         expectEquals(cWithPassingNote.rootPitchClass, 0); // C
+        const auto g7OverB = devpiano::core::detectChord({ 47, 55, 62, 65 });
+        expect(g7OverB.isValid);
+        expectEquals(g7OverB.rootPitchClass, 7); // G
+        expect(g7OverB.quality == devpiano::core::ChordQuality::dominant7th);
+        expectEquals(g7OverB.chordName, juce::String("G7/B"));
     }
 };
 
