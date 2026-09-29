@@ -8,7 +8,7 @@
 PR-Agent 是开源 AI 代码审查 agent（[The-PR-Agent/pr-agent](https://github.com/The-PR-Agent/pr-agent)，MIT）。devpiano 通过 GitHub Action 方式部署：
 
 - PR 打开 / 重新打开 / 转为 ready / push 新提交（`synchronize`）时自动执行 `/describe`（AI 生成 PR 描述）与 `/review`（代码审查）。
-- 模型：Gemini 3.8 Flash（`gemini/gemini-3.8-flash`，官方 Google AI Studio 直连），API key 存于仓库 secret `GEMINI_API_KEY`。
+- 模型：`openai/deepseek-v4.1-flash-free`，通过 KiosAPI OpenAI-compatible endpoint 调用。
 - 审查输出为 `github-actions[bot]` 的 PR 评论，不参与 required checks，**不阻塞合并**。
 
 ## 相关文件
@@ -48,8 +48,10 @@ PR-Agent 是开源 AI 代码审查 agent（[The-PR-Agent/pr-agent](https://githu
 
 ## 模型与密钥
 
-- 当前模型：`gemini/gemini-3.8-flash`（workflow 中 `config.model`），`fallback_models` 指向同模型。
-- 密钥：GitHub Settings → Secrets and variables → Actions 中的 `GEMINI_API_KEY`（Google AI Studio 获取）。
+- 当前模型：`openai/deepseek-v4.1-flash-free`（KiosAPI OpenAI-compatible 路由）。
+- Base URL：`https://kiosapi.com/v1/`。
+- 密钥：workflow 将 GitHub Actions Secret `KIOSAPI_API_KEY` 注入 `OPENAI_KEY`；密钥不写入仓库，需在仓库设置中手动填写。
+- 模型 ID 必须对该 API key 的 Token Group 可用。KiosAPI 支持用 `GET /v1/models` 查询 key 可访问的精确 ID；当前未配置 key，因此尚未验证该模型 ID。
 - 切换模型：修改 workflow 中 `config.model` 与对应密钥 env 变量（参考官方 [changing_a_model](https://docs.pr-agent.ai/usage-guide/changing_a_model/) 文档）。
 
 ## 升级与维护
@@ -63,5 +65,5 @@ PR-Agent 是开源 AI 代码审查 agent（[The-PR-Agent/pr-agent](https://githu
 |---|---|
 | 新 PR 无自动评论 | 确认 workflow 已合并到 main；查看 Actions 运行日志中的模型/密钥报错 |
 | 配置修改不生效 | `.pr_agent.toml` 需在 main 分支生效；修改后对 PR 评论 `/review` 或重新触发 |
-| 报模型/密钥错误 | 检查 `GEMINI_API_KEY` secret 是否存在且有效；检查 `config.model` 拼写与 Google AI Studio 平台配额 |
+| 报模型/密钥错误 | 检查 `KIOSAPI_API_KEY` secret 是否已配置；确认 Token Group 包含模型、`/v1/models` 返回对应 ID，并检查 KiosAPI 配额 |
 | bot 评论后不再触发 | 正常行为——`sender.type != 'Bot'` 防循环 |
