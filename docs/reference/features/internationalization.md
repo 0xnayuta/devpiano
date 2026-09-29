@@ -1,7 +1,7 @@
 # 国际化与多语言机制功能说明
 
 > 用途：说明 devpiano 的多语言国际化架构、`LocaleManager` 语言管理器、编译期二进制内嵌、运行时即时切换与新增语言包指南。
-> 当前状态：已全量实现，支持英文（English）与简体中文（zh-CN）运行时零重启即时切换（Phase 7 成果）。
+> 当前状态：已全量实现，支持英文（English）与简体中文（zh-CN）运行时零重启即时切换（Phase 7 成果，Phase 35 扩充节拍器、练习循环与 JIVE 语义标题实时刷新）。
 > 更新时机：语言枚举、语言包加载策略或本地化宏规范发生变化时。
 
 ---
@@ -69,7 +69,8 @@ countries: CN
 "Record" = "录制"
 "Stop" = "停止"
 "Play" = "播放"
-"Back" = "重放"
+"Back" = "返回"
+"Back to Start" = "回到开头"
 "Save As New" = "另存为新预设"
 "Preset Name:" = "预设名称："
 "Delete" = "删除"
@@ -77,6 +78,15 @@ countries: CN
 "Custom Keyboard" = "自定义键盘"
 "Audio Device" = "音频设备"
 "Acoustics & Voicing" = "声学与调律"
+"Metronome" = "节拍器"
+"Metro On" = "节拍器开"
+"Metro Off" = "节拍器关"
+"Tempo" = "速度"
+"Tap Tempo" = "手动测速"
+"Set A" = "设置 A 点"
+"Set B" = "设置 B 点"
+"Clear Loop" = "清除循环"
+
 ```
 
 ---
@@ -103,3 +113,4 @@ countries: CN
 | **运行时即时双向切换** | 在设置窗口中从中文切到英文，再切回中文，界面即时更新无撕裂 | [x] 已通过 |
 | **模态弹窗国际化** | 预设重命名、删除确认与歌曲信息编辑弹窗的标题、标签与按钮正确跟随语言 | [x] 已通过 |
 | **脱离源码独立运行** | 将 `DevPiano.exe` 移动至独立空白目录，中文依然 100% 正常显示 | [x] 已通过 |
+| **JIVE 语义标题联动刷新** | 在英文与中文切换时，JIVE 布局树中所有静态容器与动态控件的 `title` 属性同步更新（`StyleCatalogTest` 验证） | [x] 已通过 |

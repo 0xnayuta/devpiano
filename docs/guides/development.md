@@ -8,10 +8,11 @@
 当前已有文档：
 
 - [`wsl-windows-msvc-workflow.md`](wsl-windows-msvc-workflow.md)：WSL 主工作树 + Windows 镜像树 + MSVC 验证工作流。
-- [`release-workflow.md`](release-workflow.md)：当前 Windows x64 正式 release、tag 与手工打包 checklist；Linux 暂作为后续待验证平台。
+- [`release-workflow.md`](release-workflow.md)：Windows x64 与 Linux x64 双平台 release、tag 与打包工作流 checklist。
 - [`troubleshooting.md`](troubleshooting.md)：WSL 构建、Windows 镜像同步、MSVC 验证构建的常见问题排查，已覆盖 `.vs` 被误删、SQLite WAL 文件、`--check` 预览模式等问题。
+- [`pr-agent.md`](pr-agent.md)：PR-Agent AI 代码审查工作流（部署配置、触发事件、中文响应与排查指南）。
 - [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)：GitHub Actions CI 质量门禁流水线（自动运行代码格式检查、Linux Clang 单元测试与 Windows MSVC 构建门禁）。
-- [`.github/workflows/release.yml`](../../.github/workflows/release.yml)：GitHub Actions 正式发布流水线（Tag 触发自动化 Windows x64 Release 编译、ZIP 与 SHA256 生成与 Release 挂载）。
+- [`.github/workflows/release.yml`](../../.github/workflows/release.yml)：GitHub Actions 正式发布流水线（Tag 触发自动化 Windows x64 与 Linux x64 双平台 Release 编译、分发包与 SHA256 生成与 Release 挂载）。
 - [`scripts/analyze_build_time.py`](../../scripts/analyze_build_time.py)：基于 Clang `-ftime-trace` 的 C++ 编译耗时微观剖析与火焰图聚合引擎，支持导出 Perfetto / Chrome Tracing 交互式时间线（通过 `./scripts/dev.sh time-trace` 调度）。
 
 相关入口：

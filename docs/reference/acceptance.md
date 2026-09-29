@@ -101,7 +101,7 @@
 - [x] 提取 `PluginOperationController` 承载扫描/加载/Editor 编排。
 - [x] 提取 `SettingsWindowManager` 承载设置窗口生命周期。
 - [x] 提取 `AppStateBuilder` 组装持久化基线与运行时快照。
-- [x] `MainComponent.cpp` 从 1587 行单体降至 446 行，严格遵守生命周期与音频线程边界。
+- [x] `MainComponent.cpp` 大幅精简，保持轻量装配职责，主体仅负责顶层装配与回调接线，严格遵守生命周期与音频线程边界。
 
 ---
 
@@ -179,7 +179,7 @@
 - [x] 修复 `masterGain` 跨线程数据竞争与异步生命周期防护。
 - [x] 提取公共离线渲染管线 `RenderPipeline`（时间戳缩放、排序与 panic 注入）。
 - [x] 补齐核心控制器确定性测试，测试套件与断言全面覆盖。
-- [x] 全量 44 源码文件 clang-tidy 0 诊断，clang-format 零违规。
+- [x] 全量源码文件 clang-tidy 0 诊断，clang-format 零违规。
 
 审计报告见：[`../audit/AUDIT-001-code-quality-audit-2026-08-16.md`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)。
 
@@ -207,7 +207,7 @@
 
 - [x] **Phase 15-A**：构建通用的 `JiveModalDialog` 基础设施与声明式模板（SingleInput / Confirm / MetadataEdit / Progress）。
 - [x] **Phase 15-B**：预设新建/重命名/删除与歌曲信息编辑弹窗全面迁移至 `JiveModalDialog`，消除手写坐标 Content 类。
-- [x] **Phase 15-C**：设置面板重构为 `SettingsLayoutModel`，16 通道跟随开关采用 JIVE CSS Grid（8 列 × 2 行），`AudioDeviceSelectorComponent` 原生注入。
+- [x] **Phase 15-C**：设置面板迁移至 `SettingsLayoutModel`，16 通道跟随开关采用 JIVE CSS Grid（8 列 × 2 行）；历史原生音频选择器后来已由声明式音频设备卡片替换。
 - [x] **Phase 15-D**：`WavExportTask` 导出进度接入 JIVE 声明式进度弹窗，维持多线程模型与取消清理逻辑。
 - [x] **Phase 15-E**：单元测试全绿（零失败），三闸门与 Windows 验证通过。
 
@@ -230,7 +230,7 @@
 - [x] **消灭锯齿波拉弦感**：击弦点几何梳状滤波（$d/L \approx 1/8 \sim 1/14$）与非线性琴槌毛毡硬化截止谱。
 - [x] **重塑打击起音瞬态**：$\text{Attack} \le 0.2\text{ ms}$ 极速起振门控，注入 $2\sim 3\text{ ms}$ 毛毡撞击瞬态冲击核（Hammer Strike Click）。
 - [x] **双阶段衰减强化**：快衰减权重提升至 $80\%\sim 88\%$，重构 8 峰云杉木音板模态并与 Resonance 旋钮动态绑定。
-- [x] **单元测试验证**：`PianoSynthVoiceTest.cpp` 确定性断言 100% 通过。
+- [x] **单元测试验证**：`PianoSynthVoiceTest` 覆盖物理打击与声学参数回归。
 
 ---
 
@@ -302,7 +302,7 @@
 - [x] **泛音时间滞后膨胀与绽放（Harmonic Blooming）**：$n \ge 3$ 阶高次分音非线性能量泵浦与 $10\sim 25\text{ ms}$ 上升绽放。
 - [x] **琴槌接触微阻尼与脱离释放**：消灭 $t=0$ 正弦机械突兀开门感。
 - [x] **动态声场空间漫射**：从击打点声源在 $25\text{ ms}$ 内平滑漫射为音板面声源包围场。
-- [x] **确定性物理断言**：全量单元测试 100% 满分通过，零失败。
+- [x] **确定性物理验证**：物理声学自动化测试覆盖动态空间漫射等关键行为，零失败。
 
 ---
 
@@ -356,8 +356,8 @@
 
 状态：已完成（2026-09-13）。
 
-- [x] **6 大古典微律支持**：平均律、1/4 中庸全音律、韦克迈斯特三律、基恩伯格三律与纯律。
-- [x] **A4 基准音高微调**：400.0 ~ 480.0 Hz 连续微调，全音域单调性数学断言。
+- [x] **6 大古典微律支持**：平均律、纯律、毕达哥拉斯律、1/4 中庸全音律、韦克迈斯特三律与基恩伯格三律。
+- [x] **A4 基准音高微调已实现**：当前滑块与 `TemperamentEngine` 为 410.0 ~ 450.0 Hz；产品契约 400.0 ~ 480.0 Hz 的两端尚未覆盖，见 [`../issues/known-issues.md`](../issues/known-issues.md)。
 - [x] **全栈持久化与预设联动**：SettingsStore 与 PerformancePreset 序列化及离线导出对齐。
 
 ---
@@ -440,13 +440,13 @@
   - 确定性纯数学阻尼正弦脉冲发生的采样级 Click Engine（强拍 1600Hz / 弱拍 800Hz / 6/8 次强拍 1100Hz），零堆分配、零锁、零外部采样依赖；
   - 支持 2/4、3/4、4/4、6/8 常见拍号与 40~280 BPM 无级可调；
   - 基于最近最多 3 个点击间隔滑动均值的 Tap Tempo 测速算法（最多保留 4 个时间戳），间隔超过 2 秒时重置；
-  - 录音前预备拍（Count-in，支持 1~2 小节倒计时触发）；倒计时期间关闭节拍器会立即取消本次倒计时。
-  - JIVE 走带面板控制栏（`metronome-row`）与状态栏同频呼吸闪烁节拍指示灯；
+  - 录音前预备拍（Count-in，支持 1~2 小节倒计时触发）；倒计时期间关闭节拍器会取消本次倒计时。
+  - JIVE 传输卡片提供 Metro/BPM/Tap 控件；状态栏根据节拍序号显示强弱拍符号与渐隐反馈，传输按钮不显示同频闪烁节拍灯；
   - 键盘快捷键 `Ctrl+M` 切换与设置持久化落盘；
   - 专项自动化测试覆盖 Tap Tempo 三间隔滑动均值、BPM 限幅、2 秒超时重置，以及采样精确度、拍号循环、动态变速与零分配。
 - [x] **Phase 35-B（打字击键动态力度与人性化微扰引擎）**：
   - 基于物理按键间隙 $\Delta t$ 的 `TypingCadenceEstimator`，快弹华彩（$\Delta t \le 60\text{ ms}$）自适应输出高力度（$122/127 \approx 0.960\text{f}$），慢按抒情（$\Delta t \ge 500\text{ ms}$）自适应回落至低力度（$76/127 \approx 0.598\text{f}$），乐句停顿（$> 1.0\text{ s}$）平滑复位基准力度；
-  - 确定性伪随机微高斯扰动 `VelocityHumanizer`（默认 $\pm 0.035\text{f} \approx \pm 4.5$ 力度，可配置），严格单调与极值保护 $[1/127, 1.0]$；
+  - `VelocityHumanizer` 采用确定性哈希伪随机微扰（默认 $\pm 0.035\text{f} \approx \pm 4.5$ 力度），输出钳制在 $[1/127, 1.0]$，不使用高斯分布；动态参数当前没有 UI 编辑控件；
   - 严格保障 Shift 键力度拉满 1.0f 的最高仲裁优先级；
   - 自动化测试覆盖击键间隔估算、力度微扰、Shift 最高优先级仲裁，以及关闭 cadence 动态后不再按动态基线重缩放绑定力度、零力度保持静音。
 - [x] **Phase 35-C（实时和弦识别与乐理分析 HUD）**：
@@ -470,7 +470,7 @@
 
 - [x] **三闸门基线**：
   - 格式化合规：`./scripts/dev.sh format --check` 0 违规；
-  - 单元测试覆盖：`./scripts/dev.sh test` 60 个测试套件 100% 通过；
+  - 单元测试覆盖：`./scripts/dev.sh test` 覆盖核心引擎、物理声学与 UI 测试套件，零失败；
   - Windows 验证构建：`./scripts/dev.sh win-build` 与 `./scripts/dev.sh win-build --release` 成功生成 `DevPiano.exe`。
 - [x] **Windows x64 手工冒烟测试**：
   - 程序启动、窗口居中自适应与音频设备初始化正常；
@@ -487,22 +487,26 @@
 
 ## 建议例行最小回归集合
 
-关键修改提交前，在 WSL 与 Windows 侧执行以下基线验证：
+关键修改提交前，WSL 主工作树只刷新编译数据库；Windows 镜像树执行 Debug 构建及完整软件测试：
 
 1. **三闸门检查**：
 
    ```bash
    ./scripts/dev.sh wsl-build --configure-only
-   ./scripts/dev.sh test                  # 全量单元测试 100% 满分通过，零失败
+   # Windows Debug 单元测试使用镜像树 Developer PowerShell，见下方链接
    ./scripts/dev.sh format --check
    ./scripts/dev.sh win-build             # Windows 镜像 MSVC 编译链接验证
    ```
 
+   Windows 侧先以 `BUILD_TESTS=ON` 构建 `devpiano_tests`，再用 CTest 运行，具体命令见 [`../guides/quickstart.md`](../guides/quickstart.md)；Linux CI 使用 `./scripts/dev.sh test`，本地 WSL 主树不运行该脚本。
+
 2. **冒烟手工回归**：
    - 启动程序，音频设备初始化正常；
-   - `A/S/D/F` 触发物理建模钢琴发声，音质纯净无杂音，虚拟键盘高亮正常；
+   - `A/S/D/F` 触发物理建模钢琴发声，打字击键动态力度与 Shift 极值正常，虚拟键盘高亮正常；
+   - 节拍器开关（`Ctrl+M`）与 Tap Tempo 测速准确；
+   - 弹奏和弦时 Qwerty HUD 徽章实时显示识别和弦与淡出；
    - VST3 扫描、加载、Editor 打开、弹奏发声与卸载；
-   - 录制一段演奏、回放、保存为 `.devpiano`、重新打开；
+   - 录制一段演奏、回放、A-B 循环与时间轴 Seek 跳转、保存为 `.devpiano`、重新打开；
    - 导入标准 `.mid` 并回放；
    - 导出 WAV，观察 JIVE 进度条与文件生成；
    - 打开设置窗口，切换音频设备与语言（中英文即时切换无撕裂）；

@@ -81,7 +81,6 @@
     "colourMode": 0,
     "noteDisplay": 0,
     "fadeSpeed": 0.92,
-    "previewAlpha": 0.0,
     "customKeyLabels": [],
     "customKeyColours": []
   }
@@ -97,8 +96,8 @@
 | `lidPosition` | int | 0 (全开) / 1 (半开) / 2 (闭盖) | 琴盖开合度声学传递函数 |
 | `touchVelocityCurve`| int | 0 (标准) / 1 (轻触) / 2 (重触) / 3 (宽动态) | 键盘触键力度响应非线性曲线 |
 | `unaCorda` | bool | `true` / `false` | 弱音/移位踏板物理拟真（MIDI CC 67 联动） |
-| `temperament` | string | `"equal"`, `"meantone"`, `"werckmeister3"`, `"kirnberger3"`, `"just"` | 古典微调律制选择 |
-| `referencePitchA4` | double | 400.0 ~ 480.0 Hz（默认 440.0） | A4 基准基频换算 |
+| `temperament` | string | `"equal"`, `"just"`, `"pythagorean"`, `"meantone"`, `"werckmeister3"`, `"kirnberger3"` | 古典微调律制选择 |
+| `referencePitchA4` | double | 当前钳制 410.0 ~ 450.0 Hz（默认 440.0；契约目标 400.0 ~ 480.0 Hz） | A4 基准基频换算；两端契约差距见 [`../../issues/known-issues.md`](../../issues/known-issues.md) |
 | `soundPerspective` | string | `"player"` (演奏者) / `"audience"` (听众) | 立体声空间声像展开视角 |
 | `reverbSpace` | string | `"chamber"` (室内乐) / `"concert_hall"` (音乐厅，兼容别名 `"hall"`) / `"studio"` (录音棚) | 房间混响网络预设空间 |
 | `reverbWet` | float | 0.0 ~ 1.0（默认 0.0） | 房间混响干湿混合比 |
@@ -159,3 +158,5 @@
 | **PST-005** | 内置 Default 保护 | 切换至 `[Default]`，确认 Rename 与 Delete 按钮处于 disabled 状态 | [x] 已通过 |
 | **PST-006** | 拖放导入预设 | 从外部文件夹拖入 `.devpiano.preset` 文件，列表立即刷新并自动激活 | [x] 已通过 |
 | **PST-007** | 录制中切调回放验证 | 录制中在第 5 秒按 F2 切调，回放到达第 5 秒时观察界面与发声自动完成切调 | [x] 已通过 |
+
+除手工场景外，预设系统由自动化单元测试全面覆盖：`PerformancePresetTest`（格式 v1 序列化、磁盘文件安全读写与 KeyGroup 往返）、`AcousticSettingsPersistenceTest`（缺失 acoustics 节点向后兼容与区间钳制）、`TemperamentSettingsPersistenceTest`（律制标识符与 A4 基频持久化安全）。

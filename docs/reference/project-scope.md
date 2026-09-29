@@ -8,7 +8,7 @@
 
 ## 1. 一句话定位
 
-**devpiano** 是一款个人主导、持续演进的电脑键盘钢琴应用——以 JUCE 为框架，VST3 插件为核心音源，内置自主研发物理建模钢琴，聚焦软件键盘演奏与 MIDI 文件处理。
+**devpiano** 是一款个人主导、持续演进的电脑键盘钢琴应用——以 JUCE 为框架，以自主研发物理建模钢琴为默认音源、VST3 乐器为扩展，聚焦软件键盘演奏、练琴辅助与 MIDI 文件处理。
 
 ## 2. 项目起源
 
@@ -24,6 +24,8 @@ devpiano 源于对旧版 Windows FreePiano 的现代化重构。所有有价值�
 - 轻量键位分组（`KeyGroup`，支持 4 组）即时切组与发音身份快照（Note-off Identity Preservation，彻底封死悬挂音）
 - 采样精确的切分延音踏板调度（`SustainPolicy` / `SyncPedalProcessor`，消除连奏断音空洞）
 - 瞬态演奏修饰键变换管道（`PerformanceModifierState`：Shift 力度拉满 / Alt 高八度平移，纯事件变换零配置污染）
+- 可选的击键间隔动态力度与确定性、有限幅的人性化力度微扰（`TypingCadenceEstimator` / `VelocityHumanizer`）；Shift 瞬态力度拉满优先
+- 实时和弦识别与转位反馈：`devpiano::core::detectChord()` 消费按下的音符快照，在 QWERTY 看板标题和键盘 HUD 展示
 - 逐键个性化标签（`customKeyLabels`）与逐键颜色（`customKeyColours`）定制
 - 16 通道 MIDI 矩阵路由（`ChannelMatrix`），支持每通道移调、力度、音色、延音与按键跟随
 - 全局调号控制（Key Signature，-7..+7 半音）与 MIDI 移调开关
@@ -38,6 +40,8 @@ devpiano 源于对旧版 Windows FreePiano 的现代化重构。所有有价值�
 ### 演奏录制与文件
 
 - 演奏录制、回放、播放速度精确控制（0.50x–2.00x，线程安全原子变速）
+- 采样级合成强弱拍的节拍器，支持 2/4、3/4、4/4、6/8 拍号、40–280 BPM、Tap Tempo 和录制前 1–2 小节预备拍
+- `TimelineBar` 播放位置跳转与 Take-relative A/B 标记循环，支持暂停/恢复与倍速跟练；跳转、循环回跳时清理当前发声
 - `.devpiano` 原生演奏文件格式（v2 JSON 序列化，含 Base64 编码、events、采样率与元数据）
 - 标准 MIDI 文件导入：Type 0/1 全轨并轨，解析 CC64 延音 / pitch bend / program change 事件
 - 标准 MIDI 文件导出（Type 1，960 PPQ）
@@ -45,7 +49,7 @@ devpiano 源于对旧版 Windows FreePiano 的现代化重构。所有有价值�
 
 ### UI 与体验
 
-- **JIVE 声明式 UI 架构**：`juce::ValueTree` 驱动整棵界面树，FlexBox / CSS Grid 自适应布局
+- **内生声明式 UI 架构**：`juce::ValueTree` 驱动主界面、设置窗口与弹窗，内化的 `source/UI/jive/core/` 支撑 FlexBox / CSS Grid 自适应布局，由 `ViewHost` 封装解释器与生命周期
 - **通用声明式模态弹窗（`JiveModalDialog`）**：预设管理、元数据编辑与导出进度统一暗黑主题浮层
 - **Performance Preset 预设系统**：`.devpiano.preset` JSON 格式、自动发现、CRUD 操作、F1-F12 快捷键与录制时自动切换预设
 - **静态资产构建期内嵌**：设计 Token、样式表与中文语言包由 CMake `BinaryData` 编译期静态打包，单文件免安装绿色运行

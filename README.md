@@ -25,8 +25,8 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
            ▼                              ▼                              ▼
 ┌─────────────────────┐        ┌─────────────────────┐        ┌─────────────────────┐
 │   发声与插件引擎    │        │   输入与路由矩阵    │        │   录制回放与渲染    │
-│ 7大声学系统物理建模 │        │  稳定按键映射+88键  │        │  实时无锁采集+Take  │
-│ VST3 宿主与 Editor  │        │   16通道矩阵+调号   │        │  离线多线程WAV导出  │
+│ 物理钢琴+VST3插件  │        │ 键盘分组+和弦/力度 │        │ 录制回放+A-B循环   │
+│  乐器端点+节拍器   │        │   16通道矩阵+调号   │        │  异步后台WAV导出   │
 └─────────────────────┘        └─────────────────────┘        └─────────────────────┘
 ```
 
@@ -36,8 +36,8 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
 - **88 键连续物理参数映射**：基于 Bensa et al. (2003) 与 Steinway B 实测标定，连续插值琴弦刚度 $B$、击弦比 $d/L$、阻尼常数与 1/2/3 弦物理分区（`Piano88KeyTable.h`）；
 - **非线性打击、毛毡老化与动力学绽放**：三层毛毡动力学压实、动态接触时间 $T_c$、击弦点几何梳状陷波、3ms 高频瞬态裂音（HF Crack）、琴槌毛毡微老化穿透力（`feltAgeingAmount`）、泛音时间滞后膨胀绽放（Harmonic Blooming）与强击软饱和；
 - **真实共鸣与空间声学系统**：16 峰正交云杉木物理音板模态、4.2kHz 云杉木高频粘滞吸收滤波、琴桥立体声展开、同音三弦 Mid-Side 差分展开与非对称拍频、演奏者（Player）与听众（Audience）双视角声相变换（`PerspectiveProcessor`）以及内置纯算法房间混响网络（`RoomReverbEngine`: Chamber/Hall/Studio）；
-- **微观机械动作拟真与古典律制**：CC64 全局交感共鸣、延音踏板下踏/抬起机械扫掠呼啸（Whoosh）与共鸣冲击（Resonance Shock）、制音器落木闷击与琴键释放摩擦、离键速度动态 ADSR 阻尼缩放，以及 6 大古典微调律制（`TemperamentEngine`）与 A4 基准基频微调；
-- **硬实时性能保证**：Magic Circle 二阶递归振荡器，逐采样**零三角函数调用（零 `std::sin`）**，8 复音齐奏单核 CPU 负载 $\le 0.7\%$，实时音频路径严格**零堆分配、零锁**；支持与内置正弦波（`SineSynthVoice`）平滑对比切换。
+- **微观机械动作拟真与古典律制**：CC64 全局交感共鸣、延音踏板下踏/抬起机械扫掠呼啸（Whoosh）与共鸣冲击（Resonance Shock）、制音器落木闷击与琴键释放摩擦、离键速度动态 ADSR 阻尼缩放，以及 6 大古典微调律制（`TemperamentEngine`）与 A4 基准基频微调（当前限幅 410.0–450.0 Hz；产品契约目标 400.0–480.0 Hz）。
+- **物理发声核心与硬实时目标**：`PianoSynthVoice` 的 Magic Circle 逐采样循环不调用 `std::sin`；8 复音齐奏单核 CPU $\le 0.7\%$、整个实时回调零堆分配/零锁/零实时三角函数仍是必须满足的契约。当前节拍器每拍计算与异常缓冲兜底等差距见 [`docs/issues/known-issues.md`](docs/issues/known-issues.md)；支持与内置正弦波（`SineSynthVoice`）切换。
 
 ### 🔌 VST3 插件宿主与乐器端点（VST3 Plugin Hosting & Instrument Endpoint）
 
@@ -53,7 +53,13 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
 - **轻量键位分组与发音身份恒定（Layout Groups & HeldKeyIdentity）**：单预设支持 4 组键位配置（Group A~D），反引号键（`）或 UI 按钮秒级切换；松键注销 100% 绑定按键瞬间的发音快照，彻底杜绝悬挂音；
 - **采样精确切分延音踏板（SustainPolicy & Sync Pedal）**：音频块内部采样点级别调度 $\text{CC64}(0) \to \text{NoteOn} \to \text{CC64}(127)$，消除空格键踩放时的断音空洞，杜绝线程 Sleep；
 - **瞬态演奏修饰键（PerformanceModifierState）**：Shift 键瞬态力度拉满（Velocity Boost）、Alt 键瞬态高八度平移（+8va），松开自动回弹，UI 实时展示 HUD 标签；
+- **击键动态力度与实时和弦反馈**：可选 `TypingCadenceEstimator` 按击键间隔调整力度，`VelocityHumanizer` 叠加有界、确定性哈希微扰（Shift 力度拉满优先）；基于按下音符识别和弦及转位，在 QWERTY 卡片标题与键盘 HUD 显示，松键后渐隐。
 - **稳定按键映射与 88 键虚拟键盘**：基于稳定 key code 路由，消除输入法干扰；标准 88 键虚拟键盘配备局部脏矩形剪裁（`repaintKey()`）与 3 种音符标注（DoReMi / FixedDo / NoteName）。
+
+### 🥁 节拍与跟练工具（Metronome & Practice）
+
+- **采样级节拍器**：`MetronomeProcessor` 在音频块内产生强弱拍，支持 2/4、3/4、4/4、6/8 拍号、40–280 BPM、Tap Tempo 与状态栏节拍反馈；录制前可设置 1–2 小节预备拍。
+- **MIDI A-B 循环与时间轴**：`TimelineBar` 支持点击/拖动跳转、设置与清除 A/B 标记；`RecordingEngine` 按 Take 时间轴调度循环与播放速度，跳转/回跳时清理当前发声，避免悬挂音。
 
 ### 🎛️ 16 通道 MIDI 矩阵与实时移调（16-Channel MIDI Matrix & Transposition）
 
@@ -63,7 +69,7 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
 ### 🎙️ 演奏录制、回放与数据持久化（Recording, Playback & Persistence）
 
 - **实时无锁采集**：音频线程无锁采集生成不可变 `RecordingTake` 数据结构；
-- **多倍速回放控制**：支持 0.5x–2.0x 实时原子倍速平滑调节与 Back 从头回放；
+- **多倍速回放控制**：支持 0.5x–2.0x 原子倍速调节、Back 从头回放，以及暂停/恢复、Take-relative 跳转与 A-B 循环跟练；
 - **原生演奏持久化**：支持 `.devpiano` 原生演奏文件格式（v2 JSON + Base64 编码 + `juce::TemporaryFile` 原子写入）；
 - **标准 MIDI 文件支持**：支持导出标准 Type 1 MIDI 文件（960 PPQ），支持导入标准 `.mid` 文件并合并全部音轨，解析 CC64 延音、Pitch Bend 与 Program Change 等控制信息；
 - **Performance Preset 预设系统**：预设 CRUD 编排、F1-F12 快捷键切换、录制中自动切调记录以及同名导入覆盖确认（JIVE 声明式弹窗）。
@@ -77,7 +83,7 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
 ### 🎨 内生声明式 UI 运行时与设计系统（Declarative UI & Design System）
 
 - **声明式 UI 架构**：全应用主界面、设置面板与弹窗全面统一至项目内生声明式 UI 运行时（`source/UI/jive/core/`，依据 ADR-014 已完全内化并退役 JIVE 外部子模块，支持 `juce::ValueTree` 布局 + JSON 样式表 + Flex/CSS Grid 自适应），彻底消灭手工坐标排版；
-- **现代化暗黑主题**：基于 `DevPianoLookAndFeel` 的旋钮化 ADSR/音量调节、3 列对称居中状态栏（实时 MIDI 活动灯、插件/预设名称、音频指标与调号）；
+- **现代化暗黑主题**：基于 `DevPianoLookAndFeel` 的旋钮化 ADSR/音量调节、演奏走带与节拍器控件、状态栏 MIDI 活动/节拍反馈、插件名称、音频指标与调号；
 - **绿色单文件资产内嵌**：设计 Token（`design_tokens.json`）、样式表（`style_sheets.json`）与中文语言包（`zh_CN.loc`）由 CMake 编译期二进制静态内嵌，单文件绿色分发零外部文件依赖。
 
 ### 🌐 运行时国际化（Runtime i18n）
@@ -91,18 +97,18 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
 ```text
 source/
 ├── Main.cpp / MainComponent.*     # 应用生命周期、跨平台窗口与主装配协调层
-├── Audio/                         # 音频引擎、PianoSynthVoice 物理建模、SyncPedalProcessor 与 InstrumentEndpoint
-├── Input/                         # 电脑键盘事件捕获、稳定键位 MIDI 映射与 QWERTY 快照生成
+├── Audio/                         # 音频引擎、物理建模、采样级节拍器、SyncPedalProcessor 与 InstrumentEndpoint
+├── Input/                         # 稳定键位 MIDI 映射、击键动态力度与 QWERTY 快照生成
 ├── Midi/                          # 16 通道 MIDI 矩阵路由与实时移调映射
 ├── Plugin/                        # VST3 插件扫描、加载、生命周期与 Editor 托管
-├── Recording/                     # 演奏录制、回放、MIDI 导入导出与公共离线渲染管线
+├── Recording/                     # 录制回放、Take-relative A-B 循环/Seek、MIDI I/O 与离线渲染管线
 ├── Export/                        # WAV 离线导出后台任务与选项构建
 ├── Layout/                        # Performance Preset 预设数据模型与 CRUD 编排
 ├── Settings/                      # 设置模型、持久化存储、独立窗口与 JIVE 声明式设置面板
-├── UI/                            # 内生声明式 UI 运行时（core/）、布局模型、设计 Token、弹窗体系与 Native 原生组件
+├── UI/                            # 内生声明式 UI、走带时间轴、和弦 HUD、设计 Token 与 Native 组件
 ├── Locale/                        # 语言管理器与编译期内嵌语言包
 ├── Diagnostics/                   # 结构化日志系统、MidiTrace 与调试输出
-└── Core/                          # 核心数据结构与强类型定义（AppState, KeyMapTypes, QwertyModel, MusicTheory）
+└── Core/                          # 核心数据结构与强类型定义（AppState, KeyMapTypes, MetronomeModel, MusicTheory）
 ```
 
 ---
@@ -121,23 +127,20 @@ source/
 ./scripts/dev.sh format               # 一键格式化 source/ 下所有 .cpp/.h
 ./scripts/dev.sh format --check       # 检查格式合规（CI 模式）
 
-# 3. 静态检查（clang-tidy）
-./scripts/dev.sh tidy                 # 增量检查未提交的改动文件
-./scripts/dev.sh tidy --all           # 全量静态检查（迭代边界门禁）
+# 3. 静态检查（仅迭代边界执行全量 clang-tidy）
+./scripts/dev.sh tidy --all
 
 # 4. 刷新 WSL 编译数据库（供 clangd/LSP 使用）
 ./scripts/dev.sh wsl-build --configure-only
 
-# 5. 运行全量单元测试（覆盖核心引擎、物理声学与 UI 全套自动化测试，零失败）
-./scripts/dev.sh test
+# 5. Windows MSVC Debug 验证构建（内置同步）
+./scripts/dev.sh win-build
 
-# 6. Windows MSVC 验证构建（内置代码智能同步）
-./scripts/dev.sh win-build            # Debug 验证构建（日常开发）
-./scripts/dev.sh win-build --release  # Release 构建（发布准备）
+# 6. Windows Debug 单元测试：在镜像树 Developer PowerShell 中运行
+#    BUILD_TESTS=ON + ctest；具体命令见 docs/guides/quickstart.md
 
-# 7. 编译耗时性能剖析（-ftime-trace，分析最耗时文件/头文件/模板）
-./scripts/dev.sh time-trace           # 增量分析最新构建热点
-./scripts/dev.sh time-trace --clean   # 清理后全量剖析并导出 Perfetto 火焰图
+# 7. Release 构建（仅发布时）
+./scripts/dev.sh win-build --release
 
 # 8. 正式发布打包（生成 Windows x64 zip 与 SHA256 校验和）
 ./scripts/dev.sh package              # 自动提取版本并打包
@@ -148,15 +151,13 @@ source/
 
 每次关键修改提交前，必须满足以下三道质量门禁：
 1. **代码格式**：`./scripts/dev.sh format --check` 零违规；
-2. **单元测试**：`./scripts/dev.sh test` 全量测试套件 100% 通过；
+2. **单元测试**：在 Windows 镜像树用 `BUILD_TESTS=ON` 构建并以 CTest 运行 `devpiano_tests`，命令见 [`docs/guides/quickstart.md`](docs/guides/quickstart.md)；Linux CI 使用 `./scripts/dev.sh test`，在本地 WSL 调用该脚本会违反镜像验证工作流；
 3. **构建验证**：WSL 配置 `wsl-build --configure-only` + Windows 镜像 `./scripts/dev.sh win-build` 编译成功。
 
 ---
 
 ## 构建产物路径
 
-- **WSL Debug**：`build-wsl-clang/devpiano_artefacts/Debug/DevPiano`
-- **WSL Release**：`build-wsl-clang-release/devpiano_artefacts/Release/DevPiano`
 - **Windows Debug**：`<WIN_MIRROR_DIR>\build-win-msvc\devpiano_artefacts\Debug\DevPiano.exe`
 - **Windows Release**：`<WIN_MIRROR_DIR>\build-win-msvc-release\devpiano_artefacts\Release\DevPiano.exe`
 - **发布分发包**：`<WIN_MIRROR_DIR>\dist\v<VERSION>\DevPiano-v<VERSION>-win-x64.zip`

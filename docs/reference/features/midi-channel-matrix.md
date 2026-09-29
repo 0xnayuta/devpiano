@@ -57,10 +57,16 @@ struct PerChannelConfig {
 3. **力度覆盖计算**：
    $$\text{Velocity}_{\text{out}} = \begin{cases} \text{config.velocity}, & \text{若 } \text{config.velocity} \neq 64 \\ \text{clamp}\left(0, 127, \text{round}(\text{Velocity}_{\text{orig}} \times 127)\right), & \text{若 } \text{config.velocity} == 64 \end{cases}$$
 
-### 3.2 Note Off 变换（`applyMatrixToNoteOff`）
+### 3.2 Note Off 变换与发音身份守恒
 
-Note Off 仅执行通道重定向与音高变换，速度严格与 Note On 的音高保持一致，确保制音器动作完全对称，不残留悬挂音。
+在 devpiano 中，Note Off 遵循双重防悬挂保障机制：
 
+1. **独立消息流变换（`applyTransform`）**：若直接转换离散 MIDI 消息流，`applyMatrixToNoteOff` 执行与 Note On 完全相同的通道重定向与音高变换公式，确保制音器动作在静态数据流上完全对称；
+2. **交互演奏发音身份守恒（`sendNoteOn` / `sendNoteOff`）**：
+   - 键盘按下时，`sendNoteOn` 返回 `devpiano::core::MidiNoteIdentity`（锁定经矩阵变换后的实际输出音高与输出通道），调用方（`KeyboardMidiMapper`）将其存入 `heldKeys` 快照；
+   - 松键时，`sendNoteOff(identity, velocity, keyboardState)` 严格消费该快照注销发音；
+   - **抗替换鲁棒性**：即使在按键按住期间动态修改了矩阵映射、八度偏移、调号，甚至运行时重新创建并替换了整个 `MidiChannelMapper` 实例，NoteOff 依然 100% 依据按下时的原始身份释放目标通道与音高，从根本上杜绝悬挂音；
+3. **输入通道边界防护**：`configForChannel` 内部对传入通道索引执行 `juce::jlimit(0, 15, inputChannel)` 严格钳位，越界输入自动安全回退至通道 15 配置，防止内存越界。
 ---
 
 ## 4. 全局调号（Key Signature）系统
@@ -97,9 +103,14 @@ devpiano 在 `SettingsModel` 与 `AppState` 中维护全局调号：
 
 | 测试用例 | 验证目标 | 状态 |
 |---|---|:---:|
-| `testPassThroughWhenInactive` | 验证矩阵未激活时所有 16 通道 Note/CC 严格原样透传 | [x] 已通过 |
-| `testChannelRemapping` | 验证通道 0 映射至通道 9，输出消息 channel 为 10 | [x] 已通过 |
-| `testSemitoneAndOctaveTranspose` | 验证 transpose=+3 与 octaveShift=-1 时音高正确计算为 `orig + 3 - 12` | [x] 已通过 |
-| `testVelocityOverride` | 验证 velocity 设置为 100 时覆盖原始力度；为 64 时保留原始力度 | [x] 已通过 |
-| `testKeySignatureFollowKey` | 验证 `followKey=true` 时叠加调号偏移，`followKey=false` 时忽略调号 | [x] 已通过 |
-| `testPitchBoundaryClamping` | 验证负移调与超高移调时音高严格限制在 `[0, 127]` 合法范围 | [x] 已通过 |
+| `testDefaultPassThroughWithoutTranspose` | 验证默认矩阵且未启用移调时消息原样透传 | [x] 已通过 |
+| `testDefaultMatrixWithGlobalTranspose` | 验证默认矩阵开启移调时，旋律通道随调号平移，Ch10 打击乐通道旁路保持原音高 | [x] 已通过 |
+| `testOutputChannelRemap` | 验证通道输出重定向（如通道 0 映射至通道 9，输出通道为 10） | [x] 已通过 |
+| `testTransposeAndOctaveClamping` | 验证半音移调与八度偏移计算，以及 [0, 127] 音高边界严格钳位 | [x] 已通过 |
+| `testVelocityOverride` | 验证固定力度覆盖（!= 64 覆盖，== 64 保留原始力度） | [x] 已通过 |
+| `testFollowKeyWithGlobalTranspose` | 验证 followKey 开关对旋律与打击乐通道的调号跟随独立控制 | [x] 已通过 |
+| `testNoteOnOffSymmetry` | 验证 NoteOn 与 NoteOff 经矩阵变换后通道与音高严格对称 | [x] 已通过 |
+| `testNonNoteMessagesPassThrough` | 验证 CC、Pitch Wheel 等非 Note 消息完全原样透传 | [x] 已通过 |
+| `testOutOfRangeInputChannelClamps` | 验证非法越界输入通道（如 > 15）安全钳位至第 16 通道配置 | [x] 已通过 |
+| `testKeyboardStateReceivesTransformedNotes` | 验证 `sendNoteOn` 与 `sendNoteOff` 准确驱动 `MidiKeyboardState` 发声与释放 | [x] 已通过 |
+| `testMappedIdentitySurvivesMapperReplacement` | 验证发声中途替换 `MidiChannelMapper` 实例后持有的发音身份依然安全释放，杜绝悬挂音 | [x] 已通过 |

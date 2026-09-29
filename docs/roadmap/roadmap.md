@@ -38,7 +38,7 @@ UI 拆分为头部 / 插件 / 参数 / 键盘区域、Performance Preset 系统�
 
 ### Phase 4：MIDI 文件导入 [v0.1.0 已发布，2025-05-06]
 
-MIDI 文件导入、自动选轨、回放、虚拟键盘可视化、最近路径记忆、主窗口尺寸自适应与恢复。
+MIDI 文件导入、音轨解析、回放、虚拟键盘可视化、最近路径记忆、主窗口尺寸自适应与恢复；后续已由 Phase 26 升级为全轨并轨，不再提供选轨模式。
 
 功能与测试文档：[`../reference/features/midi-file-import.md`](../reference/features/midi-file-import.md)。
 
@@ -46,7 +46,7 @@ MIDI 文件导入、自动选轨、回放、虚拟键盘可视化、最近路径
 
 ### Phase 5：架构收敛与 MainComponent 瘦身 [v0.2.0 已发布，2026-07-19]
 
-`MainComponent.cpp` 从 ~1587 行降至 ~446 行。
+`MainComponent.cpp` 收敛为顶层装配、生命周期与回调接线职责。
 提取 `RecordingSessionController` / `PluginOperationController` / `SettingsWindowManager` / `AppStateBuilder`。
 
 详细完成记录见 [`../archive/phase5-architecture-convergence.md`](../archive/phase5-architecture-convergence.md)。
@@ -62,7 +62,7 @@ MIDI 文件导入、自动选轨、回放、虚拟键盘可视化、最近路径
 ### Phase 7：VST3 离线渲染与国际化 [v0.2.0 已发布，2026-07-19]
 
 VST3 离线渲染（WAV 导出 + `ExportDialog` 进度）、播放速度精确控制（Slider + atomic 线程安全）、拖放文件支持、运行时中英文语言切换（JUCE `Translation`）。
-Phase 7-5（Metadata 编辑对话框）— 明确搁置（基础设施已就位，UI 无现阶段价值）。
+Phase 7-5（Metadata 编辑对话框）当时搁置，后续已由 Phase 15 的 `JiveModalDialog` 实现。
 Phase 7-7（全屏模式）— 不实现（`resizable` toggle + OS 最大化可替代）。
 
 详细完成记录见 [`../archive/phase6-7-completion-detail.md`](../archive/phase6-7-completion-detail.md)。
@@ -95,13 +95,13 @@ Performance Preset、88 键完整钢琴键盘、Smooth Pitch Bend、乐曲信息
 
 ### Phase 11：声明式 UI 架构迁移（JIVE + melatonin_inspector） [v0.3.0 已发布，2026-08-16]
 
-JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid 自适应）替代 5 个面板的硬编码 `setBounds()` 布局；melatonin_inspector 运行时检查器加速 UI 迭代反馈；`design_tokens.json` 统一 JIVE 与原生组件样式来源；`Ctrl+R` / 文件监听热重载；`MainComponent::resized()` 缩减至 3 行（JIVE FlexBox 自动响应）。`CustomKeyboard` 与 ADSR 曲线经组件工厂原生注入，业务逻辑层零改动。
+JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid 自适应）替代主窗口各面板的硬编码 `setBounds()` 布局；当时使用的 melatonin_inspector 运行时检查器后来已退役（ADR-013），JIVE 也已内化（ADR-014）。`design_tokens.json` 统一样式来源，原生键盘与 ADSR 曲线通过组件工厂注入，业务逻辑与排版解耦。
 
 详细计划与完成记录见 [`../archive/phase11-declarative-ui-jive.md`](../archive/phase11-declarative-ui-jive.md)。
 
 ### 全面代码质量审计 (AUDIT-001) [v0.3.0 已发布，2026-08-16]
 
-代码质量审计（`AUDIT-001`，2026-08-16）登记 85 项全部闭环（56 项未处理全关闭，14 项已暂缓维持）；三闸门全绿 + win-build 通过 + 全量源码文件 clang-tidy 0 诊断。消除音频回调堆分配与延迟 prepare、修复 `masterGain` 跨线程数据竞争、提取公共离线渲染管线 `RenderPipeline`、断言总数提升至 3100+。
+代码质量审计（`AUDIT-001`，2026-08-16）登记问题按审计归档闭环；三闸门与 win-build 通过，全量源码文件 clang-tidy 无诊断。消除音频回调堆分配与延迟 prepare、修复 `masterGain` 跨线程数据竞争，并提取公共离线渲染管线 `RenderPipeline`。
 
 审计报告见 [`../audit/AUDIT-001-code-quality-audit-2026-08-16.md`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md)，Phase A–H 逐项完成记录见 [`../archive/audit-001-code-quality-fix-phases.md`](../archive/audit-001-code-quality-fix-phases.md)。
 
@@ -216,7 +216,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 4. **Phase 25-D（已完成）**：`ci.yml` 合并 Debug 测试与 Release 构建为单一 `linux-gate` job（ubuntu-24.04 共享 ccache，Debug 测试 + Release 构建/测试 + 门槛检查；Windows 门禁补 Release 构建验证）并扩展 `package_release.sh` 支持 `--linux` 打包选项（tar.gz + sha256，打包前自动执行 glibc 门槛检查）；
 5. **Phase 25-E（已完成）**：三闸门基线验证（CI 全绿）、Linux 专项冒烟测试清单（CachyOS 2026-08-24 实机验证通过）与指南文档对齐（`release-workflow.md` 新增 §5A Linux 手工冒烟测试与双平台发布流程）。
 
-> 基础设施已落地：`.github/workflows/ci.yml`（格式门禁 + `linux-gate` Debug 测试/Release 门槛 + Windows MSVC Debug/Release 构建测试门禁）、`.github/workflows/release.yml`（Tag 触发 Windows/Linux 双平台自动打包发布）与 `.github/workflows/pr-agent.yml`（PR-Agent AI 代码审查，DeepSeek v4 Flash）。当前子任务排期与验收状态见 [`current-iteration.md`](current-iteration.md)。
+> 基础设施已落地：`.github/workflows/ci.yml`（格式门禁 + `linux-gate` Debug 测试/Release 门槛 + Windows MSVC Debug/Release 构建测试门禁）、`.github/workflows/release.yml`（Tag 触发 Windows/Linux 双平台自动打包发布）与 `.github/workflows/pr-agent.yml`（PR-Agent AI 代码审查，配置以工作流文件为准）。当前子任务排期与验收状态见 [`current-iteration.md`](current-iteration.md)。
 
 详细完成记录见 [`../archive/phase25-linux-desktop-and-audio-path.md`](../archive/phase25-linux-desktop-and-audio-path.md)。
 
@@ -224,16 +224,16 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 1. **`MidiTrackMergeEngine` 多轨时间线精准合并内核**：实现统一多轨合并引擎，支持跨音轨 Tempo/Conductor、Meta、CC 与 Note 事件按绝对时间戳（`timestampSamples`）精准稳定归并；
 2. **多轨通道智能策略与元数据解析**：支持原始通道保持（Pass-through）与音轨转通道自动重映射（Track-to-Channel Auto-Assignment），提取并整合乐曲标题、音轨名、Tempo Map 与调号拍号；
-3. **16 通道矩阵与虚拟键盘综合回放联动**：16 通道矩阵对各轨独立移调/加权/静音控制，88 键虚拟键盘多音轨多着色高亮联动；
+3. **MIDI 通道与虚拟键盘综合回放联动**：合并后的音符保留或按导入策略分配 MIDI 通道，回放时虚拟键盘同步高亮；通道的 `followKey` 掩码决定是否应用全局播放移调，不提供音轨级静音或混音编辑；
 4. **全轨 WAV 离线渲染与多轨测试套件全覆盖**：支持全轨合并流直接离线导出高质量 WAV 音频（维持只读 Playback Take 契约），覆盖 Type 0 / Type 1 复杂多轨夹具。
 
 ### Phase 27：JUCE 9.0.1 框架升级、UI 基础设施内化与全平台生态演进（JUCE 9.0.1 Framework Upgrade & Internalized UI Governance） [已完成，2026-09-02]
 
-1. **框架升级与构建基线更新（Phase 27-A）**：`submodules/JUCE` 升级至官方最新稳定版 JUCE 9.0.1（`e18f7f5`），工具链、CMake 选项与全套文档版本基线全面对齐；
+1. **框架升级与构建基线更新（Phase 27-A）**：`submodules/JUCE` 升级至 JUCE 9.0.1（`e18f7f5`），工具链、CMake 选项与文档版本基线对齐；
 2. **非 UI 领域 Breaking Changes 适配（Phase 27-B）**：适配 VST3 宿主与 `AudioPluginInstance` 生命周期，适配流式音频导出及现代音频设备管理；
 3. **UI 基础设施与 JIVE 依赖治理（Phase 27-C）**：依据 ADR-014 彻底注销并退役 `submodules/JIVE` 外部子模块，内化核心声明式 UI 运行时与 CSS Grid 至 `source/UI/jive/core/`，全面完成 `FontOptions`、`GlyphArrangement` 与 `DrawableComponent` 现代排版渲染迁移；
 4. **内化代码质量治理与全量 CI 门禁纳入（Phase 27-D）**：内化 UI 代码完成 C++20 规范现代化（`override`、`noexcept`、`const-ref`），移除静态分析豁免，与业务代码统一享有零警告检验；
-5. **全系统功能回归、三闸门闭环与发布打包（Phase 27-E）**：63 个测试套件、12,668+ 单元测试断言 100% 绿灯，WSL 与 Windows MSVC 双端双配置编译 0 错误，分发包打包成功，GitHub Actions 五大门禁 100% 通过合入 `main`。
+5. **全系统功能回归、三闸门闭环与发布打包（Phase 27-E）**：核心引擎、物理声学与 UI 自动化测试通过，Windows MSVC 验证构建与分发打包通过，GitHub Actions 门禁通过后合入 `main`。
 
 详细完成记录见 [`../archive/phase27-juce9-upgrade-and-ui-internalization.md`](../archive/phase27-juce9-upgrade-and-ui-internalization.md)。
 
@@ -241,7 +241,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 1. **API 边界收敛与 ViewHost 门面构建（Phase 28-A）**：封装 `ViewHost`，彻底隔离业务代码对底层 `Interpreter` / `GuiItem` 的裸露直接依赖与析构 UAF 风险 [已完成，2026-09-03]；
 2. **全量声明式 UI 布局金标测试（Phase 28-B）**：构建全应用 ValueTree 解释烟测、典型分辨率几何尺寸断言与焦点/滑音回归测试套件 [已完成，2026-09-03]；
-3. **通用死重清理与规范化命名规整（Phase 28-C）**：剔除 JIVE 内嵌单测与孤立算法死代码（累计清除 7,470 行），统一宏前缀（`DEVPIANO_UI_*`）与命名空间（`devpiano::ui`）[已完成，2026-09-03]；
+3. **通用死重清理与规范化命名规整（Phase 28-C）**：剔除 JIVE 内嵌单测与孤立算法死代码，统一宏前缀（`DEVPIANO_UI_*`）与命名空间（`devpiano::ui`）[已完成，2026-09-03]；
 4. **代码审查闭环与 UI 基础设施接口冻结（Phase 28-D）**：双端双配置三闸门闭环，正式确立 UI Infrastructure Freeze 冻结公约，研发重心全面重归物理建模算法 [已完成，2026-09-03]。
 
 详细完成记录见 [`../archive/phase28-ui-governance-and-api-freeze.md`](../archive/phase28-ui-governance-and-api-freeze.md)。
@@ -252,7 +252,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 2. **弱音/移位踏板物理拟真与状态联动（Phase 29-B）**：在 `PianoSynthVoice` 中模拟三角钢琴击弦机整体右移、3 弦敲 2 弦与毛毡侧面软化的物理机理，支持 MIDI CC 67 踏板信号、电脑键盘快捷触发与 UI 软踏板状态点亮 [已完成，2026-09-12]；
 3. **触键力度曲线自适应映射（Phase 29-C）**：在 `KeyboardMidiMapper` / 输入层提供 Standard（线性）、Light（轻触感）、Heavy（重阻尼）、Wide Dynamic（宽动态 S 曲线）4 种手感映射，自适应薄膜/机械键盘及 MIDI 键盘 [已完成，2026-09-12]；
 4. **声学配置持久化与预设系统全量联动（Phase 29-D）**：将琴盖开合度、Una Corda 默认态与触键曲线完整纳入 `SettingsModel`、`SettingsStore` 与 Performance Preset（`.devpiano.preset` JSON）序列化，确保向后兼容 [已完成，2026-09-12]；
-5. **声学精调、三闸门闭环与构建验证（Phase 29-E）**：全套 71 套件单测 100% 绿灯闭环，三闸门合规，双平台 MSVC / Linux 编译与打包验证，实机演奏手感与声学回归 [已完成，2026-09-12]。
+5. **声学精调、三闸门闭环与构建验证（Phase 29-E）**：声学与演奏交互自动化测试通过，三闸门合规，双平台编译与打包验证，实机演奏手感与声学回归 [已完成，2026-09-12]。
 
 详细完成记录见 [`../archive/phase29-physical-voicing-and-acoustic-interaction.md`](../archive/phase29-physical-voicing-and-acoustic-interaction.md)。
 
@@ -308,16 +308,16 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 3. **SustainPolicy 与 Sample-Accurate 事件级 Sync 切分踏板**：音频块内部采样精确调度 $\text{CC64}(0) \to \text{NoteOn} \to \text{CC64}(127)$，消除空格键踩放断音空洞，杜绝线程 Sleep；
 4. **PerformanceModifierState 瞬态 Press 修饰符**：Shift 力度拉满（Velocity Boost）、Alt 高八度平移（+8va），纯事件流变换零全局配置污染，UI HUD 实时标签；
 5. **扫描器增量持久化（Crash-safe State Persistence）与乐器端点概念收敛**：插件扫描逐项即时持久化，dead-man's pedal 崩溃点记录与黑名单推迟；`InstrumentEndpoint` 统一乐器抽象，解耦设备准备、实时发声与离线渲染；
-6. **跨平台实现深度收敛与 JUCE 9 原生框架利用全面升级（Phase 34-F）**：彻底拔除 Win32 `WNDPROC` Hook、`AttachThreadInput` 与 `<windows.h>`，全平台统一基于 JUCE 9 原生事件；`WavExportTask` 完全异步化（`startAsync`），移除 `JUCE_MODAL_LOOPS_PERMITTED=1`；C++ 字符串字面量 100% 达到 Strict 7-bit ASCII 约束；`createLegalFileName` 替换自造文件名过滤轮子，运行时配置目录统一为 `DevPiano`。
+6. **跨平台实现深度收敛与 JUCE 9 原生框架利用全面升级（Phase 34-F）**：拔除主窗口 Win32 `WNDPROC` Hook、`AttachThreadInput` 与 `<windows.h>` 特化，全平台统一基于 JUCE 9 原生事件；`WavExportTask` 完全异步化（`startAsync`），主应用目标不再定义 `JUCE_MODAL_LOOPS_PERMITTED=1`（测试目标仍保留）；C++ 字符串字面量遵守 Strict 7-bit ASCII 约束；`createLegalFileName` 替换自造文件名过滤轮子，运行时配置目录统一为 `DevPiano`。
 
 详细完成记录见 [`../archive/phase34-keyboard-performance-ux-and-expressive-control.md`](../archive/phase34-keyboard-performance-ux-and-expressive-control.md) 与 [`../archive/cross-platform-and-juce9-convergence.md`](../archive/cross-platform-and-juce9-convergence.md)。
 
 ### Phase 35：键盘演奏表现力深水区与练琴基础设施（Keyboard Expressive Dynamics & Practice Infrastructure）[已完成，2026-09-28]
 
 聚焦于电脑键盘演奏中最核心的体验痛点——缺乏节奏基准工具、打字机式死板力度、缺乏实时乐理反馈以及缺少伴奏循环跟练手段：
-1. **无锁采样级音频节拍器与视觉节拍指示（Phase 35-A）**：确定性采样级 Click Engine（强拍 1600Hz / 弱拍 800Hz 纯数学脉冲，零外部采样依赖）、2/4、3/4、4/4、6/8 拍号、40~280 BPM 无级可调与 Tap Tempo 连续测速、走带指示灯同频脉冲与预备拍（Count-in）；
-2. **打字击键动态力度与人性化微扰引擎（Phase 35-B）**：基于物理击键间隙 $\Delta t$ 的律动速度估算器（`TypingCadenceEstimator`，快弹华彩与慢按抒情力度分层）、确定性微高斯扰动（`VelocityHumanizer`，消除机械感）、基础力度基线动态微调与 QWERTY HUD 实时反馈；
-3. **实时和弦识别与乐理分析 HUD（Phase 35-C）**：基于 `MusicTheory.h` 音高类集合（Pitch Class Set）的无锁实时和弦分析（三和弦/七和弦/挂留/减和弦/转位低音）、QWERTY 看板与状态栏和弦徽标（`ChordBadge`）联动；
+1. **无锁采样级音频节拍器与视觉节拍指示（Phase 35-A）**：确定性采样级 Click Engine（强拍 1600Hz / 弱拍 800Hz，6/8 第四拍次重音 1100Hz，零外部采样依赖）、2/4、3/4、4/4、6/8 拍号、40~280 BPM 无级可调与 Tap Tempo 连续测速、状态栏节拍反馈与预备拍（Count-in）；
+2. **打字击键动态力度与人性化微扰引擎（Phase 35-B）**：基于物理击键间隙 $\Delta t$ 的律动速度估算器（`TypingCadenceEstimator`，快弹与慢按力度分层）、确定性哈希微扰（`VelocityHumanizer`）及持久化的基础力度基线设置；关闭动态估算时保留绑定力度，静音绑定仍静音。当前 UI 未提供力度数值 HUD 或动态参数编辑控件；
+3. **实时和弦识别与乐理分析 HUD（Phase 35-C）**：`MusicTheory.h` 根据按下音符的 Pitch Class Set 识别三和弦、七和弦、挂留和弦及转位低音；QWERTY 卡片标题 `qwerty-chord-badge` 与 `QwertyComponent` 内部 HUD 展示结果，状态栏保留节拍和音频信息；
 4. **MIDI 伴奏 A-B 片段循环跟练与进度自由跳转（Phase 35-D）**：走带时间轴精细进度条（`TimelineBar`）与零爆音 Seek 机制、难点小节 A-B 无缝循环引擎（`AbLoopEngine`），配合 0.5x~2.0x 调速闭环键盘练习流。
 
 Phase 35 完成清单见 [`current-iteration.md`](current-iteration.md)；后续路线状态以本文为准。
@@ -346,6 +346,8 @@ Phase 35 完成清单见 [`current-iteration.md`](current-iteration.md)；后续
 | 物理建模高负荷极端情况 | 极低 | 逐采样零三角函数 + 动态分音剪枝，8 复音齐奏单核 CPU $\le 0.7\%$。 |
 | UI 基础设施稳定性 | 极低 | 内生代码完全自主掌控，实施 API Freeze 接口冻结公约；全量 LayoutGoldenTest 保护。 |
 | `MainComponent` 职责回流 | 低 | 保持轻量装配职责（主要由 `initialiseUi()` 承载 JIVE 树构建与回调接线，核心业务均已委托独立 Controller 与领域模块）；持续监控，避免业务逻辑回流。 |
+| 硬实时契约差距 | 待修复 | `MetronomeProcessor` 每拍在音频线程计算三角/指数系数，`MidiKeyboardState::Listener` 同步进入 UI 回调，异常插件缓冲尺寸仍有分配兜底；详见 [`../issues/known-issues.md`](../issues/known-issues.md)。 |
+| A4 基准音高契约差距 | 待修复 | 产品目标 400.0 ~ 480.0 Hz；代码当前钳制为 410.0 ~ 450.0 Hz，详见 [`../issues/known-issues.md`](../issues/known-issues.md)。 |
 | 文档状态漂移 | 极低 | 本文件作为唯一 roadmap；当前任务只写入 [`current-iteration.md`](current-iteration.md)。 |
 
 ---

@@ -8,7 +8,7 @@
 PR-Agent 是开源 AI 代码审查 agent（[The-PR-Agent/pr-agent](https://github.com/The-PR-Agent/pr-agent)，MIT）。devpiano 通过 GitHub Action 方式部署：
 
 - PR 打开 / 重新打开 / 转为 ready / push 新提交（`synchronize`）时自动执行 `/describe`（AI 生成 PR 描述）与 `/review`（代码审查）。
-- 模型：DeepSeek v4 Flash（`deepseek/deepseek-v4-flash`），API key 存于仓库 secret `DEEPSEEK_KEY`。
+- 模型：Gemini 3.8 Flash（`gemini/gemini-3.8-flash`，官方 Google AI Studio 直连），API key 存于仓库 secret `GEMINI_API_KEY`。
 - 审查输出为 `github-actions[bot]` 的 PR 评论，不参与 required checks，**不阻塞合并**。
 
 ## 相关文件
@@ -42,14 +42,14 @@ PR-Agent 是开源 AI 代码审查 agent（[The-PR-Agent/pr-agent](https://githu
 ## 配置说明（.pr_agent.toml）
 
 - `[config] response_language = "zh-CN"`：审查评论使用中文。
-- `[ignore] glob = ["submodules/**"]`：忽略第三方子模块变更（submodules 为只读，不应进入审查范围）。
+- `[ignore] glob = ["submodules/**", "docs/archive/**", "*.patch", "*.lock"]`：忽略第三方子模块、归档文档、补丁与 lock 文件变更（不应进入审查范围）。
 - `[pr_reviewer] extra_instructions`：追加审查关注点——实时音频/MIDI 回调线程安全、AGENTS.md 核心架构要求、Conventional Commits 提交规范。
 - `AGENTS.md` 默认作为 repo context 自动注入 review / describe / improve 的提示词（v0.39+ 行为），仓库规范无需重复配置。
 
 ## 模型与密钥
 
-- 当前模型：`deepseek/deepseek-v4-flash`（workflow 中 `config.model`），`fallback_models` 指向同模型，避免回退到未配置的 OpenAI。
-- 密钥：GitHub Settings → Secrets and variables → Actions 中的 `DEEPSEEK_KEY`（DeepSeek 开放平台获取）。
+- 当前模型：`gemini/gemini-3.8-flash`（workflow 中 `config.model`），`fallback_models` 指向同模型。
+- 密钥：GitHub Settings → Secrets and variables → Actions 中的 `GEMINI_API_KEY`（Google AI Studio 获取）。
 - 切换模型：修改 workflow 中 `config.model` 与对应密钥 env 变量（参考官方 [changing_a_model](https://docs.pr-agent.ai/usage-guide/changing_a_model/) 文档）。
 
 ## 升级与维护
@@ -63,5 +63,5 @@ PR-Agent 是开源 AI 代码审查 agent（[The-PR-Agent/pr-agent](https://githu
 |---|---|
 | 新 PR 无自动评论 | 确认 workflow 已合并到 main；查看 Actions 运行日志中的模型/密钥报错 |
 | 配置修改不生效 | `.pr_agent.toml` 需在 main 分支生效；修改后对 PR 评论 `/review` 或重新触发 |
-| 报模型/密钥错误 | 检查 `DEEPSEEK_KEY` secret 是否存在且有效；检查 `config.model` 拼写与 DeepSeek 平台余额 |
+| 报模型/密钥错误 | 检查 `GEMINI_API_KEY` secret 是否存在且有效；检查 `config.model` 拼写与 Google AI Studio 平台配额 |
 | bot 评论后不再触发 | 正常行为——`sender.type != 'Bot'` 防循环 |

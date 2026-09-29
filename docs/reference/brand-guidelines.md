@@ -128,3 +128,6 @@ devpiano 的图形衍生规范严格围绕三大几何母题展开：
 | `assets/branding/app-icon/devpiano.ico` | 多尺寸 ICO | Windows 应用程序图标（16, 24, 32, 48, 64, 128, 256px） |
 | `assets/branding/app-icon/icon-256.png` | 256×256 PNG | 高清应用图标底图 |
 | `assets/branding/hero-cover.svg` | 1280×640 SVG | GitHub Social Preview / 宣传大图 |
+| `assets/branding/app-icon/app-icon.svg` | 256×256 SVG | 高清应用图标矢量源文件 |
+| `assets/branding/app-icon/app-icon-small.svg` | 32×32 SVG | 小尺寸像素网格对齐应用图标 |
+| `assets/branding/linux/devpiano.desktop` | Desktop Entry | Linux 桌面环境应用启动集成配置 |

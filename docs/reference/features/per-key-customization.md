@@ -1,7 +1,7 @@
 # 逐键个性化、按键绑定与虚拟键盘定制功能说明
 
 > 用途：说明 devpiano 的 88 键虚拟钢琴键盘（`CustomKeyboard`）、逐键自定义标签（`customKeyLabels`）、逐键独立颜色（`customKeyColours`）、按键绑定编辑对话框（`KeyBindingEditDialog`）与调色板交互体系。
-> 当前状态：已全量实现并稳定集成于键盘演奏与 Performance Preset 中（Phase 8 成果）。
+> 当前状态：已全量实现并稳定集成于键盘演奏与 Performance Preset 中（Phase 8 基础落地，Phase 34~35 扩展 12-TET 和声色盘与击键力度动态高亮）。
 > 更新时机：键盘几何渲染、着色模式、按键捕获交互或绑定数据结构发生变化时。
 
 ---
@@ -23,10 +23,10 @@
 
 | 模式 | 标识 | 渲染行为 |
 |---|---|---|
-| **经典模式（Classic）** | `classic` | 白键高亮为天空蓝（`#38BDF8`），黑键高亮为亮蓝；提供最清晰纯净的视觉反馈。 |
+| **经典模式（Classic）** | `classic` | 白键高亮采用产品强调色（`#00C8F0`），黑键高亮为深亮蓝；黑白键均随击键力度动态混入白色辉光，提供最清晰纯净的视觉反馈。 |
 | **通道模式（Channel）** | `channel` | 按照触发该音符的 MIDI 通道（1~16）自动映射为 16 种高辨识度区分色（彩虹色盘），直观展示多通道编曲层次。 |
-| **力度模式（Velocity）** | `velocity` | 随按键力度从绿（弱奏 $v < 40$）经过黄、橙平滑渐变到红（重奏 $v > 100$），动态呈现触键力度变化。 |
-| **和声模式（Harmony）** | `harmony` | 依据 12-TET 半音阶和声色环（`pitchClassHarmonyHues`）映射 12 种音程几何相色，同频绽放三和弦几何色相，与 QWERTY 键盘看板同频联动（Phase 34-A）。 |
+| **力度模式（Velocity）** | `velocity` | 随按键力度从绿（弱奏 $v \to 0$，色相 $64^\circ$）平滑过渡到红（重奏 $v \to 127$，色相 $0^\circ$），并在高亮中叠加力度白色辉光，动态呈现触键力度变化。 |
+| **和声模式（Harmony）** | `harmony` | 依据 12-TET 半音阶和声色环（`getPitchClassHarmonyColour`）映射 12 种音程几何相色（八度同色、三全音互补），同频绽放三和弦几何色相，与 QWERTY 键盘看板及和弦 HUD 同频联动。 |
 
 ### 2.2 3 种音符标注模式（`NoteDisplayMode`）
 
@@ -38,7 +38,7 @@
 
 ### 2.3 平滑余晖消隐动画
 
-- `CustomKeyboard` 内部运行 30 fps 定时器，按键松开后通过指数插值（`fadeSpeed` 参数控制，默认 0.92）平滑淡出高亮背景，重现真实琴弦震动的视觉余韵。
+- `CustomKeyboard` 内部运行 30 fps 定时器，按键松开后通过指数插值（`fadeSpeed` 参数控制，默认 0.92）平滑淡出高亮背景，重现真实琴弦震动的视觉余韵；`QwertyComponent` 内部以 50 fps（20ms 间隔，衰减因子 0.86）驱动余晖动画，确保双键盘视觉律动平滑一致。
 
 ---
 
@@ -82,12 +82,12 @@ struct KeyboardSettings {
 
 ## 5. 确定性测试清单
 
-单元测试位于 `source/tests/KeyMapTypesTest.cpp` 与 `source/tests/KeyboardHitMappingTest.cpp`（隶属于 `DevPiano/Core` 与 `DevPiano/UI` 测试套件）：
+单元测试位于 `source/tests/KeyMapTypesTest.cpp`、`source/tests/KeyboardHitMappingTest.cpp` 与 `source/tests/CadenceVelocityTest.cpp`（隶属于 `DevPiano/Core`、`DevPiano/UI` 与 `DevPiano/Input` 测试套件）：
 
-| 测试用例 | 验证目标 | 状态 |
+| 测试套件 / 用例 | 验证目标 | 状态 |
 |---|---|:---:|
-| `testDefaultLayoutAlphaNumeric` | 验证默认布局 36 键无冲突、keyCode 规范化一致 | [x] 已通过 |
-| `testHitTestingGeometry` | 验证黑键与白键点击区域判定（黑键优先命中，白键边缘无缝接合） | [x] 已通过 |
-| `testCustomKeyLabelsSerialization` | 验证 128 项自定义标签在 JSON 预设中完整保存并准确读回 | [x] 已通过 |
-| `testCustomKeyColoursSerialization`| 验证自定义颜色 ARGB 字符串序列化与透明度正确恢复 | [x] 已通过 |
-| `testKeyBindingUnbindAndRemap` | 验证解除绑定与重新分配新按键时映射表原子更新 | [x] 已通过 |
+| `KeyMapTypesTest` | 验证默认布局 36 键无冲突、keyCode 规范化一致与强类型 MIDI 转换 | [x] 已通过 |
+| `KeyboardHitMappingTest` | 验证黑键与白键点击区域判定（黑键优先命中，白键边缘无缝接合） | [x] 已通过 |
+| `KeyboardHitMappingTest` | 验证鼠标拖拽滑音（Glissando）事件流与多通道色彩正确映射 | [x] 已通过 |
+| `KeyBindingEditDialogTest` | 验证 128 项自定义标签与 ARGB 颜色在 JSON 预设中完整保存与读回 | [x] 已通过 |
+| `CadenceVelocityTest` | 验证快速与慢速打字律动力度曲线估算、超时复位与力度随机抖动 | [x] 已通过 |

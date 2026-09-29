@@ -53,8 +53,7 @@ DevPiano-vX.Y.Z-linux-x64.tar.gz
 DevPiano-vX.Y.Z-linux-x64.sha256
 ```
 
-本地 `./scripts/dev.sh wsl-build --release` 仅用于开发验证（WSL 为
-Ubuntu 26.04，glibc 2.43，产物仅兼容 Arch 系滚动发行版）。
+WSL 主工作树只用于源码编辑和刷新编译数据库；Linux 正式分发包使用上述 GitHub Actions 产物，不以本地 WSL Release 构建替代。
 
 #### 2.2.1 依赖与兼容性（2026-08 查证）
 
@@ -136,29 +135,21 @@ git log --oneline -5
 至少验证：
 
 - 应用可启动，主窗口正常显示。
-- 默认 fallback synth 可发声。
-- 电脑键盘触发 note on / note off 正常，虚拟键盘显示联动正常。
+- 内置物理建模钢琴音源发声正常，可切换 fallback 正弦波。
+- 电脑键盘触发 note on / note off 正常，打字击键动态力度与 Shift 极值正常，虚拟键盘显示联动正常。
+- 节拍器开关（`Ctrl+M`）、走带栏呼吸灯与 Tap Tempo 测速正常。
+- 弹奏和弦时 Qwerty HUD 徽章实时显示识别和弦与淡出。
 - VST3 扫描、加载、卸载、editor 打开/关闭正常。
-- 录制、回放、保存 `.devpiano`、打开 `.devpiano` 正常。
+- 录制、回放、A-B 循环与时间轴 Seek 跳转正常。
+- 保存 `.devpiano`、打开 `.devpiano` 正常。
 - 导入 `.mid` 并播放正常。
 - 音频设备重建后首音无明显异常。
 - 退出应用无明显崩溃或挂起。
-
 如本版本修改了特定功能，还应执行对应专项测试文档中的相关回归项。
 
 ## 5A. Linux 手工冒烟测试
 
-在目标发行版（支持矩阵见 §2.2.1）上运行 Linux Release 产物。正式产物从 GitHub Release 下载；本地开发验证用：
-
-```bash
-./scripts/dev.sh wsl-build --release
-```
-
-产物路径：
-
-```text
-build-wsl-clang-release/devpiano_artefacts/Release/DevPiano
-```
+在目标发行版（支持矩阵见 §2.2.1）上运行从 GitHub Release 下载的 Linux Release 产物；不要用 WSL 主工作树本地构建结果代替发行产物。
 
 至少验证（核心项已于 2026-08-24 在 CachyOS 实机验证通过，对应 Phase 25-B 交互回归）：
 
@@ -166,11 +157,11 @@ build-wsl-clang-release/devpiano_artefacts/Release/DevPiano
 - 音频设备初始化正常（ALSA / JACK 驱动，无异常报错）。
 - 电脑键盘触发 note on / note off 正常，虚拟键盘显示联动正常。
 - 88 键虚拟键盘鼠标点击发声、动态高亮正常。
+- 节拍器、和弦 HUD 徽章与时间轴 A-B 循环/Seek 联动正常。
 - CJK 字体渲染清晰（Noto Sans CJK SC / Source Han Sans 回退链），弹窗无白底/黑块。
 - 焦点切换（失焦 / 窗口切换）不打断 MIDI 回放，无挂起音符（失焦 panic 已修复）。
-- 窗口生命周期：创建、移动、缩放、关闭无异常。
+- 窗口生命周期：创建、移动、缩放、关闭无异常（最小窗口尺寸下虚拟键盘完整可视）。
 - 退出应用无明显崩溃或挂起。
-
 待补充验证发行版：Ubuntu 24.04 LTS、Debian 13、Fedora 41（按发布节奏逐步覆盖）。
 
 ## 6. 打包流程

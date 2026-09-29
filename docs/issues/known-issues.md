@@ -19,14 +19,13 @@
 
 ### C++ 构建耗时热点：std::regex 重复模板实例化与重型 UI 测试单元
 
-> 通过 `-ftime-trace` 与 `scripts/analyze_build_time.py` 首次构建全量微观剖析（142 个编译单元，累计 1034s CPU 耗时）发现两个主要编译期性能瓶颈：
-> 1. **`std::regex` 模板递归膨胀**：`std::basic_regex<char>` 及其内部编译器 `std::__detail::_Compiler` 在 42 个编译单元中被反复递归实例化，累计耗费高达 **30.29 秒** 的 CPU 编译时间；
-> 2. **重型 UI 测试编译单元**：`SettingsLayoutModelTest.cpp`（14.01s）与 `JiveModalDialogTest.cpp`（13.17s）因集中实例化了复杂的 JIVE 声明式解释器、样式引擎与全部组件工厂，成为业务层最慢的编译单元。
+> 通过 `-ftime-trace` 与 `scripts/analyze_build_time.py` 构建微观剖析发现两个主要编译期性能瓶颈：
+> 1. **`std::regex` 模板递归膨胀**：`std::basic_regex<char>` 及其内部编译器在多个编译单元中被反复递归实例化，消耗大量 CPU 编译时间；
+> 2. **重型 UI 测试编译单元**：`SettingsLayoutModelTest.cpp` 与 `JiveModalDialogTest.cpp` 因集中实例化了复杂的 JIVE 声明式解释器、样式引擎与全部组件工厂，成为业务层编译热点。
 >
 > **优化方向与跟进计划**：
 > - 将涉及正则表达式的业务逻辑严格封装至独立 `.cpp` 中，阻断 `<regex>` 在头文件中对包含者的级联模板污染，或采用确定性状态机/轻量字符串匹配替代；
 > - 针对测试工程后续可精细化拆分测试单元或引入针对业务层的 Unity Build 批处理。
-
 ### Linux/X11 窗口大小锁定（Resizable 开关）在框架层失效
 
 > **现状与成因**：
@@ -44,20 +43,38 @@
 > `_MOTIF_WM_HINTS`（`MWM_FUNC_RESIZE` 关闭）或等待 JUCE 修复
 > `setBounds` 的 hints 覆盖问题；届时需权衡原生代码侵入成本。
 
-### 虚拟键盘 CustomKeyboard 在潜在多线程 MIDI 驱动场景下的线程隔离设计约束
+### A4 基准音高范围与项目契约不一致
 
-
-> **现状与分析**：
-> 目前在 devpiano 架构中：
-> 1. MIDI 回放驱动（`RecordingSessionController::timerCallback`）运行在 UI 消息线程；
-> 2. 电脑键盘弹奏（`MainComponent::keyPressed`）与鼠标点击（`CustomKeyboard::mouseDown`）均在 UI 消息线程分发；
-> 因此 `MidiKeyboardState::Listener` 的 `handleNoteOn` 回调与 `CustomKeyboard::timerCallback` 的 `perKeyChannel` / `perKeyVelocity` 读取目前均在 UI 消息线程同步执行，不存在运行时数据竞争。
+> 项目契约要求 A4 基准基频可在 **400.0 ~ 480.0 Hz** 调整；当前 `source/Audio/TemperamentEngine.h` 的 `kMinReferencePitch` / `kMaxReferencePitch` 为 **410.0 / 450.0 Hz**。`SettingsComponent::wireAcousticControls()` 将滑块范围绑定这两个常量，预设导入和离线渲染也受同一限幅约束。两端目标频率当前无法选择；不要将现有限幅误写成完整契约实现。
 >
-> **长期架构约束与演进建议**：
-> 未来若拓展直接由音频硬件回调线程（如直接接管 `MidiInputCallback` 或在 `AudioEngine::audioDeviceIOCallbackWithContext` 内部）直接向共享 `MidiKeyboardState` 批量灌入 `processNextMidiBuffer` 时：
-> - `handleNoteOn` 将在音频实时线程上同步触发；
-> - 此时 `perKeyChannel` 应从裸 `std::array<uint8_t, 128>` 升级为显式 `std::array<std::atomic<uint8_t>, 128>`，或通过轻量 lock-free SPSC 队列投递至 UI 线程，彻底避免实时线程与 UI 渲染线程间的共享数据竞争。
+> **回归建议**：若修复产品契约，统一改动调律引擎、设置滑块、预设读取、离线选项和相应测试；在未修复前，以代码实际限幅作为操作说明，同时明确标注契约差距。
 
+### 节拍器每拍三角函数与全回调零三角 SLA 不一致
+
+> 硬实时目标为 **0 `std::sin`**（零实时三角函数）。`PianoSynthVoice` 的逐采样 Magic Circle 循环满足零三角计算，但 `MetronomeProcessor::triggerBeat()`（`source/Audio/MetronomeProcessor.h`）在音频回调内每拍调用 `std::sin`、`std::cos` 和 `std::exp` 生成脉冲参数；因此**全音频回调**尚不满足该目标。这是每拍而非逐采样计算，不等同于逐采样性能回退，但不得称全回调已达成零三角 SLA。
+>
+> **回归建议**：在音频线程外预计算或替换每拍系数生成后，验证拍号切换、BPM 变速、静音节拍继续计时与录音预备拍，并复核实时线程无分配/无锁约束。
+
+### 音频线程 MIDI Listener 同步触发 UI 回调
+
+> **当前链路**：`AudioEngine::getNextAudioBlock()` 在实时线程调用 `keyboardState.processNextMidiBuffer()` 处理实时输入；`renderPlaybackEventsIfNeeded()` 同样在音频回调内处理回放音符。JUCE `MidiKeyboardState::Listener` [官方说明](https://docs.juce.com/master/classjuce_1_1MidiKeyboardState_1_1Listener.html)明确指出 `handleNoteOn/Off` 同步运行于调用线程，不保证消息线程。
+>
+> **已确认的边界冲突**：`MainComponent::handleNoteOn()` 断言自己在消息线程并调用 `notifyMidiActivity()` 更新 UI；`CustomKeyboard::handleNoteOn/Off()` 调用 `ensureTimerRunning()`，可能在音频线程启动 JUCE 定时器。其 `perKeyChannel` / `perKeyVelocity` 已使用原子变量，无需再建议升级为原子数组；真实风险是音频线程调用 UI/Timer 接口及 Debug 线程断言。此项尚未修复，不能声称 MIDI 回放 Listener 只在消息线程工作。
+>
+> **回归建议**：将音频线程的音符可视状态经无锁快照/队列传至消息线程，限制 Listener 的实时路径为有界无阻塞状态更新；回归 MIDI 导入回放、电脑键盘弹奏、鼠标弹奏和窗口失焦场景。
+
+### 音频回调常规路径严格零堆分配与极端尺寸突变兜底重分配风险 (ERR-002)
+
+> **现状与设计**：
+> 音频回调常规渲染路径（内置物理建模合成器、混响网络、节拍器、MIDI 录制缓冲）严格遵守零堆分配（Zero-allocation）、无锁（Lock-free）铁律。所有音频缓冲与状态容器均在 `AudioEngine::prepareToPlay()` 中按协商的最大采样块尺寸预分配。
+>
+> **边界与兜底**：
+> 若外部宿主或特定音频设备驱动在运行中违反 JUCE 框架契约，未重新调用 `prepareToPlay()` 即直接传入超过预分配尺寸的 `bufferToFill.numSamples` 或通道数：
+> - Debug 构建下会命中 `jassert` 断言告警；
+> - Release 构建下，为防止越界崩溃或破音，`AudioEngine::getNextAudioBlock()`（`source/Audio/AudioEngine.cpp:138-143`）保留了 `pluginBuffer.setSize` 作为安全兜底机制（发生单次堆重分配），并通过原子计数器 `pluginBufferResizeCount` 进行记录，由主线程定时器通过 `consumePluginBufferResizeCount()` 异步消费并输出警告日志（ERR-002，避免在音频实时回调中直接输出 I/O 日志）。
+>
+> **风险与约束**：
+> 正常合规驱动下该计数器恒为 0，常规路径维持零分配；若在特定畸形驱动或偶发设备热插拔出现尺寸突变，该异常帧可能产生短暂堆分配。
 ---
 
 ## 2. 已修复问题（回归参考）
@@ -179,6 +196,37 @@
 - **回归线索**：密集 MIDI 播放时 UI 线程满载 / 虚拟键盘按键残影
 - **关联**：`CustomKeyboard::timerCallback()`，`CustomKeyboard::repaintKey()`，[`../reference/features/builtin-piano-synthesis.md`](../reference/features/builtin-piano-synthesis.md)
 
+### 节拍器与播放生命周期及状态机 P1 缺陷修复 (FIX-035)
+
+节拍器在 Tap Tempo 测速边界、Count-in 预备拍倒计时与设备重建时存在时序不一致风险；倒计时期间关闭节拍器或重新触发录制可能产生脏状态。
+- **根因**：倒计时未与全局 Transport 会话生命周期联动互斥；Tap Tempo 计算缺少有效时间戳保护。
+- **修复**：在 `MetronomeProcessor` 引入原子运行状态机 `RunState`，倒计时期间切换节拍器立即取消倒计时；Tap Tempo 限制最近最多 3 间隔滑动均值并在 2 秒无点击后自动重置；音频块内采样精确混入阻尼正弦脉冲。
+- **回归线索**：录音预备拍期间点停止/切换节拍器卡死；Tap Tempo 极值异常。
+- **关联**：`MetronomeProcessor.h`，`RecordingSessionController.cpp`，`MetronomeTest.cpp`。
+
+### QWERTY 击键力度与和弦 HUD 计时器竞争及淡出治理
+
+打字演奏击键力度自适应（`TypingCadenceEstimator`）在停止演奏时未正确复位，和弦 HUD 徽章在音符释放后存在淡出计时器空跑与竞争。
+- **根因**：击键间隙估算器缺少乐句停顿空闲超时复位；HUD 淡出定时器在完全透明后未停止自身驱动。
+- **修复**：`TypingCadenceEstimator` 增加 1.0s 乐句空闲超时平滑复位至基准力度，且 Shift 键强制拉满 1.0f 具备最高优先级；和弦 HUD 在所有音符释放后约 300ms 淡出至完全透明并停止定时器驱动。
+- **回归线索**：长时间停顿后首次按键仍被误判为极速击键；和弦释放后 HUD 残留或 UI 定时器高频空转。
+- **关联**：`TypingCadenceEstimator.h`，`QwertyComponent.cpp`，`CadenceVelocityTest.cpp`，`ChordRecognitionTest.cpp`。
+
+### MIDI A-B Loop 与 Seek 时间轴跨边界悬挂音防护
+
+时间轴拖拽跳转 Seek 与 A-B 片段循环在回跳瞬间可能丢失 NoteOff 消息，导致跨循环点音符无限延音悬挂。
+- **根因**：循环回跳与 Seek 跳转重置播放游标时，未向 16 通道注入 All-Notes-Off 和延音踏板释放。
+- **修复**：`AbLoopEngine` 严格执行 `[A, B)` 半开区间有效性校验；`RecordingEngine` 与 `AudioEngine::getNextAudioBlock()` 在 Seek 和循环回跳点采样精确清空 16 个 MIDI 通道的发音与踏板状态。
+- **回归线索**：A-B 循环回跳到 A 点后上一轮音符持续鸣响无法停止。
+- **关联**：`AbLoopEngine.h`，`RecordingEngine.cpp`，`AudioEngine.cpp`，`RecordingEngineTest.cpp`。
+
+### 最小窗口尺寸下虚拟键盘视口防遮挡 (UI-035)
+
+主窗口在最小支持尺寸（QWERTY 展开 980 × 740，或折叠 980 × 580）下，88 键虚拟键盘的横向滚动条遮挡白键底部，导致低音区点击判定区域收缩。
+- **根因**：`KeyboardViewport` 内部滚动条高度未从视口内容有效绘制区域中扣除，白键底部被滚动条覆盖。
+- **修复**：重构键盘视口几何布局计算，白键高度完全位于滚动条可视区域上方，并为 QWERTY 展开与折叠提供自适应高度约束。
+- **回归线索**：最小窗口尺寸下 88 键钢琴白键下半截被横向滚动条遮挡。
+- **关联**：`KeyboardViewport.h`，`LayoutModel.cpp`，`LayoutGoldenTest.cpp`。
 ---
 
 ## 3. 环境说明

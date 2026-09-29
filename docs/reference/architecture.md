@@ -74,15 +74,15 @@
 ```text
 source/
 ├── Main.cpp / MainComponent.*     # 应用生命周期与主装配层
-├── Audio/                         # 音频引擎与物理建模 / 正弦合成器
-├── Input/                         # 电脑键盘事件捕获与 MIDI 映射
+├── Audio/                         # 音频引擎、物理建模、节拍器与正弦合成器
+├── Input/                         # 电脑键盘事件、击键间隔动态力度与 MIDI 映射
 ├── Midi/                          # 16 通道 MIDI 矩阵与通道路由
 ├── Plugin/                        # VST3 插件扫描、加载、生命周期与 Editor 托管
-├── Recording/                     # 演奏录制、回放、MIDI 导入导出与公共渲染管线
+├── Recording/                     # 演奏录制回放、Take-relative A-B 循环 / Seek、MIDI I/O 与公共渲染管线
 ├── Export/                        # WAV 导出后台任务与选项构建
 ├── Layout/                        # Performance Preset 预设数据模型与 CRUD 编排
 ├── Settings/                      # 设置模型、持久化存储、窗口管理与 JIVE 设置布局
-├── UI/                            # JIVE 声明式布局模型、设计 Token、弹窗体系与 Native 组件
+├── UI/                            # 内生声明式布局、设计 Token、弹窗、时间轴与和弦 HUD
 ├── Locale/                        # 多语言管理器与内嵌语言包
 ├── Diagnostics/                   # 结构化日志、MidiTrace 与调试输出
 └── Core/                          # 纯核心数据结构与轻量强类型定义
@@ -96,7 +96,7 @@ source/
   - `juce::JUCEApplication` 派生类入口；
   - 创建主桌面窗口，管理应用启动、单实例约束与正常退出序列；
   - **纯净跨平台生命周期（Phase 34-F）**：彻底拔除 Win32 原生 `WNDPROC` Hook、`AttachThreadInput` 与 `<windows.h>` 平台特化，全平台统一基于 JUCE 9 原生 `DocumentWindow::activeWindowStatusChanged()` 配合 `callAsync` 延后分发 `restoreKeyboardFocus()`，窗口前台化使用 `toFront(true)` 与 `juce::Process::makeForegroundProcess()`，顶层跨平台纯度达到 100%；
-  - **UI 树解析**：通过 `jive::Interpreter` 解释 `LayoutModel` 声明的主窗口 ValueTree。`MainComponent::resized()` 保持声明式（更新 JIVE root 尺寸并刷新状态文本截断，由 FlexBox 自动计算全局排版）；
+  - **UI 树解析**：`initialiseUi()` 创建 `LayoutModel` 主窗口 ValueTree 并交由 `ViewHost` 封装的 `jive::Interpreter` 解释；`MainComponent::resized()` 更新宿主尺寸和状态文本截断，交由 FlexBox 计算全局排版。
   - **规模与职责**：`MainComponent.cpp` 保持轻量装配职责，主体仅负责顶层装配、`initialiseUi()` 的 JIVE 树构建与回调接线、UI 状态同步及音频设备生命周期管理；子面板访问器拆入 `MainComponentJiveAccessors.cpp`，具体业务流程已下沉至各 domain controller（`RecordingSessionController` / `PluginOperationController` / `SettingsWindowManager` / `AppStateBuilder`）。
 
 ---
@@ -107,6 +107,7 @@ source/
   - 拥有 `juce::MidiMessageCollector` 与实时音频输出链路；
   - 经 `InstrumentEndpoint` 解析发声实体：托管 VST3 实例就绪则驱动插件实例，否则驱动内置合成器；
   - 线程安全与音频鲁棒性：`masterGain` 采用 `std::atomic<float>`；具备 `25ms` audio warmup（静音过渡）与 `armPlaybackStartPreRoll`（消除 0s 音符冲突）。
+  - `MetronomeProcessor` 在内置乐器/VST3 发声与房间混响之后、Master Gain / limiter 之前，以音频块采样计数合成强弱拍；通过原子节拍序号向消息线程提供状态栏节拍反馈与录制预备拍触发。
 - **`source/Audio/PianoSynthVoice.h` / `source/Audio/Piano88KeyTable.h`**：
   - **自主研发、纯 C++ 全物理建模钢琴音源**（Phase 12–32 成果，v1.1.0 核心发声引擎）；
   - **7 大声学子系统**：覆盖琴槌（Hammer）、琴弦（String）、琴桥（Bridge）、音板（Soundboard）、琴体（Cabinet）、空气（Air）与空间（Room）；
@@ -115,16 +116,16 @@ source/
   - **琴弦非线性动力学与泛音抖动**：JOS PASP 刚性失谐、泛音刚度不谐和度抖动（`inharmonicityJitter` ±4.5%）、STFT 微初相矩阵、同音三弦 Mid-Side 差分展开与非对称拍频、低音纵波先驱声（$5100\text{ m/s}$）、泛音时间滞后膨胀绽放（Harmonic Blooming）与强击软饱和；
   - **共鸣与空间辐射**：长短琴桥交界补偿（G2/G#2）、16 峰正交云杉木物理音板模态、4.2kHz 云杉木高频截止、琴桥立体声空间辐射与动态声场空间漫射；
   - **微观机械动作拟真**：CC64 全局交感共鸣弦池、延音踏板下踏/抬起机械扫掠呼啸（Whoosh）与共鸣冲击（Resonance Shock，受 `pedalNoiseLevel` 调节）、未踩踏板单键开放弦交感、制音器落木闷击与琴键释放机械摩擦、离键速度动态 ADSR 阻尼缩放；
-  - **硬实时性能保证**：Magic Circle 二阶递归振荡器，逐采样**零三角函数调用**，8 复音单核 CPU ≤ 0.7%，实时渲染路径零堆分配、零锁。
+  - **物理发声核心与实时契约**：Magic Circle 二阶递归振荡器逐采样零三角函数调用，8 复音单核 CPU $\le 0.7\%$；整个实时回调零堆分配、零锁、零 `std::sin` 是架构硬约束。当前节拍器每拍系数计算、MIDI Listener 同步 UI 回调与异常缓冲尺寸兜底尚有差距，见 [`../issues/known-issues.md`](../issues/known-issues.md)。
 - **`source/Audio/PerspectiveProcessor.h`（空间声像视角处理器，Phase 31-A）**：
   - 纯数学立体声声像变换器，提供演奏者视角（Player，低音在左高音在右近场宽阔）与听众视角（Audience，声像镜像反转与中距声场凝聚）；
   - 负责双声道立体声与单声道平滑下混，保证单声道求和能量守恒。
 - **`source/Audio/RoomReverbEngine.h`（轻量数学算法房间混响网络，Phase 31-B）**：
-  - 内置纯算法立体声混响引擎，基于互质延时梳状滤波阵列与两级全通漫射矩阵（Schroeder-Moorer 架构）；
+  - 内置纯算法立体声混响引擎：每声道 8 组梳状滤波器与 4 级全通漫射滤波器构成 Schroeder-Moorer 网络；
   - 内置 Studio（0.6s）、Chamber（1.5s）与 Concert Hall（2.4s）三大空间预设，平滑无级调节干湿比（`reverbWet`）。
 - **`source/Audio/TemperamentEngine.h`（古典微调律制引擎，Phase 30）**：
-  - 提供平均律（Equal）、1/4 中庸全音律（Meantone）、韦克迈斯特三律（Werckmeister III）、基恩伯格三律（Kirnberger III）与纯律（Just）六大微律音分偏移换算；
-  - 支持 A4 基准基频换算（400.0 ~ 480.0 Hz，默认 440.0 Hz）。
+  - 提供平均律（Equal）、1/4 中庸全音律（Meantone）、毕达哥拉斯律（Pythagorean）、韦克迈斯特三律（Werckmeister III）、基恩伯格三律（Kirnberger III）与纯律（Just）六大微律音分偏移换算；
+  - A4 基准基频项目契约目标为 400.0 ~ 480.0 Hz（默认 440.0 Hz）；当前 `TemperamentEngine::clampReferencePitch()` 与设置滑块实际限制为 410.0 ~ 450.0 Hz，差距见 [`../issues/known-issues.md`](../issues/known-issues.md)。
 - **`source/Audio/SineSynthVoice.h`**：
   - 内置正弦波合成器，供基准对比与测试使用。
 - **`source/Audio/AudioDeviceDiagnostics.h`**：
@@ -138,6 +139,9 @@ source/
   - 在音频块（Audio Block）内部以采样精确（Sample-Accurate）偏移与严格事件顺序执行调度：$$\text{CC64}(0) \longrightarrow \text{NoteOn}(\text{newNote}) \longrightarrow \text{CC64}(127)$$
   - 实时音频路径严格无锁（Lock-free）、零堆内存分配（Zero-allocation），杜绝任何线程 Sleep 或物理时钟延迟。
 
+- **`source/Audio/MetronomeProcessor.h` / `source/Core/MetronomeModel.h`（Phase 35-A）**：
+  - `MetronomeProcessor::processAndMix()` 在实时回调中合成无外部采样依赖的强弱拍；`TimeSignature` 支持 2/4、3/4、4/4、6/8，BPM 限幅 40–280，`TapTempoCalculator` 使用最近至多 3 个间隔的均值并在超时后重置；
+  - 音量、拍号、开关与预备拍小节数由 `SettingsModel` 持久化；`RecordingSessionController` 在收到指定节拍数后才开始录制。
 ---
 
 ### 3.3 Input（电脑键盘输入）
@@ -149,6 +153,7 @@ source/
   - **Layout Group 键位分组（Phase 34-B）**：支持单预设内 4 组轻量键位分组（`KeyGroup`），反引号键（`）或 UI 按钮秒级切换；
   - **瞬态修饰键变换（Phase 34-D）**：捕获 Shift / Alt 键，按住期间由 `PerformanceModifierState` 执行力度拉满（Velocity Boost）与八度平移（+8va）纯事件流变换，松开自动回弹，基线配置 100% 零突变；
   - **QWERTY 视图单一事实源快照（Phase 34-A）**：`createQwertySnapshot()` 汇总 `layout`、`heldKeys`、`keySignature`、modifier、延音/柔音踏板状态、`syncPedalCutPending` 与 `sustainPolicy`，生成只读 `QwertyViewModel`，由 UI 直接消费；
+  - **击键间隔动态力度（Phase 35-B）**：`TypingCadenceEstimator` 在消息线程按击键时间间隔计算可选动态力度，`VelocityHumanizer` 施加有界确定性哈希扰动；保留原绑定力度与静音绑定语义，Shift 拉满力度拥有最高优先级，不修改持久化键位。
 
 ---
 
@@ -182,8 +187,8 @@ source/
 - **`source/Recording/RecordingEngine.h/.cpp`**：
   - 实时音频线程无锁采集（`recordMidiBufferBlock`），预分配事件队列（容量溢出计数防护）；
   - `sampleRate` + `lengthSamples` + `events` 组成的 `RecordingTake` 数据结构；
-  - 播放状态机管理：播放速度实时倍率（0.5x–2.0x，原子变速重校准）、Back 从头回放、All-notes-off 保护。
-  - `AbLoopEngine` 以无锁原子快照保存 Take-relative A/B 标记；`RecordingEngine` 在音频块内执行精确 Seek、半开区间循环与边界清理，播放位置按设备采样率与速度换算。
+  - 播放状态机管理：播放速度实时倍率（0.5x–2.0x，原子变速重校准）、暂停/恢复、Back 从头回放与 All-notes-off 保护；
+  - `AbLoopEngine` 以原子快照保存 Take-relative A/B 标记；`RecordingEngine` 在音频块内执行 Seek、半开区间循环与边界发音清理，播放位置按设备采样率与速度换算。
 - **`source/Recording/RecordingSessionController.h/.cpp`**：
   - 会话控制器：统一调度录制、回放、`.devpiano` 文件保存/打开、MIDI 导入与 WAV 导出流程。
   - `RecordingSessionController` 统一编排 Take-relative Seek、A/B 标记、播放暂停恢复与时间轴 ViewModel 快照。
@@ -228,7 +233,7 @@ source/
 - **`source/Settings/AppStateBuilder.h/.cpp`**：
   - 将持久化设置与运行时动态状态合并为完整的 `AppState` 快照。
 - **`source/Settings/jive/SettingsLayoutModel.h/.cpp`**：
-  - **声明式设置面板**：使用 JIVE `juce::ValueTree` 声明 6 个设置卡片（音频设备、调号与通道跟随网格、键盘显示与语言、声学与调律 9 项物理控制、诊断日志、保存操作）；`juce::AudioDeviceSelectorComponent` 作为 Native 项无缝注入。
+  - **声明式设置面板**：JIVE `juce::ValueTree` 声明 6 个设置卡片（音频设备、调号与通道跟随网格、键盘显示与语言、声学与调律物理控制、诊断日志、保存操作）；音频设备类型、输出、通道、采样率与缓冲大小由 JIVE ComboBox/Button 构建，并根据设备可用性更新。节拍器与击键动态参数虽由 `SettingsModel` 持久化，目前设置卡片中没有相应音量/击键动态控件。
 
 ---
 
@@ -240,18 +245,18 @@ source/
   - **UI 线程断言**：在所有加载与重置入口注入 `JUCE_ASSERT_MESSAGE_MANAGER_IS_LOCKED`。
 - **`source/UI/jive/`（声明式 UI 核心与设计系统）**：
   - **`LayoutModel.h/.cpp`**：主窗口面板（Header, Plugin, Controls, QwertyCard, KeyboardArea, StatusBar）ValueTree 工厂，声明式嵌入 5 行 ANSI 物理键盘网格卡片（`makeQwertyCardTree()`）。
-  - **`DesignTokens.h/.cpp`**：设计系统变量（颜色、字体、圆角、间距单一事实源，属于 `devpiano::ui::DesignTokens`）。
+  - **`DesignTokens.h/.cpp`**：设计系统变量（颜色、字体、圆角、间距单一事实源，属于 `devpiano::jive::DesignTokens`）。
   - **`StyleCatalog.h/.cpp`**：全局样式管理器（读取编译期嵌入的 `style_sheets.json` 并动态注入树节点）。
   - **`JiveModalDialog.h/.cpp`**：**通用声明式模态弹窗系统**。提供 `launchSingleInput`、`launchConfirm`、`launchMetadataEdit` 与 `makeProgressLayout` 模板。
   - **`JiveUtils.h`**：ValueTree 快速构建与安全析构辅助工具。
 - **`source/UI/jive/core/`（内生 UI 渲染与排版引擎，已实施 API Freeze）**：
   - FlexBox 与 CSS Grid 基础几何排版计算引擎、BoxModel、动态样式表与动画缓动内核。已彻底剥离死代码并封存为底层资产。
-- **`source/UI/native/`（高性能原生组件）**：
-  - **`CustomKeyboard.h/.cpp`**：88 键虚拟钢琴键盘（自绘内核，支持 Classic / Channel / Velocity / Harmony 4 种着色模式与 DoReMi / FixedDo / NoteName 3 种音符标记，局部脏矩形剪裁，焦点绝不抢占，经 `KeyboardViewport` 注入 JIVE）。
-  - **`QwertyComponent.h/.cpp`（Phase 34-A）**：5 行 ANSI 物理键盘映射看板原生组件，支持物理按键下沉与 50fps 荧光余晖动画，集成 12-TET 和声色彩投影与 HUD 标签提示。
-  - **`AdsrCurveComponent.h/.cpp`**：实时交互式 ADSR 包络曲线组件。
-  - **`TimelineBar.h/.cpp`**：显示播放时间与总时长，支持点击/拖拽 Seek、设置 A/B 标记和清除循环。
-  - **`StatusBarMidiDot.h`**：MIDI 活动呼吸指示灯。
+- **`source/UI/`（高性能原生组件及交互）**：
+  - **`source/UI/CustomKeyboard.h/.cpp`**：88 键虚拟钢琴键盘（自绘内核，支持 Classic / Channel / Velocity / Harmony 4 种着色模式与 DoReMi / FixedDo / NoteName 3 种音符标记，局部脏矩形剪裁，焦点绝不抢占，经 `KeyboardViewport` 注入 JIVE）。
+  - **`source/UI/QwertyComponent.h/.cpp`**：5 行 ANSI 物理键盘映射看板，消费 `QwertyViewModel` 并呈现 12-TET 色彩与和弦 HUD；卡片标题另有 `qwerty-chord-badge` 标签。
+  - **`source/UI/native/AdsrCurveComponent.h/.cpp`**：实时交互式 ADSR 包络曲线组件。
+  - **`source/UI/native/TimelineBar.h/.cpp`**：Take-relative 播放时间/总时长、点击/拖动 Seek、A/B 标记和清除循环。
+  - **`source/UI/native/StatusBarMidiDot.h`**：MIDI 活动呼吸指示灯。
 - **`source/UI/`（弹窗接入与样式）**：
   - **`source/UI/jive/JiveModalDialog.h/.cpp`**：统一 JIVE 模态对话框入口，提供单行输入、确认、元数据编辑与进度浮层模板。
   - **`KeyBindingEditDialog.h/.cpp`**：逐键绑定与调色板编辑弹窗（转接 `JiveModalDialog`）。
@@ -289,7 +294,8 @@ source/
   - **`AppState.h`**：全应用运行时聚合快照视图，严格保持单向依赖与纯业务基础类型（零上层业务包含，前向声明 `ChannelMatrix` 并以 `std::shared_ptr` 管理快照，就地定义 `BuiltinTone` 枚举）；
   - **`KeyMapTypes.h`**：88 键虚拟映射基础模型、`KeyGroup`（4 组轻量分组）、`HeldKeyIdentity`（发音身份快照）、`SustainPolicy`（切分踏板策略）与 `PerformanceModifierState`（瞬态事件流变换）；
   - **`QwertyModel.h`（Phase 34-A）**：ANSI 5 行电脑键盘物理布局网格模型、`QwertyKeyVisualState` 与 `QwertyViewModel`；
-  - **`MusicTheory.h`（Phase 34-A）**：12-TET 和声色环、音程和声调色板（`pitchClassHarmonyHues`）与文字高对比度算法；
+  - **`MetronomeModel.h`**：拍号、录音预备拍选项与 Tap Tempo 的滚动间隔计算。
+  - **`MusicTheory.h`（Phase 34-A / 35-C）**：12-TET 和声色环、文字高对比度算法，以及根据按下音高类集合识别和弦、转位与 Slash Chords 的 `detectChord()`；
   - **`MidiTypes.h`**：轻量级强类型封装。
 
 ---
@@ -301,35 +307,33 @@ source/
 ```text
 [电脑键盘按键] (JUCE KeyPress / KeyListener)
     │
-    ├── 0. 瞬态修饰键: PerformanceModifierState (Shift: 力度拉满 / Alt: 高八度，纯事件变换)
-    ├── 1. 键位分组: KeyGroup (当前激活 Group A~D 计算音高与通道偏移)
-    ├── 2. 发音身份快照: HeldKeyIdentity (记录按下时真实发音 Pitch/Channel/Velocity，松开时100%按快照注销)
-    └── 3. 切分踏板拦截: SustainPolicy (Space 键切分踏板状态标记)
+    ├── 0. 瞬态修饰键: PerformanceModifierState (Shift: 力度拉满 / Alt: 高八度)
+    ├── 1. 键位分组: KeyGroup (当前 Group A~D 的音高 / 通道偏移)
+    ├── 2. 动态力度: TypingCadenceEstimator + VelocityHumanizer (事件时变换，Shift 优先)
+    ├── 3. 发音身份快照: HeldKeyIdentity (松开时用按下时的音高 / 通道)
+    └── 4. 踏板策略: SustainPolicy (Space 键 Normal / Sync)
     │
     ▼
-KeyboardMidiMapper (生成 MIDI 消息并更新 QwertyViewModel / CustomKeyboard)
+KeyboardMidiMapper (生成 MIDI 消息；供消息线程生成 QwertyViewModel)
     │
     ▼
 AudioEngine::MidiMessageCollector (收集并排队 MIDI 消息)
     │
     ▼
 AudioEngine::getNextAudioBlock() (音频回调线程)
-    ├── SyncPedalProcessor (采样精确调度 CC64(0) -> NoteOn -> CC64(127))
-    ├── MidiKeyboardState (更新键盘状态，驱动虚拟键盘高亮)
-    ├── RecordingEngine::recordMidiBufferBlock() (若录制中，原子写入 take)
-    ├── 发声处理 (通过 InstrumentEndpoint::resolveInstrumentEndpoint() 无锁路由):
+    ├── MidiKeyboardState (在回调线程同步通知 Listener；UI 风险见 known-issues)
+    ├── SyncPedalProcessor (块内按采样点排序 CC64(0) -> NoteOn -> CC64(127))
+    ├── RecordingEngine::recordMidiBufferBlock() (录制时写入预分配事件队列)
+    ├── RecordingEngine::renderPlaybackBlock() (回放、Seek、A-B 循环边界)
+    ├── 发声处理 (resolveInstrumentEndpoint() 无锁选择):
     │    ├── [已就绪 VST3 插件] ──► AudioPluginInstance::processBlock()
-    │    └── [内置乐器端点] ─────► PianoSynthVoice (物理建模) / SineSynthVoice
-    │                                  ├── TemperamentEngine (古典微律调律与 A4 换算)
-    │                                  ├── 7 大声学系统物理振动与微观机械瞬态
-    │                                  └── PerspectiveProcessor (演奏者 / 听众视角成像)
-    ├── RoomReverbEngine (后级算法立体声房间混响 Chamber / Hall / Studio)
-    │
-    ▼
-Master Gain (std::atomic<float> 主音量调节)
-    │
-    ▼
-JUCE AudioDeviceManager ──► [音频硬件输出]
+    │    └── [内置乐器端点] ─────► PianoSynthVoice / SineSynthVoice
+    │                                  ├── TemperamentEngine (古典微律与 A4 换算)
+    │                                  ├── 7 大声学系统与机械瞬态
+    │                                  └── PerspectiveProcessor (演奏者 / 听众视角)
+    ├── RoomReverbEngine (后级房间混响)
+    ├── MetronomeProcessor::processAndMix() (采样级强弱拍；UI 读取原子节拍序号)
+    └── Master Gain + limiter ──► JUCE AudioDeviceManager ──► [音频输出]
 ```
 
 ---
@@ -358,22 +362,28 @@ JUCE AudioDeviceManager ──► [音频硬件输出]
 
 ```text
 [录制]
-用户点击 Record ──► RecordingEngine::startRecording() ──► 预分配容量
+用户点击 Record ──► RecordingSessionController (可选节拍器预备拍)
+    └── RecordingEngine::startRecording() (预分配事件容量)
 音频回调实时采样 ──► recordMidiBufferBlock() ──► 填充 RecordingTake.events
-用户点击 Stop   ──► RecordingEngine::stopRecording() ──► 产出不可变 Take
+用户点击 Stop   ──► RecordingEngine::stopRecording() ──► 产出 Take 快照
 
 [持久化]
 用户点击 Save   ──► PerformanceFile::saveToFile() (JSON 序列化 + TemporaryFile 原子保存)
 用户点击 Open   ──► PerformanceFile::loadFromFile() ──► 恢复 Take ──► 自动开始回放
+
+[回放与跟练]
+TimelineBar ──► RecordingSessionController (Take-relative Seek / A/B 标记)
+    └── RecordingEngine + AbLoopEngine ──► AudioEngine::getNextAudioBlock()
+         └── 跳转/回跳注销发声，恢复目标位置事件游标；暂停/恢复保持 Take 时间轴
 
 [离线导出 WAV]
 用户点击 Export WAV ──► WavExportTask::startAsync() (现代化非阻塞异步任务启动)
     │
     ├── JiveModalDialog::makeProgressLayout (弹出声明式暗黑进度条浮层)
     ├── RenderPipeline (统一时间戳缩放、排序与 panic 注入)
-    ├── InstrumentEndpoint::renderTakeThroughInstrumentEndpoint() (同构乐器端点路由):
+    ├── renderTakeThroughInstrumentEndpoint() (同构乐器端点路由):
     │    ├── [有插件] ──► PluginOfflineRenderer (独立离线实例非实时渲染)
-    │    └── [无插件] ──► fallback synth (离线 PianoSynthVoice 模态渲染)
+    │    └── [无插件] ──► 内置 PianoSynthVoice 渲染
     ├── RoomReverbEngine (后级算法立体声房间混响网络对齐，保证与实时声学一致)
     └── 写入 WAV 文件 ──► 异步回调通知完成 / 取消时自动清理残留文件
 ```
@@ -392,8 +402,9 @@ AppStateBuilder::buildSnapshot() (组装单一事实源 AppState)
 PluginPanelStateBuilder / MainComponent JIVE Accessors
     │
     ▼
-jive::Interpreter 解释 LayoutModel / SettingsLayoutModel 声明树
+ViewHost 封装 jive::Interpreter 解释 LayoutModel / SettingsLayoutModel 声明树
     │
-    ├── StyleCatalog 动态合并 design_tokens.json 与 style_sheets.json
-    └── Native 组件注入工厂 (CustomKeyboard / AdsrCurve / AudioDeviceSelector)
+    ├── StyleCatalog 应用编译期嵌入的 design_tokens.json / style_sheets.json
+    ├── Native 组件工厂 (CustomKeyboard / QwertyComponent / TimelineBar / AdsrCurve)
+    └── QwertyViewModel (KeyboardMidiMapper 提供按键与和弦快照)
 ```

@@ -16,9 +16,11 @@
 4. **5 行 QWERTY 键盘映射看板（QwertyComponent）**：在主窗口 Controls 与键盘区之间声明式嵌入 5 行自适应 ANSI 物理键位网格，击键即时物理下沉并具备 50fps 荧光余晖平滑淡出，支持 12-TET 和声色彩投影与一键折叠；
 5. **轻量键位分组（Layout Groups）**：单预设支持 4 组（Group A~D）独立移调、八度与通道配置，反引号键（`）或 UI 按钮秒级循环切组；
 6. **采样精确切分延音踏板（SustainPolicy::syncPedal）**：音频块内部采样点级别调度 $\text{CC64}(0) \to \text{NoteOn} \to \text{CC64}(127)$，消除空格键踩放时的断音空洞，杜绝线程 Sleep；
-7. **瞬态演奏修饰键（PerformanceModifierState）**：Shift 键瞬态力度拉满（Velocity Boost）、Alt 键瞬态高八度平移（+8va），纯事件流变换零全局配置污染，UI 实时展示 HUD 标签；
+7. **瞬态演奏修饰键（PerformanceModifierState）**：Shift 键瞬态力度拉满（Velocity Boost，最高仲裁优先级）、Alt 键瞬态高八度平移（+8va），纯事件流变换零全局配置污染，按键表面即时显示修饰状态标签；
 8. **焦点丢失自动 Panic 清理（区分内/外部切换）**：焦点**离开应用**（如 Alt+Tab 切到其他程序）时，自动释放交互演奏音（电脑键盘 held keys + 虚拟键盘鼠标按住的音符），防止后台一直鸣响；焦点转移到**本进程其他顶层窗口**（插件编辑器、设置窗口）属于应用内部切换，不打断任何演奏；**MIDI 回放不受失焦影响**；
-9. **虚拟键盘显示与输入解耦**：虚拟键盘仅作为视觉反馈和鼠标演奏入口，电脑键盘演奏主路径由 `KeyboardMidiMapper` 独占，避免由于焦点切换引起重复触发。
+9. **虚拟键盘显示与输入解耦**：虚拟键盘仅作为视觉反馈和鼠标演奏入口，电脑键盘演奏主路径由 `KeyboardMidiMapper` 独占，避免由于焦点切换引起重复触发；
+10. **打字律动力度与人性化微扰（TypingCadenceEstimator & VelocityHumanizer）**：按键击键时间间隔（$\Delta t$）自适应估算演奏力度，高速连击/和弦齐奏（$\le 60\text{ms}$）赋予高动态力度（~122/127），慢速抒情（$\ge 500\text{ms}$）赋予轻柔力度（~76/127），空闲停顿（$> 1.0\text{s}$）重置为基准力度（100/127）。结合 FNV/Murmur 确定性伪随机微扰与触键力度曲线（Touch Velocity Curve），赋予物理键盘真实钢琴般的动态层次；计算结果直接注入发音与录制管线（UI 层不设置多余的数值力度 HUD）；
+11. **实时和弦识别与看板徽标（`devpiano::core::detectChord`）**：以当前被按住的键集（`heldKeys` 的实际发声音高）为输入，实时分析和声结构与低音转位，在 QWERTY 看板标题徽标（`qwerty-chord-badge`）与键盘内部 HUD 展示和弦名称；键盘内部 HUD 松键后平滑淡出。
 
 ---
 
@@ -55,11 +57,15 @@
 KeyboardMidiMapper::handleKeyPressed() / handleKeyStateChanged()
     │
     ├── 5. 查表匹配当前 KeyboardLayout 绑定
-    ├── 6. 结合当前 KeyGroup 计算发声音高 (soundingNote) 与通道 (soundingChannel)
-    ├── 7. 结合 PerformanceModifierState 应用瞬态力度提升或八度平移
-    ├── 8. NoteOn: 存入 HeldKeyIdentity 发音身份快照 (物理码/音高/通道/力度)
-    ├── 9. NoteOff: 100% 按 HeldKeyIdentity 快照注销 (杜绝悬挂音)
-    │
+    ├── 6. 结合当前 KeyGroup 计算发声音高 (baseSoundingNote) 与通道 (soundingChannel)
+    ├── 7. 打字律动力度估算 (TypingCadenceEstimator): 依击键间隔 Δt 估算 dynamicVelocity
+    ├── 8. 确定性力度微扰 (VelocityHumanizer): 结合音高与击键计数器施加确定性抖动
+    ├── 9. 瞬态修饰与手感映射:
+    │      ├── modifierState.transformPitch(baseSoundingNote) 瞬态八度平移
+    │      ├── applyVelocityCurve(jitteredVelocity, touchVelocityCurve) 映射触键手感曲线
+    │      └── modifierState.transformVelocity(...) 瞬态力度仲裁 (Shift 强制 1.0f 优先；静音绑定保持 0.0f)
+    ├── 10. NoteOn: 经 MidiChannelMapper 变换并存入 HeldKeyIdentity 发音身份快照 (物理码/音高/通道/力度)，清空切分挂起
+    ├── 11. NoteOff: 100% 按 HeldKeyIdentity 快照注销 (杜绝悬挂音)
     ▼
 MidiChannelMapper::sendNoteOn() / sendNoteOff() (经 16 通道矩阵变换)
     │
@@ -67,7 +73,8 @@ MidiChannelMapper::sendNoteOn() / sendNoteOff() (经 16 通道矩阵变换)
 AudioEngine::MidiMessageCollector ──► [音频回调线程]
     │
     ├── SyncPedalProcessor (采样精确调度 CC64 切分踏板时序)
-    └── 发声处理 (InstrumentEndpoint) + QwertyViewModel / CustomKeyboard 视图刷新
+    └── 发声处理 (InstrumentEndpoint)；消息线程按 KeyboardMidiMapper 快照刷新 QwertyViewModel，
+        CustomKeyboard 从 MidiKeyboardState 获取虚拟键盘可视状态
 ```
 
 ---
@@ -81,12 +88,13 @@ AudioEngine::MidiMessageCollector ──► [音频回调线程]
 3. **12-TET 和声色彩投影（Harmony Projection）**：
    - 基于 `source/Core/MusicTheory.h` 建立的 12-TET 和声色环算法（`pitchClassHarmonyHues`）；
    - 静态按键文本呈现微妙和声色彩提示，击键时与 88 键钢琴键盘同频绽放三和弦几何色相；
-4. **HUD 标签与切组指示**：
-   - 按住 Shift 键显示 `Shift [BOOST]`，按住 Alt 键显示 `Alt [+8va]`；
-   - 顶部胶囊按钮（`qwerty-group-btn`）实时指示当前激活的键位分组（`Group A/B/C/D`）；
-5. **一键折叠与持久化**：支持点击标题栏右侧折叠按钮收起/展开，展开状态持久化于 `SettingsModel::qwertyVisualizerExpanded`。
-
-6. **自适应虚拟钢琴键床**：88 键使用固定比例几何（白键宽 21.5 px、长宽比 6.4:1）；默认 1180 px 窗口完整显示键床，较窄窗口保留完整键床并横向滚动，较宽或较高视口内居中显示。
+4. **HUD 标签、实时和弦识别与切组指示**：
+   - 按键表面瞬态标签：按住 Shift 键时键位标注 `Shift [BOOST]`，按住 Alt 键时标注 `Alt [+8va]`；
+   - 顶部胶囊按钮（`qwerty-group-btn`）：实时指示当前激活的键位分组（`[Group A/B/C/D]`）；
+   - 顶部和弦徽标（`qwerty-chord-badge`）：`devpiano::core::detectChord` 根据 `heldKeys` 的发声音高识别和弦（单音、大/小三和弦、增/减三和弦、挂留、七和弦、九和弦、转位等），展示如 `[C]`、`[Am7]`、`[G/B]`；键盘内部和弦 HUD 松键后以定时器渐隐。注：看板不设置独立的数字力度 HUD；
+5. **一键折叠与持久化**：支持点击标题栏右侧折叠按钮收起/展开，展开状态持久化于 `SettingsModel::qwertyVisualizerExpanded`；
+6. **自适应虚拟钢琴键床**：88 键使用固定比例几何（白键宽 21.5 px、长宽比 6.4:1）；默认 1180 px 窗口完整显示键床，较窄窗口保留完整键床并横向滚动，较宽或较高视口内居中显示；
+7. **打字律动力度与触键手感配置**：`SettingsModel` / `SettingsStore` 保存动态力度开关、基准力度偏置（`baseVelocityBias` 范围 -0.30 ~ +0.20）与人性化微扰量（`velocityHumanizeAmount` 0.0 ~ 0.15）；当前界面未提供这些参数的编辑控件。设置窗口提供 Standard / Light / Heavy / Wide Dynamic 触键曲线选择。
 
 ---
 
@@ -109,3 +117,5 @@ AudioEngine::MidiMessageCollector ──► [音频回调线程]
 | **KBD-013** | Shift / Alt 瞬态修饰键 | 按住 Shift 击键触发 fortissimo 最大力度；按住 Alt 击键触发高八度音；松开修饰键后再松按键无悬挂 | [x] 已通过 |
 | **KBD-014** | QWERTY 和声投影与余晖 | 弹奏三和弦，QWERTY 键盘与 88 键钢琴同频呈现和声几何色相，松键后呈现平滑荧光余晖衰减 | [x] 已通过 |
 | **KBD-015** | QWERTY 看板折叠持久化 | 点击折叠按钮收起 QWERTY 看板，重启应用后保持折叠；再次点击展开保持展开 | [x] 已通过 |
+| **KBD-016** | 打字律动力度与人性化微扰 | 快速连击（$\le 60\text{ms}$）触发高动态力度，慢速慢弹（$\ge 500\text{ms}$）触发轻柔力度，长暂停（$> 1.0\text{s}$）重置基准力度；Shift Boost 强制 1.0f | [ ] 待手工验证 |
+| **KBD-017** | 实时和弦识别 HUD 徽标 | 同时按下 `A+D+G`（C 大三和弦），标题徽标显示 `[C]`；弹奏转位和弦显示斜杠标记（如 `[C/E]`）；释放所有琴键后键盘内部 HUD 渐隐 | [ ] 待手工验证 |

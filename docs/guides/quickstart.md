@@ -78,13 +78,9 @@ source ~/.bashrc
 ./scripts/dev.sh wsl-build --configure-only
 ```
 
-### 2. WSL build
+WSL 主工作树只用于编辑源码与刷新 `compile_commands.json`；构建及软件测试在 Windows 镜像树执行。
 
-```bash
-./scripts/dev.sh wsl-build
-```
-
-### 3. Windows MSVC 验证构建（内置同步，不需要单独 win-sync）
+### 2. Windows MSVC Debug 验证构建（内置同步，不需要单独 win-sync）
 
 ```bash
 ./scripts/dev.sh win-build
@@ -104,11 +100,6 @@ source ~/.bashrc
 git submodule update --init --recursive
 ```
 
-如需更新到 develop 分支最新提交（本仓库推荐），在初始化后执行：
-
-```bash
-git submodule update --remote --merge JUCE
-```
 
 ### 2. `juceaide` 子构建：CC flag 不识别
 
@@ -192,23 +183,14 @@ source ~/.bashrc
 ```
 
 ```bash
-# ── WSL 本地构建（Debug，默认） ──
-./scripts/dev.sh wsl-build
+# ── WSL 只执行 Debug configure（供 clangd 读取编译数据库） ──
 ./scripts/dev.sh wsl-build --configure-only
-./scripts/dev.sh wsl-build --reconfigure
-./scripts/dev.sh wsl-build --clean
-
-# ── WSL 本地构建（Release） ──
-./scripts/dev.sh wsl-build --release
-./scripts/dev.sh wsl-build --release --configure-only
-./scripts/dev.sh wsl-build --release --reconfigure
-./scripts/dev.sh wsl-build --release --clean
 
 # ── 同步 ──
 # 仅在需要单独同步时（win-build 已内置快速智能同步）
-./scripts/dev.sh win-sync          # 快速智能同步（日常业务代码，< 1s）
+./scripts/dev.sh win-sync          # 快速智能同步（仅同步日常业务代码改动）
 ./scripts/dev.sh win-sync --check  # 零写入预览
-./scripts/dev.sh win-sync --full   # 强制全量同步（含 submodules，~9s）
+./scripts/dev.sh win-sync --full   # 强制全量同步（含 submodules 全部文件）
 
 # ── Windows MSVC 验证（Debug，默认） ──
 ./scripts/dev.sh win-build
@@ -216,7 +198,7 @@ source ~/.bashrc
 ./scripts/dev.sh win-build --reconfigure
 ./scripts/dev.sh win-build --clean-win-build
 
-# ── Windows MSVC 验证（Release） ──
+# ── Windows MSVC Release（仅明确发布需求时） ──
 ./scripts/dev.sh win-build --release
 ./scripts/dev.sh win-build --release --no-sync
 ./scripts/dev.sh win-build --release --reconfigure
@@ -226,41 +208,35 @@ source ~/.bashrc
 ./scripts/dev.sh format
 ./scripts/dev.sh format --check       # CI 模式，只检查不改
 
-# ── 静态检查（clang-tidy，ADR-007：只检查，不用 --fix，多核并行+本地缓存）──
-./scripts/dev.sh tidy                 # 增量：仅未提交改动文件（秒级）
-./scripts/dev.sh tidy <file...>       # 指定文件/路径
-./scripts/dev.sh tidy --all           # 全量静态检查（迭代边界门禁，多核并行+本地缓存）
-./scripts/dev.sh tidy --clear-cache   # 清除本地 tidy 结果缓存
-# 编辑器内：clangd 已启用 clang-tidy 集成（.clangd），保存即增量波浪线提示；
-# pre-commit 只做 format 检查（不阻塞提交）
+# ── clang-tidy 仅在迭代边界执行全量检查 ──
+./scripts/dev.sh tidy --all
 
-# ── 单元测试 ──
-./scripts/dev.sh test
-# 测试二进制参数（直接运行 build-wsl-clang/devpiano_tests_artefacts/Debug/devpiano_tests）：
-#   --include-juce        额外运行 JUCE 库自带内部测试（默认仅项目测试，节省 ~95s）
-#   --include-files       不跳过 Files 类别（WSL root 下 JUCE Files 测试会失败）
-#   --category <name>     仅运行指定类别；项目类别为 DevPiano/<area>
-#                         <area>: Acoustics|Audio|Core|Diagnostics|Engine|
-#                                Export|Input|Plugin|Recording|Settings|UI
-#   --name <name>         仅运行指定名称的测试类
-
-# ── 编译耗时性能剖析与火焰图分析 (-ftime-trace) ──
-./scripts/dev.sh time-trace                   # 增量分析最新构建热点（最耗时文件/头文件/模板实例化）
-./scripts/dev.sh time-trace --clean           # 清理后全量剖析并导出 Perfetto 火焰图 (combined_time_trace.json)
-./scripts/dev.sh time-trace --target devpiano # 指定针对 GUI 主程序进行剖析
-
-# ── 正式发布打包（Windows x64 zip + sha256） ──
-./scripts/dev.sh package                      # 打包当前 Release 产物（自动解析 CMakeLists.txt 版本）
+# ── 正式发布打包（Windows x64 zip / Linux x64 tar.gz + sha256） ──
+./scripts/dev.sh package                      # 打包当前 Windows Release 产物（自动解析 CMakeLists.txt 版本）
 ./scripts/dev.sh package --version 1.0.0
 ./scripts/dev.sh package --local-dist         # 输出至 WSL 本地 dist/ 目录
+./scripts/dev.sh package --linux              # 打包 Linux x64 Release 产物（tar.gz + sha256）
 ```
+
+### Windows Debug 单元测试
+
+在镜像树的 **Developer PowerShell for VS** 中执行（先用 `./scripts/dev.sh win-build` 同步并构建 Debug；如覆盖了 `WIN_MIRROR_DIR`，替换下面的默认路径）：
+
+```powershell
+Set-Location 'G:\source\projects\devpiano'
+cmake --preset windows-msvc-debug -DBUILD_TESTS=ON
+cmake --build --preset windows-msvc-debug --target devpiano_tests
+ctest --test-dir build-win-msvc --output-on-failure
+```
+
+Linux CI 使用 `./scripts/dev.sh test`。在本地 WSL 主树执行该脚本会配置、编译并运行 `build-wsl-clang` 的测试，不适用于本项目 Windows 镜像验证工作流。
 
 ### 格式化与静态检查时机
 
 | 阶段 | clang-format | clang-tidy |
 | --- | --- | --- |
 | 编辑期 | 编辑器 Format on Save | clangd 波浪线实时提示（`.clangd` 已启用 `Diagnostics.ClangTidy`，与全量 tidy 同源 `.clang-tidy` 配置） |
-| 提交前 (pre-commit) | 自动检查 staged 文件（`--dry-run --Werror`，失败手动 `./scripts/dev.sh format`） | **不做**——单文件实测 18–211s，成本不成比例（AGENTS.md 第 3 节纪律） |
+| 提交前 (pre-commit) | 自动检查 staged 文件（`--dry-run --Werror`，失败手动 `./scripts/dev.sh format`） | **不做**——全量静态分析成本高，由迭代边界与 CI 保证（AGENTS.md 第 3 节纪律） |
 | 大迭代边界 | `./scripts/dev.sh format --check` | `./scripts/dev.sh tidy --all` 全量 0 诊断（迭代边界门禁，多核并行+本地缓存，唯一例行执行点） |
 | CI（已落地，`.github/workflows/ci.yml`） | `format --check` 门禁（clang-format-21） | `tidy` 增量静态检查门禁（clang-tidy-21，actions/cache 加速）+ Linux Clang 单元测试门禁 + Windows MSVC 构建与单元测试门禁（push/PR 自动触发，ccache/sccache 加速） |
 

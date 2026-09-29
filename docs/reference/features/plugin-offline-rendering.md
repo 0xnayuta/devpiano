@@ -1,7 +1,7 @@
 # VST3 插件离线渲染与 WAV 音频导出功能说明
 
 > 用途：说明 devpiano 的非实时音频离线渲染管线（`RenderPipeline`）、独立离线 VST3 插件实例管理（`PluginOfflineRenderer`）、内置物理建模钢琴声学一致性导出（`WavFileExporter` 与 `RoomReverbEngine`）、后台多线程导出任务（`WavExportTask`）与 JIVE 声明式进度条交互。
-> 当前状态：已全量实现并稳定服务于 WAV 导出（覆盖 Phase 7~32 成果，实现实时演奏与离线导出 1:1 比特级声学一致性）。
+> 当前状态：已全量实现并稳定服务于 WAV 导出（覆盖 Phase 7~34 成果，支持现代化非阻塞异步导出任务与乐器端点统一路由，实现实时演奏与离线导出 1:1 比特级声学一致性）。
 > 更新时机：离线渲染管线、插件状态快照、导出进度交互或音频格式与声学参数发生变化时。
 
 ---
@@ -25,7 +25,7 @@
 [用户点击 Export WAV] ──► ExportFlowSupport::buildWavExportOptions()
     │
     ▼
-RecordingSessionController::exportTakeAsWav() ──► 弹出文件保存对话框 FileChooser
+RecordingSessionController::handleExportWavClicked() ──► 弹出文件保存对话框 FileChooser
     │
     ▼
 WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
@@ -66,21 +66,20 @@ WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
 在 Phase 15-D 与 Phase 34-F 中，`WavExportTask` 实现了现代化重构与完全非阻塞异步化：
 - **纯异步任务流（`startAsync`）**：在 Phase 34-F 中，彻底消除了历史遗留的主线程嵌套模态循环 `runDispatchLoopUntil(10)` 与 `Thread::sleep(10)`，改为基于 `startAsync(onComplete)` 的非阻塞异步任务模型；`CMakeLists.txt` 仅在 `devpiano_tests` 测试目标保留 `JUCE_MODAL_LOOPS_PERMITTED=1`，主应用 `devpiano` 目标不定义该宏；
 - **同构乐器端点（`InstrumentEndpoint`）**：在 Phase 34-E 中引入 `renderTakeThroughInstrumentEndpoint()`，端点路由与实时发声完全一致，消除离线分支手写判断；
-- **无锁进度传递**：后台线程通过 `std::atomic<float> currentProgress` 和 `std::atomic<bool> cancelRequested` 与主线程通信；
+- **无锁进度传递**：后台线程通过 `std::atomic<double> currentProgress` 和 `std::atomic<bool> cancelRequested` 与主线程通信；
 - **安全取消机制**：用户点击 [Cancel] 按钮或按 ESC 键时，`cancelRequested` 置位，后台线程在下一个 block 循环立即退出，并在 `finally` 块中调用 `destinationFile.deleteFile()` 删除半截文件。
 
 ### 3.4 内置合成器 1:1 声学一致性对齐（`WavExportOptions`）
 
-为了确保离线导出的 WAV 音频与演奏者在应用中实时听到的声音**完全一致（Bit-accurate Parity）**，`ExportFlowSupport::buildWavExportOptions()` 完整抓取了当前全部声学物理状态并注入 `WavExportOptions`：
+`ExportFlowSupport::buildWavExportOptions()` 将当前声学参数快照注入 `WavExportOptions`，使内置钢琴的离线与实时处理使用相同参数和房间混响网络；插件的独立离线实例可能具有自身非实时行为，**不承诺输出样本逐比特一致**：
 
-1. **基础发声与包络**：`masterGain`、`adsr`、`builtinTone`（`piano` 或 `sine`）；
-2. **微调律制与基准音高（Phase 30）**：`temperament`（6 大古典律制）与 `referencePitchA4`（400~480 Hz）；
-3. **立体声空间视角（Phase 31-A）**：`soundPerspective`（演奏者 Player 与听众 Audience 镜像与高频衰减）；
-4. **琴盖物理开合（Phase 31-C）**：`lidPosition`（全开、半开、闭盖传递函数）；
-5. **空间房间混响（Phase 31-B）**：离线挂载独立的 `RoomReverbEngine` 实例，根据 `reverbSpace`（Chamber/Hall/Studio）与 `reverbWet` 对双声道音频流执行立体声混响浸润；
-6. **微观机械动作拟真（Phase 32）**：`pedalNoiseLevel`（延音踏板扫掠声与共鸣冲击电平）与 `feltAgeingAmount`（琴槌毛毡微老化穿透力）。
-
-离线渲染结束后自动追加适量尾音衰减窗口（`wavTailSeconds`），确保音板自然衰减与大空间混响尾音完整保留不被硬切。
+1. **基础发声与音色包络**：`masterGain`、`adsr`、`builtinTone`（`piano` 或 `sine`）、`pianoBrightness`、`pianoHammerHardness`、`pianoResonance`；
+2. **微调律制与基准音高（Phase 30）**：`temperament`（6 大古典律制：`equal`、`just`、`pythagorean`、`meantone`、`werckmeister3`、`kirnberger3`）与 `referencePitchA4`（当前代码与实时路径同样钳制至 410.0 ~ 450.0 Hz，默认 440.0 Hz；项目契约目标 400.0 ~ 480.0 Hz，见 [`../../issues/known-issues.md`](../../issues/known-issues.md)）；
+3. **立体声空间视角（Phase 31-A）**：`soundPerspective`（演奏者 `player` 与听众 `audience` 镜像与高频吸收）；
+4. **琴盖物理开合（Phase 31-C）**：`lidPosition`（全开 `fullOpen`、半开 `halfStick`、闭盖 `closed` 传递函数）；
+5. **空间房间混响（Phase 31-B）**：离线挂载独立的 `RoomReverbEngine` 实例，根据 `reverbSpace`（`chamber` / `concert_hall` / `studio`）与 `reverbWet` 对双声道音频流执行立体声混响浸润；
+6. **微观机械动作拟真（Phase 32）**：`pedalNoiseLevel`（延音踏板扫掠声与共鸣冲击电平）与 `feltAgeingAmount`（琴槌毛毡微老化穿透力）；
+7. **尾音衰减窗口**：离线渲染结束后自动追加固定 2.0 秒尾音衰减窗口（`wavTailSeconds = 2.0`），确保音板自然衰减与大空间混响尾音完整保留不被硬切。
 
 ---
 
@@ -96,3 +95,5 @@ WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
 | **WAV-006** | 目标路径无权限容错 | 导出至只读目录或非法路径，弹窗提示错误，Logger 记录日志，程序不崩溃 | [x] 已通过 |
 | **WAV-007** | 空 Take 导出拦截 | 在无录制且无导入状态下，Export WAV 按钮自动保持 Disabled | [x] 已通过 |
 | **WAV-008** | 物理声学与空间参数离线一致性 | 配置特定古典律制、听众视角与房间混响后导出 WAV，导出的音频与实时试听效果完全一致，无爆音、无尾音截断 | [x] 已通过 |
+
+除手工场景外，离线渲染子系统由自动化单元测试全面覆盖：`PluginOfflineRendererTest`（离线插件实例创建、状态注入与 WAV 渲染）、`RenderPipelineTest`（事件缩放、稳定排序与 panic 注入）、`InstrumentEndpointTest`（端点同构路由解析）、`ExportFlowTest`（导出选项装配与异常边界防护）。

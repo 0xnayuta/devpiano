@@ -23,22 +23,27 @@ devpiano 支持打开标准 MIDI 文件并在当前发声链路中回放，为�
 ```text
 [用户点击 Import MIDI / 拖入 .mid]
     │
-    ▼
-MidiFileImporter::importFile()
-    │
-    ├── 1. 读取并验证 MIDI 文件头 (Type 0 / 1, PPQ 时间基准)
-    ├── 2. MidiTrackMergeEngine::mergeTracks() ──► 多轨时间线合并与通道智能路由
-    ├── 3. 时间基准转换: 将 MIDI Tick 转换为绝对采样点位置 (timestampSamples)
-    ├── 4. 提取 Note, CC64 Sustain, Pitch Bend, Program Change 事件与调号/曲名元数据
-    └── 5. 组装为 RecordingTake ──► 返回 std::optional<RecordingTake>
+    ├── 0. 取消进行中的倒计时 (cancelCountIn)
+    ├── 1. 若当前处于播放中，安全停止当前回放并清空当前发音
     │
     ▼
-RecordingSessionController::handleMidiImported()
+MidiFileImporter::importFileWithMetadata()
     │
-    ├── 停止当前播放/录制 ──► 注入 All-Notes-Off
-    ├── AudioEngine::armPlaybackStartPreRoll() (防 0s 音符截断)
-    ├── 设定当前 Playback Take (isPlaybackTake=true, canExportMidi=false)
-    └── RecordingEngine::startPlayback() ──► 自动开始回放 ──► 驱动虚拟键盘联动
+    ├── 2. 读取并验证 MIDI 文件头 (Type 0 / 1, PPQ 时间基准)
+    ├── 3. MidiTrackMergeEngine::mergeTracks() ──► 多轨时间线合并与通道智能路由
+    ├── 4. 时间基准转换: 将 MIDI Tick 转换为绝对采样点位置 (timestampSamples)
+    ├── 5. 提取 Note, CC64 Sustain, Pitch Bend, Program Change 事件
+    ├── 6. 元数据解析: MidiTextDecoder 解码曲名与全局 Tempo Map
+    └── 7. 组装为 RecordingTake ──► 返回 std::optional<MidiImportResult>
+    │
+    ▼
+RecordingSessionController::replaceTakeAndStartPlayback()
+    │
+    ├── 8. 重置既有循环与游标: clearPlaybackLoop() + idleSeekPositionSamples.reset()
+    ├── 9. 设定当前 Playback Take (canExportMidi=false, 保留曲目标题元数据)
+    ├── 10. AudioEngine::armPlaybackStartPreRoll() (防 0s 音符截断)
+    └── 11. RecordingEngine::startPlaybackAtTakeSample() ──► 自动开始回放 ──► 驱动虚拟键盘联动
+
 ```
 
 ---
@@ -47,7 +52,7 @@ RecordingSessionController::handleMidiImported()
 
 ### 3.1 多轨并轨规则与通道映射
 
-在 Phase 26 中，`MidiFileImporter` 接入了 `MidiTrackMergeEngine`：
+`MidiFileImporter` 接入了 `MidiTrackMergeEngine`：
 - **全音轨合并**：Type 0/1 文件各音轨中的 MIDI 播放事件按时间顺序合并为单一 Take，支持多声部与多乐器统一回放；
 - **智能通道分配**：支持 `passThrough`（原样保留通道）、`autoAssignIfSingleChannel`（单通道多轨自动分配 1-16 通道）与 `forceTrackToChannel`；
 - **全轨元数据提取**：扫描所有音轨中的 Meta 事件，提取曲名、Tempo、拍号、调号并构建全局 Tempo Map；导入路径不按音符数量选轨；
@@ -63,17 +68,15 @@ RecordingSessionController::handleMidiImported()
 部分 MIDI 文件的首个音符起始时间为 0s。为防止音频设备启动瞬间的清理用 All-Notes-Off 将 0s 音符误消除，`AudioEngine` 在启动导入回放前调用 `armPlaybackStartPreRoll()`，在首个可听 block 前插入微小静音预备区，确保首音 100% 完整清晰发声。
 
 ### 3.4 状态机互斥与按钮联动
-
-- **录制中（Recording）**：Import MIDI 按钮自动禁用，防止录制与导入冲突；
-- **播放中（Playing）**：Import MIDI 按钮禁用；需先点击 Stop 停止当前播放，方可导入新文件；
+- **录制中（Recording / RecordingPaused）**：Import MIDI 按钮自动禁用，拖拽导入文件静默忽略并记录日志，防止录制与导入冲突；
+- **播放中（Playing / PlayingPaused）**：Import MIDI 按钮禁用；若通过拖拽导入，系统自动安全停止当前回放，重置发音状态，载入新 Take 并从头自动开始回放；
 - **导入成功后**：
-  - `Record` 按钮可用（点击将放弃导入 Take 并进入录制）；
+  - `Record` 按钮可用（点击将放弃导入 Take 并进入录制，若开启预备拍则先执行倒计时）；
   - `Stop` 按钮可用；
-  - `Play` / `Back` 按钮可用（点击 `Back` 从头重新播放）；
+  - `Play` / `Back` 按钮可用（点击 `Back` 立即从头重新播放）；
   - `Export MIDI` **严格保持 Disabled**；
-  - `Export WAV` **保持 Enabled**（支持将导入的 MIDI 渲染为高质量 WAV 音频）。
-  - `TimelineBar` 支持以采样点精确 Seek，并用 Take-relative A/B 标记循环练习；循环 B 点发送跨通道发音清理后回到 A 点。
-
+  - `Export WAV` **保持 Enabled**（支持将导入的 MIDI 渲染为高质量 WAV 音频）；
+  - `TimelineBar` 激活，显示 Take 总时长与当前播放时间，支持以采样点精确 Seek 与 Take-relative A/B 标记循环练习；若导入新文件，原有的 A-B 标记与 Seek 偏移自动清空重置。
 ### 3.5 元事件文本解码规则
 
 标准 MIDI 文件不携带字符集信息，历史文件的轨道名/标题可能使用本地编码（GBK/CP936）甚至被制作工具按 Latin-1 反复误读。`MidiTrackMergeEngine` 统一通过 `MidiTextDecoder` 解码文本元事件，按以下顺序回退：
@@ -91,6 +94,20 @@ RecordingSessionController::handleMidiImported()
 
 `juce::MidiFile::readFrom` 要求文件在最后一个块之后**不留任何字节**，否则整体返回失败——即使所有轨道内容都已解析完成。真实文件常出现此类残留（实测案例：编辑器在末尾附加 `0d 0a`）。`MidiFileImporter` 因此在该 API 返回失败时进一步检查：只要已有轨道解析出事件，即记为警告并继续导入；真正的非法文件（无任何可用轨道）仍按失败处理。
 
+### 3.7 时间轴 Seek 与 A-B 循环跟练规则
+
+导入的 MIDI Take 支持基于绝对采样点的无缝 Seek 与片段循环跟练：
+
+1. **采样点精确 Seek**：
+   - 播放状态下点击或拖动 `TimelineBar`，在下一个音频块边界重校准播放位置，并向全部 16 个 MIDI 通道注入 CC64(0)、CC120(0)、All-Notes-Off(0) 清理事件，消除旧音符残留；
+   - 暂停或空闲状态下 Seek，将位置保存在 `idleSeekPositionSamples` 中并调用 `audioEngine.requestAllNotesOff()`，恢复播放时准确定位至该采样点起奏；
+2. **A-B 循环区间与边界时序**：
+   - A/B 标记以 Take 采样点保存，有效区间为半开区间 `[A, B)`；
+   - 当回放跨越 B 点边界时，音频块内优先调度 16 通道发音清理，紧接着从 A 点重新起奏多通道事件，杜绝上一个循环的未结音符残留；
+   - 循环期间自动抑制播放自然结束标志，确保循环平滑持续；
+3. **极小区间防御**：
+   - 若循环区间经播放速度与采样率缩放后小于单个音频回调块（`playbackBlockSize`），引擎保持标记但旁路循环回跳，防止单块内重复回跳导致断音风暴与 CPU 尖刺。
+
 ---
 
 ## 4. 专项手工与边界测试清单
@@ -106,3 +123,6 @@ RecordingSessionController::handleMidiImported()
 | **MID-007** | 导出按钮状态边界 | 导入成功后确认 `Export MIDI` 为 disabled，`Export WAV` 为 enabled | [x] 已通过 |
 | **MID-008** | 拖放即时加载 | 从 Windows 文件资源管理器拖拽 `.mid` 文件至主窗口，立即加载并播放 | [x] 已通过 |
 | **MID-009** | 导入后 WAV 离线导出 | 导入 MIDI 后点击 `Export WAV`，正常渲染并生成包含该 MIDI 音乐的 WAV 文件 | [x] 已通过 |
+| **MID-010** | 导入后采样点精确 Seek | 导入 MIDI 播放中拖拽时间轴至任意位置，发音在下一音频块重定向且旧音符完全释放，无悬挂音 | [ ] 待手工验证 |
+| **MID-011** | 导入后多通道 A-B 循环跟练 | 在导入的多轨 MIDI 上设定 A-B 标记，播放到达 B 点时回跳至 A 点，全通道清理，无漏音与爆音 | [ ] 待手工验证 |
+| **MID-012** | 导入新文件自动重置循环与游标 | 处于 A-B 循环状态下导入新 MIDI，原 A-B 标记与 Seek 偏移清空，新文件从 0 开始完整播放 | [ ] 待手工验证 |

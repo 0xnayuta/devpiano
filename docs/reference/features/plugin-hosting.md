@@ -23,7 +23,7 @@ VST3 插件宿主是 devpiano 连接专业音乐制作与高品质虚拟乐器�
 
 ```text
 [插件扫描链路]
-用户触发扫描 ──► PluginOperationController::scanVst3Plugins()
+用户触发扫描 ──► PluginOperationController::scanPlugins()
                      │
                      ▼
                  PluginHost::beginVst3ScanSession() (消息线程分片推进)
@@ -34,7 +34,7 @@ VST3 插件宿主是 devpiano 连接专业音乐制作与高品质虚拟乐器�
                      └── 失败项记录至 lastScanFailedFiles ──► UI 显示摘要
                      │
 [插件加载与发声链路]
-用户选择插件 ──► PluginOperationController::loadPluginByName()
+用户选择插件 ──► PluginOperationController::loadSelectedPlugin()
                      │
                      ├── 1. 关闭已有 Editor 窗口并解绑
                      ├── 2. AudioPluginFormatManager::createPluginInstance()
@@ -43,9 +43,10 @@ VST3 插件宿主是 devpiano 连接专业音乐制作与高品质虚拟乐器�
                      └── 5. 电脑键盘弹奏 ──► 驱动插件合成高品质音频
                      │
 [Editor 独立窗口托管]
-用户点击 Open Editor ──► PluginOperationController::openPluginEditor()
+用户点击 Open Editor ──► PluginOperationController::togglePluginEditor()
                              │
                              └── 创建 PluginEditorWindow (独立顶层窗口托管 plugin->createEditor())
+
 ```
 
 ---
@@ -55,7 +56,7 @@ VST3 插件宿主是 devpiano 连接专业音乐制作与高品质虚拟乐器�
 ### 3.1 多目录扫描与路径持久化
 
 - 路径输入支持 `juce::FileSearchPath` 语法（分号或逗号分隔多个路径）；
-- 扫描前自动过滤不存在的非法路径，并将规范化后的有效路径持久化到 `SettingsModel::pluginSearchPaths`。
+- 扫描前自动过滤不存在的非法路径，并将规范化后的有效路径持久化到 `SettingsModel::pluginSearchPath`。
 
 ### 3.2 扫描状态机互斥保护
 
@@ -68,13 +69,18 @@ VST3 插件宿主是 devpiano 连接专业音乐制作与高品质虚拟乐器�
 
 打开插件 Editor 窗口后，用户可能需要使用电脑键盘在插件内输入参数或试弹。`MainComponent` 的异步焦点恢复机制（`restoreKeyboardFocus`）在检测到 Editor 窗口处于激活状态时会自动跳过抢焦动作，防止主窗口将辅助窗口顶到后台。
 
-### 3.4 退出与音频设备重建安全序列
+### 3.4 退出与音频设备重建安全序列（`runPluginActionWithAudioDeviceRebuild`）
 
-应用析构或音频设备重建时，严格按照以下安全析构顺序执行：
-1. `closePluginEditorWindow()`：销毁 UI 窗口与底层 OS 视图句柄；
-2. `shutdownAudio()`：切断实时音频硬件回调；
-3. `pluginHost.unloadPlugin()`：执行 `releaseResources()` 并释放 `AudioPluginInstance`。
-
+应用析构、加载/卸载插件或音频设备重建时，严格通过 `runPluginActionWithAudioDeviceRebuild` 并在 `AudioDeviceRebuildGuard` 守卫下按照确定性顺序执行：
+1. `prepareForAudioDeviceRebuild()`：
+   - 捕获当前音频设备配置快照；
+   - `closePluginEditorWindow()` 销毁 UI 窗口与底层 OS 视图句柄；
+   - `shutdownAudio()` 切断实时音频硬件回调，杜绝音频线程并发访问；
+2. 在保护作用域内安全执行插件生命周期变更（`pluginHost.unloadPlugin()` 执行 `releaseResources()` 释放 `AudioPluginInstance`，或创建新实例）；
+3. `finishAudioDeviceRebuild()`：
+   - `initialiseAudioDevice()` 重建并启动音频硬件；
+   - `restoreKeyboardFocus()` 恢复键盘焦点；
+   - `updateStatusBar()` 刷新 UI 状态栏。
 ### 3.5 崩溃安全扫描持久化与 dead-man's pedal
 
 - **增量持久化**：`PluginHost::advanceVst3ScanStep()` 每推进一个插件即比对新旧类型数，一旦命中新插件，立即通过 `ScanIncrementalCallback` 交给 `PluginOperationController` 同步写入设置（`knownPluginListState`），而不是等扫描全部结束才落盘。扫描被中断或第三方插件崩溃时，已扫到的插件不会一起丢失；
@@ -91,7 +97,7 @@ VST3 插件宿主是 devpiano 连接专业音乐制作与高品质虚拟乐器�
 | 用例编号 | 测试场景 | 操作步骤与验证目标 | 状态 |
 |---|---|---|:---:|
 | **PLG-001** | 扫描后加载插件 | 扫描本地 VST3 目录 → 选择插件点击 Load → 试弹发声正常，状态栏显示 `Loaded: <Name>` | [x] 已通过 |
-| **PLG-002** | 连续重复加载与卸载 | 连续加载/卸载同一插件 5 次以上，无内存泄漏、无界面卡死，状态恢复正常 | [x] 已通过 |
+| **PLG-002** | 连续重复加载与卸载 | 连续加载/卸载同一插件，无内存泄漏、无界面卡死，状态恢复正常 | [x] 已通过 |
 | **PLG-003** | 加载状态下重新扫描 | 在已有插件加载并演奏状态下再次点击 Scan，旧插件安全卸载，扫描平稳完成 | [x] 已通过 |
 | **PLG-004** | 打开并关闭 Editor | 点击 Open Editor 打开插件原生界面，操作旋钮与音色切换正常，关闭窗口无报错 | [x] 已通过 |
 | **PLG-005** | 打开 Editor 状态下卸载插件 | 在 Editor 窗口保持打开时点击 Unload 按钮，Editor 窗口自动关闭，插件安全释放 | [x] 已通过 |
@@ -100,3 +106,5 @@ VST3 插件宿主是 devpiano 连接专业音乐制作与高品质虚拟乐器�
 | **PLG-008** | 损坏/不兼容 VST3 容错 | 扫描包含损坏或 32-bit 的非法 VST3 文件，扫描跳过该文件并不崩溃，Logger 准确记录路径 | [x] 已通过 |
 | **PLG-009** | 崩溃后扫描成果保留 | 扫描较大插件目录过程中强制结束进程，重启后设置中仍缓存崩溃前已扫描到的插件，而非全部丢失 | [ ] 待手工验证 |
 | **PLG-010** | 崩溃插件推迟到扫描末尾 | 劣质插件导致扫描崩溃后重启再扫描，该插件被推迟到序列末尾，其余插件优先完成扫描 | [ ] 待手工验证 |
+
+除手工场景外，插件宿主子系统由自动化单元测试全面覆盖：`PluginHostTest`（插件扫描、加载、卸载与资源释放生命周期）、`PluginHostXmlTest`（`KnownPluginList` XML 序列化往返与属性完整性）、`PluginScanPersistenceTest`（增量扫描持久化与 dead-man's pedal 黑名单防崩恢复）、`PluginOperationControllerTest`（控制器扫描推进、状态机互斥与窗口管理）。

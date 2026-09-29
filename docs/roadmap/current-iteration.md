@@ -53,14 +53,15 @@
   - 在 `source/Audio/MetronomeProcessor.h` 中实现无锁、零堆内存分配的节拍发生器；
   - 基于极简数学阻尼正弦脉冲合成 High Tick（强拍 ~1600 Hz，30ms 极速指数衰减）与 Low Tick（弱拍 ~800 Hz，20ms 极速指数衰减），零外部采样依赖；
   - 挂接于 `AudioEngine::getNextAudioBlock`，在总输出混音前无缝叠加入 Master 管道。
+  - 当前 `triggerBeat()` 每拍仍在音频回调内计算 `std::sin`/`std::cos`/`std::exp` 系数；这不是逐采样计算，但尚未达到**全回调 0 `std::sin`** 契约，见 [`../issues/known-issues.md`](../issues/known-issues.md)。
 - [x] **Phase 35-A-2：拍号与节奏模型扩展**：
-  - 在 `source/Core/KeyMapTypes.h` 或新增 `source/Core/MetronomeModel.h` 中定义节拍模型：支持 2/4、3/4、4/4、6/8 常用拍号；
+  - 在 `source/Core/MetronomeModel.h` 中定义拍号与预备拍模型：支持 2/4、3/4、4/4、6/8；
   - BPM 无级可调范围 40 ~ 280 BPM；Tap Tempo 使用最近最多 3 个点击间隔的滑动均值（最多 4 个时间戳），间隔超过 2 秒时重置累积；
   - 支持录音前预备拍（Count-in，1~2 小节倒计时触发），并在设置中持久化记录。
-- [x] **Phase 35-A-3：JIVE 声明式 UI 控件与状态栏同频脉冲**：
-  - 在 `LayoutModel.cpp` 的 `ControlsPanel` 走带区域新增节拍器开关（`metronome-toggle-btn`）、BPM 调节与音量控制；
-  - 状态栏与走带界面呈现同频呼吸闪烁的节拍指示灯（强拍高亮红色/主色，弱拍柔和浅色）；
-  - 支持键盘快捷键快速启闭节拍器。
+- [x] **Phase 35-A-3：JIVE 声明式 UI 控件与状态栏节拍反馈**：
+  - `LayoutModel.cpp` 的传输卡片提供节拍器开关（`metronome-toggle-btn`）、BPM/拍号菜单与 Tap Tempo 按钮；预备拍小节数在 BPM 菜单选择。音量参数由 `SettingsModel` 持久化，但当前界面不提供音量调节控件；
+  - 状态栏 `metronome-status-label` 随节拍序号显示强弱拍符号与渐隐反馈；传输卡片按钮显示开关与当前 BPM，不承担独立的同频闪烁指示灯；
+  - 支持 Ctrl+M 快捷键启闭节拍器。
 - [x] **Phase 35-A-4：节拍器时序与采样精度确定性测试集**：
   - 编写 `MetronomeTest` 专项单测，覆盖 Tap Tempo 三间隔滑动均值、BPM 限幅与 2 秒超时重置，以及采样计数周期对齐、动态变速、多音频块跨块切分、拍号重音循环及预备拍倒计时状态机。
 
@@ -74,12 +75,12 @@
   - 在 `source/Input/TypingCadenceEstimator.h` 中引入律动速度估算器；
   - 记录连续按键时间戳：快速琶音/疾风华彩（$\Delta t \le 60\text{ ms}$）自适应推高击键力度至 $122/127 \approx 0.960\text{f}$，从容抒情慢按（$\Delta t \ge 500\text{ ms}$）自适应回落至 $76/127 \approx 0.598\text{f}$，长停顿（$> 1.0\text{ s}$）平滑复位基准力度；
   - 保留 Standard / Light / Heavy / Wide 基础曲线作为加权底色。
-- [x] **Phase 35-B-2：确定性高斯微扰生成器（`VelocityHumanizer`）**：
-  - 引入轻量确定性哈希伪随机算法，为连续按键注入极微弱的力度波动（默认 $\pm 0.035\text{f} \approx \pm 4.5$ 力度，可配置），严格钳制在 $[1/127, 1.0]$；
+- [x] **Phase 35-B-2：确定性哈希力度微扰（`VelocityHumanizer`）**：
+  - 以轻量确定性哈希伪随机值为连续按键注入力度波动（默认 $\pm 0.035\text{f} \approx \pm 4.5$ 力度），钳制在 $[1/127, 1.0]$；不使用高斯分布；
   - 彻底打破固定 100 力度的机械“打字机感”，让内置物理建模钢琴的非线性毛毡硬度与音板共鸣得到自然微扰绽放。
-- [x] **Phase 35-B-3：输入管线集成与快捷微调**：
-  - 将估算器接入 `KeyboardMidiMapper::keyPressed` 事件管道，严格遵守瞬态修饰符优先级（Shift 按下时强制拉满 127）；
-  - 支持基础力度基线动态微调（`baseVelocityBias`）并在 `SettingsModel` / `SettingsStore` 中持久化落盘。
+- [x] **Phase 35-B-3：输入管线集成与设置持久化**：
+  - 将估算器接入 `KeyboardMidiMapper::handleKeyPressed` 的触发路径，严格遵守瞬态修饰符优先级（Shift 按下时强制拉满 127）；
+  - `baseVelocityBias`、动态力度开关与扰动幅度由 `SettingsModel` / `SettingsStore` 存取；当前主界面及设置窗口尚无这些参数的编辑控件，也无独立 QWERTY 数值力度 HUD。
 - [x] **Phase 35-B-4：打字力度估算与抗抖动测试集**：
   - 编写 `CadenceVelocityTest` 专项单测，全面覆盖连续快速敲击、慢速抒情敲击、超时复位、微扰确定性与范围约束、及与 Shift 修饰符的最高优先级仲裁保护。
 
@@ -93,10 +94,10 @@
   - 在 `source/Core/MusicTheory.h` 中实现纯函数 `ChordInfo detectChord(const std::vector<int>& activeNotes)`；
   - 基于音高类集合（Pitch Class Set）算法与循环掩码位移，高精度识别大三、小三、属七、大七、小七、半减七、减七、挂四（sus4）、挂二（sus2）、各类加音及九和弦；
   - 准确识别第一转位、第二转位、第三转位并提取根音与低音（Slash Chords，如 `G/B`、`Am/C`、`C/E`）。
-- [x] **Phase 35-C-2：QWERTY 看板与状态栏和弦徽标联动**：
-  - 在 `QwertyCard` 顶部标题栏增加声明式 `qwerty-chord-badge` 和弦标签，同时在 `QwertyComponent` 内部右上角构建半透明毛玻璃质感、发光和弦 HUD 徽标；
-  - 演奏多键按下时即刻点亮和弦名称与转位标记，与 12-TET 和声调色板投影几何色相完美呼应；
-  - 所有按键松开后呈现 300ms 优雅淡出余晖（50fps 平滑指数衰减），避免视觉闪烁。
+- [x] **Phase 35-C-2：QWERTY 卡片标题与键盘 HUD 和弦反馈**：
+  - 在 `QwertyCard` 顶部标题栏增加声明式 `qwerty-chord-badge` 标签，并在 `QwertyComponent` 内部右上角绘制半透明和弦 HUD；状态栏不显示和弦徽标；
+  - 按下多个音符时展示和弦名称与转位说明，并以 12-TET 和声色彩标注；
+  - 按键松开后 HUD 渐隐，避免视觉闪烁。
 - [x] **Phase 35-C-3：和弦识别专项单元测试集**：
   - 编写 `ChordRecognitionTest` 专项单测，全面覆盖单音、常见大三/小三和弦、挂留/减/增和弦、七和弦、九和弦、转位和弦、八度音重复、低音倾向性仲裁与散落杂音容错识别。
 
@@ -106,12 +107,12 @@
 
 > 目标：补齐 MIDI 伴奏跟弹练习的工作流闭环，支持难点小节精细 A-B 循环与无缝时间跳转。
 
-- [x] **Phase 35-D-1：走带时间轴精细进度条组件与 Seek 机制**：
-  - 在 JIVE 走带控制区域或独立横幅构建精细的时间轴播放进度条（`TimelineBar`），实时展示当前播放绝对时间与总时长；
-  - 支持鼠标点击与拖拽跳转（Seek）：跳转时立即发送 All-Notes-Off 冲刷当前发声池，精准重校准 `playbackPositionSamples`，杜绝爆音与破音。
-- [x] **Phase 35-D-2：A-B 标记与无缝循环播放器（`AbLoopEngine`）**：
-  - 提供快捷标记按钮或按键快捷键设置循环起点 A 与循环终点 B；
-  - 播放抵达 B 点瞬间自动优雅注销未完成音符并采样精确回跳至 A 点无缝循环，配合 0.5x~2.0x 原子调速，构建强大的伴奏练习模式。
+- [x] **Phase 35-D-1：传输卡片时间轴与 Seek**：
+  - 在 `LayoutModel.cpp` 的 ADSR/传输卡片中嵌入 `TimelineBar`，显示当前播放位置与总时长；
+  - 点击/拖动时间轴以 Take-relative 采样位置请求跳转；音频线程在下一块应用 Seek 并清理原有发声、重置播放事件游标；
+- [x] **Phase 35-D-2：A-B 标记与循环播放器（`AbLoopEngine`）**：
+  - `TimelineBar` 提供设置 A、B 与清除循环操作；`AbLoopEngine` 保存 Take-relative 标记；
+  - 播放抵达 B 点时注销未完成音符并回跳至 A 点；循环区间采用 $[A,B)$ 语义，配合 0.5x~2.0x 原子调速。
 - [x] **Phase 35-D-3：时间轴跳转与循环测试套件**：
   - 编写 `AbLoopTest` 专项单测，覆盖边界 Seek 跳转、A-B 倒置保护、回跳发音注销确定性、空区间保护及多轨合并时间线下的准确复位。
 

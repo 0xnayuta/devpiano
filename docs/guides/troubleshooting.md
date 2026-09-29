@@ -45,8 +45,42 @@
 
 ## WSL configure / build 问题
 
-> 待补充
+### 1. JUCE 子模块未初始化导致头文件缺失
 
+**现象**：`./scripts/dev.sh wsl-build` 失败，提示缺失 JUCE 头文件或 `JuceHeader.h` 找不到。
+
+**原因**：克隆仓库后未拉取 git 子模块，`JUCE/` 目录为空。
+
+**修复**：
+
+```bash
+git submodule update --init --recursive
+```
+
+### 2. juceaide 子构建：CC flag 不识别（GCC vs Clang）
+
+**现象**：`./scripts/dev.sh wsl-build --configure-only` 报错：
+
+```text
+cc: error: unrecognized command-line option '-Wshadow-all'; did you mean '-Wshadow'?
+cc: error: unrecognized command-line option '-Wshorten-64-to-32'
+```
+
+**原因**：`CMakePresets.json` 中配置了 `CMAKE_C_COMPILER=clang`，但 JUCE 的 `juceaide` 辅助工具子构建在特定环境下 fallback 到系统的 `/usr/bin/cc`（如 Ubuntu 26.04 默认链接到 GCC-15）。GCC 无法识别 Clang 专属告警选项。
+
+**修复**：使用 `update-alternatives` 将系统默认 `cc` 指向 Clang-21：
+
+```bash
+sudo update-alternatives --install /usr/bin/cc cc /usr/bin/clang-21 100
+sudo update-alternatives --set cc /usr/bin/clang-21
+./scripts/dev.sh wsl-build --reconfigure
+```
+
+### 3. Ubuntu 26.04 单元测试文本渲染缺失（Noto CJK .ttc 扫描）
+
+**现象**：Ubuntu 26.04 本地 Debug 运行单测时 `JiveRenderTest` 报错渲染可见像素为 0。
+
+**原因与修复**：JUCE FreeType 字体扫描器仅匹配 `.ttf`/`.otf`，而 Ubuntu 26.04 的 `system-ui` 指向 Noto CJK `.ttc`。通过在 `~/.local/share/fonts` 建立 `.ttf` 镜像副本并 `fc-cache -f` 即可解决，详见 [`../issues/known-issues.md`](../issues/known-issues.md#ubuntu-2604-下-jive-文本不渲染juce-字体扫描不识别-ttcsystem-ui--noto-cjk)。
 ---
 
 ## MSVC 验证构建问题
@@ -61,15 +95,21 @@
 
 **处理方法**：
 
-1. **快速修复**（推荐每次）：删除 CMake 缓存后重新构建
+1. **快速修复**（推荐）：使用 reconfigure 模式重新生成 Windows 构建系统
 
    ```bash
-   # 在 Windows 侧删除缓存
+   ./scripts/dev.sh win-build --reconfigure
+   # 或清空 Windows 构建目录重建：
+   ./scripts/dev.sh win-build --clean-win-build
+   ```
+
+   亦可在 Windows 侧显式删除缓存文件：
+   ```bash
    powershell.exe -Command "Remove-Item -Path 'G:\source\projects\devpiano\build-win-msvc\CMakeCache.txt' -Force"
    ./scripts/dev.sh win-build
    ```
 
-2. **验证是否解决了问题**：重新编译的文件数应接近全部编译单元数（主程序约 42 个；启用 `BUILD_TESTS=ON` 时另加测试编译单元），而不是只有 1-3 个。
+2. **验证是否解决了问题**：重新编译应覆盖全部编译单元（主程序与测试目标），而不是只有零星 1-3 个增量文件。
 
 3. **预防**：在 `win-build` 之后，务必确认输出中编译的文件数是否符合预期。若改动涉及 UI 文件（`.h`/`.cpp`）且只编译了零星几个文件，应按上述方法删除缓存后重新构建。
 

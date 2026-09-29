@@ -20,14 +20,14 @@
          ▼                                 ▼                                ▼
 ┌──────────────────┐             ┌──────────────────┐             ┌──────────────────┐
 │   零外部资源依赖 │             │ 7 大完整声学系统 │             │ 极低实时 CPU 开销│
-│ 单头文件+参数查表│             │ 覆盖击弦/弦体/共鸣│             │ Magic Circle 递归│
+│ 紧凑物理参数建模│             │ 覆盖击弦/弦体/共鸣│             │ Magic Circle 递归│
 │ 零 SFZ/PCM 采样  │             │ 机械/空间/微调律制│             │ 逐采样零 std::sin│
 └──────────────────┘             └──────────────────┘             └──────────────────┘
 ```
 
 ### 设计目标与工程特征
 
-1. **零外部采样依赖**：代码由单头文件（`PianoSynthVoice.h`）与 88 键物理参数表（`Piano88KeyTable.h`）构成，编译后二进制体积极小，彻底摆脱对数百 MB 至数十 GB 外部采样音色库的依赖；
+1. **零外部采样依赖**：代码由现代 C++ 声学模块（`PianoSynthVoice.h`、`Piano88KeyTable.h`、`RoomReverbEngine.h`、`PerspectiveProcessor.h`、`TemperamentEngine.h`）构成，编译后二进制体积极小，彻底摆脱对数百 MB 至数十 GB 外部采样音色库的依赖；
 2. **7 大声学系统全物理建模**：覆盖琴槌（Hammer）、琴弦（String）、琴桥（Bridge）、音板（Soundboard）、琴体（Cabinet）、空气（Air）与空间（Room），重现真实三角钢琴的微观非线性动力学；
 3. **极低实时 CPU 开销与硬实时保证**：采用 Magic Circle 二阶递归振荡器，逐采样**零三角函数（`std::sin`）调用**，8 复音齐奏下单核 CPU 占用 $\le 0.7\%$，且实时渲染路径严格保证**零堆分配、零锁、零系统调用**；
 4. **即时回退机制**：与 `SineSynthVoice`（正弦波合成器）共用 `juce::Synthesiser` 调度，支持一键切换与基准比对。
@@ -58,7 +58,8 @@
      │
      ├──► [3. 音板共鸣 Soundboard] ──► 16 峰正交云杉木物理模态组 + 4.2kHz 云杉木粘滞内耗低通
      ├──► [4. 踏板与交感共鸣 Cabinet] ──► CC64 延音踏板全局交感共鸣弦池 + 单键开放弦交感
-     │                                └─► 踏板扫掠与冲击声 (Pedal Whoosh & Resonance Shock)
+     │                                ├─► 踏板扫掠与冲击声 (Pedal Whoosh & Resonance Shock)
+     │                                └─► CC67 弱音/移位踏板 (Una Corda: 毛毡软化与三弦敲两弦衰减)
      └──► [5. 机械拟真 Mechanical] ──► 制音器落木闷击与琴键摩擦 (Damper Release & Key Thump)
      │                                └─► 离键速度动态释放阻尼 (Dynamic ADSR Key Release Damping)
      │
@@ -67,7 +68,7 @@
      │
      ├──► [6. 空间与琴盖 Air & Lid] ──► 琴盖开合度 (Full/Half/Closed) 传递函数 + 3 抽头近场微反射
      │                              ├─► 演奏者与听众双重视角声像成像 (PerspectiveProcessor)
-     │                              └─► 房间混响网络 (RoomReverbEngine: Chamber/Hall/Studio)
+     │                              └─► 房间混响网络 (RoomReverbEngine: 8 梳状滤波+4 全通扩散, Chamber/Hall/Studio)
      └──► [7. 动力学生命力 Vitality] ──► 动态声场空间漫射 (点声源 25ms 平滑展开为面声源)
      │
      ▼
@@ -81,10 +82,11 @@
 真实钢琴的琴槌是由多层羊毛毡包裹木芯构成的非线性弹性体，击打琴弦时表现出强烈的力度依赖性与瞬态特征：
 
 1. **三层毛毡动力学压实模型（Chaigne & Askenfelt 1994）**：
-   - 有效毛毡硬度随击键力度 $v$ 呈非线性幂次增长：$h_{\text{eff}} = 0.15 + 0.85 v^{1.5}$；
-   - 琴槌与琴弦的有效接触时间 $T_c$ 随力度增大而连续缩短：
-     $$T_c(v) = T_{c,\text{base}} \cdot \left(0.70 + 0.30 (1.0 - v)^{1.2}\right)$$
-   - 动态截止频率 $f_c = 2.5 / T_c(v)$ 与速度相关滚降指数 $p = 2.0 - 0.8 h_{\text{eff}}$（弱奏 $pp$ 时高频快速衰减呈温润暗色，强奏 $ff$ 时高频充分释放清脆明亮）。
+   - 有效毛毡硬度随击键力度 $v$、硬度设置与毛毡老化呈非线性幂次增长：
+     $$h_{\text{eff}} = \left(0.15 + 0.85 v^{1.5} \cdot (0.5 + 0.5 \cdot \text{hardness}) + \Delta h_{\text{felt}}\right) \cdot (1.0 - 0.25 \mu_{\text{una}})$$
+   - 琴槌与琴弦的有效接触时间 $T_c$ 随硬度与踏板状态自适应调整：
+     $$T_c(v) = T_{c,\text{base}} \cdot (2.5 - 1.9 h_{\text{eff}}) \cdot (1.0 + 0.20 \mu_{\text{una}})$$
+   - 动态截止频率与速度相关滚降指数（弱奏 $pp$ 时高频快速衰减呈温润暗色，强奏 $ff$ 时高频充分释放清脆明亮）。
 
 2. **击弦点几何梳状陷波（Striking Position Comb Filter）**：
    - 琴槌击弦位置 $x_0 / L$ 严格按 88 键物理位置查表（低音区 $\approx 1/8$，高音区过渡至 $\approx 1/14$）；
@@ -113,7 +115,7 @@
    - $B$ 为琴弦刚度系数，由 Steinway B 88 键实测标定连续曲线插值提供（包含 G2/G#2 琴桥交界突变）。
 
 2. **Magic Circle 二阶递归正弦振荡器（Coupled Form）**：
-   - 彻底消灭实时音频线程的 `std::sin` 调用，采用工控与专业 DSP 领域的耦合形式正弦振荡器：
+   - 彻底消灭发声振荡核心逐采样循环的 `std::sin` 调用，采用工控与专业 DSP 领域的耦合形式正弦振荡器：
      $$u[n] = u[n-1] - \epsilon \cdot v[n-1]$$
      $$v[n] = v[n-1] + \epsilon \cdot u[n]$$
    - 递归步长在按键瞬间预计算：$\epsilon = 2 \cdot \sin\left(\frac{\pi f_m}{f_s}\right)$；逐采样仅需 **2 次乘法 + 2 次加法**，幅度严格有界、零漂移。
@@ -152,12 +154,12 @@
 
 2. **16 峰正交云杉木物理音板模态组（Bank 2010 / Chabassier 2019）**：
    - 挂载 16 组精确调谐的二阶带通共振滤波器，全频段覆盖云杉木音板核心模态：
-     - `48 Hz / 75 Hz`：音板与背架底箱主呼吸模态；
-     - `110 Hz / 130 Hz`：低音长琴桥弯曲模态；
-     - `180 Hz / 210 Hz`：音板主板面弯曲与对角线模态；
-     - `290 Hz / 360 Hz / 450 Hz`：肋木与琴桥交叉耦合模态；
-     - `580 Hz / 720 Hz / 890 Hz`：中高频木质辐射模态；
-     - `1120 Hz / 1450 Hz / 1850 Hz / 2250 Hz`：各向异性高频散射模态。
+     - `48 Hz / 68 Hz`：音板与背架底箱主呼吸模态；
+     - `95 Hz / 135 Hz`：低音长琴桥弯曲模态；
+     - `185 Hz / 250 Hz`：音板主板面弯曲与对角线模态；
+     - `340 Hz / 460 Hz`：肋木与琴桥交叉耦合模态；
+     - `620 Hz / 820 Hz / 1080 Hz`：中高频木质辐射模态；
+     - `1380 Hz / 1680 Hz / 1850 Hz / 2050 Hz / 2250 Hz`：各向异性高频散射模态。
 
 3. **云杉木 4.2kHz 高频粘滞内耗低通滤波器（Spruce Soundboard Filter）**：
    - 模拟天然云杉木纤维对超高频能量的各向异性粘滞吸收，消除电子合成器常见的铁皮金属盒共鸣毛刺，赋予音色深厚温暖的木质感。
@@ -170,8 +172,9 @@
 ### 2.4 空间、机械与环境拟真系统（Cabinet, Air & Mechanical System）
 1. **CC64 延音踏板全局交感共鸣弦池与扫掠声（Sympathetic Resonance & Pedal Noise）**：
    - 踩下 CC64 延音踏板时激活 12 半音全开放交感共鸣弦池，使演奏音符的泛音激发全琴未制音琴弦的共振；
-   - **踏板机械扫掠声与共鸣冲击（Phase 32-A）**：踩下/抬起踏板时激发成对的机械毛毡抬起刮擦与空气呼啸脉冲（`pedalWhoosh`，带通 $450\text{ Hz}$）以及对全体开放琴弦的瞬态弱冲击激发（`pedalResonanceShock`，低通 $280\text{ Hz}$），由 `pedalNoiseLevel`（默认 0.6）线性缩放；
-   - 支持**未踩踏板时的单键开放弦交感（Duplex & Unpedaled Resonance）**：按住低音键弹奏高音时，低音键对应的开放琴弦产生物理交感振动。
+   - **踏板机械扫掠声与共鸣冲击（Phase 32-A）**：踩下踏板时激发成对的机械毛毡抬起刮擦与空气呼啸脉冲（`pedalWhoosh`，带通 $1350\text{ Hz}$，$Q=1.25$；抬起带通 $950\text{ Hz}$）以及全琴瞬态弱冲击激发（`pedalResonanceShock`，双共振冲击峰 $58\text{ Hz}$ 与 $116\text{ Hz}$），由 `pedalNoiseLevel`（默认 0.6）线性缩放；
+   - 支持**未踩踏板时的单键开放弦交感（Duplex & Unpedaled Resonance）**：按住低音键弹奏高音时，低音键对应的开放琴弦产生物理交感振动；
+   - **CC67 弱音/移位踏板物理拟真（Una Corda / Soft Pedal，Phase 29-B）**：踩下 CC67 踏板时击弦机向右微移，敲击毛毡侧面相对柔软区域（有效硬度衰减至多 25%，接触时间延长至多 20%），中高音区三弦组产生三弦敲两弦（Trichord to Bichord）声能衰减（至多 30% 衰减），呈现柔和朦胧的暗调色泽。
 
 2. **琴盖开合度声学传递函数（Lid Position Acoustics）**：
    - 支持 3 种琴盖物理状态：全开（Full Open）、半开（Half Stick）、闭盖（Closed Lid）。
@@ -189,7 +192,7 @@
      - 听众视角：声像左右镜像翻转，并施加适度的高频空气吸收与中置凝聚感。
 
 5. **轻量数学算法房间混响网络（RoomReverbEngine，Phase 31-B）**：
-   - 内置纯数学算法立体声混响网络，基于 4 组互质延时反馈梳状滤波阵列与 2 级全通扩散矩阵（Schroeder-Moorer 架构演进），零外部采样依赖；
+   - 内置纯数学算法立体声混响网络，基于 8 组互质延时反馈梳状滤波阵列与 4 级全通扩散矩阵（Schroeder-Moorer 架构演进），零外部采样依赖；
    - 提供 **Studio（录音棚 0.6s）**、**Chamber（室内乐厅 1.5s）** 与 **Concert Hall（音乐厅 2.4s）** 三大经典声学空间预设，支持平滑干湿比（`reverbWet`）无级调节。
 
 6. **动态声场空间漫射（Dynamic Spatial Diffusion）**：
@@ -207,12 +210,14 @@
 | **琴弦配置** | `stringCount` | 1 弦 (21~35) / 2 弦 (36~47) / 3 弦 (48~108) | 物理单弦、双弦、三弦真实分区 |
 | **琴桥归属** | `isBassBridge` | 低音桥 (21~43) / 主琴桥 (44~108) | 决定琴桥耦合模态与空间声像几何锚点 |
 | **有效弦长** | `stringLength` | 1.92 m → 0.09 m | 决定基频与纵波先导声时差 |
-| **刚度失谐系数** | `inharmonicityB`| $4.5 \times 10^{-4} \to 1.2 \times 10^{-5}$ | 控制泛音非谐波性金属质感（含 G2/G#2 阶跃） |
-| **击弦比** | `strikePosRatio` | $1/8 (0.125) \to 1/16 (0.0625)$ | 决定几何梳状陷波抑制点 |
+| **刚度失谐系数** | `inharmonicityB`| $3.1 \times 10^{-4} \to 8.5 \times 10^{-2}$ | 控制泛音非谐波性金属质感（A0 处 $3.1 \times 10^{-4}$，G2 处 $1.85 \times 10^{-4}$，G#2 阶跃至 $2.65 \times 10^{-4}$，C8 达 $8.5 \times 10^{-2}$） |
+| **击弦比** | `strikePosRatio` | $1/8 (0.125) \to 1/16 (0.0625)$ | 决定几何梳状陷波抑制点（低音 0.125，主琴桥折角 0.1333，高音 0.100，极高音 0.0625） |
 | **接触时间** | `tcBase` | 3.0 ms → 0.6 ms | 控制琴槌冲击持续时间与动态截止点 |
-| **同音微失谐** | `detuneCents` | 0.0 → 0.45 cents | 控制同音三弦拍频干涉周期（1.5s～4s） |
+| **同音微失谐** | `detuneCents` | 2.4 → 0.0 cents | 控制同音三弦拍频干涉周期（`beatingDetuneRatio` 为 $0.0020 \to 0.0$） |
 | **基础慢衰减** | `decaySeconds` | 4.8 s → 0.8 s | 决定琴弦慢分量自然延音长度 |
 | **快衰减比率** | `fastDecayRatio` | $0.12 \to 0.18$ | 琴弦早期辐射衰减速度与慢衰减之比 |
+| **阻尼常数** | `b1` / `b2` | $0.25 \to 9.17\text{ s}^{-1}$ / $7.5\times 10^{-5} \to 2.1\times 10^{-3}\text{ s}$ | 频率无关阻尼常数与内部摩擦高阶损耗 |
+| **模态阻尼斜率** | `decayDampingC` | $0.38 \to 0.12$ | 模态阻尼随音高变化斜率 |
 
 ---
 
@@ -227,6 +232,7 @@
 | **Resonance（共鸣）** | `setPianoParameters` / `pianoResonance` | 0.5 | 调节 16 峰音板共振 Wet 比率（18%~34%）与延音衰减时间缩放 |
 | **Pedal Noise（机械噪声）** | `setPedalNoiseLevel` / `pedalNoiseLevel` | 0.6 | 调节延音踏板扫掠呼啸与共鸣冲击的机械动作音量（0..1） |
 | **Felt Ageing（毛毡老化）** | `setFeltAgeingAmount` / `feltAgeingAmount` | 0.0 | 调节琴槌羊毛纤维磨损压实深度，注入微观穿透力与硬化质感（0..1） |
+| **Una Corda（弱音踏板）** | `setSoftPedalDown` / `softPedalDown` | false | 琴槌击弦机侧向位移，毛毡软化与三弦敲两弦声能衰减（MIDI CC 67，电平 0..1） |
 
 ### 4.2 古典微调律制与基准音高（`TemperamentEngine`）
 
@@ -235,7 +241,7 @@ void setTemperament(devpiano::audio::Temperament temperament);
 void setReferencePitchA4(double hz);
 ```
 
-支持 6 大古典律制（`equal` 平均律、`meantone` 1/4 中庸全音律、`werckmeister3` 韦克迈斯特三律、`kirnberger3` 基恩伯格三律、`just` 纯律）与基准音高微调（A4 = 415.3Hz, 432Hz, 440Hz, 442Hz 等）。
+支持 6 大古典律制（`equal` 平均律、`just` 纯律、`pythagorean` 毕达哥拉斯律、`meantone` 1/4 中庸全音律、`werckmeister3` 韦克迈斯特三律、`kirnberger3` 基恩伯格三律）与基准音高微调。**契约目标**为 A4 $[400.0, 480.0]\text{ Hz}$；**当前代码** `TemperamentEngine::clampReferencePitch()` 将合法输入限制在 $[410.0, 450.0]\text{ Hz}$，尚未达到目标两端（见 [`../../issues/known-issues.md`](../../issues/known-issues.md)）。常用基准包括 415.0、432.0、440.0、442.0 Hz。
 
 ### 4.3 空间视角、琴盖与环境混响
 
@@ -258,7 +264,7 @@ void setPerspective(devpiano::audio::SoundPerspective perspective) noexcept;
 
 ## 5. 性能特征与无锁并发保障
 
-1. **零三角函数计算**：88 键全部激活振荡器均运行在 Magic Circle 状态机，逐采样纯乘加运算；
+1. **PianoSynthVoice 逐采样零三角函数计算**：88 键全部激活振荡器在 `renderNextBlock` 逐采样物理发声核心循环中均运行在 Magic Circle 状态机，逐采样仅执行纯乘加运算；步长在按键瞬间（`startNote`）预计算。需注意：契约目标为实时发声链路硬实时无耗时数学函数，当前 `PianoSynthVoice` 逐采样物理发声路径严格满足，但全局音频回调中的其他模块（如节拍器 `MetronomeProcessor::triggerBeat` 每拍触发时）仍包含控制级 `std::sin` / `std::cos` / `std::exp` 调用，与全回调全局零三角函数 SLA 仍存在工程差距，在此明确界定边界并记录；
 2. **硬实时音频安全**：
    - 实时音频回调线程（`renderNextBlock`）**零堆内存分配（No `malloc`/`new`）**；
    - **零锁（No Mutex/Lock）**，多线程参数传递采用 `std::atomic` 或原子快照；
@@ -269,7 +275,7 @@ void setPerspective(devpiano::audio::SoundPerspective perspective) noexcept;
 
 ## 6. 专项确定性测试套件与声学验证
 
-确定性物理单元测试覆盖核心物理声学套件，全部满分通过：
+确定性物理单元测试覆盖核心物理声学套件并通过验证：
 
 | 测试套件 / 物理用例 | 验证物理机理与断言指标 | 状态 |
 |---|---|:---:|
@@ -282,3 +288,4 @@ void setPerspective(devpiano::audio::SoundPerspective perspective) noexcept;
 | **SpatialAcousticsTest** | 空间声学全链路联动、琴盖开合/混响/视角多重组合声学衰减单调性 | [x] 已通过 |
 | **PianoSynthVoiceTemperamentTest** | 古典微调律制微音分偏移、A4 基频换算、全音域单调性与跨律制即时切换 | [x] 已通过 |
 | **MechanicalAcousticsTest** | 机械噪声与毛毡老化设置存取、边界钳制、预设向后兼容、离线导出参数传递与极端参数安全限幅 | [x] 已通过 |
+| **UnaCordaAcousticsTest** | CC 67 弱音/移位踏板物理声学响应、毛毡侧移软化、三弦敲两弦衰减、全链路控制器响应与回放动态踏板稳定性 | [x] 已通过 |
