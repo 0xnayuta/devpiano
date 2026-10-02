@@ -26,6 +26,12 @@ static juce::String getFixturePath(const juce::String& filename) {
 static auto importFixture(const juce::String& name, double sampleRate = 48000.0) {
     return devpiano::recording::importMidiFile(juce::File(getFixturePath(name)), sampleRate);
 }
+static void writeBinaryFile(const juce::File& file, const std::vector<uint8_t>& bytes) {
+    juce::FileOutputStream out(file);
+    if (out.openedOk()) {
+        out.write(bytes.data(), bytes.size());
+    }
+}
 
 // =============================================================================
 
@@ -82,6 +88,205 @@ public:
             if (result.has_value()) {
                 expectGreaterThan(result->events.size(), size_t(0));
             }
+        });
+
+        testCase("missing second declared MTrk returns nullopt (ERR-004)", [&] {
+            devpiano::test::ScopedTempDir tempDir("midi-missing-mtrk");
+            const auto file = tempDir.getChildFile("missing-second-track.mid");
+
+            // Header: format 1, 2 tracks, division 480 (14 bytes)
+            // Track 0: MTrk (13 bytes body)
+            // Missing Track 1 chunk entirely
+            const std::vector<uint8_t> payload
+                = { 'M',  'T',  'h',  'd',  0x00, 0x00, 0x00, 0x06, 0x00, 0x01, 0x00, 0x02,
+                    0x01, 0xE0, 'M',  'T',  'r',  'k',  0x00, 0x00, 0x00, 0x0D, 0x00, 0x90,
+                    0x3C, 0x64, 0x83, 0x60, 0x80, 0x3C, 0x00, 0x00, 0xFF, 0x2F, 0x00 };
+            writeBinaryFile(file, payload);
+            auto result = importMidiFile(file, 48000.0);
+            expect(!result.has_value(), "file missing declared second MTrk must be rejected");
+        });
+
+        testCase("truncated chunk body returns nullopt (ERR-004)", [&] {
+            devpiano::test::ScopedTempDir tempDir("midi-truncated-chunk");
+            const auto file = tempDir.getChildFile("short-chunk.mid");
+
+            // Header: format 0, 1 track, division 480
+            // Track 0: declares 64 bytes chunkSize, but file supplies only 10 bytes
+            const std::vector<uint8_t> payload
+                = { 'M', 'T', 'h',  'd',  0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, 0x01, 0xE0, 'M',  'T',
+                    'r', 'k', 0x00, 0x00, 0x00, 0x40, 0x00, 0x90, 0x3C, 0x64, 0x00, 0x80, 0x3C, 0x00, 0x00, 0xFF };
+            writeBinaryFile(file, payload);
+            auto result = importMidiFile(file, 48000.0);
+            expect(!result.has_value(), "file with truncated chunk body must be rejected");
+        });
+
+        testCase("truncated track event returns nullopt (ERR-004)", [&] {
+            devpiano::test::ScopedTempDir tempDir("midi-truncated-event");
+            const auto file = tempDir.getChildFile("truncated-event.mid");
+
+            // Header: format 0, 1 track, division 480
+            // Track 0: declares 3 bytes, body has dt=0 and NoteOn with note but missing velocity
+            const std::vector<uint8_t> payload
+                = { 'M',  'T', 'h', 'd', 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, 0x01,
+                    0xE0, 'M', 'T', 'r', 'k',  0x00, 0x00, 0x00, 0x03, 0x00, 0x90, 0x3C };
+            writeBinaryFile(file, payload);
+            auto result = importMidiFile(file, 48000.0);
+            expect(!result.has_value(), "file with truncated event in track must be rejected");
+        });
+
+        testCase("invalid 0x58 fixed length returns nullopt (SEC-006)", [&] {
+            devpiano::test::ScopedTempDir tempDir("midi-invalid-meta-len");
+            const auto file = tempDir.getChildFile("invalid-0x58-length.mid");
+
+            // Time signature 0x58 with length 2 instead of 4
+            const std::vector<uint8_t> payload
+                = { 'M', 'T', 'h',  'd',  0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, 0x01, 0xE0, 'M',  'T',
+                    'r', 'k', 0x00, 0x00, 0x00, 0x0A, 0x00, 0xFF, 0x58, 0x02, 0x04, 0x02, 0x00, 0xFF, 0x2F, 0x00 };
+            writeBinaryFile(file, payload);
+            auto result = importMidiFile(file, 48000.0);
+            expect(!result.has_value(), "invalid 0x58 fixed length must be rejected");
+        });
+
+        testCase("invalid 0x58 denominator exponent returns nullopt (SEC-006)", [&] {
+            devpiano::test::ScopedTempDir tempDir("midi-invalid-meta-exp");
+            const auto file = tempDir.getChildFile("invalid-0x58-exp.mid");
+
+            // Time signature 0x58 with exponent 32 (0x20)
+            const std::vector<uint8_t> payload = { 'M',  'T',  'h',  'd',  0x00, 0x00, 0x00, 0x06, 0x00,
+                                                   0x00, 0x00, 0x01, 0x01, 0xE0, 'M',  'T',  'r',  'k',
+                                                   0x00, 0x00, 0x00, 0x0C, 0x00, 0xFF, 0x58, 0x04, 0x04,
+                                                   0x20, 0x18, 0x08, 0x00, 0xFF, 0x2F, 0x00 };
+            writeBinaryFile(file, payload);
+            auto result = importMidiFile(file, 48000.0);
+            expect(!result.has_value(), "invalid 0x58 denominator exponent must be rejected");
+        });
+
+        testCase("legal time signature imports successfully (SEC-006)", [&] {
+            devpiano::test::ScopedTempDir tempDir("midi-legal-timesig");
+            const auto file = tempDir.getChildFile("legal-3-4.mid");
+
+            // Time signature 3/4 (num 3, exp 2 -> denom 4)
+            const std::vector<uint8_t> payload
+                = { 'M',  'T',  'h',  'd',  0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, 0x01, 0xE0, 'M',
+                    'T',  'r',  'k',  0x00, 0x00, 0x00, 0x15, 0x00, 0xFF, 0x58, 0x04, 0x03, 0x02, 0x18, 0x08,
+                    0x00, 0x90, 0x3C, 0x64, 0x83, 0x60, 0x80, 0x3C, 0x00, 0x00, 0xFF, 0x2F, 0x00 };
+            writeBinaryFile(file, payload);
+            auto result = devpiano::recording::importMidiFileWithMetadata(file, 48000.0);
+            expect(result.has_value(), "legal 3/4 time signature file must import successfully");
+            if (result.has_value()) {
+                expect(result->metadata.initialTimeSignature.has_value());
+                if (result->metadata.initialTimeSignature.has_value()) {
+                    expectEquals(result->metadata.initialTimeSignature->numerator, 3);
+                    expectEquals(result->metadata.initialTimeSignature->denominator, 4);
+                }
+            }
+        });
+
+        testCase("valid complete multi-track with trailing CRLF succeeds (ERR-004)", [&] {
+            devpiano::test::ScopedTempDir tempDir("midi-complete-crlf");
+            const auto file = tempDir.getChildFile("complete-crlf.mid");
+
+            // Header: format 1, 2 tracks, division 480
+            // Track 0: Conductor (19 bytes)
+            // Track 1: Notes (13 bytes)
+            // Trailing: 0x0D, 0x0A (\r\n)
+            const std::vector<uint8_t> payload
+                = { 'M',  'T',  'h',  'd',  0x00, 0x00, 0x00, 0x06, 0x00, 0x01, 0x00, 0x02, 0x01, 0xE0, 'M',  'T',
+                    'r',  'k',  0x00, 0x00, 0x00, 0x13, 0x00, 0xFF, 0x58, 0x04, 0x04, 0x02, 0x18, 0x08, 0x00, 0xFF,
+                    0x51, 0x03, 0x07, 0xA1, 0x20, 0x00, 0xFF, 0x2F, 0x00, 'M',  'T',  'r',  'k',  0x00, 0x00, 0x00,
+                    0x0D, 0x00, 0x90, 0x3C, 0x64, 0x83, 0x60, 0x80, 0x3C, 0x00, 0x00, 0xFF, 0x2F, 0x00, 0x0D, 0x0A };
+            writeBinaryFile(file, payload);
+            auto result = devpiano::recording::importMidiFileWithMetadata(file, 48000.0);
+            expect(result.has_value(), "valid complete multi-track with CRLF must succeed");
+            if (result.has_value()) {
+                expectEquals(result->stats.trackCount, 2);
+                expectGreaterThan(result->take.events.size(), size_t(0));
+            }
+        });
+
+        testCase("invalid time division zero is rejected", [&] {
+            devpiano::test::ScopedTempDir tempDir("midi-zero-division");
+            const auto file = tempDir.getChildFile("zero-division.mid");
+
+            // Header: division 0
+            const std::vector<uint8_t> payload
+                = { 'M',  'T', 'h', 'd', 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, 0x00,
+                    0x00, 'M', 'T', 'r', 'k',  0x00, 0x00, 0x00, 0x04, 0x00, 0xFF, 0x2F, 0x00 };
+            writeBinaryFile(file, payload);
+            auto result = importMidiFile(file, 48000.0);
+            expect(!result.has_value(), "MIDI file with time division 0 must be rejected");
+        });
+
+        testCase("unsupported target sample rate returns nullopt (SEC-004)", [&] {
+            devpiano::test::ScopedTempDir tempDir("midi-sample-rate");
+            const auto file = tempDir.getChildFile("valid-test.mid");
+
+            const std::vector<uint8_t> payload
+                = { 'M',  'T',  'h',  'd',  0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01,
+                    0x01, 0xE0, 'M',  'T',  'r',  'k',  0x00, 0x00, 0x00, 0x0D, 0x00, 0x90,
+                    0x3C, 0x64, 0x83, 0x60, 0x80, 0x3C, 0x00, 0x00, 0xFF, 0x2F, 0x00 };
+            writeBinaryFile(file, payload);
+            expect(!importMidiFile(file, 0.0).has_value());
+            expect(!importMidiFile(file, -44100.0).has_value());
+            expect(!importMidiFile(file, 4000.0).has_value());
+            expect(!importMidiFile(file, 500000.0).has_value());
+            expect(!importMidiFile(file, std::numeric_limits<double>::quiet_NaN()).has_value());
+            expect(importMidiFile(file, 48000.0).has_value());
+        });
+
+        testCase("missing terminal End of Track returns nullopt", [&] {
+            devpiano::test::ScopedTempDir tempDir("midi-missing-eot");
+            const auto file = tempDir.getChildFile("missing-eot.mid");
+
+            const std::vector<uint8_t> payload
+                = { 'M', 'T', 'h',  'd',  0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, 0x01, 0xE0, 'M', 'T',
+                    'r', 'k', 0x00, 0x00, 0x00, 0x09, 0x00, 0x90, 0x3C, 0x64, 0x83, 0x60, 0x80, 0x3C, 0x00 };
+            writeBinaryFile(file, payload);
+            auto result = importMidiFile(file, 48000.0);
+            expect(!result.has_value(), "track missing terminal EOT must be rejected");
+        });
+
+        testCase("events after terminal End of Track returns nullopt", [&] {
+            devpiano::test::ScopedTempDir tempDir("midi-events-after-eot");
+            const auto file = tempDir.getChildFile("events-after-eot.mid");
+
+            const std::vector<uint8_t> payload
+                = { 'M',  'T',  'h',  'd',  0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, 0x01,
+                    0xE0, 'M',  'T',  'r',  'k',  0x00, 0x00, 0x00, 0x11, 0x00, 0x90, 0x3C, 0x64,
+                    0x00, 0xFF, 0x2F, 0x00, 0x00, 0x90, 0x3E, 0x64, 0x83, 0x60, 0x80, 0x3E, 0x00 };
+            writeBinaryFile(file, payload);
+            auto result = importMidiFile(file, 48000.0);
+            expect(!result.has_value(), "events after terminal EOT must be rejected");
+        });
+
+        testCase("complete unknown extension chunk is skipped and preserves MTrk import", [&] {
+            devpiano::test::ScopedTempDir tempDir("midi-unknown-chunk");
+            const auto file = tempDir.getChildFile("unknown-chunk.mid");
+
+            const std::vector<uint8_t> payload
+                = { 'M',  'T',  'h',  'd',  0x00, 0x00, 0x00, 0x06, 0x00, 0x01, 0x00, 0x01, 0x01, 0xE0, 'U',  'N',
+                    'K',  'N',  0x00, 0x00, 0x00, 0x04, 0x01, 0x02, 0x03, 0x04, 'M',  'T',  'r',  'k',  0x00, 0x00,
+                    0x00, 0x0D, 0x00, 0x90, 0x3C, 0x64, 0x83, 0x60, 0x80, 0x3C, 0x00, 0x00, 0xFF, 0x2F, 0x00 };
+            writeBinaryFile(file, payload);
+            auto result = importMidiFile(file, 48000.0);
+            expect(result.has_value(), "complete unknown extension chunk must be skipped");
+            if (result.has_value()) {
+                expectEquals(result->events.size(), size_t(2));
+            }
+        });
+
+        testCase("missing MTrk when unknown chunk is present returns nullopt", [&] {
+            devpiano::test::ScopedTempDir tempDir("midi-unknown-missing-mtrk");
+            const auto file = tempDir.getChildFile("unknown-missing-mtrk.mid");
+
+            // Header declares 2 tracks, but file only has 1 unknown chunk and 1 MTrk chunk
+            const std::vector<uint8_t> payload
+                = { 'M',  'T',  'h',  'd',  0x00, 0x00, 0x00, 0x06, 0x00, 0x01, 0x00, 0x02, 0x01, 0xE0, 'U',  'N',
+                    'K',  'N',  0x00, 0x00, 0x00, 0x04, 0x01, 0x02, 0x03, 0x04, 'M',  'T',  'r',  'k',  0x00, 0x00,
+                    0x00, 0x0D, 0x00, 0x90, 0x3C, 0x64, 0x83, 0x60, 0x80, 0x3C, 0x00, 0x00, 0xFF, 0x2F, 0x00 };
+            writeBinaryFile(file, payload);
+            auto result = importMidiFile(file, 48000.0);
+            expect(!result.has_value(), "missing second MTrk even with unknown chunk must be rejected");
         });
     }
 };
@@ -213,11 +418,11 @@ public:
             track.addEvent(juce::MidiMessage::noteOn(1, 60, 0.8f), 0.0);
             validFile.addTrack(track);
 
-            auto res2 = MidiTrackMergeEngine::mergeTracks(validFile, 0.0);
-            expect(!res2.has_value());
-
-            auto res3 = MidiTrackMergeEngine::mergeTracks(validFile, -44100.0);
-            expect(!res3.has_value());
+            expect(!MidiTrackMergeEngine::mergeTracks(validFile, 0.0).has_value());
+            expect(!MidiTrackMergeEngine::mergeTracks(validFile, -44100.0).has_value());
+            expect(!MidiTrackMergeEngine::mergeTracks(validFile, 4000.0).has_value());
+            expect(!MidiTrackMergeEngine::mergeTracks(validFile, 500000.0).has_value());
+            expect(!MidiTrackMergeEngine::mergeTracks(validFile, std::numeric_limits<double>::quiet_NaN()).has_value());
         });
 
         testCase("simultaneous events priority sorting order", [&] {
@@ -444,27 +649,125 @@ public:
             }
         });
 
-        testCase(
-            "negative timestamps are dropped before counting and t=0 takes have lengthSamples >= 1 (QUAL-006)", [&] {
+        testCase("direct merge API rejects invalid meta events and out-of-bounds timestamps (SEC-004/005/006)", [&] {
+            // Invalid 0x58 length != 4
+            {
                 juce::MidiFile file;
                 juce::MidiMessageSequence track;
-                // Negative timestamp event (should be dropped without inflating stats)
+                const uint8_t raw[] = { 0xFF, 0x58, 0x02, 0x04, 0x02 };
+                track.addEvent(juce::MidiMessage(raw, sizeof(raw)), 0.0);
+                track.addEvent(juce::MidiMessage::noteOn(1, 60, (juce::uint8)80), 0.1);
+                file.addTrack(track);
+                expect(!MidiTrackMergeEngine::mergeTracks(file, 48000.0).has_value(),
+                       "0x58 length != 4 must be rejected");
+            }
+
+            // Invalid 0x58 denominator exponent >= 31
+            {
+                juce::MidiFile file;
+                juce::MidiMessageSequence track;
+                const uint8_t raw[] = { 0xFF, 0x58, 0x04, 0x04, 0x20, 0x18, 0x08 };
+                track.addEvent(juce::MidiMessage(raw, sizeof(raw)), 0.0);
+                track.addEvent(juce::MidiMessage::noteOn(1, 60, (juce::uint8)80), 0.1);
+                file.addTrack(track);
+                expect(!MidiTrackMergeEngine::mergeTracks(file, 48000.0).has_value(),
+                       "0x58 exponent >= 31 must be rejected");
+            }
+
+            // Invalid 0x58 numerator == 0
+            {
+                juce::MidiFile file;
+                juce::MidiMessageSequence track;
+                const uint8_t raw[] = { 0xFF, 0x58, 0x04, 0x00, 0x02, 0x18, 0x08 };
+                track.addEvent(juce::MidiMessage(raw, sizeof(raw)), 0.0);
+                track.addEvent(juce::MidiMessage::noteOn(1, 60, (juce::uint8)80), 0.1);
+                file.addTrack(track);
+                expect(!MidiTrackMergeEngine::mergeTracks(file, 48000.0).has_value(),
+                       "0x58 numerator 0 must be rejected");
+            }
+            // Unterminated raw VLQ length in meta event
+            {
+                juce::MidiFile file;
+                juce::MidiMessageSequence track;
+                const uint8_t raw[] = { 0xFF, 0x58, 0x81 };
+                track.addEvent(juce::MidiMessage(raw, sizeof(raw)), 0.0);
+                track.addEvent(juce::MidiMessage::noteOn(1, 60, (juce::uint8)80), 0.1);
+                file.addTrack(track);
+                expect(!MidiTrackMergeEngine::mergeTracks(file, 48000.0).has_value(),
+                       "unterminated raw VLQ length in meta event must be rejected");
+            }
+
+            // Truncated raw meta payload
+            {
+                juce::MidiFile file;
+                juce::MidiMessageSequence track;
+                const uint8_t raw[] = { 0xFF, 0x58, 0x04, 0x01 };
+                track.addEvent(juce::MidiMessage(raw, sizeof(raw)), 0.0);
+                track.addEvent(juce::MidiMessage::noteOn(1, 60, (juce::uint8)80), 0.1);
+                file.addTrack(track);
+                expect(!MidiTrackMergeEngine::mergeTracks(file, 48000.0).has_value(),
+                       "truncated raw meta payload must be rejected");
+            }
+
+            // Invalid 0x51 tempo == 0 us
+            {
+                juce::MidiFile file;
+                juce::MidiMessageSequence track;
+                const uint8_t raw[] = { 0xFF, 0x51, 0x03, 0x00, 0x00, 0x00 };
+                track.addEvent(juce::MidiMessage(raw, sizeof(raw)), 0.0);
+                track.addEvent(juce::MidiMessage::noteOn(1, 60, (juce::uint8)80), 0.1);
+                file.addTrack(track);
+                expect(!MidiTrackMergeEngine::mergeTracks(file, 48000.0).has_value(), "0x51 tempo 0 must be rejected");
+            }
+
+            // Negative timestamp
+            {
+                juce::MidiFile file;
+                juce::MidiMessageSequence track;
                 track.addEvent(juce::MidiMessage::noteOn(1, 60, (juce::uint8)80), -0.5);
-                // t=0 event
+                track.addEvent(juce::MidiMessage::noteOn(1, 60, (juce::uint8)80), 0.1);
+                file.addTrack(track);
+                expect(!MidiTrackMergeEngine::mergeTracks(file, 48000.0).has_value(),
+                       "negative timestamp must be rejected");
+            }
+
+            // Nonfinite NaN timestamp
+            {
+                juce::MidiFile file;
+                juce::MidiMessageSequence track;
+                track.addEvent(juce::MidiMessage::noteOn(1, 60, (juce::uint8)80),
+                               std::numeric_limits<double>::quiet_NaN());
+                file.addTrack(track);
+                expect(!MidiTrackMergeEngine::mergeTracks(file, 48000.0).has_value(), "NaN timestamp must be rejected");
+            }
+
+            // Unrepresentable timestamp
+            {
+                juce::MidiFile file;
+                juce::MidiMessageSequence track;
+                track.addEvent(juce::MidiMessage::noteOn(1, 60, (juce::uint8)80), 1e18);
+                file.addTrack(track);
+                expect(!MidiTrackMergeEngine::mergeTracks(file, 48000.0).has_value(),
+                       "unrepresentable timestamp must be rejected");
+            }
+
+            // Take with only t=0 events has lengthSamples >= 1
+            {
+                juce::MidiFile file;
+                juce::MidiMessageSequence track;
                 track.addEvent(juce::MidiMessage::noteOn(1, 60, (juce::uint8)80), 0.0);
                 track.addEvent(juce::MidiMessage::noteOff(1, 60, (juce::uint8)0), 0.0);
                 file.addTrack(track);
-
-                MidiTrackMergeOptions opts;
-                auto res = MidiTrackMergeEngine::mergeTracks(file, 48000.0, opts);
-                expect(res.has_value());
+                auto res = MidiTrackMergeEngine::mergeTracks(file, 48000.0);
+                expect(res.has_value(), "t=0 take must merge successfully");
                 if (res.has_value()) {
-                    expectEquals(res->stats.noteOnCount, 1, "Negative timestamp event must not inflate noteOnCount");
+                    expectEquals(res->stats.noteOnCount, 1);
                     expectEquals(res->stats.noteOffCount, 1);
                     expectEquals(res->stats.mergedEventCount, 2);
-                    expect(res->take.lengthSamples >= 1, "Take with only t=0 events must have lengthSamples >= 1");
+                    expect(res->take.lengthSamples >= 1, "t=0 take must have lengthSamples >= 1");
                 }
-            });
+            }
+        });
         testCase("autoAssignIfSingleChannel preserves existing distinct channels", [&] {
             juce::MidiFile file;
 
