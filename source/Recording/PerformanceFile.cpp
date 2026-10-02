@@ -239,7 +239,7 @@ std::optional<RecordingTake> deserialiseTakeFromJson(const juce::String& json) {
 
 bool savePerformanceFile(const RecordingTake& take, const juce::File& destinationFile,
                          const PerformanceFileMetadata& metadata) {
-    if (take.isEmpty() || take.sampleRate <= 0.0) {
+    if (take.isEmpty() || take.sampleRate <= 0.0 || destinationFile == juce::File()) {
         return false;
     }
 
@@ -249,21 +249,18 @@ bool savePerformanceFile(const RecordingTake& take, const juce::File& destinatio
         return false;
     }
 
-    // 原子写入：先写同目录临时文件，成功后 rename 覆盖目标。
-    // replaceWithText 会先截断目标文件——写入中途崩溃将留下半截 JSON 且无备份；
-    // TemporaryFile 方案保证失败时目标文件保持原样。
     juce::TemporaryFile tempFile(destinationFile);
-    if (!tempFile.getFile().replaceWithText(json)) {
-        tempFile.deleteTemporaryFile();
-        return false;
+    {
+        juce::FileOutputStream output(tempFile.getFile());
+        if (!output.openedOk() || !output.writeText(json, false, false, nullptr)) {
+            return false;
+        }
+        output.flush();
+        if (output.getStatus().failed()) {
+            return false;
+        }
     }
-
-    if (tempFile.overwriteTargetFileWithTemporary()) {
-        return true;
-    }
-
-    tempFile.deleteTemporaryFile();
-    return false;
+    return tempFile.overwriteTargetFileWithTemporary();
 }
 
 std::optional<RecordingTake> loadPerformanceFile(const juce::File& sourceFile) {

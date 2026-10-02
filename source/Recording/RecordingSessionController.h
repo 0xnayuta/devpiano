@@ -30,6 +30,8 @@ public:
         PerformanceFileMetadata currentMetadata;
         juce::File currentPerformanceFile;
         ui::RecordingState state = ui::RecordingState::idle;
+        std::uint64_t takeGeneration = 0;
+
         [[nodiscard]] bool hasTake() const noexcept {
             return !take.isEmpty();
         }
@@ -44,6 +46,85 @@ public:
         }
         [[nodiscard]] bool isIdle() const noexcept {
             return state == ui::RecordingState::idle;
+        }
+
+        void detachForNewRecording() {
+            take = {};
+            canExportMidi = false;
+            currentPerformanceFile = juce::File();
+            currentMetadata = PerformanceFileMetadata();
+            ++takeGeneration;
+        }
+
+        void commitRecordedTake(RecordingTake newTake) {
+            take = std::move(newTake);
+            canExportMidi = !take.isEmpty();
+            currentPerformanceFile = juce::File();
+            ++takeGeneration;
+        }
+
+        bool commitImportedMidi(RecordingTake newTake, const juce::String& songTitle) {
+            if (newTake.isEmpty()) {
+                return false;
+            }
+            take = std::move(newTake);
+            canExportMidi = false;
+            currentPerformanceFile = juce::File();
+            currentMetadata = PerformanceFileMetadata();
+            currentMetadata.title = songTitle;
+            ++takeGeneration;
+            return true;
+        }
+
+        bool openFromFile(const juce::File& file) {
+            auto newTake = loadPerformanceFile(file);
+            if (!newTake.has_value() || newTake->isEmpty()) {
+                return false;
+            }
+            auto metadata = loadPerformanceFileMetadata(file).value_or(PerformanceFileMetadata {});
+            if (metadata.title.isEmpty()) {
+                metadata.title = file.getFileNameWithoutExtension();
+            }
+            take = std::move(*newTake);
+            canExportMidi = false;
+            currentPerformanceFile = file;
+            currentMetadata = std::move(metadata);
+            ++takeGeneration;
+            return true;
+        }
+
+        bool saveToFile(const juce::File& file, std::uint64_t expectedGeneration) {
+            if (takeGeneration != expectedGeneration || take.isEmpty() || file == juce::File()) {
+                return false;
+            }
+            auto metadata = currentMetadata;
+            metadata.createdAt = juce::Time::getCurrentTime().toISO8601(true);
+            if (!savePerformanceFile(take, file, metadata)) {
+                return false;
+            }
+            currentPerformanceFile = file;
+            currentMetadata = std::move(metadata);
+            ++takeGeneration;
+            return true;
+        }
+
+        bool updateMetadata(juce::String title, juce::String notes, std::uint64_t expectedGeneration) {
+            if (takeGeneration != expectedGeneration) {
+                return false;
+            }
+            auto metadata = currentMetadata;
+            metadata.title = std::move(title);
+            metadata.notes = std::move(notes);
+            if (currentPerformanceFile != juce::File() && hasTake()) {
+                if (metadata.createdAt.isEmpty()) {
+                    metadata.createdAt = juce::Time::getCurrentTime().toISO8601(true);
+                }
+                if (!savePerformanceFile(take, currentPerformanceFile, metadata)) {
+                    return false;
+                }
+            }
+            currentMetadata = std::move(metadata);
+            return true;
         }
     };
     struct PlaybackTimelineSnapshot {
@@ -105,10 +186,11 @@ private:
 
     void runImportOpenFlow(const juce::String& logPrefix, const juce::String& dialogTitle, const juce::File& startDir,
                            const juce::String& filePattern, std::unique_ptr<juce::FileChooser>& chooser,
-                           std::function<std::optional<RecordingTake>(const juce::File&)> loadTake);
+                           std::function<bool(const juce::File&)> loadAndCommit);
 
-    [[nodiscard]] std::optional<RecordingTake> tryImportMidiFile(const juce::File& file);
-    void replaceTakeAndStartPlayback(RecordingTake take);
+    bool commitImportedMidiFile(const juce::File& file);
+    bool commitOpenedPerformanceFile(const juce::File& file);
+    void startPlaybackAfterTakeCommitted();
 
     MainComponent& owner;
     RecordingEngine& recordingEngine;
