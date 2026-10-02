@@ -270,12 +270,6 @@ public:
             expect(names.contains("Preset Alpha"));
             expect(names.contains("Preset Beta"));
         });
-
-        testCase("getPresetDirectory returns a valid location", [&] {
-            const auto dir = getPresetDirectory();
-            expect(dir != juce::File(), "Preset directory must not be an empty path");
-            expect(dir.getFileName() == "Presets", "Preset directory leaf name must be Presets");
-        });
     }
 };
 

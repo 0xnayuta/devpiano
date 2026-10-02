@@ -5,6 +5,7 @@
 #include "Layout/PerformancePreset.h"
 #include "Settings/SettingsModel.h"
 #include "Settings/SettingsStore.h"
+#include "TestHelpers.h"
 
 // ============================================================================
 /// SpatialAcousticsTest (Phase 31-C)
@@ -37,8 +38,8 @@ private:
 
         using namespace devpiano::audio;
 
-        const auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
-        const auto settingsFile = tempDir.getNonexistentChildFile("SpatialRoundTrip", ".xml");
+        const devpiano::test::ScopedTempDir tempDir("spatial-roundtrip");
+        const auto settingsFile = tempDir.getChildFile("settings.xml");
 
         SettingsStore store(settingsFile);
 
@@ -61,8 +62,6 @@ private:
         expect(view.soundPerspective == SoundPerspective::audience);
         expect(view.reverbSpace == ReverbSpace::concertHall);
         expectWithinAbsoluteError(view.reverbWet, 0.35f, 1e-4f);
-
-        settingsFile.deleteFile();
     }
 
     void testSettingsStoreBoundaryClamping() {
@@ -70,10 +69,10 @@ private:
 
         using namespace devpiano::audio;
 
-        const auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
+        const devpiano::test::ScopedTempDir tempDir("spatial-clamp");
 
         // 1. Upper bound clamping
-        const auto upperFile = tempDir.getNonexistentChildFile("SpatialUpperClamp", ".xml");
+        const auto upperFile = tempDir.getChildFile("upper.xml");
         const juce::String upperXml = R"(<?xml version="1.0" encoding="utf-8"?>
 <PROPERTIES>
   <VALUE name="soundPerspective" val="99"/>
@@ -93,10 +92,9 @@ private:
             expect(model.reverbSpace == ReverbSpace::concertHall);
             expectWithinAbsoluteError(model.reverbWet, 1.0f, 1e-4f);
         }
-        upperFile.deleteFile();
 
         // 2. Lower bound clamping
-        const auto lowerFile = tempDir.getNonexistentChildFile("SpatialLowerClamp", ".xml");
+        const auto lowerFile = tempDir.getChildFile("lower.xml");
         const juce::String lowerXml = R"(<?xml version="1.0" encoding="utf-8"?>
 <PROPERTIES>
   <VALUE name="soundPerspective" val="-10"/>
@@ -116,7 +114,6 @@ private:
             expect(model.reverbSpace == ReverbSpace::studio);
             expectWithinAbsoluteError(model.reverbWet, 0.0f, 1e-4f);
         }
-        lowerFile.deleteFile();
     }
 
     void testPerformancePresetJsonRoundTrip() {
@@ -125,8 +122,8 @@ private:
         using namespace devpiano::layout;
         using namespace devpiano::audio;
 
-        const auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
-        const auto presetFile = tempDir.getNonexistentChildFile("SpatialPreset", ".devpiano.preset");
+        const devpiano::test::ScopedTempDir tempDir("spatial-preset-roundtrip");
+        const auto presetFile = tempDir.getChildFile("preset.devpiano.preset");
 
         PerformancePreset originalPreset = makeDefaultPreset();
         originalPreset.name = "SpatialConcertPreset";
@@ -146,8 +143,6 @@ private:
             expect(loaded.reverbSpace == ReverbSpace::concertHall);
             expectWithinAbsoluteError(loaded.reverbWet, 0.40f, 1e-4f);
         }
-
-        presetFile.deleteFile();
     }
 
     void testPerformancePresetBackwardCompatibility() {
@@ -156,8 +151,8 @@ private:
         using namespace devpiano::layout;
         using namespace devpiano::audio;
 
-        const auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
-        const auto legacyFile = tempDir.getNonexistentChildFile("LegacySpatialPreset", ".devpiano.preset");
+        const devpiano::test::ScopedTempDir tempDir("spatial-preset-legacy");
+        const auto legacyFile = tempDir.getChildFile("legacy.devpiano.preset");
 
         // Old preset JSON lacking soundPerspective, reverbSpace, reverbWet
         const juce::String legacyJson = R"({
@@ -184,8 +179,6 @@ private:
             expect(loaded.reverbSpace == ReverbSpace::chamber);
             expectWithinAbsoluteError(loaded.reverbWet, 0.0f, 1e-4f);
         }
-
-        legacyFile.deleteFile();
     }
 
     void testPerformancePresetFlatRootCompatibility() {
@@ -194,8 +187,8 @@ private:
         using namespace devpiano::layout;
         using namespace devpiano::audio;
 
-        const auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
-        const auto flatFile = tempDir.getNonexistentChildFile("FlatSpatialPreset", ".devpiano.preset");
+        const devpiano::test::ScopedTempDir tempDir("spatial-preset-flat");
+        const auto flatFile = tempDir.getChildFile("flat.devpiano.preset");
 
         const juce::String flatJson = R"({
   "version": 1,
@@ -216,8 +209,6 @@ private:
             expect(loaded.reverbSpace == ReverbSpace::studio);
             expectWithinAbsoluteError(loaded.reverbWet, 0.25f, 1e-4f);
         }
-
-        flatFile.deleteFile();
     }
 };
 

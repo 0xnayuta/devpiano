@@ -5,6 +5,7 @@
 #include "Layout/PerformancePreset.h"
 #include "Settings/SettingsModel.h"
 #include "Settings/SettingsStore.h"
+#include "TestHelpers.h"
 
 // ============================================================================
 /// TouchVelocityCurveTest (Phase 29-C)
@@ -148,9 +149,9 @@ private:
     void testSettingsStoreAndPresetRoundTrip() {
         beginTest("SettingsStore & PerformancePreset: Touch velocity curve round-trip and compatibility");
 
-        const auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
-        const auto settingsFile = tempDir.getNonexistentChildFile("TouchSettingsTest", ".settings");
-        const auto presetFile = tempDir.getNonexistentChildFile("TouchPresetTest", ".devpiano.preset");
+        const devpiano::test::ScopedTempDir tempDir("touch-velocity-curve");
+        const auto settingsFile = tempDir.getChildFile("settings.settings");
+        const auto presetFile = tempDir.getChildFile("preset.devpiano.preset");
 
         // 1. SettingsStore persistence
         {
@@ -191,7 +192,7 @@ private:
                 "keyboard": { "keySignature": 0, "midiTranspose": false }
             })";
 
-            const auto legacyFile = tempDir.getNonexistentChildFile("LegacyTouch", ".devpiano.preset");
+            const auto legacyFile = tempDir.getChildFile("legacy.devpiano.preset");
             expect(legacyFile.replaceWithText(legacyJson));
 
             auto legacyLoaded = devpiano::layout::loadPreset(legacyFile);
@@ -199,12 +200,7 @@ private:
             if (legacyLoaded.has_value()) {
                 expect(legacyLoaded->touchVelocityCurve == devpiano::input::TouchVelocityCurve::standard);
             }
-
-            legacyFile.deleteFile();
         }
-
-        settingsFile.deleteFile();
-        presetFile.deleteFile();
     }
 };
 

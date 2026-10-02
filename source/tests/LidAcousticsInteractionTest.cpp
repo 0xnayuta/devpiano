@@ -5,6 +5,7 @@
 #include "Layout/PerformancePreset.h"
 #include "Settings/SettingsModel.h"
 #include "Settings/SettingsStore.h"
+#include "TestHelpers.h"
 
 // ============================================================================
 /// LidAcousticsInteractionTest (Phase 29-A)
@@ -138,8 +139,8 @@ private:
     void testSettingsModelAndStorePersistence() {
         beginTest("SettingsStore: Persist and restore pianoLidPosition with boundary clamping");
 
-        const auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
-        const auto settingsFile = tempDir.getNonexistentChildFile("LidTest", ".settings");
+        devpiano::test::ScopedTempDir tempDir("lid-settings");
+        const auto settingsFile = tempDir.getChildFile("lid_test.settings");
 
         juce::PropertiesFile::Options opts;
         opts.storageFormat = juce::PropertiesFile::storeAsXML;
@@ -173,15 +174,13 @@ private:
             store.load(clampedModel);
             expect(clampedModel.lidPosition == SettingsModel::LidPosition::closed);
         }
-
-        settingsFile.deleteFile();
     }
 
     void testPerformancePresetAcousticRoundTrip() {
         beginTest("PerformancePreset: Acoustic lid position round-trip and backward compatibility");
 
-        const auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
-        const auto presetFile = tempDir.getNonexistentChildFile("AcousticPreset", ".devpiano.preset");
+        devpiano::test::ScopedTempDir tempDir("lid-preset");
+        const auto presetFile = tempDir.getChildFile("acoustic_preset.devpiano.preset");
 
         // 1. 保存包含 HalfStick 琴盖位置的预设
         devpiano::layout::PerformancePreset originalPreset = devpiano::layout::makeDefaultPreset();
@@ -206,7 +205,7 @@ private:
             "keyboard": { "keySignature": 0, "midiTranspose": false }
         })";
 
-        const auto legacyFile = tempDir.getNonexistentChildFile("LegacyPreset", ".devpiano.preset");
+        const auto legacyFile = tempDir.getChildFile("legacy_preset.devpiano.preset");
         expect(legacyFile.replaceWithText(legacyJson));
 
         auto legacyLoadedOpt = devpiano::layout::loadPreset(legacyFile);
@@ -216,9 +215,6 @@ private:
             // 缺省声学字段安全回退到 fullOpen
             expect(legacyLoadedOpt->lidPosition == SettingsModel::LidPosition::fullOpen);
         }
-
-        presetFile.deleteFile();
-        legacyFile.deleteFile();
     }
 };
 

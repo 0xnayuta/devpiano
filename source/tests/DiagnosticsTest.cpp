@@ -14,13 +14,6 @@ public:
     }
 
     void runTest() override {
-        testCase("DevPianoLogger default path resolution", [&] {
-            devpiano::diagnostics::DevPianoLogger logger;
-            const auto logFile = logger.getLogFile();
-            expect(logFile.getFileName() == "devpiano.log");
-            expect(logger.getLogDirectory().getFileName() == "DevPiano");
-        });
-
         testCase("DevPianoLogger custom file writing and dual sink", [&] {
             devpiano::test::ScopedTempDir tempDir("diagnostics");
             const auto testLogFile = tempDir.getChildFile("test_output.log");

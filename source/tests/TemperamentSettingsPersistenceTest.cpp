@@ -4,6 +4,7 @@
 #include "Layout/PerformancePreset.h"
 #include "Settings/SettingsModel.h"
 #include "Settings/SettingsStore.h"
+#include "TestHelpers.h"
 
 // ============================================================================
 /// TemperamentSettingsPersistenceTest (Phase 30-C)
@@ -30,8 +31,8 @@ private:
     void testSettingsStoreRoundTrip() {
         beginTest("SettingsStore: Temperament and A4 reference pitch round-trip");
 
-        const auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
-        const auto settingsFile = tempDir.getNonexistentChildFile("TempStoreTest", ".xml");
+        const devpiano::test::ScopedTempDir tempDir("temp-store-roundtrip");
+        const auto settingsFile = tempDir.getChildFile("settings.xml");
 
         SettingsStore store(settingsFile);
 
@@ -46,17 +47,15 @@ private:
 
         expect(loadedModel.temperament == devpiano::audio::Temperament::werckmeister3);
         expectWithinAbsoluteError(loadedModel.referencePitchA4, 415.0, 1e-4);
-
-        settingsFile.deleteFile();
     }
 
     void testSettingsStoreBoundaryClamping() {
         beginTest("SettingsStore: Out-of-bound and corrupted temperament values are clamped");
 
-        const auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
+        const devpiano::test::ScopedTempDir tempDir("temp-clamp");
 
         // 1. Upper bound clamping test
-        const auto upperFile = tempDir.getNonexistentChildFile("TempClampUpper", ".xml");
+        const auto upperFile = tempDir.getChildFile("upper.xml");
         const juce::String upperXml = R"(<?xml version="1.0" encoding="utf-8"?>
 <PROPERTIES>
   <VALUE name="temperament" val="99"/>
@@ -74,10 +73,9 @@ private:
             expect(model.temperament == devpiano::audio::Temperament::kirnberger3);
             expectEquals(model.referencePitchA4, 450.0);
         }
-        upperFile.deleteFile();
 
         // 2. Lower bound clamping test
-        const auto lowerFile = tempDir.getNonexistentChildFile("TempClampLower", ".xml");
+        const auto lowerFile = tempDir.getChildFile("lower.xml");
         const juce::String lowerXml = R"(<?xml version="1.0" encoding="utf-8"?>
 <PROPERTIES>
   <VALUE name="temperament" val="-10"/>
@@ -95,7 +93,6 @@ private:
             expect(model.temperament == devpiano::audio::Temperament::equal);
             expectEquals(model.referencePitchA4, 410.0);
         }
-        lowerFile.deleteFile();
     }
 
     void testPerformancePresetJsonRoundTrip() {
@@ -104,8 +101,8 @@ private:
         using namespace devpiano::layout;
         using namespace devpiano::audio;
 
-        const auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
-        const auto presetFile = tempDir.getNonexistentChildFile("AcousticTempPreset", ".devpiano.preset");
+        const devpiano::test::ScopedTempDir tempDir("temp-preset-roundtrip");
+        const auto presetFile = tempDir.getChildFile("preset.devpiano.preset");
 
         PerformancePreset originalPreset = makeDefaultPreset();
         originalPreset.name = "MeantoneBaroquePreset";
@@ -121,8 +118,6 @@ private:
             expect(loadedOpt->temperament == Temperament::meantone);
             expectWithinAbsoluteError(loadedOpt->referencePitchA4, 415.0, 1e-4);
         }
-
-        presetFile.deleteFile();
     }
 
     void testLegacyPresetBackwardCompatibility() {
@@ -131,8 +126,8 @@ private:
         using namespace devpiano::layout;
         using namespace devpiano::audio;
 
-        const auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
-        const auto legacyFile = tempDir.getNonexistentChildFile("LegacyNoTemp", ".devpiano.preset");
+        const devpiano::test::ScopedTempDir tempDir("temp-preset-legacy");
+        const auto legacyFile = tempDir.getChildFile("legacy.devpiano.preset");
 
         const juce::String legacyJson = R"({
   "version": 1,
@@ -157,8 +152,6 @@ private:
             expect(loadedOpt->touchVelocityCurve == devpiano::input::TouchVelocityCurve::heavy);
             expect(loadedOpt->unaCorda == true);
         }
-
-        legacyFile.deleteFile();
     }
 
     void testFlatRootPresetCompatibility() {
@@ -167,8 +160,8 @@ private:
         using namespace devpiano::layout;
         using namespace devpiano::audio;
 
-        const auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
-        const auto flatFile = tempDir.getNonexistentChildFile("FlatRootTemp", ".devpiano.preset");
+        const devpiano::test::ScopedTempDir tempDir("temp-preset-flat");
+        const auto flatFile = tempDir.getChildFile("flat.devpiano.preset");
 
         const juce::String flatJson = R"({
   "version": 1,
@@ -186,8 +179,6 @@ private:
             expect(loadedOpt->temperament == Temperament::just);
             expectWithinAbsoluteError(loadedOpt->referencePitchA4, 432.0, 1e-4);
         }
-
-        flatFile.deleteFile();
     }
 };
 
