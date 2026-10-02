@@ -2,6 +2,7 @@
 
 #include "Diagnostics/Log.h"
 #include "Diagnostics/MidiTrace.h"
+#include "Recording/TimelineValidation.h"
 
 #include <algorithm>
 #include <cmath>
@@ -9,6 +10,21 @@
 namespace devpiano::recording {
 namespace {
 constexpr auto maxRealtimeMidiMessageBytes = 16;
+
+bool isUsablePlaybackTake(const RecordingTake& take, double currentSampleRate) noexcept {
+    if (!isUsableTimelineSampleRate(currentSampleRate)
+        || !isRepresentableTimelineLength(take.lengthSamples, take.sampleRate)) {
+        return false;
+    }
+    std::int64_t previousTimestamp = 0;
+    for (const auto& event : take.events) {
+        if (event.timestampSamples < previousTimestamp || event.timestampSamples > take.lengthSamples) {
+            return false;
+        }
+        previousTimestamp = event.timestampSamples;
+    }
+    return true;
+}
 }
 
 bool RecordingTake::isEmpty() const noexcept {
@@ -222,10 +238,12 @@ bool RecordingEngine::isCapacityExhausted(std::int64_t timestamp) noexcept {
 
 void RecordingEngine::startPlayback(const RecordingTake& take, double currentSampleRate,
                                     std::int64_t resumeFromSamples) {
+    if (!isUsablePlaybackTake(take, currentSampleRate)) {
+        DP_LOG_ERROR("[RecordingEngine] playback rejected: invalid or unrepresentable timeline");
+        return;
+    }
     playbackTake = take;
-    playbackSampleRateRatio.store(
-        (take.sampleRate > 0.0 && currentSampleRate > 0.0) ? (currentSampleRate / take.sampleRate) : 1.0,
-        std::memory_order_relaxed);
+    playbackSampleRateRatio.store(currentSampleRate / take.sampleRate, std::memory_order_relaxed);
     scaledPlaybackLengthSamples.store(getScaledPlaybackLengthSamples());
     const auto combinedRatio = playbackSampleRateRatio.load(std::memory_order_relaxed)
         / playbackSpeedMultiplier.load(std::memory_order_relaxed);
@@ -266,10 +284,13 @@ void RecordingEngine::startPlayback(const RecordingTake& take, double currentSam
 
 void RecordingEngine::startPlaybackAtTakeSample(const RecordingTake& take, double currentSampleRate,
                                                 std::int64_t resumeFromTakeSamples) {
+    if (!isUsablePlaybackTake(take, currentSampleRate)) {
+        DP_LOG_ERROR("[RecordingEngine] playback seek rejected: invalid or unrepresentable timeline");
+        return;
+    }
     const auto takeSample
         = juce::jlimit<std::int64_t>(0, std::max<std::int64_t>(take.lengthSamples, 0), resumeFromTakeSamples);
-    const auto sampleRateRatio
-        = (take.sampleRate > 0.0 && currentSampleRate > 0.0) ? currentSampleRate / take.sampleRate : 1.0;
+    const auto sampleRateRatio = currentSampleRate / take.sampleRate;
     const auto combinedRatio = sampleRateRatio / playbackSpeedMultiplier.load(std::memory_order_relaxed);
     const auto scaledPosition = static_cast<std::int64_t>(static_cast<double>(takeSample) * combinedRatio);
     startPlayback(take, currentSampleRate, scaledPosition);
@@ -422,6 +443,9 @@ void RecordingEngine::stopPlayback() {
 }
 
 void RecordingEngine::setPlaybackSpeedMultiplier(double multiplier) noexcept {
+    if (!std::isfinite(multiplier)) {
+        return;
+    }
     const auto clamped = std::clamp(multiplier, 0.5, 2.0);
     const auto oldSpeed = playbackSpeedMultiplier.load();
     playbackSpeedMultiplier.store(clamped);

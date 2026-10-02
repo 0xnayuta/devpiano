@@ -81,14 +81,17 @@ public:
             if (!newTake.has_value() || newTake->isEmpty()) {
                 return false;
             }
-            auto metadata = loadPerformanceFileMetadata(file).value_or(PerformanceFileMetadata {});
-            if (metadata.title.isEmpty()) {
-                metadata.title = file.getFileNameWithoutExtension();
+            auto metadata = loadPerformanceFileMetadata(file);
+            if (!metadata.has_value()) {
+                return false;
+            }
+            if (metadata->title.isEmpty()) {
+                metadata->title = file.getFileNameWithoutExtension();
             }
             take = std::move(*newTake);
             canExportMidi = false;
             currentPerformanceFile = file;
-            currentMetadata = std::move(metadata);
+            currentMetadata = std::move(*metadata);
             ++takeGeneration;
             return true;
         }

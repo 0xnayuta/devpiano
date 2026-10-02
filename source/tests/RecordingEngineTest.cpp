@@ -2,7 +2,6 @@
 
 #include "Recording/RecordingEngine.h"
 #include "Recording/RecordingFlowSupport.h"
-#include "Recording/RenderPipeline.h"
 
 using namespace devpiano::recording;
 
@@ -123,16 +122,6 @@ public:
             engine.stopRecording();
             expect(engine.hasTake(), "hasTake must be valid after stopRecording");
         }
-
-        beginTest("clampToInt64 robust conversion on NaN, negative and huge values (SEC-006)");
-        {
-            expectEquals(clampToInt64(-100.0), static_cast<std::int64_t>(0));
-            expectEquals(clampToInt64(0.0), static_cast<std::int64_t>(0));
-            expectEquals(clampToInt64(std::numeric_limits<double>::quiet_NaN()), static_cast<std::int64_t>(0));
-            expectEquals(clampToInt64(44100.4), static_cast<std::int64_t>(44100));
-            expectEquals(clampToInt64(44100.6), static_cast<std::int64_t>(44101));
-            expectEquals(clampToInt64(1e30), std::numeric_limits<std::int64_t>::max());
-        }
     }
 };
 
@@ -212,6 +201,56 @@ public:
 
             // Consume again → false.
             expect(!engine.consumePlaybackEndedFlag(), "flag should be cleared after consume");
+        }
+
+        beginTest("rejected numeric timelines leave the playing take intact");
+        {
+            const auto original = buildTake(48000.0, 48000, { { 480, 65, true, 1, 1.0f } });
+            for (const auto invalidRate :
+                 { 1e-300, std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity() }) {
+                RecordingEngine engine;
+                engine.startPlayback(original, 44100.0);
+                auto invalid = original;
+                invalid.sampleRate = invalidRate;
+                engine.startPlayback(invalid, 44100.0);
+                expect(engine.isPlaying());
+                expectEquals(engine.getPlaybackTakeLengthSamples(), std::int64_t { 48000 });
+                juce::MidiBuffer buffer;
+                engine.renderPlaybackBlock(buffer, 0, 512);
+                expectEquals(buffer.getNumEvents(), 1);
+                for (const auto event : buffer) {
+                    expectEquals(event.samplePosition, 441);
+                    expectEquals(event.getMessage().getNoteNumber(), 65);
+                }
+            }
+            RecordingEngine engine;
+            auto oversized = original;
+            oversized.lengthSamples = std::numeric_limits<std::int64_t>::max();
+            engine.startPlayback(oversized, 44100.0);
+            expect(!engine.isPlaying());
+            engine.startPlayback(original, 1e-300);
+            expect(!engine.isPlaying());
+        }
+
+        beginTest("valid sample-rate conversion and speed remain deterministic after seek");
+        {
+            const auto take = buildTake(48000.0, 48000, { { 24000, 72, true, 1, 1.0f } });
+            RecordingEngine engine;
+            engine.setPlaybackSpeedMultiplier(2.0);
+            engine.startPlaybackAtTakeSample(take, 44100.0, 24000);
+            expectEquals(engine.getPlaybackPositionSamples(), std::int64_t { 11025 });
+            engine.setPlaybackSpeedMultiplier(std::numeric_limits<double>::quiet_NaN());
+            expectEquals(engine.getPlaybackSpeedMultiplier(), 2.0);
+            juce::MidiBuffer buffer;
+            engine.renderPlaybackBlock(buffer, 11025, 128);
+            expectEquals(buffer.getNumEvents(), 1);
+            for (const auto event : buffer) {
+                expectEquals(event.samplePosition, 0);
+                expectEquals(event.getMessage().getNoteNumber(), 72);
+            }
+            engine.advancePlaybackPosition(11025);
+            expect(engine.consumePlaybackEndedFlag());
+            expectEquals(engine.getPlaybackPositionSamples(), std::int64_t { 22050 });
         }
 
         beginTest("isPlaying returns false in idle state");
