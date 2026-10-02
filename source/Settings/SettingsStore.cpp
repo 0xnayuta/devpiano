@@ -141,12 +141,21 @@ void SettingsDebounceTimer::start(int ms) {
     startTimer(ms);
 }
 
+void SettingsDebounceTimer::cancel() {
+    stopTimer();
+    pendingPayload.reset();
+}
+
 void SettingsDebounceTimer::timerCallback() {
     stopTimer();
-    if (pendingPayload.has_value()) {
-        store.save(*pendingPayload);
-        pendingPayload.reset();
+    if (!pendingPayload.has_value()) {
+        return;
     }
+
+    auto payload = std::move(*pendingPayload);
+    pendingPayload.reset();
+
+    store.save(payload);
 }
 void SettingsStore::ensureProps() {
     if (customPropsFile != nullptr || appProps != nullptr) {
@@ -437,7 +446,11 @@ void SettingsStore::load(SettingsModel& model) {
 }
 
 bool SettingsStore::save(const SettingsModel& model) {
-    return writeNow(model);
+    const bool saved = writeNow(model);
+    if (saved && saverTimer != nullptr) {
+        saverTimer->cancel();
+    }
+    return saved;
 }
 
 void SettingsStore::scheduleSave(const SettingsModel& model, int msDelay) {

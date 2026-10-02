@@ -18,6 +18,7 @@ public:
 
     void setPayload(const SettingsModel& model);
     void start(int ms);
+    void cancel();
 
     void timerCallback() override;
 
@@ -38,8 +39,7 @@ public:
     explicit SettingsStore(juce::File customFile);
 
     void load(SettingsModel& model);
-    // Persists synchronously; false means the write failed (caller logs the
-    // path — see writeNow's DP_LOG_ERROR).
+    // Persists synchronously. Returns true if write succeeded.
     bool save(const SettingsModel& model);
 
     // Debounced save helper (call on UI thread)

@@ -273,6 +273,14 @@ struct SettingsModel {
             midiTranspose = other.midiTranspose;
             keySignature = other.keySignature;
             channelMatrix = other.channelMatrix;
+            metronomeEnabled = other.metronomeEnabled;
+            metronomeBpm = other.metronomeBpm;
+            metronomeTimeSignature = other.metronomeTimeSignature;
+            metronomeVolume = other.metronomeVolume;
+            metronomeCountIn = other.metronomeCountIn;
+            cadenceDynamicsEnabled = other.cadenceDynamicsEnabled;
+            velocityHumanizeAmount = other.velocityHumanizeAmount;
+            baseVelocityBias = other.baseVelocityBias;
 
             audioDeviceState
                 = other.audioDeviceState ? std::make_unique<juce::XmlElement>(*other.audioDeviceState) : nullptr;
