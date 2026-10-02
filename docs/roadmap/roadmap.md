@@ -16,6 +16,8 @@ devpiano 是一款基于 JUCE 的现代 C++ 电脑键盘钢琴应用，聚焦软
 - 旧配置系统 -> `ApplicationProperties` / `ValueTree` / 项目内状态模型。
 - 旧 fallback 简单发声 -> 覆盖 7 大声学子系统的自主研发增强物理建模钢琴音源（`PianoSynthVoice`）。
 
+当前优先级为 **AUDIT-004 Phase（已排期，代码修复尚未开始）**：先建立安全验证前置，再保护已有用户文件，随后收敛并发、发音身份、实时交换与消费者门禁。逐项任务与验收只写入 [`current-iteration.md`](current-iteration.md)，原问题/证据保留在 [AUDIT-004](../audit/AUDIT-004-code-quality-audit-2026-10-02.md)。Phase 35 已完成并归档；Phase 36/37 仍为规划，P1与关键验证闭环前不开始新增功能。
+
 ---
 
 ## 2. 阶段路线图与版本里程碑
@@ -283,7 +285,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 ### Phase 33：可观测性加固与生产级诊断基础设施（Observability Hardening & Production-Grade Diagnostics Infrastructure） [已完成，2026-09-14]
 
-1. **双通道生产级日志基础设施（DevPianoLogger Dual-Sink）**：重构升级 `DevPianoLogger`，组合 `juce::FileLogger`（512KB 滚动截断，自适应系统应用目录）与调试器即时输出，消除 Windows Win32 GUI 正式分发版用户“排障黑盒”痛点；优化析构注销顺序确保退出期设置保存与插件卸载日志完整落盘；
+1. **双通道生产级日志基础设施（DevPianoLogger Dual-Sink）**：重构升级 `DevPianoLogger`，组合 `juce::FileLogger`（构造时按初始 512 KB 预算裁剪，自适应系统应用目录）与调试器即时输出；优化析构注销顺序确保退出期设置保存与插件卸载日志完整落盘。会话内持续写入目前不是自动轮转，AUDIT-004 的资源/诊断缺口已纳入本轮 Phase G，不把初始裁剪描述成已实现滚动限额；
 2. **设置界面诊断卡片直达与系统文件管理器联动**：在设置界面诊断卡片中新增操作行与“打开日志目录”按钮（`open-log-dir-button`），点击调用 `juce::File::revealToUser()` 调起系统原生文件管理器并高亮选中 `devpiano.log`；动态在诊断文本框中显示日志文件绝对路径与当前大小；
 3. **MidiTrace 与诊断测试防线**：新增 `DiagnosticsTest`，全面覆盖 NoteOn/Off、CC、PitchBend、ProgramChange 等全量 MIDI 协议反序列化格式，以及临时目录下文件落盘、会话头标记与析构自动注销置空保护；
 4. **运行时字符编码断言消除**：彻底修复历史遗留的 5 处多字节 em-dash 字符字面量，消除 `juce_String.cpp:327` 的运行时断言。
@@ -320,7 +322,20 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 3. **实时和弦识别与乐理分析 HUD（Phase 35-C）**：`MusicTheory.h` 根据按下音符的 Pitch Class Set 识别三和弦、七和弦、挂留和弦及转位低音；QWERTY 卡片标题 `qwerty-chord-badge` 与 `QwertyComponent` 内部 HUD 展示结果，状态栏保留节拍和音频信息；
 4. **MIDI 伴奏 A-B 片段循环跟练与进度自由跳转（Phase 35-D）**：走带时间轴精细进度条（`TimelineBar`）与零爆音 Seek 机制、难点小节 A-B 无缝循环引擎（`AbLoopEngine`），配合 0.5x~2.0x 调速闭环键盘练习流。
 
-Phase 35 完成清单见 [`current-iteration.md`](current-iteration.md)；后续路线状态以本文为准。
+Phase 35 的原计划与完成勾选见 [完成计划归档](../archive/phase35-keyboard-expressive-dynamics-and-practice-infrastructure.md)。阶段交付完成不代表 AUDIT-004 新反证已修复；当前实施任务由下一专项承接，后续长期路线以本文为准。
+
+### AUDIT-004 Phase：代码质量缺陷修复与消费者契约闭环 [已排期，未开始修复]
+
+[AUDIT-004](../audit/AUDIT-004-code-quality-audit-2026-10-02.md) 的基线评级为 C，包含用户文件保护、输入准入、插件/声部/Transport所有权、发音配对、预设身份/同构执行、映射视图和验证门禁等未闭环问题。当前只建立排期，未执行代码修复或关闭审计项。
+
+1. **Phase 0（前置）**：先修验证隔离、音频fixture生命周期与默认Chord执行，避免测试修改用户数据或产生假覆盖。
+2. **Phase A-B（最优先）**：已有文件事务替换、预设/Take绑定、同步/防抖一致性与文件/时间线准入安全。
+3. **Phase C-E（核心所有权与执行）**：插件/Editor重扫、tone switch/活动Transport与协作导出收尾；NoteOff、pause/末尾/seek/count-in/采样率/踏板边界；预设永久身份、实时/离线快照及完整回调闭包。
+4. **Phase F-G（交互与门禁）**：双看板最终投影、鼠标/标签/元数据编辑、声学范围；诊断资源、ADR边界与编译/静态/测试oracle收敛。
+5. **Phase H（闭环）**：修复后按直接消费者证据对齐功能/验收文档并汇总全部原项，不以文档修订代替实现。
+
+全部原登记项的阶段归属、依赖和可观察验收见 [`current-iteration.md`](current-iteration.md)，原优先级/历史ID不变；较低优先级依赖可前置但不重新定级。默认Windows Debug验证，额外跨平台/Release仅明确要求时执行；未验证的真实插件/声卡影响不假填已通过。完成本专项关键闭环后再评估Phase 36/37启动条件。
+
 
 ### Phase 36：物理建模声学巅峰（Railsback Octave Stretch Tuning & Duplex Scale Resonance）[规划中]
 
@@ -341,14 +356,15 @@ Phase 35 完成清单见 [`current-iteration.md`](current-iteration.md)；后续
 
 | 风险 | 当前判断 | 应对方向 |
 |---|---|---|
-| 插件生命周期复杂 | 中 | 维护专项生命周期测试，重点覆盖 editor、卸载、重扫、退出。 |
-| 键盘映射边界多 | 低 | 基础映射已全量验证；Performance Preset 已补充专项回归清单。 |
-| 物理建模高负荷极端情况 | 极低 | 逐采样零三角函数 + 动态分音剪枝，8 复音齐奏单核 CPU $\le 0.7\%$。 |
-| UI 基础设施稳定性 | 极低 | 内生代码完全自主掌控，实施 API Freeze 接口冻结公约；全量 LayoutGoldenTest 保护。 |
+| 用户文件与会话完整性 | 高，优先修复 | AUDIT-004已确认已有输出追加/失败删除、rename与旧Take绑定风险；Phase A-B先保护原字节、隔离失败和准入预算。 |
+| 插件/声部/Transport生命周期 | 高，待修复 | 正常guard不覆盖重扫/tone switch/活动游标/强制取消的全部路径；Phase C-D以具体交错和Editor/退出消费者验收。 |
+| 键盘映射与发音身份边界 | 待修复 | 回放变换、同音持有、pause/末尾、鼠标路由和双看板投影存在反例；Phase D/F保持原发音身份与单一投影。 |
+| 物理建模与实时负荷 | 待修复 / 待实测 | 分音Magic Circle不等于整个callback零三角或零分配；8复音单核CPU $\le 0.7\%$ 是目标，不能用旧测量代当前证明；Phase E验证完整闭包。 |
+| UI与声明式门面 | 待修复 | 保留现有生命周期清理与布局回归，补映射/几何/Notes输入及严格ViewHost边界；Phase F-G不扩展为通用UI框架。 |
 | `MainComponent` 职责回流 | 低 | 保持轻量装配职责（主要由 `initialiseUi()` 承载 JIVE 树构建与回调接线，核心业务均已委托独立 Controller 与领域模块）；持续监控，避免业务逻辑回流。 |
-| 硬实时契约差距 | 待修复 | `MetronomeProcessor` 每拍在音频线程计算三角/指数系数，`MidiKeyboardState::Listener` 同步进入 UI 回调，异常插件缓冲尺寸仍有分配兜底；详见 [`../issues/known-issues.md`](../issues/known-issues.md)。 |
+| 硬实时契约差距 | 待修复 | 常规callback仍有阻塞锁，合法密集事件/预设通知可突破预分配；Listener进入UI/Timer、异常几何兜底及机械/节拍三角函数另有差距。Phase E处理，真实声卡影响仍需安全验证；见 [AUDIT-004](../audit/AUDIT-004-code-quality-audit-2026-10-02.md)。 |
 | A4 基准音高契约差距 | 待修复 | 产品目标 400.0 ~ 480.0 Hz；代码当前钳制为 410.0 ~ 450.0 Hz，详见 [`../issues/known-issues.md`](../issues/known-issues.md)。 |
-| 文档状态漂移 | 极低 | 本文件作为唯一 roadmap；当前任务只写入 [`current-iteration.md`](current-iteration.md)。 |
+| 门禁覆盖与文档契约 | 待修复 | 默认Chord漏跑、fixture优化依赖/用户目录副作用、项目warning/tidy诊断及现行说明反证已排期；Phase 0/G/H直接验证，不以默认exit 0宣称全覆盖。项目状态只维护本文，任务进度只维护 [`current-iteration.md`](current-iteration.md)。 |
 
 ---
 

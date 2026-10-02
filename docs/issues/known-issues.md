@@ -5,6 +5,8 @@
 
 当前项目状态与风险以 [`../roadmap/roadmap.md`](../roadmap/roadmap.md) 为准；阶段验收见 [`../reference/acceptance.md`](../reference/acceptance.md)。
 
+最新完整复核见 [AUDIT-004](../audit/AUDIT-004-code-quality-audit-2026-10-02.md)，实施排期见 [AUDIT-004 Phase](../roadmap/current-iteration.md)。本清单保留原编号与回归线索，不复制完整登记表或维护另一份修复状态；历史“已修复”结论有新反证时以审计原ID引用追踪，不因为旧记录而忽略当前消费者风险。
+
 ---
 
 ## 1. 当前限制与未修复问题
@@ -13,7 +15,7 @@
 
 ### 插件生命周期退出告警
 
-> scan / load / unload / editor / 重扫 / 直接退出等主要生命周期路径已通过人工回归，未发现功能性问题。特定插件或 Debug 注入环境下退出阶段可能仍有 JUCE / VST3 调试告警，低优先级持续观察。
+> 既有 scan / load / unload / editor / 退出手工回归记录保留，但不是所有生命周期组合当前安全的证明。AUDIT-004 对“已加载＋Editor＋重扫”发现未经过停设备/关Editor守卫的静态反证，并保留原 `AUDIT-001 THR-004` 身份；当前按 Phase C 收敛，不再只视为低优先级退出告警。真实 VST3 崩溃尚未实测，使用可丢弃会话验证；具体路径/证据见审计报告。
 
 详见：[`../reference/features/plugin-hosting.md`](../reference/features/plugin-hosting.md)
 
@@ -51,7 +53,7 @@
 
 ### 节拍器每拍三角函数与全回调零三角 SLA 不一致
 
-> 硬实时目标为 **0 `std::sin`**（零实时三角函数）。`PianoSynthVoice` 的逐采样 Magic Circle 循环满足零三角计算，但 `MetronomeProcessor::triggerBeat()`（`source/Audio/MetronomeProcessor.h`）在音频回调内每拍调用 `std::sin`、`std::cos` 和 `std::exp` 生成脉冲参数；因此**全音频回调**尚不满足该目标。这是每拍而非逐采样计算，不等同于逐采样性能回退，但不得称全回调已达成零三角 SLA。
+> 硬实时目标为 **0 `std::sin`**。`PianoSynthVoice` 的 Magic Circle 分音循环不代表完整回调零三角：除 `MetronomeProcessor::triggerBeat()` 每拍的 `std::sin`/`std::cos`/`std::exp`，AUDIT-004 还记录了机械起音/释放/踏板辅助路径的逐采样三角计算。保持原已知项引用，由 Phase E 核对完整调用闭包；不把每拍计算泛化成逐采样回退，也不把分音优化泛化成全回调已达标。当前CPU/声卡毛刺效果仍需独立实测。
 >
 > **回归建议**：在音频线程外预计算或替换每拍系数生成后，验证拍号切换、BPM 变速、静音节拍继续计时与录音预备拍，并复核实时线程无分配/无锁约束。
 
@@ -66,7 +68,7 @@
 ### 音频回调常规路径严格零堆分配与极端尺寸突变兜底重分配风险 (ERR-002)
 
 > **现状与设计**：
-> 音频回调常规渲染路径（内置物理建模合成器、混响网络、节拍器、MIDI 录制缓冲）严格遵守零堆分配（Zero-allocation）、无锁（Lock-free）铁律。所有音频缓冲与状态容器均在 `AudioEngine::prepareToPlay()` 中按协商的最大采样块尺寸预分配。
+> `prepareToPlay()` 的预分配和捕获容量守卫仍是现有基础，但不能称常规完整callback已严格零分配/无锁。AUDIT-004 在合法密集回放与预设通知中确认可突破预分配，并记录collector/keyboard state/Synthesiser等阻塞锁；这些与下方 `ERR-002` 异常几何兜底是不同根因，分别按原审计ID纳入 Phase E，不重复开同根问题。
 >
 > **边界与兜底**：
 > 若外部宿主或特定音频设备驱动在运行中违反 JUCE 框架契约，未重新调用 `prepareToPlay()` 即直接传入超过预分配尺寸的 `bufferToFill.numSamples` 或通道数：
@@ -74,7 +76,7 @@
 > - Release 构建下，为防止越界崩溃或破音，`AudioEngine::getNextAudioBlock()`（`source/Audio/AudioEngine.cpp:138-143`）保留了 `pluginBuffer.setSize` 作为安全兜底机制（发生单次堆重分配），并通过原子计数器 `pluginBufferResizeCount` 进行记录，由主线程定时器通过 `consumePluginBufferResizeCount()` 异步消费并输出警告日志（ERR-002，避免在音频实时回调中直接输出 I/O 日志）。
 >
 > **风险与约束**：
-> 正常合规驱动下该计数器恒为 0，常规路径维持零分配；若在特定畸形驱动或偶发设备热插拔出现尺寸突变，该异常帧可能产生短暂堆分配。
+> 正常合规驱动下 `pluginBufferResizeCount` 可为0，但该计数只说明插件几何兜底未触发，不能证明MIDI/通知容量或其他常规callback没有分配。异常尺寸帧仍有堆重分配风险；Phase E同时定义不越界、有界且可观测的故障处理，并将真实驱动/热插拔验证范围单列。
 ---
 
 ## 2. 已修复问题（回归参考）

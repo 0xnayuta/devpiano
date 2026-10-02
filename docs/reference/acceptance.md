@@ -436,6 +436,8 @@
 
 状态：已完成（Phase 35-A~35-D，2026-09-28）。
 
+完成计划已迁移至 [Phase 35 归档](../archive/phase35-keyboard-expressive-dynamics-and-practice-infrastructure.md)。以下勾选保留阶段交付验收历史，不代表后续消费者反证已闭环；新增缺陷与复核范围见 [AUDIT-004](../audit/AUDIT-004-code-quality-audit-2026-10-02.md)，修复任务与直接验证要求只维护于 [当前迭代](../roadmap/current-iteration.md)。
+
 - [x] **Phase 35-A（无锁采样级音频节拍器与视觉节拍指示）**：
   - 确定性纯数学阻尼正弦脉冲发生的采样级 Click Engine（强拍 1600Hz / 弱拍 800Hz / 6/8 次强拍 1100Hz），零堆分配、零锁、零外部采样依赖；
   - 支持 2/4、3/4、4/4、6/8 常见拍号与 40~280 BPM 无级可调；
