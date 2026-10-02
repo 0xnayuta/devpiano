@@ -295,3 +295,189 @@ public:
 };
 
 static PresetFileResolveTest presetFileResolveTest;
+
+// -----------------------------------------------------------------------------
+
+class PresetRenameTest final : public juce::UnitTest {
+public:
+    PresetRenameTest()
+        : juce::UnitTest("PerformancePreset: rename persistence and collision protection (SEC-001)", "DevPiano/Core") {
+    }
+
+    void runTest() override {
+        testCase("rename A -> new B succeeds, preserves data/new metadata, cleans up old file", [&] {
+            devpiano::test::ScopedTempDir tempDir("preset-rename-new");
+            auto pA = makeFullPreset();
+            pA.name = "PresetA";
+            pA.lidPosition = SettingsModel::LidPosition::halfStick;
+            const auto fileA = tempDir.getChildFile("PresetA.devpiano.preset");
+            expect(savePreset(pA, fileA));
+
+            const auto res = renamePreset("PresetA", "PresetB", false, tempDir.get());
+            expect(res == PresetRenameResult::success, "Rename to new file must succeed");
+
+            const auto fileB = tempDir.getChildFile("PresetB.devpiano.preset");
+            expect(fileB.existsAsFile(), "New preset file must exist");
+            expect(!fileA.existsAsFile(), "Old preset file must be deleted");
+
+            auto loadedB = loadPreset(fileB);
+            expect(loadedB.has_value());
+            if (loadedB.has_value()) {
+                expectEquals(loadedB->name, juce::String("PresetB"));
+                expectEquals(loadedB->layout.name, juce::String("PresetB"));
+                expectEquals(static_cast<int>(loadedB->lidPosition),
+                             static_cast<int>(SettingsModel::LidPosition::halfStick));
+            }
+        });
+
+        testCase("rename A -> existing independent B without permission is rejected and retains bytes (SEC-001)", [&] {
+            devpiano::test::ScopedTempDir tempDir("preset-rename-collision");
+            auto pA = makeFullPreset();
+            pA.name = "PresetA";
+            pA.pedalNoiseLevel = 0.12f;
+            const auto fileA = tempDir.getChildFile("PresetA.devpiano.preset");
+            expect(savePreset(pA, fileA));
+            const auto bytesA = fileA.loadFileAsString();
+
+            auto pB = makeFullPreset();
+            pB.name = "PresetB";
+            pB.pedalNoiseLevel = 0.88f;
+            const auto fileB = tempDir.getChildFile("PresetB.devpiano.preset");
+            expect(savePreset(pB, fileB));
+            const auto bytesB = fileB.loadFileAsString();
+
+            const auto res = renamePreset("PresetA", "PresetB", false, tempDir.get());
+            expect(res == PresetRenameResult::targetAlreadyExists,
+                   "Declined/unpermitted collision must return targetAlreadyExists");
+
+            expect(fileA.existsAsFile(), "Source file must remain");
+            expect(fileB.existsAsFile(), "Target file must remain");
+            expectEquals(fileA.loadFileAsString(), bytesA, "Source file bytes must be unchanged");
+            expectEquals(fileB.loadFileAsString(), bytesB, "Target file bytes must be unchanged");
+
+            const auto allFiles = tempDir.get().findChildFiles(juce::File::findFiles, false);
+            expectEquals(allFiles.size(), 2, "Only PresetA and PresetB files should exist, no temp residue");
+        });
+
+        testCase("rename A -> existing independent B with permission overwrites target and cleans up source", [&] {
+            devpiano::test::ScopedTempDir tempDir("preset-rename-overwrite");
+            auto pA = makeFullPreset();
+            pA.name = "PresetA";
+            pA.feltAgeingAmount = 0.95f;
+            const auto fileA = tempDir.getChildFile("PresetA.devpiano.preset");
+            expect(savePreset(pA, fileA));
+
+            auto pB = makeFullPreset();
+            pB.name = "PresetB";
+            pB.feltAgeingAmount = 0.10f;
+            const auto fileB = tempDir.getChildFile("PresetB.devpiano.preset");
+            expect(savePreset(pB, fileB));
+
+            const auto res = renamePreset("PresetA", "PresetB", true, tempDir.get());
+            expect(res == PresetRenameResult::success, "Permitted collision must succeed");
+
+            expect(!fileA.existsAsFile(), "Source file must be deleted");
+            expect(fileB.existsAsFile(), "Target file must exist");
+            auto loadedB = loadPreset(fileB);
+            expect(loadedB.has_value());
+            if (loadedB.has_value()) {
+                expectEquals(loadedB->name, juce::String("PresetB"));
+                expectEquals(loadedB->feltAgeingAmount, 0.95f, "Target must have new preset data from A");
+            }
+        });
+
+        testCase(
+            "rename to same normalized path via sanitization collision preserves target and updates metadata (SEC-001)",
+            [&] {
+                devpiano::test::ScopedTempDir tempDir("preset-rename-sanitise-collision");
+                auto p = makeFullPreset();
+                p.name = "PresetAlpha";
+                p.pedalNoiseLevel = 0.44f;
+                const auto file = tempDir.getChildFile("PresetAlpha.devpiano.preset");
+                expect(savePreset(p, file));
+
+                const auto res = renamePreset("PresetAlpha", "PresetAlpha?", false, tempDir.get());
+                expect(res == PresetRenameResult::success, "Same normalized path rename must succeed");
+
+                expect(file.existsAsFile(), "Same-path target file must NOT be deleted");
+                auto loaded = loadPreset(file);
+                expect(loaded.has_value());
+                if (loaded.has_value()) {
+                    expectEquals(loaded->name, juce::String("PresetAlpha?"), "Metadata name must reflect new name");
+                    expectEquals(loaded->layout.name, juce::String("PresetAlpha?"));
+                    expectEquals(loaded->pedalNoiseLevel, 0.44f, "Data must be preserved");
+                }
+            });
+
+        testCase("case-only rename preserves target and updates metadata (SEC-001)", [&] {
+            devpiano::test::ScopedTempDir tempDir("preset-rename-case");
+            auto p = makeFullPreset();
+            p.name = "CaseTest";
+            p.reverbWet = 0.73f;
+            const auto fileOld = tempDir.getChildFile("CaseTest.devpiano.preset");
+            expect(savePreset(p, fileOld));
+
+            const auto res = renamePreset("CaseTest", "casetest", false, tempDir.get());
+            expect(res == PresetRenameResult::success, "Case-only rename must succeed");
+
+            const auto fileNew = resolvePresetFile("casetest", tempDir.get());
+            expect(fileNew.existsAsFile(), "Target file must exist and not be deleted");
+
+            auto loaded = loadPreset(fileNew);
+            expect(loaded.has_value());
+            if (loaded.has_value()) {
+                expectEquals(loaded->name, juce::String("casetest"), "Metadata name must reflect new case");
+                expectEquals(loaded->reverbWet, 0.73f, "Preset data must be preserved");
+            }
+        });
+
+        testCase("validation and failure handling preserve original files and clean up temp files", [&] {
+            devpiano::test::ScopedTempDir tempDir("preset-rename-fail");
+            auto p = makeFullPreset();
+            p.name = "FailSource";
+            const auto fileSource = tempDir.getChildFile("FailSource.devpiano.preset");
+            expect(savePreset(p, fileSource));
+            const auto sourceBytes = fileSource.loadFileAsString();
+
+            expect(renamePreset("NonExistent", "Target", false, tempDir.get()) == PresetRenameResult::sourceNotFound);
+            expect(renamePreset("", "Target", false, tempDir.get()) == PresetRenameResult::invalidName);
+            expect(renamePreset("FailSource", "", false, tempDir.get()) == PresetRenameResult::invalidName);
+            const auto blockedTarget = resolvePresetFile("Blocked", tempDir.get());
+            expect(blockedTarget.createDirectory().wasOk());
+            const auto targetData = blockedTarget.getChildFile("original");
+            expect(targetData.replaceWithText("owned-target-data"));
+            expect(renamePreset("FailSource", "Blocked", false, tempDir.get()) == PresetRenameResult::saveFailed);
+            expectEquals(targetData.loadFileAsString(), juce::String("owned-target-data"));
+
+            expect(fileSource.existsAsFile());
+            expectEquals(fileSource.loadFileAsString(), sourceBytes);
+
+            expectEquals(tempDir.get().getNumberOfChildFiles(juce::File::findFilesAndDirectories), 2,
+                         "failed commit must restore the source without leaving staged files");
+        });
+#if JUCE_WINDOWS
+        testCase("locked source prevents a rename without modifying either original preset", [&] {
+            devpiano::test::ScopedTempDir tempDir("preset-rename-locked-source");
+            auto preset = makeFullPreset();
+            preset.name = "Source";
+            const auto source = resolvePresetFile(preset.name, tempDir.get());
+            expect(savePreset(preset, source));
+            preset.name = "Target";
+            const auto target = resolvePresetFile(preset.name, tempDir.get());
+            expect(savePreset(preset, target));
+            const auto sourceBytes = source.loadFileAsString();
+            const auto targetBytes = target.loadFileAsString();
+            {
+                juce::FileOutputStream lockSource(source);
+                expect(lockSource.openedOk());
+                expect(renamePreset("Source", "Target", true, tempDir.get()) == PresetRenameResult::sourceMoveFailed);
+            }
+            expectEquals(source.loadFileAsString(), sourceBytes);
+            expectEquals(target.loadFileAsString(), targetBytes);
+            expectEquals(tempDir.get().getNumberOfChildFiles(juce::File::findFiles), 2);
+        });
+#endif
+    }
+};
+
+static PresetRenameTest presetRenameTest;

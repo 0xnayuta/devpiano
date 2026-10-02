@@ -64,8 +64,8 @@ int PresetFlowSupport::getPresetCount() const {
 
 // ---- Apply ----
 
-void PresetFlowSupport::applyPresetById(const juce::String& presetId) {
-    // Defensive copy: applyPresetData → updateUiAfterCommit → setPresets may
+bool PresetFlowSupport::applyPresetById(const juce::String& presetId) {
+    // Defensive copy: applyPresetData -> updateUiAfterCommit -> setPresets may
     // reallocate the caller's string storage, invalidating the reference.
     // NOLINTNEXTLINE(performance-unnecessary-copy-initialization) - intentional defensive copy
     auto id = presetId;
@@ -74,15 +74,13 @@ void PresetFlowSupport::applyPresetById(const juce::String& presetId) {
 
     for (const auto& p : cachedPresets) {
         if (p.name == id) {
-            // Set currentPresetId BEFORE applyPresetData so that
-            // updateUiAfterCommit → setPresets sees the new ID.
-            currentPresetId = id;
-            applyPresetData(p);
-            return;
+            applyPresetData(p, true);
+            return true;
         }
     }
 
     DP_LOG_WARN("[Preset] preset not found: " + id);
+    return false;
 }
 
 void PresetFlowSupport::applyPresetByIndex(int index) {
@@ -91,16 +89,14 @@ void PresetFlowSupport::applyPresetByIndex(int index) {
         return;
     }
 
-    // Set currentPresetId BEFORE applyPresetData (same race as applyPresetById).
-    currentPresetId = cachedPresets[static_cast<std::size_t>(index)].name;
-    applyPresetData(cachedPresets[static_cast<std::size_t>(index)]);
+    applyPresetData(cachedPresets[static_cast<std::size_t>(index)], true);
 }
 
-void PresetFlowSupport::applyPresetData(const PerformancePreset& preset) {
+void PresetFlowSupport::applyPresetData(const PerformancePreset& preset, bool fileBacked) {
     // 0. Recording integration: record the preset change if currently recording.
     // Only record file-backed (user) presets — the built-in default has no persistent
     // identity and recording it would write a wrong index.
-    if (owner.recordingEngine.isRecording() && preset.layout.id != "default.preset.builtin") {
+    if (owner.recordingEngine.isRecording() && fileBacked) {
         // Find the preset's index in our cached list for the presetId field
         uint8_t presetIdx = 0;
         for (std::size_t i = 0; i < cachedPresets.size(); ++i) {
@@ -113,12 +109,14 @@ void PresetFlowSupport::applyPresetData(const PerformancePreset& preset) {
         owner.recordingEngine.recordPresetChange(presetIdx, pos);
     }
 
-    commitPreset(preset);
+    commitPreset(preset, fileBacked);
     updateUiAfterCommit();
 }
 
-void PresetFlowSupport::commitPreset(const PerformancePreset& preset) {
+void PresetFlowSupport::commitPreset(const PerformancePreset& preset, bool fileBacked) {
     auto& s = owner.appSettings;
+    currentPresetId = fileBacked ? preset.name : juce::String();
+    s.lastActivePresetId = currentPresetId;
 
     // 1. KeyboardLayout
     owner.keyboardMidiMapper.setLayout(preset.layout);
@@ -159,9 +157,6 @@ void PresetFlowSupport::commitPreset(const PerformancePreset& preset) {
     owner.audioEngine.setPedalNoiseLevel(s.pedalNoiseLevel);
     s.feltAgeingAmount = juce::jlimit(0.0f, 1.0f, preset.feltAgeingAmount);
     owner.audioEngine.setFeltAgeingAmount(s.feltAgeingAmount);
-
-    // 4. Persist preset identity
-    s.lastActivePresetId = preset.name;
 }
 
 void PresetFlowSupport::updateUiAfterCommit() {
@@ -271,10 +266,6 @@ void PresetFlowSupport::savePresetFromCurrentState(const juce::String& name, con
 }
 
 void PresetFlowSupport::handleRenamePreset() {
-    // Target the preset currently shown in the combo box. The stored
-    // currentPresetId can be out of sync (e.g. right after startup the combo
-    // selects the first user preset while currentPresetId still refers to the
-    // built-in default), which previously made Rename silently do nothing.
     const auto targetId = owner.getSelectedPresetId();
     if (targetId.isEmpty()) {
         return;
@@ -286,8 +277,8 @@ void PresetFlowSupport::handleRenamePreset() {
         return;
     }
 
-    auto oldName = it->name;
-    auto oldFile = resolvePresetFile(oldName);
+    const auto oldName = it->name;
+    const auto oldFile = resolvePresetFile(oldName);
 
     devpiano::ui::jive::JiveModalDialog::launchSingleInput({
         .title = TRANS("Rename Preset"),
@@ -295,48 +286,55 @@ void PresetFlowSupport::handleRenamePreset() {
         .initialValue = oldName,
         .componentToCentreAround = &owner,
         .onComplete =
-            [this, targetId, oldName, oldFile](std::optional<juce::String> nameOpt) {
+            [this, oldName, oldFile](std::optional<juce::String> nameOpt) {
                 if (!nameOpt.has_value()) {
                     return;
                 }
-                auto newName = nameOpt->trim();
+                const auto newName = nameOpt->trim();
                 if (newName.isEmpty() || newName == oldName) {
                     return;
                 }
 
-                refreshCache();
-                auto it2
-                    = std::ranges::find_if(cachedPresets, [&targetId](const auto& p) { return p.name == targetId; });
-                if (it2 == cachedPresets.end()) {
+                const auto newFile = resolvePresetFile(newName);
+                const bool isSamePath = oldFile == newFile;
+
+                auto executeRename = [this, oldName, newName](bool allowOverwrite) {
+                    const auto result = renamePreset(oldName, newName, allowOverwrite);
+                    if (result == PresetRenameResult::success) {
+                        currentPresetId = newName;
+                        owner.appSettings.lastActivePresetId = currentPresetId;
+                        refreshCache(true);
+                        updateUiAfterCommit();
+                        owner.showStatusMessage(TRANS("Renamed preset to: ") + newName, 2500);
+                    } else {
+                        DP_LOG_ERROR("[Preset] rename failed: " + oldName + " -> " + newName);
+                    }
+                };
+
+                if (!isSamePath && newFile.existsAsFile()) {
+                    devpiano::ui::jive::JiveModalDialog::launchConfirm({
+                        .title = TRANS("Overwrite Preset?"),
+                        .message = TRANS("A preset named \"") + newName
+                            + TRANS("\" already exists.\nDo you want to overwrite it?"),
+                        .okLabel = TRANS("Overwrite"),
+                        .cancelLabel = TRANS("Cancel"),
+                        .componentToCentreAround = &owner,
+                        .onComplete =
+                            [executeRename](bool overwrite) {
+                                if (overwrite) {
+                                    executeRename(true);
+                                }
+                            },
+                    });
                     return;
                 }
 
-                auto preset = *it2;
-                preset.name = newName;
-                preset.layout.name = newName;
-
-                auto newFile = resolvePresetFile(newName);
-
-                if (savePreset(preset, newFile)) {
-                    if (oldFile.deleteFile()) {
-                        DP_LOG_INFO("[Preset] renamed: " + oldName + " -> " + newName);
-                    } else {
-                        DP_LOG_WARN("[Preset] renamed preset saved but old file could not be deleted: "
-                                    + oldFile.getFullPathName());
-                    }
-                    currentPresetId = newName;
-                    owner.appSettings.lastActivePresetId = currentPresetId;
-                    refreshCache();
-                    updateUiAfterCommit();
-                    owner.showStatusMessage(TRANS("Renamed preset to: ") + newName, 2500);
-                }
+                executeRename(false);
             },
     });
 }
 
 void PresetFlowSupport::handleDeletePreset() {
-    // Same as Rename: operate on the combo's current selection so the button
-    // works even when currentPresetId is stale after startup.
     const auto targetId = owner.getSelectedPresetId();
     if (targetId.isEmpty()) {
         return;
@@ -369,12 +367,11 @@ void PresetFlowSupport::handleDeletePreset() {
 
                 // If the deleted preset was current, revert to default
                 if (currentPresetId == name) {
-                    applyPresetData(makeDefaultPreset());
-                    currentPresetId.clear();
-                    owner.appSettings.lastActivePresetId.clear();
+                    applyPresetData(makeDefaultPreset(), false);
+                } else {
+                    refreshCache(true);
+                    updateUiAfterCommit();
                 }
-                refreshCache();
-                updateUiAfterCommit();
                 owner.showStatusMessage(TRANS("Deleted preset: ") + name, 2500);
             },
     });
@@ -393,9 +390,7 @@ void PresetFlowSupport::handleImportPresetFile(const juce::File& file) {
         if (savePreset(preset, destFile)) {
             DP_LOG_INFO("[Preset] imported: " + destFile.getFullPathName());
             refreshCache();
-            applyPresetData(preset); // applies settings + updates UI (with old preset ID)
-            currentPresetId = preset.name;
-            updateUiAfterCommit(); // re-update so combo shows the newly imported preset selected
+            applyPresetData(preset, true);
         }
     };
 

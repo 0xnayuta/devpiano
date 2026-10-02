@@ -17,9 +17,9 @@ public:
 
     // ---- Apply ----
 
-    void applyPresetById(const juce::String& presetId);
+    bool applyPresetById(const juce::String& presetId);
     void applyPresetByIndex(int zeroBasedIndex);
-    void applyPresetData(const PerformancePreset& preset);
+    void applyPresetData(const PerformancePreset& preset, bool fileBacked);
 
     // ---- CRUD ----
 
@@ -41,7 +41,7 @@ public:
 
 private:
     void refreshCache(bool force = false);
-    void commitPreset(const PerformancePreset& preset);
+    void commitPreset(const PerformancePreset& preset, bool fileBacked);
     void updateUiAfterCommit();
     /// Save the current live state as a preset to `file` and refresh the UI.
     void savePresetFromCurrentState(const juce::String& name, const juce::File& file);

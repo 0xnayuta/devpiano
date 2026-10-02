@@ -144,20 +144,18 @@ MainComponent::~MainComponent() {
 }
 
 void MainComponent::initialiseFromPreset() {
-    // Load the last active preset, or fall back to built-in default
     if (appSettings.lastActivePresetId.isNotEmpty()) {
-        auto file = devpiano::layout::resolvePresetFile(appSettings.lastActivePresetId);
-        auto loaded = devpiano::layout::loadPreset(file);
-        if (loaded.has_value()) {
-            presetFlowSupport->applyPresetData(*loaded);
+        if (presetFlowSupport != nullptr && presetFlowSupport->applyPresetById(appSettings.lastActivePresetId)) {
             return;
         }
-        DP_LOG_WARN("[Preset] Failed to load last active preset \"" + appSettings.lastActivePresetId + "\" from "
-                    + file.getFullPathName() + ", falling back to default preset");
+        DP_LOG_WARN("[Preset] Failed to load last active preset \"" + appSettings.lastActivePresetId
+                    + "\", falling back to default preset");
     }
 
-    // Fallback: built-in default
-    presetFlowSupport->applyPresetData(devpiano::layout::makeDefaultPreset());
+    // Fallback: built-in default (no file backing)
+    if (presetFlowSupport != nullptr) {
+        presetFlowSupport->applyPresetData(devpiano::layout::makeDefaultPreset(), false);
+    }
 }
 
 void MainComponent::reconfigureChannelMapper() {

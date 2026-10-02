@@ -65,6 +65,22 @@ struct PerformancePreset {
 [[nodiscard]] std::optional<PerformancePreset> loadPreset(const juce::File& path);
 [[nodiscard]] bool savePreset(const PerformancePreset& preset, const juce::File& path);
 
+// ---- Rename ----
+
+enum class PresetRenameResult {
+    success,
+    invalidName,
+    sourceNotFound,
+    targetAlreadyExists,
+    saveFailed,
+    sourceMoveFailed,
+    sourceRestoreFailed
+};
+
+[[nodiscard]] PresetRenameResult renamePreset(const juce::String& oldName, const juce::String& newName,
+                                              bool allowOverwriteExisting = false,
+                                              const juce::File& dir = getPresetDirectory());
+
 // ---- Directory scanning ----
 
 [[nodiscard]] std::vector<PerformancePreset> scanPresetDirectory(const juce::File& dir = getPresetDirectory());

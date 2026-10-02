@@ -444,7 +444,8 @@ std::optional<PerformancePreset> loadPreset(const juce::File& path) {
 
 // ---- Save ----
 
-bool savePreset(const PerformancePreset& preset, const juce::File& path) {
+namespace {
+bool writePresetData(const PerformancePreset& preset, const juce::File& path) {
     juce::DynamicObject::Ptr root = new juce::DynamicObject();
     root->setProperty("version", performancePresetFormatVersion);
     root->setProperty("name", preset.name);
@@ -533,6 +534,19 @@ bool savePreset(const PerformancePreset& preset, const juce::File& path) {
         return false;
     }
 
+    juce::FileOutputStream output(path);
+    if (!output.openedOk() || !output.writeText(jsonString, false, false, nullptr)) {
+        return false;
+    }
+    output.flush();
+    return output.getStatus().wasOk();
+}
+}
+
+bool savePreset(const PerformancePreset& preset, const juce::File& path) {
+    if (path == juce::File()) {
+        return false;
+    }
     auto targetFile = path;
     if (!targetFile.hasFileExtension(kPresetFileExtension)) {
         targetFile = targetFile.withFileExtension(kPresetFileExtension);
@@ -543,20 +557,75 @@ bool savePreset(const PerformancePreset& preset, const juce::File& path) {
         return false;
     }
 
-    // 原子写入：同目录临时文件 + rename 覆盖，失败时目标文件保持原样
-    // （与 PerformanceFile::savePerformanceFile 同一模式，AUDIT-SEC-004 扩展）。
     juce::TemporaryFile tempFile(targetFile);
-    if (!tempFile.getFile().replaceWithText(jsonString)) {
-        tempFile.deleteTemporaryFile();
+    if (!writePresetData(preset, tempFile.getFile())) {
         return false;
     }
+    return tempFile.overwriteTargetFileWithTemporary();
+}
 
-    if (tempFile.overwriteTargetFileWithTemporary()) {
-        return true;
+// ---- Rename ----
+
+PresetRenameResult renamePreset(const juce::String& oldName, const juce::String& newName, bool allowOverwriteExisting,
+                                const juce::File& dir) {
+    const auto trimmedOld = oldName.trim();
+    const auto trimmedNew = newName.trim();
+    if (trimmedOld.isEmpty() || trimmedNew.isEmpty()) {
+        return PresetRenameResult::invalidName;
     }
 
-    tempFile.deleteTemporaryFile();
-    return false;
+    const auto oldFile = resolvePresetFile(trimmedOld, dir);
+    if (!oldFile.existsAsFile()) {
+        return PresetRenameResult::sourceNotFound;
+    }
+
+    const auto presetOpt = loadPreset(oldFile);
+    if (!presetOpt.has_value()) {
+        return PresetRenameResult::sourceNotFound;
+    }
+
+    const auto newFile = resolvePresetFile(trimmedNew, dir);
+
+    const bool isSamePath = oldFile == newFile;
+
+    if (!isSamePath && newFile.existsAsFile() && !allowOverwriteExisting) {
+        return PresetRenameResult::targetAlreadyExists;
+    }
+
+    auto updatedPreset = *presetOpt;
+    updatedPreset.name = trimmedNew;
+    updatedPreset.layout.name = trimmedNew;
+
+    juce::TemporaryFile temporaryTarget(newFile);
+    if (!writePresetData(updatedPreset, temporaryTarget.getFile())) {
+        return PresetRenameResult::saveFailed;
+    }
+
+    if (isSamePath) {
+        return temporaryTarget.overwriteTargetFileWithTemporary() ? PresetRenameResult::success
+                                                                  : PresetRenameResult::saveFailed;
+    }
+
+    const auto stagedSource
+        = dir.getNonexistentChildFile(oldFile.getFileNameWithoutExtension() + "_rename", kPresetFileExtension, false);
+    if (!oldFile.moveFileTo(stagedSource)) {
+        return PresetRenameResult::sourceMoveFailed;
+    }
+
+    if (!temporaryTarget.overwriteTargetFileWithTemporary()) {
+        if (oldFile.exists() || !stagedSource.moveFileTo(oldFile)) {
+            DP_LOG_ERROR("[Preset] rename rollback failed; original source retained at: "
+                         + stagedSource.getFullPathName());
+            return PresetRenameResult::sourceRestoreFailed;
+        }
+        return PresetRenameResult::saveFailed;
+    }
+
+    if (!stagedSource.deleteFile()) {
+        DP_LOG_WARN("[Preset] rename committed; original source backup retained at: " + stagedSource.getFullPathName());
+    }
+
+    return PresetRenameResult::success;
 }
 
 // ---- Directory scanning ----
