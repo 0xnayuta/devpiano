@@ -215,6 +215,7 @@ public:
 
     void runTest() override {
         testParameterValidation();
+        testInvalidTimeline();
         testOfflineRenderingExecution();
         testMonoPluginStereoDownmix();
         testMasterSoftLimiterBehavior();
@@ -252,6 +253,35 @@ public:
         // 4. Empty destination file
         expect(!devpiano::exporting::renderTakeWithOfflinePlugin(makeSimpleRenderTake(), juce::File(), validOptions,
                                                                  plugin));
+    }
+
+    void testInvalidTimeline() {
+        beginTest("Invalid numeric timeline rejects before output without replacing user data");
+        DummyOfflineTestPlugin plugin;
+        devpiano::exporting::WavExportOptions options;
+        devpiano::test::ScopedTempDir tempDir("offline-timeline");
+        const auto target = tempDir.getChildFile("original.wav");
+        expect(target.replaceWithText("retained plugin render"));
+        const auto original = target.loadFileAsString();
+        auto take = makeSimpleRenderTake();
+        take.lengthSamples = std::numeric_limits<std::int64_t>::max();
+        take.events.back().timestampSamples = take.lengthSamples;
+        auto progressCalled = false;
+        expect(!devpiano::exporting::renderTakeWithOfflinePlugin(take, target, options, plugin, [&](double) {
+            progressCalled = true;
+            return false;
+        }));
+        expect(!progressCalled);
+        expectEquals(target.loadFileAsString(), original);
+        take.events.back().timestampSamples = 44100;
+        take.lengthSamples = std::numeric_limits<std::int64_t>::max() - 88199;
+        expect(!devpiano::exporting::renderTakeWithOfflinePlugin(take, target, options, plugin));
+        expectEquals(target.loadFileAsString(), original);
+        take = makeSimpleRenderTake();
+        take.sampleRate = std::numeric_limits<double>::infinity();
+        const auto missingParent = tempDir.getChildFile("not-created").getChildFile("invalid.wav");
+        expect(!devpiano::exporting::renderTakeWithOfflinePlugin(take, missingParent, options, plugin));
+        expect(!missingParent.getParentDirectory().exists());
     }
 
     void testOfflineRenderingExecution() {

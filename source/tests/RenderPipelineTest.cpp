@@ -41,70 +41,58 @@ public:
     void runTest() override {
         using namespace devpiano::recording;
 
-        testCase("scaleTimestamp clamps non-positive inputs to zero", [&] {
-            expect(scaleTimestamp(0, 1.0) == 0);
-            expect(scaleTimestamp(-100, 1.0) == 0);
-            expect(scaleTimestamp(1000, 0.0) == 0); // zero ratio -> zero
-            expect(scaleTimestamp(1000, -2.0) == 0); // negative ratio -> clamped
+        testCase("render timeline preserves scaled duration and includes the final event", [&] {
+            const auto take = makeTake(44100.0, 44100, { makeEvent(0), makeEvent(22050), makeEvent(44100) });
+            const auto timeline = prepareRenderTimeline(take, 88200.0, 2.0);
+            expect(timeline.has_value());
+            if (!timeline.has_value()) {
+                return;
+            }
+            expectEquals(timeline->events[1].timestampSamples, std::int64_t { 44100 });
+            expectEquals(timeline->events[2].timestampSamples, std::int64_t { 88200 });
+            expectEquals(timeline->takeLengthSamples, std::int64_t { 88201 });
+            expectEquals(timeline->totalSamples, std::int64_t { 264601 });
         });
 
-        testCase("scaleTimestamp scales by the sample-rate ratio", [&] {
-            expect(scaleTimestamp(44100, 1.0) == 44100);
-            expect(scaleTimestamp(44100, 2.0) == 88200);
-            expect(scaleTimestamp(44100, 0.5) == 22050);
-            // Rounds to nearest sample.
-            expect(scaleTimestamp(1, 1.5) == 2);
+        testCase("render timeline retains silence and stable simultaneous MIDI order", [&] {
+            auto first = makeEvent(100);
+            first.message = juce::MidiMessage::noteOff(1, 60);
+            auto second = makeEvent(100);
+            const auto take = makeTake(44100.0, 44100, { makeEvent(200), first, second });
+            const auto timeline = prepareRenderTimeline(take, 44100.0, 0.0);
+            expect(timeline.has_value());
+            if (!timeline.has_value()) {
+                return;
+            }
+            expect(timeline->events[0].message.isNoteOff());
+            expect(timeline->events[1].message.isNoteOn());
+            expectEquals(timeline->events[2].timestampSamples, std::int64_t { 200 });
+            expectEquals(timeline->totalSamples, std::int64_t { 44100 });
         });
 
-        testCase("buildRenderEvents rescales timestamps to target rate", [&] {
-            auto take = makeTake(44100.0, 44100, { makeEvent(0), makeEvent(22050), makeEvent(44100) });
-            const auto events = buildRenderEvents(take, 88200.0); // 2x ratio
-            expectEquals(static_cast<int>(events.size()), 3);
-            expect(events[0].timestampSamples == 0);
-            expect(events[1].timestampSamples == 44100);
-            expect(events[2].timestampSamples == 88200);
+        testCase("unrepresentable final event and tail reject rather than wrap", [&] {
+            constexpr auto maximum = std::numeric_limits<std::int64_t>::max();
+            expect(!prepareRenderTimeline(makeTake(44100.0, maximum, { makeEvent(maximum) }), 44100.0, 0.0));
+            expect(!prepareRenderTimeline(makeTake(44100.0, maximum - 88199, { makeEvent(0) }), 44100.0, 2.0));
+            const auto boundary
+                = prepareRenderTimeline(makeTake(44100.0, maximum - 88200, { makeEvent(0) }), 44100.0, 2.0);
+            expect(boundary.has_value());
+            if (boundary.has_value()) {
+                expectEquals(boundary->totalSamples, maximum);
+            }
+            expect(!prepareRenderTimeline(makeTake(44100.0, maximum / 2 + 1, { makeEvent(0) }), 88200.0, 0.0));
         });
 
-        testCase("buildRenderEvents sorts events stably by timestamp", [&] {
-            auto take = makeTake(44100.0, 100, { makeEvent(300), makeEvent(100), makeEvent(200) });
-            const auto events = buildRenderEvents(take, 44100.0);
-            expectEquals(static_cast<int>(events.size()), 3);
-            expect(events[0].timestampSamples == 100);
-            expect(events[1].timestampSamples == 200);
-            expect(events[2].timestampSamples == 300);
-        });
-
-        testCase("buildRenderEvents normalises message timestamps to zero", [&] {
-            auto take = makeTake(44100.0, 100, { makeEvent(50) });
-            const auto events = buildRenderEvents(take, 44100.0);
-            expectEquals(static_cast<int>(events.size()), 1);
-            expect(events[0].message.getTimeStamp() == 0.0);
-        });
-
-        testCase("buildRenderEvents returns empty for an empty take", [&] {
-            auto take = makeTake(44100.0, 0, {});
-            const auto events = buildRenderEvents(take, 44100.0);
-            expect(events.empty());
-        });
-
-        testCase("getScaledTakeLengthSamples honours take length when it is the longer end", [&] {
-            auto take = makeTake(44100.0, 44100, { makeEvent(100) });
-            const auto events = buildRenderEvents(take, 88200.0);
-            expect(getScaledTakeLengthSamples(take, events, 88200.0) == 88200);
-        });
-
-        testCase("getScaledTakeLengthSamples extends past the last event plus one sample", [&] {
-            auto take = makeTake(44100.0, 100, { makeEvent(44100) });
-            const auto events = buildRenderEvents(take, 44100.0);
-            // Last event at 44100 -> length must cover timestamp+1 so the event
-            // falls fully inside the rendered range.
-            expect(getScaledTakeLengthSamples(take, events, 44100.0) == 44101);
-        });
-
-        testCase("getScaledTakeLengthSamples falls back to scaled take length when events are empty", [&] {
-            auto take = makeTake(44100.0, 88200, {});
-            const auto events = buildRenderEvents(take, 88200.0);
-            expect(getScaledTakeLengthSamples(take, events, 88200.0) == 176400);
+        testCase("invalid source target or event domain cannot create a render timeline", [&] {
+            for (const auto rate :
+                 { 1e-300, std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity() }) {
+                expect(!prepareRenderTimeline(makeTake(rate, 1000, { makeEvent(0) }), 44100.0, 2.0));
+                expect(!prepareRenderTimeline(makeTake(44100.0, 1000, { makeEvent(0) }), rate, 2.0));
+            }
+            expect(!prepareRenderTimeline(makeTake(44100.0, -1, { makeEvent(0) }), 44100.0, 2.0));
+            expect(!prepareRenderTimeline(makeTake(44100.0, 1000, { makeEvent(-1) }), 44100.0, 2.0));
+            expect(!prepareRenderTimeline(makeTake(44100.0, 1000, { makeEvent(1001) }), 44100.0, 2.0));
+            expect(!prepareRenderTimeline(makeTake(44100.0, 1000, { makeEvent(0) }), 44100.0, -1.0));
         });
 
         testCase("addPanicMidi injects 16 channels x 3 controllers at the given offset", [&] {

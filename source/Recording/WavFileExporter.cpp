@@ -20,11 +20,8 @@ constexpr auto fallbackVoiceCount = 8;
 constexpr auto wavTailSeconds = 2.0;
 
 using devpiano::recording::addPanicMidi;
-using devpiano::recording::buildRenderEvents;
-using devpiano::recording::getScaledTakeLengthSamples;
 using devpiano::recording::hasUsableRenderOptions;
-using devpiano::recording::RenderEvent;
-using devpiano::recording::scaleTimestamp;
+using devpiano::recording::prepareRenderTimeline;
 
 void initialiseOfflineSynth(juce::Synthesiser& synth, const devpiano::exporting::WavExportOptions& options) {
     synth.clearSounds();
@@ -68,6 +65,15 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
         return false;
     }
 
+    auto timeline = prepareRenderTimeline(take, options.sampleRate, wavTailSeconds);
+    if (!timeline.has_value()) {
+        DP_LOG_ERROR("[Export] WAV export rejected: invalid or unrepresentable timeline");
+        return false;
+    }
+    const auto& renderEvents = timeline->events;
+    const auto scaledTakeLength = timeline->takeLengthSamples;
+    const auto totalSamples = timeline->totalSamples;
+
     auto parentDirectory = destinationFile.getParentDirectory();
     if (!parentDirectory.exists() && !parentDirectory.createDirectory()) {
         DP_LOG_ERROR("[Export] WAV export failed: cannot create directory " + parentDirectory.getFullPathName());
@@ -103,20 +109,17 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
     roomReverb.setSpace(options.reverbSpace);
     roomReverb.setWetLevel(options.reverbWet);
     initialiseOfflineSynth(synth, options);
-    auto renderEvents = buildRenderEvents(take, options.sampleRate);
-    const auto scaledTakeLength = getScaledTakeLengthSamples(take, renderEvents, options.sampleRate);
-    const auto tailSamples = static_cast<std::int64_t>(std::ceil(wavTailSeconds * options.sampleRate));
-    const auto totalSamples = std::max<std::int64_t>(1, scaledTakeLength + tailSamples);
     const auto gain = juce::jlimit(0.0f, 1.0f, options.masterGain);
 
     juce::AudioBuffer<float> audioBuffer(options.numChannels, options.blockSize);
     juce::MidiBuffer midiBuffer;
-    midiBuffer.ensureSize(static_cast<size_t>(juce::jlimit(256, 65536, options.blockSize * 16)));
+    midiBuffer.ensureSize(
+        static_cast<size_t>(std::clamp<std::int64_t>(static_cast<std::int64_t>(options.blockSize) * 16, 256, 65536)));
 
     std::size_t eventIndex = 0;
     auto panicSent = false;
 
-    for (std::int64_t blockStart = 0; blockStart < totalSamples; blockStart += options.blockSize) {
+    for (std::int64_t blockStart = 0; blockStart < totalSamples;) {
         if (progressCallback
             && !progressCallback(static_cast<double>(blockStart) / static_cast<double>(totalSamples))) {
             return false;
@@ -154,6 +157,7 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
             DP_LOG_ERROR("[Export] WAV export failed while writing: " + destinationFile.getFullPathName());
             return false;
         }
+        blockStart = blockEnd;
     }
 
     if (!writer->flush()) {

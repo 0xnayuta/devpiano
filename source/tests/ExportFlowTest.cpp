@@ -259,6 +259,24 @@ public:
                 }
             }
         });
+
+        testCase("MIDI numeric bounds reject before replacing an existing target", [&] {
+            devpiano::test::ScopedTempDir tempDir("midi-timeline-reject");
+            const auto path = tempDir.getChildFile("retained.mid");
+            expect(path.replaceWithText("retained MIDI target"));
+            const auto original = path.loadFileAsString();
+            auto take = makeOneSecondTake();
+            expect(!exportTakeAsMidiFile(take, path, 32768));
+            expectEquals(path.loadFileAsString(), original);
+            take.sampleRate = 1e-300;
+            expect(!exportTakeAsMidiFile(take, path));
+            expectEquals(path.loadFileAsString(), original);
+            take = makeOneSecondTake();
+            take.lengthSamples = 44100LL * 1000000;
+            take.events.back().timestampSamples = take.lengthSamples;
+            expect(!exportTakeAsMidiFile(take, path));
+            expectEquals(path.loadFileAsString(), original);
+        });
     }
 };
 
@@ -316,6 +334,35 @@ public:
                 offset += num;
             }
             expect(maxSample > 0.01f, "rendered audio must not be silent");
+        });
+
+        testCase("unrepresentable WAV timelines reject before output and preserve existing bytes", [&] {
+            devpiano::test::ScopedTempDir tempDir("wav-timeline-reject");
+            const auto path = tempDir.getChildFile("retained.wav");
+            expect(path.replaceWithText("retained user data"));
+            const auto original = path.loadFileAsString();
+            WavExportOptions options;
+            auto take = makeOneSecondTake();
+            take.lengthSamples = std::numeric_limits<std::int64_t>::max();
+            take.events.back().timestampSamples = take.lengthSamples;
+            auto progressCalled = false;
+            expect(!exportTakeAsWavFile(take, path, options, [&](double) {
+                progressCalled = true;
+                return false;
+            }));
+            expect(!progressCalled);
+            expectEquals(path.loadFileAsString(), original);
+
+            take.events.back().timestampSamples = 44100;
+            take.lengthSamples = std::numeric_limits<std::int64_t>::max() - 88199;
+            expect(!exportTakeAsWavFile(take, path, options));
+            expectEquals(path.loadFileAsString(), original);
+
+            take = makeOneSecondTake();
+            take.sampleRate = 1e-300;
+            const auto missingParent = tempDir.getChildFile("not-created").getChildFile("invalid.wav");
+            expect(!exportTakeAsWavFile(take, missingParent, options));
+            expect(!missingParent.getParentDirectory().exists());
         });
 
         testCase("cancelling a WAV overwrite before commit preserves the original bytes", [&] {

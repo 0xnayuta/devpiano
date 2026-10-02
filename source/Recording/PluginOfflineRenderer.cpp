@@ -18,11 +18,8 @@ namespace devpiano::exporting {
 namespace {
 
 using devpiano::recording::addPanicMidi;
-using devpiano::recording::buildRenderEvents;
-using devpiano::recording::getScaledTakeLengthSamples;
 using devpiano::recording::hasUsableRenderOptions;
-using devpiano::recording::RenderEvent;
-using devpiano::recording::scaleTimestamp;
+using devpiano::recording::prepareRenderTimeline;
 
 } // namespace
 
@@ -76,6 +73,15 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
         return false;
     }
 
+    auto timeline = prepareRenderTimeline(take, options.sampleRate, 2.0);
+    if (!timeline.has_value()) {
+        DP_LOG_ERROR("[PluginOfflineRenderer] Invalid or unrepresentable timeline");
+        return false;
+    }
+    const auto& renderEvents = timeline->events;
+    const auto scaledTakeLength = timeline->takeLengthSamples;
+    const auto totalSamples = timeline->totalSamples;
+
     // Create output directory if needed
     auto parentDirectory = destinationFile.getParentDirectory();
     if (!parentDirectory.exists() && !parentDirectory.createDirectory()) {
@@ -104,13 +110,6 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
         return false;
     }
 
-    // Build render events from take (timestamp-scaled to target sample rate)
-    auto renderEvents = buildRenderEvents(take, options.sampleRate);
-    const auto scaledTakeLength = getScaledTakeLengthSamples(take, renderEvents, options.sampleRate);
-
-    constexpr auto tailSeconds = 2.0;
-    const auto tailSamples = static_cast<std::int64_t>(std::ceil(tailSeconds * options.sampleRate));
-    const auto totalSamples = std::max<std::int64_t>(1, scaledTakeLength + tailSamples);
     const auto gain = juce::jlimit(0.0f, 1.0f, options.masterGain);
 
     // Determine channel count from the plugin instance
@@ -120,7 +119,8 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
 
     juce::AudioBuffer<float> pluginBuffer(requiredPluginChannels, options.blockSize);
     juce::MidiBuffer midiBuffer;
-    midiBuffer.ensureSize(static_cast<size_t>(juce::jlimit(256, 65536, options.blockSize * 16)));
+    midiBuffer.ensureSize(
+        static_cast<size_t>(std::clamp<std::int64_t>(static_cast<std::int64_t>(options.blockSize) * 16, 256, 65536)));
 
     juce::AudioBuffer<float> outputBuffer(options.numChannels, options.blockSize);
 
@@ -134,7 +134,7 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
     DP_LOG_INFO("[PluginOfflineRenderer] Starting offline render: " + juce::String(renderEvents.size()) + " events, "
                 + juce::String(totalSamples) + " total samples, " + juce::String(outputChannels) + " output channels");
 
-    for (std::int64_t blockStart = 0; blockStart < totalSamples; blockStart += options.blockSize) {
+    for (std::int64_t blockStart = 0; blockStart < totalSamples;) {
         if (progressCallback
             && !progressCallback(static_cast<double>(blockStart) / static_cast<double>(totalSamples))) {
             return false;
@@ -197,6 +197,7 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
             DP_LOG_ERROR("[PluginOfflineRenderer] WAV write failed at block " + juce::String(blockStart));
             return false;
         }
+        blockStart = blockEnd;
     }
 
     if (!writer->flush()) {
