@@ -98,6 +98,7 @@ struct RecordingTake {
 `source/Recording/MidiFileExporter.cpp` 将 `RecordingTake` 序列化为标准 `.mid` 文件：
 - **格式规范**：标准 MIDI Type 1 文件，时间基准固定为 **960 PPQ**（Pulses Per Quarter Note）；
 - **时间转换**：将 `timestampSamples` 转换为精确的 MIDI Tick（默认基准速度 120 BPM）；
+- **已有目标保护**：先写入同目录 `TemporaryFile`，检查写入/flush 并关闭流后再替换。连续导出读取到当前 Take 的音符，不把新 MIDI 追加到旧文件；拒绝或替换失败保留原字节。
 - **Track 组织**：
   - Track 0：写入速度（Set Tempo: 500,000 µs/qn 对应 120 BPM）、拍号（Time Signature: 4/4）与音轨名称；
   - Track 1：写入全部 Note On/Off、CC64 延音控制器、Pitch Bend 与 Program Change 序列；

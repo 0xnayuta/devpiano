@@ -9,6 +9,10 @@
 - **NRVO-Safe Audio Test Fixtures** — construct borrowed audio block descriptors only after their owning buffers reach the caller, removing self-referential return values and dependence on optional named return value optimization.
 - **Isolated File Test Ownership** — remove production default-path probes and use scoped temporary directories for log, preset, and acoustic settings tests without modifying real user data.
 - **Default Chord Test Coverage** — register chord recognition under `DevPiano/Core` so the standard project test run executes the complete chord suite.
+- **Transactional Export Replacement** — write MIDI and WAV exports to owned sibling temporary files, close writers before replacement, and preserve existing targets on rejection, cancellation, or I/O failure.
+- **Protected Preset Renames and Restored Identity** — confirm independent filename collisions, preserve normalized same-file renames, roll back failed commits, and restore the active preset before immediate binding autosave.
+- **Coherent Take File Ownership** — detach stale native-file bindings on recording/import replacement, rebind successful Save As operations, and reject delayed metadata or chooser completions for another Take.
+- **Ordered Settings Persistence and Complete Snapshots** — successful synchronous saves supersede older scheduled writes; deep copies preserve practice settings and independent audio-device/plugin-cache XML.
 
 ## [1.3.0] - 2026-09-21
 

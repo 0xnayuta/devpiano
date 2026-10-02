@@ -14,7 +14,7 @@
 1. **独立离线 VST3 实例**：离线渲染在独立的非实时插件实例中执行，与当前前台实时发声链路（`AudioDeviceManager`）及 Editor 窗口完全解耦，导出期间用户依然可以实时试听；
 2. **公共离线渲染管线（`RenderPipeline`）**：集中处理事件时间戳缩放、排序、音频块切分与尾部 panic note-off 注入，为插件渲染与内置物理建模合成器消除重复代码；
 3. **后台多线程与 JIVE 进度交互**：`WavExportTask` 在后台工作线程执行密集音频渲染，消息线程以 30 fps 平滑刷新基于 `JiveModalDialog` 驱动的暗黑主题进度条；
-4. **安全取消与异常残留清理**：用户中途取消或发生 IO 异常时，自动停止后台线程并删除未写完的残留临时文件；
+4. **事务写出与协作取消**：内置和插件路径均写入同目录自有临时文件，检查 writer/流状态并关闭 writer 后才替换目标；渲染中及提交前接受取消，普通失败/取消只清理临时文件，保留已有目标；
 5. **优雅降级（Graceful Degradation）**：若插件不支持离线渲染或实例创建失败，系统自动安全降级至内置物理建模钢琴（`PianoSynthVoice`），保证导出永远可用。
 
 ---
@@ -39,8 +39,8 @@ WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
     │    │
     │    └── [内置乐器端点] ──► WavFileExporter (离线构建带有完整声学参数的 PianoSynthVoice / Sine + RoomReverbEngine 后级混响)
     ├── RenderPipeline (统一调度事件时间戳缩放、按 samplePosition 排序并分块送入 processBlock)
-    ├── juce::WavAudioFormat 写入目标文件 (16-bit / 24-bit / 32-bit float, 双声道 Stereo)
-    └── 导出完成: 自动关闭进度弹窗 / 取消时自动清理残留文件
+    ├── juce::WavAudioFormat 写入同目录自有临时文件 (16-bit / 24-bit / 32-bit float, 双声道 Stereo)
+    └── 关闭 writer 后事务替换目标；普通失败/协作取消仅清理临时文件
 ```
 
 ---
@@ -67,7 +67,8 @@ WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
 - **纯异步任务流（`startAsync`）**：在 Phase 34-F 中，彻底消除了历史遗留的主线程嵌套模态循环 `runDispatchLoopUntil(10)` 与 `Thread::sleep(10)`，改为基于 `startAsync(onComplete)` 的非阻塞异步任务模型；`CMakeLists.txt` 仅在 `devpiano_tests` 测试目标保留 `JUCE_MODAL_LOOPS_PERMITTED=1`，主应用 `devpiano` 目标不定义该宏；
 - **同构乐器端点（`InstrumentEndpoint`）**：在 Phase 34-E 中引入 `renderTakeThroughInstrumentEndpoint()`，端点路由与实时发声完全一致，消除离线分支手写判断；
 - **无锁进度传递**：后台线程通过 `std::atomic<double> currentProgress` 和 `std::atomic<bool> cancelRequested` 与主线程通信；
-- **安全取消机制**：用户点击 [Cancel] 按钮或按 ESC 键时，`cancelRequested` 置位，后台线程在下一个 block 循环立即退出，并在 `finally` 块中调用 `destinationFile.deleteFile()` 删除半截文件。
+- **安全取消机制**：用户点击 [Cancel] 或按 ESC 后，后台线程在 block 循环及关闭 writer 后的最终进度回调检查取消；提交前取消保留原目标。`WavExportTask::failExport()` 只记录结果，不调用 `destinationFile.deleteFile()`。已成功提交是完成边界，不把之后的 UI 消息当成可撤销的写入。
+- **验证范围**：已有目标的连续覆盖、取消、参数拒绝、目标锁定/替换失败与临时文件清理由 Windows 隔离消费者和默认测试覆盖。真实慢插件强制终止、崩溃/断电、实时/离线完整声学闭包仍属 AUDIT-004 后续阶段，不能由本轮事务验证外推。
 
 ### 3.4 内置合成器 1:1 声学一致性对齐（`WavExportOptions`）
 
@@ -95,5 +96,7 @@ WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
 | **WAV-006** | 目标路径无权限容错 | 导出至只读目录或非法路径，弹窗提示错误，Logger 记录日志，程序不崩溃 | [x] 已通过 |
 | **WAV-007** | 空 Take 导出拦截 | 在无录制且无导入状态下，Export WAV 按钮自动保持 Disabled | [x] 已通过 |
 | **WAV-008** | 物理声学与空间参数离线一致性 | 配置特定古典律制、听众视角与房间混响后导出 WAV，导出的音频与实时试听效果完全一致，无爆音、无尾音截断 | [x] 已通过 |
+| **WAV-009** | 已有文件重复导出 | 连续导出不同采样率/内容到同一目标，重新读取新 header 与可听 payload，不追加旧 WAV | [x] Windows 文件消费者验证通过 |
+| **WAV-010** | 覆盖失败保留原文件 | 已有目标下取消、拒绝参数或锁定目标；原字节不变，任务不得删除用户目标 | [x] Windows 隔离消费者验证通过 |
 
 除手工场景外，离线渲染子系统由自动化单元测试全面覆盖：`PluginOfflineRendererTest`（离线插件实例创建、状态注入与 WAV 渲染）、`RenderPipelineTest`（事件缩放、稳定排序与 panic 注入）、`InstrumentEndpointTest`（端点同构路由解析）、`ExportFlowTest`（导出选项装配与异常边界防护）。

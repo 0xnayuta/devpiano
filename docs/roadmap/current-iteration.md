@@ -2,12 +2,12 @@
 
 > 用途：本文件只记录当前实施排期与任务验收；项目状态和长期路线以 [roadmap](roadmap.md) 为准。
 > 本轮名称：**AUDIT-004 Phase：代码质量缺陷修复与消费者契约闭环**。
-> 当前状态：**Phase 0 安全验证前置已完成（2026-10-02），Phase A 待开始**。仅 Phase 0 的三项任务已完成；其他阶段保持未勾选，不以本轮验证代替剩余消费者契约闭环。
+> 当前状态：**Phase 0 与 Phase A 已完成（2026-10-02），Phase B 待开始**。只勾选有直接证据的本轮任务；其他阶段保持未勾选，不以默认测试通过代替其消费者契约闭环。
 
 ## 1. 输入、范围与历史归档
 
 - 问题与优先级基线：[AUDIT-004 第8章](../audit/AUDIT-004-code-quality-audit-2026-10-02.md#8-附录问题总表登记表)，实施方向参考其第5章，复现与未验证范围参考第4章。
-- 本计划完整纳入原审计基线的 **54个未闭环唯一项**（P1 25、P2 26、P3 3，本轮未登记P0）。这是固定排期覆盖集合，不是当前剩余任务数；Phase 0 的三项已完成，其他原项仍按下方未勾选任务推进，原报告不回写。
+- 本计划完整纳入原审计基线的 **54个未闭环唯一项**（P1 25、P2 26、P3 3，本轮未登记P0）。这是固定排期覆盖集合，不是当前剩余任务数；Phase 0 与 Phase A 的任务已完成，其他原项仍按下方未勾选任务推进，原报告不回写。
 - 保留报告原登记 ID/历史命名空间/known-issues 标题引用，不重编号、不把同名 `ERR-002` 混成同一项。下方每个原 ID 只安排到一个阶段；排期不改变原优先级，跨阶段关联只说明依赖。
 - [Phase 35 完成计划](../archive/phase35-keyboard-expressive-dynamics-and-practice-infrastructure.md)已归档，保留当时完成勾选和契约差距；阶段交付完成不等于后续审计风险已消除。
 - Phase 36/37 继续在 roadmap 保留规划。在P1、关键消费者回归及安全门禁达标前不开始新增声学/分区叠层功能，本轮不缩减到只修P1而遗漏其他登记项。
@@ -27,7 +27,7 @@
 | 阶段 | 目标 | 依赖 / 排序 | 实施状态 |
 | --- | --- | --- | --- |
 | AUDIT-004 Phase 0 | 安全验证前置 | 无；只建立可安全执行的 Debug 消费者验证基础。 | 已完成，2026-10-02 |
-| AUDIT-004 Phase A | 已有用户数据保护与持久化一致性 | Phase 0；同一阶段先处理 ERR-001、SEC-001、SEC-002。 | 待开始 |
+| AUDIT-004 Phase A | 已有用户数据保护与持久化一致性 | Phase 0；同一阶段先处理 ERR-001、SEC-001、SEC-002。 | 已完成，2026-10-02 |
 | AUDIT-004 Phase B | 文件准入与时间线数值安全 | Phase A 的所有权和失败保留约束；数值检查应先于打开输出。 | 待开始 |
 | AUDIT-004 Phase C | 插件与活动 DSP / Transport 所有权 | Phase 0/A；冻结已有数据与旧实例生命周期，先收敛竞态再改事件执行。 | 待开始 |
 | AUDIT-004 Phase D | 发音身份与采样级 Transport 边界 | Phase B/C；游标/倍率/设备时间域的所有权先于新增边界逻辑。 | 待开始 |
@@ -189,7 +189,7 @@ int main() {
 **探针预置错误单列**：初次独立程序直接调用受保护 `DevPianoLogger::logMessage()` 未编译；随后发现 eval 的 shell-escape 转换污染了字符串中的 `= !...`，已报告工具问题，并改为上方公共 Logger 入口与显式 `exists() == false`。这些是探针/工具错误，不作为产品失败；EVID-003 只引用修正后实际运行结果。
 
 
-### AUDIT-004 Phase A：已有用户数据保护与持久化一致性 [待开始]
+### AUDIT-004 Phase A：已有用户数据保护与持久化一致性 [已完成，2026-10-02]
 
 **目标**：最先关闭会覆盖/删除原文件、回滚新设置或丢绑定编辑的路径。
 
@@ -199,12 +199,406 @@ int main() {
 
 | 执行 | 原登记 ID | 原优先级 | 修复目标 | 可观察验收 |
 | --- | --- | --- | --- | --- |
-| [ ] | `ERR-001` | P1 | 已有导出目标不是事务替换：成功追加，失败删除原文件。统一同目录 TemporaryFile 写出、关闭 writer 后替换，仅清理任务自有临时文件；保留取消/失败时原目标。 | 对已有 MIDI/WAV 连续两次导出读到新内容；取消、参数拒绝、写盘失败均保留原文件字节，临时文件不残留。 |
-| [ ] | `SEC-001` | P1 | 预设重命名可覆盖另一预设或删除自身目标。比较规范化后的源/目标路径；同路径不得删除，独立已有目标先确认，失败保留两份原始数据。 | A→已有 B 先确认；取消不改两文件；A→规范化同一路径/仅大小写变化不删除新目标。 |
-| [ ] | `SEC-002` | P1 | 原生文件绑定未随 Take 替换/Save As 更新。建立 Take 与 backing file/metadata 的一致所有权；替换时解除旧绑定，成功打开/保存后绑定新文件；验证 A 原字节不被 B 元数据编辑改写。 | 打开 A 后录制/导入 B、Save As 到 C，再编辑信息只作用于当前绑定；A 字节保留。 |
-| [ ] | `ERR-002` | P1 | 即时同步保存未取代旧防抖快照。同步 save 成功后取代/撤销相同store的待写payload；定义直接保存与防抖保存的顺序语义。 | schedule 旧快照→同步保存新值→旧 timer 到期后新值保持，插件增量缓存不被回滚。 |
-| [ ] | `QUAL-006` | P2 | Phase35字段在 SettingsModel 深拷贝中遗漏。补齐全部持久化字段的复制语义，同时保留 XML 独立所有权；验证首次及再次防抖写出的真实值。 | 首次/再次深拷贝与防抖落盘保留全部 Phase35 字段，XML 仍独立；173 BPM 等非默认值往返不变。 |
-| [ ] | `QUAL-016` | P2 | 启动恢复预设未设置控制器当前身份。统一启动/用户选择的预设激活操作及当前身份，保证列表选择、自动保存和运行布局一致。 | 重启恢复 B 后列表、运行布局、自动保存文件均为 B；未手动选择前编辑绑定不丢失。 |
+| [x] | `ERR-001` | P1 | 已有导出目标不是事务替换：成功追加，失败删除原文件。统一同目录 TemporaryFile 写出、关闭 writer 后替换，仅清理任务自有临时文件；保留取消/失败时原目标。 | MIDI/内置及测试插件 WAV 连续覆盖读到新内容；提交前取消、参数拒绝、目标锁定/替换失败保留原字节并清理临时文件，见 EVID-006。 |
+| [x] | `SEC-001` | P1 | 预设重命名可覆盖另一预设或删除自身目标。比较规范化后的源/目标路径；同路径不得删除，独立已有目标先确认，失败保留两份原始数据。 | 实际已有目标确认/取消、Windows 大小写同路径、非法字符规范化及失败回滚通过；原数据保留，见 EVID-007。 |
+| [x] | `SEC-002` | P1 | 原生文件绑定未随 Take 替换/Save As 更新。建立 Take 与 backing file/metadata 的一致所有权；替换时解除旧绑定，成功打开/保存后绑定新文件；验证 A 原字节不被 B 元数据编辑改写。 | 录制/导入 B、Save As C、信息编辑与失败/延迟结果均调用统一会话操作；A 原字节保留，实际主界面导入/信息路径通过，见 EVID-008。 |
+| [x] | `ERR-002` | P1 | 即时同步保存未取代旧防抖快照。同步 save 成功后取代/撤销相同store的待写payload；定义直接保存与防抖保存的顺序语义。 | 真实消息循环中旧 timer 不回滚新缓存；后续调度及独立 store 正常提交，失败同步保存保留原待写任务，见 EVID-009。 |
+| [x] | `QUAL-006` | P2 | Phase35字段在 SettingsModel 深拷贝中遗漏。补齐全部持久化字段的复制语义，同时保留 XML 独立所有权；验证首次及再次防抖写出的真实值。 | 复制构造/赋值和首次/再次快照保留非默认练琴字段（含 173 BPM）；源 XML 修改不污染已排队快照，见 EVID-009。 |
+| [x] | `QUAL-016` | P2 | 启动恢复预设未设置控制器当前身份。统一启动/用户选择的预设激活操作及当前身份，保证列表选择、自动保存和运行布局一致。 | 实际启动恢复 B（继承内置布局 ID），不手动选择即编辑音高/通道，运行绑定与自动保存文件均为 B，见 EVID-007。 |
+
+#### Phase A 实施记录与直接验证（2026-10-02）
+
+**基线与边界**：`91d4abaf17c04815dc8752f10682f5e18ef8f442`（Phase 0 本地交付）；仅本阶段六项及其直接消费者、相关测试/文档，不改历史 AUDIT/ADR，不启动 Phase B。文件格式不变，未增加正式 profile/CLI 模式或测试专用公开 API。
+
+- `ERR-001`：MIDI、内置/插件 WAV 先写同目录 `TemporaryFile`；检查写入/flush、关闭 writer/流后替换。WAV 提交前再接受一次进度取消；`failExport()` 不删除目标。原审计已有运行反证沿用，不为确认旧失败而再次破坏文件。
+- `SEC-001`：规范化后用 JUCE `File` 身份比较，独立已有目标先确认。同路径只更新；不同路径先完成内容，再暂存源、提交目标，失败恢复源。若恢复或成功提交后的备份清理也被文件系统阻止，保留原源备份并明确日志路径；不承诺跨文件断电原子性。
+- `SEC-002`：`RecordingSession` 的 `detachForNewRecording()`、`commitImportedMidi()`、`openFromFile()`、`saveToFile()`、`updateMetadata()` 是实际录制/导入/打开/保存/信息路径的共同操作；元数据和 Save As 在写入成功后提交，`takeGeneration` 拒绝另一 Take 的延迟结果。移除无调用的旧替换包装。
+- `ERR-002`：成功同步保存停止此 store 的旧防抖任务；失败同步保存保留原任务。timer 将 optional payload 移到局部后保存，避免被同步保存取消时悬空。不增设自动重试；异步落盘失败仍由既有日志报告。
+- `QUAL-006`：复制构造与赋值沿用单一实现，补齐练琴字段；XML 仍独立克隆。回归看真实 timer 后的文件，不保留只窥视 pendingPayload 的公开测试接口。
+- `QUAL-016`：启动经 `applyPresetById()` 进入选择使用的激活操作，提交布局前设置当前/持久化身份。入口明确 `fileBacked`，用户保存的内置衍生布局不会被误判为无文件的 Default。
+
+| 证据 | 原问题 / 验证程度 | 执行与输入 | 实际观察 | 范围与限制 |
+| --- | --- | --- | --- | --- |
+| EVID-005 | 构建/默认门禁；运行确认 | 复用 Phase 0 的 Windows Debug 子树 `build-win-msvc/audit004-phase0`，保留 `/Zc:nrvo-`，构建应用和测试；默认 `ctest`，无 category/name 补跑。 | 最终应用/测试构建通过，默认项目测试零失败，Chord 完整执行；真实用户目录前后清单、修改时间、属性和 SHA256 一致，私有 TEMP/TMP 零残留。 | 原默认 Ninja 缓存不改；未运行 Release/WSL 软件验证或重跑已知全量 tidy 失败；不是整个 AUDIT-004 迭代边界。 |
+| EVID-006 | ERR-001；运行确认 | 真实 MIDI/WAV 导出连续替换已有目标；WAV 最终进度取消、锁定目标阻止替换、无效参数的 `WavExportTask::runSync()`；默认插件渲染测试也重复覆盖并取消。 | 新 MIDI 音高与 WAV header/payload 可读取；取消/替换失败/拒绝保留原字节；没有任务临时文件残留。 | 插件测试使用现有测试乐器，不等同真实厂商 VST3；未执行磁盘耗尽、强杀、断电或慢插件终止。 |
+| EVID-007 | SEC-001 / QUAL-016；文件及实际界面确认 | 私有 profile 下构造本轮实际 `MainComponent`，恢复继承内置 layout.id 的 B；不手动选择即编辑音高/通道；实际 Rename 到 A、取消确认、仅大小写重命名；默认文件回归覆盖规范化/允许覆盖/锁定源/失败回滚。 | 下拉 B、运行绑定与立即自动保存均为 B，A 原字节保留；实际显示 Overwrite/Cancel 确认，取消无写入；大小写重命名后新名称与绑定仍可加载。 | profile 路径只在探针本身进程中定向；使用真实控件 callback/triggerClick 并观察像素图，不替换控制器、布局或文件算法。回滚自身失败的双故障只保证保留备份，未人为破坏存储介质。 |
+| EVID-008 | SEC-002；文件及实际界面确认 | 默认测试调用生产会话方法，打开 A→录制/导入 B→Save As C→编辑信息；失败打开/保存、跨 Take 延迟结果；实际 Main 的 filesDropped A→MIDI B→Info 编辑。 | A 原字节保持；C 保存当前 B 事件和新信息，失败保留绑定；旧 generation 不能写入新 Take；实际导入/Info 不重写 A。 | 不以字段复制或模拟同条件 if 作为证明；原生系统文件选择器人工键入/关闭未重演，验证其调用的共同保存操作与 generation 守卫。 |
+| EVID-009 | ERR-002 / QUAL-006；真实 timer/文件确认 | 旧快照排队→同步新缓存→消息循环；首次及替换快照、173 BPM 等非默认值、源 XML 后续修改、失败同步写入与不同 store。 | 新缓存不回滚；后续调度正常；全部练琴字段与独立 XML 落盘保持；失败同步保存后的旧任务仍可提交。 | 仅按既有消息线程保存契约执行，不引入跨线程设置提交 API。 |
+| EVID-010 | 环境/工具与格式；直接检查 | `self-check`、`wsl-build --configure-only`、`format --check`；clangd 重载后的 controller diagnostics；本轮新增 C++ 行 ASCII 和历史报告哈希检查。 | 环境/格式通过，最终 controller diagnostics 无错误，新增 C++ 行无裸非 ASCII；历史 AUDIT 保持不变。 | codegraph 未挂载；重载前 LSP 引用遗漏与编译数据库错误已报告，不用该采样冒充全量静态检查。 |
+
+**精确构建/默认执行配方**（镜像树 Developer PowerShell for VS；先在 WSL 用项目脚本 `./scripts/dev.sh win-build --sync-only` 同步，不清理旧缓存）：
+
+```powershell
+Set-Location 'G:\source\projects\devpiano'
+$build = 'build-win-msvc\audit004-phase0'
+cmake --preset windows-msvc-debug -B $build -DBUILD_TESTS=ON
+cmake --build $build --target devpiano_tests devpiano --parallel 4
+ctest --test-dir $build -C Debug --verbose
+```
+
+默认执行与独立程序外层保护沿用 Phase 0 EVID-002：前后读取真实 `[Environment]::GetFolderPath('ApplicationData')/DevPiano` 清单/属性/修改时间/SHA256；TEMP/TMP 仅指向新私有 GUID 目录，结束检查空目录后删除。不能仅靠修改 APPDATA 环境变量断言 JUCE 的路径已隔离。
+
+**独立实际消费者与界面探针的完整复建源码**：保存为 `$build/phasea-smoke/phasea_smoke.cpp`。`ProfileDirectoryScope` 只在该一次性进程的 import slot 中将 `SHGetSpecialFolderPathW(CSIDL_APPDATA)` 定向到自有目录，其余 special folder 调用原 API；在构造 `MainComponent` 前必须检查 JUCE 实际解析路径，退出恢复 import slot，不修改系统 profile、主树源码或子模块。它只提供隔离路径输入，MIDI/WAV/设置/控制器/界面全部链接本轮应用真实 object。只允许用于此可丢弃验证，不作为产品能力。
+
+参考官方契约：[JUCE TemporaryFile](https://docs.juce.com/master/classjuce_1_1TemporaryFile.html)、[OutputStream::writeText](https://docs.juce.com/master/classjuce_1_1OutputStream.html)、[Windows PE import directory](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#the-import-directory-table)、[VirtualProtect](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualprotect)。此处进程内路径定向仅为保护真实用户数据的探针输入，不是被测功能的替代实现。
+
+```cpp
+#include <JuceHeader.h>
+#include "MainComponent.h"
+#include "Layout/PerformancePreset.h"
+#include "Recording/MidiFileExporter.h"
+#include "Recording/PerformanceFile.h"
+#include "Recording/RecordingSessionController.h"
+#include "Recording/WavFileExporter.h"
+#include "Export/WavExportTask.h"
+#include "Settings/SettingsStore.h"
+#include <windows.h>
+#include <shlobj.h>
+#include <cstring>
+#include <iostream>
+#include <stdexcept>
+#include <string>
+
+void require(bool value, const char* message) {
+    if (!value) throw std::runtime_error(message);
+}
+void pump(int milliseconds = 100) {
+    const auto deadline = juce::Time::getMillisecondCounterHiRes() + milliseconds;
+    while (juce::Time::getMillisecondCounterHiRes() < deadline) {
+        MSG message {};
+        while (PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE)) {
+            TranslateMessage(&message);
+            DispatchMessageW(&message);
+        }
+        MsgWaitForMultipleObjects(0, nullptr, FALSE, 5, QS_ALLINPUT);
+    }
+}
+class PrivateDirectory {
+public:
+    PrivateDirectory() : directory(juce::File::getSpecialLocation(juce::File::tempDirectory)
+        .getChildFile("phasea-consumer-" + juce::Uuid().toString())) {
+        require(!directory.exists() && directory.createDirectory().wasOk(), "owned directory creation failed");
+    }
+    ~PrivateDirectory() {
+        std::cout << "PHASE_A_PRIVATE_FILES_CLEAN=" << directory.deleteRecursively(false) << '\n';
+    }
+    juce::File getChildFile(const juce::String& name) const { return directory.getChildFile(name); }
+    const juce::File& get() const { return directory; }
+private:
+    juce::File directory;
+};
+class ProfileDirectoryScope {
+public:
+    ~ProfileDirectoryScope() {
+        if (slot == nullptr) return;
+        DWORD protection = 0;
+        const bool restored = VirtualProtect(slot, sizeof(*slot), PAGE_READWRITE, &protection) != FALSE;
+        if (restored) {
+            *slot = reinterpret_cast<ULONG_PTR>(original);
+            DWORD ignored = 0;
+            VirtualProtect(slot, sizeof(*slot), protection, &ignored);
+        }
+        std::cout << "PHASE_A_PROFILE_SCOPE_RESTORED=" << restored << '\n';
+    }
+    bool redirect(const juce::File& directory) {
+        privatePath = directory.getFullPathName().toWideCharPointer();
+        if (privatePath.size() >= MAX_PATH) return false;
+        auto* base = reinterpret_cast<BYTE*>(GetModuleHandleW(nullptr));
+        auto* dos = reinterpret_cast<IMAGE_DOS_HEADER*>(base);
+        auto* nt = reinterpret_cast<IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
+        const auto rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
+        if (rva == 0) return false;
+        auto* imports = reinterpret_cast<IMAGE_IMPORT_DESCRIPTOR*>(base + rva);
+        for (; imports->Name != 0; ++imports) {
+            if (imports->OriginalFirstThunk == 0) continue;
+            auto* names = reinterpret_cast<IMAGE_THUNK_DATA*>(base + imports->OriginalFirstThunk);
+            auto* entries = reinterpret_cast<IMAGE_THUNK_DATA*>(base + imports->FirstThunk);
+            for (; names->u1.AddressOfData != 0; ++names, ++entries) {
+                if (IMAGE_SNAP_BY_ORDINAL(names->u1.Ordinal)) continue;
+                auto* imported = reinterpret_cast<IMAGE_IMPORT_BY_NAME*>(base + names->u1.AddressOfData);
+                if (std::strcmp(imported->Name, "SHGetSpecialFolderPathW") != 0) continue;
+                auto* candidate = &entries->u1.Function;
+                DWORD protection = 0;
+                if (!VirtualProtect(candidate, sizeof(*candidate), PAGE_READWRITE, &protection)) return false;
+                original = reinterpret_cast<NativeFolder>(static_cast<ULONG_PTR>(*candidate));
+                *candidate = reinterpret_cast<ULONG_PTR>(&privateFolder);
+                DWORD ignored = 0;
+                VirtualProtect(candidate, sizeof(*candidate), protection, &ignored);
+                slot = candidate;
+                return true;
+            }
+        }
+        return false;
+    }
+private:
+    using NativeFolder = BOOL (WINAPI*)(HWND, LPWSTR, int, BOOL);
+    static BOOL WINAPI privateFolder(HWND window, LPWSTR destination, int kind, BOOL create) {
+        if (kind != CSIDL_APPDATA) return original(window, destination, kind, create);
+        std::copy(privatePath.begin(), privatePath.end(), destination);
+        destination[privatePath.size()] = 0;
+        return TRUE;
+    }
+    ULONG_PTR* slot = nullptr;
+    static inline NativeFolder original = nullptr;
+    static inline std::wstring privatePath;
+};
+
+template <typename T> T* find(juce::Component& root, const juce::String& id) {
+    if (root.getComponentID() == id) {
+        if (auto* found = dynamic_cast<T*>(&root)) return found;
+    }
+    for (int i = 0; i < root.getNumChildComponents(); ++i) {
+        if (auto* found = find<T>(*root.getChildComponent(i), id)) return found;
+    }
+    return nullptr;
+}
+template <typename T> T* findType(juce::Component& root) {
+    if (auto* found = dynamic_cast<T*>(&root)) return found;
+    for (int i = 0; i < root.getNumChildComponents(); ++i) {
+        if (auto* found = findType<T>(*root.getChildComponent(i))) return found;
+    }
+    return nullptr;
+}
+juce::Component& modal() {
+    auto* component = juce::Component::getCurrentlyModalComponent();
+    require(component != nullptr, "missing real modal");
+    return *component;
+}
+void click(juce::Component& root, const juce::String& id) {
+    auto* button = find<juce::Button>(root, id);
+    require(button != nullptr && button->isEnabled(), "missing or disabled real button");
+    button->triggerClick();
+    pump();
+}
+class ModalCleanup {
+public:
+    ~ModalCleanup() {
+        while (auto* component = juce::Component::getCurrentlyModalComponent()) component->exitModalState(0);
+        pump();
+    }
+};
+void snapshot(juce::Component& component, const juce::File& output) {
+    auto image = component.createComponentSnapshot(component.getLocalBounds());
+    juce::FileOutputStream stream(output);
+    require(stream.openedOk(), "snapshot open failed");
+    require(juce::PNGImageFormat().writeImageToStream(image, stream), "snapshot encode failed");
+}
+
+devpiano::recording::RecordingTake take(int pitch) {
+    using namespace devpiano::recording;
+    RecordingTake result;
+    result.sampleRate = 44100.0;
+    result.lengthSamples = 4410;
+    result.events = {{0, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
+                     juce::MidiMessage::noteOn(1, pitch, 0.8f)},
+                    {4410, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
+                     juce::MidiMessage::noteOff(1, pitch)}};
+    return result;
+}
+void exerciseFiles(const juce::File& directory) {
+    using namespace devpiano::exporting;
+    using namespace devpiano::recording;
+    const auto midi = directory.getChildFile("replace.mid");
+    require(exportTakeAsMidiFile(take(60), midi), "initial MIDI failed");
+    require(exportTakeAsMidiFile(take(72), midi), "replacement MIDI failed");
+    juce::MidiFile parsed;
+    { juce::FileInputStream stream(midi); require(parsed.readFrom(stream), "MIDI read failed"); }
+    bool fresh = false;
+    for (int i = 0; i < parsed.getTrack(0)->getNumEvents(); ++i) {
+        const auto& message = parsed.getTrack(0)->getEventPointer(i)->message;
+        if (message.isNoteOn()) { require(message.getNoteNumber() == 72, "old MIDI content survived"); fresh = true; }
+    }
+    require(fresh, "replacement note missing");
+    const auto wav = directory.getChildFile("replace.wav");
+    WavExportOptions options;
+    options.builtinTone = SettingsModel::BuiltinTone::sine;
+    options.sampleRate = 48000.0;
+    require(exportTakeAsWavFile(take(60), wav, options), "initial WAV failed");
+    options.sampleRate = 44100.0;
+    require(exportTakeAsWavFile(take(72), wav, options), "replacement WAV failed");
+    {
+        juce::WavAudioFormat format;
+        std::unique_ptr<juce::AudioFormatReader> reader(format.createReaderFor(wav.createInputStream().release(), true));
+        require(reader != nullptr && reader->sampleRate == 44100.0, "old WAV header survived");
+        juce::AudioBuffer<float> audio(2, 4096);
+        require(reader->read(&audio, 0, 4096, 0, true, true), "WAV payload read failed");
+        require(audio.getMagnitude(0, 0, 4096) > 0.01f, "new WAV payload silent");
+    }
+    juce::MemoryBlock original;
+    require(wav.loadFileAsData(original), "WAV bytes read failed");
+    require(!exportTakeAsWavFile(take(60), wav, options, [](double progress) { return progress < 1.0; }), "cancel committed");
+    juce::MemoryBlock cancelled;
+    require(wav.loadFileAsData(cancelled) && cancelled == original, "cancel damaged original");
+    { juce::FileOutputStream lock(wav);
+      require(lock.openedOk(), "target lock failed");
+      require(!exportTakeAsWavFile(take(60), wav, options), "locked target overwritten"); }
+    juce::MemoryBlock locked;
+    require(wav.loadFileAsData(locked) && locked == original, "replacement failure damaged original");
+    options.blockSize = 0;
+    WavExportTask task(take(60), wav, options, nullptr, nullptr);
+    require(!task.runSync(), "rejected task succeeded");
+    juce::MemoryBlock rejected;
+    require(wav.loadFileAsData(rejected) && rejected == original, "rejected task deleted original");
+    std::cout << "PHASE_A_EXPORT midi_replace=1 wav_replace=1 audible=1 cancel_preserved=1 locked_preserved=1 rejected_task_preserved=1\n";
+}
+void exerciseSettings(const juce::File& directory) {
+    const auto file = directory.getChildFile("settings.xml");
+    SettingsStore store(file);
+    SettingsModel model;
+    model.lastPluginName = "old-cache";
+    store.scheduleSave(model, 1);
+    model.lastPluginName = "new-cache";
+    model.metronomeEnabled = true;
+    model.metronomeBpm = 173.0;
+    model.metronomeTimeSignature = devpiano::core::TimeSignature::sixEight;
+    model.metronomeVolume = 0.83f;
+    model.metronomeCountIn = devpiano::core::CountInBars::twoBars;
+    model.cadenceDynamicsEnabled = false;
+    model.velocityHumanizeAmount = 0.08f;
+    model.baseVelocityBias = 0.12f;
+    model.audioDeviceState = juce::parseXML("<DEVICE value=\"initial\"/>");
+    model.knownPluginListState = juce::parseXML("<CACHE value=\"new-cache\"/>");
+    require(store.save(model), "sync settings save failed");
+    pump(150);
+    SettingsModel loaded;
+    SettingsStore(file).load(loaded);
+    require(loaded.lastPluginName == "new-cache" && loaded.metronomeBpm == 173.0, "old timer rolled back settings");
+    store.scheduleSave(model, 1);
+    model.audioDeviceState->setAttribute("value", "mutated");
+    model.knownPluginListState->setAttribute("value", "mutated");
+    pump(150);
+    SettingsStore(file).load(loaded);
+    require(loaded.audioDeviceState->getStringAttribute("value") == "initial", "device XML snapshot aliased");
+    require(loaded.knownPluginListState->getStringAttribute("value") == "new-cache", "cache XML snapshot aliased");
+    model.metronomeBpm = 201.0;
+    store.scheduleSave(model, 1000);
+    model.metronomeBpm = 149.0;
+    store.scheduleSave(model, 1);
+    pump(150);
+    SettingsStore(file).load(loaded);
+    require(loaded.metronomeEnabled && loaded.metronomeBpm == 149.0
+            && loaded.metronomeTimeSignature == devpiano::core::TimeSignature::sixEight
+            && std::abs(loaded.metronomeVolume - 0.83f) < 0.001f
+            && loaded.metronomeCountIn == devpiano::core::CountInBars::twoBars
+            && !loaded.cadenceDynamicsEnabled && std::abs(loaded.velocityHumanizeAmount - 0.08f) < 0.001f
+            && std::abs(loaded.baseVelocityBias - 0.12f) < 0.001f, "practice snapshot lost fields");
+    std::cout << "PHASE_A_SETTINGS sync_supersedes=1 real_timer=1 first_snapshot=1 replacement_snapshot=1 independent_xml=1\n";
+}
+void exerciseOwner(const juce::File& directory, const juce::File& images) {
+    using namespace devpiano::layout;
+    using namespace devpiano::recording;
+    auto a = makeDefaultPreset(); a.name = "PresetA"; a.layout.name = a.name;
+    auto b = makeDefaultPreset(); b.name = "PresetB"; b.layout.name = b.name;
+    b.layout.bindings = {{65, "A", {devpiano::core::KeyActionType::note, devpiano::core::KeyTrigger::keyDown, 73, 1, 0.55f}}};
+    const auto presetDir = getPresetDirectory();
+    const auto fileA = resolvePresetFile(a.name, presetDir);
+    const auto fileB = resolvePresetFile(b.name, presetDir);
+    require(savePreset(a, fileA) && savePreset(b, fileB), "private preset seed failed");
+    const auto originalPresetA = fileA.loadFileAsString();
+    SettingsModel settings;
+    settings.lastActivePresetId = "PresetB";
+    settings.languageCode = "en";
+    settings.masterGain = 0.0f;
+    settings.metronomeEnabled = false;
+    { SettingsStore initial; require(initial.save(settings), "private startup settings failed"); }
+    MainComponent owner;
+    ModalCleanup cleanup;
+    owner.setSize(1280, 800);
+    owner.addToDesktop(juce::ComponentPeer::windowIsTemporary);
+    owner.setVisible(true);
+    pump(200);
+    auto* combo = find<juce::ComboBox>(owner, "preset-combo");
+    require(combo != nullptr && combo->getText() == "PresetB", "startup selection not B");
+    require(owner.getAppSettings().lastActivePresetId == "PresetB", "startup identity not B");
+    auto* keyboard = findType<CustomKeyboard>(owner);
+    require(keyboard != nullptr && static_cast<bool>(keyboard->onBindingEditRequested), "actual keyboard editor missing");
+    keyboard->onBindingEditRequested(73);
+    pump();
+    auto* note = find<juce::Slider>(modal(), "note-slider");
+    auto* channel = find<juce::ComboBox>(modal(), "channel-combo");
+    require(note != nullptr && note->getValue() == 73.0 && channel != nullptr, "runtime binding not restored from B");
+    note->setValue(74.0);
+    channel->setSelectedId(4);
+    click(modal(), "dialog-ok-btn");
+    auto savedB = loadPreset(fileB);
+    require(savedB.has_value() && savedB->layout.bindings[0].action.midiNote == 74
+            && savedB->layout.bindings[0].action.midiChannel == 4, "immediate binding autosave did not target B");
+    require(fileA.loadFileAsString() == originalPresetA, "B autosave touched A");
+    snapshot(owner, images.getChildFile("phasea-startup-binding.png"));
+    const auto unchangedB = fileB.loadFileAsString();
+    click(owner, "rename-preset-btn");
+    auto* renameEditor = find<juce::TextEditor>(modal(), "dialog-editor");
+    require(renameEditor != nullptr, "real rename input missing");
+    renameEditor->setText("PresetA");
+    click(modal(), "dialog-ok-btn");
+    require(juce::Component::getCurrentlyModalComponent() != nullptr, "independent collision had no confirmation");
+    snapshot(modal(), images.getChildFile("phasea-rename-confirm.png"));
+    click(modal(), "dialog-cancel-btn");
+    require(fileA.loadFileAsString() == originalPresetA && fileB.loadFileAsString() == unchangedB, "declined rename changed originals");
+    click(owner, "rename-preset-btn");
+    renameEditor = find<juce::TextEditor>(modal(), "dialog-editor");
+    require(renameEditor != nullptr, "second rename input missing");
+    renameEditor->setText("presetb");
+    click(modal(), "dialog-ok-btn");
+    require(juce::Component::getCurrentlyModalComponent() == nullptr, "case-only rename requested collision permission");
+    const auto caseFile = resolvePresetFile("presetb", presetDir);
+    auto renamed = loadPreset(caseFile);
+    require(renamed.has_value() && renamed->name == "presetb" && renamed->layout.bindings[0].action.midiNote == 74, "case-only rename lost data");
+    const auto nativeA = directory.getChildFile("nativeA.devpiano");
+    const auto midiB = directory.getChildFile("importB.mid");
+    require(savePerformanceFile(take(60), nativeA, {}), "native A seed failed");
+    require(devpiano::exporting::exportTakeAsMidiFile(take(67), midiB), "import B seed failed");
+    const auto bytesA = nativeA.loadFileAsString();
+    owner.filesDropped(juce::StringArray{nativeA.getFullPathName()}, 0, 0); pump();
+    owner.filesDropped(juce::StringArray{midiB.getFullPathName()}, 0, 0); pump();
+    click(owner, "song-info-btn");
+    auto* title = find<juce::TextEditor>(modal(), "title-editor");
+    require(title != nullptr, "actual song info editor missing");
+    title->setText("Current B Information");
+    click(modal(), "dialog-ok-btn");
+    require(nativeA.loadFileAsString() == bytesA, "real import then info rewrote native A");
+    std::cout << "PHASE_A_UI restored_B=1 inherited_builtin_layout=1 runtime_binding=1 immediate_autosave_B=1 rename_confirm=1 declined_preserved=1 case_only_preserved=1 real_take_import_detached=1\n";
+}
+int main() {
+    try {
+        PrivateDirectory privateDirectory;
+        const auto privateAppData = privateDirectory.getChildFile("Roaming");
+        require(privateAppData.createDirectory().wasOk(), "private Roaming creation failed");
+        ProfileDirectoryScope profile;
+        require(profile.redirect(privateAppData), "process-only profile redirect failed");
+        const auto actualAppData = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory);
+        std::cout << "PHASE_A_RESOLVED_PROFILE=" << actualAppData.getFullPathName() << '\n';
+        require(actualAppData == privateAppData, "unsafe real profile; owner not constructed");
+        juce::ScopedJuceInitialiser_GUI gui;
+        exerciseFiles(privateDirectory.get());
+        exerciseSettings(privateDirectory.get());
+        const auto images = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
+        exerciseOwner(privateDirectory.get(), images);
+        return 0;
+    } catch (const std::exception& error) {
+        std::cerr << "PHASE_A_SMOKE_ERROR=" << error.what() << '\n';
+        return 2;
+    }
+}
+```
+
+**独立程序构建/运行配方**：
+
+1. 读取此树 `compile_commands.json` 中 `MainComponent.cpp` 的唯一 command，保留 app 的定义、include、PCH、运行库和 `/Zc:nrvo-`；仅替换末尾 `/c` 源 token、`/Fo`、`/Fd` 为 `phasea-smoke/phasea_smoke.cpp/.obj` 与 compile PDB，写入 `phasea-smoke/compile-smoke.cmd`。主应用未启用 modal loops，故探针使用源码中的原生消息 pump，不向 app 加宏或更改 PCH。
+2. 在 `phasea-smoke.ninja` 中 `include build.ninja`，复制实际 `DevPiano.exe` 的 linker rule、输入及库；只去掉 `source/Main.cpp.obj` 应用入口，加入探针 object，将 `LINK_FLAGS` 的 `/subsystem:windows` 改为 `/subsystem:console`。不替换任何业务/JUCE object，不覆盖原 app edge。
+3. 仅将 `OBJECT_DIR`、`TARGET_SUPPORT_DIR`、`TARGET_COMPILE_PDB`、`TARGET_FILE`、`TARGET_IMPLIB`、`TARGET_PDB`、`RSP_FILE` 指向自有 `phasea-smoke` 目录；保留其余 CONFIG/FLAGS/LINK_LIBRARIES/PRE_LINK/POST_BUILD。
+4. 在该树执行 `cmd.exe /D /C phasea-smoke\compile-smoke.cmd`，从 `CMakeCache.txt` 的 `CMAKE_MAKE_PROGRAM` 获取 Ninja，执行 `ninja -f phasea-smoke.ninja phasea-smoke\phasea_smoke.exe`；按上方用户目录保护与私有 TEMP/TMP 规则运行程序，必须观察零退出码及下方标记。
+5. PNG 在自有探针目录生成；本次直接检查了实际主界面与覆盖确认的像素图。保存源码/配方和事实后删除该目录、Ninja 扩展及一次性脚本；不删除构建缓存/用户数据。
+
+```text
+PHASE_A_EXPORT midi_replace=1 wav_replace=1 audible=1 cancel_preserved=1 locked_preserved=1 rejected_task_preserved=1
+PHASE_A_SETTINGS sync_supersedes=1 real_timer=1 first_snapshot=1 replacement_snapshot=1 independent_xml=1
+PHASE_A_UI restored_B=1 inherited_builtin_layout=1 runtime_binding=1 immediate_autosave_B=1 rename_confirm=1 declined_preserved=1 case_only_preserved=1 real_take_import_detached=1
+PHASE_A_PROFILE_SCOPE_RESTORED=1
+PHASE_A_PRIVATE_FILES_CLEAN=1
+```
+
+**失败记录单列**：首轮应用编译暴露录制停止弹窗漏传新 generation 参数，补齐后最终构建和默认执行通过。探针最初沿用测试用 modal-loop helper，但 app 未定义该宏，改用上方原生 pump；只做进程 HKCU 注册表映射仍得到真实 CSIDL 路径，因此安全守卫拒绝构造 owner，并清理自有键/文件，再采用可验证的探针内路径定向。它们均不被隐藏为第一次即通过，不回写原审计或将路径隔离伪装为产品功能。
 
 ### AUDIT-004 Phase B：文件准入与时间线数值安全 [待开始]
 
@@ -331,7 +725,7 @@ NoteOff 永远对应原发音；捕获/播放/跳转/节拍/设备采样域边�
 ## 5. 每阶段门禁与最终闭环
 
 - 默认使用 [quickstart 的 Windows Debug 流程](../guides/quickstart.md#windows-debug-单元测试)：WSL仅编辑/configure和静态检查，Windows镜像构建/软件验证，格式检查只检查不修文件；完整WSL验证或Release仅明确要求时执行。
-- 原审计记录的默认Windows缓存路径失败、项目编译warning、全量tidy失败及当时Chord漏跑都保留为真实历史输入。Phase 0 已用默认执行证明类别修复；其他原失败未改，不把独立树通过写成原命令通过，也不把本轮三项完成视为ENG或其他TEST项已修。
+- 原审计记录的默认Windows缓存路径失败、项目编译warning、全量tidy失败及当时Chord漏跑都保留为真实历史输入。Phase 0/A 已用安全子树完成本阶段消费者与默认执行；不把子树通过写成原默认构建命令通过，不将未触及的 ENG 或其他 TEST 风险标为已修。
 - 每阶段先验证实际修改消费者，再观察默认门禁的真实执行集合；在迭代边界由集成负责人统一全量 `./scripts/dev.sh tidy --all`，禁止自动 `--fix` 和每个切片重复门禁。编译/静态诊断、测试覆盖与命令退出码分开记录。
 - 使用可丢弃profile/复制文件/隔离输出。无法安全执行的OOM、强杀、真实VST3或声卡实验说明受限，不能用真实用户文件/日志冒险或无证据降级风险。
 - 按新审计模板保留证据ID、基线、最小输入/代码、精确构建运行配方、预期/实际及未验证范围；清理临时探针前保存可复建内容。不把源文本/mock echo/默认参数往返视作消费者证明。

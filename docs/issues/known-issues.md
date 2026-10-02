@@ -90,6 +90,13 @@
 - **关联**：`AUDIT-004:TEST-001`、`AUDIT-004:TEST-002`、原 `AUDIT-002:TEST-014`；Windows Debug 直接验证及可复建配方见 [Phase 0 实施记录](../roadmap/current-iteration.md#phase-0-实施记录与直接验证2026-10-02)。原审计报告保留基线，不将这些修复外推为其余实时/并发风险已消除。
 
 
+### 已有文件保护、Take 绑定与设置快照一致性
+
+- **修复**：MIDI/内置及插件 WAV 使用同目录事务替换；预设重命名先确认独立冲突并区分同路径，失败提交恢复源；Take 替换解除旧文件绑定，成功 Save As 绑定新文件；同步设置保存取代旧 timer，深拷贝保留练琴字段和独立 XML；启动恢复预设身份在布局提交前一致。
+- **回归线索**：第二次覆盖仍读旧音符/音频；失败任务删原文件；重命名自身后消失；打开 A 后导入 B 的信息编辑改写 A；新插件缓存被旧 timer 回滚；防抖丢失非默认 BPM；恢复 B 后立即编辑绑定未落盘。
+- **关联**：AUDIT-004 `ERR-001`、`SEC-001`、`SEC-002`、`ERR-002`、`QUAL-006`、`QUAL-016`；直接验证及复建输入见 [Phase A 实施记录](../roadmap/current-iteration.md#phase-a-实施记录与直接验证2026-10-02)。此处 `ERR-002` 是同步/防抖顺序问题，不是 §1 的音频几何兜底同名历史编号。
+- **边界**：跨文件重命名若回滚也失败，保留原源备份并记录路径；慢插件强杀、断电、文件准入与完整实时/离线执行仍待相应阶段，不把普通事务验证写成整体风险已消除。
+
 ### Main.cpp 中残留的 Win32 原生 Hook 与平台特定依赖彻底清理 (PLAT-001)
 
 `source/Main.cpp` 早期引入了 `<windows.h>`，并通过 Win32 API（`SetWindowLongPtrW` 子类化 Hook 顶层窗口的 `WNDPROC` 监听 `WM_SETFOCUS`/`WM_ACTIVATE`，以及通过 `AttachThreadInput` + `SetForegroundWindow`）确保 Windows 环境下的键盘焦点。

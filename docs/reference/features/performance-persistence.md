@@ -12,7 +12,7 @@
 
 1. **无损 Sample-Accurate 精度**：与转换为 MIDI Tick 的有损导出不同，`.devpiano` 格式直接保存录制时的绝对采样点位置（`timestampSamples`）与内部元数据，实现 100% 比特级无损还原；
 2. **v2 JSON + Base64 紧凑编码**：顶层采用 Human-Readable 的 JSON 结构，密集二进制 MIDI 数据采用 Base64 编码，兼具可读性、调试友好度与体积紧凑性；
-3. **原子安全写入（Atomic File Write）**：保存过程采用 `juce::TemporaryFile` 机制，先写入临时文件，全部校验成功后再原子重命名为目标文件，彻底消除因中途断电或崩溃导致文件损坏的风险；
+3. **事务文件替换（Transactional File Replacement）**：保存过程采用同目录 `juce::TemporaryFile`，检查文本写入与 flush 状态、关闭流后再替换目标；普通写入/替换失败保留原目标。不以此承诺断电、强杀或存储硬件故障下的完整恢复；
 4. **实时播放速度控制（0.5x–2.0x）**：支持在回放过程中无缝调节倍速（从慢速 0.50x 到双速 2.00x），基于原子变量无锁同步，变速时 Take 采样点位置绝对恒定，以二分查找动态重校准播放游标；
 5. **独立元数据解析（`loadPerformanceFileMetadata`）**：无需反序列化庞大事件数组即可极速读取曲名、创建时间与备注，提升文件信息查看与历史管理性能；
 6. **最近文件与拖放体验**：集成 `juce::RecentlyOpenedFilesList`（最多记录 10 个历史文件），支持拖放 `.devpiano` 文件即时加载并自动开始回放。
@@ -72,6 +72,13 @@
 
 ---
 
+### 2.3 当前 Take、元数据与原生文件绑定
+
+- `RecordingSessionController::RecordingSession` 同时管理 Take、当前元数据和 `.devpiano` backing file；新录制（含预备拍完成）及 MIDI 导入解除旧原生文件绑定，不继承旧歌曲备注。
+- 原生文件通过非空加载准入后才整体提交 Take/元数据/绑定；打开失败或取消保持原会话身份。
+- 成功 Save As 到 C 后，后续信息编辑仅写 C；写入失败不改旧绑定，元数据持久化失败也不替换当前元数据。
+- 每次 Take 替换或成功重新绑定推进 `takeGeneration`；原生打开、保存选择器与信息弹窗的延迟结果不允许作用于另一个 Take。暂停/继续不替换 Take，也不改变文件绑定。
+
 ## 3. 播放速度精确控制（Speed Control）
 
 在 `source/Recording/RecordingEngine.cpp` 中实现了线程安全的倍速回放调度器：
@@ -107,3 +114,6 @@ $$\Delta_{\text{playback}} = \text{round}(N \times S)$$
 | **PRF-007** | 预设切换事件回放 | 在录制中按 F2 切换预设并继续弹奏，保存并打开后，回放到达对应时间点自动切换为 F2 预设 | [x] 已通过 |
 | **PRF-008** | 独立元数据极速加载 | 调用 `loadPerformanceFileMetadata` 读取大体积 `.devpiano` 文件，极速返回歌曲标题与创建时间，无需解包解析完整 events 事件流 | [x] 已通过 |
 | **PRF-009** | 暂停与停止状态下变速位置守恒 | 在暂停或停止状态下拖动速度滑块调节倍速，重新播放时依然严格从原来的 Take 绝对采样点起奏，无任何游标漂移 | [x] 已通过 |
+| **PRF-010** | Take 替换后的旧文件保护 | 打开 A，导入/录制 B 后编辑信息；A 原字节保持，未保存的 B 不绑定 A | [x] Windows 文件/实际导入信息界面验证通过 |
+| **PRF-011** | Save As 重新绑定 | 当前 B Save As 到 C，再编辑信息；C 包含 B 事件和新元数据，A 不变 | [x] Windows 真实文件消费者验证通过 |
+| **PRF-012** | 失败与延迟结果隔离 | 失败打开/保存保持当前身份；切换 Take 后提交旧信息或保存结果，当前文件不被改写 | [x] Windows 真实文件消费者验证通过 |

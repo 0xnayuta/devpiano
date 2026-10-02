@@ -196,6 +196,7 @@ source/
   - 共享离线渲染管线：统一负责事件时间戳换算、时间线缩放、事件排序与尾部 panic note-off 注入，为 `WavFileExporter` 与 `PluginOfflineRenderer` 消除重复逻辑。
 - **`source/Recording/PerformanceFile.h/.cpp`**：
   - `.devpiano` 原生演奏文件持久化（v2 JSON 格式 + Base64 编码 + 元数据），通过 `juce::TemporaryFile` 实现原子写入。
+  - 会话通过 `RecordingSession` 将 Take、元数据与原生文件绑定整体提交；新录制/MIDI 导入解除旧绑定，成功 Save As 重新绑定，generation 阻止跨 Take 的延迟信息/文件结果。
 - **`source/Recording/MidiFileImporter.h/.cpp`**：
   - 标准 MIDI 文件解析与统一导入：委托 `MidiTrackMergeEngine` 将 Type 0/1 各音轨的 MIDI 播放事件合并为单一 `RecordingTake` 时间线，支持通道映射并提取全局元数据；不提供选轨模式。
 - **`source/Recording/MidiTrackMergeEngine.h/.cpp`**：
@@ -203,11 +204,11 @@ source/
   - 支持智能通道映射策略（`passThrough` 保持原通道、`autoAssignIfSingleChannel` 单通道多轨自动分配 1-16 通道、`forceTrackToChannel` 强制轨索引取模分配）；
   - 精确解析曲目元数据（曲名、版权、拍号、调号、速度事件与 Tempo Map），并在同时间戳下按 Program Change → CC → Note Off → Note On 严格确定事件优先级。
 - **`source/Recording/MidiFileExporter.h/.cpp`**：
-  - 将录制 Take 导出为标准 Type 1 MIDI 文件（960 PPQ）。
+  - 将录制 Take 导出为标准 Type 1 MIDI 文件（960 PPQ）；在同目录自有临时文件中写出、检查状态并关闭流后替换目标。
 - **`source/Recording/PluginOfflineRenderer.h/.cpp`**：
   - 独立创建非实时离线 VST3 实例，无 Editor 依赖渲染，异常时安全降级至 fallback synth。
 - **`source/Export/WavExportTask.h/.cpp`**：
-  - 现代化非阻塞异步任务模型（`startAsync(onComplete)`，Phase 34-F），彻底消除主线程嵌套消息循环与 `Thread::sleep`；`JUCE_MODAL_LOOPS_PERMITTED=1` 仅由 `devpiano_tests` 测试目标定义，主应用目标不定义该宏；通过 `JiveModalDialog::makeProgressLayout` 提供现代暗黑进度条浮层，支持随时取消并自动清理残留文件；统一通过 `renderTakeThroughInstrumentEndpoint()` 调度离线发声。
+  - 非阻塞异步任务模型（`startAsync(onComplete)`）；`JUCE_MODAL_LOOPS_PERMITTED=1` 仅由测试目标定义。内置/插件 WAV 在同目录自有临时文件渲染，关闭 writer 后提交；普通失败或提交前协作取消保留已有目标，任务不删除用户目标。慢插件强制终止的生命周期约束仍由后续阶段验证。
 - **`source/Export/ExportFlowSupport.h/.cpp`**：
   - 纯函数集合：默认导出文件名推导、导出选项构建与空 Take 校验。
 
@@ -219,6 +220,7 @@ source/
   - Performance Preset 数据模型（键位绑定、ChannelMatrix、调号、键盘渲染设置、128 项逐键标签/颜色）与 `.devpiano.preset` JSON 序列化。
 - **`source/Layout/PresetFlowSupport.h/.cpp`**：
   - 预设发现、新建（Save As New）、导入、重命名、删除与 F1-F12 快捷键切换，支持录制时注入 `presetChange` 事件并在回放时自动切调。
+  - 启动恢复与选择使用统一激活提交；文件身份由入口显式提供，不从内置布局 ID 推断。重命名区分规范化同路径与独立已有目标，后者先确认；目标提交失败时回滚暂存源文件。
 
 ---
 
@@ -226,8 +228,10 @@ source/
 
 - **`source/Settings/SettingsModel.h`**：
   - 强类型设置数据模型：音频设备 XML、采样率、缓冲大小、ADSR、物理建模参数、插件路径、语言、最近文件列表等。
+  - 防抖快照完整复制节拍器、预备拍、击键动态/人性化字段；音频设备与插件缓存 XML 仍独立克隆。
 - **`source/Settings/SettingsStore.h/.cpp`**：
   - 基于 `juce::ApplicationProperties` 与 XML 的设置存取。
+  - 成功同步 `save()` 撤销此 store 较旧的待写快照；失败同步保存保留原待写任务，后续 `scheduleSave()` 仍可提交。timer 将 payload 移入局部所有权后保存，避免保存时清理自身 optional。
 - **`source/Settings/SettingsWindowManager.h/.cpp`**：
   - 管理独立设置窗口的生命周期、保存、dirty 标记与关闭。
 - **`source/Settings/AppStateBuilder.h/.cpp`**：
