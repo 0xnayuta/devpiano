@@ -2,12 +2,12 @@
 
 > 用途：本文件只记录当前实施排期与任务验收；项目状态和长期路线以 [roadmap](roadmap.md) 为准。
 > 本轮名称：**AUDIT-004 Phase：代码质量缺陷修复与消费者契约闭环**。
-> 当前状态：**排期已建立，代码修复尚未开始**。下面任务均未勾选，不代表问题已缓解或已关闭。
+> 当前状态：**Phase 0 安全验证前置已完成（2026-10-02），Phase A 待开始**。仅 Phase 0 的三项任务已完成；其他阶段保持未勾选，不以本轮验证代替剩余消费者契约闭环。
 
 ## 1. 输入、范围与历史归档
 
 - 问题与优先级基线：[AUDIT-004 第8章](../audit/AUDIT-004-code-quality-audit-2026-10-02.md#8-附录问题总表登记表)，实施方向参考其第5章，复现与未验证范围参考第4章。
-- 本计划完整纳入该基线的 **54个未闭环唯一项**（P1 25、P2 26、P3 3，本轮未登记P0）。这是该审计的固定排期覆盖集合，不是测试规模或新的审计结果。
+- 本计划完整纳入原审计基线的 **54个未闭环唯一项**（P1 25、P2 26、P3 3，本轮未登记P0）。这是固定排期覆盖集合，不是当前剩余任务数；Phase 0 的三项已完成，其他原项仍按下方未勾选任务推进，原报告不回写。
 - 保留报告原登记 ID/历史命名空间/known-issues 标题引用，不重编号、不把同名 `ERR-002` 混成同一项。下方每个原 ID 只安排到一个阶段；排期不改变原优先级，跨阶段关联只说明依赖。
 - [Phase 35 完成计划](../archive/phase35-keyboard-expressive-dynamics-and-practice-infrastructure.md)已归档，保留当时完成勾选和契约差距；阶段交付完成不等于后续审计风险已消除。
 - Phase 36/37 继续在 roadmap 保留规划。在P1、关键消费者回归及安全门禁达标前不开始新增声学/分区叠层功能，本轮不缩减到只修P1而遗漏其他登记项。
@@ -26,7 +26,7 @@
 
 | 阶段 | 目标 | 依赖 / 排序 | 实施状态 |
 | --- | --- | --- | --- |
-| AUDIT-004 Phase 0 | 安全验证前置 | 无；只建立可安全执行的 Debug 消费者验证基础。 | 待开始 |
+| AUDIT-004 Phase 0 | 安全验证前置 | 无；只建立可安全执行的 Debug 消费者验证基础。 | 已完成，2026-10-02 |
 | AUDIT-004 Phase A | 已有用户数据保护与持久化一致性 | Phase 0；同一阶段先处理 ERR-001、SEC-001、SEC-002。 | 待开始 |
 | AUDIT-004 Phase B | 文件准入与时间线数值安全 | Phase A 的所有权和失败保留约束；数值检查应先于打开输出。 | 待开始 |
 | AUDIT-004 Phase C | 插件与活动 DSP / Transport 所有权 | Phase 0/A；冻结已有数据与旧实例生命周期，先收敛竞态再改事件执行。 | 待开始 |
@@ -38,9 +38,9 @@
 
 ## 4. 逐项修复与消费者验收
 
-每项先按原报告证据复核/安全复现，再实施最小修复和覆盖原触发的回归。表内验收是目标，不是本轮已执行结果；静态反证、离屏组件、独立声部与真实硬件验证范围分别记录。
+每项先按原报告证据复核/安全复现，再实施最小修复和覆盖原触发的回归。表内修复目标与可观察验收是契约，已勾选任务的实际结果见对应实施记录；未勾选不代表已通过。静态反证、离屏组件、独立声部与真实硬件验证范围分别记录。
 
-### AUDIT-004 Phase 0：安全验证前置 [待开始]
+### AUDIT-004 Phase 0：安全验证前置 [已完成，2026-10-02]
 
 **目标**：避免验证本身修改用户数据、漏跑或依赖可选优化；完成后立即进入 Phase A。
 
@@ -50,9 +50,144 @@
 
 | 执行 | 原登记 ID | 原优先级 | 修复目标 | 可观察验收 |
 | --- | --- | --- | --- | --- |
-| [ ] | `TEST-001` | P1 | 音频fixture依赖可选 NRVO 保持自引用指针。由调用者从live buffer构造info，或fixture移动显式重绑定；用合法禁NRVO配置验证指针与实际音频行为。 | 合法禁 NRVO 构建下 fixture.info 指向 live buffer，消费者可安全渲染，不以优化消除掩盖悬垂指针。 |
-| [ ] | `TEST-002` | P1 | 默认路径测试触碰真实用户日志/预设目录。删除只测incidental默认路径的探针或置于隔离profile；全部文件测试使用已有ScopedTempDir，不再修改用户诊断历史。 | 全默认测试不创建/修改/截减用户真实日志或预设目录；隔离路径与真实 profile 前后核对。 |
-| [ ] | `AUDIT-002 TEST-014` | P2 | 和弦识别7个子测试被默认类别过滤漏跑。迁入既有DevPiano/Core类别并确认默认日志包含7个子测试；区分编译接入和执行接入。 | 默认日志确实包含 ChordRecognition 的全部子测试；单独 category 补跑不当作默认覆盖修复。 |
+| [x] | `TEST-001` | P1 | 音频fixture依赖可选 NRVO 保持自引用指针。由调用者从live buffer构造info，或fixture移动显式重绑定；用合法禁NRVO配置验证指针与实际音频行为。 | 调用者就地构造 info 并绑定 live buffer；禁 NRVO 构建下真实音频渲染通过，见 EVID-001/003。 |
+| [x] | `TEST-002` | P1 | 默认路径测试触碰真实用户日志/预设目录。删除只测incidental默认路径的探针或置于隔离profile；全部文件测试使用已有ScopedTempDir，不再修改用户诊断历史。 | 默认测试前后真实用户目录清单、时间戳与文件哈希一致；私有临时目录零残留，见 EVID-002/003。 |
+| [x] | `AUDIT-002 TEST-014` | P2 | 和弦识别7个子测试被默认类别过滤漏跑。迁入既有DevPiano/Core类别并确认默认日志包含7个子测试；区分编译接入和执行接入。 | ChordRecognition 的全部子测试已进入默认 DevPiano/Core 执行；没有用单独 category 补跑代替，见 EVID-002。 |
+
+#### Phase 0 实施记录与直接验证（2026-10-02）
+
+**基线与边界**：`6f69f6242d53bc4b29f1cd453937f7692adf6bbb`；只修改测试基础设施与相关文档，不修 Phase A-H，不修改生产音频/文件实现或历史审计。以下 EVID 编号仅属于本实施记录；原问题身份和优先级不变。
+
+- `TEST-001`：`AudioEngineTest.cpp::makeBlock()` 只返回拥有存储的 `AudioBuffer`；所有调用点在 buffer 到达调用者后构造 `AudioSourceChannelInfo`。删除自引用 pair、错误的“具名返回保证消除”注释及对应 `StackAddressEscape` 抑制，不新增移动重绑定类型。
+- `TEST-002`：删除 `DiagnosticsTest` 的默认日志目录探针与 `PerformancePresetTest` 的默认预设目录探针，保留隔离目录中的真实日志/预设行为。AcousticSettingsPersistence、LidAcousticsInteraction、MechanicalAcoustics、SpatialAcoustics、TemperamentSettingsPersistence、TouchVelocityCurve 的文件测试统一使用已有 `ScopedTempDir`，由其在 store/writer 析构后清理。
+- `AUDIT-002 TEST-014`：`ChordRecognitionTest` 注册为 `DevPiano/Core`，复用既有 `TestRunner` 默认前缀选择，不增加特殊白名单、别名或第二套执行入口。
+
+| 证据 | 原问题 / 验证程度 | 执行与输入 | 实际观察 | 范围与限制 |
+| --- | --- | --- | --- | --- |
+| EVID-001 | TEST-001；运行确认 | 同一 Windows MSVC Debug preset，新树 `build-win-msvc/audit004-phase0`，实际 `AudioEngineTest.cpp` 编译命令含 `/Zc:nrvo-`；同时构建应用与测试。 | MSVC 19.51 构建通过，音频 fixture 的默认行为用例在禁可选 NRVO 条件下通过。 | 不依赖 NRVO；未运行 Release 或 WSL 软件验证，不改原默认树的失效 Ninja 缓存。 |
+| EVID-002 | TEST-002 / AUDIT-002 TEST-014；运行确认 | `ctest` 默认入口，无 `--category`/`--name`；TEMP/TMP 指向新建私有目录，真实 `%APPDATA%/DevPiano` 保持原位置。 | 本次观测 96 套件、97,933 通过断言、零失败；Chord 的七个子测试均有默认执行记录。真实目录前后清单、属性、修改时间和文件 SHA256 一致；私有目录零残留。 | 数字是此环境的执行记录，不是后续固定门槛；仅检查已写入本轮日志的默认选择范围，不宣称所有消费者问题已修。 |
+| EVID-003 | TEST-001 / TEST-002；运行确认 | 禁 NRVO 的独立程序复用实际 fixture 工厂代码，调用 `AudioEngine::getNextAudioBlock()`，并在 ScopedTempDir 中执行生产日志及预设写出/读取、正常退出和受控异常展开。 | `info_live=1 rendered_nonzero=1024 finite=1 muted=1 isolated_log=1 isolated_preset=1 normal_cleanup=1 unwind_cleanup=1`；真实用户目录未变、私有临时目录零残留。 | 验证真实 CPU 音频数据和文件行为；不外推为真实声卡、VST3、桌面 UI 或完整实时 SLA 已验证。 |
+| EVID-004 | 环境 / 工具限制 | `self-check`、`format --check`；clangd 重载后使用绝对源码路径采样 diagnostics。 | 环境与格式检查通过；音频 fixture 采样 diagnostics 无错误。codegraph 未挂载；LSP references 仍遗漏局部调用点，已报告工具问题。 | 不以 LSP 采样代替编译/全量 tidy。全量 tidy 已知失败属于 Phase G，当前不是整个 AUDIT-004 迭代边界，未为确认旧失败而重跑。 |
+
+**可复建构建与默认执行配方**（镜像树 Developer PowerShell for VS；新目录首次配置，已有缓存不会重新采用 `CXXFLAGS`）：
+
+```powershell
+Set-Location 'G:\source\projects\devpiano'
+$build = 'build-win-msvc\audit004-phase0'
+$env:CXXFLAGS = (($env:CXXFLAGS, '/Zc:nrvo-') -join ' ').Trim()
+cmake --preset windows-msvc-debug -B $build -DBUILD_TESTS=ON
+cmake --build $build --target devpiano_tests devpiano --parallel 4
+```
+
+1. 使用项目 `./scripts/dev.sh win-build --sync-only` 同步源码；独立树放在被同步脚本保留的 `build-win-msvc/` 下，避免顶层额外目录被 `/MIR` 清理。本轮默认构建缓存原失败没有被替代构建改写。
+2. 在新树 `compile_commands.json` 中核对 `AudioEngineTest.cpp` 的实际 command 包含 `/Zc:nrvo-`；此选项只关闭可选 NRVO，不关闭标准要求的直接返回值消除。
+3. 默认执行前后读取 `[Environment]::GetFolderPath('ApplicationData')/DevPiano` 的目录清单、文件 SHA256、长度、属性和修改时间，包含目录不存在的状态；只读比较，不用真实日志制造截减反例。JUCE Windows 使用系统 `CSIDL_APPDATA`，仅改 `APPDATA` 环境变量不能作为隔离证明。
+4. 创建系统临时目录下 `devpiano-phase0-<GUID>`，把当前进程 `TEMP`、`TMP` 指向它，再执行 `ctest --test-dir $build -C Debug --verbose`。检查 `Testing/Temporary/LastTest.log` 中 Chord 所有子测试的开始/完成记录与最终零失败，不能只查套件注册或单独补跑。
+5. 检查私有目录无子项后删除该自有目录；本轮保存的执行输出已提炼到 EVID-002，不依赖临时 GUID 路径继续存在。
+
+**独立程序的可复建输入**：下面是 EVID-003 已执行的完整源码；`makeBlock()` 与本轮测试工厂一致，日志通过公共 Logger 入口分发。
+
+```cpp
+#include <JuceHeader.h>
+#include "Audio/AudioEngine.h"
+#include "Diagnostics/DevPianoLogger.h"
+#include "Layout/PerformancePreset.h"
+#include "tests/TestHelpers.h"
+#include <cmath>
+#include <iostream>
+#include <stdexcept>
+
+juce::AudioBuffer<float> makeBlock(int numChannels, int numSamples) {
+    juce::AudioBuffer<float> buffer(numChannels, numSamples);
+    buffer.clear();
+    return buffer;
+}
+
+int main() {
+    juce::ScopedJuceInitialiser_GUI gui;
+    AudioEngine engine;
+    engine.prepareToPlay(512, 44100.0);
+    engine.setMasterGain(1.0f);
+    const auto warmup = AudioEngine::calculateWarmupBlockCount(44100.0, 512);
+    for (int i = 0; i < warmup; ++i) {
+        auto buffer = makeBlock(2, 512);
+        const juce::AudioSourceChannelInfo info(&buffer, 0, buffer.getNumSamples());
+        engine.getNextAudioBlock(info);
+    }
+    engine.getKeyboardState().noteOn(1, 60, 0.8f);
+    auto buffer = makeBlock(2, 512);
+    const juce::AudioSourceChannelInfo info(&buffer, 0, buffer.getNumSamples());
+    engine.getNextAudioBlock(info);
+    int nonZero = 0;
+    bool finite = true;
+    for (int channel = 0; channel < buffer.getNumChannels(); ++channel) {
+        for (int sample = 0; sample < buffer.getNumSamples(); ++sample) {
+            const auto value = buffer.getSample(channel, sample);
+            nonZero += value != 0.0f;
+            finite = finite && std::isfinite(value);
+        }
+    }
+    engine.setMasterGain(0.0f);
+    engine.getNextAudioBlock(info);
+    const bool muted = buffer.getMagnitude(0, buffer.getNumSamples()) == 0.0f;
+    engine.releaseResources();
+
+    bool loggerWritten = false;
+    bool presetLoaded = false;
+    juce::File ownedDirectory;
+    {
+        devpiano::test::ScopedTempDir temp("phase0-consumer-smoke");
+        ownedDirectory = temp.get();
+        const auto logFile = temp.getChildFile("isolated.log");
+        {
+            devpiano::diagnostics::DevPianoLogger logger(logFile, 1024);
+            juce::Logger::setCurrentLogger(&logger);
+            juce::Logger::writeToLog("phase0-isolated-write");
+            juce::Logger::setCurrentLogger(nullptr);
+        }
+        loggerWritten = logFile.loadFileAsString().contains("phase0-isolated-write");
+        auto preset = devpiano::layout::makeDefaultPreset();
+        preset.name = "phase0-private-preset";
+        const auto presetFile = temp.getChildFile("private.devpiano.preset");
+        if (devpiano::layout::savePreset(preset, presetFile)) {
+            const auto loaded = devpiano::layout::loadPreset(presetFile);
+            presetLoaded = loaded.has_value() && loaded->name == preset.name;
+        }
+    }
+    const bool normalCleanup = ownedDirectory.exists() == false;
+    juce::File unwoundDirectory;
+    try {
+        devpiano::test::ScopedTempDir temp("phase0-unwind-smoke");
+        unwoundDirectory = temp.get();
+        if (!temp.getChildFile("owned.tmp").replaceWithText("owned")) {
+            return 2;
+        }
+        throw std::runtime_error("phase0-controlled-unwind");
+    } catch (const std::runtime_error&) {
+    }
+    const bool unwindCleanup = unwoundDirectory.exists() == false;
+    const bool liveBuffer = info.buffer == &buffer;
+    std::cout << "PHASE0_SMOKE info_live=" << liveBuffer
+              << " rendered_nonzero=" << nonZero << " finite=" << finite
+              << " muted=" << muted << " isolated_log=" << loggerWritten
+              << " isolated_preset=" << presetLoaded
+              << " normal_cleanup=" << normalCleanup
+              << " unwind_cleanup=" << unwindCleanup << '\n';
+    return liveBuffer && nonZero > 0 && finite && muted && loggerWritten
+               && presetLoaded && normalCleanup && unwindCleanup ? 0 : 1;
+}
+```
+
+**独立程序构建/运行配方**：在 `$build/phase0-smoke/phase0_smoke.cpp` 保存上述代码，目录只包含自有探针文件；以下参数全部来自该 Debug 树，不猜 SDK 安装路径。
+
+- 读取 `compile_commands.json` 中 `AudioEngineTest.cpp` 的唯一 command，保持定义、include、PCH、运行库及 `/Zc:nrvo-`；仅把末尾源文件 token、`/Fo`、`/Fd` 改为 `phase0-smoke/phase0_smoke.cpp`、`phase0-smoke/phase0_smoke.obj`、`phase0-smoke/phase0_compile.pdb`，写入 `phase0-smoke/compile-smoke.cmd`。Windows command 的源路径可用反斜杠，不直接假设其文本与 JSON 的 file 字段相同。
+- 在新 `phase0-smoke.ninja` 中 `include build.ninja`，复用原测试 executable 的 linker rule 与输入/库，仅去除 `source/tests/` 下的测试 object，加入 `phase0-smoke/phase0_smoke.obj`。保留生产/JUCE object 和原库依赖，不运行任何 UnitTest。
+- 将新 edge 的 `OBJECT_DIR`、`TARGET_SUPPORT_DIR` 指向 `phase0-smoke`，`TARGET_COMPILE_PDB` 指向其 compile PDB，`TARGET_FILE`、`TARGET_IMPLIB`、`TARGET_PDB`、`RSP_FILE` 分别指向此目录下 `phase0_smoke.exe/.lib/.pdb/.rsp`；其余 CONFIG、FLAGS、LINK_FLAGS、LINK_LIBRARIES、PRE_LINK、POST_BUILD 与原 edge 相同。不覆盖原 test linker edge、response file 或 manifest。
+- 在该构建目录运行 `cmd.exe /D /C phase0-smoke\compile-smoke.cmd`；从 `CMakeCache.txt` 的 `CMAKE_MAKE_PROGRAM` 取 Ninja，运行 `ninja -f phase0-smoke.ninja phase0-smoke\phase0_smoke.exe`；同 EVID-002 设置私有 TEMP/TMP、读取真实用户目录快照后运行 `phase0-smoke\phase0_smoke.exe`，检查零退出码和 EVID-003 输出。
+- 保留源码、配方和关键输出后清理自有探针及私有临时目录，构建缓存和原用户数据不作破坏性清理。本轮临时源码/程序已清理；此段是持久复建入口。
+
+**探针预置错误单列**：初次独立程序直接调用受保护 `DevPianoLogger::logMessage()` 未编译；随后发现 eval 的 shell-escape 转换污染了字符串中的 `= !...`，已报告工具问题，并改为上方公共 Logger 入口与显式 `exists() == false`。这些是探针/工具错误，不作为产品失败；EVID-003 只引用修正后实际运行结果。
+
 
 ### AUDIT-004 Phase A：已有用户数据保护与持久化一致性 [待开始]
 
@@ -196,13 +331,13 @@ NoteOff 永远对应原发音；捕获/播放/跳转/节拍/设备采样域边�
 ## 5. 每阶段门禁与最终闭环
 
 - 默认使用 [quickstart 的 Windows Debug 流程](../guides/quickstart.md#windows-debug-单元测试)：WSL仅编辑/configure和静态检查，Windows镜像构建/软件验证，格式检查只检查不修文件；完整WSL验证或Release仅明确要求时执行。
-- 审计已记录的默认Windows缓存路径失败、项目编译warning、全量tidy失败和默认Chord漏跑都是真实输入。本计划不把独立树通过改写成原命令通过，也不把计划建立视为ENG/TEST已修。
+- 原审计记录的默认Windows缓存路径失败、项目编译warning、全量tidy失败及当时Chord漏跑都保留为真实历史输入。Phase 0 已用默认执行证明类别修复；其他原失败未改，不把独立树通过写成原命令通过，也不把本轮三项完成视为ENG或其他TEST项已修。
 - 每阶段先验证实际修改消费者，再观察默认门禁的真实执行集合；在迭代边界由集成负责人统一全量 `./scripts/dev.sh tidy --all`，禁止自动 `--fix` 和每个切片重复门禁。编译/静态诊断、测试覆盖与命令退出码分开记录。
 - 使用可丢弃profile/复制文件/隔离输出。无法安全执行的OOM、强杀、真实VST3或声卡实验说明受限，不能用真实用户文件/日志冒险或无证据降级风险。
 - 按新审计模板保留证据ID、基线、最小输入/代码、精确构建运行配方、预期/实际及未验证范围；清理临时探针前保存可复建内容。不把源文本/mock echo/默认参数往返视作消费者证明。
 - 关闭标准：原触发条件直接通过，或有可复核调用链证明路径已消除；默认测试绿灯/文档润色不能关闭数据完整性、并发或发音缺陷。完整ID和原证据保留，历史重开、已知引用不变成新增发现。
 
-### 最终实施验收（均待执行）
+### 最终实施验收（尚未整体达标）
 
 - [ ] Phase 0及A-H全部原项有对应修复/验证记录；原始54项与任务ID经去重及 `comm` 对照零缺失/零多余，原优先级不变。
 - [ ] Windows Debug构建/默认单测/格式及全量静态检查记录实际结果；默认选择含漏跑套件，用户数据无副作用，fixture不依赖可选优化。

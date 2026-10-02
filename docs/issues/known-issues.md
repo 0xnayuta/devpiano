@@ -83,6 +83,13 @@
 
 以下问题已修复，保留简要记录用于回归识别。详细根因分析和修复实现见各功能文档。
 
+### 测试 fixture 的 NRVO 依赖、用户目录副作用与默认 Chord 漏跑
+
+- **修复**：`AudioEngineTest` 的返回工厂不再携带自引用指针，调用者就地绑定 live buffer；删除默认日志/预设目录探针，文件测试复用 `ScopedTempDir`；Chord 注册为 `DevPiano/Core`，不扩展 runner 白名单。
+- **回归线索**：禁可选 NRVO 后渲染失败；默认测试改变真实诊断日志或创建预设目录；Chord 单独补跑通过但默认日志缺失其子测试。
+- **关联**：`AUDIT-004:TEST-001`、`AUDIT-004:TEST-002`、原 `AUDIT-002:TEST-014`；Windows Debug 直接验证及可复建配方见 [Phase 0 实施记录](../roadmap/current-iteration.md#phase-0-实施记录与直接验证2026-10-02)。原审计报告保留基线，不将这些修复外推为其余实时/并发风险已消除。
+
+
 ### Main.cpp 中残留的 Win32 原生 Hook 与平台特定依赖彻底清理 (PLAT-001)
 
 `source/Main.cpp` 早期引入了 `<windows.h>`，并通过 Win32 API（`SetWindowLongPtrW` 子类化 Hook 顶层窗口的 `WNDPROC` 监听 `WM_SETFOCUS`/`WM_ACTIVATE`，以及通过 `AttachThreadInput` + `SetForegroundWindow`）确保 Windows 环境下的键盘焦点。
@@ -243,7 +250,7 @@ Windows MSVC 侧 CMake 缓存未追踪源文件变更可能导致旧目标文件
 
 以 root 用户（`uid=0`）在 WSL 中运行单元测试时，`tempFile.setReadOnly(true)` 移除了文件写权限，但 `tempFile.hasWriteAccess()` 因 POSIX `access(path, W_OK)` 对 superuser 始终返回成功而返回 `true`。**不影响任何项目功能**——该测试为 JUCE 自带文件系统验证，项目代码不依赖 `setReadOnly` / `hasWriteAccess`。非 root 用户下该测试自动通过。
 
-- **缓解**：`devpiano_tests` 默认只运行项目自身测试（类别白名单 `DevPiano/Core` / `DevPiano/Recording` / `DevPiano/Engine` / `DevPiano/UI`，`Files` 默认跳过），该问题不再触发。仅当显式 `--include-juce --include-files` 全量运行时才会遇到，非 root 用户或跳过该组合即可。
+- **缓解**：`devpiano_tests` 默认只运行 `DevPiano/` 前缀的项目类别，`Files` 默认跳过，该问题不再触发。仅当显式 `--include-juce --include-files` 运行框架文件测试时才会遇到，非 root 用户或跳过该组合即可；具体类别以注册项与实际默认日志为准。
   - 注：旧缓解命令 `--category "DevPiano"` 已失效（`juce::UnitTest::getTestsInCategory` 精确匹配，"DevPiano" 不匹配任何项目类别），请使用上述默认行为或精确类别名。
 
 ### Ubuntu 26.04 下 JIVE 文本不渲染：JUCE 字体扫描不识别 .ttc（system-ui → Noto CJK）

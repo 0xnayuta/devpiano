@@ -6,6 +6,9 @@
 - **Bass-Rooted Exact Chord Recognition** — prefer bass-rooted exact matches over higher-priority inverted matches, restoring C6/Cm6 detection.
 - **Count-In Transport Cancellation** — cancel pending count-ins on competing transport or Take replacement actions so delayed recording cannot overwrite the current Take.
 - **Bounded A-B Loop Cleanup** — disable effective loop ranges shorter than one scaled audio block to prevent repeated all-channel cleanup bursts.
+- **NRVO-Safe Audio Test Fixtures** — construct borrowed audio block descriptors only after their owning buffers reach the caller, removing self-referential return values and dependence on optional named return value optimization.
+- **Isolated File Test Ownership** — remove production default-path probes and use scoped temporary directories for log, preset, and acoustic settings tests without modifying real user data.
+- **Default Chord Test Coverage** — register chord recognition under `DevPiano/Core` so the standard project test run executes the complete chord suite.
 
 ## [1.3.0] - 2026-09-21
 

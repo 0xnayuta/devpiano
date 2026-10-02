@@ -229,6 +229,12 @@ cmake --build --preset windows-msvc-debug --target devpiano_tests
 ctest --test-dir build-win-msvc --output-on-failure
 ```
 
+默认门禁选择 `DevPiano/` 前缀类别，`ChordRecognitionTest` 属于 `DevPiano/Core`。需确认实际执行范围时使用 `ctest --test-dir build-win-msvc --verbose` 或检查 `Testing/Temporary/LastTest.log`；不能把编译接入或另行 category 补跑当作默认覆盖。
+
+文件测试使用 `devpiano::test::ScopedTempDir`，不构造默认生产日志或调用会创建真实用户目录的预设探针。音频 fixture 必须在 buffer 到达调用者后构造 `AudioSourceChannelInfo`，不依赖具名返回的可选 NRVO。
+
+若需禁 NRVO 验证，或默认树仍有旧 Ninja 路径缓存，可在 **被同步保留的 `build-win-msvc/` 下**新建独立 Debug 树，不删除旧缓存。新树首次 configure 前设置 `CXXFLAGS` 中的 `/Zc:nrvo-`，并核对实际 compile command；已配置树不会重新读取该环境变量。具体构建、私有 TEMP/TMP、真实用户目录只读快照和消费者配方见 [Phase 0 实施记录](../roadmap/current-iteration.md#phase-0-实施记录与直接验证2026-10-02)。Windows JUCE 查询系统应用数据路径，仅覆盖 `APPDATA` 环境变量不构成可靠隔离。
+
 Linux CI 使用 `./scripts/dev.sh test`。在本地 WSL 主树执行该脚本会配置、编译并运行 `build-wsl-clang` 的测试，不适用于本项目 Windows 镜像验证工作流。
 
 ### 格式化与静态检查时机

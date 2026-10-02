@@ -16,7 +16,7 @@ devpiano 是一款基于 JUCE 的现代 C++ 电脑键盘钢琴应用，聚焦软
 - 旧配置系统 -> `ApplicationProperties` / `ValueTree` / 项目内状态模型。
 - 旧 fallback 简单发声 -> 覆盖 7 大声学子系统的自主研发增强物理建模钢琴音源（`PianoSynthVoice`）。
 
-当前优先级为 **AUDIT-004 Phase（已排期，代码修复尚未开始）**：先建立安全验证前置，再保护已有用户文件，随后收敛并发、发音身份、实时交换与消费者门禁。逐项任务与验收只写入 [`current-iteration.md`](current-iteration.md)，原问题/证据保留在 [AUDIT-004](../audit/AUDIT-004-code-quality-audit-2026-10-02.md)。Phase 35 已完成并归档；Phase 36/37 仍为规划，P1与关键验证闭环前不开始新增功能。
+当前优先级为 **AUDIT-004 Phase（Phase 0 已完成，Phase A 待开始）**：安全验证前置已通过，下一步先保护已有用户文件，随后收敛并发、发音身份、实时交换与消费者门禁。逐项任务及直接验证证据只写入 [`current-iteration.md`](current-iteration.md)，原问题/证据保留在 [AUDIT-004](../audit/AUDIT-004-code-quality-audit-2026-10-02.md)。Phase 35 已完成并归档；Phase 36/37 仍为规划，P1与关键验证闭环前不开始新增功能。
 
 ---
 
@@ -324,11 +324,11 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 Phase 35 的原计划与完成勾选见 [完成计划归档](../archive/phase35-keyboard-expressive-dynamics-and-practice-infrastructure.md)。阶段交付完成不代表 AUDIT-004 新反证已修复；当前实施任务由下一专项承接，后续长期路线以本文为准。
 
-### AUDIT-004 Phase：代码质量缺陷修复与消费者契约闭环 [已排期，未开始修复]
+### AUDIT-004 Phase：代码质量缺陷修复与消费者契约闭环 [Phase 0 已完成，Phase A 待开始]
 
-[AUDIT-004](../audit/AUDIT-004-code-quality-audit-2026-10-02.md) 的基线评级为 C，包含用户文件保护、输入准入、插件/声部/Transport所有权、发音配对、预设身份/同构执行、映射视图和验证门禁等未闭环问题。当前只建立排期，未执行代码修复或关闭审计项。
+[AUDIT-004](../audit/AUDIT-004-code-quality-audit-2026-10-02.md) 的基线评级为 C，包含用户文件保护、输入准入、插件/声部/Transport所有权、发音配对、预设身份/同构执行、映射视图和验证门禁等问题。Phase 0 已完成安全验证前置，其他阶段尚未实施；历史审计基线与原问题身份不回写。
 
-1. **Phase 0（前置）**：先修验证隔离、音频fixture生命周期与默认Chord执行，避免测试修改用户数据或产生假覆盖。
+1. **Phase 0（前置，已完成）**：音频测试由调用者绑定 live buffer，文件测试使用 ScopedTempDir，Chord 纳入默认 DevPiano/Core；Windows Debug 禁 NRVO 的默认测试、真实音频/文件消费者及用户目录无副作用验证通过，证据见 current-iteration。
 2. **Phase A-B（最优先）**：已有文件事务替换、预设/Take绑定、同步/防抖一致性与文件/时间线准入安全。
 3. **Phase C-E（核心所有权与执行）**：插件/Editor重扫、tone switch/活动Transport与协作导出收尾；NoteOff、pause/末尾/seek/count-in/采样率/踏板边界；预设永久身份、实时/离线快照及完整回调闭包。
 4. **Phase F-G（交互与门禁）**：双看板最终投影、鼠标/标签/元数据编辑、声学范围；诊断资源、ADR边界与编译/静态/测试oracle收敛。
@@ -364,7 +364,7 @@ Phase 35 的原计划与完成勾选见 [完成计划归档](../archive/phase35-
 | `MainComponent` 职责回流 | 低 | 保持轻量装配职责（主要由 `initialiseUi()` 承载 JIVE 树构建与回调接线，核心业务均已委托独立 Controller 与领域模块）；持续监控，避免业务逻辑回流。 |
 | 硬实时契约差距 | 待修复 | 常规callback仍有阻塞锁，合法密集事件/预设通知可突破预分配；Listener进入UI/Timer、异常几何兜底及机械/节拍三角函数另有差距。Phase E处理，真实声卡影响仍需安全验证；见 [AUDIT-004](../audit/AUDIT-004-code-quality-audit-2026-10-02.md)。 |
 | A4 基准音高契约差距 | 待修复 | 产品目标 400.0 ~ 480.0 Hz；代码当前钳制为 410.0 ~ 450.0 Hz，详见 [`../issues/known-issues.md`](../issues/known-issues.md)。 |
-| 门禁覆盖与文档契约 | 待修复 | 默认Chord漏跑、fixture优化依赖/用户目录副作用、项目warning/tidy诊断及现行说明反证已排期；Phase 0/G/H直接验证，不以默认exit 0宣称全覆盖。项目状态只维护本文，任务进度只维护 [`current-iteration.md`](current-iteration.md)。 |
+| 门禁覆盖与文档契约 | 部分完成，仍待收敛 | Phase 0 已验证默认Chord执行、fixture生命周期和用户目录无副作用；项目warning/tidy诊断与其他测试/文档反证仍由Phase G/H处理，不以本轮默认exit 0宣称全覆盖。项目状态只维护本文，任务及验证记录只维护 [`current-iteration.md`](current-iteration.md)。 |
 
 ---
 
