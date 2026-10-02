@@ -25,25 +25,10 @@
 // =============================================================================
 
 namespace {
-auto makeBlock(int numChannels, int numSamples, int startSample = 0)
-    -> std::pair<juce::AudioBuffer<float>, juce::AudioSourceChannelInfo> {
-    // NOTE: build the info AFTER moving the buffer into the pair, otherwise
-    // its AudioSourceChannelInfo keeps a dangling pointer to the moved-from
-    // temporary (use-after-move) — every getNextAudioBlock() call then reads
-    // garbage and can crash.
-    //
-    // info.second points at result.first (a stack member); this is safe
-    // because C++17 guaranteed copy elision makes `auto [buf, info] =
-    // makeBlock(...)` construct the pair directly in the caller's hidden
-    // variable — no move, so &result.first is the live buffer address.
-    // NOLINTNEXTLINE(clang-analyzer-core.StackAddressEscape) - see above
-    std::pair<juce::AudioBuffer<float>, juce::AudioSourceChannelInfo> result {
-        juce::AudioBuffer<float>(numChannels, numSamples), {}
-    };
-    result.first.clear();
-    result.second = juce::AudioSourceChannelInfo(&result.first, startSample, numSamples - startSample);
-    // NOLINTNEXTLINE(clang-analyzer-core.StackAddressEscape) - see comment above
-    return result;
+juce::AudioBuffer<float> makeBlock(int numChannels, int numSamples) {
+    juce::AudioBuffer<float> buffer(numChannels, numSamples);
+    buffer.clear();
+    return buffer;
 }
 
 int countNonZeroSamples(const juce::AudioBuffer<float>& buf, int start, int n) {
@@ -63,7 +48,8 @@ void exhaustWarmup(AudioEngine& engine, int blockSize) {
     // 下 3 块），而非硬编码 5——生产改 warmupSeconds 时测试自动跟随。
     const auto warmupBlocks = AudioEngine::calculateWarmupBlockCount(44100.0, blockSize);
     for (int i = 0; i < warmupBlocks; ++i) {
-        auto [buf, info] = makeBlock(2, blockSize);
+        auto buf = makeBlock(2, blockSize);
+        const juce::AudioSourceChannelInfo info(&buf, 0, buf.getNumSamples());
         engine.getNextAudioBlock(info);
     }
 }
@@ -95,7 +81,8 @@ public:
         {
             AudioEngine engine;
             engine.prepareToPlay(512, 44100.0);
-            auto [buf, info] = makeBlock(2, 512);
+            auto buf = makeBlock(2, 512);
+            const juce::AudioSourceChannelInfo info(&buf, 0, buf.getNumSamples());
             engine.getNextAudioBlock(info);
         }
         beginTest("null buffer is safe");
@@ -112,11 +99,13 @@ public:
             engine.prepareToPlay(512, 44100.0);
             engine.setMasterGain(1.0f);
 
-            auto [buf1, info1] = makeBlock(2, 512);
+            auto buf1 = makeBlock(2, 512);
+            const juce::AudioSourceChannelInfo info1(&buf1, 0, buf1.getNumSamples());
             engine.getNextAudioBlock(info1);
             expectEquals(countNonZeroSamples(buf1, info1.startSample, info1.numSamples), 0);
 
-            auto [buf2, info2] = makeBlock(2, 512);
+            auto buf2 = makeBlock(2, 512);
+            const juce::AudioSourceChannelInfo info2(&buf2, 0, buf2.getNumSamples());
             engine.getNextAudioBlock(info2);
             expectEquals(countNonZeroSamples(buf2, info2.startSample, info2.numSamples), 0);
         }
@@ -126,7 +115,8 @@ public:
             engine.prepareToPlay(512, 44100.0);
             exhaustWarmup(engine, 512);
             for (int i = 0; i < 10; ++i) {
-                auto [buf, info] = makeBlock(2, 512);
+                auto buf = makeBlock(2, 512);
+                const juce::AudioSourceChannelInfo info(&buf, 0, buf.getNumSamples());
                 engine.getNextAudioBlock(info);
             }
         }
@@ -147,7 +137,8 @@ public:
             engine.prepareToPlay(256, 48000.0);
             exhaustWarmup(engine, 256);
             engine.getKeyboardState().noteOn(1, 60, 0.8f);
-            auto [buf, info] = makeBlock(2, 256);
+            auto buf = makeBlock(2, 256);
+            const juce::AudioSourceChannelInfo info(&buf, 0, buf.getNumSamples());
             engine.getNextAudioBlock(info);
             expect(countNonZeroSamples(buf, info.startSample, info.numSamples) > 0,
                    "re-prepared engine must render a held note (synth usable again)");
@@ -161,7 +152,8 @@ public:
             engine.prepareToPlay(512, 44100.0);
             exhaustWarmup(engine, 512);
             // No MIDI fed — should be silent.
-            auto [buf, info] = makeBlock(2, 512);
+            auto buf = makeBlock(2, 512);
+            const juce::AudioSourceChannelInfo info(&buf, 0, buf.getNumSamples());
             engine.getNextAudioBlock(info);
             expectEquals(countNonZeroSamples(buf, info.startSample, info.numSamples), 0);
         }
@@ -187,7 +179,8 @@ public:
             engine.prepareToPlay(512, 44100.0);
             engine.setMasterGain(0.0f);
             exhaustWarmup(engine, 512);
-            auto [buf, info] = makeBlock(2, 512);
+            auto buf = makeBlock(2, 512);
+            const juce::AudioSourceChannelInfo info(&buf, 0, buf.getNumSamples());
             engine.getNextAudioBlock(info);
             // Even if the synth produced audio, gain=0 zeros it.
             int nz = countNonZeroSamples(buf, info.startSample, info.numSamples);
@@ -198,7 +191,8 @@ public:
             engine.prepareToPlay(512, 44100.0);
             engine.setMasterGain(-0.5f);
             exhaustWarmup(engine, 512);
-            auto [buf, info] = makeBlock(2, 512);
+            auto buf = makeBlock(2, 512);
+            const juce::AudioSourceChannelInfo info(&buf, 0, buf.getNumSamples());
             engine.getNextAudioBlock(info);
             expectEquals(countNonZeroSamples(buf, info.startSample, info.numSamples), 0);
         }
@@ -218,9 +212,11 @@ public:
             exhaustWarmup(engineUnit, 512);
             engineUnit.getKeyboardState().noteOn(1, 60, 0.8f);
 
-            auto [bufHigh, infoHigh] = makeBlock(2, 512);
+            auto bufHigh = makeBlock(2, 512);
+            const juce::AudioSourceChannelInfo infoHigh(&bufHigh, 0, bufHigh.getNumSamples());
             engineHigh.getNextAudioBlock(infoHigh);
-            auto [bufUnit, infoUnit] = makeBlock(2, 512);
+            auto bufUnit = makeBlock(2, 512);
+            const juce::AudioSourceChannelInfo infoUnit(&bufUnit, 0, bufUnit.getNumSamples());
             engineUnit.getNextAudioBlock(infoUnit);
 
             expect(countNonZeroSamples(bufHigh, infoHigh.startSample, infoHigh.numSamples) > 0,
@@ -245,7 +241,8 @@ public:
             engine.setMasterGain(1.0f);
             exhaustWarmup(engine, 512);
             engine.getKeyboardState().noteOn(1, 60, 0.8f);
-            auto [buf0, info0] = makeBlock(2, 512);
+            auto buf0 = makeBlock(2, 512);
+            const juce::AudioSourceChannelInfo info0(&buf0, 0, buf0.getNumSamples());
             engine.getNextAudioBlock(info0);
             expect(countNonZeroSamples(buf0, info0.startSample, info0.numSamples) > 0,
                    "held note must render before all-notes-off");
@@ -254,10 +251,12 @@ public:
             // ADSR release 默认 0.30s → 44.1k/512 ≈ 26 块；渲染 40 块让释放尾音
             // 完全衰减，之后必须静音。
             for (int i = 0; i < 40; ++i) {
-                auto [buf, info] = makeBlock(2, 512);
+                auto buf = makeBlock(2, 512);
+                const juce::AudioSourceChannelInfo info(&buf, 0, buf.getNumSamples());
                 engine.getNextAudioBlock(info);
             }
-            auto [bufEnd, infoEnd] = makeBlock(2, 512);
+            auto bufEnd = makeBlock(2, 512);
+            const juce::AudioSourceChannelInfo infoEnd(&bufEnd, 0, bufEnd.getNumSamples());
             engine.getNextAudioBlock(infoEnd);
             expectEquals(countNonZeroSamples(bufEnd, infoEnd.startSample, infoEnd.numSamples), 0,
                          "all-notes-off must silence held notes once the release tail decays");
@@ -270,7 +269,8 @@ public:
             engine.requestAllNotesOff();
             int nonZeroTotal = 0;
             for (int i = 0; i < 5; ++i) {
-                auto [buf, info] = makeBlock(2, 512);
+                auto buf = makeBlock(2, 512);
+                const juce::AudioSourceChannelInfo info(&buf, 0, buf.getNumSamples());
                 engine.getNextAudioBlock(info);
                 nonZeroTotal += countNonZeroSamples(buf, info.startSample, info.numSamples);
             }
@@ -314,7 +314,8 @@ private:
             const auto warmupBlocks = AudioEngine::calculateWarmupBlockCount(44100.0, 512);
             expect(warmupBlocks > 0, "warmup must span at least one block");
             for (int i = 0; i < warmupBlocks; ++i) {
-                auto [buf, info] = makeBlock(2, 512);
+                auto buf = makeBlock(2, 512);
+                const juce::AudioSourceChannelInfo info(&buf, 0, buf.getNumSamples());
                 engine.getNextAudioBlock(info);
                 expectEquals(countNonZeroSamples(buf, info.startSample, info.numSamples), 0,
                              "warmup blocks must stay silent even with input pending");
@@ -333,13 +334,15 @@ private:
             // warmup 结束之后，否则事件被丢弃、断言块无声。
             const auto warmupBlocks = AudioEngine::calculateWarmupBlockCount(44100.0, 512);
             for (int i = 0; i < warmupBlocks; ++i) {
-                auto [buf, info] = makeBlock(2, 512);
+                auto buf = makeBlock(2, 512);
+                const juce::AudioSourceChannelInfo info(&buf, 0, buf.getNumSamples());
                 engine.getNextAudioBlock(info);
             }
 
             engine.getKeyboardState().noteOn(1, 60, 0.8f);
 
-            auto [buf, info] = makeBlock(2, 512);
+            auto buf = makeBlock(2, 512);
+            const juce::AudioSourceChannelInfo info(&buf, 0, buf.getNumSamples());
             engine.getNextAudioBlock(info);
             expect(countNonZeroSamples(buf, info.startSample, info.numSamples) > 0,
                    "the synth must render the held note after warmup");
@@ -370,7 +373,8 @@ private:
             engine.armPlaybackStartPreRoll(44100.0, 512);
             // 消费 pre-roll 块不崩溃（无播放 take 时静音路径）
             for (int i = 0; i < 5; ++i) {
-                auto [buf, info] = makeBlock(2, 512);
+                auto buf = makeBlock(2, 512);
+                const juce::AudioSourceChannelInfo info(&buf, 0, buf.getNumSamples());
                 engine.getNextAudioBlock(info);
             }
         });
@@ -385,7 +389,8 @@ private:
             engine.getKeyboardState().noteOn(1, 60, 0.8f);
             exhaustWarmup(engine, 512);
             for (int i = 0; i < 3; ++i) {
-                auto [buf, info] = makeBlock(2, 512);
+                auto buf = makeBlock(2, 512);
+                const juce::AudioSourceChannelInfo info(&buf, 0, buf.getNumSamples());
                 engine.getNextAudioBlock(info);
                 const auto* ch0 = buf.getReadPointer(0);
                 for (int s = 0; s < info.numSamples; ++s) {
@@ -402,7 +407,8 @@ private:
             engine.setRecordingEngine(nullptr);
             engine.prepareToPlay(512, 44100.0);
             exhaustWarmup(engine, 512);
-            auto [buf, info] = makeBlock(2, 512);
+            auto buf = makeBlock(2, 512);
+            const juce::AudioSourceChannelInfo info(&buf, 0, buf.getNumSamples());
             engine.getNextAudioBlock(info);
         });
 
@@ -412,7 +418,8 @@ private:
             engine.setRecordingEngine(&rec);
             engine.prepareToPlay(512, 44100.0);
             exhaustWarmup(engine, 512);
-            auto [buf, info] = makeBlock(2, 512);
+            auto buf = makeBlock(2, 512);
+            const juce::AudioSourceChannelInfo info(&buf, 0, buf.getNumSamples());
             engine.getNextAudioBlock(info); // 未播放 → 渲染跳过，安全
             expect(engine.getPluginHost() == nullptr);
         });
@@ -472,7 +479,8 @@ public:
             rec.startPlayback(take, 44100.0);
 
             // Render block containing the events (samples 0..512)
-            auto [buf, info] = makeBlock(2, 512);
+            auto buf = makeBlock(2, 512);
+            const juce::AudioSourceChannelInfo info(&buf, 0, buf.getNumSamples());
             engine.getNextAudioBlock(info);
 
             // Check keyboardState:
@@ -514,7 +522,8 @@ public:
             engine.setPlaybackTranspose(true, 3, customMask);
             rec.startPlayback(take, 44100.0);
 
-            auto [buf, info] = makeBlock(2, 512);
+            auto buf = makeBlock(2, 512);
+            const juce::AudioSourceChannelInfo info(&buf, 0, buf.getNumSamples());
             engine.getNextAudioBlock(info);
 
             // Channel 1 was disabled in mask -> remains 60
@@ -545,15 +554,15 @@ public:
             });
             rec.startPlayback(take, 44100.0);
 
-            auto [playBuffer, playInfo] = makeBlock(2, 512);
-            juce::ignoreUnused(playBuffer);
+            auto playBuffer = makeBlock(2, 512);
+            const juce::AudioSourceChannelInfo playInfo(&playBuffer, 0, playBuffer.getNumSamples());
             engine.getNextAudioBlock(playInfo);
             expect(engine.getKeyboardState().isNoteOn(1, 60), "the playback note should be sounding before seek");
 
             rec.pausePlayback();
             rec.requestPlaybackSeek(1234);
-            auto [seekBuffer, seekInfo] = makeBlock(2, 512);
-            juce::ignoreUnused(seekBuffer);
+            auto seekBuffer = makeBlock(2, 512);
+            const juce::AudioSourceChannelInfo seekInfo(&seekBuffer, 0, seekBuffer.getNumSamples());
             engine.getNextAudioBlock(seekInfo);
 
             expectEquals(static_cast<std::int64_t>(1234), rec.getPlaybackPositionInTakeSamples());
@@ -651,7 +660,8 @@ public:
             // Exercise AudioEngine lifecycle with Linux typical 48kHz / 128 samples
             AudioEngine engine;
             engine.prepareToPlay(128, 48000.0);
-            auto [buf, info] = makeBlock(2, 128);
+            auto buf = makeBlock(2, 128);
+            const juce::AudioSourceChannelInfo info(&buf, 0, buf.getNumSamples());
             engine.getNextAudioBlock(info);
             expectEquals(buf.getNumSamples(), 128);
             engine.releaseResources();
