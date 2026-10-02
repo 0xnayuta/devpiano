@@ -210,11 +210,6 @@ void WavExportTask::failExport(const juce::String& errorMsg, bool isCancellation
         const juce::ScopedLock sl(messageLock);
         errorMessage = isCancellation ? TRANS("Export cancelled.") : errorMsg;
     }
-    if (destinationFile.existsAsFile() && !destinationFile.deleteFile()) {
-        DP_LOG_WARN(
-            juce::String(isCancellation ? "Failed to clean up cancelled WAV: " : "Failed to clean up failed WAV: ")
-            + destinationFile.getFullPathName());
-    }
 }
 
 void WavExportTask::run() {
@@ -234,7 +229,6 @@ void WavExportTask::run() {
         return !isCancelled();
     };
 
-    // ERR-015: Render path may throw; catch all exceptions, report failure and clean up destination file.
     try {
         if (isCancelled()) {
             failExport({}, true);

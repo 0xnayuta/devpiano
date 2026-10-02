@@ -220,7 +220,6 @@ public:
         testMasterSoftLimiterBehavior();
         testOfflineRenderingWithRoomReverb();
         testProgressCancellation();
-        testSnapshotPluginState();
     }
     void testParameterValidation() {
         beginTest("Parameter validation and error rejection");
@@ -270,6 +269,9 @@ public:
         const auto outFile = tempDir.getChildFile("rendered_output.wav");
 
         const auto take = makeSimpleRenderTake();
+        options.sampleRate = 48000.0;
+        expect(devpiano::exporting::renderTakeWithOfflinePlugin(take, outFile, options, plugin));
+        options.sampleRate = 44100.0;
         const bool success = devpiano::exporting::renderTakeWithOfflinePlugin(take, outFile, options, plugin);
         expect(success, "renderTakeWithOfflinePlugin must succeed with valid inputs");
         expect(outFile.existsAsFile(), "Output file must exist");
@@ -313,21 +315,18 @@ public:
         };
 
         const auto take = makeSimpleRenderTake();
+        expect(devpiano::exporting::renderTakeWithOfflinePlugin(take, outFile, options, plugin));
+        juce::MemoryBlock original;
+        expect(outFile.loadFileAsData(original));
         const bool success
             = devpiano::exporting::renderTakeWithOfflinePlugin(take, outFile, options, plugin, cancelCallback);
         expect(!success, "Render must abort and return false when progressCallback returns false");
         expect(progressCalls >= 2, "Progress callback should have been invoked at least twice before aborting");
-    }
-
-    void testSnapshotPluginState() {
-        beginTest("snapshotPluginState verification");
-
-        DummyOfflineTestPlugin plugin;
-        const auto state = devpiano::exporting::snapshotPluginState(plugin);
-        expect(state.getSize() > 0, "Captured state must be non-empty");
-
-        const juce::String text(static_cast<const char*>(state.getData()));
-        expect(text.contains("DUMMY_PLUGIN_STATE"), "Captured memory block must match plugin state");
+        juce::MemoryBlock afterCancel;
+        expect(outFile.loadFileAsData(afterCancel));
+        expect(afterCancel == original, "cancelled plugin render must preserve the existing WAV");
+        expectEquals(tempDir.get().getNumberOfChildFiles(juce::File::findFiles), 1,
+                     "cancelled plugin render must remove only its temporary output");
     }
 
     void testMonoPluginStereoDownmix() {

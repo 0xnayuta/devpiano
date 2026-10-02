@@ -18,7 +18,7 @@ double convertSamplesToTicks(std::int64_t timestampSamples, double sampleRate, i
 } // namespace
 
 bool exportTakeAsMidiFile(const devpiano::recording::RecordingTake& take, const juce::File& destinationFile, int ppq) {
-    if (take.isEmpty() || take.sampleRate <= 0.0 || ppq <= 0) {
+    if (take.isEmpty() || take.sampleRate <= 0.0 || ppq <= 0 || destinationFile == juce::File()) {
         return false;
     }
 
@@ -44,12 +44,19 @@ bool exportTakeAsMidiFile(const devpiano::recording::RecordingTake& take, const 
     midiFile.setTicksPerQuarterNote(ppq);
     midiFile.addTrack(sequence);
 
-    juce::FileOutputStream outStream(destinationFile);
-    if (outStream.openedOk()) {
-        return midiFile.writeTo(outStream);
+    juce::TemporaryFile temporaryFile(destinationFile);
+    {
+        juce::FileOutputStream outStream(temporaryFile.getFile());
+        if (!outStream.openedOk() || !midiFile.writeTo(outStream)) {
+            return false;
+        }
+        outStream.flush();
+        if (outStream.getStatus().failed()) {
+            return false;
+        }
     }
 
-    return false;
+    return temporaryFile.overwriteTargetFileWithTemporary();
 }
 
 }

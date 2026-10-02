@@ -83,12 +83,13 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
         return false;
     }
 
-    // Open output file
-    auto fileStream = std::make_unique<juce::FileOutputStream>(destinationFile);
+    juce::TemporaryFile temporaryFile(destinationFile);
+    auto fileStream = std::make_unique<juce::FileOutputStream>(temporaryFile.getFile());
     if (!fileStream->openedOk()) {
         DP_LOG_ERROR("[PluginOfflineRenderer] Cannot open output file: " + destinationFile.getFullPathName());
         return false;
     }
+    auto* const fileOutput = fileStream.get();
     std::unique_ptr<juce::OutputStream> outputStream = std::move(fileStream);
 
     // Create WAV writer
@@ -196,6 +197,25 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
             DP_LOG_ERROR("[PluginOfflineRenderer] WAV write failed at block " + juce::String(blockStart));
             return false;
         }
+    }
+
+    if (!writer->flush()) {
+        DP_LOG_ERROR("[PluginOfflineRenderer] Failed to finalise WAV: " + destinationFile.getFullPathName());
+        return false;
+    }
+    fileOutput->flush();
+    if (fileOutput->getStatus().failed()) {
+        DP_LOG_ERROR("[PluginOfflineRenderer] Failed to flush WAV: " + destinationFile.getFullPathName());
+        return false;
+    }
+    writer.reset();
+
+    if (progressCallback && !progressCallback(1.0)) {
+        return false;
+    }
+    if (!temporaryFile.overwriteTargetFileWithTemporary()) {
+        DP_LOG_ERROR("[PluginOfflineRenderer] Failed to replace WAV: " + destinationFile.getFullPathName());
+        return false;
     }
 
     DP_LOG_INFO("[PluginOfflineRenderer] Offline render complete: " + destinationFile.getFullPathName());

@@ -74,12 +74,14 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
         return false;
     }
 
-    auto fileStream = std::make_unique<juce::FileOutputStream>(destinationFile);
+    juce::TemporaryFile temporaryFile(destinationFile);
+    auto fileStream = std::make_unique<juce::FileOutputStream>(temporaryFile.getFile());
     if (!fileStream->openedOk()) {
         DP_LOG_ERROR("[Export] WAV export failed: cannot open output file " + destinationFile.getFullPathName());
         return false;
     }
 
+    auto* const fileOutput = fileStream.get();
     std::unique_ptr<juce::OutputStream> outputStream = std::move(fileStream);
 
     juce::WavAudioFormat wavFormat;
@@ -152,6 +154,25 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
             DP_LOG_ERROR("[Export] WAV export failed while writing: " + destinationFile.getFullPathName());
             return false;
         }
+    }
+
+    if (!writer->flush()) {
+        DP_LOG_ERROR("[Export] WAV export failed while finalising: " + destinationFile.getFullPathName());
+        return false;
+    }
+    fileOutput->flush();
+    if (fileOutput->getStatus().failed()) {
+        DP_LOG_ERROR("[Export] WAV export failed while flushing: " + destinationFile.getFullPathName());
+        return false;
+    }
+    writer.reset();
+
+    if (progressCallback && !progressCallback(1.0)) {
+        return false;
+    }
+    if (!temporaryFile.overwriteTargetFileWithTemporary()) {
+        DP_LOG_ERROR("[Export] WAV export failed while replacing: " + destinationFile.getFullPathName());
+        return false;
     }
 
     return true;

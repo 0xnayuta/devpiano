@@ -181,6 +181,11 @@ public:
             devpiano::test::ScopedTempDir tempDir("midi-export");
             const auto path = tempDir.getChildFile("take.mid");
 
+            auto previousTake = makeOneSecondTake();
+            for (auto& event : previousTake.events) {
+                event.message.setNoteNumber(72);
+            }
+            expect(exportTakeAsMidiFile(previousTake, path));
             const auto take = makeOneSecondTake();
             expect(exportTakeAsMidiFile(take, path), "export must succeed");
             expect(path.existsAsFile());
@@ -279,6 +284,9 @@ public:
             options.masterGain = 0.8f;
             options.adsr = { 0.01f, 0.2f, 0.8f, 0.3f };
 
+            options.sampleRate = 48000.0;
+            expect(exportTakeAsWavFile(take, path, options));
+            options.sampleRate = 44100.0;
             expect(exportTakeAsWavFile(take, path, options), "export must succeed");
             expect(path.existsAsFile());
 
@@ -308,6 +316,43 @@ public:
                 offset += num;
             }
             expect(maxSample > 0.01f, "rendered audio must not be silent");
+        });
+
+        testCase("cancelling a WAV overwrite before commit preserves the original bytes", [&] {
+            devpiano::test::ScopedTempDir tempDir("wav-overwrite-cancel");
+            const auto path = tempDir.getChildFile("take.wav");
+            const auto take = makeOneSecondTake();
+            WavExportOptions options;
+            expect(exportTakeAsWavFile(take, path, options));
+            juce::MemoryBlock original;
+            expect(path.loadFileAsData(original));
+
+            options.masterGain = 0.0f;
+            auto reachedCommit = false;
+            expect(!exportTakeAsWavFile(take, path, options, [&reachedCommit](double progress) {
+                reachedCommit = progress == 1.0;
+                return !reachedCommit;
+            }));
+            expect(reachedCommit);
+            juce::MemoryBlock afterCancel;
+            expect(path.loadFileAsData(afterCancel));
+            expect(afterCancel == original, "cancelled replacement must preserve the original WAV");
+            expectEquals(tempDir.get().getNumberOfChildFiles(juce::File::findFiles), 1,
+                         "cancelled render must not leave its temporary output");
+        });
+
+        testCase("a failed replacement preserves an occupied output directory", [&] {
+            devpiano::test::ScopedTempDir tempDir("export-replace-failure");
+            const auto occupied = tempDir.getChildFile("occupied");
+            expect(occupied.createDirectory().wasOk());
+            const auto original = occupied.getChildFile("original");
+            expect(original.replaceWithText("owned-user-data"));
+            const auto take = makeOneSecondTake();
+            expect(!exportTakeAsMidiFile(take, occupied));
+            expect(!exportTakeAsWavFile(take, occupied, WavExportOptions {}));
+            expectEquals(original.loadFileAsString(), juce::String("owned-user-data"));
+            expectEquals(tempDir.get().getNumberOfChildFiles(juce::File::findFilesAndDirectories), 1,
+                         "failed exports must retain only the original directory");
         });
     }
 };
@@ -488,6 +533,22 @@ public:
             expect(!result, "runSync must return false for invalid destination");
             expect(!failTask.wasSuccessful(), "wasSuccessful must be false");
             expect(failTask.getErrorMessage().isNotEmpty(), "errorMessage must be populated on failure");
+        });
+
+        testCase("rejected background export does not delete an existing output", [&] {
+            devpiano::test::ScopedTempDir tempDir("task-existing-output");
+            const auto target = tempDir.getChildFile("existing.wav");
+            const auto take = makeOneSecondTake();
+            WavExportOptions options;
+            expect(exportTakeAsWavFile(take, target, options));
+            juce::MemoryBlock original;
+            expect(target.loadFileAsData(original));
+            options.blockSize = 0;
+            WavExportTask task(take, target, options, nullptr, nullptr);
+            expect(!task.runSync());
+            juce::MemoryBlock afterFailure;
+            expect(target.loadFileAsData(afterFailure));
+            expect(afterFailure == original, "failure must not remove a pre-existing user file");
         });
     }
 };
