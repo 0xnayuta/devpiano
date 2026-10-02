@@ -62,6 +62,7 @@ RecordingSessionController::replaceTakeAndStartPlayback()
 
 - 根据 MIDI 文件头定义的 PPQ（Pulses Per Quarter Note）与 Tempo（默认 120 BPM，或首个 Tempo 设定），结合当前音频设备的采样率（如 44.1 kHz / 48 kHz），将每个 MIDI 事件的 Tick 准确转换为绝对采样点 `timestampSamples`；
 - 回放时由 `RecordingEngine` 逐 audio block 调度，不受系统时钟抖动影响。
+- 文件导入目标采样率要求有限且处于 8000–384000 Hz；转换后的长度/时间戳须非负且可表示，失败拒绝整次导入，不饱和为 `INT64_MAX` 后继续消费。
 
 ### 3.3 首音 0s 截断防御（Pre-roll 机制）
 
@@ -92,7 +93,10 @@ RecordingSessionController::replaceTakeAndStartPlayback()
 
 ### 3.6 尾部残留字节容错
 
-`juce::MidiFile::readFrom` 要求文件在最后一个块之后**不留任何字节**，否则整体返回失败——即使所有轨道内容都已解析完成。真实文件常出现此类残留（实测案例：编辑器在末尾附加 `0d 0a`）。`MidiFileImporter` 因此在该 API 返回失败时进一步检查：只要已有轨道解析出事件，即记为警告并继续导入；真正的非法文件（无任何可用轨道）仍按失败处理。
+`MidiFileImporter` 在调用 JUCE 前验证文件头、非零 PPQ/合法 SMPTE time division、全部声明的 `MTrk`、chunk 长度、事件/VLQ 完整性与末尾 End of Track。缺第二条声明轨、短 chunk、截断 MIDI 帧或轨内缺失/提前终结的 End of Track 均拒绝，不因“已有一轨有事件”接受部分文件；只有完整声明结构后的额外后缀才警告并宽容，保留真实 `0d 0a`（CRLF）兼容。完整扩展块不抵充声明轨数；必要时仅移除已验证的扩展块，再把完整轨数据交给 JUCE。
+
+- **拍号 meta 准入**：`0x58` 必须有 4 字节负载、正分子与 `0..30` 分母指数；Tempo/调号等固定宽度 meta 也在框架 accessor 前校验。非法 meta 拒绝并记录诊断，不执行无界位移。
+- **直接并轨 API**：`mergeTracks()` 消费已经转换为秒的时间戳，独立检查原始 meta VLQ/负载与数值范围；time division 只在文件的 tick→秒转换入口验证。
 
 ### 3.7 时间轴 Seek 与 A-B 循环跟练规则
 
@@ -126,3 +130,5 @@ RecordingSessionController::replaceTakeAndStartPlayback()
 | **MID-010** | 导入后采样点精确 Seek | 导入 MIDI 播放中拖拽时间轴至任意位置，发音在下一音频块重定向且旧音符完全释放，无悬挂音 | [ ] 待手工验证 |
 | **MID-011** | 导入后多通道 A-B 循环跟练 | 在导入的多轨 MIDI 上设定 A-B 标记，播放到达 B 点时回跳至 A 点，全通道清理，无漏音与爆音 | [ ] 待手工验证 |
 | **MID-012** | 导入新文件自动重置循环与游标 | 处于 A-B 循环状态下导入新 MIDI，原 A-B 标记与 Seek 偏移清空，新文件从 0 开始完整播放 | [ ] 待手工验证 |
+| **MID-013** | 部分文件拒绝且保留旧 Take | 声明多轨但缺轨、短 chunk/事件、非法拍号长度或指数；拒绝导入，Info 仍显示原 Take | [x] Windows 默认回归与实际拖放/信息界面通过 |
+| **MID-014** | 完整结构后的 CRLF | 完整多轨 MIDI 加真实 `0d 0a` 后缀，轨数/拍号/时长正确并整体提交 | [x] Windows 文件与实际界面消费者通过 |

@@ -56,10 +56,11 @@ WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
 
 ### 3.2 共享渲染管线（`RenderPipeline`）
 
-`source/Recording/RenderPipeline.cpp` 提供了实时与离线一致的事件调度抽象：
-- **采样率自适应换算**：录制时的采样率（如 48 kHz）与导出目标采样率（如 44.1 kHz）不一致时，精确按比例换算每个事件的 `timestampSamples`；
-- **事件绝对排序**：确保同一个 audio block 内的事件严格按 `samplePosition` 升序排列；
+`source/Recording/RenderPipeline.cpp` 通过 `prepareRenderTimeline()` 返回完整时间线或失败；内置和插件路径均在创建目录、临时文件及 writer 前完成数值准入：
+- **采样率自适应换算**：有限、支持范围的录制/目标采样率按比例换算；检查长度和事件时间戳的整数转换，不把饱和值当作有效时间线；
+- **稳定排序与结束点**：事件按 `samplePosition` 非递减稳定排序，同采样顺序不变；检查最后事件 `+1`、固定 2.0 秒尾部及总长度加法。块游标推进到实际 `blockEnd`，不在最后短块之后再加完整块长导致溢出；
 - **尾部防挂音注入**：在渲染结尾自动注入全通道 `allNotesOff` 与 `sustainOff`，消除由于 MIDI 数据不完整可能导致的尾部悬挂音。
+- **拒绝保护**：最终事件或尾部不可表示时返回失败，已有目标字节保留，未创建的输出目录仍不存在。此检查不等于真实插件生命周期或超长渲染资源风险已全面验证。
 
 ### 3.3 后台任务与 JIVE 进度反馈（`WavExportTask`）
 

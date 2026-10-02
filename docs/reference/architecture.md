@@ -189,22 +189,27 @@ source/
   - `sampleRate` + `lengthSamples` + `events` 组成的 `RecordingTake` 数据结构；
   - 播放状态机管理：播放速度实时倍率（0.5x–2.0x，原子变速重校准）、暂停/恢复、Back 从头回放与 All-notes-off 保护；
   - `AbLoopEngine` 以原子快照保存 Take-relative A/B 标记；`RecordingEngine` 在音频块内执行 Seek、半开区间循环与边界发音清理，播放位置按设备采样率与速度换算。
+  - 结构提交前验证采样率、非负有序事件与最坏支持倍率的整数范围，保留现有合成时间域；文件的物理采样率准入与通用数值安全检查分开。
 - **`source/Recording/RecordingSessionController.h/.cpp`**：
   - 会话控制器：统一调度录制、回放、`.devpiano` 文件保存/打开、MIDI 导入与 WAV 导出流程。
   - `RecordingSessionController` 统一编排 Take-relative Seek、A/B 标记、播放暂停恢复与时间轴 ViewModel 快照。
 - **`source/Recording/RenderPipeline.h/.cpp`**：
-  - 共享离线渲染管线：统一负责事件时间戳换算、时间线缩放、事件排序与尾部 panic note-off 注入，为 `WavFileExporter` 与 `PluginOfflineRenderer` 消除重复逻辑。
+  - `prepareRenderTimeline()` 统一检查时间戳缩放、最终事件 `+1` 与尾部加法；成功才返回稳定排序事件和完整长度。内置/插件 WAV 在打开输出前使用该结果，保留同采样语义顺序及 panic 注入。
+- **`source/Recording/TimelineValidation.h`**：
+  - 分离文件支持采样率与通用时间域数值安全，复用有界整数转换、缩放、加法及最坏倍率长度检查；不依赖 UI 或插件适配器。
 - **`source/Recording/PerformanceFile.h/.cpp`**：
-  - `.devpiano` 原生演奏文件持久化（v2 JSON 格式 + Base64 编码 + 元数据），通过 `juce::TemporaryFile` 实现原子写入。
+  - `.devpiano` 原生演奏文件持久化（v2 JSON + JUCE 专有长度前缀二进制编码 + 元数据）；32 MiB 文件预算、1 MiB 单帧预算及完整读取/帧形状/数值准入后稳定规范化乱序时间线，保存仍通过 `juce::TemporaryFile` 事务替换。
   - 会话通过 `RecordingSession` 将 Take、元数据与原生文件绑定整体提交；新录制/MIDI 导入解除旧绑定，成功 Save As 重新绑定，generation 阻止跨 Take 的延迟信息/文件结果。
 - **`source/Recording/MidiFileImporter.h/.cpp`**：
   - 标准 MIDI 文件解析与统一导入：委托 `MidiTrackMergeEngine` 将 Type 0/1 各音轨的 MIDI 播放事件合并为单一 `RecordingTake` 时间线，支持通道映射并提取全局元数据；不提供选轨模式。
+  - JUCE 解析前核验全部声明轨、chunk/VLQ/事件及固定 meta 的长度与指数；仅完整结构后的尾字节宽容，必要时剔除已验证扩展块。拒绝不提交新 Take。
 - **`source/Recording/MidiTrackMergeEngine.h/.cpp`**：
   - **多轨并轨合并引擎（Phase 26）**：纯静态算法引擎，负责将 `juce::MidiFile` 的所有独立音轨（Type 0/1）合并为单一连续时间线；
   - 支持智能通道映射策略（`passThrough` 保持原通道、`autoAssignIfSingleChannel` 单通道多轨自动分配 1-16 通道、`forceTrackToChannel` 强制轨索引取模分配）；
   - 精确解析曲目元数据（曲名、版权、拍号、调号、速度事件与 Tempo Map），并在同时间戳下按 Program Change → CC → Note Off → Note On 严格确定事件优先级。
 - **`source/Recording/MidiFileExporter.h/.cpp`**：
   - 将录制 Take 导出为标准 Type 1 MIDI 文件（960 PPQ）；在同目录自有临时文件中写出、检查状态并关闭流后替换目标。
+  - 在 writer 前检查支持采样率、合法 PPQ、JUCE `int` tick 和 SMF VLQ delta 的可表示范围，拒绝不破坏原目标。
 - **`source/Recording/PluginOfflineRenderer.h/.cpp`**：
   - 独立创建非实时离线 VST3 实例，无 Editor 依赖渲染，异常时安全降级至 fallback synth。
 - **`source/Export/WavExportTask.h/.cpp`**：

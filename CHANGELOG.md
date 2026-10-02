@@ -13,6 +13,9 @@
 - **Protected Preset Renames and Restored Identity** — confirm independent filename collisions, preserve normalized same-file renames, roll back failed commits, and restore the active preset before immediate binding autosave.
 - **Coherent Take File Ownership** — detach stale native-file bindings on recording/import replacement, rebind successful Save As operations, and reject delayed metadata or chooser completions for another Take.
 - **Ordered Settings Persistence and Complete Snapshots** — successful synchronous saves supersede older scheduled writes; deep copies preserve practice settings and independent audio-device/plugin-cache XML.
+- **Bounded Native Performance Admission** — validate JUCE-encoded MIDI lengths, payloads and frame shapes before decoding; reject invalid sample rates or timelines and stably normalize legacy event order without replacing the current Take.
+- **Complete MIDI File Admission** — reject missing tracks, truncated events and malformed fixed-width metadata before JUCE accessors; preserve complete multitrack files with trailing CRLF and validated extension chunks.
+- **Checked Export Timelines** — reject unrepresentable sample scaling, final-event and tail additions before opening WAV output; check MIDI writer tick limits and preserve existing targets on numeric rejection.
 
 ## [1.3.0] - 2026-09-21
 

@@ -324,13 +324,13 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 Phase 35 的原计划与完成勾选见 [完成计划归档](../archive/phase35-keyboard-expressive-dynamics-and-practice-infrastructure.md)。阶段交付完成不代表 AUDIT-004 新反证已修复；当前实施任务由下一专项承接，后续长期路线以本文为准。
 
-### AUDIT-004 Phase：代码质量缺陷修复与消费者契约闭环 [Phase 0/A 已完成，Phase B 待开始]
+### AUDIT-004 Phase：代码质量缺陷修复与消费者契约闭环 [Phase 0/A/B 已完成，Phase C 待开始]
 
-[AUDIT-004](../audit/AUDIT-004-code-quality-audit-2026-10-02.md) 的基线评级为 C，包含用户文件保护、输入准入、插件/声部/Transport所有权、发音配对、预设身份/同构执行、映射视图和验证门禁等问题。Phase 0/A 已完成安全验证前置及已有文件/身份/持久化一致性；其余阶段尚未实施，历史审计基线与原问题身份不回写。
+[AUDIT-004](../audit/AUDIT-004-code-quality-audit-2026-10-02.md) 的基线评级为 C，包含用户文件保护、输入准入、插件/声部/Transport所有权、发音配对、预设身份/同构执行、映射视图和验证门禁等问题。Phase 0/A 已完成安全验证前置及已有文件/身份/持久化一致性；Phase B 文件准入与时间线数值安全已完成（2026-10-03），其余阶段尚未实施，历史审计基线与原问题身份不回写。
 
 1. **Phase 0（前置，已完成）**：音频测试由调用者绑定 live buffer，文件测试使用 ScopedTempDir，Chord 纳入默认 DevPiano/Core；Windows Debug 禁 NRVO 的默认测试、真实音频/文件消费者及用户目录无副作用验证通过，证据见 current-iteration。
-2. **Phase A（已完成）/B（下一步）**：已有文件事务替换、预设重命名/启动身份、Take 文件绑定与同步/防抖快照一致性已通过 Windows Debug 默认测试、真实文件及主界面消费者验证；接下来处理文件与时间线准入安全。
-3. **Phase C-E（核心所有权与执行）**：插件/Editor重扫、tone switch/活动Transport与协作导出收尾；NoteOff、pause/末尾/seek/count-in/采样率/踏板边界；预设永久身份、实时/离线快照及完整回调闭包。
+2. **Phase A/B（已完成）**：已有文件事务、预设身份、Take 绑定与设置快照已闭环；原生/MIDI 完整准入、稳定时间线、拍号边界及输出前数值检查已通过 Windows Debug 默认测试、受限子进程、实际文件/播放/seek/拖放信息界面验证。输入格式不变，不以修改测试数值掩盖通用合成时间域失败。
+3. **Phase C（下一步）/D-E（核心所有权与执行）**：先处理插件/Editor重扫、tone switch/活动Transport与协作导出收尾；随后处理 NoteOff、pause/末尾/seek/count-in/采样率/踏板边界，以及预设永久身份、实时/离线快照及完整回调闭包。
 4. **Phase F-G（交互与门禁）**：双看板最终投影、鼠标/标签/元数据编辑、声学范围；诊断资源、ADR边界与编译/静态/测试oracle收敛。
 5. **Phase H（闭环）**：修复后按直接消费者证据对齐功能/验收文档并汇总全部原项，不以文档修订代替实现。
 
@@ -356,7 +356,7 @@ Phase 35 的原计划与完成勾选见 [完成计划归档](../archive/phase35-
 
 | 风险 | 当前判断 | 应对方向 |
 |---|---|---|
-| 用户文件与会话完整性 | 文件保护已闭环，准入仍高风险 | Phase A 的事务替换、rename、Take 绑定与设置快照已直接验证；畸形输入、长度/采样率和时间线数值边界继续由 Phase B 收敛。 |
+| 用户文件与会话完整性 | 本阶段保护与准入已闭环，仍有边界风险 | Phase A/B 事务、身份/设置一致性及文件/数值准入已直接验证；保留同采样顺序与完整 CRLF 文件兼容。强杀/断电、真实插件及完整实时/离线闭包未外推为已验证。 |
 | 插件/声部/Transport生命周期 | 高，待修复 | 正常guard不覆盖重扫/tone switch/活动游标/强制取消的全部路径；Phase C-D以具体交错和Editor/退出消费者验收。 |
 | 键盘映射与发音身份边界 | 待修复 | 回放变换、同音持有、pause/末尾、鼠标路由和双看板投影存在反例；Phase D/F保持原发音身份与单一投影。 |
 | 物理建模与实时负荷 | 待修复 / 待实测 | 分音Magic Circle不等于整个callback零三角或零分配；8复音单核CPU $\le 0.7\%$ 是目标，不能用旧测量代当前证明；Phase E验证完整闭包。 |
@@ -364,7 +364,7 @@ Phase 35 的原计划与完成勾选见 [完成计划归档](../archive/phase35-
 | `MainComponent` 职责回流 | 低 | 保持轻量装配职责（主要由 `initialiseUi()` 承载 JIVE 树构建与回调接线，核心业务均已委托独立 Controller 与领域模块）；持续监控，避免业务逻辑回流。 |
 | 硬实时契约差距 | 待修复 | 常规callback仍有阻塞锁，合法密集事件/预设通知可突破预分配；Listener进入UI/Timer、异常几何兜底及机械/节拍三角函数另有差距。Phase E处理，真实声卡影响仍需安全验证；见 [AUDIT-004](../audit/AUDIT-004-code-quality-audit-2026-10-02.md)。 |
 | A4 基准音高契约差距 | 待修复 | 产品目标 400.0 ~ 480.0 Hz；代码当前钳制为 410.0 ~ 450.0 Hz，详见 [`../issues/known-issues.md`](../issues/known-issues.md)。 |
-| 门禁覆盖与文档契约 | 部分完成，仍待收敛 | Phase 0/A 已验证本阶段默认执行、用户目录无副作用、文件及实际界面消费者；项目 warning/tidy 与其余测试/文档反证仍由 Phase G/H 处理，不以默认 exit 0 宣称全覆盖。项目状态只维护本文，任务及验证记录只维护 [`current-iteration.md`](current-iteration.md)。 |
+| 门禁覆盖与文档契约 | 部分完成，仍待收敛 | Phase 0/A/B 已验证本阶段默认执行、用户目录无副作用、文件/数值及实际界面消费者；项目 warning/tidy 与其余测试/文档反证仍由 Phase G/H 处理，不以默认 exit 0 宣称全覆盖。项目状态只维护本文，任务及验证记录只维护 [`current-iteration.md`](current-iteration.md)。 |
 
 ---
 

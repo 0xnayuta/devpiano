@@ -2,12 +2,12 @@
 
 > 用途：本文件只记录当前实施排期与任务验收；项目状态和长期路线以 [roadmap](roadmap.md) 为准。
 > 本轮名称：**AUDIT-004 Phase：代码质量缺陷修复与消费者契约闭环**。
-> 当前状态：**Phase 0 与 Phase A 已完成（2026-10-02），Phase B 待开始**。只勾选有直接证据的本轮任务；其他阶段保持未勾选，不以默认测试通过代替其消费者契约闭环。
+> 当前状态：**Phase 0/A/B 已完成（Phase B：2026-10-03），Phase C 待开始**。只勾选有直接证据的本轮任务；其他阶段保持未勾选，不以默认测试通过代替其消费者契约闭环。
 
 ## 1. 输入、范围与历史归档
 
 - 问题与优先级基线：[AUDIT-004 第8章](../audit/AUDIT-004-code-quality-audit-2026-10-02.md#8-附录问题总表登记表)，实施方向参考其第5章，复现与未验证范围参考第4章。
-- 本计划完整纳入原审计基线的 **54个未闭环唯一项**（P1 25、P2 26、P3 3，本轮未登记P0）。这是固定排期覆盖集合，不是当前剩余任务数；Phase 0 与 Phase A 的任务已完成，其他原项仍按下方未勾选任务推进，原报告不回写。
+- 本计划完整纳入原审计基线的 **54个未闭环唯一项**（P1 25、P2 26、P3 3，本轮未登记P0）。这是固定排期覆盖集合，不是当前剩余任务数；Phase 0/A/B 的任务已完成，其他原项仍按下方未勾选任务推进，原报告不回写。
 - 保留报告原登记 ID/历史命名空间/known-issues 标题引用，不重编号、不把同名 `ERR-002` 混成同一项。下方每个原 ID 只安排到一个阶段；排期不改变原优先级，跨阶段关联只说明依赖。
 - [Phase 35 完成计划](../archive/phase35-keyboard-expressive-dynamics-and-practice-infrastructure.md)已归档，保留当时完成勾选和契约差距；阶段交付完成不等于后续审计风险已消除。
 - Phase 36/37 继续在 roadmap 保留规划。在P1、关键消费者回归及安全门禁达标前不开始新增声学/分区叠层功能，本轮不缩减到只修P1而遗漏其他登记项。
@@ -28,7 +28,7 @@
 | --- | --- | --- | --- |
 | AUDIT-004 Phase 0 | 安全验证前置 | 无；只建立可安全执行的 Debug 消费者验证基础。 | 已完成，2026-10-02 |
 | AUDIT-004 Phase A | 已有用户数据保护与持久化一致性 | Phase 0；同一阶段先处理 ERR-001、SEC-001、SEC-002。 | 已完成，2026-10-02 |
-| AUDIT-004 Phase B | 文件准入与时间线数值安全 | Phase A 的所有权和失败保留约束；数值检查应先于打开输出。 | 待开始 |
+| AUDIT-004 Phase B | 文件准入与时间线数值安全 | Phase A 的所有权和失败保留约束；数值检查应先于打开输出。 | 已完成，2026-10-03 |
 | AUDIT-004 Phase C | 插件与活动 DSP / Transport 所有权 | Phase 0/A；冻结已有数据与旧实例生命周期，先收敛竞态再改事件执行。 | 待开始 |
 | AUDIT-004 Phase D | 发音身份与采样级 Transport 边界 | Phase B/C；游标/倍率/设备时间域的所有权先于新增边界逻辑。 | 待开始 |
 | AUDIT-004 Phase E | 预设永久身份与实时/离线执行闭包 | Phase A/C/D；先 ARCH-003，再 ARCH-004；发布/通知容量与监听器清理同步设计。 | 待开始 |
@@ -600,7 +600,7 @@ PHASE_A_PRIVATE_FILES_CLEAN=1
 
 **失败记录单列**：首轮应用编译暴露录制停止弹窗漏传新 generation 参数，补齐后最终构建和默认执行通过。探针最初沿用测试用 modal-loop helper，但 app 未定义该宏，改用上方原生 pump；只做进程 HKCU 注册表映射仍得到真实 CSIDL 路径，因此安全守卫拒绝构造 owner，并清理自有键/文件，再采用可验证的探针内路径定向。它们均不被隐藏为第一次即通过，不回写原审计或将路径隔离伪装为产品功能。
 
-### AUDIT-004 Phase B：文件准入与时间线数值安全 [待开始]
+### AUDIT-004 Phase B：文件准入与时间线数值安全 [已完成，2026-10-03]
 
 **目标**：畸形/部分文件在准入失败，不放大分配、不破坏当前 Take，不让无效时间线进入渲染。
 
@@ -610,12 +610,530 @@ PHASE_A_PRIVATE_FILES_CLEAN=1
 
 | 执行 | 原登记 ID | 原优先级 | 修复目标 | 可观察验收 |
 | --- | --- | --- | --- | --- |
-| [ ] | `SEC-003` | P1 | 原生 MIDI 编码信任未校验的解码长度前缀。解码前验证 JUCE 特有编码的长度、数据预算和负载一致性；校验解码后的 MIDI 帧形状并明确传播读取失败。 | 负/超额/不一致长度前缀及截断 MIDI 帧在分配/构造前拒绝，原 Take 保留；独立受限进程验证异常传播。 |
-| [ ] | `SEC-004` | P1 | 原生采样率/长度缺少可表示范围验证。准入时检查有限、支持范围的采样率、非负且一致的长度/时间戳；消费端使用检查后的比例和整数转换。 | 极小正率、非有限值、负/不一致长度或不可表示缩放被拒绝，正常录制和回放时长不变。 |
-| [ ] | `SEC-005` | P1 | 饱和时间戳后 +1/尾部采样加法仍溢出。在打开输出前验证最终事件与尾部长度均可表示；检查加法，不将转换饱和视为整个时间线已安全。 | INT64_MAX 最后事件、末尾 +1 和尾部相加均检查可表示性；不出现派生长度 1 或带损坏长度的输出。 |
-| [ ] | `SEC-006` | P1 | MIDI 拍号元数据未验证负载及位移指数。读取前验证固定宽度 meta 长度及拍号分母指数；畸形值拒绝/显式忽略并报告，不直接进入框架 accessor。 | 非法 0x58 长度/分母指数不进入未定义位移；合法拍号仍提取正确，异常 meta 策略有诊断。 |
-| [ ] | `QUAL-005` | P1 | 原生加载保留乱序事件但播放器假定有序。原生文件准入拒绝或稳定规范化非单调时间线；保留同采样语义顺序并测试真正播放/seek。 | 原生乱序事件明确拒绝或稳定规范化；真正回放和 seek 不静默漏掉早期 NoteOn。 |
-| [ ] | `ERR-004` | P2 | MIDI宽容尾字节也误接收缺失/截断轨。仅完整声明结构后额外后缀允许宽容，缺失/短chunk应拒绝且保留现有Take；保留真实CRLF后缀兼容。 | 缺第二声明轨或短 chunk 导入失败且旧 Take 不变；仅完整结构后的真实 CRLF 后缀可宽容。 |
+| [x] | `SEC-003` | P1 | 原生 MIDI 编码信任未校验的解码长度前缀。解码前验证 JUCE 特有编码的长度、数据预算和负载一致性；校验解码后的 MIDI 帧形状并明确传播读取失败。 | 负/超额/不一致长度前缀、截断帧在分配/构造前拒绝；256 MiB 独立子进程均返回 nullopt，无异常逃逸，原 Take/文件保留，见 EVID-012/016。 |
+| [x] | `SEC-004` | P1 | 原生采样率/长度缺少可表示范围验证。准入时检查有限、支持范围的采样率、非负且一致的长度/时间戳；消费端使用检查后的比例和整数转换。 | 极小正率、非有限值、负/不一致长度或不可表示缩放拒绝；正常录制/播放及 WAV 时长不变，原合成时间域回归保留，见 EVID-013。 |
+| [x] | `SEC-005` | P1 | 饱和时间戳后 +1/尾部采样加法仍溢出。在打开输出前验证最终事件与尾部长度均可表示；检查加法，不将转换饱和视为整个时间线已安全。 | 同率 INT64_MAX 最后事件与尾部相加拒绝，不打开输出；内置/插件路径保留原目标，MIDI writer 整数/VLQ 范围也在写出前检查，见 EVID-013。 |
+| [x] | `SEC-006` | P1 | MIDI 拍号元数据未验证负载及位移指数。读取前验证固定宽度 meta 长度及拍号分母指数；畸形值拒绝/显式忽略并报告，不直接进入框架 accessor。 | 非法 0x58 长度/指数、原始截断 meta VLQ 在 accessor 前拒绝并诊断；合法拍号正确，见 EVID-014。 |
+| [x] | `QUAL-005` | P1 | 原生加载保留乱序事件但播放器假定有序。原生文件准入拒绝或稳定规范化非单调时间线；保留同采样语义顺序并测试真正播放/seek。 | 乱序旧文件稳定规范化；实际播放交付早期 NoteOn，真实 seek 后同采样 Off/On 顺序保持，见 EVID-015。 |
+| [x] | `ERR-004` | P2 | MIDI宽容尾字节也误接收缺失/截断轨。仅完整声明结构后额外后缀允许宽容，缺失/短chunk应拒绝且保留现有Take；保留真实CRLF后缀兼容。 | 缺第二声明轨、短 chunk/事件及缺/提前 EOT 导入失败，旧 Take 不变；完整多轨+CRLF 正确提交，完整扩展块不抵充声明轨，见 EVID-014/016。 |
+
+#### Phase B 实施记录与直接验证（2026-10-03）
+
+**基线与范围**：`a8336e446b0ebc4fac37403335a1f3b3460009e7`（Phase A 本地交付）；仅本阶段六项、共享数值工具及直接文件/播放/渲染消费者。历史 AUDIT/ADR 保持原样，文件版本不变；Phase C 尚未启动。
+
+- `SEC-003`：原生文件/JSON 32 MiB、单帧 1 MiB、累计解码 32 MiB；在 JUCE 解码分配前线性检查长度前缀、精确字符数、字符表和填充位，构造消息前检查原始 MIDI 帧。文件/流长度、完整读取及状态不一致即失败；元数据失败也不替换当前会话。保存前使用同一帧/数值边界，避免写出自身无法准入的文件。
+- `SEC-004`：文件支持有限 8000–384000 Hz，整数长度/时间戳必须非负、一致且可表示。`TimelineValidation.h` 将文件策略与通用时间域检查分开，保留现有合成时间域回归；最坏设备倍率/0.5x 播放长度及块余量在结构提交前检查，非有限倍速拒绝。
+- `SEC-005`：`prepareRenderTimeline()` 完整检查目标缩放、最后事件 `+1` 与尾部加法后才打开 WAV 输出；两个渲染循环按实际 `blockEnd` 推进。MIDI 写出先验证 PPQ、JUCE `int` tick 和 4 字节 VLQ delta，不进入不满足前提的 writer 转换。旧饱和 API/callers/tests 完整切换，不留兼容别名。
+- `SEC-006 / ERR-004`：SMF 声明轨、chunk、VLQ、消息和 EOT 在 JUCE 前验证；time division 在 tick→秒入口验证，固定 meta 的长度/拍号指数在 accessor 前验证。已验证完整扩展块不抵充声明轨；仅有扩展块时规范化一次，普通路径不额外复制。完整结构后的 CRLF 保留，失败不提交新 Take。
+- `QUAL-005`：只在原生准入稳定规范化乱序事件，同采样顺序不变；序列化不复制并重排整个 Take。删除旧 fixture 的偶然原数组索引断言，不将其重新钉为新索引；保留真正播放/seek 和同采样顺序的回归。
+
+**可复核证据**：本表只记录本轮实际运行，不将次数/耗时作为长期门槛。最小输入和消费者调用都包含在下方完整探针源码中。
+
+| 证据 ID | 对应问题 / 类型 | 精确执行或输入 | 实际观察 | 证明边界 |
+| --- | --- | --- | --- | --- |
+| EVID-011 | 构建 / 默认门禁 | 复用 `build-win-msvc/audit004-phase0` Windows MSVC Debug 子树与 `/Zc:nrvo-`；构建 app/tests，默认 `ctest` 无 category/name 补跑。 | 最终构建通过；本次默认 98 套件、98,257 通过断言、零失败，Chord 完整执行；真实用户目录清单/属性/mtime/SHA256 一致，私有 TEMP/TMP 零残留。 | 原默认缓存失败不改写；未运行 Release/WSL 软件测试或全量 tidy，不宣称全项目 warning/tidy 清零。 |
+| EVID-012 | SEC-003；受限进程及文件确认 | 下方 14 个原生畸形输入；每个通过 Windows Job Object 在运行前附加 256 MiB committed memory 限制，5 秒等待；包括 `-1.`、超额前缀、短负载、填充位、截断帧及非法 meta。 | 子进程均正常返回 nullopt，无异常/崩溃退出；实际 `RecordingSession::openFromFile()` 拒绝，generation/绑定/元数据/音符和 A 原字节保持。 | 防止长度前缀放大，不在真实用户文件或无约束 OOM 进程上试验；有限预算不等于所有可用内存不足都已模拟。 |
+| EVID-013 | SEC-004/005；数值和输出消费者 | 极小/非有限率、负长度、越界/分数时间戳；48k→44.1k 的 2x resume；同率事件 MAX 与 LEN=MAX-88199 加两秒尾部；MIDI 巨大 tick。 | 正常 resume=11025、播放结束=22050、可听 WAV=132300 samples；拒绝保留原 WAV/MIDI 字节，未创建输出目录；默认插件测试的实际渲染函数也拒绝并保留目标。 | 最后事件 MAX 用同率输入验证 `+1` 溢出，不把下采样后仍可表示的超长值误称溢出。插件测试使用现有测试乐器，未验证真实厂商 VST3。 |
+| EVID-014 | SEC-006/ERR-004；标准 MIDI 文件与直接并轨 | 缺第二 MTrk、短 chunk/事件、非法 0x58 长度/指数、EOT 缺失或提前、原始 meta VLQ 截断；完整多轨+CRLF、完整扩展块。 | 畸形输入拒绝且有诊断；完整两轨+CRLF 的拍号 4/4、时长 24000 samples；默认回归验证扩展块不抵充声明轨及合法完整输入。 | 不以“已有任意轨有内容”推断完整；RIFF/SMPTE 既有支持保留，未声称任意外部制作器格式均已手工覆盖。 |
+| EVID-015 | QUAL-005；真实播放和 seek | 原生文件将未来 Off 放在 On@0 前面，Off@1000 和 On@1000 同采样；实际 `RecordingEngine::renderPlaybackBlock()` 与 request/apply seek。 | On@0 在首块交付；seek 到 1000 后顺序为 Off(60)→On(64)，不漏早期音符、不重排同采样语义。 | 本项验证准入排序，不关闭 Phase D 的末尾 NoteOff、pause 或发音身份问题。 |
+| EVID-016 | 六项；实际主界面与数据保护 | 私有 profile 验证 JUCE 解析路径后构造真实 MainComponent，实际 filesDropped 逐一投递坏原生/MIDI 文件，打开 Info；随后完整 CRLF 文件。 | 拒绝后 Info 仍为 `Kept take`；完整多轨提交为 `complete-crlf`；实际界面与弹窗 PNG 已直接检查，import slot 恢复、私有文件清理，真实用户目录未变。 | 仅进程内路径输入隔离，不是被测功能替代实现；未对原生系统文件选择器逐项人工操作。 |
+| EVID-017 | 环境 / 失败与纠正 | 见下方失败记录；format check 与 WSL configure-only。 | 格式通过，编译数据库刷新；最后增量构建未再出现本轮新增 C4244。codegraph 未挂载，LSP reload 后仍报告错误 include 路径并遗漏 references，已报告。 | MSVC 实际构建/消费者是证据；不把 LSP 失败伪装为零诊断，也不重跑已知 Phase G 全量 tidy 失败。 |
+
+**精确构建与默认运行**：先在 WSL 执行 `./scripts/dev.sh win-build --sync-only`。镜像 Developer PowerShell 保留现有子树，不清理原缓存：
+
+```powershell
+Set-Location 'G:\source\projects\devpiano'
+$build = 'build-win-msvc\audit004-phase0'
+cmake --build $build --target devpiano devpiano_tests --parallel 4
+```
+
+默认运行与独立程序的外层保护使用下方一次性脚本（保存为系统临时目录下的 `phaseb-windows.ps1`，不提交到产品）：`-Mode Test` 运行默认 ctest；`-Mode Smoke` 运行下方链接真实 app object 的独立程序。首次配置、`/Zc:nrvo-` 核对沿用 EVID-001 配方。
+
+```powershell
+param([ValidateSet('Build','Test','Smoke')][string]$Mode)
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
+$mirror = 'G:\source\projects\devpiano'
+$build = Join-Path $mirror 'build-win-msvc\audit004-phase0'
+$vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+$instances = @((& $vswhere -latest -products '*' -requires Microsoft.Component.MSBuild -format json) | ConvertFrom-Json)
+if ($LASTEXITCODE -ne 0 -or $instances.Count -ne 1) { throw 'VS discovery failed' }
+Import-Module (Join-Path $instances[0].installationPath 'Common7\Tools\Microsoft.VisualStudio.DevShell.dll') -Force
+Enter-VsDevShell -VsInstallPath $instances[0].installationPath -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64' | Out-Null
+Set-Location $mirror
+if ($Mode -eq 'Build') {
+    & cmake --build $build --target devpiano devpiano_tests --parallel 4
+    if ($LASTEXITCODE -ne 0) { throw "Debug build failed: $LASTEXITCODE" }
+    Write-Output 'PHASE_B_DEBUG_BUILD_PASSED=1'
+    exit 0
+}
+function Get-UserSnapshot([string]$Path) {
+    $rows = [System.Collections.Generic.List[object]]::new()
+    $exists = Test-Path -LiteralPath $Path
+    if ($exists) {
+        foreach ($entry in @(Get-Item -LiteralPath $Path -Force) + @(Get-ChildItem -LiteralPath $Path -Force -Recurse | Sort-Object FullName)) {
+            $hash = if ($entry.PSIsContainer) { '' } else { (Get-FileHash -LiteralPath $entry.FullName -Algorithm SHA256).Hash }
+            $length = if ($entry.PSIsContainer) { 0 } else { $entry.Length }
+            $rows.Add([ordered]@{ name=$entry.FullName; directory=$entry.PSIsContainer; length=$length; attributes=[int]$entry.Attributes; modified=$entry.LastWriteTimeUtc.Ticks; hash=$hash })
+        }
+    }
+    return (ConvertTo-Json -Depth 8 -Compress -InputObject ([ordered]@{ exists=$exists; rows=$rows.ToArray() }))
+}
+$userDir = Join-Path ([Environment]::GetFolderPath('ApplicationData')) 'DevPiano'
+$before = Get-UserSnapshot $userDir
+$private = Join-Path ([System.IO.Path]::GetTempPath()) ('devpiano-phaseb-' + [guid]::NewGuid().ToString('N'))
+[System.IO.Directory]::CreateDirectory($private) | Out-Null
+$oldTemp = $env:TEMP
+$oldTmp = $env:TMP
+$env:TEMP = $private
+$env:TMP = $private
+$exitCode = -1
+try {
+    if ($Mode -eq 'Test') {
+        & ctest --test-dir $build -C Debug --verbose 2>&1 | Tee-Object -FilePath (Join-Path $build 'phaseb-default-tests.log')
+        $exitCode = $LASTEXITCODE
+    } else {
+        & (Join-Path $build 'phaseb-smoke\phaseb_smoke.exe') 2>&1 | Tee-Object -FilePath (Join-Path $build 'phaseb-smoke.log')
+        $exitCode = $LASTEXITCODE
+    }
+} finally {
+    $env:TEMP = $oldTemp
+    $env:TMP = $oldTmp
+    $after = Get-UserSnapshot $userDir
+    $remaining = @(Get-ChildItem -LiteralPath $private -Force -Recurse).Count
+    $record = [ordered]@{ mode=$Mode; buildDir=$build; exitCode=$exitCode; userDirectory=$userDir; userDirectoryUnchanged=($before -ceq $after); privateTempDirectory=$private; remainingTempEntries=$remaining }
+    $record | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $build ('phaseb-' + $Mode.ToLowerInvariant() + '-verification.json')) -Encoding utf8
+    Write-Output ('PHASE_B_VERIFICATION=' + ($record | ConvertTo-Json -Compress))
+    if ($remaining -eq 0) { Remove-Item -LiteralPath $private }
+    if ($before -cne $after) { throw 'Protected real user directory changed' }
+    if ($remaining -ne 0) { throw 'Private scratch entries remain' }
+}
+if ($exitCode -ne 0) { throw "Consumer execution failed: $exitCode" }
+
+```
+
+**独立真实消费者源码**：保存为 `$build/phaseb-smoke/phaseb_smoke.cpp`。ProfileDirectoryScope 沿用 Phase A 的进程内 import slot 路径隔离，构造 owner 前检查实际 JUCE 路径，退出恢复；系统 profile、业务实现及子模块均不改。`--reject` 子模式只调用生产加载器；父模式在 CREATE_SUSPENDED 后先施加 Job Object 资源限制再恢复执行。
+
+参考官方契约：[JUCE MemoryBlock](https://docs.juce.com/master/classjuce_1_1MemoryBlock.html)、[MidiFile](https://docs.juce.com/master/classjuce_1_1MidiFile.html)、[Job Object extended limits](https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-jobobject_extended_limit_information)、[SetInformationJobObject](https://learn.microsoft.com/en-us/windows/win32/api/jobapi2/nf-jobapi2-setinformationjobobject)、[Windows import table](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#the-import-directory-table)。实际项目以本地 JUCE 子模块签名为准。
+
+```cpp
+#include <JuceHeader.h>
+#include "MainComponent.h"
+#include "Recording/PerformanceFile.h"
+#include "Recording/RecordingEngine.h"
+#include "Recording/RecordingSessionController.h"
+#include "Recording/MidiFileImporter.h"
+#include "Recording/RenderPipeline.h"
+#include "Recording/WavFileExporter.h"
+#include "Recording/MidiFileExporter.h"
+#include "Settings/SettingsModel.h"
+#include "Settings/SettingsStore.h"
+#include <windows.h>
+#include <shlobj.h>
+#include <cstring>
+#include <iostream>
+#include <limits>
+#include <stdexcept>
+
+namespace {
+void require(bool value, const char* message) {
+    if (!value) throw std::runtime_error(message);
+}
+void pump(int milliseconds = 100) {
+    const auto deadline = juce::Time::getMillisecondCounterHiRes() + milliseconds;
+    while (juce::Time::getMillisecondCounterHiRes() < deadline) {
+        MSG message {};
+        while (PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE)) {
+            TranslateMessage(&message);
+            DispatchMessageW(&message);
+        }
+        MsgWaitForMultipleObjects(0, nullptr, FALSE, 5, QS_ALLINPUT);
+    }
+}
+class PrivateDirectory {
+public:
+    PrivateDirectory() : directory(juce::File::getSpecialLocation(juce::File::tempDirectory)
+        .getChildFile("phaseb-consumer-" + juce::Uuid().toString())) {
+        require(!directory.exists() && directory.createDirectory().wasOk(), "owned directory creation failed");
+    }
+    ~PrivateDirectory() {
+        std::cout << "PHASE_B_PRIVATE_FILES_CLEAN=" << directory.deleteRecursively(false) << '\n';
+    }
+    juce::File getChildFile(const juce::String& name) const { return directory.getChildFile(name); }
+    const juce::File& get() const { return directory; }
+private:
+    juce::File directory;
+};
+class ProfileDirectoryScope {
+public:
+    ~ProfileDirectoryScope() {
+        if (slot == nullptr) return;
+        DWORD protection = 0;
+        const bool restored = VirtualProtect(slot, sizeof(*slot), PAGE_READWRITE, &protection) != FALSE;
+        if (restored) {
+            *slot = reinterpret_cast<ULONG_PTR>(original);
+            DWORD ignored = 0;
+            VirtualProtect(slot, sizeof(*slot), protection, &ignored);
+        }
+        std::cout << "PHASE_B_PROFILE_SCOPE_RESTORED=" << restored << '\n';
+    }
+    bool redirect(const juce::File& directory) {
+        privatePath = directory.getFullPathName().toWideCharPointer();
+        if (privatePath.size() >= MAX_PATH) return false;
+        auto* base = reinterpret_cast<BYTE*>(GetModuleHandleW(nullptr));
+        auto* dos = reinterpret_cast<IMAGE_DOS_HEADER*>(base);
+        auto* nt = reinterpret_cast<IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
+        const auto rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
+        if (rva == 0) return false;
+        auto* imports = reinterpret_cast<IMAGE_IMPORT_DESCRIPTOR*>(base + rva);
+        for (; imports->Name != 0; ++imports) {
+            if (imports->OriginalFirstThunk == 0) continue;
+            auto* names = reinterpret_cast<IMAGE_THUNK_DATA*>(base + imports->OriginalFirstThunk);
+            auto* entries = reinterpret_cast<IMAGE_THUNK_DATA*>(base + imports->FirstThunk);
+            for (; names->u1.AddressOfData != 0; ++names, ++entries) {
+                if (IMAGE_SNAP_BY_ORDINAL(names->u1.Ordinal)) continue;
+                auto* imported = reinterpret_cast<IMAGE_IMPORT_BY_NAME*>(base + names->u1.AddressOfData);
+                if (std::strcmp(imported->Name, "SHGetSpecialFolderPathW") != 0) continue;
+                auto* candidate = &entries->u1.Function;
+                DWORD protection = 0;
+                if (!VirtualProtect(candidate, sizeof(*candidate), PAGE_READWRITE, &protection)) return false;
+                original = reinterpret_cast<NativeFolder>(static_cast<ULONG_PTR>(*candidate));
+                *candidate = reinterpret_cast<ULONG_PTR>(&privateFolder);
+                DWORD ignored = 0;
+                VirtualProtect(candidate, sizeof(*candidate), protection, &ignored);
+                slot = candidate;
+                return true;
+            }
+        }
+        return false;
+    }
+private:
+    using NativeFolder = BOOL (WINAPI*)(HWND, LPWSTR, int, BOOL);
+    static BOOL WINAPI privateFolder(HWND window, LPWSTR destination, int kind, BOOL create) {
+        if (kind != CSIDL_APPDATA) return original(window, destination, kind, create);
+        std::copy(privatePath.begin(), privatePath.end(), destination);
+        destination[privatePath.size()] = 0;
+        return TRUE;
+    }
+    ULONG_PTR* slot = nullptr;
+    static inline NativeFolder original = nullptr;
+    static inline std::wstring privatePath;
+};
+
+template <typename T> T* find(juce::Component& root, const juce::String& id) {
+    if (root.getComponentID() == id) {
+        if (auto* found = dynamic_cast<T*>(&root)) return found;
+    }
+    for (int i = 0; i < root.getNumChildComponents(); ++i) {
+        if (auto* found = find<T>(*root.getChildComponent(i), id)) return found;
+    }
+    return nullptr;
+}
+template <typename T> T* findType(juce::Component& root) {
+    if (auto* found = dynamic_cast<T*>(&root)) return found;
+    for (int i = 0; i < root.getNumChildComponents(); ++i) {
+        if (auto* found = findType<T>(*root.getChildComponent(i))) return found;
+    }
+    return nullptr;
+}
+juce::Component& modal() {
+    auto* component = juce::Component::getCurrentlyModalComponent();
+    require(component != nullptr, "missing real modal");
+    return *component;
+}
+void click(juce::Component& root, const juce::String& id) {
+    auto* button = find<juce::Button>(root, id);
+    require(button != nullptr && button->isEnabled(), "missing or disabled real button");
+    button->triggerClick();
+    pump();
+}
+class ModalCleanup {
+public:
+    ~ModalCleanup() {
+        while (auto* component = juce::Component::getCurrentlyModalComponent()) component->exitModalState(0);
+        pump();
+    }
+};
+void snapshot(juce::Component& component, const juce::File& output) {
+    auto image = component.createComponentSnapshot(component.getLocalBounds());
+    juce::FileOutputStream stream(output);
+    require(stream.openedOk(), "snapshot open failed");
+    require(juce::PNGImageFormat().writeImageToStream(image, stream), "snapshot encode failed");
+}
+
+using namespace devpiano::recording;
+RecordingTake normalTake() {
+    RecordingTake result;
+    result.sampleRate = 48000.0;
+    result.lengthSamples = 48000;
+    result.events = {
+        { 0, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard, juce::MidiMessage::noteOn(1, 64, 0.8f) },
+        { 24000, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard, juce::MidiMessage::noteOff(1, 64) }
+    };
+    return result;
+}
+juce::String encoded(std::initializer_list<uint8_t> bytes) {
+    return juce::MemoryBlock(bytes.begin(), bytes.size()).toBase64Encoding();
+}
+juce::String nativeJson(const juce::String& midi, const juce::String& rate = "48000", const juce::String& length = "48000", const juce::String& timestamp = "0") {
+    return "{\"version\":2,\"format\":\"devpiano-performance\",\"sampleRate\":" + rate
+        + ",\"lengthSamples\":" + length + ",\"events\":[{\"timestampSamples\":" + timestamp
+        + ",\"type\":\"midi\",\"midiData\":\"" + midi + "\"}]}";
+}
+class WinHandle {
+public:
+    explicit WinHandle(HANDLE value) : handle(value) {}
+    ~WinHandle() { if (handle != nullptr && handle != INVALID_HANDLE_VALUE) CloseHandle(handle); }
+    WinHandle(const WinHandle&) = delete;
+    WinHandle& operator=(const WinHandle&) = delete;
+    HANDLE handle;
+};
+void limitedReject(const juce::File& input) {
+    WinHandle job(CreateJobObjectW(nullptr, nullptr));
+    require(job.handle != nullptr, "job creation failed");
+    JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits {};
+    limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_PROCESS_MEMORY | JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+    limits.ProcessMemoryLimit = 256ULL * 1024 * 1024;
+    require(SetInformationJobObject(job.handle, JobObjectExtendedLimitInformation, &limits, sizeof(limits)) != FALSE, "job memory limit failed");
+    const auto exe = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getFullPathName();
+    const auto command = "\"" + exe + "\" --reject \"" + input.getFullPathName() + "\"";
+    std::wstring mutableCommand(command.toWideCharPointer());
+    STARTUPINFOW startup {};
+    startup.cb = sizeof(startup);
+    PROCESS_INFORMATION process {};
+    require(CreateProcessW(exe.toWideCharPointer(), mutableCommand.data(), nullptr, nullptr, FALSE,
+                           CREATE_SUSPENDED | CREATE_NO_WINDOW, nullptr, nullptr, &startup, &process) != FALSE, "child creation failed");
+    WinHandle child(process.hProcess);
+    WinHandle thread(process.hThread);
+    if (AssignProcessToJobObject(job.handle, child.handle) == FALSE) {
+        TerminateProcess(child.handle, 125);
+        throw std::runtime_error("child job assignment failed");
+    }
+    require(ResumeThread(thread.handle) != static_cast<DWORD>(-1), "child resume failed");
+    require(WaitForSingleObject(child.handle, 5000) == WAIT_OBJECT_0, "bounded child timed out");
+    DWORD code = 0;
+    require(GetExitCodeProcess(child.handle, &code) != FALSE && code == 0, "bounded child rejected via exception/crash instead of nullopt");
+}
+juce::File writeHex(const juce::File& directory, const juce::String& name, const char* hex) {
+    juce::MemoryBlock bytes;
+    bytes.loadFromHexString(hex);
+    const auto output = directory.getChildFile(name);
+    require(output.replaceWithData(bytes.getData(), bytes.getSize()), "binary fixture write failed");
+    return output;
+}
+struct InputFiles {
+    juce::File native;
+    juce::File legalMidi;
+    std::vector<juce::File> rejected;
+};
+InputFiles exerciseAdmission(const juce::File& directory) {
+    InputFiles files;
+    files.native = directory.getChildFile("kept.devpiano");
+    PerformanceFileMetadata metadata;
+    metadata.title = "Kept take";
+    require(savePerformanceFile(normalTake(), files.native, metadata), "native seed failed");
+    const auto originalBytes = files.native.loadFileAsString();
+    RecordingSessionController::RecordingSession session;
+    require(session.openFromFile(files.native), "valid session admission failed");
+    const auto generation = session.takeGeneration;
+    const auto goodMidi = encoded({ 0x90, 64, 100 });
+    std::cout << "PHASE_B_ENCODING noteOn=" << encoded({ 0x90, 0x3c, 0x64 })
+              << " noteOff=" << encoded({ 0x80, 0x3c, 0x00 }) << '\n';
+    const std::vector<juce::String> malformed = {
+        nativeJson("-1."), nativeJson("2147483647."), nativeJson("3.A"), nativeJson("3.@@@@"),
+        nativeJson("1.AD"), nativeJson(encoded({ 0x90, 64 })), nativeJson(encoded({ 0x90, 0x80, 100 })),
+        nativeJson(encoded({ 0xFF, 0x58, 4, 4, 255, 24, 8 })), nativeJson(goodMidi, "1e-300"),
+        nativeJson(goodMidi, "1e309"), nativeJson(goodMidi, "48000", "-1"),
+        nativeJson(goodMidi, "48000", "9223372036854775807"), nativeJson(goodMidi, "48000", "48000", "48001"),
+        nativeJson(goodMidi, "48000", "48000", "0.5")
+    };
+    for (size_t i = 0; i < malformed.size(); ++i) {
+        const auto input = directory.getChildFile("reject-" + juce::String(static_cast<int>(i)) + ".devpiano");
+        require(input.replaceWithText(malformed[i]), "native fixture write failed");
+        limitedReject(input);
+        require(!session.openFromFile(input), "malformed native file admitted");
+        require(session.takeGeneration == generation && session.currentPerformanceFile == files.native
+                && session.currentMetadata.title == metadata.title && session.take.events.front().message.getNoteNumber() == 64,
+                "failed native admission changed owned take");
+        files.rejected.push_back(input);
+    }
+    require(files.native.loadFileAsString() == originalBytes, "failed admission modified original native bytes");
+    const char* headerTwo = "4D546864000000060001000201E04D54726B0000000D00903C648360803C0000FF2F00";
+    files.rejected.push_back(writeHex(directory, "missing-track.mid", headerTwo));
+    files.rejected.push_back(writeHex(directory, "short-chunk.mid", "4D546864000000060000000101E04D54726B0000004000903C6400803C0000FF"));
+    files.rejected.push_back(writeHex(directory, "short-event.mid", "4D546864000000060000000101E04D54726B0000000300903C"));
+    files.rejected.push_back(writeHex(directory, "invalid-meter.mid", "4D546864000000060000000101E04D54726B0000000C00FF580404FF180800FF2F00"));
+    files.rejected.push_back(writeHex(directory, "short-meter.mid", "4D546864000000060000000101E04D54726B0000000A00FF5802040200FF2F00"));
+    for (const auto& input : files.rejected) {
+        if (input.hasFileExtension("mid")) require(!importMidiFileWithMetadata(input, 48000.0), "partial MIDI admitted");
+    }
+    files.legalMidi = writeHex(directory, "complete-crlf.mid", "4D546864000000060001000201E04D54726B0000001300FF58040402180800FF510307A12000FF2F004D54726B0000000D00903C648360803C0000FF2F000D0A");
+    const auto imported = importMidiFileWithMetadata(files.legalMidi, 48000.0);
+    require(imported.has_value() && imported->stats.trackCount == 2 && imported->metadata.initialTimeSignature.has_value(), "complete multitrack CRLF import failed");
+    require(imported->metadata.initialTimeSignature->numerator == 4 && imported->metadata.initialTimeSignature->denominator == 4, "legal meter wrong");
+    require(imported->take.lengthSamples == 24000, "normal MIDI duration changed");
+    std::cout << "PHASE_B_ADMISSION limited_native=14 memory_limit_mib=256 nullopt_without_exception=1 retained_take=1 retained_file=1 incomplete_midi_rejected=1 complete_crlf=1 legal_meter=1\n";
+    return files;
+}
+void exercisePlayback(const juce::File& directory) {
+    auto take = normalTake();
+    take.lengthSamples = 48000;
+    take.events = {
+        { 1000, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard, juce::MidiMessage::noteOff(1, 60) },
+        { 0, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard, juce::MidiMessage::noteOn(1, 60, 0.8f) },
+        { 1000, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard, juce::MidiMessage::noteOn(1, 64, 0.8f) }
+    };
+    const auto unordered = directory.getChildFile("legacy-unordered.devpiano");
+    require(unordered.replaceWithText(serialiseTakeToJson(take)), "legacy input write failed");
+    const auto loaded = loadPerformanceFile(unordered);
+    require(loaded.has_value(), "legacy unordered admission failed");
+    RecordingEngine engine;
+    engine.startPlayback(*loaded, 48000.0);
+    juce::MidiBuffer buffer;
+    engine.renderPlaybackBlock(buffer, 0, 128);
+    bool firstNoteOn = false;
+    for (const auto event : buffer) firstNoteOn = event.getMessage().isNoteOn();
+    require(buffer.getNumEvents() == 1 && firstNoteOn, "early note silently missed");
+    engine.requestPlaybackSeek(1000);
+    buffer.clear();
+    require(engine.applyPendingPlaybackSeek(buffer), "seek not consumed");
+    buffer.clear();
+    engine.renderPlaybackBlock(buffer, 1000, 128);
+    std::vector<int> order;
+    for (const auto event : buffer) order.push_back(event.getMessage().isNoteOff() ? -event.getMessage().getNoteNumber() : event.getMessage().getNoteNumber());
+    require(order == std::vector<int>({-60, 64}), "stable equal-sample MIDI order lost after real seek");
+    take = normalTake();
+    take.events[0].timestampSamples = 24000;
+    take.events[1].timestampSamples = 30000;
+    engine.setPlaybackSpeedMultiplier(2.0);
+    engine.startPlaybackAtTakeSample(take, 44100.0, 24000);
+    require(engine.getPlaybackPositionSamples() == 11025, "scaled resume changed");
+    buffer.clear();
+    engine.renderPlaybackBlock(buffer, 11025, 128);
+    require(buffer.getNumEvents() == 1, "normal scaled playback wrong");
+    engine.advancePlaybackPosition(11025);
+    require(engine.consumePlaybackEndedFlag() && engine.getPlaybackPositionSamples() == 22050, "normal scaled duration changed");
+    std::cout << "PHASE_B_PLAYBACK unordered_normalized=1 early_note=1 real_seek=1 equal_sample_order=1 scaled_resume=11025 scaled_duration=22050\n";
+}
+void exerciseRendering(const juce::File& directory) {
+    auto take = normalTake();
+    devpiano::exporting::WavExportOptions options;
+    options.sampleRate = 44100.0;
+    options.builtinTone = SettingsModel::BuiltinTone::sine;
+    options.reverbWet = 0.0f;
+    const auto target = directory.getChildFile("valid.wav");
+    require(devpiano::exporting::exportTakeAsWavFile(take, target, options), "normal WAV failed");
+    juce::WavAudioFormat format;
+    std::unique_ptr<juce::AudioFormatReader> reader(format.createReaderFor(target.createInputStream().release(), true));
+    require(reader != nullptr && reader->sampleRate == 44100.0 && reader->lengthInSamples == 132300, "normal WAV duration wrong");
+    juce::AudioBuffer<float> samples(2, 4096);
+    require(reader->read(&samples, 0, 4096, 4096, true, true) && samples.getMagnitude(0, 4096) > 0.001f, "normal WAV payload silent");
+    reader.reset();
+    juce::MemoryBlock original;
+    require(target.loadFileAsData(original), "render snapshot failed");
+    const auto sameBytes = [&] { juce::MemoryBlock current; return target.loadFileAsData(current) && current == original; };
+    take.sampleRate = options.sampleRate;
+    take.lengthSamples = std::numeric_limits<std::int64_t>::max();
+    take.events.back().timestampSamples = take.lengthSamples;
+    require(!devpiano::exporting::exportTakeAsWavFile(take, target, options) && sameBytes(), "final event overflow touched output");
+    take.events.back().timestampSamples = 24000;
+    take.sampleRate = 44100.0;
+    take.lengthSamples = std::numeric_limits<std::int64_t>::max() - 88199;
+    require(!devpiano::exporting::exportTakeAsWavFile(take, target, options) && sameBytes(), "tail overflow touched output");
+    take = normalTake(); take.sampleRate = 1e-300;
+    const auto untouched = directory.getChildFile("uncreated").getChildFile("invalid.wav");
+    require(!devpiano::exporting::exportTakeAsWavFile(take, untouched, options) && !untouched.getParentDirectory().exists(), "invalid rate created output directory");
+    const auto midiTarget = directory.getChildFile("valid.mid");
+    require(devpiano::exporting::exportTakeAsMidiFile(normalTake(), midiTarget), "normal MIDI export failed");
+    require(importMidiFile(midiTarget, 48000.0).has_value(), "normal MIDI export did not reimport");
+    juce::MemoryBlock midiOriginal;
+    require(midiTarget.loadFileAsData(midiOriginal), "MIDI snapshot failed");
+    auto midiTake = normalTake();
+    midiTake.lengthSamples = 48000LL * 1000000;
+    midiTake.events.back().timestampSamples = midiTake.lengthSamples;
+    require(!devpiano::exporting::exportTakeAsMidiFile(midiTake, midiTarget), "unrepresentable MIDI ticks admitted");
+    juce::MemoryBlock midiCurrent;
+    require(midiTarget.loadFileAsData(midiCurrent) && midiCurrent == midiOriginal, "MIDI rejection modified original bytes");
+    std::cout << "PHASE_B_MIDI_EXPORT real_roundtrip=1 writer_tick_limit_checked=1 original_bytes_retained=1\n";
+    std::cout << "PHASE_B_RENDER wav_duration=132300 audible=1 final_plus_one_rejected=1 tail_add_rejected=1 original_bytes_retained=1 output_not_opened=1\n";
+}
+void exerciseOwner(const InputFiles& files) {
+    SettingsModel settings;
+    settings.languageCode = "en";
+    settings.masterGain = 0.0f;
+    settings.metronomeEnabled = false;
+    { SettingsStore store; require(store.save(settings), "private settings seed failed"); }
+    MainComponent owner;
+    ModalCleanup cleanup;
+    owner.setSize(1280, 800);
+    owner.addToDesktop(juce::ComponentPeer::windowIsTemporary);
+    owner.setVisible(true);
+    pump(200);
+    owner.filesDropped(juce::StringArray{files.native.getFullPathName()}, 0, 0); pump();
+    for (const auto& input : files.rejected) {
+        owner.filesDropped(juce::StringArray{input.getFullPathName()}, 0, 0); pump(20);
+        click(owner, "song-info-btn");
+        auto* title = find<juce::TextEditor>(modal(), "title-editor");
+        require(title != nullptr && title->getText() == "Kept take", "actual file rejection replaced current take title");
+        click(modal(), "dialog-cancel-btn");
+    }
+    const auto images = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
+    snapshot(owner, images.getChildFile("phaseb-rejection-retained-take.png"));
+    owner.filesDropped(juce::StringArray{files.legalMidi.getFullPathName()}, 0, 0); pump();
+    click(owner, "song-info-btn");
+    auto* title = find<juce::TextEditor>(modal(), "title-editor");
+    require(title != nullptr && title->getText() == "complete-crlf", "actual complete MIDI import rejected");
+    snapshot(modal(), images.getChildFile("phaseb-accepted-crlf-info.png"));
+    click(modal(), "dialog-cancel-btn");
+    std::cout << "PHASE_B_UI real_files_dropped=1 rejected_title_retained=1 valid_multitrack_crlf_committed=1 private_profile=1\n";
+}
+}
+int main(int argc, char** argv) {
+    try {
+        std::cout << std::unitbuf;
+        if (argc == 3 && std::strcmp(argv[1], "--reject") == 0) {
+            return loadPerformanceFile(juce::File(argv[2])).has_value() ? 2 : 0;
+        }
+        PrivateDirectory privateDirectory;
+        const auto roaming = privateDirectory.getChildFile("Roaming");
+        require(roaming.createDirectory().wasOk(), "private profile creation failed");
+        ProfileDirectoryScope profile;
+        require(profile.redirect(roaming), "private profile redirect failed");
+        require(juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory) == roaming, "unsafe real profile; owner not constructed");
+        juce::ScopedJuceInitialiser_GUI gui;
+        const auto files = exerciseAdmission(privateDirectory.get());
+        exercisePlayback(privateDirectory.get());
+        exerciseRendering(privateDirectory.get());
+        exerciseOwner(files);
+        return 0;
+    } catch (const std::exception& error) {
+        std::cerr << "PHASE_B_SMOKE_ERROR=" << error.what() << '\n';
+        return 1;
+    }
+}
+
+```
+
+**独立程序构建/执行配方**（只读借用 app 构建参数，不替换被测实现）：
+
+1. 读取此树 `compile_commands.json` 中 `MainComponent.cpp` 唯一 command，保留所有定义/include/PCH/运行库与 `/Zc:nrvo-`；仅替换末尾 `-c` 源 token、`/Fo`、`/Fd` 为 `phaseb-smoke/phaseb_smoke.cpp/.obj` 和 compile PDB，写 `phaseb-smoke/compile-smoke.cmd`。
+2. `phaseb-smoke.ninja` 中 `include build.ninja`，复制 `DevPiano.exe` 的真实 linker rule、全部输入与库，仅去掉 `source/Main.cpp.obj` 入口，加入探针 object；`/subsystem:windows` 改为 `/subsystem:console`。不去掉任何其他业务/JUCE object，不链接 UnitTest 替代实现。
+3. 将 `OBJECT_DIR`、`TARGET_SUPPORT_DIR`、`TARGET_COMPILE_PDB`、`TARGET_FILE`、`TARGET_IMPLIB`、`TARGET_PDB`、`RSP_FILE` 定向到自有 `phaseb-smoke` 目录，保留其余 CONFIG/FLAGS/LINK_LIBRARIES/PRE_LINK/POST_BUILD。不覆盖原 app edge/response file。
+4. 在该构建树执行 `cmd.exe /D /C phaseb-smoke\compile-smoke.cmd`；从 `CMakeCache.txt` 的 `CMAKE_MAKE_PROGRAM` 取 Ninja，执行 `ninja -f phaseb-smoke.ninja phaseb-smoke/phaseb_smoke.exe`。用上方保护脚本 `-Mode Smoke` 运行，观察零退出码及下方标记；`-Mode Test` 必须使用默认全套入口。
+5. 保存事实与本段完整输入后清理一次性源码/程序、Ninja 扩展、调试辅助及私有临时目录，不清理构建缓存/真实用户数据。此段不依赖临时 GUID 路径继续存在。
+
+```text
+PHASE_B_ENCODING noteOn=3.PxCY noteOff=3..xC.
+PHASE_B_ADMISSION limited_native=14 memory_limit_mib=256 nullopt_without_exception=1 retained_take=1 retained_file=1 incomplete_midi_rejected=1 complete_crlf=1 legal_meter=1
+PHASE_B_PLAYBACK unordered_normalized=1 early_note=1 real_seek=1 equal_sample_order=1 scaled_resume=11025 scaled_duration=22050
+PHASE_B_MIDI_EXPORT real_roundtrip=1 writer_tick_limit_checked=1 original_bytes_retained=1
+PHASE_B_RENDER wav_duration=132300 audible=1 final_plus_one_rejected=1 tail_add_rejected=1 original_bytes_retained=1 output_not_opened=1
+PHASE_B_UI real_files_dropped=1 rejected_title_retained=1 valid_multitrack_crlf_committed=1 private_profile=1
+PHASE_B_PROFILE_SCOPE_RESTORED=1
+PHASE_B_PRIVATE_FILES_CLEAN=1
+```
+
+**失败记录单列**：首轮 MSVC 发现 `ssize_t` 非跨平台全局类型；核对本地 JUCE 后改为在已验证 32 MiB 范围内使用 `std::ptrdiff_t`，新增 optional 窄化 C4244 使用明确 uint8_t 常量消除。首轮默认测试 33 个失败断言来自物理率策略误伤通用合成播放（32）及扩展块虽预检完整但 JUCE 按 chunk 计轨（1）；修正分层/规范化，保留原播放/循环断言，不改成新的期望值。首次独立探针误用 48k→44.1k 下采样的 MAX 输入作为必溢出案例，缩放后仍可表示，导致极长渲染超时；Windows 栈确认在实际 WAV 写出/limiter，停止的仅是已核对命令行的自有 probe，清理其约 44.7 GB 临时 WAV 及私有目录。随后按原边界改为同率 MAX，启用即时 stdout；最终源码、零退出与保护结果见上，不把此探针构造错误写成产品溢出反证或隐去临时资源风险。
 
 ### AUDIT-004 Phase C：插件与活动 DSP / Transport 所有权 [待开始]
 
