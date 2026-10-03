@@ -40,6 +40,15 @@ RecordingSessionController::~RecordingSessionController() {
         *aliveFlag_ = false;
     }
 }
+bool RecordingSessionController::prepareForShutdown() {
+    *aliveFlag_ = false;
+    cancelCountIn();
+    if (activeWavExportTask == nullptr) {
+        return true;
+    }
+    activeWavExportTask->requestCancellation();
+    return !activeWavExportTask->isRunning();
+}
 
 void RecordingSessionController::handleRecordClicked() {
     if (cancelCountIn(true)) {
@@ -63,7 +72,6 @@ void RecordingSessionController::handleRecordClicked() {
         return;
     }
 
-    recordingEngine.clear();
     idleSeekPositionSamples.reset();
     pausedPlaybackCursor.reset();
     recordingSession.detachForNewRecording();
@@ -92,14 +100,15 @@ void RecordingSessionController::handlePlayClicked() {
         recordingSession.state = ui::RecordingState::playing;
         break;
     case RecordingFlowCommand::pausePlayback: {
-        audioEngine.requestAllNotesOff();
-        recordingEngine.pausePlayback();
-        const auto runtimeSampleRate = getCurrentRuntimeSampleRate();
-        const auto sampleRateRatio = recordingSession.take.sampleRate > 0.0 && runtimeSampleRate > 0.0
-            ? runtimeSampleRate / recordingSession.take.sampleRate
-            : 1.0;
-        pausedPlaybackCursor = { recordingEngine.getPlaybackPositionSamples(),
-                                 sampleRateRatio / recordingEngine.getPlaybackSpeedMultiplier() };
+        owner.runPluginActionWithAudioDeviceRebuild([this](const MainComponent::RuntimeAudioConfig& config) {
+            recordingEngine.applyPendingTransportCommandsQuiescent();
+            recordingEngine.pausePlayback();
+            const auto sampleRateRatio = recordingSession.take.sampleRate > 0.0 && config.sampleRate > 0.0
+                ? config.sampleRate / recordingSession.take.sampleRate
+                : 1.0;
+            pausedPlaybackCursor = { recordingEngine.getPlaybackPositionSamples(),
+                                     sampleRateRatio / recordingEngine.getEffectivePlaybackSpeedMultiplier() };
+        });
         recordingSession.state = ui::RecordingState::playingPaused;
         break;
     }
@@ -513,6 +522,7 @@ void RecordingSessionController::startInternalRecording(std::size_t expectedEven
                                                     : defaultRecordingEventsPerSecond * defaultRecordingCapacitySeconds;
 
     owner.runPluginActionWithAudioDeviceRebuild([this, capacity](const MainComponent::RuntimeAudioConfig& config) {
+        recordingEngine.clear();
         recordingEngine.reserveEvents(capacity);
         recordingEngine.startRecording(config.sampleRate);
     });
@@ -564,9 +574,8 @@ void RecordingSessionController::startInternalPlayback(const RecordingTake& take
 }
 
 void RecordingSessionController::stopInternalPlayback() {
-    DP_LOG_INFO("[Playback] stopInternalPlayback: calling requestAllNotesOff then stopPlayback");
-    audioEngine.requestAllNotesOff();
-    recordingEngine.stopPlayback();
+    DP_LOG_INFO("[Playback] stopInternalPlayback: publishing block-boundary stop");
+    recordingEngine.requestPlaybackStop();
     pausedPlaybackCursor.reset();
 
     DP_LOG_INFO("[Playback] Internal playback stopped");
@@ -787,7 +796,6 @@ void RecordingSessionController::checkCountIn() {
         } else {
             idleSeekPositionSamples.reset();
             pausedPlaybackCursor.reset();
-            recordingEngine.clear();
             recordingSession.detachForNewRecording();
             startInternalRecording(0);
             recordingSession.state = ui::RecordingState::recording;

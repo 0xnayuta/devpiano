@@ -37,18 +37,19 @@ public:
 private:
     void restorePluginScanPathOnStartup(const StartupPluginRestorePlan& plan);
     void restoreLastPluginOnStartup(const StartupPluginRestorePlan& plan);
-    void restorePluginByNameOnStartup(const juce::String& pluginName);
+    void restorePluginByIdentifierOnStartup(const juce::String& identifier);
 
     [[nodiscard]] juce::FileSearchPath resolvePluginScanPath() const;
-    [[nodiscard]] juce::String getSelectedPluginNameForLoad() const;
-    void loadPluginByNameAndCommitState(const juce::String& pluginName);
+    [[nodiscard]] juce::String getSelectedPluginIdentifierForLoad() const;
+    void loadPluginByIdentifierAndCommitState(const juce::String& identifier);
     void unloadPluginAndCommitState();
 
     [[nodiscard]] std::unique_ptr<juce::AudioProcessorEditor> tryCreatePluginEditor() const;
     void handlePluginEditorWindowClosedAsync();
     void openPluginEditorWindow(std::unique_ptr<juce::AudioProcessorEditor> editor);
 
-    void scanPluginsAtPathAndApplyRecoveryState(const juce::FileSearchPath& path, const juce::String& lastPluginName);
+    void scanPluginsAtPathAndApplyRecoveryState(const juce::FileSearchPath& path,
+                                                const juce::String& lastPluginIdentifier);
     void scanPluginsAtPathAndCommitState(const juce::FileSearchPath& path);
 
     void commitPluginRecoveryStateAndFinishUi(const SettingsModel::PluginRecoverySettingsView& pluginRecovery,
@@ -64,7 +65,7 @@ private:
     std::unique_ptr<PluginEditorWindow> pluginEditorWindow;
 
     juce::FileSearchPath pendingScanPath;
-    juce::String pendingScanLastPluginName;
+    juce::String pendingScanLastPluginIdentifier;
     bool scanStepInProgress = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginOperationController)

@@ -35,8 +35,7 @@ public:
     void cancelVst3ScanSession();
 
     juce::StringArray getKnownPluginNames() const;
-    juce::StringArray getInstrumentPluginNames() const;
-    juce::StringArray getEffectPluginNames() const;
+    juce::Array<juce::PluginDescription> getKnownPluginDescriptions() const;
     juce::String getLastScanSummary() const;
     int getLastScanPluginCount() const noexcept {
         return lastScanPluginCount;
@@ -48,9 +47,7 @@ public:
         return isScanning;
     }
 
-    // Scans a single .vst3 file and adds it to the known plugin list (without clearing existing entries).
-    // Returns the real plugin names extracted from the file metadata.
-    juce::StringArray addVst3FileToKnownList(const juce::File& vst3File);
+    juce::Array<juce::PluginDescription> addVst3FileToKnownList(const juce::File& vst3File);
     juce::String getScanningPluginName() const noexcept {
         return scanningPluginName;
     }
@@ -69,8 +66,8 @@ public:
     bool restoreKnownPluginListFromXml(const juce::XmlElement& xml);
     void markPluginScanSkipped(juce::String reason);
 
-    bool loadPluginByName(const juce::String& pluginName, double initialSampleRate = 48000.0,
-                          int initialBufferSize = 128);
+    bool loadPluginByIdentifier(const juce::String& identifier, double initialSampleRate = 48000.0,
+                                int initialBufferSize = 128);
     bool loadPluginByDescription(const juce::PluginDescription& description, double initialSampleRate = 48000.0,
                                  int initialBufferSize = 128);
     bool prepareToPlay(double sampleRate, int blockSize);
@@ -81,6 +78,7 @@ public:
     [[nodiscard]] bool isPrepared() const noexcept;
     [[nodiscard]] juce::AudioPluginInstance* getInstance() const noexcept;
     [[nodiscard]] juce::String getCurrentPluginName() const;
+    [[nodiscard]] juce::String getCurrentPluginIdentifier() const;
     [[nodiscard]] juce::String getLastLoadError() const;
     [[nodiscard]] double getPreparedSampleRate() const noexcept;
     [[nodiscard]] int getPreparedBlockSize() const noexcept;

@@ -11,7 +11,7 @@
 #include <JuceHeader.h>
 
 //==============================================================================
-class DevPianoApplication : public juce::JUCEApplication {
+class DevPianoApplication : public juce::JUCEApplication, private juce::Timer {
 public:
     //==============================================================================
     DevPianoApplication() = default;
@@ -41,12 +41,23 @@ public:
     }
 
     void shutdown() override {
+        stopTimer();
         mainWindow = nullptr;
     }
 
     //==============================================================================
     void systemRequestedQuit() override {
-        quit();
+        auto* mainComponent
+            = mainWindow != nullptr ? dynamic_cast<MainComponent*>(mainWindow->getContentComponent()) : nullptr;
+        if (mainComponent == nullptr || mainComponent->prepareForShutdown()) {
+            stopTimer();
+            quit();
+        } else {
+            startTimerHz(30);
+        }
+    }
+    void timerCallback() override {
+        systemRequestedQuit();
     }
 
     void anotherInstanceStarted(const juce::String& commandLine) override {

@@ -161,6 +161,7 @@ public:
     void clearPlaybackLoop();
     [[nodiscard]] PlaybackTimelineSnapshot getPlaybackTimelineSnapshot() const noexcept;
 
+    [[nodiscard]] bool prepareForShutdown();
     // Called from MainComponent::timerCallback() to check if playback ended.
     void checkPlaybackEnded();
     std::function<void(const juce::File&)> onFileOpened;

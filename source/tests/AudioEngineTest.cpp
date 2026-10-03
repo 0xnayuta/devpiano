@@ -490,7 +490,7 @@ public:
             expect(!engine.getKeyboardState().isNoteOn(1, 60), "Channel 1 note 60 should NOT be on");
             expect(engine.getKeyboardState().isNoteOn(10, 36), "Channel 10 drum note 36 must NOT be transposed");
             expect(!engine.getKeyboardState().isNoteOn(10, 38), "Channel 10 note 38 should NOT be on");
-            rec.stopPlayback();
+            rec.stopPlaybackQuiescent();
         }
 
         beginTest("playback transpose respects custom per-channel mask overrides");
@@ -533,7 +533,7 @@ public:
             expect(engine.getKeyboardState().isNoteOn(10, 39), "Channel 10 note 36 should be transposed to 39");
             expect(!engine.getKeyboardState().isNoteOn(10, 36));
 
-            rec.stopPlayback();
+            rec.stopPlaybackQuiescent();
         }
         beginTest("playback seek releases held notes and applies the requested take sample");
         {
@@ -567,7 +567,7 @@ public:
 
             expectEquals(static_cast<std::int64_t>(1234), rec.getPlaybackPositionInTakeSamples());
             expect(!engine.getKeyboardState().isNoteOn(1, 60), "seek must clear the currently sounding note");
-            rec.stopPlayback();
+            rec.stopPlaybackQuiescent();
         }
     }
 };

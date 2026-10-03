@@ -110,6 +110,10 @@ MainComponent::MainComponent() {
     audioEngine.getKeyboardState().addListener(this);
     updateStatusBar();
 }
+bool MainComponent::prepareForShutdown() {
+    setEnabled(false);
+    return recordingSessionController == nullptr || recordingSessionController->prepareForShutdown();
+}
 
 MainComponent::~MainComponent() {
     setLookAndFeel(nullptr);
@@ -1039,24 +1043,13 @@ SettingsModel::PerformanceSettingsView MainComponent::getPerformanceSettingsFrom
              .feltAgeingAmount = appSettings.feltAgeingAmount };
 }
 
-juce::String MainComponent::getLastPluginNameForRecoveryStateFromUi() const {
-    if (pluginHost.hasLoadedPlugin()) {
-        return pluginHost.getCurrentPluginName();
-    }
-
-    auto selected = getSelectedPluginName().trim();
-    if (selected.isNotEmpty()) {
-        return selected;
-    }
-
-    // Fallback: during early startup the UI may not be populated yet;
-    // preserve the model's persisted value so saveSettingsSoon() doesn't clear it.
-    return appSettings.lastPluginName;
+juce::String MainComponent::getLastPluginIdentifierForRecoveryStateFromUi() const {
+    return pluginHost.hasLoadedPlugin() ? pluginHost.getCurrentPluginIdentifier() : appSettings.lastPluginIdentifier;
 }
 
 SettingsModel::PluginRecoverySettingsView MainComponent::getPluginRecoverySettingsFromUi() const {
     return devpiano::plugin::makePluginRecoverySettings(getPluginPathText().trim(),
-                                                        getLastPluginNameForRecoveryStateFromUi());
+                                                        getLastPluginIdentifierForRecoveryStateFromUi());
 }
 
 SettingsModel::PluginRecoverySettingsView MainComponent::getPluginRecoverySettingsWithFallback() const {
@@ -1091,8 +1084,11 @@ void MainComponent::applyPerformanceSettingsToAudioEngine(const SettingsModel::P
 }
 void MainComponent::setBuiltinSynthTone(SettingsModel::BuiltinTone tone) {
     appSettings.builtinTone = tone;
-    audioEngine.setBuiltinSynthTone(tone == SettingsModel::BuiltinTone::piano ? AudioEngine::BuiltinSynthTone::piano
-                                                                              : AudioEngine::BuiltinSynthTone::sine);
+    runPluginActionWithAudioDeviceRebuild([this, tone] {
+        audioEngine.setBuiltinSynthTone(tone == SettingsModel::BuiltinTone::piano
+                                            ? AudioEngine::BuiltinSynthTone::piano
+                                            : AudioEngine::BuiltinSynthTone::sine);
+    });
 }
 
 void MainComponent::applyPluginRecoverySettings(const SettingsModel::PluginRecoverySettingsView& pluginRecovery) {
@@ -1305,6 +1301,7 @@ void MainComponent::prepareForAudioDeviceRebuild() {
 
 void MainComponent::finishAudioDeviceRebuild() {
     initialiseAudioDevice();
+    refreshReadOnlyUiStateFromCurrentSnapshot();
     restoreKeyboardFocus();
     updateStatusBar();
 }
@@ -1338,7 +1335,7 @@ bool MainComponent::isSettingsWindowOpen() const {
 
 void MainComponent::renderReadOnlyUiState(const devpiano::core::AppState& appState) {
     updatePluginPanelState(
-        buildPluginPanelState(pluginHost, appState.plugin.lastPluginName, appState.plugin.isEditorOpen));
+        buildPluginPanelState(pluginHost, appState.plugin.lastPluginIdentifier, appState.plugin.isEditorOpen));
 }
 
 void MainComponent::refreshReadOnlyUiStateFromCurrentSnapshot() {

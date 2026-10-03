@@ -104,9 +104,10 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
     }
 
     midiBuffer.clear();
-    const auto playbackSeekApplied
-        = recordingEngine != nullptr && recordingEngine->applyPendingPlaybackSeek(midiBuffer);
-    if (playbackSeekApplied) {
+    const auto transportCommands = recordingEngine != nullptr
+        ? recordingEngine->applyPendingTransportCommands(midiBuffer)
+        : devpiano::recording::RecordingEngine::TransportCommandResult {};
+    if (transportCommands.seekApplied || transportCommands.stopApplied) {
         syncPedalProcessor.reset();
         for (auto channel = 1; channel <= 16; ++channel) {
             keyboardState.allNotesOff(channel);

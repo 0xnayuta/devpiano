@@ -51,6 +51,7 @@ std::unique_ptr<juce::AudioPluginInstance> createOfflinePluginInstance(juce::Aud
         return nullptr;
     }
 
+    instance->setNonRealtime(true);
     instance->setRateAndBufferSizeDetails(sampleRate, blockSize);
     instance->prepareToPlay(sampleRate, blockSize);
     // NOLINTNEXTLINE(readability-ambiguous-smartptr-reset-call) - 意图是 AudioPluginInstance::reset()（实例方法）
@@ -137,6 +138,7 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
     for (std::int64_t blockStart = 0; blockStart < totalSamples;) {
         if (progressCallback
             && !progressCallback(static_cast<double>(blockStart) / static_cast<double>(totalSamples))) {
+            writer.reset();
             return false;
         }
 
@@ -195,6 +197,7 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
         applyMasterSoftLimiter(outputBuffer, numSamples);
         if (!writer->writeFromAudioSampleBuffer(outputBuffer, 0, numSamples)) {
             DP_LOG_ERROR("[PluginOfflineRenderer] WAV write failed at block " + juce::String(blockStart));
+            writer.reset();
             return false;
         }
         blockStart = blockEnd;
@@ -202,11 +205,13 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
 
     if (!writer->flush()) {
         DP_LOG_ERROR("[PluginOfflineRenderer] Failed to finalise WAV: " + destinationFile.getFullPathName());
+        writer.reset();
         return false;
     }
     fileOutput->flush();
     if (fileOutput->getStatus().failed()) {
         DP_LOG_ERROR("[PluginOfflineRenderer] Failed to flush WAV: " + destinationFile.getFullPathName());
+        writer.reset();
         return false;
     }
     writer.reset();

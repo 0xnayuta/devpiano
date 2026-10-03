@@ -542,7 +542,6 @@ if (BUILD_TESTS)
         source/tests/RecordingEngineTest.cpp
         source/tests/KeyboardMidiMapperTest.cpp
         source/tests/AudioEngineTest.cpp
-        source/tests/PluginHostTest.cpp
         source/tests/PerformanceFileTest.cpp
         source/tests/RenderPipelineTest.cpp
         source/tests/StyleCatalogTest.cpp

@@ -72,9 +72,12 @@ juce::String MainComponent::getPluginPathText() const {
     return {};
 }
 
-juce::String MainComponent::getSelectedPluginName() const {
+juce::String MainComponent::getSelectedPluginIdentifier() const {
     if (auto* combo = viewHost.find<juce::ComboBox>("plugin-selector")) {
-        return combo->getText();
+        const auto index = combo->getSelectedItemIndex();
+        if (juce::isPositiveAndBelow(index, displayedPluginIdentifiers.size())) {
+            return displayedPluginIdentifiers[index];
+        }
     }
     return {};
 }
@@ -181,39 +184,35 @@ void updateScanningPluginPanel(devpiano::ui::ViewHost& viewHost, juce::ComboBox*
 }
 
 void updateIdlePluginPanel(devpiano::ui::ViewHost& viewHost, const devpiano::ui::PluginPanelState& state,
-                           juce::ComboBox* selectorCombo, juce::ComboBox* filterCombo) {
-    const auto& names = [&]() -> const juce::StringArray& {
-        const auto filterId = (filterCombo != nullptr) ? filterCombo->getSelectedId() : 1;
-        if (filterId == 2 && !state.instrumentPluginNames.isEmpty()) {
-            return state.instrumentPluginNames;
-        }
-        if (filterId == 3 && !state.effectPluginNames.isEmpty()) {
-            return state.effectPluginNames;
-        }
-        return state.availablePluginNames;
-    }();
+                           juce::ComboBox* selectorCombo, juce::ComboBox* filterCombo,
+                           juce::StringArray& displayedIdentifiers) {
+    const auto filterId = filterCombo != nullptr ? filterCombo->getSelectedId() : 1;
+    displayedIdentifiers.clear();
 
     if (selectorCombo != nullptr) {
         selectorCombo->clear(juce::dontSendNotification);
         selectorCombo->setTextWhenNothingSelected(TRANS("Select a scanned plugin..."));
-
-        auto selectedIndex = devpiano::ui::preferredNameIndex(names, state.preferredSelection);
-        for (int i = 0; i < names.size(); ++i) {
-            selectorCombo->addItem(names[i], i + 1);
+        auto selectedIndex = -1;
+        for (const auto& plugin : state.availablePlugins) {
+            if ((filterId == 2 && !plugin.isInstrument) || (filterId == 3 && plugin.isInstrument)) {
+                continue;
+            }
+            const auto index = displayedIdentifiers.size();
+            displayedIdentifiers.add(plugin.identifier);
+            selectorCombo->addItem(plugin.displayName, index + 1);
+            if (plugin.identifier == state.preferredSelection) {
+                selectedIndex = index;
+            }
         }
-
-        if (names.isEmpty()) {
-            selectorCombo->setSelectedItemIndex(-1, juce::dontSendNotification);
-        } else if (selectedIndex >= 0) {
-            selectorCombo->setSelectedItemIndex(selectedIndex, juce::dontSendNotification);
-        } else {
-            selectorCombo->setSelectedItemIndex(0, juce::dontSendNotification);
+        if (selectedIndex < 0 && !displayedIdentifiers.isEmpty()) {
+            selectedIndex = 0;
         }
+        selectorCombo->setSelectedItemIndex(selectedIndex, juce::dontSendNotification);
     }
 
     viewHost.setEnabled("scan-btn", true);
     viewHost.setEnabled("browse-btn", true);
-    viewHost.setEnabled("load-btn", !names.isEmpty());
+    viewHost.setEnabled("load-btn", !displayedIdentifiers.isEmpty());
     viewHost.setEnabled("unload-btn", state.hasLoadedPlugin);
     viewHost.setEnabled("editor-btn", state.hasLoadedPlugin);
     viewHost.setEnabled("plugin-path-editor", true);
@@ -232,9 +231,10 @@ void MainComponent::updatePluginPanelState(const devpiano::ui::PluginPanelState&
     auto* filterCombo = viewHost.find<juce::ComboBox>("plugin-filter-combo");
 
     if (state.isCurrentlyScanning) {
+        displayedPluginIdentifiers.clear();
         updateScanningPluginPanel(viewHost, selectorCombo);
     } else {
-        updateIdlePluginPanel(viewHost, state, selectorCombo, filterCombo);
+        updateIdlePluginPanel(viewHost, state, selectorCombo, filterCombo, displayedPluginIdentifiers);
     }
 
     lastPluginStatusText = formatPluginStatusSummary(state);

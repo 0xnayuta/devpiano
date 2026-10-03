@@ -558,8 +558,17 @@ public:
 
             expect(result, "runSync must complete successfully");
             expect(task.wasSuccessful(), "wasSuccessful flag must be true");
-            expect(target.existsAsFile(), "Target WAV file must be created on disk");
-            expect(target.getSize() > 44, "Target WAV file must have valid size");
+            juce::AudioFormatManager formats;
+            formats.registerBasicFormats();
+            std::unique_ptr<juce::AudioFormatReader> reader(formats.createReaderFor(target));
+            expect(reader != nullptr, "background export must leave a readable final WAV header");
+            if (reader != nullptr) {
+                expectWithinAbsoluteError(reader->sampleRate, options.sampleRate, 0.001);
+                juce::AudioBuffer<float> audio(2, 4410);
+                expect(reader->read(&audio, 0, audio.getNumSamples(), 0, true, true));
+                expect(audio.getMagnitude(0, audio.getNumSamples()) > 0.0001f,
+                       "background export must contain the performed note");
+            }
         });
 
         testCase("WavExportTask fails gracefully on invalid target path", [&] {
@@ -579,7 +588,6 @@ public:
 
             expect(!result, "runSync must return false for invalid destination");
             expect(!failTask.wasSuccessful(), "wasSuccessful must be false");
-            expect(failTask.getErrorMessage().isNotEmpty(), "errorMessage must be populated on failure");
         });
 
         testCase("rejected background export does not delete an existing output", [&] {

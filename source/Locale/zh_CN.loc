@@ -125,6 +125,7 @@ countries: cn
 "Velocity:" = "力度："
 "OK" = "确定"
 "Cancel" = "取消"
+"Cancelling export..." = "正在取消导出..."
 "Unbind" = "解除绑定"
 "Close" = "关闭"
 "No keyboard key is currently mapped to this note." = "当前没有键盘按键映射到此音符。"

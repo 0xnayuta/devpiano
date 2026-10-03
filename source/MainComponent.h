@@ -85,6 +85,7 @@ public:
     void setBuiltinSynthTone(SettingsModel::BuiltinTone tone);
     [[nodiscard]] bool shouldTakeKeyboardFocus() const noexcept;
     void handleWindowFocusLost();
+    [[nodiscard]] bool prepareForShutdown();
     [[nodiscard]] bool isQwertyVisualizerExpanded() const noexcept {
         return appSettings.qwertyVisualizerExpanded;
     }
@@ -118,7 +119,7 @@ private:
     [[nodiscard]] float getPianoBrightness() const;
     [[nodiscard]] float getPianoHammerHardness() const;
     [[nodiscard]] float getPianoResonance() const;
-    [[nodiscard]] juce::String getLastPluginNameForRecoveryStateFromUi() const;
+    [[nodiscard]] juce::String getLastPluginIdentifierForRecoveryStateFromUi() const;
     [[nodiscard]] SettingsModel::PluginRecoverySettingsView getPluginRecoverySettingsFromUi() const;
     [[nodiscard]] SettingsModel::PluginRecoverySettingsView getPluginRecoverySettingsWithFallback() const;
     void applyPerformanceSettingsToUi(const SettingsModel::PerformanceSettingsView& performance);
@@ -160,7 +161,7 @@ private:
     // ── JIVE plugin panel accessors ──
     void setPluginPathText(const juce::String& text);
     [[nodiscard]] juce::String getPluginPathText() const;
-    [[nodiscard]] juce::String getSelectedPluginName() const;
+    [[nodiscard]] juce::String getSelectedPluginIdentifier() const;
     void setPluginPanelExpanded(bool expanded);
     void refreshPluginStatusEllipsis();
     void updatePluginPanelState(const devpiano::ui::PluginPanelState& state);
@@ -238,6 +239,7 @@ private:
     devpiano::ui::ViewHost viewHost;
     juce::String lastPluginStatusText; // full text; re-ellipsised on resize
     bool isUpdatingPluginSelector = false; // guard against onChange re-entrancy during programmatic UI refresh
+    juce::StringArray displayedPluginIdentifiers;
     bool isUpdatingPresets = false; // guard against onChange re-entrancy during preset list refresh
     juce::StringArray availablePresetIds;
     devpiano::ui::RecordingControlsState recordingControlsState;

@@ -8,10 +8,14 @@
 
 namespace devpiano::ui {
 
+struct PluginChoice {
+    juce::String identifier;
+    juce::String displayName;
+    bool isInstrument = false;
+};
+
 struct PluginPanelState {
-    juce::StringArray availablePluginNames;
-    juce::StringArray instrumentPluginNames;
-    juce::StringArray effectPluginNames;
+    juce::Array<PluginChoice> availablePlugins;
     juce::String preferredSelection;
     juce::String availableFormatsDescription;
     juce::String lastScanSummary;

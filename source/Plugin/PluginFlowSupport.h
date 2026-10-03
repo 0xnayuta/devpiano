@@ -22,10 +22,10 @@ void restorePluginsAtPath(
                                               const StartupPluginRestorePlan& plan);
 
 void scanPluginsAtPathAndUpdateRecovery(PluginHost& pluginHost, SettingsModel& settings,
-                                        const juce::FileSearchPath& path, const juce::String& lastPluginName);
+                                        const juce::FileSearchPath& path, const juce::String& lastPluginIdentifier);
 
 [[nodiscard]] SettingsModel::PluginRecoverySettingsView makePluginRecoverySettings(juce::String pluginSearchPath,
-                                                                                   juce::String lastPluginName);
+                                                                                   juce::String lastPluginIdentifier);
 
 [[nodiscard]] SettingsModel::PluginRecoverySettingsView
 withPluginRecoveryPathFallback(const SettingsModel::PluginRecoverySettingsView& recovery,

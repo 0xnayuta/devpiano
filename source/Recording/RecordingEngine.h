@@ -38,6 +38,12 @@ struct PendingPresetChange {
 
 class RecordingEngine {
 public:
+    struct TransportCommandResult {
+        bool seekApplied = false;
+        bool speedChanged = false;
+        bool stopApplied = false;
+    };
+
     // M6 MVP recording/playback model. Message-thread code owns structural changes
     // such as start/stop/clear/reserve while audio-thread code may record or render
     // preallocated MIDI events during active recording/playback.
@@ -77,7 +83,8 @@ public:
                                    std::int64_t resumeFromTakeSamples);
     void requestPlaybackSeek(std::int64_t takeSample) noexcept;
     [[nodiscard]] bool getPendingPlaybackSeekSample(std::int64_t& takeSample) const noexcept;
-    [[nodiscard]] bool applyPendingPlaybackSeek(juce::MidiBuffer& midiBuffer) noexcept;
+    [[nodiscard]] TransportCommandResult applyPendingTransportCommands(juce::MidiBuffer& midiBuffer) noexcept;
+    void applyPendingTransportCommandsQuiescent() noexcept;
     void setPlaybackLoopStartSample(std::int64_t sample) noexcept;
     void setPlaybackLoopEndSample(std::int64_t sample) noexcept;
     void clearPlaybackLoop() noexcept;
@@ -91,11 +98,13 @@ public:
     // performance keeps sounding through AudioEngine.
     void pauseRecording();
     void resumeRecording();
-    void stopPlayback();
-    // Sets the playback speed multiplier. Affects the next startPlayback or immediately
-    // if playback is active. Values: 0.5, 0.75, 1.0, 1.25, 1.5, 2.0.
+    void requestPlaybackStop() noexcept;
+    void stopPlaybackQuiescent() noexcept;
+    // Sets the playback speed multiplier. Affects the next startPlayback or publishes
+    // a transport command applied at the next audio block boundary. Values: 0.5 to 2.0.
     void setPlaybackSpeedMultiplier(double multiplier) noexcept;
     [[nodiscard]] double getPlaybackSpeedMultiplier() const noexcept;
+    [[nodiscard]] double getEffectivePlaybackSpeedMultiplier() const noexcept;
     // Renders playback events whose scaled timestamp falls within [blockStartSamples, blockStartSamples + numSamples).
     // Uses the same midiBuffer that AudioEngine will then pass to plugin/synth rendering.
     void renderPlaybackBlock(juce::MidiBuffer& midiBuffer, std::int64_t blockStartSamples, int numSamples);
@@ -117,6 +126,8 @@ private:
     [[nodiscard]] ScaledLoopRange getScaledLoopRange(double combinedRatio) const noexcept;
     [[nodiscard]] bool tryGetScaledLoopRange(double combinedRatio, ScaledLoopRange& output) const noexcept;
     [[nodiscard]] bool readPendingPlaybackSeek(std::int64_t& takeSample, std::uint32_t& sequence) const noexcept;
+    [[nodiscard]] bool readPendingSpeedChange(double& newSpeed, std::uint32_t& sequence) const noexcept;
+    [[nodiscard]] bool readPendingStop(std::uint32_t& sequence) const noexcept;
     void resetPlaybackEventCursor(std::int64_t positionSamples, double combinedRatio) noexcept;
     void renderPlaybackEventsInRange(juce::MidiBuffer& midiBuffer, std::int64_t rangeStartSamples,
                                      std::int64_t rangeEndSamples, int segmentOffset, int numSamples,
@@ -128,6 +139,16 @@ private:
     std::atomic<std::uint32_t> seekSequence { 0 };
     std::atomic<std::uint32_t> appliedSeekSequence { 0 };
     std::atomic<std::int64_t> requestedSeekSample { 0 };
+    // Transport command mailbox
+    std::atomic<std::uint32_t> speedSequence { 0 };
+    std::atomic<std::uint32_t> appliedSpeedSequence { 0 };
+    std::atomic<double> requestedSpeedMultiplier { 1.0 };
+    std::atomic<double> effectiveSpeedMultiplier { 1.0 };
+    std::atomic<double> targetSpeedMultiplier { 1.0 };
+
+    std::atomic<std::uint32_t> stopSequence { 0 };
+    std::atomic<std::uint32_t> appliedStopSequence { 0 };
+    std::atomic_bool stopRequested { false };
 
     RecordingTake currentTake;
     std::atomic<RecordingState> state { RecordingState::idle };
@@ -137,7 +158,6 @@ private:
     // Playback state
     RecordingTake playbackTake;
     std::atomic<double> playbackSampleRateRatio { 1.0 };
-    std::atomic<double> playbackSpeedMultiplier { 1.0 };
     std::atomic<std::int64_t> scaledPlaybackLengthSamples { 0 };
     std::atomic<std::int64_t> playbackPositionSamples { 0 };
     std::atomic<int> playbackBlockSize { 1 };
