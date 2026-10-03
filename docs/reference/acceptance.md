@@ -111,7 +111,7 @@
 
 - [x] `.devpiano` 原生演奏文件 JSON 序列化持久化保存与打开回放。
 - [x] 打开损坏文件不崩溃，Logger 输出错误提示。
-- [x] 播放速度 0.5x–2.0x 实时倍率调节，线程安全且变速平滑校准。
+- [x] 播放速度 0.5x–2.0x 实时倍率调节；消息线程发布命令，音频块边界一致提交倍率、位置与游标，保留 NoteOff 与循环语义（直接验证见 [Phase C 实施记录](../roadmap/current-iteration.md#phase-c-实施记录与直接验证2026-10-03)）。
 - [x] 16 通道 MIDI 矩阵路由（`ChannelMatrix` / `MidiChannelMapper`）。
 - [x] 88 键拟真钢琴键盘（`CustomKeyboard`，支持 3 种着色与 3 种音符标注）。
 - [x] 结构化日志系统（`DP_LOG_*` / `DP_TRACE_MIDI`）与测试夹具库（8 MIDI + 1 Performance）。

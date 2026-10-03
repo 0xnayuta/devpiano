@@ -107,6 +107,7 @@ source/
   - 拥有 `juce::MidiMessageCollector` 与实时音频输出链路；
   - 经 `InstrumentEndpoint` 解析发声实体：托管 VST3 实例就绪则驱动插件实例，否则驱动内置合成器；
   - 线程安全与音频鲁棒性：`masterGain` 采用 `std::atomic<float>`；具备 `25ms` audio warmup（静音过渡）与 `armPlaybackStartPreRoll`（消除 0s 音符冲突）。
+  - 变速、Seek 与 Stop 的待提交命令仅在块入口消费；内置音色重建复用明确停 callback 的守卫，启动/再次启动不并发写活动声部或房间混响。
   - `MetronomeProcessor` 在内置乐器/VST3 发声与房间混响之后、Master Gain / limiter 之前，以音频块采样计数合成强弱拍；通过原子节拍序号向消息线程提供状态栏节拍反馈与录制预备拍触发。
 - **`source/Audio/PianoSynthVoice.h` / `source/Audio/Piano88KeyTable.h`**：
   - **自主研发、纯 C++ 全物理建模钢琴音源**（Phase 12–32 成果，v1.1.0 核心发声引擎）；
@@ -174,9 +175,9 @@ source/
   - 维护 `juce::KnownPluginList`，支持 XML 格式导入导出与启动缓存恢复；
   - 插件异步分片扫描（Chunked Scan Session），实时进度与失败文件追踪；
   - 崩溃安全扫描持久化（Phase 34-E）：增量持久化回调 `ScanIncrementalCallback`、dead-man's pedal 崩溃点识别与黑名单推迟；
-  - 插件实例创建、prepare、processBlock、release 与卸载。
+  - 按 `PluginDescription` identifier 创建/恢复实例，显示名只展示；单文件重复探测仍返回 description 并更新 metadata，不把 `KnownPluginList::addType()` 返回 false 当成无类型。
 - **`source/Plugin/PluginOperationController.h/.cpp`**：
-  - 编排插件扫描、异步加载/卸载、Editor 窗口创建以及启动恢复任务，防止状态机并发冲突。
+  - 编排插件扫描、加载/卸载、Editor 窗口及启动恢复；包括增量重扫在内的实例变更先关 Editor、停 callback，再操作宿主。设备重启后发布最新只读 UI 状态。
 - **`source/Plugin/PluginFlowSupport.h/.cpp`**：
   - 纯函数集合：扫描路径校验规范化、XML 缓存恢复计划推导。
 
@@ -187,12 +188,12 @@ source/
 - **`source/Recording/RecordingEngine.h/.cpp`**：
   - 实时音频线程无锁采集（`recordMidiBufferBlock`），预分配事件队列（容量溢出计数防护）；
   - `sampleRate` + `lengthSamples` + `events` 组成的 `RecordingTake` 数据结构；
-  - 播放状态机管理：播放速度实时倍率（0.5x–2.0x，原子变速重校准）、暂停/恢复、Back 从头回放与 All-notes-off 保护；
+  - 播放状态机管理：0.5x–2.0x 变速、Seek 与 Stop 经有界原子邮箱发布，由 `AudioEngine` 的单一块入口调用 `applyPendingTransportCommands()`；纯变速保留下一未渲染事件游标，避免缩放取整重播旧 NoteOn。
   - `AbLoopEngine` 以原子快照保存 Take-relative A/B 标记；`RecordingEngine` 在音频块内执行 Seek、半开区间循环与边界发音清理，播放位置按设备采样率与速度换算。
   - 结构提交前验证采样率、非负有序事件与最坏支持倍率的整数范围，保留现有合成时间域；文件的物理采样率准入与通用数值安全检查分开。
 - **`source/Recording/RecordingSessionController.h/.cpp`**：
   - 会话控制器：统一调度录制、回放、`.devpiano` 文件保存/打开、MIDI 导入与 WAV 导出流程。
-  - `RecordingSessionController` 统一编排 Take-relative Seek、A/B 标记、播放暂停恢复与时间轴 ViewModel 快照。
+  - 编排 Take-relative Seek、A/B、暂停恢复及时间轴快照；结构清除/启动/录制停止和暂停快照复用停机守卫，异步导出退出先请求取消，实际工作完成后才销毁所有者。
 - **`source/Recording/RenderPipeline.h/.cpp`**：
   - `prepareRenderTimeline()` 统一检查时间戳缩放、最终事件 `+1` 与尾部加法；成功才返回稳定排序事件和完整长度。内置/插件 WAV 在打开输出前使用该结果，保留同采样语义顺序及 panic 注入。
 - **`source/Recording/TimelineValidation.h`**：
@@ -211,9 +212,9 @@ source/
   - 将录制 Take 导出为标准 Type 1 MIDI 文件（960 PPQ）；在同目录自有临时文件中写出、检查状态并关闭流后替换目标。
   - 在 writer 前检查支持采样率、合法 PPQ、JUCE `int` tick 和 SMF VLQ delta 的可表示范围，拒绝不破坏原目标。
 - **`source/Recording/PluginOfflineRenderer.h/.cpp`**：
-  - 独立创建非实时离线 VST3 实例，无 Editor 依赖渲染，异常时安全降级至 fallback synth。
+  - 独立创建 VST3 实例，在 prepare 前 `setNonRealtime(true)`；渲染函数不接管实例所有权或重复 release，直接消费者负责释放，`WavExportTask` 在工作退出后统一释放一次。
 - **`source/Export/WavExportTask.h/.cpp`**：
-  - 非阻塞异步任务模型（`startAsync(onComplete)`）；`JUCE_MODAL_LOOPS_PERMITTED=1` 仅由测试目标定义。内置/插件 WAV 在同目录自有临时文件渲染，关闭 writer 后提交；普通失败或提交前协作取消保留已有目标，任务不删除用户目标。慢插件强制终止的生命周期约束仍由后续阶段验证。
+  - `startAsync(onComplete)` 非阻塞运行并显示取消中状态，Timer 只在实际工作线程退出后关闭进度窗和回调；正常应用退出异步等待，直接析构/runSync 以无限协作等待兜底，不使用有限超时强杀。内置/插件 WAV 的事务输出与原目标保留约束不变。
 - **`source/Export/ExportFlowSupport.h/.cpp`**：
   - 纯函数集合：默认导出文件名推导、导出选项构建与空 Take 校验。
 
@@ -350,16 +351,16 @@ AudioEngine::getNextAudioBlock() (音频回调线程)
 ### 4.2 插件扫描与加载链路
 
 ```text
-用户触发扫描 ──► PluginOperationController::scanVst3Plugins()
+用户触发扫描 ──► PluginOperationController::scanPlugins()
                      │
                      ▼
                  PluginHost::beginVst3ScanSession() (消息线程分片扫描)
                      ├── 异步遍历路径 ──► 更新 KnownPluginList ──► 写入 XML 缓存
                      └── 失败项记录至 lastScanFailedFiles ──► 状态栏提示 (see log)
                      │
-用户选择插件 ──► PluginOperationController::loadPluginByName()
+用户选择 description 身份 ──► PluginOperationController::loadSelectedPlugin()
                      │
-                     ├── 关闭已有 Editor 窗口 ──► 释放旧实例 releaseResources()
+                     ├── 关闭 Editor、停止 callback ──► PluginHost::loadPluginByIdentifier()
                      ├── AudioPluginFormatManager::createPluginInstance()
                      ├── PluginHost::prepareToPlay(sampleRate, blockSize)
                      └── AudioEngine 切换至插件发声路径

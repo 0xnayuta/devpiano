@@ -48,6 +48,7 @@ RecordingSessionController::handlePlayClicked() ──► RecordingEngine::start
                                                           │
                                                           ▼
 AudioEngine::getNextAudioBlock() (实时音频回调)
+    ├── applyPendingTransportCommands(midiBuffer) (变速 / Seek / Stop 的唯一音频块提交点)
     ├── RecordingEngine::renderPlaybackBlock(playbackVisualMidiBuffer, blockStartSamples, numSamples)
     ├── keyboardState.processNextMidiBuffer(playbackVisualMidiBuffer, 0, numSamples, false)
     │    └── 同步调用 Listener（虚拟键盘高亮；当前 UI 回调线程边界见 known-issues）
@@ -61,7 +62,8 @@ AudioEngine::getNextAudioBlock() (实时音频回调)
 - **A/B 标记与循环时序**：A/B 标记以 Take 采样点保存，有效区间为半开区间 `[A, B)`；无效、倒置或空区间不会启用循环；
 - **B 边界回跳与防悬挂**：音频回调按采样偏移处理 B 边界。边界 16 通道清理严格先于同采样点的 A 事件；整块恰好结束于 B 时，清理与回跳在下一音频块偏移 0 执行。循环期间自动抑制播放结束标志；
 - **极小区间防御**：缩放后的有效区间至少需要覆盖一个当前音频回调块（`playbackBlockSize`）；更短区间保留 A/B 标记但自动旁路循环回跳，避免单块内重复回跳与清理风暴；
-- **速度自适应**：播放速度在 0.5x–2.0x 范围内调节时，事件、循环边界与回放位置按当前速度缩放，Take 绝对采样点与 A/B 标记保持不变。
+- **速度自适应**：0.5x–2.0x 的 setter 只发布目标值，不在消息线程修改位置或活动游标。下一音频块一致提交有效倍率与重缩放位置；纯变速保留下一未渲染事件，防止取整后重播旧 NoteOn。Take 采样点与 A/B 标记不变。
+- **Stop 与结构边界**：活动 Stop 在块边界先执行跨通道 panic，再停止回放；同块 Stop 优先于待提交 Seek/变速。清除/替换/启动 Take 与暂停快照仅在 callback 已停止的守卫内执行；UI 的目标倍率与当前音频有效倍率分别读取，不以 state 原子值代替已进入 callback 的退出确认。
 ---
 
 ## 3. 核心数据模型（`RecordingTake`）

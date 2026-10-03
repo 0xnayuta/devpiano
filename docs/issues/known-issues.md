@@ -15,7 +15,7 @@
 
 ### 插件生命周期退出告警
 
-> 既有 scan / load / unload / editor / 退出手工回归记录保留，但不是所有生命周期组合当前安全的证明。AUDIT-004 对“已加载＋Editor＋重扫”发现未经过停设备/关Editor守卫的静态反证，并保留原 `AUDIT-001 THR-004` 身份；当前按 Phase C 收敛，不再只视为低优先级退出告警。真实 VST3 崩溃尚未实测，使用可丢弃会话验证；具体路径/证据见审计报告。
+> 既有手工回归不能外推所有厂商插件。AUDIT-004 的 `AUDIT-001 THR-004` 重扫绕过已按 Phase C 收敛：真实原生 VST3、活动 callback＋Editor＋重扫及实际退出通过；基线反证与闭环证据见 [实施记录](../roadmap/current-iteration.md#phase-c-实施记录与直接验证2026-10-03)。特定厂商退出告警、永久卡死、强杀和断电仍保留安全回归范围。
 
 详见：[`../reference/features/plugin-hosting.md`](../reference/features/plugin-hosting.md)
 
@@ -82,6 +82,14 @@
 ## 2. 已修复问题（回归参考）
 
 以下问题已修复，保留简要记录用于回归识别。详细根因分析和修复实现见各功能文档。
+
+### 插件/DSP/Transport 所有权与协作导出
+
+- **修复**：重扫与音色重建先关 Editor/停 callback；变速、Seek 与 Stop 由音频块入口一致消费，结构操作与暂停快照有停机边界；离线实例 prepare 前声明 nonRealtime；导出取消只发布请求，实际工作退出后释放一次并回调，应用退出异步等待。
+- **身份**：插件选择、加载、持久化与恢复贯穿 description identifier；同名不同文件/类型不折叠，重复文件仍可加载并更新 metadata。旧 name 仅唯一迁移，多义/缺失不猜测。
+- **回归线索**：Editor 打开时重扫；持续 callback 中 --piano/--sine；缩放取整重播旧 On 或漏 Off；循环被消息线程 Stop 改游标；超过旧超时后取消提前回调/释放；重复拖入报无类型；同名效果被误载为乐器。
+- **证据与边界**：`AUDIT-001 THR-004`、`AUDIT-002 THR-001`、`known-issues §2/Phase 6-2 播放速度控制`、`THR-002`、`QUAL-014/015`、`ARCH-002` 的直接程序/资源/窗口与复建输入见 [Phase C 实施记录](../roadmap/current-iteration.md#phase-c-实施记录与直接验证2026-10-03)。冷路径 GPU 后台句柄单列，不用进程总数增量直接定性业务泄漏；不关闭 Phase D/E 其他契约。
+
 
 ### 测试 fixture 的 NRVO 依赖、用户目录副作用与默认 Chord 漏跑
 
@@ -167,6 +175,8 @@
 ### Phase 6-2 播放速度控制
 
 含三个子问题：(1) 倍率公式反用（0.5x 反而加快）；(2) 速度切换时 note-off 丢失导致音长时间悬停；(3) 播放状态三成员跨线程数据竞争（裸 `double` / `std::int64_t` 无同步）。修复：(1) 乘法改除法；(2) 速度切换时重校准 `playbackPositionSamples`；(3) 全部改为 `std::atomic<>`。
+
+**后续所有权闭环（AUDIT-004 Phase C）**：仅把倍率/位置改 atomic 不能保护已经进入 render 的游标与循环标志。当前 setter 只发布命令，音频块入口提交有效速度、位置与待渲染游标；Stop 同边界执行 panic，结构暂停/恢复/清除使用停机守卫。实际双线程 callback 验证 NoteOff 与 A-B 回跳，取整边界不重播旧 On；见 [Phase C 实施记录](../roadmap/current-iteration.md#phase-c-实施记录与直接验证2026-10-03)，历史原子修复记录保留，不混同后续 Phase D 边界问题。
 
 - **回归线索**：播放中切换速度 → 方向反向 / 悬挂音 / 数据竞争 UB
 - **关联**：`RecordingEngine::setPlaybackSpeedMultiplier()`，[`../archive/phase5-architecture-convergence.md`](../archive/phase5-architecture-convergence.md)

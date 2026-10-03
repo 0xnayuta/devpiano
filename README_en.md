@@ -69,7 +69,7 @@ For project scope, core capabilities, and explicit non-goals, see [`docs/referen
 ### 🎙️ Performance Recording, Playback & Persistence
 
 - **Real-Time Lock-Free Capture**: lock-free MIDI event collection on the audio thread generating immutable `RecordingTake` snapshots;
-- **Variable-Speed Playback**: 0.5x–2.0x atomic speed control, Back-to-start, pause/resume, take-relative seek, and A-B practice loops;
+- **Variable-Speed Playback**: 0.5x–2.0x speed and Stop commands applied at audio-block boundaries, Back-to-start, pause/resume, take-relative seek, and A-B practice loops;
 - **Native Performance File Persistence**: `.devpiano` native file format (v2 JSON + Base64 encoding + `juce::TemporaryFile` atomic writing);
 - **Standard MIDI File Interoperability**: exports standard Type 1 MIDI files (960 PPQ); imports `.mid` files by merging all tracks, with CC64 sustain, pitch-bend, and program-change parsing;
 - **Performance Preset System**: full preset CRUD orchestration, F1–F12 hotkey switching, recorded preset-change automation, and same-name import overwrite confirmation through a JIVE modal dialog.

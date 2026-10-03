@@ -32,6 +32,8 @@
 3. **极低实时 CPU 开销与硬实时保证**：采用 Magic Circle 二阶递归振荡器，逐采样**零三角函数（`std::sin`）调用**，8 复音齐奏下单核 CPU 占用 $\le 0.7\%$，且实时渲染路径严格保证**零堆分配、零锁、零系统调用**；
 4. **即时回退机制**：与 `SineSynthVoice`（正弦波合成器）共用 `juce::Synthesiser` 调度，支持一键切换与基准比对。
 
+**音色重建所有权**：`MainComponent::setBuiltinSynthTone()` 复用停设备守卫，先关闭 Editor 并等待已有音频 callback 退出，再调用 `AudioEngine::rebuildSynth()` 和提交活动 voice/roomReverb 参数；启动命令与再次启动的 `--piano` / `--sine` 走同一路径。普通参数 setter 仍只发布原子待提交值，由音频所有者或明确的停机 prepare 窗口消费，不把逐次 Synthesiser 内部锁视为整个重建的并发保护。
+
 ---
 
 ## 2. 7 大声学物理系统与 DSP 渲染架构

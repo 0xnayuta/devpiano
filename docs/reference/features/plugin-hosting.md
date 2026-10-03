@@ -26,7 +26,7 @@ VST3 插件宿主是 devpiano 连接专业音乐制作与高品质虚拟乐器�
 用户触发扫描 ──► PluginOperationController::scanPlugins()
                      │
                      ▼
-                 PluginHost::beginVst3ScanSession() (消息线程分片推进)
+                 停设备守卫 ──► PluginHost::beginVst3ScanSession() (消息线程分片推进)
                      ├── 恢复 dead-man's pedal 崩溃记录 ──► 崩溃插件列入黑名单推迟至末尾
                      ├── 遍历 FileSearchPath (支持多目录与规范化过滤)
                      ├── 逐个探测 VST3 ──► 成功项加入 KnownPluginList
@@ -71,7 +71,7 @@ VST3 插件宿主是 devpiano 连接专业音乐制作与高品质虚拟乐器�
 
 ### 3.4 退出与音频设备重建安全序列（`runPluginActionWithAudioDeviceRebuild`）
 
-应用析构、加载/卸载插件或音频设备重建时，严格通过 `runPluginActionWithAudioDeviceRebuild` 并在 `AudioDeviceRebuildGuard` 守卫下按照确定性顺序执行：
+加载/卸载插件与设备重建通过 `runPluginActionWithAudioDeviceRebuild`；最终析构只关闭 Editor、停 callback 并释放实例，不重新启动设备。守卫操作按以下顺序：
 1. `prepareForAudioDeviceRebuild()`：
    - 捕获当前音频设备配置快照；
    - `closePluginEditorWindow()` 销毁 UI 窗口与底层 OS 视图句柄；
@@ -81,7 +81,16 @@ VST3 插件宿主是 devpiano 连接专业音乐制作与高品质虚拟乐器�
    - `initialiseAudioDevice()` 重建并启动音频硬件；
    - `restoreKeyboardFocus()` 恢复键盘焦点；
    - `updateStatusBar()` 刷新 UI 状态栏。
-### 3.5 崩溃安全扫描持久化与 dead-man's pedal
+   - 发布最新宿主与 Editor 只读状态，避免音色切换/导出快照关闭 Editor 后仍显示旧状态。
+
+### 3.5 description 身份与重复文件发现
+
+- 下拉菜单每项携带 `PluginDescription::createIdentifierString()` 身份；同名不同文件/ID/类型不折叠，必要时显示标识符作区分。加载使用选中项的身份，不从 ComboBox 文本反查第一个同名插件。
+- 乐器/效果过滤直接消费 description 的 `isInstrument`；空过滤结果保持空列表并禁用 Load，不回退到全部类型。
+- `SettingsModel::lastPluginIdentifier` 贯穿成功加载、快照保存与启动恢复。旧 `lastPluginName` 仅在设置准入时按缓存 description 唯一迁移；缺失或多义时不猜测，记录警告；下次保存移除旧键。
+- `addVst3FileToKnownList()` 返回此次有效探测的 descriptions，不依赖是否新增列表条目。重复文件可再次加载，缓存 metadata 更新仍触发持久化。
+
+### 3.6 崩溃安全扫描持久化与 dead-man's pedal
 
 - **增量持久化**：`PluginHost::advanceVst3ScanStep()` 每推进一个插件即比对新旧类型数，一旦命中新插件，立即通过 `ScanIncrementalCallback` 交给 `PluginOperationController` 同步写入设置（`knownPluginListState`），而不是等扫描全部结束才落盘。扫描被中断或第三方插件崩溃时，已扫到的插件不会一起丢失；
 - **扫描目标先行落盘**：`scanPlugins()` 在首个插件被探测前就持久化扫描路径，崩溃后下次启动仍知道要恢复哪个目录；
@@ -106,5 +115,7 @@ VST3 插件宿主是 devpiano 连接专业音乐制作与高品质虚拟乐器�
 | **PLG-008** | 损坏/不兼容 VST3 容错 | 扫描包含损坏或 32-bit 的非法 VST3 文件，扫描跳过该文件并不崩溃，Logger 准确记录路径 | [x] 已通过 |
 | **PLG-009** | 崩溃后扫描成果保留 | 扫描较大插件目录过程中强制结束进程，重启后设置中仍缓存崩溃前已扫描到的插件，而非全部丢失 | [ ] 待手工验证 |
 | **PLG-010** | 崩溃插件推迟到扫描末尾 | 劣质插件导致扫描崩溃后重启再扫描，该插件被推迟到序列末尾，其余插件优先完成扫描 | [ ] 待手工验证 |
+| **PLG-011** | 同名身份与类型过滤 | 同名不同 description/文件分别选择与加载；重启恢复原身份；乐器过滤不载入同名效果 | [x] Windows 原生 VST3 与实际菜单消费者验证 |
+| **PLG-012** | 已发现文件再次拖入 | 已扫描/缓存插件卸载后再次拖入；仍返回有效身份并更新 metadata，不误报没有类型 | [x] Windows 原生 VST3 与实际拖放验证 |
 
-除手工场景外，插件宿主子系统由自动化单元测试全面覆盖：`PluginHostTest`（插件扫描、加载、卸载与资源释放生命周期）、`PluginHostXmlTest`（`KnownPluginList` XML 序列化往返与属性完整性）、`PluginScanPersistenceTest`（增量扫描持久化与 dead-man's pedal 黑名单防崩恢复）、`PluginOperationControllerTest`（控制器扫描推进、状态机互斥与窗口管理）。
+自动化测试验证缓存 XML、同名身份/分类、路径恢复决策与增量持久化；不把默认空状态或字段转发测试当成生命周期覆盖。原生 VST3、已加载＋Editor＋重扫、再次启动音色命令及实际退出的复建输入见 [Phase C 实施记录](../../roadmap/current-iteration.md#phase-c-实施记录与直接验证2026-10-03)；不外推为所有厂商插件的崩溃/卡死验证。

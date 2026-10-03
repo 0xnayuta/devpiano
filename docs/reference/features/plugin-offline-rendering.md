@@ -1,7 +1,7 @@
 # VST3 插件离线渲染与 WAV 音频导出功能说明
 
 > 用途：说明 devpiano 的非实时音频离线渲染管线（`RenderPipeline`）、独立离线 VST3 插件实例管理（`PluginOfflineRenderer`）、内置物理建模钢琴声学一致性导出（`WavFileExporter` 与 `RoomReverbEngine`）、后台多线程导出任务（`WavExportTask`）与 JIVE 声明式进度条交互。
-> 当前状态：已全量实现并稳定服务于 WAV 导出（覆盖 Phase 7~34 成果，支持现代化非阻塞异步导出任务与乐器端点统一路由，实现实时演奏与离线导出 1:1 比特级声学一致性）。
+> 当前状态：已接入独立非实时实例、事务 WAV 写出、非阻塞后台任务与协作取消/退出；共享声学参数，不承诺 VST3 实时/离线逐样本相同，完整事件闭包以 AUDIT-004 当前实施计划为准。
 > 更新时机：离线渲染管线、插件状态快照、导出进度交互或音频格式与声学参数发生变化时。
 
 ---
@@ -34,8 +34,8 @@ WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
     ├── InstrumentEndpoint::renderTakeThroughInstrumentEndpoint() (同构乐器端点路由):
     │    ├── [VST3 插件端点] ──► PluginOfflineRenderer::renderTakeWithOfflinePlugin()
     │    │                         ├── 独立创建 AudioPluginInstance
-    │    │                         ├── prepareToPlay(sampleRate, blockSize=512)
-    │    │                         └── 渲染完成后 releaseResources() 并安全析构
+    │    │                         ├── setNonRealtime(true) → prepareToPlay(sampleRate, blockSize)
+    │    │                         └── 实际 worker 退出后由任务 releaseResources() 一次并安全析构
     │    │
     │    └── [内置乐器端点] ──► WavFileExporter (离线构建带有完整声学参数的 PianoSynthVoice / Sine + RoomReverbEngine 后级混响)
     ├── RenderPipeline (统一调度事件时间戳缩放、按 samplePosition 排序并分块送入 processBlock)
@@ -52,7 +52,7 @@ WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
 - **独立性**：基于当前已加载插件的 `PluginDescription`，通过 `formatManager.createPluginInstance()` 创建一个全新的离线实例；
 - **无 Editor 开销**：离线实例不创建任何 UI 窗口，避免跨线程 GUI 句柄死锁；
 - **状态快照**：若实时插件支持状态保存，通过 `instance->getStateInformation()` 抓取当前音色参数并注入离线实例；
-- **受控生命周期**：严格遵循 `create` → `prepareToPlay` → 逐 block `processBlock` → `releaseResources` → `delete` 的确定性生命周期。
+- **受控生命周期**：`create` → 消息线程 `setNonRealtime(true)` / prepare / state restore → 后台逐块 process → 实际工作退出 → 所有者 releaseResources / delete。原生 VST3 的 setup 与 process 都消费 offline mode；直接调用渲染函数可复用准备好的实例，释放由其调用者负责。
 
 ### 3.2 共享渲染管线（`RenderPipeline`）
 
@@ -68,8 +68,9 @@ WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
 - **纯异步任务流（`startAsync`）**：在 Phase 34-F 中，彻底消除了历史遗留的主线程嵌套模态循环 `runDispatchLoopUntil(10)` 与 `Thread::sleep(10)`，改为基于 `startAsync(onComplete)` 的非阻塞异步任务模型；`CMakeLists.txt` 仅在 `devpiano_tests` 测试目标保留 `JUCE_MODAL_LOOPS_PERMITTED=1`，主应用 `devpiano` 目标不定义该宏；
 - **同构乐器端点（`InstrumentEndpoint`）**：在 Phase 34-E 中引入 `renderTakeThroughInstrumentEndpoint()`，端点路由与实时发声完全一致，消除离线分支手写判断；
 - **无锁进度传递**：后台线程通过 `std::atomic<double> currentProgress` 和 `std::atomic<bool> cancelRequested` 与主线程通信；
-- **安全取消机制**：用户点击 [Cancel] 或按 ESC 后，后台线程在 block 循环及关闭 writer 后的最终进度回调检查取消；提交前取消保留原目标。`WavExportTask::failExport()` 只记录结果，不调用 `destinationFile.deleteFile()`。已成功提交是完成边界，不把之后的 UI 消息当成可撤销的写入。
-- **验证范围**：已有目标的连续覆盖、取消、参数拒绝、目标锁定/替换失败与临时文件清理由 Windows 隔离消费者和默认测试覆盖。真实慢插件强制终止、崩溃/断电、实时/离线完整声学闭包仍属 AUDIT-004 后续阶段，不能由本轮事务验证外推。
+- **协作取消与退出**：Cancel / ESC / 窗口关闭只设置取消请求，显示“正在取消导出”；Timer 不因取消请求或提前 finished 标志释放任务，只在实际线程退出后收尾。主应用退出保持消息循环等待导出完成，直接析构与 `runSync()` 无限等待兜底，不调用有限超时的 `stopThread()` 强杀。
+- **提交边界**：后台在块循环及 writer 关闭后的最终回调检查取消；提交前取消保留原目标并清理自有临时文件。已成功提交不能被之后的 UI 消息撤销。
+- **验证范围**：真实原生 mode-aware VST3、event 阻塞超过旧强停窗口的取消、回调内自销毁、资源/临时文件和实际保存对话框/应用退出已在隔离 Windows 消费者验证，复建输入见 [Phase C 实施记录](../../roadmap/current-iteration.md#phase-c-实施记录与直接验证2026-10-03)。冷路径图形驱动资源与正式任务资源分开记录，不外推所有厂商插件、断电或完整实时/离线声学闭包。
 
 ### 3.4 内置合成器 1:1 声学一致性对齐（`WavExportOptions`）
 
@@ -93,7 +94,7 @@ WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
 | **WAV-002** | VST3 插件音色离线导出 | 加载 VST3 插件后录制演奏并导出 WAV，导出的音频为该 VST3 插件的真实音色 | [x] 已通过 |
 | **WAV-003** | 导出期间实时弹奏解耦 | 导出长时间 WAV 期间，在前台按键盘弹奏，实时发声不受影响，导出音频中无键盘杂音 | [x] 已通过 |
 | **WAV-004** | JIVE 进度条平滑刷新 | 导出过程中观察 JIVE 进度条从 0% 平滑推进至 100%，状态文本实时显示进度百分比 | [x] 已通过 |
-| **WAV-005** | 中途取消与残留文件清理 | 导出推进到 50% 时点击 [Cancel]，导出立即中止，目标目录下无残缺 `.wav` 文件生成 | [x] 已通过 |
+| **WAV-005** | 中途协作取消与文件收尾 | Cancel 后显示取消中；等待正在执行的 block 返回再释放任务，目标目录无未完成输出，已有目标字节保留 | [x] Windows 原生慢插件与实际进度/退出消费者验证 |
 | **WAV-006** | 目标路径无权限容错 | 导出至只读目录或非法路径，弹窗提示错误，Logger 记录日志，程序不崩溃 | [x] 已通过 |
 | **WAV-007** | 空 Take 导出拦截 | 在无录制且无导入状态下，Export WAV 按钮自动保持 Disabled | [x] 已通过 |
 | **WAV-008** | 物理声学与空间参数离线一致性 | 配置特定古典律制、听众视角与房间混响后导出 WAV，导出的音频与实时试听效果完全一致，无爆音、无尾音截断 | [x] 已通过 |

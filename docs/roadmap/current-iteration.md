@@ -2,12 +2,12 @@
 
 > 用途：本文件只记录当前实施排期与任务验收；项目状态和长期路线以 [roadmap](roadmap.md) 为准。
 > 本轮名称：**AUDIT-004 Phase：代码质量缺陷修复与消费者契约闭环**。
-> 当前状态：**Phase 0/A/B 已完成（Phase B：2026-10-03），Phase C 待开始**。只勾选有直接证据的本轮任务；其他阶段保持未勾选，不以默认测试通过代替其消费者契约闭环。
+> 当前状态：**Phase 0/A/B/C 已完成（Phase C：2026-10-03），Phase D 待开始**。只勾选有直接证据的本轮任务；其他阶段保持未勾选，不以默认测试通过代替其消费者契约闭环。
 
 ## 1. 输入、范围与历史归档
 
 - 问题与优先级基线：[AUDIT-004 第8章](../audit/AUDIT-004-code-quality-audit-2026-10-02.md#8-附录问题总表登记表)，实施方向参考其第5章，复现与未验证范围参考第4章。
-- 本计划完整纳入原审计基线的 **54个未闭环唯一项**（P1 25、P2 26、P3 3，本轮未登记P0）。这是固定排期覆盖集合，不是当前剩余任务数；Phase 0/A/B 的任务已完成，其他原项仍按下方未勾选任务推进，原报告不回写。
+- 本计划完整纳入原审计基线的 **54个未闭环唯一项**（P1 25、P2 26、P3 3，本轮未登记P0）。这是固定排期覆盖集合，不是当前剩余任务数；Phase 0/A/B/C 的任务已完成，其他原项仍按下方未勾选任务推进，原报告不回写。
 - 保留报告原登记 ID/历史命名空间/known-issues 标题引用，不重编号、不把同名 `ERR-002` 混成同一项。下方每个原 ID 只安排到一个阶段；排期不改变原优先级，跨阶段关联只说明依赖。
 - [Phase 35 完成计划](../archive/phase35-keyboard-expressive-dynamics-and-practice-infrastructure.md)已归档，保留当时完成勾选和契约差距；阶段交付完成不等于后续审计风险已消除。
 - Phase 36/37 继续在 roadmap 保留规划。在P1、关键消费者回归及安全门禁达标前不开始新增声学/分区叠层功能，本轮不缩减到只修P1而遗漏其他登记项。
@@ -29,7 +29,7 @@
 | AUDIT-004 Phase 0 | 安全验证前置 | 无；只建立可安全执行的 Debug 消费者验证基础。 | 已完成，2026-10-02 |
 | AUDIT-004 Phase A | 已有用户数据保护与持久化一致性 | Phase 0；同一阶段先处理 ERR-001、SEC-001、SEC-002。 | 已完成，2026-10-02 |
 | AUDIT-004 Phase B | 文件准入与时间线数值安全 | Phase A 的所有权和失败保留约束；数值检查应先于打开输出。 | 已完成，2026-10-03 |
-| AUDIT-004 Phase C | 插件与活动 DSP / Transport 所有权 | Phase 0/A；冻结已有数据与旧实例生命周期，先收敛竞态再改事件执行。 | 待开始 |
+| AUDIT-004 Phase C | 插件与活动 DSP / Transport 所有权 | Phase 0/A；冻结已有数据与旧实例生命周期，先收敛竞态再改事件执行。 | 已完成，2026-10-03 |
 | AUDIT-004 Phase D | 发音身份与采样级 Transport 边界 | Phase B/C；游标/倍率/设备时间域的所有权先于新增边界逻辑。 | 待开始 |
 | AUDIT-004 Phase E | 预设永久身份与实时/离线执行闭包 | Phase A/C/D；先 ARCH-003，再 ARCH-004；发布/通知容量与监听器清理同步设计。 | 待开始 |
 | AUDIT-004 Phase F | 映射看板、交互与声学边界 | Phase A/D/E；明确点击输入身份与显示输出身份，不以重复矩阵变换修显示。 | 待开始 |
@@ -1135,7 +1135,7 @@ PHASE_B_PRIVATE_FILES_CLEAN=1
 
 **失败记录单列**：首轮 MSVC 发现 `ssize_t` 非跨平台全局类型；核对本地 JUCE 后改为在已验证 32 MiB 范围内使用 `std::ptrdiff_t`，新增 optional 窄化 C4244 使用明确 uint8_t 常量消除。首轮默认测试 33 个失败断言来自物理率策略误伤通用合成播放（32）及扩展块虽预检完整但 JUCE 按 chunk 计轨（1）；修正分层/规范化，保留原播放/循环断言，不改成新的期望值。首次独立探针误用 48k→44.1k 下采样的 MAX 输入作为必溢出案例，缩放后仍可表示，导致极长渲染超时；Windows 栈确认在实际 WAV 写出/limiter，停止的仅是已核对命令行的自有 probe，清理其约 44.7 GB 临时 WAV 及私有目录。随后按原边界改为同率 MAX，启用即时 stdout；最终源码、零退出与保护结果见上，不把此探针构造错误写成产品溢出反证或隐去临时资源风险。
 
-### AUDIT-004 Phase C：插件与活动 DSP / Transport 所有权 [待开始]
+### AUDIT-004 Phase C：插件与活动 DSP / Transport 所有权 [已完成，2026-10-03]
 
 **目标**：所有实例/声部/活动游标变更有明确停机或音频所有者边界，异步导出协作收尾。
 
@@ -1145,13 +1145,1377 @@ PHASE_B_PRIVATE_FILES_CLEAN=1
 
 | 执行 | 原登记 ID | 原优先级 | 修复目标 | 可观察验收 |
 | --- | --- | --- | --- | --- |
-| [ ] | `AUDIT-001 THR-004` | P1 | 增量重扫绕过停音频/关 Editor 守卫。复用设备重建守卫，在扫描卸载前关闭 Editor 并停止 callback；覆盖已加载+Editor 打开时重扫。 | 已加载＋Editor＋重扫时，先关闭 Editor 并停止 callback 再卸载；load/unload/重扫/退出均无悬垂实例。 |
-| [ ] | `AUDIT-002 THR-001` | P1 | 音色重建仍从消息线程应用活动 DSP 参数。将重建与参数提交放入明确停音频窗口，或仅由音频所有者完成受控切换；不能只依赖单次 getVoice/clear/add 的内部锁。 | 持续渲染中切 Piano/Sine、启动/再次启动参数提交不并发写活跃 voice/roomReverb；提供真实交错证据。 |
-| [ ] | `known-issues §2/Phase 6-2 播放速度控制` | P1 | 活动变速/Stop 在消息线程改写音频游标。发布 transport 命令，在音频块边界一致应用倍率、位置和游标；结构性停止复用停机守卫；补真实双线程回归。 | 播放中变速/Stop 的倍率、位置、游标在同一音频边界生效；双线程交错不跳过 NoteOff/破坏循环。 |
-| [ ] | `THR-002` | P1 | 取消/析构 WAV 任务可能强制终止工作线程。仅协作取消，异步等待实际工作线程退出后再释放任务/插件/文件所有权；验证慢 processBlock 的取消和退出。 | 慢插件/输出操作超过旧超时后取消仍等待真实工作退出；无 TerminateThread、句柄泄漏或未完成文件头。 |
-| [ ] | `QUAL-014` | P2 | 离线插件实例未声明 nonRealtime 模式。prepare前setNonRealtime(true)，保证setup和process一致；选择依赖offline模式的真实VST3对照验证。 | 独立 VST3 在 prepare 前即获 offline mode，setup/process 一致；真实依赖 offline 分支的插件对照。 |
-| [ ] | `QUAL-015` | P2 | 再次拖入已经发现的 VST3 被误判为没有类型。分离探测到的有效类型与是否新增列表条目，重复文件也返回可加载身份并保留metadata更新。 | 扫描/缓存已存在的插件在卸载后再次拖入可加载，metadata 更新与是否新增列表分离。 |
-| [ ] | `ARCH-002` | P2 | 插件选择/恢复以显示名代替 description 身份。贯穿选择/加载/持久化稳定description身份，显示名仅展示；验证同名不同ID及乐器/效果过滤。 | 同名不同文件/ID/类型插件均可选、正确恢复，乐器过滤不加载同名效果。 |
+| [x] | `AUDIT-001 THR-004` | P1 | 增量重扫绕过停音频/关 Editor 守卫。复用设备重建守卫，在扫描卸载前关闭 Editor 并停止 callback；覆盖已加载+Editor 打开时重扫。 | 真实 native callback 被 event 阻塞时重扫等待；旧 Editor 在卸载前关闭，实际加载/重扫/卸载/退出通过，见 EVID-021/024。 |
+| [x] | `AUDIT-002 THR-001` | P1 | 音色重建仍从消息线程应用活动 DSP 参数。将重建与参数提交放入明确停音频窗口，或仅由音频所有者完成受控切换；不能只依赖单次 getVoice/clear/add 的内部锁。 | 启动 --sine、再次启动 --piano/--sine 走守卫；真实正在执行的 callback 未退出时参数/重建操作不返回，见 EVID-021/024。 |
+| [x] | `known-issues §2/Phase 6-2 播放速度控制` | P1 | 活动变速/Stop 在消息线程改写音频游标。发布 transport 命令，在音频块边界一致应用倍率、位置和游标；结构性停止复用停机守卫；补真实双线程回归。 | 真正 AudioEngine 双线程交错保留当前块位置；下一块提交 2x，交付 NoteOff、完成 A-B 回跳后响应 Stop，不留已发音，见 EVID-022。 |
+| [x] | `THR-002` | P1 | 取消/析构 WAV 任务可能强制终止工作线程。仅协作取消，异步等待实际工作线程退出后再释放任务/插件/文件所有权；验证慢 processBlock 的取消和退出。 | 原生 processBlock 被 event 阻塞超过旧 3 秒窗口后仍保留所有者；正式连续取消无句柄/临时文件增量，实际退出等待 worker，见 EVID-023/024。 |
+| [x] | `QUAL-014` | P2 | 离线插件实例未声明 nonRealtime 模式。prepare前setNonRealtime(true)，保证setup和process一致；选择依赖offline模式的真实VST3对照验证。 | 同一原生 VST3 realtime 输出 0.125、offline 输出及实际 WAV 为 0.5；原生 setup/process 均报告 offline，见 EVID-018/020。 |
+| [x] | `QUAL-015` | P2 | 再次拖入已经发现的 VST3 被误判为没有类型。分离探测到的有效类型与是否新增列表条目，重复文件也返回可加载身份并保留metadata更新。 | 重复探测返回有效 description；过期 version 恢复后探测真实更新，卸载再拖入已缓存 B 正确加载，见 EVID-020/024。 |
+| [x] | `ARCH-002` | P2 | 插件选择/恢复以显示名代替 description 身份。贯穿选择/加载/持久化稳定description身份，显示名仅展示；验证同名不同ID及乐器/效果过滤。 | 同名两个乐器与一个效果保留三份真实身份；实际菜单/类型过滤/恢复 B 均选对，旧设置只唯一迁移，见 EVID-020/024。 |
+
+#### Phase C 实施记录与直接验证（2026-10-03）
+
+**基线与范围**：`55dc0d27b02fce5a338678fa866e348535b3e5a9`（Phase B 本地交付）；仅本阶段七项、共同生命周期/身份边界和直接消费者。历史 AUDIT/ADR 不回写；Phase D 尚未启动。上方 Phase A/B 源码是各自基线的原样执行输入，当前 API 已清切至 description 身份与统一 Transport 入口，不为历史程序保留别名；当前复建使用本节配方。
+
+- **实例/活动 DSP**：增量扫描开始与 startup 扫描复用 `runPluginActionWithAudioDeviceRebuild`；内置音色重建、startup/another-instance 命令同样先关闭 Editor、等待 callback 退出。重启设备后发布真实 Editor/宿主 UI 状态。
+- **Transport**：目标速度、Take-relative Seek 和 Stop 发布到有界原子邮箱；`AudioEngine::getNextAudioBlock` 是唯一消费点。Audio 只用已提交的有效倍率/位置与下一未渲染事件；纯变速不 lower_bound 回退，避免 101→50 的取整重播。Stop 在同边界优先并 panic；清除/启动/暂停快照有停机守卫。getter 区分目标与有效速度，不用 paused/stopped 原子值推断旧 callback 已退出。
+- **后台导出**：取消仅 signal；`isThreadRunning()` 真正结束后 Timer 才关闭进度窗、释放离线实例一次并回调。应用 quit 保持消息循环等待，直接析构/runSync 用无限协作等待兜底；没有有限超时的强杀，直接渲染函数不再重复接管 release。永久卡死插件可能永久等待，这是所有权安全边界，不假装可安全 TerminateThread。
+- **离线模式/身份**：prepare 前 `setNonRealtime(true)`；UI/加载/设置/恢复按 description identifier，名称仅显示。重复探测仍返回 description 并更新 metadata；旧 name 只在缓存唯一匹配时迁移并在保存后移除，多义/缺失有诊断。
+- **测试**：移除默认状态/字段转发与先取消再 start 的错误 oracle，不重钉文案。保留真正的默认双线程事件、缩放取整、缓存身份迁移和后台 WAV header/payload 回归；不把 mock AudioPluginInstance 的 setter 回声当成 native offline-mode 证明。
+
+| 证据 | 对应契约 / 类型 | 执行入口与输入 | 观察结果 | 边界 |
+| --- | --- | --- | --- | --- |
+| EVID-018 | 原基线；运行复现 | 未同步前的 Phase B app objects＋下方 baseline；三个真正的同名 native VST3。 | `repeated_types=0 descriptions=3 selectable_name_count=1 offline_flag=0 setup=0 process=0 sample=0.125`；发布速度直接把位置 `100→50`、Stop 立即生效。 | 不故意触发 UAF/强杀；重扫/tone switch 的原竞争以原基线静态证据保存，修复后做真实交错。 |
+| EVID-019 | 构建 / 默认门禁；运行确认 | `build-win-msvc/audit004-phase0` Windows MSVC Debug，保留 `/Zc:nrvo-`，app/tests 两目标；默认 ctest，无 category/name 补跑。 | 最终构建通过；本次默认执行 97 套件、98,281 通过断言、零失败，Chord 完整；真实用户目录前后清单/属性/mtime/SHA256 一致，私有 TEMP/TMP 零残留。 | 数字只记录这次执行，不是日常固定门槛；未跑 Release/WSL 软件测试或重复已知 Phase G tidy 失败。 |
+| EVID-020 | QUAL-014/015、ARCH-002；native/file 确认 | 官方 JUCE VST3 wrapper 构建两个 synth＋一个 effect，显示名全部 `Phase C Twin`、文件/FUID 不同；实际 factory、stale metadata 重探测与 WAV 读取。 | 重复文件返回有效 description、过期 version 更新；三种身份保留且 B 正确加载；同一插件 realtime sample=0.125，offline sample/WAV=0.5，native setup/process 都为 offline。 | 自建真实 .vst3 binary，不是 mock 格式或字段转发；未外推任意商业厂商插件。 |
+| EVID-021 | 历史 THR-004/THR-001；真实交错 | 已加载 native＋Editor，processBlock 被 Win32 event 阻塞；Main 的扫描与 another-instance --piano 经真实守卫执行，独立控制线程等 mutation 完成 event。 | 控制线程等待 150 ms 仍未收到 mutation 完成；释放 native event 才完成。旧 Editor SafePointer 失效，重扫保留三份身份；--sine/--piano 再次启动可提交。 | 150 ms 是本次观察窗口，不是性能 SLA；不以单次 clear/add/getVoice 的内部锁作证明。 |
+| EVID-022 | Phase 6-2；实际 AudioEngine 双线程 | Renderer 调用真正 `getNextAudioBlock`；UI 在当前块阶段发布 2x 与 Stop；Take/loop=48000 Hz，A=0/B=16000。 | 发布时旧位置与有效 1x 不变；下一边界有效 2x，两个 NoteOff 正常交付，完成 A-B 回跳后 Stop 释放仍发音的 62。默认回归也验证 101→50 不重播旧 On。 | 仅本阶段所有权/变速/Stop，不关闭 Phase D 重叠身份、pause/末尾/设备时域等问题。 |
+| EVID-023 | THR-002；真实慢插件 / 资源确认 | Native offline processBlock 等 event；取消后每轮保持 3300 ms（超过旧 3000 ms 强停），消息 pump；两次同取消 UI 路径初始化后正式三轮。 | 正式三轮进程句柄均 `1152→1152`，临时文件 delta=0；worker 未退出前回调不发生，releaseResources 一次，回调内 task.reset 安全，原 canary 目标保留。成功热身 WAV 可读且 sample=0.5。 | 冷路径总数 `1141→1143→1152` 单列；新增 thread 的真实入口来自 AMD `amdihk64.dll`，含图形后台资源，不把进程总数差直接叫业务泄漏。正式比较没有放宽阈值；不测所有 GPU/厂商。 |
+| EVID-024 | 七项；实际应用 / 窗口 / quit | 探针保留生产 Main.cpp 应用类，仅替换程序入口；私有 profile 验证 JUCE 解析路径后 startup B、类型菜单、重扫、重复拖入、原生保存与阻塞导出 quit。 | 同名菜单=3、instrument=2、effect=1；加载/恢复身份准确；Save 选择 FileNameControlHost 下 Edit 1001、Save 1，status=0；quit 3300 ms 仍响应并显示 Cancelling export，释放 event 后才发送 quit，无未完成输出。实际 PNG 已检查，profile import slot 恢复，真实用户目录未变。 | 不使用 private/public 重定义、不替换业务实现；操作真实 UI/文件框。系统断电、用户强杀及声卡毛刺未外推。 |
+| EVID-025 | 工程 / 失败纠正；直接检查 | `self-check`、WSL configure-only、format check，新增 C++ ASCII、历史哈希和下方失败记录。 | 环境/格式通过，新增 .cpp/.h 行无裸非 ASCII；历史 AUDIT/ADR 不变；最后 app 增量构建与完整 smoke 输入一致。 | codegraph 未挂载；LSP reload 后仍误报 include 缺失并只返回单定义引用，AST .h 解析失败，均已报告。实际 MSVC/消费者是证据，不伪装为 LSP 零诊断或全量 warning/tidy 清零。 |
+
+**失败与用户截图纠正单列**：首次集成编译发现移除旧游标 rewind 时一并删掉 `totalEvents` 定义，按原消费者恢复；独立程序首次把新增 object 放进 Ninja 的 implicit dependency 而非 linker input，链接报 main 缺失，已修复。最初菜单探针误把“选中已有相同索引”当成必触发 onChange，改为实际选择＋Load。导入 Take 自动播放时 Export WAV 按既有状态机禁用，验证先 Stop 而非强行点击 disabled 控件。用户截图确认保存自动化命中了文件列表的 `System.ItemNameDisplay`“名称”重命名控件，错误写入完整路径触发“重命名：指定的文件名无效或太长”；仅修探针，精确定位 filename host 下 `1001`，保存按钮 `1`，不修改产品来绕过失败。Native SDK 诊断 enum 在 Windows public header 不完整，按官方 API＋phnt 校验后仅在自有诊断程序动态查询；不改 SDK。资源冷初始化、7 秒空等不能替代同取消 UI 路径热身，保留冷差异与 AMD 线程归属，正式三轮仍严格比较完整进程总数。以上失败不是最终通过证据，最终全程序 exit=0。
+
+**验证隔离**：TEMP/TMP 指向新 GUID 目录；真实 `[Environment]::GetFolderPath('ApplicationData')/DevPiano` 不重定向、不写测试 canary，只读前后完整快照。实际 Main 的一次性 import-slot scope 将自己的 `SHGetSpecialFolderPathW(CSIDL_APPDATA)` 输入指向自有 profile，先确认 JUCE 实际解析再构造应用，退出恢复；不改系统 profile 或子模块。Windows UIA 仅匹配本进程，filename 控件按 AutomationId/祖先筛选，不接触列表项、剪贴板或其他应用。
+
+参考官方契约：[JUCE AudioDeviceManager](https://docs.juce.com/master/classjuce_1_1AudioDeviceManager.html)、[Thread](https://docs.juce.com/master/classjuce_1_1Thread.html)、[PluginDescription](https://docs.juce.com/master/classjuce_1_1PluginDescription.html)、[AudioProcessor](https://docs.juce.com/master/classjuce_1_1AudioProcessor.html)、[UI Automation Value](https://learn.microsoft.com/en-us/windows/win32/api/uiautomationclient/nf-uiautomationclient-iuiautomationvaluepattern-setvalue)、[GetProcessHandleCount](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getprocesshandlecount)、[NtQueryObject](https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntqueryobject)、[NtQueryInformationThread](https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntqueryinformationthread)、[诊断 enum 的 phnt 定义](https://ntdoc.m417z.com/threadinfoclass)。以本地 JUCE/Windows SDK 签名为准；private NT 查询只存在于一次性验收程序。
+
+##### Windows 构建与隔离执行配方
+
+1. WSL 使用 `./scripts/dev.sh win-build --sync-only` 同步；保留 Phase 0 Debug 子树和 `/Zc:nrvo-`（首次 configure 配方见 EVID-001），不清理原默认 Ninja 缓存、不进行 Release 或 WSL 软件验证。
+2. 把下方 native CMake/CPP 保存为 `$build/phasec-smoke/native-src/CMakeLists.txt`、`NativePlugin.cpp`。把下面的 native 构建脚本保存为临时 `phasec-native.ps1`，执行后在 native-build 下得到三个真正的 VST3 package；不安装到用户插件目录。
+3. `phasec-windows.ps1 -Mode Build` 构建 app/tests；`-Mode Test` 执行默认全套。实际消费者源码保存为 `$build/phasec-smoke/phasec_smoke.cpp`；先按下方 exact object linkage 生成 compile-smoke.cmd 和 phasec_smoke.ninja，再用 build-smoke.ps1 -Mode Smoke 编译/链接。
+4. `phasec-windows.ps1 -Mode Smoke -NativeRoot "$build/phasec-smoke/native-build"` 运行完整程序；观察 Native/Transport/CANCEL_RESOURCES/APPLICATION 标记以及 mode JSON 的 exitCode=0、userDirectoryUnchanged=true、remainingTempEntries=0。UIA 只操作本进程实际控件。
+5. baseline 源码按下方单列，只与 **同步前的 Phase B objects/headers** 链接；复建原基线应使用基线 commit 的独立镜像/构建目录，不能把新 API 的对象混入 baseline。当前 smoke 只链接当前 app objects，不链接 UnitTest 替代实现。
+6. 以下完整输入/关键输出已经持久保存；本轮一次性源码、Ninja edge、二进制/图片与私有 scratch 已在验证后清理，原产品构建缓存和真实用户数据保留。
+
+##### 完整 native VST3 配置
+
+```cmake
+cmake_minimum_required(VERSION 3.22)
+
+# Global policy and debug format defaults
+set(CMAKE_POLICY_DEFAULT_CMP0141 NEW)
+if (POLICY CMP0141)
+    cmake_policy(SET CMP0141 NEW)
+endif()
+
+# Force Debug build and Embedded /Z7 debug symbols for MSVC
+set(CMAKE_BUILD_TYPE Debug CACHE STRING "" FORCE)
+set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:Embedded>" CACHE STRING "" FORCE)
+
+project(PhaseCTwinNativePlugins VERSION 1.0.0 LANGUAGES C CXX)
+
+if (MSVC)
+    string(REPLACE "/Zi" "/Z7" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
+    string(REPLACE "/Zi" "/Z7" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+    add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:/FS>)
+    add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:/Zc:nrvo->)
+    add_link_options("/INCREMENTAL:NO")
+endif()
+
+add_compile_definitions(JUCE_VST3_CAN_REPLACE_VST2=0)
+
+# Resolve devpiano workspace root and incorporate unmodified mirror JUCE
+if (NOT DEFINED DEVPIANO_ROOT)
+    get_filename_component(DEVPIANO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../.." ABSOLUTE)
+endif()
+
+if (NOT TARGET juce_audio_processors)
+    add_subdirectory("${DEVPIANO_ROOT}/submodules/JUCE" "${CMAKE_CURRENT_BINARY_DIR}/JUCE_build")
+endif()
+
+# ==============================================================================
+# Phase C Twin VST3 Verification Targets
+# Three targets sharing NativePlugin.cpp and identical display name 'Phase C Twin'
+# Target 1: PhaseCTwinA      (PLUGIN_CODE "Cone", IS_SYNTH TRUE)
+# Target 2: PhaseCTwinB      (PLUGIN_CODE "Ctwo", IS_SYNTH TRUE)
+# Target 3: PhaseCTwinEffect (PLUGIN_CODE "Cfxe", IS_SYNTH FALSE)
+# ==============================================================================
+
+# Target 1: PhaseCTwinA
+juce_add_plugin(PhaseCTwinA
+    COMPANY_NAME "DevPiano"
+    PRODUCT_NAME "Phase C Twin"
+    PLUGIN_NAME "Phase C Twin"
+    DESCRIPTION "Phase C Twin"
+    PLUGIN_MANUFACTURER_CODE "DevP"
+    PLUGIN_CODE "Cone"
+    FORMATS VST3
+    IS_SYNTH TRUE
+    NEEDS_MIDI_INPUT TRUE
+    NEEDS_MIDI_OUTPUT FALSE
+    IS_MIDI_EFFECT FALSE
+    EDITOR_WANTS_KEYBOARD_FOCUS FALSE
+    COPY_PLUGIN_AFTER_BUILD FALSE
+    VST3_AUTO_MANIFEST FALSE
+)
+
+target_sources(PhaseCTwinA PRIVATE NativePlugin.cpp)
+target_compile_features(PhaseCTwinA PRIVATE cxx_std_20)
+set_target_properties(PhaseCTwinA PROPERTIES
+    CXX_STANDARD 20
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+target_compile_definitions(PhaseCTwinA PUBLIC JUCE_VST3_CAN_REPLACE_VST2=0)
+target_link_libraries(PhaseCTwinA PRIVATE
+    juce::juce_audio_utils
+    juce::juce_recommended_config_flags
+    juce::juce_recommended_warning_flags
+)
+
+# Target 2: PhaseCTwinB
+juce_add_plugin(PhaseCTwinB
+    COMPANY_NAME "DevPiano"
+    PRODUCT_NAME "Phase C Twin"
+    PLUGIN_NAME "Phase C Twin"
+    DESCRIPTION "Phase C Twin"
+    PLUGIN_MANUFACTURER_CODE "DevP"
+    PLUGIN_CODE "Ctwo"
+    FORMATS VST3
+    IS_SYNTH TRUE
+    NEEDS_MIDI_INPUT TRUE
+    NEEDS_MIDI_OUTPUT FALSE
+    IS_MIDI_EFFECT FALSE
+    EDITOR_WANTS_KEYBOARD_FOCUS FALSE
+    COPY_PLUGIN_AFTER_BUILD FALSE
+    VST3_AUTO_MANIFEST FALSE
+)
+
+target_sources(PhaseCTwinB PRIVATE NativePlugin.cpp)
+target_compile_features(PhaseCTwinB PRIVATE cxx_std_20)
+set_target_properties(PhaseCTwinB PROPERTIES
+    CXX_STANDARD 20
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+target_compile_definitions(PhaseCTwinB PUBLIC JUCE_VST3_CAN_REPLACE_VST2=0)
+target_link_libraries(PhaseCTwinB PRIVATE
+    juce::juce_audio_utils
+    juce::juce_recommended_config_flags
+    juce::juce_recommended_warning_flags
+)
+
+# Target 3: PhaseCTwinEffect
+juce_add_plugin(PhaseCTwinEffect
+    COMPANY_NAME "DevPiano"
+    PRODUCT_NAME "Phase C Twin"
+    PLUGIN_NAME "Phase C Twin"
+    DESCRIPTION "Phase C Twin"
+    PLUGIN_MANUFACTURER_CODE "DevP"
+    PLUGIN_CODE "Cfxe"
+    FORMATS VST3
+    IS_SYNTH FALSE
+    NEEDS_MIDI_INPUT FALSE
+    NEEDS_MIDI_OUTPUT FALSE
+    IS_MIDI_EFFECT FALSE
+    EDITOR_WANTS_KEYBOARD_FOCUS FALSE
+    COPY_PLUGIN_AFTER_BUILD FALSE
+    VST3_AUTO_MANIFEST FALSE
+)
+
+target_sources(PhaseCTwinEffect PRIVATE NativePlugin.cpp)
+target_compile_features(PhaseCTwinEffect PRIVATE cxx_std_20)
+set_target_properties(PhaseCTwinEffect PROPERTIES
+    CXX_STANDARD 20
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+target_compile_definitions(PhaseCTwinEffect PUBLIC JUCE_VST3_CAN_REPLACE_VST2=0)
+target_link_libraries(PhaseCTwinEffect PRIVATE
+    juce::juce_audio_utils
+    juce::juce_recommended_config_flags
+    juce::juce_recommended_warning_flags
+)
+
+# Convenience target to build all three VST3 binaries
+add_custom_target(phasec_twins
+    DEPENDS PhaseCTwinA_VST3 PhaseCTwinB_VST3 PhaseCTwinEffect_VST3
+)
+```
+
+```cpp
+#include <atomic>
+#include <cstdint>
+#include <cwchar>
+
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
+
+#if __has_include(<JuceHeader.h>)
+#include <JuceHeader.h>
+#else
+#include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_gui_extra/juce_gui_extra.h>
+#endif
+
+#ifndef JucePlugin_Name
+#define JucePlugin_Name "Phase C Twin"
+#endif
+
+#ifndef JucePlugin_IsSynth
+#define JucePlugin_IsSynth 1
+#endif
+
+#ifndef JucePlugin_WantsMidiInput
+#define JucePlugin_WantsMidiInput 1
+#endif
+
+class NativePhaseCTwinProcessor : public juce::AudioProcessor {
+public:
+    static constexpr uint32_t kStateMagic = 0x50484331u; // ASCII 'PHC1'
+    static constexpr size_t kStateWords = 6;
+
+    NativePhaseCTwinProcessor()
+#if JucePlugin_IsSynth
+        : juce::AudioProcessor (BusesProperties().withOutput ("Output", juce::AudioChannelSet::stereo(), true))
+#else
+        : juce::AudioProcessor (BusesProperties().withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
+                                               .withOutput ("Output", juce::AudioChannelSet::stereo(), true))
+#endif
+    {
+        gainParameter = new juce::AudioParameterFloat (juce::ParameterID { "gain", 1 }, "Gain", 0.0f, 1.0f, 0.5f);
+        addParameter (gainParameter);
+        offlineGateParameter = new juce::AudioParameterBool (juce::ParameterID { "gateOffline", 1 },
+                                                             "Gate Offline Export", false);
+        addParameter (offlineGateParameter);
+        realtimeGateParameter = new juce::AudioParameterBool (juce::ParameterID { "gateRealtime", 1 },
+                                                              "Gate Realtime Once", false);
+        addParameter (realtimeGateParameter);
+
+#if defined(_WIN32)
+        const DWORD pid = GetCurrentProcessId();
+        wchar_t enteredName[128] = { 0 };
+        wchar_t releaseName[128] = { 0 };
+        swprintf_s (enteredName, L"Local\\DevPianoPhaseC-%lu-entered", static_cast<unsigned long> (pid));
+        swprintf_s (releaseName, L"Local\\DevPianoPhaseC-%lu-release", static_cast<unsigned long> (pid));
+
+        // Create manual-reset events in constructor (owned and closed in destructor).
+        // Handles will connect to existing events if parent created them first.
+        enteredEvent = CreateEventW (nullptr, TRUE, FALSE, enteredName);
+        releaseEvent = CreateEventW (nullptr, TRUE, FALSE, releaseName);
+#endif
+    }
+
+    ~NativePhaseCTwinProcessor() override {
+#if defined(_WIN32)
+        if (enteredEvent != nullptr && enteredEvent != INVALID_HANDLE_VALUE) {
+            CloseHandle (enteredEvent);
+            enteredEvent = nullptr;
+        }
+        if (releaseEvent != nullptr && releaseEvent != INVALID_HANDLE_VALUE) {
+            CloseHandle (releaseEvent);
+            releaseEvent = nullptr;
+        }
+#endif
+    }
+
+    //==============================================================================
+    void prepareToPlay (double sampleRate, int samplesPerBlock) override {
+        juce::ignoreUnused (sampleRate, samplesPerBlock);
+        // Mode comes exclusively from real host calls: record isNonRealtime()
+        const bool offline = isNonRealtime();
+        lastPrepareOffline.store (offline ? 1u : 0u, std::memory_order_release);
+    }
+
+    void releaseResources() override {
+        // Atomic release counter for lifecycle verification
+        releaseCount.fetch_add (1, std::memory_order_relaxed);
+    }
+
+    bool isBusesLayoutSupported (const BusesLayout& layouts) const override {
+        // Output must be stereo
+        if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
+            return false;
+
+#if ! JucePlugin_IsSynth
+        // Effect accepts stereo input (or disabled)
+        if (layouts.getMainInputChannelSet() != juce::AudioChannelSet::stereo()
+            && layouts.getMainInputChannelSet() != juce::AudioChannelSet::disabled())
+            return false;
+#endif
+        return true;
+    }
+
+    void processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages) override {
+        juce::ScopedNoDenormals noDenormals;
+
+        // Deterministic slow/callback ownership verification:
+        // gateRequested applies once: native processBlock exchanges true->false,
+        // signals named Win32 event then waits on a named release event.
+#if defined(_WIN32)
+        const auto realtimeGate = realtimeGateParameter->get();
+        const auto gateByParameter = !isNonRealtime() && realtimeGate && !handledRealtimeGate;
+        handledRealtimeGate = realtimeGate;
+        if (gateByParameter || gateRequested.exchange (0u, std::memory_order_acq_rel) != 0u) {
+            if (enteredEvent != nullptr && enteredEvent != INVALID_HANDLE_VALUE) {
+                SetEvent (enteredEvent);
+            }
+            if (releaseEvent != nullptr && releaseEvent != INVALID_HANDLE_VALUE) {
+                WaitForSingleObject (releaseEvent, INFINITE);
+            }
+        }
+#else
+        gateRequested.store (0u, std::memory_order_relaxed);
+#endif
+
+        const bool processOffline = isNonRealtime();
+        lastProcessOffline.store (processOffline ? 1u : 0u, std::memory_order_release);
+        processCount.fetch_add (1, std::memory_order_relaxed);
+
+        const bool prepareOffline = (lastPrepareOffline.load (std::memory_order_acquire) != 0u);
+
+        // Audible amplitude differences:
+        // realtime: 0.125f, offline: 0.5f, mode disagreement: -0.5f
+        float sampleValue = 0.0f;
+        if (prepareOffline != processOffline) {
+            sampleValue = -0.5f;
+        } else if (processOffline) {
+            sampleValue = 0.5f;
+        } else {
+            sampleValue = 0.125f;
+        }
+        sampleValue *= gainParameter->get() * 2.0f;
+
+        const int totalNumInputChannels = getTotalNumInputChannels();
+        const int totalNumOutputChannels = getTotalNumOutputChannels();
+
+        for (int i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
+            buffer.clear (i, 0, buffer.getNumSamples());
+
+        for (int ch = 0; ch < totalNumOutputChannels; ++ch) {
+            auto* writePtr = buffer.getWritePointer (ch);
+            for (int s = 0; s < buffer.getNumSamples(); ++s) {
+                writePtr[s] = sampleValue;
+            }
+        }
+
+        // MIDI acceptance for synth and no MIDI output
+        midiMessages.clear();
+    }
+
+    //==============================================================================
+    bool hasEditor() const override { return true; }
+    juce::AudioProcessorEditor* createEditor() override {
+        return new juce::GenericAudioProcessorEditor (*this);
+    }
+
+    //==============================================================================
+    const juce::String getName() const override { return JucePlugin_Name; }
+
+    bool acceptsMidi() const override {
+#if JucePlugin_IsSynth
+        return true;
+#else
+        return false;
+#endif
+    }
+
+    bool producesMidi() const override { return false; }
+    bool isMidiEffect() const override { return false; }
+    double getTailLengthSeconds() const override { return 0.0; }
+
+    int getNumPrograms() override { return 1; }
+    int getCurrentProgram() override { return 0; }
+    void setCurrentProgram (int) override {}
+    const juce::String getProgramName (int) override { return {}; }
+    void changeProgramName (int, const juce::String&) override {}
+
+    //==============================================================================
+    // Stable explicit state diagnostics:
+    // uint32 array [magic=0x50484331, gateRequested (0/1), lastPrepareOffline (0/1),
+    //               lastProcessOffline (0/1), processCount, releaseCount]
+    void getStateInformation (juce::MemoryBlock& destData) override {
+        const uint32_t words[kStateWords] = {
+            kStateMagic,
+            (gateRequested.load (std::memory_order_acquire) != 0u || offlineGateParameter->get()) ? 1u : 0u,
+            lastPrepareOffline.load (std::memory_order_acquire),
+            lastProcessOffline.load (std::memory_order_acquire),
+            processCount.load (std::memory_order_relaxed),
+            releaseCount.load (std::memory_order_relaxed)
+        };
+        destData.replaceAll (words, sizeof (words));
+    }
+
+    void setStateInformation (const void* data, int sizeInBytes) override {
+        if (data == nullptr || static_cast<size_t> (sizeInBytes) != sizeof (uint32_t) * kStateWords)
+            return;
+
+        const auto* words = static_cast<const uint32_t*> (data);
+        if (words[0] != kStateMagic)
+            return;
+
+        // setState accepts same magic/6-word length and changes ONLY gateRequested.
+        // Must NOT restore or rewrite current mode; mode comes exclusively from real host calls.
+        gateRequested.store (words[1] != 0u ? 1u : 0u, std::memory_order_release);
+    }
+
+private:
+#if defined(_WIN32)
+    HANDLE enteredEvent { nullptr };
+    HANDLE releaseEvent { nullptr };
+#endif
+
+    juce::AudioParameterFloat* gainParameter = nullptr;
+    juce::AudioParameterBool* offlineGateParameter = nullptr;
+    juce::AudioParameterBool* realtimeGateParameter = nullptr;
+    bool handledRealtimeGate = false;
+    std::atomic<uint32_t> gateRequested { 0 };
+    std::atomic<uint32_t> lastPrepareOffline { 0 };
+    std::atomic<uint32_t> lastProcessOffline { 0 };
+    std::atomic<uint32_t> processCount { 0 };
+    std::atomic<uint32_t> releaseCount { 0 };
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NativePhaseCTwinProcessor)
+};
+
+//==============================================================================
+// JUCE plugin entry point
+juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() {
+    return new NativePhaseCTwinProcessor();
+}
+```
+
+```powershell
+param()
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
+$vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+if (-not (Test-Path -LiteralPath $vswhere)) {
+    $vswhere = Join-Path $env:ProgramFiles 'Microsoft Visual Studio\Installer\vswhere.exe'
+}
+if (-not (Test-Path -LiteralPath $vswhere)) {
+    throw "vswhere.exe not found at $vswhere"
+}
+
+$instances = @((& $vswhere -latest -products '*' -requires Microsoft.Component.MSBuild -format json) | ConvertFrom-Json)
+if ($LASTEXITCODE -ne 0 -or $instances.Count -lt 1) {
+    throw 'VS discovery failed'
+}
+
+$devShellDll = Join-Path $instances[0].installationPath 'Common7\Tools\Microsoft.VisualStudio.DevShell.dll'
+if (-not (Test-Path -LiteralPath $devShellDll)) {
+    throw "Microsoft.VisualStudio.DevShell.dll not found at $devShellDll"
+}
+
+Import-Module $devShellDll -Force
+Enter-VsDevShell -VsInstallPath $instances[0].installationPath -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64' | Out-Null
+$probe = 'G:\source\projects\devpiano\build-win-msvc\audit004-phase0\phasec-smoke'
+& cmake -S (Join-Path $probe 'native-src') -B (Join-Path $probe 'native-build') -G Ninja -DCMAKE_BUILD_TYPE=Debug -DDEVPIANO_ROOT='G:\source\projects\devpiano'
+if ($LASTEXITCODE -ne 0) { throw 'Native VST3 configure failed' }
+& cmake --build (Join-Path $probe 'native-build') --target phasec_twins --parallel 4
+if ($LASTEXITCODE -ne 0) { throw 'Native VST3 build failed' }
+Write-Output 'PHASE_C_NATIVE_VST3_BUILT=1'
+```
+
+##### 完整 Windows 保护脚本
+
+```powershell
+param(
+    [Parameter(Mandatory = $true, Position = 0)]
+    [ValidateSet('Build', 'Test', 'Smoke', 'Baseline')]
+    [string]$Mode,
+
+    [Parameter(Position = 1)]
+    [string]$NativeRoot = '',
+
+    [Parameter()]
+    [string]$Mirror = 'G:\source\projects\devpiano',
+
+    [Parameter()]
+    [string]$BuildDir = ''
+)
+
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
+
+$mirror = $Mirror
+$build = if ([string]::IsNullOrWhiteSpace($BuildDir)) {
+    Join-Path $mirror 'build-win-msvc\audit004-phase0'
+} else {
+    if ([System.IO.Path]::IsPathRooted($BuildDir)) {
+        $BuildDir
+    } else {
+        Join-Path $mirror $BuildDir
+    }
+}
+
+$vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+if (-not (Test-Path -LiteralPath $vswhere)) {
+    $vswhere = Join-Path $env:ProgramFiles 'Microsoft Visual Studio\Installer\vswhere.exe'
+}
+if (-not (Test-Path -LiteralPath $vswhere)) {
+    throw "vswhere.exe not found at $vswhere"
+}
+
+$instances = @((& $vswhere -latest -products '*' -requires Microsoft.Component.MSBuild -format json) | ConvertFrom-Json)
+if ($LASTEXITCODE -ne 0 -or $instances.Count -lt 1) {
+    throw 'VS discovery failed'
+}
+
+$devShellDll = Join-Path $instances[0].installationPath 'Common7\Tools\Microsoft.VisualStudio.DevShell.dll'
+if (-not (Test-Path -LiteralPath $devShellDll)) {
+    throw "Microsoft.VisualStudio.DevShell.dll not found at $devShellDll"
+}
+
+Import-Module $devShellDll -Force
+Enter-VsDevShell -VsInstallPath $instances[0].installationPath -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64' | Out-Null
+Set-Location -LiteralPath $mirror
+
+if ($Mode -eq 'Build') {
+    $buildLog = Join-Path $build 'phasec-build.log'
+    $origEap = $ErrorActionPreference
+    $buildExit = -1
+    try {
+        $ErrorActionPreference = 'Continue'
+        & cmake --build $build --target devpiano devpiano_tests --parallel 4 2>&1 | Tee-Object -FilePath $buildLog
+        $buildExit = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $origEap
+        if ($buildExit -eq -1 -and $null -ne $LASTEXITCODE) {
+            $buildExit = $LASTEXITCODE
+        }
+    }
+    $buildRecord = [ordered]@{
+        mode = 'Build'
+        buildDir = $build
+        exitCode = $buildExit
+    }
+    $buildRecord | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $build 'phasec-build-verification.json') -Encoding utf8
+    if ($buildExit -ne 0) {
+        throw "Debug build failed: $buildExit"
+    }
+    Write-Output 'PHASE_C_DEBUG_BUILD_PASSED=1'
+    exit 0
+}
+
+function Get-UserSnapshot([string]$Path) {
+    $rows = [System.Collections.Generic.List[object]]::new()
+    $exists = Test-Path -LiteralPath $Path
+    if ($exists) {
+        foreach ($entry in @(Get-Item -LiteralPath $Path -Force) + @(Get-ChildItem -LiteralPath $Path -Force -Recurse | Sort-Object FullName)) {
+            $hash = if ($entry.PSIsContainer) { '' } else { (Get-FileHash -LiteralPath $entry.FullName -Algorithm SHA256).Hash }
+            $length = if ($entry.PSIsContainer) { 0 } else { $entry.Length }
+            $rows.Add([ordered]@{
+                name = $entry.FullName
+                directory = $entry.PSIsContainer
+                length = $length
+                attributes = [int]$entry.Attributes
+                modified = $entry.LastWriteTimeUtc.Ticks
+                hash = $hash
+            })
+        }
+    }
+    return (ConvertTo-Json -Depth 8 -Compress -InputObject ([ordered]@{ exists = $exists; rows = $rows.ToArray() }))
+}
+
+$userDir = Join-Path ([Environment]::GetFolderPath('ApplicationData')) 'DevPiano'
+$before = Get-UserSnapshot $userDir
+$private = Join-Path ([System.IO.Path]::GetTempPath()) ('devpiano-phasec-' + [guid]::NewGuid().ToString('N'))
+[System.IO.Directory]::CreateDirectory($private) | Out-Null
+$oldTemp = $env:TEMP
+$oldTmp = $env:TMP
+$env:TEMP = $private
+$env:TMP = $private
+$exitCode = -1
+
+try {
+    $origEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        switch ($Mode) {
+            'Test' {
+                $testLog = Join-Path $build 'phasec-default-tests.log'
+                & ctest --test-dir $build -C Debug --verbose 2>&1 | Tee-Object -FilePath $testLog
+                $exitCode = $LASTEXITCODE
+            }
+            'Smoke' {
+                $smokeExe = Join-Path $build 'phasec-smoke\phasec_smoke.exe'
+                $smokeLog = Join-Path $build 'phasec-smoke.log'
+                $smokeArgs = @()
+                if (-not [string]::IsNullOrWhiteSpace($NativeRoot)) {
+                    $smokeArgs += $NativeRoot
+                }
+                & $smokeExe @smokeArgs 2>&1 | Tee-Object -FilePath $smokeLog
+                $exitCode = $LASTEXITCODE
+            }
+            'Baseline' {
+                $baselineExe = Join-Path $build 'phasec-smoke\phasec_baseline.exe'
+                $baselineLog = Join-Path $build 'phasec-baseline.log'
+                $baselineArgs = @()
+                if (-not [string]::IsNullOrWhiteSpace($NativeRoot)) {
+                    $baselineArgs += $NativeRoot
+                }
+                & $baselineExe @baselineArgs 2>&1 | Tee-Object -FilePath $baselineLog
+                $exitCode = $LASTEXITCODE
+            }
+        }
+    } finally {
+        $ErrorActionPreference = $origEap
+        if ($exitCode -eq -1 -and $null -ne $LASTEXITCODE) {
+            $exitCode = $LASTEXITCODE
+        }
+    }
+} finally {
+    $env:TEMP = $oldTemp
+    $env:TMP = $oldTmp
+    $after = Get-UserSnapshot $userDir
+    $remaining = @(Get-ChildItem -LiteralPath $private -Force -Recurse).Count
+    $record = [ordered]@{
+        mode = $Mode
+        buildDir = $build
+        exitCode = $exitCode
+        userDirectory = $userDir
+        userDirectoryUnchanged = ($before -ceq $after)
+        privateTempDirectory = $private
+        remainingTempEntries = $remaining
+    }
+    $recordJson = $record | ConvertTo-Json
+    $recordFile = Join-Path $build ('phasec-' + $Mode.ToLowerInvariant() + '-verification.json')
+    Set-Content -LiteralPath $recordFile -Value $recordJson -Encoding utf8
+    Write-Output ('PHASE_C_VERIFICATION=' + ($record | ConvertTo-Json -Compress))
+    if ($remaining -eq 0) {
+        Remove-Item -LiteralPath $private
+    }
+    if ($before -cne $after) {
+        throw 'Protected real user directory changed'
+    }
+    if ($remaining -ne 0) {
+        throw 'Private scratch entries remain'
+    }
+}
+
+if ($exitCode -ne 0) {
+    throw "Consumer execution failed: $exitCode"
+}
+```
+
+##### 完整实际消费者（生产应用类＋真实 VST3/音频/UI）
+
+```cpp
+#include <JuceHeader.h>
+#include "MainComponent.h"
+#include "Plugin/PluginHost.h"
+#include "Recording/PluginOfflineRenderer.h"
+#include "Recording/PerformanceFile.h"
+#include "Recording/RecordingEngine.h"
+#include "Export/WavExportTask.h"
+#include "Settings/SettingsStore.h"
+#include "UI/PluginPanelStateBuilder.h"
+#include <windows.h>
+#include <shlobj.h>
+#include <uiautomation.h>
+#include <winternl.h>
+#include <map>
+#include <array>
+#include <cstring>
+#include <future>
+#include <iostream>
+#include <stdexcept>
+#include <thread>
+#undef START_JUCE_APPLICATION
+#define START_JUCE_APPLICATION(AppClass)
+#include "Main.cpp"
+
+namespace {
+void require(bool value, const char* message) { if (!value) throw std::runtime_error(message); }
+void pump(int milliseconds = 50) {
+    const auto deadline=juce::Time::getMillisecondCounterHiRes()+milliseconds;
+    while (juce::Time::getMillisecondCounterHiRes() < deadline) {
+        MSG message {};
+        while (PeekMessageW(&message,nullptr,0,0,PM_REMOVE)) {
+            TranslateMessage(&message); DispatchMessageW(&message);
+        }
+        MsgWaitForMultipleObjects(0,nullptr,FALSE,3,QS_ALLINPUT);
+    }
+}
+template<class Predicate> void until(Predicate predicate, const char* failure, int timeout=10000) {
+    const auto deadline=juce::Time::getMillisecondCounterHiRes()+timeout;
+    while (!predicate() && juce::Time::getMillisecondCounterHiRes() < deadline) pump(10);
+    require(predicate(),failure);
+}
+struct OwnedDirectory {
+    juce::File directory=juce::File::getSpecialLocation(juce::File::tempDirectory)
+        .getChildFile("phasec-consumer-"+juce::Uuid().toString());
+    OwnedDirectory() { require(directory.createDirectory().wasOk(),"scratch create failed"); }
+    ~OwnedDirectory() { std::cout << "PHASE_C_PRIVATE_FILES_CLEAN=" << directory.deleteRecursively() << '\n'; }
+};
+class ProfileDirectoryScope {
+public:
+    ~ProfileDirectoryScope() {
+        if (slot == nullptr) return;
+        DWORD protection = 0;
+        const bool restored = VirtualProtect(slot, sizeof(*slot), PAGE_READWRITE, &protection) != FALSE;
+        if (restored) {
+            *slot = reinterpret_cast<ULONG_PTR>(original);
+            DWORD ignored = 0;
+            VirtualProtect(slot, sizeof(*slot), protection, &ignored);
+        }
+        std::cout << "PHASE_C_PROFILE_SCOPE_RESTORED=" << restored << '\n';
+    }
+    bool redirect(const juce::File& directory) {
+        privatePath = directory.getFullPathName().toWideCharPointer();
+        if (privatePath.size() >= MAX_PATH) return false;
+        auto* base = reinterpret_cast<BYTE*>(GetModuleHandleW(nullptr));
+        auto* dos = reinterpret_cast<IMAGE_DOS_HEADER*>(base);
+        auto* nt = reinterpret_cast<IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
+        const auto rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
+        if (rva == 0) return false;
+        auto* imports = reinterpret_cast<IMAGE_IMPORT_DESCRIPTOR*>(base + rva);
+        for (; imports->Name != 0; ++imports) {
+            if (imports->OriginalFirstThunk == 0) continue;
+            auto* names = reinterpret_cast<IMAGE_THUNK_DATA*>(base + imports->OriginalFirstThunk);
+            auto* entries = reinterpret_cast<IMAGE_THUNK_DATA*>(base + imports->FirstThunk);
+            for (; names->u1.AddressOfData != 0; ++names, ++entries) {
+                if (IMAGE_SNAP_BY_ORDINAL(names->u1.Ordinal)) continue;
+                auto* imported = reinterpret_cast<IMAGE_IMPORT_BY_NAME*>(base + names->u1.AddressOfData);
+                if (std::strcmp(imported->Name, "SHGetSpecialFolderPathW") != 0) continue;
+                auto* candidate = &entries->u1.Function;
+                DWORD protection = 0;
+                if (!VirtualProtect(candidate, sizeof(*candidate), PAGE_READWRITE, &protection)) return false;
+                original = reinterpret_cast<NativeFolder>(static_cast<ULONG_PTR>(*candidate));
+                *candidate = reinterpret_cast<ULONG_PTR>(&privateFolder);
+                DWORD ignored = 0;
+                VirtualProtect(candidate, sizeof(*candidate), protection, &ignored);
+                slot = candidate;
+                return true;
+            }
+        }
+        return false;
+    }
+private:
+    using NativeFolder = BOOL (WINAPI*)(HWND, LPWSTR, int, BOOL);
+    static BOOL WINAPI privateFolder(HWND window, LPWSTR destination, int kind, BOOL create) {
+        if (kind != CSIDL_APPDATA) return original(window, destination, kind, create);
+        std::copy(privatePath.begin(), privatePath.end(), destination);
+        destination[privatePath.size()] = 0;
+        return TRUE;
+    }
+    ULONG_PTR* slot = nullptr;
+    static inline NativeFolder original = nullptr;
+    static inline std::wstring privatePath;
+};
+
+template<typename T> T* find(juce::Component& root, const juce::String& id) {
+    if (root.getComponentID()==id) if (auto* candidate=dynamic_cast<T*>(&root)) return candidate;
+    for (int i=0;i<root.getNumChildComponents();++i)
+        if (auto* candidate=find<T>(*root.getChildComponent(i),id)) return candidate;
+    return nullptr;
+}
+void click(juce::Component& root, const char* id) {
+    auto* button=find<juce::Button>(root,id);
+    std::cout << "PHASE_C_UI_ACTION id=" << id << " found=" << (button != nullptr)
+              << " enabled=" << (button != nullptr && button->isEnabled()) << '\n';
+    if (button == nullptr || !button->isEnabled()) throw std::runtime_error(std::string("production button unavailable: ")+id);
+    button->triggerClick(); pump(100);
+}
+void screenshot(juce::Component& component,const char* fileName) {
+    const auto image=component.createComponentSnapshot(component.getLocalBounds());
+    auto file=juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory().getChildFile(fileName);
+    auto output=file.createOutputStream(); require(output != nullptr,"snapshot output failed");
+    juce::PNGImageFormat format; require(format.writeImageToStream(image,*output),"snapshot encode failed");
+}
+struct Events {
+    HANDLE entered=nullptr, released=nullptr;
+    Events() {
+        const auto prefix=juce::String("Local\\DevPianoPhaseC-")+juce::String(GetCurrentProcessId());
+        entered=CreateEventW(nullptr,TRUE,FALSE,(prefix+"-entered").toWideCharPointer());
+        released=CreateEventW(nullptr,TRUE,FALSE,(prefix+"-release").toWideCharPointer());
+        require(entered != nullptr && released != nullptr,"event creation failed"); reset();
+    }
+    ~Events() { SetEvent(released); CloseHandle(entered); CloseHandle(released); }
+    void reset() { require(ResetEvent(entered) && ResetEvent(released),"event reset failed"); }
+    bool active() const { return WaitForSingleObject(entered,0)==WAIT_OBJECT_0; }
+    void release() { require(SetEvent(released) != FALSE,"event release failed"); }
+};
+std::array<std::uint32_t,6> nativeWords(juce::AudioPluginInstance& instance) {
+    juce::MemoryBlock state; instance.getStateInformation(state);
+    auto xml=juce::AudioProcessor::getXmlFromBinary(state.getData(),static_cast<int>(state.getSize()));
+    require(xml != nullptr,"VST3 state envelope absent");
+    auto* component=xml->getChildByName("IComponent"); require(component != nullptr,"component state absent");
+    juce::MemoryBlock payload; require(payload.fromBase64Encoding(component->getAllSubText()),"component decode failed");
+    std::array<std::uint32_t,6> words {};
+    require(payload.getSize()>=sizeof(words),"native state truncated");
+    std::memcpy(words.data(),payload.getData(),sizeof(words));
+    require(words[0]==0x50484331u,"native state magic wrong"); return words;
+}
+void armNativeGate(juce::AudioPluginInstance& instance) {
+    juce::MemoryBlock state; instance.getStateInformation(state);
+    auto xml=juce::AudioProcessor::getXmlFromBinary(state.getData(),static_cast<int>(state.getSize()));
+    require(xml != nullptr,"gate envelope absent");
+    auto* component=xml->getChildByName("IComponent"); require(component != nullptr,"gate component absent");
+    juce::MemoryBlock payload; require(payload.fromBase64Encoding(component->getAllSubText()),"gate payload decode failed");
+    require(payload.getSize()>=24,"gate payload short");
+    const std::uint32_t requested=1; std::memcpy(static_cast<char*>(payload.getData())+4,&requested,sizeof(requested));
+    component->deleteAllChildElements(); component->addTextElement(payload.toBase64Encoding());
+    juce::AudioProcessor::copyXmlToBinary(*xml,state);
+    instance.setStateInformation(state.getData(),static_cast<int>(state.getSize()));
+}
+std::unique_ptr<juce::AudioPluginInstance> makeOffline(PluginHost& host,const juce::PluginDescription& description) {
+    juce::String error; auto instance=devpiano::exporting::createOfflinePluginInstance(host.getFormatManager(),description,48000.0,512,error);
+    require(instance != nullptr,"production offline factory failed"); return instance;
+}
+devpiano::recording::RecordingTake makeTake() {
+    using namespace devpiano::recording;
+    RecordingTake take; take.sampleRate=48000; take.lengthSamples=48000;
+    take.events={{0,PerformanceEventType::midi,0,RecordingEventSource::playback,juce::MidiMessage::noteOn(1,60,0.8f)},
+                 {10000,PerformanceEventType::midi,0,RecordingEventSource::playback,juce::MidiMessage::noteOff(1,60)},
+                 {12000,PerformanceEventType::midi,0,RecordingEventSource::playback,juce::MidiMessage::noteOn(1,62,0.8f)},
+                 {24000,PerformanceEventType::midi,0,RecordingEventSource::playback,juce::MidiMessage::noteOff(1,62)}};
+    return take;
+}
+float readSample(const juce::File& file) {
+    juce::AudioFormatManager formats; formats.registerBasicFormats();
+    std::unique_ptr<juce::AudioFormatReader> reader(formats.createReaderFor(file));
+    require(reader != nullptr && reader->sampleRate==48000.0,"final WAV header invalid");
+    juce::AudioBuffer<float> audio(2,512); require(reader->read(&audio,0,512,0,true,true),"WAV payload read failed");
+    return audio.getSample(0,0);
+}
+std::array<juce::PluginDescription,3> verifyNative(PluginHost& host,const juce::File& root,const juce::File& scratch) {
+    const auto a=root.getChildFile("PhaseCTwinA_artefacts/Debug/VST3/Phase C Twin.vst3");
+    const auto b=root.getChildFile("PhaseCTwinB_artefacts/Debug/VST3/Phase C Twin.vst3");
+    const auto effect=root.getChildFile("PhaseCTwinEffect_artefacts/Debug/VST3/Phase C Twin.vst3");
+    const auto foundA=host.addVst3FileToKnownList(a), repeated=host.addVst3FileToKnownList(a);
+    const auto foundB=host.addVst3FileToKnownList(b), foundEffect=host.addVst3FileToKnownList(effect);
+    require(foundA.size()==1 && repeated.size()==1 && foundB.size()==1 && foundEffect.size()==1,"native identity detection failed");
+    const std::array<juce::PluginDescription,3> descriptions {foundA[0],foundB[0],foundEffect[0]};
+    auto xml=host.createKnownPluginListXml(); require(xml != nullptr,"native cache absent");
+    for (auto* element:xml->getChildIterator()) if(element->getStringAttribute("file")==a.getFullPathName()) element->setAttribute("version","stale");
+    require(host.restoreKnownPluginListFromXml(*xml),"stale metadata cache restore failed");
+    require(host.addVst3FileToKnownList(a).size()==1,"duplicate metadata redetection failed");
+    bool updated=false;
+    for(const auto& description:host.getKnownPluginDescriptions()) if(description.isDuplicateOf(foundA[0])) updated=description.version==foundA[0].version;
+    require(updated,"native metadata not updated");
+    const auto panel=buildPluginPanelState(host,foundB[0].createIdentifierString(),false);
+    require(panel.availablePlugins.size()==3,"same-name native choices collapsed");
+    require(foundA[0].createIdentifierString()!=foundB[0].createIdentifierString(),"native IDs collide");
+    require(foundA[0].isInstrument && foundB[0].isInstrument && !foundEffect[0].isInstrument,"native types misclassified");
+    require(host.loadPluginByIdentifier(foundB[0].createIdentifierString(),48000.0,512),"native B load failed");
+    require(host.getLoadedPluginDescription()->isDuplicateOf(foundB[0]),"selected native identity wrong");
+    juce::AudioBuffer<float> audio(2,512); juce::MidiBuffer midi; audio.clear(); host.getInstance()->processBlock(audio,midi);
+    require(std::abs(audio.getSample(0,0)-0.125f)<0.00001f,"native realtime output wrong");
+    auto offline=makeOffline(host,foundB[0]); audio.clear(); offline->processBlock(audio,midi);
+    const auto words=nativeWords(*offline);
+    require(offline->isNonRealtime() && words[2]==1 && words[3]==1,"native setup/process offline modes disagree");
+    require(std::abs(audio.getSample(0,0)-0.5f)<0.00001f,"native offline branch not used");
+    const auto wav=scratch.getChildFile("native-offline.wav");
+    devpiano::exporting::WavExportOptions options; options.sampleRate=48000;
+    require(devpiano::exporting::renderTakeWithOfflinePlugin(makeTake(),wav,options,*offline),"native WAV render failed");
+    require(std::abs(readSample(wav)-0.5f)<0.0001f,"WAV did not contain offline-branch samples");
+    offline->releaseResources(); offline.reset(); host.unloadPlugin();
+    std::cout << "PHASE_C_NATIVE repeated_types=1 descriptions=3 choices=3 metadata_updated=1 selected_B=1 offline_setup=1 offline_process=1 realtime_sample=0.125 offline_sample=0.5 wav_sample=0.5\n";
+    return descriptions;
+}
+void verifyTransport() {
+    devpiano::recording::RecordingEngine recording; AudioEngine audio; audio.setRecordingEngine(&recording);
+    audio.setBuiltinSynthTone(AudioEngine::BuiltinSynthTone::sine); audio.prepareToPlay(512,48000);
+    recording.setPlaybackLoopStartSample(0);recording.setPlaybackLoopEndSample(16000);
+    recording.startPlayback(makeTake(),48000);
+    juce::WaitableEvent firstBlock, speedPublished, secondNote, stopPublished;
+    struct Gates { juce::WaitableEvent& speed; juce::WaitableEvent& stop; ~Gates(){ speed.signal(); stop.signal(); } } gates {speedPublished,stopPublished};
+    auto renderer=std::async(std::launch::async,[&] {
+        juce::AudioBuffer<float> buffer(2,512); const juce::AudioSourceChannelInfo info(&buffer,0,512);
+        while(recording.getPlaybackPositionSamples()==0) audio.getNextAudioBlock(info);
+        firstBlock.signal(); require(speedPublished.wait(10000),"speed publication wait failed");
+        bool observedOff=false,observedOff62=false,loopRestarted=false,previous62=false;
+        for(int block=0;block<48;++block) {
+            const auto position=recording.getPlaybackPositionSamples();
+            audio.getNextAudioBlock(info);
+            if(!audio.getKeyboardState().isNoteOn(1,60)) observedOff=true;
+            const auto note62=audio.getKeyboardState().isNoteOn(1,62);
+            if(previous62 && !note62) observedOff62=true;
+            previous62=note62;
+            if(recording.getPlaybackPositionSamples()<position && audio.getKeyboardState().isNoteOn(1,60)) loopRestarted=true;
+            if(loopRestarted && note62) break;
+        }
+        require(observedOff && observedOff62 && loopRestarted && audio.getKeyboardState().isNoteOn(1,62),
+                "real callback skipped NoteOff or lost the rescaled loop");
+        secondNote.signal(); require(stopPublished.wait(10000),"stop publication wait failed");
+        audio.getNextAudioBlock(info);
+        require(!recording.isPlaying() && !audio.getKeyboardState().isNoteOn(1,62),"real callback stop left a sounding note");
+    });
+    require(firstBlock.wait(10000),"first actual callback did not render");
+    const auto oldPosition=recording.getPlaybackPositionSamples(); recording.setPlaybackSpeedMultiplier(2.0);
+    require(recording.getPlaybackPositionSamples()==oldPosition && recording.getEffectivePlaybackSpeedMultiplier()==1.0,"speed publication modified in-flight block");
+    speedPublished.signal(); require(secondNote.wait(10000),"second actual callback note missing");
+    recording.requestPlaybackStop(); require(recording.isPlaying(),"stop publication modified in-flight callback");
+    stopPublished.signal(); renderer.get(); audio.releaseResources();
+    std::cout << "PHASE_C_TRANSPORT real_audio_callback=1 queued_speed=1 old_block_position_retained=1 effective_speed=2 NoteOff_delivered=1 loop_restarted=1 queued_stop=1 sounding_note_released=1\n";
+}
+using HandleSnapshot = std::map<std::uintptr_t,juce::String>;
+HandleSnapshot handleSnapshot() {
+    using Query = NTSTATUS (NTAPI*)(HANDLE,OBJECT_INFORMATION_CLASS,PVOID,ULONG,PULONG);
+    const auto query=reinterpret_cast<Query>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"),"NtQueryObject"));
+    require(query != nullptr,"handle type query unavailable");
+    HandleSnapshot result;
+    for(std::uintptr_t value=4;value<0x20000;value+=4) {
+        alignas(void*) std::array<unsigned char,4096> buffer {};
+        ULONG returned=0;
+        if(query(reinterpret_cast<HANDLE>(value),ObjectTypeInformation,buffer.data(),
+                 static_cast<ULONG>(buffer.size()),&returned)<0) continue;
+        const auto* information=reinterpret_cast<const PUBLIC_OBJECT_TYPE_INFORMATION*>(buffer.data());
+        result.emplace(value,juce::String(information->TypeName.Buffer,information->TypeName.Length/sizeof(wchar_t)));
+    }
+    return result;
+}
+void printHandleDelta(const HandleSnapshot& before,const HandleSnapshot& after,int cycle) {
+    std::map<juce::String,int> delta;
+    for(const auto& [handle,type]:before) --delta[type];
+    for(const auto& [handle,type]:after) ++delta[type];
+    for(const auto& [type,count]:delta) if(count != 0)
+        std::cout << "PHASE_C_HANDLE_TYPE cycle=" << cycle << " type=" << type << " delta=" << count << '\n';
+    for(const auto& [handle,type]:after) if(!before.contains(handle)) {
+        std::cout << "PHASE_C_NEW_HANDLE cycle=" << cycle << " value=" << handle << " type=" << type;
+        if(type=="Thread") {
+            PWSTR description=nullptr;
+            if(SUCCEEDED(GetThreadDescription(reinterpret_cast<HANDLE>(handle),&description))) {
+                std::cout << " name=" << juce::String(description);
+                LocalFree(description);
+            }
+            std::cout << " tid=" << GetThreadId(reinterpret_cast<HANDLE>(handle));
+            using QueryThread=NTSTATUS (NTAPI*)(HANDLE,THREADINFOCLASS,PVOID,ULONG,PULONG);
+            const auto queryThread=reinterpret_cast<QueryThread>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"),"NtQueryInformationThread"));
+            void* start=nullptr;
+            if(queryThread != nullptr && queryThread(reinterpret_cast<HANDLE>(handle),static_cast<THREADINFOCLASS>(9),
+                                                      &start,sizeof(start),nullptr)>=0){
+                HMODULE module=nullptr;
+                if(GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS|GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                                      reinterpret_cast<LPCWSTR>(start),&module)){
+                    wchar_t path[MAX_PATH] {};GetModuleFileNameW(module,path,MAX_PATH);
+                    std::cout << " start_module=" << juce::String(path);
+                }
+            }
+        }
+        std::cout << '\n';
+    }
+}
+bool handleResourcesStable=true;
+void verifyCancellation(PluginHost& host,const juce::PluginDescription& description,const juce::File& scratch) {
+    Events events;
+    devpiano::exporting::WavExportOptions options; options.sampleRate=48000;
+    const auto warmupTarget=scratch.getChildFile("warmup-task.wav");
+    auto warmup=std::make_unique<WavExportTask>(makeTake(),warmupTarget,options,makeOffline(host,description));
+    bool warmupComplete=false;
+    warmup->startAsync([&](bool ok,const juce::String&){require(ok,"native async warmup failed");warmupComplete=true;warmup.reset();});
+    until([&]{return warmupComplete;},"native async warmup timeout");pump(150);
+    require(std::abs(readSample(warmupTarget)-0.5f)<0.0001f,"background native WAV header/payload invalid");
+    for (int cycle=0;cycle<5;++cycle) {
+        events.reset();
+        const auto detailedBefore=handleSnapshot();
+        DWORD handlesBefore=0;require(GetProcessHandleCount(GetCurrentProcess(),&handlesBefore)!=FALSE,"handle count failed");
+        auto plugin=makeOffline(host,description); armNativeGate(*plugin); auto* pointer=plugin.get();
+        const auto releaseBefore=nativeWords(*pointer)[5];
+        const auto target=scratch.getChildFile("cancel-retained.wav"); require(target.replaceWithText("retained-user-target"),"canary write failed");
+        const auto filesBefore=scratch.findChildFiles(juce::File::findFiles,false);
+        auto task=std::make_unique<WavExportTask>(makeTake(),target,options,std::move(plugin));
+        bool completed=false, result=true; std::uint32_t releaseAfter=0;
+        task->startAsync([&](bool ok,const juce::String&) {
+            result=ok; releaseAfter=nativeWords(*pointer)[5]; completed=true;
+            task.reset();
+        });
+        until([&]{return events.active();},"native slow worker did not enter");
+        task->requestCancellation();
+        const auto deadline=juce::Time::getMillisecondCounterHiRes()+3300.0; int pumps=0;
+        while(juce::Time::getMillisecondCounterHiRes()<deadline) { pump(20);++pumps; require(!completed,"slow worker completed before event release"); }
+        require(task != nullptr && task->isRunning() && pumps>100,"async cancellation blocked message loop or released ownership");
+        events.release(); until([&]{return completed;},"cooperative worker never completed");
+        require(!result && releaseAfter==releaseBefore+1,"worker completion or resource release wrong");
+        require(target.loadFileAsString()=="retained-user-target","cancelled worker altered old target");
+        pump(150);
+        DWORD handlesAfter=0;require(GetProcessHandleCount(GetCurrentProcess(),&handlesAfter)!=FALSE,"final handle count failed");
+        const auto filesAfter=scratch.findChildFiles(juce::File::findFiles,false);
+        const auto detailedAfter=handleSnapshot();
+        printHandleDelta(detailedBefore,detailedAfter,cycle);
+        std::cout << "PHASE_C_CANCEL_RESOURCES cycle=" << cycle << " warmup=" << (cycle<2)
+                  << " handles_before=" << handlesBefore << " handles_after=" << handlesAfter
+                  << " temporary_file_delta=" << filesAfter.size()-filesBefore.size() << '\n';
+        require(filesAfter.size()==filesBefore.size(),"cancelled render left temporary writer files");
+        if (cycle>=2 && handlesAfter>handlesBefore) handleResourcesStable=false;
+        std::cout << "PHASE_C_CANCEL gate_held_ms=3300 responsive_pumps=" << pumps << " no_early_completion=1 native_released_once=1 self_deleting_callback=1 original_target_retained=1\n";
+    }
+}
+
+template<class T> class ComPtr {
+public:
+    ~ComPtr(){ if(pointer != nullptr) pointer->Release(); }
+    T** out(){ require(pointer==nullptr,"COM output already owned");return &pointer; }
+    T* get()const{return pointer;}
+    T* operator->()const{return pointer;}
+    void swap(ComPtr& other) noexcept { std::swap(pointer,other.pointer); }
+private:T* pointer=nullptr;
+};
+struct Automation {
+    ComPtr<IUIAutomation> instance;
+    Automation(){ require(SUCCEEDED(CoCreateInstance(__uuidof(CUIAutomation),nullptr,CLSCTX_INPROC_SERVER,__uuidof(IUIAutomation),reinterpret_cast<void**>(instance.out()))),"UI automation init failed"); }
+    void ownedElements(ComPtr<IUIAutomationElementArray>& elements,HWND window=nullptr){
+        ComPtr<IUIAutomationElement> root;
+        if(window != nullptr) require(SUCCEEDED(instance->ElementFromHandle(window,root.out())),"dialog automation root failed");
+        else require(SUCCEEDED(instance->GetRootElement(root.out())),"desktop automation root failed");
+        VARIANT value {};value.vt=VT_I4;value.lVal=static_cast<LONG>(GetCurrentProcessId());
+        ComPtr<IUIAutomationCondition> condition;
+        require(SUCCEEDED(instance->CreatePropertyCondition(UIA_ProcessIdPropertyId,value,condition.out())),"process condition failed");
+        require(SUCCEEDED(root->FindAll(TreeScope_Descendants,condition.get(),elements.out())),"automation descendant query failed");
+    }
+};
+juce::String automationName(IUIAutomationElement& element){
+    BSTR name=nullptr; element.get_CurrentName(&name); const juce::String text(name);SysFreeString(name);return text;
+}
+void toggleNative(const char* labelText){
+    auto action=std::async(std::launch::async,[labelText]{
+        const auto initialised=CoInitializeEx(nullptr,COINIT_MULTITHREADED);require(SUCCEEDED(initialised),"automation COM init failed");
+        struct Uninitialise{~Uninitialise(){CoUninitialize();}} uninitialise;
+        Automation automation; ComPtr<IUIAutomationElementArray> elements;automation.ownedElements(elements);
+        int count=0;elements->get_Length(&count);RECT label {};
+        bool foundLabel=false;
+        for(int i=0;i<count;++i){ComPtr<IUIAutomationElement> element;elements->GetElement(i,element.out());
+            if(automationName(*element.get())==labelText){element->get_CurrentBoundingRectangle(&label);foundLabel=true;break;}}
+        require(foundLabel,"native parameter label absent");
+        for(int i=0;i<count;++i){ComPtr<IUIAutomationElement> element;elements->GetElement(i,element.out());
+            RECT bounds {};element->get_CurrentBoundingRectangle(&bounds);
+            if(bounds.left < label.right || bounds.bottom <= label.top || bounds.top >= label.bottom)continue;
+            ComPtr<IUnknown> pattern;
+            if(FAILED(element->GetCurrentPattern(UIA_TogglePatternId,pattern.out())) || pattern.get()==nullptr)continue;
+            ComPtr<IUIAutomationTogglePattern> toggle;
+            require(SUCCEEDED(pattern->QueryInterface(__uuidof(IUIAutomationTogglePattern),reinterpret_cast<void**>(toggle.out()))),"toggle pattern unavailable");
+            require(SUCCEEDED(toggle->Toggle()),"native parameter toggle failed");return;
+        }
+        throw std::runtime_error("native boolean control absent");
+    });
+    until([&]{return action.wait_for(std::chrono::milliseconds(0))==std::future_status::ready;},"native control action timed out");action.get();pump(100);
+}
+HWND ownedFileDialog(){
+    HWND result=nullptr;
+    EnumWindows([](HWND window,LPARAM destination)->BOOL{
+        DWORD pid=0;GetWindowThreadProcessId(window,&pid);wchar_t name[128] {};
+        GetClassNameW(window,name,128);
+        if(pid==GetCurrentProcessId() && IsWindowVisible(window) && std::wcscmp(name,L"#32770")==0){*reinterpret_cast<HWND*>(destination)=window;return FALSE;}
+        return TRUE;
+    },reinterpret_cast<LPARAM>(&result));
+    return result;
+}
+void acceptFileDialog(const juce::File& file){
+    HWND dialog=nullptr;until([&]{dialog=ownedFileDialog();return dialog!=nullptr;},"native save dialog did not appear");
+    auto action=std::async(std::launch::async,[dialog,file]{
+        require(SUCCEEDED(CoInitializeEx(nullptr,COINIT_MULTITHREADED)),"save automation COM init failed");
+        struct Uninitialise{~Uninitialise(){CoUninitialize();}} uninitialise;
+        Automation automation;ComPtr<IUIAutomationElementArray> elements;automation.ownedElements(elements,dialog);
+        int count=0;elements->get_Length(&count);bool setFile=false;
+        ComPtr<IUIAutomationTreeWalker> walker;
+        require(SUCCEEDED(automation.instance->get_RawViewWalker(walker.out())),"save ancestry walker unavailable");
+        ComPtr<IUIAutomationElement> saveButton;
+        for(int i=0;i<count;++i){
+            ComPtr<IUIAutomationElement> element;elements->GetElement(i,element.out());
+            BSTR rawId=nullptr;element->get_CurrentAutomationId(&rawId);
+            const juce::String identifier(rawId);SysFreeString(rawId);
+            CONTROLTYPEID control=0;element->get_CurrentControlType(&control);
+            if(identifier=="1" && control==UIA_ButtonControlTypeId)
+                require(SUCCEEDED(element->QueryInterface(__uuidof(IUIAutomationElement),reinterpret_cast<void**>(saveButton.out()))),"save button binding failed");
+            if(control!=UIA_EditControlTypeId)continue;
+            std::cout << "PHASE_C_SAVE_EDIT id=" << identifier << " name=" << automationName(*element.get()) << '\n';
+            if(identifier!="1001" && identifier!="1148")continue;
+            ComPtr<IUIAutomationElement> parent;walker->GetParentElement(element.get(),parent.out());
+            bool filenameHost=false;
+            while(parent.get()!=nullptr){
+                BSTR parentId=nullptr;parent->get_CurrentAutomationId(&parentId);
+                const juce::String hostId(parentId);SysFreeString(parentId);
+                if(hostId=="FileNameControlHost" || hostId=="1148"){filenameHost=true;break;}
+                ComPtr<IUIAutomationElement> next;walker->GetParentElement(parent.get(),next.out());
+                if(next.get()==nullptr)break;
+                BSTR className=nullptr;next->get_CurrentClassName(&className);
+                const bool desktop=juce::String(className)=="#32769";SysFreeString(className);
+                if(desktop)break;
+                parent.swap(next);
+            }
+            if(!filenameHost)continue;
+            ComPtr<IUnknown> pattern;
+            if(FAILED(element->GetCurrentPattern(UIA_ValuePatternId,pattern.out())) || pattern.get()==nullptr)continue;
+            ComPtr<IUIAutomationValuePattern> value;
+            require(SUCCEEDED(pattern->QueryInterface(__uuidof(IUIAutomationValuePattern),reinterpret_cast<void**>(value.out()))),"filename value pattern absent");
+            BOOL readOnly=TRUE,enabled=FALSE;
+            value->get_CurrentIsReadOnly(&readOnly);element->get_CurrentIsEnabled(&enabled);
+            require(!readOnly && enabled,"filename edit is not writable");
+            auto target=SysAllocString(file.getFullPathName().toWideCharPointer());
+            const auto status=value->SetValue(target);SysFreeString(target);
+            std::cout << "PHASE_C_SAVE_FILENAME id=" << identifier << " status=" << std::hex << status << std::dec << '\n';
+            require(SUCCEEDED(status),"filename edit failed");setFile=true;
+        }
+        require(setFile && saveButton.get()!=nullptr,"precise filename or save control absent");
+        ComPtr<IUnknown> savePattern;
+        require(SUCCEEDED(saveButton->GetCurrentPattern(UIA_InvokePatternId,savePattern.out())) && savePattern.get()!=nullptr,"save action pattern absent");
+        ComPtr<IUIAutomationInvokePattern> invoke;
+        require(SUCCEEDED(savePattern->QueryInterface(__uuidof(IUIAutomationInvokePattern),reinterpret_cast<void**>(invoke.out()))),"save invocation binding failed");
+        require(SUCCEEDED(invoke->Invoke()),"native save button invocation failed");
+    });
+    until([&]{return action.wait_for(std::chrono::milliseconds(0))==std::future_status::ready;},"save dialog action timed out");action.get();
+    until([&]{return ownedFileDialog()==nullptr;},"save dialog did not close");
+}
+MainComponent& applicationMain(){
+    auto& desktop=juce::Desktop::getInstance();
+    for(int i=0;i<desktop.getNumComponents();++i)
+        if(auto* window=dynamic_cast<juce::DocumentWindow*>(desktop.getComponent(i)))
+            if(auto* main=dynamic_cast<MainComponent*>(window->getContentComponent()))return *main;
+    throw std::runtime_error("production main window absent");
+}
+PluginEditorWindow* editorWindow(){
+    auto& desktop=juce::Desktop::getInstance();
+    for(int i=0;i<desktop.getNumComponents();++i)
+        if(auto* editor=dynamic_cast<PluginEditorWindow*>(desktop.getComponent(i)))return editor;
+    return nullptr;
+}
+void selectIdentity(MainComponent& main,const char* suffix,const juce::String& expected){
+    auto* selector=find<juce::ComboBox>(main,"plugin-selector");require(selector != nullptr,"actual selector missing");
+    int index=-1;for(int i=0;i<selector->getNumItems();++i)if(selector->getItemText(i).contains(suffix)){index=i;break;}
+    require(index>=0,"actual native choice missing");selector->setSelectedItemIndex(index,juce::sendNotificationSync);pump(150);
+    click(main,"load-btn");
+    std::cout << "PHASE_C_UI_SELECTION expected=" << expected << " actual=" << main.getAppSettings().lastPluginIdentifier << '\n';
+    require(main.getAppSettings().lastPluginIdentifier==expected,"actual selection loaded or persisted wrong native identity");
+}
+void gatedMutation(Events& events,const std::function<void()>& mutate){
+    events.reset();toggleNative("Gate Realtime Once");until([&]{return events.active();},"real audio callback gate did not enter");
+    auto completed=CreateEventW(nullptr,TRUE,FALSE,nullptr);require(completed!=nullptr,"mutation event failed");
+    auto controller=std::async(std::launch::async,[&]{
+        const auto result=WaitForSingleObject(completed,150);
+        events.release();return result;
+    });
+    mutate();SetEvent(completed);const auto result=controller.get();CloseHandle(completed);
+    require(result==WAIT_TIMEOUT,"mutation bypassed active callback stop boundary");
+}
+void verifyApplication(const juce::File& profile,const juce::File& nativeRoot,
+                       const std::array<juce::PluginDescription,3>& descriptions,const juce::File& scratch){
+    SettingsModel model;model.languageCode="en";model.masterGain=0.0f;
+    model.pluginSearchPath=nativeRoot.getFullPathName();model.lastPluginIdentifier=descriptions[1].createIdentifierString();
+    juce::KnownPluginList list;for(const auto& description:descriptions)list.addType(description);
+    model.knownPluginListState=list.createXml();
+    { SettingsStore store;require(store.save(model),"private startup settings write failed"); }
+    Events events;
+    juce::JUCEApplicationBase::createInstance=[]()->juce::JUCEApplicationBase*{return new DevPianoApplication();};
+    DevPianoApplication application;
+    struct Shutdown { Events& events;DevPianoApplication& application;~Shutdown(){events.release();application.shutdown();} } shutdown {events,application};
+    application.initialise("--sine");pump(200);
+    auto& main=applicationMain();
+    require(main.getAppSettings().lastPluginIdentifier==descriptions[1].createIdentifierString(),"startup did not restore B identity");
+    auto* selector=find<juce::ComboBox>(main,"plugin-selector");auto* filter=find<juce::ComboBox>(main,"plugin-filter-combo");
+    require(selector != nullptr && selector->getNumItems()==3 && filter != nullptr,"same-name actual selector collapsed");
+    filter->setSelectedId(2,juce::sendNotificationSync);pump(100);require(selector->getNumItems()==2,"instrument filter admitted an effect");
+    selectIdentity(main,descriptions[0].createIdentifierString().toRawUTF8(),descriptions[0].createIdentifierString());
+    filter->setSelectedId(3,juce::sendNotificationSync);pump(100);require(selector->getNumItems()==1,"effect filter lost or admitted wrong types");
+    selectIdentity(main,descriptions[2].createIdentifierString().toRawUTF8(),descriptions[2].createIdentifierString());
+    filter->setSelectedId(1,juce::sendNotificationSync);pump(100);
+    selectIdentity(main,descriptions[1].createIdentifierString().toRawUTF8(),descriptions[1].createIdentifierString());
+    screenshot(main,"phasec-same-name-selection.png");
+    click(main,"editor-btn");require(editorWindow()!=nullptr,"real native editor did not open");
+    juce::Component::SafePointer<PluginEditorWindow> oldEditor(editorWindow());
+    gatedMutation(events,[&]{auto* button=find<juce::Button>(main,"scan-btn");require(button && button->onClick,"scan consumer missing");button->onClick();});
+    require(oldEditor==nullptr,"scan retained native editor to old instance");
+    until([&]{auto* button=find<juce::Button>(main,"scan-btn");return button != nullptr && button->isEnabled();},"incremental scan did not finish");pump(200);
+    require(selector->getNumItems()==3,"rescan lost native identities");
+    selectIdentity(main,descriptions[1].createIdentifierString().toRawUTF8(),descriptions[1].createIdentifierString());
+    click(main,"editor-btn");require(editorWindow()!=nullptr,"native editor did not reopen");
+    gatedMutation(events,[&]{application.anotherInstanceStarted("--piano");});
+    require(main.getAppSettings().builtinTone==SettingsModel::BuiltinTone::piano,"another-instance tone command failed");
+    application.anotherInstanceStarted("--sine");require(main.getAppSettings().builtinTone==SettingsModel::BuiltinTone::sine,"second tone rebuild failed");
+    click(main,"unload-btn");
+    main.filesDropped({descriptions[1].fileOrIdentifier},0,0);pump(200);
+    require(main.getAppSettings().lastPluginIdentifier==descriptions[1].createIdentifierString(),"rediscovered duplicate failed to load B");
+    const auto performance=scratch.getChildFile("application-take.devpiano");
+    require(devpiano::recording::savePerformanceFile(makeTake(),performance),"native Take file write failed");
+    main.filesDropped({performance.getFullPathName()},0,0);pump(200);
+    if (auto* stop=find<juce::Button>(main,"stop-btn"); stop != nullptr && stop->isEnabled()) click(main,"stop-btn");
+    until([&]{auto* button=find<juce::Button>(main,"export-wav-btn");return button != nullptr && button->isEnabled();},"export did not become available after playback stop");
+    click(main,"editor-btn");require(editorWindow()!=nullptr,"export native editor absent");
+    toggleNative("Gate Offline Export");
+    events.reset();
+    main.getAppSettings().lastMidiExportPath=scratch.getChildFile("last.wav").getFullPathName();
+    const auto target=scratch.getChildFile("app-cancel.wav");
+    click(main,"export-wav-btn");acceptFileDialog(target);
+    until([&]{return events.active();},"actual application offline export did not enter gate");
+    application.systemRequestedQuit();
+    require(!juce::MessageManager::getInstance()->hasStopMessageBeenSent(),"application quit before real export exit");
+    const auto deadline=juce::Time::getMillisecondCounterHiRes()+3300;int pumps=0;
+    while(juce::Time::getMillisecondCounterHiRes()<deadline){pump(20);++pumps;require(!juce::MessageManager::getInstance()->hasStopMessageBeenSent(),"pending quit forcibly ended worker");}
+    screenshot(main,"phasec-quit-waits-for-export.png");
+    for(int i=0;i<juce::Desktop::getInstance().getNumComponents();++i)
+        if(auto* dialog=dynamic_cast<juce::DialogWindow*>(juce::Desktop::getInstance().getComponent(i)))
+            screenshot(*dialog,"phasec-cancelling-progress.png");
+    events.release();
+    until([&]{return juce::MessageManager::getInstance()->hasStopMessageBeenSent();},"application did not quit after cooperative exit");
+    require(!target.existsAsFile(),"cancelled app export committed an unfinished file");
+    std::cout << "PHASE_C_APPLICATION startup_B=1 choices=3 instrument_filter=2 effect_filter=1 loaded_id_exact=1 editor_rescan_guard_wait=1 tone_callback_guard_wait=1 piano_sine_commands=1 duplicate_redrop=1 actual_save_dialog=1 quit_deferred_ms=3300 responsive_pumps=" << pumps << " quit_after_real_exit=1 unfinished_output_absent=1\n";
+    static_cast<void>(profile);
+}
+}
+int main(int argc,char** argv){
+    try{
+        juce::ScopedJuceInitialiser_GUI initialise;require(argc==2,"native fixture root required");
+        OwnedDirectory owned; const juce::File nativeRoot(argv[1]);
+        const auto profile=owned.directory.getChildFile("profile");require(profile.createDirectory().wasOk(),"profile create failed");
+        ProfileDirectoryScope scope;require(scope.redirect(profile),"profile import-slot redirect failed");
+        require(juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)==profile,"JUCE private profile was not resolved");
+        PluginHost host;host.setDeadMansPedalFile(owned.directory.getChildFile("pedal.txt"));
+        const auto descriptions=verifyNative(host,nativeRoot,owned.directory);
+        verifyTransport();verifyCancellation(host,descriptions[0],owned.directory);
+        verifyApplication(profile,nativeRoot,descriptions,owned.directory);
+        require(handleResourcesStable,"handle attribution remains unresolved");
+        return 0;
+    }catch(const std::exception& error){std::cerr << "PHASE_C_SMOKE_ERROR=" << error.what() << '\n';return 1;}
+}
+```
+
+##### 基线真实消费者
+
+```cpp
+#include <JuceHeader.h>
+#include "Plugin/PluginHost.h"
+#include "Recording/PluginOfflineRenderer.h"
+#include "Recording/RecordingEngine.h"
+#include <array>
+#include <cstring>
+#include <iostream>
+#include <stdexcept>
+
+namespace {
+void require(bool condition, const char* message) { if (!condition) throw std::runtime_error(message); }
+struct OwnedDirectory {
+    juce::File file = juce::File::getSpecialLocation(juce::File::tempDirectory)
+        .getChildFile("phasec-baseline-" + juce::Uuid().toString());
+    OwnedDirectory() { require(file.createDirectory().wasOk(), "scratch create failed"); }
+    ~OwnedDirectory() { std::cout << "PHASE_C_BASELINE_PRIVATE_CLEAN=" << file.deleteRecursively() << '\n'; }
+};
+}
+int main(int argc, char** argv) {
+    try {
+        juce::ScopedJuceInitialiser_GUI initialise;
+        require(argc == 2, "native root argument required");
+        OwnedDirectory scratch;
+        const juce::File root(argv[1]);
+        PluginHost host;
+        host.setDeadMansPedalFile(scratch.file.getChildFile("pedal.txt"));
+        const auto nativeA = root.getChildFile("PhaseCTwinA_artefacts/Debug/VST3/Phase C Twin.vst3");
+        const auto first = host.addVst3FileToKnownList(nativeA);
+        const auto repeated = host.addVst3FileToKnownList(nativeA);
+        const auto second = host.addVst3FileToKnownList(root.getChildFile("PhaseCTwinB_artefacts/Debug/VST3/Phase C Twin.vst3"));
+        const auto effect = host.addVst3FileToKnownList(root.getChildFile("PhaseCTwinEffect_artefacts/Debug/VST3/Phase C Twin.vst3"));
+        require(first.size()==1 && second.size()==1 && effect.size()==1, "three native types required");
+        const auto xml = host.createKnownPluginListXml();
+        require(xml != nullptr && xml->getNumChildElements()==3, "distinct native descriptions required");
+        juce::PluginDescription description;
+        require(description.loadFromXml(*xml->getChildElement(0)), "description decode failed");
+        juce::String error;
+        auto offline = devpiano::exporting::createOfflinePluginInstance(host.getFormatManager(), description, 48000.0, 128, error);
+        require(offline != nullptr, "production offline factory failed");
+        juce::AudioBuffer<float> buffer(2,128);
+        juce::MidiBuffer midi;
+        buffer.clear();
+        offline->processBlock(buffer, midi);
+        juce::MemoryBlock state;
+        offline->getStateInformation(state);
+        const auto envelope = juce::AudioProcessor::getXmlFromBinary(state.getData(), static_cast<int>(state.getSize()));
+        require(envelope != nullptr, "native VST3 envelope absent");
+        const auto* component = envelope->getChildByName("IComponent");
+        require(component != nullptr, "native component state absent");
+        juce::MemoryBlock payload;
+        require(payload.fromBase64Encoding(component->getAllSubText()), "native component state decode failed");
+        std::array<std::uint32_t,6> words {};
+        require(payload.getSize() >= sizeof(words), "native diagnostic state absent");
+        std::memcpy(words.data(), payload.getData(), sizeof(words));
+        require(words[0] == 0x50484331u, "native diagnostic magic invalid");
+        std::cout << "PHASE_C_BASELINE_PLUGIN repeated_types=" << repeated.size()
+            << " native_description_count=" << xml->getNumChildElements()
+            << " selectable_name_count=" << host.getKnownPluginNames().size()
+            << " offline_flag=" << offline->isNonRealtime()
+            << " native_setup_offline=" << words[2] << " native_process_offline=" << words[3]
+            << " sample=" << buffer.getSample(0,0) << '\n';
+        offline->releaseResources();
+        offline.reset();
+
+        devpiano::recording::RecordingTake take;
+        take.sampleRate = 1000.0;
+        take.lengthSamples=1000;
+        take.events.push_back({0, devpiano::recording::PerformanceEventType::midi,0,
+            devpiano::recording::RecordingEventSource::playback, juce::MidiMessage::noteOn(1,60,1.0f)});
+        take.events.push_back({700, devpiano::recording::PerformanceEventType::midi,0,
+            devpiano::recording::RecordingEventSource::playback, juce::MidiMessage::noteOff(1,60)});
+        devpiano::recording::RecordingEngine engine;
+        engine.startPlayback(take,1000.0);
+        engine.renderPlaybackBlock(midi,0,100);
+        engine.advancePlaybackPosition(100);
+        const auto before=engine.getPlaybackPositionSamples();
+        engine.setPlaybackSpeedMultiplier(2.0);
+        const auto after=engine.getPlaybackPositionSamples();
+        engine.stopPlayback();
+        std::cout << "PHASE_C_BASELINE_TRANSPORT position_before=" << before
+            << " position_after_publish=" << after << " stop_immediate=" << !engine.isPlaying() << '\n';
+        require(repeated.isEmpty() && host.getKnownPluginNames().size()==1 && !words[2] && !words[3]
+            && before==100 && after==50, "expected baseline observations absent");
+        return 0;
+    } catch (const std::exception& error) {
+        std::cerr << "PHASE_C_BASELINE_ERROR=" << error.what() << '\n';
+        return 1;
+    }
+}
+```
+
+##### 精确编译与链接复建
+
+- 从该树 compile_commands.json 取 MainComponent.cpp 的唯一 app command，保持全部 define/include/PCH/运行库与 `/Zc:nrvo-`；仅替换 `/Fo`、`/Fd` 和末尾 `-c` 源 token，分别指向 phasec-smoke/phasec_smoke.obj、phasec_smoke_compile.pdb、phasec_smoke.cpp。baseline 用相应 stem。
+- 新 Ninja 中 `include build.ninja`，复制真实 DevPiano.exe linker edge、属性与全部业务/JUCE object，只移除 Main.cpp.obj 原入口，加入探针 object；**必须放在第一个 ` | ` 之前的 explicit input**，不是 implicit library dependency。`/subsystem:windows` 改为 `/subsystem:console`。
+- OBJECT_DIR、TARGET_SUPPORT_DIR、TARGET_COMPILE_PDB、TARGET_FILE、TARGET_IMPLIB、TARGET_PDB、RSP_FILE 全部指向自有 phasec-smoke/stem 路径，其余 CONFIG/FLAGS/LINK_LIBRARIES/PRE_LINK/POST_BUILD 保留；不改原 app edge、PCH、manifest 或 response file。
+- 下面 driver 仅编译上述 command 并链接自有 edge；产品 app/tests 构建和默认执行仍走上方保护脚本。
+
+```powershell
+param([ValidateSet('Baseline','Smoke')][string]$Mode)
+$ErrorActionPreference='Stop'
+Set-StrictMode -Version Latest
+$vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+if (-not (Test-Path -LiteralPath $vswhere)) {
+    $vswhere = Join-Path $env:ProgramFiles 'Microsoft Visual Studio\Installer\vswhere.exe'
+}
+if (-not (Test-Path -LiteralPath $vswhere)) {
+    throw "vswhere.exe not found at $vswhere"
+}
+
+$instances = @((& $vswhere -latest -products '*' -requires Microsoft.Component.MSBuild -format json) | ConvertFrom-Json)
+if ($LASTEXITCODE -ne 0 -or $instances.Count -lt 1) {
+    throw 'VS discovery failed'
+}
+
+$devShellDll = Join-Path $instances[0].installationPath 'Common7\Tools\Microsoft.VisualStudio.DevShell.dll'
+if (-not (Test-Path -LiteralPath $devShellDll)) {
+    throw "Microsoft.VisualStudio.DevShell.dll not found at $devShellDll"
+}
+
+Import-Module $devShellDll -Force
+Enter-VsDevShell -VsInstallPath $instances[0].installationPath -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64' | Out-Null
+$build='G:\source\projects\devpiano\build-win-msvc\audit004-phase0'
+Set-Location -LiteralPath $build
+$stem = if ($Mode -eq 'Baseline') { 'phasec_baseline' } else { 'phasec_smoke' }
+$cmdFile = if ($Mode -eq 'Baseline') { 'phasec-smoke\compile-baseline.cmd' } else { 'phasec-smoke\compile-smoke.cmd' }
+& cmd.exe /D /C $cmdFile
+if ($LASTEXITCODE -ne 0) { throw 'Consumer compile failed' }
+$make = (Select-String -LiteralPath (Join-Path $build 'CMakeCache.txt') -Pattern '^CMAKE_MAKE_PROGRAM:FILEPATH=').Line.Split('=',2)[1]
+& $make -f ($stem + '.ninja') ('phasec-smoke\' + $stem + '.exe')
+if ($LASTEXITCODE -ne 0) { throw 'Consumer link failed' }
+```
+
+**最终关键输出（一次性观察，不是固定门槛）**：
+
+```text
+PHASE_C_NATIVE repeated_types=1 descriptions=3 choices=3 metadata_updated=1 selected_B=1 offline_setup=1 offline_process=1 realtime_sample=0.125 offline_sample=0.5 wav_sample=0.5
+PHASE_C_TRANSPORT real_audio_callback=1 queued_speed=1 old_block_position_retained=1 effective_speed=2 NoteOff_delivered=1 loop_restarted=1 queued_stop=1 sounding_note_released=1
+PHASE_C_CANCEL_RESOURCES cycle=2 warmup=0 handles_before=1152 handles_after=1152 temporary_file_delta=0
+PHASE_C_CANCEL_RESOURCES cycle=3 warmup=0 handles_before=1152 handles_after=1152 temporary_file_delta=0
+PHASE_C_CANCEL_RESOURCES cycle=4 warmup=0 handles_before=1152 handles_after=1152 temporary_file_delta=0
+PHASE_C_SAVE_FILENAME id=1001 status=0
+PHASE_C_APPLICATION startup_B=1 choices=3 instrument_filter=2 effect_filter=1 loaded_id_exact=1 editor_rescan_guard_wait=1 tone_callback_guard_wait=1 piano_sine_commands=1 duplicate_redrop=1 actual_save_dialog=1 quit_deferred_ms=3300 responsive_pumps=154 quit_after_real_exit=1 unfinished_output_absent=1
+PHASE_C_PROFILE_SCOPE_RESTORED=1
+PHASE_C_PRIVATE_FILES_CLEAN=1
+```
+
 
 ### AUDIT-004 Phase D：发音身份与采样级 Transport 边界 [待开始]
 

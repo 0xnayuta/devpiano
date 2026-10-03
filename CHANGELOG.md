@@ -16,6 +16,11 @@
 - **Bounded Native Performance Admission** — validate JUCE-encoded MIDI lengths, payloads and frame shapes before decoding; reject invalid sample rates or timelines and stably normalize legacy event order without replacing the current Take.
 - **Complete MIDI File Admission** — reject missing tracks, truncated events and malformed fixed-width metadata before JUCE accessors; preserve complete multitrack files with trailing CRLF and validated extension chunks.
 - **Checked Export Timelines** — reject unrepresentable sample scaling, final-event and tail additions before opening WAV output; check MIDI writer tick limits and preserve existing targets on numeric rejection.
+- **Guarded Instrument Mutation** — close editors and stop active audio callbacks before rescanning or rebuilding builtin voices, then publish the updated runtime UI state.
+- **Block-Boundary Transport Commands** — apply playback speed, seek and Stop commands on the audio owner; preserve next-unrendered events across speed rounding and use quiescent structural transitions.
+- **Cooperative Export Shutdown** — retain task, plugin and writer ownership until background rendering actually exits; keep cancellation and application quit asynchronous without timed thread termination.
+- **Native Offline Plugin Mode** — declare non-realtime operation before preparing independent VST3 instances so offline setup and processing use the same mode.
+- **Stable Plugin Description Identity** — select, load and restore plugins by description identifiers instead of display names; preserve duplicate-file discovery and metadata updates, and migrate only unambiguous legacy recovery names.
 
 ## [1.3.0] - 2026-09-21
 
