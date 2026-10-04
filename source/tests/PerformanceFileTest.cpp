@@ -14,6 +14,16 @@
 
 namespace {
 
+devpiano::recording::RecordedPreset makeTestRecordedPreset(const juce::String& name = "TestPreset") {
+    devpiano::recording::RecordedPreset rp;
+    rp.preset = devpiano::layout::makeDefaultPreset();
+    rp.preset.name = name;
+    rp.preset.uuid = devpiano::layout::generateDeterministicPresetUuid(name);
+    rp.acoustic.masterGain = 0.85f;
+    rp.acoustic.reverbWet = 0.25f;
+    return rp;
+}
+
 devpiano::recording::RecordingTake makeTestTake() {
     devpiano::recording::RecordingTake take;
     take.sampleRate = 44100.0;
@@ -34,10 +44,11 @@ devpiano::recording::RecordingTake makeTestTake() {
     devpiano::recording::PerformanceEvent presetChange;
     presetChange.timestampSamples = 22050;
     presetChange.type = devpiano::recording::PerformanceEventType::presetChange;
-    presetChange.presetId = 3;
+    presetChange.presetId = 0;
     presetChange.source = devpiano::recording::RecordingEventSource::computerKeyboard;
 
     take.events = { noteOn, noteOff, presetChange };
+    take.presets = { makeTestRecordedPreset() };
     return take;
 }
 
@@ -78,6 +89,11 @@ public:
                 expectEquals(loaded->sampleRate, 44100.0);
                 expectEquals(loaded->lengthSamples, take.lengthSamples);
                 expectEquals(static_cast<int>(loaded->events.size()), 3);
+                expectEquals(static_cast<int>(loaded->presets.size()), 1);
+                expectEquals(loaded->presets[0].preset.name, take.presets[0].preset.name);
+                expectEquals(loaded->presets[0].preset.uuid, take.presets[0].preset.uuid);
+                expectWithinAbsoluteError(loaded->presets[0].acoustic.masterGain, take.presets[0].acoustic.masterGain,
+                                          0.001f);
             }
 
             const auto loadedMeta = loadPerformanceFileMetadata(target);
@@ -108,10 +124,10 @@ public:
             PerformanceEvent evMid;
             evMid.timestampSamples = 22050;
             evMid.type = PerformanceEventType::presetChange;
-            evMid.presetId = 3;
+            evMid.presetId = 0;
 
             take.events = { evLate, evEarly, evMid };
-
+            take.presets = { makeTestRecordedPreset() };
             const auto json = serialiseTakeToJson(take);
             const auto loaded = deserialiseTakeFromJson(json);
             expect(loaded.has_value());
@@ -330,37 +346,82 @@ public:
             expect(helper("44100.0", "88200", "88200").has_value(), "timestamp == length accepted (legacy boundary)");
         });
 
-        testCase("legacy v1 missing type and v2 preset event support", [&] {
+        testCase("legacy v1/v2 MIDI-only accepted and legacy numeric preset events rejected (ARCH-003)", [&] {
             const auto noteB64
                 = juce::MemoryBlock(juce::MidiMessage::noteOn(1, 60, 0.8f).getRawData(), 3).toBase64Encoding();
 
-            // Legacy v1 JSON: missing "type" field in events, missing metadata block
-            const auto v1Json
+            // 1. Legacy v1 MIDI-only JSON: accepted
+            const auto v1MidiOnlyJson
                 = R"({"version":1,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"events":[{"timestampSamples":0,"source":"computerKeyboard","midiData":")"
                 + noteB64 + R"("}]})";
-            const auto v1Loaded = deserialiseTakeFromJson(v1Json);
-            expect(v1Loaded.has_value());
+            const auto v1Loaded = deserialiseTakeFromJson(v1MidiOnlyJson);
+            expect(v1Loaded.has_value(), "Legacy v1 MIDI-only take must be accepted");
             if (v1Loaded.has_value()) {
                 expectEquals(static_cast<int>(v1Loaded->events.size()), 1);
                 expect(v1Loaded->events[0].type == PerformanceEventType::midi);
-                expect(v1Loaded->events[0].message.isNoteOn());
+                expect(v1Loaded->presets.empty(), "Legacy take has no presets table");
             }
 
-            // v2 presetChange event: valid presetId in [0, 255]
-            const auto v2Json
+            // 2. Legacy v2 MIDI-only JSON: accepted
+            const auto v2MidiOnlyJson
+                = R"({"version":2,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"events":[{"timestampSamples":0,"type":"midi","source":"computerKeyboard","midiData":")"
+                + noteB64 + R"("}]})";
+            const auto v2MidiLoaded = deserialiseTakeFromJson(v2MidiOnlyJson);
+            expect(v2MidiLoaded.has_value(), "Legacy v2 MIDI-only take must be accepted");
+
+            // 3. Legacy v1 or v2 with presetChange must be explicitly REJECTED with diagnostic
+            const auto v2NumericPresetJson
                 = R"({"version":2,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"events":[{"timestampSamples":100,"type":"presetChange","presetId":5}]})";
-            const auto v2Loaded = deserialiseTakeFromJson(v2Json);
-            expect(v2Loaded.has_value());
-            if (v2Loaded.has_value()) {
-                expectEquals(static_cast<int>(v2Loaded->events.size()), 1);
-                expect(v2Loaded->events[0].type == PerformanceEventType::presetChange);
-                expectEquals(static_cast<int>(v2Loaded->events[0].presetId), 5);
+            expect(!deserialiseTakeFromJson(v2NumericPresetJson).has_value(),
+                   "Legacy v2 numeric preset event must be rejected (no silent directory index reinterpretation)");
+
+            const auto v1NumericPresetJson
+                = R"({"version":1,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"events":[{"timestampSamples":100,"type":"presetChange","presetId":0}]})";
+            expect(!deserialiseTakeFromJson(v1NumericPresetJson).has_value(),
+                   "Legacy v1 numeric preset event must be rejected");
+
+            // 4. v3 with embedded presets table and presetChange: accepted
+            RecordingTake v3Take;
+            v3Take.sampleRate = 44100.0;
+            v3Take.lengthSamples = 88200;
+            PerformanceEvent evPreset;
+            evPreset.timestampSamples = 100;
+            evPreset.type = PerformanceEventType::presetChange;
+            evPreset.presetId = 0;
+            v3Take.events = { evPreset };
+            v3Take.presets = { makeTestRecordedPreset("EmbeddedSnapshot") };
+
+            const auto v3Json = serialiseTakeToJson(v3Take);
+            const auto v3Loaded = deserialiseTakeFromJson(v3Json);
+            expect(v3Loaded.has_value(), "Valid v3 take with embedded presets table must be accepted");
+            if (v3Loaded.has_value()) {
+                expectEquals(static_cast<int>(v3Loaded->events.size()), 1);
+                expectEquals(static_cast<int>(v3Loaded->presets.size()), 1);
+                expectEquals(v3Loaded->presets[0].preset.name, juce::String("EmbeddedSnapshot"));
             }
 
-            // v2 presetChange with invalid presetId (> 255 or string) rejected
-            const auto v2BadId
-                = R"({"version":2,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"events":[{"timestampSamples":100,"type":"presetChange","presetId":300}]})";
-            expect(!deserialiseTakeFromJson(v2BadId).has_value());
+            // 5. v3 presetChange with out-of-bounds presetId rejected atomically
+            RecordingTake v3BadTake = v3Take;
+            v3BadTake.events[0].presetId = 99;
+            const auto v3BadJson = serialiseTakeToJson(v3BadTake);
+            expect(!deserialiseTakeFromJson(v3BadJson).has_value(),
+                   "Out-of-bounds presetId in v3 must be rejected atomically");
+            auto missingSnapshot = juce::JSON::parse(v3Json);
+            auto* missingRoot = missingSnapshot.getDynamicObject();
+            expect(missingRoot != nullptr);
+            if (missingRoot != nullptr) {
+                auto* table = missingRoot->getProperty("presets").getArray();
+                expect(table != nullptr && table->size() == 1);
+                if (table != nullptr && table->size() == 1) {
+                    auto* entry = table->getReference(0).getDynamicObject();
+                    expect(entry != nullptr);
+                    if (entry != nullptr) {
+                        entry->removeProperty("acoustic");
+                        expect(!deserialiseTakeFromJson(juce::JSON::toString(missingSnapshot)).has_value(),
+                               "A missing executable snapshot must not silently become default piano");
+                    }
+                }
+            }
         });
 
         testCase("file read errors and size budget bounds", [&] {

@@ -21,41 +21,43 @@ constexpr auto fallbackVoiceCount = 8;
 constexpr auto wavTailSeconds = 2.0;
 
 using devpiano::recording::addPanicMidi;
+using devpiano::recording::applyAcousticSnapshotToBuiltin;
 using devpiano::recording::hasUsableRenderOptions;
+using devpiano::recording::PerformanceEventType;
 using devpiano::recording::prepareRenderTimeline;
 
-void initialiseOfflineSynth(devpiano::audio::BuiltinSynthesiser& synth,
-                            const devpiano::exporting::WavExportOptions& options) {
-    synth.clearSounds();
-    synth.clearVoices();
-
-    if (options.builtinTone == SettingsModel::BuiltinTone::piano) {
-        synth.addSound(new PianoSynthSound());
-        for (auto index = 0; index < fallbackVoiceCount; ++index) {
-            auto* voice = new PianoSynthVoice();
-            voice->setVoiceIndex(index);
-            voice->setAdsrParameters(options.adsr);
-            voice->setPianoParameters(options.pianoBrightness, options.pianoHammerHardness, options.pianoResonance);
-            voice->setLidPosition(static_cast<PianoSynthVoice::LidPosition>(options.lidPosition));
-            voice->setTemperament(options.temperament);
-            voice->setReferencePitchA4(options.referencePitchA4);
-            voice->setSoundPerspective(options.soundPerspective);
-            voice->setPedalNoiseLevel(options.pedalNoiseLevel);
-            voice->setFeltAgeingAmount(options.feltAgeingAmount);
-            synth.addVoice(voice);
-        }
-    } else {
-        synth.addSound(new SineSynthSound());
-        for (auto index = 0; index < fallbackVoiceCount; ++index) {
-            auto* voice = new SineSynthVoice();
-            voice->setAdsrParameters(options.adsr);
-            voice->setTemperament(options.temperament);
-            voice->setReferencePitchA4(options.referencePitchA4);
-            synth.addVoice(voice);
-        }
+void initialiseOfflineSynths(devpiano::audio::BuiltinSynthesiser& pianoSynth,
+                             devpiano::audio::BuiltinSynthesiser& sineSynth,
+                             const devpiano::exporting::WavExportOptions& options) {
+    pianoSynth.clearSounds();
+    pianoSynth.clearVoices();
+    pianoSynth.addSound(new PianoSynthSound());
+    for (auto index = 0; index < fallbackVoiceCount; ++index) {
+        auto* voice = new PianoSynthVoice();
+        voice->setVoiceIndex(index);
+        voice->setAdsrParameters(options.adsr);
+        voice->setPianoParameters(options.pianoBrightness, options.pianoHammerHardness, options.pianoResonance);
+        voice->setLidPosition(static_cast<PianoSynthVoice::LidPosition>(options.lidPosition));
+        voice->setTemperament(options.temperament);
+        voice->setReferencePitchA4(options.referencePitchA4);
+        voice->setSoundPerspective(options.soundPerspective);
+        voice->setPedalNoiseLevel(options.pedalNoiseLevel);
+        voice->setFeltAgeingAmount(options.feltAgeingAmount);
+        pianoSynth.addVoice(voice);
     }
+    pianoSynth.setCurrentPlaybackSampleRate(options.sampleRate);
 
-    synth.setCurrentPlaybackSampleRate(options.sampleRate);
+    sineSynth.clearSounds();
+    sineSynth.clearVoices();
+    sineSynth.addSound(new SineSynthSound());
+    for (auto index = 0; index < fallbackVoiceCount; ++index) {
+        auto* voice = new SineSynthVoice();
+        voice->setAdsrParameters(options.adsr);
+        voice->setTemperament(options.temperament);
+        voice->setReferencePitchA4(options.referencePitchA4);
+        sineSynth.addVoice(voice);
+    }
+    sineSynth.setCurrentPlaybackSampleRate(options.sampleRate);
 }
 } // namespace
 
@@ -105,17 +107,30 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
         return false;
     }
 
-    devpiano::audio::BuiltinSynthesiser synth;
+    devpiano::audio::PlaybackIdentityTracker identityTracker;
+    identityTracker.prepare(0, static_cast<std::size_t>(std::ranges::count_if(take.events, [](const auto& event) {
+                                return event.type == PerformanceEventType::midi && event.message.isNoteOn();
+                            })));
+
+    devpiano::audio::BuiltinSynthesiser pianoSynth;
+    devpiano::audio::BuiltinSynthesiser sineSynth;
+    devpiano::audio::BuiltinSynthesiser* activeSynth = nullptr;
     devpiano::audio::RoomReverbEngine roomReverb;
     roomReverb.prepare(options.sampleRate);
     roomReverb.setSpace(options.reverbSpace);
     roomReverb.setWetLevel(options.reverbWet);
-    initialiseOfflineSynth(synth, options);
-    const auto gain = juce::jlimit(0.0f, 1.0f, options.masterGain);
+
+    initialiseOfflineSynths(pianoSynth, sineSynth, options);
+    activeSynth = (options.builtinTone == SettingsModel::BuiltinTone::sine) ? &sineSynth : &pianoSynth;
+
+    float currentMasterGain = juce::jlimit(0.0f, 1.0f, options.masterGain);
+    bool currentTransposeEnabled = false;
+    int currentTransposeOffset = 0;
+    std::uint16_t currentChannelFollowKeyMask = 0b1111110111111111;
 
     juce::AudioBuffer<float> audioBuffer(options.numChannels, options.blockSize);
-    juce::MidiBuffer midiBuffer;
-    midiBuffer.ensureSize(
+    juce::MidiBuffer segmentMidiBuffer;
+    segmentMidiBuffer.ensureSize(
         static_cast<size_t>(std::clamp<std::int64_t>(static_cast<std::int64_t>(options.blockSize) * 16, 256, 65536)));
 
     std::size_t eventIndex = 0;
@@ -132,28 +147,112 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
 
         audioBuffer.setSize(options.numChannels, numSamples, false, false, true);
         audioBuffer.clear();
-        midiBuffer.clear();
 
-        while (eventIndex < renderEvents.size() && renderEvents[eventIndex].timestampSamples < blockEnd) {
-            const auto& event = renderEvents[eventIndex];
-            if (event.timestampSamples >= blockStart) {
-                const auto sampleOffset = static_cast<int>(event.timestampSamples - blockStart);
-                midiBuffer.addEvent(event.message, juce::jlimit(0, numSamples - 1, sampleOffset));
+        for (int segStart = 0; segStart < numSamples;) {
+            const auto segAbsStart = blockStart + segStart;
+
+            while (eventIndex < renderEvents.size() && renderEvents[eventIndex].timestampSamples == segAbsStart
+                   && renderEvents[eventIndex].type == PerformanceEventType::presetChange) {
+                const auto& ev = renderEvents[eventIndex];
+                if (ev.presetId < timeline->presets.size()) {
+                    const auto& preset = timeline->presets[ev.presetId];
+                    applyAcousticSnapshotToBuiltin(pianoSynth, sineSynth, activeSynth, roomReverb, currentMasterGain,
+                                                   preset.acoustic, true);
+                    currentTransposeEnabled = preset.acoustic.transposeEnabled;
+                    currentTransposeOffset = preset.acoustic.transposeOffset;
+                    currentChannelFollowKeyMask = preset.acoustic.channelFollowKeyMask;
+                }
+                ++eventIndex;
             }
 
-            ++eventIndex;
+            auto nextPresetOffset = numSamples;
+            for (std::size_t scan = eventIndex; scan < renderEvents.size(); ++scan) {
+                if (renderEvents[scan].timestampSamples >= blockEnd) {
+                    break;
+                }
+                if (renderEvents[scan].type == PerformanceEventType::presetChange) {
+                    nextPresetOffset = static_cast<int>(renderEvents[scan].timestampSamples - blockStart);
+                    break;
+                }
+            }
+
+            const auto segEnd = nextPresetOffset;
+            const auto segLen = segEnd - segStart;
+            const auto segAbsEnd = blockStart + segEnd;
+
+            segmentMidiBuffer.clear();
+
+            while (eventIndex < renderEvents.size() && renderEvents[eventIndex].timestampSamples < segAbsEnd) {
+                const auto& event = renderEvents[eventIndex];
+                if (event.type == PerformanceEventType::presetChange) {
+                    break;
+                }
+                if (event.timestampSamples >= segAbsStart) {
+                    const auto sampleOffset = static_cast<int>(event.timestampSamples - segAbsStart);
+                    const auto clampedOffset = juce::jlimit(0, segLen - 1, sampleOffset);
+                    const auto& msg = event.message;
+
+                    if (msg.isNoteOn()) {
+                        const auto ch = msg.getChannel();
+                        const auto chIdx = juce::jlimit(0, 15, ch - 1);
+                        const bool channelFollows = (currentChannelFollowKeyMask & (1U << chIdx)) != 0;
+                        const auto sourceNote = msg.getNoteNumber();
+                        const auto candidatePitch = (currentTransposeEnabled && channelFollows)
+                            ? juce::jlimit(0, 127, sourceNote + currentTransposeOffset)
+                            : sourceNote;
+                        const auto finalOutputPitch = identityTracker.noteOn(ch, sourceNote, candidatePitch);
+                        if (finalOutputPitch.has_value()) {
+                            segmentMidiBuffer.addEvent(juce::MidiMessage::noteOn(ch,
+                                                                                 static_cast<int>(*finalOutputPitch),
+                                                                                 msg.getFloatVelocity()),
+                                                       clampedOffset);
+                        }
+                    } else if (msg.isNoteOff()) {
+                        const auto ch = msg.getChannel();
+                        const auto sourceNote = msg.getNoteNumber();
+                        const auto result = identityTracker.noteOff(ch, sourceNote);
+                        if (result.shouldEmit) {
+                            segmentMidiBuffer.addEvent(
+                                juce::MidiMessage::noteOff(ch, result.outputPitch, msg.getFloatVelocity()),
+                                clampedOffset);
+                        }
+                    } else {
+                        if (msg.isController()) {
+                            const auto ctrl = msg.getControllerNumber();
+                            if (ctrl == 120 || ctrl == 123) {
+                                identityTracker.resetChannel(msg.getChannel());
+                            }
+                        } else if (msg.isAllNotesOff() || msg.isAllSoundOff()) {
+                            identityTracker.resetChannel(msg.getChannel());
+                        }
+                        segmentMidiBuffer.addEvent(msg, clampedOffset);
+                    }
+                }
+                ++eventIndex;
+            }
+
+            if (!panicSent && scaledTakeLength >= segAbsStart && scaledTakeLength < segAbsEnd) {
+                const auto offset = juce::jlimit(0, segLen - 1, static_cast<int>(scaledTakeLength - segAbsStart));
+                addPanicMidi(segmentMidiBuffer, offset);
+                identityTracker.resetOwnership();
+                panicSent = true;
+            }
+
+            juce::AudioBuffer<float> segmentAudioBuffer(audioBuffer.getArrayOfWritePointers(), options.numChannels,
+                                                        segStart, segLen);
+            segmentAudioBuffer.clear();
+
+            activeSynth->renderNextBlock(segmentAudioBuffer, segmentMidiBuffer, 0, segLen);
+
+            if (options.numChannels >= 2 && roomReverb.getWetLevel() > 1e-4f) {
+                roomReverb.processStereo(segmentAudioBuffer.getWritePointer(0), segmentAudioBuffer.getWritePointer(1),
+                                         segLen);
+            }
+            segmentAudioBuffer.applyGain(currentMasterGain);
+
+            segStart = segEnd;
         }
 
-        if (!panicSent && scaledTakeLength >= blockStart && scaledTakeLength < blockEnd) {
-            addPanicMidi(midiBuffer, juce::jlimit(0, numSamples - 1, static_cast<int>(scaledTakeLength - blockStart)));
-            panicSent = true;
-        }
-
-        synth.renderNextBlock(audioBuffer, midiBuffer, 0, numSamples);
-        if (options.numChannels >= 2 && options.reverbWet > 1e-4f) {
-            roomReverb.processStereo(audioBuffer.getWritePointer(0), audioBuffer.getWritePointer(1), numSamples);
-        }
-        audioBuffer.applyGain(gain);
         applyMasterSoftLimiter(audioBuffer, numSamples);
         if (!writer->writeFromAudioSampleBuffer(audioBuffer, 0, numSamples)) {
             DP_LOG_ERROR("[Export] WAV export failed while writing: " + destinationFile.getFullPathName());

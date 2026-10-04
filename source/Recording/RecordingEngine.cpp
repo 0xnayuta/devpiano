@@ -1,7 +1,9 @@
 #include "Recording/RecordingEngine.h"
 
+#include "Audio/OrderedMidi.h"
 #include "Diagnostics/Log.h"
 #include "Diagnostics/MidiTrace.h"
+#include "Recording/RenderPipeline.h"
 #include "Recording/TimelineValidation.h"
 
 #include <algorithm>
@@ -16,9 +18,17 @@ bool isUsablePlaybackTake(const RecordingTake& take, double currentSampleRate) n
         || !isRepresentableTimelineLength(take.lengthSamples, take.sampleRate)) {
         return false;
     }
+    for (const auto& preset : take.presets) {
+        if (!isAcousticSnapshotValid(preset.acoustic)) {
+            return false;
+        }
+    }
     std::int64_t previousTimestamp = 0;
     for (const auto& event : take.events) {
         if (event.timestampSamples < previousTimestamp || event.timestampSamples > take.lengthSamples) {
+            return false;
+        }
+        if (event.type == PerformanceEventType::presetChange && event.presetId >= take.presets.size()) {
             return false;
         }
         previousTimestamp = event.timestampSamples;
@@ -68,8 +78,7 @@ double RecordingEngine::getSampleRate() const noexcept {
 }
 
 std::size_t RecordingEngine::getReservedEventCapacity() const noexcept {
-    // capacity() is a read-only query on vector metadata — safe even during recording.
-    return currentTake.events.capacity();
+    return recordingEventLimit;
 }
 
 const RecordingTake& RecordingEngine::getCurrentTake() const noexcept {
@@ -91,12 +100,14 @@ RecordingTake RecordingEngine::createTakeSnapshot() const {
 }
 
 void RecordingEngine::reserveEvents(std::size_t expectedEventCount) {
-    currentTake.events.reserve(expectedEventCount);
+    recordingEventLimit = expectedEventCount;
+    currentTake.events.reserve(expectedEventCount * 2 + 48);
 }
 
 void RecordingEngine::startRecording(double sampleRate) {
     currentTake.events.clear();
-    pendingPresetEvents.clear();
+    currentTake.presets.clear();
+    recordedPresetQueue.discardPublished();
     abLoopEngine.clear();
     currentTake.sampleRate = std::max(sampleRate, 0.0);
     currentTake.lengthSamples = 0;
@@ -156,19 +167,7 @@ RecordingTake RecordingEngine::stopRecording() {
     const auto recordingActive
         = isRecording() || state.load(std::memory_order_acquire) == RecordingState::recordingPaused;
     if (recordingActive) {
-        // Merge pending preset-change events (message-thread writes) into the
-        // recorded events vector before finalising the take.
-        if (!pendingPresetEvents.empty()) {
-            for (auto& ev : pendingPresetEvents) {
-                currentTake.events.push_back(std::move(ev));
-            }
-            pendingPresetEvents.clear();
-
-            std::ranges::stable_sort(currentTake.events,
-                                     [](const PerformanceEvent& a, const PerformanceEvent& b) noexcept {
-                                         return a.timestampSamples < b.timestampSamples;
-                                     });
-        }
+        capturePendingPresetChanges(getCurrentPositionSamples());
         closeCapturedPerformance();
 
         currentTake.lengthSamples
@@ -185,7 +184,10 @@ RecordingTake RecordingEngine::stopRecording() {
 
 void RecordingEngine::clear() {
     currentTake.events.clear();
-    pendingPresetEvents.clear();
+    currentTake.presets.clear();
+    recordedPresetQueue.discardPublished();
+    scheduledPresetChanges.clear();
+    pendingPresetNotification.store(noPreset, std::memory_order_relaxed);
     currentTake.sampleRate = 0.0;
     currentTake.lengthSamples = 0;
     playbackTake = {};
@@ -242,6 +244,7 @@ void RecordingEngine::recordEvent(const juce::MidiMessage& message, RecordingEve
     if (!isRecording()) {
         return;
     }
+    capturePendingPresetChanges(std::max<std::int64_t>(timestampSamples, 0));
 
     if (message.isNoteOff()
         && capturedNotes[static_cast<std::size_t>(message.getChannel() - 1)]
@@ -250,11 +253,17 @@ void RecordingEngine::recordEvent(const juce::MidiMessage& message, RecordingEve
         return;
     }
     const auto clampedTimestamp = std::max<std::int64_t>(timestampSamples, 0);
+    const auto requiredRelease = message.isNoteOff()
+        || (message.isController()
+            && (message.getControllerNumber() >= 120
+                || ((message.getControllerNumber() == 64 || message.getControllerNumber() == 66
+                     || message.getControllerNumber() == 67)
+                    && message.getControllerValue() == 0)));
     const auto releases = message.isNoteOff() ? capturedNotes[static_cast<std::size_t>(message.getChannel() - 1)]
                                                              [static_cast<std::size_t>(message.getNoteNumber())]
                                               : std::size_t { 1 };
     for (auto remaining = releases; remaining > 0; --remaining) {
-        if (isCapacityExhausted(clampedTimestamp)) {
+        if (isCapacityExhausted(clampedTimestamp, requiredRelease)) {
             return;
         }
         currentTake.events.push_back({ clampedTimestamp, PerformanceEventType::midi, 0, source, message });
@@ -270,6 +279,7 @@ void RecordingEngine::recordMidiBufferBlock(const juce::MidiBuffer& midiBuffer, 
     }
 
     const auto clampedBlockStart = std::max<std::int64_t>(blockStartSamples, 0);
+    capturePendingPresetChanges(clampedBlockStart);
 
     for (const auto metadata : midiBuffer) {
         if (metadata.samplePosition < firstSample) {
@@ -279,8 +289,7 @@ void RecordingEngine::recordMidiBufferBlock(const juce::MidiBuffer& midiBuffer, 
             + static_cast<long double>(metadata.samplePosition - firstSample) * currentTake.sampleRate
                 / deviceSampleRate;
         const auto timestamp = clampedBlockStart + static_cast<std::int64_t>(std::floor(offset + 1.0e-9L));
-        if (currentTake.events.size() >= currentTake.events.capacity()
-            || metadata.numBytes > maxRealtimeMidiMessageBytes) {
+        if (metadata.numBytes > maxRealtimeMidiMessageBytes) {
             droppedEventCount.fetch_add(1, std::memory_order_relaxed);
             currentTake.lengthSamples = std::max(currentTake.lengthSamples, timestamp);
             continue;
@@ -358,21 +367,32 @@ void RecordingEngine::closeCapturedPerformance() {
 
 // ---- Preset-change recording ----
 
-void RecordingEngine::recordPresetChange(uint8_t presetId, std::int64_t timestampSamples) {
-    // Write to a dedicated message-thread queue to avoid racing with the
-    // audio thread's writes to currentTake.events via recordMidiBufferBlock.
-    // Merged into currentTake.events at stopRecording() or clear() time.
-    if (!isRecording()) {
+void RecordingEngine::recordPresetChange(const RecordedPreset& preset) {
+    if (!isRecording() && getState() != RecordingState::countingIn) {
         return;
     }
-
-    const auto ts = std::max<std::int64_t>(timestampSamples, 0);
-    pendingPresetEvents.push_back(
-        { ts, PerformanceEventType::presetChange, presetId, RecordingEventSource::computerKeyboard, {} });
+    const auto slot = static_cast<std::uint32_t>(currentTake.presets.size());
+    currentTake.presets.push_back(preset);
+    if (!recordedPresetQueue.push(slot)) {
+        currentTake.presets.pop_back();
+        droppedEventCount.fetch_add(1, std::memory_order_relaxed);
+    }
 }
 
-bool RecordingEngine::isCapacityExhausted(std::int64_t timestamp) noexcept {
-    if (currentTake.events.size() >= currentTake.events.capacity()) {
+void RecordingEngine::capturePendingPresetChanges(std::int64_t timestampSamples) noexcept {
+    std::uint32_t slot = 0;
+    for (std::size_t count = 0; count < 1024 && recordedPresetQueue.pop(slot); ++count) {
+        if (isCapacityExhausted(timestampSamples)) {
+            continue;
+        }
+        currentTake.events.push_back(
+            { timestampSamples, PerformanceEventType::presetChange, slot, RecordingEventSource::computerKeyboard, {} });
+    }
+}
+
+bool RecordingEngine::isCapacityExhausted(std::int64_t timestamp, bool requiredRelease) noexcept {
+    const auto limit = requiredRelease ? currentTake.events.capacity() : recordingEventLimit;
+    if (currentTake.events.size() >= limit) {
         droppedEventCount.fetch_add(1, std::memory_order_relaxed);
         currentTake.lengthSamples = std::max(currentTake.lengthSamples, timestamp);
         return true;
@@ -387,6 +407,15 @@ void RecordingEngine::startPlayback(const RecordingTake& take, double currentSam
         return;
     }
     playbackTake = take;
+    std::ranges::stable_sort(playbackTake.events, [](const auto& a, const auto& b) {
+        if (a.timestampSamples != b.timestampSamples) {
+            return a.timestampSamples < b.timestampSamples;
+        }
+        if (a.type != b.type) {
+            return a.type == PerformanceEventType::presetChange;
+        }
+        return false;
+    });
     ++playbackGeneration;
     playbackNoteOnCount = static_cast<std::size_t>(std::ranges::count_if(take.events, [](const auto& event) {
         return event.type == PerformanceEventType::midi && event.message.isNoteOn();
@@ -422,17 +451,19 @@ void RecordingEngine::startPlayback(const RecordingTake& take, double currentSam
     const auto stopVersion = stopSequence.load(std::memory_order_acquire);
     appliedStopSequence.store(stopVersion, std::memory_order_release);
     stopRequested.store(false, std::memory_order_relaxed);
-    {
-        juce::CriticalSection::ScopedLockType lock(presetChangeLock);
-        pendingPresetChanges.clear();
-        std::size_t presetEventCount = 0;
-        for (const auto& event : take.events) {
-            if (event.type == PerformanceEventType::presetChange) {
-                ++presetEventCount;
-            }
+    pendingPresetNotification.store(noPreset, std::memory_order_relaxed);
+    scheduledPresetChanges.clear();
+    const auto presetEventCount = static_cast<std::size_t>(std::ranges::count_if(
+        take.events, [](const auto& event) { return event.type == PerformanceEventType::presetChange; }));
+    scheduledPresetChanges.reserve(presetEventCount * 2 + 2);
+    std::size_t midiBytes = 0;
+    for (const auto& event : take.events) {
+        if (event.type == PerformanceEventType::midi) {
+            midiBytes += static_cast<std::size_t>(event.message.getRawDataSize()) + 6;
         }
-        pendingPresetChanges.reserve(presetEventCount);
     }
+    playbackMidiCapacityBytes = std::max<std::size_t>(131072, midiBytes * 2 + presetEventCount * 288 + 98304);
+    restoredPresetId = noPreset;
 
     smoothedPitchBend.fill(8192.0f);
     state.store(RecordingState::playing, std::memory_order_release);
@@ -712,11 +743,6 @@ void RecordingEngine::requestPlaybackStop() noexcept {
 }
 
 void RecordingEngine::stopPlaybackQuiescent() noexcept {
-    {
-        juce::CriticalSection::ScopedLockType lock(presetChangeLock);
-        pendingPresetChanges.clear();
-    }
-
     const auto seekVersion = seekSequence.load(std::memory_order_acquire);
     appliedSeekSequence.store(seekVersion, std::memory_order_release);
     const auto speedVersion = speedSequence.load(std::memory_order_acquire);
@@ -771,6 +797,9 @@ void RecordingEngine::setPlaybackBlockSize(int blockSize) noexcept {
 
 void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer, std::int64_t blockStartSamples,
                                           int numSamples) {
+    scheduledPresetChanges.clear();
+    renderedMidiEventCount = static_cast<std::size_t>(midiBuffer.getNumEvents());
+    lastRenderedMidiSample = midiBuffer.getLastEventTime();
     if (playbackCleanupPending && numSamples > 0) {
         addAllNotesOffMessages(midiBuffer, 0);
         playbackCleanupPending = false;
@@ -876,8 +905,8 @@ void RecordingEngine::renderPlaybackEventsInRange(juce::MidiBuffer& midiBuffer, 
         }
 
         if (event.type == PerformanceEventType::presetChange) {
-            juce::CriticalSection::ScopedLockType lock(presetChangeLock);
-            pendingPresetChanges.push_back({ event.presetId });
+            const auto sampleOffset = segmentOffset + static_cast<int>(scaledTimestamp - rangeStartSamples);
+            schedulePresetChange(event.presetId, sampleOffset, renderedMidiEventCount);
         } else {
             const auto sampleOffset = segmentOffset + static_cast<int>(scaledTimestamp - rangeStartSamples);
             if (event.message.isPitchWheel()) {
@@ -887,22 +916,34 @@ void RecordingEngine::renderPlaybackEventsInRange(juce::MidiBuffer& midiBuffer, 
                 auto smoothedMessage = juce::MidiMessage::pitchWheel(
                     static_cast<int>(channel) + 1, static_cast<int>(std::round(smoothedPitchBend[channel])));
                 smoothedMessage.setTimeStamp(event.message.getTimeStamp());
-                midiBuffer.addEvent(smoothedMessage, juce::jlimit(0, numSamples - 1, sampleOffset));
+                appendPlaybackMidi(midiBuffer, smoothedMessage, juce::jlimit(0, numSamples - 1, sampleOffset));
             } else {
-                midiBuffer.addEvent(event.message, juce::jlimit(0, numSamples - 1, sampleOffset));
+                appendPlaybackMidi(midiBuffer, event.message, juce::jlimit(0, numSamples - 1, sampleOffset));
             }
+            ++renderedMidiEventCount;
         }
 
         ++playbackEventIndex;
     }
 }
 
+void RecordingEngine::appendPlaybackMidi(juce::MidiBuffer& midiBuffer, const juce::MidiMessage& message,
+                                         int sampleOffset) {
+    if (sampleOffset >= lastRenderedMidiSample) {
+        devpiano::audio::appendOrderedMidi(midiBuffer, message, sampleOffset);
+    } else {
+        midiBuffer.addEvent(message, sampleOffset);
+    }
+    lastRenderedMidiSample = std::max(lastRenderedMidiSample, sampleOffset);
+}
+
 void RecordingEngine::addAllNotesOffMessages(juce::MidiBuffer& midiBuffer, int sampleOffset) {
     for (int channel = 1; channel <= 16; ++channel) {
-        midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 64, 0), sampleOffset);
-        midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 120, 0), sampleOffset);
-        midiBuffer.addEvent(juce::MidiMessage::allNotesOff(channel), sampleOffset);
+        appendPlaybackMidi(midiBuffer, juce::MidiMessage::controllerEvent(channel, 64, 0), sampleOffset);
+        appendPlaybackMidi(midiBuffer, juce::MidiMessage::controllerEvent(channel, 120, 0), sampleOffset);
+        appendPlaybackMidi(midiBuffer, juce::MidiMessage::allNotesOff(channel), sampleOffset);
     }
+    renderedMidiEventCount += 48;
 }
 
 void RecordingEngine::advancePlaybackPosition(std::int64_t numSamples) noexcept {
@@ -966,11 +1007,38 @@ std::int64_t RecordingEngine::getPlaybackPositionSamples() const noexcept {
 }
 
 std::vector<PendingPresetChange> RecordingEngine::drainPendingPresetChanges() {
-    juce::CriticalSection::ScopedLockType lock(presetChangeLock);
-    std::vector<PendingPresetChange> drained;
-    drained.swap(pendingPresetChanges);
-    pendingPresetChanges.reserve(drained.capacity());
-    return drained;
+    const auto slot = pendingPresetNotification.exchange(noPreset, std::memory_order_acq_rel);
+    if (const auto* snapshot = getPlaybackPreset(slot)) {
+        return { { slot, snapshot } };
+    }
+    return {};
+}
+
+const RecordedPreset* RecordingEngine::getPlaybackPreset(std::uint32_t presetId) const noexcept {
+    return presetId < playbackTake.presets.size() ? &playbackTake.presets[presetId] : nullptr;
+}
+
+const std::vector<ScheduledPresetChange>& RecordingEngine::getScheduledPresetChanges() const noexcept {
+    return scheduledPresetChanges;
+}
+
+std::size_t RecordingEngine::getPlaybackMidiCapacityBytes() const noexcept {
+    return playbackMidiCapacityBytes;
+}
+
+std::size_t RecordingEngine::consumePresetNotificationCoalescedCount() noexcept {
+    return presetNotificationCoalescedCount.exchange(0, std::memory_order_acq_rel);
+}
+
+void RecordingEngine::schedulePresetChange(std::uint32_t presetId, int sampleOffset,
+                                           std::size_t midiEventCount) noexcept {
+    if (presetId >= playbackTake.presets.size() || scheduledPresetChanges.size() == scheduledPresetChanges.capacity()) {
+        return;
+    }
+    scheduledPresetChanges.push_back({ presetId, sampleOffset, midiEventCount });
+    if (pendingPresetNotification.exchange(presetId, std::memory_order_acq_rel) != noPreset) {
+        presetNotificationCoalescedCount.fetch_add(1, std::memory_order_relaxed);
+    }
 }
 
 std::int64_t RecordingEngine::getScaledPlaybackLengthSamples() const noexcept {
@@ -1038,9 +1106,11 @@ void RecordingEngine::restorePlaybackChannelState(juce::MidiBuffer& midiBuffer, 
         for (auto& channel : restoredChannelState) {
             channel.controllers.fill(-1);
         }
+        restoredPresetId = noPreset;
         for (std::size_t index = 0; index < playbackEventIndex; ++index) {
             const auto& event = playbackTake.events[index];
-            if (event.type != PerformanceEventType::midi) {
+            if (event.type == PerformanceEventType::presetChange) {
+                restoredPresetId = event.presetId;
                 continue;
             }
             const auto& message = event.message;
@@ -1075,30 +1145,40 @@ void RecordingEngine::restorePlaybackChannelState(juce::MidiBuffer& midiBuffer, 
         }
         restoredStateEventIndex = playbackEventIndex;
     }
+    if (restoredPresetId != noPreset) {
+        schedulePresetChange(restoredPresetId, sampleOffset, renderedMidiEventCount);
+    }
     for (std::size_t index = 0; index < restoredChannelState.size(); ++index) {
         const auto channel = static_cast<int>(index) + 1;
         const auto& snapshot = restoredChannelState[index];
-        midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 121, 0), sampleOffset);
-        midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 0, snapshot.programBankMsb), sampleOffset);
-        midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 32, snapshot.programBankLsb), sampleOffset);
-        midiBuffer.addEvent(juce::MidiMessage::programChange(channel, snapshot.program), sampleOffset);
+        appendPlaybackMidi(midiBuffer, juce::MidiMessage::controllerEvent(channel, 121, 0), sampleOffset);
+        appendPlaybackMidi(midiBuffer, juce::MidiMessage::controllerEvent(channel, 0, snapshot.programBankMsb),
+                           sampleOffset);
+        appendPlaybackMidi(midiBuffer, juce::MidiMessage::controllerEvent(channel, 32, snapshot.programBankLsb),
+                           sampleOffset);
+        appendPlaybackMidi(midiBuffer, juce::MidiMessage::programChange(channel, snapshot.program), sampleOffset);
         if (snapshot.bankMsb != snapshot.programBankMsb) {
-            midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 0, snapshot.bankMsb), sampleOffset);
+            appendPlaybackMidi(midiBuffer, juce::MidiMessage::controllerEvent(channel, 0, snapshot.bankMsb),
+                               sampleOffset);
         }
         if (snapshot.bankLsb != snapshot.programBankLsb) {
-            midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 32, snapshot.bankLsb), sampleOffset);
+            appendPlaybackMidi(midiBuffer, juce::MidiMessage::controllerEvent(channel, 32, snapshot.bankLsb),
+                               sampleOffset);
         }
         for (std::size_t controller = 1; controller < 120; ++controller) {
             if (controller != 32 && snapshot.controllers[controller] >= 0) {
-                midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, static_cast<int>(controller),
-                                                                       snapshot.controllers[controller]),
-                                    sampleOffset);
+                appendPlaybackMidi(midiBuffer,
+                                   juce::MidiMessage::controllerEvent(channel, static_cast<int>(controller),
+                                                                      snapshot.controllers[controller]),
+                                   sampleOffset);
             }
         }
-        midiBuffer.addEvent(juce::MidiMessage::pitchWheel(channel, snapshot.pitch), sampleOffset);
-        midiBuffer.addEvent(juce::MidiMessage::channelPressureChange(channel, snapshot.pressure), sampleOffset);
+        appendPlaybackMidi(midiBuffer, juce::MidiMessage::pitchWheel(channel, snapshot.pitch), sampleOffset);
+        appendPlaybackMidi(midiBuffer, juce::MidiMessage::channelPressureChange(channel, snapshot.pressure),
+                           sampleOffset);
         smoothedPitchBend[index] = static_cast<float>(snapshot.pitch);
     }
+    renderedMidiEventCount = static_cast<std::size_t>(midiBuffer.getNumEvents());
 }
 
 void RecordingEngine::resetPlaybackEventCursor(std::int64_t positionSamples, double combinedRatio) noexcept {

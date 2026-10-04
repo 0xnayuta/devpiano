@@ -19,10 +19,13 @@ private:
     enum class RunState : std::uint8_t { disabled = 0, startPending = 1, active = 2 };
 
 public:
-    MetronomeProcessor() noexcept = default;
+    MetronomeProcessor() noexcept {
+        updateBeatCoefficients(sampleRate);
+    }
 
     void prepareToPlay(double newSampleRate) noexcept {
         sampleRate = (newSampleRate > 1000.0) ? newSampleRate : 48000.0;
+        updateBeatCoefficients(sampleRate);
 
         const auto currentSig = timeSignature.load(std::memory_order_relaxed);
         const auto denominator = static_cast<double>(devpiano::core::getTimeSignatureDenominator(currentSig));
@@ -297,33 +300,42 @@ private:
         lastSamplesPerBeat = samplesPerBeat;
     }
 
+    struct BeatCoefficients {
+        float deltaSin = 0.0f;
+        float deltaCos = 1.0f;
+        float decay = 0.0f;
+        float amp = 0.0f;
+    };
+
+    void updateBeatCoefficients(double sr) noexcept {
+        auto computeCoeffs = [sr](float freq, float decaySec, float amp) noexcept -> BeatCoefficients {
+            BeatCoefficients c;
+            const auto omega = static_cast<float>(kTwoPi * static_cast<double>(freq) / sr);
+            c.deltaSin = std::sin(omega);
+            c.deltaCos = std::cos(omega);
+            c.decay = std::exp(-1.0f / static_cast<float>(sr * static_cast<double>(decaySec)));
+            c.amp = amp;
+            return c;
+        };
+        downbeatCoeffs = computeCoeffs(1600.0f, 0.030f, 1.0f);
+        accentCoeffs = computeCoeffs(1100.0f, 0.025f, 0.85f);
+        normalCoeffs = computeCoeffs(800.0f, 0.020f, 0.70f);
+    }
+
     void triggerBeat(int beatIdx) noexcept {
         const auto currentSig = timeSignature.load(std::memory_order_relaxed);
         const bool down = (beatIdx == 0);
 
-        float freq = 800.0f;
-        float decaySec = 0.020f;
-        float amp = 0.70f;
+        const auto& coeffs = down
+            ? downbeatCoeffs
+            : ((currentSig == devpiano::core::TimeSignature::sixEight && beatIdx == 3) ? accentCoeffs : normalCoeffs);
 
-        if (down) {
-            freq = 1600.0f;
-            decaySec = 0.030f;
-            amp = 1.0f;
-        } else if (currentSig == devpiano::core::TimeSignature::sixEight && beatIdx == 3) {
-            // Secondary accent for 6/8 meter (beat 4 / division 4)
-            freq = 1100.0f;
-            decaySec = 0.025f;
-            amp = 0.85f;
-        }
-
-        const auto omega = static_cast<float>(kTwoPi * static_cast<double>(freq) / sampleRate);
-        pulseDeltaSin = std::sin(omega);
-        pulseDeltaCos = std::cos(omega);
-
+        pulseDeltaSin = coeffs.deltaSin;
+        pulseDeltaCos = coeffs.deltaCos;
         pulseSin = 0.0f;
         pulseCos = 1.0f;
-        pulseEnvelope = amp;
-        pulseDecay = std::exp(-1.0f / static_cast<float>(sampleRate * static_cast<double>(decaySec)));
+        pulseEnvelope = coeffs.amp;
+        pulseDecay = coeffs.decay;
         pulseActive = true;
 
         currentBeatNumber.store(beatIdx, std::memory_order_relaxed);
@@ -387,6 +399,9 @@ private:
     float pulseEnvelope = 0.0f;
     float pulseDecay = 0.0f;
 
+    BeatCoefficients downbeatCoeffs;
+    BeatCoefficients accentCoeffs;
+    BeatCoefficients normalCoeffs;
     std::atomic<RunState> runState { RunState::disabled };
     std::atomic<double> bpm { 120.0 };
     std::atomic<devpiano::core::TimeSignature> timeSignature { devpiano::core::TimeSignature::fourFour };

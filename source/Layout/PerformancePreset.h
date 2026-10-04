@@ -15,9 +15,10 @@
 
 namespace devpiano::layout {
 
-inline constexpr int performancePresetFormatVersion = 1;
+inline constexpr int performancePresetFormatVersion = 2;
 
 struct PerformancePreset {
+    juce::String uuid;
     juce::String name;
 
     devpiano::core::KeyboardLayout layout;
@@ -48,6 +49,14 @@ struct PerformancePreset {
     std::array<juce::String, 128> customKeyLabels;
     std::array<juce::Colour, 128> customKeyColours;
 };
+// ---- Identity ----
+
+[[nodiscard]] juce::String generateDeterministicPresetUuid(const juce::String& name);
+
+// ---- In-memory JSON conversion (no disk IO) ----
+
+[[nodiscard]] juce::var performancePresetToVar(const PerformancePreset& preset);
+[[nodiscard]] std::optional<PerformancePreset> performancePresetFromVar(const juce::var& v);
 
 // ---- File management ----
 

@@ -144,6 +144,145 @@ public:
 static AudioEngineLifecycleTest audioEngineLifecycleTest;
 
 // =============================================================================
+class BuiltinSynthesiserExecutionTest : public juce::UnitTest {
+public:
+    BuiltinSynthesiserExecutionTest()
+        : juce::UnitTest("BuiltinSynthesiser: execution and lock-free SLA", "DevPiano/Engine") {
+    }
+
+    void runTest() override {
+        beginTest("THR-001/PERF-001: sustain pedal CC64 holds notes past noteOff until pedal release");
+        {
+            devpiano::audio::BuiltinSynthesiser synth;
+            synth.setCurrentPlaybackSampleRate(44100.0);
+            synth.addSound(new PianoSynthSound());
+            auto* v0 = new PianoSynthVoice();
+            v0->setVoiceIndex(0);
+            synth.addVoice(v0);
+
+            synth.handleController(1, 64, 127);
+            expect(synth.isSustainPedalDown(1));
+
+            synth.noteOn(1, 60, 0.8f);
+            expect(v0->isVoiceActive());
+            expectEquals(v0->getCurrentlyPlayingNote(), 60);
+            expect(v0->isKeyDown());
+            expect(v0->isSustainPedalDown());
+
+            // Release key while pedal is held
+            synth.noteOff(1, 60, 0.0f, false);
+            expect(!v0->isKeyDown());
+            expect(v0->isSustainPedalDown());
+            expect(v0->isVoiceActive());
+            expectEquals(v0->getCurrentlyPlayingNote(), 60);
+
+            // Release sustain pedal
+            synth.handleController(1, 64, 0);
+            expect(!synth.isSustainPedalDown(1));
+            expect(!v0->isSustainPedalDown());
+        }
+
+        beginTest("sostenuto pedal CC66 latches only keys held down when engaged");
+        {
+            devpiano::audio::BuiltinSynthesiser synth;
+            synth.setCurrentPlaybackSampleRate(44100.0);
+            synth.addSound(new PianoSynthSound());
+            auto* v0 = new PianoSynthVoice();
+            auto* v1 = new PianoSynthVoice();
+            v0->setVoiceIndex(0);
+            v1->setVoiceIndex(1);
+            synth.addVoice(v0);
+            synth.addVoice(v1);
+
+            // Note 60 held down first
+            synth.noteOn(1, 60, 0.8f);
+            expect(v0->isKeyDown());
+
+            // Sostenuto pressed while note 60 is held
+            synth.handleController(1, 66, 127);
+            expect(synth.isSostenutoPedalDown(1));
+            expect(v0->isSostenutoPedalDown());
+
+            // Note 64 pressed AFTER sostenuto was engaged
+            synth.noteOn(1, 64, 0.8f);
+            expect(v1->isKeyDown());
+            expect(!v1->isSostenutoPedalDown());
+
+            // Release both keys
+            synth.noteOff(1, 60, 0.0f, false);
+            synth.noteOff(1, 64, 0.0f, false);
+
+            // v0 was latched by sostenuto, so it stays active
+            expect(v0->isVoiceActive());
+            expectEquals(v0->getCurrentlyPlayingNote(), 60);
+
+            // v1 was not latched by sostenuto, so it stops immediately
+            expect(!v1->isVoiceActive());
+            expectEquals(v1->getCurrentlyPlayingNote(), -1);
+
+            // Release sostenuto pedal
+            synth.handleController(1, 66, 0);
+            expect(!synth.isSostenutoPedalDown(1));
+        }
+
+        beginTest("voice stealing prioritizes target pitch, released voices, and unprotected voices");
+        {
+            devpiano::audio::BuiltinSynthesiser synth;
+            synth.setCurrentPlaybackSampleRate(44100.0);
+            synth.addSound(new PianoSynthSound());
+            auto* v0 = new PianoSynthVoice();
+            auto* v1 = new PianoSynthVoice();
+            v0->setVoiceIndex(0);
+            v1->setVoiceIndex(1);
+            synth.addVoice(v0);
+            synth.addVoice(v1);
+
+            // Start notes 60 and 72
+            synth.noteOn(1, 60, 0.8f);
+            synth.noteOn(1, 72, 0.8f);
+            expect(v0->isVoiceActive() && v1->isVoiceActive());
+
+            // Release key 72 with sustain UP (voice 1 enters released phase)
+            synth.noteOff(1, 72, 0.5f, true);
+            expect(v1->isPlayingButReleased());
+            expect(!v0->isPlayingButReleased());
+
+            // New note 65 should steal released voice (v1) rather than held key (v0)
+            synth.noteOn(1, 65, 0.8f);
+            expectEquals(v0->getCurrentlyPlayingNote(), 60);
+            expectEquals(v1->getCurrentlyPlayingNote(), 65);
+
+            // Re-trigger note 60: should steal voice currently playing note 60 (v0)
+            synth.noteOn(1, 60, 0.9f);
+            expectEquals(v0->getCurrentlyPlayingNote(), 60);
+            expectEquals(v1->getCurrentlyPlayingNote(), 65);
+        }
+
+        beginTest("zero-length renderNextBlock consumes explicit zero-offset MIDI without audio advance");
+        {
+            devpiano::audio::BuiltinSynthesiser synth;
+            synth.setCurrentPlaybackSampleRate(44100.0);
+            synth.addSound(new PianoSynthSound());
+            auto* v0 = new PianoSynthVoice();
+            v0->setVoiceIndex(0);
+            synth.addVoice(v0);
+
+            juce::MidiBuffer midi;
+            midi.addEvent(juce::MidiMessage::noteOn(1, 67, 0.75f), 0);
+
+            juce::AudioBuffer<float> buf(2, 64);
+            buf.clear();
+            synth.renderNextBlock(buf, midi, 0, 0);
+
+            expect(v0->isVoiceActive());
+            expectEquals(v0->getCurrentlyPlayingNote(), 67);
+            expectEquals(buf.getMagnitude(0, 64), 0.0f);
+        }
+    }
+};
+static BuiltinSynthesiserExecutionTest builtinSynthesiserExecutionTest;
+
+// =============================================================================
 
 // 合并自原 MasterGainTest / AllNotesOffTest。
 class AudioEngineGainAndNotesOffTest : public juce::UnitTest {
@@ -464,6 +603,7 @@ public:
             auto buf = makeBlock(2, 512);
             const juce::AudioSourceChannelInfo info(&buf, 0, buf.getNumSamples());
             engine.getNextAudioBlock(info);
+            engine.dispatchPendingDisplayEvents();
 
             // Check keyboardState:
             // Channel 1 note 60 should be transposed to 62 (D4)
@@ -507,6 +647,7 @@ public:
             auto buf = makeBlock(2, 512);
             const juce::AudioSourceChannelInfo info(&buf, 0, buf.getNumSamples());
             engine.getNextAudioBlock(info);
+            engine.dispatchPendingDisplayEvents();
 
             // Channel 1 was disabled in mask -> remains 60
             expect(engine.getKeyboardState().isNoteOn(1, 60), "Channel 1 note 60 should remain 60 (disabled in mask)");
@@ -539,6 +680,7 @@ public:
             auto playBuffer = makeBlock(2, 512);
             const juce::AudioSourceChannelInfo playInfo(&playBuffer, 0, playBuffer.getNumSamples());
             engine.getNextAudioBlock(playInfo);
+            engine.dispatchPendingDisplayEvents();
             expect(engine.getKeyboardState().isNoteOn(1, 60), "the playback note should be sounding before seek");
 
             rec.pausePlayback();
@@ -546,6 +688,7 @@ public:
             auto seekBuffer = makeBlock(2, 512);
             const juce::AudioSourceChannelInfo seekInfo(&seekBuffer, 0, seekBuffer.getNumSamples());
             engine.getNextAudioBlock(seekInfo);
+            engine.dispatchPendingDisplayEvents();
 
             expectEquals(static_cast<std::int64_t>(1234), rec.getPlaybackPositionInTakeSamples());
             expect(!engine.getKeyboardState().isNoteOn(1, 60), "seek must clear the currently sounding note");
@@ -582,6 +725,7 @@ public:
             auto buf1 = makeBlock(2, 512);
             const juce::AudioSourceChannelInfo info1(&buf1, 0, buf1.getNumSamples());
             engine.getNextAudioBlock(info1);
+            engine.dispatchPendingDisplayEvents();
             expect(engine.getKeyboardState().isNoteOn(1, 60), "Note 60 should be active in keyboard state");
 
             engine.setPlaybackTranspose(true, 1);
@@ -589,6 +733,7 @@ public:
             auto buf2 = makeBlock(2, 512);
             const juce::AudioSourceChannelInfo info2(&buf2, 0, buf2.getNumSamples());
             engine.getNextAudioBlock(info2);
+            engine.dispatchPendingDisplayEvents();
 
             expect(!engine.getKeyboardState().isNoteOn(1, 60),
                    "Note 60 must be released using original snapshot identity");
@@ -637,22 +782,26 @@ public:
             engine.prepareToPlay(512, 44100.0);
             auto buf1 = makeBlock(2, 512);
             engine.getNextAudioBlock({ &buf1, 0, 512 });
+            engine.dispatchPendingDisplayEvents();
             expect(engine.getKeyboardState().isNoteOn(1, 60));
 
             engine.setPlaybackTranspose(true, 2);
 
             auto buf2 = makeBlock(2, 512);
             engine.getNextAudioBlock({ &buf2, 0, 512 });
+            engine.dispatchPendingDisplayEvents();
             expect(engine.getKeyboardState().isNoteOn(1, 60), "Attack 1 (60) still active");
             expect(engine.getKeyboardState().isNoteOn(1, 62), "Attack 2 (62) active under +2 mapping");
 
             auto buf3 = makeBlock(2, 512);
             engine.getNextAudioBlock({ &buf3, 0, 512 });
+            engine.dispatchPendingDisplayEvents();
             expect(!engine.getKeyboardState().isNoteOn(1, 60), "Attack 1 (60) released first in FIFO order");
             expect(engine.getKeyboardState().isNoteOn(1, 62), "Attack 2 (62) still sounding");
 
             auto buf4 = makeBlock(2, 512);
             engine.getNextAudioBlock({ &buf4, 0, 512 });
+            engine.dispatchPendingDisplayEvents();
             expect(!engine.getKeyboardState().isNoteOn(1, 62), "Attack 2 (62) released second in FIFO order");
 
             rec.stopPlaybackQuiescent();
@@ -698,14 +847,17 @@ public:
             engine.prepareToPlay(512, 44100.0);
             auto buf1 = makeBlock(2, 512);
             engine.getNextAudioBlock({ &buf1, 0, 512 });
+            engine.dispatchPendingDisplayEvents();
             expect(engine.getKeyboardState().isNoteOn(1, 127));
 
             auto buf2 = makeBlock(2, 512);
             engine.getNextAudioBlock({ &buf2, 0, 512 });
+            engine.dispatchPendingDisplayEvents();
             expect(engine.getKeyboardState().isNoteOn(1, 127), "Output note 127 must still be held by second owner");
 
             auto buf3 = makeBlock(2, 512);
             engine.getNextAudioBlock({ &buf3, 0, 512 });
+            engine.dispatchPendingDisplayEvents();
             expect(!engine.getKeyboardState().isNoteOn(1, 127),
                    "Output note 127 must be released when last owner releases");
 
@@ -740,6 +892,7 @@ public:
             engine.prepareToPlay(512, 44100.0);
             auto buf1 = makeBlock(2, 512);
             engine.getNextAudioBlock({ &buf1, 0, 512 });
+            engine.dispatchPendingDisplayEvents();
             expect(engine.getKeyboardState().isNoteOn(1, 63));
 
             engine.prepareToPlay(512, 48000.0);
@@ -747,6 +900,7 @@ public:
 
             auto buf2 = makeBlock(2, 512);
             engine.getNextAudioBlock({ &buf2, 0, 512 });
+            engine.dispatchPendingDisplayEvents();
 
             expect(!engine.getKeyboardState().isNoteOn(1, 63), "Device rate switch must retain identity release");
 

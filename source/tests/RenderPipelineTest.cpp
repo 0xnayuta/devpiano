@@ -30,6 +30,26 @@ devpiano::recording::PerformanceEvent makeEvent(std::int64_t timestampSamples) {
     return event;
 }
 
+devpiano::recording::PerformanceEvent makePresetEvent(std::int64_t timestampSamples, std::uint32_t presetId) {
+    devpiano::recording::PerformanceEvent event;
+    event.timestampSamples = timestampSamples;
+    event.type = devpiano::recording::PerformanceEventType::presetChange;
+    event.presetId = presetId;
+    event.source = devpiano::recording::RecordingEventSource::computerKeyboard;
+    return event;
+}
+
+devpiano::recording::RecordedPreset
+makeRecordedPreset(float gain = 1.0f, devpiano::core::BuiltinTone tone = devpiano::core::BuiltinTone::piano) {
+    devpiano::recording::RecordedPreset p;
+    p.preset.name = "Test Preset";
+    p.acoustic.builtinTone = tone;
+    p.acoustic.masterGain = gain;
+    p.acoustic.reverbSpace = devpiano::audio::ReverbSpace::concertHall;
+    p.acoustic.reverbWet = 0.25f;
+    return p;
+}
+
 } // namespace
 
 class RenderPipelineTest : public juce::UnitTest {
@@ -124,6 +144,71 @@ public:
             expect(sawSustainRelease);
             expect(sawAllControllersOff);
             expect(sawAllNotesOff);
+        });
+        testCase("prepareRenderTimeline validates preset references and snapshot finiteness", [&] {
+            // Missing preset referenced by presetChange
+            auto takeNoPresets = makeTake(44100.0, 1000, { makePresetEvent(100, 0) });
+            expect(!prepareRenderTimeline(takeNoPresets, 44100.0, 1.0).has_value());
+
+            // Out-of-bounds presetId
+            auto takeOob = makeTake(44100.0, 1000, { makePresetEvent(100, 2) });
+            takeOob.presets.push_back(makeRecordedPreset(0.8f));
+            expect(!prepareRenderTimeline(takeOob, 44100.0, 1.0).has_value());
+
+            // Non-finite snapshot field (NaN masterGain)
+            auto takeNan = makeTake(44100.0, 1000, { makePresetEvent(100, 0) });
+            auto badPreset = makeRecordedPreset();
+            badPreset.acoustic.masterGain = std::numeric_limits<float>::quiet_NaN();
+            takeNan.presets.push_back(badPreset);
+            expect(!prepareRenderTimeline(takeNan, 44100.0, 1.0).has_value());
+
+            // Valid take with presets
+            auto takeValid = makeTake(44100.0, 1000, { makePresetEvent(100, 0), makeEvent(200) });
+            takeValid.presets.push_back(makeRecordedPreset(0.75f));
+            const auto timeline = prepareRenderTimeline(takeValid, 44100.0, 1.0);
+            expect(timeline.has_value());
+            if (timeline.has_value()) {
+                expectEquals(timeline->presets.size(), std::size_t { 1 });
+                expectEquals(timeline->presets[0].acoustic.masterGain, 0.75f);
+            }
+        });
+
+        testCase("render timeline prioritizes presetChange before MIDI at same timestamp and carries presets", [&] {
+            auto noteAt100 = makeEvent(100);
+            auto presetAt100 = makePresetEvent(100, 0);
+            auto take = makeTake(44100.0, 1000, { noteAt100, presetAt100, makeEvent(200) });
+            take.presets.push_back(makeRecordedPreset(0.9f));
+
+            const auto timeline = prepareRenderTimeline(take, 44100.0, 0.0);
+            expect(timeline.has_value());
+            if (!timeline.has_value()) {
+                return;
+            }
+            expectEquals(timeline->events.size(), std::size_t { 3 });
+            // Even though noteAt100 was before presetAt100 in take.events,
+            // prepareRenderTimeline orders presetChange before midi at the same timestamp!
+            expect(timeline->events[0].type == PerformanceEventType::presetChange);
+            expectEquals(timeline->events[0].timestampSamples, std::int64_t { 100 });
+            expect(timeline->events[1].type == PerformanceEventType::midi);
+            expectEquals(timeline->events[1].timestampSamples, std::int64_t { 100 });
+            expectEquals(timeline->events[2].timestampSamples, std::int64_t { 200 });
+            expectEquals(timeline->presets.size(), std::size_t { 1 });
+        });
+
+        testCase("output merging releases only the final holder and preserves FIFO identities", [&] {
+            devpiano::audio::PlaybackIdentityTracker tracker;
+            tracker.noteOn(1, 60, 60);
+            tracker.noteOn(1, 64, 60);
+            const auto first = tracker.noteOff(1, 60);
+            expect(first.matched && !first.shouldEmit);
+            const auto final = tracker.noteOff(1, 64);
+            expect(final.matched && final.shouldEmit);
+            expectEquals(static_cast<int>(final.outputPitch), 60);
+            tracker.noteOn(2, 60, 63);
+            tracker.noteOn(2, 60, 65);
+            expectEquals(static_cast<int>(tracker.noteOff(2, 60).outputPitch), 63);
+            expectEquals(static_cast<int>(tracker.noteOff(2, 60).outputPitch), 65);
+            expect(!tracker.noteOff(2, 60).matched);
         });
     }
 };

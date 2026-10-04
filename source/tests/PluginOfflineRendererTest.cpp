@@ -221,6 +221,7 @@ public:
         testMasterSoftLimiterBehavior();
         testOfflineRenderingWithRoomReverb();
         testProgressCancellation();
+        testPresetSnapshotRejection();
     }
     void testParameterValidation() {
         beginTest("Parameter validation and error rejection");
@@ -463,6 +464,34 @@ public:
             // In the wet render, RoomReverbEngine diffuses the preceding note into the tail region
             expect(wetTail.getMagnitude(0, 0, checkLength) > 1e-4f, "wet tail must contain diffuse reverb energy");
         }
+    }
+    void testPresetSnapshotRejection() {
+        beginTest("Missing or malformed preset snapshot rejects before touching output file");
+        DummyOfflineTestPlugin plugin;
+        devpiano::exporting::WavExportOptions options;
+        devpiano::test::ScopedTempDir tempDir("offline-snapshot-reject");
+        const auto target = tempDir.getChildFile("protected.wav");
+        expect(target.replaceWithText("user data must be preserved"));
+
+        // Missing presets vector for presetChange event
+        auto takeNoPresets = makeSimpleRenderTake();
+        devpiano::recording::PerformanceEvent presetEv;
+        presetEv.type = devpiano::recording::PerformanceEventType::presetChange;
+        presetEv.timestampSamples = 0;
+        presetEv.presetId = 0;
+        takeNoPresets.events.insert(takeNoPresets.events.begin(), presetEv);
+
+        expect(!devpiano::exporting::renderTakeWithOfflinePlugin(takeNoPresets, target, options, plugin));
+        expectEquals(target.loadFileAsString(), juce::String("user data must be preserved"));
+
+        // Malformed snapshot (NaN masterGain)
+        auto takeNan = takeNoPresets;
+        devpiano::recording::RecordedPreset badPreset;
+        badPreset.acoustic.masterGain = std::numeric_limits<float>::quiet_NaN();
+        takeNan.presets.push_back(badPreset);
+
+        expect(!devpiano::exporting::renderTakeWithOfflinePlugin(takeNan, target, options, plugin));
+        expectEquals(target.loadFileAsString(), juce::String("user data must be preserved"));
     }
 };
 

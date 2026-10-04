@@ -66,6 +66,7 @@ public:
         testMultiChannelColorVisualization();
         testMouseDragGlissando();
         testMouseReleaseUsesMappedIdentityAfterMapperChange();
+        testMessageThreadListenerAndTimerBehavior();
     }
 
 private:
@@ -426,6 +427,54 @@ private:
                     expectEquals(k.fade, 1.0f);
                 }
             }
+        });
+    }
+
+    void testMessageThreadListenerAndTimerBehavior() {
+        testCase("CustomKeyboard timer starts on note activity and stops on idle (THR-003)", [&] {
+            juce::MidiKeyboardState ks;
+            CustomKeyboard kb(ks);
+            kb.setSize(1248, 120);
+            auto display = kb.getKeyboardSettings();
+            display.fadeSpeed = 0.5f;
+            display.previewAlpha = 0.0f;
+            kb.setKeyboardSettings(display);
+
+            // Initially created, idle tick settles keys and stops the timer
+            kb.triggerTimerCallbackForTest();
+            expect(!kb.isTimerRunningForTest(),
+                   "timer must stop when no notes are active (no blanket always-run timer)");
+
+            // Note on from message thread: wakes the timer and updates per-key channel/velocity
+            ks.noteOn(2, 60, 0.75f);
+            expect(kb.isTimerRunningForTest(), "handleNoteOn must start timer on note arrival");
+            expectEquals(static_cast<int>(kb.getPerKeyChannel(60)), 1);
+
+            // Animation tick steps the fade to 1.0f while held
+            kb.triggerTimerCallbackForTest();
+            expect(kb.isTimerRunningForTest(), "timer continues running while notes are held");
+
+            // Note off: ensures timer is running for decay animation
+            ks.noteOff(2, 60, 0.0f);
+            expect(kb.isTimerRunningForTest(), "handleNoteOff must ensure timer running for decay");
+
+            // Tick repeatedly until fade settles below epsilon
+            for (int i = 0; i < 60; ++i) {
+                kb.triggerTimerCallbackForTest();
+            }
+            expect(!kb.isTimerRunningForTest(), "timer must stop after key fade settles");
+
+            // External notification (e.g. computer keyboard input) wakes timer
+            kb.notifyNoteActivity();
+            expect(kb.isTimerRunningForTest(), "notifyNoteActivity must start timer");
+            kb.triggerTimerCallbackForTest();
+            expect(!kb.isTimerRunningForTest(), "timer settles and stops again");
+
+            // Focus release panic releases held note without assertion or hanging state
+            int offCallbackCount = 0;
+            kb.onNoteOff = [&](const devpiano::core::MidiNoteIdentity&) { ++offCallbackCount; };
+            kb.releaseHeldMouseNote();
+            expectEquals(offCallbackCount, 0, "releaseHeldMouseNote without held note is clean no-op");
         });
     }
 };

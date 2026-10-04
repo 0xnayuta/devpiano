@@ -185,6 +185,7 @@ private:
     [[nodiscard]] int getCurrentRuntimeBlockSize() const;
 
     void startInternalRecording(std::size_t expectedEventCapacity);
+    void recordInitialPresetSnapshot();
     [[nodiscard]] RecordingTake stopInternalRecording();
     void startInternalPlayback(const RecordingTake& take, std::int64_t resumeFromTakeSamples = 0,
                                std::optional<PausedPlaybackCursor> pausedCursor = std::nullopt);

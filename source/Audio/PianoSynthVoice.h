@@ -45,6 +45,141 @@
 using Temperament = devpiano::audio::Temperament;
 using TemperamentEngine = devpiano::audio::TemperamentEngine;
 
+namespace devpiano::audio::dsp {
+
+inline constexpr double kPi = 3.1415926535897932384626433832795;
+inline constexpr double kTwoPi = 6.283185307179586476925286766559;
+inline constexpr double kHalfPi = 1.5707963267948966192313216916398;
+inline constexpr double kInvTwoPi = 1.0 / kTwoPi;
+inline constexpr double kInvHalfPi = 1.0 / kHalfPi;
+
+struct SinCosResult {
+    double sinVal = 0.0;
+    double cosVal = 1.0;
+};
+
+[[nodiscard]] inline SinCosResult boundedSinCos(double x) noexcept {
+    if (!std::isfinite(x)) {
+        return { 0.0, 1.0 };
+    }
+    double k = std::floor(x * kInvTwoPi);
+    x -= k * kTwoPi;
+    if (x < 0.0) {
+        x = 0.0;
+    } else if (x >= kTwoPi) {
+        x = 0.0;
+    }
+
+    int q = static_cast<int>(x * kInvHalfPi);
+    if (q < 0) {
+        q = 0;
+    }
+    if (q > 3) {
+        q = 3;
+    }
+
+    double t = x - static_cast<double>(q) * kHalfPi;
+    if (t < 0.0) {
+        t = 0.0;
+    } else if (t > kHalfPi) {
+        t = kHalfPi;
+    }
+
+    const double z = t * t;
+    const double sinPoly = t
+        * (1.0
+           - z
+               * (1.0 / 6.0
+                  - z
+                      * (1.0 / 120.0
+                         - z
+                             * (1.0 / 5040.0
+                                - z
+                                    * (1.0 / 362880.0
+                                       - z
+                                           * (1.0 / 39916800.0
+                                              - z * (1.0 / 6227020800.0 - z * (1.0 / 1307674368000.0))))))));
+    const double cosPoly = 1.0
+        - z
+            * (1.0 / 2.0
+               - z
+                   * (1.0 / 24.0
+                      - z
+                          * (1.0 / 720.0
+                             - z
+                                 * (1.0 / 40320.0
+                                    - z * (1.0 / 3628800.0 - z * (1.0 / 479001600.0 - z * (1.0 / 87178291200.0)))))));
+
+    switch (q) {
+    case 0:
+        return { sinPoly, cosPoly };
+    case 1:
+        return { cosPoly, -sinPoly };
+    case 2:
+        return { -sinPoly, -cosPoly };
+    default:
+        return { -cosPoly, sinPoly };
+    }
+}
+
+[[nodiscard]] inline double boundedSin(double x) noexcept {
+    return boundedSinCos(x).sinVal;
+}
+
+[[nodiscard]] inline double boundedCos(double x) noexcept {
+    return boundedSinCos(x).cosVal;
+}
+
+struct SineLookupTable {
+    static constexpr int kSize = 4096;
+    float table[kSize + 2] {};
+
+    SineLookupTable() noexcept {
+        for (int i = 0; i < kSize; ++i) {
+            const auto angle = (kTwoPi * static_cast<double>(i)) / static_cast<double>(kSize);
+            table[i] = static_cast<float>(std::sin(angle));
+        }
+        table[kSize] = table[0];
+        table[kSize + 1] = table[1];
+    }
+
+    [[nodiscard]] float lookupNorm(float normPhase) const noexcept {
+        float p = normPhase;
+        if (p < 0.0f || p >= 1.0f) {
+            p -= std::floor(p);
+        }
+        const auto scaled = p * static_cast<float>(kSize);
+        auto idx = static_cast<int>(scaled);
+        if (idx < 0) {
+            idx = 0;
+        } else if (idx > kSize) {
+            idx = kSize;
+        }
+        const auto frac = scaled - static_cast<float>(idx);
+        return table[idx] + frac * (table[idx + 1] - table[idx]);
+    }
+
+    [[nodiscard]] float lookupNorm(double normPhase) const noexcept {
+        double p = normPhase;
+        if (p < 0.0 || p >= 1.0) {
+            p -= std::floor(p);
+        }
+        const auto scaled = p * static_cast<double>(kSize);
+        auto idx = static_cast<int>(scaled);
+        if (idx < 0) {
+            idx = 0;
+        } else if (idx > kSize) {
+            idx = kSize;
+        }
+        const auto frac = static_cast<float>(scaled - static_cast<double>(idx));
+        return table[idx] + frac * (table[idx + 1] - table[idx]);
+    }
+};
+
+inline const SineLookupTable gSineLookupTable;
+
+} // namespace devpiano::audio::dsp
+
 class PianoSynthSound final : public juce::SynthesiserSound {
 public:
     bool appliesToNote(int) override {
@@ -71,6 +206,15 @@ public:
         halfStick = 1,
         closed = 2,
     };
+
+    PianoSynthVoice() {
+        sympatheticPool.updateCoefficients(48000.0);
+        for (auto& resonator : bodyResonators) {
+            resonator.updateCoefficients(48000.0);
+        }
+        damperTransient.updateSampleRate(48000.0);
+        pedalTransient.updateSampleRate(48000.0);
+    }
 
     bool canPlaySound(juce::SynthesiserSound* sound) override {
         return dynamic_cast<PianoSynthSound*>(sound) != nullptr;
@@ -197,6 +341,12 @@ public:
             sympatheticPool.updateCoefficients(newRate);
             lidAcoustics.setPosition(pianoLidPosition, newRate);
             perspectiveProcessor.prepare(newRate);
+            for (auto& resonator : bodyResonators) {
+                resonator.updateCoefficients(newRate);
+            }
+            spruceSoundboardFilter.updateCoefficients(newRate);
+            damperTransient.updateSampleRate(newRate);
+            pedalTransient.updateSampleRate(newRate);
         }
     }
 
@@ -321,10 +471,12 @@ public:
 
             if (partial.stringCount == 1 || n >= params.beatingPartials || params.beatingDetuneRatio <= 0.0f) {
                 partial.stringCount = 1;
-                partial.cosState = std::cos(static_cast<double>(phase1));
-                partial.sinState = std::sin(static_cast<double>(phase1));
+                const auto sc1 = devpiano::audio::dsp::boundedSinCos(static_cast<double>(phase1));
+                partial.cosState = sc1.cosVal;
+                partial.sinState = sc1.sinVal;
                 partial.epsilon = 2.0
-                    * std::sin(juce::MathConstants<double>::pi * std::min(partialFrequency, nyquistLimit) / sampleRate);
+                    * devpiano::audio::dsp::boundedSin(juce::MathConstants<double>::pi
+                                                       * std::min(partialFrequency, nyquistLimit) / sampleRate);
                 partial.epsilon2 = 0.0;
                 partial.epsilon3 = 0.0;
             } else if (partial.stringCount == 2) {
@@ -332,13 +484,17 @@ public:
                 const auto f1 = std::min(partialFrequency * (1.0 - detuneHalf), nyquistLimit);
                 const auto f2 = std::min(partialFrequency * (1.0 + detuneHalf), nyquistLimit);
 
-                partial.cosState = std::cos(static_cast<double>(phase1));
-                partial.sinState = std::sin(static_cast<double>(phase1));
-                partial.epsilon = 2.0 * std::sin(juce::MathConstants<double>::pi * f1 / sampleRate);
+                const auto sc1 = devpiano::audio::dsp::boundedSinCos(static_cast<double>(phase1));
+                partial.cosState = sc1.cosVal;
+                partial.sinState = sc1.sinVal;
+                partial.epsilon
+                    = 2.0 * devpiano::audio::dsp::boundedSin(juce::MathConstants<double>::pi * f1 / sampleRate);
 
-                partial.cosState2 = std::cos(static_cast<double>(phase2));
-                partial.sinState2 = std::sin(static_cast<double>(phase2));
-                partial.epsilon2 = 2.0 * std::sin(juce::MathConstants<double>::pi * f2 / sampleRate);
+                const auto sc2 = devpiano::audio::dsp::boundedSinCos(static_cast<double>(phase2));
+                partial.cosState2 = sc2.cosVal;
+                partial.sinState2 = sc2.sinVal;
+                partial.epsilon2
+                    = 2.0 * devpiano::audio::dsp::boundedSin(juce::MathConstants<double>::pi * f2 / sampleRate);
                 partial.epsilon3 = 0.0;
             } else {
                 const auto detune = static_cast<double>(params.beatingDetuneRatio);
@@ -346,17 +502,23 @@ public:
                 const auto f2 = std::min(partialFrequency, nyquistLimit);
                 const auto f3 = std::min(partialFrequency * (1.0 + detune), nyquistLimit);
 
-                partial.cosState = std::cos(static_cast<double>(phase1));
-                partial.sinState = std::sin(static_cast<double>(phase1));
-                partial.epsilon = 2.0 * std::sin(juce::MathConstants<double>::pi * f1 / sampleRate);
+                const auto sc1 = devpiano::audio::dsp::boundedSinCos(static_cast<double>(phase1));
+                partial.cosState = sc1.cosVal;
+                partial.sinState = sc1.sinVal;
+                partial.epsilon
+                    = 2.0 * devpiano::audio::dsp::boundedSin(juce::MathConstants<double>::pi * f1 / sampleRate);
 
-                partial.cosState2 = std::cos(static_cast<double>(phase2));
-                partial.sinState2 = std::sin(static_cast<double>(phase2));
-                partial.epsilon2 = 2.0 * std::sin(juce::MathConstants<double>::pi * f2 / sampleRate);
+                const auto sc2 = devpiano::audio::dsp::boundedSinCos(static_cast<double>(phase2));
+                partial.cosState2 = sc2.cosVal;
+                partial.sinState2 = sc2.sinVal;
+                partial.epsilon2
+                    = 2.0 * devpiano::audio::dsp::boundedSin(juce::MathConstants<double>::pi * f2 / sampleRate);
 
-                partial.cosState3 = std::cos(static_cast<double>(phase3));
-                partial.sinState3 = std::sin(static_cast<double>(phase3));
-                partial.epsilon3 = 2.0 * std::sin(juce::MathConstants<double>::pi * f3 / sampleRate);
+                const auto sc3 = devpiano::audio::dsp::boundedSinCos(static_cast<double>(phase3));
+                partial.cosState3 = sc3.cosVal;
+                partial.sinState3 = sc3.sinVal;
+                partial.epsilon3
+                    = 2.0 * devpiano::audio::dsp::boundedSin(juce::MathConstants<double>::pi * f3 / sampleRate);
             }
 
             // 中高音区三弦敲两弦（Trichord to Bichord）能量衰减 (Phase 29-B)
@@ -785,9 +947,10 @@ public:
     }
 
     [[nodiscard]] static float strikeCombGain(int partialIndex, float strikingRatio) noexcept {
-        const auto m = static_cast<float>(partialIndex + 1);
+        const auto m = static_cast<double>(partialIndex + 1);
         // 击弦点几何梳状陷波 (Chaigne & Askenfelt 1994, 消除 7~9 阶非协和刺耳分音)
-        const auto raw = std::abs(std::sin(juce::MathConstants<float>::pi * m * strikingRatio));
+        const auto angle = juce::MathConstants<double>::pi * m * static_cast<double>(strikingRatio);
+        const auto raw = static_cast<float>(std::abs(devpiano::audio::dsp::boundedSin(angle)));
         return std::max(raw, 0.03f);
     }
 
@@ -821,7 +984,9 @@ public:
         if (std::abs(denom) < 1e-4f) {
             return 1.0f;
         }
-        const auto cosineMod = std::min(std::abs(std::cos(juce::MathConstants<float>::pi * fTc) / denom), 1.0f);
+        const auto angle = juce::MathConstants<double>::pi * static_cast<double>(fTc);
+        const auto cosineMod
+            = std::min(static_cast<float>(std::abs(devpiano::audio::dsp::boundedCos(angle))) / std::abs(denom), 1.0f);
         return 0.7f + 0.3f * cosineMod;
     }
 
@@ -1037,8 +1202,8 @@ public:
             const auto rawF2 = 2600.0f + static_cast<float>(midiNoteNumber) * 18.0f;
             const auto f1 = std::min(juce::jlimit(900.0f, 2200.0f, rawF1), nyquist);
             const auto f2 = std::min(juce::jlimit(2200.0f, 4800.0f, rawF2), nyquist);
-            phaseInc1 = juce::MathConstants<float>::twoPi * f1 / sampleRate;
-            phaseInc2 = juce::MathConstants<float>::twoPi * f2 / sampleRate;
+            phaseInc1 = f1 / sampleRate;
+            phaseInc2 = f2 / sampleRate;
             oscPhase1 = 0.0f;
             oscPhase2 = 0.0f;
 
@@ -1061,9 +1226,9 @@ public:
                 const auto fL1 = std::min(vLongitudinal / (2.0f * juce::jmax(0.10f, stringLength)), nyquist);
                 const auto fL2 = std::min(2.0f * fL1, nyquist);
                 const auto fL3 = std::min(3.0f * fL1, nyquist);
-                longPhaseInc1 = juce::MathConstants<float>::twoPi * fL1 / sampleRate;
-                longPhaseInc2 = juce::MathConstants<float>::twoPi * fL2 / sampleRate;
-                longPhaseInc3 = juce::MathConstants<float>::twoPi * fL3 / sampleRate;
+                longPhaseInc1 = fL1 / sampleRate;
+                longPhaseInc2 = fL2 / sampleRate;
+                longPhaseInc3 = fL3 / sampleRate;
                 longPhase1 = 0.0f;
                 longPhase2 = 0.0f;
                 longPhase3 = 0.0f;
@@ -1082,10 +1247,16 @@ public:
             auto out = 0.0f;
             if (samplesRemaining > 0) {
                 --samplesRemaining;
-                const auto s1 = std::sin(oscPhase1);
-                const auto s2 = std::sin(oscPhase2);
+                const auto s1 = devpiano::audio::dsp::gSineLookupTable.lookupNorm(oscPhase1);
+                const auto s2 = devpiano::audio::dsp::gSineLookupTable.lookupNorm(oscPhase2);
                 oscPhase1 += phaseInc1;
+                if (oscPhase1 >= 1.0f) {
+                    oscPhase1 -= 1.0f;
+                }
                 oscPhase2 += phaseInc2;
+                if (oscPhase2 >= 1.0f) {
+                    oscPhase2 -= 1.0f;
+                }
                 out += amplitude * (0.6f * s1 + 0.4f * s2);
                 amplitude *= decayPerSample;
             }
@@ -1098,12 +1269,21 @@ public:
             }
             if (longSamplesRemaining > 0) {
                 --longSamplesRemaining;
-                const auto l1 = std::sin(longPhase1);
-                const auto l2 = std::sin(longPhase2);
-                const auto l3 = std::sin(longPhase3);
+                const auto l1 = devpiano::audio::dsp::gSineLookupTable.lookupNorm(longPhase1);
+                const auto l2 = devpiano::audio::dsp::gSineLookupTable.lookupNorm(longPhase2);
+                const auto l3 = devpiano::audio::dsp::gSineLookupTable.lookupNorm(longPhase3);
                 longPhase1 += longPhaseInc1;
+                if (longPhase1 >= 1.0f) {
+                    longPhase1 -= 1.0f;
+                }
                 longPhase2 += longPhaseInc2;
+                if (longPhase2 >= 1.0f) {
+                    longPhase2 -= 1.0f;
+                }
                 longPhase3 += longPhaseInc3;
+                if (longPhase3 >= 1.0f) {
+                    longPhase3 -= 1.0f;
+                }
                 out += longAmplitude * (0.55f * l1 + 0.30f * l2 + 0.15f * l3);
                 longAmplitude *= longDecayPerSample;
             }
@@ -1117,6 +1297,11 @@ public:
             crackAmplitude = 0.0f;
             longSamplesRemaining = 0;
             longAmplitude = 0.0f;
+            oscPhase1 = 0.0f;
+            oscPhase2 = 0.0f;
+            longPhase1 = 0.0f;
+            longPhase2 = 0.0f;
+            longPhase3 = 0.0f;
         }
 
         [[nodiscard]] bool isActive() const noexcept {
@@ -1127,6 +1312,35 @@ public:
 
     // 制音器落弦与琴键释放机械瞬态深化 (Phase 22-A / Phase 32-B, Damper Felt Fall & Key Release Thump)
     struct DamperTransient {
+        struct BpCoefficients {
+            float b0 = 0.0f;
+            float b1 = 0.0f;
+            float b2 = 0.0f;
+            float a1 = 0.0f;
+            float a2 = 0.0f;
+        };
+        BpCoefficients bpCoeffs;
+        double lastSampleRate = 0.0;
+
+        void updateSampleRate(double sr) noexcept {
+            if (sr <= 0.0 || sr == lastSampleRate) {
+                return;
+            }
+            lastSampleRate = sr;
+            const auto f0 = 2800.0f;
+            const auto q = 1.8f;
+            const auto w0 = juce::MathConstants<double>::twoPi * static_cast<double>(f0) / sr;
+            const auto sc = devpiano::audio::dsp::boundedSinCos(w0);
+            const auto cosW0 = static_cast<float>(sc.cosVal);
+            const auto sinW0 = static_cast<float>(sc.sinVal);
+            const auto alpha = sinW0 / (2.0f * q);
+            const auto a0 = 1.0f + alpha;
+            bpCoeffs.b0 = alpha / a0;
+            bpCoeffs.b1 = 0.0f;
+            bpCoeffs.b2 = -alpha / a0;
+            bpCoeffs.a1 = (-2.0f * cosW0) / a0;
+            bpCoeffs.a2 = (1.0f - alpha) / a0;
+        }
         // 1. 毛毡触弦低频接触瞬态 (Felt Contact Transient)
         int samplesRemaining = 0;
         int totalSamples = 0;
@@ -1177,8 +1391,8 @@ public:
 
                 const auto f1 = juce::jlimit(75.0f, 160.0f, 85.0f + noteRatio * 60.0f);
                 const auto f2 = juce::jlimit(180.0f, 420.0f, 220.0f + noteRatio * 180.0f);
-                phaseInc1 = juce::MathConstants<float>::twoPi * f1 / sampleRate;
-                phaseInc2 = juce::MathConstants<float>::twoPi * f2 / sampleRate;
+                phaseInc1 = f1 / sampleRate;
+                phaseInc2 = f2 / sampleRate;
                 oscPhase1 = 0.0f;
                 oscPhase2 = 0.0f;
 
@@ -1195,18 +1409,14 @@ public:
                 frictionAmplitude = peakLevelAtFullVelocity * 0.015f * (0.4f + 0.6f * (1.0f - rv)) * zoneGain;
                 frictionDecay = std::exp(-5.0f / static_cast<float>(frictionSamplesRemaining));
 
-                const auto f0 = 2800.0f;
-                const auto q = 1.8f;
-                const auto w0 = juce::MathConstants<float>::twoPi * f0 / sampleRate;
-                const auto cosW0 = std::cos(w0);
-                const auto sinW0 = std::sin(w0);
-                const auto alpha = sinW0 / (2.0f * q);
-                const auto a0 = 1.0f + alpha;
-                b0 = alpha / a0;
-                b1 = 0.0f;
-                b2 = -alpha / a0;
-                a1 = (-2.0f * cosW0) / a0;
-                a2 = (1.0f - alpha) / a0;
+                if (sampleRate != lastSampleRate) {
+                    updateSampleRate(sampleRate);
+                }
+                b0 = bpCoeffs.b0;
+                b1 = bpCoeffs.b1;
+                b2 = bpCoeffs.b2;
+                a1 = bpCoeffs.a1;
+                a2 = bpCoeffs.a2;
                 bpW1 = 0.0f;
                 bpW2 = 0.0f;
             } else {
@@ -1221,8 +1431,8 @@ public:
             woodSamplesRemaining = juce::jmax(1, static_cast<int>(woodDur * sampleRate));
             const auto woodF1 = 140.0f - noteRatio * 25.0f;
             const auto woodF2 = 270.0f - noteRatio * 40.0f;
-            woodPhaseInc1 = juce::MathConstants<float>::twoPi * woodF1 / sampleRate;
-            woodPhaseInc2 = juce::MathConstants<float>::twoPi * woodF2 / sampleRate;
+            woodPhaseInc1 = woodF1 / sampleRate;
+            woodPhaseInc2 = woodF2 / sampleRate;
             woodPhase1 = 0.0f;
             woodPhase2 = 0.0f;
             woodAmplitude = peakLevelAtFullVelocity * 0.032f * (rv * rv);
@@ -1238,10 +1448,16 @@ public:
             // 1. 毛毡触弦声
             if (samplesRemaining > 0) {
                 --samplesRemaining;
-                const auto s1 = std::sin(oscPhase1);
-                const auto s2 = std::sin(oscPhase2);
+                const auto s1 = devpiano::audio::dsp::gSineLookupTable.lookupNorm(oscPhase1);
+                const auto s2 = devpiano::audio::dsp::gSineLookupTable.lookupNorm(oscPhase2);
                 oscPhase1 += phaseInc1;
+                if (oscPhase1 >= 1.0f) {
+                    oscPhase1 -= 1.0f;
+                }
                 oscPhase2 += phaseInc2;
+                if (oscPhase2 >= 1.0f) {
+                    oscPhase2 -= 1.0f;
+                }
                 out += amplitude * (0.75f * s1 + 0.25f * s2);
                 amplitude *= decayPerSample;
             }
@@ -1264,10 +1480,16 @@ public:
             // 3. 木质键床撞击声
             if (woodSamplesRemaining > 0) {
                 --woodSamplesRemaining;
-                const auto w1 = std::sin(woodPhase1);
-                const auto w2 = std::sin(woodPhase2);
+                const auto w1 = devpiano::audio::dsp::gSineLookupTable.lookupNorm(woodPhase1);
+                const auto w2 = devpiano::audio::dsp::gSineLookupTable.lookupNorm(woodPhase2);
                 woodPhase1 += woodPhaseInc1;
+                if (woodPhase1 >= 1.0f) {
+                    woodPhase1 -= 1.0f;
+                }
                 woodPhase2 += woodPhaseInc2;
+                if (woodPhase2 >= 1.0f) {
+                    woodPhase2 -= 1.0f;
+                }
                 out += woodAmplitude * (0.70f * w1 + 0.30f * w2);
                 woodAmplitude *= woodDecay;
             }
@@ -1284,6 +1506,10 @@ public:
             frictionAmplitude = 0.0f;
             bpW1 = 0.0f;
             bpW2 = 0.0f;
+            oscPhase1 = 0.0f;
+            oscPhase2 = 0.0f;
+            woodPhase1 = 0.0f;
+            woodPhase2 = 0.0f;
         }
 
         [[nodiscard]] bool isActive() const noexcept {
@@ -1294,6 +1520,42 @@ public:
 
     // 延音踏板机械气流与箱体共鸣冲击 (Phase 32-A, Pedal Whoosh & Resonance Shock)
     struct PedalTransient {
+        struct BpCoefficients {
+            float b0 = 0.0f;
+            float b1 = 0.0f;
+            float b2 = 0.0f;
+            float a1 = 0.0f;
+            float a2 = 0.0f;
+        };
+        BpCoefficients bpDown;
+        BpCoefficients bpUp;
+        double lastSampleRate = 0.0;
+
+        void updateSampleRate(double sr) noexcept {
+            if (sr <= 0.0 || sr == lastSampleRate) {
+                return;
+            }
+            lastSampleRate = sr;
+
+            auto computeBp = [sr](float f0, float q) noexcept -> BpCoefficients {
+                BpCoefficients c;
+                const auto w0 = juce::MathConstants<double>::twoPi * static_cast<double>(f0) / sr;
+                const auto sc = devpiano::audio::dsp::boundedSinCos(w0);
+                const auto cosW0 = static_cast<float>(sc.cosVal);
+                const auto sinW0 = static_cast<float>(sc.sinVal);
+                const auto alpha = sinW0 / (2.0f * q);
+                const auto a0 = 1.0f + alpha;
+                c.b0 = alpha / a0;
+                c.b1 = 0.0f;
+                c.b2 = -alpha / a0;
+                c.a1 = (-2.0f * cosW0) / a0;
+                c.a2 = (1.0f - alpha) / a0;
+                return c;
+            };
+
+            bpDown = computeBp(1350.0f, 1.25f);
+            bpUp = computeBp(950.0f, 1.1f);
+        }
         int whooshSamplesRemaining = 0;
         int whooshTotalSamples = 0;
         float whooshAmplitude = 0.0f;
@@ -1335,27 +1597,21 @@ public:
                 whooshDecay = std::exp(-4.5f / static_cast<float>(whooshTotalSamples));
                 whooshAmplitude = 0.038f * vel * level;
 
-                const auto f0 = 1350.0f;
-                const auto q = 1.25f;
-                const auto w0 = juce::MathConstants<float>::twoPi * f0 / sampleRate;
-                const auto cosW0 = std::cos(w0);
-                const auto sinW0 = std::sin(w0);
-                const auto alpha = sinW0 / (2.0f * q);
-
-                const auto a0 = 1.0f + alpha;
-                b0 = alpha / a0;
-                b1 = 0.0f;
-                b2 = -alpha / a0;
-                a1 = (-2.0f * cosW0) / a0;
-                a2 = (1.0f - alpha) / a0;
+                if (sampleRate != lastSampleRate) {
+                    updateSampleRate(sampleRate);
+                }
+                b0 = bpDown.b0;
+                b1 = bpDown.b1;
+                b2 = bpDown.b2;
+                a1 = bpDown.a1;
+                a2 = bpDown.a2;
                 bpW1 = 0.0f;
                 bpW2 = 0.0f;
-
                 // B. Resonance Shock 低频瞬态冲击 (58 Hz & 116 Hz)
                 const auto shockDurSec = 0.065f;
                 shockSamplesRemaining = juce::jmax(1, static_cast<int>(shockDurSec * sampleRate));
-                shockPhaseInc1 = juce::MathConstants<float>::twoPi * 58.0f / sampleRate;
-                shockPhaseInc2 = juce::MathConstants<float>::twoPi * 116.0f / sampleRate;
+                shockPhaseInc1 = 58.0f / sampleRate;
+                shockPhaseInc2 = 116.0f / sampleRate;
                 shockPhase1 = 0.0f;
                 shockPhase2 = 0.0f;
                 shockAmplitude = 0.025f * vel * level;
@@ -1370,26 +1626,20 @@ public:
                 whooshDecay = std::exp(-5.5f / static_cast<float>(whooshTotalSamples));
                 whooshAmplitude = 0.018f * vel * level;
 
-                const auto f0 = 950.0f;
-                const auto q = 1.1f;
-                const auto w0 = juce::MathConstants<float>::twoPi * f0 / sampleRate;
-                const auto cosW0 = std::cos(w0);
-                const auto sinW0 = std::sin(w0);
-                const auto alpha = sinW0 / (2.0f * q);
-
-                const auto a0 = 1.0f + alpha;
-                b0 = alpha / a0;
-                b1 = 0.0f;
-                b2 = -alpha / a0;
-                a1 = (-2.0f * cosW0) / a0;
-                a2 = (1.0f - alpha) / a0;
+                if (sampleRate != lastSampleRate) {
+                    updateSampleRate(sampleRate);
+                }
+                b0 = bpUp.b0;
+                b1 = bpUp.b1;
+                b2 = bpUp.b2;
+                a1 = bpUp.a1;
+                a2 = bpUp.a2;
                 bpW1 = 0.0f;
                 bpW2 = 0.0f;
-
                 const auto shockDurSec = 0.040f;
                 shockSamplesRemaining = juce::jmax(1, static_cast<int>(shockDurSec * sampleRate));
-                shockPhaseInc1 = juce::MathConstants<float>::twoPi * 65.0f / sampleRate;
-                shockPhaseInc2 = juce::MathConstants<float>::twoPi * 130.0f / sampleRate;
+                shockPhaseInc1 = 65.0f / sampleRate;
+                shockPhaseInc2 = 130.0f / sampleRate;
                 shockPhase1 = 0.0f;
                 shockPhase2 = 0.0f;
                 shockAmplitude = 0.012f * vel * level;
@@ -1425,10 +1675,16 @@ public:
 
             if (shockSamplesRemaining > 0) {
                 --shockSamplesRemaining;
-                const auto s1 = std::sin(shockPhase1);
-                const auto s2 = std::sin(shockPhase2);
+                const auto s1 = devpiano::audio::dsp::gSineLookupTable.lookupNorm(shockPhase1);
+                const auto s2 = devpiano::audio::dsp::gSineLookupTable.lookupNorm(shockPhase2);
                 shockPhase1 += shockPhaseInc1;
+                if (shockPhase1 >= 1.0f) {
+                    shockPhase1 -= 1.0f;
+                }
                 shockPhase2 += shockPhaseInc2;
+                if (shockPhase2 >= 1.0f) {
+                    shockPhase2 -= 1.0f;
+                }
                 out += shockAmplitude * (0.65f * s1 + 0.35f * s2);
                 shockAmplitude *= shockDecay;
             }
@@ -1444,8 +1700,9 @@ public:
             bpW2 = 0.0f;
             shockSamplesRemaining = 0;
             shockAmplitude = 0.0f;
+            shockPhase1 = 0.0f;
+            shockPhase2 = 0.0f;
         }
-
         [[nodiscard]] bool isActive() const noexcept {
             return whooshSamplesRemaining > 0 || shockSamplesRemaining > 0;
         }
@@ -1481,17 +1738,20 @@ public:
             }
         }
 
+        double lastSampleRate = 0.0;
+
         void updateCoefficients(double sampleRate) noexcept {
-            if (sampleRate <= 0.0) {
+            if (sampleRate <= 0.0 || sampleRate == lastSampleRate) {
                 return;
             }
+            lastSampleRate = sampleRate;
             constexpr float freqs[numPoolResonators] = { 65.41f, 69.30f, 73.42f,  77.78f,  82.41f,  87.31f,
                                                          92.50f, 98.00f, 103.83f, 110.00f, 116.54f, 123.47f };
             for (int i = 0; i < numPoolResonators; ++i) {
                 const auto theta = juce::MathConstants<double>::twoPi * static_cast<double>(freqs[i]) / sampleRate;
                 const auto bandwidth = static_cast<double>(freqs[i] / 12.0f);
                 const auto r = std::exp(-juce::MathConstants<double>::pi * bandwidth / sampleRate);
-                c1[i] = static_cast<float>(2.0 * r * std::cos(theta));
+                c1[i] = static_cast<float>(2.0 * r * devpiano::audio::dsp::boundedCos(theta));
                 c2[i] = static_cast<float>(-r * r);
                 g[i] = static_cast<float>((1.0 - r * r) * 0.5);
             }
@@ -1689,14 +1949,17 @@ public:
         float s1 = 0.0f;
         float s2 = 0.0f;
 
+        double lastSampleRate = 0.0;
+
         void updateCoefficients(double sampleRate) noexcept {
-            if (sampleRate <= 0.0) {
+            if (sampleRate <= 0.0 || sampleRate == lastSampleRate) {
                 return;
             }
+            lastSampleRate = sampleRate;
             const auto theta = juce::MathConstants<double>::twoPi * static_cast<double>(frequency) / sampleRate;
             const auto bandwidth = static_cast<double>(frequency / q);
             const auto r = std::exp(-juce::MathConstants<double>::pi * bandwidth / sampleRate);
-            c1 = static_cast<float>(2.0 * r * std::cos(theta));
+            c1 = static_cast<float>(2.0 * r * devpiano::audio::dsp::boundedCos(theta));
             c2 = static_cast<float>(-r * r);
             g = static_cast<float>((1.0 - r * r) * 0.5);
         }

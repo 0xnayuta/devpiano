@@ -32,6 +32,7 @@ public:
         testCountInPrepareSampleRateChangeHalfway();
         testCountInSilentMetronome();
         testCountInTimeSignaturePeriods();
+        testZeroTrigBeatPulseStability();
     }
 
 private:
@@ -813,6 +814,38 @@ private:
             expect(startOffset >= 0);
             expectEquals(targetSample, std::int64_t { 72000 });
         }
+    }
+
+    void testZeroTrigBeatPulseStability() {
+        beginTest("ZeroTrig precomputed beat coefficients and pulse stability");
+
+        devpiano::audio::MetronomeProcessor processor;
+        constexpr double sr = 48000.0;
+        processor.prepareToPlay(sr);
+        processor.setBpm(120.0);
+        processor.setTimeSignature(devpiano::core::TimeSignature::fourFour);
+        processor.setVolume(1.0f);
+        processor.setEnabled(true);
+
+        juce::AudioBuffer<float> buffer(2, 512);
+        buffer.clear();
+        processor.processAndMix(&buffer, 0, 512);
+
+        expect(processor.getIsDownbeat(), "first beat must be downbeat");
+        const auto peak = buffer.getMagnitude(0, 512);
+        expect(peak > 0.1f, "downbeat click must produce audible output");
+
+        auto maxAmp = 0.0f;
+        for (int i = 0; i < 20; ++i) {
+            buffer.clear();
+            processor.processAndMix(&buffer, 0, 512);
+            for (int s = 0; s < 512; ++s) {
+                const auto val = buffer.getSample(0, s);
+                expect(!std::isnan(val) && !std::isinf(val), "metronome click must be finite");
+                maxAmp = std::max(maxAmp, std::abs(val));
+            }
+        }
+        expect(maxAmp < 2.0f, "metronome oscillator must remain strictly bounded");
     }
 };
 

@@ -8,8 +8,11 @@ KeyboardMidiMapper::KeyboardMidiMapper() {
     resetToDefaultLayout();
 }
 
-void KeyboardMidiMapper::setLayout(KeyboardLayout newLayout) {
+void KeyboardMidiMapper::setLayout(KeyboardLayout newLayout, bool notifyPerformance) {
     layout = std::move(newLayout);
+    if (!notifyPerformance) {
+        return;
+    }
 
     if (sustainPedalDown) {
         sustainPedalDown = false;
@@ -49,9 +52,13 @@ void KeyboardMidiMapper::setSoftPedalCallback(SoftPedalCallback callback) noexce
 bool KeyboardMidiMapper::isSoftPedalDown() const noexcept {
     return softPedalDown;
 }
-void KeyboardMidiMapper::setSoftPedalDown(bool down) {
+void KeyboardMidiMapper::setSoftPedalDown(bool down, bool notifyPerformance) {
     programmaticSoftPedal = down;
-    updateSoftPedalState();
+    if (notifyPerformance) {
+        updateSoftPedalState();
+    } else {
+        softPedalDown = physicalSoftPedalHeld || programmaticSoftPedal;
+    }
 }
 
 void KeyboardMidiMapper::updateSoftPedalState() {

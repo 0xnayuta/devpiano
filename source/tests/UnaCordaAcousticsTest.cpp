@@ -328,7 +328,7 @@ private:
         expect(synth.isSoftPedalDown(1));
         expectWithinAbsoluteError(synth.getSoftPedalAmount(1), 80.0f / 127.0f, 1e-4f);
 
-        synth.allNotesOff(1, false);
+        synth.allNotesOff(0, false);
         synth.noteOn(1, 72, 0.8f);
         juce::AudioBuffer<float> halfBuf(2, blockSize);
         halfBuf.clear();

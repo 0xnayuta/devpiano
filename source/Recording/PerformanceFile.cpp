@@ -1,7 +1,13 @@
 #include "PerformanceFile.h"
 
+#include "../Audio/PerspectiveProcessor.h"
+#include "../Audio/RoomReverbEngine.h"
+#include "../Audio/TemperamentEngine.h"
 #include "Diagnostics/Log.h"
+#include "Layout/PerformancePreset.h"
+#include "Recording/RecordedPreset.h"
 #include "Recording/RecordingEngine.h"
+#include "Recording/RenderPipeline.h"
 #include "Recording/TimelineValidation.h"
 
 #include <algorithm>
@@ -318,6 +324,207 @@ std::optional<juce::MidiMessage> varToMidiMessage(const juce::var& v, size_t max
 
     return juce::MidiMessage(mb.getData(), static_cast<int>(mb.getSize()), 0);
 }
+juce::var acousticSnapshotToVar(const audio::AcousticSnapshot& ac) {
+    juce::DynamicObject::Ptr obj = new juce::DynamicObject();
+    obj->setProperty("builtinTone", (ac.builtinTone == core::BuiltinTone::piano) ? "piano" : "sine");
+    obj->setProperty("masterGain", ac.masterGain);
+
+    {
+        juce::DynamicObject::Ptr adsr = new juce::DynamicObject();
+        adsr->setProperty("attack", ac.adsr.attack);
+        adsr->setProperty("decay", ac.adsr.decay);
+        adsr->setProperty("sustain", ac.adsr.sustain);
+        adsr->setProperty("release", ac.adsr.release);
+        obj->setProperty("adsr", juce::var(adsr.get()));
+    }
+
+    obj->setProperty("brightness", ac.brightness);
+    obj->setProperty("hammerHardness", ac.hammerHardness);
+    obj->setProperty("resonance", ac.resonance);
+    obj->setProperty("lidPosition", static_cast<int>(ac.lidPosition));
+
+    const auto tempId = audio::TemperamentEngine::getIdentifier(ac.temperament);
+    obj->setProperty("temperament", juce::String(tempId.data(), tempId.size()));
+    obj->setProperty("referencePitchA4", ac.referencePitchA4);
+
+    const auto perspId = audio::PerspectiveProcessor::toIdentifier(ac.soundPerspective);
+    obj->setProperty("soundPerspective", juce::String(perspId.data(), perspId.size()));
+
+    const auto spaceId = audio::RoomReverbEngine::toIdentifier(ac.reverbSpace);
+    obj->setProperty("reverbSpace", juce::String(spaceId.data(), spaceId.size()));
+
+    obj->setProperty("reverbWet", ac.reverbWet);
+    obj->setProperty("pedalNoiseLevel", ac.pedalNoiseLevel);
+    obj->setProperty("feltAgeingAmount", ac.feltAgeingAmount);
+    obj->setProperty("unaCorda", ac.unaCorda);
+
+    obj->setProperty("sustainPolicy", (ac.sustainPolicy == core::SustainPolicy::syncPedal) ? "syncPedal" : "normal");
+    obj->setProperty("transposeEnabled", ac.transposeEnabled);
+    obj->setProperty("transposeOffset", ac.transposeOffset);
+    obj->setProperty("channelFollowKeyMask", static_cast<int>(ac.channelFollowKeyMask));
+
+    return juce::var(obj.get());
+}
+
+audio::AcousticSnapshot varToAcousticSnapshot(const juce::var& v) {
+    audio::AcousticSnapshot ac;
+    if (!v.isObject()) {
+        return ac;
+    }
+    auto* obj = v.getDynamicObject();
+    if (obj == nullptr) {
+        return ac;
+    }
+
+    if (obj->hasProperty("builtinTone")) {
+        const auto str = obj->getProperty("builtinTone").toString();
+        ac.builtinTone = (str == "sine") ? core::BuiltinTone::sine : core::BuiltinTone::piano;
+    }
+    if (obj->hasProperty("masterGain")) {
+        ac.masterGain = juce::jlimit(0.0f, 4.0f, static_cast<float>(obj->getProperty("masterGain")));
+    }
+    if (obj->hasProperty("adsr")) {
+        const auto adsrVar = obj->getProperty("adsr");
+        if (auto* ao = adsrVar.getDynamicObject()) {
+            if (ao->hasProperty("attack")) {
+                ac.adsr.attack = juce::jlimit(0.001f, 5.0f, static_cast<float>(ao->getProperty("attack")));
+            }
+            if (ao->hasProperty("decay")) {
+                ac.adsr.decay = juce::jlimit(0.001f, 5.0f, static_cast<float>(ao->getProperty("decay")));
+            }
+            if (ao->hasProperty("sustain")) {
+                ac.adsr.sustain = juce::jlimit(0.0f, 1.0f, static_cast<float>(ao->getProperty("sustain")));
+            }
+            if (ao->hasProperty("release")) {
+                ac.adsr.release = juce::jlimit(0.001f, 10.0f, static_cast<float>(ao->getProperty("release")));
+            }
+        }
+    }
+    if (obj->hasProperty("brightness")) {
+        ac.brightness = juce::jlimit(0.0f, 1.0f, static_cast<float>(obj->getProperty("brightness")));
+    }
+    if (obj->hasProperty("hammerHardness")) {
+        ac.hammerHardness = juce::jlimit(0.0f, 1.0f, static_cast<float>(obj->getProperty("hammerHardness")));
+    }
+    if (obj->hasProperty("resonance")) {
+        ac.resonance = juce::jlimit(0.0f, 1.0f, static_cast<float>(obj->getProperty("resonance")));
+    }
+    if (obj->hasProperty("lidPosition")) {
+        ac.lidPosition
+            = static_cast<std::uint8_t>(juce::jlimit(0, 2, static_cast<int>(obj->getProperty("lidPosition"))));
+    }
+    if (obj->hasProperty("temperament")) {
+        ac.temperament
+            = audio::TemperamentEngine::fromIdentifier(obj->getProperty("temperament").toString().toStdString());
+    }
+    if (obj->hasProperty("referencePitchA4")) {
+        ac.referencePitchA4
+            = audio::TemperamentEngine::clampReferencePitch(static_cast<double>(obj->getProperty("referencePitchA4")));
+    }
+    if (obj->hasProperty("soundPerspective")) {
+        ac.soundPerspective = audio::PerspectiveProcessor::fromIdentifier(
+            obj->getProperty("soundPerspective").toString().toStdString());
+    }
+    if (obj->hasProperty("reverbSpace")) {
+        ac.reverbSpace
+            = audio::RoomReverbEngine::fromIdentifier(obj->getProperty("reverbSpace").toString().toStdString());
+    }
+    if (obj->hasProperty("reverbWet")) {
+        ac.reverbWet = juce::jlimit(0.0f, 1.0f, static_cast<float>(obj->getProperty("reverbWet")));
+    }
+    if (obj->hasProperty("pedalNoiseLevel")) {
+        ac.pedalNoiseLevel = juce::jlimit(0.0f, 1.0f, static_cast<float>(obj->getProperty("pedalNoiseLevel")));
+    }
+    if (obj->hasProperty("feltAgeingAmount")) {
+        ac.feltAgeingAmount = juce::jlimit(0.0f, 1.0f, static_cast<float>(obj->getProperty("feltAgeingAmount")));
+    }
+    if (obj->hasProperty("unaCorda")) {
+        ac.unaCorda = static_cast<bool>(obj->getProperty("unaCorda"));
+    }
+    if (obj->hasProperty("sustainPolicy")) {
+        const auto spStr = obj->getProperty("sustainPolicy").toString();
+        ac.sustainPolicy = (spStr == "syncPedal") ? core::SustainPolicy::syncPedal : core::SustainPolicy::normal;
+    }
+    if (obj->hasProperty("transposeEnabled")) {
+        ac.transposeEnabled = static_cast<bool>(obj->getProperty("transposeEnabled"));
+    }
+    if (obj->hasProperty("transposeOffset")) {
+        ac.transposeOffset = juce::jlimit(-48, 48, static_cast<int>(obj->getProperty("transposeOffset")));
+    }
+    if (obj->hasProperty("channelFollowKeyMask")) {
+        ac.channelFollowKeyMask = static_cast<std::uint16_t>(
+            juce::jlimit(0, 65535, static_cast<int>(obj->getProperty("channelFollowKeyMask"))));
+    }
+    return ac;
+}
+
+juce::var recordedPresetToVar(const RecordedPreset& rp) {
+    juce::DynamicObject::Ptr obj = new juce::DynamicObject();
+    obj->setProperty("preset", layout::performancePresetToVar(rp.preset));
+    obj->setProperty("acoustic", acousticSnapshotToVar(rp.acoustic));
+    return juce::var(obj.get());
+}
+
+std::optional<RecordedPreset> varToRecordedPreset(const juce::var& v) {
+    if (!v.isObject()) {
+        return std::nullopt;
+    }
+    auto* obj = v.getDynamicObject();
+    if (obj == nullptr) {
+        return std::nullopt;
+    }
+
+    const auto acoustic = obj->getProperty("acoustic");
+    auto* ac = acoustic.getDynamicObject();
+    if (ac == nullptr) {
+        return std::nullopt;
+    }
+    constexpr const char* numericFields[]
+        = { "masterGain",       "brightness",       "hammerHardness",      "resonance",
+            "lidPosition",      "referencePitchA4", "reverbWet",           "pedalNoiseLevel",
+            "feltAgeingAmount", "transposeOffset",  "channelFollowKeyMask" };
+    const auto finiteNumber = [](const juce::var& value) {
+        return (value.isInt() || value.isInt64() || value.isDouble()) && std::isfinite(static_cast<double>(value));
+    };
+    for (const auto* key : numericFields) {
+        if (!finiteNumber(ac->getProperty(key))) {
+            return std::nullopt;
+        }
+    }
+    const auto adsr = ac->getProperty("adsr");
+    auto* envelope = adsr.getDynamicObject();
+    if (envelope == nullptr) {
+        return std::nullopt;
+    }
+    for (const auto* key : { "attack", "decay", "sustain", "release" }) {
+        if (!finiteNumber(envelope->getProperty(key))) {
+            return std::nullopt;
+        }
+    }
+    for (const auto* key : { "builtinTone", "temperament", "soundPerspective", "reverbSpace", "sustainPolicy" }) {
+        const auto value = ac->getProperty(key);
+        if (!value.isString() || value.toString().isEmpty()) {
+            return std::nullopt;
+        }
+    }
+    for (const auto* key : { "unaCorda", "transposeEnabled" }) {
+        if (!ac->getProperty(key).isBool()) {
+            return std::nullopt;
+        }
+    }
+    auto presetOpt = layout::performancePresetFromVar(obj->getProperty("preset"));
+    if (!presetOpt.has_value()) {
+        return std::nullopt;
+    }
+
+    RecordedPreset rp;
+    rp.preset = std::move(*presetOpt);
+    rp.acoustic = varToAcousticSnapshot(obj->getProperty("acoustic"));
+    if (!isAcousticSnapshotValid(rp.acoustic)) {
+        return std::nullopt;
+    }
+    return rp;
+}
 
 juce::var eventToVar(const PerformanceEvent& event) {
     juce::DynamicObject::Ptr obj = new juce::DynamicObject();
@@ -325,7 +532,7 @@ juce::var eventToVar(const PerformanceEvent& event) {
 
     if (event.type == PerformanceEventType::presetChange) {
         obj->setProperty(performance_file::keyEventType, juce::String(performance_file::eventTypePresetChange));
-        obj->setProperty(performance_file::keyPresetId, static_cast<int>(event.presetId));
+        obj->setProperty(performance_file::keyPresetId, static_cast<juce::int64>(event.presetId));
     } else {
         obj->setProperty(performance_file::keyEventType, juce::String(performance_file::eventTypeMidi));
         obj->setProperty(performance_file::keySource, sourceToString(event.source));
@@ -373,6 +580,13 @@ juce::String serialiseTakeToJson(const RecordingTake& take, const PerformanceFil
         meta.createdAt = currentIso8601();
     }
     root->setProperty(performance_file::keyMetadata, metadataToVar(meta));
+    // Embedded presets table
+    juce::Array<juce::var> presetsArray;
+    presetsArray.ensureStorageAllocated(static_cast<int>(take.presets.size()));
+    for (const auto& preset : take.presets) {
+        presetsArray.add(recordedPresetToVar(preset));
+    }
+    root->setProperty(performance_file::keyPresets, juce::var(presetsArray));
 
     juce::Array<juce::var> eventsArray;
     eventsArray.ensureStorageAllocated(static_cast<int>(take.events.size()));
@@ -380,7 +594,6 @@ juce::String serialiseTakeToJson(const RecordingTake& take, const PerformanceFil
         eventsArray.add(eventToVar(event));
     }
     root->setProperty(performance_file::keyEvents, juce::var(eventsArray));
-
     return juce::JSON::toString(root.get(), true);
 }
 
@@ -418,6 +631,24 @@ std::optional<RecordingTake> deserialiseTakeFromJson(const juce::String& json) {
     if (!isRepresentableTimelineLength(lengthSamples, *sampleRateOpt)) {
         return std::nullopt;
     }
+    // Deserialise embedded presets table (v3+)
+    std::vector<RecordedPreset> presets;
+    const auto presetsVar = (*root)->getProperty(performance_file::keyPresets);
+    if (presetsVar.isArray()) {
+        auto* arr = presetsVar.getArray();
+        presets.reserve(static_cast<size_t>(arr->size()));
+        for (const auto& pv : *arr) {
+            auto rpOpt = varToRecordedPreset(pv);
+            if (!rpOpt.has_value()) {
+                DP_LOG_ERROR("[PerformanceFile] Admission rejected: invalid RecordedPreset in embedded presets table");
+                return std::nullopt;
+            }
+            presets.push_back(std::move(*rpOpt));
+        }
+    } else if (!presetsVar.isVoid()) {
+        DP_LOG_ERROR("[PerformanceFile] Admission rejected: presets property is present but not an array");
+        return std::nullopt;
+    }
 
     const auto eventsVar = (*root)->getProperty(performance_file::keyEvents);
     if (!eventsVar.isArray()) {
@@ -433,7 +664,6 @@ std::optional<RecordingTake> deserialiseTakeFromJson(const juce::String& json) {
     take.sampleRate = *sampleRateOpt;
     take.lengthSamples = lengthSamples;
     take.events.reserve(static_cast<size_t>(eventsArray->size()));
-
     size_t totalDecodedMidiBytes = 0;
 
     for (const auto& elem : *eventsArray) {
@@ -480,6 +710,14 @@ std::optional<RecordingTake> deserialiseTakeFromJson(const juce::String& json) {
             totalDecodedMidiBytes += static_cast<size_t>(msg->getRawDataSize());
             event.message = std::move(*msg);
         } else if (typeVar.isString() && typeVar.toString() == performance_file::eventTypePresetChange) {
+            // Legacy v1/v2 numeric preset events must be explicitly rejected with diagnostic
+            if (version < 3) {
+                DP_LOG_ERROR("[PerformanceFile] Legacy numeric preset change event in version " + juce::String(version)
+                             + " rejected: format v1/v2 directory indices cannot be safely reinterpreted as take-local "
+                               "snapshot slots");
+                return std::nullopt;
+            }
+
             event.type = PerformanceEventType::presetChange;
             event.source = stringToSource(obj->getProperty(performance_file::keySource).toString());
 
@@ -488,10 +726,12 @@ std::optional<RecordingTake> deserialiseTakeFromJson(const juce::String& json) {
                 return std::nullopt;
             }
             const auto pid = static_cast<juce::int64>(presetIdVar);
-            if (pid < 0 || pid > 255) {
+            if (pid < 0 || static_cast<size_t>(pid) >= presets.size()) {
+                DP_LOG_ERROR("[PerformanceFile] Admission rejected: presetId " + juce::String(pid)
+                             + " exceeds presets table size (" + juce::String(presets.size()) + ")");
                 return std::nullopt;
             }
-            event.presetId = static_cast<uint8_t>(pid);
+            event.presetId = static_cast<std::uint32_t>(pid);
         } else {
             return std::nullopt;
         }
@@ -499,6 +739,7 @@ std::optional<RecordingTake> deserialiseTakeFromJson(const juce::String& json) {
         take.events.push_back(std::move(event));
     }
 
+    take.presets = std::move(presets);
     std::stable_sort(take.events.begin(), take.events.end(),
                      [](const PerformanceEvent& a, const PerformanceEvent& b) noexcept {
                          return a.timestampSamples < b.timestampSamples;
@@ -520,11 +761,31 @@ bool savePerformanceFile(const RecordingTake& take, const juce::File& destinatio
         return false;
     }
 
-    size_t totalMidiBytes = 0;
+    // Verify all presetChange events point to valid slots in take.presets
     for (const auto& event : take.events) {
         if (event.timestampSamples < 0 || event.timestampSamples > take.lengthSamples) {
             return false;
         }
+        if (event.type == PerformanceEventType::presetChange) {
+            if (event.presetId >= take.presets.size()) {
+                DP_LOG_ERROR("[PerformanceFile] Save rejected: presetChange event references out-of-bounds slot");
+                return false;
+            }
+        }
+    }
+
+    // Verify all presets have valid bindings (trigger == keyDown)
+    for (const auto& rp : take.presets) {
+        for (const auto& binding : rp.preset.layout.bindings) {
+            if (binding.action.trigger != devpiano::core::KeyTrigger::keyDown) {
+                DP_LOG_ERROR("[PerformanceFile] Save rejected: embedded preset contains unsupported trigger");
+                return false;
+            }
+        }
+    }
+
+    size_t totalMidiBytes = 0;
+    for (const auto& event : take.events) {
         if (event.type == PerformanceEventType::midi) {
             const auto bytes = static_cast<size_t>(event.message.getRawDataSize());
             if (!isValidRawMidiFrame(event.message.getRawData(), bytes)

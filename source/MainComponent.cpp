@@ -2,6 +2,7 @@
 
 #include "Diagnostics/Log.h"
 #include "Plugin/PluginFlowSupport.h"
+#include "Recording/RecordedPreset.h"
 #include "UI/CustomKeyboard.h"
 #include "UI/KeyBindingEditDialog.h"
 #include "UI/PluginPanelStateBuilder.h"
@@ -162,7 +163,7 @@ void MainComponent::initialiseFromPreset() {
     }
 }
 
-void MainComponent::reconfigureChannelMapper() {
+void MainComponent::reconfigureChannelMapper(bool publishAudio) {
     midiChannelMapper = std::make_unique<devpiano::midi::MidiChannelMapper>(
         appSettings.channelMatrix, appSettings.midiTranspose, appSettings.keySignature);
     keyboardMidiMapper.setChannelMapper(midiChannelMapper.get());
@@ -173,7 +174,9 @@ void MainComponent::reconfigureChannelMapper() {
             mask |= static_cast<std::uint16_t>(1U << i);
         }
     }
-    audioEngine.setPlaybackTranspose(appSettings.midiTranspose, appSettings.keySignature, mask);
+    if (publishAudio) {
+        audioEngine.setPlaybackTranspose(appSettings.midiTranspose, appSettings.keySignature, mask);
+    }
     updateStatusBar();
     updateQwertyVisualizer();
 }
@@ -603,11 +606,12 @@ void MainComponent::handleNoteOn(juce::MidiKeyboardState*, int, int, float veloc
     }
 }
 void MainComponent::handleNoteOff(juce::MidiKeyboardState*, int, int, float) {
+    jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
 }
 
 void MainComponent::timerCallback() {
+    audioEngine.dispatchPendingDisplayEvents();
     recordingSessionController->checkPlaybackEnded();
-
     if (timelineBarRef != nullptr) {
         const auto timeline = recordingSessionController->getPlaybackTimelineSnapshot();
         timelineBarRef->setTimeline(timeline.positionSamples, timeline.lengthSamples, timeline.sampleRate,
@@ -650,17 +654,28 @@ void MainComponent::timerCallback() {
         updateStatusBar();
     }
 
-    // Drain pluginBuffer safety-net resize notifications from the audio
-    // callback (ERR-002): the callback only counts, logging happens here.
-    if (const auto resizeCount = audioEngine.consumePluginBufferResizeCount(); resizeCount > 0) {
-        DP_LOG_WARN("AudioEngine: pluginBuffer resized " + juce::String(resizeCount)
-                    + " time(s) in audio callback - prepareToPlay mismatch");
+    // Diagnostics read parent counters (consumeRealtimeOverflowCount and old consumePluginBufferResizeCount now
+    // geometry rejects), log only message thread.
+    if (const auto overflowCount = audioEngine.consumeRealtimeOverflowCount(); overflowCount > 0) {
+        DP_LOG_WARN("AudioEngine: realtime queue overflow " + juce::String(overflowCount) + " event(s) dropped");
     }
-    // Drain preset-change notifications from playback
+    if (const auto resizeCount = audioEngine.consumePluginBufferResizeCount(); resizeCount > 0) {
+        DP_LOG_WARN("AudioEngine: pluginBuffer geometry fault rejected " + juce::String(resizeCount)
+                    + " time(s) in audio callback");
+    }
+    // Drain preset-change notifications from playback (independent of active playing; final block consumed)
     {
         auto changes = recordingEngine.drainPendingPresetChanges();
         for (const auto& change : changes) {
-            presetFlowSupport->applyPresetByIndex(change.presetId);
+            if (change.snapshot != nullptr) {
+                if (presetFlowSupport != nullptr) {
+                    presetFlowSupport->applyRecordedPresetUi(*change.snapshot);
+                }
+            } else if (const auto* snapshot = recordingEngine.getPlaybackPreset(change.presetId)) {
+                if (presetFlowSupport != nullptr) {
+                    presetFlowSupport->applyRecordedPresetUi(*snapshot);
+                }
+            }
         }
     }
 
@@ -1191,10 +1206,10 @@ void MainComponent::handleMetronomeTap() {
     }
 }
 
-void MainComponent::syncUiFromSettings() {
+void MainComponent::syncUiFromSettings(bool publishPerformanceEvents) {
     applyPerformanceSettingsToUi(appSettings.getPerformanceSettingsView());
     keyboardMidiMapper.setTouchVelocityCurve(appSettings.touchVelocityCurve);
-    keyboardMidiMapper.setSoftPedalDown(appSettings.unaCorda);
+    keyboardMidiMapper.setSoftPedalDown(appSettings.unaCorda, publishPerformanceEvents);
     keyboardMidiMapper.setCadenceDynamicsEnabled(appSettings.cadenceDynamicsEnabled);
     keyboardMidiMapper.setVelocityHumanizerEnabled(appSettings.velocityHumanizeAmount > 0.0001f);
     keyboardMidiMapper.setVelocityHumanizeAmount(appSettings.velocityHumanizeAmount);

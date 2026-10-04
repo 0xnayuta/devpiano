@@ -202,6 +202,10 @@ target_sources(devpiano PRIVATE
     source/Audio/BuiltinSynthesiser.cpp
     source/Audio/BuiltinSynthesiser.h
     source/Audio/AudioEngine.h
+    source/Audio/AcousticSnapshot.h
+    source/Audio/RealtimeExchange.h
+    source/Audio/PlaybackIdentityTracker.h
+    source/Audio/OrderedMidi.h
     source/Audio/SineSynthVoice.h
     source/Audio/PianoSynthVoice.h
     source/Audio/TemperamentEngine.h
@@ -237,6 +241,7 @@ target_sources(devpiano PRIVATE
     source/Export/WavExportOptions.h
     source/Recording/RecordingEngine.cpp
     source/Recording/RecordingEngine.h
+    source/Recording/RecordedPreset.h
     source/Recording/AbLoopEngine.h
     source/Recording/RecordingFlowSupport.cpp
     source/Recording/RecordingFlowSupport.h
@@ -466,6 +471,7 @@ if (BUILD_TESTS)
         source/Recording/RenderPipeline.h
         source/Recording/RecordingEngine.cpp
         source/Recording/RecordingEngine.h
+        source/Recording/RecordedPreset.h
         source/Recording/AbLoopEngine.h
         source/Recording/RecordingFlowSupport.cpp
         source/Recording/RecordingFlowSupport.h
@@ -482,6 +488,10 @@ if (BUILD_TESTS)
         source/Audio/BuiltinSynthesiser.cpp
         source/Audio/BuiltinSynthesiser.h
         source/Audio/AudioEngine.h
+        source/Audio/AcousticSnapshot.h
+        source/Audio/RealtimeExchange.h
+        source/Audio/PlaybackIdentityTracker.h
+        source/Audio/OrderedMidi.h
         source/Audio/SineSynthVoice.h
         source/Audio/PianoSynthVoice.h
         source/Audio/AudioDeviceDiagnostics.cpp

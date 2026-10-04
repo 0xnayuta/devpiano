@@ -10,6 +10,7 @@
 #include "Export/ExportFlowSupport.h"
 #include "Export/WavExportTask.h"
 
+#include "Layout/PresetFlowSupport.h"
 #include "MainComponent.h"
 #include "Plugin/PluginHost.h"
 #include "Recording/MidiFileExporter.h"
@@ -70,6 +71,7 @@ void RecordingSessionController::handleRecordClicked() {
         owner.runPluginActionWithAudioDeviceRebuild([this, capacity](const MainComponent::RuntimeAudioConfig& config) {
             recordingEngine.reserveEvents(capacity);
             recordingEngine.armRecording(config.sampleRate);
+            recordInitialPresetSnapshot();
         });
 
         audioEngine.getMetronomeProcessor().armCountIn(countInRemainingBeats);
@@ -535,10 +537,20 @@ void RecordingSessionController::startInternalRecording(std::size_t expectedEven
         recordingEngine.clear();
         recordingEngine.reserveEvents(capacity);
         recordingEngine.startRecording(config.sampleRate);
+        recordInitialPresetSnapshot();
     });
 
     DP_LOG_INFO("[Recording] Internal recording started; reserved events="
                 + juce::String(static_cast<int>(recordingEngine.getReservedEventCapacity())));
+}
+
+void RecordingSessionController::recordInitialPresetSnapshot() {
+    RecordedPreset snapshot;
+    snapshot.preset = owner.presetFlowSupport->captureCurrentState(owner.keyboardMidiMapper.getLayout().name,
+                                                                   owner.presetFlowSupport->getCurrentPresetId());
+    snapshot.acoustic = audioEngine.captureAcousticSnapshot();
+    snapshot.acoustic.unaCorda = appSettings.unaCorda;
+    recordingEngine.recordPresetChange(snapshot);
 }
 
 RecordingTake RecordingSessionController::stopInternalRecording() {
@@ -575,6 +587,7 @@ void RecordingSessionController::startInternalPlayback(const RecordingTake& take
             } else {
                 recordingEngine.startPlaybackAtTakeSample(take, config.sampleRate, resumeFromTakeSamples);
             }
+            audioEngine.preparePlaybackResources();
             audioEngine.armPlaybackStartPreRoll(config.sampleRate, config.blockSize);
         });
 

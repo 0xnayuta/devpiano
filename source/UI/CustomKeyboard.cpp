@@ -555,6 +555,7 @@ void CustomKeyboard::mouseUp(const juce::MouseEvent& e) {
 }
 
 void CustomKeyboard::releaseHeldMouseNote() {
+    jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
     if (lastMouseDownNote < 0) {
         return;
     }
@@ -610,8 +611,8 @@ void CustomKeyboard::repaintKey(const devpiano::ui::KeyRenderState& k) {
 }
 
 void CustomKeyboard::timerCallback() {
+    jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
     bool anyActive = false;
-
     for (auto& k : keys) {
         const auto before = k.fade;
         const bool noteHeld = isNoteHeldOnAnyChannel(keyboardState, k.midiNote);
@@ -642,15 +643,18 @@ void CustomKeyboard::timerCallback() {
     }
 }
 void CustomKeyboard::ensureTimerRunning() {
+    jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
     if (!isTimerRunning()) {
         startTimer(timerIntervalMs);
     }
 }
 void CustomKeyboard::notifyNoteActivity() {
+    jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
     ensureTimerRunning();
 }
 
 void CustomKeyboard::handleNoteOn(juce::MidiKeyboardState*, int midiChannel, int midiNoteNumber, float velocity) {
+    jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
     if (midiNoteNumber >= 0 && midiNoteNumber < 128) {
         if (velocity > 0.0f) {
             perKeyVelocity[static_cast<std::size_t>(midiNoteNumber)] = velocity;
@@ -663,9 +667,9 @@ void CustomKeyboard::handleNoteOn(juce::MidiKeyboardState*, int midiChannel, int
 }
 
 void CustomKeyboard::handleNoteOff(juce::MidiKeyboardState*, int, int, float) {
+    jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
     ensureTimerRunning();
 }
-
 // ============================================================================
 // Resize
 // ============================================================================

@@ -454,14 +454,18 @@ public:
     }
 
     void runTest() override {
-        beginTest("preset change events merged into final take");
+        beginTest("preset registration is captured at its affected audio boundary");
         {
             RecordingEngine engine;
             engine.reserveEvents(64);
             engine.startRecording(44100.0);
 
             engine.recordEvent(juce::MidiMessage::noteOn(1, 60, 1.0f), RecordingEventSource::computerKeyboard, 0);
-            engine.recordPresetChange(3, 2205);
+            RecordedPreset preset { devpiano::layout::makeDefaultPreset(), {} };
+            engine.advanceRecordingPosition(2205);
+            engine.recordPresetChange(preset);
+            juce::MidiBuffer emptyBlock;
+            engine.recordMidiBufferBlock(emptyBlock, RecordingEventSource::realtimeMidiBuffer, 2205);
             engine.recordEvent(juce::MidiMessage::noteOn(1, 64, 1.0f), RecordingEventSource::computerKeyboard, 4410);
 
             auto take = engine.stopRecording();
@@ -486,7 +490,7 @@ public:
             // JUCE expect() 失败时仅记录不中断，继续解引用会在断言失败时崩
             // 溃——用 if 守卫满足 clang-analyzer 的 null 检查。
             if (presetEv != nullptr) {
-                expectEquals(static_cast<uint8_t>(3), presetEv->presetId);
+                expectEquals(std::uint32_t { 0 }, presetEv->presetId);
                 expectEquals(static_cast<std::int64_t>(2205), presetEv->timestampSamples);
             }
 
@@ -504,7 +508,7 @@ public:
         {
             RecordingEngine engine;
             engine.reserveEvents(64);
-            engine.recordPresetChange(1, 0);
+            engine.recordPresetChange({ devpiano::layout::makeDefaultPreset(), {} });
             expect(!engine.isRecording());
             expect(!engine.hasTake());
         }
@@ -522,24 +526,27 @@ public:
     }
 
     void runTest() override {
-        beginTest("preset changes drained during playback");
+        beginTest("final preset notification survives playback completion");
         {
             RecordingTake take;
             take.sampleRate = 44100.0;
             take.lengthSamples = 5000;
+            take.presets.push_back({ devpiano::layout::makeDefaultPreset(), {} });
+            take.presets.push_back({ devpiano::layout::makeDefaultPreset(), {} });
+            take.presets[1].acoustic.masterGain = 0.0f;
             // Insert a preset-change event manually.
             {
                 PerformanceEvent ev;
                 ev.timestampSamples = 1000;
                 ev.type = PerformanceEventType::presetChange;
-                ev.presetId = 7;
+                ev.presetId = 0;
                 take.events.push_back(ev);
             }
             {
                 PerformanceEvent ev;
                 ev.timestampSamples = 3000;
                 ev.type = PerformanceEventType::presetChange;
-                ev.presetId = 2;
+                ev.presetId = 1;
                 take.events.push_back(ev);
             }
 
@@ -548,11 +555,17 @@ public:
 
             juce::MidiBuffer buf;
             engine.renderPlaybackBlock(buf, 0, 5000); // covers both preset events
+            engine.advancePlaybackPosition(5000);
 
             auto drained = engine.drainPendingPresetChanges();
-            expectEquals(static_cast<int>(drained.size()), 2);
-            expectEquals(drained[0].presetId, static_cast<uint8_t>(7));
-            expectEquals(drained[1].presetId, static_cast<uint8_t>(2));
+            expectEquals(static_cast<int>(drained.size()), 1);
+            if (!drained.empty()) {
+                expect(drained[0].snapshot != nullptr);
+                expectEquals(drained[0].presetId, std::uint32_t { 1 });
+                if (drained[0].snapshot != nullptr) {
+                    expectEquals(drained[0].snapshot->acoustic.masterGain, 0.0f);
+                }
+            }
 
             // Drain again → empty.
             auto drained2 = engine.drainPendingPresetChanges();

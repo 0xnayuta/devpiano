@@ -21,6 +21,7 @@ namespace {
 // 构造一个全字段填充的预设（round-trip 用）。
 PerformancePreset makeFullPreset() {
     PerformancePreset p;
+    p.uuid = "12345678-1234-5678-1234-567812345678";
     p.name = "My Preset";
     p.layout.id = "user.test";
     p.layout.name = "Test Layout";
@@ -48,6 +49,7 @@ PerformancePreset makeFullPreset() {
 }
 
 void expectPresetsEqual(juce::UnitTest& ut, const PerformancePreset& a, const PerformancePreset& b) {
+    ut.expectEquals(a.uuid, b.uuid);
     ut.expectEquals(a.name, b.name);
     ut.expectEquals(a.layout.id, b.layout.id);
     ut.expectEquals(a.layout.name, b.layout.name);
@@ -180,6 +182,8 @@ public:
             auto loaded = loadPreset(pathClamped);
             expect(loaded.has_value(), "Valid version 1 preset must be loaded");
             if (loaded.has_value()) {
+                expect(loaded->uuid == generateDeterministicPresetUuid("Clamped"),
+                       "v1 legacy preset gets deterministic UUID");
                 expectEquals(loaded->keySignature, 7, "keySignature must be clamped to 7");
                 expectEquals(loaded->fadeSpeed, 10.0f, "fadeSpeed must be clamped to 10.0");
                 expectEquals(loaded->previewAlpha, 0.0f, "previewAlpha must be clamped to 0.0");
@@ -244,9 +248,40 @@ public:
         testCase("makeDefaultPreset has the built-in identity", [&] {
             const auto preset = makeDefaultPreset();
             expectEquals(preset.name, juce::String("Default"));
+            expectEquals(preset.uuid, generateDeterministicPresetUuid("Default"));
             expectEquals(preset.layout.id, juce::String("default.preset.builtin"));
             expect(preset.channelMatrix.active, "default matrix must be active");
             expectEquals(static_cast<int>(preset.colourMode), static_cast<int>(devpiano::ui::KeyColourMode::classic));
+        });
+
+        testCase("ARCH-003: persistent UUID preserved across save/load and deterministic for legacy v1", [&] {
+            devpiano::test::ScopedTempDir tempDir("preset-arch003");
+
+            // 1. In-memory round-trip via performancePresetToVar / performancePresetFromVar
+            const auto original = makeFullPreset();
+            const auto varObj = performancePresetToVar(original);
+            const auto fromVar = performancePresetFromVar(varObj);
+            expect(fromVar.has_value(), "performancePresetFromVar must succeed");
+            if (fromVar.has_value()) {
+                expectPresetsEqual(*this, original, *fromVar);
+            }
+
+            // 2. Legacy v1 preset without uuid gets deterministic uuid derived from name
+            const auto legacyFile = tempDir.getChildFile("legacy.devpiano.preset");
+            legacyFile.replaceWithText(R"({ "version": 1, "name": "Jazz Grand" })");
+            const auto loaded1 = loadPreset(legacyFile);
+            expect(loaded1.has_value());
+            if (loaded1.has_value()) {
+                expectEquals(loaded1->uuid, generateDeterministicPresetUuid("Jazz Grand"));
+                const auto loaded2 = loadPreset(legacyFile);
+                expect(loaded2.has_value());
+                if (loaded2.has_value()) {
+                    expectEquals(loaded1->uuid, loaded2->uuid);
+                }
+            }
+
+            // 3. Different legacy names produce distinct deterministic uuids
+            expect(generateDeterministicPresetUuid("Grand A") != generateDeterministicPresetUuid("Grand B"));
         });
     }
 };
@@ -374,6 +409,7 @@ public:
             auto loadedB = loadPreset(fileB);
             expect(loadedB.has_value());
             if (loadedB.has_value()) {
+                expectEquals(loadedB->uuid, pA.uuid, "UUID must be preserved across rename");
                 expectEquals(loadedB->name, juce::String("PresetB"));
                 expectEquals(loadedB->layout.name, juce::String("PresetB"));
                 expectEquals(static_cast<int>(loadedB->lidPosition),

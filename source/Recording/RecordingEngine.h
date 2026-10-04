@@ -8,7 +8,9 @@
 #include <limits>
 #include <vector>
 
+#include "Audio/RealtimeExchange.h"
 #include "Recording/AbLoopEngine.h"
+#include "Recording/RecordedPreset.h"
 
 namespace devpiano::recording {
 enum class RecordingEventSource : std::uint8_t { computerKeyboard, realtimeMidiBuffer, playback };
@@ -28,7 +30,7 @@ enum class PerformanceEventType : uint8_t { midi = 0, presetChange = 1 };
 struct PerformanceEvent {
     std::int64_t timestampSamples = 0;
     PerformanceEventType type = PerformanceEventType::midi;
-    uint8_t presetId = 0; // meaningful only when type == presetChange
+    std::uint32_t presetId = 0;
     RecordingEventSource source = RecordingEventSource::computerKeyboard;
     juce::MidiMessage message; // meaningful only when type == midi
 };
@@ -36,13 +38,21 @@ struct RecordingTake {
     double sampleRate = 0.0;
     std::int64_t lengthSamples = 0;
     std::vector<PerformanceEvent> events;
+    std::vector<RecordedPreset> presets;
 
     [[nodiscard]] bool isEmpty() const noexcept;
     [[nodiscard]] double durationSeconds() const noexcept;
 };
 
 struct PendingPresetChange {
-    uint8_t presetId;
+    std::uint32_t presetId = 0;
+    const RecordedPreset* snapshot = nullptr;
+};
+
+struct ScheduledPresetChange {
+    std::uint32_t presetId = 0;
+    int sampleOffset = 0;
+    std::size_t midiEventCount = 0;
 };
 
 class RecordingEngine {
@@ -87,9 +97,7 @@ public:
     void recordMidiBufferBlock(const juce::MidiBuffer& midiBuffer, RecordingEventSource source,
                                std::int64_t blockStartSamples, int firstSample = 0);
 
-    // Records a preset-change event at the current recording position.
-    // presetId is a 0-based index into the preset list.
-    void recordPresetChange(uint8_t presetId, std::int64_t timestampSamples);
+    void recordPresetChange(const RecordedPreset& preset);
 
     void startPlayback(const RecordingTake& take, double currentSampleRate, std::int64_t resumeFromSamples = 0);
     void startPlaybackAtTakeSample(const RecordingTake& take, double currentSampleRate,
@@ -130,6 +138,10 @@ public:
     [[nodiscard]] bool isPlaying() const noexcept;
     [[nodiscard]] std::int64_t getPlaybackPositionSamples() const noexcept;
     [[nodiscard]] std::vector<PendingPresetChange> drainPendingPresetChanges();
+    [[nodiscard]] const RecordedPreset* getPlaybackPreset(std::uint32_t presetId) const noexcept;
+    [[nodiscard]] const std::vector<ScheduledPresetChange>& getScheduledPresetChanges() const noexcept;
+    [[nodiscard]] std::size_t getPlaybackMidiCapacityBytes() const noexcept;
+    [[nodiscard]] std::size_t consumePresetNotificationCoalescedCount() noexcept;
 
 private:
     struct PlaybackChannelState {
@@ -161,9 +173,12 @@ private:
                                      double combinedRatio);
     void addAllNotesOffMessages(juce::MidiBuffer& midiBuffer, int sampleOffset);
     void restorePlaybackChannelState(juce::MidiBuffer& midiBuffer, int sampleOffset);
+    void appendPlaybackMidi(juce::MidiBuffer& midiBuffer, const juce::MidiMessage& message, int sampleOffset);
+    void schedulePresetChange(std::uint32_t presetId, int sampleOffset, std::size_t midiEventCount) noexcept;
+    void capturePendingPresetChanges(std::int64_t timestampSamples) noexcept;
     void closeCapturedPerformance();
     void updateCapturedPerformance(const juce::MidiMessage& message) noexcept;
-    [[nodiscard]] bool isCapacityExhausted(std::int64_t timestamp) noexcept;
+    [[nodiscard]] bool isCapacityExhausted(std::int64_t timestamp, bool requiredRelease = false) noexcept;
 
     AbLoopEngine abLoopEngine;
     std::atomic<std::uint32_t> seekSequence { 0 };
@@ -181,6 +196,7 @@ private:
     std::atomic_bool stopRequested { false };
 
     RecordingTake currentTake;
+    std::size_t recordingEventLimit = 0;
     std::atomic<RecordingState> state { RecordingState::idle };
     std::atomic<std::int64_t> currentPositionSamples { 0 };
     std::atomic<std::size_t> droppedEventCount { 0 };
@@ -209,16 +225,15 @@ private:
     ScaledLoopRange lastRenderedLoopRange;
     bool hasRenderedPlaybackBlock = false;
     bool loopWrapPending = false;
-    // Preset-change notification queue (audio thread → message thread)
-    std::vector<PendingPresetChange> pendingPresetChanges;
-    // Preset-change events recorded from the message thread during active
-    // recording.  Separate from currentTake.events (audio-thread writes) to
-    // avoid concurrent vector push_back data races (see REC-003).  Merged
-    // into currentTake.events at stopRecording / clear time on the message
-    // thread — no lock needed, single-threaded access.
-    std::vector<PerformanceEvent> pendingPresetEvents;
-
-    juce::CriticalSection presetChangeLock;
+    static constexpr auto noPreset = std::numeric_limits<std::uint32_t>::max();
+    std::vector<ScheduledPresetChange> scheduledPresetChanges;
+    std::size_t playbackMidiCapacityBytes = 131072;
+    std::atomic<std::uint32_t> pendingPresetNotification { noPreset };
+    std::atomic<std::size_t> presetNotificationCoalescedCount { 0 };
+    std::size_t renderedMidiEventCount = 0;
+    int lastRenderedMidiSample = 0;
+    devpiano::audio::RealtimeQueue<std::uint32_t, 1024> recordedPresetQueue;
+    std::uint32_t restoredPresetId = noPreset;
 
     // Per-channel pitch bend EMA state for playback zipper-noise reduction.
     // Indexed by MIDI channel (0-15). Initialised to 8192.0f (center) in

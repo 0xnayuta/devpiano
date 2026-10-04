@@ -116,6 +116,7 @@ public:
         testResonatorAndAcousticCoupling();
         testVoiceLifecycleAndDynamics();
         testEngineIntegrationAndNumericalSafety();
+        testZeroTrigSlaAndNumericalPrecision();
     }
 
 private:
@@ -1104,6 +1105,85 @@ private:
                 }
             }
             rate48kFixture.synth.allNotesOff(0, false);
+        }
+    }
+
+    void testZeroTrigSlaAndNumericalPrecision() {
+        beginTest("ZeroTrig bounded sin/cos numerical accuracy and boundaries");
+        {
+            double maxSinErr = 0.0;
+            double maxCosErr = 0.0;
+            for (int i = -1000; i <= 1000; ++i) {
+                const auto angle = static_cast<double>(i) * 0.1;
+                const auto sc = devpiano::audio::dsp::boundedSinCos(angle);
+                const auto exactSin = std::sin(angle);
+                const auto exactCos = std::cos(angle);
+                maxSinErr = std::max(maxSinErr, std::abs(sc.sinVal - exactSin));
+                maxCosErr = std::max(maxCosErr, std::abs(sc.cosVal - exactCos));
+            }
+            expect(maxSinErr < 1e-8, "boundedSin max absolute error must be < 1e-8");
+            expect(maxCosErr < 1e-8, "boundedCos max absolute error must be < 1e-8");
+
+            expectEquals(devpiano::audio::dsp::boundedSin(0.0), 0.0);
+            expectEquals(devpiano::audio::dsp::boundedCos(0.0), 1.0);
+            expectWithinAbsoluteError(devpiano::audio::dsp::boundedSin(juce::MathConstants<double>::halfPi), 1.0, 1e-9);
+            expectWithinAbsoluteError(devpiano::audio::dsp::boundedCos(juce::MathConstants<double>::halfPi), 0.0, 1e-9);
+            expectWithinAbsoluteError(devpiano::audio::dsp::boundedSin(juce::MathConstants<double>::pi), 0.0, 1e-9);
+            expectWithinAbsoluteError(devpiano::audio::dsp::boundedCos(juce::MathConstants<double>::pi), -1.0, 1e-9);
+        }
+
+        beginTest("ZeroTrig Magic Circle tuning precision across 88 keys");
+        {
+            constexpr double sr = 48000.0;
+            for (int midi = 21; midi <= 108; ++midi) {
+                const auto f0 = PianoSynthVoice::partialFrequency(midi, 0);
+                const auto exactEps = 2.0 * std::sin(juce::MathConstants<double>::pi * f0 / sr);
+                const auto boundedEps
+                    = 2.0 * devpiano::audio::dsp::boundedSin(juce::MathConstants<double>::pi * f0 / sr);
+                const auto relErr = std::abs(boundedEps - exactEps) / exactEps;
+                expect(relErr < 1e-8, "tuning relative error for MIDI " + juce::String(midi) + " must be < 1e-8");
+
+                const auto centDev = 1731.23 * relErr;
+                expect(centDev < 0.0001, "pitch deviation for MIDI " + juce::String(midi) + " must be < 0.0001 cents");
+            }
+        }
+
+        beginTest("ZeroTrig mechanical transients render finite and stably decaying");
+        {
+            constexpr double sr = 48000.0;
+            PianoSynthVoice::HammerTransient hammer;
+            hammer.trigger(sr, 60, 0.8f, 0.5f, 1.0f);
+            expect(hammer.isActive());
+            auto hammerMax = 0.0f;
+            while (hammer.isActive()) {
+                const auto s = hammer.getNextSample();
+                expect(!std::isnan(s) && !std::isinf(s), "hammer sample must be finite");
+                hammerMax = std::max(hammerMax, std::abs(s));
+            }
+            expect(hammerMax > 0.005f, "hammer transient must produce audible output");
+
+            VoiceFixture fixture;
+            fixture.synth.setCurrentPlaybackSampleRate(sr);
+            juce::AudioBuffer<float> buf(2, 512);
+            fixture.noteOnBlock(60, 0.8f, buf);
+            fixture.synth.noteOff(1, 60, 0.5f, true);
+            auto damperMax = 0.0f;
+            for (int b = 0; b < 20; ++b) {
+                buf.clear();
+                fixture.renderBlock(buf);
+                damperMax = std::max(damperMax, buf.getMagnitude(0, 0, 512));
+            }
+            expect(damperMax > 0.0005f, "damper release transient must render audible sound");
+
+            fixture.voice()->controllerMoved(64, 127);
+            expect(fixture.voice()->isPedalTransientActive());
+            auto pedalMax = 0.0f;
+            for (int b = 0; b < 20; ++b) {
+                buf.clear();
+                fixture.renderBlock(buf);
+                pedalMax = std::max(pedalMax, buf.getMagnitude(0, 0, 512));
+            }
+            expect(pedalMax > 0.0005f, "pedal whoosh and shock must render audible sound");
         }
     }
 };

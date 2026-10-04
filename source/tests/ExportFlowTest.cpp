@@ -401,6 +401,101 @@ public:
             expectEquals(tempDir.get().getNumberOfChildFiles(juce::File::findFilesAndDirectories), 1,
                          "failed exports must retain only the original directory");
         });
+        testCase("preset changes during WAV export update acoustics and silence old bank on tone switch", [&] {
+            devpiano::test::ScopedTempDir tempDir("wav-preset-export");
+            const auto path = tempDir.getChildFile("preset-take.wav");
+
+            RecordingTake take;
+            take.sampleRate = 44100.0;
+            take.lengthSamples = 44100;
+
+            RecordedPreset p0;
+            p0.preset.name = "PianoPreset";
+            p0.acoustic.builtinTone = devpiano::core::BuiltinTone::piano;
+            p0.acoustic.masterGain = 0.5f;
+
+            RecordedPreset p1;
+            p1.preset.name = "SinePreset";
+            p1.acoustic.builtinTone = devpiano::core::BuiltinTone::sine;
+            p1.acoustic.masterGain = 0.9f;
+
+            take.presets = { p0, p1 };
+
+            PerformanceEvent evP0;
+            evP0.type = PerformanceEventType::presetChange;
+            evP0.timestampSamples = 0;
+            evP0.presetId = 0;
+
+            PerformanceEvent evN0;
+            evN0.type = PerformanceEventType::midi;
+            evN0.timestampSamples = 0;
+            evN0.message = juce::MidiMessage::noteOn(1, 60, 0.8f);
+
+            PerformanceEvent evOff0;
+            evOff0.type = PerformanceEventType::midi;
+            evOff0.timestampSamples = 20000;
+            evOff0.message = juce::MidiMessage::noteOff(1, 60, 0.0f);
+
+            PerformanceEvent evP1;
+            evP1.type = PerformanceEventType::presetChange;
+            evP1.timestampSamples = 22050;
+            evP1.presetId = 1;
+
+            PerformanceEvent evN1;
+            evN1.type = PerformanceEventType::midi;
+            evN1.timestampSamples = 22050;
+            evN1.message = juce::MidiMessage::noteOn(1, 64, 0.8f);
+
+            PerformanceEvent evOff1;
+            evOff1.type = PerformanceEventType::midi;
+            evOff1.timestampSamples = 40000;
+            evOff1.message = juce::MidiMessage::noteOff(1, 64, 0.0f);
+
+            take.events = { evP0, evN0, evOff0, evP1, evN1, evOff1 };
+
+            WavExportOptions options;
+            options.sampleRate = 44100.0;
+            options.blockSize = 512;
+            options.numChannels = 2;
+
+            expect(exportTakeAsWavFile(take, path, options));
+            expect(path.existsAsFile());
+
+            juce::WavAudioFormat wavFormat;
+            std::unique_ptr<juce::AudioFormatReader> reader(
+                wavFormat.createReaderFor(path.createInputStream().release(), true));
+            expect(reader != nullptr);
+            if (reader != nullptr) {
+                expectEquals(static_cast<int>(reader->numChannels), 2);
+                expect(reader->lengthInSamples >= 44100);
+            }
+        });
+
+        testCase("missing or invalid preset snapshot references reject before destination file is touched", [&] {
+            devpiano::test::ScopedTempDir tempDir("wav-preset-reject");
+            const auto target = tempDir.getChildFile("protected.wav");
+            expect(target.replaceWithText("user data must remain untouched"));
+
+            RecordingTake take;
+            take.sampleRate = 44100.0;
+            take.lengthSamples = 44100;
+
+            PerformanceEvent evP0;
+            evP0.type = PerformanceEventType::presetChange;
+            evP0.timestampSamples = 0;
+            evP0.presetId = 0;
+
+            PerformanceEvent evN0;
+            evN0.type = PerformanceEventType::midi;
+            evN0.timestampSamples = 0;
+            evN0.message = juce::MidiMessage::noteOn(1, 60, 0.8f);
+
+            take.events = { evP0, evN0 };
+
+            WavExportOptions options;
+            expect(!exportTakeAsWavFile(take, target, options));
+            expectEquals(target.loadFileAsString(), juce::String("user data must remain untouched"));
+        });
     }
 };
 

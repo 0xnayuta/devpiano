@@ -77,6 +77,9 @@ public:
     void triggerTimerCallbackForTest() {
         timerCallback();
     }
+    [[nodiscard]] bool isTimerRunningForTest() const noexcept {
+        return isTimerRunning();
+    }
     // juce::MouseListener
     void mouseDown(const juce::MouseEvent& e) override;
     void mouseUp(const juce::MouseEvent& e) override;

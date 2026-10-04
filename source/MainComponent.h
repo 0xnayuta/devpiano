@@ -130,9 +130,9 @@ private:
     void updateMetronomeUi();
     void showMetronomeTempoMenu();
     void handleMetronomeTap();
-    void syncUiFromSettings();
+    void syncUiFromSettings(bool publishPerformanceEvents = true);
     void syncSettingsFromUi();
-    void reconfigureChannelMapper();
+    void reconfigureChannelMapper(bool publishAudio = true);
     void handlePresetShortcut(int index);
     void suppressTextInputMethods();
     void initialiseAudioDevice();
