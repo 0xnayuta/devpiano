@@ -2,6 +2,13 @@
 
 ### Fixed
 
+- **Permanent Preset Identity and Migration** — assign RFC 4122 v5/v4 UUIDs to PerformancePresets; preserve identity across renames and autosave, migrate unambiguous legacy names, and reject duplicate identities.
+- **Embedded Performance Preset Snapshots** — save immutable RecordedPreset tables in v3 .devpiano performance files; execute presets by recorded sample offset, and reject legacy numeric preset formats explicitly.
+- **Segmented Offline Acoustic Parity** — apply acoustic snapshots, master gain, and room reverb at exact block-relative sample offsets in both builtin and VST3 offline WAV exporters.
+- **Lock-Free Audio-Owned Builtin Synthesiser** — schedule voice allocation, sustain/sostenuto/soft pedals, and pitch bend without JUCE framework locks or dynamic allocation; support zero-length event processing.
+- **Zero Real-Time Trigonometry Synthesis** — precalculate metronome beat coefficients in prepareToPlay and replace runtime trigonometric calls with wavetables and bounded polynomials across all owned audio DSP paths.
+- **Message-Thread Visual Dispatch** — decouple audio rendering from UI listeners via atomic display bitmasks and bounded SPSC input queues; dispatch keyboard visual updates solely from the message thread.
+- **Non-Allocating Geometry Fault Handling** — silence oversized buffers and unnegotiated channel configurations at block boundaries without runtime reallocation while logging atomic diagnostic counters.
 - **Metronome Audio-Thread Start Synchronization** — moved phase reset and initial beat triggering into the audio callback, removing message/audio thread races.
 - **Bass-Rooted Exact Chord Recognition** — prefer bass-rooted exact matches over higher-priority inverted matches, restoring C6/Cm6 detection.
 - **Count-In Transport Cancellation** — cancel pending count-ins on competing transport or Take replacement actions so delayed recording cannot overwrite the current Take.

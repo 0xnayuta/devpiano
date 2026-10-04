@@ -29,18 +29,16 @@ devpiano 提供了完整的“弹奏 → 录制 → 回放 → 导出 MIDI”的
                                                                                    ▼
 AudioEngine::getNextAudioBlock() (实时音频回调) ◄──────────────────────────────────┘
     │
-    ├── 1. midiCollector.removeNextBlockOfMessages(midiBuffer, numSamples)
-    ├── 2. keyboardState.processNextMidiBuffer(midiBuffer, 0, numSamples, true)
+    ├── 1. 经有界 SPSC 队列（RealtimeQueue）收集物理按键与控制器输入，排序至当前块
     │
-    ├── 3. [录制事件边界] ──► RecordingEngine::recordMidiBufferBlock()
+    ├── 2. [录制事件边界] ──► RecordingEngine::recordMidiBufferBlock()
     │                          ├── 遍历当前 block 的 MidiBuffer
     │                          ├── 将事件转为 PerformanceEvent (绝对采样时间戳)
-    │                          └── 存入 pre-allocated std::vector (无扩容分配)
+    │                          └── 存入 pre-allocated std::vector (无扩容分配，超额丢弃仍保留末尾释放)
     │
-    ├── [预设切换事件] ──────► RecordingEngine::recordPresetChange(presetId, timestamp)
+    ├── [预设切换事件] ──────► RecordingEngine::recordPresetChange(RecordedPreset) (注册 Take 内可执行快照)
     │
-    └── 4. 交付发声 ──► VST3 processBlock() / PianoSynthVoice 模态合成
-```
+    └── 3. 交付发声 ──► VST3 processBlock() / BuiltinSynthesiser (内置无锁发声)
 ### 2.2 回放数据流
 
 ```text
@@ -51,11 +49,13 @@ AudioEngine::getNextAudioBlock() (实时音频回调)
     ├── applyPendingTransportCommands(midiBuffer) (变速 / Seek / Stop 的唯一音频块提交点)
     ├── RecordingEngine::renderPlaybackBlock(playbackVisualMidiBuffer, blockStartSamples, numSamples)
     ├── PlaybackIdentityTracker (FIFO 锁定最终输出身份；同输出最后持有者才交付 Off)
-    ├── keyboardState.processNextMidiBuffer(playbackVisualMidiBuffer, 0, numSamples, false)
-    │    └── 同步调用 Listener（虚拟键盘高亮；当前 UI 回调线程边界见 known-issues）
+    ├── [视觉位图原子更新] (仅更新 displayNotes 原子数组，音频线程不调用 Listener)
     ├── midiBuffer.addEvents(playbackVisualMidiBuffer, 0, numSamples, 0)
-    └── 插件或内置物理建模钢琴发声
-```
+    ├── [预设分段渲染] (同块预设先于 MIDI 生效，切换声学快照与 Master/Reverb)
+    └── 插件或内置物理建模钢琴发声 (activeSynth 无锁调度，两预建音色银行平滑切换)
+
+MainComponent::timerCallback() (消息线程)
+    └── AudioEngine::dispatchPendingDisplayEvents() ──► 驱动 MidiKeyboardState 及 UI 定时器
 
 ### 2.3 时间轴跳转与 A-B 循环
 - `TimelineBar` 使用 Take 采样点作为时间域，显示当前播放时间、总时长与 A/B 标记；点击或拖拽产生 Take-relative Seek；
@@ -88,7 +88,7 @@ enum class PerformanceEventType : uint8_t { midi = 0, presetChange = 1 };
 struct PerformanceEvent {
     std::int64_t timestampSamples = 0;              // 相对录制起点的绝对采样点
     PerformanceEventType type = PerformanceEventType::midi;
-    uint8_t presetId = 0;                          // type == presetChange 时记录预设索引
+    std::uint32_t presetId = 0;                    // type == presetChange 时记录 Take 内快照表索引
     RecordingEventSource source = RecordingEventSource::computerKeyboard;
     juce::MidiMessage message;                     // type == midi 时记录标准 JUCE MIDI 消息
 };

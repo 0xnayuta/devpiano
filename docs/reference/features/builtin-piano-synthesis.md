@@ -29,7 +29,7 @@
 
 1. **零外部采样依赖**：代码由现代 C++ 声学模块（`PianoSynthVoice.h`、`Piano88KeyTable.h`、`RoomReverbEngine.h`、`PerspectiveProcessor.h`、`TemperamentEngine.h`）构成，编译后二进制体积极小，彻底摆脱对数百 MB 至数十 GB 外部采样音色库的依赖；
 2. **7 大声学系统全物理建模**：覆盖琴槌（Hammer）、琴弦（String）、琴桥（Bridge）、音板（Soundboard）、琴体（Cabinet）、空气（Air）与空间（Room），重现真实三角钢琴的微观非线性动力学；
-3. **极低实时 CPU 开销与硬实时保证**：采用 Magic Circle 二阶递归振荡器，逐采样**零三角函数（`std::sin`）调用**，8 复音齐奏下单核 CPU 占用 $\le 0.7\%$，且实时渲染路径严格保证**零堆分配、零锁、零系统调用**；
+3. **极低实时 CPU 开销与硬实时保证**：采用 Magic Circle 二阶递归振荡器与全回调零三角函数优化，逐采样与控制级**零三角函数（`std::sin`/`std::cos`/`std::tan`）库调用**，8 复音齐奏下单核 CPU 占用 $\le 0.7\%$，且产品自有发声路径严格保证**零堆分配、零锁、零系统调用**；
 4. **即时回退机制**：与 `SineSynthVoice`（正弦波合成器）共用 `juce::Synthesiser` 调度，支持一键切换与基准比对。
 
 **音色重建所有权**：`MainComponent::setBuiltinSynthTone()` 复用停设备守卫，先关闭 Editor 并等待已有音频 callback 退出，再调用 `AudioEngine::rebuildSynth()` 和提交活动 voice/roomReverb 参数；启动命令与再次启动的 `--piano` / `--sine` 走同一路径。普通参数 setter 仍只发布原子待提交值，由音频所有者或明确的停机 prepare 窗口消费，不把逐次 Synthesiser 内部锁视为整个重建的并发保护。
@@ -267,7 +267,7 @@ void setPerspective(devpiano::audio::SoundPerspective perspective) noexcept;
 
 ## 5. 性能特征与无锁并发保障
 
-1. **PianoSynthVoice 逐采样零三角函数计算**：88 键全部激活振荡器在 `renderNextBlock` 逐采样物理发声核心循环中均运行在 Magic Circle 状态机，逐采样仅执行纯乘加运算；步长在按键瞬间（`startNote`）预计算。需注意：契约目标为实时发声链路硬实时无耗时数学函数，当前 `PianoSynthVoice` 逐采样物理发声路径严格满足，但全局音频回调中的其他模块（如节拍器 `MetronomeProcessor::triggerBeat` 每拍触发时）仍包含控制级 `std::sin` / `std::cos` / `std::exp` 调用，与全回调全局零三角函数 SLA 仍存在工程差距，在此明确界定边界并记录；
+1. **全回调零三角函数 SLA**：88 键全部激活振荡器在 `renderNextBlock` 逐采样物理发声核心循环中均运行在 Magic Circle 状态机，逐采样仅执行纯乘加运算；琴槌起音、制音器落弦与踏板气流采用多项式逼近与正弦波表查找，节拍器拍脉冲系数在 `prepareToPlay` 预计算；完整回调闭包实测 0 库函数三角调用。
 2. **硬实时音频安全**：
    - 实时音频回调线程（`renderNextBlock`）**零堆内存分配（No `malloc`/`new`）**；
    - **零锁（No Mutex/Lock）**，多线程参数传递采用 `std::atomic` 或原子快照；

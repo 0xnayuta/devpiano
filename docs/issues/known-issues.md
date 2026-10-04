@@ -51,37 +51,27 @@
 >
 > **回归建议**：若修复产品契约，统一改动调律引擎、设置滑块、预设读取、离线选项和相应测试；在未修复前，以代码实际限幅作为操作说明，同时明确标注契约差距。
 
-### 节拍器每拍三角函数与全回调零三角 SLA 不一致
+### 第三方 VST3 插件适配器的框架级并发锁与事件限制
 
-> 硬实时目标为 **0 `std::sin`**。`PianoSynthVoice` 的 Magic Circle 分音循环不代表完整回调零三角：除 `MetronomeProcessor::triggerBeat()` 每拍的 `std::sin`/`std::cos`/`std::exp`，AUDIT-004 还记录了机械起音/释放/踏板辅助路径的逐采样三角计算。保持原已知项引用，由 Phase E 核对完整调用闭包；不把每拍计算泛化成逐采样回退，也不把分音优化泛化成全回调已达标。当前CPU/声卡毛刺效果仍需独立实测。
+> **现状与分层验收（Phase E 明确边界）**：
+> 在 Phase E 中，产品自有发声与调度路径（`BuiltinSynthesiser`、`AudioEngine`、`RealtimeQueue`、`MetronomeProcessor`）已实现完全无锁、零堆分配、全回调零三角函数，并通过消息线程 `dispatchPendingDisplayEvents()` 彻底解耦音频与 UI。
+> 但针对第三方 VST3 插件宿主，根据用户批准的分层验收决策，项目保留使用 JUCE 原生 `AudioPluginFormatManager` 适配器（不修改 submodules），该适配器存在以下已知框架级行为：
+> 1. `juce_VST3PluginFormatImpl.h` 的 `processBlock()` 仍获取 `SpinLock processMutex`，与消息线程的 `updateMidiMappings()` 共享同一把锁；
+> 2. `juce_VST3Common.h` 的 MIDI 事件转换使用带 `CriticalSection` 的 `Array`，且单块存在 2048 条事件上限，超额事件被截断；
+> 3. 第三方商业插件内部二进制实现超出宿主控制。
 >
-> **回归建议**：在音频线程外预计算或替换每拍系数生成后，验证拍号切换、BPM 变速、静音节拍继续计时与录音预备拍，并复核实时线程无分配/无锁约束。
-
-### 音频线程 MIDI Listener 同步触发 UI 回调
-
-> **当前链路**：`AudioEngine::getNextAudioBlock()` 在实时线程调用 `keyboardState.processNextMidiBuffer()` 处理实时输入；`renderPlaybackEventsIfNeeded()` 同样在音频回调内处理回放音符。JUCE `MidiKeyboardState::Listener` [官方说明](https://docs.juce.com/master/classjuce_1_1MidiKeyboardState_1_1Listener.html)明确指出 `handleNoteOn/Off` 同步运行于调用线程，不保证消息线程。
->
-> **已确认的边界冲突**：`MainComponent::handleNoteOn()` 断言自己在消息线程并调用 `notifyMidiActivity()` 更新 UI；`CustomKeyboard::handleNoteOn/Off()` 调用 `ensureTimerRunning()`，可能在音频线程启动 JUCE 定时器。其 `perKeyChannel` / `perKeyVelocity` 已使用原子变量，无需再建议升级为原子数组；真实风险是音频线程调用 UI/Timer 接口及 Debug 线程断言。此项尚未修复，不能声称 MIDI 回放 Listener 只在消息线程工作。
->
-> **回归建议**：将音频线程的音符可视状态经无锁快照/队列传至消息线程，限制 Listener 的实时路径为有界无阻塞状态更新；回归 MIDI 导入回放、电脑键盘弹奏、鼠标弹奏和窗口失焦场景。
-
-### 音频回调常规路径严格零堆分配与极端尺寸突变兜底重分配风险 (ERR-002)
-
-> **现状与设计**：
-> `prepareToPlay()` 的预分配和捕获容量守卫仍是现有基础，但不能称常规完整callback已严格零分配/无锁。AUDIT-004 在合法密集回放与预设通知中确认可突破预分配，并记录collector/keyboard state/Synthesiser等阻塞锁；这些与下方 `ERR-002` 异常几何兜底是不同根因，分别按原审计ID纳入 Phase E，不重复开同根问题。
->
-> **边界与兜底**：
-> 若外部宿主或特定音频设备驱动在运行中违反 JUCE 框架契约，未重新调用 `prepareToPlay()` 即直接传入超过预分配尺寸的 `bufferToFill.numSamples` 或通道数：
-> - Debug 构建下会命中 `jassert` 断言告警；
-> - Release 构建下，为防止越界崩溃或破音，`AudioEngine::getNextAudioBlock()`（`source/Audio/AudioEngine.cpp:138-143`）保留了 `pluginBuffer.setSize` 作为安全兜底机制（发生单次堆重分配），并通过原子计数器 `pluginBufferResizeCount` 进行记录，由主线程定时器通过 `consumePluginBufferResizeCount()` 异步消费并输出警告日志（ERR-002，避免在音频实时回调中直接输出 I/O 日志）。
->
-> **风险与约束**：
-> 正常合规驱动下 `pluginBufferResizeCount` 可为0，但该计数只说明插件几何兜底未触发，不能证明MIDI/通知容量或其他常规callback没有分配。异常尺寸帧仍有堆重分配风险；Phase E同时定义不越界、有界且可观测的故障处理，并将真实驱动/热插拔验证范围单列。
+> **边界与约束**：产品自有引擎的无锁零分配契约不外推至宿主托管的第三方 VST3 插件；实机物理声卡热插拔仍作为独立硬件测试项保留。
 ---
 
 ## 2. 已修复问题（回归参考）
 
 以下问题已修复，保留简要记录用于回归识别。详细根因分析和修复实现见各功能文档。
+
+### 预设永久身份与实时/离线执行闭包 (Phase E)
+
+- **修复**：预设引入 RFC 4122 v5/v4 UUID 永久身份，另存为派生新身份，重命名与自动保存保持身份，旧 v1 唯一名称安全迁移且多义拒绝；原生演奏采用 v3 格式内嵌不可变 `RecordedPreset` 表，按采样偏移同构执行声学快照与 Master/Reverb，拒绝旧数字预设格式；内置音源重写为纯音频所有无锁调度，两预建音色银行平滑切换；全回调闭包达成零库函数三角调用；键盘输入经有界 SPSC 交换，视觉高亮由消息线程刷新，超协商几何安全静音并记录原子计数。
+- **回归线索**：预设增删改后回放旧演奏；旧数字事件格式拒绝；同块预设先于音符生效；实时与内置/VST3 离线 WAV 分段导出一致性；密集 MIDI 播放与未 drain 预设循环无堆增长；UI 线程持有键盘锁时不阻塞音频；超协商尺寸安全静音。
+- **证据与边界**：用户批准分层验收；产品自有链路达成 0 分配、0 锁、0 库函数三角；真实原生 VST3 记录框架层 1 次分配与 54 次锁，不在产品自有零锁保证内。Windows Debug 99 套件全量通过、真实原生 VST3 与实际窗口快照见 [Phase E 实施记录](../roadmap/current-iteration.md#phase-e-实施记录与直接验证2026-10-04)。
 
 ### 发音身份与采样级 Transport 边界
 

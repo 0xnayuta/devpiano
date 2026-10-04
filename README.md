@@ -37,7 +37,7 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
 - **非线性打击、毛毡老化与动力学绽放**：三层毛毡动力学压实、动态接触时间 $T_c$、击弦点几何梳状陷波、3ms 高频瞬态裂音（HF Crack）、琴槌毛毡微老化穿透力（`feltAgeingAmount`）、泛音时间滞后膨胀绽放（Harmonic Blooming）与强击软饱和；
 - **真实共鸣与空间声学系统**：16 峰正交云杉木物理音板模态、4.2kHz 云杉木高频粘滞吸收滤波、琴桥立体声展开、同音三弦 Mid-Side 差分展开与非对称拍频、演奏者（Player）与听众（Audience）双视角声相变换（`PerspectiveProcessor`）以及内置纯算法房间混响网络（`RoomReverbEngine`: Chamber/Hall/Studio）；
 - **微观机械动作拟真与古典律制**：CC64 全局交感共鸣、延音踏板下踏/抬起机械扫掠呼啸（Whoosh）与共鸣冲击（Resonance Shock）、制音器落木闷击与琴键释放摩擦、离键速度动态 ADSR 阻尼缩放，以及 6 大古典微调律制（`TemperamentEngine`）与 A4 基准基频微调（当前限幅 410.0–450.0 Hz；产品契约目标 400.0–480.0 Hz）。
-- **物理发声核心与硬实时目标**：`PianoSynthVoice` 的 Magic Circle 逐采样循环不调用 `std::sin`；8 复音齐奏单核 CPU $\le 0.7\%$、整个实时回调零堆分配/零锁/零实时三角函数仍是必须满足的契约。当前节拍器每拍计算与异常缓冲兜底等差距见 [`docs/issues/known-issues.md`](docs/issues/known-issues.md)；支持与内置正弦波（`SineSynthVoice`）切换。
+- **物理发声核心与硬实时契约**：`PianoSynthVoice` 与节拍器全回调零三角函数（0 `std::sin`），8 复音齐奏单核 CPU $\le 0.7\%$；产品自有发声路径零堆分配、零锁；键盘输入经有界 SPSC 队列交换，音符高亮由消息线程刷新，彻底解耦音频线程与 UI；第三方 VST3 插件适配器的框架锁与扩容限制见 [`docs/issues/known-issues.md`](docs/issues/known-issues.md)；支持与内置正弦波（`SineSynthVoice`）切换。
 
 ### 🔌 VST3 插件宿主与乐器端点（VST3 Plugin Hosting & Instrument Endpoint）
 
@@ -68,9 +68,9 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
 
 ### 🎙️ 演奏录制、回放与数据持久化（Recording, Playback & Persistence）
 
-- **实时无锁采集**：音频线程无锁采集生成不可变 `RecordingTake` 数据结构；
-- **多倍速回放控制**：支持 0.5x–2.0x 音频块边界倍速调节、Back 从头回放，以及暂停/恢复、Take-relative 跳转与 A-B 循环；设备采样率变化保留 Take 时间域，跳转前恢复通道状态，末尾 NoteOff 由音频路径交付；
-- **原生演奏持久化**：支持 `.devpiano` 原生演奏文件格式（v2 JSON + Base64 编码 + `juce::TemporaryFile` 原子写入）；
+- **实时无锁采集**：音频线程无锁采集生成不可变 `RecordingTake` 数据结构，内嵌快照表隔离外部文件增删；
+- **多倍速回放控制**：支持 0.5x–2.0x 音频块边界倍速调节、Back 从头回放，以及暂停/恢复、Take-relative 跳转与 A-B 循环；设备采样率变化保留 Take 时间域，跳转前恢复通道状态，末尾 NoteOff 由音频路径交付，同块预设先于音符生效；
+- **原生演奏持久化**：支持 `.devpiano` 原生演奏文件格式（v3 JSON + Base64 编码 + 内嵌 `RecordedPreset` 表 + `juce::TemporaryFile` 原子写入；旧数字预设格式显式拒绝）；
 - **标准 MIDI 文件支持**：支持导出标准 Type 1 MIDI 文件（960 PPQ），支持导入标准 `.mid` 文件并合并全部音轨，解析 CC64 延音、Pitch Bend 与 Program Change 等控制信息；
 - **Performance Preset 预设系统**：预设 CRUD 编排、F1-F12 快捷键切换、录制中自动切调记录以及同名导入覆盖确认（JIVE 声明式弹窗）。
 

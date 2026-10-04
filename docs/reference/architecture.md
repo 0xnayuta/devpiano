@@ -34,8 +34,8 @@
    未获得明确的钢琴演奏产品需求之前，严禁引入通用图引擎、视频编解码录制栈或复杂多进程 IPC 体系。坚持“Seam-first”演进策略——先划定清晰边界，再按需平滑迁移。
 8. **轻量产品职责原则 (Focused Scope)**：  
    不承担屏幕捕获、视频容器（MP4）与编解码兼容的产品维护包袱，专注于高确定性的本地音频合成、WAV 离线渲染与标准 Type 0/1 MIDI 导出。
-9. **实时音频无锁零分配铁律 (Realtime Safety)**：  
-   音频回调（Audio Callback）路径严格遵守零堆内存分配（Zero-allocation）、无锁（Lock-free）铁律，所有运行时状态交换一律基于预分配与原子/轻量快照。
+9. **实时音频无锁零分配铁律 (Realtime Safety)**：
+   音频回调（Audio Callback）路径严格遵守零堆内存分配（Zero-allocation）、无锁（Lock-free）铁律，所有运行时状态交换一律基于预分配与原子/轻量快照。产品自有发声与调度路径严格达成；第三方插件宿主保留 JUCE 适配器已知锁与扩容限制（见 known-issues）。
 10. **离线实时执行同构原则 (Rendering Parity)**：  
     离线渲染管线（Offline Renderer）与实时音频引擎（Realtime Engine）必须共享完全一致的乐器参数、空间混响与演奏事件执行语义。
 
@@ -109,8 +109,11 @@ source/
   - 线程安全与音频鲁棒性：`masterGain` 采用 `std::atomic<float>`；具备 `25ms` audio warmup（静音过渡）与 `armPlaybackStartPreRoll`（消除 0s 音符冲突）。
   - 变速、Seek 与 Stop 的待提交命令仅在块入口消费；内置音色重建复用明确停 callback 的守卫，启动/再次启动不并发写活动声部或房间混响。
   - `MetronomeProcessor` 在音频块内维护完整节拍时段；预备拍起点由音频拥有者返回块内偏移，捕获排除目标下拍之前的输入。节拍混入仍位于乐器/混响之后、Master Gain / limiter 之前；消息线程只观察进度与会话转换，不触发第二次启动。
+  - **预分配无锁状态交换与视觉分发**：键盘物理输入经有界 SPSC 队列（`RealtimeQueue`）注入音频块，音频回调仅更新原子音符位图；消息线程通过 `dispatchPendingDisplayEvents()` 统一刷新 `juce::MidiKeyboardState` 并驱动 UI 定时器，杜绝音频线程调用 UI/Timer 接口。
+  - **异常几何防御**：超协商尺寸或通道数的音频块在块首直接静音并累计原子故障计数（`pluginBufferResizeCount`），回调内不执行堆重分配，由消息线程定时器消费告警。
 - **`source/Audio/BuiltinSynthesiser.h/.cpp`**：
   - 实时和内置 WAV 共用乐器拥有者：逐通道 CC67 连续值在新 Piano 声部起音前提交；重复起音/释放按真实发音通道筛选，不把机械聚合监听当发音身份。头文件不包含重型 Piano 实现，具体发声初始化与 dispatch 放在 `.cpp`。
+  - 纯音频所有、完全无锁的发声调度器，重写了底层语音分配与踏板调度，移除原生 JUCE 内部锁；支持零长度块原地消费同采样 MIDI 控制事件。
 - **`source/Audio/PianoSynthVoice.h` / `source/Audio/Piano88KeyTable.h`**：
   - **自主研发、纯 C++ 全物理建模钢琴音源**（Phase 12–32 成果，v1.1.0 核心发声引擎）；
   - **7 大声学子系统**：覆盖琴槌（Hammer）、琴弦（String）、琴桥（Bridge）、音板（Soundboard）、琴体（Cabinet）、空气（Air）与空间（Room）；
@@ -119,7 +122,7 @@ source/
   - **琴弦非线性动力学与泛音抖动**：JOS PASP 刚性失谐、泛音刚度不谐和度抖动（`inharmonicityJitter` ±4.5%）、STFT 微初相矩阵、同音三弦 Mid-Side 差分展开与非对称拍频、低音纵波先驱声（$5100\text{ m/s}$）、泛音时间滞后膨胀绽放（Harmonic Blooming）与强击软饱和；
   - **共鸣与空间辐射**：长短琴桥交界补偿（G2/G#2）、16 峰正交云杉木物理音板模态、4.2kHz 云杉木高频截止、琴桥立体声空间辐射与动态声场空间漫射；
   - **微观机械动作拟真**：CC64 全局交感共鸣弦池、延音踏板下踏/抬起机械扫掠呼啸（Whoosh）与共鸣冲击（Resonance Shock，受 `pedalNoiseLevel` 调节）、未踩踏板单键开放弦交感、制音器落木闷击与琴键释放机械摩擦、离键速度动态 ADSR 阻尼缩放；
-  - **物理发声核心与实时契约**：Magic Circle 二阶递归振荡器逐采样零三角函数调用，8 复音单核 CPU $\le 0.7\%$；整个实时回调零堆分配、零锁、零 `std::sin` 是架构硬约束。当前节拍器每拍系数计算、MIDI Listener 同步 UI 回调与异常缓冲尺寸兜底尚有差距，见 [`../issues/known-issues.md`](../issues/known-issues.md)。
+  - **物理发声核心与实时契约**：Magic Circle 二阶递归振荡器与节拍器系数预计算达成全回调零三角函数调用，8 复音单核 CPU $\le 0.7\%$；产品自有发声路径零堆分配、零锁、零 `std::sin`。第三方 VST3 插件适配器的框架锁与扩容限制见 [`../issues/known-issues.md`](../issues/known-issues.md)。
 - **`source/Audio/PerspectiveProcessor.h`（空间声像视角处理器，Phase 31-A）**：
   - 纯数学立体声声像变换器，提供演奏者视角（Player，低音在左高音在右近场宽阔）与听众视角（Audience，声像镜像反转与中距声场凝聚）；
   - 负责双声道立体声与单声道平滑下混，保证单声道求和能量守恒。
@@ -193,17 +196,18 @@ source/
   - `sampleRate` + `lengthSamples` + `events` 组成的 `RecordingTake` 数据结构；
   - 播放状态机管理：0.5x–2.0x 变速、Seek 与 Stop 经有界原子邮箱发布，由 `AudioEngine` 的单一块入口调用 `applyPendingTransportCommands()`；纯变速保留下一未渲染事件游标，避免缩放取整重播旧 NoteOn。
   - 回放 NoteOn 以预分配 FIFO 保存最终输出身份；Off 匹配原身份并按最终输出持有数释放，映射变化与设备 prepare 不清空同代身份。录制在暂停/停止的停机边界终结已录身份/踏板，实际最终松键在其采样点闭合重叠起音。
+  - **预设永久身份与快照同构**：录制事件内嵌 Take-local `RecordedPreset` 快照表；回放按采样偏移与 MIDI 保持同顺序执行，同采样预设优先于音符生效。UI 预设通知经原子槽位合并传递，不回写音频参数。
   - `AbLoopEngine` 保存 Take-relative A/B；Seek/回跳先清音再恢复 program、bank、CC 与 pitch 状态，不重发历史 NoteOn。播放/暂停游标与固定录制 Take 域在设备 prepare 时重基准；实时长度包含最后事件，音频交付边界收尾后才通知 UI。
   - 结构提交前验证采样率、非负有序事件与最坏支持倍率的整数范围，保留现有合成时间域；文件的物理采样率准入与通用数值安全检查分开。
 - **`source/Recording/RecordingSessionController.h/.cpp`**：
   - 会话控制器：统一调度录制、回放、`.devpiano` 文件保存/打开、MIDI 导入与 WAV 导出流程。
   - 编排 Take-relative Seek、A/B、暂停恢复及时间轴快照；结构清除/启动/录制停止和暂停快照复用停机守卫，异步导出退出先请求取消，实际工作完成后才销毁所有者。
 - **`source/Recording/RenderPipeline.h/.cpp`**：
-  - `prepareRenderTimeline()` 统一检查时间戳缩放、最终事件 `+1` 与尾部加法；成功才返回稳定排序事件和完整长度。内置/插件 WAV 在打开输出前使用该结果，保留同采样语义顺序及 panic 注入。
+  - `prepareRenderTimeline()` 统一检查时间戳缩放、最终事件 `+1`、快照有效性与尾部加法；成功才返回稳定排序事件、内嵌快照表和完整长度。内置/插件 WAV 在打开输出前使用该结果，分段按采样点应用声学快照，保留同采样语义顺序及 panic 注入。
 - **`source/Recording/TimelineValidation.h`**：
   - 分离文件支持采样率与通用时间域数值安全，复用有界整数转换、缩放、加法及最坏倍率长度检查；不依赖 UI 或插件适配器。
 - **`source/Recording/PerformanceFile.h/.cpp`**：
-  - `.devpiano` 原生演奏文件持久化（v2 JSON + JUCE 专有长度前缀二进制编码 + 元数据）；32 MiB 文件预算、1 MiB 单帧预算及完整读取/帧形状/数值准入后稳定规范化乱序时间线，保存仍通过 `juce::TemporaryFile` 事务替换。
+  - `.devpiano` 原生演奏文件持久化（v3 JSON + JUCE 专有长度前缀二进制编码 + 内嵌快照表）；32 MiB 文件预算、1 MiB 单帧预算及完整读取/帧形状/数值准入后稳定规范化乱序时间线，保存仍通过 `juce::TemporaryFile` 事务替换。旧数字格式事件显式拒绝，不静默猜测映射。
   - 会话通过 `RecordingSession` 将 Take、元数据与原生文件绑定整体提交；新录制/MIDI 导入解除旧绑定，成功 Save As 重新绑定，generation 阻止跨 Take 的延迟信息/文件结果。
 - **`source/Recording/MidiFileImporter.h/.cpp`**：
   - 标准 MIDI 文件解析与统一导入：委托 `MidiTrackMergeEngine` 将 Type 0/1 各音轨的 MIDI 播放事件合并为单一 `RecordingTake` 时间线，支持通道映射并提取全局元数据；不提供选轨模式。
@@ -335,7 +339,7 @@ AudioEngine::MidiMessageCollector (收集并排队 MIDI 消息)
     │
     ▼
 AudioEngine::getNextAudioBlock() (音频回调线程)
-    ├── MidiKeyboardState (在回调线程同步通知 Listener；UI 风险见 known-issues)
+    ├── 收集有界 SPSC 物理输入，原子更新视觉位图 (MidiKeyboardState 移至消息线程 dispatchPendingDisplayEvents)
     ├── SyncPedalProcessor (块内按采样点排序 CC64(0) -> NoteOn -> CC64(127))
     ├── RecordingEngine::recordMidiBufferBlock() (录制时写入预分配事件队列)
     ├── RecordingEngine::renderPlaybackBlock() (回放、Seek、A-B 循环边界)

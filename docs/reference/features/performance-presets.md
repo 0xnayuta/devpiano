@@ -14,16 +14,17 @@
 2. **独立 JSON 文件（`.devpiano.preset`）**：采用规范的 JSON 格式存储于 `DevPiano/Presets/` 目录下，便于用户备份、分享与跨设备导入；
 3. **一键 CRUD 与声明式弹窗**：通过 `ControlsPanel` 下拉菜单及 Save As New / Rename / Delete 按钮操作，全面接入 `JiveModalDialog` 声明式弹窗；
 4. **F1-F12 极速快捷键**：演奏过程中按下 F1-F12 即可毫秒级无缝切换预设；
-5. **录制自动切调**：录制过程中切换预设会自动向 Take 写入 `presetChange` 事件，回放至该时刻自动切调。
+5. **录制自动切调**：切换时保存预设永久身份与当时声学快照；回放按采样点执行，不依赖录制后目录排序。
 
 ---
 
-## 2. `.devpiano.preset` 文件格式规范（v1）
+## 2. `.devpiano.preset` 文件格式规范（v2）
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "name": "Pop Piano in D",
+  "uuid": "963c9500-38d7-4e10-8025-2e61d4830084",
   "layout": {
     "id": "user.preset.pop-piano-in-d",
     "name": "Pop Piano in D",
@@ -87,6 +88,14 @@
 }
 ```
 
+### 2.0 永久身份与迁移
+
+- `uuid` 是文件身份，`name` 是可变显示名称。另存为新预设生成新 UUID；重命名、自动保存和导入保留已有 UUID。
+- 无 UUID 的旧 v1 文件按固定命名空间和名称派生稳定 UUID，首次保存写为 v2；v2 缺失/无效身份拒绝，不重新用当前名称生成身份。
+- 旧启动设置中的名称仅在唯一匹配时迁移到 UUID；多义名称或重复 UUID 不猜测目标。列表显示名称，运行绑定保存 UUID，磁盘路径仍由当前名称规范化得到。
+- 原生演奏另外保存 Take 内的预设和 `AcousticSnapshot`，包含当时的音源类型、Master/ADSR、物理/空间参数及回放移调；不能把预设文件自身的配置子集误写为这些全部运行时字段都已持久化在 `.devpiano.preset`。
+
+
 键位 `action.trigger` 只接受 `"keyDown"`，缺省仍按原格式默认 `"keyDown"`。显式 `"keyUp"` 或未知值在加载时拒绝，保存也不把非法内存状态静默改写为有效绑定；原文件与当前应用预设保留。
 
 ---
@@ -146,8 +155,9 @@
 
 ## 4. 录制与回放切调集成
 
-1. **录制时入队**：演奏者在录制中按下 F1-F12 或通过下拉菜单切换预设，`PresetFlowSupport` 调用 `RecordingEngine::recordPresetChange(presetIndex, timestampSamples)`；
-2. **回放时自动切调**：回放引擎推进到该时间戳时，自动调用 `applyPresetByIndex()`，实现自动伴奏切调演练。
+1. **录制时入队**：`recordPresetChange(const RecordedPreset&)` 在消息线程注册不可变快照，发布有界 SPSC 槽位；音频线程在受影响的捕获块起点先写预设 variant，再写该块 MIDI。
+2. **采样边界执行**：实时、内置 WAV 和 VST3 WAV 均在事件采样点切换声学参数；同采样预设先于 MIDI，后续 NoteOff 使用起音锁定的原输出身份。
+3. **UI 独立通知**：消息线程消费最新状态通知并调用 `applyRecordedPresetUi()`；重复循环可合并视觉通知，但每次声学事件仍在音频路径执行，末块通知不因播放结束清空。该路径不重查目录，不再调用 `applyPresetByIndex()` 来晚到改变音频。
 
 ---
 
