@@ -14,7 +14,6 @@ enum class KeyActionType : std::uint8_t {
 
 enum class KeyTrigger : std::uint8_t {
     keyDown,
-    keyUp,
 };
 
 enum class SustainPolicy : std::uint8_t {

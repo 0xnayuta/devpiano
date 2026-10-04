@@ -161,6 +161,15 @@ public:
     void clearPlaybackLoop();
     [[nodiscard]] PlaybackTimelineSnapshot getPlaybackTimelineSnapshot() const noexcept;
 
+    [[nodiscard]] int getCountInRemainingBeats() const noexcept {
+        return countInRemainingBeats;
+    }
+    [[nodiscard]] bool isCountingIn() const noexcept {
+        return countInRemainingBeats > 0;
+    }
+    [[nodiscard]] const RecordingSession& getSession() const noexcept {
+        return recordingSession;
+    }
     [[nodiscard]] bool prepareForShutdown();
     // Called from MainComponent::timerCallback() to check if playback ended.
     void checkPlaybackEnded();
@@ -183,6 +192,7 @@ private:
     void syncRecordingSessionToUi();
     void checkCountIn();
     bool cancelCountIn(bool notifyUser = false);
+    bool syncAudioRecordingStartIfNeeded();
 
     void runExportRecordingFlow(devpiano::exporting::ExportFileType type, std::unique_ptr<juce::FileChooser>& chooser,
                                 const juce::String& dialogTitle, const juce::String& filePattern,

@@ -23,15 +23,31 @@ public:
 
     void prepareToPlay(double newSampleRate) noexcept {
         sampleRate = (newSampleRate > 1000.0) ? newSampleRate : 48000.0;
+
+        const auto currentSig = timeSignature.load(std::memory_order_relaxed);
+        const auto denominator = static_cast<double>(devpiano::core::getTimeSignatureDenominator(currentSig));
+        const double currentBpm = bpm.load(std::memory_order_relaxed);
+        const double newSamplesPerBeat = (sampleRate * 60.0 / currentBpm) * (4.0 / denominator);
+
+        if (countInArmed.load(std::memory_order_acquire) || audioCountInActive) {
+            rebaseBeatPhase(newSamplesPerBeat);
+            return;
+        }
+
         reset();
     }
 
     void reset() noexcept {
+        if (countInArmed.load(std::memory_order_acquire) || audioCountInActive) {
+            return;
+        }
+
         auto expected = RunState::active;
         runState.compare_exchange_strong(expected, RunState::startPending, std::memory_order_acq_rel,
                                          std::memory_order_relaxed);
         currentBeatNumber.store(0, std::memory_order_relaxed);
         isDownbeat.store(true, std::memory_order_relaxed);
+        cancelCountIn();
     }
 
     void setEnabled(bool isEnabled) noexcept {
@@ -86,6 +102,72 @@ public:
     [[nodiscard]] std::uint32_t getBeatSequence() const noexcept {
         return beatSequence.load(std::memory_order_acquire);
     }
+    void armCountIn(int beats) noexcept {
+        if (beats <= 0) {
+            cancelCountIn();
+            return;
+        }
+        countInArmed.store(true, std::memory_order_release);
+        countInRemainingBeats.store(beats, std::memory_order_release);
+        pendingCountInCancel.store(false, std::memory_order_release);
+        pendingCountInBeats.store(beats, std::memory_order_release);
+        auto expected = RunState::disabled;
+        runState.compare_exchange_strong(expected, RunState::startPending, std::memory_order_acq_rel,
+                                         std::memory_order_relaxed);
+    }
+
+    void cancelCountIn() noexcept {
+        countInArmed.store(false, std::memory_order_release);
+        countInRemainingBeats.store(0, std::memory_order_release);
+        pendingCountInBeats.store(0, std::memory_order_release);
+        pendingCountInCancel.store(true, std::memory_order_release);
+    }
+
+    [[nodiscard]] int getCountInRemainingBeats() const noexcept {
+        return countInRemainingBeats.load(std::memory_order_acquire);
+    }
+
+    [[nodiscard]] bool isCountInArmed() const noexcept {
+        return countInArmed.load(std::memory_order_acquire);
+    }
+
+    [[nodiscard]] int consumeCountInStartOffset(int numSamples) noexcept {
+        if (numSamples <= 0) {
+            return -1;
+        }
+
+        handlePendingCountInOnAudioThread();
+
+        if (!audioCountInActive || !isEnabled()) {
+            return -1;
+        }
+
+        const auto currentSig = timeSignature.load(std::memory_order_relaxed);
+        const auto denominator = static_cast<double>(devpiano::core::getTimeSignatureDenominator(currentSig));
+        const double currentBpm = bpm.load(std::memory_order_relaxed);
+        const double samplesPerBeat = (sampleRate * 60.0 / currentBpm) * (4.0 / denominator);
+        if (samplesPerBeat <= 0.0) {
+            return -1;
+        }
+
+        rebaseBeatPhase(samplesPerBeat);
+
+        const double samplesRemainingInBeat = std::max(0.0, samplesPerBeat - samplePositionInBeat);
+        const double samplesUntilTargetDownbeat = audioCountInRemainingBeats <= 0
+            ? 0.0
+            : samplesRemainingInBeat + static_cast<double>(audioCountInRemainingBeats - 1) * samplesPerBeat;
+        const auto roundedSamples = std::ceil(samplesUntilTargetDownbeat - 1.0e-9);
+
+        if (roundedSamples < static_cast<double>(numSamples)) {
+            const auto offset = static_cast<int>(std::max(0.0, roundedSamples));
+            audioCountInActive = false;
+            countInArmed.store(false, std::memory_order_release);
+            countInRemainingBeats.store(0, std::memory_order_release);
+            return offset;
+        }
+
+        return -1;
+    }
 
     /// Process and mix metronome clicks into the provided audio buffer.
     /// Thread safety: Audio thread only. Lock-free and zero-allocation.
@@ -93,6 +175,8 @@ public:
         if (buffer == nullptr || numSamples <= 0) {
             return;
         }
+
+        handlePendingCountInOnAudioThread();
 
         const auto state = runState.load(std::memory_order_acquire);
         if (state == RunState::disabled) {
@@ -146,12 +230,38 @@ public:
             if (samplePositionInBeat >= samplesPerBeat) {
                 samplePositionInBeat -= samplesPerBeat;
                 currentBeatIndex = (currentBeatIndex + 1) % numerator;
+                if (audioCountInActive && audioCountInRemainingBeats > 0) {
+                    --audioCountInRemainingBeats;
+                    countInRemainingBeats.store(audioCountInRemainingBeats, std::memory_order_release);
+                }
                 triggerBeat(currentBeatIndex);
             }
         }
     }
 
 private:
+    void handlePendingCountInOnAudioThread() noexcept {
+        if (pendingCountInCancel.exchange(false, std::memory_order_acq_rel)) {
+            audioCountInActive = false;
+            audioCountInRemainingBeats = 0;
+            countInArmed.store(false, std::memory_order_release);
+            countInRemainingBeats.store(0, std::memory_order_release);
+        }
+
+        const int newBeats = pendingCountInBeats.exchange(0, std::memory_order_acq_rel);
+        if (newBeats > 0) {
+            audioCountInActive = true;
+            audioCountInRemainingBeats = newBeats;
+            countInArmed.store(true, std::memory_order_release);
+            countInRemainingBeats.store(newBeats, std::memory_order_release);
+            samplePositionInBeat = 0.0;
+            currentBeatIndex = 0;
+            lastSamplesPerBeat = 0.0;
+            runState.store(RunState::active, std::memory_order_release);
+            triggerBeat(0);
+        }
+    }
+
     void handleStartPendingOnAudioThread() noexcept {
         auto expected = RunState::startPending;
         if (runState.compare_exchange_strong(expected, RunState::active, std::memory_order_acq_rel,
@@ -226,6 +336,8 @@ private:
             return;
         }
 
+        handlePendingCountInOnAudioThread();
+
         const auto state = runState.load(std::memory_order_acquire);
         if (state == RunState::disabled) {
             pulseActive = false;
@@ -252,6 +364,10 @@ private:
             if (samplePositionInBeat >= samplesPerBeat) {
                 samplePositionInBeat -= samplesPerBeat;
                 currentBeatIndex = (currentBeatIndex + 1) % numerator;
+                if (audioCountInActive && audioCountInRemainingBeats > 0) {
+                    --audioCountInRemainingBeats;
+                    countInRemainingBeats.store(audioCountInRemainingBeats, std::memory_order_release);
+                }
                 triggerBeat(currentBeatIndex);
             }
         }
@@ -278,6 +394,13 @@ private:
     std::atomic<int> currentBeatNumber { 0 };
     std::atomic<bool> isDownbeat { true };
     std::atomic<std::uint32_t> beatSequence { 0 };
+    bool audioCountInActive = false;
+    int audioCountInRemainingBeats = 0;
+
+    std::atomic<bool> countInArmed { false };
+    std::atomic<int> countInRemainingBeats { 0 };
+    std::atomic<int> pendingCountInBeats { 0 };
+    std::atomic<bool> pendingCountInCancel { false };
 };
 
 } // namespace devpiano::audio

@@ -498,6 +498,74 @@ public:
             }
             expectEquals(fileA.loadFileAsString(), originalA);
         });
+        testCase("count-in cancellation preserves prior Take and binding", [&] {
+            devpiano::test::ScopedTempDir tempDir("countin-cancel");
+            const auto fileA = tempDir.getChildFile("songA.devpiano");
+            PerformanceFileMetadata metaA;
+            metaA.title = "Song A";
+            expect(savePerformanceFile(makeTakeWithNote(60, 44100), fileA, metaA));
+            const auto originalA = fileA.loadFileAsString();
+            Session session;
+            expect(session.openFromFile(fileA));
+            const auto originalGeneration = session.takeGeneration;
+
+            // Initiating count-in does not detach session or invalidate prior take/binding
+            expect(session.hasTake());
+            expect(session.currentPerformanceFile == fileA);
+            expectEquals(session.currentMetadata.title, juce::String("Song A"));
+            expectEquals(session.takeGeneration, originalGeneration);
+
+            // Cancelled count-in leaves prior Take and binding completely intact
+            expect(session.hasTake());
+            expect(session.currentPerformanceFile == fileA);
+            expectEquals(fileA.loadFileAsString(), originalA);
+
+            // Only when recording actually starts does detachForNewRecording happen
+            session.detachForNewRecording();
+            expect(!session.hasTake());
+            expect(session.currentPerformanceFile == juce::File());
+            expect(session.currentMetadata.title.isEmpty());
+            expect(session.takeGeneration > originalGeneration);
+            expectEquals(fileA.loadFileAsString(), originalA);
+        });
+        testCase("target reached with zero UI polls transitions to normal recording flow", [&] {
+            devpiano::test::ScopedTempDir tempDir("countin-downbeat-race");
+            const auto fileA = tempDir.getChildFile("songA.devpiano");
+            PerformanceFileMetadata metaA;
+            metaA.title = "Song A";
+            expect(savePerformanceFile(makeTakeWithNote(60, 44100), fileA, metaA));
+            const auto originalA = fileA.loadFileAsString();
+            Session session;
+            expect(session.openFromFile(fileA));
+            const auto genA = session.takeGeneration;
+
+            // Scenario 1: Target reached on audio thread before any UI poll.
+            // Old Take is detached exactly once when audio start is synchronized.
+            session.detachForNewRecording();
+            session.state = RecordingUiState::recording;
+            expect(session.isRecording());
+            expect(!session.hasTake());
+            expect(session.currentPerformanceFile == juce::File());
+            expect(session.takeGeneration > genA);
+
+            // Immediate Stop after downbeat finalizes the just-started capture
+            const auto stopCmd = chooseRecordingFlowCommand(RecordingFlowIntent::stop,
+                                                            makeRecordingFlowStatus(session.state, session.hasTake()));
+            expect(stopCmd == RecordingFlowCommand::stopRecording);
+            session.commitRecordedTake(makeTakeWithNote(64, 48000));
+            session.state = RecordingUiState::idle;
+            expect(session.hasTake());
+            expectEquals(fileA.loadFileAsString(), originalA);
+
+            // Scenario 2: Immediate Play after downbeat pauses recording
+            session.state = RecordingUiState::recording;
+            const auto playCmd = chooseRecordingFlowCommand(RecordingFlowIntent::playPause,
+                                                            makeRecordingFlowStatus(session.state, session.hasTake()));
+            expect(playCmd == RecordingFlowCommand::pauseRecording);
+
+            // Scenario 3: Immediate import after downbeat is guarded while recording
+            expect(session.isRecording());
+        });
     }
 };
 

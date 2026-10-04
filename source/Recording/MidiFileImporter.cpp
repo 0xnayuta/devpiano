@@ -454,10 +454,10 @@ bool readMidiFile(juce::MidiFile& midiFile, const juce::File& file) {
             offset += chunkBytes;
         }
         juce::MemoryInputStream stream(normalized.getData(), normalized.getDataSize(), false);
-        return midiFile.readFrom(stream, true);
+        return midiFile.readFrom(stream, false);
     }
     juce::MemoryInputStream validatedStream { fileData.getData(), valResult.validBytes, false };
-    if (!midiFile.readFrom(validatedStream, true)) {
+    if (!midiFile.readFrom(validatedStream, false)) {
         DP_LOG_ERROR("MidiFileImporter: JUCE failed to parse validated MIDI stream: " + file.getFullPathName());
         return false;
     }

@@ -24,31 +24,42 @@ constexpr auto kMaxPresetFileSizeBytes = 1024 * 1024; // 1 MB (SEC-003)
 [[nodiscard]] juce::var keyActionToVar(const devpiano::core::KeyAction& action) {
     juce::DynamicObject::Ptr obj = new juce::DynamicObject();
     obj->setProperty("type", action.type == devpiano::core::KeyActionType::note ? "note" : "unknown");
-    obj->setProperty("trigger", action.trigger == devpiano::core::KeyTrigger::keyDown ? "keyDown" : "keyUp");
+    obj->setProperty("trigger", "keyDown");
     obj->setProperty("midiNote", action.midiNote);
     obj->setProperty("midiChannel", action.midiChannel);
     obj->setProperty("velocity", action.velocity);
     return obj.get();
 }
 
-[[nodiscard]] devpiano::core::KeyAction varToKeyAction(const juce::var& v) {
-    devpiano::core::KeyAction action;
-    if (v.isObject()) {
-        auto* obj = v.getDynamicObject();
-        if (obj != nullptr) {
-            const auto typeStr = obj->getProperty("type").toString();
-            if (typeStr != "note") {
-                DP_LOG_WARN("[Preset] unknown KeyAction type '" + typeStr + "', falling back to \"note\"");
-            }
-            action.type = devpiano::core::KeyActionType::note;
-            auto triggerStr = obj->getProperty("trigger").toString();
-            action.trigger
-                = (triggerStr == "keyDown") ? devpiano::core::KeyTrigger::keyDown : devpiano::core::KeyTrigger::keyUp;
-            action.midiNote = static_cast<int>(obj->getProperty("midiNote"));
-            action.midiChannel = static_cast<int>(obj->getProperty("midiChannel"));
-            action.velocity = static_cast<float>(obj->getProperty("velocity"));
+[[nodiscard]] std::optional<devpiano::core::KeyAction> varToKeyAction(const juce::var& v) {
+    if (!v.isObject()) {
+        return std::nullopt;
+    }
+    auto* obj = v.getDynamicObject();
+    if (obj == nullptr) {
+        return std::nullopt;
+    }
+
+    const auto typeStr = obj->getProperty("type").toString();
+    if (typeStr != "note") {
+        DP_LOG_WARN("[Preset] unknown KeyAction type '" + typeStr + "', falling back to \"note\"");
+    }
+
+    if (obj->hasProperty("trigger")) {
+        const auto triggerStr = obj->getProperty("trigger").toString();
+        if (triggerStr != "keyDown") {
+            DP_LOG_ERROR("[Preset] admission rejected: unsupported trigger '" + triggerStr
+                         + "'; only press-to-sound ('keyDown') is supported");
+            return std::nullopt;
         }
     }
+
+    devpiano::core::KeyAction action;
+    action.type = devpiano::core::KeyActionType::note;
+    action.trigger = devpiano::core::KeyTrigger::keyDown;
+    action.midiNote = static_cast<int>(obj->getProperty("midiNote"));
+    action.midiChannel = static_cast<int>(obj->getProperty("midiChannel"));
+    action.velocity = static_cast<float>(obj->getProperty("velocity"));
     return action;
 }
 
@@ -60,16 +71,24 @@ constexpr auto kMaxPresetFileSizeBytes = 1024 * 1024; // 1 MB (SEC-003)
     return obj.get();
 }
 
-[[nodiscard]] devpiano::core::KeyBinding varToKeyBinding(const juce::var& v) {
-    devpiano::core::KeyBinding binding;
-    if (v.isObject()) {
-        auto* obj = v.getDynamicObject();
-        if (obj != nullptr) {
-            binding.keyCode = static_cast<int>(obj->getProperty("keyCode"));
-            binding.displayText = obj->getProperty("displayText").toString();
-            binding.action = varToKeyAction(obj->getProperty("action"));
-        }
+[[nodiscard]] std::optional<devpiano::core::KeyBinding> varToKeyBinding(const juce::var& v) {
+    if (!v.isObject()) {
+        return std::nullopt;
     }
+    auto* obj = v.getDynamicObject();
+    if (obj == nullptr) {
+        return std::nullopt;
+    }
+
+    auto actionOpt = varToKeyAction(obj->getProperty("action"));
+    if (!actionOpt.has_value()) {
+        return std::nullopt;
+    }
+
+    devpiano::core::KeyBinding binding;
+    binding.keyCode = static_cast<int>(obj->getProperty("keyCode"));
+    binding.displayText = obj->getProperty("displayText").toString();
+    binding.action = *actionOpt;
     return binding;
 }
 
@@ -272,7 +291,13 @@ std::optional<PerformancePreset> loadPreset(const juce::File& path) {
             if (bindingsVar.isArray()) {
                 preset.layout.bindings.clear();
                 for (const auto& bv : *bindingsVar.getArray()) {
-                    preset.layout.bindings.push_back(varToKeyBinding(bv));
+                    auto bindingOpt = varToKeyBinding(bv);
+                    if (!bindingOpt.has_value()) {
+                        DP_LOG_ERROR("[Preset] admission rejected for '" + path.getFullPathName()
+                                     + "': contains unsupported or invalid key binding");
+                        return std::nullopt;
+                    }
+                    preset.layout.bindings.push_back(*bindingOpt);
                 }
             }
 
@@ -546,6 +571,13 @@ bool writePresetData(const PerformancePreset& preset, const juce::File& path) {
 bool savePreset(const PerformancePreset& preset, const juce::File& path) {
     if (path == juce::File()) {
         return false;
+    }
+    for (const auto& binding : preset.layout.bindings) {
+        if (binding.action.trigger != devpiano::core::KeyTrigger::keyDown) {
+            DP_LOG_ERROR(
+                "[Preset] save rejected: preset contains unsupported key binding trigger; only 'keyDown' is supported");
+            return false;
+        }
     }
     auto targetFile = path;
     if (!targetFile.hasFileExtension(kPresetFileExtension)) {

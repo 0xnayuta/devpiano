@@ -47,7 +47,6 @@ bool exportTakeAsMidiFile(const devpiano::recording::RecordingTake& take, const 
         message.setTimeStamp(convertSamplesToTicks(event.timestampSamples, take.sampleRate, ppq));
         sequence.addEvent(message);
     }
-    sequence.updateMatchedPairs();
     auto previousTick = 0.0;
     for (int index = 0; index < sequence.getNumEvents(); ++index) {
         const auto tick = std::round(sequence.getEventPointer(index)->message.getTimeStamp());

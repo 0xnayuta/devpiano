@@ -65,6 +65,14 @@ void RecordingSessionController::handleRecordClicked() {
     if (barCount > 0 && recordingSession.state == ui::RecordingState::idle) {
         const auto beatsPerBar = devpiano::core::getTimeSignatureNumerator(audioEngine.getMetronomeTimeSignature());
         countInRemainingBeats = barCount * beatsPerBar;
+
+        const auto capacity = defaultRecordingEventsPerSecond * defaultRecordingCapacitySeconds;
+        owner.runPluginActionWithAudioDeviceRebuild([this, capacity](const MainComponent::RuntimeAudioConfig& config) {
+            recordingEngine.reserveEvents(capacity);
+            recordingEngine.armRecording(config.sampleRate);
+        });
+
+        audioEngine.getMetronomeProcessor().armCountIn(countInRemainingBeats);
         audioEngine.setMetronomeEnabled(true);
         owner.updateMetronomeUi();
         lastCountInSequence = audioEngine.getMetronomeBeatSequence();
@@ -129,11 +137,13 @@ void RecordingSessionController::handlePlayClicked() {
         break;
     }
     case RecordingFlowCommand::pauseRecording:
-        recordingEngine.pauseRecording();
+        owner.runPluginActionWithAudioDeviceRebuild(
+            [this](const MainComponent::RuntimeAudioConfig&) { recordingEngine.pauseRecording(); });
         recordingSession.state = ui::RecordingState::recordingPaused;
         break;
     case RecordingFlowCommand::resumeRecording:
-        recordingEngine.resumeRecording();
+        owner.runPluginActionWithAudioDeviceRebuild(
+            [this](const MainComponent::RuntimeAudioConfig&) { recordingEngine.resumeRecording(); });
         recordingSession.state = ui::RecordingState::recording;
         break;
     // 其余命令在此函数中无副作用（none 已提前返回；startRecording /
@@ -502,7 +512,7 @@ void RecordingSessionController::checkPlaybackEnded() {
     DP_LOG_INFO("[RecordingEngine] playback ENDED at pos=" + juce::String(recordingEngine.getPlaybackPositionSamples())
                 + " (speed=" + juce::String(recordingEngine.getPlaybackSpeedMultiplier()) + "x)");
 
-    stopInternalPlayback();
+    pausedPlaybackCursor.reset();
 
     recordingSession.state = ui::RecordingState::idle;
     syncRecordingSessionToUi();
@@ -774,14 +784,37 @@ void RecordingSessionController::handleSongInfoClicked() {
     });
 }
 
+bool RecordingSessionController::syncAudioRecordingStartIfNeeded() {
+    if (recordingEngine.getState() == RecordingState::recording && recordingSession.state == ui::RecordingState::idle) {
+        countInRemainingBeats = 0;
+        lastCountInSequence = 0;
+        audioEngine.getMetronomeProcessor().cancelCountIn();
+        idleSeekPositionSamples.reset();
+        pausedPlaybackCursor.reset();
+        recordingSession.detachForNewRecording();
+        recordingSession.state = ui::RecordingState::recording;
+        syncRecordingSessionToUi();
+        owner.showStatusMessage(TRANS("Recording Started"), 1000);
+        owner.restoreKeyboardFocus();
+        return true;
+    }
+    return false;
+}
+
 void RecordingSessionController::checkCountIn() {
-    if (countInRemainingBeats <= 0) {
+    if (syncAudioRecordingStartIfNeeded()) {
+        return;
+    }
+
+    if (countInRemainingBeats <= 0 && recordingEngine.getState() != RecordingState::countingIn) {
         return;
     }
 
     const auto engineState = recordingEngine.getState();
-    const bool engineCanStartCountIn = engineState == RecordingState::idle || engineState == RecordingState::stopped;
-    if (!shouldContinueCountIn(toRecordingFlowState(recordingSession.state), engineCanStartCountIn,
+    const bool engineCanContinueCountIn
+        = (engineState == RecordingState::countingIn || engineState == RecordingState::idle
+           || engineState == RecordingState::stopped);
+    if (!shouldContinueCountIn(toRecordingFlowState(recordingSession.state), engineCanContinueCountIn,
                                audioEngine.isMetronomeEnabled())) {
         cancelCountIn(true);
         return;
@@ -790,33 +823,55 @@ void RecordingSessionController::checkCountIn() {
     const auto currentSeq = audioEngine.getMetronomeBeatSequence();
     if (currentSeq != lastCountInSequence) {
         lastCountInSequence = currentSeq;
-        countInRemainingBeats--;
-        if (countInRemainingBeats > 0) {
+        const auto remaining = audioEngine.getMetronomeProcessor().getCountInRemainingBeats();
+        if (remaining > 0) {
+            countInRemainingBeats = remaining;
             owner.showStatusMessage(TRANS("Count-in:") + " " + juce::String(countInRemainingBeats), 1000);
-        } else {
-            idleSeekPositionSamples.reset();
-            pausedPlaybackCursor.reset();
-            recordingSession.detachForNewRecording();
-            startInternalRecording(0);
-            recordingSession.state = ui::RecordingState::recording;
-            syncRecordingSessionToUi();
-            owner.showStatusMessage(TRANS("Recording Started"), 1000);
-            owner.restoreKeyboardFocus();
         }
     }
 }
 
 bool RecordingSessionController::cancelCountIn(bool notifyUser) {
-    if (countInRemainingBeats <= 0) {
+    if (syncAudioRecordingStartIfNeeded()) {
         return false;
     }
 
-    countInRemainingBeats = 0;
-    lastCountInSequence = 0;
-    if (notifyUser) {
-        owner.showStatusMessage(TRANS("Count-in Cancelled"), 800);
+    const bool wasArmedOrCountingIn = countInRemainingBeats > 0
+        || (audioEngine.getMetronomeProcessor().getCountInRemainingBeats() > 0)
+        || (recordingEngine.getState() == RecordingState::countingIn);
+
+    if (!wasArmedOrCountingIn) {
+        return false;
     }
-    return true;
+
+    bool audioWon = false;
+    bool disarmed = false;
+
+    owner.runPluginActionWithAudioDeviceRebuild([this, &audioWon, &disarmed](const MainComponent::RuntimeAudioConfig&) {
+        if (recordingEngine.getState() == RecordingState::recording) {
+            audioWon = true;
+        } else {
+            recordingEngine.cancelArmedRecording();
+            audioEngine.getMetronomeProcessor().cancelCountIn();
+            disarmed = true;
+        }
+    });
+
+    if (audioWon) {
+        syncAudioRecordingStartIfNeeded();
+        return false;
+    }
+
+    if (disarmed) {
+        countInRemainingBeats = 0;
+        lastCountInSequence = 0;
+        if (notifyUser) {
+            owner.showStatusMessage(TRANS("Count-in Cancelled"), 800);
+        }
+        return true;
+    }
+
+    return false;
 }
 
 } // namespace devpiano::recording

@@ -59,6 +59,10 @@ void AudioEngine::prepareToPlay(int samplesPerBlockExpected, double sampleRate) 
     currentBlockSize.store(samplesPerBlockExpected, std::memory_order_relaxed);
     if (recordingEngine != nullptr) {
         recordingEngine->setPlaybackBlockSize(samplesPerBlockExpected);
+        recordingEngine->prepareForAudioDevice(sampleRate);
+        const auto gen = recordingEngine->getPlaybackGeneration();
+        const auto noteCount = recordingEngine->getPlaybackNoteOnCount();
+        playbackIdentityTracker.prepare(gen, noteCount);
     }
     synth.setCurrentPlaybackSampleRate(sampleRate);
     midiCollector.reset(sampleRate);
@@ -87,7 +91,18 @@ void AudioEngine::prepareToPlay(int samplesPerBlockExpected, double sampleRate) 
         pluginHost->prepareToPlay(sampleRate, samplesPerBlockExpected);
     }
 
-    discardWarmupInputState();
+    const bool isCountIn
+        = (recordingEngine != nullptr && recordingEngine->getState() == devpiano::recording::RecordingState::countingIn)
+        || metronomeProcessor.isCountInArmed();
+    const bool isTransportActive
+        = (recordingEngine != nullptr
+           && (recordingEngine->isRecording()
+               || recordingEngine->getState() == devpiano::recording::RecordingState::recordingPaused
+               || recordingEngine->needsPlaybackRender()))
+        || isCountIn;
+    if (!isTransportActive) {
+        discardWarmupInputState();
+    }
     warmupBlocksRemaining.store(calculateWarmupBlockCount(sampleRate, samplesPerBlockExpected),
                                 std::memory_order_release);
 }
@@ -98,9 +113,23 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
         return;
     }
     bufferToFill.buffer->clear(bufferToFill.startSample, bufferToFill.numSamples);
+    const bool isCountIn
+        = (recordingEngine != nullptr && recordingEngine->getState() == devpiano::recording::RecordingState::countingIn)
+        || metronomeProcessor.isCountInArmed();
+    const bool isRecordingActive
+        = (recordingEngine != nullptr
+           && (recordingEngine->isRecording()
+               || recordingEngine->getState() == devpiano::recording::RecordingState::recordingPaused));
+    const bool isPlaybackActive = (recordingEngine != nullptr && recordingEngine->needsPlaybackRender());
+    const bool isTransportActive = isCountIn || isRecordingActive || isPlaybackActive;
 
-    if (consumeWarmupBlockIfNeeded()) {
-        return;
+    const bool isWarmup = (warmupBlocksRemaining.load(std::memory_order_acquire) > 0);
+    if (isWarmup) {
+        warmupBlocksRemaining.fetch_sub(1, std::memory_order_acq_rel);
+        if (!isTransportActive) {
+            discardWarmupInputState();
+            return;
+        }
     }
 
     midiBuffer.clear();
@@ -108,6 +137,7 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
         ? recordingEngine->applyPendingTransportCommands(midiBuffer)
         : devpiano::recording::RecordingEngine::TransportCommandResult {};
     if (transportCommands.seekApplied || transportCommands.stopApplied) {
+        playbackIdentityTracker.resetOwnership();
         syncPedalProcessor.reset();
         for (auto channel = 1; channel <= 16; ++channel) {
             keyboardState.allNotesOff(channel);
@@ -120,26 +150,22 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
     syncPedalProcessor.processMidiBlock(midiBuffer, syncPedalTempBuffer);
     injectPendingAllNotesOffIfNeeded();
     recordRealtimeMidiBufferIfNeeded(bufferToFill.numSamples);
-    if (!consumePlaybackStartPreRollBlockIfNeeded()) {
+    const auto preRollPending = playbackStartPreRollBlocksRemaining.load(std::memory_order_acquire) > 0;
+    if (!(isWarmup && preRollPending) && !consumePlaybackStartPreRollBlockIfNeeded()) {
         renderPlaybackEventsIfNeeded(recordingEngine != nullptr ? recordingEngine->getPlaybackPositionSamples() : 0,
                                      bufferToFill.numSamples);
     }
     applyPendingParametersIfNeeded();
     auto renderedByPlugin = false;
-
     const auto endpoint = devpiano::audio::resolveInstrumentEndpoint(pluginHost);
     if (endpoint.isHostedPluginReady()) {
         auto* instance = endpoint.hostedInstance;
         const auto requiredChannels = juce::jmax(1, endpoint.getChannelCount());
-        // Buffer is pre-allocated in prepareToPlay and should never need resizing here.
-        // If this triggers, the audio device changed its block size without calling prepareToPlay
-        // — which is a framework contract violation. Resize as a safety net in release builds.
         jassert(pluginBuffer.getNumChannels() >= requiredChannels);
         jassert(pluginBuffer.getNumSamples() >= bufferToFill.numSamples);
         if (pluginBuffer.getNumChannels() < requiredChannels
             || pluginBuffer.getNumSamples() < bufferToFill.numSamples) {
             pluginBuffer.setSize(requiredChannels, bufferToFill.numSamples, false, false, true);
-            // 实时回调内只计数，日志由消息线程 consume 后输出（ERR-002）。
             pluginBufferResizeCount.fetch_add(1, std::memory_order_relaxed);
         }
 
@@ -159,14 +185,16 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
     if (!renderedByPlugin) {
         synth.renderNextBlock(*bufferToFill.buffer, midiBuffer, bufferToFill.startSample, bufferToFill.numSamples);
     }
-    // 物理房间混响算法网络 (Phase 31-B, RoomReverbEngine: Studio / Chamber / Concert Hall)
     if (bufferToFill.buffer->getNumChannels() >= 2) {
         roomReverb.processStereo(bufferToFill.buffer->getWritePointer(0, bufferToFill.startSample),
                                  bufferToFill.buffer->getWritePointer(1, bufferToFill.startSample),
                                  bufferToFill.numSamples);
     }
-    metronomeProcessor.processAndMix(bufferToFill.buffer, bufferToFill.startSample, bufferToFill.numSamples);
+    if (isWarmup) {
+        bufferToFill.buffer->clear(bufferToFill.startSample, bufferToFill.numSamples);
+    }
 
+    metronomeProcessor.processAndMix(bufferToFill.buffer, bufferToFill.startSample, bufferToFill.numSamples);
     bufferToFill.buffer->applyGain(bufferToFill.startSample, bufferToFill.numSamples,
                                    masterGain.load(std::memory_order_relaxed));
 
@@ -178,9 +206,14 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
 void AudioEngine::releaseResources() {
     warmupBlocksRemaining.store(0, std::memory_order_release);
     playbackStartPreRollBlocksRemaining.store(0, std::memory_order_release);
-    discardWarmupInputState();
+    const bool isCountIn
+        = (recordingEngine != nullptr && recordingEngine->getState() == devpiano::recording::RecordingState::countingIn)
+        || metronomeProcessor.isCountInArmed();
+    if (!isCountIn) {
+        discardWarmupInputState();
+        metronomeProcessor.reset();
+    }
     synth.allNotesOff(0, false);
-    metronomeProcessor.reset();
 
     roomReverb.reset();
     if (pluginHost != nullptr) {
@@ -389,16 +422,6 @@ void AudioEngine::discardWarmupInputState() {
     roomReverb.reset();
 }
 
-bool AudioEngine::consumeWarmupBlockIfNeeded() {
-    if (warmupBlocksRemaining.load(std::memory_order_acquire) <= 0) {
-        return false;
-    }
-
-    warmupBlocksRemaining.fetch_sub(1, std::memory_order_acq_rel);
-    discardWarmupInputState();
-    return true;
-}
-
 bool AudioEngine::consumePlaybackStartPreRollBlockIfNeeded() {
     if (recordingEngine == nullptr || !recordingEngine->isPlaying()) {
         playbackStartPreRollBlocksRemaining.store(0, std::memory_order_release);
@@ -422,73 +445,108 @@ void AudioEngine::injectPendingAllNotesOffIfNeeded() {
         return;
     }
 
+    playbackIdentityTracker.resetOwnership();
     syncPedalProcessor.reset();
     for (auto channel = 1; channel <= 16; ++channel) {
         keyboardState.allNotesOff(channel);
         midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 64, 0), 0); // sustain pedal off
+        midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 67, 0), 0); // soft pedal off
         midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 120, 0), 0); // all sound off
         midiBuffer.addEvent(juce::MidiMessage::allNotesOff(channel), 0);
     }
-
     synth.allNotesOff(0, false);
     roomReverb.reset();
 }
 
 void AudioEngine::recordRealtimeMidiBufferIfNeeded(int numSamples) {
-    if (recordingEngine == nullptr || !recordingEngine->isRecording()) {
+    if (recordingEngine == nullptr) {
+        return;
+    }
+
+    int firstSample = 0;
+    const auto state = recordingEngine->getState();
+    if (state == devpiano::recording::RecordingState::countingIn) {
+        const auto offset = metronomeProcessor.consumeCountInStartOffset(numSamples);
+        if (offset < 0) {
+            return;
+        }
+        recordingEngine->startArmedRecording();
+        firstSample = offset;
+    } else if (state != devpiano::recording::RecordingState::recording) {
         return;
     }
 
     const auto blockStartSamples = recordingEngine->getCurrentPositionSamples();
     recordingEngine->recordMidiBufferBlock(midiBuffer, devpiano::recording::RecordingEventSource::realtimeMidiBuffer,
-                                           blockStartSamples);
-    recordingEngine->advanceRecordingPosition(numSamples);
+                                           blockStartSamples, firstSample);
+    const auto samplesToAdvance = numSamples - firstSample;
+    if (samplesToAdvance > 0) {
+        recordingEngine->advanceRecordingPosition(samplesToAdvance);
+    }
 }
 
 void AudioEngine::renderPlaybackEventsIfNeeded(std::int64_t blockStartSamples, int numSamples) {
-    if (recordingEngine == nullptr || !recordingEngine->isPlaying()) {
+    if (recordingEngine == nullptr || !recordingEngine->needsPlaybackRender()) {
         return;
+    }
+    const auto currentGen = recordingEngine->getPlaybackGeneration();
+    if (currentGen != playbackIdentityTracker.currentGeneration) {
+        playbackIdentityTracker.currentGeneration = currentGen;
+        playbackIdentityTracker.resetOwnership();
     }
 
     playbackVisualMidiBuffer.clear();
     recordingEngine->renderPlaybackBlock(playbackVisualMidiBuffer, blockStartSamples, numSamples);
+    if (playbackVisualMidiBuffer.isEmpty()) {
+        recordingEngine->advancePlaybackPosition(numSamples);
+        return;
+    }
 
-    // Apply real-time playback transposition if enabled (per 16-channel followKey mask)
+    playbackTransposedMidiBuffer.clear();
     const auto transposeEnabled = playbackTransposeEnabled.load(std::memory_order_acquire);
     const auto transposeOffset = playbackTransposeOffset.load(std::memory_order_acquire);
     const auto followMask = playbackChannelFollowKeyMask.load(std::memory_order_acquire);
 
-    if (transposeEnabled && transposeOffset != 0 && !playbackVisualMidiBuffer.isEmpty()) {
-        playbackTransposedMidiBuffer.clear();
-        for (const auto metadata : playbackVisualMidiBuffer) {
-            auto msg = metadata.getMessage();
-            const auto chIdx = juce::jlimit(0, 15, msg.getChannel() - 1);
-            const bool channelFollows = (followMask & (1U << chIdx)) != 0;
+    for (const auto metadata : playbackVisualMidiBuffer) {
+        const auto msg = metadata.getMessage();
+        const auto samplePos = metadata.samplePosition;
+        const auto ch = msg.getChannel();
+        const auto chIdx = juce::jlimit(0, 15, ch - 1);
+        const bool channelFollows = (followMask & (1U << chIdx)) != 0;
 
-            if (msg.isNoteOnOrOff() && channelFollows) {
-                const auto originalNote = msg.getNoteNumber();
-                const auto transposedNote = juce::jlimit(0, 127, originalNote + transposeOffset);
-                if (msg.isNoteOn()) {
-                    playbackTransposedMidiBuffer.addEvent(
-                        juce::MidiMessage::noteOn(msg.getChannel(), transposedNote, msg.getFloatVelocity()),
-                        metadata.samplePosition);
-                } else {
-                    playbackTransposedMidiBuffer.addEvent(
-                        juce::MidiMessage::noteOff(msg.getChannel(), transposedNote, msg.getFloatVelocity()),
-                        metadata.samplePosition);
-                }
-            } else {
-                playbackTransposedMidiBuffer.addEvent(msg, metadata.samplePosition);
+        if (msg.isNoteOn()) {
+            const auto sourceNote = msg.getNoteNumber();
+            const auto candidatePitch = (transposeEnabled && channelFollows)
+                ? juce::jlimit(0, 127, sourceNote + transposeOffset)
+                : sourceNote;
+            const auto finalOutputPitch = playbackIdentityTracker.noteOn(ch, sourceNote, candidatePitch);
+            if (finalOutputPitch.has_value()) {
+                playbackTransposedMidiBuffer.addEvent(
+                    juce::MidiMessage::noteOn(ch, static_cast<int>(*finalOutputPitch), msg.getFloatVelocity()),
+                    samplePos);
             }
+        } else if (msg.isNoteOff()) {
+            const auto sourceNote = msg.getNoteNumber();
+            const auto result = playbackIdentityTracker.noteOff(ch, sourceNote);
+            if (result.matched && result.shouldEmit) {
+                playbackTransposedMidiBuffer.addEvent(
+                    juce::MidiMessage::noteOff(ch, static_cast<int>(result.outputPitch), msg.getFloatVelocity()),
+                    samplePos);
+            }
+        } else {
+            if (msg.isController()) {
+                const auto ctrl = msg.getControllerNumber();
+                if (ctrl == 120 || ctrl == 123) {
+                    playbackIdentityTracker.resetChannel(ch);
+                }
+            } else if (msg.isAllNotesOff() || msg.isAllSoundOff()) {
+                playbackIdentityTracker.resetChannel(ch);
+            }
+            playbackTransposedMidiBuffer.addEvent(msg, samplePos);
         }
-        playbackVisualMidiBuffer.swapWith(playbackTransposedMidiBuffer);
     }
 
-    // Playback events are generated inside the audio callback after the keyboard
-    // state has already processed realtime input for this block. Feed only the
-    // playback events into MidiKeyboardState for virtual-keyboard visualisation,
-    // without injecting any additional keyboard-generated MIDI events back into
-    // the stream. UI listeners must remain passive; this path only updates state.
+    playbackVisualMidiBuffer.swapWith(playbackTransposedMidiBuffer);
     keyboardState.processNextMidiBuffer(playbackVisualMidiBuffer, 0, numSamples, false);
     midiBuffer.addEvents(playbackVisualMidiBuffer, 0, numSamples, 0);
     recordingEngine->advancePlaybackPosition(numSamples);

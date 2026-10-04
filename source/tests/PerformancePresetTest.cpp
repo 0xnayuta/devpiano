@@ -185,6 +185,57 @@ public:
                 expectEquals(loaded->previewAlpha, 0.0f, "previewAlpha must be clamped to 0.0");
             }
         });
+
+        testCase("loadPreset rejects keyUp trigger and unknown trigger values (ERR-003)", [&] {
+            devpiano::test::ScopedTempDir tempDir("trigger-preset");
+
+            // 1. Preset with keyUp trigger must be rejected, preserving file intact
+            auto pathKeyUp = tempDir.getChildFile("keyup.devpiano.preset");
+            pathKeyUp.replaceWithText(
+                R"({ "version": 1, "name": "KeyUpTest", "layout": { "bindings": [ { "keyCode": 65, "displayText": "A", "action": { "type": "note", "trigger": "keyUp", "midiNote": 60, "midiChannel": 1, "velocity": 1.0 } } ] } })");
+            expect(!loadPreset(pathKeyUp).has_value(), "Preset with keyUp trigger must be rejected");
+            expect(pathKeyUp.existsAsFile(), "Rejected file must be preserved intact on disk");
+            expect(pathKeyUp.loadFileAsString().contains("keyUp"), "File content must not be rewritten");
+
+            // 2. Preset with unknown trigger value must be rejected
+            auto pathUnknown = tempDir.getChildFile("unknown.devpiano.preset");
+            pathUnknown.replaceWithText(
+                R"({ "version": 1, "name": "UnknownTest", "layout": { "bindings": [ { "keyCode": 65, "displayText": "A", "action": { "type": "note", "trigger": "onPress", "midiNote": 60, "midiChannel": 1, "velocity": 1.0 } } ] } })");
+            expect(!loadPreset(pathUnknown).has_value(), "Preset with unknown trigger must be rejected");
+            expect(pathUnknown.existsAsFile(), "Rejected file must be preserved intact on disk");
+
+            // 3. Preset omitting optional trigger field must default to supported keyDown
+            auto pathMissing = tempDir.getChildFile("missing.devpiano.preset");
+            pathMissing.replaceWithText(
+                R"({ "version": 1, "name": "MissingTest", "layout": { "bindings": [ { "keyCode": 65, "displayText": "A", "action": { "type": "note", "midiNote": 60, "midiChannel": 1, "velocity": 1.0 } } ] } })");
+            auto loadedMissing = loadPreset(pathMissing);
+            expect(loadedMissing.has_value(),
+                   "Legacy preset omitting optional trigger field must be admitted with default keyDown");
+            if (loadedMissing.has_value()) {
+                expect(loadedMissing->layout.bindings[0].action.trigger == devpiano::core::KeyTrigger::keyDown);
+            }
+            // 4. Valid preset with keyDown trigger must load and execute successfully
+            auto pathValid = tempDir.getChildFile("valid.devpiano.preset");
+            pathValid.replaceWithText(
+                R"({ "version": 1, "name": "ValidTest", "layout": { "bindings": [ { "keyCode": 65, "displayText": "A", "action": { "type": "note", "trigger": "keyDown", "midiNote": 60, "midiChannel": 1, "velocity": 1.0 } } ] } })");
+            auto loaded = loadPreset(pathValid);
+            expect(loaded.has_value(), "Valid preset with keyDown trigger must be loaded");
+            if (loaded.has_value()) {
+                expectEquals(loaded->layout.bindings.size(), static_cast<std::size_t>(1));
+                expect(loaded->layout.bindings[0].action.trigger == devpiano::core::KeyTrigger::keyDown);
+
+                // 5. Roundtrip saving preserves supported preset format
+                auto pathSaved = tempDir.getChildFile("saved.devpiano.preset");
+                expect(savePreset(*loaded, pathSaved), "Saving valid preset must succeed");
+                auto reloaded = loadPreset(pathSaved);
+                expect(reloaded.has_value(), "Reloading saved preset must succeed");
+                if (reloaded.has_value()) {
+                    expect(reloaded->layout.bindings[0].action.trigger == devpiano::core::KeyTrigger::keyDown);
+                }
+                const auto rawSaved = pathSaved.loadFileAsString();
+                expect(rawSaved.contains(R"("trigger": "keyDown")"), "Saved JSON must serialize keyDown trigger");
+            }
+        });
         testCase("display name strips the preset extension", [&] {
             expectEquals(getPresetDisplayNameForFile(juce::File("/tmp/My Song.devpiano.preset")),
                          juce::String("My Song"));

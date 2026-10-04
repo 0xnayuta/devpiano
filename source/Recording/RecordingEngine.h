@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_core/juce_core.h>
+#include <limits>
 #include <vector>
 
 #include "Recording/AbLoopEngine.h"
@@ -12,7 +13,15 @@
 namespace devpiano::recording {
 enum class RecordingEventSource : std::uint8_t { computerKeyboard, realtimeMidiBuffer, playback };
 
-enum class RecordingState : std::uint8_t { idle, recording, recordingPaused, playing, playingPaused, stopped };
+enum class RecordingState : std::uint8_t {
+    idle,
+    recording,
+    recordingPaused,
+    playing,
+    playingPaused,
+    stopped,
+    countingIn
+};
 
 enum class PerformanceEventType : uint8_t { midi = 0, presetChange = 1 };
 
@@ -62,6 +71,10 @@ public:
 
     void reserveEvents(std::size_t expectedEventCount);
     void startRecording(double sampleRate);
+    void armRecording(double sampleRate);
+    void startArmedRecording() noexcept;
+    void cancelArmedRecording() noexcept;
+    void prepareForAudioDevice(double sampleRate) noexcept;
     RecordingTake stopRecording();
     void clear();
     void advanceRecordingPosition(std::int64_t numSamples) noexcept;
@@ -72,7 +85,7 @@ public:
     // before MidiMessage materialisation when capacity is exhausted or the message is too large
     // for the first realtime-safe recording path.
     void recordMidiBufferBlock(const juce::MidiBuffer& midiBuffer, RecordingEventSource source,
-                               std::int64_t blockStartSamples);
+                               std::int64_t blockStartSamples, int firstSample = 0);
 
     // Records a preset-change event at the current recording position.
     // presetId is a 0-based index into the preset list.
@@ -91,6 +104,9 @@ public:
     [[nodiscard]] AbLoopRange getPlaybackLoopRange() const noexcept;
     [[nodiscard]] std::int64_t getPlaybackPositionInTakeSamples() const noexcept;
     [[nodiscard]] std::int64_t getPlaybackTakeLengthSamples() const noexcept;
+    [[nodiscard]] std::uint64_t getPlaybackGeneration() const noexcept;
+    [[nodiscard]] std::size_t getPlaybackNoteOnCount() const noexcept;
+    [[nodiscard]] bool needsPlaybackRender() const noexcept;
     // Pauses active playback at the current position (retained for resume).
     void pausePlayback();
     // Pauses / resumes an active recording. The recording timeline freezes while
@@ -116,6 +132,17 @@ public:
     [[nodiscard]] std::vector<PendingPresetChange> drainPendingPresetChanges();
 
 private:
+    struct PlaybackChannelState {
+        std::array<std::int16_t, 128> controllers;
+        int bankMsb = 0;
+        int bankLsb = 0;
+        int programBankMsb = 0;
+        int programBankLsb = 0;
+        int program = 0;
+        int pitch = 8192;
+        int pressure = 0;
+    };
+
     struct ScaledLoopRange {
         std::int64_t startSamples = 0;
         std::int64_t endSamples = 0;
@@ -133,6 +160,9 @@ private:
                                      std::int64_t rangeEndSamples, int segmentOffset, int numSamples,
                                      double combinedRatio);
     void addAllNotesOffMessages(juce::MidiBuffer& midiBuffer, int sampleOffset);
+    void restorePlaybackChannelState(juce::MidiBuffer& midiBuffer, int sampleOffset);
+    void closeCapturedPerformance();
+    void updateCapturedPerformance(const juce::MidiMessage& message) noexcept;
     [[nodiscard]] bool isCapacityExhausted(std::int64_t timestamp) noexcept;
 
     AbLoopEngine abLoopEngine;
@@ -154,6 +184,10 @@ private:
     std::atomic<RecordingState> state { RecordingState::idle };
     std::atomic<std::int64_t> currentPositionSamples { 0 };
     std::atomic<std::size_t> droppedEventCount { 0 };
+    double deviceSampleRate = 48000.0;
+    long double recordingSampleFraction = 0.0L;
+    std::array<std::array<std::size_t, 128>, 16> capturedNotes {};
+    std::array<std::array<int, 3>, 16> capturedPedals {};
 
     // Playback state
     RecordingTake playbackTake;
@@ -162,6 +196,14 @@ private:
     std::atomic<std::int64_t> playbackPositionSamples { 0 };
     std::atomic<int> playbackBlockSize { 1 };
     std::atomic_bool playbackEndedPending { false };
+    std::uint64_t playbackGeneration = 0;
+    std::size_t playbackNoteOnCount = 0;
+    long double playbackSampleFraction = 0.0L;
+    bool playbackCleanupPending = false;
+    bool playbackCleanupDelivered = false;
+    bool playbackStateRestorePending = false;
+    std::array<PlaybackChannelState, 16> restoredChannelState;
+    std::size_t restoredStateEventIndex = std::numeric_limits<std::size_t>::max();
 
     std::size_t playbackEventIndex { 0 };
     ScaledLoopRange lastRenderedLoopRange;

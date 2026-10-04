@@ -121,8 +121,7 @@ public:
 
 private:
     [[nodiscard]] int normaliseKeyCode(const juce::KeyPress& key) const;
-    bool triggerBinding(const devpiano::core::KeyBinding& binding, juce::MidiKeyboardState& keyboardState,
-                        bool isKeyDownEvent);
+    bool triggerBinding(const devpiano::core::KeyBinding& binding, juce::MidiKeyboardState& keyboardState);
     void sendNoteOff(int midiChannel, int midiNote, float velocity, juce::MidiKeyboardState& keyboardState);
     [[nodiscard]] bool isKeyCurrentlyDown(int keyCode) const;
     void updateSoftPedalState();

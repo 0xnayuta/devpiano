@@ -101,11 +101,53 @@ void RecordingEngine::startRecording(double sampleRate) {
     currentTake.sampleRate = std::max(sampleRate, 0.0);
     currentTake.lengthSamples = 0;
     currentPositionSamples.store(0, std::memory_order_relaxed);
+    deviceSampleRate = currentTake.sampleRate;
+    recordingSampleFraction = 0.0L;
+    capturedNotes = {};
+    capturedPedals = {};
     droppedEventCount.store(0, std::memory_order_relaxed);
     playbackEndedPending.store(false, std::memory_order_release);
     state.store(RecordingState::recording, std::memory_order_release);
 
     DP_DEBUG_LOG("[RecordingEngine] recording STARTED");
+}
+
+void RecordingEngine::armRecording(double sampleRate) {
+    startRecording(sampleRate);
+    state.store(RecordingState::countingIn, std::memory_order_release);
+}
+
+void RecordingEngine::startArmedRecording() noexcept {
+    auto expected = RecordingState::countingIn;
+    state.compare_exchange_strong(expected, RecordingState::recording, std::memory_order_acq_rel);
+}
+
+void RecordingEngine::cancelArmedRecording() noexcept {
+    auto expected = RecordingState::countingIn;
+    state.compare_exchange_strong(expected, RecordingState::idle, std::memory_order_acq_rel);
+}
+
+void RecordingEngine::prepareForAudioDevice(double sampleRate) noexcept {
+    if (!isUsableTimelineSampleRate(sampleRate)) {
+        return;
+    }
+    const auto currentState = getState();
+    if ((currentState == RecordingState::playing || currentState == RecordingState::playingPaused)
+        && playbackTake.sampleRate > 0.0) {
+        const auto oldRatio = playbackSampleRateRatio.load(std::memory_order_relaxed);
+        const auto newRatio = sampleRate / playbackTake.sampleRate;
+        const auto position = (static_cast<long double>(playbackPositionSamples.load(std::memory_order_relaxed))
+                               + playbackSampleFraction)
+            * newRatio / oldRatio;
+        const auto integralPosition = static_cast<std::int64_t>(std::floor(position));
+        playbackSampleFraction = position - static_cast<long double>(integralPosition);
+        playbackSampleRateRatio.store(newRatio, std::memory_order_relaxed);
+        scaledPlaybackLengthSamples.store(getScaledPlaybackLengthSamples(), std::memory_order_relaxed);
+        playbackPositionSamples.store(integralPosition, std::memory_order_relaxed);
+        lastRenderedLoopRange = getScaledLoopRange(newRatio / getEffectivePlaybackSpeedMultiplier());
+        hasRenderedPlaybackBlock = false;
+    }
+    deviceSampleRate = sampleRate;
 }
 
 RecordingTake RecordingEngine::stopRecording() {
@@ -127,6 +169,7 @@ RecordingTake RecordingEngine::stopRecording() {
                                          return a.timestampSamples < b.timestampSamples;
                                      });
         }
+        closeCapturedPerformance();
 
         currentTake.lengthSamples
             = std::max(currentTake.lengthSamples, currentPositionSamples.load(std::memory_order_relaxed));
@@ -162,6 +205,16 @@ void RecordingEngine::clear() {
     stopRequested.store(false, std::memory_order_relaxed);
     droppedEventCount.store(0, std::memory_order_relaxed);
     playbackEventIndex = 0;
+    ++playbackGeneration;
+    playbackNoteOnCount = 0;
+    playbackSampleFraction = 0.0L;
+    playbackCleanupPending = false;
+    playbackCleanupDelivered = false;
+    playbackStateRestorePending = false;
+    restoredStateEventIndex = std::numeric_limits<std::size_t>::max();
+    recordingSampleFraction = 0.0L;
+    capturedNotes = {};
+    capturedPedals = {};
     hasRenderedPlaybackBlock = false;
     lastRenderedLoopRange = {};
     loopWrapPending = false;
@@ -175,7 +228,11 @@ void RecordingEngine::advanceRecordingPosition(std::int64_t numSamples) noexcept
         return;
     }
 
-    currentPositionSamples.fetch_add(numSamples, std::memory_order_relaxed);
+    const auto samples
+        = recordingSampleFraction + static_cast<long double>(numSamples) * currentTake.sampleRate / deviceSampleRate;
+    const auto integralSamples = static_cast<std::int64_t>(std::floor(samples + 1.0e-9L));
+    recordingSampleFraction = samples - static_cast<long double>(integralSamples);
+    currentPositionSamples.fetch_add(integralSamples, std::memory_order_relaxed);
     currentTake.lengthSamples
         = std::max(currentTake.lengthSamples, currentPositionSamples.load(std::memory_order_relaxed));
 }
@@ -186,19 +243,28 @@ void RecordingEngine::recordEvent(const juce::MidiMessage& message, RecordingEve
         return;
     }
 
-    const auto clampedTimestamp = std::max<std::int64_t>(timestampSamples, 0);
-    if (isCapacityExhausted(clampedTimestamp)) {
-        // 丢弃只计入 droppedEventCount（原子）；stopRecording() 在消息线程
-        // 统一输出 dropped 数（ERR-003），实时线程不做任何日志/IO。
+    if (message.isNoteOff()
+        && capturedNotes[static_cast<std::size_t>(message.getChannel() - 1)]
+                        [static_cast<std::size_t>(message.getNoteNumber())]
+            == 0) {
         return;
     }
-
-    currentTake.events.push_back({ clampedTimestamp, PerformanceEventType::midi, 0, source, message });
+    const auto clampedTimestamp = std::max<std::int64_t>(timestampSamples, 0);
+    const auto releases = message.isNoteOff() ? capturedNotes[static_cast<std::size_t>(message.getChannel() - 1)]
+                                                             [static_cast<std::size_t>(message.getNoteNumber())]
+                                              : std::size_t { 1 };
+    for (auto remaining = releases; remaining > 0; --remaining) {
+        if (isCapacityExhausted(clampedTimestamp)) {
+            return;
+        }
+        currentTake.events.push_back({ clampedTimestamp, PerformanceEventType::midi, 0, source, message });
+        updateCapturedPerformance(message);
+    }
     currentTake.lengthSamples = std::max(currentTake.lengthSamples, clampedTimestamp);
 }
 
 void RecordingEngine::recordMidiBufferBlock(const juce::MidiBuffer& midiBuffer, RecordingEventSource source,
-                                            std::int64_t blockStartSamples) {
+                                            std::int64_t blockStartSamples, int firstSample) {
     if (!isRecording()) {
         return;
     }
@@ -206,7 +272,13 @@ void RecordingEngine::recordMidiBufferBlock(const juce::MidiBuffer& midiBuffer, 
     const auto clampedBlockStart = std::max<std::int64_t>(blockStartSamples, 0);
 
     for (const auto metadata : midiBuffer) {
-        const auto timestamp = clampedBlockStart + std::max(metadata.samplePosition, 0);
+        if (metadata.samplePosition < firstSample) {
+            continue;
+        }
+        const auto offset = recordingSampleFraction
+            + static_cast<long double>(metadata.samplePosition - firstSample) * currentTake.sampleRate
+                / deviceSampleRate;
+        const auto timestamp = clampedBlockStart + static_cast<std::int64_t>(std::floor(offset + 1.0e-9L));
         if (currentTake.events.size() >= currentTake.events.capacity()
             || metadata.numBytes > maxRealtimeMidiMessageBytes) {
             droppedEventCount.fetch_add(1, std::memory_order_relaxed);
@@ -218,6 +290,70 @@ void RecordingEngine::recordMidiBufferBlock(const juce::MidiBuffer& midiBuffer, 
         message.setTimeStamp(0.0);
         recordEvent(message, source, timestamp);
     }
+}
+
+void RecordingEngine::updateCapturedPerformance(const juce::MidiMessage& message) noexcept {
+    const auto channel = message.getChannel() - 1;
+    if (channel < 0 || channel >= 16) {
+        return;
+    }
+    auto& notes = capturedNotes[static_cast<std::size_t>(channel)];
+    auto& pedals = capturedPedals[static_cast<std::size_t>(channel)];
+    if (message.isNoteOn()) {
+        ++notes[static_cast<std::size_t>(message.getNoteNumber())];
+    } else if (message.isNoteOff()) {
+        auto& count = notes[static_cast<std::size_t>(message.getNoteNumber())];
+        if (count > 0) {
+            --count;
+        }
+    } else if (message.isController()) {
+        const auto controller = message.getControllerNumber();
+        if (controller == 64 || controller == 66 || controller == 67) {
+            const auto index = controller == 64 ? 0 : controller - 65;
+            pedals[static_cast<std::size_t>(index)] = message.getControllerValue();
+        } else if (controller == 120 || controller == 123) {
+            notes.fill(0);
+        } else if (controller == 121) {
+            pedals.fill(0);
+        }
+    }
+}
+
+void RecordingEngine::closeCapturedPerformance() {
+    auto boundary = std::max(currentTake.lengthSamples, getCurrentPositionSamples());
+    if (!currentTake.events.empty()) {
+        boundary = std::max(boundary, currentTake.events.back().timestampSamples);
+    }
+    auto required = currentTake.events.size();
+    for (std::size_t channel = 0; channel < capturedNotes.size(); ++channel) {
+        for (const auto count : capturedNotes[channel]) {
+            required += count;
+        }
+        for (const auto value : capturedPedals[channel]) {
+            required += value != 0 ? 1U : 0U;
+        }
+    }
+    currentTake.events.reserve(required);
+    for (std::size_t channel = 0; channel < capturedNotes.size(); ++channel) {
+        for (std::size_t note = 0; note < capturedNotes[channel].size(); ++note) {
+            for (auto count = capturedNotes[channel][note]; count > 0; --count) {
+                currentTake.events.push_back(
+                    { boundary, PerformanceEventType::midi, 0, RecordingEventSource::realtimeMidiBuffer,
+                      juce::MidiMessage::noteOff(static_cast<int>(channel) + 1, static_cast<int>(note)) });
+            }
+        }
+        for (std::size_t pedal = 0; pedal < capturedPedals[channel].size(); ++pedal) {
+            if (capturedPedals[channel][pedal] != 0) {
+                const auto controller = pedal == 0 ? 64 : static_cast<int>(pedal) + 65;
+                currentTake.events.push_back(
+                    { boundary, PerformanceEventType::midi, 0, RecordingEventSource::realtimeMidiBuffer,
+                      juce::MidiMessage::controllerEvent(static_cast<int>(channel) + 1, controller, 0) });
+            }
+        }
+    }
+    capturedNotes = {};
+    capturedPedals = {};
+    currentTake.lengthSamples = boundary;
 }
 
 // ---- Preset-change recording ----
@@ -251,6 +387,15 @@ void RecordingEngine::startPlayback(const RecordingTake& take, double currentSam
         return;
     }
     playbackTake = take;
+    ++playbackGeneration;
+    playbackNoteOnCount = static_cast<std::size_t>(std::ranges::count_if(take.events, [](const auto& event) {
+        return event.type == PerformanceEventType::midi && event.message.isNoteOn();
+    }));
+    deviceSampleRate = currentSampleRate;
+    playbackSampleFraction = 0.0L;
+    playbackCleanupPending = false;
+    playbackCleanupDelivered = false;
+    restoredStateEventIndex = std::numeric_limits<std::size_t>::max();
     const auto activeSpeed = targetSpeedMultiplier.load(std::memory_order_relaxed);
     effectiveSpeedMultiplier.store(activeSpeed, std::memory_order_relaxed);
 
@@ -268,6 +413,7 @@ void RecordingEngine::startPlayback(const RecordingTake& take, double currentSam
     lastRenderedLoopRange = loopRange;
     loopWrapPending = false;
     resetPlaybackEventCursor(initialResume, combinedRatio);
+    playbackStateRestorePending = initialResume > 0;
 
     const auto seekVersion = seekSequence.load(std::memory_order_acquire);
     appliedSeekSequence.store(seekVersion, std::memory_order_release);
@@ -308,7 +454,7 @@ void RecordingEngine::startPlaybackAtTakeSample(const RecordingTake& take, doubl
     const auto sampleRateRatio = currentSampleRate / take.sampleRate;
     const auto activeSpeed = targetSpeedMultiplier.load(std::memory_order_relaxed);
     const auto combinedRatio = sampleRateRatio / activeSpeed;
-    const auto scaledPosition = static_cast<std::int64_t>(static_cast<double>(takeSample) * combinedRatio);
+    const auto scaledPosition = *checkedScaleSamples(takeSample, combinedRatio);
     startPlayback(take, currentSampleRate, scaledPosition);
 }
 
@@ -422,6 +568,9 @@ RecordingEngine::applyPendingTransportCommands(juce::MidiBuffer& midiBuffer) noe
         playbackEventIndex = 0;
         hasRenderedPlaybackBlock = false;
         loopWrapPending = false;
+        playbackCleanupPending = false;
+        playbackCleanupDelivered = true;
+        playbackStateRestorePending = false;
         addAllNotesOffMessages(midiBuffer, 0);
 
         appliedStopSequence.store(stopSeq, std::memory_order_release);
@@ -434,7 +583,10 @@ RecordingEngine::applyPendingTransportCommands(juce::MidiBuffer& midiBuffer) noe
         effectiveSpeedMultiplier.store(newSpeed, std::memory_order_relaxed);
 
         const auto currentPos = playbackPositionSamples.load(std::memory_order_relaxed);
-        const auto newPosition = static_cast<std::int64_t>(static_cast<double>(currentPos) * oldSpeed / newSpeed);
+        const auto precisePosition
+            = (static_cast<long double>(currentPos) + playbackSampleFraction) * oldSpeed / newSpeed;
+        const auto newPosition = static_cast<std::int64_t>(std::floor(precisePosition));
+        playbackSampleFraction = precisePosition - static_cast<long double>(newPosition);
         scaledPlaybackLengthSamples.store(getScaledPlaybackLengthSamples());
         const auto clampedPosition
             = juce::jlimit<std::int64_t>(0, scaledPlaybackLengthSamples.load(std::memory_order_relaxed), newPosition);
@@ -451,11 +603,14 @@ RecordingEngine::applyPendingTransportCommands(juce::MidiBuffer& midiBuffer) noe
             = juce::jlimit<std::int64_t>(0, std::max<std::int64_t>(playbackTake.lengthSamples, 0), seekSample);
         const auto combinedRatio = playbackSampleRateRatio.load(std::memory_order_relaxed)
             / effectiveSpeedMultiplier.load(std::memory_order_relaxed);
-        const auto scaledPosition = static_cast<std::int64_t>(static_cast<double>(clampedTakeSample) * combinedRatio);
+        const auto scaledPosition = *checkedScaleSamples(clampedTakeSample, combinedRatio);
         const auto clampedPosition = juce::jlimit<std::int64_t>(
             0, scaledPlaybackLengthSamples.load(std::memory_order_relaxed), scaledPosition);
 
         playbackPositionSamples.store(clampedPosition, std::memory_order_relaxed);
+        playbackSampleFraction = 0.0L;
+        playbackCleanupPending = false;
+        playbackCleanupDelivered = false;
         resetPlaybackEventCursor(clampedPosition, combinedRatio);
         smoothedPitchBend.fill(8192.0f);
         hasRenderedPlaybackBlock = false;
@@ -525,6 +680,7 @@ void RecordingEngine::pauseRecording() {
         return;
     }
 
+    closeCapturedPerformance();
     state.store(RecordingState::recordingPaused, std::memory_order_release);
     DP_DEBUG_LOG("[RecordingEngine] recording PAUSED at pos=" + juce::String(currentPositionSamples.load()));
 }
@@ -574,6 +730,9 @@ void RecordingEngine::stopPlaybackQuiescent() noexcept {
     playbackEventIndex = 0;
     hasRenderedPlaybackBlock = false;
     loopWrapPending = false;
+    playbackCleanupPending = false;
+    playbackCleanupDelivered = true;
+    playbackStateRestorePending = false;
 }
 
 void RecordingEngine::setPlaybackSpeedMultiplier(double multiplier) noexcept {
@@ -612,6 +771,14 @@ void RecordingEngine::setPlaybackBlockSize(int blockSize) noexcept {
 
 void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer, std::int64_t blockStartSamples,
                                           int numSamples) {
+    if (playbackCleanupPending && numSamples > 0) {
+        addAllNotesOffMessages(midiBuffer, 0);
+        playbackCleanupPending = false;
+        playbackCleanupDelivered = true;
+        playbackEndedPending.store(true, std::memory_order_release);
+        hasRenderedPlaybackBlock = false;
+        return;
+    }
     if (!isPlaying() || numSamples <= 0) {
         hasRenderedPlaybackBlock = false;
         return;
@@ -644,6 +811,11 @@ void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer, std::int
         resetPlaybackEventCursor(takePosition, combinedRatio);
     }
 
+    if (playbackStateRestorePending) {
+        restorePlaybackChannelState(midiBuffer, 0);
+        playbackStateRestorePending = false;
+    }
+
     while (blockOffset < numSamples) {
         const auto remainingSamples = static_cast<std::int64_t>(numSamples - blockOffset);
         const auto rangeEnd = loopRange.active ? std::min(takePosition + remainingSamples, loopRange.endSamples)
@@ -661,11 +833,22 @@ void RecordingEngine::renderPlaybackBlock(juce::MidiBuffer& midiBuffer, std::int
                 addAllNotesOffMessages(midiBuffer, blockOffset);
                 takePosition = loopRange.startSamples;
                 resetPlaybackEventCursor(takePosition, combinedRatio);
+                restorePlaybackChannelState(midiBuffer, blockOffset);
+                playbackStateRestorePending = false;
                 continue;
             }
 
             loopWrapPending = true;
             break;
+        }
+    }
+    if (!loopRange.active && !playbackCleanupDelivered) {
+        const auto end = scaledPlaybackLengthSamples.load(std::memory_order_relaxed);
+        if (end >= blockStartSamples && end < blockStartSamples + numSamples) {
+            addAllNotesOffMessages(midiBuffer, static_cast<int>(end - blockStartSamples));
+            playbackCleanupDelivered = true;
+        } else if (end == blockStartSamples + numSamples) {
+            playbackCleanupPending = true;
         }
     }
 
@@ -683,8 +866,7 @@ void RecordingEngine::renderPlaybackEventsInRange(juce::MidiBuffer& midiBuffer, 
     const auto totalEvents = playbackTake.events.size();
     while (playbackEventIndex < totalEvents) {
         const auto& event = playbackTake.events[playbackEventIndex];
-        const auto scaledTimestamp
-            = static_cast<std::int64_t>(static_cast<double>(event.timestampSamples) * combinedRatio);
+        const auto scaledTimestamp = *checkedScaleSamples(event.timestampSamples, combinedRatio);
         if (scaledTimestamp < rangeStartSamples) {
             ++playbackEventIndex;
             continue;
@@ -762,7 +944,9 @@ void RecordingEngine::advancePlaybackPosition(std::int64_t numSamples) noexcept 
         state.store(RecordingState::stopped, std::memory_order_release);
         playbackPositionSamples.store(scaledPlaybackLengthSamples.load(std::memory_order_relaxed),
                                       std::memory_order_relaxed);
-        playbackEndedPending.store(true, std::memory_order_release);
+        if (playbackCleanupDelivered || !renderedBlock) {
+            playbackEndedPending.store(true, std::memory_order_release);
+        }
         return;
     }
 
@@ -790,18 +974,25 @@ std::vector<PendingPresetChange> RecordingEngine::drainPendingPresetChanges() {
 }
 
 std::int64_t RecordingEngine::getScaledPlaybackLengthSamples() const noexcept {
-    if (playbackTake.lengthSamples <= 0) {
-        return 0;
-    }
-
-    const auto scaledLength = static_cast<double>(playbackTake.lengthSamples)
-        * playbackSampleRateRatio.load(std::memory_order_relaxed)
+    const auto ratio = playbackSampleRateRatio.load(std::memory_order_relaxed)
         / effectiveSpeedMultiplier.load(std::memory_order_relaxed);
-    if (scaledLength <= 0.0) {
-        return playbackTake.lengthSamples;
+    auto length = *checkedScaleSamples(playbackTake.lengthSamples, ratio);
+    if (!playbackTake.events.empty()) {
+        length = std::max(length, *checkedScaleSamples(playbackTake.events.back().timestampSamples, ratio) + 1);
     }
+    return length;
+}
 
-    return std::max<std::int64_t>(1, static_cast<std::int64_t>(std::ceil(scaledLength)));
+std::uint64_t RecordingEngine::getPlaybackGeneration() const noexcept {
+    return playbackGeneration;
+}
+
+std::size_t RecordingEngine::getPlaybackNoteOnCount() const noexcept {
+    return playbackNoteOnCount;
+}
+
+bool RecordingEngine::needsPlaybackRender() const noexcept {
+    return isPlaying() || playbackCleanupPending;
 }
 
 RecordingEngine::ScaledLoopRange RecordingEngine::getScaledLoopRange(double combinedRatio) const noexcept {
@@ -830,8 +1021,8 @@ bool RecordingEngine::tryGetScaledLoopRange(double combinedRatio, ScaledLoopRang
         return true;
     }
 
-    const auto scaledStart = static_cast<std::int64_t>(static_cast<double>(startInTake) * combinedRatio);
-    const auto scaledEnd = static_cast<std::int64_t>(static_cast<double>(endInTake) * combinedRatio);
+    const auto scaledStart = *checkedScaleSamples(startInTake, combinedRatio);
+    const auto scaledEnd = *checkedScaleSamples(endInTake, combinedRatio);
     const auto startSamples = juce::jlimit<std::int64_t>(0, scaledLength - 1, scaledStart);
     const auto endSamples = juce::jlimit<std::int64_t>(startSamples + 1, scaledLength, scaledEnd);
     const auto minBlockSize = static_cast<std::int64_t>(std::max(1, playbackBlockSize.load(std::memory_order_relaxed)));
@@ -841,16 +1032,86 @@ bool RecordingEngine::tryGetScaledLoopRange(double combinedRatio, ScaledLoopRang
     return true;
 }
 
+void RecordingEngine::restorePlaybackChannelState(juce::MidiBuffer& midiBuffer, int sampleOffset) {
+    if (restoredStateEventIndex != playbackEventIndex) {
+        restoredChannelState = {};
+        for (auto& channel : restoredChannelState) {
+            channel.controllers.fill(-1);
+        }
+        for (std::size_t index = 0; index < playbackEventIndex; ++index) {
+            const auto& event = playbackTake.events[index];
+            if (event.type != PerformanceEventType::midi) {
+                continue;
+            }
+            const auto& message = event.message;
+            const auto channel = message.getChannel() - 1;
+            if (channel < 0 || channel >= 16) {
+                continue;
+            }
+            auto& snapshot = restoredChannelState[static_cast<std::size_t>(channel)];
+            if (message.isController()) {
+                const auto controller = message.getControllerNumber();
+                const auto value = message.getControllerValue();
+                if (controller == 0) {
+                    snapshot.bankMsb = value;
+                } else if (controller == 32) {
+                    snapshot.bankLsb = value;
+                } else if (controller == 121) {
+                    snapshot.controllers.fill(-1);
+                    snapshot.pitch = 8192;
+                    snapshot.pressure = 0;
+                } else if (controller < 120) {
+                    snapshot.controllers[static_cast<std::size_t>(controller)] = static_cast<std::int16_t>(value);
+                }
+            } else if (message.isProgramChange()) {
+                snapshot.program = message.getProgramChangeNumber();
+                snapshot.programBankMsb = snapshot.bankMsb;
+                snapshot.programBankLsb = snapshot.bankLsb;
+            } else if (message.isPitchWheel()) {
+                snapshot.pitch = message.getPitchWheelValue();
+            } else if (message.isChannelPressure()) {
+                snapshot.pressure = message.getChannelPressureValue();
+            }
+        }
+        restoredStateEventIndex = playbackEventIndex;
+    }
+    for (std::size_t index = 0; index < restoredChannelState.size(); ++index) {
+        const auto channel = static_cast<int>(index) + 1;
+        const auto& snapshot = restoredChannelState[index];
+        midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 121, 0), sampleOffset);
+        midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 0, snapshot.programBankMsb), sampleOffset);
+        midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 32, snapshot.programBankLsb), sampleOffset);
+        midiBuffer.addEvent(juce::MidiMessage::programChange(channel, snapshot.program), sampleOffset);
+        if (snapshot.bankMsb != snapshot.programBankMsb) {
+            midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 0, snapshot.bankMsb), sampleOffset);
+        }
+        if (snapshot.bankLsb != snapshot.programBankLsb) {
+            midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 32, snapshot.bankLsb), sampleOffset);
+        }
+        for (std::size_t controller = 1; controller < 120; ++controller) {
+            if (controller != 32 && snapshot.controllers[controller] >= 0) {
+                midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, static_cast<int>(controller),
+                                                                       snapshot.controllers[controller]),
+                                    sampleOffset);
+            }
+        }
+        midiBuffer.addEvent(juce::MidiMessage::pitchWheel(channel, snapshot.pitch), sampleOffset);
+        midiBuffer.addEvent(juce::MidiMessage::channelPressureChange(channel, snapshot.pressure), sampleOffset);
+        smoothedPitchBend[index] = static_cast<float>(snapshot.pitch);
+    }
+}
+
 void RecordingEngine::resetPlaybackEventCursor(std::int64_t positionSamples, double combinedRatio) noexcept {
+    playbackStateRestorePending = true;
     if (positionSamples <= 0 || playbackTake.events.empty()) {
         playbackEventIndex = 0;
         return;
     }
 
-    const auto it = std::ranges::lower_bound(
-        playbackTake.events, positionSamples, {}, [combinedRatio](const PerformanceEvent& event) noexcept {
-            return static_cast<std::int64_t>(static_cast<double>(event.timestampSamples) * combinedRatio);
-        });
+    const auto it = std::ranges::lower_bound(playbackTake.events, positionSamples, {},
+                                             [combinedRatio](const PerformanceEvent& event) noexcept {
+                                                 return *checkedScaleSamples(event.timestampSamples, combinedRatio);
+                                             });
     playbackEventIndex = static_cast<std::size_t>(std::distance(playbackTake.events.begin(), it));
 }
 

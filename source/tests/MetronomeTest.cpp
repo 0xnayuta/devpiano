@@ -25,6 +25,13 @@ public:
         testMetronomeAudioEngineIntegration();
         testCountInModel();
         testMetronomeEnabledBeforePrepare();
+        testMetronomeStateTransitionsAndLifecycle();
+        testCountInSampleAccurateDownbeatOneAndTwoBars();
+        testCountInMultiBeatUiPollLeaps();
+        testCountInCancelAndRearm();
+        testCountInPrepareSampleRateChangeHalfway();
+        testCountInSilentMetronome();
+        testCountInTimeSignaturePeriods();
     }
 
 private:
@@ -471,6 +478,341 @@ private:
         expectEquals(processor.getCurrentBeatNumber(), 0);
         expect(processor.getIsDownbeat());
         expect(buffer.getMagnitude(0, 128) > 0.01f);
+    }
+    void testCountInSampleAccurateDownbeatOneAndTwoBars() {
+        beginTest("Count-in one and two bars reach target downbeat at exact sample");
+
+        // 1 bar at 120 BPM 4/4: 4 beats = 2.0s = 96000 samples at 48kHz
+        {
+            devpiano::audio::MetronomeProcessor processor;
+            processor.prepareToPlay(48000.0);
+            processor.setBpm(120.0);
+            processor.setTimeSignature(devpiano::core::TimeSignature::fourFour);
+            processor.setVolume(1.0f);
+            processor.armCountIn(4);
+
+            expect(processor.isCountInArmed());
+            expectEquals(processor.getCountInRemainingBeats(), 4);
+
+            juce::AudioBuffer<float> buffer(2, 512);
+            std::int64_t totalSamples = 0;
+            int startOffset = -1;
+            std::int64_t targetSample = -1;
+
+            while (totalSamples < 120000) {
+                buffer.clear();
+                const int offset = processor.consumeCountInStartOffset(512);
+                if (offset >= 0 && startOffset < 0) {
+                    startOffset = offset;
+                    targetSample = totalSamples + offset;
+                }
+                processor.processAndMix(&buffer, 0, 512);
+                totalSamples += 512;
+                if (startOffset >= 0) {
+                    break;
+                }
+            }
+
+            expect(startOffset >= 0);
+            expectEquals(targetSample, std::int64_t { 96000 });
+            expect(!processor.isCountInArmed());
+            expectEquals(processor.getCountInRemainingBeats(), 0);
+            expectEquals(processor.getCurrentBeatNumber(), 0);
+            expect(processor.getIsDownbeat());
+
+            // Subsequent block must not trigger count-in start again
+            expectEquals(processor.consumeCountInStartOffset(512), -1);
+        }
+
+        // 2 bars at 120 BPM 4/4: 8 beats = 4.0s = 192000 samples at 48kHz
+        {
+            devpiano::audio::MetronomeProcessor processor;
+            processor.prepareToPlay(48000.0);
+            processor.setBpm(120.0);
+            processor.setTimeSignature(devpiano::core::TimeSignature::fourFour);
+            processor.setVolume(1.0f);
+            processor.armCountIn(8);
+
+            expect(processor.isCountInArmed());
+            expectEquals(processor.getCountInRemainingBeats(), 8);
+
+            juce::AudioBuffer<float> buffer(2, 512);
+            std::int64_t totalSamples = 0;
+            int startOffset = -1;
+            std::int64_t targetSample = -1;
+
+            while (totalSamples < 240000) {
+                buffer.clear();
+                const int offset = processor.consumeCountInStartOffset(512);
+                if (offset >= 0 && startOffset < 0) {
+                    startOffset = offset;
+                    targetSample = totalSamples + offset;
+                }
+                processor.processAndMix(&buffer, 0, 512);
+                totalSamples += 512;
+                if (startOffset >= 0) {
+                    break;
+                }
+            }
+
+            expect(startOffset >= 0);
+            expectEquals(targetSample, std::int64_t { 192000 });
+            expect(!processor.isCountInArmed());
+            expectEquals(processor.getCountInRemainingBeats(), 0);
+            expectEquals(processor.getCurrentBeatNumber(), 0);
+            expect(processor.getIsDownbeat());
+        }
+    }
+
+    void testCountInMultiBeatUiPollLeaps() {
+        beginTest("Multi-beat UI poll delays do not alter audio count-in timing");
+
+        devpiano::audio::MetronomeProcessor processor;
+        processor.prepareToPlay(48000.0);
+        processor.setBpm(120.0);
+        processor.setTimeSignature(devpiano::core::TimeSignature::fourFour);
+        processor.setVolume(1.0f);
+        processor.armCountIn(4);
+
+        juce::AudioBuffer<float> buffer(2, 512);
+        std::int64_t totalSamples = 0;
+
+        // Process 60000 samples (2.5 beats) without checking
+        while (totalSamples < 60000) {
+            buffer.clear();
+            expectEquals(processor.consumeCountInStartOffset(512), -1);
+            processor.processAndMix(&buffer, 0, 512);
+            totalSamples += 512;
+        }
+
+        // UI wakes up late and checks remaining beats: 2 beats remaining
+        expectEquals(processor.getCountInRemainingBeats(), 2);
+
+        int startOffset = -1;
+        std::int64_t targetSample = -1;
+        while (totalSamples < 120000) {
+            buffer.clear();
+            const int offset = processor.consumeCountInStartOffset(512);
+            if (offset >= 0 && startOffset < 0) {
+                startOffset = offset;
+                targetSample = totalSamples + offset;
+            }
+            processor.processAndMix(&buffer, 0, 512);
+            totalSamples += 512;
+            if (startOffset >= 0) {
+                break;
+            }
+        }
+
+        expect(startOffset >= 0);
+        expectEquals(targetSample, std::int64_t { 96000 });
+    }
+
+    void testCountInCancelAndRearm() {
+        beginTest("Count-in cancel stops counting and re-arming anchors fresh period");
+
+        devpiano::audio::MetronomeProcessor processor;
+        processor.prepareToPlay(48000.0);
+        processor.setBpm(120.0);
+        processor.setTimeSignature(devpiano::core::TimeSignature::fourFour);
+        processor.setVolume(1.0f);
+        processor.armCountIn(4);
+
+        juce::AudioBuffer<float> buffer(2, 512);
+        for (int i = 0; i < 20; ++i) {
+            buffer.clear();
+            expectEquals(processor.consumeCountInStartOffset(512), -1);
+            processor.processAndMix(&buffer, 0, 512);
+        }
+
+        processor.cancelCountIn();
+        expect(!processor.isCountInArmed());
+        expectEquals(processor.getCountInRemainingBeats(), 0);
+        expectEquals(processor.consumeCountInStartOffset(512), -1);
+
+        // Re-arm count-in for 4 beats: must count fresh 96000 samples
+        processor.armCountIn(4);
+        expect(processor.isCountInArmed());
+        expectEquals(processor.getCountInRemainingBeats(), 4);
+
+        std::int64_t totalSamples = 0;
+        int startOffset = -1;
+        std::int64_t targetSample = -1;
+        while (totalSamples < 120000) {
+            buffer.clear();
+            const int offset = processor.consumeCountInStartOffset(512);
+            if (offset >= 0 && startOffset < 0) {
+                startOffset = offset;
+                targetSample = totalSamples + offset;
+            }
+            processor.processAndMix(&buffer, 0, 512);
+            totalSamples += 512;
+            if (startOffset >= 0) {
+                break;
+            }
+        }
+
+        expect(startOffset >= 0);
+        expectEquals(targetSample, std::int64_t { 96000 });
+    }
+
+    void testCountInPrepareSampleRateChangeHalfway() {
+        beginTest("Device rate prepare halfway preserves count-in duration and monotonic sequence");
+
+        devpiano::audio::MetronomeProcessor processor;
+        processor.prepareToPlay(48000.0);
+        processor.setBpm(120.0);
+        processor.setTimeSignature(devpiano::core::TimeSignature::fourFour);
+        processor.setVolume(1.0f);
+        processor.armCountIn(4);
+
+        juce::AudioBuffer<float> buffer(2, 512);
+        std::int64_t totalSamplesAt48k = 0;
+
+        // Process 48 blocks = 24576 samples at 48k (beat 0 finished at 24000, 576 samples into beat 1)
+        for (int i = 0; i < 48; ++i) {
+            buffer.clear();
+            expectEquals(processor.consumeCountInStartOffset(512), -1);
+            processor.processAndMix(&buffer, 0, 512);
+            totalSamplesAt48k += 512;
+        }
+
+        expect(processor.isCountInArmed());
+        expectEquals(processor.getCountInRemainingBeats(), 3);
+        const auto seqAtSwitch = processor.getBeatSequence();
+
+        // Audio device switches to 44.1kHz
+        processor.prepareToPlay(44100.0);
+        expect(processor.isCountInArmed());
+        expectEquals(processor.getCountInRemainingBeats(), 3);
+        expectEquals(processor.getBeatSequence(), seqAtSwitch);
+
+        std::int64_t totalSamplesAt44k = 0;
+        int startOffset = -1;
+        std::int64_t targetSampleAt44k = -1;
+
+        while (totalSamplesAt44k < 100000) {
+            buffer.clear();
+            const int offset = processor.consumeCountInStartOffset(512);
+            if (offset >= 0 && startOffset < 0) {
+                startOffset = offset;
+                targetSampleAt44k = totalSamplesAt44k + offset;
+            }
+            processor.processAndMix(&buffer, 0, 512);
+            totalSamplesAt44k += 512;
+            if (startOffset >= 0) {
+                break;
+            }
+        }
+
+        expect(startOffset >= 0);
+        // Total duration: 24576/48000 + targetSampleAt44k/44100 == 2.0s
+        const double totalSeconds
+            = (static_cast<double>(totalSamplesAt48k) / 48000.0) + (static_cast<double>(targetSampleAt44k) / 44100.0);
+        expectWithinAbsoluteError(totalSeconds, 2.0, 0.001);
+        expect(processor.getBeatSequence() > seqAtSwitch);
+    }
+
+    void testCountInSilentMetronome() {
+        beginTest("Silent metronome completes count-in sample-accurately");
+
+        devpiano::audio::MetronomeProcessor processor;
+        processor.prepareToPlay(48000.0);
+        processor.setBpm(120.0);
+        processor.setTimeSignature(devpiano::core::TimeSignature::fourFour);
+        processor.setVolume(0.0f);
+        processor.armCountIn(4);
+
+        juce::AudioBuffer<float> buffer(2, 512);
+        std::int64_t totalSamples = 0;
+        int startOffset = -1;
+        std::int64_t targetSample = -1;
+
+        while (totalSamples < 120000) {
+            buffer.clear();
+            const int offset = processor.consumeCountInStartOffset(512);
+            if (offset >= 0 && startOffset < 0) {
+                startOffset = offset;
+                targetSample = totalSamples + offset;
+            }
+            processor.processAndMix(&buffer, 0, 512);
+            expectEquals(buffer.getMagnitude(0, 512), 0.0f);
+            totalSamples += 512;
+            if (startOffset >= 0) {
+                break;
+            }
+        }
+
+        expect(startOffset >= 0);
+        expectEquals(targetSample, std::int64_t { 96000 });
+    }
+
+    void testCountInTimeSignaturePeriods() {
+        beginTest("Time signature periods: 3/4 and 6/8 count-in downbeat alignment");
+
+        // 3/4: 1 bar = 3 beats = 1.5s = 72000 samples at 48kHz
+        {
+            devpiano::audio::MetronomeProcessor processor;
+            processor.prepareToPlay(48000.0);
+            processor.setBpm(120.0);
+            processor.setTimeSignature(devpiano::core::TimeSignature::threeFour);
+            processor.setVolume(1.0f);
+            processor.armCountIn(3);
+
+            juce::AudioBuffer<float> buffer(2, 512);
+            std::int64_t totalSamples = 0;
+            int startOffset = -1;
+            std::int64_t targetSample = -1;
+
+            while (totalSamples < 100000) {
+                buffer.clear();
+                const int offset = processor.consumeCountInStartOffset(512);
+                if (offset >= 0 && startOffset < 0) {
+                    startOffset = offset;
+                    targetSample = totalSamples + offset;
+                }
+                processor.processAndMix(&buffer, 0, 512);
+                totalSamples += 512;
+                if (startOffset >= 0) {
+                    break;
+                }
+            }
+
+            expect(startOffset >= 0);
+            expectEquals(targetSample, std::int64_t { 72000 });
+        }
+
+        // 6/8: 1 bar = 6 beats (division 8) = 6 * 12000 = 72000 samples at 48kHz
+        {
+            devpiano::audio::MetronomeProcessor processor;
+            processor.prepareToPlay(48000.0);
+            processor.setBpm(120.0);
+            processor.setTimeSignature(devpiano::core::TimeSignature::sixEight);
+            processor.setVolume(1.0f);
+            processor.armCountIn(6);
+
+            juce::AudioBuffer<float> buffer(2, 512);
+            std::int64_t totalSamples = 0;
+            int startOffset = -1;
+            std::int64_t targetSample = -1;
+
+            while (totalSamples < 100000) {
+                buffer.clear();
+                const int offset = processor.consumeCountInStartOffset(512);
+                if (offset >= 0 && startOffset < 0) {
+                    startOffset = offset;
+                    targetSample = totalSamples + offset;
+                }
+                processor.processAndMix(&buffer, 0, 512);
+                totalSamples += 512;
+                if (startOffset >= 0) {
+                    break;
+                }
+            }
+
+            expect(startOffset >= 0);
+            expectEquals(targetSample, std::int64_t { 72000 });
+        }
     }
 };
 

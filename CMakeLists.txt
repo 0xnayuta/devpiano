@@ -199,6 +199,8 @@ target_sources(devpiano PRIVATE
     source/MainComponent.h
     source/MainComponentJiveAccessors.cpp
     source/Audio/AudioEngine.cpp
+    source/Audio/BuiltinSynthesiser.cpp
+    source/Audio/BuiltinSynthesiser.h
     source/Audio/AudioEngine.h
     source/Audio/SineSynthVoice.h
     source/Audio/PianoSynthVoice.h
@@ -477,6 +479,8 @@ if (BUILD_TESTS)
         source/Midi/MidiChannelMapper.cpp
         source/Midi/MidiChannelMapper.h
         source/Audio/AudioEngine.cpp
+        source/Audio/BuiltinSynthesiser.cpp
+        source/Audio/BuiltinSynthesiser.h
         source/Audio/AudioEngine.h
         source/Audio/SineSynthVoice.h
         source/Audio/PianoSynthVoice.h

@@ -23,6 +23,14 @@ public:
         return dynamic_cast<SineSynthSound*>(sound) != nullptr;
     }
 
+    void setCurrentPlaybackSampleRate(double newRate) override {
+        juce::SynthesiserVoice::setCurrentPlaybackSampleRate(newRate);
+        if (newRate > 0.0) {
+            adsr.setSampleRate(newRate);
+            adsr.setParameters(adsr.getParameters());
+        }
+    }
+
     void setAdsrParameters(const juce::ADSR::Parameters& parameters) {
         // addVoice 会用 synth 的当前 sampleRate 覆盖 voice（构造期为 0），
         // 采样率无效时跳过，ADSR 内部默认 44100 无断言。

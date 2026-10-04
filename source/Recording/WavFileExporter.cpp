@@ -1,5 +1,6 @@
 #include <functional>
 
+#include "Audio/BuiltinSynthesiser.h"
 #include "Audio/PianoSynthVoice.h"
 #include "Audio/RoomReverbEngine.h"
 #include "Audio/SineSynthVoice.h"
@@ -23,7 +24,8 @@ using devpiano::recording::addPanicMidi;
 using devpiano::recording::hasUsableRenderOptions;
 using devpiano::recording::prepareRenderTimeline;
 
-void initialiseOfflineSynth(juce::Synthesiser& synth, const devpiano::exporting::WavExportOptions& options) {
+void initialiseOfflineSynth(devpiano::audio::BuiltinSynthesiser& synth,
+                            const devpiano::exporting::WavExportOptions& options) {
     synth.clearSounds();
     synth.clearVoices();
 
@@ -103,7 +105,7 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
         return false;
     }
 
-    juce::Synthesiser synth;
+    devpiano::audio::BuiltinSynthesiser synth;
     devpiano::audio::RoomReverbEngine roomReverb;
     roomReverb.prepare(options.sampleRate);
     roomReverb.setSpace(options.reverbSpace);

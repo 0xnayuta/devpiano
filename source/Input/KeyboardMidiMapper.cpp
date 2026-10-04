@@ -200,7 +200,7 @@ bool KeyboardMidiMapper::handleKeyPressed(const juce::KeyPress& key, juce::MidiK
         return true;
     }
 
-    return triggerBinding(*binding, keyboardState, true);
+    return triggerBinding(*binding, keyboardState);
 }
 
 bool KeyboardMidiMapper::handleModifierKeysChanged(const juce::ModifierKeys& modifiers,
@@ -261,43 +261,68 @@ bool KeyboardMidiMapper::processKeyStateChangedInternal(juce::MidiKeyboardState&
         }
 
         const auto isCurrentlyDown = isKeyCurrentlyDown(keyCode);
-
         const auto wasHeld = isKeyHeld(keyCode);
 
         if (isCurrentlyDown && !wasHeld) {
-            consumed = triggerBinding(binding, keyboardState, true) || consumed;
+            consumed = triggerBinding(binding, keyboardState) || consumed;
+        }
+    }
+
+    for (size_t i = 0; i < heldKeys.size(); ++i) {
+        const auto& held = heldKeys[i];
+        if (isKeyCurrentlyDown(held.physicalKeyCode)) {
             continue;
         }
 
-        if (!isCurrentlyDown && wasHeld) {
-            if (binding.action.type == KeyActionType::note) {
-                if (const auto* held = findHeldKey(keyCode)) {
-                    sendNoteOff(held->soundingMidiChannel, held->soundingMidiNote, held->velocity, keyboardState);
-                    std::erase_if(heldKeys, [keyCode](const auto& h) { return h.physicalKeyCode == keyCode; });
-                    consumed = true;
-                }
-            } else {
-                consumed = triggerBinding(binding, keyboardState, false) || consumed;
+        bool hasOtherActiveHolder = false;
+        for (size_t j = 0; j < heldKeys.size(); ++j) {
+            if (j == i) {
+                continue;
+            }
+            if (heldKeys[j].soundingMidiChannel == held.soundingMidiChannel
+                && heldKeys[j].soundingMidiNote == held.soundingMidiNote
+                && isKeyCurrentlyDown(heldKeys[j].physicalKeyCode)) {
+                hasOtherActiveHolder = true;
+                break;
             }
         }
+
+        if (!hasOtherActiveHolder) {
+            bool alreadySentNoteOff = false;
+            for (size_t k = 0; k < i; ++k) {
+                if (!isKeyCurrentlyDown(heldKeys[k].physicalKeyCode)
+                    && heldKeys[k].soundingMidiChannel == held.soundingMidiChannel
+                    && heldKeys[k].soundingMidiNote == held.soundingMidiNote) {
+                    alreadySentNoteOff = true;
+                    break;
+                }
+            }
+
+            if (!alreadySentNoteOff) {
+                sendNoteOff(held.soundingMidiChannel, held.soundingMidiNote, held.velocity, keyboardState);
+            }
+        }
+        consumed = true;
     }
 
-    // 额外防呆：检查 heldKeys 中由于切组或绑定删除而成为孤儿的按键
-    for (auto it = heldKeys.begin(); it != heldKeys.end();) {
-        if (!isKeyCurrentlyDown(it->physicalKeyCode)) {
-            sendNoteOff(it->soundingMidiChannel, it->soundingMidiNote, it->velocity, keyboardState);
-            it = heldKeys.erase(it);
-            consumed = true;
-        } else {
-            ++it;
-        }
-    }
+    std::erase_if(heldKeys, [this](const auto& h) { return !isKeyCurrentlyDown(h.physicalKeyCode); });
 
     return consumed;
 }
 void KeyboardMidiMapper::releaseAllHeldKeys(juce::MidiKeyboardState& keyboardState) {
-    for (const auto& held : heldKeys) {
-        sendNoteOff(held.soundingMidiChannel, held.soundingMidiNote, held.velocity, keyboardState);
+    for (size_t i = 0; i < heldKeys.size(); ++i) {
+        const auto& held = heldKeys[i];
+        bool alreadySent = false;
+        for (size_t j = 0; j < i; ++j) {
+            if (heldKeys[j].soundingMidiChannel == held.soundingMidiChannel
+                && heldKeys[j].soundingMidiNote == held.soundingMidiNote) {
+                alreadySent = true;
+                break;
+            }
+        }
+        if (!alreadySent) {
+            sendNoteOff(held.soundingMidiChannel, held.soundingMidiNote, held.velocity, keyboardState);
+        }
     }
     heldKeys.clear();
     if (sustainPedalDown) {
@@ -321,10 +346,8 @@ int KeyboardMidiMapper::normaliseKeyCode(const juce::KeyPress& key) const {
     return normaliseAlphaNumericKeyCode(key.getKeyCode());
 }
 
-bool KeyboardMidiMapper::triggerBinding(const KeyBinding& binding, juce::MidiKeyboardState& keyboardState,
-                                        bool isKeyDownEvent) {
-    const auto expectedTrigger = isKeyDownEvent ? KeyTrigger::keyDown : KeyTrigger::keyUp;
-    if (binding.action.trigger != expectedTrigger) {
+bool KeyboardMidiMapper::triggerBinding(const KeyBinding& binding, juce::MidiKeyboardState& keyboardState) {
+    if (binding.action.trigger != KeyTrigger::keyDown) {
         return false;
     }
 
@@ -334,58 +357,51 @@ bool KeyboardMidiMapper::triggerBinding(const KeyBinding& binding, juce::MidiKey
 
     const auto rawVelocity = binding.action.getVelocity().value;
 
-    if (isKeyDownEvent) {
-        // 1. 计算当前激活 Group 下的发声音高与通道
-        const auto baseSoundingNote
-            = devpiano::core::calculateSoundingNote(binding.action.getMidiNoteNumber().value, layout.getActiveGroup());
-        const auto soundingChannel
-            = devpiano::core::calculateSoundingChannel(binding.action.getMidiChannel().value, layout.getActiveGroup());
+    // 1. 计算当前激活 Group 下的发声音高与通道
+    const auto baseSoundingNote
+        = devpiano::core::calculateSoundingNote(binding.action.getMidiNoteNumber().value, layout.getActiveGroup());
+    const auto soundingChannel
+        = devpiano::core::calculateSoundingChannel(binding.action.getMidiChannel().value, layout.getActiveGroup());
 
-        // 2. 打字律动力度与人性化微扰估算 (Phase 35-B: Typing Cadence Dynamics & Humanizer)
-        const double now = juce::Time::getMillisecondCounterHiRes() / 1000.0;
-        const float dynamicVelocity = cadenceEstimator.estimateVelocity(now);
-        float scaledVelocity = rawVelocity;
-        if (rawVelocity > 0.0f && cadenceEstimator.isEnabled()) {
-            const auto useDynamicVelocity = std::abs(rawVelocity - 1.0f) < 0.001f
-                || std::abs(rawVelocity - devpiano::input::TypingCadenceEstimator::kDefaultBaseVelocity) < 0.01f;
-            if (useDynamicVelocity) {
-                scaledVelocity = dynamicVelocity;
-            } else {
-                scaledVelocity = std::clamp(
-                    dynamicVelocity * (rawVelocity / devpiano::input::TypingCadenceEstimator::kDefaultBaseVelocity),
-                    1.0f / 127.0f, 1.0f);
-            }
-        }
-
-        const float jitteredVelocity
-            = velocityHumanizer.applyHumanize(scaledVelocity, baseSoundingNote, ++keystrokeCounter);
-
-        // 3. 瞬态修饰符与手感曲线事件流变换
-        const auto soundingNote = modifierState.transformPitch(baseSoundingNote);
-        const auto curveVelocity = devpiano::input::applyVelocityCurve(jitteredVelocity, touchVelocityCurve);
-        const auto velocity = rawVelocity > 0.0f ? modifierState.transformVelocity(curveVelocity) : 0.0f;
-        lastTriggeredVelocity = velocity;
-        auto identity
-            = MidiNoteIdentity { MidiNoteNumber::fromClamped(soundingNote), MidiChannel::fromClamped(soundingChannel) };
-        if (channelMapper != nullptr) {
-            identity = channelMapper->sendNoteOn(MidiChannel::fromClamped(soundingChannel).toZeroBased(), soundingNote,
-                                                 velocity, keyboardState);
+    // 2. 打字律动力度与人性化微扰估算 (Phase 35-B: Typing Cadence Dynamics & Humanizer)
+    const double now = juce::Time::getMillisecondCounterHiRes() / 1000.0;
+    const float dynamicVelocity = cadenceEstimator.estimateVelocity(now);
+    float scaledVelocity = rawVelocity;
+    if (rawVelocity > 0.0f && cadenceEstimator.isEnabled()) {
+        const auto useDynamicVelocity = std::abs(rawVelocity - 1.0f) < 0.001f
+            || std::abs(rawVelocity - devpiano::input::TypingCadenceEstimator::kDefaultBaseVelocity) < 0.01f;
+        if (useDynamicVelocity) {
+            scaledVelocity = dynamicVelocity;
         } else {
-            keyboardState.noteOn(identity.channel.value, identity.note.value, velocity);
-        }
-
-        heldKeys.push_back({ binding.keyCode, identity.note.value, identity.channel.value, velocity });
-
-        // 4. 同步切分标记：NoteOn 即消费一次未决的 sync-pedal cut，
-        // 与 SyncPedalProcessor::processMidiBlock 在音频线程上同样清零
-        // cutPending 的语义保持一致，避免 QWERTY 卡片长期高亮 "[Sync Cut]"。
-        syncPedalCutPending = false;
-    } else {
-        if (const auto* held = findHeldKey(binding.keyCode)) {
-            sendNoteOff(held->soundingMidiChannel, held->soundingMidiNote, held->velocity, keyboardState);
-            std::erase_if(heldKeys, [k = binding.keyCode](const auto& h) { return h.physicalKeyCode == k; });
+            scaledVelocity = std::clamp(
+                dynamicVelocity * (rawVelocity / devpiano::input::TypingCadenceEstimator::kDefaultBaseVelocity),
+                1.0f / 127.0f, 1.0f);
         }
     }
+
+    const float jitteredVelocity
+        = velocityHumanizer.applyHumanize(scaledVelocity, baseSoundingNote, ++keystrokeCounter);
+
+    // 3. 瞬态修饰符与手感曲线事件流变换
+    const auto soundingNote = modifierState.transformPitch(baseSoundingNote);
+    const auto curveVelocity = devpiano::input::applyVelocityCurve(jitteredVelocity, touchVelocityCurve);
+    const auto velocity = rawVelocity > 0.0f ? modifierState.transformVelocity(curveVelocity) : 0.0f;
+    lastTriggeredVelocity = velocity;
+    auto identity
+        = MidiNoteIdentity { MidiNoteNumber::fromClamped(soundingNote), MidiChannel::fromClamped(soundingChannel) };
+    if (channelMapper != nullptr) {
+        identity = channelMapper->sendNoteOn(MidiChannel::fromClamped(soundingChannel).toZeroBased(), soundingNote,
+                                             velocity, keyboardState);
+    } else {
+        keyboardState.noteOn(identity.channel.value, identity.note.value, velocity);
+    }
+
+    heldKeys.push_back({ binding.keyCode, identity.note.value, identity.channel.value, velocity });
+
+    // 4. 同步切分标记：NoteOn 即消费一次未决的 sync-pedal cut，
+    // 与 SyncPedalProcessor::processMidiBlock 在音频线程上同样清零
+    // cutPending 的语义保持一致，避免 QWERTY 卡片长期高亮 "[Sync Cut]"。
+    syncPedalCutPending = false;
 
     return true;
 }
