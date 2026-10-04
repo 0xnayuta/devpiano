@@ -36,7 +36,7 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
 - **88 键连续物理参数映射**：基于 Bensa et al. (2003) 与 Steinway B 实测标定，连续插值琴弦刚度 $B$、击弦比 $d/L$、阻尼常数与 1/2/3 弦物理分区（`Piano88KeyTable.h`）；
 - **非线性打击、毛毡老化与动力学绽放**：三层毛毡动力学压实、动态接触时间 $T_c$、击弦点几何梳状陷波、3ms 高频瞬态裂音（HF Crack）、琴槌毛毡微老化穿透力（`feltAgeingAmount`）、泛音时间滞后膨胀绽放（Harmonic Blooming）与强击软饱和；
 - **真实共鸣与空间声学系统**：16 峰正交云杉木物理音板模态、4.2kHz 云杉木高频粘滞吸收滤波、琴桥立体声展开、同音三弦 Mid-Side 差分展开与非对称拍频、演奏者（Player）与听众（Audience）双视角声相变换（`PerspectiveProcessor`）以及内置纯算法房间混响网络（`RoomReverbEngine`: Chamber/Hall/Studio）；
-- **微观机械动作拟真与古典律制**：CC64 全局交感共鸣、延音踏板下踏/抬起机械扫掠呼啸（Whoosh）与共鸣冲击（Resonance Shock）、制音器落木闷击与琴键释放摩擦、离键速度动态 ADSR 阻尼缩放，以及 6 大古典微调律制（`TemperamentEngine`）与 A4 基准基频微调（当前限幅 410.0–450.0 Hz；产品契约目标 400.0–480.0 Hz）。
+- **微观机械动作拟真与古典律制**：CC64 全局交感共鸣、延音踏板下踏/抬起机械扫掠呼啸（Whoosh）与共鸣冲击（Resonance Shock）、制音器落木闷击与琴键释放摩擦、离键速度动态 ADSR 阻尼缩放，以及 6 大古典微调律制（`TemperamentEngine`）与 A4 基准基频微调（400.0–480.0 Hz，默认 440.0 Hz；设置、预设与内置实时/离线音源使用同一限幅）。
 - **物理发声核心与硬实时契约**：`PianoSynthVoice` 与节拍器全回调零三角函数（0 `std::sin`），8 复音齐奏单核 CPU $\le 0.7\%$；产品自有发声路径零堆分配、零锁；键盘输入经有界 SPSC 队列交换，音符高亮由消息线程刷新，彻底解耦音频线程与 UI；第三方 VST3 插件适配器的框架锁与扩容限制见 [`docs/issues/known-issues.md`](docs/issues/known-issues.md)；支持与内置正弦波（`SineSynthVoice`）切换。
 
 ### 🔌 VST3 插件宿主与乐器端点（VST3 Plugin Hosting & Instrument Endpoint）

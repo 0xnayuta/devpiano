@@ -2,6 +2,11 @@
 
 ### Fixed
 
+- **Shared Performance Map Projection** — show the same final Group/modifier/matrix/followKey mapping on QWERTY and piano views; preserve configured input identities for clicks, binding edits, and per-key customization.
+- **Mouse Routing and Binding Labels** — prevent observed playback/output channels from changing subsequent mouse routing and retain binding labels through settings, resize, and viewport updates.
+- **Silent-Binding Priority and Bounded Fades** — keep zero-velocity bindings silent across physical and mouse input even with Shift or fixed matrix velocity; clamp fade coefficients to 0.50–0.99 and stop timers at the preview floor.
+- **Live Corner Paths and Editable Song Notes** — rebuild rounded paths using the current radii and enable multiline Notes through the production ViewHost without making diagnostic lists editable.
+- **Tuning and Lowest-Octave Boundaries** — support A4 400–480 Hz consistently across settings, presets, and built-in real-time/offline rendering; fix MIDI 0–11 scientific octave labels and solfege offsets.
 - **Permanent Preset Identity and Migration** — assign RFC 4122 v5/v4 UUIDs to PerformancePresets; preserve identity across renames and autosave, migrate unambiguous legacy names, and reject duplicate identities.
 - **Embedded Performance Preset Snapshots** — save immutable RecordedPreset tables in v3 .devpiano performance files; execute presets by recorded sample offset, and reject legacy numeric preset formats explicitly.
 - **Segmented Offline Acoustic Parity** — apply acoustic snapshots, master gain, and room reverb at exact block-relative sample offsets in both builtin and VST3 offline WAV exporters.

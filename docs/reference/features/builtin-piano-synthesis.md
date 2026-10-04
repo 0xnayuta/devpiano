@@ -244,7 +244,7 @@ void setTemperament(devpiano::audio::Temperament temperament);
 void setReferencePitchA4(double hz);
 ```
 
-支持 6 大古典律制（`equal` 平均律、`just` 纯律、`pythagorean` 毕达哥拉斯律、`meantone` 1/4 中庸全音律、`werckmeister3` 韦克迈斯特三律、`kirnberger3` 基恩伯格三律）与基准音高微调。**契约目标**为 A4 $[400.0, 480.0]\text{ Hz}$；**当前代码** `TemperamentEngine::clampReferencePitch()` 将合法输入限制在 $[410.0, 450.0]\text{ Hz}$，尚未达到目标两端（见 [`../../issues/known-issues.md`](../../issues/known-issues.md)）。常用基准包括 415.0、432.0、440.0、442.0 Hz。
+支持 6 大古典律制（`equal` 平均律、`just` 纯律、`pythagorean` 毕达哥拉斯律、`meantone` 1/4 中庸全音律、`werckmeister3` 韦克迈斯特三律、`kirnberger3` 基恩伯格三律）与 A4 $[400.0, 480.0]\text{ Hz}$ 基准音高微调，默认 440.0 Hz。`TemperamentEngine::clampReferencePitch()` 为引擎、设置、预设与内置离线渲染提供统一限幅，两端均可选择；415.0、432.0、440.0、442.0 Hz 保持正常。
 
 ### 4.3 空间视角、琴盖与环境混响
 

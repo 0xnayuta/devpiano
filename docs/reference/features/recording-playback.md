@@ -24,7 +24,7 @@ devpiano 提供了完整的“弹奏 → 录制 → 回放 → 导出 MIDI”的
 ### 2.1 录制数据流
 
 ```text
-电脑键盘按键 ──► KeyboardMidiMapper (律动力度/微扰/手感曲线) ──► MidiChannelMapper ──► MidiMessageCollector
+电脑键盘按键 ──► KeyboardMidiMapper (律动力度/微扰/手感曲线) ──► MidiChannelMapper ──► 有界 SPSC 输入
                                                                                    │
                                                                                    ▼
 AudioEngine::getNextAudioBlock() (实时音频回调) ◄──────────────────────────────────┘
@@ -39,6 +39,8 @@ AudioEngine::getNextAudioBlock() (实时音频回调) ◄───────�
     ├── [预设切换事件] ──────► RecordingEngine::recordPresetChange(RecordedPreset) (注册 Take 内可执行快照)
     │
     └── 3. 交付发声 ──► VST3 processBlock() / BuiltinSynthesiser (内置无锁发声)
+```
+
 ### 2.2 回放数据流
 
 ```text
@@ -56,6 +58,8 @@ AudioEngine::getNextAudioBlock() (实时音频回调)
 
 MainComponent::timerCallback() (消息线程)
     └── AudioEngine::dispatchPendingDisplayEvents() ──► 驱动 MidiKeyboardState 及 UI 定时器
+```
+
 
 ### 2.3 时间轴跳转与 A-B 循环
 - `TimelineBar` 使用 Take 采样点作为时间域，显示当前播放时间、总时长与 A/B 标记；点击或拖拽产生 Take-relative Seek；

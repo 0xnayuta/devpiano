@@ -77,7 +77,7 @@ Performance Preset 的 New、Rename、Delete 保持在上方，Export、Import�
    - **Row 1 琴盖开合度**（`lid-position-combo`）：全开（Full Open）、半开（Half Stick）、闭盖（Closed Lid）；
    - **Row 2 触键力度曲线**（`touch-curve-combo`）：标准（Standard）、轻触（Light）、重触（Heavy）、宽动态（Wide Dynamic）；
    - **Row 3 古典微调律制**（`temperament-combo`）：平均律（Equal）、纯律（Just）、毕达哥拉斯律（Pythagorean）、中庸全音律（Meantone）、韦克迈斯特三律（Werckmeister III）、基恩伯格三律（Kirnberger III）；
-   - **Row 4 基准音高微调**（`reference-pitch-slider`）：项目契约目标为 400.0 ~ 480.0 Hz；当前 `TemperamentEngine` 与设置滑块实际钳制至 410.0 ~ 450.0 Hz（步进 0.1 Hz），未覆盖契约两端，见 [`../../issues/known-issues.md`](../../issues/known-issues.md)；
+   - **Row 4 基准音高微调**（`reference-pitch-slider`）：400.0 ~ 480.0 Hz（步进 0.1 Hz），直接绑定 `TemperamentEngine` 的统一上下限；
    - **Row 5 立体声空间视角**（`perspective-combo`）：演奏者视角（Player）与听众视角（Audience）；
    - **Row 6 房间混响预设**（`reverb-space-combo`）：室内乐（Chamber）、音乐厅（Concert Hall）、录音棚（Studio）；
    - **Row 7 混响干湿比**（`reverb-wet-slider`）：0% ~ 100% 混响湿声电平调节；
@@ -98,7 +98,7 @@ Performance Preset 的 New、Rename、Delete 保持在上方，Export、Import�
 |---|:---:|---|---|
 | `launchSingleInput` | 380 × 150 | 预设新建（Save As New）、预设重命名 | 单行文本框，自动捕获焦点，支持最大字符数限制与回车即时提交 |
 | `launchConfirm` | 380 × 140 | 预设删除确认、覆盖确认 | 消息文本展示，确认/取消双按钮 |
-| `launchMetadataEdit` | 420 × 260 | 歌曲元数据编辑（Song Title + Notes） | 单行标题框 + 多行带滚动条备注框，Tab 键焦点切换 |
+| `launchMetadataEdit` | 420 × 260 | 歌曲元数据编辑（Song Title + Notes） | 标题单行；Notes 使用生产 `NotesEditor` 工厂，可键入、多行回车及保存；取消不提交，诊断 `ListEditor` 保持只读 |
 | `makeProgressLayout` | 380 × 140 | WAV 音频离线导出进度 | 状态文本 + JIVE 暗黑 ProgressBar + 随时取消按钮 |
 
 ### 3.2 自定义弹窗扩展（`launchCustom`）
@@ -169,8 +169,9 @@ UI 单元测试位于 `source/tests/`，覆盖通用弹窗、设置布局、样�
 |---|---|---|:---:|
 | `JiveModalDialogTest` | 模板结构构建 | 验证 SingleInput、Confirm、MetadataEdit、Progress 模板节点层级与初始属性 | [x] 已通过 |
 | `JiveModalDialogTest` | 组件动态检索 | 验证 `findButtonById`、`findTextEditorById` 在多层 JIVE 树下的正确寻址 | [x] 已通过 |
-| `JiveModalDialogTest` | 多行/单行配置 | 验证 Title 框为单行、Notes 框为多行（`isMultiLine() == true`） | [x] 已通过 |
+| `JiveModalDialogTest` | 生产输入机制 | 使用生产 ViewHost 构建 Notes，注入字符和回车验证多行编辑；诊断 ListEditor 拒绝输入 | [x] 已通过 |
 | `JiveModalDialogTest` | 安全析构序列 | 验证模态关闭时 `safeCleanupJiveTree` 能够防止 StyleSheet 监听器 UAF | [x] 已通过 |
+| `StyleCatalogTest` | 动态圆角 | 固定 bounds 连续 radius 0→30→0，角像素立即匹配当前半径，不等待 resize | [x] 已通过 |
 | `SettingsLayoutModelTest`| 16 通道 CSS Grid | 验证通道跟随开关以 8 列 × 2 行网格声明，16 个 Toggle 节点完备 | [x] 已通过 |
 | `SettingsLayoutModelTest`| 声明式音频设备卡片 | 验证设备类型、输出设备、通道、测试按钮、采样率与缓冲大小等声明式节点完整性 | [x] 已通过 |
 | `SettingsLayoutModelTest`| 设置项动态绑定 | 验证修改 ValueTree 属性直接联动底层状态并触发持久化 | [x] 已通过 |

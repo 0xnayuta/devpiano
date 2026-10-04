@@ -131,7 +131,7 @@ source/
   - 内置 Studio（0.6s）、Chamber（1.5s）与 Concert Hall（2.4s）三大空间预设，平滑无级调节干湿比（`reverbWet`）。
 - **`source/Audio/TemperamentEngine.h`（古典微调律制引擎，Phase 30）**：
   - 提供平均律（Equal）、1/4 中庸全音律（Meantone）、毕达哥拉斯律（Pythagorean）、韦克迈斯特三律（Werckmeister III）、基恩伯格三律（Kirnberger III）与纯律（Just）六大微律音分偏移换算；
-  - A4 基准基频项目契约目标为 400.0 ~ 480.0 Hz（默认 440.0 Hz）；当前 `TemperamentEngine::clampReferencePitch()` 与设置滑块实际限制为 410.0 ~ 450.0 Hz，差距见 [`../issues/known-issues.md`](../issues/known-issues.md)。
+  - A4 基准基频范围为 400.0 ~ 480.0 Hz（默认 440.0 Hz）；引擎、设置滑块、预设、Take 声学快照与内置离线渲染统一消费 `TemperamentEngine::clampReferencePitch()`。
 - **`source/Audio/SineSynthVoice.h`**：
   - 内置正弦波合成器，供基准对比与测试使用。
 - **`source/Audio/AudioDeviceDiagnostics.h`**：
@@ -159,8 +159,8 @@ source/
   - 同一最终输出身份有多个物理键持有时，最后释放才关音；支持的序列化 trigger 只有 `keyDown`，`keyUp`/未知值准入拒绝，缺省字段保留原默认。
   - **Layout Group 键位分组（Phase 34-B）**：支持单预设内 4 组轻量键位分组（`KeyGroup`），反引号键（`）或 UI 按钮秒级切换；
   - **瞬态修饰键变换（Phase 34-D）**：捕获 Shift / Alt 键，按住期间由 `PerformanceModifierState` 执行力度拉满（Velocity Boost）与八度平移（+8va）纯事件流变换，松开自动回弹，基线配置 100% 零突变；
-  - **QWERTY 视图单一事实源快照（Phase 34-A）**：`createQwertySnapshot()` 汇总 `layout`、`heldKeys`、`keySignature`、modifier、延音/柔音踏板状态、`syncPedalCutPending` 与 `sustainPolicy`，生成只读 `QwertyViewModel`，由 UI 直接消费；
-  - **击键间隔动态力度（Phase 35-B）**：`TypingCadenceEstimator` 在消息线程按击键时间间隔计算可选动态力度，`VelocityHumanizer` 施加有界确定性哈希扰动；保留原绑定力度与静音绑定语义，Shift 拉满力度拥有最高优先级，不修改持久化键位。
+  - **双演奏看板单一事实源快照**：`createQwertySnapshot()` 生成 `QwertyViewModel`，同时包含 ANSI 网格和按最终输出音高索引的 `pianoKeys`。Group、modifier、触键曲线、矩阵和 followKey 在映射层投影；两个 UI 不自行反查原始绑定或重新计算 MIDI 映射。输入身份与最终输出身份分开保存，鼠标按配置输入执行一次矩阵变换，释放使用起音锁定的最终身份。
+  - **击键间隔动态力度（Phase 35-B）**：`TypingCadenceEstimator` 在消息线程按击键时间间隔计算可选动态力度，`VelocityHumanizer` 施加有界确定性哈希扰动；静音绑定优先于 Shift、力度微扰及矩阵固定力度，非静音绑定才接受 Shift 拉满，不修改持久化键位。
 
 ---
 
@@ -270,7 +270,7 @@ source/
 - **`source/UI/jive/core/`（内生 UI 渲染与排版引擎，已实施 API Freeze）**：
   - FlexBox 与 CSS Grid 基础几何排版计算引擎、BoxModel、动态样式表与动画缓动内核。已彻底剥离死代码并封存为底层资产。
 - **`source/UI/`（高性能原生组件及交互）**：
-  - **`source/UI/CustomKeyboard.h/.cpp`**：88 键虚拟钢琴键盘（自绘内核，支持 Classic / Channel / Velocity / Harmony 4 种着色模式与 DoReMi / FixedDo / NoteName 3 种音符标记，局部脏矩形剪裁，焦点绝不抢占，经 `KeyboardViewport` 注入 JIVE）。
+  - **`source/UI/CustomKeyboard.h/.cpp`**：88 键虚拟钢琴键盘，直接消费 `QwertyViewModel::pianoKeys`。绑定标签与配置输入索引独立保存于投影，几何重建重新消费它们；实际发音通道仅更新着色，不反向改变鼠标路由。支持 Classic / Channel / Velocity / Harmony 着色、DoReMi / FixedDo / NoteName 标注，局部脏矩形剪裁，经 `KeyboardViewport` 注入声明式布局。
   - **`source/UI/QwertyComponent.h/.cpp`**：5 行 ANSI 物理键盘映射看板，消费 `QwertyViewModel` 并呈现 12-TET 色彩与和弦 HUD；卡片标题另有 `qwerty-chord-badge` 标签。
   - **`source/UI/native/AdsrCurveComponent.h/.cpp`**：实时交互式 ADSR 包络曲线组件。
   - **`source/UI/native/TimelineBar.h/.cpp`**：Take-relative 播放时间/总时长、点击/拖动 Seek、A/B 标记和清除循环。
@@ -311,7 +311,7 @@ source/
 - **`source/Core/`**：
   - **`AppState.h`**：全应用运行时聚合快照视图，严格保持单向依赖与纯业务基础类型（零上层业务包含，前向声明 `ChannelMatrix` 并以 `std::shared_ptr` 管理快照，就地定义 `BuiltinTone` 枚举）；
   - **`KeyMapTypes.h`**：88 键虚拟映射基础模型、`KeyGroup`（4 组轻量分组）、`HeldKeyIdentity`（发音身份快照）、`SustainPolicy`（切分踏板策略）与 `PerformanceModifierState`（瞬态事件流变换）；
-  - **`QwertyModel.h`（Phase 34-A）**：ANSI 5 行电脑键盘物理布局网格模型、`QwertyKeyVisualState` 与 `QwertyViewModel`；
+  - **`QwertyModel.h`**：ANSI 5 行网格与双演奏看板只读投影；`QwertyKeyVisualState` 和 `PianoKeyVisualState` 区分矩阵输入、最终输出及配置输入音符索引，后者由 `hasBinding` 区分已配置绑定与未绑定琴键的候选输入；
   - **`MetronomeModel.h`**：拍号、录音预备拍选项与 Tap Tempo 的滚动间隔计算。
   - **`MusicTheory.h`（Phase 34-A / 35-C）**：12-TET 和声色环、文字高对比度算法，以及根据按下音高类集合识别和弦、转位与 Slash Chords 的 `detectChord()`；
   - **`MidiTypes.h`**：轻量级强类型封装。
@@ -335,7 +335,7 @@ source/
 KeyboardMidiMapper (生成 MIDI 消息；供消息线程生成 QwertyViewModel)
     │
     ▼
-AudioEngine::MidiMessageCollector (收集并排队 MIDI 消息)
+AudioEngine::liveMidiQueue (经 MidiKeyboardState 消息线程 Listener 注入有界 SPSC 输入)
     │
     ▼
 AudioEngine::getNextAudioBlock() (音频回调线程)

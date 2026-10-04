@@ -79,7 +79,7 @@ WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
 `ExportFlowSupport::buildWavExportOptions()` 将当前声学参数快照注入 `WavExportOptions`，使内置钢琴的离线与实时处理使用相同参数和房间混响网络；插件的独立离线实例可能具有自身非实时行为，**不承诺输出样本逐比特一致**：
 
 1. **基础发声与音色包络**：`masterGain`、`adsr`、`builtinTone`（`piano` 或 `sine`）、`pianoBrightness`、`pianoHammerHardness`、`pianoResonance`；
-2. **微调律制与基准音高（Phase 30）**：`temperament`（6 大古典律制：`equal`、`just`、`pythagorean`、`meantone`、`werckmeister3`、`kirnberger3`）与 `referencePitchA4`（当前代码与实时路径同样钳制至 410.0 ~ 450.0 Hz，默认 440.0 Hz；项目契约目标 400.0 ~ 480.0 Hz，见 [`../../issues/known-issues.md`](../../issues/known-issues.md)）；
+2. **微调律制与基准音高（Phase 30）**：`temperament`（6 大古典律制：`equal`、`just`、`pythagorean`、`meantone`、`werckmeister3`、`kirnberger3`）与 `referencePitchA4`（400.0 ~ 480.0 Hz，默认 440.0 Hz；内置实时与离线路径共用 `TemperamentEngine::clampReferencePitch()`）；
 3. **立体声空间视角（Phase 31-A）**：`soundPerspective`（演奏者 `player` 与听众 `audience` 镜像与高频吸收）；
 4. **琴盖物理开合（Phase 31-C）**：`lidPosition`（全开 `fullOpen`、半开 `halfStick`、闭盖 `closed` 传递函数）；
 5. **空间房间混响（Phase 31-B）**：离线挂载独立的 `RoomReverbEngine` 实例，根据 `reverbSpace`（`chamber` / `concert_hall` / `studio`）与 `reverbWet` 对双声道音频流执行立体声混响浸润；

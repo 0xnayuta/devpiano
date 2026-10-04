@@ -108,7 +108,7 @@
 | `touchVelocityCurve`| int | 0 (标准) / 1 (轻触) / 2 (重触) / 3 (宽动态) | 键盘触键力度响应非线性曲线 |
 | `unaCorda` | bool | `true` / `false` | 弱音/移位踏板物理拟真（MIDI CC 67 联动） |
 | `temperament` | string | `"equal"`, `"just"`, `"pythagorean"`, `"meantone"`, `"werckmeister3"`, `"kirnberger3"` | 古典微调律制选择 |
-| `referencePitchA4` | double | 当前钳制 410.0 ~ 450.0 Hz（默认 440.0；契约目标 400.0 ~ 480.0 Hz） | A4 基准基频换算；两端契约差距见 [`../../issues/known-issues.md`](../../issues/known-issues.md) |
+| `referencePitchA4` | double | 400.0 ~ 480.0 Hz（默认 440.0 Hz） | A4 基准基频换算；与设置、内置实时/离线音源共用限幅 |
 | `soundPerspective` | string | `"player"` (演奏者) / `"audience"` (听众) | 立体声空间声像展开视角 |
 | `reverbSpace` | string | `"chamber"` (室内乐) / `"concert_hall"` (音乐厅，兼容别名 `"hall"`) / `"studio"` (录音棚) | 房间混响网络预设空间 |
 | `reverbWet` | float | 0.0 ~ 1.0（默认 0.0） | 房间混响干湿混合比 |
@@ -130,6 +130,12 @@
 | `activeGroupIndex` | int | 0 .. 3（默认 0） | 当前预设激活的键组索引 |
 
 > **向后兼容性保证**：旧预设无 `groups` 节点时，自动初始化为 4 组默认纯净 KeyGroup（A/B/C/D，偏移均为 0），`activeGroupIndex` 默认回落为 0，完全零破坏兼容既有预设文件。
+
+### 2.3 键盘显示与输入索引
+
+- `keyboard.fadeSpeed` 是每帧指数收缩系数，范围 `0.50 .. 0.99`，默认 `0.92`。设置、预设和显示组件使用同一限幅；旧文件中的 `1` 或更大值钳至 `0.99`，不会保留不收缩的动画端点。
+- 绑定音符、逐键标签与颜色仍按配置输入 MIDI 音符保存，不把当前 Group/modifier/矩阵变换后的输出写回预设。两张看板通过映射层投影显示最终身份；在输出位置新建绑定时保存对应输入音符，避免后续再次移调。
+
 
 ---
 

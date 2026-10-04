@@ -36,15 +36,17 @@
 | **固定调（Fixed-Do）** | `fixedDo` | 始终以 C=1 为基准标注固定数字唱名，不受调号移调影响。 |
 | **科学音高名（Note Name）** | `noteName` | 标注标准国际音名（如 `C4`、`F#5`、`Bb3`），方便与乐理对照。 |
 
+绑定提示由 `QwertyViewModel::pianoKeys` 按最终输出音高提供，而不是钢琴组件自行反查原始布局。提示保留在映射投影中，setLayout→setSettings、resize 或视口更新后重新消费，不因重建 `KeyRenderState` 丢失。
+
 ### 2.3 平滑余晖消隐动画
 
-- `CustomKeyboard` 内部运行 30 fps 定时器，按键松开后通过指数插值（`fadeSpeed` 参数控制，默认 0.92）平滑淡出高亮背景，重现真实琴弦震动的视觉余韵；`QwertyComponent` 内部以 50 fps（20ms 间隔，衰减因子 0.86）驱动余晖动画，确保双键盘视觉律动平滑一致。
+- `CustomKeyboard` 的余晖使用每帧收缩系数 `fadeSpeed`，范围 `0.50 .. 0.99`，默认 `0.92`。设置、预设/设置文件加载与显示组件统一限幅；`1` 及更大输入钳至 `0.99`。松键后收敛到当前 `previewAlpha`（默认 `0`），到阈值即吸附目标并停止 Timer，alpha 保持 `[0,1]`。`QwertyComponent` 的 50 fps 余晖独立保持原语义。
 
 ---
 
 ## 3. 逐键个性化定制（Per-Key Labels & Colours）
 
-在 `source/Core/KeyMapTypes.h` 的 `KeyboardSettings` 中定义了 128 项定长数组：
+在 `source/UI/KeyboardTypes.h` 的 `KeyboardSettings` 中定义了 128 项定长数组：
 
 ```cpp
 struct KeyboardSettings {
@@ -57,6 +59,8 @@ struct KeyboardSettings {
 - **自定义标签优先呈现**：若某个琴键设置了 `customKeyLabels[note]`，虚拟键盘在其上方优先绘制该自定义文本；
 - **自定义颜色覆盖**：若某个琴键设置了有效 `customKeyColours[note]`（非透明），在按下和空闲时叠加该专属高亮色；
 - **预设随行**：逐键标签与颜色完整持久化在 `.devpiano.preset` 中，切换预设时秒级切换全部键位标记。
+- **索引不随输出漂移**：数组仍以配置输入音符为索引，显示时消费映射层准备的输入索引。例如 `A/60` 经矩阵移到 `72` 后，原 `customKeyLabels[60]` 和颜色显示在输出 `72` 上，不复制或改写为索引 `72`。
+- **编辑输入而非输出**：已绑定琴键编辑原绑定；未绑定的输出位置使用准备好的候选输入。例如矩阵 `+12` 下在输出 `73` 新绑，保存输入 `61`，之后发音为 `73`，不会再次移调到 `85`。
 
 ---
 
@@ -65,7 +69,7 @@ struct KeyboardSettings {
 ### 4.1 交互触发流程
 
 1. 在虚拟钢琴键盘的任意黑白键上**鼠标右键点击**；
-2. 触发 `CustomKeyboard::onBindingEditRequested(midiNote)` 回调；
+2. `CustomKeyboard::onBindingEditRequested()` 交付投影中的配置输入 MIDI 音符索引；不把最终输出当作新的配置音符；
 3. 弹出基于 `JiveModalDialog` 驱动的 `KeyBindingEditDialog` 声明式模态弹窗。
 
 ```text
@@ -89,5 +93,7 @@ struct KeyboardSettings {
 | `KeyMapTypesTest` | 验证默认布局 36 键无冲突、keyCode 规范化一致与强类型 MIDI 转换 | [x] 已通过 |
 | `KeyboardHitMappingTest` | 验证黑键与白键点击区域判定（黑键优先命中，白键边缘无缝接合） | [x] 已通过 |
 | `KeyboardHitMappingTest` | 验证鼠标拖拽滑音（Glissando）事件流与多通道色彩正确映射 | [x] 已通过 |
+| `QwertyViewModelTest` | 最终投影、绑定标签跨设置/几何/视口重建保持，以及鼠标/回放输入身份隔离 | [x] 已通过 |
+| `KeyboardHitMappingTest` | 合法端点及超范围 fade 输入有界收缩，达到目标后 Timer 停止；逐键颜色在最终输出位置保留 | [x] 已通过 |
 | `KeyBindingEditDialogTest` | 验证 128 项自定义标签与 ARGB 颜色在 JSON 预设中完整保存与读回 | [x] 已通过 |
 | `CadenceVelocityTest` | 验证快速与慢速打字律动力度曲线估算、超时复位与力度随机抖动 | [x] 已通过 |
