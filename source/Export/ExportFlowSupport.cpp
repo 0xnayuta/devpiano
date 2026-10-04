@@ -79,7 +79,7 @@ WavExportOptions buildWavExportOptions(const devpiano::recording::RecordingTake&
     options.pianoHammerHardness = performance.pianoHammerHardness;
     options.pianoResonance = performance.pianoResonance;
     options.temperament = performance.temperament;
-    options.referencePitchA4 = performance.referencePitchA4;
+    options.referencePitchA4 = devpiano::audio::TemperamentEngine::clampReferencePitch(performance.referencePitchA4);
     options.soundPerspective = performance.soundPerspective;
     options.reverbSpace = performance.reverbSpace;
     options.reverbWet = performance.reverbWet;

@@ -111,6 +111,32 @@ public:
             expect(options.lidPosition == SettingsModel::LidPosition::halfStick);
             expectEquals(options.numChannels, 2);
         });
+
+        testCase("reference pitch in export options is clamped to 400..480 Hz range", [&] {
+            RecordingTake take;
+            SettingsModel::PerformanceSettingsView perf;
+
+            perf.referencePitchA4 = 400.0;
+            expectWithinAbsoluteError(buildWavExportOptions(take, perf, 44100.0, 512).referencePitchA4, 400.0, 1e-4);
+
+            perf.referencePitchA4 = 480.0;
+            expectWithinAbsoluteError(buildWavExportOptions(take, perf, 44100.0, 512).referencePitchA4, 480.0, 1e-4);
+
+            perf.referencePitchA4 = 415.0;
+            expectWithinAbsoluteError(buildWavExportOptions(take, perf, 44100.0, 512).referencePitchA4, 415.0, 1e-4);
+
+            perf.referencePitchA4 = 440.0;
+            expectWithinAbsoluteError(buildWavExportOptions(take, perf, 44100.0, 512).referencePitchA4, 440.0, 1e-4);
+
+            perf.referencePitchA4 = 442.0;
+            expectWithinAbsoluteError(buildWavExportOptions(take, perf, 44100.0, 512).referencePitchA4, 442.0, 1e-4);
+
+            perf.referencePitchA4 = 350.0;
+            expectWithinAbsoluteError(buildWavExportOptions(take, perf, 44100.0, 512).referencePitchA4, 400.0, 1e-4);
+
+            perf.referencePitchA4 = 550.0;
+            expectWithinAbsoluteError(buildWavExportOptions(take, perf, 44100.0, 512).referencePitchA4, 480.0, 1e-4);
+        });
     }
 };
 
@@ -495,6 +521,64 @@ public:
             WavExportOptions options;
             expect(!exportTakeAsWavFile(take, target, options));
             expectEquals(target.loadFileAsString(), juce::String("user data must remain untouched"));
+        });
+
+        testCase("offline WAV export renders sine tone with frequency governed by reference pitch range", [&] {
+            devpiano::test::ScopedTempDir tempDir("wav-pitch-freq");
+
+            const auto renderToneAtPitch = [&](const juce::String& fileName, double pitch) -> double {
+                const auto wavFile = tempDir.getChildFile(fileName);
+                RecordingTake take;
+                take.sampleRate = 48000.0;
+                take.lengthSamples = 48000;
+
+                take.events.push_back({ 0, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
+                                        juce::MidiMessage::noteOn(1, 69, 0.9f) });
+                take.events.push_back({ 48000, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
+                                        juce::MidiMessage::noteOff(1, 69) });
+
+                WavExportOptions options;
+                options.sampleRate = 48000.0;
+                options.blockSize = 512;
+                options.builtinTone = SettingsModel::BuiltinTone::sine;
+                options.referencePitchA4 = pitch;
+                options.adsr = { 0.001f, 0.1f, 1.0f, 0.05f };
+
+                if (!exportTakeAsWavFile(take, wavFile, options)) {
+                    return 0.0;
+                }
+
+                juce::WavAudioFormat wavFormat;
+                std::unique_ptr<juce::AudioFormatReader> reader(
+                    wavFormat.createReaderFor(wavFile.createInputStream().release(), true));
+                if (reader == nullptr || reader->lengthInSamples < 48000) {
+                    return 0.0;
+                }
+
+                juce::AudioBuffer<float> buf(1, 1200);
+                reader->read(&buf, 0, 1200, 4800, true, false);
+                const float* samples = buf.getReadPointer(0);
+
+                int crossings = 0;
+                for (int i = 1; i < 1200; ++i) {
+                    if (samples[i - 1] <= 0.0f && samples[i] > 0.0f) {
+                        ++crossings;
+                    }
+                }
+                return static_cast<double>(crossings) * 40.0;
+            };
+
+            const auto freq400 = renderToneAtPitch("sine_400.wav", 400.0);
+            expectEquals(freq400, 400.0);
+
+            const auto freq480 = renderToneAtPitch("sine_480.wav", 480.0);
+            expectEquals(freq480, 480.0);
+
+            const auto freqClampedLow = renderToneAtPitch("sine_low.wav", 350.0);
+            expectEquals(freqClampedLow, 400.0);
+
+            const auto freqClampedHigh = renderToneAtPitch("sine_high.wav", 520.0);
+            expectEquals(freqClampedHigh, 480.0);
         });
     }
 };

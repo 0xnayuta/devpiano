@@ -69,9 +69,8 @@ private:
             SettingsModel model;
             store.load(model);
 
-            // Clamped: temperament max is 5 (Kirnberger III), pitch max is 450.0 Hz
             expect(model.temperament == devpiano::audio::Temperament::kirnberger3);
-            expectEquals(model.referencePitchA4, 450.0);
+            expectEquals(model.referencePitchA4, 480.0);
         }
 
         // 2. Lower bound clamping test
@@ -89,9 +88,8 @@ private:
             SettingsModel model;
             store.load(model);
 
-            // Clamped: temperament min is 0 (Equal), pitch min is 410.0 Hz
             expect(model.temperament == devpiano::audio::Temperament::equal);
-            expectEquals(model.referencePitchA4, 410.0);
+            expectEquals(model.referencePitchA4, 400.0);
         }
     }
 
@@ -117,6 +115,71 @@ private:
             expectEquals(loadedOpt->name, juce::String("MeantoneBaroquePreset"));
             expect(loadedOpt->temperament == Temperament::meantone);
             expectWithinAbsoluteError(loadedOpt->referencePitchA4, 415.0, 1e-4);
+        }
+
+        PerformancePreset minPreset = makeDefaultPreset();
+        minPreset.name = "MinBoundaryPreset";
+        minPreset.referencePitchA4 = 400.0;
+        const auto minFile = tempDir.getChildFile("min.devpiano.preset");
+        expect(savePreset(minPreset, minFile));
+        auto loadedMin = loadPreset(minFile);
+        expect(loadedMin.has_value());
+        if (loadedMin.has_value()) {
+            expectWithinAbsoluteError(loadedMin->referencePitchA4, 400.0, 1e-4);
+        }
+
+        PerformancePreset maxPreset = makeDefaultPreset();
+        maxPreset.name = "MaxBoundaryPreset";
+        maxPreset.referencePitchA4 = 480.0;
+        const auto maxFile = tempDir.getChildFile("max.devpiano.preset");
+        expect(savePreset(maxPreset, maxFile));
+        auto loadedMax = loadPreset(maxFile);
+        expect(loadedMax.has_value());
+        if (loadedMax.has_value()) {
+            expectWithinAbsoluteError(loadedMax->referencePitchA4, 480.0, 1e-4);
+        }
+
+        PerformancePreset concertPreset = makeDefaultPreset();
+        concertPreset.name = "ConcertPitchPreset";
+        concertPreset.referencePitchA4 = 442.0;
+        const auto concertFile = tempDir.getChildFile("concert.devpiano.preset");
+        expect(savePreset(concertPreset, concertFile));
+        auto loadedConcert = loadPreset(concertFile);
+        expect(loadedConcert.has_value());
+        if (loadedConcert.has_value()) {
+            expectWithinAbsoluteError(loadedConcert->referencePitchA4, 442.0, 1e-4);
+        }
+
+        const auto outOfBoundsFile = tempDir.getChildFile("out-of-bounds.devpiano.preset");
+        const juce::String oobJson = R"({
+  "version": 1,
+  "name": "OobPreset",
+  "layout": { "id": "oob.1", "name": "OOB", "bindings": [] },
+  "acoustics": {
+    "referencePitchA4": 250.0
+  }
+})";
+        expect(outOfBoundsFile.replaceWithText(oobJson));
+        auto loadedOob = loadPreset(outOfBoundsFile);
+        expect(loadedOob.has_value());
+        if (loadedOob.has_value()) {
+            expectWithinAbsoluteError(loadedOob->referencePitchA4, 400.0, 1e-4);
+        }
+
+        const auto oobHighFile = tempDir.getChildFile("oob-high.devpiano.preset");
+        const juce::String oobHighJson = R"({
+  "version": 1,
+  "name": "OobHighPreset",
+  "layout": { "id": "oob.2", "name": "OOB High", "bindings": [] },
+  "acoustics": {
+    "referencePitchA4": 999.0
+  }
+})";
+        expect(oobHighFile.replaceWithText(oobHighJson));
+        auto loadedOobHigh = loadPreset(oobHighFile);
+        expect(loadedOobHigh.has_value());
+        if (loadedOobHigh.has_value()) {
+            expectWithinAbsoluteError(loadedOobHigh->referencePitchA4, 480.0, 1e-4);
         }
     }
 

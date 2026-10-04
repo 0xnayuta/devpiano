@@ -131,12 +131,24 @@ private:
         engine.setReferencePitchA4(432.0);
         expectEquals(engine.getReferencePitchA4(), 432.0);
 
+        // Reachable endpoints and standard reference pitches
+        engine.setReferencePitchA4(400.0);
+        expectEquals(engine.getReferencePitchA4(), 400.0);
+        engine.setReferencePitchA4(480.0);
+        expectEquals(engine.getReferencePitchA4(), 480.0);
+        engine.setReferencePitchA4(415.0);
+        expectEquals(engine.getReferencePitchA4(), 415.0);
+        engine.setReferencePitchA4(440.0);
+        expectEquals(engine.getReferencePitchA4(), 440.0);
+        engine.setReferencePitchA4(442.0);
+        expectEquals(engine.getReferencePitchA4(), 442.0);
+
         // Clamping protection
         engine.setReferencePitchA4(350.0);
-        expectEquals(engine.getReferencePitchA4(), 410.0);
+        expectEquals(engine.getReferencePitchA4(), 400.0);
 
         engine.setReferencePitchA4(500.0);
-        expectEquals(engine.getReferencePitchA4(), 450.0);
+        expectEquals(engine.getReferencePitchA4(), 480.0);
 
         // Audio render block consumes pending parameters without race conditions
         engine.prepareToPlay(512, 44100.0);
@@ -146,7 +158,7 @@ private:
         engine.getNextAudioBlock(channelInfo);
 
         expect(engine.getTemperament() == AudioEngine::Temperament::werckmeister3);
-        expectEquals(engine.getReferencePitchA4(), 450.0);
+        expectEquals(engine.getReferencePitchA4(), 480.0);
     }
 
     void testSineSynthVoiceTemperament() {
