@@ -53,7 +53,6 @@ public:
     [[nodiscard]] devpiano::input::TouchVelocityCurve getTouchVelocityCurve() const noexcept;
     /// 释放所有当前按下的琴键与踏板（窗口失焦、切屏 Panic 防悬挂音）。
     void releaseAllHeldKeys(juce::MidiKeyboardState& keyboardState);
-    /// 生成当前电脑键盘物理按键映射与按下状态快照（单一事实源，供 QWERTY Visualizer 投影）。
     [[nodiscard]] devpiano::core::QwertyViewModel createQwertySnapshot(int keySignature = 0) const;
 
     // ── Layout Group Switching (Phase 34-B) ──

@@ -379,14 +379,14 @@ void MainComponent::wireControlsPanel() {
 
 void MainComponent::wireKeyboardInteraction() {
     auto& customKeyboard = getCustomKeyboard();
-    customKeyboard.onNoteOn = [this](int midiNote, int sourceChannel) {
-        auto identity
-            = devpiano::core::MidiNoteIdentity { devpiano::core::MidiNoteNumber::fromClamped(midiNote),
-                                                 devpiano::core::MidiChannel::fromClamped(sourceChannel + 1) };
+    customKeyboard.onNoteOn = [this](int midiNote, int sourceChannel, float velocity) {
+        auto identity = devpiano::core::MidiNoteIdentity { devpiano::core::MidiNoteNumber::fromClamped(midiNote),
+                                                           devpiano::core::MidiChannel::fromClamped(sourceChannel) };
         if (midiChannelMapper != nullptr) {
-            identity = midiChannelMapper->sendNoteOn(sourceChannel, midiNote, 1.0f, audioEngine.getKeyboardState());
+            identity
+                = midiChannelMapper->sendNoteOn(sourceChannel - 1, midiNote, velocity, audioEngine.getKeyboardState());
         } else {
-            audioEngine.getKeyboardState().noteOn(identity.channel.value, identity.note.value, 1.0f);
+            audioEngine.getKeyboardState().noteOn(identity.channel.value, identity.note.value, velocity);
         }
         keyboardMidiMapper.clearSyncPedalCutPending();
         suppressTextInputMethods();
@@ -532,7 +532,7 @@ void MainComponent::applyKeyBindingEditResult(int midiNote, const KeyBindingEdit
         }
 
         keyboardMidiMapper.setLayout(updatedLayout);
-        setKeyboardLayout(updatedLayout);
+        updateQwertyVisualizer();
     }
 
     syncUiFromSettings();
@@ -1220,7 +1220,7 @@ void MainComponent::syncUiFromSettings(bool publishPerformanceEvents) {
                            presetFlowSupport->getPresetDisplayNames());
     }
 
-    setKeyboardLayout(keyboardMidiMapper.getLayout());
+    updateQwertyVisualizer();
     {
         auto kbs = appSettings.getKeyboardDisplaySettingsView();
         getCustomKeyboard().setKeyboardSettings(makeKeyboardSettings(kbs, appSettings.keySignature));

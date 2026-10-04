@@ -185,7 +185,8 @@ public:
                 expect(loaded->uuid == generateDeterministicPresetUuid("Clamped"),
                        "v1 legacy preset gets deterministic UUID");
                 expectEquals(loaded->keySignature, 7, "keySignature must be clamped to 7");
-                expectEquals(loaded->fadeSpeed, 10.0f, "fadeSpeed must be clamped to 10.0");
+                expect(loaded->fadeSpeed >= 0.5f && loaded->fadeSpeed < 1.0f,
+                       "imported fade must use a bounded contraction");
                 expectEquals(loaded->previewAlpha, 0.0f, "previewAlpha must be clamped to 0.0");
             }
         });

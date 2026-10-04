@@ -1,5 +1,6 @@
 #include <JuceHeader.h>
 
+#include "Input/KeyboardMidiMapper.h"
 #include "Settings/jive/SettingsLayoutModel.h"
 #include "UI/CustomKeyboard.h"
 #include "UI/KeyBindingEditDialog.h"
@@ -477,6 +478,7 @@ public:
 
         juce::MidiKeyboardState state;
         CustomKeyboard keyboard(state);
+        keyboard.setKeyboardLayout(KeyboardMidiMapper().createQwertySnapshot());
         keyboard.setSize(1000, 128);
         keyboard.setAvailableRange(21, 108);
 
@@ -491,10 +493,10 @@ public:
         };
         std::vector<NoteEvent> events;
 
-        keyboard.onNoteOn = [&events](int note, int ch) {
+        keyboard.onNoteOn = [&events](int note, int ch, float) {
             events.push_back({ note, true });
             return devpiano::core::MidiNoteIdentity { devpiano::core::MidiNoteNumber::fromClamped(note),
-                                                      devpiano::core::MidiChannel::fromClamped(ch + 1) };
+                                                      devpiano::core::MidiChannel::fromClamped(ch) };
         };
         keyboard.onNoteOff = [&events](const devpiano::core::MidiNoteIdentity& identity) {
             events.push_back({ identity.note.value, false });

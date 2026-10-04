@@ -542,13 +542,6 @@ CustomKeyboard& MainComponent::getCustomKeyboard() {
     return *customKeyboardRef;
 }
 
-void MainComponent::setKeyboardLayout(const devpiano::core::KeyboardLayout& layout) {
-    if (auto* viewport = viewHost.find<KeyboardViewport>("custom-keyboard")) {
-        viewport->getCustomKeyboard().setKeyboardLayout(layout);
-    }
-    updateQwertyVisualizer();
-}
-
 void MainComponent::setKeyboardViewPosition(int midiNote, int pixelOffset) {
     auto* viewport = viewHost.find<KeyboardViewport>("custom-keyboard");
     if (viewport == nullptr) {
@@ -655,6 +648,9 @@ void MainComponent::updateQwertyVisualizer() {
         qwertyComponentRef = viewHost.find<devpiano::ui::QwertyComponent>("qwerty-visualizer");
     }
     const auto snapshot = keyboardMidiMapper.createQwertySnapshot(appSettings.keySignature);
+    if (auto* viewport = viewHost.find<KeyboardViewport>("custom-keyboard")) {
+        viewport->getCustomKeyboard().setKeyboardLayout(snapshot);
+    }
     if (qwertyComponentRef != nullptr) {
         qwertyComponentRef->updateViewModel(snapshot);
     }

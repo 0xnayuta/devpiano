@@ -333,7 +333,7 @@ void QwertyComponent::mouseDown(const juce::MouseEvent& e) {
 
     if (e.mods.isPopupMenu()) {
         if (hit.key->mappedMidiNote >= 0 && onBindingEditRequested != nullptr) {
-            onBindingEditRequested(hit.key->mappedMidiNote);
+            onBindingEditRequested(hit.key->bindingMidiNote);
         }
         return;
     }
@@ -345,7 +345,9 @@ void QwertyComponent::mouseDown(const juce::MouseEvent& e) {
             startTimer(timerIntervalMs);
         }
         repaint();
-        lastMouseDownIdentity = onNoteOn(lastMouseDownNote, hit.key->mappedMidiChannel, hit.key->velocity);
+        if (hit.key->velocity > 0.0f) {
+            lastMouseDownIdentity = onNoteOn(hit.key->inputMidiNote, hit.key->inputMidiChannel, hit.key->inputVelocity);
+        }
     }
 }
 
@@ -382,7 +384,9 @@ void QwertyComponent::mouseDrag(const juce::MouseEvent& e) {
             startTimer(timerIntervalMs);
         }
         repaint();
-        lastMouseDownIdentity = onNoteOn(lastMouseDownNote, hit.key->mappedMidiChannel, hit.key->velocity);
+        if (hit.key->velocity > 0.0f) {
+            lastMouseDownIdentity = onNoteOn(hit.key->inputMidiNote, hit.key->inputMidiChannel, hit.key->inputVelocity);
+        }
     }
 }
 

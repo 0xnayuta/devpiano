@@ -170,10 +170,11 @@ bool isNoteHeldOnAnyChannel(const juce::MidiKeyboardState& keyboardState, int mi
     return false;
 }
 
-juce::Colour computeKeyActiveColour(int midiNote, float fade, const devpiano::ui::KeyboardSettings& settings,
+juce::Colour computeKeyActiveColour(int midiNote, std::size_t customizationIndex, float fade,
+                                    const devpiano::ui::KeyboardSettings& settings,
                                     const std::array<std::atomic<uint8_t>, 128>& perKeyChannel,
                                     const std::array<juce::Atomic<float>, 128>& perKeyVelocity) {
-    const auto customColour = settings.customKeyColours[static_cast<std::size_t>(midiNote)];
+    const auto customColour = settings.customKeyColours[customizationIndex];
     if (!customColour.isTransparent()) {
         return customColour.withAlpha(fade);
     }
@@ -232,6 +233,8 @@ CustomKeyboard::~CustomKeyboard() {
 
 void CustomKeyboard::setKeyboardSettings(const devpiano::ui::KeyboardSettings& s) {
     settings = s;
+    settings.fadeSpeed = devpiano::ui::KeyboardSettings::clampFadeSpeed(settings.fadeSpeed);
+    settings.previewAlpha = juce::jlimit(0.0f, 1.0f, settings.previewAlpha);
     recalculateKeyBounds();
     repaint();
 }
@@ -246,51 +249,17 @@ void CustomKeyboard::setAvailableRange(int low, int high) {
     repaint();
 }
 
-void CustomKeyboard::setKeyboardLayout(const devpiano::core::KeyboardLayout& layout) {
-    // Reset per-key data
-    for (auto& ch : perKeyChannel) {
-        ch.store(0);
+void CustomKeyboard::setKeyboardLayout(const devpiano::core::QwertyViewModel& viewModel) {
+    if (pianoMapping == viewModel.pianoKeys) {
+        return;
     }
-    perKeyVelocity.fill(1.0f);
-
-    // Reverse-map: for each piano key (MIDI note), find the computer-key binding
-    // whose action.midiNote matches.
-    for (const auto& binding : layout.bindings) {
-        if (binding.action.type != devpiano::core::KeyActionType::note) {
-            continue;
-        }
-
-        auto note = binding.action.midiNote;
-        if (note < 0 || note > 127) {
-            continue;
-        }
-
-        auto idx = static_cast<std::size_t>(note);
-        perKeyChannel[idx].store(static_cast<uint8_t>(binding.action.midiChannel - 1));
-        perKeyVelocity[idx] = binding.action.velocity;
+    pianoMapping = viewModel.pianoKeys;
+    for (std::size_t note = 0; note < pianoMapping.size(); ++note) {
+        perKeyChannel[note].store(static_cast<uint8_t>(pianoMapping[note].mappedMidiChannel - 1));
+        perKeyVelocity[note] = pianoMapping[note].velocity;
     }
-
-    // Ensure keys are populated before labelling them.
-    // First call from syncUiFromSettings() happens before setKeyboardSettings()
-    // triggers recalculateKeyBounds(), so keys is empty without this guard.
-    if (keys.empty()) {
-        recalculateKeyBounds();
-    }
-
-    // Apply labels to displayed keys
-    for (auto& k : keys) {
-        k.keyLabel = {};
-
-        for (const auto& binding : layout.bindings) {
-            if (binding.action.type != devpiano::core::KeyActionType::note) {
-                continue;
-            }
-
-            if (binding.action.midiNote == k.midiNote) {
-                k.keyLabel = binding.displayText;
-                break;
-            }
-        }
+    for (auto& key : keys) {
+        key.keyLabel = pianoMapping[static_cast<std::size_t>(key.midiNote)].keyLabel;
     }
     repaint();
 }
@@ -326,6 +295,9 @@ void CustomKeyboard::recalculateKeyBounds() {
     layoutBlackKeys(keys, rangeLow, rangeHigh, blackKeyWidth, blackKeyHeight, keybedOffsetY);
 
     std::ranges::sort(keys, [](const auto& a, const auto& b) { return a.midiNote < b.midiNote; });
+    for (auto& key : keys) {
+        key.keyLabel = pianoMapping[static_cast<std::size_t>(key.midiNote)].keyLabel;
+    }
 
     // Match the viewed component to the keybed and viewport; prevent resize recursion.
     isResizing = true;
@@ -376,7 +348,7 @@ void CustomKeyboard::paintWhiteKeys(juce::Graphics& g) {
                                     true);
 
         // Base fill: custom colour or realistic ivory-white gradient
-        auto customColour = settings.customKeyColours[static_cast<std::size_t>(k.midiNote)];
+        auto customColour = settings.customKeyColours[customizationIndex(k.midiNote)];
         if (!customColour.isTransparent()) {
             g.setColour(customColour);
             g.fillPath(keyPath);
@@ -453,7 +425,7 @@ void CustomKeyboard::paintBlackKeys(juce::Graphics& g) {
                                     false, false, true, true);
 
         // Base fill: custom colour or obsidian matte gradient
-        auto customColour = settings.customKeyColours[static_cast<std::size_t>(k.midiNote)];
+        auto customColour = settings.customKeyColours[customizationIndex(k.midiNote)];
         if (!customColour.isTransparent()) {
             g.setColour(customColour);
             g.fillPath(keyPath);
@@ -496,13 +468,18 @@ void CustomKeyboard::paintKeyLabels(juce::Graphics& g) {
         if (!clip.intersects(k.bounds.toNearestInt().expanded(2))) {
             continue;
         }
-        const auto& customLabel = settings.customKeyLabels[static_cast<std::size_t>(k.midiNote)];
+        const auto& customLabel = settings.customKeyLabels[customizationIndex(k.midiNote)];
         if (k.isWhite) {
             drawWhiteKeyLabel(g, k, customLabel, settings);
         } else {
             drawBlackKeyLabel(g, k, customLabel, settings);
         }
     }
+}
+
+std::size_t CustomKeyboard::customizationIndex(int midiNote) const noexcept {
+    const auto bindingNote = pianoMapping[static_cast<std::size_t>(midiNote)].bindingMidiNote;
+    return static_cast<std::size_t>(bindingNote >= 0 ? bindingNote : midiNote);
 }
 
 // ============================================================================
@@ -520,7 +497,8 @@ void CustomKeyboard::mouseDown(const juce::MouseEvent& e) {
     // 编辑器），因此编辑器改由右键独占触发，左键只负责弹琴。
     if (e.mods.isRightButtonDown()) {
         if (onBindingEditRequested) {
-            onBindingEditRequested(note);
+            const auto bindingNote = pianoMapping[static_cast<std::size_t>(note)].bindingMidiNote;
+            onBindingEditRequested(bindingNote >= 0 ? bindingNote : note);
         }
         return;
     }
@@ -542,8 +520,11 @@ void CustomKeyboard::mouseDown(const juce::MouseEvent& e) {
         }
     }
     if (onNoteOn) {
-        auto ch = (note >= 0 && note < 128) ? static_cast<int>(perKeyChannel[static_cast<std::size_t>(note)]) : 0;
-        lastMouseDownIdentity = onNoteOn(note, ch);
+        const auto& input = pianoMapping[static_cast<std::size_t>(note)];
+        if (input.velocity > 0.0f) {
+            lastMouseDownIdentity = onNoteOn(input.inputMidiNote >= 0 ? input.inputMidiNote : note,
+                                             input.inputMidiChannel, input.inputVelocity);
+        }
     }
 
     ensureTimerRunning();
@@ -595,8 +576,11 @@ void CustomKeyboard::mouseDrag(const juce::MouseEvent& e) {
         }
     }
     if (onNoteOn) {
-        auto ch = (note >= 0 && note < 128) ? static_cast<int>(perKeyChannel[static_cast<std::size_t>(note)]) : 0;
-        lastMouseDownIdentity = onNoteOn(note, ch);
+        const auto& input = pianoMapping[static_cast<std::size_t>(note)];
+        if (input.velocity > 0.0f) {
+            lastMouseDownIdentity = onNoteOn(input.inputMidiNote >= 0 ? input.inputMidiNote : note,
+                                             input.inputMidiChannel, input.inputVelocity);
+        }
     }
     ensureTimerRunning();
 }
@@ -624,13 +608,17 @@ void CustomKeyboard::timerCallback() {
         }
 
         const auto target = noteHeld ? 1.0f : settings.previewAlpha;
+        if (std::abs(k.fade - target) <= fadeEpsilon) {
+            k.fade = target;
+        }
         if (noteHeld || std::abs(k.fade - target) > fadeEpsilon) {
             anyActive = true;
         }
         const bool changed = std::abs(k.fade - before) > fadeEpsilon;
 
         if (k.fade > fadeEpsilon) {
-            k.colour1 = computeKeyActiveColour(k.midiNote, k.fade, settings, perKeyChannel, perKeyVelocity);
+            k.colour1 = computeKeyActiveColour(k.midiNote, customizationIndex(k.midiNote), k.fade, settings,
+                                               perKeyChannel, perKeyVelocity);
         }
 
         if (changed) {

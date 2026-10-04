@@ -277,6 +277,10 @@ bool KeyboardMidiMapper::processKeyStateChangedInternal(juce::MidiKeyboardState&
 
     for (size_t i = 0; i < heldKeys.size(); ++i) {
         const auto& held = heldKeys[i];
+        if (held.velocity <= 0.0f) {
+            consumed = true;
+            continue;
+        }
         if (isKeyCurrentlyDown(held.physicalKeyCode)) {
             continue;
         }
@@ -286,7 +290,7 @@ bool KeyboardMidiMapper::processKeyStateChangedInternal(juce::MidiKeyboardState&
             if (j == i) {
                 continue;
             }
-            if (heldKeys[j].soundingMidiChannel == held.soundingMidiChannel
+            if (heldKeys[j].velocity > 0.0f && heldKeys[j].soundingMidiChannel == held.soundingMidiChannel
                 && heldKeys[j].soundingMidiNote == held.soundingMidiNote
                 && isKeyCurrentlyDown(heldKeys[j].physicalKeyCode)) {
                 hasOtherActiveHolder = true;
@@ -297,7 +301,7 @@ bool KeyboardMidiMapper::processKeyStateChangedInternal(juce::MidiKeyboardState&
         if (!hasOtherActiveHolder) {
             bool alreadySentNoteOff = false;
             for (size_t k = 0; k < i; ++k) {
-                if (!isKeyCurrentlyDown(heldKeys[k].physicalKeyCode)
+                if (heldKeys[k].velocity > 0.0f && !isKeyCurrentlyDown(heldKeys[k].physicalKeyCode)
                     && heldKeys[k].soundingMidiChannel == held.soundingMidiChannel
                     && heldKeys[k].soundingMidiNote == held.soundingMidiNote) {
                     alreadySentNoteOff = true;
@@ -319,9 +323,12 @@ bool KeyboardMidiMapper::processKeyStateChangedInternal(juce::MidiKeyboardState&
 void KeyboardMidiMapper::releaseAllHeldKeys(juce::MidiKeyboardState& keyboardState) {
     for (size_t i = 0; i < heldKeys.size(); ++i) {
         const auto& held = heldKeys[i];
+        if (held.velocity <= 0.0f) {
+            continue;
+        }
         bool alreadySent = false;
         for (size_t j = 0; j < i; ++j) {
-            if (heldKeys[j].soundingMidiChannel == held.soundingMidiChannel
+            if (heldKeys[j].velocity > 0.0f && heldKeys[j].soundingMidiChannel == held.soundingMidiChannel
                 && heldKeys[j].soundingMidiNote == held.soundingMidiNote) {
                 alreadySent = true;
                 break;
@@ -399,7 +406,7 @@ bool KeyboardMidiMapper::triggerBinding(const KeyBinding& binding, juce::MidiKey
     if (channelMapper != nullptr) {
         identity = channelMapper->sendNoteOn(MidiChannel::fromClamped(soundingChannel).toZeroBased(), soundingNote,
                                              velocity, keyboardState);
-    } else {
+    } else if (velocity > 0.0f) {
         keyboardState.noteOn(identity.channel.value, identity.note.value, velocity);
     }
 
@@ -443,6 +450,69 @@ devpiano::core::QwertyViewModel KeyboardMidiMapper::createQwertySnapshot(int key
     vm.isCtrlActive = modifierState.ctrlActive;
 
     const auto& activeGroup = layout.getActiveGroup();
+    const auto projectNote = [this](int note, int channel, float velocity) {
+        auto message = juce::MidiMessage::noteOn(channel, note, velocity);
+        if (channelMapper != nullptr) {
+            message = channelMapper->applyTransform(message);
+        }
+        return message;
+    };
+    const auto defaultInputChannel = calculateSoundingChannel(1, activeGroup);
+    const auto defaultInputVelocity = modifierState.transformVelocity(1.0f);
+    for (int note = 0; note < 128; ++note) {
+        const auto inputNote = modifierState.transformPitch(calculateSoundingNote(note, activeGroup));
+        const auto output = projectNote(inputNote, defaultInputChannel, defaultInputVelocity);
+        auto& pianoKey = vm.pianoKeys[static_cast<std::size_t>(output.getNoteNumber())];
+        if (pianoKey.inputMidiNote < 0) {
+            pianoKey = { inputNote,
+                         defaultInputChannel,
+                         defaultInputVelocity,
+                         output.getChannel(),
+                         output.getFloatVelocity(),
+                         note,
+                         false,
+                         {} };
+        }
+    }
+    const auto projectBinding = [&](const KeyBinding& binding) {
+        const auto bindingNote = binding.action.getMidiNoteNumber().value;
+        const auto inputNote = modifierState.transformPitch(calculateSoundingNote(bindingNote, activeGroup));
+        const auto inputChannel = calculateSoundingChannel(binding.action.getMidiChannel().value, activeGroup);
+        const auto inputVelocity = modifierState.transformVelocity(
+            devpiano::input::applyVelocityCurve(binding.action.getVelocity().value, touchVelocityCurve));
+        const auto output = projectNote(inputNote, inputChannel, inputVelocity);
+        return std::pair { PianoKeyVisualState { inputNote, inputChannel, inputVelocity, output.getChannel(),
+                                                 output.getFloatVelocity(), bindingNote, true, binding.displayText },
+                           output.getNoteNumber() };
+    };
+    for (const auto& binding : layout.bindings) {
+        if (binding.action.type != KeyActionType::note) {
+            continue;
+        }
+        const auto [projection, outputNote] = projectBinding(binding);
+        auto& pianoKey = vm.pianoKeys[static_cast<std::size_t>(outputNote)];
+        if (!pianoKey.hasBinding) {
+            pianoKey = projection;
+        } else {
+            pianoKey.keyLabel += "/" + binding.displayText;
+        }
+        for (auto& row : vm.rows) {
+            for (auto& key : row.keys) {
+                if (key.keyCode == 0 || key.keyCode != binding.keyCode || key.bindingMidiNote >= 0) {
+                    continue;
+                }
+                key.inputMidiNote = projection.inputMidiNote;
+                key.inputMidiChannel = projection.inputMidiChannel;
+                key.inputVelocity = projection.inputVelocity;
+                key.bindingMidiNote = projection.bindingMidiNote;
+                key.mappedMidiNote = outputNote;
+                key.mappedMidiChannel = projection.mappedMidiChannel;
+                key.velocity = projection.velocity;
+                key.noteName = getNoteDisplayName(outputNote, NoteDisplayMode::noteName, keySignature);
+                key.solfegeLabel = getNoteDisplayName(outputNote, NoteDisplayMode::fixedDo, keySignature);
+            }
+        }
+    }
     for (auto& row : vm.rows) {
         for (auto& key : row.keys) {
             if (key.isSustainPedal) {
@@ -451,25 +521,6 @@ devpiano::core::QwertyViewModel KeyboardMidiMapper::createQwertySnapshot(int key
                 key.isDown = softPedalDown;
             } else if (key.keyCode != 0) {
                 key.isDown = isKeyHeld(key.keyCode);
-            }
-
-            if (key.keyCode != 0) {
-                if (const auto* binding = layout.findByKeyCode(key.keyCode)) {
-                    if (binding->action.type == devpiano::core::KeyActionType::note) {
-                        // 依据当前 Group 实时计算音符投影
-                        const auto baseNote
-                            = devpiano::core::calculateSoundingNote(binding->action.midiNote, activeGroup);
-                        key.mappedMidiNote = modifierState.transformPitch(baseNote);
-                        key.mappedMidiChannel
-                            = devpiano::core::calculateSoundingChannel(binding->action.midiChannel, activeGroup);
-                        key.velocity = modifierState.transformVelocity(binding->action.velocity);
-
-                        key.noteName = devpiano::core::getNoteDisplayName(
-                            key.mappedMidiNote, devpiano::core::NoteDisplayMode::noteName, keySignature);
-                        key.solfegeLabel = devpiano::core::getNoteDisplayName(
-                            key.mappedMidiNote, devpiano::core::NoteDisplayMode::fixedDo, keySignature);
-                    }
-                }
             }
         }
     }

@@ -35,6 +35,9 @@ struct PerformanceModifierState {
     int8_t semitoneOffset = 0;
 
     [[nodiscard]] float transformVelocity(float baseVelocity) const noexcept {
+        if (baseVelocity <= 0.0f) {
+            return 0.0f;
+        }
         if (shiftActive) {
             return 1.0f; // Maximum fortissimo accent
         }

@@ -264,8 +264,7 @@ void SettingsStore::readNow(SettingsModel& m) {
         }
         m.keyboardDisplay.noteDisplay = static_cast<devpiano::ui::NoteDisplayMode>(nd);
     }
-    m.keyboardDisplay.fadeSpeed = juce::jlimit(
-        0.01f, 10.0f,
+    m.keyboardDisplay.fadeSpeed = devpiano::ui::KeyboardSettings::clampFadeSpeed(
         static_cast<float>(f.getDoubleValue(kKeyFadeSpeed, static_cast<double>(m.keyboardDisplay.fadeSpeed))));
     // Channel matrix as ValueTree XML.
     if (auto cmXml = f.getXmlValue(kKeyChannelMatrix)) {

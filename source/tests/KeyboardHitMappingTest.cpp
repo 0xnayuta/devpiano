@@ -1,6 +1,7 @@
 #include <JuceHeader.h>
 #include <cmath>
 
+#include "Input/KeyboardMidiMapper.h"
 #include "Midi/MidiChannelMapper.h"
 #include "UI/CustomKeyboard.h"
 #include "UI/KeyboardTypes.h"
@@ -67,6 +68,8 @@ public:
         testMouseDragGlissando();
         testMouseReleaseUsesMappedIdentityAfterMapperChange();
         testMessageThreadListenerAndTimerBehavior();
+        testFadeEndpointsTerminate();
+        testProjectedCustomizationColours();
     }
 
 private:
@@ -247,6 +250,7 @@ private:
         testCase("mouse drag glissando across keys triggers noteOff and noteOn", [&] {
             juce::MidiKeyboardState ks;
             CustomKeyboard kb(ks);
+            kb.setKeyboardLayout(KeyboardMidiMapper().createQwertySnapshot());
             kb.setSize(1248, 120);
 
             // Focus configuration check
@@ -255,10 +259,10 @@ private:
 
             std::vector<int> notesOn;
             std::vector<int> notesOff;
-            kb.onNoteOn = [&](int note, int sourceChannel) {
+            kb.onNoteOn = [&](int note, int sourceChannel, float) {
                 notesOn.push_back(note);
                 return devpiano::core::MidiNoteIdentity { devpiano::core::MidiNoteNumber::fromClamped(note),
-                                                          devpiano::core::MidiChannel::fromClamped(sourceChannel + 1) };
+                                                          devpiano::core::MidiChannel::fromClamped(sourceChannel) };
             };
             kb.onNoteOff
                 = [&](const devpiano::core::MidiNoteIdentity& identity) { notesOff.push_back(identity.note.value); };
@@ -341,9 +345,10 @@ private:
             auto* activeMapper = &initialMapper;
             juce::MidiKeyboardState state;
             CustomKeyboard keyboard(state);
+            keyboard.setKeyboardLayout(KeyboardMidiMapper().createQwertySnapshot());
             keyboard.setSize(1248, 120);
-            keyboard.onNoteOn = [&](int note, int sourceChannel) {
-                return activeMapper->sendNoteOn(sourceChannel, note, 1.0f, state);
+            keyboard.onNoteOn = [&](int note, int sourceChannel, float velocity) {
+                return activeMapper->sendNoteOn(sourceChannel - 1, note, velocity, state);
             };
             keyboard.onNoteOff = [&](const devpiano::core::MidiNoteIdentity& identity) {
                 activeMapper->sendNoteOff(identity, 1.0f, state);
@@ -475,6 +480,64 @@ private:
             kb.onNoteOff = [&](const devpiano::core::MidiNoteIdentity&) { ++offCallbackCount; };
             kb.releaseHeldMouseNote();
             expectEquals(offCallbackCount, 0, "releaseHeldMouseNote without held note is clean no-op");
+        });
+    }
+    void testProjectedCustomizationColours() {
+        testCase("configured white and black key colours follow the final mapping projection", [&] {
+            devpiano::midi::ChannelMatrix matrix;
+            matrix.channels[0].transpose = 12;
+            devpiano::midi::MidiChannelMapper channels(matrix, false, 0);
+            KeyboardMidiMapper mapper;
+            auto layout = devpiano::core::makeDefaultKeyboardLayout();
+            layout.bindings = { devpiano::core::makeNoteBinding('A', 60), devpiano::core::makeNoteBinding('S', 61) };
+            mapper.setLayout(layout);
+            mapper.setChannelMapper(&channels);
+            juce::MidiKeyboardState state;
+            CustomKeyboard keyboard(state);
+            keyboard.setKeyboardLayout(mapper.createQwertySnapshot());
+            auto settings = keyboard.getKeyboardSettings();
+            settings.customKeyColours[60] = juce::Colours::magenta;
+            settings.customKeyColours[61] = juce::Colours::cyan;
+            keyboard.setKeyboardSettings(settings);
+            const auto image = keyboard.createComponentSnapshot(keyboard.getLocalBounds());
+            for (const auto note : { 72, 73 }) {
+                const auto* key = keyForNote(keyboard, note);
+                expect(key != nullptr);
+                if (key == nullptr) {
+                    continue;
+                }
+                const auto sampleY = key->bounds.getY() + key->bounds.getHeight() * (key->isWhite ? 0.7f : 0.5f);
+                const auto pixel
+                    = image.getPixelAt(juce::roundToInt(key->bounds.getCentreX()), juce::roundToInt(sampleY));
+                const auto expected = note == 72 ? juce::Colours::magenta : juce::Colours::cyan;
+                expectEquals(pixel.getARGB(), expected.getARGB());
+            }
+        });
+    }
+
+    void testFadeEndpointsTerminate() {
+        testCase("endpoint and out-of-range decay coefficients remain bounded and settle", [&] {
+            for (const auto speed : { 1.0f, 1.5f, 10.0f }) {
+                juce::MidiKeyboardState state;
+                CustomKeyboard keyboard(state);
+                auto settings = keyboard.getKeyboardSettings();
+                settings.fadeSpeed = speed;
+                settings.previewAlpha = 0.2f;
+                keyboard.setKeyboardSettings(settings);
+                state.noteOn(1, 60, 1.0f);
+                keyboard.triggerTimerCallbackForTest();
+                state.noteOff(1, 60, 1.0f);
+                for (int frame = 0; frame < 1200 && keyboard.isTimerRunningForTest(); ++frame) {
+                    keyboard.triggerTimerCallbackForTest();
+                    for (const auto& key : keyboard.getKeys()) {
+                        expect(key.fade >= 0.0f && key.fade <= 1.0f);
+                    }
+                }
+                expect(!keyboard.isTimerRunningForTest());
+                for (const auto& key : keyboard.getKeys()) {
+                    expectWithinAbsoluteError(key.fade, 0.2f, 0.00001f);
+                }
+            }
         });
     }
 };

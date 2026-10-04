@@ -69,9 +69,9 @@ inline juce::MidiMessage applyMatrixToNoteOn(const PerChannelConfig& cfg, int or
     auto outChannel = static_cast<uint8_t>(cfg.outputChannel + 1); // 0-based → 1-based
     auto outNote = static_cast<uint8_t>(
         juce::jlimit(0, 127, originalNote + cfg.transpose + static_cast<int>(cfg.octaveShift) * 12));
-    auto outVel = cfg.velocity != 64
-        ? cfg.velocity
-        : static_cast<uint8_t>(juce::jlimit(0, 127, static_cast<int>(originalVelocity * 127.0f)));
+    auto outVel = originalVelocity <= 0.0f ? uint8_t { 0 }
+        : cfg.velocity != 64               ? cfg.velocity
+                             : static_cast<uint8_t>(juce::jlimit(0, 127, static_cast<int>(originalVelocity * 127.0f)));
 
     return juce::MidiMessage::noteOn(outChannel, outNote, outVel);
 }

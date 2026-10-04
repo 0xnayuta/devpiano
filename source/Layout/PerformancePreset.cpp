@@ -670,7 +670,8 @@ std::optional<PerformancePreset> performancePresetFromVar(const juce::var& v) {
                 preset.noteDisplay = static_cast<devpiano::ui::NoteDisplayMode>(nd);
             }
             if (kbo->hasProperty("fadeSpeed")) {
-                preset.fadeSpeed = juce::jlimit(0.01f, 10.0f, static_cast<float>(kbo->getProperty("fadeSpeed")));
+                preset.fadeSpeed
+                    = devpiano::ui::KeyboardSettings::clampFadeSpeed(static_cast<float>(kbo->getProperty("fadeSpeed")));
             }
             if (kbo->hasProperty("previewAlpha")) {
                 preset.previewAlpha = juce::jlimit(0.0f, 1.0f, static_cast<float>(kbo->getProperty("previewAlpha")));

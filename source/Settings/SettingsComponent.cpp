@@ -241,7 +241,8 @@ void SettingsComponent::wireAppearanceControls() {
     }
 
     if (fadeSpeedSlider != nullptr) {
-        fadeSpeedSlider->setRange(0.50, 1.00, 0.01);
+        fadeSpeedSlider->setRange(devpiano::ui::KeyboardSettings::kMinFadeSpeed,
+                                  devpiano::ui::KeyboardSettings::kMaxFadeSpeed, 0.01);
         fadeSpeedSlider->setSliderStyle(juce::Slider::LinearHorizontal);
         fadeSpeedSlider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
         if (model != nullptr) {
@@ -860,7 +861,8 @@ bool SettingsComponent::applyDisplayProperty(const juce::Identifier& prop) {
         return true;
     }
     if (propName == "fadeSpeed") {
-        model->keyboardDisplay.fadeSpeed = static_cast<float>((double)editingState[prop]);
+        model->keyboardDisplay.fadeSpeed
+            = devpiano::ui::KeyboardSettings::clampFadeSpeed(static_cast<float>((double)editingState[prop]));
         return true;
     }
     if (propName == "showInstrumentFilter") {

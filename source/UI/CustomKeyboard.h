@@ -7,8 +7,8 @@
 #include <juce_events/juce_events.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
-#include "Core/KeyMapTypes.h"
 #include "Core/MidiTypes.h"
+#include "Core/QwertyModel.h"
 
 #include "KeyboardTypes.h"
 
@@ -33,7 +33,7 @@ public:
     [[nodiscard]] const devpiano::ui::KeyboardSettings& getKeyboardSettings() const noexcept;
 
     // ---- Callbacks ---------------------------------------------------------
-    std::function<devpiano::core::MidiNoteIdentity(int midiNote, int sourceChannel)> onNoteOn;
+    std::function<devpiano::core::MidiNoteIdentity(int inputNote, int inputChannel, float velocity)> onNoteOn;
     std::function<void(const devpiano::core::MidiNoteIdentity&)> onNoteOff;
 
     std::function<void(int midiNote)> onBindingEditRequested;
@@ -42,7 +42,7 @@ public:
     void setAvailableRange(int low, int high);
 
     // ---- Layout ------------------------------------------------------------
-    void setKeyboardLayout(const devpiano::core::KeyboardLayout& layout);
+    void setKeyboardLayout(const devpiano::core::QwertyViewModel& viewModel);
 
     // ---- Hit testing --------------------------------------------------------
     // Map a component-local position to the pressed MIDI note (black keys take
@@ -105,6 +105,7 @@ private:
     void paintBlackKeys(juce::Graphics& g);
     void paintKeyLabels(juce::Graphics& g);
     void repaintKey(const devpiano::ui::KeyRenderState& k);
+    [[nodiscard]] std::size_t customizationIndex(int midiNote) const noexcept;
 
     // Fade animation
     void ensureTimerRunning();
@@ -115,6 +116,7 @@ private:
     // State
     devpiano::ui::KeyboardSettings settings;
     std::vector<devpiano::ui::KeyRenderState> keys;
+    std::array<devpiano::core::PianoKeyVisualState, 128> pianoMapping;
 
     int rangeLow = 21;
     int rangeHigh = 108; // (C8)
@@ -127,8 +129,6 @@ private:
     int lastVisibleHeight = 0;
     bool isResizing = false;
 
-    // Per-key binding data for colour mode computation, indexed by MIDI note.
-    // Populated by setKeyboardLayout().  Unbound notes default to channel 0 / vel 1.0.
     std::array<std::atomic<uint8_t>, 128> perKeyChannel {};
     std::array<juce::Atomic<float>, 128> perKeyVelocity {};
 

@@ -190,7 +190,6 @@ private:
 
     // ── JIVE keyboard area accessors ──
     CustomKeyboard& getCustomKeyboard();
-    void setKeyboardLayout(const devpiano::core::KeyboardLayout& layout);
     void setKeyboardViewPosition(int midiNote, int pixelOffset = -1);
     [[nodiscard]] int getKeyboardViewPositionX() const noexcept;
 

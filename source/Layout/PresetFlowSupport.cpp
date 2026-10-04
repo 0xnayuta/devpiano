@@ -141,7 +141,6 @@ void PresetFlowSupport::applyRecordedPresetUi(const devpiano::recording::Recorde
 
     // 1. KeyboardLayout
     owner.keyboardMidiMapper.setLayout(preset.layout, false);
-    owner.setKeyboardLayout(preset.layout);
 
     // 2. ChannelMatrix
     auto& s = owner.appSettings;
@@ -192,7 +191,6 @@ void PresetFlowSupport::commitPreset(const PerformancePreset& preset, bool fileB
 
     // 1. KeyboardLayout
     owner.keyboardMidiMapper.setLayout(preset.layout);
-    owner.setKeyboardLayout(preset.layout);
 
     // 2. ChannelMatrix
     s.channelMatrix = preset.channelMatrix;
