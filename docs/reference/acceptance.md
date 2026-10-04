@@ -14,6 +14,20 @@
 
 ---
 
+## AUDIT-004 Phase D：发音身份与采样级边界回归
+
+直接验证见 [Phase D 实施记录](../roadmap/current-iteration.md#phase-d-实施记录与直接验证2026-10-04)，项目阶段状态仍只由 roadmap 管理。
+
+- [x] On 与 Off 之间改变 offset/enabled/mask，FIFO 原身份仍释放；Q/K 与矩阵合并保留最后持有者。
+- [x] 暂停捕获终结原身份/踏板、排除暂停中新演奏；Take、MIDI 写出及再导入不在重叠起音处合成额外 Off。
+- [x] 最后 Off 等于 Take 长度/块末仍交付；实时/WAV 缩放采样点及声学结束一致，不依赖 UI Timer 清音。
+- [x] 显式 keyUp/未知 trigger 拒绝，保留缺省 keyDown 与原文件/预设。
+- [x] 48k↔44.1k、2x、播放/捕获暂停恢复保留 Take-relative 时长、位置与身份；设备故障/热插拔仍单独安全验收。
+- [x] Seek/回跳先恢复 16 通道 program/bank/CC64/pitch，不重发历史 NoteOn。
+- [x] 120 BPM 4/4 一/两小节在完整 2/4 秒后的音频下拍开始；跨多拍 UI 轮询、块对齐、取消/重建与零轮询后立即控制均有消费者证据。
+- [x] CC67 先于和弦、新分配/偷声部/释放保留通道状态，连续值影响声学结果；原生 VST3 通道控制不改写。
+
+
 ## Phase 1-1：工程骨架可运行
 
 状态：已通过。

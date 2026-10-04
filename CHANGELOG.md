@@ -21,6 +21,12 @@
 - **Cooperative Export Shutdown** — retain task, plugin and writer ownership until background rendering actually exits; keep cancellation and application quit asynchronous without timed thread termination.
 - **Native Offline Plugin Mode** — declare non-realtime operation before preparing independent VST3 instances so offline setup and processing use the same mode.
 - **Stable Plugin Description Identity** — select, load and restore plugins by description identifiers instead of display names; preserve duplicate-file discovery and metadata updates, and migrate only unambiguous legacy recovery names.
+- **Locked Playback Note Identity** — pair overlapping attacks FIFO and retain final output identities across transpose, mask and device-rate changes; release merged outputs only after their final holder.
+- **Paired Capture Pauses and MIDI** — close recorded notes and pedals at frozen capture boundaries, exclude paused performance, and preserve explicit rearticulation/release events during MIDI export and import.
+- **Sample-Domain Transport Boundaries** — deliver exact final events before audio-owned completion, rebase active transport on device-rate changes, and restore channel program/bank/controller/pitch state before seek and loop destinations.
+- **Full-Period Count-In** — start recording on the audio-owned downbeat after complete one/two-bar periods, including block-aligned boundaries, delayed UI polls, cancellation and device rebuilds.
+- **Instrument-Owned Soft Pedal** — apply per-channel analog CC67 state before new builtin voices start, isolate reused voices and channel releases, and share the instrument owner with offline WAV rendering.
+- **Consistent Sine Envelope Rates** — recalculate ADSR coefficients when the voice sample rate changes so realtime and offline terminal samples use the same time domain.
 
 ## [1.3.0] - 2026-09-21
 

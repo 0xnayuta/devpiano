@@ -50,7 +50,7 @@ For project scope, core capabilities, and explicit non-goals, see [`docs/referen
 
 - **5-Row ANSI Physical Visualizer Card (QwertyComponent)**: declaratively embedded between Controls and Keyboard areas, featuring interactive physical key depression and 50fps phosphor afterglow decay; supports instant expand/collapse and settings persistence;
 - **12-TET Pitch-Class Harmony Color Projection**: subtle chromatic harmonic hues on key labels and dynamic triadic chord geometric color blooming linked with the 88-key piano bed; 4 key color modes (Classic / Channel / Velocity / Harmony);
-- **Lightweight Layout Groups & Note-off Identity Preservation**: supports up to 4 key groups (Group A~D) per preset, cycled instantly via backtick (`) or UI button; note-off release 100% preserves note-on sounding identity (pitch, channel), completely eliminating hanging notes;
+- **Lightweight Layout Groups & Note-off Identity Preservation**: up to 4 key groups (Group A~D), cycled via backtick or UI; physical keys retain original sounding identities until the final output holder releases, while playback pairs attacks FIFO using locked output identities;
 - **Sample-Accurate Syncopated Legato Pedal (SustainPolicy & Sync Pedal)**: sample-accurate intra-block scheduling for $\text{CC64}(0) \to \text{NoteOn} \to \text{CC64}(127)$, eliminating legato gaps when restriking keys with pedal held without thread sleep;
 - **Transient Performance Modifiers (PerformanceModifierState)**: Shift key triggers transient maximum velocity boost (127), Alt key triggers transient octave shift (+8va), auto-rebounding on release, with real-time UI HUD badges;
 - **Cadence Dynamics & Chord Feedback**: optional `TypingCadenceEstimator` adapts velocity to key intervals; `VelocityHumanizer` applies bounded, deterministic hash jitter without overriding Shift's maximum-velocity boost. Held notes drive chord/inversion labels in the QWERTY card header and keyboard HUD, which fade after release.
@@ -69,7 +69,7 @@ For project scope, core capabilities, and explicit non-goals, see [`docs/referen
 ### 🎙️ Performance Recording, Playback & Persistence
 
 - **Real-Time Lock-Free Capture**: lock-free MIDI event collection on the audio thread generating immutable `RecordingTake` snapshots;
-- **Variable-Speed Playback**: 0.5x–2.0x speed and Stop commands applied at audio-block boundaries, Back-to-start, pause/resume, take-relative seek, and A-B practice loops;
+- **Variable-Speed Playback**: 0.5x–2.0x speed and Stop commands applied at audio-block boundaries, Back-to-start, pause/resume and take-relative seek/A-B loops; device-rate changes retain the Take time domain, destination channel state is restored before notes, and terminal NoteOff is delivered by audio rather than a UI timer;
 - **Native Performance File Persistence**: `.devpiano` native file format (v2 JSON + Base64 encoding + `juce::TemporaryFile` atomic writing);
 - **Standard MIDI File Interoperability**: exports standard Type 1 MIDI files (960 PPQ); imports `.mid` files by merging all tracks, with CC64 sustain, pitch-bend, and program-change parsing;
 - **Performance Preset System**: full preset CRUD orchestration, F1–F12 hotkey switching, recorded preset-change automation, and same-name import overwrite confirmation through a JIVE modal dialog.

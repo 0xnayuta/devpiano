@@ -63,6 +63,7 @@ RecordingSessionController::replaceTakeAndStartPlayback()
 - 根据 MIDI 文件头定义的 PPQ（Pulses Per Quarter Note）与 Tempo（默认 120 BPM，或首个 Tempo 设定），结合当前音频设备的采样率（如 44.1 kHz / 48 kHz），将每个 MIDI 事件的 Tick 准确转换为绝对采样点 `timestampSamples`；
 - 回放时由 `RecordingEngine` 逐 audio block 调度，不受系统时钟抖动影响。
 - 文件导入目标采样率要求有限且处于 8000–384000 Hz；转换后的长度/时间戳须非负且可表示，失败拒绝整次导入，不饱和为 `INT64_MAX` 后继续消费。
+- 读取显式 MIDI 事件时关闭 JUCE 自动补匹配 Off，不在重复同音起音处凭空插入释放。协议自身的 tick 精度与合并优先级仍生效；播放目的位置恢复状态但不重发历史起音。
 
 ### 3.3 首音 0s 截断防御（Pre-roll 机制）
 

@@ -50,7 +50,7 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
 
 - **5 行 ANSI 物理键盘映射卡片（QwertyComponent）**：在 Controls 与键盘区之间声明式嵌入自适应 QWERTY 看板，击键物理下沉并联动 50fps 荧光余晖动画；支持一键展开/折叠与设置持久化；
 - **12-TET 和声色彩投影（Harmony Projection）**：静态呈现微妙和声色彩，击键与 88 键钢琴同频绽放三和弦几何色相；4 种按键着色模式（Classic / Channel / Velocity / Harmony）；
-- **轻量键位分组与发音身份恒定（Layout Groups & HeldKeyIdentity）**：单预设支持 4 组键位配置（Group A~D），反引号键（`）或 UI 按钮秒级切换；松键注销 100% 绑定按键瞬间的发音快照，彻底杜绝悬挂音；
+- **轻量键位分组与发音身份恒定（Layout Groups & HeldKeyIdentity）**：单预设支持 4 组键位配置（Group A~D），反引号键（`）或 UI 按钮秒级切换；物理键保留原发音快照，同一输出最后一个持有者释放才关音；回放侧以 FIFO 保存每次起音的最终身份；
 - **采样精确切分延音踏板（SustainPolicy & Sync Pedal）**：音频块内部采样点级别调度 $\text{CC64}(0) \to \text{NoteOn} \to \text{CC64}(127)$，消除空格键踩放时的断音空洞，杜绝线程 Sleep；
 - **瞬态演奏修饰键（PerformanceModifierState）**：Shift 键瞬态力度拉满（Velocity Boost）、Alt 键瞬态高八度平移（+8va），松开自动回弹，UI 实时展示 HUD 标签；
 - **击键动态力度与实时和弦反馈**：可选 `TypingCadenceEstimator` 按击键间隔调整力度，`VelocityHumanizer` 叠加有界、确定性哈希微扰（Shift 力度拉满优先）；基于按下音符识别和弦及转位，在 QWERTY 卡片标题与键盘 HUD 显示，松键后渐隐。
@@ -58,7 +58,7 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
 
 ### 🥁 节拍与跟练工具（Metronome & Practice）
 
-- **采样级节拍器**：`MetronomeProcessor` 在音频块内产生强弱拍，支持 2/4、3/4、4/4、6/8 拍号、40–280 BPM、Tap Tempo 与状态栏节拍反馈；录制前可设置 1–2 小节预备拍。
+- **采样级节拍器**：`MetronomeProcessor` 在音频块内产生强弱拍，支持 2/4、3/4、4/4、6/8 拍号、40–280 BPM、Tap Tempo 与状态栏节拍反馈；录制前 1–2 小节预备拍在完整时段后的目标下拍开始，不依赖 UI 轮询；
 - **MIDI A-B 循环与时间轴**：`TimelineBar` 支持点击/拖动跳转、设置与清除 A/B 标记；`RecordingEngine` 按 Take 时间轴调度循环与播放速度，跳转/回跳时清理当前发声，避免悬挂音。
 
 ### 🎛️ 16 通道 MIDI 矩阵与实时移调（16-Channel MIDI Matrix & Transposition）
@@ -69,7 +69,7 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
 ### 🎙️ 演奏录制、回放与数据持久化（Recording, Playback & Persistence）
 
 - **实时无锁采集**：音频线程无锁采集生成不可变 `RecordingTake` 数据结构；
-- **多倍速回放控制**：支持 0.5x–2.0x 原子倍速调节、Back 从头回放，以及暂停/恢复、Take-relative 跳转与 A-B 循环跟练；
+- **多倍速回放控制**：支持 0.5x–2.0x 音频块边界倍速调节、Back 从头回放，以及暂停/恢复、Take-relative 跳转与 A-B 循环；设备采样率变化保留 Take 时间域，跳转前恢复通道状态，末尾 NoteOff 由音频路径交付；
 - **原生演奏持久化**：支持 `.devpiano` 原生演奏文件格式（v2 JSON + Base64 编码 + `juce::TemporaryFile` 原子写入）；
 - **标准 MIDI 文件支持**：支持导出标准 Type 1 MIDI 文件（960 PPQ），支持导入标准 `.mid` 文件并合并全部音轨，解析 CC64 延音、Pitch Bend 与 Program Change 等控制信息；
 - **Performance Preset 预设系统**：预设 CRUD 编排、F1-F12 快捷键切换、录制中自动切调记录以及同名导入覆盖确认（JIVE 声明式弹窗）。

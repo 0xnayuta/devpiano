@@ -14,8 +14,8 @@ devpiano 提供了完整的“弹奏 → 录制 → 回放 → 导出 MIDI”的
 2. **预分配内存与溢出防御**：录制前预先分配大容量事件缓冲，录制期间实时线程**零动态内存分配（零堆分配）**，容量耗尽时以原子计数安全丢弃，不发生崩溃或阻塞；
 3. **高保真同链路回放**：回放事件重新注入 `AudioEngine` 的主发声链路（驱动已加载 VST3 插件或内置物理建模钢琴），同时联动虚拟钢琴键盘高亮显示；
 4. **标准 MIDI 文件导出（Type 1）**：将完成录制后的 `RecordingTake` 快照转换为标准 MIDI 文件（960 PPQ），供导入外部宿主（DAW）或打谱软件；
-5. **全流程会话编排（`RecordingSessionController`）**：集中管理录制、停止、播放、暂停、重新从头播放与导出状态机互斥；支持 1–2 小节节拍器预备拍倒计时（Count-in），倒计时期间若触发其他传输控制或 Take 替换，会安全取消倒计时，避免延迟启动录制覆盖现有 Take；
-6. **A-B 跟练时间轴与采样级 Seek**：展示 Take 的绝对时间与总时长，支持点击/拖拽 Seek、A/B 循环标记与跨 16 通道发音完全清理（CC64 Off + CC120 + All Notes Off）。
+5. **全流程会话编排（`RecordingSessionController`）**：统一录制、播放、暂停和停止；预备拍在完整 1–2 小节后的音频下拍开始，不在最后一拍起音或 UI 轮询时才启动。目标已到达但 UI 尚未轮询时，后续控制先接管已开始的录制；未开始时取消保留原 Take；
+6. **A-B 跟练时间轴与采样级 Seek**：显示 Take 绝对时间，支持点击/拖拽 Seek、A/B 标记；清理旧发音后，在目标音符之前恢复目的通道的 program/bank/CC64/pitch，不重发历史 NoteOn。
 
 ---
 
@@ -50,6 +50,7 @@ RecordingSessionController::handlePlayClicked() ──► RecordingEngine::start
 AudioEngine::getNextAudioBlock() (实时音频回调)
     ├── applyPendingTransportCommands(midiBuffer) (变速 / Seek / Stop 的唯一音频块提交点)
     ├── RecordingEngine::renderPlaybackBlock(playbackVisualMidiBuffer, blockStartSamples, numSamples)
+    ├── PlaybackIdentityTracker (FIFO 锁定最终输出身份；同输出最后持有者才交付 Off)
     ├── keyboardState.processNextMidiBuffer(playbackVisualMidiBuffer, 0, numSamples, false)
     │    └── 同步调用 Listener（虚拟键盘高亮；当前 UI 回调线程边界见 known-issues）
     ├── midiBuffer.addEvents(playbackVisualMidiBuffer, 0, numSamples, 0)
@@ -64,6 +65,16 @@ AudioEngine::getNextAudioBlock() (实时音频回调)
 - **极小区间防御**：缩放后的有效区间至少需要覆盖一个当前音频回调块（`playbackBlockSize`）；更短区间保留 A/B 标记但自动旁路循环回跳，避免单块内重复回跳与清理风暴；
 - **速度自适应**：0.5x–2.0x 的 setter 只发布目标值，不在消息线程修改位置或活动游标。下一音频块一致提交有效倍率与重缩放位置；纯变速保留下一未渲染事件，防止取整后重播旧 NoteOn。Take 采样点与 A/B 标记不变。
 - **Stop 与结构边界**：活动 Stop 在块边界先执行跨通道 panic，再停止回放；同块 Stop 优先于待提交 Seek/变速。清除/替换/启动 Take 与暂停快照仅在 callback 已停止的守卫内执行；UI 的目标倍率与当前音频有效倍率分别读取，不以 state 原子值代替已进入 callback 的退出确认。
+
+### 2.4 捕获、末尾与设备采样域
+
+- **捕获暂停**：控制器在 callback 停止后终结已录身份及 CC64/66/67 状态，再冻结时间轴；暂停中新起音和后续无已录身份的 Off 排除。实际最终松键在该采样点闭合同身份的全部已捕获重起音，不等暂停/停止补救。
+- **固定 Take 域**：开始时锁定 `RecordingTake::sampleRate`，设备新采样点/块偏移换算到该域，累计不足一个样本的余量不随块反复丢失；pause 不推进。prepare 同时重基准活动/暂停播放的位置和倍率，保留下一未渲染游标及同代发音快照。
+- **末尾交付**：事件缩放与离线共用取整，播放有效长度包含最后事件 `+1`。终结位于整块边界时，下一块偏移 0 仍交付音频清理，再通知 UI；自动结束 UI 只更新状态，不重复发送 Stop 截断释放尾音。
+- **完整预备拍**：先停机预分配/arm，`MetronomeProcessor` 音频计数给出块内起点，之前的 MIDI 排除、起点事件时间戳为 0。120 BPM 4/4 一/两小节分别为 2/4 秒；消息轮询、静音、取消/重启与 release/prepare 不重置已消耗的计时。
+- **warmup**：空闲启动仍丢弃输入并静音；活动 Transport 在静音过渡时继续处理 MIDI/DSP 与时钟，节拍仍混入。新播放的 pre-roll 不被 warmup 提前消耗。
+- **验证边界**：Windows CPU 生产链路、文件 readback、原生 VST3 和实际控制器/窗口见 [Phase D 实施记录](../../roadmap/current-iteration.md#phase-d-实施记录与直接验证2026-10-04)。不外推所有厂商插件、声卡热插拔或整个 callback 的无锁/无分配门禁。
+
 ---
 
 ## 3. 核心数据模型（`RecordingTake`）
@@ -83,7 +94,7 @@ struct PerformanceEvent {
 };
 
 struct RecordingTake {
-    double sampleRate = 0.0;                       // 录制时的采样率
+    double sampleRate = 0.0;                       // 录制开始时锁定的 Take 时间域
     int64_t lengthSamples = 0;                     // 录制总长度
     std::vector<PerformanceEvent> events;          // 事件序列
 
@@ -103,9 +114,9 @@ struct RecordingTake {
 - **数值准入**：采样率/时间戳先检查；PPQ 仅接受 `1..32767`，写出前确认 JUCE `int` tick 与 MIDI 4 字节 VLQ delta 均可表示。非法范围不进入 `roundToInt()` 或打开输出，保留已有目标。
 - **已有目标保护**：先写入同目录 `TemporaryFile`，检查写入/flush 并关闭流后再替换。连续导出读取到当前 Take 的音符，不把新 MIDI 追加到旧文件；拒绝或替换失败保留原字节。
 - **Track 组织**：
-  - Track 0：写入速度（Set Tempo: 500,000 µs/qn 对应 120 BPM）、拍号（Time Signature: 4/4）与音轨名称；
-  - Track 1：写入全部 Note On/Off、CC64 延音控制器、Pitch Bend 与 Program Change 序列；
-  - 尾部自动写入 `End of Track` Meta 事件。
+  - 当前 writer 使用一个事件轨，包含 Set Tempo（默认 500,000 µs/qn）及 Take 的 MIDI Note/CC/Pitch/Program 消息；文件仍按 Type 1 写出。
+  - 不调用 `updateMatchedPairs()`，避免为重复同音起音插入额外 Off；协议自身 tick 量化仍生效，不声称 MIDI 能保留小于 tick 的采样时差。
+  - 尾部由 JUCE writer 写入 `End of Track`。
 
 ---
 
@@ -122,5 +133,5 @@ struct RecordingTake {
 | **REC-007** | 播放中 Stop 防悬挂音 | 播放到包含长延音的片段中途点击 Stop，所有声音立即干净切断，无残留音 | [x] 已通过 |
 | **REC-008** | 时间轴点击与拖拽 Seek | 播放中点击或拖动时间轴，验证绝对时间位置随即更新、旧音符被清除，暂停时 Seek 后仍保持精确位置 | [x] 已通过 |
 | **REC-009** | 多通道 A-B 跟练循环 | 导入多轨 MIDI，设置 A/B 并跨越 B 点循环，验证所有通道的旧发音被清除且 A 点事件在边界后重启 | [x] 已通过 |
-| **REC-010** | 节拍器预备拍倒计时录制 | 开启 1–2 小节预备拍后点击 Record，状态提示显示倒计时并发出节拍提示音，结束后启动录制；倒计时中途点击 Stop 安全取消 | [ ] 待手工验证 |
+| **REC-010** | 节拍器完整预备拍 | 120 BPM 4/4 一/两小节分别在完整 2/4 秒的目标音频下拍开始；零 UI 轮询立即 Play/Stop、取消重启、静音和半程设备重建 | [x] Windows 实际控制器/窗口与生产 CPU 块通过；声卡热插拔仍单列 |
 | **REC-011** | 极小 A-B 循环区间防御 | 将 A-B 区间设为小于单音频块，播放平滑通过该区间，不发生死循环或重复清理风暴 | [ ] 待手工验证 |

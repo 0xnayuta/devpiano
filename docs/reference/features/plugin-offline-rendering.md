@@ -37,11 +37,13 @@ WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
     │    │                         ├── setNonRealtime(true) → prepareToPlay(sampleRate, blockSize)
     │    │                         └── 实际 worker 退出后由任务 releaseResources() 一次并安全析构
     │    │
-    │    └── [内置乐器端点] ──► WavFileExporter (离线构建带有完整声学参数的 PianoSynthVoice / Sine + RoomReverbEngine 后级混响)
+    │    └── [内置乐器端点] ──► WavFileExporter (BuiltinSynthesiser 持有通道 CC67；PianoSynthVoice / Sine + RoomReverbEngine)
     ├── RenderPipeline (统一调度事件时间戳缩放、按 samplePosition 排序并分块送入 processBlock)
     ├── juce::WavAudioFormat 写入同目录自有临时文件 (16-bit / 24-bit / 32-bit float, 双声道 Stereo)
     └── 关闭 writer 后事务替换目标；普通失败/协作取消仅清理临时文件
 ```
+
+实时与离线事件缩放采用同一采样点取整；有效长度覆盖最后事件采样点 `+1`。即使最后 NoteOff 等于 Take 长度，也在其采样点交付，再在完整事件边界收尾。Sine voice 的采样率更新会重新计算 ADSR 系数，不沿用参数设置时的旧采样域。此处不宣称预设事件及完整实时/离线执行闭包已闭环。
 
 ---
 

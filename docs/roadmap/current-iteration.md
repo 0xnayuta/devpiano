@@ -2,12 +2,12 @@
 
 > 用途：本文件只记录当前实施排期与任务验收；项目状态和长期路线以 [roadmap](roadmap.md) 为准。
 > 本轮名称：**AUDIT-004 Phase：代码质量缺陷修复与消费者契约闭环**。
-> 当前状态：**Phase 0/A/B/C 已完成（Phase C：2026-10-03），Phase D 待开始**。只勾选有直接证据的本轮任务；其他阶段保持未勾选，不以默认测试通过代替其消费者契约闭环。
+> 当前状态：**Phase 0/A/B/C/D 已完成（Phase D：2026-10-04），Phase E 待开始**。只勾选有直接证据的本轮任务；其他阶段保持未勾选，不以默认测试通过代替其消费者契约闭环。
 
 ## 1. 输入、范围与历史归档
 
 - 问题与优先级基线：[AUDIT-004 第8章](../audit/AUDIT-004-code-quality-audit-2026-10-02.md#8-附录问题总表登记表)，实施方向参考其第5章，复现与未验证范围参考第4章。
-- 本计划完整纳入原审计基线的 **54个未闭环唯一项**（P1 25、P2 26、P3 3，本轮未登记P0）。这是固定排期覆盖集合，不是当前剩余任务数；Phase 0/A/B/C 的任务已完成，其他原项仍按下方未勾选任务推进，原报告不回写。
+- 本计划完整纳入原审计基线的 **54个未闭环唯一项**（P1 25、P2 26、P3 3，本轮未登记P0）。这是固定排期覆盖集合，不是当前剩余任务数；Phase 0/A/B/C/D 的任务已完成，其他原项仍按下方未勾选任务推进，原报告不回写。
 - 保留报告原登记 ID/历史命名空间/known-issues 标题引用，不重编号、不把同名 `ERR-002` 混成同一项。下方每个原 ID 只安排到一个阶段；排期不改变原优先级，跨阶段关联只说明依赖。
 - [Phase 35 完成计划](../archive/phase35-keyboard-expressive-dynamics-and-practice-infrastructure.md)已归档，保留当时完成勾选和契约差距；阶段交付完成不等于后续审计风险已消除。
 - Phase 36/37 继续在 roadmap 保留规划。在P1、关键消费者回归及安全门禁达标前不开始新增声学/分区叠层功能，本轮不缩减到只修P1而遗漏其他登记项。
@@ -30,7 +30,7 @@
 | AUDIT-004 Phase A | 已有用户数据保护与持久化一致性 | Phase 0；同一阶段先处理 ERR-001、SEC-001、SEC-002。 | 已完成，2026-10-02 |
 | AUDIT-004 Phase B | 文件准入与时间线数值安全 | Phase A 的所有权和失败保留约束；数值检查应先于打开输出。 | 已完成，2026-10-03 |
 | AUDIT-004 Phase C | 插件与活动 DSP / Transport 所有权 | Phase 0/A；冻结已有数据与旧实例生命周期，先收敛竞态再改事件执行。 | 已完成，2026-10-03 |
-| AUDIT-004 Phase D | 发音身份与采样级 Transport 边界 | Phase B/C；游标/倍率/设备时间域的所有权先于新增边界逻辑。 | 待开始 |
+| AUDIT-004 Phase D | 发音身份与采样级 Transport 边界 | Phase B/C；游标/倍率/设备时间域的所有权先于新增边界逻辑。 | 已完成，2026-10-04 |
 | AUDIT-004 Phase E | 预设永久身份与实时/离线执行闭包 | Phase A/C/D；先 ARCH-003，再 ARCH-004；发布/通知容量与监听器清理同步设计。 | 待开始 |
 | AUDIT-004 Phase F | 映射看板、交互与声学边界 | Phase A/D/E；明确点击输入身份与显示输出身份，不以重复矩阵变换修显示。 | 待开始 |
 | AUDIT-004 Phase G | 诊断资源、ADR 与工程门禁收敛 | 贯穿实施；Phase A-F 的消费者回归已有证据后收口，不用压制诊断掩盖问题。 | 待开始 |
@@ -2517,7 +2517,7 @@ PHASE_C_PRIVATE_FILES_CLEAN=1
 ```
 
 
-### AUDIT-004 Phase D：发音身份与采样级 Transport 边界 [待开始]
+### AUDIT-004 Phase D：发音身份与采样级 Transport 边界 [已完成，2026-10-04]
 
 **目标**：重叠同音、移调、pause、末尾、seek/loop、count-in、设备重建和踏板均有确定性语义。
 
@@ -2527,15 +2527,791 @@ NoteOff 永远对应原发音；捕获/播放/跳转/节拍/设备采样域边�
 
 | 执行 | 原登记 ID | 原优先级 | 修复目标 | 可观察验收 |
 | --- | --- | --- | --- | --- |
-| [ ] | `QUAL-001` | P1 | 播放移调/掩码变化不锁定已发音身份。播放侧也保存 NoteOn 最终输出身份，NoteOff按原身份；定义重叠同音及变化时正在发声的处理，不用当前映射重算。 | On 与 Off 之间改 offset/enabled/mask，Off 仍释放原输出身份；不依赖稍后 panic。 |
-| [ ] | `QUAL-002` | P1 | 重复物理键同音在首个松键时被提前关闭。在最终发音身份层维护重叠持有者，最后释放再NoteOff；保留每个物理键原身份。 | 默认 Q/K 同音及矩阵合并音高交错松键，剩余持有者仍响，最后释放才关闭。 |
-| [ ] | `QUAL-003` | P1 | 暂停录制丢掉期间唯一的 NoteOff/踏板释放。在冻结捕获时间轴的边界补齐已录身份/踏板终结状态；暂停期间排除新演奏，但保证保留Take配对。 | 暂停捕获期间释放先前已录音符/踏板，保留 Take 和 MIDI 导出仍配对；暂停中新演奏不混入。 |
-| [ ] | `QUAL-004` | P1 | 精确播放末尾的 NoteOff 未在音频路径交付。播放长度包含最后事件或在音频边界明确终结；对齐实时/离线可听结束和最终NoteOff采样点。 | 最后 Off 精确等于 Take 长度/块末时仍在音频路径交付，结束不等待 UI timer 才清音。 |
-| [ ] | `ERR-003` | P1 | 接受并序列化的 keyUp 绑定没有执行入口。兑现公开keyUp触发的可配对事件语义或在准入明确拒绝；不能接受文件配置后静默丢弃。 | 接受的 keyUp 绑定有完整触发/配对语义；若产品边界不支持，则准入显式拒绝，不接受后无声。 |
-| [ ] | `QUAL-018` | P1 | 设备采样率变更未重基准活动播放/录制时间域。设备prepare时统一重基准活动Transport；录制按固定Take域换算，或明确先结束会话；验证位置/倍速/NoteOff连续性。 | 活动录制/回放切 48k↔44.1k、暂停/恢复及倍速仍保持 Take-relative 时长、位置和发音身份。 |
-| [ ] | `QUAL-017` | P2 | Seek/循环回跳未恢复目的位置控制器及音色状态。在目标音符前恢复目的位置的状态快照，保持不自动重发历史NoteOn的现有策略；测试program/bank/CC64及pitch。 | seek/回跳在目标音符前恢复 program/bank/CC64/pitch 状态，不意外重发历史 NoteOn；16通道独立验证。 |
-| [ ] | `FIX-035` | P2 | 预备拍在最后一拍起音而非下一下拍完成。以完整音频节拍时段/下一个目标downbeat完成并消费序号差；实际控制器验证一/两小节及跨多拍poll。 | 120 BPM、4/4 一小节在完整2秒后的目标 downbeat 开始；多拍序号跳变、取消/重建不改变预备拍时长。 |
-| [ ] | `QUAL-019` | P2 | 踩下柔音踏板后新分配声部不继承CC67状态。由乐器拥有者维护当前踏板状态，保证每个新起声部继承；保留VST3通道语义并验证踏板先于和弦、换声部及释放。 | 先CC67再和弦、重分配/偷声部和释放，所有当前/新起物理声部继承正确柔音状态，不破坏VST3通道。 |
+| [x] | `QUAL-001` | P1 | 播放移调/掩码变化不锁定已发音身份。播放侧也保存 NoteOn 最终输出身份，NoteOff按原身份；定义重叠同音及变化时正在发声的处理，不用当前映射重算。 | On 与 Off 之间改 offset/enabled/mask，Off 仍释放原输出身份；不依赖稍后 panic。 |
+| [x] | `QUAL-002` | P1 | 重复物理键同音在首个松键时被提前关闭。在最终发音身份层维护重叠持有者，最后释放再NoteOff；保留每个物理键原身份。 | 默认 Q/K 同音及矩阵合并音高交错松键，剩余持有者仍响，最后释放才关闭。 |
+| [x] | `QUAL-003` | P1 | 暂停录制丢掉期间唯一的 NoteOff/踏板释放。在冻结捕获时间轴的边界补齐已录身份/踏板终结状态；暂停期间排除新演奏，但保证保留Take配对。 | 暂停捕获期间释放先前已录音符/踏板，保留 Take 和 MIDI 导出仍配对；暂停中新演奏不混入。 |
+| [x] | `QUAL-004` | P1 | 精确播放末尾的 NoteOff 未在音频路径交付。播放长度包含最后事件或在音频边界明确终结；对齐实时/离线可听结束和最终NoteOff采样点。 | 最后 Off 精确等于 Take 长度/块末时仍在音频路径交付，结束不等待 UI timer 才清音。 |
+| [x] | `ERR-003` | P1 | 接受并序列化的 keyUp 绑定没有执行入口。兑现公开keyUp触发的可配对事件语义或在准入明确拒绝；不能接受文件配置后静默丢弃。 | 接受的 keyUp 绑定有完整触发/配对语义；若产品边界不支持，则准入显式拒绝，不接受后无声。 |
+| [x] | `QUAL-018` | P1 | 设备采样率变更未重基准活动播放/录制时间域。设备prepare时统一重基准活动Transport；录制按固定Take域换算，或明确先结束会话；验证位置/倍速/NoteOff连续性。 | 活动录制/回放切 48k↔44.1k、暂停/恢复及倍速仍保持 Take-relative 时长、位置和发音身份。 |
+| [x] | `QUAL-017` | P2 | Seek/循环回跳未恢复目的位置控制器及音色状态。在目标音符前恢复目的位置的状态快照，保持不自动重发历史NoteOn的现有策略；测试program/bank/CC64及pitch。 | seek/回跳在目标音符前恢复 program/bank/CC64/pitch 状态，不意外重发历史 NoteOn；16通道独立验证。 |
+| [x] | `FIX-035` | P2 | 预备拍在最后一拍起音而非下一下拍完成。以完整音频节拍时段/下一个目标downbeat完成并消费序号差；实际控制器验证一/两小节及跨多拍poll。 | 120 BPM、4/4 一小节在完整2秒后的目标 downbeat 开始；多拍序号跳变、取消/重建不改变预备拍时长。 |
+| [x] | `QUAL-019` | P2 | 踩下柔音踏板后新分配声部不继承CC67状态。由乐器拥有者维护当前踏板状态，保证每个新起声部继承；保留VST3通道语义并验证踏板先于和弦、换声部及释放。 | 先CC67再和弦、重分配/偷声部和释放，所有当前/新起物理声部继承正确柔音状态，不破坏VST3通道。 |
+
+#### Phase D 实施记录与直接验证（2026-10-04）
+
+**基线与范围**：`794518f6f613801fedeb6ad250446c43e2273f2c`（Phase C 本地交付）；仅本阶段九项及其捕获/回放/导出/乐器拥有者边界。原 AUDIT/ADR/Phase 35 档案不回写，Phase E 尚未开始。原计划 54 个 ID/优先级完整保留，本阶段只勾选原九行。
+
+- **原身份与持有**：播放按 source channel/pitch 的预分配 FIFO 保存每次起音的最终输出身份，按最终输出计持有；Off 不用当前 enabled/offset/mask 重算。物理键保留各自快照，首个同音松键不关剩余持有者，最终释放/失焦才关音。重起音保留 articulation；捕获把实际最后松键在该采样点规范化为所有已录起音的配对 Off。
+- **捕获与设备域**：暂停/停止在 callback 停机守卫内闭合已录身份和 CC64/66/67，再冻结/快照；暂停中新演奏及无已录身份的 Off 不混入。Take rate 固定，设备样本和事件偏移换算并保留小数余量；活动/暂停播放重基准设备位置与倍率，下一未渲染游标和同代身份不清空。
+- **末尾与目的状态**：实时与离线同一缩放取整，最后事件 `+1` 覆盖；音频终结在有效事件边界交付，整块边界仍在下一 callback 偏移 0 收尾，再通知 UI。自动结束 UI 不重复 Stop，保留释放尾音。Seek/回跳在目标音符前恢复 16 通道 bank/program/CC/pitch，历史 NoteOn 不重发。
+- **预备拍**：停机预分配/arm；音频完整时段到达后返回块内捕获起点，起点前事件排除、起点事件记 0。UI 延迟/跨多拍不启动第二次录制；音频已开始时立即 Stop/Play 等先接管该会话。取消、重新 arm、静音和真实 release/prepare 不重新计算已经消耗的时段。活动 warmup 继续 MIDI/DSP/计时，节拍仍混入；新播放 pre-roll 不被 warmup 提前消耗。
+- **绑定与乐器**：显式 keyUp/未知 trigger 准入拒绝；缺省仍 keyDown，不静默迁移非法绑定。`BuiltinSynthesiser.h/.cpp` 按通道拥有 CC67 连续值，新 Piano 起音前继承；机械聚合监听不冒充真实起音/释放/柔音通道。内置 WAV 共用拥有者。Sine voice 在采样率更新时重算 ADSR 系数。MIDI 读写不调用自动配对来插入重复起音的假 Off。
+
+| 证据 | 原问题 / 直接消费者 | 实际观察 | 范围与限制 |
+| --- | --- | --- | --- |
+| EVID-026 | 修复前 Phase C 生产 app objects；下方 baseline | pause 后 on=1/off=0/pedal_up=0；精确末尾 ended=1/off=0；seek 无 bank/program/pedal/pitch 恢复；Q/K 剩一键但 sounding=0；移调后原音仍 on；切率后 playback=24000、capture=44100。 | 不混用新 header/objects，不执行 UAF/OOM；复建原基线需该 commit 的独立镜像。 |
+| EVID-027 | Windows MSVC Debug `build-win-msvc/audit004-phase0`，保留 `/Zc:nrvo-`；app/tests；默认 ctest 无 category/name | 最终构建通过；本次默认 98 套件、99,279 通过断言、零失败，Chord 完整进入默认执行。真实用户目录前后清单/mtime/属性/SHA256 相同；私有 TEMP/TMP 零残留。 | 数字仅这次执行，非固定门槛；无 Release/WSL 软件测试，无全量 tidy 或项目 warning 清零声明。 |
+| EVID-028 | QUAL-001/002；真实 MidiKeyboardState、生产 AudioEngine、实际 native VST3 | Q/K 双释放次序、矩阵合并、切组/替换布局与失焦通过；native 重叠攻击 FIFO、offset/enabled/mask 变化仍释放原身份，最终音频静音。 | native fixture 使用官方 JUCE wrapper 的真实 binary，不是 mock format；不外推所有厂商插件。 |
+| EVID-029 | QUAL-003；生产捕获状态机 → MIDI 写出/读回/再导入 | on=2/off=2，暂停边界为 24000，踏板 up=1，暂停中新演奏排除；固定 48000 Take rate、总长120000；显式 MIDI 配对保留。 | 既有 960 PPQ tick 量化不变；不宣称亚 tick 采样时差可无损写入 MIDI。 |
+| EVID-030 | QUAL-004；同输入生产 AudioEngine 与 WavFileExporter 真正样本/文件 | 48k Off@128、有效长129；44.1k Off@118、有效长119；实时/WAV 最大差分别 `3.04207e-05`、`3.02829e-05`（16-bit 量化），零 UI poll 即交付。 | 对照为相同 Sine/ADSR 参数；物理/VST3完整声学快照与预设闭包仍属 Phase E。 |
+| EVID-031 | ERR-003；loadPreset、savePreset 与实际 Main filesDropped | 显式 keyUp/未知拒绝，缺省 keyDown 正常；原文件字节与实际 `preset-combo` 选择保持；没有把接受失败写成无声成功。 | 不新增 keyUp 发音生命周期；原合法文件格式保留。 |
+| EVID-032 | QUAL-018；生产 prepare/release、录制/回放及默认 2x/暂停回归 | 48k↔44.1k 固定 Take 域与位置保持；native 切率后原 63 Off 真正静音；暂停不推进捕获。 | 安全 CPU 模拟设备 lifecycle，不等同物理声卡热插拔/异常尺寸验证。 |
+| EVID-033 | QUAL-017；生产 render MIDI 的 16 通道目的状态消费者 | 目标音符前 bank/program/CC64/pitch 均正确；原历史音不重发；分块跨 B 后在同块重新应用 A 状态与事件。 | 复用 `[A,B)` 与最小一块的循环边界，不扩展通用 DAW 状态图。 |
+| EVID-034 | FIX-035；实际 RecordingSessionController ＋ Main 窗口、注入的生产 AudioEngine/RecordingEngine CPU 块 | 128/512 blocks、一/两小节：96000/192000 正确起点，零 UI poll 后立即 Play 正确接管/暂停/恢复；半程 release/prepare 后新44.1k域剩余44100；静音、取消重启及第一块早于起点排除/正好起点记0通过。 | controller 用其公开依赖注入，Main 为实际原生窗口/守卫/状态消费者；不把 CPU 时间推进说成声卡 callback 实机切率。 |
+| EVID-035 | QUAL-019；实际物理声部、偷声部、WAV writer 与 native 16通道 | chord 起音前继承连续 CC67；0/80/127 的能量 `5.94625/4.03106/3.05399`；重分配/释放通道隔离；native 原通道 CC67 全部正确，未改写 VST3 通道。 | 能量为固定测试输入观察，不是声学 SLA；全回调无锁/无分配/零三角仍未验收。 |
+| EVID-036 | 工具、门禁与可视输入 | self-check/format --check 通过；当前 RecordingEngine clangd diagnostics OK；实际 Main 快照含 Count-in Cancelled，原用户目录不变。 | references 仍漏调用点，使用 codegraph blast radius 补充；Windows 编译为最终依据，不以局部诊断代全量静态门禁。 |
+
+**中途失败与实际修复单列**：默认旧用例把所有 MIDI 消息都当音符、固定总事件数，已移除 incidental 总数约束而保留音符采样/身份 oracle；新 16通道循环输入改为真实一块大小，未放宽最小循环限制。完整预备拍整块对齐曾延迟一拍，已保留修复后边界回归。实际文件消费者发现 MIDI 自动配对插入 Off，writer/importer改为保留显式流；WAV对照发现 Sine ADSR 旧采样域，更新 rate hook 后真正样本对齐，不改原时间域测试数值。复用输出 buffer 的边界清零也有永久回归。
+
+**探针/环境错误单列**：探针起初用 Piano 机械宽监听判断真实 MIDI 通道、把 selector 猜成 preset-selector；最终使用基类真实通道身份与已有 preset-combo，未改产品绕过。一次 C1356：mspdbcore.dll 实际存在，PDB DLL/srv 版本同为14.51.36260.0且直接加载成功；最终使用同版本 compiler 的长路径、原定义/include/PCH/运行库/flags复编成功，不宣称根因已确认或已修复 MSVC。native构建的子模块 C4819告警保留，未修改第三方源码。
+
+##### Windows 复建与隔离执行配方
+
+1. 用项目 `./scripts/dev.sh win-build --sync-only` 同步主树；沿用 Phase 0 Debug 子树与 `/Zc:nrvo-`（首次 configure 见 EVID-001），不改原默认树失效缓存。
+2. 在 `$build/phased-smoke/native-src/` 保存下方 native CMake/CPP，执行下方 native-driver.ps1 构建真实 package；不安装到用户插件目录。
+3. Windows 保护 driver 的 Build 构建 app/tests，Test 运行默认 ctest；真实用户目录只读取快照，TEMP/TMP指向可删除私有目录。
+4. Consumer 保存为 `$build/phased-smoke/phased_smoke.cpp`。从编译数据库 MainComponent.cpp 的唯一 app command 保留所有 flags/PCH，替换末尾 `-c` 源、`/Fo`、`/Fd` 指向该 consumer；compiler token 用同版本 `Get-Command cl.exe` 长路径并加引号，写 `compile-smoke-long.cmd`。
+5. 新 `phased_smoke.ninja` 中 `include build.ninja`，复制实际 DevPiano.exe linker edge 与全部业务/JUCE inputs，仅移除 Main.cpp.obj，consumer obj插入第一个 ` | ` 之前的 explicit input；`/subsystem:windows`改console。OBJECT_DIR/TARGET_SUPPORT_DIR/TARGET_COMPILE_PDB/TARGET_FILE/TARGET_IMPLIB/TARGET_PDB/RSP_FILE只定向自有 phased-smoke，其他属性不变。Smoke 仅链接当前 app objects，不用 UnitTest 替代实现。
+6. driver -Mode Smoke 必须观察全部下方标记、exitCode=0、userDirectoryUnchanged=true、remainingTempEntries=0；检查实际控制器快照。保存完整输入后清理自有源码/binary/Ninja/图片/临时目录，不删除产品缓存/用户文件。以下代码和关键输出为持久复建入口；临时 GUID 路径不构成依赖。
+7. baseline 只用同步前 Phase C objects/headers；当前代码的调用契约已切换，不为历史消费者保留别名。复建基线需独立镜像，不能用当前对象回跑原 baseline。
+
+##### 完整原生 VST3 配置与消费者
+
+```cmake
+cmake_minimum_required(VERSION 3.22)
+set(CMAKE_POLICY_DEFAULT_CMP0141 NEW)
+set(CMAKE_BUILD_TYPE Debug CACHE STRING "" FORCE)
+set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:Embedded>" CACHE STRING "" FORCE)
+project(PhaseDNativeFixture VERSION 1.0.0 LANGUAGES C CXX)
+if(MSVC)
+    string(REPLACE "/Zi" "/Z7" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
+    string(REPLACE "/Zi" "/Z7" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+    add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:/FS> $<$<COMPILE_LANGUAGE:C,CXX>:/Zc:nrvo->)
+    add_link_options("/INCREMENTAL:NO")
+endif()
+add_compile_definitions(JUCE_VST3_CAN_REPLACE_VST2=0)
+add_subdirectory("G:/source/projects/devpiano/submodules/JUCE" "${CMAKE_CURRENT_BINARY_DIR}/JUCE_build")
+juce_add_plugin(PhaseDNative
+    COMPANY_NAME "DevPiano"
+    PRODUCT_NAME "Phase D Native MIDI"
+    PLUGIN_NAME "Phase D Native MIDI"
+    DESCRIPTION "Phase D Native MIDI"
+    PLUGIN_MANUFACTURER_CODE "DevP"
+    PLUGIN_CODE "Dmid"
+    FORMATS VST3
+    IS_SYNTH TRUE
+    NEEDS_MIDI_INPUT TRUE
+    NEEDS_MIDI_OUTPUT FALSE
+    IS_MIDI_EFFECT FALSE
+    EDITOR_WANTS_KEYBOARD_FOCUS FALSE
+    COPY_PLUGIN_AFTER_BUILD FALSE
+    VST3_AUTO_MANIFEST FALSE
+)
+target_sources(PhaseDNative PRIVATE NativePlugin.cpp)
+target_compile_features(PhaseDNative PRIVATE cxx_std_20)
+target_link_libraries(PhaseDNative PRIVATE juce::juce_audio_utils juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
+```
+
+```cpp
+#include <juce_audio_utils/juce_audio_utils.h>
+#include <array>
+#include <cstring>
+
+class NativeMidiInstrument final : public juce::AudioProcessor {
+public:
+    NativeMidiInstrument() : AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)) {}
+    const juce::String getName() const override { return "Phase D Native MIDI"; }
+    void prepareToPlay(double, int) override {}
+    void releaseResources() override {}
+    bool isBusesLayoutSupported(const BusesLayout& layout) const override {
+        return layout.getMainInputChannelSet().isDisabled() && layout.getMainOutputChannelSet() == juce::AudioChannelSet::stereo();
+    }
+    bool acceptsMidi() const override { return true; }
+    bool producesMidi() const override { return false; }
+    bool isMidiEffect() const override { return false; }
+    double getTailLengthSeconds() const override { return 0.0; }
+    int getNumPrograms() override { return 1; }
+    int getCurrentProgram() override { return 0; }
+    void setCurrentProgram(int) override {}
+    const juce::String getProgramName(int) override { return "MIDI"; }
+    void changeProgramName(int, const juce::String&) override {}
+    bool hasEditor() const override { return false; }
+    juce::AudioProcessorEditor* createEditor() override { return nullptr; }
+    void getStateInformation(juce::MemoryBlock& destination) override {
+        destination.setSize(sizeof(channels)); std::memcpy(destination.getData(), channels.data(), sizeof(channels));
+    }
+    void setStateInformation(const void* data, int size) override {
+        if (size == sizeof(channels)) std::memcpy(channels.data(), data, sizeof(channels));
+    }
+    void processBlock(juce::AudioBuffer<float>& audio, juce::MidiBuffer& midi) override {
+        audio.clear();
+        int rendered = 0;
+        for (auto item : midi) {
+            const int at = std::clamp(item.samplePosition, rendered, audio.getNumSamples());
+            render(audio, rendered, at); rendered = at;
+            const auto message = item.getMessage();
+            const int channel = message.getChannel() - 1;
+            if (channel < 0 || channel >= 16) continue;
+            auto& state = channels[static_cast<std::size_t>(channel)];
+            if (message.isNoteOn()) state.notes[static_cast<std::size_t>(message.getNoteNumber())] = true;
+            else if (message.isNoteOff()) state.notes[static_cast<std::size_t>(message.getNoteNumber())] = false;
+            else if (message.isController()) {
+                const int controller = message.getControllerNumber();
+                if (controller == 67) state.soft = message.getControllerValue();
+                if (controller == 0) state.bank = message.getControllerValue();
+                if (controller == 32) state.lsb = message.getControllerValue();
+                if (controller == 64) state.sustain = message.getControllerValue();
+                if (controller == 120 || controller == 123) state.notes.fill(false);
+                if (controller == 121) { state.soft = 0; state.sustain = 0; state.pitch = 8192; }
+            } else if (message.isProgramChange()) state.program = message.getProgramChangeNumber();
+            else if (message.isPitchWheel()) state.pitch = message.getPitchWheelValue();
+        }
+        render(audio, rendered, audio.getNumSamples());
+    }
+private:
+    struct ChannelState {
+        std::array<bool, 128> notes {};
+        int soft = 0, sustain = 0, bank = 0, lsb = 0, program = 0, pitch = 8192;
+    };
+    std::array<ChannelState, 16> channels {};
+    void render(juce::AudioBuffer<float>& audio, int start, int end) {
+        float noteSignal = 0.0f, stateSignal = 0.0f;
+        for (std::size_t channel = 0; channel < channels.size(); ++channel) {
+            const auto& state = channels[channel];
+            for (std::size_t note = 0; note < state.notes.size(); ++note) {
+                if (state.notes[note]) {
+                    noteSignal += (0.02f + 0.001f * static_cast<float>(channel + 1) + 0.0001f * static_cast<float>(note))
+                        * (1.0f - 0.3f * static_cast<float>(state.soft) / 127.0f);
+                    stateSignal += 0.0001f * static_cast<float>(state.program) + 0.00001f * static_cast<float>(state.bank)
+                        + 0.000001f * static_cast<float>(state.lsb) + 0.001f * static_cast<float>(state.sustain) / 127.0f
+                        + 0.0000001f * static_cast<float>(state.pitch);
+                }
+            }
+        }
+        for (int sample = start; sample < end; ++sample) {
+            audio.setSample(0, sample, noteSignal);
+            if (audio.getNumChannels() > 1) audio.setSample(1, sample, stateSignal);
+        }
+    }
+};
+
+juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new NativeMidiInstrument(); }
+```
+
+```powershell
+$ErrorActionPreference='Stop'
+Set-StrictMode -Version Latest
+$vswhere=Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+$instances=@((& $vswhere -latest -products '*' -requires Microsoft.Component.MSBuild -format json)|ConvertFrom-Json)
+if($LASTEXITCODE -ne 0 -or $instances.Count -lt 1){throw 'VS discovery failed'}
+Import-Module (Join-Path $instances[0].installationPath 'Common7\Tools\Microsoft.VisualStudio.DevShell.dll') -Force
+Enter-VsDevShell -VsInstallPath $instances[0].installationPath -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'|Out-Null
+$probe='G:\source\projects\devpiano\build-win-msvc\audit004-phase0\phased-smoke'
+& cmake -S (Join-Path $probe 'native-src') -B (Join-Path $probe 'native-build') -G Ninja -DCMAKE_BUILD_TYPE=Debug
+if($LASTEXITCODE -ne 0){throw 'Native Debug configuration failed'}
+& cmake --build (Join-Path $probe 'native-build') --target PhaseDNative_VST3 --parallel 4
+if($LASTEXITCODE -ne 0){throw 'Native Debug build failed'}
+```
+
+##### 完整 Windows 保护 driver
+
+```powershell
+param([ValidateSet('Build','Test','Baseline','Smoke')][string]$Mode)
+$ErrorActionPreference='Stop'
+Set-StrictMode -Version Latest
+$mirror='G:\source\projects\devpiano'
+$build=Join-Path $mirror 'build-win-msvc\audit004-phase0'
+$vswhere=Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+$instances=@((& $vswhere -latest -products '*' -requires Microsoft.Component.MSBuild -format json)|ConvertFrom-Json)
+if($LASTEXITCODE -ne 0 -or $instances.Count -lt 1){throw 'VS discovery failed'}
+Import-Module (Join-Path $instances[0].installationPath 'Common7\Tools\Microsoft.VisualStudio.DevShell.dll') -Force
+Enter-VsDevShell -VsInstallPath $instances[0].installationPath -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'|Out-Null
+Set-Location -LiteralPath $build
+if($Mode -eq 'Build') {
+    & cmake --build $build --target devpiano devpiano_tests --parallel 4 2>&1|Tee-Object -FilePath (Join-Path $build 'phased-build.log')
+    if($LASTEXITCODE -ne 0){throw 'Phase D Debug build failed'}
+    Write-Output 'PHASE_D_DEBUG_BUILD_PASSED=1'
+    exit 0
+}
+if($Mode -ne 'Test') {
+    $stem=if($Mode -eq 'Baseline'){'phased_baseline'}else{'phased_smoke'}
+    $cmd=if($Mode -eq 'Baseline'){'phased-smoke\compile-baseline.cmd'}else{'phased-smoke\compile-smoke-long.cmd'}
+    & cmd.exe /D /C $cmd
+    if($LASTEXITCODE -ne 0){throw 'Consumer compile failed'}
+    $make=(Select-String -LiteralPath (Join-Path $build 'CMakeCache.txt') -Pattern '^CMAKE_MAKE_PROGRAM:FILEPATH=').Line.Split('=',2)[1]
+    & $make -f ($stem+'.ninja') ('phased-smoke\'+$stem+'.exe')
+    if($LASTEXITCODE -ne 0){throw 'Consumer link failed'}
+}
+function Get-UserSnapshot([string]$Path) {
+    $rows=[System.Collections.Generic.List[object]]::new()
+    $exists=Test-Path -LiteralPath $Path
+    if($exists) {
+        foreach($entry in @(Get-Item -LiteralPath $Path -Force)+@(Get-ChildItem -LiteralPath $Path -Force -Recurse|Sort-Object FullName)) {
+            $hash=if($entry.PSIsContainer){''}else{(Get-FileHash -LiteralPath $entry.FullName -Algorithm SHA256).Hash}
+            $length=if($entry.PSIsContainer){0}else{$entry.Length}
+            $rows.Add([ordered]@{name=$entry.FullName;directory=$entry.PSIsContainer;length=$length;attributes=[int]$entry.Attributes;modified=$entry.LastWriteTimeUtc.Ticks;hash=$hash})
+        }
+    }
+    return (ConvertTo-Json -Depth 8 -Compress -InputObject ([ordered]@{exists=$exists;rows=$rows.ToArray()}))
+}
+$userDir=Join-Path ([Environment]::GetFolderPath('ApplicationData')) 'DevPiano'
+$before=Get-UserSnapshot $userDir
+$private=Join-Path ([System.IO.Path]::GetTempPath()) ('devpiano-phased-'+[guid]::NewGuid().ToString('N'))
+[System.IO.Directory]::CreateDirectory($private)|Out-Null
+$oldTemp=$env:TEMP;$oldTmp=$env:TMP;$env:TEMP=$private;$env:TMP=$private
+$exitCode=-1
+try {
+    if($Mode -eq 'Test') {
+        & ctest --test-dir $build -C Debug --verbose 2>&1|Tee-Object -FilePath (Join-Path $build 'phased-default-tests.log')
+    } else {
+        & (Join-Path $build ('phased-smoke\'+$stem+'.exe')) 2>&1|Tee-Object -FilePath (Join-Path $build ('phased-'+$Mode.ToLowerInvariant()+'.log'))
+    }
+    $exitCode=$LASTEXITCODE
+} finally {
+    $env:TEMP=$oldTemp;$env:TMP=$oldTmp
+    $after=Get-UserSnapshot $userDir
+    $remaining=@(Get-ChildItem -LiteralPath $private -Force -Recurse).Count
+    $record=[ordered]@{mode=$Mode;buildDir=$build;exitCode=$exitCode;userDirectory=$userDir;userDirectoryUnchanged=($before -ceq $after);remainingTempEntries=$remaining}
+    $record|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $build ('phased-'+$Mode.ToLowerInvariant()+'-verification.json')) -Encoding utf8
+    Write-Output ('PHASE_D_VERIFICATION='+($record|ConvertTo-Json -Compress))
+    if($remaining -eq 0){Remove-Item -LiteralPath $private}
+    if($before -cne $after){throw 'Protected real user directory changed'}
+    if($remaining -ne 0){throw 'Private scratch entries remain'}
+}
+if($exitCode -ne 0){throw ('Consumer failed: '+$exitCode)}
+```
+
+##### 完整实际生产消费者
+
+```cpp
+#include <JuceHeader.h>
+#include "Audio/AudioEngine.h"
+#include "Audio/BuiltinSynthesiser.h"
+#include "Audio/PianoSynthVoice.h"
+#include "Input/KeyboardMidiMapper.h"
+#include "Layout/PerformancePreset.h"
+#include "MainComponent.h"
+#include "Midi/MidiChannelMapper.h"
+#include "Plugin/PluginHost.h"
+#include "Recording/MidiFileExporter.h"
+#include "Recording/RecordingEngine.h"
+#include "Recording/RecordingSessionController.h"
+#include "Recording/RenderPipeline.h"
+#include "Recording/WavFileExporter.h"
+#include "Settings/SettingsStore.h"
+#include <windows.h>
+#include <shlobj.h>
+#include <dbghelp.h>
+#include <cstdio>
+#include <cstring>
+#include <iostream>
+#include <set>
+#include <stdexcept>
+#undef START_JUCE_APPLICATION
+#define START_JUCE_APPLICATION(AppClass)
+#include "Main.cpp"
+
+using namespace devpiano::recording;
+void require(bool value, const char* message) { if (!value) throw std::runtime_error(message); }
+void printNativeAddress(void* address) {
+    alignas(SYMBOL_INFO) char storage[sizeof(SYMBOL_INFO)+512]{};
+    auto* symbol=reinterpret_cast<SYMBOL_INFO*>(storage);symbol->SizeOfStruct=sizeof(SYMBOL_INFO);symbol->MaxNameLen=511;
+    DWORD64 displacement=0;
+    if(SymFromAddr(GetCurrentProcess(),reinterpret_cast<DWORD64>(address),&displacement,symbol))
+        std::fprintf(stderr,"PHASE_D_NATIVE_STACK=%s+%llu
+",symbol->Name,static_cast<unsigned long long>(displacement));
+    else std::fprintf(stderr,"PHASE_D_NATIVE_STACK_ADDRESS=%p
+",address);
+}
+LONG WINAPI reportNativeFailure(EXCEPTION_POINTERS* failure) {
+    std::fprintf(stderr,"PHASE_D_NATIVE_EXCEPTION=%08lx address=%p
+",failure->ExceptionRecord->ExceptionCode,failure->ExceptionRecord->ExceptionAddress);
+    printNativeAddress(failure->ExceptionRecord->ExceptionAddress);
+    void* frames[48]{};const auto count=CaptureStackBackTrace(0,48,frames,nullptr);
+    for(USHORT n=0;n<count;++n)printNativeAddress(frames[n]);
+    std::fflush(stderr);return EXCEPTION_EXECUTE_HANDLER;
+}
+PerformanceEvent event(std::int64_t sample, juce::MidiMessage message) {
+    return {sample, PerformanceEventType::midi, 0, RecordingEventSource::playback, message};
+}
+RecordingTake takeWith(std::int64_t length, std::initializer_list<PerformanceEvent> events) {
+    return {48000.0, length, events};
+}
+struct OwnedDirectory {
+    juce::File directory=juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("phased-consumer-"+juce::Uuid().toString());
+    OwnedDirectory() { require(directory.createDirectory().wasOk(),"scratch create failed"); }
+    ~OwnedDirectory() { std::cout << "PHASE_D_PRIVATE_FILES_CLEAN=" << directory.deleteRecursively() << '
+'; }
+};
+class ProfileScope {
+    using NativeFolder=BOOL(WINAPI*)(HWND,LPWSTR,int,BOOL);
+    static inline NativeFolder original=nullptr;
+    static inline std::wstring privatePath;
+    ULONG_PTR* slot=nullptr;
+    static BOOL WINAPI folder(HWND window,LPWSTR destination,int kind,BOOL create) {
+        if(kind!=CSIDL_APPDATA)return original(window,destination,kind,create);
+        std::copy(privatePath.begin(),privatePath.end(),destination);destination[privatePath.size()]=0;return TRUE;
+    }
+public:
+    bool redirect(const juce::File& directory) {
+        privatePath=directory.getFullPathName().toWideCharPointer();
+        auto* base=reinterpret_cast<BYTE*>(GetModuleHandleW(nullptr));
+        auto* dos=reinterpret_cast<IMAGE_DOS_HEADER*>(base);
+        auto* nt=reinterpret_cast<IMAGE_NT_HEADERS*>(base+dos->e_lfanew);
+        auto rva=nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
+        if(rva==0 || privatePath.size()>=MAX_PATH)return false;
+        auto* imports=reinterpret_cast<IMAGE_IMPORT_DESCRIPTOR*>(base+rva);
+        for(;imports->Name!=0;++imports) {
+            if(imports->OriginalFirstThunk==0)continue;
+            auto* names=reinterpret_cast<IMAGE_THUNK_DATA*>(base+imports->OriginalFirstThunk);
+            auto* entries=reinterpret_cast<IMAGE_THUNK_DATA*>(base+imports->FirstThunk);
+            for(;names->u1.AddressOfData!=0;++names,++entries) {
+                if(IMAGE_SNAP_BY_ORDINAL(names->u1.Ordinal))continue;
+                auto* imported=reinterpret_cast<IMAGE_IMPORT_BY_NAME*>(base+names->u1.AddressOfData);
+                if(std::strcmp(imported->Name,"SHGetSpecialFolderPathW")!=0)continue;
+                DWORD protection=0;
+                if(!VirtualProtect(&entries->u1.Function,sizeof(entries->u1.Function),PAGE_READWRITE,&protection))return false;
+                slot=&entries->u1.Function;original=reinterpret_cast<NativeFolder>(*slot);*slot=reinterpret_cast<ULONG_PTR>(&folder);
+                DWORD ignored=0;VirtualProtect(slot,sizeof(*slot),protection,&ignored);return true;
+            }
+        }
+        return false;
+    }
+    ~ProfileScope() {
+        if(slot==nullptr)return;
+        DWORD protection=0;const bool restored=VirtualProtect(slot,sizeof(*slot),PAGE_READWRITE,&protection)!=FALSE;
+        if(restored){*slot=reinterpret_cast<ULONG_PTR>(original);DWORD ignored=0;VirtualProtect(slot,sizeof(*slot),protection,&ignored);}
+        std::cout << "PHASE_D_PROFILE_RESTORED=" << restored << '
+';
+    }
+};
+void pump(int milliseconds) {
+    const auto end=juce::Time::getMillisecondCounterHiRes()+milliseconds;
+    while(juce::Time::getMillisecondCounterHiRes()<end) {
+        MSG message{};while(PeekMessageW(&message,nullptr,0,0,PM_REMOVE)){TranslateMessage(&message);DispatchMessageW(&message);}
+        MsgWaitForMultipleObjects(0,nullptr,FALSE,2,QS_ALLINPUT);
+    }
+}
+template<typename T>T* find(juce::Component& root,const juce::String& id) {
+    if(root.getComponentID()==id)if(auto* match=dynamic_cast<T*>(&root))return match;
+    for(int i=0;i<root.getNumChildComponents();++i)if(auto* match=find<T>(*root.getChildComponent(i),id))return match;
+    return nullptr;
+}
+MainComponent& applicationMain() {
+    for(int i=0;i<juce::Desktop::getInstance().getNumComponents();++i) {
+        if(auto* window=dynamic_cast<juce::DocumentWindow*>(juce::Desktop::getInstance().getComponent(i)))
+            if(auto* main=dynamic_cast<MainComponent*>(window->getContentComponent()))return *main;
+    }
+    throw std::runtime_error("actual Main window missing");
+}
+void closeDialogs() {
+    for(int i=juce::Desktop::getInstance().getNumComponents()-1;i>=0;--i)
+        if(auto* dialog=dynamic_cast<juce::DialogWindow*>(juce::Desktop::getInstance().getComponent(i)))dialog->closeButtonPressed();
+}
+void runBlock(AudioEngine& audio,juce::AudioBuffer<float>& buffer) { audio.getNextAudioBlock({&buffer,0,buffer.getNumSamples()}); }
+void warmIdle(AudioEngine& audio,int block=128,double rate=48000.0) {
+    juce::AudioBuffer<float> buffer(2,block);
+    for(int n=0;n<AudioEngine::calculateWarmupBlockCount(rate,block);++n)runBlock(audio,buffer);
+}
+
+juce::File verifyInput(const juce::File& scratch) {
+    for(const bool releaseQFirst:{true,false}) {
+        KeyboardMidiMapper mapper;juce::MidiKeyboardState state;std::set<int> down{'Q','K'};
+        mapper.setKeyStatePredicate([&](int key){return down.contains(key);});
+        require(mapper.handleKeyPressed(juce::KeyPress('Q'),state),"Q not handled");
+        require(mapper.handleKeyPressed(juce::KeyPress('K'),state),"K not handled");
+        mapper.switchToNextGroup();mapper.setLayout(devpiano::core::makeDefaultKeyboardLayout());
+        down.erase(releaseQFirst?'Q':'K');mapper.handleKeyStateChanged(state);
+        require(state.isNoteOn(1,72),"first holder release closed live note");
+        down.clear();mapper.handleKeyStateChanged(state);require(!state.isNoteOn(1,72),"last holder did not close live note");
+    }
+    devpiano::midi::ChannelMatrix matrix;matrix.channels[0].outputChannel=0;matrix.channels[1].outputChannel=0;matrix.channels[1].transpose=2;
+    devpiano::midi::MidiChannelMapper service(matrix,false,0);
+    KeyboardMidiMapper mapper;auto layout=devpiano::core::makeDefaultKeyboardLayout();layout.bindings={devpiano::core::makeNoteBinding('A',60,1),devpiano::core::makeNoteBinding('S',58,2)};
+    mapper.setLayout(layout);mapper.setChannelMapper(&service);std::set<int> down{'A','S'};
+    mapper.setKeyStatePredicate([&](int key){return down.contains(key);});juce::MidiKeyboardState state;
+    mapper.handleKeyPressed(juce::KeyPress('A'),state);mapper.handleKeyPressed(juce::KeyPress('S'),state);
+    down.erase('A');mapper.handleKeyStateChanged(state);require(state.isNoteOn(1,60),"matrix collapsed holder closed");
+    mapper.releaseAllHeldKeys(state);require(!state.isNoteOn(1,60),"focus loss left merged holder on");
+    const auto bad=scratch.getChildFile("bad-keyup.devpiano.preset");
+    const auto valid=scratch.getChildFile("valid.devpiano.preset");
+    auto preset=devpiano::layout::makeDefaultPreset();preset.name="Phase D Preset";
+    require(devpiano::layout::savePreset(preset,valid),"valid preset save failed");
+    auto json=juce::JSON::parse(valid);auto* bindings=json.getProperty("layout",{}).getProperty("bindings",{}).getArray();
+    require(bindings && !bindings->isEmpty(),"preset has no bindings");
+    (*bindings)[0].getProperty("action",{}).getDynamicObject()->setProperty("trigger","keyUp");
+    require(bad.replaceWithText(juce::JSON::toString(json)),"invalid input write failed");const auto original=bad.loadFileAsString();
+    require(!devpiano::layout::loadPreset(bad).has_value(),"keyUp accepted");require(bad.loadFileAsString()==original,"rejection changed input");
+    require(devpiano::layout::loadPreset(valid).has_value(),"valid keyDown rejected");
+    std::cout << "PHASE_D_INPUT QK_both_orders=1 matrix_merge=1 group_layout_snapshot=1 focus_release=1 keyup_rejected=1 input_retained=1
+";
+    return bad;
+}
+void verifyCapture(const juce::File& scratch) {
+    {
+        RecordingEngine first;first.reserveEvents(16);first.armRecording(48000.0);first.startArmedRecording();
+        juce::MidiBuffer input;input.addEvent(juce::MidiMessage::noteOn(1,60,0.8f),63);input.addEvent(juce::MidiMessage::noteOn(1,64,0.8f),64);input.addEvent(juce::MidiMessage::noteOff(1,64),80);
+        first.recordMidiBufferBlock(input,RecordingEventSource::realtimeMidiBuffer,0,64);first.advanceRecordingPosition(64);
+        const auto take=first.stopRecording();require(take.events.size()==2 && take.lengthSamples==64,"first count-in block captured wrong range");
+        for(const auto& item:take.events)require(item.message.getNoteNumber()==64 && item.timestampSamples==(item.message.isNoteOn()?0:16),"exact downbeat capture offset changed");
+        std::cout << "PHASE_D_COUNTIN first_block_before_excluded=1 exact_downbeat_note_at_zero=1
+";
+    }
+    RecordingEngine record;record.reserveEvents(64);record.startRecording(48000.0);
+    record.recordEvent(juce::MidiMessage::noteOn(3,60,0.8f),RecordingEventSource::computerKeyboard,0);
+    record.recordEvent(juce::MidiMessage::noteOn(3,60,0.9f),RecordingEventSource::computerKeyboard,8);
+    record.recordEvent(juce::MidiMessage::controllerEvent(3,64,127),RecordingEventSource::computerKeyboard,16);
+    record.advanceRecordingPosition(24000);record.prepareForAudioDevice(44100.0);
+    record.pauseRecording();
+    record.recordEvent(juce::MidiMessage::noteOff(3,60),RecordingEventSource::computerKeyboard,24000);
+    record.recordEvent(juce::MidiMessage::noteOn(3,72,0.8f),RecordingEventSource::computerKeyboard,24000);
+    record.advanceRecordingPosition(44100);record.resumeRecording();
+    record.advanceRecordingPosition(44100);record.pauseRecording();record.prepareForAudioDevice(48000.0);record.resumeRecording();record.advanceRecordingPosition(48000);
+    const auto take=record.stopRecording();int on=0,off=0,pedal=0;
+    for(const auto& item:take.events) {
+        on+=item.message.isNoteOn();off+=item.message.isNoteOff();
+        if(item.message.isNoteOff())require(item.timestampSamples==24000 && item.message.getChannel()==3 && item.message.getNoteNumber()==60,"capture closed at wrong boundary");
+        if(item.message.isNoteOn())require(item.message.getNoteNumber()!=72,"paused new note leaked");
+        pedal+=item.message.isController() && item.message.getControllerNumber()==64 && item.message.getControllerValue()==0;
+    }
+    require(on==2 && off==2 && pedal==1 && take.lengthSamples==120000 && take.sampleRate==48000.0,"capture identity/rate mismatch");
+    const auto file=scratch.getChildFile("capture.mid");require(devpiano::exporting::exportTakeAsMidiFile(take,file,960),"MIDI export failed");
+    juce::FileInputStream input(file);juce::MidiFile midi;require(midi.readFrom(input,false),"raw MIDI readback failed");int midiOn=0,midiOff=0;
+    for(int track=0;track<midi.getNumTracks();++track)for(int n=0;n<midi.getTrack(track)->getNumEvents();++n) {
+        const auto& msg=midi.getTrack(track)->getEventPointer(n)->message;midiOn+=msg.isNoteOn();midiOff+=msg.isNoteOff();
+    }
+    require(midiOn==2 && midiOff==2,"MIDI lost capture pairing");
+    std::cout << "PHASE_D_CAPTURE paired_on=" << on << " paired_off=" << off << " pedal_up=" << pedal << " fixed_rate=" << take.sampleRate << " length=" << take.lengthSamples << " midi_paired=1
+";
+}
+void verifyEnd(const juce::File& scratch) {
+    const auto take=takeWith(128,{event(0,juce::MidiMessage::noteOn(1,60,0.8f)),event(128,juce::MidiMessage::noteOff(1,60))});
+    for(double rate:{48000.0,44100.0}) {
+        RecordingEngine record;AudioEngine audio;audio.setRecordingEngine(&record);audio.setBuiltinSynthTone(AudioEngine::BuiltinSynthTone::sine);audio.setMasterGain(1.0f);audio.setAdsr(0.01f,0.2f,0.8f,0.3f);
+        audio.prepareToPlay(64,rate);warmIdle(audio,64,rate);record.startPlayback(take,rate);
+        juce::AudioBuffer<float> samples(2,256),block(2,64);samples.clear();
+        for(int at=0;at<256;at+=64){runBlock(audio,block);for(int channel=0;channel<2;++channel)samples.copyFrom(channel,at,block,channel,0,64);}
+        require(!audio.getKeyboardState().isNoteOn(1,60) && record.consumePlaybackEndedFlag(),"terminal live note waited for UI");
+        devpiano::exporting::WavExportOptions options;options.sampleRate=rate;options.blockSize=64;options.builtinTone=SettingsModel::BuiltinTone::sine;options.adsr={0.01f,0.2f,0.8f,0.3f};options.masterGain=1.0f;
+        const auto file=scratch.getChildFile("terminal-"+juce::String(static_cast<int>(rate))+".wav");
+        require(devpiano::exporting::exportTakeAsWavFile(take,file,options),"terminal WAV export failed");
+        juce::AudioFormatManager manager;manager.registerBasicFormats();std::unique_ptr<juce::AudioFormatReader> reader(manager.createReaderFor(file));
+        require(reader!=nullptr,"WAV reader failed");juce::AudioBuffer<float> decoded(2,256);require(reader->read(&decoded,0,256,0,true,true),"WAV samples unreadable");
+        double delta=0;for(int channel=0;channel<2;++channel)for(int at=0;at<256;++at)delta=std::max(delta,std::abs(static_cast<double>(samples.getSample(channel,at)-decoded.getSample(channel,at))));
+        require(delta<0.00005,"realtime/offline terminal samples differ");
+        const auto timeline=prepareRenderTimeline(take,rate,0.0);require(timeline.has_value(),"terminal timeline rejected");
+        std::cout << "PHASE_D_END rate=" << rate << " off_sample=" << timeline->events.back().timestampSamples << " event_inclusive_length=" << timeline->takeLengthSamples << " wav_delta=" << delta << " ui_poll=0
+";
+        audio.releaseResources();
+    }
+}
+void verifySeek() {
+    auto take=takeWith(512,{});
+    for(int channel=1;channel<=16;++channel) {
+        take.events.push_back(event(0,juce::MidiMessage::controllerEvent(channel,0,channel)));
+        take.events.push_back(event(0,juce::MidiMessage::controllerEvent(channel,32,channel+1)));
+        take.events.push_back(event(0,juce::MidiMessage::programChange(channel,channel+16)));
+        take.events.push_back(event(0,juce::MidiMessage::controllerEvent(channel,64,channel%2==0?127:0)));
+        take.events.push_back(event(0,juce::MidiMessage::pitchWheel(channel,8192+channel*100)));
+        take.events.push_back(event(10,juce::MidiMessage::noteOn(channel,60,0.8f)));
+        take.events.push_back(event(100,juce::MidiMessage::noteOn(channel,64,0.8f)));
+        take.events.push_back(event(180,juce::MidiMessage::noteOff(channel,64)));
+        take.events.push_back(event(200,juce::MidiMessage::programChange(channel,channel+32)));
+        take.events.push_back(event(200,juce::MidiMessage::controllerEvent(channel,64,0)));
+        take.events.push_back(event(200,juce::MidiMessage::pitchWheel(channel,4096)));
+    }
+    std::ranges::stable_sort(take.events,[](const auto& a,const auto& b){return a.timestampSamples<b.timestampSamples;});
+    RecordingEngine record;record.setPlaybackLoopStartSample(100);record.setPlaybackLoopEndSample(300);
+    record.startPlayback(take,48000.0);record.requestPlaybackSeek(100);
+    juce::MidiBuffer stream;require(record.applyPendingTransportCommands(stream).seekApplied,"seek command not consumed");
+    record.renderPlaybackBlock(stream,100,128);record.advancePlaybackPosition(128);
+    juce::MidiBuffer next;record.renderPlaybackBlock(next,record.getPlaybackPositionSamples(),128);stream.addEvents(next,0,128,128);
+    struct State {int bank=-1,lsb=-1,program=-1,pedal=-1,pitch=-1;};std::array<State,16> states;int targets=0;
+    for(auto item:stream) {
+        auto msg=item.getMessage();int ch=msg.getChannel();auto& state=states[static_cast<std::size_t>(ch-1)];
+        if(msg.isController()) {
+            const int cc=msg.getControllerNumber(),value=msg.getControllerValue();
+            if(cc==0)state.bank=value;if(cc==32)state.lsb=value;if(cc==64)state.pedal=value;
+        }else if(msg.isProgramChange())state.program=msg.getProgramChangeNumber();
+        else if(msg.isPitchWheel())state.pitch=msg.getPitchWheelValue();
+        else if(msg.isNoteOn()) {
+            ++targets;require(msg.getNoteNumber()==64 && (item.samplePosition==0 || item.samplePosition==200),"historical NoteOn replayed");
+            require(state.bank==ch && state.lsb==ch+1 && state.program==ch+16 && state.pedal==(ch%2==0?127:0) && state.pitch==8192+ch*100,"destination channel state not restored before note");
+        }
+    }
+    require(targets==32,"seek or in-block loop lost destination notes");
+    std::cout << "PHASE_D_SEEK channels=16 program_bank_pedal_pitch=1 before_destination=1 history_on=0 in_block_wrap=1
+";
+}
+
+void verifySoft(const juce::File& scratch) {
+    std::array<double,3> energies{};
+    const std::array<int,3> values{0,80,127};
+    for(std::size_t test=0;test<values.size();++test) {
+        devpiano::audio::BuiltinSynthesiser synth;synth.setCurrentPlaybackSampleRate(48000.0);synth.addSound(new PianoSynthSound());
+        for(int n=0;n<4;++n){auto* voice=new PianoSynthVoice();voice->setVoiceIndex(n);voice->setPedalNoiseLevel(0.0f);synth.addVoice(voice);}
+        juce::MidiBuffer midi;midi.addEvent(juce::MidiMessage::controllerEvent(1,67,values[test]),0);
+        for(int note:{60,64,67})midi.addEvent(juce::MidiMessage::noteOn(1,note,0.8f),8);
+        juce::AudioBuffer<float> block(2,4096);block.clear();synth.renderNextBlock(block,midi,0,4096);
+        for(int n=0;n<4096;++n)energies[test]+=static_cast<double>(block.getSample(0,n))*block.getSample(0,n);
+        int inherited=0;for(int n=0;n<synth.getNumVoices();++n)if(auto* voice=dynamic_cast<PianoSynthVoice*>(synth.getVoice(n));voice && voice->isVoiceActive()){
+            ++inherited;require(voice->isSoftPedalDown()==(values[test]>=64),"new chord voice did not inherit pedal");
+            if(values[test]>=64)require(std::abs(voice->getSoftPedalAmount()-static_cast<float>(values[test])/127.0f)<0.00001f,"analog pedal lost");
+        }
+        require(inherited==3,"physical chord not allocated");
+        synth.handleController(1,67,127);synth.noteOn(2,72,0.8f);synth.noteOn(2,74,0.8f);
+        for(int n=0;n<synth.getNumVoices();++n)if(auto* voice=dynamic_cast<PianoSynthVoice*>(synth.getVoice(n));voice && voice->juce::SynthesiserVoice::isPlayingChannel(2))require(!voice->isSoftPedalDown(),"stolen voice inherited wrong channel");
+        synth.handleController(1,67,0);for(int n=0;n<synth.getNumVoices();++n)if(auto* voice=dynamic_cast<PianoSynthVoice*>(synth.getVoice(n));voice && voice->juce::SynthesiserVoice::isPlayingChannel(1))require(!voice->isSoftPedalDown(),"pedal release left active voice soft");
+        auto take=takeWith(4800,{event(0,juce::MidiMessage::controllerEvent(1,67,values[test])),event(8,juce::MidiMessage::noteOn(1,60,0.8f)),event(4800,juce::MidiMessage::noteOff(1,60))});
+        devpiano::exporting::WavExportOptions options;options.sampleRate=48000.0;options.pedalNoiseLevel=0.0f;
+        require(devpiano::exporting::exportTakeAsWavFile(take,scratch.getChildFile("soft-"+juce::String(values[test])+".wav"),options),"physical soft WAV failed");
+    }
+    require(energies[2]<energies[0] && energies[1]<energies[0],"inherited soft pedal did not change acoustic energy");
+    std::cout << "PHASE_D_SOFT chord_inherit=1 analog=1 stolen_channel=1 release=1 acoustic_energy=" << energies[0] << ',' << energies[1] << ',' << energies[2] << " offline_writer=1
+";
+}
+void verifyNative(const juce::File& scratch) {
+    const juce::File plugin("G:/source/projects/devpiano/build-win-msvc/audit004-phase0/phased-smoke/native-build/PhaseDNative_artefacts/Debug/VST3/Phase D Native MIDI.vst3");
+    PluginHost host;host.setDeadMansPedalFile(scratch.getChildFile("native-scan.txt"));const auto types=host.addVst3FileToKnownList(plugin);
+    require(types.size()==1 && host.loadPluginByDescription(types[0],48000.0,128),"native VST3 load failed");
+    RecordingEngine record;AudioEngine audio;audio.setRecordingEngine(&record);audio.setPluginHost(&host);audio.setMasterGain(1.0f);audio.prepareToPlay(128,48000.0);warmIdle(audio);
+    juce::AudioBuffer<float> block(2,128);
+    for(int channel=1;channel<=16;++channel) {
+        record.clear();audio.requestAllNotesOff();auto take=takeWith(4800,{});
+        for(int ch=1;ch<=16;++ch)take.events.push_back(event(0,juce::MidiMessage::controllerEvent(ch,67,ch==channel?80:0)));
+        take.events.push_back(event(16,juce::MidiMessage::noteOn(channel,60,0.8f)));take.events.push_back(event(400,juce::MidiMessage::noteOff(channel,60)));
+        audio.setPlaybackTranspose(true,2,0xFFFF);record.startPlayback(take,48000.0);runBlock(audio,block);
+        const float expected=(0.02f+0.001f*channel+0.0001f*62.0f)*(1.0f-0.3f*80.0f/127.0f);
+        require(std::abs(block.getSample(0,64)-expected)<0.00001f,"native channel CC67 or transpose changed");
+        record.requestPlaybackStop();runBlock(audio,block);require(block.getMagnitude(0,128)<0.000001f,"native stop did not silence");
+    }
+    record.clear();audio.requestAllNotesOff();audio.setPlaybackTranspose(true,0,0xFFFF);
+    record.startPlayback(takeWith(4096,{event(0,juce::MidiMessage::noteOn(1,60,0.8f)),event(128,juce::MidiMessage::noteOn(1,60,0.8f)),event(256,juce::MidiMessage::noteOff(1,60)),event(384,juce::MidiMessage::noteOff(1,60))}),48000.0);
+    runBlock(audio,block);audio.setPlaybackTranspose(true,1,0xFFFF);runBlock(audio,block);require(audio.getKeyboardState().isNoteOn(1,60) && audio.getKeyboardState().isNoteOn(1,61),"native FIFO attacks not active");
+    audio.setPlaybackTranspose(false,7,0);runBlock(audio,block);require(!audio.getKeyboardState().isNoteOn(1,60) && audio.getKeyboardState().isNoteOn(1,61),"FIFO old attack not released");
+    runBlock(audio,block);require(!audio.getKeyboardState().isNoteOn(1,61) && block.getMagnitude(0,128)<0.000001f,"native final FIFO release missing");
+    record.requestPlaybackStop();runBlock(audio,block);
+    record.clear();audio.requestAllNotesOff();audio.setPlaybackTranspose(true,3,0xFFFF);
+    record.startPlayback(takeWith(48000,{event(0,juce::MidiMessage::noteOn(1,60,0.8f)),event(24000,juce::MidiMessage::noteOff(1,60))}),48000.0);runBlock(audio,block);
+    audio.releaseResources();audio.prepareToPlay(128,44100.0);audio.setPlaybackTranspose(false,0,0);
+    while(record.getPlaybackPositionInTakeSamples()<25000)runBlock(audio,block);
+    require(!audio.getKeyboardState().isNoteOn(1,63),"rate rebuild forgot original identity");
+    require(block.getMagnitude(0,128)<0.000001f,"native rate-rebased Off missing");
+    record.requestPlaybackStop();runBlock(audio,block);audio.releaseResources();host.unloadPlugin();
+    std::cout << "PHASE_D_NATIVE vst3=1 original_cc_channels=16 offset_enabled_mask=1 FIFO=1 rate_off_identity=1 actual_audio_silenced=1
+";
+}
+void verifyCountIn(MainComponent& main,const juce::File& scratch) {
+    auto& settings=main.getAppSettings();
+    for(const int bars:{1,2})for(const int blockSize:{128,512}) {
+        RecordingEngine record;AudioEngine audio;audio.setRecordingEngine(&record);audio.setMasterGain(1.0f);audio.prepareToPlay(blockSize,48000.0);warmIdle(audio,blockSize);
+        audio.setMetronomeBpm(120.0);audio.setMetronomeTimeSignature(devpiano::core::TimeSignature::fourFour);
+        settings.metronomeCountIn=bars==1?devpiano::core::CountInBars::oneBar:devpiano::core::CountInBars::twoBars;
+        RecordingSessionController controller(main,record,audio,settings);controller.handleRecordClicked();
+        const auto rate=record.getSampleRate();audio.prepareToPlay(blockSize,rate);juce::AudioBuffer<float> buffer(2,blockSize);
+        const auto expected=static_cast<std::int64_t>(rate*2.0*bars);std::int64_t elapsed=0,start=-1;
+        while(elapsed<=expected+blockSize && start<0) {
+            runBlock(audio,buffer);elapsed+=blockSize;
+            if(record.isRecording())start=elapsed-record.getCurrentPositionSamples();
+        }
+        require(start==expected,"actual controller count-in started off downbeat");
+        require(controller.getSession().state==devpiano::ui::RecordingState::idle,"UI secretly polled count-in");
+        controller.handlePlayClicked();require(record.getState()==RecordingState::recordingPaused && controller.getSession().isRecording(),"zero-poll Play did not adopt/pause capture");
+        controller.handlePlayClicked();require(record.isRecording(),"controller capture resume failed");
+        controller.handleStopClicked();require(!record.isRecording() && controller.getSession().hasTake()==false,"empty controller take stop failed");closeDialogs();
+        std::cout << "PHASE_D_COUNTIN bars=" << bars << " block=" << blockSize << " rate=" << rate << " exact_start=" << start << " ui_polls=0 pause_resume=1
+";
+    }
+    {
+        RecordingEngine record;AudioEngine audio;audio.setRecordingEngine(&record);audio.prepareToPlay(128,48000.0);warmIdle(audio);audio.setMetronomeBpm(120.0);audio.setMetronomeVolume(0.0f);
+        record.reserveEvents(32);record.armRecording(48000.0);audio.getMetronomeProcessor().armCountIn(4);audio.setMetronomeEnabled(true);juce::AudioBuffer<float> block(2,128);
+        for(int n=0;n<375;++n)runBlock(audio,block);
+        audio.releaseResources();audio.prepareToPlay(128,44100.0);std::int64_t elapsed=0,start=-1;
+        while(elapsed<45000 && start<0){runBlock(audio,block);elapsed+=128;if(record.isRecording())start=elapsed-static_cast<std::int64_t>(std::llround(record.getCurrentPositionSamples()*44100.0/48000.0));}
+        require(start==44100,"real release/prepare changed count-in remaining second");require(block.getMagnitude(0,128)==0.0f,"silent metronome emitted audio");
+        record.pauseRecording();record.stopRecording();audio.releaseResources();
+        std::cout << "PHASE_D_COUNTIN rate_switch_halfway=1 silent=1 second_domain_start=" << start << "
+";
+    }
+    for(int stopCycle=0;stopCycle<5;++stopCycle) {
+        RecordingEngine record;AudioEngine audio;audio.setRecordingEngine(&record);audio.prepareToPlay(512,48000.0);warmIdle(audio,512);
+        audio.setMetronomeBpm(120.0);audio.setMetronomeTimeSignature(devpiano::core::TimeSignature::fourFour);
+        RecordingSessionController controller(main,record,audio,settings);settings.metronomeCountIn=devpiano::core::CountInBars::oneBar;controller.handleRecordClicked();
+        juce::AudioBuffer<float> buffer(2,512);for(int n=0;n<200 && !record.isRecording();++n)runBlock(audio,buffer);
+        require(record.isRecording() && controller.getSession().isIdle(),"zero-poll Stop precondition lost");
+        record.recordEvent(juce::MidiMessage::noteOn(1,60,0.8f),RecordingEventSource::computerKeyboard,record.getCurrentPositionSamples());
+        controller.handleStopClicked();require(record.getState()==RecordingState::stopped && controller.getSession().isIdle() && controller.getSession().hasTake(),"zero-poll Stop did not finalise capture");
+        closeDialogs();std::cout << "PHASE_D_COUNTIN immediate_stop_without_poll=1 retained_take=1 cycle=" << stopCycle << "
+";
+    }
+    {
+        RecordingEngine record;AudioEngine audio;audio.setRecordingEngine(&record);audio.prepareToPlay(128,48000.0);warmIdle(audio);
+        RecordingSessionController controller(main,record,audio,settings);settings.metronomeCountIn=devpiano::core::CountInBars::oneBar;controller.handleRecordClicked();
+        require(controller.isCountingIn(),"controller did not arm");controller.handleStopClicked();
+        require(record.getState()==RecordingState::idle && controller.getSession().isIdle(),"cancelled count-in started");
+        controller.handleRecordClicked();juce::AudioBuffer<float> buffer(2,128);runBlock(audio,buffer);controller.handleStopClicked();
+        require(!record.isRecording() && !controller.isCountingIn(),"cancel/rearm stale command started capture");
+    }
+    auto image=main.createComponentSnapshot(main.getLocalBounds());juce::PNGImageFormat png;
+    auto stream=juce::File("G:/source/projects/devpiano/build-win-msvc/audit004-phase0/phased-smoke/phased-controller.png").createOutputStream();
+    require(stream && png.writeImageToStream(image,*stream),"actual controller UI snapshot failed");
+    std::cout << "PHASE_D_CONTROLLER cancel_rearm=1 actual_main_view=1
+";static_cast<void>(scratch);
+}
+int main() {
+    std::cout.setf(std::ios::unitbuf);
+    SymInitialize(GetCurrentProcess(),"G:\source\projects\devpiano\build-win-msvc\audit004-phase0\phased-smoke",TRUE);
+    SetUnhandledExceptionFilter(reportNativeFailure);
+    try {
+        juce::ScopedJuceInitialiser_GUI gui;OwnedDirectory owned;const auto profile=owned.directory.getChildFile("profile");require(profile.createDirectory().wasOk(),"private profile failed");
+        ProfileScope redirect;require(redirect.redirect(profile),"private profile import redirect failed");
+        require(juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)==profile,"JUCE profile not private");
+        const auto bad=verifyInput(owned.directory);verifyCapture(owned.directory);verifyEnd(owned.directory);verifySeek();verifySoft(owned.directory);verifyNative(owned.directory);
+        SettingsModel settings;settings.languageCode="en";settings.masterGain=0.0f;{SettingsStore store;require(store.save(settings),"private startup write failed");}
+        juce::JUCEApplicationBase::createInstance=[]()->juce::JUCEApplicationBase*{return new DevPianoApplication();};
+        DevPianoApplication application;struct Shutdown{DevPianoApplication& app;~Shutdown(){closeDialogs();app.shutdown();}}shutdown{application};
+        application.initialise("--sine");pump(100);auto& main=applicationMain();
+        auto* selector=find<juce::ComboBox>(main,"preset-combo");require(selector!=nullptr,"actual preset selector missing");const auto previous=selector->getText();
+        const auto bytes=bad.loadFileAsString();main.filesDropped({bad.getFullPathName()},0,0);pump(50);
+        require(selector->getText()==previous && bad.loadFileAsString()==bytes,"invalid dropped preset replaced application identity");
+        verifyCountIn(main,owned.directory);
+        std::cout << "PHASE_D_APPLICATION preset_drop_rejected=1 prior_identity_retained=1 private_main_exit=1
+";
+        return 0;
+    } catch(const std::exception& failure) {std::cerr << "PHASE_D_SMOKE_ERROR=" << failure.what() << '
+';return 1;}
+}
+```
+
+##### 修复前基线消费者（Phase C对象）
+
+```cpp
+#include <JuceHeader.h>
+#include "Audio/AudioEngine.h"
+#include "Input/KeyboardMidiMapper.h"
+#include "Recording/RecordingEngine.h"
+#include <iostream>
+#include <set>
+using namespace devpiano::recording;
+RecordingTake takeWith(std::int64_t length, std::initializer_list<PerformanceEvent> events) {
+    return { 48000.0, length, events };
+}
+PerformanceEvent event(std::int64_t sample, juce::MidiMessage message) {
+    return { sample, PerformanceEventType::midi, 0, RecordingEventSource::playback, message };
+}
+int countOff(const juce::MidiBuffer& buffer) {
+    int count = 0;
+    for (const auto item : buffer) if (item.getMessage().isNoteOff()) ++count;
+    return count;
+}
+int main() {
+    juce::ScopedJuceInitialiser_GUI gui;
+    {
+        RecordingEngine engine;
+        engine.reserveEvents(32);
+        engine.startRecording(48000.0);
+        engine.recordEvent(juce::MidiMessage::noteOn(1,60,0.8f), RecordingEventSource::realtimeMidiBuffer,0);
+        engine.recordEvent(juce::MidiMessage::controllerEvent(1,64,127), RecordingEventSource::realtimeMidiBuffer,1);
+        engine.advanceRecordingPosition(128);
+        engine.pauseRecording();
+        engine.recordEvent(juce::MidiMessage::noteOff(1,60), RecordingEventSource::realtimeMidiBuffer,128);
+        engine.recordEvent(juce::MidiMessage::controllerEvent(1,64,0), RecordingEventSource::realtimeMidiBuffer,128);
+        auto take=engine.stopRecording();
+        int on=0,off=0,pedalUp=0;
+        for(const auto& item:take.events) {
+            on+=item.message.isNoteOn(); off+=item.message.isNoteOff();
+            pedalUp+=item.message.isController() && item.message.getControllerNumber()==64 && item.message.getControllerValue()==0;
+        }
+        std::cout << "PHASE_D_BASE_CAPTURE on=" << on << " off=" << off << " pedal_up=" << pedalUp << " length=" << take.lengthSamples << "\n";
+    }
+    {
+        RecordingEngine engine;
+        engine.startPlayback(takeWith(128,{event(0,juce::MidiMessage::noteOn(1,60,0.8f)),event(128,juce::MidiMessage::noteOff(1,60))}),48000.0);
+        juce::MidiBuffer midi;
+        engine.renderPlaybackBlock(midi,0,128); engine.advancePlaybackPosition(128);
+        const auto ended=engine.consumePlaybackEndedFlag();
+        engine.renderPlaybackBlock(midi,128,128);
+        std::cout << "PHASE_D_BASE_END ended=" << ended << " off=" << countOff(midi) << "\n";
+    }
+    {
+        RecordingEngine engine;
+        engine.startPlayback(takeWith(512,{event(0,juce::MidiMessage::controllerEvent(2,0,3)),event(0,juce::MidiMessage::programChange(2,8)),event(0,juce::MidiMessage::controllerEvent(2,64,127)),event(0,juce::MidiMessage::pitchWheel(2,10000)),event(32,juce::MidiMessage::noteOn(2,60,0.8f)),event(64,juce::MidiMessage::noteOn(2,64,0.8f)),event(128,juce::MidiMessage::noteOff(2,64))}),48000.0);
+        engine.requestPlaybackSeek(64); juce::MidiBuffer midi;
+        static_cast<void>(engine.applyPendingTransportCommands(midi));
+        engine.renderPlaybackBlock(midi,64,64);
+        int bank=0,program=0,pedal=0,pitch=0,oldOn=0;
+        for (auto item:midi) {
+            auto msg=item.getMessage();
+            bank+=msg.isController() && msg.getControllerNumber()==0 && msg.getControllerValue()==3;
+            program+=msg.isProgramChange() && msg.getProgramChangeNumber()==8;
+            pedal+=msg.isController() && msg.getControllerNumber()==64 && msg.getControllerValue()==127;
+            pitch+=msg.isPitchWheel();
+            oldOn+=msg.isNoteOn() && msg.getNoteNumber()==60;
+        }
+        std::cout << "PHASE_D_BASE_SEEK bank=" << bank << " program=" << program << " pedal=" << pedal << " pitch=" << pitch << " history_on=" << oldOn << "\n";
+    }
+    {
+        KeyboardMidiMapper mapper;
+        juce::MidiKeyboardState keyboard;
+        std::set<int> keys{'Q','K'};
+        mapper.setKeyStatePredicate([&](int key){return keys.contains(key);});
+        mapper.handleKeyPressed(juce::KeyPress('Q',0,'Q'),keyboard);
+        mapper.handleKeyPressed(juce::KeyPress('K',0,'K'),keyboard);
+        keys.erase('Q'); mapper.handleKeyStateChanged(keyboard);
+        std::cout << "PHASE_D_BASE_HOLD remaining_key=" << mapper.isKeyHeld('K') << " sounding=" << keyboard.isNoteOn(1,72) << "\n";
+        mapper.releaseAllHeldKeys(keyboard);
+    }
+    {
+        RecordingEngine engine; AudioEngine audio; audio.setRecordingEngine(&engine);
+        juce::AudioBuffer<float> output(2,64); juce::AudioSourceChannelInfo info(&output,0,64);
+        audio.setBuiltinSynthTone(AudioEngine::BuiltinSynthTone::sine); audio.prepareToPlay(64,48000.0);
+        for(int n=0;n<AudioEngine::calculateWarmupBlockCount(48000.0,64);++n)audio.getNextAudioBlock(info);
+        engine.startPlayback(takeWith(512,{event(0,juce::MidiMessage::noteOn(1,60,0.8f)),event(128,juce::MidiMessage::noteOff(1,60))}),48000.0);
+        audio.getNextAudioBlock(info); audio.setPlaybackTranspose(true,1);
+        audio.getNextAudioBlock(info); audio.getNextAudioBlock(info);
+        std::cout << "PHASE_D_BASE_IDENTITY original_still_on=" << audio.getKeyboardState().isNoteOn(1,60) << "\n";
+        audio.releaseResources();
+    }
+    {
+        RecordingEngine engine; AudioEngine audio; audio.setRecordingEngine(&engine);
+        engine.startPlaybackAtTakeSample(takeWith(48000,{event(0,juce::MidiMessage::noteOn(1,60,0.8f)),event(48000,juce::MidiMessage::noteOff(1,60))}),48000.0,24000);
+        audio.prepareToPlay(128,44100.0);
+        std::cout << "PHASE_D_BASE_RATE playback_device_sample=" << engine.getPlaybackPositionSamples() << " take_sample=" << engine.getPlaybackPositionInTakeSamples() << "\n";
+        audio.releaseResources();
+        engine.reserveEvents(32);engine.startRecording(48000.0);audio.prepareToPlay(128,44100.0);engine.advanceRecordingPosition(44100);
+        std::cout << "PHASE_D_BASE_RATE capture_take_sample=" << engine.getCurrentPositionSamples() << "\n";
+        engine.stopRecording();audio.releaseResources();
+    }
+}
+```
+
+##### 最终关键输出（单次观察，不是固定门槛）
+
+```text
+PHASE_D_INPUT QK_both_orders=1 matrix_merge=1 group_layout_snapshot=1 focus_release=1 keyup_rejected=1 input_retained=1
+PHASE_D_COUNTIN first_block_before_excluded=1 exact_downbeat_note_at_zero=1
+PHASE_D_CAPTURE paired_on=2 paired_off=2 pedal_up=1 fixed_rate=48000 length=120000 midi_paired=1
+PHASE_D_END rate=48000 off_sample=128 event_inclusive_length=129 wav_delta=3.04207e-05 ui_poll=0
+PHASE_D_END rate=44100 off_sample=118 event_inclusive_length=119 wav_delta=3.02829e-05 ui_poll=0
+PHASE_D_SEEK channels=16 program_bank_pedal_pitch=1 before_destination=1 history_on=0 in_block_wrap=1
+PHASE_D_SOFT chord_inherit=1 analog=1 stolen_channel=1 release=1 acoustic_energy=5.94625,4.03106,3.05399 offline_writer=1
+PHASE_D_NATIVE vst3=1 original_cc_channels=16 offset_enabled_mask=1 FIFO=1 rate_off_identity=1 actual_audio_silenced=1
+PHASE_D_COUNTIN bars=1 block=128 rate=48000 exact_start=96000 ui_polls=0 pause_resume=1
+PHASE_D_COUNTIN bars=1 block=512 rate=48000 exact_start=96000 ui_polls=0 pause_resume=1
+PHASE_D_COUNTIN bars=2 block=128 rate=48000 exact_start=192000 ui_polls=0 pause_resume=1
+PHASE_D_COUNTIN bars=2 block=512 rate=48000 exact_start=192000 ui_polls=0 pause_resume=1
+PHASE_D_COUNTIN rate_switch_halfway=1 silent=1 second_domain_start=44100
+PHASE_D_COUNTIN immediate_stop_without_poll=1 retained_take=1 cycle=0
+PHASE_D_COUNTIN immediate_stop_without_poll=1 retained_take=1 cycle=1
+PHASE_D_COUNTIN immediate_stop_without_poll=1 retained_take=1 cycle=2
+PHASE_D_COUNTIN immediate_stop_without_poll=1 retained_take=1 cycle=3
+PHASE_D_COUNTIN immediate_stop_without_poll=1 retained_take=1 cycle=4
+PHASE_D_CONTROLLER cancel_rearm=1 actual_main_view=1
+PHASE_D_APPLICATION preset_drop_rejected=1 prior_identity_retained=1 private_main_exit=1
+PHASE_D_PROFILE_RESTORED=1
+PHASE_D_PRIVATE_FILES_CLEAN=1
+```
+
 
 ### AUDIT-004 Phase E：预设永久身份与实时/离线执行闭包 [待开始]
 

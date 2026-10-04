@@ -21,7 +21,7 @@ devpiano 源于对旧版 Windows FreePiano 的现代化重构。所有有价值�
 - 电脑键盘触发 MIDI note on/off，支持基于稳定 key code 的键位映射
 - 5 行 ANSI 物理键盘映射看板（`QwertyComponent`），自适应网格排版、50fps 荧光余晖动画与 12-TET 和声色彩投影
 - 88 键拟真虚拟钢琴键盘（classic / channel / velocity / harmony 4 种着色模式，Do Re Mi / 固定 Do / 音符名称 3 种标注模式）
-- 轻量键位分组（`KeyGroup`，支持 4 组）即时切组与发音身份快照（Note-off Identity Preservation，彻底封死悬挂音）
+- 轻量键位分组（`KeyGroup`，支持 4 组）即时切组与原发音身份快照；同输出音的物理持有者最后释放才关闭，播放起音以 FIFO 锁定最终输出身份
 - 采样精确的切分延音踏板调度（`SustainPolicy` / `SyncPedalProcessor`，消除连奏断音空洞）
 - 瞬态演奏修饰键变换管道（`PerformanceModifierState`：Shift 力度拉满 / Alt 高八度平移，纯事件变换零配置污染）
 - 可选的击键间隔动态力度与确定性、有限幅的人性化力度微扰（`TypingCadenceEstimator` / `VelocityHumanizer`）；Shift 瞬态力度拉满优先
@@ -40,8 +40,8 @@ devpiano 源于对旧版 Windows FreePiano 的现代化重构。所有有价值�
 ### 演奏录制与文件
 
 - 演奏录制、回放、播放速度精确控制（0.50x–2.00x，变速与 Stop 命令在音频块边界提交）
-- 采样级合成强弱拍的节拍器，支持 2/4、3/4、4/4、6/8 拍号、40–280 BPM、Tap Tempo 和录制前 1–2 小节预备拍
-- `TimelineBar` 播放位置跳转与 Take-relative A/B 标记循环，支持暂停/恢复与倍速跟练；跳转、循环回跳时清理当前发声
+- 采样级合成强弱拍的节拍器，支持 2/4、3/4、4/4、6/8 拍号、40–280 BPM、Tap Tempo；录制前 1–2 小节预备拍在完整时段后的目标下拍开始
+- `TimelineBar` 播放位置跳转与 Take-relative A/B 标记循环，支持暂停/恢复与倍速跟练；设备采样率变化重基准活动 Transport，跳转、循环回跳先清理旧发音再恢复目的通道状态，不重发历史 NoteOn
 - `.devpiano` 原生演奏文件格式（v2 JSON 序列化，含 Base64 编码、events、采样率与元数据）
 - 标准 MIDI 文件导入：Type 0/1 全轨并轨，解析 CC64 延音 / pitch bend / program change 事件
 - 标准 MIDI 文件导出（Type 1，960 PPQ）

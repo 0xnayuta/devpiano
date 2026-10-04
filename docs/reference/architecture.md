@@ -108,7 +108,9 @@ source/
   - 经 `InstrumentEndpoint` 解析发声实体：托管 VST3 实例就绪则驱动插件实例，否则驱动内置合成器；
   - 线程安全与音频鲁棒性：`masterGain` 采用 `std::atomic<float>`；具备 `25ms` audio warmup（静音过渡）与 `armPlaybackStartPreRoll`（消除 0s 音符冲突）。
   - 变速、Seek 与 Stop 的待提交命令仅在块入口消费；内置音色重建复用明确停 callback 的守卫，启动/再次启动不并发写活动声部或房间混响。
-  - `MetronomeProcessor` 在内置乐器/VST3 发声与房间混响之后、Master Gain / limiter 之前，以音频块采样计数合成强弱拍；通过原子节拍序号向消息线程提供状态栏节拍反馈与录制预备拍触发。
+  - `MetronomeProcessor` 在音频块内维护完整节拍时段；预备拍起点由音频拥有者返回块内偏移，捕获排除目标下拍之前的输入。节拍混入仍位于乐器/混响之后、Master Gain / limiter 之前；消息线程只观察进度与会话转换，不触发第二次启动。
+- **`source/Audio/BuiltinSynthesiser.h/.cpp`**：
+  - 实时和内置 WAV 共用乐器拥有者：逐通道 CC67 连续值在新 Piano 声部起音前提交；重复起音/释放按真实发音通道筛选，不把机械聚合监听当发音身份。头文件不包含重型 Piano 实现，具体发声初始化与 dispatch 放在 `.cpp`。
 - **`source/Audio/PianoSynthVoice.h` / `source/Audio/Piano88KeyTable.h`**：
   - **自主研发、纯 C++ 全物理建模钢琴音源**（Phase 12–32 成果，v1.1.0 核心发声引擎）；
   - **7 大声学子系统**：覆盖琴槌（Hammer）、琴弦（String）、琴桥（Bridge）、音板（Soundboard）、琴体（Cabinet）、空气（Air）与空间（Room）；
@@ -142,7 +144,7 @@ source/
 
 - **`source/Audio/MetronomeProcessor.h` / `source/Core/MetronomeModel.h`（Phase 35-A）**：
   - `MetronomeProcessor::processAndMix()` 在实时回调中合成无外部采样依赖的强弱拍；`TimeSignature` 支持 2/4、3/4、4/4、6/8，BPM 限幅 40–280，`TapTempoCalculator` 使用最近至多 3 个间隔的均值并在超时后重置；
-  - 音量、拍号、开关与预备拍小节数由 `SettingsModel` 持久化；`RecordingSessionController` 在收到指定节拍数后才开始录制。
+  - 音量、拍号、开关与预备拍小节数由 `SettingsModel` 持久化；控制器停 callback 后预分配/arm，音频线程在完整一/两小节后的下拍启动，UI 轮询或后续用户命令只接管已经开始的会话。
 ---
 
 ### 3.3 Input（电脑键盘输入）
@@ -151,6 +153,7 @@ source/
   - 将 `juce::KeyPress` 映射为 `juce::MidiMessage`（noteOn / noteOff）；
   - 主路径采用稳定 key code（`normaliseAlphaNumericKeyCode`），避免字符输入法与 CapsLock 状态干扰；
   - **发音身份恒定与防悬挂快照（Phase 34-B）**：`HeldKeyIdentity` 在按键按下时锁定经 Group、modifier、全局移调与通道矩阵路由后的最终输出音高/通道及 NoteOff 力度；释放时直接按快照发送 NoteOff，不重新使用当前映射配置。布局替换保留仍按住的记录，直至物理释放或明确 Panic 清理；
+  - 同一最终输出身份有多个物理键持有时，最后释放才关音；支持的序列化 trigger 只有 `keyDown`，`keyUp`/未知值准入拒绝，缺省字段保留原默认。
   - **Layout Group 键位分组（Phase 34-B）**：支持单预设内 4 组轻量键位分组（`KeyGroup`），反引号键（`）或 UI 按钮秒级切换；
   - **瞬态修饰键变换（Phase 34-D）**：捕获 Shift / Alt 键，按住期间由 `PerformanceModifierState` 执行力度拉满（Velocity Boost）与八度平移（+8va）纯事件流变换，松开自动回弹，基线配置 100% 零突变；
   - **QWERTY 视图单一事实源快照（Phase 34-A）**：`createQwertySnapshot()` 汇总 `layout`、`heldKeys`、`keySignature`、modifier、延音/柔音踏板状态、`syncPedalCutPending` 与 `sustainPolicy`，生成只读 `QwertyViewModel`，由 UI 直接消费；
@@ -189,7 +192,8 @@ source/
   - 实时音频线程无锁采集（`recordMidiBufferBlock`），预分配事件队列（容量溢出计数防护）；
   - `sampleRate` + `lengthSamples` + `events` 组成的 `RecordingTake` 数据结构；
   - 播放状态机管理：0.5x–2.0x 变速、Seek 与 Stop 经有界原子邮箱发布，由 `AudioEngine` 的单一块入口调用 `applyPendingTransportCommands()`；纯变速保留下一未渲染事件游标，避免缩放取整重播旧 NoteOn。
-  - `AbLoopEngine` 以原子快照保存 Take-relative A/B 标记；`RecordingEngine` 在音频块内执行 Seek、半开区间循环与边界发音清理，播放位置按设备采样率与速度换算。
+  - 回放 NoteOn 以预分配 FIFO 保存最终输出身份；Off 匹配原身份并按最终输出持有数释放，映射变化与设备 prepare 不清空同代身份。录制在暂停/停止的停机边界终结已录身份/踏板，实际最终松键在其采样点闭合重叠起音。
+  - `AbLoopEngine` 保存 Take-relative A/B；Seek/回跳先清音再恢复 program、bank、CC 与 pitch 状态，不重发历史 NoteOn。播放/暂停游标与固定录制 Take 域在设备 prepare 时重基准；实时长度包含最后事件，音频交付边界收尾后才通知 UI。
   - 结构提交前验证采样率、非负有序事件与最坏支持倍率的整数范围，保留现有合成时间域；文件的物理采样率准入与通用数值安全检查分开。
 - **`source/Recording/RecordingSessionController.h/.cpp`**：
   - 会话控制器：统一调度录制、回放、`.devpiano` 文件保存/打开、MIDI 导入与 WAV 导出流程。
@@ -384,7 +388,7 @@ AudioEngine::getNextAudioBlock() (音频回调线程)
 [回放与跟练]
 TimelineBar ──► RecordingSessionController (Take-relative Seek / A/B 标记)
     └── RecordingEngine + AbLoopEngine ──► AudioEngine::getNextAudioBlock()
-         └── 跳转/回跳注销发声，恢复目标位置事件游标；暂停/恢复保持 Take 时间轴
+         └── 跳转/回跳注销旧发音，恢复目标通道状态后消费目的事件；暂停/恢复保持 Take 时间轴
 
 [离线导出 WAV]
 用户点击 Export WAV ──► WavExportTask::startAsync() (现代化非阻塞异步任务启动)
