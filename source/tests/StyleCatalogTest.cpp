@@ -14,6 +14,7 @@
 #include "UI/native/StatusBarMidiDot.h"
 #include "UI/native/TimelineBar.h"
 
+#include "UI/jive/core/jive_BackgroundCanvas.h"
 #include "UI/jive/core/jive_layouts.h"
 
 // vars, which jive::VariantConverter<jive::Object::Ptr> rejects (jassert +
@@ -1045,6 +1046,7 @@ public:
         testTitleTextRendersVisiblePixels();
         testButtonLabelRendersVisiblePixels();
         testCardTitlesRenderVisiblePixels();
+        testBackgroundCanvasCornerRadiusImmediateReflection();
     }
 
 private:
@@ -1147,6 +1149,46 @@ private:
 
         const int light = countLightPixels(*item->getComponent(), 900, 200);
         expect(light > 0, "controls card titles render visible pixels (light=" + juce::String(light) + ")");
+    }
+
+    void testBackgroundCanvasCornerRadiusImmediateReflection() {
+        beginTest("BackgroundCanvas immediately reflects border radius on fixed bounds (QUAL-012)");
+
+        jive::BackgroundCanvas canvas;
+        canvas.setBounds(0, 0, 100, 100);
+        canvas.setFill(jive::Fill(juce::Colours::white));
+
+        auto image = juce::Image(juce::Image::ARGB, 100, 100, true);
+
+        // 1. Initial / zero radius: corner (0, 0) is sharp and filled
+        canvas.setBorderRadii({ 0.0f });
+        image.clear(image.getBounds());
+        {
+            juce::Graphics g(image);
+            canvas.paint(g);
+        }
+        expect(image.getPixelAt(0, 0).getAlpha() > 0, "radius 0 must cover corner pixel (0, 0)");
+
+        // 2. Change radius to 30 on same fixed bounds: corner (0, 0) must be clipped immediately
+        canvas.setBorderRadii({ 30.0f });
+        image.clear(image.getBounds());
+        {
+            juce::Graphics g(image);
+            canvas.paint(g);
+        }
+        expectEquals(static_cast<int>(image.getPixelAt(0, 0).getAlpha()), 0,
+                     "radius 30 must clip corner pixel (0, 0) without lagging by one frame");
+        expect(image.getPixelAt(50, 50).getAlpha() > 0, "center pixel must still be filled at radius 30");
+
+        // 3. Change radius back to 0 on same fixed bounds: corner (0, 0) must be filled immediately
+        canvas.setBorderRadii({ 0.0f });
+        image.clear(image.getBounds());
+        {
+            juce::Graphics g(image);
+            canvas.paint(g);
+        }
+        expect(image.getPixelAt(0, 0).getAlpha() > 0,
+               "returning to radius 0 must restore corner pixel (0, 0) immediately without one-frame lag");
     }
 };
 
