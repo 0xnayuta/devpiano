@@ -254,6 +254,20 @@
       "border": "#262B34"
     }
   },
+  "NotesEditor": {
+    "background": "@card-bg",
+    "foreground": "@text-primary",
+    "border": "#2C303A",
+    "border-radius": "5",
+    "focus": {
+      "border": "@primary"
+    },
+    "disabled": {
+      "background": "#16181D",
+      "foreground": "@text-disabled",
+      "border": "#262B34"
+    }
+  },
   "#status-bar": {
     "background": "#0E0F12",
     "foreground": "#8A909D",

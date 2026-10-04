@@ -283,13 +283,14 @@ void JiveModalDialog::launchMetadataEdit(const MetadataEditOptions& options) {
     opts.layoutTree = layout;
     opts.componentToCentreAround = options.componentToCentreAround;
 
-    opts.onInit = [initialTitle = options.initialTitle, initialNotes = options.initialNotes](::jive::GuiItem& root) {
-        if (auto* titleEd = findTextEditorById(root, "title-editor")) {
+    opts.onInitHost = [initialTitle = options.initialTitle,
+                       initialNotes = options.initialNotes](const devpiano::ui::ViewHost& host) {
+        if (auto* titleEd = host.find<juce::TextEditor>("title-editor")) {
             titleEd->setText(initialTitle, juce::dontSendNotification);
             titleEd->setFont(juce::FontOptions(15.0f));
             titleEd->setInputRestrictions(128, {});
         }
-        if (auto* notesEd = findTextEditorById(root, "notes-editor")) {
+        if (auto* notesEd = host.find<juce::TextEditor>("notes-editor")) {
             notesEd->setMultiLine(true, false);
             notesEd->setReturnKeyStartsNewLine(true);
             notesEd->setText(initialNotes, juce::dontSendNotification);
@@ -298,12 +299,12 @@ void JiveModalDialog::launchMetadataEdit(const MetadataEditOptions& options) {
         }
     };
 
-    opts.onConfirm = [onComplete = options.onComplete](::jive::GuiItem& root) -> bool {
+    opts.onConfirmHost = [onComplete = options.onComplete](const devpiano::ui::ViewHost& host) -> bool {
         MetadataResult res;
-        if (auto* titleEd = findTextEditorById(root, "title-editor")) {
+        if (auto* titleEd = host.find<juce::TextEditor>("title-editor")) {
             res.title = titleEd->getText();
         }
-        if (auto* notesEd = findTextEditorById(root, "notes-editor")) {
+        if (auto* notesEd = host.find<juce::TextEditor>("notes-editor")) {
             res.notes = notesEd->getText();
         }
         if (onComplete) {
@@ -436,7 +437,7 @@ juce::ValueTree JiveModalDialog::makeMetadataEditLayout(int width, int height, c
     notesLabel.setProperty("font-size", 15, nullptr);
     root.appendChild(notesLabel, nullptr);
 
-    auto notesEditor = node("ListEditor", "notes-editor");
+    auto notesEditor = node("NotesEditor", "notes-editor");
     notesEditor.setProperty("height", 80, nullptr);
     notesEditor.setProperty("margin", "0 0 12 0", nullptr);
     notesEditor.setProperty("focusable", true, nullptr);

@@ -200,7 +200,6 @@ private:
         expect(notesLabel.isValid());
         auto notesEditor = findNodeById(tree, "notes-editor");
         expect(notesEditor.isValid());
-        expectEquals(notesEditor.getType().toString(), juce::String("ListEditor"));
         expectEquals(notesEditor.getProperty("focusable"), juce::var(true));
         auto okBtn = findNodeById(tree, "dialog-ok-btn");
         expect(okBtn.isValid());
@@ -250,44 +249,60 @@ private:
     }
 
     void testMetadataInterpretation() {
-        beginTest("makeMetadataEditLayout: single-line vs multi-line editors");
+        beginTest("makeMetadataEditLayout: production ViewHost editable notes vs read-only diagnostics");
 
         auto tree = devpiano::ui::jive::JiveModalDialog::makeMetadataEditLayout(420, 260);
 
-        ::jive::Interpreter interpreter;
-        auto& factory = interpreter.getComponentFactory();
-        factory.set("PathEditor", [] {
-            auto editor = std::make_unique<juce::TextEditor>();
-            editor->setMultiLine(false);
-            return editor;
-        });
-        factory.set("ListEditor", [] {
-            auto editor = std::make_unique<juce::TextEditor>();
-            editor->setMultiLine(true);
-            editor->setReturnKeyStartsNewLine(true);
-            return editor;
-        });
+        devpiano::ui::ViewHost host;
+        host.registerDefaultComponents();
+        expect(host.loadLayout(tree, true));
+        expect(host.isValid());
 
-        devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
-        devpiano::ui::jive::ScopedJiveTree rootItem = interpreter.interpret(tree);
-        expect(rootItem != nullptr);
+        auto* titleEd = host.find<juce::TextEditor>("title-editor");
+        expect(titleEd != nullptr);
+        if (titleEd != nullptr) {
+            expect(!titleEd->isMultiLine());
+            expect(!titleEd->isReadOnly());
+            expect(titleEd->getWantsKeyboardFocus());
+        }
 
-        if (rootItem != nullptr) {
-            auto* titleEd = devpiano::ui::jive::JiveModalDialog::findTextEditorById(*rootItem, "title-editor");
-            expect(titleEd != nullptr);
-            if (titleEd != nullptr) {
-                expect(!titleEd->isMultiLine());
-                titleEd->setText("My Song");
-                expectEquals(titleEd->getText(), juce::String("My Song"));
+        auto* notesEd = host.find<juce::TextEditor>("notes-editor");
+        expect(notesEd != nullptr);
+        if (notesEd != nullptr) {
+            expect(notesEd->isMultiLine());
+            expect(!notesEd->isReadOnly());
+            expect(notesEd->getWantsKeyboardFocus());
+            expect(notesEd->getMouseClickGrabsKeyboardFocus());
+            expect(notesEd->isCaretVisible());
+
+            // Initial text
+            notesEd->setText("Line 1", juce::dontSendNotification);
+            notesEd->keyPressed(juce::KeyPress(juce::KeyPress::endKey, juce::ModifierKeys::ctrlModifier, 0));
+
+            // Inject user keypresses: newline and characters
+            notesEd->keyPressed(juce::KeyPress(juce::KeyPress::returnKey));
+            for (const auto c : { 'L', 'i', 'n', 'e', ' ', '2' }) {
+                notesEd->keyPressed(juce::KeyPress(c, 0, c));
             }
 
-            auto* notesEd = devpiano::ui::jive::JiveModalDialog::findTextEditorById(*rootItem, "notes-editor");
-            expect(notesEd != nullptr);
-            if (notesEd != nullptr) {
-                expect(notesEd->isMultiLine());
-                notesEd->setText("Line 1\nLine 2");
-                expectEquals(notesEd->getText(), juce::String("Line 1\nLine 2"));
-            }
+            expectEquals(notesEd->getText(), juce::String("Line 1\nLine 2"));
+        }
+
+        // Verify diagnostic ListEditor from production factory remains strictly read-only
+        auto diagTree = juce::ValueTree("ListEditor");
+        diagTree.setProperty("id", "diag-test", nullptr);
+        devpiano::ui::ViewHost diagHost;
+        diagHost.registerDefaultComponents();
+        expect(diagHost.loadLayout(diagTree, true));
+        if (auto* diagEd = diagHost.find<juce::TextEditor>("diag-test")) {
+            expect(diagEd->isMultiLine());
+            expect(diagEd->isReadOnly());
+            expect(!diagEd->getWantsKeyboardFocus());
+            diagEd->setText("Log Entry", juce::dontSendNotification);
+            const auto textBefore = diagEd->getText();
+            const bool keyHandled = diagEd->keyPressed(juce::KeyPress('X', 0, 'X'));
+            expect(!keyHandled);
+            expectEquals(diagEd->getText(), textBefore);
         }
     }
 
