@@ -16,7 +16,7 @@ devpiano 是一款基于 JUCE 的现代 C++ 电脑键盘钢琴应用，聚焦软
 - 旧配置系统 -> `ApplicationProperties` / `ValueTree` / 项目内状态模型。
 - 旧 fallback 简单发声 -> 覆盖 7 大声学子系统的自主研发增强物理建模钢琴音源（`PianoSynthVoice`）。
 
-当前近期重点为 **本地化完整消息模板收口（规划已确定，代码迁移待开始）**，决策依据为 [ADR-015](../decisions/ADR-015-localized-message-templates-and-punctuation.md)，逐项任务只维护于 [`current-iteration.md`](current-iteration.md)。AUDIT-004 Phase 0/A–H 软件实施已归档，原问题身份、优先级与消费者证据保留；审计复审不等于目标厂商、物理声卡或 IME 全组合认证。Phase 36/37 仍为规划，按审计剩余风险与独立验收条件评估，不自动启动。
+当前近期重点为 **自有弹窗尺寸与底部操作区统一**，在本地化代码迁移基础上收紧窗口并统一操作区；逐项任务和本轮直接证据见 [`current-iteration.md`](current-iteration.md)。AUDIT-004 Phase 0/A–H 软件实施已归档，原问题身份、优先级和实机边界保留；本轮 UI 验收不等于目标厂商、物理声卡、IME 或跨显示器认证。Phase 36/37 仍为规划，不自动启动。
 
 ---
 
@@ -338,11 +338,16 @@ Phase 35 原计划与完成勾选见 [完成计划归档](../archive/phase35-key
 
 全部原项归属、优先级、EVID 与完整复建输入见 [AUDIT-004 实施归档](../archive/audit-004-code-quality-fix-phases.md)，当前问题状态只在 [审计第 8 章](../audit/AUDIT-004-code-quality-audit-2026-10-02.md#8-附录问题总表登记表) 维护；保留首次 S01～S29 反证和历史门禁失败，追加复审不抹去初审。剩余实机矩阵见 [acceptance](../reference/acceptance.md#audit-004-当前复审入口与契约边界)；用户授权归档软件记录，不以硬件未测阻塞历史归档，也不把归档当作全平台放行。
 
-### 本地化完整消息模板收口 [规划已确定，代码迁移待开始]
+### 本地化完整消息模板收口 [代码迁移已提交]
 
 在已有预设弹窗缺词条修复之上，按 [ADR-015](../decisions/ADR-015-localized-message-templates-and-punctuation.md) 将相关自然语言消息切换为完整 ASCII 英文模板和单参数 `{0}` 替换；中文文案分类使用标点，技术表达及用户名称/路径保持原样。不引入新格式化框架，不把所有 `+` 视为缺陷，不改变 CRUD、UUID、持久化或音频时序。
 
-任务与直接验收见 [当前迭代](current-iteration.md)：预设删除、三处覆盖确认和成功提示；同类单参数消息清单；旧碎片键清理；参数原样/回退与中英文真实 UI 回归。现有多参数统计消息先分类评估，不连续替换插入值；更激进方案须以新 ADR 替代 ADR-015。当前仅接受决策和规划，未实施消息迁移。
+本地化软件迁移见 `de450e7`、`f408262`：预设删除／覆盖确认、相关成功提示和同类单参数消息使用整句模板；参数原样插入，旧碎片键清理。多参数统计及后继 ADR 边界继续按 ADR-015 管理；当前弹窗迭代补充实际窗口尺寸、长消息排版与操作区验收，不据此认证所有国际化场景。
+
+### 自有弹窗尺寸与底部操作区统一
+
+原生标题栏模式确定后准确定尺并居中；`ViewHost::fitToContent()` 封装宽度约束及最终内容边界测量，预设、绑定两状态、歌曲信息和导出进度共用操作区间距。窗口按内容收紧，底部伸缩仅吸收原生缩放取整余量；不改音频时序、CRUD、UUID 或导出工作线程生命周期。完成状态与直接验证见 [当前迭代](current-iteration.md)，后续实机补验仍独立保留。
+
 
 
 ### Phase 36：物理建模声学巅峰（Railsback Octave Stretch Tuning & Duplex Scale Resonance）[规划中]

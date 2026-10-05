@@ -260,12 +260,13 @@ source/
 - **`source/UI/ViewHost.h/.cpp`（统一 UI 宿主门面，Phase 28-A）**：
   - **架构界限与生命周期接管**：内部完整封装 `::jive::Interpreter` 与 `::jive::GuiItem`，析构与重载时自动调度 `safeCleanupJiveTree`，杜绝组件与样式表 UAF 风险；
   - **强类型组件访问**：提供 `host.find<T>(id)` 强类型查找、`setProperty`、`setText`、`setButtonLabel`、`setEnabled`、`setVisible`、`getSliderValue`、`setSliderValue` 与 `relayoutContainer`；样式热重载通过 `refreshStyles()` 更新当前树，不向业务公开 `GuiItem` 或可突变的根树逃逸接口；
+  - **内容测量边界**：`fitToContent(width)` 在 UI 线程封装声明式内容的宽度约束、实际排版边界和高度校准；弹窗不向业务暴露 raw GuiItem 或重复维护字体测量逻辑。
   - **UI 线程断言**：在所有加载与重置入口注入 `JUCE_ASSERT_MESSAGE_MANAGER_IS_LOCKED`。
 - **`source/UI/jive/`（声明式 UI 核心与设计系统）**：
   - **`LayoutModel.h/.cpp`**：主窗口面板（Header, Plugin, Controls, QwertyCard, KeyboardArea, StatusBar）ValueTree 工厂，声明式嵌入 5 行 ANSI 物理键盘网格卡片（`makeQwertyCardTree()`）。
   - **`DesignTokens.h/.cpp`**：设计系统变量（颜色、字体、圆角、间距单一事实源，属于 `devpiano::jive::DesignTokens`）。
   - **`StyleCatalog.h/.cpp`**：全局样式管理器（读取编译期嵌入的 `style_sheets.json` 并动态注入树节点）。
-  - **`JiveModalDialog.h/.cpp`**：通用声明式模态弹窗系统。提供 `launchSingleInput`、`launchConfirm`、`launchMetadataEdit` 与 `makeProgressLayout` 模板；初始化与确认仅使用 `onInitHost` / `onConfirmHost` 门面回调，取消使用 `onCancel`。
+  - **`JiveModalDialog.h/.cpp`**：通用声明式模态弹窗系统。提供输入、确认、元数据与进度模板；共用按内容定尺的根布局及操作区，原生标题栏确定后通过 `launchWindow()` 设置准确内容尺寸并居中。初始化与确认使用 `onInitHost` / `onConfirmHost`，取消使用 `onCancel`；WAV 独立进度包装层复用尺寸规则但保留协作取消生命周期。
   - **`JiveUtils.h`**：ValueTree 快速构建与安全析构辅助工具。
 - **`source/UI/jive/core/`（内生 UI 渲染与排版引擎，已实施 API Freeze）**：
   - FlexBox 与 CSS Grid 基础几何排版计算引擎、BoxModel、动态样式表与动画缓动内核。已彻底剥离死代码并封存为底层资产。

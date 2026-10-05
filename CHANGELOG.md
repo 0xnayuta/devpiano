@@ -7,6 +7,7 @@
 - **Complete Localized Message Templates** — adopt full sentence templates with `{0}` placeholders across preset delete/overwrite confirmations, save/rename/delete status toasts, count-in counters, export notifications, key bindings, and plugin statuses; clean up obsolete string fragments in `zh_CN.loc` and enforce single-pass parameter substitution without recursive expansion.
 ### Fixed
 
+- **Content-Sized Dialogs and Consistent Footers** — fit preset, binding, metadata, and export dialogs to their rendered content; preserve a 28 logical-pixel bottom inset with full-height actions across scaling. Correct native-titlebar content sizing, wrap long confirmation names without clipping, and retain asynchronous confirmation and cooperative export cancellation.
 - **Verified Consumer Contracts** — align active documentation with permanent preset identities, native v3 snapshots and legacy admission, app-global transpose, single-track MIDI export, bounded diagnostics, and cooperative plugin cancellation; retain explicit hardware and vendor verification limits.
 
 - **Bounded Session Diagnostics** — rotate active and single-backup logs within a combined 512 KiB budget; retain UTF-8 boundaries, report file-sink failures, and keep complete debugger output.

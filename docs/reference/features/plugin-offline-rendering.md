@@ -82,6 +82,7 @@ WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
 - **协作取消与退出**：Cancel / ESC / 窗口关闭只设置取消请求，显示“正在取消导出”；Timer 不因取消请求或提前 finished 标志释放任务，只在实际线程退出后收尾。主应用退出保持消息循环等待导出完成，直接析构与 `runSync()` 无限等待兜底，不调用有限超时的 `stopThread()` 强杀。
 - **提交边界**：后台在块循环及 writer 关闭后的最终回调检查取消；提交前取消保留原目标并清理自有临时文件。已成功提交不能被之后的 UI 消息撤销。
 - **验证范围**：真实原生 mode-aware VST3、event 阻塞超过旧强停窗口的取消、回调内自销毁、资源/临时文件和实际保存对话框/应用退出已在隔离 Windows 消费者验证，复建输入见 [Phase C 实施记录](../../archive/audit-004-code-quality-fix-phases.md#phase-c-实施记录与直接验证2026-10-03)。冷路径图形驱动资源与正式任务资源分开记录，不外推所有厂商插件、断电或完整实时/离线声学闭包。
+- **窗口尺寸与操作区**：`ProgressContentWrapper` 通过 `ViewHost::fitToContent()` 测量内容，使用 `JiveModalDialog::launchWindow()` 在原生标题栏模式确定后定尺和居中；进度模板共用 [底部操作区规则](declarative-ui-and-theming.md#33-内容定尺与统一底部操作区)。本次只改变布局，不将进度窗口改成通用确认弹窗，不提前关闭尚未完成的取消任务。
 
 ### 3.4 内置合成器 1:1 声学一致性对齐（`WavExportOptions`）
 
