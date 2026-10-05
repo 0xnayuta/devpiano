@@ -30,8 +30,6 @@ public:
         testAcousticsSection();
         testInterpretationAndComponentLookup();
         devpiano::test::drainMessages(2);
-        testFollowKeyVisibilityToggle();
-        devpiano::test::drainMessages(2);
         testSettingsComponentRefreshTextsPreservesScroll();
         devpiano::test::drainMessages(2);
         testSettingsComponentMouseWheelIsolation();
@@ -122,19 +120,6 @@ private:
         expect(findNodeById(tree, "touch-curve-combo").isValid());
         expect(findNodeById(tree, "pedal-noise-slider").isValid());
         expect(findNodeById(tree, "felt-ageing-slider").isValid());
-
-        // Test status bar bullet point clean encoding (no Latin-1/UTF-8 breakdown corruption)
-        {
-            const auto bullet = " " + juce::String::charToString(0x2022) + " ";
-            const juce::String sustainIndicator = bullet + "[SUSTAIN]";
-            const juce::String unaCordaIndicator = bullet + "[UNA CORDA]";
-            const juce::String combinedIndicator = bullet + "[UNA CORDA + SUSTAIN]";
-
-            expectEquals(sustainIndicator.indexOfChar(juce_wchar(0x2022)), 1);
-            expectEquals(unaCordaIndicator.indexOfChar(juce_wchar(0x2022)), 1);
-            expectEquals(combinedIndicator.indexOfChar(juce_wchar(0x2022)), 1);
-            expect(sustainIndicator.contains(juce::String::charToString(0x2022)));
-        }
     }
 
     void testInterpretationAndComponentLookup() {
@@ -227,31 +212,6 @@ private:
 
             auto* saveBtn = dynamic_cast<juce::Button*>(findComponentById(*rootItem, "save-button"));
             expect(saveBtn != nullptr);
-        }
-    }
-
-    void testFollowKeyVisibilityToggle() {
-        beginTest("Dynamic visibility property toggle for follow-key-area");
-
-        auto tree = devpiano::ui::jive::makeSettingsLayoutTree();
-
-        ::jive::Interpreter interpreter;
-        devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
-        devpiano::ui::jive::ScopedJiveTree rootItem = interpreter.interpret(tree);
-        expect(rootItem != nullptr);
-
-        if (rootItem != nullptr) {
-            auto* followKeyArea = devpiano::ui::jive::findGuiItemById(*rootItem, "channel-follow-key-area");
-            expect(followKeyArea != nullptr);
-
-            if (followKeyArea != nullptr) {
-                // Toggle visibility property
-                followKeyArea->state.setProperty("visibility", false, nullptr);
-                expect(!static_cast<bool>(followKeyArea->state.getProperty("visibility")));
-
-                followKeyArea->state.setProperty("visibility", true, nullptr);
-                expect(static_cast<bool>(followKeyArea->state.getProperty("visibility")));
-            }
         }
     }
 

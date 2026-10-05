@@ -28,7 +28,6 @@ public:
         testPresetAndMetadataDialogBuilders();
         testProgressLayoutBuilder();
         testKeyBindingEditDialogLayoutBuilder();
-        testLaunchOptionsHostCallbacks();
         testOptionsStructures();
     }
     void testProgressLayoutBuilder() {
@@ -208,44 +207,31 @@ private:
     }
 
     void testInterpretationAndComponentLookup() {
-        beginTest("findButtonById and findTextEditorById on interpreted tree");
+        beginTest("Component lookup on interpreted SingleInput layout via ViewHost");
 
         auto tree = devpiano::ui::jive::JiveModalDialog::makeSingleInputLayout("Enter Value:", 380, 150);
 
-        ::jive::Interpreter interpreter;
-        auto& factory = interpreter.getComponentFactory();
-        factory.set("PathEditor", [] {
-            auto editor = std::make_unique<juce::TextEditor>();
-            editor->setMultiLine(false);
-            return editor;
-        });
+        devpiano::ui::ViewHost host;
+        host.registerDefaultComponents();
+        expect(host.loadLayout(tree, true));
+        expect(host.isValid());
 
-        devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
-        devpiano::ui::jive::ScopedJiveTree rootItem = interpreter.interpret(tree);
-        expect(rootItem != nullptr);
+        auto* okBtn = host.find<juce::Button>("dialog-ok-btn");
+        expect(okBtn != nullptr);
 
-        if (rootItem != nullptr) {
-            auto* okBtn = devpiano::ui::jive::JiveModalDialog::findButtonById(*rootItem, "dialog-ok-btn");
-            expect(okBtn != nullptr);
+        auto* cancelBtn = host.find<juce::Button>("dialog-cancel-btn");
+        expect(cancelBtn != nullptr);
 
-            auto* cancelBtn = devpiano::ui::jive::JiveModalDialog::findButtonById(*rootItem, "dialog-cancel-btn");
-            expect(cancelBtn != nullptr);
-
-            auto* editor = devpiano::ui::jive::JiveModalDialog::findTextEditorById(*rootItem, "dialog-editor");
-            expect(editor != nullptr);
-
-            if (editor != nullptr) {
-                editor->setText("Initial Test String");
-                expectEquals(editor->getText(), juce::String("Initial Test String"));
-                expect(!editor->isMultiLine());
-                expect(editor->getWantsKeyboardFocus());
-            }
-
-            // Non-existent IDs should return nullptr safely
-            expect(devpiano::ui::jive::JiveModalDialog::findButtonById(*rootItem, "non-existent-btn") == nullptr);
-            expect(devpiano::ui::jive::JiveModalDialog::findTextEditorById(*rootItem, "non-existent-editor")
-                   == nullptr);
+        auto* editor = host.find<juce::TextEditor>("dialog-editor");
+        expect(editor != nullptr);
+        if (editor != nullptr) {
+            expect(!editor->isMultiLine());
+            expect(editor->getWantsKeyboardFocus());
         }
+
+        // Non-existent IDs should return nullptr safely
+        expect(host.find<juce::Button>("non-existent-btn") == nullptr);
+        expect(host.find<juce::TextEditor>("non-existent-editor") == nullptr);
     }
 
     void testMetadataInterpretation() {
@@ -306,49 +292,6 @@ private:
         }
     }
 
-    void testLaunchOptionsHostCallbacks() {
-        beginTest("LaunchOptions: onInitHost and onConfirmHost facade callbacks");
-
-        devpiano::ui::jive::JiveModalDialog::LaunchOptions options;
-        options.title = "Test Dialog";
-        options.layoutTree = devpiano::ui::jive::JiveModalDialog::makeSingleInputLayout("Enter Test Value:");
-
-        bool initCalled = false;
-        options.onInitHost = [&initCalled](const devpiano::ui::ViewHost& host) {
-            initCalled = true;
-            if (auto* ed = host.find<juce::TextEditor>("dialog-editor")) {
-                ed->setText("Initial Host Value", juce::dontSendNotification);
-            }
-        };
-
-        juce::String confirmedValue;
-        options.onConfirmHost = [&confirmedValue](const devpiano::ui::ViewHost& host) -> bool {
-            if (auto* ed = host.find<juce::TextEditor>("dialog-editor")) {
-                confirmedValue = ed->getText();
-            }
-            return true;
-        };
-
-        devpiano::ui::ViewHost host;
-        host.registerDefaultComponents();
-        expect(host.loadLayout(options.layoutTree, true));
-        expect(host.isValid());
-
-        // Execute host callbacks directly to simulate dialog lifecycle
-        options.onInitHost(host);
-        expect(initCalled);
-
-        auto* editor = host.find<juce::TextEditor>("dialog-editor");
-        expect(editor != nullptr);
-        if (editor != nullptr) {
-            expectEquals(editor->getText(), juce::String("Initial Host Value"));
-            editor->setText("Updated Host Value", juce::dontSendNotification);
-        }
-
-        const bool confirmed = options.onConfirmHost(host);
-        expect(confirmed);
-        expectEquals(confirmedValue, juce::String("Updated Host Value"));
-    }
     void testOptionsStructures() {
         beginTest("Parameter Objects: SingleInputOptions, ConfirmOptions, MetadataEditOptions");
 

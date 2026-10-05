@@ -21,7 +21,7 @@ class MidiKeyboardState;
 namespace devpiano::ui {
 
 // ============================================================================
-/// ViewHost — Devpiano Declarative UI Unified Host & Lifecycle Facade
+/// ViewHost -- Devpiano Declarative UI Unified Host & Lifecycle Facade
 ///
 /// Encapsulates the underlying declarative DOM interpreter, GuiItem tree,
 /// custom component factory registrations, and safe teardown sequencing.
@@ -119,14 +119,12 @@ public:
     /// Re-evaluates all semantic TRANS() titles across the active layout tree.
     void refreshTitles();
 
-    /// Advanced: returns the underlying GuiItem root (for internal/interop use).
-    [[nodiscard]] ::jive::GuiItem* getRootItem() const noexcept;
-
-    /// Advanced: finds a GuiItem node by ID (for internal/interop use).
-    [[nodiscard]] ::jive::GuiItem* findItem(const juce::String& id) const;
+    /// Clears cached styles and re-applies style rules across the active layout tree.
+    void refreshStyles();
 
 private:
     void ensureInterpreter();
+    [[nodiscard]] ::jive::GuiItem* findItem(const juce::String& id) const;
 
     std::unique_ptr<::jive::Interpreter> interpreter;
     std::unique_ptr<::jive::GuiItem> rootItem;

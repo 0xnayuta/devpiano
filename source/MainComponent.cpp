@@ -877,10 +877,7 @@ void MainComponent::reloadStylesAndTokens() {
     }
 
     if (viewHost.isValid()) {
-        if (auto* rootItem = viewHost.getRootItem()) {
-            devpiano::ui::jive::StyleCatalog::get().refreshStyles(rootItem->state);
-        }
-
+        viewHost.refreshStyles();
         // Update settings button icon colours with newly loaded tokens
         if (auto* btn = viewHost.find<juce::DrawableButton>("settings-btn")) {
             btn->setImages(

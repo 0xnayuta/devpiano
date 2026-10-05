@@ -182,10 +182,6 @@ juce::Component* ViewHost::findComponentById(const juce::String& id) const {
     return devpiano::ui::jive::findGuiItemById(*rootItem, id);
 }
 
-::jive::GuiItem* ViewHost::getRootItem() const noexcept {
-    return rootItem.get();
-}
-
 bool ViewHost::setProperty(const juce::String& id, const juce::Identifier& name, const juce::var& value) const {
     if (auto* item = findItem(id)) {
         item->state.setProperty(name, value, nullptr);
@@ -283,6 +279,12 @@ void ViewHost::relayoutContainer(const juce::String& containerId) const {
 void ViewHost::refreshTitles() {
     if (rootItem != nullptr) {
         devpiano::ui::jive::refreshTitles(*rootItem);
+    }
+}
+
+void ViewHost::refreshStyles() {
+    if (rootItem != nullptr) {
+        devpiano::ui::jive::StyleCatalog::get().refreshStyles(rootItem->state);
     }
 }
 

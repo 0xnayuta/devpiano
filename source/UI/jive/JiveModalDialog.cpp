@@ -14,8 +14,8 @@ namespace {
 
 class JiveDialogContent final : public juce::Component {
 public:
-    explicit JiveDialogContent(JiveModalDialog::LaunchOptions opts)
-        : options(std::move(opts)) {
+    explicit JiveDialogContent(const JiveModalDialog::LaunchOptions& opts)
+        : options(opts) {
         viewHost.registerDefaultComponents();
         if (options.configureFactory) {
             viewHost.configureComponentFactory(options.configureFactory);
@@ -55,8 +55,6 @@ public:
 
         if (options.onInitHost) {
             options.onInitHost(viewHost);
-        } else if (options.onInit && viewHost.getRootItem() != nullptr) {
-            options.onInit(*viewHost.getRootItem());
         }
 
         setWantsKeyboardFocus(true);
@@ -118,11 +116,6 @@ public:
     void handleConfirm() {
         if (options.onConfirmHost) {
             const auto shouldClose = options.onConfirmHost(viewHost);
-            if (!shouldClose) {
-                return;
-            }
-        } else if (options.onConfirm && viewHost.getRootItem() != nullptr) {
-            const auto shouldClose = options.onConfirm(*viewHost.getRootItem());
             if (!shouldClose) {
                 return;
             }
@@ -191,19 +184,20 @@ void JiveModalDialog::launchSingleInput(const SingleInputOptions& options) {
     opts.layoutTree = layout;
     opts.componentToCentreAround = options.componentToCentreAround;
 
-    opts.onInit = [initialValue = options.initialValue, maxChars = options.maxChars](::jive::GuiItem& root) {
-        if (auto* editor = findTextEditorById(root, "dialog-editor")) {
-            editor->setText(initialValue, juce::dontSendNotification);
-            editor->setFont(juce::FontOptions(15.0f));
-            if (maxChars > 0) {
-                editor->setInputRestrictions(maxChars, {});
-            }
-            editor->selectAll();
-        }
-    };
+    opts.onInitHost
+        = [initialValue = options.initialValue, maxChars = options.maxChars](const devpiano::ui::ViewHost& host) {
+              if (auto* editor = host.find<juce::TextEditor>("dialog-editor")) {
+                  editor->setText(initialValue, juce::dontSendNotification);
+                  editor->setFont(juce::FontOptions(15.0f));
+                  if (maxChars > 0) {
+                      editor->setInputRestrictions(maxChars, {});
+                  }
+                  editor->selectAll();
+              }
+          };
 
-    opts.onConfirm = [onComplete = options.onComplete](::jive::GuiItem& root) -> bool {
-        if (auto* editor = findTextEditorById(root, "dialog-editor")) {
+    opts.onConfirmHost = [onComplete = options.onComplete](const devpiano::ui::ViewHost& host) -> bool {
+        if (auto* editor = host.find<juce::TextEditor>("dialog-editor")) {
             auto val = editor->getText().trim();
             if (onComplete) {
                 onComplete(val);
@@ -248,7 +242,7 @@ void JiveModalDialog::launchConfirm(const ConfirmOptions& options) {
     opts.layoutTree = layout;
     opts.componentToCentreAround = options.componentToCentreAround;
 
-    opts.onConfirm = [onComplete = options.onComplete](::jive::GuiItem&) -> bool {
+    opts.onConfirmHost = [onComplete = options.onComplete](const devpiano::ui::ViewHost&) -> bool {
         if (onComplete) {
             onComplete(true);
         }
