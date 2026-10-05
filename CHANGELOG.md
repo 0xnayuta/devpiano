@@ -4,6 +4,7 @@
 
 - **AUDIT-004 Review and Localization Policy** — archive the completed software remediation phases with reproducible consumer inputs; reconcile the audit against recorded evidence without erasing the initial baseline or claiming hardware certification. Accept ADR-015 for complete localized messages and category-specific punctuation; schedule the existing-call migration as a small iteration, not an implemented formatter.
 
+- **Complete Localized Message Templates** — adopt full sentence templates with `{0}` placeholders across preset delete/overwrite confirmations, save/rename/delete status toasts, count-in counters, export notifications, key bindings, and plugin statuses; clean up obsolete string fragments in `zh_CN.loc` and enforce single-pass parameter substitution without recursive expansion.
 ### Fixed
 
 - **Verified Consumer Contracts** — align active documentation with permanent preset identities, native v3 snapshots and legacy admission, app-global transpose, single-track MIDI export, bounded diagnostics, and cooperative plugin cancellation; retain explicit hardware and vendor verification limits.
