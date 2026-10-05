@@ -433,7 +433,7 @@ void PresetFlowSupport::handleDeletePreset() {
     auto uuid = it->uuid;
     devpiano::ui::jive::JiveModalDialog::launchConfirm({
         .title = TRANS("Delete Preset"),
-        .message = TRANS("Delete preset \"") + name + "\"? " + TRANS("This cannot be undone."),
+        .message = TRANS("Delete preset \"") + name + TRANS("\"? This cannot be undone."),
         .okLabel = TRANS("Delete"),
         .cancelLabel = TRANS("Cancel"),
         .componentToCentreAround = &owner,

@@ -846,8 +846,8 @@ void MainComponent::updateStatusBar() {
         if (const auto* desc = pluginHost.getLoadedPluginDescription()) {
             sourceName = "VST3: " + desc->name;
         } else {
-            sourceName
-                = (appSettings.builtinTone == SettingsModel::BuiltinTone::piano) ? "Built-in: Piano" : "Built-in: Sine";
+            sourceName = (appSettings.builtinTone == SettingsModel::BuiltinTone::piano) ? TRANS("Built-in: Piano")
+                                                                                        : TRANS("Built-in: Sine");
         }
         const auto preset = (presetFlowSupport != nullptr) ? presetFlowSupport->getCurrentPresetId() : juce::String {};
         displayText = preset.isNotEmpty() ? (sourceName + " (" + preset + ")") : sourceName;

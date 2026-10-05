@@ -355,7 +355,7 @@ void RecordingSessionController::handleSavePerformanceClicked() {
     const auto defaultFile = defaultDir.getChildFile(defaultFileName);
 
     const auto expectedGeneration = recordingSession.takeGeneration;
-    performanceFileChooser = std::make_unique<juce::FileChooser>("Save Performance", defaultFile, "*.devpiano");
+    performanceFileChooser = std::make_unique<juce::FileChooser>(TRANS("Save Performance"), defaultFile, "*.devpiano");
     performanceFileChooser->launchAsync(
         juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles
             | juce::FileBrowserComponent::warnAboutOverwriting,
