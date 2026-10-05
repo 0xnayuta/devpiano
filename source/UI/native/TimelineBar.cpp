@@ -34,7 +34,7 @@ void TimelineBar::paint(juce::Graphics& g) {
     const auto timeText = formatTime(isDragging ? dragPositionSamples : positionSamples, sampleRate) + " / "
         + formatTime(lengthSamples, sampleRate);
 
-    g.setFont(juce::Font(juce::FontOptions(10.0f)));
+    g.setFont(devpiano::jive::DesignTokens::getUnifiedUiFont(10.0f));
     g.setColour(textColour);
     g.drawText(timeText, headerBounds.withRight(textRight), juce::Justification::centredLeft, true);
     const juce::Rectangle<float> buttons[] { startButton, endButton, clearButton };

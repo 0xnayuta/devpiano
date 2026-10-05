@@ -85,7 +85,7 @@ void AdsrCurveComponent::drawAdsrCurve(juce::Graphics& g, float a, float d, floa
     g.drawHorizontalLine(static_cast<int>(susY), x0, x0 + w);
 
     // Labels at bottom
-    const auto labelFont = juce::Font(juce::FontOptions(10.0f));
+    const auto labelFont = devpiano::jive::DesignTokens::getUnifiedUiFont(10.0f);
     g.setFont(labelFont);
     g.setColour(juce::Colour(0xFF888E9B));
 

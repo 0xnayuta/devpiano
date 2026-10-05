@@ -199,7 +199,7 @@ void JiveModalDialog::launchSingleInput(const SingleInputOptions& options) {
         = [initialValue = options.initialValue, maxChars = options.maxChars](const devpiano::ui::ViewHost& host) {
               if (auto* editor = host.find<juce::TextEditor>("dialog-editor")) {
                   editor->setText(initialValue, juce::dontSendNotification);
-                  editor->setFont(juce::FontOptions(15.0f));
+                  editor->setFont(DesignTokens::getUnifiedUiFont(15.0f));
                   if (maxChars > 0) {
                       editor->setInputRestrictions(maxChars, {});
                   }
@@ -292,14 +292,14 @@ void JiveModalDialog::launchMetadataEdit(const MetadataEditOptions& options) {
                        initialNotes = options.initialNotes](const devpiano::ui::ViewHost& host) {
         if (auto* titleEd = host.find<juce::TextEditor>("title-editor")) {
             titleEd->setText(initialTitle, juce::dontSendNotification);
-            titleEd->setFont(juce::FontOptions(15.0f));
+            titleEd->setFont(DesignTokens::getUnifiedUiFont(15.0f));
             titleEd->setInputRestrictions(128, {});
         }
         if (auto* notesEd = host.find<juce::TextEditor>("notes-editor")) {
             notesEd->setMultiLine(true, false);
             notesEd->setReturnKeyStartsNewLine(true);
             notesEd->setText(initialNotes, juce::dontSendNotification);
-            notesEd->setFont(juce::FontOptions(15.0f));
+            notesEd->setFont(DesignTokens::getUnifiedUiFont(15.0f));
             notesEd->setInputRestrictions(2048, {});
         }
     };

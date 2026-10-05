@@ -11,6 +11,7 @@
 #include "Diagnostics/Log.h"
 #include "UI/ComboSelection.h"
 #include "UI/QwertyComponent.h"
+#include "UI/jive/DesignTokens.h"
 #include "UI/native/AdsrCurveComponent.h"
 #include "UI/native/StatusBarMidiDot.h"
 
@@ -27,7 +28,7 @@ juce::String ellipsiseForStatus(const juce::String& text, float maxWidth) {
     }
 
     const auto safeWidth = juce::jmax(20.0f, maxWidth - 16.0f);
-    const juce::Font font(juce::FontOptions(14.0f));
+    const auto font = devpiano::jive::DesignTokens::getUnifiedUiFont(14.0f);
     if (juce::GlyphArrangement::getStringWidth(font, text) <= safeWidth) {
         return text;
     }

@@ -299,7 +299,12 @@ void DevPianoLookAndFeel::drawPopupMenuItem(juce::Graphics& g, const juce::Recta
         textColour = active ? tokens.textPrimary() : tokens.textDisabled();
     }
     g.setColour(textColour);
-    g.setFont(juce::FontOptions(13.0f));
+    auto font = getPopupMenuFont();
+    const auto maxFontHeight = static_cast<float>(area.getHeight()) / 1.3f;
+    if (font.getHeight() > maxFontHeight) {
+        font.setHeight(maxFontHeight);
+    }
+    g.setFont(font);
     const int iconW = icon != nullptr ? area.getHeight() : 0;
     const int rightTrim = (ticked ? 24 : 0) + (submenu ? 16 : 4);
     const auto textBounds = area.reduced(iconW > 0 ? 0 : 8, 0).withTrimmedLeft(iconW).withTrimmedRight(rightTrim);
@@ -377,7 +382,7 @@ void DevPianoLookAndFeel::drawLinearSlider(juce::Graphics& g, int x, int y, int 
     // low resolution) while each label is 30px wide, so they overlapped.
     if (juce::approximatelyEqual(slider.getMinimum(), 0.5) && juce::approximatelyEqual(slider.getMaximum(), 2.0)) {
         const juce::StringArray labels { "0.5", "1.0", "1.5", "2.0" };
-        g.setFont(juce::FontOptions(9.0f));
+        g.setFont(getUnifiedUiFont(9.0f));
         g.setColour(juce::Colour(0xFF707888));
         // Extra clearance below the ticks so the 8x16 thumb never overlaps
         // the value labels.
@@ -570,13 +575,13 @@ void DevPianoLookAndFeel::drawTooltip(juce::Graphics& g, const juce::String& tex
 
     // Matte gray text
     g.setColour(tokens.textSecondary());
-    g.setFont(juce::FontOptions(11.0f));
+    g.setFont(getUnifiedUiFont(tokens.fontSizeTiny()));
     g.drawText(text, bounds.reduced(6.0f, 2.0f), juce::Justification::centred, true);
 }
 
 juce::Rectangle<int> DevPianoLookAndFeel::getTooltipBounds(const juce::String& tip, juce::Point<int> screenPos,
                                                            juce::Rectangle<int> parentArea) {
-    const auto font = juce::Font(juce::FontOptions(11.0f));
+    const auto font = getUnifiedUiFont(tokens.fontSizeTiny());
     const auto textW = juce::jmin(juce::GlyphArrangement::getStringWidthInt(font, tip) + 14, parentArea.getWidth());
     const auto textH = juce::jmin(22, parentArea.getHeight()); // single-line height + padding
 
@@ -613,7 +618,7 @@ void DevPianoLookAndFeel::drawProgressBar(juce::Graphics& g, juce::ProgressBar& 
 
     if (textToShow.isNotEmpty()) {
         g.setColour(tokens.textPrimary());
-        g.setFont(juce::FontOptions(15.0f));
+        g.setFont(getUnifiedUiFont(tokens.fontSizeLabel()));
         g.drawText(textToShow, bounds.reduced(4.0f, 0.0f), juce::Justification::centred, true);
     }
 }

@@ -113,7 +113,7 @@ void layoutBlackKeys(std::vector<devpiano::ui::KeyRenderState>& keys, int rangeL
 void drawWhiteKeyLabel(juce::Graphics& g, const devpiano::ui::KeyRenderState& k, const juce::String& customLabel,
                        const devpiano::ui::KeyboardSettings& settings) {
     const auto fontH = static_cast<float>(juce::jlimit(9, 13, static_cast<int>(settings.keyWidth * 0.42f)));
-    g.setFont(juce::FontOptions(fontH));
+    g.setFont(devpiano::jive::DesignTokens::getUnifiedUiFont(fontH));
 
     // Adaptive text color for high contrast against cyan glow
     const auto labelColor = (k.fade > 0.45f) ? juce::Colour(0xFF0C2B38) : juce::Colour(0xFF606674);
@@ -154,7 +154,7 @@ void drawBlackKeyLabel(juce::Graphics& g, const devpiano::ui::KeyRenderState& k,
     }
 
     const auto bkFontH = static_cast<float>(juce::jmin(10, static_cast<int>(settings.keyWidth * 0.38f)));
-    g.setFont(juce::FontOptions(bkFontH));
+    g.setFont(devpiano::jive::DesignTokens::getUnifiedUiFont(bkFontH));
     g.setColour(juce::Colour(0xFFD4D8E0));
     const auto label = customLabel.isNotEmpty() ? customLabel : k.keyLabel;
     const auto area = k.bounds.withTrimmedBottom(k.bounds.getHeight() * 0.4f).reduced(1, 2);
