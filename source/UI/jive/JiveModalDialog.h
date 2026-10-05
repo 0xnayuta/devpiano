@@ -33,7 +33,6 @@ public:
         juce::ValueTree layoutTree;
         juce::Component* componentToCentreAround = nullptr;
         int defaultWidth = 380;
-        int defaultHeight = 160;
         bool isResizable = false;
 
         /// Modern facade callback passing the ViewHost facade.
@@ -52,6 +51,7 @@ public:
 
     /// Launch a modal dialog with custom JIVE ValueTree layout.
     static void launchCustom(const LaunchOptions& options);
+    static juce::DialogWindow* launchWindow(juce::DialogWindow::LaunchOptions& options);
 
     // -- Pre-built Declarative Templates & Launchers --
 
@@ -116,21 +116,24 @@ public:
                                    const std::function<void(std::optional<MetadataResult>)>& onComplete);
     // -- Template ValueTree Builders (exposed for testing & customization) --
 
+    [[nodiscard]] static juce::ValueTree makeDialogRoot(int width, int padding = 12);
+    [[nodiscard]] static juce::ValueTree makeDialogButtons(const juce::String& okText, const juce::String& cancelText,
+                                                           juce::ValueTree leadingAction = {});
+
     [[nodiscard]] static juce::ValueTree makeSingleInputLayout(const juce::String& labelText, int width = 380,
-                                                               int height = 150,
                                                                const juce::String& okText = TRANS("OK"),
                                                                const juce::String& cancelText = TRANS("Cancel"));
 
     [[nodiscard]] static juce::ValueTree makeConfirmLayout(const juce::String& message, int width = 380,
-                                                           int height = 140, const juce::String& okText = TRANS("OK"),
+                                                           const juce::String& okText = TRANS("OK"),
                                                            const juce::String& cancelText = TRANS("Cancel"));
 
-    [[nodiscard]] static juce::ValueTree makeMetadataEditLayout(int width = 420, int height = 260,
+    [[nodiscard]] static juce::ValueTree makeMetadataEditLayout(int width = 420,
                                                                 const juce::String& okText = TRANS("OK"),
                                                                 const juce::String& cancelText = TRANS("Cancel"));
 
     [[nodiscard]] static juce::ValueTree makeProgressLayout(const juce::String& initialMessage = TRANS("Exporting..."),
-                                                            int width = 380, int height = 140,
+                                                            int width = 380,
                                                             const juce::String& cancelText = TRANS("Cancel"));
 
 private:

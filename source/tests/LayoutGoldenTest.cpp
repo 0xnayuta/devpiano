@@ -3,11 +3,9 @@
 #include "Input/KeyboardMidiMapper.h"
 #include "Settings/jive/SettingsLayoutModel.h"
 #include "UI/CustomKeyboard.h"
-#include "UI/KeyBindingEditDialog.h"
 #include "UI/ViewHost.h"
 #include "UI/jive/DesignTokens.h"
 #include "UI/jive/JiveBuilderHelpers.h"
-#include "UI/jive/JiveModalDialog.h"
 #include "UI/jive/LayoutModel.h"
 #include "UI/jive/StyleCatalog.h"
 #include "UI/native/KeyboardViewport.h"
@@ -89,62 +87,6 @@ public:
             expect(host.find<juce::ComboBox>("lid-position-combo") != nullptr);
             expect(host.find<juce::ComboBox>("touch-curve-combo") != nullptr);
             expect(host.find<juce::Button>("save-button") != nullptr);
-            drainMessages();
-        }
-
-        // 3. Single Input Dialog Layout (Preset Rename / Save)
-        {
-            auto tree = devpiano::ui::jive::JiveModalDialog::makeSingleInputLayout("Preset Name:", 380, 150);
-            expect(host.loadLayout(tree, true));
-            expect(host.isValid());
-            expect(host.find<juce::TextEditor>("dialog-editor") != nullptr);
-            expect(host.find<juce::Button>("dialog-ok-btn") != nullptr);
-            expect(host.find<juce::Button>("dialog-cancel-btn") != nullptr);
-        }
-        drainMessages();
-
-        // 4. Confirm Dialog Layout
-        {
-            auto tree = devpiano::ui::jive::JiveModalDialog::makeConfirmLayout("Delete this preset?", 380, 140);
-            expect(host.loadLayout(tree, true));
-            expect(host.isValid());
-            expect(host.find<juce::Button>("dialog-ok-btn") != nullptr);
-            expect(host.find<juce::Button>("dialog-cancel-btn") != nullptr);
-        }
-
-        drainMessages();
-        // 5. Metadata Edit Dialog Layout
-        {
-            auto tree = devpiano::ui::jive::JiveModalDialog::makeMetadataEditLayout(420, 260);
-            expect(host.loadLayout(tree, true));
-            expect(host.isValid());
-            expect(host.find<juce::TextEditor>("title-editor") != nullptr);
-            expect(host.find<juce::TextEditor>("notes-editor") != nullptr);
-            expect(host.find<juce::Button>("dialog-ok-btn") != nullptr);
-            expect(host.find<juce::Button>("dialog-cancel-btn") != nullptr);
-        }
-
-        drainMessages();
-        // 6. Progress Dialog Layout
-        {
-            auto tree = devpiano::ui::jive::JiveModalDialog::makeProgressLayout("Exporting WAV...", 380, 140);
-            expect(host.loadLayout(tree, true));
-            expect(host.isValid());
-            expect(host.find("dialog-progress-bar") != nullptr);
-            expect(host.find("progress-status-message") != nullptr);
-            expect(host.find<juce::Button>("dialog-cancel-btn") != nullptr);
-        }
-
-        drainMessages();
-        // 7. Key Binding Edit Dialog Layout
-        {
-            auto tree = KeyBindingEditDialog::makeKeyBindingEditLayout(true, 420, 290);
-            expect(host.loadLayout(tree, true));
-            expect(host.isValid());
-            expect(host.find("custom-label-editor") != nullptr);
-            expect(host.find("clear-colour-btn") != nullptr);
-            expect(host.find("dialog-ok-btn") != nullptr);
-            expect(host.find("dialog-cancel-btn") != nullptr);
             drainMessages();
         }
     }

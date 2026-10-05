@@ -223,18 +223,13 @@ void setupUnbindButton(const devpiano::ui::ViewHost& host, const KeyBindingDialo
 }
 } // namespace
 
-juce::ValueTree KeyBindingEditDialog::makeKeyBindingEditLayout(bool hasExistingBinding, int width, int height) {
-    auto root = node("Component", "dialog-root");
-    root.setProperty("display", "flex", nullptr);
-    root.setProperty("flex-direction", "column", nullptr);
-    root.setProperty("width", width, nullptr);
-    root.setProperty("height", height, nullptr);
-    root.setProperty("padding", "16", nullptr);
+juce::ValueTree KeyBindingEditDialog::makeKeyBindingEditLayout(bool hasExistingBinding, int width) {
+    auto root = devpiano::ui::jive::JiveModalDialog::makeDialogRoot(width, 16);
 
     // Title / Info row
     auto infoText = text("", "binding-info-text");
     infoText.setProperty("font-size", 14, nullptr);
-    infoText.setProperty("height", 24, nullptr);
+    infoText.setProperty("min-height", 24, nullptr);
     infoText.setProperty("margin", "0 0 10 0", nullptr);
     root.appendChild(infoText, nullptr);
 
@@ -269,7 +264,6 @@ juce::ValueTree KeyBindingEditDialog::makeKeyBindingEditLayout(bool hasExistingB
     // Row: Custom Colour Selection (Palette buttons + Clear button)
     auto colourRow = flexRow("custom-colour-row");
     colourRow.setProperty("height", 28, nullptr);
-    colourRow.setProperty("margin", "0 0 10 0", nullptr);
 
     auto colourLbl = text(TRANS("Colour:"), "custom-colour-label");
     colourLbl.setProperty("flex-grow", 1.0, nullptr);
@@ -304,67 +298,20 @@ juce::ValueTree KeyBindingEditDialog::makeKeyBindingEditLayout(bool hasExistingB
     colourRow.appendChild(colourPalette, nullptr);
     root.appendChild(colourRow, nullptr);
 
-    // Bottom Action Button Row
-    auto btnRow = node("Component", "dialog-buttons");
-    btnRow.setProperty("display", "flex", nullptr);
-    btnRow.setProperty("flex-direction", "row", nullptr);
-    btnRow.setProperty("align-items", "centre", nullptr);
-    btnRow.setProperty("height", 30, nullptr);
-    btnRow.setProperty("margin", "10 0 0 0", nullptr);
-
-    if (hasExistingBinding) {
-        auto unbindBtn = button(TRANS("Unbind"), "dialog-unbind-btn");
-        unbindBtn.setProperty("width", 88, nullptr);
-        unbindBtn.setProperty("height", 28, nullptr);
-        btnRow.appendChild(unbindBtn, nullptr);
-
-        auto spacer = node("Component", "btn-spacer");
-        spacer.setProperty("flex-grow", 1.0, nullptr);
-        btnRow.appendChild(spacer, nullptr);
-
-        auto okBtn = button(TRANS("OK"), "dialog-ok-btn");
-        okBtn.setProperty("width", 80, nullptr);
-        okBtn.setProperty("height", 28, nullptr);
-        okBtn.setProperty("margin", "0 8 0 0", nullptr);
-        btnRow.appendChild(okBtn, nullptr);
-
-        auto cancelBtn = button(TRANS("Cancel"), "dialog-cancel-btn");
-        cancelBtn.setProperty("width", 80, nullptr);
-        cancelBtn.setProperty("height", 28, nullptr);
-        btnRow.appendChild(cancelBtn, nullptr);
-    } else {
-        auto bindBtn = button(TRANS("Bind Key..."), "dialog-bind-btn");
-        bindBtn.setProperty("width", 120, nullptr);
-        bindBtn.setProperty("height", 28, nullptr);
-        bindBtn.setProperty("margin", "0 8 0 0", nullptr);
-        btnRow.appendChild(bindBtn, nullptr);
-
-        auto spacer = node("Component", "btn-spacer");
-        spacer.setProperty("flex-grow", 1.0, nullptr);
-        btnRow.appendChild(spacer, nullptr);
-
-        auto okBtn = button(TRANS("OK"), "dialog-ok-btn");
-        okBtn.setProperty("width", 80, nullptr);
-        okBtn.setProperty("height", 28, nullptr);
-        okBtn.setProperty("margin", "0 8 0 0", nullptr);
-        btnRow.appendChild(okBtn, nullptr);
-
-        auto cancelBtn = button(TRANS("Cancel"), "dialog-cancel-btn");
-        cancelBtn.setProperty("width", 80, nullptr);
-        cancelBtn.setProperty("height", 28, nullptr);
-        btnRow.appendChild(cancelBtn, nullptr);
-    }
-
-    root.appendChild(btnRow, nullptr);
+    auto leadingAction = button(hasExistingBinding ? TRANS("Unbind") : TRANS("Bind Key..."),
+                                hasExistingBinding ? "dialog-unbind-btn" : "dialog-bind-btn");
+    leadingAction.setProperty("width", hasExistingBinding ? 88 : 120, nullptr);
+    root.appendChild(
+        devpiano::ui::jive::JiveModalDialog::makeDialogButtons(TRANS("OK"), TRANS("Cancel"), std::move(leadingAction)),
+        nullptr);
     return root;
 }
 
 void KeyBindingEditDialog::launch(const KeyBindingDialogParams& params) {
     const bool hasExisting = params.existingBinding.has_value();
     const int dlgWidth = 460;
-    const int dlgHeight = hasExisting ? 300 : 210;
 
-    auto layoutTree = makeKeyBindingEditLayout(hasExisting, dlgWidth, dlgHeight);
+    auto layoutTree = makeKeyBindingEditLayout(hasExisting, dlgWidth);
     auto title = TRANS("Key Binding Editor") + " - " + params.noteName + " (#" + juce::String(params.midiNote) + ")";
 
     auto completionInvoked = std::make_shared<std::atomic<bool>>(false);
@@ -386,7 +333,6 @@ void KeyBindingEditDialog::launch(const KeyBindingDialogParams& params) {
     options.layoutTree = layoutTree;
     options.componentToCentreAround = params.parent;
     options.defaultWidth = dlgWidth;
-    options.defaultHeight = dlgHeight;
     options.configureFactory = [](::jive::ComponentFactory& factory) {
         factory.set("ColourSwatch", [] { return std::make_unique<devpiano::ui::ColourSwatchButton>(); });
     };

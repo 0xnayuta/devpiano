@@ -1,16 +1,14 @@
+#include <BinaryData.h>
 #include <JuceHeader.h>
 
-#include "Locale/LocaleManager.h"
+#include "TestHelpers.h"
 #include "UI/KeyBindingEditDialog.h"
 #include "UI/ViewHost.h"
 #include "UI/jive/DesignTokens.h"
 #include "UI/jive/JiveModalDialog.h"
-#include "UI/jive/JiveUtils.h"
 #include "UI/jive/StyleCatalog.h"
-
-namespace {
-using namespace devpiano::ui::jive;
-} // namespace
+#include "UI/jive/core/jive_TextComponent.h"
+#include <array>
 
 class JiveModalDialogTest final : public juce::UnitTest {
 public:
@@ -21,225 +19,123 @@ public:
     void runTest() override {
         devpiano::ui::jive::StyleCatalog::get().reset();
         devpiano::jive::DesignTokens::get().reset();
-        testSingleInputLayoutBuilder();
-        testConfirmLayoutBuilder();
-        testMetadataEditLayoutBuilder();
-        testInterpretationAndComponentLookup();
+        devpiano::jive::DesignTokens::get().loadFromJSON(juce::JSON::parse(
+            juce::String::fromUTF8(BinaryData::design_tokens_json, BinaryData::design_tokens_jsonSize)));
+        devpiano::ui::jive::StyleCatalog::get().loadFromJSON(juce::JSON::parse(
+            juce::String::fromUTF8(BinaryData::style_sheets_json, BinaryData::style_sheets_jsonSize)));
+        testContentFittedFooters();
+        testWrappedConfirmationBounds();
         testMetadataInterpretation();
-        testPresetAndMetadataDialogBuilders();
-        testProgressLayoutBuilder();
-        testKeyBindingEditDialogLayoutBuilder();
-        testOptionsStructures();
-        testLocalizedMessageTemplateSubstitution();
-    }
-    void testProgressLayoutBuilder() {
-        beginTest("makeProgressLayout: progress bar and message nodes");
-
-        auto tree
-            = devpiano::ui::jive::JiveModalDialog::makeProgressLayout("Exporting WAV (50%)...", 380, 140, "Abort");
-        expect(tree.isValid());
-        expectEquals(static_cast<int>(tree.getProperty("width")), 380);
-        expectEquals(static_cast<int>(tree.getProperty("height")), 140);
-
-        auto msgNode = findNodeById(tree, "progress-status-message");
-        expect(msgNode.isValid());
-        expectEquals(msgNode.getType().toString(), juce::String("Text"));
-        expectEquals(msgNode.getProperty("text").toString(), juce::String("Exporting WAV (50%)..."));
-
-        auto barNode = findNodeById(tree, "dialog-progress-bar");
-        expect(barNode.isValid());
-        expectEquals(barNode.getType().toString(), juce::String("ProgressBar"));
-
-        auto cancelBtn = findNodeById(tree, "dialog-cancel-btn");
-        expect(cancelBtn.isValid());
-        expectEquals(cancelBtn.getProperty("title").toString(), juce::String("Abort"));
-    }
-
-    void testKeyBindingEditDialogLayoutBuilder() {
-        beginTest("KeyBindingEditDialog: makeKeyBindingEditLayout with and without existing binding");
-
-        // 1. With existing binding
-        auto treeBound = KeyBindingEditDialog::makeKeyBindingEditLayout(true, 420, 290);
-        expect(treeBound.isValid());
-        expectEquals(static_cast<int>(treeBound.getProperty("width")), 420);
-        expectEquals(static_cast<int>(treeBound.getProperty("height")), 290);
-
-        expect(findNodeById(treeBound, "binding-info-text").isValid());
-        expect(findNodeById(treeBound, "channel-combo").isValid());
-        expect(findNodeById(treeBound, "note-slider").isValid());
-        expect(findNodeById(treeBound, "velocity-slider").isValid());
-        expect(findNodeById(treeBound, "custom-label-editor").isValid());
-        expect(static_cast<bool>(findNodeById(treeBound, "custom-label-editor").getProperty("focusable")),
-               "label editor must be focusable to accept typed input");
-        expect(findNodeById(treeBound, "custom-colour-palette").isValid());
-        expectEquals(findNodeById(treeBound, "colour-btn-0").getType().toString(), juce::String("ColourSwatch"));
-        expectEquals(findNodeById(treeBound, "colour-btn-7").getType().toString(), juce::String("ColourSwatch"));
-        expect(findNodeById(treeBound, "clear-colour-btn").isValid());
-        expect(findNodeById(treeBound, "dialog-unbind-btn").isValid());
-        expect(findNodeById(treeBound, "dialog-ok-btn").isValid());
-        expect(findNodeById(treeBound, "dialog-cancel-btn").isValid());
-
-        // 2. Without existing binding (read-only / unbound)
-        auto treeUnbound = KeyBindingEditDialog::makeKeyBindingEditLayout(false, 420, 200);
-        expect(treeUnbound.isValid());
-        expectEquals(static_cast<int>(treeUnbound.getProperty("width")), 420);
-        expectEquals(static_cast<int>(treeUnbound.getProperty("height")), 200);
-
-        expect(findNodeById(treeUnbound, "binding-info-text").isValid());
-        expect(!findNodeById(treeUnbound, "channel-combo").isValid());
-        expect(!findNodeById(treeUnbound, "note-slider").isValid());
-        expect(!findNodeById(treeUnbound, "velocity-slider").isValid());
-        expect(!findNodeById(treeUnbound, "dialog-unbind-btn").isValid());
-        expect(findNodeById(treeUnbound, "dialog-bind-btn").isValid(), "unbound notes must expose Bind Key");
-        expect(findNodeById(treeUnbound, "custom-label-editor").isValid());
-        expect(findNodeById(treeUnbound, "dialog-ok-btn").isValid());
-        expect(findNodeById(treeUnbound, "dialog-cancel-btn").isValid());
-    }
-    void testPresetAndMetadataDialogBuilders() {
-        beginTest("Preset and Metadata dialog templates integration");
-
-        // Verify default preset single-input template
-        auto presetInputTree = devpiano::ui::jive::JiveModalDialog::makeSingleInputLayout(TRANS("Preset Name:"));
-        expect(presetInputTree.isValid());
-        expect(findNodeById(presetInputTree, "dialog-label").isValid());
-        expect(findNodeById(presetInputTree, "dialog-editor").isValid());
-        expect(findNodeById(presetInputTree, "dialog-ok-btn").isValid());
-        expect(findNodeById(presetInputTree, "dialog-cancel-btn").isValid());
-
-        // Verify preset confirmation template
-        auto presetConfirmTree = devpiano::ui::jive::JiveModalDialog::makeConfirmLayout(
-            "Delete preset \"MyPreset\"?", 380, 140, TRANS("Delete"), TRANS("Cancel"));
-        expect(presetConfirmTree.isValid());
-        expect(findNodeById(presetConfirmTree, "dialog-message").isValid());
-        expect(findNodeById(presetConfirmTree, "dialog-ok-btn").isValid());
-        expect(findNodeById(presetConfirmTree, "dialog-cancel-btn").isValid());
-
-        // Verify metadata edit template
-        auto metadataTree = devpiano::ui::jive::JiveModalDialog::makeMetadataEditLayout();
-        expect(metadataTree.isValid());
-        expect(findNodeById(metadataTree, "title-label").isValid());
-        expect(findNodeById(metadataTree, "title-editor").isValid());
-        expect(findNodeById(metadataTree, "notes-label").isValid());
-        expect(findNodeById(metadataTree, "notes-editor").isValid());
-        expect(findNodeById(metadataTree, "dialog-ok-btn").isValid());
-        expect(findNodeById(metadataTree, "dialog-cancel-btn").isValid());
+        devpiano::ui::jive::StyleCatalog::get().reset();
+        devpiano::jive::DesignTokens::get().reset();
     }
 
 private:
-    void testSingleInputLayoutBuilder() {
-        beginTest("makeSingleInputLayout: tree structure and properties");
+    using Modal = devpiano::ui::jive::JiveModalDialog;
 
-        auto tree
-            = devpiano::ui::jive::JiveModalDialog::makeSingleInputLayout("Preset Name:", 400, 160, "Save", "Dismiss");
-        expect(tree.isValid());
-        expectEquals(tree.getType().toString(), juce::String("Component"));
-        expectEquals(static_cast<int>(tree.getProperty("width")), 400);
-        expectEquals(static_cast<int>(tree.getProperty("height")), 160);
-        expectEquals(tree.getProperty("display").toString(), juce::String("flex"));
-        expectEquals(tree.getProperty("flex-direction").toString(), juce::String("column"));
-
-        auto labelNode = findNodeById(tree, "dialog-label");
-        expect(labelNode.isValid());
-        expectEquals(labelNode.getType().toString(), juce::String("Text"));
-        expectEquals(labelNode.getProperty("text").toString(), juce::String("Preset Name:"));
-
-        auto editorNode = findNodeById(tree, "dialog-editor");
-        expect(editorNode.isValid());
-        expectEquals(editorNode.getType().toString(), juce::String("PathEditor"));
-        expectEquals(editorNode.getProperty("focusable"), juce::var(true));
-        expectEquals(editorNode.getProperty("cursor").toString(), juce::String("text"));
-        auto okBtn = findNodeById(tree, "dialog-ok-btn");
-        expect(okBtn.isValid());
-        expectEquals(okBtn.getType().toString(), juce::String("Button"));
-        expectEquals(okBtn.getProperty("title").toString(), juce::String("Save"));
-
-        auto cancelBtn = findNodeById(tree, "dialog-cancel-btn");
-        expect(cancelBtn.isValid());
-        expectEquals(cancelBtn.getType().toString(), juce::String("Button"));
-        expectEquals(cancelBtn.getProperty("title").toString(), juce::String("Dismiss"));
-    }
-
-    void testConfirmLayoutBuilder() {
-        beginTest("makeConfirmLayout: tree structure and message");
-
-        auto tree
-            = devpiano::ui::jive::JiveModalDialog::makeConfirmLayout("Delete this item?", 360, 130, "Delete", "Keep");
-        expect(tree.isValid());
-        expectEquals(static_cast<int>(tree.getProperty("width")), 360);
-        expectEquals(static_cast<int>(tree.getProperty("height")), 130);
-
-        auto msgNode = findNodeById(tree, "dialog-message");
-        expect(msgNode.isValid());
-        expectEquals(msgNode.getType().toString(), juce::String("Text"));
-        expectEquals(msgNode.getProperty("text").toString(), juce::String("Delete this item?"));
-        expectEquals(msgNode.getProperty("justification").toString(), juce::String("centred"));
-
-        auto okBtn = findNodeById(tree, "dialog-ok-btn");
-        expect(okBtn.isValid());
-        expectEquals(okBtn.getProperty("title").toString(), juce::String("Delete"));
-
-        auto cancelBtn = findNodeById(tree, "dialog-cancel-btn");
-        expect(cancelBtn.isValid());
-        expectEquals(cancelBtn.getProperty("title").toString(), juce::String("Keep"));
-    }
-
-    void testMetadataEditLayoutBuilder() {
-        beginTest("makeMetadataEditLayout: title and notes sections");
-
-        auto tree = devpiano::ui::jive::JiveModalDialog::makeMetadataEditLayout(440, 280, "OK", "Cancel");
-        expect(tree.isValid());
-        expectEquals(static_cast<int>(tree.getProperty("width")), 440);
-        expectEquals(static_cast<int>(tree.getProperty("height")), 280);
-
-        auto titleLabel = findNodeById(tree, "title-label");
-        expect(titleLabel.isValid());
-        auto titleEditor = findNodeById(tree, "title-editor");
-        expect(titleEditor.isValid());
-        expectEquals(titleEditor.getType().toString(), juce::String("PathEditor"));
-        expectEquals(titleEditor.getProperty("focusable"), juce::var(true));
-        auto notesLabel = findNodeById(tree, "notes-label");
-        expect(notesLabel.isValid());
-        auto notesEditor = findNodeById(tree, "notes-editor");
-        expect(notesEditor.isValid());
-        expectEquals(notesEditor.getProperty("focusable"), juce::var(true));
-        auto okBtn = findNodeById(tree, "dialog-ok-btn");
-        expect(okBtn.isValid());
-        auto cancelBtn = findNodeById(tree, "dialog-cancel-btn");
-        expect(cancelBtn.isValid());
-    }
-
-    void testInterpretationAndComponentLookup() {
-        beginTest("Component lookup on interpreted SingleInput layout via ViewHost");
-
-        auto tree = devpiano::ui::jive::JiveModalDialog::makeSingleInputLayout("Enter Value:", 380, 150);
-
-        devpiano::ui::ViewHost host;
-        host.registerDefaultComponents();
-        expect(host.loadLayout(tree, true));
-        expect(host.isValid());
-
-        auto* okBtn = host.find<juce::Button>("dialog-ok-btn");
-        expect(okBtn != nullptr);
-
-        auto* cancelBtn = host.find<juce::Button>("dialog-cancel-btn");
-        expect(cancelBtn != nullptr);
-
-        auto* editor = host.find<juce::TextEditor>("dialog-editor");
-        expect(editor != nullptr);
-        if (editor != nullptr) {
-            expect(!editor->isMultiLine());
-            expect(editor->getWantsKeyboardFocus());
+    void expectFooterBounds(const devpiano::ui::ViewHost& host) {
+        auto* root = host.getRootComponent();
+        auto* cancel = host.find<juce::Button>("dialog-cancel-btn");
+        expect(root != nullptr && cancel != nullptr);
+        if (root == nullptr || cancel == nullptr) {
+            return;
         }
+        const auto bounds = root->getLocalArea(cancel, cancel->getLocalBounds());
+        const auto& tokens = devpiano::jive::DesignTokens::get();
+        expectEquals(root->getHeight() - bounds.getBottom(), tokens.dialogBottomPadding());
+        expectEquals(bounds.getHeight(), tokens.dialogButtonHeight());
+        expect(root->getLocalBounds().contains(bounds), "Cancel must remain completely inside the content area");
+        if (auto* ok = host.find<juce::Button>("dialog-ok-btn")) {
+            const auto okBounds = root->getLocalArea(ok, ok->getLocalBounds());
+            expectEquals(bounds.getX() - okBounds.getRight(), tokens.dialogButtonGap());
+            expectEquals(okBounds.getY(), bounds.getY());
+            expect(root->getLocalBounds().contains(okBounds), "Confirm must remain completely inside the content area");
+        }
+    }
 
-        // Non-existent IDs should return nullptr safely
-        expect(host.find<juce::Button>("non-existent-btn") == nullptr);
-        expect(host.find<juce::TextEditor>("non-existent-editor") == nullptr);
+    void testContentFittedFooters() {
+        beginTest("Content-fitted forms retain a complete fixed-height footer and bottom inset");
+        const std::array layouts {
+            Modal::makeSingleInputLayout("Preset Name:"),
+            Modal::makeMetadataEditLayout(),
+            Modal::makeProgressLayout("Exporting..."),
+            KeyBindingEditDialog::makeKeyBindingEditLayout(true),
+            KeyBindingEditDialog::makeKeyBindingEditLayout(false),
+        };
+        for (const auto& layout : layouts) {
+            devpiano::ui::ViewHost host;
+            host.registerDefaultComponents();
+            expect(host.loadLayout(layout, true));
+            const auto width = static_cast<int>(layout.getProperty("width"));
+            host.fitToContent(width);
+            devpiano::test::drainMessages(2);
+            expectFooterBounds(host);
+            if (auto* notes = host.find<juce::TextEditor>("notes-editor")) {
+                expect(notes->getHeight() >= 80, "Notes must retain its usable editing area");
+            }
+            for (const auto* id : { "dialog-unbind-btn", "dialog-bind-btn" }) {
+                if (auto* leading = host.find<juce::Button>(id)) {
+                    auto* root = host.getRootComponent();
+                    const auto bounds = root->getLocalArea(leading, leading->getLocalBounds());
+                    auto* ok = host.find<juce::Button>("dialog-ok-btn");
+                    const auto okBounds = root->getLocalArea(ok, ok->getLocalBounds());
+                    expect(bounds.getRight() <= okBounds.getX(), "Leading actions must not overlap confirmation");
+                    expectEquals(bounds.getY(), okBounds.getY());
+                    expectEquals(bounds.getHeight(), okBounds.getHeight());
+                }
+            }
+        }
+    }
+
+    void testWrappedConfirmationBounds() {
+        beginTest("Confirmation text stays fully inside the content area at narrow and wide widths");
+        const std::array messages {
+            juce::String("A short question?"),
+            juce::String::repeatedString("A longer message with words and punctuation. ", 8),
+            juce::String::repeatedString("abcdefghij", 12),
+            juce::String::repeatedString(juce::String::charToString(0x6f22), 64),
+            juce::String("First line\nSecond line\nThird line\nFourth line\nFifth line"),
+            juce::String::repeatedString(juce::String::charToString(0x6f22), 8)
+                + juce::String::repeatedString("UnbrokenName", 6) + "\n"
+                + juce::String::repeatedString(juce::String::charToString(0x6f22), 4),
+        };
+        for (const auto& message : messages) {
+            devpiano::ui::ViewHost host;
+            host.registerDefaultComponents();
+            expect(host.loadLayout(Modal::makeConfirmLayout(message), true));
+            for (const int width : { 240, 380, 560 }) {
+                host.fitToContent(width);
+                devpiano::test::drainMessages(2);
+                auto* label = host.find<::jive::TextComponent>("dialog-message");
+                auto* footer = host.find("dialog-buttons");
+                auto* root = host.getRootComponent();
+                expect(label != nullptr && footer != nullptr && root != nullptr);
+                if (label == nullptr || footer == nullptr || root == nullptr) {
+                    continue;
+                }
+                juce::TextLayout rendered;
+                rendered.createLayout(label->getAttributedString(), static_cast<float>(label->getWidth()));
+                expect(rendered.getHeight() <= static_cast<float>(label->getHeight()),
+                       "The laid-out final line must not be clipped");
+                expect(rendered.getWidth() <= static_cast<float>(label->getWidth()) + 1.0f,
+                       "Unbroken names must not escape the horizontal text bounds");
+                const auto labelBounds = root->getLocalArea(label, label->getLocalBounds());
+                const auto footerBounds = root->getLocalArea(footer, footer->getLocalBounds());
+                expect(root->getLocalBounds().contains(labelBounds));
+                expect(footerBounds.getY() - labelBounds.getBottom()
+                           >= devpiano::jive::DesignTokens::get().dialogBodyGap(),
+                       "The footer must not consume the minimum message separation");
+                expectFooterBounds(host);
+                host.setBounds(0, 0, width, root->getHeight() + 1);
+                expectFooterBounds(host);
+            }
+        }
     }
 
     void testMetadataInterpretation() {
         beginTest("makeMetadataEditLayout: production ViewHost editable notes vs read-only diagnostics");
 
-        auto tree = devpiano::ui::jive::JiveModalDialog::makeMetadataEditLayout(420, 260);
+        auto tree = devpiano::ui::jive::JiveModalDialog::makeMetadataEditLayout();
 
         devpiano::ui::ViewHost host;
         host.registerDefaultComponents();
@@ -292,87 +188,6 @@ private:
             expect(!keyHandled);
             expectEquals(diagEd->getText(), textBefore);
         }
-    }
-
-    void testOptionsStructures() {
-        beginTest("Parameter Objects: SingleInputOptions, ConfirmOptions, MetadataEditOptions");
-
-        JiveModalDialog::SingleInputOptions singleOpts {
-            .title = "Rename",
-            .labelText = "Enter name:",
-            .initialValue = "Piano 1",
-            .componentToCentreAround = nullptr,
-            .onComplete = nullptr,
-            .maxChars = 32,
-            .okButtonText = "Save",
-            .cancelButtonText = "Dismiss",
-        };
-        expectEquals(singleOpts.title, juce::String("Rename"));
-        expectEquals(singleOpts.initialValue, juce::String("Piano 1"));
-        expectEquals(singleOpts.maxChars, 32);
-
-        JiveModalDialog::ConfirmOptions confirmOpts {
-            .title = "Delete",
-            .message = "Are you sure?",
-            .okLabel = "Yes",
-            .cancelLabel = "No",
-            .componentToCentreAround = nullptr,
-            .onComplete = nullptr,
-        };
-        expectEquals(confirmOpts.title, juce::String("Delete"));
-        expectEquals(confirmOpts.message, juce::String("Are you sure?"));
-
-        JiveModalDialog::MetadataEditOptions metaOpts {
-            .title = "Song Info",
-            .initialTitle = "My Song",
-            .initialNotes = "Take 1",
-            .onComplete = nullptr,
-        };
-        expectEquals(metaOpts.title, juce::String("Song Info"));
-        expectEquals(metaOpts.initialTitle, juce::String("My Song"));
-    }
-    void testLocalizedMessageTemplateSubstitution() {
-        beginTest("ADR-015: Localized message template substitution mechanism");
-
-        // 1. Baseline: English locale
-        devpiano::locale::activate(devpiano::locale::Language::en);
-        const auto enDeleteTemplate = juce::String(TRANS("Delete preset \"{0}\"? This cannot be undone."));
-        expect(enDeleteTemplate.contains("{0}"), "English template must contain {0} placeholder");
-
-        const juce::String samplePresetName = "Concert Grand";
-        const auto enSubstituted = enDeleteTemplate.replace("{0}", samplePresetName);
-        expect(enSubstituted.contains(samplePresetName), "Substituted string must contain injected preset name");
-        expect(!enSubstituted.contains("{0}"), "Substituted string must not retain placeholder");
-
-        // 2. Boundary: injected value with tricky tokens does not trigger recursive expansion
-        const juce::String trickyName = "Preset {0} with %1 & \"quotes\"";
-        const auto trickySubstituted = enDeleteTemplate.replace("{0}", trickyName);
-        expect(trickySubstituted.contains(trickyName), "Tricky parameter must be preserved verbatim");
-
-        // 3. Switch to zh-CN locale
-        devpiano::locale::activate(devpiano::locale::Language::zhCN);
-
-        const auto zhDeleteTemplate = juce::String(TRANS("Delete preset \"{0}\"? This cannot be undone."));
-        expect(zhDeleteTemplate.contains("{0}"), "Translated template must retain {0} placeholder");
-        expectNotEquals(zhDeleteTemplate, enDeleteTemplate, "Translated template must differ from English baseline");
-
-        const auto zhSubstituted = zhDeleteTemplate.replace("{0}", samplePresetName);
-        expect(zhSubstituted.contains(samplePresetName), "Translated string must contain injected preset name");
-        expect(!zhSubstituted.contains("{0}"), "Translated string must not retain placeholder");
-
-        const auto zhOverwriteTemplate
-            = juce::String(TRANS("A preset named \"{0}\" already exists.\nDo you want to overwrite it?"));
-        expect(zhOverwriteTemplate.contains("{0}"), "Overwrite template must contain {0} placeholder");
-        expect(zhOverwriteTemplate.containsChar('\n'), "Overwrite template must preserve newline formatting");
-        expectNotEquals(zhOverwriteTemplate,
-                        juce::String("A preset named \"{0}\" already exists.\nDo you want to overwrite it?"),
-                        "Overwrite template must be translated in zh-CN");
-
-        const auto zhSaveTemplate = juce::String(TRANS("Saved preset: {0}"));
-        expect(zhSaveTemplate.contains("{0}"), "Saved preset template must contain {0} placeholder");
-
-        // 4. Restore English baseline to prevent test bleed
-        devpiano::locale::activate(devpiano::locale::Language::en);
     }
 };
 

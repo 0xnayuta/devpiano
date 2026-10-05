@@ -42,6 +42,10 @@
     "window-max-width": 3840,
     "window-max-height": 2160,
     "status-bar-height": 24,
-    "settings-btn-width": 36
+    "settings-btn-width": 36,
+    "dialog-bottom-padding": 28,
+    "dialog-button-height": 28,
+    "dialog-button-gap": 8,
+    "dialog-body-gap": 12
   }
 }

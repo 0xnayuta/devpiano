@@ -15,7 +15,10 @@ struct ProgressContentWrapper final : public juce::Component {
         if (auto* comp = viewHost.getRootComponent()) {
             addAndMakeVisible(*comp);
         }
-        setSize(380, 140);
+        viewHost.fitToContent(380);
+        if (auto* comp = viewHost.getRootComponent()) {
+            setSize(comp->getWidth(), comp->getHeight());
+        }
         setWantsKeyboardFocus(true);
     }
 
@@ -131,7 +134,7 @@ void WavExportTask::startAsync(CompletionCallback onComplete) {
     }
 
     // Build JIVE progress dialog layout
-    auto layout = devpiano::ui::jive::JiveModalDialog::makeProgressLayout(TRANS("Exporting..."), 380, 140);
+    auto layout = devpiano::ui::jive::JiveModalDialog::makeProgressLayout(TRANS("Exporting..."));
     devpiano::ui::ViewHost viewHost;
     viewHost.loadLayout(layout, true);
 
@@ -162,7 +165,7 @@ void WavExportTask::startAsync(CompletionCallback onComplete) {
     }
     opts.content.setOwned(contentWrapper.release());
 
-    auto* dialog = opts.launchAsync();
+    auto* dialog = devpiano::ui::jive::JiveModalDialog::launchWindow(opts);
     activeDialog = dialog;
 
     startTimerHz(30);

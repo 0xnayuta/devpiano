@@ -209,6 +209,18 @@ int DesignTokens::statusBarHeight() const {
 int DesignTokens::settingsBtnWidth() const {
     return parseInt("spacing", "settings-btn-width", 36);
 }
+int DesignTokens::dialogBottomPadding() const {
+    return parseInt("spacing", "dialog-bottom-padding", 28);
+}
+int DesignTokens::dialogButtonHeight() const {
+    return parseInt("spacing", "dialog-button-height", 28);
+}
+int DesignTokens::dialogButtonGap() const {
+    return parseInt("spacing", "dialog-button-gap", 8);
+}
+int DesignTokens::dialogBodyGap() const {
+    return parseInt("spacing", "dialog-body-gap", 12);
+}
 
 static juce::String formatCssHexColour(juce::Colour colour) {
     // 格式化为标准 CSS Hex: "#RRGGBB"（不透明时）或 "#RRGGBBAA"（含透明度时）。

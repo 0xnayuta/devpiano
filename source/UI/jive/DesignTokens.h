@@ -62,6 +62,10 @@ public:
     [[nodiscard]] int windowMaxHeight() const;
     [[nodiscard]] int statusBarHeight() const;
     [[nodiscard]] int settingsBtnWidth() const;
+    [[nodiscard]] int dialogBottomPadding() const;
+    [[nodiscard]] int dialogButtonHeight() const;
+    [[nodiscard]] int dialogButtonGap() const;
+    [[nodiscard]] int dialogBodyGap() const;
 
     // ── Token lookup for style sheets (DOC-007) ──────────
     // Resolve a token name (without the leading '@') to its style-sheet

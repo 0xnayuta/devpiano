@@ -7,12 +7,16 @@
 #include "UI/jive/LayoutModel.h"
 #include "UI/jive/StyleCatalog.h"
 #include "UI/jive/core/jive_ComponentFactory.h"
+#include "UI/jive/core/jive_ContainerItem.h"
 #include "UI/jive/core/jive_FlexContainer.h"
 #include "UI/jive/core/jive_GridContainer.h"
 #include "UI/jive/core/jive_GuiItem.h"
+#include "UI/jive/core/jive_GuiItemDecorator.h"
 #include "UI/jive/core/jive_Interpreter.h"
 #include "UI/native/AdsrCurveComponent.h"
 #include "UI/native/TimelineBar.h"
+
+#include <cmath>
 
 namespace devpiano::ui {
 
@@ -166,6 +170,32 @@ void ViewHost::setBounds(int x, int y, int width, int height) const {
     if (auto* comp = getRootComponent()) {
         comp->setBounds(x, y, width, height);
     }
+}
+
+void ViewHost::fitToContent(int width) const {
+    JUCE_ASSERT_MESSAGE_MANAGER_IS_LOCKED;
+    auto* component = getRootComponent();
+    auto* decorator = dynamic_cast<::jive::GuiItemDecorator*>(rootItem.get());
+    auto* container = decorator != nullptr ? decorator->toType<::jive::ContainerItem>() : nullptr;
+    jassert(component != nullptr && container != nullptr && width > 0);
+    if (component == nullptr || container == nullptr || width <= 0) {
+        return;
+    }
+
+    component->setSize(width, component->getHeight());
+    container->updateIdealSizeWithinConstraints();
+    const auto height = static_cast<double>(rootItem->state.getProperty("ideal-height"));
+    component->setSize(width, static_cast<int>(std::ceil(height)));
+
+    float bottom = 0.0f;
+    for (const auto* child : rootItem->getChildren()) {
+        bottom = juce::jmax(bottom,
+                            static_cast<float>(child->getComponent()->getBottom())
+                                + ::jive::boxModel(*child).getMargin().getBottom());
+    }
+    const auto& box = ::jive::boxModel(*rootItem);
+    component->setSize(
+        width, static_cast<int>(std::ceil(bottom + box.getPadding().getBottom() + box.getBorder().getBottom())));
 }
 
 juce::Component* ViewHost::findComponentById(const juce::String& id) const {

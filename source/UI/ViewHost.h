@@ -69,6 +69,7 @@ public:
     /// Resizes the root component to the specified bounds.
     void setBounds(juce::Rectangle<int> bounds) const;
     void setBounds(int x, int y, int width, int height) const;
+    void fitToContent(int width) const;
 
     /// Finds a typed JUCE Component inside the interpreted tree by its string ID.
     template <typename ComponentType = juce::Component>
