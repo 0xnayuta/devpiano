@@ -78,7 +78,7 @@ void RecordingSessionController::handleRecordClicked() {
         audioEngine.setMetronomeEnabled(true);
         owner.updateMetronomeUi();
         lastCountInSequence = audioEngine.getMetronomeBeatSequence();
-        owner.showStatusMessage(TRANS("Count-in:") + " " + juce::String(countInRemainingBeats), 1200);
+        owner.showStatusMessage(TRANS("Count-in: {0}").replace("{0}", juce::String(countInRemainingBeats)), 1200);
         return;
     }
 
@@ -322,10 +322,11 @@ void RecordingSessionController::handleExportWavClicked() {
                 }
                 if (ok) {
                     DP_LOG_INFO("[Export] WAV exported: " + file.getFullPathName());
-                    owner.showStatusMessage(TRANS("WAV export completed: ") + file.getFileName(), 2500);
+                    owner.showStatusMessage(TRANS("WAV export completed: {0}").replace("{0}", file.getFileName()),
+                                            2500);
                 } else {
                     if (!errorMsg.isEmpty()) {
-                        owner.showStatusMessage(TRANS("Export failed: ") + errorMsg, 3000);
+                        owner.showStatusMessage(TRANS("Export failed: {0}").replace("{0}", errorMsg), 3000);
                     }
                     DP_LOG_WARN("[Export] WAV export " + errorMsg);
                 }
@@ -839,7 +840,7 @@ void RecordingSessionController::checkCountIn() {
         const auto remaining = audioEngine.getMetronomeProcessor().getCountInRemainingBeats();
         if (remaining > 0) {
             countInRemainingBeats = remaining;
-            owner.showStatusMessage(TRANS("Count-in:") + " " + juce::String(countInRemainingBeats), 1000);
+            owner.showStatusMessage(TRANS("Count-in: {0}").replace("{0}", juce::String(countInRemainingBeats)), 1000);
         }
     }
 }

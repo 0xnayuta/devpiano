@@ -1,5 +1,6 @@
 #include <JuceHeader.h>
 
+#include "Locale/LocaleManager.h"
 #include "UI/KeyBindingEditDialog.h"
 #include "UI/ViewHost.h"
 #include "UI/jive/DesignTokens.h"
@@ -29,6 +30,7 @@ public:
         testProgressLayoutBuilder();
         testKeyBindingEditDialogLayoutBuilder();
         testOptionsStructures();
+        testLocalizedMessageTemplateSubstitution();
     }
     void testProgressLayoutBuilder() {
         beginTest("makeProgressLayout: progress bar and message nodes");
@@ -328,6 +330,49 @@ private:
         };
         expectEquals(metaOpts.title, juce::String("Song Info"));
         expectEquals(metaOpts.initialTitle, juce::String("My Song"));
+    }
+    void testLocalizedMessageTemplateSubstitution() {
+        beginTest("ADR-015: Localized message template substitution mechanism");
+
+        // 1. Baseline: English locale
+        devpiano::locale::activate(devpiano::locale::Language::en);
+        const auto enDeleteTemplate = juce::String(TRANS("Delete preset \"{0}\"? This cannot be undone."));
+        expect(enDeleteTemplate.contains("{0}"), "English template must contain {0} placeholder");
+
+        const juce::String samplePresetName = "Concert Grand";
+        const auto enSubstituted = enDeleteTemplate.replace("{0}", samplePresetName);
+        expect(enSubstituted.contains(samplePresetName), "Substituted string must contain injected preset name");
+        expect(!enSubstituted.contains("{0}"), "Substituted string must not retain placeholder");
+
+        // 2. Boundary: injected value with tricky tokens does not trigger recursive expansion
+        const juce::String trickyName = "Preset {0} with %1 & \"quotes\"";
+        const auto trickySubstituted = enDeleteTemplate.replace("{0}", trickyName);
+        expect(trickySubstituted.contains(trickyName), "Tricky parameter must be preserved verbatim");
+
+        // 3. Switch to zh-CN locale
+        devpiano::locale::activate(devpiano::locale::Language::zhCN);
+
+        const auto zhDeleteTemplate = juce::String(TRANS("Delete preset \"{0}\"? This cannot be undone."));
+        expect(zhDeleteTemplate.contains("{0}"), "Translated template must retain {0} placeholder");
+        expectNotEquals(zhDeleteTemplate, enDeleteTemplate, "Translated template must differ from English baseline");
+
+        const auto zhSubstituted = zhDeleteTemplate.replace("{0}", samplePresetName);
+        expect(zhSubstituted.contains(samplePresetName), "Translated string must contain injected preset name");
+        expect(!zhSubstituted.contains("{0}"), "Translated string must not retain placeholder");
+
+        const auto zhOverwriteTemplate
+            = juce::String(TRANS("A preset named \"{0}\" already exists.\nDo you want to overwrite it?"));
+        expect(zhOverwriteTemplate.contains("{0}"), "Overwrite template must contain {0} placeholder");
+        expect(zhOverwriteTemplate.containsChar('\n'), "Overwrite template must preserve newline formatting");
+        expectNotEquals(zhOverwriteTemplate,
+                        juce::String("A preset named \"{0}\" already exists.\nDo you want to overwrite it?"),
+                        "Overwrite template must be translated in zh-CN");
+
+        const auto zhSaveTemplate = juce::String(TRANS("Saved preset: {0}"));
+        expect(zhSaveTemplate.contains("{0}"), "Saved preset template must contain {0} placeholder");
+
+        // 4. Restore English baseline to prevent test bleed
+        devpiano::locale::activate(devpiano::locale::Language::en);
     }
 };
 

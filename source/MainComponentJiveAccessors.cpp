@@ -138,15 +138,15 @@ juce::String formatPluginStatusSummary(const devpiano::ui::PluginPanelState& sta
     }
 
     if (state.isCurrentlyScanning) {
-        return TRANS("Scanning: ") + state.scanningPluginName + "...";
+        return TRANS("Scanning: {0}...").replace("{0}", state.scanningPluginName);
     }
 
     if (state.lastLoadError.isNotEmpty() && state.lastLoadError != "No plugin load attempted yet.") {
-        return TRANS("Load error: ") + state.lastLoadError;
+        return TRANS("Load error: {0}").replace("{0}", state.lastLoadError);
     }
 
     if (state.lastPluginName.isNotEmpty()) {
-        return TRANS("Last plugin: ") + state.lastPluginName;
+        return TRANS("Last plugin: {0}").replace("{0}", state.lastPluginName);
     }
 
     const auto& summary = state.lastScanSummary;

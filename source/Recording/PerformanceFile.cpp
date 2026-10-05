@@ -751,7 +751,7 @@ std::optional<RecordingTake> deserialiseTakeFromJson(const juce::String& json) {
 
 bool savePerformanceFile(const RecordingTake& take, const juce::File& destinationFile,
                          const PerformanceFileMetadata& metadata) {
-    if (destinationFile == juce::File()) {
+    if (destinationFile == juce::File() || destinationFile.isDirectory()) {
         return false;
     }
 

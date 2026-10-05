@@ -85,7 +85,7 @@ void setupBindingInfoAndInputs(const devpiano::ui::ViewHost& host, const KeyBind
     const bool hasExisting = params.existingBinding.has_value();
     const auto keyLabel = hasExisting ? params.existingBinding->displayText : juce::String();
 
-    const auto msg = hasExisting ? (TRANS("Bound to keyboard key:") + "  " + keyLabel)
+    const auto msg = hasExisting ? TRANS("Bound to keyboard key: {0}").replace("{0}", keyLabel)
                                  : TRANS("No keyboard key is currently mapped to this note.");
     host.setText("binding-info-text", msg);
 
@@ -180,7 +180,8 @@ void setupBindKeyFlow(const devpiano::ui::ViewHost& host, const std::shared_ptr<
 
     captureListener->onCaptured = [captureSession, hostPtr, updateBindBtnLabel] {
         updateBindBtnLabel(TRANS("Bind Key..."));
-        hostPtr->setText("binding-info-text", TRANS("Bound to keyboard key:") + "  " + captureSession->displayText);
+        hostPtr->setText("binding-info-text",
+                         TRANS("Bound to keyboard key: {0}").replace("{0}", captureSession->displayText));
     };
 
     captureListener->onCancelled = [hostPtr, updateBindBtnLabel] {

@@ -150,7 +150,7 @@ void RecordingEngine::prepareForAudioDevice(double sampleRate) noexcept {
         const auto position = (static_cast<long double>(playbackPositionSamples.load(std::memory_order_relaxed))
                                + playbackSampleFraction)
             * newRatio / oldRatio;
-        const auto integralPosition = static_cast<std::int64_t>(std::floor(position));
+        const auto integralPosition = static_cast<std::int64_t>(std::floor(position + 1e-9L));
         playbackSampleFraction = position - static_cast<long double>(integralPosition);
         playbackSampleRateRatio.store(newRatio, std::memory_order_relaxed);
         scaledPlaybackLengthSamples.store(getScaledPlaybackLengthSamples(), std::memory_order_relaxed);

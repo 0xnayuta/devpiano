@@ -313,8 +313,8 @@ void PresetFlowSupport::handleSaveAsNewPreset() {
                 if (file.existsAsFile()) {
                     devpiano::ui::jive::JiveModalDialog::launchConfirm({
                         .title = TRANS("Overwrite Preset?"),
-                        .message = TRANS("A preset named \"") + rawName
-                            + TRANS("\" already exists.\nDo you want to overwrite it?"),
+                        .message = TRANS("A preset named \"{0}\" already exists.\nDo you want to overwrite it?")
+                                       .replace("{0}", rawName),
                         .okLabel = TRANS("Overwrite"),
                         .cancelLabel = TRANS("Cancel"),
                         .componentToCentreAround = &owner,
@@ -342,7 +342,7 @@ void PresetFlowSupport::savePresetFromCurrentState(const juce::String& name, con
         currentPresetId = preset.uuid;
         owner.appSettings.lastActivePresetId = currentPresetId;
         updateUiAfterCommit();
-        owner.showStatusMessage(TRANS("Saved preset: ") + preset.name, 2500);
+        owner.showStatusMessage(TRANS("Saved preset: {0}").replace("{0}", preset.name), 2500);
     } else {
         DP_LOG_ERROR("[Preset] save FAILED: " + file.getFullPathName());
     }
@@ -389,7 +389,7 @@ void PresetFlowSupport::handleRenamePreset() {
                         owner.appSettings.lastActivePresetId = currentPresetId;
                         refreshCache(true);
                         updateUiAfterCommit();
-                        owner.showStatusMessage(TRANS("Renamed preset to: ") + newName, 2500);
+                        owner.showStatusMessage(TRANS("Renamed preset to: {0}").replace("{0}", newName), 2500);
                     } else {
                         DP_LOG_ERROR("[Preset] rename failed: " + oldName + " -> " + newName);
                     }
@@ -398,8 +398,8 @@ void PresetFlowSupport::handleRenamePreset() {
                 if (!isSamePath && newFile.existsAsFile()) {
                     devpiano::ui::jive::JiveModalDialog::launchConfirm({
                         .title = TRANS("Overwrite Preset?"),
-                        .message = TRANS("A preset named \"") + newName
-                            + TRANS("\" already exists.\nDo you want to overwrite it?"),
+                        .message = TRANS("A preset named \"{0}\" already exists.\nDo you want to overwrite it?")
+                                       .replace("{0}", newName),
                         .okLabel = TRANS("Overwrite"),
                         .cancelLabel = TRANS("Cancel"),
                         .componentToCentreAround = &owner,
@@ -433,7 +433,7 @@ void PresetFlowSupport::handleDeletePreset() {
     auto uuid = it->uuid;
     devpiano::ui::jive::JiveModalDialog::launchConfirm({
         .title = TRANS("Delete Preset"),
-        .message = TRANS("Delete preset \"") + name + TRANS("\"? This cannot be undone."),
+        .message = TRANS("Delete preset \"{0}\"? This cannot be undone.").replace("{0}", name),
         .okLabel = TRANS("Delete"),
         .cancelLabel = TRANS("Cancel"),
         .componentToCentreAround = &owner,
@@ -456,7 +456,7 @@ void PresetFlowSupport::handleDeletePreset() {
                     refreshCache(true);
                     updateUiAfterCommit();
                 }
-                owner.showStatusMessage(TRANS("Deleted preset: ") + name, 2500);
+                owner.showStatusMessage(TRANS("Deleted preset: {0}").replace("{0}", name), 2500);
             },
     });
 }
@@ -481,8 +481,8 @@ void PresetFlowSupport::handleImportPresetFile(const juce::File& file) {
     if (destFile.existsAsFile()) {
         devpiano::ui::jive::JiveModalDialog::launchConfirm({
             .title = TRANS("Overwrite Preset?"),
-            .message
-            = TRANS("A preset named \"") + loaded->name + TRANS("\" already exists.\nDo you want to overwrite it?"),
+            .message = TRANS("A preset named \"{0}\" already exists.\nDo you want to overwrite it?")
+                           .replace("{0}", loaded->name),
             .okLabel = TRANS("Overwrite"),
             .cancelLabel = TRANS("Cancel"),
             .componentToCentreAround = &owner,

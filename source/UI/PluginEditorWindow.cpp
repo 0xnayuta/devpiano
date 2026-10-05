@@ -5,9 +5,7 @@ juce::String PluginEditorWindow::makeWindowTitle(const juce::String& pluginName)
         return TRANS("Plugin Editor");
     }
 
-    auto title = pluginName;
-    title << TRANS(" Editor");
-    return title;
+    return TRANS("{0} Editor").replace("{0}", pluginName);
 }
 
 PluginEditorWindow::PluginEditorWindow(const juce::String& pluginName,
