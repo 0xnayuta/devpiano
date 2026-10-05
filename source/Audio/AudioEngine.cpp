@@ -718,12 +718,14 @@ void AudioEngine::collectLiveMidi(int numSamples) noexcept {
         allNotesOffPending.store(true, std::memory_order_release);
         return;
     }
-    LiveMidiEvent first, last, event;
+    LiveMidiEvent first;
+    LiveMidiEvent last;
+    LiveMidiEvent event;
     const auto count = liveMidiQueue.snapshot(first, last);
-    const auto span = static_cast<std::uint32_t>(last.timestampMilliseconds - first.timestampMilliseconds);
+    const auto span = last.timestampMilliseconds - first.timestampMilliseconds;
     const auto scale = static_cast<double>(numSamples) / (static_cast<double>(span) + 1.0);
     for (std::size_t index = 0; index < count && liveMidiQueue.pop(event); ++index) {
-        const auto elapsed = static_cast<std::uint32_t>(event.timestampMilliseconds - first.timestampMilliseconds);
+        const auto elapsed = event.timestampMilliseconds - first.timestampMilliseconds;
         const auto offset = juce::jlimit(0, numSamples - 1, static_cast<int>(std::round(elapsed * scale)));
         midiBuffer.addEvent(event.bytes.data(), event.size, offset);
     }

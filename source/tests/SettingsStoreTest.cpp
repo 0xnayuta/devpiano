@@ -241,9 +241,12 @@ public:
                 SettingsStore store(file);
                 SettingsModel restored;
                 store.load(restored);
-                const auto expected = scenario == 0 ? first.createIdentifierString()
-                    : scenario == 2                 ? second.createIdentifierString()
-                                                    : juce::String();
+                juce::String expected;
+                if (scenario == 0) {
+                    expected = first.createIdentifierString();
+                } else if (scenario == 2) {
+                    expected = second.createIdentifierString();
+                }
                 expectEquals(restored.lastPluginIdentifier, expected);
                 expect(store.save(restored));
                 {

@@ -490,7 +490,7 @@ public:
             // JUCE expect() 失败时仅记录不中断，继续解引用会在断言失败时崩
             // 溃——用 if 守卫满足 clang-analyzer 的 null 检查。
             if (presetEv != nullptr) {
-                expectEquals(std::uint32_t { 0 }, presetEv->presetId);
+                expectEquals<juce::uint64>(0, presetEv->presetId);
                 expectEquals(static_cast<std::int64_t>(2205), presetEv->timestampSamples);
             }
 
@@ -561,7 +561,7 @@ public:
             expectEquals(static_cast<int>(drained.size()), 1);
             if (!drained.empty()) {
                 expect(drained[0].snapshot != nullptr);
-                expectEquals(drained[0].presetId, std::uint32_t { 1 });
+                expectEquals<juce::uint64>(drained[0].presetId, 1);
                 if (drained[0].snapshot != nullptr) {
                     expectEquals(drained[0].snapshot->acoustic.masterGain, 0.0f);
                 }
@@ -1787,7 +1787,7 @@ public:
             take.lengthSamples = 512;
             const auto add = [&](std::int64_t timestamp, juce::MidiMessage message) {
                 take.events.push_back(
-                    { timestamp, PerformanceEventType::midi, 0, RecordingEventSource::playback, message });
+                    { timestamp, PerformanceEventType::midi, 0, RecordingEventSource::playback, std::move(message) });
             };
             for (int channel = 1; channel <= 16; ++channel) {
                 add(0, juce::MidiMessage::controllerEvent(channel, 0, channel));

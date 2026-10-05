@@ -383,7 +383,7 @@ juce::String generateDeterministicPresetUuid(const juce::String& name) {
 
     Sha1Context ctx;
     ctx.update(kNamespaceBytes, 16);
-    const auto utf8 = name.toRawUTF8();
+    const auto* utf8 = name.toRawUTF8();
     ctx.update(reinterpret_cast<const uint8_t*>(utf8), std::strlen(utf8));
 
     uint8_t digest[20];
@@ -481,7 +481,7 @@ juce::var performancePresetToVar(const PerformancePreset& preset) {
         root->setProperty("keyboard", juce::var(kbo));
     }
 
-    return juce::var(root.get());
+    return { root.get() };
 }
 
 std::optional<PerformancePreset> performancePresetFromVar(const juce::var& v) {

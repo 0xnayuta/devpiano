@@ -16,12 +16,13 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <utility>
 
 namespace devpiano::recording {
 namespace {
 
 constexpr std::int64_t maxPerformanceFileSizeBytes = 32LL * 1024 * 1024; // 32 MiB
-constexpr size_t maxMidiFrameBytes = 1024 * 1024; // 1 MiB per frame
+constexpr size_t maxMidiFrameBytes = size_t { 1024 } * 1024; // 1 MiB per frame
 
 [[nodiscard]] std::optional<std::int64_t> parseExactIntegerSample(const juce::var& v) noexcept {
     if (v.isInt() || v.isInt64()) {
@@ -32,7 +33,7 @@ constexpr size_t maxMidiFrameBytes = 1024 * 1024; // 1 MiB per frame
         return val;
     }
     if (v.isDouble()) {
-        const double d = static_cast<double>(v);
+        const auto d = static_cast<double>(v);
         if (!std::isfinite(d) || d < 0.0) {
             return std::nullopt;
         }
@@ -48,7 +49,7 @@ constexpr size_t maxMidiFrameBytes = 1024 * 1024; // 1 MiB per frame
     if (!v.isDouble() && !v.isInt() && !v.isInt64()) {
         return std::nullopt;
     }
-    const double sr = static_cast<double>(v);
+    const auto sr = static_cast<double>(v);
     if (!isSupportedTimelineSampleRate(sr)) {
         return std::nullopt;
     }
@@ -170,9 +171,7 @@ RecordingEventSource stringToSource(const juce::String& str) {
     case 0xF4:
     case 0xF5:
     case 0xF6:
-        return size == 1;
     case 0xF7:
-        return size == 1;
     case 0xF8:
     case 0xF9:
     case 0xFA:
@@ -252,14 +251,14 @@ RecordingEventSource stringToSource(const juce::String& str) {
         }
         return true;
     }
+    default:
+        return false;
     }
-
-    return false;
 }
 
 juce::var midiMessageToVar(const juce::MidiMessage& msg) {
     juce::MemoryBlock mb(msg.getRawData(), static_cast<size_t>(msg.getRawDataSize()));
-    return juce::var(mb.toBase64Encoding());
+    return { mb.toBase64Encoding() };
 }
 
 std::optional<juce::MidiMessage> varToMidiMessage(const juce::var& v, size_t maxAllowedFrameBytes = maxMidiFrameBytes) {
@@ -363,7 +362,7 @@ juce::var acousticSnapshotToVar(const audio::AcousticSnapshot& ac) {
     obj->setProperty("transposeOffset", ac.transposeOffset);
     obj->setProperty("channelFollowKeyMask", static_cast<int>(ac.channelFollowKeyMask));
 
-    return juce::var(obj.get());
+    return { obj.get() };
 }
 
 audio::AcousticSnapshot varToAcousticSnapshot(const juce::var& v) {
@@ -462,7 +461,7 @@ juce::var recordedPresetToVar(const RecordedPreset& rp) {
     juce::DynamicObject::Ptr obj = new juce::DynamicObject();
     obj->setProperty("preset", layout::performancePresetToVar(rp.preset));
     obj->setProperty("acoustic", acousticSnapshotToVar(rp.acoustic));
-    return juce::var(obj.get());
+    return { obj.get() };
 }
 
 std::optional<RecordedPreset> varToRecordedPreset(const juce::var& v) {
@@ -842,7 +841,7 @@ std::optional<RecordingTake> loadPerformanceFile(const juce::File& sourceFile) {
 
     juce::MemoryBlock mb;
     const auto bytesRead = in->readIntoMemoryBlock(mb, static_cast<std::ptrdiff_t>(streamLength));
-    if (in->getStatus().failed() || bytesRead != static_cast<size_t>(streamLength)
+    if (in->getStatus().failed() || std::cmp_not_equal(bytesRead, streamLength)
         || mb.getSize() != static_cast<size_t>(streamLength)) {
         return std::nullopt;
     }
@@ -877,7 +876,7 @@ std::optional<PerformanceFileMetadata> loadPerformanceFileMetadata(const juce::F
 
     juce::MemoryBlock mb;
     const auto bytesRead = in->readIntoMemoryBlock(mb, static_cast<std::ptrdiff_t>(streamLength));
-    if (in->getStatus().failed() || bytesRead != static_cast<size_t>(streamLength)
+    if (in->getStatus().failed() || std::cmp_not_equal(bytesRead, streamLength)
         || mb.getSize() != static_cast<size_t>(streamLength)) {
         return std::nullopt;
     }

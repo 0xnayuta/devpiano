@@ -315,7 +315,7 @@ bool validateMetaMessage(const juce::MidiMessage& msg) {
                          + " (must be 2)");
             return false;
         }
-        const int8_t sf = static_cast<int8_t>(d[0]);
+        const auto sf = static_cast<int8_t>(d[0]);
         const uint8_t mi = d[1];
         if (sf < -7 || sf > 7) {
             DP_LOG_ERROR("MidiTrackMergeEngine: invalid key signature sharps/flats: " + juce::String(sf));

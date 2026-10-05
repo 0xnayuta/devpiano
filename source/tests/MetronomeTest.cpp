@@ -205,7 +205,7 @@ private:
             processor.processAndMix(&buffer, 0, 12000);
             expectEquals(processor.getCurrentBeatNumber(), expectedBeat);
             expect(!processor.getIsDownbeat());
-            expect(processor.getBeatSequence() == initialSeq + 2 + (expectedBeat - 1));
+            expect(processor.getBeatSequence() == initialSeq + 2u + static_cast<std::uint32_t>(expectedBeat - 1));
         }
 
         // 6th step wraps to 0
@@ -686,7 +686,7 @@ private:
         processor.prepareToPlay(44100.0);
         expect(processor.isCountInArmed());
         expectEquals(processor.getCountInRemainingBeats(), 3);
-        expectEquals(processor.getBeatSequence(), seqAtSwitch);
+        expectEquals<juce::uint64>(processor.getBeatSequence(), seqAtSwitch);
 
         std::int64_t totalSamplesAt44k = 0;
         int startOffset = -1;

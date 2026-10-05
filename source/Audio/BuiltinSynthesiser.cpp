@@ -7,8 +7,8 @@ namespace devpiano::audio {
 
 BuiltinSynthesiser::BuiltinSynthesiser() {
     setMinimumRenderingSubdivisionSize(1, true);
-    for (std::size_t i = 0; i < 16; ++i) {
-        lastPitchWheelValues[i] = 0x2000;
+    for (auto& pitchWheel : lastPitchWheelValues) {
+        pitchWheel = 0x2000;
     }
 }
 
@@ -248,8 +248,8 @@ void BuiltinSynthesiser::dispatchRawMidi(const uint8_t* data, int numBytes) noex
     }
     case 0xD0: {
         if (numBytes >= 2) {
-            const int pressure = data[1] & 0x7F;
-            handleChannelPressure(channel, pressure);
+            const int channelPressureValue = data[1] & 0x7F;
+            handleChannelPressure(channel, channelPressureValue);
         }
         break;
     }

@@ -7,6 +7,7 @@
 #include "RecordingEngine.h"
 
 #include <cstddef>
+#include <utility>
 
 namespace {
 
@@ -145,7 +146,7 @@ bool validateTrackEvents(const uint8_t* data, std::size_t size, int trackIndex) 
                                  + juce::String(metaLength) + " (must be 2)");
                     return false;
                 }
-                const int8_t sf = static_cast<int8_t>(data[offset]);
+                const auto sf = static_cast<int8_t>(data[offset]);
                 const uint8_t mi = data[offset + 1];
                 if (sf < -7 || sf > 7) {
                     DP_LOG_ERROR("MidiFileImporter: invalid key signature sharps/flats: " + juce::String(sf));
@@ -252,8 +253,6 @@ bool validateTrackEvents(const uint8_t* data, std::size_t size, int trackIndex) 
                 dataBytes = 1;
                 break;
             case 0xF6:
-                dataBytes = 0;
-                break;
             default:
                 dataBytes = 0;
                 break;
@@ -332,7 +331,7 @@ SmfValidationResult validateSmfStructure(const uint8_t* data, std::size_t size, 
 
     const uint16_t fileFormat = readBigEndianUint16(data + offset);
     const uint16_t numTracks = readBigEndianUint16(data + offset + 2);
-    const int16_t timeFormat = static_cast<int16_t>(readBigEndianUint16(data + offset + 4));
+    const auto timeFormat = static_cast<int16_t>(readBigEndianUint16(data + offset + 4));
     offset += headerLength;
     res.headerBytes = offset;
 
@@ -366,7 +365,7 @@ SmfValidationResult validateSmfStructure(const uint8_t* data, std::size_t size, 
 
     const uint32_t mtrkTag = 0x4D54726B; // "MTrk"
     int mtrkCount = 0;
-    while (mtrkCount < static_cast<int>(numTracks)) {
+    while (std::cmp_less(mtrkCount, numTracks)) {
         if (offset + 8 > size) {
             DP_LOG_ERROR("MidiFileImporter: missing declared MTrk track " + juce::String(mtrkCount + 1) + " of "
                          + juce::String(numTracks) + " in " + filePath);

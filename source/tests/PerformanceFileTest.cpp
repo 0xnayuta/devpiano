@@ -370,12 +370,12 @@ public:
             expect(v2MidiLoaded.has_value(), "Legacy v2 MIDI-only take must be accepted");
 
             // 3. Legacy v1 or v2 with presetChange must be explicitly REJECTED with diagnostic
-            const auto v2NumericPresetJson
+            const auto* v2NumericPresetJson
                 = R"({"version":2,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"events":[{"timestampSamples":100,"type":"presetChange","presetId":5}]})";
             expect(!deserialiseTakeFromJson(v2NumericPresetJson).has_value(),
                    "Legacy v2 numeric preset event must be rejected (no silent directory index reinterpretation)");
 
-            const auto v1NumericPresetJson
+            const auto* v1NumericPresetJson
                 = R"({"version":1,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"events":[{"timestampSamples":100,"type":"presetChange","presetId":0}]})";
             expect(!deserialiseTakeFromJson(v1NumericPresetJson).has_value(),
                    "Legacy v1 numeric preset event must be rejected");

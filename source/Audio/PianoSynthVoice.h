@@ -47,7 +47,7 @@ using TemperamentEngine = devpiano::audio::TemperamentEngine;
 
 namespace devpiano::audio::dsp {
 
-inline constexpr double kPi = 3.1415926535897932384626433832795;
+inline constexpr double kPi = std::numbers::pi;
 inline constexpr double kTwoPi = 6.283185307179586476925286766559;
 inline constexpr double kHalfPi = 1.5707963267948966192313216916398;
 inline constexpr double kInvTwoPi = 1.0 / kTwoPi;
@@ -64,19 +64,11 @@ struct SinCosResult {
     }
     double k = std::floor(x * kInvTwoPi);
     x -= k * kTwoPi;
-    if (x < 0.0) {
-        x = 0.0;
-    } else if (x >= kTwoPi) {
+    if (x < 0.0 || x >= kTwoPi) {
         x = 0.0;
     }
 
-    int q = static_cast<int>(x * kInvHalfPi);
-    if (q < 0) {
-        q = 0;
-    }
-    if (q > 3) {
-        q = 3;
-    }
+    const int q = std::clamp(static_cast<int>(x * kInvHalfPi), 0, 3);
 
     double t = x - static_cast<double>(q) * kHalfPi;
     if (t < 0.0) {

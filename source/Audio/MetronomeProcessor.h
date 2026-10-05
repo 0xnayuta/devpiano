@@ -293,7 +293,9 @@ private:
     }
 
     void rebaseBeatPhase(double samplesPerBeat) noexcept {
-        if (lastSamplesPerBeat > 0.0 && samplesPerBeat > 0.0 && samplesPerBeat != lastSamplesPerBeat) {
+        // Configuration-derived periods rebase on any ordered change, without a tolerance.
+        if (lastSamplesPerBeat > 0.0 && samplesPerBeat > 0.0
+            && std::islessgreater(samplesPerBeat, lastSamplesPerBeat)) {
             const auto phase = std::clamp(samplePositionInBeat / lastSamplesPerBeat, 0.0, 1.0);
             samplePositionInBeat = std::min(phase * samplesPerBeat, std::nextafter(samplesPerBeat, 0.0));
         }
@@ -326,16 +328,19 @@ private:
         const auto currentSig = timeSignature.load(std::memory_order_relaxed);
         const bool down = (beatIdx == 0);
 
-        const auto& coeffs = down
-            ? downbeatCoeffs
-            : ((currentSig == devpiano::core::TimeSignature::sixEight && beatIdx == 3) ? accentCoeffs : normalCoeffs);
+        const auto* coeffs = &normalCoeffs;
+        if (down) {
+            coeffs = &downbeatCoeffs;
+        } else if (currentSig == devpiano::core::TimeSignature::sixEight && beatIdx == 3) {
+            coeffs = &accentCoeffs;
+        }
 
-        pulseDeltaSin = coeffs.deltaSin;
-        pulseDeltaCos = coeffs.deltaCos;
+        pulseDeltaSin = coeffs->deltaSin;
+        pulseDeltaCos = coeffs->deltaCos;
         pulseSin = 0.0f;
         pulseCos = 1.0f;
-        pulseEnvelope = coeffs.amp;
-        pulseDecay = coeffs.decay;
+        pulseEnvelope = coeffs->amp;
+        pulseDecay = coeffs->decay;
         pulseActive = true;
 
         currentBeatNumber.store(beatIdx, std::memory_order_relaxed);

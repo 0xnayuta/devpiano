@@ -510,7 +510,7 @@ private:
                 const auto pixel
                     = image.getPixelAt(juce::roundToInt(key->bounds.getCentreX()), juce::roundToInt(sampleY));
                 const auto expected = note == 72 ? juce::Colours::magenta : juce::Colours::cyan;
-                expectEquals(pixel.getARGB(), expected.getARGB());
+                expectEquals<juce::uint64>(pixel.getARGB(), expected.getARGB());
             }
         });
     }
