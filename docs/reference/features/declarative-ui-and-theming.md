@@ -103,7 +103,7 @@ Performance Preset 的 New、Rename、Delete 保持在上方，Export、Import�
 
 ### 3.2 自定义弹窗扩展（`launchCustom`）
 
-支持传入任意自定义声明的 `juce::ValueTree`，并通过 `onInit`、`onConfirm`（支持表单校验拦截）、`onCancel` 回调实现高度定制的交互弹窗（如 `KeyBindingEditDialog` 逐键绑定与调色板编辑）。
+自定义 `juce::ValueTree` 布局通过 `onInitHost(const ViewHost&)`、`onConfirmHost(const ViewHost&)`（返回 false 可拦截关闭）与 `onCancel` 接入。单行输入、确认、元数据及逐键绑定使用相同门面，不再提供 raw `GuiItem` 回调或检索 helper。业务样式刷新只调用 `ViewHost::refreshStyles()`，不持有解释器或根 `GuiItem`。
 
 ---
 
@@ -127,25 +127,14 @@ Performance Preset 的 New、Rename、Delete 保持在上方，Export、Import�
 
 ## 5. Native 原生组件工厂注入模式
 
-对于复杂图形或性能敏感组件，JIVE 采用工厂模式（`ComponentFactory`）无缝桥接：
+复杂图形与性能敏感 Native 组件通过 `ViewHost` 注册生产工厂；额外组件可在 `configureComponentFactory` 回调内注册，不从业务获取解释器或 raw GuiItem：
 
 ```cpp
-auto& factory = interpreter->getComponentFactory();
-factory.set("CustomKeyboard", [&keyboardState] {
-    return std::make_unique<devpiano::ui::KeyboardViewport>(keyboardState);
-});
-factory.set("AdsrCurve", [] {
-    return std::make_unique<devpiano::ui::AdsrCurveComponent>();
-});
-factory.set("TimelineBar", [] {
-    return std::make_unique<devpiano::ui::TimelineBar>();
-});
-factory.set("QwertyVisualizer", [] {
-    return std::make_unique<devpiano::ui::QwertyComponent>();
-});
-factory.set("StatusBarMidiDot", [] {
-    return std::make_unique<devpiano::ui::StatusBarMidiDot>();
-});
+devpiano::ui::ViewHost host;
+host.registerDefaultComponents();
+host.registerKeyboardComponents(keyboardState);
+host.loadLayout(layoutTree);
+host.setBounds(getLocalBounds());
 ```
 
 相关组件源码位置：
@@ -168,7 +157,7 @@ UI 单元测试位于 `source/tests/`，覆盖通用弹窗、设置布局、样�
 | 测试文件 | 用例类别 | 验证目标 | 状态 |
 |---|---|---|:---:|
 | `JiveModalDialogTest` | 模板结构构建 | 验证 SingleInput、Confirm、MetadataEdit、Progress 模板节点层级与初始属性 | [x] 已通过 |
-| `JiveModalDialogTest` | 组件动态检索 | 验证 `findButtonById`、`findTextEditorById` 在多层 JIVE 树下的正确寻址 | [x] 已通过 |
+| `JiveModalDialogTest` | 生产组件访问 | 使用 `ViewHost::find<T>` 获取实际组件，并验证 Notes 键入与诊断只读边界；不手工调用自造回调或赋值后回读 | [x] 已通过 |
 | `JiveModalDialogTest` | 生产输入机制 | 使用生产 ViewHost 构建 Notes，注入字符和回车验证多行编辑；诊断 ListEditor 拒绝输入 | [x] 已通过 |
 | `JiveModalDialogTest` | 安全析构序列 | 验证模态关闭时 `safeCleanupJiveTree` 能够防止 StyleSheet 监听器 UAF | [x] 已通过 |
 | `StyleCatalogTest` | 动态圆角 | 固定 bounds 连续 radius 0→30→0，角像素立即匹配当前半径，不等待 resize | [x] 已通过 |

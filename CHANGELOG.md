@@ -2,6 +2,10 @@
 
 ### Fixed
 
+- **Bounded Session Diagnostics** — rotate active and single-backup logs within a combined 512 KiB budget; retain UTF-8 boundaries, report file-sink failures, and keep complete debugger output.
+- **Raw MIDI Velocity Traces** — report integer velocities without multiplying by 127 and preserve velocity-zero NoteOn-as-NoteOff semantics.
+- **Strict Declarative UI Facade** — encapsulate live style refresh and modal initialization/confirmation in ViewHost; remove raw GuiItem escape APIs and use granular modules in the application icon header.
+- **Trustworthy Test and Static Gates** — remove translation/callback/assignment self-oracles, retain executed lifecycle regressions, and fix project compiler/static diagnostics without rule suppression or third-party edits.
 - **Shared Performance Map Projection** — show the same final Group/modifier/matrix/followKey mapping on QWERTY and piano views; preserve configured input identities for clicks, binding edits, and per-key customization.
 - **Mouse Routing and Binding Labels** — prevent observed playback/output channels from changing subsequent mouse routing and retain binding labels through settings, resize, and viewport updates.
 - **Silent-Binding Priority and Bounded Fades** — keep zero-velocity bindings silent across physical and mouse input even with Shift or fixed matrix velocity; clamp fade coefficients to 0.50–0.99 and stop timers at the preview floor.

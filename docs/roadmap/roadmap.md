@@ -285,9 +285,9 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 ### Phase 33：可观测性加固与生产级诊断基础设施（Observability Hardening & Production-Grade Diagnostics Infrastructure） [已完成，2026-09-14]
 
-1. **双通道生产级日志基础设施（DevPianoLogger Dual-Sink）**：重构升级 `DevPianoLogger`，组合 `juce::FileLogger`（构造时按初始 512 KB 预算裁剪，自适应系统应用目录）与调试器即时输出；优化析构注销顺序确保退出期设置保存与插件卸载日志完整落盘。会话内持续写入目前不是自动轮转，AUDIT-004 的资源/诊断缺口已纳入本轮 Phase G，不把初始裁剪描述成已实现滚动限额；
+1. **双通道日志基础设施（DevPianoLogger Dual-Sink）**：写入系统应用目录并转发完整 debugger 消息；Phase G 已将构造时裁剪升级为会话内活动/单备份合计 512 KiB 的有界轮转，故障停用文件 sink 并保留原因。析构注销顺序保留退出期设置保存与插件卸载日志；
 2. **设置界面诊断卡片直达与系统文件管理器联动**：在设置界面诊断卡片中新增操作行与“打开日志目录”按钮（`open-log-dir-button`），点击调用 `juce::File::revealToUser()` 调起系统原生文件管理器并高亮选中 `devpiano.log`；动态在诊断文本框中显示日志文件绝对路径与当前大小；
-3. **MidiTrace 与诊断测试防线**：新增 `DiagnosticsTest`，全面覆盖 NoteOn/Off、CC、PitchBend、ProgramChange 等全量 MIDI 协议反序列化格式，以及临时目录下文件落盘、会话头标记与析构自动注销置空保护；
+3. **MidiTrace 与诊断测试防线**：覆盖 NoteOn/Off、CC、PitchBend、ProgramChange；原始力度 0..127 不二次缩放，保留零力度 MIDI 语义。测试验证预算、UTF-8 边界、轮转故障及析构注销，不钉会话文案；
 4. **运行时字符编码断言消除**：彻底修复历史遗留的 5 处多字节 em-dash 字符字面量，消除 `juce_String.cpp:327` 的运行时断言。
 
 详细完成记录见 [`../archive/phase33-observability-and-diagnostics-infrastructure.md`](../archive/phase33-observability-and-diagnostics-infrastructure.md)。
@@ -324,16 +324,16 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 Phase 35 的原计划与完成勾选见 [完成计划归档](../archive/phase35-keyboard-expressive-dynamics-and-practice-infrastructure.md)。阶段交付完成不代表 AUDIT-004 新反证已修复；当前实施任务由下一专项承接，后续长期路线以本文为准。
 
-### AUDIT-004 Phase：代码质量缺陷修复与消费者契约闭环 [Phase 0/A/B/C/D/E/F 已完成，Phase G 待开始]
+### AUDIT-004 Phase：代码质量缺陷修复与消费者契约闭环 [Phase 0/A/B/C/D/E/F/G 已完成，Phase H 待开始]
 
-[AUDIT-004](../audit/AUDIT-004-code-quality-audit-2026-10-02.md) 保留基线评级与原问题身份。Phase 0/A/B 完成安全验证、文件保护和准入；Phase C/D 完成所有权、发音身份与采样级 Transport；Phase E 完成预设永久身份与执行闭包（2026-10-04，分层验收）；Phase F 完成映射看板、交互与声学边界（2026-10-05）。Phase G/H 尚未实施，不把本阶段通过写成全部缺陷和门禁已达标。
+[AUDIT-004](../audit/AUDIT-004-code-quality-audit-2026-10-02.md) 保留基线评级与原问题身份。Phase 0/A/B 完成安全验证、文件保护和准入；Phase C/D 完成所有权、发音身份与采样级 Transport；Phase E 完成预设永久身份与执行闭包（2026-10-04，分层验收）；Phase F 完成映射看板、交互与声学边界，Phase G 完成诊断、ADR 门面和实际工程门禁（2026-10-05）。原任务 ID/优先级保持，尚余 Phase H 的 DOC-001，不把本轮通过写成最终全契约验收已完成。
 
 1. **Phase 0（前置，已完成）**：音频测试由调用者绑定 live buffer，文件测试使用 ScopedTempDir，Chord 纳入默认 DevPiano/Core；Windows Debug 禁 NRVO 的默认测试、真实音频/文件消费者及用户目录无副作用验证通过，证据见 current-iteration。
 2. **Phase A/B（已完成）**：已有文件事务、预设身份、Take 绑定与设置快照已闭环；原生/MIDI 完整准入、稳定时间线、拍号边界及输出前数值检查已通过 Windows Debug 默认测试、受限子进程、实际文件/播放/seek/拖放信息界面验证。输入格式不变，不以修改测试数值掩盖通用合成时间域失败。
 3. **Phase C/D（已完成）**：原生 VST3 与实际生命周期/退出、活动命令已验证；播放原身份 FIFO、物理持有、暂停捕获配对、末尾 WAV 对齐、48k↔44.1k 时间域、16 通道目的状态、完整预备拍及通道柔音已通过生产消费者。
 4. **Phase E（已完成，2026-10-04）**：预设 UUID 永久身份、v3 Take 内嵌可执行快照、采样点实时/离线同构、无锁发声、零库函数三角、SPSC 输入与消息线程视觉分发闭环。产品自有实时契约与第三方 JUCE VST3 框架限制按用户批准的分层验收分别记录。
 5. **Phase F（已完成，2026-10-05）**：最终映射单一投影、配置输入与显示输出隔离、绑定/逐键定制跨几何保持、静音优先级、有界余晖、即时圆角、Notes 多行确认/取消、最低 MIDI 八度及 A4 400.0–480.0 Hz 已按实际消费者验证；不改原预设/演奏格式，不把瞬态演奏变换写回配置。
-6. **Phase G（下一步）**：日志预算和 MIDI 诊断、业务 include/严格 ViewHost 门面、编译/全量静态诊断及测试 oracle 收敛。
+6. **Phase G（已完成，2026-10-05）**：日志预算和 MIDI 数值真实；业务头禁聚合头，样式刷新/内置 modal 完全经 ViewHost；删除译文、手工回调和赋值回读 oracle，默认 lifecycle 已执行；Windows Debug 构建、默认测试及实际全量 tidy 零项目诊断。失败输入与新树替代结果分开保留，真实 UI/日志/文件消费者证据见 current-iteration。
 7. **Phase H（闭环）**：按全部直接消费者证据完成契约文档与最终集成验收，不以文档修订代替实现。
 
 全部原登记项的阶段归属、依赖和可观察验收见 [`current-iteration.md`](current-iteration.md)，原优先级/历史ID不变；较低优先级依赖可前置但不重新定级。默认Windows Debug验证，额外跨平台/Release仅明确要求时执行；未验证的真实插件/声卡影响不假填已通过。完成本专项关键闭环后再评估Phase 36/37启动条件。

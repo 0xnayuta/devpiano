@@ -259,13 +259,13 @@ source/
 
 - **`source/UI/ViewHost.h/.cpp`（统一 UI 宿主门面，Phase 28-A）**：
   - **架构界限与生命周期接管**：内部完整封装 `::jive::Interpreter` 与 `::jive::GuiItem`，析构与重载时自动调度 `safeCleanupJiveTree`，杜绝组件与样式表 UAF 风险；
-  - **强类型组件访问**：提供 `host.find<T>(id)` 强类型查找、`setProperty`、`setText`、`setButtonLabel`、`setEnabled`、`setVisible`、`getSliderValue`、`setSliderValue` 与 `relayoutContainer`，业务代码完全告别底层 JIVE 裸指针；
+  - **强类型组件访问**：提供 `host.find<T>(id)` 强类型查找、`setProperty`、`setText`、`setButtonLabel`、`setEnabled`、`setVisible`、`getSliderValue`、`setSliderValue` 与 `relayoutContainer`；样式热重载通过 `refreshStyles()` 更新当前树，不向业务公开 `GuiItem` 或可突变的根树逃逸接口；
   - **UI 线程断言**：在所有加载与重置入口注入 `JUCE_ASSERT_MESSAGE_MANAGER_IS_LOCKED`。
 - **`source/UI/jive/`（声明式 UI 核心与设计系统）**：
   - **`LayoutModel.h/.cpp`**：主窗口面板（Header, Plugin, Controls, QwertyCard, KeyboardArea, StatusBar）ValueTree 工厂，声明式嵌入 5 行 ANSI 物理键盘网格卡片（`makeQwertyCardTree()`）。
   - **`DesignTokens.h/.cpp`**：设计系统变量（颜色、字体、圆角、间距单一事实源，属于 `devpiano::jive::DesignTokens`）。
   - **`StyleCatalog.h/.cpp`**：全局样式管理器（读取编译期嵌入的 `style_sheets.json` 并动态注入树节点）。
-  - **`JiveModalDialog.h/.cpp`**：**通用声明式模态弹窗系统**。提供 `launchSingleInput`、`launchConfirm`、`launchMetadataEdit` 与 `makeProgressLayout` 模板。
+  - **`JiveModalDialog.h/.cpp`**：通用声明式模态弹窗系统。提供 `launchSingleInput`、`launchConfirm`、`launchMetadataEdit` 与 `makeProgressLayout` 模板；初始化与确认仅使用 `onInitHost` / `onConfirmHost` 门面回调，取消使用 `onCancel`。
   - **`JiveUtils.h`**：ValueTree 快速构建与安全析构辅助工具。
 - **`source/UI/jive/core/`（内生 UI 渲染与排版引擎，已实施 API Freeze）**：
   - FlexBox 与 CSS Grid 基础几何排版计算引擎、BoxModel、动态样式表与动画缓动内核。已彻底剥离死代码并封存为底层资产。
@@ -303,11 +303,11 @@ source/
 
 - **`source/Diagnostics/Log.h`**：统一日志宏（`DP_LOG_INFO/WARN/ERROR`、`DP_DEBUG_LOG`、`DP_TRACE_MIDI`），在 Release 构建下零副作用。
 - **`source/Diagnostics/DevPianoLogger.h/.cpp`**：**生产级 Dual-Sink 统一日志基础设施（Phase 33）**：
-  - **文件持久化 Sink**：基于 `juce::FileLogger` 实现生产级落盘，写入系统标准 AppData 日志目录（Windows: `%APPDATA%\DevPiano\devpiano.log`；Linux: `~/.config/DevPiano/devpiano.log`），内置 512 KB 自动滚动限额，杜绝磁盘无限制膨胀；
-  - **调试器 Sink**：平台输出重定向（Windows 路由至 `OutputDebugString`，Linux 路由至 `stderr`）；
+  - **文件持久化 Sink**：写入系统标准 AppData 日志目录（Windows: `%APPDATA%\DevPiano\devpiano.log`；Linux: `~/.config/DevPiano/devpiano.log`）。活动文件与固定备份 `devpiano.old.log` **合计 512 KiB**，各分配 256 KiB；启动裁剪和每次会话内写入均守预算，超长消息按 UTF-8 码点边界截减。打开、裁剪、写入或轮转失败停用文件 sink，并通过 `hasFileError()` / `getLastError()` 及 debugger 保留原因，不继续越额写入；
+  - **调试器 Sink**：始终接收完整消息（Windows: `OutputDebugString`；Linux: `stderr`），不受文件限幅或文件 sink 故障影响。日志写入在非实时线程串行化；禁止放进音频回调；
   - **UI 诊断集成**：在设置面板诊断卡片动态展示当前日志物理路径，并提供“打开日志目录”（`openLogFolder`）原生交互；
   - **安全生命周期**：应用启动时注册为全局日志器（`juce::Logger::setCurrentLogger`），正常退出时安全重置并解除挂载。
-- **`source/Diagnostics/MidiTrace.h/.cpp`**：MIDI 消息人类可读字符串格式化。
+- **`source/Diagnostics/MidiTrace.h/.cpp`**：MIDI 消息人类可读字符串格式化；NoteOn 与 NoteOff 直接显示原始整数力度 0..127，零力度 NoteOn 仍按 MIDI/JUCE 语义报告为 NoteOff。
 - **`source/Core/`**：
   - **`AppState.h`**：全应用运行时聚合快照视图，严格保持单向依赖与纯业务基础类型（零上层业务包含，前向声明 `ChannelMatrix` 并以 `std::shared_ptr` 管理快照，就地定义 `BuiltinTone` 枚举）；
   - **`KeyMapTypes.h`**：88 键虚拟映射基础模型、`KeyGroup`（4 组轻量分组）、`HeldKeyIdentity`（发音身份快照）、`SustainPolicy`（切分踏板策略）与 `PerformanceModifierState`（瞬态事件流变换）；

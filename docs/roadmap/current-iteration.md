@@ -2,7 +2,7 @@
 
 > 用途：本文件只记录当前实施排期与任务验收；项目状态和长期路线以 [roadmap](roadmap.md) 为准。
 > 本轮名称：**AUDIT-004 Phase：代码质量缺陷修复与消费者契约闭环**。
-> 当前状态：**Phase 0/A/B/C/D/E/F 已完成（Phase F：2026-10-05），Phase G 待开始**。只勾选有直接证据的本轮任务；其他阶段保持未勾选，不以默认测试通过代替其消费者契约闭环。
+> 当前状态：**Phase 0/A/B/C/D/E/F/G 已完成（Phase G：2026-10-05），Phase H 待开始**。原 54 项 ID/优先级保持，53 项已完成，尚余 DOC-001；仅勾选具有直接消费者及实际门禁证据的本轮任务，不把 Phase G 通过写成最终全契约验收完成。
 
 ## 1. 输入、范围与历史归档
 
@@ -33,7 +33,7 @@
 | AUDIT-004 Phase D | 发音身份与采样级 Transport 边界 | Phase B/C；游标/倍率/设备时间域的所有权先于新增边界逻辑。 | 已完成，2026-10-04 |
 | AUDIT-004 Phase E | 预设永久身份与实时/离线执行闭包 | Phase A/C/D；先 ARCH-003，再 ARCH-004；发布/通知容量与监听器清理同步设计。 | 已完成，2026-10-04（分层验收） |
 | AUDIT-004 Phase F | 映射看板、交互与声学边界 | Phase A/D/E；明确点击输入身份与显示输出身份，不以重复矩阵变换修显示。 | 已完成，2026-10-05 |
-| AUDIT-004 Phase G | 诊断资源、ADR 与工程门禁收敛 | 贯穿实施；Phase A-F 的消费者回归已有证据后收口，不用压制诊断掩盖问题。 | 待开始 |
+| AUDIT-004 Phase G | 诊断资源、ADR 与工程门禁收敛 | 贯穿实施；Phase A-F 的消费者回归已有证据后收口，不用压制诊断掩盖问题。 | 已完成，2026-10-05 |
 | AUDIT-004 Phase H | 契约文档与最终集成验收 | Phase 0及A-G；文档修订不得代替实现修复。 | 待开始 |
 
 ## 4. 逐项修复与消费者验收
@@ -4965,7 +4965,7 @@ PHASE_F_VERIFICATION={"mode":"Smoke","label":"smoke","buildDir":"G:\\source\\pro
 PHASE_F_CUSTOM_STYLE expected=ffff00ff actual=ffff00ff unbound73_input=61 unbound73_editor=61
 ```
 
-### AUDIT-004 Phase G：诊断资源、ADR 与工程门禁收敛 [待开始]
+### AUDIT-004 Phase G：诊断资源、ADR 与工程门禁收敛 [已完成，2026-10-05]
 
 **目标**：诊断数值及资源预算真实，细粒度 include/门面合规，测试与静态门禁不提供假覆盖。
 
@@ -4975,12 +4975,1165 @@ PHASE_F_CUSTOM_STYLE expected=ffff00ff actual=ffff00ff unbound73_input=61 unboun
 
 | 执行 | 原登记 ID | 原优先级 | 修复目标 | 可观察验收 |
 | --- | --- | --- | --- | --- |
-| [ ] | `RES-001` | P2 | 日志大小上限仅构造时截减而非会话滚动。实现可观测的会话内有界轮转，或明确真实只在启动裁剪的契约与风险；验证长会话及轮转故障。 | 长会话日志按真实预算轮转，失败有诊断；上限作用于会话内写入而不只是启动裁剪。 |
-| [ ] | `OBS-001` | P2 | MIDI诊断将已是0..127的力度再次乘127。直接展示原始整数力度或正确使用getFloatVelocity换算；验证边界及中间值，不钉完整自然语言日志。 | MIDI 原始64力度诊断仍为64，0..127边界和中间值一致，不钉整个文案。 |
-| [ ] | `CMPL-001` | P2 | 业务头 WindowIconUtils 重新引入 JuceHeader。以实际需要的细粒度模块头替换并检查消费者；不使用测试头例外为业务头开豁免。 | WindowIconUtils 使用实际细粒度头，消费者独立编译；source 业务头不再传递 JuceHeader。 |
-| [ ] | `CMPL-002` | P2 | 声明式业务仍使用 raw GuiItem 逃逸接口。将业务样式刷新/内置modal初始化封装在ViewHost边界内；如确需例外则另行明确批准决策，而非保留无约束逃逸。 | 业务样式刷新及内置 modal 通过明确门面，禁止改 ADR 掩盖违例；必要例外先独立决策评审。 |
-| [ ] | `ENG-001` | P2 | 编译零警告及全量 tidy 清零门禁不成立。逐项评估编译/静态诊断并小步修正，必要规则争议如实记录；禁止--fix自动改源码或压制未知风险。 | 项目编译警告与实际全量 tidy 诊断清零；唯一位点与框架输出分开计，默认缓存原失败/替代结果保留。 |
-| [ ] | `TEST-003` | P3 | 测试存在译文/自证断言及未调用行为用例。删除copy-pinning/自证测试，不重新钉新文本/数值；保留语言机制和生产组件行为；接入确定性的真实生命周期用例。 | 删除译文/自证 oracle，生产语言机制保留；真正 lifecycle 方法被默认执行，不改成新的文案钉死。 |
+| [x] | `RES-001` | P2 | 日志大小上限仅构造时截减而非会话滚动。实现可观测的会话内有界轮转，或明确真实只在启动裁剪的契约与风险；验证长会话及轮转故障。 | 长会话日志按真实预算轮转，失败有诊断；上限作用于会话内写入而不只是启动裁剪。 |
+| [x] | `OBS-001` | P2 | MIDI诊断将已是0..127的力度再次乘127。直接展示原始整数力度或正确使用getFloatVelocity换算；验证边界及中间值，不钉完整自然语言日志。 | MIDI 原始64力度诊断仍为64，0..127边界和中间值一致，不钉整个文案。 |
+| [x] | `CMPL-001` | P2 | 业务头 WindowIconUtils 重新引入 JuceHeader。以实际需要的细粒度模块头替换并检查消费者；不使用测试头例外为业务头开豁免。 | WindowIconUtils 使用实际细粒度头，消费者独立编译；source 业务头不再传递 JuceHeader。 |
+| [x] | `CMPL-002` | P2 | 声明式业务仍使用 raw GuiItem 逃逸接口。将业务样式刷新/内置modal初始化封装在ViewHost边界内；如确需例外则另行明确批准决策，而非保留无约束逃逸。 | 业务样式刷新及内置 modal 通过明确门面，禁止改 ADR 掩盖违例；必要例外先独立决策评审。 |
+| [x] | `ENG-001` | P2 | 编译零警告及全量 tidy 清零门禁不成立。逐项评估编译/静态诊断并小步修正，必要规则争议如实记录；禁止--fix自动改源码或压制未知风险。 | 项目编译警告与实际全量 tidy 诊断清零；唯一位点与框架输出分开计，默认缓存原失败/替代结果保留。 |
+| [x] | `TEST-003` | P3 | 测试存在译文/自证断言及未调用行为用例。删除copy-pinning/自证测试，不重新钉新文本/数值；保留语言机制和生产组件行为；接入确定性的真实生命周期用例。 | 删除译文/自证 oracle，生产语言机制保留；真正 lifecycle 方法被默认执行，不改成新的文案钉死。 |
+
+
+#### Phase G 实施记录与直接验证（2026-10-05）
+
+**基线与范围**：`5b8d907`（Phase F 本地交付）。仅本节 RES-001 / OBS-001 / CMPL-001 / CMPL-002 / ENG-001 / TEST-003；保留原 54 项 ID、优先级与历史审计证据，完成 53 项，Phase H 的 DOC-001 仍待开始。历史 AUDIT、ADR、archive 不回写；不改 scripts、CMake、静态规则或 submodules。
+
+##### 实施不变量
+
+- `DevPianoLogger` 不再以 FileLogger 的 maxInitialFileSizeBytes 假定会话滚动。默认活动 devpiano.log 与固定 devpiano.old.log 合计512 KiB，各256 KiB；启动旧大文件裁剪和持续写入均守预算，单次超长消息按UTF-8码点边界截减。非实时日志串行化；debugger始终接收完整消息。打开/裁剪/写入/轮转失败停用文件sink、保留可查询错误及直接debugger诊断，不新增自动重试/后台队列。裁剪检查seek/read/truncate/flush状态，不忽略失败继续写入。
+- `MidiTrace` 直接报告getVelocity的原始整数；零力度NoteOn保持JUCE/MIDI的NoteOff语义，显式NoteOff release velocity也准确。测试解析数值而非contains("vel=1")这种可误匹配127的字符串断言，不钉完整自然语言消息。
+- `WindowIconUtils.h` 显式包含BinaryData及实际GUI/graphics模块。全source业务头的JuceHeader包含检索零命中；独立TU使用生产宏/包含路径、移除PCH/forced include，实际编译通过。
+- `ViewHost` 提供refreshStyles，findItem仅私有，getRootItem删除；Main热重载不拿根树。JiveModalDialog移除raw onInit/onConfirm与公共raw查找helper，只保留onInitHost/onConfirmHost/onCancel；内置初始化/确认以及KeyBindingEditDialog消费者均完成迁移。ComponentFactory仅前向声明，避免依赖传递头；没有为逃逸新增ADR例外。
+- 删除StyleCatalog的译文/赋值回读、JiveModal的自造lambda、SettingsLayout的局部bullet与visibility回读；拒绝以host.setEnabled→isEnabled新转发oracle替代它，整个用例删除并由实际Settings窗口交互证明。保留Locale切换/fallback与生产Notes键入/多行/只读边界。Metronome两个真实lifecycle方法已在Phase C接入，本轮默认日志再次证明执行，不重复造用例。
+- ENG按实际诊断逐项修正：配置派生周期使用有序不等关系而非误用浮点等号，不引入epsilon改变时序；明确无损整数比较/乘法类型、复用标准pi、合并等价分支、展开嵌套条件、去冗余cast及不必要copy、保留原MIDI状态分支；JUCE unsigned int断言输出的Clang歧义在项目测试选择无损uint64模板，不修改框架。合法演奏/文件语义及回调零分配保持消费者回归。
+
+##### 直接证据台账（仅本次观测，不是固定统计门槛）
+
+| ID | 输入/真实消费者 | 实际观察 | 边界 |
+| --- | --- | --- | --- |
+| EVID-054 | 自有临时日志，1024B合计预算，1500条连续消息，逐写检查两文件 | 最终合计783B，最新sequence1499及上代消息均保留；仅活动/固定备份，无无限档案。 | 不是只在构造后检查一次大小；未向真实用户日志破坏性写入。 |
+| EVID-055 | 旧活动/备份各大量行；旧活动文件原生只读共享handle禁止写入；非空目录阻挡备份 | 旧文件收口后549/1024B；被锁裁剪故障使sink停用且原字节保持；轮转失败停用后活动126/128B不再增长，原因可查询。 | 无法写入的旧大文件不能强行缩小；故障策略是不追加，并保留错误。 |
+| EVID-056 | 实际MidiTrace，raw0/1/64/127及显式释放力度 | 0→NoteOff vel0；1/64/127→NoteOn原数值；默认回归验证release64。 | 不重新乘127，不钉自然文案。 |
+| EVID-057 | WindowIconUtils单独TU、无JuceHeader/PCH/forced include | MSVC Header模式编译通过，参数核对无/Yu、/Fp、/FI；业务头聚合include零命中。 | 测试cpp使用生成聚合头不是业务头豁免。 |
+| EVID-058 | 实际DevPianoApplication/MainComponent，私有cwd样式资产，经Main.reloadStylesAndTokens→ViewHost | 状态栏像素112233→335577，组件地址保持；截图已查看；单行弹窗初始化initial、实际键入typed result后确认；确认弹窗cancel=false/accept=true。 | 修改私有fixture样式，不改Windows镜像源码或WSL真实样式。 |
+| EVID-059 | 实际Settings transpose/followKey；Info控制器→native文件；键位编辑Peer捕获 | transpose关闭时followKey禁用、开启时启用；Notes多行保存/取消文件字节保持；旧/新绑定索引与实际Ch2/73保留。 | 不是调用自造回调或host属性赋值回读。 |
+| EVID-060 | 新Windows Debug子树app/tests，沿用/Zc:nrvo-，默认ctest无筛选 | 最终99套件、287676通过、0失败；两个Metronome lifecycle子测试在默认日志实际执行；用户目录快照一致，私有TEMP/TMP零残留。 | 未执行Release/WSL产品构建测试；不是修复旧默认缓存后宣称原失败消失。 |
+| EVID-061 | 全量tidy --all，全部source cpp；配置/头文件/命令/源码内容匹配的最终cache receipt | 144/144对应当前source集合，零缺失/多余，全部returncode0、零可见项目诊断；最终全量命令exit0。 | 首次冷扫描失败44个项目唯一位点/15文件；后续3个测试消费者实例化错误位于JUCE模板。框架warnings generated摘要不作为项目诊断数。 |
+
+##### 失败与替代结果保留
+
+1. 原AUDIT-004 §4.1的旧默认Windows Ninja缓存失败、旧20次warning/2源位点及5个tidy位点保持历史原记录，未重跑确认或删除。当前镜像已无旧Phase F隔离子树；创建`build-win-msvc/audit004-phaseg`，位于项目同步明确保留的默认build目录内，避免MIR清理独立根子树。不是修复/覆盖旧默认缓存的证据。
+2. 本轮首次MSVC构建发现JiveModalDialog中ComponentFactory缺前向声明，按实际本地声明补齐；第二次暴露global ssize_t在MSVC不可用，按InputStream本地签名改std::ptrdiff_t。错误输出保存于`artifact://499`、`artifact://502`及`local://devpiano-phaseg-first-build.log`、`local://devpiano-phaseg-second-build.log`，均不是最终成功结果。
+3. 初次真正冷tidy使用独立TIDY_CACHE_DIR，不删除旧审计缓存：exit1，44项目唯一位点（包括modal头引发的级联）；第二次冷全量项目severity位点归零，但3个JUCE模板实例化仍失败，追到项目unsigned断言消费者后无损修正。首次/第二次日志与全部receipt分别保留在`artifact://500`、`artifact://510`和`local://devpiano-phaseg-first-tidy.json`、`local://devpiano-phaseg-second-tidy.json`。
+4. 最终再次执行项目完整tidy --all：当前内容匹配cache复用，其余改动TU真正重查；exit0。逐源码使用现行wrapper的compute_key匹配当前源码、全部项目头、命令和规则SHA，全部144个receipt成功（`local://devpiano-phaseg-final-gates.json`）。Windows完整编译日志`artifact://509`与最终`artifact://523`中项目/MSVC warning位点零命中；与框架解析warnings generated汇总分开计。不改检查规则，不使用--fix。
+5. WSL仅脚本configure-only、显式BUILD_TESTS=ON的configure及clang-tidy静态门禁，没有执行WSL产品构建/测试。LSP刷新后仍间歇失去JUCE/source include上下文，其missing-path级联已报工具问题；references结果结合codegraph blast radius与全调用者编译，未把LSP部分结果宣称全量清零。
+6. 实际窗口/日志/文件消费者、单独header、默认tests、Build的JSON均记录`userDirectoryUnchanged=true`和`remainingTempEntries=0`。应用消费者沿用已验证IAT appdata重定向至可删除profile；恢复后清理。截图/日志/JSON留在Debug子树，不创建永久验证平台。下方完整driver与消费者保存后删除/tmp探针和Windows probe目录，静态receipt汇总保留为构建产物。
+
+##### 复建配方
+
+将下方完整内容恢复到`/tmp/devpiano-phaseg-windows.ps1`、`/tmp/devpiano-phaseg-smoke.cpp`与`/tmp/devpiano-phaseg-header.cpp`。driver选择生产compile_commands/build.ninja契约，链接真实app objects，包含真实Main.cpp应用类而非mock。先项目同步，Windows新Debug树configure（BUILD_TESTS=ON，/Zc:nrvo-），再Build/Test/Compile/Smoke/Header；源码唯一来源仍WSL。
+
+```bash
+./scripts/dev.sh self-check
+./scripts/dev.sh wsl-build --configure-only
+cmake --preset linux-clang-debug -S /root/repos/devpiano -DBUILD_TESTS=ON
+./scripts/dev.sh format
+./scripts/dev.sh win-build --sync-only
+"/mnt/c/Program Files/PowerShell/7/pwsh.exe" -NoProfile -ExecutionPolicy Bypass -File '\\wsl.localhost\Ubuntu\tmp\devpiano-phaseg-windows.ps1' -Mode Configure
+"/mnt/c/Program Files/PowerShell/7/pwsh.exe" -NoProfile -ExecutionPolicy Bypass -File '\\wsl.localhost\Ubuntu\tmp\devpiano-phaseg-windows.ps1' -Mode Build
+"/mnt/c/Program Files/PowerShell/7/pwsh.exe" -NoProfile -ExecutionPolicy Bypass -File '\\wsl.localhost\Ubuntu\tmp\devpiano-phaseg-windows.ps1' -Mode Test
+"/mnt/c/Program Files/PowerShell/7/pwsh.exe" -NoProfile -ExecutionPolicy Bypass -File '\\wsl.localhost\Ubuntu\tmp\devpiano-phaseg-windows.ps1' -Mode Compile -Source '\\wsl.localhost\Ubuntu\tmp\devpiano-phaseg-smoke.cpp' -Label smoke
+"/mnt/c/Program Files/PowerShell/7/pwsh.exe" -NoProfile -ExecutionPolicy Bypass -File '\\wsl.localhost\Ubuntu\tmp\devpiano-phaseg-windows.ps1' -Mode Smoke -Label smoke
+"/mnt/c/Program Files/PowerShell/7/pwsh.exe" -NoProfile -ExecutionPolicy Bypass -File '\\wsl.localhost\Ubuntu\tmp\devpiano-phaseg-windows.ps1' -Mode Header -Source '\\wsl.localhost\Ubuntu\tmp\devpiano-phaseg-header.cpp' -Label header
+TIDY_CACHE_DIR=/tmp/devpiano-phaseg-tidy-final ./scripts/dev.sh tidy --all
+./scripts/dev.sh format --check
+```
+
+##### 完整 Phase G Windows driver
+
+```powershell
+param([ValidateSet('Configure','Compile','Header','Build','Test','Smoke')][string]$Mode='Smoke',[string]$Source='', [string]$Label='smoke')
+$ErrorActionPreference='Stop'
+Set-StrictMode -Version Latest
+$mirror='G:\source\projects\devpiano'
+$build=Join-Path $mirror 'build-win-msvc\audit004-phaseg'
+$work=Join-Path $build 'phaseg-smoke'
+$private=Join-Path ([IO.Path]::GetTempPath()) ('devpiano-phaseg-'+[guid]::NewGuid().ToString('N'))
+$userDir=Join-Path $env:APPDATA 'DevPiano'
+function Snapshot([string]$directory) {
+    if(-not (Test-Path -LiteralPath $directory)){return 'ABSENT'}
+    $items=@(Get-Item -LiteralPath $directory)+@(Get-ChildItem -LiteralPath $directory -Recurse -Force)
+    return ($items | Sort-Object FullName | ForEach-Object {
+        $hash=if($_.PSIsContainer){'DIR'}else{(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash}
+        $_.FullName+'|'+$_.LastWriteTimeUtc.Ticks+'|'+$_.Attributes+'|'+$hash
+    }) -join "`n"
+}
+$before=Snapshot $userDir
+$oldTemp=$env:TEMP;$oldTmp=$env:TMP
+New-Item -ItemType Directory -Path $private,$work -Force | Out-Null
+$env:TEMP=$private;$env:TMP=$private
+$exitCode=1
+try {
+    Import-Module 'D:\Program Files\Microsoft Visual Studio\Common7\Tools\Microsoft.VisualStudio.DevShell.dll'
+    Enter-VsDevShell -VsInstallPath 'D:\Program Files\Microsoft Visual Studio\' -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64' | Out-Null
+    Push-Location $build
+    try {
+        if($Mode -eq 'Configure') {
+            Push-Location $mirror
+            try {
+                & cmake --preset windows-msvc-debug -B $build -DBUILD_TESTS=ON '-DCMAKE_CXX_FLAGS=/DWIN32 /D_WINDOWS /EHsc /Zc:nrvo-' 2>&1 | Tee-Object (Join-Path $build 'phaseg-configure.log')
+                if($LASTEXITCODE -ne 0){throw 'Debug configure failed'}
+            } finally { Pop-Location }
+        } elseif($Mode -eq 'Build') {
+            & cmake --build $build --target devpiano devpiano_tests --parallel 2 2>&1 | Tee-Object (Join-Path $build 'phaseg-build.log')
+            if($LASTEXITCODE -ne 0){throw 'Debug build failed'}
+        } elseif($Mode -eq 'Test') {
+            & ctest --test-dir $build --output-on-failure -V 2>&1 | Tee-Object (Join-Path $build 'phaseg-default-tests.log')
+            if($LASTEXITCODE -ne 0){throw 'Default tests failed'}
+        } elseif($Mode -eq 'Compile' -or $Mode -eq 'Header') {
+            $commands=Get-Content (Join-Path $build 'compile_commands.json') -Raw | ConvertFrom-Json
+            $entry=$commands | Where-Object { $_.file.Replace('\','/').EndsWith('/source/MainComponent.cpp') } | Select-Object -First 1
+            $command=$entry.command -replace '^.*?cl.exe\s+',''
+            $command=$command -replace '/(?:Yu|Fp|FI|Fo|Fd)[^\s]+',''
+            $command=$command -replace '\s+-c\s+.*$',''
+            $cpp=Join-Path $work ($Label+'.cpp')
+            Copy-Item -LiteralPath $Source -Destination $cpp
+            $obj=Join-Path $work ($Label+'.obj')
+            $exe=Join-Path $work ($Label+'.exe')
+            $compileRsp=Join-Path $work ($Label+'-compile.rsp')
+            [IO.File]::WriteAllText($compileRsp,$command+' /c "'+$cpp+'" /Fo"'+$obj+'"',[Text.UTF8Encoding]::new($false))
+            & cl.exe ('@'+$compileRsp)
+            if($LASTEXITCODE -ne 0){throw 'Smoke consumer compile failed'}
+            if($Mode -eq 'Compile') {
+            $ninja=Get-Content (Join-Path $build 'build.ninja') -Raw
+            $linkLine=@($ninja -split "`n" | Where-Object { $_ -match '^build devpiano_artefacts\\Debug\\DevPiano.exe:' })[0]
+            $objects=($linkLine -split ': CXX_EXECUTABLE_LINKER__devpiano_Debug ',2)[1] -split ' \|',2 | Select-Object -First 1
+            $objects=$objects -split ' ' | Where-Object { $_ -and -not $_.EndsWith('\source\Main.cpp.obj') }
+            $libraries=($ninja -split "`n" | Where-Object {$_ -match '^  LINK_LIBRARIES = ' } | Select-Object -First 1) -replace '^  LINK_LIBRARIES = ',''
+            $linkRsp=Join-Path $work ($Label+'-link.rsp')
+            [IO.File]::WriteAllText($linkRsp,('/nologo /subsystem:console /debug /INCREMENTAL:NO /out:"'+$exe+'" "'+$obj+'" '+($objects -join ' ')+' '+$libraries),[Text.UTF8Encoding]::new($false))
+            & link.exe ('@'+$linkRsp)
+            if($LASTEXITCODE -ne 0){throw 'Smoke consumer link failed'}
+            } else { Write-Output 'PHASE_G_HEADER_STANDALONE_COMPILED=1' }
+        } else {
+            & (Join-Path $work ($Label+'.exe')) 2>&1 | Tee-Object (Join-Path $build ('phaseg-'+$Label+'.log'))
+            if($LASTEXITCODE -ne 0){throw 'Smoke consumer failed'}
+        }
+        $exitCode=0
+    } finally { Pop-Location }
+} finally {
+    $env:TEMP=$oldTemp;$env:TMP=$oldTmp
+    $unchanged=($before -ceq (Snapshot $userDir))
+    $remaining=@(Get-ChildItem -LiteralPath $private -Force -Recurse).Count
+    if($remaining -eq 0){Remove-Item -LiteralPath $private}
+    $result=[ordered]@{mode=$Mode;label=$Label;buildDir=$build;exitCode=$exitCode;userDirectory=$userDir;userDirectoryUnchanged=$unchanged;privateTempDirectory=$private;remainingTempEntries=$remaining}
+    $json=$result | ConvertTo-Json -Compress
+    [IO.File]::WriteAllText((Join-Path $build ('phaseg-'+$Mode.ToLower()+'-'+$Label+'-verification.json')),$json,[Text.UTF8Encoding]::new($false))
+    Write-Output ('PHASE_G_VERIFICATION='+$json)
+    if(-not $unchanged){throw 'Real user directory was modified'}
+    if($remaining -ne 0){throw 'Private temp entries remain'}
+}
+```
+
+##### 完整 Phase G 生产消费者
+
+```cpp
+#include "Diagnostics/MidiTrace.h"
+#include "UI/WindowIconUtils.h"
+#include "Layout/PerformancePreset.h"
+#include "Recording/PerformanceFile.h"
+#include "Recording/RecordingSessionController.h"
+#include "Recording/WavFileExporter.h"
+#include "Settings/SettingsWindowManager.h"
+#include "UI/CustomKeyboard.h"
+#include "UI/QwertyComponent.h"
+#include "UI/jive/JiveModalDialog.h"
+#include "UI/jive/core/jive_BackgroundCanvas.h"
+#include <JuceHeader.h>
+#include <iostream>
+#include <shlobj.h>
+#include <vector>
+#include <windows.h>
+#undef START_JUCE_APPLICATION
+#define START_JUCE_APPLICATION(AppClass)
+#include "Main.cpp"
+using namespace devpiano::core;
+using namespace devpiano::recording;
+using namespace devpiano::exporting;
+void require(bool good, const char *reason) {
+  if (!good)
+    throw std::runtime_error(reason);
+}
+struct Scratch {
+  juce::File directory =
+      juce::File::getSpecialLocation(juce::File::tempDirectory)
+          .getChildFile("phaseg-consumer-" + juce::Uuid().toString());
+  Scratch() {
+    require(directory.createDirectory().wasOk(), "scratch create failed");
+  }
+  ~Scratch() {
+    std::cout << "PHASE_G_PRIVATE_FILES_CLEAN=" << directory.deleteRecursively()
+              << '\n';
+  }
+};
+class ProfileScope {
+  using Folder = BOOL(WINAPI *)(HWND, LPWSTR, int, BOOL);
+  static inline Folder original = nullptr;
+  static inline std::wstring path;
+  ULONG_PTR *slot = nullptr;
+  static BOOL WINAPI redirectFolder(HWND window, LPWSTR destination, int kind,
+                                    BOOL create) {
+    if (kind != CSIDL_APPDATA)
+      return original(window, destination, kind, create);
+    std::copy(path.begin(), path.end(), destination);
+    destination[path.size()] = 0;
+    return TRUE;
+  }
+
+public:
+  explicit ProfileScope(const juce::File &directory) {
+    path = directory.getFullPathName().toWideCharPointer();
+    require(path.size() < MAX_PATH, "private profile path too long");
+    auto *base = reinterpret_cast<BYTE *>(GetModuleHandleW(nullptr));
+    auto *dos = reinterpret_cast<IMAGE_DOS_HEADER *>(base);
+    auto *nt = reinterpret_cast<IMAGE_NT_HEADERS *>(base + dos->e_lfanew);
+    auto *imports = reinterpret_cast<IMAGE_IMPORT_DESCRIPTOR *>(
+        base + nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT]
+                   .VirtualAddress);
+    for (; imports->Name != 0; ++imports) {
+      if (imports->OriginalFirstThunk == 0)
+        continue;
+      auto *names = reinterpret_cast<IMAGE_THUNK_DATA *>(
+          base + imports->OriginalFirstThunk);
+      auto *entries =
+          reinterpret_cast<IMAGE_THUNK_DATA *>(base + imports->FirstThunk);
+      for (; names->u1.AddressOfData != 0; ++names, ++entries) {
+        if (IMAGE_SNAP_BY_ORDINAL(names->u1.Ordinal))
+          continue;
+        auto *imported = reinterpret_cast<IMAGE_IMPORT_BY_NAME *>(
+            base + names->u1.AddressOfData);
+        if (std::strcmp(imported->Name, "SHGetSpecialFolderPathW") != 0)
+          continue;
+        DWORD previous = 0;
+        require(VirtualProtect(&entries->u1.Function,
+                               sizeof(entries->u1.Function), PAGE_READWRITE,
+                               &previous) != FALSE,
+                "profile IAT protect failed");
+        slot = &entries->u1.Function;
+        original = reinterpret_cast<Folder>(*slot);
+        *slot = reinterpret_cast<ULONG_PTR>(redirectFolder);
+        DWORD ignored = 0;
+        require(VirtualProtect(slot, sizeof(*slot), previous, &ignored) !=
+                    FALSE,
+                "profile IAT protection restore failed");
+        return;
+      }
+    }
+    throw std::runtime_error("profile import unavailable");
+  }
+  ~ProfileScope() {
+    if (slot != nullptr) {
+      DWORD old = 0;
+      if (VirtualProtect(slot, sizeof(*slot), PAGE_READWRITE, &old)) {
+        *slot = reinterpret_cast<ULONG_PTR>(original);
+        DWORD ignored = 0;
+        VirtualProtect(slot, sizeof(*slot), old, &ignored);
+        std::cout << "PHASE_G_PROFILE_RESTORED=1\n";
+      }
+    }
+  }
+};
+void pump(int milliseconds) {
+  const auto until = juce::Time::getMillisecondCounterHiRes() + milliseconds;
+  do {
+    MSG message{};
+    while (PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE)) {
+      TranslateMessage(&message);
+      DispatchMessageW(&message);
+    }
+    juce::Thread::sleep(1);
+  } while (juce::Time::getMillisecondCounterHiRes() < until);
+}
+template <class T> T *find(juce::Component &c, const juce::String &id = {}) {
+  if (auto *typed = dynamic_cast<T *>(&c);
+      typed != nullptr && (id.isEmpty() || c.getComponentID() == id))
+    return typed;
+  for (int n = 0; n < c.getNumChildComponents(); ++n)
+    if (auto *result = find<T>(*c.getChildComponent(n), id))
+      return result;
+  return nullptr;
+}
+template <class T> T *desktopFind(const juce::String &id = {}) {
+  auto &d = juce::Desktop::getInstance();
+  for (int n = d.getNumComponents() - 1; n >= 0; --n)
+    if (auto *result = find<T>(*d.getComponent(n), id))
+      return result;
+  return nullptr;
+}
+void click(juce::Component &root, const char *id) {
+  auto *b = find<juce::Button>(root, id);
+  require(b != nullptr && bool(b->onClick), "actual button unavailable");
+  b->onClick();
+}
+void screenshot(juce::Component &component, const char *name) {
+  auto image = component.createComponentSnapshot(component.getLocalBounds());
+  juce::File file(
+      juce::String(
+          "G:/source/projects/devpiano/build-win-msvc/audit004-phaseg/") +
+      name);
+  juce::FileOutputStream output(file);
+  juce::PNGImageFormat png;
+  require(png.writeImageToStream(image, output), "surface screenshot failed");
+}
+juce::MouseEvent pressAt(juce::Component &c, juce::Point<int> p,
+                         int buttons = juce::ModifierKeys::leftButtonModifier) {
+  auto t = juce::Time::getCurrentTime();
+  return {juce::Desktop::getInstance().getMainMouseSource(),
+          p.toFloat(),
+          juce::ModifierKeys(buttons),
+          1.0f,
+          0.0f,
+          0.0f,
+          0.0f,
+          0.0f,
+          &c,
+          &c,
+          t,
+          p.toFloat(),
+          t,
+          1,
+          false};
+}
+juce::Point<int> pianoPosition(const CustomKeyboard &piano, int note) {
+  for (const auto &key : piano.getKeys())
+    if (key.midiNote == note)
+      return {juce::roundToInt(key.bounds.getCentreX()),
+              juce::roundToInt(key.bounds.getBottom() - 3.0f)};
+  throw std::runtime_error("piano key unavailable");
+}
+juce::Point<int> qwertyPosition(const devpiano::ui::QwertyComponent &qwerty) {
+  for (int x = 0; x < qwerty.getWidth(); ++x) {
+    const auto h = qwerty.findKeyAt({x, qwerty.getHeight() / 2});
+    if (h.key != nullptr && h.key->keyCode == 'A')
+      return {x, qwerty.getHeight() / 2};
+  }
+  throw std::runtime_error("QWERTY A unavailable");
+}
+void block(AudioEngine &audio, juce::AudioBuffer<float> &buffer,
+           int count = 1) {
+  for (int n = 0; n < count; ++n)
+    audio.getNextAudioBlock({&buffer, 0, buffer.getNumSamples()});
+}
+void type(juce::TextEditor &editor, const char *text) {
+  for (const char *c = text; *c != 0; ++c)
+    editor.keyPressed(*c == '\n' ? juce::KeyPress(juce::KeyPress::returnKey)
+                                 : juce::KeyPress(*c, 0, *c));
+}
+double frequency(const juce::AudioBuffer<float> &audio, double rate) {
+  const auto *samples = audio.getReadPointer(0);
+  double first = -1, last = -1;
+  int crossings = 0;
+  for (int n = 2049; n < std::min(8192, audio.getNumSamples()); ++n)
+    if (samples[n - 1] <= 0.0f && samples[n] > 0.0f) {
+      const double at = static_cast<double>(n - 1) -
+                        static_cast<double>(samples[n - 1]) /
+                            static_cast<double>(samples[n] - samples[n - 1]);
+      if (first < 0)
+        first = at;
+      last = at;
+      ++crossings;
+    }
+  require(crossings >= 10 && last > first,
+          "frequency observer lacks complete oscillation cycles");
+  return static_cast<double>(crossings - 1) * rate / (last - first);
+}
+void tuning(Scratch &scratch) {
+  for (const auto requested :
+       {350.0, 400.0, 415.0, 440.0, 442.0, 480.0, 520.0}) {
+    const double expected = std::clamp(requested, 400.0, 480.0);
+    AudioEngine audio;
+    audio.setBuiltinSynthTone(AudioEngine::BuiltinSynthTone::sine);
+    audio.setAdsr(0.001f, 0.001f, 1.0f, 0.001f);
+    audio.setReferencePitchA4(requested);
+    audio.setReverbWet(0.0f);
+    audio.setMasterGain(0.2f);
+    audio.prepareToPlay(128, 48000.0);
+    juce::AudioBuffer<float> buffer(2, 128), rendered(2, 10240);
+    block(audio, buffer, 16);
+    audio.getKeyboardState().noteOn(1, 69, 1.0f);
+    for (int n = 0; n < 80; ++n) {
+      block(audio, buffer);
+      for (int ch = 0; ch < 2; ++ch)
+        rendered.copyFrom(ch, n * 128, buffer, ch, 0, 128);
+    }
+    const auto live = frequency(rendered, 48000.0);
+    require(std::abs(live - expected) < 0.1,
+            "realtime A4 pitch differs from requested/clamped pitch");
+    SettingsModel model;
+    model.referencePitchA4 = requested;
+    const auto settingsFile = scratch.directory.getChildFile(
+        "tuning-" + juce::String(requested, 0) + ".settings");
+    {
+      SettingsStore store(settingsFile);
+      require(store.save(model), "tuning settings save failed");
+    }
+    SettingsModel loaded;
+    {
+      SettingsStore store(settingsFile);
+      store.load(loaded);
+    }
+    require(std::abs(loaded.referencePitchA4 - expected) < 0.001,
+            "settings A4 clamp differs");
+    auto preset = devpiano::layout::makeDefaultPreset();
+    preset.name = "Phase F tuning";
+    preset.referencePitchA4 = requested;
+    const auto presetFile = scratch.directory.getChildFile(
+        "tuning-" + juce::String(requested, 0) + ".devpiano.preset");
+    require(devpiano::layout::savePreset(preset, presetFile),
+            "pitch preset save failed");
+    const auto restored = devpiano::layout::loadPreset(presetFile);
+    require(restored.has_value() &&
+                std::abs(restored->referencePitchA4 - expected) < 0.001,
+            "preset A4 clamp differs");
+    RecordingTake take;
+    take.sampleRate = 48000.0;
+    take.lengthSamples = 12000;
+    take.events.push_back({0, PerformanceEventType::midi, 0,
+                           RecordingEventSource::computerKeyboard,
+                           juce::MidiMessage::noteOn(1, 69, 1.0f)});
+    take.events.push_back({9000, PerformanceEventType::midi, 0,
+                           RecordingEventSource::computerKeyboard,
+                           juce::MidiMessage::noteOff(1, 69)});
+    const auto wav = scratch.directory.getChildFile(
+        "tuning-" + juce::String(requested, 0) + ".wav");
+    WavExportOptions options;
+    options.sampleRate = 48000.0;
+    options.blockSize = 128;
+    options.builtinTone = SettingsModel::BuiltinTone::sine;
+    options.referencePitchA4 = requested;
+    options.masterGain = 0.2f;
+    options.adsr.attack = 0.001f;
+    options.adsr.decay = 0.001f;
+    options.adsr.sustain = 1.0f;
+    options.adsr.release = 0.001f;
+    options.reverbWet = 0.0f;
+    require(exportTakeAsWavFile(take, wav, options), "A4 WAV export failed");
+    juce::AudioFormatManager formats;
+    formats.registerBasicFormats();
+    std::unique_ptr<juce::AudioFormatReader> reader(
+        formats.createReaderFor(wav));
+    require(reader != nullptr, "A4 WAV unreadable");
+    juce::AudioBuffer<float> decoded(2, 10240);
+    require(reader->read(&decoded, 0, decoded.getNumSamples(), 0, true, true),
+            "A4 WAV read failed");
+    const auto offline = frequency(decoded, reader->sampleRate);
+    require(std::abs(offline - expected) < 0.1, "offline A4 pitch differs");
+    std::cout << "PHASE_G_TUNING request=" << requested
+              << " expected=" << expected << " live_hz=" << live
+              << " wav_hz=" << offline << " settings_preset=1\n";
+  }
+}
+void fadeAndRadii(Scratch &scratch) {
+  auto preset = devpiano::layout::makeDefaultPreset();
+  preset.name = "Phase F fade";
+  preset.fadeSpeed = 1.5f;
+  const auto path = scratch.directory.getChildFile("fade.devpiano.preset");
+  require(devpiano::layout::savePreset(preset, path),
+          "fade preset save failed");
+  const auto loaded = devpiano::layout::loadPreset(path);
+  require(loaded.has_value() && loaded->fadeSpeed < 1.0f,
+          "imported fade is not a contraction");
+  SettingsModel model;
+  model.keyboardDisplay.fadeSpeed = 1.5f;
+  const auto file = scratch.directory.getChildFile("fade.settings");
+  {
+    SettingsStore store(file);
+    require(store.save(model), "fade settings save failed");
+  }
+  SettingsModel restored;
+  {
+    SettingsStore store(file);
+    store.load(restored);
+  }
+  require(restored.keyboardDisplay.fadeSpeed < 1.0f,
+          "settings fade is not a contraction");
+  for (const auto speed :
+       {1.0f, loaded->fadeSpeed, restored.keyboardDisplay.fadeSpeed}) {
+    juce::MidiKeyboardState state;
+    CustomKeyboard keyboard(state);
+    auto settings = keyboard.getKeyboardSettings();
+    settings.fadeSpeed = speed;
+    settings.previewAlpha = 0.2f;
+    keyboard.setKeyboardSettings(settings);
+    state.noteOn(1, 60, 1.0f);
+    keyboard.triggerTimerCallbackForTest();
+    state.noteOff(1, 60, 1.0f);
+    int frames = 0;
+    while (keyboard.isTimerRunningForTest() && frames < 1200) {
+      keyboard.triggerTimerCallbackForTest();
+      ++frames;
+      for (const auto &k : keyboard.getKeys())
+        require(k.fade >= 0.0f && k.fade <= 1.0f, "fade alpha escaped bounds");
+    }
+    require(!keyboard.isTimerRunningForTest(), "fade timer never stopped");
+    for (const auto &k : keyboard.getKeys())
+      require(std::abs(k.fade - 0.2f) < 0.00001f,
+              "fade failed to reach preview floor");
+    std::cout << "PHASE_G_FADE input=" << speed << " frames=" << frames
+              << " bounded=1 floor=0.2 timer=0\n";
+  }
+  jive::BackgroundCanvas canvas;
+  canvas.setSize(80, 80);
+  canvas.setFill(jive::Fill(juce::Colours::white));
+  int index = 0;
+  for (const auto radius : {0.0f, 30.0f, 0.0f}) {
+    canvas.setBorderRadii(radius);
+    auto image = canvas.createComponentSnapshot(canvas.getLocalBounds());
+    const auto alpha = static_cast<int>(image.getPixelAt(0, 0).getAlpha());
+    require(alpha == (radius == 0.0f ? 255 : 0),
+            "corner path lagged behind current radius");
+    require(image.getPixelAt(40, 40).getAlpha() == 255,
+            "radius removed center fill");
+    const auto name = "phaseg-radius-" + juce::String(index++) + ".png";
+    screenshot(canvas, name.toRawUTF8());
+    std::cout << "PHASE_G_RADIUS value=" << radius << " corner_alpha=" << alpha
+              << " fixed_bounds=1\n";
+  }
+}
+template <class Tag, typename Tag::type Member> struct MemberAccess {
+  friend typename Tag::type access(Tag) { return Member; }
+};
+struct AudioTag {
+  using type = AudioEngine MainComponent::*;
+  friend type access(AudioTag);
+};
+struct RecordTag {
+  using type = RecordingEngine MainComponent::*;
+  friend type access(RecordTag);
+};
+struct MapperTag {
+  using type = KeyboardMidiMapper MainComponent::*;
+  friend type access(MapperTag);
+};
+struct ControllerTag {
+  using type = std::unique_ptr<RecordingSessionController> MainComponent::*;
+  friend type access(ControllerTag);
+};
+struct HostTag {
+  using type = devpiano::ui::ViewHost MainComponent::*;
+  friend type access(HostTag);
+};
+struct SettingsTag {
+  using type = std::unique_ptr<devpiano::settings::SettingsWindowManager>
+      MainComponent::*;
+  friend type access(SettingsTag);
+};
+struct UpdateTag {
+  using type = void (MainComponent::*)();
+  friend type access(UpdateTag);
+};
+struct TimerTag {
+  using type = void (MainComponent::*)();
+  friend type access(TimerTag);
+};
+struct ConfigTag {
+  using type = void (MainComponent::*)(bool);
+  friend type access(ConfigTag);
+};
+struct SyncTag {
+  using type = void (MainComponent::*)(bool);
+  friend type access(SyncTag);
+};
+struct GuardTag {
+  using type = void (MainComponent::*)(const std::function<void()> &);
+  friend type access(GuardTag);
+};
+struct CommitTag {
+  using type = bool (RecordingSessionController::*)(const juce::File &);
+  friend type access(CommitTag);
+};
+template struct MemberAccess<AudioTag, &MainComponent::audioEngine>;
+template struct MemberAccess<RecordTag, &MainComponent::recordingEngine>;
+template struct MemberAccess<MapperTag, &MainComponent::keyboardMidiMapper>;
+template struct MemberAccess<ControllerTag,
+                             &MainComponent::recordingSessionController>;
+template struct MemberAccess<HostTag, &MainComponent::viewHost>;
+template struct MemberAccess<SettingsTag,
+                             &MainComponent::settingsWindowManager>;
+template struct MemberAccess<UpdateTag, &MainComponent::updateQwertyVisualizer>;
+template struct MemberAccess<TimerTag, &MainComponent::timerCallback>;
+template struct MemberAccess<ConfigTag,
+                             &MainComponent::reconfigureChannelMapper>;
+template struct MemberAccess<SyncTag, &MainComponent::syncUiFromSettings>;
+template struct MemberAccess<
+    GuardTag, static_cast<GuardTag::type>(
+                  &MainComponent::runPluginActionWithAudioDeviceRebuild)>;
+template struct MemberAccess<
+    CommitTag, &RecordingSessionController::commitOpenedPerformanceFile>;
+
+void diagnosticsSmoke(Scratch& scratch) {
+  using devpiano::diagnostics::DevPianoLogger;
+  constexpr juce::int64 budget = 1024;
+  const auto file = scratch.directory.getChildFile("long-session.log");
+  {
+    DevPianoLogger logger(file, budget);
+    juce::Logger::setCurrentLogger(&logger);
+    for (int n=0;n<1500;++n) {
+      juce::Logger::writeToLog("sequence="+juce::String(n)+" "+juce::String::repeatedString("x",72));
+      require(!logger.hasFileError(),"long session sink faulted");
+      require(file.getSize()+logger.getBackupLogFile().getSize()<=budget,"combined session budget exceeded");
+    }
+    require(file.loadFileAsString().contains("sequence=1499"),"latest session record lost");
+    require(logger.getBackupLogFile().loadFileAsString().contains("sequence="),"previous rotation generation lost");
+    std::cout<<"PHASE_G_LOG_SESSION messages=1500 combined="<<file.getSize()+logger.getBackupLogFile().getSize()<<" budget="<<budget<<"\n";
+    juce::Logger::setCurrentLogger(nullptr);
+  }
+  {
+    const auto oldFile=scratch.directory.getChildFile("old-session.log");
+    const auto oldBackup=scratch.directory.getChildFile("old-session.old.log");
+    require(oldFile.replaceWithText(juce::String::repeatedString("old-record\n",500)),"old active fixture failed");
+    require(oldBackup.replaceWithText(juce::String::repeatedString("old-backup\n",500)),"old backup fixture failed");
+    DevPianoLogger logger(oldFile,budget);
+    require(logger.hasActiveFileLogger()&&!logger.hasFileError(),"startup clamp faulted");
+    require(oldFile.getSize()+oldBackup.getSize()<=budget,"old files not clamped on startup");
+    std::cout<<"PHASE_G_LOG_STARTUP combined="<<oldFile.getSize()+oldBackup.getSize()<<" budget="<<budget<<"\n";
+  }
+  {
+    const auto failed=scratch.directory.getChildFile("locked-startup.log");
+    require(failed.replaceWithText(juce::String::repeatedString("old-record\n",500)),"locked startup fixture failed");
+    const auto handle=CreateFileW(failed.getFullPathName().toWideCharPointer(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);
+    require(handle!=INVALID_HANDLE_VALUE,"startup exclusive handle failed");
+    struct Close {HANDLE h; ~Close(){CloseHandle(h);}} close{handle};
+    const auto before=failed.loadFileAsString();
+    DevPianoLogger logger(failed,budget);
+    require(logger.hasFileError()&&!logger.hasActiveFileLogger(),"failed startup trim enabled file sink");
+    juce::Logger::setCurrentLogger(&logger);
+    juce::Logger::writeToLog("should only reach debugger");
+    juce::Logger::setCurrentLogger(nullptr);
+    require(failed.loadFileAsString()==before,"failed startup touched existing bytes");
+    std::cout<<"PHASE_G_LOG_STARTUP_FAULT disabled=1 old_bytes_preserved=1 reason="<<logger.getLastError()<<"\n";
+  }
+  {
+    const auto blocked=scratch.directory.getChildFile("blocked.log");
+    DevPianoLogger logger(blocked,256);
+    const auto archive=logger.getBackupLogFile();
+    require(archive.createDirectory().wasOk(),"archive blocker failed");
+    require(archive.getChildFile("owner.txt").replaceWithText("blocker"),"archive child failed");
+    juce::Logger::setCurrentLogger(&logger);
+    for(int n=0;n<20;++n) juce::Logger::writeToLog(juce::String::repeatedString("r",80));
+    juce::Logger::setCurrentLogger(nullptr);
+    require(logger.hasFileError()&&!logger.hasActiveFileLogger(),"rotation fault remained active");
+    const auto bytes=blocked.getSize();
+    juce::Logger::setCurrentLogger(&logger);
+    juce::Logger::writeToLog("after failure");
+    juce::Logger::setCurrentLogger(nullptr);
+    require(blocked.getSize()==bytes && bytes<=128,"disabled sink still grew");
+    std::cout<<"PHASE_G_LOG_ROTATION_FAULT disabled=1 bytes="<<bytes<<" reason="<<logger.getLastError()<<"\n";
+  }
+  for(const int velocity:{0,1,64,127}) {
+    const auto message=juce::MidiMessage::noteOn(1,60,static_cast<juce::uint8>(velocity));
+    const auto result=devpiano::diagnostics::describeMidiMessage(message);
+    require(result.fromFirstOccurrenceOf("vel=",false,false).getIntValue()==velocity,"raw velocity misreported");
+    require(result.startsWith(velocity==0?"NoteOff":"NoteOn"),"zero velocity classification changed");
+    std::cout<<"PHASE_G_VELOCITY raw="<<velocity<<" result="<<result<<"\n";
+  }
+}
+
+void actualUi(Scratch &scratch) {
+
+  const auto previousDirectory=juce::File::getCurrentWorkingDirectory();
+  struct RestoreDirectory { juce::File previous; ~RestoreDirectory(){previous.setAsCurrentWorkingDirectory();} } restoreDirectory{previousDirectory};
+  const auto assets=scratch.directory.getChildFile("assets");
+  const auto styles=assets.getChildFile("source/UI/jive/style_sheets.json");
+  require(styles.getParentDirectory().createDirectory().wasOk(),"private styles directory failed");
+  require(styles.replaceWithText(juce::String::fromUTF8(BinaryData::style_sheets_json,BinaryData::style_sheets_jsonSize)),"private style seed failed");
+  require(assets.setAsCurrentWorkingDirectory(),"private style cwd failed");
+
+  SettingsModel initial;
+  initial.languageCode = "en";
+  initial.masterGain = 0.0f;
+  initial.qwertyVisualizerExpanded = true;
+  {
+    SettingsStore store;
+    require(store.save(initial), "private startup settings failed");
+  }
+  juce::JUCEApplicationBase::createInstance =
+      []() -> juce::JUCEApplicationBase * { return new DevPianoApplication(); };
+  DevPianoApplication application;
+  application.initialise("--sine");
+  struct Shutdown {
+    DevPianoApplication &application;
+    ~Shutdown() {
+      application.shutdown();
+      pump(30);
+    }
+  } shutdown{application};
+  pump(150);
+  auto *mainPointer = desktopFind<MainComponent>();
+  require(mainPointer != nullptr, "actual Main window unavailable");
+  auto &main = *mainPointer;
+  auto &audio = main.*access(AudioTag{});
+  auto &record = main.*access(RecordTag{});
+  auto &mapper = main.*access(MapperTag{});
+  auto &host = main.*access(HostTag{});
+  auto &controller = *(main.*access(ControllerTag{}));
+  auto &settings = main.getAppSettings();
+
+  const auto oldStylePointer=host.find("status-bar");
+  require(oldStylePointer!=nullptr,"status bar surface absent");
+  const auto setBackground=[&](const char* colour) {
+    auto json=juce::JSON::parse(styles.loadFileAsString());
+    auto rule=json.getDynamicObject()->getProperty("#status-bar");
+    rule.getDynamicObject()->setProperty("background",colour);
+    require(styles.replaceWithText(juce::JSON::toString(json)),"private stylesheet write failed");
+    main.reloadStylesAndTokens();
+    pump(30);
+    require(host.find("status-bar")==oldStylePointer,"hot reload replaced live component");
+    return oldStylePointer->createComponentSnapshot(oldStylePointer->getLocalBounds()).getPixelAt(4,4);
+  };
+  const auto firstColour=setBackground("#112233");
+  require(firstColour==juce::Colour(0xff112233),"first hot reload did not paint current style");
+  screenshot(main,"phaseg-hot-reload-first.png");
+  const auto secondColour=setBackground("#335577");
+  require(secondColour==juce::Colour(0xff335577),"second hot reload did not paint current style");
+  screenshot(main,"phaseg-hot-reload-second.png");
+  devpiano::ui::applyAppWindowIcon(*main.getTopLevelComponent());
+  require(main.getTopLevelComponent()->getPeer()!=nullptr,"main native peer absent");
+  std::cout<<"PHASE_G_REAL_HOT_RELOAD first="<<firstColour.toDisplayString(false)<<" second="<<secondColour.toDisplayString(false)<<" component_identity_preserved=1\n";
+  std::optional<juce::String> inputResult;
+  devpiano::ui::jive::JiveModalDialog::launchSingleInput("Phase G input","Name","initial",&main,[&](auto result){inputResult=result;});
+  pump(30);
+  auto* inputEditor=desktopFind<juce::TextEditor>("dialog-editor");
+  require(inputEditor!=nullptr&&inputEditor->getText()=="initial","single input host initialization failed");
+  inputEditor->keyPressed(juce::KeyPress('A',juce::ModifierKeys::ctrlModifier,0));
+  type(*inputEditor,"typed result");
+  auto* inputWindow=inputEditor->getTopLevelComponent();
+  screenshot(*inputWindow,"phaseg-single-input.png");
+  click(*inputWindow,"dialog-ok-btn");
+  pump(30);
+  require(inputResult.has_value()&&*inputResult=="typed result","single input host confirmation lost typed value");
+  std::optional<bool> confirmation;
+  devpiano::ui::jive::JiveModalDialog::launchConfirm("Phase G confirm","Keep the current Take?","OK","Cancel",&main,[&](bool result){confirmation=result;});
+  pump(30);
+  auto* okButton=desktopFind<juce::Button>("dialog-ok-btn");
+  require(okButton!=nullptr,"confirm modal absent");
+  click(*okButton->getTopLevelComponent(),"dialog-cancel-btn");
+  pump(30);
+  require(confirmation.has_value()&&!*confirmation,"confirm host cancel path lost false");
+  confirmation.reset();
+  devpiano::ui::jive::JiveModalDialog::launchConfirm("Phase G confirm","Keep the current Take?","OK","Cancel",&main,[&](bool result){confirmation=result;});
+  pump(30);
+  okButton=desktopFind<juce::Button>("dialog-ok-btn");
+  require(okButton!=nullptr,"second confirm modal absent");
+  click(*okButton->getTopLevelComponent(),"dialog-ok-btn");
+  pump(30);
+  require(confirmation.has_value()&&*confirmation,"confirm host accept path lost true");
+  std::cout<<"PHASE_G_REAL_MODAL single_input_initialized=1 typed_confirmation=1 confirm_cancel=1 confirm_accept=1\n";
+
+  auto *piano = find<CustomKeyboard>(main);
+  auto *qwerty = host.find<devpiano::ui::QwertyComponent>("qwerty-visualizer");
+  require(piano != nullptr && qwerty != nullptr,
+          "actual map components unavailable");
+  auto layout = makeDefaultKeyboardLayout();
+  layout.bindings = {makeNoteBinding('A', 60)};
+  mapper.setLayout(layout);
+  settings.channelMatrix.channels[0].outputChannel = 1;
+  settings.channelMatrix.channels[0].transpose = 12;
+  settings.channelMatrix.channels[0].followKey = false;
+  settings.channelMatrix.channels[1].outputChannel = 2;
+  settings.channelMatrix.channels[1].transpose = -3;
+  settings.midiTranspose = false;
+  settings.keySignature = 0;
+  (main.*access(ConfigTag{}))(true);
+  const std::function<void()> scenario = [&] {
+    audio.prepareToPlay(128, 48000.0);
+    juce::AudioBuffer<float> buffer(2, 128);
+    block(audio, buffer, 16);
+    record.reserveEvents(2000);
+    record.startRecording(48000.0);
+    const auto assertProjection = [&](int note, int channel) {
+      const auto &a = qwerty->getViewModel().rows[2].keys[1];
+      require(a.mappedMidiNote == note && a.mappedMidiChannel == channel,
+              "actual QWERTY projection differs from output");
+      bool label = false;
+      for (const auto &k : piano->getKeys())
+        if (k.midiNote == note && k.keyLabel == "A")
+          label = true;
+      require(label, "actual piano label is not on final output pitch");
+    };
+    assertProjection(72, 2);
+    const auto press = pressAt(*piano, pianoPosition(*piano, 72));
+    piano->mouseDown(press);
+    require(audio.getKeyboardState().isNoteOn(2, 72),
+            "first actual piano click routed incorrectly");
+    block(audio, buffer);
+    piano->mouseUp(press);
+    block(audio, buffer);
+    piano->mouseDown(press);
+    require(audio.getKeyboardState().isNoteOn(2, 72) &&
+                !audio.getKeyboardState().isNoteOn(3, 72),
+            "repeated click fed output channel back as input");
+    block(audio, buffer);
+    piano->mouseUp(press);
+    block(audio, buffer);
+    qwerty->mouseDown(pressAt(*qwerty, qwertyPosition(*qwerty)));
+    require(audio.getKeyboardState().isNoteOn(2, 72),
+            "QWERTY click transformed twice");
+    block(audio, buffer);
+    qwerty->releaseHeldMouseNote();
+    block(audio, buffer);
+    main.restoreKeyboardFocus();
+    require(main.keyPressed(juce::KeyPress('A', 0, 'a')),
+            "actual physical A not consumed");
+    block(audio, buffer);
+    mapper.releaseAllHeldKeys(audio.getKeyboardState());
+    block(audio, buffer);
+    const auto captured = record.stopRecording();
+    int ons = 0;
+    for (const auto &event : captured.events)
+      if (event.message.isNoteOn()) {
+        ++ons;
+        require(event.message.getChannel() == 2 &&
+                    event.message.getNoteNumber() == 72,
+                "recorded final MIDI differs from both maps");
+      }
+    require(ons == 4,
+            "final MIDI observer did not capture all four positive controls");
+    std::cout
+        << "PHASE_G_ACTUAL_MAP final=Ch2/72 physical_piano_qwerty_noteons="
+        << ons << " repeat_channels=2,2\n";
+    auto display = piano->getKeyboardSettings();
+    piano->setKeyboardSettings(display);
+    piano->setSize(piano->getWidth() + 20, piano->getHeight() + 10);
+    piano->updateViewportBounds(1200, 180);
+    assertProjection(72, 2);
+    std::cout << "PHASE_G_ACTUAL_LABELS settings_resize_viewport=1\n";
+    RecordingTake playback;
+    playback.sampleRate = 48000.0;
+    playback.lengthSamples = 256;
+    playback.events.push_back({0, PerformanceEventType::midi, 0,
+                               RecordingEventSource::playback,
+                               juce::MidiMessage::noteOn(11, 72, 0.5f)});
+    playback.events.push_back({128, PerformanceEventType::midi, 0,
+                               RecordingEventSource::playback,
+                               juce::MidiMessage::noteOff(11, 72)});
+    record.startPlayback(playback, 48000.0);
+    audio.preparePlaybackResources();
+    block(audio, buffer);
+    audio.dispatchPendingDisplayEvents();
+    require(piano->getPerKeyChannel(72) == 10,
+            "real playback did not exercise observed output channel");
+    const auto afterPlayback = pressAt(*piano, pianoPosition(*piano, 72));
+    piano->mouseDown(afterPlayback);
+    require(audio.getKeyboardState().isNoteOn(2, 72),
+            "real playback polluted the next mouse input identity");
+    block(audio, buffer);
+    piano->mouseUp(afterPlayback);
+    block(audio, buffer, 4);
+    (main.*access(TimerTag{}))();
+    std::cout << "PHASE_G_ACTUAL_PLAYBACK observed=Ch11 next_mouse=Ch2/72\n";
+    layout.groups[1].transposeOffset = 2;
+    layout.groups[1].octaveShift = 1;
+    layout.groups[1].channel = 2;
+    layout.activeGroupIndex = 1;
+    mapper.setLayout(layout);
+    mapper.setModifierState({.altActive = true});
+    settings.midiTranspose = true;
+    settings.keySignature = 2;
+    (main.*access(ConfigTag{}))(true);
+    assertProjection(85, 3);
+    const auto grouped = pressAt(*piano, pianoPosition(*piano, 85));
+    piano->mouseDown(grouped);
+    require(audio.getKeyboardState().isNoteOn(3, 85),
+            "group/Alt/followKey click output differs");
+    block(audio, buffer);
+    piano->mouseUp(grouped);
+    block(audio, buffer);
+    std::cout << "PHASE_G_ACTUAL_GROUP alt_follow_key=1 final=Ch3/85\n";
+    layout.activeGroupIndex = 0;
+    layout.bindings = {makeNoteBinding('A', 60, 1, 0.0f)};
+    mapper.setLayout(layout);
+    mapper.setModifierState({.shiftActive = true});
+    settings.channelMatrix.channels[0].velocity = 127;
+    (main.*access(ConfigTag{}))(true);
+    record.reserveEvents(100);
+    record.startRecording(48000.0);
+    main.keyPressed(
+        juce::KeyPress('A', juce::ModifierKeys::shiftModifier, 'A'));
+    piano->mouseDown(pressAt(*piano, pianoPosition(*piano, 72)));
+    qwerty->mouseDown(pressAt(*qwerty, qwertyPosition(*qwerty)));
+    block(audio, buffer, 4);
+    mapper.releaseAllHeldKeys(audio.getKeyboardState());
+    piano->releaseHeldMouseNote();
+    qwerty->releaseHeldMouseNote();
+    block(audio, buffer, 4);
+    const auto muted = record.stopRecording();
+    for (const auto &event : muted.events)
+      require(!event.message.isNoteOn(),
+              "silent binding escaped through actual MIDI/audio capture");
+    std::cout
+        << "PHASE_G_ACTUAL_MUTE physical_piano_qwerty_shift_matrix_override=1 "
+           "recorded_noteons=0\n";
+    layout.bindings = {makeNoteBinding('A', 60)};
+    mapper.setLayout(layout);
+    settings.channelMatrix.channels[0].velocity = 64;
+    settings.midiTranspose = false;
+    settings.keySignature = 0;
+    (main.*access(ConfigTag{}))(true);
+    audio.setMasterGain(0.0f);
+    (main.*access(UpdateTag{}))();
+  };
+  (main.*access(GuardTag{}))(scenario);
+  pump(30);
+  screenshot(main, "phaseg-actual-map.png");
+  settings.channelMatrix.active = false;
+  settings.midiTranspose = false;
+  (main.*access(ConfigTag{}))(true);
+  const char *expected[] = {"C-1", "C#-1", "B-1", "C0"};
+  int index = 0;
+  for (const auto note : {0, 1, 11, 12}) {
+    mapper.releaseAllHeldKeys(audio.getKeyboardState());
+    layout.bindings = {makeNoteBinding('A', note)};
+    layout.activeGroupIndex = 0;
+    mapper.setLayout(layout);
+    mapper.handleKeyPressed(juce::KeyPress('A', 0, 'a'), audio.getKeyboardState());
+    (main.*access(UpdateTag{}))();
+    require(qwerty->getViewModel().rows[2].keys[1].noteName == expected[index],
+            "actual lowest-octave card label differs");
+    require(qwerty->getLastDisplayedChord().chordName == expected[index++],
+            "actual single-note HUD label differs");
+    if (note == 1)
+      screenshot(*qwerty, "phaseg-lowest-octave-hud.png");
+  }
+  std::cout << "PHASE_G_ACTUAL_OCTAVES=C-1,C#-1,B-1,C0\n";
+  mapper.releaseAllHeldKeys(audio.getKeyboardState());
+  auto *settingsButton = host.find<juce::Button>("settings-btn");
+  require(settingsButton != nullptr, "actual settings button absent");
+  settingsButton->onClick();
+  pump(30);
+  auto* transpose=desktopFind<juce::ToggleButton>("midi-transpose-toggle");
+  auto* follow=desktopFind<juce::ToggleButton>("follow-key-0");
+  require(transpose!=nullptr&&follow!=nullptr,"actual followKey controls absent");
+  if(transpose->getToggleState()) {transpose->triggerClick();pump(30);}
+  require(!follow->isEnabled(),"followKey stayed enabled after real transpose toggle off");
+  transpose->triggerClick();pump(30);
+  require(transpose->getToggleState()&&follow->isEnabled(),"real transpose toggle did not enable followKey");
+  std::cout<<"PHASE_G_REAL_SETTINGS followKey_disabled_off=1 enabled_on=1\n";
+  auto *pitch = desktopFind<juce::Slider>("reference-pitch-slider");
+  auto *fade = desktopFind<juce::Slider>("fade-speed-slider");
+  require(pitch != nullptr && fade != nullptr,
+          "actual settings sliders unavailable");
+  require(pitch->getMinimum() == 400.0 && pitch->getMaximum() == 480.0,
+          "settings pitch range differs");
+  pitch->setValue(400.0, juce::sendNotificationSync);
+  require(pitch->getValue() == 400.0, "settings rejected 400 Hz");
+  if (auto *viewport = pitch->findParentComponentOfClass<juce::Viewport>()) {
+    const auto p = viewport->getViewedComponent()->getLocalPoint(
+        pitch, juce::Point<int>());
+    viewport->setViewPosition(0, std::max(0, p.y - 70));
+  }
+  screenshot(*pitch->getTopLevelComponent(), "phaseg-settings-400.png");
+  pitch->setValue(480.0, juce::sendNotificationSync);
+  require(pitch->getValue() == 480.0, "settings rejected 480 Hz");
+  fade->setValue(1.0, juce::sendNotificationSync);
+  require(fade->getValue() < 1.0,
+          "settings fade endpoint is not a contraction");
+  screenshot(*pitch->getTopLevelComponent(), "phaseg-settings-480.png");
+  (main.*access(SettingsTag{}))->saveAndClose();
+  pump(30);
+  require(settings.referencePitchA4 == 480.0,
+          "settings did not commit the selected endpoint");
+  std::cout << "PHASE_G_ACTUAL_SETTINGS pitch=400..480 committed=480 fade_max="
+            << settings.keyboardDisplay.fadeSpeed << '\n';
+  RecordingTake take;
+  take.sampleRate = 48000.0;
+  take.lengthSamples = 4800;
+  take.events.push_back({0, PerformanceEventType::midi, 0,
+                         RecordingEventSource::computerKeyboard,
+                         juce::MidiMessage::noteOn(1, 60, 0.5f)});
+  take.events.push_back({2400, PerformanceEventType::midi, 0,
+                         RecordingEventSource::computerKeyboard,
+                         juce::MidiMessage::noteOff(1, 60)});
+  PerformanceFileMetadata metadata;
+  metadata.title = "Phase F Notes";
+  metadata.notes = "Before";
+  const auto native = scratch.directory.getChildFile("notes.devpiano");
+  require(savePerformanceFile(take, native, metadata),
+          "metadata fixture save failed");
+  require((controller.*access(CommitTag{}))(native),
+          "production controller file commit failed");
+  controller.handleSongInfoClicked();
+  pump(30);
+  auto *notes = desktopFind<juce::TextEditor>("notes-editor");
+  require(notes != nullptr && !notes->isReadOnly(),
+          "production Notes is read-only");
+  notes->grabKeyboardFocus();
+  notes->keyPressed(juce::KeyPress('A', juce::ModifierKeys::ctrlModifier, 0));
+  type(*notes, "First line\nSecond line");
+  require(notes->getText() == "First line\nSecond line",
+          "actual Notes key input failed");
+  auto *dialog = notes->getTopLevelComponent();
+  screenshot(*dialog, "phaseg-actual-notes.png");
+  click(*dialog, "dialog-ok-btn");
+  pump(40);
+  auto saved = loadPerformanceFileMetadata(native);
+  require(saved.has_value() && saved->notes == "First line\nSecond line" &&
+              controller.getSession().currentMetadata.notes == saved->notes,
+          "actual Notes save failed");
+  juce::MemoryBlock bytes;
+  require(native.loadFileAsData(bytes), "saved metadata read failed");
+  controller.handleSongInfoClicked();
+  pump(30);
+  notes = desktopFind<juce::TextEditor>("notes-editor");
+  require(notes != nullptr, "second actual metadata dialog absent");
+  notes->keyPressed(juce::KeyPress('A', juce::ModifierKeys::ctrlModifier, 0));
+  type(*notes, "Discarded changes");
+  dialog = notes->getTopLevelComponent();
+  click(*dialog, "dialog-cancel-btn");
+  pump(40);
+  juce::MemoryBlock after;
+  require(native.loadFileAsData(after) && after == bytes,
+          "cancel changed native metadata bytes");
+  require(controller.getSession().currentMetadata.notes ==
+              "First line\nSecond line",
+          "cancel changed live metadata");
+  devpiano::ui::ViewHost diagnostics;
+  diagnostics.registerDefaultComponents();
+  juce::ValueTree list("ListEditor");
+  list.setProperty("id", "diagnostic-list", nullptr);
+  require(diagnostics.loadLayout(list, true), "diagnostic factory failed");
+  auto *readOnly = diagnostics.find<juce::TextEditor>("diagnostic-list");
+  require(readOnly != nullptr && readOnly->isReadOnly(),
+          "diagnostic list became editable");
+  readOnly->setText("Log", juce::dontSendNotification);
+  type(*readOnly, "Changed");
+  require(readOnly->getText() == "Log", "diagnostic list accepted typed input");
+  std::cout << "PHASE_G_ACTUAL_NOTES typed_multiline_saved=1 "
+               "cancel_preserved_session_and_file=1 diagnostics_readonly=1\n";
+  layout = makeDefaultKeyboardLayout();
+  layout.bindings = {makeNoteBinding('A', 60)};
+  mapper.setLayout(layout);
+  settings.channelMatrix.active = true;
+  settings.channelMatrix.channels[0].outputChannel = 1;
+  settings.channelMatrix.channels[0].transpose = 12;
+  settings.channelMatrix.channels[0].followKey = false;
+  settings.channelMatrix.channels[0].velocity = 64;
+  settings.midiTranspose = false;
+  settings.keySignature = 0;
+  settings.keyboardDisplay.customKeyLabels[60] = "U7";
+  settings.keyboardDisplay.customKeyColours[60] = juce::Colours::magenta;
+  (main.*access(ConfigTag{}))(true);
+  (main.*access(SyncTag{}))(false);
+  const auto customized = piano->createComponentSnapshot(piano->getLocalBounds());
+  for (const auto &key : piano->getKeys()) {
+    if (key.midiNote == 72) {
+      const auto pixel = customized.getPixelAt(juce::roundToInt(key.bounds.getCentreX()),
+          juce::roundToInt(key.bounds.getY() + key.bounds.getHeight() * 0.7f));
+      require(pixel == juce::Colours::magenta, "configured input colour did not follow final pitch");
+    }
+  }
+  screenshot(*piano, "phaseg-projected-customization.png");
+  piano->mouseDown(pressAt(*piano, pianoPosition(*piano, 72),
+                         juce::ModifierKeys::rightButtonModifier));
+  pump(30);
+  auto *labelEditor = desktopFind<juce::TextEditor>("custom-label-editor");
+  auto *inputNote = desktopFind<juce::Slider>("note-slider");
+  require(labelEditor != nullptr && labelEditor->getText() == "U7" &&
+              inputNote != nullptr && inputNote->getValue() == 60.0,
+          "existing binding editor lost the configured input identity");
+  auto *bindingDialog = labelEditor->getTopLevelComponent();
+  click(*bindingDialog, "dialog-cancel-btn");
+  pump(40);
+  piano->mouseDown(pressAt(*piano, pianoPosition(*piano, 73),
+                         juce::ModifierKeys::rightButtonModifier));
+  pump(30);
+  labelEditor = desktopFind<juce::TextEditor>("custom-label-editor");
+  require(labelEditor != nullptr, "new binding dialog unavailable");
+  bindingDialog = labelEditor->getTopLevelComponent();
+  require(bindingDialog->getName().contains("#61"), "unbound output did not preserve its input note");
+  click(*bindingDialog, "dialog-bind-btn");
+  auto *peer = bindingDialog->getPeer();
+  require(peer != nullptr && peer->handleKeyPress(juce::KeyPress('Z', 0, 'z')),
+          "production key capture did not consume Z");
+  click(*bindingDialog, "dialog-ok-btn");
+  pump(40);
+  const auto *created = mapper.getLayout().findByKeyCode('Z');
+  require(created != nullptr && created->action.midiNote == 61,
+          "new binding was stored as a transformed output instead of input");
+  const std::function<void()> bindingScenario = [&] {
+    audio.prepareToPlay(128, 48000.0);
+    juce::AudioBuffer<float> buffer(2, 128);
+    block(audio, buffer, 16);
+    record.reserveEvents(100);
+    record.startRecording(48000.0);
+    main.restoreKeyboardFocus();
+    require(main.keyPressed(juce::KeyPress('Z', 0, 'z')), "new physical binding not consumed");
+    block(audio, buffer);
+    mapper.releaseAllHeldKeys(audio.getKeyboardState());
+    block(audio, buffer);
+    const auto captured = record.stopRecording();
+    int ons = 0;
+    for (const auto &event : captured.events) {
+      if (event.message.isNoteOn()) {
+        ++ons;
+        require(event.message.getNoteNumber() == 73 && event.message.getChannel() == 2,
+                "new binding reapplied the output transform");
+      }
+    }
+    require(ons == 1, "new binding MIDI observer lacks its positive control");
+  };
+  (main.*access(GuardTag{}))(bindingScenario);
+  std::cout << "PHASE_G_ACTUAL_CUSTOMIZATION input60_style_at_output72=1 existing_editor_input=60"
+               " captured_new_binding_input=61 final_midi=Ch2/73\n";
+  std::cout << "PHASE_G_ACTUAL_UI production_windows=1\n";
+}
+int main() {
+  std::cout.setf(std::ios::unitbuf);
+  try {
+    juce::ScopedJuceInitialiser_GUI gui;
+    Scratch scratch;
+    const auto profile = scratch.directory.getChildFile("profile");
+    require(profile.createDirectory().wasOk(), "profile create failed");
+    ProfileScope redirect(profile);
+    require(juce::File::getSpecialLocation(
+                juce::File::userApplicationDataDirectory) == profile,
+            "profile not isolated");
+    diagnosticsSmoke(scratch);
+    actualUi(scratch);
+    std::cout << "PHASE_G_SMOKE_PASSED=1\n";
+    return 0;
+  } catch (const std::exception &e) {
+    std::cerr << "PHASE_G_SMOKE_ERROR=" << e.what() << '\n';
+    return 1;
+  }
+}
+```
+
+##### 独立业务头消费者
+
+```cpp
+#include "UI/WindowIconUtils.h"
+void standalone(juce::Component& window) { devpiano::ui::applyAppWindowIcon(window); }
+```
+
+##### 实际消费者关键输出
+
+```text
+PHASE_G_LOG_SESSION messages=1500 combined=783 budget=1024
+PHASE_G_LOG_STARTUP combined=549 budget=1024
+PHASE_G_LOG_STARTUP_FAULT disabled=1 old_bytes_preserved=1 reason=Failed to trim active log file: C:\Users\Admin\AppData\Local\Temp\devpiano-phaseg-a72f8732125a4d10b4bf5d5b558a474b\phaseg-consumer-40b2a1177ab242ad9bc49dffe85d035c\locked-startup.log
+PHASE_G_LOG_ROTATION_FAULT disabled=1 bytes=126 reason=Failed to rotate log file to backup: C:\Users\Admin\AppData\Local\Temp\devpiano-phaseg-a72f8732125a4d10b4bf5d5b558a474b\phaseg-consumer-40b2a1177ab242ad9bc49dffe85d035c\blocked.log
+PHASE_G_VELOCITY raw=0 result=NoteOff ts=0.000 ch=1 note=60(C4) vel=0
+PHASE_G_VELOCITY raw=1 result=NoteOn ts=0.000 ch=1 note=60(C4) vel=1
+PHASE_G_VELOCITY raw=64 result=NoteOn ts=0.000 ch=1 note=60(C4) vel=64
+PHASE_G_VELOCITY raw=127 result=NoteOn ts=0.000 ch=1 note=60(C4) vel=127
+PHASE_G_REAL_HOT_RELOAD first=112233 second=335577 component_identity_preserved=1
+PHASE_G_REAL_MODAL single_input_initialized=1 typed_confirmation=1 confirm_cancel=1 confirm_accept=1
+PHASE_G_ACTUAL_MAP final=Ch2/72 physical_piano_qwerty_noteons=4 repeat_channels=2,2
+PHASE_G_ACTUAL_LABELS settings_resize_viewport=1
+PHASE_G_ACTUAL_PLAYBACK observed=Ch11 next_mouse=Ch2/72
+PHASE_G_ACTUAL_GROUP alt_follow_key=1 final=Ch3/85
+PHASE_G_ACTUAL_MUTE physical_piano_qwerty_shift_matrix_override=1 recorded_noteons=0
+PHASE_G_ACTUAL_OCTAVES=C-1,C#-1,B-1,C0
+PHASE_G_REAL_SETTINGS followKey_disabled_off=1 enabled_on=1
+PHASE_G_ACTUAL_SETTINGS pitch=400..480 committed=480 fade_max=0.99
+PHASE_G_ACTUAL_NOTES typed_multiline_saved=1 cancel_preserved_session_and_file=1 diagnostics_readonly=1
+PHASE_G_ACTUAL_CUSTOMIZATION input60_style_at_output72=1 existing_editor_input=60 captured_new_binding_input=61 final_midi=Ch2/73
+PHASE_G_ACTUAL_UI production_windows=1
+PHASE_G_SMOKE_PASSED=1
+PHASE_G_PROFILE_RESTORED=1
+PHASE_G_PRIVATE_FILES_CLEAN=1
+PHASE_G_VERIFICATION={"mode":"Smoke","label":"smoke","buildDir":"G:\\source\\projects\\devpiano\\build-win-msvc\\audit004-phaseg","exitCode":0,"userDirectory":"C:\\Users\\Admin\\AppData\\Roaming\\DevPiano","userDirectoryUnchanged":true,"privateTempDirectory":"C:\\Users\\Admin\\AppData\\Local\\Temp\\devpiano-phaseg-a72f8732125a4d10b4bf5d5b558a474b","remainingTempEntries":0}
+```
 
 ### AUDIT-004 Phase H：契约文档与最终集成验收 [待开始]
 
