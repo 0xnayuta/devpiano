@@ -9,7 +9,7 @@
 
 ## AUDIT-004 当前复审入口与契约边界
 
-全量原项身份、原优先级、逐项证据和可复建输入见 [Phase H 实施记录](../roadmap/current-iteration.md#phase-h-实施记录与最终集成验收2026-10-05)。历史 AUDIT-004 是基线快照，不回写其评级或状态；项目状态只在 roadmap 维护。
+全量原项身份、原优先级、逐项证据和可复建输入见 [Phase H 实施归档](../archive/audit-004-code-quality-fix-phases.md#phase-h-实施记录与最终集成验收2026-10-05)。AUDIT-004 保留首次基线并按用户授权追加软件实施复审，问题状态以其第 8 章为准；项目状态只在 roadmap 维护。
 
 | 领域 | 当前必须满足的消费者不变量 | 直接证据与验证边界 |
 | --- | --- | --- |
@@ -24,6 +24,16 @@
 
 **实机补验必须独立记录**：按原报告 §4.5，在复制数据/可丢弃会话上执行目标厂商 VST3、辅助窗口失焦/IME、密集声卡回放及物理热插拔。未执行的项保持未验证；不能由默认测试或自建 native VST3 通过替代，也不能据此宣布整体平台验收完成。8 复音单核 CPU $\le 0.7\%$ 保持物理 SLA，本轮文档/文件验收不构成新性能测量。
 
+## 本地化完整消息模板收口（规划验收）
+
+此小阶段按 [ADR-015](../decisions/ADR-015-localized-message-templates-and-punctuation.md) 与 [当前迭代](../roadmap/current-iteration.md) 实施，下面均为待验收目标，不替代上方 AUDIT-004 软件历史或实机矩阵：
+
+- [ ] 删除/覆盖确认与相关成功提示用完整消息模板；所有相关入口迁移、无引用碎片键清理，不留兼容别名。
+- [ ] 英文原句回退与嵌入中文、已有语言切换机制保持；字面量键覆盖与全部 UI 本地化分别核对。
+- [ ] `{0}`/`{1}`/`%1`、中文和合法名称边界原样插入，译文可以换位；参数不二次解释、不全半角转换。
+- [ ] 中文标点、长名称、换行与按钮在真实窗口巡检；确认/取消及 UUID/文件保护语义不变。
+- [ ] Windows Debug 与相关既有回归、格式及编码检查按实际结果交付；不硬钉具体译文，不将本小阶段写成厂商/硬件认证。
+
 ## 状态标记
 
 - [x] 已通过
@@ -35,7 +45,7 @@
 
 ## AUDIT-004 Phase D：发音身份与采样级边界回归
 
-直接验证见 [Phase D 实施记录](../roadmap/current-iteration.md#phase-d-实施记录与直接验证2026-10-04)，项目阶段状态仍只由 roadmap 管理。
+直接验证见 [Phase D 实施记录](../archive/audit-004-code-quality-fix-phases.md#phase-d-实施记录与直接验证2026-10-04)，项目阶段状态仍只由 roadmap 管理。
 
 - [x] On 与 Off 之间改变 offset/enabled/mask，FIFO 原身份仍释放；Q/K 与矩阵合并保留最后持有者。
 - [x] 暂停捕获终结原身份/踏板、排除暂停中新演奏；Take、MIDI 写出及再导入不在重叠起音处合成额外 Off。
@@ -144,7 +154,7 @@
 
 - [x] `.devpiano` 原生演奏文件 JSON 序列化持久化保存与打开回放。
 - [x] 打开损坏文件不崩溃，Logger 输出错误提示。
-- [x] 播放速度 0.5x–2.0x 实时倍率调节；消息线程发布命令，音频块边界一致提交倍率、位置与游标，保留 NoteOff 与循环语义（直接验证见 [Phase C 实施记录](../roadmap/current-iteration.md#phase-c-实施记录与直接验证2026-10-03)）。
+- [x] 播放速度 0.5x–2.0x 实时倍率调节；消息线程发布命令，音频块边界一致提交倍率、位置与游标，保留 NoteOff 与循环语义（直接验证见 [Phase C 实施记录](../archive/audit-004-code-quality-fix-phases.md#phase-c-实施记录与直接验证2026-10-03)）。
 - [x] 16 通道 MIDI 矩阵路由（`ChannelMatrix` / `MidiChannelMapper`）。
 - [x] 88 键拟真钢琴键盘（`CustomKeyboard`，支持 3 种着色与 3 种音符标注）。
 - [x] 结构化日志与默认文件测试使用隔离目录；样本及实际消费者见 fixture-inventory，不把样本数量固化为门禁。
@@ -469,7 +479,7 @@
 
 状态：已完成（Phase 35-A~35-D，2026-09-28）。
 
-完成计划已迁移至 [Phase 35 归档](../archive/phase35-keyboard-expressive-dynamics-and-practice-infrastructure.md)。以下勾选保留阶段交付验收历史，不代表后续消费者反证已闭环；新增缺陷与复核范围见 [AUDIT-004](../audit/AUDIT-004-code-quality-audit-2026-10-02.md)，修复任务与直接验证要求只维护于 [当前迭代](../roadmap/current-iteration.md)。
+完成计划见 [Phase 35 归档](../archive/phase35-keyboard-expressive-dynamics-and-practice-infrastructure.md)，以下勾选保留原交付历史；后续反证及软件实施复审见 [AUDIT-004](../audit/AUDIT-004-code-quality-audit-2026-10-02.md)，完整修复任务与消费者输入见 [AUDIT-004 Phase 归档](../archive/audit-004-code-quality-fix-phases.md)。当前小阶段规划见 [当前迭代](../roadmap/current-iteration.md)。
 
 - [x] **Phase 35-A（无锁采样级音频节拍器与视觉节拍指示）**：
   - 确定性纯数学阻尼正弦脉冲发生的采样级 Click Engine（强拍 1600Hz / 弱拍 800Hz / 6/8 次强拍 1100Hz），零堆分配、零锁、零外部采样依赖；

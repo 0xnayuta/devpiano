@@ -16,7 +16,7 @@ devpiano 是一款基于 JUCE 的现代 C++ 电脑键盘钢琴应用，聚焦软
 - 旧配置系统 -> `ApplicationProperties` / `ValueTree` / 项目内状态模型。
 - 旧 fallback 简单发声 -> 覆盖 7 大声学子系统的自主研发增强物理建模钢琴音源（`PianoSynthVoice`）。
 
-当前优先级为 **AUDIT-004 Phase（Phase 0/A/B/C/D/E/F 已完成，Phase G 待开始）**。Phase F 已完成双看板最终投影、鼠标输入身份、标签/几何与静音边界、可终止余晖、实时圆角、Notes 输入提交及 400.0–480.0 Hz 调律契约（2026-10-05）；实际 Windows 窗口、音频/MIDI与文件消费者验证通过。下一步治理诊断资源、ADR 门面和工程门禁。逐项任务与直接证据只写入 [`current-iteration.md`](current-iteration.md)，历史 [AUDIT-004](../audit/AUDIT-004-code-quality-audit-2026-10-02.md) 不回写。Phase 36/37 仍为规划，关键验证与门禁闭环前不开始新增功能。
+当前近期重点为 **本地化完整消息模板收口（规划已确定，代码迁移待开始）**，决策依据为 [ADR-015](../decisions/ADR-015-localized-message-templates-and-punctuation.md)，逐项任务只维护于 [`current-iteration.md`](current-iteration.md)。AUDIT-004 Phase 0/A–H 软件实施已归档，原问题身份、优先级与消费者证据保留；审计复审不等于目标厂商、物理声卡或 IME 全组合认证。Phase 36/37 仍为规划，按审计剩余风险与独立验收条件评估，不自动启动。
 
 ---
 
@@ -322,21 +322,27 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 3. **实时和弦识别与乐理分析 HUD（Phase 35-C）**：`MusicTheory.h` 根据按下音符的 Pitch Class Set 识别三和弦、七和弦、挂留和弦及转位低音；QWERTY 卡片标题 `qwerty-chord-badge` 与 `QwertyComponent` 内部 HUD 展示结果，状态栏保留节拍和音频信息；
 4. **MIDI 伴奏 A-B 片段循环跟练与进度自由跳转（Phase 35-D）**：走带时间轴精细进度条（`TimelineBar`）与零爆音 Seek 机制、难点小节 A-B 无缝循环引擎（`AbLoopEngine`），配合 0.5x~2.0x 调速闭环键盘练习流。
 
-Phase 35 的原计划与完成勾选见 [完成计划归档](../archive/phase35-keyboard-expressive-dynamics-and-practice-infrastructure.md)。阶段交付完成不代表 AUDIT-004 新反证已修复；当前实施任务由下一专项承接，后续长期路线以本文为准。
+Phase 35 原计划与完成勾选见 [完成计划归档](../archive/phase35-keyboard-expressive-dynamics-and-practice-infrastructure.md)。AUDIT-004 后续反证及修复分别见 [审计复审](../audit/AUDIT-004-code-quality-audit-2026-10-02.md) 与 [软件实施归档](../archive/audit-004-code-quality-fix-phases.md)；不回写 Phase 35 历史勾选。
 
-### AUDIT-004 Phase：代码质量缺陷修复与消费者契约闭环 [Phase 0/A-H 软件闭环完成，实机补验保留]
+### AUDIT-004 Phase：代码质量缺陷修复与消费者契约闭环 [软件实施已完成并归档，2026-10-05；实机补验保留]
 
-[AUDIT-004](../audit/AUDIT-004-code-quality-audit-2026-10-02.md) 保留原基线评级与问题身份。Phase 0/A/B 完成安全验证、文件保护与准入；Phase C/D 完成所有权、身份与 Transport；Phase E 按用户批准的分层边界完成 UUID/快照与实时闭包；Phase F/G 完成映射、交互、诊断与工程门禁；Phase H 对齐现行契约并完成 Windows 软件集成验收。原 54 项实施任务及原优先级保持、逐项证据完整；这不等于物理声卡热插拔、所有厂商插件或异常终止已全面验证。
+[AUDIT-004](../audit/AUDIT-004-code-quality-audit-2026-10-02.md) 保留首次基线、原问题身份与优先级，并按完整实施证据追加复审。Phase 0/A/B 完成安全验证、文件保护与准入；Phase C/D 完成所有权、身份与 Transport；Phase E 按用户批准的分层边界完成 UUID/快照与实时闭包；Phase F/G 完成映射、交互、诊断与工程门禁；Phase H 对齐现行契约并完成 Windows 软件集成验收。所有原实施任务有直接证据，不等于第三方框架的锁/分配已消失或全部实机组合已认证。
 
-1. **Phase 0（前置，已完成）**：音频测试由调用者绑定 live buffer，文件测试使用 ScopedTempDir，Chord 纳入默认 DevPiano/Core；Windows Debug 禁 NRVO 的默认测试、真实音频/文件消费者及用户目录无副作用验证通过，证据见 current-iteration。
+1. **Phase 0（前置，已完成）**：音频测试由调用者绑定 live buffer，文件测试使用 ScopedTempDir，Chord 纳入默认 DevPiano/Core；Windows Debug 禁 NRVO 的默认测试、真实音频/文件消费者及用户目录无副作用验证通过，证据见实施归档。
 2. **Phase A/B（已完成）**：已有文件事务、预设身份、Take 绑定与设置快照已闭环；原生/MIDI 完整准入、稳定时间线、拍号边界及输出前数值检查已通过 Windows Debug 默认测试、受限子进程、实际文件/播放/seek/拖放信息界面验证。输入格式不变，不以修改测试数值掩盖通用合成时间域失败。
 3. **Phase C/D（已完成）**：原生 VST3 与实际生命周期/退出、活动命令已验证；播放原身份 FIFO、物理持有、暂停捕获配对、末尾 WAV 对齐、48k↔44.1k 时间域、16 通道目的状态、完整预备拍及通道柔音已通过生产消费者。
 4. **Phase E（已完成，2026-10-04）**：预设 UUID 永久身份、v3 Take 内嵌可执行快照、采样点实时/离线同构、无锁发声、零库函数三角、SPSC 输入与消息线程视觉分发闭环。产品自有实时契约与第三方 JUCE VST3 框架限制按用户批准的分层验收分别记录。
 5. **Phase F（已完成，2026-10-05）**：最终映射单一投影、配置输入与显示输出隔离、绑定/逐键定制跨几何保持、静音优先级、有界余晖、即时圆角、Notes 多行确认/取消、最低 MIDI 八度及 A4 400.0–480.0 Hz 已按实际消费者验证；不改原预设/演奏格式，不把瞬态演奏变换写回配置。
-6. **Phase G（已完成，2026-10-05）**：日志预算和 MIDI 数值真实；业务头禁聚合头，样式刷新/内置 modal 完全经 ViewHost；删除译文、手工回调和赋值回读 oracle，默认 lifecycle 已执行；Windows Debug 构建、默认测试及实际全量 tidy 零项目诊断。失败输入与新树替代结果分开保留，真实 UI/日志/文件消费者证据见 current-iteration。
+6. **Phase G（已完成，2026-10-05）**：日志预算和 MIDI 数值真实；业务头禁聚合头，样式刷新/内置 modal 完全经 ViewHost；删除译文、手工回调和赋值回读 oracle，默认 lifecycle 已执行；Windows Debug 构建、默认测试及实际全量 tidy 零项目诊断。失败输入与新树替代结果分开保留，真实 UI/日志/文件消费者证据见实施归档。
 7. **Phase H（已完成，2026-10-05）**：预设普通选择/录制调号、rename 确认、v3/旧格式准入、MIDI 单轨及跨轨 Tempo Map、日志与插件取消/实时边界已按实际消费者对齐；原项与证据经固定集合核对，现行验收建立复审入口。Windows Debug/默认单测/格式与全量静态门禁按实际结果记录；实机未验证组合不勾选通过。
 
-全部原项的归属、优先级、证据与复建输入见 [`current-iteration.md`](current-iteration.md) 的 Phase H；现行不变量和独立实机补验矩阵见 [`acceptance.md`](../reference/acceptance.md#audit-004-当前复审入口与契约边界)。待硬件/目标厂商组合完成并复审后再归档本实施记录；当前不提前归档，不回写历史 Phase 35 或审计基线，也不自动启动 Phase 36/37。
+全部原项归属、优先级、EVID 与完整复建输入见 [AUDIT-004 实施归档](../archive/audit-004-code-quality-fix-phases.md)，当前问题状态只在 [审计第 8 章](../audit/AUDIT-004-code-quality-audit-2026-10-02.md#8-附录问题总表登记表) 维护；保留首次 S01～S29 反证和历史门禁失败，追加复审不抹去初审。剩余实机矩阵见 [acceptance](../reference/acceptance.md#audit-004-当前复审入口与契约边界)；用户授权归档软件记录，不以硬件未测阻塞历史归档，也不把归档当作全平台放行。
+
+### 本地化完整消息模板收口 [规划已确定，代码迁移待开始]
+
+在已有预设弹窗缺词条修复之上，按 [ADR-015](../decisions/ADR-015-localized-message-templates-and-punctuation.md) 将相关自然语言消息切换为完整 ASCII 英文模板和单参数 `{0}` 替换；中文文案分类使用标点，技术表达及用户名称/路径保持原样。不引入新格式化框架，不把所有 `+` 视为缺陷，不改变 CRUD、UUID、持久化或音频时序。
+
+任务与直接验收见 [当前迭代](current-iteration.md)：预设删除、三处覆盖确认和成功提示；同类单参数消息清单；旧碎片键清理；参数原样/回退与中英文真实 UI 回归。现有多参数统计消息先分类评估，不连续替换插入值；更激进方案须以新 ADR 替代 ADR-015。当前仅接受决策和规划，未实施消息迁移。
 
 
 ### Phase 36：物理建模声学巅峰（Railsback Octave Stretch Tuning & Duplex Scale Resonance）[规划中]
@@ -361,12 +367,12 @@ Phase 35 的原计划与完成勾选见 [完成计划归档](../archive/phase35-
 | 用户文件与会话完整性 | 软件保护与准入有直接证据，异常存储边界保留 | 事务写出、身份/绑定/设置一致性及数值拒绝按 Phase A/B/H 验证；强杀、断电和硬件故障不外推为已认证。 |
 | 插件/声部/Transport生命周期 | Phase C/D/E 边界已验证，仍有后续风险 | 停 callback 守卫、块入口命令、协作退出、采样级身份/时间域及预设快照闭包已直接验证；不外推厂商永久卡死、真实声卡热插拔或 JUCE VST3 框架锁。 |
 | 键盘映射与发音身份边界 | Phase D/F 消费者已闭环 | 原身份 FIFO、同音持有、暂停/末尾与设备域保持；双看板共享最终投影，重复/回放后的鼠标输入不被输出反馈污染，绑定和逐键定制保留原输入索引。 |
-| 物理建模与实时负荷 | 产品自有路径已闭环，保留实测证据 | 物理音源、正弦波、节拍器、空间视角与机械瞬态全回调实测 0 库函数三角；8 复音单核 CPU $\le 0.7\%$ 保持达标；第三方插件宿主保留 JUCE 适配器框架锁。 |
+| 物理建模与实时负荷 | 产品自有路径已有直接证据，性能 SLA 仍须实测 | 自有物理音源、正弦波、节拍器及机械闭包已有零库函数三角证据；8 复音单核 CPU $\le 0.7\%$ 保持为验收 SLA，本次文档复审未新增性能测量；第三方插件框架限制单列。 |
 | UI与声明式门面 | Phase F/G/H 消费者已闭环 | 双投影/输入索引、标签与有界 fade、即时圆角、Notes 及严格 ViewHost 门面已有真实窗口证据；不扩展通用 UI 框架，IME/辅助窗口全组合另测。 |
 | `MainComponent` 职责回流 | 低 | 保持轻量装配职责（主要由 `initialiseUi()` 承载 JIVE 树构建与回调接线，核心业务均已委托独立 Controller 与领域模块）；持续监控，避免业务逻辑回流。 |
 | 硬实时契约差距 | 产品自有路径已达标，第三方框架单列 | 产品自有发声、调度与节拍器已实现无锁零分配；键盘输入与视觉高亮彻底解耦，超协商几何安全静音；用户批准分层验收，第三方 VST3 适配器的框架锁与 2048 消息限制单列，见 known-issues。 |
 | A4 基准音高契约 | 400.0–480.0 Hz 已对齐 | 引擎/设置/预设/内置导出同限幅；两端、正常参考和越界钳制已按实时波形、离线 WAV 与实际设置验证。 |
-| 门禁与最终集成范围 | 原软件项完整闭环，实机补验未完成 | Windows Debug 默认回归、用户目录无副作用、项目 warning/tidy 与文档契约分别有直接记录；原默认缓存失败保留历史，不宣称全部厂商或物理声卡测试已通过。一次性证据只维护 current-iteration。 |
+| 门禁与最终集成范围 | 软件实施已归档，综合实机补验未完成 | Windows Debug/默认回归、用户目录保护、warning/tidy 与契约分别保留实际基线和输出；旧默认缓存失败不由子树成功覆盖。历史证据在 AUDIT-004 实施归档，当前任务页只维护本地化小阶段。 |
 
 ---
 

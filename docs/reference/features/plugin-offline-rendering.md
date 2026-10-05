@@ -81,7 +81,7 @@ WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
 - **无锁进度传递**：后台线程通过 `std::atomic<double> currentProgress` 和 `std::atomic<bool> cancelRequested` 与主线程通信；
 - **协作取消与退出**：Cancel / ESC / 窗口关闭只设置取消请求，显示“正在取消导出”；Timer 不因取消请求或提前 finished 标志释放任务，只在实际线程退出后收尾。主应用退出保持消息循环等待导出完成，直接析构与 `runSync()` 无限等待兜底，不调用有限超时的 `stopThread()` 强杀。
 - **提交边界**：后台在块循环及 writer 关闭后的最终回调检查取消；提交前取消保留原目标并清理自有临时文件。已成功提交不能被之后的 UI 消息撤销。
-- **验证范围**：真实原生 mode-aware VST3、event 阻塞超过旧强停窗口的取消、回调内自销毁、资源/临时文件和实际保存对话框/应用退出已在隔离 Windows 消费者验证，复建输入见 [Phase C 实施记录](../../roadmap/current-iteration.md#phase-c-实施记录与直接验证2026-10-03)。冷路径图形驱动资源与正式任务资源分开记录，不外推所有厂商插件、断电或完整实时/离线声学闭包。
+- **验证范围**：真实原生 mode-aware VST3、event 阻塞超过旧强停窗口的取消、回调内自销毁、资源/临时文件和实际保存对话框/应用退出已在隔离 Windows 消费者验证，复建输入见 [Phase C 实施记录](../../archive/audit-004-code-quality-fix-phases.md#phase-c-实施记录与直接验证2026-10-03)。冷路径图形驱动资源与正式任务资源分开记录，不外推所有厂商插件、断电或完整实时/离线声学闭包。
 
 ### 3.4 内置合成器 1:1 声学一致性对齐（`WavExportOptions`）
 
@@ -124,7 +124,7 @@ WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
 
 ### 4.1 验收证据依据与未验证范围说明
 
-1. **实施依据**：WAV-001～WAV-010 证据覆盖自动化单元测试与 Windows 隔离真实消费者验证（见 [Phase C](../../roadmap/current-iteration.md#phase-c-实施记录与直接验证2026-10-03) EVID-020/023/024 与 [Phase D/E](../../roadmap/current-iteration.md#phase-d-实施记录与直接验证2026-10-04) EVID-030/035/040），涵盖原生 mode-aware VST3 offline flag/processBlock 验证、原生慢插件事件阻塞取消、非阻塞 JIVE 进度与覆盖保护；
+1. **实施依据**：WAV-001～WAV-010 证据覆盖自动化单元测试与 Windows 隔离真实消费者验证（见 [Phase C](../../archive/audit-004-code-quality-fix-phases.md#phase-c-实施记录与直接验证2026-10-03) EVID-020/023/024 与 [Phase D/E](../../archive/audit-004-code-quality-fix-phases.md#phase-d-实施记录与直接验证2026-10-04) EVID-030/035/040），涵盖原生 mode-aware VST3 offline flag/processBlock 验证、原生慢插件事件阻塞取消、非阻塞 JIVE 进度与覆盖保护；
 2. **严禁外推的未验证范围**：
    - **商业第三方插件离线渲染**：未在商业音源（如 Pianoteq, Kontakt）执行全量离线音质与稳定性测试；
    - **极端不可中断挂起**：若第三方插件单次 `processBlock` 内部彻底陷入死循环且永不返回，协作取消机制无法在不损坏 CRT 堆的前提下强行终止线程；

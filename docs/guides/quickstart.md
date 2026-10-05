@@ -233,7 +233,7 @@ ctest --test-dir build-win-msvc --output-on-failure
 
 文件测试使用 `devpiano::test::ScopedTempDir`，不构造默认生产日志或调用会创建真实用户目录的预设探针。音频 fixture 必须在 buffer 到达调用者后构造 `AudioSourceChannelInfo`，不依赖具名返回的可选 NRVO。
 
-若需禁 NRVO 验证，或默认树仍有旧 Ninja 路径缓存，可在 **被同步保留的 `build-win-msvc/` 下**新建独立 Debug 树，不删除旧缓存。新树首次 configure 前设置 `CXXFLAGS` 中的 `/Zc:nrvo-`，并核对实际 compile command；已配置树不会重新读取该环境变量。具体构建、私有 TEMP/TMP、真实用户目录只读快照和消费者配方见 [Phase 0 实施记录](../roadmap/current-iteration.md#phase-0-实施记录与直接验证2026-10-02)。Windows JUCE 查询系统应用数据路径，仅覆盖 `APPDATA` 环境变量不构成可靠隔离。
+若需禁 NRVO 验证，或默认树仍有旧 Ninja 路径缓存，可在 **被同步保留的 `build-win-msvc/` 下**新建独立 Debug 树，不删除旧缓存。新树首次 configure 前设置 `CXXFLAGS` 中的 `/Zc:nrvo-`，并核对实际 compile command；已配置树不会重新读取该环境变量。具体构建、私有 TEMP/TMP、真实用户目录只读快照和消费者配方见 [Phase 0 实施记录](../archive/audit-004-code-quality-fix-phases.md#phase-0-实施记录与直接验证2026-10-02)。Windows JUCE 查询系统应用数据路径，仅覆盖 `APPDATA` 环境变量不构成可靠隔离。
 
 最终软件验收沿用内容匹配的 Debug 子树构建 app/tests，再检查默认执行日志、用户目录快照与全量静态 receipt；实际 recipe 和未验证硬件范围见 [Phase H 复审入口](../reference/acceptance.md#audit-004-当前复审入口与契约边界)。独立子树通过不表示旧默认 Ninja 缓存已修复；不得为了确认原失败而重跑或删除用户缓存。
 

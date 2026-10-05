@@ -300,7 +300,7 @@ void setPerspective(devpiano::audio::SoundPerspective perspective) noexcept;
 
 ### 6.1 验收证据依据与未验证范围说明
 
-1. **声学与实时实施依据**：全套确定性声学套件与 Phase C/D/E 真实消费验证通过（见 [Phase E 实施记录](../../roadmap/current-iteration.md#phase-e-实施记录与直接验证2026-10-04) EVID-040/041/042/043），涵盖全回调 0 三角函数库调用、密集 12,000 事件零堆增长、两音色银行常驻无内部锁切换与 SPSC 视觉解耦；
+1. **声学与实时实施依据**：全套确定性声学套件与 Phase C/D/E 真实消费验证通过（见 [Phase E 实施记录](../../archive/audit-004-code-quality-fix-phases.md#phase-e-实施记录与直接验证2026-10-04) EVID-040/041/042/043），涵盖全回调 0 三角函数库调用、密集 12,000 事件零堆增长、两音色银行常驻无内部锁切换与 SPSC 视觉解耦；
 2. **严禁外推的未验证范围**：
    - **实机物理声卡热插拔**：未在物理 ASIO/CoreAudio 声卡拔出、驱动重启或硬件抖动下执行破坏性测试；
    - **第三方商业 VST3 插件**：宿主托管第三方插件时的性能与稳定性受插件自身实现约束，不在此内置物理音源 SLA 保证范围内。

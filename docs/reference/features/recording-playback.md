@@ -77,7 +77,7 @@ MainComponent::timerCallback() (消息线程)
 - **末尾交付**：事件缩放与离线共用取整，播放有效长度包含最后事件 `+1`。终结位于整块边界时，下一块偏移 0 仍交付音频清理，再通知 UI；自动结束 UI 只更新状态，不重复发送 Stop 截断释放尾音。
 - **完整预备拍**：先停机预分配/arm，`MetronomeProcessor` 音频计数给出块内起点，之前的 MIDI 排除、起点事件时间戳为 0。120 BPM 4/4 一/两小节分别为 2/4 秒；消息轮询、静音、取消/重启与 release/prepare 不重置已消耗的计时。
 - **warmup**：空闲启动仍丢弃输入并静音；活动 Transport 在静音过渡时继续处理 MIDI/DSP 与时钟，节拍仍混入。新播放的 pre-roll 不被 warmup 提前消耗。
-- **验证边界**：Windows CPU 生产链路、文件 readback、原生 VST3 和实际控制器/窗口见 [Phase D 实施记录](../../roadmap/current-iteration.md#phase-d-实施记录与直接验证2026-10-04)。不外推所有厂商插件、声卡热插拔或整个 callback 的无锁/无分配门禁。
+- **验证边界**：Windows CPU 生产链路、文件 readback、原生 VST3 和实际控制器/窗口见 [Phase D 实施记录](../../archive/audit-004-code-quality-fix-phases.md#phase-d-实施记录与直接验证2026-10-04)。不外推所有厂商插件、声卡热插拔或整个 callback 的无锁/无分配门禁。
 
 ---
 

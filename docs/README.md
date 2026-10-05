@@ -19,8 +19,8 @@
 
 - [`guides/wsl-windows-msvc-workflow.md`](guides/wsl-windows-msvc-workflow.md)：WSL 主工作树 + Windows 镜像树 + MSVC 验证工作流详解。
 - [`guides/development.md`](guides/development.md)：日常开发、构建与协作指引。
-- [`roadmap/current-iteration.md`](roadmap/current-iteration.md)：当前 AUDIT-004 Phase 的逐项实施排期、阶段依赖与消费者验收；项目总状态仍以 roadmap 为准。
-- [`decisions/README.md`](decisions/README.md)：架构决策记录（ADR 001 ~ ADR 014）。
+- [`roadmap/current-iteration.md`](roadmap/current-iteration.md)：当前本地化完整消息模板小阶段的任务与直接验收；已完成的 AUDIT-004 实施记录见 [归档](archive/audit-004-code-quality-fix-phases.md)。
+- [`decisions/README.md`](decisions/README.md)：架构决策记录索引，含已接受的 [ADR-015 本地化完整消息模板与分类标点](decisions/ADR-015-localized-message-templates-and-punctuation.md)。
 - [`guides/troubleshooting.md`](guides/troubleshooting.md)：WSL / Windows 镜像构建常见问题排查。
 - [`guides/release-workflow.md`](guides/release-workflow.md)：Windows/Linux 正式 release、tag 与双平台打包 checklist。
 - [`guides/pr-agent.md`](guides/pr-agent.md)：PR-Agent AI 代码审查工作流配置、命令与排障。
@@ -55,7 +55,7 @@
 ### 4. 质量审查、验收与问题追踪
 
 - [`reference/acceptance.md`](reference/acceptance.md)：现行消费者验收、历史阶段交付记录与 Windows 软件/实机回归边界；历史勾选不外推本次硬件或所有厂商插件。
-- [`audit/README.md`](audit/README.md)：审计报告与复审历史入口，含最新 `AUDIT-004` 的消费者证据和原问题总表；当前实施排期见 current-iteration。
+- [`audit/README.md`](audit/README.md)：审计与复审入口；AUDIT-004 保留首次基线并追加软件实施复审，问题状态只看第 8 章，直接修复证据见 [归档](archive/audit-004-code-quality-fix-phases.md)。
 - [`issues/known-issues.md`](issues/known-issues.md)：已知问题、密集 MIDI 播放 CPU 深度剖析与已修复风险回归线索。
 
 ---

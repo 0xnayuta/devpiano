@@ -147,7 +147,7 @@ devpiano 的实时发声系统采用严格的分层验收契约：
 
 ### 4.1 验收证据依据与未验证范围说明
 
-1. **原生 VST3 实施依据**：PLG-001～PLG-007、PLG-011 与 PLG-012 的验证证据源自基于真实 JUCE VST3 wrapper 构建的本地独立插件包（`PhaseCTwinA`、`PhaseCTwinB`、`PhaseCTwinEffect`，见 [Phase C 实施记录](../../roadmap/current-iteration.md#phase-c-实施记录与直接验证2026-10-03) EVID-020/021/024），包含真实的 Win32 事件阻塞交错、已加载＋Editor＋重扫交错与真实退出测试；
+1. **原生 VST3 实施依据**：PLG-001～PLG-007、PLG-011 与 PLG-012 的验证证据源自基于真实 JUCE VST3 wrapper 构建的本地独立插件包（`PhaseCTwinA`、`PhaseCTwinB`、`PhaseCTwinEffect`，见 [Phase C 实施记录](../../archive/audit-004-code-quality-fix-phases.md#phase-c-实施记录与直接验证2026-10-03) EVID-020/021/024），包含真实的 Win32 事件阻塞交错、已加载＋Editor＋重扫交错与真实退出测试；
 2. **严禁外推的未验证范围**：
    - **第三方商业厂商插件**：未在各类商业插件（如 Pianoteq, Kontakt, Surge XT, Spitfire LABS）上执行兼容性认证，不可将自建原生夹具通过等同于第三方厂商全兼容；
    - **物理声卡热插拔与驱动抖动**：未在真实物理硬件 ASIO/CoreAudio 声卡插拔或驱动崩溃下执行破坏性测试；
