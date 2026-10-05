@@ -47,7 +47,7 @@
 
 ### 1. JUCE 子模块未初始化导致头文件缺失
 
-**现象**：`./scripts/dev.sh wsl-build` 失败，提示缺失 JUCE 头文件或 `JuceHeader.h` 找不到。
+**现象**：WSL configure 提示缺失 JUCE 头文件或生成头；主树恢复只执行 `./scripts/dev.sh wsl-build --configure-only`，不在此构建或测试产品。
 
 **原因**：克隆仓库后未拉取 git 子模块，`JUCE/` 目录为空。
 
@@ -73,7 +73,7 @@ cc: error: unrecognized command-line option '-Wshorten-64-to-32'
 ```bash
 sudo update-alternatives --install /usr/bin/cc cc /usr/bin/clang-21 100
 sudo update-alternatives --set cc /usr/bin/clang-21
-./scripts/dev.sh wsl-build --reconfigure
+./scripts/dev.sh wsl-build --configure-only --reconfigure
 ```
 
 ### 3. Ubuntu 26.04 单元测试文本渲染缺失（Noto CJK .ttc 扫描）

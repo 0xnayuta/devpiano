@@ -10,11 +10,11 @@
 
 为了让用户的键盘演奏成果能够无损保存并随时恢复演练，devpiano 定义了专有的**原生演奏文件格式（`.devpiano`）**与**高保真回放控制器**：
 
-1. **无损 Sample-Accurate 精度**：与转换为 MIDI Tick 的有损导出不同，`.devpiano` 格式直接保存录制时的绝对采样点位置（`timestampSamples`）与内部元数据，实现 100% 比特级无损还原；
-2. **v3 JSON + JUCE 二进制编码**：顶层保存 MIDI 与预设事件 variant、Take 内快照表；`midiData` 继续使用 `juce::MemoryBlock::toBase64Encoding()` 的专有编码。v1/v2 的纯 MIDI 文件仍可加载，旧数字预设事件明确拒绝，不用当前目录猜测原身份；
-3. **事务文件替换（Transactional File Replacement）**：保存过程采用同目录 `juce::TemporaryFile`，检查文本写入与 flush 状态、关闭流后再替换目标；普通写入/替换失败保留原目标。不以此承诺断电、强杀或存储硬件故障下的完整恢复；
-4. **实时播放速度控制（0.5x–2.0x）**：支持在回放过程中无缝调节倍速（从慢速 0.50x 到双速 2.00x），基于原子变量无锁同步，变速时 Take 采样点位置绝对恒定，以二分查找动态重校准播放游标；
-5. **独立元数据解析（`loadPerformanceFileMetadata`）**：无需反序列化庞大事件数组即可极速读取曲名、创建时间与备注，提升文件信息查看与历史管理性能；
+1. **采样时间线保存**：直接保存 `timestampSamples`、原始 MIDI 帧与内嵌声学快照，不经 MIDI tick 量化；保留可准入整数时间域的事件位置，不承诺第三方插件音频逐比特相同；
+2. **v3 JSON 与 JUCE 编码**：保存采样率、长度、元数据、内嵌 `presets` 与稳定排序事件。`midiData` 使用 `MemoryBlock::toBase64Encoding()` 的十进制长度前缀和专有六位字符负载，不是通用 RFC 4648 Base64；旧 v1/v2 纯 MIDI 可读，旧数字预设事件整体拒绝；
+3. **事务文件替换**：先写同目录 TemporaryFile，检查 flush/状态并关闭流，成功后替换目标；普通写出/替换失败保留原目标，仅清理自有临时文件，不承诺断电或强杀下的存储完整性；
+4. **实时播放速度控制（0.5x–2.0x）**：消息线程发布有界命令，音频块入口一致更新倍率和缩放位置，保留下一未渲染事件游标；Seek 的目的状态恢复与纯变速分开，不用旧游标重算重播起音；
+5. **独立元数据读取**：`loadPerformanceFileMetadata()` 读取有界完整 JSON，但不解码 MIDI 帧或构造 RecordingTake；不宣称流式跳过 JSON 事件数组；
 6. **最近文件与拖放体验**：集成 `juce::RecentlyOpenedFilesList`（最多记录 10 个历史文件），支持拖放 `.devpiano` 文件即时加载并自动开始回放。
 7. **歌曲备注输入与提交**：Song Information 的 Notes 使用可编辑、多行 `NotesEditor`，回车插入换行；确认通过生产控制器提交并更新绑定文件，取消保持会话元数据和文件字节不变。诊断列表继续使用只读 `ListEditor`。
 
@@ -89,36 +89,41 @@
 
 | 字段 | 类型 | 说明 |
 |---|:---:|---|
-| `version` | int | 写出 `3`；v1/v2 只接受纯 MIDI 事件，旧数字 `presetChange` 整体拒绝并记录原因。MIDI 编码不接受任意整数数组。 |
-| `format` | string | 固定标识 `"devpiano-performance"`，用于文件类型快速校验。 |
-| `sampleRate` | double | 有限数值，文件准入范围为 **8000–384000 Hz**；设备采样率不同时检查缩放后的可表示范围。 |
-| `lengthSamples` | int64 | 非负整数且覆盖全部事件；须在支持的设备采样率与 0.5x–2.0x 变速下可表示，并保留块长度加法余量。 |
-| `metadata` | object | 包含 `createdAt`（ISO 8601 时间）、`title`（曲目标题）与 `notes`（备注文本）。 |
-| `events` | array | 按采样点稳定规范化；执行时同采样预设先于 MIDI，同类型事件保留原顺序。 |
-| `presets` | array | 内嵌 `RecordedPreset`：完整预设对象（含永久 UUID）和当时的可执行 `AcousticSnapshot`；预设事件槽位越界、缺失或不可执行快照均拒绝。 |
+| `version` | int | 当前写出版本为 `3`；反序列化支持 `1 <= version <= 3`。v1/v2 仅接受纯 MIDI 演奏事件；旧数字 `presetChange` 整体拒绝准入并输出错误诊断。 |
+| `format` | string | 固定标识 `"devpiano-performance"`，用于文件格式标识快速校验。 |
+| `sampleRate` | double | 有限正数值，文件准入范围严格为 **8000.0 – 384000.0 Hz**；支持非设备采样率时间域的缩放与回放。 |
+| `lengthSamples` | int64 | 非负整数且覆盖全部事件；须在支持的采样率与 0.5x–2.0x 变速下乘积/加法均整数可表示，保留末尾 `+1` 采样点与块余量。 |
+| `metadata` | object | 包含 `createdAt`（ISO 8601 时间戳字符串）、`title`（曲目标题）与 `notes`（多行备注文本）。 |
+| `events` | array | 按时间戳稳定规范化，同采样点保留输入相对顺序；不能把原生文件的顺序规则等同于 MIDI 多轨并轨的事件优先级。 |
+| `presets` | array | 内嵌 `RecordedPreset` 独立快照表：包含完整预设对象 `"preset"`（格式版本 2、永久 UUID、键位布局与通道矩阵）及当时由音频引擎捕获的不可变可执行 `"acoustic"`（`AcousticSnapshot`）；事件 `presetId` 必须严格位于 `[0, presets.size())` 范围内。 |
 
 ### 2.2 事件类型支持
 
-- **MIDI 演奏事件**：`source` 为 `"computerKeyboard"`、`"realtimeMidiBuffer"` 或 `"playback"`；`midiData` 使用 `<字节数>.<JUCE 编码负载>`，例如 `3.PxCY` 表示 `90 3c 64`，`3..xC.` 表示 `80 3c 00`。编码负载内的 `.` 是合法字符，不是第二个长度分隔符；
-- **预设切换事件**：音频线程按记录采样边界消费内嵌快照，随后同采样 NoteOn 使用新参数。增添、删除、重命名外部预设不改变旧演奏；外部文件缺失仍消费保存的快照。UI 只独立反映最新状态，不晚到重发声学参数或再次查目录。
-- **迁移边界**：旧文件没有可追溯的“目录索引→永久身份”映射，不能可靠重建其预设事件；拒绝比静默播放另一份音色更安全。不会偷偷丢掉旧事件后仅播放剩余 MIDI。预设配置文件 v1 的名字迁移与原生演奏文件 v1/v2 的数字事件迁移是两件不同的事。
-- **初始状态**：新录制在起点捕获初始预设与声学快照；预备拍期间的状态在实际录制下拍采样点 0 进入 Take。实时与内置/VST3 离线导出共用快照参数与最终持有者释放规则。
+- **MIDI 演奏事件（`type: "midi"`）**：`source` 为 `"computerKeyboard"`、`"realtimeMidiBuffer"` 或 `"playback"`；`midiData` 使用 `<字节数>.<JUCE 编码负载>`，例如 `3.PxCY` 表示 `90 3c 64`，`3..xC.` 表示 `80 3c 00`。编码负载内的 `.` 是合法字符，不是第二个长度分隔符。每个 MIDI 帧在解析与分配前校验负载长度一致性、合法状态字节及有效 SysEx / Meta 边界；
+- **预设切换事件（`type: "presetChange"`）**：`presetId` 为该 Take 内嵌 `presets` 数组的槽位索引。音频线程在事件采样点切换声学快照与移调状态，同采样 NoteOn 立即使用新参数。由于音色与参数已完整自包含在文件内部，外部增删、重命名预设或预设文件缺失均不影响历史演奏回放；
+- **v1/v2 历史文件恢复规则**：旧版文件若仅含纯 MIDI 事件，无损反序列化加载；若包含旧版数字 `presetChange`，由于旧版本记录的是目录扫描序号、缺乏 Take 本地内嵌声学快照，引擎明确拒绝加载（`deserialiseTakeFromJson` 返回 `std::nullopt` 并记录 `DP_LOG_ERROR`），绝不冒进以当前目录预设静默替换，也不会静默吞掉预设事件冒充纯 MIDI 播放；
+- **初始录制状态捕获**：新录制在起点自动捕获初始预设与声学快照（槽位 0）；开启节拍器预备拍时，预备拍期间的设置在实际录制下拍（采样点 0）进入 Take。实时与离线 WAV 导出完全共享相同的快照数据。
 
 ---
 
 ### 2.3 当前 Take、元数据与原生文件绑定
 
-- `RecordingSessionController::RecordingSession` 同时管理 Take、当前元数据和 `.devpiano` backing file；新录制（含预备拍完成）及 MIDI 导入解除旧原生文件绑定，不继承旧歌曲备注。
-- 原生文件通过非空加载准入后才整体提交 Take/元数据/绑定；打开失败或取消保持原会话身份。
-- 成功 Save As 到 C 后，后续信息编辑仅写 C；写入失败不改旧绑定，元数据持久化失败也不替换当前元数据。
-- 每次 Take 替换或成功重新绑定推进 `takeGeneration`；原生打开、保存选择器与信息弹窗的延迟结果不允许作用于另一个 Take。暂停/继续不替换 Take，也不改变文件绑定。
+- **所有权与解绑生命周期**：`RecordingSessionController::RecordingSession` 同时管理 `RecordingTake`、当前元数据 `currentMetadata`、绑定磁盘文件 `currentPerformanceFile` 与代际计数器 `takeGeneration`：
+  - **新录制**：调用 `detachForNewRecording()`，清空 Take，解除原文件绑定（`currentPerformanceFile = File()`），重置元数据，递增 `takeGeneration`；
+  - **录制完成提交**：调用 `commitRecordedTake(newTake)`，更新 Take，保持未绑定状态（`currentPerformanceFile = File()`），递增 `takeGeneration`，开启 `canExportMidi`；
+  - **MIDI 导入**：调用 `commitImportedMidi(newTake, songTitle)`，更新 Take，解除原文件绑定，设置新歌曲标题，递增 `takeGeneration`，关闭 `canExportMidi`；
+  - **原生文件打开**：调用 `openFromFile(file)`，在通过文件大小、完整读取、JSON 结构、准入约束与元数据校验后，整体提交 Take 并绑定 `currentPerformanceFile = file`，递增 `takeGeneration`；加载失败或取消保持原会话状态；
+  - **另存为（Save As）**：调用 `saveToFile(newFile, expectedGeneration)`，代际一致且事务保存成功后，将 backing file 重新绑定为 `newFile`，递增 `takeGeneration`；
+  - **元数据编辑**：代际一致时先准备新 metadata；若有绑定文件且 Take 有效，事务落盘成功后才提交内存。写入失败保持原内存和文件；未绑定时仅提交内存。
+- **跨 Take 与延迟操作隔离**：通过 `takeGeneration` 强校验，无论系统原生文件选择器的延迟返回，还是元数据编辑弹窗的延迟确认，均不得作用于已被替换的下一代 Take，绝不发生 A 文件被 B 的内容或元数据误写改写。
 
 ### 2.4 文件与时间线准入
 
-- 原生文件/JSON 上限为 **32 MiB**，单个 MIDI 帧上限为 **1 MiB**，累计解码数据受 **32 MiB** 预算约束。文件长度、完整读取及流状态必须一致；元数据读取失败也不提交新会话。
-- 在 `fromBase64Encoding()` 分配前验证正整数字节数、精确负载长度、JUCE 字符表及末尾填充位；构造 `MidiMessage` 前验证 status/data 宽度、原始 SysEx 与有界 meta VLQ。截断帧或畸形固定宽度 meta 拒绝，不交给不满足前提的框架 accessor。
-- 时间戳与长度拒绝负数、分数、非数值字段及不可表示的缩放；事件必须在 `[0, lengthSamples]`，保留旧录制中恰好位于末尾的事件。乱序旧文件稳定规范化后才进入实际播放与 seek。
-- 文件支持范围与通用播放器的合成时间域分开：文件准入使用上述音频采样率范围，数值层仍支持现有低采样率合成时间域；不通过重写播放/seek 测试数值掩盖失败。
+- **文件容量与内存预算**：原生文件与 JSON 最大上限均为 **32 MiB**（`maxPerformanceFileSizeBytes`），单个 MIDI 帧原始数据上限为 **1 MiB**，解码累计 MIDI 字节受 **32 MiB** 预算约束。文件流读取时校验 `streamLength == fileSize` 且无短读；
+- **编码校验与解析安全**：分配前校验正整数字节前缀、JUCE 专有负载字符及末尾填充位；构造 MidiMessage 前校验状态/数据字节与有界 Meta VLQ，畸形或截断帧拒绝。不用通用 Base64 decoder 替代该协议。
+- **时间线数值准入**：采样率严格限制在 8000–384000 Hz；`lengthSamples` 与事件 `timestampSamples` 拒绝负数、非数值及不可表示的整数缩放；事件采样戳必须位于 `[0, lengthSamples]`；
+- **预设与绑定合法性校验**：落盘与加载时，校验全部 `presetChange` 事件的 `presetId` 均在 `take.presets` 范围内；校验全部内嵌预设绑定的触发动作为 `keyDown`（显式 keyUp 或未知动作拒绝保存与加载）；
+- **乱序规范化与时间域独立**：乱序旧文件在准入时通过 `std::stable_sort` 稳定规范化时间线，同采样事件保留原语义顺序；文件准入的音频采样率范围与通用播放器内部的测试时间域独立，不以窄化测试掩盖真实设备范围。
 
 
 ## 3. 播放速度精确控制（Speed Control）

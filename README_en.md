@@ -44,7 +44,7 @@ For project scope, core capabilities, and explicit non-goals, see [`docs/referen
 - **Robust Lifecycle Management**: supports default and custom multi-directory scanning, asynchronous chunked scanning, XML cache startup restoration, and failed file logging;
 - **Crash-Safe State Persistence**: incremental callback persistence per detected plugin, dead-man's pedal crash-point logging, and crash blacklist deferral;
 - **Unified Instrument Endpoint**: shared domain endpoint abstraction across the built-in physical modeling piano and VST3 plugins, unifying device preparation, real-time dispatch, and offline rendering;
-- **Plugin Loading & Editor Hosting**: loads VST3 instrument plugins into the real-time audio pipeline with isolated top-level editor window lifecycle management and exception safety guards.
+- **Plugin Loading & Editor Hosting**: select and restore VST3 instruments by `PluginDescription` identifier rather than display name; close the editor and stop callbacks before replacing or rescanning an instance. Plugins run in-process, without isolation from vendor crashes or permanent hangs.
 
 ### ⌨️ Computer Keyboard Performance & QWERTY Performance Map
 
@@ -70,19 +70,19 @@ For project scope, core capabilities, and explicit non-goals, see [`docs/referen
 
 - **Real-Time Lock-Free Capture**: lock-free MIDI event collection on the audio thread generating immutable `RecordingTake` snapshots;
 - **Variable-Speed Playback**: 0.5x–2.0x speed and Stop commands applied at audio-block boundaries, Back-to-start, pause/resume and take-relative seek/A-B loops; device-rate changes retain the Take time domain, destination channel state is restored before notes, and terminal NoteOff is delivered by audio rather than a UI timer;
-- **Native Performance File Persistence**: `.devpiano` native file format (v3 JSON + Base64 encoding + embedded `RecordedPreset` table + `juce::TemporaryFile` atomic writing; legacy numeric preset formats are rejected explicitly);
-- **Standard MIDI File Interoperability**: exports standard Type 1 MIDI files (960 PPQ); imports `.mid` files by merging all tracks, with CC64 sustain, pitch-bend, and program-change parsing;
-- **Performance Preset System**: full preset CRUD orchestration, F1–F12 hotkey switching, recorded preset-change automation, and same-name import overwrite confirmation through a JIVE modal dialog.
+- **Native Performance Files**: `.devpiano` v3 JSON stores JUCE length-prefixed binary messages and an embedded `RecordedPreset` table; successful sibling temporary-file writes replace the target transactionally. MIDI-only v1/v2 files remain readable, while legacy numeric preset events are rejected instead of guessed.
+- **Standard MIDI Files**: import all tracks from complete Type 0/1 files with validated chunks and metadata, retaining timing across the global tempo map; export a single-track Type 1 performance at 960 PPQ with 120 BPM at tick zero, without synthesizing title, time-signature, or key-signature metadata.
+- **Performance Presets**: permanent UUID identity, CRUD, F1–F12 selection, and confirmation before overwriting an independent rename target. Ordinary selection retains the application's global key settings; recorded playback executes the embedded acoustic snapshot and its recorded transposition.
 
 ### 📦 Offline High-Fidelity WAV Export Pipeline
 
 - **Modern Asynchronous Non-Blocking Pipeline**: `WavExportTask` runs as a purely asynchronous workflow (`startAsync`), eliminating modal event loops and routed uniformly via `InstrumentEndpoint`;
 - **Dual-Engine Acoustic Parity**: automatically renders via the built-in physical modeling piano when no plugin is loaded, or creates isolated offline VST3 instances for plugin rendering, with 1:1 parity across all acoustic parameters and `RoomReverbEngine`;
-- **Modern Dark Progress Dialog**: real-time progress bar with cancellation support and automatic temporary file cleanup.
+- **Progress & Cooperative Cancellation**: display progress and wait for the actual worker to exit before releasing resources. Failure or pre-commit cancellation preserves existing targets and cleans only task-owned temporary files; permanently blocked vendor code has no bounded cancellation deadline.
 
 ### 🎨 Internalized Declarative UI Runtime & Design System
 
-- **Declarative UI Architecture**: main window, settings dialog, and modal dialogs are fully unified under the project's internalized declarative UI runtime (`source/UI/jive/core/`, pursuant to ADR-014 fully internalized with external JIVE submodule retired, supporting `juce::ValueTree` layouts + JSON style sheets + Flex/CSS Grid adaptive flow), eliminating manual coordinate calculations;
+- **Declarative UI Architecture**: main, settings, and modal containers use internal `source/UI/jive/core/` (ADR-014; the external JIVE submodule is retired), with `ValueTree`, JSON styles, and Flex/CSS Grid layout. Business code accesses components through `ViewHost`; native drawing components retain their own geometry and painting responsibilities.
 - **Modern Dark Theme**: `DevPianoLookAndFeel` rotary ADSR/volume controls, transport and metronome controls, and status-bar MIDI/beat feedback, plugin name, audio metrics, and key signature;
 - **Zero-External-Asset Bundling**: design tokens (`design_tokens.json`), style sheets (`style_sheets.json`), and Chinese localization resources (`zh_CN.loc`) are statically bundled as binary data at compile time, enabling single-file distribution.
 

@@ -33,9 +33,9 @@
 7. **零冗余基础设施原则 (Minimal Infrastructure)**：  
    未获得明确的钢琴演奏产品需求之前，严禁引入通用图引擎、视频编解码录制栈或复杂多进程 IPC 体系。坚持“Seam-first”演进策略——先划定清晰边界，再按需平滑迁移。
 8. **轻量产品职责原则 (Focused Scope)**：  
-   不承担屏幕捕获、视频容器（MP4）与编解码兼容的产品维护包袱，专注于高确定性的本地音频合成、WAV 离线渲染与标准 Type 0/1 MIDI 导出。
+   不承担屏幕捕获、视频容器（MP4）与编解码维护，专注本地合成、WAV 渲染及 MIDI Type 0/1 导入、Type 1 导出。
 9. **实时音频无锁零分配铁律 (Realtime Safety)**：
-   音频回调（Audio Callback）路径严格遵守零堆内存分配（Zero-allocation）、无锁（Lock-free）铁律，所有运行时状态交换一律基于预分配与原子/轻量快照。产品自有发声与调度路径严格达成；第三方插件宿主保留 JUCE 适配器已知锁与扩容限制（见 known-issues）。
+   产品自有实时发声与调度回调保持零堆分配、零锁，状态通过预分配队列/原子快照交换。第三方 JUCE VST3 适配器的 SpinLock、CriticalSection 与单块 2048 消息上限单列；插件内部二进制行为另属不可控层。后台文件写出不承担实时回调的零分配承诺，详见 known-issues。
 10. **离线实时执行同构原则 (Rendering Parity)**：  
     离线渲染管线（Offline Renderer）与实时音频引擎（Realtime Engine）必须共享完全一致的乐器参数、空间混响与演奏事件执行语义。
 
@@ -196,7 +196,7 @@ source/
   - `sampleRate` + `lengthSamples` + `events` 组成的 `RecordingTake` 数据结构；
   - 播放状态机管理：0.5x–2.0x 变速、Seek 与 Stop 经有界原子邮箱发布，由 `AudioEngine` 的单一块入口调用 `applyPendingTransportCommands()`；纯变速保留下一未渲染事件游标，避免缩放取整重播旧 NoteOn。
   - 回放 NoteOn 以预分配 FIFO 保存最终输出身份；Off 匹配原身份并按最终输出持有数释放，映射变化与设备 prepare 不清空同代身份。录制在暂停/停止的停机边界终结已录身份/踏板，实际最终松键在其采样点闭合重叠起音。
-  - **预设永久身份与快照同构**：录制事件内嵌 Take-local `RecordedPreset` 快照表；回放按采样偏移与 MIDI 保持同顺序执行，同采样预设优先于音符生效。UI 预设通知经原子槽位合并传递，不回写音频参数。
+  - **预设永久身份与快照同构**：Take 内嵌 RecordedPreset 表，事件以 Take-local 槽位引用永久 UUID/声学快照；实时与 WAV 按采样偏移执行，同采样预设先于音符。UI 通知合并更新最新视图，不依赖目录或回写音频参数。
   - `AbLoopEngine` 保存 Take-relative A/B；Seek/回跳先清音再恢复 program、bank、CC 与 pitch 状态，不重发历史 NoteOn。播放/暂停游标与固定录制 Take 域在设备 prepare 时重基准；实时长度包含最后事件，音频交付边界收尾后才通知 UI。
   - 结构提交前验证采样率、非负有序事件与最坏支持倍率的整数范围，保留现有合成时间域；文件的物理采样率准入与通用数值安全检查分开。
 - **`source/Recording/RecordingSessionController.h/.cpp`**：
@@ -217,7 +217,7 @@ source/
   - 支持智能通道映射策略（`passThrough` 保持原通道、`autoAssignIfSingleChannel` 单通道多轨自动分配 1-16 通道、`forceTrackToChannel` 强制轨索引取模分配）；
   - 精确解析曲目元数据（曲名、版权、拍号、调号、速度事件与 Tempo Map），并在同时间戳下按 Program Change → CC → Note Off → Note On 严格确定事件优先级。
 - **`source/Recording/MidiFileExporter.h/.cpp`**：
-  - 将录制 Take 导出为标准 Type 1 MIDI 文件（960 PPQ）；在同目录自有临时文件中写出、检查状态并关闭流后替换目标。
+  - 标准 Type 1、默认 960 PPQ，单轨演奏流和 tick 0 的 120 BPM；不合成标题/拍号/调号 meta，不输出 presetChange 或 SysEx。检查写入并关闭同目录临时流后事务替换目标。
   - 在 writer 前检查支持采样率、合法 PPQ、JUCE `int` tick 和 SMF VLQ delta 的可表示范围，拒绝不破坏原目标。
 - **`source/Recording/PluginOfflineRenderer.h/.cpp`**：
   - 独立创建 VST3 实例，在 prepare 前 `setNonRealtime(true)`；渲染函数不接管实例所有权或重复 release，直接消费者负责释放，`WavExportTask` 在工作退出后统一释放一次。
@@ -231,7 +231,7 @@ source/
 ### 3.7 Layout（预设系统）
 
 - **`source/Layout/PerformancePreset.h/.cpp`**：
-  - Performance Preset 数据模型（键位绑定、ChannelMatrix、调号、键盘渲染设置、128 项逐键标签/颜色）与 `.devpiano.preset` JSON 序列化。
+  - 预设 v2 UUID 数据模型、键位/矩阵、声学、显示与逐键配置；JSON 含调号字段，但普通激活不覆写应用全局调号。另存为生成新 UUID，重命名/自动保存保持身份；旧唯一名称安全迁移，多义拒绝。
 - **`source/Layout/PresetFlowSupport.h/.cpp`**：
   - 预设发现、新建（Save As New）、导入、重命名、删除与 F1-F12 快捷键切换，支持录制时注入 `presetChange` 事件并在回放时自动切调。
   - 启动恢复与选择使用统一激活提交；文件身份由入口显式提供，不从内置布局 ID 推断。重命名区分规范化同路径与独立已有目标，后者先确认；目标提交失败时回滚暂存源文件。
@@ -301,10 +301,11 @@ source/
 
 ### 3.11 Diagnostics & Core
 
-- **`source/Diagnostics/Log.h`**：统一日志宏（`DP_LOG_INFO/WARN/ERROR`、`DP_DEBUG_LOG`、`DP_TRACE_MIDI`），在 Release 构建下零副作用。
+- **`source/Diagnostics/Log.h`**：`DP_LOG_INFO/WARN/ERROR` 在 Debug/Release 均启用；仅 `DP_DEBUG_LOG` / `DP_TRACE_MIDI` 在 Release 编译移除且不求值参数。文件和 debugger 日志均属于非实时工作。
 - **`source/Diagnostics/DevPianoLogger.h/.cpp`**：**生产级 Dual-Sink 统一日志基础设施（Phase 33）**：
   - **文件持久化 Sink**：写入系统标准 AppData 日志目录（Windows: `%APPDATA%\DevPiano\devpiano.log`；Linux: `~/.config/DevPiano/devpiano.log`）。活动文件与固定备份 `devpiano.old.log` **合计 512 KiB**，各分配 256 KiB；启动裁剪和每次会话内写入均守预算，超长消息按 UTF-8 码点边界截减。打开、裁剪、写入或轮转失败停用文件 sink，并通过 `hasFileError()` / `getLastError()` 及 debugger 保留原因，不继续越额写入；
   - **调试器 Sink**：始终接收完整消息（Windows: `OutputDebugString`；Linux: `stderr`），不受文件限幅或文件 sink 故障影响。日志写入在非实时线程串行化；禁止放进音频回调；
+  - **故障预算边界**：旧文件被外部锁定等原因导致无法裁剪时，保留原字节并停用文件 sink；不承诺把不可写文件强制缩小。持续预算约束与故障不再追加分别验收。
   - **UI 诊断集成**：在设置面板诊断卡片动态展示当前日志物理路径，并提供“打开日志目录”（`openLogFolder`）原生交互；
   - **安全生命周期**：应用启动时注册为全局日志器（`juce::Logger::setCurrentLogger`），正常退出时安全重置并解除挂载。
 - **`source/Diagnostics/MidiTrace.h/.cpp`**：MIDI 消息人类可读字符串格式化；NoteOn 与 NoteOff 直接显示原始整数力度 0..127，零力度 NoteOn 仍按 MIDI/JUCE 语义报告为 NoteOff。
@@ -403,7 +404,7 @@ TimelineBar ──► RecordingSessionController (Take-relative Seek / A/B 标�
     │    ├── [有插件] ──► PluginOfflineRenderer (独立离线实例非实时渲染)
     │    └── [无插件] ──► 内置 PianoSynthVoice 渲染
     ├── RoomReverbEngine (后级算法立体声房间混响网络对齐，保证与实时声学一致)
-    └── 写入 WAV 文件 ──► 异步回调通知完成 / 取消时自动清理残留文件
+    └── WAV writer 关闭后事务替换目标；失败/提交前取消只清理任务临时文件，实际 worker 退出后通知完成
 ```
 
 ---

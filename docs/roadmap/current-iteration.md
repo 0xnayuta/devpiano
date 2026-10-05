@@ -2,12 +2,12 @@
 
 > 用途：本文件只记录当前实施排期与任务验收；项目状态和长期路线以 [roadmap](roadmap.md) 为准。
 > 本轮名称：**AUDIT-004 Phase：代码质量缺陷修复与消费者契约闭环**。
-> 当前状态：**Phase 0/A/B/C/D/E/F/G 已完成（Phase G：2026-10-05），Phase H 待开始**。原 54 项 ID/优先级保持，53 项已完成，尚余 DOC-001；仅勾选具有直接消费者及实际门禁证据的本轮任务，不把 Phase G 通过写成最终全契约验收完成。
+> 当前状态：**Phase 0/A-H 软件实施与契约验收已完成（Phase H：2026-10-05）**。原 54 项任务/优先级完整、均有消费者证据；原报告 §4.5 的目标厂商/物理声卡/IME组合仍保留未验证，不提前归档或宣布整体平台验收通过。
 
 ## 1. 输入、范围与历史归档
 
 - 问题与优先级基线：[AUDIT-004 第8章](../audit/AUDIT-004-code-quality-audit-2026-10-02.md#8-附录问题总表登记表)，实施方向参考其第5章，复现与未验证范围参考第4章。
-- 本计划完整纳入原审计基线的 **54个未闭环唯一项**（P1 25、P2 26、P3 3，本轮未登记P0）。这是固定排期覆盖集合，不是当前剩余任务数；Phase 0/A/B/C/D/E/F 的任务已完成，G/H 原项仍按下方未勾选任务推进，原报告不回写。
+- 本计划完整纳入原审计基线的 **54 个唯一项**（P1 25、P2 26、P3 3）。固定身份/优先级不变，Phase 0/A-H 软件任务已完成；逐项证据见 Phase H 索引，剩余实机验证单列，原审计状态不回写。
 - 保留报告原登记 ID/历史命名空间/known-issues 标题引用，不重编号、不把同名 `ERR-002` 混成同一项。下方每个原 ID 只安排到一个阶段；排期不改变原优先级，跨阶段关联只说明依赖。
 - [Phase 35 完成计划](../archive/phase35-keyboard-expressive-dynamics-and-practice-infrastructure.md)已归档，保留当时完成勾选和契约差距；阶段交付完成不等于后续审计风险已消除。
 - Phase 36/37 继续在 roadmap 保留规划。在P1、关键消费者回归及安全门禁达标前不开始新增声学/分区叠层功能，本轮不缩减到只修P1而遗漏其他登记项。
@@ -34,7 +34,7 @@
 | AUDIT-004 Phase E | 预设永久身份与实时/离线执行闭包 | Phase A/C/D；先 ARCH-003，再 ARCH-004；发布/通知容量与监听器清理同步设计。 | 已完成，2026-10-04（分层验收） |
 | AUDIT-004 Phase F | 映射看板、交互与声学边界 | Phase A/D/E；明确点击输入身份与显示输出身份，不以重复矩阵变换修显示。 | 已完成，2026-10-05 |
 | AUDIT-004 Phase G | 诊断资源、ADR 与工程门禁收敛 | 贯穿实施；Phase A-F 的消费者回归已有证据后收口，不用压制诊断掩盖问题。 | 已完成，2026-10-05 |
-| AUDIT-004 Phase H | 契约文档与最终集成验收 | Phase 0及A-G；文档修订不得代替实现修复。 | 待开始 |
+| AUDIT-004 Phase H | 契约文档与最终集成验收 | Phase 0及A-G；文档修订不得代替实现修复。 | 软件验收已完成，2026-10-05；实机补验保留 |
 
 ## 4. 逐项修复与消费者验收
 
@@ -6135,7 +6135,7 @@ PHASE_G_PRIVATE_FILES_CLEAN=1
 PHASE_G_VERIFICATION={"mode":"Smoke","label":"smoke","buildDir":"G:\\source\\projects\\devpiano\\build-win-msvc\\audit004-phaseg","exitCode":0,"userDirectory":"C:\\Users\\Admin\\AppData\\Roaming\\DevPiano","userDirectoryUnchanged":true,"privateTempDirectory":"C:\\Users\\Admin\\AppData\\Local\\Temp\\devpiano-phaseg-a72f8732125a4d10b4bf5d5b558a474b","remainingTempEntries":0}
 ```
 
-### AUDIT-004 Phase H：契约文档与最终集成验收 [待开始]
+### AUDIT-004 Phase H：契约文档与最终集成验收 [已完成，2026-10-05；实机补验保留]
 
 **目标**：现行功能/验收文档与真实实现同步，全部原登记项有直接闭环证据；再评估后续功能阶段。
 
@@ -6145,7 +6145,689 @@ PHASE_G_VERIFICATION={"mode":"Smoke","label":"smoke","buildDir":"G:\\source\\pro
 
 | 执行 | 原登记 ID | 原优先级 | 修复目标 | 可观察验收 |
 | --- | --- | --- | --- | --- |
-| [ ] | `DOC-001` | P3 | 现行行为说明含已被源码证伪的承诺。修复实现后按真实契约同步功能/手工验收；事实描述不另开CMPL；本轮不改任何既有文档。 | 预设调号/rename确认、MIDI轨与meta、日志轮转及插件/测试行为按已验证实现说明，不把计划写已完成。 |
+| [x] | `DOC-001` | P3 | 现行行为说明含已被源码证伪的承诺。修复实现后按真实契约同步功能/手工验收；事实描述不另开CMPL；本轮不改任何既有文档。 | 预设调号/rename确认、MIDI轨与meta、日志轮转及插件/测试行为按已验证实现说明，不把计划写已完成。 |
+
+
+#### Phase H 实施记录与最终集成验收（2026-10-05）
+
+**代码基线**：`166c545`（Phase G 本地交付）。本次仅修改现行 Markdown，不修改业务源码、测试、配置、scripts 或 submodules；用户已明确授权 Phase H 同步文档并本地提交，未推送。原 DOC-001 修复目标中“本轮不改任何既有文档”保留只读审计原措辞，不限制此次已批准的实施；历史 AUDIT/ADR/archive 不回写。
+
+##### 已对齐的真实契约
+
+- 预设 v2 UUID 保持/派生/旧唯一名称迁移与多义拒绝；JSON 含调号字段不等于普通选择覆盖应用全局值，RecordedPreset.acoustic 回放另行恢复录制移调。Rename 区分同路径、独立碰撞确认及故障备份，不承诺跨文件断电原子性。
+- 演奏写出 v3、内嵌完整快照与 Take-local 槽位；旧纯 MIDI 格式可读，旧数字预设整体拒绝。JUCE 专有长度前缀消息编码不是通用 Base64；JSON 示例通过真实 reader。Take 与 backing file/metadata/generation 的事务边界和成功后提交一致。
+- MIDI 导入完整 Type 0/1 全轨，消费全局 Tempo Map，同采样按并轨优先级；原生时间线只稳定规范化，不混用两种排序规则。MIDI 输出实际为单轨 Type 1、默认 960 PPQ 和 120 BPM@0，不合成标题/拍号/调号，不输出 presetChange/SysEx；保留失败目标与显式释放。
+- 生命周期与离线取消只协作等待实际调用/worker 返回，创建/探测也可同步阻塞；native fixture 不冒充所有厂商认证。自有实时回调、JUCE VST3 框架锁/2048 限制、插件内部行为分层；后台文件 writer 不受实时零分配承诺。固定 WAV 尾部为 2 秒，不声称任意插件尾音均完整。
+- 双看板、输入索引、静音优先、Notes、followKey、ViewHost 与日志故障/预算均按生产消费者记录；修正不存在的 KeyBindingEditDialogTest 和已删除自证 oracle 的测试说明。INFO/WARN/ERROR 在 Release 仍启用，仅 DEBUG/MIDI 宏编译移除。
+- 保留 88 键、16 通道、4 组、物理声学常量、A4 400–480 Hz、倍率、协议精度及 0.7% CPU SLA；功能契约不固化单次断言数、源码行数或耗时。原历史一次性输出原样保留，数字不成为未来门槛。
+
+##### 全部原项与直接证据索引
+
+以下只是固定身份与证据索引，不复制原审计状态总表，也不另开/重编号问题。Phase 0/A-G 原最小输入、失败记录和调用链继续有效；本次源码未变，默认门禁覆盖与新直接消费者另记，未将每项历史程序全部声称为本轮重跑。
+
+| 原登记 ID | 原优先级 | 阶段 | 直接消费者证据 | 闭环边界 |
+| --- | --- | --- | --- | --- |
+| `TEST-001` | P1 | 0 | EVID-001, EVID-003 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `TEST-002` | P1 | 0 | EVID-002, EVID-003, EVID-060 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `AUDIT-002 TEST-014` | P2 | 0 | EVID-002, EVID-060 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `ERR-001` | P1 | A | EVID-006, EVID-013 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `SEC-001` | P1 | A | EVID-007, EVID-062 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `SEC-002` | P1 | A | EVID-008, EVID-059 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `ERR-002` | P1 | A | EVID-009 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `QUAL-006` | P2 | A | EVID-009 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `QUAL-016` | P2 | A | EVID-007 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `SEC-003` | P1 | B | EVID-012, EVID-016 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `SEC-004` | P1 | B | EVID-013, EVID-016 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `SEC-005` | P1 | B | EVID-013 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `SEC-006` | P1 | B | EVID-014, EVID-016 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `QUAL-005` | P1 | B | EVID-015 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `ERR-004` | P2 | B | EVID-014, EVID-062 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `AUDIT-001 THR-004` | P1 | C | EVID-021, EVID-024 | 实际 native VST3/线程/窗口；不外推所有厂商或永久阻塞 |
+| `AUDIT-002 THR-001` | P1 | C | EVID-021, EVID-024 | 实际 native VST3/线程/窗口；不外推所有厂商或永久阻塞 |
+| `known-issues §2/Phase 6-2 播放速度控制` | P1 | C | EVID-022 | 实际 native VST3/线程/窗口；不外推所有厂商或永久阻塞 |
+| `THR-002` | P1 | C | EVID-023, EVID-024 | 实际 native VST3/线程/窗口；不外推所有厂商或永久阻塞 |
+| `QUAL-014` | P2 | C | EVID-020 | 实际 native VST3/线程/窗口；不外推所有厂商或永久阻塞 |
+| `QUAL-015` | P2 | C | EVID-020, EVID-024 | 实际 native VST3/线程/窗口；不外推所有厂商或永久阻塞 |
+| `ARCH-002` | P2 | C | EVID-020, EVID-024 | 实际 native VST3/线程/窗口；不外推所有厂商或永久阻塞 |
+| `QUAL-001` | P1 | D | EVID-028, EVID-030 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `QUAL-002` | P1 | D | EVID-028 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `QUAL-003` | P1 | D | EVID-029 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `QUAL-004` | P1 | D | EVID-030 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `ERR-003` | P1 | D | EVID-031 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `QUAL-018` | P1 | D | EVID-032, EVID-034 | 生产 release/prepare 时间域通过；物理热插拔未验证 |
+| `QUAL-017` | P2 | D | EVID-033 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `FIX-035` | P2 | D | EVID-034 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `QUAL-019` | P2 | D | EVID-035 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `ARCH-003` | P2 | E | EVID-039, EVID-062 | 产品自有路径闭环；第三方框架按批准的分层边界，实机另验 |
+| `ARCH-004` | P2 | E | EVID-040 | 产品自有路径闭环；第三方框架按批准的分层边界，实机另验 |
+| `THR-001` | P1 | E | EVID-041, EVID-043 | 产品自有路径闭环；第三方框架按批准的分层边界，实机另验 |
+| `PERF-001` | P1 | E | EVID-042 | 产品自有路径闭环；第三方框架按批准的分层边界，实机另验 |
+| `AUDIT-002 THR-003` | P1 | E | EVID-041 | 产品自有路径闭环；第三方框架按批准的分层边界，实机另验 |
+| `known-issues ERR-002` | P1 | E | EVID-042 | 产品自有路径闭环；第三方框架按批准的分层边界，实机另验 |
+| `known-issues §1/节拍器每拍三角函数与全回调零三角 SLA 不一致` | P2 | E | EVID-043 | 产品自有路径闭环；第三方框架按批准的分层边界，实机另验 |
+| `ARCH-001` | P2 | F | EVID-046, EVID-053, EVID-063 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `QUAL-007` | P2 | F | EVID-046, EVID-063 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `QUAL-008` | P2 | F | EVID-046, EVID-063 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `QUAL-009` | P2 | F | EVID-047, EVID-063 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `QUAL-010` | P2 | F | EVID-048 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `QUAL-012` | P2 | F | EVID-049 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `QUAL-013` | P2 | F | EVID-050, EVID-059, EVID-063 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `QUAL-011` | P3 | F | EVID-051, EVID-063 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `known-issues §1/A4 基准音高范围与项目契约不一致` | P2 | F | EVID-052, EVID-063 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `RES-001` | P2 | G | EVID-054, EVID-055, EVID-063 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `OBS-001` | P2 | G | EVID-056, EVID-063 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `CMPL-001` | P2 | G | EVID-057 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `CMPL-002` | P2 | G | EVID-058, EVID-059, EVID-063 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `ENG-001` | P2 | G | EVID-061, EVID-066 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `TEST-003` | P3 | G | EVID-060, EVID-065 | 对应阶段原触发消费者通过；见原记录的限制 |
+| `DOC-001` | P3 | H | EVID-062, EVID-063, EVID-064, EVID-067 | 只对齐现行契约；不把文档修订算作代码修复 |
+
+##### 最终实机补验矩阵（不冒充通过）
+
+| 原报告 §4.5 组合 | 已有软件消费者证据 | 尚未执行的范围/安全前提 |
+| --- | --- | --- |
+| 已加载 VST3 + Editor + 重扫 | EVID-021/024 native 阻塞交错、旧 Editor 销毁和重新扫描 | 目标厂商实际插件、设备/Editor 组合；复制 profile、私有扫描路径，不能强杀正式会话 |
+| 同名/重复拖入/offline | EVID-020/024/043 description/type/metadata、mode-aware native VST3 | 厂商自身离线品质/内部线程/声音；不以 fixture 通过宣称全兼容 |
+| Take/Save As/rename | EVID-006/007/008/062 原字节、确认/同路径、UUID/绑定与实际控制器 | 系统文件选择器所有人工交互、断电/硬件磁盘故障未逐组合认证 |
+| 慢插件取消/退出 | EVID-023/024 真正 worker 延迟退出、句柄及文件；无限协作等待取代强停 | 永久死锁不能抢占；不执行破坏性强杀或借助用户目标测磁盘耗尽 |
+| Count-in/采样率变更 | EVID-032/034 生产 CPU prepare/release、完整下拍、倍率/位置连续 | 物理 ASIO/USB 声卡和驱动热插拔；需要目标设备及操作者物理插拔 |
+| 辅助窗口/失焦/IME | EVID-028/041/046/063 原身份释放与真实窗口输入/鼠标/消息线程 | 操作系统 IME、DPI、多窗口键保持/松开全矩阵需实机人工操作 |
+| 密集回放/热插拔/声卡 | EVID-041/042 自有闭包/异常几何注入和计数 | 真实驱动 callback 几何、听感/毛刺与热插拔，不由 CPU 注入或当前测试绿灯替代 |
+
+综合平台验收仍保留以上未验证条件，未批准以软件 fixture 代替硬件。现行 [acceptance 复审入口](../reference/acceptance.md#audit-004-当前复审入口与契约边界)已建立；待实机补验与复审完成再归档当前实施记录，当前不修改 archive，也不自动启动 Phase 36/37。
+
+##### 精确复建与隔离运行
+
+H 使用被同步保留的 `build-win-msvc/audit004-phaseg` 当前生产 Debug objects，保留 `/Zc:nrvo-`，不是旧默认缓存修复。Surface 从 G 完整消费者只替换自有标记/路径，新 Data 和文档示例消费者完整保存在下方；消息 pump 的 sleep 仅在探针消息线程，不用于采样调度。Driver 每轮对真实用户目录只读快照，并把 TEMP/TMP 指向私有目录，应用探针验证 IAT appdata 重定向后才构造生产 Main。
+
+将下方 Python 存为临时 `/tmp/devpiano-phaseh-restore.py` 并运行。它读取本页已保存的完整 G driver/source 及下方 H source，不访问历史内部 artifact URI：
+
+```python
+from pathlib import Path
+import re
+root = Path('/root/repos/devpiano')
+text = (root / 'docs/roadmap/current-iteration.md').read_text()
+def block(heading, language):
+    return re.search(r'^' + re.escape(heading) + r'\n+```' + language + r'\n(.*?)\n```', text, re.M | re.S).group(1) + '\n'
+driver = block('##### 完整 Phase G Windows driver', 'powershell').replace('phaseg', 'phaseh').replace('PHASE_G', 'PHASE_H')
+# 复用已验证的生产 Debug 缓存，仅自有输出使用 Phase H 前缀。
+driver = driver.replace('build-win-msvc\\audit004-phaseh', 'build-win-msvc\\audit004-phaseg')
+surface = block('##### 完整 Phase G 生产消费者', 'cpp').replace('phaseg', 'phaseh').replace('PHASE_G', 'PHASE_H')
+surface = surface.replace('build-win-msvc/audit004-phaseh', 'build-win-msvc/audit004-phaseg')
+Path('/tmp/devpiano-phaseh-windows.ps1').write_text(driver)
+Path('/tmp/devpiano-phaseh-smoke.cpp').write_text(surface)
+Path('/tmp/devpiano-phaseh-data.cpp').write_text(block('##### 完整 Phase H 文件与调号消费者', 'cpp'))
+Path('/tmp/devpiano-phaseh-examples.cpp').write_text(block('##### 完整 Phase H 文档示例消费者', 'cpp'))
+```
+
+```bash
+./scripts/dev.sh self-check
+./scripts/dev.sh win-build --sync-only
+PWSH='/mnt/c/Program Files/PowerShell/7/pwsh.exe'
+DRIVER='\\wsl.localhost\Ubuntu\tmp\devpiano-phaseh-windows.ps1'
+"$PWSH" -NoProfile -ExecutionPolicy Bypass -File "$DRIVER" -Mode Build
+"$PWSH" -NoProfile -ExecutionPolicy Bypass -File "$DRIVER" -Mode Compile -Source '\\wsl.localhost\Ubuntu\tmp\devpiano-phaseh-smoke.cpp' -Label surface
+"$PWSH" -NoProfile -ExecutionPolicy Bypass -File "$DRIVER" -Mode Smoke -Label surface
+"$PWSH" -NoProfile -ExecutionPolicy Bypass -File "$DRIVER" -Mode Compile -Source '\\wsl.localhost\Ubuntu\tmp\devpiano-phaseh-data.cpp' -Label data
+"$PWSH" -NoProfile -ExecutionPolicy Bypass -File "$DRIVER" -Mode Smoke -Label data
+"$PWSH" -NoProfile -ExecutionPolicy Bypass -File "$DRIVER" -Mode Compile -Source '\\wsl.localhost\Ubuntu\tmp\devpiano-phaseh-examples.cpp' -Label examples
+"$PWSH" -NoProfile -ExecutionPolicy Bypass -File "$DRIVER" -Mode Smoke -Label examples
+"$PWSH" -NoProfile -ExecutionPolicy Bypass -File "$DRIVER" -Mode Test
+./scripts/dev.sh format --check
+./scripts/dev.sh tidy --all
+```
+
+初次恢复不存在该缓存时，可用 G driver 的 Configure 模式建立同目录 Debug 树并随后 Build。WSL 只负责编辑/configure 与静态检查，本轮无 WSL 产品构建测试或 Release。原默认 Ninja 路径失败不重跑确认，不删除旧缓存。
+
+##### 完整 Phase H 文件与调号消费者
+
+```cpp
+#include "Diagnostics/MidiTrace.h"
+#include "UI/WindowIconUtils.h"
+#include "Layout/PerformancePreset.h"
+#include "Recording/PerformanceFile.h"
+#include "Recording/RecordingSessionController.h"
+#include "Recording/WavFileExporter.h"
+#include "Settings/SettingsWindowManager.h"
+#include "UI/CustomKeyboard.h"
+#include "UI/QwertyComponent.h"
+#include "UI/jive/JiveModalDialog.h"
+#include "UI/jive/core/jive_BackgroundCanvas.h"
+#include <JuceHeader.h>
+#include <iostream>
+#include <shlobj.h>
+#include <vector>
+#include <windows.h>
+#undef START_JUCE_APPLICATION
+#define START_JUCE_APPLICATION(AppClass)
+#include "Main.cpp"
+using namespace devpiano::core;
+using namespace devpiano::recording;
+using namespace devpiano::exporting;
+void require(bool good, const char *reason) {
+  if (!good)
+    throw std::runtime_error(reason);
+}
+struct Scratch {
+  juce::File directory =
+      juce::File::getSpecialLocation(juce::File::tempDirectory)
+          .getChildFile("phaseh-consumer-" + juce::Uuid().toString());
+  Scratch() {
+    require(directory.createDirectory().wasOk(), "scratch create failed");
+  }
+  ~Scratch() {
+    std::cout << "PHASE_H_PRIVATE_FILES_CLEAN=" << directory.deleteRecursively()
+              << '\n';
+  }
+};
+class ProfileScope {
+  using Folder = BOOL(WINAPI *)(HWND, LPWSTR, int, BOOL);
+  static inline Folder original = nullptr;
+  static inline std::wstring path;
+  ULONG_PTR *slot = nullptr;
+  static BOOL WINAPI redirectFolder(HWND window, LPWSTR destination, int kind,
+                                    BOOL create) {
+    if (kind != CSIDL_APPDATA)
+      return original(window, destination, kind, create);
+    std::copy(path.begin(), path.end(), destination);
+    destination[path.size()] = 0;
+    return TRUE;
+  }
+
+public:
+  explicit ProfileScope(const juce::File &directory) {
+    path = directory.getFullPathName().toWideCharPointer();
+    require(path.size() < MAX_PATH, "private profile path too long");
+    auto *base = reinterpret_cast<BYTE *>(GetModuleHandleW(nullptr));
+    auto *dos = reinterpret_cast<IMAGE_DOS_HEADER *>(base);
+    auto *nt = reinterpret_cast<IMAGE_NT_HEADERS *>(base + dos->e_lfanew);
+    auto *imports = reinterpret_cast<IMAGE_IMPORT_DESCRIPTOR *>(
+        base + nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT]
+                   .VirtualAddress);
+    for (; imports->Name != 0; ++imports) {
+      if (imports->OriginalFirstThunk == 0)
+        continue;
+      auto *names = reinterpret_cast<IMAGE_THUNK_DATA *>(
+          base + imports->OriginalFirstThunk);
+      auto *entries =
+          reinterpret_cast<IMAGE_THUNK_DATA *>(base + imports->FirstThunk);
+      for (; names->u1.AddressOfData != 0; ++names, ++entries) {
+        if (IMAGE_SNAP_BY_ORDINAL(names->u1.Ordinal))
+          continue;
+        auto *imported = reinterpret_cast<IMAGE_IMPORT_BY_NAME *>(
+            base + names->u1.AddressOfData);
+        if (std::strcmp(imported->Name, "SHGetSpecialFolderPathW") != 0)
+          continue;
+        DWORD previous = 0;
+        require(VirtualProtect(&entries->u1.Function,
+                               sizeof(entries->u1.Function), PAGE_READWRITE,
+                               &previous) != FALSE,
+                "profile IAT protect failed");
+        slot = &entries->u1.Function;
+        original = reinterpret_cast<Folder>(*slot);
+        *slot = reinterpret_cast<ULONG_PTR>(redirectFolder);
+        DWORD ignored = 0;
+        require(VirtualProtect(slot, sizeof(*slot), previous, &ignored) !=
+                    FALSE,
+                "profile IAT protection restore failed");
+        return;
+      }
+    }
+    throw std::runtime_error("profile import unavailable");
+  }
+  ~ProfileScope() {
+    if (slot != nullptr) {
+      DWORD old = 0;
+      if (VirtualProtect(slot, sizeof(*slot), PAGE_READWRITE, &old)) {
+        *slot = reinterpret_cast<ULONG_PTR>(original);
+        DWORD ignored = 0;
+        VirtualProtect(slot, sizeof(*slot), old, &ignored);
+        std::cout << "PHASE_H_PROFILE_RESTORED=1\n";
+      }
+    }
+  }
+};
+void pump(int milliseconds) {
+  const auto until = juce::Time::getMillisecondCounterHiRes() + milliseconds;
+  do {
+    MSG message{};
+    while (PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE)) {
+      TranslateMessage(&message);
+      DispatchMessageW(&message);
+    }
+    juce::Thread::sleep(1);
+  } while (juce::Time::getMillisecondCounterHiRes() < until);
+}
+template <class T> T *find(juce::Component &c, const juce::String &id = {}) {
+  if (auto *typed = dynamic_cast<T *>(&c);
+      typed != nullptr && (id.isEmpty() || c.getComponentID() == id))
+    return typed;
+  for (int n = 0; n < c.getNumChildComponents(); ++n)
+    if (auto *result = find<T>(*c.getChildComponent(n), id))
+      return result;
+  return nullptr;
+}
+template <class T> T *desktopFind(const juce::String &id = {}) {
+  auto &d = juce::Desktop::getInstance();
+  for (int n = d.getNumComponents() - 1; n >= 0; --n)
+    if (auto *result = find<T>(*d.getComponent(n), id))
+      return result;
+  return nullptr;
+}
+void click(juce::Component &root, const char *id) {
+  auto *b = find<juce::Button>(root, id);
+  require(b != nullptr && bool(b->onClick), "actual button unavailable");
+  b->onClick();
+}
+#include "Layout/PresetFlowSupport.h"
+#include "Recording/MidiFileExporter.h"
+#include "Recording/MidiFileImporter.h"
+#include <array>
+#include <cstdint>
+#include <limits>
+using devpiano::layout::makeDefaultPreset;
+using devpiano::layout::savePreset;
+using devpiano::layout::loadPreset;
+using devpiano::layout::resolvePresetFile;
+using devpiano::layout::renamePreset;
+using devpiano::layout::PresetRenameResult;
+void dataConsumers(Scratch& scratch) {
+    const auto dir=scratch.directory.getChildFile("presets");
+    require(dir.createDirectory().wasOk(),"preset directory failed");
+    auto a=makeDefaultPreset();a.name="Alpha";a.uuid=juce::Uuid().toDashedString();
+    auto b=makeDefaultPreset();b.name="Beta";b.uuid=juce::Uuid().toDashedString();
+    const auto fa=resolvePresetFile(a.name,dir),fb=resolvePresetFile(b.name,dir);
+    require(savePreset(a,fa)&&savePreset(b,fb),"preset seeds failed");
+    const auto ba=fa.loadFileAsString(),bb=fb.loadFileAsString();
+    require(renamePreset("Alpha","Beta",false,dir)==PresetRenameResult::targetAlreadyExists,"collision admitted without approval");
+    require(fa.loadFileAsString()==ba&&fb.loadFileAsString()==bb,"collision modified source data");
+    require(renamePreset("Alpha","alpha",false,dir)==PresetRenameResult::success,"case-equivalent rename failed");
+    auto renamed=loadPreset(resolvePresetFile("alpha",dir));
+    require(renamed&&renamed->uuid==a.uuid,"same-path rename lost identity");
+    require(renamePreset("alpha","Renamed",false,dir)==PresetRenameResult::success,"independent rename failed");
+    const auto renamedFile=resolvePresetFile("Renamed",dir);
+    renamed=loadPreset(renamedFile);
+    require(renamed&&renamed->uuid==a.uuid,"rename lost permanent identity");
+    RecordingTake take;take.sampleRate=48000;take.lengthSamples=48000;
+    take.events={{0,PerformanceEventType::midi,0,RecordingEventSource::computerKeyboard,juce::MidiMessage::noteOn(1,60,static_cast<juce::uint8>(64))},
+                 {24000,PerformanceEventType::midi,0,RecordingEventSource::computerKeyboard,juce::MidiMessage::noteOff(1,60)}};
+    const auto output=scratch.directory.getChildFile("export.mid");
+    require(exportTakeAsMidiFile(take,output,960),"MIDI export failed");
+    const auto originalSize=output.getSize();
+    take.events[0].message=juce::MidiMessage::noteOn(1,72,static_cast<juce::uint8>(64));
+    take.events[1].message=juce::MidiMessage::noteOff(1,72);
+    require(exportTakeAsMidiFile(take,output,960)&&output.getSize()==originalSize,"MIDI overwrite appended data");
+    juce::MidiFile midi;juce::FileInputStream input(output);int fileType=-1;
+    require(midi.readFrom(input,false,&fileType),"written MIDI unreadable");
+    require(fileType==1&&midi.getNumTracks()==1&&midi.getTimeFormat()==960,"export header contract differs");
+    int tempos=0,names=0,meters=0,ons=0,offs=0;
+    for(int n=0;n<midi.getTrack(0)->getNumEvents();++n) {
+        const auto& msg=midi.getTrack(0)->getEventPointer(n)->message;
+        if(msg.isTempoMetaEvent()){++tempos;require(msg.getTempoSecondsPerQuarterNote()==0.5,"tempo not 120 BPM");}
+        if(msg.isMetaEvent()&&msg.getMetaEventType()==3)++names;
+        if(msg.isMetaEvent()&&msg.getMetaEventType()==0x58)++meters;
+        if(msg.isNoteOn()){++ons;require(msg.getNoteNumber()==72,"old note retained");}
+        if(msg.isNoteOff()){++offs;require(msg.getNoteNumber()==72,"old release retained");}
+    }
+    require(tempos==1&&names==0&&meters==0&&ons==1&&offs==1,"export fabricated or lost MIDI events");
+    const auto keep=output.loadFileAsString();auto invalid=take;invalid.sampleRate=0;
+    require(!exportTakeAsMidiFile(invalid,output,960)&&output.loadFileAsString()==keep,"invalid export destroyed target");
+    std::cout<<"PHASE_H_MIDI_EXPORT type=1 tracks=1 ppq=960 tempo=120 name_meta=0 meter_meta=0 overwrite_note=72 rejected_target_preserved=1\n";
+    const std::vector<std::uint8_t> metadata={0,0xff,3,5,'P','r','o','o','f',0,0xff,0x51,3,7,0xa1,0x20,0,0xff,0x58,4,4,2,24,8,0,0xff,0x59,2,0,0,0,0xff,0x2f,0};
+    const std::vector<std::uint8_t> performance={0,0x90,60,64,0x83,0x60,0xff,0x51,3,3,0xd0,0x90,0,0x80,60,0,0,0x90,64,64,0x83,0x60,0x80,64,0,0,0xff,0x2f,0};
+    std::vector<std::uint8_t> smf={'M','T','h','d',0,0,0,6,0,1,0,2,1,0xe0};
+    const auto addTrack=[&](const std::vector<std::uint8_t>& bytes){smf.insert(smf.end(),{'M','T','r','k',0,0,0,static_cast<std::uint8_t>(bytes.size())});smf.insert(smf.end(),bytes.begin(),bytes.end());};
+    addTrack(metadata);const auto firstTrackEnd=smf.size();addTrack(performance);smf.push_back(13);smf.push_back(10);
+    const auto source=scratch.directory.getChildFile("multitrack.mid");
+    require(source.replaceWithData(smf.data(),smf.size()),"SMF write failed");
+    const auto merged=importMidiFileWithMetadata(source,48000.0);
+    require(merged&&merged->stats.trackCount==2&&merged->metadata.songTitle=="Proof","multitrack metadata lost");
+    require(merged->metadata.initialTimeSignature&&merged->metadata.initialTimeSignature->numerator==4&&merged->metadata.initialTimeSignature->denominator==4,"time signature lost");
+    require(merged->metadata.tempoMap.size()==2&&merged->metadata.tempoMap[1].bpm==240.0,"nonzero track tempo lost");
+    std::array<std::int64_t,4> samples{};int i=0;
+    for(const auto& event:merged->take.events)if(event.message.isNoteOnOrOff()){require(i<4,"unexpected notes");samples[static_cast<std::size_t>(i++)]=event.timestampSamples;}
+    require(i==4&&samples==std::array<std::int64_t,4>{0,24000,24000,36000},"tempo timeline changed");
+    smf.resize(firstTrackEnd);const auto partial=scratch.directory.getChildFile("partial.mid");
+    require(partial.replaceWithData(smf.data(),smf.size()),"partial fixture write failed");
+    require(!importMidiFile(partial,48000.0),"missing declared track admitted");
+    std::cout<<"PHASE_H_MIDI_IMPORT tracks=2 title=Proof time_signature=4/4 all_track_tempo=120,240 note_samples=0,24000,24000,36000 complete_CRLF=1 missing_track_rejected=1\n";
+    RecordedPreset snapshot{*renamed,{}};snapshot.acoustic.builtinTone=BuiltinTone::sine;snapshot.acoustic.masterGain=0.25f;
+    take.presets={snapshot};take.events.insert(take.events.begin(),{0,PerformanceEventType::presetChange,0,RecordingEventSource::computerKeyboard,{}});
+    const auto native=scratch.directory.getChildFile("embedded.devpiano");
+    require(savePerformanceFile(take,native),"native save failed");
+    require(renamedFile.deleteFile()&&fb.deleteFile(),"owned preset deletion failed");
+    const auto loaded=loadPerformanceFile(native);
+    require(loaded&&loaded->presets.size()==1&&loaded->presets[0].preset.uuid==a.uuid&&loaded->presets[0].acoustic.masterGain==0.25f,"embedded snapshot depends on disk");
+    const auto document=juce::JSON::parse(native.loadFileAsString());
+    require(static_cast<int>(document.getProperty("version",0))==3,"wrong native schema");
+    const auto legacy=juce::String(R"({"version":2,"format":"devpiano-performance","sampleRate":48000,"lengthSamples":48000,"events":[{"timestampSamples":0,"type":"presetChange","presetId":0}]})");
+    require(!deserialiseTakeFromJson(legacy),"numeric legacy preset silently reinterpreted");
+    std::cout<<"PHASE_H_PRESET_FILE rename_collision_preserved=1 case_same_path=1 uuid_retained=1 native_v3_embedded_after_disk_delete=1 legacy_numeric_rejected=1\n";
+}
+void appGlobalTranspose() {
+    SettingsModel settings;settings.languageCode="en";settings.masterGain=0;settings.keySignature=3;settings.midiTranspose=true;
+    {SettingsStore store;require(store.save(settings),"private settings failed");}
+    juce::JUCEApplicationBase::createInstance=[]()->juce::JUCEApplicationBase*{return new DevPianoApplication();};
+    DevPianoApplication application;application.initialise("--sine");
+    struct Shutdown{DevPianoApplication& app;~Shutdown(){app.shutdown();pump(30);}} shutdown{application};
+    pump(150);auto* main=desktopFind<MainComponent>();require(main!=nullptr,"Main absent");
+    devpiano::layout::PresetFlowSupport flow(*main);auto preset=makeDefaultPreset();preset.keySignature=-4;preset.midiTranspose=false;
+    flow.applyPresetData(preset,false);pump(30);
+    require(main->getAppSettings().keySignature==3&&main->getAppSettings().midiTranspose,"ordinary preset changed app-global transpose");
+    std::cout<<"PHASE_H_PRESET_APPLY ordinary_keeps_global_key=3 transpose_enabled=1\n";
+}
+int main(){std::cout.setf(std::ios::unitbuf);try{juce::ScopedJuceInitialiser_GUI gui;Scratch scratch;auto profile=scratch.directory.getChildFile("profile");require(profile.createDirectory().wasOk(),"profile create failed");ProfileScope redirect(profile);require(juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)==profile,"profile isolation failed");dataConsumers(scratch);appGlobalTranspose();std::cout<<"PHASE_H_DATA_PASSED=1\n";return 0;}catch(const std::exception& e){std::cerr<<"PHASE_H_DATA_ERROR="<<e.what()<<'\n';return 1;}}
+```
+
+##### 完整 Phase H 文档示例消费者
+
+```cpp
+#include "Diagnostics/MidiTrace.h"
+#include "UI/WindowIconUtils.h"
+#include "Layout/PerformancePreset.h"
+#include "Recording/PerformanceFile.h"
+#include "Recording/RecordingSessionController.h"
+#include "Recording/WavFileExporter.h"
+#include "Settings/SettingsWindowManager.h"
+#include "UI/CustomKeyboard.h"
+#include "UI/QwertyComponent.h"
+#include "UI/jive/JiveModalDialog.h"
+#include "UI/jive/core/jive_BackgroundCanvas.h"
+#include <JuceHeader.h>
+#include <iostream>
+#include <shlobj.h>
+#include <vector>
+#include <windows.h>
+#undef START_JUCE_APPLICATION
+#define START_JUCE_APPLICATION(AppClass)
+#include "Main.cpp"
+using namespace devpiano::core;
+using namespace devpiano::recording;
+using namespace devpiano::exporting;
+void require(bool good, const char *reason) {
+  if (!good)
+    throw std::runtime_error(reason);
+}
+struct Scratch {
+  juce::File directory =
+      juce::File::getSpecialLocation(juce::File::tempDirectory)
+          .getChildFile("phaseh-consumer-" + juce::Uuid().toString());
+  Scratch() {
+    require(directory.createDirectory().wasOk(), "scratch create failed");
+  }
+  ~Scratch() {
+    std::cout << "PHASE_H_PRIVATE_FILES_CLEAN=" << directory.deleteRecursively()
+              << '\n';
+  }
+};
+class ProfileScope {
+  using Folder = BOOL(WINAPI *)(HWND, LPWSTR, int, BOOL);
+  static inline Folder original = nullptr;
+  static inline std::wstring path;
+  ULONG_PTR *slot = nullptr;
+  static BOOL WINAPI redirectFolder(HWND window, LPWSTR destination, int kind,
+                                    BOOL create) {
+    if (kind != CSIDL_APPDATA)
+      return original(window, destination, kind, create);
+    std::copy(path.begin(), path.end(), destination);
+    destination[path.size()] = 0;
+    return TRUE;
+  }
+
+public:
+  explicit ProfileScope(const juce::File &directory) {
+    path = directory.getFullPathName().toWideCharPointer();
+    require(path.size() < MAX_PATH, "private profile path too long");
+    auto *base = reinterpret_cast<BYTE *>(GetModuleHandleW(nullptr));
+    auto *dos = reinterpret_cast<IMAGE_DOS_HEADER *>(base);
+    auto *nt = reinterpret_cast<IMAGE_NT_HEADERS *>(base + dos->e_lfanew);
+    auto *imports = reinterpret_cast<IMAGE_IMPORT_DESCRIPTOR *>(
+        base + nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT]
+                   .VirtualAddress);
+    for (; imports->Name != 0; ++imports) {
+      if (imports->OriginalFirstThunk == 0)
+        continue;
+      auto *names = reinterpret_cast<IMAGE_THUNK_DATA *>(
+          base + imports->OriginalFirstThunk);
+      auto *entries =
+          reinterpret_cast<IMAGE_THUNK_DATA *>(base + imports->FirstThunk);
+      for (; names->u1.AddressOfData != 0; ++names, ++entries) {
+        if (IMAGE_SNAP_BY_ORDINAL(names->u1.Ordinal))
+          continue;
+        auto *imported = reinterpret_cast<IMAGE_IMPORT_BY_NAME *>(
+            base + names->u1.AddressOfData);
+        if (std::strcmp(imported->Name, "SHGetSpecialFolderPathW") != 0)
+          continue;
+        DWORD previous = 0;
+        require(VirtualProtect(&entries->u1.Function,
+                               sizeof(entries->u1.Function), PAGE_READWRITE,
+                               &previous) != FALSE,
+                "profile IAT protect failed");
+        slot = &entries->u1.Function;
+        original = reinterpret_cast<Folder>(*slot);
+        *slot = reinterpret_cast<ULONG_PTR>(redirectFolder);
+        DWORD ignored = 0;
+        require(VirtualProtect(slot, sizeof(*slot), previous, &ignored) !=
+                    FALSE,
+                "profile IAT protection restore failed");
+        return;
+      }
+    }
+    throw std::runtime_error("profile import unavailable");
+  }
+  ~ProfileScope() {
+    if (slot != nullptr) {
+      DWORD old = 0;
+      if (VirtualProtect(slot, sizeof(*slot), PAGE_READWRITE, &old)) {
+        *slot = reinterpret_cast<ULONG_PTR>(original);
+        DWORD ignored = 0;
+        VirtualProtect(slot, sizeof(*slot), old, &ignored);
+        std::cout << "PHASE_H_PROFILE_RESTORED=1\n";
+      }
+    }
+  }
+};
+void pump(int milliseconds) {
+  const auto until = juce::Time::getMillisecondCounterHiRes() + milliseconds;
+  do {
+    MSG message{};
+    while (PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE)) {
+      TranslateMessage(&message);
+      DispatchMessageW(&message);
+    }
+    juce::Thread::sleep(1);
+  } while (juce::Time::getMillisecondCounterHiRes() < until);
+}
+template <class T> T *find(juce::Component &c, const juce::String &id = {}) {
+  if (auto *typed = dynamic_cast<T *>(&c);
+      typed != nullptr && (id.isEmpty() || c.getComponentID() == id))
+    return typed;
+  for (int n = 0; n < c.getNumChildComponents(); ++n)
+    if (auto *result = find<T>(*c.getChildComponent(n), id))
+      return result;
+  return nullptr;
+}
+template <class T> T *desktopFind(const juce::String &id = {}) {
+  auto &d = juce::Desktop::getInstance();
+  for (int n = d.getNumComponents() - 1; n >= 0; --n)
+    if (auto *result = find<T>(*d.getComponent(n), id))
+      return result;
+  return nullptr;
+}
+void click(juce::Component &root, const char *id) {
+  auto *b = find<juce::Button>(root, id);
+  require(b != nullptr && bool(b->onClick), "actual button unavailable");
+  b->onClick();
+}
+#include "Recording/PerformanceFile.h"
+void checkExamples(Scratch& scratch){
+ const juce::String native=juce::String::fromUTF8(R"EXAMPLE({
+  "version": 3,
+  "format": "devpiano-performance",
+  "sampleRate": 44100.0,
+  "lengthSamples": 2646000,
+  "metadata": {
+    "createdAt": "2026-08-19T14:30:00Z",
+    "title": "My Piano Sonata in C",
+    "notes": "Practiced with Enhanced Modal Piano v3"
+  },
+  "presets": [
+    {
+      "preset": {
+        "version": 2,
+        "uuid": "963c9500-38d7-4e10-8025-2e61d4830084",
+        "name": "Recorded Piano"
+      },
+      "acoustic": {
+        "builtinTone": "piano",
+        "masterGain": 0.7,
+        "adsr": { "attack": 0.01, "decay": 0.2, "sustain": 0.8, "release": 0.3 },
+        "brightness": 0.5,
+        "hammerHardness": 0.5,
+        "resonance": 0.5,
+        "lidPosition": 0,
+        "temperament": "equal",
+        "referencePitchA4": 440.0,
+        "soundPerspective": "player",
+        "reverbSpace": "chamber",
+        "reverbWet": 0.0,
+        "pedalNoiseLevel": 0.6,
+        "feltAgeingAmount": 0.0,
+        "unaCorda": false,
+        "sustainPolicy": "normal",
+        "transposeEnabled": false,
+        "transposeOffset": 0,
+        "channelFollowKeyMask": 65023
+      }
+    }
+  ],
+  "events": [
+    {
+      "timestampSamples": 44100,
+      "source": "computerKeyboard",
+      "midiData": "3.PxCY"
+    },
+    {
+      "timestampSamples": 88200,
+      "source": "computerKeyboard",
+      "midiData": "3..xC."
+    },
+    {
+      "timestampSamples": 132300,
+      "type": "presetChange",
+      "presetId": 0
+    }
+  ]
+}
+)EXAMPLE");
+ const auto take=deserialiseTakeFromJson(native);require(take.has_value(),"documented v3 example not admitted");
+ const auto presetFile=scratch.directory.getChildFile("example.devpiano.preset");
+ require(presetFile.replaceWithText(juce::String::fromUTF8(R"EXAMPLE({
+  "version": 2,
+  "name": "Pop Piano in D",
+  "uuid": "963c9500-38d7-4e10-8025-2e61d4830084",
+  "layout": {
+    "id": "user.preset.pop-piano-in-d",
+    "name": "Pop Piano in D",
+    "bindings": [
+      {
+        "keyCode": 65,
+        "displayText": "A",
+        "action": {
+          "type": "note",
+          "trigger": "keyDown",
+          "midiNote": 60,
+          "midiChannel": 1,
+          "velocity": 1.0
+        }
+      }
+    ],
+    "groups": [
+      { "transposeOffset": 0, "octaveShift": 0, "channel": 0, "name": "A" },
+      { "transposeOffset": 0, "octaveShift": 0, "channel": 0, "name": "B" },
+      { "transposeOffset": 0, "octaveShift": 0, "channel": 0, "name": "C" },
+      { "transposeOffset": 0, "octaveShift": 0, "channel": 0, "name": "D" }
+    ],
+    "activeGroupIndex": 0
+  },
+  "channelMatrix": {
+    "active": true,
+    "channels": [
+      {
+        "outputChannel": 0,
+        "transpose": 2,
+        "octaveShift": 0,
+        "velocity": 64,
+        "program": 0,
+        "bankMSB": 0,
+        "sustainCC": 64,
+        "followKey": true
+      }
+    ]
+  },
+  "acoustics": {
+    "lidPosition": 0,
+    "touchVelocityCurve": 0,
+    "unaCorda": false,
+    "temperament": "equal",
+    "referencePitchA4": 440.0,
+    "soundPerspective": "player",
+    "reverbSpace": "chamber",
+    "reverbWet": 0.0,
+    "pedalNoiseLevel": 0.6,
+    "feltAgeingAmount": 0.0
+  },
+  "keyboard": {
+    "keySignature": 2,
+    "midiTranspose": true,
+    "colourMode": 0,
+    "noteDisplay": 0,
+    "fadeSpeed": 0.92,
+    "customKeyLabels": [],
+    "customKeyColours": []
+  }
+}
+)EXAMPLE")),"example write failed");
+ const auto preset=devpiano::layout::loadPreset(presetFile);require(preset.has_value(),"documented preset example not admitted");
+ require(preset->uuid.isNotEmpty()&&take->presets.size()==1,"documented snapshot identities absent");
+ std::cout<<"PHASE_H_DOCUMENT_EXAMPLES preset_v2_admitted=1 native_v3_admitted=1 snapshot_table=1\n";
+}
+int main(){std::cout.setf(std::ios::unitbuf);try{juce::ScopedJuceInitialiser_GUI gui;Scratch scratch;auto profile=scratch.directory.getChildFile("profile");require(profile.createDirectory().wasOk(),"profile create failed");ProfileScope redirect(profile);require(juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)==profile,"profile not isolated");checkExamples(scratch);return 0;}catch(const std::exception& e){std::cerr<<"PHASE_H_EXAMPLE_ERROR="<<e.what()<<'\n';return 1;}}
+```
+
+
+##### Phase H 直接证据与最终门禁
+
+| 证据 | 输入 / 真实消费者 | 实际观察 | 未验证与限制 |
+| --- | --- | --- | --- |
+| EVID-062 | 私有目录中生产 rename、MIDI exporter/importer、PerformanceFile 和实际 Main/PresetFlowSupport | collision 拒绝保留两份原字节；大小写同路径与独立 rename 保持 UUID；删除磁盘预设后 v3 快照仍读回，旧数字 v2 拒绝。普通选择保留全局 key=3/transpose=true；单轨 Type1/960PPQ/120BPM、不合成 title/meter，第二次导出读到72、拒绝保留目标；两轨跨轨 tempo120→240 与 CRLF 正确、音符采样0/24000/24000/36000，缺声明轨拒绝。 | 没有冒称 preset JSON 调号等于普通选择改变运行偏好；file reader/消息回读不是 mock 转发。 |
+| EVID-063 | G 完整实际窗口/日志消费者，在当前生产 objects 重新编译，H 私有 profile 与样式目录 | 1500 消息逐写守1024B预算；锁定裁剪与轮转故障停用/保留原因与原字节；raw0/1/64/127准确。真实 Main 热重载像素112233→335577且组件身份保持；单行确认/取消、最终投影/输入路由/静音、Settings与Notes/绑定编辑通过，截图直接查看。 | 本轮重跑这些直接路径，未宣称全部 Phase C/D/E 程序都重新执行；没有修改真实用户样式或日志。 |
+| EVID-064 | 从已对齐功能文档直接取得预设 v2、演奏 v3 JSON；真正 loadPreset/deserialiseTakeFromJson | 两示例均准入，UUID及内嵌快照表有效。 | 属文档发布输入的直接验证；未增加只钉 JSON 文本的永久单测。 |
+| EVID-065 | 最终同步后 Windows MSVC Debug 子树 app/tests Build，默认 ctest 无 category/name；format --check | 内容未变的当前 app/tests 增量构建成功（ninja: no work to do），未发出项目编译 warning；本次99套件、287676通过断言、0失败。Chord七个子测试及两个Metronome lifecycle确有开始/完成日志；AudioEngine fixture 实际编译 command 含 /Zc:nrvo-。全部8轮JSON exit0、用户目录快照一致、私有TEMP/TMP零残留；格式检查通过。 | 数字为本次观察非未来固定门槛；原默认树失败不覆盖。没有做 Release/WSL 产品构建/测试；增量未重编与 G 先前完整编译证据分开。 |
+| EVID-066 | 官方完整 ./scripts/dev.sh tidy --all，全部 source cpp；现行 wrapper 逐内容 compute_key 与实际 cache receipt | 完整命令完成；144/144对应当前源码/头文件/命令/规则，零缺失、全部returncode0、零可见项目severity诊断。 | warnings generated 框架汇总与项目位点分开；不自动 --fix、不改规则。Receipt 验证不是抽样或仅数文件。 |
+| EVID-067 | 原 AUDIT §8 / 计划 / H证据索引三集合，comm与Markdown parser；冻结文档hash | 原54项及P1/P2/P3完全相同、唯一且有直接证据，零缺失/多余；现行本地链接/标题/表格/示例检查通过，历史AUDIT/ADR/archive保持原字节。复建配方提取的四份source/driver与已执行输入逐字一致。 | 原问题身份/优先级不变；不将软件闭环冒充实机全平台验收。恢复配方曾匹配代码内标题字符串，已改为行首精确匹配并复核。 |
+
+**本次门禁关键输出**（仅执行观察）：
+
+```text
+PHASE_H_MIDI_EXPORT type=1 tracks=1 ppq=960 tempo=120 name_meta=0 meter_meta=0 overwrite_note=72 rejected_target_preserved=1
+PHASE_H_MIDI_IMPORT tracks=2 title=Proof time_signature=4/4 all_track_tempo=120,240 note_samples=0,24000,24000,36000 complete_CRLF=1 missing_track_rejected=1
+PHASE_H_PRESET_FILE rename_collision_preserved=1 case_same_path=1 uuid_retained=1 native_v3_embedded_after_disk_delete=1 legacy_numeric_rejected=1
+PHASE_H_PRESET_APPLY ordinary_keeps_global_key=3 transpose_enabled=1
+PHASE_H_DOCUMENT_EXAMPLES preset_v2_admitted=1 native_v3_admitted=1 snapshot_table=1
+PHASE_H_REAL_HOT_RELOAD first=112233 second=335577 component_identity_preserved=1
+PHASE_H_SMOKE_PASSED=1
+PHASE_H_DATA_PASSED=1
+Passed: 287676
+Failed: 0
+[dev] clang-format check passed
+[144/144] actual full clang-tidy command completed; all current-source receipts returncode=0
+comm -3 original-ids closure-ids: no output
+```
+
+日志/截图和每轮JSON保留在 `build-win-msvc/audit004-phaseg/phaseh-*`；完整当前静态receipt为 `phaseh-static-verification.json`，输入归档为 `phaseh-consumer-inputs.json`。这些只是自有构建产物，不是新验证平台；本页保存完整配方/source，可在删除临时文件后复建。所有门禁输出与缺省模板不同的失败/限制都不涂改；本轮无产品源码修复，不把 DOC-001 文档变更算成其他原项的新修复。
+
+**清理与提交边界**：完整输入及当前 receipt 保存后，已删除自有 `/tmp/devpiano-phaseh-*` 探针、恢复脚本、集合对照文件与 Windows `phaseh-smoke/` 编译产物；日志/截图/JSON 保留为构建证据。最终变更范围仅现行 Markdown，历史目录 hash 与 Phase 35 原勾选不变。
 
 ## 5. 每阶段门禁与最终闭环
 
@@ -6156,13 +6838,13 @@ PHASE_G_VERIFICATION={"mode":"Smoke","label":"smoke","buildDir":"G:\\source\\pro
 - 按新审计模板保留证据ID、基线、最小输入/代码、精确构建运行配方、预期/实际及未验证范围；清理临时探针前保存可复建内容。不把源文本/mock echo/默认参数往返视作消费者证明。
 - 关闭标准：原触发条件直接通过，或有可复核调用链证明路径已消除；默认测试绿灯/文档润色不能关闭数据完整性、并发或发音缺陷。完整ID和原证据保留，历史重开、已知引用不变成新增发现。
 
-### 最终实施验收（尚未整体达标）
+### 最终实施验收（软件项通过；实机组合尚未整体达标）
 
-- [ ] Phase 0及A-H全部原项有对应修复/验证记录；原始54项与任务ID经去重及 `comm` 对照零缺失/零多余，原优先级不变。
-- [ ] Windows Debug构建/默认单测/格式及全量静态检查记录实际结果；默认选择含漏跑套件，用户数据无副作用，fixture不依赖可选优化。
-- [ ] 原文件保护、文件准入、NoteOff配对、同步/防抖顺序及完整实时/离线执行闭包有消费者反例修复后的直接证据。
+- [x] Phase 0及A-H全部原项有修复/验证记录；原始54项、计划及证据索引经去重与comm零缺失/零多余，原优先级不变。
+- [x] Windows Debug构建、默认单测、格式及全量静态门禁有实际结果；Chord/lifecycle已执行、用户数据无副作用、fixture禁NRVO，见EVID-065/066。
+- [x] 原文件保护/准入、NoteOff配对、保存顺序与实时/离线闭包均有原触发消费者证据；第三方框架按已批准分层边界单列。
 - [ ] 真实插件Editor/重扫/同名/再次拖放/offline模式、慢插件取消及声卡密集/热插拔组合按原报告4.5完成安全手工复核；未验证的项不假填已通过。
-- [ ] 修复后的功能/验收、known-issues和roadmap相互一致；不回写历史Phase35勾选或AUDIT-004基线结论，完成后再归档本实施记录并建立新复审入口。
+- [~] 现行功能/验收、known-issues与roadmap一致，新复审入口已建立且历史Phase35/AUDIT基线保持；整体实机矩阵未完成前不归档本实施记录，归档步骤仍待其前提满足。
 
 ## 6. 后续路线与历史入口
 

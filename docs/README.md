@@ -42,7 +42,7 @@
 | **输入与映射** | [`features/per-key-customization.md`](reference/features/per-key-customization.md) | 128 项逐键自定义标签与颜色、按键绑定编辑对话框（`KeyBindingEditDialog`） |
 | **输入与映射** | [`features/midi-channel-matrix.md`](reference/features/midi-channel-matrix.md) | 16 通道 MIDI 矩阵路由（移调/力度/音色/延音/按键跟随）与全局调号 |
 | **录制与回放** | [`features/recording-playback.md`](reference/features/recording-playback.md) | 暂停捕获配对、0.5x–2.0x 回放、采样域重基准、Take-relative Seek / A-B 状态恢复、完整预备拍与标准 Type 1 MIDI 导出 |
-| **录制与回放** | [`features/performance-persistence.md`](reference/features/performance-persistence.md) | `.devpiano` 原生演奏文件持久化（v2 JSON + Base64）、原子保存与最近文件 |
+| **录制与回放** | [`features/performance-persistence.md`](reference/features/performance-persistence.md) | `.devpiano` v3 JSON、JUCE 长度前缀二进制消息、内嵌快照、事务替换与 Take/原生文件绑定；旧纯 MIDI 文件兼容，旧数字预设事件拒绝 |
 | **录制与回放** | [`features/midi-file-import.md`](reference/features/midi-file-import.md) | 标准 MIDI 文件导入、Type 0/1 全轨并轨、CC64 延音/弯音解析与回放 |
 | **渲染与导出** | [`features/plugin-offline-rendering.md`](reference/features/plugin-offline-rendering.md) | VST3 插件与内置物理建模钢琴离线高保真渲染 WAV 导出（异步非阻塞任务流、`RenderPipeline`、`WavExportOptions` 声学参数 1:1 对齐） |
 | **预设与状态** | [`features/performance-presets.md`](reference/features/performance-presets.md) | Performance Preset 预设系统（CRUD 编排、F1-F12 快捷键、录制中自动切调） |
@@ -54,7 +54,7 @@
 
 ### 4. 质量审查、验收与问题追踪
 
-- [`reference/acceptance.md`](reference/acceptance.md)：阶段性验收标准（含 Phase 35）、v1.0.0 发布验收与全量回归清单。
+- [`reference/acceptance.md`](reference/acceptance.md)：现行消费者验收、历史阶段交付记录与 Windows 软件/实机回归边界；历史勾选不外推本次硬件或所有厂商插件。
 - [`audit/README.md`](audit/README.md)：审计报告与复审历史入口，含最新 `AUDIT-004` 的消费者证据和原问题总表；当前实施排期见 current-iteration。
 - [`issues/known-issues.md`](issues/known-issues.md)：已知问题、密集 MIDI 播放 CPU 深度剖析与已修复风险回归线索。
 

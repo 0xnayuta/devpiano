@@ -44,7 +44,7 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
 - **安全生命周期管理**：支持默认及自定义多目录扫描、异步分片扫描（Chunked Scan）、XML 缓存恢复与失败文件追踪；
 - **崩溃安全增量持久化（Crash-safe State Persistence）**：扫描中逐插件即时回调落盘，dead-man's pedal 崩溃点记录与黑名单推迟，避免反复卡死；
 - **统一乐器端点（Instrument Endpoint）**：内置物理建模音源与 VST3 乐器共享领域端点职责，统一设备准备、实时发声与离线渲染路由；
-- **插件加载与 Editor 托管**：支持加载 VST3 乐器插件并参与实时音频处理，具备独立 Editor 窗口生命周期管理与异常安全隔离。
+- **插件加载与 Editor 托管**：按 `PluginDescription` identifier 加载与恢复 VST3 乐器，显示名仅用于展示；实例替换与重扫先关闭 Editor 并停 callback。插件在宿主进程内执行，不承诺隔离厂商崩溃或永久卡死。
 
 ### ⌨️ 电脑键盘演奏与 QWERTY 映射看板（Keyboard Performance & Visualizer）
 
@@ -70,19 +70,19 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
 
 - **实时无锁采集**：音频线程无锁采集生成不可变 `RecordingTake` 数据结构，内嵌快照表隔离外部文件增删；
 - **多倍速回放控制**：支持 0.5x–2.0x 音频块边界倍速调节、Back 从头回放，以及暂停/恢复、Take-relative 跳转与 A-B 循环；设备采样率变化保留 Take 时间域，跳转前恢复通道状态，末尾 NoteOff 由音频路径交付，同块预设先于音符生效；
-- **原生演奏持久化**：支持 `.devpiano` 原生演奏文件格式（v3 JSON + Base64 编码 + 内嵌 `RecordedPreset` 表 + `juce::TemporaryFile` 原子写入；旧数字预设格式显式拒绝）；
-- **标准 MIDI 文件支持**：支持导出标准 Type 1 MIDI 文件（960 PPQ），支持导入标准 `.mid` 文件并合并全部音轨，解析 CC64 延音、Pitch Bend 与 Program Change 等控制信息；
-- **Performance Preset 预设系统**：预设 CRUD 编排、F1-F12 快捷键切换、录制中自动切调记录以及同名导入覆盖确认（JIVE 声明式弹窗）。
+- **原生演奏持久化**：`.devpiano` v3 JSON 使用 JUCE 长度前缀二进制编码及内嵌 `RecordedPreset` 表；同目录临时文件成功写出后事务替换。旧 v1/v2 的纯 MIDI 文件可读，旧数字预设事件明确拒绝，不猜测目录索引；
+- **标准 MIDI 文件支持**：导入 Type 0/1 全轨 MIDI，完整轨/chunk/meta 准入后保留跨轨 Tempo Map 的时间语义；导出 Type 1、960 PPQ 的单轨演奏流，tick 0 写入 120 BPM，不合成曲名、拍号或调号 meta；
+- **Performance Preset 预设系统**：UUID 永久身份、CRUD、F1-F12 切换、独立重命名目标覆盖确认；普通切换保留应用全局调号，录制回放按内嵌声学快照执行当时的移调。
 
 ### 📦 离线高保真 WAV 导出（Offline WAV Export Pipeline）
 
 - **现代化异步非阻塞渲染**：`WavExportTask` 演进为纯异步工作任务流（`startAsync`），彻底消除消息循环阻塞，端到端经 `InstrumentEndpoint` 统一调度；
 - **双引擎同构声学对齐**：无插件时自动由内置物理建模引擎渲染，有插件时独立创建离线 VST3 实例渲染，1:1 对齐全部声学参数与 `RoomReverbEngine` 空间混响；
-- **现代化暗黑进度弹窗**：支持实时进度展示、随时取消并自动清理残留文件。
+- **进度与协作取消**：显示导出进度，取消后等待实际工作退出再释放资源；失败或提交前取消保留原目标，仅清理任务自有临时文件。厂商永久阻塞时无法保证有限时间内结束。
 
 ### 🎨 内生声明式 UI 运行时与设计系统（Declarative UI & Design System）
 
-- **声明式 UI 架构**：全应用主界面、设置面板与弹窗全面统一至项目内生声明式 UI 运行时（`source/UI/jive/core/`，依据 ADR-014 已完全内化并退役 JIVE 外部子模块，支持 `juce::ValueTree` 布局 + JSON 样式表 + Flex/CSS Grid 自适应），彻底消灭手工坐标排版；
+- **声明式 UI 架构**：主界面、设置面板与弹窗容器使用内生 `source/UI/jive/core/`（ADR-014，外部 JIVE 子模块已退役），以 `ValueTree`、JSON 样式与 Flex/CSS Grid 排版；业务经 `ViewHost` 门面访问组件，Native 自绘组件保留各自几何与绘制职责。
 - **现代化暗黑主题**：基于 `DevPianoLookAndFeel` 的旋钮化 ADSR/音量调节、演奏走带与节拍器控件、状态栏 MIDI 活动/节拍反馈、插件名称、音频指标与调号；
 - **绿色单文件资产内嵌**：设计 Token（`design_tokens.json`）、样式表（`style_sheets.json`）与中文语言包（`zh_CN.loc`）由 CMake 编译期二进制静态内嵌，单文件绿色分发零外部文件依赖。
 

@@ -2,6 +2,8 @@
 
 ### Fixed
 
+- **Verified Consumer Contracts** — align active documentation with permanent preset identities, native v3 snapshots and legacy admission, app-global transpose, single-track MIDI export, bounded diagnostics, and cooperative plugin cancellation; retain explicit hardware and vendor verification limits.
+
 - **Bounded Session Diagnostics** — rotate active and single-backup logs within a combined 512 KiB budget; retain UTF-8 boundaries, report file-sink failures, and keep complete debugger output.
 - **Raw MIDI Velocity Traces** — report integer velocities without multiplying by 127 and preserve velocity-zero NoteOn-as-NoteOff semantics.
 - **Strict Declarative UI Facade** — encapsulate live style refresh and modal initialization/confirmation in ViewHost; remove raw GuiItem escape APIs and use granular modules in the application icon header.

@@ -95,5 +95,5 @@ struct KeyboardSettings {
 | `KeyboardHitMappingTest` | 验证鼠标拖拽滑音（Glissando）事件流与多通道色彩正确映射 | [x] 已通过 |
 | `QwertyViewModelTest` | 最终投影、绑定标签跨设置/几何/视口重建保持，以及鼠标/回放输入身份隔离 | [x] 已通过 |
 | `KeyboardHitMappingTest` | 合法端点及超范围 fade 输入有界收缩，达到目标后 Timer 停止；逐键颜色在最终输出位置保留 | [x] 已通过 |
-| `KeyBindingEditDialogTest` | 验证 128 项自定义标签与 ARGB 颜色在 JSON 预设中完整保存与读回 | [x] 已通过 |
+| `PerformancePresetTest` | 验证 128 项自定义标签与 ARGB 颜色的预设往返；实际绑定编辑/按键捕获/配置索引消费者见 Phase F/G 实施记录 | [x] 文件及实际界面验证 |
 | `CadenceVelocityTest` | 验证快速与慢速打字律动力度曲线估算、超时复位与力度随机抖动 | [x] 已通过 |

@@ -6,12 +6,12 @@
 
 ## 1. 概述与定位
 
-测试夹具（Test Fixtures）为 devpiano 的 MIDI 导入、导出、roundtrip 往返校验、错误处理与演奏回放行为提供统一、确定性的输入基准，彻底消灭依赖临时文件与口头复现的不确定性。
+固定 MIDI 样本与程序化构建的隔离临时输入共同提供可复建的导入、导出、准入和回放边界；临时文件由 ScopedTempDir 管理，不以真实用户文件作探针。
 
 ## 2. 自动化单元测试集成
-在当前项目中，这些 fixture 已全面接入 `source/tests/` 自动化测试体系：
+在当前项目中，这些 fixture 与自动化测试体系紧密配合：
 - `source/tests/MidiFileImporterTest.cpp`：自动化加载 `simple-notes.mid`、`velocity-channel.mid`、`sustain-pedal.mid`、`multitrack-basic.mid`、`tempo-change-basic.mid`、`empty.mid` 与 `invalid.mid`，验证 Track 解析、通道映射、Meta 事件过滤与异常防御；
-- `source/tests/PerformanceFileTest.cpp`：验证 `simple-performance.json` 的序列化/反序列化与向后兼容。
+- `source/tests/PerformanceFileTest.cpp`：针对 `.devpiano`（Schema v3）验证内嵌快照表序列化/反序列化、v1/v2 历史兼容与拒绝规则、TemporaryFile 事务替换及异常防御；`tests/fixtures/performance/simple-performance.json` 作为早期静态格式样本保留。
 
 ### 目录结构
 
@@ -49,12 +49,12 @@ tests/fixtures/
 
 | 文件名 | 内容描述 | 预期用途 |
 |--------|----------|----------|
-| `simple-performance.json` | 最小 `.devpiano` 格式样本，含 note 事件 | 保存/打开 roundtrip 与兼容性基准 |
+| `simple-performance.json` | 早期静态 `.devpiano` 格式参考样本，含 note 事件 | 历史格式参考样本；`PerformanceFileTest` 核心回归采用程序化构建与隔离临时目录事务往返验证 |
 
 ### 验收与维护标准
 
 - [x] MIDI 与 Performance 夹具的名称、内容和用途均在上述表格中列明。
-- [x] 固定样本位于 `tests/fixtures/`，由导入与持久化测试消费。
+- [x] `MidiFileImporterTest` 消费固定 MIDI 样本；原生持久化回归使用程序化 Take 与隔离目录，静态 Performance 样本仅作早期格式参考。
 - [x] 自动化测试通过 `source/tests/MidiFileImporterTest.cpp` 与 `PerformanceFileTest.cpp` 全面覆盖。
 - [x] 测试夹具相对寻址遵循 TEST-014 纪律，不依赖执行时 CWD。
 
@@ -68,4 +68,4 @@ tests/fixtures/
 
 ### 与导入和持久化测试的关系
 
-MIDI 样本用于 `MidiFileImporterTest` 的全轨并轨、Tempo Map 和错误处理回归；Performance 样本用于 `PerformanceFileTest` 的读取与序列化回归。`DP_TRACE_MIDI` 仅辅助诊断，不作为断言数量或用例数的固定基线。
+MIDI 样本用于 `MidiFileImporterTest` 的全轨并轨、Tempo Map、通道分配与结构错误防御回归；`PerformanceFileTest` 覆盖原生 Schema v3 序列化/反序列化、内嵌预设快照表、v1/v2 兼容规则与事务写出。测试套件严格执行防漂移准则，`DP_TRACE_MIDI` 仅辅助诊断，不作为断言数量或用例数的固定基线。

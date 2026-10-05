@@ -13,7 +13,7 @@ devpiano 提供了完整的“弹奏 → 录制 → 回放 → 导出 MIDI”的
 1. **实时音频线程无锁采集**：在 `AudioEngine` 的音频处理回调中，实时无锁捕获已合并电脑键盘与通道矩阵变换的 pre-render MIDI 消息；
 2. **预分配内存与溢出防御**：录制前预先分配大容量事件缓冲，录制期间实时线程**零动态内存分配（零堆分配）**，容量耗尽时以原子计数安全丢弃，不发生崩溃或阻塞；
 3. **高保真同链路回放**：回放事件重新注入 `AudioEngine` 的主发声链路（驱动已加载 VST3 插件或内置物理建模钢琴），同时联动虚拟钢琴键盘高亮显示；
-4. **标准 MIDI 文件导出（Type 1）**：将完成录制后的 `RecordingTake` 快照转换为标准 MIDI 文件（960 PPQ），供导入外部宿主（DAW）或打谱软件；
+4. **标准 MIDI 文件导出**：将完成录制后的 `RecordingTake` 快照转换为标准 MIDI 文件（单轨包含 Set Tempo 与 MIDI 事件，默认 960 PPQ），供导入外部宿主（DAW）或打谱软件；
 5. **全流程会话编排（`RecordingSessionController`）**：统一录制、播放、暂停和停止；预备拍在完整 1–2 小节后的音频下拍开始，不在最后一拍起音或 UI 轮询时才启动。目标已到达但 UI 尚未轮询时，后续控制先接管已开始的录制；未开始时取消保留原 Take；
 6. **A-B 跟练时间轴与采样级 Seek**：显示 Take 绝对时间，支持点击/拖拽 Seek、A/B 标记；清理旧发音后，在目标音符之前恢复目的通道的 program/bank/CC64/pitch，不重发历史 NoteOn。
 
@@ -99,13 +99,13 @@ struct PerformanceEvent {
 
 struct RecordingTake {
     double sampleRate = 0.0;                       // 录制开始时锁定的 Take 时间域
-    int64_t lengthSamples = 0;                     // 录制总长度
+    std::int64_t lengthSamples = 0;                // 录制总长度（采样点）
     std::vector<PerformanceEvent> events;          // 事件序列
+    std::vector<RecordedPreset> presets;           // 内嵌预设与声学快照表（v3）
 
     [[nodiscard]] bool isEmpty() const noexcept;
     [[nodiscard]] double durationSeconds() const noexcept;
 };
-
 ```
 
 ---
@@ -113,15 +113,11 @@ struct RecordingTake {
 ## 4. 标准 MIDI 文件导出（`MidiFileExporter`）
 
 `source/Recording/MidiFileExporter.cpp` 将 `RecordingTake` 序列化为标准 `.mid` 文件：
-- **格式规范**：标准 MIDI Type 1 文件，时间基准固定为 **960 PPQ**（Pulses Per Quarter Note）；
-- **时间转换**：将 `timestampSamples` 转换为精确的 MIDI Tick（默认基准速度 120 BPM）；
-- **数值准入**：采样率/时间戳先检查；PPQ 仅接受 `1..32767`，写出前确认 JUCE `int` tick 与 MIDI 4 字节 VLQ delta 均可表示。非法范围不进入 `roundToInt()` 或打开输出，保留已有目标。
-- **已有目标保护**：先写入同目录 `TemporaryFile`，检查写入/flush 并关闭流后再替换。连续导出读取到当前 Take 的音符，不把新 MIDI 追加到旧文件；拒绝或替换失败保留原字节。
-- **Track 组织**：
-  - 当前 writer 使用一个事件轨，包含 Set Tempo（默认 500,000 µs/qn）及 Take 的 MIDI Note/CC/Pitch/Program 消息；文件仍按 Type 1 写出。
-  - 不调用 `updateMatchedPairs()`，避免为重复同音起音插入额外 Off；协议自身 tick 量化仍生效，不声称 MIDI 能保留小于 tick 的采样时差。
-  - 尾部由 JUCE writer 写入 `End of Track`。
-
+- **文件与轨道组织**：`exportTakeAsMidiFile()` 真实只调用一次 `midiFile.addTrack(sequence)` 生成单轨事件流（并非独立导引轨+音符轨的双轨结构），时间基准为传入的 PPQ（默认 **960 PPQ**）；
+- **Meta 与 Tempo 设置**：在 tick 0 处写入单一 Set Tempo 消息（固定 `defaultTempoMicrosecondsPerQuarterNote = 500000` 微秒/四分音符，对应 120 BPM）；不自动合成曲目标题、拍号或调号 meta 事件；
+- **事件过滤与显式流保持**：仅导出 `type == PerformanceEventType::midi` 且非 SysEx、非空的演奏消息，自动过滤 `presetChange` 事件与 SysEx。不调用 `updateMatchedPairs()`，避免为重复同音起音凭空插入额外 NoteOff；
+- **数值准入与范围校验**：校验采样率处于支持范围且长度可表示；PPQ 仅接受 `1 .. 32767`；转换 tick 前校验非负与有限性；写出前确认 JUCE `int` tick 与 MIDI 4 字节 VLQ delta 均可表示，非法范围拒绝写出并保留原目标；
+- **事务文件替换（TemporaryFile）**：先写入同目录 `TemporaryFile`，写入完成后 flush 并关闭输出流，校验状态成功后再调用 `overwriteTargetFileWithTemporary()` 原子替换目标文件。连续导出覆盖时确保完全替换为当前 Take 内容，不追加旧文件；取消、参数拒绝或替换失败均完整保留原目标字节并清理临时文件。
 ---
 
 ## 5. 专项手工与边界测试清单
@@ -130,7 +126,7 @@ struct RecordingTake {
 |---|---|---|:---:|
 | **REC-001** | 基础录制与回放 | 点击 Record → 弹奏一段旋律 → 点击 Stop → 点击 Play，完整听到刚才弹奏的旋律 | [x] 已通过 |
 | **REC-002** | 虚拟键盘回放联动 | 回放录音时，虚拟钢琴键盘准确随着各音符的按下与松开同步高亮与变暗 | [x] 已通过 |
-| **REC-003** | 录制中切换预设 | 录制过程中按快捷键切换 Preset，回放时声音与键位在对应时刻自动切调 | [x] 已通过 |
+| **REC-003** | 录制中切换预设 | 录制过程中按快捷键切换 Preset，回放时声音与声学参数在对应时刻根据内嵌快照自动还原（含快照内的移调状态；普通预设切换不覆写全局调号） | [x] 已通过 |
 | **REC-004** | 长时间录制与溢出保护 | 连续录制 30 分钟以上，无卡顿、无内存暴涨，停止录制后 Take 完整可用 | [x] 已通过 |
 | **REC-005** | MIDI 文件导出与 DAW 验证 | 导出 MIDI 文件并在 Reaper / Cubase / Logic 等外部 DAW 中导入，音符时值与力度完全正确 | [x] 已通过 |
 | **REC-006** | 空 Take 导出保护 | 未开始录制时，Export MIDI 与 Export WAV 按钮保持 disabled | [x] 已通过 |

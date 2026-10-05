@@ -99,7 +99,7 @@ Performance Preset 的 New、Rename、Delete 保持在上方，Export、Import�
 | `launchSingleInput` | 380 × 150 | 预设新建（Save As New）、预设重命名 | 单行文本框，自动捕获焦点，支持最大字符数限制与回车即时提交 |
 | `launchConfirm` | 380 × 140 | 预设删除确认、覆盖确认 | 消息文本展示，确认/取消双按钮 |
 | `launchMetadataEdit` | 420 × 260 | 歌曲元数据编辑（Song Title + Notes） | 标题单行；Notes 使用生产 `NotesEditor` 工厂，可键入、多行回车及保存；取消不提交，诊断 `ListEditor` 保持只读 |
-| `makeProgressLayout` | 380 × 140 | WAV 音频离线导出进度 | 状态文本 + JIVE 暗黑 ProgressBar + 随时取消按钮 |
+| `makeProgressLayout` | 380 × 140 | WAV 音频离线导出进度 | 状态与进度，取消只发布协作请求；工作实际结束后才关闭和释放，不承诺厂商永久阻塞时即时完成 |
 
 ### 3.2 自定义弹窗扩展（`launchCustom`）
 
@@ -163,7 +163,7 @@ UI 单元测试位于 `source/tests/`，覆盖通用弹窗、设置布局、样�
 | `StyleCatalogTest` | 动态圆角 | 固定 bounds 连续 radius 0→30→0，角像素立即匹配当前半径，不等待 resize | [x] 已通过 |
 | `SettingsLayoutModelTest`| 16 通道 CSS Grid | 验证通道跟随开关以 8 列 × 2 行网格声明，16 个 Toggle 节点完备 | [x] 已通过 |
 | `SettingsLayoutModelTest`| 声明式音频设备卡片 | 验证设备类型、输出设备、通道、测试按钮、采样率与缓冲大小等声明式节点完整性 | [x] 已通过 |
-| `SettingsLayoutModelTest`| 设置项动态绑定 | 验证修改 ValueTree 属性直接联动底层状态并触发持久化 | [x] 已通过 |
+| 生产 Settings 窗口 | 调号与跟随交互 | 实际 transpose 开关关闭时 followKey 禁用、开启时可编辑；不以属性赋值回读当业务证明，见 Phase G/H 消费者证据 | [x] 实际界面验证 |
 | `StyleCatalogTest` | Metro toggle checked 样式 | 验证 Metro 与传输按钮使用一致的中性轮廓，checked 状态不引入额外强调色 | [x] 已通过 |
 | `StyleCatalogTest` | 语义标题语言联动 | 验证语言切换时 JIVE 布局树中所有静态与动态标题节点同步重刷 | [x] 已通过 |
 | `QwertyViewModelTest`    | 和声色相与对比度 | 验证 12-TET 和声色相间隔、八度同色、三全音互补与文字对比度算法 | [x] 已通过 |
