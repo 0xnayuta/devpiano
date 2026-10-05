@@ -21,5 +21,6 @@
 - [`ADR-012-header-iwyu-and-granular-include-discipline.md`](ADR-012-header-iwyu-and-granular-include-discipline.md)：头文件 IWYU（Include What You Use）细粒度包含纪律，禁止头文件展开 `<JuceHeader.h>`。
 - [`ADR-013-removal-of-melatonin-inspector-submodule.md`](ADR-013-removal-of-melatonin-inspector-submodule.md)：移除 melatonin_inspector 子模块，聚焦声明式 UI 架构与原生调试体系。
 - [`ADR-014-internalize-ui-infrastructure-and-deprecate-jive-submodule.md`](ADR-014-internalize-ui-infrastructure-and-deprecate-jive-submodule.md)：内化 Devpiano 声明式 UI 基础设施与 JIVE 子模块退役治理（已完全实施）。
+- [`ADR-015-localized-message-templates-and-punctuation.md`](ADR-015-localized-message-templates-and-punctuation.md)：完整消息模板、分类标点与单参数原样插入（已接受；既有调用迁移待实施），更激进方案须以后继 ADR 替代。
 
 ADR 应记录已确定的决策、原因和影响，不用于描述未决定的计划。
