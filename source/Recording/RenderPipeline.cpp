@@ -81,7 +81,8 @@ std::optional<RenderTimeline> prepareRenderTimeline(const RecordingTake& take, d
         RenderEvent renderEvent;
         renderEvent.type = event.type;
         renderEvent.presetId = event.presetId;
-        renderEvent.timestampSamples = *checkedScaleSamples(event.timestampSamples, ratio);
+        renderEvent.timestampSamples
+            = checkedScaleSamples(event.timestampSamples, ratio).value_or(event.timestampSamples);
         if (event.type == PerformanceEventType::midi) {
             renderEvent.message = event.message;
             renderEvent.message.setTimeStamp(0.0);

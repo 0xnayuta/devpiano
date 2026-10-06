@@ -499,7 +499,7 @@ void RecordingEngine::startPlaybackAtTakeSample(const RecordingTake& take, doubl
     const auto sampleRateRatio = currentSampleRate / take.sampleRate;
     const auto activeSpeed = targetSpeedMultiplier.load(std::memory_order_relaxed);
     const auto combinedRatio = sampleRateRatio / activeSpeed;
-    const auto scaledPosition = *checkedScaleSamples(takeSample, combinedRatio);
+    const auto scaledPosition = checkedScaleSamples(takeSample, combinedRatio).value_or(0);
     startPlayback(take, currentSampleRate, scaledPosition);
 }
 
@@ -648,7 +648,7 @@ RecordingEngine::applyPendingTransportCommands(juce::MidiBuffer& midiBuffer) noe
             = juce::jlimit<std::int64_t>(0, std::max<std::int64_t>(playbackTake.lengthSamples, 0), seekSample);
         const auto combinedRatio = playbackSampleRateRatio.load(std::memory_order_relaxed)
             / effectiveSpeedMultiplier.load(std::memory_order_relaxed);
-        const auto scaledPosition = *checkedScaleSamples(clampedTakeSample, combinedRatio);
+        const auto scaledPosition = checkedScaleSamples(clampedTakeSample, combinedRatio).value_or(0);
         const auto clampedPosition = juce::jlimit<std::int64_t>(
             0, scaledPlaybackLengthSamples.load(std::memory_order_relaxed), scaledPosition);
 
@@ -909,7 +909,7 @@ void RecordingEngine::renderPlaybackEventsInRange(juce::MidiBuffer& midiBuffer, 
     const auto totalEvents = playbackTake.events.size();
     while (playbackEventIndex < totalEvents) {
         const auto& event = playbackTake.events[playbackEventIndex];
-        const auto scaledTimestamp = *checkedScaleSamples(event.timestampSamples, combinedRatio);
+        const auto scaledTimestamp = checkedScaleSamples(event.timestampSamples, combinedRatio).value_or(0);
         if (scaledTimestamp < rangeStartSamples) {
             ++playbackEventIndex;
             continue;
@@ -1058,9 +1058,10 @@ void RecordingEngine::schedulePresetChange(std::uint32_t presetId, int sampleOff
 std::int64_t RecordingEngine::getScaledPlaybackLengthSamples() const noexcept {
     const auto ratio = playbackSampleRateRatio.load(std::memory_order_relaxed)
         / effectiveSpeedMultiplier.load(std::memory_order_relaxed);
-    auto length = *checkedScaleSamples(playbackTake.lengthSamples, ratio);
+    auto length = checkedScaleSamples(playbackTake.lengthSamples, ratio).value_or(0);
     if (!playbackTake.events.empty()) {
-        length = std::max(length, *checkedScaleSamples(playbackTake.events.back().timestampSamples, ratio) + 1);
+        length
+            = std::max(length, checkedScaleSamples(playbackTake.events.back().timestampSamples, ratio).value_or(0) + 1);
     }
     return length;
 }
@@ -1103,8 +1104,8 @@ bool RecordingEngine::tryGetScaledLoopRange(double combinedRatio, ScaledLoopRang
         return true;
     }
 
-    const auto scaledStart = *checkedScaleSamples(startInTake, combinedRatio);
-    const auto scaledEnd = *checkedScaleSamples(endInTake, combinedRatio);
+    const auto scaledStart = checkedScaleSamples(startInTake, combinedRatio).value_or(0);
+    const auto scaledEnd = checkedScaleSamples(endInTake, combinedRatio).value_or(scaledLength);
     const auto startSamples = juce::jlimit<std::int64_t>(0, scaledLength - 1, scaledStart);
     const auto endSamples = juce::jlimit<std::int64_t>(startSamples + 1, scaledLength, scaledEnd);
     const auto minBlockSize = static_cast<std::int64_t>(std::max(1, playbackBlockSize.load(std::memory_order_relaxed)));
@@ -1202,10 +1203,10 @@ void RecordingEngine::resetPlaybackEventCursor(std::int64_t positionSamples, dou
         return;
     }
 
-    const auto it = std::ranges::lower_bound(playbackTake.events, positionSamples, {},
-                                             [combinedRatio](const PerformanceEvent& event) noexcept {
-                                                 return *checkedScaleSamples(event.timestampSamples, combinedRatio);
-                                             });
+    const auto it = std::ranges::lower_bound(
+        playbackTake.events, positionSamples, {}, [combinedRatio](const PerformanceEvent& event) noexcept {
+            return checkedScaleSamples(event.timestampSamples, combinedRatio).value_or(0);
+        });
     playbackEventIndex = static_cast<std::size_t>(std::distance(playbackTake.events.begin(), it));
 }
 
