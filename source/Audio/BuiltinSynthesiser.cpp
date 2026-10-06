@@ -149,9 +149,6 @@ void BuiltinSynthesiser::processNextBlock(juce::AudioBuffer<FloatType>& outputAu
             if (targetChannels > 0) {
                 renderVoices(outputAudio, startSample, numSamples);
             }
-            if (samplesToNextMidiMessage == numSamples) {
-                handleMidiMetadata(metadata);
-            }
             break;
         }
 

@@ -278,6 +278,56 @@ public:
             expectEquals(v0->getCurrentlyPlayingNote(), 67);
             expectEquals(buf.getMagnitude(0, 64), 0.0f);
         }
+
+        beginTest("block boundary MIDI event executes exactly once without duplicate dispatch");
+        {
+            class CountingVoice final : public juce::SynthesiserVoice {
+            public:
+                bool canPlaySound(juce::SynthesiserSound*) override {
+                    return true;
+                }
+                void startNote(int, float, juce::SynthesiserSound*, int) override {
+                    ++noteOnCount;
+                }
+                void stopNote(float, bool) override {
+                    ++noteOffCount;
+                    clearCurrentNote();
+                }
+                void pitchWheelMoved(int) override {
+                }
+                void controllerMoved(int, int) override {
+                    ++controllerCount;
+                }
+                void renderNextBlock(juce::AudioBuffer<float>&, int, int) override {
+                }
+                void renderNextBlock(juce::AudioBuffer<double>&, int, int) override {
+                }
+
+                int noteOnCount = 0;
+                int noteOffCount = 0;
+                int controllerCount = 0;
+            };
+
+            devpiano::audio::BuiltinSynthesiser synth;
+            synth.setCurrentPlaybackSampleRate(44100.0);
+            synth.addSound(new PianoSynthSound());
+            auto* voice = new CountingVoice();
+            synth.addVoice(voice);
+
+            juce::MidiBuffer midi;
+            midi.addEvent(juce::MidiMessage::noteOn(1, 60, 0.8f), 128);
+            midi.addEvent(juce::MidiMessage::controllerEvent(1, 1, 64), 128);
+
+            juce::AudioBuffer<float> buf(2, 128);
+            buf.clear();
+
+            // Render block [0, 128). The events at sample 128 sit exactly on the block boundary.
+            synth.renderNextBlock(buf, midi, 0, 128);
+
+            expectEquals(voice->noteOnCount, 1, "Boundary NoteOn must be dispatched exactly once");
+            expectEquals(voice->noteOffCount, 0, "No duplicate noteOn should force an early voice stop");
+            expectEquals(voice->controllerCount, 1, "Boundary CC must be dispatched exactly once");
+        }
     }
 };
 static BuiltinSynthesiserExecutionTest builtinSynthesiserExecutionTest;
