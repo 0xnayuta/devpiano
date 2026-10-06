@@ -118,6 +118,13 @@ void RecordingEngine::startRecording(double sampleRate) {
     capturedPedals = {};
     droppedEventCount.store(0, std::memory_order_relaxed);
     playbackEndedPending.store(false, std::memory_order_release);
+    const auto seekVersion = seekSequence.load(std::memory_order_acquire);
+    appliedSeekSequence.store(seekVersion, std::memory_order_release);
+    const auto speedVersion = speedSequence.load(std::memory_order_acquire);
+    appliedSpeedSequence.store(speedVersion, std::memory_order_release);
+    const auto stopVersion = stopSequence.load(std::memory_order_acquire);
+    appliedStopSequence.store(stopVersion, std::memory_order_release);
+    stopRequested.store(false, std::memory_order_relaxed);
     state.store(RecordingState::recording, std::memory_order_release);
 
     DP_DEBUG_LOG("[RecordingEngine] recording STARTED");
@@ -221,6 +228,13 @@ void RecordingEngine::clear() {
     lastRenderedLoopRange = {};
     loopWrapPending = false;
     abLoopEngine.clear();
+    const auto seekVersion = seekSequence.load(std::memory_order_acquire);
+    appliedSeekSequence.store(seekVersion, std::memory_order_release);
+    const auto speedVersion = speedSequence.load(std::memory_order_acquire);
+    appliedSpeedSequence.store(speedVersion, std::memory_order_release);
+    const auto stopVersion = stopSequence.load(std::memory_order_acquire);
+    appliedStopSequence.store(stopVersion, std::memory_order_release);
+    stopRequested.store(false, std::memory_order_relaxed);
     playbackEndedPending.store(false, std::memory_order_release);
     state.store(RecordingState::idle, std::memory_order_release);
 }

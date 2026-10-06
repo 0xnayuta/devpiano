@@ -1586,6 +1586,34 @@ public:
             }
         }
 
+        beginTest("armRecording clears pending playback stop command and preserves countingIn state");
+        {
+            RecordingEngine engine;
+            const auto take = buildTake(48000.0, 48000, { { 0, 60, true, 1, 0.8f }, { 24000, 60, false, 1, 0.0f } });
+            engine.startPlayback(take, 48000.0, 0);
+            expect(engine.isPlaying());
+
+            // User clicks stop on playback:
+            engine.requestPlaybackStop();
+
+            // Before the audio thread consumes the stop command, user arms recording with count-in:
+            engine.reserveEvents(16);
+            engine.armRecording(48000.0);
+            expectEquals(static_cast<int>(engine.getState()), static_cast<int>(RecordingState::countingIn));
+
+            // Now audio thread executes next block:
+            juce::MidiBuffer blockBuffer;
+            const auto cmdResult = engine.applyPendingTransportCommands(blockBuffer);
+            expect(!cmdResult.stopApplied, "Stale stop command must not be applied to armed recording");
+            expectEquals(static_cast<int>(engine.getState()), static_cast<int>(RecordingState::countingIn),
+                         "State must remain countingIn, not reverted to stopped");
+
+            // Count-in completes on audio thread:
+            engine.startArmedRecording();
+            expectEquals(static_cast<int>(engine.getState()), static_cast<int>(RecordingState::recording),
+                         "startArmedRecording must transition cleanly to recording");
+        }
+
         beginTest("MIDI export preserves repeated attacks and their actual final release");
         {
             devpiano::test::ScopedTempDir temp("phase-d-midi-pairing");
