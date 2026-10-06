@@ -31,10 +31,10 @@ jobs:
           OPENAI_KEY: ${{ secrets.KIOSAPI_API_KEY }}
           OPENAI.API_BASE: "https://kiosapi.com/v1/"
           # 模型 ID 必须对当前 KiosAPI Token Group 可用
-          config.model: "openai/qwen3.8-flash-free"
+          config.model: "openai/deepseek-v4-flash-free"
           config.fallback_models: '["openai/deepseek-v4-flash-free"]'
           config.temperature: "0.2"
-          config.ai_timeout: "300"
+          config.ai_timeout: "180"
           # 真实上下文与裁剪保护：匹配 128k 物理窗口，单次 diff 限制在 3.2w tokens 避免大 PR 撑爆 API
           config.custom_model_max_tokens: "131072"
           config.max_model_tokens: "32000"
