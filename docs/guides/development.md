@@ -19,7 +19,7 @@
 
 - 快速开始：[`quickstart.md`](quickstart.md)
 - Agent 协作规则：仓库根目录 [`../../AGENTS.md`](../../AGENTS.md)
-- 架构决策记录：[`../decisions/README.md`](../decisions/README.md)；新增本地化文案遵循 [`ADR-015：完整消息模板与分类标点`](../decisions/ADR-015-localized-message-templates-and-punctuation.md)，存量迁移按 [当前迭代](../roadmap/current-iteration.md) 验收。
+- 架构决策记录：[`../decisions/README.md`](../decisions/README.md)；新增本地化文案遵循 [`ADR-015：完整消息模板与分类标点`](../decisions/ADR-015-localized-message-templates-and-punctuation.md)，存量模板迁移已在前期迭代闭环。
 
 后续可按需补充：
 

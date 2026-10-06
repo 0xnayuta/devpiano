@@ -5,7 +5,7 @@
 
 当前项目状态与风险以 [`../roadmap/roadmap.md`](../roadmap/roadmap.md) 为准；阶段验收见 [`../reference/acceptance.md`](../reference/acceptance.md)。
 
-最新审计及软件实施复审见 [AUDIT-004](../audit/AUDIT-004-code-quality-audit-2026-10-02.md)，完整修复记录见 [AUDIT-004 Phase 归档](../archive/audit-004-code-quality-fix-phases.md)，当前任务见 [本地化小阶段](../roadmap/current-iteration.md)。本清单保留原编号与回归线索，不复制报告第 8 章状态；旧“已修复”遇新反证仍携原身份追踪。
+最新审计及软件实施复审见 [AUDIT-004](../audit/AUDIT-004-code-quality-audit-2026-10-02.md)，完整修复记录见 [AUDIT-004 Phase 归档](../archive/audit-004-code-quality-fix-phases.md)，当前任务见 [当前迭代](../roadmap/current-iteration.md)。本清单保留原编号与回归线索，不复制报告第 8 章状态；旧“已修复”遇新反证仍携原身份追踪。
 
 ---
 
@@ -274,6 +274,30 @@
 - **修复**：重构键盘视口几何布局计算，白键高度完全位于滚动条可视区域上方，并为 QWERTY 展开与折叠提供自适应高度约束。
 - **回归线索**：最小窗口尺寸下 88 键钢琴白键下半截被横向滚动条遮挡。
 - **关联**：`KeyboardViewport.h`，`LayoutModel.cpp`，`LayoutGoldenTest.cpp`。
+
+### BuiltinSynthesiser 采样块边界 MIDI 双重分发防护 (AUDIT-004-FIX-01)
+
+当 MIDI 事件的采样点恰好等于音频块边界（`samplesToNextMidiMessage == numSamples`）时，该事件在提前处理一次后未步进迭代器，跳出循环后又在后置循环被二次处理。
+- **根因**：第一阶段循环在块末尾满足条件后提前调用 `handleMidiMetadata()` 并 `break`，但后置循环对 `<= blockEndSample` 的事件再次执行分发。
+- **修复**：删除首阶段边界处冗余的提前分发，音频渲染完成后直接 `break`，所有边界事件统一由后置循环分发，确保严格单次触发。
+- **回归线索**：块末尾精确到达的 NoteOn 出现 voice 重启、尾音被掐或误触发偷音。
+- **关联**：`BuiltinSynthesiser.cpp`，`AudioEngineTest.cpp`（`BuiltinSynthesiserExecutionTest`）。
+
+### AudioEngine 键释放与 All-Notes-Off 虚假 NoteOn 毛刺消除 (AUDIT-004-FIX-02)
+
+按键释放（NoteOff）或接收到 CC 120/123（All Notes Off）时，UI 键盘状态监听器收到虚假的瞬态 `noteOn` 通知。
+- **根因**：原子状态数据在释放时 Bit 7（Active 标志）被清零，但低 7 位保留上次起音力度。消费侧基于 `velocity > 0.0f` 进行起音判定，导致先触发 `noteOn` 再触发 `noteOff`。
+- **修复**：严格基于 Bit 7 (`(value & 0x80) != 0`) 门禁起音分支，Inactive 状态仅分发 `noteOff`。
+- **回归线索**：UI 键盘监听器在按键释放时收到虚假起音事件流；监听事件序列出现多余的 `handleNoteOn`。
+- **关联**：`AudioEngine.cpp`，`AudioEngineTest.cpp`（`AudioEnginePlaybackTransposeTest`）。
+
+### JiveModalDialog 标题栏关闭取消回调失效防护 (AUDIT-004-FIX-03)
+
+模态弹窗通过标题栏 X 按钮或外部程序化退出关闭时，注册的 `options.onCancel` 回调未被触发。
+- **根因**：`options.create()` 转移了内容组件所有权并置空 `options.content`，后续 lambda 捕获的 `options.content.get()` 恒为 `nullptr`。
+- **修复**：通过 `dialog->getContentComponent()` 获取实际内容指针并包装为 `juce::Component::SafePointer` 传入模态完成回调。
+- **回归线索**：点击弹窗右上角 X 按钮关闭后，业务侧临时状态未还原、`onCancel` 丢失。
+- **关联**：`JiveModalDialog.cpp`，`JiveModalDialogTest.cpp`。
 ---
 
 ## 3. 环境说明
