@@ -8,6 +8,7 @@ response_language = "zh-CN"
 glob = [
   "submodules/**",
   "docs/archive/**",
+  "docs/audit/**",
   "*.patch",
   "*.lock",
 ]
