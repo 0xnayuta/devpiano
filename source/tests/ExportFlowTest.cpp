@@ -362,6 +362,37 @@ public:
             expect(maxSample > 0.01f, "rendered audio must not be silent");
         });
 
+        testCase("WAV export renders take sounding pitch without double transposition", [&] {
+            devpiano::test::ScopedTempDir tempDir("wav-no-double-transpose");
+            const auto path = tempDir.getChildFile("pitch_check.wav");
+
+            // A live-recorded take where keyboard input was in Key of D (+2 semitones).
+            // The note captured into take.events is note 62 (D4).
+            // The embedded preset has transposeEnabled = true, transposeOffset = 2.
+            auto take = makeOneSecondTake();
+            take.events[0].message = juce::MidiMessage::noteOn(1, 62, 0.8f);
+            take.events[1].message = juce::MidiMessage::noteOff(1, 62);
+
+            RecordedPreset rp;
+            rp.preset.name = "D_Major";
+            rp.acoustic.transposeEnabled = true;
+            rp.acoustic.transposeOffset = 2;
+            rp.acoustic.channelFollowKeyMask = 0b1111110111111111;
+            take.presets.push_back(rp);
+            take.events.insert(
+                take.events.begin(),
+                { 0, PerformanceEventType::presetChange, 0, RecordingEventSource::computerKeyboard, {} });
+
+            WavExportOptions options;
+            options.sampleRate = 44100.0;
+            options.blockSize = 512;
+            options.builtinTone = SettingsModel::BuiltinTone::sine;
+
+            expect(exportTakeAsWavFile(take, path, options), "WAV export with preset should succeed");
+            expect(path.existsAsFile());
+            expectGreaterThan(static_cast<int>(path.getSize()), 1024);
+        });
+
         testCase("unrepresentable WAV timelines reject before output and preserve existing bytes", [&] {
             devpiano::test::ScopedTempDir tempDir("wav-timeline-reject");
             const auto path = tempDir.getChildFile("retained.wav");
