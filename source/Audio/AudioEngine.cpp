@@ -770,11 +770,10 @@ void AudioEngine::dispatchPendingDisplayEvents() {
                 continue;
             }
             observedDisplayNotes[channel][pitch] = value;
-            const auto velocity = static_cast<float>(value & 0x7f) / 127.0f;
-            if (velocity > 0.0f) {
+            if ((value & 0x80) != 0) {
+                const auto velocity = static_cast<float>(value & 0x7f) / 127.0f;
                 keyboardState.noteOn(static_cast<int>(channel) + 1, static_cast<int>(pitch), velocity);
-            }
-            if ((value & 0x80) == 0) {
+            } else {
                 keyboardState.noteOff(static_cast<int>(channel) + 1, static_cast<int>(pitch), 0.0f);
             }
         }

@@ -956,6 +956,90 @@ public:
 
             rec.stopPlaybackQuiescent();
         }
+        beginTest("display event dispatch does not fire spurious noteOn during noteOff or all-notes-off");
+        {
+            class SequenceListener final : public juce::MidiKeyboardState::Listener {
+            public:
+                void handleNoteOn(juce::MidiKeyboardState*, int midiChannel, int midiNoteNumber,
+                                  float velocity) override {
+                    noteOnEvents.push_back({ midiChannel, midiNoteNumber, velocity });
+                }
+                void handleNoteOff(juce::MidiKeyboardState*, int midiChannel, int midiNoteNumber,
+                                   float velocity) override {
+                    noteOffEvents.push_back({ midiChannel, midiNoteNumber, velocity });
+                }
+
+                struct Event {
+                    int channel;
+                    int note;
+                    float velocity;
+                };
+                std::vector<Event> noteOnEvents;
+                std::vector<Event> noteOffEvents;
+            };
+
+            devpiano::recording::RecordingEngine rec;
+            AudioEngine engine;
+            engine.setRecordingEngine(&rec);
+            engine.prepareToPlay(512, 44100.0);
+            exhaustWarmup(engine, 512);
+
+            SequenceListener listener;
+            engine.getKeyboardState().addListener(&listener);
+
+            devpiano::recording::RecordingTake take;
+            take.sampleRate = 44100.0;
+            take.lengthSamples = 3000;
+            // Block 1 (samples 0..511): NoteOn at 100
+            take.events.push_back({
+                .timestampSamples = 100,
+                .type = devpiano::recording::PerformanceEventType::midi,
+                .source = devpiano::recording::RecordingEventSource::playback,
+                .message = juce::MidiMessage::noteOn(1, 60, 0.8f),
+            });
+            // Block 2 (samples 512..1023): NoteOff at 600
+            take.events.push_back({
+                .timestampSamples = 600,
+                .type = devpiano::recording::PerformanceEventType::midi,
+                .source = devpiano::recording::RecordingEventSource::playback,
+                .message = juce::MidiMessage::noteOff(1, 60, 0.0f),
+            });
+
+            rec.startPlayback(take, 44100.0);
+
+            // Process Block 1 (NoteOn)
+            auto buf1 = makeBlock(2, 512);
+            engine.getNextAudioBlock({ &buf1, 0, 512 });
+            engine.dispatchPendingDisplayEvents();
+
+            expectEquals(static_cast<int>(listener.noteOnEvents.size()), 1,
+                         "Must receive exactly 1 noteOn during attack");
+            expectEquals(static_cast<int>(listener.noteOffEvents.size()), 0, "Must receive 0 noteOff during attack");
+            if (!listener.noteOnEvents.empty()) {
+                expectEquals(listener.noteOnEvents[0].channel, 1);
+                expectEquals(listener.noteOnEvents[0].note, 60);
+            }
+
+            listener.noteOnEvents.clear();
+            listener.noteOffEvents.clear();
+
+            // Process Block 2 (NoteOff)
+            auto buf2 = makeBlock(2, 512);
+            engine.getNextAudioBlock({ &buf2, 0, 512 });
+            engine.dispatchPendingDisplayEvents();
+
+            expectEquals(static_cast<int>(listener.noteOnEvents.size()), 0,
+                         "Must NOT fire spurious noteOn when note is released");
+            expectEquals(static_cast<int>(listener.noteOffEvents.size()), 1,
+                         "Must fire exactly 1 noteOff when note is released");
+            if (!listener.noteOffEvents.empty()) {
+                expectEquals(listener.noteOffEvents[0].channel, 1);
+                expectEquals(listener.noteOffEvents[0].note, 60);
+            }
+
+            rec.stopPlaybackQuiescent();
+            engine.getKeyboardState().removeListener(&listener);
+        }
     }
 };
 
