@@ -43,7 +43,7 @@ PR-Agent 是开源 AI 代码审查 agent（[The-PR-Agent/pr-agent](https://githu
 
 - `[config] response_language = "zh-CN"`：审查评论使用中文。
 - `[ignore] glob = ["submodules/**", "docs/archive/**", "*.patch", "*.lock"]`：忽略第三方子模块、归档文档、补丁与 lock 文件变更（不应进入审查范围）。
-- `[pr_reviewer] extra_instructions`：追加审查关注点——实时音频/MIDI 回调线程安全、AGENTS.md 核心架构要求、Conventional Commits 提交规范。
+- `[pr_reviewer] extra_instructions`：追加审查关注点——实时音频契约（无锁/零堆分配/安全 fallback）、AGENTS.md 12 项核心架构要求（固定拓扑/防悬挂/UI 单一事实源）、7-bit ASCII 与 ADR-015 本地化规范、内化声明式 UI 边界与 Conventional Commits 提交规范。
 - `AGENTS.md` 默认作为 repo context 自动注入 review / describe / improve 的提示词（v0.39+ 行为），仓库规范无需重复配置。
 
 ## 模型与密钥
