@@ -121,7 +121,8 @@ void PresetFlowSupport::applyPresetByIndex(int index) {
 void PresetFlowSupport::applyPresetData(const PerformancePreset& preset, bool fileBacked) {
     commitPreset(preset, fileBacked);
 
-    if (owner.recordingEngine.isRecording()) {
+    if (owner.recordingEngine.isRecording()
+        || owner.recordingEngine.getState() == devpiano::recording::RecordingState::countingIn) {
         devpiano::recording::RecordedPreset recordedPreset { preset, owner.audioEngine.captureAcousticSnapshot() };
         recordedPreset.acoustic.unaCorda = preset.unaCorda;
         owner.recordingEngine.recordPresetChange(recordedPreset);

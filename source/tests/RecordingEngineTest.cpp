@@ -1614,6 +1614,45 @@ public:
                          "startArmedRecording must transition cleanly to recording");
         }
 
+        beginTest("preset changes during count-in are captured and committed on recording start");
+        {
+            RecordingEngine engine;
+            engine.reserveEvents(16);
+            engine.armRecording(48000.0);
+            expectEquals(static_cast<int>(engine.getState()), static_cast<int>(RecordingState::countingIn));
+
+            RecordedPreset initialPreset;
+            initialPreset.preset.name = "InitialPreset";
+            engine.recordPresetChange(initialPreset);
+
+            RecordedPreset countInPreset;
+            countInPreset.preset.name = "SwitchedDuringCountIn";
+            engine.recordPresetChange(countInPreset);
+
+            expectEquals(engine.getCurrentTake().presets.size(), std::size_t { 2 });
+
+            // Count-in completes, recording begins
+            engine.startArmedRecording();
+            juce::MidiBuffer midi;
+            midi.addEvent(juce::MidiMessage::noteOn(1, 60, 0.8f), 0);
+            engine.recordMidiBufferBlock(midi, RecordingEventSource::realtimeMidiBuffer, 0, 0);
+            engine.advanceRecordingPosition(512);
+
+            const auto take = engine.stopRecording();
+            expectEquals(take.presets.size(), std::size_t { 2 });
+            expectEquals(take.presets[1].preset.name, juce::String("SwitchedDuringCountIn"));
+
+            // Verify presetChange events were committed to take.events
+            bool foundCountInPresetEvent = false;
+            for (const auto& event : take.events) {
+                if (event.type == PerformanceEventType::presetChange && event.presetId == 1) {
+                    foundCountInPresetEvent = true;
+                    expectEquals(event.timestampSamples, std::int64_t { 0 });
+                }
+            }
+            expect(foundCountInPresetEvent, "Preset switched during count-in must have an event committed at sample 0");
+        }
+
         beginTest("MIDI export preserves repeated attacks and their actual final release");
         {
             devpiano::test::ScopedTempDir temp("phase-d-midi-pairing");
