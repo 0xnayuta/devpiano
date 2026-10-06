@@ -518,6 +518,31 @@ public:
                 expectEquals(loaded->reverbWet, 0.73f, "Preset data must be preserved");
             }
         });
+        testCase("renaming to a target with intermediate suffix does not collide with staging file", [&] {
+            devpiano::test::ScopedTempDir tempDir("preset-rename-staging-collision");
+            auto p = makeFullPreset();
+            p.name = "MyPreset";
+            p.reverbWet = 0.55f;
+            const auto fileOld = resolvePresetFile("MyPreset", tempDir.get());
+            expect(savePreset(p, fileOld));
+            expect(fileOld.existsAsFile());
+
+            // Target name "MyPreset.devpiano_rename" would previously collide with
+            // oldFile.getFileNameWithoutExtension() + "_rename" + kPresetFileExtension.
+            const auto res = renamePreset("MyPreset", "MyPreset.devpiano_rename", false, tempDir.get());
+            expect(res == PresetRenameResult::success, "Rename to dotted/intermediate name must succeed");
+
+            const auto fileNew = resolvePresetFile("MyPreset.devpiano_rename", tempDir.get());
+            expect(!fileOld.existsAsFile(), "Old source file must be moved/removed");
+            expect(fileNew.existsAsFile(), "New target file must exist and NOT be deleted");
+
+            auto loaded = loadPreset(fileNew);
+            expect(loaded.has_value());
+            if (loaded.has_value()) {
+                expectEquals(loaded->name, juce::String("MyPreset.devpiano_rename"));
+                expectEquals(loaded->reverbWet, 0.55f);
+            }
+        });
 
         testCase("validation and failure handling preserve original files and clean up temp files", [&] {
             devpiano::test::ScopedTempDir tempDir("preset-rename-fail");

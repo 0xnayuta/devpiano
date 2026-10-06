@@ -815,8 +815,8 @@ PresetRenameResult renamePreset(const juce::String& oldName, const juce::String&
                                                                   : PresetRenameResult::saveFailed;
     }
 
-    const auto stagedSource
-        = dir.getNonexistentChildFile(oldFile.getFileNameWithoutExtension() + "_rename", kPresetFileExtension, false);
+    const auto stagedSource = dir.getNonexistentChildFile(
+        oldFile.getFileName() + ".staging." + juce::Uuid().toDashedString(), ".tmp", false);
     if (!oldFile.moveFileTo(stagedSource)) {
         return PresetRenameResult::sourceMoveFailed;
     }
@@ -830,7 +830,7 @@ PresetRenameResult renamePreset(const juce::String& oldName, const juce::String&
         return PresetRenameResult::saveFailed;
     }
 
-    if (!stagedSource.deleteFile()) {
+    if (stagedSource != newFile && !stagedSource.deleteFile()) {
         DP_LOG_WARN("[Preset] rename committed; original source backup retained at: " + stagedSource.getFullPathName());
     }
 
