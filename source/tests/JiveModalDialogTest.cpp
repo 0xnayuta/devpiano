@@ -26,6 +26,7 @@ public:
         testContentFittedFooters();
         testWrappedConfirmationBounds();
         testMetadataInterpretation();
+        testModalDismissalCancellation();
         devpiano::ui::jive::StyleCatalog::get().reset();
         devpiano::jive::DesignTokens::get().reset();
     }
@@ -187,6 +188,38 @@ private:
             const bool keyHandled = diagEd->keyPressed(juce::KeyPress('X', 0, 'X'));
             expect(!keyHandled);
             expectEquals(diagEd->getText(), textBefore);
+        }
+    }
+
+    void testModalDismissalCancellation() {
+        beginTest("JiveModalDialog: closeButtonPressed triggers onCancel through modal dismissal callback");
+        std::optional<bool> confirmResult;
+        Modal::ConfirmOptions opts;
+        opts.title = "Dismiss Test Dialog";
+        opts.message = "Dismiss this dialog?";
+        opts.onComplete = [&](bool result) { confirmResult = result; };
+
+        Modal::launchConfirm(opts);
+        devpiano::test::drainMessages(5);
+
+        juce::DialogWindow* dialog = nullptr;
+        for (int i = 0; i < juce::TopLevelWindow::getNumTopLevelWindows(); ++i) {
+            if (auto* dw = dynamic_cast<juce::DialogWindow*>(juce::TopLevelWindow::getTopLevelWindow(i))) {
+                if (dw->getName() == "Dismiss Test Dialog") {
+                    dialog = dw;
+                    break;
+                }
+            }
+        }
+
+        expect(dialog != nullptr, "Dialog window must be active after launchConfirm");
+        if (dialog != nullptr) {
+            expect(!confirmResult.has_value(), "Callback must not be invoked prematurely");
+            // Simulate user clicking title bar close button (X)
+            dialog->closeButtonPressed();
+            devpiano::test::drainMessages(5);
+            expect(confirmResult.has_value() && confirmResult.value() == false,
+                   "closeButtonPressed must trigger onComplete(false) via modal callback");
         }
     }
 };

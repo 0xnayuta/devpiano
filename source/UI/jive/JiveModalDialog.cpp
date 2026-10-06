@@ -178,11 +178,14 @@ juce::DialogWindow* JiveModalDialog::launchWindow(juce::DialogWindow::LaunchOpti
     auto* dialog = options.create();
     dialog->setContentComponentSize(size.getWidth(), size.getHeight());
     dialog->centreAroundComponent(options.componentToCentreAround, dialog->getWidth(), dialog->getHeight());
-    dialog->enterModalState(true, juce::ModalCallbackFunction::create([content = options.content.get()](int) {
-                                if (auto* jive = dynamic_cast<JiveDialogContent*>(content)) {
-                                    jive->handleCancel();
-                                }
-                            }),
+    auto* contentComp = dialog->getContentComponent();
+    dialog->enterModalState(true,
+                            juce::ModalCallbackFunction::create(
+                                [safeContent = juce::Component::SafePointer<juce::Component>(contentComp)](int) {
+                                    if (auto* jive = dynamic_cast<JiveDialogContent*>(safeContent.getComponent())) {
+                                        jive->handleCancel();
+                                    }
+                                }),
                             true);
     return dialog;
 }
