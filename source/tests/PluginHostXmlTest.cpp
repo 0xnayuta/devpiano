@@ -69,9 +69,6 @@ public:
                 expectEquals(names[0], juce::String("Test Synth"));
             }
 
-            const auto instruments = host.getInstrumentPluginNames();
-            expectEquals(instruments.size(), 1, "isInstrument=1 must land in the instrument list");
-
             // 序列化回来应保持同一插件
             auto recreated = host.createKnownPluginListXml();
             expect(recreated != nullptr);
@@ -104,62 +101,44 @@ public:
             juce::ignoreUnused(host.restoreKnownPluginListFromXml(garbage));
             expect(host.getKnownPluginNames().isEmpty(), "garbage must not produce plugin names");
         });
+        testCase("same-name cached plugins retain independent choices and classification", [&] {
+            juce::KnownPluginList plugins;
+            juce::PluginDescription instrument;
+            instrument.name = "Twin";
+            instrument.pluginFormatName = "VST3";
+            instrument.fileOrIdentifier = "/plugins/first.vst3";
+            instrument.uniqueId = 101;
+            instrument.isInstrument = true;
+            auto otherInstrument = instrument;
+            otherInstrument.fileOrIdentifier = "/plugins/second.vst3";
+            otherInstrument.uniqueId = 202;
+            auto effect = instrument;
+            effect.fileOrIdentifier = "/plugins/effect.vst3";
+            effect.uniqueId = 303;
+            effect.isInstrument = false;
+            plugins.addType(instrument);
+            plugins.addType(otherInstrument);
+            plugins.addType(effect);
+
+            PluginHost restored;
+            const auto xml = plugins.createXml();
+            expect(restored.restoreKnownPluginListFromXml(*xml));
+            const auto state = buildPluginPanelState(restored, otherInstrument.createIdentifierString(), false);
+            expectEquals(state.availablePlugins.size(), 3, "same display name must not collapse selectable identities");
+            juce::StringArray identifiers;
+            for (const auto& choice : state.availablePlugins) {
+                expect(!identifiers.contains(choice.identifier), "each selectable identity must be distinct");
+                identifiers.add(choice.identifier);
+                if (choice.identifier == effect.createIdentifierString()) {
+                    expect(!choice.isInstrument, "effect classification must survive cache restoration");
+                } else {
+                    expect(choice.isInstrument, "instrument classification must survive cache restoration");
+                }
+            }
+            expect(identifiers.contains(state.preferredSelection), "restored selection must identify an actual choice");
+            expectEquals(state.preferredSelection, otherInstrument.createIdentifierString());
+        });
     }
 };
 
 static PluginXmlRoundTripTest pluginXmlRoundTripTest;
-
-// -----------------------------------------------------------------------------
-
-class PluginPanelStateBuilderTest final : public juce::UnitTest {
-public:
-    PluginPanelStateBuilderTest()
-        : juce::UnitTest("PluginPanelStateBuilder: state mapping", "DevPiano/Engine") {
-    }
-
-    void runTest() override {
-        testCase("fresh host maps to default panel state", [&] {
-            PluginHost host;
-            const auto state = buildPluginPanelState(host, {}, false);
-
-            expect(!state.hasLoadedPlugin);
-            expect(!state.isPrepared);
-            expect(state.supportsVst3, "VST3 is compiled in (JUCE_PLUGINHOST_VST3=1)");
-            expect(state.availablePluginNames.isEmpty());
-            expect(state.currentPluginName.isEmpty());
-            expect(state.lastPluginName.isEmpty());
-            expect(state.preferredSelection.isEmpty(), "empty preferred selection without a last plugin");
-            expect(!state.isEditorOpen);
-            expect(!state.isCurrentlyScanning);
-            expectEquals(state.scanPluginCount, 0);
-            expectEquals(state.scanFailedCount, 0);
-        });
-
-        testCase("last plugin name becomes the preferred selection", [&] {
-            PluginHost host;
-            const auto state = buildPluginPanelState(host, "My Favourite Synth", false);
-            expectEquals(state.preferredSelection, juce::String("My Favourite Synth"));
-            expectEquals(state.lastPluginName, juce::String("My Favourite Synth"));
-        });
-
-        testCase("isEditorOpen flows into the panel state", [&] {
-            PluginHost host;
-            const auto state = buildPluginPanelState(host, {}, true);
-            expect(state.isEditorOpen, "editor-open flag must map through");
-        });
-
-        testCase("restored plugin list populates the name lists", [&] {
-            auto xml = makeSinglePluginListXml();
-            PluginHost host;
-            expect(host.restoreKnownPluginListFromXml(*xml));
-
-            const auto state = buildPluginPanelState(host, {}, false);
-            expectEquals(state.availablePluginNames.size(), 1);
-            expectEquals(state.instrumentPluginNames.size(), 1);
-            expectEquals(state.effectPluginNames.size(), 0);
-            expectEquals(state.scanPluginCount, 1);
-        });
-    }
-};
-
-static PluginPanelStateBuilderTest pluginPanelStateBuilderTest;

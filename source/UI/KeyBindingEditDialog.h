@@ -46,8 +46,7 @@ public:
 
     static void launch(const KeyBindingDialogParams& params);
 
-    [[nodiscard]] static juce::ValueTree makeKeyBindingEditLayout(bool hasExistingBinding, int width = 420,
-                                                                  int height = 290);
+    [[nodiscard]] static juce::ValueTree makeKeyBindingEditLayout(bool hasExistingBinding, int width = 460);
 
 private:
     JUCE_DECLARE_NON_COPYABLE(KeyBindingEditDialog)

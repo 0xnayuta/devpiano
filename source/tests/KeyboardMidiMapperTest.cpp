@@ -388,6 +388,11 @@ public:
         testMultipleHeldKeysAcrossDifferentGroupsReleaseCleanly();
         testBacktickGroupCyclingAndRepeatLatch();
         testReleaseAllHeldKeysClearsTransientModifiers();
+        testDefaultQKAlternatedReleasesKeepSoundingUntilLastHolder();
+        testMatrixMergedPitchesKeepSoundingUntilLastHolder();
+        testOverlappingHeldNotesGroupAndLayoutAndMapperChange();
+        testOverlappingHeldNotesFocusLossReleasesExactlyOnce();
+        testRepeatedAttackInterleavingWhileHeld();
     }
 
 private:
@@ -652,6 +657,223 @@ private:
         expect(!snapshotAfter.isAltActive, "Alt modifier must be cleared on panic");
         expect(!snapshotAfter.isShiftActive, "Shift modifier must be cleared on panic");
         expect(!snapshotAfter.isCtrlActive, "Ctrl modifier must be cleared on panic");
+    }
+
+    void testDefaultQKAlternatedReleasesKeepSoundingUntilLastHolder() {
+        beginTest("QUAL-002: Default Q/K both MIDI72 Ch1 stay sounding on first release, close on last release");
+
+        KeyboardMidiMapper mapper;
+        mapper.resetToDefaultLayout();
+
+        bool isQDown = false;
+        bool isKDown = false;
+        mapper.setKeyStatePredicate([&](int kc) {
+            return (kc == makeAlphaNumericKeyCode('Q') && isQDown) || (kc == makeAlphaNumericKeyCode('K') && isKDown);
+        });
+
+        juce::MidiKeyboardState state;
+
+        // Sequence 1: Press Q then K, release Q first then K
+        isQDown = true;
+        expect(mapper.handleKeyPressed(juce::KeyPress('q'), state));
+        expect(isNoteOn(state, 1, 72));
+        expectEquals(countNotesOn(state), 1);
+        expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 1);
+
+        isKDown = true;
+        expect(mapper.handleKeyPressed(juce::KeyPress('k'), state));
+        expect(isNoteOn(state, 1, 72));
+        expectEquals(countNotesOn(state), 1);
+        expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 2);
+
+        // Release Q: K is still held down, so note 72 must remain sounding!
+        isQDown = false;
+        expect(mapper.handleKeyStateChanged(state));
+        expect(isNoteOn(state, 1, 72), "Note 72 must stay sounding after Q release because K is still held");
+        expectEquals(countNotesOn(state), 1);
+        expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 1);
+        expect(mapper.findHeldKey(makeAlphaNumericKeyCode('Q')) == nullptr);
+        expect(mapper.findHeldKey(makeAlphaNumericKeyCode('K')) != nullptr);
+
+        // Release K: K was the last holder, so note 72 must close!
+        isKDown = false;
+        expect(mapper.handleKeyStateChanged(state));
+        expect(!isNoteOn(state, 1, 72), "Note 72 must close when last holder K is released");
+        expectEquals(countNotesOn(state), 0);
+        expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 0);
+
+        // Sequence 2 (reverse): Press Q then K, release K first then Q
+        isQDown = true;
+        expect(mapper.handleKeyPressed(juce::KeyPress('q'), state));
+        isKDown = true;
+        expect(mapper.handleKeyPressed(juce::KeyPress('k'), state));
+        expect(isNoteOn(state, 1, 72));
+        expectEquals(countNotesOn(state), 1);
+        expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 2);
+
+        // Release K: Q is still held, note 72 must remain sounding!
+        isKDown = false;
+        expect(mapper.handleKeyStateChanged(state));
+        expect(isNoteOn(state, 1, 72), "Note 72 must stay sounding after K release because Q is still held");
+        expectEquals(countNotesOn(state), 1);
+        expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 1);
+
+        // Release Q: last holder, note 72 closes!
+        isQDown = false;
+        expect(mapper.handleKeyStateChanged(state));
+        expect(!isNoteOn(state, 1, 72), "Note 72 must close when last holder Q is released");
+        expectEquals(countNotesOn(state), 0);
+        expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 0);
+    }
+
+    void testMatrixMergedPitchesKeepSoundingUntilLastHolder() {
+        beginTest("QUAL-002: Inputs collapsed by channel matrix stay sounding on first release, close on last release");
+
+        devpiano::midi::ChannelMatrix matrix;
+        matrix.active = true;
+        matrix.channels[0].outputChannel = 0;
+        matrix.channels[0].transpose = 0;
+        matrix.channels[1].outputChannel = 0;
+        matrix.channels[1].transpose = 2;
+        devpiano::midi::MidiChannelMapper mapperService(matrix, false, 0);
+
+        KeyboardMidiMapper mapper;
+        KeyboardLayout layout;
+        layout.bindings.push_back(makeNoteBinding('A', 60, 1));
+        layout.bindings.push_back(makeNoteBinding('S', 58, 2));
+        mapper.setLayout(layout);
+        mapper.setChannelMapper(&mapperService);
+
+        bool isADown = false;
+        bool isSDown = false;
+        mapper.setKeyStatePredicate([&](int kc) {
+            return (kc == makeAlphaNumericKeyCode('A') && isADown) || (kc == makeAlphaNumericKeyCode('S') && isSDown);
+        });
+
+        juce::MidiKeyboardState state;
+
+        isADown = true;
+        expect(mapper.handleKeyPressed(juce::KeyPress('a'), state));
+        expect(isNoteOn(state, 1, 60));
+        expectEquals(countNotesOn(state), 1);
+
+        isSDown = true;
+        expect(mapper.handleKeyPressed(juce::KeyPress('s'), state));
+        expect(isNoteOn(state, 1, 60));
+        expectEquals(countNotesOn(state), 1);
+        expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 2);
+
+        isADown = false;
+        expect(mapper.handleKeyStateChanged(state));
+        expect(isNoteOn(state, 1, 60), "Collapsed note (1, 60) must remain sounding while S is held");
+        expectEquals(countNotesOn(state), 1);
+
+        isSDown = false;
+        expect(mapper.handleKeyStateChanged(state));
+        expect(!isNoteOn(state, 1, 60), "Collapsed note (1, 60) must close when S is released");
+        expectEquals(countNotesOn(state), 0);
+    }
+
+    void testOverlappingHeldNotesGroupAndLayoutAndMapperChange() {
+        beginTest("QUAL-002: Group, layout, and mapper changes preserve overlapping held identities until last holder");
+
+        KeyboardMidiMapper mapper;
+        mapper.resetToDefaultLayout();
+
+        bool isQDown = true;
+        bool isKDown = true;
+        mapper.setKeyStatePredicate([&](int kc) {
+            return (kc == makeAlphaNumericKeyCode('Q') && isQDown) || (kc == makeAlphaNumericKeyCode('K') && isKDown);
+        });
+
+        juce::MidiKeyboardState state;
+        expect(mapper.handleKeyPressed(juce::KeyPress('q'), state));
+        expect(mapper.handleKeyPressed(juce::KeyPress('k'), state));
+        expect(isNoteOn(state, 1, 72));
+
+        mapper.switchToNextGroup();
+
+        devpiano::midi::ChannelMatrix matrix;
+        matrix.active = true;
+        matrix.channels[0].outputChannel = 5;
+        devpiano::midi::MidiChannelMapper newMapper(matrix, false, 0);
+        mapper.setChannelMapper(&newMapper);
+
+        mapper.setLayout(makeTwoBindingLayout('Z', 48, 'X', 50));
+
+        isQDown = false;
+        expect(mapper.handleKeyStateChanged(state));
+        expect(isNoteOn(state, 1, 72), "Original identity (1, 72) must survive group/mapper/layout changes");
+        expectEquals(countNotesOn(state), 1);
+
+        isKDown = false;
+        expect(mapper.handleKeyStateChanged(state));
+        expect(!isNoteOn(state, 1, 72), "Original identity (1, 72) must close on last holder release");
+        expectEquals(countNotesOn(state), 0);
+    }
+
+    void testOverlappingHeldNotesFocusLossReleasesExactlyOnce() {
+        beginTest("QUAL-002: Focus loss / releaseAllHeldKeys releases overlapping notes exactly once");
+
+        KeyboardMidiMapper mapper;
+        mapper.resetToDefaultLayout();
+
+        juce::MidiKeyboardState state;
+        expect(mapper.handleKeyPressed(juce::KeyPress('q'), state));
+        expect(mapper.handleKeyPressed(juce::KeyPress('k'), state));
+        expect(mapper.handleKeyPressed(juce::KeyPress('a'), state));
+        expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 3);
+        expectEquals(countNotesOn(state), 2);
+
+        mapper.releaseAllHeldKeys(state);
+        expectEquals(countNotesOn(state), 0, "All notes must be released cleanly on focus loss");
+        expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 0);
+
+        mapper.releaseAllHeldKeys(state);
+        expectEquals(countNotesOn(state), 0);
+    }
+
+    void testRepeatedAttackInterleavingWhileHeld() {
+        beginTest("QUAL-002: Repeated attack interleaving while note held maintains last-holder invariant");
+
+        KeyboardMidiMapper mapper;
+        mapper.resetToDefaultLayout();
+
+        bool isQDown = false;
+        bool isKDown = false;
+        mapper.setKeyStatePredicate([&](int kc) {
+            return (kc == makeAlphaNumericKeyCode('Q') && isQDown) || (kc == makeAlphaNumericKeyCode('K') && isKDown);
+        });
+
+        juce::MidiKeyboardState state;
+
+        isQDown = true;
+        expect(mapper.handleKeyPressed(juce::KeyPress('q'), state));
+        isKDown = true;
+        expect(mapper.handleKeyPressed(juce::KeyPress('k'), state));
+        expect(isNoteOn(state, 1, 72));
+        expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 2);
+
+        isQDown = false;
+        expect(mapper.handleKeyStateChanged(state));
+        expect(isNoteOn(state, 1, 72));
+        expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 1);
+
+        isQDown = true;
+        expect(mapper.handleKeyPressed(juce::KeyPress('q'), state));
+        expect(isNoteOn(state, 1, 72));
+        expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 2);
+
+        isKDown = false;
+        expect(mapper.handleKeyStateChanged(state));
+        expect(isNoteOn(state, 1, 72));
+        expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 1);
+
+        isQDown = false;
+        expect(mapper.handleKeyStateChanged(state));
+        expect(!isNoteOn(state, 1, 72));
+        expectEquals(countNotesOn(state), 0);
+        expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 0);
     }
 };
 

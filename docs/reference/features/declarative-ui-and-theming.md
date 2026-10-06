@@ -77,7 +77,7 @@ Performance Preset 的 New、Rename、Delete 保持在上方，Export、Import�
    - **Row 1 琴盖开合度**（`lid-position-combo`）：全开（Full Open）、半开（Half Stick）、闭盖（Closed Lid）；
    - **Row 2 触键力度曲线**（`touch-curve-combo`）：标准（Standard）、轻触（Light）、重触（Heavy）、宽动态（Wide Dynamic）；
    - **Row 3 古典微调律制**（`temperament-combo`）：平均律（Equal）、纯律（Just）、毕达哥拉斯律（Pythagorean）、中庸全音律（Meantone）、韦克迈斯特三律（Werckmeister III）、基恩伯格三律（Kirnberger III）；
-   - **Row 4 基准音高微调**（`reference-pitch-slider`）：项目契约目标为 400.0 ~ 480.0 Hz；当前 `TemperamentEngine` 与设置滑块实际钳制至 410.0 ~ 450.0 Hz（步进 0.1 Hz），未覆盖契约两端，见 [`../../issues/known-issues.md`](../../issues/known-issues.md)；
+   - **Row 4 基准音高微调**（`reference-pitch-slider`）：400.0 ~ 480.0 Hz（步进 0.1 Hz），直接绑定 `TemperamentEngine` 的统一上下限；
    - **Row 5 立体声空间视角**（`perspective-combo`）：演奏者视角（Player）与听众视角（Audience）；
    - **Row 6 房间混响预设**（`reverb-space-combo`）：室内乐（Chamber）、音乐厅（Concert Hall）、录音棚（Studio）；
    - **Row 7 混响干湿比**（`reverb-wet-slider`）：0% ~ 100% 混响湿声电平调节；
@@ -94,16 +94,26 @@ Performance Preset 的 New、Rename、Delete 保持在上方，Export、Import�
 
 ### 3.1 标准预置模板
 
-| 模板方法 | 默认尺寸 | 适用场景 | 交互特性 |
+| 模板方法 | 默认内容宽度／高度规则 | 适用场景 | 交互特性 |
 |---|:---:|---|---|
-| `launchSingleInput` | 380 × 150 | 预设新建（Save As New）、预设重命名 | 单行文本框，自动捕获焦点，支持最大字符数限制与回车即时提交 |
-| `launchConfirm` | 380 × 140 | 预设删除确认、覆盖确认 | 消息文本展示，确认/取消双按钮 |
-| `launchMetadataEdit` | 420 × 260 | 歌曲元数据编辑（Song Title + Notes） | 单行标题框 + 多行带滚动条备注框，Tab 键焦点切换 |
-| `makeProgressLayout` | 380 × 140 | WAV 音频离线导出进度 | 状态文本 + JIVE 暗黑 ProgressBar + 随时取消按钮 |
+| `launchSingleInput` | 宽 380；高度按内容测量 | 预设新建（Save As New）、预设重命名 | 单行文本框，自动捕获焦点，支持最大字符数限制与回车即时提交 |
+| `launchConfirm` | 宽 380；消息至少高 40，长文本按字符换行增高 | 预设删除确认、覆盖确认 | 显式换行和不可分割长名称完整显示，确认/取消双按钮 |
+| `launchMetadataEdit` | 宽 420；高度按内容测量 | 歌曲元数据编辑（Song Title + Notes） | 标题单行；Notes 保留至少 80 逻辑像素的编辑区域，可多行键入；取消不提交，诊断 `ListEditor` 保持只读 |
+| `makeProgressLayout` | 宽 380；高度按内容测量 | WAV 音频离线导出进度 | 状态与进度，取消只发布协作请求；工作实际结束后才关闭和释放，不承诺厂商永久阻塞时即时完成 |
 
 ### 3.2 自定义弹窗扩展（`launchCustom`）
 
-支持传入任意自定义声明的 `juce::ValueTree`，并通过 `onInit`、`onConfirm`（支持表单校验拦截）、`onCancel` 回调实现高度定制的交互弹窗（如 `KeyBindingEditDialog` 逐键绑定与调色板编辑）。
+自定义 `juce::ValueTree` 布局通过 `onInitHost(const ViewHost&)`、`onConfirmHost(const ViewHost&)`（返回 false 可拦截关闭）与 `onCancel` 接入。单行输入、确认、元数据及逐键绑定使用相同门面，不再提供 raw `GuiItem` 回调或检索 helper。业务样式刷新只调用 `ViewHost::refreshStyles()`，不持有解释器或根 `GuiItem`。
+
+### 3.3 内容定尺与统一底部操作区
+
+- `ViewHost::fitToContent(width)` 在 UI 线程按最终可用宽度测量声明式内容，并根据实际控件边界、margin、padding 与 border 校准高度。旧固定窗口高度参数已移除；业务不访问 raw `GuiItem`，也不自行估算字体宽高。
+- `makeDialogRoot()` 与 `makeDialogButtons()` 供标准模板及按键编辑器复用。`DesignTokens` 定义底部留白 28、按钮高度 28、相邻按钮间距 8、正文到操作行最小间距 12，单位均为 JUCE 逻辑像素；不根据截图的物理像素写死补偿。
+- 窗口先按内容收紧，再由操作区内的零高度伸缩项吸收原生缩放取整的残余空间，保持可见按钮到内容区下沿的留白一致；不是保留过高的窗口后把空白搬到正文中。绑定／解除绑定在左，确认／取消在右。
+- `launchWindow()` 创建窗口并确定原生标题栏模式后，准确设置内容区尺寸、重新居中，再进入异步模态状态；不修改 JUCE 子模块，不减去固定标题栏高度。
+- `WavExportTask` 的独立 `ProgressContentWrapper` 使用相同测量与窗口入口，仍保留自己的后台线程、协作取消及完成收尾。系统文件选择器、第三方插件编辑器和独立取色弹层不套用本规则。
+- Windows 直接消费者验证中英窗口与 100%／150%／200% 内容缩放、长名称／多行消息、确认／取消、验证拒绝、按键捕获、Notes 及真实导出成功／协作取消。缩放只改变临时进程的 JUCE 比例；实际 HWND 系统 DPI 为 144，不冒称跨物理 DPI 显示器切换认证。
+
 
 ---
 
@@ -127,25 +137,14 @@ Performance Preset 的 New、Rename、Delete 保持在上方，Export、Import�
 
 ## 5. Native 原生组件工厂注入模式
 
-对于复杂图形或性能敏感组件，JIVE 采用工厂模式（`ComponentFactory`）无缝桥接：
+复杂图形与性能敏感 Native 组件通过 `ViewHost` 注册生产工厂；额外组件可在 `configureComponentFactory` 回调内注册，不从业务获取解释器或 raw GuiItem：
 
 ```cpp
-auto& factory = interpreter->getComponentFactory();
-factory.set("CustomKeyboard", [&keyboardState] {
-    return std::make_unique<devpiano::ui::KeyboardViewport>(keyboardState);
-});
-factory.set("AdsrCurve", [] {
-    return std::make_unique<devpiano::ui::AdsrCurveComponent>();
-});
-factory.set("TimelineBar", [] {
-    return std::make_unique<devpiano::ui::TimelineBar>();
-});
-factory.set("QwertyVisualizer", [] {
-    return std::make_unique<devpiano::ui::QwertyComponent>();
-});
-factory.set("StatusBarMidiDot", [] {
-    return std::make_unique<devpiano::ui::StatusBarMidiDot>();
-});
+devpiano::ui::ViewHost host;
+host.registerDefaultComponents();
+host.registerKeyboardComponents(keyboardState);
+host.loadLayout(layoutTree);
+host.setBounds(getLocalBounds());
 ```
 
 相关组件源码位置：
@@ -167,17 +166,18 @@ UI 单元测试位于 `source/tests/`，覆盖通用弹窗、设置布局、样�
 
 | 测试文件 | 用例类别 | 验证目标 | 状态 |
 |---|---|---|:---:|
-| `JiveModalDialogTest` | 模板结构构建 | 验证 SingleInput、Confirm、MetadataEdit、Progress 模板节点层级与初始属性 | [x] 已通过 |
-| `JiveModalDialogTest` | 组件动态检索 | 验证 `findButtonById`、`findTextEditorById` 在多层 JIVE 树下的正确寻址 | [x] 已通过 |
-| `JiveModalDialogTest` | 多行/单行配置 | 验证 Title 框为单行、Notes 框为多行（`isMultiLine() == true`） | [x] 已通过 |
-| `JiveModalDialogTest` | 安全析构序列 | 验证模态关闭时 `safeCleanupJiveTree` 能够防止 StyleSheet 监听器 UAF | [x] 已通过 |
+| `JiveModalDialogTest` | 内容定尺与操作区几何 | 实际组件的底部留白、按钮高度／间距、左侧操作不重叠、Notes 有效编辑高度；额外 1 逻辑像素的窗口取整不破坏底部对齐 | [x] 已通过 |
+| `JiveModalDialogTest` | 长消息与混排裁剪边界 | 不同宽度下的英文、不可分割长名称、码点构造中文、显式换行及中英混排；最后一行完整，正文不侵入操作区 | [x] 已通过 |
+| `JiveModalDialogTest` | 生产输入机制 | 使用生产 ViewHost 构建 Notes，注入字符和回车验证多行编辑；诊断 ListEditor 拒绝输入 | [x] 已通过 |
+| Windows 生产窗口消费者 | 真实窗口与生命周期 | 中英及内容缩放矩阵、输入确认／取消、验证拒绝、绑定编辑／按键捕获、真实 WAV 成功及协作取消；用户目录无变化 | [x] 直接界面验证 |
+| `StyleCatalogTest` | 动态圆角 | 固定 bounds 连续 radius 0→30→0，角像素立即匹配当前半径，不等待 resize | [x] 已通过 |
 | `SettingsLayoutModelTest`| 16 通道 CSS Grid | 验证通道跟随开关以 8 列 × 2 行网格声明，16 个 Toggle 节点完备 | [x] 已通过 |
 | `SettingsLayoutModelTest`| 声明式音频设备卡片 | 验证设备类型、输出设备、通道、测试按钮、采样率与缓冲大小等声明式节点完整性 | [x] 已通过 |
-| `SettingsLayoutModelTest`| 设置项动态绑定 | 验证修改 ValueTree 属性直接联动底层状态并触发持久化 | [x] 已通过 |
+| 生产 Settings 窗口 | 调号与跟随交互 | 实际 transpose 开关关闭时 followKey 禁用、开启时可编辑；不以属性赋值回读当业务证明，见 Phase G/H 消费者证据 | [x] 实际界面验证 |
 | `StyleCatalogTest` | Metro toggle checked 样式 | 验证 Metro 与传输按钮使用一致的中性轮廓，checked 状态不引入额外强调色 | [x] 已通过 |
 | `StyleCatalogTest` | 语义标题语言联动 | 验证语言切换时 JIVE 布局树中所有静态与动态标题节点同步重刷 | [x] 已通过 |
 | `QwertyViewModelTest`    | 和声色相与对比度 | 验证 12-TET 和声色相间隔、八度同色、三全音互补与文字对比度算法 | [x] 已通过 |
-| `LayoutGoldenTest`       | 全应用布局几何金标 | 验证全应用 7 大布局构建器解释、1280x720/1920x1080 像素坐标吸附，以及 980x740 双面板展开与 980x580 折叠态下，88 键键床完整位于横向滚动条可视高度内 | [x] 已通过 |
+| `LayoutGoldenTest`       | 主窗口与设置布局几何 | 主窗口／设置解释及 1280x720、1920x1080 几何；980x740 展开与 980x580 折叠态下，88 键键床完整位于横向滚动条可视高度内；弹窗几何由 JiveModalDialogTest 独立验证 | [x] 已通过 |
 | `ViewHostTest`           | 宿主门面生命周期与查找 | 验证布局树解释加载、强类型组件检索、属性读写与容器尺寸重排 | [x] 已通过 |
-| `ChordRecognitionTest`   | 和弦实时识别 | 验证单音、音程、三和弦、七和弦识别、转位推导与置信度，为 QWERTY HUD 提供数据支撑 | [x] 已通过 |
+| `ChordRecognitionTest`   | 和弦实时识别（`DevPiano/Core` 默认门禁） | 验证单音、音程、三和弦、七和弦识别、转位推导与置信度，为 QWERTY HUD 提供数据支撑；确认默认日志实际执行，非单独补跑 | [x] 已通过 |
 | `MetronomeTest`          | 节拍器状态机 | 验证 BPM 节拍计算、强弱拍判断、预备拍调度与生命周期稳定性 | [x] 已通过 |

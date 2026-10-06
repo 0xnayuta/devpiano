@@ -20,6 +20,7 @@ public:
         testAdsrTailOffAndAutoClear();
         testInstantStopNote();
         testMultiChannelConsistency();
+        testZeroTrigWavetablePrecision();
     }
 
 private:
@@ -164,6 +165,35 @@ private:
         for (int i = 0; i < 256; ++i) {
             expectEquals(left[i], right[i], "Left and right channels must match identically");
         }
+    }
+
+    void testZeroTrigWavetablePrecision() {
+        beginTest("ZeroTrig wavetable precision and stability");
+
+        SineSynthSound sound;
+        SineSynthVoice voice;
+        constexpr double sampleRate = 48000.0;
+        voice.setCurrentPlaybackSampleRate(sampleRate);
+
+        juce::ADSR::Parameters adsrParams;
+        adsrParams.attack = 0.0001f;
+        adsrParams.decay = 0.001f;
+        adsrParams.sustain = 1.0f;
+        adsrParams.release = 0.01f;
+        voice.setAdsrParameters(adsrParams);
+
+        voice.startNote(69, 1.0f, &sound, 0);
+        juce::AudioBuffer<float> buffer(1, 1024);
+        buffer.clear();
+        voice.renderNextBlock(buffer, 0, 1024);
+
+        auto peak = 0.0f;
+        for (int i = 0; i < 1024; ++i) {
+            const auto s = buffer.getSample(0, i);
+            expect(!std::isnan(s) && !std::isinf(s), "wavetable output must be finite");
+            peak = std::max(peak, std::abs(s));
+        }
+        expectWithinAbsoluteError(peak, 0.70f, 0.02f, "sine voice peak matches nominal velocity level");
     }
 };
 

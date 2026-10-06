@@ -37,6 +37,8 @@
 | `phase29-physical-voicing-and-acoustic-interaction.md` | `docs/roadmap/roadmap.md`（Phase 29 摘要）、`docs/reference/features/builtin-piano-synthesis.md` |
 | `phase30-32-temperaments-spatial-mechanics.md` | `docs/roadmap/roadmap.md`（Phase 30-32 摘要）、`docs/reference/features/builtin-piano-synthesis.md` |
 | `phase33-observability-and-diagnostics-infrastructure.md` | `docs/roadmap/roadmap.md`（Phase 33 摘要） |
-| `audit-003-code-quality-fix-phases.md` | `docs/audit/AUDIT-003-code-quality-audit-2026-09-15.md`、`docs/roadmap/current-iteration.md` |
+| `audit-003-code-quality-fix-phases.md` | `docs/audit/AUDIT-003-code-quality-audit-2026-09-15.md`、`docs/roadmap/roadmap.md`（AUDIT-003 历史摘要；不指向已替换的当前任务） |
 | `cross-platform-and-juce9-convergence.md` | `docs/roadmap/roadmap.md`（跨平台与 JUCE 9 收敛摘要）、`docs/reference/architecture.md` |
 | `phase34-keyboard-performance-ux-and-expressive-control.md` | `docs/roadmap/roadmap.md`（Phase 34 摘要）、`docs/reference/features/keyboard-mapping.md` |
+| [`phase35-keyboard-expressive-dynamics-and-practice-infrastructure.md`](phase35-keyboard-expressive-dynamics-and-practice-infrastructure.md) | [roadmap](../roadmap/roadmap.md)（Phase 35 历史交付）、[AUDIT-004](../audit/AUDIT-004-code-quality-audit-2026-10-02.md)（后续反证与复审）、[AUDIT-004 软件实施归档](audit-004-code-quality-fix-phases.md)（原修复任务与直接证据） |
+| [`audit-004-code-quality-fix-phases.md`](audit-004-code-quality-fix-phases.md) | [AUDIT-004 软件实施复审与唯一登记表](../audit/AUDIT-004-code-quality-audit-2026-10-02.md)、[roadmap](../roadmap/roadmap.md)（阶段状态）、[acceptance](../reference/acceptance.md#audit-004-当前复审入口与契约边界)（独立实机补验）；[当前迭代](../roadmap/current-iteration.md) 已转为本地化消息模板规划 |

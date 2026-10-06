@@ -45,23 +45,14 @@ devpiano::core::MidiNoteIdentity MidiChannelMapper::sendNoteOn(int inputChannel,
     using devpiano::core::MidiNoteIdentity;
     using devpiano::core::MidiNoteNumber;
 
-    if (!matrix.active) {
-        const MidiNoteIdentity identity { MidiNoteNumber::fromClamped(midiNote),
-                                          MidiChannel::fromClamped(inputChannel + 1) };
-        keyboardState.noteOn(identity.channel.value, identity.note.value, velocity);
-        return identity;
-    }
-
-    const auto& cfg = configForChannel(inputChannel);
-    auto transformed = applyMatrixToNoteOn(cfg, midiNote, velocity);
-    if (cfg.followKey && midiTranspose) {
-        const auto fn = juce::jlimit(0, 127, transformed.getNoteNumber() + keySignature);
-        transformed = juce::MidiMessage::noteOn(transformed.getChannel(), fn, transformed.getFloatVelocity());
-    }
+    const auto transformed = applyTransform(juce::MidiMessage::noteOn(
+        MidiChannel::fromClamped(inputChannel + 1).value, MidiNoteNumber::fromClamped(midiNote).value, velocity));
 
     const MidiNoteIdentity identity { MidiNoteNumber::fromClamped(transformed.getNoteNumber()),
                                       MidiChannel::fromClamped(transformed.getChannel()) };
-    keyboardState.noteOn(identity.channel.value, identity.note.value, transformed.getFloatVelocity());
+    if (transformed.getFloatVelocity() > 0.0f) {
+        keyboardState.noteOn(identity.channel.value, identity.note.value, transformed.getFloatVelocity());
+    }
     return identity;
 }
 

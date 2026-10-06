@@ -18,12 +18,10 @@ namespace devpiano::exporting {
 namespace {
 
 using devpiano::recording::addPanicMidi;
-using devpiano::recording::buildRenderEvents;
-using devpiano::recording::getScaledTakeLengthSamples;
+using devpiano::recording::applyAcousticSnapshotToReverbAndGain;
 using devpiano::recording::hasUsableRenderOptions;
-using devpiano::recording::RenderEvent;
-using devpiano::recording::scaleTimestamp;
-
+using devpiano::recording::PerformanceEventType;
+using devpiano::recording::prepareRenderTimeline;
 } // namespace
 
 // ---------------------------------------------------------------------------
@@ -54,6 +52,7 @@ std::unique_ptr<juce::AudioPluginInstance> createOfflinePluginInstance(juce::Aud
         return nullptr;
     }
 
+    instance->setNonRealtime(true);
     instance->setRateAndBufferSizeDetails(sampleRate, blockSize);
     instance->prepareToPlay(sampleRate, blockSize);
     // NOLINTNEXTLINE(readability-ambiguous-smartptr-reset-call) - 意图是 AudioPluginInstance::reset()（实例方法）
@@ -76,6 +75,15 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
         return false;
     }
 
+    auto timeline = prepareRenderTimeline(take, options.sampleRate, 2.0);
+    if (!timeline.has_value()) {
+        DP_LOG_ERROR("[PluginOfflineRenderer] Invalid or unrepresentable timeline");
+        return false;
+    }
+    const auto& renderEvents = timeline->events;
+    const auto scaledTakeLength = timeline->takeLengthSamples;
+    const auto totalSamples = timeline->totalSamples;
+
     // Create output directory if needed
     auto parentDirectory = destinationFile.getParentDirectory();
     if (!parentDirectory.exists() && !parentDirectory.createDirectory()) {
@@ -83,12 +91,13 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
         return false;
     }
 
-    // Open output file
-    auto fileStream = std::make_unique<juce::FileOutputStream>(destinationFile);
+    juce::TemporaryFile temporaryFile(destinationFile);
+    auto fileStream = std::make_unique<juce::FileOutputStream>(temporaryFile.getFile());
     if (!fileStream->openedOk()) {
         DP_LOG_ERROR("[PluginOfflineRenderer] Cannot open output file: " + destinationFile.getFullPathName());
         return false;
     }
+    auto* const fileOutput = fileStream.get();
     std::unique_ptr<juce::OutputStream> outputStream = std::move(fileStream);
 
     // Create WAV writer
@@ -103,14 +112,13 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
         return false;
     }
 
-    // Build render events from take (timestamp-scaled to target sample rate)
-    auto renderEvents = buildRenderEvents(take, options.sampleRate);
-    const auto scaledTakeLength = getScaledTakeLengthSamples(take, renderEvents, options.sampleRate);
+    devpiano::audio::PlaybackIdentityTracker identityTracker;
+    identityTracker.prepare(0, static_cast<std::size_t>(std::ranges::count_if(take.events, [](const auto& event) {
+                                return event.type == PerformanceEventType::midi && event.message.isNoteOn();
+                            })));
 
-    constexpr auto tailSeconds = 2.0;
-    const auto tailSamples = static_cast<std::int64_t>(std::ceil(tailSeconds * options.sampleRate));
-    const auto totalSamples = std::max<std::int64_t>(1, scaledTakeLength + tailSamples);
-    const auto gain = juce::jlimit(0.0f, 1.0f, options.masterGain);
+    const auto initialGain = juce::jlimit(0.0f, 1.0f, options.masterGain);
+    float currentMasterGain = initialGain;
 
     // Determine channel count from the plugin instance
     const auto requiredPluginChannels = juce::jmax(
@@ -118,8 +126,9 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
     const auto outputChannels = juce::jmin(options.numChannels, offlinePlugin.getTotalNumOutputChannels());
 
     juce::AudioBuffer<float> pluginBuffer(requiredPluginChannels, options.blockSize);
-    juce::MidiBuffer midiBuffer;
-    midiBuffer.ensureSize(static_cast<size_t>(juce::jlimit(256, 65536, options.blockSize * 16)));
+    juce::MidiBuffer segmentMidiBuffer;
+    segmentMidiBuffer.ensureSize(
+        static_cast<size_t>(std::clamp<std::int64_t>(static_cast<std::int64_t>(options.blockSize) * 16, 256, 65536)));
 
     juce::AudioBuffer<float> outputBuffer(options.numChannels, options.blockSize);
 
@@ -133,69 +142,164 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
     DP_LOG_INFO("[PluginOfflineRenderer] Starting offline render: " + juce::String(renderEvents.size()) + " events, "
                 + juce::String(totalSamples) + " total samples, " + juce::String(outputChannels) + " output channels");
 
-    for (std::int64_t blockStart = 0; blockStart < totalSamples; blockStart += options.blockSize) {
+    for (std::int64_t blockStart = 0; blockStart < totalSamples;) {
         if (progressCallback
             && !progressCallback(static_cast<double>(blockStart) / static_cast<double>(totalSamples))) {
+            writer.reset();
             return false;
         }
 
         const auto numSamples = static_cast<int>(std::min<std::int64_t>(options.blockSize, totalSamples - blockStart));
         const auto blockEnd = blockStart + numSamples;
 
-        // Prepare buffers for this block
-        pluginBuffer.setSize(requiredPluginChannels, numSamples, false, false, true);
-        pluginBuffer.clear();
-        midiBuffer.clear();
-
-        // Schedule events that fall within this block
-        while (eventIndex < renderEvents.size() && renderEvents[eventIndex].timestampSamples < blockEnd) {
-            const auto& event = renderEvents[eventIndex];
-            if (event.timestampSamples >= blockStart) {
-                const auto sampleOffset = static_cast<int>(event.timestampSamples - blockStart);
-                midiBuffer.addEvent(event.message, juce::jlimit(0, numSamples - 1, sampleOffset));
-            }
-            ++eventIndex;
-        }
-
-        // Send all-notes-off across all 16 MIDI channels at the end of the take content
-        if (!allNotesOffSent && scaledTakeLength >= blockStart && scaledTakeLength < blockEnd) {
-            const auto offset = juce::jlimit(0, numSamples - 1, static_cast<int>(scaledTakeLength - blockStart));
-            addPanicMidi(midiBuffer, offset);
-            allNotesOffSent = true;
-        }
-
-        // Process through the offline plugin instance
-        offlinePlugin.processBlock(pluginBuffer, midiBuffer);
-
-        // Copy plugin output (with channel down-mix if needed) and apply master gain
         outputBuffer.setSize(options.numChannels, numSamples, false, false, true);
         outputBuffer.clear();
 
-        const auto pluginOutputChannels = offlinePlugin.getTotalNumOutputChannels();
-        if (options.numChannels == 2 && pluginOutputChannels == 1) {
-            // Mono plugin rendered to stereo: duplicate mono channel to L & R
-            outputBuffer.copyFrom(0, 0, pluginBuffer, 0, 0, numSamples);
-            outputBuffer.copyFrom(1, 0, pluginBuffer, 0, 0, numSamples);
-        } else if (options.numChannels == 1 && pluginOutputChannels >= 2) {
-            // Stereo/multi-channel plugin rendered to mono: downmix L + R
-            outputBuffer.copyFrom(0, 0, pluginBuffer, 0, 0, numSamples);
-            outputBuffer.addFrom(0, 0, pluginBuffer, 1, 0, numSamples);
-            outputBuffer.applyGain(0, 0, numSamples, 0.5f);
-        } else {
-            for (auto channel = 0; channel < outputChannels; ++channel) {
-                outputBuffer.copyFrom(channel, 0, pluginBuffer, channel, 0, numSamples);
+        for (int segStart = 0; segStart < numSamples;) {
+            const auto segAbsStart = blockStart + segStart;
+            segmentMidiBuffer.clear();
+
+            while (eventIndex < renderEvents.size() && renderEvents[eventIndex].timestampSamples == segAbsStart
+                   && renderEvents[eventIndex].type == PerformanceEventType::presetChange) {
+                const auto& ev = renderEvents[eventIndex];
+                if (ev.presetId < timeline->presets.size()) {
+                    const auto& preset = timeline->presets[ev.presetId];
+                    applyAcousticSnapshotToReverbAndGain(roomReverb, currentMasterGain, preset.acoustic);
+                    for (int ch = 1; ch <= 16; ++ch) {
+                        segmentMidiBuffer.addEvent(
+                            juce::MidiMessage::controllerEvent(ch, 67, preset.acoustic.unaCorda ? 127 : 0), 0);
+                    }
+                }
+                ++eventIndex;
             }
-        }
-        if (options.numChannels >= 2 && options.reverbWet > 1e-4f) {
-            roomReverb.processStereo(outputBuffer.getWritePointer(0), outputBuffer.getWritePointer(1), numSamples);
+
+            auto nextPresetOffset = numSamples;
+            for (std::size_t scan = eventIndex; scan < renderEvents.size(); ++scan) {
+                if (renderEvents[scan].timestampSamples >= blockEnd) {
+                    break;
+                }
+                if (renderEvents[scan].type == PerformanceEventType::presetChange) {
+                    nextPresetOffset = static_cast<int>(renderEvents[scan].timestampSamples - blockStart);
+                    break;
+                }
+            }
+
+            const auto segEnd = nextPresetOffset;
+            const auto segLen = segEnd - segStart;
+            const auto segAbsEnd = blockStart + segEnd;
+
+            while (eventIndex < renderEvents.size() && renderEvents[eventIndex].timestampSamples < segAbsEnd) {
+                const auto& event = renderEvents[eventIndex];
+                if (event.type == PerformanceEventType::presetChange) {
+                    break;
+                }
+                if (event.timestampSamples >= segAbsStart) {
+                    const auto sampleOffset = static_cast<int>(event.timestampSamples - segAbsStart);
+                    const auto clampedOffset = juce::jlimit(0, segLen - 1, sampleOffset);
+                    const auto& msg = event.message;
+
+                    if (msg.isNoteOn()) {
+                        const auto ch = msg.getChannel();
+                        const auto sourceNote = msg.getNoteNumber();
+                        const auto finalOutputPitch = identityTracker.noteOn(ch, sourceNote, sourceNote);
+                        if (finalOutputPitch.has_value()) {
+                            segmentMidiBuffer.addEvent(juce::MidiMessage::noteOn(ch,
+                                                                                 static_cast<int>(*finalOutputPitch),
+                                                                                 msg.getFloatVelocity()),
+                                                       clampedOffset);
+                        }
+                    } else if (msg.isNoteOff()) {
+                        const auto ch = msg.getChannel();
+                        const auto sourceNote = msg.getNoteNumber();
+                        const auto result = identityTracker.noteOff(ch, sourceNote);
+                        if (result.shouldEmit) {
+                            segmentMidiBuffer.addEvent(
+                                juce::MidiMessage::noteOff(ch, result.outputPitch, msg.getFloatVelocity()),
+                                clampedOffset);
+                        }
+                    } else {
+                        if (msg.isController()) {
+                            const auto ctrl = msg.getControllerNumber();
+                            if (ctrl == 120 || ctrl == 123) {
+                                identityTracker.resetChannel(msg.getChannel());
+                            }
+                        } else if (msg.isAllNotesOff() || msg.isAllSoundOff()) {
+                            identityTracker.resetChannel(msg.getChannel());
+                        }
+                        segmentMidiBuffer.addEvent(msg, clampedOffset);
+                    }
+                }
+                ++eventIndex;
+            }
+
+            if (!allNotesOffSent && scaledTakeLength >= segAbsStart && scaledTakeLength < segAbsEnd) {
+                const auto offset = juce::jlimit(0, segLen - 1, static_cast<int>(scaledTakeLength - segAbsStart));
+                addPanicMidi(segmentMidiBuffer, offset);
+                identityTracker.resetOwnership();
+                allNotesOffSent = true;
+            }
+
+            pluginBuffer.setSize(requiredPluginChannels, segLen, false, false, true);
+            pluginBuffer.clear();
+
+            offlinePlugin.processBlock(pluginBuffer, segmentMidiBuffer);
+
+            juce::AudioBuffer<float> segmentOutputBuffer(outputBuffer.getArrayOfWritePointers(), options.numChannels,
+                                                         segStart, segLen);
+            segmentOutputBuffer.clear();
+
+            const auto pluginOutputChannels = offlinePlugin.getTotalNumOutputChannels();
+            if (options.numChannels == 2 && pluginOutputChannels == 1) {
+                segmentOutputBuffer.copyFrom(0, 0, pluginBuffer, 0, 0, segLen);
+                segmentOutputBuffer.copyFrom(1, 0, pluginBuffer, 0, 0, segLen);
+            } else if (options.numChannels == 1 && pluginOutputChannels >= 2) {
+                segmentOutputBuffer.copyFrom(0, 0, pluginBuffer, 0, 0, segLen);
+                segmentOutputBuffer.addFrom(0, 0, pluginBuffer, 1, 0, segLen);
+                segmentOutputBuffer.applyGain(0, 0, segLen, 0.5f);
+            } else {
+                for (auto channel = 0; channel < outputChannels; ++channel) {
+                    segmentOutputBuffer.copyFrom(channel, 0, pluginBuffer, channel, 0, segLen);
+                }
+            }
+
+            if (options.numChannels >= 2 && roomReverb.getWetLevel() > 1e-4f) {
+                roomReverb.processStereo(segmentOutputBuffer.getWritePointer(0), segmentOutputBuffer.getWritePointer(1),
+                                         segLen);
+            }
+
+            segmentOutputBuffer.applyGain(currentMasterGain);
+
+            segStart = segEnd;
         }
 
-        outputBuffer.applyGain(gain);
         applyMasterSoftLimiter(outputBuffer, numSamples);
         if (!writer->writeFromAudioSampleBuffer(outputBuffer, 0, numSamples)) {
             DP_LOG_ERROR("[PluginOfflineRenderer] WAV write failed at block " + juce::String(blockStart));
+            writer.reset();
             return false;
         }
+        blockStart = blockEnd;
+    }
+
+    if (!writer->flush()) {
+        DP_LOG_ERROR("[PluginOfflineRenderer] Failed to finalise WAV: " + destinationFile.getFullPathName());
+        writer.reset();
+        return false;
+    }
+    fileOutput->flush();
+    if (fileOutput->getStatus().failed()) {
+        DP_LOG_ERROR("[PluginOfflineRenderer] Failed to flush WAV: " + destinationFile.getFullPathName());
+        writer.reset();
+        return false;
+    }
+    writer.reset();
+
+    if (progressCallback && !progressCallback(1.0)) {
+        return false;
+    }
+    if (!temporaryFile.overwriteTargetFileWithTemporary()) {
+        DP_LOG_ERROR("[PluginOfflineRenderer] Failed to replace WAV: " + destinationFile.getFullPathName());
+        return false;
     }
 
     DP_LOG_INFO("[PluginOfflineRenderer] Offline render complete: " + destinationFile.getFullPathName());

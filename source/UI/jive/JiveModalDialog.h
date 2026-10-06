@@ -6,7 +6,9 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <optional>
 
-#include "UI/jive/JiveUtils.h"
+namespace jive {
+class ComponentFactory;
+} // namespace jive
 
 namespace devpiano::ui {
 class ViewHost;
@@ -31,21 +33,13 @@ public:
         juce::ValueTree layoutTree;
         juce::Component* componentToCentreAround = nullptr;
         int defaultWidth = 380;
-        int defaultHeight = 160;
         bool isResizable = false;
 
-        /// Called when the dialog is initialized to set initial properties,
-        /// text editor values, or listeners on the GuiItem tree.
-        std::function<void(::jive::GuiItem&)> onInit;
-        /// Modern facade callback passing the ViewHost facade rather than raw GuiItem.
-        /// When provided, this takes precedence over onInit.
+        /// Modern facade callback passing the ViewHost facade.
         std::function<void(const devpiano::ui::ViewHost&)> onInitHost;
 
-        /// Called when the OK / Confirm button is clicked, or Return key is pressed.
+        /// Modern facade callback passing the ViewHost facade.
         /// Returning false keeps the dialog open (e.g. on validation error).
-        std::function<bool(::jive::GuiItem&)> onConfirm;
-        /// Modern facade callback passing the ViewHost facade rather than raw GuiItem.
-        /// When provided, this takes precedence over onConfirm.
         std::function<bool(const devpiano::ui::ViewHost&)> onConfirmHost;
 
         /// Called on Cancel button click, Escape key, or title bar close (X).
@@ -57,8 +51,9 @@ public:
 
     /// Launch a modal dialog with custom JIVE ValueTree layout.
     static void launchCustom(const LaunchOptions& options);
+    static juce::DialogWindow* launchWindow(juce::DialogWindow::LaunchOptions& options);
 
-    // ── Pre-built Declarative Templates & Launchers ──
+    // -- Pre-built Declarative Templates & Launchers --
 
     struct SingleInputOptions {
         juce::String title;
@@ -119,35 +114,27 @@ public:
     static void launchMetadataEdit(const juce::String& title, const juce::String& initialTitle,
                                    const juce::String& initialNotes, juce::Component* componentToCentreAround,
                                    const std::function<void(std::optional<MetadataResult>)>& onComplete);
-    // ── Template ValueTree Builders (exposed for testing & customization) ──
+    // -- Template ValueTree Builders (exposed for testing & customization) --
+
+    [[nodiscard]] static juce::ValueTree makeDialogRoot(int width, int padding = 12);
+    [[nodiscard]] static juce::ValueTree makeDialogButtons(const juce::String& okText, const juce::String& cancelText,
+                                                           juce::ValueTree leadingAction = {});
 
     [[nodiscard]] static juce::ValueTree makeSingleInputLayout(const juce::String& labelText, int width = 380,
-                                                               int height = 150,
                                                                const juce::String& okText = TRANS("OK"),
                                                                const juce::String& cancelText = TRANS("Cancel"));
 
     [[nodiscard]] static juce::ValueTree makeConfirmLayout(const juce::String& message, int width = 380,
-                                                           int height = 140, const juce::String& okText = TRANS("OK"),
+                                                           const juce::String& okText = TRANS("OK"),
                                                            const juce::String& cancelText = TRANS("Cancel"));
 
-    [[nodiscard]] static juce::ValueTree makeMetadataEditLayout(int width = 420, int height = 260,
+    [[nodiscard]] static juce::ValueTree makeMetadataEditLayout(int width = 420,
                                                                 const juce::String& okText = TRANS("OK"),
                                                                 const juce::String& cancelText = TRANS("Cancel"));
 
     [[nodiscard]] static juce::ValueTree makeProgressLayout(const juce::String& initialMessage = TRANS("Exporting..."),
-                                                            int width = 380, int height = 140,
+                                                            int width = 380,
                                                             const juce::String& cancelText = TRANS("Cancel"));
-    // ── Component Retrieval Helpers ──
-
-    [[nodiscard]] static ::jive::GuiItem* findGuiItemById(::jive::GuiItem& root, const juce::String& id) {
-        return devpiano::ui::jive::findGuiItemById(root, id);
-    }
-    [[nodiscard]] static juce::Button* findButtonById(::jive::GuiItem& root, const juce::String& id) {
-        return devpiano::ui::jive::findButtonById(root, id);
-    }
-    [[nodiscard]] static juce::TextEditor* findTextEditorById(::jive::GuiItem& root, const juce::String& id) {
-        return devpiano::ui::jive::findTextEditorById(root, id);
-    }
 
 private:
     JUCE_DECLARE_NON_COPYABLE(JiveModalDialog)

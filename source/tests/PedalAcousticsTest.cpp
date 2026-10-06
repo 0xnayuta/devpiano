@@ -23,6 +23,7 @@ public:
         testPedalNoiseInMonoBufferActiveNote();
         testIdlePedalSympatheticResonanceShock();
         testSynthesiserIdlePedalNoise();
+        testBuiltinSynthesiserIdlePedalNoise();
     }
 
 private:
@@ -409,6 +410,34 @@ private:
         synth.renderNextBlock(buffer, juce::MidiBuffer(), 0, 512);
         expectEquals(calculatePeak(buffer, 0), 0.0f);
         expectEquals(calculatePeak(buffer, 1), 0.0f);
+    }
+    void testBuiltinSynthesiserIdlePedalNoise() {
+        beginTest("BuiltinSynthesiser: idle pedal action triggers voice 0 through container without active notes");
+
+        devpiano::audio::BuiltinSynthesiser synth;
+        synth.setCurrentPlaybackSampleRate(48000.0);
+        synth.addSound(new PianoSynthSound());
+        auto* voice = new PianoSynthVoice();
+        voice->setVoiceIndex(0);
+        voice->setPedalNoiseLevel(0.8f);
+        synth.addVoice(voice);
+
+        expect(!voice->isVoiceActive());
+
+        // Press sustain pedal via BuiltinSynthesiser (channel 1, CC 64, 127)
+        synth.handleController(1, 64, 127);
+
+        // Voice 0 must report active via virtual isPlayingChannel dispatch
+        expect(voice->isVoiceActive(), "Voice 0 must become active on CC64 press via BuiltinSynthesiser");
+
+        juce::AudioBuffer<float> buffer(2, 512);
+        buffer.clear();
+        synth.renderNextBlock(buffer, juce::MidiBuffer(), 0, 512);
+
+        const auto peakL = calculatePeak(buffer, 0);
+        const auto peakR = calculatePeak(buffer, 1);
+        expectGreaterThan(peakL, 0.001f);
+        expectGreaterThan(peakR, 0.001f);
     }
 };
 

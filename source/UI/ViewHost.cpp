@@ -7,12 +7,16 @@
 #include "UI/jive/LayoutModel.h"
 #include "UI/jive/StyleCatalog.h"
 #include "UI/jive/core/jive_ComponentFactory.h"
+#include "UI/jive/core/jive_ContainerItem.h"
 #include "UI/jive/core/jive_FlexContainer.h"
 #include "UI/jive/core/jive_GridContainer.h"
 #include "UI/jive/core/jive_GuiItem.h"
+#include "UI/jive/core/jive_GuiItemDecorator.h"
 #include "UI/jive/core/jive_Interpreter.h"
 #include "UI/native/AdsrCurveComponent.h"
 #include "UI/native/TimelineBar.h"
+
+#include <cmath>
 
 namespace devpiano::ui {
 
@@ -64,6 +68,18 @@ void ViewHost::registerDefaultComponents() {
         editor->setPopupMenuEnabled(true);
         editor->setWantsKeyboardFocus(false);
         editor->setMouseClickGrabsKeyboardFocus(false);
+        return editor;
+    });
+    factory.set("NotesEditor", [] {
+        auto editor = std::make_unique<juce::TextEditor>();
+        editor->setMultiLine(true);
+        editor->setReturnKeyStartsNewLine(true);
+        editor->setReadOnly(false);
+        editor->setScrollbarsShown(true);
+        editor->setCaretVisible(true);
+        editor->setPopupMenuEnabled(true);
+        editor->setWantsKeyboardFocus(true);
+        editor->setMouseClickGrabsKeyboardFocus(true);
         return editor;
     });
 
@@ -156,6 +172,32 @@ void ViewHost::setBounds(int x, int y, int width, int height) const {
     }
 }
 
+void ViewHost::fitToContent(int width) const {
+    JUCE_ASSERT_MESSAGE_MANAGER_IS_LOCKED;
+    auto* component = getRootComponent();
+    auto* decorator = dynamic_cast<::jive::GuiItemDecorator*>(rootItem.get());
+    auto* container = decorator != nullptr ? decorator->toType<::jive::ContainerItem>() : nullptr;
+    jassert(component != nullptr && container != nullptr && width > 0);
+    if (component == nullptr || container == nullptr || width <= 0) {
+        return;
+    }
+
+    component->setSize(width, component->getHeight());
+    container->updateIdealSizeWithinConstraints();
+    const auto height = static_cast<double>(rootItem->state.getProperty("ideal-height"));
+    component->setSize(width, static_cast<int>(std::ceil(height)));
+
+    float bottom = 0.0f;
+    for (const auto* child : rootItem->getChildren()) {
+        bottom = juce::jmax(bottom,
+                            static_cast<float>(child->getComponent()->getBottom())
+                                + ::jive::boxModel(*child).getMargin().getBottom());
+    }
+    const auto& box = ::jive::boxModel(*rootItem);
+    component->setSize(
+        width, static_cast<int>(std::ceil(bottom + box.getPadding().getBottom() + box.getBorder().getBottom())));
+}
+
 juce::Component* ViewHost::findComponentById(const juce::String& id) const {
     if (rootItem == nullptr) {
         return nullptr;
@@ -168,10 +210,6 @@ juce::Component* ViewHost::findComponentById(const juce::String& id) const {
         return nullptr;
     }
     return devpiano::ui::jive::findGuiItemById(*rootItem, id);
-}
-
-::jive::GuiItem* ViewHost::getRootItem() const noexcept {
-    return rootItem.get();
 }
 
 bool ViewHost::setProperty(const juce::String& id, const juce::Identifier& name, const juce::var& value) const {
@@ -271,6 +309,12 @@ void ViewHost::relayoutContainer(const juce::String& containerId) const {
 void ViewHost::refreshTitles() {
     if (rootItem != nullptr) {
         devpiano::ui::jive::refreshTitles(*rootItem);
+    }
+}
+
+void ViewHost::refreshStyles() {
+    if (rootItem != nullptr) {
+        devpiano::ui::jive::StyleCatalog::get().refreshStyles(rootItem->state);
     }
 }
 

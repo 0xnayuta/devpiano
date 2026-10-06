@@ -5,7 +5,8 @@
 #include "Diagnostics/Log.h"
 
 #include <algorithm>
-
+#include <cstring>
+#include <unordered_set>
 namespace {
 
 constexpr auto kPresetFileExtension = ".devpiano.preset";
@@ -24,31 +25,42 @@ constexpr auto kMaxPresetFileSizeBytes = 1024 * 1024; // 1 MB (SEC-003)
 [[nodiscard]] juce::var keyActionToVar(const devpiano::core::KeyAction& action) {
     juce::DynamicObject::Ptr obj = new juce::DynamicObject();
     obj->setProperty("type", action.type == devpiano::core::KeyActionType::note ? "note" : "unknown");
-    obj->setProperty("trigger", action.trigger == devpiano::core::KeyTrigger::keyDown ? "keyDown" : "keyUp");
+    obj->setProperty("trigger", "keyDown");
     obj->setProperty("midiNote", action.midiNote);
     obj->setProperty("midiChannel", action.midiChannel);
     obj->setProperty("velocity", action.velocity);
     return obj.get();
 }
 
-[[nodiscard]] devpiano::core::KeyAction varToKeyAction(const juce::var& v) {
-    devpiano::core::KeyAction action;
-    if (v.isObject()) {
-        auto* obj = v.getDynamicObject();
-        if (obj != nullptr) {
-            const auto typeStr = obj->getProperty("type").toString();
-            if (typeStr != "note") {
-                DP_LOG_WARN("[Preset] unknown KeyAction type '" + typeStr + "', falling back to \"note\"");
-            }
-            action.type = devpiano::core::KeyActionType::note;
-            auto triggerStr = obj->getProperty("trigger").toString();
-            action.trigger
-                = (triggerStr == "keyDown") ? devpiano::core::KeyTrigger::keyDown : devpiano::core::KeyTrigger::keyUp;
-            action.midiNote = static_cast<int>(obj->getProperty("midiNote"));
-            action.midiChannel = static_cast<int>(obj->getProperty("midiChannel"));
-            action.velocity = static_cast<float>(obj->getProperty("velocity"));
+[[nodiscard]] std::optional<devpiano::core::KeyAction> varToKeyAction(const juce::var& v) {
+    if (!v.isObject()) {
+        return std::nullopt;
+    }
+    auto* obj = v.getDynamicObject();
+    if (obj == nullptr) {
+        return std::nullopt;
+    }
+
+    const auto typeStr = obj->getProperty("type").toString();
+    if (typeStr != "note") {
+        DP_LOG_WARN("[Preset] unknown KeyAction type '" + typeStr + "', falling back to \"note\"");
+    }
+
+    if (obj->hasProperty("trigger")) {
+        const auto triggerStr = obj->getProperty("trigger").toString();
+        if (triggerStr != "keyDown") {
+            DP_LOG_ERROR("[Preset] admission rejected: unsupported trigger '" + triggerStr
+                         + "'; only press-to-sound ('keyDown') is supported");
+            return std::nullopt;
         }
     }
+
+    devpiano::core::KeyAction action;
+    action.type = devpiano::core::KeyActionType::note;
+    action.trigger = devpiano::core::KeyTrigger::keyDown;
+    action.midiNote = static_cast<int>(obj->getProperty("midiNote"));
+    action.midiChannel = static_cast<int>(obj->getProperty("midiChannel"));
+    action.velocity = static_cast<float>(obj->getProperty("velocity"));
     return action;
 }
 
@@ -60,16 +72,24 @@ constexpr auto kMaxPresetFileSizeBytes = 1024 * 1024; // 1 MB (SEC-003)
     return obj.get();
 }
 
-[[nodiscard]] devpiano::core::KeyBinding varToKeyBinding(const juce::var& v) {
-    devpiano::core::KeyBinding binding;
-    if (v.isObject()) {
-        auto* obj = v.getDynamicObject();
-        if (obj != nullptr) {
-            binding.keyCode = static_cast<int>(obj->getProperty("keyCode"));
-            binding.displayText = obj->getProperty("displayText").toString();
-            binding.action = varToKeyAction(obj->getProperty("action"));
-        }
+[[nodiscard]] std::optional<devpiano::core::KeyBinding> varToKeyBinding(const juce::var& v) {
+    if (!v.isObject()) {
+        return std::nullopt;
     }
+    auto* obj = v.getDynamicObject();
+    if (obj == nullptr) {
+        return std::nullopt;
+    }
+
+    auto actionOpt = varToKeyAction(obj->getProperty("action"));
+    if (!actionOpt.has_value()) {
+        return std::nullopt;
+    }
+
+    devpiano::core::KeyBinding binding;
+    binding.keyCode = static_cast<int>(obj->getProperty("keyCode"));
+    binding.displayText = obj->getProperty("displayText").toString();
+    binding.action = *actionOpt;
     return binding;
 }
 
@@ -190,6 +210,138 @@ constexpr auto kMaxPresetFileSizeBytes = 1024 * 1024; // 1 MB (SEC-003)
     return { r, g, b, a };
 }
 
+struct Sha1Context {
+    uint32_t state[5] = { 0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0 };
+    uint64_t count = 0;
+    uint8_t buffer[64] = { 0 };
+
+    static uint32_t rol(uint32_t value, size_t bits) noexcept {
+        return (value << bits) | (value >> (32 - bits));
+    }
+
+    static uint32_t blk(const uint32_t block[16], size_t i) noexcept {
+        return rol(block[(i + 13) & 15] ^ block[(i + 8) & 15] ^ block[(i + 2) & 15] ^ block[i & 15], 1);
+    }
+
+    void transform(const uint8_t data[64]) noexcept {
+        uint32_t a = state[0];
+        uint32_t b = state[1];
+        uint32_t c = state[2];
+        uint32_t d = state[3];
+        uint32_t e = state[4];
+        uint32_t block[16];
+
+        for (size_t i = 0; i < 16; ++i) {
+            block[i] = (static_cast<uint32_t>(data[i * 4]) << 24) | (static_cast<uint32_t>(data[i * 4 + 1]) << 16)
+                | (static_cast<uint32_t>(data[i * 4 + 2]) << 8) | (static_cast<uint32_t>(data[i * 4 + 3]));
+        }
+
+        auto r0 = [&](uint32_t v, uint32_t& w, uint32_t x, uint32_t y, uint32_t& z, size_t i) noexcept {
+            z += ((w & (x ^ y)) ^ y) + block[i] + 0x5a827999 + rol(v, 5);
+            w = rol(w, 30);
+        };
+        auto r1 = [&](uint32_t v, uint32_t& w, uint32_t x, uint32_t y, uint32_t& z, size_t i) noexcept {
+            block[i & 15] = blk(block, i);
+            z += ((w & (x ^ y)) ^ y) + block[i & 15] + 0x5a827999 + rol(v, 5);
+            w = rol(w, 30);
+        };
+        auto r2 = [&](uint32_t v, uint32_t& w, uint32_t x, uint32_t y, uint32_t& z, size_t i) noexcept {
+            block[i & 15] = blk(block, i);
+            z += (w ^ x ^ y) + block[i & 15] + 0x6ed9eba1 + rol(v, 5);
+            w = rol(w, 30);
+        };
+        auto r3 = [&](uint32_t v, uint32_t& w, uint32_t x, uint32_t y, uint32_t& z, size_t i) noexcept {
+            block[i & 15] = blk(block, i);
+            z += (((w | x) & y) | (w & x)) + block[i & 15] + 0x8f1bbcdc + rol(v, 5);
+            w = rol(w, 30);
+        };
+        auto r4 = [&](uint32_t v, uint32_t& w, uint32_t x, uint32_t y, uint32_t& z, size_t i) noexcept {
+            block[i & 15] = blk(block, i);
+            z += (w ^ x ^ y) + block[i & 15] + 0xca62c1d6 + rol(v, 5);
+            w = rol(w, 30);
+        };
+
+        for (size_t i = 0; i < 16; ++i) {
+            r0(a, b, c, d, e, i);
+            uint32_t t = e;
+            e = d;
+            d = c;
+            c = b;
+            b = a;
+            a = t;
+        }
+        for (size_t i = 16; i < 20; ++i) {
+            r1(a, b, c, d, e, i);
+            uint32_t t = e;
+            e = d;
+            d = c;
+            c = b;
+            b = a;
+            a = t;
+        }
+        for (size_t i = 20; i < 40; ++i) {
+            r2(a, b, c, d, e, i);
+            uint32_t t = e;
+            e = d;
+            d = c;
+            c = b;
+            b = a;
+            a = t;
+        }
+        for (size_t i = 40; i < 60; ++i) {
+            r3(a, b, c, d, e, i);
+            uint32_t t = e;
+            e = d;
+            d = c;
+            c = b;
+            b = a;
+            a = t;
+        }
+        for (size_t i = 60; i < 80; ++i) {
+            r4(a, b, c, d, e, i);
+            uint32_t t = e;
+            e = d;
+            d = c;
+            c = b;
+            b = a;
+            a = t;
+        }
+
+        state[0] += a;
+        state[1] += b;
+        state[2] += c;
+        state[3] += d;
+        state[4] += e;
+    }
+
+    void update(const uint8_t* data, size_t len) noexcept {
+        for (size_t i = 0; i < len; ++i) {
+            buffer[(count >> 3) & 63] = data[i];
+            count += 8;
+            if ((count & 511) == 0) {
+                transform(buffer);
+            }
+        }
+    }
+
+    void final(uint8_t digest[20]) noexcept {
+        uint8_t finalCount[8];
+        for (size_t i = 0; i < 8; ++i) {
+            finalCount[i] = static_cast<uint8_t>((count >> ((7 - i) * 8)) & 255);
+        }
+        uint8_t pad = 0x80;
+        update(&pad, 1);
+        while ((count & 511) != 448) {
+            uint8_t zero = 0;
+            update(&zero, 1);
+        }
+        update(finalCount, 8);
+        for (size_t i = 0; i < 20; ++i) {
+            digest[i] = static_cast<uint8_t>((state[i >> 2] >> ((3 - (i & 3)) * 8)) & 255);
+        }
+    }
+};
+
 } // anonymous namespace
 
 namespace devpiano::layout {
@@ -225,28 +377,119 @@ juce::File resolvePresetFile(const juce::String& name, const juce::File& dir) {
 
 // ---- Load ----
 
-std::optional<PerformancePreset> loadPreset(const juce::File& path) {
-    if (!path.existsAsFile() || path.getSize() > kMaxPresetFileSizeBytes) {
+juce::String generateDeterministicPresetUuid(const juce::String& name) {
+    static constexpr uint8_t kNamespaceBytes[16]
+        = { 0xd3, 0xb0, 0x73, 0x84, 0xd1, 0x13, 0x4e, 0x4f, 0x8c, 0xf7, 0x6b, 0xc1, 0x50, 0x89, 0xc1, 0x62 };
+
+    Sha1Context ctx;
+    ctx.update(kNamespaceBytes, 16);
+    const auto* utf8 = name.toRawUTF8();
+    ctx.update(reinterpret_cast<const uint8_t*>(utf8), std::strlen(utf8));
+
+    uint8_t digest[20];
+    ctx.final(digest);
+
+    digest[6] = static_cast<uint8_t>((digest[6] & 0x0f) | 0x50);
+    digest[8] = static_cast<uint8_t>((digest[8] & 0x3f) | 0x80);
+
+    return juce::String::formatted("%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x", digest[0],
+                                   digest[1], digest[2], digest[3], digest[4], digest[5], digest[6], digest[7],
+                                   digest[8], digest[9], digest[10], digest[11], digest[12], digest[13], digest[14],
+                                   digest[15]);
+}
+
+juce::var performancePresetToVar(const PerformancePreset& preset) {
+    juce::DynamicObject::Ptr root = new juce::DynamicObject();
+    root->setProperty("version", performancePresetFormatVersion);
+    root->setProperty("uuid", preset.uuid.isNotEmpty() ? preset.uuid : generateDeterministicPresetUuid(preset.name));
+    root->setProperty("name", preset.name);
+
+    // --- layout ---
+    {
+        juce::DynamicObject::Ptr lo = new juce::DynamicObject();
+        lo->setProperty("id", preset.layout.id);
+        lo->setProperty("name", preset.layout.name);
+
+        juce::Array<juce::var> bindings;
+        for (const auto& binding : preset.layout.bindings) {
+            bindings.add(keyBindingToVar(binding));
+        }
+        lo->setProperty("bindings", juce::var(bindings));
+
+        // Phase 34-B: persist the four KeyGroups + active group index so that
+        // a preset loaded back into the host reproduces the user's per-group
+        // octave/transpose/channel overrides.
+        juce::Array<juce::var> groups;
+        for (const auto& group : preset.layout.groups) {
+            groups.add(keyGroupToVar(group));
+        }
+        lo->setProperty("groups", juce::var(groups));
+        lo->setProperty("activeGroupIndex", static_cast<int>(preset.layout.activeGroupIndex));
+
+        root->setProperty("layout", juce::var(lo));
+    }
+
+    // --- channelMatrix ---
+    root->setProperty("channelMatrix", channelMatrixToVar(preset.channelMatrix));
+
+    // --- acoustics ---
+    {
+        juce::DynamicObject::Ptr aco = new juce::DynamicObject();
+        aco->setProperty("lidPosition", static_cast<int>(preset.lidPosition));
+        aco->setProperty("touchVelocityCurve", static_cast<int>(preset.touchVelocityCurve));
+        aco->setProperty("unaCorda", preset.unaCorda);
+        const auto tempId = devpiano::audio::TemperamentEngine::getIdentifier(preset.temperament);
+        aco->setProperty("temperament", juce::String(tempId.data(), tempId.size()));
+        aco->setProperty("referencePitchA4", preset.referencePitchA4);
+        const auto perspId = devpiano::audio::PerspectiveProcessor::toIdentifier(preset.soundPerspective);
+        aco->setProperty("soundPerspective", juce::String(perspId.data(), perspId.size()));
+        const auto spaceId = devpiano::audio::RoomReverbEngine::toIdentifier(preset.reverbSpace);
+        aco->setProperty("reverbSpace", juce::String(spaceId.data(), spaceId.size()));
+        aco->setProperty("reverbWet", preset.reverbWet);
+        aco->setProperty("pedalNoiseLevel", preset.pedalNoiseLevel);
+        aco->setProperty("feltAgeingAmount", preset.feltAgeingAmount);
+        root->setProperty("acoustics", juce::var(aco));
+    }
+
+    // --- keyboard ---
+    {
+        juce::DynamicObject::Ptr kbo = new juce::DynamicObject();
+        kbo->setProperty("keySignature", preset.keySignature);
+        kbo->setProperty("midiTranspose", preset.midiTranspose);
+        kbo->setProperty("colourMode", static_cast<int>(preset.colourMode));
+        kbo->setProperty("noteDisplay", static_cast<int>(preset.noteDisplay));
+        kbo->setProperty("fadeSpeed", preset.fadeSpeed);
+
+        // Custom key labels: write all 128 entries for simplicity
+        {
+            juce::Array<juce::var> labels;
+            for (const auto& label : preset.customKeyLabels) {
+                labels.add(juce::var(label));
+            }
+            kbo->setProperty("customKeyLabels", juce::var(labels));
+        }
+
+        // Sparse-ish customKeyColours: write "AARRGGBB" hex for all 128 entries
+        {
+            juce::Array<juce::var> colours;
+            for (const auto& c : preset.customKeyColours) {
+                colours.add(juce::var(colourToArgbHex(c)));
+            }
+            kbo->setProperty("customKeyColours", juce::var(colours));
+        }
+
+        root->setProperty("keyboard", juce::var(kbo));
+    }
+
+    return { root.get() };
+}
+
+std::optional<PerformancePreset> performancePresetFromVar(const juce::var& v) {
+    if (!v.isObject()) {
         return std::nullopt;
     }
 
-    auto raw = path.loadFileAsString();
-    if (raw.isEmpty()) {
-        return std::nullopt;
-    }
-
-    juce::var jsonResult;
-    // ERR-007：JUCE JSON::parse 不抛异常，用 Result 重载获得错误信息。
-    const auto parseResult = juce::JSON::parse(raw, jsonResult);
-    if (parseResult.failed()) {
-        DP_LOG_WARN("[Preset] JSON parse failed: " + parseResult.getErrorMessage());
-        return std::nullopt;
-    }
-    if (!jsonResult.isObject()) {
-        return std::nullopt;
-    }
-
-    auto* obj = jsonResult.getDynamicObject();
+    auto* obj = v.getDynamicObject();
     if (obj == nullptr) {
         return std::nullopt;
     }
@@ -260,6 +503,16 @@ std::optional<PerformancePreset> loadPreset(const juce::File& path) {
     if (obj->hasProperty("name")) {
         preset.name = obj->getProperty("name").toString();
     }
+    const auto uuid = obj->getProperty("uuid");
+    if (uuid.isString() && uuid.toString().trim().isNotEmpty()) {
+        preset.uuid = uuid.toString().trim();
+    } else if (version == 1 && !obj->hasProperty("uuid")) {
+        preset.uuid = generateDeterministicPresetUuid(preset.name);
+    } else {
+        DP_LOG_WARN("[Preset] admission rejected: missing or invalid permanent identity");
+        return std::nullopt;
+    }
+
     // --- layout ---
     auto layoutVar = obj->getProperty("layout");
     if (layoutVar.isObject()) {
@@ -272,7 +525,12 @@ std::optional<PerformancePreset> loadPreset(const juce::File& path) {
             if (bindingsVar.isArray()) {
                 preset.layout.bindings.clear();
                 for (const auto& bv : *bindingsVar.getArray()) {
-                    preset.layout.bindings.push_back(varToKeyBinding(bv));
+                    auto bindingOpt = varToKeyBinding(bv);
+                    if (!bindingOpt.has_value()) {
+                        DP_LOG_ERROR("[Preset] admission rejected: contains unsupported or invalid key binding");
+                        return std::nullopt;
+                    }
+                    preset.layout.bindings.push_back(*bindingOpt);
                 }
             }
 
@@ -412,7 +670,8 @@ std::optional<PerformancePreset> loadPreset(const juce::File& path) {
                 preset.noteDisplay = static_cast<devpiano::ui::NoteDisplayMode>(nd);
             }
             if (kbo->hasProperty("fadeSpeed")) {
-                preset.fadeSpeed = juce::jlimit(0.01f, 10.0f, static_cast<float>(kbo->getProperty("fadeSpeed")));
+                preset.fadeSpeed
+                    = devpiano::ui::KeyboardSettings::clampFadeSpeed(static_cast<float>(kbo->getProperty("fadeSpeed")));
             }
             if (kbo->hasProperty("previewAlpha")) {
                 preset.previewAlpha = juce::jlimit(0.0f, 1.0f, static_cast<float>(kbo->getProperty("previewAlpha")));
@@ -442,97 +701,57 @@ std::optional<PerformancePreset> loadPreset(const juce::File& path) {
     return preset;
 }
 
+std::optional<PerformancePreset> loadPreset(const juce::File& path) {
+    if (!path.existsAsFile() || path.getSize() > kMaxPresetFileSizeBytes) {
+        return std::nullopt;
+    }
+
+    auto raw = path.loadFileAsString();
+    if (raw.isEmpty()) {
+        return std::nullopt;
+    }
+
+    juce::var jsonResult;
+    // ERR-007: JUCE JSON::parse returns Result
+    const auto parseResult = juce::JSON::parse(raw, jsonResult);
+    if (parseResult.failed()) {
+        DP_LOG_WARN("[Preset] JSON parse failed: " + parseResult.getErrorMessage());
+        return std::nullopt;
+    }
+
+    return performancePresetFromVar(jsonResult);
+}
+
 // ---- Save ----
 
-bool savePreset(const PerformancePreset& preset, const juce::File& path) {
-    juce::DynamicObject::Ptr root = new juce::DynamicObject();
-    root->setProperty("version", performancePresetFormatVersion);
-    root->setProperty("name", preset.name);
-
-    // --- layout ---
-    {
-        juce::DynamicObject::Ptr lo = new juce::DynamicObject();
-        lo->setProperty("id", preset.layout.id);
-        lo->setProperty("name", preset.layout.name);
-
-        juce::Array<juce::var> bindings;
-        for (const auto& binding : preset.layout.bindings) {
-            bindings.add(keyBindingToVar(binding));
-        }
-        lo->setProperty("bindings", juce::var(bindings));
-
-        // Phase 34-B: persist the four KeyGroups + active group index so that
-        // a preset loaded back into the host reproduces the user's per-group
-        // octave/transpose/channel overrides.
-        juce::Array<juce::var> groups;
-        for (const auto& group : preset.layout.groups) {
-            groups.add(keyGroupToVar(group));
-        }
-        lo->setProperty("groups", juce::var(groups));
-        lo->setProperty("activeGroupIndex", static_cast<int>(preset.layout.activeGroupIndex));
-
-        root->setProperty("layout", juce::var(lo));
-    }
-
-    // --- channelMatrix ---
-    root->setProperty("channelMatrix", channelMatrixToVar(preset.channelMatrix));
-    // --- acoustics ---
-    {
-        juce::DynamicObject::Ptr aco = new juce::DynamicObject();
-        aco->setProperty("lidPosition", static_cast<int>(preset.lidPosition));
-        aco->setProperty("touchVelocityCurve", static_cast<int>(preset.touchVelocityCurve));
-        aco->setProperty("unaCorda", preset.unaCorda);
-        const auto tempId = devpiano::audio::TemperamentEngine::getIdentifier(preset.temperament);
-        aco->setProperty("temperament", juce::String(tempId.data(), tempId.size()));
-        aco->setProperty("referencePitchA4", preset.referencePitchA4);
-        const auto perspId = devpiano::audio::PerspectiveProcessor::toIdentifier(preset.soundPerspective);
-        aco->setProperty("soundPerspective", juce::String(perspId.data(), perspId.size()));
-        const auto spaceId = devpiano::audio::RoomReverbEngine::toIdentifier(preset.reverbSpace);
-        aco->setProperty("reverbSpace", juce::String(spaceId.data(), spaceId.size()));
-        aco->setProperty("reverbWet", preset.reverbWet);
-        aco->setProperty("pedalNoiseLevel", preset.pedalNoiseLevel);
-        aco->setProperty("feltAgeingAmount", preset.feltAgeingAmount);
-        root->setProperty("acoustics", juce::var(aco));
-    }
-
-    // --- keyboard ---
-    {
-        juce::DynamicObject::Ptr kbo = new juce::DynamicObject();
-        kbo->setProperty("keySignature", preset.keySignature);
-        kbo->setProperty("midiTranspose", preset.midiTranspose);
-        kbo->setProperty("colourMode", static_cast<int>(preset.colourMode));
-        kbo->setProperty("noteDisplay", static_cast<int>(preset.noteDisplay));
-        kbo->setProperty("fadeSpeed", preset.fadeSpeed);
-        // previewAlpha intentionally not serialised — SettingsModel has no corresponding
-        // field; the value is reserved for future use.
-
-        // Custom key labels: write all 128 entries for simplicity
-        {
-            juce::Array<juce::var> labels;
-            for (const auto& label : preset.customKeyLabels) {
-                labels.add(juce::var(label));
-            }
-            kbo->setProperty("customKeyLabels", juce::var(labels));
-        }
-
-        // Sparse-ish customKeyColours: write "AARRGGBB" hex for all 128 entries
-        // (128 ARGB strings is ~1KB; sparse optimisation not worth the code complexity)
-        {
-            juce::Array<juce::var> colours;
-            for (const auto& c : preset.customKeyColours) {
-                colours.add(juce::var(colourToArgbHex(c)));
-            }
-            kbo->setProperty("customKeyColours", juce::var(colours));
-        }
-
-        root->setProperty("keyboard", juce::var(kbo));
-    }
-
-    auto jsonString = juce::JSON::toString(juce::var(root));
+namespace {
+bool writePresetData(const PerformancePreset& preset, const juce::File& path) {
+    const auto varObj = performancePresetToVar(preset);
+    auto jsonString = juce::JSON::toString(varObj);
     if (jsonString.isEmpty()) {
         return false;
     }
 
+    juce::FileOutputStream output(path);
+    if (!output.openedOk() || !output.writeText(jsonString, false, false, nullptr)) {
+        return false;
+    }
+    output.flush();
+    return output.getStatus().wasOk();
+}
+}
+
+bool savePreset(const PerformancePreset& preset, const juce::File& path) {
+    if (path == juce::File()) {
+        return false;
+    }
+    for (const auto& binding : preset.layout.bindings) {
+        if (binding.action.trigger != devpiano::core::KeyTrigger::keyDown) {
+            DP_LOG_ERROR(
+                "[Preset] save rejected: preset contains unsupported key binding trigger; only 'keyDown' is supported");
+            return false;
+        }
+    }
     auto targetFile = path;
     if (!targetFile.hasFileExtension(kPresetFileExtension)) {
         targetFile = targetFile.withFileExtension(kPresetFileExtension);
@@ -542,21 +761,80 @@ bool savePreset(const PerformancePreset& preset, const juce::File& path) {
     if (!dir.exists() && !dir.createDirectory()) {
         return false;
     }
+    auto presetToSave = preset;
+    if (presetToSave.uuid.isEmpty()) {
+        presetToSave.uuid = generateDeterministicPresetUuid(presetToSave.name);
+    }
 
-    // 原子写入：同目录临时文件 + rename 覆盖，失败时目标文件保持原样
-    // （与 PerformanceFile::savePerformanceFile 同一模式，AUDIT-SEC-004 扩展）。
     juce::TemporaryFile tempFile(targetFile);
-    if (!tempFile.getFile().replaceWithText(jsonString)) {
-        tempFile.deleteTemporaryFile();
+    if (!writePresetData(presetToSave, tempFile.getFile())) {
         return false;
     }
+    return tempFile.overwriteTargetFileWithTemporary();
+}
 
-    if (tempFile.overwriteTargetFileWithTemporary()) {
-        return true;
+// ---- Rename ----
+
+PresetRenameResult renamePreset(const juce::String& oldName, const juce::String& newName, bool allowOverwriteExisting,
+                                const juce::File& dir) {
+    const auto trimmedOld = oldName.trim();
+    const auto trimmedNew = newName.trim();
+    if (trimmedOld.isEmpty() || trimmedNew.isEmpty()) {
+        return PresetRenameResult::invalidName;
     }
 
-    tempFile.deleteTemporaryFile();
-    return false;
+    const auto oldFile = resolvePresetFile(trimmedOld, dir);
+    if (!oldFile.existsAsFile()) {
+        return PresetRenameResult::sourceNotFound;
+    }
+
+    const auto presetOpt = loadPreset(oldFile);
+    if (!presetOpt.has_value()) {
+        return PresetRenameResult::sourceNotFound;
+    }
+
+    const auto newFile = resolvePresetFile(trimmedNew, dir);
+
+    const bool isSamePath = oldFile == newFile;
+
+    if (!isSamePath && newFile.existsAsFile() && !allowOverwriteExisting) {
+        return PresetRenameResult::targetAlreadyExists;
+    }
+
+    auto updatedPreset = *presetOpt;
+    updatedPreset.name = trimmedNew;
+    updatedPreset.layout.name = trimmedNew;
+
+    juce::TemporaryFile temporaryTarget(newFile);
+    if (!writePresetData(updatedPreset, temporaryTarget.getFile())) {
+        return PresetRenameResult::saveFailed;
+    }
+
+    if (isSamePath) {
+        return temporaryTarget.overwriteTargetFileWithTemporary() ? PresetRenameResult::success
+                                                                  : PresetRenameResult::saveFailed;
+    }
+
+    const auto stagedSource = dir.getNonexistentChildFile(
+        oldFile.getFileName() + ".staging." + juce::Uuid().toDashedString(), ".tmp", false);
+    if (!oldFile.moveFileTo(stagedSource)) {
+        return PresetRenameResult::sourceMoveFailed;
+    }
+
+    if (!temporaryTarget.overwriteTargetFileWithTemporary()) {
+        if (oldFile.exists() || !stagedSource.moveFileTo(oldFile)) {
+            DP_LOG_ERROR("[Preset] rename rollback failed; original source retained at: "
+                         + stagedSource.getFullPathName());
+            return PresetRenameResult::sourceRestoreFailed;
+        }
+        return PresetRenameResult::saveFailed;
+    }
+
+    if (stagedSource != newFile && !stagedSource.deleteFile()) {
+        DP_LOG_WARN("[Preset] rename committed; original source backup retained at: " + stagedSource.getFullPathName());
+    }
+
+    return PresetRenameResult::success;
 }
 
 // ---- Directory scanning ----
@@ -567,11 +845,17 @@ std::vector<PerformancePreset> scanPresetDirectory(const juce::File& dir) {
     }
 
     std::vector<PerformancePreset> results;
+    std::unordered_set<std::string> seenUuids;
 
     for (const auto& entry : dir.findChildFiles(juce::File::TypesOfFileToFind::findFiles, false,
                                                 "*" + juce::String(kPresetFileExtension))) {
         auto loaded = loadPreset(entry);
         if (loaded.has_value()) {
+            const auto uuidStr = loaded->uuid.toStdString();
+            if (!uuidStr.empty() && !seenUuids.insert(uuidStr).second) {
+                DP_LOG_WARN("[Preset] Duplicate preset UUID detected: " + loaded->uuid
+                            + " in file: " + entry.getFullPathName());
+            }
             results.push_back(*loaded);
         }
     }
@@ -582,11 +866,11 @@ std::vector<PerformancePreset> scanPresetDirectory(const juce::File& dir) {
 
     return results;
 }
-
 // ---- Built-in defaults ----
 
 PerformancePreset makeDefaultPreset() {
     PerformancePreset preset;
+    preset.uuid = generateDeterministicPresetUuid("Default");
     preset.name = "Default";
     preset.layout = devpiano::core::makeDefaultKeyboardLayout();
     preset.layout.id = "default.preset.builtin";

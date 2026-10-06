@@ -73,7 +73,7 @@ struct RuntimeInputState {
                               .pianoHammerHardness = performance.pianoHammerHardness,
                               .pianoResonance = performance.pianoResonance },
              .plugin = { .searchPath = plugin.pluginSearchPath,
-                         .lastPluginName = plugin.lastPluginName,
+                         .lastPluginIdentifier = plugin.lastPluginIdentifier,
                          .currentPluginName = {},
                          .availablePluginNames = {},
                          .lastScanSummary = {},

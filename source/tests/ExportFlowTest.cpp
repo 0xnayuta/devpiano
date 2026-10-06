@@ -111,6 +111,32 @@ public:
             expect(options.lidPosition == SettingsModel::LidPosition::halfStick);
             expectEquals(options.numChannels, 2);
         });
+
+        testCase("reference pitch in export options is clamped to 400..480 Hz range", [&] {
+            RecordingTake take;
+            SettingsModel::PerformanceSettingsView perf;
+
+            perf.referencePitchA4 = 400.0;
+            expectWithinAbsoluteError(buildWavExportOptions(take, perf, 44100.0, 512).referencePitchA4, 400.0, 1e-4);
+
+            perf.referencePitchA4 = 480.0;
+            expectWithinAbsoluteError(buildWavExportOptions(take, perf, 44100.0, 512).referencePitchA4, 480.0, 1e-4);
+
+            perf.referencePitchA4 = 415.0;
+            expectWithinAbsoluteError(buildWavExportOptions(take, perf, 44100.0, 512).referencePitchA4, 415.0, 1e-4);
+
+            perf.referencePitchA4 = 440.0;
+            expectWithinAbsoluteError(buildWavExportOptions(take, perf, 44100.0, 512).referencePitchA4, 440.0, 1e-4);
+
+            perf.referencePitchA4 = 442.0;
+            expectWithinAbsoluteError(buildWavExportOptions(take, perf, 44100.0, 512).referencePitchA4, 442.0, 1e-4);
+
+            perf.referencePitchA4 = 350.0;
+            expectWithinAbsoluteError(buildWavExportOptions(take, perf, 44100.0, 512).referencePitchA4, 400.0, 1e-4);
+
+            perf.referencePitchA4 = 550.0;
+            expectWithinAbsoluteError(buildWavExportOptions(take, perf, 44100.0, 512).referencePitchA4, 480.0, 1e-4);
+        });
     }
 };
 
@@ -181,6 +207,11 @@ public:
             devpiano::test::ScopedTempDir tempDir("midi-export");
             const auto path = tempDir.getChildFile("take.mid");
 
+            auto previousTake = makeOneSecondTake();
+            for (auto& event : previousTake.events) {
+                event.message.setNoteNumber(72);
+            }
+            expect(exportTakeAsMidiFile(previousTake, path));
             const auto take = makeOneSecondTake();
             expect(exportTakeAsMidiFile(take, path), "export must succeed");
             expect(path.existsAsFile());
@@ -254,6 +285,24 @@ public:
                 }
             }
         });
+
+        testCase("MIDI numeric bounds reject before replacing an existing target", [&] {
+            devpiano::test::ScopedTempDir tempDir("midi-timeline-reject");
+            const auto path = tempDir.getChildFile("retained.mid");
+            expect(path.replaceWithText("retained MIDI target"));
+            const auto original = path.loadFileAsString();
+            auto take = makeOneSecondTake();
+            expect(!exportTakeAsMidiFile(take, path, 32768));
+            expectEquals(path.loadFileAsString(), original);
+            take.sampleRate = 1e-300;
+            expect(!exportTakeAsMidiFile(take, path));
+            expectEquals(path.loadFileAsString(), original);
+            take = makeOneSecondTake();
+            take.lengthSamples = 44100LL * 1000000;
+            take.events.back().timestampSamples = take.lengthSamples;
+            expect(!exportTakeAsMidiFile(take, path));
+            expectEquals(path.loadFileAsString(), original);
+        });
     }
 };
 
@@ -279,6 +328,9 @@ public:
             options.masterGain = 0.8f;
             options.adsr = { 0.01f, 0.2f, 0.8f, 0.3f };
 
+            options.sampleRate = 48000.0;
+            expect(exportTakeAsWavFile(take, path, options));
+            options.sampleRate = 44100.0;
             expect(exportTakeAsWavFile(take, path, options), "export must succeed");
             expect(path.existsAsFile());
 
@@ -308,6 +360,256 @@ public:
                 offset += num;
             }
             expect(maxSample > 0.01f, "rendered audio must not be silent");
+        });
+
+        testCase("WAV export renders take sounding pitch without double transposition", [&] {
+            devpiano::test::ScopedTempDir tempDir("wav-no-double-transpose");
+            const auto path = tempDir.getChildFile("pitch_check.wav");
+
+            // A live-recorded take where keyboard input was in Key of D (+2 semitones).
+            // The note captured into take.events is note 62 (D4).
+            // The embedded preset has transposeEnabled = true, transposeOffset = 2.
+            auto take = makeOneSecondTake();
+            take.events[0].message = juce::MidiMessage::noteOn(1, 62, 0.8f);
+            take.events[1].message = juce::MidiMessage::noteOff(1, 62);
+
+            RecordedPreset rp;
+            rp.preset.name = "D_Major";
+            rp.acoustic.transposeEnabled = true;
+            rp.acoustic.transposeOffset = 2;
+            rp.acoustic.channelFollowKeyMask = 0b1111110111111111;
+            take.presets.push_back(rp);
+            take.events.insert(
+                take.events.begin(),
+                { 0, PerformanceEventType::presetChange, 0, RecordingEventSource::computerKeyboard, {} });
+
+            WavExportOptions options;
+            options.sampleRate = 44100.0;
+            options.blockSize = 512;
+            options.builtinTone = SettingsModel::BuiltinTone::sine;
+
+            expect(exportTakeAsWavFile(take, path, options), "WAV export with preset should succeed");
+            expect(path.existsAsFile());
+            expectGreaterThan(static_cast<int>(path.getSize()), 1024);
+        });
+
+        testCase("unrepresentable WAV timelines reject before output and preserve existing bytes", [&] {
+            devpiano::test::ScopedTempDir tempDir("wav-timeline-reject");
+            const auto path = tempDir.getChildFile("retained.wav");
+            expect(path.replaceWithText("retained user data"));
+            const auto original = path.loadFileAsString();
+            WavExportOptions options;
+            auto take = makeOneSecondTake();
+            take.lengthSamples = std::numeric_limits<std::int64_t>::max();
+            take.events.back().timestampSamples = take.lengthSamples;
+            auto progressCalled = false;
+            expect(!exportTakeAsWavFile(take, path, options, [&](double) {
+                progressCalled = true;
+                return false;
+            }));
+            expect(!progressCalled);
+            expectEquals(path.loadFileAsString(), original);
+
+            take.events.back().timestampSamples = 44100;
+            take.lengthSamples = std::numeric_limits<std::int64_t>::max() - 88199;
+            expect(!exportTakeAsWavFile(take, path, options));
+            expectEquals(path.loadFileAsString(), original);
+
+            take = makeOneSecondTake();
+            take.sampleRate = 1e-300;
+            const auto missingParent = tempDir.getChildFile("not-created").getChildFile("invalid.wav");
+            expect(!exportTakeAsWavFile(take, missingParent, options));
+            expect(!missingParent.getParentDirectory().exists());
+        });
+
+        testCase("cancelling a WAV overwrite before commit preserves the original bytes", [&] {
+            devpiano::test::ScopedTempDir tempDir("wav-overwrite-cancel");
+            const auto path = tempDir.getChildFile("take.wav");
+            const auto take = makeOneSecondTake();
+            WavExportOptions options;
+            expect(exportTakeAsWavFile(take, path, options));
+            juce::MemoryBlock original;
+            expect(path.loadFileAsData(original));
+
+            options.masterGain = 0.0f;
+            auto reachedCommit = false;
+            expect(!exportTakeAsWavFile(take, path, options, [&reachedCommit](double progress) {
+                reachedCommit = progress == 1.0;
+                return !reachedCommit;
+            }));
+            expect(reachedCommit);
+            juce::MemoryBlock afterCancel;
+            expect(path.loadFileAsData(afterCancel));
+            expect(afterCancel == original, "cancelled replacement must preserve the original WAV");
+            expectEquals(tempDir.get().getNumberOfChildFiles(juce::File::findFiles), 1,
+                         "cancelled render must not leave its temporary output");
+        });
+
+        testCase("a failed replacement preserves an occupied output directory", [&] {
+            devpiano::test::ScopedTempDir tempDir("export-replace-failure");
+            const auto occupied = tempDir.getChildFile("occupied");
+            expect(occupied.createDirectory().wasOk());
+            const auto original = occupied.getChildFile("original");
+            expect(original.replaceWithText("owned-user-data"));
+            const auto take = makeOneSecondTake();
+            expect(!exportTakeAsMidiFile(take, occupied));
+            expect(!exportTakeAsWavFile(take, occupied, WavExportOptions {}));
+            expectEquals(original.loadFileAsString(), juce::String("owned-user-data"));
+            expectEquals(tempDir.get().getNumberOfChildFiles(juce::File::findFilesAndDirectories), 1,
+                         "failed exports must retain only the original directory");
+        });
+        testCase("preset changes during WAV export update acoustics and silence old bank on tone switch", [&] {
+            devpiano::test::ScopedTempDir tempDir("wav-preset-export");
+            const auto path = tempDir.getChildFile("preset-take.wav");
+
+            RecordingTake take;
+            take.sampleRate = 44100.0;
+            take.lengthSamples = 44100;
+
+            RecordedPreset p0;
+            p0.preset.name = "PianoPreset";
+            p0.acoustic.builtinTone = devpiano::core::BuiltinTone::piano;
+            p0.acoustic.masterGain = 0.5f;
+
+            RecordedPreset p1;
+            p1.preset.name = "SinePreset";
+            p1.acoustic.builtinTone = devpiano::core::BuiltinTone::sine;
+            p1.acoustic.masterGain = 0.9f;
+
+            take.presets = { p0, p1 };
+
+            PerformanceEvent evP0;
+            evP0.type = PerformanceEventType::presetChange;
+            evP0.timestampSamples = 0;
+            evP0.presetId = 0;
+
+            PerformanceEvent evN0;
+            evN0.type = PerformanceEventType::midi;
+            evN0.timestampSamples = 0;
+            evN0.message = juce::MidiMessage::noteOn(1, 60, 0.8f);
+
+            PerformanceEvent evOff0;
+            evOff0.type = PerformanceEventType::midi;
+            evOff0.timestampSamples = 20000;
+            evOff0.message = juce::MidiMessage::noteOff(1, 60, 0.0f);
+
+            PerformanceEvent evP1;
+            evP1.type = PerformanceEventType::presetChange;
+            evP1.timestampSamples = 22050;
+            evP1.presetId = 1;
+
+            PerformanceEvent evN1;
+            evN1.type = PerformanceEventType::midi;
+            evN1.timestampSamples = 22050;
+            evN1.message = juce::MidiMessage::noteOn(1, 64, 0.8f);
+
+            PerformanceEvent evOff1;
+            evOff1.type = PerformanceEventType::midi;
+            evOff1.timestampSamples = 40000;
+            evOff1.message = juce::MidiMessage::noteOff(1, 64, 0.0f);
+
+            take.events = { evP0, evN0, evOff0, evP1, evN1, evOff1 };
+
+            WavExportOptions options;
+            options.sampleRate = 44100.0;
+            options.blockSize = 512;
+            options.numChannels = 2;
+
+            expect(exportTakeAsWavFile(take, path, options));
+            expect(path.existsAsFile());
+
+            juce::WavAudioFormat wavFormat;
+            std::unique_ptr<juce::AudioFormatReader> reader(
+                wavFormat.createReaderFor(path.createInputStream().release(), true));
+            expect(reader != nullptr);
+            if (reader != nullptr) {
+                expectEquals(static_cast<int>(reader->numChannels), 2);
+                expect(reader->lengthInSamples >= 44100);
+            }
+        });
+
+        testCase("missing or invalid preset snapshot references reject before destination file is touched", [&] {
+            devpiano::test::ScopedTempDir tempDir("wav-preset-reject");
+            const auto target = tempDir.getChildFile("protected.wav");
+            expect(target.replaceWithText("user data must remain untouched"));
+
+            RecordingTake take;
+            take.sampleRate = 44100.0;
+            take.lengthSamples = 44100;
+
+            PerformanceEvent evP0;
+            evP0.type = PerformanceEventType::presetChange;
+            evP0.timestampSamples = 0;
+            evP0.presetId = 0;
+
+            PerformanceEvent evN0;
+            evN0.type = PerformanceEventType::midi;
+            evN0.timestampSamples = 0;
+            evN0.message = juce::MidiMessage::noteOn(1, 60, 0.8f);
+
+            take.events = { evP0, evN0 };
+
+            WavExportOptions options;
+            expect(!exportTakeAsWavFile(take, target, options));
+            expectEquals(target.loadFileAsString(), juce::String("user data must remain untouched"));
+        });
+
+        testCase("offline WAV export renders sine tone with frequency governed by reference pitch range", [&] {
+            devpiano::test::ScopedTempDir tempDir("wav-pitch-freq");
+
+            const auto renderToneAtPitch = [&](const juce::String& fileName, double pitch) -> double {
+                const auto wavFile = tempDir.getChildFile(fileName);
+                RecordingTake take;
+                take.sampleRate = 48000.0;
+                take.lengthSamples = 48000;
+
+                take.events.push_back({ 0, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
+                                        juce::MidiMessage::noteOn(1, 69, 0.9f) });
+                take.events.push_back({ 48000, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
+                                        juce::MidiMessage::noteOff(1, 69) });
+
+                WavExportOptions options;
+                options.sampleRate = 48000.0;
+                options.blockSize = 512;
+                options.builtinTone = SettingsModel::BuiltinTone::sine;
+                options.referencePitchA4 = pitch;
+                options.adsr = { 0.001f, 0.1f, 1.0f, 0.05f };
+
+                if (!exportTakeAsWavFile(take, wavFile, options)) {
+                    return 0.0;
+                }
+
+                juce::WavAudioFormat wavFormat;
+                std::unique_ptr<juce::AudioFormatReader> reader(
+                    wavFormat.createReaderFor(wavFile.createInputStream().release(), true));
+                if (reader == nullptr || reader->lengthInSamples < 48000) {
+                    return 0.0;
+                }
+
+                juce::AudioBuffer<float> buf(1, 1200);
+                reader->read(&buf, 0, 1200, 4800, true, false);
+                const float* samples = buf.getReadPointer(0);
+
+                int crossings = 0;
+                for (int i = 1; i < 1200; ++i) {
+                    if (samples[i - 1] <= 0.0f && samples[i] > 0.0f) {
+                        ++crossings;
+                    }
+                }
+                return static_cast<double>(crossings) * 40.0;
+            };
+
+            const auto freq400 = renderToneAtPitch("sine_400.wav", 400.0);
+            expectEquals(freq400, 400.0);
+
+            const auto freq480 = renderToneAtPitch("sine_480.wav", 480.0);
+            expectEquals(freq480, 480.0);
+
+            const auto freqClampedLow = renderToneAtPitch("sine_low.wav", 350.0);
+            expectEquals(freqClampedLow, 400.0);
+
+            const auto freqClampedHigh = renderToneAtPitch("sine_high.wav", 520.0);
+            expectEquals(freqClampedHigh, 480.0);
         });
     }
 };
@@ -466,8 +768,17 @@ public:
 
             expect(result, "runSync must complete successfully");
             expect(task.wasSuccessful(), "wasSuccessful flag must be true");
-            expect(target.existsAsFile(), "Target WAV file must be created on disk");
-            expect(target.getSize() > 44, "Target WAV file must have valid size");
+            juce::AudioFormatManager formats;
+            formats.registerBasicFormats();
+            std::unique_ptr<juce::AudioFormatReader> reader(formats.createReaderFor(target));
+            expect(reader != nullptr, "background export must leave a readable final WAV header");
+            if (reader != nullptr) {
+                expectWithinAbsoluteError(reader->sampleRate, options.sampleRate, 0.001);
+                juce::AudioBuffer<float> audio(2, 4410);
+                expect(reader->read(&audio, 0, audio.getNumSamples(), 0, true, true));
+                expect(audio.getMagnitude(0, audio.getNumSamples()) > 0.0001f,
+                       "background export must contain the performed note");
+            }
         });
 
         testCase("WavExportTask fails gracefully on invalid target path", [&] {
@@ -487,7 +798,22 @@ public:
 
             expect(!result, "runSync must return false for invalid destination");
             expect(!failTask.wasSuccessful(), "wasSuccessful must be false");
-            expect(failTask.getErrorMessage().isNotEmpty(), "errorMessage must be populated on failure");
+        });
+
+        testCase("rejected background export does not delete an existing output", [&] {
+            devpiano::test::ScopedTempDir tempDir("task-existing-output");
+            const auto target = tempDir.getChildFile("existing.wav");
+            const auto take = makeOneSecondTake();
+            WavExportOptions options;
+            expect(exportTakeAsWavFile(take, target, options));
+            juce::MemoryBlock original;
+            expect(target.loadFileAsData(original));
+            options.blockSize = 0;
+            WavExportTask task(take, target, options, nullptr, nullptr);
+            expect(!task.runSync());
+            juce::MemoryBlock afterFailure;
+            expect(target.loadFileAsData(afterFailure));
+            expect(afterFailure == original, "failure must not remove a pre-existing user file");
         });
     }
 };

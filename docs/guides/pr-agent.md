@@ -8,7 +8,7 @@
 PR-Agent 是开源 AI 代码审查 agent（[The-PR-Agent/pr-agent](https://github.com/The-PR-Agent/pr-agent)，MIT）。devpiano 通过 GitHub Action 方式部署：
 
 - PR 打开 / 重新打开 / 转为 ready / push 新提交（`synchronize`）时自动执行 `/describe`（AI 生成 PR 描述）与 `/review`（代码审查）。
-- 模型：`openai/deepseek-v4.1-flash-free`，通过 KiosAPI OpenAI-compatible endpoint 调用。
+- 模型：`openai/deepseek-v4-flash-free`，通过 KiosAPI OpenAI-compatible endpoint 调用。
 - 审查输出为 `github-actions[bot]` 的 PR 评论，不参与 required checks，**不阻塞合并**。
 
 ## 相关文件
@@ -42,13 +42,13 @@ PR-Agent 是开源 AI 代码审查 agent（[The-PR-Agent/pr-agent](https://githu
 ## 配置说明（.pr_agent.toml）
 
 - `[config] response_language = "zh-CN"`：审查评论使用中文。
-- `[ignore] glob = ["submodules/**", "docs/archive/**", "*.patch", "*.lock"]`：忽略第三方子模块、归档文档、补丁与 lock 文件变更（不应进入审查范围）。
-- `[pr_reviewer] extra_instructions`：追加审查关注点——实时音频/MIDI 回调线程安全、AGENTS.md 核心架构要求、Conventional Commits 提交规范。
+- `[ignore] glob = ["submodules/**", "docs/archive/**", "docs/audit/**", "*.patch", "*.lock"]`：忽略第三方子模块、归档文档、审计报告、补丁与 lock 文件变更（不应进入审查范围）。
+- `[pr_reviewer] extra_instructions`：追加审查关注点——实时音频契约（无锁/零堆分配/安全 fallback）、AGENTS.md 12 项核心架构要求（固定拓扑/防悬挂/UI 单一事实源）、7-bit ASCII 与 ADR-015 本地化规范、内化声明式 UI 边界与 Conventional Commits 提交规范。
 - `AGENTS.md` 默认作为 repo context 自动注入 review / describe / improve 的提示词（v0.39+ 行为），仓库规范无需重复配置。
 
 ## 模型与密钥
 
-- 当前模型：`openai/deepseek-v4.1-flash-free`（KiosAPI OpenAI-compatible 路由）。
+- 当前模型：`openai/deepseek-v4-flash-free`（KiosAPI OpenAI-compatible 路由）。
 - Base URL：`https://kiosapi.com/v1/`。
 - 密钥：workflow 将 GitHub Actions Secret `KIOSAPI_API_KEY` 注入 `OPENAI_KEY`；密钥不写入仓库，需在仓库设置中手动填写。
 - 模型 ID 必须对该 API key 的 Token Group 可用。KiosAPI 支持用 `GET /v1/models` 查询 key 可访问的精确 ID；当前未配置 key，因此尚未验证该模型 ID。

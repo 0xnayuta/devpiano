@@ -47,16 +47,16 @@ bool tryRestoreCachedPluginList(PluginHost& pluginHost, SettingsModel& settings,
 }
 
 void scanPluginsAtPathAndUpdateRecovery(PluginHost& pluginHost, SettingsModel& settings,
-                                        const juce::FileSearchPath& path, const juce::String& lastPluginName) {
-    const auto recovery = makePluginRecoverySettings(path.toString(), lastPluginName);
+                                        const juce::FileSearchPath& path, const juce::String& lastPluginIdentifier) {
+    const auto recovery = makePluginRecoverySettings(path.toString(), lastPluginIdentifier);
     pluginHost.scanVst3Plugins(path, true);
     settings.applyPluginRecoverySettingsView(recovery);
     settings.knownPluginListState = pluginHost.createKnownPluginListXml();
 }
 
 SettingsModel::PluginRecoverySettingsView makePluginRecoverySettings(juce::String pluginSearchPath,
-                                                                     juce::String lastPluginName) {
-    return { .pluginSearchPath = std::move(pluginSearchPath), .lastPluginName = std::move(lastPluginName) };
+                                                                     juce::String lastPluginIdentifier) {
+    return { .pluginSearchPath = std::move(pluginSearchPath), .lastPluginIdentifier = std::move(lastPluginIdentifier) };
 }
 
 SettingsModel::PluginRecoverySettingsView
@@ -65,7 +65,7 @@ withPluginRecoveryPathFallback(const SettingsModel::PluginRecoverySettingsView& 
     const auto pluginSearchPath
         = normalisePluginScanPath(juce::FileSearchPath(recovery.pluginSearchPath), defaultSearchPath).toString();
 
-    return makePluginRecoverySettings(pluginSearchPath, recovery.lastPluginName);
+    return makePluginRecoverySettings(pluginSearchPath, recovery.lastPluginIdentifier);
 }
 
 juce::FileSearchPath normalisePluginScanPath(const juce::FileSearchPath& requestedPath,
@@ -87,6 +87,6 @@ buildStartupPluginRestorePlan(const SettingsModel::PluginRecoverySettingsView& p
 
     return { .recovery = recovery,
              .shouldScan = isUsablePluginScanPath(scanPath),
-             .shouldLoadLastPlugin = recovery.lastPluginName.trim().isNotEmpty() };
+             .shouldLoadLastPlugin = recovery.lastPluginIdentifier.trim().isNotEmpty() };
 }
 } // namespace devpiano::plugin

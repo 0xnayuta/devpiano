@@ -215,12 +215,13 @@ public:
 
     void runTest() override {
         testParameterValidation();
+        testInvalidTimeline();
         testOfflineRenderingExecution();
         testMonoPluginStereoDownmix();
         testMasterSoftLimiterBehavior();
         testOfflineRenderingWithRoomReverb();
         testProgressCancellation();
-        testSnapshotPluginState();
+        testPresetSnapshotRejection();
     }
     void testParameterValidation() {
         beginTest("Parameter validation and error rejection");
@@ -255,6 +256,35 @@ public:
                                                                  plugin));
     }
 
+    void testInvalidTimeline() {
+        beginTest("Invalid numeric timeline rejects before output without replacing user data");
+        DummyOfflineTestPlugin plugin;
+        devpiano::exporting::WavExportOptions options;
+        devpiano::test::ScopedTempDir tempDir("offline-timeline");
+        const auto target = tempDir.getChildFile("original.wav");
+        expect(target.replaceWithText("retained plugin render"));
+        const auto original = target.loadFileAsString();
+        auto take = makeSimpleRenderTake();
+        take.lengthSamples = std::numeric_limits<std::int64_t>::max();
+        take.events.back().timestampSamples = take.lengthSamples;
+        auto progressCalled = false;
+        expect(!devpiano::exporting::renderTakeWithOfflinePlugin(take, target, options, plugin, [&](double) {
+            progressCalled = true;
+            return false;
+        }));
+        expect(!progressCalled);
+        expectEquals(target.loadFileAsString(), original);
+        take.events.back().timestampSamples = 44100;
+        take.lengthSamples = std::numeric_limits<std::int64_t>::max() - 88199;
+        expect(!devpiano::exporting::renderTakeWithOfflinePlugin(take, target, options, plugin));
+        expectEquals(target.loadFileAsString(), original);
+        take = makeSimpleRenderTake();
+        take.sampleRate = std::numeric_limits<double>::infinity();
+        const auto missingParent = tempDir.getChildFile("not-created").getChildFile("invalid.wav");
+        expect(!devpiano::exporting::renderTakeWithOfflinePlugin(take, missingParent, options, plugin));
+        expect(!missingParent.getParentDirectory().exists());
+    }
+
     void testOfflineRenderingExecution() {
         beginTest("Offline rendering execution and WAV verification");
 
@@ -270,6 +300,9 @@ public:
         const auto outFile = tempDir.getChildFile("rendered_output.wav");
 
         const auto take = makeSimpleRenderTake();
+        options.sampleRate = 48000.0;
+        expect(devpiano::exporting::renderTakeWithOfflinePlugin(take, outFile, options, plugin));
+        options.sampleRate = 44100.0;
         const bool success = devpiano::exporting::renderTakeWithOfflinePlugin(take, outFile, options, plugin);
         expect(success, "renderTakeWithOfflinePlugin must succeed with valid inputs");
         expect(outFile.existsAsFile(), "Output file must exist");
@@ -313,21 +346,18 @@ public:
         };
 
         const auto take = makeSimpleRenderTake();
+        expect(devpiano::exporting::renderTakeWithOfflinePlugin(take, outFile, options, plugin));
+        juce::MemoryBlock original;
+        expect(outFile.loadFileAsData(original));
         const bool success
             = devpiano::exporting::renderTakeWithOfflinePlugin(take, outFile, options, plugin, cancelCallback);
         expect(!success, "Render must abort and return false when progressCallback returns false");
         expect(progressCalls >= 2, "Progress callback should have been invoked at least twice before aborting");
-    }
-
-    void testSnapshotPluginState() {
-        beginTest("snapshotPluginState verification");
-
-        DummyOfflineTestPlugin plugin;
-        const auto state = devpiano::exporting::snapshotPluginState(plugin);
-        expect(state.getSize() > 0, "Captured state must be non-empty");
-
-        const juce::String text(static_cast<const char*>(state.getData()));
-        expect(text.contains("DUMMY_PLUGIN_STATE"), "Captured memory block must match plugin state");
+        juce::MemoryBlock afterCancel;
+        expect(outFile.loadFileAsData(afterCancel));
+        expect(afterCancel == original, "cancelled plugin render must preserve the existing WAV");
+        expectEquals(tempDir.get().getNumberOfChildFiles(juce::File::findFiles), 1,
+                     "cancelled plugin render must remove only its temporary output");
     }
 
     void testMonoPluginStereoDownmix() {
@@ -434,6 +464,34 @@ public:
             // In the wet render, RoomReverbEngine diffuses the preceding note into the tail region
             expect(wetTail.getMagnitude(0, 0, checkLength) > 1e-4f, "wet tail must contain diffuse reverb energy");
         }
+    }
+    void testPresetSnapshotRejection() {
+        beginTest("Missing or malformed preset snapshot rejects before touching output file");
+        DummyOfflineTestPlugin plugin;
+        devpiano::exporting::WavExportOptions options;
+        devpiano::test::ScopedTempDir tempDir("offline-snapshot-reject");
+        const auto target = tempDir.getChildFile("protected.wav");
+        expect(target.replaceWithText("user data must be preserved"));
+
+        // Missing presets vector for presetChange event
+        auto takeNoPresets = makeSimpleRenderTake();
+        devpiano::recording::PerformanceEvent presetEv;
+        presetEv.type = devpiano::recording::PerformanceEventType::presetChange;
+        presetEv.timestampSamples = 0;
+        presetEv.presetId = 0;
+        takeNoPresets.events.insert(takeNoPresets.events.begin(), presetEv);
+
+        expect(!devpiano::exporting::renderTakeWithOfflinePlugin(takeNoPresets, target, options, plugin));
+        expectEquals(target.loadFileAsString(), juce::String("user data must be preserved"));
+
+        // Malformed snapshot (NaN masterGain)
+        auto takeNan = takeNoPresets;
+        devpiano::recording::RecordedPreset badPreset;
+        badPreset.acoustic.masterGain = std::numeric_limits<float>::quiet_NaN();
+        takeNan.presets.push_back(badPreset);
+
+        expect(!devpiano::exporting::renderTakeWithOfflinePlugin(takeNan, target, options, plugin));
+        expectEquals(target.loadFileAsString(), juce::String("user data must be preserved"));
     }
 };
 

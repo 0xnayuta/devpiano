@@ -4,6 +4,7 @@
 #include "Layout/PerformancePreset.h"
 #include "Settings/SettingsModel.h"
 #include "Settings/SettingsStore.h"
+#include "TestHelpers.h"
 
 // ============================================================================
 /// TemperamentSettingsPersistenceTest (Phase 30-C)
@@ -30,8 +31,8 @@ private:
     void testSettingsStoreRoundTrip() {
         beginTest("SettingsStore: Temperament and A4 reference pitch round-trip");
 
-        const auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
-        const auto settingsFile = tempDir.getNonexistentChildFile("TempStoreTest", ".xml");
+        const devpiano::test::ScopedTempDir tempDir("temp-store-roundtrip");
+        const auto settingsFile = tempDir.getChildFile("settings.xml");
 
         SettingsStore store(settingsFile);
 
@@ -46,17 +47,15 @@ private:
 
         expect(loadedModel.temperament == devpiano::audio::Temperament::werckmeister3);
         expectWithinAbsoluteError(loadedModel.referencePitchA4, 415.0, 1e-4);
-
-        settingsFile.deleteFile();
     }
 
     void testSettingsStoreBoundaryClamping() {
         beginTest("SettingsStore: Out-of-bound and corrupted temperament values are clamped");
 
-        const auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
+        const devpiano::test::ScopedTempDir tempDir("temp-clamp");
 
         // 1. Upper bound clamping test
-        const auto upperFile = tempDir.getNonexistentChildFile("TempClampUpper", ".xml");
+        const auto upperFile = tempDir.getChildFile("upper.xml");
         const juce::String upperXml = R"(<?xml version="1.0" encoding="utf-8"?>
 <PROPERTIES>
   <VALUE name="temperament" val="99"/>
@@ -70,14 +69,12 @@ private:
             SettingsModel model;
             store.load(model);
 
-            // Clamped: temperament max is 5 (Kirnberger III), pitch max is 450.0 Hz
             expect(model.temperament == devpiano::audio::Temperament::kirnberger3);
-            expectEquals(model.referencePitchA4, 450.0);
+            expectEquals(model.referencePitchA4, 480.0);
         }
-        upperFile.deleteFile();
 
         // 2. Lower bound clamping test
-        const auto lowerFile = tempDir.getNonexistentChildFile("TempClampLower", ".xml");
+        const auto lowerFile = tempDir.getChildFile("lower.xml");
         const juce::String lowerXml = R"(<?xml version="1.0" encoding="utf-8"?>
 <PROPERTIES>
   <VALUE name="temperament" val="-10"/>
@@ -91,11 +88,9 @@ private:
             SettingsModel model;
             store.load(model);
 
-            // Clamped: temperament min is 0 (Equal), pitch min is 410.0 Hz
             expect(model.temperament == devpiano::audio::Temperament::equal);
-            expectEquals(model.referencePitchA4, 410.0);
+            expectEquals(model.referencePitchA4, 400.0);
         }
-        lowerFile.deleteFile();
     }
 
     void testPerformancePresetJsonRoundTrip() {
@@ -104,8 +99,8 @@ private:
         using namespace devpiano::layout;
         using namespace devpiano::audio;
 
-        const auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
-        const auto presetFile = tempDir.getNonexistentChildFile("AcousticTempPreset", ".devpiano.preset");
+        const devpiano::test::ScopedTempDir tempDir("temp-preset-roundtrip");
+        const auto presetFile = tempDir.getChildFile("preset.devpiano.preset");
 
         PerformancePreset originalPreset = makeDefaultPreset();
         originalPreset.name = "MeantoneBaroquePreset";
@@ -122,7 +117,70 @@ private:
             expectWithinAbsoluteError(loadedOpt->referencePitchA4, 415.0, 1e-4);
         }
 
-        presetFile.deleteFile();
+        PerformancePreset minPreset = makeDefaultPreset();
+        minPreset.name = "MinBoundaryPreset";
+        minPreset.referencePitchA4 = 400.0;
+        const auto minFile = tempDir.getChildFile("min.devpiano.preset");
+        expect(savePreset(minPreset, minFile));
+        auto loadedMin = loadPreset(minFile);
+        expect(loadedMin.has_value());
+        if (loadedMin.has_value()) {
+            expectWithinAbsoluteError(loadedMin->referencePitchA4, 400.0, 1e-4);
+        }
+
+        PerformancePreset maxPreset = makeDefaultPreset();
+        maxPreset.name = "MaxBoundaryPreset";
+        maxPreset.referencePitchA4 = 480.0;
+        const auto maxFile = tempDir.getChildFile("max.devpiano.preset");
+        expect(savePreset(maxPreset, maxFile));
+        auto loadedMax = loadPreset(maxFile);
+        expect(loadedMax.has_value());
+        if (loadedMax.has_value()) {
+            expectWithinAbsoluteError(loadedMax->referencePitchA4, 480.0, 1e-4);
+        }
+
+        PerformancePreset concertPreset = makeDefaultPreset();
+        concertPreset.name = "ConcertPitchPreset";
+        concertPreset.referencePitchA4 = 442.0;
+        const auto concertFile = tempDir.getChildFile("concert.devpiano.preset");
+        expect(savePreset(concertPreset, concertFile));
+        auto loadedConcert = loadPreset(concertFile);
+        expect(loadedConcert.has_value());
+        if (loadedConcert.has_value()) {
+            expectWithinAbsoluteError(loadedConcert->referencePitchA4, 442.0, 1e-4);
+        }
+
+        const auto outOfBoundsFile = tempDir.getChildFile("out-of-bounds.devpiano.preset");
+        const juce::String oobJson = R"({
+  "version": 1,
+  "name": "OobPreset",
+  "layout": { "id": "oob.1", "name": "OOB", "bindings": [] },
+  "acoustics": {
+    "referencePitchA4": 250.0
+  }
+})";
+        expect(outOfBoundsFile.replaceWithText(oobJson));
+        auto loadedOob = loadPreset(outOfBoundsFile);
+        expect(loadedOob.has_value());
+        if (loadedOob.has_value()) {
+            expectWithinAbsoluteError(loadedOob->referencePitchA4, 400.0, 1e-4);
+        }
+
+        const auto oobHighFile = tempDir.getChildFile("oob-high.devpiano.preset");
+        const juce::String oobHighJson = R"({
+  "version": 1,
+  "name": "OobHighPreset",
+  "layout": { "id": "oob.2", "name": "OOB High", "bindings": [] },
+  "acoustics": {
+    "referencePitchA4": 999.0
+  }
+})";
+        expect(oobHighFile.replaceWithText(oobHighJson));
+        auto loadedOobHigh = loadPreset(oobHighFile);
+        expect(loadedOobHigh.has_value());
+        if (loadedOobHigh.has_value()) {
+            expectWithinAbsoluteError(loadedOobHigh->referencePitchA4, 480.0, 1e-4);
+        }
     }
 
     void testLegacyPresetBackwardCompatibility() {
@@ -131,8 +189,8 @@ private:
         using namespace devpiano::layout;
         using namespace devpiano::audio;
 
-        const auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
-        const auto legacyFile = tempDir.getNonexistentChildFile("LegacyNoTemp", ".devpiano.preset");
+        const devpiano::test::ScopedTempDir tempDir("temp-preset-legacy");
+        const auto legacyFile = tempDir.getChildFile("legacy.devpiano.preset");
 
         const juce::String legacyJson = R"({
   "version": 1,
@@ -157,8 +215,6 @@ private:
             expect(loadedOpt->touchVelocityCurve == devpiano::input::TouchVelocityCurve::heavy);
             expect(loadedOpt->unaCorda == true);
         }
-
-        legacyFile.deleteFile();
     }
 
     void testFlatRootPresetCompatibility() {
@@ -167,8 +223,8 @@ private:
         using namespace devpiano::layout;
         using namespace devpiano::audio;
 
-        const auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
-        const auto flatFile = tempDir.getNonexistentChildFile("FlatRootTemp", ".devpiano.preset");
+        const devpiano::test::ScopedTempDir tempDir("temp-preset-flat");
+        const auto flatFile = tempDir.getChildFile("flat.devpiano.preset");
 
         const juce::String flatJson = R"({
   "version": 1,
@@ -186,8 +242,6 @@ private:
             expect(loadedOpt->temperament == Temperament::just);
             expectWithinAbsoluteError(loadedOpt->referencePitchA4, 432.0, 1e-4);
         }
-
-        flatFile.deleteFile();
     }
 };
 

@@ -13,8 +13,8 @@
 
 - **16 通道独立定制**：每个逻辑输入通道拥有独立的输出通道映射、半音移调、八度偏移、固定力度覆盖、音色号（Program）、音色库（Bank MSB）、延音控制器（Sustain CC）与按键跟随开关。
 - **全局调号系统（Key Signature）**：支持 -7 ~ +7 半音移调（如降 B 大调、升 F 大调），可与特定通道的 `followKey` 开关联动，实现“旋律随调号移调、打击乐通道保持原音高不变”。
-- **零开销与完全向后兼容**：当 `active == false` 时，所有 MIDI 消息 100% 原始透传（Pass-through），无任何性能损耗。
-- **预设序列化集成**：矩阵配置与调号完整纳入 `.devpiano.preset` JSON 预设文件。
+- **停用矩阵**：`active == false` 时 `applyTransform()` 直接返回原消息，不应用矩阵或 followKey；不据此承诺调用本身零计算成本。
+- **预设边界**：矩阵与调号字段可序列化到预设 JSON，但普通预设激活不覆写应用全局 `keySignature` / `midiTranspose`；录制的声学快照回放另行恢复当时移调。
 
 ---
 
@@ -52,16 +52,16 @@ struct PerChannelConfig {
 1. **输出通道计算**：
    $$\text{Channel}_{\text{out}} = \text{config.outputChannel} + 1$$
 2. **音高与移调计算**：
-   $$\text{Note}_{\text{out}} = \text{clamp}\left(0, 127, \text{Note}_{\text{orig}} + \text{config.transpose} + 12 \times \text{config.octaveShift} + \text{keySigOffset}\right)$$
-   - 其中 $\text{keySigOffset}$ 仅在 `global.midiTranspose == true` 且 `config.followKey == true` 时生效，取值为 $\text{keySignature}$（-7..+7）。
+   $$n_1 = \operatorname{clamp}(0, 127, n_{\mathrm{input}} + t + 12o),\quad n_{\mathrm{out}} = \operatorname{clamp}(0, 127, n_1 + k)$$
+   - 先执行矩阵半音/八度钳位，再执行 followKey 调号钳位；边界处不能合并为一次钳位。仅当 `midiTranspose` 和当前输入通道的 `followKey` 同时开启时，$k$ 为 `keySignature`（-7..+7），否则为 0。
 3. **力度覆盖计算**：
-   $$\text{Velocity}_{\text{out}} = \begin{cases} \text{config.velocity}, & \text{若 } \text{config.velocity} \neq 64 \\ \text{clamp}\left(0, 127, \text{round}(\text{Velocity}_{\text{orig}} \times 127)\right), & \text{若 } \text{config.velocity} == 64 \end{cases}$$
+   - 原始力度 `<= 0` 保持静音；有声输入且 `config.velocity != 64` 时使用固定值，否则将 `originalVelocity * 127` 转为整数并钳至 `0..127`。转换按当前实现截断，不承诺四舍五入；配置固定值 0 也可静音。
 
 ### 3.2 Note Off 变换与发音身份守恒
 
 在 devpiano 中，Note Off 遵循双重防悬挂保障机制：
 
-1. **独立消息流变换（`applyTransform`）**：若直接转换离散 MIDI 消息流，`applyMatrixToNoteOff` 执行与 Note On 完全相同的通道重定向与音高变换公式，确保制音器动作在静态数据流上完全对称；
+1. **独立消息变换（`applyTransform`）**：在映射配置不变时，Note On/Off 的通道和音高变换对称；该无状态 helper 不保存起音身份，不能用于变化中的持有音释放。实际交互与回放使用各自锁定的身份。
 2. **交互演奏发音身份守恒（`sendNoteOn` / `sendNoteOff`）**：
    - 键盘按下时，`sendNoteOn` 返回 `devpiano::core::MidiNoteIdentity`（锁定经矩阵变换后的实际输出音高与输出通道），调用方（`KeyboardMidiMapper`）将其存入 `heldKeys` 快照；
    - 松键时，`sendNoteOff(identity, velocity, keyboardState)` 严格消费该快照注销发音；
@@ -74,7 +74,7 @@ struct PerChannelConfig {
 ### 4.1 调号与移调模式
 
 devpiano 在 `SettingsModel` 与 `AppState` 中维护全局调号：
-- **`keySignature`**：整型范围 `[-7, +7]`，对应从 7 个降号（$\text{D}\flat$ 大调）到 7 个升号（$\text{C}\sharp$ 大调）的半音偏移量；
+- **`keySignature`**：整数 `[-7, +7]` 的半音偏移；不是 SMF 调号 meta 中“升降号个数”到调名的映射，显示与 MIDI 导入元数据分别处理。
 - **`midiTranspose` 开关**：
   - 当为 `true` 时，MIDI 输出音高随调号平移；
   - 当为 `false` 时，仅虚拟钢琴键盘的 Do-Re-Mi 标签随调号变化，物理 MIDI 输出保持原调（唱名移调但音高不移调模式）。
@@ -86,7 +86,7 @@ devpiano 在 `SettingsModel` 与 `AppState` 中维护全局调号：
 - 例如：通道 1（主旋律钢琴）开启跟随，移调 +2 半音（C调变D调）；通道 10（打击乐）关闭跟随，依然触发标准 General MIDI 鼓组音高。
 - **默认状态**：新装/重置后 15 个旋律通道默认开启跟随，通道 10 默认关闭（构造时由 `ChannelMatrix` 统一设定）；`midiTranspose` 关闭时全部开关置灰不可编辑。
 
----
+普通预设选择保留当前全局调号；`RecordedPreset.acoustic` 在回放时恢复录制当时的开关/偏移。设置与预设中的 `followKey` 控制输入投影，回放 Off 始终释放已保存的最终身份。
 
 ## 5. 架构接入与服务（`MidiChannelMapper`）
 

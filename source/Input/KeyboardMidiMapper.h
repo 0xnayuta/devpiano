@@ -26,7 +26,7 @@ public:
     using SyncPedalResetCallback = std::function<void()>;
     KeyboardMidiMapper();
 
-    void setLayout(devpiano::core::KeyboardLayout newLayout);
+    void setLayout(devpiano::core::KeyboardLayout newLayout, bool notifyPerformance = true);
     void setLayoutDisplayName(juce::String newDisplayName);
     [[nodiscard]] const devpiano::core::KeyboardLayout& getLayout() const noexcept;
     void resetToDefaultLayout();
@@ -48,12 +48,11 @@ public:
 
     void setSoftPedalCallback(SoftPedalCallback callback) noexcept;
     [[nodiscard]] bool isSoftPedalDown() const noexcept;
-    void setSoftPedalDown(bool down);
+    void setSoftPedalDown(bool down, bool notifyPerformance = true);
     void setTouchVelocityCurve(devpiano::input::TouchVelocityCurve curve) noexcept;
     [[nodiscard]] devpiano::input::TouchVelocityCurve getTouchVelocityCurve() const noexcept;
     /// 释放所有当前按下的琴键与踏板（窗口失焦、切屏 Panic 防悬挂音）。
     void releaseAllHeldKeys(juce::MidiKeyboardState& keyboardState);
-    /// 生成当前电脑键盘物理按键映射与按下状态快照（单一事实源，供 QWERTY Visualizer 投影）。
     [[nodiscard]] devpiano::core::QwertyViewModel createQwertySnapshot(int keySignature = 0) const;
 
     // ── Layout Group Switching (Phase 34-B) ──
@@ -121,8 +120,7 @@ public:
 
 private:
     [[nodiscard]] int normaliseKeyCode(const juce::KeyPress& key) const;
-    bool triggerBinding(const devpiano::core::KeyBinding& binding, juce::MidiKeyboardState& keyboardState,
-                        bool isKeyDownEvent);
+    bool triggerBinding(const devpiano::core::KeyBinding& binding, juce::MidiKeyboardState& keyboardState);
     void sendNoteOff(int midiChannel, int midiNote, float velocity, juce::MidiKeyboardState& keyboardState);
     [[nodiscard]] bool isKeyCurrentlyDown(int keyCode) const;
     void updateSoftPedalState();

@@ -3,6 +3,7 @@
 
 #include "Diagnostics/Log.h"
 #include <JuceHeader.h>
+#include <optional>
 
 namespace {
 [[maybe_unused]] void assertMessageThread() {
@@ -166,41 +167,34 @@ bool PluginHost::advanceVst3ScanStep() {
     return false;
 }
 
-juce::StringArray PluginHost::addVst3FileToKnownList(const juce::File& vst3File) {
+juce::Array<juce::PluginDescription> PluginHost::addVst3FileToKnownList(const juce::File& vst3File) {
     assertMessageThread();
-    juce::StringArray names;
+    juce::Array<juce::PluginDescription> descriptions;
     if (auto* format = getVst3Format()) {
         juce::OwnedArray<juce::PluginDescription> results;
         format->findAllTypesForFile(results, vst3File.getFullPathName());
 
-        int failedTypes = 0;
-        for (auto& desc : results) {
-            if (desc == nullptr) {
-                ++failedTypes;
+        int addedTypes = 0;
+        for (const auto* description : results) {
+            if (description == nullptr || description->name.isEmpty() || description->fileOrIdentifier.isEmpty()) {
                 continue;
             }
-
-            if (knownPluginList.addType(*desc)) {
-                names.add(desc->name);
-            } else {
-                // 类型重复或描述无效（addType 返回 false）
-                ++failedTypes;
-                DP_LOG_WARN("[PluginHost] failed to add plugin type '" + desc->name
-                            + "' from: " + vst3File.getFullPathName());
+            if (knownPluginList.addType(*description)) {
+                ++addedTypes;
             }
+            descriptions.add(*description);
         }
-
-        const auto succeeded = names.size();
-        DP_LOG_INFO("[PluginHost] Added " + juce::String(succeeded) + " plugin(s) from: " + vst3File.getFullPathName()
-                    + (failedTypes > 0 ? " (" + juce::String(failedTypes) + " skipped)" : ""));
+        lastScanPluginCount = knownPluginList.getNumTypes();
+        DP_LOG_INFO("[PluginHost] Detected " + juce::String(descriptions.size()) + " plugin(s), "
+                    + juce::String(addedTypes) + " added from: " + vst3File.getFullPathName());
     }
 
-    if (!names.isEmpty() && scanIncrementalCallback != nullptr) {
+    if (!descriptions.isEmpty() && scanIncrementalCallback != nullptr) {
         scanIncrementalCallback(*this);
         scanPersistedSinceLastBegin = true;
     }
 
-    return names;
+    return descriptions;
 }
 
 void PluginHost::cancelVst3ScanSession() {
@@ -235,28 +229,8 @@ juce::StringArray PluginHost::getBlacklistedPluginFiles() const {
     return knownPluginList.getBlacklistedFiles();
 }
 
-juce::StringArray PluginHost::getInstrumentPluginNames() const {
-    juce::StringArray names;
-    for (const auto& desc : knownPluginList.getTypes()) {
-        if (desc.isInstrument) {
-            names.add(desc.name);
-        }
-    }
-    names.removeDuplicates(false);
-    names.sort(true);
-    return names;
-}
-
-juce::StringArray PluginHost::getEffectPluginNames() const {
-    juce::StringArray names;
-    for (const auto& desc : knownPluginList.getTypes()) {
-        if (!desc.isInstrument) {
-            names.add(desc.name);
-        }
-    }
-    names.removeDuplicates(false);
-    names.sort(true);
-    return names;
+juce::Array<juce::PluginDescription> PluginHost::getKnownPluginDescriptions() const {
+    return knownPluginList.getTypes();
 }
 
 juce::String PluginHost::getLastScanSummary() const {
@@ -291,15 +265,26 @@ void PluginHost::markPluginScanSkipped(juce::String reason) {
     lastScanSummary = reason.trim().isNotEmpty() ? std::move(reason) : juce::String("VST3 scan skipped.");
 }
 
-bool PluginHost::loadPluginByName(const juce::String& pluginName, double initialSampleRate, int initialBufferSize) {
-    const auto trimmedName = pluginName.trim();
+bool PluginHost::loadPluginByIdentifier(const juce::String& identifier, double initialSampleRate,
+                                        int initialBufferSize) {
+    assertMessageThread();
+    const auto requestedIdentifier = identifier.trim();
+    std::optional<juce::PluginDescription> selected;
     for (const auto& description : knownPluginList.getTypes()) {
-        if (description.name.equalsIgnoreCase(trimmedName)) {
-            return loadPluginByDescription(description, initialSampleRate, initialBufferSize);
+        if (!description.matchesIdentifierString(requestedIdentifier)) {
+            continue;
         }
+        if (selected.has_value()) {
+            lastLoadError = "Ambiguous plugin identifier: " + requestedIdentifier;
+            return false;
+        }
+        selected = description;
+    }
+    if (selected.has_value()) {
+        return loadPluginByDescription(*selected, initialSampleRate, initialBufferSize);
     }
 
-    lastLoadError = "Plugin not found in known list: " + trimmedName;
+    lastLoadError = "Plugin identifier not found in known list: " + requestedIdentifier;
     return false;
 }
 
@@ -409,6 +394,9 @@ juce::String PluginHost::getCurrentPluginName() const {
     }
 
     return {};
+}
+juce::String PluginHost::getCurrentPluginIdentifier() const {
+    return loadedPluginDescription != nullptr ? loadedPluginDescription->createIdentifierString() : juce::String();
 }
 
 const juce::PluginDescription* PluginHost::getLoadedPluginDescription() const noexcept {

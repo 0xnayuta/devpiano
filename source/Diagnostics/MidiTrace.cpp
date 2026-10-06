@@ -27,13 +27,14 @@ juce::String describeMidiMessage(const juce::MidiMessage& message) {
         return "NoteOn ts=" + juce::String(timestamp, 3) + " ch=" + juce::String(channel) + " note="
             + juce::String(message.getNoteNumber()) + "(" + juce::String(noteNameFromSemitone(message.getNoteNumber()))
             + juce::String(octaveFromMidiNote(message.getNoteNumber())) + ")"
-            + " vel=" + juce::String(juce::roundToInt(static_cast<float>(message.getVelocity()) * 127.0f));
+            + " vel=" + juce::String(static_cast<int>(message.getVelocity()));
     }
 
     if (message.isNoteOff()) {
         return "NoteOff ts=" + juce::String(timestamp, 3) + " ch=" + juce::String(channel) + " note="
             + juce::String(message.getNoteNumber()) + "(" + juce::String(noteNameFromSemitone(message.getNoteNumber()))
-            + juce::String(octaveFromMidiNote(message.getNoteNumber())) + ")";
+            + juce::String(octaveFromMidiNote(message.getNoteNumber())) + ")"
+            + " vel=" + juce::String(static_cast<int>(message.getVelocity()));
     }
 
     if (message.isController()) {

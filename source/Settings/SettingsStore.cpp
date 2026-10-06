@@ -1,5 +1,6 @@
 #include "SettingsStore.h"
 #include "Settings/SettingsSerialization.h"
+#include <juce_audio_processors/juce_audio_processors.h>
 
 #include "Diagnostics/Log.h"
 
@@ -18,7 +19,7 @@ const char* kKeyPianoBrightness = "pianoBrightness";
 const char* kKeyPianoHammerHardness = "pianoHammerHardness";
 const char* kKeyPianoResonance = "pianoResonance";
 const char* kKeyPluginSearchPath = "pluginSearchPath";
-const char* kKeyLastPluginName = "lastPluginName";
+const char* kKeyLastPluginIdentifier = "lastPluginIdentifier";
 const char* kKeyKnownPluginListXml = "knownPluginListXml";
 const char* kKeyLastActivePresetId = "lastActivePresetId";
 const char* kKeyLastMidiImportPath = "lastMidiImportPath";
@@ -141,12 +142,21 @@ void SettingsDebounceTimer::start(int ms) {
     startTimer(ms);
 }
 
+void SettingsDebounceTimer::cancel() {
+    stopTimer();
+    pendingPayload.reset();
+}
+
 void SettingsDebounceTimer::timerCallback() {
     stopTimer();
-    if (pendingPayload.has_value()) {
-        store.save(*pendingPayload);
-        pendingPayload.reset();
+    if (!pendingPayload.has_value()) {
+        return;
     }
+
+    auto payload = std::move(*pendingPayload);
+    pendingPayload.reset();
+
+    store.save(payload);
 }
 void SettingsStore::ensureProps() {
     if (customPropsFile != nullptr || appProps != nullptr) {
@@ -205,8 +215,28 @@ void SettingsStore::readNow(SettingsModel& m) {
     readPerformanceSettings(f, m);
 
     m.pluginSearchPath = f.getValue(kKeyPluginSearchPath, m.pluginSearchPath);
-    m.lastPluginName = f.getValue(kKeyLastPluginName, m.lastPluginName);
+    m.lastPluginIdentifier = f.getValue(kKeyLastPluginIdentifier, m.lastPluginIdentifier);
     m.knownPluginListState = f.getXmlValue(kKeyKnownPluginListXml);
+    if (!f.containsKey(kKeyLastPluginIdentifier)) {
+        const auto legacyName = f.getValue("lastPluginName");
+        if (legacyName.isNotEmpty()) {
+            juce::KnownPluginList knownPlugins;
+            if (m.knownPluginListState != nullptr) {
+                knownPlugins.recreateFromXml(*m.knownPluginListState);
+            }
+            int matchingTypes = 0;
+            for (const auto& description : knownPlugins.getTypes()) {
+                if (description.name.equalsIgnoreCase(legacyName)) {
+                    m.lastPluginIdentifier = description.createIdentifierString();
+                    ++matchingTypes;
+                }
+            }
+            if (matchingTypes != 1) {
+                m.lastPluginIdentifier.clear();
+                DP_LOG_WARN("[Settings] Legacy plugin name cannot be resolved uniquely: " + legacyName);
+            }
+        }
+    }
     m.lastActivePresetId = f.getValue(kKeyLastActivePresetId, m.lastActivePresetId);
     // MIDI import/export paths
     m.lastMidiImportPath = f.getValue(kKeyLastMidiImportPath, m.lastMidiImportPath);
@@ -234,8 +264,7 @@ void SettingsStore::readNow(SettingsModel& m) {
         }
         m.keyboardDisplay.noteDisplay = static_cast<devpiano::ui::NoteDisplayMode>(nd);
     }
-    m.keyboardDisplay.fadeSpeed = juce::jlimit(
-        0.01f, 10.0f,
+    m.keyboardDisplay.fadeSpeed = devpiano::ui::KeyboardSettings::clampFadeSpeed(
         static_cast<float>(f.getDoubleValue(kKeyFadeSpeed, static_cast<double>(m.keyboardDisplay.fadeSpeed))));
     // Channel matrix as ValueTree XML.
     if (auto cmXml = f.getXmlValue(kKeyChannelMatrix)) {
@@ -337,7 +366,8 @@ bool SettingsStore::writeNow(const SettingsModel& m) {
     f.setValue(kKeyPedalNoiseLevel, m.pedalNoiseLevel);
     f.setValue(kKeyFeltAgeingAmount, m.feltAgeingAmount);
     f.setValue(kKeyPluginSearchPath, m.pluginSearchPath);
-    f.setValue(kKeyLastPluginName, m.lastPluginName);
+    f.setValue(kKeyLastPluginIdentifier, m.lastPluginIdentifier);
+    f.removeValue("lastPluginName");
     if (m.knownPluginListState) {
         f.setValue(kKeyKnownPluginListXml, m.knownPluginListState->toString());
     }
@@ -437,7 +467,11 @@ void SettingsStore::load(SettingsModel& model) {
 }
 
 bool SettingsStore::save(const SettingsModel& model) {
-    return writeNow(model);
+    const bool saved = writeNow(model);
+    if (saved && saverTimer != nullptr) {
+        saverTimer->cancel();
+    }
+    return saved;
 }
 
 void SettingsStore::scheduleSave(const SettingsModel& model, int msDelay) {

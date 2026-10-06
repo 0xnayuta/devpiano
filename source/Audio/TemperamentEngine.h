@@ -32,8 +32,8 @@ enum class Temperament : std::uint8_t {
 class TemperamentEngine final {
 public:
     static constexpr double kDefaultReferencePitch = 440.0;
-    static constexpr double kMinReferencePitch = 410.0;
-    static constexpr double kMaxReferencePitch = 450.0;
+    static constexpr double kMinReferencePitch = 400.0;
+    static constexpr double kMaxReferencePitch = 480.0;
     static constexpr double kBaroquePitch = 415.0;
     static constexpr double kVerdiPitch = 432.0;
     static constexpr double kConcertPitch = 442.0;
@@ -42,7 +42,7 @@ public:
     static constexpr int kNumPitchClasses = 12;
 
     /**
-     * Clamps reference pitch to the valid acoustic range [410.0, 450.0] Hz.
+     * Clamps reference pitch to the valid acoustic range [400.0, 480.0] Hz.
      */
     [[nodiscard]] static constexpr double clampReferencePitch(double pitch) noexcept {
         return std::clamp(pitch, kMinReferencePitch, kMaxReferencePitch);

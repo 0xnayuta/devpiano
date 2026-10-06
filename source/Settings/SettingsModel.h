@@ -68,7 +68,7 @@ struct SettingsModel {
 
     struct PluginRecoverySettingsView {
         juce::String pluginSearchPath;
-        juce::String lastPluginName;
+        juce::String lastPluginIdentifier;
     };
 
     struct KeyboardDisplaySettingsView {
@@ -112,7 +112,7 @@ struct SettingsModel {
 
     // Persisted ,UI recovery state.
     juce::String pluginSearchPath;
-    juce::String lastPluginName;
+    juce::String lastPluginIdentifier;
     std::unique_ptr<juce::XmlElement> knownPluginListState;
     juce::String lastActivePresetId; // last-used preset file name (without extension)
     // Persisted last MIDI import/export paths for FileChooser defaults.
@@ -208,12 +208,12 @@ struct SettingsModel {
         feltAgeingAmount = view.feltAgeingAmount;
     }
     [[nodiscard]] PluginRecoverySettingsView getPluginRecoverySettingsView() const {
-        return { .pluginSearchPath = pluginSearchPath, .lastPluginName = lastPluginName };
+        return { .pluginSearchPath = pluginSearchPath, .lastPluginIdentifier = lastPluginIdentifier };
     }
 
     void applyPluginRecoverySettingsView(const PluginRecoverySettingsView& view) {
         pluginSearchPath = view.pluginSearchPath;
-        lastPluginName = view.lastPluginName;
+        lastPluginIdentifier = view.lastPluginIdentifier;
     }
 
     [[nodiscard]] const KeyboardDisplaySettingsView& getKeyboardDisplaySettingsView() const {
@@ -257,7 +257,7 @@ struct SettingsModel {
             pedalNoiseLevel = other.pedalNoiseLevel;
             feltAgeingAmount = other.feltAgeingAmount;
             pluginSearchPath = other.pluginSearchPath;
-            lastPluginName = other.lastPluginName;
+            lastPluginIdentifier = other.lastPluginIdentifier;
             lastActivePresetId = other.lastActivePresetId;
             lastMidiImportPath = other.lastMidiImportPath;
             lastMidiExportPath = other.lastMidiExportPath;
@@ -273,6 +273,14 @@ struct SettingsModel {
             midiTranspose = other.midiTranspose;
             keySignature = other.keySignature;
             channelMatrix = other.channelMatrix;
+            metronomeEnabled = other.metronomeEnabled;
+            metronomeBpm = other.metronomeBpm;
+            metronomeTimeSignature = other.metronomeTimeSignature;
+            metronomeVolume = other.metronomeVolume;
+            metronomeCountIn = other.metronomeCountIn;
+            cadenceDynamicsEnabled = other.cadenceDynamicsEnabled;
+            velocityHumanizeAmount = other.velocityHumanizeAmount;
+            baseVelocityBias = other.baseVelocityBias;
 
             audioDeviceState
                 = other.audioDeviceState ? std::make_unique<juce::XmlElement>(*other.audioDeviceState) : nullptr;

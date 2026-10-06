@@ -36,21 +36,21 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
 - **88 键连续物理参数映射**：基于 Bensa et al. (2003) 与 Steinway B 实测标定，连续插值琴弦刚度 $B$、击弦比 $d/L$、阻尼常数与 1/2/3 弦物理分区（`Piano88KeyTable.h`）；
 - **非线性打击、毛毡老化与动力学绽放**：三层毛毡动力学压实、动态接触时间 $T_c$、击弦点几何梳状陷波、3ms 高频瞬态裂音（HF Crack）、琴槌毛毡微老化穿透力（`feltAgeingAmount`）、泛音时间滞后膨胀绽放（Harmonic Blooming）与强击软饱和；
 - **真实共鸣与空间声学系统**：16 峰正交云杉木物理音板模态、4.2kHz 云杉木高频粘滞吸收滤波、琴桥立体声展开、同音三弦 Mid-Side 差分展开与非对称拍频、演奏者（Player）与听众（Audience）双视角声相变换（`PerspectiveProcessor`）以及内置纯算法房间混响网络（`RoomReverbEngine`: Chamber/Hall/Studio）；
-- **微观机械动作拟真与古典律制**：CC64 全局交感共鸣、延音踏板下踏/抬起机械扫掠呼啸（Whoosh）与共鸣冲击（Resonance Shock）、制音器落木闷击与琴键释放摩擦、离键速度动态 ADSR 阻尼缩放，以及 6 大古典微调律制（`TemperamentEngine`）与 A4 基准基频微调（当前限幅 410.0–450.0 Hz；产品契约目标 400.0–480.0 Hz）。
-- **物理发声核心与硬实时目标**：`PianoSynthVoice` 的 Magic Circle 逐采样循环不调用 `std::sin`；8 复音齐奏单核 CPU $\le 0.7\%$、整个实时回调零堆分配/零锁/零实时三角函数仍是必须满足的契约。当前节拍器每拍计算与异常缓冲兜底等差距见 [`docs/issues/known-issues.md`](docs/issues/known-issues.md)；支持与内置正弦波（`SineSynthVoice`）切换。
+- **微观机械动作拟真与古典律制**：CC64 全局交感共鸣、延音踏板下踏/抬起机械扫掠呼啸（Whoosh）与共鸣冲击（Resonance Shock）、制音器落木闷击与琴键释放摩擦、离键速度动态 ADSR 阻尼缩放，以及 6 大古典微调律制（`TemperamentEngine`）与 A4 基准基频微调（400.0–480.0 Hz，默认 440.0 Hz；设置、预设与内置实时/离线音源使用同一限幅）。
+- **物理发声核心与硬实时契约**：`PianoSynthVoice` 与节拍器全回调零三角函数（0 `std::sin`），8 复音齐奏单核 CPU $\le 0.7\%$；产品自有发声路径零堆分配、零锁；键盘输入经有界 SPSC 队列交换，音符高亮由消息线程刷新，彻底解耦音频线程与 UI；第三方 VST3 插件适配器的框架锁与扩容限制见 [`docs/issues/known-issues.md`](docs/issues/known-issues.md)；支持与内置正弦波（`SineSynthVoice`）切换。
 
 ### 🔌 VST3 插件宿主与乐器端点（VST3 Plugin Hosting & Instrument Endpoint）
 
 - **安全生命周期管理**：支持默认及自定义多目录扫描、异步分片扫描（Chunked Scan）、XML 缓存恢复与失败文件追踪；
 - **崩溃安全增量持久化（Crash-safe State Persistence）**：扫描中逐插件即时回调落盘，dead-man's pedal 崩溃点记录与黑名单推迟，避免反复卡死；
 - **统一乐器端点（Instrument Endpoint）**：内置物理建模音源与 VST3 乐器共享领域端点职责，统一设备准备、实时发声与离线渲染路由；
-- **插件加载与 Editor 托管**：支持加载 VST3 乐器插件并参与实时音频处理，具备独立 Editor 窗口生命周期管理与异常安全隔离。
+- **插件加载与 Editor 托管**：按 `PluginDescription` identifier 加载与恢复 VST3 乐器，显示名仅用于展示；实例替换与重扫先关闭 Editor 并停 callback。插件在宿主进程内执行，不承诺隔离厂商崩溃或永久卡死。
 
 ### ⌨️ 电脑键盘演奏与 QWERTY 映射看板（Keyboard Performance & Visualizer）
 
 - **5 行 ANSI 物理键盘映射卡片（QwertyComponent）**：在 Controls 与键盘区之间声明式嵌入自适应 QWERTY 看板，击键物理下沉并联动 50fps 荧光余晖动画；支持一键展开/折叠与设置持久化；
 - **12-TET 和声色彩投影（Harmony Projection）**：静态呈现微妙和声色彩，击键与 88 键钢琴同频绽放三和弦几何色相；4 种按键着色模式（Classic / Channel / Velocity / Harmony）；
-- **轻量键位分组与发音身份恒定（Layout Groups & HeldKeyIdentity）**：单预设支持 4 组键位配置（Group A~D），反引号键（`）或 UI 按钮秒级切换；松键注销 100% 绑定按键瞬间的发音快照，彻底杜绝悬挂音；
+- **轻量键位分组与发音身份恒定（Layout Groups & HeldKeyIdentity）**：单预设支持 4 组键位配置（Group A~D），反引号键（`）或 UI 按钮秒级切换；物理键保留原发音快照，同一输出最后一个持有者释放才关音；回放侧以 FIFO 保存每次起音的最终身份；
 - **采样精确切分延音踏板（SustainPolicy & Sync Pedal）**：音频块内部采样点级别调度 $\text{CC64}(0) \to \text{NoteOn} \to \text{CC64}(127)$，消除空格键踩放时的断音空洞，杜绝线程 Sleep；
 - **瞬态演奏修饰键（PerformanceModifierState）**：Shift 键瞬态力度拉满（Velocity Boost）、Alt 键瞬态高八度平移（+8va），松开自动回弹，UI 实时展示 HUD 标签；
 - **击键动态力度与实时和弦反馈**：可选 `TypingCadenceEstimator` 按击键间隔调整力度，`VelocityHumanizer` 叠加有界、确定性哈希微扰（Shift 力度拉满优先）；基于按下音符识别和弦及转位，在 QWERTY 卡片标题与键盘 HUD 显示，松键后渐隐。
@@ -58,7 +58,7 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
 
 ### 🥁 节拍与跟练工具（Metronome & Practice）
 
-- **采样级节拍器**：`MetronomeProcessor` 在音频块内产生强弱拍，支持 2/4、3/4、4/4、6/8 拍号、40–280 BPM、Tap Tempo 与状态栏节拍反馈；录制前可设置 1–2 小节预备拍。
+- **采样级节拍器**：`MetronomeProcessor` 在音频块内产生强弱拍，支持 2/4、3/4、4/4、6/8 拍号、40–280 BPM、Tap Tempo 与状态栏节拍反馈；录制前 1–2 小节预备拍在完整时段后的目标下拍开始，不依赖 UI 轮询；
 - **MIDI A-B 循环与时间轴**：`TimelineBar` 支持点击/拖动跳转、设置与清除 A/B 标记；`RecordingEngine` 按 Take 时间轴调度循环与播放速度，跳转/回跳时清理当前发声，避免悬挂音。
 
 ### 🎛️ 16 通道 MIDI 矩阵与实时移调（16-Channel MIDI Matrix & Transposition）
@@ -68,21 +68,21 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
 
 ### 🎙️ 演奏录制、回放与数据持久化（Recording, Playback & Persistence）
 
-- **实时无锁采集**：音频线程无锁采集生成不可变 `RecordingTake` 数据结构；
-- **多倍速回放控制**：支持 0.5x–2.0x 原子倍速调节、Back 从头回放，以及暂停/恢复、Take-relative 跳转与 A-B 循环跟练；
-- **原生演奏持久化**：支持 `.devpiano` 原生演奏文件格式（v2 JSON + Base64 编码 + `juce::TemporaryFile` 原子写入）；
-- **标准 MIDI 文件支持**：支持导出标准 Type 1 MIDI 文件（960 PPQ），支持导入标准 `.mid` 文件并合并全部音轨，解析 CC64 延音、Pitch Bend 与 Program Change 等控制信息；
-- **Performance Preset 预设系统**：预设 CRUD 编排、F1-F12 快捷键切换、录制中自动切调记录以及同名导入覆盖确认（JIVE 声明式弹窗）。
+- **实时无锁采集**：音频线程无锁采集生成不可变 `RecordingTake` 数据结构，内嵌快照表隔离外部文件增删；
+- **多倍速回放控制**：支持 0.5x–2.0x 音频块边界倍速调节、Back 从头回放，以及暂停/恢复、Take-relative 跳转与 A-B 循环；设备采样率变化保留 Take 时间域，跳转前恢复通道状态，末尾 NoteOff 由音频路径交付，同块预设先于音符生效；
+- **原生演奏持久化**：`.devpiano` v3 JSON 使用 JUCE 长度前缀二进制编码及内嵌 `RecordedPreset` 表；同目录临时文件成功写出后事务替换。旧 v1/v2 的纯 MIDI 文件可读，旧数字预设事件明确拒绝，不猜测目录索引；
+- **标准 MIDI 文件支持**：导入 Type 0/1 全轨 MIDI，完整轨/chunk/meta 准入后保留跨轨 Tempo Map 的时间语义；导出 Type 1、960 PPQ 的单轨演奏流，tick 0 写入 120 BPM，不合成曲名、拍号或调号 meta；
+- **Performance Preset 预设系统**：UUID 永久身份、CRUD、F1-F12 切换、独立重命名目标覆盖确认；普通切换保留应用全局调号，录制回放按内嵌声学快照执行当时的移调。
 
 ### 📦 离线高保真 WAV 导出（Offline WAV Export Pipeline）
 
 - **现代化异步非阻塞渲染**：`WavExportTask` 演进为纯异步工作任务流（`startAsync`），彻底消除消息循环阻塞，端到端经 `InstrumentEndpoint` 统一调度；
 - **双引擎同构声学对齐**：无插件时自动由内置物理建模引擎渲染，有插件时独立创建离线 VST3 实例渲染，1:1 对齐全部声学参数与 `RoomReverbEngine` 空间混响；
-- **现代化暗黑进度弹窗**：支持实时进度展示、随时取消并自动清理残留文件。
+- **进度与协作取消**：显示导出进度，取消后等待实际工作退出再释放资源；失败或提交前取消保留原目标，仅清理任务自有临时文件。厂商永久阻塞时无法保证有限时间内结束。
 
 ### 🎨 内生声明式 UI 运行时与设计系统（Declarative UI & Design System）
 
-- **声明式 UI 架构**：全应用主界面、设置面板与弹窗全面统一至项目内生声明式 UI 运行时（`source/UI/jive/core/`，依据 ADR-014 已完全内化并退役 JIVE 外部子模块，支持 `juce::ValueTree` 布局 + JSON 样式表 + Flex/CSS Grid 自适应），彻底消灭手工坐标排版；
+- **声明式 UI 架构**：主界面、设置面板与弹窗容器使用内生 `source/UI/jive/core/`（ADR-014，外部 JIVE 子模块已退役），以 `ValueTree`、JSON 样式与 Flex/CSS Grid 排版；业务经 `ViewHost` 门面访问组件，Native 自绘组件保留各自几何与绘制职责。
 - **现代化暗黑主题**：基于 `DevPianoLookAndFeel` 的旋钮化 ADSR/音量调节、演奏走带与节拍器控件、状态栏 MIDI 活动/节拍反馈、插件名称、音频指标与调号；
 - **绿色单文件资产内嵌**：设计 Token（`design_tokens.json`）、样式表（`style_sheets.json`）与中文语言包（`zh_CN.loc`）由 CMake 编译期二进制静态内嵌，单文件绿色分发零外部文件依赖。
 

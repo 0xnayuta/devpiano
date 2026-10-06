@@ -11,6 +11,7 @@
 #include "Diagnostics/Log.h"
 #include "UI/ComboSelection.h"
 #include "UI/QwertyComponent.h"
+#include "UI/jive/DesignTokens.h"
 #include "UI/native/AdsrCurveComponent.h"
 #include "UI/native/StatusBarMidiDot.h"
 
@@ -27,7 +28,7 @@ juce::String ellipsiseForStatus(const juce::String& text, float maxWidth) {
     }
 
     const auto safeWidth = juce::jmax(20.0f, maxWidth - 16.0f);
-    const juce::Font font(juce::FontOptions(14.0f));
+    const auto font = devpiano::jive::DesignTokens::getUnifiedUiFont(14.0f);
     if (juce::GlyphArrangement::getStringWidth(font, text) <= safeWidth) {
         return text;
     }
@@ -72,9 +73,12 @@ juce::String MainComponent::getPluginPathText() const {
     return {};
 }
 
-juce::String MainComponent::getSelectedPluginName() const {
+juce::String MainComponent::getSelectedPluginIdentifier() const {
     if (auto* combo = viewHost.find<juce::ComboBox>("plugin-selector")) {
-        return combo->getText();
+        const auto index = combo->getSelectedItemIndex();
+        if (juce::isPositiveAndBelow(index, displayedPluginIdentifiers.size())) {
+            return displayedPluginIdentifiers[index];
+        }
     }
     return {};
 }
@@ -135,15 +139,15 @@ juce::String formatPluginStatusSummary(const devpiano::ui::PluginPanelState& sta
     }
 
     if (state.isCurrentlyScanning) {
-        return TRANS("Scanning: ") + state.scanningPluginName + "...";
+        return TRANS("Scanning: {0}...").replace("{0}", state.scanningPluginName);
     }
 
     if (state.lastLoadError.isNotEmpty() && state.lastLoadError != "No plugin load attempted yet.") {
-        return TRANS("Load error: ") + state.lastLoadError;
+        return TRANS("Load error: {0}").replace("{0}", state.lastLoadError);
     }
 
     if (state.lastPluginName.isNotEmpty()) {
-        return TRANS("Last plugin: ") + state.lastPluginName;
+        return TRANS("Last plugin: {0}").replace("{0}", state.lastPluginName);
     }
 
     const auto& summary = state.lastScanSummary;
@@ -181,39 +185,35 @@ void updateScanningPluginPanel(devpiano::ui::ViewHost& viewHost, juce::ComboBox*
 }
 
 void updateIdlePluginPanel(devpiano::ui::ViewHost& viewHost, const devpiano::ui::PluginPanelState& state,
-                           juce::ComboBox* selectorCombo, juce::ComboBox* filterCombo) {
-    const auto& names = [&]() -> const juce::StringArray& {
-        const auto filterId = (filterCombo != nullptr) ? filterCombo->getSelectedId() : 1;
-        if (filterId == 2 && !state.instrumentPluginNames.isEmpty()) {
-            return state.instrumentPluginNames;
-        }
-        if (filterId == 3 && !state.effectPluginNames.isEmpty()) {
-            return state.effectPluginNames;
-        }
-        return state.availablePluginNames;
-    }();
+                           juce::ComboBox* selectorCombo, juce::ComboBox* filterCombo,
+                           juce::StringArray& displayedIdentifiers) {
+    const auto filterId = filterCombo != nullptr ? filterCombo->getSelectedId() : 1;
+    displayedIdentifiers.clear();
 
     if (selectorCombo != nullptr) {
         selectorCombo->clear(juce::dontSendNotification);
         selectorCombo->setTextWhenNothingSelected(TRANS("Select a scanned plugin..."));
-
-        auto selectedIndex = devpiano::ui::preferredNameIndex(names, state.preferredSelection);
-        for (int i = 0; i < names.size(); ++i) {
-            selectorCombo->addItem(names[i], i + 1);
+        auto selectedIndex = -1;
+        for (const auto& plugin : state.availablePlugins) {
+            if ((filterId == 2 && !plugin.isInstrument) || (filterId == 3 && plugin.isInstrument)) {
+                continue;
+            }
+            const auto index = displayedIdentifiers.size();
+            displayedIdentifiers.add(plugin.identifier);
+            selectorCombo->addItem(plugin.displayName, index + 1);
+            if (plugin.identifier == state.preferredSelection) {
+                selectedIndex = index;
+            }
         }
-
-        if (names.isEmpty()) {
-            selectorCombo->setSelectedItemIndex(-1, juce::dontSendNotification);
-        } else if (selectedIndex >= 0) {
-            selectorCombo->setSelectedItemIndex(selectedIndex, juce::dontSendNotification);
-        } else {
-            selectorCombo->setSelectedItemIndex(0, juce::dontSendNotification);
+        if (selectedIndex < 0 && !displayedIdentifiers.isEmpty()) {
+            selectedIndex = 0;
         }
+        selectorCombo->setSelectedItemIndex(selectedIndex, juce::dontSendNotification);
     }
 
     viewHost.setEnabled("scan-btn", true);
     viewHost.setEnabled("browse-btn", true);
-    viewHost.setEnabled("load-btn", !names.isEmpty());
+    viewHost.setEnabled("load-btn", !displayedIdentifiers.isEmpty());
     viewHost.setEnabled("unload-btn", state.hasLoadedPlugin);
     viewHost.setEnabled("editor-btn", state.hasLoadedPlugin);
     viewHost.setEnabled("plugin-path-editor", true);
@@ -232,9 +232,10 @@ void MainComponent::updatePluginPanelState(const devpiano::ui::PluginPanelState&
     auto* filterCombo = viewHost.find<juce::ComboBox>("plugin-filter-combo");
 
     if (state.isCurrentlyScanning) {
+        displayedPluginIdentifiers.clear();
         updateScanningPluginPanel(viewHost, selectorCombo);
     } else {
-        updateIdlePluginPanel(viewHost, state, selectorCombo, filterCombo);
+        updateIdlePluginPanel(viewHost, state, selectorCombo, filterCombo, displayedPluginIdentifiers);
     }
 
     lastPluginStatusText = formatPluginStatusSummary(state);
@@ -542,13 +543,6 @@ CustomKeyboard& MainComponent::getCustomKeyboard() {
     return *customKeyboardRef;
 }
 
-void MainComponent::setKeyboardLayout(const devpiano::core::KeyboardLayout& layout) {
-    if (auto* viewport = viewHost.find<KeyboardViewport>("custom-keyboard")) {
-        viewport->getCustomKeyboard().setKeyboardLayout(layout);
-    }
-    updateQwertyVisualizer();
-}
-
 void MainComponent::setKeyboardViewPosition(int midiNote, int pixelOffset) {
     auto* viewport = viewHost.find<KeyboardViewport>("custom-keyboard");
     if (viewport == nullptr) {
@@ -655,6 +649,9 @@ void MainComponent::updateQwertyVisualizer() {
         qwertyComponentRef = viewHost.find<devpiano::ui::QwertyComponent>("qwerty-visualizer");
     }
     const auto snapshot = keyboardMidiMapper.createQwertySnapshot(appSettings.keySignature);
+    if (auto* viewport = viewHost.find<KeyboardViewport>("custom-keyboard")) {
+        viewport->getCustomKeyboard().setKeyboardLayout(snapshot);
+    }
     if (qwertyComponentRef != nullptr) {
         qwertyComponentRef->updateViewModel(snapshot);
     }
@@ -850,8 +847,8 @@ void MainComponent::updateStatusBar() {
         if (const auto* desc = pluginHost.getLoadedPluginDescription()) {
             sourceName = "VST3: " + desc->name;
         } else {
-            sourceName
-                = (appSettings.builtinTone == SettingsModel::BuiltinTone::piano) ? "Built-in: Piano" : "Built-in: Sine";
+            sourceName = (appSettings.builtinTone == SettingsModel::BuiltinTone::piano) ? TRANS("Built-in: Piano")
+                                                                                        : TRANS("Built-in: Sine");
         }
         const auto preset = (presetFlowSupport != nullptr) ? presetFlowSupport->getCurrentPresetId() : juce::String {};
         displayText = preset.isNotEmpty() ? (sourceName + " (" + preset + ")") : sourceName;

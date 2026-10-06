@@ -6,6 +6,7 @@
 #include "Recording/RecordingEngine.h"
 #include "Settings/SettingsModel.h"
 #include "Settings/SettingsStore.h"
+#include "TestHelpers.h"
 
 #include <cmath>
 
@@ -43,8 +44,8 @@ private:
     void testSettingsStoreMechanicalRoundTrip() {
         beginTest("SettingsStore: Mechanical acoustics parameters round-trip");
 
-        const auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
-        const auto settingsFile = tempDir.getNonexistentChildFile("MechanicalRoundTrip", ".xml");
+        devpiano::test::ScopedTempDir tempDir("mechanical-settings-rt");
+        const auto settingsFile = tempDir.getChildFile("mechanical_roundtrip.xml");
 
         SettingsStore store(settingsFile);
 
@@ -64,17 +65,15 @@ private:
         const auto view = loadedModel.getPerformanceSettingsView();
         expectWithinAbsoluteError(view.pedalNoiseLevel, 0.35f, 1e-4f);
         expectWithinAbsoluteError(view.feltAgeingAmount, 0.6f, 1e-4f);
-
-        settingsFile.deleteFile();
     }
 
     void testSettingsStoreBoundaryClamping() {
         beginTest("SettingsStore: Out-of-bound mechanical values are clamped safely");
 
-        const auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
+        devpiano::test::ScopedTempDir tempDir("mechanical-clamp");
 
         // 1. Upper bound clamping
-        const auto upperFile = tempDir.getNonexistentChildFile("MechanicalUpperClamp", ".xml");
+        const auto upperFile = tempDir.getChildFile("upper_clamp.xml");
         const juce::String upperXml = R"(<?xml version="1.0" encoding="utf-8"?>
 <PROPERTIES>
   <VALUE name="pedalNoiseLevel" val="3.5"/>
@@ -92,10 +91,9 @@ private:
             expectWithinAbsoluteError(model.pedalNoiseLevel, 1.0f, 1e-4f);
             expectWithinAbsoluteError(model.feltAgeingAmount, 1.0f, 1e-4f);
         }
-        upperFile.deleteFile();
 
         // 2. Lower bound clamping
-        const auto lowerFile = tempDir.getNonexistentChildFile("MechanicalLowerClamp", ".xml");
+        const auto lowerFile = tempDir.getChildFile("lower_clamp.xml");
         const juce::String lowerXml = R"(<?xml version="1.0" encoding="utf-8"?>
 <PROPERTIES>
   <VALUE name="pedalNoiseLevel" val="-0.8"/>
@@ -113,7 +111,6 @@ private:
             expectWithinAbsoluteError(model.pedalNoiseLevel, 0.0f, 1e-4f);
             expectWithinAbsoluteError(model.feltAgeingAmount, 0.0f, 1e-4f);
         }
-        lowerFile.deleteFile();
     }
 
     void testPerformancePresetJsonRoundTrip() {
@@ -121,8 +118,8 @@ private:
 
         using namespace devpiano::layout;
 
-        const auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
-        const auto presetFile = tempDir.getNonexistentChildFile("MechanicalPreset", ".devpiano.preset");
+        devpiano::test::ScopedTempDir tempDir("mechanical-preset-rt");
+        const auto presetFile = tempDir.getChildFile("mechanical_preset.devpiano.preset");
 
         PerformancePreset originalPreset = makeDefaultPreset();
         originalPreset.name = "MechanicalConcertPreset";
@@ -140,8 +137,6 @@ private:
             expectWithinAbsoluteError(loaded.pedalNoiseLevel, 0.42f, 1e-4f);
             expectWithinAbsoluteError(loaded.feltAgeingAmount, 0.77f, 1e-4f);
         }
-
-        presetFile.deleteFile();
     }
 
     void testPerformancePresetBackwardCompatibility() {
@@ -149,8 +144,8 @@ private:
 
         using namespace devpiano::layout;
 
-        const auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
-        const auto legacyFile = tempDir.getNonexistentChildFile("LegacyMechanicalPreset", ".devpiano.preset");
+        devpiano::test::ScopedTempDir tempDir("mechanical-legacy-compat");
+        const auto legacyFile = tempDir.getChildFile("legacy_mechanical.devpiano.preset");
 
         // Old preset JSON lacking pedalNoiseLevel and feltAgeingAmount
         const juce::String legacyJson = R"({
@@ -179,8 +174,6 @@ private:
             expectWithinAbsoluteError(loaded.pedalNoiseLevel, 0.6f, 1e-4f);
             expectWithinAbsoluteError(loaded.feltAgeingAmount, 0.0f, 1e-4f);
         }
-
-        legacyFile.deleteFile();
     }
 
     void testPerformancePresetFlatRootCompatibility() {
@@ -188,8 +181,8 @@ private:
 
         using namespace devpiano::layout;
 
-        const auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
-        const auto flatFile = tempDir.getNonexistentChildFile("FlatMechanicalPreset", ".devpiano.preset");
+        devpiano::test::ScopedTempDir tempDir("mechanical-flat-compat");
+        const auto flatFile = tempDir.getChildFile("flat_mechanical.devpiano.preset");
 
         // Flat root fields: pedalNoiseLevel in range, feltAgeingAmount out of range
         const juce::String flatJson = R"({
@@ -210,8 +203,6 @@ private:
             // Out-of-range value clamped to 1.0f
             expectWithinAbsoluteError(loaded.feltAgeingAmount, 1.0f, 1e-4f);
         }
-
-        flatFile.deleteFile();
     }
 
     void testWavExportOptionsPropagation() {

@@ -3,6 +3,43 @@
 #include "TemperamentEngine.h"
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_core/juce_core.h>
+
+namespace devpiano::audio::detail {
+
+struct SineLookupTable {
+    static constexpr int kSize = 4096;
+    float table[kSize + 2] {};
+
+    SineLookupTable() noexcept {
+        constexpr double kTwoPi = 6.283185307179586476925286766559;
+        for (int i = 0; i < kSize; ++i) {
+            const auto angle = (kTwoPi * static_cast<double>(i)) / static_cast<double>(kSize);
+            table[i] = static_cast<float>(std::sin(angle));
+        }
+        table[kSize] = table[0];
+        table[kSize + 1] = table[1];
+    }
+
+    [[nodiscard]] float lookupNorm(double normPhase) const noexcept {
+        double p = normPhase;
+        if (p < 0.0 || p >= 1.0) {
+            p -= std::floor(p);
+        }
+        const auto scaled = p * static_cast<double>(kSize);
+        auto idx = static_cast<int>(scaled);
+        if (idx < 0) {
+            idx = 0;
+        } else if (idx > kSize) {
+            idx = kSize;
+        }
+        const auto frac = static_cast<float>(scaled - static_cast<double>(idx));
+        return table[idx] + frac * (table[idx + 1] - table[idx]);
+    }
+};
+
+inline const SineLookupTable gSineLookupTable;
+
+} // namespace devpiano::audio::detail
 // 内置 fallback 正弦合成器：实时路径（AudioEngine）与离线 WAV 导出路径
 // （WavFileExporter）共用同一实现，保证两路径音色一致（Phase 12-1）。
 // 继承 juce::SynthesiserVoice，由 juce::Synthesiser 管理 voice 生命周期。
@@ -21,6 +58,14 @@ class SineSynthVoice final : public juce::SynthesiserVoice {
 public:
     bool canPlaySound(juce::SynthesiserSound* sound) override {
         return dynamic_cast<SineSynthSound*>(sound) != nullptr;
+    }
+
+    void setCurrentPlaybackSampleRate(double newRate) override {
+        juce::SynthesiserVoice::setCurrentPlaybackSampleRate(newRate);
+        if (newRate > 0.0) {
+            adsr.setSampleRate(newRate);
+            adsr.setParameters(adsr.getParameters());
+        }
     }
 
     void setAdsrParameters(const juce::ADSR::Parameters& parameters) {
@@ -61,8 +106,7 @@ public:
             devpiano::audio::TemperamentEngine::getFrequency(midiNoteNumber, synthTemperament, synthReferencePitchA4));
         frequency = std::min(rawFrequency, static_cast<float>(sampleRate * 0.45));
         phase = 0.0;
-        increment
-            = static_cast<float>(juce::MathConstants<double>::twoPi * static_cast<double>(frequency) / sampleRate);
+        increment = static_cast<float>(static_cast<double>(frequency) / sampleRate);
 
         adsr.setSampleRate(sampleRate);
         adsr.noteOn();
@@ -101,10 +145,10 @@ public:
                 break;
             }
 
-            const auto value = static_cast<float>(std::sin(phase) * level * envelope);
+            const auto value = devpiano::audio::detail::gSineLookupTable.lookupNorm(phase) * level * envelope;
             phase += increment;
-            if (phase >= juce::MathConstants<double>::twoPi) {
-                phase -= juce::MathConstants<double>::twoPi;
+            if (phase >= 1.0) {
+                phase -= 1.0;
             }
 
             const auto sampleIndex = startSample + sample;

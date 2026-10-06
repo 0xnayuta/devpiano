@@ -217,6 +217,6 @@ private:
     }
 };
 
-static PerformanceModifierTest performanceModifierTest;
+PerformanceModifierTest performanceModifierTest;
 
 } // namespace

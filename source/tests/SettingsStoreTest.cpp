@@ -44,6 +44,14 @@ SettingsModel makePopulatedModel() {
     m.keyboardDisplay.showInstrumentFilter = false;
     m.pluginPanelExpanded = true;
     m.knownPluginListState = juce::parseXML(R"(<KNOWNPLUGINS><PLUGIN name="X" file="x.vst3"/></KNOWNPLUGINS>)");
+    m.metronomeEnabled = true;
+    m.metronomeBpm = 173.0;
+    m.metronomeTimeSignature = devpiano::core::TimeSignature::sixEight;
+    m.metronomeVolume = 0.85f;
+    m.metronomeCountIn = devpiano::core::CountInBars::twoBars;
+    m.cadenceDynamicsEnabled = false;
+    m.velocityHumanizeAmount = 0.08f;
+    m.baseVelocityBias = 0.12f;
     return m;
 }
 
@@ -102,6 +110,18 @@ public:
             if (loaded.knownPluginListState != nullptr) {
                 expect(loaded.knownPluginListState->toString().contains("KNOWNPLUGINS"));
             }
+            expect(loaded.metronomeEnabled, "metronomeEnabled must round-trip");
+            expectWithinAbsoluteError(loaded.metronomeBpm, 173.0, 0.0001, "metronomeBpm must round-trip");
+            expectEquals(static_cast<int>(loaded.metronomeTimeSignature),
+                         static_cast<int>(devpiano::core::TimeSignature::sixEight),
+                         "metronomeTimeSignature must round-trip");
+            expectWithinAbsoluteError(loaded.metronomeVolume, 0.85f, 0.0001f, "metronomeVolume must round-trip");
+            expectEquals(static_cast<int>(loaded.metronomeCountIn),
+                         static_cast<int>(devpiano::core::CountInBars::twoBars), "metronomeCountIn must round-trip");
+            expect(!loaded.cadenceDynamicsEnabled, "cadenceDynamicsEnabled must round-trip");
+            expectWithinAbsoluteError(loaded.velocityHumanizeAmount, 0.08f, 0.0001f,
+                                      "velocityHumanizeAmount must round-trip");
+            expectWithinAbsoluteError(loaded.baseVelocityBias, 0.12f, 0.0001f, "baseVelocityBias must round-trip");
         });
 
         testCase("load keeps model defaults for fields never written", [&] {
@@ -184,6 +204,57 @@ public:
                 expect((st.st_mode & S_IRUSR) != 0, "file must be readable by owner");
             }
 #endif
+        });
+        testCase("legacy plugin recovery migrates only an unambiguous cached description", [&] {
+            devpiano::test::ScopedTempDir tempDir("plugin-identity-migration");
+            juce::PluginDescription first;
+            first.name = "Twin";
+            first.pluginFormatName = "VST3";
+            first.fileOrIdentifier = tempDir.getChildFile("first.vst3").getFullPathName();
+            first.uniqueId = 101;
+            first.isInstrument = true;
+            auto second = first;
+            second.fileOrIdentifier = tempDir.getChildFile("second.vst3").getFullPathName();
+            second.uniqueId = 202;
+            second.isInstrument = false;
+
+            for (int scenario = 0; scenario < 4; ++scenario) {
+                const auto file = tempDir.getChildFile("case-" + juce::String(scenario) + ".settings");
+                juce::KnownPluginList plugins;
+                plugins.addType(first);
+                if (scenario >= 1) {
+                    plugins.addType(second);
+                }
+                const auto xml = plugins.createXml();
+                juce::PropertiesFile::Options options;
+                options.storageFormat = juce::PropertiesFile::storeAsXML;
+                {
+                    juce::PropertiesFile legacy(file, options);
+                    legacy.setValue("knownPluginListXml", xml->toString());
+                    legacy.setValue("lastPluginName", scenario == 3 ? "Missing" : "Twin");
+                    if (scenario == 2) {
+                        legacy.setValue("lastPluginIdentifier", second.createIdentifierString());
+                    }
+                    expect(legacy.saveIfNeeded());
+                }
+
+                SettingsStore store(file);
+                SettingsModel restored;
+                store.load(restored);
+                juce::String expected;
+                if (scenario == 0) {
+                    expected = first.createIdentifierString();
+                } else if (scenario == 2) {
+                    expected = second.createIdentifierString();
+                }
+                expectEquals(restored.lastPluginIdentifier, expected);
+                expect(store.save(restored));
+                {
+                    juce::PropertiesFile modern(file, options);
+                    expect(!modern.containsKey("lastPluginName"), "legacy name must not remain a recovery path");
+                    expectEquals(modern.getValue("lastPluginIdentifier"), expected);
+                }
+            }
         });
     }
 };
@@ -270,6 +341,131 @@ public:
                 reader.load(loaded);
             }
             expectWithinAbsoluteError(loaded.masterGain, 0.62f, 0.0001f);
+        });
+
+        testCase("a synchronous save supersedes an older scheduled snapshot", [&] {
+            devpiano::test::ScopedTempDir tempDir("store-debounce-supersede");
+            const auto settingsFile = tempDir.getChildFile("DevPianoTests.settings");
+            SettingsStore store(settingsFile);
+            SettingsModel oldModel;
+            oldModel.masterGain = 0.20f;
+            oldModel.lastPluginIdentifier = "old-plugin-identifier";
+            oldModel.knownPluginListState = juce::parseXML(R"(<KNOWNPLUGINS><PLUGIN name="Old"/></KNOWNPLUGINS>)");
+            store.scheduleSave(oldModel, 1);
+
+            SettingsModel newModel;
+            newModel.masterGain = 0.85f;
+            newModel.lastPluginIdentifier = "new-plugin-identifier";
+            newModel.knownPluginListState = juce::parseXML(R"(<KNOWNPLUGINS><PLUGIN name="New"/></KNOWNPLUGINS>)");
+            expect(store.save(newModel));
+            devpiano::test::drainMessages(100);
+
+            SettingsModel loaded;
+            SettingsStore(settingsFile).load(loaded);
+            expectWithinAbsoluteError(loaded.masterGain, 0.85f, 0.0001f);
+            expectEquals(loaded.lastPluginIdentifier, juce::String("new-plugin-identifier"));
+            expect(loaded.knownPluginListState != nullptr);
+            if (loaded.knownPluginListState != nullptr) {
+                const auto* plugin = loaded.knownPluginListState->getChildByName("PLUGIN");
+                expect(plugin != nullptr);
+                if (plugin != nullptr) {
+                    expectEquals(plugin->getStringAttribute("name"), juce::String("New"));
+                }
+            }
+        });
+
+        testCase("later schedules still commit and saves on another store cannot cancel them", [&] {
+            devpiano::test::ScopedTempDir tempDir("store-debounce-independent");
+            const auto fileA = tempDir.getChildFile("StoreA.settings");
+            const auto fileB = tempDir.getChildFile("StoreB.settings");
+            SettingsStore storeA(fileA);
+            SettingsStore storeB(fileB);
+            SettingsModel modelA;
+            modelA.masterGain = 0.15f;
+            storeA.scheduleSave(modelA, 1);
+            modelA.masterGain = 0.60f;
+            expect(storeA.save(modelA));
+
+            modelA.masterGain = 0.33f;
+            storeA.scheduleSave(modelA, 1);
+            SettingsModel modelB;
+            modelB.masterGain = 0.77f;
+            expect(storeB.save(modelB));
+            devpiano::test::drainMessages(100);
+
+            SettingsModel finalA;
+            SettingsModel finalB;
+            SettingsStore(fileA).load(finalA);
+            SettingsStore(fileB).load(finalB);
+            expectWithinAbsoluteError(finalA.masterGain, 0.33f, 0.0001f);
+            expectWithinAbsoluteError(finalB.masterGain, 0.77f, 0.0001f);
+        });
+
+        testCase("a failed synchronous save preserves the older scheduled write", [&] {
+            devpiano::test::ScopedTempDir tempDir("store-debounce-failure");
+            const auto settingsFile = tempDir.getChildFile("DirTarget.settings");
+            expect(settingsFile.createDirectory().wasOk());
+            SettingsStore store(settingsFile);
+            SettingsModel pendingModel;
+            pendingModel.masterGain = 0.42f;
+            store.scheduleSave(pendingModel, 1);
+            SettingsModel syncModel;
+            syncModel.masterGain = 0.99f;
+            expect(!store.save(syncModel));
+            expect(settingsFile.deleteFile());
+            devpiano::test::drainMessages(100);
+
+            SettingsModel loaded;
+            SettingsStore(settingsFile).load(loaded);
+            expectWithinAbsoluteError(loaded.masterGain, 0.42f, 0.0001f);
+        });
+
+        testCase("first and replacement snapshots preserve practice fields and independent XML", [&] {
+            devpiano::test::ScopedTempDir tempDir("store-debounce-phase35");
+            const auto settingsFile = tempDir.getChildFile("DevPianoTests.settings");
+            auto model = makePopulatedModel();
+            model.audioDeviceState = juce::parseXML(R"(<DEVICES name="DeviceA"/>)");
+            SettingsModel copyConstructed(model);
+            SettingsModel copyAssigned;
+            copyAssigned = copyConstructed;
+            model.audioDeviceState->setAttribute("name", "ChangedOriginal");
+            copyConstructed.audioDeviceState->setAttribute("name", "ChangedCopy");
+
+            const auto checkPracticeFields = [this](const SettingsModel& loaded, double bpm) {
+                expect(loaded.metronomeEnabled);
+                expectWithinAbsoluteError(loaded.metronomeBpm, bpm, 0.0001);
+                expect(loaded.metronomeTimeSignature == devpiano::core::TimeSignature::sixEight);
+                expectWithinAbsoluteError(loaded.metronomeVolume, 0.85f, 0.0001f);
+                expect(loaded.metronomeCountIn == devpiano::core::CountInBars::twoBars);
+                expect(!loaded.cadenceDynamicsEnabled);
+                expectWithinAbsoluteError(loaded.velocityHumanizeAmount, 0.08f, 0.0001f);
+                expectWithinAbsoluteError(loaded.baseVelocityBias, 0.12f, 0.0001f);
+            };
+            SettingsStore store(settingsFile);
+            store.scheduleSave(copyAssigned, 1);
+            copyAssigned.metronomeBpm = 91.0;
+            copyAssigned.audioDeviceState->setAttribute("name", "ChangedAfterSchedule");
+            copyAssigned.knownPluginListState->setAttribute("changed", true);
+            devpiano::test::drainMessages(100);
+
+            SettingsModel first;
+            SettingsStore(settingsFile).load(first);
+            checkPracticeFields(first, 173.0);
+            expect(first.audioDeviceState != nullptr && first.knownPluginListState != nullptr);
+            if (first.audioDeviceState != nullptr && first.knownPluginListState != nullptr) {
+                expectEquals(first.audioDeviceState->getStringAttribute("name"), juce::String("DeviceA"));
+                expect(!first.knownPluginListState->hasAttribute("changed"));
+            }
+
+            copyAssigned.metronomeBpm = 201.0;
+            store.scheduleSave(copyAssigned, 1000);
+            copyAssigned.metronomeBpm = 149.0;
+            store.scheduleSave(copyAssigned, 1);
+            copyAssigned.metronomeBpm = 91.0;
+            devpiano::test::drainMessages(100);
+            SettingsModel second;
+            SettingsStore(settingsFile).load(second);
+            checkPracticeFields(second, 149.0);
         });
     }
 };

@@ -199,7 +199,13 @@ target_sources(devpiano PRIVATE
     source/MainComponent.h
     source/MainComponentJiveAccessors.cpp
     source/Audio/AudioEngine.cpp
+    source/Audio/BuiltinSynthesiser.cpp
+    source/Audio/BuiltinSynthesiser.h
     source/Audio/AudioEngine.h
+    source/Audio/AcousticSnapshot.h
+    source/Audio/RealtimeExchange.h
+    source/Audio/PlaybackIdentityTracker.h
+    source/Audio/OrderedMidi.h
     source/Audio/SineSynthVoice.h
     source/Audio/PianoSynthVoice.h
     source/Audio/TemperamentEngine.h
@@ -235,6 +241,7 @@ target_sources(devpiano PRIVATE
     source/Export/WavExportOptions.h
     source/Recording/RecordingEngine.cpp
     source/Recording/RecordingEngine.h
+    source/Recording/RecordedPreset.h
     source/Recording/AbLoopEngine.h
     source/Recording/RecordingFlowSupport.cpp
     source/Recording/RecordingFlowSupport.h
@@ -464,6 +471,7 @@ if (BUILD_TESTS)
         source/Recording/RenderPipeline.h
         source/Recording/RecordingEngine.cpp
         source/Recording/RecordingEngine.h
+        source/Recording/RecordedPreset.h
         source/Recording/AbLoopEngine.h
         source/Recording/RecordingFlowSupport.cpp
         source/Recording/RecordingFlowSupport.h
@@ -477,7 +485,13 @@ if (BUILD_TESTS)
         source/Midi/MidiChannelMapper.cpp
         source/Midi/MidiChannelMapper.h
         source/Audio/AudioEngine.cpp
+        source/Audio/BuiltinSynthesiser.cpp
+        source/Audio/BuiltinSynthesiser.h
         source/Audio/AudioEngine.h
+        source/Audio/AcousticSnapshot.h
+        source/Audio/RealtimeExchange.h
+        source/Audio/PlaybackIdentityTracker.h
+        source/Audio/OrderedMidi.h
         source/Audio/SineSynthVoice.h
         source/Audio/PianoSynthVoice.h
         source/Audio/AudioDeviceDiagnostics.cpp
@@ -542,7 +556,6 @@ if (BUILD_TESTS)
         source/tests/RecordingEngineTest.cpp
         source/tests/KeyboardMidiMapperTest.cpp
         source/tests/AudioEngineTest.cpp
-        source/tests/PluginHostTest.cpp
         source/tests/PerformanceFileTest.cpp
         source/tests/RenderPipelineTest.cpp
         source/tests/StyleCatalogTest.cpp

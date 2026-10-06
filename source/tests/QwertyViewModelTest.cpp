@@ -4,6 +4,7 @@
 #include "Core/QwertyModel.h"
 #include "Input/KeyboardMidiMapper.h"
 #include "Midi/MidiChannelMapper.h"
+#include "UI/CustomKeyboard.h"
 #include "UI/QwertyComponent.h"
 
 namespace {
@@ -22,6 +23,9 @@ public:
         testPedalStateReflection();
         testComponentHitTestingAndInteraction();
         testMouseInteractionWithMidiChannelMapper();
+        testPerformanceMapConsumers();
+        testMutedMapConsumers();
+        testLowestOctaveLabels();
         testPitchClassHarmonyPalette();
         testChordHudAndFadeout();
     }
@@ -375,6 +379,198 @@ private:
         expect(!keyboardState.isNoteOn(4, originalNote), "Q note-off must release its original mapped note");
         expect(!keyboardState.isNoteOn(9, juce::jlimit(0, 127, inputNote - 12)),
                "Q note-off must not use the replacement matrix");
+    }
+
+    static juce::MouseEvent pressAt(juce::Component& component, juce::Point<int> point) {
+        const auto time = juce::Time::getCurrentTime();
+        return { juce::Desktop::getInstance().getMainMouseSource(),
+                 point.toFloat(),
+                 juce::ModifierKeys::leftButtonModifier,
+                 1.0f,
+                 0.0f,
+                 0.0f,
+                 0.0f,
+                 0.0f,
+                 &component,
+                 &component,
+                 time,
+                 point.toFloat(),
+                 time,
+                 1,
+                 false };
+    }
+
+    static juce::Point<int> pianoPosition(const CustomKeyboard& piano, int note) {
+        for (const auto& key : piano.getKeys()) {
+            if (key.midiNote == note) {
+                return { juce::roundToInt(key.bounds.getCentreX()), juce::roundToInt(key.bounds.getBottom() - 3.0f) };
+            }
+        }
+        return { -1, -1 };
+    }
+
+    static juce::Point<int> qwertyPosition(const devpiano::ui::QwertyComponent& qwerty) {
+        for (int x = 0; x < qwerty.getWidth(); ++x) {
+            const auto hit = qwerty.findKeyAt({ x, 75 });
+            if (hit.key != nullptr && hit.key->keyCode == 'A') {
+                return { x, 75 };
+            }
+        }
+        return { -1, -1 };
+    }
+
+    void testPerformanceMapConsumers() {
+        testCase("both maps follow final identity without reapplying group, modifiers or matrix", [&] {
+            struct Scenario {
+                int group;
+                bool alt;
+                bool matrixActive;
+                int note;
+                int channel;
+            };
+            for (const auto scenario : { Scenario { 0, false, true, 72, 2 }, Scenario { 1, true, true, 85, 3 },
+                                         Scenario { 1, true, false, 86, 2 } }) {
+                devpiano::midi::ChannelMatrix matrix;
+                matrix.active = scenario.matrixActive;
+                matrix.channels[0].outputChannel = 1;
+                matrix.channels[0].transpose = 12;
+                matrix.channels[0].followKey = false;
+                matrix.channels[1].outputChannel = 2;
+                matrix.channels[1].transpose = -3;
+                devpiano::midi::MidiChannelMapper channelMapper(matrix, true, 2);
+                KeyboardMidiMapper mapper;
+                auto layout = devpiano::core::makeDefaultKeyboardLayout();
+                layout.bindings = { devpiano::core::makeNoteBinding('A', 60) };
+                layout.groups[1].transposeOffset = 2;
+                layout.groups[1].octaveShift = 1;
+                layout.groups[1].channel = 2;
+                layout.activeGroupIndex = static_cast<uint8_t>(scenario.group);
+                mapper.setLayout(layout);
+                mapper.setChannelMapper(&channelMapper);
+                mapper.setModifierState({ .altActive = scenario.alt });
+                const auto snapshot = mapper.createQwertySnapshot(2);
+                const auto& a = snapshot.rows[2].keys[1];
+                expectEquals(a.mappedMidiNote, scenario.note);
+                expectEquals(a.mappedMidiChannel, scenario.channel);
+                juce::MidiKeyboardState state;
+                CustomKeyboard piano(state);
+                piano.setKeyboardLayout(snapshot);
+                auto display = piano.getKeyboardSettings();
+                display.keyWidth += 2.0f;
+                piano.setKeyboardSettings(display);
+                piano.setSize(1100, 220);
+                piano.updateViewportBounds(1200, 180);
+                for (const auto& key : piano.getKeys()) {
+                    if (key.midiNote == scenario.note) {
+                        expectEquals(key.keyLabel, juce::String("A"));
+                    }
+                }
+                devpiano::ui::QwertyComponent qwerty;
+                qwerty.setSize(750, 150);
+                qwerty.updateViewModel(snapshot);
+                const auto send = [&](int note, int channel, float velocity) {
+                    return channelMapper.sendNoteOn(channel - 1, note, velocity, state);
+                };
+                const auto release = [&](const devpiano::core::MidiNoteIdentity& identity) {
+                    channelMapper.sendNoteOff(identity, 1.0f, state);
+                };
+                piano.onNoteOn = send;
+                qwerty.onNoteOn = send;
+                piano.onNoteOff = release;
+                qwerty.onNoteOff = release;
+                const auto assertMidi = [&](int expectedNote) {
+                    juce::MidiBuffer midi;
+                    state.processNextMidiBuffer(midi, 0, 64, true);
+                    int ons = 0;
+                    for (const auto event : midi) {
+                        const auto message = event.getMessage();
+                        if (message.isNoteOn()) {
+                            ++ons;
+                            expectEquals(message.getNoteNumber(), expectedNote);
+                            expectEquals(message.getChannel(), scenario.channel);
+                        }
+                    }
+                    expectEquals(ons, 1);
+                };
+                const juce::ModifierKeys mods(scenario.alt ? juce::ModifierKeys::altModifier : 0);
+                mapper.handleKeyPressed(juce::KeyPress('A', mods, 'a'), state);
+                assertMidi(scenario.note);
+                mapper.releaseAllHeldKeys(state);
+                const auto pianoPress = pressAt(piano, pianoPosition(piano, scenario.note));
+                piano.mouseDown(pianoPress);
+                assertMidi(scenario.note);
+                piano.mouseUp(pianoPress);
+                piano.mouseDown(pianoPress);
+                assertMidi(scenario.note);
+                piano.mouseUp(pianoPress);
+                state.noteOn(11, scenario.note, 0.5f);
+                juce::MidiBuffer ignored;
+                state.processNextMidiBuffer(ignored, 0, 64, true);
+                piano.mouseDown(pianoPress);
+                assertMidi(scenario.note);
+                piano.mouseUp(pianoPress);
+                state.noteOff(11, scenario.note, 1.0f);
+                qwerty.mouseDown(pressAt(qwerty, qwertyPosition(qwerty)));
+                assertMidi(scenario.note);
+                qwerty.releaseHeldMouseNote();
+                expect(!state.isNoteOn(scenario.channel, scenario.note));
+                const auto unboundPress = pressAt(piano, pianoPosition(piano, scenario.note + 1));
+                piano.mouseDown(unboundPress);
+                assertMidi(scenario.note + 1);
+                piano.mouseUp(unboundPress);
+            }
+        });
+    }
+
+    void testMutedMapConsumers() {
+        testCase("silent bindings outrank Shift and matrix velocity on every input surface", [&] {
+            devpiano::midi::ChannelMatrix matrix;
+            matrix.channels[0].velocity = 127;
+            devpiano::midi::MidiChannelMapper channelMapper(matrix, false, 0);
+            KeyboardMidiMapper mapper;
+            auto layout = devpiano::core::makeDefaultKeyboardLayout();
+            layout.bindings = { devpiano::core::makeNoteBinding('A', 60, 1, 0.0f) };
+            mapper.setLayout(layout);
+            mapper.setChannelMapper(&channelMapper);
+            mapper.setModifierState({ .shiftActive = true });
+            const auto snapshot = mapper.createQwertySnapshot();
+            juce::MidiKeyboardState state;
+            CustomKeyboard piano(state);
+            piano.setKeyboardLayout(snapshot);
+            devpiano::ui::QwertyComponent qwerty;
+            qwerty.setSize(750, 150);
+            qwerty.updateViewModel(snapshot);
+            const auto send = [&](int note, int channel, float velocity) {
+                return channelMapper.sendNoteOn(channel - 1, note, velocity, state);
+            };
+            piano.onNoteOn = send;
+            qwerty.onNoteOn = send;
+            mapper.handleKeyPressed(juce::KeyPress('A', juce::ModifierKeys::shiftModifier, 'A'), state);
+            piano.mouseDown(pressAt(piano, pianoPosition(piano, 60)));
+            qwerty.mouseDown(pressAt(qwerty, qwertyPosition(qwerty)));
+            juce::MidiBuffer midi;
+            state.processNextMidiBuffer(midi, 0, 64, true);
+            for (const auto event : midi) {
+                expect(!event.getMessage().isNoteOn(), "no audible note may escape a silent binding");
+            }
+            expect(!state.isNoteOn(1, 60));
+            mapper.releaseAllHeldKeys(state);
+            piano.releaseHeldMouseNote();
+            qwerty.releaseHeldMouseNote();
+        });
+    }
+
+    void testLowestOctaveLabels() {
+        testCase("lowest MIDI octave and solfege offsets agree across the C0 boundary", [&] {
+            using namespace devpiano::core;
+            expectEquals(getNoteDisplayName(0, NoteDisplayMode::noteName), juce::String("C-1"));
+            expectEquals(getNoteDisplayName(1, NoteDisplayMode::noteName), juce::String("C#-1"));
+            expectEquals(getNoteDisplayName(11, NoteDisplayMode::noteName), juce::String("B-1"));
+            expectEquals(getNoteDisplayName(12, NoteDisplayMode::noteName), juce::String("C0"));
+            expect(getNoteDisplayName(1, NoteDisplayMode::doReMi).endsWith("-5"));
+            expect(getNoteDisplayName(11, NoteDisplayMode::fixedDo, 2).endsWith("-5"));
+            expect(getNoteDisplayName(12, NoteDisplayMode::fixedDo, 2).endsWith("-4"));
+        });
     }
 
     void testChordHudAndFadeout() {

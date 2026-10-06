@@ -1,11 +1,56 @@
 ## [Unreleased]
 
+### Changed
+
+- **AUDIT-004 Review and Localization Policy** — archive the completed software remediation phases with reproducible consumer inputs; reconcile the audit against recorded evidence without erasing the initial baseline or claiming hardware certification. Accept ADR-015 for complete localized messages and category-specific punctuation; schedule the existing-call migration as a small iteration, not an implemented formatter.
+
+- **Complete Localized Message Templates** — adopt full sentence templates with `{0}` placeholders across preset delete/overwrite confirmations, save/rename/delete status toasts, count-in counters, export notifications, key bindings, and plugin statuses; clean up obsolete string fragments in `zh_CN.loc` and enforce single-pass parameter substitution without recursive expansion.
 ### Fixed
 
+- **Content-Sized Dialogs and Consistent Footers** — fit preset, binding, metadata, and export dialogs to their rendered content; preserve a 28 logical-pixel bottom inset with full-height actions across scaling. Correct native-titlebar content sizing, wrap long confirmation names without clipping, and retain asynchronous confirmation and cooperative export cancellation.
+- **Verified Consumer Contracts** — align active documentation with permanent preset identities, native v3 snapshots and legacy admission, app-global transpose, single-track MIDI export, bounded diagnostics, and cooperative plugin cancellation; retain explicit hardware and vendor verification limits.
+
+- **Bounded Session Diagnostics** — rotate active and single-backup logs within a combined 512 KiB budget; retain UTF-8 boundaries, report file-sink failures, and keep complete debugger output.
+- **Raw MIDI Velocity Traces** — report integer velocities without multiplying by 127 and preserve velocity-zero NoteOn-as-NoteOff semantics.
+- **Strict Declarative UI Facade** — encapsulate live style refresh and modal initialization/confirmation in ViewHost; remove raw GuiItem escape APIs and use granular modules in the application icon header.
+- **Trustworthy Test and Static Gates** — remove translation/callback/assignment self-oracles, retain executed lifecycle regressions, and fix project compiler/static diagnostics without rule suppression or third-party edits.
+- **Shared Performance Map Projection** — show the same final Group/modifier/matrix/followKey mapping on QWERTY and piano views; preserve configured input identities for clicks, binding edits, and per-key customization.
+- **Mouse Routing and Binding Labels** — prevent observed playback/output channels from changing subsequent mouse routing and retain binding labels through settings, resize, and viewport updates.
+- **Silent-Binding Priority and Bounded Fades** — keep zero-velocity bindings silent across physical and mouse input even with Shift or fixed matrix velocity; clamp fade coefficients to 0.50–0.99 and stop timers at the preview floor.
+- **Live Corner Paths and Editable Song Notes** — rebuild rounded paths using the current radii and enable multiline Notes through the production ViewHost without making diagnostic lists editable.
+- **Tuning and Lowest-Octave Boundaries** — support A4 400–480 Hz consistently across settings, presets, and built-in real-time/offline rendering; fix MIDI 0–11 scientific octave labels and solfege offsets.
+- **Permanent Preset Identity and Migration** — assign RFC 4122 v5/v4 UUIDs to PerformancePresets; preserve identity across renames and autosave, migrate unambiguous legacy names, and reject duplicate identities.
+- **Embedded Performance Preset Snapshots** — save immutable RecordedPreset tables in v3 .devpiano performance files; execute presets by recorded sample offset, and reject legacy numeric preset formats explicitly.
+- **Segmented Offline Acoustic Parity** — apply acoustic snapshots, master gain, and room reverb at exact block-relative sample offsets in both builtin and VST3 offline WAV exporters.
+- **Lock-Free Audio-Owned Builtin Synthesiser** — schedule voice allocation, sustain/sostenuto/soft pedals, and pitch bend without JUCE framework locks or dynamic allocation; support zero-length event processing.
+- **Zero Real-Time Trigonometry Synthesis** — precalculate metronome beat coefficients in prepareToPlay and replace runtime trigonometric calls with wavetables and bounded polynomials across all owned audio DSP paths.
+- **Message-Thread Visual Dispatch** — decouple audio rendering from UI listeners via atomic display bitmasks and bounded SPSC input queues; dispatch keyboard visual updates solely from the message thread.
+- **Non-Allocating Geometry Fault Handling** — silence oversized buffers and unnegotiated channel configurations at block boundaries without runtime reallocation while logging atomic diagnostic counters.
 - **Metronome Audio-Thread Start Synchronization** — moved phase reset and initial beat triggering into the audio callback, removing message/audio thread races.
 - **Bass-Rooted Exact Chord Recognition** — prefer bass-rooted exact matches over higher-priority inverted matches, restoring C6/Cm6 detection.
 - **Count-In Transport Cancellation** — cancel pending count-ins on competing transport or Take replacement actions so delayed recording cannot overwrite the current Take.
 - **Bounded A-B Loop Cleanup** — disable effective loop ranges shorter than one scaled audio block to prevent repeated all-channel cleanup bursts.
+- **NRVO-Safe Audio Test Fixtures** — construct borrowed audio block descriptors only after their owning buffers reach the caller, removing self-referential return values and dependence on optional named return value optimization.
+- **Isolated File Test Ownership** — remove production default-path probes and use scoped temporary directories for log, preset, and acoustic settings tests without modifying real user data.
+- **Default Chord Test Coverage** — register chord recognition under `DevPiano/Core` so the standard project test run executes the complete chord suite.
+- **Transactional Export Replacement** — write MIDI and WAV exports to owned sibling temporary files, close writers before replacement, and preserve existing targets on rejection, cancellation, or I/O failure.
+- **Protected Preset Renames and Restored Identity** — confirm independent filename collisions, preserve normalized same-file renames, roll back failed commits, and restore the active preset before immediate binding autosave.
+- **Coherent Take File Ownership** — detach stale native-file bindings on recording/import replacement, rebind successful Save As operations, and reject delayed metadata or chooser completions for another Take.
+- **Ordered Settings Persistence and Complete Snapshots** — successful synchronous saves supersede older scheduled writes; deep copies preserve practice settings and independent audio-device/plugin-cache XML.
+- **Bounded Native Performance Admission** — validate JUCE-encoded MIDI lengths, payloads and frame shapes before decoding; reject invalid sample rates or timelines and stably normalize legacy event order without replacing the current Take.
+- **Complete MIDI File Admission** — reject missing tracks, truncated events and malformed fixed-width metadata before JUCE accessors; preserve complete multitrack files with trailing CRLF and validated extension chunks.
+- **Checked Export Timelines** — reject unrepresentable sample scaling, final-event and tail additions before opening WAV output; check MIDI writer tick limits and preserve existing targets on numeric rejection.
+- **Guarded Instrument Mutation** — close editors and stop active audio callbacks before rescanning or rebuilding builtin voices, then publish the updated runtime UI state.
+- **Block-Boundary Transport Commands** — apply playback speed, seek and Stop commands on the audio owner; preserve next-unrendered events across speed rounding and use quiescent structural transitions.
+- **Cooperative Export Shutdown** — retain task, plugin and writer ownership until background rendering actually exits; keep cancellation and application quit asynchronous without timed thread termination.
+- **Native Offline Plugin Mode** — declare non-realtime operation before preparing independent VST3 instances so offline setup and processing use the same mode.
+- **Stable Plugin Description Identity** — select, load and restore plugins by description identifiers instead of display names; preserve duplicate-file discovery and metadata updates, and migrate only unambiguous legacy recovery names.
+- **Locked Playback Note Identity** — pair overlapping attacks FIFO and retain final output identities across transpose, mask and device-rate changes; release merged outputs only after their final holder.
+- **Paired Capture Pauses and MIDI** — close recorded notes and pedals at frozen capture boundaries, exclude paused performance, and preserve explicit rearticulation/release events during MIDI export and import.
+- **Sample-Domain Transport Boundaries** — deliver exact final events before audio-owned completion, rebase active transport on device-rate changes, and restore channel program/bank/controller/pitch state before seek and loop destinations.
+- **Full-Period Count-In** — start recording on the audio-owned downbeat after complete one/two-bar periods, including block-aligned boundaries, delayed UI polls, cancellation and device rebuilds.
+- **Instrument-Owned Soft Pedal** — apply per-channel analog CC67 state before new builtin voices start, isolate reused voices and channel releases, and share the instrument owner with offline WAV rendering.
+- **Consistent Sine Envelope Rates** — recalculate ADSR coefficients when the voice sample rate changes so realtime and offline terminal samples use the same time domain.
 
 ## [1.3.0] - 2026-09-21
 

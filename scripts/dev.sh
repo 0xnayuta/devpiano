@@ -152,11 +152,15 @@ case "${command_name}" in
 
     files=()
     if [[ $# -gt 0 ]]; then
-        files=("$@")
+        for arg in "$@"; do
+            if [[ -f "${arg}" || -f "${ROOT_DIR}/${arg}" ]]; then
+                files+=("${arg}")
+            fi
+        done
     else
-        # 未提交改动（staged + unstaged + untracked）中的 source/ 下 .cpp/.h
+        # 未提交改动（staged + unstaged + untracked）中的 source/ 下 .cpp/.h（排除已删除文件）
         mapfile -t files < <({
-            git -C "${ROOT_DIR}" diff --name-only HEAD
+            git -C "${ROOT_DIR}" diff --diff-filter=d --name-only HEAD
             git -C "${ROOT_DIR}" ls-files --others --exclude-standard
         } | sort -u | grep -E '^source/.*\.(cpp|h)$' || true)
     fi

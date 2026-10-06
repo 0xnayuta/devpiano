@@ -1,5 +1,6 @@
 #include <functional>
 
+#include "Audio/BuiltinSynthesiser.h"
 #include "Audio/PianoSynthVoice.h"
 #include "Audio/RoomReverbEngine.h"
 #include "Audio/SineSynthVoice.h"
@@ -20,43 +21,43 @@ constexpr auto fallbackVoiceCount = 8;
 constexpr auto wavTailSeconds = 2.0;
 
 using devpiano::recording::addPanicMidi;
-using devpiano::recording::buildRenderEvents;
-using devpiano::recording::getScaledTakeLengthSamples;
+using devpiano::recording::applyAcousticSnapshotToBuiltin;
 using devpiano::recording::hasUsableRenderOptions;
-using devpiano::recording::RenderEvent;
-using devpiano::recording::scaleTimestamp;
+using devpiano::recording::PerformanceEventType;
+using devpiano::recording::prepareRenderTimeline;
 
-void initialiseOfflineSynth(juce::Synthesiser& synth, const devpiano::exporting::WavExportOptions& options) {
-    synth.clearSounds();
-    synth.clearVoices();
-
-    if (options.builtinTone == SettingsModel::BuiltinTone::piano) {
-        synth.addSound(new PianoSynthSound());
-        for (auto index = 0; index < fallbackVoiceCount; ++index) {
-            auto* voice = new PianoSynthVoice();
-            voice->setVoiceIndex(index);
-            voice->setAdsrParameters(options.adsr);
-            voice->setPianoParameters(options.pianoBrightness, options.pianoHammerHardness, options.pianoResonance);
-            voice->setLidPosition(static_cast<PianoSynthVoice::LidPosition>(options.lidPosition));
-            voice->setTemperament(options.temperament);
-            voice->setReferencePitchA4(options.referencePitchA4);
-            voice->setSoundPerspective(options.soundPerspective);
-            voice->setPedalNoiseLevel(options.pedalNoiseLevel);
-            voice->setFeltAgeingAmount(options.feltAgeingAmount);
-            synth.addVoice(voice);
-        }
-    } else {
-        synth.addSound(new SineSynthSound());
-        for (auto index = 0; index < fallbackVoiceCount; ++index) {
-            auto* voice = new SineSynthVoice();
-            voice->setAdsrParameters(options.adsr);
-            voice->setTemperament(options.temperament);
-            voice->setReferencePitchA4(options.referencePitchA4);
-            synth.addVoice(voice);
-        }
+void initialiseOfflineSynths(devpiano::audio::BuiltinSynthesiser& pianoSynth,
+                             devpiano::audio::BuiltinSynthesiser& sineSynth,
+                             const devpiano::exporting::WavExportOptions& options) {
+    pianoSynth.clearSounds();
+    pianoSynth.clearVoices();
+    pianoSynth.addSound(new PianoSynthSound());
+    for (auto index = 0; index < fallbackVoiceCount; ++index) {
+        auto* voice = new PianoSynthVoice();
+        voice->setVoiceIndex(index);
+        voice->setAdsrParameters(options.adsr);
+        voice->setPianoParameters(options.pianoBrightness, options.pianoHammerHardness, options.pianoResonance);
+        voice->setLidPosition(static_cast<PianoSynthVoice::LidPosition>(options.lidPosition));
+        voice->setTemperament(options.temperament);
+        voice->setReferencePitchA4(options.referencePitchA4);
+        voice->setSoundPerspective(options.soundPerspective);
+        voice->setPedalNoiseLevel(options.pedalNoiseLevel);
+        voice->setFeltAgeingAmount(options.feltAgeingAmount);
+        pianoSynth.addVoice(voice);
     }
+    pianoSynth.setCurrentPlaybackSampleRate(options.sampleRate);
 
-    synth.setCurrentPlaybackSampleRate(options.sampleRate);
+    sineSynth.clearSounds();
+    sineSynth.clearVoices();
+    sineSynth.addSound(new SineSynthSound());
+    for (auto index = 0; index < fallbackVoiceCount; ++index) {
+        auto* voice = new SineSynthVoice();
+        voice->setAdsrParameters(options.adsr);
+        voice->setTemperament(options.temperament);
+        voice->setReferencePitchA4(options.referencePitchA4);
+        sineSynth.addVoice(voice);
+    }
+    sineSynth.setCurrentPlaybackSampleRate(options.sampleRate);
 }
 } // namespace
 
@@ -68,18 +69,29 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
         return false;
     }
 
+    auto timeline = prepareRenderTimeline(take, options.sampleRate, wavTailSeconds);
+    if (!timeline.has_value()) {
+        DP_LOG_ERROR("[Export] WAV export rejected: invalid or unrepresentable timeline");
+        return false;
+    }
+    const auto& renderEvents = timeline->events;
+    const auto scaledTakeLength = timeline->takeLengthSamples;
+    const auto totalSamples = timeline->totalSamples;
+
     auto parentDirectory = destinationFile.getParentDirectory();
     if (!parentDirectory.exists() && !parentDirectory.createDirectory()) {
         DP_LOG_ERROR("[Export] WAV export failed: cannot create directory " + parentDirectory.getFullPathName());
         return false;
     }
 
-    auto fileStream = std::make_unique<juce::FileOutputStream>(destinationFile);
+    juce::TemporaryFile temporaryFile(destinationFile);
+    auto fileStream = std::make_unique<juce::FileOutputStream>(temporaryFile.getFile());
     if (!fileStream->openedOk()) {
         DP_LOG_ERROR("[Export] WAV export failed: cannot open output file " + destinationFile.getFullPathName());
         return false;
     }
 
+    auto* const fileOutput = fileStream.get();
     std::unique_ptr<juce::OutputStream> outputStream = std::move(fileStream);
 
     juce::WavAudioFormat wavFormat;
@@ -95,26 +107,33 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
         return false;
     }
 
-    juce::Synthesiser synth;
+    devpiano::audio::PlaybackIdentityTracker identityTracker;
+    identityTracker.prepare(0, static_cast<std::size_t>(std::ranges::count_if(take.events, [](const auto& event) {
+                                return event.type == PerformanceEventType::midi && event.message.isNoteOn();
+                            })));
+
+    devpiano::audio::BuiltinSynthesiser pianoSynth;
+    devpiano::audio::BuiltinSynthesiser sineSynth;
+    devpiano::audio::BuiltinSynthesiser* activeSynth = nullptr;
     devpiano::audio::RoomReverbEngine roomReverb;
     roomReverb.prepare(options.sampleRate);
     roomReverb.setSpace(options.reverbSpace);
     roomReverb.setWetLevel(options.reverbWet);
-    initialiseOfflineSynth(synth, options);
-    auto renderEvents = buildRenderEvents(take, options.sampleRate);
-    const auto scaledTakeLength = getScaledTakeLengthSamples(take, renderEvents, options.sampleRate);
-    const auto tailSamples = static_cast<std::int64_t>(std::ceil(wavTailSeconds * options.sampleRate));
-    const auto totalSamples = std::max<std::int64_t>(1, scaledTakeLength + tailSamples);
-    const auto gain = juce::jlimit(0.0f, 1.0f, options.masterGain);
+
+    initialiseOfflineSynths(pianoSynth, sineSynth, options);
+    activeSynth = (options.builtinTone == SettingsModel::BuiltinTone::sine) ? &sineSynth : &pianoSynth;
+
+    float currentMasterGain = juce::jlimit(0.0f, 1.0f, options.masterGain);
 
     juce::AudioBuffer<float> audioBuffer(options.numChannels, options.blockSize);
-    juce::MidiBuffer midiBuffer;
-    midiBuffer.ensureSize(static_cast<size_t>(juce::jlimit(256, 65536, options.blockSize * 16)));
+    juce::MidiBuffer segmentMidiBuffer;
+    segmentMidiBuffer.ensureSize(
+        static_cast<size_t>(std::clamp<std::int64_t>(static_cast<std::int64_t>(options.blockSize) * 16, 256, 65536)));
 
     std::size_t eventIndex = 0;
     auto panicSent = false;
 
-    for (std::int64_t blockStart = 0; blockStart < totalSamples; blockStart += options.blockSize) {
+    for (std::int64_t blockStart = 0; blockStart < totalSamples;) {
         if (progressCallback
             && !progressCallback(static_cast<double>(blockStart) / static_cast<double>(totalSamples))) {
             return false;
@@ -125,33 +144,129 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
 
         audioBuffer.setSize(options.numChannels, numSamples, false, false, true);
         audioBuffer.clear();
-        midiBuffer.clear();
 
-        while (eventIndex < renderEvents.size() && renderEvents[eventIndex].timestampSamples < blockEnd) {
-            const auto& event = renderEvents[eventIndex];
-            if (event.timestampSamples >= blockStart) {
-                const auto sampleOffset = static_cast<int>(event.timestampSamples - blockStart);
-                midiBuffer.addEvent(event.message, juce::jlimit(0, numSamples - 1, sampleOffset));
+        for (int segStart = 0; segStart < numSamples;) {
+            const auto segAbsStart = blockStart + segStart;
+
+            while (eventIndex < renderEvents.size() && renderEvents[eventIndex].timestampSamples == segAbsStart
+                   && renderEvents[eventIndex].type == PerformanceEventType::presetChange) {
+                const auto& ev = renderEvents[eventIndex];
+                if (ev.presetId < timeline->presets.size()) {
+                    const auto& preset = timeline->presets[ev.presetId];
+                    applyAcousticSnapshotToBuiltin(pianoSynth, sineSynth, activeSynth, roomReverb, currentMasterGain,
+                                                   preset.acoustic, true);
+                }
+                ++eventIndex;
             }
 
-            ++eventIndex;
+            auto nextPresetOffset = numSamples;
+            for (std::size_t scan = eventIndex; scan < renderEvents.size(); ++scan) {
+                if (renderEvents[scan].timestampSamples >= blockEnd) {
+                    break;
+                }
+                if (renderEvents[scan].type == PerformanceEventType::presetChange) {
+                    nextPresetOffset = static_cast<int>(renderEvents[scan].timestampSamples - blockStart);
+                    break;
+                }
+            }
+
+            const auto segEnd = nextPresetOffset;
+            const auto segLen = segEnd - segStart;
+            const auto segAbsEnd = blockStart + segEnd;
+
+            segmentMidiBuffer.clear();
+
+            while (eventIndex < renderEvents.size() && renderEvents[eventIndex].timestampSamples < segAbsEnd) {
+                const auto& event = renderEvents[eventIndex];
+                if (event.type == PerformanceEventType::presetChange) {
+                    break;
+                }
+                if (event.timestampSamples >= segAbsStart) {
+                    const auto sampleOffset = static_cast<int>(event.timestampSamples - segAbsStart);
+                    const auto clampedOffset = juce::jlimit(0, segLen - 1, sampleOffset);
+                    const auto& msg = event.message;
+
+                    if (msg.isNoteOn()) {
+                        const auto ch = msg.getChannel();
+                        const auto sourceNote = msg.getNoteNumber();
+                        const auto finalOutputPitch = identityTracker.noteOn(ch, sourceNote, sourceNote);
+                        if (finalOutputPitch.has_value()) {
+                            segmentMidiBuffer.addEvent(juce::MidiMessage::noteOn(ch,
+                                                                                 static_cast<int>(*finalOutputPitch),
+                                                                                 msg.getFloatVelocity()),
+                                                       clampedOffset);
+                        }
+                    } else if (msg.isNoteOff()) {
+                        const auto ch = msg.getChannel();
+                        const auto sourceNote = msg.getNoteNumber();
+                        const auto result = identityTracker.noteOff(ch, sourceNote);
+                        if (result.shouldEmit) {
+                            segmentMidiBuffer.addEvent(
+                                juce::MidiMessage::noteOff(ch, result.outputPitch, msg.getFloatVelocity()),
+                                clampedOffset);
+                        }
+                    } else {
+                        if (msg.isController()) {
+                            const auto ctrl = msg.getControllerNumber();
+                            if (ctrl == 120 || ctrl == 123) {
+                                identityTracker.resetChannel(msg.getChannel());
+                            }
+                        } else if (msg.isAllNotesOff() || msg.isAllSoundOff()) {
+                            identityTracker.resetChannel(msg.getChannel());
+                        }
+                        segmentMidiBuffer.addEvent(msg, clampedOffset);
+                    }
+                }
+                ++eventIndex;
+            }
+
+            if (!panicSent && scaledTakeLength >= segAbsStart && scaledTakeLength < segAbsEnd) {
+                const auto offset = juce::jlimit(0, segLen - 1, static_cast<int>(scaledTakeLength - segAbsStart));
+                addPanicMidi(segmentMidiBuffer, offset);
+                identityTracker.resetOwnership();
+                panicSent = true;
+            }
+
+            juce::AudioBuffer<float> segmentAudioBuffer(audioBuffer.getArrayOfWritePointers(), options.numChannels,
+                                                        segStart, segLen);
+            segmentAudioBuffer.clear();
+
+            activeSynth->renderNextBlock(segmentAudioBuffer, segmentMidiBuffer, 0, segLen);
+
+            if (options.numChannels >= 2 && roomReverb.getWetLevel() > 1e-4f) {
+                roomReverb.processStereo(segmentAudioBuffer.getWritePointer(0), segmentAudioBuffer.getWritePointer(1),
+                                         segLen);
+            }
+            segmentAudioBuffer.applyGain(currentMasterGain);
+
+            segStart = segEnd;
         }
 
-        if (!panicSent && scaledTakeLength >= blockStart && scaledTakeLength < blockEnd) {
-            addPanicMidi(midiBuffer, juce::jlimit(0, numSamples - 1, static_cast<int>(scaledTakeLength - blockStart)));
-            panicSent = true;
-        }
-
-        synth.renderNextBlock(audioBuffer, midiBuffer, 0, numSamples);
-        if (options.numChannels >= 2 && options.reverbWet > 1e-4f) {
-            roomReverb.processStereo(audioBuffer.getWritePointer(0), audioBuffer.getWritePointer(1), numSamples);
-        }
-        audioBuffer.applyGain(gain);
         applyMasterSoftLimiter(audioBuffer, numSamples);
         if (!writer->writeFromAudioSampleBuffer(audioBuffer, 0, numSamples)) {
             DP_LOG_ERROR("[Export] WAV export failed while writing: " + destinationFile.getFullPathName());
             return false;
         }
+        blockStart = blockEnd;
+    }
+
+    if (!writer->flush()) {
+        DP_LOG_ERROR("[Export] WAV export failed while finalising: " + destinationFile.getFullPathName());
+        return false;
+    }
+    fileOutput->flush();
+    if (fileOutput->getStatus().failed()) {
+        DP_LOG_ERROR("[Export] WAV export failed while flushing: " + destinationFile.getFullPathName());
+        return false;
+    }
+    writer.reset();
+
+    if (progressCallback && !progressCallback(1.0)) {
+        return false;
+    }
+    if (!temporaryFile.overwriteTargetFileWithTemporary()) {
+        DP_LOG_ERROR("[Export] WAV export failed while replacing: " + destinationFile.getFullPathName());
+        return false;
     }
 
     return true;

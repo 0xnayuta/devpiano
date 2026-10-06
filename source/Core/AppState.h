@@ -54,7 +54,7 @@ struct PerformanceState {
 struct PluginState {
     // Mix of persisted recovery fields + runtime plugin host fields.
     juce::String searchPath;
-    juce::String lastPluginName;
+    juce::String lastPluginIdentifier;
     juce::String currentPluginName;
     juce::StringArray availablePluginNames;
     juce::String lastScanSummary;

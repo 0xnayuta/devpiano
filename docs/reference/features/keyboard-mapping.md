@@ -1,7 +1,7 @@
 # 电脑键盘映射与按键输入系统说明
 
 > 用途：说明 devpiano 的电脑键盘事件捕获（`KeyboardMidiMapper`）、稳定 KeyCode 映射、默认键位布局、输入法防干扰机制与专项测试清单。
-> 当前状态：已全量实现并经过充分的鲁棒性回归验证。
+> 验证边界：发音身份、最终投影和输入优先级有直接消费者证据；下方历史手工结果不等于本轮已覆盖全部 IME、DPI、声卡与厂商插件组合。
 > 更新时机：键盘映射算法、默认键位布局、按键防抖或输入法兼容策略发生变化时。
 
 ---
@@ -12,15 +12,16 @@
 
 1. **基于稳定 KeyCode 路由**：彻底摒弃依赖字符输入的脆弱模式，统一采用物理键盘扫描码规范化后的 KeyCode，不受 CapsLock 大小写切换影响；
 2. **中文输入法（IME）全面防御**：拦截并吸收按键事件，中文输入法处于激活状态下依然能稳定发声，且不弹出候选词输入框；
-3. **发音身份恒定与绝对防悬挂（Note-off Identity Preservation）**：按键按下（NoteOn）时以 `HeldKeyIdentity` 锁定发声音高、通道与力度快照；松键（NoteOff）时 100% 依据按下时记录的快照注销。动态切换 Group、移调或松开修饰键，绝不篡改 NoteOff 身份，从数学状态机上彻底杜绝悬挂音；
+3. **发音身份恒定与重叠持有**：`HeldKeyIdentity` 锁定 Group、modifier 和矩阵变换后的原音高/通道。Q/K 同音及矩阵合并音高的其他持有者仍按住时，首个松键不发 NoteOff；最后释放或失焦才按原身份关音。重复按下已松开的物理键仍可重新起音；录制将最终释放规范化为所有已捕获起音的同采样配对 Off；
 4. **5 行 QWERTY 键盘映射看板（QwertyComponent）**：在主窗口 Controls 与键盘区之间声明式嵌入 5 行自适应 ANSI 物理键位网格，击键即时物理下沉并具备 50fps 荧光余晖平滑淡出，支持 12-TET 和声色彩投影与一键折叠；
 5. **轻量键位分组（Layout Groups）**：单预设支持 4 组（Group A~D）独立移调、八度与通道配置，反引号键（`）或 UI 按钮秒级循环切组；
 6. **采样精确切分延音踏板（SustainPolicy::syncPedal）**：音频块内部采样点级别调度 $\text{CC64}(0) \to \text{NoteOn} \to \text{CC64}(127)$，消除空格键踩放时的断音空洞，杜绝线程 Sleep；
-7. **瞬态演奏修饰键（PerformanceModifierState）**：Shift 键瞬态力度拉满（Velocity Boost，最高仲裁优先级）、Alt 键瞬态高八度平移（+8va），纯事件流变换零全局配置污染，按键表面即时显示修饰状态标签；
+7. **瞬态演奏修饰键（PerformanceModifierState）**：Shift 对非静音绑定瞬态拉满力度，Alt 瞬态高八度平移（+8va）；静音绑定优先于 Shift、动态力度、微扰及矩阵固定力度。修饰符只变换事件，不改全局配置；
 8. **焦点丢失自动 Panic 清理（区分内/外部切换）**：焦点**离开应用**（如 Alt+Tab 切到其他程序）时，自动释放交互演奏音（电脑键盘 held keys + 虚拟键盘鼠标按住的音符），防止后台一直鸣响；焦点转移到**本进程其他顶层窗口**（插件编辑器、设置窗口）属于应用内部切换，不打断任何演奏；**MIDI 回放不受失焦影响**；
-9. **虚拟键盘显示与输入解耦**：虚拟键盘仅作为视觉反馈和鼠标演奏入口，电脑键盘演奏主路径由 `KeyboardMidiMapper` 独占，避免由于焦点切换引起重复触发；
+9. **双演奏看板与输入解耦**：QWERTY 和虚拟钢琴共同消费映射层的最终投影；配置输入身份与观察到的输出通道分开，连续鼠标点击和 MIDI 回放不会改变后续输入路由；
 10. **打字律动力度与人性化微扰（TypingCadenceEstimator & VelocityHumanizer）**：按键击键时间间隔（$\Delta t$）自适应估算演奏力度，高速连击/和弦齐奏（$\le 60\text{ms}$）赋予高动态力度（~122/127），慢速抒情（$\ge 500\text{ms}$）赋予轻柔力度（~76/127），空闲停顿（$> 1.0\text{s}$）重置为基准力度（100/127）。结合 FNV/Murmur 确定性伪随机微扰与触键力度曲线（Touch Velocity Curve），赋予物理键盘真实钢琴般的动态层次；计算结果直接注入发音与录制管线（UI 层不设置多余的数值力度 HUD）；
-11. **实时和弦识别与看板徽标（`devpiano::core::detectChord`）**：以当前被按住的键集（`heldKeys` 的实际发声音高）为输入，实时分析和声结构与低音转位，在 QWERTY 看板标题徽标（`qwerty-chord-badge`）与键盘内部 HUD 展示和弦名称；键盘内部 HUD 松键后平滑淡出。
+11. **绑定准入**：仅支持 `keyDown` 的“按下起音、松开释放”；预设显式 `keyUp` 或未知 trigger 拒绝，缺失 trigger 保持原 `keyDown` 默认。拒绝不改已有文件或当前预设。
+12. **实时和弦识别与看板徽标（`devpiano::core::detectChord`）**：以当前被按住的键集（`heldKeys` 的实际发声音高）为输入，实时分析和声结构与低音转位，在 QWERTY 看板标题徽标（`qwerty-chord-badge`）与键盘内部 HUD 展示和弦名称；键盘内部 HUD 松键后平滑淡出。
 
 ---
 
@@ -65,19 +66,29 @@ KeyboardMidiMapper::handleKeyPressed() / handleKeyStateChanged()
     │      ├── applyVelocityCurve(jitteredVelocity, touchVelocityCurve) 映射触键手感曲线
     │      └── modifierState.transformVelocity(...) 瞬态力度仲裁 (Shift 强制 1.0f 优先；静音绑定保持 0.0f)
     ├── 10. NoteOn: 经 MidiChannelMapper 变换并存入 HeldKeyIdentity 发音身份快照 (物理码/音高/通道/力度)，清空切分挂起
-    ├── 11. NoteOff: 100% 按 HeldKeyIdentity 快照注销 (杜绝悬挂音)
+    ├── 11. NoteOff: 最后持有者按 HeldKeyIdentity 原身份注销
     ▼
-MidiChannelMapper::sendNoteOn() / sendNoteOff() (经 16 通道矩阵变换)
+MidiChannelMapper::sendNoteOn() (矩阵变换) / sendNoteOff() (直接消费锁定身份)
     │
     ▼
-AudioEngine::MidiMessageCollector ──► [音频回调线程]
+AudioEngine::liveMidiQueue（有界 SPSC）──► [音频回调线程]
     │
     ├── SyncPedalProcessor (采样精确调度 CC64 切分踏板时序)
-    └── 发声处理 (InstrumentEndpoint)；消息线程按 KeyboardMidiMapper 快照刷新 QwertyViewModel，
-        CustomKeyboard 从 MidiKeyboardState 获取虚拟键盘可视状态
+    └── 发声处理 (InstrumentEndpoint)；消息线程消费同一 QwertyViewModel 的网格与 pianoKeys，
+        MidiKeyboardState 只负责实际发音活动的视觉反馈，不作为鼠标配置输入来源
 ```
 
 ---
+
+## 3.1 双看板最终投影与鼠标输入身份
+
+- `KeyboardMidiMapper::createQwertySnapshot()` 在映射层完成 Group、modifier、触键曲线、通道矩阵和 followKey 投影；`MidiChannelMapper::sendNoteOn()` 与投影共用 `applyTransform()`。
+- `QwertyViewModel` 同时提供电脑网格和按最终输出音高索引的 `pianoKeys`。两张看板显示同一最终音高/通道；UI 不反查原始布局或二次变换输出。
+- 点击保存的矩阵输入音高、通道和力度只经矩阵一次，NoteOff 使用起音返回的最终身份。钢琴着色观察到 Ch11 回放时，随后点击仍按原配置输入路由，而不是从 Ch11 再映射。
+- 未绑定琴键的可用输入也由映射层准备；超出 MIDI `0..127` 输入域而没有可用投影的琴键不发送 NoteOn。88 键键床不把范围外输出强行夹回可视区域。
+- 同输出音高的绑定标签由映射层合并，钢琴点击/编辑使用列表首个绑定的输入身份。标签、逐键颜色与新绑定编辑沿用配置输入音符索引，Group/modifier/矩阵变化不改写预设数据。
+- 快照中的力度是配置、曲线、modifier 与矩阵的静态投影；击键间隔与人性化动态力度仍在真实演奏事件中计算。零力度绑定在物理键盘、钢琴鼠标和 QWERTY 鼠标入口均保持静音。
+- 音名采用 `MIDI / 12 - 1` 的科学八度：`0/1/11` 属于八度 `-1`，`12` 为 `C0`；唱名偏移与单音 HUD 共用相同边界。
 
 ## 4. QWERTY 演奏看板与和声色彩投影
 
@@ -119,3 +130,7 @@ AudioEngine::MidiMessageCollector ──► [音频回调线程]
 | **KBD-015** | QWERTY 看板折叠持久化 | 点击折叠按钮收起 QWERTY 看板，重启应用后保持折叠；再次点击展开保持展开 | [x] 已通过 |
 | **KBD-016** | 打字律动力度与人性化微扰 | 快速连击（$\le 60\text{ms}$）触发高动态力度，慢速慢弹（$\ge 500\text{ms}$）触发轻柔力度，长暂停（$> 1.0\text{s}$）重置基准力度；Shift Boost 强制 1.0f | [ ] 待手工验证 |
 | **KBD-017** | 实时和弦识别 HUD 徽标 | 同时按下 `A+D+G`（C 大三和弦），标题徽标显示 `[C]`；弹奏转位和弦显示斜杠标记（如 `[C/E]`）；释放所有琴键后键盘内部 HUD 渐隐 | [ ] 待手工验证 |
+| **KBD-018** | 双看板与最终 MIDI 一致 | Group/Alt/矩阵/followKey 改动后，QWERTY 标签、钢琴绑定位置与实际录得 MIDI 的音高/通道一致；点击不二次变换输出 | [x] Windows 实际窗口/音频捕获验证通过 |
+| **KBD-019** | 鼠标路由不受输出反馈污染 | Ch1→Ch2、Ch2→Ch3 下同键重复点击仍从配置输入路由；Ch11 回放后再次点击保持原路由 | [x] Windows 实际回放/鼠标消费者验证通过 |
+| **KBD-020** | 静音绑定优先级 | 零力度绑定加 Shift，并将矩阵固定力度设为 127；物理、钢琴鼠标及 QWERTY 点击最终捕获均无 NoteOn | [x] Windows 实际音频/MIDI 捕获验证通过 |
+| **KBD-021** | 最低 MIDI 八度 | MIDI 0/1/11/12 的卡片音名、唱名偏移和单音 HUD 使用同一正确八度边界 | [x] 默认回归与实际窗口验证通过 |

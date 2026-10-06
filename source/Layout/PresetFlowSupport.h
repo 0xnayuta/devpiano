@@ -6,6 +6,10 @@
 
 #include "Layout/PerformancePreset.h"
 
+namespace devpiano::recording {
+struct RecordedPreset;
+}
+
 class MainComponent;
 
 namespace devpiano::layout {
@@ -17,10 +21,10 @@ public:
 
     // ---- Apply ----
 
-    void applyPresetById(const juce::String& presetId);
+    bool applyPresetById(const juce::String& presetId);
     void applyPresetByIndex(int zeroBasedIndex);
-    void applyPresetData(const PerformancePreset& preset);
-
+    void applyPresetData(const PerformancePreset& preset, bool fileBacked);
+    void applyRecordedPresetUi(const devpiano::recording::RecordedPreset& recordedPreset);
     // ---- CRUD ----
 
     void handleSaveAsNewPreset();
@@ -35,16 +39,16 @@ public:
     [[nodiscard]] juce::String getCurrentPresetId() const;
     [[nodiscard]] int getPresetCount() const;
 
-    [[nodiscard]] PerformancePreset captureCurrentState(const juce::String& name) const;
+    [[nodiscard]] PerformancePreset captureCurrentState(const juce::String& name, const juce::String& uuid = {}) const;
     /// Auto-saves the currently active preset (if any) with the latest state.
     bool autoSaveCurrentPreset();
 
 private:
     void refreshCache(bool force = false);
-    void commitPreset(const PerformancePreset& preset);
+    void commitPreset(const PerformancePreset& preset, bool fileBacked);
     void updateUiAfterCommit();
     /// Save the current live state as a preset to `file` and refresh the UI.
-    void savePresetFromCurrentState(const juce::String& name, const juce::File& file);
+    void savePresetFromCurrentState(const juce::String& name, const juce::File& file, const juce::String& uuid = {});
 
     MainComponent& owner;
     std::vector<PerformancePreset> cachedPresets;

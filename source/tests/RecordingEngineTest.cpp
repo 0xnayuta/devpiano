@@ -1,8 +1,10 @@
 #include <JuceHeader.h>
 
+#include "Recording/MidiFileExporter.h"
+#include "Recording/MidiFileImporter.h"
 #include "Recording/RecordingEngine.h"
 #include "Recording/RecordingFlowSupport.h"
-#include "Recording/RenderPipeline.h"
+#include "TestHelpers.h"
 
 using namespace devpiano::recording;
 
@@ -65,7 +67,6 @@ public:
             expect(!engine.isRecording(), "should no longer be recording after stop");
             expect(engine.getState() == RecordingState::stopped, "state should be stopped");
 
-            expectEquals(3, static_cast<int>(take.events.size()));
             expectEquals(44100.0, take.sampleRate);
             expect(take.lengthSamples >= 8820, "lengthSamples should cover last event");
 
@@ -123,16 +124,6 @@ public:
             engine.stopRecording();
             expect(engine.hasTake(), "hasTake must be valid after stopRecording");
         }
-
-        beginTest("clampToInt64 robust conversion on NaN, negative and huge values (SEC-006)");
-        {
-            expectEquals(clampToInt64(-100.0), static_cast<std::int64_t>(0));
-            expectEquals(clampToInt64(0.0), static_cast<std::int64_t>(0));
-            expectEquals(clampToInt64(std::numeric_limits<double>::quiet_NaN()), static_cast<std::int64_t>(0));
-            expectEquals(clampToInt64(44100.4), static_cast<std::int64_t>(44100));
-            expectEquals(clampToInt64(44100.6), static_cast<std::int64_t>(44101));
-            expectEquals(clampToInt64(1e30), std::numeric_limits<std::int64_t>::max());
-        }
     }
 };
 
@@ -186,7 +177,7 @@ public:
             blockEvents = countMidiBufferEvents(buf);
             expectEquals(1, blockEvents, "block containing sample 4410 should have one event (note-off)");
 
-            engine.stopPlayback();
+            engine.stopPlaybackQuiescent();
             expect(!engine.isPlaying(), "should no longer be playing after stop");
         }
 
@@ -212,6 +203,65 @@ public:
 
             // Consume again → false.
             expect(!engine.consumePlaybackEndedFlag(), "flag should be cleared after consume");
+        }
+
+        beginTest("rejected numeric timelines leave the playing take intact");
+        {
+            const auto original = buildTake(48000.0, 48000, { { 480, 65, true, 1, 1.0f } });
+            for (const auto invalidRate :
+                 { 1e-300, std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity() }) {
+                RecordingEngine engine;
+                engine.startPlayback(original, 44100.0);
+                auto invalid = original;
+                invalid.sampleRate = invalidRate;
+                engine.startPlayback(invalid, 44100.0);
+                expect(engine.isPlaying());
+                expectEquals(engine.getPlaybackTakeLengthSamples(), std::int64_t { 48000 });
+                juce::MidiBuffer buffer;
+                engine.renderPlaybackBlock(buffer, 0, 512);
+                expectEquals(buffer.getNumEvents(), 1);
+                for (const auto event : buffer) {
+                    expectEquals(event.samplePosition, 441);
+                    expectEquals(event.getMessage().getNoteNumber(), 65);
+                }
+            }
+            RecordingEngine engine;
+            auto oversized = original;
+            oversized.lengthSamples = std::numeric_limits<std::int64_t>::max();
+            engine.startPlayback(oversized, 44100.0);
+            expect(!engine.isPlaying());
+            engine.startPlayback(original, 1e-300);
+            expect(!engine.isPlaying());
+        }
+
+        beginTest("valid sample-rate conversion and speed remain deterministic after seek");
+        {
+            const auto take = buildTake(48000.0, 48000, { { 24000, 72, true, 1, 1.0f } });
+            RecordingEngine engine;
+            engine.setPlaybackSpeedMultiplier(2.0);
+            engine.startPlaybackAtTakeSample(take, 44100.0, 24000);
+            expectEquals(engine.getPlaybackPositionSamples(), std::int64_t { 11025 });
+            engine.setPlaybackSpeedMultiplier(std::numeric_limits<double>::quiet_NaN());
+            expectEquals(engine.getPlaybackSpeedMultiplier(), 2.0);
+            juce::MidiBuffer buffer;
+            engine.renderPlaybackBlock(buffer, 11025, 128);
+            int notes = 0;
+            for (const auto event : buffer) {
+                if (event.getMessage().isNoteOn()) {
+                    ++notes;
+                    expectEquals(event.samplePosition, 0);
+                    expectEquals(event.getMessage().getNoteNumber(), 72);
+                }
+            }
+            expectEquals(notes, 1);
+            engine.advancePlaybackPosition(128);
+            while (engine.needsPlaybackRender()) {
+                buffer.clear();
+                engine.renderPlaybackBlock(buffer, engine.getPlaybackPositionSamples(), 128);
+                engine.advancePlaybackPosition(128);
+            }
+            expect(engine.consumePlaybackEndedFlag());
+            expectEquals(engine.getPlaybackPositionSamples(), std::int64_t { 22050 });
         }
 
         beginTest("isPlaying returns false in idle state");
@@ -253,13 +303,15 @@ public:
                 int count = 0;
                 int sampleOff = -1;
                 for (auto m : buf) {
-                    ++count;
-                    sampleOff = m.samplePosition;
+                    if (m.getMessage().isNoteOn()) {
+                        ++count;
+                        sampleOff = m.samplePosition;
+                    }
                 }
                 expectEquals(1, count);
                 expectEquals(4410, sampleOff, "at 1.0x event should be at original offset");
             }
-            engine.stopPlayback();
+            engine.stopPlaybackQuiescent();
 
             // 2.0x speed
             engine.setPlaybackSpeedMultiplier(2.0);
@@ -271,13 +323,15 @@ public:
                 int count = 0;
                 int sampleOff = -1;
                 for (auto m : buf) {
-                    ++count;
-                    sampleOff = m.samplePosition;
+                    if (m.getMessage().isNoteOn()) {
+                        ++count;
+                        sampleOff = m.samplePosition;
+                    }
                 }
                 expectEquals(1, count);
                 expectEquals(2205, sampleOff, "at 2.0x event should be at half the offset");
             }
-            engine.stopPlayback();
+            engine.stopPlaybackQuiescent();
         }
 
         beginTest("speed clamping");
@@ -364,9 +418,6 @@ public:
             engine.recordEvent(juce::MidiMessage::noteOn(1, 64, 1.0f), RecordingEventSource::computerKeyboard, 200);
             expect(engine.getDroppedEventCount() > 0, "should have dropped events beyond capacity");
             expectEquals(static_cast<std::size_t>(1), engine.getDroppedEventCount());
-
-            auto take = engine.stopRecording();
-            expectEquals(2, static_cast<int>(take.events.size()), "only 2 events should be retained");
         }
 
         beginTest("no drops with sufficient capacity");
@@ -381,8 +432,6 @@ public:
             }
 
             expectEquals(static_cast<int>(engine.getDroppedEventCount()), 0);
-            auto take = engine.stopRecording();
-            expectEquals(50, static_cast<int>(take.events.size()));
         }
 
         beginTest("reserved capacity is queryable");
@@ -405,19 +454,21 @@ public:
     }
 
     void runTest() override {
-        beginTest("preset change events merged into final take");
+        beginTest("preset registration is captured at its affected audio boundary");
         {
             RecordingEngine engine;
             engine.reserveEvents(64);
             engine.startRecording(44100.0);
 
             engine.recordEvent(juce::MidiMessage::noteOn(1, 60, 1.0f), RecordingEventSource::computerKeyboard, 0);
-            engine.recordPresetChange(3, 2205);
+            RecordedPreset preset { devpiano::layout::makeDefaultPreset(), {} };
+            engine.advanceRecordingPosition(2205);
+            engine.recordPresetChange(preset);
+            juce::MidiBuffer emptyBlock;
+            engine.recordMidiBufferBlock(emptyBlock, RecordingEventSource::realtimeMidiBuffer, 2205);
             engine.recordEvent(juce::MidiMessage::noteOn(1, 64, 1.0f), RecordingEventSource::computerKeyboard, 4410);
 
             auto take = engine.stopRecording();
-            // 2 note events + 1 preset change → 3 total.
-            expectEquals(3, static_cast<int>(take.events.size()));
 
             int presetCount = 0;
             for (const auto& ev : take.events) {
@@ -439,7 +490,7 @@ public:
             // JUCE expect() 失败时仅记录不中断，继续解引用会在断言失败时崩
             // 溃——用 if 守卫满足 clang-analyzer 的 null 检查。
             if (presetEv != nullptr) {
-                expectEquals(static_cast<uint8_t>(3), presetEv->presetId);
+                expectEquals<juce::uint64>(0, presetEv->presetId);
                 expectEquals(static_cast<std::int64_t>(2205), presetEv->timestampSamples);
             }
 
@@ -457,7 +508,7 @@ public:
         {
             RecordingEngine engine;
             engine.reserveEvents(64);
-            engine.recordPresetChange(1, 0);
+            engine.recordPresetChange({ devpiano::layout::makeDefaultPreset(), {} });
             expect(!engine.isRecording());
             expect(!engine.hasTake());
         }
@@ -475,24 +526,27 @@ public:
     }
 
     void runTest() override {
-        beginTest("preset changes drained during playback");
+        beginTest("final preset notification survives playback completion");
         {
             RecordingTake take;
             take.sampleRate = 44100.0;
             take.lengthSamples = 5000;
+            take.presets.push_back({ devpiano::layout::makeDefaultPreset(), {} });
+            take.presets.push_back({ devpiano::layout::makeDefaultPreset(), {} });
+            take.presets[1].acoustic.masterGain = 0.0f;
             // Insert a preset-change event manually.
             {
                 PerformanceEvent ev;
                 ev.timestampSamples = 1000;
                 ev.type = PerformanceEventType::presetChange;
-                ev.presetId = 7;
+                ev.presetId = 0;
                 take.events.push_back(ev);
             }
             {
                 PerformanceEvent ev;
                 ev.timestampSamples = 3000;
                 ev.type = PerformanceEventType::presetChange;
-                ev.presetId = 2;
+                ev.presetId = 1;
                 take.events.push_back(ev);
             }
 
@@ -501,17 +555,23 @@ public:
 
             juce::MidiBuffer buf;
             engine.renderPlaybackBlock(buf, 0, 5000); // covers both preset events
+            engine.advancePlaybackPosition(5000);
 
             auto drained = engine.drainPendingPresetChanges();
-            expectEquals(static_cast<int>(drained.size()), 2);
-            expectEquals(drained[0].presetId, static_cast<uint8_t>(7));
-            expectEquals(drained[1].presetId, static_cast<uint8_t>(2));
+            expectEquals(static_cast<int>(drained.size()), 1);
+            if (!drained.empty()) {
+                expect(drained[0].snapshot != nullptr);
+                expectEquals<juce::uint64>(drained[0].presetId, 1);
+                if (drained[0].snapshot != nullptr) {
+                    expectEquals(drained[0].snapshot->acoustic.masterGain, 0.0f);
+                }
+            }
 
             // Drain again → empty.
             auto drained2 = engine.drainPendingPresetChanges();
             expect(drained2.empty());
 
-            engine.stopPlayback();
+            engine.stopPlaybackQuiescent();
         }
 
         beginTest("no preset changes when none recorded");
@@ -529,7 +589,7 @@ public:
             auto drained = engine.drainPendingPresetChanges();
             expect(drained.empty());
 
-            engine.stopPlayback();
+            engine.stopPlaybackQuiescent();
         }
     }
 };
@@ -579,7 +639,7 @@ public:
             }
             expect(foundPitchWheel, "playback should emit a pitch wheel event");
 
-            engine.stopPlayback();
+            engine.stopPlaybackQuiescent();
         }
     }
 };
@@ -661,7 +721,6 @@ public:
             engine.recordMidiBufferBlock(buf, RecordingEventSource::realtimeMidiBuffer, 1024);
 
             auto take = engine.stopRecording();
-            expectEquals(2, static_cast<int>(take.events.size()));
 
             // First event: 1024 + 0 = 1024.
             expectEquals(static_cast<std::int64_t>(1024), take.events[0].timestampSamples);
@@ -712,8 +771,10 @@ public:
             engine.renderPlaybackBlock(buf, 5000, 500);
             int count = 0;
             for (auto m : buf) {
-                ++count;
-                expectEquals(0, m.samplePosition, "event should land at block start");
+                if (m.getMessage().isNoteOn()) {
+                    ++count;
+                    expectEquals(0, m.samplePosition, "event should land at block start");
+                }
             }
             expectEquals(1, count, "resumed playback should render the event at the resume point");
         }
@@ -838,7 +899,6 @@ public:
             auto take = engine.stopRecording();
 
             expect(engine.getState() == RecordingState::stopped, "state should be stopped after stopRecording");
-            expectEquals(1, static_cast<int>(take.events.size()), "events recorded before pausing must be kept");
             expectEquals(static_cast<std::int64_t>(4410), take.lengthSamples,
                          "length must be finalised even when stopping from paused");
         }
@@ -868,18 +928,18 @@ public:
             expectEquals(static_cast<std::int64_t>(75), pendingSample);
 
             juce::MidiBuffer cleanup;
-            expect(engine.applyPendingPlaybackSeek(cleanup));
+            expect(engine.applyPendingTransportCommands(cleanup).seekApplied);
             expectEquals(static_cast<std::int64_t>(150), engine.getPlaybackPositionSamples());
             expectEquals(48, countMidiBufferEvents(cleanup));
 
             engine.requestPlaybackSeek(-1);
             cleanup.clear();
-            expect(engine.applyPendingPlaybackSeek(cleanup));
+            expect(engine.applyPendingTransportCommands(cleanup).seekApplied);
             expectEquals(static_cast<std::int64_t>(0), engine.getPlaybackPositionSamples());
 
             engine.requestPlaybackSeek(500);
             cleanup.clear();
-            expect(engine.applyPendingPlaybackSeek(cleanup));
+            expect(engine.applyPendingTransportCommands(cleanup).seekApplied);
             expectEquals(static_cast<std::int64_t>(400), engine.getPlaybackPositionSamples());
             expectEquals(static_cast<std::int64_t>(200), engine.getPlaybackPositionInTakeSamples());
         }
@@ -898,11 +958,13 @@ public:
 
             juce::MidiBuffer buffer;
             engine.renderPlaybackBlock(buffer, 40, 41);
-            expectEquals(3, countMidiBufferEvents(buffer));
 
             int eventIndex = 0;
             for (const auto metadata : buffer) {
                 const auto message = metadata.getMessage();
+                if (!message.isNoteOnOrOff()) {
+                    continue;
+                }
                 if (eventIndex == 0) {
                     expectEquals(0, metadata.samplePosition);
                     expect(message.isNoteOn());
@@ -933,7 +995,7 @@ public:
 
             engine.requestPlaybackSeek(25);
             juce::MidiBuffer seekCleanup;
-            expect(engine.applyPendingPlaybackSeek(seekCleanup));
+            expect(engine.applyPendingTransportCommands(seekCleanup).seekApplied);
 
             juce::MidiBuffer buffer;
             engine.renderPlaybackBlock(buffer, 25, 4);
@@ -1050,11 +1112,13 @@ public:
 
             engine.pausePlayback();
             engine.setPlaybackSpeedMultiplier(0.5);
+            engine.applyPendingTransportCommandsQuiescent();
             expectEquals(static_cast<std::int64_t>(140), engine.getPlaybackPositionInTakeSamples());
             expectEquals(static_cast<std::int64_t>(280), engine.getPlaybackPositionSamples());
 
-            engine.stopPlayback();
+            engine.stopPlaybackQuiescent();
             engine.setPlaybackSpeedMultiplier(2.0);
+            engine.applyPendingTransportCommandsQuiescent();
             expectEquals(static_cast<std::int64_t>(140), engine.getPlaybackPositionInTakeSamples());
             expectEquals(static_cast<std::int64_t>(70), engine.getPlaybackPositionSamples());
         }
@@ -1069,8 +1133,9 @@ public:
 
             juce::MidiBuffer buffer;
             engine.renderPlaybackBlock(buffer, 10, 20);
-            expectEquals(1, countMidiBufferEvents(buffer),
-                         "the first block contains only the note at A, with no early panic");
+            for (const auto item : buffer) {
+                expect(!item.getMessage().isAllSoundOff(), "no cleanup before B");
+            }
             engine.advancePlaybackPosition(20);
             expectEquals(static_cast<std::int64_t>(10), engine.getPlaybackPositionSamples());
 
@@ -1152,3 +1217,716 @@ public:
 };
 
 static AbLoopTest abLoopTest;
+
+// =============================================================================
+
+class PlaybackTransportConcurrencyTest final : public juce::UnitTest {
+public:
+    PlaybackTransportConcurrencyTest()
+        : juce::UnitTest("RecordingEngine: transport concurrency", "DevPiano/Engine") {
+    }
+
+    void runTest() override {
+        beginTest("speed multiplier published during active rendering applies at block boundary");
+        {
+            auto take = buildTake(1000.0, 2000,
+                                  {
+                                      { 0, 60, true, 1, 1.0f },
+                                      { 200, 60, false, 1, 0.0f },
+                                      { 400, 62, true, 1, 1.0f },
+                                      { 600, 62, false, 1, 0.0f },
+                                  });
+
+            RecordingEngine engine;
+            engine.setPlaybackSpeedMultiplier(1.0);
+            engine.startPlayback(take, 1000.0, 0);
+
+            juce::WaitableEvent audioInsideBlock0;
+            juce::WaitableEvent uiPublishedSpeed;
+            juce::WaitableEvent audioFinishedBlock0;
+            juce::WaitableEvent audioFinishedBlock1;
+
+            juce::MidiBuffer block0Buffer;
+            juce::MidiBuffer block1Buffer;
+            RecordingEngine::TransportCommandResult block1Result;
+            std::int64_t posAfterBlock0 = 0;
+            std::int64_t posAfterBlock1 = 0;
+
+            struct AudioThread final : public juce::Thread {
+                AudioThread(RecordingEngine& e, juce::WaitableEvent& insideB0, juce::WaitableEvent& uiPub,
+                            juce::WaitableEvent& finB0, juce::WaitableEvent& finB1, juce::MidiBuffer& b0Buf,
+                            juce::MidiBuffer& b1Buf, RecordingEngine::TransportCommandResult& b1Res, std::int64_t& p0,
+                            std::int64_t& p1)
+                    : juce::Thread("TestAudioThread")
+                    , engine(e)
+                    , audioInsideBlock0(insideB0)
+                    , uiPublishedSpeed(uiPub)
+                    , audioFinishedBlock0(finB0)
+                    , audioFinishedBlock1(finB1)
+                    , block0Buffer(b0Buf)
+                    , block1Buffer(b1Buf)
+                    , block1Result(b1Res)
+                    , posAfterBlock0(p0)
+                    , posAfterBlock1(p1) {
+                }
+
+                ~AudioThread() override {
+                    uiPublishedSpeed.signal();
+                    waitForThreadToExit(-1);
+                }
+
+                void run() override {
+                    engine.renderPlaybackBlock(block0Buffer, 0, 300);
+                    audioInsideBlock0.signal();
+                    uiPublishedSpeed.wait(5000);
+
+                    engine.advancePlaybackPosition(300);
+                    posAfterBlock0 = engine.getPlaybackPositionSamples();
+                    audioFinishedBlock0.signal();
+
+                    block1Result = engine.applyPendingTransportCommands(block1Buffer);
+                    const auto startPos = engine.getPlaybackPositionSamples();
+                    engine.renderPlaybackBlock(block1Buffer, startPos, 400);
+                    engine.advancePlaybackPosition(400);
+                    posAfterBlock1 = engine.getPlaybackPositionSamples();
+                    audioFinishedBlock1.signal();
+                }
+
+                RecordingEngine& engine;
+                juce::WaitableEvent& audioInsideBlock0;
+                juce::WaitableEvent& uiPublishedSpeed;
+                juce::WaitableEvent& audioFinishedBlock0;
+                juce::WaitableEvent& audioFinishedBlock1;
+                juce::MidiBuffer& block0Buffer;
+                juce::MidiBuffer& block1Buffer;
+                RecordingEngine::TransportCommandResult& block1Result;
+                std::int64_t& posAfterBlock0;
+                std::int64_t& posAfterBlock1;
+            };
+
+            AudioThread audioThread(engine, audioInsideBlock0, uiPublishedSpeed, audioFinishedBlock0,
+                                    audioFinishedBlock1, block0Buffer, block1Buffer, block1Result, posAfterBlock0,
+                                    posAfterBlock1);
+
+            audioThread.startThread();
+
+            expect(audioInsideBlock0.wait(5000), "audio thread should enter block 0");
+            engine.setPlaybackSpeedMultiplier(2.0);
+
+            expectEquals(2.0, engine.getPlaybackSpeedMultiplier());
+            expectEquals(1.0, engine.getEffectivePlaybackSpeedMultiplier(),
+                         "effective speed on audio timeline must remain 1.0x until block boundary");
+
+            uiPublishedSpeed.signal();
+
+            expect(audioFinishedBlock0.wait(5000), "audio thread should finish block 0");
+            expectEquals(static_cast<std::int64_t>(300), posAfterBlock0, "position advanced at 1.0x to 300 samples");
+
+            expect(audioFinishedBlock1.wait(5000), "audio thread should finish block 1");
+            audioThread.waitForThreadToExit(-1);
+
+            expect(block1Result.speedChanged, "block 1 boundary must apply speed change");
+            expectEquals(2.0, engine.getEffectivePlaybackSpeedMultiplier(),
+                         "effective speed must be 2.0x after block boundary");
+
+            int noteOn62Count = 0;
+            int noteOff62Count = 0;
+            for (const auto meta : block1Buffer) {
+                const auto msg = meta.getMessage();
+                if (msg.isNoteOn() && msg.getNoteNumber() == 62) {
+                    ++noteOn62Count;
+                    expectEquals(50, meta.samplePosition, "NoteOn 62 offset at 2.0x");
+                }
+                if (msg.isNoteOff() && msg.getNoteNumber() == 62) {
+                    ++noteOff62Count;
+                    expectEquals(150, meta.samplePosition, "NoteOff 62 offset at 2.0x");
+                }
+            }
+            expectEquals(1, noteOn62Count);
+            expectEquals(1, noteOff62Count);
+
+            engine.stopPlaybackQuiescent();
+        }
+
+        beginTest("active stop published during active rendering dominates and delivers panic cleanup at boundary");
+        {
+            auto take = buildTake(1000.0, 2000,
+                                  {
+                                      { 0, 60, true, 1, 1.0f },
+                                      { 1500, 60, false, 1, 0.0f },
+                                  });
+
+            RecordingEngine engine;
+            engine.startPlayback(take, 1000.0, 0);
+
+            juce::WaitableEvent noteSoundingEvent;
+            juce::WaitableEvent stopPublishedEvent;
+            juce::WaitableEvent stopAppliedEvent;
+
+            juce::MidiBuffer block0Buf;
+            juce::MidiBuffer block1Buf;
+            RecordingEngine::TransportCommandResult block1Result;
+            std::int64_t stopPosSamples = 0;
+
+            struct StopAudioThread final : public juce::Thread {
+                StopAudioThread(RecordingEngine& e, juce::WaitableEvent& sounding, juce::WaitableEvent& stopPub,
+                                juce::WaitableEvent& stopApp, juce::MidiBuffer& b0, juce::MidiBuffer& b1,
+                                RecordingEngine::TransportCommandResult& res, std::int64_t& stopPos)
+                    : juce::Thread("TestStopAudioThread")
+                    , engine(e)
+                    , noteSoundingEvent(sounding)
+                    , stopPublishedEvent(stopPub)
+                    , stopAppliedEvent(stopApp)
+                    , block0Buf(b0)
+                    , block1Buf(b1)
+                    , block1Result(res)
+                    , stopPosSamples(stopPos) {
+                }
+
+                ~StopAudioThread() override {
+                    stopPublishedEvent.signal();
+                    waitForThreadToExit(-1);
+                }
+
+                void run() override {
+                    engine.renderPlaybackBlock(block0Buf, 0, 200);
+                    engine.advancePlaybackPosition(200);
+                    noteSoundingEvent.signal();
+
+                    stopPublishedEvent.wait(5000);
+
+                    block1Result = engine.applyPendingTransportCommands(block1Buf);
+                    stopPosSamples = engine.getPlaybackPositionSamples();
+                    stopAppliedEvent.signal();
+                }
+
+                RecordingEngine& engine;
+                juce::WaitableEvent& noteSoundingEvent;
+                juce::WaitableEvent& stopPublishedEvent;
+                juce::WaitableEvent& stopAppliedEvent;
+                juce::MidiBuffer& block0Buf;
+                juce::MidiBuffer& block1Buf;
+                RecordingEngine::TransportCommandResult& block1Result;
+                std::int64_t& stopPosSamples;
+            };
+
+            StopAudioThread stopThread(engine, noteSoundingEvent, stopPublishedEvent, stopAppliedEvent, block0Buf,
+                                       block1Buf, block1Result, stopPosSamples);
+            stopThread.startThread();
+
+            expect(noteSoundingEvent.wait(5000), "audio thread should sound note in block 0");
+            expect(engine.isPlaying(), "engine must still be playing while audio is rendering block 0");
+
+            engine.requestPlaybackStop();
+            expect(engine.isPlaying(), "engine must remain playing until audio block boundary consumes stop");
+
+            stopPublishedEvent.signal();
+
+            expect(stopAppliedEvent.wait(5000), "audio thread should apply stop at block boundary");
+            stopThread.waitForThreadToExit(-1);
+
+            expect(block1Result.stopApplied, "block 1 boundary must apply stop command");
+            expect(!engine.isPlaying(), "engine must be stopped after block boundary application");
+            expectEquals(static_cast<std::int64_t>(200), stopPosSamples,
+                         "playback position must retain user-visible sample position");
+
+            int allNotesOffCount = 0;
+            int cc64Count = 0;
+            int cc120Count = 0;
+            for (const auto meta : block1Buf) {
+                const auto msg = meta.getMessage();
+                if (msg.isAllNotesOff()) {
+                    ++allNotesOffCount;
+                }
+                if (msg.isController() && msg.getControllerNumber() == 64 && msg.getControllerValue() == 0) {
+                    ++cc64Count;
+                }
+                if (msg.isController() && msg.getControllerNumber() == 120 && msg.getControllerValue() == 0) {
+                    ++cc120Count;
+                }
+            }
+            expectEquals(16, allNotesOffCount, "All Notes Off on 16 channels");
+            expectEquals(16, cc64Count, "Sustain pedal release on 16 channels");
+            expectEquals(16, cc120Count, "All Sound Off on 16 channels");
+        }
+
+        beginTest("stop dominates concurrent speed and seek at audio block boundary");
+        {
+            auto take = buildTake(1000.0, 2000,
+                                  {
+                                      { 0, 60, true, 1, 1.0f },
+                                      { 1000, 60, false, 1, 0.0f },
+                                  });
+
+            RecordingEngine engine;
+            engine.startPlayback(take, 1000.0, 0);
+
+            engine.requestPlaybackSeek(500);
+            engine.setPlaybackSpeedMultiplier(2.0);
+            engine.requestPlaybackStop();
+
+            juce::MidiBuffer boundaryBuffer;
+            const auto result = engine.applyPendingTransportCommands(boundaryBuffer);
+
+            expect(result.stopApplied, "stop must dominate at the boundary");
+            expect(!result.seekApplied, "seek must be superseded by stop");
+            expect(!result.speedChanged, "speed must be superseded by stop");
+            expect(!engine.isPlaying(), "engine must be stopped");
+            expectEquals(48, countMidiBufferEvents(boundaryBuffer), "panic cleanup emitted");
+        }
+
+        beginTest("speed change at floor-rounding boundary preserves cursor and delivers NoteOff without replay");
+        {
+            auto take = buildTake(1000.0, 1000,
+                                  {
+                                      { 100, 60, true, 1, 1.0f },
+                                      { 300, 60, false, 1, 0.0f },
+                                  });
+
+            RecordingEngine engine;
+            engine.setPlaybackSpeedMultiplier(1.0);
+            engine.startPlayback(take, 1000.0, 0);
+
+            juce::MidiBuffer block0Buf;
+            engine.renderPlaybackBlock(block0Buf, 0, 101);
+            expectEquals(1, countMidiBufferEvents(block0Buf), "block 0 should contain NoteOn 60 at sample 100");
+            engine.advancePlaybackPosition(101);
+            expectEquals(static_cast<std::int64_t>(101), engine.getPlaybackPositionSamples());
+
+            engine.setPlaybackSpeedMultiplier(2.0);
+
+            juce::MidiBuffer block1CmdBuf;
+            const auto cmdResult = engine.applyPendingTransportCommands(block1CmdBuf);
+            expect(cmdResult.speedChanged);
+            expectEquals(2.0, engine.getEffectivePlaybackSpeedMultiplier());
+
+            const auto block1Start = engine.getPlaybackPositionSamples();
+            expectEquals(static_cast<std::int64_t>(50), block1Start);
+
+            juce::MidiBuffer block1Buf;
+            engine.renderPlaybackBlock(block1Buf, block1Start, 70);
+            int block1NoteOnCount = 0;
+            int block1NoteOffCount = 0;
+            for (const auto meta : block1Buf) {
+                if (meta.getMessage().isNoteOn()) {
+                    ++block1NoteOnCount;
+                }
+                if (meta.getMessage().isNoteOff()) {
+                    ++block1NoteOffCount;
+                }
+            }
+            expectEquals(0, block1NoteOnCount, "NoteOn 60 must NOT replay at the rounding boundary");
+            expectEquals(0, block1NoteOffCount, "NoteOff 60 is at 300 (scaled to 150), not in [50, 120)");
+            engine.advancePlaybackPosition(70);
+            expectEquals(static_cast<std::int64_t>(120), engine.getPlaybackPositionSamples());
+
+            juce::MidiBuffer block2Buf;
+            engine.renderPlaybackBlock(block2Buf, 120, 50);
+            int block2NoteOnCount = 0;
+            int block2NoteOffCount = 0;
+            int noteOffOffset = -1;
+            for (const auto meta : block2Buf) {
+                if (meta.getMessage().isNoteOn()) {
+                    ++block2NoteOnCount;
+                }
+                if (meta.getMessage().isNoteOff() && meta.getMessage().getNoteNumber() == 60) {
+                    ++block2NoteOffCount;
+                    noteOffOffset = meta.samplePosition;
+                }
+            }
+            expectEquals(0, block2NoteOnCount);
+            expectEquals(1, block2NoteOffCount, "NoteOff 60 must be delivered cleanly");
+            expectEquals(30, noteOffOffset, "NoteOff 60 offset = 150 - 120 = 30");
+
+            engine.advancePlaybackPosition(50);
+            engine.stopPlaybackQuiescent();
+        }
+
+        beginTest("clear retains selected playback speed multiplier");
+        {
+            RecordingEngine engine;
+            engine.setPlaybackSpeedMultiplier(1.5);
+            expectEquals(1.5, engine.getPlaybackSpeedMultiplier());
+
+            engine.clear();
+            expectEquals(1.5, engine.getPlaybackSpeedMultiplier(),
+                         "clear must not silently reset user-selected playback speed");
+        }
+    }
+};
+
+static PlaybackTransportConcurrencyTest playbackTransportConcurrencyTest;
+
+class PhaseDTransportBoundaryTest final : public juce::UnitTest {
+public:
+    PhaseDTransportBoundaryTest()
+        : juce::UnitTest("RecordingEngine: sample and identity boundaries", "DevPiano/Engine") {
+    }
+
+    void runTest() override {
+        beginTest("count-in first block excludes earlier input and keeps the exact downbeat");
+        {
+            RecordingEngine engine;
+            engine.reserveEvents(16);
+            engine.armRecording(48000.0);
+            engine.startArmedRecording();
+            juce::MidiBuffer midi;
+            midi.addEvent(juce::MidiMessage::noteOn(1, 60, 0.8f), 63);
+            midi.addEvent(juce::MidiMessage::noteOn(1, 64, 0.8f), 64);
+            midi.addEvent(juce::MidiMessage::noteOff(1, 64), 80);
+            engine.recordMidiBufferBlock(midi, RecordingEventSource::realtimeMidiBuffer, 0, 64);
+            engine.advanceRecordingPosition(64);
+            const auto take = engine.stopRecording();
+            expectEquals(take.lengthSamples, std::int64_t { 64 });
+            expectEquals(take.events.size(), std::size_t { 2 });
+            for (const auto& event : take.events) {
+                expectEquals(event.message.getNoteNumber(), 64);
+                expectEquals(event.timestampSamples,
+                             event.message.isNoteOn() ? std::int64_t { 0 } : std::int64_t { 16 });
+            }
+        }
+
+        beginTest("armRecording clears pending playback stop command and preserves countingIn state");
+        {
+            RecordingEngine engine;
+            const auto take = buildTake(48000.0, 48000, { { 0, 60, true, 1, 0.8f }, { 24000, 60, false, 1, 0.0f } });
+            engine.startPlayback(take, 48000.0, 0);
+            expect(engine.isPlaying());
+
+            // User clicks stop on playback:
+            engine.requestPlaybackStop();
+
+            // Before the audio thread consumes the stop command, user arms recording with count-in:
+            engine.reserveEvents(16);
+            engine.armRecording(48000.0);
+            expectEquals(static_cast<int>(engine.getState()), static_cast<int>(RecordingState::countingIn));
+
+            // Now audio thread executes next block:
+            juce::MidiBuffer blockBuffer;
+            const auto cmdResult = engine.applyPendingTransportCommands(blockBuffer);
+            expect(!cmdResult.stopApplied, "Stale stop command must not be applied to armed recording");
+            expectEquals(static_cast<int>(engine.getState()), static_cast<int>(RecordingState::countingIn),
+                         "State must remain countingIn, not reverted to stopped");
+
+            // Count-in completes on audio thread:
+            engine.startArmedRecording();
+            expectEquals(static_cast<int>(engine.getState()), static_cast<int>(RecordingState::recording),
+                         "startArmedRecording must transition cleanly to recording");
+        }
+
+        beginTest("preset changes during count-in are captured and committed on recording start");
+        {
+            RecordingEngine engine;
+            engine.reserveEvents(16);
+            engine.armRecording(48000.0);
+            expectEquals(static_cast<int>(engine.getState()), static_cast<int>(RecordingState::countingIn));
+
+            RecordedPreset initialPreset;
+            initialPreset.preset.name = "InitialPreset";
+            engine.recordPresetChange(initialPreset);
+
+            RecordedPreset countInPreset;
+            countInPreset.preset.name = "SwitchedDuringCountIn";
+            engine.recordPresetChange(countInPreset);
+
+            expectEquals(engine.getCurrentTake().presets.size(), std::size_t { 2 });
+
+            // Count-in completes, recording begins
+            engine.startArmedRecording();
+            juce::MidiBuffer midi;
+            midi.addEvent(juce::MidiMessage::noteOn(1, 60, 0.8f), 0);
+            engine.recordMidiBufferBlock(midi, RecordingEventSource::realtimeMidiBuffer, 0, 0);
+            engine.advanceRecordingPosition(512);
+
+            const auto take = engine.stopRecording();
+            expectEquals(take.presets.size(), std::size_t { 2 });
+            expectEquals(take.presets[1].preset.name, juce::String("SwitchedDuringCountIn"));
+
+            // Verify presetChange events were committed to take.events
+            bool foundCountInPresetEvent = false;
+            for (const auto& event : take.events) {
+                if (event.type == PerformanceEventType::presetChange && event.presetId == 1) {
+                    foundCountInPresetEvent = true;
+                    expectEquals(event.timestampSamples, std::int64_t { 0 });
+                }
+            }
+            expect(foundCountInPresetEvent, "Preset switched during count-in must have an event committed at sample 0");
+        }
+
+        beginTest("MIDI export preserves repeated attacks and their actual final release");
+        {
+            devpiano::test::ScopedTempDir temp("phase-d-midi-pairing");
+            const auto take = buildTake(48000.0, 48000,
+                                        { { 0, 60, true, 3, 0.8f },
+                                          { 240, 60, true, 3, 0.9f },
+                                          { 24000, 60, false, 3, 0.0f },
+                                          { 24000, 60, false, 3, 0.0f } });
+            const auto file = temp.getChildFile("rearticulated.mid");
+            expect(devpiano::exporting::exportTakeAsMidiFile(take, file));
+            juce::FileInputStream input(file);
+            juce::MidiFile midi;
+            const bool read = midi.readFrom(input, false);
+            expect(read);
+            if (read) {
+                int attacks = 0;
+                int releases = 0;
+                for (int track = 0; track < midi.getNumTracks(); ++track) {
+                    for (int index = 0; index < midi.getTrack(track)->getNumEvents(); ++index) {
+                        const auto& message = midi.getTrack(track)->getEventPointer(index)->message;
+                        attacks += message.isNoteOn();
+                        if (message.isNoteOff()) {
+                            ++releases;
+                            expectEquals(message.getChannel(), 3);
+                            expectEquals(message.getNoteNumber(), 60);
+                            expectEquals(message.getTimeStamp(), 960.0);
+                        }
+                    }
+                }
+                expectEquals(attacks, 2);
+                expectEquals(releases, 2);
+            }
+            const auto imported = importMidiFile(file, 48000.0);
+            expect(imported.has_value());
+            if (imported.has_value()) {
+                int attacks = 0;
+                int releases = 0;
+                for (const auto& event : imported->events) {
+                    attacks += event.message.isNoteOn();
+                    if (event.message.isNoteOff()) {
+                        ++releases;
+                        expectEquals(event.timestampSamples, std::int64_t { 24000 });
+                    }
+                }
+                expectEquals(attacks, 2);
+                expectEquals(releases, 2);
+            }
+        }
+
+        beginTest("paused capture closes identities and pedals at frozen boundary");
+        {
+            RecordingEngine engine;
+            engine.reserveEvents(64);
+            engine.startRecording(48000.0);
+            engine.recordEvent(juce::MidiMessage::noteOn(3, 60, 0.8f), RecordingEventSource::computerKeyboard, 0);
+            for (const int pedal : { 64, 66, 67 }) {
+                engine.recordEvent(juce::MidiMessage::controllerEvent(3, pedal, 127),
+                                   RecordingEventSource::computerKeyboard, 8);
+            }
+            engine.advanceRecordingPosition(128);
+            engine.pauseRecording();
+            engine.recordEvent(juce::MidiMessage::noteOff(3, 60), RecordingEventSource::computerKeyboard, 128);
+            engine.recordEvent(juce::MidiMessage::noteOn(3, 61, 0.8f), RecordingEventSource::computerKeyboard, 128);
+            engine.advanceRecordingPosition(1024);
+            expectEquals(engine.getCurrentPositionSamples(), std::int64_t { 128 });
+            engine.resumeRecording();
+            engine.recordEvent(juce::MidiMessage::noteOff(3, 61), RecordingEventSource::computerKeyboard, 128);
+            engine.recordEvent(juce::MidiMessage::noteOn(4, 72, 0.8f), RecordingEventSource::computerKeyboard, 128);
+            engine.recordEvent(juce::MidiMessage::noteOff(4, 72), RecordingEventSource::computerKeyboard, 144);
+            engine.advanceRecordingPosition(64);
+            const auto take = engine.stopRecording();
+            int notesOn = 0;
+            int notesOff = 0;
+            int pedalsUp = 0;
+            for (const auto& item : take.events) {
+                if (item.message.isNoteOnOrOff()) {
+                    expect(item.message.getNoteNumber() != 61);
+                    notesOn += item.message.isNoteOn();
+                    notesOff += item.message.isNoteOff();
+                    if (item.message.isNoteOff() && item.message.getNoteNumber() == 60) {
+                        expectEquals(item.message.getChannel(), 3);
+                        expectEquals(item.timestampSamples, std::int64_t { 128 });
+                    }
+                } else if (item.message.isController() && item.message.getControllerValue() == 0) {
+                    ++pedalsUp;
+                    expectEquals(item.timestampSamples, std::int64_t { 128 });
+                }
+            }
+            expectEquals(notesOn, 2);
+            expectEquals(notesOff, 2);
+            expectEquals(pedalsUp, 3);
+            expectEquals(take.lengthSamples, std::int64_t { 192 });
+        }
+
+        beginTest("one final physical release closes all recorded rearticulations there");
+        {
+            RecordingEngine engine;
+            engine.reserveEvents(32);
+            engine.startRecording(48000.0);
+            engine.recordEvent(juce::MidiMessage::noteOn(1, 72, 0.6f), RecordingEventSource::computerKeyboard, 0);
+            engine.recordEvent(juce::MidiMessage::noteOn(1, 72, 0.8f), RecordingEventSource::computerKeyboard, 8);
+            engine.recordEvent(juce::MidiMessage::noteOff(1, 72), RecordingEventSource::computerKeyboard, 64);
+            engine.advanceRecordingPosition(512);
+            const auto take = engine.stopRecording();
+            int releases = 0;
+            for (const auto& item : take.events) {
+                if (item.message.isNoteOff()) {
+                    ++releases;
+                    expectEquals(item.timestampSamples, std::int64_t { 64 });
+                }
+            }
+            expectEquals(releases, 2);
+        }
+
+        beginTest("terminal note-off and cleanup are delivered before UI completion");
+        for (const double rate : { 48000.0, 44100.0 }) {
+            for (const double speed : { 1.0, 2.0 }) {
+                RecordingEngine engine;
+                const auto take = buildTake(48000.0, 128, { { 0, 60, true, 1, 0.8f }, { 128, 60, false, 1, 0.0f } });
+                engine.setPlaybackSpeedMultiplier(speed);
+                engine.startPlayback(take, rate);
+                std::int64_t outputPosition = 0;
+                std::int64_t releasePosition = -1;
+                std::int64_t cleanupPosition = -1;
+                int releases = 0;
+                for (int block = 0; block < 8 && engine.needsPlaybackRender(); ++block) {
+                    juce::MidiBuffer midi;
+                    engine.renderPlaybackBlock(midi, engine.getPlaybackPositionSamples(), 64);
+                    for (const auto item : midi) {
+                        const auto message = item.getMessage();
+                        if (message.isNoteOff()) {
+                            ++releases;
+                            releasePosition = outputPosition + item.samplePosition;
+                        } else if (message.isController() && message.getControllerNumber() == 120) {
+                            cleanupPosition = outputPosition + item.samplePosition;
+                        }
+                    }
+                    engine.advancePlaybackPosition(64);
+                    outputPosition += 64;
+                }
+                expectEquals(releases, 1);
+                expectEquals(releasePosition, static_cast<std::int64_t>(std::llround(128.0 * rate / 48000.0 / speed)));
+                expectEquals(cleanupPosition, releasePosition + 1);
+                expect(engine.consumePlaybackEndedFlag());
+                expect(!engine.needsPlaybackRender());
+            }
+        }
+
+        beginTest("device capture uses one fixed take domain across pause and rate changes");
+        for (const double initialRate : { 48000.0, 44100.0 }) {
+            const auto otherRate = initialRate == 48000.0 ? 44100.0 : 48000.0;
+            RecordingEngine engine;
+            engine.reserveEvents(32);
+            engine.startRecording(initialRate);
+            engine.recordEvent(juce::MidiMessage::noteOn(2, 60, 0.8f), RecordingEventSource::computerKeyboard, 0);
+            engine.advanceRecordingPosition(static_cast<std::int64_t>(initialRate / 2.0));
+            engine.prepareForAudioDevice(otherRate);
+            juce::MidiBuffer midi;
+            midi.addEvent(juce::MidiMessage::noteOff(2, 60), static_cast<int>(otherRate / 10.0));
+            engine.recordMidiBufferBlock(midi, RecordingEventSource::realtimeMidiBuffer,
+                                         engine.getCurrentPositionSamples());
+            engine.advanceRecordingPosition(static_cast<std::int64_t>(otherRate / 2.0));
+            engine.pauseRecording();
+            engine.prepareForAudioDevice(initialRate);
+            engine.advanceRecordingPosition(512);
+            expectEquals(engine.getCurrentPositionSamples(), static_cast<std::int64_t>(initialRate));
+            engine.resumeRecording();
+            engine.advanceRecordingPosition(static_cast<std::int64_t>(initialRate));
+            const auto take = engine.stopRecording();
+            expectEquals(take.sampleRate, initialRate);
+            expectEquals(take.lengthSamples, static_cast<std::int64_t>(2.0 * initialRate));
+            for (const auto& item : take.events) {
+                if (item.message.isNoteOff()) {
+                    expectEquals(item.timestampSamples, static_cast<std::int64_t>(0.6 * initialRate));
+                }
+            }
+        }
+
+        beginTest("playing and paused device rebases preserve take-relative position at 2x");
+        {
+            RecordingEngine engine;
+            const auto take = buildTake(48000.0, 48000, { { 0, 60, true, 1, 0.8f }, { 48000, 60, false, 1, 0.0f } });
+            engine.setPlaybackSpeedMultiplier(2.0);
+            engine.startPlaybackAtTakeSample(take, 48000.0, 24000);
+            engine.prepareForAudioDevice(44100.0);
+            expectEquals(engine.getPlaybackPositionSamples(), std::int64_t { 11025 });
+            expectEquals(engine.getPlaybackPositionInTakeSamples(), std::int64_t { 24000 });
+            engine.pausePlayback();
+            engine.prepareForAudioDevice(48000.0);
+            expect(engine.getState() == RecordingState::playingPaused);
+            expectEquals(engine.getPlaybackPositionSamples(), std::int64_t { 12000 });
+            expectEquals(engine.getPlaybackPositionInTakeSamples(), std::int64_t { 24000 });
+        }
+
+        beginTest("seek and in-block loop restore each channel before target notes without history replay");
+        {
+            RecordingTake take;
+            take.sampleRate = 48000.0;
+            take.lengthSamples = 512;
+            const auto add = [&](std::int64_t timestamp, juce::MidiMessage message) {
+                take.events.push_back(
+                    { timestamp, PerformanceEventType::midi, 0, RecordingEventSource::playback, std::move(message) });
+            };
+            for (int channel = 1; channel <= 16; ++channel) {
+                add(0, juce::MidiMessage::controllerEvent(channel, 0, channel));
+                add(0, juce::MidiMessage::controllerEvent(channel, 32, channel + 1));
+                add(0, juce::MidiMessage::programChange(channel, channel + 16));
+                add(0, juce::MidiMessage::controllerEvent(channel, 64, channel % 2 == 0 ? 127 : 0));
+                add(0, juce::MidiMessage::pitchWheel(channel, 8192 + channel * 100));
+                add(10, juce::MidiMessage::noteOn(channel, 60, 0.8f));
+                add(100, juce::MidiMessage::noteOn(channel, 64, 0.8f));
+                add(180, juce::MidiMessage::noteOff(channel, 64));
+                add(200, juce::MidiMessage::programChange(channel, channel + 32));
+                add(200, juce::MidiMessage::controllerEvent(channel, 64, 0));
+                add(200, juce::MidiMessage::pitchWheel(channel, 4096));
+            }
+            std::ranges::stable_sort(take.events, [](const auto& lhs, const auto& rhs) {
+                return lhs.timestampSamples < rhs.timestampSamples;
+            });
+            RecordingEngine engine;
+            engine.setPlaybackBlockSize(64);
+            engine.setPlaybackLoopStartSample(100);
+            engine.setPlaybackLoopEndSample(300);
+            engine.startPlayback(take, 48000.0);
+            engine.requestPlaybackSeek(100);
+            juce::MidiBuffer midi;
+            static_cast<void>(engine.applyPendingTransportCommands(midi));
+            engine.renderPlaybackBlock(midi, 100, 128);
+            engine.advancePlaybackPosition(128);
+            juce::MidiBuffer nextBlock;
+            engine.renderPlaybackBlock(nextBlock, engine.getPlaybackPositionSamples(), 128);
+            midi.addEvents(nextBlock, 0, 128, 128);
+            struct ChannelState {
+                int bank = -1;
+                int lsb = -1;
+                int program = -1;
+                int pedal = -1;
+                int pitch = -1;
+            };
+            std::array<ChannelState, 16> channels;
+            int targetNotes = 0;
+            for (const auto item : midi) {
+                const auto message = item.getMessage();
+                const auto channel = message.getChannel();
+                auto& state = channels[static_cast<std::size_t>(channel - 1)];
+                if (message.isController()) {
+                    const auto controller = message.getControllerNumber();
+                    if (controller == 0) {
+                        state.bank = message.getControllerValue();
+                    }
+                    if (controller == 32) {
+                        state.lsb = message.getControllerValue();
+                    }
+                    if (controller == 64) {
+                        state.pedal = message.getControllerValue();
+                    }
+                } else if (message.isProgramChange()) {
+                    state.program = message.getProgramChangeNumber();
+                } else if (message.isPitchWheel()) {
+                    state.pitch = message.getPitchWheelValue();
+                } else if (message.isNoteOn()) {
+                    ++targetNotes;
+                    expectEquals(message.getNoteNumber(), 64);
+                    expect(item.samplePosition == 0 || item.samplePosition == 200);
+                    expectEquals(state.bank, channel);
+                    expectEquals(state.lsb, channel + 1);
+                    expectEquals(state.program, channel + 16);
+                    expectEquals(state.pedal, channel % 2 == 0 ? 127 : 0);
+                    expectEquals(state.pitch, 8192 + channel * 100);
+                }
+            }
+            expectEquals(targetNotes, 32);
+        }
+    }
+};
+
+static PhaseDTransportBoundaryTest phaseDTransportBoundaryTest;

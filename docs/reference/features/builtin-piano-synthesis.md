@@ -1,8 +1,8 @@
 # 内置物理建模钢琴音源功能说明与技术参考
 
-> 用途：说明 devpiano 自主研发、纯 C++ 物理建模钢琴合成器（`PianoSynthVoice`）的完整声学物理系统、算法机理、参数控制、实时性能与测试验收清单。
-> 当前状态：已全量实现并确立为默认内置音色（Phase 12–32 成果，涵盖 7 大声学子系统、古典微调律制、空间混响视角与微观机械动作物理拟真）。
-> 更新时机：声学物理模型、DSP 拓扑结构、88 键参数表或音色控制链路发生变化时。
+> 用途：说明 devpiano 自主研发、纯 C++ 物理建模钢琴合成器（`PianoSynthVoice`）的完整声学物理系统、算法机理、参数控制、实时性能、分层并发契约与测试验收清单。
+> 当前状态：已全量实现并确立为默认内置音色；产品自有发声路径达成零堆分配、零锁、全回调零库函数三角与 0.7% 单核 CPU 物理 SLA。
+> 更新时机：声学物理模型、DSP 拓扑结构、88 键参数表、音色控制链路或硬实时契约发生变化时。
 
 ---
 
@@ -29,9 +29,10 @@
 
 1. **零外部采样依赖**：代码由现代 C++ 声学模块（`PianoSynthVoice.h`、`Piano88KeyTable.h`、`RoomReverbEngine.h`、`PerspectiveProcessor.h`、`TemperamentEngine.h`）构成，编译后二进制体积极小，彻底摆脱对数百 MB 至数十 GB 外部采样音色库的依赖；
 2. **7 大声学系统全物理建模**：覆盖琴槌（Hammer）、琴弦（String）、琴桥（Bridge）、音板（Soundboard）、琴体（Cabinet）、空气（Air）与空间（Room），重现真实三角钢琴的微观非线性动力学；
-3. **极低实时 CPU 开销与硬实时保证**：采用 Magic Circle 二阶递归振荡器，逐采样**零三角函数（`std::sin`）调用**，8 复音齐奏下单核 CPU 占用 $\le 0.7\%$，且实时渲染路径严格保证**零堆分配、零锁、零系统调用**；
+3. **极低实时 CPU 开销与硬实时保证**：采用 Magic Circle 二阶递归振荡器与全回调零三角函数优化，逐采样与控制级**零三角函数（`std::sin`/`std::cos`/`std::tan`）库调用**，8 复音齐奏下单核 CPU 占用 $\le 0.7\%$（物理 SLA 长期基准，严禁用特定机型单次测试耗时代替物理契约），且产品自有发声路径严格保证**零堆分配、零锁、零系统调用**；
 4. **即时回退机制**：与 `SineSynthVoice`（正弦波合成器）共用 `juce::Synthesiser` 调度，支持一键切换与基准比对。
 
+**音色重建所有权**：`MainComponent::setBuiltinSynthTone()` 复用停设备守卫，先关闭 Editor 并等待已有音频 callback 退出，再调用 `AudioEngine::rebuildSynth()` 和提交活动 voice/roomReverb 参数；启动命令与再次启动的 `--piano` / `--sine` 走同一路径。普通参数 setter 仍只发布原子待提交值，由音频所有者或明确的停机 prepare 窗口消费，不把逐次 Synthesiser 内部锁视为整个重建的并发保护。
 ---
 
 ## 2. 7 大声学物理系统与 DSP 渲染架构
@@ -118,7 +119,7 @@
    - 彻底消灭发声振荡核心逐采样循环的 `std::sin` 调用，采用工控与专业 DSP 领域的耦合形式正弦振荡器：
      $$u[n] = u[n-1] - \epsilon \cdot v[n-1]$$
      $$v[n] = v[n-1] + \epsilon \cdot u[n]$$
-   - 递归步长在按键瞬间预计算：$\epsilon = 2 \cdot \sin\left(\frac{\pi f_m}{f_s}\right)$；逐采样仅需 **2 次乘法 + 2 次加法**，幅度严格有界、零漂移。
+   - $\epsilon = 2\sin(\pi f_m/f_s)$ 是模型公式；当前起音与机械闭包通过预计算表和有界多项式求值，不在回调调用库函数 sin。振荡逐采样保持耦合递推，稳定性与声学边界由既有物理测试覆盖。
 
 3. **STFT 最优实测微初相矩阵（Micro-Phase Dispersion Table）**：
    - 消除 $t=0$ 所有分音同相机械聚焦造成的狄拉克脉冲式波峰；
@@ -170,11 +171,13 @@
 ---
 
 ### 2.4 空间、机械与环境拟真系统（Cabinet, Air & Mechanical System）
-1. **CC64 延音踏板全局交感共鸣弦池与扫掠声（Sympathetic Resonance & Pedal Noise）**：
+1. **16 通道踏板矩阵与交感共鸣系统（Pedal Matrix & Sympathetic Resonance）**：
+   - **16 通道踏板物理隔离**：`BuiltinSynthesiser` 独立维护 16 个 MIDI 通道的踏板物理状态矩阵（CC64 延音 `sustainPedalByChannel`、CC66 保持音 `sostenutoPedalByChannel`、CC67 柔音 `softPedalByChannel`）；
    - 踩下 CC64 延音踏板时激活 12 半音全开放交感共鸣弦池，使演奏音符的泛音激发全琴未制音琴弦的共振；
    - **踏板机械扫掠声与共鸣冲击（Phase 32-A）**：踩下踏板时激发成对的机械毛毡抬起刮擦与空气呼啸脉冲（`pedalWhoosh`，带通 $1350\text{ Hz}$，$Q=1.25$；抬起带通 $950\text{ Hz}$）以及全琴瞬态弱冲击激发（`pedalResonanceShock`，双共振冲击峰 $58\text{ Hz}$ 与 $116\text{ Hz}$），由 `pedalNoiseLevel`（默认 0.6）线性缩放；
    - 支持**未踩踏板时的单键开放弦交感（Duplex & Unpedaled Resonance）**：按住低音键弹奏高音时，低音键对应的开放琴弦产生物理交感振动；
-   - **CC67 弱音/移位踏板物理拟真（Una Corda / Soft Pedal，Phase 29-B）**：踩下 CC67 踏板时击弦机向右微移，敲击毛毡侧面相对柔软区域（有效硬度衰减至多 25%，接触时间延长至多 20%），中高音区三弦组产生三弦敲两弦（Trichord to Bichord）声能衰减（至多 30% 衰减），呈现柔和朦胧的暗调色泽。
+   - **CC67 弱音/移位踏板物理拟真（Una Corda / Soft Pedal，Phase 29-B）**：踩下 CC67 踏板时击弦机向右微移，敲击毛毡侧面相对柔软区域（有效硬度衰减至多 25%，接触时间延长至多 20%），中高音区三弦组产生三弦敲两弦（Trichord to Bichord）声能衰减（至多 30% 衰减），呈现柔和朦胧的暗调色泽；
+   - **柔音状态所有权**：实时和内置离线合成共用 `BuiltinSynthesiser`，按 MIDI 通道保管 CC67 连续值（`0.0 ~ 1.0`），在新声部 `startNote()` 前应用；重新分配和偷声部不继承其他通道的柔音。机械聚合声部的宽监听谓词不作为 NoteOn/NoteOff 或柔音的发音通道身份。CC67 Up / CC121 更新当前与后续声部，CC120/123 不冒充踏板释放。
 
 2. **琴盖开合度声学传递函数（Lid Position Acoustics）**：
    - 支持 3 种琴盖物理状态：全开（Full Open）、半开（Half Stick）、闭盖（Closed Lid）。
@@ -193,8 +196,8 @@
 
 5. **轻量数学算法房间混响网络（RoomReverbEngine，Phase 31-B）**：
    - 内置纯数学算法立体声混响网络，基于 8 组互质延时反馈梳状滤波阵列与 4 级全通扩散矩阵（Schroeder-Moorer 架构演进），零外部采样依赖；
-   - 提供 **Studio（录音棚 0.6s）**、**Chamber（室内乐厅 1.5s）** 与 **Concert Hall（音乐厅 2.4s）** 三大经典声学空间预设，支持平滑干湿比（`reverbWet`）无级调节。
-
+   - 提供 **Studio（录音棚 0.6s）**、**Chamber（室内乐厅 1.5s）** 与 **Concert Hall（音乐厅 2.4s）** 三大经典声学空间预设，支持平滑干湿比（`reverbWet`）无级调节；
+   - **直通与抗下溢保护**：当 `reverbWet <= 1e-4` 时自动旁路混响计算以节省 CPU；全链路启用 `juce::ScopedNoDenormals`，防止长时静音衰减尾部发生浮点下溢性能惩罚。
 6. **动态声场空间漫射（Dynamic Spatial Diffusion）**：
    - 空间声相展开度（Stereo Spread）随时间连续演化：$t=0$ 起振瞬间聚焦于琴桥敲击点（点声源），并在 $25\text{ ms}$ 内经由音板共振与空气反射平滑漫射为整个琴腔的面声源包围场。
 
@@ -241,7 +244,7 @@ void setTemperament(devpiano::audio::Temperament temperament);
 void setReferencePitchA4(double hz);
 ```
 
-支持 6 大古典律制（`equal` 平均律、`just` 纯律、`pythagorean` 毕达哥拉斯律、`meantone` 1/4 中庸全音律、`werckmeister3` 韦克迈斯特三律、`kirnberger3` 基恩伯格三律）与基准音高微调。**契约目标**为 A4 $[400.0, 480.0]\text{ Hz}$；**当前代码** `TemperamentEngine::clampReferencePitch()` 将合法输入限制在 $[410.0, 450.0]\text{ Hz}$，尚未达到目标两端（见 [`../../issues/known-issues.md`](../../issues/known-issues.md)）。常用基准包括 415.0、432.0、440.0、442.0 Hz。
+支持 6 大古典律制（`equal` 平均律、`just` 纯律、`pythagorean` 毕达哥拉斯律、`meantone` 1/4 中庸全音律、`werckmeister3` 韦克迈斯特三律、`kirnberger3` 基恩伯格三律）与 A4 $[400.0, 480.0]\text{ Hz}$ 基准音高微调，默认 440.0 Hz。`TemperamentEngine::clampReferencePitch()` 为引擎、设置、预设与内置离线渲染提供统一限幅，两端均可选择；415.0、432.0、440.0、442.0 Hz 保持正常。
 
 ### 4.3 空间视角、琴盖与环境混响
 
@@ -252,8 +255,7 @@ void setPerspective(devpiano::audio::SoundPerspective perspective) noexcept;
 
 - **琴盖状态（`LidPosition`）**：`fullOpen`（全开）、`halfStick`（半开）、`closed`（闭盖）；
 - **声学视角（`SoundPerspective`）**：`player`（演奏者视角）、`audience`（听众视角）；
-- **环境混响（`RoomReverbEngine`）**：支持 `studio`、`chamber`、`concertHall` 与 `reverbWet`（0..1）电平。
-
+- **环境混响（`RoomReverbEngine`）**：支持 `studio`（0.6s 录音棚）、`chamber`（1.5s 室内乐厅）与 `concertHall`（2.4s 音乐厅）三大声学空间，`reverbWet`（0.0 ~ 1.0）无级调节；`reverbWet <= 1e-4` 触发零开销纯直通。
 ### 4.4 Velocity 动态双映射与 ADSR 门控
 
 - **响度响应**：$v^{1.5} = v \cdot \sqrt{v}$ 幂次曲线，强化弱奏（$pp$）细腻度；
@@ -264,12 +266,18 @@ void setPerspective(devpiano::audio::SoundPerspective perspective) noexcept;
 
 ## 5. 性能特征与无锁并发保障
 
-1. **PianoSynthVoice 逐采样零三角函数计算**：88 键全部激活振荡器在 `renderNextBlock` 逐采样物理发声核心循环中均运行在 Magic Circle 状态机，逐采样仅执行纯乘加运算；步长在按键瞬间（`startNote`）预计算。需注意：契约目标为实时发声链路硬实时无耗时数学函数，当前 `PianoSynthVoice` 逐采样物理发声路径严格满足，但全局音频回调中的其他模块（如节拍器 `MetronomeProcessor::triggerBeat` 每拍触发时）仍包含控制级 `std::sin` / `std::cos` / `std::exp` 调用，与全回调全局零三角函数 SLA 仍存在工程差距，在此明确界定边界并记录；
-2. **硬实时音频安全**：
-   - 实时音频回调线程（`renderNextBlock`）**零堆内存分配（No `malloc`/`new`）**；
-   - **零锁（No Mutex/Lock）**，多线程参数传递采用 `std::atomic` 或原子快照；
-   - 遇到极端异常输入时具备自适应静音重置与数值防爆（NaN/Inf 保护）。
-3. **单核 CPU 消耗**：在 44.1 kHz / 48 kHz 采样率、8 复音齐奏（每音 20 分音 × 3 琴弦 + 16 模态音板）下，现代 x86_64 CPU 单核负载稳定在 **$\le 0.7\%$**。
+1. **全回调零三角函数 SLA**：88 键全部激活振荡器在 `renderNextBlock` 逐采样物理发声核心循环中均运行在 Magic Circle 状态机，逐采样仅执行纯乘加运算；琴槌起音、制音器落弦与踏板气流采用多项式逼近与正弦波表查找，节拍器拍脉冲系数在 `prepareToPlay` 预计算；完整回调闭包实测 0 库函数三角调用。
+2. **硬实时音频安全与分层并发隔离**：
+   - **产品自有发声链路（严格零锁零分配）**：
+     - 实时音频回调线程（`renderNextBlock`）**零堆内存分配（No `malloc`/`new`）**；
+     - **零锁（No Mutex/Lock）**，重写后的 `BuiltinSynthesiser` 移除了原生 JUCE 内部锁，物理键盘输入与控制器经有界 SPSC 队列（`RealtimeQueue`）注入，多线程参数传递采用 `std::atomic` 或原子快照；
+     - 消息线程通过 `dispatchPendingDisplayEvents()` 统一刷新键盘高亮并驱动 UI，音频线程不调用 UI/Timer 接口；消息线程持有状态锁时不阻塞音频回调；
+     - **几何故障安全防御**：超协商通道数或块长的音频输入在块首直接静音并累计原子故障计数（`pluginBufferResizeCount`），回调内不执行堆重分配；
+   - **第三方 VST3 宿主框架层约束（分层验收）**：
+     - 当切换至第三方 VST3 插件时，JUCE 原生适配器存在框架层固有开销（`juce_VST3PluginFormatImpl.h` 的 `SpinLock processMutex` 与 `juce_VST3Common.h` 的 `CriticalSection` 转换）；
+     - 单块存在 **2048 条 MIDI 消息上限**（`enum { maxNumEvents = 2048 }`），超额事件被框架截断；第三方插件内部行为超出宿主控制。产品自有发声的零锁零分配不外推至第三方插件；
+3. **单核 CPU 消耗物理 SLA**：在 44.1 kHz / 48 kHz 采样率、8 复音齐奏（每音 20 分音 × 3 琴弦 + 16 模态音板）下，现代 x86_64 CPU 单核负载稳定在 **$\le 0.7\%$**。
+   - 该数值为声学模型设计的长期物理 SLA 契约基准；严禁将特定机型的单次基准测试耗时（如特定环境毫秒数）当作功能验收指标，亦不可因单次测试波动修改该物理常数。
 
 ---
 
@@ -289,3 +297,10 @@ void setPerspective(devpiano::audio::SoundPerspective perspective) noexcept;
 | **PianoSynthVoiceTemperamentTest** | 古典微调律制微音分偏移、A4 基频换算、全音域单调性与跨律制即时切换 | [x] 已通过 |
 | **MechanicalAcousticsTest** | 机械噪声与毛毡老化设置存取、边界钳制、预设向后兼容、离线导出参数传递与极端参数安全限幅 | [x] 已通过 |
 | **UnaCordaAcousticsTest** | CC 67 弱音/移位踏板物理声学响应、毛毡侧移软化、三弦敲两弦衰减、全链路控制器响应与回放动态踏板稳定性 | [x] 已通过 |
+
+### 6.1 验收证据依据与未验证范围说明
+
+1. **声学与实时实施依据**：全套确定性声学套件与 Phase C/D/E 真实消费验证通过（见 [Phase E 实施记录](../../archive/audit-004-code-quality-fix-phases.md#phase-e-实施记录与直接验证2026-10-04) EVID-040/041/042/043），涵盖全回调 0 三角函数库调用、密集 12,000 事件零堆增长、两音色银行常驻无内部锁切换与 SPSC 视觉解耦；
+2. **严禁外推的未验证范围**：
+   - **实机物理声卡热插拔**：未在物理 ASIO/CoreAudio 声卡拔出、驱动重启或硬件抖动下执行破坏性测试；
+   - **第三方商业 VST3 插件**：宿主托管第三方插件时的性能与稳定性受插件自身实现约束，不在此内置物理音源 SLA 保证范围内。

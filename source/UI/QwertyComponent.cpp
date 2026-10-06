@@ -1,5 +1,6 @@
 #include "UI/QwertyComponent.h"
 
+#include "UI/jive/DesignTokens.h"
 #include <juce_graphics/juce_graphics.h>
 
 namespace devpiano::ui {
@@ -195,11 +196,11 @@ void QwertyComponent::paint(juce::Graphics& g) {
                 const auto bottomRect = rect.withTrimmedTop(rect.getHeight() * 0.45f);
 
                 g.setColour(primaryTextColour);
-                g.setFont(juce::FontOptions(11.5f).withStyle("Bold"));
+                g.setFont(devpiano::jive::DesignTokens::getUnifiedUiFont(11.5f, juce::Font::bold));
                 g.drawFittedText(keyState.mainLabel, topRect.toNearestInt(), juce::Justification::centred, 1);
 
                 g.setColour(secondaryTextColour);
-                g.setFont(juce::FontOptions(9.5f));
+                g.setFont(devpiano::jive::DesignTokens::getUnifiedUiFont(9.5f));
                 juce::String noteLabel;
                 if (hasNote) {
                     noteLabel = keyState.noteName + " " + bullet + " " + keyState.solfegeLabel;
@@ -222,7 +223,7 @@ void QwertyComponent::paint(juce::Graphics& g) {
             } else {
                 // Single-tier text display (function keys like Caps, Enter, Ctrl, etc.)
                 g.setColour(primaryTextColour);
-                g.setFont(juce::FontOptions(11.0f).withStyle("Bold"));
+                g.setFont(devpiano::jive::DesignTokens::getUnifiedUiFont(11.0f, juce::Font::bold));
                 juce::String functionLabel = keyState.mainLabel;
                 if (isShiftKey) {
                     functionLabel = viewModel.isShiftActive ? "Shift [BOOST]" : "Shift";
@@ -268,13 +269,13 @@ void QwertyComponent::paint(juce::Graphics& g) {
 
         // Chord name (main text)
         g.setColour(juce::Colours::white.withAlpha(chordFadeAlpha));
-        g.setFont(juce::FontOptions(13.0f, juce::Font::bold));
+        g.setFont(devpiano::jive::DesignTokens::getUnifiedUiFont(13.0f, juce::Font::bold));
         const juce::Rectangle<float> nameRect(badgeX + 18.0f, badgeY + 1.0f, 74.0f, badgeH - 2.0f);
         g.drawFittedText(lastDisplayedChord.chordName, nameRect.toNearestInt(), juce::Justification::centredLeft, 1);
 
         // Inversion / Quality subtitle
         g.setColour(juce::Colour(0xFF94A3B8).withAlpha(chordFadeAlpha));
-        g.setFont(juce::FontOptions(9.5f, juce::Font::plain));
+        g.setFont(devpiano::jive::DesignTokens::getUnifiedUiFont(9.5f, juce::Font::plain));
         const juce::Rectangle<float> descRect(badgeX + 90.0f, badgeY + 1.0f, badgeW - 94.0f, badgeH - 2.0f);
         const auto descText = (lastDisplayedChord.inversion != devpiano::core::ChordInversion::rootPosition)
             ? lastDisplayedChord.inversionDescription
@@ -333,7 +334,7 @@ void QwertyComponent::mouseDown(const juce::MouseEvent& e) {
 
     if (e.mods.isPopupMenu()) {
         if (hit.key->mappedMidiNote >= 0 && onBindingEditRequested != nullptr) {
-            onBindingEditRequested(hit.key->mappedMidiNote);
+            onBindingEditRequested(hit.key->bindingMidiNote);
         }
         return;
     }
@@ -345,7 +346,9 @@ void QwertyComponent::mouseDown(const juce::MouseEvent& e) {
             startTimer(timerIntervalMs);
         }
         repaint();
-        lastMouseDownIdentity = onNoteOn(lastMouseDownNote, hit.key->mappedMidiChannel, hit.key->velocity);
+        if (hit.key->velocity > 0.0f) {
+            lastMouseDownIdentity = onNoteOn(hit.key->inputMidiNote, hit.key->inputMidiChannel, hit.key->inputVelocity);
+        }
     }
 }
 
@@ -382,7 +385,9 @@ void QwertyComponent::mouseDrag(const juce::MouseEvent& e) {
             startTimer(timerIntervalMs);
         }
         repaint();
-        lastMouseDownIdentity = onNoteOn(lastMouseDownNote, hit.key->mappedMidiChannel, hit.key->velocity);
+        if (hit.key->velocity > 0.0f) {
+            lastMouseDownIdentity = onNoteOn(hit.key->inputMidiNote, hit.key->inputMidiChannel, hit.key->inputVelocity);
+        }
     }
 }
 

@@ -8,13 +8,28 @@ response_language = "zh-CN"
 glob = [
   "submodules/**",
   "docs/archive/**",
+  "docs/audit/**",
   "*.patch",
   "*.lock",
 ]
 [pr_reviewer]
 extra_instructions = """\
-- 实时音频/MIDI 回调路径禁止阻塞、锁、堆分配与耗时操作；优先排查 AudioDeviceManager 回调与 UI 线程共享状态、插件宿主生命周期状态机问题。
-- 检查改动是否违反 AGENTS.md「核心架构要求 1-8」（AudioDeviceManager、PianoSynthVoice、JIVE、KeyListener 等既定路径）。
-- 提交信息非 Conventional Commits 子集（feat:/fix:/refactor:/docs:/chore:/test:/style:）时在总结中指出。
-- 新业务代码应位于 /source/ 下，禁止引入第二套与既有模式并存的约定。
+请按照 devpiano 的核心架构要求（AGENTS.md 12 项原则）与代码规范审查本次提交，重点关注以下维度并在总结中指出违规项：
+1. 实时音频与线程安全契约（Realtime Safety）：
+   - 实时音频/MIDI 回调路径（AudioEngine、BuiltinSynthesiser、PianoSynthVoice 等）严禁锁（std::mutex/临界区）、严禁动态堆分配（new/malloc/vector扩容）、严禁阻塞式 I/O 与线程 Sleep；
+   - 踏板切分（Sync Pedal）等控制必须基于采样点偏移（Sample Offset）确定性调度；
+   - 避免未定义行为与未初始化读取，对 std::optional 等值必须使用 safe fallback（如 .value_or(...)）。
+2. 架构边界与发音身份不变量（Architecture Boundaries）：
+   - 遵循专用钢琴演奏宿主边界（Performance Input -> Instrument -> Master -> Output），禁止引入通用多轨 DAW 时间线或任意 Patchbay 连线图；
+   - 发音身份恒定与绝对防悬挂（Note-off Identity Preservation）：NoteOff 发送必须 100% 使用 NoteOn 触发时锁定的发音身份（Pitch, Channel）快照；
+   - UI 视觉视图（QwertyComponent、CustomKeyboard 等）单向消费 ViewModel（单一事实源），禁止在 UI 层自维护或重算 MIDI 映射。
+3. 源码字符编码与国际化规范（Strict 7-bit ASCII & ADR-015）：
+   - C++ 源码（.cpp/.h 及 source/tests/）严禁直接裸写非 ASCII 字符（中文硬编码、特殊排版符号）；
+   - 特殊符号必须使用显式 Unicode 标量码点（如 juce::String::charToString(0x2022)）或十六进制转义；
+   - 自然语言文本必须使用完整句子模板（ADR-015）并外部化至 source/Locale/zh_CN.loc；单元测试中严禁硬编码断言具体的中文译文。
+4. UI 运行时与模块边界：
+   - 使用内化声明式 UI 运行时（source/UI/jive/core/，依据 ADR-014 已内化），严禁修改 /submodules/ 下代码；
+   - 新增业务代码只允许位于 /source/ 下，保持清晰抽象，禁止引入并存的第二套约定或过渡 shim。
+5. 提交信息规范：
+   - 提交信息必须符合 Conventional Commits 子集规范（feat:, fix:, refactor:, docs:, chore:, test:, style:），英文祈使语气、小写开头、单行 <= 72 字符。
 """

@@ -86,10 +86,9 @@ BorderRadii<float> BackgroundCanvas::getBorderRadii() const {
 
 void BackgroundCanvas::setBorderRadii(BorderRadii<float> newRadii) {
     if (newRadii != borderRadii) {
+        borderRadii = newRadii;
         updateShape();
     }
-
-    borderRadii = newRadii;
 }
 
 struct CubicBezier {

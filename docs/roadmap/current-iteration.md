@@ -1,169 +1,66 @@
 # devpiano Current Iteration
 
-> 用途：记录最近一轮任务与完成状态；新一轮启动时替换本文件。
-> 更新时机：开始新一轮任务、完成当前任务、调整本轮范围时。
-
-## 最近完成迭代与当前状态
-
-**Phase 35：键盘演奏表现力深水区与练琴基础设施 (Keyboard Expressive Dynamics & Practice Infrastructure) [已完成，2026-09-28]**
-
-当前没有正在进行的实现迭代。Phase 36 仍处于规划阶段；后续路线与状态以 [`roadmap.md`](roadmap.md) 为准。
-
-*(注：Phase 34“键盘演奏交互质变与演奏表现力增强”已于 2026-09-23 全面完成并归档，包含 QWERTY Visualizer 5 行网格看板、12-TET 和声色彩投影、Layout Group 4 组切换与发音身份快照、采样级 Sync 切分踏板、Press 瞬态修饰符、插件扫描增量持久化、乐器端点抽象与 Phase 34-F 跨平台/JUCE 9 原生收敛。详细完成记录见 [`../archive/phase34-keyboard-performance-ux-and-expressive-control.md`](../archive/phase34-keyboard-performance-ux-and-expressive-control.md)。)*
-
-在 Phase 34 奠定了 QWERTY Visualizer、Layout Group、Sync 踏板与发音快照基座后，devpiano 针对电脑键盘演奏的系统能力已从“稳定能弹、杜绝悬挂”迈向“深水区表现力与练琴体验突破”。
-对照经典键盘钢琴 FreePiano、顶级物理建模音源 Pianoteq 8/9 及专业钢琴练习宿主生态，本轮迭代聚焦于电脑键盘演奏中最核心的体验痛点——**缺乏节奏基准工具、打字机式死板力度、缺乏实时乐理反馈以及缺少伴奏循环跟练手段**，实施 4 个阶段的阶梯式落地。
+> 用途：只维护当前小阶段任务与直接验收；项目状态和后续阶段顺序以 [roadmap](roadmap.md) 为准。
+> 本轮名称：**Phase 36：开发期减负与历史兼容性收敛 (Development Overhead Reduction & Legacy Compatibility Deprecation)**。
+> 当前状态：**规划已确立，待实施（2026-10-06）**。
+> 前置完成：自有弹窗尺寸与底部操作区统一、全局字体统一（`829a40b`、`182196d`、`80dbd19`）已全量闭环。
 
 ---
 
-## 核心边界与铁律约束 (Boundaries & Iron Rules)
+## 1. 背景与核心定位
 
-本轮迭代全过程必须无条件遵守以下核心边界与工程铁律：
+devpiano 为个人主导、持续演进的电脑键盘钢琴桌面应用，当前处于核心功能与声学打磨的活跃开发期，不存在存量用户与多版本并存的兼容契约约束。
 
-1. **铁律 1（固定音频拓扑与专用演奏宿主定位，坚决不向通用 DAW 蔓延）**：
-   - 音频拓扑严格限定为 `Performance Input -> Instrument -> Master -> Output` 单向管道；
-   - 节拍器与跟练时间轴定位为轻量演奏辅助工具，坚决不引入多轨音频剪辑时间线、通用自动化曲线或多轨混音台。
-2. **铁律 2（实时音频线程无锁与零分配契约）**：
-   - 节拍器（Metronome Click Engine）必须在 `AudioEngine::getNextAudioBlock` 渲染管线内部以确定性采样计数驱动；
-   - 严格遵循 100% 零堆内存分配（Zero-allocation）与无锁（Lock-free）原则，脉冲发声采用轻量纯数学算法合成，零外部音频采样依赖。
-3. **铁律 3（打字动态力度纯事件变换原则）**：
-   - 打字击键动态力度（Typing Cadence Dynamics）根据物理按键间隙时间差 $\Delta t$ 仅在事件触发时刻介入计算，严格作为纯瞬态事件流变换（Event-time Transformation）；
-   - 严禁突变底层 `KeyboardLayout` 或 `SettingsModel` 持久化配置，修饰键（Shift Boost）拥有最高仲裁优先级。
-4. **铁律 4（和弦识别单向纯计算与零渲染污染）**：
-   - 实时和弦识别引擎（Chord HUD）直接纯函数消费实时发声快照或 `heldKeys`，运行于 UI 消息线程；
-   - 严禁反向向音频实时线程注入事件或阻塞音频回调。
-5. **铁律 5（A-B 循环采样级精确边界与防悬挂原则）**：
-   - MIDI 伴奏 A-B 循环与时间轴跳转（Seek）必须在音频块边界确定性刷新；
-   - 循环回跳瞬间必须对当前所有激活发声通道注入优雅的 NoteOff 注销，彻底封死循环点悬挂音。
-6. **铁律 6（Strict 7-bit ASCII 与国际化分层）**：
-   - C++ 源码（`.cpp` / `.h`，包括单元测试）100% 维持 Strict 7-bit ASCII 铁律，自然语言文案 100% 外部化至 `source/Locale/zh_CN.loc`；
-   - 单元测试严禁硬编码断言具体的自然语言译文。
-7. **铁律 7（严格三闸门基线与全量测试闭环）**：
-   - 任何阶段变更后必须满足：`./scripts/dev.sh format --check` 全绿、`./scripts/dev.sh test` 全量断言通过、编译链接 0 错误 0 警告。
+过往演进中积累了显著的“过度兼容”维护负担：
+1. **历史兼容与数据迁移分支臃肿**：预设系统维护 v1 无 UUID 向后推导、设置系统维护旧插件名称向标识符映射、录制引擎维护 v1/v2 纯 MIDI 加载与旧数字预设排他拒绝、混响引擎维护 `"hall"` 旧别名；
+2. **文档同步链条拉长**：多个文档重复记录同一易变状态，单点代码重构引发级联文档改写负担；
+3. **低价值测试维护成本高**：部分测试单元专注于验证只读树属性声明值、配置回退默认值或死代码分支，未有效拦截真实运行时风险，却在重构时带来反复维护阻力。
+
+**核心指导原则（One Rule）**：
+> **不为过去保留实现，不为假想未来预留实现；只为当前真实需求和关键风险承担工程成本。**
 
 ---
 
-## 阶段规划详案 (Execution Roadmap)
+## 2. 开发期减负六大契约
 
-### Phase 35-A：无锁采样级音频节拍器与视觉节拍指示（Sample-Accurate Metronome & Visual Beat Pulse）[已完成，2026-09-24]
-
-> 目标：构建钢琴演奏与录音不可或缺的节奏基准，提供微秒级确定性音频 Click 脉冲与视觉节拍指示。
-
-- [x] **Phase 35-A-1：无锁确定性采样级 Click Engine 内核**：
-  - 在 `source/Audio/MetronomeProcessor.h` 中实现无锁、零堆内存分配的节拍发生器；
-  - 基于极简数学阻尼正弦脉冲合成 High Tick（强拍 ~1600 Hz，30ms 极速指数衰减）与 Low Tick（弱拍 ~800 Hz，20ms 极速指数衰减），零外部采样依赖；
-  - 挂接于 `AudioEngine::getNextAudioBlock`，在总输出混音前无缝叠加入 Master 管道。
-  - 当前 `triggerBeat()` 每拍仍在音频回调内计算 `std::sin`/`std::cos`/`std::exp` 系数；这不是逐采样计算，但尚未达到**全回调 0 `std::sin`** 契约，见 [`../issues/known-issues.md`](../issues/known-issues.md)。
-- [x] **Phase 35-A-2：拍号与节奏模型扩展**：
-  - 在 `source/Core/MetronomeModel.h` 中定义拍号与预备拍模型：支持 2/4、3/4、4/4、6/8；
-  - BPM 无级可调范围 40 ~ 280 BPM；Tap Tempo 使用最近最多 3 个点击间隔的滑动均值（最多 4 个时间戳），间隔超过 2 秒时重置累积；
-  - 支持录音前预备拍（Count-in，1~2 小节倒计时触发），并在设置中持久化记录。
-- [x] **Phase 35-A-3：JIVE 声明式 UI 控件与状态栏节拍反馈**：
-  - `LayoutModel.cpp` 的传输卡片提供节拍器开关（`metronome-toggle-btn`）、BPM/拍号菜单与 Tap Tempo 按钮；预备拍小节数在 BPM 菜单选择。音量参数由 `SettingsModel` 持久化，但当前界面不提供音量调节控件；
-  - 状态栏 `metronome-status-label` 随节拍序号显示强弱拍符号与渐隐反馈；传输卡片按钮显示开关与当前 BPM，不承担独立的同频闪烁指示灯；
-  - 支持 Ctrl+M 快捷键启闭节拍器。
-- [x] **Phase 35-A-4：节拍器时序与采样精度确定性测试集**：
-  - 编写 `MetronomeTest` 专项单测，覆盖 Tap Tempo 三间隔滑动均值、BPM 限幅与 2 秒超时重置，以及采样计数周期对齐、动态变速、多音频块跨块切分、拍号重音循环及预备拍倒计时状态机。
-
----
-
-### Phase 35-B：打字击键动态力度与人性化微扰引擎（Typing Cadence Dynamics & Velocity Humanizer）[已完成，2026-09-24]
-
-> 目标：攻克电脑键盘无压感的核心物理缺陷，通过敲击律动与微微扰赋予 QWERTY 弹奏生命力。
-
-- [x] **Phase 35-B-1：基于击键间隙 $\Delta t$ 的律动速度估算器（`TypingCadenceEstimator`）**：
-  - 在 `source/Input/TypingCadenceEstimator.h` 中引入律动速度估算器；
-  - 记录连续按键时间戳：快速琶音/疾风华彩（$\Delta t \le 60\text{ ms}$）自适应推高击键力度至 $122/127 \approx 0.960\text{f}$，从容抒情慢按（$\Delta t \ge 500\text{ ms}$）自适应回落至 $76/127 \approx 0.598\text{f}$，长停顿（$> 1.0\text{ s}$）平滑复位基准力度；
-  - 保留 Standard / Light / Heavy / Wide 基础曲线作为加权底色。
-- [x] **Phase 35-B-2：确定性哈希力度微扰（`VelocityHumanizer`）**：
-  - 以轻量确定性哈希伪随机值为连续按键注入力度波动（默认 $\pm 0.035\text{f} \approx \pm 4.5$ 力度），钳制在 $[1/127, 1.0]$；不使用高斯分布；
-  - 彻底打破固定 100 力度的机械“打字机感”，让内置物理建模钢琴的非线性毛毡硬度与音板共鸣得到自然微扰绽放。
-- [x] **Phase 35-B-3：输入管线集成与设置持久化**：
-  - 将估算器接入 `KeyboardMidiMapper::handleKeyPressed` 的触发路径，严格遵守瞬态修饰符优先级（Shift 按下时强制拉满 127）；
-  - `baseVelocityBias`、动态力度开关与扰动幅度由 `SettingsModel` / `SettingsStore` 存取；当前主界面及设置窗口尚无这些参数的编辑控件，也无独立 QWERTY 数值力度 HUD。
-- [x] **Phase 35-B-4：打字力度估算与抗抖动测试集**：
-  - 编写 `CadenceVelocityTest` 专项单测，全面覆盖连续快速敲击、慢速抒情敲击、超时复位、微扰确定性与范围约束、及与 Shift 修饰符的最高优先级仲裁保护。
+1. **允许自有数据单版本破坏性变更（No Backward Compatibility by Default）**：
+   - 项目自有的内存模型、配置项、预设格式（`.devpiano.preset`）和演奏文件（`.devpiano`）默认只维护当前规范版本；
+   - 不主动为历史草案或已废弃版本保留解析别名、兼容分支或数据迁移逻辑；遇到非当前支持版本时显式拒绝或安全回退至出厂默认值。
+2. **单向干净切换（Clean Cutover, Zero Shims）**：
+   - 业务重构必须一次性切换所有直接调用方，同轮删除被淘汰的旧实现、旧测试用例与旧文档说明；
+   - 坚决杜绝“过渡期 Shim 包装层”、“废弃别名保留”或“TODO: 随后清理”等半切断状态。
+3. **KISS / DRY / LOD / YAGNI（拒绝过度设计与假想扩展）**：
+   - 杜绝仅凭“将来也许有用”而保留的未调用代码或预留基础设施；
+   - 拒绝为了“形式上的 DRY”在仅有 1~2 处调用的简单路径上强行抽象通用模板或框架；
+   - 拒绝为了“理想架构”做没有当前需求支撑的无端重构。
+4. **风险驱动测试准入（Risk-Driven Testing, Not Nail-Counting）**：
+   - 单元测试核心价值在于保护用户可感知的真实运行风险：物理声学模型稳定性、防悬挂音不变式（Note-off Identity Preservation）、实时音频无锁零分配、文件事务性原子替换、采样级时序确定性；
+   - 禁止新增仅断言树属性声明值、文案文本、代码内部简单转发或赋值自证的低价值测试；重构时主动剔除失效的旧兼容性测试。
+5. **最小单一事实源文档管理（Lean Documentation Invariants）**：
+   - `roadmap.md` 为全局里程碑与状态的唯一事实源，`current-iteration.md` 为当前小阶段的唯一任务入口；
+   - 目录索引与功能说明仅记录静态机制与当前有效契约，禁止跨文档重复维护易变的“任务完成进度”、“测试断言计数”等瞬态信息。
+6. **安全底线不可动摇（Safety & Correctness Invariants）**：
+   - “不保证向后兼容”绝不等于“静默破坏或覆写磁盘已有文件”；文件加载失败必须保持原文件完整且不破坏当前会话；
+   - 实时音频线程安全、无内存泄漏、无死锁、无悬挂音、合法 MIDI/VST3 协议边界等基本工程质量底线始终绝对遵守。
 
 ---
 
-### Phase 35-C：实时和弦识别与乐理分析 HUD（Real-time Chord Recognition HUD）[已完成，2026-09-24]
+## 3. 任务清单与排期（待实施，未开始）
 
-> 目标：利用已沉淀的声学与乐理算法，为演奏者提供实时和弦识别与转位反馈，大幅提升练琴视奏体验。
+> **注意：本阶段仅录入规划与排期，严禁直接跨阶段实施。**
 
-- [x] **Phase 35-C-1：乐理和弦识别算法下沉**：
-  - 在 `source/Core/MusicTheory.h` 中实现纯函数 `ChordInfo detectChord(const std::vector<int>& activeNotes)`；
-  - 基于音高类集合（Pitch Class Set）算法与循环掩码位移，高精度识别大三、小三、属七、大七、小七、半减七、减七、挂四（sus4）、挂二（sus2）、各类加音及九和弦；
-  - 准确识别第一转位、第二转位、第三转位并提取根音与低音（Slash Chords，如 `G/B`、`Am/C`、`C/E`）。
-- [x] **Phase 35-C-2：QWERTY 卡片标题与键盘 HUD 和弦反馈**：
-  - 在 `QwertyCard` 顶部标题栏增加声明式 `qwerty-chord-badge` 标签，并在 `QwertyComponent` 内部右上角绘制半透明和弦 HUD；状态栏不显示和弦徽标；
-  - 按下多个音符时展示和弦名称与转位说明，并以 12-TET 和声色彩标注；
-  - 按键松开后 HUD 渐隐，避免视觉闪烁。
-- [x] **Phase 35-C-3：和弦识别专项单元测试集**：
-  - 编写 `ChordRecognitionTest` 专项单测，全面覆盖单音、常见大三/小三和弦、挂留/减/增和弦、七和弦、九和弦、转位和弦、八度音重复、低音倾向性仲裁与散落杂音容错识别。
+| 状态 | 编号 | 任务项 | 涉及范围与预期结果 |
+| :---: | :---: | :--- | :--- |
+| [ ] | **Task 36-1** | **确立开发期减负与 YAGNI 协作规范** | 更新根目录 `AGENTS.md`，将开发期减负政策、单向干净切换、风险驱动测试标准与文档瘦身规则固化为 Agent 核心执行契约。 |
+| [ ] | **Task 36-2** | **剥离历史数据迁移与兼容死代码** | 1. `SettingsStore`：移除 `lastPluginName` 文本回退恢复机制，直接消费当前唯一标识符；<br>2. `PerformancePreset`：移除 v1 缺失 UUID 时依据名称派生确定性 UUID 的迁移分支，严格校验当前 v2 UUID 规范；<br>3. `PerformanceFile`：收敛 `.devpiano` 序列化引擎，剔除针对 v1/v2 历史无快照格式的容错兼容解析代码，统一以当前 v3 自包含快照格式为准；<br>4. `RoomReverbEngine`：移除 `"hall"` 历史别名，仅保留规范字符串标识。 |
+| [ ] | **Task 36-3** | **精简低价值测试与过时兼容用例** | 1. 清理 `source/tests/` 中专门针对已废弃格式（v1 预设迁移、旧插件名称恢复、历史数字预设解析等）的陈旧用例；<br>2. 审视并精简单纯断言 ValueTree 声明属性（如固定高度、标签字面量）的伪测试；<br>3. 强化与保留音频无锁时序、切分踏板、发音身份防悬挂音及事务落盘等核心防线。 |
+| [ ] | **Task 36-4** | **同步现行特性文档与兼容性声明** | 审查并修订 `docs/reference/features/`（重点为 `performance-presets.md`、`performance-persistence.md`、`project-scope.md`）：<br>1. 删除过时的“向后兼容性保证”等承诺性表述；<br>2. 明确当前仅维护单一现代数据模型与文件格式；<br>3. 调整项目演进原则，由“追求测试数量/高覆盖率”明确转向“聚焦关键风险与声学表现力的确定性回归”。 |
+| [ ] | **Task 36-5** | **文档维护面瘦身与去冗余** | 清理文档各分册中易变的瞬态进度表述（如 `docs/README.md`、ADR 描述等），消除跨文件事实重复维护的摩擦力。 |
 
 ---
 
-### Phase 35-D：MIDI 伴奏 A-B 片段循环跟练与进度自由跳转（A-B Loop Practice & Timeline Seek）[已完成，2026-09-28]
+## 4. 边界与明确非目标
 
-> 目标：补齐 MIDI 伴奏跟弹练习的工作流闭环，支持难点小节精细 A-B 循环与无缝时间跳转。
-
-- [x] **Phase 35-D-1：传输卡片时间轴与 Seek**：
-  - 在 `LayoutModel.cpp` 的 ADSR/传输卡片中嵌入 `TimelineBar`，显示当前播放位置与总时长；
-  - 点击/拖动时间轴以 Take-relative 采样位置请求跳转；音频线程在下一块应用 Seek 并清理原有发声、重置播放事件游标；
-- [x] **Phase 35-D-2：A-B 标记与循环播放器（`AbLoopEngine`）**：
-  - `TimelineBar` 提供设置 A、B 与清除循环操作；`AbLoopEngine` 保存 Take-relative 标记；
-  - 播放抵达 B 点时注销未完成音符并回跳至 A 点；循环区间采用 $[A,B)$ 语义，配合 0.5x~2.0x 原子调速。
-- [x] **Phase 35-D-3：时间轴跳转与循环测试套件**：
-  - 编写 `AbLoopTest` 专项单测，覆盖边界 Seek 跳转、A-B 倒置保护、回跳发音注销确定性、空区间保护及多轨合并时间线下的准确复位。
-
----
-
-## 后续阶段规划展望 (Future Iterations Outlook)
-
-### Phase 36：物理建模声学巅峰（Railsback Octave Stretch Tuning & Duplex Scale Resonance）[规划中]
-
-> 目标：在声学微观机理上彻底对齐 Pianoteq 8/9，攻克琴弦刚度八度拉伸与高频空气感最后两座大山。
-
-1. **Railsback 八度调律拉伸曲线（Octave Stretch Tuning）**：
-   - 基于实测琴弦刚度不谐和系数 $B$（Inharmonicity）构建动态音分偏差表，低音区拉降 10~30 cents，高音区拉升 20~35 cents，消除低音泛音与高音基波的拍频干涉；
-   - 在设置面板提供 Stretched Tuning 开关与 Standard / Wide / Off 调律曲线选择。
-2. **Duplex Scale 双重副弦共鸣池（Aliquot Resonance）**：
-   - 建模 Steinway 钢琴琴桥后方未制音副弦的高频谐振，击键时激发通透晶莹的银色泛音闪烁感（Silvery Top End），消除物理建模的纯数学干燥感；
-3. **Sostenuto（选择性持续音踏板 CC 66）**：
-   - 建模现代大三角钢琴第三踏板机理：仅将踩下踏板瞬间按住的键延音，后续弹奏的新音不受延音影响。
-4. **经典钢琴型号风格预设包（Model Personalities）**：
-   - 提取参数化声学模型快照：Concert Grand（浑厚宽广）、Studio Grand（通透现代）、Upright Honky-tonk（复古立式微走音）、Classical Fortepiano（古典轻盈），一键切换。
-
----
-
-### Phase 37：键盘高级演奏形态（Keyboard Split & Dual Layering）[规划中]
-
-> 目标：拓展双手演奏与复合音色表现力，突破单键盘单通道局限。
-
-1. **双手物理键盘分区（Keyboard Split Point）**：
-   - 支持设置物理分割点（如 G4 / 按键 G），左侧键盘区分配至伴奏通道（低八度/贝斯/弦乐），右侧键盘区分配至主旋律通道；
-2. **双层音色复合叠加（Dual Layering）**：
-   - 单次物理击键按通道矩阵同时触发内置物理钢琴与指定 VST3 衬底乐器，实现钢琴+垫乐（Piano + Pad）的宏大演奏体验。
-
----
-
-## 历史实现 Backlog
-
-- Phase 34 完成记录（键盘演奏交互质变与演奏表现力增强，QWERTY 看板 / 踏板切分 / 发音快照 / 跨平台收敛）：[`../archive/phase34-keyboard-performance-ux-and-expressive-control.md`](../archive/phase34-keyboard-performance-ux-and-expressive-control.md)
-- 跨平台实现收敛与 JUCE 9 框架深度利用阶段归档：[`../archive/cross-platform-and-juce9-convergence.md`](../archive/cross-platform-and-juce9-convergence.md)
-- AUDIT-003 修复阶段归档（全面代码质量审计缺陷消除与架构对齐）：[`../archive/audit-003-code-quality-fix-phases.md`](../archive/audit-003-code-quality-fix-phases.md)
-- Phase 33 完成记录（可观测性加固与生产级诊断基础设施）：[`../archive/phase33-observability-and-diagnostics-infrastructure.md`](../archive/phase33-observability-and-diagnostics-infrastructure.md)
-- Phase 30 ~ 32 完成记录（古典调律、空间声学与微观机械拟真三部曲）：[`../archive/phase30-32-temperaments-spatial-mechanics.md`](../archive/phase30-32-temperaments-spatial-mechanics.md)
-- Phase 29 完成记录（现实物理演奏交互与声学控制）：[`../archive/phase29-physical-voicing-and-acoustic-interaction.md`](../archive/phase29-physical-voicing-and-acoustic-interaction.md)
-- Phase 28 完成记录（Devpiano 声明式 UI 基础设施深度治理与接口冻结）：[`../archive/phase28-ui-governance-and-api-freeze.md`](../archive/phase28-ui-governance-and-api-freeze.md)
-- Phase 27 完成记录（JUCE 9.0.1 框架升级、UI 基础设施内化与全平台生态演进）：[`../archive/phase27-juce9-upgrade-and-ui-internalization.md`](../archive/phase27-juce9-upgrade-and-ui-internalization.md)
-- ADR-014 实施归档（内化 Devpiano UI 基础设施与 JIVE 子模块退役治理）：[`../archive/adr-014-internalize-ui-infrastructure.md`](../archive/adr-014-internalize-ui-infrastructure.md)
-- AUDIT-002 修复阶段归档（全量 62 项缺陷修复与质量门禁闭环）：[`../archive/audit-002-code-quality-fix-phases.md`](../archive/audit-002-code-quality-fix-phases.md)
-- Phase 26 完成记录（MIDI 多轨并轨与综合时间线合并）：[`../archive/phase26-midi-multi-track-timeline-merge.md`](../archive/phase26-midi-multi-track-timeline-merge.md)
-- Phase 25 完成记录（Linux 原生桌面构建与音频驱动适配）：[`../archive/phase25-linux-desktop-and-audio-path.md`](../archive/phase25-linux-desktop-and-audio-path.md)
-- Post-v1.0.0 文档体系治理与打包流水线自动化完成记录：[`../guides/release-workflow.md`](../guides/release-workflow.md)
-- Phase 24 完成记录（生命力与非线性动力学绽放）：[`../archive/phase24-vitality-and-dynamic-blooming.md`](../archive/phase24-vitality-and-dynamic-blooming.md)
-- Phase 23 完成记录（大师级音色校准与 Pianoteq 对齐精调）：[`../archive/phase23-master-voicing-realism-calibration.md`](../archive/phase23-master-voicing-realism-calibration.md)
-- Phase 22 完成记录（物理声学极致深化与机械拟真）：[`../archive/phase22-physical-modeling-acoustic-refinement.md`](../archive/phase22-physical-modeling-acoustic-refinement.md)
-- Phase 21 完成记录（踏板交感共鸣与琴盖空间声学）：[`../archive/phase21-sympathetic-resonance-lid-acoustics.md`](../archive/phase21-sympathetic-resonance-lid-acoustics.md)
-- Phase 11 完成记录（声明式 UI 架构）：[`../archive/phase11-declarative-ui-jive.md`](../archive/phase11-declarative-ui-jive.md)
+1. **不进行全系统无端大重构**：本任务仅精准剪枝已识别的历史兼容分支与测试负担，禁止借机对稳定的音频合成器（`PianoSynthVoice`）、UI 解释器（JIVE 核心）或 VST3 宿主逻辑发起盲目推倒重写；
+2. **不降低运行时严谨性**：外部标准格式（标准 MIDI File 导入/导出、VST3 插件接口）依然属于当前的核心业务，不是“历史兼容包袱”，必须严格保证解析鲁棒性；
+3. **保持构建与测试全绿**：每一步剥离和修剪后，必须确保 Linux Clang 和 Windows MSVC 双端编译零警告，且剩余核心单元测试 100% 通过。

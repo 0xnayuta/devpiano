@@ -14,8 +14,11 @@ namespace {
 
 class JiveDialogContent final : public juce::Component {
 public:
-    explicit JiveDialogContent(JiveModalDialog::LaunchOptions opts)
-        : options(std::move(opts)) {
+    explicit JiveDialogContent(const JiveModalDialog::LaunchOptions& opts)
+        : options(opts) {
+        if (options.componentToCentreAround != nullptr) {
+            setLookAndFeel(&options.componentToCentreAround->getLookAndFeel());
+        }
         viewHost.registerDefaultComponents();
         if (options.configureFactory) {
             viewHost.configureComponentFactory(options.configureFactory);
@@ -27,16 +30,7 @@ public:
             addAndMakeVisible(*rootComp);
         }
 
-        // Determine dialog content size
-        auto width = options.defaultWidth;
-        auto height = options.defaultHeight;
-        if (options.layoutTree.hasProperty("width")) {
-            width = static_cast<int>(options.layoutTree.getProperty("width"));
-        }
-        if (options.layoutTree.hasProperty("height")) {
-            height = static_cast<int>(options.layoutTree.getProperty("height"));
-        }
-        setSize(width, height);
+        const auto width = static_cast<int>(options.layoutTree.getProperty("width", options.defaultWidth));
 
         // Hook up standard button callbacks
         if (auto* okBtn = viewHost.find<juce::Button>("dialog-ok-btn")) {
@@ -55,14 +49,18 @@ public:
 
         if (options.onInitHost) {
             options.onInitHost(viewHost);
-        } else if (options.onInit && viewHost.getRootItem() != nullptr) {
-            options.onInit(*viewHost.getRootItem());
+        }
+        // Focus listeners cleaned up automatically with component hierarchy
+        viewHost.fitToContent(width);
+        if (auto* rootComp = viewHost.getRootComponent()) {
+            setSize(rootComp->getWidth(), rootComp->getHeight());
         }
 
         setWantsKeyboardFocus(true);
     }
 
     ~JiveDialogContent() override {
+        // Focus listeners cleaned up automatically with component hierarchy
         if (!completed && options.onCancel) {
             options.onCancel();
         }
@@ -121,11 +119,6 @@ public:
             if (!shouldClose) {
                 return;
             }
-        } else if (options.onConfirm && viewHost.getRootItem() != nullptr) {
-            const auto shouldClose = options.onConfirm(*viewHost.getRootItem());
-            if (!shouldClose) {
-                return;
-            }
         }
         completeWith([] { });
     }
@@ -176,34 +169,49 @@ void JiveModalDialog::launchCustom(const LaunchOptions& options) {
     opts.resizable = options.isResizable;
 
     auto content = std::make_unique<JiveDialogContent>(options);
-    if (options.componentToCentreAround != nullptr) {
-        content->setLookAndFeel(&options.componentToCentreAround->getLookAndFeel());
-    }
     opts.content.setOwned(content.release());
-    opts.launchAsync();
+    launchWindow(opts);
+}
+
+juce::DialogWindow* JiveModalDialog::launchWindow(juce::DialogWindow::LaunchOptions& options) {
+    const auto size = options.content->getLocalBounds();
+    auto* dialog = options.create();
+    dialog->setContentComponentSize(size.getWidth(), size.getHeight());
+    dialog->centreAroundComponent(options.componentToCentreAround, dialog->getWidth(), dialog->getHeight());
+    auto* contentComp = dialog->getContentComponent();
+    dialog->enterModalState(true,
+                            juce::ModalCallbackFunction::create(
+                                [safeContent = juce::Component::SafePointer<juce::Component>(contentComp)](int) {
+                                    if (auto* jive = dynamic_cast<JiveDialogContent*>(safeContent.getComponent())) {
+                                        jive->handleCancel();
+                                    }
+                                }),
+                            true);
+    return dialog;
 }
 
 void JiveModalDialog::launchSingleInput(const SingleInputOptions& options) {
-    auto layout = makeSingleInputLayout(options.labelText, 380, 150, options.okButtonText, options.cancelButtonText);
+    auto layout = makeSingleInputLayout(options.labelText, 380, options.okButtonText, options.cancelButtonText);
 
     LaunchOptions opts;
     opts.title = options.title;
     opts.layoutTree = layout;
     opts.componentToCentreAround = options.componentToCentreAround;
 
-    opts.onInit = [initialValue = options.initialValue, maxChars = options.maxChars](::jive::GuiItem& root) {
-        if (auto* editor = findTextEditorById(root, "dialog-editor")) {
-            editor->setText(initialValue, juce::dontSendNotification);
-            editor->setFont(juce::FontOptions(15.0f));
-            if (maxChars > 0) {
-                editor->setInputRestrictions(maxChars, {});
-            }
-            editor->selectAll();
-        }
-    };
+    opts.onInitHost
+        = [initialValue = options.initialValue, maxChars = options.maxChars](const devpiano::ui::ViewHost& host) {
+              if (auto* editor = host.find<juce::TextEditor>("dialog-editor")) {
+                  editor->setText(initialValue, juce::dontSendNotification);
+                  editor->setFont(DesignTokens::getUnifiedUiFont(15.0f));
+                  if (maxChars > 0) {
+                      editor->setInputRestrictions(maxChars, {});
+                  }
+                  editor->selectAll();
+              }
+          };
 
-    opts.onConfirm = [onComplete = options.onComplete](::jive::GuiItem& root) -> bool {
-        if (auto* editor = findTextEditorById(root, "dialog-editor")) {
+    opts.onConfirmHost = [onComplete = options.onComplete](const devpiano::ui::ViewHost& host) -> bool {
+        if (auto* editor = host.find<juce::TextEditor>("dialog-editor")) {
             auto val = editor->getText().trim();
             if (onComplete) {
                 onComplete(val);
@@ -241,14 +249,14 @@ void JiveModalDialog::launchSingleInput(const juce::String& title, const juce::S
 }
 
 void JiveModalDialog::launchConfirm(const ConfirmOptions& options) {
-    auto layout = makeConfirmLayout(options.message, 380, 140, options.okLabel, options.cancelLabel);
+    auto layout = makeConfirmLayout(options.message, 380, options.okLabel, options.cancelLabel);
 
     LaunchOptions opts;
     opts.title = options.title;
     opts.layoutTree = layout;
     opts.componentToCentreAround = options.componentToCentreAround;
 
-    opts.onConfirm = [onComplete = options.onComplete](::jive::GuiItem&) -> bool {
+    opts.onConfirmHost = [onComplete = options.onComplete](const devpiano::ui::ViewHost&) -> bool {
         if (onComplete) {
             onComplete(true);
         }
@@ -276,34 +284,35 @@ void JiveModalDialog::launchConfirm(const juce::String& title, const juce::Strin
 }
 
 void JiveModalDialog::launchMetadataEdit(const MetadataEditOptions& options) {
-    auto layout = makeMetadataEditLayout(420, 260);
+    auto layout = makeMetadataEditLayout();
 
     LaunchOptions opts;
     opts.title = options.title;
     opts.layoutTree = layout;
     opts.componentToCentreAround = options.componentToCentreAround;
 
-    opts.onInit = [initialTitle = options.initialTitle, initialNotes = options.initialNotes](::jive::GuiItem& root) {
-        if (auto* titleEd = findTextEditorById(root, "title-editor")) {
+    opts.onInitHost = [initialTitle = options.initialTitle,
+                       initialNotes = options.initialNotes](const devpiano::ui::ViewHost& host) {
+        if (auto* titleEd = host.find<juce::TextEditor>("title-editor")) {
             titleEd->setText(initialTitle, juce::dontSendNotification);
-            titleEd->setFont(juce::FontOptions(15.0f));
+            titleEd->setFont(DesignTokens::getUnifiedUiFont(15.0f));
             titleEd->setInputRestrictions(128, {});
         }
-        if (auto* notesEd = findTextEditorById(root, "notes-editor")) {
+        if (auto* notesEd = host.find<juce::TextEditor>("notes-editor")) {
             notesEd->setMultiLine(true, false);
             notesEd->setReturnKeyStartsNewLine(true);
             notesEd->setText(initialNotes, juce::dontSendNotification);
-            notesEd->setFont(juce::FontOptions(15.0f));
+            notesEd->setFont(DesignTokens::getUnifiedUiFont(15.0f));
             notesEd->setInputRestrictions(2048, {});
         }
     };
 
-    opts.onConfirm = [onComplete = options.onComplete](::jive::GuiItem& root) -> bool {
+    opts.onConfirmHost = [onComplete = options.onComplete](const devpiano::ui::ViewHost& host) -> bool {
         MetadataResult res;
-        if (auto* titleEd = findTextEditorById(root, "title-editor")) {
+        if (auto* titleEd = host.find<juce::TextEditor>("title-editor")) {
             res.title = titleEd->getText();
         }
-        if (auto* notesEd = findTextEditorById(root, "notes-editor")) {
+        if (auto* notesEd = host.find<juce::TextEditor>("notes-editor")) {
             res.notes = notesEd->getText();
         }
         if (onComplete) {
@@ -335,32 +344,43 @@ void JiveModalDialog::launchMetadataEdit(const juce::String& title, const juce::
 // Layout Builders
 // ============================================================================
 
-namespace {
-
-juce::ValueTree makeBaseDialogRoot(int width, int height, int padding = 12) {
-    auto root = node("Component", "dialog-root");
-    root.setProperty("display", "flex", nullptr);
-    root.setProperty("flex-direction", "column", nullptr);
+juce::ValueTree JiveModalDialog::makeDialogRoot(int width, int padding) {
+    auto root = flexColumn("dialog-root");
     root.setProperty("width", width, nullptr);
-    root.setProperty("height", height, nullptr);
-    root.setProperty("padding", juce::String(padding), nullptr);
+    root.setProperty("height", 0, nullptr);
+    root.setProperty("padding",
+                     juce::String(padding) + " " + juce::String(padding) + " "
+                         + juce::String(devpiano::jive::DesignTokens::get().dialogBottomPadding()) + " "
+                         + juce::String(padding),
+                     nullptr);
     return root;
 }
 
-juce::ValueTree makeDialogButtons(const juce::String& okText, const juce::String& cancelText) {
-    auto btnRow = node("Component", "dialog-buttons");
-    btnRow.setProperty("display", "flex", nullptr);
-    btnRow.setProperty("flex-direction", "row", nullptr);
+juce::ValueTree JiveModalDialog::makeDialogButtons(const juce::String& okText, const juce::String& cancelText,
+                                                   juce::ValueTree leadingAction) {
+    const auto& tokens = devpiano::jive::DesignTokens::get();
+    auto btnRow = flexRow("dialog-buttons");
     btnRow.setProperty("justify-content", "flex-end", nullptr);
-    btnRow.setProperty("align-items", "centre", nullptr);
-    btnRow.setProperty("height", 28, nullptr);
+    btnRow.setProperty("height", tokens.dialogButtonHeight(), nullptr);
+    btnRow.setProperty("flex-shrink", 0, nullptr);
+    btnRow.setProperty("margin", juce::String(tokens.dialogBodyGap()) + " 0 0 0", nullptr);
+
+    if (leadingAction.isValid()) {
+        leadingAction.setProperty("height", tokens.dialogButtonHeight(), nullptr);
+        leadingAction.setProperty("flex-shrink", 0, nullptr);
+        btnRow.appendChild(leadingAction, nullptr);
+        auto spacer = node("Component", "btn-spacer");
+        spacer.setProperty("flex-grow", 1.0, nullptr);
+        btnRow.appendChild(spacer, nullptr);
+    }
 
     if (okText.isNotEmpty()) {
         auto okBtn = button(okText, "dialog-ok-btn");
         okBtn.setProperty("width", 80, nullptr);
-        okBtn.setProperty("height", 28, nullptr);
+        okBtn.setProperty("height", tokens.dialogButtonHeight(), nullptr);
+        okBtn.setProperty("flex-shrink", 0, nullptr);
         if (cancelText.isNotEmpty()) {
-            okBtn.setProperty("margin", "0 8 0 0", nullptr);
+            okBtn.setProperty("margin", "0 " + juce::String(tokens.dialogButtonGap()) + " 0 0", nullptr);
         }
         btnRow.appendChild(okBtn, nullptr);
     }
@@ -368,18 +388,24 @@ juce::ValueTree makeDialogButtons(const juce::String& okText, const juce::String
     if (cancelText.isNotEmpty()) {
         auto cancelBtn = button(cancelText, "dialog-cancel-btn");
         cancelBtn.setProperty("width", 80, nullptr);
-        cancelBtn.setProperty("height", 28, nullptr);
+        cancelBtn.setProperty("height", tokens.dialogButtonHeight(), nullptr);
+        cancelBtn.setProperty("flex-shrink", 0, nullptr);
         btnRow.appendChild(cancelBtn, nullptr);
     }
 
-    return btnRow;
+    auto actions = flexColumn("dialog-actions");
+    actions.setProperty("flex-grow", 1.0, nullptr);
+    auto spacer = node("Component", "dialog-footer-spacer");
+    spacer.setProperty("height", 0, nullptr);
+    spacer.setProperty("flex-grow", 1.0, nullptr);
+    actions.appendChild(spacer, nullptr);
+    actions.appendChild(btnRow, nullptr);
+    return actions;
 }
 
-} // namespace
-
-juce::ValueTree JiveModalDialog::makeSingleInputLayout(const juce::String& labelText, int width, int height,
+juce::ValueTree JiveModalDialog::makeSingleInputLayout(const juce::String& labelText, int width,
                                                        const juce::String& okText, const juce::String& cancelText) {
-    auto root = makeBaseDialogRoot(width, height, 12);
+    auto root = makeDialogRoot(width);
 
     auto label = text(labelText, "dialog-label");
     label.setProperty("height", 20, nullptr);
@@ -389,7 +415,6 @@ juce::ValueTree JiveModalDialog::makeSingleInputLayout(const juce::String& label
 
     auto editor = node("PathEditor", "dialog-editor");
     editor.setProperty("height", 28, nullptr);
-    editor.setProperty("margin", "0 0 14 0", nullptr);
     editor.setProperty("focusable", true, nullptr);
     editor.setProperty("cursor", "text", nullptr);
     root.appendChild(editor, nullptr);
@@ -398,24 +423,24 @@ juce::ValueTree JiveModalDialog::makeSingleInputLayout(const juce::String& label
     return root;
 }
 
-juce::ValueTree JiveModalDialog::makeConfirmLayout(const juce::String& message, int width, int height,
-                                                   const juce::String& okText, const juce::String& cancelText) {
-    auto root = makeBaseDialogRoot(width, height, 12);
+juce::ValueTree JiveModalDialog::makeConfirmLayout(const juce::String& message, int width, const juce::String& okText,
+                                                   const juce::String& cancelText) {
+    auto root = makeDialogRoot(width);
 
     auto label = text(message, "dialog-message");
     label.setProperty("justification", "centred", nullptr);
     label.setProperty("font-size", 15, nullptr);
-    label.setProperty("height", 40, nullptr);
-    label.setProperty("margin", "0 0 12 0", nullptr);
+    label.setProperty("min-height", 40, nullptr);
+    label.setProperty("word-wrap", "by-character", nullptr);
     root.appendChild(label, nullptr);
 
     root.appendChild(makeDialogButtons(okText, cancelText), nullptr);
     return root;
 }
 
-juce::ValueTree JiveModalDialog::makeMetadataEditLayout(int width, int height, const juce::String& okText,
+juce::ValueTree JiveModalDialog::makeMetadataEditLayout(int width, const juce::String& okText,
                                                         const juce::String& cancelText) {
-    auto root = makeBaseDialogRoot(width, height, 12);
+    auto root = makeDialogRoot(width);
 
     auto titleLabel = text(TRANS("Song Title"), "title-label");
     titleLabel.setProperty("height", 20, nullptr);
@@ -436,9 +461,8 @@ juce::ValueTree JiveModalDialog::makeMetadataEditLayout(int width, int height, c
     notesLabel.setProperty("font-size", 15, nullptr);
     root.appendChild(notesLabel, nullptr);
 
-    auto notesEditor = node("ListEditor", "notes-editor");
+    auto notesEditor = node("NotesEditor", "notes-editor");
     notesEditor.setProperty("height", 80, nullptr);
-    notesEditor.setProperty("margin", "0 0 12 0", nullptr);
     notesEditor.setProperty("focusable", true, nullptr);
     notesEditor.setProperty("cursor", "text", nullptr);
     root.appendChild(notesEditor, nullptr);
@@ -447,20 +471,19 @@ juce::ValueTree JiveModalDialog::makeMetadataEditLayout(int width, int height, c
     return root;
 }
 
-juce::ValueTree JiveModalDialog::makeProgressLayout(const juce::String& initialMessage, int width, int height,
+juce::ValueTree JiveModalDialog::makeProgressLayout(const juce::String& initialMessage, int width,
                                                     const juce::String& cancelText) {
-    auto root = makeBaseDialogRoot(width, height, 14);
+    auto root = makeDialogRoot(width, 14);
 
     auto msg = text(initialMessage, "progress-status-message");
     msg.setProperty("font-size", 14, nullptr);
-    msg.setProperty("height", 22, nullptr);
+    msg.setProperty("min-height", 22, nullptr);
     msg.setProperty("margin", "0 0 10 0", nullptr);
     msg.setProperty("justification", "centred-left", nullptr);
     root.appendChild(msg, nullptr);
 
     auto bar = node("ProgressBar", "dialog-progress-bar");
     bar.setProperty("height", 16, nullptr);
-    bar.setProperty("margin", "0 0 16 0", nullptr);
     root.appendChild(bar, nullptr);
 
     root.appendChild(makeDialogButtons({}, cancelText), nullptr);

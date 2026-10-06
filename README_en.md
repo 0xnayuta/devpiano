@@ -36,21 +36,21 @@ For project scope, core capabilities, and explicit non-goals, see [`docs/referen
 - **88-Key Continuous Physical Parameter Mapping**: calibrated based on Bensa et al. (2003) and Steinway B 9-foot concert grand measurements, continuously interpolating string stiffness $B$, striking ratio $d/L$, damping constants, and 1/2/3 string unison zones (`Piano88KeyTable.h`);
 - **Nonlinear Strike Dynamics & Harmonic Blooming**: 3-layer felt dynamic compaction, velocity-dependent contact time $T_c$, striking point geometric comb notch filtering, 3ms high-frequency attack crack (HF Crack), felt ageing dynamics (`feltAgeingAmount`), delayed harmonic energy blooming (Harmonic Blooming, 10–25ms), and $fff$ pitch glide with soft saturation;
 - **Acoustic Resonance & Spatial Radiation**: 16-pole orthogonal spruce soundboard modal bank, 4.2kHz spruce viscous absorption lowpass filter, bridge stereo spatial radiation, triple-string Mid-Side differential expansion with natural beating, dual perspective imaging (Player vs Audience via `PerspectiveProcessor`), and lightweight algorithmic room reverberation (`RoomReverbEngine`: Chamber/Hall/Studio);
-- **Mechanical Action Realism & Historical Temperaments**: CC64 sustain pedal global sympathetic resonance, pedal action whoosh and resonance shock (`pedalNoiseLevel`), damper wood thump and key release friction, dynamic release velocity ADSR damping, plus 6 temperaments (`TemperamentEngine`) and A4 reference pitch tuning (currently clamped to 410–450 Hz; product target 400–480 Hz);
-- **Physical-Voice Core & Real-Time Contract**: `PianoSynthVoice` uses Magic Circle oscillators with no per-sample `std::sin`; the 8-voice single-core CPU $\le 0.7\%$, zero heap allocation, zero locks, and zero real-time trigonometry remain required system-wide targets. Current gaps (per-beat metronome coefficient calculation and exceptional buffer fallback) are tracked in [`docs/issues/known-issues.md`](docs/issues/known-issues.md); the built-in sine synth (`SineSynthVoice`) remains available.
+- **Mechanical Action Realism & Historical Temperaments**: CC64 sustain pedal global sympathetic resonance, pedal action whoosh and resonance shock (`pedalNoiseLevel`), damper wood thump and key release friction, dynamic release velocity ADSR damping, plus 6 temperaments (`TemperamentEngine`) and A4 reference pitch tuning (400–480 Hz, default 440 Hz, with shared limits across settings, presets, and built-in real-time/offline rendering);
+- **Physical-Voice Core & Real-Time Contract**: `PianoSynthVoice` and metronome processor achieve zero real-time library trigonometry (0 `std::sin`), 8-voice single-core CPU $\le 0.7\%$, zero heap allocation, and zero locks on all owned audio paths; keyboard input is routed through bounded SPSC queues, with key highlighting dispatched purely on the message thread; framework locks in third-party VST3 hosting are tracked in [`docs/issues/known-issues.md`](docs/issues/known-issues.md); the built-in sine synth (`SineSynthVoice`) remains available.
 
 ### 🔌 VST3 Plugin Hosting & Instrument Endpoint
 
 - **Robust Lifecycle Management**: supports default and custom multi-directory scanning, asynchronous chunked scanning, XML cache startup restoration, and failed file logging;
 - **Crash-Safe State Persistence**: incremental callback persistence per detected plugin, dead-man's pedal crash-point logging, and crash blacklist deferral;
 - **Unified Instrument Endpoint**: shared domain endpoint abstraction across the built-in physical modeling piano and VST3 plugins, unifying device preparation, real-time dispatch, and offline rendering;
-- **Plugin Loading & Editor Hosting**: loads VST3 instrument plugins into the real-time audio pipeline with isolated top-level editor window lifecycle management and exception safety guards.
+- **Plugin Loading & Editor Hosting**: select and restore VST3 instruments by `PluginDescription` identifier rather than display name; close the editor and stop callbacks before replacing or rescanning an instance. Plugins run in-process, without isolation from vendor crashes or permanent hangs.
 
 ### ⌨️ Computer Keyboard Performance & QWERTY Performance Map
 
 - **5-Row ANSI Physical Visualizer Card (QwertyComponent)**: declaratively embedded between Controls and Keyboard areas, featuring interactive physical key depression and 50fps phosphor afterglow decay; supports instant expand/collapse and settings persistence;
 - **12-TET Pitch-Class Harmony Color Projection**: subtle chromatic harmonic hues on key labels and dynamic triadic chord geometric color blooming linked with the 88-key piano bed; 4 key color modes (Classic / Channel / Velocity / Harmony);
-- **Lightweight Layout Groups & Note-off Identity Preservation**: supports up to 4 key groups (Group A~D) per preset, cycled instantly via backtick (`) or UI button; note-off release 100% preserves note-on sounding identity (pitch, channel), completely eliminating hanging notes;
+- **Lightweight Layout Groups & Note-off Identity Preservation**: up to 4 key groups (Group A~D), cycled via backtick or UI; physical keys retain original sounding identities until the final output holder releases, while playback pairs attacks FIFO using locked output identities;
 - **Sample-Accurate Syncopated Legato Pedal (SustainPolicy & Sync Pedal)**: sample-accurate intra-block scheduling for $\text{CC64}(0) \to \text{NoteOn} \to \text{CC64}(127)$, eliminating legato gaps when restriking keys with pedal held without thread sleep;
 - **Transient Performance Modifiers (PerformanceModifierState)**: Shift key triggers transient maximum velocity boost (127), Alt key triggers transient octave shift (+8va), auto-rebounding on release, with real-time UI HUD badges;
 - **Cadence Dynamics & Chord Feedback**: optional `TypingCadenceEstimator` adapts velocity to key intervals; `VelocityHumanizer` applies bounded, deterministic hash jitter without overriding Shift's maximum-velocity boost. Held notes drive chord/inversion labels in the QWERTY card header and keyboard HUD, which fade after release.
@@ -69,20 +69,20 @@ For project scope, core capabilities, and explicit non-goals, see [`docs/referen
 ### 🎙️ Performance Recording, Playback & Persistence
 
 - **Real-Time Lock-Free Capture**: lock-free MIDI event collection on the audio thread generating immutable `RecordingTake` snapshots;
-- **Variable-Speed Playback**: 0.5x–2.0x atomic speed control, Back-to-start, pause/resume, take-relative seek, and A-B practice loops;
-- **Native Performance File Persistence**: `.devpiano` native file format (v2 JSON + Base64 encoding + `juce::TemporaryFile` atomic writing);
-- **Standard MIDI File Interoperability**: exports standard Type 1 MIDI files (960 PPQ); imports `.mid` files by merging all tracks, with CC64 sustain, pitch-bend, and program-change parsing;
-- **Performance Preset System**: full preset CRUD orchestration, F1–F12 hotkey switching, recorded preset-change automation, and same-name import overwrite confirmation through a JIVE modal dialog.
+- **Variable-Speed Playback**: 0.5x–2.0x speed and Stop commands applied at audio-block boundaries, Back-to-start, pause/resume and take-relative seek/A-B loops; device-rate changes retain the Take time domain, destination channel state is restored before notes, and terminal NoteOff is delivered by audio rather than a UI timer;
+- **Native Performance Files**: `.devpiano` v3 JSON stores JUCE length-prefixed binary messages and an embedded `RecordedPreset` table; successful sibling temporary-file writes replace the target transactionally. MIDI-only v1/v2 files remain readable, while legacy numeric preset events are rejected instead of guessed.
+- **Standard MIDI Files**: import all tracks from complete Type 0/1 files with validated chunks and metadata, retaining timing across the global tempo map; export a single-track Type 1 performance at 960 PPQ with 120 BPM at tick zero, without synthesizing title, time-signature, or key-signature metadata.
+- **Performance Presets**: permanent UUID identity, CRUD, F1–F12 selection, and confirmation before overwriting an independent rename target. Ordinary selection retains the application's global key settings; recorded playback executes the embedded acoustic snapshot and its recorded transposition.
 
 ### 📦 Offline High-Fidelity WAV Export Pipeline
 
 - **Modern Asynchronous Non-Blocking Pipeline**: `WavExportTask` runs as a purely asynchronous workflow (`startAsync`), eliminating modal event loops and routed uniformly via `InstrumentEndpoint`;
 - **Dual-Engine Acoustic Parity**: automatically renders via the built-in physical modeling piano when no plugin is loaded, or creates isolated offline VST3 instances for plugin rendering, with 1:1 parity across all acoustic parameters and `RoomReverbEngine`;
-- **Modern Dark Progress Dialog**: real-time progress bar with cancellation support and automatic temporary file cleanup.
+- **Progress & Cooperative Cancellation**: display progress and wait for the actual worker to exit before releasing resources. Failure or pre-commit cancellation preserves existing targets and cleans only task-owned temporary files; permanently blocked vendor code has no bounded cancellation deadline.
 
 ### 🎨 Internalized Declarative UI Runtime & Design System
 
-- **Declarative UI Architecture**: main window, settings dialog, and modal dialogs are fully unified under the project's internalized declarative UI runtime (`source/UI/jive/core/`, pursuant to ADR-014 fully internalized with external JIVE submodule retired, supporting `juce::ValueTree` layouts + JSON style sheets + Flex/CSS Grid adaptive flow), eliminating manual coordinate calculations;
+- **Declarative UI Architecture**: main, settings, and modal containers use internal `source/UI/jive/core/` (ADR-014; the external JIVE submodule is retired), with `ValueTree`, JSON styles, and Flex/CSS Grid layout. Business code accesses components through `ViewHost`; native drawing components retain their own geometry and painting responsibilities.
 - **Modern Dark Theme**: `DevPianoLookAndFeel` rotary ADSR/volume controls, transport and metronome controls, and status-bar MIDI/beat feedback, plugin name, audio metrics, and key signature;
 - **Zero-External-Asset Bundling**: design tokens (`design_tokens.json`), style sheets (`style_sheets.json`), and Chinese localization resources (`zh_CN.loc`) are statically bundled as binary data at compile time, enabling single-file distribution.
 

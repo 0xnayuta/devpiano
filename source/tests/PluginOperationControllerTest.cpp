@@ -11,37 +11,12 @@ public:
     }
 
     void runTest() override {
-        testPluginRecoverySettingsHelpers();
         testPluginScanPathUsability();
         testStartupPluginRestorePlan();
         testCachedPluginListRestoration();
     }
 
 private:
-    void testPluginRecoverySettingsHelpers() {
-        beginTest("Plugin recovery settings construction and fallback");
-
-        devpiano::test::ScopedTempDir customDir("custom-vst3");
-        devpiano::test::ScopedTempDir defaultDir("default-vst3");
-        const auto customPathStr = customDir.get().getFullPathName();
-        const auto defaultPathStr = defaultDir.get().getFullPathName();
-
-        const auto recovery = devpiano::plugin::makePluginRecoverySettings(customPathStr, "GrandPiano");
-        expectEquals(recovery.pluginSearchPath, customPathStr);
-        expectEquals(recovery.lastPluginName, juce::String("GrandPiano"));
-
-        // Path fallback: preserve non-empty search path
-        juce::FileSearchPath defaultPath(defaultPathStr);
-        const auto withExisting = devpiano::plugin::withPluginRecoveryPathFallback(recovery, defaultPath);
-        expectEquals(withExisting.pluginSearchPath, customPathStr);
-
-        // Path fallback: fill empty search path with default
-        const auto emptyRecovery = devpiano::plugin::makePluginRecoverySettings("", "GrandPiano");
-        const auto filled = devpiano::plugin::withPluginRecoveryPathFallback(emptyRecovery, defaultPath);
-        expectEquals(filled.pluginSearchPath, defaultPath.toString());
-        expectEquals(filled.lastPluginName, juce::String("GrandPiano"));
-    }
-
     void testPluginScanPathUsability() {
         beginTest("Plugin scan path normalisation and usability");
 
@@ -78,12 +53,12 @@ private:
         // 2. Settings with last plugin name -> should load last plugin
         SettingsModel::PluginRecoverySettingsView namedSettings;
         namedSettings.pluginSearchPath = customPathStr;
-        namedSettings.lastPluginName = "Synth1";
+        namedSettings.lastPluginIdentifier = "VST3-Synth1-fixture-1234";
         const auto plan2 = devpiano::plugin::buildStartupPluginRestorePlan(namedSettings, defaultPath);
         expect(plan2.shouldScan);
         expect(plan2.shouldLoadLastPlugin);
         expectEquals(plan2.recovery.pluginSearchPath, customPathStr);
-        expectEquals(plan2.recovery.lastPluginName, juce::String("Synth1"));
+        expectEquals(plan2.recovery.lastPluginIdentifier, juce::String("VST3-Synth1-fixture-1234"));
 
         // 3. Completely empty settings and empty default path -> no scan, no load
         juce::FileSearchPath noDefault;

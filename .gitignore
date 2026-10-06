@@ -33,6 +33,8 @@ ipch/
 .vs/
 .omp/*
 !.omp/skills/
+.ua/
+.understand-anything/
 *.suo
 *.user
 *.userosscache

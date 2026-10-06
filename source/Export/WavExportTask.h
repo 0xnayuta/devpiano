@@ -36,6 +36,9 @@ public:
     /// Runs synchronously without UI dialogs (for headless/testing environments).
     /// Returns true if completed successfully, false if cancelled or failed.
     bool runSync();
+    void requestCancellation() noexcept;
+
+    [[nodiscard]] bool isRunning() const noexcept;
     [[nodiscard]] bool wasSuccessful() const noexcept {
         return success.load();
     }
@@ -52,6 +55,7 @@ private:
     void setProgress(double newProgress);
     void setStatusMessage(const juce::String& newStatusMessage);
     void failExport(const juce::String& errorMsg, bool isCancellation = false);
+    void cleanupPreparedPlugin() noexcept;
 
     devpiano::recording::RecordingTake take;
     const juce::File destinationFile;
@@ -61,7 +65,8 @@ private:
 
     std::atomic<bool> success { false };
     std::atomic<bool> cancelRequested { false };
-    std::atomic<bool> finished { false };
+    std::atomic<bool> pluginResourcesReleased { false };
+    std::atomic<bool> asyncInFlight { false };
     std::atomic<double> currentProgress { 0.0 };
 
     juce::CriticalSection messageLock;

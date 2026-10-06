@@ -124,6 +124,19 @@ public:
             return editor;
         });
 
+        factory.set("NotesEditor", [] {
+            auto editor = std::make_unique<juce::TextEditor>();
+            editor->setMultiLine(true);
+            editor->setReturnKeyStartsNewLine(true);
+            editor->setReadOnly(false);
+            editor->setScrollbarsShown(true);
+            editor->setCaretVisible(true);
+            editor->setPopupMenuEnabled(true);
+            editor->setWantsKeyboardFocus(true);
+            editor->setMouseClickGrabsKeyboardFocus(true);
+            return editor;
+        });
+
         factory.set("DevKnob", [] {
             auto slider = std::make_unique<juce::Slider>();
             slider->setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);

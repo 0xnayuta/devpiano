@@ -66,6 +66,7 @@
 10. 发音身份恒定与绝对防悬挂（Note-off Identity Preservation）：键盘映射或 Group 动态平移绝不破坏已发出的 NoteOn，任何 NoteOff 发送时必须 100% 使用 NoteOn 触发时锁定的发音身份（Pitch, Channel）快照；演奏修饰键（Press）仅在事件流变换阶段生效，严禁突变底层持久化配置。
 11. 确定性采样级时序与实时音频契约（Realtime Safety）：踏板切分（Sync Pedal）等控制必须在音频块内部基于采样点偏移（Sample Offset）与严格事件排序确定性调度，严禁使用线程 Sleep 或物理时钟延迟；实时音频回调路径严格遵守无锁（Lock-free）、零堆内存分配（Zero-allocation）。
 12. UI 视觉视图单一事实源（Single Source of Truth）：QWERTY 映射卡片与虚拟钢琴键盘均为 Live 演奏映射看板（Performance Map），直接单向消费底层 ViewModel，严禁在 UI 侧二次计算或自维护 MIDI 映射逻辑；不承担视频编解码录制职责，专注于 WAV 离线渲染与 MIDI 导出。
+13. Headless-Safe 统一纯内存单元测试铁律（ADR-016）：所有自动化单元测试必须保持 100% 纯内存离屏设计，在任何操作系统与无显示器 Linux CI 环境下均能无条件全量执行；严禁在测试中调用 `addToDesktop()` 或创建真实的系统级原生顶层窗口（`TopLevelWindow` / `DialogWindow`），严禁使用 `if (isHeadless()) return;` 逃避 CI 门禁，严禁引入 Xvfb 等非必要外部基础设施；UI 与弹窗测试聚焦于声明式组件树、按钮交互、键鼠事件与生命周期闭包。
 
 ---
 
@@ -221,6 +222,11 @@
   - **国际化分层与测试反模式防范**：
     - 自然语言文本 100% 外部化：C++ 源码中仅保留纯 ASCII 的英文键名（配合 `TRANS("...")`），中文译文统一在 `source/Locale/zh_CN.loc` 中维护；
     - **严禁在 `source/tests/` 单元测试中引入中文字符或硬编码断言具体的译文文本**：单元测试只负责验证语言切换机制（Mechanism）、键名回退与自适应布局，不得将测试用例与随时可能润色变动的文案内容（Copywriting）强耦合。
+  - **UI/弹窗单元测试纯内存与消息泵规范（ADR-016）**：
+    - 编写 UI 与弹窗单元测试时，必须通过 `devpiano::ui::ViewHost` 或独立内存组件装载布局与事件；
+    - 严禁调用 `DialogWindow::LaunchOptions::create()`、`launchCustom()` 等拉起系统级物理窗口的启动器；
+    - 涉及 `Button::triggerClick()` 或异步事件测试时，必须显式调用 `devpiano::test::drainMessages(N)` 确保事件循环泵送完毕；
+    - 模态回调测试应基于纯内存 `Component::SafePointer` 闭包验证存活路由与提前析构安全。
 
 ---
 

@@ -14,6 +14,16 @@
 
 namespace {
 
+devpiano::recording::RecordedPreset makeTestRecordedPreset(const juce::String& name = "TestPreset") {
+    devpiano::recording::RecordedPreset rp;
+    rp.preset = devpiano::layout::makeDefaultPreset();
+    rp.preset.name = name;
+    rp.preset.uuid = devpiano::layout::generateDeterministicPresetUuid(name);
+    rp.acoustic.masterGain = 0.85f;
+    rp.acoustic.reverbWet = 0.25f;
+    return rp;
+}
+
 devpiano::recording::RecordingTake makeTestTake() {
     devpiano::recording::RecordingTake take;
     take.sampleRate = 44100.0;
@@ -34,10 +44,11 @@ devpiano::recording::RecordingTake makeTestTake() {
     devpiano::recording::PerformanceEvent presetChange;
     presetChange.timestampSamples = 22050;
     presetChange.type = devpiano::recording::PerformanceEventType::presetChange;
-    presetChange.presetId = 3;
+    presetChange.presetId = 0;
     presetChange.source = devpiano::recording::RecordingEventSource::computerKeyboard;
 
     take.events = { noteOn, noteOff, presetChange };
+    take.presets = { makeTestRecordedPreset() };
     return take;
 }
 
@@ -78,11 +89,11 @@ public:
                 expectEquals(loaded->sampleRate, 44100.0);
                 expectEquals(loaded->lengthSamples, take.lengthSamples);
                 expectEquals(static_cast<int>(loaded->events.size()), 3);
-                expect(loaded->events[0].message.isNoteOn());
-                expect(loaded->events[0].timestampSamples == 0);
-                expect(loaded->events[1].timestampSamples == 44100);
-                expect(loaded->events[2].type == PerformanceEventType::presetChange);
-                expectEquals(static_cast<int>(loaded->events[2].presetId), 3);
+                expectEquals(static_cast<int>(loaded->presets.size()), 1);
+                expectEquals(loaded->presets[0].preset.name, take.presets[0].preset.name);
+                expectEquals(loaded->presets[0].preset.uuid, take.presets[0].preset.uuid);
+                expectWithinAbsoluteError(loaded->presets[0].acoustic.masterGain, take.presets[0].acoustic.masterGain,
+                                          0.001f);
             }
 
             const auto loadedMeta = loadPerformanceFileMetadata(target);
@@ -90,6 +101,83 @@ public:
             if (loadedMeta.has_value()) {
                 expectEquals(loadedMeta->title, metadata.title);
                 expectEquals(loadedMeta->notes, metadata.notes);
+            }
+        });
+
+        testCase("chronological stabilization on deserialization (QUAL-005)", [&] {
+            RecordingTake take;
+            take.sampleRate = 44100.0;
+            take.lengthSamples = 88200;
+
+            PerformanceEvent evLate;
+            evLate.timestampSamples = 44100;
+            evLate.type = PerformanceEventType::midi;
+            evLate.source = RecordingEventSource::computerKeyboard;
+            evLate.message = juce::MidiMessage::noteOff(1, 60, 0.8f);
+
+            PerformanceEvent evEarly;
+            evEarly.timestampSamples = 0;
+            evEarly.type = PerformanceEventType::midi;
+            evEarly.source = RecordingEventSource::computerKeyboard;
+            evEarly.message = juce::MidiMessage::noteOn(1, 60, 0.8f);
+
+            PerformanceEvent evMid;
+            evMid.timestampSamples = 22050;
+            evMid.type = PerformanceEventType::presetChange;
+            evMid.presetId = 0;
+
+            take.events = { evLate, evEarly, evMid };
+            take.presets = { makeTestRecordedPreset() };
+            const auto json = serialiseTakeToJson(take);
+            const auto loaded = deserialiseTakeFromJson(json);
+            expect(loaded.has_value());
+            if (loaded.has_value()) {
+                expectEquals(static_cast<int>(loaded->events.size()), 3);
+                expectEquals(loaded->events[0].timestampSamples, static_cast<std::int64_t>(0));
+                expect(loaded->events[0].message.isNoteOn());
+                expectEquals(loaded->events[1].timestampSamples, static_cast<std::int64_t>(22050));
+                expect(loaded->events[1].type == PerformanceEventType::presetChange);
+                expectEquals(loaded->events[2].timestampSamples, static_cast<std::int64_t>(44100));
+                expect(loaded->events[2].message.isNoteOff());
+            }
+        });
+
+        testCase("equal-sample events preserve stable insertion order (QUAL-005)", [&] {
+            RecordingTake take;
+            take.sampleRate = 48000.0;
+            take.lengthSamples = 96000;
+
+            PerformanceEvent ev1;
+            ev1.timestampSamples = 1000;
+            ev1.type = PerformanceEventType::midi;
+            ev1.source = RecordingEventSource::computerKeyboard;
+            ev1.message = juce::MidiMessage::noteOn(1, 60, 0.8f);
+
+            PerformanceEvent ev2;
+            ev2.timestampSamples = 1000;
+            ev2.type = PerformanceEventType::midi;
+            ev2.source = RecordingEventSource::computerKeyboard;
+            ev2.message = juce::MidiMessage::noteOn(1, 64, 0.8f);
+
+            PerformanceEvent ev3;
+            ev3.timestampSamples = 1000;
+            ev3.type = PerformanceEventType::midi;
+            ev3.source = RecordingEventSource::computerKeyboard;
+            ev3.message = juce::MidiMessage::noteOn(1, 67, 0.8f);
+
+            take.events = { ev1, ev2, ev3 };
+
+            const auto json = serialiseTakeToJson(take);
+            const auto loaded = deserialiseTakeFromJson(json);
+            expect(loaded.has_value());
+            if (loaded.has_value()) {
+                expectEquals(static_cast<int>(loaded->events.size()), 3);
+                expectEquals(loaded->events[0].timestampSamples, static_cast<std::int64_t>(1000));
+                expectEquals(loaded->events[0].message.getNoteNumber(), 60);
+                expectEquals(loaded->events[1].timestampSamples, static_cast<std::int64_t>(1000));
+                expectEquals(loaded->events[1].message.getNoteNumber(), 64);
+                expectEquals(loaded->events[2].timestampSamples, static_cast<std::int64_t>(1000));
+                expectEquals(loaded->events[2].message.getNoteNumber(), 67);
             }
         });
 
@@ -106,14 +194,13 @@ public:
             const auto target = tempDir.getChildFile("overwrite.devpiano");
             expect(savePerformanceFile(makeTestTake(), target));
 
-            // Second take with a distinct length and a single different event.
             auto secondTake = makeTestTake();
             secondTake.lengthSamples = 44100;
             secondTake.events.clear();
-            devpiano::recording::PerformanceEvent otherNote;
+            PerformanceEvent otherNote;
             otherNote.timestampSamples = 10;
-            otherNote.type = devpiano::recording::PerformanceEventType::midi;
-            otherNote.source = devpiano::recording::RecordingEventSource::computerKeyboard;
+            otherNote.type = PerformanceEventType::midi;
+            otherNote.source = RecordingEventSource::computerKeyboard;
             otherNote.message = juce::MidiMessage::noteOn(2, 72, 1.0f);
             secondTake.events.push_back(otherNote);
 
@@ -133,10 +220,223 @@ public:
         testCase("invalid take is rejected without touching the file system", [&] {
             devpiano::test::ScopedTempDir tempDir("perf-invalid");
             const auto target = tempDir.getChildFile("invalid.devpiano");
-            devpiano::recording::RecordingTake empty;
+            RecordingTake empty;
             expect(!savePerformanceFile(empty, target));
             expect(!target.existsAsFile());
             expect(!hasTempResidue(tempDir.get(), "invalid"));
+
+            RecordingTake badRate = makeTestTake();
+            badRate.sampleRate = 4000.0;
+            expect(!savePerformanceFile(badRate, target));
+            expect(!target.existsAsFile());
+
+            RecordingTake badTimestamp = makeTestTake();
+            badTimestamp.events[0].timestampSamples = badTimestamp.lengthSamples + 1;
+            expect(!savePerformanceFile(badTimestamp, target));
+            expect(!target.existsAsFile());
+        });
+
+        testCase("SEC-003: reject malicious base64 length prefix", [&] {
+            const auto helper = [](const juce::String& b64) {
+                const auto json
+                    = R"({"version":2,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"events":[{"timestampSamples":0,"type":"midi","source":"computerKeyboard","midiData":")"
+                    + b64 + R"("}]})";
+                return deserialiseTakeFromJson(json);
+            };
+
+            expect(!helper("-1.AAAA").has_value(), "negative prefix rejected");
+            expect(!helper("abc.AAAA").has_value(), "non-numeric prefix rejected");
+            expect(!helper("20000000.AAAA").has_value(), "huge prefix exceeding budget rejected");
+            expect(!helper("1234").has_value(), "missing dot separator rejected");
+            expect(!helper("03.AAAA").has_value(), "leading zero prefix rejected");
+            expect(!helper("0.").has_value(), "zero length prefix rejected");
+            expect(!helper(".AAAA").has_value(), "empty prefix rejected");
+        });
+
+        testCase("SEC-003: reject exact encoded size mismatch, alphabet violations, and invalid padding bits", [&] {
+            const auto helper = [](const juce::String& b64) {
+                const auto json
+                    = R"({"version":2,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"events":[{"timestampSamples":0,"type":"midi","source":"computerKeyboard","midiData":")"
+                    + b64 + R"("}]})";
+                return deserialiseTakeFromJson(json);
+            };
+
+            expect(!helper("3.AAA").has_value(), "truncated payload rejected");
+            expect(!helper("3.AAAAA").has_value(), "extra trailing payload rejected");
+            expect(!helper("3.AA=A").has_value(), "invalid alphabet '=' rejected");
+            expect(!helper("3.AA,A").has_value(), "invalid alphabet ',' rejected");
+            expect(!helper("3.AA/A").has_value(), "invalid alphabet '/' rejected");
+            expect(!helper("3.AA A").has_value(), "whitespace in payload rejected");
+
+            // 1 byte -> 2 base64 chars (rem = 8 % 6 = 2). Last char must have upper 4 bits zero (val < 4).
+            // 'D' has value 4, so upper bits are non-zero (4 >> 2 != 0).
+            expect(!helper("1.AD").has_value(), "dirty padding bits rejected");
+        });
+
+        testCase("SEC-003: reject malformed or truncated MIDI frames before MidiMessage construction", [&] {
+            const auto helper = [](const uint8_t* bytes, size_t size) {
+                juce::MemoryBlock mb(bytes, size);
+                const auto json
+                    = R"({"version":2,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"events":[{"timestampSamples":0,"type":"midi","source":"computerKeyboard","midiData":")"
+                    + mb.toBase64Encoding() + R"("}]})";
+                return deserialiseTakeFromJson(json);
+            };
+
+            // Truncated NoteOn (2 bytes instead of 3)
+            const uint8_t truncatedNoteOn[] = { 0x90, 0x3C };
+            expect(!helper(truncatedNoteOn, sizeof(truncatedNoteOn)).has_value(), "truncated noteOn rejected");
+
+            // Channel voice message with high bit set in data byte
+            const uint8_t badDataByte[] = { 0x90, 0x85, 0x40 };
+            expect(!helper(badDataByte, sizeof(badDataByte)).has_value(), "high bit in data byte rejected");
+
+            // Valid raw SysEx F0...F7 accepted
+            const uint8_t validSysEx[] = { 0xF0, 0x7E, 0x01, 0xF7 };
+            expect(helper(validSysEx, sizeof(validSysEx)).has_value(), "valid raw SysEx accepted");
+
+            // Truncated SysEx (no trailing 0xF7)
+            const uint8_t truncatedSysEx[] = { 0xF0, 0x7E, 0x01 };
+            expect(!helper(truncatedSysEx, sizeof(truncatedSysEx)).has_value(), "truncated SysEx rejected");
+
+            // Legal 1-byte 0xFF System Reset accepted
+            const uint8_t systemReset[] = { 0xFF };
+            expect(helper(systemReset, sizeof(systemReset)).has_value(), "1-byte 0xFF system reset accepted");
+
+            // Truncated Meta event (0xFF with no VLQ length)
+            const uint8_t truncatedMeta[] = { 0xFF, 0x58 };
+            expect(!helper(truncatedMeta, sizeof(truncatedMeta)).has_value(), "truncated meta event rejected");
+
+            // Time signature meta-event with denominator exponent 31 (shift overflow / UB)
+            const uint8_t badTimeSigExp[] = { 0xFF, 0x58, 0x04, 0x04, 31, 0x18, 0x08 };
+            expect(!helper(badTimeSigExp, sizeof(badTimeSigExp)).has_value(), "time-sig exponent 31 rejected");
+
+            // Time signature meta-event with invalid fixed length 5 instead of 4
+            const uint8_t badTimeSigLen[] = { 0xFF, 0x58, 0x05, 0x04, 0x02, 0x18, 0x08, 0x00 };
+            expect(!helper(badTimeSigLen, sizeof(badTimeSigLen)).has_value(), "time-sig invalid length rejected");
+
+            // Tempo meta-event with invalid fixed length 2 instead of 3
+            const uint8_t badTempoLen[] = { 0xFF, 0x51, 0x02, 0x07, 0xA1 };
+            expect(!helper(badTempoLen, sizeof(badTempoLen)).has_value(), "tempo invalid length rejected");
+        });
+
+        testCase("SEC-004: reject unsupported sample rates, unrepresentable length, and invalid timestamps", [&] {
+            const auto helper = [](const juce::String& sr, const juce::String& len, const juce::String& ts) {
+                const auto noteB64
+                    = juce::MemoryBlock(juce::MidiMessage::noteOn(1, 60, 0.8f).getRawData(), 3).toBase64Encoding();
+                const auto json = R"({"version":2,"format":"devpiano-performance","sampleRate":)" + sr
+                    + R"(,"lengthSamples":)" + len + R"(,"events":[{"timestampSamples":)" + ts
+                    + R"(,"type":"midi","source":"computerKeyboard","midiData":")" + noteB64 + R"("}]})";
+                return deserialiseTakeFromJson(json);
+            };
+
+            expect(!helper("0.0", "88200", "0").has_value(), "zero sample rate rejected");
+            expect(!helper("-44100.0", "88200", "0").has_value(), "negative sample rate rejected");
+            expect(!helper("1000.0", "88200", "0").has_value(), "sample rate < 8000 rejected");
+            expect(!helper("500000.0", "88200", "0").has_value(), "sample rate > 384000 rejected");
+            expect(!helper("\"44100\"", "88200", "0").has_value(), "string sample rate rejected");
+
+            expect(!helper("44100.0", "-10", "0").has_value(), "negative length rejected");
+            expect(!helper("44100.0", "88200.5", "0").has_value(), "fractional length rejected");
+            expect(!helper("44100.0", "\"88200\"", "0").has_value(), "string length rejected");
+
+            expect(!helper("44100.0", "88200", "-1").has_value(), "negative timestamp rejected");
+            expect(!helper("44100.0", "88200", "10.5").has_value(), "fractional timestamp rejected");
+            expect(!helper("44100.0", "88200", "\"10\"").has_value(), "string timestamp rejected");
+            expect(!helper("44100.0", "88200", "88201").has_value(), "timestamp > length rejected");
+            expect(helper("44100.0", "88200", "88200").has_value(), "timestamp == length accepted (legacy boundary)");
+        });
+
+        testCase("legacy v1/v2 MIDI-only accepted and legacy numeric preset events rejected (ARCH-003)", [&] {
+            const auto noteB64
+                = juce::MemoryBlock(juce::MidiMessage::noteOn(1, 60, 0.8f).getRawData(), 3).toBase64Encoding();
+
+            // 1. Legacy v1 MIDI-only JSON: accepted
+            const auto v1MidiOnlyJson
+                = R"({"version":1,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"events":[{"timestampSamples":0,"source":"computerKeyboard","midiData":")"
+                + noteB64 + R"("}]})";
+            const auto v1Loaded = deserialiseTakeFromJson(v1MidiOnlyJson);
+            expect(v1Loaded.has_value(), "Legacy v1 MIDI-only take must be accepted");
+            if (v1Loaded.has_value()) {
+                expectEquals(static_cast<int>(v1Loaded->events.size()), 1);
+                expect(v1Loaded->events[0].type == PerformanceEventType::midi);
+                expect(v1Loaded->presets.empty(), "Legacy take has no presets table");
+            }
+
+            // 2. Legacy v2 MIDI-only JSON: accepted
+            const auto v2MidiOnlyJson
+                = R"({"version":2,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"events":[{"timestampSamples":0,"type":"midi","source":"computerKeyboard","midiData":")"
+                + noteB64 + R"("}]})";
+            const auto v2MidiLoaded = deserialiseTakeFromJson(v2MidiOnlyJson);
+            expect(v2MidiLoaded.has_value(), "Legacy v2 MIDI-only take must be accepted");
+
+            // 3. Legacy v1 or v2 with presetChange must be explicitly REJECTED with diagnostic
+            const auto* v2NumericPresetJson
+                = R"({"version":2,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"events":[{"timestampSamples":100,"type":"presetChange","presetId":5}]})";
+            expect(!deserialiseTakeFromJson(v2NumericPresetJson).has_value(),
+                   "Legacy v2 numeric preset event must be rejected (no silent directory index reinterpretation)");
+
+            const auto* v1NumericPresetJson
+                = R"({"version":1,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"events":[{"timestampSamples":100,"type":"presetChange","presetId":0}]})";
+            expect(!deserialiseTakeFromJson(v1NumericPresetJson).has_value(),
+                   "Legacy v1 numeric preset event must be rejected");
+
+            // 4. v3 with embedded presets table and presetChange: accepted
+            RecordingTake v3Take;
+            v3Take.sampleRate = 44100.0;
+            v3Take.lengthSamples = 88200;
+            PerformanceEvent evPreset;
+            evPreset.timestampSamples = 100;
+            evPreset.type = PerformanceEventType::presetChange;
+            evPreset.presetId = 0;
+            v3Take.events = { evPreset };
+            v3Take.presets = { makeTestRecordedPreset("EmbeddedSnapshot") };
+
+            const auto v3Json = serialiseTakeToJson(v3Take);
+            const auto v3Loaded = deserialiseTakeFromJson(v3Json);
+            expect(v3Loaded.has_value(), "Valid v3 take with embedded presets table must be accepted");
+            if (v3Loaded.has_value()) {
+                expectEquals(static_cast<int>(v3Loaded->events.size()), 1);
+                expectEquals(static_cast<int>(v3Loaded->presets.size()), 1);
+                expectEquals(v3Loaded->presets[0].preset.name, juce::String("EmbeddedSnapshot"));
+            }
+
+            // 5. v3 presetChange with out-of-bounds presetId rejected atomically
+            RecordingTake v3BadTake = v3Take;
+            v3BadTake.events[0].presetId = 99;
+            const auto v3BadJson = serialiseTakeToJson(v3BadTake);
+            expect(!deserialiseTakeFromJson(v3BadJson).has_value(),
+                   "Out-of-bounds presetId in v3 must be rejected atomically");
+            auto missingSnapshot = juce::JSON::parse(v3Json);
+            auto* missingRoot = missingSnapshot.getDynamicObject();
+            expect(missingRoot != nullptr);
+            if (missingRoot != nullptr) {
+                auto* table = missingRoot->getProperty("presets").getArray();
+                expect(table != nullptr && table->size() == 1);
+                if (table != nullptr && table->size() == 1) {
+                    auto* entry = table->getReference(0).getDynamicObject();
+                    expect(entry != nullptr);
+                    if (entry != nullptr) {
+                        entry->removeProperty("acoustic");
+                        expect(!deserialiseTakeFromJson(juce::JSON::toString(missingSnapshot)).has_value(),
+                               "A missing executable snapshot must not silently become default piano");
+                    }
+                }
+            }
+        });
+
+        testCase("file read errors and size budget bounds", [&] {
+            devpiano::test::ScopedTempDir tempDir("perf-fileguards");
+
+            // Non-existent file
+            const auto missing = tempDir.getChildFile("nonexistent.devpiano");
+            expect(!loadPerformanceFile(missing).has_value());
+            expect(!loadPerformanceFileMetadata(missing).has_value());
+
+            // Empty file (0 bytes)
+            const auto emptyFile = tempDir.getChildFile("empty.devpiano");
+            emptyFile.create();
+            expect(!loadPerformanceFile(emptyFile).has_value());
+            expect(!loadPerformanceFileMetadata(emptyFile).has_value());
         });
     }
 };

@@ -5,6 +5,35 @@
 
 说明：本文件描述阶段验收标准与回归清单。项目状态与路线图以 [`../roadmap/roadmap.md`](../roadmap/roadmap.md) 为准。
 
+当前消费者标准见下方 AUDIT-004 复审入口；其余 Phase 与发布章节是对应时期的交付记录，不是当前全部平台、硬件或厂商插件的认证。历史 Phase 35 勾选保持原貌，最新反证与修复证据另列。
+
+## AUDIT-004 当前复审入口与契约边界
+
+全量原项身份、原优先级、逐项证据和可复建输入见 [Phase H 实施归档](../archive/audit-004-code-quality-fix-phases.md#phase-h-实施记录与最终集成验收2026-10-05)。AUDIT-004 保留首次基线并按用户授权追加软件实施复审，问题状态以其第 8 章为准；项目状态只在 roadmap 维护。
+
+| 领域 | 当前必须满足的消费者不变量 | 直接证据与验证边界 |
+| --- | --- | --- |
+| 文件与会话 | 覆盖不追加；失败/提交前取消保留已有目标；A→B→Save As C 后信息编辑不改 A；同步保存不被旧 timer 回滚 | Phase A/B、H 的文件/会话/实际窗口；断电、磁盘耗尽与强杀不外推 |
+| 格式准入 | .devpiano v3 内嵌快照；旧纯 MIDI 可读、旧数字预设拒绝；完整声明轨及合法 meta 后才导入，稳定原生时间线不改变同采样顺序 | Phase B/E/H；文档 v2 预设与 v3 演奏 JSON 示例必须由生产 reader 实际准入 |
+| 预设与调号 | UUID 在 rename/autosave 保持；独立目标覆盖确认、同路径不自删；普通选择保留全局调号，回放恢复 RecordedPreset.acoustic | Phase A/E/H；不将 JSON 含字段误写为普通选择必覆盖运行调号 |
+| MIDI 导出 | Type 1、默认 960 PPQ、单轨、tick 0 120 BPM；保持显式起音/释放，不合成曲名或拍号；非 MIDI 与 SysEx 不输出 | Phase A/D/H，实际文件 header、消息和覆盖结果 |
+| 身份与时序 | 原身份 FIFO/最后持有者释放；暂停捕获闭合；末尾 Off、设备时间域、Seek/loop 状态和完整预备拍在音频边界执行 | Phase C/D/E；CPU release/prepare 不等于物理热插拔 |
+| 实时与 WAV | 自有回调零锁/零分配/零库函数三角；Take 快照按采样点实时/离线执行，非零 startSample 不污染外部区间 | Phase E；第三方框架锁/2048 消息上限分层，厂商内部行为不冒称无锁 |
+| UI 与诊断 | 双看板同一投影，输入身份不受输出反馈污染；静音最高优先，Notes 确认/取消正确；日志会话有界并报告故障，MIDI raw 力度准确 | Phase F/G/H 实际窗口、音频捕获、文件及像素 |
+| 工程门禁 | Windows Debug app/tests 构建、默认 CTest、格式、迭代边界全量 tidy；确认 Chord/lifecycle 实际执行、用户目录无副作用、fixture 不依赖可选 NRVO | Phase G/H 的实际命令/receipt；不重写旧默认缓存失败为已消失 |
+
+**实机补验必须独立记录**：按原报告 §4.5，在复制数据/可丢弃会话上执行目标厂商 VST3、辅助窗口失焦/IME、密集声卡回放及物理热插拔。未执行的项保持未验证；不能由默认测试或自建 native VST3 通过替代，也不能据此宣布整体平台验收完成。8 复音单核 CPU $\le 0.7\%$ 保持物理 SLA，本轮文档/文件验收不构成新性能测量。
+
+## 本地化完整消息模板收口（规划验收）
+
+此小阶段按 [ADR-015](../decisions/ADR-015-localized-message-templates-and-punctuation.md) 与 [当前迭代](../roadmap/current-iteration.md) 实施，下面均为待验收目标，不替代上方 AUDIT-004 软件历史或实机矩阵：
+
+- [ ] 删除/覆盖确认与相关成功提示用完整消息模板；所有相关入口迁移、无引用碎片键清理，不留兼容别名。
+- [ ] 英文原句回退与嵌入中文、已有语言切换机制保持；字面量键覆盖与全部 UI 本地化分别核对。
+- [ ] `{0}`/`{1}`/`%1`、中文和合法名称边界原样插入，译文可以换位；参数不二次解释、不全半角转换。
+- [ ] 中文标点、长名称、换行与按钮在真实窗口巡检；确认/取消及 UUID/文件保护语义不变。
+- [ ] Windows Debug 与相关既有回归、格式及编码检查按实际结果交付；不硬钉具体译文，不将本小阶段写成厂商/硬件认证。
+
 ## 状态标记
 
 - [x] 已通过
@@ -13,6 +42,20 @@
 - [-] 已废除 / 明确不实现
 
 ---
+
+## AUDIT-004 Phase D：发音身份与采样级边界回归
+
+直接验证见 [Phase D 实施记录](../archive/audit-004-code-quality-fix-phases.md#phase-d-实施记录与直接验证2026-10-04)，项目阶段状态仍只由 roadmap 管理。
+
+- [x] On 与 Off 之间改变 offset/enabled/mask，FIFO 原身份仍释放；Q/K 与矩阵合并保留最后持有者。
+- [x] 暂停捕获终结原身份/踏板、排除暂停中新演奏；Take、MIDI 写出及再导入不在重叠起音处合成额外 Off。
+- [x] 最后 Off 等于 Take 长度/块末仍交付；实时/WAV 缩放采样点及声学结束一致，不依赖 UI Timer 清音。
+- [x] 显式 keyUp/未知 trigger 拒绝，保留缺省 keyDown 与原文件/预设。
+- [x] 48k↔44.1k、2x、播放/捕获暂停恢复保留 Take-relative 时长、位置与身份；设备故障/热插拔仍单独安全验收。
+- [x] Seek/回跳先恢复 16 通道 program/bank/CC64/pitch，不重发历史 NoteOn。
+- [x] 120 BPM 4/4 一/两小节在完整 2/4 秒后的音频下拍开始；跨多拍 UI 轮询、块对齐、取消/重建与零轮询后立即控制均有消费者证据。
+- [x] CC67 先于和弦、新分配/偷声部/释放保留通道状态，连续值影响声学结果；原生 VST3 通道控制不改写。
+
 
 ## Phase 1-1：工程骨架可运行
 
@@ -81,13 +124,13 @@
 状态：已通过。
 
 - [x] 可通过 Import MIDI 打开标准 `.mid` 文件并回放。
-- [x] 智能选择 Note 密度最高的轨道，跳过纯 tempo/meta 轨道。
+- [x] 当前导入合并 Type 0/1 全部轨道，保留全轨 Tempo Map 与元数据；不再提供音符密度选轨模式。
 - [x] Record / Playing 期间 Import MIDI 状态互斥保护。
 - [x] 回放期间虚拟键盘联动高亮。
 - [x] 回放中点击 Back 按钮可从开头重新播放。
 - [x] 导入 playback take 禁止再次导出为 MIDI（Export MIDI 保持 disabled），允许导出 WAV。
 - [x] 最近导入/导出路径已持久化并在 FileChooser 中复用。
-- [~] 合并所有轨道至单一 timeline（Phase 4-6 明确搁置，保留单轨推荐模式）。
+- [x] 所有轨道进入统一 Take，完整声明结构之外的额外尾字节宽容；缺轨或截断拒绝，不提交部分内容。
 
 专项测试见：[`./features/midi-file-import.md`](./features/midi-file-import.md)。
 
@@ -111,10 +154,10 @@
 
 - [x] `.devpiano` 原生演奏文件 JSON 序列化持久化保存与打开回放。
 - [x] 打开损坏文件不崩溃，Logger 输出错误提示。
-- [x] 播放速度 0.5x–2.0x 实时倍率调节，线程安全且变速平滑校准。
+- [x] 播放速度 0.5x–2.0x 实时倍率调节；消息线程发布命令，音频块边界一致提交倍率、位置与游标，保留 NoteOff 与循环语义（直接验证见 [Phase C 实施记录](../archive/audit-004-code-quality-fix-phases.md#phase-c-实施记录与直接验证2026-10-03)）。
 - [x] 16 通道 MIDI 矩阵路由（`ChannelMatrix` / `MidiChannelMapper`）。
 - [x] 88 键拟真钢琴键盘（`CustomKeyboard`，支持 3 种着色与 3 种音符标注）。
-- [x] 结构化日志系统（`DP_LOG_*` / `DP_TRACE_MIDI`）与测试夹具库（8 MIDI + 1 Performance）。
+- [x] 结构化日志与默认文件测试使用隔离目录；样本及实际消费者见 fixture-inventory，不把样本数量固化为门禁。
 - [x] 最近文件列表（最多 10 条）与拖拽 `.devpiano` / `.mid` 文件即开即播。
 - [-] 基础音符编辑器（Phase 6-4 永久搁置）。
 
@@ -130,7 +173,7 @@
 - [x] `WavExportTask` 后台多线程导出，支持取消与残留文件清理。
 - [x] 运行时中英文双语即时切换（`LocaleManager` + `zh_CN.loc`）。
 - [x] 拖放支持（`.devpiano` / `.mid` / `.devpiano.preset` / `.vst3`）。
-- [-] Metadata 编辑独立对话框（Phase 7-5 明确搁置）。
+- [x] Song Information 的标题与多行 Notes 经生产弹窗和会话事务提交；取消保持内存/绑定文件不变，诊断列表只读。
 - [-] 全屏模式（Phase 7-7 明确不实现，窗口最大化即可替代）。
 
 专项测试见：[`./features/plugin-offline-rendering.md`](./features/plugin-offline-rendering.md)。
@@ -387,7 +430,7 @@
 
 状态：已完成（2026-09-14）。
 
-- [x] **生产级 Dual-Sink 统一日志基础设施（DevPianoLogger）**：组合 `juce::FileLogger`（512KB 自动滚动截断）与平台原生调试器即时输出；
+- [x] **Dual-Sink 日志**：当前 DevPianoLogger 活动/单备份合计 512 KiB，各 256 KiB，会话内轮转；故障停用文件 sink 并留原因，debugger 收完整消息。历史 FileLogger 的构造裁剪不再冒称会话滚动。
 - [x] **设置界面诊断卡片直达与系统文件管理器联动**：在诊断卡片中新增“打开日志目录”按钮，调用 `juce::File::revealToUser()` 调起原生文件管理器；
 - [x] **MidiTrace 与诊断测试防线**：新增 `DiagnosticsTest`，全量覆盖 MIDI 协议反序列化与日志落盘安全；
 - [x] **运行时字符编码断言消除**：消除多字节字符字面量，杜绝 `juce_String.cpp:327` 运行时断言。
@@ -399,7 +442,7 @@
 状态：已完成（2026-09-15）。
 
 - [x] **Linux Headless 单测事件循环泵送（TEST-001）**：引入消息队列冲刷机制，彻底清空 Linux 内部套接字管道，`juce_Messaging_linux.cpp:87` 告警彻底归零；
-- [x] **PluginOfflineRenderer 挂载 RoomReverbEngine 混响网络（QUAL-001）**：离线导出全面挂载房间混响，保证 1:1 比特级声学一致性；
+- [x] **插件与内置 Master 混响对齐**：实时/离线使用相同 RoomReverb 参数与采样级快照语义；WAV 量化和插件 offline 行为不保证逐比特音频相同。
 - [x] **底层 Core 单向拓扑恢复（ARCH-001）**：解耦 `AppState.h` 对上层 `SettingsModel` 与 `ChannelMatrix` 的反向包含；
 - [x] **解码内存优化与预设字段对齐（PERF-001 / DOC-001 / DOC-002）**：优化 `MidiTextDecoder` 内存分配，对齐 `"concert_hall"` 空间标识。
 
@@ -435,6 +478,8 @@
 ## Phase 35：键盘演奏表现力深水区与练琴基础设施
 
 状态：已完成（Phase 35-A~35-D，2026-09-28）。
+
+完成计划见 [Phase 35 归档](../archive/phase35-keyboard-expressive-dynamics-and-practice-infrastructure.md)，以下勾选保留原交付历史；后续反证及软件实施复审见 [AUDIT-004](../audit/AUDIT-004-code-quality-audit-2026-10-02.md)，完整修复任务与消费者输入见 [AUDIT-004 Phase 归档](../archive/audit-004-code-quality-fix-phases.md)。当前小阶段规划见 [当前迭代](../roadmap/current-iteration.md)。
 
 - [x] **Phase 35-A（无锁采样级音频节拍器与视觉节拍指示）**：
   - 确定性纯数学阻尼正弦脉冲发生的采样级 Click Engine（强拍 1600Hz / 弱拍 800Hz / 6/8 次强拍 1100Hz），零堆分配、零锁、零外部采样依赖；

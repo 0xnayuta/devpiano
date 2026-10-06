@@ -5,6 +5,7 @@
 #include "Layout/PerformancePreset.h"
 #include "Settings/SettingsModel.h"
 #include "Settings/SettingsStore.h"
+#include "TestHelpers.h"
 
 // ==============================================================================
 // AcousticSettingsPersistenceTest:
@@ -36,10 +37,8 @@ private:
     void testSettingsStoreAcousticRoundTrip() {
         beginTest("SettingsStore: acoustic parameters round-trip (lid, touch curve, una corda)");
 
-        const auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
-        const auto settingsFile
-            = tempDir.getChildFile("devpiano_acoustic_test_" + juce::Uuid().toString() + ".settings");
-
+        devpiano::test::ScopedTempDir tempDir("acoustic-settings-rt");
+        const auto settingsFile = tempDir.getChildFile("acoustic_roundtrip.settings");
         SettingsModel originalModel;
         originalModel.lidPosition = SettingsModel::LidPosition::halfStick;
         originalModel.touchVelocityCurve = devpiano::input::TouchVelocityCurve::heavy;
@@ -65,17 +64,13 @@ private:
         expect(view.lidPosition == SettingsModel::LidPosition::halfStick);
         expect(view.touchVelocityCurve == devpiano::input::TouchVelocityCurve::heavy);
         expect(view.unaCorda == true);
-
-        settingsFile.deleteFile();
     }
 
     void testSettingsStoreCorruptedBoundaryClamping() {
         beginTest("SettingsStore: corrupted/out-of-bound acoustic properties are clamped safely");
 
-        const auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
-        const auto settingsFile
-            = tempDir.getChildFile("devpiano_acoustic_clamp_" + juce::Uuid().toString() + ".settings");
-
+        devpiano::test::ScopedTempDir tempDir("acoustic-clamp");
+        const auto settingsFile = tempDir.getChildFile("corrupted_boundary.settings");
         // Manually write an XML properties file with out-of-range acoustic values
         juce::PropertiesFile::Options opts;
         opts.applicationName = "devpiano_clamp_test";
@@ -101,16 +96,13 @@ private:
                "Negative touchVelocityCurve -10 should clamp to standard (0)");
 
         expect(model.unaCorda == true, "unaCorda boolean parsed correctly");
-
-        settingsFile.deleteFile();
     }
 
     void testPerformancePresetAcousticRoundTrip() {
         beginTest("PerformancePreset: full acoustic settings round-trip via .devpiano.preset JSON");
 
-        const auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
-        const auto presetFile = tempDir.getChildFile("acoustic_preset_" + juce::Uuid().toString() + ".devpiano.preset");
-
+        devpiano::test::ScopedTempDir tempDir("acoustic-preset-rt");
+        const auto presetFile = tempDir.getChildFile("acoustic_preset.devpiano.preset");
         PerformancePreset originalPreset;
         originalPreset.name = "Acoustic Ballad";
         originalPreset.lidPosition = SettingsModel::LidPosition::closed;
@@ -135,17 +127,13 @@ private:
             expectEquals(loaded.keySignature, 3);
             expect(loaded.midiTranspose == true);
         }
-
-        presetFile.deleteFile();
     }
 
     void testPerformancePresetLegacyBackwardCompatibility() {
         beginTest("PerformancePreset: legacy presets lacking acoustics block fall back safely");
 
-        const auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
-        const auto legacyFile
-            = tempDir.getChildFile("legacy_no_acoustics_" + juce::Uuid().toString() + ".devpiano.preset");
-
+        devpiano::test::ScopedTempDir tempDir("acoustic-legacy-compat");
+        const auto legacyFile = tempDir.getChildFile("legacy_no_acoustics.devpiano.preset");
         // Legacy preset JSON with version 1, but no "acoustics" object and no acoustic fields
         const juce::String legacyJson = R"({
             "version": 1,
@@ -181,15 +169,13 @@ private:
                    "Missing touchVelocityCurve must fall back to standard");
             expect(loaded.unaCorda == false, "Missing unaCorda must fall back to false");
         }
-
-        legacyFile.deleteFile();
     }
 
     void testPerformancePresetFlatRootAcousticsCompatibility() {
         beginTest("PerformancePreset: flat root acoustic fields compatibility");
 
-        const auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
-        const auto flatFile = tempDir.getChildFile("flat_acoustics_" + juce::Uuid().toString() + ".devpiano.preset");
+        devpiano::test::ScopedTempDir tempDir("acoustic-flat-compat");
+        const auto flatFile = tempDir.getChildFile("flat_acoustics.devpiano.preset");
         // Format where acoustic fields are at the root level instead of inside "acoustics": {}
         const juce::String flatJson = R"({
             "version": 1,
@@ -216,8 +202,6 @@ private:
                    "Root touchVelocityCurve 1 should parse as light");
             expect(loaded.unaCorda == true, "Root unaCorda true should parse correctly");
         }
-
-        flatFile.deleteFile();
     }
 
     void testKeyboardMidiMapperSoftPedalStateAndCallback() {

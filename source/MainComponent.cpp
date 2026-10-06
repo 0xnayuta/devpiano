@@ -2,6 +2,7 @@
 
 #include "Diagnostics/Log.h"
 #include "Plugin/PluginFlowSupport.h"
+#include "Recording/RecordedPreset.h"
 #include "UI/CustomKeyboard.h"
 #include "UI/KeyBindingEditDialog.h"
 #include "UI/PluginPanelStateBuilder.h"
@@ -110,6 +111,10 @@ MainComponent::MainComponent() {
     audioEngine.getKeyboardState().addListener(this);
     updateStatusBar();
 }
+bool MainComponent::prepareForShutdown() {
+    setEnabled(false);
+    return recordingSessionController == nullptr || recordingSessionController->prepareForShutdown();
+}
 
 MainComponent::~MainComponent() {
     setLookAndFeel(nullptr);
@@ -144,23 +149,21 @@ MainComponent::~MainComponent() {
 }
 
 void MainComponent::initialiseFromPreset() {
-    // Load the last active preset, or fall back to built-in default
     if (appSettings.lastActivePresetId.isNotEmpty()) {
-        auto file = devpiano::layout::resolvePresetFile(appSettings.lastActivePresetId);
-        auto loaded = devpiano::layout::loadPreset(file);
-        if (loaded.has_value()) {
-            presetFlowSupport->applyPresetData(*loaded);
+        if (presetFlowSupport != nullptr && presetFlowSupport->applyPresetById(appSettings.lastActivePresetId)) {
             return;
         }
-        DP_LOG_WARN("[Preset] Failed to load last active preset \"" + appSettings.lastActivePresetId + "\" from "
-                    + file.getFullPathName() + ", falling back to default preset");
+        DP_LOG_WARN("[Preset] Failed to load last active preset \"" + appSettings.lastActivePresetId
+                    + "\", falling back to default preset");
     }
 
-    // Fallback: built-in default
-    presetFlowSupport->applyPresetData(devpiano::layout::makeDefaultPreset());
+    // Fallback: built-in default (no file backing)
+    if (presetFlowSupport != nullptr) {
+        presetFlowSupport->applyPresetData(devpiano::layout::makeDefaultPreset(), false);
+    }
 }
 
-void MainComponent::reconfigureChannelMapper() {
+void MainComponent::reconfigureChannelMapper(bool publishAudio) {
     midiChannelMapper = std::make_unique<devpiano::midi::MidiChannelMapper>(
         appSettings.channelMatrix, appSettings.midiTranspose, appSettings.keySignature);
     keyboardMidiMapper.setChannelMapper(midiChannelMapper.get());
@@ -171,7 +174,9 @@ void MainComponent::reconfigureChannelMapper() {
             mask |= static_cast<std::uint16_t>(1U << i);
         }
     }
-    audioEngine.setPlaybackTranspose(appSettings.midiTranspose, appSettings.keySignature, mask);
+    if (publishAudio) {
+        audioEngine.setPlaybackTranspose(appSettings.midiTranspose, appSettings.keySignature, mask);
+    }
     updateStatusBar();
     updateQwertyVisualizer();
 }
@@ -374,14 +379,14 @@ void MainComponent::wireControlsPanel() {
 
 void MainComponent::wireKeyboardInteraction() {
     auto& customKeyboard = getCustomKeyboard();
-    customKeyboard.onNoteOn = [this](int midiNote, int sourceChannel) {
-        auto identity
-            = devpiano::core::MidiNoteIdentity { devpiano::core::MidiNoteNumber::fromClamped(midiNote),
-                                                 devpiano::core::MidiChannel::fromClamped(sourceChannel + 1) };
+    customKeyboard.onNoteOn = [this](int midiNote, int sourceChannel, float velocity) {
+        auto identity = devpiano::core::MidiNoteIdentity { devpiano::core::MidiNoteNumber::fromClamped(midiNote),
+                                                           devpiano::core::MidiChannel::fromClamped(sourceChannel) };
         if (midiChannelMapper != nullptr) {
-            identity = midiChannelMapper->sendNoteOn(sourceChannel, midiNote, 1.0f, audioEngine.getKeyboardState());
+            identity
+                = midiChannelMapper->sendNoteOn(sourceChannel - 1, midiNote, velocity, audioEngine.getKeyboardState());
         } else {
-            audioEngine.getKeyboardState().noteOn(identity.channel.value, identity.note.value, 1.0f);
+            audioEngine.getKeyboardState().noteOn(identity.channel.value, identity.note.value, velocity);
         }
         keyboardMidiMapper.clearSyncPedalCutPending();
         suppressTextInputMethods();
@@ -527,7 +532,7 @@ void MainComponent::applyKeyBindingEditResult(int midiNote, const KeyBindingEdit
         }
 
         keyboardMidiMapper.setLayout(updatedLayout);
-        setKeyboardLayout(updatedLayout);
+        updateQwertyVisualizer();
     }
 
     syncUiFromSettings();
@@ -601,11 +606,12 @@ void MainComponent::handleNoteOn(juce::MidiKeyboardState*, int, int, float veloc
     }
 }
 void MainComponent::handleNoteOff(juce::MidiKeyboardState*, int, int, float) {
+    jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
 }
 
 void MainComponent::timerCallback() {
+    audioEngine.dispatchPendingDisplayEvents();
     recordingSessionController->checkPlaybackEnded();
-
     if (timelineBarRef != nullptr) {
         const auto timeline = recordingSessionController->getPlaybackTimelineSnapshot();
         timelineBarRef->setTimeline(timeline.positionSamples, timeline.lengthSamples, timeline.sampleRate,
@@ -648,17 +654,28 @@ void MainComponent::timerCallback() {
         updateStatusBar();
     }
 
-    // Drain pluginBuffer safety-net resize notifications from the audio
-    // callback (ERR-002): the callback only counts, logging happens here.
-    if (const auto resizeCount = audioEngine.consumePluginBufferResizeCount(); resizeCount > 0) {
-        DP_LOG_WARN("AudioEngine: pluginBuffer resized " + juce::String(resizeCount)
-                    + " time(s) in audio callback - prepareToPlay mismatch");
+    // Diagnostics read parent counters (consumeRealtimeOverflowCount and old consumePluginBufferResizeCount now
+    // geometry rejects), log only message thread.
+    if (const auto overflowCount = audioEngine.consumeRealtimeOverflowCount(); overflowCount > 0) {
+        DP_LOG_WARN("AudioEngine: realtime queue overflow " + juce::String(overflowCount) + " event(s) dropped");
     }
-    // Drain preset-change notifications from playback
+    if (const auto resizeCount = audioEngine.consumePluginBufferResizeCount(); resizeCount > 0) {
+        DP_LOG_WARN("AudioEngine: pluginBuffer geometry fault rejected " + juce::String(resizeCount)
+                    + " time(s) in audio callback");
+    }
+    // Drain preset-change notifications from playback (independent of active playing; final block consumed)
     {
         auto changes = recordingEngine.drainPendingPresetChanges();
         for (const auto& change : changes) {
-            presetFlowSupport->applyPresetByIndex(change.presetId);
+            if (change.snapshot != nullptr) {
+                if (presetFlowSupport != nullptr) {
+                    presetFlowSupport->applyRecordedPresetUi(*change.snapshot);
+                }
+            } else if (const auto* snapshot = recordingEngine.getPlaybackPreset(change.presetId)) {
+                if (presetFlowSupport != nullptr) {
+                    presetFlowSupport->applyRecordedPresetUi(*snapshot);
+                }
+            }
         }
     }
 
@@ -860,10 +877,7 @@ void MainComponent::reloadStylesAndTokens() {
     }
 
     if (viewHost.isValid()) {
-        if (auto* rootItem = viewHost.getRootItem()) {
-            devpiano::ui::jive::StyleCatalog::get().refreshStyles(rootItem->state);
-        }
-
+        viewHost.refreshStyles();
         // Update settings button icon colours with newly loaded tokens
         if (auto* btn = viewHost.find<juce::DrawableButton>("settings-btn")) {
             btn->setImages(
@@ -1041,24 +1055,13 @@ SettingsModel::PerformanceSettingsView MainComponent::getPerformanceSettingsFrom
              .feltAgeingAmount = appSettings.feltAgeingAmount };
 }
 
-juce::String MainComponent::getLastPluginNameForRecoveryStateFromUi() const {
-    if (pluginHost.hasLoadedPlugin()) {
-        return pluginHost.getCurrentPluginName();
-    }
-
-    auto selected = getSelectedPluginName().trim();
-    if (selected.isNotEmpty()) {
-        return selected;
-    }
-
-    // Fallback: during early startup the UI may not be populated yet;
-    // preserve the model's persisted value so saveSettingsSoon() doesn't clear it.
-    return appSettings.lastPluginName;
+juce::String MainComponent::getLastPluginIdentifierForRecoveryStateFromUi() const {
+    return pluginHost.hasLoadedPlugin() ? pluginHost.getCurrentPluginIdentifier() : appSettings.lastPluginIdentifier;
 }
 
 SettingsModel::PluginRecoverySettingsView MainComponent::getPluginRecoverySettingsFromUi() const {
     return devpiano::plugin::makePluginRecoverySettings(getPluginPathText().trim(),
-                                                        getLastPluginNameForRecoveryStateFromUi());
+                                                        getLastPluginIdentifierForRecoveryStateFromUi());
 }
 
 SettingsModel::PluginRecoverySettingsView MainComponent::getPluginRecoverySettingsWithFallback() const {
@@ -1093,8 +1096,11 @@ void MainComponent::applyPerformanceSettingsToAudioEngine(const SettingsModel::P
 }
 void MainComponent::setBuiltinSynthTone(SettingsModel::BuiltinTone tone) {
     appSettings.builtinTone = tone;
-    audioEngine.setBuiltinSynthTone(tone == SettingsModel::BuiltinTone::piano ? AudioEngine::BuiltinSynthTone::piano
-                                                                              : AudioEngine::BuiltinSynthTone::sine);
+    runPluginActionWithAudioDeviceRebuild([this, tone] {
+        audioEngine.setBuiltinSynthTone(tone == SettingsModel::BuiltinTone::piano
+                                            ? AudioEngine::BuiltinSynthTone::piano
+                                            : AudioEngine::BuiltinSynthTone::sine);
+    });
 }
 
 void MainComponent::applyPluginRecoverySettings(const SettingsModel::PluginRecoverySettingsView& pluginRecovery) {
@@ -1197,10 +1203,10 @@ void MainComponent::handleMetronomeTap() {
     }
 }
 
-void MainComponent::syncUiFromSettings() {
+void MainComponent::syncUiFromSettings(bool publishPerformanceEvents) {
     applyPerformanceSettingsToUi(appSettings.getPerformanceSettingsView());
     keyboardMidiMapper.setTouchVelocityCurve(appSettings.touchVelocityCurve);
-    keyboardMidiMapper.setSoftPedalDown(appSettings.unaCorda);
+    keyboardMidiMapper.setSoftPedalDown(appSettings.unaCorda, publishPerformanceEvents);
     keyboardMidiMapper.setCadenceDynamicsEnabled(appSettings.cadenceDynamicsEnabled);
     keyboardMidiMapper.setVelocityHumanizerEnabled(appSettings.velocityHumanizeAmount > 0.0001f);
     keyboardMidiMapper.setVelocityHumanizeAmount(appSettings.velocityHumanizeAmount);
@@ -1211,7 +1217,7 @@ void MainComponent::syncUiFromSettings() {
                            presetFlowSupport->getPresetDisplayNames());
     }
 
-    setKeyboardLayout(keyboardMidiMapper.getLayout());
+    updateQwertyVisualizer();
     {
         auto kbs = appSettings.getKeyboardDisplaySettingsView();
         getCustomKeyboard().setKeyboardSettings(makeKeyboardSettings(kbs, appSettings.keySignature));
@@ -1307,6 +1313,7 @@ void MainComponent::prepareForAudioDeviceRebuild() {
 
 void MainComponent::finishAudioDeviceRebuild() {
     initialiseAudioDevice();
+    refreshReadOnlyUiStateFromCurrentSnapshot();
     restoreKeyboardFocus();
     updateStatusBar();
 }
@@ -1340,7 +1347,7 @@ bool MainComponent::isSettingsWindowOpen() const {
 
 void MainComponent::renderReadOnlyUiState(const devpiano::core::AppState& appState) {
     updatePluginPanelState(
-        buildPluginPanelState(pluginHost, appState.plugin.lastPluginName, appState.plugin.isEditorOpen));
+        buildPluginPanelState(pluginHost, appState.plugin.lastPluginIdentifier, appState.plugin.isEditorOpen));
 }
 
 void MainComponent::refreshReadOnlyUiStateFromCurrentSnapshot() {

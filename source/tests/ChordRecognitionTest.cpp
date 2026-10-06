@@ -6,7 +6,7 @@ namespace {
 class ChordRecognitionTest final : public juce::UnitTest {
 public:
     ChordRecognitionTest()
-        : juce::UnitTest("ChordRecognition: Harmonic Analysis & Pitch Class Set", "devpiano") {
+        : juce::UnitTest("ChordRecognition: Harmonic Analysis & Pitch Class Set", "DevPiano/Core") {
     }
 
     void runTest() override {

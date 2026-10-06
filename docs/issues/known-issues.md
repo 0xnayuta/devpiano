@@ -5,6 +5,8 @@
 
 当前项目状态与风险以 [`../roadmap/roadmap.md`](../roadmap/roadmap.md) 为准；阶段验收见 [`../reference/acceptance.md`](../reference/acceptance.md)。
 
+最新审计及软件实施复审见 [AUDIT-004](../audit/AUDIT-004-code-quality-audit-2026-10-02.md)，完整修复记录见 [AUDIT-004 Phase 归档](../archive/audit-004-code-quality-fix-phases.md)，当前任务见 [当前迭代](../roadmap/current-iteration.md)。本清单保留原编号与回归线索，不复制报告第 8 章状态；旧“已修复”遇新反证仍携原身份追踪。
+
 ---
 
 ## 1. 当前限制与未修复问题
@@ -13,7 +15,7 @@
 
 ### 插件生命周期退出告警
 
-> scan / load / unload / editor / 重扫 / 直接退出等主要生命周期路径已通过人工回归，未发现功能性问题。特定插件或 Debug 注入环境下退出阶段可能仍有 JUCE / VST3 调试告警，低优先级持续观察。
+> 既有手工回归不能外推所有厂商插件。AUDIT-004 的 `AUDIT-001 THR-004` 重扫绕过已按 Phase C 收敛：真实原生 VST3、活动 callback＋Editor＋重扫及实际退出通过；基线反证与闭环证据见 [实施记录](../archive/audit-004-code-quality-fix-phases.md#phase-c-实施记录与直接验证2026-10-03)。特定厂商退出告警、永久卡死、强杀和断电仍保留安全回归范围。
 
 详见：[`../reference/features/plugin-hosting.md`](../reference/features/plugin-hosting.md)
 
@@ -43,43 +45,86 @@
 > `_MOTIF_WM_HINTS`（`MWM_FUNC_RESIZE` 关闭）或等待 JUCE 修复
 > `setBounds` 的 hints 覆盖问题；届时需权衡原生代码侵入成本。
 
-### A4 基准音高范围与项目契约不一致
+### 第三方 VST3 插件适配器的框架级并发锁与事件限制
 
-> 项目契约要求 A4 基准基频可在 **400.0 ~ 480.0 Hz** 调整；当前 `source/Audio/TemperamentEngine.h` 的 `kMinReferencePitch` / `kMaxReferencePitch` 为 **410.0 / 450.0 Hz**。`SettingsComponent::wireAcousticControls()` 将滑块范围绑定这两个常量，预设导入和离线渲染也受同一限幅约束。两端目标频率当前无法选择；不要将现有限幅误写成完整契约实现。
+> **现状与分层验收（Phase E 明确边界）**：
+> 在 Phase E 中，产品自有发声与调度路径（`BuiltinSynthesiser`、`AudioEngine`、`RealtimeQueue`、`MetronomeProcessor`）已实现完全无锁、零堆分配、全回调零三角函数，并通过消息线程 `dispatchPendingDisplayEvents()` 彻底解耦音频与 UI。
+> 但针对第三方 VST3 插件宿主，根据用户批准的分层验收决策，项目保留使用 JUCE 原生 `AudioPluginFormatManager` 适配器（不修改 submodules），该适配器存在以下已知框架级行为：
+> 1. `juce_VST3PluginFormatImpl.h` 的 `processBlock()` 仍获取 `SpinLock processMutex`，与消息线程的 `updateMidiMappings()` 共享同一把锁；
+> 2. `juce_VST3Common.h` 的 MIDI 事件转换使用带 `CriticalSection` 的 `Array`，且单块存在 2048 条事件上限，超额事件被截断；
+> 3. 第三方商业插件内部二进制实现超出宿主控制。
 >
-> **回归建议**：若修复产品契约，统一改动调律引擎、设置滑块、预设读取、离线选项和相应测试；在未修复前，以代码实际限幅作为操作说明，同时明确标注契约差距。
+> **边界与约束**：产品自有引擎的无锁零分配契约不外推至宿主托管的第三方 VST3 插件；实机物理声卡热插拔仍作为独立硬件测试项保留。
 
-### 节拍器每拍三角函数与全回调零三角 SLA 不一致
+### 最终实机与厂商补验边界
 
-> 硬实时目标为 **0 `std::sin`**（零实时三角函数）。`PianoSynthVoice` 的逐采样 Magic Circle 循环满足零三角计算，但 `MetronomeProcessor::triggerBeat()`（`source/Audio/MetronomeProcessor.h`）在音频回调内每拍调用 `std::sin`、`std::cos` 和 `std::exp` 生成脉冲参数；因此**全音频回调**尚不满足该目标。这是每拍而非逐采样计算，不等同于逐采样性能回退，但不得称全回调已达成零三角 SLA。
->
-> **回归建议**：在音频线程外预计算或替换每拍系数生成后，验证拍号切换、BPM 变速、静音节拍继续计时与录音预备拍，并复核实时线程无分配/无锁约束。
+宿主插件在本进程执行；构造、探测或单次 processBlock 永久阻塞时不能安全抢占强杀，创建/探测还可能阻塞消息线程。协作取消只有在该调用返回后才能完成，不承诺有限期限。
 
-### 音频线程 MIDI Listener 同步触发 UI 回调
+原生 VST3 fixture 的 Editor/重扫/同名/重复拖放/offline 与慢任务退出已有直接证据；目标厂商插件、物理声卡密集回放/热插拔、辅助窗口和 IME 全组合以及强杀/断电/OOM 不由此认证。完整剩余矩阵与复审入口见 [当前契约验收](../reference/acceptance.md#audit-004-当前复审入口与契约边界)，不另造审计编号或把未验证范围降级。
 
-> **当前链路**：`AudioEngine::getNextAudioBlock()` 在实时线程调用 `keyboardState.processNextMidiBuffer()` 处理实时输入；`renderPlaybackEventsIfNeeded()` 同样在音频回调内处理回放音符。JUCE `MidiKeyboardState::Listener` [官方说明](https://docs.juce.com/master/classjuce_1_1MidiKeyboardState_1_1Listener.html)明确指出 `handleNoteOn/Off` 同步运行于调用线程，不保证消息线程。
->
-> **已确认的边界冲突**：`MainComponent::handleNoteOn()` 断言自己在消息线程并调用 `notifyMidiActivity()` 更新 UI；`CustomKeyboard::handleNoteOn/Off()` 调用 `ensureTimerRunning()`，可能在音频线程启动 JUCE 定时器。其 `perKeyChannel` / `perKeyVelocity` 已使用原子变量，无需再建议升级为原子数组；真实风险是音频线程调用 UI/Timer 接口及 Debug 线程断言。此项尚未修复，不能声称 MIDI 回放 Listener 只在消息线程工作。
->
-> **回归建议**：将音频线程的音符可视状态经无锁快照/队列传至消息线程，限制 Listener 的实时路径为有界无阻塞状态更新；回归 MIDI 导入回放、电脑键盘弹奏、鼠标弹奏和窗口失焦场景。
-
-### 音频回调常规路径严格零堆分配与极端尺寸突变兜底重分配风险 (ERR-002)
-
-> **现状与设计**：
-> 音频回调常规渲染路径（内置物理建模合成器、混响网络、节拍器、MIDI 录制缓冲）严格遵守零堆分配（Zero-allocation）、无锁（Lock-free）铁律。所有音频缓冲与状态容器均在 `AudioEngine::prepareToPlay()` 中按协商的最大采样块尺寸预分配。
->
-> **边界与兜底**：
-> 若外部宿主或特定音频设备驱动在运行中违反 JUCE 框架契约，未重新调用 `prepareToPlay()` 即直接传入超过预分配尺寸的 `bufferToFill.numSamples` 或通道数：
-> - Debug 构建下会命中 `jassert` 断言告警；
-> - Release 构建下，为防止越界崩溃或破音，`AudioEngine::getNextAudioBlock()`（`source/Audio/AudioEngine.cpp:138-143`）保留了 `pluginBuffer.setSize` 作为安全兜底机制（发生单次堆重分配），并通过原子计数器 `pluginBufferResizeCount` 进行记录，由主线程定时器通过 `consumePluginBufferResizeCount()` 异步消费并输出警告日志（ERR-002，避免在音频实时回调中直接输出 I/O 日志）。
->
-> **风险与约束**：
-> 正常合规驱动下该计数器恒为 0，常规路径维持零分配；若在特定畸形驱动或偶发设备热插拔出现尺寸突变，该异常帧可能产生短暂堆分配。
 ---
 
 ## 2. 已修复问题（回归参考）
 
 以下问题已修复，保留简要记录用于回归识别。详细根因分析和修复实现见各功能文档。
+
+### 诊断预算、数值与声明式门面（Phase G）
+
+- **修复**：会话日志活动/单备份合计 512 KiB，启动及持续写入有界；UTF-8 超长消息安全限幅，打开/裁剪/轮转失败停用文件 sink 并保留错误，debugger 继续收到完整消息。MIDI 力度直接使用 0..127 原始数值。
+- **边界**：业务图标头使用细粒度模块与 BinaryData；热重载及内置 modal 经 ViewHost，删除 raw GuiItem 公共回调/根访问与文案、自造回调、赋值回读 oracle。
+- **回归线索**：长会话多次轮转、旧大日志、被锁旧文件或被非空目录阻挡的备份；力度 0/1/64/127；主窗口热重载后保留组件身份；单行输入及确认/取消、Info Notes 保存/取消、真实 transpose/followKey 联动。完整直接证据见 [Phase G 实施记录](../archive/audit-004-code-quality-fix-phases.md#phase-g-实施记录与直接验证2026-10-05)。
+
+### 映射看板、交互与声学边界（Phase F）
+
+- **修复**：两张看板共同消费最终映射投影，矩阵输入与观察输出通道分开；绑定标签跨几何重建保持，既有逐键标签/颜色及新绑定编辑保留配置输入索引。静音绑定优先于 Shift 和固定矩阵力度；fade 系数统一收缩并终止 Timer；圆角使用新值立即重建；歌曲 Notes 可键入/保存，取消不提交，诊断列表仍只读；最低 MIDI 八度标签统一。
+- **回归线索**：Group/Alt/矩阵/followKey 改动；Ch1→Ch2、Ch2→Ch3 重复鼠标点击和回放后点击；setLayout→setSettings/resize/viewport 后绑定提示与自定义标签/颜色；零力度＋Shift＋矩阵127；fade=1/超范围导入；固定 bounds 的 radius0→30→0；Info Notes 多行确认与取消；MIDI0/1/11/12 卡片和单音 HUD。
+- **证据**：Windows Debug 默认回归、实际主窗口/Info/设置/绑定编辑及音频/MIDI/文件消费者见 [Phase F 实施记录](../archive/audit-004-code-quality-fix-phases.md#phase-f-实施记录与直接验证2026-10-05)。不外推 IME 全矩阵、真实声卡热插拔或第三方插件的框架实时限制。
+
+### A4 基准音高范围与项目契约不一致
+
+- **修复**：`TemperamentEngine` 范围统一为 **400.0 ~ 480.0 Hz**，默认 440.0 Hz；引擎、设置、预设、Take 快照和内置导出入口共用限幅。原 410.0/450.0 两端差距已消除。
+- **回归线索与证据**：实际设置两端可选并提交；400/480 与 415/440/442 的实时 Sine 波形、离线 WAV、设置和预设读取均直接验证，越界请求收敛至对应端点，详见 [Phase F 实施记录](../archive/audit-004-code-quality-fix-phases.md#phase-f-实施记录与直接验证2026-10-05)。
+
+### 预设永久身份与实时/离线执行闭包 (Phase E)
+
+- **修复**：预设引入 RFC 4122 v5/v4 UUID 永久身份，另存为派生新身份，重命名与自动保存保持身份，旧 v1 唯一名称安全迁移且多义拒绝；原生演奏采用 v3 格式内嵌不可变 `RecordedPreset` 表，按采样偏移同构执行声学快照与 Master/Reverb，拒绝旧数字预设格式；内置音源重写为纯音频所有无锁调度，两预建音色银行平滑切换；全回调闭包达成零库函数三角调用；键盘输入经有界 SPSC 交换，视觉高亮由消息线程刷新，超协商几何安全静音并记录原子计数。
+- **回归线索**：预设增删改后回放旧演奏；旧数字事件格式拒绝；同块预设先于音符生效；实时与内置/VST3 离线 WAV 分段导出一致性；密集 MIDI 播放与未 drain 预设循环无堆增长；UI 线程持有键盘锁时不阻塞音频；超协商尺寸安全静音。
+- **证据与边界**：用户批准分层验收；产品自有链路达成零分配、零锁、零库函数三角；真实原生 VST3 的框架观测不在产品自有零锁保证内。Windows Debug 默认测试、真实原生 VST3 与实际窗口快照见 [Phase E 实施记录](../archive/audit-004-code-quality-fix-phases.md#phase-e-实施记录与直接验证2026-10-04)。
+
+### 发音身份与采样级 Transport 边界
+
+- **修复**：播放 FIFO 锁定最终身份，物理同音最后持有者释放；暂停/停止捕获补齐已录音符和踏板，保留显式 MIDI 配对；末尾事件在音频路径交付，设备切率保持 Take 时间域；Seek/回跳先恢复通道状态，完整预备拍在音频下拍开始；柔音由实时/离线乐器拥有者按通道继承。
+- **回归线索**：On/Off 之间改 enabled/offset/mask；Q/K、矩阵合并与交错松键；暂停中新演奏与踏板释放；最后 Off 等于 Take 长度；48k↔44.1k、2x、暂停恢复；16 通道 bank/program/CC64/pitch；UI 不轮询就立即 Stop/Play；踏板先于和弦、偷声部与连续 CC67。
+- **证据与边界**：AUDIT-004 Phase D 的 Windows Debug 默认门禁、真实音频/MIDI/WAV、原生 VST3 与实际控制器/窗口证据见 [Phase D 实施记录](../archive/audit-004-code-quality-fix-phases.md#phase-d-实施记录与直接验证2026-10-04)。设备切率使用生产 release/prepare 的安全 CPU 消费者；不外推声卡热插拔或所有厂商插件。本项只记录 Phase D，后续实时契约和双看板边界分别见 Phase E/F 实施记录。
+
+### 插件/DSP/Transport 所有权与协作导出
+
+- **修复**：重扫与音色重建先关 Editor/停 callback；变速、Seek 与 Stop 由音频块入口一致消费，结构操作与暂停快照有停机边界；离线实例 prepare 前声明 nonRealtime；导出取消只发布请求，实际工作退出后释放一次并回调，应用退出异步等待。
+- **身份**：插件选择、加载、持久化与恢复贯穿 description identifier；同名不同文件/类型不折叠，重复文件仍可加载并更新 metadata。旧 name 仅唯一迁移，多义/缺失不猜测。
+- **回归线索**：Editor 打开时重扫；持续 callback 中 --piano/--sine；缩放取整重播旧 On 或漏 Off；循环被消息线程 Stop 改游标；超过旧超时后取消提前回调/释放；重复拖入报无类型；同名效果被误载为乐器。
+- **证据与边界**：`AUDIT-001 THR-004`、`AUDIT-002 THR-001`、`known-issues §2/Phase 6-2 播放速度控制`、`THR-002`、`QUAL-014/015`、`ARCH-002` 的直接程序/资源/窗口与复建输入见 [Phase C 实施记录](../archive/audit-004-code-quality-fix-phases.md#phase-c-实施记录与直接验证2026-10-03)。冷路径 GPU 后台句柄单列，不用进程总数增量直接定性业务泄漏；不关闭 Phase D/E 其他契约。
+
+
+### 测试 fixture 的 NRVO 依赖、用户目录副作用与默认 Chord 漏跑
+
+- **修复**：`AudioEngineTest` 的返回工厂不再携带自引用指针，调用者就地绑定 live buffer；删除默认日志/预设目录探针，文件测试复用 `ScopedTempDir`；Chord 注册为 `DevPiano/Core`，不扩展 runner 白名单。
+- **回归线索**：禁可选 NRVO 后渲染失败；默认测试改变真实诊断日志或创建预设目录；Chord 单独补跑通过但默认日志缺失其子测试。
+- **关联**：`AUDIT-004:TEST-001`、`AUDIT-004:TEST-002`、原 `AUDIT-002:TEST-014`；Windows Debug 直接验证及可复建配方见 [Phase 0 实施记录](../archive/audit-004-code-quality-fix-phases.md#phase-0-实施记录与直接验证2026-10-02)。原审计报告保留基线，不将这些修复外推为其余实时/并发风险已消除。
+
+
+### 已有文件保护、Take 绑定与设置快照一致性
+
+- **修复**：MIDI/内置及插件 WAV 使用同目录事务替换；预设重命名先确认独立冲突并区分同路径，失败提交恢复源；Take 替换解除旧文件绑定，成功 Save As 绑定新文件；同步设置保存取代旧 timer，深拷贝保留练琴字段和独立 XML；启动恢复预设身份在布局提交前一致。
+- **回归线索**：第二次覆盖仍读旧音符/音频；失败任务删原文件；重命名自身后消失；打开 A 后导入 B 的信息编辑改写 A；新插件缓存被旧 timer 回滚；防抖丢失非默认 BPM；恢复 B 后立即编辑绑定未落盘。
+- **关联**：AUDIT-004 `ERR-001`、`SEC-001`、`SEC-002`、`ERR-002`、`QUAL-006`、`QUAL-016`；直接验证及复建输入见 [Phase A 实施记录](../archive/audit-004-code-quality-fix-phases.md#phase-a-实施记录与直接验证2026-10-02)。此处 `ERR-002` 是同步/防抖顺序问题，不是 §1 的音频几何兜底同名历史编号。
+- **边界**：跨文件 rename 若回滚也失败，保留源备份并记录路径；普通事务验证不保证断电/强杀完整性。协作插件生命周期与自有实时/离线闭包分别已有 Phase C/E 证据，不再写成这些阶段尚未实施。
+
+### 原生/MIDI 文件准入与时间线数值安全
+
+- **修复**：解码前校验 JUCE 长度前缀、负载预算/一致性和 MIDI 帧；验证原生采样率、长度/时间戳与整数缩放，稳定规范化乱序但保留同采样顺序；SMF 必须包含全部完整声明轨和合法固定 meta；WAV 在输出前检查最终事件/尾部加法，MIDI 写出检查 tick/VLQ 范围。
+- **回归线索**：微小文件触发大分配；极小正率使一块回放结束；MAX 事件产生派生长度 1；未来 Off 排在 On 前面导致播放/seek 漏音；缺第二轨误报尾字节；拍号长度/指数未校验进入框架 accessor。
+- **关联**：AUDIT-004 `SEC-003`、`SEC-004`、`SEC-005`、`SEC-006`、`QUAL-005`、`ERR-004`；独立 256 MiB 子进程、真实文件/播放/seek/界面与复建输入见 [Phase B 实施记录](../archive/audit-004-code-quality-fix-phases.md#phase-b-实施记录与直接验证2026-10-03)。原始审计发现保留，软件实施复审另列于原报告第 7～8 章。
+- **边界**：文件/数值准入已有 Windows 直接证据，仍不外推存储硬件故障；活动所有权、末尾/设备域、实时快照闭包分别见 Phase C/D/E。第三方框架与实机限制见 §1，不用局部文件验收代替整机认证。
 
 ### Main.cpp 中残留的 Win32 原生 Hook 与平台特定依赖彻底清理 (PLAT-001)
 
@@ -144,6 +189,8 @@
 ### Phase 6-2 播放速度控制
 
 含三个子问题：(1) 倍率公式反用（0.5x 反而加快）；(2) 速度切换时 note-off 丢失导致音长时间悬停；(3) 播放状态三成员跨线程数据竞争（裸 `double` / `std::int64_t` 无同步）。修复：(1) 乘法改除法；(2) 速度切换时重校准 `playbackPositionSamples`；(3) 全部改为 `std::atomic<>`。
+
+**后续所有权闭环（AUDIT-004 Phase C）**：仅把倍率/位置改 atomic 不能保护已经进入 render 的游标与循环标志。当前 setter 只发布命令，音频块入口提交有效速度、位置与待渲染游标；Stop 同边界执行 panic，结构暂停/恢复/清除使用停机守卫。实际双线程 callback 验证 NoteOff 与 A-B 回跳，取整边界不重播旧 On；见 [Phase C 实施记录](../archive/audit-004-code-quality-fix-phases.md#phase-c-实施记录与直接验证2026-10-03)，历史原子修复记录保留，不混同后续 Phase D 边界问题。
 
 - **回归线索**：播放中切换速度 → 方向反向 / 悬挂音 / 数据竞争 UB
 - **关联**：`RecordingEngine::setPlaybackSpeedMultiplier()`，[`../archive/phase5-architecture-convergence.md`](../archive/phase5-architecture-convergence.md)
@@ -227,6 +274,30 @@
 - **修复**：重构键盘视口几何布局计算，白键高度完全位于滚动条可视区域上方，并为 QWERTY 展开与折叠提供自适应高度约束。
 - **回归线索**：最小窗口尺寸下 88 键钢琴白键下半截被横向滚动条遮挡。
 - **关联**：`KeyboardViewport.h`，`LayoutModel.cpp`，`LayoutGoldenTest.cpp`。
+
+### BuiltinSynthesiser 采样块边界 MIDI 双重分发防护 (AUDIT-004-FIX-01)
+
+当 MIDI 事件的采样点恰好等于音频块边界（`samplesToNextMidiMessage == numSamples`）时，该事件在提前处理一次后未步进迭代器，跳出循环后又在后置循环被二次处理。
+- **根因**：第一阶段循环在块末尾满足条件后提前调用 `handleMidiMetadata()` 并 `break`，但后置循环对 `<= blockEndSample` 的事件再次执行分发。
+- **修复**：删除首阶段边界处冗余的提前分发，音频渲染完成后直接 `break`，所有边界事件统一由后置循环分发，确保严格单次触发。
+- **回归线索**：块末尾精确到达的 NoteOn 出现 voice 重启、尾音被掐或误触发偷音。
+- **关联**：`BuiltinSynthesiser.cpp`，`AudioEngineTest.cpp`（`BuiltinSynthesiserExecutionTest`）。
+
+### AudioEngine 键释放与 All-Notes-Off 虚假 NoteOn 毛刺消除 (AUDIT-004-FIX-02)
+
+按键释放（NoteOff）或接收到 CC 120/123（All Notes Off）时，UI 键盘状态监听器收到虚假的瞬态 `noteOn` 通知。
+- **根因**：原子状态数据在释放时 Bit 7（Active 标志）被清零，但低 7 位保留上次起音力度。消费侧基于 `velocity > 0.0f` 进行起音判定，导致先触发 `noteOn` 再触发 `noteOff`。
+- **修复**：严格基于 Bit 7 (`(value & 0x80) != 0`) 门禁起音分支，Inactive 状态仅分发 `noteOff`。
+- **回归线索**：UI 键盘监听器在按键释放时收到虚假起音事件流；监听事件序列出现多余的 `handleNoteOn`。
+- **关联**：`AudioEngine.cpp`，`AudioEngineTest.cpp`（`AudioEnginePlaybackTransposeTest`）。
+
+### JiveModalDialog 标题栏关闭取消回调失效防护 (AUDIT-004-FIX-03)
+
+模态弹窗通过标题栏 X 按钮或外部程序化退出关闭时，注册的 `options.onCancel` 回调未被触发。
+- **根因**：`options.create()` 转移了内容组件所有权并置空 `options.content`，后续 lambda 捕获的 `options.content.get()` 恒为 `nullptr`。
+- **修复**：通过 `dialog->getContentComponent()` 获取实际内容指针并包装为 `juce::Component::SafePointer` 传入模态完成回调。
+- **回归线索**：点击弹窗右上角 X 按钮关闭后，业务侧临时状态未还原、`onCancel` 丢失。
+- **关联**：`JiveModalDialog.cpp`，`JiveModalDialogTest.cpp`。
 ---
 
 ## 3. 环境说明
@@ -241,7 +312,7 @@ Windows MSVC 侧 CMake 缓存未追踪源文件变更可能导致旧目标文件
 
 以 root 用户（`uid=0`）在 WSL 中运行单元测试时，`tempFile.setReadOnly(true)` 移除了文件写权限，但 `tempFile.hasWriteAccess()` 因 POSIX `access(path, W_OK)` 对 superuser 始终返回成功而返回 `true`。**不影响任何项目功能**——该测试为 JUCE 自带文件系统验证，项目代码不依赖 `setReadOnly` / `hasWriteAccess`。非 root 用户下该测试自动通过。
 
-- **缓解**：`devpiano_tests` 默认只运行项目自身测试（类别白名单 `DevPiano/Core` / `DevPiano/Recording` / `DevPiano/Engine` / `DevPiano/UI`，`Files` 默认跳过），该问题不再触发。仅当显式 `--include-juce --include-files` 全量运行时才会遇到，非 root 用户或跳过该组合即可。
+- **缓解**：`devpiano_tests` 默认只运行 `DevPiano/` 前缀的项目类别，`Files` 默认跳过，该问题不再触发。仅当显式 `--include-juce --include-files` 运行框架文件测试时才会遇到，非 root 用户或跳过该组合即可；具体类别以注册项与实际默认日志为准。
   - 注：旧缓解命令 `--category "DevPiano"` 已失效（`juce::UnitTest::getTestsInCategory` 精确匹配，"DevPiano" 不匹配任何项目类别），请使用上述默认行为或精确类别名。
 
 ### Ubuntu 26.04 下 JIVE 文本不渲染：JUCE 字体扫描不识别 .ttc（system-ui → Noto CJK）

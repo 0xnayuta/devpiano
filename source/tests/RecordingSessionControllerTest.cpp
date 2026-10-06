@@ -1,6 +1,9 @@
 #include <JuceHeader.h>
 
 #include "Export/ExportFlowSupport.h"
+#include "Recording/MidiFileExporter.h"
+#include "Recording/MidiFileImporter.h"
+#include "Recording/PerformanceFile.h"
 #include "Recording/RecordingFlowSupport.h"
 #include "Recording/RecordingSessionController.h"
 #include "Settings/SettingsModel.h"
@@ -20,9 +23,6 @@ using RecordingUiState = devpiano::ui::RecordingState;
 //     combination matrix covering the paused states
 //   - last-MIDI export/import directory resolution
 //
-// replaceTakeAndStartPlayback itself needs a MainComponent (GUI) and is
-// covered indirectly: its state transitions are exactly the
-// chooseRecordingFlowCommand + getStateAfterCommand composition tested here.
 // =============================================================================
 
 namespace {
@@ -35,6 +35,19 @@ devpiano::recording::RecordingTake makeTakeWithEvent() {
     take.events.push_back({ 0, devpiano::recording::PerformanceEventType::midi, 0,
                             devpiano::recording::RecordingEventSource::computerKeyboard,
                             juce::MidiMessage::noteOn(1, 60, 0.8f) });
+    return take;
+}
+
+devpiano::recording::RecordingTake makeTakeWithNote(int noteNumber, std::int64_t lengthSamples) {
+    devpiano::recording::RecordingTake take;
+    take.sampleRate = 44100.0;
+    take.lengthSamples = lengthSamples;
+    take.events.push_back({ 0, devpiano::recording::PerformanceEventType::midi, 0,
+                            devpiano::recording::RecordingEventSource::computerKeyboard,
+                            juce::MidiMessage::noteOn(1, noteNumber, 0.8f) });
+    take.events.push_back({ lengthSamples, devpiano::recording::PerformanceEventType::midi, 0,
+                            devpiano::recording::RecordingEventSource::computerKeyboard,
+                            juce::MidiMessage::noteOff(1, noteNumber) });
     return take;
 }
 
@@ -334,3 +347,226 @@ public:
 };
 
 static MidiExportDirectoryTest midiExportDirectoryTest;
+
+// -----------------------------------------------------------------------------
+
+class RecordingSessionTakeOwnershipTest final : public juce::UnitTest {
+public:
+    RecordingSessionTakeOwnershipTest()
+        : juce::UnitTest("RecordingSession: SEC-002 Take file and metadata ownership", "DevPiano/Recording") {
+    }
+
+    void runTest() override {
+        using Session = RecordingSessionController::RecordingSession;
+
+        testCase("open A then import B and edit info leaves A byte-identical", [&] {
+            devpiano::test::ScopedTempDir tempDir("sec002-import");
+            const auto fileA = tempDir.getChildFile("songA.devpiano");
+            PerformanceFileMetadata metaA;
+            metaA.title = "Song A";
+            metaA.notes = "Notes A";
+            expect(savePerformanceFile(makeTakeWithNote(60, 44100), fileA, metaA));
+            const auto originalA = fileA.loadFileAsString();
+            Session session;
+            expect(session.openFromFile(fileA));
+
+            const auto fileB = tempDir.getChildFile("songB.mid");
+            expect(devpiano::exporting::exportTakeAsMidiFile(makeTakeWithNote(62, 88200), fileB));
+            auto imported = importMidiFileWithMetadata(fileB, 44100.0, {});
+            expect(imported.has_value());
+            if (!imported.has_value()) {
+                return;
+            }
+            expect(session.commitImportedMidi(std::move(imported->take), "Song B"));
+            expect(session.updateMetadata("New Title B", "New Notes B", session.takeGeneration));
+            expect(session.currentPerformanceFile == juce::File());
+            expectEquals(session.currentMetadata.notes, juce::String("New Notes B"));
+            expectEquals(fileA.loadFileAsString(), originalA);
+        });
+
+        testCase("recording replacement detaches A and keeps only the new song information", [&] {
+            devpiano::test::ScopedTempDir tempDir("sec002-record");
+            const auto fileA = tempDir.getChildFile("songA.devpiano");
+            PerformanceFileMetadata metaA;
+            metaA.title = "Song A";
+            metaA.notes = "Notes A";
+            expect(savePerformanceFile(makeTakeWithNote(60, 44100), fileA, metaA));
+            const auto originalA = fileA.loadFileAsString();
+            Session session;
+            expect(session.openFromFile(fileA));
+            session.detachForNewRecording();
+            expect(session.currentMetadata.title.isEmpty() && session.currentMetadata.notes.isEmpty());
+            expect(session.updateMetadata("Recorded B", "Recorded Notes B", session.takeGeneration));
+            session.commitRecordedTake(makeTakeWithNote(64, 48000));
+            expect(session.updateMetadata("Updated B", "Updated Notes B", session.takeGeneration));
+            expectEquals(fileA.loadFileAsString(), originalA);
+
+            const auto fileB = tempDir.getChildFile("songB.devpiano");
+            expect(session.saveToFile(fileB, session.takeGeneration));
+            const auto saved = loadPerformanceFileMetadata(fileB);
+            expect(saved.has_value());
+            if (saved.has_value()) {
+                expectEquals(saved->title, juce::String("Updated B"));
+                expectEquals(saved->notes, juce::String("Updated Notes B"));
+            }
+        });
+
+        testCase("Save As C binds current B events and subsequent metadata updates to C only", [&] {
+            devpiano::test::ScopedTempDir tempDir("sec002-saveas");
+            const auto fileA = tempDir.getChildFile("songA.devpiano");
+            const auto fileC = tempDir.getChildFile("songC.devpiano");
+            expect(savePerformanceFile(makeTakeWithNote(60, 44100), fileA, {}));
+            const auto originalA = fileA.loadFileAsString();
+            Session session;
+            expect(session.openFromFile(fileA));
+            const auto takeB = makeTakeWithNote(67, 96000);
+            expect(session.commitImportedMidi(takeB, "Song B"));
+            expect(session.saveToFile(fileC, session.takeGeneration));
+            expect(session.updateMetadata("Updated Title C", "Updated Notes C", session.takeGeneration));
+            expect(session.currentPerformanceFile == fileC);
+            const auto loadedC = loadPerformanceFile(fileC);
+            expect(loadedC.has_value());
+            if (loadedC.has_value() && loadedC->events.size() == 2) {
+                expectEquals(loadedC->lengthSamples, takeB.lengthSamples);
+                expectEquals(loadedC->events[0].message.getNoteNumber(), 67);
+                expectEquals(loadedC->events[1].message.getNoteNumber(), 67);
+                expect(loadedC->events[1].message.isNoteOff());
+            } else {
+                expect(false, "C must contain the current Take's note pair");
+            }
+            const auto metadataC = loadPerformanceFileMetadata(fileC);
+            expect(metadataC.has_value());
+            if (metadataC.has_value()) {
+                expectEquals(metadataC->title, juce::String("Updated Title C"));
+                expectEquals(metadataC->notes, juce::String("Updated Notes C"));
+            }
+            expectEquals(fileA.loadFileAsString(), originalA);
+        });
+
+        testCase("failed native opens and Save As preserve the current file and metadata", [&] {
+            devpiano::test::ScopedTempDir tempDir("sec002-failure");
+            const auto fileA = tempDir.getChildFile("songA.devpiano");
+            PerformanceFileMetadata metaA;
+            metaA.title = "Song A";
+            expect(savePerformanceFile(makeTakeWithNote(60, 44100), fileA, metaA));
+            const auto originalA = fileA.loadFileAsString();
+            Session session;
+            expect(session.openFromFile(fileA));
+            const auto originalGeneration = session.takeGeneration;
+            const auto invalid = tempDir.getChildFile("invalid.devpiano");
+            expect(invalid.replaceWithText("{invalid-json}"));
+            expect(!session.openFromFile(invalid));
+            expect(!session.openFromFile(tempDir.getChildFile("missing.devpiano")));
+            expect(!session.commitImportedMidi({}, "empty"));
+            const auto occupied = tempDir.getChildFile("occupied.devpiano");
+            expect(occupied.createDirectory().wasOk());
+            expect(!session.saveToFile(occupied, originalGeneration));
+            expect(session.currentPerformanceFile == fileA);
+            expectEquals(session.currentMetadata.title, juce::String("Song A"));
+            expectEquals(session.takeGeneration, originalGeneration);
+            expectEquals(session.take.events[0].message.getNoteNumber(), 60);
+            expectEquals(fileA.loadFileAsString(), originalA);
+        });
+
+        testCase("a later native open adopts its own binding and rejects stale dialog completions", [&] {
+            devpiano::test::ScopedTempDir tempDir("sec002-stale-dialog");
+            const auto fileA = tempDir.getChildFile("songA.devpiano");
+            const auto fileB = tempDir.getChildFile("songB.devpiano");
+            const auto fileC = tempDir.getChildFile("songC.devpiano");
+            PerformanceFileMetadata metaA;
+            metaA.title = "Song A";
+            PerformanceFileMetadata metaB;
+            metaB.title = "Song B";
+            expect(savePerformanceFile(makeTakeWithNote(60, 44100), fileA, metaA));
+            expect(savePerformanceFile(makeTakeWithNote(72, 88200), fileB, metaB));
+            const auto originalA = fileA.loadFileAsString();
+            const auto originalB = fileB.loadFileAsString();
+            Session session;
+            expect(session.openFromFile(fileA));
+            const auto staleGeneration = session.takeGeneration;
+            expect(session.openFromFile(fileB));
+            expect(!session.updateMetadata("Stale Title", "Stale Notes", staleGeneration));
+            expect(!session.saveToFile(fileC, staleGeneration));
+            expect(!fileC.exists());
+            expectEquals(fileA.loadFileAsString(), originalA);
+            expectEquals(fileB.loadFileAsString(), originalB);
+            expect(session.updateMetadata("Updated B", "Updated Notes B", session.takeGeneration));
+            const auto updated = loadPerformanceFileMetadata(fileB);
+            expect(updated.has_value());
+            if (updated.has_value()) {
+                expectEquals(updated->title, juce::String("Updated B"));
+            }
+            expectEquals(fileA.loadFileAsString(), originalA);
+        });
+        testCase("count-in cancellation preserves prior Take and binding", [&] {
+            devpiano::test::ScopedTempDir tempDir("countin-cancel");
+            const auto fileA = tempDir.getChildFile("songA.devpiano");
+            PerformanceFileMetadata metaA;
+            metaA.title = "Song A";
+            expect(savePerformanceFile(makeTakeWithNote(60, 44100), fileA, metaA));
+            const auto originalA = fileA.loadFileAsString();
+            Session session;
+            expect(session.openFromFile(fileA));
+            const auto originalGeneration = session.takeGeneration;
+
+            // Initiating count-in does not detach session or invalidate prior take/binding
+            expect(session.hasTake());
+            expect(session.currentPerformanceFile == fileA);
+            expectEquals(session.currentMetadata.title, juce::String("Song A"));
+            expectEquals(session.takeGeneration, originalGeneration);
+
+            // Cancelled count-in leaves prior Take and binding completely intact
+            expect(session.hasTake());
+            expect(session.currentPerformanceFile == fileA);
+            expectEquals(fileA.loadFileAsString(), originalA);
+
+            // Only when recording actually starts does detachForNewRecording happen
+            session.detachForNewRecording();
+            expect(!session.hasTake());
+            expect(session.currentPerformanceFile == juce::File());
+            expect(session.currentMetadata.title.isEmpty());
+            expect(session.takeGeneration > originalGeneration);
+            expectEquals(fileA.loadFileAsString(), originalA);
+        });
+        testCase("target reached with zero UI polls transitions to normal recording flow", [&] {
+            devpiano::test::ScopedTempDir tempDir("countin-downbeat-race");
+            const auto fileA = tempDir.getChildFile("songA.devpiano");
+            PerformanceFileMetadata metaA;
+            metaA.title = "Song A";
+            expect(savePerformanceFile(makeTakeWithNote(60, 44100), fileA, metaA));
+            const auto originalA = fileA.loadFileAsString();
+            Session session;
+            expect(session.openFromFile(fileA));
+            const auto genA = session.takeGeneration;
+
+            // Scenario 1: Target reached on audio thread before any UI poll.
+            // Old Take is detached exactly once when audio start is synchronized.
+            session.detachForNewRecording();
+            session.state = RecordingUiState::recording;
+            expect(session.isRecording());
+            expect(!session.hasTake());
+            expect(session.currentPerformanceFile == juce::File());
+            expect(session.takeGeneration > genA);
+
+            // Immediate Stop after downbeat finalizes the just-started capture
+            const auto stopCmd = chooseRecordingFlowCommand(RecordingFlowIntent::stop,
+                                                            makeRecordingFlowStatus(session.state, session.hasTake()));
+            expect(stopCmd == RecordingFlowCommand::stopRecording);
+            session.commitRecordedTake(makeTakeWithNote(64, 48000));
+            session.state = RecordingUiState::idle;
+            expect(session.hasTake());
+            expectEquals(fileA.loadFileAsString(), originalA);
+
+            // Scenario 2: Immediate Play after downbeat pauses recording
+            session.state = RecordingUiState::recording;
+            const auto playCmd = chooseRecordingFlowCommand(RecordingFlowIntent::playPause,
+                                                            makeRecordingFlowStatus(session.state, session.hasTake()));
+            expect(playCmd == RecordingFlowCommand::pauseRecording);
+
+            // Scenario 3: Immediate import after downbeat is guarded while recording
+            expect(session.isRecording());
+        });
+    }
+};
+
+static RecordingSessionTakeOwnershipTest recordingSessionTakeOwnershipTest;

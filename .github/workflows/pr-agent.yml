@@ -31,14 +31,15 @@ jobs:
           OPENAI_KEY: ${{ secrets.KIOSAPI_API_KEY }}
           OPENAI.API_BASE: "https://kiosapi.com/v1/"
           # 模型 ID 必须对当前 KiosAPI Token Group 可用
-          config.model: "openai/deepseek-v4.1-flash-free"
-          config.fallback_models: '["openai/deepseek-v4.1-flash-free"]'
+          config.model: "openai/deepseek-v4-flash-free"
+          config.fallback_models: '["openai/deepseek-v4-flash-free"]'
           config.temperature: "0.2"
-          # 上下文窗口限制：显式声明自定义模型上限，扩大 token 预算避免大 PR 截断 diff
-          config.custom_model_max_tokens: "1000000"
-          config.max_model_tokens: "500000"
-          pr_reviewer.max_model_tokens: "500000"
-          pr_description.max_model_tokens: "500000"
+          config.ai_timeout: "180"
+          # 真实上下文与裁剪保护：匹配 128k 物理窗口，单次 diff 限制在 3.2w tokens 避免大 PR 撑爆 API
+          config.custom_model_max_tokens: "131072"
+          config.max_model_tokens: "32000"
+          pr_reviewer.max_model_tokens: "32000"
+          pr_description.max_model_tokens: "32000"
           # 评论体验优化：原地更新 Review，精简辅助与更新通知
           pr_reviewer.persistent_comment: "true"
           pr_description.final_update_message: "false"

@@ -42,6 +42,12 @@ struct KeyRenderState {
 
 // Keyboard display settings (persisted via SettingsModel)
 struct KeyboardSettings {
+    static constexpr float kMinFadeSpeed = 0.50f;
+    static constexpr float kMaxFadeSpeed = 0.99f;
+    [[nodiscard]] static float clampFadeSpeed(float speed) noexcept {
+        return juce::jlimit(kMinFadeSpeed, kMaxFadeSpeed, speed);
+    }
+
     int lowNote = 21;
     int highNote = 108;
     float keyWidth = 21.5f;

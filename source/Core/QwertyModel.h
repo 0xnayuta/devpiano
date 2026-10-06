@@ -1,8 +1,8 @@
 #pragma once
 
 #include <array>
+#include <cmath>
 #include <cstdint>
-#include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <vector>
 
@@ -21,6 +21,10 @@ struct QwertyKeyVisualState {
     int mappedMidiNote = -1; // Mapped MIDI note number (-1 if unmapped or non-note)
     int mappedMidiChannel = 1; // Target MIDI channel (1..16)
     float velocity = 1.0f; // Action velocity [0.0, 1.0]
+    int inputMidiNote = -1;
+    int inputMidiChannel = 1;
+    float inputVelocity = 1.0f;
+    int bindingMidiNote = -1;
     juce::String noteName; // Pitch display ("C4", "G#3")
     juce::String solfegeLabel; // Solfege or scale degree display ("1", "do", "+1")
     bool isDown = false; // Whether currently physically held down
@@ -35,11 +39,29 @@ struct QwertyRowVisualState {
     std::vector<QwertyKeyVisualState> keys;
 };
 
+struct PianoKeyVisualState {
+    int inputMidiNote = -1;
+    int inputMidiChannel = 1;
+    float inputVelocity = 0.0f;
+    int mappedMidiChannel = 1;
+    float velocity = 0.0f;
+    int bindingMidiNote = -1;
+    bool hasBinding = false;
+    juce::String keyLabel;
+    bool operator==(const PianoKeyVisualState& other) const noexcept {
+        return inputMidiNote == other.inputMidiNote && inputMidiChannel == other.inputMidiChannel
+            && std::abs(inputVelocity - other.inputVelocity) < 1e-5f && mappedMidiChannel == other.mappedMidiChannel
+            && std::abs(velocity - other.velocity) < 1e-5f && bindingMidiNote == other.bindingMidiNote
+            && hasBinding == other.hasBinding && keyLabel == other.keyLabel;
+    }
+};
+
 // ============================================================================
 // QWERTY Full View Model Snapshot
 // ============================================================================
 struct QwertyViewModel {
     std::array<QwertyRowVisualState, 5> rows;
+    std::array<PianoKeyVisualState, 128> pianoKeys;
     bool isSustainPedalDown = false;
     bool isSoftPedalDown = false;
     bool isSyncPedalCutPending = false;

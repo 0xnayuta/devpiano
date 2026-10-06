@@ -64,7 +64,7 @@ private:
             Temperament::meantone, Temperament::werckmeister3, Temperament::kirnberger3
         };
 
-        const std::array<double, 5> testPitches { 415.0, 432.0, 440.0, 442.0, 445.0 };
+        const std::array<double, 7> testPitches { 400.0, 415.0, 432.0, 440.0, 442.0, 445.0, 480.0 };
 
         for (const auto temp : allTemperaments) {
             // In all temperaments, pitch class 9 (A) must have exactly 0.0 cent deviation
@@ -96,18 +96,27 @@ private:
         expectEquals(TemperamentEngine::clampReferencePitch(415.0), 415.0);
         expectEquals(TemperamentEngine::clampReferencePitch(432.0), 432.0);
         expectEquals(TemperamentEngine::clampReferencePitch(442.0), 442.0);
+        expectEquals(TemperamentEngine::clampReferencePitch(400.0), 400.0);
+        expectEquals(TemperamentEngine::clampReferencePitch(480.0), 480.0);
 
-        // Clamping bounds [410.0, 450.0]
-        expectEquals(TemperamentEngine::clampReferencePitch(300.0), 410.0);
-        expectEquals(TemperamentEngine::clampReferencePitch(409.9), 410.0);
-        expectEquals(TemperamentEngine::clampReferencePitch(450.1), 450.0);
-        expectEquals(TemperamentEngine::clampReferencePitch(500.0), 450.0);
-
+        // Clamping bounds [400.0, 480.0]
+        expectEquals(TemperamentEngine::clampReferencePitch(300.0), 400.0);
+        expectEquals(TemperamentEngine::clampReferencePitch(399.9), 400.0);
+        expectEquals(TemperamentEngine::clampReferencePitch(480.1), 480.0);
+        expectEquals(TemperamentEngine::clampReferencePitch(500.0), 480.0);
         // Verification of preset constants
         expectEquals(TemperamentEngine::kDefaultReferencePitch, 440.0);
         expectEquals(TemperamentEngine::kBaroquePitch, 415.0);
         expectEquals(TemperamentEngine::kVerdiPitch, 432.0);
         expectEquals(TemperamentEngine::kConcertPitch, 442.0);
+
+        expectWithinAbsoluteError(TemperamentEngine::getFrequency(69, Temperament::equal, 400.0), 400.0, 1e-6);
+        expectWithinAbsoluteError(TemperamentEngine::getFrequency(69, Temperament::equal, 480.0), 480.0, 1e-6);
+        expectWithinAbsoluteError(TemperamentEngine::getFrequency(69, Temperament::equal, 415.0), 415.0, 1e-6);
+        expectWithinAbsoluteError(TemperamentEngine::getFrequency(69, Temperament::equal, 440.0), 440.0, 1e-6);
+        expectWithinAbsoluteError(TemperamentEngine::getFrequency(69, Temperament::equal, 442.0), 442.0, 1e-6);
+        expectWithinAbsoluteError(TemperamentEngine::getFrequency(69, Temperament::equal, 350.0), 400.0, 1e-6);
+        expectWithinAbsoluteError(TemperamentEngine::getFrequency(69, Temperament::equal, 520.0), 480.0, 1e-6);
     }
 
     void testMonotonicityAcrossAllTemperaments() {

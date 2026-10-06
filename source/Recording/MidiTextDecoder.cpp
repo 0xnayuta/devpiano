@@ -197,8 +197,7 @@ constexpr int kMinLatin1SupplementSequences = 3;
         ++i;
     }
 
-    return juce::String(juce::CharPointer_UTF32(characters.get()),
-                        juce::CharPointer_UTF32(characters.get() + numCharacters));
+    return { juce::CharPointer_UTF32(characters.get()), juce::CharPointer_UTF32(characters.get() + numCharacters) };
 }
 
 [[nodiscard]] juce::String decodeWindows1252(const uint8_t* data, int sizeInBytes) {
@@ -208,8 +207,7 @@ constexpr int kMinLatin1SupplementSequences = 3;
         characters[i] = juce::CharacterFunctions::getUnicodeCharFromWindows1252Codepage(data[i]);
     }
 
-    return juce::String(juce::CharPointer_UTF32(characters.get()),
-                        juce::CharPointer_UTF32(characters.get() + sizeInBytes));
+    return { juce::CharPointer_UTF32(characters.get()), juce::CharPointer_UTF32(characters.get() + sizeInBytes) };
 }
 
 /// Attempts to undo a legacy single-byte mis-decode, returning nullopt when the payload is
@@ -286,7 +284,7 @@ juce::String MidiTextDecoder::decodeText(const void* rawData, int sizeInBytes) {
     }
 
     if (isPureAscii) {
-        return juce::String(reinterpret_cast<const char*>(data), static_cast<size_t>(sizeInBytes));
+        return { reinterpret_cast<const char*>(data), static_cast<size_t>(sizeInBytes) };
     }
 
     if (juce::CharPointer_UTF8::isValidString(reinterpret_cast<const char*>(data), sizeInBytes)) {
@@ -294,8 +292,8 @@ juce::String MidiTextDecoder::decodeText(const void* rawData, int sizeInBytes) {
             return *recovered;
         }
 
-        return juce::String(juce::CharPointer_UTF8(reinterpret_cast<const char*>(data)),
-                            juce::CharPointer_UTF8(reinterpret_cast<const char*>(data) + sizeInBytes));
+        return { juce::CharPointer_UTF8(reinterpret_cast<const char*>(data)),
+                 juce::CharPointer_UTF8(reinterpret_cast<const char*>(data) + sizeInBytes) };
     }
 
     if (isPlausibleGbkText(data, sizeInBytes)) {

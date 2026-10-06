@@ -64,13 +64,13 @@ void PluginOperationController::loadSelectedPlugin() {
         return;
     }
 
-    const auto pluginName = getSelectedPluginNameForLoad();
-    if (pluginName.isEmpty()) {
+    const auto identifier = getSelectedPluginIdentifierForLoad();
+    if (identifier.isEmpty()) {
         owner.finishPluginUiAction(false);
         return;
     }
 
-    loadPluginByNameAndCommitState(pluginName);
+    loadPluginByIdentifierAndCommitState(identifier);
 }
 
 void PluginOperationController::handleImportVst3File(const juce::File& vst3File) {
@@ -84,17 +84,16 @@ void PluginOperationController::handleImportVst3File(const juce::File& vst3File)
         return;
     }
 
-    juce::StringArray pluginNames;
+    juce::Array<juce::PluginDescription> descriptions;
     owner.runPluginActionWithAudioDeviceRebuild(
-        [this, &vst3File, &pluginNames] { pluginNames = pluginHost.addVst3FileToKnownList(vst3File); });
+        [this, &vst3File, &descriptions] { descriptions = pluginHost.addVst3FileToKnownList(vst3File); });
 
-    if (pluginNames.isEmpty()) {
+    if (descriptions.isEmpty()) {
         DP_LOG_ERROR("[Plugin] no plugin types found in: " + vst3File.getFullPathName());
         return;
     }
 
-    // Use the first real plugin name from metadata (not filename guessing)
-    loadPluginByNameAndCommitState(pluginNames[0]);
+    loadPluginByIdentifierAndCommitState(descriptions[0].createIdentifierString());
     DP_LOG_INFO("[Plugin] loaded from dropped file: " + vst3File.getFullPathName());
 }
 
@@ -138,9 +137,12 @@ void PluginOperationController::scanPlugins() {
     }
 
     pendingScanPath = path;
-    pendingScanLastPluginName = appSettings.getPluginRecoverySettingsView().lastPluginName;
+    pendingScanLastPluginIdentifier = appSettings.getPluginRecoverySettingsView().lastPluginIdentifier;
 
-    if (!pluginHost.beginVst3ScanSession(path, true)) {
+    bool beganScan = false;
+    owner.runPluginActionWithAudioDeviceRebuild(
+        [this, &path, &beganScan] { beganScan = pluginHost.beginVst3ScanSession(path, true); });
+    if (!beganScan) {
         owner.finishPluginUiAction(false);
         return;
     }
@@ -149,12 +151,13 @@ void PluginOperationController::scanPlugins() {
 
     // Record the scan target before the first plugin is probed: if the scanner
     // crashes, the next launch still knows which directories were being scanned.
-    appSettings.applyPluginRecoverySettingsView(makePluginRecoverySettings(path.toString(), pendingScanLastPluginName));
+    appSettings.applyPluginRecoverySettingsView(
+        makePluginRecoverySettings(path.toString(), pendingScanLastPluginIdentifier));
     owner.persistSettingsModelSnapshot();
 
     owner.refreshReadOnlyUiStateFromCurrentSnapshot();
 
-    pendingScanLastPluginName = appSettings.getPluginRecoverySettingsView().lastPluginName;
+    pendingScanLastPluginIdentifier = appSettings.getPluginRecoverySettingsView().lastPluginIdentifier;
     triggerAsyncUpdate();
 }
 
@@ -168,22 +171,22 @@ void PluginOperationController::restorePluginScanPathOnStartup(const StartupPlug
         return;
     }
 
-    scanPluginsAtPathAndUpdateRecovery(pluginHost, appSettings, path, plan.recovery.lastPluginName);
+    scanPluginsAtPathAndApplyRecoveryState(path, plan.recovery.lastPluginIdentifier);
 }
 
 void PluginOperationController::restoreLastPluginOnStartup(const StartupPluginRestorePlan& plan) {
-    const auto& pluginName = plan.recovery.lastPluginName;
-    if (pluginName.isEmpty()) {
+    const auto& identifier = plan.recovery.lastPluginIdentifier;
+    if (identifier.isEmpty()) {
         return;
     }
 
-    restorePluginByNameOnStartup(pluginName);
+    restorePluginByIdentifierOnStartup(identifier);
 }
 
-void PluginOperationController::restorePluginByNameOnStartup(const juce::String& pluginName) {
-    owner.runPluginActionWithAudioDeviceRebuild([this, pluginName](const MainComponent::RuntimeAudioConfig& config) {
-        if (!pluginHost.loadPluginByName(pluginName, config.sampleRate, config.blockSize)) {
-            DP_LOG_ERROR("[Plugin] startup restore failed: " + pluginName + " - " + pluginHost.getLastLoadError());
+void PluginOperationController::restorePluginByIdentifierOnStartup(const juce::String& identifier) {
+    owner.runPluginActionWithAudioDeviceRebuild([this, identifier](const MainComponent::RuntimeAudioConfig& config) {
+        if (!pluginHost.loadPluginByIdentifier(identifier, config.sampleRate, config.blockSize)) {
+            DP_LOG_ERROR("[Plugin] startup restore failed: " + identifier + " - " + pluginHost.getLastLoadError());
         }
     });
 }
@@ -193,27 +196,26 @@ juce::FileSearchPath PluginOperationController::resolvePluginScanPath() const {
                                    pluginHost.getDefaultVst3SearchPath());
 }
 
-juce::String PluginOperationController::getSelectedPluginNameForLoad() const {
-    return owner.getSelectedPluginName().trim();
+juce::String PluginOperationController::getSelectedPluginIdentifierForLoad() const {
+    return owner.getSelectedPluginIdentifier();
 }
 
-void PluginOperationController::loadPluginByNameAndCommitState(const juce::String& pluginName) {
+void PluginOperationController::loadPluginByIdentifierAndCommitState(const juce::String& identifier) {
     bool loaded = false;
     juce::String loadError;
     owner.runPluginActionWithAudioDeviceRebuild(
-        [this, pluginName, &loaded, &loadError](const MainComponent::RuntimeAudioConfig& config) {
-            loaded = pluginHost.loadPluginByName(pluginName, config.sampleRate, config.blockSize);
+        [this, identifier, &loaded, &loadError](const MainComponent::RuntimeAudioConfig& config) {
+            loaded = pluginHost.loadPluginByIdentifier(identifier, config.sampleRate, config.blockSize);
             loadError = pluginHost.getLastLoadError();
         });
 
     if (loaded) {
-        commitPluginRecoveryStateAndFinishUi(makePluginRecoverySettings(appSettings.pluginSearchPath, pluginName),
-                                             true);
+        commitPluginRecoveryStateAndFinishUi(
+            makePluginRecoverySettings(appSettings.pluginSearchPath, pluginHost.getCurrentPluginIdentifier()), true);
         return;
     }
 
-    // 加载失败：不持久化失败插件名（否则下次启动反复重试），UI 按失败收尾。
-    DP_LOG_ERROR("[Plugin] failed to load: " + pluginName + " - " + loadError);
+    DP_LOG_ERROR("[Plugin] failed to load: " + identifier + " - " + loadError);
     owner.finishPluginUiAction(false);
 }
 
@@ -264,15 +266,15 @@ void PluginOperationController::openPluginEditorWindow(std::unique_ptr<juce::Aud
 }
 
 void PluginOperationController::scanPluginsAtPathAndApplyRecoveryState(const juce::FileSearchPath& path,
-                                                                       const juce::String& lastPluginName) {
-    owner.runPluginActionWithAudioDeviceRebuild([this, &path, lastPluginName] {
-        scanPluginsAtPathAndUpdateRecovery(pluginHost, appSettings, path, lastPluginName);
+                                                                       const juce::String& lastPluginIdentifier) {
+    owner.runPluginActionWithAudioDeviceRebuild([this, &path, lastPluginIdentifier] {
+        scanPluginsAtPathAndUpdateRecovery(pluginHost, appSettings, path, lastPluginIdentifier);
     });
 }
 
 void PluginOperationController::scanPluginsAtPathAndCommitState(const juce::FileSearchPath& path) {
-    const auto lastPluginName = appSettings.getPluginRecoverySettingsView().lastPluginName;
-    scanPluginsAtPathAndApplyRecoveryState(path, lastPluginName);
+    const auto lastPluginIdentifier = appSettings.getPluginRecoverySettingsView().lastPluginIdentifier;
+    scanPluginsAtPathAndApplyRecoveryState(path, lastPluginIdentifier);
     owner.setPluginPathText(path.toString());
     owner.finishPluginUiAction(true);
 }
@@ -304,7 +306,7 @@ void PluginOperationController::handleAsyncUpdate() {
 }
 
 void PluginOperationController::finishScanSessionAndCommitState() {
-    const auto recovery = makePluginRecoverySettings(pendingScanPath.toString(), pendingScanLastPluginName);
+    const auto recovery = makePluginRecoverySettings(pendingScanPath.toString(), pendingScanLastPluginIdentifier);
 
     appSettings.applyPluginRecoverySettingsView(recovery);
     appSettings.knownPluginListState = pluginHost.createKnownPluginListXml();
@@ -313,7 +315,7 @@ void PluginOperationController::finishScanSessionAndCommitState() {
 
     // Auto-load the first available plugin when user-initiated scan completes
     // and no plugin is currently loaded.
-    if (!pluginHost.hasLoadedPlugin() && !pluginHost.getKnownPluginNames().isEmpty()) {
+    if (!pluginHost.hasLoadedPlugin() && !pluginHost.getKnownPluginDescriptions().isEmpty()) {
         loadSelectedPlugin();
     }
 }

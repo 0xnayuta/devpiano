@@ -26,7 +26,6 @@ constexpr const char* noteLetterNames[12] = { "C", "C#", "D", "D#", "E", "F", "F
 
 // Return the display name for a MIDI note in the given mode.
 // Octave convention: C0 starts at MIDI 12.
-//   (midiNote - 12) / 12  is the octave index, with index 4 = C4 (MIDI 60).
 //   doReMi/fixedDo offset is relative to C4 (index 4 -> offset "0").
 //   noteName uses the standard octave number (C4 -> "C4").
 inline juce::String getNoteDisplayName(int midiNote, NoteDisplayMode mode, int keySignature = 0) {
@@ -34,7 +33,7 @@ inline juce::String getNoteDisplayName(int midiNote, NoteDisplayMode mode, int k
         return {};
     }
 
-    auto octaveIndex = (midiNote - 12) / 12;
+    auto octaveIndex = midiNote / 12 - 1;
     auto noteIndex = midiNote % 12;
 
     switch (mode) {
