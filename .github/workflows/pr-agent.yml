@@ -31,11 +31,9 @@ jobs:
           OPENAI_KEY: ${{ secrets.KIOSAPI_API_KEY }}
           OPENAI.API_BASE: "https://kiosapi.com/v1/"
           # 模型 ID 必须对当前 KiosAPI Token Group 可用
-          config.model: "openai/grok-4.7-free"
-          config.fallback_models: '["openai/grok-4.7-free"]'
+          config.model: "openai/qwen3.8-flash-free"
+          config.fallback_models: '["openai/deepseek-v4-flash-free"]'
           config.temperature: "0.2"
-          # 针对推理模型优化思考开销与客户端超时
-          config.reasoning_effort: "low"
           config.ai_timeout: "300"
           # 真实上下文与裁剪保护：匹配 128k 物理窗口，单次 diff 限制在 3.2w tokens 避免大 PR 撑爆 API
           config.custom_model_max_tokens: "131072"

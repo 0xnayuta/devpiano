@@ -8,7 +8,7 @@
 PR-Agent 是开源 AI 代码审查 agent（[The-PR-Agent/pr-agent](https://github.com/The-PR-Agent/pr-agent)，MIT）。devpiano 通过 GitHub Action 方式部署：
 
 - PR 打开 / 重新打开 / 转为 ready / push 新提交（`synchronize`）时自动执行 `/describe`（AI 生成 PR 描述）与 `/review`（代码审查）。
-- 模型：`openai/grok-4.7-free`，通过 KiosAPI OpenAI-compatible endpoint 调用。
+- 模型：`openai/qwen3.8-flash-free`（备选 `openai/deepseek-v4-flash-free`），通过 KiosAPI OpenAI-compatible endpoint 调用。
 - 审查输出为 `github-actions[bot]` 的 PR 评论，不参与 required checks，**不阻塞合并**。
 
 ## 相关文件
@@ -48,7 +48,7 @@ PR-Agent 是开源 AI 代码审查 agent（[The-PR-Agent/pr-agent](https://githu
 
 ## 模型与密钥
 
-- 当前模型：`openai/grok-4.7-free`（KiosAPI OpenAI-compatible 路由）。
+- 当前模型：`openai/qwen3.8-flash-free`，备选降级 `openai/deepseek-v4-flash-free`（KiosAPI OpenAI-compatible 路由）。
 - Base URL：`https://kiosapi.com/v1/`。
 - 密钥：workflow 将 GitHub Actions Secret `KIOSAPI_API_KEY` 注入 `OPENAI_KEY`；密钥不写入仓库，需在仓库设置中手动填写。
 - 模型 ID 必须对该 API key 的 Token Group 可用。KiosAPI 支持用 `GET /v1/models` 查询 key 可访问的精确 ID；当前未配置 key，因此尚未验证该模型 ID。
