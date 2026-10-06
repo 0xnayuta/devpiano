@@ -19,7 +19,7 @@
 
 - [`guides/wsl-windows-msvc-workflow.md`](guides/wsl-windows-msvc-workflow.md)：WSL 主工作树 + Windows 镜像树 + MSVC 验证工作流详解。
 - [`guides/development.md`](guides/development.md)：日常开发、构建与协作指引。
-- [`roadmap/current-iteration.md`](roadmap/current-iteration.md)：当前本地化完整消息模板小阶段的任务与直接验收；已完成的 AUDIT-004 实施记录见 [归档](archive/audit-004-code-quality-fix-phases.md)。
+- [`roadmap/current-iteration.md`](roadmap/current-iteration.md)：当前迭代任务与直接验收入口。
 - [`decisions/README.md`](decisions/README.md)：架构决策记录索引，含已接受的 [ADR-015 本地化完整消息模板与分类标点](decisions/ADR-015-localized-message-templates-and-punctuation.md)。
 - [`guides/troubleshooting.md`](guides/troubleshooting.md)：WSL / Windows 镜像构建常见问题排查。
 - [`guides/release-workflow.md`](guides/release-workflow.md)：Windows/Linux 正式 release、tag 与双平台打包 checklist。

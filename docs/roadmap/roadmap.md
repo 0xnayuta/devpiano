@@ -16,7 +16,7 @@ devpiano 是一款基于 JUCE 的现代 C++ 电脑键盘钢琴应用，聚焦软
 - 旧配置系统 -> `ApplicationProperties` / `ValueTree` / 项目内状态模型。
 - 旧 fallback 简单发声 -> 覆盖 7 大声学子系统的自主研发增强物理建模钢琴音源（`PianoSynthVoice`）。
 
-当前近期重点为 **自有弹窗尺寸与底部操作区统一**，在本地化代码迁移基础上收紧窗口并统一操作区；逐项任务和本轮直接证据见 [`current-iteration.md`](current-iteration.md)。AUDIT-004 Phase 0/A–H 软件实施已归档，原问题身份、优先级和实机边界保留；本轮 UI 验收不等于目标厂商、物理声卡、IME 或跨显示器认证。Phase 36/37 仍为规划，不自动启动。
+当前近期重点为 **Phase 36：开发期减负与历史兼容性收敛**，明确开发期单版本演进原则，剥离历史数据迁移死代码并精简低价值测试与过时承诺；任务规划见 [`current-iteration.md`](current-iteration.md)。自有弹窗尺寸统一与全局字体体系治理已完成并闭环；AUDIT-004 实机补验边界独立保留。原声学巅峰与演奏形态规划顺延为 Phase 37/38。
 
 ---
 
@@ -344,13 +344,20 @@ Phase 35 原计划与完成勾选见 [完成计划归档](../archive/phase35-key
 
 本地化软件迁移见 `de450e7`、`f408262`：预设删除／覆盖确认、相关成功提示和同类单参数消息使用整句模板；参数原样插入，旧碎片键清理。多参数统计及后继 ADR 边界继续按 ADR-015 管理；当前弹窗迭代补充实际窗口尺寸、长消息排版与操作区验收，不据此认证所有国际化场景。
 
-### 自有弹窗尺寸与底部操作区统一
+### 自有弹窗尺寸统一与全局字体规范化 [已完成，2026-10-06]
 
-原生标题栏模式确定后准确定尺并居中；`ViewHost::fitToContent()` 封装宽度约束及最终内容边界测量，预设、绑定两状态、歌曲信息和导出进度共用操作区间距。窗口按内容收紧，底部伸缩仅吸收原生缩放取整余量；不改音频时序、CRUD、UUID 或导出工作线程生命周期。完成状态与直接验证见 [当前迭代](current-iteration.md)，后续实机补验仍独立保留。
+原生标题栏模式确定后准确定尺并居中；`ViewHost::fitToContent()` 封装宽度约束及最终内容边界测量，预设、绑定两状态、歌曲信息和导出进度共用 28 逻辑像素操作区留白。对齐 LookAndFeel 菜单项字体，全面消除裸 `FontOptions` 硬编码，统一接入 `DesignTokens::getUnifiedUiFont` 保证中文字体族一致性（代码提交见 `829a40b`、`182196d`、`80dbd19`）。
 
+### Phase 36：开发期减负与历史兼容性收敛（Development Overhead Reduction & Legacy Compatibility Deprecation）[待实施]
 
+面向个人活跃开发期定位，确立“不为过去保留实现，不为假想未来预留实现”核心原则：
+1. **开发期减负协作契约**：明确自有配置、数据和格式允许单版本破坏性变更，不做历史迁移层；遵循单向干净切换与 YAGNI 原则；
+2. **剥离历史数据迁移与兼容死代码**：清理 `SettingsStore` 旧插件名称匹配、`PerformancePreset` v1 缺失 UUID 向后推导、`PerformanceFile` v1/v2 历史无快照纯 MIDI 加载及 `RoomReverbEngine` `"hall"` 别名；
+3. **精简低价值测试**：清理已废弃格式与过时兼容用例，消除单纯断言声明值的低价值伪测试，聚焦物理声学、实时音频无锁时序、发音身份防悬挂与文件事务安全防线；
+4. **现行特性文档收敛**：更新 `performance-presets.md`、`performance-persistence.md` 等，移除过时的向后兼容承诺，文档维护聚焦最小单一事实源。
+任务规划与排期细则见 [`current-iteration.md`](current-iteration.md)。
 
-### Phase 36：物理建模声学巅峰（Railsback Octave Stretch Tuning & Duplex Scale Resonance）[规划中]
+### Phase 37：物理建模声学巅峰（Railsback Octave Stretch Tuning & Duplex Scale Resonance）[规划中]
 
 在声学微观机理上对齐 Pianoteq 8/9，攻克琴弦刚度八度拉伸与高频空气感最后两座大山：
 1. **Railsback 八度调律拉伸曲线**：实测刚度 $B$ 不谐和音分拉伸表，消除低音泛音与高音基波拍频干涉；
@@ -358,12 +365,11 @@ Phase 35 原计划与完成勾选见 [完成计划归档](../archive/phase35-key
 3. **Sostenuto 选择性持续音踏板（CC 66）**：现代三角钢琴第三踏板建模；
 4. **经典钢琴型号风格预设包**：Concert Grand、Studio Grand、Upright Honky-tonk、Classical Fortepiano 参数化快照一键切换。
 
-### Phase 37：键盘高级演奏形态（Keyboard Split & Dual Layering）[规划中]
+### Phase 38：键盘高级演奏形态（Keyboard Split & Dual Layering）[规划中]
 
 拓展双手演奏与复合音色表现力：
 1. **双手物理键盘分区（Keyboard Split Point）**：左手伴奏区与右手主旋律区独立通道、移调与八度；
 2. **双层音色复合叠加（Dual Layering）**：单键击发同时触发内置物理钢琴与指定 VST3 衬底乐器。
----
 
 ## 4. 主要风险与应对
 
