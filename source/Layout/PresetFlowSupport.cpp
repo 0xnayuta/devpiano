@@ -120,7 +120,7 @@ void PresetFlowSupport::applyPresetByIndex(int index) {
     applyPresetData(presetCopy, true);
 }
 
-void PresetFlowSupport::applyPresetData(PerformancePreset preset, bool fileBacked) {
+void PresetFlowSupport::applyPresetData(const PerformancePreset& preset, bool fileBacked) {
     commitPreset(preset, fileBacked);
 
     if (owner.recordingEngine.isRecording()
