@@ -23,7 +23,7 @@ public:
 
     bool applyPresetById(const juce::String& presetId);
     void applyPresetByIndex(int zeroBasedIndex);
-    void applyPresetData(const PerformancePreset& preset, bool fileBacked);
+    void applyPresetData(PerformancePreset preset, bool fileBacked);
     void applyRecordedPresetUi(const devpiano::recording::RecordedPreset& recordedPreset);
     // ---- CRUD ----
 

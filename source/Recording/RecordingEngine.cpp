@@ -260,6 +260,13 @@ void RecordingEngine::recordEvent(const juce::MidiMessage& message, RecordingEve
     }
     capturePendingPresetChanges(std::max<std::int64_t>(timestampSamples, 0));
 
+    // Per ADR-006, devpiano operates exclusively as a computer-keyboard performance host
+    // without external MIDI hardware inputs.
+    // 1. Spurious NoteOffs (e.g. from window focus loss or jitter) arriving when count == 0
+    //    are safely dropped to prevent orphan note-offs.
+    // 2. A single physical key-up on a computer keyboard must close all preceding unclosed
+    //    rearticulations for that pitch to prevent stuck notes (tested via
+    //    "one final physical release closes all recorded rearticulations there").
     if (message.isNoteOff()
         && capturedNotes[static_cast<std::size_t>(message.getChannel() - 1)]
                         [static_cast<std::size_t>(message.getNoteNumber())]

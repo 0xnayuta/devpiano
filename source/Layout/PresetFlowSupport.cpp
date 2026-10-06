@@ -79,7 +79,8 @@ bool PresetFlowSupport::applyPresetById(const juce::String& presetId) {
     // 1. Direct match by permanent UUID identity
     for (const auto& p : cachedPresets) {
         if (p.uuid == id) {
-            applyPresetData(p, true);
+            const auto presetCopy = p;
+            applyPresetData(presetCopy, true);
             return true;
         }
     }
@@ -115,10 +116,11 @@ void PresetFlowSupport::applyPresetByIndex(int index) {
         return;
     }
 
-    applyPresetData(cachedPresets[static_cast<std::size_t>(index)], true);
+    const auto presetCopy = cachedPresets[static_cast<std::size_t>(index)];
+    applyPresetData(presetCopy, true);
 }
 
-void PresetFlowSupport::applyPresetData(const PerformancePreset& preset, bool fileBacked) {
+void PresetFlowSupport::applyPresetData(PerformancePreset preset, bool fileBacked) {
     commitPreset(preset, fileBacked);
 
     if (owner.recordingEngine.isRecording()
