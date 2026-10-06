@@ -31,8 +31,8 @@ jobs:
           OPENAI_KEY: ${{ secrets.KIOSAPI_API_KEY }}
           OPENAI.API_BASE: "https://kiosapi.com/v1/"
           # 模型 ID 必须对当前 KiosAPI Token Group 可用
-          config.model: "openai/deepseek-v4.1-flash-free"
-          config.fallback_models: '["openai/deepseek-v4.1-flash-free"]'
+          config.model: "openai/grok-4.7-free"
+          config.fallback_models: '["openai/grok-4.7-free"]'
           config.temperature: "0.2"
           # 上下文窗口限制：显式声明自定义模型上限，扩大 token 预算避免大 PR 截断 diff
           config.custom_model_max_tokens: "1000000"
