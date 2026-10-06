@@ -15,10 +15,10 @@ DevPianoLogger::DevPianoLogger()
                      512LL * 1024) {
 }
 
-DevPianoLogger::DevPianoLogger(const juce::File& customLogFile, juce::int64 maxTotalFileSizeBytes)
+DevPianoLogger::DevPianoLogger(const juce::File& customLogFile, juce::int64 maxTotalFileSizeBytesIn)
     : logFilePath(customLogFile)
-    , maxTotalFileSizeBytes(maxTotalFileSizeBytes)
-    , maxPerFileSizeBytes(maxTotalFileSizeBytes > 0 ? maxTotalFileSizeBytes / 2 : 0) {
+    , maxTotalFileSizeBytes(maxTotalFileSizeBytesIn)
+    , maxPerFileSizeBytes(maxTotalFileSizeBytesIn > 0 ? maxTotalFileSizeBytesIn / 2 : 0) {
     initFileSink();
 }
 

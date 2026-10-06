@@ -18,7 +18,7 @@ public:
     DevPianoLogger();
 
     /// Custom file constructor: allows specifying a custom log file and total combined budget.
-    explicit DevPianoLogger(const juce::File& customLogFile, juce::int64 maxTotalFileSizeBytes = 512LL * 1024);
+    explicit DevPianoLogger(const juce::File& customLogFile, juce::int64 maxTotalFileSizeBytesIn = 512LL * 1024);
 
     ~DevPianoLogger() override;
 

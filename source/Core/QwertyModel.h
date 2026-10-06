@@ -1,8 +1,8 @@
 #pragma once
 
 #include <array>
+#include <cmath>
 #include <cstdint>
-#include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <vector>
 
@@ -48,7 +48,12 @@ struct PianoKeyVisualState {
     int bindingMidiNote = -1;
     bool hasBinding = false;
     juce::String keyLabel;
-    bool operator==(const PianoKeyVisualState&) const = default;
+    bool operator==(const PianoKeyVisualState& other) const noexcept {
+        return inputMidiNote == other.inputMidiNote && inputMidiChannel == other.inputMidiChannel
+            && std::abs(inputVelocity - other.inputVelocity) < 1e-5f && mappedMidiChannel == other.mappedMidiChannel
+            && std::abs(velocity - other.velocity) < 1e-5f && bindingMidiNote == other.bindingMidiNote
+            && hasBinding == other.hasBinding && keyLabel == other.keyLabel;
+    }
 };
 
 // ============================================================================

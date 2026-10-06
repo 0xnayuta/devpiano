@@ -67,9 +67,8 @@ void RecordingSessionController::handleRecordClicked() {
         const auto beatsPerBar = devpiano::core::getTimeSignatureNumerator(audioEngine.getMetronomeTimeSignature());
         countInRemainingBeats = barCount * beatsPerBar;
 
-        const auto capacity = defaultRecordingEventsPerSecond * defaultRecordingCapacitySeconds;
-        owner.runPluginActionWithAudioDeviceRebuild([this, capacity](const MainComponent::RuntimeAudioConfig& config) {
-            recordingEngine.reserveEvents(capacity);
+        owner.runPluginActionWithAudioDeviceRebuild([this](const MainComponent::RuntimeAudioConfig& config) {
+            recordingEngine.reserveEvents(defaultRecordingEventsPerSecond * defaultRecordingCapacitySeconds);
             recordingEngine.armRecording(config.sampleRate);
             recordInitialPresetSnapshot();
         });

@@ -58,8 +58,8 @@ struct PlaybackIdentityTracker {
     }
 
     void resetChannel(int channel) noexcept {
-        const auto chIdx = juce::jlimit(0, 15, channel - 1);
-        for (int pitch = 0; pitch < 128; ++pitch) {
+        const auto chIdx = static_cast<std::size_t>(juce::jlimit(0, 15, channel - 1));
+        for (std::size_t pitch = 0; pitch < 128; ++pitch) {
             auto& q = sourceQueues[chIdx][pitch];
             auto curr = q.head;
             while (curr != kInvalidIndex && curr < pool.size()) {
@@ -103,8 +103,8 @@ struct PlaybackIdentityTracker {
     }
 
     std::optional<std::uint8_t> noteOn(int sourceChannel, int sourcePitch, int candidateOutputPitch) noexcept {
-        const auto chIdx = juce::jlimit(0, 15, sourceChannel - 1);
-        const auto pitchIdx = juce::jlimit(0, 127, sourcePitch);
+        const auto chIdx = static_cast<std::size_t>(juce::jlimit(0, 15, sourceChannel - 1));
+        const auto pitchIdx = static_cast<std::size_t>(juce::jlimit(0, 127, sourcePitch));
         const auto outPitch = static_cast<std::uint8_t>(juce::jlimit(0, 127, candidateOutputPitch));
 
         const auto nodeIdx = allocateNode();
@@ -122,7 +122,7 @@ struct PlaybackIdentityTracker {
             q.tail = nodeIdx;
         }
 
-        outputHolders[chIdx][outPitch]++;
+        outputHolders[chIdx][static_cast<std::size_t>(outPitch)]++;
         return outPitch;
     }
 
@@ -133,8 +133,8 @@ struct PlaybackIdentityTracker {
     };
 
     NoteOffResult noteOff(int sourceChannel, int sourcePitch) noexcept {
-        const auto chIdx = juce::jlimit(0, 15, sourceChannel - 1);
-        const auto pitchIdx = juce::jlimit(0, 127, sourcePitch);
+        const auto chIdx = static_cast<std::size_t>(juce::jlimit(0, 15, sourceChannel - 1));
+        const auto pitchIdx = static_cast<std::size_t>(juce::jlimit(0, 127, sourcePitch));
         auto& q = sourceQueues[chIdx][pitchIdx];
 
         if (q.head == kInvalidIndex) {
@@ -150,7 +150,7 @@ struct PlaybackIdentityTracker {
         const auto outPitch = pool[nodeIdx].outputPitch;
         freeNode(nodeIdx);
 
-        auto& holders = outputHolders[chIdx][outPitch];
+        auto& holders = outputHolders[chIdx][static_cast<std::size_t>(outPitch)];
         bool shouldEmit = false;
         if (holders > 0) {
             holders--;

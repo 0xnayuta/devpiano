@@ -19,13 +19,12 @@ inline uint32_t readBigEndianUint32(const uint8_t* d) noexcept {
 }
 
 inline uint16_t readBigEndianUint16(const uint8_t* d) noexcept {
-    return (static_cast<uint16_t>(d[0]) << 8) | static_cast<uint16_t>(d[1]);
+    return static_cast<uint16_t>((static_cast<uint16_t>(d[0]) << 8) | static_cast<uint16_t>(d[1]));
 }
 
 bool validateTrackEvents(const uint8_t* data, std::size_t size, int trackIndex) {
     std::size_t offset = 0;
     uint8_t runningStatus = 0;
-    uint64_t trackTicks = 0;
     bool endOfTrackEncountered = false;
 
     while (offset < size) {
@@ -53,7 +52,6 @@ bool validateTrackEvents(const uint8_t* data, std::size_t size, int trackIndex) 
             return false;
         }
         offset += static_cast<std::size_t>(deltaBytes);
-        trackTicks += deltaTime;
         if (offset >= size) {
             DP_LOG_ERROR("MidiFileImporter: track chunk truncated after delta time in track "
                          + juce::String(trackIndex + 1));

@@ -1315,7 +1315,7 @@ public:
         double lastSampleRate = 0.0;
 
         void updateSampleRate(double sr) noexcept {
-            if (sr <= 0.0 || sr == lastSampleRate) {
+            if (sr <= 0.0 || std::abs(sr - lastSampleRate) < 1e-6) {
                 return;
             }
             lastSampleRate = sr;
@@ -1401,7 +1401,7 @@ public:
                 frictionAmplitude = peakLevelAtFullVelocity * 0.015f * (0.4f + 0.6f * (1.0f - rv)) * zoneGain;
                 frictionDecay = std::exp(-5.0f / static_cast<float>(frictionSamplesRemaining));
 
-                if (sampleRate != lastSampleRate) {
+                if (std::abs(sampleRate - lastSampleRate) >= 1e-6) {
                     updateSampleRate(sampleRate);
                 }
                 b0 = bpCoeffs.b0;
@@ -1524,7 +1524,7 @@ public:
         double lastSampleRate = 0.0;
 
         void updateSampleRate(double sr) noexcept {
-            if (sr <= 0.0 || sr == lastSampleRate) {
+            if (sr <= 0.0 || std::abs(sr - lastSampleRate) < 1e-6) {
                 return;
             }
             lastSampleRate = sr;
@@ -1589,7 +1589,7 @@ public:
                 whooshDecay = std::exp(-4.5f / static_cast<float>(whooshTotalSamples));
                 whooshAmplitude = 0.038f * vel * level;
 
-                if (sampleRate != lastSampleRate) {
+                if (std::abs(sampleRate - lastSampleRate) >= 1e-6) {
                     updateSampleRate(sampleRate);
                 }
                 b0 = bpDown.b0;
@@ -1618,7 +1618,7 @@ public:
                 whooshDecay = std::exp(-5.5f / static_cast<float>(whooshTotalSamples));
                 whooshAmplitude = 0.018f * vel * level;
 
-                if (sampleRate != lastSampleRate) {
+                if (std::abs(sampleRate - lastSampleRate) >= 1e-6) {
                     updateSampleRate(sampleRate);
                 }
                 b0 = bpUp.b0;
@@ -1733,7 +1733,7 @@ public:
         double lastSampleRate = 0.0;
 
         void updateCoefficients(double sampleRate) noexcept {
-            if (sampleRate <= 0.0 || sampleRate == lastSampleRate) {
+            if (sampleRate <= 0.0 || std::abs(sampleRate - lastSampleRate) < 1e-6) {
                 return;
             }
             lastSampleRate = sampleRate;
@@ -1944,7 +1944,7 @@ public:
         double lastSampleRate = 0.0;
 
         void updateCoefficients(double sampleRate) noexcept {
-            if (sampleRate <= 0.0 || sampleRate == lastSampleRate) {
+            if (sampleRate <= 0.0 || std::abs(sampleRate - lastSampleRate) < 1e-6) {
                 return;
             }
             lastSampleRate = sampleRate;
