@@ -29,6 +29,7 @@ public:
         testCountInSampleAccurateDownbeatOneAndTwoBars();
         testCountInMultiBeatUiPollLeaps();
         testCountInCancelAndRearm();
+        testDisablingMetronomeCancelsPendingCountIn();
         testCountInPrepareSampleRateChangeHalfway();
         testCountInSilentMetronome();
         testCountInTimeSignaturePeriods();
@@ -655,6 +656,35 @@ private:
 
         expect(startOffset >= 0);
         expectEquals(targetSample, std::int64_t { 96000 });
+    }
+    void testDisablingMetronomeCancelsPendingCountIn() {
+        beginTest("Disabling metronome cancels pending count-in and prevents audio thread reactivation");
+
+        devpiano::audio::MetronomeProcessor processor;
+        processor.prepareToPlay(48000.0);
+        processor.setBpm(120.0);
+        processor.setTimeSignature(devpiano::core::TimeSignature::fourFour);
+
+        processor.setEnabled(true);
+        expect(processor.isEnabled());
+
+        // Arm count-in
+        processor.armCountIn(4);
+        expect(processor.isCountInArmed());
+
+        // User disables metronome before next audio block consumes the count-in
+        processor.setEnabled(false);
+        expect(!processor.isEnabled());
+        expect(!processor.isCountInArmed());
+
+        // Audio thread processes block: must NOT revive runState to active
+        expectEquals(processor.consumeCountInStartOffset(512), -1);
+        expect(!processor.isEnabled(), "Metronome must remain disabled after consuming block");
+
+        juce::AudioBuffer<float> buffer(2, 512);
+        buffer.clear();
+        processor.processAndMix(&buffer, 0, 512);
+        expectEquals(buffer.getMagnitude(0, 512), 0.0f, "Disabled metronome must produce silence");
     }
 
     void testCountInPrepareSampleRateChangeHalfway() {

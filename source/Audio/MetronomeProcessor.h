@@ -60,6 +60,7 @@ public:
                                              std::memory_order_relaxed);
         } else {
             runState.store(RunState::disabled, std::memory_order_release);
+            cancelCountIn();
         }
     }
 
@@ -253,6 +254,13 @@ private:
 
         const int newBeats = pendingCountInBeats.exchange(0, std::memory_order_acq_rel);
         if (newBeats > 0) {
+            if (runState.load(std::memory_order_acquire) == RunState::disabled) {
+                audioCountInActive = false;
+                audioCountInRemainingBeats = 0;
+                countInArmed.store(false, std::memory_order_release);
+                countInRemainingBeats.store(0, std::memory_order_release);
+                return;
+            }
             audioCountInActive = true;
             audioCountInRemainingBeats = newBeats;
             countInArmed.store(true, std::memory_order_release);
