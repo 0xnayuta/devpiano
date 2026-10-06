@@ -282,7 +282,7 @@ void BuiltinSynthesiser::noteOn(int midiChannel, int midiNoteNumber, float veloc
         if (sound != nullptr && sound->appliesToNote(midiNoteNumber) && sound->appliesToChannel(midiChannel)) {
             for (auto* voice : voices) {
                 if (voice != nullptr && voice->getCurrentlyPlayingNote() == midiNoteNumber
-                    && voice->juce::SynthesiserVoice::isPlayingChannel(midiChannel)) {
+                    && voice->isPlayingChannel(midiChannel)) {
                     stopVoice(voice, 1.0f, true);
                 }
             }
@@ -300,7 +300,7 @@ void BuiltinSynthesiser::noteOn(int midiChannel, int midiNoteNumber, float veloc
 void BuiltinSynthesiser::noteOff(int midiChannel, int midiNoteNumber, float velocity, bool allowTailOff) {
     for (auto* voice : voices) {
         if (voice != nullptr && voice->getCurrentlyPlayingNote() == midiNoteNumber
-            && voice->juce::SynthesiserVoice::isPlayingChannel(midiChannel)) {
+            && voice->isPlayingChannel(midiChannel)) {
             voice->setKeyDown(false);
             if (!voice->isSustainPedalDown() && !voice->isSostenutoPedalDown()) {
                 stopVoice(voice, velocity, allowTailOff);
@@ -311,7 +311,7 @@ void BuiltinSynthesiser::noteOff(int midiChannel, int midiNoteNumber, float velo
 
 void BuiltinSynthesiser::allNotesOff(int midiChannel, bool allowTailOff) {
     for (auto* voice : voices) {
-        if (voice != nullptr && (midiChannel <= 0 || voice->juce::SynthesiserVoice::isPlayingChannel(midiChannel))) {
+        if (voice != nullptr && (midiChannel <= 0 || voice->isPlayingChannel(midiChannel))) {
             voice->setKeyDown(false);
             voice->setSustainPedalDown(false);
             voice->setSostenutoPedalDown(false);
@@ -333,7 +333,7 @@ void BuiltinSynthesiser::handlePitchWheel(int midiChannel, int wheelValue) {
         lastPitchWheelValues[midiChannel - 1] = wheelValue;
     }
     for (auto* voice : voices) {
-        if (voice != nullptr && (midiChannel <= 0 || voice->juce::SynthesiserVoice::isPlayingChannel(midiChannel))) {
+        if (voice != nullptr && (midiChannel <= 0 || voice->isPlayingChannel(midiChannel))) {
             voice->pitchWheelMoved(wheelValue);
         }
     }
@@ -352,8 +352,7 @@ void BuiltinSynthesiser::handleController(int midiChannel, int controllerNumber,
         const float amount = isDown ? juce::jlimit(0.0f, 1.0f, static_cast<float>(controllerValue) / 127.0f) : 0.0f;
         setSoftPedalInternal(midiChannel, isDown, amount);
         for (auto* voice : voices) {
-            if (voice != nullptr
-                && (midiChannel <= 0 || voice->juce::SynthesiserVoice::isPlayingChannel(midiChannel))) {
+            if (voice != nullptr && (midiChannel <= 0 || voice->isPlayingChannel(midiChannel))) {
                 voice->controllerMoved(67, controllerValue);
             }
         }
@@ -369,8 +368,7 @@ void BuiltinSynthesiser::handleController(int midiChannel, int controllerNumber,
             softPedalByChannel[static_cast<std::size_t>(midiChannel)] = {};
         }
         for (auto* voice : voices) {
-            if (voice != nullptr
-                && (midiChannel <= 0 || voice->juce::SynthesiserVoice::isPlayingChannel(midiChannel))) {
+            if (voice != nullptr && (midiChannel <= 0 || voice->isPlayingChannel(midiChannel))) {
                 voice->controllerMoved(67, 0);
             }
         }
@@ -384,7 +382,9 @@ void BuiltinSynthesiser::handleController(int midiChannel, int controllerNumber,
     }
 
     for (auto* voice : voices) {
-        if (voice != nullptr && (midiChannel <= 0 || voice->juce::SynthesiserVoice::isPlayingChannel(midiChannel))) {
+        if (voice != nullptr
+            && (midiChannel <= 0 || voice->isPlayingChannel(midiChannel)
+                || (controllerNumber == 64 && voice == voices.getFirst()))) {
             voice->controllerMoved(controllerNumber, controllerValue);
         }
     }
@@ -399,7 +399,7 @@ void BuiltinSynthesiser::handleSoftPedal(int midiChannel, bool isDown) {
     setSoftPedalInternal(midiChannel, isDown, amount);
     const int ccVal = isDown ? 127 : 0;
     for (auto* voice : voices) {
-        if (voice != nullptr && (midiChannel <= 0 || voice->juce::SynthesiserVoice::isPlayingChannel(midiChannel))) {
+        if (voice != nullptr && (midiChannel <= 0 || voice->isPlayingChannel(midiChannel))) {
             voice->controllerMoved(67, ccVal);
         }
     }
@@ -421,14 +421,13 @@ void BuiltinSynthesiser::handleSustainPedal(int midiChannel, bool isDown) {
 
     if (isDown) {
         for (auto* voice : voices) {
-            if (voice != nullptr && voice->juce::SynthesiserVoice::isPlayingChannel(midiChannel)
-                && voice->isKeyDown()) {
+            if (voice != nullptr && voice->isPlayingChannel(midiChannel) && voice->isKeyDown()) {
                 voice->setSustainPedalDown(true);
             }
         }
     } else {
         for (auto* voice : voices) {
-            if (voice != nullptr && voice->juce::SynthesiserVoice::isPlayingChannel(midiChannel)) {
+            if (voice != nullptr && voice->isPlayingChannel(midiChannel)) {
                 voice->setSustainPedalDown(false);
                 if (!voice->isKeyDown() && !voice->isSostenutoPedalDown()) {
                     stopVoice(voice, 1.0f, true);
@@ -453,7 +452,7 @@ void BuiltinSynthesiser::handleSostenutoPedal(int midiChannel, bool isDown) {
     sostenutoPedalByChannel[static_cast<std::size_t>(midiChannel)] = isDown;
 
     for (auto* voice : voices) {
-        if (voice != nullptr && voice->juce::SynthesiserVoice::isPlayingChannel(midiChannel)) {
+        if (voice != nullptr && voice->isPlayingChannel(midiChannel)) {
             if (isDown) {
                 if (voice->isKeyDown()) {
                     voice->setSostenutoPedalDown(true);
@@ -473,7 +472,7 @@ void BuiltinSynthesiser::handleSostenutoPedal(int midiChannel, bool isDown) {
 void BuiltinSynthesiser::handleAftertouch(int midiChannel, int midiNoteNumber, int aftertouchValue) {
     for (auto* voice : voices) {
         if (voice != nullptr && voice->getCurrentlyPlayingNote() == midiNoteNumber
-            && (midiChannel <= 0 || voice->juce::SynthesiserVoice::isPlayingChannel(midiChannel))) {
+            && (midiChannel <= 0 || voice->isPlayingChannel(midiChannel))) {
             voice->aftertouchChanged(aftertouchValue);
         }
     }
@@ -481,7 +480,7 @@ void BuiltinSynthesiser::handleAftertouch(int midiChannel, int midiNoteNumber, i
 
 void BuiltinSynthesiser::handleChannelPressure(int midiChannel, int channelPressureValue) {
     for (auto* voice : voices) {
-        if (voice != nullptr && (midiChannel <= 0 || voice->juce::SynthesiserVoice::isPlayingChannel(midiChannel))) {
+        if (voice != nullptr && (midiChannel <= 0 || voice->isPlayingChannel(midiChannel))) {
             voice->channelPressureChanged(channelPressureValue);
         }
     }
@@ -588,7 +587,7 @@ void BuiltinSynthesiser::setSoftPedal(int midiChannel, bool isDown, float amount
     setSoftPedalInternal(midiChannel, isDown, amount);
     const auto ccVal = isDown ? juce::jlimit(64, 127, static_cast<int>(std::round(amount * 127.0f))) : 0;
     for (auto* voice : voices) {
-        if (voice != nullptr && (midiChannel <= 0 || voice->juce::SynthesiserVoice::isPlayingChannel(midiChannel))) {
+        if (voice != nullptr && (midiChannel <= 0 || voice->isPlayingChannel(midiChannel))) {
             voice->controllerMoved(67, ccVal);
         }
     }

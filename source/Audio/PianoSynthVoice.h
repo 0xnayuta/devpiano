@@ -322,7 +322,7 @@ public:
             || ((voiceIndex == 0) && (pedalTransient.isActive() || sympatheticPool.isShockActive()));
     }
     [[nodiscard]] bool isPlayingChannel(int midiChannel) const override {
-        if (voiceIndex == 0) {
+        if (voiceIndex == 0 && getCurrentlyPlayingNote() < 0) {
             return true;
         }
         return juce::SynthesiserVoice::isPlayingChannel(midiChannel);
