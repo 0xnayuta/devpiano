@@ -19,7 +19,7 @@
 
 - 快速开始：[`quickstart.md`](quickstart.md)
 - Agent 协作规则：仓库根目录 [`../../AGENTS.md`](../../AGENTS.md)
-- 架构决策记录：[`../decisions/README.md`](../decisions/README.md)；新增本地化文案遵循 [`ADR-015：完整消息模板与分类标点`](../decisions/ADR-015-localized-message-templates-and-punctuation.md)，存量模板迁移已在前期迭代闭环。
+- 架构决策记录：[`../decisions/README.md`](../decisions/README.md)；UI 单元测试严格遵循 [`ADR-016：Headless-Safe 统一纯内存 UI 测试模式`](../decisions/ADR-016-headless-safe-pure-in-memory-ui-testing-pattern.md)，本地化文案遵循 [`ADR-015：完整消息模板与分类标点`](../decisions/ADR-015-localized-message-templates-and-punctuation.md)。
 
 后续可按需补充：
 

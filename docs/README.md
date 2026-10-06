@@ -20,7 +20,7 @@
 - [`guides/wsl-windows-msvc-workflow.md`](guides/wsl-windows-msvc-workflow.md)：WSL 主工作树 + Windows 镜像树 + MSVC 验证工作流详解。
 - [`guides/development.md`](guides/development.md)：日常开发、构建与协作指引。
 - [`roadmap/current-iteration.md`](roadmap/current-iteration.md)：当前迭代任务与直接验收入口。
-- [`decisions/README.md`](decisions/README.md)：架构决策记录索引，含已接受的 [ADR-015 本地化完整消息模板与分类标点](decisions/ADR-015-localized-message-templates-and-punctuation.md)。
+- [`decisions/README.md`](decisions/README.md)：架构决策记录索引，含已接受的 [ADR-015 消息模板](decisions/ADR-015-localized-message-templates-and-punctuation.md) 与 [ADR-016 纯内存 Headless-Safe UI 测试模式](decisions/ADR-016-headless-safe-pure-in-memory-ui-testing-pattern.md)。
 - [`guides/troubleshooting.md`](guides/troubleshooting.md)：WSL / Windows 镜像构建常见问题排查。
 - [`guides/release-workflow.md`](guides/release-workflow.md)：Windows/Linux 正式 release、tag 与双平台打包 checklist。
 - [`guides/pr-agent.md`](guides/pr-agent.md)：PR-Agent AI 代码审查工作流配置、命令与排障。

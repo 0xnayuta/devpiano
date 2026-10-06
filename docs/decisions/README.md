@@ -22,5 +22,6 @@
 - [`ADR-013-removal-of-melatonin-inspector-submodule.md`](ADR-013-removal-of-melatonin-inspector-submodule.md)：移除 melatonin_inspector 子模块，聚焦声明式 UI 架构与原生调试体系。
 - [`ADR-014-internalize-ui-infrastructure-and-deprecate-jive-submodule.md`](ADR-014-internalize-ui-infrastructure-and-deprecate-jive-submodule.md)：内化 Devpiano 声明式 UI 基础设施与 JIVE 子模块退役治理（已完全实施）。
 - [`ADR-015-localized-message-templates-and-punctuation.md`](ADR-015-localized-message-templates-and-punctuation.md)：完整消息模板、分类标点与单参数原样插入（已接受；既有调用迁移待实施），更激进方案须以后继 ADR 替代。
+- [`ADR-016-headless-safe-pure-in-memory-ui-testing-pattern.md`](ADR-016-headless-safe-pure-in-memory-ui-testing-pattern.md)：Headless-Safe 统一纯内存 UI 单元测试模式（已接受并全量实施；严禁调用 `addToDesktop()` 或创建原生 OS DesktopWindow，严禁使用 `isHeadless()` 跳过测试）。
 
 ADR 应记录已确定的决策、原因和影响，不用于描述未决定的计划。
