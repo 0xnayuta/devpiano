@@ -14,6 +14,7 @@
 
 ### Fixed
 
+- **Keyboard Pedal Documentation** — remove the incorrect claim that switching layout groups resets the soft pedal; retain the Panic reset contract without changing performance behavior.
 - **Content-Sized Dialogs and Consistent Footers** — fit preset, binding, metadata, and export dialogs to their rendered content; preserve a 28 logical-pixel bottom inset with full-height actions across scaling. Correct native-titlebar content sizing, wrap long confirmation names without clipping, and retain asynchronous confirmation and cooperative export cancellation.
 - **Verified Consumer Contracts** — align active documentation with permanent preset identities, native v3 snapshots and legacy admission, app-global transpose, single-track MIDI export, bounded diagnostics, and cooperative plugin cancellation; retain explicit hardware and vendor verification limits.
 
