@@ -1687,7 +1687,7 @@ public:
 
             const auto t2 = jive::parseTime("1.5s");
             expect(t2.has_value());
-            expect(std::abs(t2->inSeconds() - 1.5) < 1e-4);
+            expectEquals<juce::int64>(t2->inMilliseconds(), 1500);
 
             const auto t3 = jive::parseTime("0s");
             expect(t3.has_value());
