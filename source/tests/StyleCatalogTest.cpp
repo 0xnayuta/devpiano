@@ -1683,7 +1683,7 @@ public:
         {
             const auto t1 = jive::parseTime("500ms");
             expect(t1.has_value());
-            expectEquals(t1->inMilliseconds(), std::int64_t { 500 });
+            expectEquals<juce::int64>(t1->inMilliseconds(), 500);
 
             const auto t2 = jive::parseTime("1.5s");
             expect(t2.has_value());
@@ -1691,7 +1691,7 @@ public:
 
             const auto t3 = jive::parseTime("0s");
             expect(t3.has_value());
-            expectEquals(t3->inMilliseconds(), std::int64_t { 0 });
+            expectEquals<juce::int64>(t3->inMilliseconds(), 0);
 
             expect(!jive::parseTime("invalid").has_value());
             expect(!jive::parseTime("10m").has_value());
