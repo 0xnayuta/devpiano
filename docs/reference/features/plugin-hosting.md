@@ -95,7 +95,7 @@ VST3 插件宿主是 devpiano 连接现代专业音频制作与高品质虚拟�
 
 - 下拉菜单每项携带 `PluginDescription::createIdentifierString()` 身份；同名不同文件/ID/类型不折叠，必要时显示标识符作区分。加载使用选中项的身份，不从 ComboBox 文本反查第一个同名插件。
 - 乐器/效果过滤直接消费 description 的 `isInstrument`；空过滤结果保持空列表并禁用 Load，不回退到全部类型。
-- `SettingsModel::lastPluginIdentifier` 贯穿成功加载、快照保存与启动恢复。旧 `lastPluginName` 仅在设置准入时按缓存 description 唯一迁移；缺失或多义时不猜测，记录警告；下次保存移除旧键。
+- `SettingsModel::lastPluginIdentifier` 贯穿成功加载、快照保存与启动恢复，仅消费当前 description identifier；不从旧 `lastPluginName` 推导恢复目标，缺少当前标识时不加载历史名称对应的插件。插件缓存继续独立持久化。
 - `addVst3FileToKnownList()` 返回此次有效探测的 descriptions，不依赖是否新增列表条目。重复文件可再次加载，缓存 metadata 更新仍触发持久化。
 
 ### 3.6 崩溃安全扫描持久化与 dead-man's pedal

@@ -11,22 +11,20 @@
 ## 2. 自动化单元测试集成
 在当前项目中，这些 fixture 与自动化测试体系紧密配合：
 - `source/tests/MidiFileImporterTest.cpp`：自动化加载 `simple-notes.mid`、`velocity-channel.mid`、`sustain-pedal.mid`、`multitrack-basic.mid`、`tempo-change-basic.mid`、`empty.mid` 与 `invalid.mid`，验证 Track 解析、通道映射、Meta 事件过滤与异常防御；
-- `source/tests/PerformanceFileTest.cpp`：针对 `.devpiano`（Schema v3）验证内嵌快照表序列化/反序列化、v1/v2 历史兼容与拒绝规则、TemporaryFile 事务替换及异常防御；`tests/fixtures/performance/simple-performance.json` 作为早期静态格式样本保留。
+- `source/tests/PerformanceFileTest.cpp`：程序化构建当前 `.devpiano` Schema v3 输入，验证内嵌快照表往返、非当前版本拒绝、文件/会话保护与异常防御；事务读写使用隔离临时目录，不保留历史静态格式样本。
 
 ### 目录结构
 
 ```
 tests/fixtures/
-├── midi/
-│   ├── simple-notes.mid          # 最简 note on/off 序列
-│   ├── velocity-channel.mid       # 多 velocity、多 channel
-│   ├── sustain-pedal.mid          # 含 CC64 sustain on/off
-│   ├── multitrack-basic.mid       # 多轨（Type 1），含 track names
-│   ├── tempo-change-basic.mid     # 含 meta tempo change 事件
-│   ├── empty.mid                  # 零事件空文件
-│   └── invalid.mid                 # 损坏/非法 MIDI 文件
-└── performance/
-    └── simple-performance.json    # 最小 .devpiano 录制数据样本
+└── midi/
+    ├── simple-notes.mid            # 最简 note on/off 序列
+    ├── velocity-channel.mid       # 多 velocity、多 channel
+    ├── sustain-pedal.mid          # 含 CC64 sustain on/off
+    ├── multitrack-basic.mid       # 多轨（Type 1），含 track names
+    ├── tempo-change-basic.mid     # 含 meta tempo change 事件
+    ├── empty.mid                  # 零事件空文件
+    └── invalid.mid                # 损坏/非法 MIDI 文件
 ```
 
 > **注意**：fixture 文件实际位于仓库根目录 `tests/fixtures/`，测试代码统一基于 `__FILE__` 相对寻址（TEST-014），脱离当前工作目录（CWD）依赖。
@@ -45,11 +43,9 @@ tests/fixtures/
 | `empty.mid` | 合法 MIDI 文件头，但零 track、零事件 | 验证空文件导入不崩溃，Logger 输出警告 |
 | `invalid.mid` | 非 MIDI 数据（如随机字节、"not a midi file" 文本） | 验证文件解析错误处理不崩溃，Logger 输出错误 |
 
-#### Performance fixture
+#### Performance 输入
 
-| 文件名 | 内容描述 | 预期用途 |
-|--------|----------|----------|
-| `simple-performance.json` | 早期静态 `.devpiano` 格式参考样本，含 note 事件 | 历史格式参考样本；`PerformanceFileTest` 核心回归采用程序化构建与隔离临时目录事务往返验证 |
+原生演奏样本由当前生产序列化器和程序化 JSON 构建；合法输入验证可执行快照与事件，拒绝输入验证版本、帧和时间线边界。文件往返与失败保护使用 `ScopedTempDir`，不依赖旧版静态夹具。
 
 ### 验收与维护标准
 
@@ -68,4 +64,4 @@ tests/fixtures/
 
 ### 与导入和持久化测试的关系
 
-MIDI 样本用于 `MidiFileImporterTest` 的全轨并轨、Tempo Map、通道分配与结构错误防御回归；`PerformanceFileTest` 覆盖原生 Schema v3 序列化/反序列化、内嵌预设快照表、v1/v2 兼容规则与事务写出。测试套件严格执行防漂移准则，`DP_TRACE_MIDI` 仅辅助诊断，不作为断言数量或用例数的固定基线。
+MIDI 样本用于 `MidiFileImporterTest` 的全轨并轨、Tempo Map、通道分配与结构错误防御回归；`PerformanceFileTest` 覆盖当前原生 Schema v3、内嵌预设快照、版本拒绝及事务写出。测试套件严格执行防漂移准则，`DP_TRACE_MIDI` 仅辅助诊断，不作为断言数量或用例数的固定基线。

@@ -11,7 +11,7 @@
 为了让用户的键盘演奏成果能够无损保存并随时恢复演练，devpiano 定义了专有的**原生演奏文件格式（`.devpiano`）**与**高保真回放控制器**：
 
 1. **采样时间线保存**：直接保存 `timestampSamples`、原始 MIDI 帧与内嵌声学快照，不经 MIDI tick 量化；保留可准入整数时间域的事件位置，不承诺第三方插件音频逐比特相同；
-2. **v3 JSON 与 JUCE 编码**：保存采样率、长度、元数据、内嵌 `presets` 与稳定排序事件。`midiData` 使用 `MemoryBlock::toBase64Encoding()` 的十进制长度前缀和专有六位字符负载，不是通用 RFC 4648 Base64；旧 v1/v2 纯 MIDI 可读，旧数字预设事件整体拒绝；
+2. **v3 JSON 与 JUCE 编码**：保存采样率、长度、元数据、内嵌 `presets` 与稳定排序事件。`midiData` 使用 `MemoryBlock::toBase64Encoding()` 的十进制长度前缀和专有六位字符负载，不是通用 RFC 4648 Base64；演奏与独立元数据读取都只接受当前整数版本 `3`，不迁移旧格式；
 3. **事务文件替换**：先写同目录 TemporaryFile，检查 flush/状态并关闭流，成功后替换目标；普通写出/替换失败保留原目标，仅清理自有临时文件，不承诺断电或强杀下的存储完整性；
 4. **实时播放速度控制（0.5x–2.0x）**：消息线程发布有界命令，音频块入口一致更新倍率和缩放位置，保留下一未渲染事件游标；Seek 的目的状态恢复与纯变速分开，不用旧游标重算重播起音；
 5. **独立元数据读取**：`loadPerformanceFileMetadata()` 读取有界完整 JSON，但不解码 MIDI 帧或构造 RecordingTake；不宣称流式跳过 JSON 事件数组；
@@ -68,11 +68,13 @@
   "events": [
     {
       "timestampSamples": 44100,
+      "type": "midi",
       "source": "computerKeyboard",
       "midiData": "3.PxCY"
     },
     {
       "timestampSamples": 88200,
+      "type": "midi",
       "source": "computerKeyboard",
       "midiData": "3..xC."
     },
@@ -89,19 +91,19 @@
 
 | 字段 | 类型 | 说明 |
 |---|:---:|---|
-| `version` | int | 当前写出版本为 `3`；反序列化支持 `1 <= version <= 3`。v1/v2 仅接受纯 MIDI 演奏事件；旧数字 `presetChange` 整体拒绝准入并输出错误诊断。 |
+| `version` | int | 仅接受当前整数版本 `3`；其他版本或非整数版本拒绝。演奏与独立元数据读取共用版本准入，不截断大整数或浮点版本。 |
 | `format` | string | 固定标识 `"devpiano-performance"`，用于文件格式标识快速校验。 |
 | `sampleRate` | double | 有限正数值，文件准入范围严格为 **8000.0 – 384000.0 Hz**；支持非设备采样率时间域的缩放与回放。 |
 | `lengthSamples` | int64 | 非负整数且覆盖全部事件；须在支持的采样率与 0.5x–2.0x 变速下乘积/加法均整数可表示，保留末尾 `+1` 采样点与块余量。 |
 | `metadata` | object | 包含 `createdAt`（ISO 8601 时间戳字符串）、`title`（曲目标题）与 `notes`（多行备注文本）。 |
 | `events` | array | 按时间戳稳定规范化，同采样点保留输入相对顺序；不能把原生文件的顺序规则等同于 MIDI 多轨并轨的事件优先级。 |
-| `presets` | array | 内嵌 `RecordedPreset` 独立快照表：包含完整预设对象 `"preset"`（格式版本 2、永久 UUID、键位布局与通道矩阵）及当时由音频引擎捕获的不可变可执行 `"acoustic"`（`AcousticSnapshot`）；事件 `presetId` 必须严格位于 `[0, presets.size())` 范围内。 |
+| `presets` | array | 必须存在的内嵌 `RecordedPreset` 独立快照表：包含完整预设对象 `"preset"`（格式版本 2、永久 UUID、键位布局与通道矩阵）及当时由音频引擎捕获的不可变可执行 `"acoustic"`（`AcousticSnapshot`）；纯 MIDI Take 可使用空数组，事件 `presetId` 必须严格位于 `[0, presets.size())` 范围内。 |
 
 ### 2.2 事件类型支持
 
-- **MIDI 演奏事件（`type: "midi"`）**：`source` 为 `"computerKeyboard"`、`"realtimeMidiBuffer"` 或 `"playback"`；`midiData` 使用 `<字节数>.<JUCE 编码负载>`，例如 `3.PxCY` 表示 `90 3c 64`，`3..xC.` 表示 `80 3c 00`。编码负载内的 `.` 是合法字符，不是第二个长度分隔符。每个 MIDI 帧在解析与分配前校验负载长度一致性、合法状态字节及有效 SysEx / Meta 边界；
+- **MIDI 演奏事件（`type: "midi"`）**：必须显式提供事件类型，缺失或空类型不作 MIDI 推断。`source` 为 `"computerKeyboard"`、`"realtimeMidiBuffer"` 或 `"playback"`；`midiData` 使用 `<字节数>.<JUCE 编码负载>`，例如 `3.PxCY` 表示 `90 3c 64`，`3..xC.` 表示 `80 3c 00`。编码负载内的 `.` 是合法字符，不是第二个长度分隔符。每个 MIDI 帧在解析与分配前校验负载长度一致性、合法状态字节及有效 SysEx / Meta 边界；
 - **预设切换事件（`type: "presetChange"`）**：`presetId` 为该 Take 内嵌 `presets` 数组的槽位索引。音频线程在事件采样点切换声学快照与移调状态，同采样 NoteOn 立即使用新参数。由于音色与参数已完整自包含在文件内部，外部增删、重命名预设或预设文件缺失均不影响历史演奏回放；
-- **v1/v2 历史文件恢复规则**：旧版文件若仅含纯 MIDI 事件，无损反序列化加载；若包含旧版数字 `presetChange`，由于旧版本记录的是目录扫描序号、缺乏 Take 本地内嵌声学快照，引擎明确拒绝加载（`deserialiseTakeFromJson` 返回 `std::nullopt` 并记录 `DP_LOG_ERROR`），绝不冒进以当前目录预设静默替换，也不会静默吞掉预设事件冒充纯 MIDI 播放；
+- **非当前格式拒绝**：v1/v2、未来版本和非整数版本均不准入，不执行历史数据迁移或目录索引猜测。加载失败保持原文件字节和当前会话；当前 v3 的可选元数据缺省仍返回空元数据；
 - **初始录制状态捕获**：新录制在起点自动捕获初始预设与声学快照（槽位 0）；开启节拍器预备拍时，预备拍期间的设置在实际录制下拍（采样点 0）进入 Take。实时与离线 WAV 导出完全共享相同的快照数据。
 
 ---
@@ -123,7 +125,7 @@
 - **编码校验与解析安全**：分配前校验正整数字节前缀、JUCE 专有负载字符及末尾填充位；构造 MidiMessage 前校验状态/数据字节与有界 Meta VLQ，畸形或截断帧拒绝。不用通用 Base64 decoder 替代该协议。
 - **时间线数值准入**：采样率严格限制在 8000–384000 Hz；`lengthSamples` 与事件 `timestampSamples` 拒绝负数、非数值及不可表示的整数缩放；事件采样戳必须位于 `[0, lengthSamples]`；
 - **预设与绑定合法性校验**：落盘与加载时，校验全部 `presetChange` 事件的 `presetId` 均在 `take.presets` 范围内；校验全部内嵌预设绑定的触发动作为 `keyDown`（显式 keyUp 或未知动作拒绝保存与加载）；
-- **乱序规范化与时间域独立**：乱序旧文件在准入时通过 `std::stable_sort` 稳定规范化时间线，同采样事件保留原语义顺序；文件准入的音频采样率范围与通用播放器内部的测试时间域独立，不以窄化测试掩盖真实设备范围。
+- **乱序规范化与时间域独立**：当前格式的乱序事件在准入时通过 `std::stable_sort` 稳定规范化时间线，同采样事件保留原语义顺序；文件准入的音频采样率范围与通用播放器内部的测试时间域独立，不以窄化测试掩盖真实设备范围。
 
 
 ## 3. 播放速度精确控制（Speed Control）

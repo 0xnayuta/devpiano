@@ -207,7 +207,7 @@ source/
 - **`source/Recording/TimelineValidation.h`**：
   - 分离文件支持采样率与通用时间域数值安全，复用有界整数转换、缩放、加法及最坏倍率长度检查；不依赖 UI 或插件适配器。
 - **`source/Recording/PerformanceFile.h/.cpp`**：
-  - `.devpiano` 原生演奏文件持久化（v3 JSON + JUCE 专有长度前缀二进制编码 + 内嵌快照表）；32 MiB 文件预算、1 MiB 单帧预算及完整读取/帧形状/数值准入后稳定规范化乱序时间线，保存仍通过 `juce::TemporaryFile` 事务替换。旧数字格式事件显式拒绝，不静默猜测映射。
+  - `.devpiano` 原生演奏文件持久化（仅当前 v3 JSON + JUCE 专有长度前缀二进制编码 + 内嵌快照表）；演奏和独立元数据读取共用精确整数版本准入，32 MiB 文件预算、1 MiB 单帧预算及完整读取/帧形状/数值准入后稳定规范化乱序时间线，保存仍通过 `juce::TemporaryFile` 事务替换。不迁移历史格式。
   - 会话通过 `RecordingSession` 将 Take、元数据与原生文件绑定整体提交；新录制/MIDI 导入解除旧绑定，成功 Save As 重新绑定，generation 阻止跨 Take 的延迟信息/文件结果。
 - **`source/Recording/MidiFileImporter.h/.cpp`**：
   - 标准 MIDI 文件解析与统一导入：委托 `MidiTrackMergeEngine` 将 Type 0/1 各音轨的 MIDI 播放事件合并为单一 `RecordingTake` 时间线，支持通道映射并提取全局元数据；不提供选轨模式。
@@ -231,7 +231,7 @@ source/
 ### 3.7 Layout（预设系统）
 
 - **`source/Layout/PerformancePreset.h/.cpp`**：
-  - 预设 v2 UUID 数据模型、键位/矩阵、声学、显示与逐键配置；JSON 含调号字段，但普通激活不覆写应用全局调号。另存为生成新 UUID，重命名/自动保存保持身份；旧唯一名称安全迁移，多义拒绝。
+  - 仅当前 v2 UUID 数据模型、键位/矩阵、声学、显示与逐键配置；JSON 含调号字段，但普通激活不覆写应用全局调号。另存为生成新 UUID，重命名/自动保存保持身份；缺失身份拒绝，启动恢复只按 UUID 查找，不按旧名称迁移。
 - **`source/Layout/PresetFlowSupport.h/.cpp`**：
   - 预设发现、新建（Save As New）、导入、重命名、删除与 F1-F12 快捷键切换，支持录制时注入 `presetChange` 事件并在回放时自动切调。
   - 启动恢复与选择使用统一激活提交；文件身份由入口显式提供，不从内置布局 ID 推断。重命名区分规范化同路径与独立已有目标，后者先确认；目标提交失败时回滚暂存源文件。

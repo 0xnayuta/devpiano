@@ -295,7 +295,7 @@ void setPerspective(devpiano::audio::SoundPerspective perspective) noexcept;
 | **RoomReverbEngineTest** | Studio/Chamber/Hall 三大空间混响时间常数、干湿比线性与非线性过渡、长时静音衰减无下溢 denormal、跨采样率不变性 | [x] 已通过 |
 | **SpatialAcousticsTest** | 空间声学全链路联动、琴盖开合/混响/视角多重组合声学衰减单调性 | [x] 已通过 |
 | **PianoSynthVoiceTemperamentTest** | 古典微调律制微音分偏移、A4 基频换算、全音域单调性与跨律制即时切换 | [x] 已通过 |
-| **MechanicalAcousticsTest** | 机械噪声与毛毡老化设置存取、边界钳制、预设向后兼容、离线导出参数传递与极端参数安全限幅 | [x] 已通过 |
+| **MechanicalAcousticsTest** | 机械噪声与毛毡老化设置存取、当前预设声学字段往返、离线导出参数传递与极端参数安全限幅 | [x] 已通过 |
 | **UnaCordaAcousticsTest** | CC 67 弱音/移位踏板物理声学响应、毛毡侧移软化、三弦敲两弦衰减、全链路控制器响应与回放动态踏板稳定性 | [x] 已通过 |
 
 ### 6.1 验收证据依据与未验证范围说明

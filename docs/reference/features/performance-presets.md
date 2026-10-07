@@ -88,15 +88,15 @@
 }
 ```
 
-### 2.0 永久身份与迁移
+### 2.0 永久身份与当前格式
 
 - `uuid` 是文件身份，`name` 是可变显示名称。另存为新预设生成新 UUID；重命名、自动保存和导入保留已有 UUID。
-- 无 UUID 的旧 v1 文件按固定命名空间和名称派生稳定 UUID，首次保存写为 v2；v2 缺失/无效身份拒绝，不重新用当前名称生成身份。
-- 旧启动设置中的名称仅在唯一匹配时迁移到 UUID；多义名称或重复 UUID 不猜测目标。列表显示名称，运行绑定保存 UUID，磁盘路径仍由当前名称规范化得到。
+- 仅准入当前整数版本 `2`；缺失或空白 UUID 拒绝，不根据名称补生成身份或迁移 v1 文件。内置 Default 使用固定身份，新文件预设显式生成 UUID。
+- 启动恢复只匹配已保存 UUID；旧名称不作为第二条查找路径，重复 UUID 不猜测目标。列表显示名称，运行绑定保存 UUID，磁盘路径仍由当前名称规范化得到。
 - 原生演奏另外保存 Take 内的预设和 `AcousticSnapshot`，包含当时的音源类型、Master/ADSR、物理/空间参数及回放移调；不能把预设文件自身的配置子集误写为这些全部运行时字段都已持久化在 `.devpiano.preset`。
 
 
-键位 `action.trigger` 只接受 `"keyDown"`，缺省仍按原格式默认 `"keyDown"`。显式 `"keyUp"` 或未知值在加载时拒绝，保存也不把非法内存状态静默改写为有效绑定；原文件与当前应用预设保留。
+键位 `action.trigger` 只接受 `"keyDown"`，该可选字段缺省时仍默认 `"keyDown"`。显式 `"keyUp"` 或未知值在加载时拒绝，保存也不把非法内存状态静默改写为有效绑定；原文件与当前应用预设保留。
 
 ---
 
@@ -110,12 +110,12 @@
 | `temperament` | string | `"equal"`, `"just"`, `"pythagorean"`, `"meantone"`, `"werckmeister3"`, `"kirnberger3"` | 古典微调律制选择 |
 | `referencePitchA4` | double | 400.0 ~ 480.0 Hz（默认 440.0 Hz） | A4 基准基频换算；与设置、内置实时/离线音源共用限幅 |
 | `soundPerspective` | string | `"player"` (演奏者) / `"audience"` (听众) | 立体声空间声像展开视角 |
-| `reverbSpace` | string | `"chamber"` (室内乐) / `"concert_hall"` (音乐厅，兼容别名 `"hall"`) / `"studio"` (录音棚) | 房间混响网络预设空间 |
+| `reverbSpace` | string | `"chamber"` (室内乐) / `"concert_hall"` (音乐厅) / `"studio"` (录音棚) | 房间混响网络预设空间；不再识别旧 `"hall"` 别名 |
 | `reverbWet` | float | 0.0 ~ 1.0（默认 0.0） | 房间混响干湿混合比 |
 | `pedalNoiseLevel` | float | 0.0 ~ 1.0（默认 0.6） | 延音踏板扫掠呼啸与共鸣冲击机械动作音量 |
 | `feltAgeingAmount` | float | 0.0 ~ 1.0（默认 0.0） | 琴槌羊毛纤维磨损压实老化深度 |
 
-> **向后兼容性保证**：若读取的历史预设缺失 `"acoustics"` 节点或部分声学字段，系统自动填充出厂默认值并支持根节点平铺字段的安全回退解析，且反序列化时对所有枚举与数值实施合法区间 `jlimit` 钳制保护。
+> **当前格式缺省与限幅**：声学字段从 `acoustics` 节点读取，不再解析旧根节点平铺字段；当前可选字段缺失时使用出厂默认值，枚举与数值仍按合法区间限幅。这不是对历史版本的兼容承诺。
 
 ### 2.2 键位分组对象（`groups` 与 `activeGroupIndex`）
 
@@ -129,12 +129,12 @@
 | `name` | string | 字符串（默认 `"A"`, `"B"`, `"C"`, `"D"`） | 键组标签显示名称 |
 | `activeGroupIndex` | int | 0 .. 3（默认 0） | 当前预设激活的键组索引 |
 
-> **向后兼容性保证**：旧预设无 `groups` 节点时，自动初始化为 4 组默认纯净 KeyGroup（A/B/C/D，偏移均为 0），`activeGroupIndex` 默认回落为 0，完全零破坏兼容既有预设文件。
+> **当前格式缺省**：当前 v2 预设的可选 `groups` 缺失时使用 4 组默认 KeyGroup（A/B/C/D、偏移为 0），`activeGroupIndex` 默认 0；不据此接收旧版文件。
 
 ### 2.3 键盘显示与调号契约（`keyboard` 节点与 `commitPreset` 行为）
 
 - **调号与移调字段契约**：`captureCurrentState()` 会将当前运行期的 `appSettings.keySignature` 与 `appSettings.midiTranspose` 捕获至 JSON `"keyboard"` 节点，以记录保存时的调性上下文；但在 `PresetFlowSupport::commitPreset()` 激活预设时，这两项**故意不覆写**（intentionally not overwritten）`appSettings` 的全局调号与移调设置。全局调号属于全局设置对话框管理的运行级偏好，不随预设切换意外改变，确保启动恢复和常规切换不冲掉用户当前设置。相比之下，在演奏录制回放中，`PresetFlowSupport::applyRecordedPresetUi()` 会通过内嵌的 `RecordedPreset.acoustic` 恢复当时的移调 offset 与使能状态。
-- **残影收缩系数（`fadeSpeed`）**：`keyboard.fadeSpeed` 是每帧指数收缩系数，范围 `0.50 .. 0.99`，默认 `0.92`。设置、预设和显示组件使用同一限幅；旧文件中的 `1` 或更大值钳至 `0.99`，不会保留不收缩的动画端点。
+- **残影收缩系数（`fadeSpeed`）**：`keyboard.fadeSpeed` 是每帧指数收缩系数，范围 `0.50 .. 0.99`，默认 `0.92`。设置、预设和显示组件使用同一限幅；输入中的 `1` 或更大值钳至 `0.99`，不会保留不收缩的动画端点。
 - **输入索引与投影映射**：绑定音符、逐键标签与颜色仍按配置输入 MIDI 音符保存，不把当前 Group/modifier/矩阵变换后的输出写回预设。两张看板通过映射层投影显示最终身份；在输出位置新建绑定时保存对应输入音符，避免后续再次移调。
 
 ---
@@ -182,4 +182,4 @@
 | **PST-009** | 重命名写入/提交失败 | 锁定源文件，或使目标被占用；源和已有目标内容保留，失败提交恢复源且无暂存文件残留 | [x] Windows 隔离文件验证通过 |
 | **PST-010** | 恢复后立即编辑绑定 | 保存 B 为最后活动预设并重启；不手动选预设即修改音高/通道，列表、运行绑定与自动保存均为 B | [x] Windows 实际界面验证通过 |
 
-自动化回归由 `PerformancePresetTest` 覆盖 v2 UUID、v1 安全迁移、文件保护与 KeyGroup 往返，声学/律制持久化由相应测试套件覆盖；实际重命名确认、启动恢复及普通预设保留全局调号的直接证据见 Phase A/H 实施记录。
+自动化回归由 `PerformancePresetTest` 覆盖当前 v2 UUID、非当前版本拒绝、文件保护与 KeyGroup 往返，声学/律制持久化由相应测试套件覆盖；实际重命名确认、启动恢复及普通预设保留全局调号的历史直接证据见 Phase A/H 实施记录。

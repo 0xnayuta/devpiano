@@ -42,7 +42,7 @@ devpiano 源于对旧版 Windows FreePiano 的现代化重构。所有有价值�
 - 演奏录制、回放、播放速度精确控制（0.50x–2.00x，变速与 Stop 命令在音频块边界提交）
 - 采样级合成强弱拍的节拍器，支持 2/4、3/4、4/4、6/8 拍号、40–280 BPM、Tap Tempo；录制前 1–2 小节预备拍在完整时段后的目标下拍开始
 - `TimelineBar` 播放位置跳转与 Take-relative A/B 标记循环，支持暂停/恢复与倍速跟练；设备采样率变化重基准活动 Transport，跳转、循环回跳先清理旧发音再恢复目的通道状态，不重发历史 NoteOn
-- `.devpiano` 原生演奏文件格式（v3 JSON、JUCE 长度前缀二进制消息、内嵌 `RecordedPreset` 快照与元数据）；旧纯 MIDI 文件兼容，旧数字预设事件明确拒绝
+- `.devpiano` 原生演奏文件格式（仅当前 v3 JSON、JUCE 长度前缀二进制消息、内嵌 `RecordedPreset` 快照与元数据）；不提供历史版本兼容或数据迁移，拒绝加载不修改原文件与当前会话
 - 标准 MIDI 文件导入：Type 0/1 全轨并轨，解析 CC64 延音 / pitch bend / program change 事件
 - 标准 MIDI 文件导出（Type 1，960 PPQ）
 - WAV 音频离线导出（共享 `RenderPipeline` 管线与 `InstrumentEndpoint` 统一路由，异步非阻塞 `WavExportTask`，支持 VST3 独立离线实例与物理建模钢琴离线渲染，带 JIVE 声明式进度浮层）
@@ -87,4 +87,4 @@ devpiano 源于对旧版 Windows FreePiano 的现代化重构。所有有价值�
 ## 6. 长期演进方向
 
 - **持续性能优化**：针对极端密集多复音 MIDI 播放场景，进一步推进 UI 局部脏矩形渲染与模态分音衰减剪枝。
-- **架构一致性**：保持主装配层极简，维持高覆盖率的确定性单元测试与严格的静态检查门禁。
+- **架构一致性**：保持主装配层极简，聚焦关键风险的有效确定性回归与必要工程门禁，不以覆盖率或测试数量替代行为证据。
