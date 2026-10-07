@@ -344,7 +344,7 @@ public:
             expect(!helper("44100.0", "88200", "10.5").has_value(), "fractional timestamp rejected");
             expect(!helper("44100.0", "88200", "\"10\"").has_value(), "string timestamp rejected");
             expect(!helper("44100.0", "88200", "88201").has_value(), "timestamp > length rejected");
-            expect(helper("44100.0", "88200", "88200").has_value(), "timestamp == length accepted (legacy boundary)");
+            expect(helper("44100.0", "88200", "88200").has_value(), "timestamp at take end accepted");
         });
 
         testCase("v3 take snapshot admission and structure validation (ARCH-003)", [&] {

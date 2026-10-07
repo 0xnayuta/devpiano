@@ -79,13 +79,6 @@ private:
         const auto loudWide = applyVelocityCurve(0.8f, TouchVelocityCurve::wideDynamic);
         expect(softWide < 0.2f); // 极弱更柔
         expect(loudWide > 0.8f); // 强奏更具冲击力
-
-        // 6. String helper verification
-        expectEquals(juce::String(touchVelocityCurveToString(TouchVelocityCurve::standard)), juce::String("Standard"));
-        expectEquals(juce::String(touchVelocityCurveToString(TouchVelocityCurve::light)), juce::String("Light"));
-        expectEquals(juce::String(touchVelocityCurveToString(TouchVelocityCurve::heavy)), juce::String("Heavy"));
-        expectEquals(juce::String(touchVelocityCurveToString(TouchVelocityCurve::wideDynamic)),
-                     juce::String("Wide Dynamic"));
     }
 
     void testKeyboardMidiMapperCurveInjection() {
@@ -147,7 +140,7 @@ private:
     }
 
     void testSettingsStoreAndPresetRoundTrip() {
-        beginTest("SettingsStore & PerformancePreset: Touch velocity curve round-trip and compatibility");
+        beginTest("SettingsStore & PerformancePreset: Touch velocity curve round-trip");
 
         const devpiano::test::ScopedTempDir tempDir("touch-velocity-curve");
         const auto settingsFile = tempDir.getChildFile("settings.settings");
@@ -180,26 +173,6 @@ private:
             expect(loadedOpt.has_value());
             if (loadedOpt.has_value()) {
                 expect(loadedOpt->touchVelocityCurve == devpiano::input::TouchVelocityCurve::wideDynamic);
-            }
-        }
-
-        // 3. Preset backward compatibility (preset without touchVelocityCurve defaults to standard)
-        {
-            const juce::String legacyJson = R"({
-                "version": 2,
-                "uuid": "88888888-9999-0000-1111-222222222222",
-                "name": "WithoutTouch",
-                "layout": { "id": "l.1", "name": "L", "bindings": [] },
-                "keyboard": { "keySignature": 0, "midiTranspose": false }
-            })";
-
-            const auto legacyFile = tempDir.getChildFile("without_touch.devpiano.preset");
-            expect(legacyFile.replaceWithText(legacyJson));
-
-            auto legacyLoaded = devpiano::layout::loadPreset(legacyFile);
-            expect(legacyLoaded.has_value());
-            if (legacyLoaded.has_value()) {
-                expect(legacyLoaded->touchVelocityCurve == devpiano::input::TouchVelocityCurve::standard);
             }
         }
     }

@@ -74,44 +74,6 @@ public:
             expectEquals(buildWavExportOptions(take, perf, 44100.0, 512).blockSize, 512);
         });
 
-        testCase("performance settings flow into the options", [&] {
-            const auto take = makeOneSecondTake();
-            SettingsModel::PerformanceSettingsView perf;
-            perf.masterGain = 0.33f;
-            perf.adsrAttack = 0.05f;
-            perf.adsrDecay = 0.60f;
-            perf.adsrSustain = 0.40f;
-            perf.adsrRelease = 0.80f;
-            perf.builtinTone = SettingsModel::BuiltinTone::piano;
-            perf.pianoBrightness = 0.70f;
-            perf.pianoHammerHardness = 0.35f;
-            perf.pianoResonance = 0.90f;
-            perf.temperament = devpiano::audio::Temperament::werckmeister3;
-            perf.referencePitchA4 = 415.3;
-            perf.soundPerspective = devpiano::audio::SoundPerspective::audience;
-            perf.reverbSpace = devpiano::audio::ReverbSpace::concertHall;
-            perf.reverbWet = 0.35f;
-            perf.lidPosition = SettingsModel::LidPosition::halfStick;
-            const auto options = buildWavExportOptions(take, perf, 44100.0, 512);
-            expectWithinAbsoluteError(options.masterGain, 0.33f, 0.0001f);
-            expectWithinAbsoluteError(options.adsr.attack, 0.05f, 0.0001f);
-            expectWithinAbsoluteError(options.adsr.decay, 0.60f, 0.0001f);
-            expectWithinAbsoluteError(options.adsr.sustain, 0.40f, 0.0001f);
-            expectWithinAbsoluteError(options.adsr.release, 0.80f, 0.0001f);
-            expectEquals(static_cast<int>(options.builtinTone), static_cast<int>(SettingsModel::BuiltinTone::piano),
-                         "tone must flow into options");
-            expectWithinAbsoluteError(options.pianoBrightness, 0.70f, 0.0001f);
-            expectWithinAbsoluteError(options.pianoHammerHardness, 0.35f, 0.0001f);
-            expectWithinAbsoluteError(options.pianoResonance, 0.90f, 0.0001f);
-            expect(options.temperament == devpiano::audio::Temperament::werckmeister3);
-            expectWithinAbsoluteError(options.referencePitchA4, 415.3, 0.0001);
-            expect(options.soundPerspective == devpiano::audio::SoundPerspective::audience);
-            expect(options.reverbSpace == devpiano::audio::ReverbSpace::concertHall);
-            expectWithinAbsoluteError(options.reverbWet, 0.35f, 0.0001f);
-            expect(options.lidPosition == SettingsModel::LidPosition::halfStick);
-            expectEquals(options.numChannels, 2);
-        });
-
         testCase("reference pitch in export options is clamped to 400..480 Hz range", [&] {
             RecordingTake take;
             SettingsModel::PerformanceSettingsView perf;
@@ -171,23 +133,16 @@ public:
     }
 
     void runTest() override {
-        testCase("default export file has the timestamped naming scheme", [&] {
+        testCase("default export file keeps the destination directory and format extension", [&] {
             devpiano::test::ScopedTempDir tempDir("export-naming");
             const auto time = juce::Time(2026, 8, 17, 12, 30, 45, 0, true);
 
             const auto midiFile = makeDefaultRecordingExportFile(ExportFileType::midi, tempDir.get(), time);
             expect(midiFile.getParentDirectory() == tempDir.get());
-            expect(midiFile.getFileName().startsWith("recording_"));
             expect(midiFile.hasFileExtension(".mid"));
 
             const auto wavFile = makeDefaultRecordingExportFile(ExportFileType::wav, tempDir.get(), time);
-            expect(wavFile.getFileName().startsWith("recording_"));
             expect(wavFile.hasFileExtension(".wav"));
-        });
-
-        testCase("log prefixes identify the export type", [&] {
-            expectEquals(makeExportLogPrefix(ExportFileType::midi), juce::String("[Export] MIDI"));
-            expectEquals(makeExportLogPrefix(ExportFileType::wav), juce::String("[Export] WAV"));
         });
     }
 };

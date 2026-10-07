@@ -14,10 +14,8 @@ public:
 
     void runTest() override {
         testDeterministicNoteJitterProperties();
-        testZeroFeltAgeingPurity();
-        testPitchMicroJitterBoundaries();
         testPerKeyHardnessAndTimbreDispersion();
-        testAudioEngineFeltAgeingParameterSync();
+        testAudioEngineFeltAgeingClamping();
     }
 
 private:
@@ -44,31 +42,6 @@ private:
             // Mean should be centered near 0 (-0.3 to +0.3 over 88 keys)
             const auto mean = sum / 88.0f;
             expect(std::abs(mean) < 0.35f);
-        }
-    }
-
-    void testZeroFeltAgeingPurity() {
-        beginTest("Zero felt ageing amount produces purely nominal mathematical frequencies");
-
-        PianoSynthVoice voicePure;
-        voicePure.setCurrentPlaybackSampleRate(48000.0);
-        voicePure.setFeltAgeingAmount(0.0f);
-
-        // When ageing is 0, getter returns 0.0f
-        expectWithinAbsoluteError(voicePure.getFeltAgeingAmount(), 0.0f, 1e-4f);
-    }
-
-    void testPitchMicroJitterBoundaries() {
-        beginTest("Pitch micro-jitter is strictly constrained within +-1.5 cents");
-
-        for (int note = 21; note <= 108; ++note) {
-            const auto jitterNorm = PianoSynthVoice::deterministicNoteJitter(note, 0x13579bdfu);
-            const auto cents = jitterNorm * 1.2f; // at feltAgeingAmount = 1.0
-            expect(std::abs(cents) <= 1.25f);
-
-            const auto ratio = std::pow(2.0, static_cast<double>(cents) / 1200.0);
-            // Ratio must be within [0.9992, 1.0008]
-            expect(ratio >= 0.9990 && ratio <= 1.0010);
         }
     }
 
@@ -116,37 +89,16 @@ private:
         expectGreaterThan(maxDiff, 0.0001f);
     }
 
-    void testAudioEngineFeltAgeingParameterSync() {
-        beginTest("AudioEngine: feltAgeingAmount atomic parameter sync and boundary clamping");
+    void testAudioEngineFeltAgeingClamping() {
+        beginTest("AudioEngine: felt ageing amount clamps to its valid range");
 
         AudioEngine engine;
-        engine.prepareToPlay(512, 48000.0);
-        engine.setBuiltinSynthTone(AudioEngine::BuiltinSynthTone::piano);
-
-        engine.setFeltAgeingAmount(0.7f);
-        expectWithinAbsoluteError(engine.getFeltAgeingAmount(), 0.7f, 1e-4f);
-
         // Clamping checks
         engine.setFeltAgeingAmount(-0.4f);
         expectWithinAbsoluteError(engine.getFeltAgeingAmount(), 0.0f, 1e-4f);
 
         engine.setFeltAgeingAmount(1.8f);
         expectWithinAbsoluteError(engine.getFeltAgeingAmount(), 1.0f, 1e-4f);
-
-        // Consume warmup blocks
-        const auto warmupBlocks = AudioEngine::calculateWarmupBlockCount(48000.0, 512);
-        juce::AudioBuffer<float> buffer(2, 512);
-        juce::AudioSourceChannelInfo info(&buffer, 0, 512);
-        for (int i = 0; i < warmupBlocks; ++i) {
-            buffer.clear();
-            engine.getNextAudioBlock(info);
-        }
-
-        // Apply parameter block
-        engine.setFeltAgeingAmount(0.45f);
-        buffer.clear();
-        engine.getNextAudioBlock(info);
-        expectWithinAbsoluteError(engine.getFeltAgeingAmount(), 0.45f, 1e-4f);
     }
 };
 

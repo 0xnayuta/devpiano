@@ -287,15 +287,15 @@ void setPerspective(devpiano::audio::SoundPerspective perspective) noexcept;
 
 | 测试套件 / 物理用例 | 验证物理机理与断言指标 | 状态 |
 |---|---|:---:|
-| **PianoSynthVoiceTest** | 88键参数连续性、刚度公式、Magic Circle稳定性、双阶段衰减、同音三弦拍频、纵波先驱声、空间漫射、无内存分配 | [x] 已通过 |
+| **PianoSynthVoiceTest** | 88键参数连续性、刚度公式、Magic Circle稳定性、双阶段衰减、同音三弦拍频、纵波先驱声、空间漫射、长时有限输出 | [x] 已通过 |
 | **DamperReleaseTest** | 快离键木质落弦闷击、慢离键羊毛毡摩擦延展、高音无制音区物理旁路、动态ADSR释放速度缩放、ADSR基准跨音符无泄漏 | [x] 已通过 |
 | **PedalAcousticsTest** | CC64 延音踏板全开放交感共鸣、踏板下踏扫掠呼啸（Whoosh）、全琴谐振冲击（Resonance Shock）、单声道与多通道能量守恒 | [x] 已通过 |
-| **FeltAgeingTest** | 毛毡老化硬度单调递增、接触时间单调收缩、高频谐波截止点提升、确定性逐键老化扰动、基线 0.0 无偏置 | [x] 已通过 |
+| **FeltAgeingTest** | 逐键扰动确定性与范围、老化前后的实际音频差异、引擎老化参数限幅；不以 getter 或测试侧公式重算证明音高行为 | [x] 已通过 |
 | **PerspectiveProcessorTest** | 演奏者/听众立体声像反转镜像、距离高频滚降、单声道能量守恒与无下溢数值收敛 | [x] 已通过 |
 | **RoomReverbEngineTest** | Studio/Chamber/Hall 三大空间混响时间常数、干湿比线性与非线性过渡、长时静音衰减无下溢 denormal、跨采样率不变性 | [x] 已通过 |
-| **SpatialAcousticsTest** | 空间声学全链路联动、琴盖开合/混响/视角多重组合声学衰减单调性 | [x] 已通过 |
+| **SpatialAcousticsTest** | 空间声学设置与当前预设字段磁盘往返、损坏/越界输入限幅；声场与混响 DSP 行为由对应处理器套件验证 | [x] 已通过 |
 | **PianoSynthVoiceTemperamentTest** | 古典微调律制微音分偏移、A4 基频换算、全音域单调性与跨律制即时切换 | [x] 已通过 |
-| **MechanicalAcousticsTest** | 机械噪声与毛毡老化设置存取、当前预设声学字段往返、离线导出参数传递与极端参数安全限幅 | [x] 已通过 |
+| **MechanicalAcousticsTest** | 机械噪声与毛毡老化设置存取、当前预设声学字段往返、极端参数下实际音频有限性、幅度与起音连续性 | [x] 已通过 |
 | **UnaCordaAcousticsTest** | CC 67 弱音/移位踏板物理声学响应、毛毡侧移软化、三弦敲两弦衰减、全链路控制器响应与回放动态踏板稳定性 | [x] 已通过 |
 
 ### 6.1 验收证据依据与未验证范围说明

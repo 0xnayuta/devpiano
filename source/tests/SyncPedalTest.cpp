@@ -20,7 +20,6 @@ public:
         testSameSampleReleaseDoesNotFollowNoteOn();
         testMultipleNotesInBlock();
         testEmptyBlockIsNoOp();
-        testNoAllocationInRenderPath();
         testSameSampleNoteOffBeforeNoteOn();
         testMultiChannelSyncPedalDampAndReengage();
         testKeyboardMidiMapperSustainPolicyIntegration();
@@ -219,49 +218,6 @@ private:
         expectEquals(buffer.getNumEvents(), 0, "Empty input must remain empty");
         expectEquals(tempBuffer.getNumEvents(), 0, "Temp buffer must not retain stale events");
         expect(processor.isCutPending(), "Empty block must preserve pending cut for the next note");
-    }
-
-    void testNoAllocationInRenderPath() {
-        beginTest("Render path performs no heap allocation");
-
-        devpiano::audio::SyncPedalProcessor processor;
-        processor.setPolicy(devpiano::core::SustainPolicy::syncPedal);
-        processor.setPedalDown(true);
-
-        // Pre-load tempBuffer with enough capacity so the contention-free
-        // fast-path is exercised; any future allocation inside processMidiBlock
-        // would surface as a per-block growth of getNumEvents for the same input.
-        juce::MidiBuffer buffer;
-        buffer.addEvent(juce::MidiMessage::noteOn(1, 60, 0.8f), 10);
-        buffer.addEvent(juce::MidiMessage::noteOn(1, 64, 0.7f), 50);
-        buffer.addEvent(juce::MidiMessage::noteOn(1, 67, 0.6f), 100);
-
-        juce::MidiBuffer tempBuffer;
-        tempBuffer.ensureSize(1024);
-
-        processor.processMidiBlock(buffer, tempBuffer);
-        const auto eventsAfterFirst = buffer.getNumEvents();
-        const auto firstTimeAfterFirst = buffer.getFirstEventTime();
-
-        // Re-render the same input through a freshly-prepared processor:
-        // event count and first-event sample position must not depend on
-        // any allocation behaviour inside the realtime path.
-        devpiano::audio::SyncPedalProcessor processor2;
-        processor2.setPolicy(devpiano::core::SustainPolicy::syncPedal);
-        processor2.setPedalDown(true);
-
-        juce::MidiBuffer buffer2;
-        buffer2.addEvent(juce::MidiMessage::noteOn(1, 60, 0.8f), 10);
-        buffer2.addEvent(juce::MidiMessage::noteOn(1, 64, 0.7f), 50);
-        buffer2.addEvent(juce::MidiMessage::noteOn(1, 67, 0.6f), 100);
-
-        juce::MidiBuffer tempBuffer2;
-        tempBuffer2.ensureSize(1024);
-
-        processor2.processMidiBlock(buffer2, tempBuffer2);
-
-        expectEquals(buffer2.getNumEvents(), eventsAfterFirst);
-        expectEquals(buffer2.getFirstEventTime(), firstTimeAfterFirst);
     }
 
     void testKeyboardMidiMapperSustainPolicyIntegration() {

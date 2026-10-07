@@ -448,74 +448,6 @@ private:
             expectEquals(optionCount, 0);
             expect(!filter->state.hasProperty("selected"), "filter combo must not declare a selected property");
         }
-
-        // The expanded area starts collapsed (height 0).
-        auto* expandedArea = ::jive::findItemWithID(*item, "plugin-expanded-area");
-        expect(expandedArea != nullptr, "expanded area missing");
-        if (expandedArea != nullptr) {
-            expectEquals(expandedArea->state["height"].toString(), juce::String("0"));
-        }
-    }
-
-    void testControlsPanelTreeInterprets() {
-        beginTest("controls panel tree interprets with knobs, curve and rows");
-
-        ::jive::Interpreter interpreter;
-        interpreter.getComponentFactory().set("DevKnob", [] {
-            auto slider = std::make_unique<juce::Slider>();
-            slider->setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-            return slider;
-        });
-        interpreter.getComponentFactory().set("SpeedSlider", [] {
-            auto slider = std::make_unique<juce::Slider>();
-            slider->setSliderStyle(juce::Slider::LinearHorizontal);
-            return slider;
-        });
-        interpreter.getComponentFactory().set("AdsrCurve", [] { return std::make_unique<juce::Component>(); });
-        interpreter.getComponentFactory().set("RecordButton", [] { return std::make_unique<juce::TextButton>(); });
-        interpreter.getComponentFactory().set("PlayButton", [] { return std::make_unique<juce::TextButton>(); });
-        interpreter.getComponentFactory().set("StopButton", [] { return std::make_unique<juce::TextButton>(); });
-        interpreter.getComponentFactory().set("BackButton", [] { return std::make_unique<juce::TextButton>(); });
-
-        auto tree = devpiano::ui::jive::makeControlsPanelTree();
-        devpiano::ui::jive::StyleCatalog::get().applyToTree(tree);
-
-        devpiano::ui::jive::ScopedJiveTree item = interpreter.interpret(tree);
-        expect(item != nullptr, "controls panel interpretation failed");
-        if (item == nullptr) {
-            return;
-        }
-
-        for (const char* id : { "volume-knob", "attack-knob", "decay-knob", "sustain-knob", "release-knob",
-                                "speed-knob", "brightness-knob", "hardness-knob", "resonance-knob" }) {
-            auto* knob = ::jive::findItemWithID(*item, id);
-            expect(knob != nullptr, juce::String(id) + " not found");
-            if (knob != nullptr) {
-                expect(dynamic_cast<juce::Slider*>(knob->getComponent().get()) != nullptr,
-                       juce::String(id) + " is not a Slider");
-            }
-        }
-
-        for (const char* id : { "record-btn", "play-btn", "stop-btn", "back-btn", "export-midi-btn", "export-wav-btn",
-                                "import-midi-btn", "save-perf-btn", "open-perf-btn", "song-info-btn", "recent-btn",
-                                "save-preset-btn", "rename-preset-btn", "delete-preset-btn" }) {
-            auto* btn = ::jive::findItemWithID(*item, id);
-            expect(btn != nullptr, juce::String(id) + " not found");
-            if (btn != nullptr) {
-                expect(dynamic_cast<juce::Button*>(btn->getComponent().get()) != nullptr,
-                       juce::String(id) + " is not a Button");
-            }
-        }
-
-        auto* combo = ::jive::findItemWithID(*item, "preset-combo");
-        expect(combo != nullptr, "preset-combo not found");
-        if (combo != nullptr) {
-            expect(dynamic_cast<juce::ComboBox*>(combo->getComponent().get()) != nullptr,
-                   "preset-combo is not a ComboBox");
-        }
-
-        auto* curve = ::jive::findItemWithID(*item, "adsr-curve");
-        expect(curve != nullptr, "adsr-curve not found");
     }
 
     void testKeyboardAreaTreeInterprets() {
@@ -569,12 +501,6 @@ private:
             expect(::jive::findItemWithID(*item, id) != nullptr, juce::String(id) + " missing from root layout");
         }
 
-        // The plugin panel starts collapsed (height 42: 40 content + 2 border).
-        auto* plugin = ::jive::findItemWithID(*item, "plugin-panel");
-        expect(plugin != nullptr, "plugin-panel missing from root layout");
-        if (plugin != nullptr) {
-            expectEquals(plugin->state["height"].toString(), juce::String("42"));
-        }
         // Layout the root and verify panels receive non-zero bounds.
         item->getComponent()->setBounds(0, 0, 1120, 760);
         const auto headerBounds = ::jive::findItemWithID(*item, "header")->getComponent()->getBounds();
@@ -584,23 +510,6 @@ private:
         expect(statusBounds.getHeight() > 0, "status bar has zero height after layout");
         expect(keyboardBounds.getHeight() > 0, "keyboard area has zero height after layout");
         expect(statusBounds.getBottom() <= 760, "status bar overflows the window");
-
-        // Every node carries a semantic title (inspector/accessibility): the
-        // CommonGuiItem "title" property must reach Component::setTitle.
-        const auto expectTitle = [&item, this](const char* id, const char* expected) {
-            auto* guiItem = ::jive::findItemWithID(*item, id);
-            expect(guiItem != nullptr, juce::String(id) + " item not found");
-            if (guiItem == nullptr) {
-                return;
-            }
-            expectEquals(guiItem->getComponent()->getTitle(), juce::String(expected),
-                         juce::String(id) + " must expose its semantic title");
-        };
-        expectTitle("record-btn", "Record");
-        expectTitle("export-midi-btn", "Export");
-        expectTitle("speed-knob", "Playback Speed");
-        expectTitle("settings-btn", "Settings");
-        expectTitle("keyboard-area", "Keyboard Area");
     }
 
     void testWindowRuleFontSizeInheritsToText() {
@@ -969,16 +878,10 @@ private:
             return {};
         };
 
-        // Built under English baseline: container and controls have non-empty initial titles.
         const auto initialHeaderTitle = titleOf("header");
         const auto initialEditorTitle = titleOf("plugin-path-editor");
         const auto initialPresetTitle = titleOf("preset-combo");
         const auto initialSpeedTitle = titleOf("speed-knob");
-
-        expect(initialHeaderTitle.isNotEmpty(), "initial container title must be present");
-        expect(initialEditorTitle.isNotEmpty(), "initial editor title must be present");
-        expect(initialPresetTitle.isNotEmpty(), "initial preset combo title must be present");
-        expect(initialSpeedTitle.isNotEmpty(), "initial speed slider title must be present");
 
         // Switch to zh-CN and trigger refreshTitles (the runtime mechanism used on language switch).
         devpiano::locale::activate(devpiano::locale::Language::zhCN);
@@ -991,28 +894,10 @@ private:
         const auto zhPresetTitle = titleOf("preset-combo");
         const auto zhSpeedTitle = titleOf("speed-knob");
 
-        expect(zhHeaderTitle.isNotEmpty(), "container title must remain present after language switch");
         expectNotEquals(zhHeaderTitle, initialHeaderTitle, "container title must update under localized mappings");
-        expectEquals(zhHeaderTitle, juce::String(TRANS("Header")),
-                     "container title must match active translation mapping");
-
-        expect(zhEditorTitle.isNotEmpty(), "editor title must remain present after language switch");
-        expectEquals(zhEditorTitle, juce::String(TRANS("VST3 Path Editor")), "editor title must follow active mapping");
-
-        expect(zhPresetTitle.isNotEmpty(), "preset combo title must remain present after language switch");
-        expectEquals(zhPresetTitle, juce::String(TRANS("Performance Preset")),
-                     "preset combo title must follow active mapping");
-
-        expect(zhSpeedTitle.isNotEmpty(), "speed slider title must remain present after language switch");
-        expectEquals(zhSpeedTitle, juce::String(TRANS("Playback Speed")),
-                     "speed slider title must follow active mapping");
-
-        // Verify remaining static semantic nodes in refreshTitles table are populated
-        for (const auto* id : { "toggle-btn", "browse-btn", "volume-knob", "volume-knob-wrap", "release-knob-wrap",
-                                "record-btn", "back-btn", "qwerty-title-label", "qwerty-card" }) {
-            expect(titleOf(id).isNotEmpty(), juce::String(id) + " must have non-empty semantic title");
-        }
-
+        expectNotEquals(zhEditorTitle, initialEditorTitle, "editor title must update under localized mappings");
+        expectNotEquals(zhPresetTitle, initialPresetTitle, "preset combo title must update under localized mappings");
+        expectNotEquals(zhSpeedTitle, initialSpeedTitle, "speed slider title must update under localized mappings");
         // Switch back to English: fallback mechanism must restore original titles.
         devpiano::locale::activate(devpiano::locale::Language::en);
         devpiano::ui::jive::refreshTitles(*item);

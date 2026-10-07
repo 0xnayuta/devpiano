@@ -4,6 +4,7 @@
 
 - **Current-Format Development Cutover** — require integer v2 presets and integer v3 native performance files, including metadata reads; remove name-based plugin/preset recovery, generated legacy identities, flat-root acoustic parsing, and the `hall` reverb alias. Preserve current defaults, permanent identities, and transactional file/session protection; retire obsolete compatibility fixtures and retain current-format safety regressions.
 - **Lean Development Policy** — establish KISS/DRY/LOD/YAGNI, clean cutovers, risk-driven testing, minimal documentation updates, and proportionate Windows Debug verification in `AGENTS.md`.
+- **Risk-Driven Test Pruning** — remove declaration/copywriting snapshots, setter/getter and option-forwarding echoes, misleading allocation/render self-oracles, and duplicate round-trips. Retain performance identity/timing, current-format admission, numeric bounds, lifecycle, transactional file/session protection, and real audio/WAV behavior; keep allocation measurement separate from event-count assertions.
 
 - **AUDIT-004 Review and Localization Policy** — archive the completed software remediation phases with reproducible consumer inputs; reconcile the audit against recorded evidence without erasing the initial baseline or claiming hardware certification. Accept ADR-015 for complete localized messages and category-specific punctuation; schedule the existing-call migration as a small iteration, not an implemented formatter.
 

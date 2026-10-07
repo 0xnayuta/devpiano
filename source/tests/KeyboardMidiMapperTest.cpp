@@ -51,61 +51,6 @@ bool isNoteOn(const juce::MidiKeyboardState& state, int midiChannel, int midiNot
 
 // =============================================================================
 
-class LayoutManagementTest : public juce::UnitTest {
-public:
-    LayoutManagementTest()
-        : juce::UnitTest("KeyboardMidiMapper: layout management", "DevPiano/Engine") {
-    }
-
-    void runTest() override {
-        beginTest("default layout on construction");
-        {
-            KeyboardMidiMapper mapper;
-            const auto& layout = mapper.getLayout();
-            expectEquals(layout.name, juce::String("DevPiano Default"));
-            expectEquals(layout.id, juce::String("devpiano.default"));
-            expectEquals(static_cast<int>(layout.bindings.size()), 36,
-                         juce::String("default layout should have 36 bindings"));
-        }
-
-        beginTest("setLayout replaces and changes binding count");
-        {
-            KeyboardMidiMapper mapper;
-            auto custom = makeSingleBindingLayout('A', 60);
-            mapper.setLayout(custom);
-
-            const auto& layout = mapper.getLayout();
-            expectEquals(static_cast<int>(layout.bindings.size()), 1);
-            expectEquals(layout.name, juce::String("Test Single"));
-        }
-
-        beginTest("setLayoutDisplayName updates name");
-        {
-            KeyboardMidiMapper mapper;
-            mapper.setLayoutDisplayName("My Custom Layout");
-            expectEquals(mapper.getLayout().name, juce::String("My Custom Layout"));
-
-            // ID 不变。
-            expectEquals(mapper.getLayout().id, juce::String("devpiano.default"));
-        }
-
-        beginTest("resetToDefaultLayout restores defaults");
-        {
-            KeyboardMidiMapper mapper;
-            mapper.setLayout(makeSingleBindingLayout('Z', 48));
-            expectEquals(static_cast<int>(mapper.getLayout().bindings.size()), 1);
-
-            mapper.resetToDefaultLayout();
-            expectEquals(static_cast<int>(mapper.getLayout().bindings.size()), 36);
-            expectEquals(mapper.getLayout().name, juce::String("DevPiano Default"));
-        }
-    }
-};
-
-static LayoutManagementTest layoutManagementTest;
-
-// =============================================================================
-
 class KeyMappingTest : public juce::UnitTest {
 public:
     KeyMappingTest()

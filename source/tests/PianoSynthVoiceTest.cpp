@@ -24,8 +24,6 @@
 //   - Velocity 0.2 vs 0.9 loudness is monotonically increasing
 //   - noteOff tail decays and the voice releases itself
 //   - Immediate stopNote (allowTailOff=false) silences and clears the voice
-//   - Long renders stay finite (no NaN/Inf/explosion) — heap-allocation-free
-//     path exercised without crashing
 //   - allNotesOff stops output
 // =============================================================================
 

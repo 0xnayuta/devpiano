@@ -41,11 +41,6 @@ public:
             expect(!devpiano::core::MidiNoteNumber { 128 }.isValid());
         });
 
-        testCase("min/max are correct", [&] {
-            expectEquals(devpiano::core::MidiNoteNumber::minValue(), 0);
-            expectEquals(devpiano::core::MidiNoteNumber::maxValue(), 127);
-        });
-
         testCase("fromClamped clamps below minimum", [&] {
             auto ch = devpiano::core::MidiChannel::fromClamped(0);
             expectEquals(ch.value, 1);
@@ -147,50 +142,15 @@ public:
 
     void runTest() override {
         using devpiano::core::KeyAction;
-        using devpiano::core::KeyActionType;
-        using devpiano::core::KeyBinding;
         using devpiano::core::KeyboardLayout;
-        using devpiano::core::KeyTrigger;
         using devpiano::core::makeAlphaNumericKeyCode;
-        using devpiano::core::makeNoteBinding;
-        using devpiano::core::MidiChannel;
-        using devpiano::core::MidiNoteNumber;
         using devpiano::core::normaliseAlphaNumericKeyCode;
-        using devpiano::core::Velocity;
-
-        testCase("default construction has sensible defaults", [&] {
-            KeyAction action;
-            expectEquals(action.midiNote, 60);
-            expectEquals(action.midiChannel, 1);
-            expectEquals(action.velocity, 1.0f);
-        });
 
         testCase("getMidiNoteNumber returns clamped", [&] {
             KeyAction action;
             action.midiNote = 200;
             auto note = action.getMidiNoteNumber();
             expectEquals(note.value, 127);
-        });
-
-        testCase("setMidiNoteNumber round-trips", [&] {
-            KeyAction action;
-            action.setMidiNoteNumber(MidiNoteNumber::fromClamped(42));
-            expectEquals(action.midiNote, 42);
-            expectEquals(action.getMidiNoteNumber().value, 42);
-        });
-
-        testCase("setMidiChannel round-trips", [&] {
-            KeyAction action;
-            action.setMidiChannel(MidiChannel::fromClamped(5));
-            expectEquals(action.midiChannel, 5);
-            expectEquals(action.getMidiChannel().value, 5);
-        });
-
-        testCase("setVelocity round-trips", [&] {
-            KeyAction action;
-            action.setVelocity(Velocity::fromClamped(0.75f));
-            expectEquals(action.velocity, 0.75f);
-            expectEquals(action.getVelocity().value, 0.75f);
         });
 
         testCase("makeAlphaNumericKeyCode normalises to uppercase",
@@ -206,27 +166,6 @@ public:
             expect(normaliseAlphaNumericKeyCode('a') != 0);
             expect(normaliseAlphaNumericKeyCode('Z') != 0);
             expect(normaliseAlphaNumericKeyCode('5') != 0);
-        });
-
-        testCase("makeNoteBinding creates correct binding", [&] {
-            auto binding = makeNoteBinding('C', 72, 2, 0.8f, KeyTrigger::keyDown);
-
-            expect(binding.keyCode != 0);
-            expectEquals(binding.displayText, juce::String("C"));
-            expect(binding.action.type == KeyActionType::note);
-            expectEquals(binding.action.midiNote, 72);
-            expectEquals(binding.action.midiChannel, 2);
-            expectEquals(binding.action.velocity, 0.8f);
-            expect(binding.action.trigger == KeyTrigger::keyDown);
-        });
-
-        testCase("makeNoteBinding with strong types", [&] {
-            auto binding = makeNoteBinding('D', MidiNoteNumber::fromClamped(50), MidiChannel::fromClamped(3),
-                                           Velocity::fromClamped(0.5f));
-
-            expectEquals(binding.action.midiNote, 50);
-            expectEquals(binding.action.midiChannel, 3);
-            expectEquals(binding.action.velocity, 0.5f);
         });
 
         testCase("findByKeyCode returns null for missing key", [&] {
@@ -248,27 +187,10 @@ public:
     }
 
     void runTest() override {
-        using devpiano::core::KeyboardLayout;
         using devpiano::core::KeyTrigger;
         using devpiano::core::makeAlphaNumericKeyCode;
         using devpiano::core::makeDefaultKeyboardLayout;
         using devpiano::core::normaliseAlphaNumericKeyCode;
-
-        testCase("default layout has correct number of keys", [&] {
-            auto layout = makeDefaultKeyboardLayout();
-            // 10（123 行）+ 10（QWERTY 行）+ 9（ASDF 行）+ 7（ZXCV 行）= 36
-            expectEquals(layout.bindings.size(), size_t(36));
-        });
-
-        testCase("default layout has correct id", [&] {
-            auto layout = makeDefaultKeyboardLayout();
-            expectEquals(layout.id, juce::String("devpiano.default"));
-        });
-
-        testCase("default layout has correct name", [&] {
-            auto layout = makeDefaultKeyboardLayout();
-            expectEquals(layout.name, juce::String("DevPiano Default"));
-        });
 
         testCase("A key maps to C3 (MIDI note 60)", [&] {
             auto layout = makeDefaultKeyboardLayout();

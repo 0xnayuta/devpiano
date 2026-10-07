@@ -1,9 +1,7 @@
 #include <JuceHeader.h>
 
 #include "Audio/PianoSynthVoice.h"
-#include "Export/ExportFlowSupport.h"
 #include "Layout/PerformancePreset.h"
-#include "Recording/RecordingEngine.h"
 #include "Settings/SettingsModel.h"
 #include "Settings/SettingsStore.h"
 #include "TestHelpers.h"
@@ -19,7 +17,6 @@
 /// 1. SettingsStore XML round-trip for pedalNoiseLevel / feltAgeingAmount.
 /// 2. SettingsStore out-of-range boundary clamping protection.
 /// 3. PerformancePreset JSON serialization round-trip under "acoustics".
-/// 4. WAV export option propagation (offline render parity with realtime).
 /// 5. Extreme-parameter safety: bounded output, finite samples, click-free attack.
 // ============================================================================
 class MechanicalAcousticsTest final : public juce::UnitTest {
@@ -32,7 +29,6 @@ public:
         testSettingsStoreMechanicalRoundTrip();
         testSettingsStoreBoundaryClamping();
         testPerformancePresetJsonRoundTrip();
-        testWavExportOptionsPropagation();
         testExtremeParameterSafetyAndClickFreeAttack();
     }
 
@@ -56,11 +52,6 @@ private:
 
         expectWithinAbsoluteError(loadedModel.pedalNoiseLevel, 0.35f, 1e-4f);
         expectWithinAbsoluteError(loadedModel.feltAgeingAmount, 0.6f, 1e-4f);
-
-        // Verify PerformanceSettingsView accessor round-trip
-        const auto view = loadedModel.getPerformanceSettingsView();
-        expectWithinAbsoluteError(view.pedalNoiseLevel, 0.35f, 1e-4f);
-        expectWithinAbsoluteError(view.feltAgeingAmount, 0.6f, 1e-4f);
     }
 
     void testSettingsStoreBoundaryClamping() {
@@ -133,21 +124,6 @@ private:
             expectWithinAbsoluteError(loaded.pedalNoiseLevel, 0.42f, 1e-4f);
             expectWithinAbsoluteError(loaded.feltAgeingAmount, 0.77f, 1e-4f);
         }
-    }
-
-    void testWavExportOptionsPropagation() {
-        beginTest("WAV export options: Mechanical parameters propagate for offline parity");
-
-        devpiano::recording::RecordingTake take;
-        take.sampleRate = 44100.0;
-
-        SettingsModel::PerformanceSettingsView perf;
-        perf.pedalNoiseLevel = 0.45f;
-        perf.feltAgeingAmount = 0.8f;
-
-        const auto options = devpiano::exporting::buildWavExportOptions(take, perf, 44100.0, 512);
-        expectWithinAbsoluteError(options.pedalNoiseLevel, 0.45f, 1e-4f);
-        expectWithinAbsoluteError(options.feltAgeingAmount, 0.8f, 1e-4f);
     }
 
     void testExtremeParameterSafetyAndClickFreeAttack() {

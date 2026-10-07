@@ -16,7 +16,7 @@ devpiano 是一款基于 JUCE 的现代 C++ 电脑键盘钢琴应用，聚焦软
 - 旧配置系统 -> `ApplicationProperties` / `ValueTree` / 项目内状态模型。
 - 旧 fallback 简单发声 -> 覆盖 7 大声学子系统的自主研发增强物理建模钢琴音源（`PianoSynthVoice`）。
 
-当前推进 **Phase 36：开发期减负与历史兼容性收敛**；Task 36-1、36-2 已完成并通过 Windows Debug 与实际文件消费者验证，Task 36-3/4/5 待另行实施。任务清单和直接证据仅见 [`current-iteration.md`](current-iteration.md)。AUDIT-004 实机补验边界独立保留，后续声学与演奏形态仍为 Phase 37/38。
+当前推进 **Phase 36：开发期减负与历史兼容性收敛**；Task 36-1、36-2、36-3 已完成并验证，Task 36-4/5 待另行实施。任务清单和直接证据仅见 [`current-iteration.md`](current-iteration.md)。AUDIT-004 实机补验边界独立保留，后续声学与演奏形态仍为 Phase 37/38。
 
 ---
 
@@ -348,9 +348,9 @@ Phase 35 原计划与完成勾选见 [完成计划归档](../archive/phase35-key
 
 原生标题栏模式确定后准确定尺并居中；`ViewHost::fitToContent()` 封装宽度约束及最终内容边界测量，预设、绑定两状态、歌曲信息和导出进度共用 28 逻辑像素操作区留白。对齐 LookAndFeel 菜单项字体，全面消除裸 `FontOptions` 硬编码，统一接入 `DesignTokens::getUnifiedUiFont` 保证中文字体族一致性（代码提交见 `829a40b`、`182196d`、`80dbd19`）。
 
-### Phase 36：开发期减负与历史兼容性收敛（Development Overhead Reduction & Legacy Compatibility Deprecation）[部分完成：Task 36-1/36-2]
+### Phase 36：开发期减负与历史兼容性收敛（Development Overhead Reduction & Legacy Compatibility Deprecation）[部分完成：Task 36-1/36-2/36-3]
 
-开发期减负与 YAGNI 契约已固化于 `AGENTS.md`，自有格式已切换为当前预设 v2 / 演奏 v3，历史身份迁移、根节点声学回退与旧混响别名删除。直接相关测试与契约随切换更新，不等于完成后续系统性测试/文档审视；Task 36-3/4/5 保持待实施。完整任务和验证证据只维护在 [`current-iteration.md`](current-iteration.md)。
+开发期减负与 YAGNI 契约已固化于 `AGENTS.md`，自有格式已切换为当前预设 v2 / 演奏 v3，历史迁移分支已删除，低价值测试已按行为风险剪枝。演奏时序、身份、生命周期和文件事务防线保留，未增加永久测试框架。Task 36-4/5 的系统性文档核对保持待实施；完整任务和验证证据只维护在 [`current-iteration.md`](current-iteration.md)。
 
 
 ### Phase 37：物理建模声学巅峰（Railsback Octave Stretch Tuning & Duplex Scale Resonance）[规划中]

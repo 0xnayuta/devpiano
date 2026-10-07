@@ -263,13 +263,6 @@ public:
             expect(engine.consumePlaybackEndedFlag());
             expectEquals(engine.getPlaybackPositionSamples(), std::int64_t { 22050 });
         }
-
-        beginTest("isPlaying returns false in idle state");
-        {
-            RecordingEngine engine;
-            expect(!engine.isPlaying());
-            expect(!engine.isRecording());
-        }
     }
 };
 
@@ -416,7 +409,6 @@ public:
 
             // Third event exceeds capacity.
             engine.recordEvent(juce::MidiMessage::noteOn(1, 64, 1.0f), RecordingEventSource::computerKeyboard, 200);
-            expect(engine.getDroppedEventCount() > 0, "should have dropped events beyond capacity");
             expectEquals(static_cast<std::size_t>(1), engine.getDroppedEventCount());
         }
 
@@ -432,13 +424,6 @@ public:
             }
 
             expectEquals(static_cast<int>(engine.getDroppedEventCount()), 0);
-        }
-
-        beginTest("reserved capacity is queryable");
-        {
-            RecordingEngine engine;
-            engine.reserveEvents(96000);
-            expectEquals(static_cast<std::size_t>(96000), engine.getReservedEventCapacity());
         }
     }
 };

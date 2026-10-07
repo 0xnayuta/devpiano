@@ -456,22 +456,18 @@ static AudioEngineGainAndNotesOffTest audioEngineGainAndNotesOffTest;
 //   - warmup 块在注入按住音符时仍静音（消除"本来无声"假通过）
 //   - warmup 结束后合成器渲染出非零采样
 //   - 块计数纯函数（warmup / playback-start pre-roll 时长 → 块数）
-//   - setAdsr 参数钳制与极端值稳定性
-//   - setPluginHost / setRecordingEngine 接线（null 安全 + 真实实例）
 // =============================================================================
 
 class AudioEngineWarmupAndCoverageTest final : public juce::UnitTest {
 public:
     AudioEngineWarmupAndCoverageTest()
-        : juce::UnitTest("AudioEngine: warmup, adsr and wiring", "DevPiano/Engine") {
+        : juce::UnitTest("AudioEngine: warmup", "DevPiano/Engine") {
     }
 
     void runTest() override {
         testWarmupSuppressesHeldNote();
         testAudioAfterWarmupWithHeldNote();
         testBlockCountFunctions();
-        testSetAdsr();
-        testWiring();
     }
 
 private:
@@ -537,63 +533,6 @@ private:
             expectEquals(AudioEngine::calculateWarmupBlockCount(44100.0, 0), 1);
             expectEquals(AudioEngine::calculatePlaybackStartPreRollBlockCount(-1.0, -1), 1);
         });
-
-        testCase("armPlaybackStartPreRoll sets a finite block count", [&] {
-            AudioEngine engine;
-            engine.prepareToPlay(512, 44100.0);
-            engine.armPlaybackStartPreRoll(44100.0, 512);
-            // 消费 pre-roll 块不崩溃（无播放 take 时静音路径）
-            for (int i = 0; i < 5; ++i) {
-                auto buf = makeBlock(2, 512);
-                const juce::AudioSourceChannelInfo info(&buf, 0, buf.getNumSamples());
-                engine.getNextAudioBlock(info);
-            }
-        });
-    }
-
-    void testSetAdsr() {
-        testCase("setAdsr clamps extreme values without crashing", [&] {
-            AudioEngine engine;
-            engine.prepareToPlay(512, 44100.0);
-            engine.setAdsr(0.0f, 0.0f, 0.0f, 0.0f); // 下限
-            engine.setAdsr(10.0f, 10.0f, 2.0f, 10.0f); // 上限（sustain 钳到 1）
-            engine.getKeyboardState().noteOn(1, 60, 0.8f);
-            exhaustWarmup(engine, 512);
-            for (int i = 0; i < 3; ++i) {
-                auto buf = makeBlock(2, 512);
-                const juce::AudioSourceChannelInfo info(&buf, 0, buf.getNumSamples());
-                engine.getNextAudioBlock(info);
-                const auto* ch0 = buf.getReadPointer(0);
-                for (int s = 0; s < info.numSamples; ++s) {
-                    expect(!std::isnan(ch0[s]), "output must stay finite");
-                }
-            }
-        });
-    }
-
-    void testWiring() {
-        testCase("null host / engine wiring is safe", [&] {
-            AudioEngine engine;
-            engine.setPluginHost(nullptr);
-            engine.setRecordingEngine(nullptr);
-            engine.prepareToPlay(512, 44100.0);
-            exhaustWarmup(engine, 512);
-            auto buf = makeBlock(2, 512);
-            const juce::AudioSourceChannelInfo info(&buf, 0, buf.getNumSamples());
-            engine.getNextAudioBlock(info);
-        });
-
-        testCase("a live RecordingEngine can be wired in", [&] {
-            devpiano::recording::RecordingEngine rec;
-            AudioEngine engine;
-            engine.setRecordingEngine(&rec);
-            engine.prepareToPlay(512, 44100.0);
-            exhaustWarmup(engine, 512);
-            auto buf = makeBlock(2, 512);
-            const juce::AudioSourceChannelInfo info(&buf, 0, buf.getNumSamples());
-            engine.getNextAudioBlock(info); // 未播放 → 渲染跳过，安全
-            expect(engine.getPluginHost() == nullptr);
-        });
     }
 };
 
@@ -605,20 +544,6 @@ public:
     }
 
     void runTest() override {
-        beginTest("playback transpose state getter and setter");
-        {
-            AudioEngine engine;
-            expect(!engine.isPlaybackTransposeEnabled());
-            expectEquals(engine.getPlaybackTransposeOffset(), 0);
-
-            engine.setPlaybackTranspose(true, 5);
-            expect(engine.isPlaybackTransposeEnabled());
-            expectEquals(engine.getPlaybackTransposeOffset(), 5);
-
-            engine.setPlaybackTranspose(false, -3);
-            expect(!engine.isPlaybackTransposeEnabled());
-            expectEquals(engine.getPlaybackTransposeOffset(), -3);
-        }
 
         beginTest("playback transpose applies to melodic channels and bypasses channel 10 drums");
         {

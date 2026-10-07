@@ -20,7 +20,7 @@ public:
     void runTest() override {
         testVoicePartialFrequencyWithTemperament();
         testVoiceDynamicTuningSwitching();
-        testAudioEngineTemperamentAtomicState();
+        testAudioEngineReferencePitchClamping();
         testSineSynthVoiceTemperament();
     }
 
@@ -112,52 +112,16 @@ private:
         synth.allNotesOff(1, false);
     }
 
-    void testAudioEngineTemperamentAtomicState() {
-        beginTest("AudioEngine: Temperament and reference pitch atomic state and voice distribution");
-
-        using namespace devpiano::audio;
+    void testAudioEngineReferencePitchClamping() {
+        beginTest("AudioEngine: reference pitch clamps to 400..480 Hz");
 
         AudioEngine engine;
-
-        // Default state
-        expect(engine.getTemperament() == AudioEngine::Temperament::equal);
-        expectEquals(engine.getReferencePitchA4(), 440.0);
-
-        // Mutate temperament
-        engine.setTemperament(AudioEngine::Temperament::werckmeister3);
-        expect(engine.getTemperament() == AudioEngine::Temperament::werckmeister3);
-
-        // Mutate reference pitch
-        engine.setReferencePitchA4(432.0);
-        expectEquals(engine.getReferencePitchA4(), 432.0);
-
-        // Reachable endpoints and standard reference pitches
-        engine.setReferencePitchA4(400.0);
-        expectEquals(engine.getReferencePitchA4(), 400.0);
-        engine.setReferencePitchA4(480.0);
-        expectEquals(engine.getReferencePitchA4(), 480.0);
-        engine.setReferencePitchA4(415.0);
-        expectEquals(engine.getReferencePitchA4(), 415.0);
-        engine.setReferencePitchA4(440.0);
-        expectEquals(engine.getReferencePitchA4(), 440.0);
-        engine.setReferencePitchA4(442.0);
-        expectEquals(engine.getReferencePitchA4(), 442.0);
 
         // Clamping protection
         engine.setReferencePitchA4(350.0);
         expectEquals(engine.getReferencePitchA4(), 400.0);
 
         engine.setReferencePitchA4(500.0);
-        expectEquals(engine.getReferencePitchA4(), 480.0);
-
-        // Audio render block consumes pending parameters without race conditions
-        engine.prepareToPlay(512, 44100.0);
-        juce::AudioBuffer<float> audioBuffer(2, 512);
-        audioBuffer.clear();
-        juce::AudioSourceChannelInfo channelInfo(&audioBuffer, 0, 512);
-        engine.getNextAudioBlock(channelInfo);
-
-        expect(engine.getTemperament() == AudioEngine::Temperament::werckmeister3);
         expectEquals(engine.getReferencePitchA4(), 480.0);
     }
 

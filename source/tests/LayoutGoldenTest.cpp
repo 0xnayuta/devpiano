@@ -30,8 +30,6 @@ public:
         devpiano::ui::jive::StyleCatalog::get().reset();
         devpiano::ui::DesignTokens::get().reset();
 
-        testAllDeclarativeLayoutSmoke();
-        drainMessages();
         testDeterministicRootLayoutBounds1280x720();
         drainMessages();
         testDeterministicRootLayoutBounds1920x1080();
@@ -46,51 +44,6 @@ public:
     static void drainMessages() {
         juce::MessageManager::getInstance()->runDispatchLoopUntil(2);
     }
-    // ────────────────────────────────────────────────────────────────────────
-    // 1. Interpretation Golden Smoke Tests
-    // ────────────────────────────────────────────────────────────────────────
-    void testAllDeclarativeLayoutSmoke() {
-        beginTest("Golden Smoke: Interpretation of all application layouts");
-
-        juce::MidiKeyboardState keyboardState;
-        devpiano::ui::ViewHost host;
-        host.registerKeyboardComponents(keyboardState);
-
-        // 1. Root Application Layout
-        {
-            auto tree = devpiano::ui::jive::makeRootLayout();
-            expect(host.loadLayout(tree, true));
-            expect(host.isValid());
-            expect(host.find<juce::Button>("settings-btn") != nullptr);
-            expect(host.find<juce::ComboBox>("plugin-selector") != nullptr);
-            expect(host.find<juce::Slider>("volume-knob") != nullptr);
-            expect(host.find("custom-keyboard") != nullptr);
-            expect(host.find("status-bar") != nullptr);
-            expect(host.find("midi-dot") != nullptr);
-            expect(host.find("audio-info-label") != nullptr);
-            expect(host.find("metronome-status-label") != nullptr);
-            drainMessages();
-        }
-
-        // 2. Settings Window Layout
-        {
-            auto tree = devpiano::ui::jive::makeSettingsLayoutTree();
-            expect(host.loadLayout(tree, true));
-            expect(host.isValid());
-            expect(host.find<juce::ComboBox>("audio-device-type-combo") != nullptr);
-            expect(host.find<juce::ComboBox>("key-signature-combo") != nullptr);
-            expect(host.find<juce::Button>("midi-transpose-toggle") != nullptr);
-            expect(host.find("follow-key-grid") != nullptr);
-            for (int ch = 0; ch < 16; ++ch) {
-                expect(host.find("follow-key-" + juce::String(ch)) != nullptr);
-            }
-            expect(host.find<juce::ComboBox>("lid-position-combo") != nullptr);
-            expect(host.find<juce::ComboBox>("touch-curve-combo") != nullptr);
-            expect(host.find<juce::Button>("save-button") != nullptr);
-            drainMessages();
-        }
-    }
-
     // ────────────────────────────────────────────────────────────────────────
     // 2. Deterministic Layout Bounds (1280x720)
     // ────────────────────────────────────────────────────────────────────────
@@ -262,13 +215,6 @@ public:
         expect(qwertyTitle != nullptr);
         expect(qwertyGroupButton != nullptr);
         expect(qwertyToggleButton != nullptr);
-        if (qwertyHeader != nullptr && qwertyTitle != nullptr && qwertyGroupButton != nullptr
-            && qwertyToggleButton != nullptr) {
-            expectEquals(qwertyHeader->getHeight(), 22);
-            expectEquals(qwertyTitle->getHeight(), 18);
-            expectEquals(qwertyGroupButton->getHeight(), 20);
-            expectEquals(qwertyToggleButton->getHeight(), 22);
-        }
 
         auto* presetCard = host.find("preset-card");
         auto* presetActionRow = host.find("preset-btn-row");
@@ -349,7 +295,6 @@ public:
             verifyKeyboardViewport();
             expectEquals(rootComp->getHeight(), collapsedMinHeight);
             expectEquals(qwertyComp->getHeight(), devpiano::ui::jive::kQwertyCollapsedCardHeight);
-            expectEquals(qwertyHeader->getHeight(), 22);
             expectEquals(controlsComp->getHeight(), expandedControlsHeight);
             expectEquals(presetCard->getHeight(), expandedControlsHeight);
             expectEquals(adsrCard->getHeight(), expandedControlsHeight);
@@ -389,12 +334,6 @@ public:
         expect(ch7 != nullptr);
         expect(ch8 != nullptr);
         expect(ch15 != nullptr);
-        if (auto* tb0 = host.find<juce::ToggleButton>("follow-key-0")) {
-            expectEquals(tb0->getButtonText(), juce::String("Ch1"));
-        }
-        if (auto* tb15 = host.find<juce::ToggleButton>("follow-key-15")) {
-            expectEquals(tb15->getButtonText(), juce::String("Ch16"));
-        }
 
         // All Row 0 items must share the same Y coordinate
         expectEquals(ch0->getY(), ch1->getY());

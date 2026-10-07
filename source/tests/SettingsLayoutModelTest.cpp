@@ -1,6 +1,5 @@
 #include <JuceHeader.h>
 
-#include "Audio/AudioDeviceDiagnostics.h"
 #include "Settings/SettingsComponent.h"
 #include "Settings/SettingsModel.h"
 #include "Settings/jive/SettingsLayoutModel.h"
@@ -23,11 +22,6 @@ public:
         devpiano::ui::jive::StyleCatalog::get().reset();
         devpiano::jive::DesignTokens::get().reset();
 
-        testSettingsLayoutTreeStructure();
-        testAudioDeviceSection();
-        testKeySignatureSectionAndGrid();
-        testKeyboardDisplaySection();
-        testAcousticsSection();
         testInterpretationAndComponentLookup();
         devpiano::test::drainMessages(2);
         testSettingsComponentRefreshTextsPreservesScroll();
@@ -37,91 +31,6 @@ public:
     }
 
 private:
-    void testSettingsLayoutTreeStructure() {
-        beginTest("makeSettingsLayoutTree: top-level structure and child sections");
-
-        auto tree = devpiano::ui::jive::makeSettingsLayoutTree();
-        expect(tree.isValid());
-        expectEquals(tree.getType().toString(), juce::String("Component"));
-        expectEquals(tree.getProperty("id").toString(), juce::String("settings-root"));
-
-        // All 5 core sections must be present
-        expect(findNodeById(tree, "audio-device-card").isValid());
-        expect(findNodeById(tree, "key-sig-card").isValid());
-        expect(findNodeById(tree, "keyboard-display-card").isValid());
-        expect(findNodeById(tree, "acoustics-card").isValid());
-        expect(findNodeById(tree, "diagnostics-card").isValid());
-        expect(findNodeById(tree, "save-action-row").isValid());
-    }
-
-    void testAudioDeviceSection() {
-        beginTest("makeAudioDeviceSectionTree: declarative controls and test button");
-
-        auto tree = devpiano::ui::jive::makeAudioDeviceSectionTree();
-        expect(tree.isValid());
-
-        expect(findNodeById(tree, "audio-device-title").isValid());
-        expect(findNodeById(tree, "audio-device-type-combo").isValid());
-        expect(findNodeById(tree, "audio-output-device-combo").isValid());
-        expect(findNodeById(tree, "audio-active-channels-combo").isValid());
-        expect(findNodeById(tree, "audio-test-button").isValid());
-        expect(findNodeById(tree, "audio-sample-rate-combo").isValid());
-        expect(findNodeById(tree, "audio-buffer-size-combo").isValid());
-        expect(findNodeById(tree, "asio-control-panel-row").isValid());
-        expect(findNodeById(tree, "asio-control-panel-button").isValid());
-    }
-    void testKeySignatureSectionAndGrid() {
-        beginTest("makeKeySignatureSectionTree: 16-channel CSS Grid and controls");
-
-        auto tree = devpiano::ui::jive::makeKeySignatureSectionTree();
-        expect(tree.isValid());
-
-        // Key signature controls
-        expect(findNodeById(tree, "key-sig-title").isValid());
-        expect(findNodeById(tree, "key-signature-combo").isValid());
-        expect(findNodeById(tree, "midi-transpose-toggle").isValid());
-
-        // 16 follow key toggles inside CSS grid
-        auto gridNode = findNodeById(tree, "follow-key-grid");
-        expect(gridNode.isValid());
-        expectEquals(gridNode.getProperty("display").toString(), juce::String("grid"));
-        expect(gridNode.getProperty("grid-template-columns").toString().contains("1fr"));
-
-        for (int ch = 0; ch < 16; ++ch) {
-            auto cb = findNodeById(tree, "follow-key-" + juce::String(ch));
-            expect(cb.isValid());
-            expectEquals(cb.getType().toString(), juce::String("Checkbox"));
-            expectEquals(cb.getProperty("text").toString(), "Ch" + juce::String(ch + 1));
-        }
-    }
-
-    void testKeyboardDisplaySection() {
-        beginTest("makeKeyboardDisplaySectionTree: display options and language");
-
-        auto tree = devpiano::ui::jive::makeKeyboardDisplaySectionTree();
-        expect(tree.isValid());
-
-        expect(findNodeById(tree, "keyboard-display-title").isValid());
-        expect(findNodeById(tree, "colour-mode-combo").isValid());
-        expect(findNodeById(tree, "note-display-combo").isValid());
-        expect(findNodeById(tree, "fade-speed-slider").isValid());
-        expect(findNodeById(tree, "instrument-filter-toggle").isValid());
-        expect(findNodeById(tree, "sustain-policy-combo").isValid());
-        expect(findNodeById(tree, "language-combo").isValid());
-    }
-    void testAcousticsSection() {
-        beginTest("makeAcousticsSectionTree: acoustic voicing options");
-
-        auto tree = devpiano::ui::jive::makeAcousticsSectionTree();
-        expect(tree.isValid());
-
-        expect(findNodeById(tree, "acoustics-title").isValid());
-        expect(findNodeById(tree, "lid-position-combo").isValid());
-        expect(findNodeById(tree, "touch-curve-combo").isValid());
-        expect(findNodeById(tree, "pedal-noise-slider").isValid());
-        expect(findNodeById(tree, "felt-ageing-slider").isValid());
-    }
-
     void testInterpretationAndComponentLookup() {
         beginTest("Interpretation and dynamic component lookup from SettingsLayoutModel");
 
@@ -202,6 +111,10 @@ private:
             auto* curveCombo = dynamic_cast<juce::ComboBox*>(findComponentById(*rootItem, "touch-curve-combo"));
             expect(curveCombo != nullptr);
 
+            auto* pedalSlider = dynamic_cast<juce::Slider*>(findComponentById(*rootItem, "pedal-noise-slider"));
+            expect(pedalSlider != nullptr);
+            auto* feltSlider = dynamic_cast<juce::Slider*>(findComponentById(*rootItem, "felt-ageing-slider"));
+            expect(feltSlider != nullptr);
             auto* diagEd = dynamic_cast<juce::TextEditor*>(findComponentById(*rootItem, "diagnostics-editor"));
             expect(diagEd != nullptr);
             if (diagEd != nullptr) {

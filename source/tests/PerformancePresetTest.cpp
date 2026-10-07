@@ -264,18 +264,7 @@ public:
                          juce::String("My Song"));
         });
 
-        testCase("makeDefaultPreset has the built-in identity", [&] {
-            const auto preset = makeDefaultPreset();
-            expectEquals(preset.name, juce::String("Default"));
-            expectEquals(preset.uuid, juce::String("d226a702-8342-5184-87c7-9852be35aa65"));
-            expectEquals(preset.layout.id, juce::String("default.preset.builtin"));
-            expect(preset.channelMatrix.active, "default matrix must be active");
-            expectEquals(static_cast<int>(preset.colourMode), static_cast<int>(devpiano::ui::KeyColourMode::classic));
-        });
-
-        testCase("ARCH-003: persistent UUID preserved across in-memory and disk round-trip", [&] {
-            devpiano::test::ScopedTempDir tempDir("preset-arch003");
-
+        testCase("ARCH-003: in-memory preset round-trip preserves fields and identity", [&] {
             // 1. In-memory round-trip via performancePresetToVar / performancePresetFromVar
             const auto original = makeFullPreset();
             const auto varObj = performancePresetToVar(original);
@@ -283,15 +272,6 @@ public:
             expect(fromVar.has_value(), "performancePresetFromVar must succeed");
             if (fromVar.has_value()) {
                 expectPresetsEqual(*this, original, *fromVar);
-            }
-
-            // 2. Disk round-trip preserves permanent identity
-            const auto testFile = tempDir.getChildFile("canonical.devpiano.preset");
-            expect(savePreset(original, testFile), "savePreset must succeed");
-            const auto loaded = loadPreset(testFile);
-            expect(loaded.has_value(), "loadPreset must succeed");
-            if (loaded.has_value()) {
-                expectEquals(loaded->uuid, original.uuid);
             }
         });
     }

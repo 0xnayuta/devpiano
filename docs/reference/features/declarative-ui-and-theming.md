@@ -171,13 +171,13 @@ UI 单元测试位于 `source/tests/`，覆盖通用弹窗、设置布局、样�
 | `JiveModalDialogTest` | 生产输入机制 | 使用生产 ViewHost 构建 Notes，注入字符和回车验证多行编辑；诊断 ListEditor 拒绝输入 | [x] 已通过 |
 | Windows 生产窗口消费者 | 真实窗口与生命周期 | 中英及内容缩放矩阵、输入确认／取消、验证拒绝、绑定编辑／按键捕获、真实 WAV 成功及协作取消；用户目录无变化 | [x] 直接界面验证 |
 | `StyleCatalogTest` | 动态圆角 | 固定 bounds 连续 radius 0→30→0，角像素立即匹配当前半径，不等待 resize | [x] 已通过 |
-| `SettingsLayoutModelTest`| 16 通道 CSS Grid | 验证通道跟随开关以 8 列 × 2 行网格声明，16 个 Toggle 节点完备 | [x] 已通过 |
-| `SettingsLayoutModelTest`| 声明式音频设备卡片 | 验证设备类型、输出设备、通道、测试按钮、采样率与缓冲大小等声明式节点完整性 | [x] 已通过 |
+| `LayoutGoldenTest` | 16 通道 CSS Grid | 解释后的跟随开关两行对齐、列顺序、行高与网格容器几何，不单独复制布局树声明 | [x] 已通过 |
+| `SettingsLayoutModelTest` | 生产组件解释与输入隔离 | 实际宿主中的设备/调号/显示/声学控件类型；语言刷新保留滚动位置，控件与背景鼠标滚轮隔离 | [x] 已通过 |
 | 生产 Settings 窗口 | 调号与跟随交互 | 实际 transpose 开关关闭时 followKey 禁用、开启时可编辑；不以属性赋值回读当业务证明，见 Phase G/H 消费者证据 | [x] 实际界面验证 |
 | `StyleCatalogTest` | Metro toggle checked 样式 | 验证 Metro 与传输按钮使用一致的中性轮廓，checked 状态不引入额外强调色 | [x] 已通过 |
-| `StyleCatalogTest` | 语义标题语言联动 | 验证语言切换时 JIVE 布局树中所有静态与动态标题节点同步重刷 | [x] 已通过 |
+| `StyleCatalogTest` | 语义标题语言联动 | 代表性容器、编辑器、预设与速度控件标题随语言切换变化并恢复，不固定具体译文 | [x] 已通过 |
 | `QwertyViewModelTest`    | 和声色相与对比度 | 验证 12-TET 和声色相间隔、八度同色、三全音互补与文字对比度算法 | [x] 已通过 |
 | `LayoutGoldenTest`       | 主窗口与设置布局几何 | 主窗口／设置解释及 1280x720、1920x1080 几何；980x740 展开与 980x580 折叠态下，88 键键床完整位于横向滚动条可视高度内；弹窗几何由 JiveModalDialogTest 独立验证 | [x] 已通过 |
-| `ViewHostTest`           | 宿主门面生命周期与查找 | 验证布局树解释加载、强类型组件检索、属性读写与容器尺寸重排 | [x] 已通过 |
+| `ViewHostTest` | 宿主生命周期、查找与活组件状态 | 解释加载与清理、强类型/缺失组件查找、enabled/visible 属性传播到真实按钮；尺寸重排由布局几何用例保护 | [x] 已通过 |
 | `ChordRecognitionTest`   | 和弦实时识别（`DevPiano/Core` 默认门禁） | 验证单音、音程、三和弦、七和弦识别、转位推导与置信度，为 QWERTY HUD 提供数据支撑；确认默认日志实际执行，非单独补跑 | [x] 已通过 |
 | `MetronomeTest`          | 节拍器状态机 | 验证 BPM 节拍计算、强弱拍判断、预备拍调度与生命周期稳定性 | [x] 已通过 |

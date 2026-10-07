@@ -1,6 +1,5 @@
 #include <JuceHeader.h>
 
-#include "Audio/AudioEngine.h"
 #include "Audio/PianoSynthVoice.h"
 #include "Layout/PerformancePreset.h"
 #include "Settings/SettingsModel.h"
@@ -20,7 +19,6 @@ public:
     }
 
     void runTest() override {
-        testAudioEngineLidPositionState();
         testPianoSynthVoiceAcousticResponse();
         testDynamicLidSwitchDuringPlayback();
         testSettingsModelAndStorePersistence();
@@ -28,22 +26,6 @@ public:
     }
 
 private:
-    void testAudioEngineLidPositionState() {
-        beginTest("AudioEngine: setLidPosition and getLidPosition atomic state");
-
-        AudioEngine engine;
-        expect(engine.getLidPosition() == AudioEngine::LidPosition::fullOpen);
-
-        engine.setLidPosition(AudioEngine::LidPosition::halfStick);
-        expect(engine.getLidPosition() == AudioEngine::LidPosition::halfStick);
-
-        engine.setLidPosition(AudioEngine::LidPosition::closed);
-        expect(engine.getLidPosition() == AudioEngine::LidPosition::closed);
-
-        engine.setLidPosition(AudioEngine::LidPosition::fullOpen);
-        expect(engine.getLidPosition() == AudioEngine::LidPosition::fullOpen);
-    }
-
     void testPianoSynthVoiceAcousticResponse() {
         beginTest("PianoSynthVoice: Acoustic filtering variation across 3 lid positions");
 
@@ -177,7 +159,7 @@ private:
     }
 
     void testPerformancePresetAcousticRoundTrip() {
-        beginTest("PerformancePreset: Acoustic lid position round-trip and backward compatibility");
+        beginTest("PerformancePreset: Acoustic lid round-trip and optional acoustics fallback");
 
         devpiano::test::ScopedTempDir tempDir("lid-preset");
         const auto presetFile = tempDir.getChildFile("acoustic_preset.devpiano.preset");
@@ -198,7 +180,7 @@ private:
         }
 
         // 3. Safe fallback for presets lacking acoustics field
-        const juce::String legacyJson = R"({
+        const juce::String missingAcousticsJson = R"({
             "version": 2,
             "uuid": "44444444-5555-6666-7777-888888888888",
             "name": "DefaultAcousticsPreset",
@@ -206,15 +188,15 @@ private:
             "keyboard": { "keySignature": 0, "midiTranspose": false }
         })";
 
-        const auto legacyFile = tempDir.getChildFile("default_acoustics_preset.devpiano.preset");
-        expect(legacyFile.replaceWithText(legacyJson));
+        const auto missingAcousticsFile = tempDir.getChildFile("default_acoustics_preset.devpiano.preset");
+        expect(missingAcousticsFile.replaceWithText(missingAcousticsJson));
 
-        auto legacyLoadedOpt = devpiano::layout::loadPreset(legacyFile);
-        expect(legacyLoadedOpt.has_value());
-        if (legacyLoadedOpt.has_value()) {
-            expectEquals(legacyLoadedOpt->name, juce::String("DefaultAcousticsPreset"));
+        auto missingAcousticsPreset = devpiano::layout::loadPreset(missingAcousticsFile);
+        expect(missingAcousticsPreset.has_value());
+        if (missingAcousticsPreset.has_value()) {
+            expectEquals(missingAcousticsPreset->name, juce::String("DefaultAcousticsPreset"));
             // 缺省声学字段安全回退到 fullOpen
-            expect(legacyLoadedOpt->lidPosition == SettingsModel::LidPosition::fullOpen);
+            expect(missingAcousticsPreset->lidPosition == SettingsModel::LidPosition::fullOpen);
         }
     }
 };

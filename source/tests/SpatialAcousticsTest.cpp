@@ -52,12 +52,6 @@ private:
         expect(loadedModel.soundPerspective == SoundPerspective::audience);
         expect(loadedModel.reverbSpace == ReverbSpace::concertHall);
         expectWithinAbsoluteError(loadedModel.reverbWet, 0.35f, 1e-4f);
-
-        // Verify PerformanceSettingsView accessor round-trip
-        const auto view = loadedModel.getPerformanceSettingsView();
-        expect(view.soundPerspective == SoundPerspective::audience);
-        expect(view.reverbSpace == ReverbSpace::concertHall);
-        expectWithinAbsoluteError(view.reverbWet, 0.35f, 1e-4f);
     }
 
     void testSettingsStoreBoundaryClamping() {

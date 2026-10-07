@@ -55,12 +55,6 @@ private:
         expect(loadedModel.touchVelocityCurve == devpiano::input::TouchVelocityCurve::heavy,
                "TouchVelocityCurve should be preserved as heavy");
         expect(loadedModel.unaCorda == true, "unaCorda state should be preserved as true");
-
-        // Verify PerformanceSettingsView accessor round-trip
-        const auto view = loadedModel.getPerformanceSettingsView();
-        expect(view.lidPosition == SettingsModel::LidPosition::halfStick);
-        expect(view.touchVelocityCurve == devpiano::input::TouchVelocityCurve::heavy);
-        expect(view.unaCorda == true);
     }
 
     void testSettingsStoreCorruptedBoundaryClamping() {

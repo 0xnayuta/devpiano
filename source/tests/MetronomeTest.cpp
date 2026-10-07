@@ -23,7 +23,6 @@ public:
         testMetronomeBpmPhaseRebase();
         testMutedClickExpiresBeforeUnmute();
         testMetronomeAudioEngineIntegration();
-        testCountInModel();
         testMetronomeEnabledBeforePrepare();
         testMetronomeStateTransitionsAndLifecycle();
         testCountInSampleAccurateDownbeatOneAndTwoBars();
@@ -379,15 +378,6 @@ private:
 
         // Click transient mixed into buffer
         expect(buffer.getMagnitude(0, 256) > 0.01f);
-    }
-
-    void testCountInModel() {
-        beginTest("Count-in bars model helper");
-
-        using devpiano::core::CountInBars;
-        expectEquals(devpiano::core::getCountInBarCount(CountInBars::none), 0);
-        expectEquals(devpiano::core::getCountInBarCount(CountInBars::oneBar), 1);
-        expectEquals(devpiano::core::getCountInBarCount(CountInBars::twoBars), 2);
     }
 
     void testMetronomeStateTransitionsAndLifecycle() {
