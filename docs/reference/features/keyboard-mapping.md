@@ -92,7 +92,7 @@ AudioEngine::liveMidiQueue（有界 SPSC）──► [音频回调线程]
 
 ## 4. QWERTY 演奏看板与和声色彩投影
 
-在 Phase 34-A 中，devpiano 在主界面引入了基于 JIVE 声明式 UI 驱动的 5 行 ANSI 物理键盘映射卡片（`QwertyComponent`）：
+devpiano 在主界面嵌入基于内生声明式 UI 驱动的 5 行 ANSI 物理键盘映射卡片（`QwertyComponent`）：
 
 1. **5 行物理网格**：依次呈现数字、QWERTY、ASDF、ZXCV 与底部修饰行；底部行显示 Ctrl/Win/Alt 和 Space 踏板，不包含 Esc/F1-F12 功能行；
 2. **动态击键反馈与余晖**：物理按键按下时视觉方块下沉并高亮，与 88 键虚拟钢琴键盘同频联动；松开后由 50fps 定时器执行指数余晖淡出；

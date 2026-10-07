@@ -1,7 +1,7 @@
 # 内置物理建模钢琴音源功能说明与技术参考
 
 > 用途：说明 devpiano 自主研发、纯 C++ 物理建模钢琴合成器（`PianoSynthVoice`）的完整声学物理系统、算法机理、参数控制、实时性能、分层并发契约与测试验收清单。
-> 当前状态：已全量实现并确立为默认内置音色；产品自有发声路径达成零堆分配、零锁、全回调零库函数三角与 0.7% 单核 CPU 物理 SLA。
+> 行为契约：默认内置发声来源；产品自有发声路径达成零堆分配、零锁、全回调零库函数三角与 0.7% 单核 CPU 物理 SLA。项目状态以 [roadmap](../../roadmap/roadmap.md) 为准。
 > 更新时机：声学物理模型、DSP 拓扑结构、88 键参数表、音色控制链路或硬实时契约发生变化时。
 
 ---
@@ -102,7 +102,7 @@
 4. **琴槌接触微阻尼与脱离释放（Contact-Release Dynamics）**：
    - 在琴槌触弦的 $T_c$ 时间窗口内引入物理粘滞阻尼，消灭传统正弦合成在 $t=0$ 瞬间突兀开门的电子合成器感；琴槌脱离后琴弦平滑进入自由振动阶段。
 
-5. **琴槌毛毡微老化物理动力学（Felt Ageing Dynamics，Phase 32-C）**：
+5. **琴槌毛毡微老化物理动力学（Felt Ageing Dynamics）**：
    - 引入连续老化参数 $A_{\text{felt}} \in [0, 1]$（`feltAgeingAmount`，默认 0.0 保留纯净基准）；
    - 模拟反复击弦导致的局部羊毛纤维压实与硬化微尖锐：有效毛毡硬度增加 $h_{\text{eff}} \mathrel{+}= 0.18 A_{\text{felt}}$，接触时间动态缩短 $T_c \mathrel{*}= (1.0 - 0.15 A_{\text{felt}})$，高频截止点 $f_c$ 与滚降斜率提升，赋予击键更具穿透力的微观硬化质感。
 
@@ -142,7 +142,7 @@
 7. **强击非线性音高微漂移与软饱和（Pitch Glide & Soft Saturation）**：
    - $fff$ 强击瞬间琴弦张力增加导致音高产生 $2\sim 5$ 音分的瞬态上浮（$20\sim 40\text{ ms}$ 内指数回落）；结合音板三次谐波软饱和，重现大动态下的金属张力张力感。
 
-8. **泛音刚度不谐和度抖动（Inharmonicity Jitter，Phase 32-C）**：
+8. **泛音刚度不谐和度抖动（Inharmonicity Jitter）**：
    - 采用确定性逐键整数哈希，为 88 键分别注入 $\pm 4.5\%$ 的微观不谐和度刚度扰动 $\Delta B$ 与 $\pm 0.3\sim 1.2\text{ cents}$ 基频分散微调；
    - 真实再现手工缠弦厚度微偏差与挂弦张力离散度，彻底打破纯算法生成的过分对称与人工冰冷感。
 
@@ -174,27 +174,27 @@
 1. **16 通道踏板矩阵与交感共鸣系统（Pedal Matrix & Sympathetic Resonance）**：
    - **16 通道踏板物理隔离**：`BuiltinSynthesiser` 独立维护 16 个 MIDI 通道的踏板物理状态矩阵（CC64 延音 `sustainPedalByChannel`、CC66 保持音 `sostenutoPedalByChannel`、CC67 柔音 `softPedalByChannel`）；
    - 踩下 CC64 延音踏板时激活 12 半音全开放交感共鸣弦池，使演奏音符的泛音激发全琴未制音琴弦的共振；
-   - **踏板机械扫掠声与共鸣冲击（Phase 32-A）**：踩下踏板时激发成对的机械毛毡抬起刮擦与空气呼啸脉冲（`pedalWhoosh`，带通 $1350\text{ Hz}$，$Q=1.25$；抬起带通 $950\text{ Hz}$）以及全琴瞬态弱冲击激发（`pedalResonanceShock`，双共振冲击峰 $58\text{ Hz}$ 与 $116\text{ Hz}$），由 `pedalNoiseLevel`（默认 0.6）线性缩放；
+   - **踏板机械扫掠声与共鸣冲击**：踩下踏板时激发成对的机械毛毡抬起刮擦与空气呼啸脉冲（`pedalWhoosh`，带通 $1350\text{ Hz}$，$Q=1.25$；抬起带通 $950\text{ Hz}$）以及全琴瞬态弱冲击激发（`pedalResonanceShock`，双共振冲击峰 $58\text{ Hz}$ 与 $116\text{ Hz}$），由 `pedalNoiseLevel`（默认 0.6）线性缩放；
    - 支持**未踩踏板时的单键开放弦交感（Duplex & Unpedaled Resonance）**：按住低音键弹奏高音时，低音键对应的开放琴弦产生物理交感振动；
-   - **CC67 弱音/移位踏板物理拟真（Una Corda / Soft Pedal，Phase 29-B）**：踩下 CC67 踏板时击弦机向右微移，敲击毛毡侧面相对柔软区域（有效硬度衰减至多 25%，接触时间延长至多 20%），中高音区三弦组产生三弦敲两弦（Trichord to Bichord）声能衰减（至多 30% 衰减），呈现柔和朦胧的暗调色泽；
+   - **CC67 弱音/移位踏板物理拟真（Una Corda / Soft Pedal）**：踩下 CC67 踏板时击弦机向右微移，敲击毛毡侧面相对柔软区域（有效硬度衰减至多 25%，接触时间延长至多 20%），中高音区三弦组产生三弦敲两弦（Trichord to Bichord）声能衰减（至多 30% 衰减），呈现柔和朦胧的暗调色泽；
    - **柔音状态所有权**：实时和内置离线合成共用 `BuiltinSynthesiser`，按 MIDI 通道保管 CC67 连续值（`0.0 ~ 1.0`），在新声部 `startNote()` 前应用；重新分配和偷声部不继承其他通道的柔音。机械聚合声部的宽监听谓词不作为 NoteOn/NoteOff 或柔音的发音通道身份。CC67 Up / CC121 更新当前与后续声部，CC120/123 不冒充踏板释放。
 
 2. **琴盖开合度声学传递函数（Lid Position Acoustics）**：
    - 支持 3 种琴盖物理状态：全开（Full Open）、半开（Half Stick）、闭盖（Closed Lid）。
 
-3. **制音器落木闷击与琴键释放机械瞬态（Damper Release & Key Thump，Phase 32-B）**：
+3. **制音器落木闷击与琴键释放机械瞬态（Damper Release & Key Thump）**：
    - 琴键释放时，制音器机械臂带动羊毛毡压回琴弦：
      - 快离键（$v_{\text{rel}} > 0.6$）：激发显著的木质制音头撞击闷响（Wood Thump）并伴随陡峭的高频能量消散；
      - 慢离键（$v_{\text{rel}} \le 0.6$）：延长羊毛毡与琴弦微弱摩擦接触时间，保留轻柔舒缓的余音渐退；
      - 高音无制音器区（MIDI > 88）：跳过毛毡吸振阻尼，但忠实保留按键弹回木质撞击声；
      - **动态 ADSR 离键阻尼缩放**：根据离键速度动态调节释放时间常数 $\tau_{\text{rel}} = \tau_{\text{base}} \cdot (1.5 - 0.75 v_{\text{rel}})$，且基准配置参数跨生命周期严格保持不被永久覆盖。
 
-4. **立体声空间视角成像（PerspectiveProcessor，Phase 31-A）**：
+4. **立体声空间视角成像（PerspectiveProcessor）**：
    - 提供**演奏者视角（Player）**与**听众视角（Audience）**双重声学渲染：
      - 演奏者视角：88 键琴桥展开，低音居左、高音居右，近场宽广；
      - 听众视角：声像左右镜像翻转，并施加适度的高频空气吸收与中置凝聚感。
 
-5. **轻量数学算法房间混响网络（RoomReverbEngine，Phase 31-B）**：
+5. **轻量数学算法房间混响网络（RoomReverbEngine）**：
    - 内置纯数学算法立体声混响网络，基于 8 组互质延时反馈梳状滤波阵列与 4 级全通扩散矩阵（Schroeder-Moorer 架构演进），零外部采样依赖；
    - 提供 **Studio（录音棚 0.6s）**、**Chamber（室内乐厅 1.5s）** 与 **Concert Hall（音乐厅 2.4s）** 三大经典声学空间预设（C++ 枚举 `ReverbSpace::studio`、`chamber`、`concertHall`；文件持久化标识分别为 `studio`、`chamber`、`concert_hall`，旧别名 `hall` 不再映射，未知标识安全回退至 `chamber`），支持平滑干湿比（`reverbWet`）无级调节；
    - **直通与抗下溢保护**：`RoomReverbEngine::processStereo()` 在目标与平滑后的当前 wet 均 `<= 1e-4` 时旁路混响 DSP，保留边界判断；实时入口启用 `juce::ScopedNoDenormals`，滤波器内部另有衰减归零保护。

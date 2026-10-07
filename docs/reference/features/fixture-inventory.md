@@ -1,7 +1,7 @@
 # MIDI / Performance 测试夹具清单
 
 > 用途：记录固定 MIDI fixture 样本库与程序化 performance 测试输入，作为 MIDI 导入/导出/roundtrip/回放行为与自动化测试的统一输入基准。
-> 当前状态：已全量落地并稳定服务于 `source/tests/MidiFileImporterTest.cpp`、`PerformanceFileTest.cpp` 与日常冒烟测试。
+> 适用范围：服务于 `MidiFileImporterTest`、`PerformanceFileTest` 与日常冒烟测试。项目状态以 [roadmap](../../roadmap/roadmap.md) 为准。
 > 更新时机：新增或修改 fixture 文件时。
 
 ## 1. 概述与定位
@@ -37,7 +37,7 @@ tests/fixtures/
 |--------|----------|----------|
 | `simple-notes.mid` | 单轨，60/64/67 三个音符依次发声，velocity 100/80/60，时长各 0.5s，120 BPM，960 PPQ | MIDI 导入基础验证；roundtrip 往返对比基准 |
 | `velocity-channel.mid` | 单轨，16 个音符跨不同 velocity(20/64/127) 和 2 个 channel(1/2) | 验证 velocity 解析、channel 分配是否正确 |
-| `sustain-pedal.mid` | 单轨，含 CC64 sustain on(127) / sustain off(0)，覆盖多个音符 | Phase 6-5 增强导入验证；sustain 效果可听性 |
+| `sustain-pedal.mid` | 单轨，含 CC64 sustain on(127) / sustain off(0)，覆盖多个音符 | 验证 sustain pedal 导入与效果可听性 |
 | `multitrack-basic.mid` | Type 1，2 个 track，track 0 含 tempo meta，track 1 含 note 事件 | 验证全轨并轨后 Track 1 音符进入统一 Take |
 | `tempo-change-basic.mid` | 单轨，0ms 设 tempo 120，500ms 后切换为 tempo 180 | 验证 Tempo Map 元数据解析和播放事件中的 Meta 过滤 |
 | `empty.mid` | 合法 MIDI 文件头，但零 track、零事件 | 验证空文件导入不崩溃，Logger 输出警告 |

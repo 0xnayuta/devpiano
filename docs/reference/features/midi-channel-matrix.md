@@ -1,7 +1,7 @@
 # 16 通道 MIDI 矩阵与全局调号系统功能说明
 
 > 用途：说明 devpiano 的 16 通道 MIDI 矩阵路由（`ChannelMatrix`）、`MidiChannelMapper` 服务、每通道独立变换、按键跟随（`followKey`）与全局调号（Key Signature）系统。
-> 当前状态：已全量实现并稳定集成于键盘演奏与 Performance Preset 中。
+> 适用范围：集成于电脑键盘演奏与 Performance Preset 中。项目状态以 [roadmap](../../roadmap/roadmap.md) 为准。
 > 更新时机：矩阵数据结构、通道路由规则或调号计算逻辑发生变化时。
 
 ---

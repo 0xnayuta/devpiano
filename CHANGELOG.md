@@ -10,6 +10,7 @@
 
 - **Complete Localized Message Templates** — adopt full sentence templates with `{0}` placeholders across preset delete/overwrite confirmations, save/rename/delete status toasts, count-in counters, export notifications, key bindings, and plugin statuses; clean up obsolete string fragments in `zh_CN.loc` and enforce single-pass parameter substitution without recursive expansion.
 - **Synchronized Active Feature Documentation and Compatibility Statements** — systematically audit all 13 active feature documents, project portals, architecture references, and checklists against production code. Enforce integer v2 presets and integer v3 performance files, trimmed non-empty UUIDs, canonical reverb identifiers (`concert_hall`), single-parameter full message templates (ADR-015), fixed 2.0s WAV export tail bounds, and VST3 host boundaries while preserving historical audits and archives.
+- **Documentation Maintenance Surface Streamlining & Deduplication** — enforce the anti-drift policy across active reference documentation and ADRs; replace volatile engineering metrics (specific assertion counts, test case quantities, source line counts, and build durations) with stable qualitative invariants. Consolidate duplicate current status recitals across all 13 feature documents to single source of truth references in `roadmap.md`, while preserving historical audit reports and archives unchanged.
 
 ### Fixed
 

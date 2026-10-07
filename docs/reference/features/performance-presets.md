@@ -1,7 +1,7 @@
 # Performance Preset 预设系统与 CRUD 编排说明
 
 > 用途：说明 devpiano 的 Performance Preset 预设系统、`.devpiano.preset` JSON 格式规范、CRUD 编排流（`PresetFlowSupport`）、F1-F12 快捷键与录制切调集成。
-> 当前状态：已全量实现并稳定服务于演奏配置管理。
+> 适用范围：服务于演奏配置 Schema v2 的持久化与快捷管理。项目状态以 [roadmap](../../roadmap/roadmap.md) 为准。
 > 更新时机：预设数据模型、文件格式版本或快捷键调度规则发生变化时。
 
 ---
@@ -118,7 +118,7 @@
 
 ### 2.2 键位分组对象（`groups` 与 `activeGroupIndex`）
 
-在 Phase 34-B 中，`layout` 节点引入了多键位分组持久化支持：
+`layout` 节点支持多键位分组持久化：
 
 | 属性字段 | 数据类型 | 取值范围与默认值 | 含义与作用 |
 |---|:---:|:---:|---|

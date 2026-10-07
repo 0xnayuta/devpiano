@@ -83,13 +83,13 @@ graph LR
 2. **Phase 1（闭包提取与内化）**：[已完成] 搬迁核心源码入 `source/UI/jive/core/`，调整命名空间与依赖，通过全量单元测试与编译。
 3. **Phase 2（子模块退役）**：[已完成] 执行 `git submodule deinit -f submodules/JIVE`，清理 `.gitmodules` 与 `CMakeLists.txt`，物理删除 `submodules/JIVE`。
 4. **Phase 3（JUCE 9 升级与代码质量治理）**：[已完成] 切换并锁定 JUCE 9.0.1 发布版（`e18f7f5`），完成 `FontOptions`、`GlyphArrangement` 与 `DrawableComponent` 适配；对内化代码执行 C++20 现代化（`override`、`noexcept`、`const-ref`）并完全纳入 CI `clang-tidy` 严苛门禁。
-5. **Phase 4（全系统回归与发布闭环）**：[已完成] 完成全系统测试（12,668+ 断言）、双端双配置（Debug/Release）构建验证、Windows 分发包打包以及 GitHub Actions 五大自动化门禁验证，成功合入 `main` 主干。
+5. **Phase 4（全系统回归与发布闭环）**：[已完成] 完成全系统测试全量断言回归、双端双配置（Debug/Release）构建验证、Windows 分发包打包以及 GitHub Actions 五大自动化门禁验证，成功合入 `main` 主干。
 
 ---
 
 ## 原因
 
-1. **极限代码瘦身与架构纯粹性**：剔除 1.6 万行无用代码与死代码，消除外部黑盒。
+1. **极限代码瘦身与架构纯粹性**：剔除大量无用代码与死代码，消除外部黑盒。
 2. **扫清 JUCE 9.0.1 升级障碍**：所有 UI 运行时代码完全内生，使大版本编译器与 API 迁移在项目内部闭环解决。
 3. **长期可维护性与产品特化**：坚决拒绝“通用 UI Framework”的过度设计陷阱，为 devpiano 打造专属、极速、零冗余的 Declarative UI 基础设施。
 4. **保留未来高概率扩展期权**：通过 KEEP-LATER 策略，确保未来构建复杂预设网格或动效时无需重新造轮子。
@@ -99,7 +99,7 @@ graph LR
 ## 实施复盘与最终成效 (Post-Implementation Review)
 
 1. **彻底摆脱外部 Git Submodule 迭代枷锁**：项目外部子模块仅剩 `submodules/JUCE`（固定于 JUCE 9.0.1 官方发布标签），`.gitmodules` 与构建依赖纯净透明。
-2. **代码资产规模极致精简**：从 JIVE 原上游 >24,000 行冗余实现收敛为 4,000 余行的高内聚内生源码，构建时间显著优化，消灭了一切未用黑盒抽象。
+2. **代码资产规模极致精简**：从 JIVE 原上游冗余实现收敛为高内聚内生源码，构建时间显著优化，消灭了一切未用黑盒抽象。
 3. **JUCE 9 演进阻力归零**：所有 UI 运行时代码作为普通项目源文件直接维护，未来跟随 JUCE 大版本演进拥有 100% 敏捷适配与自主演进能力。
 4. **统一的代码质量与 CI 门禁治理**：内化后的 UI 代码正式解除静态分析豁免，与核心业务代码享有同等规格的 C++20 规范与 Clang-Tidy 零警告把关。
 5. **ADR-008 正式废止**，由本文档接替成为 UI 基础设施层面的唯一权威架构决策依据。
@@ -120,7 +120,7 @@ graph LR
    - 16 通道 CSS Grid 对齐几何断言；
    - 88 键虚拟键盘焦点绝不抢占与鼠标滑音（Glissando）严格 On/Off 配对不变量。
 3. **极端死重清理与规范化**：
-   - 清除 33 个核心源码文件底部的 `#if JIVE_UNIT_TESTS` 块，删除 7,470 行死代码；
+   - 清除核心源码文件底部的 `#if JIVE_UNIT_TESTS` 块与未用死代码；
    - 清除历史垫片 `jive_JuceVersion.h` 与 4 个空壳 `.cpp`；
    - 规范宏前缀 `DEVPIANO_UI_ENABLE_GRID`、`DEVPIANO_UI_WITH_STYLES` 与 `devpiano::ui::DesignTokens` 全局命名空间。
 4. **UI Infrastructure API Freeze（接口冻结公约生效）**：

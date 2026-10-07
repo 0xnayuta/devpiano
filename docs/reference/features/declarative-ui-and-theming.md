@@ -1,7 +1,7 @@
 # JIVE 声明式 UI、设计系统与通用弹窗架构说明
 
 > 用途：说明 devpiano 基于内生声明式 UI 运行时（`source/UI/jive/core/`）的界面布局体系、Design Tokens 设计变量、StyleCatalog 全局样式表、统一宿主门面（`ViewHost`）、通用模态弹窗（`JiveModalDialog`）与 Native 组件注入机制。
-> 当前状态：已全量落地（Phase 11 主窗口迁移、Phase 15 设置面板重构、Phase 28 ViewHost 治理、Phase 29~32 声学调律卡片与 Phase 34~35 QWERTY / 节拍器 / 和弦 HUD / 时间轴持续演进）。
+> 架构范围：主窗口、设置面板、统一宿主门面（ViewHost）、声学调律卡片、QWERTY 看板、和弦 HUD 与时间轴均由内生声明式 UI 驱动。项目状态以 [roadmap](../../roadmap/roadmap.md) 为准。
 > 更新时机：UI 布局模型、设计 Token、样式表规则、弹窗模板或组件工厂扩展时。
 
 ---
@@ -73,7 +73,7 @@ Performance Preset 的 New、Rename、Delete 保持在上方，Export、Import�
 1. **音频设备卡片（`makeAudioDeviceSectionTree`）**：全声明式布局，包含设备类型下拉框（`audio-device-type-combo`）、输出设备下拉框（`audio-output-device-combo`）与测试按钮（`audio-test-button`）、活动输出通道（`audio-active-channels-combo`）、采样率下拉框（`audio-sample-rate-combo`）、缓冲大小下拉框（`audio-buffer-size-combo`）与 ASIO 设备控制面板按钮（`asio-control-panel-button`，仅 ASIO 模式展开）；
 2. **调号与通道跟随卡片（`makeKeySignatureSectionTree`）**：全局调号选择器、MIDI 移调开关以及采用 **JIVE CSS Grid（8 列 × 2 行）** 声明的 16 通道跟随开关（`followKeyArea` + 16 个 `follow-key-N` 复选框）；
 3. **键盘显示与语言卡片（`makeKeyboardDisplaySectionTree`）**：按键着色模式（Classic / Channel / Velocity / Harmony 4 种模式）、音符标注模式（DoReMi / FixedDo / NoteName）、按键淡出速度滑块、乐器过滤器开关、**延音踏板策略选择（`sustain-policy-combo`：Normal / Sync Pedal）**与运行时中英文切换；
-4. **声学与调律卡片（`makeAcousticsSectionTree`，Phase 29~32 演进）**：采用模块化卡片排版，包含 9 项关键物理声学控件：
+4. **声学与调律卡片（`makeAcousticsSectionTree`）**：采用模块化卡片排版，包含 9 项关键物理声学控件：
    - **Row 1 琴盖开合度**（`lid-position-combo`）：全开（Full Open）、半开（Half Stick）、闭盖（Closed Lid）；
    - **Row 2 触键力度曲线**（`touch-curve-combo`）：标准（Standard）、轻触（Light）、重触（Heavy）、宽动态（Wide Dynamic）；
    - **Row 3 古典微调律制**（`temperament-combo`）：平均律（Equal）、纯律（Just）、毕达哥拉斯律（Pythagorean）、中庸全音律（Meantone）、韦克迈斯特三律（Werckmeister III）、基恩伯格三律（Kirnberger III）；

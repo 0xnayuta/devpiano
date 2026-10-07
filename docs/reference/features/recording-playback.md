@@ -1,7 +1,7 @@
 # 演奏实时录制、回放与 MIDI 导出功能说明
 
 > 用途：说明 devpiano 的实时演奏录制（`RecordingEngine`）、多通道 MIDI 采集、回放事件调度、标准 MIDI 导出（`MidiFileExporter`）与专项测试清单。
-> 当前状态：已全量实现并稳定服务于演奏录制与回放。
+> 适用范围：服务于实时演奏录制、回放调度与标准 Type 1 MIDI 导出。项目状态以 [roadmap](../../roadmap/roadmap.md) 为准。
 > 更新时机：录制引擎边界、回放调度器或 MIDI 导出格式发生变化时。
 
 ---

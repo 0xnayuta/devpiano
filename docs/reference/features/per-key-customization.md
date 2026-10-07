@@ -1,7 +1,7 @@
 # 逐键个性化、按键绑定与虚拟键盘定制功能说明
 
 > 用途：说明 devpiano 的 88 键虚拟钢琴键盘（`CustomKeyboard`）、逐键自定义标签（`customKeyLabels`）、逐键独立颜色（`customKeyColours`）、按键绑定编辑对话框（`KeyBindingEditDialog`）与调色板交互体系。
-> 当前状态：已全量实现并稳定集成于键盘演奏与 Performance Preset 中（Phase 8 基础落地，Phase 34~35 扩展 12-TET 和声色盘与击键力度动态高亮）。
+> 适用范围：集成于虚拟键盘演奏与 Performance Preset 中，支持 12-TET 和声色盘与动态击键高亮。项目状态以 [roadmap](../../roadmap/roadmap.md) 为准。
 > 更新时机：键盘几何渲染、着色模式、按键捕获交互或绑定数据结构发生变化时。
 
 ---
