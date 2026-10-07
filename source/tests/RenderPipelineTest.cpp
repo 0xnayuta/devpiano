@@ -210,6 +210,33 @@ public:
             expectEquals(static_cast<int>(tracker.noteOff(2, 60).outputPitch), 65);
             expect(!tracker.noteOff(2, 60).matched);
         });
+
+        testCase("playback identity tracker locks transposed pitch and releases it regardless of subsequent offset",
+                 [&] {
+                     devpiano::audio::PlaybackIdentityTracker tracker;
+                     // Channel 1: NoteOn source note 69 with transposed candidate pitch 81 (+12)
+                     const auto assigned = tracker.noteOn(1, 69, 81);
+                     expect(assigned.has_value());
+                     expectEquals(static_cast<int>(*assigned), 81);
+
+                     // Channel 10: NoteOn source note 69 exempt from transposition (candidate pitch 69)
+                     const auto assignedCh10 = tracker.noteOn(10, 69, 69);
+                     expect(assignedCh10.has_value());
+                     expectEquals(static_cast<int>(*assignedCh10), 69);
+
+                     // Subsequent offset shift would map note 69 to 57 (-12), but tracker releases original locked
+                     // pitch 81
+                     const auto releaseCh1 = tracker.noteOff(1, 69);
+                     expect(releaseCh1.matched);
+                     expect(releaseCh1.shouldEmit);
+                     expectEquals(static_cast<int>(releaseCh1.outputPitch), 81);
+
+                     // Channel 10 releases locked pitch 69
+                     const auto releaseCh10 = tracker.noteOff(10, 69);
+                     expect(releaseCh10.matched);
+                     expect(releaseCh10.shouldEmit);
+                     expectEquals(static_cast<int>(releaseCh10.outputPitch), 69);
+                 });
     }
 };
 

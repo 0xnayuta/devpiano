@@ -4,6 +4,7 @@
 #include "Export/WavExportTask.h"
 #include "Recording/MidiFileExporter.h"
 #include "Recording/RecordingEngine.h"
+#include "Recording/RenderPipeline.h"
 #include "Recording/WavFileExporter.h"
 #include "TestHelpers.h"
 
@@ -346,6 +347,159 @@ public:
             expect(exportTakeAsWavFile(take, path, options), "WAV export with preset should succeed");
             expect(path.existsAsFile());
             expectGreaterThan(static_cast<int>(path.getSize()), 1024);
+        });
+
+        testCase("WAV export applies snapshot transposition and preserves note-off identity across preset change", [&] {
+            devpiano::test::ScopedTempDir tempDir("wav-transpose-identity");
+            const auto path = tempDir.getChildFile("transpose_identity.wav");
+
+            RecordingTake take;
+            take.sampleRate = 48000.0;
+            take.lengthSamples = 48000;
+
+            RecordedPreset p0;
+            p0.preset.name = "TransposeUp";
+            p0.acoustic.builtinTone = devpiano::core::BuiltinTone::sine;
+            p0.acoustic.transposeEnabled = true;
+            p0.acoustic.transposeOffset = 12;
+            p0.acoustic.channelFollowKeyMask = 0b1111110111111111;
+            p0.acoustic.masterGain = 0.8f;
+            p0.acoustic.adsr = { 0.001f, 0.05f, 1.0f, 0.01f };
+
+            RecordedPreset p1;
+            p1.preset.name = "TransposeDown";
+            p1.acoustic.builtinTone = devpiano::core::BuiltinTone::sine;
+            p1.acoustic.transposeEnabled = true;
+            p1.acoustic.transposeOffset = -12;
+            p1.acoustic.channelFollowKeyMask = 0b1111110111111111;
+            p1.acoustic.masterGain = 0.8f;
+            p1.acoustic.adsr = { 0.001f, 0.05f, 1.0f, 0.01f };
+
+            take.presets = { p0, p1 };
+
+            // Start with preset 0 (+12 offset)
+            take.events.push_back(
+                { 0, PerformanceEventType::presetChange, 0, RecordingEventSource::computerKeyboard, {} });
+            // NoteOn Ch 1, Note 69 (A4, 440 Hz) -> transposed to 69 + 12 = 81 (A5, 880 Hz)
+            take.events.push_back({ 0, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
+                                    juce::MidiMessage::noteOn(1, 69, 0.9f) });
+            // Mid-take preset change to preset 1 (-12 offset)
+            take.events.push_back(
+                { 24000, PerformanceEventType::presetChange, 1, RecordingEventSource::computerKeyboard, {} });
+            // NoteOff Ch 1, Note 69 -> must release original locked pitch 81
+            take.events.push_back({ 36000, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
+                                    juce::MidiMessage::noteOff(1, 69, 0.0f) });
+
+            WavExportOptions options;
+            options.sampleRate = 48000.0;
+            options.blockSize = 512;
+            options.numChannels = 1;
+            options.builtinTone = SettingsModel::BuiltinTone::sine;
+            options.referencePitchA4 = 440.0;
+            options.adsr = { 0.001f, 0.05f, 1.0f, 0.01f };
+
+            expect(exportTakeAsWavFile(take, path, options), "WAV export must succeed");
+            expect(path.existsAsFile());
+
+            juce::WavAudioFormat wavFormat;
+            std::unique_ptr<juce::AudioFormatReader> reader(
+                wavFormat.createReaderFor(path.createInputStream().release(), true));
+            expect(reader != nullptr, "exported file must parse as a WAV");
+            if (reader == nullptr || reader->lengthInSamples < 48000) {
+                return;
+            }
+
+            // 1. Verify sounding pitch at 4800..6000 samples (25ms window):
+            // 880 Hz has 22 zero crossings per 1/40 second (22 * 40 = 880 Hz).
+            {
+                juce::AudioBuffer<float> buf(1, 1200);
+                reader->read(&buf, 0, 1200, 4800, true, false);
+                const float* samples = buf.getReadPointer(0);
+
+                int crossings = 0;
+                for (int i = 1; i < 1200; ++i) {
+                    if (samples[i - 1] <= 0.0f && samples[i] > 0.0f) {
+                        ++crossings;
+                    }
+                }
+                const auto measuredFreq = static_cast<double>(crossings) * 40.0;
+                expectEquals(measuredFreq, 880.0, "Sounding frequency must be 880 Hz (A4 + 12 semitones = A5)");
+            }
+
+            // 2. Verify Note-off Identity Preservation (silence after note release):
+            // Release occurs at sample 36000 with 10ms (480 samples) decay.
+            // Samples 38000..42000 must be silent.
+            {
+                constexpr int checkSamples = 4000;
+                juce::AudioBuffer<float> releaseBuf(1, checkSamples);
+                reader->read(&releaseBuf, 0, checkSamples, 38000, true, false);
+                const auto maxReleaseSample = releaseBuf.getMagnitude(0, 0, checkSamples);
+                expectLessThan(maxReleaseSample, 0.001f,
+                               "Audio must be silent after NoteOff releases matching locked pitch");
+            }
+        });
+
+        testCase("WAV export respects channelFollowKeyMask and exempts percussion channel from transposition", [&] {
+            devpiano::test::ScopedTempDir tempDir("wav-percussion-mask");
+            const auto path = tempDir.getChildFile("percussion_mask.wav");
+
+            RecordingTake take;
+            take.sampleRate = 48000.0;
+            take.lengthSamples = 48000;
+
+            RecordedPreset p;
+            p.preset.name = "MaskTest";
+            p.acoustic.builtinTone = devpiano::core::BuiltinTone::sine;
+            p.acoustic.transposeEnabled = true;
+            p.acoustic.transposeOffset = 12;
+            p.acoustic.channelFollowKeyMask = 0b1111110111111111; // Ch10 (bit 9) excluded
+            p.acoustic.masterGain = 0.8f;
+            p.acoustic.adsr = { 0.001f, 0.05f, 1.0f, 0.01f };
+
+            take.presets = { p };
+
+            take.events.push_back(
+                { 0, PerformanceEventType::presetChange, 0, RecordingEventSource::computerKeyboard, {} });
+            // Channel 10 NoteOn: must NOT transpose despite transposeOffset = 12
+            take.events.push_back({ 0, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
+                                    juce::MidiMessage::noteOn(10, 69, 0.9f) });
+            take.events.push_back({ 36000, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
+                                    juce::MidiMessage::noteOff(10, 69, 0.0f) });
+
+            WavExportOptions options;
+            options.sampleRate = 48000.0;
+            options.blockSize = 512;
+            options.numChannels = 1;
+            options.builtinTone = SettingsModel::BuiltinTone::sine;
+            options.referencePitchA4 = 440.0;
+            options.adsr = { 0.001f, 0.05f, 1.0f, 0.01f };
+
+            expect(exportTakeAsWavFile(take, path, options), "WAV export must succeed");
+            expect(path.existsAsFile());
+
+            juce::WavAudioFormat wavFormat;
+            std::unique_ptr<juce::AudioFormatReader> reader(
+                wavFormat.createReaderFor(path.createInputStream().release(), true));
+            expect(reader != nullptr, "exported file must parse as a WAV");
+            if (reader == nullptr || reader->lengthInSamples < 48000) {
+                return;
+            }
+
+            // Percussion channel is exempt from transposition, so Note 69 stays at 440 Hz (11 crossings per 1/40 sec)
+            {
+                juce::AudioBuffer<float> buf(1, 1200);
+                reader->read(&buf, 0, 1200, 4800, true, false);
+                const float* samples = buf.getReadPointer(0);
+
+                int crossings = 0;
+                for (int i = 1; i < 1200; ++i) {
+                    if (samples[i - 1] <= 0.0f && samples[i] > 0.0f) {
+                        ++crossings;
+                    }
+                }
+                const auto measuredFreq = static_cast<double>(crossings) * 40.0;
+                expectEquals(measuredFreq, 440.0, "Channel 10 frequency must remain at 440 Hz without transposition");
+            }
         });
 
         testCase("unrepresentable WAV timelines reject before output and preserve existing bytes", [&] {
