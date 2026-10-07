@@ -44,15 +44,14 @@
 
 详见：[`../reference/features/plugin-hosting.md`](../reference/features/plugin-hosting.md)
 
-### C++ 构建耗时热点：std::regex 重复模板实例化与重型 UI 测试单元
+### C++ 构建耗时热点：std::regex 模板实例化（已解决）与重型 UI 测试单元
 
-> 通过 `-ftime-trace` 与 `scripts/analyze_build_time.py` 构建微观剖析发现两个主要编译期性能瓶颈：
-> 1. **`std::regex` 模板递归膨胀**：`std::basic_regex<char>` 及其内部编译器在多个编译单元中被反复递归实例化，消耗大量 CPU 编译时间；
-> 2. **重型 UI 测试编译单元**：`SettingsLayoutModelTest.cpp` 与 `JiveModalDialogTest.cpp` 因集中实例化了复杂的 JIVE 声明式解释器、样式引擎与全部组件工厂，成为业务层编译热点。
+> 通过 `-ftime-trace` 与 `scripts/analyze_build_time.py` 构建微观剖析发现的编译期性能瓶颈及处理状态：
+> 1. **`std::regex` 模板递归膨胀（已解决）**：`source/UI/jive/core/jive_TimeParser.h` 已重构为零外部依赖的纯 C++ 确定性字符串扫描器，彻底移除了 `#include <regex>`，消除了其通过 `jive_core.h` 在全仓各编译单元反复递归实例化 `<regex>` 的巨大 CPU 耗时开销；
+> 2. **重型 UI 测试编译单元**：`SettingsLayoutModelTest.cpp` 与 `JiveModalDialogTest.cpp` 因集中实例化了复杂的 JIVE 声明式解释器、样式引擎与全部组件工厂，仍属于业务层编译耗时相对较长的测试单元。
 >
-> **优化方向与跟进计划**：
-> - 将涉及正则表达式的业务逻辑严格封装至独立 `.cpp` 中，阻断 `<regex>` 在头文件中对包含者的级联模板污染，或采用确定性状态机/轻量字符串匹配替代；
-> - 针对测试工程后续可精细化拆分测试单元或引入针对业务层的 Unity Build 批处理。
+> **跟进计划**：
+> - 针对重型 UI 测试单元，后续可在测试架构重构时按需精细化拆分子测试套件，降低单个编译单元的符号规模。
 ### Linux/X11 窗口大小锁定（Resizable 开关）在框架层失效
 
 > **现状与成因**：

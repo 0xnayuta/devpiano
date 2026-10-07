@@ -1639,4 +1639,67 @@ public:
     }
 };
 
+class JiveTimeParserTest final : public juce::UnitTest {
+public:
+    JiveTimeParserTest()
+        : juce::UnitTest("JiveTimeParserTest", "DevPiano/UI") {
+    }
+
+    void runTest() override {
+        beginTest("isValidTimeString accepts canonical integers and decimals in s and ms");
+        {
+            expect(jive::isValidTimeString("0s"));
+            expect(jive::isValidTimeString("1s"));
+            expect(jive::isValidTimeString("100s"));
+            expect(jive::isValidTimeString("0ms"));
+            expect(jive::isValidTimeString("250ms"));
+            expect(jive::isValidTimeString("1.5s"));
+            expect(jive::isValidTimeString("0.25ms"));
+            expect(jive::isValidTimeString("12.345s"));
+        }
+
+        beginTest("isValidTimeString rejects malformed, empty, negative, or invalid units");
+        {
+            expect(!jive::isValidTimeString(""));
+            expect(!jive::isValidTimeString("s"));
+            expect(!jive::isValidTimeString("ms"));
+            expect(!jive::isValidTimeString(".s"));
+            expect(!jive::isValidTimeString(".ms"));
+            expect(!jive::isValidTimeString("1.s"));
+            expect(!jive::isValidTimeString("1.ms"));
+            expect(!jive::isValidTimeString("1..2s"));
+            expect(!jive::isValidTimeString("1.2.3s"));
+            expect(!jive::isValidTimeString("-1s"));
+            expect(!jive::isValidTimeString("-10ms"));
+            expect(!jive::isValidTimeString("abc"));
+            expect(!jive::isValidTimeString("10m"));
+            expect(!jive::isValidTimeString("10sec"));
+            expect(!jive::isValidTimeString("1s "));
+            expect(!jive::isValidTimeString(" 1s"));
+            expect(!jive::isValidTimeString("1 0s"));
+        }
+
+        beginTest("parseTime converts valid time strings to RelativeTime accurately");
+        {
+            const auto t1 = jive::parseTime("500ms");
+            expect(t1.has_value());
+            expectEquals(t1->inMilliseconds(), std::int64_t { 500 });
+
+            const auto t2 = jive::parseTime("1.5s");
+            expect(t2.has_value());
+            expect(std::abs(t2->inSeconds() - 1.5) < 1e-4);
+
+            const auto t3 = jive::parseTime("0s");
+            expect(t3.has_value());
+            expectEquals(t3->inMilliseconds(), std::int64_t { 0 });
+
+            expect(!jive::parseTime("invalid").has_value());
+            expect(!jive::parseTime("10m").has_value());
+            expect(!jive::parseTime("-2s").has_value());
+        }
+    }
+};
+
+static JiveTimeParserTest jiveTimeParserTest;
+
 static BinaryDataStylesEmbeddedTest binaryDataStylesEmbeddedTest;

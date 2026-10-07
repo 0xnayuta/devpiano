@@ -7,15 +7,58 @@
 
 #pragma once
 
-#include <regex>
+#include <juce_core/juce_core.h>
+#include <optional>
 
 namespace jive {
-[[nodiscard]] static auto isValidTimeString(const juce::String& str) {
-    static const std::regex timeDataTypeRegex { R"(^(\d+(\.\d+)?)(s|ms)$)" };
-    return std::regex_match(str.toRawUTF8(), timeDataTypeRegex);
+[[nodiscard]] static inline bool isValidTimeString(const juce::String& str) noexcept {
+    const auto len = str.length();
+    if (len < 2) {
+        return false;
+    }
+
+    int suffixLen = 0;
+    if (str.endsWith("ms")) {
+        suffixLen = 2;
+    } else if (str.endsWith("s")) {
+        suffixLen = 1;
+    } else {
+        return false;
+    }
+
+    const auto numLen = len - suffixLen;
+    if (numLen <= 0) {
+        return false;
+    }
+
+    auto ptr = str.getCharPointer();
+    if (!juce::CharacterFunctions::isDigit(*ptr)) {
+        return false;
+    }
+
+    bool hasDot = false;
+    for (int i = 0; i < numLen; ++i) {
+        const auto c = *ptr++;
+        if (juce::CharacterFunctions::isDigit(c)) {
+            continue;
+        }
+        if (c == '.') {
+            if (hasDot || i == numLen - 1) {
+                return false;
+            }
+            hasDot = true;
+            if (!juce::CharacterFunctions::isDigit(*ptr)) {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    }
+
+    return true;
 }
 
-[[nodiscard, maybe_unused]] static std::optional<juce::RelativeTime> parseTime(const juce::String& timeString) {
+[[nodiscard, maybe_unused]] static inline std::optional<juce::RelativeTime> parseTime(const juce::String& timeString) {
     if (!isValidTimeString(timeString)) {
         return std::nullopt;
     }
