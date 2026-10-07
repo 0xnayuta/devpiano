@@ -119,6 +119,10 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
 
     const auto initialGain = juce::jlimit(0.0f, 1.0f, options.masterGain);
     float currentMasterGain = initialGain;
+    bool currentTransposeEnabled = !timeline->presets.empty() && timeline->presets[0].acoustic.transposeEnabled;
+    int currentTransposeOffset = !timeline->presets.empty() ? timeline->presets[0].acoustic.transposeOffset : 0;
+    std::uint16_t currentFollowKeyMask = !timeline->presets.empty() ? timeline->presets[0].acoustic.channelFollowKeyMask
+                                                                    : static_cast<std::uint16_t>(0b1111110111111111);
 
     // Determine channel count from the plugin instance
     const auto requiredPluginChannels = juce::jmax(
@@ -165,6 +169,9 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
                 if (ev.presetId < timeline->presets.size()) {
                     const auto& preset = timeline->presets[ev.presetId];
                     applyAcousticSnapshotToReverbAndGain(roomReverb, currentMasterGain, preset.acoustic);
+                    currentTransposeEnabled = preset.acoustic.transposeEnabled;
+                    currentTransposeOffset = preset.acoustic.transposeOffset;
+                    currentFollowKeyMask = preset.acoustic.channelFollowKeyMask;
                     for (int ch = 1; ch <= 16; ++ch) {
                         segmentMidiBuffer.addEvent(
                             juce::MidiMessage::controllerEvent(ch, 67, preset.acoustic.unaCorda ? 127 : 0), 0);
@@ -200,8 +207,13 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
 
                     if (msg.isNoteOn()) {
                         const auto ch = msg.getChannel();
+                        const auto chIdx = juce::jlimit(0, 15, ch - 1);
+                        const bool channelFollows = (currentFollowKeyMask & (1U << chIdx)) != 0;
                         const auto sourceNote = msg.getNoteNumber();
-                        const auto finalOutputPitch = identityTracker.noteOn(ch, sourceNote, sourceNote);
+                        const auto candidatePitch = (currentTransposeEnabled && channelFollows)
+                            ? juce::jlimit(0, 127, sourceNote + currentTransposeOffset)
+                            : sourceNote;
+                        const auto finalOutputPitch = identityTracker.noteOn(ch, sourceNote, candidatePitch);
                         if (finalOutputPitch.has_value()) {
                             segmentMidiBuffer.addEvent(juce::MidiMessage::noteOn(ch,
                                                                                  static_cast<int>(*finalOutputPitch),

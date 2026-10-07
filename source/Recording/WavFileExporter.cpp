@@ -124,6 +124,10 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
     activeSynth = (options.builtinTone == SettingsModel::BuiltinTone::sine) ? &sineSynth : &pianoSynth;
 
     float currentMasterGain = juce::jlimit(0.0f, 1.0f, options.masterGain);
+    bool currentTransposeEnabled = !timeline->presets.empty() && timeline->presets[0].acoustic.transposeEnabled;
+    int currentTransposeOffset = !timeline->presets.empty() ? timeline->presets[0].acoustic.transposeOffset : 0;
+    std::uint16_t currentFollowKeyMask = !timeline->presets.empty() ? timeline->presets[0].acoustic.channelFollowKeyMask
+                                                                    : static_cast<std::uint16_t>(0b1111110111111111);
 
     juce::AudioBuffer<float> audioBuffer(options.numChannels, options.blockSize);
     juce::MidiBuffer segmentMidiBuffer;
@@ -155,6 +159,9 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
                     const auto& preset = timeline->presets[ev.presetId];
                     applyAcousticSnapshotToBuiltin(pianoSynth, sineSynth, activeSynth, roomReverb, currentMasterGain,
                                                    preset.acoustic, true);
+                    currentTransposeEnabled = preset.acoustic.transposeEnabled;
+                    currentTransposeOffset = preset.acoustic.transposeOffset;
+                    currentFollowKeyMask = preset.acoustic.channelFollowKeyMask;
                 }
                 ++eventIndex;
             }
@@ -188,8 +195,13 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
 
                     if (msg.isNoteOn()) {
                         const auto ch = msg.getChannel();
+                        const auto chIdx = juce::jlimit(0, 15, ch - 1);
+                        const bool channelFollows = (currentFollowKeyMask & (1U << chIdx)) != 0;
                         const auto sourceNote = msg.getNoteNumber();
-                        const auto finalOutputPitch = identityTracker.noteOn(ch, sourceNote, sourceNote);
+                        const auto candidatePitch = (currentTransposeEnabled && channelFollows)
+                            ? juce::jlimit(0, 127, sourceNote + currentTransposeOffset)
+                            : sourceNote;
+                        const auto finalOutputPitch = identityTracker.noteOn(ch, sourceNote, candidatePitch);
                         if (finalOutputPitch.has_value()) {
                             segmentMidiBuffer.addEvent(juce::MidiMessage::noteOn(ch,
                                                                                  static_cast<int>(*finalOutputPitch),

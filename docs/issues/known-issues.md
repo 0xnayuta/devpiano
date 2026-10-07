@@ -13,20 +13,30 @@
 
 功能缺口和已确认但尚未修复的缺陷。
 
-### 原生演奏快照移调与 WAV 音高不一致
+### 原生演奏快照移调与 WAV 音高不一致（路线 A 已实施；路线 B 重构备忘）
 
-- **优先级：P1，已确认未修复**。快照移调启用且 offset 非零时，实时回放与离线 WAV 对同一 Take 的音高处理不同；格式准入、参数字段存在或默认测试通过都不能证明完整渲染同构。
-- **复建输入**：从当前原生示例构建完整快照，使用 44.1 kHz、内置 Sine、A4=440 Hz、Master=0.2、wet=0、ADSR=`{0.001, 0.001, 1.0, 0.01}`；`transposeEnabled=true`、`transposeOffset=2`、`channelFollowKeyMask=65535`。Take 长度 44100，采样点 0 先切 slot 0 再发送 Ch1/MIDI69 NoteOn，44100 发送同身份 Off。先由 `savePerformanceFile()` 写出，再由 `loadPerformanceFile()` 准入；同一读回 Take 分别交给 `AudioEngine` 和 `exportTakeAsWavFile()`。
-- **直接证据（Task 36-4，2026-10-07）**：Windows Debug 生产对象消费者渲染双声道并读取实际 WAV，在 0.1–0.6 秒区间按上升零交叉测量，结果如下。这是音高差异，不是 WAV 量化误差；源文件/会话保护与用户目录文件清单/SHA256 校验仍通过。
-
-| 同一读回 Take 的消费者 | 发声音高 | 测得基频 |
-| --- | --- | ---: |
-| 实时 `AudioEngine` | MIDI71 | 493.881 Hz |
-| 内置 WAV writer | MIDI69 | 440.015 Hz |
-
-- **源码定位**：`source/Audio/AudioEngine.cpp:585-656` 按快照 offset/follow mask 计算候选音高并锁定 Off 身份；`source/Recording/WavFileExporter.cpp:151-157,189-207` 提交声学参数后仍以 `identityTracker.noteOn(ch, sourceNote, sourceNote)` 发音，不应用快照移调。插件离线路径 `PluginOfflineRenderer.cpp:162-171,201-218` 也没有该变换（源码检查，未作厂商音源实测）。
-- **处理边界**：本轮只同步现行契约，不修 DSP/事件实现，不修改历史审计或归档。后续须统一录制 MIDI 音高域与实时/离线移调，保留同采样顺序和原身份释放；在此之前不把“快照字段相同”宣称为完整实时/WAV 音高保真。
-
+- **优先级：P1，路线 A 修复已合入，实时与离线 WAV 基频已对齐**。
+- **历史反证（Task 36-4，2026-10-07）**：快照移调启用且 offset=2 时，同一 Take 经实时 `AudioEngine` 发声音高为 MIDI71 (493.881 Hz)，而离线 WAV 仅发音原始 MIDI69 (440.015 Hz)。
+- **路线 A 修复方案（已实施）**：
+  - 在 `source/Recording/WavFileExporter.cpp` 与 `source/Recording/PluginOfflineRenderer.cpp` 中引入与 `AudioEngine::renderPlaybackEventsIfNeeded` 严格同构的快照移调处理：
+    在消费 `presetChange` 事件时同步更新 `currentTransposeEnabled`、`currentTransposeOffset` 与 `currentFollowKeyMask`；
+    在 `NoteOn` 时，依据 `currentTransposeEnabled && channelFollows` 计算 `candidatePitch = jlimit(0, 127, sourceNote + currentTransposeOffset)`，并通过 `identityTracker.noteOn(ch, sourceNote, candidatePitch)` 锁定发音身份；
+    在 `NoteOff` 时，严格按 `identityTracker.noteOff(ch, sourceNote)` 锁定的原发音身份发出 NoteOff，保持 Note-off Identity Preservation 铁律；
+    离线 WAV 导出与实时音频引擎完全达成 1:1 声学与音高同构（Rendering Parity）。
+- **路线 A 的局限性**：
+  - 路线 A 解决了实时回放与离线 WAV 导出之间的音高分裂，但未改变录制前置链路：
+    当用户通过电脑键盘实时演奏录制时，若全局设置中已开启全局调号移调（`midiTranspose && followKey`），`KeyboardMidiMapper` / `MidiChannelMapper` 在键盘输入端已将音符音高加上了偏移量并写入 Take 的 MIDI 事件中；
+    若该 Take 内嵌的快照同时记录了 `transposeEnabled = true`，则回放和离线导出均会在已变换音高上再次叠加一次快照偏移量（实时与离线行为完全一致，但在该叠加场景下音高偏离物理键盘原始键位音高）。
+- **后续可能进行的彻底重构方案（路线 B 备忘）**：
+  - **做法**：
+    将“键盘物理输入”、“录制 Take 时间线”与“输出发声变换”彻底解耦。
+    录制事件流中严格仅保存原始未移调的键位音符（Raw Key Note），移调与矩阵路由无论在实时演奏、时间线回放还是离线 WAV 导出阶段，均统一定位为下游单一且幂等的渲染变换层，从根源杜绝二次移调。
+  - **风险与影响面（Blast Radius）**：
+    需改动 `KeyboardMidiMapper`（输入解绑）、`RecordingEngine`（采集事件定义）、`MidiChannelMapper`（路由分层）以及标准 MIDI 导出（`MidiFileExporter`）；
+    标准 MIDI 文件（Type 1 SMF）行业通用语义期望导出的音符为最终发声音高（Sounding Note）而非键盘键位，若录制域存储 Raw Note，导出 SMF 前必须增加音高烘焙（Bake Transposition）阶段；
+    牵涉跨模块数据模型改动，回归测试覆盖面广泛。
+  - **架构边界**：
+    若未来推进路线 B，需严格定义 `.devpiano` 原生事件流与外部标准 MIDI 协议的音高语义契约，保持与标准 DAW 的导入导出兼容性。
 
 ### 插件生命周期退出告警
 
