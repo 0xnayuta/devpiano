@@ -1,6 +1,6 @@
 # MIDI / Performance 测试夹具清单
 
-> 用途：记录固定 MIDI fixture 样本库与 performance fixture 样本，作为 MIDI 导入/导出/roundtrip/回放行为与自动化测试的统一输入基准。
+> 用途：记录固定 MIDI fixture 样本库与程序化 performance 测试输入，作为 MIDI 导入/导出/roundtrip/回放行为与自动化测试的统一输入基准。
 > 当前状态：已全量落地并稳定服务于 `source/tests/MidiFileImporterTest.cpp`、`PerformanceFileTest.cpp` 与日常冒烟测试。
 > 更新时机：新增或修改 fixture 文件时。
 
@@ -49,8 +49,8 @@ tests/fixtures/
 
 ### 验收与维护标准
 
-- [x] MIDI 与 Performance 夹具的名称、内容和用途均在上述表格中列明。
-- [x] `MidiFileImporterTest` 消费固定 MIDI 样本；原生持久化回归使用程序化 Take 与隔离目录，静态 Performance 样本仅作早期格式参考。
+- [x] 固定 MIDI 夹具的名称、内容和用途均在上述表格中列明；原生演奏输入由程序化构建覆盖。
+- [x] `MidiFileImporterTest` 消费固定 MIDI 样本；原生持久化回归使用程序化 Take 与隔离目录，历史静态 Performance 样本已全部退役，不再维护旧格式夹具。
 - [x] 自动化测试通过 `source/tests/MidiFileImporterTest.cpp` 与 `PerformanceFileTest.cpp` 全面覆盖。
 - [x] 测试夹具相对寻址遵循 TEST-014 纪律，不依赖执行时 CWD。
 

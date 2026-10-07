@@ -10,7 +10,7 @@
 
 传统 JUCE 界面排版深度依赖在 `Component::resized()` 中手算像素绝对坐标（`setBounds` / `removeFromTop`）。随着界面复杂度增长，手写坐标容易引发级联排版错误、高 DPI 适配困难以及弹窗样板代码繁重。
 
-devpiano 全面引入 **JIVE（声明式 UI 框架）**，确立了以下现代 UI 架构规范：
+devpiano 使用按 [ADR-014](../../decisions/ADR-014-internalize-ui-infrastructure-and-deprecate-jive-submodule.md) 内化的声明式 UI 运行时（`source/UI/jive/core/`）；JIVE 是其来源与内部命名，不再是外部子模块依赖。布局边界如下：
 
 1. **结构与样式彻底分离**：
    - 界面结构以 `juce::ValueTree` 树形模型声明；
@@ -127,6 +127,9 @@ Performance Preset 的 New、Rename、Delete 保持在上方，Export、Import�
 - **文字与边框**：`textPrimary` (`#F0F2F5`)、`textSecondary` (`#A0A6B2`)、`textDisabled` (`#555B66`)、`cardBorder` (`#2B2F38`，Structure Neutral)
 - **旋钮与交互覆层**：`rotaryCapTop` (`#353942`)、`rotaryRingTop` (`#565C69`)、`highlightOverlay` (`#18FFFFFF`)、`pressOverlay` (`#33000000`)
 - **圆角与间距**：`borderRadiusDefault` (6px)、`borderRadiusCard` (8px)、`borderRadiusTooltip` (4px)、`statusBarHeight` (24px)
+- **字体与继承**：`DesignTokens::getUnifiedUiFont()` 为 Native 与声明式文字提供统一字体策略；`#window` 的 `@font-family-ui` / `@font-size-label` 作为声明式全局缺省，子节点可显式覆写字号。标题、微型标签和按键说明保留各自的排版层级，不把“统一字体”误写成所有文字使用同一字号。
+- **加载与热重载**：`StyleBootstrap` 先加载内嵌 Token，再建立 LookAndFeel，随后加载内嵌样式；开发环境存在 `source/UI/jive/*.json` 时可覆盖内嵌基准。发布运行不依赖这些文件，业务热重载经 `ViewHost::refreshStyles()` 更新已有树。
+
 ### 4.2 StyleCatalog 全局注入（`style_sheets.json`）
 
 定义在 `source/UI/jive/style_sheets.json` 中。在 `jive::Interpreter` 解释 ValueTree 前，`StyleCatalog::applyToTree()` 递归遍历节点，根据节点的 `type` 和 `id` 将 CSS 风格的样式属性（padding, margin, background, border, font-size 等）合并至节点的 `style` 属性中。
@@ -162,7 +165,7 @@ host.setBounds(getLocalBounds());
 
 ## 6. 专项确定性测试清单
 
-UI 单元测试位于 `source/tests/`，覆盖通用弹窗、设置布局、样式目录、QWERTY 映射和主窗口布局（隶属于 `DevPiano/UI` 测试套件）：
+UI 单元测试位于 `source/tests/`。依据 [ADR-016](../../decisions/ADR-016-headless-safe-pure-in-memory-ui-testing-pattern.md)，自动化只通过纯内存 `ViewHost`／独立组件解释布局、绘制和注入事件，不调用 `addToDesktop()`、`launchCustom()` 或创建原生顶层窗口，不因 headless 环境跳过；异步按钮事件显式使用 `devpiano::test::drainMessages(N)`。下表的 Windows 窗口消费者是独立手工／直接验收证据，不是自动化单元测试中的桌面窗口。
 
 | 测试文件 | 用例类别 | 验证目标 | 状态 |
 |---|---|---|:---:|

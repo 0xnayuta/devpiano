@@ -1,7 +1,7 @@
 # VST3 插件离线渲染与 WAV 音频导出功能说明
 
 > 用途：说明 devpiano 的非实时音频离线渲染管线（`RenderPipeline`）、独立离线 VST3 插件实例管理（`PluginOfflineRenderer`）、内置物理建模钢琴声学一致性导出（`WavFileExporter` 与 `RoomReverbEngine`）、后台多线程导出任务（`WavExportTask`）与 JIVE 声明式进度条交互。
-> 当前状态：已全量接入独立非实时实例、事务 WAV 写出、非阻塞后台任务与协作取消/退出；内置音色达成 1:1 声学对齐，第三方 VST3 通过 Phase C 原生测试夹具验证，商业厂商插件与断电/声卡硬件边界单列。
+> 当前状态：已全量接入独立非实时实例、事务 WAV 写出、非阻塞后台任务与协作取消/退出；内置音色达成参数级声学快照对齐（共享声学模型与采样语义，不承诺逐比特完全相同），尾音窗口固定 2.0 秒（超窗截断），第三方 VST3 通过 Phase C 原生测试夹具验证，商业厂商插件与断电/声卡硬件边界单列。
 > 更新时机：离线渲染管线、插件状态快照、分层实时契约、导出进度交互或音频格式与声学参数发生变化时。
 
 ---
@@ -22,7 +22,7 @@
 ## 2. 核心架构与主运行流程
 
 ```text
-[用户点击 Export WAV] ──► ExportFlowSupport::buildWavExportOptions()
+[用户点击 Export WAV] ──► devpiano::exporting::buildWavExportOptions()
     │
     ▼
 RecordingSessionController::handleExportWavClicked() ──► 弹出文件保存对话框 FileChooser
@@ -31,8 +31,8 @@ RecordingSessionController::handleExportWavClicked() ──► 弹出文件保�
 WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
     │
     ├── JiveModalDialog::makeProgressLayout() (弹出现代化 JIVE 进度浮层)
-    ├── InstrumentEndpoint::renderTakeThroughInstrumentEndpoint() (同构乐器端点路由):
-    │    ├── [VST3 插件端点] ──► PluginOfflineRenderer::renderTakeWithOfflinePlugin()
+    ├── devpiano::exporting::renderTakeThroughInstrumentEndpoint() (乐器端点路由):
+    │    ├── [VST3 插件端点] ──► renderTakeWithOfflinePlugin()
     │    │                         ├── 独立创建 AudioPluginInstance
     │    │                         ├── setNonRealtime(true) → prepareToPlay(sampleRate, blockSize)
     │    │                         └── 实际 worker 退出后由任务 releaseResources() 一次并安全析构
@@ -46,7 +46,7 @@ WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
 实时与离线事件缩放采用同一采样点取整；有效长度覆盖最后事件采样点 `+1`。即使最后 NoteOff 等于 Take 长度，也在其采样点交付，再在完整事件边界收尾。
 
 内置（`WavFileExporter`）与插件（`PluginOfflineRenderer`）两条离线渲染路径均在每个音频块（`blockSize`）内按 `presetChange` 事件采样偏移执行**分段切分（Sub-segmentation）**：
-1. **帧精确预设切换（Frame-Accurate Preset Switching）**：在分段起点 `segAbsStart`，立即应用快照中的 `masterGain`、`roomReverb` 空间与干湿比、全局移调与通道 followKey 掩码，并向所有 16 个通道发送 CC67 柔音控制器；同一采样点处的预设变更优先于 MIDI 音符执行；
+1. **采样精确参数切换**：分段起点提交快照；内置路径通过 `applyAcousticSnapshotToBuiltin` 设置音源/声学/Master/混响及柔音，插件路径只设置宿主混响/Master 并向 16 通道发送 CC67。同采样预设先于 MIDI。两条 WAV 路径以 `noteOn(ch, sourceNote, sourceNote)` 锁定身份，不再应用快照移调；这与实时路径存在已确认的 [P1 音高差异](../../issues/known-issues.md#原生演奏快照移调与-wav-音高不一致)，不是完整移调同构的实现。
 2. **非零 startSample 隔离机制**：
    - 内置合成器通过切片视图 `segmentAudioBuffer` 映射主缓冲区 `segStart` 偏移，以局部区间直接调用 `renderNextBlock(segmentAudioBuffer, midi, 0, segLen)`；
    - 离线 VST3 插件使用私有中转缓冲 `pluginBuffer`（尺寸 `segLen`，起始偏移始终为 0），由 `offlinePlugin.processBlock(pluginBuffer, midi)` 完成计算后，再按通道拓扑安全拷贝至主缓冲切片 `segmentOutputBuffer`，杜绝非零偏移污染第三方插件内部索引；
@@ -77,34 +77,34 @@ WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
 
 在 Phase 15-D 与 Phase 34-F 中，`WavExportTask` 实现了现代化重构与完全非阻塞异步化：
 - **纯异步任务流（`startAsync`）**：在 Phase 34-F 中，彻底消除了历史遗留的主线程嵌套模态循环 `runDispatchLoopUntil(10)` 与 `Thread::sleep(10)`，改为基于 `startAsync(onComplete)` 的非阻塞异步任务模型；`CMakeLists.txt` 仅在 `devpiano_tests` 测试目标保留 `JUCE_MODAL_LOOPS_PERMITTED=1`，主应用 `devpiano` 目标不定义该宏；
-- **同构乐器端点（`InstrumentEndpoint`）**：在 Phase 34-E 中引入 `renderTakeThroughInstrumentEndpoint()`，端点路由与实时发声完全一致，消除离线分支手写判断；
+- **乐器端点路由**：`renderTakeThroughInstrumentEndpoint()` 将独立实例指针非空路由到插件，否则路由到内置音源；这只统一端点职责，不证明所有实时/离线事件变换已经相同。
 - **无锁进度传递**：后台线程通过 `std::atomic<double> currentProgress` 和 `std::atomic<bool> cancelRequested` 与主线程通信；
 - **协作取消与退出**：Cancel / ESC / 窗口关闭只设置取消请求，显示“正在取消导出”；Timer 不因取消请求或提前 finished 标志释放任务，只在实际线程退出后收尾。主应用退出保持消息循环等待导出完成，直接析构与 `runSync()` 无限等待兜底，不调用有限超时的 `stopThread()` 强杀。
 - **提交边界**：后台在块循环及 writer 关闭后的最终回调检查取消；提交前取消保留原目标并清理自有临时文件。已成功提交不能被之后的 UI 消息撤销。
 - **验证范围**：真实原生 mode-aware VST3、event 阻塞超过旧强停窗口的取消、回调内自销毁、资源/临时文件和实际保存对话框/应用退出已在隔离 Windows 消费者验证，复建输入见 [Phase C 实施记录](../../archive/audit-004-code-quality-fix-phases.md#phase-c-实施记录与直接验证2026-10-03)。冷路径图形驱动资源与正式任务资源分开记录，不外推所有厂商插件、断电或完整实时/离线声学闭包。
 - **窗口尺寸与操作区**：`ProgressContentWrapper` 通过 `ViewHost::fitToContent()` 测量内容，使用 `JiveModalDialog::launchWindow()` 在原生标题栏模式确定后定尺和居中；进度模板共用 [底部操作区规则](declarative-ui-and-theming.md#33-内容定尺与统一底部操作区)。本次只改变布局，不将进度窗口改成通用确认弹窗，不提前关闭尚未完成的取消任务。
 
-### 3.4 内置合成器 1:1 声学一致性对齐（`WavExportOptions`）
+### 3.4 内置合成器声学参数快照对齐与导出契约（`WavExportOptions`）
 
-`ExportFlowSupport::buildWavExportOptions()` 将当前声学参数快照注入 `WavExportOptions`，使内置钢琴的离线与实时处理使用相同参数和房间混响网络；插件的独立离线实例可能具有自身非实时行为，**不承诺输出样本逐比特一致**：
+`devpiano::exporting::buildWavExportOptions()` 将当前参数注入 `WavExportOptions`；Take 内嵌快照在对应采样点替换参数。内置与插件的多复音分配、分块、浮点累加及 WAV 量化不保证逐比特相同；另外，当前快照移调有上方列出的音高差异，不能归因于量化或忽略为厂商行为。参数范围如下：
 
 1. **基础发声与音色包络**：`masterGain`、`adsr`、`builtinTone`（`piano` 或 `sine`）、`pianoBrightness`、`pianoHammerHardness`、`pianoResonance`；
 2. **微调律制与基准音高（Phase 30）**：`temperament`（6 大古典律制：`equal`、`just`、`pythagorean`、`meantone`、`werckmeister3`、`kirnberger3`）与 `referencePitchA4`（400.0 ~ 480.0 Hz，默认 440.0 Hz；内置实时与离线路径共用 `TemperamentEngine::clampReferencePitch()`）；
 3. **立体声空间视角（Phase 31-A）**：`soundPerspective`（演奏者 `player` 与听众 `audience` 镜像与高频吸收）；
 4. **琴盖物理开合（Phase 31-C）**：`lidPosition`（全开 `fullOpen`、半开 `halfStick`、闭盖 `closed` 传递函数）；
-5. **空间房间混响（Phase 31-B）**：离线挂载独立的 `RoomReverbEngine` 实例，根据 `reverbSpace`（`chamber` / `concert_hall` / `studio`）与 `reverbWet` 对双声道音频流执行立体声混响浸润；
+5. **空间房间混响（Phase 31-B）**：离线挂载独立的 `RoomReverbEngine` 实例，根据 C++ 枚举 `reverbSpace`（`ReverbSpace::chamber` / `concertHall` / `studio`，对应持久化标识 `chamber` / `concert_hall` / `studio`，旧别名 `hall` 不再映射并回退 `chamber`）与 `reverbWet` 对双声道音频流执行立体声混响浸润；
 6. **微观机械动作拟真（Phase 32）**：`pedalNoiseLevel`（延音踏板扫掠声与共鸣冲击电平）与 `feltAgeingAmount`（琴槌毛毡微老化穿透力）；
-7. **尾音窗口**：导出追加固定 2.0 秒；超出该窗口的声音会截断，不把该固定长度承诺成所有声学配置或厂商插件尾音均完整。
+7. **尾音窗口**：导出追加固定 2.0 秒（`wavTailSeconds = 2.0`）；超出该窗口的声音会截断，明确不把该固定长度承诺成所有声学配置、长延音或厂商插件尾音均完整。
 
 ### 3.5 分层离线渲染契约与框架限制（Layered Offline Export & Framework Boundaries）
 
 1. **内置物理建模钢琴导出链路**：
    - 实时发声与内置离线导出共用纯数学算法模型（`BuiltinSynthesiser`、`PianoSynthVoice`、`RoomReverbEngine`）；
-   - 实时回调的零锁/零分配契约不外推到文件 writer、后台离线容器或 I/O；两路径共享采样级声学语义。Phase D/E 相同 Sine/ADSR 输入的实测差处于 16-bit WAV 量化范围，不把单次最大差固化为所有音源的通用数值门槛。
+   - 实时回调零锁/零分配不外推到后台容器、writer 或 I/O。Phase D/E 相同 Sine/ADSR 输入的历史对照不等于所有快照场景已同构，非零快照移调的当前反证按 P1 保留。
 2. **第三方 VST3 插件离线导出链路**：
    - prepare 前声明 `setNonRealtime(true)`；是否启用更高品质、过采样或其他 offline 分支由插件决定，宿主不保证每个插件均有这些行为。
    - 依然受限于 JUCE VST3 适配器框架层约束：`processBlock()` 获取 `SpinLock processMutex`，MIDI 转换使用带 `CriticalSection` 的容器且单块事件数上限为 2048 条（`enum { maxNumEvents = 2048 }`）；
-   - **不承诺逐样本比特相同**：由于第三方插件自身的内部过采样、内部线程调度、算法随机微失谐或非实时模式专用滤波，宿主仅保证输入 MIDI 与声学参数快照一致传递，不保证输出样本与实时监听逐比特相同。
+   - **输出边界**：插件可自行选择过采样、随机失谐、工作线程或 offline 分支。宿主分发当前 Take MIDI、CC67 和宿主 Master/混响，不写入内置物理参数，不承诺输出逐比特相同；快照移调的宿主侧差异也不能由厂商不可控性免责。
 
 ---
 
@@ -119,13 +119,13 @@ WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
 | **WAV-005** | 中途协作取消与文件收尾 | Cancel 后显示取消中；等待正在执行的 block 返回再释放任务，目标目录无未完成输出，已有目标字节保留 | [x] 已通过 (Windows 原生慢插件事件阻塞与句柄/临时文件验证，EVID-023) |
 | **WAV-006** | 目标路径无权限容错 | 导出至只读目录或非法路径，弹窗提示错误，Logger 记录日志，程序不崩溃 | [x] 已通过 |
 | **WAV-007** | 空 Take 导出拦截 | 在无录制且无导入状态下，Export WAV 按钮自动保持 Disabled | [x] 已通过 |
-| **WAV-008** | 物理声学与空间参数离线一致性 | 配置特定古典律制、听众视角与房间混响后导出 WAV，导出的音频与实时试听效果完全一致，无爆音、无尾音截断 | [x] 已通过 (内置引擎声学参数与分段 Gain/UnaCorda 精确验证；插件不承诺样本级完全相同) |
+| **WAV-008** | 物理声学与空间参数离线一致性 | 配置特定古典律制、听众视角与房间混响后导出 WAV，导出的音频与实时参数快照对齐，无爆音，尾音收敛于固定 2.0 秒窗口（超窗截断） | [x] 已通过 (内置引擎声学参数与分段 Gain/UnaCorda 精确验证；不承诺样本逐 bit 相同或超窗尾音完整) |
 | **WAV-009** | 已有文件重复导出 | 连续导出不同采样率/内容到同一目标，重新读取新 header 与可听 payload，不追加旧 WAV | [x] 已通过 (Windows 生产文件消费者验证) |
 | **WAV-010** | 覆盖失败保留原文件 | 已有目标下取消、拒绝参数或锁定目标；原字节不变，任务不得删除用户目标 | [x] 已通过 (Windows 隔离消费者验证) |
 
 ### 4.1 验收证据依据与未验证范围说明
 
-1. **实施依据**：WAV-001～WAV-010 证据覆盖自动化单元测试与 Windows 隔离真实消费者验证（见 [Phase C](../../archive/audit-004-code-quality-fix-phases.md#phase-c-实施记录与直接验证2026-10-03) EVID-020/023/024 与 [Phase D/E](../../archive/audit-004-code-quality-fix-phases.md#phase-d-实施记录与直接验证2026-10-04) EVID-030/035/040），涵盖原生 mode-aware VST3 offline flag/processBlock 验证、原生慢插件事件阻塞取消、非阻塞 JIVE 进度与覆盖保护；
+1. **实施依据**：WAV-001～WAV-010 证据覆盖自动化单元测试与 Windows 隔离真实消费者验证（见 [Phase C](../../archive/audit-004-code-quality-fix-phases.md#phase-c-实施记录与直接验证2026-10-03) EVID-020/023/024 与 [Phase D/E](../../archive/audit-004-code-quality-fix-phases.md#phase-d-实施记录与直接验证2026-10-04) EVID-030/035/040），涵盖原生 mode-aware VST3 offline flag/processBlock 验证、原生慢插件事件阻塞取消、非阻塞 JIVE 进度与覆盖保护；测试中字段转发/getter 复制不作为 DSP/逐 bit 行为保证；
 2. **严禁外推的未验证范围**：
    - **商业第三方插件离线渲染**：未在商业音源（如 Pianoteq, Kontakt）执行全量离线音质与稳定性测试；
    - **极端不可中断挂起**：若第三方插件单次 `processBlock` 内部彻底陷入死循环且永不返回，协作取消机制无法在不损坏 CRT 堆的前提下强行终止线程；

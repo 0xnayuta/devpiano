@@ -94,17 +94,19 @@
 | `version` | int | 仅接受当前整数版本 `3`；其他版本或非整数版本拒绝。演奏与独立元数据读取共用版本准入，不截断大整数或浮点版本。 |
 | `format` | string | 固定标识 `"devpiano-performance"`，用于文件格式标识快速校验。 |
 | `sampleRate` | double | 有限正数值，文件准入范围严格为 **8000.0 – 384000.0 Hz**；支持非设备采样率时间域的缩放与回放。 |
-| `lengthSamples` | int64 | 非负整数且覆盖全部事件；须在支持的采样率与 0.5x–2.0x 变速下乘积/加法均整数可表示，保留末尾 `+1` 采样点与块余量。 |
+| `lengthSamples` | int64 | 当前写出非负整数；加载也接受有限、无小数部分的数值，须覆盖全部事件，并在支持采样率与 0.5x–2.0x 下保持缩放、末尾 `+1` 及块余量整数可表示。 |
 | `metadata` | object | 包含 `createdAt`（ISO 8601 时间戳字符串）、`title`（曲目标题）与 `notes`（多行备注文本）。 |
 | `events` | array | 按时间戳稳定规范化，同采样点保留输入相对顺序；不能把原生文件的顺序规则等同于 MIDI 多轨并轨的事件优先级。 |
-| `presets` | array | 必须存在的内嵌 `RecordedPreset` 独立快照表：包含完整预设对象 `"preset"`（格式版本 2、永久 UUID、键位布局与通道矩阵）及当时由音频引擎捕获的不可变可执行 `"acoustic"`（`AcousticSnapshot`）；纯 MIDI Take 可使用空数组，事件 `presetId` 必须严格位于 `[0, presets.size())` 范围内。 |
+| `presets` | array | 必须存在的内嵌 `RecordedPreset` 独立快照表：包含预设对象 `"preset"`（格式版本 2、永久 UUID、键位布局与通道矩阵）与当时由音频引擎捕获的不可变可执行 `"acoustic"`（`AcousticSnapshot`）；纯 MIDI Take 可使用空数组 `[]`（键名与数组结构必须存在），事件 `presetId` 必须严格位于 `[0, presets.size())` 范围内。 |
 
 ### 2.2 事件类型支持
 
 - **MIDI 演奏事件（`type: "midi"`）**：必须显式提供事件类型，缺失或空类型不作 MIDI 推断。`source` 为 `"computerKeyboard"`、`"realtimeMidiBuffer"` 或 `"playback"`；`midiData` 使用 `<字节数>.<JUCE 编码负载>`，例如 `3.PxCY` 表示 `90 3c 64`，`3..xC.` 表示 `80 3c 00`。编码负载内的 `.` 是合法字符，不是第二个长度分隔符。每个 MIDI 帧在解析与分配前校验负载长度一致性、合法状态字节及有效 SysEx / Meta 边界；
 - **预设切换事件（`type: "presetChange"`）**：`presetId` 为该 Take 内嵌 `presets` 数组的槽位索引。音频线程在事件采样点切换声学快照与移调状态，同采样 NoteOn 立即使用新参数。由于音色与参数已完整自包含在文件内部，外部增删、重命名预设或预设文件缺失均不影响历史演奏回放；
-- **非当前格式拒绝**：v1/v2、未来版本和非整数版本均不准入，不执行历史数据迁移或目录索引猜测。加载失败保持原文件字节和当前会话；当前 v3 的可选元数据缺省仍返回空元数据；
-- **初始录制状态捕获**：新录制在起点自动捕获初始预设与声学快照（槽位 0）；开启节拍器预备拍时，预备拍期间的设置在实际录制下拍（采样点 0）进入 Take。实时与离线 WAV 导出完全共享相同的快照数据。
+- **RecordedPreset 分工**：`"preset"` 供 `applyRecordedPresetUi()` 还原布局、分组、矩阵和显示；`"acoustic"` 供音频路径设置音源、Master/ADSR、物理/空间参数及柔音。实时回放另在 `AudioEngine::renderPlaybackEventsIfNeeded()` 按快照 offset/follow mask 变换起音并锁定释放身份。当前 WAV 没有同一移调变换，见 [P1 音高差异](../../issues/known-issues.md#原生演奏快照移调与-wav-音高不一致)，不能承诺全部快照回放/导出音乐音高相同。
+- **VST3 与外部依赖边界**：文件保存 MIDI 与内置声学快照，不捆绑 VST3 二进制、路径或内部状态。已挂载插件时 MIDI 驱动当前实例并转发 CC67；无插件时按 `acoustic.builtinTone` 使用内置 Piano / Sine。缺少原插件不影响格式读取，但不能据此还原原厂商音色或承诺所有设备逐比特一致。
+- **非当前格式拒绝**：仅准入当前精确整数版本 `3`；浮点数（如 `3.0`）、字符串版本（如 `"3"`）、历史版本（v1/v2）和未来版本均被 `parsePerformanceFileRoot` 严格拒绝，不执行历史数据迁移或目录索引猜测。独立元数据读取（`loadPerformanceFileMetadata`）共用同一格式与精确版本准入网关，但不执行全事件解析与帧级验证。加载失败保持原文件字节和当前会话；当前 v3 的可选元数据缺省时返回空结构体，不作为旧版兼容承诺；
+- **初始录制状态捕获**：起点捕获初始预设和声学快照（slot 0）；预备拍期间的设置在实际录制下拍进入 Take。实时与 WAV 共享快照数据，但执行边界须按离线分册和上述已知问题分别核对。
 
 ---
 
@@ -114,7 +116,7 @@
   - **新录制**：调用 `detachForNewRecording()`，清空 Take，解除原文件绑定（`currentPerformanceFile = File()`），重置元数据，递增 `takeGeneration`；
   - **录制完成提交**：调用 `commitRecordedTake(newTake)`，更新 Take，保持未绑定状态（`currentPerformanceFile = File()`），递增 `takeGeneration`，开启 `canExportMidi`；
   - **MIDI 导入**：调用 `commitImportedMidi(newTake, songTitle)`，更新 Take，解除原文件绑定，设置新歌曲标题，递增 `takeGeneration`，关闭 `canExportMidi`；
-  - **原生文件打开**：调用 `openFromFile(file)`，在通过文件大小、完整读取、JSON 结构、准入约束与元数据校验后，整体提交 Take 并绑定 `currentPerformanceFile = file`，递增 `takeGeneration`；加载失败或取消保持原会话状态；
+  - **原生文件打开**：调用 `openFromFile(file)`，在 `loadPerformanceFile(file)` 全量解析与 `loadPerformanceFileMetadata(file)` 均成功且解析所得 Take 非空后，才整体提交 Take 并绑定 `currentPerformanceFile = file`，递增 `takeGeneration`；加载失败或取消保持原会话状态；
   - **另存为（Save As）**：调用 `saveToFile(newFile, expectedGeneration)`，代际一致且事务保存成功后，将 backing file 重新绑定为 `newFile`，递增 `takeGeneration`；
   - **元数据编辑**：代际一致时先准备新 metadata；若有绑定文件且 Take 有效，事务落盘成功后才提交内存。写入失败保持原内存和文件；未绑定时仅提交内存。
 - **跨 Take 与延迟操作隔离**：通过 `takeGeneration` 强校验，无论系统原生文件选择器的延迟返回，还是元数据编辑弹窗的延迟确认，均不得作用于已被替换的下一代 Take，绝不发生 A 文件被 B 的内容或元数据误写改写。
@@ -134,20 +136,19 @@
 
 ### 3.1 速度换算与时间步进公式
 
-设当前设备实际处理的采样数为 $N$，播放速度倍率为 $S$（$0.5 \le S \le 2.0$）：
-$$\Delta_{\text{playback}} = \text{round}(N \times S)$$
-- 当 $S = 0.5$（半速）时，每渲染 1 秒音频仅推进 0.5 秒录制数据（变慢）；
-- 当 $S = 2.0$（双速）时，每渲染 1 秒音频推进 2.0 秒录制数据（变快）。
+设设备采样率为 $f_{\text{device}}$，Take 采样率为 $f_{\text{take}}$，有效播放速度为 $S$（$0.5 \le S \le 2.0$）。事件从 Take 域缩放到设备回放域：
+$$R = \frac{f_{\text{device}}}{f_{\text{take}} S}, \qquad t_{\text{playback}} = \operatorname{round}(t_{\text{take}} R)$$
+音频块在设备域推进 $N$ 个样本；相同采样率下，0.5x 对应每秒推进约半秒 Take，2.0x 对应每秒约两秒 Take。跨设备采样率仍以固定 Take 域换算，不用逐块舍入的 `round(N * S)` 代替内部位置与余量。
 
 ### 3.2 动态变速游标与时间线保持
 
 在播放进行中、暂停或停止状态下调整速度倍率时：
-1. 速度倍率由 `std::atomic<double> playbackSpeedMultiplier` 线程安全传递，严格限制在 `[0.5, 2.0]` 范围内；
-2. **Take 绝对位置守恒**：在 `playing`、`playingPaused` 或保留游标的 `stopped` 状态下，调度器依公式重算当前设备采样位置：
-   $$P_{\text{new}} = \text{round}\left(P_{\text{old}} \times \frac{S_{\text{old}}}{S_{\text{new}}}\right)$$
-   保证换算回不可变 Take 的采样点位置（`getPlaybackPositionInTakeSamples()`）严格保持不变；
-3. **二分查找精确定位**：播放状态下立即调用 `resetPlaybackEventCursor`，借助 `std::ranges::lower_bound` 二分查找首个 $\ge P_{\text{new}}$ 的事件索引，防止时间线重映射引起跳音、吞音或历史事件重复触发；
-4. **发音完全清理**：在时间轴主动 Seek 或 A-B 循环回跳时，引擎批量向 16 个 MIDI 通道注入 CC64(0)、CC120(0) 与 All-Notes-Off(0) 清理事件，彻底杜绝悬挂音。
+1. **发布与生效分离**：`setPlaybackSpeedMultiplier()` 只发布有限且限幅到 `[0.5, 2.0]` 的目标倍率；音频块入口 `applyPendingTransportCommands()` 才提交有效倍率与位置。
+2. **位置重缩放**：以整数位置 $P$ 和保留的小数余量 $\epsilon$ 计算：
+   $$Q = (P + \epsilon)\frac{S_{\text{old}}}{S_{\text{new}}}, \qquad P_{\text{new}} = \lfloor Q \rfloor,\quad \epsilon_{\text{new}} = Q - \lfloor Q \rfloor$$
+   Take 采样率与 A/B 标记不变，避免反复切速丢失取整余量。
+3. **保留事件游标**：纯变速不调用 `resetPlaybackEventCursor()`、不重放已交付起音；Seek/回跳才重新定位事件并恢复目的通道状态。
+4. **显式清音边界**：Seek/A-B 回跳按采样点向 16 通道注入 CC64(0)、CC120(0) 与 All-Notes-Off；活动 Stop 在块入口优先于待提交 Seek/变速。
 ---
 
 ## 4. 专项手工与边界测试清单
@@ -161,9 +162,11 @@ $$\Delta_{\text{playback}} = \text{round}(N \times S)$$
 | **PRF-005** | 最近文件列表联动 | 成功打开或保存 `.devpiano` 文件后，最近文件菜单顶部自动追加该文件路径，点击可再次打开 | [x] 已通过 |
 | **PRF-006** | 拖放即时回放 | 将 `.devpiano` 文件拖入主窗口，立即自动解析并开始回放 | [x] 已通过 |
 | **PRF-007** | 预设切换事件回放 | 在录制中按 F2 切换预设并继续弹奏，保存并打开后，回放到达对应时间点自动切换为 F2 预设 | [x] 已通过 |
-| **PRF-008** | 独立元数据极速加载 | 调用 `loadPerformanceFileMetadata` 读取大体积 `.devpiano` 文件，极速返回歌曲标题与创建时间，无需解包解析完整 events 事件流 | [x] 已通过 |
+| **PRF-008** | 独立元数据读取 | 有界读取完整 JSON，通过格式/版本网关后提取元数据，不解码 MIDI 或构造 Take；此入口不证明事件内容有效，也不承诺固定耗时 | [x] 读取机制验证；不作全事件准入证据 |
 | **PRF-009** | 暂停与停止状态下变速位置守恒 | 在暂停或停止状态下拖动速度滑块调节倍速，重新播放时依然严格从原来的 Take 绝对采样点起奏，无任何游标漂移 | [x] 已通过 |
 | **PRF-010** | Take 替换后的旧文件保护 | 打开 A，导入/录制 B 后编辑信息；A 原字节保持，未保存的 B 不绑定 A | [x] Windows 文件/实际导入信息界面验证通过 |
 | **PRF-011** | Save As 重新绑定 | 当前 B Save As 到 C，再编辑信息；C 包含 B 事件和新元数据，A 不变 | [x] Windows 真实文件消费者验证通过 |
 | **PRF-012** | 失败与延迟结果隔离 | 失败打开/保存保持当前身份；切换 Take 后提交旧信息或保存结果，当前文件不被改写 | [x] Windows 真实文件消费者验证通过 |
 | **PRF-013** | 生产 Notes 键入/确认/取消 | 在实际 Info 窗口键入两行并确认，会话和绑定文件均保存；再次修改后取消，两者保持原值，诊断列表仍只读 | [x] Windows 实际窗口与文件字节验证通过 |
+
+自动化回归由 `PerformanceFileTest` 覆盖当前 Schema v3 精确整数版本准入、内嵌快照往返、时间戳时序稳定排序、MIDI 帧与 Base64 预算防御、Take 代际隔离与事务写出；所有测试均在隔离临时目录中运行，零历史静态样本依赖。

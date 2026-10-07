@@ -38,6 +38,7 @@
    产品自有实时发声与调度回调保持零堆分配、零锁，状态通过预分配队列/原子快照交换。第三方 JUCE VST3 适配器的 SpinLock、CriticalSection 与单块 2048 消息上限单列；插件内部二进制行为另属不可控层。后台文件写出不承担实时回调的零分配承诺，详见 known-issues。
 10. **离线实时执行同构原则 (Rendering Parity)**：  
     离线渲染管线（Offline Renderer）与实时音频引擎（Realtime Engine）必须共享完全一致的乐器参数、空间混响与演奏事件执行语义。
+    当前非零快照移调仍有 [实时/WAV 音高差异](../issues/known-issues.md#原生演奏快照移调与-wav-音高不一致)，该原则是必须修复的目标，不因字段相同或历史有限场景通过就视为已全量满足。
 
 ### 1.3 核心参考项目技术栈 (Reference Stack)
 
@@ -196,7 +197,7 @@ source/
   - `sampleRate` + `lengthSamples` + `events` 组成的 `RecordingTake` 数据结构；
   - 播放状态机管理：0.5x–2.0x 变速、Seek 与 Stop 经有界原子邮箱发布，由 `AudioEngine` 的单一块入口调用 `applyPendingTransportCommands()`；纯变速保留下一未渲染事件游标，避免缩放取整重播旧 NoteOn。
   - 回放 NoteOn 以预分配 FIFO 保存最终输出身份；Off 匹配原身份并按最终输出持有数释放，映射变化与设备 prepare 不清空同代身份。录制在暂停/停止的停机边界终结已录身份/踏板，实际最终松键在其采样点闭合重叠起音。
-  - **预设永久身份与快照同构**：Take 内嵌 RecordedPreset 表，事件以 Take-local 槽位引用永久 UUID/声学快照；实时与 WAV 按采样偏移执行，同采样预设先于音符。UI 通知合并更新最新视图，不依赖目录或回写音频参数。
+  - **预设永久身份与参数执行**：Take 内嵌 RecordedPreset，事件以 Take-local 槽位引用 UUID/声学快照；按采样偏移执行，同采样预设先于音符。UI 通知合并更新视图、不依赖目录或回写音频参数；快照移调的实时/WAV 差异按上述 P1 保留。
   - `AbLoopEngine` 保存 Take-relative A/B；Seek/回跳先清音再恢复 program、bank、CC 与 pitch 状态，不重发历史 NoteOn。播放/暂停游标与固定录制 Take 域在设备 prepare 时重基准；实时长度包含最后事件，音频交付边界收尾后才通知 UI。
   - 结构提交前验证采样率、非负有序事件与最坏支持倍率的整数范围，保留现有合成时间域；文件的物理采样率准入与通用数值安全检查分开。
 - **`source/Recording/RecordingSessionController.h/.cpp`**：
@@ -245,7 +246,7 @@ source/
   - 防抖快照完整复制节拍器、预备拍、击键动态/人性化字段；音频设备与插件缓存 XML 仍独立克隆。
 - **`source/Settings/SettingsStore.h/.cpp`**：
   - 基于 `juce::ApplicationProperties` 与 XML 的设置存取。
-  - 成功同步 `save()` 撤销此 store 较旧的待写快照；失败同步保存保留原待写任务，后续 `scheduleSave()` 仍可提交。timer 将 payload 移入局部所有权后保存，避免保存时清理自身 optional。
+  - 成功同步 `save()` 撤销此 store 较旧的待写快照；失败同步保存保留原待写任务，后续 `scheduleSave()` 仍可提交。timer 将 payload 移入局部所有权后保存，避免保存时清理自身 optional。插件恢复只读取 `lastPluginIdentifier`，不从旧名称或 XML 缓存推导身份；缓存与当前标识分别持久化。
 - **`source/Settings/SettingsWindowManager.h/.cpp`**：
   - 管理独立设置窗口的生命周期、保存、dirty 标记与关闭。
 - **`source/Settings/AppStateBuilder.h/.cpp`**：
@@ -287,7 +288,7 @@ source/
 ### 3.10 Locale（多语言与静态资产管理）
 
 - **`source/Locale/LocaleManager.h`**：
-  - 语言管理与运行时即时切换（英文 / 简体中文），优先读取编译期嵌入的 `BinaryData::zh_CN_loc`。
+  - `devpiano::locale` 命名空间函数管理英文 / 简体中文；优先读取内嵌 `BinaryData::zh_CN_loc`，外部 `.loc` 只补缺键。`MainComponent::applyLanguage()` 激活并刷新主界面；单参数完整消息在非实时路径替换，详见国际化分册。
 - **`CMakeLists.txt` 构建期资产嵌入**：
 
   ```cmake
@@ -388,8 +389,8 @@ AudioEngine::getNextAudioBlock() (音频回调线程)
 用户点击 Stop   ──► RecordingEngine::stopRecording() ──► 产出 Take 快照
 
 [持久化]
-用户点击 Save   ──► PerformanceFile::saveToFile() (JSON 序列化 + TemporaryFile 原子保存)
-用户点击 Open   ──► PerformanceFile::loadFromFile() ──► 恢复 Take ──► 自动开始回放
+用户点击 Save   ──► savePerformanceFile() (当前 v3 JSON + 同目录 TemporaryFile 事务替换)
+用户点击 Open   ──► loadPerformanceFile() + loadPerformanceFileMetadata() ──► 成功后整体提交会话并开始回放
 
 [回放与跟练]
 TimelineBar ──► RecordingSessionController (Take-relative Seek / A/B 标记)
@@ -403,8 +404,8 @@ TimelineBar ──► RecordingSessionController (Take-relative Seek / A/B 标�
     ├── RenderPipeline (统一时间戳缩放、排序与 panic 注入)
     ├── renderTakeThroughInstrumentEndpoint() (同构乐器端点路由):
     │    ├── [有插件] ──► PluginOfflineRenderer (独立离线实例非实时渲染)
-    │    └── [无插件] ──► 内置 PianoSynthVoice 渲染
-    ├── RoomReverbEngine (后级算法立体声房间混响网络对齐，保证与实时声学一致)
+    │    └── [无插件] ──► 内置 Piano / Sine 渲染（由选定音源及 Take 快照决定）
+    ├── RoomReverbEngine + Master (共享宿主参数和采样级快照语义，不承诺逐比特输出一致)
     └── WAV writer 关闭后事务替换目标；失败/提交前取消只清理任务临时文件，实际 worker 退出后通知完成
 ```
 
@@ -416,7 +417,7 @@ TimelineBar ──► RecordingSessionController (Take-relative Seek / A/B 标�
 SettingsModel + Runtime Audio/Plugin State
     │
     ▼
-AppStateBuilder::buildSnapshot() (组装单一事实源 AppState)
+devpiano::core::buildCurrentAppStateSnapshot() (持久化基线叠加运行态，组装 AppState)
     │
     ▼
 PluginPanelStateBuilder / MainComponent JIVE Accessors

@@ -35,7 +35,7 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
 - **7 大声学物理子系统**：覆盖琴槌（Hammer）、琴弦（String）、琴桥（Bridge）、音板（Soundboard）、琴体（Cabinet）、空气（Air）与空间（Room）；
 - **88 键连续物理参数映射**：基于 Bensa et al. (2003) 与 Steinway B 实测标定，连续插值琴弦刚度 $B$、击弦比 $d/L$、阻尼常数与 1/2/3 弦物理分区（`Piano88KeyTable.h`）；
 - **非线性打击、毛毡老化与动力学绽放**：三层毛毡动力学压实、动态接触时间 $T_c$、击弦点几何梳状陷波、3ms 高频瞬态裂音（HF Crack）、琴槌毛毡微老化穿透力（`feltAgeingAmount`）、泛音时间滞后膨胀绽放（Harmonic Blooming）与强击软饱和；
-- **真实共鸣与空间声学系统**：16 峰正交云杉木物理音板模态、4.2kHz 云杉木高频粘滞吸收滤波、琴桥立体声展开、同音三弦 Mid-Side 差分展开与非对称拍频、演奏者（Player）与听众（Audience）双视角声相变换（`PerspectiveProcessor`）以及内置纯算法房间混响网络（`RoomReverbEngine`: Chamber/Hall/Studio）；
+- **真实共鸣与空间声学系统**：16 峰正交云杉木物理音板模态、4.2kHz 云杉木高频粘滞吸收滤波、琴桥立体声展开、同音三弦 Mid-Side 差分展开与非对称拍频、演奏者（Player）与听众（Audience）双视角声相变换（`PerspectiveProcessor`）以及内置纯算法房间混响网络（`RoomReverbEngine`: Studio / Chamber / Concert Hall）；
 - **微观机械动作拟真与古典律制**：CC64 全局交感共鸣、延音踏板下踏/抬起机械扫掠呼啸（Whoosh）与共鸣冲击（Resonance Shock）、制音器落木闷击与琴键释放摩擦、离键速度动态 ADSR 阻尼缩放，以及 6 大古典微调律制（`TemperamentEngine`）与 A4 基准基频微调（400.0–480.0 Hz，默认 440.0 Hz；设置、预设与内置实时/离线音源使用同一限幅）。
 - **物理发声核心与硬实时契约**：`PianoSynthVoice` 与节拍器全回调零三角函数（0 `std::sin`），8 复音齐奏单核 CPU $\le 0.7\%$；产品自有发声路径零堆分配、零锁；键盘输入经有界 SPSC 队列交换，音符高亮由消息线程刷新，彻底解耦音频线程与 UI；第三方 VST3 插件适配器的框架锁与扩容限制见 [`docs/issues/known-issues.md`](docs/issues/known-issues.md)；支持与内置正弦波（`SineSynthVoice`）切换。
 
@@ -72,12 +72,12 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
 - **多倍速回放控制**：支持 0.5x–2.0x 音频块边界倍速调节、Back 从头回放，以及暂停/恢复、Take-relative 跳转与 A-B 循环；设备采样率变化保留 Take 时间域，跳转前恢复通道状态，末尾 NoteOff 由音频路径交付，同块预设先于音符生效；
 - **原生演奏持久化**：仅支持当前 `.devpiano` v3 JSON，使用 JUCE 长度前缀二进制编码及内嵌 `RecordedPreset` 表；同目录临时文件成功写出后事务替换。不迁移旧格式，拒绝加载时保留原文件与当前会话；
 - **标准 MIDI 文件支持**：导入 Type 0/1 全轨 MIDI，完整轨/chunk/meta 准入后保留跨轨 Tempo Map 的时间语义；导出 Type 1、960 PPQ 的单轨演奏流，tick 0 写入 120 BPM，不合成曲名、拍号或调号 meta；
-- **Performance Preset 预设系统**：UUID 永久身份、CRUD、F1-F12 切换、独立重命名目标覆盖确认；普通切换保留应用全局调号，录制回放按内嵌声学快照执行当时的移调。
+- **Performance Preset 预设系统**：仅当前整数 v2、UUID 永久身份、CRUD、F1-F12 切换、独立重命名目标覆盖确认；普通切换保留应用全局调号，录制回放按内嵌声学快照执行当时的移调。当前可选字段缺省不代表历史版本兼容；
 
 ### 📦 离线高保真 WAV 导出（Offline WAV Export Pipeline）
 
 - **现代化异步非阻塞渲染**：`WavExportTask` 演进为纯异步工作任务流（`startAsync`），彻底消除消息循环阻塞，端到端经 `InstrumentEndpoint` 统一调度；
-- **双引擎同构声学对齐**：无插件时自动由内置物理建模引擎渲染，有插件时独立创建离线 VST3 实例渲染，1:1 对齐全部声学参数与 `RoomReverbEngine` 空间混响；
+- **双引擎参数与事件调度**：内置 Piano / Sine 或独立离线 VST3 实例消费 Take 快照、采样级事件及宿主 Master/混响；内置物理参数不写入厂商音源，不承诺逐比特输出一致。当前非零快照移调存在 [实时/WAV 音高差异](docs/issues/known-issues.md#原生演奏快照移调与-wav-音高不一致)，不能宣称完整渲染同构；
 - **进度与协作取消**：显示导出进度，取消后等待实际工作退出再释放资源；失败或提交前取消保留原目标，仅清理任务自有临时文件。厂商永久阻塞时无法保证有限时间内结束。
 
 ### 🎨 内生声明式 UI 运行时与设计系统（Declarative UI & Design System）

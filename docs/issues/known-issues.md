@@ -13,6 +13,21 @@
 
 功能缺口和已确认但尚未修复的缺陷。
 
+### 原生演奏快照移调与 WAV 音高不一致
+
+- **优先级：P1，已确认未修复**。快照移调启用且 offset 非零时，实时回放与离线 WAV 对同一 Take 的音高处理不同；格式准入、参数字段存在或默认测试通过都不能证明完整渲染同构。
+- **复建输入**：从当前原生示例构建完整快照，使用 44.1 kHz、内置 Sine、A4=440 Hz、Master=0.2、wet=0、ADSR=`{0.001, 0.001, 1.0, 0.01}`；`transposeEnabled=true`、`transposeOffset=2`、`channelFollowKeyMask=65535`。Take 长度 44100，采样点 0 先切 slot 0 再发送 Ch1/MIDI69 NoteOn，44100 发送同身份 Off。先由 `savePerformanceFile()` 写出，再由 `loadPerformanceFile()` 准入；同一读回 Take 分别交给 `AudioEngine` 和 `exportTakeAsWavFile()`。
+- **直接证据（Task 36-4，2026-10-07）**：Windows Debug 生产对象消费者渲染双声道并读取实际 WAV，在 0.1–0.6 秒区间按上升零交叉测量，结果如下。这是音高差异，不是 WAV 量化误差；源文件/会话保护与用户目录文件清单/SHA256 校验仍通过。
+
+| 同一读回 Take 的消费者 | 发声音高 | 测得基频 |
+| --- | --- | ---: |
+| 实时 `AudioEngine` | MIDI71 | 493.881 Hz |
+| 内置 WAV writer | MIDI69 | 440.015 Hz |
+
+- **源码定位**：`source/Audio/AudioEngine.cpp:585-656` 按快照 offset/follow mask 计算候选音高并锁定 Off 身份；`source/Recording/WavFileExporter.cpp:151-157,189-207` 提交声学参数后仍以 `identityTracker.noteOn(ch, sourceNote, sourceNote)` 发音，不应用快照移调。插件离线路径 `PluginOfflineRenderer.cpp:162-171,201-218` 也没有该变换（源码检查，未作厂商音源实测）。
+- **处理边界**：本轮只同步现行契约，不修 DSP/事件实现，不修改历史审计或归档。后续须统一录制 MIDI 音高域与实时/离线移调，保留同采样顺序和原身份释放；在此之前不把“快照字段相同”宣称为完整实时/WAV 音高保真。
+
+
 ### 插件生命周期退出告警
 
 > 既有手工回归不能外推所有厂商插件。AUDIT-004 的 `AUDIT-001 THR-004` 重扫绕过已按 Phase C 收敛：真实原生 VST3、活动 callback＋Editor＋重扫及实际退出通过；基线反证与闭环证据见 [实施记录](../archive/audit-004-code-quality-fix-phases.md#phase-c-实施记录与直接验证2026-10-03)。特定厂商退出告警、永久卡死、强杀和断电仍保留安全回归范围。

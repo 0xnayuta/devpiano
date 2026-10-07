@@ -2,13 +2,13 @@
 
 ## 状态
 
-**已接受（2026-10-05）；既有调用迁移待实施。**
+**已接受（2026-10-05）。**
 
-用户已确定采用本决策，后续开发按其组织消息。当前源码仍存在删除/覆盖预设和扫描提示等碎片拼接；迁移任务见 [当前小阶段](../roadmap/current-iteration.md)。接受决策不等于消息迁移或通用格式化器已实现。
+本决策规定消息组织方式，不引入通用格式化器。现行机制与回归边界见 [国际化分册](../reference/features/internationalization.md)，实施状态和任务只在 [roadmap](../roadmap/roadmap.md) / [当前迭代](../roadmap/current-iteration.md) 维护。
 
 ## 背景
 
-devpiano 使用 JUCE `LocalisedStrings` / `TRANS`、BinaryData 内嵌 `zh_CN.loc` 与英文原文回退。缺词条导致的预设弹窗英文回退已经修复，但 `PresetFlowSupport` 仍将消息前缀、名称与后缀分别拼接，限制译文调整语序、引号、标点和空格。
+devpiano 使用 JUCE `LocalisedStrings` / `TRANS`、BinaryData 内嵌 `zh_CN.loc` 与英文原文回退。本决策提出时，缺词条导致的预设弹窗英文回退已经修复，但 `PresetFlowSupport` 仍将消息前缀、名称与后缀分别拼接，限制译文调整语序、引号、标点和空格。
 
 需要分开处理两个问题：完整消息的可翻译性，以及本项目选择的中文文案风格。微软指南区分软件与文档的标点约定，不能据此宣称所有中文 UI 必须全部全角；也不能把正常的技术表达或用户数据混排判作错误。
 
@@ -29,7 +29,7 @@ devpiano 使用 JUCE `LocalisedStrings` / `TRANS`、BinaryData 内嵌 `zh_CN.loc
 - 首批单参数使用 ASCII 标记 `{0}`：先 `TRANS` 查表，再用 `juce::String::replace("{0}", value)` 插入值。不要先拼入名称再查表。
 - 插入值只作为数据，不作为翻译键或格式串，不进行全半角转换、Unicode“美化”或二次解释。
 
-以下为目标写法，尚待存量调用迁移：
+本决策的单参数写法：
 
 ```cpp
 auto message = TRANS("Delete preset \"{0}\"? This cannot be undone.").replace("{0}", name);

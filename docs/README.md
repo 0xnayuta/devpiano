@@ -44,11 +44,11 @@
 | **录制与回放** | [`features/recording-playback.md`](reference/features/recording-playback.md) | 暂停捕获配对、0.5x–2.0x 回放、采样域重基准、Take-relative Seek / A-B 状态恢复、完整预备拍与标准 Type 1 MIDI 导出 |
 | **录制与回放** | [`features/performance-persistence.md`](reference/features/performance-persistence.md) | 当前 `.devpiano` v3 JSON、JUCE 长度前缀二进制消息、内嵌快照、事务替换与 Take/原生文件绑定 |
 | **录制与回放** | [`features/midi-file-import.md`](reference/features/midi-file-import.md) | 标准 MIDI 文件导入、Type 0/1 全轨并轨、CC64 延音/弯音解析与回放 |
-| **渲染与导出** | [`features/plugin-offline-rendering.md`](reference/features/plugin-offline-rendering.md) | VST3 插件与内置物理建模钢琴离线高保真渲染 WAV 导出（异步非阻塞任务流、`RenderPipeline`、`WavExportOptions` 声学参数 1:1 对齐） |
-| **预设与状态** | [`features/performance-presets.md`](reference/features/performance-presets.md) | Performance Preset 预设系统（CRUD 编排、F1-F12 快捷键、录制中自动切调） |
+| **渲染与导出** | [`features/plugin-offline-rendering.md`](reference/features/plugin-offline-rendering.md) | VST3 与内置 Piano / Sine 离线 WAV 导出，`RenderPipeline` 采样级快照、宿主 Master/混响语义及协作取消边界 |
+| **预设与状态** | [`features/performance-presets.md`](reference/features/performance-presets.md) | 当前 v2 UUID 预设、配置子集、CRUD、F1-F12 与内嵌快照回放；不按历史名称迁移 |
 | **UI 与交互** | [`features/declarative-ui-and-theming.md`](reference/features/declarative-ui-and-theming.md) | 内化的 JIVE 声明式 UI、ViewHost、主窗口节拍器控件与 QWERTY 和弦 HUD、时间轴、设计 Token 与通用弹窗 |
 | **多语言** | [`features/internationalization.md`](reference/features/internationalization.md) | 运行时中英文双语即时切换（`LocaleManager` + 内嵌 `zh_CN.loc`） |
-| **测试支撑** | [`features/fixture-inventory.md`](reference/features/fixture-inventory.md) | 固定 MIDI 与 Performance 测试夹具样本库清单 |
+| **测试支撑** | [`features/fixture-inventory.md`](reference/features/fixture-inventory.md) | 固定标准 MIDI 样本与隔离临时目录中程序化生成的当前原生演奏输入 |
 
 ---
 

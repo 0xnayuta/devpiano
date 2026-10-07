@@ -95,7 +95,7 @@ VST3 插件宿主是 devpiano 连接现代专业音频制作与高品质虚拟�
 
 - 下拉菜单每项携带 `PluginDescription::createIdentifierString()` 身份；同名不同文件/ID/类型不折叠，必要时显示标识符作区分。加载使用选中项的身份，不从 ComboBox 文本反查第一个同名插件。
 - 乐器/效果过滤直接消费 description 的 `isInstrument`；空过滤结果保持空列表并禁用 Load，不回退到全部类型。
-- `SettingsModel::lastPluginIdentifier` 贯穿成功加载、快照保存与启动恢复，仅消费当前 description identifier；不从旧 `lastPluginName` 推导恢复目标，缺少当前标识时不加载历史名称对应的插件。插件缓存继续独立持久化。
+- `SettingsModel::lastPluginIdentifier` 贯穿成功加载、快照保存与启动恢复，仅消费当前 description identifier；不从旧 `lastPluginName` 推导恢复目标，缺少当前标识时不加载历史名称对应的插件。插件缓存继续独立持久化。当前可选字段缺省不是旧版本兼容，不执行任何向后兼容迁移。
 - `addVst3FileToKnownList()` 返回此次有效探测的 descriptions，不依赖是否新增列表条目。重复文件可再次加载，缓存 metadata 更新仍触发持久化。
 
 ### 3.6 崩溃安全扫描持久化与 dead-man's pedal
@@ -110,7 +110,7 @@ VST3 插件宿主是 devpiano 连接现代专业音频制作与高品质虚拟�
 ### 3.7 加载慢插件与取消限制（Slow Plugin Load & Cancellation Limitations）
 
 - **同步创建与无强杀保证**：第三方 VST3 插件的实例化（`formatManager.createPluginInstance()`）与初始化（`prepareToPlay()`）在消息线程上的音频重建守卫中同步执行。若第三方插件在构造函数或初始化中永久卡死，宿主无法在不损坏进程堆状态的情况下强行打断（Win32 `TerminateThread` 会破坏互斥量与 CRT 堆，被严格禁止）；
-- **分片扫描取消边界**：扫描期间用户点击取消（`cancelVst3ScanSession()`）是在分片 tick 之间协作生效，中途取消不会丢失已发现的插件成果；但若单个插件探测过程本身发生无响应或死锁，该阻塞发生在分片内部，取消信号需等待当前探测调用返回后方可处理。
+- **分片扫描取消边界**：`cancelVst3ScanSession()` 在分片之间由消息线程调用，保留已发现成果并触发 XML 持久化回调；这不是插件加载的可中断取消按钮。单个 `scanNextFile` 同步探测永久阻塞时，消息线程无法处理下一次取消调用。
 
 ### 3.8 分层实时架构与框架锁边界（Layered Realtime Architecture & Framework Lock Boundaries）
 
@@ -147,7 +147,7 @@ devpiano 的实时发声系统采用严格的分层验收契约：
 
 ### 4.1 验收证据依据与未验证范围说明
 
-1. **原生 VST3 实施依据**：PLG-001～PLG-007、PLG-011 与 PLG-012 的验证证据源自基于真实 JUCE VST3 wrapper 构建的本地独立插件包（`PhaseCTwinA`、`PhaseCTwinB`、`PhaseCTwinEffect`，见 [Phase C 实施记录](../../archive/audit-004-code-quality-fix-phases.md#phase-c-实施记录与直接验证2026-10-03) EVID-020/021/024），包含真实的 Win32 事件阻塞交错、已加载＋Editor＋重扫交错与真实退出测试；
+1. **原生 VST3 实施依据**：PLG-001～PLG-007、PLG-011 与 PLG-012 的验证证据源自基于真实 JUCE VST3 wrapper 构建的本地独立插件包（`PhaseCTwinA`、`PhaseCTwinB`、`PhaseCTwinEffect`，见 [Phase C 实施记录](../../archive/audit-004-code-quality-fix-phases.md#phase-c-实施记录与直接验证2026-10-03) EVID-020/021/024），包含真实的 Win32 事件阻塞交错、已加载＋Editor＋重扫交错与真实退出测试；测试聚焦行为与状态转换，字段/getter 声明复制不作为生命周期或稳定性保证；
 2. **严禁外推的未验证范围**：
    - **第三方商业厂商插件**：未在各类商业插件（如 Pianoteq, Kontakt, Surge XT, Spitfire LABS）上执行兼容性认证，不可将自建原生夹具通过等同于第三方厂商全兼容；
    - **物理声卡热插拔与驱动抖动**：未在真实物理硬件 ASIO/CoreAudio 声卡插拔或驱动崩溃下执行破坏性测试；

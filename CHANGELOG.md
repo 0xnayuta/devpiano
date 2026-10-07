@@ -9,6 +9,8 @@
 - **AUDIT-004 Review and Localization Policy** — archive the completed software remediation phases with reproducible consumer inputs; reconcile the audit against recorded evidence without erasing the initial baseline or claiming hardware certification. Accept ADR-015 for complete localized messages and category-specific punctuation; schedule the existing-call migration as a small iteration, not an implemented formatter.
 
 - **Complete Localized Message Templates** — adopt full sentence templates with `{0}` placeholders across preset delete/overwrite confirmations, save/rename/delete status toasts, count-in counters, export notifications, key bindings, and plugin statuses; clean up obsolete string fragments in `zh_CN.loc` and enforce single-pass parameter substitution without recursive expansion.
+- **Synchronized Active Feature Documentation and Compatibility Statements** — systematically audit all 13 active feature documents, project portals, architecture references, and checklists against production code. Enforce integer v2 presets and integer v3 performance files, trimmed non-empty UUIDs, canonical reverb identifiers (`concert_hall`), single-parameter full message templates (ADR-015), fixed 2.0s WAV export tail bounds, and VST3 host boundaries while preserving historical audits and archives.
+
 ### Fixed
 
 - **Content-Sized Dialogs and Consistent Footers** — fit preset, binding, metadata, and export dialogs to their rendered content; preserve a 28 logical-pixel bottom inset with full-height actions across scaling. Correct native-titlebar content sizing, wrap long confirmation names without clipping, and retain asynchronous confirmation and cooperative export cancellation.

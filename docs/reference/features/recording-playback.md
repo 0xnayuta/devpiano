@@ -13,7 +13,7 @@ devpiano 提供了完整的“弹奏 → 录制 → 回放 → 导出 MIDI”的
 1. **实时音频线程无锁采集**：在 `AudioEngine` 的音频处理回调中，实时无锁捕获已合并电脑键盘与通道矩阵变换的 pre-render MIDI 消息；
 2. **预分配内存与溢出防御**：录制前预先分配大容量事件缓冲，录制期间实时线程**零动态内存分配（零堆分配）**，容量耗尽时以原子计数安全丢弃，不发生崩溃或阻塞；
 3. **高保真同链路回放**：回放事件重新注入 `AudioEngine` 的主发声链路（驱动已加载 VST3 插件或内置物理建模钢琴），同时联动虚拟钢琴键盘高亮显示；
-4. **标准 MIDI 文件导出**：将完成录制后的 `RecordingTake` 快照转换为标准 MIDI 文件（单轨包含 Set Tempo 与 MIDI 事件，默认 960 PPQ），供导入外部宿主（DAW）或打谱软件；
+4. **标准 MIDI Type 1 文件导出**：将完成录制后的 `RecordingTake` 快照转换为标准单轨 MIDI Type 1 文件（包含 Set Tempo 与 MIDI 事件，默认 960 PPQ），供导入外部宿主（DAW）或打谱软件；
 5. **全流程会话编排（`RecordingSessionController`）**：统一录制、播放、暂停和停止；预备拍在完整 1–2 小节后的音频下拍开始，不在最后一拍起音或 UI 轮询时才启动。目标已到达但 UI 尚未轮询时，后续控制先接管已开始的录制；未开始时取消保留原 Take；
 6. **A-B 跟练时间轴与采样级 Seek**：显示 Take 绝对时间，支持点击/拖拽 Seek、A/B 标记；清理旧发音后，在目标音符之前恢复目的通道的 program/bank/CC64/pitch，不重发历史 NoteOn。
 
@@ -101,19 +101,21 @@ struct RecordingTake {
     double sampleRate = 0.0;                       // 录制开始时锁定的 Take 时间域
     std::int64_t lengthSamples = 0;                // 录制总长度（采样点）
     std::vector<PerformanceEvent> events;          // 事件序列
-    std::vector<RecordedPreset> presets;           // 内嵌预设与声学快照表（v3）
+    std::vector<RecordedPreset> presets;           // 内嵌预设（v2）与声学快照表（原生 .devpiano 文件 Schema v3）
 
     [[nodiscard]] bool isEmpty() const noexcept;
     [[nodiscard]] double durationSeconds() const noexcept;
 };
 ```
 
+- **自有格式与标准格式解耦**：内嵌 `presets` 存储 `RecordedPreset`（包装 Schema 整数版本 2 的 `PerformancePreset` 与 `AcousticSnapshot`）；原生演奏文件（`.devpiano`）由 `PerformanceFile` 以 Schema 整数版本 3 序列化，数据与独立元数据读取严格仅接受整数版本 3，不迁移历史数据；标准 MIDI 导入（Type 0/1）与导出（Type 1）、VST3 插件托管保持标准协议，互不外推自有 JSON 模式。
+
 ---
 
 ## 4. 标准 MIDI 文件导出（`MidiFileExporter`）
 
 `source/Recording/MidiFileExporter.cpp` 将 `RecordingTake` 序列化为标准 `.mid` 文件：
-- **文件与轨道组织**：`exportTakeAsMidiFile()` 真实只调用一次 `midiFile.addTrack(sequence)` 生成单轨事件流（并非独立导引轨+音符轨的双轨结构），时间基准为传入的 PPQ（默认 **960 PPQ**）；
+- **文件与轨道组织**：`exportTakeAsMidiFile()` 真实只调用一次 `midiFile.addTrack(sequence)` 生成单轨事件流（并非独立导引轨+音符轨的双轨结构），以标准 MIDI Type 1 格式（`midiFileType = 1`，JUCE 默认）写出，时间基准为传入的 PPQ（默认 **960 PPQ**）；
 - **Meta 与 Tempo 设置**：在 tick 0 处写入单一 Set Tempo 消息（固定 `defaultTempoMicrosecondsPerQuarterNote = 500000` 微秒/四分音符，对应 120 BPM）；不自动合成曲目标题、拍号或调号 meta 事件；
 - **事件过滤与显式流保持**：仅导出 `type == PerformanceEventType::midi` 且非 SysEx、非空的演奏消息，自动过滤 `presetChange` 事件与 SysEx。不调用 `updateMatchedPairs()`，避免为重复同音起音凭空插入额外 NoteOff；
 - **数值准入与范围校验**：校验采样率处于支持范围且长度可表示；PPQ 仅接受 `1 .. 32767`；转换 tick 前校验非负与有限性；写出前确认 JUCE `int` tick 与 MIDI 4 字节 VLQ delta 均可表示，非法范围拒绝写出并保留原目标；

@@ -8,7 +8,7 @@
 - WSL 主工作树是唯一源码编辑来源。
 - 正式 release 产物面向 Windows x64 与 Linux x64 双平台。
 - Windows release 产物由 Windows 镜像树执行 MSVC Release 构建、手工验证和最终打包；Linux release 产物由 GitHub Actions `release.yml` 的 `release-linux-x64` job 在 `ubuntu-24.04` runner 自动构建打包。
-- WSL 本地 Linux Release 构建仅用于开发验证（WSL 为 Ubuntu 26.04，glibc 2.43，产物仅兼容 Arch 系滚动发行版）。
+- WSL 主工作树不执行产品 Release 构建；Linux 分发门槛由发布 runner、实际产物依赖检查及下方支持矩阵决定，不能由开发机发行版名称推导。
 - 正式发布才使用 Release 构建；日常开发仍默认使用 Debug。
 - tag 使用 annotated tag，格式为 `vMAJOR.MINOR.PATCH`。
 - tag 推送后不重写；若已发布版本有严重问题，发布新的 patch 版本修复。
@@ -62,11 +62,11 @@ WSL 主工作树只用于源码编辑和刷新编译数据库；Linux 正式分�
 - **支持矩阵（glibc ≥ 2.39）**：Ubuntu 24.04 LTS+、Debian 13+、Fedora 41+、Arch / CachyOS / Manjaro 等滚动发行版。**明确放弃** glibc < 2.39 的发行版：Ubuntu 22.04 LTS（2.35，2027-04 标准支持结束）、Debian 12（2.36）、Linux Mint 21.x。
 - **门槛检查**：构建后运行 `scripts/check_linux_glibc_floor.sh <DevPiano 路径>`（`readelf --version-info` 提取最大 GLIBC_/GLIBCXX_ 需求并对照支持矩阵）；门槛不达标时发布 job 失败——同时防止 runner 镜像漂移导致兼容面悄悄缩水。
 
-#### 2.2.2 Windows 侧依赖（保持现状，无兼容问题）
+#### 2.2.2 Windows 侧依赖与验证边界
 
 Windows 产物（`DevPiano.exe`）动态链接 MSVC 运行库（`vcruntime140.dll` / `msvcp140.dll`，`/MD` 默认），目标系统需具备 **VC++ Redistributable 2015-2022**（Windows 10/11 上普及度极高，缺失时随安装包附送即可）；UCRT 为 Windows 10+ 系统组件内置。
 
-Windows 无 glibc 类兼容问题：编译期 `_WIN32_WINNT` 固定为 Win10（JUCE 8），Win32 API 为稳定 ABI，构建机 VS 版本不影响产物兼容面——**保持 `windows-latest` 最新工具链构建，不做保守环境调整**。
+当前 JUCE 9 本地 `juce_BasicNativeHeaders.h` 将 `WINVER` / `_WIN32_WINNT` 设为 `_WIN32_WINNT_WIN10`，目标为 Windows 10+。Windows 没有 glibc 同类门槛，但仍依赖对应 MSVC 运行库、系统 API、声卡驱动及插件；使用 `windows-latest` 构建，不把编译目标或工具链升级等同于所有系统/厂商组合已认证。
 
 ## 3. 版本号规则
 
@@ -137,11 +137,11 @@ git log --oneline -5
 - 应用可启动，主窗口正常显示。
 - 内置物理建模钢琴音源发声正常，可切换 fallback 正弦波。
 - 电脑键盘触发 note on / note off 正常，打字击键动态力度与 Shift 极值正常，虚拟键盘显示联动正常。
-- 节拍器开关（`Ctrl+M`）、走带栏呼吸灯与 Tap Tempo 测速正常。
+- 节拍器开关（`Ctrl+M`）、状态栏节拍反馈与 Tap Tempo 正常；传输按钮不显示同频节拍呼吸灯。
 - 弹奏和弦时 Qwerty HUD 徽章实时显示识别和弦与淡出。
 - VST3 扫描、加载、卸载、editor 打开/关闭正常。
 - 录制、回放、A-B 循环与时间轴 Seek 跳转正常。
-- 保存 `.devpiano`、打开 `.devpiano` 正常。
+- 当前整数 v3 `.devpiano` 保存/打开与内嵌快照正常；预设仅整数 v2，非当前格式拒绝时保留原文件与活动会话，不以迁移或删除真实数据完成验证。
 - 导入 `.mid` 并播放正常。
 - 音频设备重建后首音无明显异常。
 - 退出应用无明显崩溃或挂起。

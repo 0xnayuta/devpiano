@@ -69,7 +69,7 @@
      │
      ├──► [6. 空间与琴盖 Air & Lid] ──► 琴盖开合度 (Full/Half/Closed) 传递函数 + 3 抽头近场微反射
      │                              ├─► 演奏者与听众双重视角声像成像 (PerspectiveProcessor)
-     │                              └─► 房间混响网络 (RoomReverbEngine: 8 梳状滤波+4 全通扩散, Chamber/Hall/Studio)
+     │                              └─► 房间混响网络 (RoomReverbEngine: 8 梳状滤波+4 全通扩散, Chamber/Concert Hall/Studio)
      └──► [7. 动力学生命力 Vitality] ──► 动态声场空间漫射 (点声源 25ms 平滑展开为面声源)
      │
      ▼
@@ -196,8 +196,8 @@
 
 5. **轻量数学算法房间混响网络（RoomReverbEngine，Phase 31-B）**：
    - 内置纯数学算法立体声混响网络，基于 8 组互质延时反馈梳状滤波阵列与 4 级全通扩散矩阵（Schroeder-Moorer 架构演进），零外部采样依赖；
-   - 提供 **Studio（录音棚 0.6s）**、**Chamber（室内乐厅 1.5s）** 与 **Concert Hall（音乐厅 2.4s）** 三大经典声学空间预设，支持平滑干湿比（`reverbWet`）无级调节；
-   - **直通与抗下溢保护**：当 `reverbWet <= 1e-4` 时自动旁路混响计算以节省 CPU；全链路启用 `juce::ScopedNoDenormals`，防止长时静音衰减尾部发生浮点下溢性能惩罚。
+   - 提供 **Studio（录音棚 0.6s）**、**Chamber（室内乐厅 1.5s）** 与 **Concert Hall（音乐厅 2.4s）** 三大经典声学空间预设（C++ 枚举 `ReverbSpace::studio`、`chamber`、`concertHall`；文件持久化标识分别为 `studio`、`chamber`、`concert_hall`，旧别名 `hall` 不再映射，未知标识安全回退至 `chamber`），支持平滑干湿比（`reverbWet`）无级调节；
+   - **直通与抗下溢保护**：`RoomReverbEngine::processStereo()` 在目标与平滑后的当前 wet 均 `<= 1e-4` 时旁路混响 DSP，保留边界判断；实时入口启用 `juce::ScopedNoDenormals`，滤波器内部另有衰减归零保护。
 6. **动态声场空间漫射（Dynamic Spatial Diffusion）**：
    - 空间声相展开度（Stereo Spread）随时间连续演化：$t=0$ 起振瞬间聚焦于琴桥敲击点（点声源），并在 $25\text{ ms}$ 内经由音板共振与空气反射平滑漫射为整个琴腔的面声源包围场。
 
@@ -237,6 +237,9 @@
 | **Felt Ageing（毛毡老化）** | `setFeltAgeingAmount` / `feltAgeingAmount` | 0.0 | 调节琴槌羊毛纤维磨损压实深度，注入微观穿透力与硬化质感（0..1） |
 | **Una Corda（弱音踏板）** | `setSoftPedalDown` / `softPedalDown` | false | 琴槌击弦机侧向位移，毛毡软化与三弦敲两弦声能衰减（MIDI CC 67，电平 0..1） |
 
+
+**声学快照与普通预设配置子集**：
+`PerformancePreset`（Schema v2）仅持久化声学配置子集（`acoustics` 节点下包含 `lidPosition`、`touchVelocityCurve`、`unaCorda`、`temperament`、`referencePitchA4`、`soundPerspective`、`reverbSpace`、`reverbWet`、`pedalNoiseLevel`、`feltAgeingAmount`，不包含基础音色 `builtinTone`、主增益 `masterGain`、ADSR 包络与琴槌物理参数 `brightness` / `hammerHardness` / `resonance`）。可选字段缺失时使用当前默认值，不代表历史版本兼容迁移。演奏录制与离线渲染所用的 `AcousticSnapshot`（以及 `WavExportOptions`）则维护完整的发声与包络参数。
 ### 4.2 古典微调律制与基准音高（`TemperamentEngine`）
 
 ```cpp
@@ -248,14 +251,16 @@ void setReferencePitchA4(double hz);
 
 ### 4.3 空间视角、琴盖与环境混响
 
+以下是 `PianoSynthVoice` 的控制接口；独立 `PerspectiveProcessor::setPerspective()` 另有可选的 `immediateSnap` 参数，不是 voice 的同名方法：
+
 ```cpp
 void setLidPosition(LidPosition position) noexcept;
-void setPerspective(devpiano::audio::SoundPerspective perspective) noexcept;
+void setSoundPerspective(devpiano::audio::SoundPerspective perspective) noexcept;
 ```
 
 - **琴盖状态（`LidPosition`）**：`fullOpen`（全开）、`halfStick`（半开）、`closed`（闭盖）；
 - **声学视角（`SoundPerspective`）**：`player`（演奏者视角）、`audience`（听众视角）；
-- **环境混响（`RoomReverbEngine`）**：支持 `studio`（0.6s 录音棚）、`chamber`（1.5s 室内乐厅）与 `concertHall`（2.4s 音乐厅）三大声学空间，`reverbWet`（0.0 ~ 1.0）无级调节；`reverbWet <= 1e-4` 触发零开销纯直通。
+- **环境混响（`RoomReverbEngine`）**：C++ 枚举为 `devpiano::audio::ReverbSpace::{studio, chamber, concertHall}`，对应持久化标识 `studio`、`chamber`、`concert_hall`；名义空间时间常数分别为 0.6s、1.5s、2.4s。未知标识（含旧 `hall`）回退 `chamber`，`reverbWet` 范围 `[0,1]`，旁路条件见上方混响机制。
 ### 4.4 Velocity 动态双映射与 ADSR 门控
 
 - **响度响应**：$v^{1.5} = v \cdot \sqrt{v}$ 幂次曲线，强化弱奏（$pp$）细腻度；
@@ -292,15 +297,15 @@ void setPerspective(devpiano::audio::SoundPerspective perspective) noexcept;
 | **PedalAcousticsTest** | CC64 延音踏板全开放交感共鸣、踏板下踏扫掠呼啸（Whoosh）、全琴谐振冲击（Resonance Shock）、单声道与多通道能量守恒 | [x] 已通过 |
 | **FeltAgeingTest** | 逐键扰动确定性与范围、老化前后的实际音频差异、引擎老化参数限幅；不以 getter 或测试侧公式重算证明音高行为 | [x] 已通过 |
 | **PerspectiveProcessorTest** | 演奏者/听众立体声像反转镜像、距离高频滚降、单声道能量守恒与无下溢数值收敛 | [x] 已通过 |
-| **RoomReverbEngineTest** | Studio/Chamber/Hall 三大空间混响时间常数、干湿比线性与非线性过渡、长时静音衰减无下溢 denormal、跨采样率不变性 | [x] 已通过 |
-| **SpatialAcousticsTest** | 空间声学设置与当前预设字段磁盘往返、损坏/越界输入限幅；声场与混响 DSP 行为由对应处理器套件验证 | [x] 已通过 |
-| **PianoSynthVoiceTemperamentTest** | 古典微调律制微音分偏移、A4 基频换算、全音域单调性与跨律制即时切换 | [x] 已通过 |
-| **MechanicalAcousticsTest** | 机械噪声与毛毡老化设置存取、当前预设声学字段往返、极端参数下实际音频有限性、幅度与起音连续性 | [x] 已通过 |
+| **RoomReverbEngineTest** | Studio/Chamber/Concert Hall（ReverbSpace::concertHall / 标识 concert_hall，回退未知字符串）三大空间衰减时间常数、干湿比线性缩放与旁路、长时静音衰减无下溢 denormal、跨采样率不变性；getter 与声明断言不作为逐采样 DSP/逐 bit 保证 | [x] 已通过 |
+| **SpatialAcousticsTest** | 空间声学设置与当前预设字段磁盘往返、损坏/越界输入限幅；声场与混响 DSP 行为由对应处理器套件验证；不以 getter 复制代替 DSP 保证 | [x] 已通过 |
+| **PianoSynthVoiceTemperamentTest** | 古典微调律制微音分偏移、A4 基频换算 [400..480 Hz] 限幅、多律制分音频率计算与动态律制切换；不以声明复制当 DSP 行为保证 | [x] 已通过 |
+| **MechanicalAcousticsTest** | 机械噪声与毛毡老化设置存取、当前预设声学字段往返、极端参数下实际音频有限性、幅度与起音连续性；不以声明回声替代物理安全性 | [x] 已通过 |
 | **UnaCordaAcousticsTest** | CC 67 弱音/移位踏板物理声学响应、毛毡侧移软化、三弦敲两弦衰减、全链路控制器响应与回放动态踏板稳定性 | [x] 已通过 |
 
 ### 6.1 验收证据依据与未验证范围说明
 
-1. **声学与实时实施依据**：全套确定性声学套件与 Phase C/D/E 真实消费验证通过（见 [Phase E 实施记录](../../archive/audit-004-code-quality-fix-phases.md#phase-e-实施记录与直接验证2026-10-04) EVID-040/041/042/043），涵盖全回调 0 三角函数库调用、密集 12,000 事件零堆增长、两音色银行常驻无内部锁切换与 SPSC 视觉解耦；
+1. **声学与实时实施依据**：全套确定性声学套件与 Phase C/D/E 真实消费验证通过（见 [Phase E 实施记录](../../archive/audit-004-code-quality-fix-phases.md#phase-e-实施记录与直接验证2026-10-04) EVID-040/041/042/043），涵盖全回调 0 三角函数库调用、密集 12,000 事件零堆增长、两音色银行常驻无内部锁切换与 SPSC 视觉解耦；测试守卫聚焦行为与数值边界，getter 与字段声明复制不作为 DSP/逐 bit 保证；
 2. **严禁外推的未验证范围**：
    - **实机物理声卡热插拔**：未在物理 ASIO/CoreAudio 声卡拔出、驱动重启或硬件抖动下执行破坏性测试；
    - **第三方商业 VST3 插件**：宿主托管第三方插件时的性能与稳定性受插件自身实现约束，不在此内置物理音源 SLA 保证范围内。

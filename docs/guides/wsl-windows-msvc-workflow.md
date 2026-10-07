@@ -166,7 +166,7 @@ WSL 主工作树只负责源码编辑和 clangd 编译数据库；不要在此�
 - 如果修改了 CMake 或工具链相关内容，先执行：
 
 ```bash
-./scripts/build_wsl.sh
+./scripts/build_wsl.sh --configure-only
 ./scripts/build_msvc_from_wsl.sh
 ```
 
@@ -180,6 +180,6 @@ WSL 主工作树只负责源码编辑和 clangd 编译数据库；不要在此�
 
 `scripts/build_msvc_from_wsl.sh` 支持：`--release`、`--no-sync`、`--full`、`--sync-only`、`--reconfigure`、`--clean-win-build`，用于更细粒度地控制 Windows 侧验证流程。
 
-`scripts/dev.sh` 提供统一入口：`wsl-configure`、`wsl-build`、`win-sync`、`win-build`，所有子命令均支持 `--release` 参数切换到 Release 构建。
+`scripts/dev.sh` 提供统一入口：`wsl-configure`、`wsl-build`、`win-sync`、`win-build`。configure/build 子命令可用 `--release` 选择 Release（仅明确要求时）；同步只接受 `--check` / `--full`，不接受 `--release`。WSL 主工作树仍只做 Debug configure，软件构建与测试在 Windows 镜像树执行。
 
 `scripts/sync_to_win.sh` / `scripts/dev.sh win-sync` 支持 `--check` 参数，以 `robocopy /L` 零写入模式列出待同步变更，不实际复制或删除任何文件。

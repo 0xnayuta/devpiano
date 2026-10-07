@@ -14,7 +14,7 @@
 - **16 通道独立定制**：每个逻辑输入通道拥有独立的输出通道映射、半音移调、八度偏移、固定力度覆盖、音色号（Program）、音色库（Bank MSB）、延音控制器（Sustain CC）与按键跟随开关。
 - **全局调号系统（Key Signature）**：支持 -7 ~ +7 半音移调（如降 B 大调、升 F 大调），可与特定通道的 `followKey` 开关联动，实现“旋律随调号移调、打击乐通道保持原音高不变”。
 - **停用矩阵**：`active == false` 时 `applyTransform()` 直接返回原消息，不应用矩阵或 followKey；不据此承诺调用本身零计算成本。
-- **预设边界**：矩阵与调号字段可序列化到预设 JSON，但普通预设激活不覆写应用全局 `keySignature` / `midiTranspose`；录制的声学快照回放另行恢复当时移调。
+- **预设与文件边界**：矩阵与调号字段序列化至预设 JSON（`.devpiano.preset`，Schema 整数版本 2）及录制声学快照表（`.devpiano`，Schema 整数版本 3）；普通预设激活不覆写应用全局 `keySignature` / `midiTranspose`；录制的声学快照回放另行恢复当时移调。
 
 ---
 
@@ -66,7 +66,7 @@ struct PerChannelConfig {
    - 键盘按下时，`sendNoteOn` 返回 `devpiano::core::MidiNoteIdentity`（锁定经矩阵变换后的实际输出音高与输出通道），调用方（`KeyboardMidiMapper`）将其存入 `heldKeys` 快照；
    - 松键时，`sendNoteOff(identity, velocity, keyboardState)` 严格消费该快照注销发音；
    - **抗替换鲁棒性**：即使在按键按住期间动态修改了矩阵映射、八度偏移、调号，甚至运行时重新创建并替换了整个 `MidiChannelMapper` 实例，NoteOff 依然 100% 依据按下时的原始身份释放目标通道与音高，从根本上杜绝悬挂音；
-3. **输入通道边界防护**：`configForChannel` 内部对传入通道索引执行 `juce::jlimit(0, 15, inputChannel)` 严格钳位，越界输入自动安全回退至通道 15 配置，防止内存越界。
+3. **输入通道边界防护**：`configForChannel` 对零基索引执行 `juce::jlimit(0, 15, inputChannel)`；负数钳到 0，超过上界钳到 15，不把所有越界输入都描述为通道 15。
 ---
 
 ## 4. 全局调号（Key Signature）系统
@@ -77,8 +77,7 @@ devpiano 在 `SettingsModel` 与 `AppState` 中维护全局调号：
 - **`keySignature`**：整数 `[-7, +7]` 的半音偏移；不是 SMF 调号 meta 中“升降号个数”到调名的映射，显示与 MIDI 导入元数据分别处理。
 - **`midiTranspose` 开关**：
   - 当为 `true` 时，MIDI 输出音高随调号平移；
-  - 当为 `false` 时，仅虚拟钢琴键盘的 Do-Re-Mi 标签随调号变化，物理 MIDI 输出保持原调（唱名移调但音高不移调模式）。
-
+  - 当为 `false` 时，物理 MIDI 输出保持原调；仅在启用带调号唱名模式（`NoteDisplayMode::fixedDo`，计算公式为 `(noteIndex + keySignature) % 12`）时，虚拟钢琴键盘的唱名标签随调号变化（唱名移调但音高不移调模式）；绝对简谱唱名模式（`NoteDisplayMode::doReMi`）始终以 C=1 为绝对基准，不受全局调号影响。
 ### 4.2 按键跟随矩阵（Follow Key Grid）
 
 在设置面板（`SettingsLayoutModel`）中，提供了一个 **8 列 × 2 行的 JIVE CSS Grid 开关组**：
@@ -86,7 +85,7 @@ devpiano 在 `SettingsModel` 与 `AppState` 中维护全局调号：
 - 例如：通道 1（主旋律钢琴）开启跟随，移调 +2 半音（C调变D调）；通道 10（打击乐）关闭跟随，依然触发标准 General MIDI 鼓组音高。
 - **默认状态**：新装/重置后 15 个旋律通道默认开启跟随，通道 10 默认关闭（构造时由 `ChannelMatrix` 统一设定）；`midiTranspose` 关闭时全部开关置灰不可编辑。
 
-普通预设选择保留当前全局调号；`RecordedPreset.acoustic` 在回放时恢复录制当时的开关/偏移。设置与预设中的 `followKey` 控制输入投影，回放 Off 始终释放已保存的最终身份。
+普通预设选择保留当前全局调号；`RecordedPreset.acoustic` 在回放时恢复录制当时的开关/偏移（嵌入预设 Schema v2，录制文件 Schema v3）。设置与预设中的 `followKey` 控制输入投影，回放 Off 始终释放已保存的最终身份。
 
 ## 5. 架构接入与服务（`MidiChannelMapper`）
 
