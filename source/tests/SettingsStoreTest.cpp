@@ -205,57 +205,6 @@ public:
             }
 #endif
         });
-        testCase("legacy plugin recovery migrates only an unambiguous cached description", [&] {
-            devpiano::test::ScopedTempDir tempDir("plugin-identity-migration");
-            juce::PluginDescription first;
-            first.name = "Twin";
-            first.pluginFormatName = "VST3";
-            first.fileOrIdentifier = tempDir.getChildFile("first.vst3").getFullPathName();
-            first.uniqueId = 101;
-            first.isInstrument = true;
-            auto second = first;
-            second.fileOrIdentifier = tempDir.getChildFile("second.vst3").getFullPathName();
-            second.uniqueId = 202;
-            second.isInstrument = false;
-
-            for (int scenario = 0; scenario < 4; ++scenario) {
-                const auto file = tempDir.getChildFile("case-" + juce::String(scenario) + ".settings");
-                juce::KnownPluginList plugins;
-                plugins.addType(first);
-                if (scenario >= 1) {
-                    plugins.addType(second);
-                }
-                const auto xml = plugins.createXml();
-                juce::PropertiesFile::Options options;
-                options.storageFormat = juce::PropertiesFile::storeAsXML;
-                {
-                    juce::PropertiesFile legacy(file, options);
-                    legacy.setValue("knownPluginListXml", xml->toString());
-                    legacy.setValue("lastPluginName", scenario == 3 ? "Missing" : "Twin");
-                    if (scenario == 2) {
-                        legacy.setValue("lastPluginIdentifier", second.createIdentifierString());
-                    }
-                    expect(legacy.saveIfNeeded());
-                }
-
-                SettingsStore store(file);
-                SettingsModel restored;
-                store.load(restored);
-                juce::String expected;
-                if (scenario == 0) {
-                    expected = first.createIdentifierString();
-                } else if (scenario == 2) {
-                    expected = second.createIdentifierString();
-                }
-                expectEquals(restored.lastPluginIdentifier, expected);
-                expect(store.save(restored));
-                {
-                    juce::PropertiesFile modern(file, options);
-                    expect(!modern.containsKey("lastPluginName"), "legacy name must not remain a recovery path");
-                    expectEquals(modern.getValue("lastPluginIdentifier"), expected);
-                }
-            }
-        });
     }
 };
 

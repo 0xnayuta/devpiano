@@ -2,6 +2,7 @@
 
 #include "Recording/PerformanceFile.h"
 #include "Recording/RecordingEngine.h"
+#include "Recording/RecordingSessionController.h"
 #include "TestHelpers.h"
 
 // =============================================================================
@@ -18,7 +19,7 @@ devpiano::recording::RecordedPreset makeTestRecordedPreset(const juce::String& n
     devpiano::recording::RecordedPreset rp;
     rp.preset = devpiano::layout::makeDefaultPreset();
     rp.preset.name = name;
-    rp.preset.uuid = devpiano::layout::generateDeterministicPresetUuid(name);
+    rp.preset.uuid = juce::Uuid().toDashedString();
     rp.acoustic.masterGain = 0.85f;
     rp.acoustic.reverbWet = 0.25f;
     return rp;
@@ -239,7 +240,7 @@ public:
         testCase("SEC-003: reject malicious base64 length prefix", [&] {
             const auto helper = [](const juce::String& b64) {
                 const auto json
-                    = R"({"version":2,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"events":[{"timestampSamples":0,"type":"midi","source":"computerKeyboard","midiData":")"
+                    = R"({"version":3,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"presets":[],"events":[{"timestampSamples":0,"type":"midi","source":"computerKeyboard","midiData":")"
                     + b64 + R"("}]})";
                 return deserialiseTakeFromJson(json);
             };
@@ -256,7 +257,7 @@ public:
         testCase("SEC-003: reject exact encoded size mismatch, alphabet violations, and invalid padding bits", [&] {
             const auto helper = [](const juce::String& b64) {
                 const auto json
-                    = R"({"version":2,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"events":[{"timestampSamples":0,"type":"midi","source":"computerKeyboard","midiData":")"
+                    = R"({"version":3,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"presets":[],"events":[{"timestampSamples":0,"type":"midi","source":"computerKeyboard","midiData":")"
                     + b64 + R"("}]})";
                 return deserialiseTakeFromJson(json);
             };
@@ -277,7 +278,7 @@ public:
             const auto helper = [](const uint8_t* bytes, size_t size) {
                 juce::MemoryBlock mb(bytes, size);
                 const auto json
-                    = R"({"version":2,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"events":[{"timestampSamples":0,"type":"midi","source":"computerKeyboard","midiData":")"
+                    = R"({"version":3,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"presets":[],"events":[{"timestampSamples":0,"type":"midi","source":"computerKeyboard","midiData":")"
                     + mb.toBase64Encoding() + R"("}]})";
                 return deserialiseTakeFromJson(json);
             };
@@ -323,8 +324,8 @@ public:
             const auto helper = [](const juce::String& sr, const juce::String& len, const juce::String& ts) {
                 const auto noteB64
                     = juce::MemoryBlock(juce::MidiMessage::noteOn(1, 60, 0.8f).getRawData(), 3).toBase64Encoding();
-                const auto json = R"({"version":2,"format":"devpiano-performance","sampleRate":)" + sr
-                    + R"(,"lengthSamples":)" + len + R"(,"events":[{"timestampSamples":)" + ts
+                const auto json = R"({"version":3,"format":"devpiano-performance","sampleRate":)" + sr
+                    + R"(,"lengthSamples":)" + len + R"(,"presets":[],"events":[{"timestampSamples":)" + ts
                     + R"(,"type":"midi","source":"computerKeyboard","midiData":")" + noteB64 + R"("}]})";
                 return deserialiseTakeFromJson(json);
             };
@@ -346,39 +347,54 @@ public:
             expect(helper("44100.0", "88200", "88200").has_value(), "timestamp == length accepted (legacy boundary)");
         });
 
-        testCase("legacy v1/v2 MIDI-only accepted and legacy numeric preset events rejected (ARCH-003)", [&] {
+        testCase("v3 take snapshot admission and structure validation (ARCH-003)", [&] {
             const auto noteB64
                 = juce::MemoryBlock(juce::MidiMessage::noteOn(1, 60, 0.8f).getRawData(), 3).toBase64Encoding();
 
-            // 1. Legacy v1 MIDI-only JSON: accepted
-            const auto v1MidiOnlyJson
-                = R"({"version":1,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"events":[{"timestampSamples":0,"source":"computerKeyboard","midiData":")"
+            // 1. Valid v3 MIDI-only take with empty presets array: accepted
+            const auto v3MidiOnlyJson
+                = R"({"version":3,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"presets":[],"events":[{"timestampSamples":0,"type":"midi","source":"computerKeyboard","midiData":")"
                 + noteB64 + R"("}]})";
-            const auto v1Loaded = deserialiseTakeFromJson(v1MidiOnlyJson);
-            expect(v1Loaded.has_value(), "Legacy v1 MIDI-only take must be accepted");
-            if (v1Loaded.has_value()) {
-                expectEquals(static_cast<int>(v1Loaded->events.size()), 1);
-                expect(v1Loaded->events[0].type == PerformanceEventType::midi);
-                expect(v1Loaded->presets.empty(), "Legacy take has no presets table");
+            const auto v3MidiLoaded = deserialiseTakeFromJson(v3MidiOnlyJson);
+            expect(v3MidiLoaded.has_value(), "Valid v3 MIDI-only take with presets:[] must be accepted");
+            if (v3MidiLoaded.has_value()) {
+                expectEquals(static_cast<int>(v3MidiLoaded->events.size()), 1);
+                expect(v3MidiLoaded->events[0].type == PerformanceEventType::midi);
+                expect(v3MidiLoaded->presets.empty(), "MIDI-only take has empty presets table");
             }
 
-            // 2. Legacy v2 MIDI-only JSON: accepted
-            const auto v2MidiOnlyJson
-                = R"({"version":2,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"events":[{"timestampSamples":0,"type":"midi","source":"computerKeyboard","midiData":")"
+            // 2. Missing presets array property in v3: rejected
+            const auto missingPresetsJson
+                = R"({"version":3,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"events":[{"timestampSamples":0,"type":"midi","source":"computerKeyboard","midiData":")"
                 + noteB64 + R"("}]})";
-            const auto v2MidiLoaded = deserialiseTakeFromJson(v2MidiOnlyJson);
-            expect(v2MidiLoaded.has_value(), "Legacy v2 MIDI-only take must be accepted");
+            expect(!deserialiseTakeFromJson(missingPresetsJson).has_value(),
+                   "v3 take missing presets array must be rejected");
 
-            // 3. Legacy v1 or v2 with presetChange must be explicitly REJECTED with diagnostic
-            const auto* v2NumericPresetJson
-                = R"({"version":2,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"events":[{"timestampSamples":100,"type":"presetChange","presetId":5}]})";
-            expect(!deserialiseTakeFromJson(v2NumericPresetJson).has_value(),
-                   "Legacy v2 numeric preset event must be rejected (no silent directory index reinterpretation)");
+            // Presets property present but not an array: rejected
+            const auto invalidPresetsTypeJson
+                = R"({"version":3,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"presets":{},"events":[{"timestampSamples":0,"type":"midi","source":"computerKeyboard","midiData":")"
+                + noteB64 + R"("}]})";
+            expect(!deserialiseTakeFromJson(invalidPresetsTypeJson).has_value(),
+                   "Presets property that is not an array must be rejected");
 
-            const auto* v1NumericPresetJson
-                = R"({"version":1,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"events":[{"timestampSamples":100,"type":"presetChange","presetId":0}]})";
-            expect(!deserialiseTakeFromJson(v1NumericPresetJson).has_value(),
-                   "Legacy v1 numeric preset event must be rejected");
+            // 3. Event missing explicit type or with empty/unknown type: rejected
+            const auto missingTypeJson
+                = R"({"version":3,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"presets":[],"events":[{"timestampSamples":0,"source":"computerKeyboard","midiData":")"
+                + noteB64 + R"("}]})";
+            expect(!deserialiseTakeFromJson(missingTypeJson).has_value(),
+                   "Event missing explicit type must be rejected");
+
+            const auto emptyTypeJson
+                = R"({"version":3,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"presets":[],"events":[{"timestampSamples":0,"type":"","source":"computerKeyboard","midiData":")"
+                + noteB64 + R"("}]})";
+            expect(!deserialiseTakeFromJson(emptyTypeJson).has_value(),
+                   "Event with empty type string must be rejected");
+
+            const auto unknownTypeJson
+                = R"({"version":3,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"presets":[],"events":[{"timestampSamples":0,"type":"unknown","source":"computerKeyboard","midiData":")"
+                + noteB64 + R"("}]})";
+            expect(!deserialiseTakeFromJson(unknownTypeJson).has_value(),
+                   "Event with unknown type string must be rejected");
 
             // 4. v3 with embedded presets table and presetChange: accepted
             RecordingTake v3Take;
@@ -422,6 +438,106 @@ public:
                     }
                 }
             }
+        });
+
+        testCase("exact INTEGER version 3 admission and rejection safety", [&] {
+            devpiano::test::ScopedTempDir tempDir("perf-version-gate");
+
+            const auto makeJsonWithVersion = [](const juce::String& versionLiteral) {
+                const auto noteB64
+                    = juce::MemoryBlock(juce::MidiMessage::noteOn(1, 60, 0.8f).getRawData(), 3).toBase64Encoding();
+                return R"({"version":)" + versionLiteral
+                    + R"(,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"metadata":{"title":"Version Gate Title","notes":"Version Gate Notes"},"presets":[],"events":[{"timestampSamples":0,"type":"midi","source":"computerKeyboard","midiData":")"
+                    + noteB64 + R"("}]})";
+            };
+
+            // 1. Exact INTEGER currentVersion 3 accepted by both take and metadata readers
+            const auto validJson = makeJsonWithVersion("3");
+            const auto validTake = deserialiseTakeFromJson(validJson);
+            expect(validTake.has_value(), "Exact integer version 3 must be accepted by take reader");
+            const auto validFile = tempDir.getChildFile("valid_v3.devpiano");
+            expect(validFile.replaceWithText(validJson));
+            const auto validMeta = loadPerformanceFileMetadata(validFile);
+            expect(validMeta.has_value(), "Exact integer version 3 must be accepted by metadata reader");
+            if (validMeta.has_value()) {
+                expectEquals(validMeta->title, juce::String("Version Gate Title"));
+                expectEquals(validMeta->notes, juce::String("Version Gate Notes"));
+            }
+
+            // Optional metadata absence yields default metadata on valid v3
+            const auto noMetaJson
+                = R"({"version":3,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"presets":[],"events":[]})";
+            const auto noMetaFile = tempDir.getChildFile("no_meta_v3.devpiano");
+            expect(noMetaFile.replaceWithText(noMetaJson));
+            const auto defaultMeta = loadPerformanceFileMetadata(noMetaFile);
+            expect(defaultMeta.has_value(), "Optional metadata absence on valid v3 must yield default metadata");
+            if (defaultMeta.has_value()) {
+                expect(defaultMeta->title.isEmpty());
+                expect(defaultMeta->notes.isEmpty());
+            }
+
+            // 2. Reject non-3 versions across both readers:
+            // v1, v2, future v4, 0, negative, float 3.0, string "3", and 64-bit int 4294967299 ((1ULL << 32) + 3)
+            const juce::String rejectedVersions[] = { "1", "2", "4", "0", "-1", "3.0", "\"3\"", "4294967299" };
+
+            for (const auto& verLit : rejectedVersions) {
+                const auto rejectedJson = makeJsonWithVersion(verLit);
+
+                // deserialiseTakeFromJson must reject
+                expect(!deserialiseTakeFromJson(rejectedJson).has_value(),
+                       "deserialiseTakeFromJson must reject version " + verLit);
+
+                // Both file readers must reject, leaving file bytes on disk unmodified
+                const auto safeName = "reject_ver_" + verLit.replace("\"", "").replace(".", "_") + ".devpiano";
+                const auto rejectFile = tempDir.getChildFile(safeName);
+                expect(rejectFile.replaceWithText(rejectedJson));
+                const auto originalBytes = rejectFile.loadFileAsString();
+
+                expect(!loadPerformanceFile(rejectFile).has_value(),
+                       "loadPerformanceFile must reject version " + verLit);
+                expect(!loadPerformanceFileMetadata(rejectFile).has_value(),
+                       "loadPerformanceFileMetadata must reject version " + verLit);
+
+                // Source bytes preserved intact on disk
+                expectEquals(rejectFile.loadFileAsString(), originalBytes,
+                             "Source file bytes must be preserved intact on rejection for version " + verLit);
+            }
+
+            // 3. Current session preservation on version rejection
+            RecordingSessionController::RecordingSession session;
+            session.commitRecordedTake(makeTestTake());
+            session.currentMetadata.title = "Original Active Session";
+            session.currentMetadata.notes = "Do Not Overwrite";
+            const auto originalTakeGeneration = session.takeGeneration;
+            expect(session.hasTake());
+
+            // Attempting to open v2 file fails and preserves session
+            const auto v2File = tempDir.getChildFile("reject_session_v2.devpiano");
+            expect(v2File.replaceWithText(makeJsonWithVersion("2")));
+            const auto originalV2Bytes = v2File.loadFileAsString();
+
+            expect(!session.openFromFile(v2File), "openFromFile must fail on v2 file");
+            expectEquals(v2File.loadFileAsString(), originalV2Bytes, "Rejected v2 file bytes must remain untouched");
+
+            // Session state completely preserved
+            expect(session.hasTake(), "Session must retain active take after failed open");
+            expectEquals(session.takeGeneration, originalTakeGeneration);
+            expectEquals(session.currentMetadata.title, juce::String("Original Active Session"));
+            expectEquals(session.currentMetadata.notes, juce::String("Do Not Overwrite"));
+            expectEquals(static_cast<int>(session.take.events.size()), 3);
+
+            // Attempting to open int64 narrowing version (4294967299) fails and preserves session
+            const auto overflowFile = tempDir.getChildFile("reject_session_overflow.devpiano");
+            expect(overflowFile.replaceWithText(makeJsonWithVersion("4294967299")));
+            const auto originalOverflowBytes = overflowFile.loadFileAsString();
+
+            expect(!session.openFromFile(overflowFile), "openFromFile must fail on 4294967299 file");
+            expectEquals(overflowFile.loadFileAsString(), originalOverflowBytes,
+                         "Rejected overflow file bytes must remain untouched");
+            expect(session.hasTake(), "Session must retain active take after failed overflow open");
+            expectEquals(session.takeGeneration, originalTakeGeneration);
+            expectEquals(session.currentMetadata.title, juce::String("Original Active Session"));
+            expectEquals(session.currentMetadata.notes, juce::String("Do Not Overwrite"));
         });
 
         testCase("file read errors and size budget bounds", [&] {

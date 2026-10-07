@@ -238,7 +238,6 @@ private:
         expect(RoomReverbEngine::fromIdentifier("studio") == ReverbSpace::studio);
         expect(RoomReverbEngine::fromIdentifier("chamber") == ReverbSpace::chamber);
         expect(RoomReverbEngine::fromIdentifier("concert_hall") == ReverbSpace::concertHall);
-        expect(RoomReverbEngine::fromIdentifier("hall") == ReverbSpace::concertHall);
         expect(RoomReverbEngine::fromIdentifier("unknown") == ReverbSpace::chamber);
     }
 };

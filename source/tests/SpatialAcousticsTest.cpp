@@ -15,8 +15,6 @@
 /// 1. SettingsStore XML round-trip for soundPerspective, reverbSpace, reverbWet.
 /// 2. SettingsStore out-of-range boundary clamping protection.
 /// 3. PerformancePreset JSON serialization round-trip under "acoustics".
-/// 4. Backward compatibility with legacy presets lacking spatial acoustics.
-/// 5. Flat root acoustic fields compatibility reading.
 // ============================================================================
 class SpatialAcousticsTest final : public juce::UnitTest {
 public:
@@ -28,8 +26,6 @@ public:
         testSettingsStoreSpatialRoundTrip();
         testSettingsStoreBoundaryClamping();
         testPerformancePresetJsonRoundTrip();
-        testPerformancePresetBackwardCompatibility();
-        testPerformancePresetFlatRootCompatibility();
     }
 
 private:
@@ -142,72 +138,6 @@ private:
             expect(loaded.soundPerspective == SoundPerspective::audience);
             expect(loaded.reverbSpace == ReverbSpace::concertHall);
             expectWithinAbsoluteError(loaded.reverbWet, 0.40f, 1e-4f);
-        }
-    }
-
-    void testPerformancePresetBackwardCompatibility() {
-        beginTest("PerformancePreset: Legacy presets lacking spatial fields fall back to defaults");
-
-        using namespace devpiano::layout;
-        using namespace devpiano::audio;
-
-        const devpiano::test::ScopedTempDir tempDir("spatial-preset-legacy");
-        const auto legacyFile = tempDir.getChildFile("legacy.devpiano.preset");
-
-        // Old preset JSON lacking soundPerspective, reverbSpace, reverbWet
-        const juce::String legacyJson = R"({
-  "version": 1,
-  "name": "LegacyBallad",
-  "acoustics": {
-    "lidPosition": 0,
-    "touchVelocityCurve": 0,
-    "unaCorda": false,
-    "temperament": "equal",
-    "referencePitchA4": 440.0
-  }
-})";
-        expect(legacyFile.replaceWithText(legacyJson));
-
-        const auto loadedOpt = loadPreset(legacyFile);
-        expect(loadedOpt.has_value());
-
-        if (loadedOpt.has_value()) {
-            const auto& loaded = *loadedOpt;
-            expectEquals(loaded.name, juce::String("LegacyBallad"));
-            // Safe fallbacks
-            expect(loaded.soundPerspective == SoundPerspective::player);
-            expect(loaded.reverbSpace == ReverbSpace::chamber);
-            expectWithinAbsoluteError(loaded.reverbWet, 0.0f, 1e-4f);
-        }
-    }
-
-    void testPerformancePresetFlatRootCompatibility() {
-        beginTest("PerformancePreset: Flat root spatial fields compatibility reading");
-
-        using namespace devpiano::layout;
-        using namespace devpiano::audio;
-
-        const devpiano::test::ScopedTempDir tempDir("spatial-preset-flat");
-        const auto flatFile = tempDir.getChildFile("flat.devpiano.preset");
-
-        const juce::String flatJson = R"({
-  "version": 1,
-  "name": "FlatSpatial",
-  "soundPerspective": "audience",
-  "reverbSpace": "studio",
-  "reverbWet": 0.25
-})";
-        expect(flatFile.replaceWithText(flatJson));
-
-        const auto loadedOpt = loadPreset(flatFile);
-        expect(loadedOpt.has_value());
-
-        if (loadedOpt.has_value()) {
-            const auto& loaded = *loadedOpt;
-            expectEquals(loaded.name, juce::String("FlatSpatial"));
-            expect(loaded.soundPerspective == SoundPerspective::audience);
-            expect(loaded.reverbSpace == ReverbSpace::studio);
-            expectWithinAbsoluteError(loaded.reverbWet, 0.25f, 1e-4f);
         }
     }
 };

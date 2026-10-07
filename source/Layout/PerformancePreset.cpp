@@ -210,138 +210,6 @@ constexpr auto kMaxPresetFileSizeBytes = 1024 * 1024; // 1 MB (SEC-003)
     return { r, g, b, a };
 }
 
-struct Sha1Context {
-    uint32_t state[5] = { 0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0 };
-    uint64_t count = 0;
-    uint8_t buffer[64] = { 0 };
-
-    static uint32_t rol(uint32_t value, size_t bits) noexcept {
-        return (value << bits) | (value >> (32 - bits));
-    }
-
-    static uint32_t blk(const uint32_t block[16], size_t i) noexcept {
-        return rol(block[(i + 13) & 15] ^ block[(i + 8) & 15] ^ block[(i + 2) & 15] ^ block[i & 15], 1);
-    }
-
-    void transform(const uint8_t data[64]) noexcept {
-        uint32_t a = state[0];
-        uint32_t b = state[1];
-        uint32_t c = state[2];
-        uint32_t d = state[3];
-        uint32_t e = state[4];
-        uint32_t block[16];
-
-        for (size_t i = 0; i < 16; ++i) {
-            block[i] = (static_cast<uint32_t>(data[i * 4]) << 24) | (static_cast<uint32_t>(data[i * 4 + 1]) << 16)
-                | (static_cast<uint32_t>(data[i * 4 + 2]) << 8) | (static_cast<uint32_t>(data[i * 4 + 3]));
-        }
-
-        auto r0 = [&](uint32_t v, uint32_t& w, uint32_t x, uint32_t y, uint32_t& z, size_t i) noexcept {
-            z += ((w & (x ^ y)) ^ y) + block[i] + 0x5a827999 + rol(v, 5);
-            w = rol(w, 30);
-        };
-        auto r1 = [&](uint32_t v, uint32_t& w, uint32_t x, uint32_t y, uint32_t& z, size_t i) noexcept {
-            block[i & 15] = blk(block, i);
-            z += ((w & (x ^ y)) ^ y) + block[i & 15] + 0x5a827999 + rol(v, 5);
-            w = rol(w, 30);
-        };
-        auto r2 = [&](uint32_t v, uint32_t& w, uint32_t x, uint32_t y, uint32_t& z, size_t i) noexcept {
-            block[i & 15] = blk(block, i);
-            z += (w ^ x ^ y) + block[i & 15] + 0x6ed9eba1 + rol(v, 5);
-            w = rol(w, 30);
-        };
-        auto r3 = [&](uint32_t v, uint32_t& w, uint32_t x, uint32_t y, uint32_t& z, size_t i) noexcept {
-            block[i & 15] = blk(block, i);
-            z += (((w | x) & y) | (w & x)) + block[i & 15] + 0x8f1bbcdc + rol(v, 5);
-            w = rol(w, 30);
-        };
-        auto r4 = [&](uint32_t v, uint32_t& w, uint32_t x, uint32_t y, uint32_t& z, size_t i) noexcept {
-            block[i & 15] = blk(block, i);
-            z += (w ^ x ^ y) + block[i & 15] + 0xca62c1d6 + rol(v, 5);
-            w = rol(w, 30);
-        };
-
-        for (size_t i = 0; i < 16; ++i) {
-            r0(a, b, c, d, e, i);
-            uint32_t t = e;
-            e = d;
-            d = c;
-            c = b;
-            b = a;
-            a = t;
-        }
-        for (size_t i = 16; i < 20; ++i) {
-            r1(a, b, c, d, e, i);
-            uint32_t t = e;
-            e = d;
-            d = c;
-            c = b;
-            b = a;
-            a = t;
-        }
-        for (size_t i = 20; i < 40; ++i) {
-            r2(a, b, c, d, e, i);
-            uint32_t t = e;
-            e = d;
-            d = c;
-            c = b;
-            b = a;
-            a = t;
-        }
-        for (size_t i = 40; i < 60; ++i) {
-            r3(a, b, c, d, e, i);
-            uint32_t t = e;
-            e = d;
-            d = c;
-            c = b;
-            b = a;
-            a = t;
-        }
-        for (size_t i = 60; i < 80; ++i) {
-            r4(a, b, c, d, e, i);
-            uint32_t t = e;
-            e = d;
-            d = c;
-            c = b;
-            b = a;
-            a = t;
-        }
-
-        state[0] += a;
-        state[1] += b;
-        state[2] += c;
-        state[3] += d;
-        state[4] += e;
-    }
-
-    void update(const uint8_t* data, size_t len) noexcept {
-        for (size_t i = 0; i < len; ++i) {
-            buffer[(count >> 3) & 63] = data[i];
-            count += 8;
-            if ((count & 511) == 0) {
-                transform(buffer);
-            }
-        }
-    }
-
-    void final(uint8_t digest[20]) noexcept {
-        uint8_t finalCount[8];
-        for (size_t i = 0; i < 8; ++i) {
-            finalCount[i] = static_cast<uint8_t>((count >> ((7 - i) * 8)) & 255);
-        }
-        uint8_t pad = 0x80;
-        update(&pad, 1);
-        while ((count & 511) != 448) {
-            uint8_t zero = 0;
-            update(&zero, 1);
-        }
-        update(finalCount, 8);
-        for (size_t i = 0; i < 20; ++i) {
-            digest[i] = static_cast<uint8_t>((state[i >> 2] >> ((3 - (i & 3)) * 8)) & 255);
-        }
-    }
-};
-
 } // anonymous namespace
 
 namespace devpiano::layout {
@@ -377,31 +245,10 @@ juce::File resolvePresetFile(const juce::String& name, const juce::File& dir) {
 
 // ---- Load ----
 
-juce::String generateDeterministicPresetUuid(const juce::String& name) {
-    static constexpr uint8_t kNamespaceBytes[16]
-        = { 0xd3, 0xb0, 0x73, 0x84, 0xd1, 0x13, 0x4e, 0x4f, 0x8c, 0xf7, 0x6b, 0xc1, 0x50, 0x89, 0xc1, 0x62 };
-
-    Sha1Context ctx;
-    ctx.update(kNamespaceBytes, 16);
-    const auto* utf8 = name.toRawUTF8();
-    ctx.update(reinterpret_cast<const uint8_t*>(utf8), std::strlen(utf8));
-
-    uint8_t digest[20];
-    ctx.final(digest);
-
-    digest[6] = static_cast<uint8_t>((digest[6] & 0x0f) | 0x50);
-    digest[8] = static_cast<uint8_t>((digest[8] & 0x3f) | 0x80);
-
-    return juce::String::formatted("%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x", digest[0],
-                                   digest[1], digest[2], digest[3], digest[4], digest[5], digest[6], digest[7],
-                                   digest[8], digest[9], digest[10], digest[11], digest[12], digest[13], digest[14],
-                                   digest[15]);
-}
-
 juce::var performancePresetToVar(const PerformancePreset& preset) {
     juce::DynamicObject::Ptr root = new juce::DynamicObject();
     root->setProperty("version", performancePresetFormatVersion);
-    root->setProperty("uuid", preset.uuid.isNotEmpty() ? preset.uuid : generateDeterministicPresetUuid(preset.name));
+    root->setProperty("uuid", preset.uuid);
     root->setProperty("name", preset.name);
 
     // --- layout ---
@@ -494,9 +341,12 @@ std::optional<PerformancePreset> performancePresetFromVar(const juce::var& v) {
         return std::nullopt;
     }
 
-    // Forward compatibility: accept version between 1 and current (SEC-004)
-    auto version = static_cast<int>(obj->getProperty("version"));
-    if (version < 1 || version > performancePresetFormatVersion) {
+    const auto versionVar = obj->getProperty("version");
+    if (!versionVar.isInt() && !versionVar.isInt64()) {
+        return std::nullopt;
+    }
+    const auto version = static_cast<juce::int64>(versionVar);
+    if (version != performancePresetFormatVersion) {
         return std::nullopt;
     }
     PerformancePreset preset = makeDefaultPreset();
@@ -506,8 +356,6 @@ std::optional<PerformancePreset> performancePresetFromVar(const juce::var& v) {
     const auto uuid = obj->getProperty("uuid");
     if (uuid.isString() && uuid.toString().trim().isNotEmpty()) {
         preset.uuid = uuid.toString().trim();
-    } else if (version == 1 && !obj->hasProperty("uuid")) {
-        preset.uuid = generateDeterministicPresetUuid(preset.name);
     } else {
         DP_LOG_WARN("[Preset] admission rejected: missing or invalid permanent identity");
         return std::nullopt;
@@ -603,44 +451,6 @@ std::optional<PerformancePreset> performancePresetFromVar(const juce::var& v) {
                 preset.feltAgeingAmount
                     = juce::jlimit(0.0f, 1.0f, static_cast<float>(aco->getProperty("feltAgeingAmount")));
             }
-        }
-    } else {
-        if (obj->hasProperty("lidPosition")) {
-            const auto val = static_cast<int>(obj->getProperty("lidPosition"));
-            preset.lidPosition = static_cast<SettingsModel::LidPosition>(juce::jlimit(0, 2, val));
-        }
-        if (obj->hasProperty("touchVelocityCurve")) {
-            const auto val = static_cast<int>(obj->getProperty("touchVelocityCurve"));
-            preset.touchVelocityCurve = static_cast<devpiano::input::TouchVelocityCurve>(juce::jlimit(0, 3, val));
-        }
-        if (obj->hasProperty("unaCorda")) {
-            preset.unaCorda = static_cast<bool>(obj->getProperty("unaCorda"));
-        }
-        if (obj->hasProperty("temperament")) {
-            preset.temperament = devpiano::audio::TemperamentEngine::fromIdentifier(
-                obj->getProperty("temperament").toString().toStdString());
-        }
-        if (obj->hasProperty("referencePitchA4")) {
-            preset.referencePitchA4 = devpiano::audio::TemperamentEngine::clampReferencePitch(
-                static_cast<double>(obj->getProperty("referencePitchA4")));
-        }
-        if (obj->hasProperty("soundPerspective")) {
-            preset.soundPerspective = devpiano::audio::PerspectiveProcessor::fromIdentifier(
-                obj->getProperty("soundPerspective").toString().toStdString());
-        }
-        if (obj->hasProperty("reverbSpace")) {
-            preset.reverbSpace = devpiano::audio::RoomReverbEngine::fromIdentifier(
-                obj->getProperty("reverbSpace").toString().toStdString());
-        }
-        if (obj->hasProperty("reverbWet")) {
-            preset.reverbWet = juce::jlimit(0.0f, 1.0f, static_cast<float>(obj->getProperty("reverbWet")));
-        }
-        if (obj->hasProperty("pedalNoiseLevel")) {
-            preset.pedalNoiseLevel = juce::jlimit(0.0f, 1.0f, static_cast<float>(obj->getProperty("pedalNoiseLevel")));
-        }
-        if (obj->hasProperty("feltAgeingAmount")) {
-            preset.feltAgeingAmount
-                = juce::jlimit(0.0f, 1.0f, static_cast<float>(obj->getProperty("feltAgeingAmount")));
         }
     }
 
@@ -762,8 +572,8 @@ bool savePreset(const PerformancePreset& preset, const juce::File& path) {
         return false;
     }
     auto presetToSave = preset;
-    if (presetToSave.uuid.isEmpty()) {
-        presetToSave.uuid = generateDeterministicPresetUuid(presetToSave.name);
+    if (presetToSave.uuid.trim().isEmpty()) {
+        presetToSave.uuid = juce::Uuid().toDashedString();
     }
 
     juce::TemporaryFile tempFile(targetFile);
@@ -870,7 +680,7 @@ std::vector<PerformancePreset> scanPresetDirectory(const juce::File& dir) {
 
 PerformancePreset makeDefaultPreset() {
     PerformancePreset preset;
-    preset.uuid = generateDeterministicPresetUuid("Default");
+    preset.uuid = "d226a702-8342-5184-87c7-9852be35aa65";
     preset.name = "Default";
     preset.layout = devpiano::core::makeDefaultKeyboardLayout();
     preset.layout.id = "default.preset.builtin";

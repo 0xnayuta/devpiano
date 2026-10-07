@@ -197,21 +197,22 @@ private:
             expect(loadedOpt->lidPosition == SettingsModel::LidPosition::halfStick);
         }
 
-        // 3. 向前兼容测试：缺少 acoustics 字段的老版本 JSON 预设文件
+        // 3. Safe fallback for presets lacking acoustics field
         const juce::String legacyJson = R"({
-            "version": 1,
-            "name": "LegacyPreset",
-            "layout": { "id": "legacy.1", "name": "Legacy", "bindings": [] },
+            "version": 2,
+            "uuid": "44444444-5555-6666-7777-888888888888",
+            "name": "DefaultAcousticsPreset",
+            "layout": { "id": "default.1", "name": "Default", "bindings": [] },
             "keyboard": { "keySignature": 0, "midiTranspose": false }
         })";
 
-        const auto legacyFile = tempDir.getChildFile("legacy_preset.devpiano.preset");
+        const auto legacyFile = tempDir.getChildFile("default_acoustics_preset.devpiano.preset");
         expect(legacyFile.replaceWithText(legacyJson));
 
         auto legacyLoadedOpt = devpiano::layout::loadPreset(legacyFile);
         expect(legacyLoadedOpt.has_value());
         if (legacyLoadedOpt.has_value()) {
-            expectEquals(legacyLoadedOpt->name, juce::String("LegacyPreset"));
+            expectEquals(legacyLoadedOpt->name, juce::String("DefaultAcousticsPreset"));
             // 缺省声学字段安全回退到 fullOpen
             expect(legacyLoadedOpt->lidPosition == SettingsModel::LidPosition::fullOpen);
         }

@@ -12,8 +12,7 @@
 // 验证 Phase 29-D 规范：
 // 1. SettingsStore 读写 round-trip 与异常越界值保护钳制（lidPosition, touchCurve, unaCorda）；
 // 2. PerformancePreset JSON 序列化/反序列化 round-trip；
-// 3. 老版本缺省声学字段预设的向后兼容与默认值安全回退；
-// 4. 根对象平铺声学字段的兼容读取；
+// 3. Default fallback for presets lacking acoustics block;
 // 5. KeyboardMidiMapper::setSoftPedalDown 的状态维持与防抖回调机制。
 // ==============================================================================
 using namespace devpiano::layout;
@@ -28,8 +27,6 @@ public:
         testSettingsStoreAcousticRoundTrip();
         testSettingsStoreCorruptedBoundaryClamping();
         testPerformancePresetAcousticRoundTrip();
-        testPerformancePresetLegacyBackwardCompatibility();
-        testPerformancePresetFlatRootAcousticsCompatibility();
         testKeyboardMidiMapperSoftPedalStateAndCallback();
     }
 
@@ -103,7 +100,8 @@ private:
 
         devpiano::test::ScopedTempDir tempDir("acoustic-preset-rt");
         const auto presetFile = tempDir.getChildFile("acoustic_preset.devpiano.preset");
-        PerformancePreset originalPreset;
+        PerformancePreset originalPreset = makeDefaultPreset();
+        originalPreset.uuid = "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d";
         originalPreset.name = "Acoustic Ballad";
         originalPreset.lidPosition = SettingsModel::LidPosition::closed;
         originalPreset.touchVelocityCurve = devpiano::input::TouchVelocityCurve::wideDynamic;
@@ -126,81 +124,6 @@ private:
             expect(loaded.unaCorda == true, "unaCorda true should round-trip");
             expectEquals(loaded.keySignature, 3);
             expect(loaded.midiTranspose == true);
-        }
-    }
-
-    void testPerformancePresetLegacyBackwardCompatibility() {
-        beginTest("PerformancePreset: legacy presets lacking acoustics block fall back safely");
-
-        devpiano::test::ScopedTempDir tempDir("acoustic-legacy-compat");
-        const auto legacyFile = tempDir.getChildFile("legacy_no_acoustics.devpiano.preset");
-        // Legacy preset JSON with version 1, but no "acoustics" object and no acoustic fields
-        const juce::String legacyJson = R"({
-            "version": 1,
-            "name": "Classic V1 Preset",
-            "bindings": [],
-            "channelMatrix": {
-                "defaultChannel": 1,
-                "mappings": []
-            },
-            "keyboard": {
-                "keySignature": 0,
-                "midiTranspose": false,
-                "colourMode": 0,
-                "noteDisplay": 0,
-                "fadeSpeed": 0.92
-            }
-        })";
-
-        legacyFile.replaceWithText(legacyJson);
-        expect(legacyFile.existsAsFile());
-
-        const auto loadedOpt = loadPreset(legacyFile);
-        expect(loadedOpt.has_value(), "Legacy preset must load without error");
-
-        if (loadedOpt.has_value()) {
-            const auto& loaded = *loadedOpt;
-            expectEquals(loaded.name, juce::String("Classic V1 Preset"));
-
-            // Must fall back to safe acoustic defaults
-            expect(loaded.lidPosition == SettingsModel::LidPosition::fullOpen,
-                   "Missing lidPosition must fall back to fullOpen");
-            expect(loaded.touchVelocityCurve == devpiano::input::TouchVelocityCurve::standard,
-                   "Missing touchVelocityCurve must fall back to standard");
-            expect(loaded.unaCorda == false, "Missing unaCorda must fall back to false");
-        }
-    }
-
-    void testPerformancePresetFlatRootAcousticsCompatibility() {
-        beginTest("PerformancePreset: flat root acoustic fields compatibility");
-
-        devpiano::test::ScopedTempDir tempDir("acoustic-flat-compat");
-        const auto flatFile = tempDir.getChildFile("flat_acoustics.devpiano.preset");
-        // Format where acoustic fields are at the root level instead of inside "acoustics": {}
-        const juce::String flatJson = R"({
-            "version": 1,
-            "name": "Flat Root Preset",
-            "lidPosition": 1,
-            "touchVelocityCurve": 1,
-            "unaCorda": true,
-            "bindings": [],
-            "channelMatrix": { "defaultChannel": 1, "mappings": [] },
-            "keyboard": {}
-        })";
-
-        flatFile.replaceWithText(flatJson);
-
-        const auto loadedOpt = loadPreset(flatFile);
-        expect(loadedOpt.has_value(), "Flat root preset must load successfully");
-
-        if (loadedOpt.has_value()) {
-            const auto& loaded = *loadedOpt;
-            expectEquals(loaded.name, juce::String("Flat Root Preset"));
-            expect(loaded.lidPosition == SettingsModel::LidPosition::halfStick,
-                   "Root lidPosition 1 should parse as halfStick");
-            expect(loaded.touchVelocityCurve == devpiano::input::TouchVelocityCurve::light,
-                   "Root touchVelocityCurve 1 should parse as light");
-            expect(loaded.unaCorda == true, "Root unaCorda true should parse correctly");
         }
     }
 

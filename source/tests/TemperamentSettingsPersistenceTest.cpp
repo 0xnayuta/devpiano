@@ -10,8 +10,8 @@
 /// TemperamentSettingsPersistenceTest (Phase 30-C)
 ///
 /// Validates cross-session persistence of temperament and A4 reference pitch
-/// in SettingsStore properties XML, full-stack PerformancePreset JSON round-trip,
-/// legacy preset backward compatibility, and out-of-bound input clamping.
+/// in SettingsStore properties XML and PerformancePreset JSON, including
+/// out-of-bound input clamping.
 // ============================================================================
 class TemperamentSettingsPersistenceTest final : public juce::UnitTest {
 public:
@@ -23,8 +23,6 @@ public:
         testSettingsStoreRoundTrip();
         testSettingsStoreBoundaryClamping();
         testPerformancePresetJsonRoundTrip();
-        testLegacyPresetBackwardCompatibility();
-        testFlatRootPresetCompatibility();
     }
 
 private:
@@ -152,7 +150,8 @@ private:
 
         const auto outOfBoundsFile = tempDir.getChildFile("out-of-bounds.devpiano.preset");
         const juce::String oobJson = R"({
-  "version": 1,
+  "version": 2,
+  "uuid": "963c9500-38d7-4e10-8025-2e61d4830084",
   "name": "OobPreset",
   "layout": { "id": "oob.1", "name": "OOB", "bindings": [] },
   "acoustics": {
@@ -168,7 +167,8 @@ private:
 
         const auto oobHighFile = tempDir.getChildFile("oob-high.devpiano.preset");
         const juce::String oobHighJson = R"({
-  "version": 1,
+  "version": 2,
+  "uuid": "963c9500-38d7-4e10-8025-2e61d4830084",
   "name": "OobHighPreset",
   "layout": { "id": "oob.2", "name": "OOB High", "bindings": [] },
   "acoustics": {
@@ -180,67 +180,6 @@ private:
         expect(loadedOobHigh.has_value());
         if (loadedOobHigh.has_value()) {
             expectWithinAbsoluteError(loadedOobHigh->referencePitchA4, 480.0, 1e-4);
-        }
-    }
-
-    void testLegacyPresetBackwardCompatibility() {
-        beginTest("PerformancePreset: Legacy presets lacking temperament fall back to default");
-
-        using namespace devpiano::layout;
-        using namespace devpiano::audio;
-
-        const devpiano::test::ScopedTempDir tempDir("temp-preset-legacy");
-        const auto legacyFile = tempDir.getChildFile("legacy.devpiano.preset");
-
-        const juce::String legacyJson = R"({
-  "version": 1,
-  "name": "LegacyPreset",
-  "layout": { "id": "legacy.1", "name": "Legacy", "bindings": [] },
-  "acoustics": {
-    "lidPosition": 1,
-    "touchVelocityCurve": 2,
-    "unaCorda": true
-  }
-})";
-        expect(legacyFile.replaceWithText(legacyJson));
-
-        auto loadedOpt = loadPreset(legacyFile);
-        expect(loadedOpt.has_value());
-        if (loadedOpt.has_value()) {
-            expectEquals(loadedOpt->name, juce::String("LegacyPreset"));
-            // Missing temperament and pitch should safely fall back to equal and 440.0
-            expect(loadedOpt->temperament == Temperament::equal);
-            expectEquals(loadedOpt->referencePitchA4, 440.0);
-            expect(loadedOpt->lidPosition == SettingsModel::LidPosition::halfStick);
-            expect(loadedOpt->touchVelocityCurve == devpiano::input::TouchVelocityCurve::heavy);
-            expect(loadedOpt->unaCorda == true);
-        }
-    }
-
-    void testFlatRootPresetCompatibility() {
-        beginTest("PerformancePreset: Flat root temperament fields compatibility");
-
-        using namespace devpiano::layout;
-        using namespace devpiano::audio;
-
-        const devpiano::test::ScopedTempDir tempDir("temp-preset-flat");
-        const auto flatFile = tempDir.getChildFile("flat.devpiano.preset");
-
-        const juce::String flatJson = R"({
-  "version": 1,
-  "name": "FlatRootPreset",
-  "layout": { "id": "flat.1", "name": "Flat", "bindings": [] },
-  "temperament": "just",
-  "referencePitchA4": 432.0
-})";
-        expect(flatFile.replaceWithText(flatJson));
-
-        auto loadedOpt = loadPreset(flatFile);
-        expect(loadedOpt.has_value());
-        if (loadedOpt.has_value()) {
-            expectEquals(loadedOpt->name, juce::String("FlatRootPreset"));
-            expect(loadedOpt->temperament == Temperament::just);
-            expectWithinAbsoluteError(loadedOpt->referencePitchA4, 432.0, 1e-4);
         }
     }
 };

@@ -19,10 +19,8 @@
 /// 1. SettingsStore XML round-trip for pedalNoiseLevel / feltAgeingAmount.
 /// 2. SettingsStore out-of-range boundary clamping protection.
 /// 3. PerformancePreset JSON serialization round-trip under "acoustics".
-/// 4. Backward compatibility with legacy presets lacking mechanical fields.
-/// 5. Flat root mechanical field compatibility with clamping.
-/// 6. WAV export option propagation (offline render parity with realtime).
-/// 7. Extreme-parameter safety: bounded output, finite samples, click-free attack.
+/// 4. WAV export option propagation (offline render parity with realtime).
+/// 5. Extreme-parameter safety: bounded output, finite samples, click-free attack.
 // ============================================================================
 class MechanicalAcousticsTest final : public juce::UnitTest {
 public:
@@ -34,8 +32,6 @@ public:
         testSettingsStoreMechanicalRoundTrip();
         testSettingsStoreBoundaryClamping();
         testPerformancePresetJsonRoundTrip();
-        testPerformancePresetBackwardCompatibility();
-        testPerformancePresetFlatRootCompatibility();
         testWavExportOptionsPropagation();
         testExtremeParameterSafetyAndClickFreeAttack();
     }
@@ -136,72 +132,6 @@ private:
             expectEquals(loaded.name, originalPreset.name);
             expectWithinAbsoluteError(loaded.pedalNoiseLevel, 0.42f, 1e-4f);
             expectWithinAbsoluteError(loaded.feltAgeingAmount, 0.77f, 1e-4f);
-        }
-    }
-
-    void testPerformancePresetBackwardCompatibility() {
-        beginTest("PerformancePreset: Legacy presets lacking mechanical fields fall back to defaults");
-
-        using namespace devpiano::layout;
-
-        devpiano::test::ScopedTempDir tempDir("mechanical-legacy-compat");
-        const auto legacyFile = tempDir.getChildFile("legacy_mechanical.devpiano.preset");
-
-        // Old preset JSON lacking pedalNoiseLevel and feltAgeingAmount
-        const juce::String legacyJson = R"({
-  "version": 1,
-  "name": "LegacyMechanical",
-  "acoustics": {
-    "lidPosition": 0,
-    "touchVelocityCurve": 0,
-    "unaCorda": false,
-    "temperament": "equal",
-    "referencePitchA4": 440.0,
-    "soundPerspective": "player",
-    "reverbSpace": "chamber",
-    "reverbWet": 0.2
-  }
-})";
-        expect(legacyFile.replaceWithText(legacyJson));
-
-        const auto loadedOpt = loadPreset(legacyFile);
-        expect(loadedOpt.has_value());
-
-        if (loadedOpt.has_value()) {
-            const auto& loaded = *loadedOpt;
-            expectEquals(loaded.name, juce::String("LegacyMechanical"));
-            // Safe fallbacks: default pedal noise 0.6f, ageing off (0.0f)
-            expectWithinAbsoluteError(loaded.pedalNoiseLevel, 0.6f, 1e-4f);
-            expectWithinAbsoluteError(loaded.feltAgeingAmount, 0.0f, 1e-4f);
-        }
-    }
-
-    void testPerformancePresetFlatRootCompatibility() {
-        beginTest("PerformancePreset: Flat root mechanical fields compatibility with clamping");
-
-        using namespace devpiano::layout;
-
-        devpiano::test::ScopedTempDir tempDir("mechanical-flat-compat");
-        const auto flatFile = tempDir.getChildFile("flat_mechanical.devpiano.preset");
-
-        // Flat root fields: pedalNoiseLevel in range, feltAgeingAmount out of range
-        const juce::String flatJson = R"({
-  "version": 1,
-  "name": "FlatMechanical",
-  "pedalNoiseLevel": 0.25,
-  "feltAgeingAmount": 1.5
-})";
-        expect(flatFile.replaceWithText(flatJson));
-
-        const auto loadedOpt = loadPreset(flatFile);
-        expect(loadedOpt.has_value());
-
-        if (loadedOpt.has_value()) {
-            const auto& loaded = *loadedOpt;
-            expectEquals(loaded.name, juce::String("FlatMechanical"));
-            expectWithinAbsoluteError(loaded.pedalNoiseLevel, 0.25f, 1e-4f);
-            // Out-of-range value clamped to 1.0f
-            expectWithinAbsoluteError(loaded.feltAgeingAmount, 1.0f, 1e-4f);
         }
     }
 

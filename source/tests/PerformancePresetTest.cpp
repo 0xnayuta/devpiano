@@ -176,14 +176,32 @@ public:
             pathInvalidVer.replaceWithText(R"({ "version": 999, "name": "Future" })");
             expect(!loadPreset(pathInvalidVer).has_value(), "Version > current must be rejected");
 
+            auto pathLegacyVer1 = tempDir.getChildFile("v1.devpiano.preset");
+            pathLegacyVer1.replaceWithText(
+                R"({ "version": 1, "uuid": "11111111-2222-3333-4444-555555555555", "name": "LegacyV1" })");
+            expect(!loadPreset(pathLegacyVer1).has_value(), "Version 1 preset must be rejected");
+
+            auto pathStringVer = tempDir.getChildFile("string_ver.devpiano.preset");
+            pathStringVer.replaceWithText(
+                R"({ "version": "2", "uuid": "11111111-2222-3333-4444-555555555555", "name": "StringVer" })");
+            expect(!loadPreset(pathStringVer).has_value(), "Non-integer version string must be rejected");
+
+            auto pathFloatVer = tempDir.getChildFile("float_ver.devpiano.preset");
+            pathFloatVer.replaceWithText(
+                R"({ "version": 2.0, "uuid": "11111111-2222-3333-4444-555555555555", "name": "FloatVer" })");
+            expect(!loadPreset(pathFloatVer).has_value(), "Floating point version must be rejected");
+
+            auto pathMissingUuid = tempDir.getChildFile("missing_uuid.devpiano.preset");
+            pathMissingUuid.replaceWithText(R"({ "version": 2, "name": "NoUuid" })");
+            expect(!loadPreset(pathMissingUuid).has_value(), "Missing uuid must be rejected");
+
             auto pathClamped = tempDir.getChildFile("clamped.devpiano.preset");
             pathClamped.replaceWithText(
-                R"({ "version": 1, "name": "Clamped", "keyboard": { "keySignature": 100, "fadeSpeed": 99.0, "previewAlpha": -5.0 } })");
+                R"({ "version": 2, "uuid": "22222222-3333-4444-5555-666666666666", "name": "Clamped", "keyboard": { "keySignature": 100, "fadeSpeed": 99.0, "previewAlpha": -5.0 } })");
             auto loaded = loadPreset(pathClamped);
-            expect(loaded.has_value(), "Valid version 1 preset must be loaded");
+            expect(loaded.has_value(), "Valid canonical version 2 preset must be loaded");
             if (loaded.has_value()) {
-                expect(loaded->uuid == generateDeterministicPresetUuid("Clamped"),
-                       "v1 legacy preset gets deterministic UUID");
+                expectEquals(loaded->uuid, juce::String("22222222-3333-4444-5555-666666666666"));
                 expectEquals(loaded->keySignature, 7, "keySignature must be clamped to 7");
                 expect(loaded->fadeSpeed >= 0.5f && loaded->fadeSpeed < 1.0f,
                        "imported fade must use a bounded contraction");
@@ -197,7 +215,7 @@ public:
             // 1. Preset with keyUp trigger must be rejected, preserving file intact
             auto pathKeyUp = tempDir.getChildFile("keyup.devpiano.preset");
             pathKeyUp.replaceWithText(
-                R"({ "version": 1, "name": "KeyUpTest", "layout": { "bindings": [ { "keyCode": 65, "displayText": "A", "action": { "type": "note", "trigger": "keyUp", "midiNote": 60, "midiChannel": 1, "velocity": 1.0 } } ] } })");
+                R"({ "version": 2, "uuid": "11111111-2222-3333-4444-555555555555", "name": "KeyUpTest", "layout": { "bindings": [ { "keyCode": 65, "displayText": "A", "action": { "type": "note", "trigger": "keyUp", "midiNote": 60, "midiChannel": 1, "velocity": 1.0 } } ] } })");
             expect(!loadPreset(pathKeyUp).has_value(), "Preset with keyUp trigger must be rejected");
             expect(pathKeyUp.existsAsFile(), "Rejected file must be preserved intact on disk");
             expect(pathKeyUp.loadFileAsString().contains("keyUp"), "File content must not be rewritten");
@@ -205,24 +223,24 @@ public:
             // 2. Preset with unknown trigger value must be rejected
             auto pathUnknown = tempDir.getChildFile("unknown.devpiano.preset");
             pathUnknown.replaceWithText(
-                R"({ "version": 1, "name": "UnknownTest", "layout": { "bindings": [ { "keyCode": 65, "displayText": "A", "action": { "type": "note", "trigger": "onPress", "midiNote": 60, "midiChannel": 1, "velocity": 1.0 } } ] } })");
+                R"({ "version": 2, "uuid": "11111111-2222-3333-4444-555555555555", "name": "UnknownTest", "layout": { "bindings": [ { "keyCode": 65, "displayText": "A", "action": { "type": "note", "trigger": "onPress", "midiNote": 60, "midiChannel": 1, "velocity": 1.0 } } ] } })");
             expect(!loadPreset(pathUnknown).has_value(), "Preset with unknown trigger must be rejected");
             expect(pathUnknown.existsAsFile(), "Rejected file must be preserved intact on disk");
 
             // 3. Preset omitting optional trigger field must default to supported keyDown
             auto pathMissing = tempDir.getChildFile("missing.devpiano.preset");
             pathMissing.replaceWithText(
-                R"({ "version": 1, "name": "MissingTest", "layout": { "bindings": [ { "keyCode": 65, "displayText": "A", "action": { "type": "note", "midiNote": 60, "midiChannel": 1, "velocity": 1.0 } } ] } })");
+                R"({ "version": 2, "uuid": "11111111-2222-3333-4444-555555555555", "name": "MissingTest", "layout": { "bindings": [ { "keyCode": 65, "displayText": "A", "action": { "type": "note", "midiNote": 60, "midiChannel": 1, "velocity": 1.0 } } ] } })");
             auto loadedMissing = loadPreset(pathMissing);
             expect(loadedMissing.has_value(),
-                   "Legacy preset omitting optional trigger field must be admitted with default keyDown");
+                   "Preset omitting optional trigger field must be admitted with default keyDown");
             if (loadedMissing.has_value()) {
                 expect(loadedMissing->layout.bindings[0].action.trigger == devpiano::core::KeyTrigger::keyDown);
             }
             // 4. Valid preset with keyDown trigger must load and execute successfully
             auto pathValid = tempDir.getChildFile("valid.devpiano.preset");
             pathValid.replaceWithText(
-                R"({ "version": 1, "name": "ValidTest", "layout": { "bindings": [ { "keyCode": 65, "displayText": "A", "action": { "type": "note", "trigger": "keyDown", "midiNote": 60, "midiChannel": 1, "velocity": 1.0 } } ] } })");
+                R"({ "version": 2, "uuid": "11111111-2222-3333-4444-555555555555", "name": "ValidTest", "layout": { "bindings": [ { "keyCode": 65, "displayText": "A", "action": { "type": "note", "trigger": "keyDown", "midiNote": 60, "midiChannel": 1, "velocity": 1.0 } } ] } })");
             auto loaded = loadPreset(pathValid);
             expect(loaded.has_value(), "Valid preset with keyDown trigger must be loaded");
             if (loaded.has_value()) {
@@ -249,13 +267,13 @@ public:
         testCase("makeDefaultPreset has the built-in identity", [&] {
             const auto preset = makeDefaultPreset();
             expectEquals(preset.name, juce::String("Default"));
-            expectEquals(preset.uuid, generateDeterministicPresetUuid("Default"));
+            expectEquals(preset.uuid, juce::String("d226a702-8342-5184-87c7-9852be35aa65"));
             expectEquals(preset.layout.id, juce::String("default.preset.builtin"));
             expect(preset.channelMatrix.active, "default matrix must be active");
             expectEquals(static_cast<int>(preset.colourMode), static_cast<int>(devpiano::ui::KeyColourMode::classic));
         });
 
-        testCase("ARCH-003: persistent UUID preserved across save/load and deterministic for legacy v1", [&] {
+        testCase("ARCH-003: persistent UUID preserved across in-memory and disk round-trip", [&] {
             devpiano::test::ScopedTempDir tempDir("preset-arch003");
 
             // 1. In-memory round-trip via performancePresetToVar / performancePresetFromVar
@@ -267,22 +285,14 @@ public:
                 expectPresetsEqual(*this, original, *fromVar);
             }
 
-            // 2. Legacy v1 preset without uuid gets deterministic uuid derived from name
-            const auto legacyFile = tempDir.getChildFile("legacy.devpiano.preset");
-            legacyFile.replaceWithText(R"({ "version": 1, "name": "Jazz Grand" })");
-            const auto loaded1 = loadPreset(legacyFile);
-            expect(loaded1.has_value());
-            if (loaded1.has_value()) {
-                expectEquals(loaded1->uuid, generateDeterministicPresetUuid("Jazz Grand"));
-                const auto loaded2 = loadPreset(legacyFile);
-                expect(loaded2.has_value());
-                if (loaded2.has_value()) {
-                    expectEquals(loaded1->uuid, loaded2->uuid);
-                }
+            // 2. Disk round-trip preserves permanent identity
+            const auto testFile = tempDir.getChildFile("canonical.devpiano.preset");
+            expect(savePreset(original, testFile), "savePreset must succeed");
+            const auto loaded = loadPreset(testFile);
+            expect(loaded.has_value(), "loadPreset must succeed");
+            if (loaded.has_value()) {
+                expectEquals(loaded->uuid, original.uuid);
             }
-
-            // 3. Different legacy names produce distinct deterministic uuids
-            expect(generateDeterministicPresetUuid("Grand A") != generateDeterministicPresetUuid("Grand B"));
         });
     }
 };

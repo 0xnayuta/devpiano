@@ -1,6 +1,5 @@
 #include "SettingsStore.h"
 #include "Settings/SettingsSerialization.h"
-#include <juce_audio_processors/juce_audio_processors.h>
 
 #include "Diagnostics/Log.h"
 
@@ -217,26 +216,6 @@ void SettingsStore::readNow(SettingsModel& m) {
     m.pluginSearchPath = f.getValue(kKeyPluginSearchPath, m.pluginSearchPath);
     m.lastPluginIdentifier = f.getValue(kKeyLastPluginIdentifier, m.lastPluginIdentifier);
     m.knownPluginListState = f.getXmlValue(kKeyKnownPluginListXml);
-    if (!f.containsKey(kKeyLastPluginIdentifier)) {
-        const auto legacyName = f.getValue("lastPluginName");
-        if (legacyName.isNotEmpty()) {
-            juce::KnownPluginList knownPlugins;
-            if (m.knownPluginListState != nullptr) {
-                knownPlugins.recreateFromXml(*m.knownPluginListState);
-            }
-            int matchingTypes = 0;
-            for (const auto& description : knownPlugins.getTypes()) {
-                if (description.name.equalsIgnoreCase(legacyName)) {
-                    m.lastPluginIdentifier = description.createIdentifierString();
-                    ++matchingTypes;
-                }
-            }
-            if (matchingTypes != 1) {
-                m.lastPluginIdentifier.clear();
-                DP_LOG_WARN("[Settings] Legacy plugin name cannot be resolved uniquely: " + legacyName);
-            }
-        }
-    }
     m.lastActivePresetId = f.getValue(kKeyLastActivePresetId, m.lastActivePresetId);
     // MIDI import/export paths
     m.lastMidiImportPath = f.getValue(kKeyLastMidiImportPath, m.lastMidiImportPath);
@@ -367,7 +346,6 @@ bool SettingsStore::writeNow(const SettingsModel& m) {
     f.setValue(kKeyFeltAgeingAmount, m.feltAgeingAmount);
     f.setValue(kKeyPluginSearchPath, m.pluginSearchPath);
     f.setValue(kKeyLastPluginIdentifier, m.lastPluginIdentifier);
-    f.removeValue("lastPluginName");
     if (m.knownPluginListState) {
         f.setValue(kKeyKnownPluginListXml, m.knownPluginListState->toString());
     }

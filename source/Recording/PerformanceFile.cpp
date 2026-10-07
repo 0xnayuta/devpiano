@@ -82,6 +82,14 @@ constexpr size_t maxMidiFrameBytes = size_t { 1024 } * 1024; // 1 MiB per frame
         return std::nullopt;
     }
 
+    const auto versionVar = root->getProperty(performance_file::keyVersion);
+    if (!versionVar.isInt() && !versionVar.isInt64()) {
+        return std::nullopt;
+    }
+    if (static_cast<juce::int64>(versionVar) != static_cast<juce::int64>(performance_file::currentVersion)) {
+        return std::nullopt;
+    }
+
     return juce::DynamicObject::Ptr(root);
 }
 
@@ -608,15 +616,6 @@ std::optional<RecordingTake> deserialiseTakeFromJson(const juce::String& json) {
         return std::nullopt;
     }
 
-    const auto versionVar = (*root)->getProperty(performance_file::keyVersion);
-    if (!versionVar.isInt() && !versionVar.isInt64()) {
-        return std::nullopt;
-    }
-    const auto version = static_cast<juce::int64>(versionVar);
-    if (version < 1 || version > performance_file::currentVersion) {
-        return std::nullopt;
-    }
-
     const auto sampleRateOpt = parseSupportedSampleRate((*root)->getProperty(performance_file::keySampleRate));
     if (!sampleRateOpt.has_value()) {
         return std::nullopt;
@@ -631,22 +630,24 @@ std::optional<RecordingTake> deserialiseTakeFromJson(const juce::String& json) {
         return std::nullopt;
     }
     // Deserialise embedded presets table (v3+)
-    std::vector<RecordedPreset> presets;
     const auto presetsVar = (*root)->getProperty(performance_file::keyPresets);
-    if (presetsVar.isArray()) {
-        auto* arr = presetsVar.getArray();
-        presets.reserve(static_cast<size_t>(arr->size()));
-        for (const auto& pv : *arr) {
-            auto rpOpt = varToRecordedPreset(pv);
-            if (!rpOpt.has_value()) {
-                DP_LOG_ERROR("[PerformanceFile] Admission rejected: invalid RecordedPreset in embedded presets table");
-                return std::nullopt;
-            }
-            presets.push_back(std::move(*rpOpt));
-        }
-    } else if (!presetsVar.isVoid()) {
-        DP_LOG_ERROR("[PerformanceFile] Admission rejected: presets property is present but not an array");
+    if (!presetsVar.isArray()) {
+        DP_LOG_ERROR("[PerformanceFile] Admission rejected: presets property is missing or not an array");
         return std::nullopt;
+    }
+    auto* arr = presetsVar.getArray();
+    if (arr == nullptr) {
+        return std::nullopt;
+    }
+    std::vector<RecordedPreset> presets;
+    presets.reserve(static_cast<size_t>(arr->size()));
+    for (const auto& pv : *arr) {
+        auto rpOpt = varToRecordedPreset(pv);
+        if (!rpOpt.has_value()) {
+            DP_LOG_ERROR("[PerformanceFile] Admission rejected: invalid RecordedPreset in embedded presets table");
+            return std::nullopt;
+        }
+        presets.push_back(std::move(*rpOpt));
     }
 
     const auto eventsVar = (*root)->getProperty(performance_file::keyEvents);
@@ -688,8 +689,11 @@ std::optional<RecordingTake> deserialiseTakeFromJson(const juce::String& json) {
         event.timestampSamples = timestamp;
 
         const auto typeVar = obj->getProperty(performance_file::keyEventType);
-        if (typeVar.isVoid() || (typeVar.isString() && typeVar.toString().isEmpty())
-            || (typeVar.isString() && typeVar.toString() == performance_file::eventTypeMidi)) {
+        if (!typeVar.isString()) {
+            return std::nullopt;
+        }
+        const auto typeStr = typeVar.toString();
+        if (typeStr == performance_file::eventTypeMidi) {
             event.type = PerformanceEventType::midi;
             event.source = stringToSource(obj->getProperty(performance_file::keySource).toString());
 
@@ -708,15 +712,7 @@ std::optional<RecordingTake> deserialiseTakeFromJson(const juce::String& json) {
             }
             totalDecodedMidiBytes += static_cast<size_t>(msg->getRawDataSize());
             event.message = std::move(*msg);
-        } else if (typeVar.isString() && typeVar.toString() == performance_file::eventTypePresetChange) {
-            // Legacy v1/v2 numeric preset events must be explicitly rejected with diagnostic
-            if (version < 3) {
-                DP_LOG_ERROR("[PerformanceFile] Legacy numeric preset change event in version " + juce::String(version)
-                             + " rejected: format v1/v2 directory indices cannot be safely reinterpreted as take-local "
-                               "snapshot slots");
-                return std::nullopt;
-            }
-
+        } else if (typeStr == performance_file::eventTypePresetChange) {
             event.type = PerformanceEventType::presetChange;
             event.source = stringToSource(obj->getProperty(performance_file::keySource).toString());
 
@@ -888,15 +884,6 @@ std::optional<PerformanceFileMetadata> loadPerformanceFileMetadata(const juce::F
 
     auto root = parsePerformanceFileRoot(json);
     if (!root.has_value()) {
-        return std::nullopt;
-    }
-
-    const auto versionVar = (*root)->getProperty(performance_file::keyVersion);
-    if (!versionVar.isInt() && !versionVar.isInt64()) {
-        return std::nullopt;
-    }
-    const auto version = static_cast<int>(versionVar);
-    if (version < 1 || version > performance_file::currentVersion) {
         return std::nullopt;
     }
 

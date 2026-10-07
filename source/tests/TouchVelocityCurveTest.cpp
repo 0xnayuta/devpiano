@@ -183,16 +183,17 @@ private:
             }
         }
 
-        // 3. Preset backward compatibility (legacy preset without touchVelocityCurve defaults to standard)
+        // 3. Preset backward compatibility (preset without touchVelocityCurve defaults to standard)
         {
             const juce::String legacyJson = R"({
-                "version": 1,
-                "name": "LegacyWithoutTouch",
+                "version": 2,
+                "uuid": "88888888-9999-0000-1111-222222222222",
+                "name": "WithoutTouch",
                 "layout": { "id": "l.1", "name": "L", "bindings": [] },
                 "keyboard": { "keySignature": 0, "midiTranspose": false }
             })";
 
-            const auto legacyFile = tempDir.getChildFile("legacy.devpiano.preset");
+            const auto legacyFile = tempDir.getChildFile("without_touch.devpiano.preset");
             expect(legacyFile.replaceWithText(legacyJson));
 
             auto legacyLoaded = devpiano::layout::loadPreset(legacyFile);

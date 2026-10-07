@@ -49,10 +49,6 @@ struct PerformancePreset {
     std::array<juce::String, 128> customKeyLabels;
     std::array<juce::Colour, 128> customKeyColours;
 };
-// ---- Identity ----
-
-[[nodiscard]] juce::String generateDeterministicPresetUuid(const juce::String& name);
-
 // ---- In-memory JSON conversion (no disk IO) ----
 
 [[nodiscard]] juce::var performancePresetToVar(const PerformancePreset& preset);

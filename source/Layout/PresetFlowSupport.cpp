@@ -85,27 +85,6 @@ bool PresetFlowSupport::applyPresetById(const juce::String& presetId) {
         }
     }
 
-    // 2. Legacy name migration: if not matched by UUID, check unique preset name
-    const PerformancePreset* uniqueNameMatch = nullptr;
-    int matchCount = 0;
-    for (const auto& p : cachedPresets) {
-        if (p.name == id) {
-            uniqueNameMatch = &p;
-            ++matchCount;
-        }
-    }
-
-    if (matchCount == 1 && uniqueNameMatch != nullptr) {
-        DP_LOG_INFO("[Preset] Migrated legacy preset name '" + id + "' to permanent UUID " + uniqueNameMatch->uuid);
-        return applyPresetById(uniqueNameMatch->uuid);
-    }
-
-    if (matchCount > 1) {
-        DP_LOG_WARN("[Preset] Ambiguous legacy preset name '" + id + "': " + juce::String(matchCount)
-                    + " presets share this name. Migration rejected without silent redirect.");
-        return false;
-    }
-
     DP_LOG_WARN("[Preset] preset not found: " + id);
     return false;
 }
