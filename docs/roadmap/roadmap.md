@@ -16,7 +16,7 @@ devpiano 是一款基于 JUCE 的现代 C++ 电脑键盘钢琴应用，聚焦软
 - 旧配置系统 -> `ApplicationProperties` / `ValueTree` / 项目内状态模型。
 - 旧 fallback 简单发声 -> 覆盖 7 大声学子系统的自主研发增强物理建模钢琴音源（`PianoSynthVoice`）。
 
-**Phase 36：开发期减负与历史兼容性收敛** [已完成，2026-10-07]；Task 36-1 至 36-5 全量闭环达成。详细任务清单与直接证据见 [`current-iteration.md`](current-iteration.md)。AUDIT-004 实机补验边界独立保留，后续声学与演奏形态推进见 Phase 37/38。
+**近期重点：Phase 37 物理建模调律与被动共鸣校准** [规划已确认，待实施]，先明确频率语义与声学基线，再推进拉伸调律、Duplex 和风格预设；Phase 38 按一次性变换契约、三踏板、双手键区、固定双层的顺序后继推进。详细任务、依赖与直接验收见 [`current-iteration.md`](current-iteration.md)。Phase 36 已完成并 [归档](../archive/phase36-development-overhead-reduction-and-legacy-compatibility-deprecation.md)，AUDIT-004 实机补验边界独立保留。
 
 ---
 
@@ -218,7 +218,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 4. **Phase 25-D（已完成）**：`ci.yml` 合并 Debug 测试与 Release 构建为单一 `linux-gate` job（ubuntu-24.04 共享 ccache，Debug 测试 + Release 构建/测试 + 门槛检查；Windows 门禁补 Release 构建验证）并扩展 `package_release.sh` 支持 `--linux` 打包选项（tar.gz + sha256，打包前自动执行 glibc 门槛检查）；
 5. **Phase 25-E（已完成）**：三闸门基线验证（CI 全绿）、Linux 专项冒烟测试清单（CachyOS 2026-08-24 实机验证通过）与指南文档对齐（`release-workflow.md` 新增 §5A Linux 手工冒烟测试与双平台发布流程）。
 
-> 基础设施已落地：`.github/workflows/ci.yml`（格式门禁 + `linux-gate` Debug 测试/Release 门槛 + Windows MSVC Debug/Release 构建测试门禁）、`.github/workflows/release.yml`（Tag 触发 Windows/Linux 双平台自动打包发布）与 `.github/workflows/pr-agent.yml`（PR-Agent AI 代码审查，配置以工作流文件为准）。当前子任务排期与验收状态见 [`current-iteration.md`](current-iteration.md)。
+> 基础设施已落地：`.github/workflows/ci.yml`（格式门禁 + `linux-gate` Debug 测试/Release 门槛 + Windows MSVC Debug/Release 构建测试门禁）、`.github/workflows/release.yml`（Tag 触发 Windows/Linux 双平台自动打包发布）与 `.github/workflows/pr-agent.yml`（PR-Agent AI 代码审查，配置以工作流文件为准）。后继迭代排期与直接验收见 [`current-iteration.md`](current-iteration.md)，本阶段完成记录见下方归档。
 
 详细完成记录见 [`../archive/phase25-linux-desktop-and-audio-path.md`](../archive/phase25-linux-desktop-and-audio-path.md)。
 
@@ -350,21 +350,31 @@ Phase 35 原计划与完成勾选见 [完成计划归档](../archive/phase35-key
 
 ### Phase 36：开发期减负与历史兼容性收敛（Development Overhead Reduction & Legacy Compatibility Deprecation）[已完成，2026-10-07]
 
-开发期减负与 YAGNI 协作契约已固化于 `AGENTS.md`，自有格式已切换为当前预设 v2 / 演奏 v3，历史数据迁移分支与死代码已彻底清除，低价值测试已按行为风险完成剪枝。现行 13 本特性文档、架构说明、验收标准及指南已全面对齐当前代码事实，系统性消除了硬编码易变统计度量（断言数/用例数/代码行数/编译秒数），各分册中的重复“当前状态”与历史阶段括号已统一收敛指向 roadmap，严格维持历史审计与归档原貌不变。Task 36-1 至 36-5 闭环完成，完整记录见 [`current-iteration.md`](current-iteration.md)。
+开发期减负与 YAGNI 协作契约已固化于 `AGENTS.md`，自有格式已切换为当前预设 v2 / 演奏 v3，历史数据迁移分支与死代码已彻底清除，低价值测试已按行为风险完成剪枝。现行 13 本特性文档、架构说明、验收标准及指南已全面对齐当前代码事实，系统性消除了硬编码易变统计度量（断言数/用例数/代码行数/编译秒数），各分册中的重复“当前状态”与历史阶段括号已统一收敛指向 roadmap，严格维持历史审计与归档原貌不变。Task 36-1 至 36-5 闭环完成，完整任务与分步验证记录见 [Phase 36 完成归档](../archive/phase36-development-overhead-reduction-and-legacy-compatibility-deprecation.md)。
 
-### Phase 37：物理建模声学巅峰（Railsback Octave Stretch Tuning & Duplex Scale Resonance）[规划中]
+### Phase 37：物理建模调律与被动共鸣校准（Piano Tuning & Passive Resonance Calibration）[规划已确认，待实施]
 
-在声学微观机理上对齐 Pianoteq 8/9，攻克琴弦刚度八度拉伸与高频空气感最后两座大山：
-1. **Railsback 八度调律拉伸曲线**：实测刚度 $B$ 不谐和音分拉伸表，消除低音泛音与高音基波拍频干涉；
-2. **Duplex Scale 双重副弦共鸣池**：Steinway Aliquot 未制音短副弦高频共鸣，激发晶莹剔透银色泛音闪烁感；
-3. **Sostenuto 选择性持续音踏板（CC 66）**：现代三角钢琴第三踏板建模；
-4. **经典钢琴型号风格预设包**：Concert Grand、Studio Grand、Upright Honky-tonk、Classical Fortepiano 参数化快照一键切换。
+深化现有增强模态钢琴，以实际频率、被动共鸣、音色与实时成本为验收对象，不以“声学巅峰”或与商业产品微观机理一致作为交付承诺：
 
-### Phase 38：键盘高级演奏形态（Keyboard Split & Dual Layering）[规划中]
+1. **Task 37-1：频率语义与声学基线**：区分名义柔弦频率、实际第一分音、刚度不谐和度与同音弦微失谐，核对参数来源并建立真实渲染基线；
+2. **Task 37-2：受约束的八度拉伸调律**：独立于律制实现关闭/默认拉伸，锚定实际 A4 第一分音，按明确的分音匹配策略校准，不承诺消除全部音程拍频；Sine 与 VST3 不自动套用钢琴拉伸；
+3. **Task 37-3：Duplex 非发音弦段被动共鸣**：固定容量、主弦能量耦合激励，与现有开放主弦交感区分；不混入 Blüthner 独立 Aliquot 第四弦模型；
+4. **Task 37-4：可保存的钢琴风格预设**：补齐风格所需声学字段，提供经真实音频和试听区分的参数化风格，不将未标定的 Upright/Fortepiano 型号复刻包装成旋钮快照；
+5. **Task 37-5：实时、录制与离线集成**：设置、普通预设、Take 快照、实时和内置 WAV 消费同一有效声学配置，验证采样级切换、原发音身份与实时预算。
 
-拓展双手演奏与复合音色表现力：
-1. **双手物理键盘分区（Keyboard Split Point）**：左手伴奏区与右手主旋律区独立通道、移调与八度；
-2. **双层音色复合叠加（Dual Layering）**：单键击发同时触发内置物理钢琴与指定 VST3 衬底乐器。
+**完成边界**：实际第一分音和选定音程指标符合约定；Duplex 不自激且可旁路；风格保存/恢复后实际音色有效；Windows Debug 消费者证明实时/内置 WAV 语义与产品自有实时契约。现有 2.0 秒 WAV 尾音截断边界保留，不承诺全部自然尾音。详细排期与验收见 [当前迭代 Phase 37](current-iteration.md#2-phase-37物理建模调律与被动共鸣校准)。
+
+### Phase 38：电脑键盘分区、三踏板控制与固定双层演奏（Keyboard Zones, Three-Pedal Control & Fixed Dual Layer）[规划已确认，待实施]
+
+将已有配置表达力转化为完整演奏体验，固定双层仅位于 Instrument 内部，继续遵守 `Performance Input -> Instrument -> Master -> Output`：
+
+1. **Task 38-1：输入、录制与回放变换契约**：明确分区、Group、修饰键、矩阵和移调的一次性边界，优先沿用已映射事件录制；不把已修复的实时/WAV 移调差异与条件性重复移调混为一项，不默认启动全链路 Raw Key Note 重构；
+2. **Task 38-2：Sostenuto 与多区域踏板闭环**：复用已有 CC66 核心，补齐电脑键盘与 ViewModel/UI 入口，以及 CC64/66/67 的目标通道、原持有身份和 Transport 清理语义；
+3. **Task 38-3：双手物理键区编辑与显示**：按稳定 keyCode 定义两个区域，复用逐键通道与 ChannelMatrix 提供区域级配置，明确 Group 覆盖规则；不将互斥切组误当作同时分区；
+4. **Task 38-4：固定 Piano + 单 VST3 双层发声**：同一规范 MIDI 输入驱动两个固定端点，预分配缓冲、混音和必要的增益配比，处理插件报告延迟与层/实例生命周期；不默认泛化为 1→N MIDI 路由或多插件槽位；
+5. **Task 38-5：双层状态与录制/导出/UI 闭环**：保存层模式与配比，实时和独立离线实例均执行复合渲染，明确插件依赖、失败/取消与实际 UI 验证边界，不承诺跨机器还原原厂商音色。
+
+**完成边界**：真实键盘录制、原生回放、WAV 和 MIDI 导出满足一次性变换契约；CC66 不重复捕获后起音，两区踏板与原身份释放有效；双层两路都真实发声且只经过一次公共 Master 链，切层、卸载、重建和退出不悬挂；产品自有实时保证与第三方 VST3 限制分别验收。详细排期与验收见 [当前迭代 Phase 38](current-iteration.md#3-phase-38电脑键盘分区三踏板控制与固定双层演奏)。
 
 ## 4. 主要风险与应对
 
@@ -378,7 +388,7 @@ Phase 35 原计划与完成勾选见 [完成计划归档](../archive/phase35-key
 | `MainComponent` 职责回流 | 低 | 保持轻量装配职责（主要由 `initialiseUi()` 承载 JIVE 树构建与回调接线，核心业务均已委托独立 Controller 与领域模块）；持续监控，避免业务逻辑回流。 |
 | 硬实时契约差距 | 产品自有路径已达标，第三方框架单列 | 产品自有发声、调度与节拍器已实现无锁零分配；键盘输入与视觉高亮彻底解耦，超协商几何安全静音；用户批准分层验收，第三方 VST3 适配器的框架锁与 2048 消息限制单列，见 known-issues。 |
 | A4 基准音高契约 | 400.0–480.0 Hz 已对齐 | 引擎/设置/预设/内置导出同限幅；两端、正常参考和越界钳制已按实时波形、离线 WAV 与实际设置验证。 |
-| 门禁与最终集成范围 | 软件实施已归档，综合实机补验未完成 | Windows Debug/默认回归、用户目录保护、warning/tidy 与契约分别保留实际基线和输出；旧默认缓存失败不由子树成功覆盖。历史证据在 AUDIT-004 实施归档，当前任务页只维护 Phase 36 规划。 |
+| 门禁与最终集成范围 | 软件实施已归档，综合实机补验未完成 | Windows Debug/默认回归、用户目录保护、warning/tidy 与契约分别保留实际基线和输出；旧默认缓存失败不由子树成功覆盖。历史证据在 AUDIT-004 实施归档，当前任务页维护 Phase 37/38 近期排期与直接验收，不将规划确认视为软件或硬件验收通过。 |
 
 ---
 

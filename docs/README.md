@@ -19,7 +19,7 @@
 
 - [`guides/wsl-windows-msvc-workflow.md`](guides/wsl-windows-msvc-workflow.md)：WSL 主工作树 + Windows 镜像树 + MSVC 验证工作流详解。
 - [`guides/development.md`](guides/development.md)：日常开发、构建与协作指引。
-- [`roadmap/current-iteration.md`](roadmap/current-iteration.md)：当前迭代任务与直接验收入口。
+- [`roadmap/current-iteration.md`](roadmap/current-iteration.md)：近期迭代任务、后继排期与直接验收入口。
 - [`decisions/README.md`](decisions/README.md)：架构决策记录索引，含已接受的 [ADR-015 消息模板](decisions/ADR-015-localized-message-templates-and-punctuation.md) 与 [ADR-016 纯内存 Headless-Safe UI 测试模式](decisions/ADR-016-headless-safe-pure-in-memory-ui-testing-pattern.md)。
 - [`guides/troubleshooting.md`](guides/troubleshooting.md)：WSL / Windows 镜像构建常见问题排查。
 - [`guides/release-workflow.md`](guides/release-workflow.md)：Windows/Linux 正式 release、tag 与双平台打包 checklist。
@@ -62,13 +62,13 @@
 
 ### 5. 历史档案（`archive/`）
 
-- [`archive/README.md`](archive/README.md)：历史归档索引与现行替代关系表，含 Phase 35 完成计划；旧计划不再占用当前迭代入口。
+- [`archive/README.md`](archive/README.md)：历史归档索引与现行替代关系表，含 Phase 35 完成计划与 Phase 36 完成记录；已完成任务不再占用当前迭代入口。
 
 ---
 
 ## 文档职责原则
 
-1. **唯一状态源**：[`roadmap/roadmap.md`](roadmap/roadmap.md) 是项目长期路线与全阶段完成状态的唯一权威来源；[`roadmap/current-iteration.md`](roadmap/current-iteration.md) 只记录当前正在推进的任务。
+1. **唯一状态源**：[`roadmap/roadmap.md`](roadmap/roadmap.md) 是项目长期路线与全阶段完成状态的唯一权威来源；[`roadmap/current-iteration.md`](roadmap/current-iteration.md) 只维护近期任务、依赖排期与直接验收。
 2. **架构客观性**：[`reference/architecture.md`](reference/architecture.md) 描述当前代码真实架构，不混入待办计划或历史方案对比。
 3. **特性规范化**：`reference/features/` 下每个文档应合并该特性的现行行为说明与专项测试清单，剔除历史规划草案。
 4. **历史进归档**：历史前期调研、RFC 选型讨论和已完成规划统一归档至 `archive/`。
