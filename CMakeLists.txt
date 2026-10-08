@@ -208,6 +208,8 @@ target_sources(devpiano PRIVATE
     source/Audio/OrderedMidi.h
     source/Audio/SineSynthVoice.h
     source/Audio/PianoSynthVoice.h
+    source/Audio/PianoTuning.h
+    source/Audio/PianoStyle.h
     source/Audio/TemperamentEngine.h
     source/Audio/PerspectiveProcessor.h
     source/Audio/RoomReverbEngine.h
@@ -494,6 +496,8 @@ if (BUILD_TESTS)
         source/Audio/OrderedMidi.h
         source/Audio/SineSynthVoice.h
         source/Audio/PianoSynthVoice.h
+        source/Audio/PianoTuning.h
+        source/Audio/PianoStyle.h
         source/Audio/AudioDeviceDiagnostics.cpp
         source/Audio/AudioDeviceDiagnostics.h
         source/Plugin/PluginHost.cpp
@@ -568,6 +572,7 @@ if (BUILD_TESTS)
         source/tests/PluginHostXmlTest.cpp
         source/tests/KeyboardHitMappingTest.cpp
         source/tests/PianoSynthVoiceTest.cpp
+        source/tests/PianoTuningAndDuplexTest.cpp
         source/tests/SineSynthVoiceTest.cpp
         source/tests/AppStateAndSerializationTest.cpp
         source/tests/PluginOfflineRendererTest.cpp

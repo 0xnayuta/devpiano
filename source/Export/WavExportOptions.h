@@ -31,6 +31,8 @@ struct WavExportOptions {
     // Mechanical action noise and felt ageing (Phase 32-D): match realtime parameters for export parity.
     float pedalNoiseLevel = 0.6f;
     float feltAgeingAmount = 0.0f;
+    bool stretchTuningEnabled = true;
+    float duplexResonance = 0.15f;
 };
 
 } // namespace devpiano::exporting

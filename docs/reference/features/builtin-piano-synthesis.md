@@ -1,7 +1,7 @@
 # 内置物理建模钢琴音源功能说明与技术参考
 
 > 用途：说明 devpiano 自主研发、纯 C++ 物理建模钢琴合成器（`PianoSynthVoice`）的完整声学物理系统、算法机理、参数控制、实时性能、分层并发契约与测试验收清单。
-> 行为契约：默认内置发声来源；产品自有发声路径达成零堆分配、零锁、全回调零库函数三角与 0.7% 单核 CPU 物理 SLA。项目状态以 [roadmap](../../roadmap/roadmap.md) 为准。
+> 行为契约：默认内置发声来源；产品自有发声路径保持零堆分配、零锁、全回调零库函数三角。8 复音单核 CPU ≤0.7% 的长期 SLA 目标与具体测量结果分开登记，不将本轮 Debug 结果称为目标认证。项目状态以 [roadmap](../../roadmap/roadmap.md) 为准。
 > 更新时机：声学物理模型、DSP 拓扑结构、88 键参数表、音色控制链路或硬实时契约发生变化时。
 
 ---
@@ -28,8 +28,8 @@
 ### 设计目标与工程特征
 
 1. **零外部采样依赖**：代码由现代 C++ 声学模块（`PianoSynthVoice.h`、`Piano88KeyTable.h`、`RoomReverbEngine.h`、`PerspectiveProcessor.h`、`TemperamentEngine.h`）构成，编译后二进制体积极小，彻底摆脱对数百 MB 至数十 GB 外部采样音色库的依赖；
-2. **7 大声学系统全物理建模**：覆盖琴槌（Hammer）、琴弦（String）、琴桥（Bridge）、音板（Soundboard）、琴体（Cabinet）、空气（Air）与空间（Room），重现真实三角钢琴的微观非线性动力学；
-3. **极低实时 CPU 开销与硬实时保证**：采用 Magic Circle 二阶递归振荡器与全回调零三角函数优化，逐采样与控制级**零三角函数（`std::sin`/`std::cos`/`std::tan`）库调用**，8 复音齐奏下单核 CPU 占用 $\le 0.7\%$（物理 SLA 长期基准，严禁用特定机型单次测试耗时代替物理契约），且产品自有发声路径严格保证**零堆分配、零锁、零系统调用**；
+2. **7 大声学系统建模**：覆盖琴槌（Hammer）、琴弦（String）、琴桥（Bridge）、音板（Soundboard）、琴体（Cabinet）、空气（Air）与空间（Room），沿用增强模态近似，不声称与商业物理建模产品的微观实现一致；
+3. **硬实时保证与性能边界**：Magic Circle 递归振荡器和预计算/有界数学保留逐采样与控制级零库函数三角、产品自有路径零堆分配和零锁。8 复音单核 CPU 占用 $\le 0.7\%$ 的长期 SLA 目标保留，具体配置必须单独验证，不能由旧测量或 Debug 单次耗时外推；
 4. **即时回退机制**：与 `SineSynthVoice`（正弦波合成器）共用 `juce::Synthesiser` 调度，支持一键切换与基准比对。
 
 **音色重建所有权**：`MainComponent::setBuiltinSynthTone()` 复用停设备守卫，先关闭 Editor 并等待已有音频 callback 退出，再调用 `AudioEngine::rebuildSynth()` 和提交活动 voice/roomReverb 参数；启动命令与再次启动的 `--piano` / `--sine` 走同一路径。普通参数 setter 仍只发布原子待提交值，由音频所有者或明确的停机 prepare 窗口消费，不把逐次 Synthesiser 内部锁视为整个重建的并发保护。
@@ -49,7 +49,7 @@
      │                           └─► 琴槌毛毡微老化 (Felt Ageing: 动态硬度补偿与高频滚降提升)
      │
      ├──► [2. 琴弦系统 String] ──► 低音纵向波先驱脉冲 (v_L ≈ 5100 m/s)
-     │                           ├─► JOS PASP 刚性失谐振荡组 (Magic Circle, STFT 最优微初相)
+     │                           ├─► 第一分音归一化与分音匹配拉伸 (Magic Circle, 固定微初相)
      │                           ├─► 同音三弦 Mid-Side 差分立体声展开与非对称拍频
      │                           ├─► 泛音时间滞后膨胀与绽放 (Harmonic Blooming, 10~25ms)
      │                           ├─► 琴槌接触阻尼与脱离释放 (Contact-Release Dynamics)
@@ -112,9 +112,11 @@
 ### 2.2 琴弦与动力学系统（String & Dynamics System）
 
 1. **JOS PASP 刚性琴弦失谐（Stiffness Inharmonicity）**：
-   - 遵循 Julius O. Smith (JOS) PASP 弹性模量刚性公式：
-     $$f_m = m \cdot f_0 \cdot \sqrt{1 + B \cdot m^2}$$
-   - $B$ 为琴弦刚度系数，由 Steinway B 88 键实测标定连续曲线插值提供（包含 G2/G#2 琴桥交界突变）。
+   - 引擎以律制/A4 频率 $f_T(n)$ 对应实际第一分音基准，刚度分音比归一化：
+     $$f_m = m f_T(n)2^{s_n/1200}\sqrt{\frac{1+B_n m^2}{1+B_n}}$$
+   - $s_{69}=0$；关闭拉伸时 $s_n=0$。同音弦微失谐与刻意老化抖动在基准之外叠加，不要求所有同音弦都无拍频。低采样率沿用主分音安全门限及高阶分音剪枝，不将超 Nyquist 的 Duplex 模态钳成另一频率。
+   - `PianoTuning.h` 预计算默认逐键拉伸比例：A4 以下以 4:2、以上以 2:1 八度分音匹配递推，A3–A5 锚点间平滑插值；中央插值区不保证每个分音对都严格相等。律制独立，Sine 与 VST3 MIDI 不套用钢琴拉伸，已起音基频不因切换调律重新定位。
+   - $B$ 来自仓库模型锚点插值，包含 G2/G#2 交界；并非可认证的 Steinway 逐键测量。理论参考 [JOS stiff piano strings](https://ccrma.stanford.edu/~jos/pasp/Stiff_Piano_Strings.html)，当前模型校准与实际谱峰证据见 [迭代记录](../../roadmap/current-iteration.md#2-phase-37物理建模调律与被动共鸣校准)，不把 Railsback 观察曲线当作由 $B$ 唯一确定的通用算法。
 
 2. **Magic Circle 二阶递归正弦振荡器（Coupled Form）**：
    - 彻底消灭发声振荡核心逐采样循环的 `std::sin` 调用，采用工控与专业 DSP 领域的耦合形式正弦振荡器：
@@ -122,9 +124,9 @@
      $$v[n] = v[n-1] + \epsilon \cdot u[n]$$
    - $\epsilon = 2\sin(\pi f_m/f_s)$ 是模型公式；当前起音与机械闭包通过预计算表和有界多项式求值，不在回调调用库函数 sin。振荡逐采样保持耦合递推，稳定性与声学边界由既有物理测试覆盖。
 
-3. **STFT 最优实测微初相矩阵（Micro-Phase Dispersion Table）**：
-   - 消除 $t=0$ 所有分音同相机械聚焦造成的狄拉克脉冲式波峰；
-   - 内嵌由 PyTorch STFT Loss 训练优化出的 $3 \times 64$ 实测最优初始相位矩阵（`kOptPhaseTable`），重现真实敲击的相位色散。
+3. **固定微初相色散矩阵（Micro-Phase Dispersion Table）**：
+   - 避免 $t=0$ 所有分音同相聚焦；
+   - 内嵌固定 $3 \times 64$ 初始相位矩阵（`kOptPhaseTable`）；仓库不附可复核的相位训练输入，不将其包装成实测最优相位认证。
 
 4. **同音三弦 Mid-Side 差分立体声展开与非对称拍频（Weinreich 1977 JASA）**：
    - 中高音区每键 3 根琴弦分别采用微失谐振荡器（$s_1, s_2, s_3$），并以 Mid-Side 差分矩阵展开至立体声场：
@@ -169,6 +171,12 @@
 4. **琴桥立体声空间辐射与声像几何投影**：
    - 依据 88 键在长短琴桥上的物理跨度（低音偏左、高音偏右），结合音板散射矩阵计算立体声投影，消除单声道耳膜居中压迫感。
 
+5. **Duplex 非发音弦段**：
+   - 每声部固定两个主弦驱动的阻尼旋转模态，代表相对发音弦长的前/后非发音段；逆长度比为 5.0 / 3.02，衰减时间常数 0.09 / 0.16 秒。刚度、实际起音第一分音与老化扰动共同决定段频率；这些是模型参数，不是特定琴型测量。
+   - 递推半径小于 1，驱动为主弦 `rawMono`，归一化输入系数为 `1-radius`；无输入不产生能量，不以 CC64 或按键持有作为存在条件。两个模态均值与既有主输出按最多 `0.12 * duplexResonance` 的凸组合混合，只进入一次琴盖/视角/公共 Master。
+   - amount 变化使用 5ms 平滑；0 为旁路，超 Nyquist 模态禁用。主音释放后保留原 NoteOn 通道身份直到可辐射尾音结束；CC120/Panic 按原通道清理，结束时清空微小状态，避免无声占用声部。
+   - 现有十二音级开放主弦交感池依旧单独存在，调谐消费同一 A4/律制/拉伸基准；它不等同于 Duplex，也不建模 Blüthner 独立 Aliquot 第四弦。
+
 ---
 
 ### 2.4 空间、机械与环境拟真系统（Cabinet, Air & Mechanical System）
@@ -177,7 +185,7 @@
    - **16 通道踏板物理隔离**：`BuiltinSynthesiser` 独立维护 16 个 MIDI 通道的踏板物理状态矩阵（CC64 延音 `sustainPedalByChannel`、CC66 保持音 `sostenutoPedalByChannel`、CC67 柔音 `softPedalByChannel`）；
    - 踩下 CC64 延音踏板时激活 12 半音全开放交感共鸣弦池，使演奏音符的泛音激发全琴未制音琴弦的共振；
    - **踏板机械扫掠声与共鸣冲击**：踩下踏板时激发成对的机械毛毡抬起刮擦与空气呼啸脉冲（`pedalWhoosh`，带通 $1350\text{ Hz}$，$Q=1.25$；抬起带通 $950\text{ Hz}$）以及全琴瞬态弱冲击激发（`pedalResonanceShock`，双共振冲击峰 $58\text{ Hz}$ 与 $116\text{ Hz}$），由 `pedalNoiseLevel`（默认 0.6）线性缩放；
-   - 支持**未踩踏板时的单键开放弦交感（Duplex & Unpedaled Resonance）**：按住低音键弹奏高音时，低音键对应的开放琴弦产生物理交感振动；
+   - 支持**未踩踏板时的单键开放主弦交感（Unpedaled Resonance）**：由持有音符对应音级的开放主弦产生交感振动；Duplex 非发音段见上节，不混称为同一模型；
    - **CC67 弱音/移位踏板物理拟真（Una Corda / Soft Pedal）**：踩下 CC67 踏板时击弦机向右微移，敲击毛毡侧面相对柔软区域（有效硬度衰减至多 25%，接触时间延长至多 20%），中高音区三弦组产生三弦敲两弦（Trichord to Bichord）声能衰减（至多 30% 衰减），呈现柔和朦胧的暗调色泽；
    - **柔音状态所有权**：实时和内置离线合成共用 `BuiltinSynthesiser`，按 MIDI 通道保管 CC67 连续值（`0.0 ~ 1.0`），在新声部 `startNote()` 前应用；重新分配和偷声部不继承其他通道的柔音。机械聚合声部的宽监听谓词不作为 NoteOn/NoteOff 或柔音的发音通道身份。CC67 Up / CC121 更新当前与后续声部，CC120/123 不冒充踏板释放。
 
@@ -207,7 +215,7 @@
 
 ## 3. 88 键物理参数化表（`Piano88KeyTable.h`）
 
-`PianoSynthVoice` 摒弃粗糙的 4 音区阶跃划分，全面引入 **88 键连续物理参数插值模型**（基于 Bensa et al. 2003 与 Steinway B 9 尺大三角实测数据）：
+`PianoSynthVoice` 使用 **88 键连续物理参数插值模型**。弦长/阻尼与刚度引用 Bensa、Fletcher & Rossing 等理论作为设计线索；当前源文件保存的是固定锚点与插值规则，没有完整逐键实测数据或真实琴型标定证明：
 
 | 参数项 | 符号 | 取值范围 (A0 → C8) | 物理意义与声学作用 |
 |---|---|:---:|---|
@@ -218,7 +226,7 @@
 | **刚度失谐系数** | `inharmonicityB`| $3.1 \times 10^{-4} \to 8.5 \times 10^{-2}$ | 控制泛音非谐波性金属质感（A0 处 $3.1 \times 10^{-4}$，G2 处 $1.85 \times 10^{-4}$，G#2 阶跃至 $2.65 \times 10^{-4}$，C8 达 $8.5 \times 10^{-2}$） |
 | **击弦比** | `strikePosRatio` | $1/8 (0.125) \to 1/16 (0.0625)$ | 决定几何梳状陷波抑制点（低音 0.125，主琴桥折角 0.1333，高音 0.100，极高音 0.0625） |
 | **接触时间** | `tcBase` | 3.0 ms → 0.6 ms | 控制琴槌冲击持续时间与动态截止点 |
-| **同音微失谐** | `detuneCents` | 2.4 → 0.0 cents | 控制同音三弦拍频干涉周期（`beatingDetuneRatio` 为 $0.0020 \to 0.0$） |
+| **同音微失谐** | `beatingDetuneRatio` | 0.0020 → 0.0（相对频率） | 实际双弦各偏移半个比例，三弦低/中心/高各按完整比例；cents 应由频率比取对数，不使用未参与声音的 `detuneCents` 线性近似当物理证明 |
 | **基础慢衰减** | `decaySeconds` | 4.8 s → 0.8 s | 决定琴弦慢分量自然延音长度 |
 | **快衰减比率** | `fastDecayRatio` | $0.12 \to 0.18$ | 琴弦早期辐射衰减速度与慢衰减之比 |
 | **阻尼常数** | `b1` / `b2` | $0.25 \to 9.17\text{ s}^{-1}$ / $7.5\times 10^{-5} \to 2.1\times 10^{-3}\text{ s}$ | 频率无关阻尼常数与内部摩擦高阶损耗 |
@@ -238,9 +246,13 @@
 | **Pedal Noise（机械噪声）** | `setPedalNoiseLevel` / `pedalNoiseLevel` | 0.6 | 调节延音踏板扫掠呼啸与共鸣冲击的机械动作音量（0..1） |
 | **Felt Ageing（毛毡老化）** | `setFeltAgeingAmount` / `feltAgeingAmount` | 0.0 | 调节琴槌羊毛纤维磨损压实深度，注入微观穿透力与硬化质感（0..1） |
 | **Una Corda（弱音踏板）** | `setSoftPedalDown` / `softPedalDown` | false | 琴槌击弦机侧向位移，毛毡软化与三弦敲两弦声能衰减（MIDI CC 67，电平 0..1） |
+| **Stretch Tuning（拉伸调律）** | `setPianoTuning` / `stretchTuningEnabled` | true | 保留 A4 第一分音锚点，按本模型分音对匹配八度，不修改 MIDI 身份 |
+| **Duplex Resonance（非发音段共鸣）** | `setPianoTuning` / `duplexResonance` | 0.15 | `[0,1]` 被动段凸组合配比，0 旁路，5ms 平滑 |
 
 **声学快照与普通预设配置子集**：
-`PerformancePreset`（Schema v2）仅持久化声学配置子集（`acoustics` 节点下包含 `lidPosition`、`touchVelocityCurve`、`unaCorda`、`temperament`、`referencePitchA4`、`soundPerspective`、`reverbSpace`、`reverbWet`、`pedalNoiseLevel`、`feltAgeingAmount`，不包含基础音色 `builtinTone`、主增益 `masterGain`、ADSR 包络与琴槌物理参数 `brightness` / `hammerHardness` / `resonance`）。可选字段缺失时使用当前默认值，不代表历史版本兼容迁移。演奏录制与离线渲染所用的 `AcousticSnapshot`（以及 `WavExportOptions`）则维护完整的发声与包络参数。
+`PerformancePreset`（Schema v2）的 `acoustics` 子集现在包含 `brightness`、`hammerHardness`、`resonance`、`stretchTuningEnabled`、`duplexResonance`，以及原有琴盖、触键曲线、柔音、律制/A4、视角、混响和机械字段；仍不包含 `builtinTone`、`masterGain`、ADSR 或 VST3 内部状态。当前可选字段缺失使用明确默认值，不增加历史迁移。`AcousticSnapshot` / `WavExportOptions` 保存或消费完整发声参数，两项新控制贯通 Take、实时与内置 WAV。
+
+设置的 `piano-style-combo` 提供 Standard / Bright / Warm / Intimate / Vintage，只批量提交实际声学字段，不覆盖 A4、律制、全局调号、键位、插件、音源类型或 Master。名称根据已保存声学值重建，手动改动显示 Custom，不另存易漂移的风格标签。它们是参数化取向，不是 Upright/Fortepiano 物理结构复刻；随演奏方案恢复须保存普通预设，启动仍优先恢复已选预设 UUID。
 
 ### 4.2 古典微调律制与基准音高（`TemperamentEngine`）
 
@@ -284,8 +296,8 @@ void setSoundPerspective(devpiano::audio::SoundPerspective perspective) noexcept
    - **第三方 VST3 宿主框架层约束（分层验收）**：
      - 当切换至第三方 VST3 插件时，JUCE 原生适配器存在框架层固有开销（`juce_VST3PluginFormatImpl.h` 的 `SpinLock processMutex` 与 `juce_VST3Common.h` 的 `CriticalSection` 转换）；
      - 单块存在 **2048 条 MIDI 消息上限**（`enum { maxNumEvents = 2048 }`），超额事件被框架截断；第三方插件内部行为超出宿主控制。产品自有发声的零锁零分配不外推至第三方插件；
-3. **单核 CPU 消耗物理 SLA**：在 44.1 kHz / 48 kHz 采样率、8 复音齐奏（每音 20 分音 × 3 琴弦 + 16 模态音板）下，现代 x86_64 CPU 单核负载稳定在 **$\le 0.7\%$**。
-   - 该数值为声学模型设计的长期物理 SLA 契约基准；严禁将特定机型的单次基准测试耗时（如特定环境毫秒数）当作功能验收指标，亦不可因单次测试波动修改该物理常数。
+3. **单核 CPU 性能 SLA 与实测边界**：44.1/48 kHz、8 复音的长期目标仍为 **$\le 0.7\%$**，不因单次测量改写目标。该目标不是物理常数，也不由零锁/零分配自动推出；Debug 未优化配置的 callback/音频时长比不是已认证的单核 CPU 占用。
+   - 本轮记录同配置 Duplex 开关增量与实际 callback 观察，明确没有 Release 构建或 ≤0.7% 认证；不将旧基准、特定硬件或第三方厂商结果外推。参数/流程与软件门禁证据只在当前迭代维护。
 
 ---
 
@@ -295,14 +307,16 @@ void setSoundPerspective(devpiano::audio::SoundPerspective perspective) noexcept
 
 | 测试套件 / 物理用例 | 验证物理机理与断言指标 | 状态 |
 |---|---|:---:|
-| **PianoSynthVoiceTest** | 88键参数连续性、刚度公式、Magic Circle稳定性、双阶段衰减、同音三弦拍频、纵波先驱声、空间漫射、长时有限输出 | [x] 已通过 |
+| **PianoSynthVoiceTest** | 实际泛音/音色/双阶段衰减、单弦振荡稳定性、同音弦拍频、纵波先驱声、空间漫射和包含被动尾音的完整释放；不固定参数锚点声明值 | [x] 已通过 |
+| **PianoTuningAndDuplexTest** | 实际 A4 400/440/480 Hz 中心峰、零刚度谐波极限、未踩踏板 Duplex 尾音、CC120 原通道所有权、低采样率越界段旁路 | [x] 已通过 |
+| **PianoSnapshotWavParityTest** | 非零混响起音、同采样快照/NoteOn、调律与原身份释放的生产实时/内置 WAV 整段对照；误差限于 16-bit 量化 | [x] 已通过 |
 | **DamperReleaseTest** | 快离键木质落弦闷击、慢离键羊毛毡摩擦延展、高音无制音区物理旁路、动态ADSR释放速度缩放、ADSR基准跨音符无泄漏 | [x] 已通过 |
 | **PedalAcousticsTest** | CC64 延音踏板全开放交感共鸣、踏板下踏扫掠呼啸（Whoosh）、全琴谐振冲击（Resonance Shock）、单声道与多通道能量守恒 | [x] 已通过 |
 | **FeltAgeingTest** | 逐键扰动确定性与范围、老化前后的实际音频差异、引擎老化参数限幅；不以 getter 或测试侧公式重算证明音高行为 | [x] 已通过 |
 | **PerspectiveProcessorTest** | 演奏者/听众立体声像反转镜像、距离高频滚降、单声道能量守恒与无下溢数值收敛 | [x] 已通过 |
 | **RoomReverbEngineTest** | Studio/Chamber/Concert Hall（ReverbSpace::concertHall / 标识 concert_hall，回退未知字符串）三大空间衰减时间常数、干湿比线性缩放与旁路、长时静音衰减无下溢 denormal、跨采样率不变性；getter 与声明断言不作为逐采样 DSP/逐 bit 保证 | [x] 已通过 |
 | **SpatialAcousticsTest** | 空间声学设置与当前预设字段磁盘往返、损坏/越界输入限幅；声场与混响 DSP 行为由对应处理器套件验证；不以 getter 复制代替 DSP 保证 | [x] 已通过 |
-| **PianoSynthVoiceTemperamentTest** | 古典微调律制微音分偏移、A4 基频换算 [400..480 Hz] 限幅、多律制分音频率计算与动态律制切换；不以声明复制当 DSP 行为保证 | [x] 已通过 |
+| **PianoSynthVoiceTemperamentTest** | 持续发声期间改律制/A4 后真实音频有限与稳定；A4 声音基准由实际谱峰回归验证，不复制 getter 公式 | [x] 已通过 |
 | **MechanicalAcousticsTest** | 机械噪声与毛毡老化设置存取、当前预设声学字段往返、极端参数下实际音频有限性、幅度与起音连续性；不以声明回声替代物理安全性 | [x] 已通过 |
 | **UnaCordaAcousticsTest** | CC 67 弱音/移位踏板物理声学响应、毛毡侧移软化、三弦敲两弦衰减、全链路控制器响应与回放动态踏板稳定性 | [x] 已通过 |
 

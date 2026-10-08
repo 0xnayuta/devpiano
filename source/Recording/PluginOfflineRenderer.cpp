@@ -139,9 +139,9 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
     std::size_t eventIndex = 0;
     auto allNotesOffSent = false;
     devpiano::audio::RoomReverbEngine roomReverb;
-    roomReverb.prepare(options.sampleRate);
     roomReverb.setSpace(options.reverbSpace);
     roomReverb.setWetLevel(options.reverbWet);
+    roomReverb.prepare(options.sampleRate);
 
     DP_LOG_INFO("[PluginOfflineRenderer] Starting offline render: " + juce::String(renderEvents.size()) + " events, "
                 + juce::String(totalSamples) + " total samples, " + juce::String(outputChannels) + " output channels");

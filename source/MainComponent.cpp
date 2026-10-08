@@ -1052,7 +1052,9 @@ SettingsModel::PerformanceSettingsView MainComponent::getPerformanceSettingsFrom
              .reverbSpace = appSettings.reverbSpace,
              .reverbWet = appSettings.reverbWet,
              .pedalNoiseLevel = appSettings.pedalNoiseLevel,
-             .feltAgeingAmount = appSettings.feltAgeingAmount };
+             .feltAgeingAmount = appSettings.feltAgeingAmount,
+             .stretchTuningEnabled = appSettings.stretchTuningEnabled,
+             .duplexResonance = appSettings.duplexResonance };
 }
 
 juce::String MainComponent::getLastPluginIdentifierForRecoveryStateFromUi() const {
@@ -1074,6 +1076,9 @@ void MainComponent::applyPerformanceSettingsToUi(const SettingsModel::Performanc
                       performance.adsrRelease);
     setControlsPianoValues(performance.builtinTone, performance.pianoBrightness, performance.pianoHammerHardness,
                            performance.pianoResonance);
+    if (settingsWindowManager != nullptr) {
+        settingsWindowManager->refreshAcousticControls();
+    }
 }
 
 void MainComponent::applyPerformanceSettingsToAudioEngine(const SettingsModel::PerformanceSettingsView& performance) {
@@ -1085,6 +1090,7 @@ void MainComponent::applyPerformanceSettingsToAudioEngine(const SettingsModel::P
                                         : AudioEngine::BuiltinSynthTone::sine);
     audioEngine.setPianoParameters(performance.pianoBrightness, performance.pianoHammerHardness,
                                    performance.pianoResonance);
+    audioEngine.setPianoTuning(performance.stretchTuningEnabled, performance.duplexResonance);
     audioEngine.setLidPosition(static_cast<AudioEngine::LidPosition>(performance.lidPosition));
     audioEngine.setTemperament(performance.temperament);
     audioEngine.setReferencePitchA4(performance.referencePitchA4);
@@ -1110,6 +1116,9 @@ void MainComponent::applyPluginRecoverySettings(const SettingsModel::PluginRecov
 void MainComponent::handlePerformanceUiChanged() {
     applyPerformanceSettingsToAudioEngine(getPerformanceSettingsFromUi());
     saveSettingsSoon();
+    if (settingsWindowManager != nullptr) {
+        settingsWindowManager->refreshAcousticControls();
+    }
 }
 
 void MainComponent::applyUiStateToAudioEngine() {

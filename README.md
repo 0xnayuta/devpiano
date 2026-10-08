@@ -33,11 +33,12 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
 ### 🎹 高保真物理建模钢琴音源（Physical Modeling Piano Engine）
 
 - **7 大声学物理子系统**：覆盖琴槌（Hammer）、琴弦（String）、琴桥（Bridge）、音板（Soundboard）、琴体（Cabinet）、空气（Air）与空间（Room）；
-- **88 键连续物理参数映射**：基于 Bensa et al. (2003) 与 Steinway B 实测标定，连续插值琴弦刚度 $B$、击弦比 $d/L$、阻尼常数与 1/2/3 弦物理分区（`Piano88KeyTable.h`）；
+- **88 键连续物理参数映射**：以刚性弦与阻尼文献为依据的固定模型锚点，连续插值琴弦刚度 $B$、击弦比 $d/L$、阻尼常数与 1/2/3 弦分区（`Piano88KeyTable.h`）；不将代码锚点认证为特定琴型的逐键实测数据；
 - **非线性打击、毛毡老化与动力学绽放**：三层毛毡动力学压实、动态接触时间 $T_c$、击弦点几何梳状陷波、3ms 高频瞬态裂音（HF Crack）、琴槌毛毡微老化穿透力（`feltAgeingAmount`）、泛音时间滞后膨胀绽放（Harmonic Blooming）与强击软饱和；
+- **第一分音调律与可保存风格**：A4 第一分音锚定、可关闭的分音匹配拉伸、主弦驱动的 Duplex 非发音弦段共鸣；设置提供 Standard / Bright / Warm / Intimate / Vintage 参数化风格，普通演奏预设与 Take 保存实际声学字段，不宣称真实琴型复刻；
 - **真实共鸣与空间声学系统**：16 峰正交云杉木物理音板模态、4.2kHz 云杉木高频粘滞吸收滤波、琴桥立体声展开、同音三弦 Mid-Side 差分展开与非对称拍频、演奏者（Player）与听众（Audience）双视角声相变换（`PerspectiveProcessor`）以及内置纯算法房间混响网络（`RoomReverbEngine`: Studio / Chamber / Concert Hall）；
 - **微观机械动作拟真与古典律制**：CC64 全局交感共鸣、延音踏板下踏/抬起机械扫掠呼啸（Whoosh）与共鸣冲击（Resonance Shock）、制音器落木闷击与琴键释放摩擦、离键速度动态 ADSR 阻尼缩放，以及 6 大古典微调律制（`TemperamentEngine`）与 A4 基准基频微调（400.0–480.0 Hz，默认 440.0 Hz；设置、预设与内置实时/离线音源使用同一限幅）。
-- **物理发声核心与硬实时契约**：`PianoSynthVoice` 与节拍器全回调零三角函数（0 `std::sin`），8 复音齐奏单核 CPU $\le 0.7\%$；产品自有发声路径零堆分配、零锁；键盘输入经有界 SPSC 队列交换，音符高亮由消息线程刷新，彻底解耦音频线程与 UI；第三方 VST3 插件适配器的框架锁与扩容限制见 [`docs/issues/known-issues.md`](docs/issues/known-issues.md)；支持与内置正弦波（`SineSynthVoice`）切换。
+- **物理发声核心与硬实时契约**：`PianoSynthVoice` 与节拍器全回调零库函数三角，产品自有发声路径零堆分配、零锁；8 复音单核 CPU $\le 0.7\%$ 的长期 SLA 目标保留，Debug 回调实测不作为该数值的通过认证，见 [内置音源验证边界](docs/reference/features/builtin-piano-synthesis.md#5-性能特征与无锁并发保障)。键盘输入经有界 SPSC 队列交换，音符高亮由消息线程刷新；第三方 VST3 框架限制见 [known-issues](docs/issues/known-issues.md)，支持切换内置 `SineSynthVoice`。
 
 ### 🔌 VST3 插件宿主与乐器端点（VST3 Plugin Hosting & Instrument Endpoint）
 
@@ -77,7 +78,7 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
 ### 📦 离线高保真 WAV 导出（Offline WAV Export Pipeline）
 
 - **现代化异步非阻塞渲染**：`WavExportTask` 演进为纯异步工作任务流（`startAsync`），彻底消除消息循环阻塞，端到端经 `InstrumentEndpoint` 统一调度；
-- **双引擎参数与事件调度**：内置 Piano / Sine 或独立离线 VST3 实例消费 Take 快照、采样级事件及宿主 Master/混响；内置物理参数不写入厂商音源，不承诺逐比特输出一致。当前非零快照移调存在 [实时/WAV 音高差异](docs/issues/known-issues.md#原生演奏快照移调与-wav-音高不一致)，不能宣称完整渲染同构；
+- **双引擎参数与事件调度**：内置 Piano / Sine 或独立离线 VST3 消费 Take 快照、采样级事件及宿主 Master/混响；快照移调与原身份释放已对齐，Piano 整段对照差限于 WAV 量化。上游已映射输入仍有 [条件性重复移调边界](docs/issues/known-issues.md#原生演奏快照移调与-wav-音高不一致路线-a-已实施路线-b-重构备忘)；内置物理参数不写入厂商音源，第三方输出不保证逐比特相同；
 - **进度与协作取消**：显示导出进度，取消后等待实际工作退出再释放资源；失败或提交前取消保留原目标，仅清理任务自有临时文件。厂商永久阻塞时无法保证有限时间内结束。
 
 ### 🎨 内生声明式 UI 运行时与设计系统（Declarative UI & Design System）

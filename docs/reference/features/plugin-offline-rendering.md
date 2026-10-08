@@ -46,7 +46,7 @@ WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
 实时与离线事件缩放采用同一采样点取整；有效长度覆盖最后事件采样点 `+1`。即使最后 NoteOff 等于 Take 长度，也在其采样点交付，再在完整事件边界收尾。
 
 内置（`WavFileExporter`）与插件（`PluginOfflineRenderer`）两条离线渲染路径均在每个音频块（`blockSize`）内按 `presetChange` 事件采样偏移执行**分段切分（Sub-segmentation）**：
-1. **采样精确参数切换**：分段起点提交快照；内置路径通过 `applyAcousticSnapshotToBuiltin` 设置音源/声学/Master/混响及柔音，插件路径只设置宿主混响/Master 并向 16 通道发送 CC67。同采样预设先于 MIDI。两条 WAV 路径以 `noteOn(ch, sourceNote, sourceNote)` 锁定身份，不再应用快照移调；这与实时路径存在已确认的 [P1 音高差异](../../issues/known-issues.md#原生演奏快照移调与-wav-音高不一致)，不是完整移调同构的实现。
+1. **采样精确参数切换**：分段起点提交快照；内置路径设置 Piano/Sine、声学、Master/混响及柔音，插件路径仅设置宿主 Master/混响并转发 CC67。同采样预设先于 MIDI。起音按快照移调与 follow mask 计算最终身份并锁定，NoteOff 使用起音身份；上游已映射录制事件的条件性重复移调仍见 [路线 A 局限](../../issues/known-issues.md#原生演奏快照移调与-wav-音高不一致路线-a-已实施路线-b-重构备忘)，不混称为实时/WAV 未对齐。
 2. **非零 startSample 隔离机制**：
    - 内置合成器通过切片视图 `segmentAudioBuffer` 映射主缓冲区 `segStart` 偏移，以局部区间直接调用 `renderNextBlock(segmentAudioBuffer, midi, 0, segLen)`；
    - 离线 VST3 插件使用私有中转缓冲 `pluginBuffer`（尺寸 `segLen`，起始偏移始终为 0），由 `offlinePlugin.processBlock(pluginBuffer, midi)` 完成计算后，再按通道拓扑安全拷贝至主缓冲切片 `segmentOutputBuffer`，杜绝非零偏移污染第三方插件内部索引；
@@ -88,7 +88,7 @@ WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
 
 ### 3.4 内置合成器声学参数快照对齐与导出契约（`WavExportOptions`）
 
-`devpiano::exporting::buildWavExportOptions()` 将当前参数注入 `WavExportOptions`；Take 内嵌快照在对应采样点替换参数。内置与插件的多复音分配、分块、浮点累加及 WAV 量化不保证逐比特相同；另外，当前快照移调有上方列出的音高差异，不能归因于量化或忽略为厂商行为。参数范围如下：
+`buildWavExportOptions()` 注入当前有效参数；Take 快照在其采样点替换参数。两条离线路径先提交初始 reverbSpace/reverbWet 再 `prepare()`，避免起音沿用 `RoomReverbEngine` 的内部默认 wet。实际 Piano 整段实时/WAV 对照覆盖非零 wet、同采样快照/NoteOn 与后续原身份释放；不外推第三方声音逐比特相同。参数范围如下：
 
 1. **基础发声与音色包络**：`masterGain`、`adsr`、`builtinTone`（`piano` 或 `sine`）、`pianoBrightness`、`pianoHammerHardness`、`pianoResonance`；
 2. **微调律制与基准音高**：`temperament`（6 大古典律制：`equal`、`just`、`pythagorean`、`meantone`、`werckmeister3`、`kirnberger3`）与 `referencePitchA4`（400.0 ~ 480.0 Hz，默认 440.0 Hz；内置实时与离线路径共用 `TemperamentEngine::clampReferencePitch()`）；
@@ -96,13 +96,14 @@ WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
 4. **琴盖物理开合**：`lidPosition`（全开 `fullOpen`、半开 `halfStick`、闭盖 `closed` 传递函数）；
 5. **空间房间混响**：离线挂载独立的 `RoomReverbEngine` 实例，根据 C++ 枚举 `reverbSpace`（`ReverbSpace::chamber` / `concertHall` / `studio`，对应持久化标识 `chamber` / `concert_hall` / `studio`，旧别名 `hall` 不再映射并回退 `chamber`）与 `reverbWet` 对双声道音频流执行立体声混响浸润；
 6. **微观机械动作拟真**：`pedalNoiseLevel`（延音踏板扫掠声与共鸣冲击电平）与 `feltAgeingAmount`（琴槌毛毡微老化穿透力）；
+   - **Piano 调律与被动共鸣**：`stretchTuningEnabled`（默认 true）、`duplexResonance`（`[0,1]`，默认 0.15）贯通初始参数及后续 Take 快照；仅作用 Piano，不改变 Sine 或插件 MIDI/厂商调律。
 7. **尾音窗口**：导出追加固定 2.0 秒（`wavTailSeconds = 2.0`）；超出该窗口的声音会截断，明确不把该固定长度承诺成所有声学配置、长延音或厂商插件尾音均完整。
 
 ### 3.5 分层离线渲染契约与框架限制（Layered Offline Export & Framework Boundaries）
 
 1. **内置物理建模钢琴导出链路**：
    - 实时发声与内置离线导出共用纯数学算法模型（`BuiltinSynthesiser`、`PianoSynthVoice`、`RoomReverbEngine`）；
-   - 实时回调零锁/零分配不外推到后台容器、writer 或 I/O。Phase D/E 相同 Sine/ADSR 输入的历史对照不等于所有快照场景已同构，非零快照移调的当前反证按 P1 保留。
+   - 实时回调零锁/零分配不外推到后台容器、writer 或 I/O。实际参数、分块与来源明确相同时，生产 Piano 快照对照差异限于 16-bit 量化；第三方插件的内部行为、当前输入重复变换边界与未测硬件分别登记，不把它们忽略成量化。
 2. **第三方 VST3 插件离线导出链路**：
    - prepare 前声明 `setNonRealtime(true)`；是否启用更高品质、过采样或其他 offline 分支由插件决定，宿主不保证每个插件均有这些行为。
    - 依然受限于 JUCE VST3 适配器框架层约束：`processBlock()` 获取 `SpinLock processMutex`，MIDI 转换使用带 `CriticalSection` 的容器且单块事件数上限为 2048 条（`enum { maxNumEvents = 2048 }`）；

@@ -57,6 +57,8 @@
         "reverbWet": 0.0,
         "pedalNoiseLevel": 0.6,
         "feltAgeingAmount": 0.0,
+        "stretchTuningEnabled": true,
+        "duplexResonance": 0.15,
         "unaCorda": false,
         "sustainPolicy": "normal",
         "transposeEnabled": false,
@@ -103,7 +105,7 @@
 
 - **MIDI 演奏事件（`type: "midi"`）**：必须显式提供事件类型，缺失或空类型不作 MIDI 推断。`source` 为 `"computerKeyboard"`、`"realtimeMidiBuffer"` 或 `"playback"`；`midiData` 使用 `<字节数>.<JUCE 编码负载>`，例如 `3.PxCY` 表示 `90 3c 64`，`3..xC.` 表示 `80 3c 00`。编码负载内的 `.` 是合法字符，不是第二个长度分隔符。每个 MIDI 帧在解析与分配前校验负载长度一致性、合法状态字节及有效 SysEx / Meta 边界；
 - **预设切换事件（`type: "presetChange"`）**：`presetId` 为该 Take 内嵌 `presets` 数组的槽位索引。音频线程在事件采样点切换声学快照与移调状态，同采样 NoteOn 立即使用新参数。由于音色与参数已完整自包含在文件内部，外部增删、重命名预设或预设文件缺失均不影响历史演奏回放；
-- **RecordedPreset 分工**：`"preset"` 供 `applyRecordedPresetUi()` 还原布局、分组、矩阵和显示；`"acoustic"` 供音频路径设置音源、Master/ADSR、物理/空间参数及柔音。实时回放另在 `AudioEngine::renderPlaybackEventsIfNeeded()` 按快照 offset/follow mask 变换起音并锁定释放身份。当前 WAV 没有同一移调变换，见 [P1 音高差异](../../issues/known-issues.md#原生演奏快照移调与-wav-音高不一致)，不能承诺全部快照回放/导出音乐音高相同。
+- **RecordedPreset 分工**：`"preset"` 供 UI 还原布局、分组、矩阵和显示；`"acoustic"` 供音频执行音源、Master/ADSR、物理/空间参数、`stretchTuningEnabled` 与 `duplexResonance`。实时和两条 WAV 路径按快照移调/follow mask 变换起音，并锁定 NoteOff 原身份。上游已映射录制事件仍有条件性重复移调边界，见 [路线 A 局限](../../issues/known-issues.md#原生演奏快照移调与-wav-音高不一致路线-a-已实施路线-b-重构备忘)，不把它混称为未修复的实时/WAV 差异。
 - **VST3 与外部依赖边界**：文件保存 MIDI 与内置声学快照，不捆绑 VST3 二进制、路径或内部状态。已挂载插件时 MIDI 驱动当前实例并转发 CC67；无插件时按 `acoustic.builtinTone` 使用内置 Piano / Sine。缺少原插件不影响格式读取，但不能据此还原原厂商音色或承诺所有设备逐比特一致。
 - **非当前格式拒绝**：仅准入当前精确整数版本 `3`；浮点数（如 `3.0`）、字符串版本（如 `"3"`）、历史版本（v1/v2）和未来版本均被 `parsePerformanceFileRoot` 严格拒绝，不执行历史数据迁移或目录索引猜测。独立元数据读取（`loadPerformanceFileMetadata`）共用同一格式与精确版本准入网关，但不执行全事件解析与帧级验证。加载失败保持原文件字节和当前会话；当前 v3 的可选元数据缺省时返回空结构体，不作为旧版兼容承诺；
 - **初始录制状态捕获**：起点捕获初始预设和声学快照（slot 0）；预备拍期间的设置在实际录制下拍进入 Take。实时与 WAV 共享快照数据，但执行边界须按离线分册和上述已知问题分别核对。

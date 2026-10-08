@@ -465,7 +465,7 @@ public:
             }
 
             // Optional metadata absence yields default metadata on valid v3
-            const auto noMetaJson
+            const auto* const noMetaJson
                 = R"({"version":3,"format":"devpiano-performance","sampleRate":44100.0,"lengthSamples":88200,"presets":[],"events":[]})";
             const auto noMetaFile = tempDir.getChildFile("no_meta_v3.devpiano");
             expect(noMetaFile.replaceWithText(noMetaJson));

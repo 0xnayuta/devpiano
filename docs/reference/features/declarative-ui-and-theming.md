@@ -73,16 +73,15 @@ Performance Preset 的 New、Rename、Delete 保持在上方，Export、Import�
 1. **音频设备卡片（`makeAudioDeviceSectionTree`）**：全声明式布局，包含设备类型下拉框（`audio-device-type-combo`）、输出设备下拉框（`audio-output-device-combo`）与测试按钮（`audio-test-button`）、活动输出通道（`audio-active-channels-combo`）、采样率下拉框（`audio-sample-rate-combo`）、缓冲大小下拉框（`audio-buffer-size-combo`）与 ASIO 设备控制面板按钮（`asio-control-panel-button`，仅 ASIO 模式展开）；
 2. **调号与通道跟随卡片（`makeKeySignatureSectionTree`）**：全局调号选择器、MIDI 移调开关以及采用 **JIVE CSS Grid（8 列 × 2 行）** 声明的 16 通道跟随开关（`followKeyArea` + 16 个 `follow-key-N` 复选框）；
 3. **键盘显示与语言卡片（`makeKeyboardDisplaySectionTree`）**：按键着色模式（Classic / Channel / Velocity / Harmony 4 种模式）、音符标注模式（DoReMi / FixedDo / NoteName）、按键淡出速度滑块、乐器过滤器开关、**延音踏板策略选择（`sustain-policy-combo`：Normal / Sync Pedal）**与运行时中英文切换；
-4. **声学与调律卡片（`makeAcousticsSectionTree`）**：采用模块化卡片排版，包含 9 项关键物理声学控件：
-   - **Row 1 琴盖开合度**（`lid-position-combo`）：全开（Full Open）、半开（Half Stick）、闭盖（Closed Lid）；
-   - **Row 2 触键力度曲线**（`touch-curve-combo`）：标准（Standard）、轻触（Light）、重触（Heavy）、宽动态（Wide Dynamic）；
-   - **Row 3 古典微调律制**（`temperament-combo`）：平均律（Equal）、纯律（Just）、毕达哥拉斯律（Pythagorean）、中庸全音律（Meantone）、韦克迈斯特三律（Werckmeister III）、基恩伯格三律（Kirnberger III）；
-   - **Row 4 基准音高微调**（`reference-pitch-slider`）：400.0 ~ 480.0 Hz（步进 0.1 Hz），直接绑定 `TemperamentEngine` 的统一上下限；
-   - **Row 5 立体声空间视角**（`perspective-combo`）：演奏者视角（Player）与听众视角（Audience）；
-   - **Row 6 房间混响预设**（`reverb-space-combo`）：室内乐（Chamber）、音乐厅（Concert Hall）、录音棚（Studio）；
-   - **Row 7 混响干湿比**（`reverb-wet-slider`）：0% ~ 100% 混响湿声电平调节；
-   - **Row 8 机械动作噪声**（`pedal-noise-slider`）：0% ~ 100% 延音踏板扫掠声与共鸣冲击音量调节；
-   - **Row 9 琴槌毛毡老化**（`felt-ageing-slider`）：0% ~ 100% 琴槌毛毡磨损压实与老化穿透力调节；
+4. **声学与调律卡片（`makeAcousticsSectionTree`）**：模块化滚动卡片，包含：
+   - **钢琴风格**（`piano-style-combo`）：Standard / Bright / Warm / Intimate / Vintage；根据实际参数识别，自定义值显示 Custom，不额外持久化名称；
+   - **琴盖**（`lid-position-combo`）：Full Open / Half Stick / Closed；
+   - **拉伸调律与 Duplex**（`stretch-tuning-toggle` / `duplex-resonance-slider`）：第一分音锚定的开关与 `[0,1]` 非发音段共鸣配比；
+   - **触键曲线**（`touch-curve-combo`）：Standard / Light / Heavy / Wide Dynamic；
+   - **律制与 A4**（`temperament-combo` / `reference-pitch-slider`）：六种律制与 400.0–480.0 Hz（0.1 Hz 步进）；
+   - **视角与房间**（`perspective-combo` / `reverb-space-combo` / `reverb-wet-slider`）：Player / Audience、Chamber / Concert Hall / Studio、0%–100% wet；
+   - **机械与老化**（`pedal-noise-slider` / `felt-ageing-slider`）：0%–100% 控制；
+   - 风格选择一次提交声学字段并通知拥有者，主亮度/硬度/共鸣旋钮同步；预设恢复和手动编辑经 `SettingsWindowManager::refreshAcousticControls()` 刷新已打开的声明式表面，管理器不暴露内容指针。
 5. **诊断日志卡片（`makeDiagnosticsSectionTree`）**：结构化实时日志查看器（`ListEditor` 原生 TextEditor 注入）、日志绝对路径展示与“打开日志目录”（`open-log-dir-button`）原生文件管理器直达按钮；
 6. **保存与操作卡片（`makeSaveActionSectionTree`）**：右对齐（`flex-end`）保存与关闭按钮。
 

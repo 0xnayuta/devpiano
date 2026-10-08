@@ -160,6 +160,8 @@ void PresetFlowSupport::applyRecordedPresetUi(const devpiano::recording::Recorde
     s.reverbWet = acoustic.reverbWet;
     s.pedalNoiseLevel = acoustic.pedalNoiseLevel;
     s.feltAgeingAmount = acoustic.feltAgeingAmount;
+    s.stretchTuningEnabled = acoustic.stretchTuningEnabled;
+    s.duplexResonance = acoustic.duplexResonance;
 
     // 5. UI refresh
     owner.syncUiFromSettings(false);
@@ -189,6 +191,13 @@ void PresetFlowSupport::commitPreset(const PerformancePreset& preset, bool fileB
     s.keyboardDisplay.customKeyColours = preset.customKeyColours;
 
     // 4. Acoustics
+    s.pianoBrightness = juce::jlimit(0.0f, 1.0f, preset.brightness);
+    s.pianoHammerHardness = juce::jlimit(0.0f, 1.0f, preset.hammerHardness);
+    s.pianoResonance = juce::jlimit(0.0f, 1.0f, preset.resonance);
+    owner.audioEngine.setPianoParameters(s.pianoBrightness, s.pianoHammerHardness, s.pianoResonance);
+    s.stretchTuningEnabled = preset.stretchTuningEnabled;
+    s.duplexResonance = juce::jlimit(0.0f, 1.0f, preset.duplexResonance);
+    owner.audioEngine.setPianoTuning(s.stretchTuningEnabled, s.duplexResonance);
     s.lidPosition = preset.lidPosition;
     owner.audioEngine.setLidPosition(static_cast<AudioEngine::LidPosition>(preset.lidPosition));
     s.touchVelocityCurve = preset.touchVelocityCurve;
@@ -235,6 +244,11 @@ PerformancePreset PresetFlowSupport::captureCurrentState(const juce::String& nam
     preset.previewAlpha = 0.0f;
     preset.customKeyLabels = owner.appSettings.keyboardDisplay.customKeyLabels;
     preset.customKeyColours = owner.appSettings.keyboardDisplay.customKeyColours;
+    preset.brightness = owner.appSettings.pianoBrightness;
+    preset.hammerHardness = owner.appSettings.pianoHammerHardness;
+    preset.resonance = owner.appSettings.pianoResonance;
+    preset.stretchTuningEnabled = owner.appSettings.stretchTuningEnabled;
+    preset.duplexResonance = owner.appSettings.duplexResonance;
     preset.lidPosition = owner.appSettings.lidPosition;
     preset.touchVelocityCurve = owner.appSettings.touchVelocityCurve;
     preset.unaCorda = owner.keyboardMidiMapper.isSoftPedalDown();

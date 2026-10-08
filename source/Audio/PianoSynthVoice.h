@@ -2,6 +2,7 @@
 
 #include "PerspectiveProcessor.h"
 #include "Piano88KeyTable.h"
+#include "PianoTuning.h"
 #include "TemperamentEngine.h"
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_core/juce_core.h>
@@ -13,7 +14,6 @@
 #include <cstdint>
 #include <numbers>
 // 内置物理建模钢琴合成器（Phase 12~24）：
-// - 88 键物理参数化 (Phase 18-A/B)：Steinway B 刚性失谐、Bensa 实测阻尼、STFT 最优微相位矩阵；
 // - 空气黏性阻尼与二次方摩擦 (Phase 18-C)：Desvages & Bilbao (2016) 模态耗散模型，呈现中频下凹歌唱性；
 // - 16 峰正交云杉木音板模态 (Phase 19-A)：Bank 2010 / Chabassier 2019 实测物理模态分布；
 // - 琴桥立体声空间辐射 (Phase 19-B)：根据 88 键物理跨度分配声像，消灭单声道耳膜居中压迫感；
@@ -200,6 +200,7 @@ public:
     };
 
     PianoSynthVoice() {
+        static_cast<void>(devpiano::audio::getPianoStretchRatios());
         sympatheticPool.updateCoefficients(48000.0);
         for (auto& resonator : bodyResonators) {
             resonator.updateCoefficients(48000.0);
@@ -234,6 +235,13 @@ public:
         pianoResonance = juce::jlimit(0.0f, 1.0f, resonance);
     }
 
+    void setPianoTuning(bool stretchTuningEnabled, float duplexResonance) noexcept {
+        pianoStretchTuningEnabled = stretchTuningEnabled;
+        duplexPool.setAmount(juce::jlimit(0.0f, 1.0f, duplexResonance));
+        sympatheticPool.updateCoefficients(getSampleRate(), pianoTemperament, pianoReferencePitchA4,
+                                           pianoStretchTuningEnabled);
+    }
+
     void setLidPosition(LidPosition position) noexcept {
         pianoLidPosition = position;
         lidAcoustics.setPosition(position, getSampleRate());
@@ -265,6 +273,8 @@ public:
     }
     void setTemperament(Temperament temperament) noexcept {
         pianoTemperament = temperament;
+        sympatheticPool.updateCoefficients(getSampleRate(), pianoTemperament, pianoReferencePitchA4,
+                                           pianoStretchTuningEnabled);
     }
 
     [[nodiscard]] Temperament getTemperament() const noexcept {
@@ -273,6 +283,8 @@ public:
 
     void setReferencePitchA4(double pitch) noexcept {
         pianoReferencePitchA4 = TemperamentEngine::clampReferencePitch(pitch);
+        sympatheticPool.updateCoefficients(getSampleRate(), pianoTemperament, pianoReferencePitchA4,
+                                           pianoStretchTuningEnabled);
     }
 
     [[nodiscard]] double getReferencePitchA4() const noexcept {
@@ -330,7 +342,9 @@ public:
     void setCurrentPlaybackSampleRate(double newRate) override {
         juce::SynthesiserVoice::setCurrentPlaybackSampleRate(newRate);
         if (newRate > 0.0) {
-            sympatheticPool.updateCoefficients(newRate);
+            sympatheticPool.updateCoefficients(newRate, pianoTemperament, pianoReferencePitchA4,
+                                               pianoStretchTuningEnabled);
+            duplexPool.reset();
             lidAcoustics.setPosition(pianoLidPosition, newRate);
             perspectiveProcessor.prepare(newRate);
             for (auto& resonator : bodyResonators) {
@@ -356,9 +370,6 @@ public:
             ? deterministicNoteJitter(midiNoteNumber, 0x13579bdfu) * 1.2f * pianoFeltAgeingAmount
             : 0.0f;
         const auto pitchJitterRatio = std::pow(2.0, static_cast<double>(pitchJitterCents) / 1200.0);
-        const auto baseFrequency
-            = TemperamentEngine::getFrequency(midiNoteNumber, pianoTemperament, pianoReferencePitchA4)
-            * pitchJitterRatio;
 
         const auto bJitterRatio = (pianoFeltAgeingAmount > 0.0f)
             ? (1.0
@@ -366,6 +377,12 @@ public:
                                      * pianoFeltAgeingAmount))
             : 1.0;
         const auto effectiveInharmonicityB = params.inharmonicityB * bJitterRatio;
+        const auto firstPartialFrequency
+            = devpiano::audio::pianoFirstPartialFrequency(midiNoteNumber, pianoTemperament, pianoReferencePitchA4,
+                                                          pianoStretchTuningEnabled)
+            * pitchJitterRatio;
+        const auto baseFrequency = firstPartialFrequency / std::sqrt(1.0 + effectiveInharmonicityB);
+        duplexPool.prepare(sampleRate, firstPartialFrequency, effectiveInharmonicityB);
 
         numActivePartials = params.partialCount;
 
@@ -375,6 +392,9 @@ public:
         const auto baseDecaySeconds = static_cast<double>(params.decaySeconds * decayScale);
 
         const auto keyPos = std::clamp((static_cast<float>(midiNoteNumber) - 21.0f) / 87.0f, 0.0f, 1.0f);
+        const auto directPan = 0.15f + 0.70f * keyPos;
+        directLeftGain = (1.0f - directPan) * std::numbers::sqrt2_v<float>;
+        directRightGain = directPan * std::numbers::sqrt2_v<float>;
 
         // 弱音/移位踏板物理机理 (Phase 29-B, Una Corda Shift Mechanism):
         // 琴槌击弦机向右位移，击打在毛毡侧向未压实较软区域，接触时间延长
@@ -414,10 +434,12 @@ public:
         const auto alpha1 = static_cast<double>(params.b1) + static_cast<double>(params.b2) * k1;
 
         auto normSum = 0.0f;
+        std::array<double, maxPartials> noteFrequencies {};
         for (auto n = 0; n < numActivePartials; ++n) {
             const auto partialNumber = static_cast<double>(n + 1);
             const auto inharmonicFactor = std::sqrt(1.0 + effectiveInharmonicityB * partialNumber * partialNumber);
             const auto partialFrequency = baseFrequency * partialNumber * inharmonicFactor;
+            noteFrequencies[static_cast<std::size_t>(n)] = partialFrequency;
             normSum += amplitudeFor(n, keyPos, effectiveHardness, effectiveStrikePos, partialFrequency, effectiveTc)
                 * hammerGain(n, numActivePartials) * brightnessBoost(n, effectiveBrightness, numActivePartials);
         }
@@ -428,8 +450,7 @@ public:
         for (auto n = 0; n < numActivePartials; ++n) {
             auto& partial = partials[static_cast<std::size_t>(n)];
             const auto m = static_cast<double>(n + 1);
-            const auto inharmonicFactor = std::sqrt(1.0 + effectiveInharmonicityB * m * m);
-            auto partialFrequency = baseFrequency * m * inharmonicFactor;
+            auto partialFrequency = noteFrequencies[static_cast<std::size_t>(n)];
 
             if (partialFrequency >= nyquistLimit) {
                 if (n == 0) {
@@ -567,7 +588,8 @@ public:
         spruceSoundboardFilter.updateCoefficients(sampleRate);
         spruceSoundboardFilter.reset();
 
-        sympatheticPool.updateCoefficients(sampleRate);
+        sympatheticPool.updateCoefficients(sampleRate, pianoTemperament, pianoReferencePitchA4,
+                                           pianoStretchTuningEnabled);
         sympatheticPool.noteOnKey(midiNoteNumber);
         lidAcoustics.setPosition(pianoLidPosition, sampleRate);
         lidAcoustics.reset();
@@ -610,6 +632,7 @@ public:
         }
         spruceSoundboardFilter.reset();
         sympatheticPool.reset();
+        duplexPool.reset();
         lidAcoustics.reset();
         perspectiveProcessor.reset();
         clearCurrentNote();
@@ -626,7 +649,8 @@ public:
 
                 if (voiceIndex == 0) {
                     const auto sampleRate = getSampleRate();
-                    sympatheticPool.updateCoefficients(sampleRate);
+                    sympatheticPool.updateCoefficients(sampleRate, pianoTemperament, pianoReferencePitchA4,
+                                                       pianoStretchTuningEnabled);
                     pedalTransient.trigger(sampleRate, isDown, vel, pianoPedalNoiseLevel);
                     if (isDown) {
                         sympatheticPool.triggerShock(vel * pianoPedalNoiseLevel, sampleRate);
@@ -646,41 +670,20 @@ public:
     void renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int startSample, int numSamples) override {
         juce::ScopedNoDenormals noDenormals;
         const auto isPedalActive = (voiceIndex == 0) && (pedalTransient.isActive() || sympatheticPool.isShockActive());
-        const auto isKeySounding = getCurrentlyPlayingNote() >= 0;
-        if (!isKeySounding && !isPedalActive) {
+        auto isKeySounding = getCurrentlyPlayingNote() >= 0 && (adsrGate.isActive() || damperTransient.isActive());
+        if (!isKeySounding && !isPedalActive && !duplexPool.isActive()) {
+            if (getCurrentlyPlayingNote() >= 0) {
+                clearCurrentNote();
+            }
             return;
         }
 
         for (auto sample = 0; sample < numSamples; ++sample) {
             const auto sampleIndex = startSample + sample;
-            const auto pedalSound = (voiceIndex == 0) ? pedalTransient.getNextSample() : 0.0f;
-
-            if (!isKeySounding) {
-                const auto sympatheticOut = (voiceIndex == 0) ? sympatheticPool.process(0.0f) : 0.0f;
-                if (pedalSound != 0.0f || sympatheticOut != 0.0f) {
-                    auto outL = pedalSound * 0.7071f + sympatheticOut * 0.40f;
-                    auto outR = pedalSound * 0.7071f + sympatheticOut * 0.60f;
-                    lidAcoustics.processStereo(outL, outR);
-                    perspectiveProcessor.processStereo(outL, outR);
-
-                    if (outputBuffer.getNumChannels() >= 2) {
-                        outputBuffer.addSample(0, sampleIndex, outL);
-                        outputBuffer.addSample(1, sampleIndex, outR);
-                    } else if (outputBuffer.getNumChannels() == 1) {
-                        outputBuffer.addSample(0, sampleIndex, pedalSound + 0.5f * sympatheticOut);
-                    }
-                }
-                continue;
-            }
-
-            const auto envelope = adsrGate.getNextSample();
-            const auto click = hammerTransient.getNextSample();
-            const auto damperThump = damperTransient.getNextSample();
-            const auto glideMult = static_cast<double>(pitchGlideEngine.getGlideMultiplier());
-            const auto diffusionFactor = spatialDiffusionEngine.getDiffusionFactor();
-
-            if (envelope <= 0.0f && !adsrGate.isActive() && !damperTransient.isActive() && !pedalTransient.isActive()) {
-                clearCurrentNote();
+            const auto envelope = isKeySounding ? adsrGate.getNextSample() : 0.0f;
+            if (isKeySounding && envelope <= 0.0f && !adsrGate.isActive() && !damperTransient.isActive()
+                && !pedalTransient.isActive()) {
+                adsrGate.reset();
                 for (auto& resonator : bodyResonators) {
                     resonator.reset();
                 }
@@ -688,8 +691,34 @@ public:
                 sympatheticPool.reset();
                 perspectiveProcessor.reset();
                 lidAcoustics.reset();
-                break;
+                isKeySounding = false;
             }
+            const auto duplexMix = duplexPool.nextMix();
+            const auto pedalSound = (voiceIndex == 0) ? pedalTransient.getNextSample() : 0.0f;
+
+            if (!isKeySounding) {
+                const auto sympatheticOut = (voiceIndex == 0) ? sympatheticPool.process(0.0f) : 0.0f;
+                const auto duplexOut = duplexMix * duplexPool.process(0.0f);
+                if (pedalSound != 0.0f || sympatheticOut != 0.0f || duplexOut != 0.0f) {
+                    auto outL = pedalSound * 0.7071f + sympatheticOut * 0.40f + duplexOut * directLeftGain;
+                    auto outR = pedalSound * 0.7071f + sympatheticOut * 0.60f + duplexOut * directRightGain;
+                    lidAcoustics.processStereo(outL, outR);
+                    perspectiveProcessor.processStereo(outL, outR);
+
+                    if (outputBuffer.getNumChannels() >= 2) {
+                        outputBuffer.addSample(0, sampleIndex, outL);
+                        outputBuffer.addSample(1, sampleIndex, outR);
+                    } else if (outputBuffer.getNumChannels() == 1) {
+                        outputBuffer.addSample(0, sampleIndex, pedalSound + 0.5f * sympatheticOut + duplexOut);
+                    }
+                }
+                continue;
+            }
+
+            const auto click = hammerTransient.getNextSample();
+            const auto damperThump = damperTransient.getNextSample();
+            const auto glideMult = static_cast<double>(pitchGlideEngine.getGlideMultiplier());
+            const auto diffusionFactor = spatialDiffusionEngine.getDiffusionFactor();
 
             // 同音多弦立体声非对称空间展开 (Phase 23-B / Phase 24-C, Dynamic Spatial Diffusion)
             auto valueLeft = 0.0f;
@@ -760,6 +789,7 @@ public:
             const auto rawLeft = softSaturate(preSatLeft);
             const auto rawRight = softSaturate(preSatRight);
             const auto rawMono = 0.5f * (rawLeft + rawRight);
+            const auto duplexOut = duplexPool.process(rawMono);
 
             // 1. 16 峰物理云杉木音板模态 (Phase 19-A/B)
             auto resonatorLeftSum = 0.0f;
@@ -778,15 +808,13 @@ public:
             const auto sympatheticOut = sympatheticPool.process(rawMono);
 
             // 4. 琴桥立体声声像定位与非对称空间投影 (低音在左 0.15 -> 高音在右 0.85)
-            const auto midi = std::clamp(static_cast<float>(currentPlayingMidiNote), 21.0f, 108.0f);
-            const auto keyPos = (midi - 21.0f) / 87.0f;
-            const auto directPan = 0.15f + 0.70f * keyPos;
-            const auto directLeft = (1.0f - directPan) * std::numbers::sqrt2_v<float>;
-            const auto directRight = directPan * std::numbers::sqrt2_v<float>;
 
             const auto wet = 0.18f + pianoResonance * 0.16f;
-            auto outLeft = (1.0f - wet) * rawLeft * directLeft + wet * (resonatorLeftSum + 0.40f * sympatheticOut);
-            auto outRight = (1.0f - wet) * rawRight * directRight + wet * (resonatorRightSum + 0.60f * sympatheticOut);
+            auto outLeft = (1.0f - wet) * rawLeft * directLeftGain + wet * (resonatorLeftSum + 0.40f * sympatheticOut);
+            auto outRight
+                = (1.0f - wet) * rawRight * directRightGain + wet * (resonatorRightSum + 0.60f * sympatheticOut);
+            outLeft = (1.0f - duplexMix) * outLeft + duplexMix * duplexOut * directLeftGain;
+            outRight = (1.0f - duplexMix) * outRight + duplexMix * duplexOut * directRightGain;
 
             if (pedalSound != 0.0f) {
                 outLeft += pedalSound * 0.7071f;
@@ -801,14 +829,16 @@ public:
                 outputBuffer.addSample(0, sampleIndex, outLeft);
                 outputBuffer.addSample(1, sampleIndex, outRight);
             } else if (outputBuffer.getNumChannels() == 1) {
-                const auto outMono = (1.0f - wet) * rawMono
-                    + wet * 0.5f * (resonatorLeftSum + resonatorRightSum + sympatheticOut) + pedalSound;
+                const auto outMono = (1.0f - duplexMix)
+                        * ((1.0f - wet) * rawMono
+                           + wet * 0.5f * (resonatorLeftSum + resonatorRightSum + sympatheticOut))
+                    + duplexMix * duplexOut + pedalSound;
                 outputBuffer.addSample(0, sampleIndex, outMono);
             }
         }
 
         if (isKeySounding && allPartialsSilent()) {
-            clearCurrentNote();
+            adsrGate.reset();
             hammerTransient.reset();
             hammerContactEngine.reset();
             spatialDiffusionEngine.reset();
@@ -823,6 +853,11 @@ public:
             }
             lidAcoustics.reset();
             perspectiveProcessor.reset();
+        }
+        if (getCurrentlyPlayingNote() >= 0 && !adsrGate.isActive() && !damperTransient.isActive()
+            && !duplexPool.isActive()) {
+            duplexPool.reset();
+            clearCurrentNote();
         }
     }
 
@@ -857,7 +892,8 @@ public:
         const auto& params = devpiano::audio::getNoteParams(midiNoteNumber);
         const auto decayScale = 1.0f + (juce::jlimit(0.0f, 1.0f, resonance) - 0.5f) * 0.6f;
         const auto baseDecay = static_cast<double>(params.decaySeconds * decayScale);
-        const auto f0 = TemperamentEngine::getFrequency(midiNoteNumber, temperament, referencePitchA4);
+        const auto f0 = devpiano::audio::pianoFirstPartialFrequency(midiNoteNumber, temperament, referencePitchA4)
+            / std::sqrt(1.0 + params.inharmonicityB);
         const auto fn = partialFrequency(midiNoteNumber, partialIndex, temperament, referencePitchA4);
         const auto piOverL = juce::MathConstants<double>::pi / static_cast<double>(params.stringLength);
         const auto k1 = piOverL * piOverL;
@@ -881,13 +917,12 @@ public:
     [[nodiscard]] static float bodyWet(float resonance = 0.5f) noexcept {
         return 0.18f + juce::jlimit(0.0f, 1.0f, resonance) * 0.16f;
     }
-    [[nodiscard]] static double
-    partialFrequency(int midiNoteNumber, int partialIndex, Temperament temperament = Temperament::equal,
-                     double referencePitchA4 = TemperamentEngine::kDefaultReferencePitch) noexcept {
-        const auto baseFrequency = TemperamentEngine::getFrequency(midiNoteNumber, temperament, referencePitchA4);
-        const auto partialNumber = static_cast<double>(partialIndex + 1);
-        const auto b = inharmonicityBForNote(midiNoteNumber);
-        return baseFrequency * partialNumber * std::sqrt(1.0 + b * partialNumber * partialNumber);
+    [[nodiscard]] static double partialFrequency(int midiNoteNumber, int partialIndex,
+                                                 Temperament temperament = Temperament::equal,
+                                                 double referencePitchA4 = TemperamentEngine::kDefaultReferencePitch,
+                                                 bool stretchTuningEnabled = true) noexcept {
+        return devpiano::audio::pianoPartialFrequency(midiNoteNumber, partialIndex, temperament, referencePitchA4,
+                                                      stretchTuningEnabled);
     }
     [[nodiscard]] static float beatingDetuneRatioForNote(int midiNoteNumber) noexcept {
         return devpiano::audio::getNoteParams(midiNoteNumber).beatingDetuneRatio;
@@ -1047,6 +1082,9 @@ public:
     LidPosition pianoLidPosition = LidPosition::fullOpen;
     Temperament pianoTemperament = Temperament::equal;
     double pianoReferencePitchA4 = TemperamentEngine::kDefaultReferencePitch;
+    bool pianoStretchTuningEnabled = true;
+    float directLeftGain = 0.7071f;
+    float directRightGain = 0.7071f;
 
     // 强击非线性张力音高微漂移引擎 (Phase 22-D, Bank & Sujbert 2005 JASA)
     struct PitchGlideEngine {
@@ -1731,17 +1769,28 @@ public:
         }
 
         double lastSampleRate = 0.0;
+        Temperament lastTemperament = Temperament::equal;
+        double lastReferencePitchA4 = 0.0;
+        bool lastStretchTuningEnabled = true;
 
-        void updateCoefficients(double sampleRate) noexcept {
-            if (sampleRate <= 0.0 || std::abs(sampleRate - lastSampleRate) < 1e-6) {
+        void updateCoefficients(double sampleRate, Temperament temperament = Temperament::equal,
+                                double referencePitchA4 = TemperamentEngine::kDefaultReferencePitch,
+                                bool stretchTuningEnabled = true) noexcept {
+            if (sampleRate <= 0.0
+                || (std::abs(sampleRate - lastSampleRate) < 1e-6 && temperament == lastTemperament
+                    && referencePitchA4 == lastReferencePitchA4 && stretchTuningEnabled == lastStretchTuningEnabled)) {
                 return;
             }
             lastSampleRate = sampleRate;
-            constexpr float freqs[numPoolResonators] = { 65.41f, 69.30f, 73.42f,  77.78f,  82.41f,  87.31f,
-                                                         92.50f, 98.00f, 103.83f, 110.00f, 116.54f, 123.47f };
+            lastTemperament = temperament;
+            lastReferencePitchA4 = referencePitchA4;
+            lastStretchTuningEnabled = stretchTuningEnabled;
             for (int i = 0; i < numPoolResonators; ++i) {
-                const auto theta = juce::MathConstants<double>::twoPi * static_cast<double>(freqs[i]) / sampleRate;
-                const auto bandwidth = static_cast<double>(freqs[i] / 12.0f);
+                const auto frequency = std::min(devpiano::audio::pianoFirstPartialFrequency(
+                                                    36 + i, temperament, referencePitchA4, stretchTuningEnabled),
+                                                sampleRate * 0.480);
+                const auto theta = juce::MathConstants<double>::twoPi * frequency / sampleRate;
+                const auto bandwidth = frequency / 12.0;
                 const auto r = std::exp(-juce::MathConstants<double>::pi * bandwidth / sampleRate);
                 c1[i] = static_cast<float>(2.0 * r * devpiano::audio::dsp::boundedCos(theta));
                 c2[i] = static_cast<float>(-r * r);
@@ -1809,6 +1858,116 @@ public:
         }
     };
     SympatheticResonancePool sympatheticPool;
+
+    struct DuplexResonance {
+        struct Mode {
+            double cosine = 0.0;
+            double sine = 0.0;
+            double drive = 0.0;
+            double x = 0.0;
+            double y = 0.0;
+            bool enabled = false;
+
+            void reset() noexcept {
+                x = y = 0.0;
+            }
+
+            [[nodiscard]] float process(float input) noexcept {
+                if (!enabled || (input == 0.0f && x == 0.0 && y == 0.0)) {
+                    return 0.0f;
+                }
+                const auto nextX = cosine * x - sine * y + drive * static_cast<double>(input);
+                y = sine * x + cosine * y;
+                x = nextX;
+                if (input == 0.0f && std::abs(x) + std::abs(y) < 1e-10) {
+                    reset();
+                }
+                return static_cast<float>(x);
+            }
+        };
+
+        std::array<Mode, 2> modes;
+        float target = 0.15f;
+        float amount = 0.15f;
+        float mix = 0.018f;
+        float smoothing = 0.0f;
+        bool enabled = false;
+
+        void setAmount(float value) noexcept {
+            target = value;
+        }
+
+        void reset() noexcept {
+            for (auto& mode : modes) {
+                mode.reset();
+            }
+            amount = target;
+            mix = 0.12f * amount;
+        }
+
+        void prepare(double sampleRate, double firstPartialFrequency, double stiffness) noexcept {
+            reset();
+            enabled = false;
+            smoothing = static_cast<float>(std::exp(-1.0 / (0.005 * sampleRate)));
+            constexpr std::array<double, 2> lengthRatios { 5.0, 3.02 };
+            constexpr std::array<double, 2> decaySeconds { 0.09, 0.16 };
+            for (std::size_t i = 0; i < modes.size(); ++i) {
+                auto& mode = modes[i];
+                const auto ratio = lengthRatios[i];
+                const auto frequency
+                    = firstPartialFrequency * ratio * std::sqrt((1.0 + stiffness * ratio * ratio) / (1.0 + stiffness));
+                mode.enabled = frequency < sampleRate * 0.480;
+                if (!mode.enabled) {
+                    continue;
+                }
+                enabled = true;
+                const auto radius = std::exp(-1.0 / (decaySeconds[i] * sampleRate));
+                const auto angle = juce::MathConstants<double>::twoPi * frequency / sampleRate;
+                const auto rotation = devpiano::audio::dsp::boundedSinCos(angle);
+                mode.cosine = radius * rotation.cosVal;
+                mode.sine = radius * rotation.sinVal;
+                mode.drive = 1.0 - radius;
+            }
+        }
+
+        [[nodiscard]] float nextMix() noexcept {
+            if (!enabled) {
+                return 0.0f;
+            }
+            if (amount != target) {
+                amount = target + smoothing * (amount - target);
+                if (std::abs(amount - target) < 1e-5f) {
+                    amount = target;
+                    if (target == 0.0f) {
+                        reset();
+                    }
+                }
+                mix = 0.12f * amount;
+            }
+            return mix;
+        }
+
+        [[nodiscard]] bool isActive() const noexcept {
+            if (mix <= 0.0f) {
+                return false;
+            }
+            auto bound = 0.0;
+            for (const auto& mode : modes) {
+                if (mode.enabled) {
+                    bound += std::abs(mode.x) + std::abs(mode.y);
+                }
+            }
+            return 0.5 * static_cast<double>(mix) * bound > 1e-8;
+        }
+
+        [[nodiscard]] float process(float input) noexcept {
+            if (!enabled || mix <= 0.0f) {
+                return 0.0f;
+            }
+            return 0.5f * (modes[0].process(input) + modes[1].process(input));
+        }
+    };
+    DuplexResonance duplexPool;
 
     // 三角钢琴琴盖反射与近场木质微反射 (Phase 21-B / Phase 22-B, Chabassier 2013/2019)
     struct LidAcoustics {

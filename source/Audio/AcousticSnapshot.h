@@ -29,6 +29,8 @@ struct AcousticSnapshot {
     bool transposeEnabled = false;
     int transposeOffset = 0;
     std::uint16_t channelFollowKeyMask = 0b1111110111111111;
+    bool stretchTuningEnabled = true;
+    float duplexResonance = 0.15f;
 };
 
 } // namespace devpiano::audio

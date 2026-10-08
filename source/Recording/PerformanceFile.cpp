@@ -369,6 +369,8 @@ juce::var acousticSnapshotToVar(const audio::AcousticSnapshot& ac) {
     obj->setProperty("transposeEnabled", ac.transposeEnabled);
     obj->setProperty("transposeOffset", ac.transposeOffset);
     obj->setProperty("channelFollowKeyMask", static_cast<int>(ac.channelFollowKeyMask));
+    obj->setProperty("stretchTuningEnabled", ac.stretchTuningEnabled);
+    obj->setProperty("duplexResonance", ac.duplexResonance);
 
     return { obj.get() };
 }
@@ -462,6 +464,15 @@ audio::AcousticSnapshot varToAcousticSnapshot(const juce::var& v) {
         ac.channelFollowKeyMask = static_cast<std::uint16_t>(
             juce::jlimit(0, 65535, static_cast<int>(obj->getProperty("channelFollowKeyMask"))));
     }
+    if (obj->hasProperty("stretchTuningEnabled")) {
+        ac.stretchTuningEnabled = static_cast<bool>(obj->getProperty("stretchTuningEnabled"));
+    }
+    if (obj->hasProperty("duplexResonance")) {
+        const auto val = static_cast<double>(obj->getProperty("duplexResonance"));
+        if (std::isfinite(val)) {
+            ac.duplexResonance = juce::jlimit(0.0f, 1.0f, static_cast<float>(val));
+        }
+    }
     return ac;
 }
 
@@ -518,6 +529,12 @@ std::optional<RecordedPreset> varToRecordedPreset(const juce::var& v) {
         if (!ac->getProperty(key).isBool()) {
             return std::nullopt;
         }
+    }
+    if (ac->hasProperty("stretchTuningEnabled") && !ac->getProperty("stretchTuningEnabled").isBool()) {
+        return std::nullopt;
+    }
+    if (ac->hasProperty("duplexResonance") && !finiteNumber(ac->getProperty("duplexResonance"))) {
+        return std::nullopt;
     }
     auto presetOpt = layout::performancePresetFromVar(obj->getProperty("preset"));
     if (!presetOpt.has_value()) {

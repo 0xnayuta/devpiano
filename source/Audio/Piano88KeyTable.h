@@ -9,7 +9,6 @@ namespace devpiano::audio {
 
 //==============================================================================
 /// 88 键物理声学参数结构体 (Phase 18-A/B, Phase 22-C)
-/// 基于 Bensa et al. (2003)、Fletcher & Rossing (1998 Chapter 12)、Steinway B 实测标定。
 struct PianoNoteParams {
     int partialCount; ///< 激活分音数 (低音 20 -> 极高音 6)
     int stringCount; ///< 琴弦数: 1 (MIDI 21~35), 2 (MIDI 36~47), 3 (MIDI 48~108)
@@ -17,7 +16,7 @@ struct PianoNoteParams {
     float stringLength; ///< 振动弦长 L (米, 1.92m -> 0.09m)
     float b1; ///< 频率无关阻尼常数 (0.25 -> 9.17 s^-1)
     float b2; ///< 内部摩擦高阶损耗 (7.5e-5 -> 2.1e-3 s)
-    double inharmonicityB; ///< Steinway B 实测失谐系数 (含 G2/G#2 琴桥断裂阶跃)
+    double inharmonicityB;
     float strikePosRatio; ///< 击弦比 d/L (低音 0.125 -> 极高音 0.0625)
     float tcBase; ///< 基础接触时间 (3.0ms -> 0.6ms)
     float detuneCents; ///< 同音弦微失谐量 (0.0 -> 0.4 cents)
@@ -30,7 +29,6 @@ struct PianoNoteParams {
 };
 
 //==============================================================================
-/// 经 PyTorch STFT Loss 训练优化出的 3 组琴弦 x 64 分音实测最优初始相位 (弧度, Phase 18-B)
 /// 消除 t=0 所有正弦分音同相机械聚焦造成的狄拉克脉冲式波峰，赋予真实敲击相位色散。
 inline constexpr float kOptPhaseTable[3][64]
     = { { 4.0132f, 2.4928f, 1.6716f, 0.8096f, 0.9535f, 5.3968f, 3.8574f, 2.4742f, 4.9981f, 1.8611f, 3.7908f,

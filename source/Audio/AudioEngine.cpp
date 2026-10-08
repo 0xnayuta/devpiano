@@ -325,6 +325,12 @@ void AudioEngine::setPianoParameters(float brightness, float hammerHardness, flo
     pendingResonance.store(juce::jlimit(0.0f, 1.0f, resonance), std::memory_order_relaxed);
     pendingParameterMask.fetch_or(pianoParameter, std::memory_order_release);
 }
+
+void AudioEngine::setPianoTuning(bool stretchTuningEnabled, float duplexResonance) {
+    pendingStretchTuningEnabled.store(stretchTuningEnabled, std::memory_order_relaxed);
+    pendingDuplexResonance.store(juce::jlimit(0.0f, 1.0f, duplexResonance), std::memory_order_relaxed);
+    pendingParameterMask.fetch_or(tuningParameter, std::memory_order_release);
+}
 void AudioEngine::setPlaybackTranspose(bool enabled, int semitoneOffset, std::uint16_t channelFollowKeyMask) noexcept {
     playbackTransposeEnabled.store(enabled, std::memory_order_release);
     playbackTransposeOffset.store(semitoneOffset, std::memory_order_release);
@@ -423,6 +429,8 @@ devpiano::audio::AcousticSnapshot AudioEngine::captureAcousticSnapshot() const n
     snapshot.transposeEnabled = playbackTransposeEnabled.load(std::memory_order_relaxed);
     snapshot.transposeOffset = playbackTransposeOffset.load(std::memory_order_relaxed);
     snapshot.channelFollowKeyMask = playbackChannelFollowKeyMask.load(std::memory_order_relaxed);
+    snapshot.stretchTuningEnabled = pendingStretchTuningEnabled.load(std::memory_order_relaxed);
+    snapshot.duplexResonance = pendingDuplexResonance.load(std::memory_order_relaxed);
     return snapshot;
 }
 
@@ -475,6 +483,10 @@ void AudioEngine::applyPendingParametersIfNeeded() {
         snapshot.transposeEnabled = pending.transposeEnabled;
         snapshot.transposeOffset = pending.transposeOffset;
         snapshot.channelFollowKeyMask = pending.channelFollowKeyMask;
+    }
+    if ((mask & tuningParameter) != 0) {
+        snapshot.stretchTuningEnabled = pending.stretchTuningEnabled;
+        snapshot.duplexResonance = pending.duplexResonance;
     }
     applyAcousticSnapshot(snapshot);
 }

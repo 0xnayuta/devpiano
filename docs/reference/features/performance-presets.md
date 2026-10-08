@@ -65,6 +65,11 @@
     ]
   },
   "acoustics": {
+    "brightness": 0.5,
+    "hammerHardness": 0.5,
+    "resonance": 0.5,
+    "stretchTuningEnabled": true,
+    "duplexResonance": 0.15,
     "lidPosition": 0,
     "touchVelocityCurve": 0,
     "unaCorda": false,
@@ -103,6 +108,9 @@
 
 | 属性字段 | 数据类型 | 取值范围与默认值 | 含义与声学作用 |
 |---|:---:|:---:|---|
+| `brightness` / `hammerHardness` / `resonance` | float | 0.0 ~ 1.0（各默认 0.5） | 实际琴槌/泛音/音板音色，保存后随普通预设应用 |
+| `stretchTuningEnabled` | bool | 默认 `true` | Piano 第一分音锚定的分音匹配拉伸开关；不改 Sine/VST3 MIDI |
+| `duplexResonance` | float | 0.0 ~ 1.0（默认 0.15） | Piano 非发音段被动共鸣配比，0 旁路 |
 | `lidPosition` | int | 0 (全开) / 1 (半开) / 2 (闭盖) | 琴盖开合度声学传递函数 |
 | `touchVelocityCurve`| int | 0 (标准) / 1 (轻触) / 2 (重触) / 3 (宽动态) | 键盘触键力度响应非线性曲线 |
 | `unaCorda` | bool | `true` / `false` | 弱音/移位踏板物理拟真（MIDI CC 67 联动） |
@@ -115,6 +123,8 @@
 | `feltAgeingAmount` | float | 0.0 ~ 1.0（默认 0.0） | 琴槌羊毛纤维磨损压实老化深度 |
 
 > **当前格式缺省与限幅**：声学字段从 `acoustics` 节点读取，`keyboard` 节点从 `keyboard` 节点读取，两者均不再解析旧根节点平铺字段；当前可选字段缺失时使用出厂默认值，枚举与数值仍按合法区间限幅。这不是对历史版本的兼容承诺。
+
+设置中的钢琴风格选择只提交声学字段，不加载另一份演奏映射、切换插件或覆盖全局调号；保存普通预设时才把当前映射与声学值一起捕获。风格标签由值识别，手动值显示 Custom，不保存额外风格身份或增加新文件格式。重启仍遵守活动预设 UUID 优先级，应用设置保存不能代替普通预设保存。
 
 ### 2.2 键位分组对象（`groups` 与 `activeGroupIndex`）
 
@@ -161,7 +171,7 @@
 ## 4. 录制与回放切调集成
 
 1. **录制时入队**：`recordPresetChange(const RecordedPreset&)` 在消息线程注册不可变快照，发布有界 SPSC 槽位；音频线程在受影响的捕获块起点先写预设 variant，再写该块 MIDI。
-2. **采样边界执行**：实时、内置 WAV 和 VST3 WAV 在事件采样点切换各自支持的参数；同采样预设先于 MIDI，后续 NoteOff 使用起音锁定的原输出身份。参数执行不等于完整音高同构，当前非零快照移调差异见 [P1 回归线索](../../issues/known-issues.md#原生演奏快照移调与-wav-音高不一致)。
+2. **采样边界执行**：实时、内置 WAV 和 VST3 WAV 在事件采样点切换其支持参数，同采样预设先于 MIDI；起音按快照移调/follow mask 锁定输出，NoteOff 使用原身份。Piano 生产整段对照覆盖新调律/共鸣与非零 wet；已映射输入的 [条件性重复移调](../../issues/known-issues.md#原生演奏快照移调与-wav-音高不一致路线-a-已实施路线-b-重构备忘) 留在下一输入契约阶段，不冒称全部音乐来源已重构。
 3. **UI 独立通知**：消息线程消费最新状态通知并调用 `applyRecordedPresetUi()`；重复循环可合并视觉通知，但每次声学事件仍在音频路径执行，末块通知不因播放结束清空。该路径不重查目录，不再调用 `applyPresetByIndex()` 来晚到改变音频。
 
 ---

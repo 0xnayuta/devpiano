@@ -17,7 +17,8 @@ bool isAcousticSnapshotValid(const devpiano::audio::AcousticSnapshot& acoustic) 
         && std::isfinite(acoustic.adsr.sustain) && std::isfinite(acoustic.adsr.release)
         && std::isfinite(acoustic.brightness) && std::isfinite(acoustic.hammerHardness)
         && std::isfinite(acoustic.resonance) && std::isfinite(acoustic.reverbWet)
-        && std::isfinite(acoustic.pedalNoiseLevel) && std::isfinite(acoustic.feltAgeingAmount);
+        && std::isfinite(acoustic.pedalNoiseLevel) && std::isfinite(acoustic.feltAgeingAmount)
+        && std::isfinite(acoustic.duplexResonance);
 }
 
 bool hasUsableRenderOptions(const devpiano::exporting::WavExportOptions& options) noexcept {
@@ -124,6 +125,7 @@ void applyAcousticSnapshotToBuiltin(devpiano::audio::BuiltinSynthesiser& pianoSy
     const auto clampedBrightness = juce::jlimit(0.0f, 1.0f, snapshot.brightness);
     const auto clampedHardness = juce::jlimit(0.0f, 1.0f, snapshot.hammerHardness);
     const auto clampedResonance = juce::jlimit(0.0f, 1.0f, snapshot.resonance);
+    const auto duplex = juce::jlimit(0.0f, 1.0f, snapshot.duplexResonance);
     const auto lidPos
         = static_cast<PianoSynthVoice::LidPosition>(juce::jlimit<std::uint8_t>(0, 2, snapshot.lidPosition));
     const auto refPitch = devpiano::audio::TemperamentEngine::clampReferencePitch(snapshot.referencePitchA4);
@@ -133,6 +135,7 @@ void applyAcousticSnapshotToBuiltin(devpiano::audio::BuiltinSynthesiser& pianoSy
     for (int i = 0; i < pianoSynth.getNumVoices(); ++i) {
         if (auto* voice = dynamic_cast<PianoSynthVoice*>(pianoSynth.getVoice(i))) {
             voice->setPianoParameters(clampedBrightness, clampedHardness, clampedResonance);
+            voice->setPianoTuning(snapshot.stretchTuningEnabled, duplex);
             voice->setLidPosition(lidPos);
             voice->setTemperament(snapshot.temperament);
             voice->setReferencePitchA4(refPitch);

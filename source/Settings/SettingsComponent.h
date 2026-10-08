@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Audio/PianoStyle.h"
 #include "Settings/SettingsModel.h"
 #include "Settings/jive/SettingsLayoutModel.h"
 #include "UI/ViewHost.h"
@@ -28,6 +29,8 @@ public:
     void rebuildNoteDisplayCombo();
     void rebuildKeySignatureCombo();
     void rebuildLidPositionCombo();
+    void rebuildPianoStyleCombo();
+    void updatePianoStyleFromModel();
     void rebuildTouchCurveCombo();
     void rebuildTemperamentCombo();
     void rebuildPerspectiveCombo();
@@ -62,6 +65,8 @@ private:
     void syncEditingStateFromModel();
     void rebuildSustainPolicyCombo();
 
+    void applyPianoStyle(devpiano::audio::PianoStyle style);
+    void updatePianoStyleComboFromModel();
     void populateAudioDeviceTypes();
     void populateAudioOutputDevices();
     void populateAudioActiveChannels();
@@ -108,6 +113,10 @@ private:
     juce::ComboBox* sustainPolicyCombo = nullptr;
     juce::ComboBox* languageCombo = nullptr;
     juce::ComboBox* lidPositionCombo = nullptr;
+    juce::ComboBox* pianoStyleCombo = nullptr;
+    juce::ToggleButton* stretchTuningToggle = nullptr;
+    juce::Slider* duplexResonanceSlider = nullptr;
+    bool isApplyingStyle = false;
     juce::ComboBox* touchCurveCombo = nullptr;
     juce::ComboBox* temperamentCombo = nullptr;
     juce::Slider* referencePitchSlider = nullptr;

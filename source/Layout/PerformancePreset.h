@@ -25,6 +25,9 @@ struct PerformancePreset {
     devpiano::midi::ChannelMatrix channelMatrix;
 
     // Acoustic settings
+    float brightness = 0.5f;
+    float hammerHardness = 0.5f;
+    float resonance = 0.5f;
     SettingsModel::LidPosition lidPosition = SettingsModel::LidPosition::fullOpen;
     devpiano::input::TouchVelocityCurve touchVelocityCurve = devpiano::input::TouchVelocityCurve::standard;
     bool unaCorda = false;
@@ -36,7 +39,8 @@ struct PerformancePreset {
     // Mechanical action noise and felt ageing (Phase 32-A/C)
     float pedalNoiseLevel = 0.6f;
     float feltAgeingAmount = 0.0f;
-
+    bool stretchTuningEnabled = true;
+    float duplexResonance = 0.15f;
     // Keyboard display / musical settings subset.
     // Mirrors the JSON "keyboard" section -- maps directly to SettingsModel fields
     // without going through ui::KeyboardSettings indirection.

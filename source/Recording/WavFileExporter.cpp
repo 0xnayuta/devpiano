@@ -37,6 +37,7 @@ void initialiseOfflineSynths(devpiano::audio::BuiltinSynthesiser& pianoSynth,
         voice->setVoiceIndex(index);
         voice->setAdsrParameters(options.adsr);
         voice->setPianoParameters(options.pianoBrightness, options.pianoHammerHardness, options.pianoResonance);
+        voice->setPianoTuning(options.stretchTuningEnabled, juce::jlimit(0.0f, 1.0f, options.duplexResonance));
         voice->setLidPosition(static_cast<PianoSynthVoice::LidPosition>(options.lidPosition));
         voice->setTemperament(options.temperament);
         voice->setReferencePitchA4(options.referencePitchA4);
@@ -116,9 +117,9 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
     devpiano::audio::BuiltinSynthesiser sineSynth;
     devpiano::audio::BuiltinSynthesiser* activeSynth = nullptr;
     devpiano::audio::RoomReverbEngine roomReverb;
-    roomReverb.prepare(options.sampleRate);
     roomReverb.setSpace(options.reverbSpace);
     roomReverb.setWetLevel(options.reverbWet);
+    roomReverb.prepare(options.sampleRate);
 
     initialiseOfflineSynths(pianoSynth, sineSynth, options);
     activeSynth = (options.builtinTone == SettingsModel::BuiltinTone::sine) ? &sineSynth : &pianoSynth;

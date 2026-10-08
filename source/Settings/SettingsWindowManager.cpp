@@ -193,6 +193,12 @@ SettingsComponent* SettingsWindowManager::getSettingsContent() const {
     return dynamic_cast<SettingsComponent*>(state->window->getContentComponent());
 }
 
+void SettingsWindowManager::refreshAcousticControls() {
+    if (auto* content = getSettingsContent()) {
+        content->updatePianoStyleFromModel();
+    }
+}
+
 void SettingsWindowManager::showFor(MainComponent& owner) {
     auto onDisplaySettingsChanged = [safe = juce::Component::SafePointer<MainComponent>(&owner),
                                      lastAppliedMetronomeEnabled = owner.appSettings.metronomeEnabled]() mutable {
@@ -207,6 +213,11 @@ void SettingsWindowManager::showFor(MainComponent& owner) {
         safe->getCustomKeyboard().setKeyboardSettings(makeKeyboardSettings(kbs, safe->appSettings.keySignature));
         safe->setInstrumentFilterVisible(kbs.showInstrumentFilter);
         safe->reconfigureChannelMapper();
+        safe->setControlsPianoValues(safe->appSettings.builtinTone, safe->appSettings.pianoBrightness,
+                                     safe->appSettings.pianoHammerHardness, safe->appSettings.pianoResonance);
+        safe->audioEngine.setPianoParameters(safe->appSettings.pianoBrightness, safe->appSettings.pianoHammerHardness,
+                                             safe->appSettings.pianoResonance);
+        safe->audioEngine.setPianoTuning(safe->appSettings.stretchTuningEnabled, safe->appSettings.duplexResonance);
         safe->audioEngine.setLidPosition(static_cast<AudioEngine::LidPosition>(safe->appSettings.lidPosition));
         safe->keyboardMidiMapper.setTouchVelocityCurve(safe->appSettings.touchVelocityCurve);
         safe->audioEngine.setTemperament(safe->appSettings.temperament);

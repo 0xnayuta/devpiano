@@ -1,5 +1,7 @@
 #include <JuceHeader.h>
 
+#include "Audio/AudioEngine.h"
+
 #include "Export/ExportFlowSupport.h"
 #include "Export/WavExportTask.h"
 #include "Recording/MidiFileExporter.h"
@@ -928,3 +930,88 @@ public:
 };
 
 static WavExportTaskSmokeTest wavExportTaskSmokeTest;
+
+class PianoSnapshotWavParityTest final : public juce::UnitTest {
+public:
+    PianoSnapshotWavParityTest()
+        : juce::UnitTest("Export: piano snapshot onset and release parity", "DevPiano/Recording") {
+    }
+
+    void runTest() override {
+        beginTest("wet startup and same-sample tuning changes match the real audio callback");
+        devpiano::test::ScopedTempDir directory("piano-snapshot-parity");
+        RecordingTake take;
+        take.sampleRate = 48000.0;
+        take.lengthSamples = 96000;
+        RecordedPreset first;
+        first.preset = devpiano::layout::makeDefaultPreset();
+        first.acoustic.masterGain = 0.65f;
+        first.acoustic.stretchTuningEnabled = false;
+        first.acoustic.duplexResonance = 0.0f;
+        first.acoustic.reverbWet = 0.08f;
+        first.acoustic.pedalNoiseLevel = 0.0f;
+        auto second = first;
+        second.preset.uuid = juce::Uuid().toDashedString();
+        second.acoustic.stretchTuningEnabled = true;
+        second.acoustic.duplexResonance = 0.5f;
+        second.acoustic.brightness = 0.75f;
+        second.acoustic.transposeEnabled = true;
+        second.acoustic.transposeOffset = 12;
+        take.presets = { first, second };
+        take.events = { { 0, PerformanceEventType::presetChange, 0, RecordingEventSource::playback, {} },
+                        { 0, PerformanceEventType::midi, 0, RecordingEventSource::playback,
+                          juce::MidiMessage::noteOn(1, 69, 0.35f) },
+                        { 127, PerformanceEventType::presetChange, 1, RecordingEventSource::playback, {} },
+                        { 127, PerformanceEventType::midi, 0, RecordingEventSource::playback,
+                          juce::MidiMessage::noteOn(2, 84, 0.5f) },
+                        { 401, PerformanceEventType::midi, 0, RecordingEventSource::playback,
+                          juce::MidiMessage::noteOff(1, 69, 0.5f) },
+                        { 48000, PerformanceEventType::midi, 0, RecordingEventSource::playback,
+                          juce::MidiMessage::noteOff(2, 84, 0.5f) } };
+        const auto target = directory.getChildFile("piano.wav");
+        WavExportOptions options;
+        options.sampleRate = 48000.0;
+        options.blockSize = 512;
+        expect(exportTakeAsWavFile(take, target, options));
+        juce::AudioFormatManager formats;
+        formats.registerBasicFormats();
+        const std::unique_ptr<juce::AudioFormatReader> reader(formats.createReaderFor(target));
+        expect(reader != nullptr);
+        if (reader == nullptr) {
+            return;
+        }
+        const auto samples = static_cast<int>(reader->lengthInSamples);
+        juce::AudioBuffer<float> offline(2, samples);
+        expect(reader->read(offline.getArrayOfWritePointers(), 2, 0, samples));
+        RecordingEngine recording;
+        AudioEngine engine;
+        engine.setRecordingEngine(&recording);
+        engine.prepareToPlay(512, 48000.0);
+        juce::AudioBuffer<float> block(2, 512);
+        for (int i = 0; i < AudioEngine::calculateWarmupBlockCount(48000.0, 512); ++i) {
+            const juce::AudioSourceChannelInfo info(&block, 0, 512);
+            engine.getNextAudioBlock(info);
+        }
+        recording.startPlayback(take, 48000.0);
+        engine.preparePlaybackResources();
+        double maximumDifference = 0.0;
+        double energy = 0.0;
+        for (int start = 0; start < samples; start += 512) {
+            const auto count = std::min(512, samples - start);
+            const juce::AudioSourceChannelInfo info(&block, 0, count);
+            engine.getNextAudioBlock(info);
+            for (int channel = 0; channel < 2; ++channel) {
+                for (int sample = 0; sample < count; ++sample) {
+                    const auto value = static_cast<double>(block.getSample(channel, sample));
+                    maximumDifference
+                        = std::max(maximumDifference, std::abs(value - offline.getSample(channel, start + sample)));
+                    energy += value * value;
+                }
+            }
+        }
+        expect(energy > 1e-4, "comparison must contain performed audio");
+        expect(maximumDifference <= 3.1e-5, "full piano output must agree within 16-bit quantization");
+    }
+};
+
+static PianoSnapshotWavParityTest pianoSnapshotWavParityTest;

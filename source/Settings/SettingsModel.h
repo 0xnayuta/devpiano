@@ -64,6 +64,8 @@ struct SettingsModel {
         // Mechanical action noise and physical imperfection (Phase 32-A/C)
         float pedalNoiseLevel = 0.6f;
         float feltAgeingAmount = 0.0f;
+        bool stretchTuningEnabled = true;
+        float duplexResonance = 0.15f;
     };
 
     struct PluginRecoverySettingsView {
@@ -109,7 +111,8 @@ struct SettingsModel {
     // Mechanical action noise and physical imperfection (Phase 32-A/C)
     float pedalNoiseLevel = 0.6f;
     float feltAgeingAmount = 0.0f;
-
+    bool stretchTuningEnabled = true;
+    float duplexResonance = 0.15f;
     // Persisted ,UI recovery state.
     juce::String pluginSearchPath;
     juce::String lastPluginIdentifier;
@@ -183,7 +186,9 @@ struct SettingsModel {
                  .reverbSpace = reverbSpace,
                  .reverbWet = reverbWet,
                  .pedalNoiseLevel = pedalNoiseLevel,
-                 .feltAgeingAmount = feltAgeingAmount };
+                 .feltAgeingAmount = feltAgeingAmount,
+                 .stretchTuningEnabled = stretchTuningEnabled,
+                 .duplexResonance = duplexResonance };
     }
 
     void applyPerformanceSettingsView(const PerformanceSettingsView& view) {
@@ -206,6 +211,8 @@ struct SettingsModel {
         reverbWet = view.reverbWet;
         pedalNoiseLevel = view.pedalNoiseLevel;
         feltAgeingAmount = view.feltAgeingAmount;
+        stretchTuningEnabled = view.stretchTuningEnabled;
+        duplexResonance = view.duplexResonance;
     }
     [[nodiscard]] PluginRecoverySettingsView getPluginRecoverySettingsView() const {
         return { .pluginSearchPath = pluginSearchPath, .lastPluginIdentifier = lastPluginIdentifier };
@@ -256,6 +263,8 @@ struct SettingsModel {
             reverbWet = other.reverbWet;
             pedalNoiseLevel = other.pedalNoiseLevel;
             feltAgeingAmount = other.feltAgeingAmount;
+            stretchTuningEnabled = other.stretchTuningEnabled;
+            duplexResonance = other.duplexResonance;
             pluginSearchPath = other.pluginSearchPath;
             lastPluginIdentifier = other.lastPluginIdentifier;
             lastActivePresetId = other.lastActivePresetId;

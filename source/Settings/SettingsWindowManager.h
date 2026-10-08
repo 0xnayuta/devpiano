@@ -36,6 +36,7 @@ public:
     void closeAsync();
     void saveAndClose();
     void showFor(MainComponent& owner);
+    void refreshAcousticControls();
 
 private:
     struct State;

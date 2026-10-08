@@ -86,6 +86,8 @@ WavExportOptions buildWavExportOptions(const devpiano::recording::RecordingTake&
     options.lidPosition = performance.lidPosition;
     options.pedalNoiseLevel = performance.pedalNoiseLevel;
     options.feltAgeingAmount = performance.feltAgeingAmount;
+    options.stretchTuningEnabled = performance.stretchTuningEnabled;
+    options.duplexResonance = juce::jlimit(0.0f, 1.0f, performance.duplexResonance);
     return options;
 }
 

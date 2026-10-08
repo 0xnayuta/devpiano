@@ -33,6 +33,8 @@ const char* kKeyReverbSpace = "reverbSpace";
 const char* kKeyReverbWet = "reverbWet";
 const char* kKeyPedalNoiseLevel = "pedalNoiseLevel";
 const char* kKeyFeltAgeingAmount = "feltAgeingAmount";
+const char* kKeyStretchTuningEnabled = "stretchTuningEnabled";
+const char* kKeyDuplexResonance = "duplexResonance";
 const char* kKeyRecentFiles = "recentFiles";
 const char* kKeyMainWindowWidth = "mainWindowWidth";
 const char* kKeyMainWindowHeight = "mainWindowHeight";
@@ -94,7 +96,10 @@ void readPerformanceSettings(juce::PropertiesFile& file, SettingsModel& model) {
         .pedalNoiseLevel
         = juce::jlimit(0.0f, 1.0f, static_cast<float>(file.getDoubleValue(kKeyPedalNoiseLevel, model.pedalNoiseLevel))),
         .feltAgeingAmount = juce::jlimit(
-            0.0f, 1.0f, static_cast<float>(file.getDoubleValue(kKeyFeltAgeingAmount, model.feltAgeingAmount)))
+            0.0f, 1.0f, static_cast<float>(file.getDoubleValue(kKeyFeltAgeingAmount, model.feltAgeingAmount))),
+        .stretchTuningEnabled = file.getBoolValue(kKeyStretchTuningEnabled, model.stretchTuningEnabled),
+        .duplexResonance
+        = juce::jlimit(0.0f, 1.0f, static_cast<float>(file.getDoubleValue(kKeyDuplexResonance, model.duplexResonance)))
     };
 
     const auto looksLikeCorruptedZeroState = performance.masterGain == 0.0f && performance.adsrAttack == 0.0f
@@ -116,6 +121,7 @@ void readPerformanceSettings(juce::PropertiesFile& file, SettingsModel& model) {
     performance.pianoBrightness = juce::jlimit(0.0f, 1.0f, performance.pianoBrightness);
     performance.pianoHammerHardness = juce::jlimit(0.0f, 1.0f, performance.pianoHammerHardness);
     performance.pianoResonance = juce::jlimit(0.0f, 1.0f, performance.pianoResonance);
+    performance.duplexResonance = juce::jlimit(0.0f, 1.0f, performance.duplexResonance);
 
     model.applyPerformanceSettingsView(performance);
 }
@@ -344,6 +350,8 @@ bool SettingsStore::writeNow(const SettingsModel& m) {
     f.setValue(kKeyReverbWet, m.reverbWet);
     f.setValue(kKeyPedalNoiseLevel, m.pedalNoiseLevel);
     f.setValue(kKeyFeltAgeingAmount, m.feltAgeingAmount);
+    f.setValue(kKeyStretchTuningEnabled, m.stretchTuningEnabled);
+    f.setValue(kKeyDuplexResonance, m.duplexResonance);
     f.setValue(kKeyPluginSearchPath, m.pluginSearchPath);
     f.setValue(kKeyLastPluginIdentifier, m.lastPluginIdentifier);
     if (m.knownPluginListState) {

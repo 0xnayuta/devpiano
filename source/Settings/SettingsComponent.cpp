@@ -70,7 +70,10 @@ void SettingsComponent::buildJiveUi() {
         instrumentFilterToggle = viewHost.find<juce::ToggleButton>("instrument-filter-toggle");
         sustainPolicyCombo = viewHost.find<juce::ComboBox>("sustain-policy-combo");
         languageCombo = viewHost.find<juce::ComboBox>("language-combo");
+        pianoStyleCombo = viewHost.find<juce::ComboBox>("piano-style-combo");
         lidPositionCombo = viewHost.find<juce::ComboBox>("lid-position-combo");
+        stretchTuningToggle = viewHost.find<juce::ToggleButton>("stretch-tuning-toggle");
+        duplexResonanceSlider = viewHost.find<juce::Slider>("duplex-resonance-slider");
         touchCurveCombo = viewHost.find<juce::ComboBox>("touch-curve-combo");
         temperamentCombo = viewHost.find<juce::ComboBox>("temperament-combo");
         referencePitchSlider = viewHost.find<juce::Slider>("reference-pitch-slider");
@@ -318,6 +321,20 @@ void SettingsComponent::wireLocaleAndActionControls() {
 }
 
 void SettingsComponent::wireAcousticControls() {
+    if (pianoStyleCombo != nullptr) {
+        rebuildPianoStyleCombo();
+        updatePianoStyleComboFromModel();
+        pianoStyleCombo->onChange = [this] {
+            if (isApplyingStyle) {
+                return;
+            }
+            const int selectedId = pianoStyleCombo->getSelectedId();
+            if (selectedId >= 2) {
+                const auto style = static_cast<devpiano::audio::PianoStyle>(selectedId - 1);
+                applyPianoStyle(style);
+            }
+        };
+    }
     if (lidPositionCombo != nullptr) {
         rebuildLidPositionCombo();
         if (model != nullptr) {
@@ -325,6 +342,34 @@ void SettingsComponent::wireAcousticControls() {
         }
         lidPositionCombo->onChange
             = [this] { editingState.setProperty("lidPosition", lidPositionCombo->getSelectedId(), nullptr); };
+    }
+    if (stretchTuningToggle != nullptr) {
+        stretchTuningToggle->setToggleable(true);
+        stretchTuningToggle->setClickingTogglesState(true);
+        if (model != nullptr) {
+            stretchTuningToggle->setToggleState(model->stretchTuningEnabled, juce::dontSendNotification);
+        }
+        stretchTuningToggle->onStateChange = [this] {
+            if (isApplyingStyle) {
+                return;
+            }
+            editingState.setProperty("stretchTuningEnabled", stretchTuningToggle->getToggleState(), nullptr);
+        };
+    }
+    if (duplexResonanceSlider != nullptr) {
+        duplexResonanceSlider->setRange(0.0, 1.0, 0.01);
+        duplexResonanceSlider->setSliderStyle(juce::Slider::LinearHorizontal);
+        duplexResonanceSlider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 55, 20);
+        duplexResonanceSlider->setNumDecimalPlacesToDisplay(2);
+        if (model != nullptr) {
+            duplexResonanceSlider->setValue(model->duplexResonance, juce::dontSendNotification);
+        }
+        duplexResonanceSlider->onValueChange = [this] {
+            if (isApplyingStyle) {
+                return;
+            }
+            editingState.setProperty("duplexResonance", static_cast<float>(duplexResonanceSlider->getValue()), nullptr);
+        };
     }
     if (touchCurveCombo != nullptr) {
         rebuildTouchCurveCombo();
@@ -438,8 +483,21 @@ void SettingsComponent::syncEditingStateFromModel() {
         editingState.setProperty("sustainPolicy", 1 + static_cast<int>(model->sustainPolicy), nullptr);
     }
     if (lidPositionCombo != nullptr) {
+        lidPositionCombo->setSelectedId(1 + static_cast<int>(model->lidPosition), juce::dontSendNotification);
         editingState.setProperty("lidPosition", 1 + static_cast<int>(model->lidPosition), nullptr);
     }
+    if (stretchTuningToggle != nullptr) {
+        stretchTuningToggle->setToggleState(model->stretchTuningEnabled, juce::dontSendNotification);
+        editingState.setProperty("stretchTuningEnabled", model->stretchTuningEnabled, nullptr);
+    }
+    if (duplexResonanceSlider != nullptr) {
+        duplexResonanceSlider->setValue(model->duplexResonance, juce::dontSendNotification);
+        editingState.setProperty("duplexResonance", model->duplexResonance, nullptr);
+    }
+    editingState.setProperty("pianoBrightness", model->pianoBrightness, nullptr);
+    editingState.setProperty("pianoHammerHardness", model->pianoHammerHardness, nullptr);
+    editingState.setProperty("pianoResonance", model->pianoResonance, nullptr);
+    updatePianoStyleComboFromModel();
     if (touchCurveCombo != nullptr) {
         editingState.setProperty("touchVelocityCurve", 1 + static_cast<int>(model->touchVelocityCurve), nullptr);
     }
@@ -462,6 +520,7 @@ void SettingsComponent::syncEditingStateFromModel() {
         editingState.setProperty("pedalNoiseLevel", model->pedalNoiseLevel, nullptr);
     }
     if (feltAgeingSlider != nullptr) {
+        feltAgeingSlider->setValue(model->feltAgeingAmount * 100.0f, juce::dontSendNotification);
         editingState.setProperty("feltAgeingAmount", model->feltAgeingAmount, nullptr);
     }
     editingState.setProperty("languageCode", model->languageCode, nullptr);
@@ -531,6 +590,87 @@ void SettingsComponent::rebuildLidPositionCombo() {
     lidPositionCombo->addItem(TRANS("Full Open"), 1 + static_cast<int>(SettingsModel::LidPosition::fullOpen));
     lidPositionCombo->addItem(TRANS("Half Stick"), 1 + static_cast<int>(SettingsModel::LidPosition::halfStick));
     lidPositionCombo->addItem(TRANS("Closed"), 1 + static_cast<int>(SettingsModel::LidPosition::closed));
+}
+void SettingsComponent::rebuildPianoStyleCombo() {
+    if (pianoStyleCombo == nullptr) {
+        return;
+    }
+    pianoStyleCombo->clear(juce::dontSendNotification);
+    pianoStyleCombo->addItem(TRANS("Custom"), 1 + static_cast<int>(devpiano::audio::PianoStyle::custom));
+    pianoStyleCombo->addItem(TRANS("Standard"), 1 + static_cast<int>(devpiano::audio::PianoStyle::standard));
+    pianoStyleCombo->addItem(TRANS("Bright"), 1 + static_cast<int>(devpiano::audio::PianoStyle::bright));
+    pianoStyleCombo->addItem(TRANS("Warm"), 1 + static_cast<int>(devpiano::audio::PianoStyle::warm));
+    pianoStyleCombo->addItem(TRANS("Intimate"), 1 + static_cast<int>(devpiano::audio::PianoStyle::intimate));
+    pianoStyleCombo->addItem(TRANS("Vintage"), 1 + static_cast<int>(devpiano::audio::PianoStyle::vintage));
+}
+
+void SettingsComponent::updatePianoStyleFromModel() {
+    const juce::ScopedValueSetter<bool> styleGuard(isApplyingStyle, true);
+    syncEditingStateFromModel();
+}
+
+void SettingsComponent::updatePianoStyleComboFromModel() {
+    if (pianoStyleCombo == nullptr || model == nullptr) {
+        return;
+    }
+    const devpiano::audio::PianoStyleParameters currentParams { .brightness = model->pianoBrightness,
+                                                                .hammerHardness = model->pianoHammerHardness,
+                                                                .resonance = model->pianoResonance,
+                                                                .stretchTuningEnabled = model->stretchTuningEnabled,
+                                                                .duplexResonance = model->duplexResonance,
+                                                                .lidPosition
+                                                                = static_cast<std::uint8_t>(model->lidPosition),
+                                                                .feltAgeingAmount = model->feltAgeingAmount };
+    const auto style = devpiano::audio::identifyPianoStyle(currentParams);
+    pianoStyleCombo->setSelectedId(1 + static_cast<int>(style), juce::dontSendNotification);
+}
+
+void SettingsComponent::applyPianoStyle(devpiano::audio::PianoStyle style) {
+    if (model == nullptr || style == devpiano::audio::PianoStyle::custom) {
+        return;
+    }
+
+    const auto* params = devpiano::audio::getPianoStyleParameters(style);
+    if (params == nullptr) {
+        return;
+    }
+    const juce::ScopedValueSetter<bool> styleGuard(isApplyingStyle, true);
+
+    model->pianoBrightness = params->brightness;
+    model->pianoHammerHardness = params->hammerHardness;
+    model->pianoResonance = params->resonance;
+    model->stretchTuningEnabled = params->stretchTuningEnabled;
+    model->duplexResonance = params->duplexResonance;
+    model->lidPosition = static_cast<SettingsModel::LidPosition>(params->lidPosition);
+    model->feltAgeingAmount = params->feltAgeingAmount;
+
+    if (lidPositionCombo != nullptr) {
+        lidPositionCombo->setSelectedId(1 + static_cast<int>(model->lidPosition), juce::dontSendNotification);
+    }
+    if (stretchTuningToggle != nullptr) {
+        stretchTuningToggle->setToggleState(model->stretchTuningEnabled, juce::dontSendNotification);
+    }
+    if (duplexResonanceSlider != nullptr) {
+        duplexResonanceSlider->setValue(model->duplexResonance, juce::dontSendNotification);
+    }
+    if (feltAgeingSlider != nullptr) {
+        feltAgeingSlider->setValue(model->feltAgeingAmount * 100.0f, juce::dontSendNotification);
+    }
+
+    editingState.removeListener(this);
+    editingState.setProperty("pianoBrightness", model->pianoBrightness, nullptr);
+    editingState.setProperty("pianoHammerHardness", model->pianoHammerHardness, nullptr);
+    editingState.setProperty("pianoResonance", model->pianoResonance, nullptr);
+    editingState.setProperty("stretchTuningEnabled", model->stretchTuningEnabled, nullptr);
+    editingState.setProperty("duplexResonance", model->duplexResonance, nullptr);
+    editingState.setProperty("lidPosition", 1 + static_cast<int>(model->lidPosition), nullptr);
+    editingState.setProperty("feltAgeingAmount", model->feltAgeingAmount, nullptr);
+    editingState.addListener(this);
+
+    setDirty(true);
+    if (onDisplaySettingsChanged) {
+        onDisplaySettingsChanged();
+    }
 }
 void SettingsComponent::rebuildTouchCurveCombo() {
     if (touchCurveCombo == nullptr) {
@@ -880,6 +1020,7 @@ bool SettingsComponent::applyDisplayProperty(const juce::Identifier& prop) {
         const int id = editingState[prop];
         if (id >= 1 && id <= 3) {
             model->lidPosition = static_cast<SettingsModel::LidPosition>(id - 1);
+            updatePianoStyleComboFromModel();
             return true;
         }
     }
@@ -926,6 +1067,32 @@ bool SettingsComponent::applyDisplayProperty(const juce::Identifier& prop) {
     }
     if (propName == "feltAgeingAmount") {
         model->feltAgeingAmount = juce::jlimit(0.0f, 1.0f, static_cast<float>(editingState[prop]));
+        updatePianoStyleComboFromModel();
+        return true;
+    }
+    if (propName == "stretchTuningEnabled") {
+        model->stretchTuningEnabled = (bool)editingState[prop];
+        updatePianoStyleComboFromModel();
+        return true;
+    }
+    if (propName == "duplexResonance") {
+        model->duplexResonance = juce::jlimit(0.0f, 1.0f, static_cast<float>(editingState[prop]));
+        updatePianoStyleComboFromModel();
+        return true;
+    }
+    if (propName == "pianoBrightness") {
+        model->pianoBrightness = juce::jlimit(0.0f, 1.0f, static_cast<float>(editingState[prop]));
+        updatePianoStyleComboFromModel();
+        return true;
+    }
+    if (propName == "pianoHammerHardness") {
+        model->pianoHammerHardness = juce::jlimit(0.0f, 1.0f, static_cast<float>(editingState[prop]));
+        updatePianoStyleComboFromModel();
+        return true;
+    }
+    if (propName == "pianoResonance") {
+        model->pianoResonance = juce::jlimit(0.0f, 1.0f, static_cast<float>(editingState[prop]));
+        updatePianoStyleComboFromModel();
         return true;
     }
     return false;

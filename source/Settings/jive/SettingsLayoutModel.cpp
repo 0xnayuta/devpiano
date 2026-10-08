@@ -252,11 +252,32 @@ juce::ValueTree makeAcousticsSectionTree() {
     auto content = flexColumn("acoustics-content");
     content.setProperty("padding", "0 0 0 16", nullptr);
 
-    // Row 1: Lid Position (ComboBox)
+    // Row 1: Piano Style (ComboBox)
+    auto styleCombo = node("ComboBox", "piano-style-combo");
+    styleCombo.setProperty("width", 300, nullptr);
+    styleCombo.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Piano Style:"), styleCombo, "piano-style-label"), nullptr);
+
+    // Row 2: Lid Position (ComboBox)
     auto lidCombo = node("ComboBox", "lid-position-combo");
     lidCombo.setProperty("width", 300, nullptr);
     lidCombo.setProperty("height", 24, nullptr);
     content.appendChild(settingRow(TRANS("Lid Position:"), lidCombo, "lid-position-label"), nullptr);
+
+    // Row 3: Stretch Tuning (Checkbox)
+    auto stretchToggle = node("Checkbox", "stretch-tuning-toggle");
+    stretchToggle.setProperty("text", TRANS("Stretch Tuning"), nullptr);
+    stretchToggle.setProperty("toggleable", true, nullptr);
+    stretchToggle.setProperty("toggle-on-click", true, nullptr);
+    stretchToggle.setProperty("width", 300, nullptr);
+    stretchToggle.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Stretch Tuning:"), stretchToggle, "stretch-tuning-label"), nullptr);
+
+    // Row 4: Duplex Resonance (Slider)
+    auto duplexSlider = node("Slider", "duplex-resonance-slider");
+    duplexSlider.setProperty("width", 300, nullptr);
+    duplexSlider.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Duplex Resonance:"), duplexSlider, "duplex-resonance-label"), nullptr);
 
     // Row 2: Touch Velocity Curve (ComboBox)
     auto curveCombo = node("ComboBox", "touch-curve-combo");

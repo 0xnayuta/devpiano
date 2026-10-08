@@ -107,7 +107,7 @@ public:
     }
 
     void runTest() override {
-        testRegionAndBoundaryParameters();
+        testPianoVoicing();
         testBasicRenderingAndHarmonics();
         testHammerAndTransientDynamics();
         testDecayAndUnisonBeating();
@@ -118,103 +118,7 @@ public:
     }
 
 private:
-    void testRegionAndBoundaryParameters() {
-        beginTest("region table boundaries");
-        {
-            // 88 键连续参数与单调性测试 (Phase 18-A/B)
-            expectEquals(PianoSynthVoice::partialCountForNote(21), 20, "A0 bottom note keeps 20 partials");
-            expectEquals(PianoSynthVoice::partialCountForNote(36), 20, "C2 keeps 20 partials");
-            expectEquals(PianoSynthVoice::partialCountForNote(60), 14, "C4 mid keeps 14 partials");
-            expectEquals(PianoSynthVoice::partialCountForNote(84), 8, "C6 high-mid keeps 8 partials");
-            expectEquals(PianoSynthVoice::partialCountForNote(108), 6, "C8 top note keeps 6 partials");
-
-            // 衰减时间单调递减
-            expect(PianoSynthVoice::decaySecondsForNote(21) > PianoSynthVoice::decaySecondsForNote(60),
-                   "A0 decay > C4 decay");
-            expect(PianoSynthVoice::decaySecondsForNote(60) > PianoSynthVoice::decaySecondsForNote(84),
-                   "C4 decay > C6 decay");
-            expect(PianoSynthVoice::decaySecondsForNote(84) > PianoSynthVoice::decaySecondsForNote(108),
-                   "C6 decay > C8 decay");
-            expectWithinAbsoluteError(PianoSynthVoice::decaySecondsForNote(21), 4.8f, 0.01f, "A0 decay 4.8s");
-            expectWithinAbsoluteError(PianoSynthVoice::decaySecondsForNote(108), 0.8f, 0.01f, "C8 decay 0.8s");
-
-            // Steinway B 刚性失谐曲线 (中低音下凹极小值)
-            // Steinway B 刚性失谐曲线 (含 Phase 22-C G2 缠弦下凹与琴桥断裂跃升)
-            expectWithinAbsoluteError(PianoSynthVoice::inharmonicityBForNote(21), 3.1e-4, 1e-6, "A0 B 3.1e-4");
-            expectWithinAbsoluteError(PianoSynthVoice::inharmonicityBForNote(43), 1.85e-4, 1e-6,
-                                      "G2 B 1.85e-4 (wound string dip on bass bridge)");
-            expectWithinAbsoluteError(PianoSynthVoice::inharmonicityBForNote(69), 8.5e-4, 1e-5, "A4 B 8.5e-4");
-            expectWithinAbsoluteError(PianoSynthVoice::inharmonicityBForNote(96), 4.0e-2, 1e-4, "C7 B 4.0e-2");
-
-            // 阻尼斜率单调平滑
-            expect(PianoSynthVoice::decayDampingCForNote(21) > PianoSynthVoice::decayDampingCForNote(108),
-                   "bass damping slope > treble");
-            expectWithinAbsoluteError(PianoSynthVoice::decayDampingCForNote(21), 0.38f, 0.01f, "A0 damping slope 0.38");
-            expectWithinAbsoluteError(PianoSynthVoice::decayDampingCForNote(108), 0.12f, 0.01f,
-                                      "C8 damping slope 0.12");
-
-            // 击弦比 d/L
-            expectWithinAbsoluteError(PianoSynthVoice::strikingPositionRatioForNote(36), 0.125f, 1e-3f, "C2 d/L 0.125");
-            expectWithinAbsoluteError(PianoSynthVoice::strikingPositionRatioForNote(96), 0.0625f, 1e-3f,
-                                      "C7 d/L 0.0625");
-
-            // 琴弦数量分区 (Mono 21~35 / Bi 36~47 / Tri 48~108)
-            const auto& pA0 = devpiano::audio::getNoteParams(21);
-            const auto& pC2 = devpiano::audio::getNoteParams(36);
-            const auto& pC4 = devpiano::audio::getNoteParams(60);
-            expectEquals(pA0.stringCount, 1, "A0 is monochord (1 string)");
-            expectEquals(pC2.stringCount, 2, "C2 is bichord (2 strings)");
-            expectEquals(pC4.stringCount, 3, "C4 is trichord (3 strings)");
-
-            // 微相位表合法性与非零色散
-            for (const auto& stringPhases : devpiano::audio::kOptPhaseTable) {
-                for (const auto phase : stringPhases) {
-                    expect(phase >= 0.0f && phase <= juce::MathConstants<float>::twoPi, "phase in [0, 2pi]");
-                }
-            }
-            expect(std::abs(devpiano::audio::kOptPhaseTable[0][0] - devpiano::audio::kOptPhaseTable[1][0]) > 0.01f,
-                   "strings have distinct initial phases for spatial dispersion");
-            expectWithinAbsoluteError(PianoSynthVoice::bodyWet(), 0.26f, 0.001f, "26% default body wet ratio");
-            expectWithinAbsoluteError(PianoSynthVoice::bodyWet(0.0f), 0.18f, 0.001f, "18% min body wet");
-            expectWithinAbsoluteError(PianoSynthVoice::bodyWet(1.0f), 0.34f, 0.001f, "34% max body wet");
-            expectEquals(PianoSynthVoice::resonatorCount(), 16, "16 body resonators");
-            expectWithinAbsoluteError(PianoSynthVoice::resonatorSpec(0).frequency, 48.0f, 0.1f, "peak 0 freq 48 Hz");
-            expectWithinAbsoluteError(PianoSynthVoice::resonatorSpec(1).frequency, 68.0f, 0.1f, "peak 1 freq 68 Hz");
-            expectWithinAbsoluteError(PianoSynthVoice::resonatorSpec(2).frequency, 95.0f, 0.1f, "peak 2 freq 95 Hz");
-            expectWithinAbsoluteError(PianoSynthVoice::resonatorSpec(13).frequency, 1850.0f, 0.1f,
-                                      "peak 13 Bridge Hill 1850 Hz");
-            expectWithinAbsoluteError(PianoSynthVoice::resonatorSpec(15).frequency, 2250.0f, 0.1f,
-                                      "peak 15 top freq 2250 Hz");
-            auto leftWeight = 0.0f;
-            auto rightWeight = 0.0f;
-            for (auto i = 0; i < PianoSynthVoice::resonatorCount(); ++i) {
-                leftWeight += PianoSynthVoice::resonatorSpec(i).weightLeft;
-                rightWeight += PianoSynthVoice::resonatorSpec(i).weightRight;
-            }
-            expectWithinAbsoluteError(leftWeight, 1.0f, 1e-5f, "left resonator weights sum to exactly 1.0");
-            expectWithinAbsoluteError(rightWeight, 1.0f, 1e-5f, "right resonator weights sum to exactly 1.0");
-        }
-
-        beginTest("bridge break scale voicing jump at G2/G#2 (Phase 22-C)");
-        {
-            for (int note = 21; note <= 108; ++note) {
-                const auto& params = devpiano::audio::getNoteParams(note);
-                if (note <= 43) {
-                    expect(params.isBassBridge, "note " + juce::String(note) + " belongs to bass long bridge");
-                } else {
-                    expect(!params.isBassBridge, "note " + juce::String(note) + " belongs to main tenor/treble bridge");
-                }
-                expect(params.inharmonicityB > 0.0 && params.inharmonicityB < 0.2,
-                       "inharmonicity B is strictly bounded and physical");
-            }
-
-            const auto& g2Params = devpiano::audio::getNoteParams(43);
-            const auto& gSharp2Params = devpiano::audio::getNoteParams(44);
-
-            expect(gSharp2Params.inharmonicityB > g2Params.inharmonicityB * 1.30,
-                   "G#2 (MIDI 44) inharmonicity B must exhibit +30%+ jump compared to G2 (MIDI 43) due to scale break");
-        }
-
+    void testPianoVoicing() {
         beginTest("piano parameters shape the tone");
         {
             const auto midF4 = PianoSynthVoice::partialFrequency(60, 3);
@@ -368,20 +272,10 @@ private:
         beginTest("inharmonicity overtone frequency shift (stiff-string physics)");
         {
             const auto f0 = juce::MidiMessage::getMidiNoteInHertz(36);
-            const auto b = PianoSynthVoice::inharmonicityBForNote(36);
-            expectWithinAbsoluteError(b, 2.22e-4, 1e-5, "note 36 B coefficient");
-
-            const auto expectedF5 = 5.0 * f0 * std::sqrt(1.0 + 25.0 * b);
-            const auto actualF5 = PianoSynthVoice::partialFrequency(36, 4);
-            expectWithinAbsoluteError(actualF5, expectedF5, 1e-4, "5th partial frequency formula");
-            expect(actualF5 > 5.0 * f0 + 0.6, "5th partial is shifted up by > 0.6 Hz (stiff string)");
-
-            const auto expectedF7 = 7.0 * f0 * std::sqrt(1.0 + 49.0 * b);
-            const auto actualF7 = PianoSynthVoice::partialFrequency(36, 6);
-            expectWithinAbsoluteError(actualF7, expectedF7, 1e-4, "7th partial frequency formula");
-            expect(actualF7 > 7.0 * f0 + 2.0, "7th partial is shifted up by > 2.0 Hz in bass region");
-
+            const auto actualF7
+                = PianoSynthVoice::partialFrequency(36, 6, devpiano::audio::Temperament::equal, 440.0, false);
             VoiceFixture fixture;
+            fixture.voice()->setPianoTuning(false, 0.0f);
             juce::AudioBuffer<float> buffer(1, analysisWindow);
             fixture.noteOnBlock(36, 0.9f, buffer);
 
@@ -396,6 +290,7 @@ private:
         {
             VoiceFixture fixture;
             fixture.voice()->setPianoParameters(0.5f, 0.5f, 1.0f);
+            fixture.voice()->setPianoTuning(true, 0.0f);
             constexpr auto totalSeconds = 20.0;
             constexpr auto totalSamples = static_cast<int>(totalSeconds * kSampleRate);
             juce::AudioBuffer<float> stream(1, totalSamples);
@@ -404,7 +299,7 @@ private:
             auto rendered = 0;
             {
                 juce::MidiBuffer midi;
-                midi.addEvent(juce::MidiMessage::noteOn(1, 36, 0.9f), 0);
+                midi.addEvent(juce::MidiMessage::noteOn(1, 33, 0.9f), 0);
                 fixture.synth.renderNextBlock(stream, midi, 0, blockSize);
                 rendered += blockSize;
             }
@@ -416,13 +311,14 @@ private:
             }
             expect(fixture.voice()->isVoiceActive(), "voice must still be active at 20 s");
 
-            const auto f0 = PianoSynthVoice::partialFrequency(36, 0);
+            const auto f0 = PianoSynthVoice::partialFrequency(33, 0);
             auto complexDft = [](const juce::AudioBuffer<float>& buffer, int start, int count, double frequency) {
                 auto real = 0.0;
                 auto imag = 0.0;
                 for (auto i = 0; i < count; ++i) {
                     const auto window = 0.5 * (1.0 - std::cos(juce::MathConstants<double>::twoPi * i / (count - 1)));
-                    const auto angle = juce::MathConstants<double>::twoPi * frequency * i / kSampleRate;
+                    const auto angle = juce::MathConstants<double>::twoPi * frequency
+                        * (static_cast<double>(start) + static_cast<double>(i)) / kSampleRate;
                     const auto value = buffer.getSample(0, start + i) * window;
                     real += value * std::cos(angle);
                     imag -= value * std::sin(angle);
@@ -437,7 +333,7 @@ private:
             expect(std::abs(x1) > 1e-6, "early window fundamental energy present");
             expect(std::abs(x2) > 1e-7, "late window fundamental energy still measurable");
 
-            const auto phaseDelta = std::arg(x2) - std::arg(x1);
+            const auto phaseDelta = std::remainder(std::arg(x2) - std::arg(x1), juce::MathConstants<double>::twoPi);
             const auto deltaT = static_cast<double>(window2Start - window1Start) / kSampleRate;
             const auto measuredFreq = f0 + phaseDelta / (juce::MathConstants<double>::twoPi * deltaT);
             expectWithinAbsoluteError(measuredFreq, f0, 1e-4 * f0,
@@ -930,9 +826,11 @@ private:
 
             const auto& tailBlock = fixture.renderBlock(buffer);
             expect(peakMagnitude(tailBlock) > 0.0f, "release tail still rings");
-            for (auto block = 0; block < 19; ++block) {
+            const auto releaseBlocks = static_cast<int>(2.0 * kSampleRate / blockSize) + 1;
+            for (auto block = 0; block < releaseBlocks && fixture.voice()->isVoiceActive(); ++block) {
                 fixture.renderBlock(buffer);
             }
+            fixture.renderBlock(buffer);
             expect(peakMagnitude(buffer) == 0.0f, "tail must converge to silence");
             expect(!fixture.voice()->isVoiceActive(), "voice must clear itself after release");
         }
@@ -953,7 +851,8 @@ private:
             trebleFixture.noteOnBlock(96, 0.8f, trebleBuffer);
             trebleFixture.synth.noteOff(1, 96, 0.8f, true);
 
-            for (auto block = 0; block < 20; ++block) {
+            const auto releaseBlocks = static_cast<int>(2.0 * kSampleRate / blockSize) + 1;
+            for (auto block = 0; block < releaseBlocks && bassFixture.voice()->isVoiceActive(); ++block) {
                 bassFixture.renderBlock(bassBuffer);
             }
             expect(!bassFixture.voice()->isVoiceActive(), "voice clears after damper transient finishes");

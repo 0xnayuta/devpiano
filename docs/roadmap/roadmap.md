@@ -16,7 +16,7 @@ devpiano 是一款基于 JUCE 的现代 C++ 电脑键盘钢琴应用，聚焦软
 - 旧配置系统 -> `ApplicationProperties` / `ValueTree` / 项目内状态模型。
 - 旧 fallback 简单发声 -> 覆盖 7 大声学子系统的自主研发增强物理建模钢琴音源（`PianoSynthVoice`）。
 
-**近期重点：Phase 37 物理建模调律与被动共鸣校准** [规划已确认，待实施]，先明确频率语义与声学基线，再推进拉伸调律、Duplex 和风格预设；Phase 38 按一次性变换契约、三踏板、双手键区、固定双层的顺序后继推进。详细任务、依赖与直接验收见 [`current-iteration.md`](current-iteration.md)。Phase 36 已完成并 [归档](../archive/phase36-development-overhead-reduction-and-legacy-compatibility-deprecation.md)，AUDIT-004 实机补验边界独立保留。
+**近期交付：Phase 37 物理建模调律与被动共鸣校准** [已完成，2026-10-08]：第一分音锚定、受约束拉伸、被动 Duplex 与可保存风格已贯通真实 UI、预设、Take、实时与 WAV，Windows Debug 软件门禁与消费者完成；≤0.7% CPU SLA 不由本轮 Debug 数据认证。下一实施入口为 Phase 38 Task 38-1 的一次性输入/录制变换契约，详细排期与直接证据见 [`current-iteration.md`](current-iteration.md)。Phase 36 已 [归档](../archive/phase36-development-overhead-reduction-and-legacy-compatibility-deprecation.md)，AUDIT-004 实机补验继续独立保留。
 
 ---
 
@@ -352,7 +352,7 @@ Phase 35 原计划与完成勾选见 [完成计划归档](../archive/phase35-key
 
 开发期减负与 YAGNI 协作契约已固化于 `AGENTS.md`，自有格式已切换为当前预设 v2 / 演奏 v3，历史数据迁移分支与死代码已彻底清除，低价值测试已按行为风险完成剪枝。现行 13 本特性文档、架构说明、验收标准及指南已全面对齐当前代码事实，系统性消除了硬编码易变统计度量（断言数/用例数/代码行数/编译秒数），各分册中的重复“当前状态”与历史阶段括号已统一收敛指向 roadmap，严格维持历史审计与归档原貌不变。Task 36-1 至 36-5 闭环完成，完整任务与分步验证记录见 [Phase 36 完成归档](../archive/phase36-development-overhead-reduction-and-legacy-compatibility-deprecation.md)。
 
-### Phase 37：物理建模调律与被动共鸣校准（Piano Tuning & Passive Resonance Calibration）[规划已确认，待实施]
+### Phase 37：物理建模调律与被动共鸣校准（Piano Tuning & Passive Resonance Calibration）[已完成，2026-10-08]
 
 深化现有增强模态钢琴，以实际频率、被动共鸣、音色与实时成本为验收对象，不以“声学巅峰”或与商业产品微观机理一致作为交付承诺：
 
@@ -362,7 +362,7 @@ Phase 35 原计划与完成勾选见 [完成计划归档](../archive/phase35-key
 4. **Task 37-4：可保存的钢琴风格预设**：补齐风格所需声学字段，提供经真实音频和试听区分的参数化风格，不将未标定的 Upright/Fortepiano 型号复刻包装成旋钮快照；
 5. **Task 37-5：实时、录制与离线集成**：设置、普通预设、Take 快照、实时和内置 WAV 消费同一有效声学配置，验证采样级切换、原发音身份与实时预算。
 
-**完成边界**：实际第一分音和选定音程指标符合约定；Duplex 不自激且可旁路；风格保存/恢复后实际音色有效；Windows Debug 消费者证明实时/内置 WAV 语义与产品自有实时契约。现有 2.0 秒 WAV 尾音截断边界保留，不承诺全部自然尾音。详细排期与验收见 [当前迭代 Phase 37](current-iteration.md#2-phase-37物理建模调律与被动共鸣校准)。
+**直接交付**：实际 A4/分音对校准、未踩踏板的有界 Duplex、五种参数化风格与真实 Save As/重启音色恢复、整段非零 wet 快照实时/WAV 对照及原身份释放已验证；离线混响初始状态不再污染起音。Windows Debug app/tests、默认 CTest、格式和全量 tidy 通过，零堆/对应锁与库三角观察有正调用自检。现有 2.0 秒 WAV 截断边界保留；未执行 Release 或 ≤0.7% CPU 认证，硬件/厂商补验不外推。完整任务与证据见 [当前迭代 Phase 37](current-iteration.md#2-phase-37物理建模调律与被动共鸣校准)。
 
 ### Phase 38：电脑键盘分区、三踏板控制与固定双层演奏（Keyboard Zones, Three-Pedal Control & Fixed Dual Layer）[规划已确认，待实施]
 

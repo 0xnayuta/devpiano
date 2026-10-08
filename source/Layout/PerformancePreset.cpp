@@ -282,6 +282,9 @@ juce::var performancePresetToVar(const PerformancePreset& preset) {
     // --- acoustics ---
     {
         juce::DynamicObject::Ptr aco = new juce::DynamicObject();
+        aco->setProperty("brightness", preset.brightness);
+        aco->setProperty("hammerHardness", preset.hammerHardness);
+        aco->setProperty("resonance", preset.resonance);
         aco->setProperty("lidPosition", static_cast<int>(preset.lidPosition));
         aco->setProperty("touchVelocityCurve", static_cast<int>(preset.touchVelocityCurve));
         aco->setProperty("unaCorda", preset.unaCorda);
@@ -295,6 +298,8 @@ juce::var performancePresetToVar(const PerformancePreset& preset) {
         aco->setProperty("reverbWet", preset.reverbWet);
         aco->setProperty("pedalNoiseLevel", preset.pedalNoiseLevel);
         aco->setProperty("feltAgeingAmount", preset.feltAgeingAmount);
+        aco->setProperty("stretchTuningEnabled", preset.stretchTuningEnabled);
+        aco->setProperty("duplexResonance", preset.duplexResonance);
         root->setProperty("acoustics", juce::var(aco));
     }
 
@@ -413,6 +418,24 @@ std::optional<PerformancePreset> performancePresetFromVar(const juce::var& v) {
     auto acVar = obj->getProperty("acoustics");
     if (acVar.isObject()) {
         if (auto* aco = acVar.getDynamicObject()) {
+            if (aco->hasProperty("brightness")) {
+                const auto val = static_cast<double>(aco->getProperty("brightness"));
+                if (std::isfinite(val)) {
+                    preset.brightness = juce::jlimit(0.0f, 1.0f, static_cast<float>(val));
+                }
+            }
+            if (aco->hasProperty("hammerHardness")) {
+                const auto val = static_cast<double>(aco->getProperty("hammerHardness"));
+                if (std::isfinite(val)) {
+                    preset.hammerHardness = juce::jlimit(0.0f, 1.0f, static_cast<float>(val));
+                }
+            }
+            if (aco->hasProperty("resonance")) {
+                const auto val = static_cast<double>(aco->getProperty("resonance"));
+                if (std::isfinite(val)) {
+                    preset.resonance = juce::jlimit(0.0f, 1.0f, static_cast<float>(val));
+                }
+            }
             if (aco->hasProperty("lidPosition")) {
                 const auto val = static_cast<int>(aco->getProperty("lidPosition"));
                 preset.lidPosition = static_cast<SettingsModel::LidPosition>(juce::jlimit(0, 2, val));
@@ -450,6 +473,15 @@ std::optional<PerformancePreset> performancePresetFromVar(const juce::var& v) {
             if (aco->hasProperty("feltAgeingAmount")) {
                 preset.feltAgeingAmount
                     = juce::jlimit(0.0f, 1.0f, static_cast<float>(aco->getProperty("feltAgeingAmount")));
+            }
+            if (aco->hasProperty("stretchTuningEnabled")) {
+                preset.stretchTuningEnabled = static_cast<bool>(aco->getProperty("stretchTuningEnabled"));
+            }
+            if (aco->hasProperty("duplexResonance")) {
+                const auto val = static_cast<double>(aco->getProperty("duplexResonance"));
+                if (std::isfinite(val)) {
+                    preset.duplexResonance = juce::jlimit(0.0f, 1.0f, static_cast<float>(val));
+                }
             }
         }
     }

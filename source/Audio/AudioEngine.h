@@ -47,6 +47,13 @@ public:
     void setMasterGain(float newGain);
     void setAdsr(float attackSeconds, float decaySeconds, float sustainLevel, float releaseSeconds);
     void setPianoParameters(float brightness, float hammerHardness, float resonance);
+    void setPianoTuning(bool stretchTuningEnabled, float duplexResonance);
+    [[nodiscard]] bool isStretchTuningEnabled() const noexcept {
+        return pendingStretchTuningEnabled.load(std::memory_order_relaxed);
+    }
+    [[nodiscard]] float getDuplexResonance() const noexcept {
+        return pendingDuplexResonance.load(std::memory_order_relaxed);
+    }
     enum class LidPosition : std::uint8_t {
         fullOpen = 0,
         halfStick = 1,
@@ -245,6 +252,8 @@ private:
     std::atomic<float> pendingBrightness { 0.5f };
     std::atomic<float> pendingHammerHardness { 0.5f };
     std::atomic<float> pendingResonance { 0.5f };
+    std::atomic<bool> pendingStretchTuningEnabled { true };
+    std::atomic<float> pendingDuplexResonance { 0.15f };
     std::atomic<float> pendingAttack { 0.01f };
     std::atomic<float> pendingDecay { 0.2f };
     std::atomic<float> pendingSustain { 0.8f };
@@ -266,7 +275,8 @@ private:
         noiseParameter = 1U << 10,
         feltParameter = 1U << 11,
         transposeParameter = 1U << 12,
-        allParameters = (1U << 13) - 1,
+        tuningParameter = 1U << 13,
+        allParameters = (1U << 14) - 1,
     };
     std::atomic<std::uint32_t> pendingParameterMask { allParameters };
     std::atomic<std::uint8_t> pendingSoundPerspective { 0 };

@@ -1,5 +1,10 @@
 ## [Unreleased]
 
+### Added
+
+- **Calibrated Piano Tuning and Passive Duplex** — anchor the actual first partial to A4, add switchable model-specific octave stretch and bounded main-string-driven non-speaking resonators, and preserve the original note/channel through passive tails.
+- **Saved Acoustic Piano Styles** — provide Standard, Bright, Warm, Intimate, and Vintage settings, derive Custom from actual values, and persist tone, stretch, and Duplex controls across current presets, settings, Takes, and builtin WAV rendering without changing keyboard or plugin domains.
+
 ### Changed
 
 - **Current-Format Development Cutover** — require integer v2 presets and integer v3 native performance files, including metadata reads; remove name-based plugin/preset recovery, generated legacy identities, flat-root acoustic parsing, and the `hall` reverb alias. Preserve current defaults, permanent identities, and transactional file/session protection; retire obsolete compatibility fixtures and retain current-format safety regressions.
@@ -15,6 +20,8 @@
 - **Phase 36 Archive and Phase 37/38 Planning** — preserve the completed Phase 36 task and verification record, and revise the follow-on tasks, dependency schedule, and acceptance for piano tuning/passive resonance, keyboard zones, three-pedal control, and fixed dual-layer performance. This is a documentation-only change, not a runtime feature implementation.
 
 ### Fixed
+
+- **Matched Offline Reverb Startup** — submit initial wet/space values before preparing both offline paths, removing an audible onset mismatch; retain a production Piano snapshot callback/WAV regression within 16-bit quantization.
 
 - **Offline Snapshot Transposition Parity** — apply snapshot transposeOffset and channelFollowKeyMask during offline WAV export across builtin and VST3 renderers, achieving 1:1 pitch parity with realtime playback while preserving Note-off identity.
 - **Keyboard Pedal Documentation** — remove the incorrect claim that switching layout groups resets the soft pedal; retain the Panic reset contract without changing performance behavior.
