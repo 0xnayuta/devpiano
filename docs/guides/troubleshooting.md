@@ -81,6 +81,7 @@ sudo update-alternatives --set cc /usr/bin/clang-21
 **现象**：Ubuntu 26.04 本地 Debug 运行单测时 `JiveRenderTest` 报错渲染可见像素为 0。
 
 **原因与修复**：JUCE FreeType 字体扫描器仅匹配 `.ttf`/`.otf`，而 Ubuntu 26.04 的 `system-ui` 指向 Noto CJK `.ttc`。通过在 `~/.local/share/fonts` 建立 `.ttf` 镜像副本并 `fc-cache -f` 即可解决，详见 [`../issues/known-issues.md`](../issues/known-issues.md#ubuntu-2604-下-jive-文本不渲染juce-字体扫描不识别-ttcsystem-ui--noto-cjk)。
+
 ---
 
 ## MSVC 验证构建问题

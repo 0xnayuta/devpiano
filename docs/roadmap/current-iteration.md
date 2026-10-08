@@ -69,7 +69,6 @@ devpiano 为个人主导、持续演进的电脑键盘钢琴桌面应用，当�
 - **分配与视图证据**：Debug CRT hook 经主动分配校准，在双 buffer 预分配的短 MIDI、踏板按住/释放重击路径中观测到零分配，并逐事件核对通道、字节、采样点与顺序。生产 `StyleBootstrap` / LookAndFeel / `ViewHost` 的可见离屏布局与渲染已观察；这些有界场景不外推为全回调、完整主窗口业务接线或厂商插件认证。
 - **环境与验收边界**：真实用户目录前后文件清单与 SHA256 不变，私有临时输入与消费者脚本已清理。clangd 本轮出现部分文件缺失编译上下文与引用不完整，未计为全量诊断门禁；未在 WSL 构建/运行测试，未执行 Release、迭代边界全量 clang-tidy 或硬件/原生窗口全组合补验。
 
-
 ## 7. Task 36-4 同步依据与直接验证
 
 - **核对范围**：全量核对 `docs/reference/features/` 下全部 13 本现行特性分册，以及 `README.md`、`README_en.md`、`docs/README.md`、`docs/reference/` 核心分册、`docs/guides/`、`docs/issues/known-issues.md` 与 `docs/decisions/`。未修改 `docs/audit/` 或 `docs/archive/`。

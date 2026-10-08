@@ -56,7 +56,6 @@
 - [x] 120 BPM 4/4 一/两小节在完整 2/4 秒后的音频下拍开始；跨多拍 UI 轮询、块对齐、取消/重建与零轮询后立即控制均有消费者证据。
 - [x] CC67 先于和弦、新分配/偷声部/释放保留通道状态，连续值影响声学结果；原生 VST3 通道控制不改写。
 
-
 ## Phase 1-1：工程骨架可运行
 
 状态：已通过。
@@ -473,7 +472,6 @@
   - `WavExportTask` 完全非阻塞异步化（`startAsync`），主应用编译配置彻底移除 `JUCE_MODAL_LOOPS_PERMITTED=1`；
   - 全库字符串字面量 100% 达到 Strict 7-bit ASCII 铁律，删除 LookAndFeel 废弃 AlertWindow 绘制代码；
   - JUCE 9 原生 `createLegalFileName` 替换自造文件名过滤轮子，运行时配置目录统一为 `DevPiano`。
-
 
 ## Phase 35：键盘演奏表现力深水区与练琴基础设施
 

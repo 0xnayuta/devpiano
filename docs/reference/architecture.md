@@ -149,6 +149,7 @@ source/
 - **`source/Audio/MetronomeProcessor.h` / `source/Core/MetronomeModel.h`（Phase 35-A）**：
   - `MetronomeProcessor::processAndMix()` 在实时回调中合成无外部采样依赖的强弱拍；`TimeSignature` 支持 2/4、3/4、4/4、6/8，BPM 限幅 40–280，`TapTempoCalculator` 使用最近至多 3 个间隔的均值并在超时后重置；
   - 音量、拍号、开关与预备拍小节数由 `SettingsModel` 持久化；控制器停 callback 后预分配/arm，音频线程在完整一/两小节后的下拍启动，UI 轮询或后续用户命令只接管已经开始的会话。
+
 ---
 
 ### 3.3 Input（电脑键盘输入）

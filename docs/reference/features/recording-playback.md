@@ -60,8 +60,8 @@ MainComponent::timerCallback() (消息线程)
     └── AudioEngine::dispatchPendingDisplayEvents() ──► 驱动 MidiKeyboardState 及 UI 定时器
 ```
 
-
 ### 2.3 时间轴跳转与 A-B 循环
+
 - `TimelineBar` 使用 Take 采样点作为时间域，显示当前播放时间、总时长与 A/B 标记；点击或拖拽产生 Take-relative Seek；
 - **Seek 跨通道清理时序**：Seek 在下一个音频块边界重校准播放位置，并在新位置事件之前对全部 16 个 MIDI 通道依次注入 CC64 Off、CC120 All-Sound-Off 与 CC123 All-Notes-Off 清理事件；暂停或空闲状态下记录 Take-relative 目标采样位置，并请求音频线程在下一块清理当前发声；
 - **A/B 标记与循环时序**：A/B 标记以 Take 采样点保存，有效区间为半开区间 `[A, B)`；无效、倒置或空区间不会启用循环；
@@ -120,6 +120,7 @@ struct RecordingTake {
 - **事件过滤与显式流保持**：仅导出 `type == PerformanceEventType::midi` 且非 SysEx、非空的演奏消息，自动过滤 `presetChange` 事件与 SysEx。不调用 `updateMatchedPairs()`，避免为重复同音起音凭空插入额外 NoteOff；
 - **数值准入与范围校验**：校验采样率处于支持范围且长度可表示；PPQ 仅接受 `1 .. 32767`；转换 tick 前校验非负与有限性；写出前确认 JUCE `int` tick 与 MIDI 4 字节 VLQ delta 均可表示，非法范围拒绝写出并保留原目标；
 - **事务文件替换（TemporaryFile）**：先写入同目录 `TemporaryFile`，写入完成后 flush 并关闭输出流，校验状态成功后再调用 `overwriteTargetFileWithTemporary()` 原子替换目标文件。连续导出覆盖时确保完全替换为当前 Take 内容，不追加旧文件；取消、参数拒绝或替换失败均完整保留原目标字节并清理临时文件。
+
 ---
 
 ## 5. 专项手工与边界测试清单

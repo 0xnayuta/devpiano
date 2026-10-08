@@ -33,6 +33,7 @@
 4. **即时回退机制**：与 `SineSynthVoice`（正弦波合成器）共用 `juce::Synthesiser` 调度，支持一键切换与基准比对。
 
 **音色重建所有权**：`MainComponent::setBuiltinSynthTone()` 复用停设备守卫，先关闭 Editor 并等待已有音频 callback 退出，再调用 `AudioEngine::rebuildSynth()` 和提交活动 voice/roomReverb 参数；启动命令与再次启动的 `--piano` / `--sine` 走同一路径。普通参数 setter 仍只发布原子待提交值，由音频所有者或明确的停机 prepare 窗口消费，不把逐次 Synthesiser 内部锁视为整个重建的并发保护。
+
 ---
 
 ## 2. 7 大声学物理系统与 DSP 渲染架构
@@ -171,6 +172,7 @@
 ---
 
 ### 2.4 空间、机械与环境拟真系统（Cabinet, Air & Mechanical System）
+
 1. **16 通道踏板矩阵与交感共鸣系统（Pedal Matrix & Sympathetic Resonance）**：
    - **16 通道踏板物理隔离**：`BuiltinSynthesiser` 独立维护 16 个 MIDI 通道的踏板物理状态矩阵（CC64 延音 `sustainPedalByChannel`、CC66 保持音 `sostenutoPedalByChannel`、CC67 柔音 `softPedalByChannel`）；
    - 踩下 CC64 延音踏板时激活 12 半音全开放交感共鸣弦池，使演奏音符的泛音激发全琴未制音琴弦的共振；
@@ -237,9 +239,9 @@
 | **Felt Ageing（毛毡老化）** | `setFeltAgeingAmount` / `feltAgeingAmount` | 0.0 | 调节琴槌羊毛纤维磨损压实深度，注入微观穿透力与硬化质感（0..1） |
 | **Una Corda（弱音踏板）** | `setSoftPedalDown` / `softPedalDown` | false | 琴槌击弦机侧向位移，毛毡软化与三弦敲两弦声能衰减（MIDI CC 67，电平 0..1） |
 
-
 **声学快照与普通预设配置子集**：
 `PerformancePreset`（Schema v2）仅持久化声学配置子集（`acoustics` 节点下包含 `lidPosition`、`touchVelocityCurve`、`unaCorda`、`temperament`、`referencePitchA4`、`soundPerspective`、`reverbSpace`、`reverbWet`、`pedalNoiseLevel`、`feltAgeingAmount`，不包含基础音色 `builtinTone`、主增益 `masterGain`、ADSR 包络与琴槌物理参数 `brightness` / `hammerHardness` / `resonance`）。可选字段缺失时使用当前默认值，不代表历史版本兼容迁移。演奏录制与离线渲染所用的 `AcousticSnapshot`（以及 `WavExportOptions`）则维护完整的发声与包络参数。
+
 ### 4.2 古典微调律制与基准音高（`TemperamentEngine`）
 
 ```cpp
@@ -261,6 +263,7 @@ void setSoundPerspective(devpiano::audio::SoundPerspective perspective) noexcept
 - **琴盖状态（`LidPosition`）**：`fullOpen`（全开）、`halfStick`（半开）、`closed`（闭盖）；
 - **声学视角（`SoundPerspective`）**：`player`（演奏者视角）、`audience`（听众视角）；
 - **环境混响（`RoomReverbEngine`）**：C++ 枚举为 `devpiano::audio::ReverbSpace::{studio, chamber, concertHall}`，对应持久化标识 `studio`、`chamber`、`concert_hall`；名义空间时间常数分别为 0.6s、1.5s、2.4s。未知标识（含旧 `hall`）回退 `chamber`，`reverbWet` 范围 `[0,1]`，旁路条件见上方混响机制。
+
 ### 4.4 Velocity 动态双映射与 ADSR 门控
 
 - **响度响应**：$v^{1.5} = v \cdot \sqrt{v}$ 幂次曲线，强化弱奏（$pp$）细腻度；

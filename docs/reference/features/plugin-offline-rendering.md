@@ -51,6 +51,7 @@ WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
    - 内置合成器通过切片视图 `segmentAudioBuffer` 映射主缓冲区 `segStart` 偏移，以局部区间直接调用 `renderNextBlock(segmentAudioBuffer, midi, 0, segLen)`；
    - 离线 VST3 插件使用私有中转缓冲 `pluginBuffer`（尺寸 `segLen`，起始偏移始终为 0），由 `offlinePlugin.processBlock(pluginBuffer, midi)` 完成计算后，再按通道拓扑安全拷贝至主缓冲切片 `segmentOutputBuffer`，杜绝非零偏移污染第三方插件内部索引；
 3. **Master 端处理拓扑**：在每个子分段内，立体声混响（`roomReverb.processStereo`）与增益（`applyGain(currentMasterGain)`）首先作用于分段音频；整块的所有分段计算完毕后，统一在 Master 端通过 `applyMasterSoftLimiter(outputBuffer, numSamples)` 执行防爆音软限制，最后写入临时 WAV 文件。
+
 ---
 
 ## 3. 核心机制与关键技术细节
@@ -65,6 +66,7 @@ WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
    - 导出任务的取消（`requestCancellation()`）完全基于原子标志 `cancelRequested` 协作推进，在每个音频块循环边界与 writer 关闭后进行检查；
    - 若劣质第三方插件在单次 `processBlock()` 内部发生永久死锁或极其缓慢的计算，后台线程无法安全强杀（Win32 `TerminateThread` 会破坏互斥量与 CRT 堆，已被彻底移除），任务将协作等待该调用返回；
    - 应用退出时，`MainComponent` 保持消息循环等待导出线程正常退出，`WavExportTask` 析构与 `runSync()` 采用无限等待兜底，确保第三方实例资源释放时宿主堆完全稳定。
+
 ### 3.2 共享渲染管线（`RenderPipeline`）
 
 `source/Recording/RenderPipeline.cpp` 通过 `prepareRenderTimeline()` 返回完整时间线或失败；内置和插件路径均在创建目录、临时文件及 writer 前完成数值准入：

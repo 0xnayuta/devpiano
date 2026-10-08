@@ -129,7 +129,6 @@
 - **预设与绑定合法性校验**：落盘与加载时，校验全部 `presetChange` 事件的 `presetId` 均在 `take.presets` 范围内；校验全部内嵌预设绑定的触发动作为 `keyDown`（显式 keyUp 或未知动作拒绝保存与加载）；
 - **乱序规范化与时间域独立**：当前格式的乱序事件在准入时通过 `std::stable_sort` 稳定规范化时间线，同采样事件保留原语义顺序；文件准入的音频采样率范围与通用播放器内部的测试时间域独立，不以窄化测试掩盖真实设备范围。
 
-
 ## 3. 播放速度精确控制（Speed Control）
 
 在 `source/Recording/RecordingEngine.cpp` 中实现了线程安全的倍速回放调度器：
@@ -149,6 +148,7 @@ $$R = \frac{f_{\text{device}}}{f_{\text{take}} S}, \qquad t_{\text{playback}} = 
    Take 采样率与 A/B 标记不变，避免反复切速丢失取整余量。
 3. **保留事件游标**：纯变速不调用 `resetPlaybackEventCursor()`、不重放已交付起音；Seek/回跳才重新定位事件并恢复目的通道状态。
 4. **显式清音边界**：Seek/A-B 回跳按采样点向 16 通道注入 CC64(0)、CC120(0) 与 All-Notes-Off；活动 Stop 在块入口优先于待提交 Seek/变速。
+
 ---
 
 ## 4. 专项手工与边界测试清单

@@ -52,6 +52,7 @@
 >
 > **跟进计划**：
 > - 针对重型 UI 测试单元，后续可在测试架构重构时按需精细化拆分子测试套件，降低单个编译单元的符号规模。
+
 ### Linux/X11 窗口大小锁定（Resizable 开关）在框架层失效
 
 > **现状与成因**：
@@ -128,13 +129,11 @@
 - **回归线索**：Editor 打开时重扫；持续 callback 中 --piano/--sine；缩放取整重播旧 On 或漏 Off；循环被消息线程 Stop 改游标；超过旧超时后取消提前回调/释放；重复拖入报无类型；同名效果被误载为乐器。
 - **证据与边界**：`AUDIT-001 THR-004`、`AUDIT-002 THR-001`、`known-issues §2/Phase 6-2 播放速度控制`、`THR-002`、`QUAL-014/015`、`ARCH-002` 的直接程序/资源/窗口与复建输入见 [Phase C 实施记录](../archive/audit-004-code-quality-fix-phases.md#phase-c-实施记录与直接验证2026-10-03)。冷路径 GPU 后台句柄单列，不用进程总数增量直接定性业务泄漏；不关闭 Phase D/E 其他契约。
 
-
 ### 测试 fixture 的 NRVO 依赖、用户目录副作用与默认 Chord 漏跑
 
 - **修复**：`AudioEngineTest` 的返回工厂不再携带自引用指针，调用者就地绑定 live buffer；删除默认日志/预设目录探针，文件测试复用 `ScopedTempDir`；Chord 注册为 `DevPiano/Core`，不扩展 runner 白名单。
 - **回归线索**：禁可选 NRVO 后渲染失败；默认测试改变真实诊断日志或创建预设目录；Chord 单独补跑通过但默认日志缺失其子测试。
 - **关联**：`AUDIT-004:TEST-001`、`AUDIT-004:TEST-002`、原 `AUDIT-002:TEST-014`；Windows Debug 直接验证及可复建配方见 [Phase 0 实施记录](../archive/audit-004-code-quality-fix-phases.md#phase-0-实施记录与直接验证2026-10-02)。原审计报告保留基线，不将这些修复外推为其余实时/并发风险已消除。
-
 
 ### 已有文件保护、Take 绑定与设置快照一致性
 
@@ -322,6 +321,7 @@
 - **修复**：通过 `dialog->getContentComponent()` 获取实际内容指针并包装为 `juce::Component::SafePointer` 传入模态完成回调。
 - **回归线索**：点击弹窗右上角 X 按钮关闭后，业务侧临时状态未还原、`onCancel` 丢失。
 - **关联**：`JiveModalDialog.cpp`，`JiveModalDialogTest.cpp`。
+
 ---
 
 ## 3. 环境说明

@@ -9,6 +9,7 @@
 固定 MIDI 样本与程序化构建的隔离临时输入共同提供可复建的导入、导出、准入和回放边界；临时文件由 ScopedTempDir 管理，不以真实用户文件作探针。
 
 ## 2. 自动化单元测试集成
+
 在当前项目中，这些 fixture 与自动化测试体系紧密配合：
 - `source/tests/MidiFileImporterTest.cpp`：自动化加载 `simple-notes.mid`、`velocity-channel.mid`、`sustain-pedal.mid`、`multitrack-basic.mid`、`tempo-change-basic.mid`、`empty.mid` 与 `invalid.mid`，验证 Track 解析、通道映射、Meta 事件过滤与异常防御；
 - `source/tests/PerformanceFileTest.cpp`：程序化构建当前 `.devpiano` Schema v3 输入，验证内嵌快照表往返、非当前版本拒绝、文件/会话保护与异常防御；事务读写使用隔离临时目录，不保留历史静态格式样本。

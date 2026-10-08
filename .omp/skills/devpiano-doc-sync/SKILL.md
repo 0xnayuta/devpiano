@@ -79,11 +79,13 @@ description: 对 devpiano 项目执行代码与 Markdown 文档的一致性审�
 ## 3. 标准执行流程 (Five-Step Workflow)
 
 ### Step 1: 增量与代码基线探测 (Code Survey)
+
 1. 检查最近提交日志与变更范围：`git log -20 --oneline`、`git diff --stat <base-commit>..HEAD`；
 2. 梳理本阶段在各模块引入的核心演进（如 DSP 拓扑、设置模型、预设 JSON 字段、UI 控件、离线渲染与新增测试）；
 3. 记录新增或重构的核心类名、函数签名与状态枚举。
 
 ### Step 2: 现行文档扫描与落后点定位 (Doc Audit)
+
 1. 对照 Step 1 的代码事实，逆向检索相关文档；
 2. 重点排查：
    - 特性文档是否依然停留在旧 Phase 成果的陈旧表述；
@@ -93,16 +95,19 @@ description: 对 devpiano 项目执行代码与 Markdown 文档的一致性审�
    - 测试表格是否覆盖了新增的测试套件。
 
 ### Step 3: 精确编辑与防漂移平滑对齐 (Editing & Alignment)
+
 1. 使用项目专用工具小步编辑，严格遵守 **7-bit ASCII** 编码规范（中文标点在引号内除外，严禁在英文上下文中引入不可见 Unicode 乱码）；
 2. 逐一将落后描述、过时结构图、缺失字段与测试表格更新至当前代码状态；
 3. 应用 §2 防漂移准则，剥离所有易变的测试断言数、用例项数与代码行数。
 
 ### Step 4: 质量门禁与回归验证 (Gate Verification)
+
 1. 执行代码与文档格式检查：`./scripts/dev.sh format --check`；
 2. 执行全量自动化单元测试：`./scripts/dev.sh test`；
 3. 确保文档更新过程中未意外误触任何业务代码或破坏构建。
 
 ### Step 5: 交付汇总与等待确认 (Report & Confirmation)
+
 1. 运行 `git status` 与 `git diff --stat` 确认修改范围；
 2. 向用户输出详尽的审计与对齐报告：
    - 识别出的关键代码演进与落后断层；

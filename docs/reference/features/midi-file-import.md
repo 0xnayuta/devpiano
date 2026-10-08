@@ -59,6 +59,7 @@ RecordingSession::commitImportedMidi() 成功后由控制器 startPlaybackAfterT
 - **智能通道分配**：支持 `passThrough`（原样保留通道）、`autoAssignIfSingleChannel`（单通道多轨自动分配 1-16 通道）与 `forceTrackToChannel`；
 - **全轨 Tempos 与全局元数据提取**：`extractGlobalMetadata()` 循环遍历**所有音轨**中的 Meta 事件，提取全部 Set Tempo 事件（`0x51`）并转换为 `MidiTempoEvent`（包含采样点、秒数与 BPM），按时间戳排序建立全局 `tempoMap`。同时计算出初始 BPM（`initialBpm`）、`minBpm` 与 `maxBpm`，并提取首个有效拍号（`0x58`）与调号（`0x59`）；导入路径不提供选轨模式；
 - **健壮性容错**：若文件所有轨道均无 Note 事件，安全返回空结果并向 Logger 输出警告，程序不崩溃且保留原 Take。
+
 ### 3.2 时间戳换算精度
 
 - 根据 MIDI 文件头定义的 PPQ（Pulses Per Quarter Note）与 Tempo（默认 120 BPM，或首个 Tempo 设定），结合当前音频设备的采样率（如 44.1 kHz / 48 kHz），将每个 MIDI 事件的 Tick 准确转换为绝对采样点 `timestampSamples`；
@@ -71,6 +72,7 @@ RecordingSession::commitImportedMidi() 成功后由控制器 startPlaybackAfterT
 部分 MIDI 文件的首个音符起始时间为 0s。为防止音频设备启动瞬间的清理用 All-Notes-Off 将 0s 音符误消除，`AudioEngine` 在启动导入回放前调用 `armPlaybackStartPreRoll()`，在首个可听 block 前插入微小静音预备区，确保首音 100% 完整清晰发声。
 
 ### 3.4 状态机互斥与按钮联动
+
 - **录制中（Recording / RecordingPaused）**：Import MIDI 按钮自动禁用，拖拽导入文件静默忽略并记录日志，防止录制与导入冲突；
 - **播放中（Playing / PlayingPaused）**：Import MIDI 按钮禁用；若通过拖拽导入，系统自动安全停止当前回放，重置发音状态，载入新 Take 并从头自动开始回放；
 - **导入成功后**：新 Take 自动开始回放，下列能力与正在播放时的按钮禁用状态须分开：
@@ -80,6 +82,7 @@ RecordingSession::commitImportedMidi() 成功后由控制器 startPlaybackAfterT
   - `Export MIDI` **始终保持 Disabled**，导入 Take 不二次导出 MIDI；
   - `Export WAV` 支持导入 Take，但在播放/暂停播放期间禁用；停止后可导出，不以“具备导出能力”描述为播放中按钮一直 Enabled；
   - `TimelineBar` 激活，显示 Take 总时长与当前播放时间，支持以采样点精确 Seek 与 Take-relative A/B 标记循环练习；若导入新文件，原有的 A-B 标记与 Seek 偏移自动清空重置。
+
 ### 3.5 元事件文本解码规则
 
 标准 MIDI 文件不携带字符集信息，历史文件的轨道名/标题可能使用本地编码（GBK/CP936）甚至被制作工具按 Latin-1 反复误读。`MidiTrackMergeEngine` 统一通过 `MidiTextDecoder` 解码文本元事件，按以下顺序回退：
@@ -106,6 +109,7 @@ RecordingSession::commitImportedMidi() 成功后由控制器 startPlaybackAfterT
   - `0x59`（调号）：必须恰好 2 字节负载，升降号范围 $[-7, +7]$，调式为 $0$（大调）或 $1$（小调）；
   - `0x20`（通道前缀）、`0x21`（MIDI 端口）必须为 1 字节；`0x2F`（End of Track）必须为 0 字节；`0x00`（序列号）必须为 0 或 2 字节；`0x54`（SMPTE 偏移）必须为 5 字节；
   - 畸形或截断 Meta 事件直接拒绝并输出错误诊断，保护框架层不崩溃。
+
 ### 3.7 时间轴 Seek 与 A-B 循环跟练规则
 
 导入的 MIDI Take 支持基于绝对采样点的无缝 Seek 与片段循环跟练：

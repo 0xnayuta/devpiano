@@ -310,6 +310,7 @@ source/
 *无 P0 缺陷。*
 
 ### 5.2 当前迭代处理（P1）
+
 - [x] `TEST-001`：在 `source/tests/TestHelpers.h` 引入 `ScopedMessageQueueFlush` 与 `drainMessages()`，并在 `TestRunner.cpp` 与各 UI 单测中增加循环泵送，消除 Linux 无头测试 socket 管道溢出断言（已闭环，2026-09-15 Phase A）。
 
 ### 5.3 近期排期（P2）
@@ -382,7 +383,6 @@ devpiano 项目代码质量与工程架构处于**优秀（A-）**状态。在�
   - `./scripts/dev.sh win-build`：通过（Windows MSVC 验证构建 100% 成功）。
 - 复审结论：Phase A 两个核心质量项（P1 + P2）已高标准闭环。
 
-
 ### 7.3 复审 2（2026-09-15，AUDIT-003 Phase B 底层架构解耦与解码性能微调）
 
 - 复审基线：`main` @ `dd6f708` + Phase B 改动
@@ -430,6 +430,7 @@ devpiano 项目代码质量与工程架构处于**优秀（A-）**状态。在�
   - `./scripts/dev.sh test`：通过（82 套件 432 子测试 602,138 断言全绿，0 失败）；
   - `./scripts/dev.sh win-build`：通过（Windows MSVC 验证构建 100% 成功）。
 - 复审结论：全量 19 项历史与本轮问题已 100% 闭环关闭（0 未处理、0 暂缓），AUDIT-003 终审达成 A+ 全面就绪。
+
 ---
 
 ## 8. 附录：问题总表（登记表）

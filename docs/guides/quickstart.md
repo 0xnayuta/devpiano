@@ -100,7 +100,6 @@ WSL 主工作树只用于编辑源码与刷新 `compile_commands.json`；构建�
 git submodule update --init --recursive
 ```
 
-
 ### 2. `juceaide` 子构建：CC flag 不识别
 
 **现象**：`./scripts/dev.sh wsl-build --configure-only` 失败，错误信息：

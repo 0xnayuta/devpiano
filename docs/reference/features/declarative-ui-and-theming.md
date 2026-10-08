@@ -114,7 +114,6 @@ Performance Preset 的 New、Rename、Delete 保持在上方，Export、Import�
 - `WavExportTask` 的独立 `ProgressContentWrapper` 使用相同测量与窗口入口，仍保留自己的后台线程、协作取消及完成收尾。系统文件选择器、第三方插件编辑器和独立取色弹层不套用本规则。
 - Windows 直接消费者验证中英窗口与 100%／150%／200% 内容缩放、长名称／多行消息、确认／取消、验证拒绝、按键捕获、Notes 及真实导出成功／协作取消。缩放只改变临时进程的 JUCE 比例；实际 HWND 系统 DPI 为 144，不冒称跨物理 DPI 显示器切换认证。
 
-
 ---
 
 ## 4. 设计系统 Token 与样式注入

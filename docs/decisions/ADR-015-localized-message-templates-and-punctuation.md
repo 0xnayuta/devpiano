@@ -104,4 +104,3 @@ auto message = TRANS("Delete preset \"{0}\"? This cannot be undone.").replace("{
 - OBS 实际 [英文资源](https://github.com/obsproject/obs-studio/blob/master/frontend/data/locale/en-US.ini)、[中文资源](https://github.com/obsproject/obs-studio/blob/master/frontend/data/locale/zh-CN.ini) 和 [调用处](https://github.com/obsproject/obs-studio/blob/master/frontend/widgets/OBSBasic_SceneCollections.cpp)：`ConfirmRemove.Text` 由 INI 完整资源查找，随后 `QTStr(...).arg(...)`；不是单纯 Qt `.ts` 机制。
 - [JUCE `String`](https://docs.juce.com/master/classjuce_1_1String.html) 与本地 `juce_LocalisedStrings.cpp` / `juce_String.cpp`：查表与替换是独立步骤。
 - [C++ 标准格式化说明](https://en.cppreference.com/w/cpp/utility/format/format.html)：编译期格式字符串与 `std::vformat` 运行时路径的区别。
-

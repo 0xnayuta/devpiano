@@ -206,7 +206,6 @@ int main() {
 
 **探针预置错误单列**：初次独立程序直接调用受保护 `DevPianoLogger::logMessage()` 未编译；随后发现 eval 的 shell-escape 转换污染了字符串中的 `= !...`，已报告工具问题，并改为上方公共 Logger 入口与显式 `exists() == false`。这些是探针/工具错误，不作为产品失败；EVID-003 只引用修正后实际运行结果。
 
-
 ### AUDIT-004 Phase A：已有用户数据保护与持久化一致性 [已完成，2026-10-02]
 
 **目标**：最先关闭会覆盖/删除原文件、回滚新设置或丢绑定编辑的路径。
@@ -2534,7 +2533,6 @@ PHASE_C_PROFILE_SCOPE_RESTORED=1
 PHASE_C_PRIVATE_FILES_CLEAN=1
 ```
 
-
 ### AUDIT-004 Phase D：发音身份与采样级 Transport 边界 [已完成，2026-10-04]
 
 **目标**：重叠同音、移调、pause、末尾、seek/loop、count-in、设备重建和踏板均有确定性语义。
@@ -3330,7 +3328,6 @@ PHASE_D_PROFILE_RESTORED=1
 PHASE_D_PRIVATE_FILES_CLEAN=1
 ```
 
-
 ### AUDIT-004 Phase E：预设永久身份与实时/离线执行闭包 [已完成，2026-10-04]
 
 **目标**：稳定预设身份与可执行快照同构消费，实时交换有界、无锁、无分配，完整回调 SLA 可观测。
@@ -3792,6 +3789,7 @@ PHASE_E_PROFILE_RESTORED=1
 PHASE_E_PRIVATE_FILES_CLEAN=1
 PHASE_E_VERIFICATION={"mode":"Smoke","buildDir":"G:\\source\\projects\\devpiano\\build-win-msvc\\audit004-phase0","exitCode":0,"userDirectory":"C:\\Users\\Admin\\AppData\\Roaming\\DevPiano","userDirectoryUnchanged":true,"privateTempDirectory":"C:\\Users\\Admin\\AppData\\Local\\Temp\\devpiano-phasee-2eee5e01e4474f40873ddae96db995cc","remainingTempEntries":0}
 ```
+
 ### AUDIT-004 Phase F：映射看板、交互与声学边界 [已完成，2026-10-05]
 
 **目标**：两个视图投影最终映射，鼠标输入不被输出反馈污染，UI 状态/输入及调律边界一致。
@@ -3811,7 +3809,6 @@ PHASE_E_VERIFICATION={"mode":"Smoke","buildDir":"G:\\source\\projects\\devpiano\
 | [x] | `QUAL-013` | P2 | 歌曲信息 Notes 继承只读 ListEditor。仅元数据Notes使用可编辑工厂/显式恢复输入能力，保留诊断列表只读；测试走生产ViewHost并注入用户键入。 | 生产 ViewHost 的 Notes 可键入/多行/保存，取消不改元数据；诊断 ListEditor 保持只读。 |
 | [x] | `QUAL-011` | P3 | MIDI 1至11的八度标注高一组。使用等价数学floor的MIDI八度换算，覆盖0/1/11/12边界和唱名偏移。 | MIDI0/1/11/12 标签为同一正确八度边界，唱名/单音 HUD 相符。 |
 | [x] | `known-issues §1/A4 基准音高范围与项目契约不一致` | P2 | A4实际410..450Hz未覆盖400..480Hz契约。以原已知项统一修正调律引擎、设置、预设与导出边界并测试两端；此前文档标注保持真实。 | 400..480 Hz 在引擎/设置/预设/导出同限幅，测试400/480端点和正常415/440/442参考。 |
-
 
 #### Phase F 实施记录与直接验证（2026-10-05）
 
@@ -5000,7 +4997,6 @@ PHASE_F_CUSTOM_STYLE expected=ffff00ff actual=ffff00ff unbound73_input=61 unboun
 | [x] | `ENG-001` | P2 | 编译零警告及全量 tidy 清零门禁不成立。逐项评估编译/静态诊断并小步修正，必要规则争议如实记录；禁止--fix自动改源码或压制未知风险。 | 项目编译警告与实际全量 tidy 诊断清零；唯一位点与框架输出分开计，默认缓存原失败/替代结果保留。 |
 | [x] | `TEST-003` | P3 | 测试存在译文/自证断言及未调用行为用例。删除copy-pinning/自证测试，不重新钉新文本/数值；保留语言机制和生产组件行为；接入确定性的真实生命周期用例。 | 删除译文/自证 oracle，生产语言机制保留；真正 lifecycle 方法被默认执行，不改成新的文案钉死。 |
 
-
 #### Phase G 实施记录与直接验证（2026-10-05）
 
 **基线与范围**：`5b8d907`（Phase F 本地交付）。仅本节 RES-001 / OBS-001 / CMPL-001 / CMPL-002 / ENG-001 / TEST-003；保留原 54 项 ID、优先级与历史审计证据，完成 53 项，Phase H 的 DOC-001 仍待开始。历史 AUDIT、ADR、archive 不回写；不改 scripts、CMake、静态规则或 submodules。
@@ -6165,7 +6161,6 @@ PHASE_G_VERIFICATION={"mode":"Smoke","label":"smoke","buildDir":"G:\\source\\pro
 | --- | --- | --- | --- | --- |
 | [x] | `DOC-001` | P3 | 现行行为说明含已被源码证伪的承诺。修复实现后按真实契约同步功能/手工验收；事实描述不另开CMPL；本轮不改任何既有文档。 | 预设调号/rename确认、MIDI轨与meta、日志轮转及插件/测试行为按已验证实现说明，不把计划写已完成。 |
 
-
 #### Phase H 实施记录与最终集成验收（2026-10-05）
 
 **代码基线**：`166c545`（Phase G 本地交付）。本次仅修改现行 Markdown，不修改业务源码、测试、配置、scripts 或 submodules；用户已明确授权 Phase H 同步文档并本地提交，未推送。原 DOC-001 修复目标中“本轮不改任何既有文档”保留只读审计原措辞，不限制此次已批准的实施；历史 AUDIT/ADR/archive 不回写。
@@ -6812,7 +6807,6 @@ void checkExamples(Scratch& scratch){
 }
 int main(){std::cout.setf(std::ios::unitbuf);try{juce::ScopedJuceInitialiser_GUI gui;Scratch scratch;auto profile=scratch.directory.getChildFile("profile");require(profile.createDirectory().wasOk(),"profile create failed");ProfileScope redirect(profile);require(juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)==profile,"profile not isolated");checkExamples(scratch);return 0;}catch(const std::exception& e){std::cerr<<"PHASE_H_EXAMPLE_ERROR="<<e.what()<<'\n';return 1;}}
 ```
-
 
 ##### Phase H 直接证据与最终门禁
 

@@ -351,6 +351,7 @@ Phase 35 原计划与完成勾选见 [完成计划归档](../archive/phase35-key
 ### Phase 36：开发期减负与历史兼容性收敛（Development Overhead Reduction & Legacy Compatibility Deprecation）[已完成，2026-10-07]
 
 开发期减负与 YAGNI 协作契约已固化于 `AGENTS.md`，自有格式已切换为当前预设 v2 / 演奏 v3，历史数据迁移分支与死代码已彻底清除，低价值测试已按行为风险完成剪枝。现行 13 本特性文档、架构说明、验收标准及指南已全面对齐当前代码事实，系统性消除了硬编码易变统计度量（断言数/用例数/代码行数/编译秒数），各分册中的重复“当前状态”与历史阶段括号已统一收敛指向 roadmap，严格维持历史审计与归档原貌不变。Task 36-1 至 36-5 闭环完成，完整记录见 [`current-iteration.md`](current-iteration.md)。
+
 ### Phase 37：物理建模声学巅峰（Railsback Octave Stretch Tuning & Duplex Scale Resonance）[规划中]
 
 在声学微观机理上对齐 Pianoteq 8/9，攻克琴弦刚度八度拉伸与高频空气感最后两座大山：

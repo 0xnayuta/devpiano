@@ -102,7 +102,6 @@ export WIN_MIRROR_DIR='G:\source\projects\devpiano'
 
 WSL 主工作树只负责源码编辑和 clangd 编译数据库；不要在此运行 `wsl-build` 完整构建、Release 构建或 `dev.sh test`。日常 Debug 构建与软件测试在 Windows 镜像树进行（Windows 单测命令见 [`quickstart.md`](quickstart.md)）。
 
-
 ### 2. 仅同步到 Windows 镜像树
 
 ```bash

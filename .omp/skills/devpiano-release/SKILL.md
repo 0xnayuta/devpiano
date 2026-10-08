@@ -58,6 +58,7 @@ description: devpiano 官方正式发布与打包工作流——智能对比上�
 ```
 
 ### 1.1 增量提交提取命令
+
 ```bash
 # 1. 获取上一个发布标签
 LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
@@ -71,6 +72,7 @@ fi
 ```
 
 ### 1.2 SemVer 自动推导决策表
+
 设上一个版本号为 `M.N.P`（如从 `v1.1.0` 提取为 `1.1.0`）：
 
 | 增量提交特征 | 推荐升级级别 | 推导公式 | 示例 (基准 1.1.0) |
@@ -82,6 +84,7 @@ fi
 > **用户覆盖规则**：若用户在输入中明确指定了版本（如 *“发布 v1.3.0”* 或 *“帮我打一个 patch 版本”*），则直接遵从用户意图，但仍执行后续的 Changelog 自动生成。
 
 ### 1.3 Keep a Changelog 起草规范
+
 根据增量提交前缀与内容，自动生成如下标准的 Markdown 块：
 
 ```markdown
@@ -129,6 +132,7 @@ Stage 6: 两步走安全推送门禁 (Push main ──► Wait CI Green ──�
 ---
 
 ### Stage 0: 增量分析与发布草稿智能生成
+
 1. 自动执行 `git describe --tags --abbrev=0` 定位 `LAST_TAG`；
 2. 分析 `LAST_TAG..HEAD` 范围内的所有提交类型与主体；
 3. 推导出推荐的 `VERSION = X.Y.Z` 与 `TAG = vX.Y.Z`；
@@ -136,6 +140,7 @@ Stage 6: 两步走安全推送门禁 (Push main ──► Wait CI Green ──�
 5. **向用户输出推导依据与草稿预览**。
 
 ### Stage 1: 用户审查确认与文件自动对齐
+
 1. 询问用户是否同意推荐的版本号与 Changelog 草稿内容；
 2. 收到用户确认后（或根据用户调整意见微调后）：
    - 使用 `edit` 工具将 `CMakeLists.txt` 中的 `project(devpiano VERSION ...)` 更新为 `VERSION`；
@@ -146,6 +151,7 @@ Stage 6: 两步走安全推送门禁 (Push main ──► Wait CI Green ──�
    ```
 
 ### Stage 2: 源码与分支预检
+
 在 WSL 主工作树中执行预检命令：
 ```bash
 git branch --show-current
@@ -157,6 +163,7 @@ git status --short
 - 确认 `submodules/JUCE/` 无修改且环境自检通过。
 
 ### Stage 3: Windows MSVC Release 纯净构建
+
 正式发布产物必须使用 Windows 镜像树的 MSVC **Release** 配置进行构建：
 ```bash
 # 常规生产构建
@@ -173,6 +180,7 @@ git status --short
 在推进打包前，向用户明确列出双平台手工冒烟验证步骤并**硬性阻断等待确认**：
 
 #### 4.1 Windows 手工冒烟测试
+
 - **产物位置**：`<WIN_MIRROR_DIR>\build-win-msvc-release\devpiano_artefacts\Release\DevPiano.exe`
 - **自检清单**：
   - [ ] 双击应用秒级启动，主窗口自适应居中；
@@ -183,6 +191,7 @@ git status --short
   - [ ] 退出应用无挂起、无崩溃提示。
 
 #### 4.2 Linux 本地构建与冒烟验证（可选但推荐）
+
 - **本地开发验证命令**：
   ```bash
   ./scripts/dev.sh wsl-build --release
@@ -197,6 +206,7 @@ git status --short
 > **确认闸门**：收到用户明确的冒烟测试通过回复后，方可进入 Stage 5。
 
 ### Stage 5: 本地自动化打包与校验和生成
+
 执行标准打包命令：
 ```bash
 # 1. Windows x64 默认打包（产物输出至 Windows 镜像目录 dist/v${VERSION}/）
@@ -217,6 +227,7 @@ git status --short
 为了彻底杜绝“带着编译错误或格式违规推 tag 导致发布坏包”的事故，必须严格遵循**两步推送法**：
 
 #### Step 6.1：提交版本文件并先行推送 main 分支
+
 ```bash
 git add CMakeLists.txt CHANGELOG.md
 git commit -m "chore(release): prepare release v${VERSION}"
@@ -224,12 +235,14 @@ git push origin main
 ```
 
 #### Step 6.2：【CI 绿灯阻断守卫】
+
 - 提示用户（或使用 `gh run list --branch main`）观察 GitHub Actions 主干 CI（`.github/workflows/ci.yml`）：
   - [ ] Linux Clang 单元测试与格式化检查通过；
   - [ ] Windows MSVC 纯净构建通过。
 - **必须在 main 分支 CI 全绿通过后，方可推进至 Step 6.3**。
 
 #### Step 6.3：Annotated Tag 创建与正式发布推送
+
 经用户明确授权后，创建并推送正式发布标签：
 ```bash
 # 1. 创建本地带注释 Git Tag
@@ -248,6 +261,7 @@ git push origin ${TAG}
 ## 3. 备用发布通道（CLI）与异常容灾策略
 
 ### 3.1 备用方案：GitHub CLI (`gh`) 本地直传发布
+
 若 GitHub Actions 因云端故障不可用，或需离线发布本地打包产物，可使用备用 CLI 通道：
 ```bash
 # 1. 创建 GitHub Release 并挂载 Windows 产物
@@ -264,6 +278,7 @@ gh release upload "${TAG}" \
 ```
 
 ### 3.2 异常容灾与修复细则（依据 release-workflow.md §9）
+
 - **场景 A：仅 zip / tar.gz / sha256 压缩打包或校验错误，源码与 Tag 完全正确**：
   - **严禁重新打 Tag**；
   - 重新执行打包，在 GitHub Release 页面编辑并直接替换对应的附件文件，在 release notes 末尾简要说明附件替换原因即可。

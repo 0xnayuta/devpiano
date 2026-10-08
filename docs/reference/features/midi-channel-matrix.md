@@ -67,6 +67,7 @@ struct PerChannelConfig {
    - 松键时，`sendNoteOff(identity, velocity, keyboardState)` 严格消费该快照注销发音；
    - **抗替换鲁棒性**：即使在按键按住期间动态修改了矩阵映射、八度偏移、调号，甚至运行时重新创建并替换了整个 `MidiChannelMapper` 实例，NoteOff 依然 100% 依据按下时的原始身份释放目标通道与音高，从根本上杜绝悬挂音；
 3. **输入通道边界防护**：`configForChannel` 对零基索引执行 `juce::jlimit(0, 15, inputChannel)`；负数钳到 0，超过上界钳到 15，不把所有越界输入都描述为通道 15。
+
 ---
 
 ## 4. 全局调号（Key Signature）系统
@@ -78,6 +79,7 @@ devpiano 在 `SettingsModel` 与 `AppState` 中维护全局调号：
 - **`midiTranspose` 开关**：
   - 当为 `true` 时，MIDI 输出音高随调号平移；
   - 当为 `false` 时，物理 MIDI 输出保持原调；仅在启用带调号唱名模式（`NoteDisplayMode::fixedDo`，计算公式为 `(noteIndex + keySignature) % 12`）时，虚拟钢琴键盘的唱名标签随调号变化（唱名移调但音高不移调模式）；绝对简谱唱名模式（`NoteDisplayMode::doReMi`）始终以 C=1 为绝对基准，不受全局调号影响。
+
 ### 4.2 按键跟随矩阵（Follow Key Grid）
 
 在设置面板（`SettingsLayoutModel`）中，提供了一个 **8 列 × 2 行的 JIVE CSS Grid 开关组**：
