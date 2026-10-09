@@ -21,6 +21,7 @@
 
 ### Fixed
 
+- **Continuous Duplex Release Tails** — retain shared lid and perspective filter state while passive resonance continues after the speaking string stops; prevent rendering-partition-dependent tail truncation while preserving immediate-stop and voice-reuse resets.
 - **Matched Offline Reverb Startup** — submit initial wet/space values before preparing both offline paths, removing an audible onset mismatch; retain a production Piano snapshot callback/WAV regression within 16-bit quantization.
 
 - **Offline Snapshot Transposition Parity** — apply snapshot transposeOffset and channelFollowKeyMask during offline WAV export across builtin and VST3 renderers, achieving 1:1 pitch parity with realtime playback while preserving Note-off identity.

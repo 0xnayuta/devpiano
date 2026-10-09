@@ -72,6 +72,25 @@ double centralPeak(const juce::AudioBuffer<float>& buffer, double rate, double r
     return bestFrequency;
 }
 
+juce::AudioBuffer<float> renderReleasedTail(int partition, float duplex, PianoSynthVoice::LidPosition lid,
+                                            PianoSynthVoice::SoundPerspective perspective) {
+    PianoFixture fixture(48000.0, false, duplex);
+    fixture.voice->setLidPosition(lid);
+    fixture.voice->setSoundPerspective(perspective);
+    fixture.synth.noteOn(2, 84, 0.5f);
+    juce::AudioBuffer<float> held(2, 6144);
+    fixture.render(held);
+    fixture.synth.noteOff(2, 84, 1.0f, true);
+
+    juce::AudioBuffer<float> released(2, 48000);
+    released.clear();
+    for (int offset = 0; offset < released.getNumSamples(); offset += partition) {
+        const auto count = std::min(partition, released.getNumSamples() - offset);
+        fixture.synth.renderNextBlock(released, {}, offset, count);
+    }
+    return released;
+}
+
 } // namespace
 
 class PianoTuningAndDuplexTest final : public juce::UnitTest {
@@ -122,6 +141,29 @@ public:
         wet.render(wetBlock);
         expectEquals(wetBlock.getMagnitude(0, wetBlock.getNumSamples()), 0.0f);
         expect(!wet.voice->isVoiceActive());
+
+        beginTest("Duplex release preserves shared output filters across rendering partitions");
+        for (const auto duplex : { 0.15f, 1.0f }) {
+            for (const auto lid : { PianoSynthVoice::LidPosition::fullOpen, PianoSynthVoice::LidPosition::closed }) {
+                for (const auto perspective :
+                     { PianoSynthVoice::SoundPerspective::player, PianoSynthVoice::SoundPerspective::audience }) {
+                    const auto reference = renderReleasedTail(1, duplex, lid, perspective);
+                    expectGreaterThan(reference.getMagnitude(0, 4096, 512), 1e-8f);
+                    for (const auto partition : { 64, 512, 1024 }) {
+                        const auto partitioned = renderReleasedTail(partition, duplex, lid, perspective);
+                        auto maxError = 0.0f;
+                        for (int channel = 0; channel < reference.getNumChannels(); ++channel) {
+                            for (int sample = 0; sample < reference.getNumSamples(); ++sample) {
+                                maxError = std::max(maxError,
+                                                    std::abs(reference.getSample(channel, sample)
+                                                             - partitioned.getSample(channel, sample)));
+                            }
+                        }
+                        expectWithinAbsoluteError(maxError, 0.0f, 1e-7f);
+                    }
+                }
+            }
+        }
 
         beginTest("Out-of-band duplex segments are bypassed rather than aliased or frequency-clamped");
         PianoFixture lowDry(8000.0, true, 0.0f);

@@ -673,6 +673,8 @@ public:
         auto isKeySounding = getCurrentlyPlayingNote() >= 0 && (adsrGate.isActive() || damperTransient.isActive());
         if (!isKeySounding && !isPedalActive && !duplexPool.isActive()) {
             if (getCurrentlyPlayingNote() >= 0) {
+                lidAcoustics.reset();
+                perspectiveProcessor.reset();
                 clearCurrentNote();
             }
             return;
@@ -689,8 +691,6 @@ public:
                 }
                 spruceSoundboardFilter.reset();
                 sympatheticPool.reset();
-                perspectiveProcessor.reset();
-                lidAcoustics.reset();
                 isKeySounding = false;
             }
             const auto duplexMix = duplexPool.nextMix();
@@ -851,12 +851,14 @@ public:
             if (!sympatheticPool.pedalDown) {
                 sympatheticPool.reset();
             }
-            lidAcoustics.reset();
-            perspectiveProcessor.reset();
         }
         if (getCurrentlyPlayingNote() >= 0 && !adsrGate.isActive() && !damperTransient.isActive()
             && !duplexPool.isActive()) {
             duplexPool.reset();
+            if (!pedalTransient.isActive() && !sympatheticPool.isShockActive()) {
+                lidAcoustics.reset();
+                perspectiveProcessor.reset();
+            }
             clearCurrentNote();
         }
     }
