@@ -131,7 +131,7 @@ source/
   - 负责双声道立体声与单声道平滑下混，保证单声道求和能量守恒。
 - **`source/Audio/RoomReverbEngine.h`（轻量数学算法房间混响网络，Phase 31-B）**：
   - 内置纯算法立体声混响引擎：每声道 8 组梳状滤波器与 4 级全通漫射滤波器构成 Schroeder-Moorer 网络；
-  - 内置 Studio（0.6s）、Chamber（1.5s）与 Concert Hall（2.4s）三大空间预设，平滑无级调节干湿比（`reverbWet`）。
+  - 内置 Studio（0.6 s）、Chamber（1.5 s）与 Concert Hall（2.4 s）三大空间预设，平滑无级调节干湿比（`reverbWet`）。
 - **`source/Audio/TemperamentEngine.h`（古典微调律制引擎，Phase 30）**：
   - 提供平均律（Equal）、1/4 中庸全音律（Meantone）、毕达哥拉斯律（Pythagorean）、韦克迈斯特三律（Werckmeister III）、基恩伯格三律（Kirnberger III）与纯律（Just）六大微律音分偏移换算；
   - A4 基准基频范围为 400.0 ~ 480.0 Hz（默认 440.0 Hz）；引擎、设置滑块、预设、Take 声学快照与内置离线渲染统一消费 `TemperamentEngine::clampReferencePitch()`。

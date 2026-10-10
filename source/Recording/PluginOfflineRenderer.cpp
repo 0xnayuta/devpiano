@@ -64,7 +64,7 @@ std::unique_ptr<juce::AudioPluginInstance> createOfflinePluginInstance(juce::Aud
     instance->reset();
 
     DP_LOG_INFO("[PluginOfflineRenderer] Offline instance created and prepared: " + description.name + " @ "
-                + juce::String(sampleRate) + "Hz, block=" + juce::String(blockSize));
+                + juce::String(sampleRate) + " Hz, block=" + juce::String(blockSize));
     return instance;
 }
 

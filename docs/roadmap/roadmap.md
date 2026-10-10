@@ -269,7 +269,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 ### Phase 31：多视角空间声学与算法混响（Multi-Perspective Spatial Acoustics & Algorithmic Room Modeling） [已完成，2026-09-13]
 
 1. **多视角立体声场（Player vs Audience Perspective）**：演奏者主观视角（宽立体声、左低右高）与观众/音乐厅远场客观反转视角的无爆音无锁平滑切换；
-2. **轻量数学算法房间混响网络**：内置 Studio（0.6s）、Chamber（1.5s）、Concert Hall（2.4s）三大经典空间预设，基于互质低通梳状滤波阵列与全通漫射矩阵，零外部采样依赖；
+2. **轻量数学算法房间混响网络**：内置 Studio（0.6 s）、Chamber（1.5 s）、Concert Hall（2.4 s）三大经典空间预设，基于互质低通梳状滤波阵列与全通漫射矩阵，零外部采样依赖；
 3. **JIVE 声学面板集成与预设联动**：在设置界面提供视角切换、空间模式选择器与混响电平滑块，并全面打通 SettingsStore 与 PerformancePreset 序列化及简体中文国际化。
 
 详细完成记录见 [`../archive/phase30-32-temperaments-spatial-mechanics.md`](../archive/phase30-32-temperaments-spatial-mechanics.md)。

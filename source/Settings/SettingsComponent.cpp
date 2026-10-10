@@ -450,7 +450,7 @@ void SettingsComponent::wireAcousticControls() {
         reverbWetSlider->setRange(0.0, 100.0, 1.0);
         reverbWetSlider->setSliderStyle(juce::Slider::LinearHorizontal);
         reverbWetSlider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 55, 20);
-        reverbWetSlider->setTextValueSuffix(" %");
+        reverbWetSlider->setTextValueSuffix("%");
         if (model != nullptr) {
             reverbWetSlider->setValue(model->reverbWet * 100.0f, juce::dontSendNotification);
         }
@@ -462,7 +462,7 @@ void SettingsComponent::wireAcousticControls() {
         pedalNoiseSlider->setRange(0.0, 100.0, 1.0);
         pedalNoiseSlider->setSliderStyle(juce::Slider::LinearHorizontal);
         pedalNoiseSlider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 55, 20);
-        pedalNoiseSlider->setTextValueSuffix(" %");
+        pedalNoiseSlider->setTextValueSuffix("%");
         if (model != nullptr) {
             pedalNoiseSlider->setValue(model->pedalNoiseLevel * 100.0f, juce::dontSendNotification);
         }
@@ -475,7 +475,7 @@ void SettingsComponent::wireAcousticControls() {
         feltAgeingSlider->setRange(0.0, 100.0, 1.0);
         feltAgeingSlider->setSliderStyle(juce::Slider::LinearHorizontal);
         feltAgeingSlider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 55, 20);
-        feltAgeingSlider->setTextValueSuffix(" %");
+        feltAgeingSlider->setTextValueSuffix("%");
         if (model != nullptr) {
             feltAgeingSlider->setValue(model->feltAgeingAmount * 100.0f, juce::dontSendNotification);
         }
@@ -1022,9 +1022,9 @@ void SettingsComponent::rebuildReverbSpaceCombo() {
         return;
     }
     reverbSpaceCombo->clear(juce::dontSendNotification);
-    reverbSpaceCombo->addItem(TRANS("Studio (0.6s)"), 1 + static_cast<int>(devpiano::audio::ReverbSpace::studio));
-    reverbSpaceCombo->addItem(TRANS("Chamber (1.5s)"), 1 + static_cast<int>(devpiano::audio::ReverbSpace::chamber));
-    reverbSpaceCombo->addItem(TRANS("Concert Hall (2.4s)"),
+    reverbSpaceCombo->addItem(TRANS("Studio (0.6 s)"), 1 + static_cast<int>(devpiano::audio::ReverbSpace::studio));
+    reverbSpaceCombo->addItem(TRANS("Chamber (1.5 s)"), 1 + static_cast<int>(devpiano::audio::ReverbSpace::chamber));
+    reverbSpaceCombo->addItem(TRANS("Concert Hall (2.4 s)"),
                               1 + static_cast<int>(devpiano::audio::ReverbSpace::concertHall));
 }
 

@@ -332,11 +332,11 @@ void MainComponent::wireControlsPanel() {
             handlePerformanceUiChanged();
         });
     };
-    wireAdsrKnob("attack-knob", 0.001, 2.0, 0.001, [](double v) { return juce::String(v, 3) + "s"; });
-    wireAdsrKnob("decay-knob", 0.001, 2.0, 0.001, [](double v) { return juce::String(v, 3) + "s"; });
+    wireAdsrKnob("attack-knob", 0.001, 2.0, 0.001, [](double v) { return juce::String(v, 3) + " s"; });
+    wireAdsrKnob("decay-knob", 0.001, 2.0, 0.001, [](double v) { return juce::String(v, 3) + " s"; });
     wireAdsrKnob("sustain-knob", 0.0, 1.0, 0.01,
                  [](double v) { return juce::String(static_cast<int>(std::lround(v * 100.0))) + "%"; });
-    wireAdsrKnob("release-knob", 0.001, 3.0, 0.001, [](double v) { return juce::String(v, 3) + "s"; });
+    wireAdsrKnob("release-knob", 0.001, 3.0, 0.001, [](double v) { return juce::String(v, 3) + " s"; });
 
     // ── piano tone row (Phase 12-3) ──
     const auto wirePianoKnob = [&wireKnob, this](const char* id, const std::function<juce::String(double)>& formatter) {

@@ -110,6 +110,8 @@ private:
             expect(lidCombo != nullptr);
             auto* curveCombo = dynamic_cast<juce::ComboBox*>(findComponentById(*rootItem, "touch-curve-combo"));
             expect(curveCombo != nullptr);
+            auto* reverbCombo = dynamic_cast<juce::ComboBox*>(findComponentById(*rootItem, "reverb-space-combo"));
+            expect(reverbCombo != nullptr);
 
             auto* pedalSlider = dynamic_cast<juce::Slider*>(findComponentById(*rootItem, "pedal-noise-slider"));
             expect(pedalSlider != nullptr);

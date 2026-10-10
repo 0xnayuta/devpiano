@@ -7,7 +7,7 @@
 /// RoomReverbEngineTest (Phase 31-B)
 ///
 /// Validates mathematical algorithmic room reverberation:
-/// 1. Preset decay scaling: Studio (0.6s) < Chamber (1.5s) < Concert Hall (2.4s).
+/// 1. Preset decay scaling: Studio (0.6 s) < Chamber (1.5 s) < Concert Hall (2.4 s).
 /// 2. Wet level scaling and zero-wet transparency bypass.
 /// 3. Numerical safety: denormal flushing to absolute zero, no NaN/Inf.
 /// 4. Sample rate invariance (44.1 kHz, 48 kHz, 96 kHz, 192 kHz).

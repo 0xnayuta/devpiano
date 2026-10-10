@@ -15,9 +15,9 @@ namespace devpiano::audio {
  * Reverb space presets for physical acoustic room modeling (Phase 31-B).
  */
 enum class ReverbSpace : std::uint8_t {
-    studio = 0, ///< Studio: compact space (RT60 ~ 0.6s), tight reflections, maximum dry note clarity.
-    chamber = 1, ///< Chamber: intimate hall (RT60 ~ 1.5s), warm wooden decay, balanced solo intimacy.
-    concertHall = 2 ///< Concert Hall: large auditorium (RT60 ~ 2.4s), spacious diffuse tail, high immersion.
+    studio = 0, ///< Studio: compact space (RT60 ~ 0.6 s), tight reflections, maximum dry note clarity.
+    chamber = 1, ///< Chamber: intimate hall (RT60 ~ 1.5 s), warm wooden decay, balanced solo intimacy.
+    concertHall = 2 ///< Concert Hall: large auditorium (RT60 ~ 2.4 s), spacious diffuse tail, high immersion.
 };
 
 /**
@@ -212,17 +212,17 @@ private:
     void updatePresetParameters() noexcept {
         switch (space) {
         case ReverbSpace::studio:
-            // RT60 ~ 0.6s: higher damping, faster decay
+            // RT60 ~ 0.6 s: higher damping, faster decay
             feedback = 0.76f;
             damping = 0.45f;
             break;
         case ReverbSpace::chamber:
-            // RT60 ~ 1.5s: balanced wood reflection
+            // RT60 ~ 1.5 s: balanced wood reflection
             feedback = 0.86f;
             damping = 0.28f;
             break;
         case ReverbSpace::concertHall:
-            // RT60 ~ 2.4s: high diffusion, long expansive tail
+            // RT60 ~ 2.4 s: high diffusion, long expansive tail
             feedback = 0.93f;
             damping = 0.18f;
             break;
