@@ -117,6 +117,8 @@ public:
         // setEnabled / setVisible affect live component
         expect(host.setEnabled("sample-btn", false));
         expect(host.setVisible("sample-btn", false));
+        expect(host.setButtonLabel("sample-btn", "[Group B]"));
+        expectEquals(host.getProperty("sample-btn", "title").toString(), juce::String("[Group B]"));
         auto* button = host.find<juce::Button>("sample-btn");
         expect(button != nullptr);
         if (button != nullptr) {

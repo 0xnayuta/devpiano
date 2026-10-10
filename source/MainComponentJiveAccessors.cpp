@@ -655,7 +655,8 @@ void MainComponent::updateQwertyVisualizer() {
     if (qwertyComponentRef != nullptr) {
         qwertyComponentRef->updateViewModel(snapshot);
     }
-    viewHost.setText("qwerty-group-btn", "[" + TRANS("Group") + " " + keyboardMidiMapper.getActiveGroup().name + "]");
+    viewHost.setButtonLabel("qwerty-group-btn",
+                            "[" + TRANS("Group") + " " + keyboardMidiMapper.getActiveGroup().name + "]");
     std::array<std::uint16_t, 2> regionChannels {};
     const auto collectChannels = [&](const auto& rows) {
         for (const auto& row : rows) {

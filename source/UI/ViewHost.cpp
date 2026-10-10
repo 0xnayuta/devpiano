@@ -232,6 +232,13 @@ bool ViewHost::setText(const juce::String& id, const juce::String& text) const {
     if (auto* item = findItem(id)) {
         item->state.setProperty("text", text, nullptr);
         item->state.setProperty("title", text, nullptr);
+        for (auto child : item->state) {
+            if (child.getType() == juce::Identifier("Text")) {
+                child.setProperty("text", text, nullptr);
+                child.setProperty("title", text, nullptr);
+                child.setProperty("word-wrap", "none", nullptr);
+            }
+        }
         return true;
     }
     return false;
