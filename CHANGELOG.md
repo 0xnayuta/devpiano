@@ -9,6 +9,10 @@
 
 ### Changed
 
+- **Sealed Acoustic Evidence and Research Feedback** — preserve original MIDI/WAV and reconstruction inputs in ignored local pianoteq9 archives, deposit portable reference results and provenance, and reconcile upstream claims with the Task 39-1 evidence. Exercise a read-only reference recomputation entrypoint while preserving production DSP and file-format boundaries.
+
+- **Traceable Piano Acoustic Baseline** — record a Windows Debug production-export baseline, fixed spectral/envelope definitions, decoded MIDI and artifact hashes, held-out observations, and conditional reference admission. Distinguish mixed unison peaks, amplitude/power fits, and unknown historical rendering settings without changing DSP, tuning constants, or file formats.
+
 - **Phase 37/38 Archive and Phase 39 Planning** — preserve completed tasks, acoustic baselines, consumer evidence, verification limits, and follow-on fixes; switch the active iteration to evidence admission, constrained inharmonicity calibration, three-velocity voicing, state/render integration, and realtime verification. Outline Phases 40–42 and repair historical evidence links without implementing new DSP or changing file formats.
 
 - **Current-Format Development Cutover** — require integer v2 presets and integer v4 native performance files, including metadata reads. Takes store final sounding identities; native playback and WAV/MIDI export no longer reapply input transposition or routing. Reject old event semantics without migration while preserving files and sessions.
