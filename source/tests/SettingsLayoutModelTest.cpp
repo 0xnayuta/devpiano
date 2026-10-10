@@ -125,6 +125,8 @@ private:
 
             auto* saveBtn = dynamic_cast<juce::Button*>(findComponentById(*rootItem, "save-button"));
             expect(saveBtn != nullptr);
+            auto* hintLabel = findComponentById(*rootItem, "group-override-hint-label");
+            expect(hintLabel != nullptr);
         }
     }
 

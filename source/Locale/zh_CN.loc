@@ -357,3 +357,6 @@ countries: cn
 "Partition mode is off. Group channel: {0}." = "分区已关闭。演奏组通道：{0}。"
 "Group channel {0} overrides both regions. A output: {1}; B output: {2}." = "演奏组通道 {0} 覆盖两区。A 区最终通道：{1}；B 区最终通道：{2}。"
 "Group inherits region channels. A output: {1}; B output: {2}." = "演奏组继承区域通道。A 区最终通道：{1}；B 区最终通道：{2}。"
+"0: Inherit (Per-Key)" = "0: 继承（按键独立设置）"
+"Group Channel: Inherited (Region A: Ch 1, Region B: Ch 1)" = "演奏组通道：继承区域设置（A 区：通道 1，B 区：通道 1）"
+"DevPiano Default" = "DevPiano 默认"

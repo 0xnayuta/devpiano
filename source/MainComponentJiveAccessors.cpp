@@ -374,7 +374,7 @@ void MainComponent::setControlsPresets(const juce::StringArray& presetIds, const
         const auto selectedIndex = devpiano::ui::presetIdIndex(presetIds, currentPresetId);
         for (int i = 0; i < presetIds.size(); ++i) {
             const auto displayName = (i < presetDisplayNames.size()) ? presetDisplayNames[i] : presetIds[i];
-            combo->addItem(displayName, i + 1);
+            combo->addItem(TRANS(displayName), i + 1);
         }
 
         if (presetIds.isEmpty()) {
@@ -746,6 +746,7 @@ void MainComponent::refreshAllTexts() {
     }
     refreshPluginPanelTexts();
     refreshControlsTexts();
+    updateQwertyVisualizer();
     viewHost.refreshTitles();
     if (customKeyboardRef != nullptr) {
         customKeyboardRef->repaint();
@@ -896,7 +897,7 @@ void MainComponent::updateStatusBar() {
                                                                                         : TRANS("Built-in: Sine");
         }
         const auto preset = (presetFlowSupport != nullptr) ? presetFlowSupport->getCurrentPresetId() : juce::String {};
-        displayText = preset.isNotEmpty() ? (sourceName + " (" + preset + ")") : sourceName;
+        displayText = preset.isNotEmpty() ? (sourceName + " (" + TRANS(preset) + ")") : sourceName;
     }
     viewHost.setText("plugin-name-label", displayText);
 
@@ -958,9 +959,9 @@ void MainComponent::updateStatusBar() {
             + devpiano::core::getTimeSignatureName(audioEngine.getMetronomeTimeSignature()) + " " + dot;
     }
     viewHost.setText("metronome-status-label", metronomeIndicator);
-    const auto groupIndicator = " [Group " + keyboardMidiMapper.getActiveGroup().name + "]";
+    const auto groupIndicator = " [" + TRANS("Group") + " " + keyboardMidiMapper.getActiveGroup().name + "]";
     const auto statusRight
-        = keyName + " (" + transposeStr + ")" + bullet + layoutName + groupIndicator + pedalIndicator;
+        = keyName + " (" + transposeStr + ")" + bullet + TRANS(layoutName) + groupIndicator + pedalIndicator;
     viewHost.setText("time-label", statusRight);
 }
 

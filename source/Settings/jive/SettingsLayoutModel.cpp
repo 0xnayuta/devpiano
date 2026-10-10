@@ -232,9 +232,9 @@ juce::ValueTree makeKeyboardDisplaySectionTree() {
     auto hintText
         = text(TRANS("Group Channel: Inherited (Region A: Ch 1, Region B: Ch 1)"), "group-override-hint-label");
     hintText.setProperty("width", 300, nullptr);
-    hintText.setProperty("height", 24, nullptr);
+    hintText.setProperty("height", 38, nullptr);
     hintText.setProperty("font-size", 12, nullptr);
-    content.appendChild(settingRow(TRANS("Channel Routing:"), hintText, "channel-routing-label"), nullptr);
+    content.appendChild(settingRow(TRANS("Channel Routing:"), hintText, "channel-routing-label", 40), nullptr);
 
     // Region A Controls
     auto regAChannelCombo = node("ComboBox", "region-a-channel-combo");

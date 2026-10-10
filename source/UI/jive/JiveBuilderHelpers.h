@@ -70,9 +70,9 @@ namespace devpiano::ui::jive {
 
 /// Helper: create a 2-column settings row (Label + Control).
 [[nodiscard]] inline juce::ValueTree settingRow(const juce::String& labelStr, const juce::ValueTree& controlNode,
-                                                const juce::String& labelId = {}) {
+                                                const juce::String& labelId = {}, int rowHeight = 28) {
     auto row = flexRow();
-    row.setProperty("height", 28, nullptr);
+    row.setProperty("height", rowHeight, nullptr);
     row.setProperty("margin", "0 0 6 0", nullptr);
 
     auto lbl = text(labelStr, labelId);
