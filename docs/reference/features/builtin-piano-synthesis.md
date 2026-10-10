@@ -116,7 +116,7 @@
      $$f_m = m f_T(n)2^{s_n/1200}\sqrt{\frac{1+B_n m^2}{1+B_n}}$$
    - $s_{69}=0$；关闭拉伸时 $s_n=0$。同音弦微失谐与刻意老化抖动在基准之外叠加，不要求所有同音弦都无拍频。低采样率沿用主分音安全门限及高阶分音剪枝，不将超 Nyquist 的 Duplex 模态钳成另一频率。
    - `PianoTuning.h` 预计算默认逐键拉伸比例：A4 以下以 4:2、以上以 2:1 八度分音匹配递推，A3–A5 锚点间平滑插值；中央插值区不保证每个分音对都严格相等。律制独立，Sine 与 VST3 MIDI 不套用钢琴拉伸，已起音基频不因切换调律重新定位。
-   - $B$ 来自仓库模型锚点插值，包含 G2/G#2 交界；并非可认证的 Steinway 逐键测量。理论参考 [JOS stiff piano strings](https://ccrma.stanford.edu/~jos/pasp/Stiff_Piano_Strings.html)，当前模型校准与实际谱峰证据见 [迭代记录](../../roadmap/current-iteration.md#2-phase-37物理建模调律与被动共鸣校准)，不把 Railsback 观察曲线当作由 $B$ 唯一确定的通用算法。
+   - $B$ 来自仓库模型锚点插值，包含 G2/G#2 交界；并非可认证的 Steinway 逐键测量。理论参考 [JOS stiff piano strings](https://ccrma.stanford.edu/~jos/pasp/Stiff_Piano_Strings.html)，当前模型校准与实际谱峰证据见 [Phase 37 声音记录](../../archive/phase37-38-piano-calibration-and-keyboard-performance.md#2-phase-37物理建模调律与被动共鸣校准)，不把 Railsback 观察曲线当作由 $B$ 唯一确定的通用算法。
 
 2. **Magic Circle 二阶递归正弦振荡器（Coupled Form）**：
    - 彻底消灭发声振荡核心逐采样循环的 `std::sin` 调用，采用工控与专业 DSP 领域的耦合形式正弦振荡器：
@@ -301,7 +301,7 @@ void setSoundPerspective(devpiano::audio::SoundPerspective perspective) noexcept
      - 当切换至第三方 VST3 插件时，JUCE 原生适配器存在框架层固有开销（`juce_VST3PluginFormatImpl.h` 的 `SpinLock processMutex` 与 `juce_VST3Common.h` 的 `CriticalSection` 转换）；
      - 单块存在 **2048 条 MIDI 消息上限**（`enum { maxNumEvents = 2048 }`），超额事件被框架截断；第三方插件内部行为超出宿主控制。产品自有发声的零锁零分配不外推至第三方插件；
 3. **单核 CPU 性能 SLA 与实测边界**：44.1/48 kHz、8 复音的长期目标仍为 **$\le 0.7\%$**，不因单次测量改写目标。该目标不是物理常数，也不由零锁/零分配自动推出；Debug 未优化配置的 callback/音频时长比不是已认证的单核 CPU 占用。
-   - 本轮记录同配置 Duplex 开关增量与实际 callback 观察，明确没有 Release 构建或 ≤0.7% 认证；不将旧基准、特定硬件或第三方厂商结果外推。参数/流程与软件门禁证据只在当前迭代维护。
+   - Phase 37 的同配置 Duplex 开关增量与 callback 观察见 [直接实施证据归档](../../archive/phase37-38-piano-calibration-and-keyboard-performance.md#phase-37-直接实施证据与验证边界)，没有 Release 构建或 ≤0.7% 认证，不向其他硬件或厂商外推。参数/流程和软件门禁证据随阶段归档保存，后续任务见 [当前迭代](../../roadmap/current-iteration.md)，不能以历史测量认证新增 DSP 成本。
 
 ---
 

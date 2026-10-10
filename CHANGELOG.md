@@ -9,6 +9,8 @@
 
 ### Changed
 
+- **Phase 37/38 Archive and Phase 39 Planning** — preserve completed tasks, acoustic baselines, consumer evidence, verification limits, and follow-on fixes; switch the active iteration to evidence admission, constrained inharmonicity calibration, three-velocity voicing, state/render integration, and realtime verification. Outline Phases 40–42 and repair historical evidence links without implementing new DSP or changing file formats.
+
 - **Current-Format Development Cutover** — require integer v2 presets and integer v4 native performance files, including metadata reads. Takes store final sounding identities; native playback and WAV/MIDI export no longer reapply input transposition or routing. Reject old event semantics without migration while preserving files and sessions.
 - **Lean Development Policy** — establish KISS/DRY/LOD/YAGNI, clean cutovers, risk-driven testing, minimal documentation updates, and proportionate Windows Debug verification in `AGENTS.md`.
 - **Risk-Driven Test Pruning** — remove declaration/copywriting snapshots, setter/getter and option-forwarding echoes, misleading allocation/render self-oracles, and duplicate round-trips. Retain performance identity/timing, current-format admission, numeric bounds, lifecycle, transactional file/session protection, and real audio/WAV behavior; keep allocation measurement separate from event-count assertions.

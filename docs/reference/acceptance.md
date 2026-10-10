@@ -14,7 +14,7 @@
 | 领域 | 当前必须满足的消费者不变量 | 直接证据与验证边界 |
 | --- | --- | --- |
 | 文件与会话 | 覆盖不追加；失败/提交前取消保留已有目标；A→B→Save As C 后信息编辑不改 A；同步保存不被旧 timer 回滚 | Phase A/B、H 的文件/会话/实际窗口；断电、磁盘耗尽与强杀不外推 |
-| 格式准入 | 自有预设仅整数 v2、演奏及独立元数据仅整数 v4；不猜测或迁移旧事件语义；完整声明轨及合法 meta 后才导入标准 MIDI，稳定原生时间线不改变同采样顺序 | 当前契约见 [原生文件分册](features/performance-persistence.md)，阶段消费者见 [Phase 38 验收](../roadmap/current-iteration.md#3-phase-38电脑键盘分区三踏板控制与固定双层演奏)；失败文件/会话保护继续保留 |
+| 格式准入 | 自有预设仅整数 v2、演奏及独立元数据仅整数 v4；不猜测或迁移旧事件语义；完整声明轨及合法 meta 后才导入标准 MIDI，稳定原生时间线不改变同采样顺序 | 当前契约见 [原生文件分册](features/performance-persistence.md)，阶段消费者见 [Phase 38 验收归档](../archive/phase37-38-piano-calibration-and-keyboard-performance.md#3-phase-38电脑键盘分区三踏板控制与固定双层演奏)；失败文件/会话保护继续保留 |
 | 预设与调号 | UUID 在 rename/autosave 保持；独立目标覆盖确认、同路径不自删；普通选择保留全局调号，回放恢复 RecordedPreset.acoustic | Phase A/E/H；不将 JSON 含字段误写为普通选择必覆盖运行调号 |
 | MIDI 导出 | Type 1、默认 960 PPQ、单轨、tick 0 120 BPM；保持显式起音/释放，不合成曲名或拍号；非 MIDI 与 SysEx 不输出 | Phase A/D/H，实际文件 header、消息和覆盖结果 |
 | 身份与时序 | 原身份 FIFO/最后持有者释放；暂停捕获闭合；末尾 Off、设备时间域、Seek/loop 状态和完整预备拍在音频边界执行 | Phase C/D/E；CPU release/prepare 不等于物理热插拔 |

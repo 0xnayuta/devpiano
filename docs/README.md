@@ -19,7 +19,7 @@
 
 - [`guides/wsl-windows-msvc-workflow.md`](guides/wsl-windows-msvc-workflow.md)：WSL 主工作树 + Windows 镜像树 + MSVC 验证工作流详解。
 - [`guides/development.md`](guides/development.md)：日常开发、构建与协作指引。
-- [`roadmap/current-iteration.md`](roadmap/current-iteration.md)：近期迭代任务、后继排期与直接验收入口。
+- [`roadmap/current-iteration.md`](roadmap/current-iteration.md)：近期声学基线、整音任务、依赖排期与直接验收入口。
 - [`decisions/README.md`](decisions/README.md)：架构决策记录索引，含已接受的 [ADR-015 消息模板](decisions/ADR-015-localized-message-templates-and-punctuation.md) 与 [ADR-016 纯内存 Headless-Safe UI 测试模式](decisions/ADR-016-headless-safe-pure-in-memory-ui-testing-pattern.md)。
 - [`guides/troubleshooting.md`](guides/troubleshooting.md)：WSL / Windows 镜像构建常见问题排查。
 - [`guides/release-workflow.md`](guides/release-workflow.md)：Windows/Linux 正式 release、tag 与双平台打包 checklist。
@@ -62,7 +62,7 @@
 
 ### 5. 历史档案（`archive/`）
 
-- [`archive/README.md`](archive/README.md)：历史归档索引与现行替代关系表，含 Phase 35 完成计划与 Phase 36 完成记录；已完成任务不再占用当前迭代入口。
+- [`archive/README.md`](archive/README.md)：历史归档索引与现行替代关系表，含 Phase 35/36 及 [Phase 37/38 完成记录](archive/phase37-38-piano-calibration-and-keyboard-performance.md)；原任务、直接证据和修复归属不再占用当前迭代入口。
 
 ---
 
