@@ -23,6 +23,7 @@
 
 ### Fixed
 
+- **Stable Keybed Vertical Position** — reserve the horizontal scrollbar thickness in `KeyboardViewport` so the virtual piano keybed no longer shifts up and down while the window width is dragged across the scrollbar threshold.
 - **Numpad Double-Height Keys** — draw numpad `Num +` and `Enter` as one vertically-double-height key each (`heightWeight = 2.0`, symmetric with the horizontal `Num 0`), instead of registering the same physical key in two consecutive rows and rendering it as two stacked half-height buttons.
 - **Continuous Duplex Release Tails** — retain shared lid and perspective filter state while passive resonance continues after the speaking string stops; prevent rendering-partition-dependent tail truncation while preserving immediate-stop and voice-reuse resets.
 - **Matched Offline Reverb Startup** — submit initial wet/space values before preparing both offline paths, removing an audible onset mismatch; retain a production Piano snapshot callback/WAV regression within 16-bit quantization.

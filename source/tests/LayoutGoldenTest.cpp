@@ -35,6 +35,7 @@ public:
         testDeterministicRootLayoutBounds1920x1080();
         drainMessages();
         testDeterministicRootLayoutBoundsMinimum();
+        testKeybedVerticalStabilityAcrossWidths();
         testDeterministicSettingsAndCssGridBounds();
         drainMessages();
         testFocusIsolationAndGlissandoInvariants();
@@ -300,6 +301,85 @@ public:
             expectEquals(adsrCard->getHeight(), expandedControlsHeight);
             expectEquals(transportCard->getHeight(), expandedControlsHeight);
         }
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // 3.2 Keybed vertical stability across window widths
+    // ────────────────────────────────────────────────────────────────────────
+    void testKeybedVerticalStabilityAcrossWidths() {
+        beginTest("Golden Bounds: keybed vertical position is independent of the horizontal scrollbar");
+
+        juce::MidiKeyboardState keyboardState;
+        devpiano::ui::ViewHost host;
+        host.registerKeyboardComponents(keyboardState);
+
+        auto tree = devpiano::ui::jive::makeRootLayout();
+        expect(host.loadLayout(tree, true));
+
+        // 采集键床顶部相对视口的偏移与视口高度，宽度覆盖滚动条出现阈值两侧。
+        struct Reading {
+            int width = 0;
+            bool scrollbarVisible = false;
+            int viewportHeight = 0;
+            float keybedTop = 0.0f;
+            float keybedBottom = 0.0f;
+        };
+        std::vector<Reading> readings;
+
+        for (const int width : { 1568, 1400, 1200, 1160, 1150, 1140, 1120, 1100, 1050, 980, 900 }) {
+            host.setBounds(0, 0, width, 780);
+
+            auto* viewport = host.find<KeyboardViewport>("custom-keyboard");
+            expect(viewport != nullptr);
+            if (viewport == nullptr) {
+                return;
+            }
+            const auto& keyboard = viewport->getCustomKeyboard();
+
+            auto top = std::numeric_limits<float>::max();
+            auto bottom = -std::numeric_limits<float>::max();
+            for (const auto& key : keyboard.getKeys()) {
+                if (key.isWhite) {
+                    top = juce::jmin(top, key.bounds.getY());
+                    bottom = juce::jmax(bottom, key.bounds.getBottom());
+                }
+            }
+            if (top > bottom) {
+                continue; // 该宽度下没有可见白键，跳过
+            }
+            readings.push_back(
+                { width, viewport->getHorizontalScrollBar().isVisible(), viewport->getHeight(), top, bottom });
+        }
+
+        expect(readings.size() >= 5, "keybed geometry must be sampled across several widths");
+
+        // 滚动条出现阈值两侧都必须存在采样点，否则该回归无法覆盖目标缺陷
+        const auto anyBar = std::ranges::any_of(readings, [](const Reading& r) { return r.scrollbarVisible; });
+        const auto anyNoBar = std::ranges::any_of(readings, [](const Reading& r) { return !r.scrollbarVisible; });
+        expect(anyBar, "at least one sampled width must show the horizontal scrollbar");
+        expect(anyNoBar, "at least one sampled width must fit without the horizontal scrollbar");
+
+        // 核心不变量：同一视口高度下，键床的竖直位置与滚动条可见性无关。
+        // 旧实现直接消费 getMaximumVisibleHeight()，滚动条出现时该值缩小，
+        // 导致键床在拖动窗口宽度跨越阈值时上下跳动。
+        for (const auto& reference : readings) {
+            for (const auto& candidate : readings) {
+                if (reference.viewportHeight != candidate.viewportHeight) {
+                    continue;
+                }
+                expectWithinAbsoluteError(candidate.keybedTop, reference.keybedTop, 0.01f);
+                expectWithinAbsoluteError(candidate.keybedBottom, reference.keybedBottom, 0.01f);
+            }
+        }
+
+        // 竖直留白在滚动条翻转前后必须连续：不允许出现台阶式跳变
+        auto minTop = std::numeric_limits<float>::max();
+        auto maxTop = -std::numeric_limits<float>::max();
+        for (const auto& reading : readings) {
+            minTop = juce::jmin(minTop, reading.keybedTop);
+            maxTop = juce::jmax(maxTop, reading.keybedTop);
+        }
+        expectWithinAbsoluteError(maxTop, minTop, 0.01f);
     }
 
     // ────────────────────────────────────────────────────────────────────────
