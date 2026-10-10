@@ -22,8 +22,11 @@ public:
     using KeyStatePredicate = std::function<bool(int keyCode)>;
     using SustainPedalCallback = std::function<void(bool isDown)>;
     using SoftPedalCallback = std::function<void(bool isDown)>;
+    using SostenutoPedalCallback = std::function<void(bool isDown)>;
     using GroupChangeCallback = std::function<void(uint8_t groupIndex)>;
     using SyncPedalResetCallback = std::function<void()>;
+    using NumLockPredicate = std::function<bool()>;
+    using NotePreparationCallback = std::function<void(int outputChannel)>;
     KeyboardMidiMapper();
 
     void setLayout(devpiano::core::KeyboardLayout newLayout, bool notifyPerformance = true);
@@ -33,9 +36,13 @@ public:
 
     bool handleKeyPressed(const juce::KeyPress& key, juce::MidiKeyboardState& keyboardState);
     bool handleKeyStateChanged(juce::MidiKeyboardState& keyboardState);
+    bool reconcileReleasedKeys(juce::MidiKeyboardState& keyboardState);
     bool handleModifierKeysChanged(const juce::ModifierKeys& modifiers, juce::MidiKeyboardState& keyboardState);
     void setChannelMapper(devpiano::midi::MidiChannelMapper* mapper) noexcept;
     void setSustainPedalCallback(SustainPedalCallback callback) noexcept;
+    void setNotePreparationCallback(NotePreparationCallback callback) {
+        notePreparationCallback = std::move(callback);
+    }
     [[nodiscard]] bool isSustainPedalDown() const noexcept;
     // ── Sustain Pedal Policy (Phase 34-C) ──
     void setSustainPolicy(devpiano::core::SustainPolicy policy) noexcept;
@@ -51,6 +58,19 @@ public:
     void setSoftPedalDown(bool down, bool notifyPerformance = true);
     void setTouchVelocityCurve(devpiano::input::TouchVelocityCurve curve) noexcept;
     [[nodiscard]] devpiano::input::TouchVelocityCurve getTouchVelocityCurve() const noexcept;
+    // -- Keyboard Partition Mode (Phase 38-3) --
+    void setPartitionMode(devpiano::core::KeyboardPartitionMode mode);
+    [[nodiscard]] devpiano::core::KeyboardPartitionMode getPartitionMode() const noexcept;
+
+    // -- Sostenuto Pedal CC66 (Phase 38-2) --
+    void setSostenutoPedalCallback(SostenutoPedalCallback callback) noexcept;
+    [[nodiscard]] bool isSostenutoPedalDown() const noexcept;
+    void setSostenutoPedalDown(bool down, bool notifyPerformance = true);
+
+    // -- NumLock Predicate (Phase 38-3) --
+    void setNumLockPredicate(NumLockPredicate predicate) noexcept;
+    [[nodiscard]] bool isNumLockActive() const noexcept;
+
     /// 释放所有当前按下的琴键与踏板（窗口失焦、切屏 Panic 防悬挂音）。
     void releaseAllHeldKeys(juce::MidiKeyboardState& keyboardState);
     [[nodiscard]] devpiano::core::QwertyViewModel createQwertySnapshot(int keySignature = 0) const;
@@ -67,6 +87,11 @@ public:
     [[nodiscard]] bool isKeyHeld(int keyCode) const noexcept;
     [[nodiscard]] const devpiano::core::HeldKeyIdentity* findHeldKey(int keyCode) const noexcept;
     [[nodiscard]] size_t getNumHeldKeys() const noexcept;
+    [[nodiscard]] const devpiano::core::HeldKeyIdentity* getHeldKeyByIndex(size_t index) const noexcept;
+    devpiano::core::MidiNoteIdentity triggerMouseKeyDown(int physicalKeyCode, int inputNote, int inputChannel,
+                                                         float velocity, juce::MidiKeyboardState& keyboardState);
+    void releaseMouseKeyUp(const devpiano::core::MidiNoteIdentity& identity, int physicalKeyCode,
+                           juce::MidiKeyboardState& keyboardState);
 
     // ── Performance Modifier Pipeline (Phase 34-D) ──
     void setModifierState(devpiano::core::PerformanceModifierState state) noexcept;
@@ -119,12 +144,13 @@ public:
     void setKeyStatePredicate(KeyStatePredicate predicate) noexcept;
 
 private:
-    [[nodiscard]] int normaliseKeyCode(const juce::KeyPress& key) const;
     bool triggerBinding(const devpiano::core::KeyBinding& binding, juce::MidiKeyboardState& keyboardState);
     void sendNoteOff(int midiChannel, int midiNote, float velocity, juce::MidiKeyboardState& keyboardState);
     [[nodiscard]] bool isKeyCurrentlyDown(int keyCode) const;
     void updateSoftPedalState();
-    bool processKeyStateChangedInternal(juce::MidiKeyboardState& keyboardState);
+    void captureCurrentlyDownKeysBarrier();
+
+    bool processKeyStateChangedInternal(juce::MidiKeyboardState& keyboardState, bool allowNoteOn);
 
     devpiano::midi::MidiChannelMapper* channelMapper = nullptr;
     devpiano::core::KeyboardLayout layout;
@@ -132,8 +158,14 @@ private:
     GroupChangeCallback groupChangeCallback;
     KeyStatePredicate keyStatePredicate;
     SustainPedalCallback sustainPedalCallback;
+    NotePreparationCallback notePreparationCallback;
     bool sustainPedalDown = false;
     devpiano::core::SustainPolicy sustainPolicy = devpiano::core::SustainPolicy::normal;
+    SostenutoPedalCallback sostenutoPedalCallback;
+    bool sostenutoPedalDown = false;
+    NumLockPredicate numLockPredicate;
+    devpiano::core::KeyboardPartitionMode partitionMode = devpiano::core::KeyboardPartitionMode::off;
+    std::unordered_set<int> physicalKeysDownState;
     bool syncPedalCutPending = false;
     SoftPedalCallback softPedalCallback;
     SyncPedalResetCallback syncPedalResetCallback;

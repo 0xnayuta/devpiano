@@ -115,36 +115,6 @@ public:
             expect(!prepareRenderTimeline(makeTake(44100.0, 1000, { makeEvent(0) }), 44100.0, -1.0));
         });
 
-        testCase("addPanicMidi injects 16 channels x 3 controllers at the given offset", [&] {
-            juce::MidiBuffer midiBuffer;
-            addPanicMidi(midiBuffer, 42);
-            expectEquals(midiBuffer.getNumEvents(), 48);
-
-            auto eventCount = 0;
-            auto sawSustainRelease = false;
-            auto sawAllControllersOff = false;
-            auto sawAllNotesOff = false;
-            for (const auto metadata : midiBuffer) {
-                ++eventCount;
-                expectEquals(metadata.samplePosition, 42);
-                const auto message = metadata.getMessage();
-                if (message.isController() && message.getControllerNumber() == 64
-                    && message.getControllerValue() == 0) {
-                    sawSustainRelease = true;
-                }
-                if (message.isController() && message.getControllerNumber() == 120
-                    && message.getControllerValue() == 0) {
-                    sawAllControllersOff = true;
-                }
-                if (message.isAllNotesOff()) {
-                    sawAllNotesOff = true;
-                }
-            }
-            expectEquals(eventCount, 48);
-            expect(sawSustainRelease);
-            expect(sawAllControllersOff);
-            expect(sawAllNotesOff);
-        });
         testCase("prepareRenderTimeline validates preset references and snapshot finiteness", [&] {
             // Missing preset referenced by presetChange
             auto takeNoPresets = makeTake(44100.0, 1000, { makePresetEvent(100, 0) });

@@ -10,12 +10,12 @@
 
 devpiano 提供了完整的“弹奏 → 录制 → 回放 → 导出 MIDI”的核心闭环：
 
-1. **实时音频线程无锁采集**：在 `AudioEngine` 的音频处理回调中，实时无锁捕获已合并电脑键盘与通道矩阵变换的 pre-render MIDI 消息；
+1. **实时音频线程无锁采集**：捕获已完成物理区域、Group、修饰键、矩阵/跟随调号及 Sync Pedal 的最终发声 MIDI；回放、WAV 和 MIDI 导出均直接消费该身份，不再重复变换，也不因固定双层而重复记录一次输入；
 2. **预分配内存与溢出防御**：录制前预先分配大容量事件缓冲，录制期间实时线程**零动态内存分配（零堆分配）**，容量耗尽时以原子计数安全丢弃，不发生崩溃或阻塞；
 3. **高保真同链路回放**：回放事件重新注入 `AudioEngine` 的主发声链路（驱动已加载 VST3 插件或内置物理建模钢琴），同时联动虚拟钢琴键盘高亮显示；
 4. **标准 MIDI Type 1 文件导出**：将完成录制后的 `RecordingTake` 快照转换为标准单轨 MIDI Type 1 文件（包含 Set Tempo 与 MIDI 事件，默认 960 PPQ），供导入外部宿主（DAW）或打谱软件；
 5. **全流程会话编排（`RecordingSessionController`）**：统一录制、播放、暂停和停止；预备拍在完整 1–2 小节后的音频下拍开始，不在最后一拍起音或 UI 轮询时才启动。目标已到达但 UI 尚未轮询时，后续控制先接管已开始的录制；未开始时取消保留原 Take；
-6. **A-B 跟练时间轴与采样级 Seek**：显示 Take 绝对时间，支持点击/拖拽 Seek、A/B 标记；清理旧发音后，在目标音符之前恢复目的通道的 program/bank/CC64/pitch，不重发历史 NoteOn。
+6. **A-B 跟练时间轴与采样级 Seek**：清理旧发音后，在目标音符之前恢复目的通道的 program/bank/CC64/66/67/pitch；不重发历史 NoteOn，不把 CC66 高值恢复解释为旧捕获音符集合恢复。
 
 ---
 
@@ -38,7 +38,7 @@ AudioEngine::getNextAudioBlock() (实时音频回调) ◄───────�
     │
     ├── [预设切换事件] ──────► RecordingEngine::recordPresetChange(RecordedPreset) (注册 Take 内可执行快照)
     │
-    └── 3. 交付发声 ──► VST3 processBlock() / BuiltinSynthesiser (内置无锁发声)
+    └── 3. 交付 Instrument ──► 当前单端点，或固定 Piano + 单 VST3；分路混音后一次公共 Master/Reverb
 ```
 
 ### 2.2 回放数据流
@@ -52,9 +52,9 @@ AudioEngine::getNextAudioBlock() (实时音频回调)
     ├── RecordingEngine::renderPlaybackBlock(playbackVisualMidiBuffer, blockStartSamples, numSamples)
     ├── PlaybackIdentityTracker (FIFO 锁定最终输出身份；同输出最后持有者才交付 Off)
     ├── [视觉位图原子更新] (仅更新 displayNotes 原子数组，音频线程不调用 Listener)
-    ├── midiBuffer.addEvents(playbackVisualMidiBuffer, 0, numSamples, 0)
-    ├── [预设分段渲染] (同块预设先于 MIDI 生效，切换声学快照与 Master/Reverb)
-    └── 插件或内置物理建模钢琴发声 (activeSynth 无锁调度，两预建音色银行平滑切换)
+    ├── mergePerformanceInput() (现场/文件来源合并，保留每个端点实际持有者)
+    ├── [预设分段渲染] (同采样边界切换声学与层状态)
+    └── 单端点或固定 Piano + 单 VST3 (独立缓冲、采样延迟、混音与一次 Master/Reverb)
 
 MainComponent::timerCallback() (消息线程)
     └── AudioEngine::dispatchPendingDisplayEvents() ──► 驱动 MidiKeyboardState 及 UI 定时器
@@ -101,14 +101,15 @@ struct RecordingTake {
     double sampleRate = 0.0;                       // 录制开始时锁定的 Take 时间域
     std::int64_t lengthSamples = 0;                // 录制总长度（采样点）
     std::vector<PerformanceEvent> events;          // 事件序列
-    std::vector<RecordedPreset> presets;           // 内嵌预设（v2）与声学快照表（原生 .devpiano 文件 Schema v3）
+    std::vector<RecordedPreset> presets;           // 内嵌预设（v2）与声学/层快照表（原生 .devpiano Schema v4）
 
     [[nodiscard]] bool isEmpty() const noexcept;
     [[nodiscard]] double durationSeconds() const noexcept;
 };
 ```
 
-- **自有格式与标准格式解耦**：内嵌 `presets` 存储 `RecordedPreset`（包装 Schema 整数版本 2 的 `PerformancePreset` 与 `AcousticSnapshot`）；原生演奏文件（`.devpiano`）由 `PerformanceFile` 以 Schema 整数版本 3 序列化，数据与独立元数据读取严格仅接受整数版本 3，不迁移历史数据；标准 MIDI 导入（Type 0/1）与导出（Type 1）、VST3 插件托管保持标准协议，互不外推自有 JSON 模式。
+- **自有格式与标准格式解耦**：内嵌 `RecordedPreset` 包装整数版本 2 的 `PerformancePreset` 与 `AcousticSnapshot`；`.devpiano` 仅接受整数版本 4，包括独立元数据读取，不迁移旧义音符。标准 MIDI Type 0/1 导入与 Type 1 导出保持音乐音高/通道语义，不根据当前物理分区、矩阵或快照重新映射。
+- **现场与文件所有权**：两种来源同音共持时，释放一个来源不切断另一个来源；失焦只释放现场输入，不中断文件回放。双层按每个实际端点记录已投递的来源持有者，禁用或替换使旧端点持有失效，重新启用只接受新起音。
 
 ---
 
@@ -129,7 +130,7 @@ struct RecordingTake {
 |---|---|---|:---:|
 | **REC-001** | 基础录制与回放 | 点击 Record → 弹奏一段旋律 → 点击 Stop → 点击 Play，完整听到刚才弹奏的旋律 | [x] 已通过 |
 | **REC-002** | 虚拟键盘回放联动 | 回放录音时，虚拟钢琴键盘准确随着各音符的按下与松开同步高亮与变暗 | [x] 已通过 |
-| **REC-003** | 录制中切换预设 | 录制过程中按快捷键切换 Preset，回放时声音与声学参数在对应时刻根据内嵌快照自动还原（含快照内的移调状态；普通预设切换不覆写全局调号） | [x] 已通过 |
+| **REC-003** | 录制中切换预设 | 回放时按内嵌快照还原声学/层参数，音符保持录制后的最终身份；普通预设切换不覆写全局调号或本机分区模式 | [x] 已通过 |
 | **REC-004** | 长时间录制与溢出保护 | 连续录制 30 分钟以上，无卡顿、无内存暴涨，停止录制后 Take 完整可用 | [x] 已通过 |
 | **REC-005** | MIDI 文件导出与 DAW 验证 | 导出 MIDI 文件并在 Reaper / Cubase / Logic 等外部 DAW 中导入，音符时值与力度完全正确 | [x] 已通过 |
 | **REC-006** | 空 Take 导出保护 | 未开始录制时，Export MIDI 与 Export WAV 按钮保持 disabled | [x] 已通过 |

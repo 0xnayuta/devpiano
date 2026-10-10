@@ -70,6 +70,18 @@ void SettingsComponent::buildJiveUi() {
         instrumentFilterToggle = viewHost.find<juce::ToggleButton>("instrument-filter-toggle");
         sustainPolicyCombo = viewHost.find<juce::ComboBox>("sustain-policy-combo");
         languageCombo = viewHost.find<juce::ComboBox>("language-combo");
+        partitionModeCombo = viewHost.find<juce::ComboBox>("partition-mode-combo");
+        layersEnabledToggle = viewHost.find<juce::ToggleButton>("layers-enabled-toggle");
+        layersPianoToggle = viewHost.find<juce::ToggleButton>("layers-piano-toggle");
+        layersPianoGainSlider = viewHost.find<juce::Slider>("layers-piano-gain-slider");
+        layersPluginToggle = viewHost.find<juce::ToggleButton>("layers-plugin-toggle");
+        layersPluginGainSlider = viewHost.find<juce::Slider>("layers-plugin-gain-slider");
+        regionAChannelCombo = viewHost.find<juce::ComboBox>("region-a-channel-combo");
+        regionATransposeSlider = viewHost.find<juce::Slider>("region-a-transpose-slider");
+        regionAOctaveSlider = viewHost.find<juce::Slider>("region-a-octave-slider");
+        regionBChannelCombo = viewHost.find<juce::ComboBox>("region-b-channel-combo");
+        regionBTransposeSlider = viewHost.find<juce::Slider>("region-b-transpose-slider");
+        regionBOctaveSlider = viewHost.find<juce::Slider>("region-b-octave-slider");
         pianoStyleCombo = viewHost.find<juce::ComboBox>("piano-style-combo");
         lidPositionCombo = viewHost.find<juce::ComboBox>("lid-position-combo");
         stretchTuningToggle = viewHost.find<juce::ToggleButton>("stretch-tuning-toggle");
@@ -272,6 +284,23 @@ void SettingsComponent::wireAppearanceControls() {
         sustainPolicyCombo->onChange
             = [this] { editingState.setProperty("sustainPolicy", sustainPolicyCombo->getSelectedId(), nullptr); };
     }
+
+    if (partitionModeCombo != nullptr) {
+        rebuildPartitionModeCombo();
+        if (model != nullptr) {
+            partitionModeCombo->setSelectedId(1 + static_cast<int>(model->partitionMode), juce::dontSendNotification);
+        }
+        partitionModeCombo->onChange = [this] {
+            if (model != nullptr) {
+                model->partitionMode
+                    = static_cast<devpiano::core::KeyboardPartitionMode>(partitionModeCombo->getSelectedId() - 1);
+                setDirty(true);
+                if (onDisplaySettingsChanged) {
+                    onDisplaySettingsChanged();
+                }
+            }
+        };
+    }
 }
 
 void SettingsComponent::wireLocaleAndActionControls() {
@@ -458,7 +487,219 @@ void SettingsComponent::wireAcousticControls() {
 void SettingsComponent::wireAppearanceAndLocaleControls() {
     wireAppearanceControls();
     wireLocaleAndActionControls();
+    wireLayerControls();
+    wireRegionControls();
     wireAcousticControls();
+}
+
+void SettingsComponent::wireLayerControls() {
+    if (layersEnabledToggle != nullptr) {
+        if (model != nullptr) {
+            layersEnabledToggle->setToggleState(model->layers.enabled, juce::dontSendNotification);
+        }
+        layersEnabledToggle->onStateChange = [this] {
+            if (model != nullptr) {
+                model->layers.enabled = layersEnabledToggle->getToggleState();
+                setDirty(true);
+                if (onDisplaySettingsChanged) {
+                    onDisplaySettingsChanged();
+                }
+            }
+        };
+    }
+    if (layersPianoToggle != nullptr) {
+        if (model != nullptr) {
+            layersPianoToggle->setToggleState(model->layers.pianoEnabled, juce::dontSendNotification);
+        }
+        layersPianoToggle->onStateChange = [this] {
+            if (model != nullptr) {
+                model->layers.pianoEnabled = layersPianoToggle->getToggleState();
+                setDirty(true);
+                if (onDisplaySettingsChanged) {
+                    onDisplaySettingsChanged();
+                }
+            }
+        };
+    }
+    if (layersPianoGainSlider != nullptr) {
+        layersPianoGainSlider->setRange(0.0, 1.0, 0.01);
+        layersPianoGainSlider->setSliderStyle(juce::Slider::LinearHorizontal);
+        layersPianoGainSlider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
+        if (model != nullptr) {
+            layersPianoGainSlider->setValue(model->layers.pianoGain, juce::dontSendNotification);
+        }
+        layersPianoGainSlider->onValueChange = [this] {
+            if (model != nullptr) {
+                model->layers.pianoGain = static_cast<float>(layersPianoGainSlider->getValue());
+                setDirty(true);
+                if (onDisplaySettingsChanged) {
+                    onDisplaySettingsChanged();
+                }
+            }
+        };
+    }
+    if (layersPluginToggle != nullptr) {
+        if (model != nullptr) {
+            layersPluginToggle->setToggleState(model->layers.pluginEnabled, juce::dontSendNotification);
+        }
+        layersPluginToggle->onStateChange = [this] {
+            if (model != nullptr) {
+                model->layers.pluginEnabled = layersPluginToggle->getToggleState();
+                setDirty(true);
+                if (onDisplaySettingsChanged) {
+                    onDisplaySettingsChanged();
+                }
+            }
+        };
+    }
+    if (layersPluginGainSlider != nullptr) {
+        layersPluginGainSlider->setRange(0.0, 1.0, 0.01);
+        layersPluginGainSlider->setSliderStyle(juce::Slider::LinearHorizontal);
+        layersPluginGainSlider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
+        if (model != nullptr) {
+            layersPluginGainSlider->setValue(model->layers.pluginGain, juce::dontSendNotification);
+        }
+        layersPluginGainSlider->onValueChange = [this] {
+            if (model != nullptr) {
+                model->layers.pluginGain = static_cast<float>(layersPluginGainSlider->getValue());
+                setDirty(true);
+                if (onDisplaySettingsChanged) {
+                    onDisplaySettingsChanged();
+                }
+            }
+        };
+    }
+}
+
+void SettingsComponent::wireRegionControls() {
+    rebuildRegionChannelCombos();
+
+    if (regionAChannelCombo != nullptr) {
+        if (model != nullptr) {
+            regionAChannelCombo->setSelectedId(1 + static_cast<int>(model->regionA.channel),
+                                               juce::dontSendNotification);
+        }
+        regionAChannelCombo->onChange = [this] {
+            if (model != nullptr) {
+                model->regionA.channel = static_cast<std::uint8_t>(regionAChannelCombo->getSelectedId() - 1);
+                updateGroupOverrideHint();
+                setDirty(true);
+                if (onDisplaySettingsChanged) {
+                    onDisplaySettingsChanged();
+                }
+            }
+        };
+    }
+    if (regionATransposeSlider != nullptr) {
+        regionATransposeSlider->setRange(-12.0, 12.0, 1.0);
+        regionATransposeSlider->setSliderStyle(juce::Slider::LinearHorizontal);
+        regionATransposeSlider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
+        if (model != nullptr) {
+            regionATransposeSlider->setValue(model->regionA.transposeOffset, juce::dontSendNotification);
+        }
+        regionATransposeSlider->onValueChange = [this] {
+            if (model != nullptr) {
+                model->regionA.transposeOffset = static_cast<std::int8_t>(regionATransposeSlider->getValue());
+                setDirty(true);
+                if (onDisplaySettingsChanged) {
+                    onDisplaySettingsChanged();
+                }
+            }
+        };
+    }
+    if (regionAOctaveSlider != nullptr) {
+        regionAOctaveSlider->setRange(-3.0, 3.0, 1.0);
+        regionAOctaveSlider->setSliderStyle(juce::Slider::LinearHorizontal);
+        regionAOctaveSlider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
+        if (model != nullptr) {
+            regionAOctaveSlider->setValue(model->regionA.octaveShift, juce::dontSendNotification);
+        }
+        regionAOctaveSlider->onValueChange = [this] {
+            if (model != nullptr) {
+                model->regionA.octaveShift = static_cast<std::int8_t>(regionAOctaveSlider->getValue());
+                setDirty(true);
+                if (onDisplaySettingsChanged) {
+                    onDisplaySettingsChanged();
+                }
+            }
+        };
+    }
+
+    if (regionBChannelCombo != nullptr) {
+        if (model != nullptr) {
+            regionBChannelCombo->setSelectedId(1 + static_cast<int>(model->regionB.channel),
+                                               juce::dontSendNotification);
+        }
+        regionBChannelCombo->onChange = [this] {
+            if (model != nullptr) {
+                model->regionB.channel = static_cast<std::uint8_t>(regionBChannelCombo->getSelectedId() - 1);
+                updateGroupOverrideHint();
+                setDirty(true);
+                if (onDisplaySettingsChanged) {
+                    onDisplaySettingsChanged();
+                }
+            }
+        };
+    }
+    if (regionBTransposeSlider != nullptr) {
+        regionBTransposeSlider->setRange(-12.0, 12.0, 1.0);
+        regionBTransposeSlider->setSliderStyle(juce::Slider::LinearHorizontal);
+        regionBTransposeSlider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
+        if (model != nullptr) {
+            regionBTransposeSlider->setValue(model->regionB.transposeOffset, juce::dontSendNotification);
+        }
+        regionBTransposeSlider->onValueChange = [this] {
+            if (model != nullptr) {
+                model->regionB.transposeOffset = static_cast<std::int8_t>(regionBTransposeSlider->getValue());
+                setDirty(true);
+                if (onDisplaySettingsChanged) {
+                    onDisplaySettingsChanged();
+                }
+            }
+        };
+    }
+    if (regionBOctaveSlider != nullptr) {
+        regionBOctaveSlider->setRange(-3.0, 3.0, 1.0);
+        regionBOctaveSlider->setSliderStyle(juce::Slider::LinearHorizontal);
+        regionBOctaveSlider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
+        if (model != nullptr) {
+            regionBOctaveSlider->setValue(model->regionB.octaveShift, juce::dontSendNotification);
+        }
+        regionBOctaveSlider->onValueChange = [this] {
+            if (model != nullptr) {
+                model->regionB.octaveShift = static_cast<std::int8_t>(regionBOctaveSlider->getValue());
+                setDirty(true);
+                if (onDisplaySettingsChanged) {
+                    onDisplaySettingsChanged();
+                }
+            }
+        };
+    }
+}
+
+void SettingsComponent::rebuildRegionChannelCombos() {
+    const auto populate = [](juce::ComboBox* combo) {
+        if (combo == nullptr) {
+            return;
+        }
+        combo->clear(juce::dontSendNotification);
+        combo->addItem(TRANS("0: Inherit (Per-Key)"), 1);
+        for (int ch = 1; ch <= 16; ++ch) {
+            combo->addItem(juce::String(ch), ch + 1);
+        }
+    };
+    populate(regionAChannelCombo);
+    populate(regionBChannelCombo);
+}
+
+void SettingsComponent::updateGroupOverrideHint() {
+    const auto hint = performanceRoutingHint.isNotEmpty() ? performanceRoutingHint : TRANS("Channel routing");
+    viewHost.setText("group-override-hint-label", hint);
+}
+
+void SettingsComponent::setPerformanceRoutingHint(const juce::String& hint) {
+    performanceRoutingHint = hint;
+    updateGroupOverrideHint();
 }
 
 void SettingsComponent::syncEditingStateFromModel() {
@@ -530,6 +771,43 @@ void SettingsComponent::syncEditingStateFromModel() {
         editingState.setProperty("followKey_" + juce::String(ch),
                                  model->channelMatrix.channels[static_cast<size_t>(ch)].followKey, nullptr);
     }
+    if (partitionModeCombo != nullptr) {
+        partitionModeCombo->setSelectedId(1 + static_cast<int>(model->partitionMode), juce::dontSendNotification);
+    }
+    if (layersEnabledToggle != nullptr) {
+        layersEnabledToggle->setToggleState(model->layers.enabled, juce::dontSendNotification);
+    }
+    if (layersPianoToggle != nullptr) {
+        layersPianoToggle->setToggleState(model->layers.pianoEnabled, juce::dontSendNotification);
+    }
+    if (layersPianoGainSlider != nullptr) {
+        layersPianoGainSlider->setValue(model->layers.pianoGain, juce::dontSendNotification);
+    }
+    if (layersPluginToggle != nullptr) {
+        layersPluginToggle->setToggleState(model->layers.pluginEnabled, juce::dontSendNotification);
+    }
+    if (layersPluginGainSlider != nullptr) {
+        layersPluginGainSlider->setValue(model->layers.pluginGain, juce::dontSendNotification);
+    }
+    if (regionAChannelCombo != nullptr) {
+        regionAChannelCombo->setSelectedId(1 + static_cast<int>(model->regionA.channel), juce::dontSendNotification);
+    }
+    if (regionATransposeSlider != nullptr) {
+        regionATransposeSlider->setValue(model->regionA.transposeOffset, juce::dontSendNotification);
+    }
+    if (regionAOctaveSlider != nullptr) {
+        regionAOctaveSlider->setValue(model->regionA.octaveShift, juce::dontSendNotification);
+    }
+    if (regionBChannelCombo != nullptr) {
+        regionBChannelCombo->setSelectedId(1 + static_cast<int>(model->regionB.channel), juce::dontSendNotification);
+    }
+    if (regionBTransposeSlider != nullptr) {
+        regionBTransposeSlider->setValue(model->regionB.transposeOffset, juce::dontSendNotification);
+    }
+    if (regionBOctaveSlider != nullptr) {
+        regionBOctaveSlider->setValue(model->regionB.octaveShift, juce::dontSendNotification);
+    }
+    updateGroupOverrideHint();
     editingState.addListener(this);
 }
 
@@ -582,6 +860,17 @@ void SettingsComponent::rebuildSustainPolicyCombo() {
     sustainPolicyCombo->addItem(TRANS("Syncopated Legato (Sync Pedal)"),
                                 1 + static_cast<int>(devpiano::core::SustainPolicy::syncPedal));
 }
+void SettingsComponent::rebuildPartitionModeCombo() {
+    if (partitionModeCombo == nullptr) {
+        return;
+    }
+    partitionModeCombo->clear(juce::dontSendNotification);
+    partitionModeCombo->addItem(TRANS("Off (Standard Keyboard)"), 1);
+    partitionModeCombo->addItem(TRANS("Main Keyboard Split"), 2);
+    partitionModeCombo->addItem(TRANS("Main Keyboard + Numeric Keypad"), 3);
+    updateGroupOverrideHint();
+}
+
 void SettingsComponent::rebuildLidPositionCombo() {
     if (lidPositionCombo == nullptr) {
         return;

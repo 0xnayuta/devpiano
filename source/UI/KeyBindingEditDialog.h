@@ -24,6 +24,7 @@ struct KeyBindingEditResult {
 // ============================================================================
 struct KeyBindingDialogParams {
     int midiNote = 60;
+    int physicalKeyCode = 0;
     juce::String noteName;
     std::optional<devpiano::core::KeyBinding> existingBinding;
     juce::String currentCustomLabel;

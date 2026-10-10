@@ -414,13 +414,14 @@ private:
         layout.groups[1] = { 0, 0, 5, "Ch5" }; // override to channel 5
         mapper.setLayout(layout);
 
-        bool isAHeld = true;
+        bool isAHeld = false;
         mapper.setKeyStatePredicate([&](int keyCode) { return (keyCode == makeAlphaNumericKeyCode('A')) && isAHeld; });
 
         juce::MidiKeyboardState state;
 
         // Switch to Group 1 (Ch 5 override)
         mapper.setActiveGroupIndex(1);
+        isAHeld = true;
 
         // Press 'A' -> should sound on channel 5
         mapper.handleKeyPressed(juce::KeyPress('a'), state);
@@ -821,6 +822,224 @@ private:
         expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 0);
     }
 };
+
+// =============================================================================
+// KeyboardPartitionAndNumpadTest: Partition modes, numpad input, NumLock, and CC66
+// =============================================================================
+class KeyboardPartitionAndNumpadTest : public juce::UnitTest {
+public:
+    KeyboardPartitionAndNumpadTest()
+        : juce::UnitTest("KeyboardPartitionAndNumpad", "DevPiano/Input") {
+    }
+
+    void runTest() override {
+        testPartitionModesRouting();
+        testNumpadPitchDefaults();
+        testNumLockGatingAndRelease();
+        testDownEdgeBarrierOnModeAndGroupSwitch();
+        testMutedMatrixNoteDoesNotReleaseOtherSoundingNotes();
+    }
+
+private:
+    void testPartitionModesRouting() {
+        beginTest("Partition Modes Routing and Zone Offsets");
+
+        KeyboardMidiMapper mapper;
+        mapper.setKeyStatePredicate([](int) { return false; });
+        mapper.setNumLockPredicate([] { return true; });
+        juce::MidiKeyboardState state;
+
+        KeyboardLayout layout;
+        layout.bindings = { makeNoteBinding('Q', 72, 1),
+                            makeNoteBinding('P', 76, 1),
+                            { .keyCode = juce::KeyPress::numberPad1,
+                              .displayText = "Num 1",
+                              .action = { .midiNote = 60, .midiChannel = 1, .velocity = 1.0f } } };
+        layout.regionA.transposeOffset = -12; // Octave down for Accompaniment
+        layout.regionA.channel = 2; // Channel 2 override
+        layout.regionB.transposeOffset = 12; // Octave up for Melody
+        layout.regionB.channel = 3; // Channel 3 override
+        mapper.setLayout(layout);
+
+        // 1. Off mode: no region transforms applied, numpad keys produce no sound
+        mapper.setPartitionMode(KeyboardPartitionMode::off);
+        expect(mapper.handleKeyPressed(juce::KeyPress('q'), state));
+        expect(state.isNoteOn(1, 72));
+        // Numpad 1 in off mode should produce no note
+        expect(!mapper.handleKeyPressed(juce::KeyPress(juce::KeyPress::numberPad1), state));
+        mapper.releaseAllHeldKeys(state);
+        expectEquals(countNotesOn(state), 0);
+
+        // 2. MainOnly mode: Q in Area A (transposed -12, ch 2); P in Area B (transposed +12, ch 3)
+        mapper.setPartitionMode(KeyboardPartitionMode::mainOnly);
+        expect(mapper.handleKeyPressed(juce::KeyPress('q'), state));
+        expect(state.isNoteOn(2, 60)); // 72 - 12 = 60, channel 2
+        expect(mapper.handleKeyPressed(juce::KeyPress('p'), state));
+        expect(state.isNoteOn(3, 88));
+        // Numpad in mainOnly mode produces no sound
+        expect(!mapper.handleKeyPressed(juce::KeyPress(juce::KeyPress::numberPad1), state));
+        mapper.releaseAllHeldKeys(state);
+        expectEquals(countNotesOn(state), 0);
+
+        // 3. MainAndNumpad mode: Q in Area A (ch 2, -12); Num 1 in Area B (ch 3, +12)
+        mapper.setPartitionMode(KeyboardPartitionMode::mainAndNumpad);
+        expect(mapper.handleKeyPressed(juce::KeyPress('q'), state));
+        expect(state.isNoteOn(2, 60));
+        // Num 1 default binding is 60 (C4) -> transposed +12 = 72, channel 3
+        expect(mapper.handleKeyPressed(juce::KeyPress(juce::KeyPress::numberPad1), state));
+        expect(state.isNoteOn(3, 72));
+        mapper.releaseAllHeldKeys(state);
+        expectEquals(countNotesOn(state), 0);
+    }
+
+    void testNumpadPitchDefaults() {
+        beginTest("15 Default Numpad Pitches");
+
+        KeyboardMidiMapper mapper;
+        mapper.setKeyStatePredicate([](int) { return false; });
+        mapper.setNumLockPredicate([] { return true; });
+        juce::MidiKeyboardState state;
+        mapper.setPartitionMode(KeyboardPartitionMode::mainAndNumpad);
+
+        const struct {
+            int keyCode;
+            int expectedPitch;
+        } kExpected[] = { { juce::KeyPress::numberPad1, 60 },           { juce::KeyPress::numberPad2, 62 },
+                          { juce::KeyPress::numberPad3, 64 },           { juce::KeyPress::numberPad4, 65 },
+                          { juce::KeyPress::numberPad5, 67 },           { juce::KeyPress::numberPad6, 69 },
+                          { juce::KeyPress::numberPad7, 71 },           { juce::KeyPress::numberPad8, 72 },
+                          { juce::KeyPress::numberPad9, 74 },           { juce::KeyPress::numberPad0, 76 },
+                          { juce::KeyPress::numberPadDivide, 61 },      { juce::KeyPress::numberPadMultiply, 63 },
+                          { juce::KeyPress::numberPadSubtract, 66 },    { juce::KeyPress::numberPadAdd, 68 },
+                          { juce::KeyPress::numberPadDecimalPoint, 70 } };
+
+        for (const auto& item : kExpected) {
+            expect(mapper.handleKeyPressed(juce::KeyPress(item.keyCode), state));
+            expect(state.isNoteOn(1, item.expectedPitch));
+            mapper.releaseAllHeldKeys(state);
+            expectEquals(countNotesOn(state), 0);
+        }
+    }
+
+    void testNumLockGatingAndRelease() {
+        beginTest("NumLock Gating on NoteOn and Safe NoteOff on Release");
+
+        KeyboardMidiMapper mapper;
+        juce::MidiKeyboardState state;
+        mapper.setPartitionMode(KeyboardPartitionMode::mainAndNumpad);
+
+        bool numLock = true;
+        mapper.setNumLockPredicate([&] { return numLock; });
+
+        // With NumLock on, Num 1 triggers
+        bool isNum1Down = true;
+        mapper.setKeyStatePredicate([&](int code) { return code == juce::KeyPress::numberPad1 && isNum1Down; });
+
+        expect(mapper.handleKeyPressed(juce::KeyPress(juce::KeyPress::numberPad1), state));
+        expect(state.isNoteOn(1, 60));
+        expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 1);
+
+        // NumLock turns off while key is held
+        numLock = false;
+        // An attempt to press another numpad key is suppressed
+        expect(!mapper.handleKeyPressed(juce::KeyPress(juce::KeyPress::numberPad2), state));
+
+        // Key release must still safely release Num 1 with original identity!
+        isNum1Down = false;
+        expect(mapper.handleKeyStateChanged(state));
+        expect(!state.isNoteOn(1, 60));
+        expectEquals(countNotesOn(state), 0);
+        expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 0);
+    }
+
+    void testDownEdgeBarrierOnModeAndGroupSwitch() {
+        beginTest("Down-edge Barrier Prevents Spurious Retrigger on Mode Switch");
+
+        KeyboardMidiMapper mapper;
+        juce::MidiKeyboardState state;
+
+        bool isQDown = true;
+        mapper.setKeyStatePredicate([&](int code) { return (code == 'Q' || code == 'q') && isQDown; });
+
+        // Key Q pressed in off mode
+        mapper.setPartitionMode(KeyboardPartitionMode::off);
+        expect(mapper.handleKeyPressed(juce::KeyPress('q'), state));
+        expect(state.isNoteOn(1, 72));
+        expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 1);
+
+        // User changes partition mode to mainOnly while holding Q
+        mapper.setPartitionMode(KeyboardPartitionMode::mainOnly);
+
+        // Key state changed runs: must NOT retrigger or duplicate NoteOn!
+        mapper.handleKeyStateChanged(state);
+        expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 1);
+        expect(state.isNoteOn(1, 72)); // Still sounding original identity
+
+        // Release Q: must cleanly release original note (72 on ch 1)
+        isQDown = false;
+        expect(mapper.handleKeyStateChanged(state));
+        expect(!state.isNoteOn(1, 72));
+        expectEquals(countNotesOn(state), 0);
+        expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 0);
+    }
+
+    void testMutedMatrixNoteDoesNotReleaseOtherSoundingNotes() {
+        beginTest("Muted Matrix Note Does Not Trigger NoteOff on Other Active Notes");
+
+        KeyboardMidiMapper mapper;
+        juce::MidiKeyboardState state;
+
+        devpiano::midi::ChannelMatrix matrix;
+        matrix.active = true;
+        // Channel 1 outputChannel is 1 (normal)
+        matrix.channels[0].outputChannel = 0;
+        // Channel 2 outputChannel is 1, but velocity is 0 (muted)
+        matrix.channels[1].outputChannel = 0;
+        matrix.channels[1].velocity = 0;
+        devpiano::midi::MidiChannelMapper chanMapper(matrix, false, 0);
+        mapper.setChannelMapper(&chanMapper);
+
+        // Setup two bindings: key 'A' on ch 1 (audible), key 'B' on ch 2 (muted by matrix)
+        KeyboardLayout layout;
+        layout.bindings.push_back(makeNoteBinding('A', 60, 1));
+        layout.bindings.push_back(makeNoteBinding('B', 60, 2));
+        mapper.setLayout(layout);
+
+        bool isADown = true;
+        bool isBDown = false;
+        mapper.setKeyStatePredicate([&](int code) {
+            if (code == 'A' || code == 'a') {
+                return isADown;
+            }
+            if (code == 'B' || code == 'b') {
+                return isBDown;
+            }
+            return false;
+        });
+
+        // 1. Play 'A' -> sounds on ch 1, note 60
+        expect(mapper.handleKeyPressed(juce::KeyPress('a'), state));
+        expect(state.isNoteOn(1, 60));
+
+        // 2. Press 'B' -> muted by channel 2 matrix velocity 0
+        isBDown = true;
+        expect(mapper.handleKeyPressed(juce::KeyPress('b'), state));
+        expect(state.isNoteOn(1, 60)); // Still sounding 'A'
+
+        // 3. Release 'B' -> must NOT send NoteOff for note 60 on ch 1, preserving 'A'
+        isBDown = false;
+        mapper.handleKeyStateChanged(state);
+        expect(state.isNoteOn(1, 60)); // 'A' remains sounding!
+
+        // 4. Release 'A' -> cleanly stops
+        isADown = false;
+        mapper.handleKeyStateChanged(state);
+        expect(!state.isNoteOn(1, 60));
+        expectEquals(countNotesOn(state), 0);
+    }
+};
+
+static KeyboardPartitionAndNumpadTest keyboardPartitionAndNumpadTest;
 
 static LayoutGroupAndHeldKeyIdentityTest layoutGroupAndHeldKeyIdentityTest;
 static SustainPedalKeyMappingTest sustainPedalKeyMappingTest;

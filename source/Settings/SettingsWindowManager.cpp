@@ -199,6 +199,12 @@ void SettingsWindowManager::refreshAcousticControls() {
     }
 }
 
+void SettingsWindowManager::refreshPerformanceRoutingHint(const juce::String& hint) {
+    if (auto* content = getSettingsContent()) {
+        content->setPerformanceRoutingHint(hint);
+    }
+}
+
 void SettingsWindowManager::showFor(MainComponent& owner) {
     auto onDisplaySettingsChanged = [safe = juce::Component::SafePointer<MainComponent>(&owner),
                                      lastAppliedMetronomeEnabled = owner.appSettings.metronomeEnabled]() mutable {
@@ -213,6 +219,15 @@ void SettingsWindowManager::showFor(MainComponent& owner) {
         safe->getCustomKeyboard().setKeyboardSettings(makeKeyboardSettings(kbs, safe->appSettings.keySignature));
         safe->setInstrumentFilterVisible(kbs.showInstrumentFilter);
         safe->reconfigureChannelMapper();
+        safe->keyboardMidiMapper.setPartitionMode(safe->appSettings.partitionMode);
+        if (safe->keyboardMidiMapper.getLayout().regionA != safe->appSettings.regionA
+            || safe->keyboardMidiMapper.getLayout().regionB != safe->appSettings.regionB) {
+            auto layout = safe->keyboardMidiMapper.getLayout();
+            layout.regionA = safe->appSettings.regionA;
+            layout.regionB = safe->appSettings.regionB;
+            safe->keyboardMidiMapper.setLayout(std::move(layout), false);
+        }
+        safe->audioEngine.setInstrumentLayers(safe->appSettings.layers);
         safe->setControlsPianoValues(safe->appSettings.builtinTone, safe->appSettings.pianoBrightness,
                                      safe->appSettings.pianoHammerHardness, safe->appSettings.pianoResonance);
         safe->audioEngine.setPianoParameters(safe->appSettings.pianoBrightness, safe->appSettings.pianoHammerHardness,
@@ -267,5 +282,6 @@ void SettingsWindowManager::showFor(MainComponent& owner) {
                        safe->saveSettingsSoon();
                    }
                } });
+    owner.updateQwertyVisualizer();
 }
 } // namespace devpiano::settings

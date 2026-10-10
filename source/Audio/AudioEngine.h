@@ -1,4 +1,7 @@
 #pragma once
+#include "Audio/BoundedDelayLine.h"
+#include "Audio/InstrumentLayers.h"
+#include "Audio/InstrumentNoteState.h"
 
 #include "AcousticSnapshot.h"
 #include "Audio/BuiltinSynthesiser.h"
@@ -20,6 +23,10 @@
 #include <vector>
 
 class PluginHost;
+
+namespace juce {
+class AudioPluginInstance;
+}
 
 namespace devpiano::recording {
 class RecordingEngine;
@@ -94,11 +101,15 @@ public:
     [[nodiscard]] float getFeltAgeingAmount() const noexcept {
         return pendingFeltAgeingAmount.load(std::memory_order_relaxed);
     }
-    void setPlaybackTranspose(bool enabled, int semitoneOffset,
-                              std::uint16_t channelFollowKeyMask = 0b1111110111111111) noexcept;
-    [[nodiscard]] bool isPlaybackTransposeEnabled() const noexcept;
-    [[nodiscard]] int getPlaybackTransposeOffset() const noexcept;
-    [[nodiscard]] std::uint16_t getPlaybackChannelFollowKeyMask() const noexcept;
+    void setInputTranspose(bool enabled, int semitoneOffset,
+                           std::uint16_t channelFollowKeyMask = 0b1111110111111111) noexcept;
+    [[nodiscard]] bool isInputTransposeEnabled() const noexcept;
+    [[nodiscard]] int getInputTransposeOffset() const noexcept;
+    [[nodiscard]] std::uint16_t getInputChannelFollowKeyMask() const noexcept;
+    void setInstrumentLayers(const devpiano::audio::InstrumentLayers& layers) noexcept;
+    [[nodiscard]] devpiano::audio::InstrumentLayers getInstrumentLayers() const noexcept;
+    [[nodiscard]] int consumeLatencyOverflowCount() noexcept;
+    [[nodiscard]] bool consumeLatencyFaultPending() noexcept;
     enum class BuiltinSynthTone : std::uint8_t {
         sine,
         piano,
@@ -193,11 +204,12 @@ private:
     bool consumePlaybackStartPreRollBlockIfNeeded();
     void recordRealtimeMidiBufferIfNeeded(int numSamples);
     void renderPlaybackEventsIfNeeded(std::int64_t blockStartSamples, int numSamples);
+    void mergePerformanceInput();
+    void resetPerformanceInputOwnership() noexcept;
     void handleNoteOn(juce::MidiKeyboardState*, int channel, int note, float velocity) override;
     void handleNoteOff(juce::MidiKeyboardState*, int channel, int note, float velocity) override;
     void enqueueLiveMidi(const juce::MidiMessage& message) noexcept;
     void collectLiveMidi(int numSamples) noexcept;
-    void publishMidiForDisplay(const juce::MidiBuffer& buffer) noexcept;
     void clearDisplayNotes() noexcept;
     void applyAcousticSnapshot(const devpiano::audio::AcousticSnapshot& snapshot, bool recordedPreset = false);
     void renderInstrumentSegment(const juce::AudioSourceChannelInfo& output, int offset, int numSamples);
@@ -210,6 +222,7 @@ private:
     devpiano::audio::BuiltinSynthesiser* activeSynth = &synth;
     float activeMasterGain = 1.0f;
     bool muteInstrumentDuringBlock = false;
+    bool syncCutInBlock = false;
     struct PresetBoundary {
         const devpiano::audio::AcousticSnapshot* acoustic = nullptr;
         int sampleOffset = 0;
@@ -218,6 +231,10 @@ private:
     std::vector<PresetBoundary> presetBoundaries;
 
     devpiano::audio::PlaybackIdentityTracker playbackIdentityTracker;
+    std::array<std::array<std::array<bool, 128>, 16>, 2> inputNotes {};
+    std::array<std::array<std::array<std::uint8_t, 3>, 16>, 2> inputPedals {};
+    bool hasRecordedSoftBaseline = false;
+    bool recordedSoftBaseline = false;
     struct LiveMidiEvent {
         std::array<std::uint8_t, 3> bytes {};
         std::uint8_t size = 0;
@@ -234,13 +251,31 @@ private:
     juce::MidiKeyboardState keyboardState;
     juce::MidiBuffer midiBuffer;
     juce::MidiBuffer playbackVisualMidiBuffer;
-    juce::MidiBuffer playbackTransposedMidiBuffer;
+    juce::MidiBuffer playbackOwnedMidiBuffer;
     juce::AudioBuffer<float> pluginBuffer;
+    juce::AudioBuffer<float> pianoBuffer;
+    juce::AudioBuffer<float> pianoDelayedBuffer;
+    juce::MidiBuffer pluginSegmentMidiBuffer;
+    juce::MidiBuffer builtinSegmentMidiBuffer;
+    std::vector<std::uint8_t> midiEventSources;
+    std::vector<std::uint8_t> segmentEventSources;
+    std::vector<std::uint8_t> boundaryEventSources;
     juce::MidiBuffer segmentMidiBuffer;
     juce::MidiBuffer boundaryMidiBuffer;
     juce::AudioBuffer<float> pluginView;
-    juce::AudioBuffer<float> builtinView;
-    std::vector<float*> builtinChannelPointers;
+    juce::AudioBuffer<float> pianoView;
+    juce::AudioBuffer<float> pianoDelayedView;
+    devpiano::audio::BoundedStereoDelayLine pianoDelayLine;
+    std::atomic<int> latencyOverflowCount { 0 };
+    std::atomic<bool> latencyFaultPending { false };
+    devpiano::audio::InstrumentLayers activeLayers;
+    bool previousLayersEnabled = false;
+    devpiano::audio::BuiltinSynthesiser* previousBuiltinSynth = nullptr;
+    bool previousPluginEnabled = false;
+    juce::AudioPluginInstance* previousPluginInstance = nullptr;
+    devpiano::audio::InstrumentNoteState builtinNoteState;
+    devpiano::audio::InstrumentNoteState pluginNoteState;
+    std::array<std::array<std::uint8_t, 3>, 16> performancePedals {};
     int preparedPluginChannels = 0;
     std::size_t preparedMidiCapacity = 131072;
 
@@ -276,8 +311,14 @@ private:
         feltParameter = 1U << 11,
         transposeParameter = 1U << 12,
         tuningParameter = 1U << 13,
-        allParameters = (1U << 14) - 1,
+        layersParameter = 1U << 14,
+        allParameters = (1U << 15) - 1,
     };
+    std::atomic<bool> pendingLayersEnabled { false };
+    std::atomic<bool> pendingPianoEnabled { true };
+    std::atomic<bool> pendingPluginEnabled { true };
+    std::atomic<float> pendingPianoGain { 0.5f };
+    std::atomic<float> pendingPluginGain { 0.5f };
     std::atomic<std::uint32_t> pendingParameterMask { allParameters };
     std::atomic<std::uint8_t> pendingSoundPerspective { 0 };
     std::atomic<std::uint8_t> pendingReverbSpace { static_cast<std::uint8_t>(ReverbSpace::chamber) };
@@ -291,8 +332,8 @@ private:
     std::atomic<int> warmupBlocksRemaining { 0 };
     std::atomic<int> playbackStartPreRollBlocksRemaining { 0 };
     std::atomic<int> pluginBufferResizeCount { 0 };
-    std::atomic<bool> playbackTransposeEnabled { false };
-    std::atomic<int> playbackTransposeOffset { 0 };
-    std::atomic<std::uint16_t> playbackChannelFollowKeyMask { 0b1111110111111111 };
+    std::atomic<bool> inputTransposeEnabled { false };
+    std::atomic<int> inputTransposeOffset { 0 };
+    std::atomic<std::uint16_t> inputChannelFollowKeyMask { 0b1111110111111111 };
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AudioEngine)
 };

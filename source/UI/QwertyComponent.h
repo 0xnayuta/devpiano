@@ -39,23 +39,27 @@ public:
 
     // ---- Interaction Callbacks ---------------------------------------------
     std::function<devpiano::core::MidiNoteIdentity(int midiNote, int midiChannel, float velocity)> onNoteOn;
+    std::function<devpiano::core::MidiNoteIdentity(int physicalKeyCode, int inputNote, int inputChannel,
+                                                   float velocity)>
+        onPhysicalNoteOn;
     std::function<void(const devpiano::core::MidiNoteIdentity&)> onNoteOff;
+    std::function<void(const devpiano::core::MidiNoteIdentity&, int physicalKeyCode)> onPhysicalNoteOff;
 
-    std::function<void(int midiNote)> onBindingEditRequested;
-
+    std::function<void(int midiNote, int physicalKeyCode)> onBindingEditRequested;
     // ---- Mouse Interaction -------------------------------------------------
     void mouseDown(const juce::MouseEvent& e) override;
     void mouseUp(const juce::MouseEvent& e) override;
     void mouseDrag(const juce::MouseEvent& e) override;
+    void mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel) override;
     void releaseHeldMouseNote();
     // ---- Hit Testing -------------------------------------------------------
     struct HitResult {
         int rowIndex = -1;
         int keyIndex = -1;
+        bool isNumpad = false;
         const devpiano::core::QwertyKeyVisualState* key = nullptr;
     };
     [[nodiscard]] HitResult findKeyAt(juce::Point<int> position) const;
-
     // ---- Public Test Hook --------------------------------------------------
     void triggerTimerForTest() {
         timerCallback();
@@ -79,8 +83,11 @@ private:
 
     devpiano::core::QwertyViewModel viewModel;
     std::array<std::vector<KeyGeometry>, 5> keyGeometries;
-
+    std::array<std::vector<KeyGeometry>, 5> numpadGeometries;
+    int scrollOffsetX = 0;
+    int maxScrollOffset = 0;
     int lastMouseDownNote = -1;
+    int lastMouseDownKeyCode = 0;
     std::optional<devpiano::core::MidiNoteIdentity> lastMouseDownIdentity;
     devpiano::core::ChordInfo lastDisplayedChord;
     float chordFadeAlpha = 0.0f;

@@ -40,7 +40,8 @@ juce::MidiMessage MidiChannelMapper::applyTransform(const juce::MidiMessage& mes
 }
 
 devpiano::core::MidiNoteIdentity MidiChannelMapper::sendNoteOn(int inputChannel, int midiNote, float velocity,
-                                                               juce::MidiKeyboardState& keyboardState) {
+                                                               juce::MidiKeyboardState& keyboardState,
+                                                               float* finalVelocityOut) {
     using devpiano::core::MidiChannel;
     using devpiano::core::MidiNoteIdentity;
     using devpiano::core::MidiNoteNumber;
@@ -50,8 +51,12 @@ devpiano::core::MidiNoteIdentity MidiChannelMapper::sendNoteOn(int inputChannel,
 
     const MidiNoteIdentity identity { MidiNoteNumber::fromClamped(transformed.getNoteNumber()),
                                       MidiChannel::fromClamped(transformed.getChannel()) };
-    if (transformed.getFloatVelocity() > 0.0f) {
-        keyboardState.noteOn(identity.channel.value, identity.note.value, transformed.getFloatVelocity());
+    const float finalVel = transformed.getFloatVelocity();
+    if (finalVelocityOut != nullptr) {
+        *finalVelocityOut = finalVel;
+    }
+    if (finalVel > 0.0f) {
+        keyboardState.noteOn(identity.channel.value, identity.note.value, finalVel);
     }
     return identity;
 }

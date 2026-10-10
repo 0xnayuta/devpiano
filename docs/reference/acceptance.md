@@ -14,11 +14,11 @@
 | 领域 | 当前必须满足的消费者不变量 | 直接证据与验证边界 |
 | --- | --- | --- |
 | 文件与会话 | 覆盖不追加；失败/提交前取消保留已有目标；A→B→Save As C 后信息编辑不改 A；同步保存不被旧 timer 回滚 | Phase A/B、H 的文件/会话/实际窗口；断电、磁盘耗尽与强杀不外推 |
-| 格式准入 | 自有预设仅整数 v2、演奏及独立元数据仅整数 v3；不迁移旧数据；完整声明轨及合法 meta 后才导入标准 MIDI，稳定原生时间线不改变同采样顺序 | 现行格式准入按 Phase 36 Task 36-2 验证；文件保护沿用 Phase B/E/H；文档 JSON 示例须由生产 reader 实际准入 |
+| 格式准入 | 自有预设仅整数 v2、演奏及独立元数据仅整数 v4；不猜测或迁移旧事件语义；完整声明轨及合法 meta 后才导入标准 MIDI，稳定原生时间线不改变同采样顺序 | 当前契约见 [原生文件分册](features/performance-persistence.md)，阶段消费者见 [Phase 38 验收](../roadmap/current-iteration.md#3-phase-38电脑键盘分区三踏板控制与固定双层演奏)；失败文件/会话保护继续保留 |
 | 预设与调号 | UUID 在 rename/autosave 保持；独立目标覆盖确认、同路径不自删；普通选择保留全局调号，回放恢复 RecordedPreset.acoustic | Phase A/E/H；不将 JSON 含字段误写为普通选择必覆盖运行调号 |
 | MIDI 导出 | Type 1、默认 960 PPQ、单轨、tick 0 120 BPM；保持显式起音/释放，不合成曲名或拍号；非 MIDI 与 SysEx 不输出 | Phase A/D/H，实际文件 header、消息和覆盖结果 |
 | 身份与时序 | 原身份 FIFO/最后持有者释放；暂停捕获闭合；末尾 Off、设备时间域、Seek/loop 状态和完整预备拍在音频边界执行 | Phase C/D/E；CPU release/prepare 不等于物理热插拔 |
-| 实时与 WAV | 自有回调零锁/零分配/零库函数三角；Take 参数按采样点执行，非零 startSample 不污染外部区间；完整音高同构仍是修复目标 | Phase E 的有限场景不覆盖当前 [P1 快照移调差异](../issues/known-issues.md#原生演奏快照移调与-wav-音高不一致)；不向 VST3 注入内置物理参数，不作逐比特保证；第三方框架锁/2048 消息上限分层 |
+| 实时与 WAV | 自有回调零锁/零分配/零库函数三角；Take 最终音乐身份不重复变换，参数/层状态按采样点执行；独立缓冲混音后一次公共 Master/Reverb | [最终身份契约](features/recording-playback.md) 与 [固定双层边界](features/plugin-offline-rendering.md)；不向 VST3 注入内置物理参数，不作逐比特保证；第三方框架锁/2048 消息上限分层 |
 | UI 与诊断 | 双看板同一投影，输入身份不受输出反馈污染；静音最高优先，Notes 确认/取消正确；日志会话有界并报告故障，MIDI raw 力度准确 | Phase F/G/H 实际窗口、音频捕获、文件及像素 |
 | 工程门禁 | Windows Debug app/tests 构建、默认 CTest、格式、迭代边界全量 tidy；确认 Chord/lifecycle 实际执行、用户目录无副作用、fixture 不依赖可选 NRVO | Phase G/H 的实际命令/receipt；不重写旧默认缓存失败为已消失 |
 

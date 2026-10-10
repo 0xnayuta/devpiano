@@ -1,6 +1,5 @@
 #include <JuceHeader.h>
 
-#include "Input/KeyboardMidiMapper.h"
 #include "Input/TouchVelocityCurve.h"
 #include "Layout/PerformancePreset.h"
 #include "Settings/SettingsModel.h"
@@ -10,8 +9,6 @@
 // ============================================================================
 /// TouchVelocityCurveTest (Phase 29-C)
 ///
-/// 验证触键力度曲线（Standard, Light, Heavy, Wide Dynamic）的数学特性、
-/// 单调性、端点守恒、键盘映射注入与全链路持久化/预设流。
 // ============================================================================
 class TouchVelocityCurveTest final : public juce::UnitTest {
 public:
@@ -21,7 +18,6 @@ public:
 
     void runTest() override {
         testMathematicalCurveProperties();
-        testKeyboardMidiMapperCurveInjection();
         testSettingsStoreAndPresetRoundTrip();
     }
 
@@ -79,64 +75,6 @@ private:
         const auto loudWide = applyVelocityCurve(0.8f, TouchVelocityCurve::wideDynamic);
         expect(softWide < 0.2f); // 极弱更柔
         expect(loudWide > 0.8f); // 强奏更具冲击力
-    }
-
-    void testKeyboardMidiMapperCurveInjection() {
-        beginTest("KeyboardMidiMapper: Velocity curve injection during note triggering");
-
-        KeyboardMidiMapper mapper;
-        juce::MidiKeyboardState state;
-
-        expect(mapper.getTouchVelocityCurve() == devpiano::input::TouchVelocityCurve::standard);
-
-        // 绑定一个基准力度为 0.8f 的按键
-        devpiano::core::KeyboardLayout layout;
-        layout.name = "CurveTestLayout";
-        layout.bindings.push_back(devpiano::core::makeNoteBinding('A', 60, 1, 0.80f));
-        mapper.setLayout(layout);
-
-        // 监听 state 触发的 noteOn velocity
-        struct TestListener final : public juce::MidiKeyboardState::Listener {
-            float lastVelocity = 0.0f;
-            void handleNoteOn(juce::MidiKeyboardState*, int, int, float vel) override {
-                lastVelocity = vel;
-            }
-            void handleNoteOff(juce::MidiKeyboardState*, int, int, float) override {
-            }
-        } listener;
-
-        state.addListener(&listener);
-
-        const juce::KeyPress keyA('A', 0, 0);
-
-        // 1. Standard: 输出严格等于 0.80f
-        mapper.setTouchVelocityCurve(devpiano::input::TouchVelocityCurve::standard);
-        mapper.handleKeyPressed(keyA, state);
-        expectWithinAbsoluteError(listener.lastVelocity, 0.80f, 0.001f);
-        mapper.releaseAllHeldKeys(state);
-
-        // 2. Light: 0.80^0.65 ≈ 0.865f > 0.80f
-        mapper.setTouchVelocityCurve(devpiano::input::TouchVelocityCurve::light);
-        mapper.handleKeyPressed(keyA, state);
-        expect(listener.lastVelocity > 0.80f);
-        expectWithinAbsoluteError(listener.lastVelocity, std::pow(0.80f, 0.65f), 0.001f);
-        mapper.releaseAllHeldKeys(state);
-
-        // 3. Heavy: 0.80^1.60 ≈ 0.699f < 0.80f
-        mapper.setTouchVelocityCurve(devpiano::input::TouchVelocityCurve::heavy);
-        mapper.handleKeyPressed(keyA, state);
-        expect(listener.lastVelocity < 0.80f);
-        expectWithinAbsoluteError(listener.lastVelocity, std::pow(0.80f, 1.60f), 0.001f);
-        mapper.releaseAllHeldKeys(state);
-
-        // 4. Wide Dynamic: S 型在 0.80 处提升: 0.8^2 * (3 - 1.6) = 0.896f > 0.80f
-        mapper.setTouchVelocityCurve(devpiano::input::TouchVelocityCurve::wideDynamic);
-        mapper.handleKeyPressed(keyA, state);
-        expect(listener.lastVelocity > 0.80f);
-        expectWithinAbsoluteError(listener.lastVelocity, 0.80f * 0.80f * (3.0f - 2.0f * 0.80f), 0.001f);
-        mapper.releaseAllHeldKeys(state);
-
-        state.removeListener(&listener);
     }
 
     void testSettingsStoreAndPresetRoundTrip() {

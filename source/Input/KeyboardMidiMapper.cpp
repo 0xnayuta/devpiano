@@ -1,4 +1,5 @@
 #include "KeyboardMidiMapper.h"
+#include "Input/Win32NativeInputBridge.h"
 
 #include "Midi/MidiChannelMapper.h"
 
@@ -10,6 +11,7 @@ KeyboardMidiMapper::KeyboardMidiMapper() {
 
 void KeyboardMidiMapper::setLayout(KeyboardLayout newLayout, bool notifyPerformance) {
     layout = std::move(newLayout);
+    captureCurrentlyDownKeysBarrier();
     if (!notifyPerformance) {
         return;
     }
@@ -18,6 +20,12 @@ void KeyboardMidiMapper::setLayout(KeyboardLayout newLayout, bool notifyPerforma
         sustainPedalDown = false;
         if (sustainPedalCallback) {
             sustainPedalCallback(false);
+        }
+    }
+    if (sostenutoPedalDown) {
+        sostenutoPedalDown = false;
+        if (sostenutoPedalCallback) {
+            sostenutoPedalCallback(false);
         }
     }
     physicalSoftPedalHeld = false;
@@ -60,6 +68,59 @@ void KeyboardMidiMapper::setSoftPedalDown(bool down, bool notifyPerformance) {
         softPedalDown = physicalSoftPedalHeld || programmaticSoftPedal;
     }
 }
+void KeyboardMidiMapper::setPartitionMode(devpiano::core::KeyboardPartitionMode mode) {
+    if (partitionMode == mode) {
+        return;
+    }
+    partitionMode = mode;
+    captureCurrentlyDownKeysBarrier();
+}
+
+devpiano::core::KeyboardPartitionMode KeyboardMidiMapper::getPartitionMode() const noexcept {
+    return partitionMode;
+}
+
+void KeyboardMidiMapper::setSostenutoPedalCallback(SostenutoPedalCallback callback) noexcept {
+    sostenutoPedalCallback = std::move(callback);
+}
+
+bool KeyboardMidiMapper::isSostenutoPedalDown() const noexcept {
+    return sostenutoPedalDown;
+}
+
+void KeyboardMidiMapper::setSostenutoPedalDown(bool down, bool notifyPerformance) {
+    if (sostenutoPedalDown == down) {
+        return;
+    }
+    sostenutoPedalDown = down;
+    if (notifyPerformance && sostenutoPedalCallback) {
+        sostenutoPedalCallback(down);
+    }
+}
+
+void KeyboardMidiMapper::setNumLockPredicate(NumLockPredicate predicate) noexcept {
+    numLockPredicate = std::move(predicate);
+}
+
+bool KeyboardMidiMapper::isNumLockActive() const noexcept {
+    if (numLockPredicate) {
+        return numLockPredicate();
+    }
+#if JUCE_WINDOWS
+    return (GetKeyState(VK_NUMLOCK) & 1) != 0;
+#else
+    return true;
+#endif
+}
+
+void KeyboardMidiMapper::captureCurrentlyDownKeysBarrier() {
+    std::erase_if(physicalKeysDownState, [this](int code) { return !isKeyCurrentlyDown(code); });
+    for (const auto& binding : layout.bindings) {
+        if (binding.keyCode != 0 && isKeyCurrentlyDown(binding.keyCode)) {
+            physicalKeysDownState.insert(binding.keyCode);
+        }
+    }
+}
 
 void KeyboardMidiMapper::updateSoftPedalState() {
     const auto target = physicalSoftPedalHeld || programmaticSoftPedal;
@@ -80,6 +141,7 @@ devpiano::input::TouchVelocityCurve KeyboardMidiMapper::getTouchVelocityCurve() 
 }
 void KeyboardMidiMapper::resetToDefaultLayout() {
     setLayout(makeDefaultKeyboardLayout());
+    captureCurrentlyDownKeysBarrier();
 }
 
 void KeyboardMidiMapper::setActiveGroupIndex(uint8_t groupIndex) {
@@ -88,6 +150,7 @@ void KeyboardMidiMapper::setActiveGroupIndex(uint8_t groupIndex) {
         return;
     }
     layout.activeGroupIndex = target;
+    captureCurrentlyDownKeysBarrier();
     if (groupChangeCallback != nullptr) {
         groupChangeCallback(layout.activeGroupIndex);
     }
@@ -180,10 +243,22 @@ bool KeyboardMidiMapper::handleKeyPressed(const juce::KeyPress& key, juce::MidiK
         }
         return true;
     }
-    // 支持反引号 ` 键作为快捷切组键（在未绑定音符时有效）
+    // CapsLock acts as Sostenuto pedal entry point when unbound (Task 38-2)
+    if (key.getKeyCode() == kCapsLockKeyCode) {
+        if (layout.findByKeyCode(kCapsLockKeyCode) == nullptr) {
+            if (!sostenutoPedalDown) {
+                sostenutoPedalDown = true;
+                if (sostenutoPedalCallback) {
+                    sostenutoPedalCallback(true);
+                }
+            }
+            return true;
+        }
+    }
+
+    // Backtick key shortcut for layout group switching (when unbound)
     if (key.getKeyCode() == '`' || key.getTextCharacter() == '`') {
         if (layout.findByKeyCode('`') == nullptr) {
-            // 抑制 OS 自动重复：仅在按键 down-edge 切换组，重复触发被吞掉。
             if (groupCycleShortcutHeld) {
                 return true;
             }
@@ -193,7 +268,7 @@ bool KeyboardMidiMapper::handleKeyPressed(const juce::KeyPress& key, juce::MidiK
         }
     }
 
-    const auto keyCode = normaliseKeyCode(key);
+    const auto keyCode = normalisePhysicalKeyCode(key.getKeyCode());
     if (keyCode == 0) {
         return false;
     }
@@ -204,24 +279,33 @@ bool KeyboardMidiMapper::handleKeyPressed(const juce::KeyPress& key, juce::MidiK
     }
 
     if (isKeyHeld(keyCode)) {
+        physicalKeysDownState.insert(keyCode);
         return true;
     }
-
+    if (physicalKeysDownState.contains(keyCode)) {
+        return true;
+    }
+    physicalKeysDownState.insert(keyCode);
     return triggerBinding(*binding, keyboardState);
 }
 
 bool KeyboardMidiMapper::handleModifierKeysChanged(const juce::ModifierKeys& modifiers,
                                                    juce::MidiKeyboardState& keyboardState) {
     updateModifiersFromJuce(modifiers);
-    return processKeyStateChangedInternal(keyboardState);
+    return processKeyStateChangedInternal(keyboardState, true);
 }
 
 bool KeyboardMidiMapper::handleKeyStateChanged(juce::MidiKeyboardState& keyboardState) {
     updateModifiersFromJuce(juce::ModifierKeys::getCurrentModifiers());
-    return processKeyStateChangedInternal(keyboardState);
+    return processKeyStateChangedInternal(keyboardState, true);
 }
 
-bool KeyboardMidiMapper::processKeyStateChangedInternal(juce::MidiKeyboardState& keyboardState) {
+bool KeyboardMidiMapper::reconcileReleasedKeys(juce::MidiKeyboardState& keyboardState) {
+    updateModifiersFromJuce(juce::ModifierKeys::getCurrentModifiers());
+    return processKeyStateChangedInternal(keyboardState, false);
+}
+
+bool KeyboardMidiMapper::processKeyStateChangedInternal(juce::MidiKeyboardState& keyboardState, bool allowNoteOn) {
     auto consumed = false;
 
     const auto isSpaceDown = isKeyCurrentlyDown(juce::KeyPress::spaceKey);
@@ -234,17 +318,17 @@ bool KeyboardMidiMapper::processKeyStateChangedInternal(juce::MidiKeyboardState&
         groupCycleShortcutHeld = false;
     }
 
-    // 1. 物理软踏板检测: Tab 键或 Shift+Space 组合
+    // 1. Soft pedal detection: Tab key or Shift+Space combination
     const auto physicalSoftActive = isTabDown || (isSpaceDown && isShiftDown);
-    if (physicalSoftActive != physicalSoftPedalHeld) {
+    if (physicalSoftActive != physicalSoftPedalHeld && (allowNoteOn || !physicalSoftActive)) {
         physicalSoftPedalHeld = physicalSoftActive;
         updateSoftPedalState();
         consumed = true;
     }
 
-    // 2. 物理延音踏板检测: 仅当 Space 按下且未按住 Shift 时激活，避免 Shift+Space 误激活延音
+    // 2. Sustain pedal detection: Space key without Shift
     const auto physicalSustainActive = isSpaceDown && !isShiftDown;
-    if (physicalSustainActive && !sustainPedalDown) {
+    if (allowNoteOn && physicalSustainActive && !sustainPedalDown) {
         sustainPedalDown = true;
         syncPedalCutPending = false;
         if (sustainPedalCallback) {
@@ -261,6 +345,26 @@ bool KeyboardMidiMapper::processKeyStateChangedInternal(juce::MidiKeyboardState&
         }
         consumed = true;
     }
+    // 3. Sostenuto pedal detection via CapsLock (kCapsLockKeyCode = 20)
+    // Active only when CapsLock is not explicitly bound to a note (Task 38-2)
+    if (layout.findByKeyCode(kCapsLockKeyCode) == nullptr) {
+        const auto physicalSostenutoActive = isKeyCurrentlyDown(kCapsLockKeyCode);
+        if (allowNoteOn && physicalSostenutoActive && !sostenutoPedalDown) {
+            sostenutoPedalDown = true;
+            if (sostenutoPedalCallback) {
+                sostenutoPedalCallback(true);
+            }
+            consumed = true;
+        } else if (!physicalSostenutoActive && sostenutoPedalDown) {
+            sostenutoPedalDown = false;
+            if (sostenutoPedalCallback) {
+                sostenutoPedalCallback(false);
+            }
+            consumed = true;
+        }
+    }
+
+    std::erase_if(physicalKeysDownState, [this](int code) { return !isKeyCurrentlyDown(code); });
     for (const auto& binding : layout.bindings) {
         const auto keyCode = binding.keyCode;
         if (keyCode == 0) {
@@ -268,10 +372,15 @@ bool KeyboardMidiMapper::processKeyStateChangedInternal(juce::MidiKeyboardState&
         }
 
         const auto isCurrentlyDown = isKeyCurrentlyDown(keyCode);
-        const auto wasHeld = isKeyHeld(keyCode);
+        const auto wasDownBefore = physicalKeysDownState.contains(keyCode);
 
-        if (isCurrentlyDown && !wasHeld) {
-            consumed = triggerBinding(binding, keyboardState) || consumed;
+        if (isCurrentlyDown && !wasDownBefore) {
+            physicalKeysDownState.insert(keyCode);
+            if (allowNoteOn && !isKeyHeld(keyCode)) {
+                consumed = triggerBinding(binding, keyboardState) || consumed;
+            }
+        } else if (!isCurrentlyDown && wasDownBefore) {
+            physicalKeysDownState.erase(keyCode);
         }
     }
 
@@ -279,6 +388,9 @@ bool KeyboardMidiMapper::processKeyStateChangedInternal(juce::MidiKeyboardState&
         const auto& held = heldKeys[i];
         if (held.velocity <= 0.0f) {
             consumed = true;
+            continue;
+        }
+        if (held.isMouseHeld) {
             continue;
         }
         if (isKeyCurrentlyDown(held.physicalKeyCode)) {
@@ -292,7 +404,7 @@ bool KeyboardMidiMapper::processKeyStateChangedInternal(juce::MidiKeyboardState&
             }
             if (heldKeys[j].velocity > 0.0f && heldKeys[j].soundingMidiChannel == held.soundingMidiChannel
                 && heldKeys[j].soundingMidiNote == held.soundingMidiNote
-                && isKeyCurrentlyDown(heldKeys[j].physicalKeyCode)) {
+                && (heldKeys[j].isMouseHeld || isKeyCurrentlyDown(heldKeys[j].physicalKeyCode))) {
                 hasOtherActiveHolder = true;
                 break;
             }
@@ -316,7 +428,7 @@ bool KeyboardMidiMapper::processKeyStateChangedInternal(juce::MidiKeyboardState&
         consumed = true;
     }
 
-    std::erase_if(heldKeys, [this](const auto& h) { return !isKeyCurrentlyDown(h.physicalKeyCode); });
+    std::erase_if(heldKeys, [this](const auto& h) { return !h.isMouseHeld && !isKeyCurrentlyDown(h.physicalKeyCode); });
 
     return consumed;
 }
@@ -339,6 +451,13 @@ void KeyboardMidiMapper::releaseAllHeldKeys(juce::MidiKeyboardState& keyboardSta
         }
     }
     heldKeys.clear();
+    physicalKeysDownState.clear();
+    if (sostenutoPedalDown) {
+        sostenutoPedalDown = false;
+        if (sostenutoPedalCallback) {
+            sostenutoPedalCallback(false);
+        }
+    }
     if (sustainPedalDown) {
         sustainPedalDown = false;
         if (sustainPedalCallback) {
@@ -356,10 +475,6 @@ void KeyboardMidiMapper::releaseAllHeldKeys(juce::MidiKeyboardState& keyboardSta
     }
 }
 
-int KeyboardMidiMapper::normaliseKeyCode(const juce::KeyPress& key) const {
-    return normaliseAlphaNumericKeyCode(key.getKeyCode());
-}
-
 bool KeyboardMidiMapper::triggerBinding(const KeyBinding& binding, juce::MidiKeyboardState& keyboardState) {
     if (binding.action.trigger != KeyTrigger::keyDown) {
         return false;
@@ -369,15 +484,36 @@ bool KeyboardMidiMapper::triggerBinding(const KeyBinding& binding, juce::MidiKey
         return false;
     }
 
+    // 1. Validate physical partition region and numpad constraints (Task 38-3)
+    const auto region = devpiano::core::getRegionForKeyCode(binding.keyCode, partitionMode);
+    if (devpiano::core::isNumpadKeyCode(binding.keyCode)) {
+        // Numpad sounds only in mainAndNumpad mode with NumLock enabled
+        if (partitionMode != devpiano::core::KeyboardPartitionMode::mainAndNumpad) {
+            return false;
+        }
+        if (!isNumLockActive()) {
+            return false;
+        }
+    }
+
     const auto rawVelocity = binding.action.getVelocity().value;
 
-    // 1. 计算当前激活 Group 下的发声音高与通道
-    const auto baseSoundingNote
-        = devpiano::core::calculateSoundingNote(binding.action.getMidiNoteNumber().value, layout.getActiveGroup());
-    const auto soundingChannel
-        = devpiano::core::calculateSoundingChannel(binding.action.getMidiChannel().value, layout.getActiveGroup());
+    // 2. Compute physical region transformation (Task 38-3)
+    int regionNote = binding.action.getMidiNoteNumber().value;
+    int regionChannel = binding.action.getMidiChannel().value;
+    if (region == devpiano::core::KeyboardRegion::regionA) {
+        regionNote = devpiano::core::calculateSoundingNoteWithRegion(regionNote, layout.regionA);
+        regionChannel = devpiano::core::calculateSoundingChannelWithRegion(regionChannel, layout.regionA);
+    } else if (region == devpiano::core::KeyboardRegion::regionB) {
+        regionNote = devpiano::core::calculateSoundingNoteWithRegion(regionNote, layout.regionB);
+        regionChannel = devpiano::core::calculateSoundingChannelWithRegion(regionChannel, layout.regionB);
+    }
 
-    // 2. 打字律动力度与人性化微扰估算 (Phase 35-B: Typing Cadence Dynamics & Humanizer)
+    // 3. Compute active KeyGroup pitch and channel (Group channel overrides regions if 1..16)
+    const auto baseSoundingNote = devpiano::core::calculateSoundingNote(regionNote, layout.getActiveGroup());
+    const auto soundingChannel = devpiano::core::calculateSoundingChannel(regionChannel, layout.getActiveGroup());
+
+    // 4. Typing cadence dynamics and humanizer estimation (Phase 35-B)
     const double now = juce::Time::getMillisecondCounterHiRes() / 1000.0;
     const float dynamicVelocity = cadenceEstimator.estimateVelocity(now);
     float scaledVelocity = rawVelocity;
@@ -396,25 +532,30 @@ bool KeyboardMidiMapper::triggerBinding(const KeyBinding& binding, juce::MidiKey
     const float jitteredVelocity
         = velocityHumanizer.applyHumanize(scaledVelocity, baseSoundingNote, ++keystrokeCounter);
 
-    // 3. 瞬态修饰符与手感曲线事件流变换
+    // 5. Transient modifiers and touch velocity curve transformation
     const auto soundingNote = modifierState.transformPitch(baseSoundingNote);
     const auto curveVelocity = devpiano::input::applyVelocityCurve(jitteredVelocity, touchVelocityCurve);
     const auto velocity = rawVelocity > 0.0f ? modifierState.transformVelocity(curveVelocity) : 0.0f;
     lastTriggeredVelocity = velocity;
-    auto identity
-        = MidiNoteIdentity { MidiNoteNumber::fromClamped(soundingNote), MidiChannel::fromClamped(soundingChannel) };
+    auto message = juce::MidiMessage::noteOn(soundingChannel, soundingNote, velocity);
     if (channelMapper != nullptr) {
-        identity = channelMapper->sendNoteOn(MidiChannel::fromClamped(soundingChannel).toZeroBased(), soundingNote,
-                                             velocity, keyboardState);
-    } else if (velocity > 0.0f) {
-        keyboardState.noteOn(identity.channel.value, identity.note.value, velocity);
+        message = channelMapper->applyTransform(message);
+    }
+    const auto identity = MidiNoteIdentity { MidiNoteNumber::fromClamped(message.getNoteNumber()),
+                                             MidiChannel::fromClamped(message.getChannel()) };
+    const auto finalVelocity = message.getFloatVelocity();
+    lastTriggeredVelocity = finalVelocity;
+    if (finalVelocity > 0.0f) {
+        if (notePreparationCallback) {
+            notePreparationCallback(identity.channel.value);
+        }
+        keyboardState.noteOn(identity.channel.value, identity.note.value, finalVelocity);
     }
 
-    heldKeys.push_back({ binding.keyCode, identity.note.value, identity.channel.value, velocity });
+    heldKeys.push_back({ binding.keyCode, identity.note.value, identity.channel.value, finalVelocity });
+    physicalKeysDownState.insert(binding.keyCode);
 
-    // 4. 同步切分标记：NoteOn 即消费一次未决的 sync-pedal cut，
-    // 与 SyncPedalProcessor::processMidiBlock 在音频线程上同样清零
-    // cutPending 的语义保持一致，避免 QWERTY 卡片长期高亮 "[Sync Cut]"。
+    // 6. Sync pedal cut flag: NoteOn consumes pending cut
     syncPedalCutPending = false;
 
     return true;
@@ -434,6 +575,9 @@ bool KeyboardMidiMapper::isKeyCurrentlyDown(int keyCode) const {
     if (keyStatePredicate) {
         return keyStatePredicate(keyCode);
     }
+    if (const auto state = devpiano::input::Win32NativeInputBridge::getPhysicalKeyState(keyCode)) {
+        return *state;
+    }
     return juce::KeyPress::isKeyCurrentlyDown(keyCode);
 }
 
@@ -448,6 +592,10 @@ devpiano::core::QwertyViewModel KeyboardMidiMapper::createQwertySnapshot(int key
     vm.isShiftActive = modifierState.shiftActive;
     vm.isAltActive = modifierState.altActive;
     vm.isCtrlActive = modifierState.ctrlActive;
+    vm.isSostenutoPedalDown = sostenutoPedalDown;
+    vm.partitionMode = partitionMode;
+    vm.showNumpad = (partitionMode == devpiano::core::KeyboardPartitionMode::mainAndNumpad);
+    vm.isNumLockOn = isNumLockActive();
 
     const auto& activeGroup = layout.getActiveGroup();
     const auto projectNote = [this](int note, int channel, float velocity) {
@@ -476,25 +624,43 @@ devpiano::core::QwertyViewModel KeyboardMidiMapper::createQwertySnapshot(int key
     }
     const auto projectBinding = [&](const KeyBinding& binding) {
         const auto bindingNote = binding.action.getMidiNoteNumber().value;
-        const auto inputNote = modifierState.transformPitch(calculateSoundingNote(bindingNote, activeGroup));
-        const auto inputChannel = calculateSoundingChannel(binding.action.getMidiChannel().value, activeGroup);
+        const auto region = devpiano::core::getRegionForKeyCode(binding.keyCode, partitionMode);
+        int regionNote = bindingNote;
+        int regionChannel = binding.action.getMidiChannel().value;
+        if (region == devpiano::core::KeyboardRegion::regionA) {
+            regionNote = devpiano::core::calculateSoundingNoteWithRegion(regionNote, layout.regionA);
+            regionChannel = devpiano::core::calculateSoundingChannelWithRegion(regionChannel, layout.regionA);
+        } else if (region == devpiano::core::KeyboardRegion::regionB) {
+            regionNote = devpiano::core::calculateSoundingNoteWithRegion(regionNote, layout.regionB);
+            regionChannel = devpiano::core::calculateSoundingChannelWithRegion(regionChannel, layout.regionB);
+        }
+        const auto inputNote = modifierState.transformPitch(calculateSoundingNote(regionNote, activeGroup));
+        const auto inputChannel = calculateSoundingChannel(regionChannel, activeGroup);
         const auto inputVelocity = modifierState.transformVelocity(
             devpiano::input::applyVelocityCurve(binding.action.getVelocity().value, touchVelocityCurve));
         const auto output = projectNote(inputNote, inputChannel, inputVelocity);
         return std::pair { PianoKeyVisualState { inputNote, inputChannel, inputVelocity, output.getChannel(),
-                                                 output.getFloatVelocity(), bindingNote, true, binding.displayText },
+                                                 output.getFloatVelocity(), bindingNote, true, binding.displayText,
+                                                 binding.keyCode },
                            output.getNoteNumber() };
     };
     for (const auto& binding : layout.bindings) {
+        const auto inactiveNumpad = isNumpadKeyCode(binding.keyCode)
+            && (partitionMode != KeyboardPartitionMode::mainAndNumpad || !vm.isNumLockOn);
         if (binding.action.type != KeyActionType::note) {
             continue;
         }
         const auto [projection, outputNote] = projectBinding(binding);
-        auto& pianoKey = vm.pianoKeys[static_cast<std::size_t>(outputNote)];
-        if (!pianoKey.hasBinding) {
-            pianoKey = projection;
-        } else {
-            pianoKey.keyLabel += "/" + binding.displayText;
+        if (!inactiveNumpad && projection.velocity > 0.0f) {
+            vm.outputChannelMask |= static_cast<std::uint16_t>(1U << (projection.mappedMidiChannel - 1));
+        }
+        if (!inactiveNumpad) {
+            auto& pianoKey = vm.pianoKeys[static_cast<std::size_t>(outputNote)];
+            if (!pianoKey.hasBinding) {
+                pianoKey = projection;
+            } else {
+                pianoKey.keyLabel += "/" + binding.displayText;
+            }
         }
         for (auto& row : vm.rows) {
             for (auto& key : row.keys) {
@@ -512,14 +678,44 @@ devpiano::core::QwertyViewModel KeyboardMidiMapper::createQwertySnapshot(int key
                 key.solfegeLabel = getNoteDisplayName(outputNote, NoteDisplayMode::fixedDo, keySignature);
             }
         }
+        for (auto& row : vm.numpadRows) {
+            for (auto& key : row.keys) {
+                if (key.keyCode == 0 || key.keyCode != binding.keyCode || key.bindingMidiNote >= 0) {
+                    continue;
+                }
+                key.inputMidiNote = projection.inputMidiNote;
+                key.inputMidiChannel = projection.inputMidiChannel;
+                key.inputVelocity = projection.inputVelocity;
+                key.bindingMidiNote = projection.bindingMidiNote;
+                key.mappedMidiNote = outputNote;
+                key.mappedMidiChannel = projection.mappedMidiChannel;
+                key.velocity = projection.velocity;
+                key.region = devpiano::core::getRegionForKeyCode(binding.keyCode, partitionMode);
+                key.noteName = getNoteDisplayName(outputNote, NoteDisplayMode::noteName, keySignature);
+                key.solfegeLabel = getNoteDisplayName(outputNote, NoteDisplayMode::fixedDo, keySignature);
+            }
+        }
     }
     for (auto& row : vm.rows) {
         for (auto& key : row.keys) {
+            if (key.keyCode == kCapsLockKeyCode) {
+                key.isSostenutoPedal = layout.findByKeyCode(kCapsLockKeyCode) == nullptr;
+            }
+            key.region = getRegionForKeyCode(key.keyCode, partitionMode);
             if (key.isSustainPedal) {
                 key.isDown = sustainPedalDown;
             } else if (key.isSoftPedal) {
                 key.isDown = softPedalDown;
+            } else if (key.isSostenutoPedal) {
+                key.isDown = sostenutoPedalDown;
             } else if (key.keyCode != 0) {
+                key.isDown = isKeyHeld(key.keyCode);
+            }
+        }
+    }
+    for (auto& row : vm.numpadRows) {
+        for (auto& key : row.keys) {
+            if (key.keyCode != 0) {
                 key.isDown = isKeyHeld(key.keyCode);
             }
         }
@@ -528,9 +724,104 @@ devpiano::core::QwertyViewModel KeyboardMidiMapper::createQwertySnapshot(int key
     std::vector<int> soundingNotes;
     soundingNotes.reserve(heldKeys.size());
     for (const auto& held : heldKeys) {
-        soundingNotes.push_back(held.soundingMidiNote);
+        if (held.velocity > 0.0f) {
+            soundingNotes.push_back(held.soundingMidiNote);
+        }
     }
     vm.detectedChord = devpiano::core::detectChord(soundingNotes);
-
+    for (const auto& key : vm.pianoKeys) {
+        if (key.inputMidiNote >= 0 && key.velocity > 0.0f) {
+            vm.outputChannelMask |= static_cast<std::uint16_t>(1U << (key.mappedMidiChannel - 1));
+        }
+    }
+    for (const auto& held : heldKeys) {
+        if (held.velocity > 0.0f) {
+            vm.outputChannelMask |= static_cast<std::uint16_t>(1U << (held.soundingMidiChannel - 1));
+        }
+    }
     return vm;
+}
+
+const devpiano::core::HeldKeyIdentity* KeyboardMidiMapper::getHeldKeyByIndex(size_t index) const noexcept {
+    if (index < heldKeys.size()) {
+        return &heldKeys[index];
+    }
+    return nullptr;
+}
+
+devpiano::core::MidiNoteIdentity KeyboardMidiMapper::triggerMouseKeyDown(int physicalKeyCode, int inputNote,
+                                                                         int inputChannel, float velocity,
+                                                                         juce::MidiKeyboardState& keyboardState) {
+    if (physicalKeyCode != 0) {
+        for (auto& held : heldKeys) {
+            if (held.physicalKeyCode == physicalKeyCode) {
+                held.isMouseHeld = true;
+                return { MidiNoteNumber::fromClamped(held.soundingMidiNote),
+                         MidiChannel::fromClamped(held.soundingMidiChannel) };
+            }
+        }
+    }
+    auto identity = devpiano::core::MidiNoteIdentity { devpiano::core::MidiNoteNumber::fromClamped(inputNote),
+                                                       devpiano::core::MidiChannel::fromClamped(inputChannel) };
+    if (isNumpadKeyCode(physicalKeyCode)
+        && (partitionMode != KeyboardPartitionMode::mainAndNumpad || !isNumLockActive())) {
+        return identity;
+    }
+    auto message = juce::MidiMessage::noteOn(identity.channel.value, identity.note.value, velocity);
+    if (channelMapper != nullptr) {
+        message = channelMapper->applyTransform(message);
+    }
+    identity = { MidiNoteNumber::fromClamped(message.getNoteNumber()), MidiChannel::fromClamped(message.getChannel()) };
+    const auto finalVelocity = message.getFloatVelocity();
+    if (finalVelocity > 0.0f) {
+        if (notePreparationCallback) {
+            notePreparationCallback(identity.channel.value);
+        }
+        keyboardState.noteOn(identity.channel.value, identity.note.value, finalVelocity);
+    }
+
+    bool found = false;
+    for (auto& held : heldKeys) {
+        if (held.physicalKeyCode == physicalKeyCode && held.soundingMidiNote == identity.note.value
+            && held.soundingMidiChannel == identity.channel.value) {
+            held.isMouseHeld = true;
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
+        heldKeys.push_back({ physicalKeyCode, identity.note.value, identity.channel.value, finalVelocity, true });
+    }
+
+    syncPedalCutPending = false;
+    return identity;
+}
+
+void KeyboardMidiMapper::releaseMouseKeyUp(const devpiano::core::MidiNoteIdentity& identity, int physicalKeyCode,
+                                           juce::MidiKeyboardState& keyboardState) {
+    for (auto it = heldKeys.begin(); it != heldKeys.end(); ++it) {
+        if (it->isMouseHeld && it->soundingMidiNote == identity.note.value
+            && it->soundingMidiChannel == identity.channel.value && it->physicalKeyCode == physicalKeyCode) {
+            it->isMouseHeld = false;
+            if (it->physicalKeyCode != 0 && isKeyCurrentlyDown(it->physicalKeyCode)) {
+                return;
+            }
+            bool hasOtherHolder = false;
+            for (const auto& other : heldKeys) {
+                if (&other != &(*it) && other.velocity > 0.0f && other.soundingMidiNote == identity.note.value
+                    && other.soundingMidiChannel == identity.channel.value) {
+                    if (other.isMouseHeld
+                        || (other.physicalKeyCode != 0 && isKeyCurrentlyDown(other.physicalKeyCode))) {
+                        hasOtherHolder = true;
+                        break;
+                    }
+                }
+            }
+            if (!hasOtherHolder && it->velocity > 0.0f) {
+                sendNoteOff(identity.channel.value, identity.note.value, 1.0f, keyboardState);
+            }
+            heldKeys.erase(it);
+            return;
+        }
+    }
 }

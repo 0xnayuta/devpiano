@@ -5,6 +5,7 @@
 #include <cctype>
 #include <memory>
 
+#include "Input/Win32NativeInputBridge.h"
 #include "UI/ColourSwatchButton.h"
 #include "UI/ViewHost.h"
 #include "UI/jive/DesignTokens.h"
@@ -34,10 +35,27 @@ struct KeyCaptureSession {
 };
 
 // 按键捕获监听：Bind Key 流程中捕获下一个有效物理按键
-class BindKeyCaptureListener final : public juce::KeyListener {
+class BindKeyCaptureListener final : public juce::KeyListener,
+                                     private juce::ComponentListener,
+                                     public std::enable_shared_from_this<BindKeyCaptureListener> {
 public:
     explicit BindKeyCaptureListener(std::shared_ptr<KeyCaptureSession> stateToTrack)
         : session(std::move(stateToTrack)) {
+    }
+
+    ~BindKeyCaptureListener() override {
+        if (root != nullptr) {
+            root->removeKeyListener(this);
+            root->removeComponentListener(this);
+            devpiano::input::Win32NativeInputBridge::detach(*root);
+        }
+    }
+
+    void watch(juce::Component& component) {
+        root = &component;
+        component.addKeyListener(this);
+        component.addComponentListener(this);
+        attachNativeCapture();
     }
 
     bool keyPressed(const juce::KeyPress& key, juce::Component*) override {
@@ -59,10 +77,12 @@ public:
             return false;
         }
 
-        const auto rawCode = key.getKeyCode();
-        const bool isAlphaNum = std::isalnum(static_cast<unsigned char>(rawCode)) != 0;
-        session->keyCode = isAlphaNum ? devpiano::core::normaliseAlphaNumericKeyCode(rawCode) : rawCode;
-        session->displayText = juce::KeyPress(session->keyCode).getTextDescription();
+        const auto code = devpiano::core::normalisePhysicalKeyCode(key.getKeyCode());
+        if (code == 0) {
+            return false;
+        }
+        session->keyCode = code;
+        session->displayText = devpiano::core::getKeyDisplayText(code);
         session->active = false;
         if (onCaptured != nullptr) {
             onCaptured();
@@ -74,6 +94,30 @@ public:
     std::function<void()> onCancelled;
 
 private:
+    void componentParentHierarchyChanged(juce::Component&) override {
+        attachNativeCapture();
+    }
+
+    void componentVisibilityChanged(juce::Component&) override {
+        attachNativeCapture();
+    }
+
+    void attachNativeCapture() {
+        if (root == nullptr) {
+            return;
+        }
+        devpiano::input::Win32NativeInputBridge::attach(
+            *root,
+            [weak = weak_from_this()](int code, const juce::ModifierKeys& modifiers) {
+                if (const auto listener = weak.lock(); listener != nullptr && listener->root != nullptr) {
+                    return listener->keyPressed(juce::KeyPress(code, modifiers, 0), listener->root.getComponent());
+                }
+                return false;
+            },
+            {});
+    }
+
+    juce::Component::SafePointer<juce::Component> root;
     std::shared_ptr<KeyCaptureSession> session;
 };
 
@@ -190,7 +234,7 @@ void setupBindKeyFlow(const devpiano::ui::ViewHost& host, const std::shared_ptr<
     };
 
     if (auto* rootComp = host.getRootComponent()) {
-        rootComp->addKeyListener(captureListener.get());
+        captureListener->watch(*rootComp);
     }
 }
 

@@ -25,7 +25,8 @@ public:
     [[nodiscard]] juce::MidiMessage applyTransform(const juce::MidiMessage& message);
 
     [[nodiscard]] devpiano::core::MidiNoteIdentity sendNoteOn(int inputChannel, int midiNote, float velocity,
-                                                              juce::MidiKeyboardState& keyboardState);
+                                                              juce::MidiKeyboardState& keyboardState,
+                                                              float* finalVelocityOut = nullptr);
     void sendNoteOff(const devpiano::core::MidiNoteIdentity& identity, float velocity,
                      juce::MidiKeyboardState& keyboardState);
 

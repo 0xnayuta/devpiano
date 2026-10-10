@@ -497,8 +497,9 @@ void CustomKeyboard::mouseDown(const juce::MouseEvent& e) {
     // 编辑器），因此编辑器改由右键独占触发，左键只负责弹琴。
     if (e.mods.isRightButtonDown()) {
         if (onBindingEditRequested) {
-            const auto bindingNote = pianoMapping[static_cast<std::size_t>(note)].bindingMidiNote;
-            onBindingEditRequested(bindingNote >= 0 ? bindingNote : note);
+            const auto& input = pianoMapping[static_cast<std::size_t>(note)];
+            const auto bindingNote = input.bindingMidiNote >= 0 ? input.bindingMidiNote : note;
+            onBindingEditRequested(bindingNote, input.physicalKeyCode);
         }
         return;
     }
@@ -519,9 +520,14 @@ void CustomKeyboard::mouseDown(const juce::MouseEvent& e) {
             break;
         }
     }
-    if (onNoteOn) {
-        const auto& input = pianoMapping[static_cast<std::size_t>(note)];
-        if (input.velocity > 0.0f) {
+    const auto& input = pianoMapping[static_cast<std::size_t>(note)];
+    lastMouseDownPhysicalKeyCode = input.physicalKeyCode;
+    if (input.velocity > 0.0f) {
+        if (onPhysicalNoteOn) {
+            lastMouseDownIdentity
+                = onPhysicalNoteOn(input.physicalKeyCode, input.inputMidiNote >= 0 ? input.inputMidiNote : note,
+                                   input.inputMidiChannel, input.inputVelocity);
+        } else if (onNoteOn) {
             lastMouseDownIdentity = onNoteOn(input.inputMidiNote >= 0 ? input.inputMidiNote : note,
                                              input.inputMidiChannel, input.inputVelocity);
         }
@@ -541,15 +547,21 @@ void CustomKeyboard::releaseHeldMouseNote() {
         return;
     }
 
+    const auto physicalCode = lastMouseDownPhysicalKeyCode;
     const auto identity = lastMouseDownIdentity;
     lastMouseDownNote = -1;
     lastMouseDownIdentity.reset();
+    lastMouseDownPhysicalKeyCode = 0;
 
     // Let fade decay naturally; timer will handle it.
     ensureTimerRunning();
 
-    if (identity.has_value() && onNoteOff) {
-        onNoteOff(*identity);
+    if (identity.has_value()) {
+        if (onPhysicalNoteOff) {
+            onPhysicalNoteOff(*identity, physicalCode);
+        } else if (onNoteOff) {
+            onNoteOff(*identity);
+        }
     }
 }
 
@@ -575,9 +587,14 @@ void CustomKeyboard::mouseDrag(const juce::MouseEvent& e) {
             break;
         }
     }
-    if (onNoteOn) {
-        const auto& input = pianoMapping[static_cast<std::size_t>(note)];
-        if (input.velocity > 0.0f) {
+    const auto& input = pianoMapping[static_cast<std::size_t>(note)];
+    lastMouseDownPhysicalKeyCode = input.physicalKeyCode;
+    if (input.velocity > 0.0f) {
+        if (onPhysicalNoteOn) {
+            lastMouseDownIdentity
+                = onPhysicalNoteOn(input.physicalKeyCode, input.inputMidiNote >= 0 ? input.inputMidiNote : note,
+                                   input.inputMidiChannel, input.inputVelocity);
+        } else if (onNoteOn) {
             lastMouseDownIdentity = onNoteOn(input.inputMidiNote >= 0 ? input.inputMidiNote : note,
                                              input.inputMidiChannel, input.inputVelocity);
         }

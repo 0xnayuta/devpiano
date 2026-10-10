@@ -15,7 +15,7 @@
 2. **公共离线渲染管线（`RenderPipeline`）**：集中处理事件时间戳缩放、排序、音频块切分与尾部 panic note-off 注入，为插件渲染与内置物理建模合成器消除重复代码；
 3. **后台多线程与 JIVE 进度交互**：`WavExportTask` 在后台工作线程执行密集音频渲染，消息线程以 30 fps 平滑刷新基于 `JiveModalDialog` 驱动的暗黑主题进度条；
 4. **事务写出与协作取消**：内置和插件路径均写入同目录自有临时文件，检查 writer/流状态并关闭 writer 后才替换目标；渲染中及提交前接受取消，普通失败/取消只清理临时文件，保留已有目标；
-5. **端点降级边界**：当前没有插件或独立实例创建失败时，路由至 options 指定的内置音色并记录创建失败；不承诺保留原插件音色，也不保证无效文件、参数或 I/O 故障下导出成功。插件渲染本身失败返回失败，不在中途静默换音色。
+5. **端点与降级边界**：单层没有可用插件或独立实例创建失败时，沿用 options 指定的内置音色降级。双层固定 Piano + 当前单 VST3；options 或任一 Take 快照需要插件层而无可用独立实例时明确失败并保护原目标，不能静默只导出钢琴。渲染中失败不换音色。
 
 ---
 
@@ -46,11 +46,11 @@ WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
 实时与离线事件缩放采用同一采样点取整；有效长度覆盖最后事件采样点 `+1`。即使最后 NoteOff 等于 Take 长度，也在其采样点交付，再在完整事件边界收尾。
 
 内置（`WavFileExporter`）与插件（`PluginOfflineRenderer`）两条离线渲染路径均在每个音频块（`blockSize`）内按 `presetChange` 事件采样偏移执行**分段切分（Sub-segmentation）**：
-1. **采样精确参数切换**：分段起点提交快照；内置路径设置 Piano/Sine、声学、Master/混响及柔音，插件路径仅设置宿主 Master/混响并转发 CC67。同采样预设先于 MIDI。起音按快照移调与 follow mask 计算最终身份并锁定，NoteOff 使用起音身份；上游已映射录制事件的条件性重复移调仍见 [路线 A 局限](../../issues/known-issues.md#原生演奏快照移调与-wav-音高不一致路线-a-已实施路线-b-重构备忘)，不混称为实时/WAV 未对齐。
+1. **采样精确参数切换**：分段起点提交声学/层快照，同采样预设先于 MIDI。音符直接消费 Take 中的最终音高/通道，不重新执行矩阵、区域或移调；NoteOff 使用 FIFO 锁定的原身份。双层固定 Piano，不被快照 `builtinTone=sine` 改为 Sine；单层保留原端点选择。
 2. **非零 startSample 隔离机制**：
    - 内置合成器通过切片视图 `segmentAudioBuffer` 映射主缓冲区 `segStart` 偏移，以局部区间直接调用 `renderNextBlock(segmentAudioBuffer, midi, 0, segLen)`；
    - 离线 VST3 插件使用私有中转缓冲 `pluginBuffer`（尺寸 `segLen`，起始偏移始终为 0），由 `offlinePlugin.processBlock(pluginBuffer, midi)` 完成计算后，再按通道拓扑安全拷贝至主缓冲切片 `segmentOutputBuffer`，杜绝非零偏移污染第三方插件内部索引；
-3. **Master 端处理拓扑**：在每个子分段内，立体声混响（`roomReverb.processStereo`）与增益（`applyGain(currentMasterGain)`）首先作用于分段音频；整块的所有分段计算完毕后，统一在 Master 端通过 `applyMasterSoftLimiter(outputBuffer, numSamples)` 执行防爆音软限制，最后写入临时 WAV 文件。
+3. **固定双层与 Master 拓扑**：两层使用独立 MIDI/音频缓冲，第三方插件对 MIDI 的修改不污染 Piano，也不回灌主输入。Piano 通过有界采样 delay 与插件报告延迟对齐，层增益在公共 Reverb 前应用；混音后只执行一次公共 Reverb、Master 与软限制，再写入临时 WAV。禁用层清理原端点及 delay，启用恢复逐通道踏板但不重发旧起音；零延迟旁路继续推进 ring 历史，避免旧声音复活。
 
 ---
 
@@ -72,14 +72,14 @@ WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
 `source/Recording/RenderPipeline.cpp` 通过 `prepareRenderTimeline()` 返回完整时间线或失败；内置和插件路径均在创建目录、临时文件及 writer 前完成数值准入：
 - **采样率自适应换算**：有限、支持范围的录制/目标采样率按比例换算；检查长度和事件时间戳的整数转换，不把饱和值当作有效时间线；
 - **稳定排序与结束点**：事件按 `samplePosition` 非递减稳定排序，同采样顺序不变；检查最后事件 `+1`、固定 2.0 秒尾部及总长度加法。块游标推进到实际 `blockEnd`，不在最后短块之后再加完整块长导致溢出；
-- **尾部防挂音注入**：在渲染结尾自动注入全通道 `allNotesOff` 与 `sustainOff`，消除由于 MIDI 数据不完整可能导致的尾部悬挂音。
+- **尾部防挂音注入**：在渲染结尾注入全通道 CC64/66/67 Off、All Sound Off 与 All Notes Off，清理持有音和三踏板状态。
 - **拒绝保护**：最终事件或尾部不可表示时返回失败，已有目标字节保留，未创建的输出目录仍不存在。此检查不等于真实插件生命周期或超长渲染资源风险已全面验证。
 
 ### 3.3 后台任务与 JIVE 进度反馈（`WavExportTask`）
 
 `WavExportTask` 采用完全非阻塞异步任务模型：
 - **纯异步任务流（`startAsync`）**：消除主线程嵌套模态循环与休眠，基于 `startAsync(onComplete)` 异步派发；`CMakeLists.txt` 仅在 `devpiano_tests` 测试目标保留 `JUCE_MODAL_LOOPS_PERMITTED=1`，主应用 `devpiano` 目标不定义该宏；
-- **乐器端点路由**：`renderTakeThroughInstrumentEndpoint()` 将独立实例指针非空路由到插件，否则路由到内置音源；这只统一端点职责，不证明所有实时/离线事件变换已经相同。
+- **乐器端点路由**：`renderTakeThroughInstrumentEndpoint()` 根据 options 与整个 Take 的层需求选择内置或独立插件复合路径，先检查双层插件依赖，再创建输出。层配比与采样边界由有效快照决定。
 - **无锁进度传递**：后台线程通过 `std::atomic<double> currentProgress` 和 `std::atomic<bool> cancelRequested` 与主线程通信；
 - **协作取消与退出**：Cancel / ESC / 窗口关闭只设置取消请求，显示“正在取消导出”；Timer 不因取消请求或提前 finished 标志释放任务，只在实际线程退出后收尾。主应用退出保持消息循环等待导出完成，直接析构与 `runSync()` 无限等待兜底，不调用有限超时的 `stopThread()` 强杀。
 - **提交边界**：后台在块循环及 writer 关闭后的最终回调检查取消；提交前取消保留原目标并清理自有临时文件。已成功提交不能被之后的 UI 消息撤销。
@@ -97,17 +97,18 @@ WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
 5. **空间房间混响**：离线挂载独立的 `RoomReverbEngine` 实例，根据 C++ 枚举 `reverbSpace`（`ReverbSpace::chamber` / `concertHall` / `studio`，对应持久化标识 `chamber` / `concert_hall` / `studio`，旧别名 `hall` 不再映射并回退 `chamber`）与 `reverbWet` 对双声道音频流执行立体声混响浸润；
 6. **微观机械动作拟真**：`pedalNoiseLevel`（延音踏板扫掠声与共鸣冲击电平）与 `feltAgeingAmount`（琴槌毛毡微老化穿透力）；
    - **Piano 调律与被动共鸣**：`stretchTuningEnabled`（默认 true）、`duplexResonance`（`[0,1]`，默认 0.15）贯通初始参数及后续 Take 快照；仅作用 Piano，不改变 Sine 或插件 MIDI/厂商调律。
+   - **固定双层**：`layers` 保存模式、两层开关及 `[0,1]` 增益；需要对齐时 Piano 使用 prepare 阶段分配的采样延迟缓冲，报告延迟非法或超出有界容量时明确失败/故障，不在实时回调重新分配。
 7. **尾音窗口**：导出追加固定 2.0 秒（`wavTailSeconds = 2.0`）；超出该窗口的声音会截断，明确不把该固定长度承诺成所有声学配置、长延音或厂商插件尾音均完整。
 
 ### 3.5 分层离线渲染契约与框架限制（Layered Offline Export & Framework Boundaries）
 
 1. **内置物理建模钢琴导出链路**：
    - 实时发声与内置离线导出共用纯数学算法模型（`BuiltinSynthesiser`、`PianoSynthVoice`、`RoomReverbEngine`）；
-   - 实时回调零锁/零分配不外推到后台容器、writer 或 I/O。实际参数、分块与来源明确相同时，生产 Piano 快照对照差异限于 16-bit 量化；第三方插件的内部行为、当前输入重复变换边界与未测硬件分别登记，不把它们忽略成量化。
+   - 实时回调零锁/零分配不外推到后台容器、writer 或 I/O。相同参数、分块与来源下生产 Piano 快照对照差异限于 PCM 量化；第三方插件内部行为与未测硬件分别登记，不忽略为量化。
 2. **第三方 VST3 插件离线导出链路**：
    - prepare 前声明 `setNonRealtime(true)`；是否启用更高品质、过采样或其他 offline 分支由插件决定，宿主不保证每个插件均有这些行为。
    - 依然受限于 JUCE VST3 适配器框架层约束：`processBlock()` 获取 `SpinLock processMutex`，MIDI 转换使用带 `CriticalSection` 的容器且单块事件数上限为 2048 条（`enum { maxNumEvents = 2048 }`）；
-   - **输出边界**：插件可自行选择过采样、随机失谐、工作线程或 offline 分支。宿主分发当前 Take MIDI、CC67 和宿主 Master/混响，不写入内置物理参数，不承诺输出逐比特相同；快照移调的宿主侧差异也不能由厂商不可控性免责。
+   - **输出边界**：插件可选择过采样、随机失谐、线程或 offline 分支。宿主保持最终 MIDI 身份、逐通道控制器及一次公共 Master/混响，不向插件写入 Piano 逐键拉伸或物理参数，不承诺输出逐比特一致。
 
 ---
 

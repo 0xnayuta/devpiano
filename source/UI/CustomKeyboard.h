@@ -34,9 +34,13 @@ public:
 
     // ---- Callbacks ---------------------------------------------------------
     std::function<devpiano::core::MidiNoteIdentity(int inputNote, int inputChannel, float velocity)> onNoteOn;
+    std::function<devpiano::core::MidiNoteIdentity(int physicalKeyCode, int inputNote, int inputChannel,
+                                                   float velocity)>
+        onPhysicalNoteOn;
     std::function<void(const devpiano::core::MidiNoteIdentity&)> onNoteOff;
+    std::function<void(const devpiano::core::MidiNoteIdentity&, int physicalKeyCode)> onPhysicalNoteOff;
 
-    std::function<void(int midiNote)> onBindingEditRequested;
+    std::function<void(int midiNote, int physicalKeyCode)> onBindingEditRequested;
 
     // ---- Keyboard interface ------------------------------------------------
     void setAvailableRange(int low, int high);
@@ -121,6 +125,7 @@ private:
     int rangeLow = 21;
     int rangeHigh = 108; // (C8)
     int lastMouseDownNote = -1;
+    int lastMouseDownPhysicalKeyCode = 0;
     std::optional<devpiano::core::MidiNoteIdentity> lastMouseDownIdentity;
 
     float keybedOffsetX = 0.0f; // horizontal centering offset when window > keybed width

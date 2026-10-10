@@ -277,9 +277,19 @@ void WavExportTask::run() {
             if (renderOk) {
                 success.store(true);
             } else {
-                const auto defaultErr = (offlinePlugin != nullptr)
-                    ? TRANS("Export failed during plugin rendering.")
-                    : TRANS("Export failed during built-in synth rendering.");
+                const bool dualLayerPluginRequired
+                    = (options.layers.enabled && options.layers.pluginEnabled)
+                    || std::ranges::any_of(take.presets, [](const auto& p) {
+                           return p.acoustic.layers.enabled && p.acoustic.layers.pluginEnabled;
+                       });
+                juce::String defaultErr;
+                if (dualLayerPluginRequired && offlinePlugin == nullptr) {
+                    defaultErr = TRANS("Export failed: dual layer requires a hosted plugin instance.");
+                } else if (offlinePlugin != nullptr) {
+                    defaultErr = TRANS("Export failed during plugin rendering.");
+                } else {
+                    defaultErr = TRANS("Export failed during built-in synth rendering.");
+                }
                 failExport(defaultErr, isCancelled());
             }
         }

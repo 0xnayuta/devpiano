@@ -320,40 +320,9 @@ public:
             expect(maxSample > 0.01f, "rendered audio must not be silent");
         });
 
-        testCase("WAV export renders take sounding pitch without double transposition", [&] {
-            devpiano::test::ScopedTempDir tempDir("wav-no-double-transpose");
-            const auto path = tempDir.getChildFile("pitch_check.wav");
-
-            // A live-recorded take where keyboard input was in Key of D (+2 semitones).
-            // The note captured into take.events is note 62 (D4).
-            // The embedded preset has transposeEnabled = true, transposeOffset = 2.
-            auto take = makeOneSecondTake();
-            take.events[0].message = juce::MidiMessage::noteOn(1, 62, 0.8f);
-            take.events[1].message = juce::MidiMessage::noteOff(1, 62);
-
-            RecordedPreset rp;
-            rp.preset.name = "D_Major";
-            rp.acoustic.transposeEnabled = true;
-            rp.acoustic.transposeOffset = 2;
-            rp.acoustic.channelFollowKeyMask = 0b1111110111111111;
-            take.presets.push_back(rp);
-            take.events.insert(
-                take.events.begin(),
-                { 0, PerformanceEventType::presetChange, 0, RecordingEventSource::computerKeyboard, {} });
-
-            WavExportOptions options;
-            options.sampleRate = 44100.0;
-            options.blockSize = 512;
-            options.builtinTone = SettingsModel::BuiltinTone::sine;
-
-            expect(exportTakeAsWavFile(take, path, options), "WAV export with preset should succeed");
-            expect(path.existsAsFile());
-            expectGreaterThan(static_cast<int>(path.getSize()), 1024);
-        });
-
-        testCase("WAV export applies snapshot transposition and preserves note-off identity across preset change", [&] {
-            devpiano::test::ScopedTempDir tempDir("wav-transpose-identity");
-            const auto path = tempDir.getChildFile("transpose_identity.wav");
+        testCase("WAV preserves final sounding pitch and release across input-configuration snapshots", [&] {
+            devpiano::test::ScopedTempDir tempDir("wav-final-identity");
+            const auto path = tempDir.getChildFile("final_identity.wav");
 
             RecordingTake take;
             take.sampleRate = 48000.0;
@@ -379,16 +348,16 @@ public:
 
             take.presets = { p0, p1 };
 
-            // Start with preset 0 (+12 offset)
+            // Input configuration belongs to the snapshot, not to note consumption.
             take.events.push_back(
                 { 0, PerformanceEventType::presetChange, 0, RecordingEventSource::computerKeyboard, {} });
-            // NoteOn Ch 1, Note 69 (A4, 440 Hz) -> transposed to 69 + 12 = 81 (A5, 880 Hz)
+            // The take already stores A4 after all live input transforms.
             take.events.push_back({ 0, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
                                     juce::MidiMessage::noteOn(1, 69, 0.9f) });
-            // Mid-take preset change to preset 1 (-12 offset)
+            // Changing the input configuration must not retune the stored voice.
             take.events.push_back(
                 { 24000, PerformanceEventType::presetChange, 1, RecordingEventSource::computerKeyboard, {} });
-            // NoteOff Ch 1, Note 69 -> must release original locked pitch 81
+            // The stored NoteOff releases A4 even after the snapshot change.
             take.events.push_back({ 36000, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
                                     juce::MidiMessage::noteOff(1, 69, 0.0f) });
 
@@ -411,8 +380,7 @@ public:
                 return;
             }
 
-            // 1. Verify sounding pitch at 4800..6000 samples (25ms window):
-            // 880 Hz has 22 zero crossings per 1/40 second (22 * 40 = 880 Hz).
+            // A4 has 11 positive crossings in this 25 ms observation window.
             {
                 juce::AudioBuffer<float> buf(1, 1200);
                 reader->read(&buf, 0, 1200, 4800, true, false);
@@ -425,7 +393,7 @@ public:
                     }
                 }
                 const auto measuredFreq = static_cast<double>(crossings) * 40.0;
-                expectEquals(measuredFreq, 880.0, "Sounding frequency must be 880 Hz (A4 + 12 semitones = A5)");
+                expectEquals(measuredFreq, 440.0, "The final recorded A4 must not be transposed twice");
             }
 
             // 2. Verify Note-off Identity Preservation (silence after note release):
@@ -441,7 +409,7 @@ public:
             }
         });
 
-        testCase("WAV export respects channelFollowKeyMask and exempts percussion channel from transposition", [&] {
+        testCase("WAV keeps stored percussion pitch even when the snapshot enables channel 10 follow", [&] {
             devpiano::test::ScopedTempDir tempDir("wav-percussion-mask");
             const auto path = tempDir.getChildFile("percussion_mask.wav");
 
@@ -454,7 +422,7 @@ public:
             p.acoustic.builtinTone = devpiano::core::BuiltinTone::sine;
             p.acoustic.transposeEnabled = true;
             p.acoustic.transposeOffset = 12;
-            p.acoustic.channelFollowKeyMask = 0b1111110111111111; // Ch10 (bit 9) excluded
+            p.acoustic.channelFollowKeyMask = 0xffff;
             p.acoustic.masterGain = 0.8f;
             p.acoustic.adsr = { 0.001f, 0.05f, 1.0f, 0.01f };
 
@@ -462,7 +430,7 @@ public:
 
             take.events.push_back(
                 { 0, PerformanceEventType::presetChange, 0, RecordingEventSource::computerKeyboard, {} });
-            // Channel 10 NoteOn: must NOT transpose despite transposeOffset = 12
+            // The take already contains the final percussion pitch.
             take.events.push_back({ 0, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
                                     juce::MidiMessage::noteOn(10, 69, 0.9f) });
             take.events.push_back({ 36000, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
@@ -487,7 +455,7 @@ public:
                 return;
             }
 
-            // Percussion channel is exempt from transposition, so Note 69 stays at 440 Hz (11 crossings per 1/40 sec)
+            // Stored A4 remains at 440 Hz even with channel 10 follow enabled.
             {
                 juce::AudioBuffer<float> buf(1, 1200);
                 reader->read(&buf, 0, 1200, 4800, true, false);

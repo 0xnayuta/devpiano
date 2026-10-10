@@ -16,7 +16,7 @@ devpiano 是一款基于 JUCE 的现代 C++ 电脑键盘钢琴应用，聚焦软
 - 旧配置系统 -> `ApplicationProperties` / `ValueTree` / 项目内状态模型。
 - 旧 fallback 简单发声 -> 覆盖 7 大声学子系统的自主研发增强物理建模钢琴音源（`PianoSynthVoice`）。
 
-**近期交付：Phase 37 物理建模调律与被动共鸣校准** [已完成，2026-10-08]：第一分音锚定、受约束拉伸、被动 Duplex 与可保存风格已贯通真实 UI、预设、Take、实时与 WAV，Windows Debug 软件门禁与消费者完成；≤0.7% CPU SLA 不由本轮 Debug 数据认证。下一实施入口为 Phase 38 Task 38-1 的一次性输入/录制变换契约，详细排期与直接证据见 [`current-iteration.md`](current-iteration.md)。Phase 36 已 [归档](../archive/phase36-development-overhead-reduction-and-legacy-compatibility-deprecation.md)，AUDIT-004 实机补验继续独立保留。
+**近期交付：Phase 38 电脑键盘分区、三踏板与固定双层** [软件交付完成，2026-10-10]。最终 MIDI 身份、当前 v4 原生格式、两种固定分区/独立 Num 身份、逐通道三踏板及 Piano + 单 VST3 的实时/WAV 闭环已通过 Windows Debug 构建、默认回归、实际原生 UI/输入、SDK fixture 与全量静态门禁；直接证据见 [当前迭代](current-iteration.md)。Phase 37 [已完成，2026-10-08]；CPU SLA 与商业厂商/物理硬件补验不由 Debug 门禁认证。Phase 36 [归档](../archive/phase36-development-overhead-reduction-and-legacy-compatibility-deprecation.md) 与 AUDIT-004 实机边界保持独立。
 
 ---
 
@@ -364,17 +364,17 @@ Phase 35 原计划与完成勾选见 [完成计划归档](../archive/phase35-key
 
 **直接交付**：实际 A4/分音对校准、未踩踏板的有界 Duplex、五种参数化风格与真实 Save As/重启音色恢复、整段非零 wet 快照实时/WAV 对照及原身份释放已验证；离线混响初始状态不再污染起音。Windows Debug app/tests、默认 CTest、格式和全量 tidy 通过，零堆/对应锁与库三角观察有正调用自检。现有 2.0 秒 WAV 截断边界保留；未执行 Release 或 ≤0.7% CPU 认证，硬件/厂商补验不外推。完整任务与证据见 [当前迭代 Phase 37](current-iteration.md#2-phase-37物理建模调律与被动共鸣校准)。
 
-### Phase 38：电脑键盘分区、三踏板控制与固定双层演奏（Keyboard Zones, Three-Pedal Control & Fixed Dual Layer）[规划已确认，待实施]
+### Phase 38：电脑键盘分区、三踏板控制与固定双层演奏（Keyboard Zones, Three-Pedal Control & Fixed Dual Layer）[软件交付完成，2026-10-10]
 
 将已有配置表达力转化为完整演奏体验，固定双层仅位于 Instrument 内部，继续遵守 `Performance Input -> Instrument -> Master -> Output`：
 
-1. **Task 38-1：输入、录制与回放变换契约**：明确分区、Group、修饰键、矩阵和移调的一次性边界，优先沿用已映射事件录制；不把已修复的实时/WAV 移调差异与条件性重复移调混为一项，不默认启动全链路 Raw Key Note 重构；
+1. **Task 38-1：一次性身份**：Take 保存区域、Group、修饰键、矩阵/跟随调号之后的最终音乐身份，原生回放、WAV/MIDI 不重复变换；当前整数 v4 拒绝旧义，不做 Raw Key Note 重构；
 2. **Task 38-2：Sostenuto 与多区域踏板闭环**：复用已有 CC66 核心，补齐电脑键盘与 ViewModel/UI 入口，以及 CC64/66/67 的目标通道、原持有身份和 Transport 清理语义；
 3. **Task 38-3：双模式物理键区、小键盘输入与统一映射看板**：支持仅主键盘/主键盘加数字小键盘两种固定布局，分离本机模式与预设音乐参数，补齐独立键码、Group 覆盖及统一看板；具体键位和默认绑定见 [任务契约](current-iteration.md#task-38-3双模式物理键区小键盘输入与统一映射看板)；
 4. **Task 38-4：固定 Piano + 单 VST3 双层发声**：同一规范 MIDI 输入驱动两个固定端点，预分配缓冲、混音和必要的增益配比，处理插件报告延迟与层/实例生命周期；不默认泛化为 1→N MIDI 路由或多插件槽位；
 5. **Task 38-5：双层状态与录制/导出/UI 闭环**：保存层模式与配比，实时和独立离线实例均执行复合渲染，明确插件依赖、失败/取消与实际 UI 验证边界，不承诺跨机器还原原厂商音色。
 
-**完成边界**：真实键盘录制、原生回放、WAV 和 MIDI 导出满足一次性变换契约；CC66 不重复捕获后起音，两区踏板与原身份释放有效；双层两路都真实发声且只经过一次公共 Master 链，切层、卸载、重建和退出不悬挂；产品自有实时保证与第三方 VST3 限制分别验收。详细排期与验收见 [当前迭代 Phase 38](current-iteration.md#3-phase-38电脑键盘分区三踏板控制与固定双层演奏)。
+**直接交付**：最终身份无重复变换、CC66 边沿与原通道释放、固定分区/完整 Num keyCode、非零区域音乐配置及本机模式独立恢复、端点所有权、采样延迟和实时/离线固定双层均有消费者证据。实际绑定、Editor、后台/进度窗取消、保持输入时重扫/加载及正常关闭通过，Windows Debug app/tests、默认 CTest、格式与全量 tidy 通过。硬件键盘/声卡、商业厂商、CPU SLA、跨机音色和超 2.0 秒尾音不外推。详细任务与证据见 [当前迭代 Phase 38](current-iteration.md#3-phase-38电脑键盘分区三踏板控制与固定双层演奏)。
 
 ## 4. 主要风险与应对
 

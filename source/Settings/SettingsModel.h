@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../Audio/InstrumentLayers.h"
 #include "../Audio/PerspectiveProcessor.h"
 #include "../Audio/RoomReverbEngine.h"
 #include "../Audio/TemperamentEngine.h"
@@ -66,6 +67,7 @@ struct SettingsModel {
         float feltAgeingAmount = 0.0f;
         bool stretchTuningEnabled = true;
         float duplexResonance = 0.15f;
+        devpiano::audio::InstrumentLayers layers;
     };
 
     struct PluginRecoverySettingsView {
@@ -113,6 +115,10 @@ struct SettingsModel {
     float feltAgeingAmount = 0.0f;
     bool stretchTuningEnabled = true;
     float duplexResonance = 0.15f;
+    devpiano::audio::InstrumentLayers layers;
+    devpiano::core::KeyboardPartitionMode partitionMode = devpiano::core::KeyboardPartitionMode::off;
+    devpiano::core::KeyboardRegionConfig regionA;
+    devpiano::core::KeyboardRegionConfig regionB;
     // Persisted ,UI recovery state.
     juce::String pluginSearchPath;
     juce::String lastPluginIdentifier;
@@ -188,7 +194,8 @@ struct SettingsModel {
                  .pedalNoiseLevel = pedalNoiseLevel,
                  .feltAgeingAmount = feltAgeingAmount,
                  .stretchTuningEnabled = stretchTuningEnabled,
-                 .duplexResonance = duplexResonance };
+                 .duplexResonance = duplexResonance,
+                 .layers = layers };
     }
 
     void applyPerformanceSettingsView(const PerformanceSettingsView& view) {
@@ -213,6 +220,7 @@ struct SettingsModel {
         feltAgeingAmount = view.feltAgeingAmount;
         stretchTuningEnabled = view.stretchTuningEnabled;
         duplexResonance = view.duplexResonance;
+        layers = view.layers;
     }
     [[nodiscard]] PluginRecoverySettingsView getPluginRecoverySettingsView() const {
         return { .pluginSearchPath = pluginSearchPath, .lastPluginIdentifier = lastPluginIdentifier };
@@ -265,6 +273,10 @@ struct SettingsModel {
             feltAgeingAmount = other.feltAgeingAmount;
             stretchTuningEnabled = other.stretchTuningEnabled;
             duplexResonance = other.duplexResonance;
+            layers = other.layers;
+            partitionMode = other.partitionMode;
+            regionA = other.regionA;
+            regionB = other.regionB;
             pluginSearchPath = other.pluginSearchPath;
             lastPluginIdentifier = other.lastPluginIdentifier;
             lastActivePresetId = other.lastActivePresetId;

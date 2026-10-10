@@ -38,7 +38,7 @@
    产品自有实时发声与调度回调保持零堆分配、零锁，状态通过预分配队列/原子快照交换。第三方 JUCE VST3 适配器的 SpinLock、CriticalSection 与单块 2048 消息上限单列；插件内部二进制行为另属不可控层。后台文件写出不承担实时回调的零分配承诺，详见 known-issues。
 10. **离线实时执行同构原则 (Rendering Parity)**：  
     离线渲染管线（Offline Renderer）与实时音频引擎（Realtime Engine）必须共享完全一致的乐器参数、空间混响与演奏事件执行语义。
-    快照移调与原身份释放的实时/WAV 差异已经修复，Piano 非零混响及同采样参数对照差限于量化。当前 [已映射录制输入的条件性重复变换](../issues/known-issues.md#原生演奏快照移调与-wav-音高不一致路线-a-已实施路线-b-重构备忘) 属于上游身份契约，不能与该已修差异混称；第三方插件与未测硬件仍分别验收。
+    Take 保存现场变换后的最终音高/通道/力度，原生回放、WAV 和 MIDI 导出不再按快照重复移调或划区。固定双层在 Instrument 内混音，公共 Master/Reverb 只执行一次；第三方插件的音色/非实时行为与未测硬件仍分别验收。
 
 ### 1.3 核心参考项目技术栈 (Reference Stack)
 
@@ -96,7 +96,7 @@ source/
 - **`source/Main.cpp`**：
   - `juce::JUCEApplication` 派生类入口；
   - 创建主桌面窗口，管理应用启动、单实例约束与正常退出序列；
-  - **纯净跨平台生命周期（Phase 34-F）**：彻底拔除 Win32 原生 `WNDPROC` Hook、`AttachThreadInput` 与 `<windows.h>` 平台特化，全平台统一基于 JUCE 9 原生 `DocumentWindow::activeWindowStatusChanged()` 配合 `callAsync` 延后分发 `restoreKeyboardFocus()`，窗口前台化使用 `toFront(true)` 与 `juce::Process::makeForegroundProcess()`，顶层跨平台纯度达到 100%；
+  - **窗口与输入边界**：前台/焦点使用 JUCE 窗口生命周期；Windows 小键盘与 CapsLock 的物理身份由应用侧 `Win32NativeInputBridge` 在原生消息边界规范化，保留 Shift/Alt 身份并避让文字输入。不修改 JUCE 子模块或引入独立音频后端。
   - **UI 树解析**：`initialiseUi()` 创建 `LayoutModel` 主窗口 ValueTree 并交由 `ViewHost` 封装的 `jive::Interpreter` 解释；`MainComponent::resized()` 更新宿主尺寸和状态文本截断，交由 FlexBox 计算全局排版。
   - **规模与职责**：`MainComponent.cpp` 保持轻量装配职责，主体仅负责顶层装配、`initialiseUi()` 的 JIVE 树构建与回调接线、UI 状态同步及音频设备生命周期管理；子面板访问器拆入 `MainComponentJiveAccessors.cpp`，具体业务流程已下沉至各 domain controller（`RecordingSessionController` / `PluginOperationController` / `SettingsWindowManager` / `AppStateBuilder`）。
 
@@ -105,8 +105,8 @@ source/
 ### 3.2 Audio（音频引擎与合成器）
 
 - **`source/Audio/AudioEngine.h/.cpp`**：
-  - 拥有 `juce::MidiMessageCollector` 与实时音频输出链路；
-  - 经 `InstrumentEndpoint` 解析发声实体：托管 VST3 实例就绪则驱动插件实例，否则驱动内置合成器；
+  - 实时输入经预分配有界 SPSC 队列与原子状态交换；
+  - 单层经 `InstrumentEndpoint` 选择当前 VST3 或内置音源；固定双层以同一最终 MIDI 驱动 Piano + 当前单 VST3，独立缓冲和有界采样延迟后混音，再进入一次公共 Master/Reverb。`InstrumentNoteState` 按实际端点和现场/文件来源保存持有者，层/实例切换不重发旧音。
   - 线程安全与音频鲁棒性：`masterGain` 采用 `std::atomic<float>`；具备 `25ms` audio warmup（静音过渡）与 `armPlaybackStartPreRoll`（消除 0s 音符冲突）。
   - 变速、Seek 与 Stop 的待提交命令仅在块入口消费；内置音色重建复用明确停 callback 的守卫，启动/再次启动不并发写活动声部或房间混响。
   - `MetronomeProcessor` 在音频块内维护完整节拍时段；预备拍起点由音频拥有者返回块内偏移，捕获排除目标下拍之前的输入。节拍混入仍位于乐器/混响之后、Master Gain / limiter 之前；消息线程只观察进度与会话转换，不触发第二次启动。
@@ -158,13 +158,14 @@ source/
 
 - **`source/Input/KeyboardMidiMapper.h/.cpp`**：
   - 将 `juce::KeyPress` 映射为 `juce::MidiMessage`（noteOn / noteOff）；
-  - 主路径采用稳定 key code（`normaliseAlphaNumericKeyCode`），避免字符输入法与 CapsLock 状态干扰；
-  - **发音身份恒定与防悬挂快照（Phase 34-B）**：`HeldKeyIdentity` 在按键按下时锁定经 Group、modifier、全局移调与通道矩阵路由后的最终输出音高/通道及 NoteOff 力度；释放时直接按快照发送 NoteOff，不重新使用当前映射配置。布局替换保留仍按住的记录，直至物理释放或明确 Panic 清理；
+  - 主路径采用完整稳定 key code（`normalisePhysicalKeyCode`），小键盘不截断为 ASCII，NumLock/Enter 保持控制用途；
+  - **发音身份恒定与防悬挂快照**：按物理码应用区域 → Group → modifier → 矩阵/跟随调号；`HeldKeyIdentity` 锁定最终音高/通道。布局、本机模式、NumLock 与配置变化只影响新起音，物理/鼠标释放保存原身份，切换不凭空重发。
   - 同一最终输出身份有多个物理键持有时，最后释放才关音；支持的序列化 trigger 只有 `keyDown`，`keyUp`/未知值准入拒绝，缺省字段保留原默认。
   - **Layout Group 键位分组（Phase 34-B）**：支持单预设内 4 组轻量键位分组（`KeyGroup`），反引号键（`）或 UI 按钮秒级切换；
   - **瞬态修饰键变换（Phase 34-D）**：捕获 Shift / Alt 键，按住期间由 `PerformanceModifierState` 执行力度拉满（Velocity Boost）与八度平移（+8va）纯事件流变换，松开自动回弹，基线配置 100% 零突变；
   - **双演奏看板单一事实源快照**：`createQwertySnapshot()` 生成 `QwertyViewModel`，同时包含 ANSI 网格和按最终输出音高索引的 `pianoKeys`。Group、modifier、触键曲线、矩阵和 followKey 在映射层投影；两个 UI 不自行反查原始绑定或重新计算 MIDI 映射。输入身份与最终输出身份分开保存，鼠标按配置输入执行一次矩阵变换，释放使用起音锁定的最终身份。
   - **击键间隔动态力度（Phase 35-B）**：`TypingCadenceEstimator` 在消息线程按击键时间间隔计算可选动态力度，`VelocityHumanizer` 施加有界确定性哈希扰动；静音绑定优先于 Shift、力度微扰及矩阵固定力度，非静音绑定才接受 Shift 拉满，不修改持久化键位。
+  - **本机模式与音乐配置**：`off` / `mainOnly` / `mainAndNumpad` 只存 Settings；两区音乐参数、完整绑定和 `layers` 随预设/Take 保存。单一 ViewModel 同时提供主网格、小键盘、三踏板和钢琴投影，Group 覆盖提示消费最终通道。
 
 ---
 
@@ -200,7 +201,7 @@ source/
   - `sampleRate` + `lengthSamples` + `events` 组成的 `RecordingTake` 数据结构；
   - 播放状态机管理：0.5x–2.0x 变速、Seek 与 Stop 经有界原子邮箱发布，由 `AudioEngine` 的单一块入口调用 `applyPendingTransportCommands()`；纯变速保留下一未渲染事件游标，避免缩放取整重播旧 NoteOn。
   - 回放 NoteOn 以预分配 FIFO 保存最终输出身份；Off 匹配原身份并按最终输出持有数释放，映射变化与设备 prepare 不清空同代身份。录制在暂停/停止的停机边界终结已录身份/踏板，实际最终松键在其采样点闭合重叠起音。
-  - **预设永久身份与参数执行**：Take 内嵌 RecordedPreset，事件以 Take-local 槽位引用 UUID/声学快照；按采样偏移执行，同采样预设先于音符。UI 通知合并更新视图、不依赖目录或回写音频参数；快照移调的实时/WAV 差异按上述 P1 保留。
+  - **预设永久身份与参数执行**：Take 内嵌 RecordedPreset，事件以 Take-local 槽位引用 UUID/声学/层快照；按采样偏移执行，同采样预设先于音符。UI 合并更新视图，不依赖目录或回写音频参数，不重新变换已保存音符。
   - `AbLoopEngine` 保存 Take-relative A/B；Seek/回跳先清音再恢复 program、bank、CC 与 pitch 状态，不重发历史 NoteOn。播放/暂停游标与固定录制 Take 域在设备 prepare 时重基准；实时长度包含最后事件，音频交付边界收尾后才通知 UI。
   - 结构提交前验证采样率、非负有序事件与最坏支持倍率的整数范围，保留现有合成时间域；文件的物理采样率准入与通用数值安全检查分开。
 - **`source/Recording/RecordingSessionController.h/.cpp`**：
@@ -211,7 +212,7 @@ source/
 - **`source/Recording/TimelineValidation.h`**：
   - 分离文件支持采样率与通用时间域数值安全，复用有界整数转换、缩放、加法及最坏倍率长度检查；不依赖 UI 或插件适配器。
 - **`source/Recording/PerformanceFile.h/.cpp`**：
-  - `.devpiano` 原生演奏文件持久化（仅当前 v3 JSON + JUCE 专有长度前缀二进制编码 + 内嵌快照表）；演奏和独立元数据读取共用精确整数版本准入，32 MiB 文件预算、1 MiB 单帧预算及完整读取/帧形状/数值准入后稳定规范化乱序时间线，保存仍通过 `juce::TemporaryFile` 事务替换。不迁移历史格式。
+  - `.devpiano` 仅当前 v4 JSON + JUCE 长度前缀二进制编码 + 内嵌快照表，MIDI 是最终发声身份。演奏和独立元数据读取共用精确整数版本准入，32 MiB 文件预算、1 MiB 单帧预算及完整读取/帧形状/数值准入后稳定规范化时间线，保存经 `juce::TemporaryFile` 事务替换；不猜测或迁移历史事件语义。
   - 会话通过 `RecordingSession` 将 Take、元数据与原生文件绑定整体提交；新录制/MIDI 导入解除旧绑定，成功 Save As 重新绑定，generation 阻止跨 Take 的延迟信息/文件结果。
 - **`source/Recording/MidiFileImporter.h/.cpp`**：
   - 标准 MIDI 文件解析与统一导入：委托 `MidiTrackMergeEngine` 将 Type 0/1 各音轨的 MIDI 播放事件合并为单一 `RecordingTake` 时间线，支持通道映射并提取全局元数据；不提供选轨模式。
@@ -392,7 +393,7 @@ AudioEngine::getNextAudioBlock() (音频回调线程)
 用户点击 Stop   ──► RecordingEngine::stopRecording() ──► 产出 Take 快照
 
 [持久化]
-用户点击 Save   ──► savePerformanceFile() (当前 v3 JSON + 同目录 TemporaryFile 事务替换)
+用户点击 Save   ──► savePerformanceFile() (当前 v4 JSON + 同目录 TemporaryFile 事务替换)
 用户点击 Open   ──► loadPerformanceFile() + loadPerformanceFileMetadata() ──► 成功后整体提交会话并开始回放
 
 [回放与跟练]

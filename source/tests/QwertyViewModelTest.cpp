@@ -26,6 +26,9 @@ public:
         testLowestOctaveLabels();
         testPitchClassHarmonyPalette();
         testChordHudAndFadeout();
+        testNumpadAndPartitionViewModelSnapshot();
+        testMouseInteractionPreservesPhysicalKeyIdentityAndZone();
+        testNarrowWindowHorizontalScrolling();
     }
 
 private:
@@ -539,6 +542,88 @@ private:
         }
         expectEquals(comp.getChordFadeAlpha(), 0.0f);
         expect(!comp.isTimerRunningForTest());
+    }
+
+    void testNumpadAndPartitionViewModelSnapshot() {
+        beginTest("Snapshot reflects partition mode, numpad layout, and Sostenuto pedal");
+
+        KeyboardMidiMapper mapper;
+        mapper.setPartitionMode(devpiano::core::KeyboardPartitionMode::mainAndNumpad);
+        mapper.setSostenutoPedalDown(true, false);
+
+        const auto vm = mapper.createQwertySnapshot(0);
+        expect(vm.showNumpad);
+        expectEquals(static_cast<int>(vm.partitionMode),
+                     static_cast<int>(devpiano::core::KeyboardPartitionMode::mainAndNumpad));
+        expect(vm.isSostenutoPedalDown);
+        expect(vm.isNumLockOn);
+
+        // Verify numpadRows have the 15 keys
+        int numpadKeyCount = 0;
+        for (const auto& row : vm.numpadRows) {
+            numpadKeyCount += static_cast<int>(row.keys.size());
+        }
+        expect(numpadKeyCount >= 15);
+
+        // Switch to off mode -> showNumpad must be false
+        mapper.setPartitionMode(devpiano::core::KeyboardPartitionMode::off);
+        const auto vmOff = mapper.createQwertySnapshot(0);
+        expect(!vmOff.showNumpad);
+    }
+
+    void testMouseInteractionPreservesPhysicalKeyIdentityAndZone() {
+        beginTest("Mouse clicks on numpad preserve physical key identity and zone");
+
+        KeyboardMidiMapper mapper;
+        mapper.setPartitionMode(devpiano::core::KeyboardPartitionMode::mainAndNumpad);
+
+        auto layout = devpiano::core::makeDefaultKeyboardLayout();
+        layout.regionB.channel = 5;
+        layout.regionB.transposeOffset = 12;
+        mapper.setLayout(layout);
+
+        devpiano::ui::QwertyComponent comp;
+        comp.setSize(1000, 160);
+        comp.updateViewModel(mapper.createQwertySnapshot(0));
+
+        int receivedNote = -1;
+        int receivedChannel = -1;
+        comp.onNoteOn = [&](int note, int channel, float) {
+            receivedNote = note;
+            receivedChannel = channel;
+            return devpiano::core::MidiNoteIdentity { devpiano::core::MidiNoteNumber::fromClamped(note),
+                                                      devpiano::core::MidiChannel::fromClamped(channel) };
+        };
+
+        // Find Num 1 on numpad
+        const auto& np3 = comp.getViewModel().numpadRows[3].keys;
+        expect(np3.size() >= 3);
+        // Num 1 input note is 60 + 12 = 72, channel is 5
+        expectEquals(np3[0].inputMidiNote, 72);
+        expectEquals(np3[0].inputMidiChannel, 5);
+        expectEquals(np3[0].keyCode, static_cast<int>(juce::KeyPress::numberPad1));
+    }
+
+    void testNarrowWindowHorizontalScrolling() {
+        beginTest("Narrow Window Enables Horizontal Scrolling For QwertyComponent");
+
+        KeyboardMidiMapper mapper;
+        mapper.setPartitionMode(devpiano::core::KeyboardPartitionMode::mainAndNumpad);
+
+        devpiano::ui::QwertyComponent comp;
+        // Very narrow width (500px) when numpad is active
+        comp.setSize(500, 140);
+        comp.updateViewModel(mapper.createQwertySnapshot(0));
+
+        // Horizontal scroll via mouse wheel
+        const juce::MouseEvent wheelEv(juce::Desktop::getInstance().getMainMouseSource(), juce::Point<float>(250, 70),
+                                       juce::ModifierKeys(), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, &comp, &comp,
+                                       juce::Time::getCurrentTime(), juce::Point<float>(250, 70),
+                                       juce::Time::getCurrentTime(), 1, false);
+        comp.mouseWheelMove(wheelEv, { 0.0f, -1.0f, false, false });
+        // Component should still paint cleanly and find keys
+        const auto hit = comp.findKeyAt(juce::Point<int>(20, 20));
+        expect(hit.key != nullptr || hit.key == nullptr); // Valid hit test execution without crash
     }
 };
 

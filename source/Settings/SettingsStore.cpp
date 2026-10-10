@@ -60,47 +60,81 @@ const char* kKeyMetronomeCountIn = "metronomeCountIn";
 const char* kKeyCadenceDynamicsEnabled = "cadenceDynamicsEnabled";
 const char* kKeyVelocityHumanizeAmount = "velocityHumanizeAmount";
 const char* kKeyBaseVelocityBias = "baseVelocityBias";
+const char* kKeyLayersEnabled = "layersEnabled";
+const char* kKeyLayersPianoEnabled = "layersPianoEnabled";
+const char* kKeyLayersPluginEnabled = "layersPluginEnabled";
+const char* kKeyLayersPianoGain = "layersPianoGain";
+const char* kKeyLayersPluginGain = "layersPluginGain";
+const char* kKeyPartitionMode = "keyboardPartitionMode";
 
 [[nodiscard]] SettingsModel::PerformanceSettingsView makeDefaultPerformanceSettings() noexcept {
     return {};
 }
 
 void readPerformanceSettings(juce::PropertiesFile& file, SettingsModel& model) {
-    auto performance = SettingsModel::PerformanceSettingsView {
-        .masterGain = static_cast<float>(file.getDoubleValue(kKeyGain, model.masterGain)),
-        .adsrAttack = static_cast<float>(file.getDoubleValue(kKeyA, model.adsrAttack)),
-        .adsrDecay = static_cast<float>(file.getDoubleValue(kKeyD, model.adsrDecay)),
-        .adsrSustain = static_cast<float>(file.getDoubleValue(kKeyS, model.adsrSustain)),
-        .adsrRelease = static_cast<float>(file.getDoubleValue(kKeyR, model.adsrRelease)),
-        .builtinTone = static_cast<SettingsModel::BuiltinTone>(
-            file.getIntValue(kKeyBuiltinTone, static_cast<int>(model.builtinTone))),
-        .pianoBrightness = static_cast<float>(file.getDoubleValue(kKeyPianoBrightness, model.pianoBrightness)),
-        .pianoHammerHardness
-        = static_cast<float>(file.getDoubleValue(kKeyPianoHammerHardness, model.pianoHammerHardness)),
-        .pianoResonance = static_cast<float>(file.getDoubleValue(kKeyPianoResonance, model.pianoResonance)),
-        .lidPosition = static_cast<SettingsModel::LidPosition>(
-            juce::jlimit(0, 2, file.getIntValue(kKeyPianoLidPosition, static_cast<int>(model.lidPosition)))),
-        .touchVelocityCurve = static_cast<devpiano::input::TouchVelocityCurve>(
-            juce::jlimit(0, 3, file.getIntValue(kKeyTouchVelocityCurve, static_cast<int>(model.touchVelocityCurve)))),
-        .unaCorda = file.getBoolValue(kKeyUnaCorda, model.unaCorda),
-        .temperament = static_cast<devpiano::audio::Temperament>(
-            juce::jlimit(0, static_cast<int>(devpiano::audio::TemperamentEngine::kNumTemperaments - 1),
-                         file.getIntValue(kKeyTemperament, static_cast<int>(model.temperament)))),
-        .referencePitchA4 = devpiano::audio::TemperamentEngine::clampReferencePitch(
-            file.getDoubleValue(kKeyReferencePitchA4, model.referencePitchA4)),
-        .soundPerspective = static_cast<devpiano::audio::SoundPerspective>(
-            juce::jlimit(0, 1, file.getIntValue(kKeySoundPerspective, static_cast<int>(model.soundPerspective)))),
-        .reverbSpace = static_cast<devpiano::audio::ReverbSpace>(
-            juce::jlimit(0, 2, file.getIntValue(kKeyReverbSpace, static_cast<int>(model.reverbSpace)))),
-        .reverbWet = juce::jlimit(0.0f, 1.0f, static_cast<float>(file.getDoubleValue(kKeyReverbWet, model.reverbWet))),
-        .pedalNoiseLevel
-        = juce::jlimit(0.0f, 1.0f, static_cast<float>(file.getDoubleValue(kKeyPedalNoiseLevel, model.pedalNoiseLevel))),
-        .feltAgeingAmount = juce::jlimit(
-            0.0f, 1.0f, static_cast<float>(file.getDoubleValue(kKeyFeltAgeingAmount, model.feltAgeingAmount))),
-        .stretchTuningEnabled = file.getBoolValue(kKeyStretchTuningEnabled, model.stretchTuningEnabled),
-        .duplexResonance
-        = juce::jlimit(0.0f, 1.0f, static_cast<float>(file.getDoubleValue(kKeyDuplexResonance, model.duplexResonance)))
-    };
+    auto performance = SettingsModel::
+        PerformanceSettingsView { .masterGain = static_cast<float>(file.getDoubleValue(kKeyGain, model.masterGain)),
+                                  .adsrAttack = static_cast<float>(file.getDoubleValue(kKeyA, model.adsrAttack)),
+                                  .adsrDecay = static_cast<float>(file.getDoubleValue(kKeyD, model.adsrDecay)),
+                                  .adsrSustain = static_cast<float>(file.getDoubleValue(kKeyS, model.adsrSustain)),
+                                  .adsrRelease = static_cast<float>(file.getDoubleValue(kKeyR, model.adsrRelease)),
+                                  .builtinTone = static_cast<SettingsModel::BuiltinTone>(
+                                      file.getIntValue(kKeyBuiltinTone, static_cast<int>(model.builtinTone))),
+                                  .pianoBrightness
+                                  = static_cast<float>(file.getDoubleValue(kKeyPianoBrightness, model.pianoBrightness)),
+                                  .pianoHammerHardness = static_cast<float>(
+                                      file.getDoubleValue(kKeyPianoHammerHardness, model.pianoHammerHardness)),
+                                  .pianoResonance
+                                  = static_cast<float>(file.getDoubleValue(kKeyPianoResonance, model.pianoResonance)),
+                                  .lidPosition = static_cast<SettingsModel::LidPosition>(juce::jlimit(
+                                      0, 2,
+                                      file.getIntValue(kKeyPianoLidPosition, static_cast<int>(model.lidPosition)))),
+                                  .touchVelocityCurve = static_cast<devpiano::input::TouchVelocityCurve>(
+                                      juce::jlimit(0, 3,
+                                                   file.getIntValue(kKeyTouchVelocityCurve,
+                                                                    static_cast<int>(model.touchVelocityCurve)))),
+                                  .unaCorda = file.getBoolValue(kKeyUnaCorda, model.unaCorda),
+                                  .temperament = static_cast<devpiano::audio::Temperament>(juce::jlimit(
+                                      0, static_cast<int>(devpiano::audio::TemperamentEngine::kNumTemperaments - 1),
+                                      file.getIntValue(kKeyTemperament, static_cast<int>(model.temperament)))),
+                                  .referencePitchA4 = devpiano::audio::
+                                      TemperamentEngine::clampReferencePitch(file
+                                                                                 .getDoubleValue(
+                                                                                     kKeyReferencePitchA4, model.referencePitchA4)),
+                                  .soundPerspective = static_cast<devpiano::audio::SoundPerspective>(juce::jlimit(
+                                      0, 1,
+                                      file.getIntValue(kKeySoundPerspective, static_cast<int>(model.soundPerspective)))),
+                                  .reverbSpace = static_cast<devpiano::audio::ReverbSpace>(juce::jlimit(
+                                      0,
+                                      2,
+                                      file.getIntValue(kKeyReverbSpace, static_cast<int>(model.reverbSpace)))),
+                                  .reverbWet = juce::jlimit(0.0f, 1.0f,
+                                                            static_cast<float>(
+                                                                file.getDoubleValue(kKeyReverbWet, model.reverbWet))),
+                                  .pedalNoiseLevel = juce::jlimit(0.0f, 1.0f,
+                                                                  static_cast<float>(file.getDoubleValue(
+                                                                      kKeyPedalNoiseLevel, model.pedalNoiseLevel))),
+                                  .feltAgeingAmount = juce::jlimit(0.0f, 1.0f,
+                                                                   static_cast<float>(file.getDoubleValue(
+                                                                       kKeyFeltAgeingAmount, model.feltAgeingAmount))),
+                                  .stretchTuningEnabled = file.getBoolValue(kKeyStretchTuningEnabled,
+                                                                            model.stretchTuningEnabled),
+                                  .duplexResonance = juce::jlimit(0.0f, 1.0f,
+                                                                  static_cast<float>(file.getDoubleValue(
+                                                                      kKeyDuplexResonance, model.duplexResonance))),
+                                  .layers = devpiano::audio::InstrumentLayers {
+                                      .enabled = file.getBoolValue(kKeyLayersEnabled, model.layers.enabled),
+                                      .pianoEnabled = file.getBoolValue(kKeyLayersPianoEnabled,
+                                                                        model.layers.pianoEnabled),
+                                      .pluginEnabled
+                                      = file.getBoolValue(kKeyLayersPluginEnabled, model.layers.pluginEnabled),
+                                      .pianoGain = juce::jlimit(0.0f, 1.0f,
+                                                                static_cast<float>(file.getDoubleValue(
+                                                                    kKeyLayersPianoGain, model.layers.pianoGain))),
+                                      .pluginGain = juce::jlimit(0.0f, 1.0f,
+                                                                 static_cast<float>(file.getDoubleValue(
+                                                                     kKeyLayersPluginGain, model.layers.pluginGain))),
+                                  } };
 
     const auto looksLikeCorruptedZeroState = performance.masterGain == 0.0f && performance.adsrAttack == 0.0f
         && performance.adsrDecay == 0.0f && performance.adsrSustain == 0.0f && performance.adsrRelease == 0.0f;
@@ -260,6 +294,21 @@ void SettingsStore::readNow(SettingsModel& m) {
 
     m.keySignature = juce::jlimit(-7, 7, f.getIntValue(kKeyKeySignature, 0));
     m.midiTranspose = f.getBoolValue(kKeyMidiTranspose, false);
+    m.partitionMode = static_cast<devpiano::core::KeyboardPartitionMode>(
+        juce::jlimit(0, 2, f.getIntValue(kKeyPartitionMode, static_cast<int>(m.partitionMode))));
+
+    m.regionA.channel
+        = static_cast<std::uint8_t>(juce::jlimit(0, 16, f.getIntValue("regionAChannel", m.regionA.channel)));
+    m.regionA.transposeOffset
+        = static_cast<std::int8_t>(juce::jlimit(-12, 12, f.getIntValue("regionATranspose", m.regionA.transposeOffset)));
+    m.regionA.octaveShift
+        = static_cast<std::int8_t>(juce::jlimit(-3, 3, f.getIntValue("regionAOctave", m.regionA.octaveShift)));
+    m.regionB.channel
+        = static_cast<std::uint8_t>(juce::jlimit(0, 16, f.getIntValue("regionBChannel", m.regionB.channel)));
+    m.regionB.transposeOffset
+        = static_cast<std::int8_t>(juce::jlimit(-12, 12, f.getIntValue("regionBTranspose", m.regionB.transposeOffset)));
+    m.regionB.octaveShift
+        = static_cast<std::int8_t>(juce::jlimit(-3, 3, f.getIntValue("regionBOctave", m.regionB.octaveShift)));
 
     m.keyboardDisplay.showInstrumentFilter
         = f.getBoolValue(kKeyShowInstrumentFilter, m.keyboardDisplay.showInstrumentFilter);
@@ -352,6 +401,18 @@ bool SettingsStore::writeNow(const SettingsModel& m) {
     f.setValue(kKeyFeltAgeingAmount, m.feltAgeingAmount);
     f.setValue(kKeyStretchTuningEnabled, m.stretchTuningEnabled);
     f.setValue(kKeyDuplexResonance, m.duplexResonance);
+    f.setValue(kKeyLayersEnabled, m.layers.enabled);
+    f.setValue(kKeyLayersPianoEnabled, m.layers.pianoEnabled);
+    f.setValue(kKeyLayersPluginEnabled, m.layers.pluginEnabled);
+    f.setValue(kKeyLayersPianoGain, m.layers.pianoGain);
+    f.setValue(kKeyLayersPluginGain, m.layers.pluginGain);
+    f.setValue(kKeyPartitionMode, static_cast<int>(m.partitionMode));
+    f.setValue("regionAChannel", static_cast<int>(m.regionA.channel));
+    f.setValue("regionATranspose", static_cast<int>(m.regionA.transposeOffset));
+    f.setValue("regionAOctave", static_cast<int>(m.regionA.octaveShift));
+    f.setValue("regionBChannel", static_cast<int>(m.regionB.channel));
+    f.setValue("regionBTranspose", static_cast<int>(m.regionB.transposeOffset));
+    f.setValue("regionBOctave", static_cast<int>(m.regionB.octaveShift));
     f.setValue(kKeyPluginSearchPath, m.pluginSearchPath);
     f.setValue(kKeyLastPluginIdentifier, m.lastPluginIdentifier);
     if (m.knownPluginListState) {

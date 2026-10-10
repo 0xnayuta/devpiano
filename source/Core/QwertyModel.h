@@ -30,6 +30,9 @@ struct QwertyKeyVisualState {
     bool isDown = false; // Whether currently physically held down
     bool isSustainPedal = false; // Whether this key acts as sustain pedal
     bool isSoftPedal = false; // Whether this key acts as una corda soft pedal
+    bool isSostenutoPedal = false; // Whether this key acts as sostenuto pedal (CC66)
+    KeyboardRegion region = KeyboardRegion::none; // Physical partition region (A, B, or none)
+    bool isControlOnly = false; // True for non-pitch control keys (NumLock, Enter, Bksp, etc.)
 };
 
 // ============================================================================
@@ -48,11 +51,12 @@ struct PianoKeyVisualState {
     int bindingMidiNote = -1;
     bool hasBinding = false;
     juce::String keyLabel;
+    int physicalKeyCode = 0; // Physical key identity
     bool operator==(const PianoKeyVisualState& other) const noexcept {
         return inputMidiNote == other.inputMidiNote && inputMidiChannel == other.inputMidiChannel
             && std::abs(inputVelocity - other.inputVelocity) < 1e-5f && mappedMidiChannel == other.mappedMidiChannel
             && std::abs(velocity - other.velocity) < 1e-5f && bindingMidiNote == other.bindingMidiNote
-            && hasBinding == other.hasBinding && keyLabel == other.keyLabel;
+            && hasBinding == other.hasBinding && keyLabel == other.keyLabel && physicalKeyCode == other.physicalKeyCode;
     }
 };
 
@@ -64,14 +68,20 @@ struct QwertyViewModel {
     std::array<PianoKeyVisualState, 128> pianoKeys;
     bool isSustainPedalDown = false;
     bool isSoftPedalDown = false;
+    bool isSostenutoPedalDown = false;
     bool isSyncPedalCutPending = false;
     devpiano::core::SustainPolicy sustainPolicy = devpiano::core::SustainPolicy::normal;
     bool isShiftActive = false;
     bool isAltActive = false;
     bool isCtrlActive = false;
+    devpiano::core::KeyboardPartitionMode partitionMode = devpiano::core::KeyboardPartitionMode::off;
+    bool showNumpad = false;
+    bool isNumLockOn = true;
     uint8_t activeGroupIndex = 0;
     juce::String activeGroupName { "A" };
     devpiano::core::ChordInfo detectedChord;
+    std::array<QwertyRowVisualState, 5> numpadRows;
+    std::uint16_t outputChannelMask = 0;
 };
 
 // ============================================================================
@@ -83,13 +93,16 @@ struct QwertyViewModel {
     QwertyViewModel vm;
 
     // Helper lambda to construct a key state
-    const auto makeKey = [](int keyCode, const char* label, float weight, bool isSustain = false, bool isSoft = false) {
+    const auto makeKey = [](int keyCode, const char* label, float weight, bool isSustain = false, bool isSoft = false,
+                            bool isSost = false, bool isControl = false) {
         QwertyKeyVisualState k;
         k.keyCode = keyCode;
         k.mainLabel = label;
         k.widthWeight = weight;
         k.isSustainPedal = isSustain;
         k.isSoftPedal = isSoft;
+        k.isSostenutoPedal = isSost;
+        k.isControlOnly = isControl;
         return k;
     };
 
@@ -132,7 +145,7 @@ struct QwertyViewModel {
     // ── Row 2: ASDF Row (13 keys, sum = 15.0) ──────────────────────────────
     auto& r2 = vm.rows[2].keys;
     r2.reserve(13);
-    r2.push_back(makeKey(0, "Caps", 1.75f));
+    r2.push_back(makeKey(kCapsLockKeyCode, "Caps (Sost)", 1.75f, false, false, true));
     r2.push_back(makeKey('A', "A", 1.0f));
     r2.push_back(makeKey('S', "S", 1.0f));
     r2.push_back(makeKey('D', "D", 1.0f));
@@ -172,6 +185,41 @@ struct QwertyViewModel {
     r4.push_back(makeKey(0, "Alt", 1.25f));
     r4.push_back(makeKey(0, "Win", 1.25f));
     r4.push_back(makeKey(0, "Ctrl", 2.5f));
+
+    // -- Numpad Layout Template (5 rows, sum = 4.0 per row) --
+    auto& np0 = vm.numpadRows[0].keys;
+    np0.reserve(4);
+    np0.push_back(makeKey(0, "NumLk", 1.0f, false, false, false, true));
+    np0.push_back(makeKey(juce::KeyPress::numberPadDivide, "Num /", 1.0f));
+    np0.push_back(makeKey(juce::KeyPress::numberPadMultiply, "Num *", 1.0f));
+    np0.push_back(makeKey(juce::KeyPress::numberPadSubtract, "Num -", 1.0f));
+
+    auto& np1 = vm.numpadRows[1].keys;
+    np1.reserve(4);
+    np1.push_back(makeKey(juce::KeyPress::numberPad7, "Num 7", 1.0f));
+    np1.push_back(makeKey(juce::KeyPress::numberPad8, "Num 8", 1.0f));
+    np1.push_back(makeKey(juce::KeyPress::numberPad9, "Num 9", 1.0f));
+    np1.push_back(makeKey(juce::KeyPress::numberPadAdd, "Num +", 1.0f));
+
+    auto& np2 = vm.numpadRows[2].keys;
+    np2.reserve(4);
+    np2.push_back(makeKey(juce::KeyPress::numberPad4, "Num 4", 1.0f));
+    np2.push_back(makeKey(juce::KeyPress::numberPad5, "Num 5", 1.0f));
+    np2.push_back(makeKey(juce::KeyPress::numberPad6, "Num 6", 1.0f));
+    np2.push_back(makeKey(juce::KeyPress::numberPadAdd, "Num +", 1.0f));
+
+    auto& np3 = vm.numpadRows[3].keys;
+    np3.reserve(4);
+    np3.push_back(makeKey(juce::KeyPress::numberPad1, "Num 1", 1.0f));
+    np3.push_back(makeKey(juce::KeyPress::numberPad2, "Num 2", 1.0f));
+    np3.push_back(makeKey(juce::KeyPress::numberPad3, "Num 3", 1.0f));
+    np3.push_back(makeKey(0, "Enter", 1.0f, false, false, false, true));
+
+    auto& np4 = vm.numpadRows[4].keys;
+    np4.reserve(3);
+    np4.push_back(makeKey(juce::KeyPress::numberPad0, "Num 0", 2.0f));
+    np4.push_back(makeKey(juce::KeyPress::numberPadDecimalPoint, "Num .", 1.0f));
+    np4.push_back(makeKey(0, "Enter", 1.0f, false, false, false, true));
 
     return vm;
 }

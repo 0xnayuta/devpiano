@@ -203,6 +203,31 @@ private:
                    "empty take must be rejected on the builtin route");
             expect(!devpiano::exporting::renderTakeThroughInstrumentEndpoint(emptyTake, rejectedFile, options, &plugin),
                    "empty take must be rejected on the plugin route");
+
+            // Dual-layer routing and failure protection test
+            auto dualOptions = options;
+            dualOptions.layers.enabled = true;
+            dualOptions.layers.pianoEnabled = true;
+            dualOptions.layers.pluginEnabled = true;
+
+            const auto dualProtectedFile = tempDir.getChildFile("dual_protected.wav");
+            expect(dualProtectedFile.replaceWithText("user data"));
+            expect(!devpiano::exporting::renderTakeThroughInstrumentEndpoint(take, dualProtectedFile, dualOptions,
+                                                                             nullptr),
+                   "dual layer requiring plugin must be rejected when instance is null");
+            expectEquals(dualProtectedFile.loadFileAsString(), juce::String("user data"));
+
+            const auto dualPluginFile = tempDir.getChildFile("dual_plugin.wav");
+            expect(devpiano::exporting::renderTakeThroughInstrumentEndpoint(take, dualPluginFile, dualOptions, &plugin),
+                   "dual layer with plugin instance must succeed");
+            expect(dualPluginFile.existsAsFile());
+
+            dualOptions.layers.pluginEnabled = false;
+            const auto dualPianoOnlyFile = tempDir.getChildFile("dual_piano_only.wav");
+            expect(
+                devpiano::exporting::renderTakeThroughInstrumentEndpoint(take, dualPianoOnlyFile, dualOptions, nullptr),
+                "piano-only dual layer without plugin instance must succeed");
+            expect(dualPianoOnlyFile.existsAsFile());
         }
     }
 };

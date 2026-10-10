@@ -60,6 +60,7 @@ public:
     void paintOverChildren(juce::Graphics& g) override;
     void resized() override;
     void visibilityChanged() override;
+    void parentHierarchyChanged() override;
 
     // FileDragAndDropTarget interface
     bool isInterestedInFileDrag(const juce::StringArray& files) override;
@@ -138,6 +139,14 @@ private:
     void initialiseAudioDevice();
     void captureAudioDeviceState();
     void prepareForAudioDeviceRebuild();
+    [[nodiscard]] std::vector<int> getActivePerformanceChannels() const;
+    void handlePedalStateChanged(int controllerNumber, bool isDown);
+    void releaseAllActivePedals();
+
+    std::vector<int> sustainActiveChannels;
+    std::vector<int> sostenutoActiveChannels;
+    std::vector<int> softActiveChannels;
+    bool latencyFaultReprepareTriggered = false;
     void finishAudioDeviceRebuild();
     void collectCurrentSettingsState();
     void saveSettingsNow();
@@ -219,8 +228,9 @@ private:
     void runPluginActionWithAudioDeviceRebuild(const std::function<void(const RuntimeAudioConfig&)>& action);
     void runPluginActionWithAudioDeviceRebuild(const std::function<void()>& action);
 
-    void handleKeyBindingEditRequest(int midiNote);
-    void applyKeyBindingEditResult(int midiNote, const struct KeyBindingEditResult& result);
+    void handleKeyBindingEditRequest(int midiNote, int physicalKeyCode = 0);
+    void applyKeyBindingEditResult(int midiNote, int physicalKeyCode, const struct KeyBindingEditResult& result);
+    void handleNoteStarted(int outputChannel);
 
     devpiano::recording::RecordingEngine recordingEngine;
     AudioEngine audioEngine;

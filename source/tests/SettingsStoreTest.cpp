@@ -1,5 +1,6 @@
 #include <JuceHeader.h>
 
+#include "Input/KeyboardMidiMapper.h"
 #include "Settings/SettingsModel.h"
 #include "Settings/SettingsStore.h"
 #include "TestHelpers.h"
@@ -52,6 +53,18 @@ SettingsModel makePopulatedModel() {
     m.cadenceDynamicsEnabled = false;
     m.velocityHumanizeAmount = 0.08f;
     m.baseVelocityBias = 0.12f;
+    m.partitionMode = devpiano::core::KeyboardPartitionMode::mainAndNumpad;
+    m.layers.enabled = true;
+    m.layers.pianoEnabled = false;
+    m.layers.pluginEnabled = true;
+    m.layers.pianoGain = 0.35f;
+    m.layers.pluginGain = 0.85f;
+    m.regionA.channel = 3;
+    m.regionA.transposeOffset = -7;
+    m.regionA.octaveShift = -1;
+    m.regionB.channel = 4;
+    m.regionB.transposeOffset = 5;
+    m.regionB.octaveShift = 1;
     return m;
 }
 
@@ -122,6 +135,20 @@ public:
             expectWithinAbsoluteError(loaded.velocityHumanizeAmount, 0.08f, 0.0001f,
                                       "velocityHumanizeAmount must round-trip");
             expectWithinAbsoluteError(loaded.baseVelocityBias, 0.12f, 0.0001f, "baseVelocityBias must round-trip");
+
+            // Consumer verification: loaded settings drive KeyboardMidiMapper note output
+            KeyboardMidiMapper mapper;
+            mapper.setKeyStatePredicate([](int) { return false; });
+            mapper.setNumLockPredicate([] { return true; });
+            juce::MidiKeyboardState ks;
+            auto layout = devpiano::core::makeDefaultKeyboardLayout();
+            layout.regionA = loaded.regionA;
+            layout.regionB = loaded.regionB;
+            mapper.setLayout(layout);
+            mapper.setPartitionMode(loaded.partitionMode);
+            expect(mapper.handleKeyPressed(juce::KeyPress(juce::KeyPress::numberPad1), ks));
+            expect(ks.isNoteOn(4, 77), "loaded regionB settings must route Num 1 note to channel 4, pitch 77");
+            mapper.releaseAllHeldKeys(ks);
         });
 
         testCase("load keeps model defaults for fields never written", [&] {

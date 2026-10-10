@@ -126,6 +126,8 @@ void PresetFlowSupport::applyRecordedPresetUi(const devpiano::recording::Recorde
 
     // 2. ChannelMatrix
     auto& s = owner.appSettings;
+    s.regionA = preset.layout.regionA;
+    s.regionB = preset.layout.regionB;
     s.channelMatrix = preset.channelMatrix;
     s.midiTranspose = recordedPreset.acoustic.transposeEnabled;
     s.keySignature = recordedPreset.acoustic.transposeOffset;
@@ -163,6 +165,8 @@ void PresetFlowSupport::applyRecordedPresetUi(const devpiano::recording::Recorde
     s.stretchTuningEnabled = acoustic.stretchTuningEnabled;
     s.duplexResonance = acoustic.duplexResonance;
 
+    s.layers = acoustic.layers;
+
     // 5. UI refresh
     owner.syncUiFromSettings(false);
     owner.getCustomKeyboard().repaint();
@@ -175,6 +179,8 @@ void PresetFlowSupport::commitPreset(const PerformancePreset& preset, bool fileB
 
     // 1. KeyboardLayout
     owner.keyboardMidiMapper.setLayout(preset.layout);
+    s.regionA = preset.layout.regionA;
+    s.regionB = preset.layout.regionB;
 
     // 2. ChannelMatrix
     s.channelMatrix = preset.channelMatrix;
@@ -218,6 +224,8 @@ void PresetFlowSupport::commitPreset(const PerformancePreset& preset, bool fileB
     owner.audioEngine.setPedalNoiseLevel(s.pedalNoiseLevel);
     s.feltAgeingAmount = juce::jlimit(0.0f, 1.0f, preset.feltAgeingAmount);
     owner.audioEngine.setFeltAgeingAmount(s.feltAgeingAmount);
+    s.layers = preset.layers;
+    owner.audioEngine.setInstrumentLayers(s.layers);
 }
 
 void PresetFlowSupport::updateUiAfterCommit() {
@@ -259,6 +267,7 @@ PerformancePreset PresetFlowSupport::captureCurrentState(const juce::String& nam
     preset.reverbWet = owner.appSettings.reverbWet;
     preset.pedalNoiseLevel = owner.appSettings.pedalNoiseLevel;
     preset.feltAgeingAmount = owner.appSettings.feltAgeingAmount;
+    preset.layers = owner.appSettings.layers;
     return preset;
 }
 

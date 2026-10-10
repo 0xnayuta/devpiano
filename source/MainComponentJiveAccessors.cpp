@@ -656,6 +656,50 @@ void MainComponent::updateQwertyVisualizer() {
         qwertyComponentRef->updateViewModel(snapshot);
     }
     viewHost.setText("qwerty-group-btn", "[" + TRANS("Group") + " " + keyboardMidiMapper.getActiveGroup().name + "]");
+    std::array<std::uint16_t, 2> regionChannels {};
+    const auto collectChannels = [&](const auto& rows) {
+        for (const auto& row : rows) {
+            for (const auto& key : row.keys) {
+                if (key.velocity <= 0.0f || key.mappedMidiNote < 0) {
+                    continue;
+                }
+                if (key.region == devpiano::core::KeyboardRegion::regionA) {
+                    regionChannels[0] |= static_cast<std::uint16_t>(1U << (key.mappedMidiChannel - 1));
+                } else if (key.region == devpiano::core::KeyboardRegion::regionB) {
+                    regionChannels[1] |= static_cast<std::uint16_t>(1U << (key.mappedMidiChannel - 1));
+                }
+            }
+        }
+    };
+    collectChannels(snapshot.rows);
+    collectChannels(snapshot.numpadRows);
+    const auto channelsText = [](std::uint16_t mask) {
+        juce::String text;
+        for (int channel = 1; channel <= 16; ++channel) {
+            if ((mask & (1U << (channel - 1))) != 0) {
+                if (text.isNotEmpty()) {
+                    text += "/";
+                }
+                text += juce::String(channel);
+            }
+        }
+        return text.isEmpty() ? juce::String("--") : text;
+    };
+    const auto groupChannel = keyboardMidiMapper.getActiveGroup().channel;
+    const auto routingHint = snapshot.partitionMode == devpiano::core::KeyboardPartitionMode::off
+        ? TRANS("Partition mode is off. Group channel: {0}.")
+              .replace("{0}", groupChannel == 0 ? TRANS("Inherit") : juce::String(groupChannel))
+        : (groupChannel != 0 ? TRANS("Group channel {0} overrides both regions. A output: {1}; B output: {2}.")
+                                   .replace("{0}", juce::String(groupChannel))
+                             : TRANS("Group inherits region channels. A output: {1}; B output: {2}."))
+              .replace("{1}", channelsText(regionChannels[0]))
+              .replace("{2}", channelsText(regionChannels[1]));
+    if (auto* button = viewHost.find<juce::Button>("qwerty-group-btn")) {
+        button->setTooltip(routingHint);
+    }
+    if (settingsWindowManager != nullptr) {
+        settingsWindowManager->refreshPerformanceRoutingHint(routingHint);
+    }
     if (snapshot.detectedChord.isValid && snapshot.detectedChord.quality != devpiano::core::ChordQuality::unknown) {
         viewHost.setText("qwerty-chord-badge", "[" + snapshot.detectedChord.chordName + "]");
     } else {
@@ -884,12 +928,21 @@ void MainComponent::updateStatusBar() {
 
     juce::String pedalIndicator;
     const auto isSync = (keyboardMidiMapper.getSustainPolicy() == devpiano::core::SustainPolicy::syncPedal);
-    if (keyboardMidiMapper.isSoftPedalDown() && keyboardMidiMapper.isSustainPedalDown()) {
-        pedalIndicator = bullet + (isSync ? "[UNA CORDA + SYNC]" : "[UNA CORDA + SUSTAIN]");
-    } else if (keyboardMidiMapper.isSoftPedalDown()) {
-        pedalIndicator = bullet + "[UNA CORDA]";
-    } else if (keyboardMidiMapper.isSustainPedalDown()) {
-        pedalIndicator = bullet + (isSync ? "[SYNC PEDAL]" : "[SUSTAIN]");
+    const auto hasSoft = keyboardMidiMapper.isSoftPedalDown();
+    const auto hasSost = keyboardMidiMapper.isSostenutoPedalDown();
+    const auto hasSustain = keyboardMidiMapper.isSustainPedalDown();
+    juce::StringArray activePedals;
+    if (hasSoft) {
+        activePedals.add("UNA CORDA");
+    }
+    if (hasSost) {
+        activePedals.add("SOSTENUTO");
+    }
+    if (hasSustain) {
+        activePedals.add(isSync ? "SYNC PEDAL" : "SUSTAIN");
+    }
+    if (!activePedals.isEmpty()) {
+        pedalIndicator = bullet + "[" + activePedals.joinIntoString(" + ") + "]";
     }
     juce::String metronomeIndicator;
     if (audioEngine.isMetronomeEnabled()) {

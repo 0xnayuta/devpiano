@@ -285,6 +285,11 @@ void RecordingSessionController::handleExportWavClicked() {
             auto options = devpiano::exporting::buildWavExportOptions(take, appSettings.getPerformanceSettingsView(),
                                                                       getCurrentRuntimeSampleRate(),
                                                                       getCurrentRuntimeBlockSize());
+            const auto dualLayerPluginRequired
+                = (options.layers.enabled && options.layers.pluginEnabled)
+                || std::ranges::any_of(take.presets, [](const auto& preset) {
+                       return preset.acoustic.layers.enabled && preset.acoustic.layers.pluginEnabled;
+                   });
 
             // Phase 1: Create offline plugin instance under audio device rebuild guard
             // (MUST pause audio callback while snapshotting live plugin state, PluginHost.h)
@@ -308,7 +313,8 @@ void RecordingSessionController::handleExportWavClicked() {
                     offlinePlugin->setStateInformation(state.getData(), static_cast<int>(state.getSize()));
                 } else {
                     DP_LOG_WARN("[Export] Offline plugin instance creation failed: " + error
-                                + " - falling back to sine synth");
+                                + (dualLayerPluginRequired ? " - dual-layer export cannot continue"
+                                                           : " - using the built-in single-instrument renderer"));
                 }
             });
 

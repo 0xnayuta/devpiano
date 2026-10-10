@@ -210,6 +210,9 @@ target_sources(devpiano PRIVATE
     source/Audio/PianoSynthVoice.h
     source/Audio/PianoTuning.h
     source/Audio/PianoStyle.h
+    source/Audio/InstrumentLayers.h
+    source/Audio/BoundedDelayLine.h
+    source/Audio/InstrumentNoteState.h
     source/Audio/TemperamentEngine.h
     source/Audio/PerspectiveProcessor.h
     source/Audio/RoomReverbEngine.h
@@ -220,6 +223,7 @@ target_sources(devpiano PRIVATE
     source/Audio/MetronomeProcessor.h
     source/Input/KeyboardMidiMapper.cpp
     source/Input/KeyboardMidiMapper.h
+    source/Input/Win32NativeInputBridge.h
     source/Input/TypingCadenceEstimator.h
     source/Core/KeyMapTypes.h
     source/Core/MidiTypes.h
@@ -366,6 +370,10 @@ target_link_libraries(devpiano PRIVATE
     juce::juce_recommended_lto_flags
     juce::juce_recommended_warning_flags
 )
+if(WIN32)
+    target_link_libraries(devpiano PRIVATE comctl32)
+endif()
+
 
 # ========================================================
 # 6. 配置预编译宏（开启插件宿主支持）
@@ -449,6 +457,7 @@ if (BUILD_TESTS)
         source/Core/MetronomeModel.h
         source/Input/KeyboardMidiMapper.cpp
         source/Input/KeyboardMidiMapper.h
+        source/Input/Win32NativeInputBridge.h
         source/Input/TypingCadenceEstimator.h
         source/Diagnostics/Log.h
         source/Diagnostics/DevPianoLogger.h
@@ -498,6 +507,9 @@ if (BUILD_TESTS)
         source/Audio/PianoSynthVoice.h
         source/Audio/PianoTuning.h
         source/Audio/PianoStyle.h
+        source/Audio/InstrumentLayers.h
+        source/Audio/BoundedDelayLine.h
+        source/Audio/InstrumentNoteState.h
         source/Audio/AudioDeviceDiagnostics.cpp
         source/Audio/AudioDeviceDiagnostics.h
         source/Plugin/PluginHost.cpp
@@ -619,6 +631,9 @@ if (BUILD_TESTS)
         juce::juce_recommended_config_flags
         juce::juce_recommended_warning_flags
     )
+    if(WIN32)
+        target_link_libraries(devpiano_tests PRIVATE comctl32)
+    endif()
 
     target_include_directories(devpiano_tests PRIVATE source source/UI/jive/core)
     juce_generate_juce_header(devpiano_tests)

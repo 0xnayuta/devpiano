@@ -144,7 +144,7 @@ public:
         using devpiano::core::KeyAction;
         using devpiano::core::KeyboardLayout;
         using devpiano::core::makeAlphaNumericKeyCode;
-        using devpiano::core::normaliseAlphaNumericKeyCode;
+        using devpiano::core::normalisePhysicalKeyCode;
 
         testCase("getMidiNoteNumber returns clamped", [&] {
             KeyAction action;
@@ -157,15 +157,15 @@ public:
                  [&] { expectEquals(makeAlphaNumericKeyCode('a'), makeAlphaNumericKeyCode('A')); });
 
         testCase("normaliseAlphaNumericKeyCode returns 0 for non-alphanumeric", [&] {
-            expectEquals(normaliseAlphaNumericKeyCode(0), 0);
-            expectEquals(normaliseAlphaNumericKeyCode(' '), 0);
-            expectEquals(normaliseAlphaNumericKeyCode(0x1B), 0); // ESC
+            expectEquals(normalisePhysicalKeyCode(0), 0);
+            expectEquals(normalisePhysicalKeyCode(' '), 0);
+            expectEquals(normalisePhysicalKeyCode(0x1B), 0); // ESC
         });
 
         testCase("normaliseAlphaNumericKeyCode returns non-zero for alphanumeric", [&] {
-            expect(normaliseAlphaNumericKeyCode('a') != 0);
-            expect(normaliseAlphaNumericKeyCode('Z') != 0);
-            expect(normaliseAlphaNumericKeyCode('5') != 0);
+            expect(normalisePhysicalKeyCode('a') != 0);
+            expect(normalisePhysicalKeyCode('Z') != 0);
+            expect(normalisePhysicalKeyCode('5') != 0);
         });
 
         testCase("findByKeyCode returns null for missing key", [&] {
@@ -190,7 +190,7 @@ public:
         using devpiano::core::KeyTrigger;
         using devpiano::core::makeAlphaNumericKeyCode;
         using devpiano::core::makeDefaultKeyboardLayout;
-        using devpiano::core::normaliseAlphaNumericKeyCode;
+        using devpiano::core::normalisePhysicalKeyCode;
 
         testCase("A key maps to C3 (MIDI note 60)", [&] {
             auto layout = makeDefaultKeyboardLayout();
@@ -233,8 +233,8 @@ public:
 
         testCase("lowercase and uppercase find same binding", [&] {
             auto layout = makeDefaultKeyboardLayout();
-            auto upperCode = normaliseAlphaNumericKeyCode('G');
-            auto lowerCode = normaliseAlphaNumericKeyCode('g');
+            auto upperCode = normalisePhysicalKeyCode('G');
+            auto lowerCode = normalisePhysicalKeyCode('g');
             expectEquals(upperCode, lowerCode);
 
             const auto* upperBinding = layout.findByKeyCode(upperCode);

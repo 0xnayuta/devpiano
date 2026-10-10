@@ -52,6 +52,7 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
 - **5 行 ANSI 物理键盘映射卡片（QwertyComponent）**：在 Controls 与键盘区之间声明式嵌入自适应 QWERTY 看板，击键物理下沉并联动 50fps 荧光余晖动画；支持一键展开/折叠与设置持久化；
 - **12-TET 和声色彩投影（Harmony Projection）**：静态呈现微妙和声色彩，击键与 88 键钢琴同频绽放三和弦几何色相；4 种按键着色模式（Classic / Channel / Velocity / Harmony）；
 - **轻量键位分组与发音身份恒定（Layout Groups & HeldKeyIdentity）**：单预设支持 4 组键位配置（Group A~D），反引号键（`）或 UI 按钮秒级切换；物理键保留原发音快照，同一输出最后一个持有者释放才关音；回放侧以 FIFO 保存每次起音的最终身份；
+- **固定物理键区与三踏板**：可选不分区、仅主键盘、主键盘 + 数字小键盘；本机模式独立保存，区域音乐参数随预设/Take。15 个小键盘音符键与主行保持独立身份；Space/Tab（或 Shift+Space）/未绑定 CapsLock 分别控制 CC64/67/66，抬起清理原目标通道；
 - **采样精确切分延音踏板（SustainPolicy & Sync Pedal）**：音频块内部采样点级别调度 $\text{CC64}(0) \to \text{NoteOn} \to \text{CC64}(127)$，消除空格键踩放时的断音空洞，杜绝线程 Sleep；
 - **瞬态演奏修饰键（PerformanceModifierState）**：Shift 键瞬态力度拉满（Velocity Boost）、Alt 键瞬态高八度平移（+8va），松开自动回弹，UI 实时展示 HUD 标签；
 - **击键动态力度与实时和弦反馈**：可选 `TypingCadenceEstimator` 按击键间隔调整力度，`VelocityHumanizer` 叠加有界、确定性哈希微扰（Shift 力度拉满优先）；基于按下音符识别和弦及转位，在 QWERTY 卡片标题与键盘 HUD 显示，松键后渐隐。
@@ -71,14 +72,14 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
 
 - **实时无锁采集**：音频线程无锁采集生成不可变 `RecordingTake` 数据结构，内嵌快照表隔离外部文件增删；
 - **多倍速回放控制**：支持 0.5x–2.0x 音频块边界倍速调节、Back 从头回放，以及暂停/恢复、Take-relative 跳转与 A-B 循环；设备采样率变化保留 Take 时间域，跳转前恢复通道状态，末尾 NoteOff 由音频路径交付，同块预设先于音符生效；
-- **原生演奏持久化**：仅支持当前 `.devpiano` v3 JSON，使用 JUCE 长度前缀二进制编码及内嵌 `RecordedPreset` 表；同目录临时文件成功写出后事务替换。不迁移旧格式，拒绝加载时保留原文件与当前会话；
+- **原生演奏持久化**：仅当前 `.devpiano` 整数 v4，使用 JUCE 长度前缀二进制编码、内嵌快照表与最终发声音高/通道/力度；原生回放、WAV/MIDI 不再执行区域、矩阵或快照移调。事务写出与拒绝加载保持原文件和当前会话，不迁移旧语义；
 - **标准 MIDI 文件支持**：导入 Type 0/1 全轨 MIDI，完整轨/chunk/meta 准入后保留跨轨 Tempo Map 的时间语义；导出 Type 1、960 PPQ 的单轨演奏流，tick 0 写入 120 BPM，不合成曲名、拍号或调号 meta；
-- **Performance Preset 预设系统**：仅当前整数 v2、UUID 永久身份、CRUD、F1-F12 切换、独立重命名目标覆盖确认；普通切换保留应用全局调号，录制回放按内嵌声学快照执行当时的移调。当前可选字段缺省不代表历史版本兼容；
+- **Performance Preset 预设系统**：仅当前整数 v2、UUID 永久身份、CRUD、F1-F12 与覆盖确认；保存绑定、区域音乐参数、声学及层开关/增益。普通选择保留全局调号与本机模式，录制回放执行声学/层快照，不重新变换已保存音符；
 
 ### 📦 离线高保真 WAV 导出（Offline WAV Export Pipeline）
 
 - **现代化异步非阻塞渲染**：`WavExportTask` 演进为纯异步工作任务流（`startAsync`），彻底消除消息循环阻塞，端到端经 `InstrumentEndpoint` 统一调度；
-- **双引擎参数与事件调度**：内置 Piano / Sine 或独立离线 VST3 消费 Take 快照、采样级事件及宿主 Master/混响；快照移调与原身份释放已对齐，Piano 整段对照差限于 WAV 量化。上游已映射输入仍有 [条件性重复移调边界](docs/issues/known-issues.md#原生演奏快照移调与-wav-音高不一致路线-a-已实施路线-b-重构备忘)；内置物理参数不写入厂商音源，第三方输出不保证逐比特相同；
+- **单层与固定双层渲染**：保留内置 Piano/Sine 或当前 VST3 单层，新增固定 Piano + 单 VST3；独立缓冲、层增益与有界采样延迟对齐后混音，只经过一次公共 Master/Reverb。实时与独立离线实例共用最终 MIDI 身份；双层缺少插件明确失败并保护目标，不静默只导出钢琴，不承诺厂商输出逐比特相同；
 - **进度与协作取消**：显示导出进度，取消后等待实际工作退出再释放资源；失败或提交前取消保留原目标，仅清理任务自有临时文件。厂商永久阻塞时无法保证有限时间内结束。
 
 ### 🎨 内生声明式 UI 运行时与设计系统（Declarative UI & Design System）

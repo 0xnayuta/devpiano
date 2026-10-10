@@ -537,100 +537,103 @@ private:
 };
 
 static AudioEngineWarmupAndCoverageTest audioEngineWarmupAndCoverageTest;
-class AudioEnginePlaybackTransposeTest final : public juce::UnitTest {
+class AudioEngineFinalIdentityTest final : public juce::UnitTest {
 public:
-    AudioEnginePlaybackTransposeTest()
-        : juce::UnitTest("AudioEngine: playback transpose", "DevPiano/Engine") {
+    AudioEngineFinalIdentityTest()
+        : juce::UnitTest("AudioEngine: final playback identity", "DevPiano/Engine") {
     }
 
     void runTest() override {
 
-        beginTest("playback transpose applies to melodic channels and bypasses channel 10 drums");
-        {
+        beginTest("live and playback holders release independently without cutting the remaining shared pitch");
+        for (const auto releaseLiveFirst : { false, true }) {
             devpiano::recording::RecordingEngine rec;
             AudioEngine engine;
             engine.setRecordingEngine(&rec);
-            engine.prepareToPlay(512, 44100.0);
+            engine.setBuiltinSynthTone(AudioEngine::BuiltinSynthTone::sine);
+            engine.setAdsr(0.001f, 0.01f, 1.0f, 0.003f);
+            engine.prepareToPlay(512, 48000.0);
             exhaustWarmup(engine, 512);
-
-            // Create take with Channel 1 (piano C4=60) and Channel 10 (drums kick=36)
             devpiano::recording::RecordingTake take;
-            take.sampleRate = 44100.0;
-            take.lengthSamples = 2048;
-            take.events.push_back({
-                .timestampSamples = 10,
-                .type = devpiano::recording::PerformanceEventType::midi,
-                .source = devpiano::recording::RecordingEventSource::playback,
-                .message = juce::MidiMessage::noteOn(1, 60, 0.8f),
-            });
-            take.events.push_back({
-                .timestampSamples = 10,
-                .type = devpiano::recording::PerformanceEventType::midi,
-                .source = devpiano::recording::RecordingEventSource::playback,
-                .message = juce::MidiMessage::noteOn(10, 36, 0.8f), // Drum channel
-            });
-
-            // Start playback with transpose = +2 (D major)
-            engine.setPlaybackTranspose(true, 2);
-            rec.startPlayback(take, 44100.0);
-
-            // Render block containing the events (samples 0..512)
-            auto buf = makeBlock(2, 512);
-            const juce::AudioSourceChannelInfo info(&buf, 0, buf.getNumSamples());
-            engine.getNextAudioBlock(info);
+            take.sampleRate = 48000.0;
+            take.lengthSamples = 4096;
+            take.events
+                = { { 10, devpiano::recording::PerformanceEventType::midi, 0,
+                      devpiano::recording::RecordingEventSource::playback, juce::MidiMessage::noteOn(1, 69, 0.8f) },
+                    { releaseLiveFirst ? 1600 : 600, devpiano::recording::PerformanceEventType::midi, 0,
+                      devpiano::recording::RecordingEventSource::playback, juce::MidiMessage::noteOff(1, 69) } };
+            rec.startPlayback(take, 48000.0);
+            engine.getKeyboardState().noteOn(1, 69, 0.8f);
+            auto buffer = makeBlock(2, 512);
+            engine.getNextAudioBlock({ &buffer, 0, 512 });
             engine.dispatchPendingDisplayEvents();
-
-            // Check keyboardState:
-            // Channel 1 note 60 should be transposed to 62 (D4)
-            // Channel 10 drum note 36 should stay at 36 (Bypassed)
-            expect(engine.getKeyboardState().isNoteOn(1, 62), "Channel 1 note 60 should be transposed to 62 (+2)");
-            expect(!engine.getKeyboardState().isNoteOn(1, 60), "Channel 1 note 60 should NOT be on");
-            expect(engine.getKeyboardState().isNoteOn(10, 36), "Channel 10 drum note 36 must NOT be transposed");
-            expect(!engine.getKeyboardState().isNoteOn(10, 38), "Channel 10 note 38 should NOT be on");
+            if (releaseLiveFirst) {
+                engine.getKeyboardState().noteOff(1, 69, 0.0f);
+            }
+            engine.getNextAudioBlock({ &buffer, 0, 512 });
+            engine.dispatchPendingDisplayEvents();
+            expect(buffer.getRMSLevel(0, 384, 128) > 0.01f);
+            expect(engine.getKeyboardState().isNoteOn(1, 69));
+            if (!releaseLiveFirst) {
+                engine.getKeyboardState().noteOff(1, 69, 0.0f);
+            }
+            for (int i = 0; i < 3; ++i) {
+                engine.getNextAudioBlock({ &buffer, 0, 512 });
+                engine.dispatchPendingDisplayEvents();
+            }
+            expectEquals(buffer.getMagnitude(0, 384, 128), 0.0f);
+            expect(!engine.getKeyboardState().isNoteOn(1, 69));
             rec.stopPlaybackQuiescent();
         }
 
-        beginTest("playback transpose respects custom per-channel mask overrides");
-        {
+        beginTest("stored final notes ignore current input transpose, follow masks, and recorded input configuration");
+        for (const auto mask : { std::uint16_t { 0 }, std::uint16_t { 1U << 9 }, std::uint16_t { 0xffff } }) {
             devpiano::recording::RecordingEngine rec;
             AudioEngine engine;
             engine.setRecordingEngine(&rec);
             engine.prepareToPlay(512, 44100.0);
             exhaustWarmup(engine, 512);
+            engine.setInputTranspose(true, 12, mask);
 
             devpiano::recording::RecordingTake take;
             take.sampleRate = 44100.0;
             take.lengthSamples = 2048;
-            take.events.push_back({
-                .timestampSamples = 10,
-                .type = devpiano::recording::PerformanceEventType::midi,
-                .source = devpiano::recording::RecordingEventSource::playback,
-                .message = juce::MidiMessage::noteOn(1, 60, 0.8f),
-            });
-            take.events.push_back({
-                .timestampSamples = 10,
-                .type = devpiano::recording::PerformanceEventType::midi,
-                .source = devpiano::recording::RecordingEventSource::playback,
-                .message = juce::MidiMessage::noteOn(10, 36, 0.8f),
-            });
-
-            // Set custom mask where Channel 1 is bypassed (bit 0 = 0) and Channel 10 is transposed (bit 9 = 1)
-            const auto customMask = static_cast<std::uint16_t>(1U << 9);
-            engine.setPlaybackTranspose(true, 3, customMask);
+            devpiano::recording::RecordedPreset snapshot;
+            snapshot.acoustic.transposeEnabled = true;
+            snapshot.acoustic.transposeOffset = -12;
+            snapshot.acoustic.channelFollowKeyMask = mask;
+            take.presets.push_back(snapshot);
+            take.events = {
+                { 0,
+                  devpiano::recording::PerformanceEventType::presetChange,
+                  0,
+                  devpiano::recording::RecordingEventSource::computerKeyboard,
+                  {} },
+                { 10, devpiano::recording::PerformanceEventType::midi, 0,
+                  devpiano::recording::RecordingEventSource::realtimeMidiBuffer,
+                  juce::MidiMessage::noteOn(5, 76, 0.8f) },
+                { 10, devpiano::recording::PerformanceEventType::midi, 0,
+                  devpiano::recording::RecordingEventSource::realtimeMidiBuffer,
+                  juce::MidiMessage::noteOn(10, 38, 0.8f) },
+                { 600, devpiano::recording::PerformanceEventType::midi, 0,
+                  devpiano::recording::RecordingEventSource::realtimeMidiBuffer, juce::MidiMessage::noteOff(5, 76) },
+                { 600, devpiano::recording::PerformanceEventType::midi, 0,
+                  devpiano::recording::RecordingEventSource::realtimeMidiBuffer, juce::MidiMessage::noteOff(10, 38) }
+            };
             rec.startPlayback(take, 44100.0);
-
-            auto buf = makeBlock(2, 512);
-            const juce::AudioSourceChannelInfo info(&buf, 0, buf.getNumSamples());
-            engine.getNextAudioBlock(info);
+            auto buffer = makeBlock(2, 512);
+            engine.getNextAudioBlock({ &buffer, 0, 512 });
             engine.dispatchPendingDisplayEvents();
-
-            // Channel 1 was disabled in mask -> remains 60
-            expect(engine.getKeyboardState().isNoteOn(1, 60), "Channel 1 note 60 should remain 60 (disabled in mask)");
-            expect(!engine.getKeyboardState().isNoteOn(1, 63));
-            // Channel 10 was enabled in mask -> transposed 36 + 3 = 39
-            expect(engine.getKeyboardState().isNoteOn(10, 39), "Channel 10 note 36 should be transposed to 39");
-            expect(!engine.getKeyboardState().isNoteOn(10, 36));
-
+            expect(engine.getKeyboardState().isNoteOn(5, 76));
+            expect(engine.getKeyboardState().isNoteOn(10, 38));
+            expect(!engine.getKeyboardState().isNoteOn(5, 64));
+            expect(!engine.getKeyboardState().isNoteOn(10, 26));
+            expect(buffer.getMagnitude(0, 512) > 1.0e-5f);
+            engine.setInputTranspose(true, 7, 0xffff);
+            engine.getNextAudioBlock({ &buffer, 0, 512 });
+            engine.dispatchPendingDisplayEvents();
+            expect(!engine.getKeyboardState().isNoteOn(5, 76));
+            expect(!engine.getKeyboardState().isNoteOn(10, 38));
             rec.stopPlaybackQuiescent();
         }
         beginTest("playback seek releases held notes and applies the requested take sample");
@@ -669,8 +672,7 @@ public:
             expect(!engine.getKeyboardState().isNoteOn(1, 60), "seek must clear the currently sounding note");
             rec.stopPlaybackQuiescent();
         }
-        beginTest("QUAL-001: NoteOn emitted under one mapping releases original output identity when transpose changes "
-                  "before NoteOff");
+        beginTest("input configuration changes cannot redirect a stored note release");
         {
             devpiano::recording::RecordingEngine rec;
             AudioEngine engine;
@@ -694,7 +696,7 @@ public:
                 .message = juce::MidiMessage::noteOff(1, 60, 0.0f),
             });
 
-            engine.setPlaybackTranspose(true, 0);
+            engine.setInputTranspose(true, 0);
             rec.startPlayback(take, 44100.0);
             engine.prepareToPlay(512, 44100.0);
             auto buf1 = makeBlock(2, 512);
@@ -703,7 +705,7 @@ public:
             engine.dispatchPendingDisplayEvents();
             expect(engine.getKeyboardState().isNoteOn(1, 60), "Note 60 should be active in keyboard state");
 
-            engine.setPlaybackTranspose(true, 1);
+            engine.setInputTranspose(true, 1);
 
             auto buf2 = makeBlock(2, 512);
             const juce::AudioSourceChannelInfo info2(&buf2, 0, buf2.getNumSamples());
@@ -716,7 +718,7 @@ public:
 
             rec.stopPlaybackQuiescent();
         }
-        beginTest("QUAL-001: Overlapping same-source notes under different mappings paired FIFO");
+        beginTest("repeated stored attacks stay held until their last FIFO release");
         {
             devpiano::recording::RecordingEngine rec;
             AudioEngine engine;
@@ -752,7 +754,7 @@ public:
                 .message = juce::MidiMessage::noteOff(1, 60, 0.0f),
             });
 
-            engine.setPlaybackTranspose(true, 0);
+            engine.setInputTranspose(true, 0);
             rec.startPlayback(take, 44100.0);
             engine.prepareToPlay(512, 44100.0);
             auto buf1 = makeBlock(2, 512);
@@ -760,81 +762,23 @@ public:
             engine.dispatchPendingDisplayEvents();
             expect(engine.getKeyboardState().isNoteOn(1, 60));
 
-            engine.setPlaybackTranspose(true, 2);
+            engine.setInputTranspose(true, 2);
 
             auto buf2 = makeBlock(2, 512);
             engine.getNextAudioBlock({ &buf2, 0, 512 });
             engine.dispatchPendingDisplayEvents();
-            expect(engine.getKeyboardState().isNoteOn(1, 60), "Attack 1 (60) still active");
-            expect(engine.getKeyboardState().isNoteOn(1, 62), "Attack 2 (62) active under +2 mapping");
+            expect(engine.getKeyboardState().isNoteOn(1, 60), "Both stored attacks keep the same final pitch");
+            expect(!engine.getKeyboardState().isNoteOn(1, 62));
 
             auto buf3 = makeBlock(2, 512);
             engine.getNextAudioBlock({ &buf3, 0, 512 });
             engine.dispatchPendingDisplayEvents();
-            expect(!engine.getKeyboardState().isNoteOn(1, 60), "Attack 1 (60) released first in FIFO order");
-            expect(engine.getKeyboardState().isNoteOn(1, 62), "Attack 2 (62) still sounding");
+            expect(engine.getKeyboardState().isNoteOn(1, 60), "The remaining FIFO holder must stay sounding");
 
             auto buf4 = makeBlock(2, 512);
             engine.getNextAudioBlock({ &buf4, 0, 512 });
             engine.dispatchPendingDisplayEvents();
-            expect(!engine.getKeyboardState().isNoteOn(1, 62), "Attack 2 (62) released second in FIFO order");
-
-            rec.stopPlaybackQuiescent();
-        }
-        beginTest("QUAL-001: Clamp collisions last owner off");
-        {
-            devpiano::recording::RecordingEngine rec;
-            AudioEngine engine;
-            engine.setRecordingEngine(&rec);
-            engine.prepareToPlay(512, 44100.0);
-            exhaustWarmup(engine, 512);
-
-            devpiano::recording::RecordingTake take;
-            take.sampleRate = 44100.0;
-            take.lengthSamples = 3000;
-            take.events.push_back({
-                .timestampSamples = 10,
-                .type = devpiano::recording::PerformanceEventType::midi,
-                .source = devpiano::recording::RecordingEventSource::playback,
-                .message = juce::MidiMessage::noteOn(1, 126, 0.8f),
-            });
-            take.events.push_back({
-                .timestampSamples = 10,
-                .type = devpiano::recording::PerformanceEventType::midi,
-                .source = devpiano::recording::RecordingEventSource::playback,
-                .message = juce::MidiMessage::noteOn(1, 127, 0.8f),
-            });
-            take.events.push_back({
-                .timestampSamples = 600,
-                .type = devpiano::recording::PerformanceEventType::midi,
-                .source = devpiano::recording::RecordingEventSource::playback,
-                .message = juce::MidiMessage::noteOff(1, 126, 0.0f),
-            });
-            take.events.push_back({
-                .timestampSamples = 1100,
-                .type = devpiano::recording::PerformanceEventType::midi,
-                .source = devpiano::recording::RecordingEventSource::playback,
-                .message = juce::MidiMessage::noteOff(1, 127, 0.0f),
-            });
-
-            engine.setPlaybackTranspose(true, 2);
-            rec.startPlayback(take, 44100.0);
-            engine.prepareToPlay(512, 44100.0);
-            auto buf1 = makeBlock(2, 512);
-            engine.getNextAudioBlock({ &buf1, 0, 512 });
-            engine.dispatchPendingDisplayEvents();
-            expect(engine.getKeyboardState().isNoteOn(1, 127));
-
-            auto buf2 = makeBlock(2, 512);
-            engine.getNextAudioBlock({ &buf2, 0, 512 });
-            engine.dispatchPendingDisplayEvents();
-            expect(engine.getKeyboardState().isNoteOn(1, 127), "Output note 127 must still be held by second owner");
-
-            auto buf3 = makeBlock(2, 512);
-            engine.getNextAudioBlock({ &buf3, 0, 512 });
-            engine.dispatchPendingDisplayEvents();
-            expect(!engine.getKeyboardState().isNoteOn(1, 127),
-                   "Output note 127 must be released when last owner releases");
+            expect(!engine.getKeyboardState().isNoteOn(1, 60), "The final FIFO release stops the stored pitch");
 
             rec.stopPlaybackQuiescent();
         }
@@ -862,13 +806,13 @@ public:
                 .message = juce::MidiMessage::noteOff(1, 60, 0.0f),
             });
 
-            engine.setPlaybackTranspose(true, 3);
+            engine.setInputTranspose(true, 3);
             rec.startPlayback(take, 44100.0);
             engine.prepareToPlay(512, 44100.0);
             auto buf1 = makeBlock(2, 512);
             engine.getNextAudioBlock({ &buf1, 0, 512 });
             engine.dispatchPendingDisplayEvents();
-            expect(engine.getKeyboardState().isNoteOn(1, 63));
+            expect(engine.getKeyboardState().isNoteOn(1, 60));
 
             engine.prepareToPlay(512, 48000.0);
             exhaustWarmup(engine, 512);
@@ -877,7 +821,7 @@ public:
             engine.getNextAudioBlock({ &buf2, 0, 512 });
             engine.dispatchPendingDisplayEvents();
 
-            expect(!engine.getKeyboardState().isNoteOn(1, 63), "Device rate switch must retain identity release");
+            expect(!engine.getKeyboardState().isNoteOn(1, 60), "Device rate switch must retain identity release");
 
             rec.stopPlaybackQuiescent();
         }
@@ -968,7 +912,7 @@ public:
     }
 };
 
-static AudioEnginePlaybackTransposeTest audioEnginePlaybackTransposeTest;
+static AudioEngineFinalIdentityTest audioEngineFinalIdentityTest;
 
 // =============================================================================
 // Phase 25-A: AudioDeviceDiagnostics & Linux ALSA/JACK Driver State Robustness

@@ -12,10 +12,10 @@
 
 1. **基于稳定 KeyCode 路由**：彻底摒弃依赖字符输入的脆弱模式，统一采用物理键盘扫描码规范化后的 KeyCode，不受 CapsLock 大小写切换影响；
 2. **中文输入法（IME）全面防御**：拦截并吸收按键事件，中文输入法处于激活状态下依然能稳定发声，且不弹出候选词输入框；
-3. **发音身份恒定与重叠持有**：`HeldKeyIdentity` 锁定 Group、modifier 和矩阵变换后的原音高/通道。Q/K 同音及矩阵合并音高的其他持有者仍按住时，首个松键不发 NoteOff；最后释放或失焦才按原身份关音。重复按下已松开的物理键仍可重新起音；录制将最终释放规范化为所有已捕获起音的同采样配对 Off；
+3. **发音身份恒定与重叠持有**：`HeldKeyIdentity` 锁定区域、Group、modifier 和矩阵变换后的音高/通道。切区、切组、NumLock 或模式变化只影响新起音；同一最终音的物理/鼠标持有者最后释放才关音，鼠标松开使用起音时保存的 physicalKeyCode。录制保存最终身份，下游不再移调或重新划区；
 4. **5 行 QWERTY 键盘映射看板（QwertyComponent）**：在主窗口 Controls 与键盘区之间声明式嵌入 5 行自适应 ANSI 物理键位网格，击键即时物理下沉并具备 50fps 荧光余晖平滑淡出，支持 12-TET 和声色彩投影与一键折叠；
 5. **轻量键位分组（Layout Groups）**：单预设支持 4 组（Group A~D）独立移调、八度与通道配置，反引号键（`）或 UI 按钮秒级循环切组；
-6. **采样精确切分延音与柔音踏板**：音频块内部采样点级别调度 $\text{CC64}(0) \to \text{NoteOn} \to \text{CC64}(127)$，消除空格键踩放时的断音空洞，杜绝线程 Sleep；支持 Tab 键或 Shift+Space 组合键触发物理柔音（Soft Pedal / Una Corda），Panic 自动安全复位；
+6. **三踏板与采样精确切分**：Space 触发 CC64，Tab 或 Shift+Space 触发 CC67；未显式绑定音符的 CapsLock 触发 CC66，按键物理保持与系统大写锁定状态分离。CC66 仅 Up→Down 捕获仍按住的声部，不重复捕获后起音，抢占声部不继承旧捕获。Sync Pedal 在采样点执行 $\text{CC64}(0) \to \text{NoteOn} \to \text{CC64}(127)$，不使用 Sleep；
 7. **瞬态演奏修饰键（PerformanceModifierState）**：Shift 对非静音绑定瞬态拉满力度，Alt 瞬态高八度平移（+8va）；静音绑定优先于 Shift、动态力度、微扰及矩阵固定力度。修饰符只变换事件，不改全局配置；
 8. **焦点丢失自动 Panic 清理（区分内/外部切换）**：焦点**离开应用**（如 Alt+Tab 切到其他程序）时，自动释放交互演奏音（电脑键盘 held keys + 虚拟键盘鼠标按住的音符），防止后台一直鸣响；焦点转移到**本进程其他顶层窗口**（插件编辑器、设置窗口）属于应用内部切换，不打断任何演奏；**MIDI 回放不受失焦影响**；
 9. **双演奏看板与输入解耦**：QWERTY 和虚拟钢琴共同消费映射层的最终投影；配置输入身份与观察到的输出通道分开，连续鼠标点击和 MIDI 回放不会改变后续输入路由；
@@ -25,9 +25,9 @@
 
 ---
 
-## 2. 默认 36 键标准布局设计
+## 2. 主键盘与小键盘默认布局
 
-默认键盘布局（`makeDefaultKeyboardLayout()`）覆盖美式标准键盘的 4 行共 36 个常用字母与数字键，构成横跨 4 个八度的阶梯式音阶：
+默认主键盘使用 36 个字母/数字演奏键，构成横跨 4 个八度的阶梯式音阶；本机分区模式首次为 `off`，新默认布局同时保存独立小键盘绑定，但仅在 `mainAndNumpad` 且 NumLock 开启时允许小键盘新起音：
 
 ```text
 [数字行]  1(C6:84) 2(D6:86) 3(E6:88) 4(F6:89) 5(G6:91) 6(A6:93) 7(B6:95) 8(C7:96) 9(D7:98) 0(E7:100)
@@ -41,6 +41,21 @@
 - **Q 行（高音区）**：`Q` 对应 C5（MIDI Note 72），覆盖高音主旋律；
 - **数字行（倍高音区）**：`1` 对应 C6（MIDI Note 84），提供超高音华彩。
 
+### 2.1 固定分区与本机模式
+
+| 模式 | 区域 A | 区域 B |
+|---|---|---|
+| `off` | 不应用区域变换，保持原有主键盘路径 | 不触发小键盘新音 |
+| `mainOnly` | `1..5`、`Q..T`、`A..G`、`Z..B` | `6..0`、`Y..P`、`H..L`、`N M` |
+| `mainAndNumpad` | 全部主键盘字母/数字演奏键 | `Num 0..9`、`/ * - + .` |
+
+- 功能行、导航区、Enter、NumLock 和踏板/修饰键不自动加入区域。主/小键盘 Enter 保持控制用途；不开启 NumLock 不产生新的小键盘音，不强制改变系统状态。
+- 区域参数是通道覆盖（0 继承逐键通道）、半音移调与八度偏移。顺序为物理区域 → 全局 Group → 临时修饰 → 矩阵/跟随调号；Group 通道 `1..16` 覆盖两区，`0` 继承区域结果。提示与看板显示最终输出通道。
+- 本机模式只由 Settings 保存；绑定、区域音乐参数随预设/Take 保存。切换布局不补写或删除用户静音/未绑定位置，不因设备没有小键盘而回退；加载预设或回放快照不切换本机模式。
+- 新默认小键盘 `Num 1..9,0` 的 MIDI 音高依次为 `60,62,64,65,67,69,71,72,74,76`；`Num /,*,-,+,.` 为 `61,63,66,68,70`。完整扩展 keyCode 在原生输入、绑定捕获、持久化与鼠标点击中保持独立，不截断成字符。
+- Windows 输入桥只位于应用边界，不修改 JUCE；Shift/Alt 不改变小键盘身份。已按住的音跨模式/NumLock/区域变化仍按原身份释放，不凭空重发起音。
+- 踏板在实际区域/Group/矩阵输出通道上执行，并保存旧目标。抬起释放原目标，新通道起音前同步仍持有的踏板；失焦只清理现场来源，Seek 不追溯历史音符或旧 CC66 捕获集合。
+
 ---
 
 ## 3. 按键捕获与事件流向
@@ -51,14 +66,14 @@
     ├── 0. 快捷键拦截: F1-F12 预设切换 ──► 路由至 PresetFlowSupport
     ├── 1. 键组切换: 反引号键 (`) ──► 循环切换 activeGroupIndex (0..3)
     ├── 2. 瞬态修饰键: Shift / Alt ──► 更新 PerformanceModifierState (纯事件流变换)
-    ├── 3. 延音与柔音踏板: Space 键依据 SustainPolicy 触发延音；Tab 或 Shift+Space 触发柔音 (Soft Pedal)
-    ├── 4. keyCode 规范化: normaliseAlphaNumericKeyCode(key.getKeyCode())
+    ├── 3. 三踏板: Space (CC64)、Tab/Shift+Space (CC67)、未绑定 CapsLock (CC66)
+    ├── 4. keyCode 规范化: normalisePhysicalKeyCode(key.getKeyCode())
     │
     ▼
 KeyboardMidiMapper::handleKeyPressed() / handleKeyStateChanged()
     │
     ├── 5. 查表匹配当前 KeyboardLayout 绑定
-    ├── 6. 结合当前 KeyGroup 计算发声音高 (baseSoundingNote) 与通道 (soundingChannel)
+    ├── 6. 按完整物理码确定区域，先应用区域音乐参数，再应用全局 KeyGroup
     ├── 7. 打字律动力度估算 (TypingCadenceEstimator): 依击键间隔 Δt 估算 dynamicVelocity
     ├── 8. 确定性力度微扰 (VelocityHumanizer): 结合音高与击键计数器施加确定性抖动
     ├── 9. 瞬态修饰与手感映射:
@@ -82,13 +97,14 @@ AudioEngine::liveMidiQueue（有界 SPSC）──► [音频回调线程]
 
 ## 3.1 双看板最终投影与鼠标输入身份
 
-- `KeyboardMidiMapper::createQwertySnapshot()` 在映射层完成 Group、modifier、触键曲线、通道矩阵和 followKey 投影；`MidiChannelMapper::sendNoteOn()` 与投影共用 `applyTransform()`。
+- `KeyboardMidiMapper::createQwertySnapshot()` 在映射层完成区域、Group、modifier、触键曲线、通道矩阵和 followKey 投影；真实输入与投影共用 `applyTransform()`，静音优先。
 - `QwertyViewModel` 同时提供电脑网格和按最终输出音高索引的 `pianoKeys`。两张看板显示同一最终音高/通道；UI 不反查原始布局或二次变换输出。
 - 点击保存的矩阵输入音高、通道和力度只经矩阵一次，NoteOff 使用起音返回的最终身份。钢琴着色观察到 Ch11 回放时，随后点击仍按原配置输入路由，而不是从 Ch11 再映射。
 - 未绑定琴键的可用输入也由映射层准备；超出 MIDI `0..127` 输入域而没有可用投影的琴键不发送 NoteOn。88 键键床不把范围外输出强行夹回可视区域。
 - 同输出音高的绑定标签由映射层合并，钢琴点击/编辑使用列表首个绑定的输入身份。标签、逐键颜色与新绑定编辑沿用配置输入音符索引，Group/modifier/矩阵变化不改写预设数据。
 - 快照中的力度是配置、曲线、modifier 与矩阵的静态投影；击键间隔与人性化动态力度仍在真实演奏事件中计算。零力度绑定在物理键盘、钢琴鼠标和 QWERTY 鼠标入口均保持静音。
 - 音名采用 `MIDI / 12 - 1` 的科学八度：`0/1/11` 属于八度 `-1`，`12` 为 `C0`；唱名偏移与单音 HUD 共用相同边界。
+- `mainAndNumpad` 在主看板右侧显示独立小键盘；NumLock/Enter 为非发音控制位，CapsLock 显式绑定时显示音符而非踏板。区域标签/边框不覆盖逐键颜色，窄窗口保留可操作键位并横向滚动；可见小键盘切换立即重算几何，不依赖额外 resize。
 
 ## 4. QWERTY 演奏看板与和声色彩投影
 

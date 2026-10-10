@@ -272,6 +272,12 @@ juce::var performancePresetToVar(const PerformancePreset& preset) {
         }
         lo->setProperty("groups", juce::var(groups));
         lo->setProperty("activeGroupIndex", static_cast<int>(preset.layout.activeGroupIndex));
+        lo->setProperty("regionA_channel", static_cast<int>(preset.layout.regionA.channel));
+        lo->setProperty("regionA_transpose", static_cast<int>(preset.layout.regionA.transposeOffset));
+        lo->setProperty("regionA_octave", static_cast<int>(preset.layout.regionA.octaveShift));
+        lo->setProperty("regionB_channel", static_cast<int>(preset.layout.regionB.channel));
+        lo->setProperty("regionB_transpose", static_cast<int>(preset.layout.regionB.transposeOffset));
+        lo->setProperty("regionB_octave", static_cast<int>(preset.layout.regionB.octaveShift));
 
         root->setProperty("layout", juce::var(lo));
     }
@@ -301,6 +307,16 @@ juce::var performancePresetToVar(const PerformancePreset& preset) {
         aco->setProperty("stretchTuningEnabled", preset.stretchTuningEnabled);
         aco->setProperty("duplexResonance", preset.duplexResonance);
         root->setProperty("acoustics", juce::var(aco));
+    }
+    // --- layers (Phase 38-5) ---
+    {
+        juce::DynamicObject::Ptr lay = new juce::DynamicObject();
+        lay->setProperty("enabled", preset.layers.enabled);
+        lay->setProperty("pianoEnabled", preset.layers.pianoEnabled);
+        lay->setProperty("pluginEnabled", preset.layers.pluginEnabled);
+        lay->setProperty("pianoGain", preset.layers.pianoGain);
+        lay->setProperty("pluginGain", preset.layers.pluginGain);
+        root->setProperty("layers", juce::var(lay));
     }
 
     // --- keyboard ---
@@ -402,6 +418,30 @@ std::optional<PerformancePreset> performancePresetFromVar(const juce::var& v) {
                     = static_cast<std::uint8_t>(juce::jlimit(0, static_cast<int>(preset.layout.groups.size() - 1),
                                                              static_cast<int>(lo->getProperty("activeGroupIndex"))));
             }
+            if (lo->hasProperty("regionA_channel")) {
+                preset.layout.regionA.channel = static_cast<std::uint8_t>(
+                    juce::jlimit(0, 16, static_cast<int>(lo->getProperty("regionA_channel"))));
+            }
+            if (lo->hasProperty("regionA_transpose")) {
+                preset.layout.regionA.transposeOffset = static_cast<std::int8_t>(
+                    juce::jlimit(-12, 12, static_cast<int>(lo->getProperty("regionA_transpose"))));
+            }
+            if (lo->hasProperty("regionA_octave")) {
+                preset.layout.regionA.octaveShift = static_cast<std::int8_t>(
+                    juce::jlimit(-3, 3, static_cast<int>(lo->getProperty("regionA_octave"))));
+            }
+            if (lo->hasProperty("regionB_channel")) {
+                preset.layout.regionB.channel = static_cast<std::uint8_t>(
+                    juce::jlimit(0, 16, static_cast<int>(lo->getProperty("regionB_channel"))));
+            }
+            if (lo->hasProperty("regionB_transpose")) {
+                preset.layout.regionB.transposeOffset = static_cast<std::int8_t>(
+                    juce::jlimit(-12, 12, static_cast<int>(lo->getProperty("regionB_transpose"))));
+            }
+            if (lo->hasProperty("regionB_octave")) {
+                preset.layout.regionB.octaveShift = static_cast<std::int8_t>(
+                    juce::jlimit(-3, 3, static_cast<int>(lo->getProperty("regionB_octave"))));
+            }
         }
     }
     // Fallback: id/name from top-level if layout section absent
@@ -481,6 +521,37 @@ std::optional<PerformancePreset> performancePresetFromVar(const juce::var& v) {
                 const auto val = static_cast<double>(aco->getProperty("duplexResonance"));
                 if (std::isfinite(val)) {
                     preset.duplexResonance = juce::jlimit(0.0f, 1.0f, static_cast<float>(val));
+                }
+            }
+        }
+    }
+    // --- layers (Phase 38-5) ---
+    auto layersVar = obj->getProperty("layers");
+    if (!layersVar.isObject() && acVar.isObject() && acVar.getDynamicObject() != nullptr
+        && acVar.getDynamicObject()->hasProperty("layers")) {
+        layersVar = acVar.getDynamicObject()->getProperty("layers");
+    }
+    if (layersVar.isObject()) {
+        if (auto* lay = layersVar.getDynamicObject()) {
+            if (lay->hasProperty("enabled")) {
+                preset.layers.enabled = static_cast<bool>(lay->getProperty("enabled"));
+            }
+            if (lay->hasProperty("pianoEnabled")) {
+                preset.layers.pianoEnabled = static_cast<bool>(lay->getProperty("pianoEnabled"));
+            }
+            if (lay->hasProperty("pluginEnabled")) {
+                preset.layers.pluginEnabled = static_cast<bool>(lay->getProperty("pluginEnabled"));
+            }
+            if (lay->hasProperty("pianoGain")) {
+                const auto val = static_cast<double>(lay->getProperty("pianoGain"));
+                if (std::isfinite(val)) {
+                    preset.layers.pianoGain = juce::jlimit(0.0f, 1.0f, static_cast<float>(val));
+                }
+            }
+            if (lay->hasProperty("pluginGain")) {
+                const auto val = static_cast<double>(lay->getProperty("pluginGain"));
+                if (std::isfinite(val)) {
+                    preset.layers.pluginGain = juce::jlimit(0.0f, 1.0f, static_cast<float>(val));
                 }
             }
         }

@@ -13,8 +13,8 @@ QwertyComponent::QwertyComponent() {
     viewModel = devpiano::core::makeDefaultQwertyLayoutTemplate();
     for (std::size_t r = 0; r < 5; ++r) {
         keyGeometries[r].resize(viewModel.rows[r].keys.size());
+        numpadGeometries[r].resize(viewModel.numpadRows[r].keys.size());
     }
-
     setSize(700, 140);
     recalculateKeyBounds();
 }
@@ -24,9 +24,10 @@ QwertyComponent::~QwertyComponent() {
 }
 
 void QwertyComponent::updateViewModel(const devpiano::core::QwertyViewModel& newModel) {
+    const auto visibilityChanged = viewModel.showNumpad != newModel.showNumpad;
     viewModel = newModel;
     bool needsTimer = false;
-    bool sizeChanged = false;
+    bool sizeChanged = visibilityChanged;
 
     if (newModel.detectedChord.isValid && newModel.detectedChord.quality != devpiano::core::ChordQuality::unknown) {
         lastDisplayedChord = newModel.detectedChord;
@@ -44,6 +45,18 @@ void QwertyComponent::updateViewModel(const devpiano::core::QwertyViewModel& new
             if (viewModel.rows[r].keys[k].isDown) {
                 keyGeometries[r][k].fadeAlpha = 1.0f;
             } else if (keyGeometries[r][k].fadeAlpha > 0.01f) {
+                needsTimer = true;
+            }
+        }
+
+        if (numpadGeometries[r].size() != viewModel.numpadRows[r].keys.size()) {
+            numpadGeometries[r].resize(viewModel.numpadRows[r].keys.size());
+            sizeChanged = true;
+        }
+        for (std::size_t k = 0; k < viewModel.numpadRows[r].keys.size(); ++k) {
+            if (viewModel.numpadRows[r].keys[k].isDown) {
+                numpadGeometries[r][k].fadeAlpha = 1.0f;
+            } else if (numpadGeometries[r][k].fadeAlpha > 0.01f) {
                 needsTimer = true;
             }
         }
@@ -70,10 +83,37 @@ void QwertyComponent::recalculateKeyBounds() {
     constexpr float paddingY = 4.0f;
     constexpr float gapX = 3.0f;
     constexpr float gapY = 3.0f;
+    constexpr float numpadGap = 16.0f;
 
     const auto availableHeight = bounds.getHeight() - (paddingY * 2.0f) - (gapY * 4.0f);
     const auto rowHeight = std::max(12.0f, availableHeight / 5.0f);
 
+    const bool hasNumpad = viewModel.showNumpad;
+    constexpr float minUnitW = 44.0f;
+    const float minMainW = (15.0f * minUnitW) + (13.0f * gapX);
+    const float minNumpadW = hasNumpad ? ((4.0f * minUnitW) + (3.0f * gapX)) : 0.0f;
+    const float minTotalW = (paddingX * 2.0f) + minMainW + (hasNumpad ? (numpadGap + minNumpadW) : 0.0f);
+
+    float layoutWidth = bounds.getWidth();
+    if (layoutWidth < minTotalW) {
+        maxScrollOffset = static_cast<int>(std::ceil(minTotalW - layoutWidth));
+        layoutWidth = minTotalW;
+        scrollOffsetX = juce::jlimit(0, maxScrollOffset, scrollOffsetX);
+    } else {
+        maxScrollOffset = 0;
+        scrollOffsetX = 0;
+    }
+
+    float mainWidth = layoutWidth - (paddingX * 2.0f);
+    float numpadWidth = 0.0f;
+    if (hasNumpad) {
+        const float usable = mainWidth - numpadGap;
+        const float unit = usable / 19.0f;
+        mainWidth = unit * 15.0f;
+        numpadWidth = unit * 4.0f;
+    }
+
+    // 1. Position Main Keyboard rows
     for (std::size_t r = 0; r < 5; ++r) {
         const auto& rowKeys = viewModel.rows[r].keys;
         const auto numKeys = rowKeys.size();
@@ -87,15 +127,53 @@ void QwertyComponent::recalculateKeyBounds() {
 
         const auto y = paddingY + static_cast<float>(r) * (rowHeight + gapY);
         const auto totalGaps = static_cast<float>(numKeys - 1) * gapX;
-        const auto availableWidth = bounds.getWidth() - (paddingX * 2.0f) - totalGaps;
-        const auto unitWidth = std::max(1.0f, availableWidth / 15.0f);
+        const auto availableMainRowW = mainWidth - totalGaps;
+        const auto unitWidth = std::max(1.0f, availableMainRowW / 15.0f);
 
-        auto currentX = paddingX;
+        auto currentX = paddingX - static_cast<float>(scrollOffsetX);
         for (std::size_t k = 0; k < numKeys; ++k) {
             const auto keyW = rowKeys[k].widthWeight * unitWidth;
             keyGeometries[r][k].bounds = juce::Rectangle<float>(currentX, y, keyW, rowHeight);
             currentX += keyW + gapX;
         }
+    }
+
+    // 2. Position Numpad rows if active
+    if (hasNumpad) {
+        const auto numpadStartX = paddingX + mainWidth + numpadGap - static_cast<float>(scrollOffsetX);
+        for (std::size_t r = 0; r < 5; ++r) {
+            const auto& rowKeys = viewModel.numpadRows[r].keys;
+            const auto numKeys = rowKeys.size();
+            if (numKeys == 0) {
+                continue;
+            }
+
+            if (numpadGeometries[r].size() != numKeys) {
+                numpadGeometries[r].resize(numKeys);
+            }
+
+            const auto y = paddingY + static_cast<float>(r) * (rowHeight + gapY);
+            const auto totalGaps = static_cast<float>(numKeys - 1) * gapX;
+            const auto availableNpRowW = numpadWidth - totalGaps;
+            const auto unitWidth = std::max(1.0f, availableNpRowW / 4.0f);
+
+            auto currentX = numpadStartX;
+            for (std::size_t k = 0; k < numKeys; ++k) {
+                const auto keyW = rowKeys[k].widthWeight * unitWidth;
+                numpadGeometries[r][k].bounds = juce::Rectangle<float>(currentX, y, keyW, rowHeight);
+                currentX += keyW + gapX;
+            }
+        }
+    }
+}
+
+void QwertyComponent::mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel) {
+    juce::ignoreUnused(e);
+    if (maxScrollOffset > 0) {
+        const float delta = (wheel.deltaX != 0.0f) ? wheel.deltaX : -wheel.deltaY;
+        scrollOffsetX = juce::jlimit(0, maxScrollOffset, scrollOffsetX - static_cast<int>(delta * 80.0f));
+        recalculateKeyBounds();
+        repaint();
     }
 }
 
@@ -130,21 +208,24 @@ void QwertyComponent::paint(juce::Graphics& g) {
                 rect = rect.translated(0.0f, 1.5f);
             }
             const auto hasNote = (keyState.mappedMidiNote >= 0);
-            const auto hasPedal = (keyState.isSustainPedal || keyState.isSoftPedal);
+            const auto hasPedal = (keyState.isSustainPedal || keyState.isSoftPedal || keyState.isSostenutoPedal);
 
-            juce::Colour activeColour;
-            if (hasNote) {
-                activeColour = devpiano::core::getPitchClassHarmonyColour(keyState.mappedMidiNote, 0.84f, 0.96f, 1.0f);
-            } else if (keyState.isSustainPedal || (isShiftKey && !keyState.isSoftPedal)) {
-                activeColour = juce::Colour(0xFFF59E0B);
-            } else if (keyState.isSoftPedal) {
-                activeColour = juce::Colour(0xFF10B981); // Emerald for soft pedal
-            } else if (isAltKey) {
-                activeColour = juce::Colour(0xFF38BDF8); // Sky Blue for Octave Shift
-            } else if (isCtrlKey) {
-                activeColour = juce::Colour(0xFFA855F7); // Purple for Ctrl
-            } else {
-                activeColour = juce::Colour(0xFF64748B); // Slate gray for other function keys
+            juce::Colour activeColour(0xFF64748B);
+            if (!keyState.isControlOnly) {
+                if (hasNote) {
+                    activeColour
+                        = devpiano::core::getPitchClassHarmonyColour(keyState.mappedMidiNote, 0.84f, 0.96f, 1.0f);
+                } else if (keyState.isSustainPedal || (isShiftKey && !keyState.isSoftPedal)) {
+                    activeColour = juce::Colour(0xFFF59E0B);
+                } else if (keyState.isSoftPedal) {
+                    activeColour = juce::Colour(0xFF10B981);
+                } else if (keyState.isSostenutoPedal) {
+                    activeColour = juce::Colour(0xFF3B82F6);
+                } else if (isAltKey) {
+                    activeColour = juce::Colour(0xFF38BDF8);
+                } else if (isCtrlKey) {
+                    activeColour = juce::Colour(0xFFA855F7);
+                }
             }
 
             juce::Colour bgColour;
@@ -218,6 +299,8 @@ void QwertyComponent::paint(juce::Graphics& g) {
                     }
                 } else if (keyState.isSoftPedal) {
                     noteLabel = "[Soft]";
+                } else if (keyState.isSostenutoPedal) {
+                    noteLabel = isPressed ? "[Sost Hold]" : "[Sost CC66]";
                 }
                 g.drawFittedText(noteLabel, bottomRect.toNearestInt(), juce::Justification::centred, 1);
             } else {
@@ -234,6 +317,98 @@ void QwertyComponent::paint(juce::Graphics& g) {
                 }
                 g.drawFittedText(functionLabel, rect.toNearestInt(), juce::Justification::centred, 1);
             }
+        }
+    }
+
+    // -- Render Numpad Rows (Phase 38-3) --
+    if (viewModel.showNumpad) {
+        for (std::size_t r = 0; r < 5; ++r) {
+            const auto& rowKeys = viewModel.numpadRows[r].keys;
+            for (std::size_t k = 0; k < rowKeys.size(); ++k) {
+                const auto& keyState = rowKeys[k];
+                const auto& geom = numpadGeometries[r][k];
+                if (geom.bounds.isEmpty()) {
+                    continue;
+                }
+
+                auto rect = geom.bounds;
+                const auto isPressed = keyState.isDown;
+                const auto alpha = geom.fadeAlpha;
+                if (isPressed) {
+                    rect = rect.translated(0.0f, 1.5f);
+                }
+                const auto hasNote = (keyState.mappedMidiNote >= 0) && !keyState.isControlOnly;
+
+                juce::Colour activeColour;
+                if (keyState.isControlOnly) {
+                    activeColour = juce::Colour(0xFF475569);
+                } else if (hasNote) {
+                    activeColour
+                        = devpiano::core::getPitchClassHarmonyColour(keyState.mappedMidiNote, 0.84f, 0.96f, 1.0f);
+                } else {
+                    activeColour = juce::Colour(0xFF64748B);
+                }
+
+                juce::Colour bgColour;
+                juce::Colour borderColour;
+                juce::Colour primaryTextColour;
+                juce::Colour secondaryTextColour;
+
+                if (isPressed) {
+                    bgColour = activeColour;
+                    borderColour = activeColour.brighter(0.35f);
+                    primaryTextColour = devpiano::core::getContrastingTextColour(activeColour);
+                    secondaryTextColour = primaryTextColour.withAlpha(0.85f);
+                } else if (alpha > 0.01f) {
+                    bgColour = juce::Colour(0xFF24262B).interpolatedWith(activeColour, alpha * 0.82f);
+                    borderColour = juce::Colour(0xFF333842).interpolatedWith(activeColour.brighter(0.25f), alpha);
+                    primaryTextColour = juce::Colours::white;
+                    secondaryTextColour = activeColour.interpolatedWith(juce::Colours::white, 0.65f);
+                } else {
+                    bgColour = juce::Colour(0xFF24262B);
+                    borderColour = juce::Colour(0xFF333842);
+                    primaryTextColour = juce::Colour(0xFFE2E8F0);
+                    secondaryTextColour = hasNote ? activeColour.interpolatedWith(juce::Colour(0xFFCBD5E1), 0.45f)
+                                                  : juce::Colour(0xFF94A3B8);
+                }
+
+                g.setColour(bgColour);
+                g.fillRoundedRectangle(rect, cornerRadius);
+                g.setColour(borderColour);
+                g.drawRoundedRectangle(rect.reduced(0.5f), cornerRadius, 1.0f);
+
+                if (hasNote) {
+                    const auto topRect = rect.withTrimmedBottom(rect.getHeight() * 0.45f);
+                    const auto bottomRect = rect.withTrimmedTop(rect.getHeight() * 0.45f);
+                    g.setColour(primaryTextColour);
+                    g.setFont(devpiano::jive::DesignTokens::getUnifiedUiFont(11.5f, juce::Font::bold));
+                    g.drawFittedText(keyState.mainLabel, topRect.toNearestInt(), juce::Justification::centred, 1);
+
+                    g.setColour(secondaryTextColour);
+                    g.setFont(devpiano::jive::DesignTokens::getUnifiedUiFont(9.5f));
+                    const auto noteLabel = keyState.noteName + " " + bullet + " " + keyState.solfegeLabel;
+                    g.drawFittedText(noteLabel, bottomRect.toNearestInt(), juce::Justification::centred, 1);
+                } else {
+                    g.setColour(primaryTextColour);
+                    g.setFont(devpiano::jive::DesignTokens::getUnifiedUiFont(11.0f, juce::Font::bold));
+                    g.drawFittedText(keyState.mainLabel, rect.toNearestInt(), juce::Justification::centred, 1);
+                }
+            }
+        }
+    }
+
+    // -- Zone Partition Dividers & Badges (Phase 38-3) --
+    if (viewModel.partitionMode == devpiano::core::KeyboardPartitionMode::mainOnly) {
+        // MainOnly: Area A (left) vs Area B (right)
+        // Border marker on Row 1 between T (keyIndex 5) and Y (keyIndex 6)
+        if (keyGeometries[1].size() >= 7) {
+            const auto& tGeom = keyGeometries[1][5];
+            const auto& yGeom = keyGeometries[1][6];
+            const float midX = (tGeom.bounds.getRight() + yGeom.bounds.getX()) * 0.5f;
+            const float topY = keyGeometries[0].front().bounds.getY();
+            const float bottomY = keyGeometries[3].back().bounds.getBottom();
+            g.setColour(juce::Colour(0x6038BDF8)); // Subtle sky blue divider
+            g.drawVerticalLine(juce::roundToInt(midX), topY, bottomY);
         }
     }
 
@@ -297,6 +472,15 @@ void QwertyComponent::timerCallback() {
                 geom.fadeAlpha = 0.0f;
             }
         }
+        for (std::size_t k = 0; k < numpadGeometries[r].size(); ++k) {
+            auto& geom = numpadGeometries[r][k];
+            if (!viewModel.numpadRows[r].keys[k].isDown && geom.fadeAlpha > 0.005f) {
+                geom.fadeAlpha *= fadeDecayFactor;
+                hasActiveFade = true;
+            } else if (!viewModel.numpadRows[r].keys[k].isDown) {
+                geom.fadeAlpha = 0.0f;
+            }
+        }
     }
     if (viewModel.detectedChord.isValid && viewModel.detectedChord.quality != devpiano::core::ChordQuality::unknown) {
         chordFadeAlpha = 1.0f;
@@ -319,7 +503,16 @@ QwertyComponent::HitResult QwertyComponent::findKeyAt(juce::Point<int> position)
     for (std::size_t r = 0; r < 5; ++r) {
         for (std::size_t k = 0; k < keyGeometries[r].size(); ++k) {
             if (keyGeometries[r][k].bounds.contains(pos)) {
-                return { static_cast<int>(r), static_cast<int>(k), &viewModel.rows[r].keys[k] };
+                return { static_cast<int>(r), static_cast<int>(k), false, &viewModel.rows[r].keys[k] };
+            }
+        }
+    }
+    if (viewModel.showNumpad) {
+        for (std::size_t r = 0; r < 5; ++r) {
+            for (std::size_t k = 0; k < numpadGeometries[r].size(); ++k) {
+                if (numpadGeometries[r][k].bounds.contains(pos)) {
+                    return { static_cast<int>(r), static_cast<int>(k), true, &viewModel.numpadRows[r].keys[k] };
+                }
             }
         }
     }
@@ -334,20 +527,33 @@ void QwertyComponent::mouseDown(const juce::MouseEvent& e) {
 
     if (e.mods.isPopupMenu()) {
         if (hit.key->mappedMidiNote >= 0 && onBindingEditRequested != nullptr) {
-            onBindingEditRequested(hit.key->bindingMidiNote);
+            onBindingEditRequested(hit.key->bindingMidiNote, hit.key->keyCode);
         }
         return;
     }
 
-    if (hit.key->mappedMidiNote >= 0 && onNoteOn != nullptr) {
+    if (hit.key->mappedMidiNote >= 0) {
         lastMouseDownNote = hit.key->mappedMidiNote;
-        keyGeometries[static_cast<std::size_t>(hit.rowIndex)][static_cast<std::size_t>(hit.keyIndex)].fadeAlpha = 1.0f;
+        lastMouseDownKeyCode = hit.key->keyCode;
+        if (hit.isNumpad) {
+            numpadGeometries[static_cast<std::size_t>(hit.rowIndex)][static_cast<std::size_t>(hit.keyIndex)].fadeAlpha
+                = 1.0f;
+        } else {
+            keyGeometries[static_cast<std::size_t>(hit.rowIndex)][static_cast<std::size_t>(hit.keyIndex)].fadeAlpha
+                = 1.0f;
+        }
         if (!isTimerRunning()) {
             startTimer(timerIntervalMs);
         }
         repaint();
         if (hit.key->velocity > 0.0f) {
-            lastMouseDownIdentity = onNoteOn(hit.key->inputMidiNote, hit.key->inputMidiChannel, hit.key->inputVelocity);
+            if (onPhysicalNoteOn != nullptr) {
+                lastMouseDownIdentity = onPhysicalNoteOn(hit.key->keyCode, hit.key->inputMidiNote,
+                                                         hit.key->inputMidiChannel, hit.key->inputVelocity);
+            } else if (onNoteOn != nullptr) {
+                lastMouseDownIdentity
+                    = onNoteOn(hit.key->inputMidiNote, hit.key->inputMidiChannel, hit.key->inputVelocity);
+            }
         }
     }
 }
@@ -358,10 +564,17 @@ void QwertyComponent::mouseUp(const juce::MouseEvent& e) {
 }
 
 void QwertyComponent::releaseHeldMouseNote() {
-    if (lastMouseDownNote >= 0 && lastMouseDownIdentity.has_value() && onNoteOff != nullptr) {
-        onNoteOff(*lastMouseDownIdentity);
-        lastMouseDownNote = -1;
-        lastMouseDownIdentity.reset();
+    const auto identity = lastMouseDownIdentity;
+    const int code = lastMouseDownKeyCode;
+    lastMouseDownNote = -1;
+    lastMouseDownKeyCode = 0;
+    lastMouseDownIdentity.reset();
+    if (identity.has_value()) {
+        if (onPhysicalNoteOff != nullptr) {
+            onPhysicalNoteOff(*identity, code);
+        } else if (onNoteOff != nullptr) {
+            onNoteOff(*identity);
+        }
     }
     repaint();
 }
@@ -372,21 +585,30 @@ void QwertyComponent::mouseDrag(const juce::MouseEvent& e) {
         return;
     }
 
-    if (lastMouseDownNote >= 0 && lastMouseDownIdentity.has_value() && onNoteOff != nullptr) {
-        onNoteOff(*lastMouseDownIdentity);
-        lastMouseDownNote = -1;
-        lastMouseDownIdentity.reset();
-    }
+    releaseHeldMouseNote();
 
-    if (hit.key->mappedMidiNote >= 0 && onNoteOn != nullptr) {
+    if (hit.key->mappedMidiNote >= 0) {
         lastMouseDownNote = hit.key->mappedMidiNote;
-        keyGeometries[static_cast<std::size_t>(hit.rowIndex)][static_cast<std::size_t>(hit.keyIndex)].fadeAlpha = 1.0f;
+        lastMouseDownKeyCode = hit.key->keyCode;
+        if (hit.isNumpad) {
+            numpadGeometries[static_cast<std::size_t>(hit.rowIndex)][static_cast<std::size_t>(hit.keyIndex)].fadeAlpha
+                = 1.0f;
+        } else {
+            keyGeometries[static_cast<std::size_t>(hit.rowIndex)][static_cast<std::size_t>(hit.keyIndex)].fadeAlpha
+                = 1.0f;
+        }
         if (!isTimerRunning()) {
             startTimer(timerIntervalMs);
         }
         repaint();
         if (hit.key->velocity > 0.0f) {
-            lastMouseDownIdentity = onNoteOn(hit.key->inputMidiNote, hit.key->inputMidiChannel, hit.key->inputVelocity);
+            if (onPhysicalNoteOn != nullptr) {
+                lastMouseDownIdentity = onPhysicalNoteOn(hit.key->keyCode, hit.key->inputMidiNote,
+                                                         hit.key->inputMidiChannel, hit.key->inputVelocity);
+            } else if (onNoteOn != nullptr) {
+                lastMouseDownIdentity
+                    = onNoteOn(hit.key->inputMidiNote, hit.key->inputMidiChannel, hit.key->inputVelocity);
+            }
         }
     }
 }

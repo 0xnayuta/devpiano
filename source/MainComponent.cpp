@@ -15,6 +15,7 @@
 #include "UI/native/StatusBarMidiDot.h"
 #include "UI/native/TimelineBar.h"
 
+#include "Input/Win32NativeInputBridge.h"
 #if JUCE_WINDOWS
 struct HWND__;
 using HWND = HWND__*;
@@ -71,17 +72,13 @@ MainComponent::MainComponent() {
     keyboardMidiMapper.setVelocityHumanizerEnabled(appSettings.velocityHumanizeAmount > 0.0001f);
     keyboardMidiMapper.setVelocityHumanizeAmount(appSettings.velocityHumanizeAmount);
     keyboardMidiMapper.setBaseVelocityBias(appSettings.baseVelocityBias);
-    keyboardMidiMapper.setSustainPedalCallback([this](bool isDown) {
-        audioEngine.sendController(1, 64, isDown ? 127 : 0);
-        notifyMidiActivity();
-        updateStatusBar();
-    });
+    keyboardMidiMapper.setPartitionMode(appSettings.partitionMode);
+    audioEngine.setInstrumentLayers(appSettings.layers);
+    keyboardMidiMapper.setNotePreparationCallback([this](int channel) { handleNoteStarted(channel); });
+    keyboardMidiMapper.setSustainPedalCallback([this](bool isDown) { handlePedalStateChanged(64, isDown); });
     keyboardMidiMapper.setSyncPedalResetCallback([this] { audioEngine.resetSyncPedal(); });
-    keyboardMidiMapper.setSoftPedalCallback([this](bool isDown) {
-        audioEngine.sendController(1, 67, isDown ? 127 : 0);
-        notifyMidiActivity();
-        updateStatusBar();
-    });
+    keyboardMidiMapper.setSostenutoPedalCallback([this](bool isDown) { handlePedalStateChanged(66, isDown); });
+    keyboardMidiMapper.setSoftPedalCallback([this](bool isDown) { handlePedalStateChanged(67, isDown); });
     keyboardMidiMapper.setGroupChangeCallback([this](uint8_t) {
         updateQwertyVisualizer();
         updateStatusBar();
@@ -122,6 +119,9 @@ MainComponent::~MainComponent() {
     juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
     stopTimer();
     audioEngine.getKeyboardState().removeListener(this);
+    if (auto* top = getTopLevelComponent()) {
+        devpiano::input::Win32NativeInputBridge::detach(*top);
+    }
 
     appSettings.keyboardScrollOffsetX = getKeyboardViewPositionX();
     saveSettingsNow();
@@ -146,6 +146,37 @@ MainComponent::~MainComponent() {
     devpiano::ui::jive::StyleCatalog::get().releaseOwnedStyles();
 
     juce::Logger::setCurrentLogger(nullptr);
+}
+
+void MainComponent::parentHierarchyChanged() {
+    juce::AudioAppComponent::parentHierarchyChanged();
+    if (auto* top = getTopLevelComponent()) {
+        devpiano::input::Win32NativeInputBridge::attach(
+            *top,
+            [weak = juce::Component::SafePointer<MainComponent>(this)](int keyCode, const juce::ModifierKeys& mods) {
+                if (weak == nullptr || weak->isKeyboardInputSuppressed()) {
+                    return false;
+                }
+                const auto res = weak->keyboardMidiMapper.handleKeyPressed(juce::KeyPress(keyCode, mods, 0),
+                                                                           weak->audioEngine.getKeyboardState());
+                if (res) {
+                    weak->notifyMidiActivity();
+                    weak->updateQwertyVisualizer();
+                }
+                return res || devpiano::core::isNumpadKeyCode(keyCode);
+            },
+            [weak = juce::Component::SafePointer<MainComponent>(this)](int keyCode) {
+                juce::ignoreUnused(keyCode);
+                if (weak != nullptr) {
+                    if (weak->isKeyboardInputSuppressed()) {
+                        weak->keyboardMidiMapper.reconcileReleasedKeys(weak->audioEngine.getKeyboardState());
+                    } else {
+                        weak->keyboardMidiMapper.handleKeyStateChanged(weak->audioEngine.getKeyboardState());
+                    }
+                    weak->updateQwertyVisualizer();
+                }
+            });
+    }
 }
 
 void MainComponent::initialiseFromPreset() {
@@ -175,7 +206,7 @@ void MainComponent::reconfigureChannelMapper(bool publishAudio) {
         }
     }
     if (publishAudio) {
-        audioEngine.setPlaybackTranspose(appSettings.midiTranspose, appSettings.keySignature, mask);
+        audioEngine.setInputTranspose(appSettings.midiTranspose, appSettings.keySignature, mask);
     }
     updateStatusBar();
     updateQwertyVisualizer();
@@ -379,30 +410,29 @@ void MainComponent::wireControlsPanel() {
 
 void MainComponent::wireKeyboardInteraction() {
     auto& customKeyboard = getCustomKeyboard();
+    customKeyboard.onPhysicalNoteOn = [this](int physicalKeyCode, int midiNote, int sourceChannel, float velocity) {
+        auto identity = keyboardMidiMapper.triggerMouseKeyDown(physicalKeyCode, midiNote, sourceChannel, velocity,
+                                                               audioEngine.getKeyboardState());
+        notifyMidiActivity();
+        suppressTextInputMethods();
+        return identity;
+    };
+    customKeyboard.onPhysicalNoteOff = [this](const devpiano::core::MidiNoteIdentity& identity, int physicalKeyCode) {
+        keyboardMidiMapper.releaseMouseKeyUp(identity, physicalKeyCode, audioEngine.getKeyboardState());
+    };
     customKeyboard.onNoteOn = [this](int midiNote, int sourceChannel, float velocity) {
-        auto identity = devpiano::core::MidiNoteIdentity { devpiano::core::MidiNoteNumber::fromClamped(midiNote),
-                                                           devpiano::core::MidiChannel::fromClamped(sourceChannel) };
-        if (midiChannelMapper != nullptr) {
-            identity
-                = midiChannelMapper->sendNoteOn(sourceChannel - 1, midiNote, velocity, audioEngine.getKeyboardState());
-        } else {
-            audioEngine.getKeyboardState().noteOn(identity.channel.value, identity.note.value, velocity);
-        }
-        keyboardMidiMapper.clearSyncPedalCutPending();
+        auto identity = keyboardMidiMapper.triggerMouseKeyDown(0, midiNote, sourceChannel, velocity,
+                                                               audioEngine.getKeyboardState());
+        notifyMidiActivity();
         suppressTextInputMethods();
         return identity;
     };
     customKeyboard.onNoteOff = [this](const devpiano::core::MidiNoteIdentity& identity) {
-        if (midiChannelMapper != nullptr) {
-            midiChannelMapper->sendNoteOff(identity, 1.0f, audioEngine.getKeyboardState());
-        } else {
-            audioEngine.getKeyboardState().noteOff(identity.channel.value, identity.note.value, 1.0f);
-        }
+        keyboardMidiMapper.releaseMouseKeyUp(identity, 0, audioEngine.getKeyboardState());
     };
-
-    customKeyboard.onBindingEditRequested = [this](int midiNote) { handleKeyBindingEditRequest(midiNote); };
+    customKeyboard.onBindingEditRequested
+        = [this](int midiNote, int physicalKeyCode) { handleKeyBindingEditRequest(midiNote, physicalKeyCode); };
 }
-
 void MainComponent::initialiseUi() {
     initialiseThemeAndBootstrap();
 
@@ -419,31 +449,30 @@ void MainComponent::initialiseUi() {
         }
         if (auto* qv = viewHost.find<devpiano::ui::QwertyComponent>("qwerty-visualizer")) {
             qwertyComponentRef = qv;
+            qv->onPhysicalNoteOn = [this](int physicalKeyCode, int midiNote, int midiChannel, float velocity) {
+                auto identity = keyboardMidiMapper.triggerMouseKeyDown(physicalKeyCode, midiNote, midiChannel, velocity,
+                                                                       audioEngine.getKeyboardState());
+                notifyMidiActivity();
+                suppressTextInputMethods();
+                return identity;
+            };
+            qv->onPhysicalNoteOff = [this](const devpiano::core::MidiNoteIdentity& identity, int physicalKeyCode) {
+                keyboardMidiMapper.releaseMouseKeyUp(identity, physicalKeyCode, audioEngine.getKeyboardState());
+                notifyMidiActivity();
+            };
             qv->onNoteOn = [this](int midiNote, int midiChannel, float velocity) {
-                auto identity
-                    = devpiano::core::MidiNoteIdentity { devpiano::core::MidiNoteNumber::fromClamped(midiNote),
-                                                         devpiano::core::MidiChannel::fromClamped(midiChannel) };
-                if (midiChannelMapper != nullptr) {
-                    const auto zeroBasedCh = juce::jlimit(0, 15, midiChannel - 1);
-                    identity = midiChannelMapper->sendNoteOn(zeroBasedCh, midiNote, velocity,
-                                                             audioEngine.getKeyboardState());
-                } else {
-                    audioEngine.getKeyboardState().noteOn(identity.channel.value, identity.note.value, velocity);
-                }
-                keyboardMidiMapper.clearSyncPedalCutPending();
+                auto identity = keyboardMidiMapper.triggerMouseKeyDown(0, midiNote, midiChannel, velocity,
+                                                                       audioEngine.getKeyboardState());
                 notifyMidiActivity();
                 suppressTextInputMethods();
                 return identity;
             };
             qv->onNoteOff = [this](const devpiano::core::MidiNoteIdentity& identity) {
-                if (midiChannelMapper != nullptr) {
-                    midiChannelMapper->sendNoteOff(identity, 1.0f, audioEngine.getKeyboardState());
-                } else {
-                    audioEngine.getKeyboardState().noteOff(identity.channel.value, identity.note.value, 1.0f);
-                }
+                keyboardMidiMapper.releaseMouseKeyUp(identity, 0, audioEngine.getKeyboardState());
                 notifyMidiActivity();
             };
-            qv->onBindingEditRequested = [this](int midiNote) { handleKeyBindingEditRequest(midiNote); };
+            qv->onBindingEditRequested
+                = [this](int midiNote, int physicalKeyCode) { handleKeyBindingEditRequest(midiNote, physicalKeyCode); };
         }
         if (auto* btn = viewHost.find<juce::Button>("qwerty-toggle-btn")) {
             btn->onClick = [this] { setQwertyVisualizerExpanded(!appSettings.qwertyVisualizerExpanded, true); };
@@ -474,15 +503,22 @@ void MainComponent::initialiseUi() {
     wireKeyboardInteraction();
     setBounds(getInitialMainContentBounds());
 }
-void MainComponent::handleKeyBindingEditRequest(int midiNote) {
+void MainComponent::handleKeyBindingEditRequest(int midiNote, int physicalKeyCode) {
     const auto& layout = keyboardMidiMapper.getLayout();
     auto noteName = devpiano::ui::getNoteDisplayName(midiNote, devpiano::ui::NoteDisplayMode::noteName);
 
     std::optional<devpiano::core::KeyBinding> existingBinding;
-    for (const auto& binding : layout.bindings) {
-        if (binding.action.type == devpiano::core::KeyActionType::note && binding.action.midiNote == midiNote) {
-            existingBinding = binding;
-            break;
+    if (physicalKeyCode != 0) {
+        if (const auto* b = layout.findByKeyCode(physicalKeyCode)) {
+            existingBinding = *b;
+        }
+    }
+    if (!existingBinding.has_value()) {
+        for (const auto& binding : layout.bindings) {
+            if (binding.action.type == devpiano::core::KeyActionType::note && binding.action.midiNote == midiNote) {
+                existingBinding = binding;
+                break;
+            }
         }
     }
 
@@ -491,18 +527,20 @@ void MainComponent::handleKeyBindingEditRequest(int midiNote) {
 
     KeyBindingDialogParams params;
     params.midiNote = midiNote;
+    params.physicalKeyCode = physicalKeyCode;
     params.noteName = noteName;
     params.existingBinding = existingBinding;
     params.currentCustomLabel = currentLabel;
     params.currentCustomColour = currentColour;
-    params.onComplete
-        = [this, midiNote](const KeyBindingEditResult& result) { applyKeyBindingEditResult(midiNote, result); };
+    params.onComplete = [this, midiNote, physicalKeyCode](const KeyBindingEditResult& result) {
+        applyKeyBindingEditResult(midiNote, physicalKeyCode, result);
+    };
     params.parent = this;
 
     KeyBindingEditDialog::launch(params);
 }
 
-void MainComponent::applyKeyBindingEditResult(int midiNote, const KeyBindingEditResult& result) {
+void MainComponent::applyKeyBindingEditResult(int midiNote, int physicalKeyCode, const KeyBindingEditResult& result) {
     if (result.labelChanged) {
         appSettings.keyboardDisplay.customKeyLabels[static_cast<std::size_t>(midiNote)] = result.customLabel;
     }
@@ -514,9 +552,13 @@ void MainComponent::applyKeyBindingEditResult(int midiNote, const KeyBindingEdit
         auto updatedLayout = keyboardMidiMapper.getLayout();
 
         if (result.binding->keyCode < 0) {
-            std::erase_if(updatedLayout.bindings, [note = result.binding->action.midiNote](const auto& b) {
-                return b.action.type == devpiano::core::KeyActionType::note && b.action.midiNote == note;
-            });
+            std::erase_if(updatedLayout.bindings,
+                          [physicalKeyCode, note = result.binding->action.midiNote](const auto& b) {
+                              if (physicalKeyCode != 0) {
+                                  return b.keyCode == physicalKeyCode;
+                              }
+                              return b.action.type == devpiano::core::KeyActionType::note && b.action.midiNote == note;
+                          });
         } else {
             bool found = false;
             for (auto& b : updatedLayout.bindings) {
@@ -524,6 +566,15 @@ void MainComponent::applyKeyBindingEditResult(int midiNote, const KeyBindingEdit
                     b = *result.binding;
                     found = true;
                     break;
+                }
+            }
+            if (!found && physicalKeyCode != 0) {
+                for (auto& b : updatedLayout.bindings) {
+                    if (b.keyCode == physicalKeyCode) {
+                        b = *result.binding;
+                        found = true;
+                        break;
+                    }
                 }
             }
             if (!found) {
@@ -662,6 +713,15 @@ void MainComponent::timerCallback() {
     if (const auto resizeCount = audioEngine.consumePluginBufferResizeCount(); resizeCount > 0) {
         DP_LOG_WARN("AudioEngine: pluginBuffer geometry fault rejected " + juce::String(resizeCount)
                     + " time(s) in audio callback");
+    }
+    if (audioEngine.consumeLatencyFaultPending()) {
+        DP_LOG_ERROR("AudioEngine: plugin reported dynamic latency exceeding preallocated delay line capacity");
+        showStatusMessage(TRANS("Plugin latency exceeds supported delay capacity"), 4000);
+        if (!latencyFaultReprepareTriggered) {
+            latencyFaultReprepareTriggered = true;
+            prepareForAudioDeviceRebuild();
+            finishAudioDeviceRebuild();
+        }
     }
     // Drain preset-change notifications from playback (independent of active playing; final block consumed)
     {
@@ -1020,6 +1080,7 @@ void MainComponent::handleWindowFocusLost() {
             }
         }
         weak->keyboardMidiMapper.releaseAllHeldKeys(weak->audioEngine.getKeyboardState());
+        weak->releaseAllActivePedals();
         weak->audioEngine.resetSyncPedal();
         weak->getCustomKeyboard().releaseHeldMouseNote();
         if (weak->qwertyComponentRef != nullptr) {
@@ -1054,7 +1115,8 @@ SettingsModel::PerformanceSettingsView MainComponent::getPerformanceSettingsFrom
              .pedalNoiseLevel = appSettings.pedalNoiseLevel,
              .feltAgeingAmount = appSettings.feltAgeingAmount,
              .stretchTuningEnabled = appSettings.stretchTuningEnabled,
-             .duplexResonance = appSettings.duplexResonance };
+             .duplexResonance = appSettings.duplexResonance,
+             .layers = appSettings.layers };
 }
 
 juce::String MainComponent::getLastPluginIdentifierForRecoveryStateFromUi() const {
@@ -1076,12 +1138,15 @@ void MainComponent::applyPerformanceSettingsToUi(const SettingsModel::Performanc
                       performance.adsrRelease);
     setControlsPianoValues(performance.builtinTone, performance.pianoBrightness, performance.pianoHammerHardness,
                            performance.pianoResonance);
+    appSettings.layers = performance.layers;
+    audioEngine.setInstrumentLayers(performance.layers);
     if (settingsWindowManager != nullptr) {
         settingsWindowManager->refreshAcousticControls();
     }
 }
 
 void MainComponent::applyPerformanceSettingsToAudioEngine(const SettingsModel::PerformanceSettingsView& performance) {
+    audioEngine.setInstrumentLayers(performance.layers);
     audioEngine.setMasterGain(performance.masterGain);
     audioEngine.setAdsr(performance.adsrAttack, performance.adsrDecay, performance.adsrSustain,
                         performance.adsrRelease);
@@ -1220,7 +1285,15 @@ void MainComponent::syncUiFromSettings(bool publishPerformanceEvents) {
     keyboardMidiMapper.setVelocityHumanizerEnabled(appSettings.velocityHumanizeAmount > 0.0001f);
     keyboardMidiMapper.setVelocityHumanizeAmount(appSettings.velocityHumanizeAmount);
     keyboardMidiMapper.setBaseVelocityBias(appSettings.baseVelocityBias);
-
+    keyboardMidiMapper.setPartitionMode(appSettings.partitionMode);
+    if (keyboardMidiMapper.getLayout().regionA != appSettings.regionA
+        || keyboardMidiMapper.getLayout().regionB != appSettings.regionB) {
+        auto layout = keyboardMidiMapper.getLayout();
+        layout.regionA = appSettings.regionA;
+        layout.regionB = appSettings.regionB;
+        keyboardMidiMapper.setLayout(std::move(layout), false);
+    }
+    audioEngine.setInstrumentLayers(appSettings.layers);
     if (presetFlowSupport != nullptr) {
         setControlsPresets(presetFlowSupport->getPresetIds(), presetFlowSupport->getCurrentPresetId(),
                            presetFlowSupport->getPresetDisplayNames());
@@ -1242,7 +1315,8 @@ void MainComponent::syncUiFromSettings(bool publishPerformanceEvents) {
 }
 void MainComponent::syncSettingsFromUi() {
     appSettings.applyPerformanceSettingsView(getPerformanceSettingsFromUi());
-
+    appSettings.regionA = keyboardMidiMapper.getLayout().regionA;
+    appSettings.regionB = keyboardMidiMapper.getLayout().regionB;
     applyPluginRecoverySettings(getPluginRecoverySettingsFromUi());
 }
 
@@ -1317,6 +1391,7 @@ void MainComponent::prepareForAudioDeviceRebuild() {
     if (pluginOperationController) {
         pluginOperationController->closePluginEditorWindow();
     }
+    latencyFaultReprepareTriggered = false;
     shutdownAudio();
 }
 
@@ -1365,6 +1440,93 @@ void MainComponent::refreshReadOnlyUiStateFromCurrentSnapshot() {
 
 void MainComponent::refreshPluginUiState() {
     renderReadOnlyUiState(buildAppStateSnapshot());
+}
+
+std::vector<int> MainComponent::getActivePerformanceChannels() const {
+    const auto mask = keyboardMidiMapper.createQwertySnapshot().outputChannelMask;
+    std::vector<int> channels;
+    channels.reserve(16);
+    for (int channel = 1; channel <= 16; ++channel) {
+        if ((mask & (1U << (channel - 1))) != 0) {
+            channels.push_back(channel);
+        }
+    }
+    return channels;
+}
+
+void MainComponent::handlePedalStateChanged(int controllerNumber, bool isDown) {
+    auto* channelTargets = &softActiveChannels;
+    if (controllerNumber == 64) {
+        channelTargets = &sustainActiveChannels;
+    } else if (controllerNumber == 66) {
+        channelTargets = &sostenutoActiveChannels;
+    }
+    auto& activeChannels = *channelTargets;
+
+    if (isDown) {
+        const auto targets = getActivePerformanceChannels();
+        for (int ch : targets) {
+            const auto alreadyTargeted = std::ranges::find(activeChannels, ch) != activeChannels.end();
+            const auto syncSustain = controllerNumber == 64
+                && keyboardMidiMapper.getSustainPolicy() == devpiano::core::SustainPolicy::syncPedal;
+            if (!alreadyTargeted || syncSustain) {
+                audioEngine.sendController(ch, controllerNumber, 127);
+            }
+            if (!alreadyTargeted) {
+                activeChannels.push_back(ch);
+            }
+        }
+    } else {
+        if (controllerNumber == 64
+            && keyboardMidiMapper.getSustainPolicy() == devpiano::core::SustainPolicy::syncPedal) {
+            audioEngine.setSustainPedalDown(false);
+        } else {
+            for (int ch : activeChannels) {
+                audioEngine.sendController(ch, controllerNumber, 0);
+            }
+            activeChannels.clear();
+        }
+    }
+    notifyMidiActivity();
+    updateStatusBar();
+}
+
+void MainComponent::releaseAllActivePedals() {
+    for (int ch : sustainActiveChannels) {
+        audioEngine.sendController(ch, 64, 0);
+    }
+    sustainActiveChannels.clear();
+
+    for (int ch : sostenutoActiveChannels) {
+        audioEngine.sendController(ch, 66, 0);
+    }
+    sostenutoActiveChannels.clear();
+
+    for (int ch : softActiveChannels) {
+        audioEngine.sendController(ch, 67, 0);
+    }
+    softActiveChannels.clear();
+}
+
+void MainComponent::handleNoteStarted(int outputChannel) {
+    if (keyboardMidiMapper.isSustainPedalDown()) {
+        if (std::ranges::find(sustainActiveChannels, outputChannel) == sustainActiveChannels.end()) {
+            audioEngine.sendController(outputChannel, 64, 127);
+            sustainActiveChannels.push_back(outputChannel);
+        }
+    }
+    if (keyboardMidiMapper.isSostenutoPedalDown()) {
+        if (std::ranges::find(sostenutoActiveChannels, outputChannel) == sostenutoActiveChannels.end()) {
+            audioEngine.sendController(outputChannel, 66, 127);
+            sostenutoActiveChannels.push_back(outputChannel);
+        }
+    }
+    if (keyboardMidiMapper.isSoftPedalDown()) {
+        if (std::ranges::find(softActiveChannels, outputChannel) == softActiveChannels.end()) {
+            audioEngine.sendController(outputChannel, 67, 127);
+            softActiveChannels.push_back(outputChannel);
+        }
+    }
 }
 
 // JIVE component accessors now live in their own TU (MainComponentJiveAccessors.cpp).

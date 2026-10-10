@@ -65,6 +65,7 @@ public:
     void reset() noexcept {
         pedalPhysicallyDown.store(false, std::memory_order_relaxed);
         cutPending.store(false, std::memory_order_relaxed);
+        sustainChannels.store(0, std::memory_order_relaxed);
     }
 
     /// Schedule sample-accurate sync pedal events within an audio block's MidiBuffer.
@@ -72,6 +73,7 @@ public:
     /// Armed cut:  CC64(0) -> NoteOn, then the pedal stays up.
     void processMidiBlock(juce::MidiBuffer& buffer, juce::MidiBuffer& tempBuffer) noexcept {
         if (currentPolicy.load(std::memory_order_relaxed) == devpiano::core::SustainPolicy::normal) {
+            observeSustainChannels(buffer);
             return;
         }
 
@@ -88,10 +90,12 @@ public:
         }
 
         if (!hasEventsToModify) {
+            observeSustainChannels(buffer);
             return;
         }
 
         tempBuffer.clear();
+        auto heldChannels = sustainChannels.load(std::memory_order_relaxed);
 
         auto index = buffer.begin();
         const auto end = buffer.end();
@@ -106,23 +110,18 @@ public:
             });
 
             if (attack != groupEnd && (pedalDown || cut)) {
-                // Collect unique channels that have NoteOn attacks in this sample group
-                std::array<int, 16> channels {};
-                std::size_t numChannels = 0;
+                auto affectedChannels = heldChannels;
                 for (auto cursor = index; cursor != groupEnd; ++cursor) {
                     const auto msg = (*cursor).getMessage();
-                    if (msg.isNoteOn() && msg.getVelocity() > 0) {
-                        const int ch = msg.getChannel();
-                        bool found = false;
-                        for (std::size_t i = 0; i < numChannels; ++i) {
-                            if (channels[i] == ch) {
-                                found = true;
-                                break;
-                            }
-                        }
-                        if (!found && numChannels < channels.size()) {
-                            channels[numChannels++] = ch;
-                        }
+                    if (msg.isNoteOn() || msg.isControllerOfType(64)) {
+                        affectedChannels |= static_cast<std::uint16_t>(1U << (msg.getChannel() - 1));
+                    }
+                }
+                std::array<int, 16> channels {};
+                std::size_t numChannels = 0;
+                for (int channel = 1; channel <= 16; ++channel) {
+                    if ((affectedChannels & (1U << (channel - 1))) != 0) {
+                        channels[numChannels++] = channel;
                     }
                 }
 
@@ -164,6 +163,7 @@ public:
                         tempBuffer.addEvent(juce::MidiMessage::controllerEvent(channels[i], 64, 127), anchor);
                     }
                 }
+                heldChannels = pedalDown ? affectedChannels : std::uint16_t { 0 };
 
                 if (cut) {
                     cutPending.store(false, std::memory_order_relaxed);
@@ -171,7 +171,9 @@ public:
                 }
             } else {
                 for (auto cursor = index; cursor != groupEnd; ++cursor) {
-                    tempBuffer.addEvent((*cursor).getMessage(), anchor);
+                    const auto message = (*cursor).getMessage();
+                    tempBuffer.addEvent(message, anchor);
+                    updateSustainChannels(heldChannels, message);
                 }
             }
 
@@ -181,12 +183,37 @@ public:
         if (!cut && cutPending.load(std::memory_order_relaxed)) {
             cutPending.store(false, std::memory_order_relaxed);
         }
+        sustainChannels.store(heldChannels, std::memory_order_relaxed);
 
         buffer.swapWith(tempBuffer);
         tempBuffer.clear();
     }
 
 private:
+    static void updateSustainChannels(std::uint16_t& mask, const juce::MidiMessage& message) noexcept {
+        const auto channel = message.getChannel();
+        if (channel < 1 || channel > 16 || !message.isController()) {
+            return;
+        }
+        const auto bit = static_cast<std::uint16_t>(1U << (channel - 1));
+        if (message.isControllerOfType(64)) {
+            mask = message.getControllerValue() >= 64 ? static_cast<std::uint16_t>(mask | bit)
+                                                      : static_cast<std::uint16_t>(mask & ~bit);
+        } else if (message.isControllerOfType(120) || message.isControllerOfType(121)
+                   || message.isControllerOfType(123)) {
+            mask &= static_cast<std::uint16_t>(~bit);
+        }
+    }
+
+    void observeSustainChannels(const juce::MidiBuffer& buffer) noexcept {
+        auto mask = sustainChannels.load(std::memory_order_relaxed);
+        for (const auto metadata : buffer) {
+            updateSustainChannels(mask, metadata.getMessage());
+        }
+        sustainChannels.store(mask, std::memory_order_relaxed);
+    }
+
+    std::atomic<std::uint16_t> sustainChannels { 0 };
     std::atomic<devpiano::core::SustainPolicy> currentPolicy { devpiano::core::SustainPolicy::normal };
     std::atomic<bool> pedalPhysicallyDown { false };
     std::atomic<bool> cutPending { false };

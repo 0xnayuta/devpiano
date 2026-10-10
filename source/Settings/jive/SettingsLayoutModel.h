@@ -5,7 +5,7 @@
 
 namespace devpiano::ui::jive {
 
-constexpr int kSettingsLayoutContentHeight = 1480;
+constexpr int kSettingsLayoutContentHeight = 1980;
 /// Declarative ValueTree factories for the Settings Window / Panel layout.
 ///
 /// Refactored in Phase 15-C to eliminate 300+ lines of manual setBounds /
@@ -21,6 +21,8 @@ constexpr int kSettingsLayoutContentHeight = 1480;
 
 /// Keyboard display & language section.
 [[nodiscard]] juce::ValueTree makeKeyboardDisplaySectionTree();
+/// Dual-layer instrument layers section (Piano + VST3 Plugin).
+[[nodiscard]] juce::ValueTree makeInstrumentLayersSectionTree();
 /// Physical acoustics & voicing section (Lid Position, Una Corda, Touch Curve).
 [[nodiscard]] juce::ValueTree makeAcousticsSectionTree();
 

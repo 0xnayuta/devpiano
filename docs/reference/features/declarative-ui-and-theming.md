@@ -47,7 +47,7 @@ Component (root, display="flex", flex-direction="column", id="window")
 │       │   └── TransportCard      (width=230, Record/Play/Stop/Back + SpeedSlider + Metronome 控制区: Metro 开关/BPM 菜单/Tap 测速)
 │       ├── QwertyCard         (flex-direction="column", 折叠 32px / 展开 192px)
 │       │   ├── HeaderRow          (Title, 和弦 HUD Badge "qwerty-chord-badge", 布局分组切换 "[Group A]", 折叠/展开 Toggle)
-│       │   └── QwertyVisualizer   (Native 注入 QwertyComponent，5 行物理键盘网格与和弦 HUD 浮层)
+│       │   └── QwertyVisualizer   (Native 注入 QwertyComponent，主键盘 5 行网格、按模式显示的小键盘与三踏板状态)
 │       └── KeyboardArea       (flex-grow=1, min-height=146, max-height=200)
 │           └── KeyboardViewport   (Native 注入 CustomKeyboard 88 键自绘画布与横向滚动条)
 └── StatusBar          (flex-direction="row", height=24)
@@ -68,11 +68,11 @@ Performance Preset 的 New、Rename、Delete 保持在上方，Export、Import�
 
 ### 2.2 设置面板声明式架构（`SettingsLayoutModel`）
 
-`SettingsComponent` 完全由 `SettingsLayoutModel.cpp` 声明的模块化 ValueTree 驱动，由统一宿主门面 `ViewHost` 接管渲染与生命周期，划分为 6 个核心卡片：
+`SettingsComponent` 由 `SettingsLayoutModel.cpp` 的模块化 ValueTree 驱动，统一通过 `ViewHost` 渲染与管理生命周期：
 
 1. **音频设备卡片（`makeAudioDeviceSectionTree`）**：全声明式布局，包含设备类型下拉框（`audio-device-type-combo`）、输出设备下拉框（`audio-output-device-combo`）与测试按钮（`audio-test-button`）、活动输出通道（`audio-active-channels-combo`）、采样率下拉框（`audio-sample-rate-combo`）、缓冲大小下拉框（`audio-buffer-size-combo`）与 ASIO 设备控制面板按钮（`asio-control-panel-button`，仅 ASIO 模式展开）；
 2. **调号与通道跟随卡片（`makeKeySignatureSectionTree`）**：全局调号选择器、MIDI 移调开关以及采用 **JIVE CSS Grid（8 列 × 2 行）** 声明的 16 通道跟随开关（`followKeyArea` + 16 个 `follow-key-N` 复选框）；
-3. **键盘显示与语言卡片（`makeKeyboardDisplaySectionTree`）**：按键着色模式（Classic / Channel / Velocity / Harmony 4 种模式）、音符标注模式（DoReMi / FixedDo / NoteName）、按键淡出速度滑块、乐器过滤器开关、**延音踏板策略选择（`sustain-policy-combo`：Normal / Sync Pedal）**与运行时中英文切换；
+3. **键盘显示、分区与语言卡片（`makeKeyboardDisplaySectionTree`）**：颜色/音名/余晖、乐器过滤器、延音策略与语言；`partition-mode-combo` 选择本机布局，区域 A/B 配置通道、半音与八度，通道提示消费最终 ViewModel 并明确 Group 覆盖。预设恢复刷新音乐参数，不切换本机模式。
 4. **声学与调律卡片（`makeAcousticsSectionTree`）**：模块化滚动卡片，包含：
    - **钢琴风格**（`piano-style-combo`）：Standard / Bright / Warm / Intimate / Vintage；根据实际参数识别，自定义值显示 Custom，不额外持久化名称；
    - **琴盖**（`lid-position-combo`）：Full Open / Half Stick / Closed；
@@ -82,8 +82,9 @@ Performance Preset 的 New、Rename、Delete 保持在上方，Export、Import�
    - **视角与房间**（`perspective-combo` / `reverb-space-combo` / `reverb-wet-slider`）：Player / Audience、Chamber / Concert Hall / Studio、0%–100% wet；
    - **机械与老化**（`pedal-noise-slider` / `felt-ageing-slider`）：0%–100% 控制；
    - 风格选择一次提交声学字段并通知拥有者，主亮度/硬度/共鸣旋钮同步；预设恢复和手动编辑经 `SettingsWindowManager::refreshAcousticControls()` 刷新已打开的声明式表面，管理器不暴露内容指针。
-5. **诊断日志卡片（`makeDiagnosticsSectionTree`）**：结构化实时日志查看器（`ListEditor` 原生 TextEditor 注入）、日志绝对路径展示与“打开日志目录”（`open-log-dir-button`）原生文件管理器直达按钮；
-6. **保存与操作卡片（`makeSaveActionSectionTree`）**：右对齐（`flex-end`）保存与关闭按钮。
+5. **固定双层卡片（`makeInstrumentLayersSectionTree`）**：`layers-enabled-toggle`、`layers-piano-toggle`、`layers-plugin-toggle` 与两层增益滑块；经拥有者发布至 AudioEngine，与预设/Take 共用模型，不仅保存 UI 值。
+6. **诊断日志卡片（`makeDiagnosticsSectionTree`）**：结构化 `ListEditor` 与日志路径，保留“打开日志目录”按钮。
+7. **保存与操作卡片（`makeSaveActionSectionTree`）**：右对齐保存与关闭按钮。
 
 ---
 

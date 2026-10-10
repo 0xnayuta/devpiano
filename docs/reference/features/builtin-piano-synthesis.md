@@ -184,6 +184,7 @@
 
 1. **16 通道踏板矩阵与交感共鸣系统（Pedal Matrix & Sympathetic Resonance）**：
    - **16 通道踏板物理隔离**：`BuiltinSynthesiser` 独立维护 16 个 MIDI 通道的踏板物理状态矩阵（CC64 延音 `sustainPedalByChannel`、CC66 保持音 `sostenutoPedalByChannel`、CC67 柔音 `softPedalByChannel`）；
+   - **CC66 捕获边界**：仅低→高捕获当时仍按住的声部；重复高值不捕获后起音，被抢占声部的新音不继承旧捕获。CC64/66 释放顺序、同采样排序、逐通道隔离和 Panic 均按声部生命周期处理；电脑键盘入口及原目标释放见 [键盘分册](keyboard-mapping.md)。
    - 踩下 CC64 延音踏板时激活 12 半音全开放交感共鸣弦池，使演奏音符的泛音激发全琴未制音琴弦的共振；
    - **踏板机械扫掠声与共鸣冲击**：踩下踏板时激发成对的机械毛毡抬起刮擦与空气呼啸脉冲（`pedalWhoosh`，带通 $1350\text{ Hz}$，$Q=1.25$；抬起带通 $950\text{ Hz}$）以及全琴瞬态弱冲击激发（`pedalResonanceShock`，双共振冲击峰 $58\text{ Hz}$ 与 $116\text{ Hz}$），由 `pedalNoiseLevel`（默认 0.6）线性缩放；
    - 支持**未踩踏板时的单键开放主弦交感（Unpedaled Resonance）**：由持有音符对应音级的开放主弦产生交感振动；Duplex 非发音段见上节，不混称为同一模型；
@@ -253,6 +254,8 @@
 **声学快照与普通预设配置子集**：
 `PerformancePreset`（Schema v2）的 `acoustics` 子集现在包含 `brightness`、`hammerHardness`、`resonance`、`stretchTuningEnabled`、`duplexResonance`，以及原有琴盖、触键曲线、柔音、律制/A4、视角、混响和机械字段；仍不包含 `builtinTone`、`masterGain`、ADSR 或 VST3 内部状态。当前可选字段缺失使用明确默认值，不增加历史迁移。`AcousticSnapshot` / `WavExportOptions` 保存或消费完整发声参数，两项新控制贯通 Take、实时与内置 WAV。
 
+固定双层开启时 Piano 不随 `builtinTone=sine` 改成 Sine；它与当前单 VST3 消费同一最终 MIDI 身份，使用独立工作缓冲和有界采样延迟，层增益在一次公共 Reverb/Master 之前混合。层开关与配比随 Settings、预设和 Take 保存，不把钢琴逐键拉伸变成对插件的全局 Pitch Bend，详见 [双层渲染契约](plugin-offline-rendering.md)。
+
 设置的 `piano-style-combo` 提供 Standard / Bright / Warm / Intimate / Vintage，只批量提交实际声学字段，不覆盖 A4、律制、全局调号、键位、插件、音源类型或 Master。名称根据已保存声学值重建，手动改动显示 Custom，不另存易漂移的风格标签。它们是参数化取向，不是 Upright/Fortepiano 物理结构复刻；随演奏方案恢复须保存普通预设，启动仍优先恢复已选预设 UUID。
 
 ### 4.2 古典微调律制与基准音高（`TemperamentEngine`）
@@ -312,7 +315,7 @@ void setSoundPerspective(devpiano::audio::SoundPerspective perspective) noexcept
 | **PianoTuningAndDuplexTest** | 实际 A4 400/440/480 Hz 中心峰、零刚度谐波极限、未踩踏板 Duplex 尾音、释放后共享输出滤波器的分段不变性、CC120 原通道所有权、低采样率越界段旁路 | [x] 已通过 |
 | **PianoSnapshotWavParityTest** | 非零混响起音、同采样快照/NoteOn、调律与原身份释放的生产实时/内置 WAV 整段对照；误差限于 16-bit 量化 | [x] 已通过 |
 | **DamperReleaseTest** | 快离键木质落弦闷击、慢离键羊毛毡摩擦延展、高音无制音区物理旁路、动态ADSR释放速度缩放、ADSR基准跨音符无泄漏 | [x] 已通过 |
-| **PedalAcousticsTest** | CC64 延音踏板全开放交感共鸣、踏板下踏扫掠呼啸（Whoosh）、全琴谐振冲击（Resonance Shock）、单声道与多通道能量守恒 | [x] 已通过 |
+| **PedalAcousticsTest** | CC64 共鸣/机械动作；CC66 捕获边沿、重复高值、声部抢占、CC64/66 释放顺序与同采样逐通道隔离；跨区域 Sync Pedal 原目标释放 | [x] 已通过 |
 | **FeltAgeingTest** | 逐键扰动确定性与范围、老化前后的实际音频差异、引擎老化参数限幅；不以 getter 或测试侧公式重算证明音高行为 | [x] 已通过 |
 | **PerspectiveProcessorTest** | 演奏者/听众立体声像反转镜像、距离高频滚降、单声道能量守恒与无下溢数值收敛 | [x] 已通过 |
 | **RoomReverbEngineTest** | Studio/Chamber/Concert Hall（ReverbSpace::concertHall / 标识 concert_hall，回退未知字符串）三大空间衰减时间常数、干湿比线性缩放与旁路、长时静音衰减无下溢 denormal、跨采样率不变性；getter 与声明断言不作为逐采样 DSP/逐 bit 保证 | [x] 已通过 |

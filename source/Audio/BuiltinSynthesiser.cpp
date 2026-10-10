@@ -356,9 +356,12 @@ void BuiltinSynthesiser::handleController(int midiChannel, int controllerNumber,
         return;
     }
     case 120:
+        setSoftPedalInternal(midiChannel, false, 0.0f);
         allNotesOff(midiChannel, false);
         return;
     case 121: {
+        handleSustainPedal(midiChannel, false);
+        handleSostenutoPedal(midiChannel, false);
         if (midiChannel <= 0) {
             resetSoftPedalState();
         } else if (midiChannel <= 16) {
@@ -418,7 +421,8 @@ void BuiltinSynthesiser::handleSustainPedal(int midiChannel, bool isDown) {
 
     if (isDown) {
         for (auto* voice : voices) {
-            if (voice != nullptr && voice->isPlayingChannel(midiChannel) && voice->isKeyDown()) {
+            if (voice != nullptr && voice->isPlayingChannel(midiChannel)
+                && (voice->isKeyDown() || voice->isSostenutoPedalDown())) {
                 voice->setSustainPedalDown(true);
             }
         }
@@ -446,7 +450,11 @@ void BuiltinSynthesiser::handleSostenutoPedal(int midiChannel, bool isDown) {
         return;
     }
 
-    sostenutoPedalByChannel[static_cast<std::size_t>(midiChannel)] = isDown;
+    auto& wasDown = sostenutoPedalByChannel[static_cast<std::size_t>(midiChannel)];
+    if (wasDown == isDown) {
+        return;
+    }
+    wasDown = isDown;
 
     for (auto* voice : voices) {
         if (voice != nullptr && voice->isPlayingChannel(midiChannel)) {

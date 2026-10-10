@@ -12,7 +12,7 @@
 
 在当前项目中，这些 fixture 与自动化测试体系紧密配合：
 - `source/tests/MidiFileImporterTest.cpp`：自动化加载 `simple-notes.mid`、`velocity-channel.mid`、`sustain-pedal.mid`、`multitrack-basic.mid`、`tempo-change-basic.mid`、`empty.mid` 与 `invalid.mid`，验证 Track 解析、通道映射、Meta 事件过滤与异常防御；
-- `source/tests/PerformanceFileTest.cpp`：程序化构建当前 `.devpiano` Schema v3 输入，验证内嵌快照表往返、非当前版本拒绝、文件/会话保护与异常防御；事务读写使用隔离临时目录，不保留历史静态格式样本。
+- `source/tests/PerformanceFileTest.cpp`：程序化构建当前 `.devpiano` Schema v4 输入，验证最终身份、内嵌快照、非当前版本拒绝、文件/会话保护与异常防御；事务读写使用隔离临时目录，不保留历史静态格式样本。
 
 ### 目录结构
 
@@ -65,4 +65,4 @@ tests/fixtures/
 
 ### 与导入和持久化测试的关系
 
-MIDI 样本用于 `MidiFileImporterTest` 的全轨并轨、Tempo Map、通道分配与结构错误防御回归；`PerformanceFileTest` 覆盖当前原生 Schema v3、内嵌预设快照、版本拒绝及事务写出。测试套件严格执行防漂移准则，`DP_TRACE_MIDI` 仅辅助诊断，不作为断言数量或用例数的固定基线。
+MIDI 样本用于 `MidiFileImporterTest` 的全轨并轨、Tempo Map、通道分配与结构错误回归；`PerformanceFileTest` 覆盖当前原生 v4、内嵌预设快照、版本拒绝及事务写出。`DP_TRACE_MIDI` 仅辅助诊断，不把断言数或用例数作为固定基线。

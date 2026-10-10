@@ -1,6 +1,7 @@
 #include <functional>
 
 #include "Audio/BuiltinSynthesiser.h"
+#include "Audio/InstrumentNoteState.h"
 #include "Audio/PianoSynthVoice.h"
 #include "Audio/RoomReverbEngine.h"
 #include "Audio/SineSynthVoice.h"
@@ -23,43 +24,9 @@ constexpr auto wavTailSeconds = 2.0;
 using devpiano::recording::addPanicMidi;
 using devpiano::recording::applyAcousticSnapshotToBuiltin;
 using devpiano::recording::hasUsableRenderOptions;
+using devpiano::recording::initialiseOfflineSynths;
 using devpiano::recording::PerformanceEventType;
 using devpiano::recording::prepareRenderTimeline;
-
-void initialiseOfflineSynths(devpiano::audio::BuiltinSynthesiser& pianoSynth,
-                             devpiano::audio::BuiltinSynthesiser& sineSynth,
-                             const devpiano::exporting::WavExportOptions& options) {
-    pianoSynth.clearSounds();
-    pianoSynth.clearVoices();
-    pianoSynth.addSound(new PianoSynthSound());
-    for (auto index = 0; index < fallbackVoiceCount; ++index) {
-        auto* voice = new PianoSynthVoice();
-        voice->setVoiceIndex(index);
-        voice->setAdsrParameters(options.adsr);
-        voice->setPianoParameters(options.pianoBrightness, options.pianoHammerHardness, options.pianoResonance);
-        voice->setPianoTuning(options.stretchTuningEnabled, juce::jlimit(0.0f, 1.0f, options.duplexResonance));
-        voice->setLidPosition(static_cast<PianoSynthVoice::LidPosition>(options.lidPosition));
-        voice->setTemperament(options.temperament);
-        voice->setReferencePitchA4(options.referencePitchA4);
-        voice->setSoundPerspective(options.soundPerspective);
-        voice->setPedalNoiseLevel(options.pedalNoiseLevel);
-        voice->setFeltAgeingAmount(options.feltAgeingAmount);
-        pianoSynth.addVoice(voice);
-    }
-    pianoSynth.setCurrentPlaybackSampleRate(options.sampleRate);
-
-    sineSynth.clearSounds();
-    sineSynth.clearVoices();
-    sineSynth.addSound(new SineSynthSound());
-    for (auto index = 0; index < fallbackVoiceCount; ++index) {
-        auto* voice = new SineSynthVoice();
-        voice->setAdsrParameters(options.adsr);
-        voice->setTemperament(options.temperament);
-        voice->setReferencePitchA4(options.referencePitchA4);
-        sineSynth.addVoice(voice);
-    }
-    sineSynth.setCurrentPlaybackSampleRate(options.sampleRate);
-}
 } // namespace
 
 bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const juce::File& destinationFile,
@@ -67,6 +34,16 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
     if (take.isEmpty() || take.sampleRate <= 0.0 || !hasUsableRenderOptions(options)
         || destinationFile == juce::File()) {
         DP_LOG_ERROR("[Export] WAV export rejected: empty take / invalid sample rate / unusable options / no file");
+        return false;
+    }
+
+    const bool anyDualLayerRequiresPlugin = (options.layers.enabled && options.layers.pluginEnabled)
+        || std::ranges::any_of(take.presets, [](const auto& p) {
+                                                return p.acoustic.layers.enabled && p.acoustic.layers.pluginEnabled;
+                                            });
+    if (anyDualLayerRequiresPlugin) {
+        DP_LOG_ERROR("[Export] WAV export rejected: dual layer requires hosted plugin, but exportTakeAsWavFile only "
+                     "renders built-in synths");
         return false;
     }
 
@@ -122,18 +99,29 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
     roomReverb.prepare(options.sampleRate);
 
     initialiseOfflineSynths(pianoSynth, sineSynth, options);
-    activeSynth = (options.builtinTone == SettingsModel::BuiltinTone::sine) ? &sineSynth : &pianoSynth;
+    devpiano::audio::InstrumentLayers activeLayers = options.layers;
+    if (activeLayers.enabled) {
+        activeSynth = &pianoSynth;
+    } else {
+        activeSynth = (options.builtinTone == SettingsModel::BuiltinTone::sine) ? &sineSynth : &pianoSynth;
+    }
 
     float currentMasterGain = juce::jlimit(0.0f, 1.0f, options.masterGain);
-    bool currentTransposeEnabled = !timeline->presets.empty() && timeline->presets[0].acoustic.transposeEnabled;
-    int currentTransposeOffset = !timeline->presets.empty() ? timeline->presets[0].acoustic.transposeOffset : 0;
-    std::uint16_t currentFollowKeyMask = !timeline->presets.empty() ? timeline->presets[0].acoustic.channelFollowKeyMask
-                                                                    : static_cast<std::uint16_t>(0b1111110111111111);
+    bool hasSoftBaseline = false;
+    bool softBaseline = false;
 
     juce::AudioBuffer<float> audioBuffer(options.numChannels, options.blockSize);
     juce::MidiBuffer segmentMidiBuffer;
     segmentMidiBuffer.ensureSize(
         static_cast<size_t>(std::clamp<std::int64_t>(static_cast<std::int64_t>(options.blockSize) * 16, 256, 65536)));
+    juce::MidiBuffer instrumentMidiBuffer;
+    instrumentMidiBuffer.ensureSize(
+        static_cast<size_t>(std::clamp<std::int64_t>(static_cast<std::int64_t>(options.blockSize) * 16, 256, 65536)));
+    devpiano::audio::InstrumentNoteState instrumentNotes;
+    std::array<std::array<std::uint8_t, 3>, 16> pedalState {};
+    bool previousDual = activeLayers.enabled;
+    bool previousEnabled = !activeLayers.enabled || activeLayers.pianoEnabled;
+    auto* previousSynth = activeSynth;
 
     std::size_t eventIndex = 0;
     auto panicSent = false;
@@ -152,17 +140,25 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
 
         for (int segStart = 0; segStart < numSamples;) {
             const auto segAbsStart = blockStart + segStart;
+            segmentMidiBuffer.clear();
 
             while (eventIndex < renderEvents.size() && renderEvents[eventIndex].timestampSamples == segAbsStart
                    && renderEvents[eventIndex].type == PerformanceEventType::presetChange) {
                 const auto& ev = renderEvents[eventIndex];
                 if (ev.presetId < timeline->presets.size()) {
                     const auto& preset = timeline->presets[ev.presetId];
+                    const auto applySoftBaseline = !hasSoftBaseline || softBaseline != preset.acoustic.unaCorda;
                     applyAcousticSnapshotToBuiltin(pianoSynth, sineSynth, activeSynth, roomReverb, currentMasterGain,
-                                                   preset.acoustic, true);
-                    currentTransposeEnabled = preset.acoustic.transposeEnabled;
-                    currentTransposeOffset = preset.acoustic.transposeOffset;
-                    currentFollowKeyMask = preset.acoustic.channelFollowKeyMask;
+                                                   preset.acoustic, false);
+                    if (applySoftBaseline) {
+                        for (int channel = 1; channel <= 16; ++channel) {
+                            segmentMidiBuffer.addEvent(
+                                juce::MidiMessage::controllerEvent(channel, 67, preset.acoustic.unaCorda ? 127 : 0), 0);
+                        }
+                    }
+                    hasSoftBaseline = true;
+                    softBaseline = preset.acoustic.unaCorda;
+                    activeLayers = preset.acoustic.layers;
                 }
                 ++eventIndex;
             }
@@ -182,8 +178,6 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
             const auto segLen = segEnd - segStart;
             const auto segAbsEnd = blockStart + segEnd;
 
-            segmentMidiBuffer.clear();
-
             while (eventIndex < renderEvents.size() && renderEvents[eventIndex].timestampSamples < segAbsEnd) {
                 const auto& event = renderEvents[eventIndex];
                 if (event.type == PerformanceEventType::presetChange) {
@@ -196,13 +190,8 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
 
                     if (msg.isNoteOn()) {
                         const auto ch = msg.getChannel();
-                        const auto chIdx = juce::jlimit(0, 15, ch - 1);
-                        const bool channelFollows = (currentFollowKeyMask & (1U << chIdx)) != 0;
                         const auto sourceNote = msg.getNoteNumber();
-                        const auto candidatePitch = (currentTransposeEnabled && channelFollows)
-                            ? juce::jlimit(0, 127, sourceNote + currentTransposeOffset)
-                            : sourceNote;
-                        const auto finalOutputPitch = identityTracker.noteOn(ch, sourceNote, candidatePitch);
+                        const auto finalOutputPitch = identityTracker.noteOn(ch, sourceNote, sourceNote);
                         if (finalOutputPitch.has_value()) {
                             segmentMidiBuffer.addEvent(juce::MidiMessage::noteOn(ch,
                                                                                  static_cast<int>(*finalOutputPitch),
@@ -244,7 +233,49 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
                                                         segStart, segLen);
             segmentAudioBuffer.clear();
 
-            activeSynth->renderNextBlock(segmentAudioBuffer, segmentMidiBuffer, 0, segLen);
+            const auto enabled = !activeLayers.enabled || activeLayers.pianoEnabled;
+            const auto transition = previousDual != activeLayers.enabled || previousSynth != activeSynth;
+            instrumentMidiBuffer.clear();
+            if (transition || (previousEnabled && !enabled)) {
+                pianoSynth.allNotesOff(0, false);
+                sineSynth.allNotesOff(0, false);
+                instrumentNotes.reset();
+            }
+            if (enabled && (transition || !previousEnabled)) {
+                for (std::size_t channel = 0; channel < 16; ++channel) {
+                    for (std::size_t pedal = 0; pedal < 3; ++pedal) {
+                        devpiano::audio::appendOrderedMidi(
+                            instrumentMidiBuffer,
+                            juce::MidiMessage::controllerEvent(static_cast<int>(channel) + 1,
+                                                               pedal == 0 ? 64 : static_cast<int>(pedal) + 65,
+                                                               pedalState[channel][pedal]),
+                            0);
+                    }
+                }
+            }
+            previousDual = activeLayers.enabled;
+            previousEnabled = enabled;
+            previousSynth = activeSynth;
+            for (const auto metadata : segmentMidiBuffer) {
+                if (enabled) {
+                    instrumentNotes.append(instrumentMidiBuffer, metadata, 1);
+                }
+                if (metadata.numBytes == 3 && (metadata.data[0] & 0xf0) == 0xb0) {
+                    auto& state = pedalState[metadata.data[0] & 0x0f];
+                    const auto controller = metadata.data[1];
+                    if (controller == 64 || controller == 66 || controller == 67) {
+                        state[controller == 64 ? 0 : controller - 65] = metadata.data[2];
+                    } else if (controller == 121) {
+                        state.fill(0);
+                    }
+                }
+            }
+            if (enabled) {
+                activeSynth->renderNextBlock(segmentAudioBuffer, instrumentMidiBuffer, 0, segLen);
+                if (activeLayers.enabled) {
+                    segmentAudioBuffer.applyGain(juce::jlimit(0.0f, 1.0f, activeLayers.pianoGain));
+                }
+            }
 
             if (options.numChannels >= 2 && roomReverb.getWetLevel() > 1e-4f) {
                 roomReverb.processStereo(segmentAudioBuffer.getWritePointer(0), segmentAudioBuffer.getWritePointer(1),

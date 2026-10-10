@@ -14,7 +14,7 @@
 - **16 通道独立定制**：每个逻辑输入通道拥有独立的输出通道映射、半音移调、八度偏移、固定力度覆盖、音色号（Program）、音色库（Bank MSB）、延音控制器（Sustain CC）与按键跟随开关。
 - **全局调号系统（Key Signature）**：支持 -7 ~ +7 半音移调（如降 B 大调、升 F 大调），可与特定通道的 `followKey` 开关联动，实现“旋律随调号移调、打击乐通道保持原音高不变”。
 - **停用矩阵**：`active == false` 时 `applyTransform()` 直接返回原消息，不应用矩阵或 followKey；不据此承诺调用本身零计算成本。
-- **预设与文件边界**：矩阵与调号字段序列化至预设 JSON（`.devpiano.preset`，Schema 整数版本 2）及录制声学快照表（`.devpiano`，Schema 整数版本 3）；普通预设激活不覆写应用全局 `keySignature` / `midiTranspose`；录制的声学快照回放另行恢复当时移调。
+- **预设与文件边界**：矩阵与输入调号保存于整数 v2 预设及 v4 演奏快照；普通预设激活不覆写全局调号或本机分区模式。矩阵只在现场输入阶段执行一次，录制保存最终音乐音高/通道，回放/WAV/MIDI 不再套矩阵或快照移调。
 
 ---
 
@@ -87,7 +87,7 @@ devpiano 在 `SettingsModel` 与 `AppState` 中维护全局调号：
 - 例如：通道 1（主旋律钢琴）开启跟随，移调 +2 半音（C调变D调）；通道 10（打击乐）关闭跟随，依然触发标准 General MIDI 鼓组音高。
 - **默认状态**：新装/重置后 15 个旋律通道默认开启跟随，通道 10 默认关闭（构造时由 `ChannelMatrix` 统一设定）；`midiTranspose` 关闭时全部开关置灰不可编辑。
 
-普通预设选择保留当前全局调号；`RecordedPreset.acoustic` 在回放时恢复录制当时的开关/偏移（嵌入预设 Schema v2，录制文件 Schema v3）。设置与预设中的 `followKey` 控制输入投影，回放 Off 始终释放已保存的最终身份。
+普通预设选择保留全局调号；`RecordedPreset.acoustic` 记录录制时输入开关/偏移，不重新变换 Take 音符（嵌入预设 v2，录制文件 v4）。`followKey` 只控制现场输入与投影，释放使用起音时锁定的最终身份。
 
 ## 5. 架构接入与服务（`MidiChannelMapper`）
 

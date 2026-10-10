@@ -88,6 +88,13 @@ WavExportOptions buildWavExportOptions(const devpiano::recording::RecordingTake&
     options.feltAgeingAmount = performance.feltAgeingAmount;
     options.stretchTuningEnabled = performance.stretchTuningEnabled;
     options.duplexResonance = juce::jlimit(0.0f, 1.0f, performance.duplexResonance);
+
+    auto copyLayersIfAvailable = [&]<typename T>(const T& perf) {
+        if constexpr (requires { perf.layers; }) {
+            options.layers = perf.layers;
+        }
+    };
+    copyLayersIfAvailable(performance);
     return options;
 }
 

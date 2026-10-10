@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Core/AppState.h"
+#include "InstrumentLayers.h"
 #include "PerspectiveProcessor.h"
 #include "RoomReverbEngine.h"
 #include "TemperamentEngine.h"
@@ -31,6 +32,7 @@ struct AcousticSnapshot {
     std::uint16_t channelFollowKeyMask = 0b1111110111111111;
     bool stretchTuningEnabled = true;
     float duplexResonance = 0.15f;
+    InstrumentLayers layers;
 };
 
 } // namespace devpiano::audio

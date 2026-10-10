@@ -6,6 +6,7 @@
 #include <optional>
 #include <vector>
 
+#include "../Audio/InstrumentLayers.h"
 #include "../Audio/RoomReverbEngine.h"
 #include "../Audio/TemperamentEngine.h"
 #include "../Midi/ChannelMatrix.h"
@@ -41,6 +42,7 @@ struct PerformancePreset {
     float feltAgeingAmount = 0.0f;
     bool stretchTuningEnabled = true;
     float duplexResonance = 0.15f;
+    devpiano::audio::InstrumentLayers layers;
     // Keyboard display / musical settings subset.
     // Mirrors the JSON "keyboard" section -- maps directly to SettingsModel fields
     // without going through ui::KeyboardSettings indirection.

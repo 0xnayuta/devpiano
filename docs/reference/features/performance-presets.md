@@ -14,7 +14,7 @@
 2. **独立 JSON 文件（`.devpiano.preset`）**：采用规范的 JSON 格式存储于 `DevPiano/Presets/` 目录下，便于用户备份、分享与跨设备导入；
 3. **一键 CRUD 与声明式弹窗**：通过 `ControlsPanel` 下拉菜单及 Save As New / Rename / Delete 按钮操作，全面接入 `JiveModalDialog` 声明式弹窗；
 4. **F1-F12 快捷键**：按列表次序选择预设，键位、矩阵与声学配置经既有提交路径生效；全局调号保持当前设置，不承诺与硬件无关的毫秒级切换期限；
-5. **录制切换与回放还原**：切换时保存预设永久身份与当时声学快照；回放按采样点执行（含快照内嵌的移调状态），不依赖录制后目录排序。
+5. **录制切换与回放还原**：切换时保存预设永久身份及当时声学/层快照；回放按采样点执行，不依赖目录排序。输入配置只还原 UI，不再变换 Take 中已保存的最终音符。
 
 ---
 
@@ -47,7 +47,13 @@
       { "transposeOffset": 0, "octaveShift": 0, "channel": 0, "name": "C" },
       { "transposeOffset": 0, "octaveShift": 0, "channel": 0, "name": "D" }
     ],
-    "activeGroupIndex": 0
+    "activeGroupIndex": 0,
+    "regionA_channel": 0,
+    "regionA_transpose": 0,
+    "regionA_octave": 0,
+    "regionB_channel": 0,
+    "regionB_transpose": 0,
+    "regionB_octave": 0
   },
   "channelMatrix": {
     "active": true,
@@ -81,6 +87,13 @@
     "pedalNoiseLevel": 0.6,
     "feltAgeingAmount": 0.0
   },
+  "layers": {
+    "enabled": false,
+    "pianoEnabled": true,
+    "pluginEnabled": true,
+    "pianoGain": 0.5,
+    "pluginGain": 0.5
+  },
   "keyboard": {
     "keySignature": 2,
     "midiTranspose": true,
@@ -98,9 +111,11 @@
 - `uuid` 是文件身份，`name` 是可变显示名称。另存为新预设生成新 UUID；重命名、自动保存和导入保留已有 UUID。
 - 仅准入当前整数版本 `2`；浮点数（如 `2.0`）、字符串版本（如 `"2"`）及非 2 整数（如 `1`、`999`）一律拒绝。缺失或空白 UUID 拒绝（UUID 读取只校验字符串 trim 后非空，不作 UUID 格式正则认证），不根据名称补生成身份或迁移 v1 文件。内置 Default 使用固定身份，新文件预设显式生成 UUID。
 - 启动恢复只匹配已保存 UUID；旧名称不作为第二条查找路径。目录扫描发现重复 UUID 时记录告警日志，按 UUID 激活时因身份歧义明确拒绝（`[Preset] ambiguous permanent identity rejected`），绝不猜测目标。列表显示名称，运行绑定保存 UUID，磁盘路径仍由当前名称规范化得到。
-- 原生演奏另外保存 Take 内的预设和 `AcousticSnapshot`，包含当时的音源类型、Master/ADSR、物理/空间参数及回放移调；不能把预设文件自身的配置子集误写为这些全部运行时字段都已持久化在 `.devpiano.preset`。
-- **VST3 宿主插件独立性**：`.devpiano.preset` 不包含、不切换也不持久化 VST3 实例或内部状态；插件由 `PluginHost` / `PluginOperationController` 和全局设置独立管理。内置物理参数不写入外部插件；回放快照向其转发 CC67，宿主仍执行 Master/房间混响。
+- 原生演奏另外保存 Take 内的预设和 `AcousticSnapshot`，包含音源、Master/ADSR、物理/空间与层状态。移调/follow mask 是录制时输入配置，不对已保存音符执行二次变换；不能把预设配置子集误写成全部运行时字段都已持久化。
+- **VST3 宿主插件独立性**：`.devpiano.preset` 保存 `layers` 模式和增益，但不包含、切换或持久化 VST3 实例/内部状态；插件仍由 `PluginHost` 独立管理。双层启用时固定 Piano + 当前单 VST3，内置物理参数不写入插件，公共 Master/Reverb 只执行一次。
 - 键位 `action.trigger` 只接受 `"keyDown"`，该可选字段缺省时仍默认 `"keyDown"`。显式 `"keyUp"` 或未知值在加载时拒绝，保存也不把非法内存状态静默改写为有效绑定；原文件与当前应用预设保留。
+- **本机布局与音乐配置分离**：`layout.regionA_channel` / `regionB_channel` 为 `0..16`（0 继承逐键通道），`regionA_transpose` / `regionB_transpose` 为 `-12..12`，`regionA_octave` / `regionB_octave` 为 `-3..3`。它们与完整小键盘 keyCode 随预设/Take 保存；本机 `off` / `mainOnly` / `mainAndNumpad` 模式只保存在 Settings，应用预设或回放快照不改变该模式，也不自动补写用户未绑定位置。
+- **层配置**：根对象 `layers` 保存 `enabled`、`pianoEnabled`、`pluginEnabled` 和有限 `[0,1]` 的 `pianoGain` / `pluginGain`。缺省仍为单层，两个层开关为 true、增益各 0.5；在当前 v2 中作为可选配置，不增加历史版本解析分支。
 
 ---
 
@@ -171,7 +186,7 @@
 ## 4. 录制与回放切调集成
 
 1. **录制时入队**：`recordPresetChange(const RecordedPreset&)` 在消息线程注册不可变快照，发布有界 SPSC 槽位；音频线程在受影响的捕获块起点先写预设 variant，再写该块 MIDI。
-2. **采样边界执行**：实时、内置 WAV 和 VST3 WAV 在事件采样点切换其支持参数，同采样预设先于 MIDI；起音按快照移调/follow mask 锁定输出，NoteOff 使用原身份。Piano 生产整段对照覆盖新调律/共鸣与非零 wet；已映射输入的 [条件性重复移调](../../issues/known-issues.md#原生演奏快照移调与-wav-音高不一致路线-a-已实施路线-b-重构备忘) 留在下一输入契约阶段，不冒称全部音乐来源已重构。
+2. **采样边界执行**：实时、内置 WAV 和 VST3 WAV 在采样点切换声学与层状态，同采样预设先于 MIDI。音符已经在输入阶段变换为最终身份，回放和导出不重套区域、Group、矩阵或快照移调；NoteOff/FIFO 释放使用原身份。层启用恢复边界处逐通道踏板状态，不重发历史 NoteOn 或旧 CC66 捕获集合。
 3. **UI 独立通知**：消息线程消费最新状态通知并调用 `applyRecordedPresetUi()`；重复循环可合并视觉通知，但每次声学事件仍在音频路径执行，末块通知不因播放结束清空。该路径不重查目录，不再调用 `applyPresetByIndex()` 来晚到改变音频。
 
 ---
@@ -186,7 +201,7 @@
 | **PST-004** | 删除当前预设回退 | 删除正在使用的用户预设，物理文件被删除，界面自动平稳回退至 `[Default]` | [x] 已通过 |
 | **PST-005** | 内置 Default 保护 | 切换至 `[Default]`，确认 Rename 与 Delete 按钮处于 disabled 状态 | [x] 已通过 |
 | **PST-006** | 拖放导入预设 | 从外部文件夹拖入 `.devpiano.preset` 文件，列表立即刷新并自动激活 | [x] 已通过 |
-| **PST-007** | 录制中切预设与回放切调 | 录制中在第 5 秒按 F2 切换预设，回放到达第 5 秒时观察发声与键位按内嵌快照自动完成声学参数与移调还原 | [x] 已通过 |
+| **PST-007** | 录制中切预设 | 回放按内嵌快照切换声学/层参数，保持已保存的最终音乐身份，不根据本机模式重新划区或移调 | [x] 已通过 |
 | **PST-008** | 规范化同路径与大小写重命名 | 同名经非法字符清理后映射回自身，以及 Windows 仅大小写变化；更新名称后预设仍可加载且绑定保持 | [x] Windows 文件/实际界面验证通过 |
 | **PST-009** | 重命名写入/提交失败 | 锁定源文件，或使目标被占用；源和已有目标内容保留，失败提交恢复源且无暂存文件残留 | [x] Windows 隔离文件验证通过 |
 | **PST-010** | 恢复后立即编辑绑定 | 保存 B 为最后活动预设并重启；不手动选预设即修改音高/通道，列表、运行绑定与自动保存均为 B | [x] Windows 实际界面验证通过 |

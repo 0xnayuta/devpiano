@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../Audio/InstrumentLayers.h"
 #include "../Audio/RoomReverbEngine.h"
 #include "../Audio/TemperamentEngine.h"
 #include "../Settings/SettingsModel.h"
@@ -33,6 +34,7 @@ struct WavExportOptions {
     float feltAgeingAmount = 0.0f;
     bool stretchTuningEnabled = true;
     float duplexResonance = 0.15f;
+    devpiano::audio::InstrumentLayers layers;
 };
 
 } // namespace devpiano::exporting

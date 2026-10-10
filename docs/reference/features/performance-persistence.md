@@ -1,7 +1,7 @@
 # 演奏数据持久化（.devpiano）与回放控制功能说明
 
 > 用途：说明 devpiano 的原生无损演奏文件格式（`.devpiano`）、`PerformanceFile` 序列化引擎、原子文件写入、播放速度平滑控制（0.5x–2.0x）与最近文件列表。
-> 适用范围：服务于原生演奏数据 Schema v3 的保存、恢复与回放。项目状态以 [roadmap](../../roadmap/roadmap.md) 为准。
+> 适用范围：服务于原生演奏数据 Schema v4 的保存、恢复与回放。项目状态以 [roadmap](../../roadmap/roadmap.md) 为准。
 > 更新时机：`.devpiano` 文件格式版本、序列化协议或调速算法发生变化时。
 
 ---
@@ -10,8 +10,8 @@
 
 为了让用户的键盘演奏成果能够无损保存并随时恢复演练，devpiano 定义了专有的**原生演奏文件格式（`.devpiano`）**与**高保真回放控制器**：
 
-1. **采样时间线保存**：直接保存 `timestampSamples`、原始 MIDI 帧与内嵌声学快照，不经 MIDI tick 量化；保留可准入整数时间域的事件位置，不承诺第三方插件音频逐比特相同；
-2. **v3 JSON 与 JUCE 编码**：保存采样率、长度、元数据、内嵌 `presets` 与稳定排序事件。`midiData` 使用 `MemoryBlock::toBase64Encoding()` 的十进制长度前缀和专有六位字符负载，不是通用 RFC 4648 Base64；演奏与独立元数据读取都只接受当前整数版本 `3`，不迁移旧格式；
+1. **最终发音身份保存**：直接保存 `timestampSamples`、已完成现场变换的 MIDI 音高/通道/力度与内嵌声学快照，不经 MIDI tick 量化。原生回放、WAV 和 MIDI 导出直接消费该身份，不再应用区域、Group、矩阵或快照移调；标准 MIDI 导入保留其音乐音符；
+2. **v4 JSON 与 JUCE 编码**：保存采样率、长度、元数据、内嵌 `presets` 与稳定排序事件。`midiData` 使用 `MemoryBlock::toBase64Encoding()` 的十进制长度前缀和专有六位字符负载，不是通用 RFC 4648 Base64；演奏与独立元数据读取都只接受当前整数版本 `4`，不迁移旧格式；
 3. **事务文件替换**：先写同目录 TemporaryFile，检查 flush/状态并关闭流，成功后替换目标；普通写出/替换失败保留原目标，仅清理自有临时文件，不承诺断电或强杀下的存储完整性；
 4. **实时播放速度控制（0.5x–2.0x）**：消息线程发布有界命令，音频块入口一致更新倍率和缩放位置，保留下一未渲染事件游标；Seek 的目的状态恢复与纯变速分开，不用旧游标重算重播起音；
 5. **独立元数据读取**：`loadPerformanceFileMetadata()` 读取有界完整 JSON，但不解码 MIDI 帧或构造 RecordingTake；不宣称流式跳过 JSON 事件数组；
@@ -20,13 +20,13 @@
 
 ---
 
-## 2. `.devpiano` 文件格式规范（Schema v3）
+## 2. `.devpiano` 文件格式规范（Schema v4）
 
-文件采用 UTF-8 JSON，当前写出版本为 `3`。`presetId` 是本 Take 的 `presets` 表槽位，不是目录索引：
+文件采用 UTF-8 JSON，当前写出版本为 `4`。`presetId` 是本 Take 的 `presets` 表槽位，不是目录索引：
 
 ```json
 {
-  "version": 3,
+  "version": 4,
   "format": "devpiano-performance",
   "sampleRate": 44100.0,
   "lengthSamples": 2646000,
@@ -63,7 +63,14 @@
         "sustainPolicy": "normal",
         "transposeEnabled": false,
         "transposeOffset": 0,
-        "channelFollowKeyMask": 65023
+        "channelFollowKeyMask": 65023,
+        "layers": {
+          "enabled": false,
+          "pianoEnabled": true,
+          "pluginEnabled": true,
+          "pianoGain": 0.5,
+          "pluginGain": 0.5
+        }
       }
     }
   ],
@@ -93,7 +100,7 @@
 
 | 字段 | 类型 | 说明 |
 |---|:---:|---|
-| `version` | int | 仅接受当前整数版本 `3`；其他版本或非整数版本拒绝。演奏与独立元数据读取共用版本准入，不截断大整数或浮点版本。 |
+| `version` | int | 仅接受当前整数版本 `4`；其他版本或非整数版本拒绝。演奏与独立元数据读取共用版本准入，不截断大整数或浮点版本。 |
 | `format` | string | 固定标识 `"devpiano-performance"`，用于文件格式标识快速校验。 |
 | `sampleRate` | double | 有限正数值，文件准入范围严格为 **8000.0 – 384000.0 Hz**；支持非设备采样率时间域的缩放与回放。 |
 | `lengthSamples` | int64 | 当前写出非负整数；加载也接受有限、无小数部分的数值，须覆盖全部事件，并在支持采样率与 0.5x–2.0x 下保持缩放、末尾 `+1` 及块余量整数可表示。 |
@@ -104,11 +111,11 @@
 ### 2.2 事件类型支持
 
 - **MIDI 演奏事件（`type: "midi"`）**：必须显式提供事件类型，缺失或空类型不作 MIDI 推断。`source` 为 `"computerKeyboard"`、`"realtimeMidiBuffer"` 或 `"playback"`；`midiData` 使用 `<字节数>.<JUCE 编码负载>`，例如 `3.PxCY` 表示 `90 3c 64`，`3..xC.` 表示 `80 3c 00`。编码负载内的 `.` 是合法字符，不是第二个长度分隔符。每个 MIDI 帧在解析与分配前校验负载长度一致性、合法状态字节及有效 SysEx / Meta 边界；
-- **预设切换事件（`type: "presetChange"`）**：`presetId` 为该 Take 内嵌 `presets` 数组的槽位索引。音频线程在事件采样点切换声学快照与移调状态，同采样 NoteOn 立即使用新参数。由于音色与参数已完整自包含在文件内部，外部增删、重命名预设或预设文件缺失均不影响历史演奏回放；
-- **RecordedPreset 分工**：`"preset"` 供 UI 还原布局、分组、矩阵和显示；`"acoustic"` 供音频执行音源、Master/ADSR、物理/空间参数、`stretchTuningEnabled` 与 `duplexResonance`。实时和两条 WAV 路径按快照移调/follow mask 变换起音，并锁定 NoteOff 原身份。上游已映射录制事件仍有条件性重复移调边界，见 [路线 A 局限](../../issues/known-issues.md#原生演奏快照移调与-wav-音高不一致路线-a-已实施路线-b-重构备忘)，不把它混称为未修复的实时/WAV 差异。
-- **VST3 与外部依赖边界**：文件保存 MIDI 与内置声学快照，不捆绑 VST3 二进制、路径或内部状态。已挂载插件时 MIDI 驱动当前实例并转发 CC67；无插件时按 `acoustic.builtinTone` 使用内置 Piano / Sine。缺少原插件不影响格式读取，但不能据此还原原厂商音色或承诺所有设备逐比特一致。
-- **非当前格式拒绝**：仅准入当前精确整数版本 `3`；浮点数（如 `3.0`）、字符串版本（如 `"3"`）、历史版本（v1/v2）和未来版本均被 `parsePerformanceFileRoot` 严格拒绝，不执行历史数据迁移或目录索引猜测。独立元数据读取（`loadPerformanceFileMetadata`）共用同一格式与精确版本准入网关，但不执行全事件解析与帧级验证。加载失败保持原文件字节和当前会话；当前 v3 的可选元数据缺省时返回空结构体，不作为旧版兼容承诺；
-- **初始录制状态捕获**：起点捕获初始预设和声学快照（slot 0）；预备拍期间的设置在实际录制下拍进入 Take。实时与 WAV 共享快照数据，但执行边界须按离线分册和上述已知问题分别核对。
+- **预设切换事件（`type: "presetChange"`）**：`presetId` 为该 Take 内嵌 `presets` 数组的槽位索引。音频线程在事件采样点切换声学与层状态，同采样 NoteOn 使用新声学参数，但保持事件中已保存的音高/通道。目录增删、重命名或预设文件缺失不影响内嵌快照；VST3 的外部依赖另列。
+- **RecordedPreset 分工**：`"preset"` 供 UI 还原绑定、区域音乐参数、分组、矩阵和显示；`"acoustic"` 供音频执行音源、Master/ADSR、物理/空间参数及 `layers`。`transposeEnabled`、`transposeOffset`、`channelFollowKeyMask` 记录输入配置，不变换已保存音符。`layers` 的三个开关与两项 `[0,1]` 增益决定固定 Piano + 当前单 VST3 的发声；本机 `partitionMode` 不进入预设或 Take。
+- **VST3 与外部依赖边界**：文件不捆绑 VST3 二进制、路径或内部状态。单层沿用当前插件或内置 Piano/Sine；双层固定 Piano + 当前单 VST3，共用事件身份与一次 Master/Reverb。缺少插件不影响格式读取，但双层且插件层启用时 WAV 导出明确失败并保护原目标，不静默只导出钢琴，也不承诺换机还原厂商音色。
+- **非当前格式拒绝**：仅准入当前精确整数版本 `4`；浮点数（如 `4.0`）、字符串版本（如 `"4"`）、历史版本（v1–v3）和未来版本均被 `parsePerformanceFileRoot` 严格拒绝，不猜测旧事件语义或迁移。独立元数据读取共用格式与精确版本网关，但不执行全事件帧级验证。加载失败保持原文件字节和当前会话；当前格式可选元数据缺省返回空结构体。
+- **初始录制状态捕获**：起点捕获初始预设和声学/层快照（slot 0）；预备拍期间的设置在实际录制下拍进入 Take。松键始终使用起音身份，同音重复起音通过 FIFO 和最后持有规则配对；端点禁用/更换不重发旧 NoteOn。
 
 ---
 
@@ -171,4 +178,4 @@ $$R = \frac{f_{\text{device}}}{f_{\text{take}} S}, \qquad t_{\text{playback}} = 
 | **PRF-012** | 失败与延迟结果隔离 | 失败打开/保存保持当前身份；切换 Take 后提交旧信息或保存结果，当前文件不被改写 | [x] Windows 真实文件消费者验证通过 |
 | **PRF-013** | 生产 Notes 键入/确认/取消 | 在实际 Info 窗口键入两行并确认，会话和绑定文件均保存；再次修改后取消，两者保持原值，诊断列表仍只读 | [x] Windows 实际窗口与文件字节验证通过 |
 
-自动化回归由 `PerformanceFileTest` 覆盖当前 Schema v3 精确整数版本准入、内嵌快照往返、时间戳时序稳定排序、MIDI 帧与 Base64 预算防御、Take 代际隔离与事务写出；所有测试均在隔离临时目录中运行，零历史静态样本依赖。
+自动化回归由 `PerformanceFileTest` 覆盖当前 Schema v4 精确整数版本准入、内嵌快照往返、时间戳稳定排序、MIDI 帧与 Base64 预算防御、Take 代际隔离与事务写出；所有测试均在隔离临时目录中运行，零历史静态样本依赖。

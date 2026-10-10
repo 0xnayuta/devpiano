@@ -1,5 +1,6 @@
 #include <JuceHeader.h>
 
+#include "Input/KeyboardMidiMapper.h"
 #include "Layout/PerformancePreset.h"
 #include "TestHelpers.h"
 
@@ -45,6 +46,17 @@ PerformancePreset makeFullPreset() {
     p.customKeyLabels[72] = "High C";
     p.customKeyColours[60] = juce::Colour(0xff112233);
     p.customKeyColours[72] = juce::Colour(0xff445566);
+    p.layout.regionA.channel = 2;
+    p.layout.regionA.transposeOffset = -5;
+    p.layout.regionA.octaveShift = -1;
+    p.layout.regionB.channel = 4;
+    p.layout.regionB.transposeOffset = 7;
+    p.layout.regionB.octaveShift = 1;
+    p.layers.enabled = true;
+    p.layers.pianoEnabled = true;
+    p.layers.pluginEnabled = false;
+    p.layers.pianoGain = 0.8f;
+    p.layers.pluginGain = 0.4f;
     return p;
 }
 
@@ -119,6 +131,17 @@ public:
             expect(loaded.has_value(), "load must succeed");
             if (loaded.has_value()) {
                 expectPresetsEqual(*this, original, *loaded);
+
+                // Consumer verification: loaded preset drives KeyboardMidiMapper note output
+                KeyboardMidiMapper mapper;
+                mapper.setKeyStatePredicate([](int) { return false; });
+                juce::MidiKeyboardState state;
+                mapper.setLayout(loaded->layout);
+                mapper.setPartitionMode(devpiano::core::KeyboardPartitionMode::mainOnly);
+                // Key 'A' is bound to 60, regionA has transposeOffset -5, octaveShift -1 -> 60 - 5 - 12 = 43, channel 2
+                expect(mapper.handleKeyPressed(juce::KeyPress('A'), state));
+                expect(state.isNoteOn(2, 43), "loaded regionA must transpose and route note to channel 2");
+                mapper.releaseAllHeldKeys(state);
             }
         });
 

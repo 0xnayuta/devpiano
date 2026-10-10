@@ -223,6 +223,52 @@ juce::ValueTree makeKeyboardDisplaySectionTree() {
     sustainCombo.setProperty("width", 300, nullptr);
     sustainCombo.setProperty("height", 24, nullptr);
     content.appendChild(settingRow(TRANS("Sustain Pedal Mode:"), sustainCombo, "sustain-policy-label"), nullptr);
+    // Keyboard Partition Mode (Phase 38-3)
+    auto partitionCombo = node("ComboBox", "partition-mode-combo");
+    partitionCombo.setProperty("width", 300, nullptr);
+    partitionCombo.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Keyboard Partition Mode:"), partitionCombo, "partition-mode-label"), nullptr);
+    // Channel Routing & Group Override Hint (Phase 38-3)
+    auto hintText
+        = text(TRANS("Group Channel: Inherited (Region A: Ch 1, Region B: Ch 1)"), "group-override-hint-label");
+    hintText.setProperty("width", 300, nullptr);
+    hintText.setProperty("height", 24, nullptr);
+    hintText.setProperty("font-size", 12, nullptr);
+    content.appendChild(settingRow(TRANS("Channel Routing:"), hintText, "channel-routing-label"), nullptr);
+
+    // Region A Controls
+    auto regAChannelCombo = node("ComboBox", "region-a-channel-combo");
+    regAChannelCombo.setProperty("width", 300, nullptr);
+    regAChannelCombo.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Region A Channel:"), regAChannelCombo, "region-a-channel-label"), nullptr);
+
+    auto regATransposeSlider = node("Slider", "region-a-transpose-slider");
+    regATransposeSlider.setProperty("width", 300, nullptr);
+    regATransposeSlider.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Region A Transpose:"), regATransposeSlider, "region-a-transpose-label"),
+                        nullptr);
+
+    auto regAOctaveSlider = node("Slider", "region-a-octave-slider");
+    regAOctaveSlider.setProperty("width", 300, nullptr);
+    regAOctaveSlider.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Region A Octave:"), regAOctaveSlider, "region-a-octave-label"), nullptr);
+
+    // Region B Controls
+    auto regBChannelCombo = node("ComboBox", "region-b-channel-combo");
+    regBChannelCombo.setProperty("width", 300, nullptr);
+    regBChannelCombo.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Region B Channel:"), regBChannelCombo, "region-b-channel-label"), nullptr);
+
+    auto regBTransposeSlider = node("Slider", "region-b-transpose-slider");
+    regBTransposeSlider.setProperty("width", 300, nullptr);
+    regBTransposeSlider.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Region B Transpose:"), regBTransposeSlider, "region-b-transpose-label"),
+                        nullptr);
+
+    auto regBOctaveSlider = node("Slider", "region-b-octave-slider");
+    regBOctaveSlider.setProperty("width", 300, nullptr);
+    regBOctaveSlider.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Region B Octave:"), regBOctaveSlider, "region-b-octave-label"), nullptr);
 
     // Language
     auto langCombo = node("ComboBox", "language-combo");
@@ -232,6 +278,68 @@ juce::ValueTree makeKeyboardDisplaySectionTree() {
     card.appendChild(content, nullptr);
     return card;
 }
+juce::ValueTree makeInstrumentLayersSectionTree() {
+    auto card = flexColumn("instrument-layers-card");
+    card.setProperty("margin", "0 0 14 0", nullptr);
+    card.setProperty("padding", "10 14 10 14", nullptr);
+    card.setProperty("border-width", "1", nullptr);
+    card.setProperty("border-radius", "6", nullptr);
+    card.setProperty("background", devpiano::jive::DesignTokens::get().panelBg().toDisplayString(true), nullptr);
+
+    auto title = text(TRANS("Instrument Layers"), "instrument-layers-title");
+    title.setProperty("width", "100%", nullptr);
+    title.setProperty("font-weight", "bold", nullptr);
+    title.setProperty("font-size", 15, nullptr);
+    title.setProperty("height", 22, nullptr);
+    title.setProperty("margin", "0 0 8 0", nullptr);
+    card.appendChild(title, nullptr);
+
+    auto content = flexColumn("instrument-layers-content");
+    content.setProperty("padding", "0 0 0 16", nullptr);
+
+    // Row 1: Dual-Layer Enabled Checkbox
+    auto enabledCb = node("Checkbox", "layers-enabled-toggle");
+    enabledCb.setProperty("text", TRANS("Dual-Layer Enabled (Piano + VST3)"), nullptr);
+    enabledCb.setProperty("toggleable", true, nullptr);
+    enabledCb.setProperty("toggle-on-click", true, nullptr);
+    enabledCb.setProperty("width", 300, nullptr);
+    enabledCb.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Dual-Layer Mode:"), enabledCb, "layers-enabled-label"), nullptr);
+
+    // Row 2: Piano Layer Enabled Checkbox
+    auto pianoCb = node("Checkbox", "layers-piano-toggle");
+    pianoCb.setProperty("text", TRANS("Piano Layer Enabled"), nullptr);
+    pianoCb.setProperty("toggleable", true, nullptr);
+    pianoCb.setProperty("toggle-on-click", true, nullptr);
+    pianoCb.setProperty("width", 300, nullptr);
+    pianoCb.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Piano Layer:"), pianoCb, "layers-piano-label"), nullptr);
+
+    // Row 3: Piano Layer Gain Slider
+    auto pianoGainSlider = node("Slider", "layers-piano-gain-slider");
+    pianoGainSlider.setProperty("width", 300, nullptr);
+    pianoGainSlider.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Piano Gain:"), pianoGainSlider, "layers-piano-gain-label"), nullptr);
+
+    // Row 4: Plugin Layer Enabled Checkbox
+    auto pluginCb = node("Checkbox", "layers-plugin-toggle");
+    pluginCb.setProperty("text", TRANS("VST3 Plugin Layer Enabled"), nullptr);
+    pluginCb.setProperty("toggleable", true, nullptr);
+    pluginCb.setProperty("toggle-on-click", true, nullptr);
+    pluginCb.setProperty("width", 300, nullptr);
+    pluginCb.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Plugin Layer:"), pluginCb, "layers-plugin-label"), nullptr);
+
+    // Row 5: Plugin Layer Gain Slider
+    auto pluginGainSlider = node("Slider", "layers-plugin-gain-slider");
+    pluginGainSlider.setProperty("width", 300, nullptr);
+    pluginGainSlider.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Plugin Gain:"), pluginGainSlider, "layers-plugin-gain-label"), nullptr);
+
+    card.appendChild(content, nullptr);
+    return card;
+}
+
 juce::ValueTree makeAcousticsSectionTree() {
     auto card = flexColumn("acoustics-card");
     card.setProperty("margin", "0 0 14 0", nullptr);
@@ -392,6 +500,7 @@ juce::ValueTree makeSettingsLayoutTree() {
     root.appendChild(makeAudioDeviceSectionTree(), nullptr);
     root.appendChild(makeKeySignatureSectionTree(), nullptr);
     root.appendChild(makeKeyboardDisplaySectionTree(), nullptr);
+    root.appendChild(makeInstrumentLayersSectionTree(), nullptr);
     root.appendChild(makeAcousticsSectionTree(), nullptr);
     root.appendChild(makeDiagnosticsSectionTree(), nullptr);
     root.appendChild(makeSaveActionSectionTree(), nullptr);

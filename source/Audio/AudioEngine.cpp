@@ -80,9 +80,21 @@ void AudioEngine::prepareToPlay(int samplesPerBlockExpected, double sampleRate) 
     preparedPluginChannels = requiredChannels;
     pluginView.setDataToReferTo(pluginBuffer.getArrayOfWritePointers(), requiredChannels,
                                 juce::jmax(1, samplesPerBlockExpected));
-    builtinChannelPointers.resize(static_cast<std::size_t>(requiredChannels));
-    builtinView.setDataToReferTo(pluginBuffer.getArrayOfWritePointers(), requiredChannels,
-                                 juce::jmax(1, samplesPerBlockExpected));
+
+    pianoBuffer.setSize(2, juce::jmax(1, samplesPerBlockExpected), false, false, true);
+    pianoBuffer.clear();
+    pianoDelayedBuffer.setSize(2, juce::jmax(1, samplesPerBlockExpected), false, false, true);
+    pianoDelayedBuffer.clear();
+    pianoView.setDataToReferTo(pianoBuffer.getArrayOfWritePointers(), 2, juce::jmax(1, samplesPerBlockExpected));
+    pianoDelayedView.setDataToReferTo(pianoDelayedBuffer.getArrayOfWritePointers(), 2,
+                                      juce::jmax(1, samplesPerBlockExpected));
+
+    const int reportedLatency = endpoint.isHostedPluginReady() ? endpoint.hostedInstance->getLatencySamples() : 0;
+    const int safeLatency = devpiano::audio::sanitizePluginLatency(reportedLatency);
+    const int delayCapacity = devpiano::audio::calculateDelayCapacity(reportedLatency);
+    pianoDelayLine.prepare(delayCapacity, 2);
+    pianoDelayLine.setDelay(safeLatency);
+    latencyFaultPending.store(false, std::memory_order_release);
 
     preparePlaybackResources();
     applyPendingParametersIfNeeded();
@@ -118,10 +130,15 @@ void AudioEngine::preparePlaybackResources() {
     }
     midiBuffer.ensureSize(preparedMidiCapacity);
     playbackVisualMidiBuffer.ensureSize(preparedMidiCapacity);
-    playbackTransposedMidiBuffer.ensureSize(preparedMidiCapacity);
+    playbackOwnedMidiBuffer.ensureSize(preparedMidiCapacity);
+    pluginSegmentMidiBuffer.ensureSize(preparedMidiCapacity);
     syncPedalTempBuffer.ensureSize(preparedMidiCapacity);
     segmentMidiBuffer.ensureSize(preparedMidiCapacity);
     boundaryMidiBuffer.ensureSize(preparedMidiCapacity);
+    builtinSegmentMidiBuffer.ensureSize(preparedMidiCapacity);
+    midiEventSources.reserve(preparedMidiCapacity);
+    segmentEventSources.reserve(preparedMidiCapacity);
+    boundaryEventSources.reserve(preparedMidiCapacity);
 }
 
 void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) {
@@ -172,18 +189,28 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
     }
     applyPendingParametersIfNeeded();
     midiBuffer.clear();
+    playbackOwnedMidiBuffer.clear();
     presetBoundaries.clear();
     const auto commands = recordingEngine != nullptr ? recordingEngine->applyPendingTransportCommands(midiBuffer)
                                                      : devpiano::recording::RecordingEngine::TransportCommandResult {};
     if (commands.seekApplied || commands.stopApplied) {
         playbackIdentityTracker.resetOwnership();
+        resetPerformanceInputOwnership();
         syncPedalProcessor.reset();
         clearDisplayNotes();
+        synth.handleSostenutoPedal(0, false);
         synth.allNotesOff(0, false);
         sineSynth.allNotesOff(0, false);
+        pianoDelayLine.reset();
+        builtinNoteState.reset();
+        pluginNoteState.reset();
+        previousBuiltinSynth = nullptr;
+        previousPluginEnabled = false;
         roomReverb.reset();
     }
     collectLiveMidi(bufferToFill.numSamples);
+    syncCutInBlock = syncPedalProcessor.getPolicy() == devpiano::core::SustainPolicy::syncPedal
+        && (syncPedalProcessor.isPedalDown() || syncPedalProcessor.isCutPending());
     syncPedalProcessor.processMidiBlock(midiBuffer, syncPedalTempBuffer);
     injectPendingAllNotesOffIfNeeded();
     recordRealtimeMidiBufferIfNeeded(bufferToFill.numSamples);
@@ -192,29 +219,35 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
         renderPlaybackEventsIfNeeded(recordingEngine != nullptr ? recordingEngine->getPlaybackPositionSamples() : 0,
                                      bufferToFill.numSamples);
     }
-    publishMidiForDisplay(midiBuffer);
+    mergePerformanceInput();
     segmentMidiBuffer.clear();
+    segmentEventSources.clear();
     auto cursor = midiBuffer.begin();
     const auto end = midiBuffer.end();
     std::size_t eventIndex = 0;
     int segmentStart = 0;
     for (const auto& boundary : presetBoundaries) {
         boundaryMidiBuffer.clear();
+        boundaryEventSources.clear();
         while (cursor != end && eventIndex < boundary.midiEventCount) {
             const auto metadata = *cursor;
             if (metadata.samplePosition < boundary.sampleOffset) {
                 devpiano::audio::appendOrderedMidi(segmentMidiBuffer, metadata.data, metadata.numBytes,
                                                    metadata.samplePosition - segmentStart);
+                segmentEventSources.push_back(midiEventSources[eventIndex]);
             } else {
                 devpiano::audio::appendOrderedMidi(boundaryMidiBuffer, metadata.data, metadata.numBytes, 0);
+                boundaryEventSources.push_back(midiEventSources[eventIndex]);
             }
             ++cursor;
             ++eventIndex;
         }
         renderInstrumentSegment(bufferToFill, segmentStart, boundary.sampleOffset - segmentStart);
         segmentStart = boundary.sampleOffset;
+        std::size_t boundaryEvent = 0;
         for (const auto metadata : boundaryMidiBuffer) {
             devpiano::audio::appendOrderedMidi(segmentMidiBuffer, metadata.data, metadata.numBytes, 0);
+            segmentEventSources.push_back(boundaryEventSources[boundaryEvent++]);
         }
         renderInstrumentSegment(bufferToFill, segmentStart, 0);
         applyAcousticSnapshot(*boundary.acoustic, true);
@@ -223,39 +256,147 @@ void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferTo
         const auto metadata = *cursor;
         devpiano::audio::appendOrderedMidi(segmentMidiBuffer, metadata.data, metadata.numBytes,
                                            metadata.samplePosition - segmentStart);
+        segmentEventSources.push_back(midiEventSources[eventIndex++]);
     }
     renderInstrumentSegment(bufferToFill, segmentStart, bufferToFill.numSamples - segmentStart);
 }
 
 void AudioEngine::renderInstrumentSegment(const juce::AudioSourceChannelInfo& output, int offset, int numSamples) {
     const auto endpoint = devpiano::audio::resolveInstrumentEndpoint(pluginHost);
-    if (endpoint.isHostedPluginReady()) {
-        if (numSamples == 0) {
-            return;
+    const auto dual = activeLayers.enabled;
+    devpiano::audio::BuiltinSynthesiser* targetBuiltin = nullptr;
+    if (dual) {
+        if (activeLayers.pianoEnabled) {
+            targetBuiltin = &synth;
         }
-        pluginView.setDataToReferTo(pluginBuffer.getArrayOfWritePointers(), preparedPluginChannels, numSamples);
-        pluginView.clear();
-        endpoint.hostedInstance->processBlock(pluginView, segmentMidiBuffer);
-        const auto outputChannels
-            = std::min(output.buffer->getNumChannels(), endpoint.hostedInstance->getTotalNumOutputChannels());
-        for (int channel = 0; channel < outputChannels; ++channel) {
-            output.buffer->copyFrom(channel, output.startSample + offset, pluginView, channel, 0, numSamples);
+    } else if (!endpoint.isHostedPluginReady()) {
+        targetBuiltin = activeSynth;
+    }
+    const auto targetPlugin = endpoint.isHostedPluginReady() && (!dual || activeLayers.pluginEnabled);
+    const auto modeChanged = previousLayersEnabled != dual;
+    const auto instanceChanged = previousPluginInstance != endpoint.hostedInstance;
+    const auto builtinChanged = previousBuiltinSynth != targetBuiltin;
+    const auto pluginChanged = previousPluginEnabled != targetPlugin || instanceChanged;
+    const auto start = output.startSample + offset;
+    pluginSegmentMidiBuffer.clear();
+    builtinSegmentMidiBuffer.clear();
+
+    if (modeChanged || builtinChanged) {
+        synth.allNotesOff(0, false);
+        sineSynth.allNotesOff(0, false);
+        builtinNoteState.reset();
+        pianoDelayLine.reset();
+    }
+    if (modeChanged || pluginChanged) {
+        pluginNoteState.reset();
+        if (!instanceChanged && previousPluginEnabled && endpoint.isHostedPluginReady()) {
+            devpiano::recording::addPanicMidi(pluginSegmentMidiBuffer, 0);
+            pluginView.setDataToReferTo(pluginBuffer.getArrayOfWritePointers(), preparedPluginChannels, 0);
+            endpoint.hostedInstance->processBlock(pluginView, pluginSegmentMidiBuffer);
+            pluginSegmentMidiBuffer.clear();
         }
-    } else {
-        for (int channel = 0; channel < preparedPluginChannels; ++channel) {
-            builtinChannelPointers[static_cast<std::size_t>(channel)] = channel < output.buffer->getNumChannels()
-                ? output.buffer->getWritePointer(channel, output.startSample + offset)
-                : pluginBuffer.getWritePointer(channel);
+    }
+    const auto restoreControllers = [&](juce::MidiBuffer& buffer) {
+        for (std::size_t channel = 0; channel < 16; ++channel) {
+            for (std::size_t pedal = 0; pedal < 3; ++pedal) {
+                devpiano::audio::appendOrderedMidi(
+                    buffer,
+                    juce::MidiMessage::controllerEvent(static_cast<int>(channel) + 1,
+                                                       pedal == 0 ? 64 : static_cast<int>(pedal) + 65,
+                                                       performancePedals[channel][pedal]),
+                    0);
+            }
         }
-        builtinView.setDataToReferTo(builtinChannelPointers.data(), preparedPluginChannels, numSamples);
-        activeSynth->renderNextBlock(builtinView, segmentMidiBuffer, 0, numSamples);
+    };
+    if (targetBuiltin != nullptr && (modeChanged || builtinChanged)) {
+        restoreControllers(builtinSegmentMidiBuffer);
+    }
+    if (targetPlugin && (modeChanged || pluginChanged)) {
+        restoreControllers(pluginSegmentMidiBuffer);
+    }
+    previousLayersEnabled = dual;
+    previousBuiltinSynth = targetBuiltin;
+    previousPluginEnabled = targetPlugin;
+    previousPluginInstance = endpoint.hostedInstance;
+
+    std::size_t eventIndex = 0;
+    for (const auto metadata : segmentMidiBuffer) {
+        const auto source = static_cast<std::size_t>(segmentEventSources[eventIndex++]);
+        if (targetBuiltin != nullptr) {
+            builtinNoteState.append(builtinSegmentMidiBuffer, metadata, source);
+        }
+        if (targetPlugin) {
+            pluginNoteState.append(pluginSegmentMidiBuffer, metadata, source);
+        }
+        if (metadata.numBytes == 3 && (metadata.data[0] & 0xf0) == 0xb0) {
+            auto& pedals = performancePedals[metadata.data[0] & 0x0f];
+            const auto controller = metadata.data[1];
+            if (controller == 64 || controller == 66 || controller == 67) {
+                pedals[controller == 64 ? 0 : controller - 65] = metadata.data[2];
+            } else if (controller == 121) {
+                pedals.fill(0);
+            }
+        }
+    }
+    const auto latency
+        = dual && targetBuiltin != nullptr && targetPlugin ? endpoint.hostedInstance->getLatencySamples() : 0;
+    if (latency < 0 || pianoDelayLine.isOverCapacity(latency)) {
+        latencyOverflowCount.fetch_add(1, std::memory_order_relaxed);
+        latencyFaultPending.store(true, std::memory_order_release);
+        allNotesOffPending.store(true, std::memory_order_release);
+        output.buffer->clear(start, numSamples);
+        segmentMidiBuffer.clear();
+        segmentEventSources.clear();
+        return;
+    }
+    pianoDelayLine.setDelay(latency);
+    pianoView.setDataToReferTo(pianoBuffer.getArrayOfWritePointers(), 2, numSamples);
+    pianoDelayedView.setDataToReferTo(pianoDelayedBuffer.getArrayOfWritePointers(), 2, numSamples);
+    pianoView.clear();
+    pianoDelayedView.clear();
+    if (targetBuiltin != nullptr) {
+        targetBuiltin->renderNextBlock(pianoView, builtinSegmentMidiBuffer, 0, numSamples);
+        pianoView.applyGain(0, numSamples, dual ? activeLayers.pianoGain : 1.0f);
+        pianoDelayLine.process(pianoView, pianoDelayedView, numSamples);
+    }
+    pluginView.setDataToReferTo(pluginBuffer.getArrayOfWritePointers(), preparedPluginChannels, numSamples);
+    pluginView.clear();
+    if (targetPlugin) {
+        endpoint.hostedInstance->processBlock(pluginView, pluginSegmentMidiBuffer);
+        pluginView.applyGain(0, numSamples, dual ? activeLayers.pluginGain : 1.0f);
     }
     segmentMidiBuffer.clear();
+    segmentEventSources.clear();
     if (numSamples == 0) {
         return;
     }
-    const auto start = output.startSample + offset;
-    if (output.buffer->getNumChannels() >= 2) {
+    output.buffer->clear(start, numSamples);
+    const auto outChannels = output.buffer->getNumChannels();
+    if (targetBuiltin != nullptr) {
+        if (outChannels == 1) {
+            output.buffer->addFrom(0, start, pianoDelayedView, 0, 0, numSamples, 0.5f);
+            output.buffer->addFrom(0, start, pianoDelayedView, 1, 0, numSamples, 0.5f);
+        } else {
+            for (int channel = 0; channel < std::min(outChannels, 2); ++channel) {
+                output.buffer->addFrom(channel, start, pianoDelayedView, channel, 0, numSamples);
+            }
+        }
+    }
+    if (targetPlugin) {
+        const auto pluginChannels = endpoint.hostedInstance->getTotalNumOutputChannels();
+        if (outChannels >= 2 && pluginChannels == 1) {
+            output.buffer->addFrom(0, start, pluginView, 0, 0, numSamples);
+            output.buffer->addFrom(1, start, pluginView, 0, 0, numSamples);
+        } else if (outChannels == 1 && pluginChannels >= 2) {
+            output.buffer->addFrom(0, start, pluginView, 0, 0, numSamples, 0.5f);
+            output.buffer->addFrom(0, start, pluginView, 1, 0, numSamples, 0.5f);
+        } else {
+            for (int channel = 0; channel < std::min(outChannels, pluginChannels); ++channel) {
+                output.buffer->addFrom(channel, start, pluginView, channel, 0, numSamples);
+            }
+        }
+    }
+    if (outChannels >= 2) {
         roomReverb.processStereo(output.buffer->getWritePointer(0, start), output.buffer->getWritePointer(1, start),
                                  numSamples);
     }
@@ -277,9 +418,16 @@ void AudioEngine::releaseResources() {
         discardWarmupInputState();
         metronomeProcessor.reset();
     }
+    synth.handleSostenutoPedal(0, false);
+    resetPerformanceInputOwnership();
     synth.allNotesOff(0, false);
     sineSynth.allNotesOff(0, false);
-
+    pianoDelayLine.reset();
+    builtinNoteState.reset();
+    pluginNoteState.reset();
+    previousBuiltinSynth = nullptr;
+    previousPluginEnabled = false;
+    previousPluginInstance = nullptr;
     roomReverb.reset();
     if (pluginHost != nullptr) {
         pluginHost->releaseResources();
@@ -331,23 +479,50 @@ void AudioEngine::setPianoTuning(bool stretchTuningEnabled, float duplexResonanc
     pendingDuplexResonance.store(juce::jlimit(0.0f, 1.0f, duplexResonance), std::memory_order_relaxed);
     pendingParameterMask.fetch_or(tuningParameter, std::memory_order_release);
 }
-void AudioEngine::setPlaybackTranspose(bool enabled, int semitoneOffset, std::uint16_t channelFollowKeyMask) noexcept {
-    playbackTransposeEnabled.store(enabled, std::memory_order_release);
-    playbackTransposeOffset.store(semitoneOffset, std::memory_order_release);
-    playbackChannelFollowKeyMask.store(channelFollowKeyMask, std::memory_order_release);
+void AudioEngine::setInputTranspose(bool enabled, int semitoneOffset, std::uint16_t channelFollowKeyMask) noexcept {
+    inputTransposeEnabled.store(enabled, std::memory_order_release);
+    inputTransposeOffset.store(semitoneOffset, std::memory_order_release);
+    inputChannelFollowKeyMask.store(channelFollowKeyMask, std::memory_order_release);
     pendingParameterMask.fetch_or(transposeParameter, std::memory_order_release);
 }
 
-bool AudioEngine::isPlaybackTransposeEnabled() const noexcept {
-    return playbackTransposeEnabled.load(std::memory_order_acquire);
+bool AudioEngine::isInputTransposeEnabled() const noexcept {
+    return inputTransposeEnabled.load(std::memory_order_acquire);
 }
 
-int AudioEngine::getPlaybackTransposeOffset() const noexcept {
-    return playbackTransposeOffset.load(std::memory_order_acquire);
+int AudioEngine::getInputTransposeOffset() const noexcept {
+    return inputTransposeOffset.load(std::memory_order_acquire);
 }
 
-std::uint16_t AudioEngine::getPlaybackChannelFollowKeyMask() const noexcept {
-    return playbackChannelFollowKeyMask.load(std::memory_order_acquire);
+std::uint16_t AudioEngine::getInputChannelFollowKeyMask() const noexcept {
+    return inputChannelFollowKeyMask.load(std::memory_order_acquire);
+}
+
+void AudioEngine::setInstrumentLayers(const devpiano::audio::InstrumentLayers& layers) noexcept {
+    pendingLayersEnabled.store(layers.enabled, std::memory_order_relaxed);
+    pendingPianoEnabled.store(layers.pianoEnabled, std::memory_order_relaxed);
+    pendingPluginEnabled.store(layers.pluginEnabled, std::memory_order_relaxed);
+    pendingPianoGain.store(juce::jlimit(0.0f, 1.0f, layers.pianoGain), std::memory_order_relaxed);
+    pendingPluginGain.store(juce::jlimit(0.0f, 1.0f, layers.pluginGain), std::memory_order_relaxed);
+    pendingParameterMask.fetch_or(layersParameter, std::memory_order_release);
+}
+
+devpiano::audio::InstrumentLayers AudioEngine::getInstrumentLayers() const noexcept {
+    return {
+        .enabled = pendingLayersEnabled.load(std::memory_order_relaxed),
+        .pianoEnabled = pendingPianoEnabled.load(std::memory_order_relaxed),
+        .pluginEnabled = pendingPluginEnabled.load(std::memory_order_relaxed),
+        .pianoGain = pendingPianoGain.load(std::memory_order_relaxed),
+        .pluginGain = pendingPluginGain.load(std::memory_order_relaxed),
+    };
+}
+
+int AudioEngine::consumeLatencyOverflowCount() noexcept {
+    return latencyOverflowCount.exchange(0, std::memory_order_acq_rel);
+}
+
+bool AudioEngine::consumeLatencyFaultPending() noexcept {
+    return latencyFaultPending.exchange(false, std::memory_order_acq_rel);
 }
 
 void AudioEngine::setBuiltinSynthTone(BuiltinSynthTone tone) {
@@ -426,11 +601,12 @@ devpiano::audio::AcousticSnapshot AudioEngine::captureAcousticSnapshot() const n
     snapshot.pedalNoiseLevel = pendingPedalNoiseLevel.load(std::memory_order_relaxed);
     snapshot.feltAgeingAmount = pendingFeltAgeingAmount.load(std::memory_order_relaxed);
     snapshot.sustainPolicy = syncPedalProcessor.getPolicy();
-    snapshot.transposeEnabled = playbackTransposeEnabled.load(std::memory_order_relaxed);
-    snapshot.transposeOffset = playbackTransposeOffset.load(std::memory_order_relaxed);
-    snapshot.channelFollowKeyMask = playbackChannelFollowKeyMask.load(std::memory_order_relaxed);
+    snapshot.transposeEnabled = inputTransposeEnabled.load(std::memory_order_relaxed);
+    snapshot.transposeOffset = inputTransposeOffset.load(std::memory_order_relaxed);
+    snapshot.channelFollowKeyMask = inputChannelFollowKeyMask.load(std::memory_order_relaxed);
     snapshot.stretchTuningEnabled = pendingStretchTuningEnabled.load(std::memory_order_relaxed);
     snapshot.duplexResonance = pendingDuplexResonance.load(std::memory_order_relaxed);
+    snapshot.layers = getInstrumentLayers();
     return snapshot;
 }
 
@@ -488,21 +664,25 @@ void AudioEngine::applyPendingParametersIfNeeded() {
         snapshot.stretchTuningEnabled = pending.stretchTuningEnabled;
         snapshot.duplexResonance = pending.duplexResonance;
     }
+    if ((mask & layersParameter) != 0) {
+        snapshot.layers = pending.layers;
+    }
     applyAcousticSnapshot(snapshot);
 }
 
 void AudioEngine::applyAcousticSnapshot(const devpiano::audio::AcousticSnapshot& snapshot, bool recordedPreset) {
     devpiano::recording::applyAcousticSnapshotToBuiltin(synth, sineSynth, activeSynth, roomReverb, activeMasterGain,
-                                                        snapshot, recordedPreset);
+                                                        snapshot, false);
     activeAcoustic = snapshot;
+    activeLayers = snapshot.layers;
     if (recordedPreset) {
+        pendingLayersEnabled.store(snapshot.layers.enabled, std::memory_order_relaxed);
+        pendingPianoEnabled.store(snapshot.layers.pianoEnabled, std::memory_order_relaxed);
+        pendingPluginEnabled.store(snapshot.layers.pluginEnabled, std::memory_order_relaxed);
+        pendingPianoGain.store(snapshot.layers.pianoGain, std::memory_order_relaxed);
+        pendingPluginGain.store(snapshot.layers.pluginGain, std::memory_order_relaxed);
+
         syncPedalProcessor.setPolicy(snapshot.sustainPolicy);
-        if (devpiano::audio::resolveInstrumentEndpoint(pluginHost).isHostedPluginReady()) {
-            for (int channel = 1; channel <= 16; ++channel) {
-                devpiano::audio::appendOrderedMidi(
-                    segmentMidiBuffer, juce::MidiMessage::controllerEvent(channel, 67, snapshot.unaCorda ? 127 : 0), 0);
-            }
-        }
     }
 }
 
@@ -512,11 +692,18 @@ void AudioEngine::discardWarmupInputState() {
     midiBuffer.clear();
     playbackVisualMidiBuffer.clear();
     liveOverflowPending.store(false, std::memory_order_relaxed);
+    resetPerformanceInputOwnership();
+    synth.handleSostenutoPedal(0, false);
     synth.allNotesOff(0, false);
     sineSynth.allNotesOff(0, false);
+    pianoDelayLine.reset();
+    builtinNoteState.reset();
+    pluginNoteState.reset();
+    previousBuiltinSynth = nullptr;
+    previousPluginEnabled = false;
+    performancePedals = {};
     roomReverb.reset();
 }
-
 bool AudioEngine::consumePlaybackStartPreRollBlockIfNeeded() {
     if (recordingEngine == nullptr || !recordingEngine->isPlaying()) {
         playbackStartPreRollBlocksRemaining.store(0, std::memory_order_release);
@@ -541,16 +728,24 @@ void AudioEngine::injectPendingAllNotesOffIfNeeded() {
     }
 
     playbackIdentityTracker.resetOwnership();
+    resetPerformanceInputOwnership();
     syncPedalProcessor.reset();
     clearDisplayNotes();
     for (auto channel = 1; channel <= 16; ++channel) {
         midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 64, 0), 0); // sustain pedal off
+        midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 66, 0), 0); // sostenuto pedal off
         midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 67, 0), 0); // soft pedal off
         midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 120, 0), 0); // all sound off
         midiBuffer.addEvent(juce::MidiMessage::allNotesOff(channel), 0);
     }
+    synth.handleSostenutoPedal(0, false);
     synth.allNotesOff(0, false);
     sineSynth.allNotesOff(0, false);
+    pianoDelayLine.reset();
+    builtinNoteState.reset();
+    pluginNoteState.reset();
+    previousBuiltinSynth = nullptr;
+    previousPluginEnabled = false;
     roomReverb.reset();
 }
 
@@ -593,10 +788,7 @@ void AudioEngine::renderPlaybackEventsIfNeeded(std::int64_t blockStartSamples, i
 
     playbackVisualMidiBuffer.clear();
     recordingEngine->renderPlaybackBlock(playbackVisualMidiBuffer, blockStartSamples, numSamples);
-    playbackTransposedMidiBuffer.clear();
-    auto transposeEnabled = activeAcoustic.transposeEnabled;
-    auto transposeOffset = activeAcoustic.transposeOffset;
-    auto followMask = activeAcoustic.channelFollowKeyMask;
+    playbackOwnedMidiBuffer.clear();
     const auto& scheduled = recordingEngine->getScheduledPresetChanges();
     std::size_t presetIndex = 0;
     std::size_t inputIndex = 0;
@@ -612,9 +804,6 @@ void AudioEngine::renderPlaybackEventsIfNeeded(std::int64_t blockStartSamples, i
                 ++livePrefixCount;
             }
             if (const auto* preset = recordingEngine->getPlaybackPreset(change.presetId)) {
-                transposeEnabled = preset->acoustic.transposeEnabled;
-                transposeOffset = preset->acoustic.transposeOffset;
-                followMask = preset->acoustic.channelFollowKeyMask;
                 if (presetBoundaries.size() < presetBoundaries.capacity()) {
                     presetBoundaries.push_back(
                         { &preset->acoustic, change.sampleOffset, outputIndex + livePrefixCount });
@@ -630,7 +819,7 @@ void AudioEngine::renderPlaybackEventsIfNeeded(std::int64_t blockStartSamples, i
         consumePresets();
         ++inputIndex;
         if (metadata.numBytes > 3) {
-            devpiano::audio::appendOrderedMidi(playbackTransposedMidiBuffer, metadata.data, metadata.numBytes,
+            devpiano::audio::appendOrderedMidi(playbackOwnedMidiBuffer, metadata.data, metadata.numBytes,
                                                metadata.samplePosition);
             ++outputIndex;
             continue;
@@ -638,18 +827,13 @@ void AudioEngine::renderPlaybackEventsIfNeeded(std::int64_t blockStartSamples, i
         const auto msg = metadata.getMessage();
         const auto samplePos = metadata.samplePosition;
         const auto ch = msg.getChannel();
-        const auto chIdx = juce::jlimit(0, 15, ch - 1);
-        const bool channelFollows = (followMask & (1U << chIdx)) != 0;
 
         if (msg.isNoteOn()) {
             const auto sourceNote = msg.getNoteNumber();
-            const auto candidatePitch = (transposeEnabled && channelFollows)
-                ? juce::jlimit(0, 127, sourceNote + transposeOffset)
-                : sourceNote;
-            const auto finalOutputPitch = playbackIdentityTracker.noteOn(ch, sourceNote, candidatePitch);
+            const auto finalOutputPitch = playbackIdentityTracker.noteOn(ch, sourceNote, sourceNote);
             if (finalOutputPitch.has_value()) {
                 devpiano::audio::appendOrderedMidi(
-                    playbackTransposedMidiBuffer,
+                    playbackOwnedMidiBuffer,
                     juce::MidiMessage::noteOn(ch, static_cast<int>(*finalOutputPitch), msg.getFloatVelocity()),
                     samplePos);
                 ++outputIndex;
@@ -662,7 +846,7 @@ void AudioEngine::renderPlaybackEventsIfNeeded(std::int64_t blockStartSamples, i
             const auto result = playbackIdentityTracker.noteOff(ch, sourceNote);
             if (result.matched && result.shouldEmit) {
                 devpiano::audio::appendOrderedMidi(
-                    playbackTransposedMidiBuffer,
+                    playbackOwnedMidiBuffer,
                     juce::MidiMessage::noteOff(ch, static_cast<int>(result.outputPitch), msg.getFloatVelocity()),
                     samplePos);
                 ++outputIndex;
@@ -676,29 +860,128 @@ void AudioEngine::renderPlaybackEventsIfNeeded(std::int64_t blockStartSamples, i
             } else if (msg.isAllNotesOff() || msg.isAllSoundOff()) {
                 playbackIdentityTracker.resetChannel(ch);
             }
-            devpiano::audio::appendOrderedMidi(playbackTransposedMidiBuffer, msg, samplePos);
+            devpiano::audio::appendOrderedMidi(playbackOwnedMidiBuffer, msg, samplePos);
             ++outputIndex;
         }
     }
     consumePresets();
 
-    playbackVisualMidiBuffer.swapWith(playbackTransposedMidiBuffer);
-    if (midiBuffer.isEmpty()) {
-        midiBuffer.swapWith(playbackVisualMidiBuffer);
-    } else {
-        syncPedalTempBuffer.clear();
-        auto live = midiBuffer.begin();
-        auto played = playbackVisualMidiBuffer.begin();
-        while (live != midiBuffer.end() || played != playbackVisualMidiBuffer.end()) {
-            const bool useLive = played == playbackVisualMidiBuffer.end()
-                || (live != midiBuffer.end() && (*live).samplePosition <= (*played).samplePosition);
-            const auto metadata = useLive ? *live++ : *played++;
+    recordingEngine->advancePlaybackPosition(numSamples);
+}
+
+void AudioEngine::resetPerformanceInputOwnership() noexcept {
+    inputNotes = {};
+    inputPedals = {};
+    hasRecordedSoftBaseline = false;
+    recordedSoftBaseline = false;
+}
+
+void AudioEngine::mergePerformanceInput() {
+    syncPedalTempBuffer.clear();
+    midiEventSources.clear();
+    std::uint8_t eventSource = 1;
+    auto live = midiBuffer.begin();
+    auto played = playbackOwnedMidiBuffer.begin();
+    const auto liveEnd = midiBuffer.end();
+    const auto playedEnd = playbackOwnedMidiBuffer.end();
+    std::size_t rawCount = 0;
+    std::size_t outputCount = 0;
+    std::size_t boundaryIndex = 0;
+    const auto emit = [&](const juce::MidiMessage& message, int offset) {
+        devpiano::audio::appendOrderedMidi(syncPedalTempBuffer, message, offset);
+        midiEventSources.push_back(eventSource);
+        ++outputCount;
+    };
+    const auto publish = [&](std::size_t channel, std::size_t pitch, unsigned int velocity) {
+        auto& display = displayNotes[channel][pitch];
+        const auto held = inputNotes[0][channel][pitch] || inputNotes[1][channel][pitch];
+        const auto level = velocity > 0 ? velocity : (display.load(std::memory_order_relaxed) & 0x7f);
+        display.store((++displaySequence << 8) | level | (held ? 0x80U : 0U), std::memory_order_release);
+    };
+    const auto captureBoundaries = [&] {
+        while (boundaryIndex < presetBoundaries.size() && presetBoundaries[boundaryIndex].midiEventCount == rawCount) {
+            auto& boundary = presetBoundaries[boundaryIndex++];
+            eventSource = 1;
+            boundary.midiEventCount = outputCount;
+            const auto soft = boundary.acoustic->unaCorda;
+            if (!hasRecordedSoftBaseline || recordedSoftBaseline != soft) {
+                for (std::size_t channel = 0; channel < 16; ++channel) {
+                    inputPedals[1][channel][2] = soft ? 127 : 0;
+                    emit(juce::MidiMessage::controllerEvent(
+                             static_cast<int>(channel) + 1, 67,
+                             std::max(inputPedals[0][channel][2], inputPedals[1][channel][2])),
+                         boundary.sampleOffset);
+                }
+                hasRecordedSoftBaseline = true;
+                recordedSoftBaseline = soft;
+            }
+        }
+    };
+    while (live != liveEnd || played != playedEnd) {
+        captureBoundaries();
+        const auto useLive
+            = played == playedEnd || (live != liveEnd && (*live).samplePosition <= (*played).samplePosition);
+        const auto metadata = useLive ? *live++ : *played++;
+        eventSource = useLive ? 0 : 1;
+        ++rawCount;
+        if (metadata.numBytes > 3) {
             devpiano::audio::appendOrderedMidi(syncPedalTempBuffer, metadata.data, metadata.numBytes,
                                                metadata.samplePosition);
+            midiEventSources.push_back(eventSource);
+            ++outputCount;
+            continue;
         }
-        midiBuffer.swapWith(syncPedalTempBuffer);
+        const auto message = metadata.getMessage();
+        const auto channel = message.getChannel() - 1;
+        if (channel < 0 || channel >= 16) {
+            emit(message, metadata.samplePosition);
+            continue;
+        }
+        const auto source = useLive ? std::size_t { 0 } : std::size_t { 1 };
+        const auto other = std::size_t { 1 } - source;
+        const auto ch = static_cast<std::size_t>(channel);
+        if (message.isNoteOn()) {
+            inputNotes[source][ch][static_cast<std::size_t>(message.getNoteNumber())] = true;
+            emit(message, metadata.samplePosition);
+            publish(ch, static_cast<std::size_t>(message.getNoteNumber()), message.getVelocity());
+        } else if (message.isNoteOff()) {
+            const auto note = static_cast<std::size_t>(message.getNoteNumber());
+            inputNotes[source][ch][note] = false;
+            emit(message, metadata.samplePosition);
+            publish(ch, note, 0);
+        } else if (message.isController()
+                   && (message.getControllerNumber() == 64 || message.getControllerNumber() == 66
+                       || message.getControllerNumber() == 67)) {
+            const auto controller = message.getControllerNumber();
+            const auto pedal = static_cast<std::size_t>(controller == 64 ? 0 : controller - 65);
+            inputPedals[source][ch][pedal] = static_cast<std::uint8_t>(message.getControllerValue());
+            const auto forcedDamp = useLive && controller == 64 && message.getControllerValue() == 0 && syncCutInBlock;
+            const auto value = forcedDamp ? 0 : std::max(inputPedals[source][ch][pedal], inputPedals[other][ch][pedal]);
+            emit(juce::MidiMessage::controllerEvent(channel + 1, controller, value), metadata.samplePosition);
+        } else if (message.isAllSoundOff() || message.isAllNotesOff()) {
+            inputNotes[source][ch].fill(false);
+            inputPedals[source][ch].fill(0);
+            emit(message, metadata.samplePosition);
+            for (std::size_t note = 0; note < 128; ++note) {
+                publish(ch, note, 0);
+            }
+        } else {
+            emit(message, metadata.samplePosition);
+            if (message.isControllerOfType(121)) {
+                inputPedals[source][ch].fill(0);
+                for (std::size_t pedal = 0; pedal < 3; ++pedal) {
+                    const auto value = inputPedals[other][ch][pedal];
+                    if (value > 0) {
+                        emit(juce::MidiMessage::controllerEvent(channel + 1,
+                                                                pedal == 0 ? 64 : static_cast<int>(pedal) + 65, value),
+                             metadata.samplePosition);
+                    }
+                }
+            }
+        }
     }
-    recordingEngine->advancePlaybackPosition(numSamples);
+    captureBoundaries();
+    midiBuffer.swapWith(syncPedalTempBuffer);
 }
 
 void AudioEngine::handleNoteOn(juce::MidiKeyboardState*, int channel, int note, float velocity) {
@@ -747,27 +1030,6 @@ void AudioEngine::clearDisplayNotes() noexcept {
     for (auto& channel : displayNotes) {
         for (auto& note : channel) {
             note.store(++displaySequence << 8, std::memory_order_release);
-        }
-    }
-}
-
-void AudioEngine::publishMidiForDisplay(const juce::MidiBuffer& buffer) noexcept {
-    for (const auto metadata : buffer) {
-        if (metadata.numBytes != 3 || metadata.data[0] < 0x80 || metadata.data[0] >= 0xf0) {
-            continue;
-        }
-        const auto type = metadata.data[0] & 0xf0;
-        auto& channel = displayNotes[metadata.data[0] & 0x0f];
-        if (type == 0x90 || type == 0x80) {
-            auto& note = channel[metadata.data[1] & 0x7f];
-            const bool on = type == 0x90 && metadata.data[2] > 0;
-            const auto velocity = on ? metadata.data[2] & 0x7f : note.load(std::memory_order_relaxed) & 0x7f;
-            note.store((++displaySequence << 8) | velocity | (on ? 0x80U : 0U), std::memory_order_release);
-        } else if (type == 0xb0 && (metadata.data[1] == 120 || metadata.data[1] == 123)) {
-            for (auto& note : channel) {
-                note.store((++displaySequence << 8) | (note.load(std::memory_order_relaxed) & 0x7f),
-                           std::memory_order_release);
-            }
         }
     }
 }

@@ -2,6 +2,7 @@
 
 #include "Audio/AudioEngine.h"
 #include "Audio/PianoSynthVoice.h"
+#include "Audio/SineSynthVoice.h"
 
 // ==============================================================================
 // Phase 32-A Unit Tests: Pedal Whoosh & Resonance Shock
@@ -24,9 +25,143 @@ public:
         testIdlePedalSympatheticResonanceShock();
         testSynthesiserIdlePedalNoise();
         testBuiltinSynthesiserIdlePedalNoise();
+        testSostenutoCaptureEdgesAndChannels();
+        testSostenutoAndSustainReleaseOrders();
+        testSostenutoCaptureDoesNotSurviveVoiceStealing();
+        testSostenutoSameSampleOrdering();
+        testSyncCutReleasesPreviousOutputChannels();
     }
 
 private:
+    static void initialiseSostenutoSynth(devpiano::audio::BuiltinSynthesiser& synth, int voices) {
+        synth.setCurrentPlaybackSampleRate(48000.0);
+        synth.addSound(new SineSynthSound());
+        for (int i = 0; i < voices; ++i) {
+            auto* voice = new SineSynthVoice();
+            voice->setAdsrParameters({ 0.001f, 0.01f, 1.0f, 0.003f });
+            synth.addVoice(voice);
+        }
+    }
+
+    void testSostenutoCaptureEdgesAndChannels() {
+        beginTest("CC66 captures held notes once, excludes later attacks, and isolates channels");
+        devpiano::audio::BuiltinSynthesiser synth;
+        initialiseSostenutoSynth(synth, 3);
+        synth.noteOn(1, 60, 0.8f);
+        synth.noteOn(2, 64, 0.8f);
+        synth.handleController(1, 66, 127);
+        synth.noteOn(1, 67, 0.8f);
+        synth.handleController(1, 66, 100);
+        synth.noteOff(1, 60, 0.0f, true);
+        synth.noteOff(2, 64, 0.0f, true);
+        synth.noteOff(1, 67, 0.0f, true);
+        juce::AudioBuffer<float> buffer(2, 1024);
+        buffer.clear();
+        synth.renderNextBlock(buffer, {}, 0, 1024);
+        expect(synth.getVoice(0)->isPlayingChannel(1));
+        expectEquals(synth.getVoice(0)->getCurrentlyPlayingNote(), 60);
+        expect(!synth.getVoice(1)->isVoiceActive());
+        expect(!synth.getVoice(2)->isVoiceActive());
+        expect(buffer.getRMSLevel(0, 768, 256) > 0.01f);
+        synth.handleController(1, 66, 0);
+        buffer.clear();
+        synth.renderNextBlock(buffer, {}, 0, 1024);
+        expectEquals(buffer.getMagnitude(0, 768, 256), 0.0f);
+        expect(!synth.getVoice(0)->isVoiceActive());
+    }
+
+    void testSostenutoAndSustainReleaseOrders() {
+        beginTest("CC64 and CC66 keep captured notes until both pedals release in either order");
+        for (const auto sustainFirst : { false, true }) {
+            devpiano::audio::BuiltinSynthesiser synth;
+            initialiseSostenutoSynth(synth, 1);
+            synth.noteOn(3, 60, 0.8f);
+            synth.handleController(3, 66, 127);
+            synth.noteOff(3, 60, 0.0f, true);
+            synth.handleController(3, 64, 127);
+            synth.handleController(3, sustainFirst ? 64 : 66, 0);
+            juce::AudioBuffer<float> buffer(2, 1024);
+            buffer.clear();
+            synth.renderNextBlock(buffer, {}, 0, 1024);
+            expect(buffer.getRMSLevel(0, 768, 256) > 0.01f);
+            synth.handleController(3, sustainFirst ? 66 : 64, 0);
+            buffer.clear();
+            synth.renderNextBlock(buffer, {}, 0, 1024);
+            expectEquals(buffer.getMagnitude(0, 768, 256), 0.0f);
+            expect(!synth.getVoice(0)->isVoiceActive());
+        }
+    }
+
+    void testSostenutoCaptureDoesNotSurviveVoiceStealing() {
+        beginTest("A stolen CC66 voice does not transfer capture to its replacement");
+        devpiano::audio::BuiltinSynthesiser synth;
+        initialiseSostenutoSynth(synth, 1);
+        synth.noteOn(1, 60, 0.8f);
+        synth.handleController(1, 66, 127);
+        synth.noteOff(1, 60, 0.0f, true);
+        synth.noteOn(1, 67, 0.8f);
+        synth.handleController(1, 66, 127);
+        synth.noteOff(1, 67, 0.0f, true);
+        juce::AudioBuffer<float> buffer(2, 1024);
+        buffer.clear();
+        synth.renderNextBlock(buffer, {}, 0, 1024);
+        expectEquals(buffer.getMagnitude(0, 768, 256), 0.0f);
+        expect(!synth.getVoice(0)->isVoiceActive());
+    }
+
+    void testSostenutoSameSampleOrdering() {
+        beginTest("CC66 and NoteOn at the same sample preserve their capture order");
+        for (const auto noteFirst : { false, true }) {
+            devpiano::audio::BuiltinSynthesiser synth;
+            initialiseSostenutoSynth(synth, 1);
+            juce::MidiBuffer midi;
+            const auto note = juce::MidiMessage::noteOn(1, 60, 0.8f);
+            const auto pedal = juce::MidiMessage::controllerEvent(1, 66, 127);
+            midi.addEvent(noteFirst ? note : pedal, 0);
+            midi.addEvent(noteFirst ? pedal : note, 0);
+            midi.addEvent(juce::MidiMessage::noteOff(1, 60), 32);
+            juce::AudioBuffer<float> buffer(2, 1024);
+            buffer.clear();
+            synth.renderNextBlock(buffer, midi, 0, 1024);
+            if (noteFirst) {
+                expect(buffer.getRMSLevel(0, 768, 256) > 0.01f);
+            } else {
+                expectEquals(buffer.getMagnitude(0, 768, 256), 0.0f);
+            }
+        }
+    }
+
+    void testSyncCutReleasesPreviousOutputChannels() {
+        beginTest("A cross-region sync attack releases the original sustained output channel at its sample");
+        devpiano::audio::BuiltinSynthesiser synth;
+        initialiseSostenutoSynth(synth, 2);
+        devpiano::audio::SyncPedalProcessor processor;
+        processor.setPolicy(devpiano::core::SustainPolicy::syncPedal);
+        processor.setPedalDown(true);
+        juce::MidiBuffer first;
+        juce::MidiBuffer scratch;
+        first.addEvent(juce::MidiMessage::controllerEvent(2, 64, 127), 0);
+        first.addEvent(juce::MidiMessage::noteOn(2, 60, 0.8f), 0);
+        first.addEvent(juce::MidiMessage::noteOff(2, 60), 128);
+        processor.processMidiBlock(first, scratch);
+        juce::AudioBuffer<float> firstAudio(2, 512);
+        firstAudio.clear();
+        synth.renderNextBlock(firstAudio, first, 0, 512);
+        expect(firstAudio.getRMSLevel(0, 384, 128) > 0.01f);
+        processor.setPedalDown(false);
+        juce::MidiBuffer second;
+        second.addEvent(juce::MidiMessage::noteOn(5, 69, 0.8f), 37);
+        second.addEvent(juce::MidiMessage::noteOff(5, 69), 256);
+        processor.processMidiBlock(second, scratch);
+        juce::AudioBuffer<float> secondAudio(2, 2048);
+        secondAudio.clear();
+        synth.renderNextBlock(secondAudio, second, 0, 2048);
+        expect(secondAudio.getMagnitude(0, 0, 32) > 0.01f);
+        expectEquals(secondAudio.getMagnitude(0, 1792, 256), 0.0f);
+        expect(!synth.getVoice(0)->isVoiceActive());
+        expect(!synth.getVoice(1)->isVoiceActive());
+    }
+
     static float calculateRms(const juce::AudioBuffer<float>& buffer, int channel = 0) {
         if (buffer.getNumSamples() == 0) {
             return 0.0f;

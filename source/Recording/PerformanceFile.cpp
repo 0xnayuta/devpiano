@@ -371,6 +371,13 @@ juce::var acousticSnapshotToVar(const audio::AcousticSnapshot& ac) {
     obj->setProperty("channelFollowKeyMask", static_cast<int>(ac.channelFollowKeyMask));
     obj->setProperty("stretchTuningEnabled", ac.stretchTuningEnabled);
     obj->setProperty("duplexResonance", ac.duplexResonance);
+    juce::DynamicObject::Ptr layers = new juce::DynamicObject();
+    layers->setProperty("enabled", ac.layers.enabled);
+    layers->setProperty("pianoEnabled", ac.layers.pianoEnabled);
+    layers->setProperty("pluginEnabled", ac.layers.pluginEnabled);
+    layers->setProperty("pianoGain", ac.layers.pianoGain);
+    layers->setProperty("pluginGain", ac.layers.pluginGain);
+    obj->setProperty("layers", juce::var(layers.get()));
 
     return { obj.get() };
 }
@@ -473,6 +480,23 @@ audio::AcousticSnapshot varToAcousticSnapshot(const juce::var& v) {
             ac.duplexResonance = juce::jlimit(0.0f, 1.0f, static_cast<float>(val));
         }
     }
+    if (auto* layers = obj->getProperty("layers").getDynamicObject()) {
+        if (layers->hasProperty("enabled")) {
+            ac.layers.enabled = static_cast<bool>(layers->getProperty("enabled"));
+        }
+        if (layers->hasProperty("pianoEnabled")) {
+            ac.layers.pianoEnabled = static_cast<bool>(layers->getProperty("pianoEnabled"));
+        }
+        if (layers->hasProperty("pluginEnabled")) {
+            ac.layers.pluginEnabled = static_cast<bool>(layers->getProperty("pluginEnabled"));
+        }
+        if (layers->hasProperty("pianoGain")) {
+            ac.layers.pianoGain = juce::jlimit(0.0f, 1.0f, static_cast<float>(layers->getProperty("pianoGain")));
+        }
+        if (layers->hasProperty("pluginGain")) {
+            ac.layers.pluginGain = juce::jlimit(0.0f, 1.0f, static_cast<float>(layers->getProperty("pluginGain")));
+        }
+    }
     return ac;
 }
 
@@ -535,6 +559,22 @@ std::optional<RecordedPreset> varToRecordedPreset(const juce::var& v) {
     }
     if (ac->hasProperty("duplexResonance") && !finiteNumber(ac->getProperty("duplexResonance"))) {
         return std::nullopt;
+    }
+    if (ac->hasProperty("layers")) {
+        auto* layers = ac->getProperty("layers").getDynamicObject();
+        if (layers == nullptr) {
+            return std::nullopt;
+        }
+        for (const auto* key : { "enabled", "pianoEnabled", "pluginEnabled" }) {
+            if (layers->hasProperty(key) && !layers->getProperty(key).isBool()) {
+                return std::nullopt;
+            }
+        }
+        for (const auto* key : { "pianoGain", "pluginGain" }) {
+            if (layers->hasProperty(key) && !finiteNumber(layers->getProperty(key))) {
+                return std::nullopt;
+            }
+        }
     }
     auto presetOpt = layout::performancePresetFromVar(obj->getProperty("preset"));
     if (!presetOpt.has_value()) {

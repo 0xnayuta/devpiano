@@ -47,4 +47,11 @@ void applyAcousticSnapshotToBuiltin(devpiano::audio::BuiltinSynthesiser& pianoSy
 
 void applyAcousticSnapshotToReverbAndGain(devpiano::audio::RoomReverbEngine& roomReverb, float& currentMasterGain,
                                           const devpiano::audio::AcousticSnapshot& snapshot);
+
+void initialiseOfflinePianoSynth(devpiano::audio::BuiltinSynthesiser& pianoSynth,
+                                 const devpiano::exporting::WavExportOptions& options, int voiceCount = 8);
+
+void initialiseOfflineSynths(devpiano::audio::BuiltinSynthesiser& pianoSynth,
+                             devpiano::audio::BuiltinSynthesiser& sineSynth,
+                             const devpiano::exporting::WavExportOptions& options, int voiceCount = 8);
 } // namespace devpiano::recording

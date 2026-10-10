@@ -961,10 +961,12 @@ void RecordingEngine::appendPlaybackMidi(juce::MidiBuffer& midiBuffer, const juc
 void RecordingEngine::addAllNotesOffMessages(juce::MidiBuffer& midiBuffer, int sampleOffset) {
     for (int channel = 1; channel <= 16; ++channel) {
         appendPlaybackMidi(midiBuffer, juce::MidiMessage::controllerEvent(channel, 64, 0), sampleOffset);
+        appendPlaybackMidi(midiBuffer, juce::MidiMessage::controllerEvent(channel, 66, 0), sampleOffset);
+        appendPlaybackMidi(midiBuffer, juce::MidiMessage::controllerEvent(channel, 67, 0), sampleOffset);
         appendPlaybackMidi(midiBuffer, juce::MidiMessage::controllerEvent(channel, 120, 0), sampleOffset);
         appendPlaybackMidi(midiBuffer, juce::MidiMessage::allNotesOff(channel), sampleOffset);
     }
-    renderedMidiEventCount += 48;
+    renderedMidiEventCount = static_cast<std::size_t>(midiBuffer.getNumEvents());
 }
 
 void RecordingEngine::advancePlaybackPosition(std::int64_t numSamples) noexcept {
@@ -1152,6 +1154,12 @@ void RecordingEngine::restorePlaybackChannelState(juce::MidiBuffer& midiBuffer, 
                     snapshot.controllers.fill(-1);
                     snapshot.pitch = 8192;
                     snapshot.pressure = 0;
+                } else if (controller == 120 || controller == 123) {
+                    snapshot.controllers[64] = 0;
+                    snapshot.controllers[66] = 0;
+                    if (controller == 120) {
+                        snapshot.controllers[67] = 0;
+                    }
                 } else if (controller < 120) {
                     snapshot.controllers[static_cast<std::size_t>(controller)] = static_cast<std::int16_t>(value);
                 }

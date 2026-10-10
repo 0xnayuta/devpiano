@@ -13,31 +13,6 @@
 
 功能缺口和已确认但尚未修复的缺陷。
 
-### 原生演奏快照移调与 WAV 音高不一致（路线 A 已实施；路线 B 重构备忘）
-
-- **优先级：P1，路线 A 修复已合入，实时与离线 WAV 基频已对齐**。
-- **历史反证（Task 36-4，2026-10-07）**：快照移调启用且 offset=2 时，同一 Take 经实时 `AudioEngine` 发声音高为 MIDI71 (493.881 Hz)，而离线 WAV 仅发音原始 MIDI69 (440.015 Hz)。
-- **路线 A 修复方案（已实施）**：
-  - 在 `source/Recording/WavFileExporter.cpp` 与 `source/Recording/PluginOfflineRenderer.cpp` 中引入与 `AudioEngine::renderPlaybackEventsIfNeeded` 严格同构的快照移调处理：
-    在消费 `presetChange` 事件时同步更新 `currentTransposeEnabled`、`currentTransposeOffset` 与 `currentFollowKeyMask`；
-    在 `NoteOn` 时，依据 `currentTransposeEnabled && channelFollows` 计算 `candidatePitch = jlimit(0, 127, sourceNote + currentTransposeOffset)`，并通过 `identityTracker.noteOn(ch, sourceNote, candidatePitch)` 锁定发音身份；
-    在 `NoteOff` 时，严格按 `identityTracker.noteOff(ch, sourceNote)` 锁定的原发音身份发出 NoteOff，保持 Note-off Identity Preservation 铁律；
-    离线 WAV 导出与实时音频引擎完全达成 1:1 声学与音高同构（Rendering Parity）。
-- **路线 A 的局限性**：
-  - 路线 A 解决了实时回放与离线 WAV 导出之间的音高分裂，但未改变录制前置链路：
-    当用户通过电脑键盘实时演奏录制时，若全局设置中已开启全局调号移调（`midiTranspose && followKey`），`KeyboardMidiMapper` / `MidiChannelMapper` 在键盘输入端已将音符音高加上了偏移量并写入 Take 的 MIDI 事件中；
-    若该 Take 内嵌的快照同时记录了 `transposeEnabled = true`，则回放和离线导出均会在已变换音高上再次叠加一次快照偏移量（实时与离线行为完全一致，但在该叠加场景下音高偏离物理键盘原始键位音高）。
-- **后续可能进行的彻底重构方案（路线 B 备忘）**：
-  - **做法**：
-    将“键盘物理输入”、“录制 Take 时间线”与“输出发声变换”彻底解耦。
-    录制事件流中严格仅保存原始未移调的键位音符（Raw Key Note），移调与矩阵路由无论在实时演奏、时间线回放还是离线 WAV 导出阶段，均统一定位为下游单一且幂等的渲染变换层，从根源杜绝二次移调。
-  - **风险与影响面（Blast Radius）**：
-    需改动 `KeyboardMidiMapper`（输入解绑）、`RecordingEngine`（采集事件定义）、`MidiChannelMapper`（路由分层）以及标准 MIDI 导出（`MidiFileExporter`）；
-    标准 MIDI 文件（Type 1 SMF）行业通用语义期望导出的音符为最终发声音高（Sounding Note）而非键盘键位，若录制域存储 Raw Note，导出 SMF 前必须增加音高烘焙（Bake Transposition）阶段；
-    牵涉跨模块数据模型改动，回归测试覆盖面广泛。
-  - **架构边界**：
-    若未来推进路线 B，需严格定义 `.devpiano` 原生事件流与外部标准 MIDI 协议的音高语义契约，保持与标准 DAW 的导入导出兼容性。
-
 ### 插件生命周期退出告警
 
 > 既有手工回归不能外推所有厂商插件。AUDIT-004 的 `AUDIT-001 THR-004` 重扫绕过已按 Phase C 收敛：真实原生 VST3、活动 callback＋Editor＋重扫及实际退出通过；基线反证与闭环证据见 [实施记录](../archive/audit-004-code-quality-fix-phases.md#phase-c-实施记录与直接验证2026-10-03)。特定厂商退出告警、永久卡死、强杀和断电仍保留安全回归范围。
@@ -93,6 +68,13 @@
 
 以下问题已修复，保留简要记录用于回归识别。详细根因分析和修复实现见各功能文档。
 
+### 已映射录制输入的重复移调（当前最终身份契约）
+
+- **历史反证**：旧实现先在输入端烘焙全局调号，再在回放/WAV 按快照叠加偏移；只修两条 WAV 的快照变换虽使其与实时一致，仍会共同偏离现场音高。
+- **当前修复**：Take 保存最终发声音高/通道/力度；原生回放、内置/VST3 WAV 和标准 MIDI 导出不再执行区域、Group、矩阵或快照移调。保留原身份 FIFO 与最后持有者释放，不启动 Raw Key Note 重构。
+- **格式边界**：当前 `.devpiano` 切到整数 v4，拒绝 v1–v3 和未来版本；独立元数据读取共用网关。失败保持原文件和当前会话，不猜测或静默改写旧事件语义。
+- **回归线索**：矩阵关闭/启用、跟随掩码与通道 10；持有期间改变区域/Group/修饰键/矩阵；现场与文件同音共持、层禁用后新来源起音；录制、原生保存/加载、WAV/MIDI 输出应使用同一最终身份。第三方厂商音色与未测物理键盘/声卡边界仍独立验收。
+
 ### 诊断预算、数值与声明式门面（Phase G）
 
 - **修复**：会话日志活动/单备份合计 512 KiB，启动及持续写入有界；UTF-8 超长消息安全限幅，打开/裁剪/轮转失败停用文件 sink 并保留错误，debugger 继续收到完整消息。MIDI 力度直接使用 0..127 原始数值。
@@ -112,7 +94,7 @@
 
 ### 预设永久身份与实时/离线执行闭包 (Phase E)
 
-- **修复**：预设采用永久 UUID 身份，另存为生成新身份，重命名与自动保存保持身份；当前仅准入 v2 预设，不再执行旧 v1 或名称迁移。原生演奏仅准入 v3，内嵌不可变 `RecordedPreset` 表，按采样偏移同构执行声学快照与 Master/Reverb；内置音源为纯音频所有无锁调度，两预建音色银行平滑切换；全回调闭包达成零库函数三角调用；键盘输入经有界 SPSC 交换，视觉高亮由消息线程刷新，超协商几何安全静音并记录原子计数。
+- **修复**：预设采用永久 UUID 身份，另存为生成新身份，重命名与自动保存保持身份；当前仅准入 v2 预设，不再执行旧 v1 或名称迁移。原生演奏现为 v4，内嵌不可变 `RecordedPreset` 表与最终音符身份，按采样偏移执行声学/层快照及公共 Master/Reverb；内置音源为纯音频所有无锁调度，全回调保持零库函数三角，键盘输入经有界 SPSC 交换，视觉高亮由消息线程刷新，超协商几何安全静音并记录原子计数。Phase E 的历史 v3 证据不作当前格式兼容承诺。
 - **回归线索**：预设增删改后回放当前格式演奏；非当前格式拒绝且文件/会话不变；同块预设先于音符生效；实时与内置/VST3 离线 WAV 分段导出一致性；密集 MIDI 播放与未 drain 预设循环无堆增长；UI 线程持有键盘锁时不阻塞音频；超协商尺寸安全静音。
 - **证据与边界**：用户批准分层验收；产品自有链路达成零分配、零锁、零库函数三角；真实原生 VST3 的框架观测不在产品自有零锁保证内。Windows Debug 默认测试、真实原生 VST3 与实际窗口快照见 [Phase E 实施记录](../archive/audit-004-code-quality-fix-phases.md#phase-e-实施记录与直接验证2026-10-04)。
 

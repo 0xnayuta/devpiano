@@ -20,6 +20,151 @@ enum class SustainPolicy : std::uint8_t {
     normal = 0, // Standard direct sustain pedal: Space down = 127, Space up = 0
     syncPedal = 1, // Syncopated legato pedal: Space up hangs cut; next NoteOn triggers CC64(0)->NoteOn->CC64(127)
 };
+enum class KeyboardPartitionMode : std::uint8_t {
+    off = 0,
+    mainOnly = 1,
+    mainAndNumpad = 2,
+};
+
+enum class KeyboardRegion : std::uint8_t {
+    none = 0,
+    regionA = 1,
+    regionB = 2,
+};
+
+inline constexpr int kCapsLockKeyCode = 20; // Win32 VK_CAPITAL / standard CapsLock key code
+
+struct KeyboardRegionConfig {
+    uint8_t channel = 0; // MIDI channel override (0: inherit per-key channel, 1..16: override)
+    int8_t transposeOffset = 0; // Transpose shift in semitones (-12..+12)
+    int8_t octaveShift = 0; // Octave shift (-3..+3, 12 semitones per octave)
+
+    [[nodiscard]] constexpr bool operator==(const KeyboardRegionConfig& other) const noexcept = default;
+};
+
+[[nodiscard]] inline int calculateSoundingNoteWithRegion(int baseNote, const KeyboardRegionConfig& region) noexcept {
+    const auto totalShift = static_cast<int>(region.transposeOffset) + static_cast<int>(region.octaveShift) * 12;
+    return juce::jlimit(0, 127, baseNote + totalShift);
+}
+
+[[nodiscard]] inline int calculateSoundingChannelWithRegion(int baseChannel,
+                                                            const KeyboardRegionConfig& region) noexcept {
+    if (region.channel >= 1 && region.channel <= 16) {
+        return static_cast<int>(region.channel);
+    }
+    return baseChannel;
+}
+
+[[nodiscard]] inline bool isNumpadKeyCode(int keyCode) noexcept {
+    return (keyCode >= juce::KeyPress::numberPad0 && keyCode <= juce::KeyPress::numberPad9)
+        || keyCode == juce::KeyPress::numberPadDivide || keyCode == juce::KeyPress::numberPadMultiply
+        || keyCode == juce::KeyPress::numberPadSubtract || keyCode == juce::KeyPress::numberPadAdd
+        || keyCode == juce::KeyPress::numberPadDecimalPoint;
+}
+
+[[nodiscard]] inline bool isMainKeyboardKey(int keyCode) noexcept {
+    switch (keyCode) {
+    case '1':
+    case '2':
+    case '3':
+    case '4':
+    case '5':
+    case '6':
+    case '7':
+    case '8':
+    case '9':
+    case '0':
+    case 'Q':
+    case 'W':
+    case 'E':
+    case 'R':
+    case 'T':
+    case 'Y':
+    case 'U':
+    case 'I':
+    case 'O':
+    case 'P':
+    case 'A':
+    case 'S':
+    case 'D':
+    case 'F':
+    case 'G':
+    case 'H':
+    case 'J':
+    case 'K':
+    case 'L':
+    case 'Z':
+    case 'X':
+    case 'C':
+    case 'V':
+    case 'B':
+    case 'N':
+    case 'M':
+        return true;
+    default:
+        return false;
+    }
+}
+
+[[nodiscard]] inline KeyboardRegion getRegionForKeyCode(int keyCode, KeyboardPartitionMode mode) noexcept {
+    if (mode == KeyboardPartitionMode::off) {
+        return KeyboardRegion::none;
+    }
+    if (mode == KeyboardPartitionMode::mainOnly) {
+        switch (keyCode) {
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case 'Q':
+        case 'W':
+        case 'E':
+        case 'R':
+        case 'T':
+        case 'A':
+        case 'S':
+        case 'D':
+        case 'F':
+        case 'G':
+        case 'Z':
+        case 'X':
+        case 'C':
+        case 'V':
+        case 'B':
+            return KeyboardRegion::regionA;
+        case '6':
+        case '7':
+        case '8':
+        case '9':
+        case '0':
+        case 'Y':
+        case 'U':
+        case 'I':
+        case 'O':
+        case 'P':
+        case 'H':
+        case 'J':
+        case 'K':
+        case 'L':
+        case 'N':
+        case 'M':
+            return KeyboardRegion::regionB;
+        default:
+            return KeyboardRegion::none;
+        }
+    }
+    if (mode == KeyboardPartitionMode::mainAndNumpad) {
+        if (isMainKeyboardKey(keyCode)) {
+            return KeyboardRegion::regionA;
+        }
+        if (isNumpadKeyCode(keyCode)) {
+            return KeyboardRegion::regionB;
+        }
+        return KeyboardRegion::none;
+    }
+    return KeyboardRegion::none;
+}
 
 // ============================================================================
 // Performance Modifier State (Phase 34-D: Event-time Transformation Pipeline)
@@ -119,6 +264,7 @@ struct HeldKeyIdentity {
     int soundingMidiNote = 60; // Sounding MIDI note locked at NoteOn
     int soundingMidiChannel = 1; // Sounding MIDI channel locked at NoteOn
     float velocity = 1.0f; // Trigger velocity
+    bool isMouseHeld = false; // Whether this note is actively held by mouse interaction
 };
 
 struct KeyboardLayout {
@@ -128,6 +274,8 @@ struct KeyboardLayout {
     std::array<KeyGroup, 4> groups { KeyGroup { 0, 0, 0, "A" }, KeyGroup { 0, 0, 0, "B" }, KeyGroup { 0, 0, 0, "C" },
                                      KeyGroup { 0, 0, 0, "D" } };
     uint8_t activeGroupIndex = 0;
+    KeyboardRegionConfig regionA;
+    KeyboardRegionConfig regionB;
 
     [[nodiscard]] const KeyGroup& getActiveGroup() const noexcept {
         return groups[activeGroupIndex % 4];
@@ -148,16 +296,55 @@ struct KeyboardLayout {
     }
 };
 
-[[nodiscard]] inline int normaliseAlphaNumericKeyCode(int keyCode) {
-    if (!std::isalnum(static_cast<unsigned char>(keyCode))) {
-        return 0;
+[[nodiscard]] inline int normalisePhysicalKeyCode(int keyCode) {
+    if (isNumpadKeyCode(keyCode)) {
+        return keyCode;
     }
+    if (keyCode == kCapsLockKeyCode) {
+        return keyCode;
+    }
+    if (keyCode >= 'a' && keyCode <= 'z') {
+        return std::toupper(keyCode);
+    }
+    if ((keyCode >= 'A' && keyCode <= 'Z') || (keyCode >= '0' && keyCode <= '9')) {
+        return keyCode;
+    }
+    if (keyCode > juce::KeyPress::spaceKey && keyCode < 128 && std::isprint(keyCode)) {
+        return keyCode;
+    }
+    return 0;
+}
 
-    return juce::KeyPress(std::toupper(static_cast<unsigned char>(keyCode)), 0, 0).getKeyCode();
+[[nodiscard]] inline juce::String getKeyDisplayText(int keyCode) {
+    if (keyCode >= juce::KeyPress::numberPad0 && keyCode <= juce::KeyPress::numberPad9) {
+        return "Num " + juce::String(keyCode - juce::KeyPress::numberPad0);
+    }
+    if (keyCode == juce::KeyPress::numberPadDivide) {
+        return "Num /";
+    }
+    if (keyCode == juce::KeyPress::numberPadMultiply) {
+        return "Num *";
+    }
+    if (keyCode == juce::KeyPress::numberPadSubtract) {
+        return "Num -";
+    }
+    if (keyCode == juce::KeyPress::numberPadAdd) {
+        return "Num +";
+    }
+    if (keyCode == juce::KeyPress::numberPadDecimalPoint) {
+        return "Num .";
+    }
+    if (keyCode == kCapsLockKeyCode) {
+        return "Caps";
+    }
+    if (keyCode > 0 && keyCode < 128 && std::isprint(keyCode)) {
+        return juce::String::charToString(static_cast<char>(keyCode));
+    }
+    return juce::KeyPress(keyCode).getTextDescription();
 }
 
 [[nodiscard]] inline int makeAlphaNumericKeyCode(char character) {
-    return normaliseAlphaNumericKeyCode(static_cast<unsigned char>(character));
+    return normalisePhysicalKeyCode(static_cast<unsigned char>(character));
 }
 
 [[nodiscard]] inline KeyBinding makeNoteBinding(char character, int midiNote, int midiChannel = 1,
@@ -188,6 +375,19 @@ struct KeyboardLayout {
     return binding;
 }
 
+[[nodiscard]] inline KeyBinding makeNumpadBinding(int numpadKeyCode, const juce::String& displayText, int midiNote,
+                                                  int midiChannel = 1, float velocity = 1.0f) {
+    KeyBinding binding;
+    binding.keyCode = numpadKeyCode;
+    binding.displayText = displayText;
+    binding.action.type = KeyActionType::note;
+    binding.action.trigger = KeyTrigger::keyDown;
+    binding.action.setMidiNoteNumber(MidiNoteNumber::fromClamped(midiNote));
+    binding.action.setMidiChannel(MidiChannel::fromClamped(midiChannel));
+    binding.action.setVelocity(Velocity::fromClamped(velocity));
+    return binding;
+}
+
 [[nodiscard]] inline KeyboardLayout makeDefaultKeyboardLayout() {
     constexpr int baseC123Row = 84;
     constexpr int baseCQweRow = 72;
@@ -197,7 +397,7 @@ struct KeyboardLayout {
     KeyboardLayout layout;
     layout.name = "DevPiano Default";
     auto& bindings = layout.bindings;
-    bindings.reserve(36);
+    bindings.reserve(51);
 
     const auto c5 = baseC123Row;
     bindings.push_back(makeNoteBinding('1', c5 + 0));
@@ -243,6 +443,22 @@ struct KeyboardLayout {
     bindings.push_back(makeNoteBinding('N', c2 + 9));
     bindings.push_back(makeNoteBinding('M', c2 + 11));
 
+    // 15 default numeric keypad bindings (Phase 38-3)
+    bindings.push_back(makeNumpadBinding(juce::KeyPress::numberPad1, "Num 1", 60));
+    bindings.push_back(makeNumpadBinding(juce::KeyPress::numberPad2, "Num 2", 62));
+    bindings.push_back(makeNumpadBinding(juce::KeyPress::numberPad3, "Num 3", 64));
+    bindings.push_back(makeNumpadBinding(juce::KeyPress::numberPad4, "Num 4", 65));
+    bindings.push_back(makeNumpadBinding(juce::KeyPress::numberPad5, "Num 5", 67));
+    bindings.push_back(makeNumpadBinding(juce::KeyPress::numberPad6, "Num 6", 69));
+    bindings.push_back(makeNumpadBinding(juce::KeyPress::numberPad7, "Num 7", 71));
+    bindings.push_back(makeNumpadBinding(juce::KeyPress::numberPad8, "Num 8", 72));
+    bindings.push_back(makeNumpadBinding(juce::KeyPress::numberPad9, "Num 9", 74));
+    bindings.push_back(makeNumpadBinding(juce::KeyPress::numberPad0, "Num 0", 76));
+    bindings.push_back(makeNumpadBinding(juce::KeyPress::numberPadDivide, "Num /", 61));
+    bindings.push_back(makeNumpadBinding(juce::KeyPress::numberPadMultiply, "Num *", 63));
+    bindings.push_back(makeNumpadBinding(juce::KeyPress::numberPadSubtract, "Num -", 66));
+    bindings.push_back(makeNumpadBinding(juce::KeyPress::numberPadAdd, "Num +", 68));
+    bindings.push_back(makeNumpadBinding(juce::KeyPress::numberPadDecimalPoint, "Num .", 70));
     return layout;
 }
 

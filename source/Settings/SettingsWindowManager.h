@@ -37,6 +37,7 @@ public:
     void saveAndClose();
     void showFor(MainComponent& owner);
     void refreshAcousticControls();
+    void refreshPerformanceRoutingHint(const juce::String& hint);
 
 private:
     struct State;

@@ -18,12 +18,14 @@ bool isAcousticSnapshotValid(const devpiano::audio::AcousticSnapshot& acoustic) 
         && std::isfinite(acoustic.brightness) && std::isfinite(acoustic.hammerHardness)
         && std::isfinite(acoustic.resonance) && std::isfinite(acoustic.reverbWet)
         && std::isfinite(acoustic.pedalNoiseLevel) && std::isfinite(acoustic.feltAgeingAmount)
-        && std::isfinite(acoustic.duplexResonance);
+        && std::isfinite(acoustic.duplexResonance) && std::isfinite(acoustic.layers.pianoGain)
+        && std::isfinite(acoustic.layers.pluginGain);
 }
 
 bool hasUsableRenderOptions(const devpiano::exporting::WavExportOptions& options) noexcept {
     return isSupportedTimelineSampleRate(options.sampleRate) && options.numChannels > 0 && options.blockSize > 0
-        && options.bitsPerSample > 0;
+        && options.bitsPerSample > 0 && std::isfinite(options.layers.pianoGain)
+        && std::isfinite(options.layers.pluginGain);
 }
 
 std::optional<RenderTimeline> prepareRenderTimeline(const RecordingTake& take, double targetSampleRate,
@@ -105,6 +107,8 @@ std::optional<RenderTimeline> prepareRenderTimeline(const RecordingTake& take, d
 void addPanicMidi(juce::MidiBuffer& midiBuffer, int sampleOffset) noexcept {
     for (auto channel = 1; channel <= 16; ++channel) {
         midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 64, 0), sampleOffset);
+        midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 66, 0), sampleOffset);
+        midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 67, 0), sampleOffset);
         midiBuffer.addEvent(juce::MidiMessage::controllerEvent(channel, 120, 0), sampleOffset);
         midiBuffer.addEvent(juce::MidiMessage::allNotesOff(channel), sampleOffset);
     }
@@ -114,7 +118,9 @@ void applyAcousticSnapshotToBuiltin(devpiano::audio::BuiltinSynthesiser& pianoSy
                                     devpiano::audio::BuiltinSynthesiser*& activeSynth,
                                     devpiano::audio::RoomReverbEngine& roomReverb, float& currentMasterGain,
                                     const devpiano::audio::AcousticSnapshot& snapshot, bool applyPedalState) {
-    auto* targetSynth = (snapshot.builtinTone == devpiano::core::BuiltinTone::sine) ? &sineSynth : &pianoSynth;
+    auto* targetSynth = (!snapshot.layers.enabled && snapshot.builtinTone == devpiano::core::BuiltinTone::sine)
+        ? &sineSynth
+        : &pianoSynth;
     if (activeSynth != targetSynth) {
         if (activeSynth != nullptr) {
             activeSynth->allNotesOff(0, false);
@@ -168,6 +174,46 @@ void applyAcousticSnapshotToReverbAndGain(devpiano::audio::RoomReverbEngine& roo
     roomReverb.setSpace(snapshot.reverbSpace);
     roomReverb.setWetLevel(snapshot.reverbWet);
     currentMasterGain = juce::jlimit(0.0f, 1.0f, snapshot.masterGain);
+}
+
+void initialiseOfflinePianoSynth(devpiano::audio::BuiltinSynthesiser& pianoSynth,
+                                 const devpiano::exporting::WavExportOptions& options, int voiceCount) {
+    pianoSynth.clearSounds();
+    pianoSynth.clearVoices();
+    pianoSynth.addSound(new PianoSynthSound());
+    for (auto index = 0; index < voiceCount; ++index) {
+        auto* voice = new PianoSynthVoice();
+        voice->setVoiceIndex(index);
+        voice->setAdsrParameters(options.adsr);
+        voice->setPianoParameters(options.pianoBrightness, options.pianoHammerHardness, options.pianoResonance);
+        voice->setPianoTuning(options.stretchTuningEnabled, juce::jlimit(0.0f, 1.0f, options.duplexResonance));
+        voice->setLidPosition(static_cast<PianoSynthVoice::LidPosition>(options.lidPosition));
+        voice->setTemperament(options.temperament);
+        voice->setReferencePitchA4(options.referencePitchA4);
+        voice->setSoundPerspective(options.soundPerspective);
+        voice->setPedalNoiseLevel(options.pedalNoiseLevel);
+        voice->setFeltAgeingAmount(options.feltAgeingAmount);
+        pianoSynth.addVoice(voice);
+    }
+    pianoSynth.setCurrentPlaybackSampleRate(options.sampleRate);
+}
+
+void initialiseOfflineSynths(devpiano::audio::BuiltinSynthesiser& pianoSynth,
+                             devpiano::audio::BuiltinSynthesiser& sineSynth,
+                             const devpiano::exporting::WavExportOptions& options, int voiceCount) {
+    initialiseOfflinePianoSynth(pianoSynth, options, voiceCount);
+
+    sineSynth.clearSounds();
+    sineSynth.clearVoices();
+    sineSynth.addSound(new SineSynthSound());
+    for (auto index = 0; index < voiceCount; ++index) {
+        auto* voice = new SineSynthVoice();
+        voice->setAdsrParameters(options.adsr);
+        voice->setTemperament(options.temperament);
+        voice->setReferencePitchA4(options.referencePitchA4);
+        sineSynth.addVoice(voice);
+    }
+    sineSynth.setCurrentPlaybackSampleRate(options.sampleRate);
 }
 
 } // namespace devpiano::recording

@@ -27,6 +27,10 @@ public:
     void buildJiveUi();
     void rebuildColourModeCombo();
     void rebuildNoteDisplayCombo();
+    void rebuildPartitionModeCombo();
+    void rebuildRegionChannelCombos();
+    void updateGroupOverrideHint();
+    void setPerformanceRoutingHint(const juce::String& hint);
     void rebuildKeySignatureCombo();
     void rebuildLidPositionCombo();
     void rebuildPianoStyleCombo();
@@ -59,6 +63,8 @@ private:
     void wireAppearanceAndLocaleControls();
     void wireAppearanceControls();
     void wireLocaleAndActionControls();
+    void wireLayerControls();
+    void wireRegionControls();
     void wireAcousticControls();
     bool applyDisplayProperty(const juce::Identifier& prop);
     bool applyMidiProperty(const juce::Identifier& prop);
@@ -111,6 +117,18 @@ private:
     juce::Slider* fadeSpeedSlider = nullptr;
     juce::ToggleButton* instrumentFilterToggle = nullptr;
     juce::ComboBox* sustainPolicyCombo = nullptr;
+    juce::ComboBox* partitionModeCombo = nullptr;
+    juce::ToggleButton* layersEnabledToggle = nullptr;
+    juce::ToggleButton* layersPianoToggle = nullptr;
+    juce::Slider* layersPianoGainSlider = nullptr;
+    juce::ToggleButton* layersPluginToggle = nullptr;
+    juce::Slider* layersPluginGainSlider = nullptr;
+    juce::ComboBox* regionAChannelCombo = nullptr;
+    juce::Slider* regionATransposeSlider = nullptr;
+    juce::Slider* regionAOctaveSlider = nullptr;
+    juce::ComboBox* regionBChannelCombo = nullptr;
+    juce::Slider* regionBTransposeSlider = nullptr;
+    juce::Slider* regionBOctaveSlider = nullptr;
     juce::ComboBox* languageCombo = nullptr;
     juce::ComboBox* lidPositionCombo = nullptr;
     juce::ComboBox* pianoStyleCombo = nullptr;
@@ -131,6 +149,7 @@ private:
 
     std::unique_ptr<juce::XmlElement> savedStateSnapshot;
     bool dirty = false;
+    juce::String performanceRoutingHint;
     juce::ValueTree editingState { "Settings" };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SettingsComponent)

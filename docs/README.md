@@ -42,9 +42,9 @@
 | **输入与映射** | [`features/per-key-customization.md`](reference/features/per-key-customization.md) | 128 项逐键自定义标签与颜色、按键绑定编辑对话框（`KeyBindingEditDialog`） |
 | **输入与映射** | [`features/midi-channel-matrix.md`](reference/features/midi-channel-matrix.md) | 16 通道 MIDI 矩阵路由（移调/力度/音色/延音/按键跟随）与全局调号 |
 | **录制与回放** | [`features/recording-playback.md`](reference/features/recording-playback.md) | 暂停捕获配对、0.5x–2.0x 回放、采样域重基准、Take-relative Seek / A-B 状态恢复、完整预备拍与标准 Type 1 MIDI 导出 |
-| **录制与回放** | [`features/performance-persistence.md`](reference/features/performance-persistence.md) | 当前 `.devpiano` v3 JSON、JUCE 长度前缀二进制消息、内嵌快照、事务替换与 Take/原生文件绑定 |
+| **录制与回放** | [`features/performance-persistence.md`](reference/features/performance-persistence.md) | 当前 `.devpiano` v4、最终 MIDI 身份与内嵌快照、事务文件/会话保护 |
 | **录制与回放** | [`features/midi-file-import.md`](reference/features/midi-file-import.md) | 标准 MIDI 文件导入、Type 0/1 全轨并轨、CC64 延音/弯音解析与回放 |
-| **渲染与导出** | [`features/plugin-offline-rendering.md`](reference/features/plugin-offline-rendering.md) | VST3 与内置 Piano / Sine 离线 WAV 导出，`RenderPipeline` 采样级快照、宿主 Master/混响语义及协作取消边界 |
+| **渲染与导出** | [`features/plugin-offline-rendering.md`](reference/features/plugin-offline-rendering.md) | 单层与固定 Piano + 单 VST3、采样延迟对齐、一次 Master/Reverb、独立离线实例及失败/取消保护 |
 | **预设与状态** | [`features/performance-presets.md`](reference/features/performance-presets.md) | 当前 v2 UUID 预设、配置子集、CRUD、F1-F12 与内嵌快照回放；不按历史名称迁移 |
 | **UI 与交互** | [`features/declarative-ui-and-theming.md`](reference/features/declarative-ui-and-theming.md) | 内化的 JIVE 声明式 UI、ViewHost、主窗口节拍器控件与 QWERTY 和弦 HUD、时间轴、设计 Token 与通用弹窗 |
 | **多语言** | [`features/internationalization.md`](reference/features/internationalization.md) | 运行时中英文双语即时切换（`LocaleManager` + 内嵌 `zh_CN.loc`） |

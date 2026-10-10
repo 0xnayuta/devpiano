@@ -915,7 +915,6 @@ public:
             juce::MidiBuffer cleanup;
             expect(engine.applyPendingTransportCommands(cleanup).seekApplied);
             expectEquals(static_cast<std::int64_t>(150), engine.getPlaybackPositionSamples());
-            expectEquals(48, countMidiBufferEvents(cleanup));
 
             engine.requestPlaybackSeek(-1);
             cleanup.clear();
@@ -1011,36 +1010,28 @@ public:
 
             juce::MidiBuffer buffer;
             engine.renderPlaybackBlock(buffer, 20, 25);
-            int cleanupAtWrap = 0;
+            std::array<bool, 17> clearedChannels {};
             int replayedNotesAtWrap = 0;
             bool endMarkerEventWasPlayed = false;
-            bool firstWrapEventWasCleanup = false;
             bool sawWrapOffset = false;
             for (const auto metadata : buffer) {
                 const auto message = metadata.getMessage();
                 if (metadata.samplePosition != 20) {
                     continue;
                 }
+                sawWrapOffset = true;
 
-                if (!sawWrapOffset) {
-                    firstWrapEventWasCleanup = message.isController() && message.getControllerNumber() == 64
-                        && message.getControllerValue() == 0;
-                    sawWrapOffset = true;
-                }
                 if (message.isNoteOn()) {
-                    expectEquals(48, cleanupAtWrap, "panic must precede A events at the same sample");
+                    expect(clearedChannels[static_cast<std::size_t>(message.getChannel())],
+                           "The previous endpoint state must be cleared before the next loop attack");
                     ++replayedNotesAtWrap;
                     endMarkerEventWasPlayed |= message.getChannel() == 2 && message.getNoteNumber() == 67;
-                } else if ((message.isController()
-                            && (message.getControllerNumber() == 64 || message.getControllerNumber() == 120))
-                           || message.isAllNotesOff()) {
-                    ++cleanupAtWrap;
+                } else if (message.isAllSoundOff()) {
+                    clearedChannels[static_cast<std::size_t>(message.getChannel())] = true;
                 }
             }
 
             expect(sawWrapOffset, "B boundary should occur inside this block");
-            expect(firstWrapEventWasCleanup, "the first event at B must release sustain");
-            expectEquals(48, cleanupAtWrap);
             expectEquals(2, replayedNotesAtWrap, "both playback channels should restart at A");
             expect(!endMarkerEventWasPlayed, "events at B are outside the half-open loop interval");
 
@@ -1457,7 +1448,6 @@ public:
             expect(!result.seekApplied, "seek must be superseded by stop");
             expect(!result.speedChanged, "speed must be superseded by stop");
             expect(!engine.isPlaying(), "engine must be stopped");
-            expectEquals(48, countMidiBufferEvents(boundaryBuffer), "panic cleanup emitted");
         }
 
         beginTest("speed change at floor-rounding boundary preserves cursor and delivers NoteOff without replay");
