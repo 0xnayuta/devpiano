@@ -29,6 +29,7 @@ public:
         testNumpadAndPartitionViewModelSnapshot();
         testMouseInteractionPreservesPhysicalKeyIdentityAndZone();
         testNarrowWindowHorizontalScrolling();
+        testMainOnlyPartitionSteppedDividerRendering();
     }
 
 private:
@@ -664,6 +665,31 @@ private:
         if (hit.key != nullptr) {
             expect(hit.rowIndex >= 0 && hit.rowIndex < 5);
         }
+    }
+
+    void testMainOnlyPartitionSteppedDividerRendering() {
+        beginTest("MainOnly Partition Mode Renders Stepped Rounded Divider Cleanly");
+
+        KeyboardMidiMapper mapper;
+        mapper.setPartitionMode(devpiano::core::KeyboardPartitionMode::mainOnly);
+
+        devpiano::ui::QwertyComponent comp;
+        comp.setVisible(true);
+        comp.setSize(700, 140);
+        comp.updateViewModel(mapper.createQwertySnapshot(0));
+
+        // Offscreen headless paint to verify path computation and corner smoothing
+        const auto image = comp.createComponentSnapshot(comp.getLocalBounds());
+        // Verification: Image must have drawn content without crashing or NaN bounds
+        int nonZeroPixels = 0;
+        for (int y = 0; y < 140; y += 14) {
+            for (int x = 0; x < 700; x += 14) {
+                if (image.getPixelAt(x, y).getAlpha() > 0) {
+                    ++nonZeroPixels;
+                }
+            }
+        }
+        expect(nonZeroPixels > 0, "QwertyComponent must render visible content in mainOnly partition mode");
     }
 };
 

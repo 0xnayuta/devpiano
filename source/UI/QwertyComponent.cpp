@@ -399,16 +399,35 @@ void QwertyComponent::paint(juce::Graphics& g) {
 
     // -- Zone Partition Dividers & Badges (Phase 38-3) --
     if (viewModel.partitionMode == devpiano::core::KeyboardPartitionMode::mainOnly) {
-        // MainOnly: Area A (left) vs Area B (right)
-        // Border marker on Row 1 between T (keyIndex 5) and Y (keyIndex 6)
-        if (keyGeometries[1].size() >= 7) {
-            const auto& tGeom = keyGeometries[1][5];
-            const auto& yGeom = keyGeometries[1][6];
-            const float midX = (tGeom.bounds.getRight() + yGeom.bounds.getX()) * 0.5f;
-            const float topY = keyGeometries[0].front().bounds.getY();
-            const float bottomY = keyGeometries[3].back().bounds.getBottom();
-            g.setColour(juce::Colour(0x6038BDF8)); // Subtle sky blue divider
-            g.drawVerticalLine(juce::roundToInt(midX), topY, bottomY);
+        // MainOnly: Area A (left: 1~5, Q~T, A~G, Z~B) vs Area B (right: 6~0, Y~P, H~L, N~M)
+        // Stepped divider path tracing physical gaps between keys and truncated above Spacebar (Row 4).
+        if (keyGeometries[0].size() >= 7 && keyGeometries[1].size() >= 7 && keyGeometries[2].size() >= 7
+            && keyGeometries[3].size() >= 7) {
+            const float x0 = (keyGeometries[0][5].bounds.getRight() + keyGeometries[0][6].bounds.getX()) * 0.5f;
+            const float x1 = (keyGeometries[1][5].bounds.getRight() + keyGeometries[1][6].bounds.getX()) * 0.5f;
+            const float x2 = (keyGeometries[2][5].bounds.getRight() + keyGeometries[2][6].bounds.getX()) * 0.5f;
+            const float x3 = (keyGeometries[3][5].bounds.getRight() + keyGeometries[3][6].bounds.getX()) * 0.5f;
+
+            const float yTop = keyGeometries[0][5].bounds.getY();
+            const float yMid01 = (keyGeometries[0][5].bounds.getBottom() + keyGeometries[1][5].bounds.getY()) * 0.5f;
+            const float yMid12 = (keyGeometries[1][5].bounds.getBottom() + keyGeometries[2][5].bounds.getY()) * 0.5f;
+            const float yMid23 = (keyGeometries[2][5].bounds.getBottom() + keyGeometries[3][5].bounds.getY()) * 0.5f;
+            const float yBottom = keyGeometries[3][5].bounds.getBottom();
+
+            juce::Path dividerPath;
+            dividerPath.startNewSubPath(x0, yTop);
+            dividerPath.lineTo(x0, yMid01);
+            dividerPath.lineTo(x1, yMid01);
+            dividerPath.lineTo(x1, yMid12);
+            dividerPath.lineTo(x2, yMid12);
+            dividerPath.lineTo(x2, yMid23);
+            dividerPath.lineTo(x3, yMid23);
+            dividerPath.lineTo(x3, yBottom);
+
+            const auto smoothedPath = dividerPath.createPathWithRoundedCorners(4.0f);
+            g.setColour(juce::Colour(0x8038BDF8)); // Subtle sky blue divider
+            g.strokePath(smoothedPath,
+                         juce::PathStrokeType(1.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
         }
     }
 
