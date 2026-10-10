@@ -551,6 +551,7 @@ private:
         KeyboardMidiMapper mapper;
         mapper.setPartitionMode(devpiano::core::KeyboardPartitionMode::mainAndNumpad);
         mapper.setSostenutoPedalDown(true, false);
+        mapper.setNumLockPredicate([] { return true; });
 
         const auto vm = mapper.createQwertySnapshot(0);
         expect(vm.showNumpad);
@@ -566,6 +567,11 @@ private:
         }
         expect(numpadKeyCount >= 15);
 
+        // NumLock off -> isNumLockOn reflects false
+        mapper.setNumLockPredicate([] { return false; });
+        const auto vmNumLockOff = mapper.createQwertySnapshot(0);
+        expect(!vmNumLockOff.isNumLockOn);
+
         // Switch to off mode -> showNumpad must be false
         mapper.setPartitionMode(devpiano::core::KeyboardPartitionMode::off);
         const auto vmOff = mapper.createQwertySnapshot(0);
@@ -577,7 +583,7 @@ private:
 
         KeyboardMidiMapper mapper;
         mapper.setPartitionMode(devpiano::core::KeyboardPartitionMode::mainAndNumpad);
-
+        mapper.setNumLockPredicate([] { return true; });
         auto layout = devpiano::core::makeDefaultKeyboardLayout();
         layout.regionB.channel = 5;
         layout.regionB.transposeOffset = 12;
@@ -648,7 +654,7 @@ private:
 
         KeyboardMidiMapper mapper;
         mapper.setPartitionMode(devpiano::core::KeyboardPartitionMode::mainAndNumpad);
-
+        mapper.setNumLockPredicate([] { return true; });
         devpiano::ui::QwertyComponent comp;
         // Very narrow width (500px) when numpad is active
         comp.setSize(500, 140);
