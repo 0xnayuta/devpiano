@@ -29,6 +29,7 @@ public:
         testNumpadAndPartitionViewModelSnapshot();
         testMouseInteractionPreservesPhysicalKeyIdentityAndZone();
         testNarrowWindowHorizontalScrolling();
+        testNumpadDoubleHeightKeysOccupySingleCell();
         testMainOnlyPartitionSteppedDividerRendering();
     }
 
@@ -671,6 +672,115 @@ private:
         if (hit.key != nullptr) {
             expect(hit.rowIndex >= 0 && hit.rowIndex < 5);
         }
+    }
+
+    void testNumpadDoubleHeightKeysOccupySingleCell() {
+        beginTest("Numpad Enter and Num + register once and span two rows as one key");
+
+        KeyboardMidiMapper mapper;
+        mapper.setPartitionMode(devpiano::core::KeyboardPartitionMode::mainAndNumpad);
+        mapper.setNumLockPredicate([] { return true; });
+
+        const auto vm = mapper.createQwertySnapshot(0);
+        const auto countLabel = [&vm](const char* label) {
+            int count = 0;
+            for (const auto& row : vm.numpadRows) {
+                for (const auto& key : row.keys) {
+                    if (key.mainLabel == label) {
+                        ++count;
+                    }
+                }
+            }
+            return count;
+        };
+        expectEquals(countLabel("Enter"), 1, "numpad Enter must be registered once as a single key");
+        expectEquals(countLabel("Num +"), 1, "numpad Num + must be registered once as a single key");
+
+        devpiano::ui::QwertyComponent comp;
+        comp.setSize(1000, 160);
+        comp.updateViewModel(vm);
+
+        struct Extent {
+            int row = -1;
+            int index = -1;
+            juce::String label;
+            float top = 0.0f;
+            float bottom = 0.0f;
+        };
+        std::vector<Extent> extents;
+        for (int y = 0; y < comp.getHeight(); ++y) {
+            for (int x = 0; x < comp.getWidth(); x += 4) {
+                const auto hit = comp.findKeyAt({ x, y });
+                if (hit.key == nullptr || !hit.isNumpad) {
+                    continue;
+                }
+                Extent* matched = nullptr;
+                for (auto& extent : extents) {
+                    if (extent.row == hit.rowIndex && extent.index == hit.keyIndex) {
+                        matched = &extent;
+                        break;
+                    }
+                }
+                if (matched == nullptr) {
+                    extents.push_back({ hit.rowIndex, hit.keyIndex, hit.key->mainLabel, static_cast<float>(y),
+                                        static_cast<float>(y) });
+                } else {
+                    matched->top = juce::jmin(matched->top, static_cast<float>(y));
+                    matched->bottom = juce::jmax(matched->bottom, static_cast<float>(y));
+                }
+            }
+        }
+
+        const auto extentOf = [&extents](const char* label) -> const Extent* {
+            for (const auto& extent : extents) {
+                if (extent.label == label) {
+                    return &extent;
+                }
+            }
+            return nullptr;
+        };
+
+        // 单个物理 Enter 只能产生一个可命中的几何单元（旧缺陷会得到上下两个单元）
+        int enterCells = 0;
+        for (const auto& extent : extents) {
+            if (extent.label == "Enter") {
+                ++enterCells;
+            }
+        }
+        expectEquals(enterCells, 1, "numpad Enter must occupy exactly one hit-testable cell");
+
+        const auto* enterExtent = extentOf("Enter");
+        const auto* plusExtent = extentOf("Num +");
+        const auto* num1Extent = extentOf("Num 1");
+        const auto* num4Extent = extentOf("Num 4");
+        const auto* num0Extent = extentOf("Num 0");
+        expect(enterExtent != nullptr && plusExtent != nullptr && num1Extent != nullptr && num4Extent != nullptr
+                   && num0Extent != nullptr,
+               "numpad labels must be positioned");
+        if (enterExtent == nullptr || plusExtent == nullptr || num1Extent == nullptr || num4Extent == nullptr
+            || num0Extent == nullptr) {
+            return;
+        }
+
+        // Enter 与 Num 1 同列同顶，并向下延伸到 Num 0 所在行的底部：一次占满两行及其行间隙
+        expectWithinAbsoluteError(enterExtent->top, num1Extent->top, 1.5f);
+        expectWithinAbsoluteError(enterExtent->bottom, num0Extent->bottom, 1.5f);
+
+        // Num + 从 Num 7 行顶一直延伸到 Num 4 行底部
+        const auto* num7Extent = extentOf("Num 7");
+        expect(num7Extent != nullptr);
+        if (num7Extent != nullptr) {
+            expectWithinAbsoluteError(plusExtent->top, num7Extent->top, 1.5f);
+        }
+        expectWithinAbsoluteError(plusExtent->bottom, num4Extent->bottom, 1.5f);
+
+        // 双高键的实际可命中高度应接近单个键高的两倍
+        const auto singleKeyHeight = num1Extent->bottom - num1Extent->top;
+        expect(singleKeyHeight > 0.0f);
+        expect((enterExtent->bottom - enterExtent->top) > (1.6f * singleKeyHeight),
+               "numpad Enter must render as a double-height key");
+        expect((plusExtent->bottom - plusExtent->top) > (1.6f * singleKeyHeight),
+               "numpad Num + must render as a double-height key");
     }
 
     void testMainOnlyPartitionSteppedDividerRendering() {

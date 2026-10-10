@@ -141,6 +141,9 @@ void QwertyComponent::recalculateKeyBounds() {
     // 2. Position Numpad rows if active
     if (hasNumpad) {
         const auto numpadStartX = paddingX + mainWidth + numpadGap - static_cast<float>(scrollOffsetX);
+        // 统一 4 列基准宽度，不随该行实际键数变化：纵向双高键所在的列必须与上下行精确对齐，
+        // 因此跨列键吸收自身内部间隙，未登记的尾部列留给上方跨行键。
+        const auto numpadUnitWidth = std::max(1.0f, (numpadWidth - (3.0f * gapX)) / 4.0f);
         for (std::size_t r = 0; r < 5; ++r) {
             const auto& rowKeys = viewModel.numpadRows[r].keys;
             const auto numKeys = rowKeys.size();
@@ -153,14 +156,13 @@ void QwertyComponent::recalculateKeyBounds() {
             }
 
             const auto y = paddingY + static_cast<float>(r) * (rowHeight + gapY);
-            const auto totalGaps = static_cast<float>(numKeys - 1) * gapX;
-            const auto availableNpRowW = numpadWidth - totalGaps;
-            const auto unitWidth = std::max(1.0f, availableNpRowW / 4.0f);
-
             auto currentX = numpadStartX;
             for (std::size_t k = 0; k < numKeys; ++k) {
-                const auto keyW = rowKeys[k].widthWeight * unitWidth;
-                numpadGeometries[r][k].bounds = juce::Rectangle<float>(currentX, y, keyW, rowHeight);
+                const auto columnWeight = std::max(1.0f, rowKeys[k].widthWeight);
+                const auto rowSpan = std::max(1.0f, rowKeys[k].heightWeight);
+                const auto keyW = (columnWeight * numpadUnitWidth) + ((columnWeight - 1.0f) * gapX);
+                const auto keyH = (rowSpan * rowHeight) + ((rowSpan - 1.0f) * gapY);
+                numpadGeometries[r][k].bounds = juce::Rectangle<float>(currentX, y, keyW, keyH);
                 currentX += keyW + gapX;
             }
         }
@@ -378,8 +380,14 @@ void QwertyComponent::paint(juce::Graphics& g) {
                 g.drawRoundedRectangle(rect.reduced(0.5f), cornerRadius, 1.0f);
 
                 if (hasNote) {
-                    const auto topRect = rect.withTrimmedBottom(rect.getHeight() * 0.45f);
-                    const auto bottomRect = rect.withTrimmedTop(rect.getHeight() * 0.45f);
+                    // 双高键（如 Num +）把两级文本作为整体垂直居中，避免标签被拉伸到键体上下两端
+                    auto textArea = rect;
+                    if (keyState.heightWeight > 1.0f) {
+                        textArea
+                            = rect.withSizeKeepingCentre(rect.getWidth(), rect.getHeight() / keyState.heightWeight);
+                    }
+                    const auto topRect = textArea.withTrimmedBottom(textArea.getHeight() * 0.45f);
+                    const auto bottomRect = textArea.withTrimmedTop(textArea.getHeight() * 0.45f);
                     g.setColour(primaryTextColour);
                     g.setFont(devpiano::jive::DesignTokens::getUnifiedUiFont(11.5f, juce::Font::bold));
                     g.drawFittedText(keyState.mainLabel, topRect.toNearestInt(), juce::Justification::centred, 1);

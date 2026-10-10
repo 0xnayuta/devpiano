@@ -18,6 +18,8 @@ struct QwertyKeyVisualState {
     int keyCode = 0; // Key code (ASCII uppercase or juce::KeyPress constants)
     juce::String mainLabel; // Physical key cap label ("Q", "Tab", "Space")
     float widthWeight = 1.0f; // Relative width weight within row (sum is 15.0 per row)
+    // 纵向跨行权重（>= 1.0）：1.0 为单行高，2.0 表示小键盘双高键一次占满两行及其行间隙
+    float heightWeight = 1.0f;
     int mappedMidiNote = -1; // Mapped MIDI note number (-1 if unmapped or non-note)
     int mappedMidiChannel = 1; // Target MIDI channel (1..16)
     float velocity = 1.0f; // Action velocity [0.0, 1.0]
@@ -94,11 +96,12 @@ struct QwertyViewModel {
 
     // Helper lambda to construct a key state
     const auto makeKey = [](int keyCode, const char* label, float weight, bool isSustain = false, bool isSoft = false,
-                            bool isSost = false, bool isControl = false) {
+                            bool isSost = false, bool isControl = false, float heightWeight = 1.0f) {
         QwertyKeyVisualState k;
         k.keyCode = keyCode;
         k.mainLabel = label;
         k.widthWeight = weight;
+        k.heightWeight = heightWeight;
         k.isSustainPedal = isSustain;
         k.isSoftPedal = isSoft;
         k.isSostenutoPedal = isSost;
@@ -186,7 +189,9 @@ struct QwertyViewModel {
     r4.push_back(makeKey(0, "Win", 1.25f));
     r4.push_back(makeKey(0, "Ctrl", 2.5f));
 
-    // -- Numpad Layout Template (5 rows, sum = 4.0 per row) --
+    // -- Numpad Layout Template (4 columns x 5 rows, sum = 4.0 per row) --
+    // 小键盘双高键（Num + / Enter）只登记一次，用 heightWeight = 2.0 纵向跨两行，
+    // 与横向跨两列的 Num 0（widthWeight = 2.0）对称；禁止再用两行各登记一个同名键。
     auto& np0 = vm.numpadRows[0].keys;
     np0.reserve(4);
     np0.push_back(makeKey(0, "NumLk", 1.0f, false, false, false, true));
@@ -199,27 +204,25 @@ struct QwertyViewModel {
     np1.push_back(makeKey(juce::KeyPress::numberPad7, "Num 7", 1.0f));
     np1.push_back(makeKey(juce::KeyPress::numberPad8, "Num 8", 1.0f));
     np1.push_back(makeKey(juce::KeyPress::numberPad9, "Num 9", 1.0f));
-    np1.push_back(makeKey(juce::KeyPress::numberPadAdd, "Num +", 1.0f));
+    np1.push_back(makeKey(juce::KeyPress::numberPadAdd, "Num +", 1.0f, false, false, false, false, 2.0f));
 
     auto& np2 = vm.numpadRows[2].keys;
-    np2.reserve(4);
+    np2.reserve(3);
     np2.push_back(makeKey(juce::KeyPress::numberPad4, "Num 4", 1.0f));
     np2.push_back(makeKey(juce::KeyPress::numberPad5, "Num 5", 1.0f));
     np2.push_back(makeKey(juce::KeyPress::numberPad6, "Num 6", 1.0f));
-    np2.push_back(makeKey(juce::KeyPress::numberPadAdd, "Num +", 1.0f));
 
     auto& np3 = vm.numpadRows[3].keys;
     np3.reserve(4);
     np3.push_back(makeKey(juce::KeyPress::numberPad1, "Num 1", 1.0f));
     np3.push_back(makeKey(juce::KeyPress::numberPad2, "Num 2", 1.0f));
     np3.push_back(makeKey(juce::KeyPress::numberPad3, "Num 3", 1.0f));
-    np3.push_back(makeKey(0, "Enter", 1.0f, false, false, false, true));
+    np3.push_back(makeKey(0, "Enter", 1.0f, false, false, false, true, 2.0f));
 
     auto& np4 = vm.numpadRows[4].keys;
-    np4.reserve(3);
+    np4.reserve(2);
     np4.push_back(makeKey(juce::KeyPress::numberPad0, "Num 0", 2.0f));
     np4.push_back(makeKey(juce::KeyPress::numberPadDecimalPoint, "Num .", 1.0f));
-    np4.push_back(makeKey(0, "Enter", 1.0f, false, false, false, true));
 
     return vm;
 }
