@@ -135,6 +135,14 @@ public:
             expectWithinAbsoluteError(loaded.velocityHumanizeAmount, 0.08f, 0.0001f,
                                       "velocityHumanizeAmount must round-trip");
             expectWithinAbsoluteError(loaded.baseVelocityBias, 0.12f, 0.0001f, "baseVelocityBias must round-trip");
+            expect(loaded.layers.enabled, "layers.enabled must round-trip");
+            expect(!loaded.layers.pianoEnabled, "layers.pianoEnabled must round-trip");
+            expect(loaded.layers.pluginEnabled, "layers.pluginEnabled must round-trip");
+            expectWithinAbsoluteError(loaded.layers.pianoGain, 0.35f, 0.0001f, "layers.pianoGain must round-trip");
+            expectWithinAbsoluteError(loaded.layers.pluginGain, 0.85f, 0.0001f, "layers.pluginGain must round-trip");
+            expectEquals(static_cast<int>(loaded.regionA.channel), 3, "regionA.channel must round-trip");
+            expectEquals(static_cast<int>(loaded.regionA.transposeOffset), -7,
+                         "regionA.transposeOffset must round-trip");
 
             // Consumer verification: loaded settings drive KeyboardMidiMapper note output
             KeyboardMidiMapper mapper;

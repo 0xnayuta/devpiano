@@ -586,22 +586,60 @@ private:
         comp.setSize(1000, 160);
         comp.updateViewModel(mapper.createQwertySnapshot(0));
 
+        int receivedPhysicalKey = 0;
         int receivedNote = -1;
         int receivedChannel = -1;
-        comp.onNoteOn = [&](int note, int channel, float) {
+        comp.onPhysicalNoteOn = [&](int physicalKeyCode, int note, int channel, float) {
+            receivedPhysicalKey = physicalKeyCode;
             receivedNote = note;
             receivedChannel = channel;
             return devpiano::core::MidiNoteIdentity { devpiano::core::MidiNoteNumber::fromClamped(note),
                                                       devpiano::core::MidiChannel::fromClamped(channel) };
         };
 
+        int releasedPhysicalKey = 0;
+        int releasedNote = -1;
+        int releasedChannel = -1;
+        comp.onPhysicalNoteOff = [&](const devpiano::core::MidiNoteIdentity& identity, int physicalKeyCode) {
+            releasedPhysicalKey = physicalKeyCode;
+            releasedNote = identity.note.value;
+            releasedChannel = identity.channel.value;
+        };
+
         // Find Num 1 on numpad
         const auto& np3 = comp.getViewModel().numpadRows[3].keys;
         expect(np3.size() >= 3);
-        // Num 1 input note is 60 + 12 = 72, channel is 5
         expectEquals(np3[0].inputMidiNote, 72);
         expectEquals(np3[0].inputMidiChannel, 5);
         expectEquals(np3[0].keyCode, static_cast<int>(juce::KeyPress::numberPad1));
+
+        // Find coordinate for Num 1 and dispatch actual mouseDown / mouseUp
+        juce::Point<int> clickPos;
+        bool found = false;
+        for (int y = 20; y < 150 && !found; y += 10) {
+            for (int x = 600; x < 990 && !found; x += 10) {
+                const auto hit = comp.findKeyAt({ x, y });
+                if (hit.key != nullptr && hit.key->keyCode == static_cast<int>(juce::KeyPress::numberPad1)) {
+                    clickPos = { x, y };
+                    found = true;
+                }
+            }
+        }
+        expect(found, "Num 1 must be positioned and findable in QwertyComponent");
+
+        const juce::MouseEvent downEv(juce::Desktop::getInstance().getMainMouseSource(), clickPos.toFloat(),
+                                      juce::ModifierKeys(), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, &comp, &comp,
+                                      juce::Time::getCurrentTime(), clickPos.toFloat(), juce::Time::getCurrentTime(), 1,
+                                      false);
+        comp.mouseDown(downEv);
+        expectEquals(receivedPhysicalKey, static_cast<int>(juce::KeyPress::numberPad1));
+        expectEquals(receivedNote, 72);
+        expectEquals(receivedChannel, 5);
+
+        comp.mouseUp(downEv);
+        expectEquals(releasedPhysicalKey, static_cast<int>(juce::KeyPress::numberPad1));
+        expectEquals(releasedNote, 72);
+        expectEquals(releasedChannel, 5);
     }
 
     void testNarrowWindowHorizontalScrolling() {
@@ -623,7 +661,9 @@ private:
         comp.mouseWheelMove(wheelEv, { 0.0f, -1.0f, false, false });
         // Component should still paint cleanly and find keys
         const auto hit = comp.findKeyAt(juce::Point<int>(20, 20));
-        expect(hit.key != nullptr || hit.key == nullptr); // Valid hit test execution without crash
+        if (hit.key != nullptr) {
+            expect(hit.rowIndex >= 0 && hit.rowIndex < 5);
+        }
     }
 };
 

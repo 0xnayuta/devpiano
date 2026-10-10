@@ -292,11 +292,13 @@ void SettingsComponent::wireAppearanceControls() {
         }
         partitionModeCombo->onChange = [this] {
             if (model != nullptr) {
-                model->partitionMode
-                    = static_cast<devpiano::core::KeyboardPartitionMode>(partitionModeCombo->getSelectedId() - 1);
-                setDirty(true);
-                if (onDisplaySettingsChanged) {
-                    onDisplaySettingsChanged();
+                const auto selectedId = partitionModeCombo->getSelectedId();
+                if (selectedId >= 1) {
+                    model->partitionMode = static_cast<devpiano::core::KeyboardPartitionMode>(selectedId - 1);
+                    setDirty(true);
+                    if (onDisplaySettingsChanged) {
+                        onDisplaySettingsChanged();
+                    }
                 }
             }
         };
@@ -497,12 +499,15 @@ void SettingsComponent::wireLayerControls() {
         if (model != nullptr) {
             layersEnabledToggle->setToggleState(model->layers.enabled, juce::dontSendNotification);
         }
-        layersEnabledToggle->onStateChange = [this] {
+        layersEnabledToggle->onClick = [this] {
             if (model != nullptr) {
-                model->layers.enabled = layersEnabledToggle->getToggleState();
-                setDirty(true);
-                if (onDisplaySettingsChanged) {
-                    onDisplaySettingsChanged();
+                const auto newState = layersEnabledToggle->getToggleState();
+                if (model->layers.enabled != newState) {
+                    model->layers.enabled = newState;
+                    setDirty(true);
+                    if (onDisplaySettingsChanged) {
+                        onDisplaySettingsChanged();
+                    }
                 }
             }
         };
@@ -511,12 +516,15 @@ void SettingsComponent::wireLayerControls() {
         if (model != nullptr) {
             layersPianoToggle->setToggleState(model->layers.pianoEnabled, juce::dontSendNotification);
         }
-        layersPianoToggle->onStateChange = [this] {
+        layersPianoToggle->onClick = [this] {
             if (model != nullptr) {
-                model->layers.pianoEnabled = layersPianoToggle->getToggleState();
-                setDirty(true);
-                if (onDisplaySettingsChanged) {
-                    onDisplaySettingsChanged();
+                const auto newState = layersPianoToggle->getToggleState();
+                if (model->layers.pianoEnabled != newState) {
+                    model->layers.pianoEnabled = newState;
+                    setDirty(true);
+                    if (onDisplaySettingsChanged) {
+                        onDisplaySettingsChanged();
+                    }
                 }
             }
         };
@@ -542,12 +550,15 @@ void SettingsComponent::wireLayerControls() {
         if (model != nullptr) {
             layersPluginToggle->setToggleState(model->layers.pluginEnabled, juce::dontSendNotification);
         }
-        layersPluginToggle->onStateChange = [this] {
+        layersPluginToggle->onClick = [this] {
             if (model != nullptr) {
-                model->layers.pluginEnabled = layersPluginToggle->getToggleState();
-                setDirty(true);
-                if (onDisplaySettingsChanged) {
-                    onDisplaySettingsChanged();
+                const auto newState = layersPluginToggle->getToggleState();
+                if (model->layers.pluginEnabled != newState) {
+                    model->layers.pluginEnabled = newState;
+                    setDirty(true);
+                    if (onDisplaySettingsChanged) {
+                        onDisplaySettingsChanged();
+                    }
                 }
             }
         };
@@ -581,11 +592,14 @@ void SettingsComponent::wireRegionControls() {
         }
         regionAChannelCombo->onChange = [this] {
             if (model != nullptr) {
-                model->regionA.channel = static_cast<std::uint8_t>(regionAChannelCombo->getSelectedId() - 1);
-                updateGroupOverrideHint();
-                setDirty(true);
-                if (onDisplaySettingsChanged) {
-                    onDisplaySettingsChanged();
+                const auto selectedId = regionAChannelCombo->getSelectedId();
+                if (selectedId >= 1) {
+                    model->regionA.channel = static_cast<std::uint8_t>(selectedId - 1);
+                    updateGroupOverrideHint();
+                    setDirty(true);
+                    if (onDisplaySettingsChanged) {
+                        onDisplaySettingsChanged();
+                    }
                 }
             }
         };
@@ -632,11 +646,14 @@ void SettingsComponent::wireRegionControls() {
         }
         regionBChannelCombo->onChange = [this] {
             if (model != nullptr) {
-                model->regionB.channel = static_cast<std::uint8_t>(regionBChannelCombo->getSelectedId() - 1);
-                updateGroupOverrideHint();
-                setDirty(true);
-                if (onDisplaySettingsChanged) {
-                    onDisplaySettingsChanged();
+                const auto selectedId = regionBChannelCombo->getSelectedId();
+                if (selectedId >= 1) {
+                    model->regionB.channel = static_cast<std::uint8_t>(selectedId - 1);
+                    updateGroupOverrideHint();
+                    setDirty(true);
+                    if (onDisplaySettingsChanged) {
+                        onDisplaySettingsChanged();
+                    }
                 }
             }
         };

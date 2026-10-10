@@ -248,8 +248,14 @@ void MainComponent::wirePluginPanel() {
             btn->onClick = action;
         }
     };
-    wireButton("load-btn", [this] { pluginOperationController->loadSelectedPlugin(); });
-    wireButton("unload-btn", [this] { pluginOperationController->unloadCurrentPlugin(); });
+    wireButton("load-btn", [this] {
+        latencyFaultReprepareTriggered = false;
+        pluginOperationController->loadSelectedPlugin();
+    });
+    wireButton("unload-btn", [this] {
+        latencyFaultReprepareTriggered = false;
+        pluginOperationController->unloadCurrentPlugin();
+    });
     wireButton("editor-btn", [this] { pluginOperationController->togglePluginEditor(); });
     wireButton("toggle-btn", [this] { setPluginPanelExpanded(!appSettings.pluginPanelExpanded); });
     wireButton("scan-btn", [this] { pluginOperationController->scanPlugins(); });
@@ -263,6 +269,7 @@ void MainComponent::wirePluginPanel() {
                 return;
             }
             if (combo->getSelectedItemIndex() >= 0) {
+                latencyFaultReprepareTriggered = false;
                 pluginOperationController->loadSelectedPlugin();
             }
         };
@@ -833,6 +840,7 @@ void MainComponent::dispatchDroppedFile(const juce::File& file) {
     }
     if (ext == ".vst3") {
         if (pluginOperationController != nullptr) {
+            latencyFaultReprepareTriggered = false;
             pluginOperationController->handleImportVst3File(file);
         }
     }
@@ -1391,7 +1399,8 @@ void MainComponent::prepareForAudioDeviceRebuild() {
     if (pluginOperationController) {
         pluginOperationController->closePluginEditorWindow();
     }
-    latencyFaultReprepareTriggered = false;
+    // latencyFaultReprepareTriggered is retained across this automatic recovery
+    // attempt and cleared when the user changes plugins or audio device configuration.
     shutdownAudio();
 }
 
@@ -1480,6 +1489,7 @@ void MainComponent::handlePedalStateChanged(int controllerNumber, bool isDown) {
         if (controllerNumber == 64
             && keyboardMidiMapper.getSustainPolicy() == devpiano::core::SustainPolicy::syncPedal) {
             audioEngine.setSustainPedalDown(false);
+            activeChannels.clear();
         } else {
             for (int ch : activeChannels) {
                 audioEngine.sendController(ch, controllerNumber, 0);

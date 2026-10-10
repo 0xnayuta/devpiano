@@ -792,7 +792,7 @@ void MainComponent::runPluginActionWithAudioDeviceRebuild(
     };
 
     const auto runtimeAudioConfig = getCurrentRuntimeAudioConfig();
-
+    latencyFaultReprepareTriggered = false;
     prepareForAudioDeviceRebuild();
     const AudioDeviceRebuildGuard rebuildGuard(*this);
     action(runtimeAudioConfig);

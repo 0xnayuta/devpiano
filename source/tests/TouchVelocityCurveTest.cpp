@@ -1,5 +1,6 @@
 #include <JuceHeader.h>
 
+#include "Input/KeyboardMidiMapper.h"
 #include "Input/TouchVelocityCurve.h"
 #include "Layout/PerformancePreset.h"
 #include "Settings/SettingsModel.h"
@@ -18,6 +19,7 @@ public:
 
     void runTest() override {
         testMathematicalCurveProperties();
+        testKeyboardMidiMapperCurveInjection();
         testSettingsStoreAndPresetRoundTrip();
     }
 
@@ -76,7 +78,64 @@ private:
         expect(softWide < 0.2f); // 极弱更柔
         expect(loudWide > 0.8f); // 强奏更具冲击力
     }
+    void testKeyboardMidiMapperCurveInjection() {
+        beginTest("KeyboardMidiMapper: Velocity curve injection during note triggering");
 
+        KeyboardMidiMapper mapper;
+        juce::MidiKeyboardState state;
+
+        expect(mapper.getTouchVelocityCurve() == devpiano::input::TouchVelocityCurve::standard);
+
+        // Bind key A with base velocity 0.80f
+        devpiano::core::KeyboardLayout layout;
+        layout.name = "CurveTestLayout";
+        layout.bindings.push_back(devpiano::core::makeNoteBinding('A', 60, 1, 0.80f));
+        mapper.setLayout(layout);
+
+        struct TestListener final : public juce::MidiKeyboardState::Listener {
+            float lastVelocity = 0.0f;
+            void handleNoteOn(juce::MidiKeyboardState*, int, int, float vel) override {
+                lastVelocity = vel;
+            }
+            void handleNoteOff(juce::MidiKeyboardState*, int, int, float) override {
+            }
+        } listener;
+
+        state.addListener(&listener);
+
+        const juce::KeyPress keyA('A', 0, 0);
+
+        // 1. Standard: within 7-bit MIDI quantization step (~0.00787f) of 0.80f
+        mapper.setTouchVelocityCurve(devpiano::input::TouchVelocityCurve::standard);
+        mapper.handleKeyPressed(keyA, state);
+        expectWithinAbsoluteError(listener.lastVelocity, 0.80f, 0.01f);
+        mapper.releaseAllHeldKeys(state);
+
+        // 2. Light: 0.80^0.65 ≈ 0.865f > 0.80f
+        mapper.setTouchVelocityCurve(devpiano::input::TouchVelocityCurve::light);
+        mapper.handleKeyPressed(keyA, state);
+        expect(listener.lastVelocity > 0.80f);
+        expectWithinAbsoluteError(listener.lastVelocity, std::pow(0.80f, 0.65f), 0.01f);
+        mapper.releaseAllHeldKeys(state);
+
+        // 3. Heavy: 0.80^1.60 ≈ 0.699f < 0.80f
+        mapper.setTouchVelocityCurve(devpiano::input::TouchVelocityCurve::heavy);
+        mapper.handleKeyPressed(keyA, state);
+        expect(listener.lastVelocity < 0.80f);
+        expectWithinAbsoluteError(listener.lastVelocity, std::pow(0.80f, 1.60f), 0.01f);
+        mapper.releaseAllHeldKeys(state);
+
+        // 4. Wide Dynamic: Smoothstep 3v^2 - 2v^3 = 0.8^2 * (3 - 1.6) = 0.896f
+        mapper.setTouchVelocityCurve(devpiano::input::TouchVelocityCurve::wideDynamic);
+        mapper.handleKeyPressed(keyA, state);
+        expect(listener.lastVelocity > 0.80f);
+        expectWithinAbsoluteError(
+            listener.lastVelocity,
+            devpiano::input::applyVelocityCurve(0.80f, devpiano::input::TouchVelocityCurve::wideDynamic), 0.01f);
+        mapper.releaseAllHeldKeys(state);
+
+        state.removeListener(&listener);
+    }
     void testSettingsStoreAndPresetRoundTrip() {
         beginTest("SettingsStore & PerformancePreset: Touch velocity curve round-trip");
 

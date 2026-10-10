@@ -352,6 +352,7 @@ countries: cn
 "Plugin latency exceeds supported delay capacity" = "插件报告的延迟超出支持的补偿范围"
 "Export failed: dual layer requires a hosted plugin instance." = "导出失败：双层发声需要可用的插件实例。"
 "Channel routing" = "通道路由"
+"Channel Routing:" = "通道路由："
 "Inherit" = "继承"
 "Partition mode is off. Group channel: {0}." = "分区已关闭。演奏组通道：{0}。"
 "Group channel {0} overrides both regions. A output: {1}; B output: {2}." = "演奏组通道 {0} 覆盖两区。A 区最终通道：{1}；B 区最终通道：{2}。"
