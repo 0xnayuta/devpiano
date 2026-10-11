@@ -98,14 +98,14 @@
 
 3. **3ms 起音瞬态裂音与碰撞核（Attack Transient Crack & Strike Click）**：
    - 在击键最初 $3\text{ ms}$ 内注入与力度平方 $v^2$ 强耦合的高频瞬态裂音（HF Attack Crack）以及 $1.1\sim 4.5\text{ kHz}$ 毛毡撞击木核；
-   - 强制起振时间 $\text{Attack} \le 0.2\text{ ms}$，对齐真实采样钢琴（Salamander C5）$27\sim 30\text{ ms}$ 的极速起振爆发力。
+   - 工程门控保持 $\text{Attack} \le 0.2\text{ ms}$；WAV 的 RMS 上升时间、琴槌接触时间与软件延迟分别量测，不用输出包络反推门控或接触求解器。
 
 4. **琴槌接触微阻尼与脱离释放（Contact-Release Dynamics）**：
-   - 在琴槌触弦的 $T_c$ 时间窗口内引入物理粘滞阻尼，消灭传统正弦合成在 $t=0$ 瞬间突兀开门的电子合成器感；琴槌脱离后琴弦平滑进入自由振动阶段。
+   - 在有效 $T_c$ 窗口内，主弦和采用逐采样从 0.55 到 1 的有界接触释放增益，随后保持自由振动增益 1。该状态在生产发声路径每个主弦样本推进一次；Strike Click、制音器和踏板机械瞬态不乘此增益。它是工程接触包络，不是已验证的粘滞接触力或完整非线性求解器。
 
 5. **琴槌毛毡微老化物理动力学（Felt Ageing Dynamics）**：
    - 引入连续老化参数 $A_{\text{felt}} \in [0, 1]$（`feltAgeingAmount`，默认 0.0 保留纯净基准）；
-   - 模拟反复击弦导致的局部羊毛纤维压实与硬化微尖锐：有效毛毡硬度增加 $h_{\text{eff}} \mathrel{+}= 0.18 A_{\text{felt}}$，接触时间动态缩短 $T_c \mathrel{*}= (1.0 - 0.15 A_{\text{felt}})$，高频截止点 $f_c$ 与滚降斜率提升，赋予击键更具穿透力的微观硬化质感。
+   - 以逐键确定性扰动调整有效硬度（最多 $\pm0.06A_{\text{felt}}$）、亮度（最多 $\pm0.04A_{\text{felt}}$）、刚度（最多 $\pm4.5\%A_{\text{felt}}$）及音高（最多 $\pm1.2A_{\text{felt}}$ cents）；接触时间经同一有效硬度模型计算。该工程扰动不认证真实毛毡老化；校准基线关闭老化。
 
 ---
 
@@ -114,7 +114,7 @@
 1. **JOS PASP 刚性琴弦失谐（Stiffness Inharmonicity）**：
    - 引擎以律制/A4 频率 $f_T(n)$ 对应实际第一分音基准，刚度分音比归一化：
      $$f_m = m f_T(n)2^{s_n/1200}\sqrt{\frac{1+B_n m^2}{1+B_n}}$$
-   - $s_{69}=0$；关闭拉伸时 $s_n=0$。同音弦微失谐与刻意老化抖动在基准之外叠加，不要求所有同音弦都无拍频。低采样率沿用主分音安全门限及高阶分音剪枝，不将超 Nyquist 的 Duplex 模态钳成另一频率。
+   - $s_{69}=0$；关闭拉伸时 $s_n=0$。同音弦微失谐与刻意老化抖动在基准之外叠加，不要求所有同音弦都无拍频。主弦只保留最高实际失谐弦频率低于 $0.477485f_s$ 的连续分音前缀，与 $\lvert\epsilon\rvert\le1.995$ 一致，不将保留弦钳成另一音高。无可保留第一分音时仅保留安全上限处的降级第一分音；8 kHz 的这种降级不承诺原音准。超 Nyquist 的 Duplex 模态仍旁路。
    - `PianoTuning.h` 预计算默认逐键拉伸比例：A4 以下以 4:2、以上以 2:1 八度分音匹配递推，A3–A5 锚点间平滑插值；中央插值区不保证每个分音对都严格相等。律制独立，Sine 与 VST3 MIDI 不套用钢琴拉伸，已起音基频不因切换调律重新定位。
    - $B$ 来自仓库模型锚点插值，包含 G2/G#2 交界；并非可认证的 Steinway 逐键测量。理论参考 [JOS stiff piano strings](https://ccrma.stanford.edu/~jos/pasp/Stiff_Piano_Strings.html)，当前模型校准与实际谱峰证据见 [Phase 37 声音记录](../../archive/phase37-38-piano-calibration-and-keyboard-performance.md#2-phase-37物理建模调律与被动共鸣校准)，不把 Railsback 观察曲线当作由 $B$ 唯一确定的通用算法。
 
@@ -122,7 +122,7 @@
    - 彻底消灭发声振荡核心逐采样循环的 `std::sin` 调用，采用工控与专业 DSP 领域的耦合形式正弦振荡器：
      $$u[n] = u[n-1] - \epsilon \cdot v[n-1]$$
      $$v[n] = v[n-1] + \epsilon \cdot u[n]$$
-   - $\epsilon = 2\sin(\pi f_m/f_s)$ 是模型公式；当前起音与机械闭包通过预计算表和有界多项式求值，不在回调调用库函数 sin。振荡逐采样保持耦合递推，稳定性与声学边界由既有物理测试覆盖。
+   - $\epsilon = 2\sin(\pi f_m/f_s)$ 是模型公式；起音与机械闭包使用预计算表和有界多项式。固定 $\epsilon$ 的单位输出振幅初始化为 $v_0=\sin\phi$、$u_0=\sqrt{1-\epsilon^2/4}\cos\phi+\epsilon\sin\phi/2$，避免普通圆坐标在近上限频率引入椭圆增益；平方根仅在 NoteOn 计算，逐采样仍为递推。短时 Pitch Glide 的变系数状态与 guard 单独保留，不据此宣称机械能量守恒。
 
 3. **固定微初相色散矩阵（Micro-Phase Dispersion Table）**：
    - 避免 $t=0$ 所有分音同相聚焦；
@@ -131,8 +131,8 @@
 4. **同音三弦 Mid-Side 差分立体声展开与非对称拍频（Weinreich 1977 JASA）**：
    - 中高音区每键 3 根琴弦分别采用微失谐振荡器（$s_1, s_2, s_3$），并以 Mid-Side 差分矩阵展开至立体声场：
      $$s_{\text{sum}} = \frac{1}{3}(s_1 + s_2 + s_3), \quad \Delta s = \frac{1}{3}(s_3 - s_1)$$
-     $$\text{Left} = s_{\text{sum}} + \Delta s, \quad \text{Right} = s_{\text{sum}} - \Delta s$$
-   - 单声道求和下差分完全抵消还原纯净物理三弦，立体声下呈现开阔的大三角钢琴空间呼吸感与自然拍频（Beating）。
+     $$\text{Left} = s_{\text{sum}} - g_{\text{spread}}\Delta s,\quad \text{Right} = s_{\text{sum}} + g_{\text{spread}}\Delta s$$
+   - 原始弦信号等权下混时差分抵消；完整 mono 输出仍须消费后续音板、Duplex、机械瞬态、琴盖和视角处理。这是独立失谐振荡器与工程空间映射，不是已验证的 Weinreich 动态能量交换或真实琴桥辐射。
 
 5. **低音钢弦纵向波先驱脉冲（Longitudinal Precursor Ping，Bank 2005/2010）**：
    - 钢弦内部纵向声速 $v_L = \sqrt{E/\rho} \approx 5100\text{ m/s}$，远快于横波传播速度；
@@ -231,7 +231,7 @@
 | **同音微失谐** | `beatingDetuneRatio` | 0.0020 → 0.0（相对频率） | 实际双弦各偏移半个比例，三弦低/中心/高各按完整比例；cents 应由频率比取对数，不使用未参与声音的 `detuneCents` 线性近似当物理证明 |
 | **基础慢衰减** | `decaySeconds` | 4.8 s → 0.8 s | 决定琴弦慢分量自然延音长度 |
 | **快衰减比率** | `fastDecayRatio` | $0.12 \to 0.18$ | 琴弦早期辐射衰减速度与慢衰减之比 |
-| **阻尼常数** | `b1` / `b2` | $0.25 \to 9.17\text{ s}^{-1}$ / $7.5\times 10^{-5} \to 2.1\times 10^{-3}\text{ s}$ | 频率无关阻尼常数与内部摩擦高阶损耗 |
+| **阻尼常数** | `b1` / `b2` | $0.25 \to 9.17\text{ s}^{-1}$ / $7.5\times10^{-5} \to 2.1\times10^{-3}\text{ m}^2\text{s}^{-1}$ | 当前模型使用 $b_1+b_2(m\pi/L)^2$；这里只澄清量纲，不认证材料常数或改变数值 |
 | **模态阻尼斜率** | `decayDampingC` | $0.38 \to 0.12$ | 模态阻尼随音高变化斜率 |
 
 ---
@@ -242,8 +242,8 @@
 
 | 参数 | 接口方法 / 成员变量 | 默认值 | 物理调节效果 |
 |---|---|:---:|---|
-| **Brightness（亮度）** | `setPianoParameters` / `pianoBrightness` | 0.5 | 调节琴槌刚度幂次、高频毛毡硬化截止与泛音阻尼斜率 |
-| **Hammer Hardness（硬度）** | `setPianoParameters` / `pianoHammerHardness` | 0.5 | 调节起音瞬态裂音（HF Crack）与敲击冲击核（Click）的能量比重 |
+| **Brightness（亮度）** | `setPianoParameters` / `pianoBrightness` | 0.5 | 调节激振分音倾斜及整体阻尼缩放，不直接改变有效硬度 |
+| **Hammer Hardness（硬度）** | `setPianoParameters` / `pianoHammerHardness` | 0.5 | 通过同一有效硬度影响接触时间和激振频谱，另调节瞬态核；与亮度共同影响高频，校准时须约束参数混淆 |
 | **Resonance（共鸣）** | `setPianoParameters` / `pianoResonance` | 0.5 | 调节 16 峰音板共振 Wet 比率（18%~34%）与延音衰减时间缩放 |
 | **Pedal Noise（机械噪声）** | `setPedalNoiseLevel` / `pedalNoiseLevel` | 0.6 | 调节延音踏板扫掠呼啸与共鸣冲击的机械动作音量（0..1） |
 | **Felt Ageing（毛毡老化）** | `setFeltAgeingAmount` / `feltAgeingAmount` | 0.0 | 调节琴槌羊毛纤维磨损压实深度，注入微观穿透力与硬化质感（0..1） |
@@ -280,9 +280,11 @@ void setSoundPerspective(devpiano::audio::SoundPerspective perspective) noexcept
 - **声学视角（`SoundPerspective`）**：`player`（演奏者视角）、`audience`（听众视角）；
 - **环境混响（`RoomReverbEngine`）**：C++ 枚举为 `devpiano::audio::ReverbSpace::{studio, chamber, concertHall}`，对应持久化标识 `studio`、`chamber`、`concert_hall`；名义空间时间常数分别为 0.6 s、1.5 s、2.4 s。未知标识（含旧 `hall`）回退 `chamber`，`reverbWet` 范围 `[0,1]`，旁路条件见上方混响机制。
 
+**Mono 输出边界**：声部在琴盖/视角处理后采用 $0.5(L+R)$，正常发声与被动尾音同路。`AudioEngine`、内置 WAV 及插件/固定双层 WAV 先保留左右声道，完成层混音、延迟和公共 Room 后下混，再执行最终输出 limiter；不能丢掉右声道或绕过空间处理。线性 Master 增益与下混可交换，非限幅对照应在 PCM 容差内一致；发生非线性限幅时，不承诺 mono 等于“已分别限幅的 stereo”平均。
+
 ### 4.4 Velocity 动态双映射与 ADSR 门控
 
-- **响度响应**：$v^{1.5} = v \cdot \sqrt{v}$ 幂次曲线，强化弱奏（$pp$）细腻度；
+- **振幅预算**：力度增益为 $v^{1.20}$，主弦采用名义全计划分音权重的 L1 归一化预算 $0.95v^{1.20}$，再乘柔音振幅衰减。所有计划分音按其名义频率计入分母，被剪掉的份额不重新分配；低率降级第一分音在分子/分母使用同一安全频率。该预算不是机械能量、RMS 或最终输出峰值上限，后续快慢包络、声像、共振与机械声另有作用。有效硬度的 $v^{1.5}$ 与此响度映射不同。
 - **音色动态**：力度直接耦合琴槌接触时间 $T_c(v)$、高频裂音 $v^2$、泛音绽放速率与非线性微音高漂移；
 - **ADSR 门控与基准保持**：支持 `setAdsrParameters` / `getAdsrParameters`；`startNote` 自动重设基准起音与门控，`stopNote` 根据离键速度动态计算释放阻尼，杜绝参数跨音符泄漏。
 
@@ -290,11 +292,12 @@ void setSoundPerspective(devpiano::audio::SoundPerspective perspective) noexcept
 
 ## 5. 性能特征与无锁并发保障
 
-1. **全回调零三角函数 SLA**：88 键全部激活振荡器在 `renderNextBlock` 逐采样物理发声核心循环中均运行在 Magic Circle 状态机，逐采样仅执行纯乘加运算；琴槌起音、制音器落弦与踏板气流采用多项式逼近与正弦波表查找，节拍器拍脉冲系数在 `prepareToPlay` 预计算；完整回调闭包实测 0 库函数三角调用。
+1. **产品自有回调零库函数三角**：主振荡器逐采样采用 Magic Circle 递推；起音、机械瞬态与踏板气流使用有界数学和查表，节拍器系数在 `prepareToPlay` 预计算。观察范围必须覆盖 `AudioEngine` 的 NoteOn、参数、偷声部和 Panic，而非只计稳态循环；正调用自检、冷准备及未运行的硬件/厂商路径分别记录。
 2. **硬实时音频安全与分层并发隔离**：
    - **产品自有发声链路（严格零锁零分配）**：
      - 实时音频回调线程（`renderNextBlock`）**零堆内存分配（No `malloc`/`new`）**；
      - **零锁（No Mutex/Lock）**，重写后的 `BuiltinSynthesiser` 移除了原生 JUCE 内部锁，物理键盘输入与控制器经有界 SPSC 队列（`RealtimeQueue`）注入，多线程参数传递采用 `std::atomic` 或原子快照；
+     - 此边界指 `AudioEngine` / `BuiltinSynthesiser` 所有者闭包。JUCE `AudioSourcePlayer` 的设备回调外壳含 `readLock`；无设备主线程 callback 模拟不认证整条系统回调零锁或实际设备 deadline。
      - 消息线程通过 `dispatchPendingDisplayEvents()` 统一刷新键盘高亮并驱动 UI，音频线程不调用 UI/Timer 接口；消息线程持有状态锁时不阻塞音频回调；
      - **几何故障安全防御**：超协商通道数或块长的音频输入在块首直接静音并累计原子故障计数（`pluginBufferResizeCount`），回调内不执行堆重分配；
    - **第三方 VST3 宿主框架层约束（分层验收）**：
@@ -311,9 +314,9 @@ void setSoundPerspective(devpiano::audio::SoundPerspective perspective) noexcept
 
 | 测试套件 / 物理用例 | 验证物理机理与断言指标 | 状态 |
 |---|---|:---:|
-| **PianoSynthVoiceTest** | 实际泛音/音色/双阶段衰减、单弦振荡稳定性、同音弦拍频、纵波先驱声、空间漫射和包含被动尾音的完整释放；不固定参数锚点声明值 | [x] 已通过 |
-| **PianoTuningAndDuplexTest** | 实际 A4 400/440/480 Hz 中心峰、零刚度谐波极限、未踩踏板 Duplex 尾音、释放后共享输出滤波器的分段不变性、CC120 原通道所有权、低采样率越界段旁路 | [x] 已通过 |
-| **PianoSnapshotWavParityTest** | 非零混响起音、同采样快照/NoteOn、调律与原身份释放的生产实时/内置 WAV 整段对照；误差限于 16-bit 量化 | [x] 已通过 |
+| **PianoSynthVoiceTest** | 实际泛音/音色/双阶段衰减、接触释放音频反例、生成分量振幅与同音频率中心、完整 mono 下混及既有生命周期；不固定参数锚点声明值 | [x] 已通过 |
+| **PianoTuningAndDuplexTest** | 实际 A4 中心峰、保留/剪枝边界的生产频谱、Duplex 尾音与分段不变性、原通道所有权、mono 尾音及低率越界旁路 | [x] 已通过 |
+| **PianoSnapshotWavParityTest** | 非零混响、同采样快照/NoteOn、原身份释放及 mono 琴盖/视角/Room 的实时/内置 WAV 对照；误差限于 16-bit 量化 | [x] 已通过 |
 | **DamperReleaseTest** | 快离键木质落弦闷击、慢离键羊毛毡摩擦延展、高音无制音区物理旁路、动态ADSR释放速度缩放、ADSR基准跨音符无泄漏 | [x] 已通过 |
 | **PedalAcousticsTest** | CC64 共鸣/机械动作；CC66 捕获边沿、重复高值、声部抢占、CC64/66 释放顺序与同采样逐通道隔离；跨区域 Sync Pedal 原目标释放 | [x] 已通过 |
 | **FeltAgeingTest** | 逐键扰动确定性与范围、老化前后的实际音频差异、引擎老化参数限幅；不以 getter 或测试侧公式重算证明音高行为 | [x] 已通过 |

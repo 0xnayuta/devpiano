@@ -1,5 +1,6 @@
 #include <JuceHeader.h>
 
+#include <array>
 #include <complex>
 
 #include "Audio/AudioEngine.h"
@@ -115,6 +116,8 @@ public:
         testVoiceLifecycleAndDynamics();
         testEngineIntegrationAndNumericalSafety();
         testZeroTrigSlaAndNumericalPrecision();
+        testGeneratedComponentInvariants();
+        testVoiceMonoDownmix();
     }
 
 private:
@@ -502,18 +505,61 @@ private:
             expect(!bassLongTransient.isActive(), "longitudinal precursor mode cleanly decays within 20ms");
         }
 
-        beginTest("vitality, harmonic blooming, hammer contact release, and spatial diffusion (Phase 24-A/B/C)");
+        beginTest("hammer contact audibly shapes the string onset (Phase 24-B)");
         {
-            PianoSynthVoice::HammerContactEngine contactEngine;
-            contactEngine.trigger(kSampleRate, 0.002f);
-            const auto m0 = contactEngine.getReleaseMultiplier();
-            expectWithinAbsoluteError(m0, 0.55f, 0.01f, "initial contact damping smoothly balances strike onset");
-
-            for (auto i = 0; i < static_cast<int>(0.003f * kSampleRate); ++i) {
-                [[maybe_unused]] const auto discarded = contactEngine.getReleaseMultiplier();
+            // Production-consumer counterexample for 39A:DSP-001: the same
+            // attack rendered with contact pinned at full release must differ
+            // credibly in early audio from the live contact attack, and the
+            // pinned run must converge back toward the live tail once the
+            // short contact has run out. Both fixtures are fresh (same note,
+            // velocity and ageing-off cold NoteOn, glide unity at v=0.35);
+            // the pin is a diagnostic state perturbation only.
+            // No progress/state getters: evidence is rendered audio only.
+            auto renderAttackTail = [](bool freezeContact) {
+                VoiceFixture fixture;
+                fixture.voice()->setFeltAgeingAmount(0.0f);
+                fixture.synth.noteOn(1, 60, 0.35f);
+                if (freezeContact) {
+                    auto* voice = fixture.voice();
+                    voice->hammerContactEngine.releaseProgress = 1.0f;
+                    voice->hammerContactEngine.progressInc = 0.0f;
+                }
+                juce::AudioBuffer<float> attack(2, 256);
+                fixture.renderBlock(attack);
+                juce::AudioBuffer<float> tail(2, 2048);
+                for (auto i = 0; i < 8; ++i) {
+                    fixture.renderBlock(tail);
+                }
+                return std::make_pair(attack, tail);
+            };
+            const auto live = renderAttackTail(false);
+            const auto frozen = renderAttackTail(true);
+            const auto liveAttack = live.first.getRMSLevel(0, 0, 256) + live.first.getRMSLevel(1, 0, 256);
+            const auto frozenAttack = frozen.first.getRMSLevel(0, 0, 256) + frozen.first.getRMSLevel(1, 0, 256);
+            expectGreaterThan(liveAttack, 0.0f, "live attack must produce string energy");
+            expectGreaterThan(frozenAttack, 0.0f, "pinned-release attack must still sound");
+            // Early-window sample contrast: contact damping is strongest at
+            // onset, so the first 64 samples must differ well above the
+            // noise floor of two identical renders.
+            auto earlyDelta = 0.0f;
+            for (auto ch = 0; ch < 2; ++ch) {
+                for (auto s = 0; s < 64; ++s) {
+                    earlyDelta
+                        = juce::jmax(earlyDelta, std::abs(live.first.getSample(ch, s) - frozen.first.getSample(ch, s)));
+                }
             }
-            const auto mEnd = contactEngine.getReleaseMultiplier();
-            expectWithinAbsoluteError(mEnd, 1.0f, 1e-4f, "hammer release reaches full free vibration");
+            expectGreaterThan(earlyDelta, 1e-4f, "contact pin must credibly change early onset audio");
+            expect(frozenAttack > liveAttack, "pinned full release must remove onset damping (louder attack)");
+            // Lifecycle support: after the short contact runs out, the two
+            // tails converge back toward each other.
+            auto tailDelta = 0.0f;
+            for (auto ch = 0; ch < 2; ++ch) {
+                for (auto s = 0; s < 2048; ++s) {
+                    tailDelta = juce::jmax(tailDelta,
+                                           std::abs(live.second.getSample(ch, s) - frozen.second.getSample(ch, s)));
+                }
+            }
+            expect(tailDelta < earlyDelta, "tails converge after the short contact runs out");
 
             PianoSynthVoice::SpatialDiffusionEngine diffusionEngine;
             diffusionEngine.trigger(kSampleRate);
@@ -1081,6 +1127,115 @@ private:
                 pedalMax = std::max(pedalMax, buf.getMagnitude(0, 0, 512));
             }
             expect(pedalMax > 0.0005f, "pedal whoosh and shock must render audible sound");
+        }
+    }
+    void testGeneratedComponentInvariants() {
+        beginTest("generated fixed-frequency components preserve amplitude and requested frequency");
+        for (const auto rate : { 44100.0, 48000.0 }) {
+            const auto firstReference = rate == 44100.0 ? 416.0 : 453.0;
+            for (const auto reference : { firstReference, firstReference + 1.0 }) {
+                devpiano::audio::BuiltinSynthesiser synth;
+                synth.setCurrentPlaybackSampleRate(rate);
+                synth.addSound(new PianoSynthSound());
+                synth.addVoice(new PianoSynthVoice());
+                auto* voice = dynamic_cast<PianoSynthVoice*>(synth.getVoice(0));
+                voice->setReferencePitchA4(reference);
+                voice->setFeltAgeingAmount(0.0f);
+                synth.noteOn(1, 93, 0.35f);
+
+                std::array<std::array<double, 3>, PianoSynthVoice::maxPartials> energy {};
+                std::array<std::array<double, 3>, PianoSynthVoice::maxPartials> maximum {};
+                std::array<std::array<double, 3>, PianoSynthVoice::maxPartials> previous {};
+                std::array<std::array<double, 3>, PianoSynthVoice::maxPartials> beforePrevious {};
+                std::array<std::array<double, 3>, PianoSynthVoice::maxPartials> numerator {};
+                std::array<std::array<double, 3>, PianoSynthVoice::maxPartials> denominator {};
+                const auto active = voice->numActivePartials;
+                constexpr auto samples = 4096;
+                juce::AudioBuffer<float> block(2, 1);
+                const juce::MidiBuffer empty;
+                for (auto sample = 0; sample < samples; ++sample) {
+                    block.clear();
+                    synth.renderNextBlock(block, empty, 0, 1);
+                    for (auto index = 0; index < active; ++index) {
+                        const auto n = static_cast<std::size_t>(index);
+                        const auto& partial = voice->partials[n];
+                        const std::array<double, 3> values { partial.sinState, partial.sinState2, partial.sinState3 };
+                        for (auto string = 0; string < partial.stringCount; ++string) {
+                            const auto s = static_cast<std::size_t>(string);
+                            energy[n][s] += values[s] * values[s];
+                            maximum[n][s] = std::max(maximum[n][s], std::abs(values[s]));
+                            if (sample >= 2) {
+                                numerator[n][s] += previous[n][s] * (values[s] + beforePrevious[n][s]);
+                                denominator[n][s] += 2.0 * previous[n][s] * previous[n][s];
+                            }
+                            beforePrevious[n][s] = previous[n][s];
+                            previous[n][s] = values[s];
+                        }
+                    }
+                }
+                for (auto index = 0; index < active; ++index) {
+                    const auto n = static_cast<std::size_t>(index);
+                    auto measuredCentre = 0.0;
+                    for (auto string = 0; string < voice->partials[n].stringCount; ++string) {
+                        const auto s = static_cast<std::size_t>(string);
+                        expect(maximum[n][s] <= 1.001, "fixed-frequency component must not acquire ellipse gain");
+                        expectWithinAbsoluteError(
+                            std::sqrt(energy[n][s] / samples), std::sqrt(0.5), 0.02,
+                            "generated component amplitude is independent of frequency and phase");
+                        measuredCentre += rate * std::acos(std::clamp(numerator[n][s] / denominator[n][s], -1.0, 1.0))
+                            / juce::MathConstants<double>::twoPi;
+                    }
+                    measuredCentre /= static_cast<double>(voice->partials[n].stringCount);
+                    const auto requestedFrequency
+                        = PianoSynthVoice::partialFrequency(93, index, voice->getTemperament(), reference, true);
+                    expectWithinAbsoluteError(
+                        measuredCentre, requestedFrequency, 0.02,
+                        "a retained generated family must preserve its requested frequency centre");
+                }
+            }
+        }
+    }
+    void testVoiceMonoDownmix() {
+        beginTest("voice mono equals fully processed stereo downmix");
+        {
+            // Production-consumer invariant: 1ch voice output must be
+            // 0.5*(L+R) of the stereo chain (lid/perspective/tail included),
+            // not a bare reconstructed mono. Render stereo, then render mono
+            // from equal fresh state and compare sample by sample.
+            auto renderVoice
+                = [&](int channels, PianoSynthVoice::LidPosition lid, PianoSynthVoice::SoundPerspective perspective) {
+                      juce::Synthesiser synth;
+                      synth.setCurrentPlaybackSampleRate(44100.0);
+                      synth.addSound(new PianoSynthSound());
+                      synth.addVoice(new PianoSynthVoice());
+                      auto* voice = dynamic_cast<PianoSynthVoice*>(synth.getVoice(0));
+                      voice->setAdsrParameters({ 0.01f, 0.2f, 0.8f, 0.3f });
+                      voice->setLidPosition(lid);
+                      voice->setSoundPerspective(perspective);
+                      voice->setFeltAgeingAmount(0.0f);
+                      juce::AudioBuffer<float> buffer(channels, 2048);
+                      juce::MidiBuffer midi;
+                      midi.addEvent(juce::MidiMessage::noteOn(1, 60, 0.35f), 0);
+                      buffer.clear();
+                      synth.renderNextBlock(buffer, midi, 0, buffer.getNumSamples());
+                      return buffer;
+                  };
+            for (const auto lid : { PianoSynthVoice::LidPosition::fullOpen, PianoSynthVoice::LidPosition::closed }) {
+                for (const auto perspective :
+                     { PianoSynthVoice::SoundPerspective::player, PianoSynthVoice::SoundPerspective::audience }) {
+                    // Both renders start from equal fresh state (perspective
+                    // snaps while the voice is inactive), so the mono blocks
+                    // must match the stereo downmix sample by sample.
+                    const auto stereo = renderVoice(2, lid, perspective);
+                    const auto mono = renderVoice(1, lid, perspective);
+                    auto maxDelta = 0.0f;
+                    for (auto s = 0; s < mono.getNumSamples(); ++s) {
+                        const auto expected = 0.5f * (stereo.getSample(0, s) + stereo.getSample(1, s));
+                        maxDelta = juce::jmax(maxDelta, std::abs(mono.getSample(0, s) - expected));
+                    }
+                    expectWithinAbsoluteError(maxDelta, 0.0f, 1e-5f, "voice mono must equal processed stereo downmix");
+                }
+            }
         }
     }
 };

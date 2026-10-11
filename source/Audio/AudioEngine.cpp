@@ -372,33 +372,42 @@ void AudioEngine::renderInstrumentSegment(const juce::AudioSourceChannelInfo& ou
     }
     output.buffer->clear(start, numSamples);
     const auto outChannels = output.buffer->getNumChannels();
-    if (targetBuiltin != nullptr) {
-        if (outChannels == 1) {
-            output.buffer->addFrom(0, start, pianoDelayedView, 0, 0, numSamples, 0.5f);
-            output.buffer->addFrom(0, start, pianoDelayedView, 1, 0, numSamples, 0.5f);
-        } else {
+    if (outChannels == 1) {
+        // Reuse the prepared delayed stereo mix for Room before mono conversion.
+        if (targetPlugin) {
+            const auto pluginChannels = endpoint.hostedInstance->getTotalNumOutputChannels();
+            if (pluginChannels == 1) {
+                pianoDelayedView.addFrom(0, 0, pluginView, 0, 0, numSamples);
+                pianoDelayedView.addFrom(1, 0, pluginView, 0, 0, numSamples);
+            } else if (pluginChannels >= 2) {
+                pianoDelayedView.addFrom(0, 0, pluginView, 0, 0, numSamples);
+                pianoDelayedView.addFrom(1, 0, pluginView, 1, 0, numSamples);
+            }
+        }
+        roomReverb.processStereo(pianoDelayedView.getWritePointer(0), pianoDelayedView.getWritePointer(1), numSamples);
+        output.buffer->addFrom(0, start, pianoDelayedView, 0, 0, numSamples, 0.5f);
+        output.buffer->addFrom(0, start, pianoDelayedView, 1, 0, numSamples, 0.5f);
+    } else {
+        if (targetBuiltin != nullptr) {
             for (int channel = 0; channel < std::min(outChannels, 2); ++channel) {
                 output.buffer->addFrom(channel, start, pianoDelayedView, channel, 0, numSamples);
             }
         }
-    }
-    if (targetPlugin) {
-        const auto pluginChannels = endpoint.hostedInstance->getTotalNumOutputChannels();
-        if (outChannels >= 2 && pluginChannels == 1) {
-            output.buffer->addFrom(0, start, pluginView, 0, 0, numSamples);
-            output.buffer->addFrom(1, start, pluginView, 0, 0, numSamples);
-        } else if (outChannels == 1 && pluginChannels >= 2) {
-            output.buffer->addFrom(0, start, pluginView, 0, 0, numSamples, 0.5f);
-            output.buffer->addFrom(0, start, pluginView, 1, 0, numSamples, 0.5f);
-        } else {
-            for (int channel = 0; channel < std::min(outChannels, pluginChannels); ++channel) {
-                output.buffer->addFrom(channel, start, pluginView, channel, 0, numSamples);
+        if (targetPlugin) {
+            const auto pluginChannels = endpoint.hostedInstance->getTotalNumOutputChannels();
+            if (outChannels >= 2 && pluginChannels == 1) {
+                output.buffer->addFrom(0, start, pluginView, 0, 0, numSamples);
+                output.buffer->addFrom(1, start, pluginView, 0, 0, numSamples);
+            } else {
+                for (int channel = 0; channel < std::min(outChannels, pluginChannels); ++channel) {
+                    output.buffer->addFrom(channel, start, pluginView, channel, 0, numSamples);
+                }
             }
         }
-    }
-    if (outChannels >= 2) {
-        roomReverb.processStereo(output.buffer->getWritePointer(0, start), output.buffer->getWritePointer(1, start),
-                                 numSamples);
+        if (outChannels >= 2) {
+            roomReverb.processStereo(output.buffer->getWritePointer(0, start), output.buffer->getWritePointer(1, start),
+                                     numSamples);
+        }
     }
     if (muteInstrumentDuringBlock) {
         output.buffer->clear(start, numSamples);

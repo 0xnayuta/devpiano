@@ -29,6 +29,9 @@
 
 ### Fixed
 
+- **Consistent Piano Oscillator and Excitation Contracts** — admit partials against the highest detuned frequency and the Magic Circle epsilon ceiling, initialize fixed-frequency components at unit amplitude, and advance the string-only contact-release envelope. Retain the full nominal L1 excitation budget without redistributing pruned weights; seal a separate post-fix production baseline without changing B, octave stretch, or file formats.
+- **Processed Mono Audio Consumers** — downmix both processed channels after lid/perspective and shared Room rendering across voices, realtime output, builtin WAV, and plugin/fixed-layer WAV; preserve stereo sources and passive tails instead of dropping the right channel or bypassing acoustics.
+
 - **Stable Keybed Vertical Position** — reserve the horizontal scrollbar thickness in `KeyboardViewport` so the virtual piano keybed no longer shifts up and down while the window width is dragged across the scrollbar threshold.
 - **Numpad Double-Height Keys** — draw numpad `Num +` and `Enter` as one vertically-double-height key each (`heightWeight = 2.0`, symmetric with the horizontal `Num 0`), instead of registering the same physical key in two consecutive rows and rendering it as two stacked half-height buttons.
 - **Continuous Duplex Release Tails** — retain shared lid and perspective filter state while passive resonance continues after the speaking string stops; prevent rendering-partition-dependent tail truncation while preserving immediate-stop and voice-reuse resets.
