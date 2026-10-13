@@ -94,7 +94,7 @@ inline float logPieceWiseInterp(float midi, const float* midiPts, const float* v
     return valPts[count - 1];
 }
 
-// 88 键独立物理参数生成 (含 Phase 22-C 琴桥交界断裂阶跃)
+// 88 键独立物理参数生成 (B 表为 Task 39-2 实测锚点)
 inline PianoNoteParams computePianoNoteParams(int midiNoteNumber) noexcept {
     const auto midi = static_cast<float>(std::clamp(midiNoteNumber, 21, 108));
 
@@ -132,17 +132,16 @@ inline PianoNoteParams computePianoNoteParams(int midiNoteNumber) noexcept {
     p.b1 = logPieceWiseInterp(midi, bensaMidi, bensaB1, 3);
     p.b2 = logPieceWiseInterp(midi, bensaMidi, bensaB2, 3);
 
-    // 4. 刚性失谐系数 B (Phase 22-C: Fletcher & Rossing 1998 琴桥断裂阶跃)
-    // 低音长琴桥 (MIDI 21~43) 随粗缠丝线密度增加，B 从 3.1e-4 降至 G2 的 1.85e-4 极小点；
-    // 跃迁至主琴桥 (MIDI 44+) 变为裸钢丝且弯曲刚度突增，B 发生 +43% 物理台阶式跃升至 2.65e-4。
-    if (p.isBassBridge) {
-        constexpr float bassBMidi[3] = { 21.0f, 33.0f, 43.0f };
-        constexpr float bassBVals[3] = { 3.1e-4f, 2.4e-4f, 1.85e-4f };
-        p.inharmonicityB = static_cast<double>(logPieceWiseInterp(midi, bassBMidi, bassBVals, 3));
-    } else {
-        constexpr float tenorBMidi[6] = { 44.0f, 57.0f, 69.0f, 84.0f, 96.0f, 108.0f };
-        constexpr float tenorBVals[6] = { 2.65e-4f, 3.2e-4f, 8.5e-4f, 5.0e-3f, 4.0e-2f, 8.5e-2f };
-        p.inharmonicityB = static_cast<double>(logPieceWiseInterp(midi, tenorBMidi, tenorBVals, 6));
+    // 4. 刚性失谐系数 B (Task 39-2: 官方参考实测锚点表)
+    // 21-84 为 14 个实测锚点（取通过族中位数，log 段间插值），96/108 为保留模型上界
+    // （无 C6 以上实测证据）；实测否定原琴桥 +43% 阶跃假设（43/45/47/48 平滑递增）。
+    {
+        constexpr float bMidi[16] = { 21.0f, 24.0f, 28.0f, 33.0f, 36.0f, 40.0f, 43.0f, 45.0f,
+                                      47.0f, 48.0f, 60.0f, 69.0f, 72.0f, 84.0f, 96.0f, 108.0f };
+        constexpr float bVals[16] = { 1.367893e-4f, 8.800733e-5f, 7.330751e-5f, 4.767319e-5f, 5.080298e-5f,
+                                      6.263947e-5f, 7.985170e-5f, 8.625150e-5f, 1.059587e-4f, 1.172690e-4f,
+                                      3.529958e-4f, 8.203508e-4f, 1.093004e-3f, 3.164862e-3f, 4.0e-2f, 8.5e-2f };
+        p.inharmonicityB = static_cast<double>(logPieceWiseInterp(midi, bMidi, bVals, 16));
     }
 
     // 5. 击弦位置比 d/L (低音斜跨桥 0.125 -> 主琴桥折角 0.1333 -> 高音 0.100 -> 极高音 0.0625)

@@ -275,18 +275,21 @@ private:
         beginTest("inharmonicity overtone frequency shift (stiff-string physics)");
         {
             const auto f0 = juce::MidiMessage::getMidiNoteInHertz(36);
-            const auto actualF7
-                = PianoSynthVoice::partialFrequency(36, 6, devpiano::audio::Temperament::equal, 440.0, false);
+            // Task 39-2 实测锚点表把 C2 刚度降到 5.08e-5，7 分音偏移 (~0.56 Hz)
+            // 低于 DFT 分辨率；改用最高分音 (20, 击弦点陷波下满幅) 使偏移 ~13 Hz 可分辨，
+            // 断言语义不变（分音高于整数谐波）。
+            const auto actualF20
+                = PianoSynthVoice::partialFrequency(36, 19, devpiano::audio::Temperament::equal, 440.0, false);
             VoiceFixture fixture;
             fixture.voice()->setPianoTuning(false, 0.0f);
             juce::AudioBuffer<float> buffer(1, analysisWindow);
             fixture.noteOnBlock(36, 0.9f, buffer);
 
-            const auto magAtInharmonic7 = magnitudeAtFrequency(buffer, actualF7, analysisWindow);
-            const auto magAtInteger7 = magnitudeAtFrequency(buffer, 7.0 * f0, analysisWindow);
-            expect(magAtInharmonic7 > 1.2 * magAtInteger7,
-                   "DFT energy at stiff-string 7th partial (" + juce::String(actualF7, 2)
-                       + " Hz) must be higher than integer harmonic (" + juce::String(7.0 * f0, 2) + " Hz)");
+            const auto magAtInharmonic = magnitudeAtFrequency(buffer, actualF20, analysisWindow);
+            const auto magAtInteger = magnitudeAtFrequency(buffer, 20.0 * f0, analysisWindow);
+            expect(magAtInharmonic > 1.2 * magAtInteger,
+                   "DFT energy at stiff-string 20th partial (" + juce::String(actualF20, 2)
+                       + " Hz) must be higher than integer harmonic (" + juce::String(20.0 * f0, 2) + " Hz)");
         }
 
         beginTest("recursive oscillator frequency stability (Magic Circle long render)");

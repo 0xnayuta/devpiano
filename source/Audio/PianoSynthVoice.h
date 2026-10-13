@@ -25,7 +25,8 @@
 // - 制音器落弦与琴键释放机械瞬态 (Phase 22-A, Damper Felt Fall & Release Thump)：88 键音区分级落弦低频闷击声；
 // - 琴盖开合度声学传递函数 (Phase 22-B, Lid Position: Full / Half / Closed)：Chabassier 2013 JASA
 // 开合高频滚降与箱体近场反射矩阵；
-// - 长短琴桥断裂交界音色补偿 (Phase 22-C, Bridge Break Voicing Jump)：Fletcher & Rossing 1998 G2/G#2 阶跃跳变；
+// - 长短琴桥交界 (Phase 22-C 原 G2/G#2 B 阶跃)：Task 39-2 官方参考实测否定阶跃假设，
+//   B 表已改为 14 锚点实测表（见 Piano88KeyTable.h 第 4 段），桥归属仅作弦数/描述语义；
 // - 强击非线性张力音高微漂移与软饱和 (Phase 22-D, Pitch Glide & Soft Saturation)：Bank & Sujbert 2005 JASA 张力瞬态与
 // Bilbao 2009 软饱和；
 // - 未踩踏板单键和弦开放弦交感共鸣 (Phase 22-E, Duplex & Unpedaled Sympathetic Resonance)：Bank 2010 IEEE TASLP Sec. VI

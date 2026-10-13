@@ -195,8 +195,10 @@ public:
                 int partial;
                 bool retained;
             };
-            const auto edge = (rate == 48000.0) ? EdgeCase { 93, 453.0, 8, true } : EdgeCase { 93, 416.0, 8, true };
-            const auto past = (rate == 48000.0) ? EdgeCase { 93, 454.0, 8, false } : EdgeCase { 93, 417.0, 8, false };
+            // 临界 A4 由 ceiling(rate)/f8(note 93) 关系标定（Task 39-2 锚点表更新后重标定）：
+            // retained 侧 8 分音低于 coherent band ceiling，past 侧高于 ceiling，两侧余量 ~50 Hz。
+            const auto edge = (rate == 48000.0) ? EdgeCase { 93, 468.0, 8, true } : EdgeCase { 93, 430.0, 8, true };
+            const auto past = (rate == 48000.0) ? EdgeCase { 93, 470.0, 8, false } : EdgeCase { 93, 432.0, 8, false };
             for (const auto& band : { edge, past }) {
                 PianoFixture fixture(rate, true, 0.0f);
                 fixture.voice->setFeltAgeingAmount(0.0f);
