@@ -2,12 +2,20 @@
 
 ### Added
 
+- **Windows GUI Automation and Evidence Governance** — register the verified windows-mcp server (v1.3.28, stdio, pinned cwd) for native Windows GUI verification with a per-tool approval matrix, document its WSL2 cwd constraint, failure handling, and upgrade/rollback path, and archive Phase 38/39 and Windows-MCP batches into a per-file SHA-256 indexed evidence root outside the mirror tree.
+
 - **Calibrated Piano Tuning and Passive Duplex** — anchor the actual first partial to A4, add switchable model-specific octave stretch and bounded main-string-driven non-speaking resonators, and preserve the original note/channel through passive tails.
 - **Saved Acoustic Piano Styles** — provide Standard, Bright, Warm, Intimate, and Vintage settings, derive Custom from actual values, and persist tone, stretch, and Duplex controls across current presets, settings, Takes, and builtin WAV rendering without changing keyboard or plugin domains.
 - **Keyboard Zones and Three-Pedal Performance** — add fixed main-keyboard and main-plus-keypad layouts, independent keypad identities and binding capture, saved musical regions, and CapsLock sostenuto with original-channel pedal release.
 - **Fixed Piano + VST3 Layers** — share canonical input across two fixed instrument endpoints, save layer switches/gains, align actual reported sample latency, and mix before one master/reverb chain in real-time and independent offline rendering. Missing required plugins fail without replacing existing WAV targets.
 
 ### Changed
+
+- **Measured Inharmonicity Anchor Table** — replace the two-segment model B table with 14 measured anchor keys (21/24/28/33/36/40/43/45/47/48/60/69/72/84, official-reference partial-ratio medians, family spread <=0.87%), interpolate in log space with the retained model upper bounds above C6, and drop the G#2 +43% bridge step falsified by measurement. Full-key recovery is backed by landed data (anchor non-beating-subset B within 0.1077% across 12 keys x 2 rates, dual-rate within 0.0044%, independent holdout within 2.912 cents). The consumed sealed validation was re-evaluated once with the corrected method (independent holdout split and a frozen normalised partial-ratio criterion, amendments 1-2): 12/34 units pass — notes 39/63 exact, 26/50/77 small deviations, 86 (no-measurement model-upper segment) large; constants retained, criteria not relaxed, and new validation data must be registered before re-review. The closure also archived the still-temporary originals (full-key renders, recipes, CTest logs, first-pilot failure scene) with a missing-corroboration register.
+
+- **Approved Evidence-Tree Cleanup** — delete batch originals and rebuildable third-party runtimes only after per-file SHA-256 re-verification against the evidence index, in three human-approved batches (8782 files / 2.91 GB, matching the survey total); return `build-win-msvc` to a pure build workspace that `win_clean_guard` now passes, and migrate the sole unarchived asset (Task 39-2 official trial installer with its extraction records) into the pianoteq9 research archive before removing the last `G:\` root directory.
+
+- **Constrained Inharmonicity Calibration Preflight** — exercise independent Windows spectral fixtures and actual production tuning/identity/low-rate consumers, preserve new controlled reference observations and runtime-state limitations, and reject unsupported anchors without changing B, octave stretch, file formats, or the unopened validation set.
 
 - **Sealed Acoustic Evidence and Research Feedback** — preserve original MIDI/WAV and reconstruction inputs in ignored local pianoteq9 archives, deposit portable reference results and provenance, and reconcile upstream claims with the Task 39-1 evidence. Exercise a read-only reference recomputation entrypoint while preserving production DSP and file-format boundaries.
 
@@ -28,6 +36,8 @@
 - **Phase 36 Archive and Phase 37/38 Planning** — preserve the completed Phase 36 task and verification record, and revise the follow-on tasks, dependency schedule, and acceptance for piano tuning/passive resonance, keyboard zones, three-pedal control, and fixed dual-layer performance. This is a documentation-only change, not a runtime feature implementation.
 
 ### Fixed
+
+- **Windows Build Directory Cleanup Guard** — require a fail-closed pre-delete guard before `--clean-win-build` removes the mirror build directory: resolved path identity under `/mnt/<drive>/...`, exact direct-child build root names, symlink rejection, and known-build-artifact-only contents; evidence or unknown entries block deletion unless `--allow-non-build-assets` is given explicitly. Covered by 18 isolated regression cases in `scripts/tests/win_clean_guard_test.sh`.
 
 - **Consistent Piano Oscillator and Excitation Contracts** — admit partials against the highest detuned frequency and the Magic Circle epsilon ceiling, initialize fixed-frequency components at unit amplitude, and advance the string-only contact-release envelope. Retain the full nominal L1 excitation budget without redistributing pruned weights; seal a separate post-fix production baseline without changing B, octave stretch, or file formats.
 - **Processed Mono Audio Consumers** — downmix both processed channels after lid/perspective and shared Room rendering across voices, realtime output, builtin WAV, and plugin/fixed-layer WAV; preserve stereo sources and passive tails instead of dropping the right channel or bypassing acoustics.
