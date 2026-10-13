@@ -195,10 +195,12 @@ public:
                 int partial;
                 bool retained;
             };
-            // 临界 A4 由 ceiling(rate)/f8(note 93) 关系标定（Task 39-2 锚点表更新后重标定）：
-            // retained 侧 8 分音低于 coherent band ceiling，past 侧高于 ceiling，两侧余量 ~50 Hz。
-            const auto edge = (rate == 48000.0) ? EdgeCase { 93, 468.0, 8, true } : EdgeCase { 93, 430.0, 8, true };
-            const auto past = (rate == 48000.0) ? EdgeCase { 93, 470.0, 8, false } : EdgeCase { 93, 432.0, 8, false };
+            // 临界 A4 由 ceiling(rate)/f6(note 102) 关系标定（Task 39-2 P1：84 以上按
+            // 高音桥标准斜率外推后，note 93 的 8 分音在 A4<=480 内已无法越过 ceiling，
+            // 改用 note 102 的末分音（第 6 分音）；retained 侧低于 coherent band ceiling、
+            // past 侧高于 ceiling，两侧余量约 228-285 Hz。
+            const auto edge = (rate == 48000.0) ? EdgeCase { 102, 442.0, 6, true } : EdgeCase { 102, 405.0, 6, true };
+            const auto past = (rate == 48000.0) ? EdgeCase { 102, 452.0, 6, false } : EdgeCase { 102, 415.0, 6, false };
             for (const auto& band : { edge, past }) {
                 PianoFixture fixture(rate, true, 0.0f);
                 fixture.voice->setFeltAgeingAmount(0.0f);

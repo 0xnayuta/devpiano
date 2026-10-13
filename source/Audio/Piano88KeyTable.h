@@ -133,14 +133,19 @@ inline PianoNoteParams computePianoNoteParams(int midiNoteNumber) noexcept {
     p.b2 = logPieceWiseInterp(midi, bensaMidi, bensaB2, 3);
 
     // 4. 刚性失谐系数 B (Task 39-2: 官方参考实测锚点表)
-    // 21-84 为 14 个实测锚点（取通过族中位数，log 段间插值），96/108 为保留模型上界
-    // （无 C6 以上实测证据）；实测否定原琴桥 +43% 阶跃假设（43/45/47/48 平滑递增）。
+    // 21-84 为 14 个实测锚点（取通过族中位数，log 段间插值）；84 以上按高音桥
+    // 标准斜率外推（Young 1952 / Rigaud-David-Daudet 2013：ln B 斜率 0.0926/键，
+    // 即每八度 3.04 倍，六台钢琴拟合并与参考实测斜率一致），自 C6 实测锚点起算：
+    // B(m) = 3.164862e-3 * exp(0.0926 * (m - 84))，即 96 -> 9.614857e-3、
+    // 108 -> 2.920995e-2（替换无来源的 4e-2 / 8.5e-2 保留模型上界）。
+    // 实测否定原琴桥 +43% 阶跃假设（43/45/47/48 平滑递增）。
     {
         constexpr float bMidi[16] = { 21.0f, 24.0f, 28.0f, 33.0f, 36.0f, 40.0f, 43.0f, 45.0f,
                                       47.0f, 48.0f, 60.0f, 69.0f, 72.0f, 84.0f, 96.0f, 108.0f };
         constexpr float bVals[16] = { 1.367893e-4f, 8.800733e-5f, 7.330751e-5f, 4.767319e-5f, 5.080298e-5f,
                                       6.263947e-5f, 7.985170e-5f, 8.625150e-5f, 1.059587e-4f, 1.172690e-4f,
-                                      3.529958e-4f, 8.203508e-4f, 1.093004e-3f, 3.164862e-3f, 4.0e-2f, 8.5e-2f };
+                                      3.529958e-4f, 8.203508e-4f, 1.093004e-3f, 3.164862e-3f, 9.614857e-3f,
+                                      2.920995e-2f };
         p.inharmonicityB = static_cast<double>(logPieceWiseInterp(midi, bMidi, bVals, 16));
     }
 
