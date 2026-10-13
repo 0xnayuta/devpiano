@@ -68,6 +68,12 @@
 
 以下问题已修复，保留简要记录用于回归识别。详细根因分析和修复实现见各功能文档。
 
+### Windows 构建目录误删风险（win_clean_guard）
+
+- **历史反证**：`scripts/build_msvc_from_wsl.sh --clean-win-build` 原先直接 `rm -rf` 由 `WIN_MIRROR_DIR` 解析出的构建目录；构建目录内保存了历史证据批次（`phase38-*` / `phase39-*`）时存在误删风险。
+- **当前修复**：删除前必须通过 `scripts/win_clean_guard.sh` 的 fail-closed 校验——镜像根规范化解析后必须位于 `/mnt/<盘符>/...`、目标必须是镜像根的逐组件直接子目录（非字符串前缀）、目录名限于 `build-win-msvc` / `build-win-msvc-release`、目标非符号链接，且目录内每个顶层条目必须是已知 CMake/Ninja/MSVC/JUCE 构建产物；命中证据或未知条目默认拒绝，仅在显式 `--allow-non-build-assets`（须与 `--clean-win-build` 同用）时二次确认后放行。
+- **回归线索**：`bash scripts/tests/win_clean_guard_test.sh`（18 个隔离用例：正常构建目录放行、盘符根/WSL 源树/`/tmp` 拒绝、路径规范化、符号链接目标拒绝、证据与未知条目拒绝及显式放行、缺参用法错误）。
+
 ### 已映射录制输入的重复移调（当前最终身份契约）
 
 - **历史反证**：旧实现先在输入端烘焙全局调号，再在回放/WAV 按快照叠加偏移；只修两条 WAV 的快照变换虽使其与实时一致，仍会共同偏离现场音高。

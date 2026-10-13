@@ -77,6 +77,12 @@
 - **新增业务代码只放在 `/source/` 下的合适子目录**。
 - **代码探索与依赖影响面首选 codegraph**：在探索模块架构、追溯调用链（calls/callers）、类型派生或修改前评估影响面（Blast Radius）时，**必须首先调用 `codegraph` (`xd://mcp__codegraph_explore`)**，禁止未调用 codegraph 就发起盲目的多轮 `grep`/`read`。
 - **第三方库与框架 API 查证首选 context7**：涉及 JUCE 9、Steinberg VST3 SDK 等第三方库的新增调用或参数不确定时，**必须首先通过 `context7` (`resolve-library-id` + `query-docs`) 查询官方最新文档与示例**，禁止凭记忆猜测 API。
+- **Windows 侧 GUI 实际表面验证首选 windows-mcp**：核验 Windows Debug 构建产物的真实界面（控件树 / 布局 / 可见状态变化）、对运行中的 DevPiano 做受控交互（点击 / 输入 / 快捷键）或采集截图证据时，**必须通过 `windows-mcp` (`xd://mcp__windows_mcp_*`)**，禁止仅凭代码阅读或单元测试推断 UI 行为。接入架构、工具审批矩阵、cwd 硬约束、失败与升级回滚流程见 [`docs/guides/windows-mcp-omp.md`](docs/guides/windows-mcp-omp.md)。
+  - 变更类操作留在主会话逐次人工审批，不委托无头子 agent；只操作 devpiano 自身产物及其验证辅助窗口。
+  - 动作前核验窗口身份（EXE 路径 / PID / 创建时间 / HWND）；每个交互动作后用 `ui_snapshot` 复读或截图对比给出前后差异，不以外层 API 的"已派发"返回作为结论。
+  - 禁止自动终止未知进程或修改系统级设置（注册表、桌面/音频/电源配置）；目标进程生命周期只由既有受控脚本或人工处理。
+  - 旧 GUI 操作脚本保留为参考与必要时的受控回退，不与 windows-mcp 同时竞争同一桌面会话。
+  - GUI 原生表面验证与 ADR-016 纯内存 Headless CTest 严格分离；验证结束正常关闭进程，不留残留。
 - 优先小步修改、小范围验证，不要一次性大改整个系统。
 - **WSL 主工作树是唯一主源码来源，仅用于编辑代码和刷新 `compile_commands.json`**，所有构建验证和软件测试在 Windows 侧进行。
 - **不要让 Windows/MSVC 直接跨边界在 WSL 主工作树上长期构建**；Windows 只使用镜像树做验证。
@@ -275,6 +281,7 @@ devpiano 是个人维护、尚未承诺稳定兼容性的开发中桌面应用�
 7. **回归测试与 Windows 构建验证**：
    - Windows MSVC Debug 验证构建：`./scripts/dev.sh win-build`
    - Windows 镜像树运行相关回归及默认 CTest，命令见 [`quickstart.md`](docs/guides/quickstart.md#windows-debug-单元测试)；`./scripts/dev.sh test` 仅用于 Linux CI。
+   - 需要观察真实界面或对运行中产物做受控交互时，用 `windows-mcp` 对镜像树构建产物做实际表面核验与截图取证（见 §3 的 windows-mcp 规则）。
 8. **环境异常自检**：涉及环境或路径问题时，先运行 `./scripts/dev.sh self-check`。
 
 ### 8.2 开发工具决策矩阵
@@ -285,6 +292,7 @@ devpiano 是个人维护、尚未承诺稳定兼容性的开发中桌面应用�
 | **查询 JUCE / VST3 / 第三方库 API 签名与用法** | `context7` | `submodules/` 本地源码 | 凭记忆猜测或臆造 API |
 | **符号重命名 / 精确跳转定义 / 跨文件引用 / 代码诊断** | `lsp` | `codegraph` | 手写正则/sed 批量替换跨文件符号 |
 | **阅读非代码文件（.md, .json, .cmake）或精确局部编辑** | `read` / `edit` | `write` | 用 read 遍历大量代码文件寻找符号 |
+| **Windows Debug 产物实际 UI 表面核验 / 受控 GUI 交互 / 截图取证** | `windows-mcp` | `ui_snapshot` 前后复读、`screenshot_control`、`process` 生命周期核验 | 仅凭代码阅读或单元测试断言 UI 行为；操作非 devpiano 窗口；验证后残留应用进程 |
 
 ---
 

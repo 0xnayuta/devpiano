@@ -123,3 +123,40 @@ sudo update-alternatives --set cc /usr/bin/clang-21
 **根因补充**：Windows MSVC 侧使用 UNC 路径（`\\wsl.localhost\Ubuntu\...`）访问 WSL 源文件，CMake 的文件指纹机制在跨文件系统（WSL/NTFS）场景下可能存在精度问题，导致缓存失效不完全。
 
 **关联条目**：本问题属于构建系统环境问题，与 Phase 6-1 代码无关，但因调试 Phase 6-1 时暴露，故记录于此。
+
+---
+
+## WSL / Windows 互操作与 MCP 服务问题
+
+### WSL interop 启动 Windows MCP 服务挂起（未指定 drvfs 工作目录）
+
+**现象**：
+在 WSL 内运行的 OMP 会话配置 Windows 端 MCP 服务（如 `windows-mcp` 的 `Sbroenne.WindowsMcp.exe`）时，启动后连接超时，OMP 报告：
+```text
+Warning: MCP server "windows-mcp" not ready after 60000ms; its tools are unavailable for this run.
+```
+在 Windows 任务管理器中观察该 Windows 进程已存活，但 CPU 占用为 0%，I/O 冻结（~32KB），无 stdout/stderr 输出，不响应任何 JSON-RPC 握手；但在 Windows PowerShell 侧直接运行该 exe 的 `--version` 等命令却能秒级返回。
+
+**原因**：
+经 WSL interop 启动 Windows 可执行文件时，若工作目录（cwd）继承了 WSL 内部的 Linux 文件系统路径（如 `/root/repos/devpiano` 或 `/tmp`），Windows 宿主侧无法将其直接映射为有效驱动器路径（或映射为受限的 UNC 路径）。
+现代 .NET Generic Host（`Host.CreateApplicationBuilder`）默认以 `CurrentDirectory` 作为 `ContentRoot`，在不可映射的工作目录下初始化时会永久进入内核级等待/挂起，导致 stdio 管道无任何读写响应。只要工作目录切换为 Windows 可原生映射的 drvfs 路径（如 `/mnt/g/...`），初始化即可在 0.6 秒内完成握手。
+
+**修复**：
+在 `.omp/mcp.json` 中定义 Windows 端的 stdio MCP server 时，**必须显式提供 Windows 可映射的 `cwd` 字段**（指向 `/mnt/<drive>/...` 路径）：
+```json
+"windows-mcp": {
+  "type": "stdio",
+  "command": "/mnt/g/tools/windows-mcp/1.3.28/Sbroenne.WindowsMcp.exe",
+  "cwd": "/mnt/g/tools/windows-mcp/1.3.28",
+  "timeout": 120000,
+  "instructions": false
+}
+```
+
+**验证**：
+在 devpiano 项目目录下启动 OMP 会话，确认 MCP 服务在数秒内就绪（18 个工具在约 8 秒内全部注册完成）。
+
+**排查提示（避坑指南）**：
+- 此类“进程存活但零 I/O 挂起”现象极易被误判为“WSL 复制损坏二进制”、“NTFS/ReFS 碎片化”、“Windows 窗口站/权限隔离”或“stdio framing 协议不匹配”。
+- 排查跨环境 interop 启动问题时，**优先二分测试不同的工作目录（`cwd`）**，而非盲目重新拷贝文件或排查哈希。
+- 单独运行 `--version` 能成功并不代表 Host 能初始化：`--version` 等命令行分支通常在 `Host.CreateApplicationBuilder` 之前就已提前返回并退出。

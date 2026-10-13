@@ -195,7 +195,7 @@ source ~/.bashrc
 ./scripts/dev.sh win-build
 ./scripts/dev.sh win-build --no-sync
 ./scripts/dev.sh win-build --reconfigure
-./scripts/dev.sh win-build --clean-win-build
+./scripts/dev.sh win-build --clean-win-build  # 含删除守卫：构建目录内有证据/未知条目时拒绝执行
 
 # ── Windows MSVC Release（仅明确发布需求时） ──
 ./scripts/dev.sh win-build --release

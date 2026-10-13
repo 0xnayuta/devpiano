@@ -22,6 +22,7 @@
 - [`roadmap/current-iteration.md`](roadmap/current-iteration.md)：近期声学基线、整音任务、依赖排期与直接验收入口。
 - [`decisions/README.md`](decisions/README.md)：架构决策记录索引，含已接受的 [ADR-015 消息模板](decisions/ADR-015-localized-message-templates-and-punctuation.md) 与 [ADR-016 纯内存 Headless-Safe UI 测试模式](decisions/ADR-016-headless-safe-pure-in-memory-ui-testing-pattern.md)。
 - [`guides/troubleshooting.md`](guides/troubleshooting.md)：WSL / Windows 镜像构建常见问题排查。
+- [`guides/windows-mcp-omp.md`](guides/windows-mcp-omp.md)：Windows 原生 GUI 自动化（windows-mcp × OMP）的接入架构、审批矩阵、cwd 约束、失败处理与升级回滚。
 - [`guides/release-workflow.md`](guides/release-workflow.md)：Windows/Linux 正式 release、tag 与双平台打包 checklist。
 - [`guides/pr-agent.md`](guides/pr-agent.md)：PR-Agent AI 代码审查工作流配置、命令与排障。
 
