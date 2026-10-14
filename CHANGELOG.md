@@ -11,6 +11,8 @@
 
 ### Changed
 
+- **Bounded Inharmonicity Acceptance** — freeze the current B table at 17 measured anchors plus two literature-extrapolated nodes, stop adding training anchors, and limit further work to one explicitly authorized independent validation batch. Failed or inconclusive acceptance preserves the table and thresholds without automatic retuning or replacement capture; historical verdicts remain unchanged. Correct the generic evaluator's already-registered comparable-partial boundary for MIDI 72-95 without changing B or error thresholds.
+
 - **Interp-Training Anchor Expansion** — admit notes 26/52/57 as measured B anchors (26 under the v41 weak-velocity policy matching the 21/24/28 low-region precedent; 52/57 as all-passing-family medians from the 36-unit interp-training capture; dual-rate within 0.112%), resolving the 24-28 section's V-shaped measured profile (D1 lowest) and subdividing 48-60 into 48-52-57-60. The 24-28 segment bias against consumed comparisons collapses from +7.7%/+7.9% to -0.45%/-0.19% and 48-60 narrows from +7.6% to +3.9% max, while the stretch chain moves at most 0.303 cents on 21-68 and stays bit-identical above. Full-key regression recovers the non-beating B within 0.17% and the stretched f1 within 0.043 cents at both rates; full CTest stays green at 323150 passed / 0 failed. Formal acceptance still requires the newly registered 48-unit validation set.
 
 - **Trial-Constrained Reference Validation** — close the unavailable 96 kHz treble96 capture route under the Standard Trial-only resource boundary; register 48 kHz midfill for notes 25/27/49/51/64/74, while keeping the treble literature extrapolation explicitly unverified and all acoustic acceptance thresholds unchanged.
