@@ -141,6 +141,7 @@ public:
     }
 
     /// 注入键状态谓词（测试用）：null/未设置时回退真实 OS 键盘查询。
+    /// 设置后会清除旧来源的物理键快照并用新谓词重捕；测试应在 setLayout 前注入。
     void setKeyStatePredicate(KeyStatePredicate predicate) noexcept;
 
 private:

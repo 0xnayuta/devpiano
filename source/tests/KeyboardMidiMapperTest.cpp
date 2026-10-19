@@ -30,6 +30,11 @@ KeyboardLayout makeTwoBindingLayout(char key1, int note1, char key2, int note2) 
     return layout;
 }
 
+/// 在所有 setLayout/reset 之前注入全释放谓词，避免真实 OS 键盘状态污染测试。
+void useReleasedKeys(KeyboardMidiMapper& mapper) {
+    mapper.setKeyStatePredicate([](int) { return false; });
+}
+
 /// 统计 MidiKeyboardState 中按住的音符数量。
 int countNotesOn(const juce::MidiKeyboardState& state) {
     int count = 0;
@@ -61,6 +66,7 @@ public:
         beginTest("mapped key sends note-on to keyboardState");
         {
             KeyboardMidiMapper mapper;
+            useReleasedKeys(mapper);
             mapper.setLayout(makeSingleBindingLayout('A', 72));
 
             juce::MidiKeyboardState keyState;
@@ -76,6 +82,7 @@ public:
         beginTest("unmapped key returns false and does not add notes");
         {
             KeyboardMidiMapper mapper;
+            useReleasedKeys(mapper);
             mapper.setLayout(makeSingleBindingLayout('A', 72));
 
             juce::MidiKeyboardState keyState;
@@ -89,6 +96,7 @@ public:
         beginTest("non-alphanumeric key returns false");
         {
             KeyboardMidiMapper mapper;
+            useReleasedKeys(mapper);
             mapper.setLayout(makeSingleBindingLayout('A', 72));
 
             juce::MidiKeyboardState keyState;
@@ -101,6 +109,7 @@ public:
         beginTest("correct MIDI channel and velocity propagated");
         {
             KeyboardMidiMapper mapper;
+            useReleasedKeys(mapper);
             mapper.setLayout(makeSingleBindingLayout('Q', 60, 3, 0.5f));
 
             juce::MidiKeyboardState keyState;
@@ -114,6 +123,7 @@ public:
         beginTest("pressing same key twice does not duplicate note-on");
         {
             KeyboardMidiMapper mapper;
+            useReleasedKeys(mapper);
             mapper.setLayout(makeSingleBindingLayout('A', 72));
 
             juce::MidiKeyboardState keyState;
@@ -133,6 +143,7 @@ public:
         beginTest("two different keys both register independently");
         {
             KeyboardMidiMapper mapper;
+            useReleasedKeys(mapper);
             mapper.setLayout(makeTwoBindingLayout('A', 72, 'S', 74));
 
             juce::MidiKeyboardState keyState;
@@ -146,6 +157,7 @@ public:
         {
             // 布局包含 'A'（大写规范化后的 keyCode）的绑定。
             KeyboardMidiMapper mapper;
+            useReleasedKeys(mapper);
             mapper.setLayout(makeSingleBindingLayout('A', 72));
 
             juce::MidiKeyboardState keyState;
@@ -160,6 +172,80 @@ public:
 };
 
 static KeyMappingTest keyMappingTest;
+
+// =============================================================================
+
+class KeyStatePredicateIsolationTest : public juce::UnitTest {
+public:
+    KeyStatePredicateIsolationTest()
+        : juce::UnitTest("KeyboardMidiMapper: injected key-state isolation", "DevPiano/Engine") {
+    }
+
+    void runTest() override {
+        beginTest("released predicate before layout allows synthetic note-on");
+        {
+            KeyboardMidiMapper mapper;
+            useReleasedKeys(mapper);
+            mapper.setLayout(makeSingleBindingLayout('A', 72));
+
+            juce::MidiKeyboardState state;
+            expect(mapper.handleKeyPressed(juce::KeyPress('A'), state));
+            expect(isNoteOn(state, 1, 72), "released barrier must not suppress synthetic note-on");
+        }
+
+        beginTest("held predicate before layout suppresses synthetic note-on");
+        {
+            bool isAHeld = true;
+            KeyboardMidiMapper mapper;
+            mapper.setKeyStatePredicate(
+                [&](int keyCode) { return keyCode == makeAlphaNumericKeyCode('A') && isAHeld; });
+            mapper.setLayout(makeSingleBindingLayout('A', 72));
+
+            juce::MidiKeyboardState state;
+            expect(mapper.handleKeyPressed(juce::KeyPress('A'), state));
+            expect(!isNoteOn(state, 1, 72), "pre-layout held key must be consumed without a new note-on");
+        }
+
+        beginTest("replacing predicate clears stale physical capture");
+        {
+            bool isAHeld = true;
+            KeyboardMidiMapper mapper;
+            mapper.setKeyStatePredicate(
+                [&](int keyCode) { return keyCode == makeAlphaNumericKeyCode('A') && isAHeld; });
+            mapper.setLayout(makeSingleBindingLayout('A', 72));
+
+            juce::MidiKeyboardState state;
+            expect(mapper.handleKeyPressed(juce::KeyPress('A'), state));
+            expect(!isNoteOn(state, 1, 72), "stale capture must suppress the first synthetic note-on");
+
+            isAHeld = false;
+            mapper.setKeyStatePredicate([](int) { return false; });
+            expect(mapper.handleKeyPressed(juce::KeyPress('A'), state));
+            expect(isNoteOn(state, 1, 72), "new predicate must clear the stale captured key");
+        }
+
+        beginTest("held state toggled after layout preserves note identity");
+        {
+            bool isAHeld = false;
+            KeyboardMidiMapper mapper;
+            mapper.setKeyStatePredicate(
+                [&](int keyCode) { return keyCode == makeAlphaNumericKeyCode('A') && isAHeld; });
+            mapper.setLayout(makeSingleBindingLayout('A', 72));
+
+            juce::MidiKeyboardState state;
+            isAHeld = true;
+            expect(mapper.handleKeyPressed(juce::KeyPress('A'), state));
+            expect(isNoteOn(state, 1, 72), "layout-time released key must allow note-on after press");
+
+            isAHeld = false;
+            expect(mapper.handleKeyStateChanged(state));
+            expect(!isNoteOn(state, 1, 72), "physical release must close the locked identity");
+            expectEquals(countNotesOn(state), 0);
+        }
+    }
+};
+
+static KeyStatePredicateIsolationTest keyStatePredicateIsolationTest;
 
 // =============================================================================
 
@@ -181,8 +267,8 @@ public:
             // 无头单元测试中所有按键都报告"未按下"，因此 handleKeyPressed
             // 之后调用 handleKeyStateChanged 会释放按住的按键并发送 note-off。
             KeyboardMidiMapper mapper;
-            mapper.setLayout(makeSingleBindingLayout('A', 72));
             mapper.setKeyStatePredicate(allKeysReleased);
+            mapper.setLayout(makeSingleBindingLayout('A', 72));
 
             juce::MidiKeyboardState keyState;
 
@@ -200,8 +286,8 @@ public:
         beginTest("releaseAllHeldKeys releases notes and sustain pedal");
         {
             KeyboardMidiMapper mapper;
-            mapper.setLayout(makeTwoBindingLayout('A', 72, 'S', 74));
             mapper.setKeyStatePredicate(allKeysReleased);
+            mapper.setLayout(makeTwoBindingLayout('A', 72, 'S', 74));
 
             juce::MidiKeyboardState keyState;
 
@@ -225,8 +311,8 @@ public:
         beginTest("handleKeyStateChanged with no held keys does nothing");
         {
             KeyboardMidiMapper mapper;
-            mapper.setLayout(makeSingleBindingLayout('A', 72));
             mapper.setKeyStatePredicate(allKeysReleased);
+            mapper.setLayout(makeSingleBindingLayout('A', 72));
 
             juce::MidiKeyboardState keyState;
             // 没有按住的按键 → 应为 no-op。
@@ -239,6 +325,7 @@ public:
         {
             KeyboardMidiMapper mapper;
             // channelMapper 默认为 nullptr——仍应正常工作。
+            useReleasedKeys(mapper);
             mapper.setLayout(makeSingleBindingLayout('A', 72));
 
             juce::MidiKeyboardState keyState;
@@ -374,13 +461,13 @@ private:
         beginTest("NoteOff preserves sounding pitch across group octave shift");
 
         KeyboardMidiMapper mapper;
+        bool isAHeld = false;
+        mapper.setKeyStatePredicate([&](int keyCode) { return (keyCode == makeAlphaNumericKeyCode('A')) && isAHeld; });
         auto layout = makeSingleBindingLayout('A', 60); // C4 base
         layout.groups[0] = { 0, 0, 0, "Base" };
         layout.groups[1] = { 0, 1, 0, "+1 Octave" }; // +12 semitones
         mapper.setLayout(layout);
-
-        bool isAHeld = true;
-        mapper.setKeyStatePredicate([&](int keyCode) { return (keyCode == makeAlphaNumericKeyCode('A')) && isAHeld; });
+        isAHeld = true;
 
         juce::MidiKeyboardState state;
 
@@ -409,13 +496,12 @@ private:
         beginTest("NoteOff preserves sounding channel across group switch");
 
         KeyboardMidiMapper mapper;
+        bool isAHeld = false;
+        mapper.setKeyStatePredicate([&](int keyCode) { return (keyCode == makeAlphaNumericKeyCode('A')) && isAHeld; });
         auto layout = makeSingleBindingLayout('A', 60, 1);
         layout.groups[0] = { 0, 0, 0, "Ch1" };
         layout.groups[1] = { 0, 0, 5, "Ch5" }; // override to channel 5
         mapper.setLayout(layout);
-
-        bool isAHeld = false;
-        mapper.setKeyStatePredicate([&](int keyCode) { return (keyCode == makeAlphaNumericKeyCode('A')) && isAHeld; });
 
         juce::MidiKeyboardState state;
 
@@ -455,15 +541,16 @@ private:
         devpiano::midi::MidiChannelMapper updatedMapper(updatedMatrix, false, 0);
 
         KeyboardMidiMapper mapper;
-        mapper.setLayout(makeTwoBindingLayout('A', 60, 'S', 62));
-        mapper.setChannelMapper(&initialMapper);
-
-        bool isAHeld = true;
-        bool isSHeld = true;
+        bool isAHeld = false;
+        bool isSHeld = false;
         mapper.setKeyStatePredicate([&](int keyCode) {
             return (keyCode == makeAlphaNumericKeyCode('A') && isAHeld)
                 || (keyCode == makeAlphaNumericKeyCode('S') && isSHeld);
         });
+        mapper.setLayout(makeTwoBindingLayout('A', 60, 'S', 62));
+        mapper.setChannelMapper(&initialMapper);
+        isAHeld = true;
+        isSHeld = true;
 
         juce::MidiKeyboardState state;
         expect(mapper.handleKeyPressed(juce::KeyPress('a'), state));
@@ -488,10 +575,10 @@ private:
         beginTest("layout replacement retains a held note until its physical key-up");
 
         KeyboardMidiMapper mapper;
-        mapper.setLayout(makeSingleBindingLayout('A', 60));
-
-        bool isAHeld = true;
+        bool isAHeld = false;
         mapper.setKeyStatePredicate([&](int keyCode) { return keyCode == makeAlphaNumericKeyCode('A') && isAHeld; });
+        mapper.setLayout(makeSingleBindingLayout('A', 60));
+        isAHeld = true;
 
         juce::MidiKeyboardState state;
         expect(mapper.handleKeyPressed(juce::KeyPress('a'), state));
@@ -511,6 +598,7 @@ private:
         beginTest("Multi-key held across alternating groups release cleanly with releaseAllHeldKeys");
 
         KeyboardMidiMapper mapper;
+        useReleasedKeys(mapper);
         KeyboardLayout layout;
         layout.bindings.push_back(makeNoteBinding('A', 60));
         layout.bindings.push_back(makeNoteBinding('S', 62));
@@ -609,13 +697,12 @@ private:
         beginTest("QUAL-002: Default Q/K both MIDI72 Ch1 stay sounding on first release, close on last release");
 
         KeyboardMidiMapper mapper;
-        mapper.resetToDefaultLayout();
-
         bool isQDown = false;
         bool isKDown = false;
         mapper.setKeyStatePredicate([&](int kc) {
             return (kc == makeAlphaNumericKeyCode('Q') && isQDown) || (kc == makeAlphaNumericKeyCode('K') && isKDown);
         });
+        mapper.resetToDefaultLayout();
 
         juce::MidiKeyboardState state;
 
@@ -684,17 +771,16 @@ private:
         devpiano::midi::MidiChannelMapper mapperService(matrix, false, 0);
 
         KeyboardMidiMapper mapper;
-        KeyboardLayout layout;
-        layout.bindings.push_back(makeNoteBinding('A', 60, 1));
-        layout.bindings.push_back(makeNoteBinding('S', 58, 2));
-        mapper.setLayout(layout);
-        mapper.setChannelMapper(&mapperService);
-
         bool isADown = false;
         bool isSDown = false;
         mapper.setKeyStatePredicate([&](int kc) {
             return (kc == makeAlphaNumericKeyCode('A') && isADown) || (kc == makeAlphaNumericKeyCode('S') && isSDown);
         });
+        KeyboardLayout layout;
+        layout.bindings.push_back(makeNoteBinding('A', 60, 1));
+        layout.bindings.push_back(makeNoteBinding('S', 58, 2));
+        mapper.setLayout(layout);
+        mapper.setChannelMapper(&mapperService);
 
         juce::MidiKeyboardState state;
 
@@ -724,13 +810,14 @@ private:
         beginTest("QUAL-002: Group, layout, and mapper changes preserve overlapping held identities until last holder");
 
         KeyboardMidiMapper mapper;
-        mapper.resetToDefaultLayout();
-
-        bool isQDown = true;
-        bool isKDown = true;
+        bool isQDown = false;
+        bool isKDown = false;
         mapper.setKeyStatePredicate([&](int kc) {
             return (kc == makeAlphaNumericKeyCode('Q') && isQDown) || (kc == makeAlphaNumericKeyCode('K') && isKDown);
         });
+        mapper.resetToDefaultLayout();
+        isQDown = true;
+        isKDown = true;
 
         juce::MidiKeyboardState state;
         expect(mapper.handleKeyPressed(juce::KeyPress('q'), state));
@@ -762,6 +849,7 @@ private:
         beginTest("QUAL-002: Focus loss / releaseAllHeldKeys releases overlapping notes exactly once");
 
         KeyboardMidiMapper mapper;
+        useReleasedKeys(mapper);
         mapper.resetToDefaultLayout();
 
         juce::MidiKeyboardState state;
@@ -783,13 +871,12 @@ private:
         beginTest("QUAL-002: Repeated attack interleaving while note held maintains last-holder invariant");
 
         KeyboardMidiMapper mapper;
-        mapper.resetToDefaultLayout();
-
         bool isQDown = false;
         bool isKDown = false;
         mapper.setKeyStatePredicate([&](int kc) {
             return (kc == makeAlphaNumericKeyCode('Q') && isQDown) || (kc == makeAlphaNumericKeyCode('K') && isKDown);
         });
+        mapper.resetToDefaultLayout();
 
         juce::MidiKeyboardState state;
 
@@ -926,14 +1013,15 @@ private:
 
         KeyboardMidiMapper mapper;
         juce::MidiKeyboardState state;
+        bool isNum1Down = false;
+        mapper.setKeyStatePredicate([&](int code) { return code == juce::KeyPress::numberPad1 && isNum1Down; });
         mapper.setPartitionMode(KeyboardPartitionMode::mainAndNumpad);
 
         bool numLock = true;
         mapper.setNumLockPredicate([&] { return numLock; });
 
         // With NumLock on, Num 1 triggers
-        bool isNum1Down = true;
-        mapper.setKeyStatePredicate([&](int code) { return code == juce::KeyPress::numberPad1 && isNum1Down; });
+        isNum1Down = true;
 
         expect(mapper.handleKeyPressed(juce::KeyPress(juce::KeyPress::numberPad1), state));
         expect(state.isNoteOn(1, 60));
@@ -958,11 +1046,12 @@ private:
         KeyboardMidiMapper mapper;
         juce::MidiKeyboardState state;
 
-        bool isQDown = true;
+        bool isQDown = false;
         mapper.setKeyStatePredicate([&](int code) { return (code == 'Q' || code == 'q') && isQDown; });
 
         // Key Q pressed in off mode
         mapper.setPartitionMode(KeyboardPartitionMode::off);
+        isQDown = true;
         expect(mapper.handleKeyPressed(juce::KeyPress('q'), state));
         expect(state.isNoteOn(1, 72));
         expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 1);
@@ -989,6 +1078,18 @@ private:
         KeyboardMidiMapper mapper;
         juce::MidiKeyboardState state;
 
+        bool isADown = false;
+        bool isBDown = false;
+        mapper.setKeyStatePredicate([&](int code) {
+            if (code == 'A' || code == 'a') {
+                return isADown;
+            }
+            if (code == 'B' || code == 'b') {
+                return isBDown;
+            }
+            return false;
+        });
+
         devpiano::midi::ChannelMatrix matrix;
         matrix.active = true;
         // Channel 1 outputChannel is 1 (normal)
@@ -1004,18 +1105,7 @@ private:
         layout.bindings.push_back(makeNoteBinding('A', 60, 1));
         layout.bindings.push_back(makeNoteBinding('B', 60, 2));
         mapper.setLayout(layout);
-
-        bool isADown = true;
-        bool isBDown = false;
-        mapper.setKeyStatePredicate([&](int code) {
-            if (code == 'A' || code == 'a') {
-                return isADown;
-            }
-            if (code == 'B' || code == 'b') {
-                return isBDown;
-            }
-            return false;
-        });
+        isADown = true;
 
         // 1. Play 'A' -> sounds on ch 1, note 60
         expect(mapper.handleKeyPressed(juce::KeyPress('a'), state));

@@ -106,13 +106,13 @@ private:
         beginTest("NoteOff preserves sounding pitch even if modifier released before key release");
 
         KeyboardMidiMapper mapper;
+        bool isAHeld = false;
+        mapper.setKeyStatePredicate(
+            [&](int keyCode) { return (keyCode == devpiano::core::makeAlphaNumericKeyCode('A')) && isAHeld; });
         devpiano::core::KeyboardLayout layout;
         layout.bindings.push_back(devpiano::core::makeNoteBinding('A', 60, 1, 0.8f));
         mapper.setLayout(layout);
-
-        bool isAHeld = true;
-        mapper.setKeyStatePredicate(
-            [&](int keyCode) { return (keyCode == devpiano::core::makeAlphaNumericKeyCode('A')) && isAHeld; });
+        isAHeld = true;
 
         juce::MidiKeyboardState state;
 

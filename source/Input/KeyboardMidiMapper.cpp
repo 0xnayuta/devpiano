@@ -568,6 +568,10 @@ void KeyboardMidiMapper::sendNoteOff(int midiChannel, int midiNote, float veloci
 
 void KeyboardMidiMapper::setKeyStatePredicate(KeyStatePredicate predicate) noexcept {
     keyStatePredicate = std::move(predicate);
+    // 键状态来源切换后必须清除旧来源的物理键快照，并用新谓词重捕，
+    // 否则 setLayout 早期读取的真实 OS 状态会继续抑制合成 NoteOn。
+    physicalKeysDownState.clear();
+    captureCurrentlyDownKeysBarrier();
 }
 
 bool KeyboardMidiMapper::isKeyCurrentlyDown(int keyCode) const {
