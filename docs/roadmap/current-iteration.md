@@ -206,13 +206,13 @@ Reference 的 70→98 HF 功率占比增加约 12.49 dB，devpiano 为 2.98 dB�
 - 同轮复核逐键拉伸、分音匹配、Duplex 段频率和开放弦共鸣的调谐，不只修改 `Piano88KeyTable`。校准仍独立于 MIDI 音符身份，Sine 与 VST3 不自动套用钢琴拉伸。
 - 在修改前固定选定分音/音程的误差指标和可接受界限，使用未参与拟合的声音检验；没有足够证据的键位不以补齐“实测表”为验收目的。
 
-**当前状态（2026-10-14，用户批准收口；正式验收已执行并消耗）**：校准实施与生产回归完成，现行 `B` 表冻结，停止追加训练锚点；正式独立验收（validation-interp2）已完整执行，判决为**证据不足**（32/32 可评估单元达标，12 个 n88 分析失败 + 4 个 n67-v47 可比分音不足），见本节末“执行结果”。唯一后继验收候选及停止条件见本节末“冻结 B 表与有界独立验收”，不以补齐未测音高作为任务完成条件。下方历史续采建议不再构成当前执行授权。
+**当前状态（2026-10-17；2026-10-19 收尾）**：校准实施与生产回归完成，现行 `B` 表冻结，停止追加训练锚点。直接验收2、3已独立通过；直接验收1的validation-interp2已消耗且仍“证据不足”，Task39-2不记全部完成。旧66例和完整84例的not_qualified、原始输出及已消费seal均不改。窗级输入拒绝最小修订经开发验证、完整新覆盖前瞻登记和实际无PCM准备后，已按单独授权完成唯一完整资格，原始判决qualified；所有新条件、旧控制、必须准入条件及比较／重复／同seal评估器回归义务通过。精确帧尾合法窗实际准入，越界一采样点窗保留原请求界、零观察器探针及原PPA拒绝；声学弃权与runner输入拒绝分开记账。批准后登记、源码、科学payload及历史输入保护核验通过，seal已消费且单批执行权已关闭，development未执行；保留的approval=true只记录这一批封印历史，不能用于重跑或另造seal。当前源码只在本次预登记有限合成域获独立方法资格，不认证真实弦身份、参考原点或完整v3验收；资格入口为研究仓库 `pilot/window-refusal-qualification-verification.json`。经另批最小元数据对齐，活动v3现绑定该批原角色报告及对应登记；Windows原生真实 `--check-plan` 已核验其身份／消费链和当前六输入，`current_snapshot_qualified=true`，退出3且 `execution_allowed=false`。只移出已兑现的方法资格未决项，其他未决前提及全部正式授权／冻结开关保持；未重新量测、拟合、执行角色或创建seal。复核入口为 `pilot/v3-method-binding-verification.json`。2026-10-18 参考原点已认证、v3 已冻结并完成 A6/A7：40 冷会话 / 120 单元采集、正式评估 120/120 `reference_rejected`、可评估 0；参考能力诊断确认无必然双弦，未改阈值/协议或生产 B。2026-10-19 Task 39-2 以证据不足（inconclusive）收尾：验收 1 未满足、验收 2/3 保持通过；A1–A7 全部关闭/消费，不重跑、不放宽、不注入 B。若未来继续外部参考，须作为新任务另行登记。
 
 **直接验收**：
 
 - [ ] 可靠锚点与留出声音的分音误差符合事先约定的指标；插值及模型假设范围明确，没有伪造逐键或琴型标定。
-- [ ] 实际 A4 400.0–480.0 Hz 锚点、选定八度/复八度、邻键音高顺序及原已起音身份有效；拉伸关闭且 `B=0` 的谐波极限不退化。
-- [ ] 8000/44100/48000 Hz 的真实发声、有限性、Nyquist 安全及超界 Duplex 旁路有效；实际共鸣与主弦调谐不出现未说明的错位或残留。
+- [x] 实际 A4 400.0–480.0 Hz 锚点、选定八度/复八度、邻键音高顺序及原已起音身份有效；拉伸关闭且 `B=0` 的谐波极限不退化。
+- [x] 8000/44100/48000 Hz 的真实发声、有限性、Nyquist 安全及超界 Duplex 旁路有效；实际共鸣与主弦调谐不出现未说明的错位或残留。
 
 #### Task 39-2 实施记录：量测与参考准入（2026-10-11）
 
@@ -513,6 +513,194 @@ Reference 的 70→98 HF 功率占比增加约 12.49 dB，devpiano 为 2.98 dB�
 - **判决**（2026-10-14T07:09:28Z，guard 20 dB）：**可评估 32/32 全达标**（n29 12/12、n55 12/12、n67 8/8；worst rms 0.848 / worst max 1.495 cents；B_rel n29 +15.58%、n55 +7.53%、n67 −0.73%），failing 空；缺口 = n88 12 分析错误 + n67-v47 4 可比分音不足 → 依出口口径记**验收证据不足**（非“通过”亦非“不通过”），两类缺口并列；legacy 敏感性计数完全相同。
 - **后果**：验证集已按 one-shot 纪律消耗；不回调 B 表/判据、不扩采、不补开替代批次、不重判。n88 参考侧分音充分性与 n29-v107 强力度族质量问题只保留为新预登记决策输入，不在本轮或既有工具上处理。
 - **证据**：主批 `G:\source\projects\devpiano-evidence\phase39\task39-2\validation-interp2-20261014-055127`（1,446 文件 / 193,011,520 字节，逐文件源/目标 SHA-256 一致，manifest `714625fea63d0ab09ade9dd50e4046e22fe0e30ab4a0776a3755ce9763961a1f`）与 dev-render `…\validation-interp2-devrender-20261014-055127`（26 文件 / 34,489,225 字节，manifest `aa10a4d30128236773556306bcb0b15c0d0f5c53bec29428edc1612d1ec72b60`）；catalog §44；工作区未提交。
+
+#### Task 39-2 独立直接验收 2、3（2026-10-14）
+
+- **基线与边界**：用户批准先完成这两条内部契约。WSL 与 Windows 镜像的生产表均为 `c1997c90…`，生产声部源码为 `fa113760…`，均未修改；Windows MSVC Debug 构建及默认完整 CTest 通过。实际消费者在内存中运行当前 `BuiltinSynthesiser` / `PianoSynthVoice` 并保存采样，不使用 getter 或公式回算冒充声音；未启动 Pianoteq、GUI 或新外部留出批次，不认证设备 deadline、CPU SLA 或真实琴型。
+- **调谐、音程与身份**：44.1/48 kHz、A4 400/440/480、拉伸开/关的实际第一分音与冻结模型一致；A4 还覆盖全部现行律制。A4 最大计算残差小于 0.001 Hz；21–108 邻键严格递增，实测步距约 99.909–103.232 cents。预选 4:2/2:1 与复八度符合原登记误差界限，未要求拉伸后的第一分音永远是纯八度；跨率、持续音调律切换及错身份释放后的同一生成线变化均小于 0.001 cent。原 NoteOff 和原通道 CC120 正常结束对应声部及尾音。
+- **B=0 实际极限**：独立测试构建只在保留的声部副本中将起音 `effectiveInharmonicityB` 输入设为 0，并关闭拉伸；初始化、分音准入、归一化、阻尼与实际渲染仍执行同一实现，调度源码同批编译以避免混合定义。实际采样的名义分音退化为整数倍，小于 0.001 cent 的计算残差；生产表、产品 API 与默认参数不变。同音微失谐保留并单列，双弦用两条实测线的算术频率中心，不冒称一根实际中心弦或全混合谱零拍频。
+- **三率声音与安全**：8000/44100/48000 Hz 的固定三 A4 / 拉伸开关矩阵覆盖 88 键真实渲染，全部有限、在测试控制下原声部峰值小于 2，活动振荡器保持相干安全带。越界 Duplex 的成对 dry/wet 样本差为 0；带内模态实际激发并自主衰减，采样测得频率符合准备值。8 kHz C8 在 A4=400、拉伸关闭时保留约 3805.46 Hz，越界条件才回退约 3819.88 Hz；记录到折返候选，不称零非线性混叠或全音域原音准。
+- **共鸣与释放**：三率、三 A4、全部现行律制及拉伸开关下，十二音级代表弦池的实际自由衰减极点与对应主弦采样频率核对；最大中心差约 0.924 cent，由预先规定的 float32 系数量化区间覆盖，实际采样极点与系数极点之差小于 0.1 cent。正常离键/松踏板及原通道 Panic 无悬挂或未说明残留；不升级为真实 88 弦耦合证明。
+- **诊断更正与保留**：初版消费者将所有 8 kHz C8 条件标为回退，首轮观察因此误报 A4=400/拉伸关闭的峰值。已按统一“带内保留、越界回退”规则更正诊断期望，原 0.07 Hz 容差不变；初版与更正后的报告、原采样均保留，未改产品或删除失败记录。
+- **验收 1 与后继影响（此前分析，方法执行见下节）**：原“32/32”只是误差统计，仍须并列 n29-v107 参考族质量拒绝。已消耗集只能诊断，非基准样本数及误差门槛不豁免。若验收 1 持续缺证，现表不因此自动回滚，Task 39-2 保持“实施完成、内部验收通过、外部验收未满足”；39-3/4 可按既定基线依赖独立准备，但 Phase 39 原交付出口仍要求全部直接验收，除非用户明确批准范围变更与风险接受。
+- **证据**：`G:\source\projects\devpiano-evidence\phase39\task39-2\direct-acceptance23-20261014-081145`；最终观察为 `analysis-v2/summary.json`，采样、两版诊断、原源码/唯一测试输入控制、编译配方与 CTest 日志均保留，逐文件源/目标 SHA-256 一致，manifest `e767220475b290e8005bca4fe62e9404ac32fc9284eb8433ca184f72c5f8a050`，catalog §45。第三方环境与大型派生二进制只登记；临时主树/镜像消费者已移除，本轮文档留工作区，不自动提交。
+
+#### Task 39-2 有界量测资格修订（2026-10-14，用户批准，无新采集）
+
+- **范围**：只修订研究评估器的参考数值准入与完整互斥分类，并以独立合成基准验证动态范围、衰减窗口和 n29 竞争假设。原分析器 `0255ae71…`、冻结预登记 `053dcbee…`、生产 B/声部 `c1997c90…` / `fa113760…` 与原正式判决不变；不更换音高、力度、采样率或重复条件，不运行 Pianoteq/GUI，不新增参考或 devpiano 渲染。
+- **评估器修复**：`validation-eval.py` 从实际留出观测重算 RMS/max，检查两个窗口的分音/训练/留出充分性、缺峰与状态、f1/B 窗间及重复稳定性；数值参考族拒绝不再进入对照通过统计。结果互斥归入 missing_input / analysis_error / reference_rejected / insufficient_comparable / comparison_failed / comparison_passed，零可比分音与仅基准行也有出口。冻结依赖散列不匹配时拒绝登记评估，只有显式 `--diagnostic-only` 可输出诊断；已有输出拒绝覆盖。纯内存行为回归、冻结门禁、缺输入与覆盖保护均在 Windows 实际运行。
+- **固定旧批诊断（不是重判）**：guarded 与 legacy 均完整覆盖 48 单元：28 对照达标、4 参考族拒绝（n29-v107）、4 可比分音不足（n67-v47）、12 分析错误（n88），无遗漏、无已确认对照超差。此为修订工具的诊断分类，不替代原“32/32 可评估达标、整批证据不足”的历史产物，也不建立真实弦身份。
+- **动态范围与负例**：独立定义的 24-bit 双声道合成刚性族使用 off-bin f1、固定相位与随机种子，线性幅度避免 clipping；真值只在观测后核验，不进入匹配器。将同一 25 dB SNR 通道用于低音区可恢复弱第九分音（固定 −55/−65/−75/−85 dB 矩阵中原口径 2/8、候选 8/8），静态族、纯噪声与强弱邻峰夹具按已登记门槛核验。但两口径均在四个 0.4 Hz 未分辨混合族上假阳性准入，即使留出 RMS/max 与窗间稳定性达标也不能认证物理 B/中心弦。**候选总体未获资格，按停止条件不修改默认分析器。**
+- **衰减与时窗**：快速高分音衰减（τ=0.15 s）使原 W2 在 n67/n88 合成条件下不足两个非基准可比分音；τ=0.4 s 条件保留足够样本。预声明短窗能增加检出，但部分条件超原频率门槛，不凭检出数量采用。n29 的 1.5 s 早/中/晚窗在已知低阶静态/衰减线上的误差约 0.0064–0.0106 Hz，超过 0.005 Hz 门槛，相关时域归因标为不可辨识。
+- **n29 竞争假设**：只读既有 12 WAV，固定 1..6 / 1..12 / 1..24 训练子集，按训练预测从原谱独立重识留出峰，strongest/nearest 并列而不选赢家。n29-v107、48 kHz 的 strongest 1..24 子集对 25..36 / 37..48 留出 RMS 约 0.353/0.439 cents，而 nearest 口径明显恶化，支持选峰/编号敏感性仍须调查；不据此更换正式选峰、认定静态 B 必然正确或归因为张力机制。重复峰一致与双率敏感性不能排除确定性误配或证明量测绝对精度。
+- **边界与证据**：Windows Python 3.14.7 / NumPy 2.5.4 / SciPy 1.18.1 实际执行；48 原参考 WAV、24 原 dev WAV 与原判决/分析/manifest 的散列核对原不可变归档并保持一致。批次 `G:\source\projects\devpiano-evidence\phase39\task39-2\meter-qualification-20261014-110338` 保留精确源代码、固定配方/PCM 散列、全部窗口/假阳性/诊断明细、原版复现及运行日志。n29 子进程 exit 0 后的 GBK 控制台收集错误单独保留，JSON 数值产物有效；只修复后续 UTF-8 收集，不重跑其数值诊断。此次数值门禁修复不是完整物理准入证明；新增观察器或采集须另有明确决策，生产 B、旧判决及验收 1 状态不变。修改留工作区，不自动提交。
+- **归档完整性**：48 个证据文件 / 5,933,293 字节逐文件源/目标 SHA-256 一致，0 mismatch / 0 missing；manifest `94fe42e80950d98a2623bc44870a6e0ef5f7e53ba8b0fe9892c2978eeef23e54`，catalog §46，入口 `verification-summary.json`。原数值产物与日志保留，独立临时 Python 环境已移除。
+
+
+#### Task 39-2 A1–A3 方法实现与独立资格结果（2026-10-15）
+
+- **A1 修复**：`pilot/tools/pilot-partial-analysis.py` 的 staged matching 现在明确从第 1–6 分音起步；逐种子、逐扩展级别、阶段 B、逐窗口失败全部保留。W1 失败不由 W2 替代，缺失/失败/观测弃权分别进入 `window_failure` / `observation_inconclusive` / `ok`。Windows 已知频率探针显示：旧路径 `B=8e-5` 被误配为约 `1.894e-4`、仅识别 47 条且 33 条错配；修复后同一探针正确识别 85 条，`f1/B` 与编号误差为 0。该数学探针不外推为真实录音通过。
+- **A2 共享观察器**：新增 `pilot/tools/partial-observer.py` 与纯内存回归。观察器拟合实际离散 Hann 双声道复数响应，比较单频、同频双衰减、两频/三频模型，返回条件频率区间或保守 `ambiguous` / `resolved_components`；不输出真实弦身份或物理 B 证书。搜索范围外出现强相干伴线时弃权；宽探针有界预算已覆盖登记域。
+- **A3 资格执行器**：`pilot/method-qualification-v3.json` 与精简后的 `meter-qualification.py` 使用互斥开发/资格配方、独立真值、24-bit PCM 往返和真值后验评分；资格角色完整执行一次，28 个资格用例中 26 个通过、4 个回归控制通过，失败仅为两种慢 AM 正例无法获得静态单分量证明，整体结果 **`not_qualified`**。开发后矩阵 27 个用例中 25 个通过、4 个控制通过；AM 保守失败保持，不以调阈值换绿。
+- **已消费数据诊断**：48 个旧参考/24 个归档 dev 输入只读诊断完成，`historical_verdict_changed=false`、资格不从旧集推断；新观察器使旧参考 48 单元全部不具备完整静态门禁资格（n29/n55/n67 多为 observation inconclusive，n88 保留 matching failure），因此不能声称恢复旧证据。dev 侧仅部分单元满足两窗 `ok`，两侧没有可比较正式结果。
+- **保护与边界**：生产 `Piano88KeyTable.h` / `PianoSynthVoice.h`、冻结预登记、旧 WAV 散列均未变；72 个 canonical WAV 与 48 个私有导出副本共 120 个文件逐一核验一致。Windows CLI 冒烟覆盖四组回归、帮助入口、冻结正式评估拒绝和已有输出保护，全部通过。证据目录：`G:\tmp\devpiano-task39-2-observer-20261014-230907`；`verification-evidence-summary-final.json` 仅为 runner receipt，详细结果保留在 `qualification-once/`、`development-postfix/`、`consumed-diagnosis/`、`boundaries-accounted.json`。
+- **结论**：A1–A3 实现和验证完成，但方法资格未通过、旧数据未恢复可靠静态证据；保持静态 B 目标，**不冻结 v3、不申请新参考采集、不修改生产 B/DSP、不重判历史验收**。后续若继续，只能先单独预登记 AM/包络可比量与观察器适用域，再决定是否重新做资格开发；动态包络仍不能替代静态 B。
+
+#### Task 39-2 AM/包络独立方法研究与预登记（2026-10-15）
+
+- **声明分层**：`pilot/am-envelope-preregistration.json` 在执行前登记条件 AM 模型、互斥开发/资格配方和两组义务。包络可解释性只表示模型能预测未参与拟合的原始采样段；静态单分量仍由未修改的 `partial-observer.py` 判断，AM 结果不覆盖其状态、不输入 B 拟合、不建立唯一弦身份。
+- **实现与时域留出**：新增 `am-envelope-observer.py`、`am-envelope-study.py` 与行为回归，复用既有离散 Hann 响应。仅拟合 0.08–2.68 s 的双声道复数谱，预测 2.68–3.8 s 原始样本；真值只在观察后评分。研究覆盖 AM 乘法式、独立三音叠加式及非对称三音、拍频、FM/chirp、噪声、定频衰减和极慢 AM 边界，实际使用 24-bit PCM 往返。
+- **资格结果与不可辨识证据**：Windows 隔离数值环境中的开发及一次封印资格均逐例满足登记义务。每角色三个 AM/相干三音配对在量化后逐样本一致，不能用重复波形倍增独立证据；这些信号均能获得包络解释，但静态观察仍为 ambiguous 或 resolved_components，不冒称单一来源。资格正例最大载频误差约 `3.41e-7 Hz`、留出相对 RMS 约 `5.72e-4`、归一化包络 RMS 约 `2.23e-5`，均满足事前预算；这些误差只覆盖固定合成配方，不外推真实钢琴。
+- **适用域边界**：极慢 AM 的调制参数不可辨识，而现行观察器仍可接受精度内的单频近似；因此 `single_component_adequate` 不是“绝对无 AM”或物理来源唯一性的证明。条件载频、单分量近似与物理 B 三者不得混用。非对称/时变/噪声负例不获包络支持，纯衰减控制不被强行解释为可辨调制。
+- **证据与后果**：`G:\source\projects\devpiano-evidence\phase39\task39-2\am-envelope-study-20261015-045057` 保留预登记、资格源码封印、PCM、逐例参数/误差/静态结果、CLI 拒绝和保护回执，入口为 `verification-summary.json`。生产 B/声部、旧观察器/PPA/门禁、旧资格设计和冻结验收协议及上一轮失败报告均保持散列一致。本轮仅完成 AM 条件解释研究；完整量测资格、旧集及 Task 39-2 外部验收状态不变，**没有新采集或 v3 冻结授权**。
+- **归档完整性**：本轮证据 102 文件 / 31,230,427 字节逐文件源/目标 SHA-256 一致，0 mismatch / 0 missing；manifest `0eed69126cc8ec4a4b9fdec58ea6546dd2a46dd4bf4b2d8169053c84d291fe99`，catalog §47。一次性第三方环境仅登记版本、不作为方法源码入库，归档后已移除；原始数值产物和重建配方保留。
+
+#### Task 39-2 可比量契约与 A4/A5 准备（2026-10-15）
+
+- **批准范围**：同时收口可比量短契约、修正 A4 输入/dev 渲染、准备 A5 草案；仅用已消费 n69-v70 认证 MIDI 与内部控制，不运行 Pianoteq/GUI，不生成新参考或未知留出矩阵，不改生产 B/DSP。
+- **短契约**：`pilot/frequency-observable-contract-v3.json` 明确静态候选线、已分辨多分量、AM 条件载频与原始峰的不同权限；当前静态候选仍须通过条件区间、正确编号、独立留出及两窗/重复门禁。AM 成功不覆盖弃权、不进入 B；误差预算、最低样本与原可比分音范围不变。
+- **输入与实际渲染**：`pilot/input-render-contract-v3.json` 保留认证的 0.1 s NoteOn、4.2 s 显式 NoteOff、5.2 s EOT；临时独立 console 消费者实际读取 SMF，以块内 sample offset 驱动当前 `BuiltinSynthesiser` / `PianoSynthVoice`，不补造 NoteOff、不裁去前静音、不归一化。Windows MSVC Debug 的 44100/48000 Hz、512/257 block、双声道 24-bit PCM 均通过独立解析与运行事件核验；正常释放与保持按键阴性控制在离键前 PCM 一致、离键后不同，两种 block 在本控制下逐采样一致。此为输入/渲染证明，不是 B 验收。
+- **文件保护修复**：在全新私有哨兵上复现原 `make-stimulus-corpus.py` 覆盖行为后，改为拒绝已有目录与重复/非法参数，输出使用独占创建；认证 n69-v70 字节不变。真实 CLI 确认旧刺激/receipt、已有 WAV/验证输出均保留，缺失显式离键、错误离键身份和超出准备域的 rate 被拒绝。
+- **A5 门禁**：`pilot/validation-v3-preregistration.json` 保持 `draft_pending_review`，矩阵未选、授权全关闭。现有 `validation-eval.py --check-plan` 只读草案/契约/工具散列并报告阻塞，退出 3；普通与 `--diagnostic-only` 评估均在读取音频前拒绝草案，不能仅翻转 frozen 状态或忽略契约矛盾。新增语义回归及既有观察器、PPA、AM 回归通过。首次 Windows 计划读取暴露 GBK 默认解码错误，显式 UTF-8 修复后目标回归与真实 CLI 通过；初版失败保留。
+- **未完成的正式前提**：旧参考 WAV 首帧已非零，文件时长及声学起点均不能认证 MIDI 导出原点；参考 origin 仍未认证。旧 PPA 绝对窗口未被追认为 NoteOn 相对窗口，未来 v3 的坐标集成与完整方法资格仍须独立验证。旧 A3 失败、已消费矩阵与外部验收状态不变，A6/A7 未启动。
+- **证据**：`G:\source\projects\devpiano-evidence\phase39\task39-2\a4-a5-preparation-20261015-052434`，入口 `verification-summary.json`。保留 PCM、独立解析、运行账本、阴性控制、全部拒绝/初版失败、精确源码与编译/链接配方；消费者不接入 CMake/永久单元测试，验证后移除临时源码。Windows Debug 产品构建与默认完整 CTest 通过；生产源码、原刺激、冻结协议及历史入口散列保护通过。临时消费者无编译数据库条目，clangd 缺 include 的结果不作为干净静态检查证明；实际编译以 Windows MSVC 为准。
+- **归档完整性**：逐文件源/目标 SHA-256 一致，无差异、无缺失；manifest `b5142358fb58ac9137df09c9410443592b1ae302e3e574de4aad4ae18e932ccf`，catalog §48。临时 Python 环境已移除，原始产物与重建配方保留；本轮修改留工作区，未自动提交。
+
+#### Task 39-2 NoteOn 坐标接入与完整方法资格登记（2026-10-15）
+
+- **授权与边界**：接入 v3 NoteOn 相对坐标，登记与短契约一致的完整有限方法资格和参考原点取证方案；不执行独立 `qualification`，不运行 Pianoteq/GUI，不采集新参考或真实留出，不改生产 B/DSP。
+- **分析接口**：`analyze_samples` / `analyze_unit` 必须显式 `timing`。相对域用 `note_on_sample + llround(relative_seconds*rate)` 和半开整数窗，频谱直接取整数端点，未修改的观察器经等价秒值精确还原同一段采样；避免 `4.1*44100` 浮点值经 `int()` 少一采样。消费数据诊断显式 `file_absolute`，保留原截断口径，不隐式回退、不改写旧分析身份。
+- **证据绑定**：单 WAV CLI 读取同一 WAV 的 A4 独立核验报告，复核散列、rate/frames、事件及窗口；每窗记录相对秒和实际 start/stop/samples。v3 评估入口逐单元绑定 report SHA-256，不因缓存复用跳过重复单元的绑定；dev 证据不升级为 reference，当前参考时序验证器不可用仍明确阻塞。
+- **实际 Windows 观察**：归档 n69-v70 两率控制的 W1/W2 整数窗与 A4 记录一致；缺原点、错散列、错音符、篡改一采样、伪装参考角色和已有输出均被拒绝。44100 Hz 的两窗为 ok；48000 Hz 保留 W1 inconclusive / W2 ok，不把坐标正确计为全部频率资格通过，也不宣称恢复旧批准入。
+- **完整方案**：新增 `pilot/method-qualification-noteon-v3.json`，互斥固定开发/资格配方、独立真值后验评分、实际整数 24-bit 往返、非零原点、两窗/边界、频率/编号/B/留出、重复组、归一化比较与六态回归均有义务。真实参考认证、采集与正式评估是后续独立门禁，不能反过来成为方法资格前提。新 runner 干净切换，旧注册与判决不变，旧源码快照另行保全。
+- **停止与范围**：资格 approval=false；未来仍需绑定登记与五个源码的外部 seal，开始执行即独占消费标记，完整角色一次执行。遗漏用例/控制/组证据、重复编号、回归失败、中断或超差均不得合格；无子集、换目录重跑、阈值豁免或补批。AM 非标量分量只能作未认证诊断，不能补正向覆盖或进入 B；错误标量不被另一正确探针掩盖。
+- **开发验证**：既有 PPA/观察器/评估器/AM 回归、新方案评分与拒绝门禁、只读 `--check-registration` 均在 Windows 运行；选定静态族、释放边界、慢 AM 开发用例分别获得 required_admitted / required_rejected / conditional_abstained，并满足各自登记义务。完整开发角色与独立资格仍未执行，不推导 method qualified。初版回归发现家族通道遗漏结构化 violations 返回，修复并保留失败日志；移除拒绝文案断言，不以文案钉住机制。
+- **参考原点方案**：新增 `pilot/reference-origin-evidence-plan-v3.json`。先查独立事件—导出帧映射依据，取得后才申请有限诊断；提议上限四冷会话/十二 WAV 仅为计划，不是授权。已有 position/duration、首非零、时长差、重复一致及最佳相关性都不替代原点认证；缺依据就停止，不靠追加 WAV 或自动切换侵入式手段。
+- **证据入口**：`G:\source\projects\devpiano-evidence\phase39\task39-2\noteon-integration-20261015-055840\verification-summary.json`；保存源码、固定方案、实际命令/结果、开发 PCM、窗口记录、全部失败/拒绝和旧方法重建快照。本轮只改研究工具与直接文档，未新增生产 C++ 或永久原生窗口测试。
+- **归档与保护**：逐文件源/目标 SHA-256 无差异、无缺失，manifest `3152a6456032b4ed80b01e68bf774b09cdf19b83ef6f3c4e9c40ddf360bb8fb9`，catalog §49。受保护生产源码、旧刺激/协议、归档入口和使用过的 A4 证据散列不变；旧方法完整源码快照另按原 manifest 核验保存。临时 Python 环境已移除，原始产物保留；修改留工作区，未自动提交。
+
+#### Task 39-2 完整 development 矩阵与失败集中审阅（2026-10-15）
+
+- **授权与执行**：按新登记完整执行 `meter-qualification.py --role development`，包含全部开发用例及已消费回归对照；不运行独立资格、不创建 seal，不启动 Pianoteq/GUI、新参考、真实留出或正式评估。注册与分析源码逐项匹配上一批归档，未改配方、阈值、种子、生产 B/DSP；没有按失败择优重跑或替换用例。
+- **判决**：Windows 原生程序完整结束，`status=complete`、`aborted=null`、退出 1、`outcome=development_failed`。全部失败是 `dev-extra-mode-67-44100` 与 `dev-extra-mode-67-48000` 的 `false_static_admission`；完整记账、旧回归、六态回归、硬性正向覆盖、重复组与归一化比较均满足，但不能抵消任何 gating 失败。
+- **共同机制**：两例第 9 分音附近分别有 +1.7 Hz / +6 dB 与 +0.9 Hz / −15 dB 附加模态。独立观察器分别正确分辨或弃权；PPA 的 W1/W2 均保留该处 `resolved_components`、无单频标量，却把它从最终编号中排除，仅用 1–8 分音拟合及重认 3/6 留出。`reference_quality` 只检查保留编号，未将被排除的混合证据作为家族级拒绝理由，因而整族仍准入。剩余分音的 B/留出精度良好不等于满足事前登记的整族拒绝契约，也不能事后改期望恢复通过。
+- **覆盖与完整性**：全部声明类别、两采样率、非零原点、两窗、PCM 往返、缺失/位移/弱分音、包络、混合/时变/噪声与释放/缺帧/非法绑定均已执行；正向准入不靠条件弃权补足。两个慢 AM 家族显式弃权，弱分音边界条件静态准入满足独立义务。逐例报告与总报告、PCM SHA-256/头部、精确半开窗、失败记账及源码身份独立核验通过。
+- **统计口径**：runner 的 `interval_coverage_fraction` 只在成功核验分支同时增加分子与分母，不解释为全量置信覆盖率；本轮另逐项审阅全部实际标量声明及其最近登记真值线，原始声明保留，不将有限合成域结果扩展为物理来源认证。
+- **决定与下一步**：当前不应封印或批准一次独立资格。最推荐先按现行登记修复家族级混合证据传播/准入规则，再完整开发复验；不得硬编码第 9 分音、改期望、缩减负例或放宽预算。若改为允许混合输入中的静态子集，属于须另行批准的契约变更，不能重判本批。参考原点、新独立数据方案、v3 与 A6/A7 仍关闭。
+- **证据入口**：`G:\source\projects\devpiano-evidence\phase39\task39-2\full-development-20261015-071340\verification-summary.json`；逐例矩阵 `review/cases.csv`、全量违例 `review/all-violations.json`、完整审阅 `review/review.json`、决定与源码依据 `review/qualification-decision.json`。保留所有实际 PCM、原始探针/窗口/报告、命令回执、源码/登记快照与环境重建配方；本轮未改生产 C++，未重复产品构建或 CTest。
+- **归档与保护**：逐文件源/目标 SHA-256 一致，无差异、无缺失；manifest `0ee88f1ef323ff40f444f352e2134454ccc16b606c95eb371989ed37edb3dc07`，catalog §50。受保护输入及源码散列不变，资格未消费；临时 Python 环境已移除，原始产物及重建配方保留。源码格式检查通过；修改留工作区，未自动提交。
+
+#### Task 39-2 家族级混合证据修复与完整 development 复验（2026-10-15）
+
+- **批准范围**：按现行登记修复混合证据传播/准入并完整执行 development；不授权独立资格、seal、参考启动/GUI/采集、正式评估或生产 B/DSP 变更。现行方法登记的 SHA-256 保持不变，配方、种子、阈值及全部用例义务未改。
+- **干净修复**：只改 PPA、评估器及对应行为回归。匹配候选有明确 `resolved_components` 时，PPA 保留完整观测与原始候选，返回 `inconclusive`，不再拟合/预测剩余静态子集；沿既有 `window_failures` 和 `observation_inconclusive` 向当前消费者传播。`reference_quality` 独立扫描全部 `partial_observations`，报告混合编号并拒绝整族，不信 `status=ok` 或最终编号白名单；重复组继承同一拒绝。不新增一份可与原始观测矛盾的混合状态，不硬编码第 9 分音。
+- **不误杀正例**：单纯缺失或 `ambiguous` 不作为已经检出的多分量证据，最终保留线仍须满足原区间/编号/留出/两窗门禁。新增不同排除编号、晚窗和重复组语义回归，以及第 6 分音伴随模态的真实采样回归；验证混合窗口不能输出静态拟合 B 或留出预测。
+- **Windows 实际结果**：完整角色 `status=complete`、`aborted=null`、退出 0、`outcome=development_passed`。全部开发及已消费回归对照满足义务，错误整族准入归零；硬性正向覆盖、条件域、观察器分区、六态回归、重复组、归一化比较和全部时间/文件边界均满足。相关 PPA、观察器、方法评分及 AM 回归通过，没有按失败择优补跑或替换单元。
+- **前后对照**：只读对照原失败归档与本轮完整报告，不重跑旧方法、不重判旧批。所有开发/对照配方及实际 PCM SHA-256 相同；必需正向用例的逐窗编号、频率、B 与独立留出结果逐项相同。原附加模态两例现在保留多分量证据并在两窗阻止静态拟合及整族准入；全部检出混合窗口遵守同一规则，不只修补这两例。
+- **准入结论**：开发前提已满足，可另行审阅现行源码的精确封印并申请一次完整未触碰 qualification；本轮没有执行这两项动作，`approval=false`、独立资格未消费。development 不升级为方法资格，参考原点、新独立数据方案、v3 与 A6/A7 仍未放行，旧 A3/正式验收判决不变。
+- **证据入口**：`G:\source\projects\devpiano-evidence\phase39\task39-2\mixed-family-fix-20261015-074757\verification-summary.json`；`review/repair-proof.json` 保存相同 PCM/正向测量与原失败修复的实证，`review/cases.csv` 和 `review/review.json` 保存全量结果，`review/qualification-decision.json` 明确后续审批边界。保留修复前后源码快照、原始 PCM/窗口/探针、回归与实际命令回执；未改生产 C++，未重复产品构建或 CTest。Python LSP 不可用，调用方以精确检索核对、实际编译/执行以 Windows 原生 Python 为准。
+- **归档与保护**：逐文件源/目标 SHA-256 无差异、无缺失，manifest `62d6055a643acb8da051b67a011e1adf1f4bc7d1f2e4bf9b9541c31834c803b8`，catalog §51。只有已批准的研究源码/行为回归改变，固定执行输入在验证期间不变；方法登记、生产与旧证据保持。临时 Python 环境已移除，原件及重建配方保留；源码格式检查通过，修改留工作区，未自动提交。
+
+#### Task 39-2 一次完整独立 NoteOn 相对方法资格（2026-10-15）
+
+- **显式授权与封印**：用户批准一次完整独立 qualification；先将授权及相关说明写入 `method-qualification-noteon-v3.json`，再由 Windows 原生程序封印登记与五个执行源码的精确 SHA-256。登记只变更授权和直接相关说明，全部用例、种子、配方、预算与停止规则不变；五个源码逐项匹配上一轮通过的 development 版本。授权原文、修改前登记、精确源码快照与封印回执保留。
+- **唯一完整执行**：Windows 原生固定 Python/NumPy/SciPy 环境运行一次 `meter-qualification.py --role qualification --seal ...`，原报告为 `status=complete`、`aborted=null`、退出 0、`outcome=qualified`。完整独立角色及已消费回归控制全部满足登记义务；没有子集执行、失败重试、用例替换或 development 重跑，旧控制不计为新资格数据。
+- **门禁覆盖**：必需正向实际准入、全部观察器分区、频率/编号/B/独立留出/两窗预算、释放/缺帧/非法事件绑定边界均满足；混合、时变及噪声族没有错误静态准入。慢 AM 保留条件弃权，弱分音条件域只在原预算满足时静态准入。冻结 `repeat_quality` 与 `compare_analyses` 的重复/归一化比较，以及封印绑定的六态评估器回归全部通过。
+- **只读复核**：逐例顺序、独立与控制角色、原始配方/JSON、PCM SHA-256/头部/24-bit 往返、NoteOn 相对半开整数窗、逐窗失败记账、运行日志、封印身份与消费标记全部核验。固定输入在运行及复核期间散列无变化；原始单线区间另行完整列出，不把 runner 成功子集比例冒称全局覆盖率。
+- **一次性停止与结论范围**：封印旁 `qualification-seal.json.consumed` 由执行器独占创建并原样保留，授权现已消费；不撤写已封印登记，不换目录或换封印重跑。`qualified` 只覆盖登记合成域的完整方法，不证明真实弦身份、物理 B、AM 唯一来源、参考原点或正式验收。旧 A3 失败及已消费正式验收判决不改写；v3 草案有意保持未绑定/未冻结，参考原点、新独立矩阵与后续执行授权仍需分别闭合。
+- **证据入口**：`G:\source\projects\devpiano-evidence\phase39\task39-2\noteon-qualification-20261015-082025\verification-summary.json`；`qualification-seal.json`、`qualification-seal.json.consumed` 与 `review/qualification-decision.json` 分别记录精确封印、消费及后续边界，`review/review.json` 与 `review/cases.csv` 保存全量复核。未启动 Pianoteq/GUI、新参考采集、正式评估或 A6/A7，未改生产 C++/B/DSP，未重复产品构建或 CTest；修改留工作区，不自动提交。
+- **归档与保护**：逐文件源/目标 SHA-256 无差异、无缺失，manifest `1edc1f0158a40a7cdd4d211269625fb71db3b6af5e80a8581c58553f1dec546e`，catalog §52。封印 SHA-256 `e3d4d796cba15077246b97e75adfa1da81ddfd060a4b3e9450cdaded20f2a6c9`；登记 SHA-256 `21acc835b59401a8e4567c2a9c0b538d6659db0cac372d142143d53e9099653c`。临时环境已移除，原件、精确源码、消费标记和重建说明保留；格式检查通过。最推荐后续只读审阅现有原点取证方案及事件—导出帧权威依据，不以更多 WAV、首非零、时长或相关性补足认证；实际诊断仍须另行批准。
+
+#### Task 39-2 A5 最小契约提案与有界原点能力核验（2026-10-15）
+
+- **本轮授权与边界**：仅审阅并形成最小提案、核验已消费资格身份/适用域、检查精确官方文档和既有接口记录。任何提案实施、源码改动、替代时序契约或实际诊断均须另行审阅批准；不启动参考/插件、GUI、鲜活 RPC、采集或正式评估，不重放 qualification，不改生产 B/DSP 或历史判决。
+- **资格身份对齐**：Windows 原生只读复核上一资格批次的原始 manifest、报告、封印、消费标记及当前登记/五个源码，身份完全匹配。`qualified` 仅限原登记合成域；不覆盖真实参考原点、拓扑感知的新比较策略或新子族观测。A5 草案以 `qualification.completed_method_evidence` 挂接真实报告及散列，并记录 `new_plan_execution_status=complete`；现行 `qualification.status` 的未接入阻断位保留且明确解释，不改标签清门禁。将方法实证与 v3 就绪分层核验的代码改动只作提案。
+- **单弦/多弦衔接提案**：依据 `Piano88KeyTable.h` 与实际 `PianoSynthVoice::startNote` 分支区分逐分音活动振荡器数，而非只看 MIDI 音区或键的名义弦数。最小初始范围仅论证恢复单弦区被机械排除的低阶比较候选；多弦分化区仍保守排除。候选不等于准入，两侧仍须独立合格观察、正确编号、完整族/两窗/留出/重复及原比较预算；已观测混合仍整族拒绝，不删混合编号后拟合静态子集。双弦算术中心和三弦名义中心不自动成为被认证的可比线；子族扩展另案审阅。
+- **精确文档与原点结论**：核对官方 9.2.5 随附英文 HTML 手册，SHA-256 与登记 `601473ece9de67913718973e121dc4d158ad1340e94ad70be9e81868ddf5fe29` 一致；相关 MIDI/导出、设备、内部采样率和麦克风延迟段落未建立事件—离线导出整数帧映射。版本/进程身份绑定的既有 `getSequencerInfo` 只给播放时间线状态，实时设备采样率不绑定离线坐标；七个特定导出候选 RPC 的既有错误只证明这些调用失败，不证明所有官方接口不存在该能力。处置为 `origin_not_authenticated`，不启动诊断矩阵、不生成 MIDI/WAV、不激活替代时序。
+- **来源排除**：`reference-runtime-20261011-080052/run/help-receipt.json` 明确自报 9.1.2，路径为已退役安装位置；其 `--help`、41 方法清单及 serve 页面只保留作旧来源记录，不能作为官方 9.2.5 帮助/API 规范。随附手册虽与旧文档同散列，仍以已核验的官方包载体独立确认；不因文档相同恢复旧二进制或声音资格。
+- **提案与实际验证**：原提案保存于 `G:\source\projects\devpiano-evidence\phase39\task39-2\a5-contract-review-20261015-115821\metadata-after\research\pilot\a5-contract-closure-proposal.json`，当时为不可执行提案；现行工作区已由后续获批实现及 `pilot/a5-implementation-verification.json` 接替。该次 Windows `--check-plan` 退出 3、`execution_allowed=false`，无新增契约矛盾或散列错配；参考时序认证接入不可用。该次固定源码、活动频率/输入契约和历史证据散列不变，未运行产品构建、CTest 或新资格。
+- **证据入口**：`G:\source\projects\devpiano-evidence\phase39\task39-2\a5-contract-review-20261015-115821\verification-summary.json`；`qualification-evidence-review.json`、`origin-capability-review.json`、`integration-verification.json` 分别保存身份、有界能力核验和实际准备入口/不可变边界实证。后续最推荐先独立审批同一评估器的资格证据分层核验与单弦候选最小实现；参考原点先走不启动程序的技术文档/支持询证，实际诊断和其他时序路线继续单独审批。
+- **归档与保护**：逐文件源/目标 SHA-256 无差异、无缺失，manifest `487b2cfb0b3e4398da7f573d947da6108e34b0e40204d8ef1e9858b4410605f1`，catalog §53。提案 SHA-256 `5d43a7bbcf403c83715e6d82be299f58b961cd24b3b8364f6fd8f93ae8dfb882`；保留完整材料与元数据快照，临时环境已移除，格式检查通过，修改未自动提交。
+
+#### Task 39-2 A5 分层资格核验与单弦候选最小实现（2026-10-15）
+
+- **批准及先登记**：用户单独批准同一评估器的资格证据分层核验与单弦低阶候选最小实现；改后验证范围在 `pilot/a5-implementation-verification.json` 事先登记。仅运行相关回归及自有合成 development/准备级入口，不批准新独立资格、已消费资格重放、参考/GUI/RPC/采集、替代时序或正式评估。原提案经逐字节归档核验后从活动路径退役，不留第二套入口或兼容别名。
+- **同一评估器内验真与分层**：`verify_completed_method_evidence` 核验绑定报告/manifest/封印/消费标记、原登记与五个源码快照、完整角色/控制/跨例门禁及必需回归日志；不执行归档源码、不重跑资格或分析历史 WAV。原快照有效与当前依赖差异分别报告，删除声明 `qualification.status` 翻绿路径；v3 就绪独立检查契约、原点、矩阵、工具冻结及授权，不再把有限方法 qualified 与 v3_formal_method_ready=false 误判为矛盾。
+- **比较候选与不变门禁**：`compare_analyses` 保持当前调用形状，先要求 reference/dev 两侧完整族均准入，再求共同合格分音与归一化基准。单弦 MIDI21..35 允许第1分音起候选；多弦36..71保留第7起、72..95第5起、>=96第1起。任何原始/排除编号、任一窗口上的已解析混合仍整族拒绝；不恢复多弦中心/侧线，不降低分音/留出/非基准数量、误差或时序预算。
+- **回归与修复记录**：Windows 评估器、方法工具及 PPA 回归最终通过。初次方法工具回归的比较充分性夹具仅有四分音，被完整族门禁先拒绝；保留原失败，把夹具改为合法五分音族，继续要求零/一个非基准样本为 insufficient_comparable，只复验失败套件，不放宽实现。旧 approval=false 声明值及文案断言删除而非重钉，角色独立性、覆盖、提前拒绝和文件保护仍验证；附加测试调整在执行前单独记录。
+- **实际冒烟**：使用已登记的自有 n33 五分音、固定两噪声种子及显式 NoteOn 时间轴，经真实共享 `analyze_samples` 得到两份合格族，再调用同一比较器；实际基准为1、非基准样本4，comparison_passed。不是商业参考、真实琴或新独立资格。真实 `--check-plan` 退出3：原已消费实证 verified/qualified，当前源码差异明确为评估器与其回归，current_snapshot_qualified=false；v3/source/origin 门禁仍阻断，无旧状态误报或基线/就绪矛盾。
+- **保护与证据入口**：固定 PPA/观察器、时间/输入契约、生产参数及历史证据散列不变，原失败和已消费判决保留。`G:\source\projects\devpiano-evidence\phase39\task39-2\a5-implementation-20261015-124111\verification-summary.json` 保存源快照、独立登记/测试补充、初始失败与修复、实际命令和完整冒烟分析；本轮未改生产 C++，未重复产品构建或 CTest。新源码独立资格未执行，不把旧资格或本开发结果升级；修改留工作区，未自动提交。
+- **归档与下一步**：逐文件源/目标 SHA-256 无差异、无缺失，manifest `20befcdf45af04fff7e71b430b8702148f5c1f8d83fff6b80079e805b9d4bc86`，catalog §54；原件/精确版本和全部失败保留，临时环境已移除，格式检查通过。下一步最推荐先审阅并前瞻登记变更后未触碰的独立资格覆盖，再单独批准一次执行；不把已消费31例或本开发冒烟改标为新资格。参考原点询证可独立进行，采集与A6/A7继续关闭。
+
+#### Task 39-2 A5 新独立覆盖前瞻登记与只读审阅（2026-10-16）
+
+- **批准边界**：用户仅批准登记并审阅新的未触碰变更方法独立资格覆盖，执行另批。新登记 `pilot/method-qualification-a5-v1.json` 保留现行 NoteOn schema、双角色结构、全部数值/时间预算和旧四对照；`execution.approval` 与 `development.authorized` 都为 false。没有运行角色、生成/检视用例 PCM、创建封印或消费标记；方法/观察器/评估器及生产源码不变。
+- **新域与控制分工**：前瞻固定单弦21/35、多弦36/71、72/95及96策略边界的双率正向对、重复与完整声学/时间边界。通过完整有效配方、历史种子、声学核心及 note/B/offset 核对旧 v3、NoteOn、AM、A5开发与受影响回归源，列明范围内无冲突；不以新名称、种子、增益、相位或原点平移独自证明新域。角色内配对/重复/双率是设计簇，不计作互相独立的统计样本。负向/不对称比较与证据反例明确属于已消费回归控制，不冒称 fresh pair 或未见键区。
+- **只读实证**：Windows 原生分项执行现有的生成模型/时间/停止规则/覆盖/跨例/逐例几何检查，生成器、音频读写、分析与模块执行入口被阻断，未触及用例数据。真实 `--check-registration` 退出1，原因是现 `check_execution` 也强制 development 已授权；原始输出保留，没有通过写true或吞错翻绿。初次目录检查误将 SciPy 安装包测试 WAV 计入自有输出，另行仅修正文件边界，保留原失败且不重跑已通过检查；自有音频输出为零。
+- **执行前缺口与顺序**：必须先单独批准最小 runner 修订：静态检查可接受未授权 development，但开发模式仍在输出/加载/合成前拒绝；组门禁还须核对同一比较器输出的登记基准与候选数量，不能只因 comparison_passed 就称策略覆盖完成。不扩展负向/不对称 pair，不复制比较或单弦掩码实现，不改 PPA/观察器/评估器算法或预算；直接受影响回归只用已消费控制，不预试新资格。修订及准备验证后重新核对定稿源码身份，再另批一次完整 qualification；本轮不直接报批执行。
+- **证据入口**：`G:\source\projects\devpiano-evidence\phase39\task39-2\a5-prospective-coverage-20261016-024127\review-complete.json` 保存登记散列、实际分项检查与 CLI 拒绝、历史有效参数/种子、逐例声学指纹、源快照和保护结果。旧 completed_method_evidence 与其原登记散列保持，新登记只挂接 prospective_change_coverage，不把草案代入已完成资格。当前源码仍未获新独立资格；参考、GUI/RPC、采集、替代时序、正式评估及生产变更均未执行，修改留工作区、不自动提交。
+- **归档与后续批准**：逐文件源/目标 SHA-256 无差异、无缺失，manifest `5a5d17d38d528fe179cbf9896f918b07e03cd992a1fee3d6a67b7bbeb784fa1d`，catalog §55；原件/源身份和初次失败保留，临时环境已移除，格式检查通过。下一轮最推荐仅批准 `preexecution-change-request.json` 的两项最小入口契约闭合及相关回归/准备验证，仍不授权新角色、PCM或seal；确认定稿身份后再独立批准一次资格。原实证仍有效但新登记/当前源码尚不具备执行或资格结论。
+
+#### Task 39-2 A5 runner 最小契约闭合与准备验证（2026-10-16）
+
+- **授权与先登记**：用户单独批准两项最小runner修订及相关回归/准备验证；范围事先登记于 `pilot/a5-runner-closure-verification.json`。只改 `meter-qualification.py` 与直接受影响的 `meter-qualification-tests.py`，不改PPA/观察器/评估器算法、用例科学payload、误差/时间预算、生产或历史判决；新登记角色、PCM与执行seal仍未授权。
+- **改前证据与实现**：沿用上轮真实权限拒绝回执，不为确认重跑已知失败。另用旧 `dev-compare-83-48000` 内存控制和真实比较器复现“预期base=6、实得5但旧runner无违例”。现在静态校验接受严格布尔false，实际两角色仍在任何输出/加载/合成前独立拒绝；登记预期必须按role/pair唯一且完整绑定a/b成员、note/rate与一致的正整数计数，缺失/重复/畸形/未匹配均拒绝。
+- **精确输出与完整失败链**：比较策略仍只在原 `compare_analyses` 实现；runner保留真实state和计数，再核对登记base/候选/非基准数。comparison_passed不能豁免输出违例，错误进入既有comparison_pair_not_passed链，完整方法不得qualified；旧控制的正确输出通过、同一错误base条件被拒绝并保留实得值。不扩展负向/不对称pair、不恢复多弦分化区、不放宽完整族/两窗/留出/重复/充分性。
+- **实际Windows验证**：相关runner及评估器行为回归通过；将旧配方明确分离为控制，当前新登记只参与静态检查，不构造其观察或PCM，删除直接受影响的声明值/文件存在快照断言而不重钉。真实 `--check-registration` 对当前false/false登记退出0；带独立副作用防护的真实main入口对未授权development/qualification均退出1，防护调用零、自有输出为空。真实 `--check-plan` 仍退出3：原实证verified/qualified，当前源码未获新资格，v3与origin继续阻断。
+- **定稿身份与下一审批**：`G:\source\projects\devpiano-evidence\phase39\task39-2\a5-runner-closure-20261016-032120\verification-summary.json` 汇总改前/后证据、回归、真实CLI、科学payload逐项一致及固定源保护；`execution-approval-candidate.json` 绑定当前登记、五个方法源码和环境，只是审批身份包，不是执行seal。最推荐下一轮复核该包后，单独批准一次完整新qualification及旧控制/同封印回归；仅在明确授权后写批准字段与说明，记录新登记SHA再封印执行。development保持false，任何失败/缺失/中断/身份变化保留后停止，不调参、换seed、重封印或补批。本轮未执行资格、参考/GUI/RPC/采集、v3冻结或正式评估；修改留工作区，不自动提交。
+- **归档核验**：逐文件源/目标SHA-256无差异、无缺失，manifest `efd20328f01eabb10c48dba57613f6dcf7607e7b81f5d2854d42e1aa49c8d4f4`，catalog §56；临时环境已移除，精确源版本、原件和空输出证据保留。候选审批包SHA-256 `341bd1c85b236f7590207ff0283d540ce2ec18bc7d078104cd7b0cf79eb029d0`，批准前登记SHA-256 `b8f3354470af047c7561ea8df518c6877d43a4cd6fb47c7d2a6f3be0c70d2281`；候选不是执行授权或seal，当前代码仍需新的独立资格结果。
+
+#### Task 39-2 A5 单次完整独立资格执行（2026-10-16，已消费且未通过）
+
+- **明确批准与身份**：用户单独批准完整qualification的66个新用例、4个已消费控制及同封印评估器回归；development保持未授权。批次 `a5-qualification-20261016-040725` 先核对审批候选、五个定稿源码与Windows Python/NumPy/SciPy环境，再只改登记的 `execution.approval`、`execution.approval_note`、`purpose` 和 `limits[7]` 的授权说明。科学payload逐项保持，不改方法、配方、seed、原预算或时间契约。
+- **先记录新散列再封印**：授权后 `method-qualification-a5-v1.json` SHA-256为 `948764004f05ee57ea65211a2922b1b05b68e9dff73d76940e6bfde240b741a8`；随后生成绑定该登记及五个源码的唯一外部seal，SHA-256为 `5aebd9d1ddef53d005f72021310f86707b37170f8576b7bccc4f83df0c8a4b19`。执行入口独占创建消费标记；不另造seal、目录或标签恢复资格。封印登记是执行前快照，消费后不回写其前瞻状态字段而破坏身份，实际状态以消费标记与唯一原始报告为准。
+- **真实Windows结果**：一次完整角色执行退出1，status=complete、aborted=null、outcome=not_qualified；66个新用例全部执行，60通过、6失败，四个旧控制均通过。同封印评估器回归通过，三个重复组通过；14个正向比较对中12个满足原比较与精确数量义务，两个MIDI21对因完整族拒绝而失败。硬性正向准入的42例中38例实际满足，不能靠最低下限或全局通过率豁免四个遗漏。
+- **失败保留而非修补**：`a5q-stationary-n21-r{44100,48000}-{a,b}` 的观察器通过，但PPA两窗未建立有效分音、独立预测与训练/留出，记录required_admission_missed；`a5q-extra_mode_resolvable-n36-r{44100,48000}` 被静态族错误准入，记录false_static_admission。全部原始窗口、原因和计数保留，不通过换B、gain、seed、窗口、阈值或掩码修补；没有重新分析、试跑子集、再次资格或将已消费数据改标fresh。
+- **完整性与保护**：唯一角色结束后只读核对全部用例顺序/配方、独立记录、原始PCM散列/头部/量化往返、窗口坐标、原始日志及seal/消费绑定，无完整性失败；固定方法、生产、时序、历史实证和授权身份散列无变化。完整性通过不等于方法资格通过，原始not_qualified与非零退出保持。v3只同步信息性消费记录，旧completed_method_evidence、正式授权、origin、矩阵和生产参数不变。
+- **证据与停止边界**：入口 `G:\source\projects\devpiano-evidence\phase39\task39-2\a5-qualification-20261016-040725\verification-summary.json`；`qualification/` 保留全部原始PCM、逐例观察、同封印回归与完整报告，`review/qualification-decision.json` 保留只读判决，`source-snapshot/` 与授权前登记保存精确版本。归档核验见批次 `evidence-manifest.json` 与catalog §57，原始数据不删除。最推荐下一轮先另批只读定位这两类失败；不重跑本矩阵、不调参或补批，不启动development、参考/GUI/RPC/采集、v3冻结、正式评估或生产改动。修改留工作区，不自动提交。
+
+#### Task 39-2 A5 低音候选与结构性异常最小修订（2026-10-16，开发验证非独立资格）
+
+- **批准与先登记**：用户明确批准候选频段与结构性异常传播的最小修订及开发验证；范围在 `pilot/a5-candidate-structure-development-verification.json` 事先登记。只改PPA、现有评估器与直接受影响回归；不调用qualification runner或A5已登记development角色，不读入或重放已消费矩阵PCM，不创建新seal，不修改其登记或旧判决。
+- **改前证据与实现**：沿用原not_qualified报告及只读定位，不为确认再次运行失败。PPA候选下界改为 `min(40 Hz, theory/2)`，只在低音需要时下调，较高音区保持原候选频段。PPA定义共享 `observation_blocks_family`，由PPA与 `reference_quality` 共用；resolved_components，以及明确记录带外相干结构或未分辨多分量竞争解释的ambiguous观察均阻断整族，不能筛掉该编号后用干净子集继续拟合。普通低信息弃权不一概冒称混合；共享观察器的拟合、区间与探针宽度不改。
+- **Windows回归与真实路径**：PPA、评估器及runner相关回归通过，覆盖最低音五分音充分性、被排除编号上的结构证据、保留非结构性弃权和原比较/资格保护。先登记的自有确定性development条件在44.1/48kHz分别调用真实 `analyze_samples` 与 `reference_quality`：低音A0两窗保留1..5分音、完成原训练/留出与数值门禁；C2带外伴线两窗在partial-observation阶段保留ambiguous结构理由并拒绝整族，没有继续最终族拟合或独立预测。开发信号独立复用现有回归构造，不从PPA预测器取oracle，也不冒称新独立资格。
+- **契约与证据保护**：原模型、种子、SNR/匹配/留出阈值、窗格与比较实现的非授权AST节点逐项保持；生产B/DSP、旧资格与当前A5已消费登记、原始报告、seal和消费标记散列无变化。真实准备CLI退出3：原NoteOn快照实证仍verified/qualified，当前源码匹配为false，v3/origin继续阻断。自有development通过不改原66例not_qualified或提升有限方法资格。
+- **入口与下一边界**：`G:\source\projects\devpiano-evidence\phase39\task39-2\a5-candidate-structure-development-20261016-051007\verification-summary.json` 汇总源码前后版本、先登记授权、全部原始回归/开发输出、准备报告与固定输入保护；归档核验见批次manifest与catalog §58。最推荐下一轮先登记并只读审阅变更后未触碰的资格覆盖，显式排除本次开发/回归及已消费历史，再单独批准一次完整执行；本轮不准备或运行新的独立资格，不冻结v3、不启动参考/GUI/RPC/采集、正式评估或生产变更。修改留工作区，不自动提交。
+
+#### Task 39-2 A5 origin 只读取证、有界诊断方案与新正式矩阵预登记（2026-10-18）
+
+- **只读取证**：用户批准先做 A5-1 只读 origin 取证。3 份已有官方导出 WAV 仅含 `JUNK`/`fmt `/`data`，无 `bext`/`cue `/`smpl`/`fact`/`iXML`；4 份 prefs 仅有 `wav_export_fmt/rate/bit_depth/hq/normalize`；2 份 FXP、官方 9.2.5 手册、安装脚本与 `getSequencerInfo` 均无独立事件—帧映射权威。结论维持 `origin_not_authenticated`，未启动参考、未操作 GUI、未修改源文件。批次 `a5-origin-readonly-20261018-063712`，catalog §70。
+- **有界诊断方案**：登记 `pilot/origin-diagnostic-plan.json`（SHA-256 `f4a3163b…`）：已消费 n69-v70 控制、固定 0/0.5/1.0 s 偏移、44.1/48 kHz、每率 2 冷启动、最多 4 会话/12 WAV、每会话正常停止 900 s、绝对 Trial 边界 1200 s；12 个 WAV 必须共享唯一整数 `midi_origin_sample`，否则 `origin_not_authenticated` 并停止。`reference-origin-evidence-plan-v3.json` 的 go/no-go 已修订为“诊断采集用于建立映射”，执行仍需单独授权。
+- **新正式矩阵**：登记 `pilot/validation-matrix-registration.json`（SHA-256 `780424db…`）：**37/38/41/54/56/58/61/65/68/70 × 力度 50/80/110 × 44.1/48 kHz × 2 重复 = 120 单元 / 40 会话**；覆盖 36–43 插值、48–60 插值、60–70 长段。
+- **避开旧批缺口**：排除 n88（E6 参考侧 12 单元 no-staged-match）、n67-v47（可比分音不足）、n29-v107（族质量超界）；排除全部已消耗音高与已查看诊断音高（n71 在已查看列表，已由 n70 替换）；排除标准 Trial 禁键 30/32/34/73/75/78/80/82 与实际 native 禁键 42/44/46/85/87/90/92/94。72 以上结构边界、44–47 禁键/已消耗桥界、21–35 低音张力调制与 96+ 结构短缺不在本矩阵覆盖范围。
+- **check-plan**：`validation-eval.py --check-plan` 的 `matrix_not_selected` 已消失，矩阵结构被评估器接受；仍保留 14 个阻塞（五项授权、entry gate 未冻结、`reference_origin` 未认证、reference timing verifier 不可用、status 仍 draft、三个工具散列未绑定、unresolved prerequisites、v3 formal method 未就绪）。
+- **边界**：本轮只登记与只读检查；未启动参考、未操作 GUI、未生成 stimulus、未渲染 WAV、未执行资格或正式评估、未修改生产 B/DSP。v3 仍为 `draft_pending_review`，A6/A7 继续关闭。
+- **入口**：`G:\source\projects\devpiano-evidence\phase39\task39-2\a5-matrix-registration-20261018-064549\verification-summary.json`，SHA-256 `6df85a7b…`；manifest `91139b9b…`，后复制核验 `05d7a0dd…`；catalog §71。
+- **下一步**：分别批准新矩阵/数据角色与有界 origin 诊断执行；诊断结果返回后，仅在 origin 认证成功时冻结工具/协议，不提前启动 A6/A7。
+
+#### Task 39-2 v3 正式评估与参考能力诊断（2026-10-18/19，只读诊断，无 B 判决）
+
+- **正式评估**：用户批准后在 Windows Python 3.14 + numpy 2.5.4 + scipy 1.18.1 下执行一次；120/120 单元 `reference_rejected`，`analysis_error=0`、可评估 0、比较通过/失败 0，无 B 判决。正式窗口策略、unit-level origin binding、check-plan 均先通过；结果与预登记协议 SHA-256 一致，`assessment_role=registered_analysis`、`historical_verdict_changed=false`。批次 `v3-formal-evaluation-20261018-141831`，catalog §78；328 文件 / 62,151,315 字节，manifest `b757c258…`，verification `74d45cf6…`，15 项检查通过。
+- **参考能力诊断**：按用户要求只读复算，不重跑正式评估、不改阈值/协议/生产常数。40/40 v3 会话 `unison=0`、`unison_balance=0`、`condition=0`、`sympathetic=0`、`duplex=0`、`quadratic=0`，同一 FXP；最长会话 456.9 s（<1200 s）。120 单元左右声道相关 0.847–0.968、side/mid −17.9…−10.8 dB、互相关滞后恒为 5 samples（0.104–0.113 ms），双声道拟合相同分量；麦克风/立体声视角不能解释共同双分量。
+- **速率与分辨率**：n37-v50 的 44.1/48 kHz 波形重采样后相关 0.99265、RMS 比 1.0021；44.1 kHz 首选 two-frequency（69.237624/69.309844 Hz，1.805 cents，ΔBIC 91.2，ambiguous），48 kHz 首选 same-frequency two-decay（69.29506 Hz，ΔBIC 4.8，single_component_adequate）。同一音频重采样保持各自判决，差异来自渲染信号而非分析采样率；W1=3.72 s 的 2/T≈0.5376 Hz，在 69.29 Hz 约 13.4 cents，1.8-cent 分裂低于分辨率约 7.4 倍。
+- **族准入与对照**：5794 个 partial observations 中 5790 ambiguous、4 single；4 个 single 仅来自 n37-v50-48000 两单元（W1/W2），无单元达到 ≥5 single，最大 identified=1。合成单指数与同频双衰减通过；固定 1.8-cent 双频与 0.02 Hz/s 漂移均 ambiguous。dev n37/n70 与历史 register n72/n84/n96 也 ambiguous/inadequate（仅诊断，非 v3 正式证据）。
+- **结论**：不能确认 Pianoteq 在目标 multistring 音高上“必然”产生双分量/拍频；不是麦克风/导出视角，也不是 unison 参数配置。证据指向模型多弦/非稳态衰减与观察器静态单分量准入的共同限制；正式 `reference_rejected` 仍有效，但**不足以证明物理双弦**，也不支持据此外推 B。
+- **入口**：`G:\source\projects\devpiano-evidence\phase39\task39-2\reference-capability-diagnostic-20261019-031810`，catalog §79；manifest `56a8e816…`，verification `04229871…`，17 文件 / 1,985,036 字节，无 mismatch/missing。
+- **下一步**：不重跑、不放宽已消费的 v3。若需决定性弦身份证据，另行登记并在明确批准下采集 ≥10 s 持续音（44.1/48 kHz、同状态、重复），检验双频是否跨速率/重复稳定；或登记新的非稳态/共同分音口径后重新评估。保留当前 devpiano 常数，不注入 B。
+
+#### Task 39-2 收尾记录（2026-10-19，证据不足 / 不注入 B）
+
+- **收尾状态**：Task 39-2 以 **inconclusive（证据不足）** 收尾，不记校准成功；现行生产 `B`、拉伸、A4 与全部既有声学常数保持冻结。直接验收 2、3 保持通过；直接验收 1 仍未满足，不因收尾而勾选。
+- **A1–A7 处置**：
+  - **A1 已完成**：PPA staged matching 从第 1–6 分音起步，逐窗失败/种子/阶段证据保留；不再修改。
+  - **A2 已完成但适用域受限**：共享观察器当前版本保留；参考能力诊断证明其静态单分量准入对真实 multistring/非稳态衰减过严，不在 v3 上放宽或改阈值。
+  - **A3 关闭**：原始 A3 `not_qualified` 与后续 A5 有限合成域 qualified 均保留；后者不认证真实弦身份、参考原点或完整 v3，不重放、不重判。
+  - **A4 关闭**：input-render contract v3 与 A4 dev 准备证据保持；不替代参考认证。
+  - **A5 关闭/消费**：v3 预登记、origin 证书、120 单元矩阵、方法绑定与正式评估授权均已完成并消费；不再修改协议/矩阵。
+  - **A6 关闭/消费**：40 冷会话 / 120 单元参考采集已完成并归档；不重复采集。
+  - **A7 关闭/消费**：正式评估执行一次，120/120 `reference_rejected`、可评估 0、无 B 判决；不重跑、不放宽。
+- **后续边界**：Task 39-2 不再继续 A1–A7。若未来仍需要外部参考校准，应作为**新任务**另行登记，至少同时处理参考能力（更长持续音/跨率重复/单弦对照）与观察器非稳态适用域；不得复用本次已消费结果或把新任务包装成 v3 重跑。
+- **对后续任务的影响**：Task 39-3 可使用当前冻结的 `B`/频率配置推进三力度整音，但不得声称 Task 39-2 的外部参考校准已通过；Phase 39 的原有出口/直接验收不因本收尾自动豁免。
 
 ### Task 39-3：连续三力度琴槌整音
 
