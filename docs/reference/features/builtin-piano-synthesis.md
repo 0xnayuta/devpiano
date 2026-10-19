@@ -269,10 +269,10 @@
 | Mezzo forte (70) | 0.0 | 0.0 | 0.0 |
 | Forte (98) | 0.0 | 0.0 | 0.0 |
 
-锚点结构、连续插值和范围校验保留，后续校准只改当前常量，不增加第二条 DSP 路径。中性锚点表示不叠加额外硬度、响度或滚降；力度响应仍由既有的 $v^{1.20}$、接触时间、分音频谱和击弦瞬态决定。零偏移不是全琴物理常数，也不单独认证任意内核版本的听感。旧版本自动写入的 Task 39 校准值在读取 Settings、预设与 Take 快照时一次性迁移到当前出厂整音；迁移只作用于内存，不写回文件。三锚点从未在 UI 暴露，因此该旧值不代表用户自定义。
+锚点结构、连续插值和范围校验保留，后续校准只改当前常量，不增加第二条 DSP 路径。中性锚点表示不叠加额外硬度、响度或滚降；力度响应仍由既有的 $v^{1.20}$、接触时间、分音频谱和击弦瞬态决定。零偏移不是全琴物理常数，也不单独认证任意内核版本的听感。旧开发数据中的历史校准值不自动迁移；当前格式以中性出厂整音为准，三锚点仍可由预设/Take 的显式对象恢复。
 
 **声学快照与普通预设配置子集**：
-`PerformancePreset`（Schema v2）的 `acoustics` 子集现在包含 `brightness`、`hammerHardness`、`hammerVoicing`、`resonance`、`stretchTuningEnabled`、`duplexResonance`，以及原有琴盖、触键曲线、柔音、律制/A4、视角、混响和机械字段；仍不包含 `builtinTone`、`masterGain`、ADSR 或 VST3 内部状态。`SettingsModel`、`AcousticSnapshot`、Take 内嵌快照与 `WavExportOptions` 保存同一完整三锚点结构，实时、内置 WAV 和固定双层 WAV 的内置 Piano 都消费它；Sine/VST3 不接收该物理参数。可选字段缺失使用当前出厂默认；显式非法的 `hammerVoicing` 拒绝预设/Take，不静默回退；旧版自动写入的 Task 39 校准值读取时迁移到当前出厂整音。原始锚点不暴露为主界面旋钮，现有三力度整音由当前常量驱动。
+`PerformancePreset`（Schema v2）的 `acoustics` 子集现在包含 `brightness`、`hammerHardness`、`hammerVoicing`、`resonance`、`stretchTuningEnabled`、`duplexResonance`，以及原有琴盖、触键曲线、柔音、律制/A4、视角、混响和机械字段；仍不包含 `builtinTone`、`masterGain`、ADSR 或 VST3 内部状态。`SettingsModel`、`AcousticSnapshot`、Take 内嵌快照与 `WavExportOptions` 保存同一完整三锚点结构，实时、内置 WAV 和固定双层 WAV 的内置 Piano 都消费它；Sine/VST3 不接收该物理参数。可选字段缺失使用当前出厂默认；显式非法的 `hammerVoicing` 拒绝预设/Take，不静默回退。原始锚点不暴露为主界面旋钮，现有三力度整音由当前常量驱动。
 
 固定双层开启时 Piano 不随 `builtinTone=sine` 改成 Sine；它与当前单 VST3 消费同一最终 MIDI 身份，使用独立工作缓冲和有界采样延迟，层增益在一次公共 Reverb/Master 之前混合。层开关与配比随 Settings、预设和 Take 保存，不把钢琴逐键拉伸变成对插件的全局 Pitch Bend，详见 [双层渲染契约](plugin-offline-rendering.md)。
 

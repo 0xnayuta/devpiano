@@ -13,7 +13,7 @@
 
 ### Changed
 
-- **Piano Timbre Recovery and Neutral Factory Voicing** — restore independent low/mid-register phases, converge treble phase differences continuously across the existing detune range, and constrain each note-wide excitation with an analytic unison power estimate so strings and hammer transients share one scale. Switch the factory three-velocity voicing to neutral anchors, migrate retired auto-written calibration values on load without rewriting files, and retain the repaired 95/96 transition. The user confirmed the recovered timbre by listening and smoke testing; the Brightness default and file formats are unchanged.
+- **Piano Timbre Recovery and Neutral Factory Voicing** — restore independent low/mid-register phases, converge treble phase differences continuously across the existing detune range, and constrain each note-wide excitation with an analytic unison power estimate so strings and hammer transients share one scale. Switch the factory three-velocity voicing to neutral anchors, drop the retired factory calibration values without a compatibility layer, and retain the repaired 95/96 transition. The user confirmed the recovered timbre by listening and smoke testing; the Brightness default and file formats are unchanged.
 
 - **Verified v3 Method Evidence Binding** — bind the consumed post-repair qualification and its registration to the active draft, and verify current-source matching through the real PCM-free native Windows `--check-plan`. Preserve blocked reference/formal gates, sealed inputs and historical verdicts without new measurement, fitting, role execution or seals.
 

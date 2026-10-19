@@ -110,18 +110,6 @@ public:
             }
         });
 
-        testCase("retired factory voicing migrates in take snapshots", [&] {
-            auto take = makeTestTake();
-            take.presets[0].acoustic.hammerVoicing = devpiano::audio::kRetiredTask39HammerVoicing;
-            const auto loaded = deserialiseTakeFromJson(serialiseTakeToJson(take));
-            expect(loaded.has_value());
-            if (loaded.has_value()) {
-                expect(devpiano::audio::isSameHammerVoicing(loaded->presets[0].acoustic.hammerVoicing,
-                                                            devpiano::audio::kCalibratedHammerVoicing),
-                       "retired factory voicing must migrate in take snapshots");
-            }
-        });
-
         testCase("chronological stabilization on deserialization (QUAL-005)", [&] {
             RecordingTake take;
             take.sampleRate = 44100.0;

@@ -478,7 +478,7 @@ std::optional<PerformancePreset> performancePresetFromVar(const juce::var& v) {
                     DP_LOG_ERROR("[Preset] admission rejected: invalid hammer voicing");
                     return std::nullopt;
                 }
-                preset.hammerVoicing = devpiano::audio::migrateRetiredHammerVoicing(voicing);
+                preset.hammerVoicing = voicing;
             }
             if (aco->hasProperty("resonance")) {
                 const auto val = static_cast<double>(aco->getProperty("resonance"));

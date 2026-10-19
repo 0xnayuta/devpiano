@@ -427,7 +427,7 @@ audio::AcousticSnapshot varToAcousticSnapshot(const juce::var& v) {
     if (obj->hasProperty("hammerVoicing")) {
         auto voicing = ac.hammerVoicing;
         if (audio::hammerVoicingFromVar(obj->getProperty("hammerVoicing"), voicing)) {
-            ac.hammerVoicing = audio::migrateRetiredHammerVoicing(voicing);
+            ac.hammerVoicing = voicing;
         }
     }
     if (obj->hasProperty("resonance")) {
