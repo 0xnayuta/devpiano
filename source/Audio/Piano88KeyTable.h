@@ -164,17 +164,13 @@ inline PianoNoteParams computePianoNoteParams(int midiNoteNumber) noexcept {
     p.tcBase = logPieceWiseInterp(midi, tcMidi, tcVals, 3);
 
     // 7. 同音微失谐与拍频 (低音 0.0020 -> 中音 0.0015 -> 高音 0.0010 -> 极高音 0)
+    // 多弦配置由 stringCount 决定；拍频分音使用统一上限 6，不再按 MIDI 音区硬切。
+    // 高音区 detune 连续降至 0 时，多弦自然等价为单弦，计算量由显式上限约束。
     constexpr float beatMidi[4] = { 36.0f, 60.0f, 80.0f, 100.0f };
     constexpr float beatRatios[4] = { 0.0020f, 0.0015f, 0.0010f, 0.0f };
     p.beatingDetuneRatio = pieceWiseInterp(midi, beatMidi, beatRatios, 4);
     p.detuneCents = p.beatingDetuneRatio * 1200.0f;
-    if (midiNoteNumber < 72) {
-        p.beatingPartials = 6;
-    } else if (midiNoteNumber < 96) {
-        p.beatingPartials = 4;
-    } else {
-        p.beatingPartials = 0;
-    }
+    p.beatingPartials = std::min(p.partialCount, 6);
 
     // 8. 双阶段衰减常数 (τ_slow 与 τ_fast 比率)
     constexpr float decayMidi[6] = { 21.0f, 36.0f, 60.0f, 80.0f, 100.0f, 108.0f };

@@ -270,8 +270,12 @@ public:
                     expect(std::abs(bestOffset) <= 8.0, "retained edge peak sits near its target");
                 } else {
                     const auto neighbourEnergy = windowEnergy(target * 1.01);
-                    expect(!(targetEnergy > 4.0 * neighbourEnergy && std::abs(bestOffset) <= 2.0),
-                           "pruned edge partial leaves no credible peak at target");
+                    // 1e-9 是远高于浮点/滤波器噪声底的 credible peak 门限；
+                    // 仅比较能量比会在双方都处于 ~1e-13 噪声时产生假阳性。
+                    constexpr auto kCrediblePeakEnergyFloor = 1e-9;
+                    const auto crediblePeak = targetEnergy > kCrediblePeakEnergyFloor
+                        && targetEnergy > 4.0 * neighbourEnergy && std::abs(bestOffset) <= 2.0;
+                    expect(!crediblePeak, "pruned edge partial leaves no credible peak at target");
                 }
             }
         }
