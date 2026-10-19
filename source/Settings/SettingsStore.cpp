@@ -80,7 +80,7 @@ void readPerformanceSettings(juce::PropertiesFile& file, SettingsModel& model) {
         if (juce::JSON::parse(encoded, parsed).wasOk()) {
             auto candidate = hammerVoicing;
             if (devpiano::audio::hammerVoicingFromVar(parsed, candidate)) {
-                hammerVoicing = candidate;
+                hammerVoicing = devpiano::audio::migrateRetiredHammerVoicing(candidate);
             }
         }
     }

@@ -1,7 +1,7 @@
 # 内置物理建模钢琴音源功能说明与技术参考
 
 > 用途：说明 devpiano 自主研发、纯 C++ 物理建模钢琴合成器（`PianoSynthVoice`）的完整声学物理系统、算法机理、参数控制、实时性能、分层并发契约与测试验收清单。
-> 行为契约：默认内置发声来源；产品自有发声路径保持零堆分配、零锁、全回调零库函数三角。8 复音单核 CPU ≤0.7% 的长期 SLA 目标与具体测量结果分开登记，不将本轮 Debug 结果称为目标认证。项目状态以 [roadmap](../../roadmap/roadmap.md) 为准。
+> 行为契约：默认内置发声来源；产品自有发声路径必须保持零堆分配、零锁、全回调零库函数三角。测试桩的已测场景只提供有限证据，不等于无条件证明或第三方路径认证。8 复音单核 CPU ≤0.7% 的长期 SLA 目标与具体测量结果分开登记，不将 Debug 结果称为目标认证。项目状态以 [roadmap](../../roadmap/roadmap.md) 为准。
 > 更新时机：声学物理模型、DSP 拓扑结构、88 键参数表、音色控制链路或硬实时契约发生变化时。
 
 ---
@@ -242,7 +242,7 @@
 | **阻尼常数** | `b1` / `b2` | $0.25 \to 9.17\text{ s}^{-1}$ / $7.5\times10^{-5} \to 2.1\times10^{-3}\text{ m}^2\text{s}^{-1}$ | 当前模型使用 $b_1+b_2(m\pi/L)^2$；这里只澄清量纲，不认证材料常数或改变数值 |
 | **模态阻尼斜率** | `decayDampingC` | $0.38 \to 0.12$ | 模态阻尼随音高变化斜率 |
 
-> **离散分区边界**：`stringCount` 与 `partialCount` 是离散切换；同一分音的多根弦共享共同激励基准初相，跨分音仍保留色散。拍频分音统一上限为 `min(partialCount,6)`，不再按 MIDI 96 硬切；失谐连续降至 0 时多弦自然等价单弦。U2 已落地并通过全键检查：35/36 `+0.008`、47/48 `-0.054`、71/72 `+0.005`、95/96 `-0.188 dB`（v70）；最大相邻台阶 `2.639 dB`，最大 peak `-11.202 dBFS`。C4 41/70/98 已重新整音：RMS 41→70 `7.611 dB`、70→98 `5.991 dB`，HF `18.483/13.114 dB`；人工复听确认 95/96 跳跃已明显改善/修复，Task 39-3 已签收。详见[当前迭代 Task 39-3 交界根因与组合验收](../../roadmap/current-iteration.md#task-39-3-交界根因与组合验收2026-10-19)。
+> **离散分区与相位收敛**：`stringCount` 与 `partialCount` 仍为离散配置，拍频分音保持 `min(partialCount,6)`，不恢复 MIDI 96 硬切。当前生产路径保留低中音区原有独立初相；在既有 MIDI 80–100 失谐收敛区间内，相差沿最短角差连续归零，避免零失谐处突然换相。振幅采用下述单音总预算，不逐分音加补偿、不增加逐键增益表。历史 U2 的台阶改善保留为局部结构证据，但整体音色由后续恢复候选重新建立；人工验收与默认整音切换记录见[当前迭代](../../roadmap/current-iteration.md#task-39-5--39-3-用户受控试听反馈与音色验收重开记录2026-10-19)。
 
 ---
 
@@ -261,18 +261,18 @@
 | **Stretch Tuning（拉伸调律）** | `setPianoTuning` / `stretchTuningEnabled` | true | 保留 A4 第一分音锚点，按本模型分音对匹配八度，不修改 MIDI 身份 |
 | **Duplex Resonance（非发音段共鸣）** | `setPianoTuning` / `duplexResonance` | 0.15 | `[0,1]` 被动段凸组合配比，0 旁路，5ms 平滑 |
 
-**内置三力度整音锚点**：`HammerVoicing` 以相对现有力度基线的增量保存三锚点；当前 C4 校准默认值为：
+**内置三力度整音锚点**：`HammerVoicing` 以相对现有力度基线的增量保存三锚点；Task 39 音色修复后经人工试听确认的出厂默认为中性零偏移：
 
 | 锚点 | `hardnessDelta` | `loudnessDeltaDb` | `rolloffDelta` |
 |---|---:|---:|---:|
-| Piano (41) | -0.20 | -4.75 | +1.2 |
-| Mezzo forte (70) | +0.30 | -0.6 | +1.5 |
-| Forte (98) | +0.30 | +2.5 | 0.0 |
+| Piano (41) | 0.0 | 0.0 | 0.0 |
+| Mezzo forte (70) | 0.0 | 0.0 | 0.0 |
+| Forte (98) | 0.0 | 0.0 | 0.0 |
 
-这些数值是 C4 41/70/98 的工程校准结果，不是全琴物理常数；55/85 仅作留出验证。三值均相对基线增量，默认零配置仍表示不改变现有力度响应。
+锚点结构、连续插值和范围校验保留，后续校准只改当前常量，不增加第二条 DSP 路径。中性锚点表示不叠加额外硬度、响度或滚降；力度响应仍由既有的 $v^{1.20}$、接触时间、分音频谱和击弦瞬态决定。零偏移不是全琴物理常数，也不单独认证任意内核版本的听感。旧版本自动写入的 Task 39 校准值在读取 Settings、预设与 Take 快照时一次性迁移到当前出厂整音；迁移只作用于内存，不写回文件。三锚点从未在 UI 暴露，因此该旧值不代表用户自定义。
 
 **声学快照与普通预设配置子集**：
-`PerformancePreset`（Schema v2）的 `acoustics` 子集现在包含 `brightness`、`hammerHardness`、`hammerVoicing`、`resonance`、`stretchTuningEnabled`、`duplexResonance`，以及原有琴盖、触键曲线、柔音、律制/A4、视角、混响和机械字段；仍不包含 `builtinTone`、`masterGain`、ADSR 或 VST3 内部状态。`SettingsModel`、`AcousticSnapshot`、Take 内嵌快照与 `WavExportOptions` 保存同一完整三锚点结构，实时、内置 WAV 和固定双层 WAV 的内置 Piano 都消费它；Sine/VST3 不接收该物理参数。当前可选字段缺失使用明确默认值，不增加历史迁移；显式非法的 `hammerVoicing` 拒绝预设/Take，不静默回退。原始锚点不暴露为主界面旋钮，现有三力度整音由校准值驱动。
+`PerformancePreset`（Schema v2）的 `acoustics` 子集现在包含 `brightness`、`hammerHardness`、`hammerVoicing`、`resonance`、`stretchTuningEnabled`、`duplexResonance`，以及原有琴盖、触键曲线、柔音、律制/A4、视角、混响和机械字段；仍不包含 `builtinTone`、`masterGain`、ADSR 或 VST3 内部状态。`SettingsModel`、`AcousticSnapshot`、Take 内嵌快照与 `WavExportOptions` 保存同一完整三锚点结构，实时、内置 WAV 和固定双层 WAV 的内置 Piano 都消费它；Sine/VST3 不接收该物理参数。可选字段缺失使用当前出厂默认；显式非法的 `hammerVoicing` 拒绝预设/Take，不静默回退；旧版自动写入的 Task 39 校准值读取时迁移到当前出厂整音。原始锚点不暴露为主界面旋钮，现有三力度整音由当前常量驱动。
 
 固定双层开启时 Piano 不随 `builtinTone=sine` 改成 Sine；它与当前单 VST3 消费同一最终 MIDI 身份，使用独立工作缓冲和有界采样延迟，层增益在一次公共 Reverb/Master 之前混合。层开关与配比随 Settings、预设和 Take 保存，不把钢琴逐键拉伸变成对插件的全局 Pitch Bend，详见 [双层渲染契约](plugin-offline-rendering.md)。
 
@@ -304,7 +304,7 @@ void setSoundPerspective(devpiano::audio::SoundPerspective perspective) noexcept
 
 ### 4.4 Velocity 动态双映射与 ADSR 门控
 
-- **振幅预算**：力度增益为 $v^{1.20}$，主弦采用名义全计划分音权重的 L1 归一化预算 $0.95v^{1.20}$；全琴绝对增益校准另乘 `globalSourceGain=0.49`（约 -6.2 dB），实际源级峰值预算约 `0.4655`。该全局增益按旧全键中位 RMS 校准，不是任何音区边界的补偿。所有计划分音按其名义频率计入分母，被剪掉的份额不重新分配；低率降级第一分音在分子/分母使用同一安全频率。该预算不是机械能量、RMS 或最终输出峰值上限，后续快慢包络、声像、共振与机械声另有作用。有效硬度的 $v^{1.5}$ 与此响度映射不同。
+- **振幅预算**：力度基线为 $v^{1.20}$，名义全计划分音权重仍计入 L1 分母，剪掉的份额不重分配。当前生产路径另以起音后 0.1–0.3 s 的解析同音弦平均功率，计算一个单音级总标量，保留分音间的相对权重，并将同一标量用于击弦瞬态，避免仅放大主弦而淹没起音。`globalSourceGain=0.49` 仍为公共源级因子，不是输出峰值上限；单音标量不是逐键补偿表，也不构成机械能量守恒或真琴等价声明。低率降级第一分音的安全频率规则保持不变。该路径已通过人工音色验收，但不认证任意硬件或任意内核版本的等价性。
 - **音色动态**：力度直接耦合琴槌接触时间 $T_c(v)$、高频裂音 $v^2$、泛音绽放速率与非线性微音高漂移；
 - **ADSR 门控与基准保持**：支持 `setAdsrParameters` / `getAdsrParameters`；`startNote` 自动重设基准起音与门控，`stopNote` 根据离键速度动态计算释放阻尼，杜绝参数跨音符泄漏。
 
@@ -325,6 +325,7 @@ void setSoundPerspective(devpiano::audio::SoundPerspective perspective) noexcept
      - 单块存在 **2048 条 MIDI 消息上限**（`enum { maxNumEvents = 2048 }`），超额事件被框架截断；第三方插件内部行为超出宿主控制。产品自有发声的零锁零分配不外推至第三方插件；
 3. **单核 CPU 性能 SLA 与实测边界**：44.1/48 kHz、8 复音的长期目标仍为 **$\le 0.7\%$**，不因单次测量改写目标。该目标不是物理常数，也不由零锁/零分配自动推出；Debug 未优化配置的 callback/音频时长比不是已认证的单核 CPU 占用。
    - Phase 37 的同配置 Duplex 开关增量与 callback 观察见 [直接实施证据归档](../../archive/phase37-38-piano-calibration-and-keyboard-performance.md#phase-37-直接实施证据与验证边界)，没有 Release 构建或 ≤0.7% 认证，不向其他硬件或厂商外推。参数/流程和软件门禁证据随阶段归档保存，后续任务见 [当前迭代](../../roadmap/current-iteration.md)，不能以历史测量认证新增 DSP 成本。
+   - Task 39-5 在 Windows Debug 用带已知正调用自检的 IAT 观察器覆盖起音、参数/快照、密集输入、多复音、偷声部、Panic 后重用、44.1/48/96 kHz 重新准备、Take 预设边界与 12,000 事件回放：产品自有回调闭包内分配、临界区与库函数三角在测试用例场景下均为 0；8 复音起音校准与零偏移的两次 Debug 样本差异方向相反，单次计时方差大于锚点采样成本，表明在当前测量分辨率内未引入明显增量，但不宣称绝对“零成本”或无条件全回调保证。该记录是 Debug 测试桩环境下的单次场景观察，严禁外推为 Release CPU SLA 或物理设备真实 deadline 认证。
 
 ---
 
@@ -334,8 +335,8 @@ void setSoundPerspective(devpiano::audio::SoundPerspective perspective) noexcept
 
 | 测试套件 / 物理用例 | 验证物理机理与断言指标 | 状态 |
 |---|---|:---:|
-| **PianoSynthVoiceTest** | 实际泛音/音色/双阶段衰减、接触释放音频反例、生成分量振幅与同音频率中心、三力度锚点插值/非法配置/单一硬度路径及滚降差异、完整 mono 下混及既有生命周期；不固定参数锚点声明值 | [x] 已通过 |
-| **PianoTuningAndDuplexTest** | 实际 A4 中心峰、保留/剪枝边界的生产频谱、Duplex 尾音与分段不变性、原通道所有权、mono 尾音及低率越界旁路 | [x] 已通过 |
+| **PianoSynthVoiceTest** | 实际泛音/音色/双阶段衰减、接触释放音频反例、生成分量振幅与同音频率中心、三力度锚点插值/非法配置/单一硬度路径及滚降差异、完整 mono 下混及既有生命周期；不固定参数锚点声明值 | [x] 结构与测试通过（整体音色已由用户人工验收） |
+| **PianoTuningAndDuplexTest** | 实际 A4 中心峰、保留/剪枝边界的生产频谱、Duplex 尾音与分段不变性、原通道所有权、mono 尾音及低率越界旁路；默认整音下 C4 上方分音平衡与 95/96 三力度连续性 | [x] 已通过 |
 | **PianoSnapshotWavParityTest** | 非零混响、同采样快照/NoteOn、原身份释放及 mono 琴盖/视角/Room 的实时/内置 WAV 对照；误差限于 16-bit 量化 | [x] 已通过 |
 | **DamperReleaseTest** | 快离键木质落弦闷击、慢离键羊毛毡摩擦延展、高音无制音区物理旁路、动态ADSR释放速度缩放、ADSR基准跨音符无泄漏 | [x] 已通过 |
 | **PedalAcousticsTest** | CC64 共鸣/机械动作；CC66 捕获边沿、重复高值、声部抢占、CC64/66 释放顺序与同采样逐通道隔离；跨区域 Sync Pedal 原目标释放 | [x] 已通过 |

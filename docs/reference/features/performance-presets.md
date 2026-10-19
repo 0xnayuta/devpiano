@@ -75,9 +75,9 @@
     "hammerHardness": 0.5,
     "hammerVoicing": {
       "anchors": [
-        { "velocity": 41.0, "hardnessDelta": -0.2, "loudnessDeltaDb": -4.75, "rolloffDelta": 1.2 },
-        { "velocity": 70.0, "hardnessDelta": 0.3, "loudnessDeltaDb": -0.6, "rolloffDelta": 1.5 },
-        { "velocity": 98.0, "hardnessDelta": 0.3, "loudnessDeltaDb": 2.5, "rolloffDelta": 0.0 }
+        { "velocity": 41.0, "hardnessDelta": 0.0, "loudnessDeltaDb": 0.0, "rolloffDelta": 0.0 },
+        { "velocity": 70.0, "hardnessDelta": 0.0, "loudnessDeltaDb": 0.0, "rolloffDelta": 0.0 },
+        { "velocity": 98.0, "hardnessDelta": 0.0, "loudnessDeltaDb": 0.0, "rolloffDelta": 0.0 }
       ]
     },
     "resonance": 0.5,
@@ -131,7 +131,7 @@
 | 属性字段 | 数据类型 | 取值范围与默认值 | 含义与声学作用 |
 |---|:---:|:---:|---|
 | `brightness` / `hammerHardness` / `resonance` | float | 0.0 ~ 1.0（各默认 0.5） | 实际琴槌/泛音/音板音色，保存后随普通预设应用 |
-| `hammerVoicing` | object | 恰好 3 个按力度递增的锚点；`hardnessDelta` ±0.30、`loudnessDeltaDb` ±12.0、`rolloffDelta` ±2.0；缺省为当前 C4 校准值 | 内置 Piano 的三力度整音；不写入 VST3，也不改变 Sine |
+| `hammerVoicing` | object | 恰好 3 个按力度递增的锚点；`hardnessDelta` ±0.30、`loudnessDeltaDb` ±12.0、`rolloffDelta` ±2.0；缺省为当前中性出厂整音 | 内置 Piano 的三力度整音；不写入 VST3，也不改变 Sine |
 | `stretchTuningEnabled` | bool | 默认 `true` | Piano 第一分音锚定的分音匹配拉伸开关；不改 Sine/VST3 MIDI |
 | `duplexResonance` | float | 0.0 ~ 1.0（默认 0.15） | Piano 非发音段被动共鸣配比，0 旁路 |
 | `lidPosition` | int | 0 (全开) / 1 (半开) / 2 (闭盖) | 琴盖开合度声学传递函数 |
@@ -145,7 +145,7 @@
 | `pedalNoiseLevel` | float | 0.0 ~ 1.0（默认 0.6） | 延音踏板扫掠呼啸与共鸣冲击机械动作音量 |
 | `feltAgeingAmount` | float | 0.0 ~ 1.0（默认 0.0） | 琴槌羊毛纤维磨损压实老化深度 |
 
-> **当前格式缺省与限幅**：声学字段从 `acoustics` 节点读取，`keyboard` 节点从 `keyboard` 节点读取，两者均不再解析旧根节点平铺字段；当前可选字段缺失时使用出厂默认值，枚举与数值仍按合法区间限幅。`hammerVoicing` 缺省时使用当前校准值；若显式存在但锚点数量、类型、有限性或范围非法，整份预设拒绝，不静默回退。这不是对历史版本的兼容承诺。
+> **当前格式缺省与限幅**：声学字段从 `acoustics` 节点读取，`keyboard` 节点从 `keyboard` 节点读取，两者均不再解析旧根节点平铺字段；当前可选字段缺失时使用出厂默认值，枚举与数值仍按合法区间限幅。`hammerVoicing` 缺省时使用当前中性出厂整音；若显式存在但锚点数量、类型、有限性或范围非法，整份预设拒绝，不静默回退。旧版自动写入的 Task 39 校准值读取时一次性迁移到当前出厂整音，仅作用于内存，不写回文件。这不是对历史版本的兼容承诺。
 
 设置中的钢琴风格选择只提交声学字段，不加载另一份演奏映射、切换插件或覆盖全局调号；保存普通预设时才把当前映射与声学值一起捕获。风格标签由值识别，`hammerVoicing` 也参与识别；手动值或不同整音配置显示 Custom，不保存额外风格身份或增加新文件格式。重启仍遵守活动预设 UUID 优先级，应用设置保存不能代替普通预设保存。
 

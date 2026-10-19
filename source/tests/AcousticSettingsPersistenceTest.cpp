@@ -28,6 +28,7 @@ public:
         testSettingsStoreAcousticRoundTrip();
         testSettingsStoreCorruptedBoundaryClamping();
         testPerformancePresetAcousticRoundTrip();
+        testRetiredFactoryVoicingMigration();
         testPianoStyleIdentityIncludesHammerVoicing();
         testKeyboardMidiMapperSoftPedalStateAndCallback();
     }
@@ -120,6 +121,42 @@ private:
             expect(loaded.unaCorda == true, "unaCorda true should round-trip");
             expectEquals(loaded.keySignature, 3);
             expect(loaded.midiTranspose == true);
+        }
+    }
+
+    void testRetiredFactoryVoicingMigration() {
+        beginTest("retired factory voicing migrates to the accepted default");
+
+        devpiano::test::ScopedTempDir tempDir("voicing-migration");
+        const auto settingsFile = tempDir.getChildFile("retired_voicing.settings");
+        SettingsModel originalModel;
+        originalModel.hammerVoicing = devpiano::audio::kRetiredTask39HammerVoicing;
+        {
+            SettingsStore store(settingsFile);
+            expect(store.save(originalModel), "settings with the retired voicing must save");
+        }
+        SettingsModel loadedModel;
+        {
+            SettingsStore store(settingsFile);
+            store.load(loadedModel);
+        }
+        expect(
+            devpiano::audio::isSameHammerVoicing(loadedModel.hammerVoicing, devpiano::audio::kCalibratedHammerVoicing),
+            "retired factory voicing must load as the current default");
+
+        const auto presetFile = tempDir.getChildFile("retired_voicing.devpiano.preset");
+        auto preset = makeDefaultPreset();
+        preset.uuid = "b1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d";
+        preset.name = "Retired Voicing";
+        preset.hammerVoicing = devpiano::audio::kRetiredTask39HammerVoicing;
+        expect(savePreset(preset, presetFile), "preset with the retired voicing must save");
+
+        const auto loadedPreset = loadPreset(presetFile);
+        expect(loadedPreset.has_value(), "preset with the retired voicing must load");
+        if (loadedPreset.has_value()) {
+            expect(devpiano::audio::isSameHammerVoicing(loadedPreset->hammerVoicing,
+                                                        devpiano::audio::kCalibratedHammerVoicing),
+                   "retired factory voicing in a preset must migrate");
         }
     }
 

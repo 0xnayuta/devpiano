@@ -4,6 +4,7 @@
 #include "Audio/PianoSynthVoice.h"
 #include "Audio/PianoTuning.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
 
 namespace {
@@ -91,6 +92,44 @@ juce::AudioBuffer<float> renderReleasedTail(int partition, float duplex, PianoSy
     return released;
 }
 
+double stereoPartialBandEnergy(const juce::AudioBuffer<float>& buffer, double rate, double centre) {
+    const auto start = static_cast<int>(0.05 * rate);
+    const auto count = static_cast<int>(0.75 * rate);
+    auto energy = 0.0;
+    for (const auto offset : { -4.0, -2.0, 0.0, 2.0, 4.0 }) {
+        const auto step = juce::MathConstants<double>::twoPi * (centre + offset) / rate;
+        const auto cosine = std::cos(step);
+        const auto sine = std::sin(step);
+        const auto windowStep = juce::MathConstants<double>::twoPi / static_cast<double>(count - 1);
+        const auto windowCosine = std::cos(windowStep);
+        const auto windowSine = std::sin(windowStep);
+        auto phaseX = 1.0;
+        auto phaseY = 0.0;
+        auto windowX = 1.0;
+        auto windowY = 0.0;
+        std::array<double, 2> real {};
+        std::array<double, 2> imaginary {};
+        for (auto sample = 0; sample < count; ++sample) {
+            for (std::size_t channel = 0; channel < real.size(); ++channel) {
+                const auto value = static_cast<double>(buffer.getSample(static_cast<int>(channel), start + sample))
+                    * 0.5 * (1.0 - windowX);
+                real[channel] += value * phaseX;
+                imaginary[channel] += value * phaseY;
+            }
+            const auto nextX = phaseX * cosine - phaseY * sine;
+            phaseY = phaseX * sine + phaseY * cosine;
+            phaseX = nextX;
+            const auto nextWindowX = windowX * windowCosine - windowY * windowSine;
+            windowY = windowX * windowSine + windowY * windowCosine;
+            windowX = nextWindowX;
+        }
+        for (std::size_t channel = 0; channel < real.size(); ++channel) {
+            energy += real[channel] * real[channel] + imaginary[channel] * imaginary[channel];
+        }
+    }
+    return energy;
+}
+
 } // namespace
 
 class PianoTuningAndDuplexTest final : public juce::UnitTest {
@@ -100,6 +139,43 @@ public:
     }
 
     void runTest() override {
+        beginTest("factory default C4 keeps the accepted pre-39-3 upper-partial balance");
+        {
+            constexpr auto rate = 48000.0;
+            PianoFixture fixture(rate, true, 0.15f);
+            fixture.synth.noteOn(1, 60, 70.0f / 127.0f);
+            juce::AudioBuffer<float> buffer(2, 38400);
+            fixture.render(buffer);
+            const auto fundamental = stereoPartialBandEnergy(buffer, rate, PianoSynthVoice::partialFrequency(60, 0));
+            auto upperPartials = 0.0;
+            for (auto partial = 1; partial < 8; ++partial) {
+                upperPartials += stereoPartialBandEnergy(buffer, rate, PianoSynthVoice::partialFrequency(60, partial));
+            }
+            // The user-selected historical WAV has about -9 dB in this window.
+            // A 2 dB allowance rejects the roughly 5 dB shared-phase collapse.
+            const auto ratioDb = 10.0 * std::log10(upperPartials / fundamental);
+            expectWithinAbsoluteError(ratioDb, -9.0, 2.0,
+                                      "restoring level must not replace the accepted harmonic balance");
+        }
+
+        beginTest("neutral treble keeps the repaired 95/96 level transition");
+        for (const auto velocity : { 41, 70, 98 }) {
+            std::array<double, 2> levels {};
+            for (std::size_t index = 0; index < levels.size(); ++index) {
+                PianoFixture fixture(48000.0, true, 0.15f);
+                (void)fixture.voice->setHammerVoicing({});
+                fixture.synth.noteOn(1, 95 + static_cast<int>(index), static_cast<float>(velocity) / 127.0f);
+                juce::AudioBuffer<float> buffer(2, 14400);
+                fixture.render(buffer);
+                const auto left = static_cast<double>(buffer.getRMSLevel(0, 4800, 9600));
+                const auto right = static_cast<double>(buffer.getRMSLevel(1, 4800, 9600));
+                levels[index] = std::sqrt(0.5 * (left * left + right * right));
+            }
+            const auto deltaDb = 20.0 * std::log10(levels[1] / levels[0]);
+            expect(std::isfinite(deltaDb) && std::abs(deltaDb) <= 1.5,
+                   "the audible 95/96 jump must not return while recovering the old timbre");
+        }
+
         beginTest("Actual A4 centre remains anchored independently of stiffness and stretch switch");
         for (const auto reference : { 400.0, 440.0, 480.0 }) {
             PianoFixture fixture(48000.0, reference != 400.0, 0.0f);

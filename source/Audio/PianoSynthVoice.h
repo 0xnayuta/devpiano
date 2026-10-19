@@ -173,6 +173,62 @@ struct SineLookupTable {
 
 inline const SineLookupTable gSineLookupTable;
 
+struct UnisonExcitation {
+    std::array<float, 3> phase {};
+};
+
+inline const auto gUnisonExcitation = [] {
+    std::array<std::array<UnisonExcitation, 64>, 88> result {};
+    // Follow the existing MIDI 80..100 detune taper when approaching single-string equivalence.
+    const auto fullSpreadDetune = devpiano::audio::getNoteParams(80).beatingDetuneRatio;
+    for (std::size_t key = 0; key < result.size(); ++key) {
+        const auto& params = devpiano::audio::getNoteParams(21 + static_cast<int>(key));
+        const auto spread = std::clamp(params.beatingDetuneRatio / fullSpreadDetune, 0.0f, 1.0f);
+        for (std::size_t partial = 0; partial < result[key].size(); ++partial) {
+            auto& entry = result[key][partial];
+            const auto base = devpiano::audio::kOptPhaseTable[0][partial];
+            for (std::size_t string = 0; string < entry.phase.size(); ++string) {
+                const auto original = devpiano::audio::kOptPhaseTable[string][partial];
+                const auto difference = std::remainder(static_cast<double>(original - base), kTwoPi);
+                entry.phase[string] = spread >= 1.0f ? original : base + spread * static_cast<float>(difference);
+            }
+        }
+    }
+    return result;
+}();
+
+struct UnisonWindowPower {
+    double reference = 1.0;
+    double actual = 1.0;
+};
+
+[[nodiscard]] inline UnisonWindowPower unisonWindowPower(const std::array<float, 3>& phase, int strings,
+                                                         double frequency, float detune) noexcept {
+    if (strings <= 1) {
+        return {};
+    }
+    // The registered early-body RMS window defines the amplitude reference.
+    // This is one note-wide calibration scalar, not physical energy conservation.
+    constexpr auto duration = 0.2;
+    constexpr auto midpoint = 0.2;
+    auto reference = static_cast<double>(strings);
+    auto actual = reference;
+    for (auto first = 0; first < strings; ++first) {
+        for (auto second = first + 1; second < strings; ++second) {
+            const auto difference = frequency * static_cast<double>(detune) * static_cast<double>(second - first);
+            const auto halfWindow = kPi * difference * duration;
+            const auto sinc = halfWindow == 0.0 ? 1.0 : boundedSin(halfWindow) / halfWindow;
+            const auto meanPhase = kTwoPi * difference * midpoint;
+            const auto phaseDifference
+                = static_cast<double>(phase[static_cast<std::size_t>(second)] - phase[static_cast<std::size_t>(first)]);
+            reference += 2.0 * sinc * boundedCos(meanPhase);
+            actual += 2.0 * sinc * boundedCos(meanPhase + phaseDifference);
+        }
+    }
+    const auto divisor = static_cast<double>(strings * strings);
+    return { std::max(0.0, reference / divisor), std::max(0.0, actual / divisor) };
+}
+
 } // namespace devpiano::audio::dsp
 
 class PianoSynthSound final : public juce::SynthesiserSound {
@@ -206,8 +262,7 @@ public:
     static constexpr auto numResonators = 16;
     static constexpr auto bodyWetRatio = 0.26f;
     static constexpr auto nominalPeakLevelAtFullVelocity = 0.95f;
-    // 全琴整音：恢复名义弦和后，按旧全键中位 RMS 校准的全局源级增益（约 -6.2 dB）。
-    // 这是绝对增益校准，不是针对任何音区边界的补偿。
+    // One source-level gain shared by strings and mechanical transients.
     static constexpr auto globalSourceGain = 0.49f;
     static constexpr auto peakLevelAtFullVelocity = nominalPeakLevelAtFullVelocity * globalSourceGain;
     static constexpr auto silentLevelThreshold = 1e-4f;
@@ -503,14 +558,30 @@ public:
             fallbackActive = true;
         }
         numActivePartials = admittedCount;
+        const auto& unisonExcitation = devpiano::audio::dsp::gUnisonExcitation[static_cast<std::size_t>(
+            std::clamp(midiNoteNumber, 21, 108) - 21)];
         auto normSum = 0.0f;
+        auto nominalPower = 0.0f;
+        auto coherentPower = 0.0f;
         for (auto n = 0; n < requestedPartials; ++n) {
             const auto frequency
                 = (fallbackActive && n == 0) ? coherentCeiling : noteFrequencies[static_cast<std::size_t>(n)];
-            normSum += retainedPartialWeight(n, keyPos, contactHardness, effectiveStrikePos, frequency, effectiveTc,
-                                             requestedPartials, effectiveBrightness, voicingSample.rolloffDelta);
+            const auto weight
+                = retainedPartialWeight(n, keyPos, contactHardness, effectiveStrikePos, frequency, effectiveTc,
+                                        requestedPartials, effectiveBrightness, voicingSample.rolloffDelta);
+            const auto stringCount
+                = n < params.beatingPartials && params.beatingDetuneRatio > 0.0f ? params.stringCount : 1;
+            // One whole-voice scalar keeps the relative modal weights intact.
+            // No per-partial boost or per-key correction table is applied.
+            const auto power
+                = devpiano::audio::dsp::unisonWindowPower(unisonExcitation[static_cast<std::size_t>(n % 64)].phase,
+                                                          stringCount, frequency, params.beatingDetuneRatio);
+            normSum += weight;
+            nominalPower += weight * weight * static_cast<float>(power.reference);
+            coherentPower += weight * weight * static_cast<float>(power.actual);
         }
-        const auto scale = peakLevelAtFullVelocity / juce::jmax(1e-6f, normSum);
+        const auto unisonScale = std::sqrt(nominalPower / juce::jmax(1e-12f, coherentPower));
+        const auto scale = peakLevelAtFullVelocity * unisonScale / juce::jmax(1e-6f, normSum);
 
         for (auto k = admittedCount; k < maxPartials; ++k) {
             auto& p = partials[static_cast<std::size_t>(k)];
@@ -531,18 +602,18 @@ public:
             const auto m = static_cast<double>(n + 1);
             const auto partialFrequency = noteFrequencies[static_cast<std::size_t>(n)];
             partial.stringCount = params.stringCount;
-            // 共同激励：同一分音的多根同音弦共享基准初相；跨分音仍保留色散。
-            // 失谐会使各弦随后自然散开并产生拍频，而不是从起点人为反相抵消。
-            const auto stringPhase = devpiano::audio::kOptPhaseTable[0][static_cast<std::size_t>(n % 64)] + jitterPhase;
-            const auto phase1 = stringPhase;
-            const auto phase2 = stringPhase;
-            const auto phase3 = stringPhase;
+            // Original phase signature below the existing treble detune taper;
+            // phase differences converge with detune instead of jumping at zero.
+            const auto& excitation = unisonExcitation[static_cast<std::size_t>(n % 64)];
+            const auto phase1 = excitation.phase[0] + jitterPhase;
+            const auto phase2 = excitation.phase[1] + jitterPhase;
+            const auto phase3 = excitation.phase[2] + jitterPhase;
 
             // 39-A unit-y Magic Circle init: every active string starts at
             // its output phase with y = sin(phi) and
             // x = sqrt(1 - e^2/4) * cos(phi) + e * sin(phi) / 2. The stored
-            // level keeps the nominal L1 budget peak*v^1.20 (with unaCorda
-            // attenuation); pruned weights are not redistributed.
+            // level includes the note-wide unison reference scale and una-corda
+            // attenuation; pruned weights are not redistributed.
             if (partial.stringCount == 1 || n >= params.beatingPartials || params.beatingDetuneRatio <= 0.0f) {
                 partial.stringCount = 1;
                 initMagicCircleState(partial.cosState, partial.sinState, partial.epsilon, partialFrequency, sampleRate,
@@ -602,7 +673,8 @@ public:
         }
 
         const auto hammerTransientVel = clampedVelocity * (1.0f - 0.35f * unaCordaMu);
-        hammerTransient.trigger(sampleRate, midiNoteNumber, hammerTransientVel, hammerHardness, params.stringLength);
+        hammerTransient.trigger(sampleRate, midiNoteNumber, hammerTransientVel, hammerHardness, params.stringLength,
+                                unisonScale);
         hammerContactEngine.trigger(sampleRate, effectiveTc);
         spatialDiffusionEngine.trigger(sampleRate);
         damperTransient.reset();
@@ -1288,8 +1360,8 @@ public:
         float longPhase3 = 0.0f;
         float longPhaseInc3 = 0.0f;
 
-        void trigger(double sr, int midiNoteNumber, float velocity, float hardness,
-                     float stringLength = 1.0f) noexcept {
+        void trigger(double sr, int midiNoteNumber, float velocity, float hardness, float stringLength,
+                     float excitationGain) noexcept {
             if (sr <= 0.0) {
                 return;
             }
@@ -1310,7 +1382,8 @@ public:
 
             const auto v = juce::jlimit(0.0f, 1.0f, velocity);
             const auto vLevel = (v * v) * (0.6f + 0.8f * hardness);
-            amplitude = peakLevelAtFullVelocity * 0.12f * vLevel;
+            // The note-wide excitation scale includes the strike, not only strings.
+            amplitude = peakLevelAtFullVelocity * excitationGain * 0.12f * vLevel;
             decayPerSample = std::exp(-4.5f / static_cast<float>(totalSamples));
 
             // 起音 3ms 高频裂音 (Phase 23-D, Attack HF Crack, 消除起振延迟)
@@ -1318,7 +1391,7 @@ public:
             constexpr auto crackDur = 0.003f;
             const auto crackTotal = juce::jmax(1, static_cast<int>(crackDur * sampleRate));
             crackSamplesRemaining = crackTotal;
-            crackAmplitude = peakLevelAtFullVelocity * 0.02f * (v * v) * (0.20f + 0.80f * keyPos);
+            crackAmplitude = peakLevelAtFullVelocity * excitationGain * 0.02f * (v * v) * (0.20f + 0.80f * keyPos);
             crackDecayPerSample = std::exp(-6.0f / static_cast<float>(crackTotal));
             crackRng = static_cast<std::uint32_t>(midiNoteNumber) * 1664525u + 1013904223u;
 
@@ -1336,7 +1409,7 @@ public:
 
                 const auto longTotalSamples = juce::jmax(1, static_cast<int>(0.015f * sampleRate));
                 longSamplesRemaining = longTotalSamples;
-                longAmplitude = peakLevelAtFullVelocity * 0.04f * vLevel;
+                longAmplitude = peakLevelAtFullVelocity * excitationGain * 0.04f * vLevel;
                 longDecayPerSample = std::exp(-5.5f / static_cast<float>(longTotalSamples));
             } else {
                 longSamplesRemaining = 0;

@@ -625,18 +625,18 @@ private:
         beginTest("attack transient crack and longitudinal mode tuning (Phase 23-D)");
         {
             PianoSynthVoice::HammerTransient softTransient;
-            softTransient.trigger(kSampleRate, 72, 0.30f, 0.5f, 0.30f);
+            softTransient.trigger(kSampleRate, 72, 0.30f, 0.5f, 0.30f, 1.0f);
             const auto s1 = softTransient.getNextSample();
 
             PianoSynthVoice::HammerTransient loudTransient;
-            loudTransient.trigger(kSampleRate, 72, 0.90f, 0.5f, 0.30f);
+            loudTransient.trigger(kSampleRate, 72, 0.90f, 0.5f, 0.30f, 1.0f);
             const auto s2 = loudTransient.getNextSample();
 
             expect(std::abs(s2) > std::abs(s1) * 3.0f,
                    "loud strike attack crack produces much higher transient spike than soft strike");
 
             PianoSynthVoice::HammerTransient bassLongTransient;
-            bassLongTransient.trigger(kSampleRate, 30, 0.85f, 0.5f, 1.50f);
+            bassLongTransient.trigger(kSampleRate, 30, 0.85f, 0.5f, 1.50f, 1.0f);
             expect(bassLongTransient.isActive(), "bass strike activates longitudinal precursor mode");
 
             for (auto i = 0; i < 900; ++i) {
@@ -1237,7 +1237,7 @@ private:
         {
             constexpr double sr = 48000.0;
             PianoSynthVoice::HammerTransient hammer;
-            hammer.trigger(sr, 60, 0.8f, 0.5f, 1.0f);
+            hammer.trigger(sr, 60, 0.8f, 0.5f, 1.0f, 1.0f);
             expect(hammer.isActive());
             auto hammerMax = 0.0f;
             while (hammer.isActive()) {

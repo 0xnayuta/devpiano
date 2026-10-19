@@ -25,13 +25,18 @@ struct HammerVoicing {
     } };
 };
 
-/// 生产默认三力度整音。校准于 C4 41/70/98，55/85 仅作留出验证。
+/// 生产默认三力度整音：Task 39 音色修复后经人工试听确认的中性锚点。
 /// 数值相对现有力度基线，后续校准只改这里，不增加第二条 DSP 路径。
-inline constexpr HammerVoicing kCalibratedHammerVoicing { .anchors = { {
-                                                              { 41.0f, -0.20f, -4.75f, 1.2f },
-                                                              { 70.0f, 0.30f, -0.6f, 1.5f },
-                                                              { 98.0f, 0.30f, 2.5f, 0.0f },
-                                                          } } };
+inline constexpr HammerVoicing kCalibratedHammerVoicing {};
+
+/// Task 39 修复前自动写入的旧出厂整音。三锚点从未在 UI 暴露，因此该值不代表
+/// 用户自定义。仅用于把旧设置、预设与演奏快照中的自动写入值迁移到当前出厂
+/// 整音；迁移只作用于内存，不写回文件。
+inline constexpr HammerVoicing kRetiredTask39HammerVoicing { .anchors = { {
+                                                                 { 41.0f, -0.20f, -4.75f, 1.2f },
+                                                                 { 70.0f, 0.30f, -0.6f, 1.5f },
+                                                                 { 98.0f, 0.30f, 2.5f, 0.0f },
+                                                             } } };
 
 struct HammerVoicingSample {
     float hardnessDelta = 0.0f;
@@ -96,6 +101,11 @@ inline constexpr float kHammerVoicingMaxRolloffDelta = 2.0f;
         }
     }
     return true;
+}
+
+/// 把旧版本自动写入的出厂整音替换为当前出厂整音；其余配置原样返回。
+[[nodiscard]] inline HammerVoicing migrateRetiredHammerVoicing(HammerVoicing voicing) noexcept {
+    return isSameHammerVoicing(voicing, kRetiredTask39HammerVoicing) ? kCalibratedHammerVoicing : voicing;
 }
 
 /// 在 MIDI 力度坐标上分段线性插值；1 以下和 127 以上夹到端点。
