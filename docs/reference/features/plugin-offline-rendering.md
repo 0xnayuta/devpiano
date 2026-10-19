@@ -90,7 +90,7 @@ WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
 
 `buildWavExportOptions()` 注入当前有效参数；Take 快照在其采样点替换参数。两条离线路径先提交初始 reverbSpace/reverbWet 再 `prepare()`，避免起音沿用 `RoomReverbEngine` 的内部默认 wet。实际 Piano 整段实时/WAV 对照覆盖非零 wet、同采样快照/NoteOn 与后续原身份释放；不外推第三方声音逐比特相同。参数范围如下：
 
-1. **基础发声与音色包络**：`masterGain`、`adsr`、`builtinTone`（`piano` 或 `sine`）、`pianoBrightness`、`pianoHammerHardness`、`pianoResonance`；
+1. **基础发声与音色包络**：`masterGain`、`adsr`、`builtinTone`（`piano` 或 `sine`）、`pianoBrightness`、`pianoHammerHardness`、`hammerVoicing`、`pianoResonance`；`hammerVoicing` 仅作用于内置 Piano，非法锚点使离线导出明确失败；
 2. **微调律制与基准音高**：`temperament`（6 大古典律制：`equal`、`just`、`pythagorean`、`meantone`、`werckmeister3`、`kirnberger3`）与 `referencePitchA4`（400.0 ~ 480.0 Hz，默认 440.0 Hz；内置实时与离线路径共用 `TemperamentEngine::clampReferencePitch()`）；
 3. **立体声空间视角**：`soundPerspective`（演奏者 `player` 与听众 `audience` 镜像与高频吸收）；
 4. **琴盖物理开合**：`lidPosition`（全开 `fullOpen`、半开 `halfStick`、闭盖 `closed` 传递函数）；

@@ -48,6 +48,13 @@
         "adsr": { "attack": 0.01, "decay": 0.2, "sustain": 0.8, "release": 0.3 },
         "brightness": 0.5,
         "hammerHardness": 0.5,
+        "hammerVoicing": {
+          "anchors": [
+            { "velocity": 41.0, "hardnessDelta": -0.2, "loudnessDeltaDb": -4.75, "rolloffDelta": 1.2 },
+            { "velocity": 70.0, "hardnessDelta": 0.3, "loudnessDeltaDb": -0.6, "rolloffDelta": 1.5 },
+            { "velocity": 98.0, "hardnessDelta": 0.3, "loudnessDeltaDb": 2.5, "rolloffDelta": 0.0 }
+          ]
+        },
         "resonance": 0.5,
         "lidPosition": 0,
         "temperament": "equal",
@@ -106,13 +113,13 @@
 | `lengthSamples` | int64 | 当前写出非负整数；加载也接受有限、无小数部分的数值，须覆盖全部事件，并在支持采样率与 0.5x–2.0x 下保持缩放、末尾 `+1` 及块余量整数可表示。 |
 | `metadata` | object | 包含 `createdAt`（ISO 8601 时间戳字符串）、`title`（曲目标题）与 `notes`（多行备注文本）。 |
 | `events` | array | 按时间戳稳定规范化，同采样点保留输入相对顺序；不能把原生文件的顺序规则等同于 MIDI 多轨并轨的事件优先级。 |
-| `presets` | array | 必须存在的内嵌 `RecordedPreset` 独立快照表：包含预设对象 `"preset"`（格式版本 2、永久 UUID、键位布局与通道矩阵）与当时由音频引擎捕获的不可变可执行 `"acoustic"`（`AcousticSnapshot`）；纯 MIDI Take 可使用空数组 `[]`（键名与数组结构必须存在），事件 `presetId` 必须严格位于 `[0, presets.size())` 范围内。 |
+| `presets` | array | 必须存在的内嵌 `RecordedPreset` 独立快照表：包含预设对象 `"preset"`（格式版本 2、永久 UUID、键位布局与通道矩阵）与当时由音频引擎捕获的不可变可执行 `"acoustic"`（`AcousticSnapshot`，含内置 Piano 三力度 `hammerVoicing`）；纯 MIDI Take 可使用空数组 `[]`（键名与数组结构必须存在），事件 `presetId` 必须严格位于 `[0, presets.size())` 范围内。 |
 
 ### 2.2 事件类型支持
 
 - **MIDI 演奏事件（`type: "midi"`）**：必须显式提供事件类型，缺失或空类型不作 MIDI 推断。`source` 为 `"computerKeyboard"`、`"realtimeMidiBuffer"` 或 `"playback"`；`midiData` 使用 `<字节数>.<JUCE 编码负载>`，例如 `3.PxCY` 表示 `90 3c 64`，`3..xC.` 表示 `80 3c 00`。编码负载内的 `.` 是合法字符，不是第二个长度分隔符。每个 MIDI 帧在解析与分配前校验负载长度一致性、合法状态字节及有效 SysEx / Meta 边界；
 - **预设切换事件（`type: "presetChange"`）**：`presetId` 为该 Take 内嵌 `presets` 数组的槽位索引。音频线程在事件采样点切换声学与层状态，同采样 NoteOn 使用新声学参数，但保持事件中已保存的音高/通道。目录增删、重命名或预设文件缺失不影响内嵌快照；VST3 的外部依赖另列。
-- **RecordedPreset 分工**：`"preset"` 供 UI 还原绑定、区域音乐参数、分组、矩阵和显示；`"acoustic"` 供音频执行音源、Master/ADSR、物理/空间参数及 `layers`。`transposeEnabled`、`transposeOffset`、`channelFollowKeyMask` 记录输入配置，不变换已保存音符。`layers` 的三个开关与两项 `[0,1]` 增益决定固定 Piano + 当前单 VST3 的发声；本机 `partitionMode` 不进入预设或 Take。
+- **RecordedPreset 分工**：`"preset"` 供 UI 还原绑定、区域音乐参数、分组、矩阵和显示；`"acoustic"` 供音频执行音源、Master/ADSR、物理/空间参数及 `layers`。`transposeEnabled`、`transposeOffset`、`channelFollowKeyMask` 记录输入配置，不变换已保存音符。`hammerVoicing` 只进入内置 Piano 发声，不写入 VST3 或 Sine；非法锚点拒绝整份 Take。`layers` 的三个开关与两项 `[0,1]` 增益决定固定 Piano + 当前单 VST3 的发声；本机 `partitionMode` 不进入预设或 Take。
 - **VST3 与外部依赖边界**：文件不捆绑 VST3 二进制、路径或内部状态。单层沿用当前插件或内置 Piano/Sine；双层固定 Piano + 当前单 VST3，共用事件身份与一次 Master/Reverb。缺少插件不影响格式读取，但双层且插件层启用时 WAV 导出明确失败并保护原目标，不静默只导出钢琴，也不承诺换机还原厂商音色。
 - **非当前格式拒绝**：仅准入当前精确整数版本 `4`；浮点数（如 `4.0`）、字符串版本（如 `"4"`）、历史版本（v1–v3）和未来版本均被 `parsePerformanceFileRoot` 严格拒绝，不猜测旧事件语义或迁移。独立元数据读取共用格式与精确版本网关，但不执行全事件帧级验证。加载失败保持原文件字节和当前会话；当前格式可选元数据缺省返回空结构体。
 - **初始录制状态捕获**：起点捕获初始预设和声学/层快照（slot 0）；预备拍期间的设置在实际录制下拍进入 Take。松键始终使用起音身份，同音重复起音通过 FIFO 和最后持有规则配对；端点禁用/更换不重发旧 NoteOn。

@@ -115,12 +115,12 @@ source/
 - **`source/Audio/BuiltinSynthesiser.h/.cpp`**：
   - 实时和内置 WAV 共用乐器拥有者：逐通道 CC67 连续值在新 Piano 声部起音前提交；重复起音/释放按真实发音通道筛选，不把机械聚合监听当发音身份。头文件不包含重型 Piano 实现，具体发声初始化与 dispatch 放在 `.cpp`。
   - 纯音频所有、完全无锁的发声调度器，重写了底层语音分配与踏板调度，移除原生 JUCE 内部锁；支持零长度块原地消费同采样 MIDI 控制事件。
-- **`source/Audio/PianoSynthVoice.h` / `source/Audio/Piano88KeyTable.h`**：
+- **`source/Audio/PianoSynthVoice.h` / `source/Audio/Piano88KeyTable.h` / `source/Audio/HammerVoicing.h`**：
   - **自主研发、纯 C++ 增强模态物理建模钢琴音源**，默认发声引擎，不将参数化模态模型宣称为商业产品同等微观实现；
   - **7 大声学子系统**：覆盖琴槌（Hammer）、琴弦（String）、琴桥（Bridge）、音板（Soundboard）、琴体（Cabinet）、空气（Air）与空间（Room）；
   - **88 键连续参数化模型**（`Piano88KeyTable.h`）：文献作为设计线索的固定锚点，连续插值刚度 $B$、击弦比 $d/L$、阻尼与弦组分区；不认证特定琴型逐键实测或相位训练最优性；
-  - **琴槌非线性打击与毛毡老化**：三层毛毡动力学压实、动态接触时间 $T_c$、击弦点几何梳状陷波、3ms 起音高频裂音（HF Crack）与琴槌毛毡微老化穿透力调节（`feltAgeingAmount`）；
-  - **琴弦非线性动力学与泛音抖动**：JOS PASP 刚性失谐、泛音刚度不谐和度抖动（`inharmonicityJitter` ±4.5%）、STFT 微初相矩阵、同音三弦 Mid-Side 差分展开与非对称拍频、低音纵波先驱声（$5100\text{ m/s}$）、泛音时间滞后膨胀绽放（Harmonic Blooming）与强击软饱和；
+  - **琴槌非线性打击与毛毡老化**：三层毛毡动力学压实、动态接触时间 $T_c$、击弦点几何梳状陷波、3ms 起音高频裂音（HF Crack）与琴槌毛毡微老化穿透力调节（`feltAgeingAmount`）；`HammerVoicing.h` 保存 41/70/98 三锚点的硬度/响度/滚降相对增量，按力度连续插值，不引入独立 DSP 分支；
+  - **琴弦非线性动力学与泛音抖动**：JOS PASP 刚性失谐、泛音刚度不谐和度抖动（`inharmonicityJitter` ±4.5%）、STFT 微初相矩阵、同分音多弦共享基准初相的连续失谐/拍频、同音三弦 Mid-Side 差分展开、低音纵波先驱声（$5100\text{ m/s}$）、泛音时间滞后膨胀绽放（Harmonic Blooming）与强击软饱和；
   - **共鸣与空间辐射**：长短琴桥交界补偿（G2/G#2）、16 峰正交云杉木物理音板模态、4.2kHz 云杉木高频截止、琴桥立体声空间辐射与动态声场空间漫射；
   - **微观机械动作拟真**：CC64 全局交感共鸣弦池、延音踏板下踏/抬起机械扫掠呼啸（Whoosh）与共鸣冲击（Resonance Shock，受 `pedalNoiseLevel` 调节）、未踩踏板单键开放弦交感、制音器落木闷击与琴键释放机械摩擦、离键速度动态 ADSR 阻尼缩放；
   - **调律与被动段共鸣**：`PianoTuning.h` 将第一分音归一化、独立律制与 A4 锚点拉伸统一到 Piano；`DuplexResonance` 的固定双模态只由主弦驱动，0 旁路、越 Nyquist 禁用，原通道持有到尾音结束；

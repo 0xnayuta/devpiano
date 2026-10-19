@@ -19,6 +19,14 @@
 
 详见：[`../reference/features/plugin-hosting.md`](../reference/features/plugin-hosting.md)
 
+### 钢琴离散音区交界台阶（U2 已落地并签收）
+
+> 同一分音多弦共享共同激励基准初相；拍频分音统一 `min(partialCount,6)`，取消 MIDI 96 硬切；失谐降至 0 时多弦自然等价单弦。U2 已落地并完成重校准：95/96 台阶 `-0.188 dB`，35/36 `+0.008`、47/48 `-0.054`、71/72 `+0.005`；最大相邻台阶 `2.639 dB`，最大 peak `-11.202 dBFS`；C4 RMS 41→70 `7.611 dB`、70→98 `5.991 dB`，端点 v2 通过。旧 `0.70/12.51 dB` 粗算不再作为精确归因。
+>
+> 人工复听确认 95/96 跳跃已明显改善/修复，Task 39-3 于 2026-10-19 签收。若后续发现新的不可接受问题，另立修复，不重新引入逐音补偿或 96 硬切。
+
+详见：[`../reference/features/builtin-piano-synthesis.md`](../reference/features/builtin-piano-synthesis.md)
+
 ### C++ 构建耗时热点：std::regex 模板实例化（已解决）与重型 UI 测试单元
 
 > 通过 `-ftime-trace` 与 `scripts/analyze_build_time.py` 构建微观剖析发现的编译期性能瓶颈及处理状态：

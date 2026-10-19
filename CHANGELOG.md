@@ -6,6 +6,7 @@
 
 - **Calibrated Piano Tuning and Passive Duplex** — anchor the actual first partial to A4, add switchable model-specific octave stretch and bounded main-string-driven non-speaking resonators, and preserve the original note/channel through passive tails.
 - **Saved Acoustic Piano Styles** — provide Standard, Bright, Warm, Intimate, and Vintage settings, derive Custom from actual values, and persist tone, stretch, and Duplex controls across current presets, settings, Takes, and builtin WAV rendering without changing keyboard or plugin domains.
+- **Calibrated Three-Velocity Hammer Voicing** — persist the 41/70/98 anchor deltas through settings, presets, Takes, realtime snapshots, and builtin/offline WAV rendering, with strict malformed-data rejection, lock-free snapshot publication, and calibrated defaults that do not add raw anchor controls to the main surface.
 - **Keyboard Zones and Three-Pedal Performance** — add fixed main-keyboard and main-plus-keypad layouts, independent keypad identities and binding capture, saved musical regions, and CapsLock sostenuto with original-channel pedal release.
 - **Fixed Piano + VST3 Layers** — share canonical input across two fixed instrument endpoints, save layer switches/gains, align actual reported sample latency, and mix before one master/reverb chain in real-time and independent offline rendering. Missing required plugins fail without replacing existing WAV targets.
 

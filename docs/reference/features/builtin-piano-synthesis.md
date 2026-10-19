@@ -84,11 +84,18 @@
 真实钢琴的琴槌是由多层羊毛毡包裹木芯构成的非线性弹性体，击打琴弦时表现出强烈的力度依赖性与瞬态特征：
 
 1. **三层毛毡动力学压实模型（Chaigne & Askenfelt 1994）**：
-   - 有效毛毡硬度随击键力度 $v$、硬度设置与毛毡老化呈非线性幂次增长：
-     $$h_{\text{eff}} = \left(0.15 + 0.85 v^{1.5} \cdot (0.5 + 0.5 \cdot \text{hardness}) + \Delta h_{\text{felt}}\right) \cdot (1.0 - 0.25 \mu_{\text{una}})$$
-   - 琴槌与琴弦的有效接触时间 $T_c$ 随硬度与踏板状态自适应调整：
-     $$T_c(v) = T_{c,\text{base}} \cdot (2.5 - 1.9 h_{\text{eff}}) \cdot (1.0 + 0.20 \mu_{\text{una}})$$
-   - 动态截止频率与速度相关滚降指数（弱奏 $pp$ 时高频快速衰减呈温润暗色，强奏 $ff$ 时高频充分释放清脆明亮）。
+   - 琴槌名义硬度随击键力度、硬度设置、三力度锚点与毛毡老化增长：
+     $$h_{\text{hammer}} = \operatorname{clamp}\left(0.15 + 0.85 v^{1.5} \cdot (0.5 + 0.5 \cdot \text{hardness}) + \Delta h_{\text{anchor}}(v) + \Delta h_{\text{felt}},\ 0.05,\ 1.0\right)$$
+   - CC67 弱音/移位踏板再派生弦接触硬度：
+     $$h_{\text{contact}} = \operatorname{clamp}\left(h_{\text{hammer}} \cdot (1.0 - 0.25 \mu_{\text{una}}),\ 0.05,\ 1.0\right)$$
+   - 琴槌与琴弦的有效接触时间 $T_c$ 使用接触硬度：
+     $$T_c(v) = T_{c,\text{base}} \cdot (2.5 - 1.9 h_{\text{contact}}) \cdot (1.0 + 0.20 \mu_{\text{una}})$$
+   - 主硬度旋钮只通过同一 $h_{\text{hammer}}$ 生效；分音频谱使用 $h_{\text{contact}}$，瞬态核使用 $h_{\text{hammer}}$。不再另乘一条宏硬度分音倾斜，避免同一硬化效果重复计入。
+   - 琴槌毛毡低通的滚降指数可随三力度锚点做校准残差：
+     $$p_{\text{felt}} = \operatorname{clamp}\left(2.0 - 0.80 h_{\text{contact}} + \Delta p_{\text{anchor}}(v),\ 0.80,\ 6.0\right)$$
+     $\Delta p_{\text{anchor}}$ 与硬度、响度一样按 41/70/98 锚点插值；它只改变同一毛毡低通的斜率，不新增独立高频增益或第二个 EQ。
+   - 动态截止频率与速度相关滚降指数（弱奏 $pp$ 时高频快速衰减呈温润暗色，强奏 $ff$ 时高频充分释放清脆明亮）；三力度锚点以相对增量进入 $h_{\text{hammer}}$，默认零偏移不改变现有力度响应。
+   - 作用顺序固定为：力度基线 + 三锚点 + 毛毡老化 -> $h_{\text{hammer}}$；CC67 -> $h_{\text{contact}}$；Brightness 作为全局分音倾斜与阻尼控制；击弦点梳状陷波独立于硬度/亮度。响度由锚点 dB 增量和力度增益单独控制，不重复进入硬度或频谱倾斜。
 
 2. **击弦点几何梳状陷波（Striking Position Comb Filter）**：
    - 琴槌击弦位置 $x_0 / L$ 严格按 88 键物理位置查表（低音区 $\approx 1/8$，高音区过渡至 $\approx 1/14$）；
@@ -106,6 +113,7 @@
 5. **琴槌毛毡微老化物理动力学（Felt Ageing Dynamics）**：
    - 引入连续老化参数 $A_{\text{felt}} \in [0, 1]$（`feltAgeingAmount`，默认 0.0 保留纯净基准）；
    - 以逐键确定性扰动调整有效硬度（最多 $\pm0.06A_{\text{felt}}$）、亮度（最多 $\pm0.04A_{\text{felt}}$）、刚度（最多 $\pm4.5\%A_{\text{felt}}$）及音高（最多 $\pm1.2A_{\text{felt}}$ cents）；接触时间经同一有效硬度模型计算。该工程扰动不认证真实毛毡老化；校准基线关闭老化。
+   - 试听提示：固定同音高、同力度，A/B 对比 `feltAgeingAmount=0` 与 `1`；变化是逐键、确定性的微小硬化/亮度/音高离散，不是明显失谐、合唱或颤音。C4 实测老化 0→1 的 HF 约 `0.9–1.3 dB`、RMS 约 `0.07 dB`，需要仔细听起音与音色细微差异。
 
 ---
 
@@ -234,6 +242,8 @@
 | **阻尼常数** | `b1` / `b2` | $0.25 \to 9.17\text{ s}^{-1}$ / $7.5\times10^{-5} \to 2.1\times10^{-3}\text{ m}^2\text{s}^{-1}$ | 当前模型使用 $b_1+b_2(m\pi/L)^2$；这里只澄清量纲，不认证材料常数或改变数值 |
 | **模态阻尼斜率** | `decayDampingC` | $0.38 \to 0.12$ | 模态阻尼随音高变化斜率 |
 
+> **离散分区边界**：`stringCount` 与 `partialCount` 是离散切换；同一分音的多根弦共享共同激励基准初相，跨分音仍保留色散。拍频分音统一上限为 `min(partialCount,6)`，不再按 MIDI 96 硬切；失谐连续降至 0 时多弦自然等价单弦。U2 已落地并通过全键检查：35/36 `+0.008`、47/48 `-0.054`、71/72 `+0.005`、95/96 `-0.188 dB`（v70）；最大相邻台阶 `2.639 dB`，最大 peak `-11.202 dBFS`。C4 41/70/98 已重新整音：RMS 41→70 `7.611 dB`、70→98 `5.991 dB`，HF `18.483/13.114 dB`；人工复听确认 95/96 跳跃已明显改善/修复，Task 39-3 已签收。详见[当前迭代 Task 39-3 交界根因与组合验收](../../roadmap/current-iteration.md#task-39-3-交界根因与组合验收2026-10-19)。
+
 ---
 
 ## 4. 参数控制与外部接口规范
@@ -243,7 +253,7 @@
 | 参数 | 接口方法 / 成员变量 | 默认值 | 物理调节效果 |
 |---|---|:---:|---|
 | **Brightness（亮度）** | `setPianoParameters` / `pianoBrightness` | 0.5 | 调节激振分音倾斜及整体阻尼缩放，不直接改变有效硬度 |
-| **Hammer Hardness（硬度）** | `setPianoParameters` / `pianoHammerHardness` | 0.5 | 通过同一有效硬度影响接触时间和激振频谱，另调节瞬态核；与亮度共同影响高频，校准时须约束参数混淆 |
+| **Hammer Hardness（硬度）** | `setPianoParameters` / `pianoHammerHardness` | 0.5 | 只通过同一名义硬度 `h_hammer` 影响接触时间、分音频谱和瞬态核；分音频谱使用 CC67 后的 `h_contact`，不再另设分音硬度倾斜 |
 | **Resonance（共鸣）** | `setPianoParameters` / `pianoResonance` | 0.5 | 调节 16 峰音板共振 Wet 比率（18%~34%）与延音衰减时间缩放 |
 | **Pedal Noise（机械噪声）** | `setPedalNoiseLevel` / `pedalNoiseLevel` | 0.6 | 调节延音踏板扫掠呼啸与共鸣冲击的机械动作音量（0..1） |
 | **Felt Ageing（毛毡老化）** | `setFeltAgeingAmount` / `feltAgeingAmount` | 0.0 | 调节琴槌羊毛纤维磨损压实深度，注入微观穿透力与硬化质感（0..1） |
@@ -251,12 +261,22 @@
 | **Stretch Tuning（拉伸调律）** | `setPianoTuning` / `stretchTuningEnabled` | true | 保留 A4 第一分音锚点，按本模型分音对匹配八度，不修改 MIDI 身份 |
 | **Duplex Resonance（非发音段共鸣）** | `setPianoTuning` / `duplexResonance` | 0.15 | `[0,1]` 被动段凸组合配比，0 旁路，5ms 平滑 |
 
+**内置三力度整音锚点**：`HammerVoicing` 以相对现有力度基线的增量保存三锚点；当前 C4 校准默认值为：
+
+| 锚点 | `hardnessDelta` | `loudnessDeltaDb` | `rolloffDelta` |
+|---|---:|---:|---:|
+| Piano (41) | -0.20 | -4.75 | +1.2 |
+| Mezzo forte (70) | +0.30 | -0.6 | +1.5 |
+| Forte (98) | +0.30 | +2.5 | 0.0 |
+
+这些数值是 C4 41/70/98 的工程校准结果，不是全琴物理常数；55/85 仅作留出验证。三值均相对基线增量，默认零配置仍表示不改变现有力度响应。
+
 **声学快照与普通预设配置子集**：
-`PerformancePreset`（Schema v2）的 `acoustics` 子集现在包含 `brightness`、`hammerHardness`、`resonance`、`stretchTuningEnabled`、`duplexResonance`，以及原有琴盖、触键曲线、柔音、律制/A4、视角、混响和机械字段；仍不包含 `builtinTone`、`masterGain`、ADSR 或 VST3 内部状态。当前可选字段缺失使用明确默认值，不增加历史迁移。`AcousticSnapshot` / `WavExportOptions` 保存或消费完整发声参数，两项新控制贯通 Take、实时与内置 WAV。
+`PerformancePreset`（Schema v2）的 `acoustics` 子集现在包含 `brightness`、`hammerHardness`、`hammerVoicing`、`resonance`、`stretchTuningEnabled`、`duplexResonance`，以及原有琴盖、触键曲线、柔音、律制/A4、视角、混响和机械字段；仍不包含 `builtinTone`、`masterGain`、ADSR 或 VST3 内部状态。`SettingsModel`、`AcousticSnapshot`、Take 内嵌快照与 `WavExportOptions` 保存同一完整三锚点结构，实时、内置 WAV 和固定双层 WAV 的内置 Piano 都消费它；Sine/VST3 不接收该物理参数。当前可选字段缺失使用明确默认值，不增加历史迁移；显式非法的 `hammerVoicing` 拒绝预设/Take，不静默回退。原始锚点不暴露为主界面旋钮，现有三力度整音由校准值驱动。
 
 固定双层开启时 Piano 不随 `builtinTone=sine` 改成 Sine；它与当前单 VST3 消费同一最终 MIDI 身份，使用独立工作缓冲和有界采样延迟，层增益在一次公共 Reverb/Master 之前混合。层开关与配比随 Settings、预设和 Take 保存，不把钢琴逐键拉伸变成对插件的全局 Pitch Bend，详见 [双层渲染契约](plugin-offline-rendering.md)。
 
-设置的 `piano-style-combo` 提供 Standard / Bright / Warm / Intimate / Vintage，只批量提交实际声学字段，不覆盖 A4、律制、全局调号、键位、插件、音源类型或 Master。名称根据已保存声学值重建，手动改动显示 Custom，不另存易漂移的风格标签。它们是参数化取向，不是 Upright/Fortepiano 物理结构复刻；随演奏方案恢复须保存普通预设，启动仍优先恢复已选预设 UUID。
+设置的 `piano-style-combo` 提供 Standard / Bright / Warm / Intimate / Vintage，只批量提交实际声学字段，不覆盖 A4、律制、全局调号、键位、插件、音源类型或 Master。名称根据已保存声学值（含 `hammerVoicing`）重建，手动改动或不同整音配置显示 Custom，不另存易漂移的风格标签。它们是参数化取向，不是 Upright/Fortepiano 物理结构复刻；随演奏方案恢复须保存普通预设，启动仍优先恢复已选预设 UUID。
 
 ### 4.2 古典微调律制与基准音高（`TemperamentEngine`）
 
@@ -284,7 +304,7 @@ void setSoundPerspective(devpiano::audio::SoundPerspective perspective) noexcept
 
 ### 4.4 Velocity 动态双映射与 ADSR 门控
 
-- **振幅预算**：力度增益为 $v^{1.20}$，主弦采用名义全计划分音权重的 L1 归一化预算 $0.95v^{1.20}$，再乘柔音振幅衰减。所有计划分音按其名义频率计入分母，被剪掉的份额不重新分配；低率降级第一分音在分子/分母使用同一安全频率。该预算不是机械能量、RMS 或最终输出峰值上限，后续快慢包络、声像、共振与机械声另有作用。有效硬度的 $v^{1.5}$ 与此响度映射不同。
+- **振幅预算**：力度增益为 $v^{1.20}$，主弦采用名义全计划分音权重的 L1 归一化预算 $0.95v^{1.20}$；全琴绝对增益校准另乘 `globalSourceGain=0.49`（约 -6.2 dB），实际源级峰值预算约 `0.4655`。该全局增益按旧全键中位 RMS 校准，不是任何音区边界的补偿。所有计划分音按其名义频率计入分母，被剪掉的份额不重新分配；低率降级第一分音在分子/分母使用同一安全频率。该预算不是机械能量、RMS 或最终输出峰值上限，后续快慢包络、声像、共振与机械声另有作用。有效硬度的 $v^{1.5}$ 与此响度映射不同。
 - **音色动态**：力度直接耦合琴槌接触时间 $T_c(v)$、高频裂音 $v^2$、泛音绽放速率与非线性微音高漂移；
 - **ADSR 门控与基准保持**：支持 `setAdsrParameters` / `getAdsrParameters`；`startNote` 自动重设基准起音与门控，`stopNote` 根据离键速度动态计算释放阻尼，杜绝参数跨音符泄漏。
 
@@ -314,7 +334,7 @@ void setSoundPerspective(devpiano::audio::SoundPerspective perspective) noexcept
 
 | 测试套件 / 物理用例 | 验证物理机理与断言指标 | 状态 |
 |---|---|:---:|
-| **PianoSynthVoiceTest** | 实际泛音/音色/双阶段衰减、接触释放音频反例、生成分量振幅与同音频率中心、完整 mono 下混及既有生命周期；不固定参数锚点声明值 | [x] 已通过 |
+| **PianoSynthVoiceTest** | 实际泛音/音色/双阶段衰减、接触释放音频反例、生成分量振幅与同音频率中心、三力度锚点插值/非法配置/单一硬度路径及滚降差异、完整 mono 下混及既有生命周期；不固定参数锚点声明值 | [x] 已通过 |
 | **PianoTuningAndDuplexTest** | 实际 A4 中心峰、保留/剪枝边界的生产频谱、Duplex 尾音与分段不变性、原通道所有权、mono 尾音及低率越界旁路 | [x] 已通过 |
 | **PianoSnapshotWavParityTest** | 非零混响、同采样快照/NoteOn、原身份释放及 mono 琴盖/视角/Room 的实时/内置 WAV 对照；误差限于 16-bit 量化 | [x] 已通过 |
 | **DamperReleaseTest** | 快离键木质落弦闷击、慢离键羊毛毡摩擦延展、高音无制音区物理旁路、动态ADSR释放速度缩放、ADSR基准跨音符无泄漏 | [x] 已通过 |
