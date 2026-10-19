@@ -41,13 +41,13 @@
 
 正面影响：
 
-- 全量 clang-tidy 44 文件 0 诊断，信号纯净（不再被 614 条 braces / 185 条 named-parameter 淹没）。
+- 全量 clang-tidy 诊断归零，信号纯净（不再被大量 braces 与 named-parameter 噪音淹没）。
 - `format --check` 归零 + `InsertBraces` 保证 braces 风格，与 clang-tidy 检查一致。
 - `--fix` 破坏风险从工具链层面根除。
 
 代价：
 
-- 机械修复需人工/脚本完成（braces 614 条经 format 一次性解决；designated-init 等 4 类检查禁用后不再提示，依赖 code review 保持风格）。
+- 机械修复需人工/脚本完成（存量 braces 经 format 一次性解决；designated-init 等 4 类检查禁用后不再提示，依赖 code review 保持风格）。
 - 禁用 `-bugprone-easily-swappable-parameters` 后，未来新增可互换参数不再被自动提示（调用点多为命名实参，风险低，接受）。
 - 新枚举需显式选择底类型（`performance-enum-size` 保留，但靠人工加 `: std::uint8_t`）。
 
@@ -56,5 +56,5 @@
 - `.clang-format`：`InsertBraces: true` 已启用。
 - `.clang-tidy`：见上文决策第 4 条；`modernize-use-using.IgnoreExternC: 'true'` 保留。
 - **执行时机与性能优化**：编辑期 clangd 波浪线实时提示（`.clangd` 已启用 `Diagnostics.ClangTidy`，与全量同源配置）；大迭代边界跑全量 `./scripts/dev.sh tidy --all`（基于 `run-clang-tidy` 多核并行与 `tools/tidy-cache.py` 本地缓存加速，为唯一例行全量执行点）；**不进入 pre-commit**——日常开发依托 clangd 实时波浪线与增量 `./scripts/dev.sh tidy`（纪律见 [`../../AGENTS.md`](../../AGENTS.md) 第 3 节）。
-- 验证基线（2026-08-16）：全量 44 文件 clang-tidy 0 诊断；`wsl-build` 0 warning（项目代码）；`devpiano_tests` 33 类全绿；`format --check` 归零；`win-build` 通过。
+- 验证基线（2026-08-16）：全量源文件 clang-tidy 0 诊断；`wsl-build` 0 warning（项目代码）；`devpiano_tests` 全套测试全绿；`format --check` 归零；`win-build` 通过。
 - 归零过程中的完整分析与逐项修复记录见 [`../audit/AUDIT-001-code-quality-audit-2026-08-16.md`](../audit/AUDIT-001-code-quality-audit-2026-08-16.md) §7 复审 5。

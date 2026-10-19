@@ -1,7 +1,7 @@
 # devpiano Current Iteration
 
 > 用途：维护近期任务、依赖排期与直接验收；项目状态和长期阶段顺序以 [roadmap](roadmap.md) 为准。
-> 实施输入：Task 39-1 从 `76ebdca` 建立历史量测基线，39-A 从 `a150c1d` 修复分音门限、接触释放、振幅预算和 mono 消费者，并另存修复后声音。`B`、拉伸算法及文件格式未变；后续校准只按各自准入和直接验收推进。
+> 记录口径：Task 39-1 与 39-A 是按各自提交建立的历史基线，后续 `B` 表、整音及音色恢复另有实施记录。旧基线、U2 协议和退役校准数值不代表当前默认；现行行为以 [内置音源契约](../reference/features/builtin-piano-synthesis.md) 为准。
 > 历史入口：Phase 37/38 的原任务、完成勾选、基线、直接消费者与修复归属见 [完成归档](../archive/phase37-38-piano-calibration-and-keyboard-performance.md)；Phase 36 见 [独立归档](../archive/phase36-development-overhead-reduction-and-legacy-compatibility-deprecation.md)。
 > 排期口径：按依赖和验收出口推进，不预填完成日期、音色改善、性能认证或门禁结果。
 
@@ -11,7 +11,7 @@
 
 ### 现有能力与本轮增量
 
-以下只区分已有能力与待实施增量，不替代现行特性契约：
+下表记录 Phase 39 启动时的输入能力与计划增量，不是当前缺失列表；各任务下的日期记录、直接验收与最终恢复记录说明其后演进，不替代现行特性契约：
 
 | 领域 | 输入基线中的能力 | Phase 39 增量边界 |
 |---|---|---|
@@ -41,6 +41,8 @@ Task 39-1 输入版本曾有以下风险，准入结论见其历史实施记录�
 ## 2. Phase 39：可复核声学基线与三力度整音校准
 
 目标：先取得可靠的频率、频谱和时间域输入，再在现有增强模态音源内实现连续力度整音，并完成状态、真实声音及实时成本闭环。不承诺复制 Pianoteq 微观实现或商业预设音色。
+
+以下实施记录保留对应日期的条件、失败与裁决；旧校准协议及 U2 数值只适用于当时内核。恢复后默认与最终用户验收见 [三锚点适用性](#task-39-3-三锚点在音色恢复后的适用性2026-10-19) 和 [音色恢复记录](#音色恢复默认整音切换与用户验收记录2026-10-19已关闭)，不将历史通过外推到当前所有场景。
 
 ### Task 39-1：研究结论准入与统一量测口径
 
@@ -311,7 +313,7 @@ Reference 的 70→98 HF 功率占比增加约 12.49 dB，devpiano 为 2.98 dB�
 - 用户裁决：① 批准“局部-SNR 通道 + 扩展种子（n≥72 门控）”为高音区正式检测方法；② n84-v41 与 n96 接受边界、记录为不可准入；③ 下一阶段选择“评估全语料渲染门禁”。
 - 工具固化（`pianoteq9/acoustic_lab/results/task39-2-official-reference-v2/pilot/tools/pilot-partial-analysis.py`，工作区未提交）：默认 `--snr-admission-db 25`（仅 n≥72 生效）、`none` 显式关闭以复现同口径；新增 preset/batch 匹配防呆（无任何预期会话目录时启动即报错退出，不再静默全 missing）。固化版 SHA-256 `14fcb93cdf87c1938a3a51ea6086ca1d963d83a02d8d7b992356c33e7890d39e`。
 - 固化回归（6 对零字段差异 + 2 例防呆）：v2 批次默认运行 vs 归档 v2 分析、register 批次默认 vs 归档适配、register `none` vs 归档同口径的单元与族汇总全部 PASS；错误 preset/batch 组合两例均在启动时以退出码 1 报错。
-- 全语料门禁评估（预登记 training 段：12 音 × 3 力度 × 2 rate = 72 单元）：pilot identity 与 prediction admission 前提已有可复核证据（低中音区 18/18 族、C5 6/6 族同口径；适配后 12/12 单元 + C6 4 族）。已有 6 音（36/48/60/72/84/96）36 单元（rep0）与全语料同条件（同 FXP `9f749ca9…`/215 参数认证基线/controls/55 字节 MIDI 结构/验收链路）可复用；实际新采集仅 6 音（21/24/43/44/69/108）× 2 rate = **12 会话 / 36 单元**（≈1.8–2.6 小时操作+核验，跨 1–2 工作日；批次与既有 36 单元批同量级 ≈140–150 MB）。
+- 全语料门禁评估（预登记 training 段：12 音 × 3 力度 × 2 rate = 72 单元）：pilot identity 与 prediction admission 前提已有可复核证据（低中音区 18/18 族、C5 6/6 族同口径；适配后 12/12 单元 + C6 4 族）。已有 6 音（36/48/60/72/84/96）36 单元（rep0）与全语料同条件（同 FXP `9f749ca9…`/215 参数认证基线/controls/55 字节 MIDI 结构/验收链路）可复用；实际新采集为 21/24/43/44/69/108 × 2 rate 的登记矩阵，按受控会话和证据核验流程推进，不将临时耗时估计作为契约。
 - 评估发现的前置项：① 新 stimulus 18 个 MIDI（沿用生成器与认证 A4-v70 逐位自检机制）；② 拟 runbook-corpus v1 会话矩阵（12 会话），复用现有受控套件；③ 分析端适配——（i）工具新增 corpus 输入网格与多批次合并（全语料来自 v2 pilot / register pilot / 新批次三处）；（ii）极低音峰搜索低限 40 Hz 高于 n21（27.5 Hz）/n24（32.7 Hz）基频，且该低限本用于避开 17–60 Hz onset 瞬态伪峰，需专门策略并先用合成/离线信号验证；④ n96 与 n108 预期可识别分音 ≤4（n108 在 20 kHz 内结构上仅 4 个分音，不可能达 ≥5），不产出锚点。
 - 用户放行（2026-10-13，“放行：先准备、后采集”）后的离线前置已全部完成并复核：
   ① `pilot/stimulus-corpus/`：18 个受控 MIDI + receipt（生成器 `make-stimulus-corpus.py` sha256 `21168e21…`；`n69-v70` 与认证参考逐位一致 `9e4827ed…`；18 文件 × 55 字节）；
@@ -356,7 +358,7 @@ Reference 的 70→98 HF 功率占比增加约 12.49 dB，devpiano 为 2.98 dB�
 #### Task 39-2 实施记录：anchors-v3 校准实施与全键回归（2026-10-13）
 
 - 用户批准后实施：`Piano88KeyTable.h` 第 4 段由旧两段模型表（bass `{21,33,43}` / tenor `{44,57,69,84,96,108}`）替换为 **16 点单段实测锚点表**（14 锚点 + 保留模型上界 96/108；`isBassBridge` 保留为描述语义）；`PianoSynthVoice.h` 功能清单与 `builtin-piano-synthesis.md` 同步（阶跃假设否定、锚点来源）。
-- 构建与回归：win-build 通过；全量 CTest **323150 passed / 0 failed**；两处测试按新物理重标定（inharmonicity 测试改用 20 分音：7 分音偏移在新 B 下仅 0.56 Hz 低于 DFT 分辨率；duplex 临界 A4 随 f8 下移重标定为 468/470 与 430/432，断言意图不变）。
+- 构建与回归：win-build 与全量 CTest 通过、零失败；两处测试按新物理重标定（inharmonicity 测试改用 20 分音：7 分音偏移在新 B 下仅 0.56 Hz 低于 DFT 分辨率；duplex 临界 A4 随 f8 下移重标定为 468/470 与 430/432，断言意图不变）。
 - 全键渲染回归（88 键 × 44.1/48 kHz，离线分音分析）：**锚点键 B 回收 ±0.11%**（非拍频子集；21/24 最大 +0.108%）、**f1 ±0.033 cents**；双率回收差 ≤0.04%；44 键回收 8.2985e-5（-0.006%，43/45 平滑）；**4:2/2:1 = −0.0012/+0.0014 cents**（中心线匹配）；拉伸复核 **max −9.08 cents @104**（预登记观察点确认）；Nyquist/coherent band 26 例（93+，设计剪除）。
 - 登记观察项：拍频区（n≤6 多弦）观测峰偏 −detune 侧（48 键 −3.0 cents；根因 Phase 19-C 同音弦微失谐设计常量，非 B 校准误差）；93+ 键超离线分析工具上限。
 - 证据：`G:\tmp\devpiano-task39-2-calibration-impl-20261013-190010`（验收报告 + 全键回收 JSON）。
@@ -371,7 +373,7 @@ Reference 的 70→98 HF 功率占比增加约 12.49 dB，devpiano 为 2.98 dB�
 
 #### Task 39-2 实施记录：证据收口、方法修订与全域重评（2026-10-13）
 
-- **证据收口**（批次 `closure-supplement-20261013-220627`，343 文件 / 200,776,589 字节逐文件 SHA-256 零差异）：补归档 176 个全键渲染 WAV（`fullkey-recovery.json` 的不可变输入）、3 个分析/评估配方（`devpiano-calib-analyze.py`、两个 `devpiano-validation-eval*.py`）、CTest 驱动与开发侧测试日志（重标定前 323147/3 失败、后 323150/0 通过）、原生 CTest 日志副本、pilot v2 首次验证失败现场（154 文件）、`anchors-v3.md` 副本；《缺失旁证登记》（批次内 `missing-corroboration-register.md`）记录五项不可补救缺口：validation/anchors2/bridge/pilot-b0 零截图（对照 pilot-v2 47 张）、验证准备会话 `mcp/` 为空、原始 Windows-MCP 通信仅存会话历史、非拍频子集回收结论此前无独立落盘、原生 CTest 失败日志被滚动覆盖。
+- **证据收口**（批次 `closure-supplement-20261013-220627`，343 文件 / 200,776,589 字节逐文件 SHA-256 零差异）：补归档 176 个全键渲染 WAV（`fullkey-recovery.json` 的不可变输入）、3 个分析/评估配方（`devpiano-calib-analyze.py`、两个 `devpiano-validation-eval*.py`）、CTest 驱动与重标定前失败/修正后零失败的开发侧测试日志、原生 CTest 日志副本、pilot v2 首次验证失败现场（154 文件）、`anchors-v3.md` 副本；《缺失旁证登记》（批次内 `missing-corroboration-register.md`）记录五项不可补救缺口：validation/anchors2/bridge/pilot-b0 零截图（对照 pilot-v2 47 张）、验证准备会话 `mcp/` 为空、原始 Windows-MCP 通信仅存会话历史、非拍频子集回收结论此前无独立落盘、原生 CTest 失败日志被滚动覆盖。
 - **准入方法修订**（研究仓库 `task39-2-method-amendment-1.md` / `-2.md`，先登记后执行）：① 独立留出预测替代单点 LOO——h = max(2, N//5) 个 untouched 留出、确定性均匀选取、训练拟合初值取 (theory, seed) 网格（无全数据解泄漏）、留出峰从原始谱峰独立重新识别（不回退全数据配对值）；② 归一化分音比判据在重评前冻结（消去调律基础差异；基准 m = 两侧共同可识别的最小分音号，n26 以 m=2 纳入；排除恒零基准点，修正首次实现的轻微 RMS 低估）；③ 修订 2 将独立识别窗口改为 min(50 cents, 0.45×相邻分音间隔)（首次运行固定 50 窗跨入相邻分音的假失败保留为诊断证据）。工具 SHA-256 `9436c4f0…` → `6aef8604…`。
 - **全域重评**（批次 `closure-revalidation-20261013-224500`，只读归档 WAV；12 文件零差异）：
   - 全键 176：锚点键**非拍频子集 B 回收 ±0.1077%**（24 行 = 12 键 × 双率，首次以独立数据落盘支撑"±0.11%"声明；n72/n84 非拍频分音不足，记全分音诊断值 −4.78/−2.55% 与 −1.25%）；双率非拍频 B 差 max **0.0044%**；独立留出指标 max **2.912 cents**（148 单元）。
@@ -383,7 +385,7 @@ Reference 的 70→98 HF 功率占比增加约 12.49 dB，devpiano 为 2.98 dB�
 
 - **缺口诊断**（批次 `closure-diagnosis-20261013-230813`，逐分音分解 + 公开文献对照）：n50 失败仅来自拍频区（n≥7 RMS 0.57 全通过）；n26 为 24→28 插值曲率的 n² 签名偏差；n77 为约 −2 cents 的未定系统偏移；**n86 为 model-upper 上界错误**——表 84→96 斜率 12.6 倍/八度，而文献标准（Young 1952；Rigaud-David-Daudet 2013 六琴拟合）为 ln B 0.0926/键 = 3.04 倍/八度且与参考在 84/86/91 的实测斜率一致。
 - **P1 修正**（批次 `p1-corrected-upper-20261013-233500`，185 文件零差异；含源码快照与全键渲染）：`Piano88KeyTable.h` 96 → **9.614857e-3**、108 → **2.920995e-2**（自 C6 实测锚点按文献斜率外推；实施依据仅公开文献，holdout/诊断实测未参与计算）；coherent-band 测试重标定至 note 102 末分音（44.1k 405/415、48k 442/452，note 93 的 8 分音在 A4≤480 内已无法越界）。
-- **验证**：win-build 通过；全量 CTest **323150 passed / 0 failed**（计数不变；清理临时渲染工具后复验 100%）；全键回归：单弦键 f1 ±0.02 cents、固定表 B 反解 f1 **±0.005 cents（含 84–95）**、非拍频子集 B 回收 **±0.07%**（36–69，双率一致）；93/94/95 本版首次可分析；96–108 维持结构边界。
+- **验证**：win-build 与全量 CTest 通过、零失败，清理临时渲染工具后复验通过；全键回归：单弦键 f1 ±0.02 cents、固定表 B 反解 f1 **±0.005 cents（含 84–95）**、非拍频子集 B 回收 **±0.07%**（36–69，双率一致）；93/94/95 本版首次可分析；96–108 维持结构边界。
 - **拉伸链观察**：C8 **+106.04 → +35.90 cents**（更接近文献 Railsback 量级）；104 −25.81、102 −14.29（相对 anchors-v3）。
 - **后续范围修订**：P2 方法修订 3/4 已登记。用户仅提供当前官方 Trial，P3 的 96 kHz treble96 采集关闭为缺少合格高采样率参考环境，此轮及后续均不实施；只执行 48 kHz midfill，见下方授权记录与研究仓库 `pilot/runbook-midfill.md`。85–108 仍是文献外推、缺少独立实测验收。
 
@@ -409,7 +411,7 @@ Reference 的 70→98 HF 功率占比增加约 12.49 dB，devpiano 为 2.98 dB�
 - **口径**：amendment-1/2 两侧族质量 + **amendment-3 可比较分音集**（排除 `beatingPartials` 覆盖段：midfill 全 <72 → n≤6；n74 → n≤4）+ **amendment-4 基准**（可比较集最小共同分音）；判据 RMS ≤1 / max ≤3 cents 不放宽；全口径与设计区并列记录。
 - **结果**：**12/18 通过**。失败=全部 n25/n27（24→28 插值段）：B 相对参考 +7.5~8.0%、comp 误差自 n7 单调升至 n20 的 1.7–2.5 cents——与 n26 诊断（表值高 9–17%）同源，**由新登记数据独立确认**。N49/n51 通过但 B_rel +8.6%/+19.4% 表明 48→60 段同样偏高（与 n50 诊断 +17% 一致）；n64 ≈0；n74 −3.9~−4.1%。n27-v98 参考侧不可准入（形式记录）。
 - **结论**：误差收窄验收仍未通过；失败全部为已诊断的插值曲率缺口（无新问题）；不放宽判据、不回调参数；修复路径（24→28 与 48→60 加密锚点或插值模型改进）待后续工程决策。
-- **证据**：批次 `cross-eval-20261014-010217`（27 文件 / 27.0 MB 逐文件 SHA-256；含渲染工具源码、构建/渲染/评估日志与 scope）；临时渲染工具已从工作树移除，win-build 复验 + 全量测试 **323150 / 0**。
+- **证据**：批次 `cross-eval-20261014-010217`（27 文件 / 27.0 MB 逐文件 SHA-256；含渲染工具源码、构建/渲染/评估日志与 scope）；临时渲染工具已从工作树移除，win-build 复验与全量测试通过、零失败。
 
 #### Task 39-2 实施记录：插值修复离线预研（2026-10-14）
 
@@ -442,7 +444,7 @@ Reference 的 70→98 HF 功率占比增加约 12.49 dB，devpiano 为 2.98 dB�
 #### Task 39-2 实施记录：interp-training 锚点实施与全键回归（2026-10-14）
 
 - 用户批准 1(a)+2(a) 后实施（**n26 值见下条更正记录**）：`Piano88KeyTable.h` 第 4 段 16 → **19 点**（新增 26 = `6.894488e-5`、52 = `1.617091e-4`、57 = `2.914628e-4`；24–28 段由 24-26-28 细分、48–60 段由 48-52-57-60 细分）；注释、`PianoSynthVoice.h` 功能清单、`builtin-piano-synthesis.md`、`CHANGELOG.md` 同步。
-- **验证（Windows Debug）**：win-build 通过；全量 CTest **323150 passed / 0 failed**（计数与上一版一致）；清理临时渲染工具后重建 + CTest 复验 100% 通过；拉伸链解析预检 21–68 微调 max 0.303 cents @ n57、69–108 逐位不变。
+- **验证（Windows Debug）**：win-build 与全量 CTest 通过、零失败；清理临时渲染工具后重建与 CTest 复验通过；拉伸链解析预检 21–68 微调 max 0.303 cents @ n57、69–108 逐位不变。
 - **全键回归**（88 键 × 双率、176 WAV；n≥7 非拍频子集重拟合）：变更域 25–27 回收 +0.12…+0.15%、49–59 −0.04…+0.04%；未变锚点 21–60 ≤0.17%；双率一致 max 0.0066%；f1 vs 新 stretch 链全键 max **0.043 cents**；渲染输出确认使用新表（n57 回收 +0.001% vs 旧表插值差 8.8%）。
 - **合规**：锚点值来自本批训练族；midfill 仅作准入分析的支持性对照；未触碰 53/59；本验证为实施回归，正式验收待 48 单元验证集。
 - **证据**：归档 `…\interp-anchor-20261014-104607`（**186 文件 / 194,829,066 字节**逐文件 SHA-256；含表快照与 SHA256SUMS、渲染工具源码、176 WAV、回归分析两口径、CTest 日志、实施报告）；工作树改动未提交。
@@ -451,7 +453,7 @@ Reference 的 70→98 HF 功率占比增加约 12.49 dB，devpiano 为 2.98 dB�
 
 - **自动发现并更正的执行偏差**：上条实施将 n26 取为 v41+v70 四族中位数（`6.894488e-5`），与 proposal `training.admission` 原文明文不符——**"For low-note 26, v41 is the static-anchor candidate matching the existing 24/28 weak-velocity policy"**（anchors-v3 中 n21/24/28 皆 v41 单力度族）。
 - **更正**：n26 → **`6.868533e-5`**（v41 双率族中位数）；52/57 不变（"median of all independently passing families"）；`anchor-admission-analysis.py` 增加 `NOTE_VELOCITY_POLICY` 并重生成报告——24–28 段对照改善修正为 **+7.66%/+7.93% → −0.45%/−0.19%**（原 −0.26%/−0.00% 基于错误中位数）；48–60 段结果不变。
-- **重新验证**：win-build 通过；全量 CTest **323150 passed / 0 failed**（修正值 + 清理后各一次）；全键渲染 v2（176 WAV、非拍频子集）变更域回收 +0.11…+0.15%（25–27）与 −0.04…+0.04%（49–59）、未变锚点 ≤0.17%、双率 max 0.0066%、f1 vs stretch 全键 max **0.043 cents**。
+- **重新验证**：win-build 与全量 CTest 在修正值和清理后均通过、零失败；全键渲染 v2（176 WAV、非拍频子集）变更域回收 +0.11…+0.15%（25–27）与 −0.04…+0.04%（49–59）、未变锚点 ≤0.17%、双率 max 0.0066%、f1 vs stretch 全键 max **0.043 cents**。
 - **证据**：归档 `…\interp-anchor-correction-20261014-105438`（191 文件 / 194,872,170 字节逐文件 SHA-256；含修正表快照、v2 渲染与分析、修正版准入分析、CTest 日志、更正报告）；原批次保留不改动。
 
 #### Task 39-2 实施记录：validation-interp 验证集执行与一次性判决（2026-10-14，holdout 已消耗）
@@ -459,7 +461,7 @@ Reference 的 70→98 HF 功率占比增加约 12.49 dB，devpiano 为 2.98 dB�
 - **授权与范围**：用户批准 2(a)——冻结候选表后在**未消耗**音高 25/27/53/59（53/59 为未触碰盲音高；25/27 为条件级留出）上执行完整验证集：4 音 × 力度 47/79/107 × 44.1/48 kHz × 2 重复 = **48 单元 / 16 冷会话**（批次 `validation-interp-20261014-105959`，预登记 `pilot/validation-interp-preregistration.json` 冻结于渲染前）。B 表、判据（amendment-3/4：可比分音 n≥7、基准 m=最小共同可比分音、RMS ≤1 / max ≤3 cents、样本 ≥2 不放宽）与生产代码全程未改。
 - **采集**：48/48 单元形式验收（每单元 pre/post 快照断言 drift 0 + 215 项认证基线断言 + `pilot-verify` 独立审计 `accepted=true`）；16/16 会话 exit 0；逐会话与批次末受保护比对均 **452 文件** missing/changed/added 全零；WAV 24-bit/2ch 各 1,430,120 字节（44100）/ 1,556,072 字节（48000）；每会话实测 127–239 s（预算 900 s）。
 - **参考侧族质量**：48/48 单元分析成功、24/24 族具独立预测（`interpval` preset）。**冻结工具缺陷登记**：`pilot-partial-analysis.py`（sha `32e339…`，与预登记冻结值一致）的 `interpval` preset 未定义力度、回落到全局默认 `[41,70,98]`（与其自身帮助文本矛盾），首跑 48 条 `missing wav`、**零谱指标产出**；以批次内更正副本（sha `8b9402…`，两处最小 diff）完成分析，仓库冻结文件未改、判决路径（`interp-validation-eval.py` 导入的冻结工具）不受影响。永久修复留待独立更正批次。
-- **devpiano 侧渲染**：临时渲染测试（网格 25/27/53/59 × 47/79/107 × 双率、A4=440、5.2 s、24-bit、velocity/127，与 sealed-validation 渲染逐参数同构）产出 24 WAV 并落盘清单散列；评估后从工作树移除，重建 + 全量测试 **323150 / 0** 复核。
+- **devpiano 侧渲染**：临时渲染测试（网格 25/27/53/59 × 47/79/107 × 双率、A4=440、5.2 s、24-bit、velocity/127，与 sealed-validation 渲染逐参数同构）产出 24 WAV 并落盘清单散列；评估后从工作树移除，重建与全量测试复核通过、零失败。
 - **唯一一次判决（2026-10-14T04:01:54Z）**：**46/48 通过**（n25 12/12、n27 10/12、n53 12/12、n59 12/12；48/48 可评估、0 weak/0 error）。失败单元 = **n27-v107-48000-rep0/rep1**（两 rep 数值完全相同：RMS 2.694、max 7.618 cents，B_rel −10.64%，f1 +2.30 cents）。
 - **失败签名诊断（读数记录，不调参）**：n27-v107 在 44.1 kHz 通过（RMS 0.502 / max 0.967）而 48 kHz 失败；逐分音误差对比显示**除 n11/n12 外两采样率差异 <0.02 cents**。参考侧同一刺激在 44.1 kHz/48 kHz 的 n11 估计为 429.670 / 427.822 Hz（差 7.2 cents）、n12 为 469.076 / 467.600 Hz（差 5.5 cents），相邻 n10/n13 两率一致；devpiano 侧 24 个渲染对双率唯一确定。指向参考侧稀疏高次分音的采样率相关估计离散，而非 devpiano 非确定性。
 - **结论**：按预登记 `no_relaxation` 与 one-shot 纪律，**本验证集未全通过（46/48）并已消耗**；不以本集回调 B 表、判据、选峰或选种子；**Task 39-2 第一条直接验收（留出声音的分音误差达事先指标）仍不勾选**；下一迭代须登记新的验证数据。是否在下一代协议修订参考侧分音估计/样本稳健性属新的预登记决策，不在本批执行。
@@ -509,7 +511,7 @@ Reference 的 70→98 HF 功率占比增加约 12.49 dB，devpiano 为 2.98 dB�
 
 - **冻结与门禁**：预登记工作区冻结版 SHA-256 `053dcbee193c9a8e619858b12e3593808a03d1d142c0e14101249f674339e2bf`（`status: frozen_before_validation_rendering_or_inspection`）；执行前核对生产表 `c1997c90…`、评估器 `a4b9c9bc…`、分析工具 `0255ae71…`、候选表 `300b0680…` 与登记一致；产生两个正式批次（`pilot-b0` 试点性质的更早批次不计入），本批为其中唯一含 guarded 判决者，未超 48 单元 / 16 会话上限。
 - **采集**：16 冷会话 × 3 力度 = **48/48 单元验收**（pre/post 215 项认证基线零漂移、逐会话受保护 **475 文件** missing/changed/added 全零、`pilot-verify` 全数 accepted、会话 exit 0 无强杀）；WAV 24-bit/2ch 各 1,430,120 / 1,556,072 字节。登记偏差 3 项（s09 首个坐标点击 1 次记录重试；s10 seed 路径缺 `private-home` 段、D1 运行时修正并双核验；runbook “48 WAV” 笔误）。
-- **参考侧**：族质量 36/48 可分析；**n88（E6）12 单元全部分析失败**（no staged match）；n29-v107 族质量超界（两率 max ≈10.09/10.04 cents、rms ≈5.65，跨重复 delta 0）；其余族通过。devpiano 侧 24 WAV 临时渲染（评估后移除、重建 + 全量测试 323150/0）。
+- **参考侧**：族质量 36/48 可分析；**n88（E6）12 单元全部分析失败**（no staged match）；n29-v107 族质量超界（两率 max ≈10.09/10.04 cents、rms ≈5.65，跨重复 delta 0）；其余族通过。devpiano 侧 24 WAV 临时渲染在评估后移除，重建与全量测试通过、零失败。
 - **判决**（2026-10-14T07:09:28Z，guard 20 dB）：**可评估 32/32 全达标**（n29 12/12、n55 12/12、n67 8/8；worst rms 0.848 / worst max 1.495 cents；B_rel n29 +15.58%、n55 +7.53%、n67 −0.73%），failing 空；缺口 = n88 12 分析错误 + n67-v47 4 可比分音不足 → 依出口口径记**验收证据不足**（非“通过”亦非“不通过”），两类缺口并列；legacy 敏感性计数完全相同。
 - **后果**：验证集已按 one-shot 纪律消耗；不回调 B 表/判据、不扩采、不补开替代批次、不重判。n88 参考侧分音充分性与 n29-v107 强力度族质量问题只保留为新预登记决策输入，不在本轮或既有工具上处理。
 - **证据**：主批 `G:\source\projects\devpiano-evidence\phase39\task39-2\validation-interp2-20261014-055127`（1,446 文件 / 193,011,520 字节，逐文件源/目标 SHA-256 一致，manifest `714625fea63d0ab09ade9dd50e4046e22fe0e30ab4a0776a3755ce9763961a1f`）与 dev-render `…\validation-interp2-devrender-20261014-055127`（26 文件 / 34,489,225 字节，manifest `aa10a4d30128236773556306bcb0b15c0d0f5c53bec29428edc1612d1ec72b60`）；catalog §44；工作区未提交。
@@ -791,7 +793,7 @@ C4 基线（note-on 相对窗口）：
 
 - **代码**：新增 `source/Audio/HammerVoicing.h`，定义 Piano/Mezzo forte/Forte 三锚点（41/70/98）、分段线性插值、1/127 端点夹取、硬度/响度范围校验；默认锚点全零。`PianoSynthVoice` 增加 `setHammerVoicing` / `getHammerVoicing`，`startNote` 将 `hardnessDelta` 加入有效硬度、`loudnessDeltaDb` 加入力度增益。未新增 UI、`AcousticSnapshot`、预设或文件字段；该步刻意未改动 `hammerGain`/瞬态硬度的既有重复路径，以保持零偏移中性，重复路径已在下一节收敛。
 - **测试**：`PianoSynthVoiceTest` 新增锚点插值/夹取/非法配置拒绝、setter 保留旧配置、非零硬度与响度增量的实际音频方向性验证。
-- **验证**：Windows Debug app 与测试目标构建成功；`ctest --test-dir build-win-msvc --output-on-failure` 为 **1/1 通过**（`devpiano_tests`）；`format --check` 通过。
+- **验证**：Windows Debug app 与测试目标构建成功；`ctest --test-dir build-win-msvc --output-on-failure` 运行默认 `devpiano_tests` 通过、零失败；`format --check` 通过。
 - **默认中性**：零偏移代码重渲染的 43/43 个 WAV 与基线逐字节相同；两次独立 zero-offset 渲染也 43/43 相同。证明本步只接入锚点层，没有改变默认发声。
 - **证据**：`zero-offset-verification.json`、`zero-offset-manifest.json`、`zero-offset-ctest.log`，位于同一基线证据根目录。
 - **状态**：零偏移层完成；三锚点校准尚未开始，`hardnessDelta`/`loudnessDeltaDb` 仍全为零。
@@ -802,7 +804,7 @@ C4 基线（note-on 相对窗口）：
 - **默认影响**：宏硬度 0.5 时 `hammerGain` 原本恒为 1.0，删除后主频谱不变；瞬态改用 `h_hammer` 后，C4 前 3 ms 峰值差约 41 `-0.14 dB`、70 `-0.08 dB`、98 `+0.11 dB`、127 `+0.44 dB`。43/43 个 WAV 字节不同，但整窗 peak/RMS/HF/centroid 的最大绝对差分别约 `0.0074 dB`、`1.3e-5 dB`、`0.060 dB`、`8.4e-5 Hz`，说明变化集中在极短瞬态，而非持续音色或响度。
 - **非默认预设**：Bright/Warm 等 `pianoHammerHardness != 0.5` 时不再叠加旧 `hammerGain` 倾斜；宏硬度仍通过 `h_hammer` 影响接触时间、频谱和瞬态。现有参数/音色测试通过，未做主观试听，留待 Task 39-5。
 - **复现**：新模型 43 用例 × 3 个独立进程（run1/run2/run3），43/43 同名 WAV SHA-256 一致；最终代码复采 run3 与 run1/run2 也逐字节一致。
-- **测试**：Windows Debug app/test 目标构建成功。首次完整 CTest 出现 28 个与本轮音频改动无关的 `KeyboardMidiMapper`/`LayoutGroup` 失败；单独运行该套件通过，随后三次完整 CTest（含最终代码）均为 **1/1 通过**。该首次 flake 保留在证据中，不当作干净通过记录。
+- **测试**：Windows Debug app/test 目标构建成功。首次完整 CTest 出现与本轮音频改动无关的 `KeyboardMidiMapper`/`LayoutGroup` 失败；单独套件及后续完整 CTest 通过、零失败。首次 flake 保留在证据中，不当作干净通过记录。
 - **证据**：`G:\source\projects\devpiano\build-win-msvc\phase39-task3-single-hardness-20261019\`，含 `single-hardness-verification.json`、`single-hardness-manifest.json`、run1/run2/run3 与 CTest 日志。
 - **状态**：单一硬度路径完成；锚点仍为零，下一步开始 41/70/98 校准。
 
@@ -824,7 +826,7 @@ C4 基线（note-on 相对窗口）：
   - 留出 55/85 位于相邻锚点之间，RMS 偏差 `0.42/0.14 dB`、HF 偏差 `-1.37/0.98 dB`，均在协议容差内。
 - **端点**：力度 127 peak `-21.06 dBFS`、有限，通过；力度 1 按 v2 判定通过：有限非零，peak `-72.60 dBFS`、相对 Piano 锚点 `-38.70 dB`，满足 `>=-45 dB` 且 `>=-104 dBFS`。旧 `-60 dBFS` 绝对阈值已由 v2 取代。
 - **交界**：35/36、47/48 的 HF 受 2.5 kHz 结构截止影响；71/72 HF 约 `+7.9 dB`；95/96 原始 RMS 仍约 `+11.3 dB`。本批全部有限，但这些交界仍需在 Task 39-3 验收及后续音区检查中解释，不能用平滑掩盖。
-- **测试修正**：完整 CTest 首次在 `PianoTuningAndDuplexTest` 的 pruned-edge 用例失败；诊断显示 44.1 kHz 两侧能量均约 `1e-13`，是浮点噪声而非可信峰。为该判定加入 `1e-9` credible-peak 能量底后，最终完整 CTest **1/1 通过**（35.75 s，最终恢复配置）。失败日志与最终日志均保留。
+- **测试修正**：完整 CTest 首次在 `PianoTuningAndDuplexTest` 的 pruned-edge 用例失败；诊断显示 44.1 kHz 两侧能量均约 `1e-13`，是浮点噪声而非可信峰。为该判定加入 `1e-9` credible-peak 能量底后，最终恢复配置的完整 CTest 通过、零失败。失败日志与最终日志均保留。
 - **验证**：Windows Debug app/test 构建成功；`format --check` 通过；最终代码 43 用例 × 2 个独立进程，43/43 同名 WAV SHA-256 一致，`all_finite=true`。
 - **证据**：`G:\source\projects\devpiano\build-win-msvc\phase39-task3-calibration-final-20261019\`，含 `calibration-verification.json`、`calibration-manifest.json`、run1/run2、CTest 日志。
 - **状态**：Task 39-3 重开音色验收（原签收撤销）。U2 共享初相消除 95/96 跳跃（`-0.188 dB`）作为局部结构改进保留；C4 41/70/98、端点 v2 及回归测试记录保留；但因用户试听确认整体音色不如 pre_task39-3 基线，声学参数待在隔离分支单变量重评。
@@ -882,22 +884,22 @@ C4 基线（note-on 相对窗口）：
   - B. 在起音处按实际弦和/期望功率归一化每个分音（或约束初相使弦和不低于目标），再做全量重校准；最针对根因，但会改变攻击与音色，当前 C4 证据不能直接沿用。
   - C. 只加逐音增益校正；能压平台阶，但属于隐藏增益，不推荐。
   - 决策：采用 B 的统一激励 U2（同分音共享基准初相 + 连续失谐/等效降阶），已落地；A 与 C 未采用。
-- **诊断变体（2026-10-19）**：在临时诊断钩子中渲染 m0–m4；诊断钩子已移除，最终生产回归为 323,224 assertions。
+- **诊断变体（2026-10-19）**：在临时诊断钩子中渲染 m0–m4；诊断钩子已移除，最终生产回归通过、零失败。
   - m0 基线：95→96 `+11.33 dB`。
   - m1/m2 实际初相弦和补偿：台阶变为 `-3.19/-2.61 dB`，但 C4 抬高 `+14.54/+13.38 dB`，属于过补偿。
   - m3 平方根补偿：台阶 `+4.06 dB`，C4 `+7.33 dB`，仍改变锚点。
   - m4 96 起保留 4 个拍频分音：台阶 `-1.83 dB`，但 96–98 也被压到 92–95 的低电平；只是转移了问题。
   - **诊断阶段结论**：m1–m4 没有可静默采用的生产补丁；必须明确响度/音色目标后做弦和归一化并全量重校准。该结论随后由 U2 共享初相方案落实。证据：`phase39-task3-diag-variant-20261019/diagnostic-variant-analysis.json`。
-- **提交归因**：`1c88231`（2026-08-18）引入按名义分音权重的 L1 预算；`4e63ca2`（2026-08-22）引入 `kOptPhaseTable`、弦数分区和 96 起 `beatingPartials=0`；`51fca9d`（2026-08-22）加入三弦 3 振荡器并使用三行初相，但没有改弦和归一化；`de67ea0`（2026-08-23）改为 Mid/Side 立体声扩散，单声道下混仍为 `sSum`，未修复抵消；`0bf1ae8`（2026-10-11）规范 Magic Circle/admission，未修复该关系。问题不是 Task 39-3 或 39-A 引入，而是多弦相位/归一化设计与 96 硬切叠加。代码位置：`Piano88KeyTable.h:33,166-177`、`PianoSynthVoice.h:480-509,529-567,770-777`。设计历史见 `phase39-task3-diag-variant-20261019/design-history.md`。
+- **提交归因**：`1c88231`（2026-08-18）引入按名义分音权重的 L1 预算；`4e63ca2`（2026-08-22）引入 `kOptPhaseTable`、弦数分区和 96 起 `beatingPartials=0`；`51fca9d`（2026-08-22）加入三弦 3 振荡器并使用三行初相，但没有改弦和归一化；`de67ea0`（2026-08-23）改为 Mid/Side 立体声扩散，单声道下混仍为 `sSum`，未修复抵消；`0bf1ae8`（2026-10-11）规范 Magic Circle/admission，未修复该关系。问题不是 Task 39-3 或 39-A 引入，而是多弦相位/归一化设计与 96 硬切叠加。实现入口为 `Piano88KeyTable.h` 参数生成和 `PianoSynthVoice::startNote()`；历史代码定位见 `phase39-task3-diag-variant-20261019/design-history.md`。
 - **统一激励诊断（2026-10-19，U0–U3）**：用生产 `exportTakeAsWavFile` 路径渲染全 88 键 v70 及交界 v41/98。
   - U0 生产基线：95/96 `+11.330 dB`；U1（同分音共享初相，保留 96 截止）：`+0.458 dB`；U2（共享初相 + `effectiveBeatingPartials=min(partialCount,6)`，取消 96 硬切）：`-0.188 dB`；U3（仅扩大拍频分音、保留独立初相）在 99/100 产生 `15.056 dB` 台阶，不可用。
   - U2 全部交界：35/36 `+0.008`、47/48 `-0.051`、71/72 `+0.005`、95/96 `-0.188 dB`；最大相邻台阶 `2.639 dB`（原 `11.330 dB`）。v41/98 交界也均在 `±0.22 dB` 内。
   - 不变量：U2 全键最大 peak `-5.493 dBFS`，全部有限；100–108 在 detune=0 时与 U0 逐字节一致；共享初相不改变 L1 名义权重。
   - **诊断阶段观察**：共享激励恢复名义弦和后，未校准的 C4 v70 绝对 RMS 由 `-39.701` 升至 `-26.337 dBFS`（`+13.36 dB`），全键 v70 中位 `+6.08 dB`、最大 `+15.71 dB`；C4 RMS 41→70 为 `4.847 dB`（低于 5.6 下限）。随后以 `globalSourceGain=0.49` 和 C4 41 锚点 `-4.75 dB` 重校准，最终目标全部通过。
-  - 结论：**U2 已正式落地**。生产路径使用同分音共享基准初相 + `beatingPartials=min(partialCount,6)`，取消 96 硬切；全局源级增益 `0.49`（约 -6.2 dB），C4 41 锚点 `loudnessDeltaDb=-4.75`。最终全键 v70：35/36 `+0.008`、47/48 `-0.054`、71/72 `+0.005`、95/96 `-0.188 dB`；最大相邻台阶 `2.639 dB`，最大 peak `-11.202 dBFS`，全部有限；C4 RMS 41→70 `7.611 dB`、70→98 `5.991 dB`，HF `18.483/13.114 dB`，留出偏差 `0.523/0.159 dB`；端点 v2 通过。生产回归 **103 tests / 323,224 assertions / 0 failed**，`format --check` 通过。证据：`phase39-task3-production-u2-20261019/production-u2-verification.json`、`phase39-task3-final-combination-u2-20261019/final-combination-analysis.json`。
+  - 历史结论：**U2 当时正式落地，后由下方音色恢复记录替代**。当时生产路径使用同分音共享基准初相 + `beatingPartials=min(partialCount,6)`，取消 96 硬切；全局源级增益 `0.49`（约 -6.2 dB），C4 41 锚点 `loudnessDeltaDb=-4.75`。当时全键 v70：35/36 `+0.008`、47/48 `-0.054`、71/72 `+0.005`、95/96 `-0.188 dB`；最大相邻台阶 `2.639 dB`，最大 peak `-11.202 dBFS`，全部有限；C4 RMS 41→70 `7.611 dB`、70→98 `5.991 dB`，HF `18.483/13.114 dB`，留出偏差 `0.523/0.159 dB`；端点 v2 通过。生产回归零失败，`format --check` 通过。证据：`phase39-task3-production-u2-20261019/production-u2-verification.json`、`phase39-task3-final-combination-u2-20261019/final-combination-analysis.json`。
 - **判定**：35/36 与 95/96 都是离散弦数/分音数切换叠加固定初相造成的**结构性台阶**，不是隐藏 EQ、增益或测量错误。35/36 按协议记录并解释；95/96 已被试听判定为不可忽略的音量跳变，因此需要修复决策，不能用平滑掩盖。证据：`phase39-task3-boundary-analysis-20261019/boundary-explanation.json`、`phase39-task3-boundary-probe-20261019/deep-root-cause.json`、`phase39-task3-release-probe-20261019/release-thump-analysis.json`、`phase39-task3-listening-20261019/listening-feedback.md`。
 - **组合验收**：最终 U2 生产路径 C4 54 用例判定通过。Brightness HF `+5.18..+5.68 dB`、RMS `+2.53..+2.83 dB`，三档单调；CC67 HF `-12.37..-4.86 dB`、RMS `-2.47..-1.78 dB`，方向全部为负；老化 HF 最大 `1.31 dB`、RMS 最大 `0.123 dB`，有界；最大 peak `-15.23 dBFS`，全部有限。判定与证据入口：`phase39-task3-final-combination-u2-20261019/final-combination-analysis.json`。
-- **身份语义**：`startNote()` 是起音时初始化振荡器频率、相位、声像与通道归属的唯一入口，同时在起音时读取当前 Brightness/硬度/老化/HammerVoicing，并重置旧分音与瞬态状态；`setPianoParameters()`、`setFeltAgeingAmount()`、`setHammerVoicing()` 只保存参数，不重触发、不重置相位；`applyAcousticSnapshotToBuiltin()` 只遍历声部调用 setter。因此持续音不被重新定位，新起音/重用使用当前快照，不继承旧激振。最终生产回归 **103 tests / 323,224 assertions / 0 failed**，日志见 `phase39-task3-production-u2-final-regression-20261019.log`。
+- **身份语义**：`startNote()` 是起音时初始化振荡器频率、相位、声像与通道归属的唯一入口，同时在起音时读取当前 Brightness/硬度/老化/HammerVoicing，并重置旧分音与瞬态状态；`setPianoParameters()`、`setFeltAgeingAmount()`、`setHammerVoicing()` 只保存参数，不重触发、不重置相位；`applyAcousticSnapshotToBuiltin()` 只遍历声部调用 setter。因此持续音不被重新定位，新起音/重用使用当前快照，不继承旧激振。该批生产回归通过、零失败，日志见 `phase39-task3-production-u2-final-regression-20261019.log`。
 - **试听包**：`G:\source\projects\devpiano\build-win-msvc\phase39-task3-listening-u2-20261019\`，含最终 U2 WAV、U0 95/96 对照、`listening-guide.md`、`listening-index.csv`、`listening-notes.md`；人工复听确认 95/96 跳跃已明显改善/修复。旧 U0 试听反馈见 `phase39-task3-listening-20261019/listening-feedback.md`。
 - **人工复听与音色重开（2026-10-19）**：用户此前确认 95/96 听感跳跃改善；但进一步受控试听对比确认：pre_task39-3 电平匹配样本更接近期望钢琴音色，而 6e5897a 整体音色存在偏离；Brightness 从 50% 提高至 100% 只部分改善，根因定位为共享初相改变同音弦相干叠加并叠加旧整音滚降。恢复候选通过人工试听后，用户确认“该问题已经完全解决，该候选方向可以认为正确”。出厂整音已切换为中性零偏移；未采用逐键补偿表或隐藏 EQ。项目仍处开发期且无用户，不保留旧开发数据的整音迁移层。
 - **直接验收状态**：第 1、2、3 项均完成并签收。第 2 项在恢复候选经用户人工试听与实际冒烟确认后关闭；95/96 局部交界证据与更新后的整体音色同时保留。
@@ -925,7 +927,7 @@ C4 基线（note-on 相对窗口）：
 - **消费者**：实时 `applyAcousticSnapshotToBuiltin`、`initialiseOfflinePianoSynth`、固定双层/内置 WAV 共用同一 `HammerVoicing`；Sine 与 VST3 不接收该物理参数。
 - **格式**：预设/Take 的 `acoustics.hammerVoicing` 为可选对象；缺省使用当前校准值，显式存在但锚点数量、类型、顺序或范围非法时拒绝整份预设/Take。Settings 使用同一 JSON 结构字符串保存；读取失败回退校准默认值。
 - **UI/风格边界**：原始锚点不新增主界面或设置旋钮；`HammerVoicing` 参与 `PianoStyle` 识别，内置五种风格使用当前校准值，不同整音配置显示 Custom。现有 Brightness/Hardness/Resonance 仍为演奏控制。
-- **回归**：Windows Debug 构建通过；默认 CTest **1/1 passed**，直接运行 **323,245 assertions / 0 failed**。新增覆盖 Settings 往返、预设/Take 往返与非法锚点拒绝、AudioEngine 发布、风格 Custom 判定，以及自定义锚点实际改变内置 WAV 输出。证据：`G:\source\projects\devpiano-evidence\phase39\task39-4\state-integration-20261019\integration-summary.json`、`ctest-last.log`。
+- **回归**：Windows Debug 构建、默认 CTest 及直接运行测试通过、零失败。覆盖 Settings 持久化、预设/Take 非法锚点拒绝、AudioEngine 发布、风格 Custom 判定与自定义锚点实际改变内置 WAV 输出。证据：`G:\source\projects\devpiano-evidence\phase39\task39-4\state-integration-20261019\integration-summary.json`、`ctest-last.log`。
 - **GUI 受控验收（2026-10-19）**：Windows Debug 实例（PID 22804，路径 `G:\source\projects\devpiano\build-win-msvc\devpiano_artefacts\Debug\DevPiano.exe`）实际打开设置：英文→简体中文标题/标签切换正常，窄窗 742×711 仍可滚动访问声学控件；Piano Style Standard→Bright 使主界面 Brightness 50%→75%、Hammer 50%→70%，恢复 Standard 后回到 50%/50%；正常关闭后重启（PID 10232）恢复英文与 Standard 值，退出无残留；`DevPiano.settings` 已确认写入完整校准 `hammerVoicing`，`languageCode=en`、Brightness/Hammer 均为 0.5。证据：`G:\source\projects\devpiano-evidence\phase39\task39-4\state-integration-20261019\gui-validation.json`。
 - **A/B 保存-重启-回放（2026-10-19）**：同一 C4 Take 复制为 A（校准）与 B（三锚点统一 -6 dB）；B 预设写入后重启恢复自定义 `hammerVoicing`，打开两个 Take 回放并导出 WAV。7.6–9.5 s 窗口 A `-37.026 dBFS`、B `-43.018 dBFS`，差 `-5.992 dB`，证明快照差异实际进入声音而非仅字段往返。证据：`G:\source\projects\devpiano-evidence\phase39\task39-4\voicing-ab-20261019\README.md`、`voicing-a.wav`、`voicing-b3.wav`、`voicing-a.demo.devpiano`、`voicing-b.demo.devpiano`。
 - **固定双层实际插件（2026-10-19）**：扫描并加载 `E:\Program Files\VST3\Surge Synth Team\Surge XT.vst3`（VST3 1.4.0 instrument），开启双层后 `PluginOfflineRenderer` 用离线 Surge XT 实例导出 `dual-b2.wav`；插件报告延迟 **0 samples**。单层 B `RMS -43.018 / peak -21.016 dBFS`，双层 B `RMS -21.921 / peak -13.467 dBFS`，证明插件层真实参与且未静默只导钢琴。Surge 0 延迟时无需延迟线；非零延迟的采样对齐由现有 `PluginOfflineRendererTest` synthetic delayed plugin 用例覆盖并通过。
@@ -946,7 +948,7 @@ C4 基线（note-on 相对窗口）：
 
 - [x] 受控生成、播放、真实 UI 与文件/回放/WAV 消费者已运行，声音变化与保留范围可解释；测试之外有直接生产行为证据。（2026-10-19 关闭：用户在听感对照包和实际冒烟后确认候选方向正确、问题完全解决；默认整音切换为中性零偏移，状态闭环与消费者保持有效）
 - [x] 完整新增路径的分配/锁/库三角及同配置成本有可复核记录；长时、多复音和参数边界下无自激、非有限输出或悬挂，Panic 与重用完整结束旧状态。（说明：基于 Windows Debug 测试桩 IAT 钩子观测，覆盖已测场景；单次耗时增量低于计时方差，收窄为非生产 CPU SLA / 硬件 deadline 认证，不作无条件全回调保证）
-- [x] Windows Debug app/tests、默认完整 CTest、`format --check` 与迭代边界 `tidy --all` 已执行；用户文件无副作用，临时消费者与产物归属明确，未验证硬件/厂商和 CPU SLA 不勾选通过。（2026-10-19 最终门禁：Windows Debug app/tests 构建成功；默认 CTest 1/1 passed（77.31 s），直接运行 104 tests / 323,256 assertions / 0 failed；`format --check` 与 `git diff --check` 通过；全量 tidy 145 个编译单元 exit 0。临时诊断消费者已从源码与 CMake 移除并归档。）
+- [x] Windows Debug app/tests、默认完整 CTest、`format --check` 与迭代边界 `tidy --all` 已执行；用户文件无副作用，临时消费者与产物归属明确，未验证硬件/厂商和 CPU SLA 不勾选通过。（2026-10-19 最终门禁：Windows Debug app/tests 构建、默认 CTest 与直接测试零失败，格式/空白检查及全量静态检查通过。临时诊断消费者已从源码与 CMake 移除并归档。）
 
 #### Task 39-5 受控试听、回调观察与集成门禁记录（2026-10-19）
 
@@ -955,7 +957,7 @@ C4 基线（note-on 相对窗口）：
 - **回调观察器**：新增 `source/tests/RealtimeCallbackProbeTest.cpp`，在 Windows 测试进程内通过 IAT 钩住 `malloc/calloc/realloc/HeapAlloc`、`EnterCriticalSection`、`sin/cos/tan/sinf/cosf/tanf`，先执行已知分配/临界区/三角调用自检（全部被计数），再只在实际 `getNextAudioBlock` 调用期间计数；测试线程的键盘状态更新不进入窗口。9 个短场景 + 长时混合 + 密集回放全部 `allocations=0 / critical_sections=0 / trig=0`，全部输出有限。场景：8 复音起音、零偏移对照、参数与快照边界、256 条密集实时输入、5000 条溢出保护、Panic、Panic 后重用、24 音偷声部、44.1 kHz/256 与 96 kHz/512 重新准备、Take 预设边界、12000 事件密集回放、6000 块长时混合。
 - **成本与稳定性**：两次独占 Debug 样本中，8 复音起音校准为 `3.930–4.206 ms/块`、零偏移为 `3.956–3.977 ms/块`，差异方向相反，单次计时方差大于锚点采样成本，因此不宣称新增锚点有可测增量；参数边界 `4.146 ms`、密集实时输入 `4.261 ms`（最坏块 `7.864 ms`）、偷声部 `3.897 ms`、Panic 后重用 `0.516 ms`、44.1 kHz `0.261 ms`、96 kHz `0.521 ms`、Take 预设边界 `0.137 ms`；12000 事件密集回放 `5.433 ms/块`（最坏块 `71.7 ms`，Debug 未优化），长时 6000 块 `3.99 s` / 16 s 音频（`0.249×` 实时）。这些是 Debug 单次观察，不是 Release CPU SLA 或物理声卡 deadline 认证。
 - **长时与生命周期**：6000 块混合运行（周期性 NoteOn/NoteOff、每 500 块切换整音与亮度、每 1500 块 Panic）peak `0.348`、全部有限、无自激；结束时 Panic 后 64 块 peak `0.0`，证明旧声部完整结束；Panic 后新 NoteOn 正常发声。
-- **门禁**：Windows Debug app/tests 构建成功；默认 CTest **1/1 passed**（39.04 s），直接运行 **323,310 assertions / 0 failed**（39.27 s）；`format --check` 通过；`tidy --all` 在本轮迭代边界执行并通过；首次失败仅因 `compile_commands.json` 仍引用已删除的临时 `TempMidfillRenderTest.cpp`，刷新 WSL configure 后全量复跑 exit 0。
+- **门禁**：Windows Debug app/tests 构建、默认 CTest 与直接运行测试通过、零失败；`format --check` 通过；`tidy --all` 在该轮迭代边界执行并通过。首次失败因 `compile_commands.json` 仍引用已删除的临时 `TempMidfillRenderTest.cpp`，刷新 WSL configure 后全量复跑 exit 0；原失败日志保留。
 - **用户副作用**：测试 Take 打开后已正常关闭应用；`recentFiles` 从备份恢复，用户原有条目保留；测试未写入用户 Presets，也未改变现有声学设置。测试 WAV/Take 已归档至 `G:\source\projects\devpiano-evidence\phase39\task39-5\listening-and-callback-20261019\listening\`，G:\tmp 中的重复副本待人工清理。
 - **边界**：未做人工主观偏好判定（本记录只提供可复核 WAV 与数值）；未认证物理声卡 deadline、Release 单核 CPU ≤0.7% SLA、商业厂商/真琴等价或第三方 VST3 内部实时安全。
 - **证据入口**：`G:\source\projects\devpiano-evidence\phase39\task39-5\listening-and-callback-20261019\`；`listening\README.md`、`analysis.json`、`listening-index.csv`，`callback\callback-summary.json`、`probe-run.log`、`ctest-last.log`、`tidy-all.log`、`gates.json`，`ui\ui-validation.json` 与 `ui-*.png`；根目录 `evidence-manifest.json` 含 33 个文件的 SHA-256。
@@ -965,7 +967,7 @@ C4 基线（note-on 相对窗口）：
 - **用户试听反馈**：用户对导出的同 MIDI 受控试听样本进行人工试听后确认：`pre_task39-3` 电平匹配样本更接近期望钢琴音色；`6e5897a` 虽消除了 95/96 阶跃，但整体音色出现偏离（暗/闷且共鸣不自然）。当前将 `Brightness` 从 50% 提高至 100% 可部分改善，该反馈作为待单变量验证的排查线索记录；明确禁止将默认 Brightness 改为 100% 掩盖回归，禁止引入逐键补偿表或隐藏 EQ。
 - **工程与交付边界决策**：
   1. **状态闭环保持**：保留 Task 39-4 状态闭环（`623643b`）的实现事实，所有 Settings、Performance Preset、Take、实时发声与离线内置/双层 WAV 的 `HammerVoicing` 接口及当前文件保护保持不变；
-  2. **历史证据保留**：历史已跑测试（Windows Debug CTest 323,310 assertions 零失败、全量 tidy、UI 回放/导出验证）与 95/96 局部交界改进（U2 共享初相对 95/96 台阶的消除）作为历史证据保留，不因音色重开而废除或误改；
+  2. **历史证据保留**：历史 Windows Debug CTest 零失败、全量 tidy、UI 回放/导出验证与 95/96 局部交界改进（U2 共享初相对台阶的消除）作为当时证据保留，不因音色重开而废除或误改；
   3. **重开直接验收与撤销交付**：撤销 Phase 39“可交付/已交付”断言，撤销 Task 39-3 和 Task 39-5 整体音色已签收的结论；重开 Task 39-3（第 2 项）与 Task 39-5（第 1 项）音色直接验收；
   4. **隔离分支与暂停推送**：建立隔离诊断分支 `diag/phase39-timbre-recovery-20261019`（base HEAD 82e1459），原工作区快照在 `G:\source\projects\devpiano-evidence\phase39\task39-3\timbre-recovery-20261019-220125\workspace-before\` 完整备份；暂停 git push 与版本 release；
   5. **声学候选与旧代码状态**：后续声学候选处理 `6e5897a` 切换，且所有声学候选必须经新的人工音色试听验收通过后方可签收；当前代码中旧 `rolloffDelta` 与校准数值仍为实际代码，不得在文档中写成已切换或已认证；
@@ -979,9 +981,9 @@ C4 基线（note-on 相对窗口）：
 - **排除失败候选**：仅按初始相量模长做 L1 总预算虽恢复 C4 频谱，但 47/48 仍为 -5.33 dB，不能签收；初始功率预算仍残留 -4.87 dB。保留这两批原件，不因最终候选改善而抹除失败。
 - **当前候选实测**：显式零偏移整音、Brightness 0.5。C4 v70 谱重心 324.28 Hz、基频能量 88.83%，所选历史基线为 324.44 Hz / 88.80%；前 3 ms 高频占比为 -25.28 dB，基线为 -25.09 dB。95/96 在 v41/70/98 的短窗 RMS 差分别为 -0.117/-0.106/-0.080 dB；v70 的 35/36、47/48、71/72、99/100 分别为 +0.723/+1.294/-0.438/+1.610 dB。全键 v70 最大相邻差为 2.725 dB（91/92）；这些观察不替代人工音色验收。
 - **强奏、默认整音与生产消费者**：全 88 键 v127 导出最高 peak -8.48 dBFS，无满幅 PCM 样本。最终批次包含 204 个实际生产导出 WAV 和可由当前格式加载的自包含 `timbre-recovery-candidate.devpiano`。用户验收后，出厂整音 `kCalibratedHammerVoicing` 已切换为中性零偏移。项目仍处开发期且无用户，按“干净切换、不留迁移链”原则，旧开发数据中的历史校准值不自动迁移；显式非法的整音配置仍按当前格式拒绝。
-- **软件验证（最终门禁，2026-10-19）**：临时诊断消费者已从 `source/tests/` 与 CMake 移除，源码归档保留；刷新 WSL configure 后同步 Windows 镜像并仅在 Windows Debug 构建/测试。Windows Debug app/tests 构建成功。默认 CTest **1/1 passed（77.31 s）**；直接运行 **104 tests / 323,256 assertions / 0 failed（80.95 s）**，包含默认整音路径的上方分音比例与 95/96 连续性回归。`format --check`、`git diff --check` 通过；全量 `tidy --all` 145 个编译单元 **exit 0**，日志无 `warning:`/`error:` 诊断。日志：`G:\source\projects\devpiano-evidence\phase39\task39-3\final-gates-20261019\`（`win-build.log`、`ctest.log`、`devpiano-tests.log`、`tidy-all.log`）。
+- **软件验证（最终门禁，2026-10-19）**：临时诊断消费者已从 `source/tests/` 与 CMake 移除，源码归档保留；刷新 WSL configure 后同步 Windows 镜像并仅在 Windows Debug 构建/测试。app/tests 构建、默认 CTest 与直接测试通过、零失败，包含默认整音路径的上方分音比例与 95/96 连续性回归。`format --check`、`git diff --check` 与全量 `tidy --all` 通过，静态日志无 `warning:`/`error:` 诊断。日志：`G:\source\projects\devpiano-evidence\phase39\task39-3\final-gates-20261019\`（`win-build.log`、`ctest.log`、`devpiano-tests.log`、`tidy-all.log`）。
 - **门禁边界**：以上为 Windows Debug 与已测场景证据；不认证 Release CPU SLA、物理声卡 deadline、商业厂商或任意硬件等价性。测试使用隔离临时目录，不读写真实用户 Settings/Presets/Take。
-- **移除迁移层后的复验（2026-10-19）**：按开发期无用户、不留历史迁移链的原则，删除旧整音识别常量与加载迁移；Windows Debug app/tests 重新构建通过，CTest **1/1 passed（68.55 s）**，直接运行 **104 tests / 323,249 assertions / 0 failed**。按用户要求不执行全量 `tidy --all`，改用 `./scripts/dev.sh tidy` 对 6 个改动源文件做增量检查，**exit 0**（见 `docs/guides/quickstart.md` 与 `scripts/dev.sh`）。`format --check` 与 `git diff --check` 通过。
+- **移除迁移层后的复验（2026-10-19）**：按开发期无用户、不留历史迁移链的原则，删除旧整音识别常量与加载迁移；Windows Debug app/tests 重新构建、默认 CTest 与直接测试通过、零失败。该次按用户要求使用 `./scripts/dev.sh tidy` 增量检查并通过，属于单次授权例外，不改变日常只在迭代边界执行 `tidy --all` 的规则；`format --check` 与 `git diff --check` 通过。
 - **试听与验收**：`G:\source\projects\devpiano-evidence\phase39\task39-3\timbre-recovery-20261019-220125\LISTEN\` 含 18 个对照 WAV、候选 Take 和 `comparison.json`。普通对照仅做标量 RMS 匹配，无 EQ/压缩；95/96 成对文件对两音共用同一个增益，保留真实台阶。用户已完成人工试听并实际冒烟，确认该候选方向正确、问题完全解决；原始控制、失败候选、最终渲染与验证日志位于同一任务根。
 - **关闭状态**：Task 39-3 第 2 项与 Task 39-5 第 1 项音色验收关闭；2026-10-20 力度动态范围试听也确认中性默认的相对层次足够且正确。默认整音保持中性，Brightness 默认仍为 50%，未引入逐键补偿表或隐藏 EQ；最终软件门禁结果见本节记录。
 
@@ -1016,6 +1018,6 @@ C4 基线（note-on 相对窗口）：
 - **清理前提**：同盘归档不构成独立备份；用户明确接受该风险并以其为删除前提（决策记录见证据库 `_index\evidence-catalog.md` §6）。除 Task 39-1（`pianoteq9/acoustic_lab/backups/task39-1-20261010`）外无独立备份。
 - **已批准清理（2026-10-12，三批次）**：批次 1 删除 4921 文件 / 929.63 MB（第三方工具运行时与下载包、一次性 venv 与会话 DB、与正式部署相同的二进制副本、商业二进制重复副本）；批次 2 在 3855/3855 文件与 `migration-map` 逐文件 SHA-256 核对一致、构建系统零引用、无运行写入者后，删除 `build-win-msvc` 内 9 个已归档批次目录与 `G:\` 根 4 个 `windows-mcp-*` 目录（3855 文件 / 1789.14 MB）；批次 3 将 `G:\devpiano-task39-2-official-runtime-*` 的唯一不可重获取资产（76 MB 官方试用安装器 + `install_script.iss` + `License.rtf`）迁入 `pianoteq9/binaries/Pianoteq_9.2.5_Windows/installer/` 后删除整个目录（6 文件 / 195.08 MB）。三批累计 **8782 文件 / 2913.7 MB，0 失败**，与普查总数一致；明细见证据库 `_index\cleanup-log.json`。
 - **清理后复验**：`win_clean_guard` 对该构建目录由 REFUSE 转为 **PASS**（恢复纯构建目录职责）；`windows-msvc-debug` 重新配置 + ninja 增量 `no work to do` 成功。16 个普查目标根至此全部处置完毕（3855 文件归档保留 + 3 文件迁移研究仓库 + 其余删除且均有等价副本或可重建）。
-- **构建防护**：新增 `scripts/win_clean_guard.sh`（fail-closed：路径身份、逐组件父子关系、允许的构建根名、符号链接拒绝、目录内容检查），接入 `--clean-win-build`；配套 18 个隔离回归用例。`win-sync --check` 复验为零写入预览（7 个待同步文件即本轮改动），`/MIR` 行为未改。
+- **构建防护**：新增 `scripts/win_clean_guard.sh`（fail-closed：路径身份、逐组件父子关系、允许的构建根名、符号链接拒绝、目录内容检查），接入 `--clean-win-build`；隔离回归覆盖路径拒绝及证据保护。`win-sync --check` 复验为零写入预览，`/MIR` 行为未改。
 - **Windows-MCP 收口**：正式部署 `G:\tools\windows-mcp\1.3.28\`（sha256 `0e6a20a9…295`）与 `.omp\mcp.json` 的 `cwd` 约束保持不变；18 个工具的审批矩阵（6 allow / 7 prompt / 5 deny）静态核对一致；维护指南见 [windows-mcp-omp.md](../guides/windows-mcp-omp.md)。
-- **下一步**：项目内改动（守卫脚本、AGENTS.md、两份指南、CHANGELOG、roadmap、本页）待审查后再决定提交拆分；Task 39-2 恢复推进。
+- **后续归属**：该批工程变更已随 `747ad9f` 提交；Task 39-2 随后恢复并最终以证据不足收尾，见上方日期记录。本条不再作为待提交或恢复采集的当前指令。

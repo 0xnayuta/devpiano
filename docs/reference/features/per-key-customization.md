@@ -90,14 +90,14 @@ struct KeyboardSettings {
 
 ## 5. 确定性测试清单
 
-单元测试位于 `source/tests/KeyMapTypesTest.cpp`、`source/tests/KeyboardHitMappingTest.cpp` 与 `source/tests/CadenceVelocityTest.cpp`（隶属于 `DevPiano/Core`、`DevPiano/UI` 与 `DevPiano/Input` 测试套件）：
+单元测试位于 `source/tests/KeyMapTypesTest.cpp`、`source/tests/KeyboardHitMappingTest.cpp` 与 `source/tests/CadenceVelocityTest.cpp`（隶属于 `DevPiano/Core`、`DevPiano/UI` 与 `DevPiano/Input` 测试套件）。状态列记录单元测试与历史界面验证基线，不替代实际原生表面验证：
 
 | 测试套件 / 用例 | 验证目标 | 状态 |
 |---|---|:---:|
-| `KeyMapTypesTest` | 验证默认布局键位映射、keyCode 规范化一致与强类型 MIDI 标量转换有界性 | [x] 已通过 |
-| `KeyboardHitMappingTest` | 验证黑键与白键点击区域判定（黑键优先命中，白键边缘无缝接合） | [x] 已通过 |
-| `KeyboardHitMappingTest` | 验证鼠标拖拽滑音（Glissando）事件流与多通道色彩正确映射 | [x] 已通过 |
-| `QwertyViewModelTest` | 最终投影、绑定标签跨设置/几何/视口重建保持，以及鼠标/回放输入身份隔离 | [x] 已通过 |
-| `KeyboardHitMappingTest` | 合法端点及超范围 fade 输入有界收缩，达到目标后 Timer 停止；逐键颜色在最终输出位置保留 | [x] 已通过 |
-| `PerformancePresetTest` | 验证 128 项自定义标签与 ARGB 颜色的预设往返；实际绑定编辑/按键捕获/配置索引消费者见 Phase F/G 实施记录 | [x] 文件及实际界面验证 |
-| `CadenceVelocityTest` | 验证快速与慢速打字律动力度曲线估算、超时复位与力度随机抖动 | [x] 已通过 |
+| `KeyMapTypesTest` | 验证默认布局键位映射、keyCode 规范化一致与强类型 MIDI 标量转换有界性 | [x] 单元测试基线 |
+| `KeyboardHitMappingTest` | 验证黑键与白键点击区域判定（黑键优先命中，白键边缘无缝接合） | [x] 单元测试基线 |
+| `KeyboardHitMappingTest` | 验证鼠标拖拽滑音（Glissando）事件流与多通道色彩正确映射 | [x] 单元测试基线 |
+| `QwertyViewModelTest` | 最终投影、绑定标签跨设置/几何/视口重建保持，以及鼠标/回放输入身份隔离 | [x] 单元测试基线 |
+| `KeyboardHitMappingTest` | 合法端点及超范围 fade 输入有界收缩，达到目标后 Timer 停止；逐键颜色在最终输出位置保留 | [x] 单元测试基线 |
+| `PerformancePresetTest` | 验证 128 项自定义标签与 ARGB 颜色的预设往返；实际绑定编辑/按键捕获/配置索引消费者见 Phase F/G 实施记录 | [x] 历史文件与界面验证基线 |
+| `CadenceVelocityTest` | 验证快速与慢速打字律动力度曲线估算、超时复位与力度随机抖动 | [x] 单元测试基线 |

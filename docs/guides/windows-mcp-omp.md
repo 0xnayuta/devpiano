@@ -60,7 +60,7 @@ sha256sum /mnt/g/tools/windows-mcp/1.3.28/Sbroenne.WindowsMcp.exe
 
 - 项目级配置优先于全局；同一 server 名以项目级条目为准。
 - `instructions: false`：不把服务端自带说明书注入每次会话上下文（18 个工具的 schema 仍然注册）。
-- `timeout: 120000`：stdio 首次握手与 UIA 长操作的实际余量（实测就绪 7.98 s）。
+- `timeout: 120000`：stdio 首次握手与 UIA 长操作的实际余量。
 - 修改 `.omp/mcp.json` 后需要 `/mcp reload` 或新会话才生效（工具在会话启动时注册）。
 
 ## 4. 逐工具审批策略（`.omp/config.yml`）
@@ -74,13 +74,13 @@ sha256sum /mnt/g/tools/windows-mcp/1.3.28/Sbroenne.WindowsMcp.exe
 | deny（5） | `mouse_control` `clipboard` `file_open` `file_save` `ui_batch` | 本项目不需要：坐标注入、剪贴板、文件对话框、批量动作 |
 
 - **不要为方便临时放宽**：提高权限需要同时说明场景、影响面与回退方式，并同步更新本表。
-- 本轮静态核验：`config.yml` 的 18 个键与本会话实际注册的 18 个 `mcp__windows_mcp_*` 工具名一一对应；
-  执行层策略（deny/allow/prompt 各自被拒/被执行/被要求审批）已在 Task 40 实测。
+- 已归档静态核验：`config.yml` 的 18 个键与实际注册的 18 个 `mcp__windows_mcp_*` 工具名一一对应；
+  执行层策略（deny/allow/prompt 各自被拒/被执行/被要求审批）已在 Task 40 归档批次中实测。
 
 ## 5. 工作目录（cwd）硬约束
 
 **本机实测结论**：经 WSL interop 启动的 Windows 进程，若工作目录是 Linux 原生路径（如 `/root/repos/devpiano`、`/tmp`），
-.NET Generic Host 会**永久挂起**：进程存活、无 stdout/stderr、不响应 JSON-RPC。改用 drvfs 路径（`/mnt/g/...`）后 0.6 s 完成握手。
+.NET Generic Host 会**永久挂起**：进程存活、无 stdout/stderr、不响应 JSON-RPC。改用 drvfs 路径（`/mnt/g/...`）后迅速完成握手。
 
 - 因此 `mcp.json` 必须显式设置 `cwd` 为 Windows 可映射路径；当前值 `/mnt/g/tools/windows-mcp/1.3.28`。
 - 该结论是本机 WSL2 环境的实验事实（同一二进制、仅改变 cwd 的对照实验），**不宣称适用于所有 Windows-MCP/WSL2 组合**；
@@ -172,16 +172,16 @@ sha256sum /mnt/g/tools/windows-mcp/1.3.28/Sbroenne.WindowsMcp.exe
 
 ## 13. 实测与未验证边界（诚实清单）
 
-已实测：连接与注册（18 工具，7.98 s）、三层审批策略的实际执行、DevPiano Debug 产物 7 步 GUI 冒烟
+已实测：连接与注册（18 个工具）、三层审批策略的实际执行、DevPiano Debug 产物 GUI 冒烟
 （窗口发现 → 快照 → 截图 → 点击展开 → 按键派发 → 复读 → 关闭）、Pianoteq 9.2.5 受限 GUI 观察与历史批次的一次获批坐标兜底、
 私有状态与用户配置的散列保护、正常退出后无残留进程。交互式会话的真实审批弹窗确认已由用户在独立会话完成，不再列为“未实测”。
 
-本轮另验证了 Standard 模式切换、官方 JSON-RPC 必要参数写回、完整 FXP 保存/对质恢复，以及先切 Standard 再加载 FXP 的冷启动 GUI 读回；不据此宣称 MCP 可通用编辑全部自绘控件。
+在已归档批次中另验证了 Standard 模式切换、官方 JSON-RPC 必要参数写回、完整 FXP 保存/对质恢复，以及先切 Standard 再加载 FXP 的冷启动 GUI 读回；不据此宣称 MCP 可通用编辑全部自绘控件。
 
 未实测（不得写成通过）：
 
-- 按键是否产生**声音**（本轮工具范围不含音频观测）；
+- 按键是否产生**声音**（当前 MCP 工具范围不含音频观测）；
 - NTFS 盘符上的 cwd 行为（当前镜像盘为 ReFS）；
 - 超出当前已验证控件的自绘参数编辑能力、`Random seed` 数字读回、确定性重复与完整声学验收。
 
-已测但未通过：官方 headless 冷启动的完整执行状态一致性。该路径未恢复必要参数，因此没有启动 v2 Pilot；GUI 工具迁移不能替代声学准入。具体证据与下一步见 [Task 39-2 当前迭代记录](../roadmap/current-iteration.md#task-39-2-实施记录官方-925-状态闭环2026-10-12)。
+历史诊断记录（2026-10-12）：官方 headless 冷启动的完整执行状态一致性未通过（该路径未恢复必要参数，当时未启动 v2 Pilot；GUI 工具迁移不替代声学准入）。后续 GUI Pilot 与 Task 39-2 已闭环结束，归档证据见 [Task 39-2 历史迭代记录](../roadmap/current-iteration.md#task-39-2-实施记录官方-925-状态闭环2026-10-12)。

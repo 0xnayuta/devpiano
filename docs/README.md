@@ -37,7 +37,7 @@
 
 | 领域 | 核心特性文档 | 主要内容与测试重点 |
 |---|---|---|
-| **发声引擎** | [`features/builtin-piano-synthesis.md`](reference/features/builtin-piano-synthesis.md) | 7 大声学系统全物理建模钢琴（`PianoSynthVoice`，88 键参数模型/非线性动力学/古典微律/双视角空间声学/微观机械拟真）与正弦合成 |
+| **发声引擎** | [`features/builtin-piano-synthesis.md`](reference/features/builtin-piano-synthesis.md) | 7 大声学系统钢琴（`PianoSynthVoice`）、88 键参数来源与校准边界、连续三力度整音、古典微律、空间声学及正弦合成 |
 | **发声引擎** | [`features/plugin-hosting.md`](reference/features/plugin-hosting.md) | VST3 插件扫描、分片进度、XML 缓存恢复、增量崩溃安全持久化、乐器端点统一抽象、加载与生命周期专项回归 |
 | **输入与映射** | [`features/keyboard-mapping.md`](reference/features/keyboard-mapping.md) | 电脑键盘映射、5 行 QWERTY 演奏看板、和弦识别与 HUD、击键动态力度和确定性微扰、发音身份快照、采样精确切分踏板及 88 键虚拟键盘 |
 | **输入与映射** | [`features/per-key-customization.md`](reference/features/per-key-customization.md) | 128 项逐键自定义标签与颜色、按键绑定编辑对话框（`KeyBindingEditDialog`） |
@@ -73,3 +73,4 @@
 2. **架构客观性**：[`reference/architecture.md`](reference/architecture.md) 描述当前代码真实架构，不混入待办计划或历史方案对比。
 3. **特性规范化**：`reference/features/` 下每个文档应合并该特性的现行行为说明与专项测试清单，剔除历史规划草案。
 4. **历史进归档**：历史前期调研、RFC 选型讨论和已完成规划统一归档至 `archive/`。
+5. **防漂移**：精确保留物理、协议、业务范围和实时 SLA；断言/用例数量、源码行数及单次工程门禁耗时留在运行日志，不作为现行契约反复维护。

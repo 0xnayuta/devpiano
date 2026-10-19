@@ -14,11 +14,12 @@
 | 领域 | 当前必须满足的消费者不变量 | 直接证据与验证边界 |
 | --- | --- | --- |
 | 文件与会话 | 覆盖不追加；失败/提交前取消保留已有目标；A→B→Save As C 后信息编辑不改 A；同步保存不被旧 timer 回滚 | Phase A/B、H 的文件/会话/实际窗口；断电、磁盘耗尽与强杀不外推 |
-| 格式准入 | 自有预设仅整数 v2、演奏及独立元数据仅整数 v4；不猜测或迁移旧事件语义；完整声明轨及合法 meta 后才导入标准 MIDI，稳定原生时间线不改变同采样顺序 | 当前契约见 [原生文件分册](features/performance-persistence.md)，阶段消费者见 [Phase 38 验收归档](../archive/phase37-38-piano-calibration-and-keyboard-performance.md#3-phase-38电脑键盘分区三踏板控制与固定双层演奏)；失败文件/会话保护继续保留 |
+| 格式准入 | 自有预设仅整数 v2、演奏及独立元数据仅整数 v4；不猜测或迁移旧事件语义；完整声明轨及合法 meta 后才导入标准 MIDI，稳定原生时间线不改变同采样顺序；非法/未来版本 fail-closed 拒绝且不污染内存状态 | 当前契约见 [原生文件分册](features/performance-persistence.md)，阶段消费者见 [Phase 38 验收归档](../archive/phase37-38-piano-calibration-and-keyboard-performance.md#3-phase-38电脑键盘分区三踏板控制与固定双层演奏)；失败文件/会话保护继续保留 |
 | 预设与调号 | UUID 在 rename/autosave 保持；独立目标覆盖确认、同路径不自删；普通选择保留全局调号，回放恢复 RecordedPreset.acoustic | Phase A/E/H；不将 JSON 含字段误写为普通选择必覆盖运行调号 |
 | MIDI 导出 | Type 1、默认 960 PPQ、单轨、tick 0 120 BPM；保持显式起音/释放，不合成曲名或拍号；非 MIDI 与 SysEx 不输出 | Phase A/D/H，实际文件 header、消息和覆盖结果 |
 | 身份与时序 | 原身份 FIFO/最后持有者释放；暂停捕获闭合；末尾 Off、设备时间域、Seek/loop 状态和完整预备拍在音频边界执行 | Phase C/D/E；CPU release/prepare 不等于物理热插拔 |
-| 实时与 WAV | 自有回调零锁/零分配/零库函数三角；Take 最终音乐身份不重复变换，参数/层状态按采样点执行；独立缓冲混音后一次公共 Master/Reverb | [最终身份契约](features/recording-playback.md) 与 [固定双层边界](features/plugin-offline-rendering.md)；不向 VST3 注入内置物理参数，不作逐比特保证；第三方框架锁/2048 消息上限分层 |
+| 实时与 WAV | 自有回调零锁/零分配/零库函数三角；Take 最终音乐身份不重复变换，参数/层状态按采样点执行；独立缓冲混音后一次公共 Master/Reverb；单声道消费端统一经由双通道完整声学与混响渲染再下混（0.5 * (L + R)），消除空间声学与混响丢失 | [最终身份契约](features/recording-playback.md) 与 [固定双层边界](features/plugin-offline-rendering.md)；不向 VST3 注入内置物理参数，不作逐比特保证；第三方框架锁/2048 消息上限分层 |
+| 声学状态与整音 | 41/70/98 三锚点的硬度/响度/滚降增量在同一 Piano 核心执行；出厂与缺省为中性零偏移，显式合法配置保留，非法配置拒绝；设置、普通预设、Take 与实时/离线声音一致，不留旧整音迁移链 | 当前字段见 [预设分册](features/performance-presets.md) 与 [原生文件分册](features/performance-persistence.md)，历史消费者见 [Task 39-4](../roadmap/current-iteration.md#task-39-4状态预设与真实渲染闭环)；不把字段往返当声音证明 |
 | UI 与诊断 | 双看板同一投影，输入身份不受输出反馈污染；静音最高优先，Notes 确认/取消正确；日志会话有界并报告故障，MIDI raw 力度准确 | Phase F/G/H 实际窗口、音频捕获、文件及像素 |
 | 工程门禁 | Windows Debug app/tests 构建、默认 CTest、格式、迭代边界全量 tidy；确认 Chord/lifecycle 实际执行、用户目录无副作用、fixture 不依赖可选 NRVO | Phase G/H 的实际命令/receipt；不重写旧默认缓存失败为已消失 |
 
@@ -280,8 +281,8 @@
 
 状态：已完成（2026-08-22）。
 
-- [x] **88 键连续参数模型**：基于 Bensa & Steinway B 实测标定，连续插值刚度 $B$、击弦比 $d/L$、衰减 $\tau_{\text{slow}}$ 与 1/2/3 弦物理分区（`Piano88KeyTable.h`）。
-- [x] **STFT 微初相色散矩阵**：内联 $3 \times 64$ 实测最优初始相位矩阵（`kOptPhaseTable`），消灭狄拉克脉冲式机械聚焦。
+- [x] **88 键连续参数模型**：以文献和固定模型参数建立刚度 $B$、击弦比 $d/L$、衰减 $\tau_{\text{slow}}$ 与 1/2/3 弦分区；`B` 后由 Task 39-2 更新为受控软件参考锚点及文献外推，不将软件输出认证为实琴逐键测量。
+- [x] **微初相色散矩阵**：内联 $3 \times 64$ 色散初始相位矩阵（`kOptPhaseTable`），消灭狄拉克脉冲式机械聚焦。
 - [x] **空气阻尼与琴桥峰**：引入空气黏性阻尼与 1.8kHz Bridge Hill 琴桥共振峰。
 
 ---
@@ -292,7 +293,7 @@
 
 - [x] **16 峰物理云杉木音板模态**：覆盖 48Hz~2250Hz 底箱呼吸、长琴桥耦合与各向异性散射模态。
 - [x] **琴桥立体声空间辐射**：88 键声像几何空间扩散，消灭单声道耳膜居中压迫感。
-- [x] **同音三弦独立振荡器拍频**：中高音区三弦独立微失谐与 STFT 空间初相。
+- [x] **同音三弦独立振荡器拍频**：中高音区三弦独立微失谐与预计算初相；没有可复核的 STFT 训练/最优性证明。
 
 ---
 
@@ -341,7 +342,7 @@
 
 状态：已完成（2026-08-23）。
 
-- [x] **泛音时间滞后膨胀与绽放（Harmonic Blooming）**：$n \ge 3$ 阶高次分音非线性能量泵浦与 $10\sim 25\text{ ms}$ 上升绽放。
+- [x] **泛音时间滞后膨胀与绽放（Harmonic Blooming）**：基于增强模态近似模型（非在线有限元或 PDE 数值求解），$n \ge 3$ 阶高次分音非线性能量泵浦与 $10\sim 25\text{ ms}$ 上升绽放。
 - [x] **琴槌接触微阻尼与脱离释放**：消灭 $t=0$ 正弦机械突兀开门感。
 - [x] **动态声场空间漫射**：从击打点声源在 $25\text{ ms}$ 内平滑漫射为音板面声源包围场。
 - [x] **确定性物理验证**：物理声学自动化测试覆盖动态空间漫射等关键行为，零失败。
@@ -408,9 +409,9 @@
 
 状态：已完成（2026-09-13）。
 
-- [x] **演奏者 / 听众双视角成像（PerspectiveProcessor）**：立体声像镜像反转、距离高频吸收与单声道下混能量守恒。
+- [x] **演奏者 / 听众双视角成像（PerspectiveProcessor）**：立体声像镜像反转与距离高频吸收；mono 消费处理后左右均值，不宣称任意相位下的功率守恒。
 - [x] **轻量数学算法房间混响网络（RoomReverbEngine）**：Studio、Chamber 与 Concert Hall 三大预设与干湿比调节。
-- [x] **设置面板集成与离线对齐**：WavFileExporter 挂载独立混响引擎，保证 1:1 比特级一致性。
+- [x] **设置面板集成与离线对齐**：WavFileExporter 挂载独立混响引擎，消费同一有效空间/干湿配置与快照时序；量化、初始化与第三方 offline 行为分别验证，不保证逐比特相同。
 
 ---
 

@@ -94,24 +94,24 @@ devpiano 在 `SettingsModel` 与 `AppState` 中维护全局调号：
 `MidiChannelMapper` 是贯穿输入与发声的核心服务：
 - **电脑键盘路径**：`KeyboardMidiMapper` 将 key code 转换为初始 `(channel, note, vel)` → 调用 `MidiChannelMapper::sendNoteOn` → 经矩阵变换后发送给 `juce::MidiKeyboardState`；
 - **UI 鼠标演奏路径**：`CustomKeyboard` 鼠标点击 → 调用 `MidiChannelMapper::sendNoteOn`；
-- **非 Note 消息透传**：CC、Pitch Wheel 等控制器消息由 `applyTransform()` 安全透传，不破坏控制流。
-
+- **非 Note 消息透传**：CC、Pitch Wheel 等控制器消息由 `applyTransform()` 安全透传，不破坏控制流；
+- **固定双层路由对接**：经矩阵映射与变换后的 MIDI 统一送入 `AudioEngine::liveMidiQueue`，并同时分发至固定双层系统（`InstrumentLayers`：内置物理建模钢琴层 + VST3 插件层），不受通道重映射影响两层的独立开关与增益配比。
 ---
 
 ## 6. 专项确定性测试清单
 
-单元测试位于 `source/tests/MidiChannelMapperTest.cpp`（隶属于 `DevPiano/Core` 测试套件）：
+单元测试位于 `source/tests/MidiChannelMapperTest.cpp`（隶属于 `DevPiano/Core` 测试套件）。状态列记录机制回归基线，不替代实际端点与硬件验证：
 
 | 测试用例 | 验证目标 | 状态 |
 |---|---|:---:|
-| `testDefaultPassThroughWithoutTranspose` | 验证默认矩阵且未启用移调时消息原样透传 | [x] 已通过 |
-| `testDefaultMatrixWithGlobalTranspose` | 验证默认矩阵开启移调时，旋律通道随调号平移，Ch10 打击乐通道旁路保持原音高 | [x] 已通过 |
-| `testOutputChannelRemap` | 验证通道输出重定向（如通道 0 映射至通道 9，输出通道为 10） | [x] 已通过 |
-| `testTransposeAndOctaveClamping` | 验证半音移调与八度偏移计算，以及 [0, 127] 音高边界严格钳位 | [x] 已通过 |
-| `testVelocityOverride` | 验证固定力度覆盖（!= 64 覆盖，== 64 保留原始力度） | [x] 已通过 |
-| `testFollowKeyWithGlobalTranspose` | 验证 followKey 开关对旋律与打击乐通道的调号跟随独立控制 | [x] 已通过 |
-| `testNoteOnOffSymmetry` | 验证 NoteOn 与 NoteOff 经矩阵变换后通道与音高严格对称 | [x] 已通过 |
-| `testNonNoteMessagesPassThrough` | 验证 CC、Pitch Wheel 等非 Note 消息完全原样透传 | [x] 已通过 |
-| `testOutOfRangeInputChannelClamps` | 验证非法越界输入通道（如 > 15）安全钳位至第 16 通道配置 | [x] 已通过 |
-| `testKeyboardStateReceivesTransformedNotes` | 验证 `sendNoteOn` 与 `sendNoteOff` 准确驱动 `MidiKeyboardState` 发声与释放 | [x] 已通过 |
-| `testMappedIdentitySurvivesMapperReplacement` | 验证发声中途替换 `MidiChannelMapper` 实例后持有的发音身份依然安全释放，杜绝悬挂音 | [x] 已通过 |
+| `testDefaultPassThroughWithoutTranspose` | 验证默认矩阵且未启用移调时消息原样透传 | [x] 单元测试基线 |
+| `testDefaultMatrixWithGlobalTranspose` | 验证默认矩阵开启移调时，旋律通道随调号平移，Ch10 打击乐通道旁路保持原音高 | [x] 单元测试基线 |
+| `testOutputChannelRemap` | 验证通道输出重定向（如通道 0 映射至通道 9，输出通道为 10） | [x] 单元测试基线 |
+| `testTransposeAndOctaveClamping` | 验证半音移调与八度偏移计算，以及 [0, 127] 音高边界严格钳位 | [x] 单元测试基线 |
+| `testVelocityOverride` | 验证固定力度覆盖（!= 64 覆盖，== 64 保留原始力度） | [x] 单元测试基线 |
+| `testFollowKeyWithGlobalTranspose` | 验证 followKey 开关对旋律与打击乐通道的调号跟随独立控制 | [x] 单元测试基线 |
+| `testNoteOnOffSymmetry` | 验证 NoteOn 与 NoteOff 经矩阵变换后通道与音高严格对称 | [x] 单元测试基线 |
+| `testNonNoteMessagesPassThrough` | 验证 CC、Pitch Wheel 等非 Note 消息完全原样透传 | [x] 单元测试基线 |
+| `testOutOfRangeInputChannelClamps` | 验证非法越界输入通道（如 > 15）安全钳位至第 16 通道配置 | [x] 单元测试基线 |
+| `testKeyboardStateReceivesTransformedNotes` | 验证 `sendNoteOn` 与 `sendNoteOff` 准确驱动 `MidiKeyboardState` 发声与释放 | [x] 单元测试基线 |
+| `testMappedIdentitySurvivesMapperReplacement` | 验证发声中途替换 `MidiChannelMapper` 实例后持有的发音身份依然安全释放，杜绝悬挂音 | [x] 单元测试基线 |

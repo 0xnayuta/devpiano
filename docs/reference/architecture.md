@@ -93,11 +93,11 @@ source/
 
 ### 3.1 应用入口与主装配层
 
-- **`source/Main.cpp`**：
+- **`source/Main.cpp` / `source/MainComponent.*`**：
   - `juce::JUCEApplication` 派生类入口；
   - 创建主桌面窗口，管理应用启动、单实例约束与正常退出序列；
   - **窗口与输入边界**：前台/焦点使用 JUCE 窗口生命周期；Windows 小键盘与 CapsLock 的物理身份由应用侧 `Win32NativeInputBridge` 在原生消息边界规范化，保留 Shift/Alt 身份并避让文字输入。不修改 JUCE 子模块或引入独立音频后端。
-  - **UI 树解析**：`initialiseUi()` 创建 `LayoutModel` 主窗口 ValueTree 并交由 `ViewHost` 封装的 `jive::Interpreter` 解释；`MainComponent::resized()` 更新宿主尺寸和状态文本截断，交由 FlexBox 计算全局排版。
+  - **UI 装配**：`MainComponent::initialiseUi()` 创建 `LayoutModel` 主窗口 ValueTree 并交由 `ViewHost` 解释；`MainComponent::resized()` 更新宿主尺寸和状态文本截断，声明式布局负责全局排版。
   - **规模与职责**：`MainComponent.cpp` 保持轻量装配职责，主体仅负责顶层装配、`initialiseUi()` 的 JIVE 树构建与回调接线、UI 状态同步及音频设备生命周期管理；子面板访问器拆入 `MainComponentJiveAccessors.cpp`，具体业务流程已下沉至各 domain controller（`RecordingSessionController` / `PluginOperationController` / `SettingsWindowManager` / `AppStateBuilder`）。
 
 ---
@@ -118,8 +118,8 @@ source/
 - **`source/Audio/PianoSynthVoice.h` / `source/Audio/Piano88KeyTable.h` / `source/Audio/HammerVoicing.h`**：
   - **自主研发、纯 C++ 增强模态物理建模钢琴音源**，默认发声引擎，不将参数化模态模型宣称为商业产品同等微观实现；
   - **7 大声学子系统**：覆盖琴槌（Hammer）、琴弦（String）、琴桥（Bridge）、音板（Soundboard）、琴体（Cabinet）、空气（Air）与空间（Room）；
-  - **88 键连续参数化模型**（`Piano88KeyTable.h`）：文献作为设计线索的固定锚点，连续插值刚度 $B$、击弦比 $d/L$、阻尼与弦组分区；不认证特定琴型逐键实测或相位训练最优性；
-  - **琴槌非线性打击与毛毡老化**：三层毛毡动力学压实、动态接触时间 $T_c$、击弦点几何梳状陷波、3ms 起音高频裂音（HF Crack）与琴槌毛毡微老化穿透力调节（`feltAgeingAmount`）；`HammerVoicing.h` 保存 41/70/98 三锚点的硬度/响度/滚降相对增量，按力度连续插值，不引入独立 DSP 分支；
+  - **88 键连续参数化模型**（`Piano88KeyTable.h`）：刚度 $B$ 使用受控软件参考锚点、段间对数插值及高音文献外推；击弦比 $d/L$、阻尼与弦组分区仍为固定模型参数。参考软件输出不等于实琴逐键测量，不认证全域校准或初相训练最优性；
+  - **琴槌非线性打击与毛毡老化**：三层毛毡动力学压实、动态接触时间 $T_c$、击弦点几何梳状陷波、3ms 起音高频裂音（HF Crack）与 `feltAgeingAmount`；`HammerVoicing.h` 在 41/70/98 三锚点间连续插值硬度/响度/滚降相对增量，出厂中性零偏移，不引入独立 DSP 分支。配置贯通设置、预设、Take 与实时/离线 Piano，不传给 Sine 或 VST3；
   - **琴弦非线性动力学与泛音抖动**：JOS PASP 刚性失谐、泛音刚度不谐和度抖动（`inharmonicityJitter` ±4.5%）、预计算独立初相与随高音失谐收敛的相差、同音三弦 Mid-Side 差分展开、低音纵波先驱声（$5100\text{ m/s}$）、泛音时间滞后膨胀绽放（Harmonic Blooming）与强击软饱和；生产路径按同音弦平均功率计算一个单音总尺度，同时作用于分音与击弦瞬态，不增加逐键补偿表或状态字段；
   - **共鸣与空间辐射**：长短琴桥交界补偿（G2/G#2）、16 峰正交云杉木物理音板模态、4.2kHz 云杉木高频截止、琴桥立体声空间辐射与动态声场空间漫射；
   - **微观机械动作拟真**：CC64 全局交感共鸣弦池、延音踏板下踏/抬起机械扫掠呼啸（Whoosh）与共鸣冲击（Resonance Shock，受 `pedalNoiseLevel` 调节）、未踩踏板单键开放弦交感、制音器落木闷击与琴键释放机械摩擦、离键速度动态 ADSR 阻尼缩放；
@@ -128,7 +128,7 @@ source/
   - **实时契约与性能认证边界**：递归/预计算保留产品自有路径零堆分配、零锁、零库函数三角。8 复音 CPU ≤0.7% 的长期目标与实测分别登记，不能用 Debug callback 时长比冒充数值认证；第三方 VST3 框架限制仍单列。直接声音/生命周期证据见当前迭代，完整契约见 [内置音源](features/builtin-piano-synthesis.md)。
 - **`source/Audio/PerspectiveProcessor.h`（空间声像视角处理器，Phase 31-A）**：
   - 纯数学立体声声像变换器，提供演奏者视角（Player，低音在左高音在右近场宽阔）与听众视角（Audience，声像镜像反转与中距声场凝聚）；
-  - 负责双声道立体声与单声道平滑下混，保证单声道求和能量守恒。
+  - 负责双声道视角变换；mono 消费者对处理后左右声道取均值，不将声压均值宣称为任意相位下的功率守恒。
 - **`source/Audio/RoomReverbEngine.h`（轻量数学算法房间混响网络，Phase 31-B）**：
   - 内置纯算法立体声混响引擎：每声道 8 组梳状滤波器与 4 级全通漫射滤波器构成 Schroeder-Moorer 网络；
   - 内置 Studio（0.6 s）、Chamber（1.5 s）与 Concert Hall（2.4 s）三大空间预设，平滑无级调节干湿比（`reverbWet`）。
@@ -238,7 +238,7 @@ source/
 - **`source/Layout/PerformancePreset.h/.cpp`**：
   - 仅当前 v2 UUID 数据模型、键位/矩阵、声学、显示与逐键配置；JSON 含调号字段，但普通激活不覆写应用全局调号。另存为生成新 UUID，重命名/自动保存保持身份；缺失身份拒绝，启动恢复只按 UUID 查找，不按旧名称迁移。
 - **`source/Layout/PresetFlowSupport.h/.cpp`**：
-  - 预设发现、新建（Save As New）、导入、重命名、删除与 F1-F12 快捷键切换，支持录制时注入 `presetChange` 事件并在回放时自动切调。
+  - 预设发现、新建（Save As New）、导入、重命名、删除与 F1-F12 快捷键切换；录制时注入内嵌 `presetChange` 快照，回放由音频线程按采样点执行声学/层参数，消息线程仅同步 UI，不再次变换已保存音符。
   - 启动恢复与选择使用统一激活提交；文件身份由入口显式提供，不从内置布局 ID 推断。重命名区分规范化同路径与独立已有目标，后者先确认；目标提交失败时回滚暂存源文件。
 
 ---
@@ -247,7 +247,7 @@ source/
 
 - **`source/Settings/SettingsModel.h`**：
   - 强类型设置数据模型：音频设备 XML、采样率、缓冲大小、ADSR、物理建模参数、插件路径、语言、最近文件列表等。
-  - 防抖快照完整复制节拍器、预备拍、击键动态/人性化字段；音频设备与插件缓存 XML 仍独立克隆。
+  - 防抖快照完整复制节拍器、预备拍、击键动态/人性化及 `HammerVoicing` 字段；音频设备与插件缓存 XML 仍独立克隆。
 - **`source/Settings/SettingsStore.h/.cpp`**：
   - 基于 `juce::ApplicationProperties` 与 XML 的设置存取。
   - 成功同步 `save()` 撤销此 store 较旧的待写快照；失败同步保存保留原待写任务，后续 `scheduleSave()` 仍可提交。timer 将 payload 移入局部所有权后保存，避免保存时清理自身 optional。插件恢复只读取 `lastPluginIdentifier`，不从旧名称或 XML 缓存推导身份；缓存与当前标识分别持久化。
@@ -256,7 +256,7 @@ source/
 - **`source/Settings/AppStateBuilder.h/.cpp`**：
   - 将持久化设置与运行时动态状态合并为完整的 `AppState` 快照。
 - **`source/Settings/jive/SettingsLayoutModel.h/.cpp`**：
-  - **声明式设置面板**：JIVE `juce::ValueTree` 声明 6 个设置卡片（音频设备、调号与通道跟随网格、键盘显示与语言、声学与调律物理控制、诊断日志、保存操作）；音频设备类型、输出、通道、采样率与缓冲大小由 JIVE ComboBox/Button 构建，并根据设备可用性更新。节拍器与击键动态参数虽由 `SettingsModel` 持久化，目前设置卡片中没有相应音量/击键动态控件。
+  - **声明式设置面板**：`juce::ValueTree` 声明音频设备、调号与通道跟随、键盘显示/分区/语言、声学与调律、固定双层、诊断日志六张卡片，另有保存操作行；设备类型、输出、通道、采样率与缓冲大小由声明式 ComboBox/Button 构建并按可用性更新。节拍器与击键动态参数虽由 `SettingsModel` 持久化，设置卡片没有相应音量/击键动态控件；三力度原始锚点也不新增 UI 控件。
 
 ---
 
@@ -329,36 +329,23 @@ source/
 
 ### 4.1 电脑键盘演奏链路
 
-```text
-[电脑键盘按键] (JUCE KeyPress / KeyListener)
-    │
-    ├── 0. 瞬态修饰键: PerformanceModifierState (Shift: 力度拉满 / Alt: 高八度)
-    ├── 1. 键位分组: KeyGroup (当前 Group A~D 的音高 / 通道偏移)
-    ├── 2. 动态力度: TypingCadenceEstimator + VelocityHumanizer (事件时变换，Shift 优先)
-    ├── 3. 发音身份快照: HeldKeyIdentity (松开时用按下时的音高 / 通道)
-    └── 4. 踏板策略: SustainPolicy (Space 键 Normal / Sync)
-    │
-    ▼
-KeyboardMidiMapper (生成 MIDI 消息；供消息线程生成 QwertyViewModel)
-    │
-    ▼
-AudioEngine::liveMidiQueue (经 MidiKeyboardState 消息线程 Listener 注入有界 SPSC 输入)
-    │
-    ▼
-AudioEngine::getNextAudioBlock() (音频回调线程)
-    ├── 收集有界 SPSC 物理输入，原子更新视觉位图 (MidiKeyboardState 移至消息线程 dispatchPendingDisplayEvents)
-    ├── SyncPedalProcessor (块内按采样点排序 CC64(0) -> NoteOn -> CC64(127))
-    ├── RecordingEngine::recordMidiBufferBlock() (录制时写入预分配事件队列)
-    ├── RecordingEngine::renderPlaybackBlock() (回放、Seek、A-B 循环边界)
-    ├── 发声处理 (resolveInstrumentEndpoint() 无锁选择):
-    │    ├── [已就绪 VST3 插件] ──► AudioPluginInstance::processBlock()
-    │    └── [内置乐器端点] ─────► PianoSynthVoice / SineSynthVoice
-    │                                  ├── TemperamentEngine (古典微律与 A4 换算)
-    │                                  ├── 7 大声学系统与机械瞬态
-    │                                  └── PerspectiveProcessor (演奏者 / 听众视角)
-    ├── RoomReverbEngine (后级房间混响)
-    ├── MetronomeProcessor::processAndMix() (采样级强弱拍；UI 读取原子节拍序号)
-    └── Master Gain + limiter ──► JUCE AudioDeviceManager ──► [音频输出]
+```mermaid
+flowchart TD
+    Keys["物理按键 / 鼠标配置输入"] --> Mapper["KeyboardMidiMapper<br/>区域 → Group → modifier → 矩阵/跟随调号<br/>静音优先；锁定最终 NoteOn/Off 身份"]
+    Mapper --> Queue["有界 SPSC 实时输入"]
+    Queue --> Callback["AudioEngine::getNextAudioBlock<br/>块入口命令、SyncPedal、捕获与回放事件合并"]
+    Take["RecordingEngine<br/>最终 MIDI + 内嵌声学/层快照"] --> Callback
+    Callback --> Segment["按快照采样点分段<br/>同采样先提交快照再处理其后音符"]
+    Segment --> Instrument{"固定 Instrument 路由"}
+    Instrument --> Single["单层：当前 VST3 或内置 Piano/Sine"]
+    Instrument --> Dual["固定双层：Piano + 当前单 VST3<br/>独立缓冲、层增益、Piano 采样延迟对齐"]
+    Single --> Room["一次公共 RoomReverbEngine"]
+    Dual --> Room
+    Room --> Channels["mono 取处理后 L/R 均值；stereo 保留"]
+    Channels --> Metro["混入采样级节拍器"]
+    Metro --> Master["Master Gain → limiter"]
+    Master --> Output["JUCE AudioDeviceManager 输出"]
+    Mapper -. "消息线程只读投影" .-> Map["QwertyViewModel → QWERTY / 钢琴看板"]
 ```
 
 ---
@@ -385,32 +372,22 @@ AudioEngine::getNextAudioBlock() (音频回调线程)
 
 ### 4.3 演奏录制、回放与离线导出链路
 
-```text
-[录制]
-用户点击 Record ──► RecordingSessionController (可选节拍器预备拍)
-    └── RecordingEngine::startRecording() (预分配事件容量)
-音频回调实时采样 ──► recordMidiBufferBlock() ──► 填充 RecordingTake.events
-用户点击 Stop   ──► RecordingEngine::stopRecording() ──► 产出 Take 快照
-
-[持久化]
-用户点击 Save   ──► savePerformanceFile() (当前 v4 JSON + 同目录 TemporaryFile 事务替换)
-用户点击 Open   ──► loadPerformanceFile() + loadPerformanceFileMetadata() ──► 成功后整体提交会话并开始回放
-
-[回放与跟练]
-TimelineBar ──► RecordingSessionController (Take-relative Seek / A/B 标记)
-    └── RecordingEngine + AbLoopEngine ──► AudioEngine::getNextAudioBlock()
-         └── 跳转/回跳注销旧发音，恢复目标通道状态后消费目的事件；暂停/恢复保持 Take 时间轴
-
-[离线导出 WAV]
-用户点击 Export WAV ──► WavExportTask::startAsync() (现代化非阻塞异步任务启动)
-    │
-    ├── JiveModalDialog::makeProgressLayout (弹出声明式暗黑进度条浮层)
-    ├── RenderPipeline (统一时间戳缩放、排序与 panic 注入)
-    ├── renderTakeThroughInstrumentEndpoint() (同构乐器端点路由):
-    │    ├── [有插件] ──► PluginOfflineRenderer (独立离线实例非实时渲染)
-    │    └── [无插件] ──► 内置 Piano / Sine 渲染（由选定音源及 Take 快照决定）
-    ├── RoomReverbEngine + Master (共享宿主参数和采样级快照语义，不承诺逐比特输出一致)
-    └── WAV writer 关闭后事务替换目标；失败/提交前取消只清理任务临时文件，实际 worker 退出后通知完成
+```mermaid
+flowchart TD
+    Record["Record / 可选完整预备拍"] --> Capture["RecordingEngine<br/>采样点捕获最终 MIDI 与内嵌快照"]
+    Capture --> Take["RecordingTake"]
+    Take --> Save["savePerformanceFile<br/>当前整数 v4；同目录事务替换"]
+    Open["loadPerformanceFile + 元数据读取<br/>完整准入后整体提交会话"] --> Take
+    Take --> Playback["RecordingEngine + AbLoopEngine<br/>Seek/回跳先清旧音、恢复通道状态<br/>不重新移调已保存音符"]
+    Playback --> Audio["AudioEngine 实时分段渲染"]
+    Take --> Task["WavExportTask::startAsync<br/>进度与协作取消"]
+    Task --> Timeline["RenderPipeline::prepareRenderTimeline<br/>时间缩放、稳定排序、快照及 panic"]
+    Timeline --> Route{"renderTakeThroughInstrumentEndpoint"}
+    Route --> Builtin["内置 Piano/Sine<br/>共享声学快照初始化"]
+    Route --> Plugin["独立非实时插件实例<br/>VST3 单层或固定 Piano + VST3<br/>层增益与采样延迟对齐"]
+    Builtin --> Room["一次 Room → Master Gain<br/>需要时 mono 均值 → limiter"]
+    Plugin --> Room
+    Room --> Commit["WAV writer 关闭后事务替换<br/>失败/提交前取消保留原目标"]
 ```
 
 ---

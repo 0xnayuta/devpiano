@@ -14,9 +14,9 @@
 
 1. **实际使用面高度收敛 vs 引入包袱过重**：
    - 经源码级审计，devpiano 仅使用了 JIVE 的 5 个顶层核心概念（`Interpreter`、`GuiItem`、`Object`、`FlexContainer`、`ComponentFactory`），构建上早已完全排除 `jive_components`。
-   - JIVE 仓库总计 24,591 行代码，当前引入构建的模块代码超 20,000 行，其中 **>75% 为项目从未使用的冗余抽象**（如未用的 Grid、XML 解释器、内置未用 Widget 装饰器、文件轮询监听器及性能脚手架）。
+   - 外部模块引入了大量项目未消费的通用抽象，包括未用控件、XML 解释器、文件轮询与性能脚手架；维护整个上游模块超出了项目实际使用面。CSS Grid 的真实消费者另按下方核心闭包保留。
 2. **上游断代（JIVE v2）不兼容且不可用**：
-   - JIVE 上游存在独立的 `origin/v2` 重构分支（241 个文件变更、+14,517 / -8,572 行），彻底破坏了原有模块结构、选择器机制与属性映射。直接升级至 v2 将导致 devpiano 既有的 `StyleCatalog` 与 Accessors 全面崩溃。
+   - JIVE 上游独立的 `origin/v2` 重构分支改变了模块结构、选择器机制与属性映射；直接升级需要重做既有 `StyleCatalog` 与 Accessors 适配，不能当作无缝依赖更新。
 3. **JUCE 9.0.1 升级阻断**：
    - JUCE 9 在 UI 层引入重大破坏性变更（`Drawable` 剥离 `Component` 继承链、`Font` 字符串宽度与度量 API 弃用、SVG 解析基于 `lunasvg` 重构）。
    - JIVE 内部代码深度触发上述编译错误。若继续保持外部 Git Submodule 形式，开发团队将无法在自身代码库内直接修补适配，导致 JUCE 大版本升级陷入死锁。
@@ -46,7 +46,7 @@
 1. **注销并移除 `submodules/JIVE` Git 子模块**：
    - 彻底摆脱对外部 JIVE 仓库分支迭代的被动依赖，终结上游架构断代与破坏性变更风险。
 2. **提取最小必要依赖闭包，内化为 `devpiano::ui` 核心基础设施**：
-   - 将 JIVE main 分支中经过严密调用链验证的 **最小闭包代码（约 3,800 行）** 精准提取至 `source/UI/jive/core/`，作为项目内生源码统一维护。
+   - 将 JIVE main 分支中经过严密调用链验证的 **最小闭包代码** 精准提取至 `source/UI/jive/core/`，作为项目内生源码统一维护。
    - **保留并内化的核心资产（KEEP & CORE）**：
      - Core 核心：`Interpreter`、`GuiItem`、`GuiItemDecorator`、`CommonGuiItem`、`Property`、`Object`、`ComponentFactory`、`Event`、`Timer`。
      - Layout 核心：`BoxModel`、`Geometry`、`FlexContainer`、`FlexItem`、`GridContainer`、`GridItem`、`LayoutStrategy`、`Overflow`。
@@ -60,7 +60,7 @@
      - `FontUtilities`：全量收敛至 `juce::FontOptions`。
      - `StyleSelector`：保持极简的 ID 与基础伪类匹配，杜绝 v2 复杂的 AST 选择器树。
      - `Drawable` 包装：适配 JUCE 9 `juce::DrawableComponent` 包装规范。
-   - **坚决剔除（REMOVE，>15,000 LOC）**：
+   - **坚决剔除（REMOVE，大量未用代码）**：
      - 剔除未用控件：`Knob`、`Spinner`、`Hyperlink`、`ImageComponent`、JIVE 原生 `Window` 与 `PluginEditor`。
      - 剔除冗余系统：`XMLParser`、`FileObserver`（项目已有 `StyleBootstrap`）、JIVE 原生 `LookAndFeel`、`Bezier` 算法库。
      - 剔除诊断脚手架：`Melatonin Perfetto`、`IndentedLogger`、`StringStreams`、`ConsoleProgressBar`。

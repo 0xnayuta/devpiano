@@ -16,13 +16,13 @@
   - Windows Release：`build-win-msvc-release`
 - **默认同步方向**：WSL -> Windows
 - **不同步内容**：`.git`、IDE 私有缓存、构建目录、CMake 缓存、MSVC 中间产物/二进制产物。
-  具体排除的目录和文件由 `tools/sync-to-win.ps1` 中的 `$excludeDirPaths` 和 `$excludeFiles` 控制，当前包括：
+  具体排除的目录和文件由 `tools/sync-to-win.ps1` 中的 `$excludeDirNames`、`$excludeSourceDirs`、`$excludeMirrorDirs` 与 `$excludeFiles` 控制，当前包括：
 
   **排除的目录（源端 + 镜像端）**
   - `.git`、`.vs`、`.idea`、`.vscode`
   - `build`、`build-*`、`out`、`bin`、`obj`、`CMakeFiles`
   - `.cache`、`__pycache__`
-  - 镜像端：`build-win-msvc`、`build-win-msvc-release`
+  - 镜像端：`build-win-msvc`、`build-win-msvc-release`、`dist`
 
   **排除的文件**
   - `CMakeCache.txt`、`compile_commands.json`
@@ -140,7 +140,7 @@ WSL 主工作树只负责源码编辑和 clangd 编译数据库；不要在此�
 # 只做同步，不触发 Windows 构建
 ./scripts/build_msvc_from_wsl.sh --sync-only
 
-# 重新执行 Windows configure（删除 CMakeCache.txt / CMakeFiles）
+# 重新执行 Windows configure（删除 CMakeCache.txt / CMakeFiles，保留 Ninja 缓存）
 ./scripts/build_msvc_from_wsl.sh --reconfigure
 
 # 清空整个 Windows 构建目录后重建
@@ -169,7 +169,7 @@ WSL 主工作树只负责源码编辑和 clangd 编译数据库；不要在此�
 # 人工预检（只读，不删除）
 bash scripts/win_clean_guard.sh /mnt/g/source/projects/devpiano build-win-msvc
 
-# 行为测试（隔离临时目录；18 个用例覆盖放行、路径逃逸、符号链接、证据目录与未知条目）
+# 行为测试（隔离临时目录；覆盖放行、路径逃逸、符号链接、证据目录与未知条目等用例，零失败）
 bash scripts/tests/win_clean_guard_test.sh
 ```
 
