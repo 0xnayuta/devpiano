@@ -17,6 +17,26 @@ constexpr auto warmupSeconds = 0.025;
 constexpr auto playbackStartPreRollSeconds = 0.025;
 // 音频回调缓冲区的最小通道预分配余量：覆盖立体声、多输出与空间/环绕插件。
 constexpr auto minInstrumentBufferChannels = 32;
+
+std::array<float, 12> hammerVoicingToValues(const devpiano::audio::HammerVoicing& voicing) noexcept {
+    std::array<float, 12> values {};
+    for (std::size_t i = 0; i < voicing.anchors.size(); ++i) {
+        const auto& anchor = voicing.anchors[i];
+        values[i * 4] = anchor.midiVelocity;
+        values[i * 4 + 1] = anchor.hardnessDelta;
+        values[i * 4 + 2] = anchor.loudnessDeltaDb;
+        values[i * 4 + 3] = anchor.rolloffDelta;
+    }
+    return values;
+}
+
+devpiano::audio::HammerVoicing hammerVoicingFromValues(const std::array<float, 12>& values) noexcept {
+    devpiano::audio::HammerVoicing voicing;
+    for (std::size_t i = 0; i < voicing.anchors.size(); ++i) {
+        voicing.anchors[i] = { values[i * 4], values[i * 4 + 1], values[i * 4 + 2], values[i * 4 + 3] };
+    }
+    return voicing;
+}
 } // namespace
 
 int AudioEngine::calculateWarmupBlockCount(double sampleRate, int blockSize) noexcept {
@@ -37,6 +57,10 @@ int AudioEngine::calculatePlaybackStartPreRollBlockCount(double sampleRate, int 
 }
 
 AudioEngine::AudioEngine() {
+    const auto voicingValues = hammerVoicingToValues(devpiano::audio::kCalibratedHammerVoicing);
+    for (std::size_t i = 0; i < voicingValues.size(); ++i) {
+        pendingHammerVoicingValues[i].store(voicingValues[i], std::memory_order_relaxed);
+    }
     keyboardState.addListener(this);
     presetBoundaries.reserve(2);
     rebuildSynth();
@@ -483,6 +507,39 @@ void AudioEngine::setPianoParameters(float brightness, float hammerHardness, flo
     pendingParameterMask.fetch_or(pianoParameter, std::memory_order_release);
 }
 
+bool AudioEngine::setHammerVoicing(const devpiano::audio::HammerVoicing& voicing) noexcept {
+    if (!devpiano::audio::isValidHammerVoicing(voicing)) {
+        return false;
+    }
+    const auto values = hammerVoicingToValues(voicing);
+    const auto sequence = pendingHammerVoicingSequence.load(std::memory_order_relaxed);
+    pendingHammerVoicingSequence.store(sequence + 1, std::memory_order_release);
+    for (std::size_t i = 0; i < values.size(); ++i) {
+        pendingHammerVoicingValues[i].store(values[i], std::memory_order_relaxed);
+    }
+    pendingHammerVoicingSequence.store(sequence + 2, std::memory_order_release);
+    pendingParameterMask.fetch_or(hammerVoicingParameter, std::memory_order_release);
+    return true;
+}
+
+devpiano::audio::HammerVoicing AudioEngine::getHammerVoicing() const noexcept {
+    for (;;) {
+        const auto before = pendingHammerVoicingSequence.load(std::memory_order_acquire);
+        if ((before & 1U) != 0) {
+            continue;
+        }
+        std::array<float, 12> values {};
+        for (std::size_t i = 0; i < values.size(); ++i) {
+            values[i] = pendingHammerVoicingValues[i].load(std::memory_order_relaxed);
+        }
+        std::atomic_thread_fence(std::memory_order_acquire);
+        const auto after = pendingHammerVoicingSequence.load(std::memory_order_relaxed);
+        if (before == after && (after & 1U) == 0) {
+            return hammerVoicingFromValues(values);
+        }
+    }
+}
+
 void AudioEngine::setPianoTuning(bool stretchTuningEnabled, float duplexResonance) {
     pendingStretchTuningEnabled.store(stretchTuningEnabled, std::memory_order_relaxed);
     pendingDuplexResonance.store(juce::jlimit(0.0f, 1.0f, duplexResonance), std::memory_order_relaxed);
@@ -600,6 +657,7 @@ devpiano::audio::AcousticSnapshot AudioEngine::captureAcousticSnapshot() const n
                       pendingSustain.load(std::memory_order_relaxed), pendingRelease.load(std::memory_order_relaxed) };
     snapshot.brightness = pendingBrightness.load(std::memory_order_relaxed);
     snapshot.hammerHardness = pendingHammerHardness.load(std::memory_order_relaxed);
+    snapshot.hammerVoicing = getHammerVoicing();
     snapshot.resonance = pendingResonance.load(std::memory_order_relaxed);
     snapshot.lidPosition = pendingLidPosition.load(std::memory_order_relaxed);
     snapshot.temperament = static_cast<Temperament>(pendingTemperament.load(std::memory_order_relaxed));
@@ -636,6 +694,9 @@ void AudioEngine::applyPendingParametersIfNeeded() {
         snapshot.brightness = pending.brightness;
         snapshot.hammerHardness = pending.hammerHardness;
         snapshot.resonance = pending.resonance;
+    }
+    if ((mask & hammerVoicingParameter) != 0) {
+        snapshot.hammerVoicing = pending.hammerVoicing;
     }
     if ((mask & toneParameter) != 0) {
         snapshot.builtinTone = pending.builtinTone;

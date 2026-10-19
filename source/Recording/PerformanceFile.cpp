@@ -1,5 +1,6 @@
 #include "PerformanceFile.h"
 
+#include "../Audio/HammerVoicingSerialization.h"
 #include "../Audio/PerspectiveProcessor.h"
 #include "../Audio/RoomReverbEngine.h"
 #include "../Audio/TemperamentEngine.h"
@@ -347,6 +348,7 @@ juce::var acousticSnapshotToVar(const audio::AcousticSnapshot& ac) {
 
     obj->setProperty("brightness", ac.brightness);
     obj->setProperty("hammerHardness", ac.hammerHardness);
+    obj->setProperty("hammerVoicing", audio::hammerVoicingToVar(ac.hammerVoicing));
     obj->setProperty("resonance", ac.resonance);
     obj->setProperty("lidPosition", static_cast<int>(ac.lidPosition));
 
@@ -421,6 +423,12 @@ audio::AcousticSnapshot varToAcousticSnapshot(const juce::var& v) {
     }
     if (obj->hasProperty("hammerHardness")) {
         ac.hammerHardness = juce::jlimit(0.0f, 1.0f, static_cast<float>(obj->getProperty("hammerHardness")));
+    }
+    if (obj->hasProperty("hammerVoicing")) {
+        auto voicing = ac.hammerVoicing;
+        if (audio::hammerVoicingFromVar(obj->getProperty("hammerVoicing"), voicing)) {
+            ac.hammerVoicing = voicing;
+        }
     }
     if (obj->hasProperty("resonance")) {
         ac.resonance = juce::jlimit(0.0f, 1.0f, static_cast<float>(obj->getProperty("resonance")));
@@ -530,6 +538,12 @@ std::optional<RecordedPreset> varToRecordedPreset(const juce::var& v) {
     };
     for (const auto* key : numericFields) {
         if (!finiteNumber(ac->getProperty(key))) {
+            return std::nullopt;
+        }
+    }
+    if (ac->hasProperty("hammerVoicing")) {
+        auto voicing = audio::kCalibratedHammerVoicing;
+        if (!audio::hammerVoicingFromVar(ac->getProperty("hammerVoicing"), voicing)) {
             return std::nullopt;
         }
     }

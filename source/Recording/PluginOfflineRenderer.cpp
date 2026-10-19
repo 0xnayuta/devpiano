@@ -138,6 +138,7 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
     devpiano::audio::BuiltinSynthesiser* activeSynth = nullptr;
     devpiano::audio::BoundedStereoDelayLine pianoDelayLine;
     const int reportedLatency = offlinePlugin.getLatencySamples();
+    DP_LOG_INFO("[PluginOfflineRenderer] Reported plugin latency: " + juce::String(reportedLatency) + " samples");
     const int safeLatency = devpiano::audio::sanitizePluginLatency(reportedLatency);
     const int delayCapacity = devpiano::audio::calculateDelayCapacity(reportedLatency);
     pianoDelayLine.prepare(delayCapacity, 2);

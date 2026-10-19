@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../Audio/HammerVoicing.h"
 #include "../Audio/InstrumentLayers.h"
 #include "../Audio/RoomReverbEngine.h"
 #include "../Audio/TemperamentEngine.h"
@@ -20,6 +21,7 @@ struct WavExportOptions {
     SettingsModel::BuiltinTone builtinTone = SettingsModel::BuiltinTone::piano;
     float pianoBrightness = 0.5f;
     float pianoHammerHardness = 0.5f;
+    devpiano::audio::HammerVoicing hammerVoicing = devpiano::audio::kCalibratedHammerVoicing;
     float pianoResonance = 0.5f;
     // Historical temperaments and reference pitch (Phase 30, export parity)
     devpiano::audio::Temperament temperament = devpiano::audio::Temperament::equal;

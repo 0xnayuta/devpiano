@@ -54,6 +54,9 @@ public:
     void setMasterGain(float newGain);
     void setAdsr(float attackSeconds, float decaySeconds, float sustainLevel, float releaseSeconds);
     void setPianoParameters(float brightness, float hammerHardness, float resonance);
+    /// 三力度整音。非法配置不写入并返回 false；音频线程通过无锁序号快照读取。
+    [[nodiscard]] bool setHammerVoicing(const devpiano::audio::HammerVoicing& voicing) noexcept;
+    [[nodiscard]] devpiano::audio::HammerVoicing getHammerVoicing() const noexcept;
     void setPianoTuning(bool stretchTuningEnabled, float duplexResonance);
     [[nodiscard]] bool isStretchTuningEnabled() const noexcept {
         return pendingStretchTuningEnabled.load(std::memory_order_relaxed);
@@ -286,6 +289,11 @@ private:
     std::atomic<BuiltinSynthTone> builtinTone { BuiltinSynthTone::piano };
     std::atomic<float> pendingBrightness { 0.5f };
     std::atomic<float> pendingHammerHardness { 0.5f };
+    // 12 个浮点 = 3 个锚点 x (velocity, hardness, loudness, rolloff)。
+    // 写入方用序号锁发布完整结构，音频线程不分配、不加锁。
+    std::array<std::atomic<float>, 12> pendingHammerVoicingValues { 41.0f, -0.20f, -4.75f, 1.2f,  70.0f, 0.30f,
+                                                                    -0.6f, 1.5f,   98.0f,  0.30f, 2.5f,  0.0f };
+    std::atomic<std::uint32_t> pendingHammerVoicingSequence { 0 };
     std::atomic<float> pendingResonance { 0.5f };
     std::atomic<bool> pendingStretchTuningEnabled { true };
     std::atomic<float> pendingDuplexResonance { 0.15f };
@@ -312,7 +320,8 @@ private:
         transposeParameter = 1U << 12,
         tuningParameter = 1U << 13,
         layersParameter = 1U << 14,
-        allParameters = (1U << 15) - 1,
+        hammerVoicingParameter = 1U << 15,
+        allParameters = (1U << 16) - 1,
     };
     std::atomic<bool> pendingLayersEnabled { false };
     std::atomic<bool> pendingPianoEnabled { true };

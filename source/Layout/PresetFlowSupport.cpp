@@ -149,6 +149,7 @@ void PresetFlowSupport::applyRecordedPresetUi(const devpiano::recording::Recorde
     s.builtinTone = static_cast<SettingsModel::BuiltinTone>(acoustic.builtinTone);
     s.pianoBrightness = acoustic.brightness;
     s.pianoHammerHardness = acoustic.hammerHardness;
+    s.hammerVoicing = acoustic.hammerVoicing;
     s.pianoResonance = acoustic.resonance;
     s.lidPosition = static_cast<SettingsModel::LidPosition>(acoustic.lidPosition);
     s.touchVelocityCurve = preset.touchVelocityCurve;
@@ -199,8 +200,10 @@ void PresetFlowSupport::commitPreset(const PerformancePreset& preset, bool fileB
     // 4. Acoustics
     s.pianoBrightness = juce::jlimit(0.0f, 1.0f, preset.brightness);
     s.pianoHammerHardness = juce::jlimit(0.0f, 1.0f, preset.hammerHardness);
+    s.hammerVoicing = preset.hammerVoicing;
     s.pianoResonance = juce::jlimit(0.0f, 1.0f, preset.resonance);
     owner.audioEngine.setPianoParameters(s.pianoBrightness, s.pianoHammerHardness, s.pianoResonance);
+    (void)owner.audioEngine.setHammerVoicing(s.hammerVoicing);
     s.stretchTuningEnabled = preset.stretchTuningEnabled;
     s.duplexResonance = juce::jlimit(0.0f, 1.0f, preset.duplexResonance);
     owner.audioEngine.setPianoTuning(s.stretchTuningEnabled, s.duplexResonance);
@@ -254,6 +257,7 @@ PerformancePreset PresetFlowSupport::captureCurrentState(const juce::String& nam
     preset.customKeyColours = owner.appSettings.keyboardDisplay.customKeyColours;
     preset.brightness = owner.appSettings.pianoBrightness;
     preset.hammerHardness = owner.appSettings.pianoHammerHardness;
+    preset.hammerVoicing = owner.appSettings.hammerVoicing;
     preset.resonance = owner.appSettings.pianoResonance;
     preset.stretchTuningEnabled = owner.appSettings.stretchTuningEnabled;
     preset.duplexResonance = owner.appSettings.duplexResonance;

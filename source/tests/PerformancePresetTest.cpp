@@ -1,5 +1,6 @@
 #include <JuceHeader.h>
 
+#include "Audio/HammerVoicing.h"
 #include "Input/KeyboardMidiMapper.h"
 #include "Layout/PerformancePreset.h"
 #include "TestHelpers.h"
@@ -57,6 +58,8 @@ PerformancePreset makeFullPreset() {
     p.layers.pluginEnabled = false;
     p.layers.pianoGain = 0.8f;
     p.layers.pluginGain = 0.4f;
+    p.hammerVoicing.anchors[0].loudnessDeltaDb = -6.0f;
+    p.hammerVoicing.anchors[1].rolloffDelta = 0.75f;
     return p;
 }
 
@@ -104,6 +107,7 @@ void expectPresetsEqual(juce::UnitTest& ut, const PerformancePreset& a, const Pe
     ut.expectEquals(static_cast<int>(a.noteDisplay), static_cast<int>(b.noteDisplay));
     ut.expectWithinAbsoluteError(a.fadeSpeed, b.fadeSpeed, 0.0001f);
     ut.expectWithinAbsoluteError(a.previewAlpha, b.previewAlpha, 0.0001f);
+    ut.expect(devpiano::audio::isSameHammerVoicing(a.hammerVoicing, b.hammerVoicing), "hammer voicing must round-trip");
 
     for (int i = 0; i < 128; ++i) {
         ut.expectEquals(a.customKeyLabels[static_cast<std::size_t>(i)], b.customKeyLabels[static_cast<std::size_t>(i)]);
@@ -282,6 +286,16 @@ public:
                 expect(rawSaved.contains(R"("trigger": "keyDown")"), "Saved JSON must serialize keyDown trigger");
             }
         });
+        testCase("loadPreset rejects malformed hammer voicing without rewriting the file", [&] {
+            devpiano::test::ScopedTempDir tempDir("preset-bad-voicing");
+            auto path = tempDir.getChildFile("bad-voicing.devpiano.preset");
+            path.replaceWithText(
+                R"({ "version": 2, "uuid": "33333333-4444-5555-6666-777777777777", "name": "BadVoicing", "acoustics": { "hammerVoicing": { "anchors": [ { "velocity": 41.0, "hardnessDelta": 0.0, "loudnessDeltaDb": 0.0, "rolloffDelta": 0.0 } ] } } })");
+            const auto before = path.loadFileAsString();
+            expect(!loadPreset(path).has_value(), "malformed hammer voicing must be rejected");
+            expectEquals(path.loadFileAsString(), before, "rejected preset file must remain intact");
+        });
+
         testCase("display name strips the preset extension", [&] {
             expectEquals(getPresetDisplayNameForFile(juce::File("/tmp/My Song.devpiano.preset")),
                          juce::String("My Song"));

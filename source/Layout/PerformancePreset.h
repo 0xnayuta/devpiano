@@ -28,6 +28,7 @@ struct PerformancePreset {
     // Acoustic settings
     float brightness = 0.5f;
     float hammerHardness = 0.5f;
+    devpiano::audio::HammerVoicing hammerVoicing = devpiano::audio::kCalibratedHammerVoicing;
     float resonance = 0.5f;
     SettingsModel::LidPosition lidPosition = SettingsModel::LidPosition::fullOpen;
     devpiano::input::TouchVelocityCurve touchVelocityCurve = devpiano::input::TouchVelocityCurve::standard;

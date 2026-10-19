@@ -1,4 +1,5 @@
 #include "SettingsStore.h"
+#include "Audio/HammerVoicingSerialization.h"
 #include "Settings/SettingsSerialization.h"
 
 #include "Diagnostics/Log.h"
@@ -16,6 +17,7 @@ const char* kKeyR = "adsrRelease";
 const char* kKeyBuiltinTone = "builtinTone";
 const char* kKeyPianoBrightness = "pianoBrightness";
 const char* kKeyPianoHammerHardness = "pianoHammerHardness";
+const char* kKeyHammerVoicing = "hammerVoicing";
 const char* kKeyPianoResonance = "pianoResonance";
 const char* kKeyPluginSearchPath = "pluginSearchPath";
 const char* kKeyLastPluginIdentifier = "lastPluginIdentifier";
@@ -72,6 +74,16 @@ const char* kKeyPartitionMode = "keyboardPartitionMode";
 }
 
 void readPerformanceSettings(juce::PropertiesFile& file, SettingsModel& model) {
+    auto hammerVoicing = devpiano::audio::kCalibratedHammerVoicing;
+    if (const auto encoded = file.getValue(kKeyHammerVoicing); encoded.isNotEmpty()) {
+        juce::var parsed;
+        if (juce::JSON::parse(encoded, parsed).wasOk()) {
+            auto candidate = hammerVoicing;
+            if (devpiano::audio::hammerVoicingFromVar(parsed, candidate)) {
+                hammerVoicing = candidate;
+            }
+        }
+    }
     auto performance = SettingsModel::
         PerformanceSettingsView { .masterGain = static_cast<float>(file.getDoubleValue(kKeyGain, model.masterGain)),
                                   .adsrAttack = static_cast<float>(file.getDoubleValue(kKeyA, model.adsrAttack)),
@@ -84,6 +96,7 @@ void readPerformanceSettings(juce::PropertiesFile& file, SettingsModel& model) {
                                   = static_cast<float>(file.getDoubleValue(kKeyPianoBrightness, model.pianoBrightness)),
                                   .pianoHammerHardness = static_cast<float>(
                                       file.getDoubleValue(kKeyPianoHammerHardness, model.pianoHammerHardness)),
+                                  .hammerVoicing = hammerVoicing,
                                   .pianoResonance
                                   = static_cast<float>(file.getDoubleValue(kKeyPianoResonance, model.pianoResonance)),
                                   .lidPosition = static_cast<SettingsModel::LidPosition>(juce::jlimit(
@@ -388,6 +401,7 @@ bool SettingsStore::writeNow(const SettingsModel& m) {
     f.setValue(kKeyBuiltinTone, static_cast<int>(m.builtinTone));
     f.setValue(kKeyPianoBrightness, m.pianoBrightness);
     f.setValue(kKeyPianoHammerHardness, m.pianoHammerHardness);
+    f.setValue(kKeyHammerVoicing, juce::JSON::toString(devpiano::audio::hammerVoicingToVar(m.hammerVoicing), false));
     f.setValue(kKeyPianoResonance, m.pianoResonance);
     f.setValue(kKeyPianoLidPosition, static_cast<int>(m.lidPosition));
     f.setValue(kKeyTouchVelocityCurve, static_cast<int>(m.touchVelocityCurve));

@@ -2,6 +2,7 @@
 
 #include "Audio/AudioDeviceDiagnostics.h"
 #include "Audio/AudioEngine.h"
+#include "Audio/HammerVoicing.h"
 #include "Audio/PianoSynthVoice.h"
 #include "Recording/RecordingEngine.h"
 
@@ -1010,3 +1011,35 @@ public:
 };
 
 static AudioDeviceDiagnosticsLinuxTest audioDeviceDiagnosticsLinuxTest;
+
+// =============================================================================
+
+class AudioEngineHammerVoicingTest final : public juce::UnitTest {
+public:
+    AudioEngineHammerVoicingTest()
+        : juce::UnitTest("AudioEngine: hammer voicing publication", "DevPiano/Engine") {
+    }
+
+    void runTest() override {
+        beginTest("valid voicing is published to snapshot and invalid voicing is rejected atomically");
+        {
+            AudioEngine engine;
+            auto voicing = devpiano::audio::kCalibratedHammerVoicing;
+            voicing.anchors[0].loudnessDeltaDb = -7.5f;
+            voicing.anchors[2].rolloffDelta = 0.5f;
+            expect(engine.setHammerVoicing(voicing), "valid voicing must be accepted");
+            expect(devpiano::audio::isSameHammerVoicing(engine.getHammerVoicing(), voicing),
+                   "getter must return the published voicing");
+            expect(devpiano::audio::isSameHammerVoicing(engine.captureAcousticSnapshot().hammerVoicing, voicing),
+                   "capture must include the published voicing");
+
+            auto invalid = voicing;
+            invalid.anchors[0].midiVelocity = 200.0f;
+            expect(!engine.setHammerVoicing(invalid), "invalid voicing must be rejected");
+            expect(devpiano::audio::isSameHammerVoicing(engine.getHammerVoicing(), voicing),
+                   "rejected voicing must not overwrite the last valid value");
+        }
+    }
+};
+
+static AudioEngineHammerVoicingTest audioEngineHammerVoicingTest;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Core/AppState.h"
+#include "HammerVoicing.h"
 #include "InstrumentLayers.h"
 #include "PerspectiveProcessor.h"
 #include "RoomReverbEngine.h"
@@ -16,6 +17,7 @@ struct AcousticSnapshot {
     juce::ADSR::Parameters adsr { 0.01f, 0.2f, 0.8f, 0.3f };
     float brightness = 0.5f;
     float hammerHardness = 0.5f;
+    HammerVoicing hammerVoicing = kCalibratedHammerVoicing;
     float resonance = 0.5f;
     std::uint8_t lidPosition = 0;
     Temperament temperament = Temperament::equal;

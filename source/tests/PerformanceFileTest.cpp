@@ -1,5 +1,6 @@
 #include <JuceHeader.h>
 
+#include "Audio/HammerVoicing.h"
 #include "Recording/PerformanceFile.h"
 #include "Recording/RecordingEngine.h"
 #include "Recording/RecordingSessionController.h"
@@ -22,6 +23,7 @@ devpiano::recording::RecordedPreset makeTestRecordedPreset(const juce::String& n
     rp.preset.uuid = juce::Uuid().toDashedString();
     rp.acoustic.masterGain = 0.85f;
     rp.acoustic.reverbWet = 0.25f;
+    rp.acoustic.hammerVoicing.anchors[1].hardnessDelta = 0.12f;
     return rp;
 }
 
@@ -95,6 +97,9 @@ public:
                 expectEquals(loaded->presets[0].preset.uuid, take.presets[0].preset.uuid);
                 expectWithinAbsoluteError(loaded->presets[0].acoustic.masterGain, take.presets[0].acoustic.masterGain,
                                           0.001f);
+                expect(devpiano::audio::isSameHammerVoicing(loaded->presets[0].acoustic.hammerVoicing,
+                                                            take.presets[0].acoustic.hammerVoicing),
+                       "hammer voicing must round-trip through the take snapshot");
             }
 
             const auto loadedMeta = loadPerformanceFileMetadata(target);
@@ -435,6 +440,26 @@ public:
                         entry->removeProperty("acoustic");
                         expect(!deserialiseTakeFromJson(juce::JSON::toString(missingSnapshot)).has_value(),
                                "A missing executable snapshot must not silently become default piano");
+                    }
+                }
+            }
+
+            auto invalidVoicing = juce::JSON::parse(snapshotJson);
+            auto* invalidRoot = invalidVoicing.getDynamicObject();
+            expect(invalidRoot != nullptr);
+            if (invalidRoot != nullptr) {
+                auto* table = invalidRoot->getProperty("presets").getArray();
+                if (table != nullptr && table->size() == 1) {
+                    auto* entry = table->getReference(0).getDynamicObject();
+                    auto* acoustic = entry != nullptr ? entry->getProperty("acoustic").getDynamicObject() : nullptr;
+                    if (acoustic != nullptr) {
+                        auto* voicing = new juce::DynamicObject();
+                        juce::Array<juce::var> anchors;
+                        anchors.add(juce::var(new juce::DynamicObject()));
+                        voicing->setProperty("anchors", juce::var(anchors));
+                        acoustic->setProperty("hammerVoicing", juce::var(voicing));
+                        expect(!deserialiseTakeFromJson(juce::JSON::toString(invalidVoicing)).has_value(),
+                               "malformed hammer voicing must reject the complete take");
                     }
                 }
             }

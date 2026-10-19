@@ -1,5 +1,6 @@
 #include <JuceHeader.h>
 
+#include "Audio/HammerVoicing.h"
 #include "Input/KeyboardMidiMapper.h"
 #include "Settings/SettingsModel.h"
 #include "Settings/SettingsStore.h"
@@ -30,6 +31,8 @@ SettingsModel makePopulatedModel() {
     m.builtinTone = SettingsModel::BuiltinTone::piano;
     m.pianoBrightness = 0.70f;
     m.pianoHammerHardness = 0.35f;
+    m.hammerVoicing.anchors[0].hardnessDelta = -0.10f;
+    m.hammerVoicing.anchors[2].loudnessDeltaDb = 4.25f;
     m.pianoResonance = 0.90f;
     m.keySignature = 5;
     m.midiTranspose = true;
@@ -105,6 +108,10 @@ public:
                          "builtin tone must round-trip");
             expectWithinAbsoluteError(loaded.pianoBrightness, 0.70f, 0.0001f);
             expectWithinAbsoluteError(loaded.pianoHammerHardness, 0.35f, 0.0001f);
+            expect(devpiano::audio::isSameHammerVoicing(loaded.hammerVoicing, original.hammerVoicing),
+                   "hammer voicing must round-trip");
+            expectWithinAbsoluteError(loaded.hammerVoicing.anchors[0].hardnessDelta, -0.10f, 0.0001f);
+            expectWithinAbsoluteError(loaded.hammerVoicing.anchors[2].loudnessDeltaDb, 4.25f, 0.0001f);
             expectWithinAbsoluteError(loaded.pianoResonance, 0.90f, 0.0001f);
             expectEquals(loaded.keySignature, 5);
             expect(loaded.midiTranspose, "midiTranspose must round-trip");

@@ -1,5 +1,6 @@
 #include "Layout/PerformancePreset.h"
 
+#include "../Audio/HammerVoicingSerialization.h"
 #include "../Audio/PerspectiveProcessor.h"
 #include "../Audio/RoomReverbEngine.h"
 #include "Diagnostics/Log.h"
@@ -290,6 +291,7 @@ juce::var performancePresetToVar(const PerformancePreset& preset) {
         juce::DynamicObject::Ptr aco = new juce::DynamicObject();
         aco->setProperty("brightness", preset.brightness);
         aco->setProperty("hammerHardness", preset.hammerHardness);
+        aco->setProperty("hammerVoicing", devpiano::audio::hammerVoicingToVar(preset.hammerVoicing));
         aco->setProperty("resonance", preset.resonance);
         aco->setProperty("lidPosition", static_cast<int>(preset.lidPosition));
         aco->setProperty("touchVelocityCurve", static_cast<int>(preset.touchVelocityCurve));
@@ -469,6 +471,14 @@ std::optional<PerformancePreset> performancePresetFromVar(const juce::var& v) {
                 if (std::isfinite(val)) {
                     preset.hammerHardness = juce::jlimit(0.0f, 1.0f, static_cast<float>(val));
                 }
+            }
+            if (aco->hasProperty("hammerVoicing")) {
+                auto voicing = preset.hammerVoicing;
+                if (!devpiano::audio::hammerVoicingFromVar(aco->getProperty("hammerVoicing"), voicing)) {
+                    DP_LOG_ERROR("[Preset] admission rejected: invalid hammer voicing");
+                    return std::nullopt;
+                }
+                preset.hammerVoicing = voicing;
             }
             if (aco->hasProperty("resonance")) {
                 const auto val = static_cast<double>(aco->getProperty("resonance"));

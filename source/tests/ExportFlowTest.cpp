@@ -1,10 +1,12 @@
 #include <JuceHeader.h>
 
 #include "Audio/AudioEngine.h"
+#include "Audio/HammerVoicing.h"
 
 #include "Export/ExportFlowSupport.h"
 #include "Export/WavExportTask.h"
 #include "Recording/MidiFileExporter.h"
+#include "Recording/RecordedPreset.h"
 #include "Recording/RecordingEngine.h"
 #include "Recording/RenderPipeline.h"
 #include "Recording/WavFileExporter.h"
@@ -75,6 +77,98 @@ public:
             const auto options = buildWavExportOptions(take, perf, 44100.0, 0);
             expectEquals(options.blockSize, 1);
             expectEquals(buildWavExportOptions(take, perf, 44100.0, 512).blockSize, 512);
+        });
+
+        testCase("take preset acoustic snapshot overrides current export options", [&] {
+            devpiano::test::ScopedTempDir tempDir("wav-take-voicing");
+            RecordingTake take;
+            take.sampleRate = 48000.0;
+            take.lengthSamples = 24000;
+            take.events.push_back(
+                { 0, PerformanceEventType::presetChange, 0, RecordingEventSource::computerKeyboard, {} });
+            take.events.push_back({ 0, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
+                                    juce::MidiMessage::noteOn(1, 60, 0.5f) });
+            take.events.push_back({ 24000, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
+                                    juce::MidiMessage::noteOff(1, 60) });
+
+            devpiano::recording::RecordedPreset snapshot;
+            snapshot.preset = devpiano::layout::makeDefaultPreset();
+            take.presets.push_back(snapshot);
+
+            WavExportOptions options;
+            options.sampleRate = 48000.0;
+            options.blockSize = 512;
+            options.bitsPerSample = 16;
+            options.adsr = { 0.001f, 0.2f, 0.8f, 0.3f };
+
+            const auto render = [&](const juce::String& fileName, const devpiano::audio::HammerVoicing& voicing) {
+                auto localized = take;
+                localized.presets[0].acoustic.hammerVoicing = voicing;
+                const auto file = tempDir.getChildFile(fileName);
+                if (!exportTakeAsWavFile(localized, file, options)) {
+                    return 0.0f;
+                }
+                juce::WavAudioFormat wavFormat;
+                std::unique_ptr<juce::AudioFormatReader> reader(
+                    wavFormat.createReaderFor(file.createInputStream().release(), true));
+                if (reader == nullptr || reader->lengthInSamples < 12000) {
+                    return 0.0f;
+                }
+                juce::AudioBuffer<float> buffer(2, 8000);
+                reader->read(&buffer, 0, 8000, 2400, true, true);
+                return buffer.getRMSLevel(0, 0, 8000);
+            };
+
+            const auto calibrated = render("take-calibrated.wav", devpiano::audio::kCalibratedHammerVoicing);
+            auto boosted = devpiano::audio::kCalibratedHammerVoicing;
+            for (auto& anchor : boosted.anchors) {
+                anchor.loudnessDeltaDb += 6.0f;
+            }
+            const auto boostedRms = render("take-boosted.wav", boosted);
+            expectGreaterThan(calibrated, 0.0f, "calibrated take snapshot must render audio");
+            expectGreaterThan(boostedRms, calibrated * 1.5f,
+                              "take preset snapshot must override current export options");
+        });
+
+        testCase("hammer voicing changes built-in WAV output", [&] {
+            devpiano::test::ScopedTempDir tempDir("wav-hammer-voicing");
+            RecordingTake take;
+            take.sampleRate = 48000.0;
+            take.lengthSamples = 24000;
+            take.events.push_back({ 0, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
+                                    juce::MidiMessage::noteOn(1, 60, 70.0f / 127.0f) });
+            take.events.push_back({ 24000, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
+                                    juce::MidiMessage::noteOff(1, 60) });
+
+            const auto renderRms
+                = [&](const juce::String& fileName, const devpiano::audio::HammerVoicing& voicing) -> float {
+                WavExportOptions options;
+                options.sampleRate = 48000.0;
+                options.blockSize = 512;
+                options.bitsPerSample = 24;
+                options.adsr = { 0.001f, 0.2f, 0.8f, 0.3f };
+                options.hammerVoicing = voicing;
+                const auto file = tempDir.getChildFile(fileName);
+                if (!exportTakeAsWavFile(take, file, options)) {
+                    return 0.0f;
+                }
+                juce::WavAudioFormat wavFormat;
+                std::unique_ptr<juce::AudioFormatReader> reader(
+                    wavFormat.createReaderFor(file.createInputStream().release(), true));
+                if (reader == nullptr || reader->lengthInSamples < 10000) {
+                    return 0.0f;
+                }
+                juce::AudioBuffer<float> buffer(2, 4800);
+                reader->read(&buffer, 0, 4800, 4800, true, true);
+                return buffer.getRMSLevel(0, 0, 4800);
+            };
+
+            const auto calibrated = renderRms("calibrated.wav", devpiano::audio::kCalibratedHammerVoicing);
+            auto boosted = devpiano::audio::kCalibratedHammerVoicing;
+            boosted.anchors[1].loudnessDeltaDb += 6.0f;
+            const auto boostedRms = renderRms("boosted.wav", boosted);
+            expectGreaterThan(calibrated, 0.0f, "calibrated export must contain audio");
+            expectGreaterThan(boostedRms, calibrated * 1.5f, "exported WAV must honor the Forte anchor gain");
         });
 
         testCase("reference pitch in export options is clamped to 400..480 Hz range", [&] {
