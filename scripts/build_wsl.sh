@@ -52,12 +52,19 @@ EOF
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
+cd "${ROOT_DIR}"
 CONFIGURE_ONLY=0
 RECONFIGURE=0
 CLEAN=0
 USE_RELEASE=0
 NO_CONFIGURE=0
+CCACHE_EXPLICIT=0
 USE_CCACHE="${DEVPIANO_USE_CCACHE:-}"
+
+case "${USE_CCACHE}" in
+  ""|"0"|"1") ;;
+  *) fail "DEVPIANO_USE_CCACHE must be 0 or 1 (got '${USE_CCACHE}')" ;;
+esac
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -81,9 +88,11 @@ while [[ $# -gt 0 ]]; do
       ;;
     --ccache)
       USE_CCACHE=1
+      CCACHE_EXPLICIT=1
       ;;
     --no-ccache)
       USE_CCACHE=0
+      CCACHE_EXPLICIT=1
       ;;
     -h|--help)
       usage
@@ -96,15 +105,77 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
+resolve_build_dir_from_presets() {
+  local configure_preset="$1"
+  local build_preset="$2"
+  command -v python3 >/dev/null 2>&1 \
+    || fail 'python3 not found; required to resolve CMake preset binaryDir'
+
+  python3 - "${ROOT_DIR}" "${configure_preset}" "${build_preset}" <<'PY'
+import json
+import pathlib
+import sys
+
+root = pathlib.Path(sys.argv[1]).resolve()
+configure_name = sys.argv[2]
+build_name = sys.argv[3]
+configure_presets = {}
+build_presets = {}
+
+for file_name in ("CMakePresets.json", "CMakeUserPresets.json"):
+    preset_file = root / file_name
+    if not preset_file.is_file():
+        continue
+    try:
+        data = json.loads(preset_file.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise SystemExit(f"cannot read {preset_file}: {exc}")
+    for preset in data.get("configurePresets") or []:
+        if isinstance(preset, dict) and preset.get("name"):
+            configure_presets[preset["name"]] = preset
+    for preset in data.get("buildPresets") or []:
+        if isinstance(preset, dict) and preset.get("name"):
+            build_presets[preset["name"]] = preset
+
+if configure_name not in configure_presets:
+    raise SystemExit(f"configure preset not found: {configure_name}")
+if build_name not in build_presets:
+    raise SystemExit(f"build preset not found: {build_name}")
+
+build_preset = build_presets[build_name]
+configure_from_build = build_preset.get("configurePreset")
+if configure_from_build and configure_from_build != configure_name:
+    raise SystemExit(
+        f"build preset '{build_name}' uses configure preset "
+        f"'{configure_from_build}', not '{configure_name}'"
+    )
+
+configure_preset = configure_presets[configure_name]
+binary_dir = configure_preset.get("binaryDir")
+if not binary_dir:
+    raise SystemExit(f"configure preset '{configure_name}' has no binaryDir")
+binary_dir = binary_dir.replace("${sourceDir}", str(root))
+build_dir = pathlib.Path(binary_dir)
+if not build_dir.is_absolute():
+    build_dir = root / build_dir
+print(build_dir.resolve())
+PY
+}
+
 if [[ "${USE_RELEASE}" == "1" ]]; then
   BUILD_PRESET="${CMAKE_BUILD_PRESET:-linux-clang-release}"
   CONFIGURE_PRESET="${CMAKE_CONFIGURE_PRESET:-linux-clang-release}"
-  BUILD_DIR="${ROOT_DIR}/build-wsl-clang-release"
 else
   BUILD_PRESET="${CMAKE_BUILD_PRESET:-linux-clang-debug}"
   CONFIGURE_PRESET="${CMAKE_CONFIGURE_PRESET:-linux-clang-debug}"
-  BUILD_DIR="${ROOT_DIR}/build-wsl-clang"
 fi
+
+BUILD_DIR="$(resolve_build_dir_from_presets "${CONFIGURE_PRESET}" "${BUILD_PRESET}")" \
+  || fail "failed to resolve build directory for preset '${CONFIGURE_PRESET}'"
+case "${BUILD_DIR}" in
+  "${ROOT_DIR}"/*) ;;
+  *) fail "resolved build directory is outside the repository: ${BUILD_DIR}" ;;
+esac
 
 if [[ "${CONFIGURE_ONLY}" == "1" && "${CLEAN}" == "1" ]]; then
   warn 'configure-only + clean requested'
@@ -115,8 +186,12 @@ if [[ "${NO_CONFIGURE}" == "1" ]]; then
     || fail '--no-configure cannot be combined with --configure-only'
   [[ "${RECONFIGURE}" != "1" && "${CLEAN}" != "1" ]] \
     || fail '--no-configure cannot be combined with --reconfigure or --clean'
-  [[ -z "${USE_CCACHE}" ]] \
+  [[ "${CCACHE_EXPLICIT}" != "1" ]] \
     || fail '--ccache/--no-ccache require a configure step'
+  if [[ "${USE_CCACHE}" == "1" ]]; then
+    warn 'DEVPIANO_USE_CCACHE is ignored with --no-configure'
+  fi
+  USE_CCACHE=""
   [[ -f "${BUILD_DIR}/build.ninja" ]] \
     || fail "missing ${BUILD_DIR}/build.ninja; run configure first"
 fi

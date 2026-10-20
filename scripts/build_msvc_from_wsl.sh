@@ -122,12 +122,67 @@ done
 if [[ "${USE_RELEASE}" == "1" ]]; then
   BUILD_PRESET="${WINDOWS_CMAKE_BUILD_PRESET:-windows-msvc-release}"
   CONFIGURE_PRESET="${WINDOWS_CMAKE_CONFIGURE_PRESET:-windows-msvc-release}"
-  WIN_BUILD_DIR_NAME="build-win-msvc-release"
 else
   BUILD_PRESET="${WINDOWS_CMAKE_BUILD_PRESET:-windows-msvc-debug}"
   CONFIGURE_PRESET="${WINDOWS_CMAKE_CONFIGURE_PRESET:-windows-msvc-debug}"
-  WIN_BUILD_DIR_NAME="build-win-msvc"
 fi
+
+resolve_windows_build_dir_name() {
+  local configure_preset="$1"
+  local build_preset="$2"
+  command -v python3 >/dev/null 2>&1 \
+    || fail 'python3 not found; required to resolve CMake preset binaryDir'
+
+  python3 - "${ROOT_DIR}" "${configure_preset}" "${build_preset}" <<'PY'
+import json
+import pathlib
+import sys
+
+root = pathlib.Path(sys.argv[1]).resolve()
+configure_name = sys.argv[2]
+build_name = sys.argv[3]
+configure_presets = {}
+build_presets = {}
+for file_name in ("CMakePresets.json", "CMakeUserPresets.json"):
+    preset_file = root / file_name
+    if not preset_file.is_file():
+        continue
+    try:
+        data = json.loads(preset_file.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise SystemExit(f"cannot read {preset_file}: {exc}")
+    for preset in data.get("configurePresets") or []:
+        if isinstance(preset, dict) and preset.get("name"):
+            configure_presets[preset["name"]] = preset
+    for preset in data.get("buildPresets") or []:
+        if isinstance(preset, dict) and preset.get("name"):
+            build_presets[preset["name"]] = preset
+
+if configure_name not in configure_presets:
+    raise SystemExit(f"configure preset not found: {configure_name}")
+if build_name not in build_presets:
+    raise SystemExit(f"build preset not found: {build_name}")
+build_preset = build_presets[build_name]
+configure_from_build = build_preset.get("configurePreset")
+if configure_from_build and configure_from_build != configure_name:
+    raise SystemExit(
+        f"build preset '{build_name}' uses configure preset "
+        f"'{configure_from_build}', not '{configure_name}'"
+    )
+binary_dir = configure_presets[configure_name].get("binaryDir")
+if not binary_dir:
+    raise SystemExit(f"configure preset '{configure_name}' has no binaryDir")
+binary_dir = binary_dir.replace("${sourceDir}", str(root))
+print(pathlib.Path(binary_dir).name)
+PY
+}
+
+WIN_BUILD_DIR_NAME="$(resolve_windows_build_dir_name "${CONFIGURE_PRESET}" "${BUILD_PRESET}")" \
+  || fail "failed to resolve Windows build directory for preset '${CONFIGURE_PRESET}'"
+case "${WIN_BUILD_DIR_NAME}" in
+  build-win-msvc|build-win-msvc-release|build-win-msvc-*) ;;
+  *) fail "unexpected Windows build directory name: ${WIN_BUILD_DIR_NAME}" ;;
+esac
 
 if [[ "${SYNC_ONLY}" == "1" && ( "${RECONFIGURE}" == "1" || "${CLEAN_WIN_BUILD}" == "1" ) ]]; then
   fail '--sync-only cannot be combined with --reconfigure or --clean-win-build'
@@ -141,11 +196,37 @@ if [[ "${NO_CONFIGURE}" == "1" && ( "${SYNC_ONLY}" == "1" || "${RECONFIGURE}" ==
   fail '--no-configure cannot be combined with --sync-only, --reconfigure or --clean-win-build'
 fi
 
-resolve_windows_powershell() {
-  local candidates=()
+if [[ "${SYNC_ONLY}" == "1" && "${SKIP_SYNC}" == "1" ]]; then
+  fail '--sync-only cannot be combined with --no-sync'
+fi
 
+if [[ "${SKIP_SYNC}" == "1" && ( "${FULL_SYNC}" == "1" || "${FAST_TIMES}" == "1" ) ]]; then
+  fail '--full and --fast-times require sync; remove --no-sync'
+fi
+
+normalize_windows_mirror_dir() {
+  local value="$1"
+  if [[ "${value}" == /* ]]; then
+    wslpath -w -- "${value}"
+  else
+    printf '%s\n' "${value}"
+  fi
+}
+
+resolve_windows_powershell() {
   if [[ -n "${WINDOWS_PWSH_EXE:-}" ]]; then
-    candidates+=("${WINDOWS_PWSH_EXE}")
+    local override="${WINDOWS_PWSH_EXE}"
+    if [[ "${override}" == [A-Za-z]:* ]]; then
+      override="$(wslpath -u "${override}" 2>/dev/null)" \
+        || fail "WINDOWS_PWSH_EXE cannot be translated from Windows path: ${WINDOWS_PWSH_EXE}"
+    elif [[ "${override}" != */* ]]; then
+      override="$(command -v "${override}" 2>/dev/null)" \
+        || fail "WINDOWS_PWSH_EXE not found in PATH: ${WINDOWS_PWSH_EXE}"
+    fi
+    [[ -x "${override}" ]] \
+      || fail "WINDOWS_PWSH_EXE is not executable: ${override}"
+    printf '%s\n' "${override}"
+    return 0
   fi
 
   if command -v pwsh.exe >/dev/null 2>&1; then
@@ -158,13 +239,10 @@ resolve_windows_powershell() {
     return 0
   fi
 
-  candidates+=(
-    "/mnt/c/Program Files/PowerShell/7/pwsh.exe"
-    "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"
-  )
-
   local candidate
-  for candidate in "${candidates[@]}"; do
+  for candidate in \
+    "/mnt/c/Program Files/PowerShell/7/pwsh.exe" \
+    "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"; do
     if [[ -x "${candidate}" ]]; then
       printf '%s\n' "${candidate}"
       return 0
@@ -174,8 +252,15 @@ resolve_windows_powershell() {
   return 1
 }
 
-WINDOWS_POWERSHELL="$(resolve_windows_powershell)" || fail 'No Windows PowerShell executable found. Set WINDOWS_PWSH_EXE, or ensure pwsh.exe / powershell.exe is callable from WSL.'
 command -v wslpath >/dev/null 2>&1 || fail 'wslpath not found in PATH'
+WIN_MIRROR_DIR_VALUE="$(normalize_windows_mirror_dir "${WIN_MIRROR_DIR_VALUE}")" \
+  || fail "cannot normalize WIN_MIRROR_DIR: ${WIN_MIRROR_DIR_VALUE}"
+case "${WIN_MIRROR_DIR_VALUE}" in
+  [A-Za-z]:\\*|[A-Za-z]:/*) ;;
+  *) fail "WIN_MIRROR_DIR must be a Windows path or a /mnt/... path: ${WIN_MIRROR_DIR_VALUE}" ;;
+esac
+
+WINDOWS_POWERSHELL="$(resolve_windows_powershell)" || fail 'No Windows PowerShell executable found. Set WINDOWS_PWSH_EXE, or ensure pwsh.exe / powershell.exe is callable from WSL.'
 [[ -f "${PS_BUILD_SCRIPT}" ]] || fail "missing PowerShell script: ${PS_BUILD_SCRIPT}"
 
 if [[ "${SKIP_SYNC}" != "1" ]]; then
@@ -198,7 +283,21 @@ if [[ "${SYNC_ONLY}" == "1" ]]; then
 fi
 
 WIN_MIRROR_DIR_WSL="$(wslpath -u "${WIN_MIRROR_DIR_VALUE}")"
-WIN_BUILD_DIR_WSL="${WIN_MIRROR_DIR_WSL%/}/${WIN_BUILD_DIR_NAME}"
+WIN_MIRROR_DIR_WSL="$(realpath -m -- "${WIN_MIRROR_DIR_WSL}")" \
+  || fail "cannot resolve Windows mirror path: ${WIN_MIRROR_DIR_VALUE}"
+case "${WIN_MIRROR_DIR_WSL}" in
+  /mnt/[a-zA-Z]/*) ;;
+  *) fail "mirror path is not under a Windows-mounted drive: ${WIN_MIRROR_DIR_WSL}" ;;
+esac
+WIN_BUILD_DIR_WSL="$(realpath -m -- "${WIN_MIRROR_DIR_WSL}/${WIN_BUILD_DIR_NAME}")" \
+  || fail "cannot resolve Windows build directory: ${WIN_BUILD_DIR_NAME}"
+[[ "$(dirname -- "${WIN_BUILD_DIR_WSL}")" == "${WIN_MIRROR_DIR_WSL}" ]] \
+  || fail "Windows build directory is not a direct child of the mirror: ${WIN_BUILD_DIR_WSL}"
+[[ ! -L "${WIN_BUILD_DIR_WSL}" ]] \
+  || fail "Windows build directory is a symlink: ${WIN_BUILD_DIR_WSL}"
+if [[ ! -f "${WIN_MIRROR_DIR_WSL}/CMakeLists.txt" || ! -d "${WIN_MIRROR_DIR_WSL}/source" ]]; then
+  fail "Windows mirror does not look like a devpiano checkout: ${WIN_MIRROR_DIR_WSL}"
+fi
 WIN_PS_BUILD_SCRIPT="$(wslpath -w "${PS_BUILD_SCRIPT}")"
 
 if [[ "${CLEAN_WIN_BUILD}" == "1" ]]; then
@@ -215,8 +314,10 @@ if [[ "${CLEAN_WIN_BUILD}" == "1" ]]; then
 fi
 
 if [[ "${RECONFIGURE}" == "1" ]]; then
-  [[ -n "${WIN_MIRROR_DIR_WSL}" && "${WIN_MIRROR_DIR_WSL}" != "/" ]] ||
-    fail "refusing to touch CMake cache: invalid mirror path '${WIN_MIRROR_DIR_WSL}'"
+  [[ -f "${GUARD_SCRIPT}" ]] || fail "missing clean-build guard script: ${GUARD_SCRIPT}"
+  if ! bash "${GUARD_SCRIPT}" "${WIN_MIRROR_DIR_WSL}" "${WIN_BUILD_DIR_NAME}"; then
+    fail 'refusing to touch the Windows CMake cache (guard diagnostics above)'
+  fi
   log "removing Windows CMake cache: ${WIN_BUILD_DIR_WSL}/CMakeCache.txt"
   rm -f -- "${WIN_BUILD_DIR_WSL}/CMakeCache.txt"
   rm -rf -- "${WIN_BUILD_DIR_WSL}/CMakeFiles"
