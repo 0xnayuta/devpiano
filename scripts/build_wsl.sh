@@ -40,7 +40,7 @@ Usage: ./scripts/build_wsl.sh [options]
 
 Options:
   --release         Use linux-clang-release preset (default: linux-clang-debug)
-  --configure-only  Only run CMake configure, do not build
+  --configure-only  Configure and generate JuceHeader.h, do not build the app
   --reconfigure     Remove WSL CMake cache before configure/build
   --clean           Delete the entire WSL build directory before configure/build
   --no-configure    Skip the explicit configure step and reuse build.ninja
