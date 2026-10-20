@@ -27,6 +27,90 @@ function Write-Log {
     Write-Host "[build-windows] $Message"
 }
 
+function Get-PresetList {
+    param(
+        [object]$Data,
+        [string]$PropertyName
+    )
+    if ($null -eq $Data) { return @() }
+    $property = $Data.PSObject.Properties[$PropertyName]
+    if ($null -eq $property) { return @() }
+    return @($property.Value)
+}
+
+function Get-PresetBuildDirectory {
+    param(
+        [string]$MirrorDir,
+        [string]$ConfigurePresetName,
+        [string]$BuildPresetName
+    )
+
+    $configurePresets = @{}
+    $buildPresets = @{}
+    foreach ($fileName in @('CMakePresets.json', 'CMakeUserPresets.json')) {
+        $presetFile = Join-Path $MirrorDir $fileName
+        if (-not (Test-Path -LiteralPath $presetFile -PathType Leaf)) { continue }
+        try {
+            $data = Get-Content -LiteralPath $presetFile -Raw | ConvertFrom-Json
+        } catch {
+            throw "Failed to read CMake preset file: $presetFile"
+        }
+        foreach ($preset in (Get-PresetList -Data $data -PropertyName 'configurePresets')) {
+            if ($null -ne $preset -and $preset.PSObject.Properties['name']) {
+                $configurePresets[[string]$preset.name] = $preset
+            }
+        }
+        foreach ($preset in (Get-PresetList -Data $data -PropertyName 'buildPresets')) {
+            if ($null -ne $preset -and $preset.PSObject.Properties['name']) {
+                $buildPresets[[string]$preset.name] = $preset
+            }
+        }
+    }
+
+    if (-not $configurePresets.ContainsKey($ConfigurePresetName)) {
+        throw "Configure preset not found in CMake presets: $ConfigurePresetName"
+    }
+    if (-not $buildPresets.ContainsKey($BuildPresetName)) {
+        throw "Build preset not found in CMake presets: $BuildPresetName"
+    }
+
+    $buildPreset = $buildPresets[$BuildPresetName]
+    $configureFromBuild = [string]$buildPreset.configurePreset
+    if ($configureFromBuild -and $configureFromBuild -ne $ConfigurePresetName) {
+        throw "Build preset '$BuildPresetName' uses configure preset '$configureFromBuild', not '$ConfigurePresetName'."
+    }
+
+    $configurePreset = $configurePresets[$ConfigurePresetName]
+    $binaryDir = [string]$configurePreset.binaryDir
+    if (-not $binaryDir) {
+        throw "Configure preset '$ConfigurePresetName' has no binaryDir."
+    }
+    $binaryDir = $binaryDir.Replace('${sourceDir}', $MirrorDir)
+    if (-not [System.IO.Path]::IsPathRooted($binaryDir)) {
+        $binaryDir = Join-Path $MirrorDir $binaryDir
+    }
+    $resolvedBuildDir = [System.IO.Path]::GetFullPath($binaryDir).TrimEnd('\')
+    $mirrorRoot = [System.IO.Path]::GetFullPath($MirrorDir).TrimEnd('\')
+    if ($resolvedBuildDir -eq $mirrorRoot -or
+        -not $resolvedBuildDir.StartsWith($mirrorRoot + '\', [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "Resolved build directory is outside the Windows mirror: $resolvedBuildDir"
+    }
+
+    $buildType = ''
+    $cacheVariables = $configurePreset.PSObject.Properties['cacheVariables']
+    if ($null -ne $cacheVariables -and $null -ne $cacheVariables.Value) {
+        $buildTypeProperty = $cacheVariables.Value.PSObject.Properties['CMAKE_BUILD_TYPE']
+        if ($null -ne $buildTypeProperty) {
+            $buildType = [string]$buildTypeProperty.Value
+        }
+    }
+
+    return [pscustomobject]@{
+        BuildDir  = $resolvedBuildDir
+        BuildType = $buildType
+    }
+}
+
 function Resolve-VsInstance {
     param(
         [string]$ExplicitInstallPath,
@@ -114,12 +198,44 @@ Enter-DeveloperPowerShell -InstallationPath $installationPath -InstanceId $vsIns
 
 Push-Location $MirrorDir
 try {
+    $presetBuild = Get-PresetBuildDirectory -MirrorDir $MirrorDir `
+        -ConfigurePresetName $ConfigurePreset -BuildPresetName $BuildPreset
+    $resolvedBuildDir = [string]$presetBuild.BuildDir
+    Write-Log "resolved build directory: $resolvedBuildDir"
+
     if ($SkipConfigure) {
-        $buildDirName = if ($BuildPreset -match 'release') { 'build-win-msvc-release' } else { 'build-win-msvc' }
-        $buildNinja = Join-Path (Join-Path $MirrorDir $buildDirName) 'build.ninja'
-        if (-not (Test-Path $buildNinja)) {
+        $buildNinja = Join-Path $resolvedBuildDir 'build.ninja'
+        $cmakeCache = Join-Path $resolvedBuildDir 'CMakeCache.txt'
+        if (-not (Test-Path -LiteralPath $buildNinja -PathType Leaf)) {
             throw "SkipConfigure requested but build.ninja was not found: $buildNinja"
         }
+        if (-not (Test-Path -LiteralPath $cmakeCache -PathType Leaf)) {
+            throw "SkipConfigure requested but CMakeCache.txt was not found: $cmakeCache"
+        }
+
+        $cacheText = Get-Content -LiteralPath $cmakeCache -Raw
+        if ($cacheText -notmatch '(?m)^CMAKE_GENERATOR:INTERNAL=Ninja\s*$') {
+            throw "SkipConfigure requested but the cached generator is not Ninja: $cmakeCache"
+        }
+        $homeMatch = [regex]::Match($cacheText, '(?m)^CMAKE_HOME_DIRECTORY:INTERNAL=(.+)$')
+        if ($homeMatch.Success) {
+            $cacheHome = [System.IO.Path]::GetFullPath($homeMatch.Groups[1].Value.Trim()).TrimEnd('\')
+            $mirrorRoot = [System.IO.Path]::GetFullPath($MirrorDir).TrimEnd('\')
+            if (-not [string]::Equals($cacheHome, $mirrorRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+                throw "SkipConfigure requested but CMakeCache.txt belongs to another source tree: $cacheHome"
+            }
+        }
+        if ($presetBuild.BuildType) {
+            $buildTypeMatch = [regex]::Match(
+                $cacheText,
+                '(?m)^CMAKE_BUILD_TYPE:STRING=(.+)$'
+            )
+            if ($buildTypeMatch.Success -and
+                $buildTypeMatch.Groups[1].Value.Trim() -ne $presetBuild.BuildType) {
+                throw "SkipConfigure requested but CMAKE_BUILD_TYPE is '$($buildTypeMatch.Groups[1].Value.Trim())', expected '$($presetBuild.BuildType)'."
+            }
+        }
+
         Write-Log 'skipping CMake configure; reusing the existing build tree'
     } else {
         Write-Log "cmake --preset $ConfigurePreset"
