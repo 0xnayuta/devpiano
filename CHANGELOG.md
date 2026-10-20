@@ -85,6 +85,8 @@
 
 ### Fixed
 
+- **Bounded Realtime Hammer Voicing Reads** — try each pending atomic voicing snapshot once, retain the previous complete audio value and retry on a later block when publication is in progress, and keep message-thread recording captures independent of audio-owned state.
+
 - **Mixed-Family Metrology Admission** — preserve detected companion-component evidence when a partial is excluded, stop static-subset fitting for mixed families, and independently reject all observed mixed candidates at the family gate. Keep missing/ambiguous-only positives and the registered budgets intact; verify the complete development matrix without consuming independent qualification or revising prior verdicts.
 
 - **Windows Build Directory Cleanup Guard** — require a fail-closed pre-delete guard before `--clean-win-build` removes the mirror build directory: resolved path identity under `/mnt/<drive>/...`, exact direct-child build root names, symlink rejection, and known-build-artifact-only contents; evidence or unknown entries block deletion unless `--allow-non-build-assets` is given explicitly. Isolated regressions in `scripts/tests/win_clean_guard_test.sh` cover path rejection and evidence protection.

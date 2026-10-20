@@ -1,5 +1,7 @@
 #include <JuceHeader.h>
 
+#include <thread>
+
 #include "Audio/AudioDeviceDiagnostics.h"
 #include "Audio/AudioEngine.h"
 #include "Audio/HammerVoicing.h"
@@ -1021,24 +1023,48 @@ public:
     }
 
     void runTest() override {
-        beginTest("valid voicing is published to snapshot and invalid voicing is rejected atomically");
-        {
-            AudioEngine engine;
-            auto voicing = devpiano::audio::kCalibratedHammerVoicing;
-            voicing.anchors[0].loudnessDeltaDb = -7.5f;
-            voicing.anchors[2].rolloffDelta = 0.5f;
-            expect(engine.setHammerVoicing(voicing), "valid voicing must be accepted");
-            expect(devpiano::audio::isSameHammerVoicing(engine.getHammerVoicing(), voicing),
-                   "getter must return the published voicing");
-            expect(devpiano::audio::isSameHammerVoicing(engine.captureAcousticSnapshot().hammerVoicing, voicing),
-                   "capture must include the published voicing");
+        beginTest("callback retains complete voicing without waiting for an unfinished publication");
+        AudioEngine engine;
+        auto previous = devpiano::audio::kCalibratedHammerVoicing;
+        previous.anchors[0].loudnessDeltaDb = -7.5f;
+        expect(engine.setHammerVoicing(previous));
+        engine.prepareToPlay(512, 44100.0);
+        exhaustWarmup(engine, 512);
 
-            auto invalid = voicing;
-            invalid.anchors[0].midiVelocity = 200.0f;
-            expect(!engine.setHammerVoicing(invalid), "invalid voicing must be rejected");
-            expect(devpiano::audio::isSameHammerVoicing(engine.getHammerVoicing(), voicing),
-                   "rejected voicing must not overwrite the last valid value");
+        auto next = previous;
+        next.anchors[2].rolloffDelta = 0.5f;
+        expect(engine.setHammerVoicing(next));
+        engine.setPianoParameters(0.75f, 0.55f, 0.4f);
+        engine.getKeyboardState().noteOn(1, 60, 0.8f);
+
+        auto buffer = makeBlock(2, 512);
+        const juce::AudioSourceChannelInfo info(&buffer, 0, buffer.getNumSamples());
+        juce::WaitableEvent callbackFinished;
+        const auto sequence = engine.pendingHammerVoicingSequence.fetch_add(1, std::memory_order_acq_rel);
+        std::thread audioThread([&] {
+            engine.getNextAudioBlock(info);
+            callbackFinished.signal();
+        });
+        const auto completedBeforePublication = callbackFinished.wait(2000.0);
+        engine.pendingHammerVoicingSequence.store(sequence + 2, std::memory_order_release);
+        audioThread.join();
+
+        expect(completedBeforePublication, "the callback must finish while the publisher remains paused");
+        if (!completedBeforePublication) {
+            return;
         }
+        expect(devpiano::audio::isSameHammerVoicing(engine.activeAcoustic.hammerVoicing, previous),
+               "an unfinished publication must preserve the last complete audio snapshot");
+        expectWithinAbsoluteError(engine.activeAcoustic.brightness, 0.75f, 0.0001f,
+                                  "unrelated parameter updates must not wait for voicing");
+        expectGreaterThan(buffer.getMagnitude(0, buffer.getNumSamples()), 0.0f,
+                          "the callback must continue rendering the held note");
+        expect(devpiano::audio::isSameHammerVoicing(engine.captureAcousticSnapshot().hammerVoicing, next),
+               "recording capture must retain the message-thread voicing rather than the deferred audio value");
+
+        engine.getNextAudioBlock(info);
+        expect(devpiano::audio::isSameHammerVoicing(engine.activeAcoustic.hammerVoicing, next),
+               "the deferred publication must be applied by the next block without another setter call");
     }
 };
 

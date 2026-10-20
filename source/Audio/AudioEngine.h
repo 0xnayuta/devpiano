@@ -200,6 +200,11 @@ public:
     }
 
 private:
+    friend class AudioEngineHammerVoicingTest;
+
+    [[nodiscard]] devpiano::audio::AcousticSnapshot
+    capturePendingAcousticSnapshot(const devpiano::audio::HammerVoicing& voicing) const noexcept;
+    [[nodiscard]] bool tryReadHammerVoicing(devpiano::audio::HammerVoicing& voicing) const noexcept;
     void rebuildSynth();
     void applyPendingParametersIfNeeded();
     void discardWarmupInputState();
@@ -289,10 +294,10 @@ private:
     std::atomic<BuiltinSynthTone> builtinTone { BuiltinSynthTone::piano };
     std::atomic<float> pendingBrightness { 0.5f };
     std::atomic<float> pendingHammerHardness { 0.5f };
+    devpiano::audio::HammerVoicing messageThreadHammerVoicing = devpiano::audio::kCalibratedHammerVoicing;
     // 12 个浮点 = 3 个锚点 x (velocity, hardness, loudness, rolloff)。
     // 写入方用序号锁发布完整结构，音频线程不分配、不加锁。
-    std::array<std::atomic<float>, 12> pendingHammerVoicingValues { 41.0f, -0.20f, -4.75f, 1.2f,  70.0f, 0.30f,
-                                                                    -0.6f, 1.5f,   98.0f,  0.30f, 2.5f,  0.0f };
+    std::array<std::atomic<float>, 12> pendingHammerVoicingValues {};
     std::atomic<std::uint32_t> pendingHammerVoicingSequence { 0 };
     std::atomic<float> pendingResonance { 0.5f };
     std::atomic<bool> pendingStretchTuningEnabled { true };
