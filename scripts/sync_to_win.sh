@@ -72,10 +72,19 @@ PS_SCRIPT="${TOOLS_DIR}/sync-to-win.ps1"
 WIN_MIRROR_DIR_VALUE="${WIN_MIRROR_DIR:-G:\\source\\projects\\devpiano}"
 
 resolve_windows_powershell() {
-  local candidates=()
-
   if [[ -n "${WINDOWS_PWSH_EXE:-}" ]]; then
-    candidates+=("${WINDOWS_PWSH_EXE}")
+    local override="${WINDOWS_PWSH_EXE}"
+    if [[ "${override}" == [A-Za-z]:* ]]; then
+      override="$(wslpath -u "${override}" 2>/dev/null)" \
+        || fail "WINDOWS_PWSH_EXE cannot be translated from Windows path: ${WINDOWS_PWSH_EXE}"
+    elif [[ "${override}" != */* ]]; then
+      override="$(command -v "${override}" 2>/dev/null)" \
+        || fail "WINDOWS_PWSH_EXE not found in PATH: ${WINDOWS_PWSH_EXE}"
+    fi
+    [[ -x "${override}" ]] \
+      || fail "WINDOWS_PWSH_EXE is not executable: ${override}"
+    printf '%s\n' "${override}"
+    return 0
   fi
 
   if command -v pwsh.exe >/dev/null 2>&1; then
@@ -88,13 +97,10 @@ resolve_windows_powershell() {
     return 0
   fi
 
-  candidates+=(
-    "/mnt/c/Program Files/PowerShell/7/pwsh.exe"
-    "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"
-  )
-
   local candidate
-  for candidate in "${candidates[@]}"; do
+  for candidate in \
+    "/mnt/c/Program Files/PowerShell/7/pwsh.exe" \
+    "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"; do
     if [[ -x "${candidate}" ]]; then
       printf '%s\n' "${candidate}"
       return 0
@@ -104,8 +110,17 @@ resolve_windows_powershell() {
   return 1
 }
 
-WINDOWS_POWERSHELL="$(resolve_windows_powershell)" || fail 'No Windows PowerShell executable found. Set WINDOWS_PWSH_EXE, or ensure pwsh.exe / powershell.exe is callable from WSL.'
 command -v wslpath >/dev/null 2>&1 || fail 'wslpath not found in PATH'
+if [[ "${WIN_MIRROR_DIR_VALUE}" == /* ]]; then
+  WIN_MIRROR_DIR_VALUE="$(wslpath -w -- "${WIN_MIRROR_DIR_VALUE}")" \
+    || fail "cannot normalize WIN_MIRROR_DIR: ${WIN_MIRROR_DIR_VALUE}"
+fi
+case "${WIN_MIRROR_DIR_VALUE}" in
+  [A-Za-z]:\\*|[A-Za-z]:/*) ;;
+  *) fail "WIN_MIRROR_DIR must be a Windows path or a /mnt/... path: ${WIN_MIRROR_DIR_VALUE}" ;;
+esac
+
+WINDOWS_POWERSHELL="$(resolve_windows_powershell)" || fail 'No Windows PowerShell executable found. Set WINDOWS_PWSH_EXE, or ensure pwsh.exe / powershell.exe is callable from WSL.'
 [[ -f "${PS_SCRIPT}" ]] || fail "missing PowerShell script: ${PS_SCRIPT}"
 
 WIN_SOURCE_DIR="$(wslpath -w "${ROOT_DIR}")"
@@ -117,8 +132,10 @@ log "mirror dir: ${WIN_MIRROR_DIR_VALUE}"
 log "windows shell: ${WINDOWS_POWERSHELL}"
 
 SUBMODULE_FINGERPRINT=""
-if command -v git >/dev/null 2>&1 && [[ -d "${ROOT_DIR}/.git" ]]; then
-  SUBMODULE_FINGERPRINT="$(git -C "${ROOT_DIR}" submodule status 2>/dev/null | sha256sum | awk '{print $1}')"
+if command -v git >/dev/null 2>&1 && git -C "${ROOT_DIR}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  if ! SUBMODULE_FINGERPRINT="$(git -C "${ROOT_DIR}" submodule status 2>/dev/null | sha256sum | awk '{print $1}')"; then
+    fail 'failed to compute submodule fingerprint'
+  fi
 fi
 
 PS_ARGS=(

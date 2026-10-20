@@ -20,14 +20,54 @@ if (-not $SourceDir) {
     throw 'SourceDir is required.'
 }
 
-$SourceDir = [System.IO.Path]::GetFullPath($SourceDir)
-$MirrorDir = [System.IO.Path]::GetFullPath($MirrorDir)
+$SourceDir = [System.IO.Path]::GetFullPath($SourceDir).TrimEnd('\')
+$MirrorDir = [System.IO.Path]::GetFullPath($MirrorDir).TrimEnd('\')
+
+function Test-IsPathRoot {
+    param([string]$Path)
+    $root = [System.IO.Path]::GetPathRoot($Path)
+    return $root -and ($Path.TrimEnd('\') -eq $root.TrimEnd('\'))
+}
+
+if (Test-IsPathRoot $SourceDir) {
+    throw "SourceDir must not be a filesystem root: $SourceDir"
+}
+if (Test-IsPathRoot $MirrorDir) {
+    throw "MirrorDir must not be a filesystem root: $MirrorDir"
+}
+if ([string]::Equals($SourceDir, $MirrorDir, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "SourceDir and MirrorDir must differ: $MirrorDir"
+}
+$separator = [System.IO.Path]::DirectorySeparatorChar
+if ($MirrorDir.StartsWith($SourceDir + $separator, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "MirrorDir must not be inside SourceDir: $MirrorDir"
+}
+if ($SourceDir.StartsWith($MirrorDir + $separator, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "SourceDir must not be inside MirrorDir: $MirrorDir"
+}
 
 Write-Log "source: $SourceDir"
 Write-Log "mirror: $MirrorDir"
-Write-Log "preserve mirror build dirs: build-win-msvc, build-win-msvc-release, dist"
+Write-Log "preserve mirror build dirs: build-win-msvc, build-win-msvc-release, build-*, dist"
 
-New-Item -ItemType Directory -Force -Path $MirrorDir | Out-Null
+$mirrorMarker = Join-Path $MirrorDir '.devpiano-mirror'
+$mirrorExists = Test-Path -LiteralPath $MirrorDir -PathType Container
+if ($mirrorExists) {
+    $hasExpectedTree =
+        (Test-Path -LiteralPath (Join-Path $MirrorDir 'CMakeLists.txt') -PathType Leaf) -and
+        (Test-Path -LiteralPath (Join-Path $MirrorDir 'source') -PathType Container)
+    $isEmpty = @(Get-ChildItem -LiteralPath $MirrorDir -Force -ErrorAction SilentlyContinue).Count -eq 0
+    $hasMarker = Test-Path -LiteralPath $mirrorMarker -PathType Leaf
+    if (-not ($hasExpectedTree -or $isEmpty -or $hasMarker)) {
+        throw "MirrorDir is not a recognized devpiano mirror: $MirrorDir (missing CMakeLists.txt/source, marker, or empty directory)"
+    }
+} else {
+    if ($CheckOnly) {
+        throw "Mirror directory does not exist: $MirrorDir"
+    }
+    [System.IO.Directory]::CreateDirectory($MirrorDir) | Out-Null
+    Set-Content -LiteralPath $mirrorMarker -Value 'devpiano mirror' -Encoding ascii
+}
 
 # 排除清单与仓库 .gitignore 保持一致：此处列出的内容不应进入镜像，
 # 且镜像侧同名内容不会被 /MIR 删除。改动 .gitignore 时须同步此处。
@@ -57,7 +97,7 @@ $excludeSourceDirs = @(
 )
 
 # 动态收集源根 build-* 构建目录（build-wsl-clang、build-asan 等）
-Get-ChildItem -Path $SourceDir -Directory -Filter 'build-*' -ErrorAction SilentlyContinue |
+Get-ChildItem -LiteralPath $SourceDir -Directory -Filter 'build-*' -ErrorAction SilentlyContinue |
     ForEach-Object { $excludeSourceDirs += $_.FullName }
 
 # 路径级排除：仅镜像侧——构建/打包产物必须保留；
@@ -73,6 +113,9 @@ $excludeMirrorDirs = @(
     (Join-Path $MirrorDir 'CMakeFiles')
 )
 
+Get-ChildItem -LiteralPath $MirrorDir -Directory -Filter 'build-*' -ErrorAction SilentlyContinue |
+    ForEach-Object { $excludeMirrorDirs += $_.FullName }
+
 # 文件级排除：/XF 全局模式匹配，两侧同时生效。
 # robocopy 限制：/XF 只保护"extra 文件"不被 /MIR 删除；若整个目录在源中
 # 不存在（extra 目录），robocopy 会整体删除该目录，无视其中匹配 /XF 的
@@ -80,6 +123,7 @@ $excludeMirrorDirs = @(
 # dist 等）内，散落在 extra 目录中的文件仅靠 /XF 不可靠。
 $excludeFiles = @(
     '.mirror_submodules.hash',  # 镜像端子模块同步指纹标记文件
+    '.devpiano-mirror',        # 镜像根身份标记文件
     '.git',            # 子模块 gitlink 指针文件
     'CMakeCache.txt', 'compile_commands.json',
     # IDE 状态文件
