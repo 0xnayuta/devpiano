@@ -182,8 +182,9 @@ source ~/.bashrc
 ```
 
 ```bash
-# ── WSL 只执行 Debug configure（供 clangd 读取编译数据库） ──
-./scripts/dev.sh wsl-build --configure-only
+# ── WSL configure（供 clangd 读取编译数据库） ──
+./scripts/dev.sh wsl-build --configure-only   # 推荐：额外生成 JuceHeader.h
+./scripts/dev.sh wsl-configure                # 仅 CMake configure，不生成 JuceHeader.h
 
 # ── 同步 ──
 # 仅在需要单独同步时（win-build 已内置快速智能同步）
@@ -207,14 +208,30 @@ source ~/.bashrc
 ./scripts/dev.sh format
 ./scripts/dev.sh format --check       # CI 模式，只检查不改
 
-# ── clang-tidy 仅在迭代边界执行全量检查 ──
-./scripts/dev.sh tidy --all
+# ── clang-tidy ──
+# 例行只在迭代边界跑全量；单文件仅用于配置变更或定位问题
+./scripts/dev.sh tidy                 # 未提交改动中的 source/*.cpp,h
+./scripts/dev.sh tidy <file...>       # 指定文件/相对路径
+./scripts/dev.sh tidy --all           # 迭代边界全量门禁
+./scripts/dev.sh tidy --clear-cache   # 清除本地结果缓存
+
+# ── 编译耗时剖析（Clang -ftime-trace）──
+./scripts/dev.sh time-trace                   # 增量分析最新构建热点
+./scripts/dev.sh time-trace --clean           # 清理后全量剖析并导出 combined_time_trace.json
+./scripts/dev.sh time-trace --target devpiano # 指定 GUI 主程序
 
 # ── 正式发布打包（Windows x64 zip / Linux x64 tar.gz + sha256） ──
 ./scripts/dev.sh package                      # 打包当前 Windows Release 产物（自动解析 CMakeLists.txt 版本）
 ./scripts/dev.sh package --version 1.0.0
 ./scripts/dev.sh package --local-dist         # 输出至 WSL 本地 dist/ 目录
 ./scripts/dev.sh package --linux              # 打包 Linux x64 Release 产物（tar.gz + sha256）
+
+# ── Linux 桌面集成（desktop entry 与图标） ──
+./scripts/dev.sh desktop-install
+./scripts/dev.sh desktop-install --uninstall
+
+# ── 完整命令清单与参数 ──
+./scripts/dev.sh help
 ```
 
 ### Windows Debug 单元测试
