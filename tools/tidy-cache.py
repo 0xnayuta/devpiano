@@ -22,7 +22,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-CACHE_VERSION = b"v3"
+CACHE_VERSION = b"v4"
 LAUNCHER_NAMES = {"ccache", "sccache", "distcc", "icecc"}
 
 
@@ -92,11 +92,14 @@ def command_tokens(compile_entry: dict) -> list[str]:
 
 
 def extract_object_path(compile_entry: dict) -> Path | None:
+    output = compile_entry.get("output")
+    if isinstance(output, str) and output:
+        return Path(output)
     tokens = command_tokens(compile_entry)
     for index, token in enumerate(tokens):
         if token == "-o" and index + 1 < len(tokens):
             return Path(tokens[index + 1])
-        if token.startswith("-o") and len(token) > 2:
+        if token.startswith("-o") and len(token) > 2 and not token.startswith("-objc"):
             return Path(token[2:])
         if token.startswith("/Fo") and len(token) > 3:
             return Path(token[3:])
@@ -137,6 +140,22 @@ def ninja_dependencies(build_dir: Path, compile_entry: dict) -> list[Path] | Non
     object_abs = object_path if object_path.is_absolute() else base_dir / object_path
 
     try:
+        object_stat = object_abs.stat()
+    except OSError:
+        return None
+
+    source_file = compile_entry.get("file")
+    if isinstance(source_file, str) and source_file:
+        source_abs = Path(source_file)
+        if not source_abs.is_absolute():
+            source_abs = base_dir / source_abs
+        try:
+            if source_abs.stat().st_mtime_ns > object_stat.st_mtime_ns:
+                return None
+        except OSError:
+            return None
+
+    try:
         object_rel = object_abs.resolve().relative_to(build_dir.resolve())
     except (OSError, ValueError):
         object_rel = object_path
@@ -156,25 +175,51 @@ def ninja_dependencies(build_dir: Path, compile_entry: dict) -> list[Path] | Non
         return None
     if result.returncode != 0:
         return None
+    if "(STALE)" in result.stdout:
+        return None
 
     dependencies = []
     for line in result.stdout.splitlines():
         if line.startswith("    "):
             dependency = line.strip()
             if dependency:
-                dependencies.append(Path(dependency))
+                dependency_path = Path(dependency)
+                if not dependency_path.is_absolute():
+                    dependency_path = build_dir / dependency_path
+                try:
+                    if dependency_path.stat().st_mtime_ns > object_stat.st_mtime_ns:
+                        return None
+                except OSError:
+                    return None
+                dependencies.append(dependency_path)
     return dependencies or None
 
 
-def project_header_dependencies(root_dir: Path) -> list[Path]:
+def project_header_dependencies(root_dir: Path, build_dir: Path) -> list[Path]:
+    paths: set[Path] = set()
     source_dir = root_dir / "source"
-    if not source_dir.exists():
-        return []
-    return [
-        path
-        for path in source_dir.rglob("*")
-        if path.is_file() and path.suffix in {".h", ".hpp", ".inc"}
-    ]
+    if source_dir.exists():
+        paths.update(
+            path
+            for path in source_dir.rglob("*")
+            if path.is_file() and path.suffix in {".h", ".hpp", ".inc", ".inl"}
+        )
+
+    # Generated JUCE headers are not under source/, but changes to them must
+    # invalidate a conservative cache entry as well.
+    if build_dir.exists():
+        paths.update(build_dir.rglob("JuceLibraryCode/*.h"))
+        paths.update(build_dir.rglob("BinaryData.h"))
+
+    juce_modules = root_dir / "submodules" / "JUCE" / "modules"
+    if juce_modules.exists():
+        paths.update(
+            path
+            for path in juce_modules.rglob("*")
+            if path.is_file() and path.suffix in {".h", ".hpp", ".inl"}
+        )
+
+    return sorted(paths, key=str)
 
 
 def update_dependency_hash(hasher, dependencies: list[Path]) -> None:
@@ -195,10 +240,15 @@ def compute_key(
     compile_entry: dict,
     dependencies: list[Path] | None,
     tool_identity: str,
+    tidy_args: list[str],
 ) -> str:
     hasher = hashlib.sha256()
     hasher.update(CACHE_VERSION)
     hasher.update(compute_config_hash(root_dir).encode("utf-8"))
+    hasher.update(b"tidy-args:")
+    hasher.update(
+        json.dumps(tidy_args, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    )
 
     source_path = Path(source_file).resolve()
     hasher.update(str(source_path).encode("utf-8"))
@@ -218,7 +268,7 @@ def compute_key(
 
     if dependencies is None:
         hasher.update(b"deps:fallback")
-        dependencies = project_header_dependencies(root_dir)
+        dependencies = project_header_dependencies(root_dir, build_dir)
     else:
         hasher.update(b"deps:ninja")
     update_dependency_hash(hasher, dependencies)
@@ -293,6 +343,7 @@ def main():
         compile_entry,
         dependencies,
         tool_identity,
+        args,
     )
     cache_file = cache_dir / f"{cache_key}.json"
 
