@@ -4,6 +4,7 @@ param(
     [string]$MirrorDir = $(if ($env:WIN_MIRROR_DIR) { $env:WIN_MIRROR_DIR } else { 'G:\source\projects\devpiano' }),
     [switch]$CheckOnly,
     [switch]$Full,
+    [switch]$FastTimes,
     [string]$SubmoduleFingerprint = ''
 )
 
@@ -129,12 +130,18 @@ $roboArgs = @(
     $SourceDir,
     $MirrorDir,
     '/MIR',
-    '/FFT',
     '/MT:16',
     '/R:2',
     '/W:1',
     '/XD'
 ) + $excludeDirNames + $excludeSourceDirs + $excludeMirrorDirs + @('/XF') + $excludeFiles
+
+if ($FastTimes) {
+    # FAT timestamps have 2-second granularity and can miss same-size edits
+    # saved within the same window; keep this opt-in for speed-sensitive runs.
+    $roboArgs += '/FFT'
+    Write-Log 'using FAT timestamps (2-second granularity)'
+}
 
 if ($CheckOnly) {
     # /L 只列出变更而不执行；不附加 /NFL /NDL /NP，保证文件清单可见

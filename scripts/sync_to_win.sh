@@ -29,14 +29,16 @@ fail() {
 }
 
 usage() {
-  printf 'Usage: %s [--check] [--full]\n' "$SCRIPT_NAME"
-  printf '  --check    List changes without copying or deleting any files\n'
-  printf '  --full     Force full sync including submodules (JUCE, etc.)\n'
-  printf '  -h, --help Show this help\n'
+  printf 'Usage: %s [--check] [--full] [--fast-times]\n' "$SCRIPT_NAME"
+  printf '  --check       List changes without copying or deleting any files\n'
+  printf '  --full        Force full sync including submodules (JUCE, etc.)\n'
+  printf '  --fast-times  Use FAT timestamps (2-second granularity; may miss fast edits)\n'
+  printf '  -h, --help    Show this help\n'
 }
 
 CHECK_ONLY=""
 FULL_SYNC=""
+FAST_TIMES=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --check)
@@ -45,6 +47,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --full)
       FULL_SYNC="-Full"
+      shift
+      ;;
+    --fast-times)
+      FAST_TIMES="-FastTimes"
       shift
       ;;
     -h|--help)
@@ -127,6 +133,9 @@ if [[ -n "${CHECK_ONLY:-}" ]]; then
 fi
 if [[ -n "${FULL_SYNC:-}" ]]; then
   PS_ARGS+=(-Full)
+fi
+if [[ -n "${FAST_TIMES:-}" ]]; then
+  PS_ARGS+=(-FastTimes)
 fi
 if [[ -n "${SUBMODULE_FINGERPRINT:-}" ]]; then
   PS_ARGS+=(-SubmoduleFingerprint "${SUBMODULE_FINGERPRINT}")

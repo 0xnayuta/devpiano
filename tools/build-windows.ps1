@@ -5,6 +5,7 @@ param(
     [string]$BuildPreset = '',
     [switch]$Release,
     [switch]$ClangTidy,
+    [switch]$SkipConfigure,
     [string]$VsInstallPath = $env:VSINSTALLDIR,
     [string]$VsDevCmdPath = $env:VS_DEVCMD_PATH
 )
@@ -113,10 +114,19 @@ Enter-DeveloperPowerShell -InstallationPath $installationPath -InstanceId $vsIns
 
 Push-Location $MirrorDir
 try {
-    Write-Log "cmake --preset $ConfigurePreset"
-    & cmake --preset $ConfigurePreset
-    if ($LASTEXITCODE -ne 0) {
-        throw "CMake configure failed with exit code $LASTEXITCODE"
+    if ($SkipConfigure) {
+        $buildDirName = if ($BuildPreset -match 'release') { 'build-win-msvc-release' } else { 'build-win-msvc' }
+        $buildNinja = Join-Path (Join-Path $MirrorDir $buildDirName) 'build.ninja'
+        if (-not (Test-Path $buildNinja)) {
+            throw "SkipConfigure requested but build.ninja was not found: $buildNinja"
+        }
+        Write-Log 'skipping CMake configure; reusing the existing build tree'
+    } else {
+        Write-Log "cmake --preset $ConfigurePreset"
+        & cmake --preset $ConfigurePreset
+        if ($LASTEXITCODE -ne 0) {
+            throw "CMake configure failed with exit code $LASTEXITCODE"
+        }
     }
 
     Write-Log 'killing any stale DevPiano.exe process'

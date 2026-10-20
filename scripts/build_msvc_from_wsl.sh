@@ -42,8 +42,10 @@ Options:
   --release             Use windows-msvc-release preset (default: windows-msvc-debug)
   --no-sync             Skip WSL -> Windows sync before build
   --full                Force full sync including submodules before build
+  --fast-times          Use FAT timestamps for sync (may miss fast edits)
   --sync-only           Only sync to Windows mirror, do not build
   --reconfigure         Remove Windows build cache before configure/build
+  --no-configure        Skip the explicit configure step and reuse build.ninja
   --clean-win-build     Delete Windows build directory before configure/build
                         (refused by scripts/win_clean_guard.sh if the directory
                         contains non-build assets such as archived evidence)
@@ -63,12 +65,14 @@ PS_BUILD_SCRIPT="${TOOLS_DIR}/build-windows.ps1"
 WIN_MIRROR_DIR_VALUE="${WIN_MIRROR_DIR:-G:\\source\\projects\\devpiano}"
 SKIP_SYNC="${SKIP_SYNC_TO_WIN:-0}"
 FULL_SYNC=0
+FAST_TIMES=0
 SYNC_ONLY=0
 RECONFIGURE=0
 CLEAN_WIN_BUILD=0
 ALLOW_NON_BUILD_ASSETS=0
 USE_RELEASE=0
 CLANG_TIDY=0
+NO_CONFIGURE=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --release)
@@ -80,11 +84,17 @@ while [[ $# -gt 0 ]]; do
     --full|--full-sync)
       FULL_SYNC=1
       ;;
+    --fast-times)
+      FAST_TIMES=1
+      ;;
     --sync-only)
       SYNC_ONLY=1
       ;;
     --reconfigure)
       RECONFIGURE=1
+      ;;
+    --no-configure)
+      NO_CONFIGURE=1
       ;;
     --clean-win-build)
       CLEAN_WIN_BUILD=1
@@ -122,6 +132,10 @@ fi
 
 if [[ "${ALLOW_NON_BUILD_ASSETS}" == "1" && "${CLEAN_WIN_BUILD}" != "1" ]]; then
   fail '--allow-non-build-assets is only meaningful together with --clean-win-build'
+fi
+
+if [[ "${NO_CONFIGURE}" == "1" && ( "${SYNC_ONLY}" == "1" || "${RECONFIGURE}" == "1" || "${CLEAN_WIN_BUILD}" == "1" ) ]]; then
+  fail '--no-configure cannot be combined with --sync-only, --reconfigure or --clean-win-build'
 fi
 
 resolve_windows_powershell() {
@@ -163,11 +177,14 @@ command -v wslpath >/dev/null 2>&1 || fail 'wslpath not found in PATH'
 
 if [[ "${SKIP_SYNC}" != "1" ]]; then
   log 'syncing WSL tree to Windows mirror'
+  sync_args=()
   if [[ "${FULL_SYNC}" == "1" ]]; then
-    "${SYNC_SCRIPT}" --full
-  else
-    "${SYNC_SCRIPT}"
+    sync_args+=(--full)
   fi
+  if [[ "${FAST_TIMES}" == "1" ]]; then
+    sync_args+=(--fast-times)
+  fi
+  "${SYNC_SCRIPT}" "${sync_args[@]}"
 else
   warn 'skipping sync step'
 fi
@@ -215,11 +232,25 @@ fi
 if [[ "${CLANG_TIDY}" == "1" ]]; then
   log 'mode: clang-tidy'
 fi
+if [[ "${NO_CONFIGURE}" == "1" ]]; then
+  log 'mode: no-configure'
+fi
 
-"${WINDOWS_POWERSHELL}" -NoProfile -ExecutionPolicy Bypass -File "${WIN_PS_BUILD_SCRIPT}" \
-  -MirrorDir "${WIN_MIRROR_DIR_VALUE}" \
-  -ConfigurePreset "${CONFIGURE_PRESET}" \
-  -BuildPreset "${BUILD_PRESET}" \
-  $(if [[ "${CLANG_TIDY}" == "1" ]]; then echo '-ClangTidy'; fi)
+PS_ARGS=(
+  -NoProfile
+  -ExecutionPolicy Bypass
+  -File "${WIN_PS_BUILD_SCRIPT}"
+  -MirrorDir "${WIN_MIRROR_DIR_VALUE}"
+  -ConfigurePreset "${CONFIGURE_PRESET}"
+  -BuildPreset "${BUILD_PRESET}"
+)
+if [[ "${CLANG_TIDY}" == "1" ]]; then
+  PS_ARGS+=(-ClangTidy)
+fi
+if [[ "${NO_CONFIGURE}" == "1" ]]; then
+  PS_ARGS+=(-SkipConfigure)
+fi
+
+"${WINDOWS_POWERSHELL}" "${PS_ARGS[@]}"
 
 success 'MSVC validation build complete'

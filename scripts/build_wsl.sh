@@ -43,6 +43,9 @@ Options:
   --configure-only  Only run CMake configure, do not build
   --reconfigure     Remove WSL CMake cache before configure/build
   --clean           Delete the entire WSL build directory before configure/build
+  --no-configure    Skip the explicit configure step and reuse build.ninja
+  --ccache          Enable the ccache compiler launcher
+  --no-ccache       Disable the ccache compiler launcher
   -h, --help        Show this help
 EOF
 }
@@ -53,6 +56,8 @@ CONFIGURE_ONLY=0
 RECONFIGURE=0
 CLEAN=0
 USE_RELEASE=0
+NO_CONFIGURE=0
+USE_CCACHE="${DEVPIANO_USE_CCACHE:-}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -67,6 +72,15 @@ while [[ $# -gt 0 ]]; do
       ;;
     --clean)
       CLEAN=1
+      ;;
+    --no-configure)
+      NO_CONFIGURE=1
+      ;;
+    --ccache)
+      USE_CCACHE=1
+      ;;
+    --no-ccache)
+      USE_CCACHE=0
       ;;
     -h|--help)
       usage
@@ -93,7 +107,36 @@ if [[ "${CONFIGURE_ONLY}" == "1" && "${CLEAN}" == "1" ]]; then
   warn 'configure-only + clean requested'
 fi
 
+if [[ "${NO_CONFIGURE}" == "1" ]]; then
+  [[ "${CONFIGURE_ONLY}" != "1" ]] \
+    || fail '--no-configure cannot be combined with --configure-only'
+  [[ "${RECONFIGURE}" != "1" && "${CLEAN}" != "1" ]] \
+    || fail '--no-configure cannot be combined with --reconfigure or --clean'
+  [[ -z "${USE_CCACHE}" ]] \
+    || fail '--ccache/--no-ccache require a configure step'
+  [[ -f "${BUILD_DIR}/build.ninja" ]] \
+    || fail "missing ${BUILD_DIR}/build.ninja; run configure first"
+fi
+
 command -v cmake >/dev/null 2>&1 || fail 'cmake not found in PATH'
+
+CCACHE_ARGS=()
+if [[ "${USE_CCACHE}" == "1" ]]; then
+  command -v ccache >/dev/null 2>&1 || fail 'ccache requested but not found in PATH'
+  export CCACHE_SLOPPINESS="${CCACHE_SLOPPINESS:-time_macros}"
+  export CCACHE_BASEDIR="${CCACHE_BASEDIR:-${ROOT_DIR}}"
+  CCACHE_ARGS=(
+    -DCMAKE_C_COMPILER_LAUNCHER=ccache
+    -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+  )
+  log 'ccache compiler launcher enabled'
+elif [[ "${USE_CCACHE}" == "0" ]]; then
+  CCACHE_ARGS=(
+    -DCMAKE_C_COMPILER_LAUNCHER=
+    -DCMAKE_CXX_COMPILER_LAUNCHER=
+  )
+  log 'ccache compiler launcher disabled'
+fi
 
 if [[ "${CLEAN}" == "1" ]]; then
   log "cleaning WSL build directory: ${BUILD_DIR}"
@@ -107,38 +150,32 @@ if [[ "${RECONFIGURE}" == "1" ]]; then
 fi
 
 log "project root: ${ROOT_DIR}"
-log "configure preset: ${CONFIGURE_PRESET}"
-cmake --preset "${CONFIGURE_PRESET}" -S "${ROOT_DIR}"
+if [[ "${NO_CONFIGURE}" == "0" ]]; then
+  log "configure preset: ${CONFIGURE_PRESET}"
+  cmake --preset "${CONFIGURE_PRESET}" -S "${ROOT_DIR}" "${CCACHE_ARGS[@]}"
+else
+  log 'skipping configure; reusing the existing build tree'
+fi
 
-# Generate JuceHeader.h so clangd/LSP can resolve it without a full build.
-# JuceHeader.h is normally generated during the build step by juceaide.
-# Running it here makes --configure-only sufficient for clangd to work.
+# Generate JuceHeader.h through the build system so clangd/LSP can resolve it
+# without a full build. Building the file targets also avoids guessing which
+# Defs.txt belongs to the application or test target.
 generate_juce_header() {
-  local juceaide
-  juceaide="$(find "${BUILD_DIR}" -name juceaide -type f -executable 2>/dev/null | head -1)"
-  if [[ -z "${juceaide}" ]]; then
-    warn "juceaide not found in ${BUILD_DIR}; skipping JuceHeader.h generation"
-    return 0
+  local header_targets=(
+    "devpiano_artefacts/JuceLibraryCode/JuceHeader.h"
+  )
+  if grep -q 'devpiano_tests_artefacts/JuceLibraryCode/JuceHeader.h' \
+      "${BUILD_DIR}/build.ninja" 2>/dev/null; then
+    header_targets+=("devpiano_tests_artefacts/JuceLibraryCode/JuceHeader.h")
   fi
 
-  local defs_file
-  defs_file="$(find "${BUILD_DIR}" -path "*/JuceLibraryCode/*/Defs.txt" 2>/dev/null | head -1)"
-  if [[ -z "${defs_file}" ]]; then
-    warn "Defs.txt not found in ${BUILD_DIR}; skipping JuceHeader.h generation"
-    return 0
-  fi
-
-  local header_dir
-  header_dir="$(dirname "${defs_file}")"
-  # Defs.txt is in a config subdirectory (e.g. Debug/); header goes one level up
-  header_dir="$(dirname "${header_dir}")"
-  local header_file="${header_dir}/JuceHeader.h"
-
-  "${juceaide}" header "${defs_file}" "${header_file}"
-  log "generated: ${header_file}"
+  log 'generating JuceHeader.h for clangd/LSP'
+  cmake --build "${BUILD_DIR}" --target "${header_targets[@]}"
 }
 
-generate_juce_header
+if [[ "${NO_CONFIGURE}" == "0" ]]; then
+  generate_juce_header
+fi
 
 if [[ "${CONFIGURE_ONLY}" == "1" ]]; then
   success 'configure-only mode complete'

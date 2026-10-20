@@ -50,12 +50,15 @@ Examples:
   ./scripts/dev.sh wsl-configure                # Raw configure; no JuceHeader.h
   ./scripts/dev.sh wsl-build --configure-only   # Preferred for clangd
   ./scripts/dev.sh wsl-build --configure-only --reconfigure
+  ./scripts/dev.sh wsl-build --no-configure
 
   # Sync and build
   ./scripts/dev.sh win-sync --check
+  ./scripts/dev.sh win-sync --fast-times
   ./scripts/dev.sh win-sync --full
   ./scripts/dev.sh win-build
   ./scripts/dev.sh win-build --no-sync
+  ./scripts/dev.sh win-build --no-configure
   ./scripts/dev.sh win-build --reconfigure
   ./scripts/dev.sh win-build --clean-win-build
   ./scripts/dev.sh win-build --release
@@ -292,12 +295,27 @@ All arguments are forwarded to ctest (for example --verbose).
 TestRunner options (--include-juce, --include-files, --category,
 --name) are not ctest options. Pass them to the test binary directly:
   build-wsl-clang/devpiano_tests_artefacts/Debug/devpiano_tests --help
+
+Environment:
+  DEVPIANO_USE_CCACHE=1  Use ccache for the test build
 EOF
         exit 0
     fi
     log 'Ensuring BUILD_TESTS=ON configured'
+    CCACHE_ARGS=()
+    if [[ "${DEVPIANO_USE_CCACHE:-0}" == "1" ]]; then
+        command -v ccache >/dev/null 2>&1 \
+            || fail 'DEVPIANO_USE_CCACHE=1 but ccache is not in PATH'
+        export CCACHE_SLOPPINESS="${CCACHE_SLOPPINESS:-time_macros}"
+        export CCACHE_BASEDIR="${CCACHE_BASEDIR:-${ROOT_DIR}}"
+        CCACHE_ARGS=(
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+        )
+        log 'ccache compiler launcher enabled'
+    fi
     cmake -S "${ROOT_DIR}" -B "${ROOT_DIR}/build-wsl-clang" --preset linux-clang-debug \
-          -DBUILD_TESTS=ON
+          -DBUILD_TESTS=ON "${CCACHE_ARGS[@]}"
     log 'Building devpiano_tests target'
     cmake --build "${ROOT_DIR}/build-wsl-clang" --target devpiano_tests 2>&1
     log 'Running devpiano_tests via ctest'
