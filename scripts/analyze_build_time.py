@@ -65,78 +65,148 @@ class ProfileReport:
     functions: dict[str, FunctionStats] = field(default_factory=lambda: defaultdict(FunctionStats))
 
 
-def analyze_traces(build_dir: Path, min_time_ms: float = 5.0) -> ProfileReport:
-    report = ProfileReport()
+SKIP_TRACE_DIRS = {".cmake", "Testing", "CMakeScratch", "CMakeTmp"}
+
+
+class TraceMerger:
+    """Streams trace events into a compact Chrome Tracing file."""
+
+    CHUNK_SIZE = 1024
+
+    def __init__(self, output_file: Path) -> None:
+        self._output_file = output_file
+        self._out = None
+        self._buffer: list[dict] = []
+        self._written = 0
+        self.count = 0
+
+    def add(self, event: dict) -> None:
+        self._buffer.append(event)
+        if len(self._buffer) >= self.CHUNK_SIZE:
+            self._flush()
+
+    def _flush(self) -> None:
+        if not self._buffer:
+            return
+        if self._out is None:
+            self._out = open(self._output_file, "w", encoding="utf-8")
+            self._out.write('{"traceEvents":[')
+        if self._written:
+            self._out.write(",")
+        chunk = json.dumps(self._buffer, separators=(",", ":"))
+        self._out.write(chunk[1:-1])
+        self._written += len(self._buffer)
+        self.count = self._written
+        self._buffer.clear()
+
+    def close(self) -> None:
+        self._flush()
+        if self._out is not None:
+            self._out.write("]}")
+            self._out.close()
+            self._out = None
+
+
+def _iter_trace_files(build_dir: Path) -> list[Path]:
     trace_files: list[Path] = []
+    for root, dirs, files in os.walk(build_dir):
+        dirs[:] = [d for d in dirs if d not in SKIP_TRACE_DIRS]
+        for name in files:
+            if not name.endswith(".json"):
+                continue
+            if name.startswith("compile_commands") or name.startswith("combined_"):
+                continue
+            trace_files.append(Path(root) / name)
+    trace_files.sort()
+    return trace_files
 
-    for root, _, files in os.walk(build_dir):
-        for f in files:
-            if f.endswith(".json") and not f.startswith("compile_commands") and not f.startswith("combined_"):
-                p = Path(root) / f
-                trace_files.append(p)
 
+def analyze_traces(
+    build_dir: Path, merge_path: Path | None = None, min_time_ms: float = 5.0
+) -> tuple[ProfileReport, int]:
+    report = ProfileReport()
+    trace_files = _iter_trace_files(build_dir)
     if not trace_files:
-        return report
+        return report, 0
 
-    report.total_tu_count = len(trace_files)
+    merger = TraceMerger(merge_path) if merge_path is not None else None
     min_us = min_time_ms * 1000.0
-
     all_tu_times: list[tuple[str, float]] = []
 
-    for trace_path in trace_files:
-        try:
-            with open(trace_path, "r", encoding="utf-8", errors="replace") as f:
-                data = json.load(f)
-        except Exception:
-            continue
+    try:
+        for trace_path in trace_files:
+            try:
+                with open(trace_path, "r", encoding="utf-8", errors="replace") as f:
+                    data = json.load(f)
+            except Exception:
+                continue
+            if not isinstance(data, dict):
+                continue
+            events = data.get("traceEvents")
+            if not isinstance(events, list) or not events:
+                continue
 
-        events = data.get("traceEvents", [])
-        if not events:
-            continue
+            report.total_tu_count += 1
+            pid = report.total_tu_count
+            tu_duration_us = 0.0
 
-        # Translation unit total duration: usually the 'Total ExecuteCompiler' or root 'Source' event
-        tu_duration_us = 0.0
-        for ev in events:
-            name = ev.get("name", "")
-            dur = ev.get("dur", 0.0)
-            args = ev.get("args", {})
-            detail = args.get("detail", "") if isinstance(args, dict) else ""
+            for ev in events:
+                if not isinstance(ev, dict):
+                    continue
+                name = ev.get("name", "")
+                dur = ev.get("dur", 0.0)
+                args = ev.get("args", {})
+                detail = args.get("detail", "") if isinstance(args, dict) else ""
 
-            if name == "ExecuteCompiler":
-                tu_duration_us = max(tu_duration_us, dur)
-            elif name == "Source" and not detail:
-                tu_duration_us = max(tu_duration_us, dur)
+                if name == "ExecuteCompiler":
+                    tu_duration_us = max(tu_duration_us, dur)
+                elif name == "Source" and not detail:
+                    tu_duration_us = max(tu_duration_us, dur)
 
-            # Header inclusion analysis
-            if name == "Source" and detail:
-                header_name = detail
-                report.headers[header_name].total_us += dur
-                report.headers[header_name].count += 1
+                if name == "Source" and detail:
+                    header_name = detail
+                    report.headers[header_name].total_us += dur
+                    report.headers[header_name].count += 1
+                elif name in ("InstantiateClass", "InstantiateFunction"):
+                    if detail and dur >= min_us:
+                        report.templates[detail].total_us += dur
+                        report.templates[detail].count += 1
+                elif name in ("OptFunction", "CodeGen Function"):
+                    if detail and dur >= min_us:
+                        report.functions[detail].total_us += dur
+                        report.functions[detail].count += 1
 
-            # Template instantiation analysis
-            elif name in ("InstantiateClass", "InstantiateFunction"):
-                if detail and dur >= min_us:
-                    report.templates[detail].total_us += dur
-                    report.templates[detail].count += 1
+                if merger is not None:
+                    ev["pid"] = pid
+                    ev["tid"] = 1
+                    merger.add(ev)
 
-            # Backend code generation / optimization
-            elif name in ("OptFunction", "CodeGen Function"):
-                if detail and dur >= min_us:
-                    report.functions[detail].total_us += dur
-                    report.functions[detail].count += 1
+            rel_name = trace_path.stem
+            if rel_name.endswith(".cpp") or rel_name.endswith(".c"):
+                pass
+            elif ".cpp" in rel_name:
+                rel_name = rel_name[: rel_name.find(".cpp") + 4]
 
-        rel_name = trace_path.stem
-        if rel_name.endswith(".cpp") or rel_name.endswith(".c"):
-            pass
-        elif ".cpp" in rel_name:
-            rel_name = rel_name[: rel_name.find(".cpp") + 4]
+            all_tu_times.append((rel_name, tu_duration_us))
+            report.total_compile_us += tu_duration_us
 
-        all_tu_times.append((rel_name, tu_duration_us))
-        report.total_compile_us += tu_duration_us
+            if merger is not None:
+                merger.add(
+                    {
+                        "name": "process_name",
+                        "ph": "M",
+                        "pid": pid,
+                        "tid": 1,
+                        "args": {"name": trace_path.stem},
+                    }
+                )
+    finally:
+        if merger is not None:
+            merger.close()
 
     all_tu_times.sort(key=lambda x: x[1], reverse=True)
     report.slowest_tus = all_tu_times[:15]
-    return report
+    return report, merger.count if merger is not None else 0
 
 
 def print_report(report: ProfileReport, top_n: int = 10, repo_root: Path | None = None) -> None:
@@ -201,49 +271,6 @@ def print_report(report: ProfileReport, top_n: int = 10, repo_root: Path | None 
     print(f"\n{Style.CYAN}Tip: Merge traces to a single timeline via --merge-trace to inspect in https://ui.perfetto.dev{Style.RESET}\n")
 
 
-def merge_traces_for_perfetto(build_dir: Path, output_file: Path) -> int:
-    merged_events: list[dict] = []
-    pid = 1
-
-    for root, _, files in os.walk(build_dir):
-        for f in sorted(files):
-            if f.endswith(".json") and not f.startswith("compile_commands") and not f.startswith("combined_"):
-                p = Path(root) / f
-                try:
-                    with open(p, "r", encoding="utf-8", errors="replace") as jf:
-                        data = json.load(jf)
-                except Exception:
-                    continue
-
-                events = data.get("traceEvents", [])
-                tu_name = p.stem
-
-                # Assign unique process/thread ID per translation unit for clean flame visualization
-                for ev in events:
-                    ev_copy = dict(ev)
-                    ev_copy["pid"] = pid
-                    ev_copy["tid"] = 1
-                    merged_events.append(ev_copy)
-
-                # Add process name event
-                merged_events.append({
-                    "name": "process_name",
-                    "ph": "M",
-                    "pid": pid,
-                    "tid": 1,
-                    "args": {"name": tu_name},
-                })
-                pid += 1
-
-    if not merged_events:
-        return 0
-
-    with open(output_file, "w", encoding="utf-8") as out:
-        json.dump({"traceEvents": merged_events}, out)
-
-    return len(merged_events)
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description="Analyze Clang -ftime-trace build profiling data.")
     parser.add_argument("--build-dir", default="build-wsl-clang", help="Build directory containing .json traces")
@@ -260,15 +287,17 @@ def main() -> int:
         print(f"Error: Build directory not found: {build_path}", file=sys.stderr)
         return 1
 
-    report = analyze_traces(build_path)
-    print_report(report, top_n=args.top, repo_root=repo_root)
-
+    merge_path: Path | None = None
     if args.merge_trace:
         merge_path = Path(args.merge_trace)
         if not merge_path.is_absolute():
             merge_path = build_path / args.merge_trace
-        event_count = merge_traces_for_perfetto(build_path, merge_path)
-        print(f"{Style.GREEN}[OK] Exported {event_count} events to {merge_path}{Style.RESET}")
+
+    report, merged_event_count = analyze_traces(build_path, merge_path)
+    print_report(report, top_n=args.top, repo_root=repo_root)
+
+    if args.merge_trace and merge_path is not None:
+        print(f"{Style.GREEN}[OK] Exported {merged_event_count} events to {merge_path}{Style.RESET}")
 
     return 0
 
