@@ -1,6 +1,14 @@
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-21
+
+Performance practice tools, fixed dual-instrument layers, keyboard zones and three-pedal control, calibrated piano tuning and voicing, and current-format persistence hardening.
+
 ### Added
+
+- **Qwerty Performance Workspace** — add a five-row performance visualizer, fixed layout-group switching with note-off identity preservation, 12-TET pitch-class harmony color projection across QWERTY and piano views, transient-modifier HUD feedback, typing-cadence dynamics and velocity humanization, and sample-accurate syncopated legato pedal scheduling.
+- **Practice Timeline and Chord Guidance** — add a sample-accurate metronome with visual beat pulse and Tap Tempo integration, real-time chord recognition with a fading HUD badge, MIDI A-B loop practice, and routed MIDI note identity through playback and capture.
+- **Crash-Safe Instrument Scan Persistence** — persist instrument scan state and expose stable instrument endpoints across restarts while preventing partial or corrupt state from replacing the previous cache.
 
 - **Windows GUI Automation and Evidence Governance** — register the verified windows-mcp server (v1.3.28, stdio, pinned cwd) for native Windows GUI verification with a per-tool approval matrix, document its WSL2 cwd constraint, failure handling, and upgrade/rollback path, and archive Phase 38/39 and Windows-MCP batches into a per-file SHA-256 indexed evidence root outside the mirror tree.
 
@@ -160,6 +168,11 @@
 - **Full-Period Count-In** — start recording on the audio-owned downbeat after complete one/two-bar periods, including block-aligned boundaries, delayed UI polls, cancellation and device rebuilds.
 - **Instrument-Owned Soft Pedal** — apply per-channel analog CC67 state before new builtin voices start, isolate reused voices and channel releases, and share the instrument owner with offline WAV rendering.
 - **Consistent Sine Envelope Rates** — recalculate ADSR coefficients when the voice sample rate changes so realtime and offline terminal samples use the same time domain.
+
+### Known Issues
+
+- **Third-Party VST3 and Hardware Boundary** — JUCE's native VST3 adapter retains framework-level locking and bounded event conversion; vendor-specific plugin behavior, physical audio-device hot-plug, and force-kill/power-loss/OOM recovery remain outside certified coverage.
+- **Linux/X11 Resizable Lock** — JUCE overwrites `WM_NORMAL_HINTS` during `setBounds`, so `setResizable(false)` cannot lock the window; the corresponding settings option has been removed and the window remains resizable.
 
 ## [1.3.0] - 2026-09-21
 
