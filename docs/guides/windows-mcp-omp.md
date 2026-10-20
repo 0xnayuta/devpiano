@@ -145,10 +145,13 @@ sha256sum /mnt/g/tools/windows-mcp/1.3.28/Sbroenne.WindowsMcp.exe
 ## 11. 禁用、重连、升级与回滚
 
 ```bash
-# 禁用（临时）：从项目 .omp/mcp.json 删除或注释 windows-mcp 条目；重载或新会话生效
+# 禁用（临时）：将项目 .omp/mcp.json 中 windows-mcp 条目的 "enabled" 设为 false；或删除整个条目，重载或新会话生效
 # 重连：会话内执行 /mcp reload；或退出后重新启动 OMP 会话
 # 查看当前工具：新会话中确认 18 个 mcp__windows_mcp_* 工具已注册
 ```
+
+`.omp/mcp.json` 必须保持合法 JSON，不支持 `//` 或 `/* */` 注释。注释条目会使整份文件解析失败，
+同文件内其他 MCP 服务也无法从该配置注册；临时禁用应使用 `"enabled": false`，不要注释 JSON。
 
 升级流程（版本目录策略，禁止原地覆盖）：
 

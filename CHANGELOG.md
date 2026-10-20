@@ -85,6 +85,8 @@
 
 ### Fixed
 
+- **Safe MCP Server Disable Procedure** — document `"enabled": false` or complete entry removal instead of JSON comments, which invalidate the entire configuration and hide its other servers.
+
 - **Complete Deferred Settings Snapshots** — preserve hammer voicing in model copies so first and replacement debounced saves retain non-neutral anchors independently of later source edits.
 
 - **Evidence-Safe Windows Build Cleanup** — classify files and directories separately, allow only explicitly named generated state files instead of generic data suffixes, and refuse standalone evidence, user CMake presets, and linked entries unless explicitly overridden.
