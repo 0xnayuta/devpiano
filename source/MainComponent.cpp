@@ -180,17 +180,8 @@ void MainComponent::parentHierarchyChanged() {
 }
 
 void MainComponent::initialiseFromPreset() {
-    if (appSettings.lastActivePresetId.isNotEmpty()) {
-        if (presetFlowSupport != nullptr && presetFlowSupport->applyPresetById(appSettings.lastActivePresetId)) {
-            return;
-        }
-        DP_LOG_WARN("[Preset] Failed to load last active preset \"" + appSettings.lastActivePresetId
-                    + "\", falling back to default preset");
-    }
-
-    // Fallback: built-in default (no file backing)
     if (presetFlowSupport != nullptr) {
-        presetFlowSupport->applyPresetData(devpiano::layout::makeDefaultPreset(), false);
+        presetFlowSupport->restorePresetForStartup();
     }
 }
 

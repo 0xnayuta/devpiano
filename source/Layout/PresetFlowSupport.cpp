@@ -112,6 +112,37 @@ void PresetFlowSupport::applyPresetData(const PerformancePreset& preset, bool fi
     updateUiAfterCommit();
 }
 
+void PresetFlowSupport::restorePresetForStartup() {
+    const auto presetId = owner.appSettings.lastActivePresetId.trim();
+    refreshCache();
+
+    if (presetId.isNotEmpty()) {
+        if (std::ranges::count_if(cachedPresets, [&presetId](const auto& p) { return p.uuid == presetId; }) > 1) {
+            DP_LOG_WARN("[Preset] ambiguous permanent identity rejected at startup: " + presetId);
+        } else {
+            const auto it
+                = std::ranges::find_if(cachedPresets, [&presetId](const auto& p) { return p.uuid == presetId; });
+            if (it != cachedPresets.end()) {
+                applyStartupPresetData(*it, true);
+                return;
+            }
+            DP_LOG_WARN("[Preset] Failed to load last active preset \"" + presetId
+                        + "\", falling back to default preset");
+        }
+    }
+
+    applyStartupPresetData(devpiano::layout::makeDefaultPreset(), false);
+}
+
+void PresetFlowSupport::applyStartupPresetData(const PerformancePreset& preset, bool fileBacked) {
+    // Startup deliberately bypasses recording notifications and
+    // updateUiAfterCommit() so restoring cannot enqueue a Settings save or
+    // rewrite the source preset file.
+    commitPreset(presetWithAcousticWorkState(preset, owner.appSettings.getPerformanceSettingsView()), fileBacked);
+    refreshCache(true);
+    owner.getCustomKeyboard().repaint();
+}
+
 void PresetFlowSupport::applyRecordedPresetUi(const devpiano::recording::RecordedPreset& recordedPreset) {
     const auto& preset = recordedPreset.preset;
 

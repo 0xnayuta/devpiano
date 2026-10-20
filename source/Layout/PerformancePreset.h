@@ -61,6 +61,11 @@ struct PerformancePreset {
 [[nodiscard]] juce::var performancePresetToVar(const PerformancePreset& preset);
 [[nodiscard]] std::optional<PerformancePreset> performancePresetFromVar(const juce::var& v);
 
+/// Builds the startup view of a preset: identity, mapping and display fields come
+/// from the preset, while acoustic fields come from the persisted work state.
+[[nodiscard]] PerformancePreset presetWithAcousticWorkState(const PerformancePreset& preset,
+                                                            const SettingsModel::PerformanceSettingsView& workState);
+
 // ---- File management ----
 
 [[nodiscard]] juce::File getPresetDirectory();

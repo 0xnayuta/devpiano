@@ -88,6 +88,8 @@
 
 ### Fixed
 
+- **Acoustic Work-State Restoration Across Restarts** — restore the last active preset's identity, mapping and display while retaining the persisted acoustic work state for brightness, hammer, resonance and the remaining preset acoustics. Explicit preset loading still applies its full acoustic configuration, and startup never rewrites preset files.
+
 - **Register-Independent Pedal Resonance Shock** — apply register voicing to the note drive before it enters the shared sympathetic pool, leaving CC64 mechanical shock unscaled in active and idle rendering. Preserve note-body and Duplex voicing, and cover mono/stereo pedal output after immediate stops and natural releases.
 
 - **Bass Longitudinal Precursor Level and Boundary** — stop applying the unison-string phase-compensation gain to the independently generated longitudinal precursor, which made low-note attacks dominate as a pitched high-frequency ping, and fade that precursor continuously from MIDI 48 through 55, reaching zero at MIDI 56 instead of switching it off between adjacent semitones. Hammer and crack excitation keep their existing source scale; the new fade is an engineering voicing boundary rather than a measured physical cutoff.

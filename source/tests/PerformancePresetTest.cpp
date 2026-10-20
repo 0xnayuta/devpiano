@@ -311,6 +311,79 @@ public:
                 expectPresetsEqual(*this, original, *fromVar);
             }
         });
+
+        testCase("startup composition keeps preset mapping and restores acoustic work state", [&] {
+            auto preset = makeFullPreset();
+            preset.brightness = 0.11f;
+            preset.hammerHardness = 0.12f;
+            preset.resonance = 0.13f;
+            preset.lidPosition = SettingsModel::LidPosition::fullOpen;
+            preset.touchVelocityCurve = devpiano::input::TouchVelocityCurve::standard;
+            preset.unaCorda = false;
+            preset.temperament = devpiano::audio::Temperament::equal;
+            preset.referencePitchA4 = 440.0;
+            preset.soundPerspective = devpiano::audio::SoundPerspective::player;
+            preset.reverbSpace = devpiano::audio::ReverbSpace::chamber;
+            preset.reverbWet = 0.1f;
+            preset.pedalNoiseLevel = 0.2f;
+            preset.feltAgeingAmount = 0.3f;
+            preset.stretchTuningEnabled = true;
+            preset.duplexResonance = 0.15f;
+
+            SettingsModel::PerformanceSettingsView workState;
+            workState.pianoBrightness = 0.23f;
+            workState.pianoHammerHardness = 0.74f;
+            workState.pianoResonance = 0.91f;
+            workState.hammerVoicing.anchors[0].hardnessDelta = 0.18f;
+            workState.hammerVoicing.anchors[2].loudnessDeltaDb = 5.5f;
+            workState.lidPosition = SettingsModel::LidPosition::closed;
+            workState.touchVelocityCurve = devpiano::input::TouchVelocityCurve::wideDynamic;
+            workState.unaCorda = true;
+            workState.temperament = devpiano::audio::Temperament::just;
+            workState.referencePitchA4 = 442.0;
+            workState.soundPerspective = devpiano::audio::SoundPerspective::audience;
+            workState.reverbSpace = devpiano::audio::ReverbSpace::concertHall;
+            workState.reverbWet = 0.62f;
+            workState.pedalNoiseLevel = 0.81f;
+            workState.feltAgeingAmount = 0.44f;
+            workState.stretchTuningEnabled = false;
+            workState.duplexResonance = 0.37f;
+            workState.layers.enabled = true;
+            workState.layers.pianoEnabled = false;
+            workState.layers.pluginEnabled = true;
+            workState.layers.pianoGain = 0.22f;
+            workState.layers.pluginGain = 0.77f;
+
+            const auto startup = presetWithAcousticWorkState(preset, workState);
+            expectEquals(startup.uuid, preset.uuid);
+            expectEquals(startup.name, preset.name);
+            expectEquals(startup.layout.id, preset.layout.id);
+            expectEquals(startup.layout.bindings.size(), preset.layout.bindings.size());
+            expectEquals(startup.layout.regionA.transposeOffset, preset.layout.regionA.transposeOffset);
+            expect(startup.channelMatrix.active == preset.channelMatrix.active);
+            expectEquals(static_cast<int>(startup.colourMode), static_cast<int>(preset.colourMode));
+            expectWithinAbsoluteError(startup.brightness, workState.pianoBrightness, 1e-6f);
+            expectWithinAbsoluteError(startup.hammerHardness, workState.pianoHammerHardness, 1e-6f);
+            expectWithinAbsoluteError(startup.resonance, workState.pianoResonance, 1e-6f);
+            expect(devpiano::audio::isSameHammerVoicing(startup.hammerVoicing, workState.hammerVoicing));
+            expect(startup.lidPosition == workState.lidPosition);
+            expect(startup.touchVelocityCurve == workState.touchVelocityCurve);
+            expect(startup.unaCorda == workState.unaCorda);
+            expect(startup.temperament == workState.temperament);
+            expectWithinAbsoluteError(startup.referencePitchA4, workState.referencePitchA4, 1e-9);
+            expect(startup.soundPerspective == workState.soundPerspective);
+            expect(startup.reverbSpace == workState.reverbSpace);
+            expectWithinAbsoluteError(startup.reverbWet, workState.reverbWet, 1e-6f);
+            expectWithinAbsoluteError(startup.pedalNoiseLevel, workState.pedalNoiseLevel, 1e-6f);
+            expectWithinAbsoluteError(startup.feltAgeingAmount, workState.feltAgeingAmount, 1e-6f);
+            expect(startup.stretchTuningEnabled == workState.stretchTuningEnabled);
+            expectWithinAbsoluteError(startup.duplexResonance, workState.duplexResonance, 1e-6f);
+            expect(startup.layers.enabled == workState.layers.enabled);
+            expect(startup.layers.pianoEnabled == workState.layers.pianoEnabled);
+            expect(startup.layers.pluginEnabled == workState.layers.pluginEnabled);
+            expectWithinAbsoluteError(startup.layers.pianoGain, workState.layers.pianoGain, 1e-6f);
+            expectWithinAbsoluteError(startup.layers.pluginGain, workState.layers.pluginGain, 1e-6f);
+        });
     }
 };
 

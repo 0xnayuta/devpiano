@@ -126,7 +126,7 @@ struct SettingsModel {
     juce::String pluginSearchPath;
     juce::String lastPluginIdentifier;
     std::unique_ptr<juce::XmlElement> knownPluginListState;
-    juce::String lastActivePresetId; // last-used preset file name (without extension)
+    juce::String lastActivePresetId; // permanent UUID of the last active preset
     // Persisted last MIDI import/export paths for FileChooser defaults.
     juce::String lastMidiImportPath;
     juce::String lastMidiExportPath;

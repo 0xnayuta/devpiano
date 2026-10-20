@@ -24,6 +24,9 @@ public:
     bool applyPresetById(const juce::String& presetId);
     void applyPresetByIndex(int zeroBasedIndex);
     void applyPresetData(const PerformancePreset& preset, bool fileBacked);
+    /// Restores the last active preset's identity, mapping and display fields at
+    /// startup while preserving the acoustic work state loaded from Settings.
+    void restorePresetForStartup();
     void applyRecordedPresetUi(const devpiano::recording::RecordedPreset& recordedPreset);
     // ---- CRUD ----
 
@@ -46,6 +49,7 @@ public:
 private:
     void refreshCache(bool force = false);
     void commitPreset(const PerformancePreset& preset, bool fileBacked);
+    void applyStartupPresetData(const PerformancePreset& preset, bool fileBacked);
     void updateUiAfterCommit();
     /// Save the current live state as a preset to `file` and refresh the UI.
     void savePresetFromCurrentState(const juce::String& name, const juce::File& file, const juce::String& uuid = {});

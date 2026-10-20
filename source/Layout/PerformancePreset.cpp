@@ -760,6 +760,29 @@ PresetRenameResult renamePreset(const juce::String& oldName, const juce::String&
     return PresetRenameResult::success;
 }
 
+PerformancePreset presetWithAcousticWorkState(const PerformancePreset& preset,
+                                              const SettingsModel::PerformanceSettingsView& workState) {
+    auto result = preset;
+    result.brightness = workState.pianoBrightness;
+    result.hammerHardness = workState.pianoHammerHardness;
+    result.hammerVoicing = workState.hammerVoicing;
+    result.resonance = workState.pianoResonance;
+    result.stretchTuningEnabled = workState.stretchTuningEnabled;
+    result.duplexResonance = workState.duplexResonance;
+    result.lidPosition = workState.lidPosition;
+    result.touchVelocityCurve = workState.touchVelocityCurve;
+    result.unaCorda = workState.unaCorda;
+    result.temperament = workState.temperament;
+    result.referencePitchA4 = workState.referencePitchA4;
+    result.soundPerspective = workState.soundPerspective;
+    result.reverbSpace = workState.reverbSpace;
+    result.reverbWet = workState.reverbWet;
+    result.pedalNoiseLevel = workState.pedalNoiseLevel;
+    result.feltAgeingAmount = workState.feltAgeingAmount;
+    result.layers = workState.layers;
+    return result;
+}
+
 // ---- Directory scanning ----
 
 std::vector<PerformancePreset> scanPresetDirectory(const juce::File& dir) {
