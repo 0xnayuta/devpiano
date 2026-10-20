@@ -20,7 +20,13 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
+
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - Windows fallback
+    fcntl = None
 
 CACHE_VERSION = b"v4"
 LAUNCHER_NAMES = {"ccache", "sccache", "distcc", "icecc"}
@@ -49,7 +55,7 @@ def compute_config_hash(root_dir: Path) -> str:
     return "no-config"
 
 
-def parse_compile_commands(build_dir: Path) -> dict:
+def parse_compile_commands(build_dir: Path) -> dict[str, list[dict]]:
     cc_file = build_dir / "compile_commands.json"
     if not cc_file.exists():
         return {}
@@ -59,7 +65,7 @@ def parse_compile_commands(build_dir: Path) -> dict:
     except Exception:
         return {}
 
-    result = {}
+    result: dict[str, list[dict]] = {}
     for entry in entries:
         if not isinstance(entry, dict) or "file" not in entry:
             continue
@@ -73,8 +79,9 @@ def parse_compile_commands(build_dir: Path) -> dict:
             key = os.path.normpath(str(file_path.resolve()))
         except OSError:
             continue
-        # Keep the first entry so duplicate app/test targets are deterministic.
-        result.setdefault(key, entry)
+        # A source can appear in both the app and test target. Keep every
+        # command so the cache key cannot ignore one target's flags.
+        result.setdefault(key, []).append(entry)
     return result
 
 
@@ -233,6 +240,25 @@ def update_dependency_hash(hasher, dependencies: list[Path]) -> None:
             hasher.update(b"missing")
 
 
+def write_cache_entry(cache_file: Path, data: dict) -> None:
+    """Publish a cache entry atomically; never leave partial JSON behind."""
+    fd, temp_name = tempfile.mkstemp(
+        prefix=f".{cache_file.name}.", suffix=".tmp", dir=cache_file.parent
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(data, handle)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_name, cache_file)
+    except Exception:
+        try:
+            os.unlink(temp_name)
+        except OSError:
+            pass
+        raise
+
+
 def compute_key(
     source_file: str,
     build_dir: Path,
@@ -241,6 +267,7 @@ def compute_key(
     dependencies: list[Path] | None,
     tool_identity: str,
     tidy_args: list[str],
+    compile_entries: list[dict] | None = None,
 ) -> str:
     hasher = hashlib.sha256()
     hasher.update(CACHE_VERSION)
@@ -262,6 +289,15 @@ def compute_key(
         if not command:
             command = " ".join(compile_entry.get("arguments", []))
         hasher.update(str(command).encode("utf-8"))
+
+    entries = compile_entries if compile_entries is not None else ([compile_entry] if compile_entry else [])
+    if len(entries) > 1:
+        hasher.update(b"compile-entries:")
+        for entry in entries:
+            command = entry.get("command")
+            if not command:
+                command = " ".join(entry.get("arguments", []))
+            hasher.update(str(command).encode("utf-8"))
 
     hasher.update(str(build_dir.resolve()).encode("utf-8"))
     hasher.update(tool_identity.encode("utf-8"))
@@ -285,11 +321,17 @@ def main():
     real_clang_tidy = os.environ.get("REAL_CLANG_TIDY", "clang-tidy-21")
 
     if "--clear-cache" in args:
+        if args != ["--clear-cache"]:
+            print("--clear-cache cannot be combined with other arguments", file=sys.stderr)
+            sys.exit(2)
         cache_dir = get_cache_dir(root_dir)
         count = 0
-        for path in cache_dir.glob("*.json"):
-            path.unlink()
-            count += 1
+        for path in list(cache_dir.glob("*.json")) + list(cache_dir.glob("*.json.lock")):
+            try:
+                path.unlink()
+                count += 1
+            except OSError:
+                pass
         print(f"[tidy-cache] Cleared {count} cached entries in {cache_dir}")
         sys.exit(0)
 
@@ -326,10 +368,15 @@ def main():
     source_path = source_path.resolve()
 
     compile_commands = parse_compile_commands(build_dir)
-    compile_entry = compile_commands.get(
-        os.path.normpath(str(source_path)), {}
+    compile_entries = compile_commands.get(
+        os.path.normpath(str(source_path)), []
     )
-    dependencies = ninja_dependencies(build_dir, compile_entry) if compile_entry else None
+    compile_entry = compile_entries[0] if compile_entries else {}
+    dependencies = (
+        ninja_dependencies(build_dir, compile_entry)
+        if len(compile_entries) == 1
+        else None
+    )
     tool_identity = (
         f"tidy:{file_identity(real_clang_tidy)};"
         f"compiler:{file_identity(compiler_command(compile_entry))}"
@@ -344,42 +391,52 @@ def main():
         dependencies,
         tool_identity,
         args,
+        compile_entries,
     )
     cache_file = cache_dir / f"{cache_key}.json"
+    lock_file = cache_file.with_name(cache_file.name + ".lock")
 
-    if cache_file.exists():
+    with open(lock_file, "a+", encoding="utf-8") as lock_handle:
+        if fcntl is not None:
+            fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
         try:
-            with open(cache_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            if data.get("stdout"):
-                sys.stdout.write(data["stdout"])
-            if data.get("stderr"):
-                sys.stderr.write(data["stderr"])
-            sys.exit(data.get("returncode", 0))
-        except Exception:
-            pass
+            if cache_file.exists():
+                try:
+                    with open(cache_file, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    if data.get("stdout"):
+                        sys.stdout.write(data["stdout"])
+                    if data.get("stderr"):
+                        sys.stderr.write(data["stderr"])
+                    sys.exit(data.get("returncode", 0))
+                except Exception:
+                    pass
 
-    cmd = [real_clang_tidy] + args
-    result = subprocess.run(cmd, capture_output=True, text=True)
+            cmd = [real_clang_tidy] + args
+            result = subprocess.run(cmd, capture_output=True, text=True)
 
-    if result.stdout:
-        sys.stdout.write(result.stdout)
-    if result.stderr:
-        sys.stderr.write(result.stderr)
+            if result.stdout:
+                sys.stdout.write(result.stdout)
+            if result.stderr:
+                sys.stderr.write(result.stderr)
 
-    try:
-        cache_data = {
-            "source": source_file,
-            "returncode": result.returncode,
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-        }
-        with open(cache_file, "w", encoding="utf-8") as f:
-            json.dump(cache_data, f)
-    except Exception:
-        pass
+            try:
+                write_cache_entry(
+                    cache_file,
+                    {
+                        "source": source_file,
+                        "returncode": result.returncode,
+                        "stdout": result.stdout,
+                        "stderr": result.stderr,
+                    },
+                )
+            except Exception:
+                pass
 
-    sys.exit(result.returncode)
+            sys.exit(result.returncode)
+        finally:
+            if fcntl is not None:
+                fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
 
 
 if __name__ == "__main__":
