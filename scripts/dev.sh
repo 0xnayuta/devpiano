@@ -132,6 +132,9 @@ Usage: ./scripts/dev.sh format [--check]
 Formats or checks all .cpp and .h files under source/ with clang-format.
   --check     Dry-run with --dry-run --Werror; do not modify files
   -h, --help  Show this help
+
+Environment:
+  FORMAT_JOBS Number of parallel clang-format workers (default: 8)
 EOF
         exit 0
     fi
@@ -141,6 +144,9 @@ EOF
     if [[ $# -eq 1 && "${1}" != "--check" ]]; then
         fail "unknown argument: ${1}"
     fi
+    FORMAT_JOBS="${FORMAT_JOBS:-8}"
+    [[ "${FORMAT_JOBS}" =~ ^[1-9][0-9]*$ ]] \
+        || fail 'FORMAT_JOBS must be a positive integer'
     CLANG_FORMAT_CMD="${CLANG_FORMAT_EXE:-}"
     if [[ -z "${CLANG_FORMAT_CMD}" ]]; then
       if command -v clang-format-21 >/dev/null 2>&1; then
@@ -153,12 +159,14 @@ EOF
     fi
     log "Running ${CLANG_FORMAT_CMD} on source/"
     if [[ "${1:-}" == "--check" ]]; then
-        find "${ROOT_DIR}/source" -type f \( -name '*.cpp' -o -name '*.h' \) \
-            -exec "${CLANG_FORMAT_CMD}" -style=file --dry-run --Werror {} +
+        find "${ROOT_DIR}/source" -type f \( -name '*.cpp' -o -name '*.h' \) -print0 \
+            | xargs -0 -r -P "${FORMAT_JOBS}" -n 24 \
+                "${CLANG_FORMAT_CMD}" -style=file --dry-run --Werror
         log 'clang-format check passed'
     else
-        find "${ROOT_DIR}/source" -type f \( -name '*.cpp' -o -name '*.h' \) \
-            -exec "${CLANG_FORMAT_CMD}" -i -style=file {} +
+        find "${ROOT_DIR}/source" -type f \( -name '*.cpp' -o -name '*.h' \) -print0 \
+            | xargs -0 -r -P "${FORMAT_JOBS}" -n 24 \
+                "${CLANG_FORMAT_CMD}" -i -style=file
         log 'clang-format applied'
     fi
     ;;
@@ -176,6 +184,9 @@ Options:
   --all          Full parallel scan of source/ (iteration-boundary gate)
   --clear-cache  Clear the local tidy result cache
   -h, --help     Show this help
+
+Environment:
+  TIDY_JOBS      Parallel clang-tidy processes (default: nproc)
 EOF
         exit 0
     fi
@@ -215,7 +226,9 @@ EOF
         fail 'compile_commands.json missing - run ./scripts/dev.sh wsl-build --configure-only first'
     fi
 
-    NPROCS=$(nproc 2>/dev/null || echo 4)
+    NPROCS="${TIDY_JOBS:-$(nproc 2>/dev/null || echo 4)}"
+    [[ "${NPROCS}" =~ ^[1-9][0-9]*$ ]] \
+        || fail 'TIDY_JOBS must be a positive integer'
 
     if [[ "${1:-}" == "--all" ]]; then
         log "Running clang-tidy full scan in parallel (-j ${NPROCS}, cached)"
@@ -252,16 +265,21 @@ EOF
         } | sort -u | grep -E '^source/.*\.(cpp|h)$' || true)
     fi
 
+    if printf '%s\n' "${files[@]}" | grep -qE '\.(h|hpp|inc)$'; then
+        log 'Header change detected; checking all source files (cache-aware)'
+        mapfile -t files < <(find "source" -type f -name '*.cpp' -print | sort)
+    fi
+
     if [[ ${#files[@]} -eq 0 ]]; then
         log 'No changed source files to check'
         exit 0
     fi
 
-    log "Running clang-tidy on ${#files[@]} file(s) (cached): ${files[*]}"
-    for f in "${files[@]}"; do
-        "${WRAPPER}" -p "${ROOT_DIR}/build-wsl-clang" --quiet \
-                     --warnings-as-errors='*' "${f}" 2>&1
-    done
+    log "Running clang-tidy on ${#files[@]} file(s) in ${NPROCS} worker(s) (cached)"
+    printf '%s\0' "${files[@]}" \
+        | xargs -0 -r -P "${NPROCS}" -n 1 \
+            "${WRAPPER}" -p "${ROOT_DIR}/build-wsl-clang" --quiet \
+            --warnings-as-errors='*' 2>&1
     ;;
   test)
     if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
