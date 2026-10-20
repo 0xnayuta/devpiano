@@ -85,6 +85,8 @@
 
 ### Fixed
 
+- **Complete Deferred Settings Snapshots** — preserve hammer voicing in model copies so first and replacement debounced saves retain non-neutral anchors independently of later source edits.
+
 - **Evidence-Safe Windows Build Cleanup** — classify files and directories separately, allow only explicitly named generated state files instead of generic data suffixes, and refuse standalone evidence, user CMake presets, and linked entries unless explicitly overridden.
 
 - **Bounded Realtime Hammer Voicing Reads** — try each pending atomic voicing snapshot once, retain the previous complete audio value and retry on a later block when publication is in progress, and keep message-thread recording captures independent of audio-owned state.

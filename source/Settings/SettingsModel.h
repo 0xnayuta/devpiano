@@ -265,6 +265,7 @@ struct SettingsModel {
             builtinTone = other.builtinTone;
             pianoBrightness = other.pianoBrightness;
             pianoHammerHardness = other.pianoHammerHardness;
+            hammerVoicing = other.hammerVoicing;
             pianoResonance = other.pianoResonance;
             lidPosition = other.lidPosition;
             touchVelocityCurve = other.touchVelocityCurve;

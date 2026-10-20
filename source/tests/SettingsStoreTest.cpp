@@ -416,6 +416,7 @@ public:
             const auto settingsFile = tempDir.getChildFile("DevPianoTests.settings");
             auto model = makePopulatedModel();
             model.audioDeviceState = juce::parseXML(R"(<DEVICES name="DeviceA"/>)");
+            const auto firstVoicing = model.hammerVoicing;
             SettingsModel copyConstructed(model);
             SettingsModel copyAssigned;
             copyAssigned = copyConstructed;
@@ -435,6 +436,7 @@ public:
             SettingsStore store(settingsFile);
             store.scheduleSave(copyAssigned, 1);
             copyAssigned.metronomeBpm = 91.0;
+            copyAssigned.hammerVoicing.anchors[0].hardnessDelta = 0.20f;
             copyAssigned.audioDeviceState->setAttribute("name", "ChangedAfterSchedule");
             copyAssigned.knownPluginListState->setAttribute("changed", true);
             devpiano::test::drainMessages(100);
@@ -442,6 +444,8 @@ public:
             SettingsModel first;
             SettingsStore(settingsFile).load(first);
             checkPracticeFields(first, 173.0);
+            expect(devpiano::audio::isSameHammerVoicing(first.hammerVoicing, firstVoicing),
+                   "the first deferred save must preserve voicing independently of later edits");
             expect(first.audioDeviceState != nullptr && first.knownPluginListState != nullptr);
             if (first.audioDeviceState != nullptr && first.knownPluginListState != nullptr) {
                 expectEquals(first.audioDeviceState->getStringAttribute("name"), juce::String("DeviceA"));
@@ -449,14 +453,20 @@ public:
             }
 
             copyAssigned.metronomeBpm = 201.0;
+            auto replacementVoicing = firstVoicing;
+            replacementVoicing.anchors[1].rolloffDelta = 0.75f;
             store.scheduleSave(copyAssigned, 1000);
             copyAssigned.metronomeBpm = 149.0;
+            copyAssigned.hammerVoicing = replacementVoicing;
             store.scheduleSave(copyAssigned, 1);
             copyAssigned.metronomeBpm = 91.0;
+            copyAssigned.hammerVoicing = devpiano::audio::kCalibratedHammerVoicing;
             devpiano::test::drainMessages(100);
             SettingsModel second;
             SettingsStore(settingsFile).load(second);
             checkPracticeFields(second, 149.0);
+            expect(devpiano::audio::isSameHammerVoicing(second.hammerVoicing, replacementVoicing),
+                   "replacement deferred saves must persist the latest complete voicing");
         });
     }
 };
