@@ -20,7 +20,6 @@ CMakeLists.txt text eol=lf
 *.targets      text eol=lf
 *.vcxproj      text eol=lf
 *.vcxproj.filters text eol=lf
-*.sln          text eol=crlf
 
 # Documentation and config
 *.md    text eol=lf
@@ -39,8 +38,6 @@ CMakeLists.txt text eol=lf
 *.sh    text eol=lf
 *.py    text eol=lf
 *.ps1   text eol=lf
-*.bat   text eol=crlf
-*.cmd   text eol=crlf
 
 # Binary assets and artifacts
 *.png   binary

@@ -13,6 +13,7 @@
 
 ### Changed
 
+- **Repository-Wide LF Enforcement** — require LF for every tracked text file, remove the Windows-only CRLF exceptions for solution and batch files, and gate CI on a fail-closed line-ending check.
 - **Current-Code Documentation Alignment** — reconcile piano parameter provenance, neutral three-velocity voicing, fixed-layer/processed-mono diagrams, current-format state handling, build recipes and ADR boundaries; remove volatile engineering metrics while preserving physical/protocol constants, historical failures and unverified hardware/CPU limits.
 
 - **Piano Timbre Recovery and Neutral Factory Voicing** — restore independent low/mid-register phases, converge treble phase differences continuously across the existing detune range, and constrain each note-wide excitation with an analytic unison power estimate so strings and hammer transients share one scale. Switch the factory three-velocity voicing to neutral anchors, drop the retired factory calibration values without a compatibility layer, and retain the repaired 95/96 transition. The user confirmed the recovered timbre by listening and smoke testing, and separately confirmed that the neutral default's 41/55/70/85/98 relative loudness hierarchy is sufficient; the Brightness default and file formats are unchanged.
