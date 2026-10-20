@@ -115,6 +115,7 @@ public:
 
     void runTest() override {
         testPianoVoicing();
+        testRegisterVoicingCurve();
         testHammerVoicingAnchors();
         testBasicRenderingAndHarmonics();
         testHammerAndTransientDynamics();
@@ -193,6 +194,53 @@ private:
 
             expect(resLate > dryLate, "higher resonance must decay slower (stronger late energy)");
         }
+    }
+
+    void testRegisterVoicingCurve() {
+        beginTest("continuous register voicing is monotonic and neutral at C4");
+
+        const auto low = devpiano::audio::pianoRegisterLoudnessGain(21);
+        const auto mid = devpiano::audio::pianoRegisterLoudnessGain(60);
+        const auto high = devpiano::audio::pianoRegisterLoudnessGain(108);
+
+        expectWithinAbsoluteError(mid, 1.0f, 1e-6f, "C4 is the neutral register anchor");
+        expectGreaterThan(low, 1.0f, "A0 receives low-register loudness lift");
+        expectLessThan(high, 1.0f, "C8 receives high-register attenuation");
+
+        auto previous = low;
+        auto monotonic = true;
+        for (auto note = 22; note <= 108; ++note) {
+            const auto current = devpiano::audio::pianoRegisterLoudnessGain(note);
+            if (current > previous + 1e-6f) {
+                monotonic = false;
+            }
+            previous = current;
+        }
+        expect(monotonic, "register gain must not rise with pitch across the 88-key curve");
+        expectWithinAbsoluteError(devpiano::audio::pianoRegisterLoudnessGain(19),
+                                  devpiano::audio::pianoRegisterLoudnessGain(21), 1e-6f,
+                                  "below-A0 queries clamp to the low anchor");
+        expectWithinAbsoluteError(devpiano::audio::pianoRegisterLoudnessGain(120),
+                                  devpiano::audio::pianoRegisterLoudnessGain(108), 1e-6f,
+                                  "above-C8 queries clamp to the high anchor");
+
+        VoiceFixture lowFixture;
+        VoiceFixture midFixture;
+        VoiceFixture highFixture;
+        juce::AudioBuffer<float> lowBuffer(2, blockSize * 4);
+        juce::AudioBuffer<float> midBuffer(2, blockSize * 4);
+        juce::AudioBuffer<float> highBuffer(2, blockSize * 4);
+        lowFixture.noteOnBlock(21, 0.8f, lowBuffer);
+        midFixture.noteOnBlock(60, 0.8f, midBuffer);
+        highFixture.noteOnBlock(96, 0.8f, highBuffer);
+        const auto lowEnergy = lowBuffer.getRMSLevel(0, 0, lowBuffer.getNumSamples())
+            + lowBuffer.getRMSLevel(1, 0, lowBuffer.getNumSamples());
+        const auto midEnergy = midBuffer.getRMSLevel(0, 0, midBuffer.getNumSamples())
+            + midBuffer.getRMSLevel(1, 0, midBuffer.getNumSamples());
+        const auto highEnergy = highBuffer.getRMSLevel(0, 0, highBuffer.getNumSamples())
+            + highBuffer.getRMSLevel(1, 0, highBuffer.getNumSamples());
+        expect(lowEnergy > midEnergy * 1.15f, "rendered A0 must receive the low-register lift");
+        expect(highEnergy < midEnergy, "rendered C7 must receive the high-register attenuation");
     }
 
     void testHammerVoicingAnchors() {
@@ -638,6 +686,20 @@ private:
             PianoSynthVoice::HammerTransient bassLongTransient;
             bassLongTransient.trigger(kSampleRate, 30, 0.85f, 0.5f, 1.50f, 1.0f);
             expect(bassLongTransient.isActive(), "bass strike activates longitudinal precursor mode");
+
+            PianoSynthVoice::HammerTransient compensatedBassLongTransient;
+            compensatedBassLongTransient.trigger(kSampleRate, 30, 0.85f, 0.5f, 1.50f, 6.0f);
+            expectWithinAbsoluteError(bassLongTransient.longAmplitude, compensatedBassLongTransient.longAmplitude,
+                                      1e-9f, "string phase compensation must not amplify the independent precursor");
+
+            expectWithinAbsoluteError(PianoSynthVoice::HammerTransient::longitudinalPrecursorGain(47), 1.0f, 1e-6f,
+                                      "low bass retains the precursor before the fade");
+            expect(PianoSynthVoice::HammerTransient::longitudinalPrecursorGain(55) > 0.0f,
+                   "the precursor fades rather than clicks off on the last audible note");
+            expect(PianoSynthVoice::HammerTransient::longitudinalPrecursorGain(55) < 0.05f,
+                   "the upper fade leaves only a residual precursor");
+            expectEquals(PianoSynthVoice::HammerTransient::longitudinalPrecursorGain(56), 0.0f,
+                         "the precursor is absent at and above its documented boundary");
 
             for (auto i = 0; i < 900; ++i) {
                 [[maybe_unused]] const auto discarded = bassLongTransient.getNextSample();

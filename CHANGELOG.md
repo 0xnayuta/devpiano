@@ -13,6 +13,8 @@
 
 ### Changed
 
+- **Continuous Register Loudness Voicing** — add a fixed eight-anchor dB curve (A0 +6 dB through C8 -4 dB) at the piano voice output stage so bass, middle and treble share a continuous register balance without per-key gain tables, physical parameter changes or velocity-curve changes. The curve applies to note-driven body/resonance/Duplex output but not to pedal mechanical noise; it is an engineering voicing target, and the anchor direction was confirmed by the user's controlled listening on 2026-10-20.
+
 - **Repository-Wide LF Enforcement** — require LF for every tracked text file, remove the Windows-only CRLF exceptions for solution and batch files, and gate CI on a fail-closed line-ending check.
 - **Current-Code Documentation Alignment** — reconcile piano parameter provenance, neutral three-velocity voicing, fixed-layer/processed-mono diagrams, current-format state handling, build recipes and ADR boundaries; remove volatile engineering metrics while preserving physical/protocol constants, historical failures and unverified hardware/CPU limits.
 
@@ -85,6 +87,8 @@
 - **Phase 36 Archive and Phase 37/38 Planning** — preserve the completed Phase 36 task and verification record, and revise the follow-on tasks, dependency schedule, and acceptance for piano tuning/passive resonance, keyboard zones, three-pedal control, and fixed dual-layer performance. This is a documentation-only change, not a runtime feature implementation.
 
 ### Fixed
+
+- **Bass Longitudinal Precursor Level and Boundary** — stop applying the unison-string phase-compensation gain to the independently generated longitudinal precursor, which made low-note attacks dominate as a pitched high-frequency ping, and fade that precursor continuously from MIDI 48 through 55, reaching zero at MIDI 56 instead of switching it off between adjacent semitones. Hammer and crack excitation keep their existing source scale; the new fade is an engineering voicing boundary rather than a measured physical cutoff.
 
 - **Safe MCP Server Disable Procedure** — document `"enabled": false` or complete entry removal instead of JSON comments, which invalidate the entire configuration and hide its other servers.
 

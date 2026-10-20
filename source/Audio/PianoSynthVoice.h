@@ -3,6 +3,7 @@
 #include "HammerVoicing.h"
 #include "PerspectiveProcessor.h"
 #include "Piano88KeyTable.h"
+#include "PianoRegisterVoicing.h"
 #include "PianoTuning.h"
 #include "TemperamentEngine.h"
 #include <juce_audio_basics/juce_audio_basics.h>
@@ -451,6 +452,7 @@ public:
         perspectiveProcessor.prepare(sampleRate);
 
         currentPlayingMidiNote = midiNoteNumber;
+        noteOutputGain = devpiano::audio::pianoRegisterLoudnessGain(midiNoteNumber);
         const auto& params = devpiano::audio::getNoteParams(midiNoteNumber);
         // 琴槌毛毡微老化扰动与调音离散度 (Phase 32-C, Inharmonicity Jitter & Felt Ageing)
         const auto pitchJitterCents = (pianoFeltAgeingAmount > 0.0f)
@@ -799,8 +801,10 @@ public:
                 const auto sympatheticOut = (voiceIndex == 0) ? sympatheticPool.process(0.0f) : 0.0f;
                 const auto duplexOut = duplexMix * duplexPool.process(0.0f);
                 if (pedalSound != 0.0f || sympatheticOut != 0.0f || duplexOut != 0.0f) {
-                    auto outL = pedalSound * 0.7071f + sympatheticOut * 0.40f + duplexOut * directLeftGain;
-                    auto outR = pedalSound * 0.7071f + sympatheticOut * 0.60f + duplexOut * directRightGain;
+                    const auto noteTailL = (sympatheticOut * 0.40f + duplexOut * directLeftGain) * noteOutputGain;
+                    const auto noteTailR = (sympatheticOut * 0.60f + duplexOut * directRightGain) * noteOutputGain;
+                    auto outL = pedalSound * 0.7071f + noteTailL;
+                    auto outR = pedalSound * 0.7071f + noteTailR;
                     lidAcoustics.processStereo(outL, outR);
                     perspectiveProcessor.processStereo(outL, outR);
 
@@ -925,6 +929,8 @@ public:
                 = (1.0f - wet) * rawRight * directRightGain + wet * (resonatorRightSum + 0.60f * sympatheticOut);
             outLeft = (1.0f - duplexMix) * outLeft + duplexMix * duplexOut * directLeftGain;
             outRight = (1.0f - duplexMix) * outRight + duplexMix * duplexOut * directRightGain;
+            outLeft *= noteOutputGain;
+            outRight *= noteOutputGain;
 
             if (pedalSound != 0.0f) {
                 outLeft += pedalSound * 0.7071f;
@@ -1228,6 +1234,7 @@ public:
     bool pianoStretchTuningEnabled = true;
     float directLeftGain = 0.7071f;
     float directRightGain = 0.7071f;
+    float noteOutputGain = 1.0f;
 
     // 强击非线性张力音高微漂移引擎 (Phase 22-D, Bank & Sujbert 2005 JASA)
     struct PitchGlideEngine {
@@ -1334,6 +1341,9 @@ public:
     SpatialDiffusionEngine spatialDiffusionEngine;
 
     struct HammerTransient {
+        static constexpr int longitudinalFadeStartMidi = 48;
+        static constexpr int longitudinalEndMidi = 56;
+
         int samplesRemaining = 0;
         int totalSamples = 0;
         float amplitude = 0.0f;
@@ -1360,8 +1370,23 @@ public:
         float longPhase3 = 0.0f;
         float longPhaseInc3 = 0.0f;
 
+        // The precursor remains a low-bass cue and fades smoothly instead of
+        // switching off between adjacent semitones. The fade is an engineering
+        // voicing boundary, not a measured longitudinal-mode cutoff.
+        [[nodiscard]] static float longitudinalPrecursorGain(int midiNoteNumber) noexcept {
+            if (midiNoteNumber >= longitudinalEndMidi) {
+                return 0.0f;
+            }
+            if (midiNoteNumber <= longitudinalFadeStartMidi) {
+                return 1.0f;
+            }
+            const auto span = static_cast<float>(longitudinalEndMidi - longitudinalFadeStartMidi);
+            const auto t = static_cast<float>(longitudinalEndMidi - midiNoteNumber) / span;
+            return t * t * (3.0f - 2.0f * t);
+        }
+
         void trigger(double sr, int midiNoteNumber, float velocity, float hardness, float stringLength,
-                     float excitationGain) noexcept {
+                     float hammerExcitationGain) noexcept {
             if (sr <= 0.0) {
                 return;
             }
@@ -1382,8 +1407,7 @@ public:
 
             const auto v = juce::jlimit(0.0f, 1.0f, velocity);
             const auto vLevel = (v * v) * (0.6f + 0.8f * hardness);
-            // The note-wide excitation scale includes the strike, not only strings.
-            amplitude = peakLevelAtFullVelocity * excitationGain * 0.12f * vLevel;
+            amplitude = peakLevelAtFullVelocity * hammerExcitationGain * 0.12f * vLevel;
             decayPerSample = std::exp(-4.5f / static_cast<float>(totalSamples));
 
             // 起音 3ms 高频裂音 (Phase 23-D, Attack HF Crack, 消除起振延迟)
@@ -1391,11 +1415,16 @@ public:
             constexpr auto crackDur = 0.003f;
             const auto crackTotal = juce::jmax(1, static_cast<int>(crackDur * sampleRate));
             crackSamplesRemaining = crackTotal;
-            crackAmplitude = peakLevelAtFullVelocity * excitationGain * 0.02f * (v * v) * (0.20f + 0.80f * keyPos);
+            crackAmplitude
+                = peakLevelAtFullVelocity * hammerExcitationGain * 0.02f * (v * v) * (0.20f + 0.80f * keyPos);
             crackDecayPerSample = std::exp(-6.0f / static_cast<float>(crackTotal));
             crackRng = static_cast<std::uint32_t>(midiNoteNumber) * 1664525u + 1013904223u;
 
-            if (midiNoteNumber < 56) {
+            // Hammer excitation is phase-compensated with the strings; this
+            // independently generated precursor is not part of that coherent
+            // sum and must not inherit its boost.
+            const auto longGain = longitudinalPrecursorGain(midiNoteNumber);
+            if (longGain > 0.0f) {
                 constexpr auto vLongitudinal = 5100.0f;
                 const auto fL1 = std::min(vLongitudinal / (2.0f * juce::jmax(0.10f, stringLength)), nyquist);
                 const auto fL2 = std::min(2.0f * fL1, nyquist);
@@ -1409,7 +1438,7 @@ public:
 
                 const auto longTotalSamples = juce::jmax(1, static_cast<int>(0.015f * sampleRate));
                 longSamplesRemaining = longTotalSamples;
-                longAmplitude = peakLevelAtFullVelocity * excitationGain * 0.04f * vLevel;
+                longAmplitude = peakLevelAtFullVelocity * 0.04f * vLevel * longGain;
                 longDecayPerSample = std::exp(-5.5f / static_cast<float>(longTotalSamples));
             } else {
                 longSamplesRemaining = 0;
