@@ -18,7 +18,6 @@
 
 namespace devpiano::exporting {
 namespace {
-constexpr auto fallbackVoiceCount = 8;
 constexpr auto wavTailSeconds = 2.0;
 
 using devpiano::recording::addPanicMidi;

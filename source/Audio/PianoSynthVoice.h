@@ -1922,7 +1922,8 @@ public:
                                 bool stretchTuningEnabled = true) noexcept {
             if (sampleRate <= 0.0
                 || (std::abs(sampleRate - lastSampleRate) < 1e-6 && temperament == lastTemperament
-                    && referencePitchA4 == lastReferencePitchA4 && stretchTuningEnabled == lastStretchTuningEnabled)) {
+                    && juce::exactlyEqual(referencePitchA4, lastReferencePitchA4)
+                    && stretchTuningEnabled == lastStretchTuningEnabled)) {
                 return;
             }
             lastSampleRate = sampleRate;
@@ -2078,7 +2079,7 @@ public:
             if (!enabled) {
                 return 0.0f;
             }
-            if (amount != target) {
+            if (!juce::exactlyEqual(amount, target)) {
                 amount = target + smoothing * (amount - target);
                 if (std::abs(amount - target) < 1e-5f) {
                     amount = target;

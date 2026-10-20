@@ -666,7 +666,7 @@ private:
                                        juce::ModifierKeys(), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, &comp, &comp,
                                        juce::Time::getCurrentTime(), juce::Point<float>(250, 70),
                                        juce::Time::getCurrentTime(), 1, false);
-        comp.mouseWheelMove(wheelEv, { 0.0f, -1.0f, false, false });
+        comp.mouseWheelMove(wheelEv, { 0.0f, -1.0f, false, false, false });
         // Component should still paint cleanly and find keys
         const auto hit = comp.findKeyAt(juce::Point<int>(20, 20));
         if (hit.key != nullptr) {

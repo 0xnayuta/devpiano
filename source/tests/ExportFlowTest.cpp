@@ -1098,39 +1098,39 @@ public:
         auto monoPlayer = monoPreset;
         monoPlayer.preset.uuid = juce::Uuid().toDashedString();
         monoPlayer.acoustic.soundPerspective = devpiano::audio::SoundPerspective::player;
-        const auto renderMonoWav
-            = [this, &monoDirectory](const char* fileName, const devpiano::audio::AcousticSnapshot& acoustic) {
-                  RecordingTake take;
-                  take.sampleRate = 48000.0;
-                  take.lengthSamples = 48000;
-                  RecordedPreset preset;
-                  preset.preset = devpiano::layout::makeDefaultPreset();
-                  preset.acoustic = acoustic;
-                  take.presets = { preset };
-                  take.events = { { 0, PerformanceEventType::presetChange, 0, RecordingEventSource::playback, {} },
-                                  { 0, PerformanceEventType::midi, 0, RecordingEventSource::playback,
-                                    juce::MidiMessage::noteOn(1, 64, 0.5f) },
-                                  { 24000, PerformanceEventType::midi, 0, RecordingEventSource::playback,
-                                    juce::MidiMessage::noteOff(1, 64, 0.0f) } };
-                  const auto target = monoDirectory.getChildFile(fileName);
-                  WavExportOptions monoOptions;
-                  monoOptions.sampleRate = 48000.0;
-                  monoOptions.blockSize = 512;
-                  monoOptions.numChannels = 1;
-                  expect(exportTakeAsWavFile(take, target, monoOptions));
-                  juce::AudioFormatManager monoFormats;
-                  monoFormats.registerBasicFormats();
-                  std::unique_ptr<juce::AudioFormatReader> monoReader(monoFormats.createReaderFor(target));
-                  expect(monoReader != nullptr);
-                  if (monoReader == nullptr) {
-                      return juce::AudioBuffer<float>(1, 1);
-                  }
-                  expectEquals(static_cast<int>(monoReader->numChannels), 1);
-                  const auto count = static_cast<int>(monoReader->lengthInSamples);
-                  juce::AudioBuffer<float> audio(1, count);
-                  monoReader->read(&audio, 0, count, 0, true, true);
-                  return audio;
-              };
+        const auto renderMonoWav = [this, &monoDirectory](const char* fileName,
+                                                          const devpiano::audio::AcousticSnapshot& acoustic) {
+            RecordingTake monoRenderTake;
+            monoRenderTake.sampleRate = 48000.0;
+            monoRenderTake.lengthSamples = 48000;
+            RecordedPreset preset;
+            preset.preset = devpiano::layout::makeDefaultPreset();
+            preset.acoustic = acoustic;
+            monoRenderTake.presets = { preset };
+            monoRenderTake.events = { { 0, PerformanceEventType::presetChange, 0, RecordingEventSource::playback, {} },
+                                      { 0, PerformanceEventType::midi, 0, RecordingEventSource::playback,
+                                        juce::MidiMessage::noteOn(1, 64, 0.5f) },
+                                      { 24000, PerformanceEventType::midi, 0, RecordingEventSource::playback,
+                                        juce::MidiMessage::noteOff(1, 64, 0.0f) } };
+            const auto monoTarget = monoDirectory.getChildFile(fileName);
+            WavExportOptions monoOptions;
+            monoOptions.sampleRate = 48000.0;
+            monoOptions.blockSize = 512;
+            monoOptions.numChannels = 1;
+            expect(exportTakeAsWavFile(monoRenderTake, monoTarget, monoOptions));
+            juce::AudioFormatManager monoFormats;
+            monoFormats.registerBasicFormats();
+            std::unique_ptr<juce::AudioFormatReader> monoReader(monoFormats.createReaderFor(monoTarget));
+            expect(monoReader != nullptr);
+            if (monoReader == nullptr) {
+                return juce::AudioBuffer<float>(1, 1);
+            }
+            expectEquals(static_cast<int>(monoReader->numChannels), 1);
+            const auto count = static_cast<int>(monoReader->lengthInSamples);
+            juce::AudioBuffer<float> audio(1, count);
+            monoReader->read(&audio, 0, count, 0, true, true);
+            return audio;
+        };
         const auto wetMono = renderMonoWav("wet_mono.wav", monoPreset.acoustic);
         const auto dryMono = renderMonoWav("dry_mono.wav", monoDry.acoustic);
         const auto lidOpenMono = renderMonoWav("lid_open_mono.wav", monoLidOpen.acoustic);
