@@ -73,6 +73,9 @@ while [[ $# -gt 0 ]]; do
     --clean)
       CLEAN=1
       ;;
+    --clean-win-build)
+      fail '--clean-win-build is Windows-specific; use --clean'
+      ;;
     --no-configure)
       NO_CONFIGURE=1
       ;;

@@ -96,6 +96,9 @@ while [[ $# -gt 0 ]]; do
     --no-configure)
       NO_CONFIGURE=1
       ;;
+    --clean)
+      fail '--clean is not supported for Windows builds; use --clean-win-build (guarded deletion)'
+      ;;
     --clean-win-build)
       CLEAN_WIN_BUILD=1
       ;;
