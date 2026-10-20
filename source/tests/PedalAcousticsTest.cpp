@@ -15,6 +15,7 @@ public:
 
     void runTest() override {
         testPedalPressGeneratesWhooshAndShockWhenSilent();
+        testIdlePedalNoiseIgnoresNoteHistory();
         testPedalReleaseGeneratesReturnThump();
         testPedalVelocityModulation();
         testPedalNoiseLevelBypass();
@@ -222,6 +223,69 @@ private:
         voice.renderNextBlock(buffer, 0, 512);
         expectEquals(calculatePeak(buffer, 0), 0.0f);
         expectEquals(calculatePeak(buffer, 1), 0.0f);
+    }
+
+    void testIdlePedalNoiseIgnoresNoteHistory() {
+        beginTest("Idle pedal noise is unchanged by the register of a stopped or released note");
+
+        constexpr auto releaseLimitSamples = 4 * 48000;
+
+        const auto renderPedal = [this](int previousNote, bool allowTailOff, int channels) {
+            juce::Synthesiser synth;
+            synth.setCurrentPlaybackSampleRate(48000.0);
+            synth.addSound(new PianoSynthSound());
+            auto* voice = new PianoSynthVoice();
+            synth.addVoice(voice);
+            voice->setVoiceIndex(0);
+            voice->setPedalNoiseLevel(0.8f);
+            voice->setAdsrParameters({ 0.001f, 0.01f, 0.8f, 0.01f });
+
+            if (previousNote >= 0) {
+                juce::AudioBuffer<float> scratch(channels, 512);
+                synth.noteOn(1, previousNote, 0.8f);
+                scratch.clear();
+                synth.renderNextBlock(scratch, {}, 0, scratch.getNumSamples());
+                if (allowTailOff) {
+                    synth.noteOff(1, previousNote, 0.6f, true);
+                } else {
+                    synth.allNotesOff(1, false);
+                }
+                for (int rendered = 0; rendered < releaseLimitSamples && voice->isVoiceActive();
+                     rendered += scratch.getNumSamples()) {
+                    scratch.clear();
+                    synth.renderNextBlock(scratch, {}, 0, scratch.getNumSamples());
+                }
+            }
+            expect(!voice->isVoiceActive(), "The previous note must finish before the pedal event");
+
+            juce::AudioBuffer<float> output(channels, 21600);
+            output.clear();
+            juce::MidiBuffer midi;
+            midi.addEvent(juce::MidiMessage::controllerEvent(1, 64, 127), 0);
+            synth.renderNextBlock(output, midi, 0, output.getNumSamples());
+            return output;
+        };
+
+        for (const auto channels : { 1, 2 }) {
+            const auto reference = renderPedal(-1, false, channels);
+            for (const auto allowTailOff : { false, true }) {
+                for (const auto note : { 21, 108 }) {
+                    const auto output = renderPedal(note, allowTailOff, channels);
+                    auto maxDifference = 0.0f;
+                    for (int channel = 0; channel < channels; ++channel) {
+                        for (int sample = 0; sample < output.getNumSamples(); ++sample) {
+                            maxDifference = std::max(
+                                maxDifference,
+                                std::abs(output.getSample(channel, sample) - reference.getSample(channel, sample)));
+                        }
+                    }
+                    const auto context = "MIDI " + juce::String(note) + ", channels " + juce::String(channels)
+                        + (allowTailOff ? ", released" : ", stopped");
+                    expectWithinAbsoluteError(maxDifference, 0.0f, 1e-8f,
+                                              "Pedal noise must match a fresh voice: " + context);
+                }
+            }
+        }
     }
 
     void testPedalReleaseGeneratesReturnThump() {

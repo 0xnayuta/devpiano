@@ -799,12 +799,10 @@ public:
 
             if (!isKeySounding) {
                 const auto sympatheticOut = (voiceIndex == 0) ? sympatheticPool.process(0.0f) : 0.0f;
-                const auto duplexOut = duplexMix * duplexPool.process(0.0f);
+                const auto duplexOut = duplexMix * duplexPool.process(0.0f) * noteOutputGain;
                 if (pedalSound != 0.0f || sympatheticOut != 0.0f || duplexOut != 0.0f) {
-                    const auto noteTailL = (sympatheticOut * 0.40f + duplexOut * directLeftGain) * noteOutputGain;
-                    const auto noteTailR = (sympatheticOut * 0.60f + duplexOut * directRightGain) * noteOutputGain;
-                    auto outL = pedalSound * 0.7071f + noteTailL;
-                    auto outR = pedalSound * 0.7071f + noteTailR;
+                    auto outL = pedalSound * 0.7071f + sympatheticOut * 0.40f + duplexOut * directLeftGain;
+                    auto outR = pedalSound * 0.7071f + sympatheticOut * 0.60f + duplexOut * directRightGain;
                     lidAcoustics.processStereo(outL, outR);
                     perspectiveProcessor.processStereo(outL, outR);
 
@@ -919,18 +917,20 @@ public:
             spruceSoundboardFilter.processStereo(resonatorLeftSum, resonatorRightSum);
 
             // 3. 延音踏板与单键和弦开放弦交感共鸣 (Phase 21-A / Phase 22-E, Bank 2010 Sec. VI)
-            const auto sympatheticOut = sympatheticPool.process(rawMono);
+            const auto sympatheticOut = sympatheticPool.process(rawMono * noteOutputGain);
 
             // 4. 琴桥立体声声像定位与非对称空间投影 (低音在左 0.15 -> 高音在右 0.85)
 
             const auto wet = 0.18f + pianoResonance * 0.16f;
-            auto outLeft = (1.0f - wet) * rawLeft * directLeftGain + wet * (resonatorLeftSum + 0.40f * sympatheticOut);
-            auto outRight
-                = (1.0f - wet) * rawRight * directRightGain + wet * (resonatorRightSum + 0.60f * sympatheticOut);
+            auto outLeft = (1.0f - wet) * rawLeft * directLeftGain + wet * resonatorLeftSum;
+            auto outRight = (1.0f - wet) * rawRight * directRightGain + wet * resonatorRightSum;
             outLeft = (1.0f - duplexMix) * outLeft + duplexMix * duplexOut * directLeftGain;
             outRight = (1.0f - duplexMix) * outRight + duplexMix * duplexOut * directRightGain;
             outLeft *= noteOutputGain;
             outRight *= noteOutputGain;
+            const auto sympatheticMix = (1.0f - duplexMix) * wet * sympatheticOut;
+            outLeft += 0.40f * sympatheticMix;
+            outRight += 0.60f * sympatheticMix;
 
             if (pedalSound != 0.0f) {
                 outLeft += pedalSound * 0.7071f;

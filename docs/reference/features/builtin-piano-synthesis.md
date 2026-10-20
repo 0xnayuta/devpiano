@@ -260,6 +260,10 @@ flowchart TD
 
 该曲线是依据当前生产的音区平衡目标设定的工程整音值，不是实琴逐键测量或等响曲线的直接实现。2026-10-20 用户已人工试听确认锚点方向正确；后续默认参数变更仍需重新进行受控试听验收。
 
+交感共鸣池在音符激励入池前应用音区增益，而不是对共鸣池的混合输出整体缩放；CC64 注入的踏板机械共鸣冲击因此不继承当前或历史音高的增益。音符本体、音板与 Duplex 仍保留原有音区整音，发声和空闲路径均不额外缩放机械踏板声。
+
+自动回归覆盖 A0/C8 的立即清音与自然离键：离屏渲染直到声部及 Duplex 尾音结束，再触发相同 CC64 踏板动作；单声道和立体声输出均须与全新空闲声部在浮点容差内逐样本一致。
+
 **声学快照与普通预设配置子集**：
 `PerformancePreset`（Schema v2）的 `acoustics` 子集现在包含 `brightness`、`hammerHardness`、`hammerVoicing`、`resonance`、`stretchTuningEnabled`、`duplexResonance`，以及原有琴盖、触键曲线、柔音、律制/A4、视角、混响和机械字段；仍不包含 `builtinTone`、`masterGain`、ADSR 或 VST3 内部状态。`SettingsModel`、`AcousticSnapshot`、Take 内嵌快照与 `WavExportOptions` 保存同一完整三锚点结构，实时、内置 WAV 和固定双层 WAV 的内置 Piano 都消费它；Sine/VST3 不接收该物理参数。可选字段缺失使用当前出厂默认；显式非法的 `hammerVoicing` 拒绝预设/Take，不静默回退。原始锚点不暴露为主界面旋钮，现有三力度整音由当前常量驱动。
 
