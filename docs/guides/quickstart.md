@@ -24,7 +24,7 @@ sudo apt-get install -y \
   libx11-dev libxcomposite-dev libxcursor-dev libxext-dev \
   libxinerama-dev libxrandr-dev libxrender-dev libxkbcommon-dev \
   libxkbcommon-x11-dev libx11-xcb-dev libxfixes-dev libxi-dev libxss-dev \
-  libgl1-mesa-dev libglu1-mesa-dev mesa-common-dev
+  libgl1-mesa-dev libglu1-mesa-dev mesa-common-dev zip
 ```
 
 ### Windows
@@ -184,19 +184,25 @@ source ~/.bashrc
 ```bash
 # ── WSL configure（供 clangd 读取编译数据库） ──
 ./scripts/dev.sh wsl-build --configure-only   # 推荐：额外生成 JuceHeader.h
+./scripts/dev.sh wsl-build --configure-only --ccache
+./scripts/dev.sh wsl-build --configure-only --no-ccache
 ./scripts/dev.sh wsl-configure                # 仅 CMake configure，不生成 JuceHeader.h
+./scripts/dev.sh wsl-configure linux-clang-release  # 可选：指定 configure preset
 
 # ── 同步 ──
 # 仅在需要单独同步时（win-build 已内置快速智能同步）
-./scripts/dev.sh win-sync          # 快速智能同步（仅同步日常业务代码改动）
+./scripts/dev.sh win-sync          # 同步普通工作树文件（子模块按指纹缓存）
 ./scripts/dev.sh win-sync --check  # 零写入预览
-./scripts/dev.sh win-sync --full   # 强制全量同步（含 submodules 全部文件）
+./scripts/dev.sh win-sync --full   # 强制全量子模块扫描（仍排除 .git/构建产物）
+./scripts/dev.sh win-sync --fast-times  # 可选：FAT 2 秒时间戳，可能漏掉同尺寸快速编辑
 
 # ── Windows MSVC 验证（Debug，默认） ──
 ./scripts/dev.sh win-build
 ./scripts/dev.sh win-build --no-sync
+./scripts/dev.sh win-build --no-configure  # 需已有 Windows 构建树
 ./scripts/dev.sh win-build --reconfigure
-./scripts/dev.sh win-build --clean-win-build  # 含删除守卫：构建目录内有证据/未知条目时拒绝执行
+./scripts/dev.sh win-build --clean-win-build  # 守卫只检查构建目录顶层；证据/未知条目默认拒绝
+# 归档并确认后，才可显式追加 --allow-non-build-assets 放行非构建资产
 
 # ── Windows MSVC Release（仅明确发布需求时） ──
 ./scripts/dev.sh win-build --release
@@ -212,25 +218,26 @@ source ~/.bashrc
 # 例行只在迭代边界跑全量；单文件仅用于配置变更或定位问题
 ./scripts/dev.sh tidy                 # 未提交改动中的 source/*.cpp,h
 ./scripts/dev.sh tidy <file...>       # 指定文件/相对路径
+# 检测到头文件变更时，会自动扩展为全 source/**/*.cpp 检查（缓存感知）
 ./scripts/dev.sh tidy --all           # 迭代边界全量门禁
 ./scripts/dev.sh tidy --clear-cache   # 清除本地结果缓存
 
 # ── 编译耗时剖析（Clang -ftime-trace）──
 ./scripts/dev.sh time-trace                   # 增量分析最新构建热点
-./scripts/dev.sh time-trace --clean           # 清理后全量剖析并导出 combined_time_trace.json
+./scripts/dev.sh time-trace --clean           # 清理 build-wsl-clang/CMakeFiles 后全量剖析
 ./scripts/dev.sh time-trace --target devpiano # 指定 GUI 主程序
 
 # ── 正式发布打包（Windows x64 zip / Linux x64 tar.gz + sha256） ──
 ./scripts/dev.sh package                      # 打包当前 Windows Release 产物（自动解析 CMakeLists.txt 版本）
 ./scripts/dev.sh package --version 1.0.0
 ./scripts/dev.sh package --local-dist         # 输出至 WSL 本地 dist/ 目录
-./scripts/dev.sh package --linux              # 打包 Linux x64 Release 产物（tar.gz + sha256）
+./scripts/dev.sh package --linux              # 打包 Linux x64 Release 产物（需先 wsl-build --release）
 
 # ── Linux 桌面集成（desktop entry 与图标） ──
 ./scripts/dev.sh desktop-install
 ./scripts/dev.sh desktop-install --uninstall
 
-# ── 完整命令清单与参数 ──
+# ── 常用命令概览与示例（完整参数见各命令 --help）──
 ./scripts/dev.sh help
 ```
 

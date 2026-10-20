@@ -31,12 +31,13 @@ Commands:
   self-check                 Validate local toolchain and workspace
   wsl-configure [opts]       Raw CMake configure (no JuceHeader.h generation)
   wsl-build [opts]           Configure/build WSL; prefer --configure-only for clangd
-  win-sync [--check|--full]  Sync the workspace to the Windows mirror
+  win-sync [--check] [--full] [--fast-times]
+                             Sync the workspace to the Windows mirror
   win-build [opts]           Sync and build with MSVC (Debug by default)
   format [--check]           Format source/ with clang-format-21
-  tidy [--all|--clear-cache] [files...]
-                             Incremental clang-tidy; --all = full scan,
-                             --clear-cache = reset cache
+  tidy [files...]            Incremental clang-tidy on changed or given files
+  tidy --all                 Full clang-tidy scan (iteration-boundary gate)
+  tidy --clear-cache         Clear the local tidy result cache
   test [ctest args...]       Configure, build and run devpiano_tests (Linux/WSL)
   time-trace [options] [target]
                              Profile Clang build hotspots
@@ -48,17 +49,21 @@ Examples:
   # Environment
   ./scripts/dev.sh self-check
   ./scripts/dev.sh wsl-configure                # Raw configure; no JuceHeader.h
+  ./scripts/dev.sh wsl-configure linux-clang-release
   ./scripts/dev.sh wsl-build --configure-only   # Preferred for clangd
+  ./scripts/dev.sh wsl-build --configure-only --ccache
+  ./scripts/dev.sh wsl-build --configure-only --no-ccache
   ./scripts/dev.sh wsl-build --configure-only --reconfigure
-  ./scripts/dev.sh wsl-build --no-configure
+  ./scripts/dev.sh wsl-build --release
+  ./scripts/dev.sh wsl-build --no-configure    # Requires existing build.ninja; skips JuceHeader.h
 
   # Sync and build
   ./scripts/dev.sh win-sync --check
-  ./scripts/dev.sh win-sync --fast-times
+  ./scripts/dev.sh win-sync --fast-times        # FAT timestamps; may miss fast edits
   ./scripts/dev.sh win-sync --full
   ./scripts/dev.sh win-build
   ./scripts/dev.sh win-build --no-sync
-  ./scripts/dev.sh win-build --no-configure
+  ./scripts/dev.sh win-build --no-configure     # Requires existing Windows build tree
   ./scripts/dev.sh win-build --reconfigure
   ./scripts/dev.sh win-build --clean-win-build
   ./scripts/dev.sh win-build --release
