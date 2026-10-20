@@ -16,16 +16,16 @@ bool isAcousticSnapshotValid(const devpiano::audio::AcousticSnapshot& acoustic) 
         && acoustic.referencePitchA4 > 0.0 && std::isfinite(acoustic.adsr.attack) && std::isfinite(acoustic.adsr.decay)
         && std::isfinite(acoustic.adsr.sustain) && std::isfinite(acoustic.adsr.release)
         && std::isfinite(acoustic.brightness) && std::isfinite(acoustic.hammerHardness)
-        && std::isfinite(acoustic.resonance) && std::isfinite(acoustic.reverbWet)
-        && std::isfinite(acoustic.pedalNoiseLevel) && std::isfinite(acoustic.feltAgeingAmount)
-        && std::isfinite(acoustic.duplexResonance) && std::isfinite(acoustic.layers.pianoGain)
-        && std::isfinite(acoustic.layers.pluginGain);
+        && devpiano::audio::isValidHammerVoicing(acoustic.hammerVoicing) && std::isfinite(acoustic.resonance)
+        && std::isfinite(acoustic.reverbWet) && std::isfinite(acoustic.pedalNoiseLevel)
+        && std::isfinite(acoustic.feltAgeingAmount) && std::isfinite(acoustic.duplexResonance)
+        && std::isfinite(acoustic.layers.pianoGain) && std::isfinite(acoustic.layers.pluginGain);
 }
 
 bool hasUsableRenderOptions(const devpiano::exporting::WavExportOptions& options) noexcept {
     return isSupportedTimelineSampleRate(options.sampleRate) && options.numChannels > 0 && options.blockSize > 0
         && options.bitsPerSample > 0 && std::isfinite(options.layers.pianoGain)
-        && std::isfinite(options.layers.pluginGain);
+        && std::isfinite(options.layers.pluginGain) && devpiano::audio::isValidHammerVoicing(options.hammerVoicing);
 }
 
 std::optional<RenderTimeline> prepareRenderTimeline(const RecordingTake& take, double targetSampleRate,
@@ -141,6 +141,7 @@ void applyAcousticSnapshotToBuiltin(devpiano::audio::BuiltinSynthesiser& pianoSy
     for (int i = 0; i < pianoSynth.getNumVoices(); ++i) {
         if (auto* voice = dynamic_cast<PianoSynthVoice*>(pianoSynth.getVoice(i))) {
             voice->setPianoParameters(clampedBrightness, clampedHardness, clampedResonance);
+            (void)voice->setHammerVoicing(snapshot.hammerVoicing);
             voice->setPianoTuning(snapshot.stretchTuningEnabled, duplex);
             voice->setLidPosition(lidPos);
             voice->setTemperament(snapshot.temperament);
@@ -186,6 +187,7 @@ void initialiseOfflinePianoSynth(devpiano::audio::BuiltinSynthesiser& pianoSynth
         voice->setVoiceIndex(index);
         voice->setAdsrParameters(options.adsr);
         voice->setPianoParameters(options.pianoBrightness, options.pianoHammerHardness, options.pianoResonance);
+        (void)voice->setHammerVoicing(options.hammerVoicing);
         voice->setPianoTuning(options.stretchTuningEnabled, juce::jlimit(0.0f, 1.0f, options.duplexResonance));
         voice->setLidPosition(static_cast<PianoSynthVoice::LidPosition>(options.lidPosition));
         voice->setTemperament(options.temperament);

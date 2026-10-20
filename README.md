@@ -33,8 +33,9 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
 ### 🎹 高保真物理建模钢琴音源（Physical Modeling Piano Engine）
 
 - **7 大声学物理子系统**：覆盖琴槌（Hammer）、琴弦（String）、琴桥（Bridge）、音板（Soundboard）、琴体（Cabinet）、空气（Air）与空间（Room）；
-- **88 键连续物理参数映射**：以刚性弦与阻尼文献为依据的固定模型锚点，连续插值琴弦刚度 $B$、击弦比 $d/L$、阻尼常数与 1/2/3 弦分区（`Piano88KeyTable.h`）；不将代码锚点认证为特定琴型的逐键实测数据；
+- **88 键连续物理参数映射**：刚度 $B$ 按受控软件参考锚点与文献外推进行对数插值；击弦比 $d/L$、阻尼与 1/2/3 弦分区使用固定模型参数（`Piano88KeyTable.h`）。软件参考不等于实琴逐键测量，也不代表全域校准已通过；
 - **非线性打击、毛毡老化与动力学绽放**：三层毛毡动力学压实、动态接触时间 $T_c$、击弦点几何梳状陷波、3ms 高频瞬态裂音（HF Crack）、琴槌毛毡微老化穿透力（`feltAgeingAmount`）、泛音时间滞后膨胀绽放（Harmonic Blooming）与强击软饱和；
+- **连续三力度整音**：`HammerVoicing` 在 MIDI 41/70/98 锚点间连续插值硬度、响度与滚降相对增量；出厂默认中性零偏移，配置随设置、普通预设、Take 与实时/离线 Piano 路径保存和执行，不向 VST3 注入整音参数；
 - **第一分音调律与可保存风格**：A4 第一分音锚定、可关闭的分音匹配拉伸、主弦驱动的 Duplex 非发音弦段共鸣；设置提供 Standard / Bright / Warm / Intimate / Vintage 参数化风格，普通演奏预设与 Take 保存实际声学字段，不宣称真实琴型复刻；
 - **真实共鸣与空间声学系统**：16 峰正交云杉木物理音板模态、4.2kHz 云杉木高频粘滞吸收滤波、琴桥立体声展开、同音三弦 Mid-Side 差分展开与非对称拍频、演奏者（Player）与听众（Audience）双视角声相变换（`PerspectiveProcessor`）以及内置纯算法房间混响网络（`RoomReverbEngine`: Studio / Chamber / Concert Hall）；
 - **微观机械动作拟真与古典律制**：CC64 全局交感共鸣、延音踏板下踏/抬起机械扫掠呼啸（Whoosh）与共鸣冲击（Resonance Shock）、制音器落木闷击与琴键释放摩擦、离键速度动态 ADSR 阻尼缩放，以及 6 大古典微调律制（`TemperamentEngine`）与 A4 基准基频微调（400.0–480.0 Hz，默认 440.0 Hz；设置、预设与内置实时/离线音源使用同一限幅）。
@@ -90,7 +91,7 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
 
 ### 🌐 运行时国际化（Runtime i18n）
 
-- **中英文即时切换**：基于 JUCE `Translation` 与 `LocaleManager`，支持简体中文与英文运行时无缝即时切换。
+- **中英文即时切换**：基于 JUCE `Translation` 与 `LocaleManager`，切换后刷新主界面和设置中的语义标题；新提示与弹窗按当前语言创建，已有提示文本和已打开原生窗口不保证即时重译。
 
 ---
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../Audio/HammerVoicing.h"
 #include "../Audio/InstrumentLayers.h"
 #include "../Audio/PerspectiveProcessor.h"
 #include "../Audio/RoomReverbEngine.h"
@@ -53,6 +54,7 @@ struct SettingsModel {
         BuiltinTone builtinTone = BuiltinTone::piano;
         float pianoBrightness = 0.50f;
         float pianoHammerHardness = 0.50f;
+        devpiano::audio::HammerVoicing hammerVoicing = devpiano::audio::kCalibratedHammerVoicing;
         float pianoResonance = 0.50f;
         LidPosition lidPosition = LidPosition::fullOpen;
         devpiano::input::TouchVelocityCurve touchVelocityCurve = devpiano::input::TouchVelocityCurve::standard;
@@ -101,6 +103,7 @@ struct SettingsModel {
     BuiltinTone builtinTone = BuiltinTone::piano;
     float pianoBrightness = 0.50f;
     float pianoHammerHardness = 0.50f;
+    devpiano::audio::HammerVoicing hammerVoicing = devpiano::audio::kCalibratedHammerVoicing;
     float pianoResonance = 0.50f;
     LidPosition lidPosition = LidPosition::fullOpen;
     devpiano::input::TouchVelocityCurve touchVelocityCurve = devpiano::input::TouchVelocityCurve::standard;
@@ -182,6 +185,7 @@ struct SettingsModel {
                  .builtinTone = builtinTone,
                  .pianoBrightness = pianoBrightness,
                  .pianoHammerHardness = pianoHammerHardness,
+                 .hammerVoicing = hammerVoicing,
                  .pianoResonance = pianoResonance,
                  .lidPosition = lidPosition,
                  .touchVelocityCurve = touchVelocityCurve,
@@ -207,6 +211,7 @@ struct SettingsModel {
         builtinTone = view.builtinTone;
         pianoBrightness = view.pianoBrightness;
         pianoHammerHardness = view.pianoHammerHardness;
+        hammerVoicing = view.hammerVoicing;
         pianoResonance = view.pianoResonance;
         lidPosition = view.lidPosition;
         touchVelocityCurve = view.touchVelocityCurve;
@@ -260,6 +265,7 @@ struct SettingsModel {
             builtinTone = other.builtinTone;
             pianoBrightness = other.pianoBrightness;
             pianoHammerHardness = other.pianoHammerHardness;
+            hammerVoicing = other.hammerVoicing;
             pianoResonance = other.pianoResonance;
             lidPosition = other.lidPosition;
             touchVelocityCurve = other.touchVelocityCurve;

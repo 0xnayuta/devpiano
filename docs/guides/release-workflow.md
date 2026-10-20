@@ -112,7 +112,7 @@ git log --oneline -5
 ./scripts/dev.sh wsl-build --configure-only
 ```
 
-执行 Windows Release 构建。当前正式 release 只使用 Windows 镜像树产物：
+本节执行 Windows Release 构建，正式 Windows 产物只使用镜像树；Linux 正式产物由前述发布 runner 构建：
 
 ```bash
 ./scripts/dev.sh win-build --release
@@ -121,7 +121,9 @@ git log --oneline -5
 如怀疑 Windows Release 构建目录缓存异常，可显式重配：
 
 ```bash
-./scripts/dev.sh win-build --release --reconfigure
+./scripts/dev.sh win-build --release --reconfigure      # 删除 CMakeCache.txt 与 CMakeFiles，保留 Ninja 缓存
+# 或清空 Windows Release 构建目录重建（由 scripts/win_clean_guard.sh 守卫）：
+./scripts/dev.sh win-build --release --clean-win-build
 ```
 
 ## 5. Windows 手工冒烟测试
@@ -141,7 +143,7 @@ git log --oneline -5
 - 弹奏和弦时 Qwerty HUD 徽章实时显示识别和弦与淡出。
 - VST3 扫描、加载、卸载、editor 打开/关闭正常。
 - 录制、回放、A-B 循环与时间轴 Seek 跳转正常。
-- 当前整数 v3 `.devpiano` 保存/打开与内嵌快照正常；预设仅整数 v2，非当前格式拒绝时保留原文件与活动会话，不以迁移或删除真实数据完成验证。
+- 当前整数 v4 `.devpiano` 保存/打开与内嵌快照正常；预设仅整数 v2，非当前格式拒绝时保留原文件与活动会话，不以迁移或删除真实数据完成验证。
 - 导入 `.mid` 并播放正常。
 - 音频设备重建后首音无明显异常。
 - 退出应用无明显崩溃或挂起。

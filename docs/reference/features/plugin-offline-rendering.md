@@ -84,13 +84,13 @@ WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
 - **协作取消与退出**：Cancel / ESC / 窗口关闭只设置取消请求，显示“正在取消导出”；Timer 不因取消请求或提前 finished 标志释放任务，只在实际线程退出后收尾。主应用退出保持消息循环等待导出完成，直接析构与 `runSync()` 无限等待兜底，不调用有限超时的 `stopThread()` 强杀。
 - **提交边界**：后台在块循环及 writer 关闭后的最终回调检查取消；提交前取消保留原目标并清理自有临时文件。已成功提交不能被之后的 UI 消息撤销。
 - **验证范围**：真实原生 mode-aware VST3、event 阻塞超过旧强停窗口的取消、回调内自销毁、资源/临时文件和实际保存对话框/应用退出已在隔离 Windows 消费者验证，复建输入见 [Phase C 实施记录](../../archive/audit-004-code-quality-fix-phases.md#phase-c-实施记录与直接验证2026-10-03)。冷路径图形驱动资源与正式任务资源分开记录，不外推所有厂商插件、断电或完整实时/离线声学闭包。
-- **窗口尺寸与操作区**：`ProgressContentWrapper` 通过 `ViewHost::fitToContent()` 测量内容，使用 `JiveModalDialog::launchWindow()` 在原生标题栏模式确定后定尺和居中；进度模板共用 [底部操作区规则](declarative-ui-and-theming.md#33-内容定尺与统一底部操作区)。本次只改变布局，不将进度窗口改成通用确认弹窗，不提前关闭尚未完成的取消任务。
+- **窗口尺寸与操作区**：`ProgressContentWrapper` 通过 `ViewHost::fitToContent()` 测量内容，使用 `JiveModalDialog::launchWindow()` 在原生标题栏模式确定后定尺和居中；进度模板共用 [底部操作区规则](declarative-ui-and-theming.md#33-内容定尺与统一底部操作区)，保留独立的协作取消生命周期，不当作通用确认弹窗或提前关闭尚未结束的任务。
 
 ### 3.4 内置合成器声学参数快照对齐与导出契约（`WavExportOptions`）
 
 `buildWavExportOptions()` 注入当前有效参数；Take 快照在其采样点替换参数。两条离线路径先提交初始 reverbSpace/reverbWet 再 `prepare()`，避免起音沿用 `RoomReverbEngine` 的内部默认 wet。实际 Piano 整段实时/WAV 对照覆盖非零 wet、同采样快照/NoteOn 与后续原身份释放；不外推第三方声音逐比特相同。参数范围如下：
 
-1. **基础发声与音色包络**：`masterGain`、`adsr`、`builtinTone`（`piano` 或 `sine`）、`pianoBrightness`、`pianoHammerHardness`、`pianoResonance`；
+1. **基础发声与音色包络**：`masterGain`、`adsr`、`builtinTone`（`piano` 或 `sine`）、`pianoBrightness`、`pianoHammerHardness`、`hammerVoicing`、`pianoResonance`；`hammerVoicing` 仅作用于内置 Piano，非法锚点使离线导出明确失败；
 2. **微调律制与基准音高**：`temperament`（6 大古典律制：`equal`、`just`、`pythagorean`、`meantone`、`werckmeister3`、`kirnberger3`）与 `referencePitchA4`（400.0 ~ 480.0 Hz，默认 440.0 Hz；内置实时与离线路径共用 `TemperamentEngine::clampReferencePitch()`）；
 3. **立体声空间视角**：`soundPerspective`（演奏者 `player` 与听众 `audience` 镜像与高频吸收）；
 4. **琴盖物理开合**：`lidPosition`（全开 `fullOpen`、半开 `halfStick`、闭盖 `closed` 传递函数）；
@@ -99,6 +99,8 @@ WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
    - **Piano 调律与被动共鸣**：`stretchTuningEnabled`（默认 true）、`duplexResonance`（`[0,1]`，默认 0.15）贯通初始参数及后续 Take 快照；仅作用 Piano，不改变 Sine 或插件 MIDI/厂商调律。
    - **固定双层**：`layers` 保存模式、两层开关及 `[0,1]` 增益；需要对齐时 Piano 使用 prepare 阶段分配的采样延迟缓冲，报告延迟非法或超出有界容量时明确失败/故障，不在实时回调重新分配。
 7. **尾音窗口**：导出追加固定 2.0 秒（`wavTailSeconds = 2.0`）；超出该窗口的声音会截断，明确不把该固定长度承诺成所有声学配置、长延音或厂商插件尾音均完整。
+
+**单声道契约**：请求 mono 时内部仍渲染至少左右立体声两声道，执行 `处理后立体声（含琴盖/视角、双层延迟与增益对齐） -> 独立公共 RoomReverbEngine -> Master 增益 -> 0.5(L+R) 下混 -> MasterSoftLimiter -> 写入`。实时 Master 在下混后施加；两者共享一次 Room 与下混后 limiter 的语义，线性增益与均值可交换，不将执行位置不同夸称为逐条调用完全相同。mono 插件源复制到左右输入；stereo 源不能只取左声道，内置钢琴不能绕过琴盖/视角或 Room。2 个及以上输出声道保持原有路由。非限幅增益下可与处理后 stereo 均值作 PCM 容差对照，非线性限幅后不要求逐样本等价，也不宣称单声道功率守恒。文件事务、取消和插件依赖契约不变。
 
 ### 3.5 分层离线渲染契约与框架限制（Layered Offline Export & Framework Boundaries）
 
@@ -114,6 +116,7 @@ WavExportTask::startAsync() (现代化非阻塞异步工作线程启动)
 
 ## 4. 专项手工与边界测试清单
 
+状态列记录历史原生 VST3 夹具与离线导出直接验证基线；历史勾选不外推商业第三方插件、断电或极端不可中断挂起：
 | 用例编号 | 测试场景 | 操作步骤与验证目标 | 状态 |
 |---|---|---|:---:|
 | **WAV-001** | 内置物理建模钢琴离线导出 | 在未加载插件下录制演奏并导出 WAV，导出的音频具有真实的物理建模钢琴音色 | [x] 已通过 (内置引擎与自动化双向对照验证) |

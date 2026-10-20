@@ -13,9 +13,9 @@
 
 **现象**：运行 `sync_to_win.sh` 后，镜像端的 `.vs` 目录（及其下的 `Browse.VC.db`、`CopilotIndices`、`FileContentIndex` 等文件）被 robocopy 识别为"多余"并尝试删除。VS 正在打开项目时会导致 "file in use" 错误。
 
-**原因**：`robocopy /MIR` 做镜像同步——源码（WSDL）没有 `.vs`，镜像端（Windows）有 `.vs`，所以 robocopy 把 `.vs` 视为"多余"并尝试删除。脚本在源码端排除了 `.vs`，但没有在镜像端排除。
+**原因**：`robocopy /MIR` 做镜像同步——源码（WSL）没有 `.vs`，镜像端（Windows）有 `.vs`，所以 robocopy 把 `.vs` 视为"多余"并尝试删除。脚本在源码端排除了 `.vs`，但没有在镜像端排除。
 
-**修复**：已在 `tools/sync-to-win.ps1` 的 `$excludeDirPaths` 中添加镜像端 IDE 目录排除（`.vs`、`.idea`、`.vscode`），同步脚本不再处理这些目录。
+**修复**：已在 `tools/sync-to-win.ps1` 的 `$excludeDirNames` 中添加镜像端 IDE 目录排除（`.vs`、`.idea`、`.vscode`），同步脚本不再处理这些目录。
 
 **验证**：运行 `win-sync --check`，确认输出中不再出现 `.vs` 相关条目。
 
@@ -99,19 +99,17 @@ sudo update-alternatives --set cc /usr/bin/clang-21
 1. **快速修复**（推荐）：使用 reconfigure 模式重新生成 Windows 构建系统
 
    ```bash
-   ./scripts/dev.sh win-build --reconfigure
-   # 或清空 Windows 构建目录重建：
+   ./scripts/dev.sh win-build --reconfigure      # 删除 CMakeCache.txt 与 CMakeFiles，保留 Ninja 缓存
+   # 或清空 Windows 构建目录重建（由 scripts/win_clean_guard.sh 守卫）：
    ./scripts/dev.sh win-build --clean-win-build
    ```
-
    亦可在 Windows 侧显式删除缓存文件：
    ```bash
    powershell.exe -Command "Remove-Item -Path 'G:\source\projects\devpiano\build-win-msvc\CMakeCache.txt' -Force"
    ./scripts/dev.sh win-build
    ```
 
-2. **验证是否解决了问题**：重新编译应覆盖全部编译单元（主程序与测试目标），而不是只有零星 1-3 个增量文件。
-
+2. **验证是否解决了问题**：重新编译应覆盖全部编译单元（主程序与测试目标），而不是仅有少量未失效的增量文件。
 3. **预防**：在 `win-build` 之后，务必确认输出中编译的文件数是否符合预期。若改动涉及 UI 文件（`.h`/`.cpp`）且只编译了零星几个文件，应按上述方法删除缓存后重新构建。
 
 **诊断信号**：
@@ -123,3 +121,40 @@ sudo update-alternatives --set cc /usr/bin/clang-21
 **根因补充**：Windows MSVC 侧使用 UNC 路径（`\\wsl.localhost\Ubuntu\...`）访问 WSL 源文件，CMake 的文件指纹机制在跨文件系统（WSL/NTFS）场景下可能存在精度问题，导致缓存失效不完全。
 
 **关联条目**：本问题属于构建系统环境问题，与 Phase 6-1 代码无关，但因调试 Phase 6-1 时暴露，故记录于此。
+
+---
+
+## WSL / Windows 互操作与 MCP 服务问题
+
+### WSL interop 启动 Windows MCP 服务挂起（未指定 drvfs 工作目录）
+
+**现象**：
+在 WSL 内运行的 OMP 会话配置 Windows 端 MCP 服务（如 `windows-mcp` 的 `Sbroenne.WindowsMcp.exe`）时，启动后连接超时，OMP 报告：
+```text
+Warning: MCP server "windows-mcp" not ready after 60000ms; its tools are unavailable for this run.
+```
+在 Windows 任务管理器中观察该 Windows 进程已存活，但 CPU 占用为 0%，I/O 冻结（~32KB），无 stdout/stderr 输出，不响应任何 JSON-RPC 握手；但在 Windows PowerShell 侧直接运行该 exe 的 `--version` 等命令却能秒级返回。
+
+**原因**：
+经 WSL interop 启动 Windows 可执行文件时，若工作目录（cwd）继承了 WSL 内部的 Linux 文件系统路径（如 `/root/repos/devpiano` 或 `/tmp`），Windows 宿主侧无法将其直接映射为有效驱动器路径（或映射为受限的 UNC 路径）。
+现代 .NET Generic Host（`Host.CreateApplicationBuilder`）默认以 `CurrentDirectory` 作为 `ContentRoot`，在不可映射的工作目录下初始化时会永久进入内核级等待/挂起，导致 stdio 管道无任何读写响应。只要工作目录切换为 Windows 可原生映射的 drvfs 路径（如 `/mnt/g/...`），初始化即可迅速完成握手并就绪。
+
+**修复**：
+在 `.omp/mcp.json` 中定义 Windows 端的 stdio MCP server 时，**必须显式提供 Windows 可映射的 `cwd` 字段**（指向 `/mnt/<drive>/...` 路径）：
+```json
+"windows-mcp": {
+  "type": "stdio",
+  "command": "/mnt/g/tools/windows-mcp/1.3.28/Sbroenne.WindowsMcp.exe",
+  "cwd": "/mnt/g/tools/windows-mcp/1.3.28",
+  "timeout": 120000,
+  "instructions": false
+}
+```
+
+**验证**：
+在 devpiano 项目目录下启动 OMP 会话，确认 MCP 服务在数秒内就绪（18 个工具全部注册完成）。
+
+**排查提示（避坑指南）**：
+- 此类“进程存活但零 I/O 挂起”现象极易被误判为“WSL 复制损坏二进制”、“NTFS/ReFS 碎片化”、“Windows 窗口站/权限隔离”或“stdio framing 协议不匹配”。
+- 排查跨环境 interop 启动问题时，**优先二分测试不同的工作目录（`cwd`）**，而非盲目重新拷贝文件或排查哈希。
+- 单独运行 `--version` 能成功并不代表 Host 能初始化：`--version` 等命令行分支通常在 `Host.CreateApplicationBuilder` 之前就已提前返回并退出。

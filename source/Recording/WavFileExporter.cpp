@@ -110,7 +110,9 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
     bool hasSoftBaseline = false;
     bool softBaseline = false;
 
-    juce::AudioBuffer<float> audioBuffer(options.numChannels, options.blockSize);
+    const auto renderChannels = juce::jmax(2, options.numChannels);
+    juce::AudioBuffer<float> audioBuffer(renderChannels, options.blockSize);
+    juce::AudioBuffer<float> monoOutput;
     juce::MidiBuffer segmentMidiBuffer;
     segmentMidiBuffer.ensureSize(
         static_cast<size_t>(std::clamp<std::int64_t>(static_cast<std::int64_t>(options.blockSize) * 16, 256, 65536)));
@@ -135,7 +137,7 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
         const auto numSamples = static_cast<int>(std::min<std::int64_t>(options.blockSize, totalSamples - blockStart));
         const auto blockEnd = blockStart + numSamples;
 
-        audioBuffer.setSize(options.numChannels, numSamples, false, false, true);
+        audioBuffer.setSize(renderChannels, numSamples, false, false, true);
         audioBuffer.clear();
 
         for (int segStart = 0; segStart < numSamples;) {
@@ -228,11 +230,9 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
                 identityTracker.resetOwnership();
                 panicSent = true;
             }
-
-            juce::AudioBuffer<float> segmentAudioBuffer(audioBuffer.getArrayOfWritePointers(), options.numChannels,
-                                                        segStart, segLen);
+            juce::AudioBuffer<float> segmentAudioBuffer(audioBuffer.getArrayOfWritePointers(), renderChannels, segStart,
+                                                        segLen);
             segmentAudioBuffer.clear();
-
             const auto enabled = !activeLayers.enabled || activeLayers.pianoEnabled;
             const auto transition = previousDual != activeLayers.enabled || previousSynth != activeSynth;
             instrumentMidiBuffer.clear();
@@ -276,18 +276,20 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
                     segmentAudioBuffer.applyGain(juce::jlimit(0.0f, 1.0f, activeLayers.pianoGain));
                 }
             }
-
-            if (options.numChannels >= 2 && roomReverb.getWetLevel() > 1e-4f) {
-                roomReverb.processStereo(segmentAudioBuffer.getWritePointer(0), segmentAudioBuffer.getWritePointer(1),
-                                         segLen);
-            }
+            roomReverb.processStereo(segmentAudioBuffer.getWritePointer(0), segmentAudioBuffer.getWritePointer(1),
+                                     segLen);
             segmentAudioBuffer.applyGain(currentMasterGain);
-
             segStart = segEnd;
         }
 
-        applyMasterSoftLimiter(audioBuffer, numSamples);
-        if (!writer->writeFromAudioSampleBuffer(audioBuffer, 0, numSamples)) {
+        if (options.numChannels == 1) {
+            audioBuffer.applyGain(0, 0, numSamples, 0.5f);
+            audioBuffer.addFrom(0, 0, audioBuffer, 1, 0, numSamples, 0.5f);
+            monoOutput.setDataToReferTo(audioBuffer.getArrayOfWritePointers(), 1, numSamples);
+        }
+        auto& writtenAudio = options.numChannels == 1 ? monoOutput : audioBuffer;
+        applyMasterSoftLimiter(writtenAudio, numSamples);
+        if (!writer->writeFromAudioSampleBuffer(writtenAudio, 0, numSamples)) {
             DP_LOG_ERROR("[Export] WAV export failed while writing: " + destinationFile.getFullPathName());
             return false;
         }

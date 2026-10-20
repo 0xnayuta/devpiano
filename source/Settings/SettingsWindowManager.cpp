@@ -232,6 +232,7 @@ void SettingsWindowManager::showFor(MainComponent& owner) {
                                      safe->appSettings.pianoHammerHardness, safe->appSettings.pianoResonance);
         safe->audioEngine.setPianoParameters(safe->appSettings.pianoBrightness, safe->appSettings.pianoHammerHardness,
                                              safe->appSettings.pianoResonance);
+        (void)safe->audioEngine.setHammerVoicing(safe->appSettings.hammerVoicing);
         safe->audioEngine.setPianoTuning(safe->appSettings.stretchTuningEnabled, safe->appSettings.duplexResonance);
         safe->audioEngine.setLidPosition(static_cast<AudioEngine::LidPosition>(safe->appSettings.lidPosition));
         safe->keyboardMidiMapper.setTouchVelocityCurve(safe->appSettings.touchVelocityCurve);

@@ -45,6 +45,11 @@ Options:
   --sync-only           Only sync to Windows mirror, do not build
   --reconfigure         Remove Windows build cache before configure/build
   --clean-win-build     Delete Windows build directory before configure/build
+                        (refused by scripts/win_clean_guard.sh if the directory
+                        contains non-build assets such as archived evidence)
+  --allow-non-build-assets
+                        Allow --clean-win-build to delete a build directory that
+                        contains non-build assets (requires manual confirmation)
   -h, --help            Show this help
 EOF
 }
@@ -53,6 +58,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 TOOLS_DIR="${ROOT_DIR}/tools"
 SYNC_SCRIPT="${ROOT_DIR}/scripts/sync_to_win.sh"
+GUARD_SCRIPT="${ROOT_DIR}/scripts/win_clean_guard.sh"
 PS_BUILD_SCRIPT="${TOOLS_DIR}/build-windows.ps1"
 WIN_MIRROR_DIR_VALUE="${WIN_MIRROR_DIR:-G:\\source\\projects\\devpiano}"
 SKIP_SYNC="${SKIP_SYNC_TO_WIN:-0}"
@@ -60,6 +66,7 @@ FULL_SYNC=0
 SYNC_ONLY=0
 RECONFIGURE=0
 CLEAN_WIN_BUILD=0
+ALLOW_NON_BUILD_ASSETS=0
 USE_RELEASE=0
 CLANG_TIDY=0
 while [[ $# -gt 0 ]]; do
@@ -81,6 +88,9 @@ while [[ $# -gt 0 ]]; do
       ;;
     --clean-win-build)
       CLEAN_WIN_BUILD=1
+      ;;
+    --allow-non-build-assets)
+      ALLOW_NON_BUILD_ASSETS=1
       ;;
     --clang-tidy)
       CLANG_TIDY=1
@@ -108,6 +118,10 @@ fi
 
 if [[ "${SYNC_ONLY}" == "1" && ( "${RECONFIGURE}" == "1" || "${CLEAN_WIN_BUILD}" == "1" ) ]]; then
   fail '--sync-only cannot be combined with --reconfigure or --clean-win-build'
+fi
+
+if [[ "${ALLOW_NON_BUILD_ASSETS}" == "1" && "${CLEAN_WIN_BUILD}" != "1" ]]; then
+  fail '--allow-non-build-assets is only meaningful together with --clean-win-build'
 fi
 
 resolve_windows_powershell() {
@@ -168,11 +182,21 @@ WIN_BUILD_DIR_WSL="${WIN_MIRROR_DIR_WSL%/}/${WIN_BUILD_DIR_NAME}"
 WIN_PS_BUILD_SCRIPT="$(wslpath -w "${PS_BUILD_SCRIPT}")"
 
 if [[ "${CLEAN_WIN_BUILD}" == "1" ]]; then
+  [[ -f "${GUARD_SCRIPT}" ]] || fail "missing clean-build guard script: ${GUARD_SCRIPT}"
+  guard_args=( "${WIN_MIRROR_DIR_WSL}" "${WIN_BUILD_DIR_NAME}" )
+  if [[ "${ALLOW_NON_BUILD_ASSETS}" == "1" ]]; then
+    guard_args+=( --allow-non-build-assets )
+  fi
+  if ! bash "${GUARD_SCRIPT}" "${guard_args[@]}"; then
+    fail 'refusing to delete the Windows build directory (guard diagnostics above)'
+  fi
   log "cleaning Windows build directory: ${WIN_BUILD_DIR_WSL}"
   rm -rf -- "${WIN_BUILD_DIR_WSL}"
 fi
 
 if [[ "${RECONFIGURE}" == "1" ]]; then
+  [[ -n "${WIN_MIRROR_DIR_WSL}" && "${WIN_MIRROR_DIR_WSL}" != "/" ]] ||
+    fail "refusing to touch CMake cache: invalid mirror path '${WIN_MIRROR_DIR_WSL}'"
   log "removing Windows CMake cache: ${WIN_BUILD_DIR_WSL}/CMakeCache.txt"
   rm -f -- "${WIN_BUILD_DIR_WSL}/CMakeCache.txt"
   rm -rf -- "${WIN_BUILD_DIR_WSL}/CMakeFiles"

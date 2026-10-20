@@ -19,9 +19,10 @@
 
 - [`guides/wsl-windows-msvc-workflow.md`](guides/wsl-windows-msvc-workflow.md)：WSL 主工作树 + Windows 镜像树 + MSVC 验证工作流详解。
 - [`guides/development.md`](guides/development.md)：日常开发、构建与协作指引。
-- [`roadmap/current-iteration.md`](roadmap/current-iteration.md)：近期迭代任务、后继排期与直接验收入口。
+- [`roadmap/current-iteration.md`](roadmap/current-iteration.md)：近期声学基线、整音任务、依赖排期与直接验收入口。
 - [`decisions/README.md`](decisions/README.md)：架构决策记录索引，含已接受的 [ADR-015 消息模板](decisions/ADR-015-localized-message-templates-and-punctuation.md) 与 [ADR-016 纯内存 Headless-Safe UI 测试模式](decisions/ADR-016-headless-safe-pure-in-memory-ui-testing-pattern.md)。
 - [`guides/troubleshooting.md`](guides/troubleshooting.md)：WSL / Windows 镜像构建常见问题排查。
+- [`guides/windows-mcp-omp.md`](guides/windows-mcp-omp.md)：Windows 原生 GUI 自动化（windows-mcp × OMP）的接入架构、审批矩阵、cwd 约束、失败处理与升级回滚。
 - [`guides/release-workflow.md`](guides/release-workflow.md)：Windows/Linux 正式 release、tag 与双平台打包 checklist。
 - [`guides/pr-agent.md`](guides/pr-agent.md)：PR-Agent AI 代码审查工作流配置、命令与排障。
 
@@ -36,7 +37,7 @@
 
 | 领域 | 核心特性文档 | 主要内容与测试重点 |
 |---|---|---|
-| **发声引擎** | [`features/builtin-piano-synthesis.md`](reference/features/builtin-piano-synthesis.md) | 7 大声学系统全物理建模钢琴（`PianoSynthVoice`，88 键参数模型/非线性动力学/古典微律/双视角空间声学/微观机械拟真）与正弦合成 |
+| **发声引擎** | [`features/builtin-piano-synthesis.md`](reference/features/builtin-piano-synthesis.md) | 7 大声学系统钢琴（`PianoSynthVoice`）、88 键参数来源与校准边界、连续三力度整音、古典微律、空间声学及正弦合成 |
 | **发声引擎** | [`features/plugin-hosting.md`](reference/features/plugin-hosting.md) | VST3 插件扫描、分片进度、XML 缓存恢复、增量崩溃安全持久化、乐器端点统一抽象、加载与生命周期专项回归 |
 | **输入与映射** | [`features/keyboard-mapping.md`](reference/features/keyboard-mapping.md) | 电脑键盘映射、5 行 QWERTY 演奏看板、和弦识别与 HUD、击键动态力度和确定性微扰、发音身份快照、采样精确切分踏板及 88 键虚拟键盘 |
 | **输入与映射** | [`features/per-key-customization.md`](reference/features/per-key-customization.md) | 128 项逐键自定义标签与颜色、按键绑定编辑对话框（`KeyBindingEditDialog`） |
@@ -62,7 +63,7 @@
 
 ### 5. 历史档案（`archive/`）
 
-- [`archive/README.md`](archive/README.md)：历史归档索引与现行替代关系表，含 Phase 35 完成计划与 Phase 36 完成记录；已完成任务不再占用当前迭代入口。
+- [`archive/README.md`](archive/README.md)：历史归档索引与现行替代关系表，含 Phase 35/36 及 [Phase 37/38 完成记录](archive/phase37-38-piano-calibration-and-keyboard-performance.md)；原任务、直接证据和修复归属不再占用当前迭代入口。
 
 ---
 
@@ -72,3 +73,4 @@
 2. **架构客观性**：[`reference/architecture.md`](reference/architecture.md) 描述当前代码真实架构，不混入待办计划或历史方案对比。
 3. **特性规范化**：`reference/features/` 下每个文档应合并该特性的现行行为说明与专项测试清单，剔除历史规划草案。
 4. **历史进归档**：历史前期调研、RFC 选型讨论和已完成规划统一归档至 `archive/`。
+5. **防漂移**：精确保留物理、协议、业务范围和实时 SLA；断言/用例数量、源码行数及单次工程门禁耗时留在运行日志，不作为现行契约反复维护。

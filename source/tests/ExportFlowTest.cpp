@@ -1,10 +1,12 @@
 #include <JuceHeader.h>
 
 #include "Audio/AudioEngine.h"
+#include "Audio/HammerVoicing.h"
 
 #include "Export/ExportFlowSupport.h"
 #include "Export/WavExportTask.h"
 #include "Recording/MidiFileExporter.h"
+#include "Recording/RecordedPreset.h"
 #include "Recording/RecordingEngine.h"
 #include "Recording/RenderPipeline.h"
 #include "Recording/WavFileExporter.h"
@@ -75,6 +77,98 @@ public:
             const auto options = buildWavExportOptions(take, perf, 44100.0, 0);
             expectEquals(options.blockSize, 1);
             expectEquals(buildWavExportOptions(take, perf, 44100.0, 512).blockSize, 512);
+        });
+
+        testCase("take preset acoustic snapshot overrides current export options", [&] {
+            devpiano::test::ScopedTempDir tempDir("wav-take-voicing");
+            RecordingTake take;
+            take.sampleRate = 48000.0;
+            take.lengthSamples = 24000;
+            take.events.push_back(
+                { 0, PerformanceEventType::presetChange, 0, RecordingEventSource::computerKeyboard, {} });
+            take.events.push_back({ 0, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
+                                    juce::MidiMessage::noteOn(1, 60, 0.5f) });
+            take.events.push_back({ 24000, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
+                                    juce::MidiMessage::noteOff(1, 60) });
+
+            devpiano::recording::RecordedPreset snapshot;
+            snapshot.preset = devpiano::layout::makeDefaultPreset();
+            take.presets.push_back(snapshot);
+
+            WavExportOptions options;
+            options.sampleRate = 48000.0;
+            options.blockSize = 512;
+            options.bitsPerSample = 16;
+            options.adsr = { 0.001f, 0.2f, 0.8f, 0.3f };
+
+            const auto render = [&](const juce::String& fileName, const devpiano::audio::HammerVoicing& voicing) {
+                auto localized = take;
+                localized.presets[0].acoustic.hammerVoicing = voicing;
+                const auto file = tempDir.getChildFile(fileName);
+                if (!exportTakeAsWavFile(localized, file, options)) {
+                    return 0.0f;
+                }
+                juce::WavAudioFormat wavFormat;
+                std::unique_ptr<juce::AudioFormatReader> reader(
+                    wavFormat.createReaderFor(file.createInputStream().release(), true));
+                if (reader == nullptr || reader->lengthInSamples < 12000) {
+                    return 0.0f;
+                }
+                juce::AudioBuffer<float> buffer(2, 8000);
+                reader->read(&buffer, 0, 8000, 2400, true, true);
+                return buffer.getRMSLevel(0, 0, 8000);
+            };
+
+            const auto calibrated = render("take-calibrated.wav", devpiano::audio::kCalibratedHammerVoicing);
+            auto boosted = devpiano::audio::kCalibratedHammerVoicing;
+            for (auto& anchor : boosted.anchors) {
+                anchor.loudnessDeltaDb += 6.0f;
+            }
+            const auto boostedRms = render("take-boosted.wav", boosted);
+            expectGreaterThan(calibrated, 0.0f, "calibrated take snapshot must render audio");
+            expectGreaterThan(boostedRms, calibrated * 1.5f,
+                              "take preset snapshot must override current export options");
+        });
+
+        testCase("hammer voicing changes built-in WAV output", [&] {
+            devpiano::test::ScopedTempDir tempDir("wav-hammer-voicing");
+            RecordingTake take;
+            take.sampleRate = 48000.0;
+            take.lengthSamples = 24000;
+            take.events.push_back({ 0, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
+                                    juce::MidiMessage::noteOn(1, 60, 70.0f / 127.0f) });
+            take.events.push_back({ 24000, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
+                                    juce::MidiMessage::noteOff(1, 60) });
+
+            const auto renderRms
+                = [&](const juce::String& fileName, const devpiano::audio::HammerVoicing& voicing) -> float {
+                WavExportOptions options;
+                options.sampleRate = 48000.0;
+                options.blockSize = 512;
+                options.bitsPerSample = 24;
+                options.adsr = { 0.001f, 0.2f, 0.8f, 0.3f };
+                options.hammerVoicing = voicing;
+                const auto file = tempDir.getChildFile(fileName);
+                if (!exportTakeAsWavFile(take, file, options)) {
+                    return 0.0f;
+                }
+                juce::WavAudioFormat wavFormat;
+                std::unique_ptr<juce::AudioFormatReader> reader(
+                    wavFormat.createReaderFor(file.createInputStream().release(), true));
+                if (reader == nullptr || reader->lengthInSamples < 10000) {
+                    return 0.0f;
+                }
+                juce::AudioBuffer<float> buffer(2, 4800);
+                reader->read(&buffer, 0, 4800, 4800, true, true);
+                return buffer.getRMSLevel(0, 0, 4800);
+            };
+
+            const auto calibrated = renderRms("calibrated.wav", devpiano::audio::kCalibratedHammerVoicing);
+            auto boosted = devpiano::audio::kCalibratedHammerVoicing;
+            boosted.anchors[1].loudnessDeltaDb += 6.0f;
+            const auto boostedRms = renderRms("boosted.wav", boosted);
+            expectGreaterThan(calibrated, 0.0f, "calibrated export must contain audio");
+            expectGreaterThan(boostedRms, calibrated * 1.5f, "exported WAV must honor the Forte anchor gain");
         });
 
         testCase("reference pitch in export options is clamped to 400..480 Hz range", [&] {
@@ -979,6 +1073,143 @@ public:
         }
         expect(energy > 1e-4, "comparison must contain performed audio");
         expect(maximumDifference <= 3.1e-5, "full piano output must agree within 16-bit quantization");
+        beginTest("admitted mono WAV honors acoustic controls and tracks the mono callback");
+        devpiano::test::ScopedTempDir monoDirectory("piano-mono-parity");
+        RecordingTake monoTake;
+        monoTake.sampleRate = 48000.0;
+        monoTake.lengthSamples = 48000;
+        RecordedPreset monoPreset;
+        monoPreset.preset = devpiano::layout::makeDefaultPreset();
+        monoPreset.acoustic.masterGain = 0.25f;
+        monoPreset.acoustic.lidPosition = 2;
+        monoPreset.acoustic.soundPerspective = devpiano::audio::SoundPerspective::audience;
+        monoPreset.acoustic.reverbSpace = devpiano::audio::ReverbSpace::concertHall;
+        monoPreset.acoustic.reverbWet = 0.35f;
+        monoPreset.acoustic.pedalNoiseLevel = 0.0f;
+        monoPreset.acoustic.feltAgeingAmount = 0.0f;
+        monoPreset.acoustic.stretchTuningEnabled = false;
+        monoPreset.acoustic.duplexResonance = 0.0f;
+        auto monoDry = monoPreset;
+        monoDry.preset.uuid = juce::Uuid().toDashedString();
+        monoDry.acoustic.reverbWet = 0.0f;
+        auto monoLidOpen = monoPreset;
+        monoLidOpen.preset.uuid = juce::Uuid().toDashedString();
+        monoLidOpen.acoustic.lidPosition = 0;
+        auto monoPlayer = monoPreset;
+        monoPlayer.preset.uuid = juce::Uuid().toDashedString();
+        monoPlayer.acoustic.soundPerspective = devpiano::audio::SoundPerspective::player;
+        const auto renderMonoWav
+            = [this, &monoDirectory](const char* fileName, const devpiano::audio::AcousticSnapshot& acoustic) {
+                  RecordingTake take;
+                  take.sampleRate = 48000.0;
+                  take.lengthSamples = 48000;
+                  RecordedPreset preset;
+                  preset.preset = devpiano::layout::makeDefaultPreset();
+                  preset.acoustic = acoustic;
+                  take.presets = { preset };
+                  take.events = { { 0, PerformanceEventType::presetChange, 0, RecordingEventSource::playback, {} },
+                                  { 0, PerformanceEventType::midi, 0, RecordingEventSource::playback,
+                                    juce::MidiMessage::noteOn(1, 64, 0.5f) },
+                                  { 24000, PerformanceEventType::midi, 0, RecordingEventSource::playback,
+                                    juce::MidiMessage::noteOff(1, 64, 0.0f) } };
+                  const auto target = monoDirectory.getChildFile(fileName);
+                  WavExportOptions monoOptions;
+                  monoOptions.sampleRate = 48000.0;
+                  monoOptions.blockSize = 512;
+                  monoOptions.numChannels = 1;
+                  expect(exportTakeAsWavFile(take, target, monoOptions));
+                  juce::AudioFormatManager monoFormats;
+                  monoFormats.registerBasicFormats();
+                  std::unique_ptr<juce::AudioFormatReader> monoReader(monoFormats.createReaderFor(target));
+                  expect(monoReader != nullptr);
+                  if (monoReader == nullptr) {
+                      return juce::AudioBuffer<float>(1, 1);
+                  }
+                  expectEquals(static_cast<int>(monoReader->numChannels), 1);
+                  const auto count = static_cast<int>(monoReader->lengthInSamples);
+                  juce::AudioBuffer<float> audio(1, count);
+                  monoReader->read(&audio, 0, count, 0, true, true);
+                  return audio;
+              };
+        const auto wetMono = renderMonoWav("wet_mono.wav", monoPreset.acoustic);
+        const auto dryMono = renderMonoWav("dry_mono.wav", monoDry.acoustic);
+        const auto lidOpenMono = renderMonoWav("lid_open_mono.wav", monoLidOpen.acoustic);
+        const auto playerMono = renderMonoWav("player_mono.wav", monoPlayer.acoustic);
+        expect(wetMono.getMagnitude(0, 0, wetMono.getNumSamples()) > 0.005f, "mono WAV must contain performed audio");
+        expect(wetMono.getNumSamples() > 512, "mono WAV must render the full take");
+        expect(dryMono.getNumSamples() == wetMono.getNumSamples(), "mono control renders must share length");
+        expect(lidOpenMono.getNumSamples() == wetMono.getNumSamples(), "mono control renders must share length");
+        expect(playerMono.getNumSamples() == wetMono.getNumSamples(), "mono control renders must share length");
+        if (dryMono.getNumSamples() != wetMono.getNumSamples() || lidOpenMono.getNumSamples() != wetMono.getNumSamples()
+            || playerMono.getNumSamples() != wetMono.getNumSamples() || wetMono.getNumSamples() <= 0) {
+            return;
+        }
+        double wetDifference = 0.0;
+        double lidDifference = 0.0;
+        double perspectiveDifference = 0.0;
+        const auto compare = wetMono.getNumSamples();
+        for (int s = 0; s < compare; ++s) {
+            wetDifference = std::max(
+                wetDifference,
+                std::abs(static_cast<double>(wetMono.getSample(0, s)) - static_cast<double>(dryMono.getSample(0, s))));
+            lidDifference = std::max(lidDifference,
+                                     std::abs(static_cast<double>(wetMono.getSample(0, s))
+                                              - static_cast<double>(lidOpenMono.getSample(0, s))));
+            perspectiveDifference = std::max(perspectiveDifference,
+                                             std::abs(static_cast<double>(wetMono.getSample(0, s))
+                                                      - static_cast<double>(playerMono.getSample(0, s))));
+        }
+        expect(wetDifference > 1e-4, "mono WAV Room wet must change the performed output");
+        expect(lidDifference > 1e-5, "mono WAV lid position must change the performed output");
+        expect(perspectiveDifference > 1e-5, "mono WAV perspective must change the performed output");
+        monoTake.presets = { monoPreset };
+        monoTake.events = { { 0, PerformanceEventType::presetChange, 0, RecordingEventSource::playback, {} },
+                            { 0, PerformanceEventType::midi, 0, RecordingEventSource::playback,
+                              juce::MidiMessage::noteOn(1, 64, 0.5f) },
+                            { 24000, PerformanceEventType::midi, 0, RecordingEventSource::playback,
+                              juce::MidiMessage::noteOff(1, 64, 0.0f) } };
+        const auto monoTarget = monoDirectory.getChildFile("parity_mono.wav");
+        WavExportOptions monoOptions;
+        monoOptions.sampleRate = 48000.0;
+        monoOptions.blockSize = 512;
+        monoOptions.numChannels = 1;
+        expect(exportTakeAsWavFile(monoTake, monoTarget, monoOptions));
+        juce::AudioFormatManager parityFormats;
+        parityFormats.registerBasicFormats();
+        const std::unique_ptr<juce::AudioFormatReader> monoReader(parityFormats.createReaderFor(monoTarget));
+        expect(monoReader != nullptr);
+        if (monoReader == nullptr) {
+            return;
+        }
+        const auto monoSamples = static_cast<int>(monoReader->lengthInSamples);
+        juce::AudioBuffer<float> monoOffline(1, monoSamples);
+        monoReader->read(&monoOffline, 0, monoSamples, 0, true, true);
+        RecordingEngine monoRecording;
+        AudioEngine monoEngine;
+        monoEngine.setRecordingEngine(&monoRecording);
+        monoEngine.prepareToPlay(512, 48000.0);
+        juce::AudioBuffer<float> monoBlock(1, 512);
+        for (int i = 0; i < AudioEngine::calculateWarmupBlockCount(48000.0, 512); ++i) {
+            const juce::AudioSourceChannelInfo info(&monoBlock, 0, 512);
+            monoEngine.getNextAudioBlock(info);
+        }
+        monoRecording.startPlayback(monoTake, 48000.0);
+        monoEngine.preparePlaybackResources();
+        double monoMaximumDifference = 0.0;
+        double monoEnergy = 0.0;
+        for (int start = 0; start < monoSamples; start += 512) {
+            const auto countBlock = std::min(512, monoSamples - start);
+            const juce::AudioSourceChannelInfo info(&monoBlock, 0, countBlock);
+            monoEngine.getNextAudioBlock(info);
+            for (int sample = 0; sample < countBlock; ++sample) {
+                const auto value = static_cast<double>(monoBlock.getSample(0, sample));
+                monoMaximumDifference
+                    = std::max(monoMaximumDifference, std::abs(value - monoOffline.getSample(0, start + sample)));
+                monoEnergy += value * value;
+            }
+        }
+        expect(monoEnergy > 1e-4, "mono comparison must contain performed audio");
+        expect(monoMaximumDifference <= 3.1e-5, "mono piano output must agree within 16-bit quantization");
     }
 };
 

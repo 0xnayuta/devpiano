@@ -81,10 +81,11 @@ Performance Preset 的 New、Rename、Delete 保持在上方，Export、Import�
    - **律制与 A4**（`temperament-combo` / `reference-pitch-slider`）：六种律制与 400.0–480.0 Hz（0.1 Hz 步进）；
    - **视角与房间**（`perspective-combo` / `reverb-space-combo` / `reverb-wet-slider`）：Player / Audience、Chamber / Concert Hall / Studio、0%–100% wet；
    - **机械与老化**（`pedal-noise-slider` / `felt-ageing-slider`）：0%–100% 控制；
-   - 风格选择一次提交声学字段并通知拥有者，主亮度/硬度/共鸣旋钮同步；预设恢复和手动编辑经 `SettingsWindowManager::refreshAcousticControls()` 刷新已打开的声明式表面，管理器不暴露内容指针。
+   - 风格选择一次提交声学字段并通知拥有者，主亮度/硬度/共鸣旋钮同步；预设恢复和手动编辑经 `SettingsWindowManager::refreshAcousticControls()` 刷新已打开的声明式表面，管理器不暴露内容指针；
+   - （注：三力度整音 HammerVoicing 属于模型层与声学核心的物理校准锚点，不作为独立 UI 控件暴露在界面树中）；
 5. **固定双层卡片（`makeInstrumentLayersSectionTree`）**：`layers-enabled-toggle`、`layers-piano-toggle`、`layers-plugin-toggle` 与两层增益滑块；经拥有者发布至 AudioEngine，与预设/Take 共用模型，不仅保存 UI 值。
 6. **诊断日志卡片（`makeDiagnosticsSectionTree`）**：结构化 `ListEditor` 与日志路径，保留“打开日志目录”按钮。
-7. **保存与操作卡片（`makeSaveActionSectionTree`）**：右对齐保存与关闭按钮。
+7. **保存操作行（`makeSaveActionSectionTree`）**：右对齐保存按钮（`save-button`）。
 
 ---
 
@@ -164,22 +165,22 @@ host.setBounds(getLocalBounds());
 
 ## 6. 专项确定性测试清单
 
-UI 单元测试位于 `source/tests/`。依据 [ADR-016](../../decisions/ADR-016-headless-safe-pure-in-memory-ui-testing-pattern.md)，自动化只通过纯内存 `ViewHost`／独立组件解释布局、绘制和注入事件，不调用 `addToDesktop()`、`launchCustom()` 或创建原生顶层窗口，不因 headless 环境跳过；异步按钮事件显式使用 `devpiano::test::drainMessages(N)`。下表的 Windows 窗口消费者是独立手工／直接验收证据，不是自动化单元测试中的桌面窗口。
+UI 单元测试位于 `source/tests/`。依据 [ADR-016](../../decisions/ADR-016-headless-safe-pure-in-memory-ui-testing-pattern.md)，自动化只通过纯内存 `ViewHost`／独立组件解释布局、绘制和注入事件，不调用 `addToDesktop()`、`launchCustom()` 或创建原生顶层窗口，不因 headless 环境跳过；异步按钮事件显式使用 `devpiano::test::drainMessages(N)`。下表的 Windows 窗口消费者是独立历史手工／直接验收证据，不是自动化单元测试中的桌面窗口，也不替代未执行的硬件、IME 或物理 DPI 验证。
 
 | 测试文件 | 用例类别 | 验证目标 | 状态 |
 |---|---|---|:---:|
-| `JiveModalDialogTest` | 内容定尺与操作区几何 | 实际组件的底部留白、按钮高度／间距、左侧操作不重叠、Notes 有效编辑高度；额外 1 逻辑像素的窗口取整不破坏底部对齐 | [x] 已通过 |
-| `JiveModalDialogTest` | 长消息与混排裁剪边界 | 不同宽度下的英文、不可分割长名称、码点构造中文、显式换行及中英混排；最后一行完整，正文不侵入操作区 | [x] 已通过 |
-| `JiveModalDialogTest` | 生产输入机制 | 使用生产 ViewHost 构建 Notes，注入字符和回车验证多行编辑；诊断 ListEditor 拒绝输入 | [x] 已通过 |
-| Windows 生产窗口消费者 | 真实窗口与生命周期 | 中英及内容缩放矩阵、输入确认／取消、验证拒绝、绑定编辑／按键捕获、真实 WAV 成功及协作取消；用户目录无变化 | [x] 直接界面验证 |
-| `StyleCatalogTest` | 动态圆角 | 固定 bounds 连续 radius 0→30→0，角像素立即匹配当前半径，不等待 resize | [x] 已通过 |
-| `LayoutGoldenTest` | 16 通道 CSS Grid | 解释后的跟随开关两行对齐、列顺序、行高与网格容器几何，不单独复制布局树声明 | [x] 已通过 |
-| `SettingsLayoutModelTest` | 生产组件解释与输入隔离 | 实际宿主中的设备/调号/显示/声学控件类型；语言刷新保留滚动位置，控件与背景鼠标滚轮隔离 | [x] 已通过 |
-| 生产 Settings 窗口 | 调号与跟随交互 | 实际 transpose 开关关闭时 followKey 禁用、开启时可编辑；不以属性赋值回读当业务证明，见 Phase G/H 消费者证据 | [x] 实际界面验证 |
-| `StyleCatalogTest` | Metro toggle checked 样式 | 验证 Metro 与传输按钮使用一致的中性轮廓，checked 状态不引入额外强调色 | [x] 已通过 |
-| `StyleCatalogTest` | 语义标题语言联动 | 代表性容器、编辑器、预设与速度控件标题随语言切换变化并恢复，不固定具体译文 | [x] 已通过 |
-| `QwertyViewModelTest`    | 和声色相与对比度 | 验证 12-TET 和声色相间隔、八度同色、三全音互补与文字对比度算法 | [x] 已通过 |
-| `LayoutGoldenTest`       | 主窗口与设置布局几何 | 主窗口／设置解释及 1280x720、1920x1080 几何；980x740 展开与 980x580 折叠态下，88 键键床完整位于横向滚动条可视高度内；弹窗几何由 JiveModalDialogTest 独立验证 | [x] 已通过 |
-| `ViewHostTest` | 宿主生命周期、查找与活组件状态 | 解释加载与清理、强类型/缺失组件查找、enabled/visible 属性传播到真实按钮；尺寸重排由布局几何用例保护 | [x] 已通过 |
-| `ChordRecognitionTest`   | 和弦实时识别（`DevPiano/Core` 默认门禁） | 验证单音、音程、三和弦、七和弦识别、转位推导与置信度，为 QWERTY HUD 提供数据支撑；确认默认日志实际执行，非单独补跑 | [x] 已通过 |
-| `MetronomeTest`          | 节拍器状态机 | 验证 BPM 节拍计算、强弱拍判断、预备拍调度与生命周期稳定性 | [x] 已通过 |
+| `JiveModalDialogTest` | 内容定尺与操作区几何 | 实际组件的底部留白、按钮高度／间距、左侧操作不重叠、Notes 有效编辑高度；额外 1 逻辑像素的窗口取整不破坏底部对齐 | [x] 单元测试基线 |
+| `JiveModalDialogTest` | 长消息与混排裁剪边界 | 不同宽度下的英文、不可分割长名称、码点构造中文、显式换行及中英混排；最后一行完整，正文不侵入操作区 | [x] 单元测试基线 |
+| `JiveModalDialogTest` | 生产输入机制 | 使用生产 ViewHost 构建 Notes，注入字符和回车验证多行编辑；诊断 ListEditor 拒绝输入 | [x] 单元测试基线 |
+| Windows 生产窗口消费者 | 真实窗口与生命周期 | 中英及内容缩放矩阵、输入确认／取消、验证拒绝、绑定编辑／按键捕获、真实 WAV 成功及协作取消；用户目录无变化 | [x] 历史直接验证基线 |
+| `StyleCatalogTest` | 动态圆角 | 固定 bounds 连续 radius 0→30→0，角像素立即匹配当前半径，不等待 resize | [x] 单元测试基线 |
+| `LayoutGoldenTest` | 16 通道 CSS Grid | 解释后的跟随开关两行对齐、列顺序、行高与网格容器几何，不单独复制布局树声明 | [x] 单元测试基线 |
+| `SettingsLayoutModelTest` | 生产组件解释与输入隔离 | 实际宿主中的设备/调号/显示/声学控件类型；语言刷新保留滚动位置，控件与背景鼠标滚轮隔离 | [x] 单元测试基线 |
+| 生产 Settings 窗口 | 调号与跟随交互 | 实际 transpose 开关关闭时 followKey 禁用、开启时可编辑；不以属性赋值回读当业务证明，见 Phase G/H 消费者证据 | [x] 历史直接验证基线 |
+| `StyleCatalogTest` | Metro toggle checked 样式 | 验证 Metro 与传输按钮使用一致的中性轮廓，checked 状态不引入额外强调色 | [x] 单元测试基线 |
+| `StyleCatalogTest` | 语义标题语言联动 | 代表性容器、编辑器、预设与速度控件标题随语言切换变化并恢复，不固定具体译文 | [x] 单元测试基线 |
+| `QwertyViewModelTest`    | 和声色相与对比度 | 验证 12-TET 和声色相间隔、八度同色、三全音互补与文字对比度算法 | [x] 单元测试基线 |
+| `LayoutGoldenTest`       | 主窗口与设置布局几何 | 主窗口／设置解释及 1280x720、1920x1080 几何；980x740 展开与 980x580 折叠态下，88 键键床完整位于横向滚动条可视高度内；弹窗几何由 JiveModalDialogTest 独立验证 | [x] 单元测试基线 |
+| `ViewHostTest` | 宿主生命周期、查找与活组件状态 | 解释加载与清理、强类型/缺失组件查找、enabled/visible 属性传播到真实按钮；尺寸重排由布局几何用例保护 | [x] 单元测试基线 |
+| `ChordRecognitionTest`   | 和弦实时识别（`DevPiano/Core` 默认门禁） | 验证单音、音程、三和弦、七和弦识别、转位推导与置信度，为 QWERTY HUD 提供数据支撑；确认默认日志实际执行，非单独补跑 | [x] 单元测试基线 |
+| `MetronomeTest`          | 节拍器状态机 | 验证 BPM 节拍计算、强弱拍判断、预备拍调度与生命周期稳定性 | [x] 单元测试基线 |

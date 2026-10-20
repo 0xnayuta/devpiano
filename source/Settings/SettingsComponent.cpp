@@ -921,6 +921,7 @@ void SettingsComponent::updatePianoStyleComboFromModel() {
     }
     const devpiano::audio::PianoStyleParameters currentParams { .brightness = model->pianoBrightness,
                                                                 .hammerHardness = model->pianoHammerHardness,
+                                                                .hammerVoicing = model->hammerVoicing,
                                                                 .resonance = model->pianoResonance,
                                                                 .stretchTuningEnabled = model->stretchTuningEnabled,
                                                                 .duplexResonance = model->duplexResonance,
@@ -944,6 +945,7 @@ void SettingsComponent::applyPianoStyle(devpiano::audio::PianoStyle style) {
 
     model->pianoBrightness = params->brightness;
     model->pianoHammerHardness = params->hammerHardness;
+    model->hammerVoicing = params->hammerVoicing;
     model->pianoResonance = params->resonance;
     model->stretchTuningEnabled = params->stretchTuningEnabled;
     model->duplexResonance = params->duplexResonance;

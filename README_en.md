@@ -33,8 +33,9 @@ For project scope, core capabilities, and explicit non-goals, see [`docs/referen
 ### 🎹 High-Fidelity Physical Modeling Piano Engine (`PianoSynthVoice`)
 
 - **7 Complete Acoustic Physical Subsystems**: covers Hammer, String, Bridge, Soundboard, Cabinet, Air, and Room acoustics;
-- **88-Key Continuous Physical Parameter Mapping**: fixed model anchors informed by stiff-string and damping literature interpolate stiffness $B$, striking ratio $d/L$, damping constants, and 1/2/3-string zones (`Piano88KeyTable.h`); the repository does not certify measured per-key calibration for a particular piano model;
+- **88-Key Continuous Physical Parameter Mapping**: stiffness $B$ uses log interpolation between controlled software-reference anchors and literature-extrapolated nodes; striking ratio $d/L$, damping, and 1/2/3-string zones use fixed model parameters (`Piano88KeyTable.h`). Software-reference measurements are not per-key measurements of a physical piano and do not certify successful full-domain calibration;
 - **Nonlinear Strike Dynamics & Harmonic Blooming**: 3-layer felt dynamic compaction, velocity-dependent contact time $T_c$, striking point geometric comb notch filtering, 3ms high-frequency attack crack (HF Crack), felt ageing dynamics (`feltAgeingAmount`), delayed harmonic energy blooming (Harmonic Blooming, 10–25ms), and $fff$ pitch glide with soft saturation;
+- **Continuous Three-Velocity Voicing**: `HammerVoicing` interpolates relative hardness, loudness, and rolloff deltas between MIDI 41/70/98 anchors. Factory anchors are neutral; settings, performance presets, Takes, and real-time/offline Piano paths preserve and execute the configuration without injecting voicing parameters into VST3 instruments;
 - **First-Partial Tuning and Saved Acoustic Styles**: anchored A4, switchable partial-matching stretch, and main-string-driven passive Duplex segments. Standard / Bright / Warm / Intimate / Vintage styles save actual acoustic fields in performance presets and Takes, without claiming physical replicas of named piano models;
 - **Acoustic Resonance & Spatial Radiation**: 16-pole orthogonal spruce soundboard modal bank, 4.2kHz spruce viscous absorption lowpass filter, bridge stereo spatial radiation, triple-string Mid-Side differential expansion with natural beating, dual perspective imaging (Player vs Audience via `PerspectiveProcessor`), and lightweight algorithmic room reverberation (`RoomReverbEngine`: Studio / Chamber / Concert Hall);
 - **Mechanical Action Realism & Historical Temperaments**: CC64 sustain pedal global sympathetic resonance, pedal action whoosh and resonance shock (`pedalNoiseLevel`), damper wood thump and key release friction, dynamic release velocity ADSR damping, plus 6 temperaments (`TemperamentEngine`) and A4 reference pitch tuning (400–480 Hz, default 440 Hz, with shared limits across settings, presets, and built-in real-time/offline rendering);
@@ -90,7 +91,7 @@ For project scope, core capabilities, and explicit non-goals, see [`docs/referen
 
 ### 🌐 Runtime Internationalization (i18n)
 
-- **Instant Language Switching**: powered by JUCE `Translation` and `LocaleManager`, allowing seamless real-time switching between Simplified Chinese and English.
+- **Runtime Language Switching**: JUCE `Translation` and `LocaleManager` refresh semantic titles in the main interface and settings. New messages and dialogs use the active language; existing message text and already-open native windows are not guaranteed to be retranslated immediately.
 
 ---
 

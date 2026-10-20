@@ -16,7 +16,9 @@ devpiano 是一款基于 JUCE 的现代 C++ 电脑键盘钢琴应用，聚焦软
 - 旧配置系统 -> `ApplicationProperties` / `ValueTree` / 项目内状态模型。
 - 旧 fallback 简单发声 -> 覆盖 7 大声学子系统的自主研发增强物理建模钢琴音源（`PianoSynthVoice`）。
 
-**近期交付：Phase 38 电脑键盘分区、三踏板与固定双层** [软件交付完成，2026-10-10]。最终 MIDI 身份、当前 v4 原生格式、两种固定分区/独立 Num 身份、逐通道三踏板及 Piano + 单 VST3 的实时/WAV 闭环已通过 Windows Debug 构建、默认回归、实际原生 UI/输入、SDK fixture 与全量静态门禁；直接证据见 [当前迭代](current-iteration.md)。Phase 37 [已完成，2026-10-08]；CPU SLA 与商业厂商/物理硬件补验不由 Debug 门禁认证。Phase 36 [归档](../archive/phase36-development-overhead-reduction-and-legacy-compatibility-deprecation.md) 与 AUDIT-004 实机边界保持独立。
+**近期重点：Phase 39 可复核声学基线与三力度整音校准** [进行中]。Task 39-1、39-A、39-3、39-4 与 39-5 的实施和直接验收已有记录；出厂整音为中性零偏移，音色与相对力度层次已由用户试听确认。Task 39-2 于 2026-10-19 以 **inconclusive（证据不足）** 收尾，外部参考校准未通过，生产 `B` 表保持冻结；Phase 39 原出口不因此自动豁免。任务、历史失败及最终证据统一见 [当前迭代](current-iteration.md#2-phase-39可复核声学基线与三力度整音校准)，各任务边界见下方阶段条目。
+
+**最近软件交付：Phase 38 电脑键盘分区、三踏板与固定双层** [软件交付完成，2026-10-10]；Phase 37 [已完成，2026-10-08]。原任务、直接消费者、失败记录和后续修复归属见 [Phase 37/38 完成归档](../archive/phase37-38-piano-calibration-and-keyboard-performance.md)。CPU SLA 与商业厂商/物理硬件补验不由 Debug 门禁或本次归档认证；Phase 36 归档与 AUDIT-004 实机边界保持独立。
 
 ---
 
@@ -114,7 +116,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 将内置 fallback 正弦合成器替换为自主拥有、纯 C++、零采样依赖的模态物理建模钢琴音源：
 - **Phase 12（谐波钢琴 v1）**：8 分音谐波加法合成 `PianoSynthVoice`、velocity 响度/亮度双映射；
 - **Phase 13（刚性失谐与模态耗散 v2）**：JOS PASP 刚性琴弦失谐公式（$f_m = m f_0 \sqrt{1 + B m^2}$）与 3 峰音板谐振器；
-- **Phase 14（增强模态合成 v3）**：Magic Circle 递归振荡器（零 `std::sin`，单核 CPU ≤ 0.7%）+ 20/14/8/6 分音覆盖 + two-stage decay + 同音三弦微失谐拍频 + 8 峰音板主模态组（75~950 Hz）。
+- **Phase 14（增强模态合成 v3）**：Magic Circle 递归振荡器（零 `std::sin`）+ 20/14/8/6 分音覆盖 + two-stage decay + 同音三弦微失谐拍频 + 8 峰音板主模态组（75~950 Hz）；8 复音单核 CPU ≤0.7% 保留为性能 SLA，不由历史实现描述认证。
 
 详细技术方案与逐项完成记录见 [`../archive/phase12-14-builtin-piano-synthesis.md`](../archive/phase12-14-builtin-piano-synthesis.md)。
 
@@ -129,7 +131,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 ### Phase 16：UI 性能优化（局部脏矩形重绘）与预设导入覆盖确认 [v0.4.0 已发布，2026-08-20]
 
-1. **虚拟键盘脏矩形局部重绘（`CustomKeyboard`）**：引入 `repaintKey(k)` 与 `g.getClipBounds()` 区域相交快速早退裁剪，消灭密集 MIDI 播放时的全量 88 键 `repaint()`，UI 线程渲染负载降低 70% 以上；
+1. **虚拟键盘脏矩形局部重绘（`CustomKeyboard`）**：引入 `repaintKey(k)` 与 `g.getClipBounds()` 区域相交早退，避免密集 MIDI 播放时对全量 88 键反复重绘；
 2. **预设导入同名覆盖确认**：`PresetFlowSupport::handleImportPresetFile` 接入 `PresetConfirmDialog` 声明式覆盖确认对话框。
 
 详细完成记录见 [`../archive/phase16-keyboard-dirty-repaint-preset-confirm.md`](../archive/phase16-keyboard-dirty-repaint-preset-confirm.md)。
@@ -148,8 +150,8 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 ### Phase 18：88 键物理参数化与微观相位色散（Per-Note Voicing & Micro-Phases） [v1.0.0 已发布，2026-08-23]
 
 消除 4 音区阶跃与 $t=0$ 相干波形：
-1. **88 键连续物理参数映射（Bensa & Steinway B 实测标定）**：为 88 键建立连续刚度 $B$、击弦比 $d/L$、衰减 $\tau_{\text{slow}}$ 与单/双/三弦物理分区（`Piano88KeyTable.h`）；
-2. **STFT 损失优化实测微相位表**：内联 $3 \times 64$ 最优初相矩阵，消灭狄拉克脉冲式波峰；
+1. **88 键连续物理参数映射**：建立刚度 $B$、击弦比 $d/L$、衰减 $\tau_{\text{slow}}$ 与单/双/三弦分区（`Piano88KeyTable.h`）；原固定模型后由 Task 39-2 更新 `B` 锚点，不宣称 Bensa / Steinway B 全琴逐键实测；
+2. **预计算独立初相表**：内联 $3 \times 64$ 初相矩阵以降低 $t=0$ 同相聚焦；代码中没有可复核的 STFT 训练/最优性证明，后续音色恢复保留独立初相并让高音相差连续收敛；
 3. **空气黏性阻尼与 1.8kHz Bridge Hill 琴桥峰**：中频下凹歌唱性与中高音光泽感。
 
 详细完成记录见 [`../archive/phase18-per-note-voicing-micro-phases.md`](../archive/phase18-per-note-voicing-micro-phases.md)。
@@ -158,7 +160,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 1. **16 峰物理云杉木音板模态组**：覆盖 48Hz~2250Hz 底箱呼吸模态、长琴桥耦合与各向异性散射模态；
 2. **琴桥立体声空间辐射与非对称投影**：根据 88 键物理位置计算声像扩散，消灭单声道居中压迫感；
-3. **同音三弦独立三振荡器非对称拍频**：中高音区三弦独立微失谐与 STFT 空间初相。
+3. **同音三弦独立振荡器与空间初相**：中高音区三弦独立微失谐与预计算初相，不将其标为已验证的 STFT 优化结果。
 
 详细完成记录见 [`../archive/phase19-stereo-modal-soundboard.md`](../archive/phase19-stereo-modal-soundboard.md)。
 
@@ -197,7 +199,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 ### Phase 24：生命力与非线性动力学绽放 [v1.0.0 已发布，2026-08-23]
 
-基于全物理有限元与耦合 PDE 声学机理：
+在已有增强模态合成内加入有界动力学近似，不宣称运行完整有限元或耦合 PDE 求解器：
 1. **泛音时间滞后膨胀与绽放（Harmonic Blooming）**：中高力度高阶分音非线性能量泵浦与上升绽放（$10\sim 25\text{ ms}$）；
 2. **琴槌接触微阻尼与脱离物理释放（Hammer Contact-Release Dynamics）**：消灭 $t=0$ 正弦波机械突兀开门感；
 3. **动态声场空间漫射（Dynamic Spatial Diffusion）**：从击打点声源平滑漫射为音板面声源包围场。
@@ -226,7 +228,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 1. **`MidiTrackMergeEngine` 多轨时间线精准合并内核**：实现统一多轨合并引擎，支持跨音轨 Tempo/Conductor、Meta、CC 与 Note 事件按绝对时间戳（`timestampSamples`）精准稳定归并；
 2. **多轨通道智能策略与元数据解析**：支持原始通道保持（Pass-through）与音轨转通道自动重映射（Track-to-Channel Auto-Assignment），提取并整合乐曲标题、音轨名、Tempo Map 与调号拍号；
-3. **MIDI 通道与虚拟键盘综合回放联动**：合并后的音符保留或按导入策略分配 MIDI 通道，回放时虚拟键盘同步高亮；通道的 `followKey` 掩码决定是否应用全局播放移调，不提供音轨级静音或混音编辑；
+3. **MIDI 通道与虚拟键盘综合回放联动**：合并音符保留或按导入策略分配 MIDI 通道，回放时虚拟键盘同步高亮；后续 Phase 38 将 Take 统一为最终 MIDI 身份，下游不再按快照重复移调，不提供音轨级静音或混音编辑；
 4. **全轨 WAV 离线渲染与多轨测试套件全覆盖**：支持全轨合并流直接离线导出高质量 WAV 音频（维持只读 Playback Take 契约），覆盖 Type 0 / Type 1 复杂多轨夹具。
 
 ### Phase 27：JUCE 9.0.1 框架升级、UI 基础设施内化与全平台生态演进（JUCE 9.0.1 Framework Upgrade & Internalized UI Governance） [已完成，2026-09-02]
@@ -252,8 +254,8 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 
 1. **琴盖开合度声学交互与 UI 穿透（Phase 29-A）**：在 JIVE UI 界面接入 Full Open / Half Stick / Closed 3 态直观选择，无缝驱动底层已实现的 `lidAcoustics` 多级高频滚降与近场反射，兼顾布局金标测试保护 [已完成，2026-09-12]；
 2. **弱音/移位踏板物理拟真与状态联动（Phase 29-B）**：在 `PianoSynthVoice` 中模拟三角钢琴击弦机整体右移、3 弦敲 2 弦与毛毡侧面软化的物理机理，支持 MIDI CC 67 踏板信号、电脑键盘快捷触发与 UI 软踏板状态点亮 [已完成，2026-09-12]；
-3. **触键力度曲线自适应映射（Phase 29-C）**：在 `KeyboardMidiMapper` / 输入层提供 Standard（线性）、Light（轻触感）、Heavy（重阻尼）、Wide Dynamic（宽动态 S 曲线）4 种手感映射，自适应薄膜/机械键盘及 MIDI 键盘 [已完成，2026-09-12]；
-4. **声学配置持久化与预设系统全量联动（Phase 29-D）**：将琴盖开合度、Una Corda 默认态与触键曲线完整纳入 `SettingsModel`、`SettingsStore` 与 Performance Preset（`.devpiano.preset` JSON）序列化，确保向后兼容 [已完成，2026-09-12]；
+3. **触键力度曲线自适应映射（Phase 29-C）**：在 `KeyboardMidiMapper` / 输入层提供 Standard（线性）、Light（轻触感）、Heavy（重阻尼）、Wide Dynamic（宽动态 S 曲线）4 种手感映射，调整电脑键盘绑定的输出力度；外部 MIDI 硬件输入不在范围内 [已完成，2026-09-12]；
+4. **声学配置持久化与预设系统联动（Phase 29-D）**：将琴盖开合度、Una Corda 默认态与触键曲线纳入 `SettingsModel`、`SettingsStore` 与 Performance Preset 序列化；现行自有格式只维护当前版本，可选字段按当前契约补缺省，不保留历史迁移链 [已完成，2026-09-12]；
 5. **声学精调、三闸门闭环与构建验证（Phase 29-E）**：声学与演奏交互自动化测试通过，三闸门合规，双平台编译与打包验证，实机演奏手感与声学回归 [已完成，2026-09-12]。
 
 详细完成记录见 [`../archive/phase29-physical-voicing-and-acoustic-interaction.md`](../archive/phase29-physical-voicing-and-acoustic-interaction.md)。
@@ -288,7 +290,7 @@ JIVE 声明式 UI 框架（`juce::ValueTree` 布局 + JSON 样式表 + Flex/Grid
 1. **双通道日志基础设施（DevPianoLogger Dual-Sink）**：写入系统应用目录并转发完整 debugger 消息；Phase G 已将构造时裁剪升级为会话内活动/单备份合计 512 KiB 的有界轮转，故障停用文件 sink 并保留原因。析构注销顺序保留退出期设置保存与插件卸载日志；
 2. **设置界面诊断卡片直达与系统文件管理器联动**：在设置界面诊断卡片中新增操作行与“打开日志目录”按钮（`open-log-dir-button`），点击调用 `juce::File::revealToUser()` 调起系统原生文件管理器并高亮选中 `devpiano.log`；动态在诊断文本框中显示日志文件绝对路径与当前大小；
 3. **MidiTrace 与诊断测试防线**：覆盖 NoteOn/Off、CC、PitchBend、ProgramChange；原始力度 0..127 不二次缩放，保留零力度 MIDI 语义。测试验证预算、UTF-8 边界、轮转故障及析构注销，不钉会话文案；
-4. **运行时字符编码断言消除**：彻底修复历史遗留的 5 处多字节 em-dash 字符字面量，消除 `juce_String.cpp:327` 的运行时断言。
+4. **运行时字符编码断言消除**：修复多字节 em-dash 字符字面量，使用明确 Unicode 构造，消除 `juce_String.cpp:327` 相关运行时断言。
 
 详细完成记录见 [`../archive/phase33-observability-and-diagnostics-infrastructure.md`](../archive/phase33-observability-and-diagnostics-infrastructure.md)。
 
@@ -350,7 +352,7 @@ Phase 35 原计划与完成勾选见 [完成计划归档](../archive/phase35-key
 
 ### Phase 36：开发期减负与历史兼容性收敛（Development Overhead Reduction & Legacy Compatibility Deprecation）[已完成，2026-10-07]
 
-开发期减负与 YAGNI 协作契约已固化于 `AGENTS.md`，自有格式已切换为当前预设 v2 / 演奏 v3，历史数据迁移分支与死代码已彻底清除，低价值测试已按行为风险完成剪枝。现行 13 本特性文档、架构说明、验收标准及指南已全面对齐当前代码事实，系统性消除了硬编码易变统计度量（断言数/用例数/代码行数/编译秒数），各分册中的重复“当前状态”与历史阶段括号已统一收敛指向 roadmap，严格维持历史审计与归档原貌不变。Task 36-1 至 36-5 闭环完成，完整任务与分步验证记录见 [Phase 36 完成归档](../archive/phase36-development-overhead-reduction-and-legacy-compatibility-deprecation.md)。
+开发期减负与 YAGNI 协作契约已固化于 `AGENTS.md`；该阶段完成当时预设 v2 / 演奏 v3 的单版本切换，演奏格式随后由 Phase 38 更新为当前 v4。历史迁移分支与死代码清除，低价值测试按行为风险剪枝；现行特性文档、架构、验收及指南采用防漂移准则，将断言/用例数量、源码行数与工程门禁耗时留给日志，重复“当前状态”收敛到 roadmap。Task 36-1 至 36-5 的原任务与验证记录见 [Phase 36 完成归档](../archive/phase36-development-overhead-reduction-and-legacy-compatibility-deprecation.md)，历史审计与归档保持不变。
 
 ### Phase 37：物理建模调律与被动共鸣校准（Piano Tuning & Passive Resonance Calibration）[已完成，2026-10-08]
 
@@ -362,7 +364,7 @@ Phase 35 原计划与完成勾选见 [完成计划归档](../archive/phase35-key
 4. **Task 37-4：可保存的钢琴风格预设**：补齐风格所需声学字段，提供经真实音频和试听区分的参数化风格，不将未标定的 Upright/Fortepiano 型号复刻包装成旋钮快照；
 5. **Task 37-5：实时、录制与离线集成**：设置、普通预设、Take 快照、实时和内置 WAV 消费同一有效声学配置，验证采样级切换、原发音身份与实时预算。
 
-**直接交付**：实际 A4/分音对校准、未踩踏板的有界 Duplex、五种参数化风格与真实 Save As/重启音色恢复、整段非零 wet 快照实时/WAV 对照及原身份释放已验证；离线混响初始状态不再污染起音。Windows Debug app/tests、默认 CTest、格式和全量 tidy 通过，零堆/对应锁与库三角观察有正调用自检。现有 2.0 秒 WAV 截断边界保留；未执行 Release 或 ≤0.7% CPU 认证，硬件/厂商补验不外推。完整任务与证据见 [当前迭代 Phase 37](current-iteration.md#2-phase-37物理建模调律与被动共鸣校准)。
+**直接交付**：实际 A4/分音对校准、未踩踏板的有界 Duplex、五种参数化风格与真实 Save As/重启音色恢复、整段非零 wet 快照实时/WAV 对照及原身份释放已验证；离线混响初始状态不再污染起音。Windows Debug app/tests、默认 CTest、格式和全量 tidy 通过，零堆/对应锁与库三角观察有正调用自检。现有 2.0 秒 WAV 截断边界保留；未执行 Release 或 ≤0.7% CPU 认证，硬件/厂商补验不外推。完整任务与证据见 [Phase 37 完成归档](../archive/phase37-38-piano-calibration-and-keyboard-performance.md#2-phase-37物理建模调律与被动共鸣校准)。
 
 ### Phase 38：电脑键盘分区、三踏板控制与固定双层演奏（Keyboard Zones, Three-Pedal Control & Fixed Dual Layer）[软件交付完成，2026-10-10]
 
@@ -370,11 +372,57 @@ Phase 35 原计划与完成勾选见 [完成计划归档](../archive/phase35-key
 
 1. **Task 38-1：一次性身份**：Take 保存区域、Group、修饰键、矩阵/跟随调号之后的最终音乐身份，原生回放、WAV/MIDI 不重复变换；当前整数 v4 拒绝旧义，不做 Raw Key Note 重构；
 2. **Task 38-2：Sostenuto 与多区域踏板闭环**：复用已有 CC66 核心，补齐电脑键盘与 ViewModel/UI 入口，以及 CC64/66/67 的目标通道、原持有身份和 Transport 清理语义；
-3. **Task 38-3：双模式物理键区、小键盘输入与统一映射看板**：支持仅主键盘/主键盘加数字小键盘两种固定布局，分离本机模式与预设音乐参数，补齐独立键码、Group 覆盖及统一看板；具体键位和默认绑定见 [任务契约](current-iteration.md#task-38-3双模式物理键区小键盘输入与统一映射看板)；
+3. **Task 38-3：双模式物理键区、小键盘输入与统一映射看板**：支持仅主键盘/主键盘加数字小键盘两种固定布局，分离本机模式与预设音乐参数，补齐独立键码、Group 覆盖及统一看板；具体键位和默认绑定见 [归档任务契约](../archive/phase37-38-piano-calibration-and-keyboard-performance.md#task-38-3双模式物理键区小键盘输入与统一映射看板)；
 4. **Task 38-4：固定 Piano + 单 VST3 双层发声**：同一规范 MIDI 输入驱动两个固定端点，预分配缓冲、混音和必要的增益配比，处理插件报告延迟与层/实例生命周期；不默认泛化为 1→N MIDI 路由或多插件槽位；
 5. **Task 38-5：双层状态与录制/导出/UI 闭环**：保存层模式与配比，实时和独立离线实例均执行复合渲染，明确插件依赖、失败/取消与实际 UI 验证边界，不承诺跨机器还原原厂商音色。
 
-**直接交付**：最终身份无重复变换、CC66 边沿与原通道释放、固定分区/完整 Num keyCode、非零区域音乐配置及本机模式独立恢复、端点所有权、采样延迟和实时/离线固定双层均有消费者证据。实际绑定、Editor、后台/进度窗取消、保持输入时重扫/加载及正常关闭通过，Windows Debug app/tests、默认 CTest、格式与全量 tidy 通过。硬件键盘/声卡、商业厂商、CPU SLA、跨机音色和超 2.0 秒尾音不外推。详细任务与证据见 [当前迭代 Phase 38](current-iteration.md#3-phase-38电脑键盘分区三踏板控制与固定双层演奏)。
+**直接交付**：最终身份无重复变换、CC66 边沿与原通道释放、固定分区/完整 Num keyCode、非零区域音乐配置及本机模式独立恢复、端点所有权、采样延迟和实时/离线固定双层均有消费者证据。实际绑定、Editor、后台/进度窗取消、保持输入时重扫/加载及正常关闭通过，Windows Debug app/tests、默认 CTest、格式与全量 tidy 通过。硬件键盘/声卡、商业厂商、CPU SLA、跨机音色和超 2.0 秒尾音不外推。详细任务与证据见 [Phase 38 完成归档](../archive/phase37-38-piano-calibration-and-keyboard-performance.md#3-phase-38电脑键盘分区三踏板控制与固定双层演奏)，后续修复另见归档第 6 节，不改写原验证记录。
+
+### Phase 39：可复核声学基线与三力度整音校准[进行中]
+
+以独立 `pianoteq9` 研究仓库的参数语义、候选方程与保留音频作为参考输入，不把商业软件输出或逆向摘要认证为真实钢琴逐键常数。先统一分音/中心弦、力度、频谱与包络的量测口径，复核有疑点的拟合及复现链路；只按可靠证据调整 `B` 锚点，并保留现行第一分音/A4/拉伸语义。在现有增强模态激振内深化三力度整音，同轮迁移预设、设置、Take 与实时/两个 WAV 消费者，完成受控试听、实际 UI 及完整 callback 成本验证。
+
+各任务按实际实施与证据边界分别登记，不以单项关闭替代整个阶段出口：
+
+- **Task 39-1 / 39-A**：量测口径、候选参考准入及分音/接触释放/processed mono 修复已完成；原基线、失败候选与修复后声音分开保留。
+- **Task 39-2**：当前 `B` 表为 17 个受控软件参考锚点、段间 log 插值及 96/108 两个文献外推节点，保持第一分音/A4/拉伸语义。直接验收 2、3 已通过；外部参考直接验收 1 缺证，v3 正式评估全部 `reference_rejected`、没有可评估比较，于 2026-10-19 以 inconclusive 收尾，不记校准成功。已消费的资格、采集与判决不重放、不补批或放宽；Standard Trial 下 treble96 关闭，85–108 不作全域实测声明。未来外部参考校准须另立新任务。
+- **Task 39-3**：保留连续三锚点机制，恢复低中音区独立初相、高音相差连续收敛及单音同音弦平均功率总尺度；出厂默认中性零偏移，旧校准值不迁移。用户人工试听与实际冒烟确认恢复方向正确，2026-10-20 又确认 41/55/70/85/98 相对响度层次足够；不采用逐键补偿表、隐藏 EQ 或修改 Brightness 默认值掩盖回归。
+- **Task 39-4**：`HammerVoicing` 已贯通设置、普通预设、Take、实时及两个 WAV 消费者；保存/重启/A-B 回放、中英文与窄窗设置表面、Surge XT 固定双层离线导出已有直接证据。真实插件的零延迟结果与合成非零延迟回归分别记录。
+- **Task 39-5**：受控试听、生产文件/UI 消费者、Debug 测试桩回调观察与集成门禁已执行；只覆盖实际观测场景，不认证绝对零成本、Release CPU SLA 或物理声卡 deadline。
+
+Phase 39 仍未满足 Task 39-2 的外部参考出口，不因音色与状态闭环签收而自动宣布全阶段完成。直接验收、历史失败与证据入口见 [当前迭代](current-iteration.md)。
+
+### Phase 40：同音弦耦合、双阶段衰减与 Una Corda 深化[规划]
+
+目标：深化已有多弦振荡器与双振幅包络，使拍频、衰减及辐射之间的关系可解释、可测量，不只替换两组时间常数。
+
+1. **同音频率与有效身份**：定义 Width/Balance 的单位、范围及频率中心，保持单/双/三弦分区和原已起音身份，不把某一 C3 的拍频套用全琴。
+2. **被动耦合与可辐射慢模态**：区分振幅、功率、能量及时间常数，采用固定容量和有界状态；验证单声道慢衰减、无输入不自激和失谐后的声音，不能用静态正交投影或额外混响冒充能量耦合。
+3. **Una Corda 激振拓扑**：耦合成立后验证两弦受击、第三弦初始不受击而被动响应，保留逐通道 CC67、声部重用与采样级控制语义。
+
+进入条件：Phase 39 的生产基线、有效频率/连续整音及状态/实时闭环完成。出口：拍频与快/慢衰减有真实音频依据，慢模态不因单声道求和消失，尾音/Panic/偷声部闭合，实时与 WAV 有一致消费者结果；不默认套用研究中的全琴统一权重或衰减常数。
+
+### Phase 41：音板频变阻抗与开放弦共鸣校准[规划]
+
+目标：深化现有音板与共鸣近似，验证频变耗散、开放状态和跨声部被动传能，而不是增加一套同名共鸣效果。
+
+1. **音板阻抗与频变损耗**：区分输出低通、模态阻尼和琴弦向音板的能量泄漏，校准琴桥交界与参数极值；模态数量、内存大小或未经核实的频率表不是琴型标定证明。
+2. **开放弦与跨声部激励**：验证按键、CC64、CC66 捕获及无制音高音区的门控和自然衰减；必要的共享琴桥总线只属于固定 Instrument 内部，不扩展为任意路由。
+3. **共鸣分工与所有权**：保持交感主弦、Duplex 非发音段和独立 Aliquot 弦的概念边界；不以高通后的十二音级池替代已校准 Duplex，释放仍使用原通道和端点所有权。
+
+进入条件：已有 Phase 39 频率基线及 Phase 40 主弦耦合/辐射定义；相关机理可独立调研，生产集成使用同一基线。出口：跨声部响应、自然耗散、无重复能量计入和原目标清理有证据，参数边界稳定，完整实时成本与实时/离线声音有效。
+
+### Phase 42：能量驱动张力非线性与泛音绽放[规划]
+
+目标：按实际衰减模态状态深化现有 Pitch Glide 与一阶 Blooming，替换被淘汰的经验路径，不再叠加一层不可归因的效果。
+
+1. **张力与状态尺度**：定义模态位移、权重和能量尺度，用随包络衰减的状态驱动张力，不能把单位振荡器的 `cos²` 当作真实振动能量。
+2. **瞬态频率轨迹**：校准力度、音区与采样率下的微漂移和回落，保留参考音高、旁路及弱奏基准，单独检查时变频率的稳定性和 Nyquist 边界。
+3. **泛音时间轨迹**：由量测决定是否需要独立深度/惯性控制，采用有界递推，并检查非线性混叠及完整成本；有效切换后删除旧漂移/绽放分支，不保留兼容模型。
+
+进入条件：Phase 39 的激振与频率校准、Phase 40/41 的耗散和耦合尺度成立。出口：效应随振动能量消退，旁路与弱奏有效，长时、多复音和极值不自激，实时/离线整段对照及产品自有实时契约有直接证据。
+
+**近期不排期**：完整 Verlet 琴槌—琴弦求解器、连续弦长的 Upright↔Grand 琴型变形、五麦克风 3D 阵列和更多机械噪声旋钮。它们需要独立的位移/质量/几何或拾音依据与真实需求，不以参考报告的“极低代价”估计替代设计和验收，也不为这些展望预留实现。
 
 ## 4. 主要风险与应对
 
@@ -388,7 +436,7 @@ Phase 35 原计划与完成勾选见 [完成计划归档](../archive/phase35-key
 | `MainComponent` 职责回流 | 低 | 保持轻量装配职责（主要由 `initialiseUi()` 承载 JIVE 树构建与回调接线，核心业务均已委托独立 Controller 与领域模块）；持续监控，避免业务逻辑回流。 |
 | 硬实时契约差距 | 产品自有路径已达标，第三方框架单列 | 产品自有发声、调度与节拍器已实现无锁零分配；键盘输入与视觉高亮彻底解耦，超协商几何安全静音；用户批准分层验收，第三方 VST3 适配器的框架锁与 2048 消息限制单列，见 known-issues。 |
 | A4 基准音高契约 | 400.0–480.0 Hz 已对齐 | 引擎/设置/预设/内置导出同限幅；两端、正常参考和越界钳制已按实时波形、离线 WAV 与实际设置验证。 |
-| 门禁与最终集成范围 | 软件实施已归档，综合实机补验未完成 | Windows Debug/默认回归、用户目录保护、warning/tidy 与契约分别保留实际基线和输出；旧默认缓存失败不由子树成功覆盖。历史证据在 AUDIT-004 实施归档，当前任务页维护 Phase 37/38 近期排期与直接验收，不将规划确认视为软件或硬件验收通过。 |
+| 门禁与最终集成范围 | 软件实施已归档，综合实机补验未完成 | Windows Debug/默认回归、用户目录保护、warning/tidy 与契约分别保留实际基线和输出；历史证据在 AUDIT-004 与 Phase 37/38 实施归档，当前任务页维护 Phase 39 任务与直接验收，不将规划或归档视为新软件、硬件或 CPU 认证。 |
 
 ---
 

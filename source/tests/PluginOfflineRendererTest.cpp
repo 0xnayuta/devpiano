@@ -289,6 +289,88 @@ private:
     bool impulse = false;
 };
 
+class DummyAsymmetricStereoOfflineTestPlugin final : public juce::AudioPluginInstance {
+public:
+    DummyAsymmetricStereoOfflineTestPlugin()
+        : AudioPluginInstance(BusesProperties()
+                                  .withInput("Input", juce::AudioChannelSet::stereo(), true)
+                                  .withOutput("Output", juce::AudioChannelSet::stereo(), true)) {
+    }
+    const juce::String getName() const override {
+        return "DummyAsymmetricStereoOfflineTestPlugin";
+    }
+    void prepareToPlay(double, int) override {
+        activeNote = -1;
+    }
+    void releaseResources() override {
+    }
+    void processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages) override {
+        for (const auto metadata : midiMessages) {
+            const auto msg = metadata.getMessage();
+            if (msg.isNoteOn()) {
+                activeNote = msg.getNoteNumber();
+            } else if ((msg.isNoteOff() && msg.getNoteNumber() == activeNote) || msg.isAllNotesOff()
+                       || msg.isAllSoundOff()) {
+                activeNote = -1;
+            }
+        }
+        if (activeNote >= 0) {
+            auto* left = buffer.getWritePointer(0);
+            auto* right = buffer.getNumChannels() > 1 ? buffer.getWritePointer(1) : nullptr;
+            for (int i = 0; i < buffer.getNumSamples(); ++i) {
+                left[i] += 0.4f;
+                if (right != nullptr) {
+                    right[i] += -0.2f;
+                }
+            }
+            for (int ch = 2; ch < buffer.getNumChannels(); ++ch) {
+                buffer.clear(ch, 0, buffer.getNumSamples());
+            }
+        }
+    }
+    double getTailLengthSeconds() const override {
+        return 0.0;
+    }
+    bool acceptsMidi() const override {
+        return true;
+    }
+    bool producesMidi() const override {
+        return false;
+    }
+    bool hasEditor() const override {
+        return false;
+    }
+    juce::AudioProcessorEditor* createEditor() override {
+        return nullptr;
+    }
+    int getNumPrograms() override {
+        return 1;
+    }
+    int getCurrentProgram() override {
+        return 0;
+    }
+    void setCurrentProgram(int) override {
+    }
+    const juce::String getProgramName(int) override {
+        return {};
+    }
+    void changeProgramName(int, const juce::String&) override {
+    }
+    void getStateInformation(juce::MemoryBlock&) override {
+    }
+    void setStateInformation(const void*, int) override {
+    }
+    void fillInPluginDescription(juce::PluginDescription& desc) const override {
+        desc.name = getName();
+        desc.pluginFormatName = "VST3";
+        desc.numInputChannels = 2;
+        desc.numOutputChannels = 2;
+    }
+
+private:
+    int activeNote = -1;
+};
+
 devpiano::recording::RecordingTake makeSimpleRenderTake() {
     devpiano::recording::RecordingTake take;
     take.sampleRate = 44100.0;
@@ -325,6 +407,7 @@ public:
         testMonoPluginStereoDownmix();
         testMasterSoftLimiterBehavior();
         testOfflineRenderingWithRoomReverb();
+        testMonoKeepsStereoRoomAndFixedDual();
         testProgressCancellation();
         testPresetSnapshotRejection();
         testDualLayerMissingPluginProtection();
@@ -576,6 +659,106 @@ public:
             expect(wetTail.getMagnitude(0, 0, checkLength) > 1e-4f, "wet tail must contain diffuse reverb energy");
         }
     }
+    void testMonoKeepsStereoRoomAndFixedDual() {
+        beginTest("Mono plugin render keeps Room wet and fixed-dual latency alignment");
+        const auto renderOutput = [&](const char* fixtureName, float wet, bool dual, int channels) {
+            devpiano::exporting::WavExportOptions options;
+            options.sampleRate = 44100.0;
+            options.numChannels = channels;
+            options.blockSize = 256;
+            options.bitsPerSample = 16;
+            options.masterGain = 0.2f;
+            options.reverbSpace = devpiano::audio::ReverbSpace::concertHall;
+            options.reverbWet = wet;
+            if (dual) {
+                options.layers = { true, true, true, 0.5f, 0.5f };
+            }
+            devpiano::test::ScopedTempDir tempDir(fixtureName);
+            const auto file = tempDir.getChildFile("mono.wav");
+            DummyAsymmetricStereoOfflineTestPlugin instance;
+            const auto rendered
+                = devpiano::exporting::renderTakeWithOfflinePlugin(makeSimpleRenderTake(), file, options, instance);
+            expect(rendered, "offline acoustic comparison must render");
+            if (!rendered) {
+                return juce::AudioBuffer<float>(channels, 0);
+            }
+            juce::WavAudioFormat wavFormat;
+            std::unique_ptr<juce::AudioFormatReader> reader(
+                wavFormat.createReaderFor(file.createInputStream().release(), true));
+            if (reader == nullptr || reader->lengthInSamples < 44100) {
+                return juce::AudioBuffer<float>(channels, 0);
+            }
+            juce::AudioBuffer<float> audio(channels, static_cast<int>(reader->lengthInSamples));
+            audio.clear();
+            reader->read(&audio, 0, audio.getNumSamples(), 0, true, true);
+            return audio;
+        };
+        for (const auto dual : { false, true }) {
+            const auto mono = renderOutput("processed-mono", 0.35f, dual, 1);
+            const auto stereo = renderOutput("processed-stereo", 0.35f, dual, 2);
+            expectEquals(mono.getNumSamples(), stereo.getNumSamples());
+            if (mono.getNumSamples() != stereo.getNumSamples() || mono.getNumSamples() == 0) {
+                return;
+            }
+            double maximumDifference = 0.0;
+            double performedEnergy = 0.0;
+            for (auto sample = 0; sample < mono.getNumSamples(); ++sample) {
+                const auto mean = 0.5 * (stereo.getSample(0, sample) + stereo.getSample(1, sample));
+                const auto value = static_cast<double>(mono.getSample(0, sample));
+                maximumDifference = std::max(maximumDifference, std::abs(value - mean));
+                performedEnergy += value * value;
+            }
+            expect(performedEnergy > 1e-4, "Room/downmix comparison must contain the performed signal");
+            expect(maximumDifference <= 3.1e-5,
+                   "plugin and fixed-dual mono must match the processed stereo mean within PCM quantization");
+        }
+        const auto dryMono = renderOutput("mono-dry", 0.0f, false, 1);
+        const auto wetMono = renderOutput("mono-wet", 0.35f, false, 1);
+        expect(dryMono.getNumSamples() > 44100, "mono dry render must include the take");
+        expect(wetMono.getNumSamples() == dryMono.getNumSamples(), "mono control renders must share length");
+        if (dryMono.getNumSamples() != wetMono.getNumSamples() || dryMono.getNumSamples() <= 44100) {
+            return;
+        }
+        expect(dryMono.getMagnitude(0, 0, 22050) > 0.005f, "mono plugin output must contain performed audio");
+        double wetDifference = 0.0;
+        for (int s = 22050 + 2048; s < dryMono.getNumSamples(); ++s) {
+            wetDifference = std::max(
+                wetDifference,
+                std::abs(static_cast<double>(wetMono.getSample(0, s)) - static_cast<double>(dryMono.getSample(0, s))));
+        }
+        expect(wetDifference > 1e-4, "mono Room wet must ring the plugin tail");
+        devpiano::exporting::WavExportOptions dualOptions;
+        dualOptions.sampleRate = 44100.0;
+        dualOptions.numChannels = 1;
+        dualOptions.blockSize = 256;
+        dualOptions.bitsPerSample = 16;
+        dualOptions.masterGain = 0.2f;
+        dualOptions.reverbWet = 0.0f;
+        dualOptions.layers = { true, true, true, 0.5f, 0.5f };
+        devpiano::test::ScopedTempDir dualDir("mono-dual");
+        const auto dualFile = dualDir.getChildFile("mono.wav");
+        DummyLatencyOfflineTestPlugin latencyInstance(128);
+        expect(devpiano::exporting::renderTakeWithOfflinePlugin(makeSimpleRenderTake(), dualFile, dualOptions,
+                                                                latencyInstance),
+               "dual mono render must succeed");
+        juce::WavAudioFormat dualFormat;
+        std::unique_ptr<juce::AudioFormatReader> dualReader(
+            dualFormat.createReaderFor(dualFile.createInputStream().release(), true));
+        expect(dualReader != nullptr);
+        if (dualReader == nullptr || dualReader->lengthInSamples < 44100) {
+            return;
+        }
+        juce::AudioBuffer<float> dualMono(1, static_cast<int>(dualReader->lengthInSamples));
+        dualMono.clear();
+        dualReader->read(&dualMono, 0, dualMono.getNumSamples(), 0, true, true);
+        expect(dualMono.getNumSamples() == dryMono.getNumSamples(), "dual mono must share length");
+        if (dualMono.getNumSamples() != dryMono.getNumSamples()) {
+            return;
+        }
+        expect(dualMono.getMagnitude(0, 128, 256) > 0.005f, "dual mono must sound after latency alignment");
+        expectEquals(dualMono.getMagnitude(0, 0, 64), 0.0f, "dual mono must stay silent inside the delay gap");
+    }
+
     void testPresetSnapshotRejection() {
         beginTest("Missing or malformed preset snapshot rejects before touching output file");
         DummyOfflineTestPlugin plugin;

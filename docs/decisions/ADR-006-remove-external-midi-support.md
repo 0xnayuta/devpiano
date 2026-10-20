@@ -31,9 +31,9 @@
 
 ### 正面影响
 
-- 删除约 150 行永久死代码（MidiRouter 92 行 + 集成 ~60 行），降低维护负担。
+- 删除永久死代码与多余集成逻辑，降低维护负担。
 - 消除 HeaderPanel 上始终显示 `"MIDI Inputs: 0"` 的无意义信息。
-- 简化 `MainComponent::setupMidi()`（减少约 25 行），使电脑键盘输入的主路径更加清晰。
+- 简化 `MainComponent::setupMidi()`，使电脑键盘输入的主路径更加清晰。
 - 简化 `AppState` / `InputState` 模型，移除永远不会被使用的字段。
 - 使项目定位更加明确：电脑键盘钢琴工具，非通用 MIDI 工作站。
 

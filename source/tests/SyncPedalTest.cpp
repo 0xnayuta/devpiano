@@ -275,9 +275,8 @@ private:
         const auto keyCode = devpiano::core::makeAlphaNumericKeyCode('A');
         const auto* binding = mapper.getLayout().findByKeyCode(keyCode);
         expect(binding != nullptr, "Default layout must bind A");
-        // Force pedal down + key held predicate:
-        mapper.setKeyStatePredicate(
-            [&](int kc) { return (kc == juce::KeyPress::spaceKey && isSpaceDown) || kc == keyCode; });
+        // Synthetic press must not be blocked by a stale held-key barrier.
+        mapper.setKeyStatePredicate([](int) { return false; });
         mapper.handleKeyPressed(juce::KeyPress(keyCode, 0, 0), state);
         expect(!mapper.isSyncPedalCutPending(), "NoteOn via triggerBinding must consume the pending sync cut");
     }

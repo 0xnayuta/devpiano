@@ -26,6 +26,7 @@ public:
         testNumericalSafetyAndDenormalFlushing();
         testSampleRateInvariance();
         testAudioEngineIntegration();
+        testMonoKeepsStereoRoomWet();
         testIdentifierRoundTrip();
     }
 
@@ -224,6 +225,43 @@ private:
         buffer.clear();
         juce::AudioSourceChannelInfo info(&buffer, 0, 512);
         engine.getNextAudioBlock(info);
+    }
+    void testMonoKeepsStereoRoomWet() {
+        beginTest("RoomReverbEngine: mono callback keeps the stereo Room wet effect");
+        const auto renderMonoTake = [](float wet) {
+            AudioEngine engine;
+            engine.prepareToPlay(512, 44100.0);
+            engine.setMasterGain(1.0f);
+            engine.setReverbSpace(AudioEngine::ReverbSpace::concertHall);
+            engine.setReverbWet(wet);
+            engine.setLidPosition(AudioEngine::LidPosition::fullOpen);
+            for (int i = 0; i < AudioEngine::calculateWarmupBlockCount(44100.0, 512); ++i) {
+                juce::AudioBuffer<float> warm(1, 512);
+                warm.clear();
+                const juce::AudioSourceChannelInfo warmInfo(&warm, 0, 512);
+                engine.getNextAudioBlock(warmInfo);
+            }
+            engine.getKeyboardState().noteOn(1, 60, 0.8f);
+            juce::AudioBuffer<float> buffer(1, 512 * 16);
+            buffer.clear();
+            for (int start = 0; start < buffer.getNumSamples(); start += 512) {
+                const juce::AudioSourceChannelInfo info(&buffer, start, 512);
+                engine.getNextAudioBlock(info);
+            }
+            engine.getKeyboardState().noteOff(1, 60, 0.0f);
+            return buffer;
+        };
+        const auto dry = renderMonoTake(0.0f);
+        const auto wet = renderMonoTake(0.6f);
+        expect(dry.getMagnitude(0, 0, dry.getNumSamples()) > 0.01f, "mono dry take must contain performed audio");
+        expect(wet.getMagnitude(0, 0, wet.getNumSamples()) > 0.01f, "mono wet take must contain performed audio");
+        double difference = 0.0;
+        for (int s = 0; s < dry.getNumSamples(); ++s) {
+            difference = std::max(
+                difference,
+                std::abs(static_cast<double>(wet.getSample(0, s)) - static_cast<double>(dry.getSample(0, s))));
+        }
+        expect(difference > 1e-4, "mono Room wet must change the performed output");
     }
 
     void testIdentifierRoundTrip() {

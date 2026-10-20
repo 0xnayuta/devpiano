@@ -1,5 +1,6 @@
 #include <JuceHeader.h>
 
+#include "Audio/PianoStyle.h"
 #include "Input/KeyboardMidiMapper.h"
 #include "Input/TouchVelocityCurve.h"
 #include "Layout/PerformancePreset.h"
@@ -27,6 +28,7 @@ public:
         testSettingsStoreAcousticRoundTrip();
         testSettingsStoreCorruptedBoundaryClamping();
         testPerformancePresetAcousticRoundTrip();
+        testPianoStyleIdentityIncludesHammerVoicing();
         testKeyboardMidiMapperSoftPedalStateAndCallback();
     }
 
@@ -119,6 +121,16 @@ private:
             expectEquals(loaded.keySignature, 3);
             expect(loaded.midiTranspose == true);
         }
+    }
+
+    void testPianoStyleIdentityIncludesHammerVoicing() {
+        beginTest("PianoStyle: voicing calibration participates in Custom detection");
+        devpiano::audio::PianoStyleParameters params;
+        expect(devpiano::audio::identifyPianoStyle(params) == devpiano::audio::PianoStyle::standard,
+               "calibrated default voicing must identify as Standard");
+        params.hammerVoicing.anchors[1].loudnessDeltaDb += 0.5f;
+        expect(devpiano::audio::identifyPianoStyle(params) == devpiano::audio::PianoStyle::custom,
+               "a changed voicing anchor must identify as Custom");
     }
 
     void testKeyboardMidiMapperSoftPedalStateAndCallback() {

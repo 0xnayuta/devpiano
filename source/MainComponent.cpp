@@ -1111,6 +1111,7 @@ SettingsModel::PerformanceSettingsView MainComponent::getPerformanceSettingsFrom
              .builtinTone = getBuiltinToneFromSettings(),
              .pianoBrightness = getPianoBrightness(),
              .pianoHammerHardness = getPianoHammerHardness(),
+             .hammerVoicing = appSettings.hammerVoicing,
              .pianoResonance = getPianoResonance(),
              .lidPosition = appSettings.lidPosition,
              .touchVelocityCurve = appSettings.touchVelocityCurve,
@@ -1163,6 +1164,7 @@ void MainComponent::applyPerformanceSettingsToAudioEngine(const SettingsModel::P
                                         : AudioEngine::BuiltinSynthTone::sine);
     audioEngine.setPianoParameters(performance.pianoBrightness, performance.pianoHammerHardness,
                                    performance.pianoResonance);
+    (void)audioEngine.setHammerVoicing(performance.hammerVoicing);
     audioEngine.setPianoTuning(performance.stretchTuningEnabled, performance.duplexResonance);
     audioEngine.setLidPosition(static_cast<AudioEngine::LidPosition>(performance.lidPosition));
     audioEngine.setTemperament(performance.temperament);

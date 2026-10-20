@@ -1,5 +1,7 @@
 #pragma once
 
+#include "HammerVoicing.h"
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -11,6 +13,7 @@ enum class PianoStyle : std::uint8_t { custom, standard, bright, warm, intimate,
 struct PianoStyleParameters {
     float brightness = 0.50f;
     float hammerHardness = 0.50f;
+    HammerVoicing hammerVoicing = kCalibratedHammerVoicing;
     float resonance = 0.50f;
     bool stretchTuningEnabled = true;
     float duplexResonance = 0.15f;
@@ -58,6 +61,7 @@ inline constexpr std::array<PianoStyleParameters, 5> pianoStyles { PianoStylePar
     for (std::size_t i = 0; i < pianoStyles.size(); ++i) {
         const auto& candidate = pianoStyles[i];
         if (close(params.brightness, candidate.brightness) && close(params.hammerHardness, candidate.hammerHardness)
+            && isSameHammerVoicing(params.hammerVoicing, candidate.hammerVoicing)
             && close(params.resonance, candidate.resonance)
             && params.stretchTuningEnabled == candidate.stretchTuningEnabled
             && close(params.duplexResonance, candidate.duplexResonance) && params.lidPosition == candidate.lidPosition

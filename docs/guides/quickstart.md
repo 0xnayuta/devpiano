@@ -195,7 +195,7 @@ source ~/.bashrc
 ./scripts/dev.sh win-build
 ./scripts/dev.sh win-build --no-sync
 ./scripts/dev.sh win-build --reconfigure
-./scripts/dev.sh win-build --clean-win-build
+./scripts/dev.sh win-build --clean-win-build  # 含删除守卫：构建目录内有证据/未知条目时拒绝执行
 
 # ── Windows MSVC Release（仅明确发布需求时） ──
 ./scripts/dev.sh win-build --release
@@ -279,7 +279,7 @@ clangd 就能自动读取新的 `compile_commands.json`。
 
 - 日常只在 **WSL 主工作树**修改源码
 - Windows 镜像树只用于 MSVC 验证
-- 同步脚本会保留 Windows 侧 `build-win-msvc`，避免每次同步清空构建缓存
+- 同步脚本会保留 Windows 侧 `build-win-msvc` 与 `build-win-msvc-release`（以及 `dist`），避免每次同步清空构建缓存
 - 如日志颜色不需要，可设置：
 
 ```bash

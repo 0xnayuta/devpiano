@@ -128,7 +128,8 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
     // Determine channel count from the plugin instance
     const auto requiredPluginChannels = juce::jmax(
         1, juce::jmax(offlinePlugin.getTotalNumInputChannels(), offlinePlugin.getTotalNumOutputChannels()));
-    const auto outputChannels = juce::jmin(options.numChannels, offlinePlugin.getTotalNumOutputChannels());
+    const auto renderChannels = juce::jmax(2, options.numChannels);
+    const auto outputChannels = juce::jmin(renderChannels, offlinePlugin.getTotalNumOutputChannels());
 
     const bool anyDualLayerInTake = options.layers.enabled
         || std::ranges::any_of(timeline->presets, [](const auto& p) { return p.acoustic.layers.enabled; });
@@ -137,6 +138,7 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
     devpiano::audio::BuiltinSynthesiser* activeSynth = nullptr;
     devpiano::audio::BoundedStereoDelayLine pianoDelayLine;
     const int reportedLatency = offlinePlugin.getLatencySamples();
+    DP_LOG_INFO("[PluginOfflineRenderer] Reported plugin latency: " + juce::String(reportedLatency) + " samples");
     const int safeLatency = devpiano::audio::sanitizePluginLatency(reportedLatency);
     const int delayCapacity = devpiano::audio::calculateDelayCapacity(reportedLatency);
     pianoDelayLine.prepare(delayCapacity, 2);
@@ -170,7 +172,8 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
     bool previousPiano = activeLayers.enabled && activeLayers.pianoEnabled;
     bool previousPlugin = !activeLayers.enabled || activeLayers.pluginEnabled;
 
-    juce::AudioBuffer<float> outputBuffer(options.numChannels, options.blockSize);
+    juce::AudioBuffer<float> outputBuffer(renderChannels, options.blockSize);
+    juce::AudioBuffer<float> monoOutput;
 
     std::size_t eventIndex = 0;
     auto allNotesOffSent = false;
@@ -192,7 +195,7 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
         const auto numSamples = static_cast<int>(std::min<std::int64_t>(options.blockSize, totalSamples - blockStart));
         const auto blockEnd = blockStart + numSamples;
 
-        outputBuffer.setSize(options.numChannels, numSamples, false, false, true);
+        outputBuffer.setSize(renderChannels, numSamples, false, false, true);
         outputBuffer.clear();
 
         for (int segStart = 0; segStart < numSamples;) {
@@ -289,9 +292,10 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
                 identityTracker.resetOwnership();
                 allNotesOffSent = true;
             }
-            juce::AudioBuffer<float> segmentOutputBuffer(outputBuffer.getArrayOfWritePointers(), options.numChannels,
+            juce::AudioBuffer<float> segmentOutputBuffer(outputBuffer.getArrayOfWritePointers(), renderChannels,
                                                          segStart, segLen);
             segmentOutputBuffer.clear();
+            constexpr auto kStereoMixChannels = 2;
             const auto pianoEnabled = activeLayers.enabled && activeLayers.pianoEnabled;
             const auto pluginEnabled = !activeLayers.enabled || activeLayers.pluginEnabled;
             const auto modeChanged = previousDual != activeLayers.enabled;
@@ -369,13 +373,8 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
                     pianoDelayedBuffer.clear();
                     pianoDelayLine.process(pianoBuffer, pianoDelayedBuffer, segLen);
 
-                    if (options.numChannels == 1) {
-                        segmentOutputBuffer.addFrom(0, 0, pianoDelayedBuffer, 0, 0, segLen, 0.5f);
-                        segmentOutputBuffer.addFrom(0, 0, pianoDelayedBuffer, 1, 0, segLen, 0.5f);
-                    } else {
-                        for (int ch = 0; ch < std::min(options.numChannels, 2); ++ch) {
-                            segmentOutputBuffer.addFrom(ch, 0, pianoDelayedBuffer, ch, 0, segLen);
-                        }
+                    for (int ch = 0; ch < kStereoMixChannels; ++ch) {
+                        segmentOutputBuffer.addFrom(ch, 0, pianoDelayedBuffer, ch, 0, segLen);
                     }
                 }
 
@@ -387,12 +386,9 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
                     pluginBuffer.applyGain(activeLayers.pluginGain);
 
                     const auto pluginOutputChannels = offlinePlugin.getTotalNumOutputChannels();
-                    if (options.numChannels >= 2 && pluginOutputChannels == 1) {
+                    if (pluginOutputChannels == 1) {
                         segmentOutputBuffer.addFrom(0, 0, pluginBuffer, 0, 0, segLen);
                         segmentOutputBuffer.addFrom(1, 0, pluginBuffer, 0, 0, segLen);
-                    } else if (options.numChannels == 1 && pluginOutputChannels >= 2) {
-                        segmentOutputBuffer.addFrom(0, 0, pluginBuffer, 0, 0, segLen, 0.5f);
-                        segmentOutputBuffer.addFrom(0, 0, pluginBuffer, 1, 0, segLen, 0.5f);
                     } else {
                         for (auto channel = 0; channel < outputChannels; ++channel) {
                             segmentOutputBuffer.addFrom(channel, 0, pluginBuffer, channel, 0, segLen);
@@ -406,31 +402,30 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
                 offlinePlugin.processBlock(pluginBuffer, pluginSegmentMidiBuffer);
 
                 const auto pluginOutputChannels = offlinePlugin.getTotalNumOutputChannels();
-                if (options.numChannels >= 2 && pluginOutputChannels == 1) {
+                if (pluginOutputChannels == 1) {
                     segmentOutputBuffer.copyFrom(0, 0, pluginBuffer, 0, 0, segLen);
                     segmentOutputBuffer.copyFrom(1, 0, pluginBuffer, 0, 0, segLen);
-                } else if (options.numChannels == 1 && pluginOutputChannels >= 2) {
-                    segmentOutputBuffer.copyFrom(0, 0, pluginBuffer, 0, 0, segLen);
-                    segmentOutputBuffer.addFrom(0, 0, pluginBuffer, 1, 0, segLen);
-                    segmentOutputBuffer.applyGain(0, 0, segLen, 0.5f);
                 } else {
                     for (auto channel = 0; channel < outputChannels; ++channel) {
                         segmentOutputBuffer.copyFrom(channel, 0, pluginBuffer, channel, 0, segLen);
                     }
                 }
             }
-            if (options.numChannels >= 2 && roomReverb.getWetLevel() > 1e-4f) {
-                roomReverb.processStereo(segmentOutputBuffer.getWritePointer(0), segmentOutputBuffer.getWritePointer(1),
-                                         segLen);
-            }
-
+            roomReverb.processStereo(segmentOutputBuffer.getWritePointer(0), segmentOutputBuffer.getWritePointer(1),
+                                     segLen);
             segmentOutputBuffer.applyGain(currentMasterGain);
 
             segStart = segEnd;
         }
 
-        applyMasterSoftLimiter(outputBuffer, numSamples);
-        if (!writer->writeFromAudioSampleBuffer(outputBuffer, 0, numSamples)) {
+        if (options.numChannels == 1) {
+            outputBuffer.applyGain(0, 0, numSamples, 0.5f);
+            outputBuffer.addFrom(0, 0, outputBuffer, 1, 0, numSamples, 0.5f);
+            monoOutput.setDataToReferTo(outputBuffer.getArrayOfWritePointers(), 1, numSamples);
+        }
+        auto& writtenAudio = options.numChannels == 1 ? monoOutput : outputBuffer;
+        applyMasterSoftLimiter(writtenAudio, numSamples);
+        if (!writer->writeFromAudioSampleBuffer(writtenAudio, 0, numSamples)) {
             DP_LOG_ERROR("[PluginOfflineRenderer] WAV write failed at block " + juce::String(blockStart));
             writer.reset();
             return false;

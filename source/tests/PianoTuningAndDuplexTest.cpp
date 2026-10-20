@@ -4,6 +4,7 @@
 #include "Audio/PianoSynthVoice.h"
 #include "Audio/PianoTuning.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
 
 namespace {
@@ -91,6 +92,44 @@ juce::AudioBuffer<float> renderReleasedTail(int partition, float duplex, PianoSy
     return released;
 }
 
+double stereoPartialBandEnergy(const juce::AudioBuffer<float>& buffer, double rate, double centre) {
+    const auto start = static_cast<int>(0.05 * rate);
+    const auto count = static_cast<int>(0.75 * rate);
+    auto energy = 0.0;
+    for (const auto offset : { -4.0, -2.0, 0.0, 2.0, 4.0 }) {
+        const auto step = juce::MathConstants<double>::twoPi * (centre + offset) / rate;
+        const auto cosine = std::cos(step);
+        const auto sine = std::sin(step);
+        const auto windowStep = juce::MathConstants<double>::twoPi / static_cast<double>(count - 1);
+        const auto windowCosine = std::cos(windowStep);
+        const auto windowSine = std::sin(windowStep);
+        auto phaseX = 1.0;
+        auto phaseY = 0.0;
+        auto windowX = 1.0;
+        auto windowY = 0.0;
+        std::array<double, 2> real {};
+        std::array<double, 2> imaginary {};
+        for (auto sample = 0; sample < count; ++sample) {
+            for (std::size_t channel = 0; channel < real.size(); ++channel) {
+                const auto value = static_cast<double>(buffer.getSample(static_cast<int>(channel), start + sample))
+                    * 0.5 * (1.0 - windowX);
+                real[channel] += value * phaseX;
+                imaginary[channel] += value * phaseY;
+            }
+            const auto nextX = phaseX * cosine - phaseY * sine;
+            phaseY = phaseX * sine + phaseY * cosine;
+            phaseX = nextX;
+            const auto nextWindowX = windowX * windowCosine - windowY * windowSine;
+            windowY = windowX * windowSine + windowY * windowCosine;
+            windowX = nextWindowX;
+        }
+        for (std::size_t channel = 0; channel < real.size(); ++channel) {
+            energy += real[channel] * real[channel] + imaginary[channel] * imaginary[channel];
+        }
+    }
+    return energy;
+}
+
 } // namespace
 
 class PianoTuningAndDuplexTest final : public juce::UnitTest {
@@ -100,6 +139,43 @@ public:
     }
 
     void runTest() override {
+        beginTest("factory default C4 keeps the accepted pre-39-3 upper-partial balance");
+        {
+            constexpr auto rate = 48000.0;
+            PianoFixture fixture(rate, true, 0.15f);
+            fixture.synth.noteOn(1, 60, 70.0f / 127.0f);
+            juce::AudioBuffer<float> buffer(2, 38400);
+            fixture.render(buffer);
+            const auto fundamental = stereoPartialBandEnergy(buffer, rate, PianoSynthVoice::partialFrequency(60, 0));
+            auto upperPartials = 0.0;
+            for (auto partial = 1; partial < 8; ++partial) {
+                upperPartials += stereoPartialBandEnergy(buffer, rate, PianoSynthVoice::partialFrequency(60, partial));
+            }
+            // The user-selected historical WAV has about -9 dB in this window.
+            // A 2 dB allowance rejects the roughly 5 dB shared-phase collapse.
+            const auto ratioDb = 10.0 * std::log10(upperPartials / fundamental);
+            expectWithinAbsoluteError(ratioDb, -9.0, 2.0,
+                                      "restoring level must not replace the accepted harmonic balance");
+        }
+
+        beginTest("neutral treble keeps the repaired 95/96 level transition");
+        for (const auto velocity : { 41, 70, 98 }) {
+            std::array<double, 2> levels {};
+            for (std::size_t index = 0; index < levels.size(); ++index) {
+                PianoFixture fixture(48000.0, true, 0.15f);
+                (void)fixture.voice->setHammerVoicing({});
+                fixture.synth.noteOn(1, 95 + static_cast<int>(index), static_cast<float>(velocity) / 127.0f);
+                juce::AudioBuffer<float> buffer(2, 14400);
+                fixture.render(buffer);
+                const auto left = static_cast<double>(buffer.getRMSLevel(0, 4800, 9600));
+                const auto right = static_cast<double>(buffer.getRMSLevel(1, 4800, 9600));
+                levels[index] = std::sqrt(0.5 * (left * left + right * right));
+            }
+            const auto deltaDb = 20.0 * std::log10(levels[1] / levels[0]);
+            expect(std::isfinite(deltaDb) && std::abs(deltaDb) <= 1.5,
+                   "the audible 95/96 jump must not return while recovering the old timbre");
+        }
+
         beginTest("Actual A4 centre remains anchored independently of stiffness and stretch switch");
         for (const auto reference : { 400.0, 440.0, 480.0 }) {
             PianoFixture fixture(48000.0, reference != 400.0, 0.0f);
@@ -181,6 +257,131 @@ public:
                     expectWithinAbsoluteError(wetValue, dryValue, 1e-7f);
                 }
             }
+        }
+
+        beginTest("Coherent band keeps the retained edge partial sounding and prunes past it");
+        for (const auto rate : { 44100.0, 48000.0 }) {
+            // Same production-render DFT evidence as the voice suite, through
+            // the BuiltinSynthesiser path: retained edge partial shows real
+            // energy at target with a nearby independent peak; the pruned
+            // neighbour does not. No oscillator-state getters.
+            struct EdgeCase {
+                int note;
+                double a4;
+                int partial;
+                bool retained;
+            };
+            // 临界 A4 由 ceiling(rate)/f6(note 102) 关系标定（Task 39-2 P1：84 以上按
+            // 高音桥标准斜率外推后，note 93 的 8 分音在 A4<=480 内已无法越过 ceiling，
+            // 改用 note 102 的末分音（第 6 分音）；retained 侧低于 coherent band ceiling、
+            // past 侧高于 ceiling，两侧余量约 228-285 Hz。
+            const auto edge = (rate == 48000.0) ? EdgeCase { 102, 442.0, 6, true } : EdgeCase { 102, 405.0, 6, true };
+            const auto past = (rate == 48000.0) ? EdgeCase { 102, 452.0, 6, false } : EdgeCase { 102, 415.0, 6, false };
+            for (const auto& band : { edge, past }) {
+                PianoFixture fixture(rate, true, 0.0f);
+                fixture.voice->setFeltAgeingAmount(0.0f);
+                fixture.voice->setReferencePitchA4(band.a4);
+                fixture.synth.noteOn(1, band.note, 0.35f);
+                const auto totalSamples = static_cast<int>(rate);
+                juce::AudioBuffer<float> stream(2, totalSamples);
+                stream.clear();
+                auto rendered = 0;
+                {
+                    juce::AudioBuffer<float> first(2, 2048);
+                    first.clear();
+                    fixture.synth.renderNextBlock(first, juce::MidiBuffer(), 0, 2048);
+                    for (auto ch = 0; ch < 2; ++ch) {
+                        stream.copyFrom(ch, 0, first, ch, 0, 2048);
+                    }
+                    rendered = 2048;
+                }
+                while (rendered < totalSamples) {
+                    juce::AudioBuffer<float> block(2, 2048);
+                    block.clear();
+                    const auto count = std::min(2048, totalSamples - rendered);
+                    fixture.synth.renderNextBlock(block, juce::MidiBuffer(), 0, count);
+                    for (auto ch = 0; ch < 2; ++ch) {
+                        stream.copyFrom(ch, rendered, block, ch, 0, count);
+                    }
+                    rendered += count;
+                }
+                const auto target
+                    = PianoSynthVoice::partialFrequency(band.note, band.partial - 1, fixture.voice->getTemperament(),
+                                                        fixture.voice->getReferencePitchA4(), true);
+                const auto windowStart = static_cast<int>(0.05 * rate);
+                const auto windowCount = juce::jmin(16384, totalSamples - windowStart);
+                auto windowEnergy = [&](double frequency) {
+                    auto real = 0.0;
+                    auto imag = 0.0;
+                    for (auto i = 0; i < windowCount; ++i) {
+                        const auto window
+                            = 0.5 * (1.0 - std::cos(juce::MathConstants<double>::twoPi * i / (windowCount - 1)));
+                        const auto angle = juce::MathConstants<double>::twoPi * frequency
+                            * (static_cast<double>(windowStart) + static_cast<double>(i)) / rate;
+                        const auto value = 0.5
+                            * (stream.getSample(0, windowStart + i) + stream.getSample(1, windowStart + i)) * window;
+                        real += value * std::cos(angle);
+                        imag -= value * std::sin(angle);
+                    }
+                    return real * real + imag * imag;
+                };
+                const auto targetEnergy = windowEnergy(target);
+                auto bestOffset = 0.0;
+                auto bestEnergy = -1.0;
+                for (auto step = -40; step <= 40; ++step) {
+                    const auto candidate = target + static_cast<double>(step) * 0.5;
+                    if (candidate <= 0.0 || candidate >= rate * 0.5) {
+                        continue;
+                    }
+                    const auto energy = windowEnergy(candidate);
+                    if (energy > bestEnergy) {
+                        bestEnergy = energy;
+                        bestOffset = candidate - target;
+                    }
+                }
+                if (band.retained) {
+                    const auto neighbourEnergy = windowEnergy(target * 1.01);
+                    expect(targetEnergy > 0.25 * neighbourEnergy,
+                           "retained target energy is credible against a 1% neighbour");
+                    expect(std::abs(bestOffset) <= 8.0, "retained edge peak sits near its target");
+                } else {
+                    const auto neighbourEnergy = windowEnergy(target * 1.01);
+                    // 1e-9 是远高于浮点/滤波器噪声底的 credible peak 门限；
+                    // 仅比较能量比会在双方都处于 ~1e-13 噪声时产生假阳性。
+                    constexpr auto kCrediblePeakEnergyFloor = 1e-9;
+                    const auto crediblePeak = targetEnergy > kCrediblePeakEnergyFloor
+                        && targetEnergy > 4.0 * neighbourEnergy && std::abs(bestOffset) <= 2.0;
+                    expect(!crediblePeak, "pruned edge partial leaves no credible peak at target");
+                }
+            }
+        }
+
+        beginTest("Voice mono tail equals processed stereo downmix across partitions");
+        for (const auto partition : { 64, 512 }) {
+            juce::AudioBuffer<float> stereoTail(2, 8192);
+            juce::AudioBuffer<float> monoTail(1, 8192);
+            for (const auto channels : { 1, 2 }) {
+                PianoFixture fixture(44100.0, true, 0.15f);
+                fixture.voice->setLidPosition(PianoSynthVoice::LidPosition::closed);
+                fixture.voice->setSoundPerspective(PianoSynthVoice::SoundPerspective::audience);
+                fixture.voice->setFeltAgeingAmount(0.0f);
+                fixture.synth.noteOn(1, 60, 0.35f);
+                juce::AudioBuffer<float> held(channels, 1024);
+                held.clear();
+                fixture.synth.renderNextBlock(held, juce::MidiBuffer(), 0, held.getNumSamples());
+                auto& tail = (channels == 2) ? stereoTail : monoTail;
+                tail.clear();
+                for (int offset = 0; offset < tail.getNumSamples(); offset += partition) {
+                    const auto blockCount = std::min(partition, tail.getNumSamples() - offset);
+                    fixture.synth.renderNextBlock(tail, {}, offset, blockCount);
+                }
+            }
+            auto maxDelta = 0.0f;
+            for (int sample = 0; sample < monoTail.getNumSamples(); ++sample) {
+                const auto expected = 0.5f * (stereoTail.getSample(0, sample) + stereoTail.getSample(1, sample));
+                maxDelta = std::max(maxDelta, std::abs(monoTail.getSample(0, sample) - expected));
+            }
+            expectWithinAbsoluteError(maxDelta, 0.0f, 1e-5f, "mono tail must equal the processed stereo downmix");
         }
     }
 };

@@ -1,5 +1,6 @@
 #include <JuceHeader.h>
 
+#include "Audio/HammerVoicing.h"
 #include "Input/KeyboardMidiMapper.h"
 #include "Settings/SettingsModel.h"
 #include "Settings/SettingsStore.h"
@@ -30,6 +31,8 @@ SettingsModel makePopulatedModel() {
     m.builtinTone = SettingsModel::BuiltinTone::piano;
     m.pianoBrightness = 0.70f;
     m.pianoHammerHardness = 0.35f;
+    m.hammerVoicing.anchors[0].hardnessDelta = -0.10f;
+    m.hammerVoicing.anchors[2].loudnessDeltaDb = 4.25f;
     m.pianoResonance = 0.90f;
     m.keySignature = 5;
     m.midiTranspose = true;
@@ -105,6 +108,10 @@ public:
                          "builtin tone must round-trip");
             expectWithinAbsoluteError(loaded.pianoBrightness, 0.70f, 0.0001f);
             expectWithinAbsoluteError(loaded.pianoHammerHardness, 0.35f, 0.0001f);
+            expect(devpiano::audio::isSameHammerVoicing(loaded.hammerVoicing, original.hammerVoicing),
+                   "hammer voicing must round-trip");
+            expectWithinAbsoluteError(loaded.hammerVoicing.anchors[0].hardnessDelta, -0.10f, 0.0001f);
+            expectWithinAbsoluteError(loaded.hammerVoicing.anchors[2].loudnessDeltaDb, 4.25f, 0.0001f);
             expectWithinAbsoluteError(loaded.pianoResonance, 0.90f, 0.0001f);
             expectEquals(loaded.keySignature, 5);
             expect(loaded.midiTranspose, "midiTranspose must round-trip");
@@ -409,6 +416,7 @@ public:
             const auto settingsFile = tempDir.getChildFile("DevPianoTests.settings");
             auto model = makePopulatedModel();
             model.audioDeviceState = juce::parseXML(R"(<DEVICES name="DeviceA"/>)");
+            const auto firstVoicing = model.hammerVoicing;
             SettingsModel copyConstructed(model);
             SettingsModel copyAssigned;
             copyAssigned = copyConstructed;
@@ -428,6 +436,7 @@ public:
             SettingsStore store(settingsFile);
             store.scheduleSave(copyAssigned, 1);
             copyAssigned.metronomeBpm = 91.0;
+            copyAssigned.hammerVoicing.anchors[0].hardnessDelta = 0.20f;
             copyAssigned.audioDeviceState->setAttribute("name", "ChangedAfterSchedule");
             copyAssigned.knownPluginListState->setAttribute("changed", true);
             devpiano::test::drainMessages(100);
@@ -435,6 +444,8 @@ public:
             SettingsModel first;
             SettingsStore(settingsFile).load(first);
             checkPracticeFields(first, 173.0);
+            expect(devpiano::audio::isSameHammerVoicing(first.hammerVoicing, firstVoicing),
+                   "the first deferred save must preserve voicing independently of later edits");
             expect(first.audioDeviceState != nullptr && first.knownPluginListState != nullptr);
             if (first.audioDeviceState != nullptr && first.knownPluginListState != nullptr) {
                 expectEquals(first.audioDeviceState->getStringAttribute("name"), juce::String("DeviceA"));
@@ -442,14 +453,20 @@ public:
             }
 
             copyAssigned.metronomeBpm = 201.0;
+            auto replacementVoicing = firstVoicing;
+            replacementVoicing.anchors[1].rolloffDelta = 0.75f;
             store.scheduleSave(copyAssigned, 1000);
             copyAssigned.metronomeBpm = 149.0;
+            copyAssigned.hammerVoicing = replacementVoicing;
             store.scheduleSave(copyAssigned, 1);
             copyAssigned.metronomeBpm = 91.0;
+            copyAssigned.hammerVoicing = devpiano::audio::kCalibratedHammerVoicing;
             devpiano::test::drainMessages(100);
             SettingsModel second;
             SettingsStore(settingsFile).load(second);
             checkPracticeFields(second, 149.0);
+            expect(devpiano::audio::isSameHammerVoicing(second.hammerVoicing, replacementVoicing),
+                   "replacement deferred saves must persist the latest complete voicing");
         });
     }
 };

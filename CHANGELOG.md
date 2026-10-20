@@ -2,12 +2,75 @@
 
 ### Added
 
+- **Windows GUI Automation and Evidence Governance** — register the verified windows-mcp server (v1.3.28, stdio, pinned cwd) for native Windows GUI verification with a per-tool approval matrix, document its WSL2 cwd constraint, failure handling, and upgrade/rollback path, and archive Phase 38/39 and Windows-MCP batches into a per-file SHA-256 indexed evidence root outside the mirror tree.
+
 - **Calibrated Piano Tuning and Passive Duplex** — anchor the actual first partial to A4, add switchable model-specific octave stretch and bounded main-string-driven non-speaking resonators, and preserve the original note/channel through passive tails.
 - **Saved Acoustic Piano Styles** — provide Standard, Bright, Warm, Intimate, and Vintage settings, derive Custom from actual values, and persist tone, stretch, and Duplex controls across current presets, settings, Takes, and builtin WAV rendering without changing keyboard or plugin domains.
+- **Three-Velocity Hammer Voicing State Integration** — persist the 41/70/98 anchor deltas through settings, presets, Takes, realtime snapshots, and builtin/offline WAV rendering, with strict malformed-data rejection and lock-free snapshot publication. Factory anchors are neutral following accepted timbre recovery; raw anchor controls are not added to the main surface, and explicitly stored non-neutral values retain their current semantics without migration.
+- **Realtime Callback Probe and Controlled Listening** — add an import-hook probe with positive-call self-checks covering attack, snapshots, dense input, polyphony, stealing, Panic, sample-rate re-prepare, and recorded playback; across tested test-harness scenarios the callback closure remains allocation-, lock-, and library-trig-free, with timing variance exceeding any anchor overhead without claiming an absolute zero-cost guarantee. Ship a same-MIDI listening package and UI playback/export verification without claiming a Release CPU SLA.
 - **Keyboard Zones and Three-Pedal Performance** — add fixed main-keyboard and main-plus-keypad layouts, independent keypad identities and binding capture, saved musical regions, and CapsLock sostenuto with original-channel pedal release.
 - **Fixed Piano + VST3 Layers** — share canonical input across two fixed instrument endpoints, save layer switches/gains, align actual reported sample latency, and mix before one master/reverb chain in real-time and independent offline rendering. Missing required plugins fail without replacing existing WAV targets.
 
 ### Changed
+
+- **Repository-Wide LF Enforcement** — require LF for every tracked text file, remove the Windows-only CRLF exceptions for solution and batch files, and gate CI on a fail-closed line-ending check.
+- **Current-Code Documentation Alignment** — reconcile piano parameter provenance, neutral three-velocity voicing, fixed-layer/processed-mono diagrams, current-format state handling, build recipes and ADR boundaries; remove volatile engineering metrics while preserving physical/protocol constants, historical failures and unverified hardware/CPU limits.
+
+- **Piano Timbre Recovery and Neutral Factory Voicing** — restore independent low/mid-register phases, converge treble phase differences continuously across the existing detune range, and constrain each note-wide excitation with an analytic unison power estimate so strings and hammer transients share one scale. Switch the factory three-velocity voicing to neutral anchors, drop the retired factory calibration values without a compatibility layer, and retain the repaired 95/96 transition. The user confirmed the recovered timbre by listening and smoke testing, and separately confirmed that the neutral default's 41/55/70/85/98 relative loudness hierarchy is sufficient; the Brightness default and file formats are unchanged.
+
+- **Verified v3 Method Evidence Binding** — bind the consumed post-repair qualification and its registration to the active draft, and verify current-source matching through the real PCM-free native Windows `--check-plan`. Preserve blocked reference/formal gates, sealed inputs and historical verdicts without new measurement, fitting, role execution or seals.
+
+- **Qualified Post-Repair Synthetic Method** — complete the separately approved finite qualification once with consumed controls and same-seal evaluator regression. Verify real admission, expected refusal/abstention, exact frame-end boundaries and comparison/repeat obligations; preserve raw PCM, window records and immutable source/seal/consumption evidence. Qualification is limited to the registered synthetic domain and does not release reference-origin or formal-validation gates.
+
+- **PCM-Free Native Preparation Gates** — verify real registration acceptance against pinned source and Windows dependency identities, preserve lossless Unicode stdout/stderr capture, and exercise unauthorized qualification/development entry refusal without role output, PCM or seals. Keep the registered scientific inputs and historical verdicts unchanged; require separate approval for the complete one-shot qualification.
+
+- **Prospective Post-Repair Qualification Coverage** — register fresh finite coverage for the observer-window input contract, including exact-end and one-sample-overrun boundaries. Exclude consumed qualification, developer and regression inputs without treating seeds, gain, origin or phase alone as fresh tonal evidence; preserve the original budgets and keep static review, actual preparation and one-shot execution approval separate.
+
+- **Registered Observer Window Refusal** — distinguish preregistered out-of-frame input refusal from acoustic abstention before candidate extraction. Preserve requested bounds without clipping or padding, enforce complete window records and real input sizes, and keep valid-window observer errors as hard failures. Verify the real developer paths without changing the shared observer, numeric budgets or consumed qualification verdicts.
+
+- **UTF-8-Gated Finite Qualification** — verify native Windows Unicode stdout/stderr capture before consuming the exact input seal, then execute the separately approved full synthetic qualification once. Preserve failed frame-boundary observer results despite correct PPA refusal, raw PCM and complete accounting without rescoring, replay, parameter changes or release of reference/formal gates.
+
+- **Bounded Candidate and Structural Family Guards** — cover low-note fundamentals without changing higher-note candidate bands, and share whole-family refusal of resolved components and explicit coherent/multicomponent ambiguity even when those partials are excluded. Preserve ordinary information abstention, original numeric/timing budgets and comparison policy; verify registered development paths without replaying qualification, changing historical verdicts or granting current-method qualification.
+
+- **Single-Use Changed-Method Qualification** — execute the separately approved complete A5 synthetic role, consumed controls and same-seal evaluator regression once after recording the authorized registration identity. Preserve the failed qualification, all raw PCM/observations, exact source seal and consumed marker; retain low-note admission misses and extra-mode false admissions without tuning, replay or replacement, while keeping baseline evidence, production parameters and reference/formal gates unchanged.
+
+- **Runner Preparation and Exact Comparison Obligations** — separate boolean development permission validation from actual role authorization, require complete unique pair/member declarations, and enforce preregistered base/comparable/nonbase counts against the existing comparator output. Preserve real comparison results while blocking qualification on mismatches; verify old regression controls, actual preparation acceptance and unauthorized-entry rejection without generating new role data or granting an execution seal.
+
+- **Prospective Changed-Method Qualification Coverage** — preregister fresh bounded synthetic conditions with all execution permissions false, audit role/recipe separation without generating or inspecting PCM, and distinguish positive independent pairs from consumed regression controls. Preserve the real preparation CLI rejection and require separately approved runner permission/output-contract closure before any one-shot qualification approval; keep baseline evidence, production parameters and reference/formal gates unchanged.
+
+- **Layered Method Evidence and Monochord Comparison** — authenticate completed qualification artifacts, consumed markers and original source snapshots in the existing evaluator; distinguish valid baseline evidence, changed current dependencies and v3 readiness without replaying qualification. Admit low-partial candidates for the frozen monochord design only after both complete families pass, while preserving multistring exclusions, mixed-family rejection, numeric budgets and timing. Verify separately registered development/regression paths; retain the original proposal in its verified archive and keep reference capture and formal execution blocked.
+
+- **NoteOn-Relative Metrology and Independent Qualification** — require explicit, WAV-bound event coordinates, preserve exact sample windows and per-window failures without relabelling absolute diagnostics, and execute one explicitly approved complete synthetic-method qualification under an exact registration-plus-five-source seal. Retain the consumed seal, all raw outcomes, mandatory evaluator regressions and complete read-only review; qualify only the registered synthetic domain, preserve historical failures, and keep reference-origin certification, capture, production B changes and v3 execution separate and blocked.
+
+- **Comparable Frequency and Event-Timed Render Preparation** — separate stationary-line admission from conditional carrier diagnostics, render the authenticated MIDI timeline with sample-offset note release through the unchanged Windows Debug synth, reject stimulus/output overwrites, and inspect a blocked v3 protocol draft without capturing references, freezing acceptance or changing production B.
+
+- **Independent AM Envelope Study** — preregister disjoint synthetic development and qualification roles, fit conditional AM envelopes on an early segment and predict untouched raw samples, and preserve static single-component gates. Verify the observational equivalence of AM and coherent triplets without promoting envelope/carrier estimates to physical B evidence, changing prior verdicts, capturing references or freezing v3.
+
+- **Sampled Partial Observer and Independent Qualification** — correct low-order matching initialization, retain per-window/stage failures and raw candidates, and share a bounded damped-component observer across research consumers. Separate synthetic development and qualification roles, measure conditional frequency intervals and false admissions, and preserve the static B objective, production parameters and historical verdicts; method implementation alone does not authorize v3 capture or certify source identity.
+
+- **Bounded Reference Metrology Qualification** — enforce observed reference-family prediction gates and complete disjoint unit accounting in the research evaluator, protect frozen tool identities and prior outputs, and exercise independent synthetic dynamic-range, decay and unresolved-mixture controls. Retain failed qualification and consumed-data diagnostics without adopting candidate SNR/window defaults, retuning production B, capturing new references or revising historical verdicts.
+
+- **Independent Tuning and Safety Acceptance** — verify the frozen piano baseline through actual Windows Debug rendering: A4 and interval tuning, full-key pitch order, held-note ownership, the nominal zero-stiffness harmonic limit, three-rate numerical safety, passive Duplex bypass and sampled sympathetic tuning/decay. Keep production parameters and the inconclusive external-reference verdict unchanged; no new reference capture, physical-piano equivalence or hardware/CPU certification is implied.
+
+- **Bounded Inharmonicity Acceptance** — freeze the current B table at 17 measured anchors plus two literature-extrapolated nodes, stop adding training anchors, and limit further work to one explicitly authorized independent validation batch. Failed or inconclusive acceptance preserves the table and thresholds without automatic retuning or replacement capture; historical verdicts remain unchanged. Correct the generic evaluator's already-registered comparable-partial boundary for MIDI 72-95 without changing B or error thresholds.
+
+- **Interp-Training Anchor Expansion** — admit notes 26/52/57 as measured B anchors (26 under the v41 weak-velocity policy matching the 21/24/28 low-region precedent; 52/57 as all-passing-family medians from the 36-unit interp-training capture; dual-rate within 0.112%), resolving the 24-28 section's V-shaped measured profile (D1 lowest) and subdividing 48-60 into 48-52-57-60. The 24-28 segment bias against consumed comparisons collapses from +7.7%/+7.9% to -0.45%/-0.19% and 48-60 narrows from +7.6% to +3.9% max, while the stretch chain moves at most 0.303 cents on 21-68 and stays bit-identical above. Full-key regression recovers the non-beating B within 0.17% and the stretched f1 within 0.043 cents at both rates; full CTest passed with no failures. Subsequent consumed validation and the inconclusive external-reference closure are recorded in the current iteration.
+
+- **Trial-Constrained Reference Validation** — close the unavailable 96 kHz treble96 capture route under the Standard Trial-only resource boundary; register 48 kHz midfill for notes 25/27/49/51/64/74, while keeping the treble literature extrapolation explicitly unverified and all acoustic acceptance thresholds unchanged.
+
+- **Literature-Anchored Treble Stiffness Bounds** — replace the unsourced 85-108 model upper bounds with the high-bridge slope extrapolation from the measured C6 anchor (ln B 0.0926 per key = 3.04x per octave; Young 1952 / Rigaud-David-Daudet 2013), giving B(96) = 9.614857e-3 and B(108) = 2.920995e-2; recalibrate the duplex coherent-band edge cases to note 102's last partial and record the corrected C8 stretch at +35.9 cents (previous +106.0). Full CTest passed with no failures, and the full-key regression recovers the corrected chain within 0.005 cents (table-fixed f1) and 0.07% (non-beating B). Regression does not certify successful external-reference calibration.
+
+- **Measured Inharmonicity Anchor Table** — replace the two-segment model B table with 14 measured anchor keys (21/24/28/33/36/40/43/45/47/48/60/69/72/84, official-reference partial-ratio medians, family spread <=0.87%), interpolate in log space with the retained model upper bounds above C6, and drop the G#2 +43% bridge step falsified by measurement. Full-key recovery is backed by landed data (anchor non-beating-subset B within 0.1077% across 12 keys x 2 rates, dual-rate within 0.0044%, independent holdout within 2.912 cents). The consumed sealed validation was re-evaluated once with the corrected method (independent holdout split and a frozen normalised partial-ratio criterion, amendments 1-2): 12/34 units pass — notes 39/63 exact, 26/50/77 small deviations, 86 (no-measurement model-upper segment) large; constants retained, criteria not relaxed, and new validation data must be registered before re-review. The closure also archived the still-temporary originals (full-key renders, recipes, CTest logs, first-pilot failure scene) with a missing-corroboration register.
+
+- **Approved Evidence-Tree Cleanup** — delete batch originals and rebuildable third-party runtimes only after per-file SHA-256 re-verification against the evidence index, in three human-approved batches (8782 files / 2.91 GB, matching the survey total); return `build-win-msvc` to a pure build workspace that `win_clean_guard` now passes, and migrate the sole unarchived asset (Task 39-2 official trial installer with its extraction records) into the pianoteq9 research archive before removing the last `G:\` root directory.
+
+- **Constrained Inharmonicity Calibration Preflight** — exercise independent Windows spectral fixtures and actual production tuning/identity/low-rate consumers, preserve new controlled reference observations and runtime-state limitations, and reject unsupported anchors without changing B, octave stretch, file formats, or the unopened validation set.
+
+- **Sealed Acoustic Evidence and Research Feedback** — preserve original MIDI/WAV and reconstruction inputs in ignored local pianoteq9 archives, deposit portable reference results and provenance, and reconcile upstream claims with the Task 39-1 evidence. Exercise a read-only reference recomputation entrypoint while preserving production DSP and file-format boundaries.
+
+- **Traceable Piano Acoustic Baseline** — record a Windows Debug production-export baseline, fixed spectral/envelope definitions, decoded MIDI and artifact hashes, held-out observations, and conditional reference admission. Distinguish mixed unison peaks, amplitude/power fits, and unknown historical rendering settings without changing DSP, tuning constants, or file formats.
+
+- **Phase 37/38 Archive and Phase 39 Planning** — preserve completed tasks, acoustic baselines, consumer evidence, verification limits, and follow-on fixes; switch the active iteration to evidence admission, constrained inharmonicity calibration, three-velocity voicing, state/render integration, and realtime verification. Outline Phases 40–42 and repair historical evidence links without implementing new DSP or changing file formats.
 
 - **Current-Format Development Cutover** — require integer v2 presets and integer v4 native performance files, including metadata reads. Takes store final sounding identities; native playback and WAV/MIDI export no longer reapply input transposition or routing. Reject old event semantics without migration while preserving files and sessions.
 - **Lean Development Policy** — establish KISS/DRY/LOD/YAGNI, clean cutovers, risk-driven testing, minimal documentation updates, and proportionate Windows Debug verification in `AGENTS.md`.
@@ -17,11 +80,26 @@
 
 - **Complete Localized Message Templates** — adopt full sentence templates with `{0}` placeholders across preset delete/overwrite confirmations, save/rename/delete status toasts, count-in counters, export notifications, key bindings, and plugin statuses; clean up obsolete string fragments in `zh_CN.loc` and enforce single-pass parameter substitution without recursive expansion.
 - **Synchronized Active Feature Documentation and Compatibility Statements** — align current feature contracts with integer v2 presets and integer v4 performance files, trimmed non-empty UUIDs, canonical reverb identifiers (`concert_hall`), localized message templates, fixed 2.0s WAV export tails, and VST3 host boundaries while preserving historical audits and archives.
-- **Documentation Maintenance Surface Streamlining & Deduplication** — enforce the anti-drift policy across active reference documentation and ADRs; replace volatile engineering metrics (specific assertion counts, test case quantities, source line counts, and build durations) with stable qualitative invariants. Consolidate duplicate current status recitals across all 13 feature documents to single source of truth references in `roadmap.md`, while preserving historical audit reports and archives unchanged.
+- **Documentation Maintenance Surface Streamlining & Deduplication** — enforce the anti-drift policy across active reference documentation and ADRs; replace volatile engineering metrics (specific assertion counts, test case quantities, source line counts, and build durations) with stable qualitative invariants. Consolidate duplicate current status recitals across feature documents to single source of truth references in `roadmap.md`, while preserving historical audit reports and archives unchanged.
 - **Header Include Decoupling & Regex Elimination** — replace `std::regex` in `jive_TimeParser.h` with a zero-dependency deterministic string scanner and remove `#include <regex>`, eliminating recursive template instantiation overhead across JIVE UI compilation units.
 - **Phase 36 Archive and Phase 37/38 Planning** — preserve the completed Phase 36 task and verification record, and revise the follow-on tasks, dependency schedule, and acceptance for piano tuning/passive resonance, keyboard zones, three-pedal control, and fixed dual-layer performance. This is a documentation-only change, not a runtime feature implementation.
 
 ### Fixed
+
+- **Safe MCP Server Disable Procedure** — document `"enabled": false` or complete entry removal instead of JSON comments, which invalidate the entire configuration and hide its other servers.
+
+- **Complete Deferred Settings Snapshots** — preserve hammer voicing in model copies so first and replacement debounced saves retain non-neutral anchors independently of later source edits.
+
+- **Evidence-Safe Windows Build Cleanup** — classify files and directories separately, allow only explicitly named generated state files instead of generic data suffixes, and refuse standalone evidence, user CMake presets, and linked entries unless explicitly overridden.
+
+- **Bounded Realtime Hammer Voicing Reads** — try each pending atomic voicing snapshot once, retain the previous complete audio value and retry on a later block when publication is in progress, and keep message-thread recording captures independent of audio-owned state.
+
+- **Mixed-Family Metrology Admission** — preserve detected companion-component evidence when a partial is excluded, stop static-subset fitting for mixed families, and independently reject all observed mixed candidates at the family gate. Keep missing/ambiguous-only positives and the registered budgets intact; verify the complete development matrix without consuming independent qualification or revising prior verdicts.
+
+- **Windows Build Directory Cleanup Guard** — require a fail-closed pre-delete guard before `--clean-win-build` removes the mirror build directory: resolved path identity under `/mnt/<drive>/...`, exact direct-child build root names, symlink rejection, and known-build-artifact-only contents; evidence or unknown entries block deletion unless `--allow-non-build-assets` is given explicitly. Isolated regressions in `scripts/tests/win_clean_guard_test.sh` cover path rejection and evidence protection.
+
+- **Consistent Piano Oscillator and Excitation Contracts** — admit partials against the highest detuned frequency and the Magic Circle epsilon ceiling, initialize fixed-frequency components at unit amplitude, and advance the string-only contact-release envelope. Retain the full nominal L1 excitation budget without redistributing pruned weights; seal a separate post-fix production baseline without changing B, octave stretch, or file formats.
+- **Processed Mono Audio Consumers** — downmix both processed channels after lid/perspective and shared Room rendering across voices, realtime output, builtin WAV, and plugin/fixed-layer WAV; preserve stereo sources and passive tails instead of dropping the right channel or bypassing acoustics.
 
 - **Stable Keybed Vertical Position** — reserve the horizontal scrollbar thickness in `KeyboardViewport` so the virtual piano keybed no longer shifts up and down while the window width is dragged across the scrollbar threshold.
 - **Numpad Double-Height Keys** — draw numpad `Num +` and `Enter` as one vertically-double-height key each (`heightWeight = 2.0`, symmetric with the horizontal `Num 0`), instead of registering the same physical key in two consecutive rows and rendering it as two stacked half-height buttons.
@@ -157,7 +235,7 @@ Full code quality audit closure (AUDIT-002), realtime thread safety and plugin l
 
 ### Changed
 
-- **SettingsComponent Architecture Modularization** — extracted monolithic 760-line inline header into dedicated `SettingsComponent.cpp`, cleanly decoupling audio, display, and channel matrix view builders.
+- **SettingsComponent Architecture Modularization** — extracted the monolithic inline header into dedicated `SettingsComponent.cpp`, cleanly decoupling audio, display, and channel matrix view builders.
 - **Submodule Tree Lean Optimization (ADR-013)** — removed obsolete `melatonin_inspector` submodule and cleaned up repository build configuration and documentation references.
 - **MSVC Release Linker & Concurrency Tuning** — enabled `/CGTHREADS:8` for multi-threaded link-time code generation and unbuffered stdout in test runners under Windows.
 
@@ -183,7 +261,7 @@ Multi-track MIDI timeline merge engine, flexible multi-channel routing strategie
 
 ### Changed
 
-- **Compiler Cache & Modern Build Acceleration Pipeline (ADR-011 / ADR-012)** — integrated STL precompiled headers (PCH), mold/lld high-speed linker auto-detection, MSVC `/Z7` (Embedded) + `/FS` flags, and optimized ccache/sccache configuration, cutting CI compilation time by >55% with sub-second test rebuilds.
+- **Compiler Cache & Modern Build Acceleration Pipeline (ADR-011 / ADR-012)** — integrated STL precompiled headers (PCH), mold/lld high-speed linker auto-detection, MSVC `/Z7` (Embedded) + `/FS` flags, and ccache/sccache configuration to reuse compilation work without promising environment-specific rebuild times.
 - **Automated Dual-Platform Release Packaging** (`scripts/dev.sh package`) — unified packaging command producing Windows x64 zip and Linux x64 tar.gz archives with SHA256 checksums.
 
 ### Fixed
@@ -327,7 +405,7 @@ VST3 offline rendering, internationalization, drag-and-drop, and architecture ha
 - **Recent files list UI** via `juce::RecentlyOpenedFilesList` with auto-persistence.
 - **Keyboard display settings UI** controls (note labels, highlight colours, key size).
 - **Plugin scan count display** (`scanPluginCount` / `scanFailedCount`) in the data layer.
-- **Developer tooling**: `.clang-format` (WebKit-based, 120 col), `.clang-tidy` (bugprone/performance/readability/modernize), unit test framework (`KeyMapTypesTest` 45 cases, `MidiFileImporterTest` 17 cases), `./scripts/dev.sh test` one-shot command.
+- **Developer tooling**: `.clang-format` (WebKit-based, 120 col), `.clang-tidy` (bugprone/performance/readability/modernize), unit test framework (`KeyMapTypesTest`, `MidiFileImporterTest`), `./scripts/dev.sh test` one-shot command.
 
 ### Changed
 
@@ -336,7 +414,7 @@ VST3 offline rendering, internationalization, drag-and-drop, and architecture ha
 - **PerformanceFile MIDI serialization** switched from manual int-array encoding to `MemoryBlock::toBase64Encoding()` for smaller JSON.
 - **`WavExportOptions`** extracted to standalone `Export/WavExportOptions.h`, eliminating cross-module dependency on `WavFileExporter.h`.
 - **SettingsComponent callbacks** migrated from manual `onChange` lambdas to `ValueTree::Listener` declarative binding; fixed a missing `setDirty(true)` on fade speed slider.
-- **`MainComponent` slimmed** — `showSettingsDialog()` body (~47 lines) extracted to `SettingsWindowManager::showFor()`, reducing `MainComponent.cpp` from 812 to 765 lines.
+- **`MainComponent` assembly boundary** — extracted settings-window orchestration from `showSettingsDialog()` into `SettingsWindowManager::showFor()`, keeping the main component focused on assembly and callback wiring.
 - **JUCE submodule** updated to latest develop branch.
 - **`-Wall -Wextra`** enabled for Clang; all warnings eliminated from project source.
 - **All source code** formatted with `clang-format`.
