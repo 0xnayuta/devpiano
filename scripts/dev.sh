@@ -28,39 +28,65 @@ usage() {
 Usage: ./scripts/dev.sh <command> [args...]
 
 Commands:
-  self-check [args...]      Run scripts/self_check.sh
-  wsl-configure [args...]   Run scripts/configure_wsl.sh
-  wsl-build [args...]       Run scripts/build_wsl.sh
-  win-sync [args...]        Run scripts/sync_to_win.sh
-  win-build [args...]       Run scripts/build_msvc_from_wsl.sh
-  format [--check]          Format source/ with clang-format-21
-  tidy [--all] [files...]   Incremental clang-tidy on changed files (or given
-                            files; --all = full scan via CMake target)
-  test [args...]            Configure, build and run devpiano_tests
-  time-trace [args...]      Build with Clang -ftime-trace and analyze hotspots
-  package [args...]         Run scripts/package_release.sh (Windows x64 zip + sha256)
-  desktop-install [args...]   Install devpiano desktop entry and icons on Linux
-  help                      Show this help
+  self-check                 Validate local toolchain and workspace
+  wsl-configure [opts]       Raw CMake configure (no JuceHeader.h generation)
+  wsl-build [opts]           Configure/build WSL; prefer --configure-only for clangd
+  win-sync [--check|--full]  Sync the workspace to the Windows mirror
+  win-build [opts]           Sync and build with MSVC (Debug by default)
+  format [--check]           Format source/ with clang-format-21
+  tidy [--all|--clear-cache] [files...]
+                             Incremental clang-tidy; --all = full scan,
+                             --clear-cache = reset cache
+  test [ctest args...]       Configure, build and run devpiano_tests (Linux/WSL)
+  time-trace [options] [target]
+                             Profile Clang build hotspots
+  package [opts]             Package Windows x64 zip or Linux x64 tar.gz + sha256
+  desktop-install [opts]     Install/remove Linux desktop entry and icons
+  help                       Show this help
 
 Examples:
+  # Environment
   ./scripts/dev.sh self-check
-  ./scripts/dev.sh wsl-build --configure-only
+  ./scripts/dev.sh wsl-configure                # Raw configure; no JuceHeader.h
+  ./scripts/dev.sh wsl-build --configure-only   # Preferred for clangd
+  ./scripts/dev.sh wsl-build --configure-only --reconfigure
+
+  # Sync and build
+  ./scripts/dev.sh win-sync --check
+  ./scripts/dev.sh win-sync --full
+  ./scripts/dev.sh win-build
+  ./scripts/dev.sh win-build --no-sync
+  ./scripts/dev.sh win-build --reconfigure
+  ./scripts/dev.sh win-build --clean-win-build
+  ./scripts/dev.sh win-build --release
+  ./scripts/dev.sh win-build --sync-only
+
+  # Quality
   ./scripts/dev.sh format
   ./scripts/dev.sh format --check
-  ./scripts/dev.sh tidy                # Uncommitted changed files (cached)
-  ./scripts/dev.sh tidy --all          # Full parallel scan across all files (~5-6m cold, ~2s cached)
-  ./scripts/dev.sh tidy --clear-cache  # Clear tidy cache
+  ./scripts/dev.sh tidy
   ./scripts/dev.sh tidy source/UI/CustomKeyboard.cpp
+  ./scripts/dev.sh tidy --all
+  ./scripts/dev.sh tidy --clear-cache
+
+  # Tests: args are forwarded to ctest; TestRunner flags need the binary
   ./scripts/dev.sh test
   ./scripts/dev.sh test --verbose
-  ./scripts/dev.sh win-sync            # Fast sync business code (< 1s)
-  ./scripts/dev.sh win-sync --full     # Full sync including submodules (~9s)
-  ./scripts/dev.sh win-build           # Fast sync and validation build
-  ./scripts/dev.sh win-build --full    # Full sync and validation build
-  ./scripts/dev.sh package             # Package Release distribution (zip + sha256)
+
+  # Profiling and packaging
+  ./scripts/dev.sh time-trace
+  ./scripts/dev.sh time-trace --clean
+  ./scripts/dev.sh time-trace --target devpiano
+  ./scripts/dev.sh package
   ./scripts/dev.sh package --version 1.0.0
-  ./scripts/dev.sh time-trace          # Profile build hotspots (slowest files/headers/templates)
-  ./scripts/dev.sh time-trace --clean  # Clean build with full profiling
+  ./scripts/dev.sh package --linux
+  ./scripts/dev.sh package --local-dist
+
+  # Linux desktop integration
+  ./scripts/dev.sh desktop-install
+  ./scripts/dev.sh desktop-install --uninstall
+
+Run './scripts/dev.sh <command> --help' for command-specific options.
 EOF
 }
 
@@ -71,6 +97,14 @@ fi
 
 case "${command_name}" in
   self-check)
+    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+        cat <<'EOF'
+Usage: ./scripts/dev.sh self-check
+
+Checks required local tools, CMake presets and the Windows mirror path.
+EOF
+        exit 0
+    fi
     log 'dispatch -> scripts/self_check.sh'
     exec "${ROOT_DIR}/scripts/self_check.sh" "$@"
     ;;
@@ -91,6 +125,22 @@ case "${command_name}" in
     exec "${ROOT_DIR}/scripts/build_msvc_from_wsl.sh" "$@"
     ;;
   format)
+    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+        cat <<'EOF'
+Usage: ./scripts/dev.sh format [--check]
+
+Formats or checks all .cpp and .h files under source/ with clang-format.
+  --check     Dry-run with --dry-run --Werror; do not modify files
+  -h, --help  Show this help
+EOF
+        exit 0
+    fi
+    if [[ $# -gt 1 ]]; then
+        fail 'format accepts only --check'
+    fi
+    if [[ $# -eq 1 && "${1}" != "--check" ]]; then
+        fail "unknown argument: ${1}"
+    fi
     CLANG_FORMAT_CMD="${CLANG_FORMAT_EXE:-}"
     if [[ -z "${CLANG_FORMAT_CMD}" ]]; then
       if command -v clang-format-21 >/dev/null 2>&1; then
@@ -103,17 +153,61 @@ case "${command_name}" in
     fi
     log "Running ${CLANG_FORMAT_CMD} on source/"
     if [[ "${1:-}" == "--check" ]]; then
-        find "${ROOT_DIR}/source" -name '*.cpp' -o -name '*.h' \
-            | xargs "${CLANG_FORMAT_CMD}" -style=file --dry-run --Werror
+        find "${ROOT_DIR}/source" -type f \( -name '*.cpp' -o -name '*.h' \) \
+            -exec "${CLANG_FORMAT_CMD}" -style=file --dry-run --Werror {} +
         log 'clang-format check passed'
     else
-        find "${ROOT_DIR}/source" -name '*.cpp' -o -name '*.h' \
-            | xargs "${CLANG_FORMAT_CMD}" -i -style=file
+        find "${ROOT_DIR}/source" -type f \( -name '*.cpp' -o -name '*.h' \) \
+            -exec "${CLANG_FORMAT_CMD}" -i -style=file {} +
         log 'clang-format applied'
     fi
     ;;
   tidy)
     # Incremental / Full clang-tidy with multi-core parallelism and local result caching (ADR-007).
+    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+        cat <<'EOF'
+Usage: ./scripts/dev.sh tidy [options] [files...]
+
+Runs clang-tidy using build-wsl-clang/compile_commands.json.
+Without files, checks changed and untracked files under source/.
+Files are resolved relative to the repository root.
+
+Options:
+  --all          Full parallel scan of source/ (iteration-boundary gate)
+  --clear-cache  Clear the local tidy result cache
+  -h, --help     Show this help
+EOF
+        exit 0
+    fi
+
+    case "${1:-}" in
+      --all)
+        [[ $# -eq 1 ]] || fail '--all does not accept file arguments'
+        ;;
+      --clear-cache)
+        [[ $# -eq 1 ]] || fail '--clear-cache does not accept arguments'
+        ;;
+      *)
+        for arg in "$@"; do
+          [[ "${arg}" != -* ]] || fail "unknown option: ${arg}"
+        done
+        ;;
+    esac
+
+    # Run from the repository root so relative paths, .clang-tidy and the
+    # default cache directory are resolved consistently.
+    cd "${ROOT_DIR}"
+
+    WRAPPER="${ROOT_DIR}/tools/tidy-cache.py"
+    [[ -x "${WRAPPER}" ]] || fail "tidy cache wrapper not executable: ${WRAPPER}"
+    command -v python3 >/dev/null 2>&1 \
+        || fail 'python3 not found (required by tools/tidy-cache.py)'
+
+    if [[ "${1:-}" == "--clear-cache" ]]; then
+        "${WRAPPER}" --clear-cache
+        exit 0
+    fi
+
     if ! command -v clang-tidy-21 >/dev/null 2>&1; then
         fail 'clang-tidy-21 not found (apt install clang-tidy-21)'
     fi
@@ -121,40 +215,33 @@ case "${command_name}" in
         fail 'compile_commands.json missing - run ./scripts/dev.sh wsl-build --configure-only first'
     fi
 
-    WRAPPER="${ROOT_DIR}/tools/tidy-cache.py"
     NPROCS=$(nproc 2>/dev/null || echo 4)
 
-    if [[ "${1:-}" == "--clear-cache" ]]; then
-        "${WRAPPER}" --clear-cache
-        exit 0
-    fi
-
     if [[ "${1:-}" == "--all" ]]; then
-        shift
         log "Running clang-tidy full scan in parallel (-j ${NPROCS}, cached)"
         if command -v run-clang-tidy-21 >/dev/null 2>&1; then
             run-clang-tidy-21 -clang-tidy-binary "${WRAPPER}" \
                               -p "${ROOT_DIR}/build-wsl-clang" \
                               -warnings-as-errors='*' \
                               -j "${NPROCS}" -quiet 'source/.*' 2>&1
-            exit $?
         elif command -v run-clang-tidy >/dev/null 2>&1; then
             run-clang-tidy -clang-tidy-binary "${WRAPPER}" \
                            -p "${ROOT_DIR}/build-wsl-clang" \
                            -warnings-as-errors='*' \
                            -j "${NPROCS}" -quiet 'source/.*' 2>&1
-            exit $?
         else
             cmake --build "${ROOT_DIR}/build-wsl-clang" --target clang-tidy 2>&1
-            exit $?
         fi
+        exit 0
     fi
 
     files=()
     if [[ $# -gt 0 ]]; then
         for arg in "$@"; do
-            if [[ -f "${arg}" || -f "${ROOT_DIR}/${arg}" ]]; then
+            if [[ -f "${arg}" ]]; then
                 files+=("${arg}")
+            else
+                fail "file not found: ${arg}"
             fi
         done
     else
@@ -174,23 +261,49 @@ case "${command_name}" in
     for f in "${files[@]}"; do
         "${WRAPPER}" -p "${ROOT_DIR}/build-wsl-clang" --quiet \
                      --warnings-as-errors='*' "${f}" 2>&1
-        if [[ $? -ne 0 ]]; then
-            exit 1
-        fi
     done
     ;;
   test)
+    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+        cat <<'EOF'
+Usage: ./scripts/dev.sh test [ctest args...]
+
+Configures build-wsl-clang, builds devpiano_tests, then runs ctest.
+All arguments are forwarded to ctest (for example --verbose).
+
+TestRunner options (--include-juce, --include-files, --category,
+--name) are not ctest options. Pass them to the test binary directly:
+  build-wsl-clang/devpiano_tests_artefacts/Debug/devpiano_tests --help
+EOF
+        exit 0
+    fi
     log 'Ensuring BUILD_TESTS=ON configured'
     cmake -S "${ROOT_DIR}" -B "${ROOT_DIR}/build-wsl-clang" --preset linux-clang-debug \
-          -DBUILD_TESTS=ON 2>&1 | tail -3
+          -DBUILD_TESTS=ON
     log 'Building devpiano_tests target'
     cmake --build "${ROOT_DIR}/build-wsl-clang" --target devpiano_tests 2>&1
     log 'Running devpiano_tests via ctest'
-    ctest --test-dir "${ROOT_DIR}/build-wsl-clang" -R devpiano_tests \
+    ctest --test-dir "${ROOT_DIR}/build-wsl-clang" \
           --output-on-failure "$@" 2>&1
     ;;
   time-trace)
+    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+        cat <<'EOF'
+Usage: ./scripts/dev.sh time-trace [options] [target]
+
+Builds with Clang -ftime-trace and analyzes the slowest files,
+headers and template instantiations.
+
+Options:
+  --clean          Remove build CMakeFiles before profiling
+  --target <name>  CMake target to profile (default: devpiano_tests)
+  --no-merge       Skip the merged Chrome Tracing / Perfetto timeline
+  -h, --help       Show this help
+EOF
+        exit 0
+    fi
     target="devpiano_tests"
+    target_set=false
     clean_first=false
     merge_trace="combined_time_trace.json"
 
@@ -201,7 +314,11 @@ case "${command_name}" in
           shift
           ;;
         --target)
+          [[ $# -ge 2 && -n "$2" && "$2" != -* ]] \
+              || fail '--target requires a target name'
+          [[ "${target_set}" == false ]] || fail 'target specified more than once'
           target="$2"
+          target_set=true
           shift 2
           ;;
         --no-merge)
@@ -209,20 +326,28 @@ case "${command_name}" in
           shift
           ;;
         *)
+          [[ "$1" != -* ]] || fail "unknown option: $1"
+          [[ "${target_set}" == false ]] || fail 'target specified more than once'
           target="$1"
+          target_set=true
           shift
           ;;
       esac
     done
 
+    command -v python3 >/dev/null 2>&1 \
+        || fail 'python3 not found (required by scripts/analyze_build_time.py)'
+    [[ -f "${ROOT_DIR}/scripts/analyze_build_time.py" ]] \
+        || fail 'scripts/analyze_build_time.py not found'
+
     if [[ "${clean_first}" == true ]]; then
-      log "Cleaning build directory for full profile: ${ROOT_DIR}/build-wsl-clang"
+      log "Removing ${ROOT_DIR}/build-wsl-clang/CMakeFiles for a full profile"
       rm -rf "${ROOT_DIR}/build-wsl-clang/CMakeFiles"
     fi
 
     log "Configuring with ENABLE_TIME_TRACE=ON (target: ${target})"
     cmake -S "${ROOT_DIR}" -B "${ROOT_DIR}/build-wsl-clang" --preset linux-clang-debug \
-          -DBUILD_TESTS=ON -DENABLE_TIME_TRACE=ON 2>&1 | tail -5
+          -DBUILD_TESTS=ON -DENABLE_TIME_TRACE=ON
 
     log "Building target ${target} with -ftime-trace profiling..."
     cmake --build "${ROOT_DIR}/build-wsl-clang" --target "${target}" 2>&1

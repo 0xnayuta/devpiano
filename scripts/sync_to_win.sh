@@ -32,7 +32,7 @@ usage() {
   printf 'Usage: %s [--check] [--full]\n' "$SCRIPT_NAME"
   printf '  --check    List changes without copying or deleting any files\n'
   printf '  --full     Force full sync including submodules (JUCE, etc.)\n'
-  exit 1
+  printf '  -h, --help Show this help\n'
 }
 
 CHECK_ONLY=""
@@ -49,10 +49,12 @@ while [[ $# -gt 0 ]]; do
       ;;
     -h|--help)
       usage
+      exit 0
       ;;
     *)
       printf '%s ERROR: Unknown argument: %s\n' "$SCRIPT_NAME" "$1" >&2
-      usage
+      usage >&2
+      exit 1
       ;;
   esac
 done
