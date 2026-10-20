@@ -188,6 +188,7 @@ source ~/.bashrc
 ./scripts/dev.sh wsl-build --configure-only --no-ccache
 ./scripts/dev.sh wsl-configure                # 仅 CMake configure，不生成 JuceHeader.h
 ./scripts/dev.sh wsl-configure linux-clang-release  # 可选：指定 configure preset
+# wsl-build --clean 会删除整个 build-wsl-clang（含 compile_commands.json），仅全量重建时使用
 
 # ── 同步 ──
 # 仅在需要单独同步时（win-build 已内置快速智能同步）
@@ -198,6 +199,8 @@ source ~/.bashrc
 
 # ── Windows MSVC 验证（Debug，默认） ──
 ./scripts/dev.sh win-build
+./scripts/dev.sh win-build --full
+./scripts/dev.sh win-build --fast-times
 ./scripts/dev.sh win-build --no-sync
 ./scripts/dev.sh win-build --no-configure  # 需已有 Windows 构建树
 ./scripts/dev.sh win-build --reconfigure
@@ -228,10 +231,10 @@ source ~/.bashrc
 ./scripts/dev.sh time-trace --target devpiano # 指定 GUI 主程序
 
 # ── 正式发布打包（Windows x64 zip / Linux x64 tar.gz + sha256） ──
-./scripts/dev.sh package                      # 打包当前 Windows Release 产物（自动解析 CMakeLists.txt 版本）
+./scripts/dev.sh package                      # 打包 Windows Release 产物到 <WIN_MIRROR_DIR>/dist/v<VERSION>
 ./scripts/dev.sh package --version 1.0.0
-./scripts/dev.sh package --local-dist         # 输出至 WSL 本地 dist/ 目录
-./scripts/dev.sh package --linux              # 打包 Linux x64 Release 产物（需先 wsl-build --release）
+./scripts/dev.sh package --local-dist         # 改为输出至 WSL 本地 dist/v<VERSION>
+./scripts/dev.sh package --linux              # 打包 Linux x64 Release 产物（需先 wsl-build --release；输出 dist/v<VERSION>）
 
 # ── Linux 桌面集成（desktop entry 与图标） ──
 ./scripts/dev.sh desktop-install

@@ -33,7 +33,7 @@ Commands:
   wsl-build [opts]           Configure/build WSL; prefer --configure-only for clangd
   win-sync [--check] [--full] [--fast-times]
                              Sync the workspace to the Windows mirror
-  win-build [opts]           Sync and build with MSVC (Debug by default)
+  win-build [opts]           Sync and optionally build with MSVC (Debug default)
   format [--check]           Format source/ with clang-format-21
   tidy [files...]            Incremental clang-tidy on changed or given files
   tidy --all                 Full clang-tidy scan (iteration-boundary gate)
@@ -55,6 +55,7 @@ Examples:
   ./scripts/dev.sh wsl-build --configure-only --no-ccache
   ./scripts/dev.sh wsl-build --configure-only --reconfigure
   ./scripts/dev.sh wsl-build --release
+  ./scripts/dev.sh wsl-build --clean          # Deletes build-wsl-clang; full rebuild
   ./scripts/dev.sh wsl-build --no-configure    # Requires existing build.ninja; skips JuceHeader.h
 
   # Sync and build
@@ -62,6 +63,8 @@ Examples:
   ./scripts/dev.sh win-sync --fast-times        # FAT timestamps; may miss fast edits
   ./scripts/dev.sh win-sync --full
   ./scripts/dev.sh win-build
+  ./scripts/dev.sh win-build --full
+  ./scripts/dev.sh win-build --fast-times
   ./scripts/dev.sh win-build --no-sync
   ./scripts/dev.sh win-build --no-configure     # Requires existing Windows build tree
   ./scripts/dev.sh win-build --reconfigure
@@ -92,6 +95,7 @@ Examples:
 
   # Linux desktop integration
   ./scripts/dev.sh desktop-install
+  ./scripts/dev.sh desktop-install --binary /path/to/DevPiano
   ./scripts/dev.sh desktop-install --uninstall
 
 Run './scripts/dev.sh <command> --help' for command-specific options.
@@ -297,8 +301,9 @@ Usage: ./scripts/dev.sh test [ctest args...]
 Configures build-wsl-clang, builds devpiano_tests, then runs ctest.
 All arguments are forwarded to ctest (for example --verbose).
 
-TestRunner options (--include-juce, --include-files, --category,
---name) are not ctest options. Pass them to the test binary directly:
+TestRunner options (--verbose, --skip-category, --include-juce,
+--include-files, --category, --name) are not ctest options. Pass them
+to the test binary directly:
   build-wsl-clang/devpiano_tests_artefacts/Debug/devpiano_tests --help
 
 Environment:
