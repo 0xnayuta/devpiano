@@ -69,6 +69,12 @@ mkdir -p "${MIRROR_SAFE}/build-win-msvc/CMakeFiles" \
 : > "${MIRROR_SAFE}/build-win-msvc/build.ninja"
 : > "${MIRROR_SAFE}/build-win-msvc/compile_commands.json"
 : > "${MIRROR_SAFE}/build-win-msvc/.ninja_deps"
+: > "${MIRROR_SAFE}/build-win-msvc/.ninja_log"
+: > "${MIRROR_SAFE}/build-win-msvc/cmake_install.cmake"
+: > "${MIRROR_SAFE}/build-win-msvc/CTestTestfile.cmake"
+: > "${MIRROR_SAFE}/build-win-msvc/install_manifest.txt"
+: > "${MIRROR_SAFE}/build-win-msvc/devpiano.exe"
+: > "${MIRROR_SAFE}/build-win-msvc/devpiano_binary_data.lib"
 run_guard 0 'pure build directory is allowed' "${MIRROR_SAFE}" build-win-msvc
 
 # --- 用例 2：release 构建目录名同样在允许集合内 --------------------------------
@@ -116,6 +122,29 @@ run_guard 0 'evidence dirs pass only with --allow-non-build-assets' \
 MIRROR_UNKNOWN="${WORK}/mirror-unknown"
 mkdir -p "${MIRROR_UNKNOWN}/build-win-msvc/mystery-payload"
 run_guard 1 'unknown top-level entry blocks deletion' "${MIRROR_UNKNOWN}" build-win-msvc
+
+# 每份证据单独存在，不能依赖另一个未知目录触发拒绝。
+for evidence_file in evidence-manifest.json analysis.txt render.log measurements.db \
+                     experiment.cache capture.tmp callback.trace .ninja_evidence.log \
+                     juce_reference.json CMakeUserPresets.json; do
+  mirror="${WORK}/mirror-file-${evidence_file}"
+  mkdir -p "${mirror}/build-win-msvc"
+  printf 'retained evidence\n' > "${mirror}/build-win-msvc/${evidence_file}"
+  run_guard 1 "standalone ${evidence_file} blocks deletion" "${mirror}" build-win-msvc
+  if [[ "${evidence_file}" == "evidence-manifest.json" ]]; then
+    run_guard 0 'standalone evidence requires explicit override' \
+      "${mirror}" build-win-msvc --allow-non-build-assets
+  fi
+done
+
+# 已知构建文件名不能掩盖目录或符号链接。
+MIRROR_WRONG_KIND="${WORK}/mirror-wrong-kind"
+mkdir -p "${MIRROR_WRONG_KIND}/build-win-msvc/CMakeCache.txt"
+run_guard 1 'directory named CMakeCache.txt blocks deletion' "${MIRROR_WRONG_KIND}" build-win-msvc
+MIRROR_ENTRY_LINK="${WORK}/mirror-entry-link"
+mkdir -p "${MIRROR_ENTRY_LINK}/build-win-msvc"
+ln -s "${OUTSIDE}" "${MIRROR_ENTRY_LINK}/build-win-msvc/devpiano_artefacts"
+run_guard 1 'symlinked build entry blocks deletion' "${MIRROR_ENTRY_LINK}" build-win-msvc
 
 # --- 用例 7：目标不存在是 no-op（允许，无删除对象） -----------------------------
 run_guard 0 'missing build dir is a no-op' "${WORK}/mirror-absent" build-win-msvc

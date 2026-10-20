@@ -79,7 +79,7 @@
 
 - **历史反证**：`scripts/build_msvc_from_wsl.sh --clean-win-build` 原先直接 `rm -rf` 由 `WIN_MIRROR_DIR` 解析出的构建目录；构建目录内保存了历史证据批次（`phase38-*` / `phase39-*`）时存在误删风险。
 - **当前修复**：删除前必须通过 `scripts/win_clean_guard.sh` 的 fail-closed 校验——镜像根规范化解析后必须位于 `/mnt/<盘符>/...`、目标必须是镜像根的逐组件直接子目录（非字符串前缀）、目录名限于 `build-win-msvc` / `build-win-msvc-release`、目标非符号链接，且目录内每个顶层条目必须是已知 CMake/Ninja/MSVC/JUCE 构建产物；命中证据或未知条目默认拒绝，仅在显式 `--allow-non-build-assets`（须与 `--clean-win-build` 同用）时二次确认后放行。
-- **回归线索**：`bash scripts/tests/win_clean_guard_test.sh`（隔离用例：正常构建目录放行、盘符根/WSL 源树/`/tmp` 拒绝、路径规范化、符号链接目标拒绝、证据与未知条目拒绝及显式放行、缺参用法错误）。
+- **回归线索**：`bash scripts/tests/win_clean_guard_test.sh`（隔离用例：正常构建目录放行、盘符根/WSL 源树/`/tmp` 拒绝、路径规范化、符号链接目标及条目拒绝、证据文件单独存在时拒绝、相似构建前缀不放行报告文件、已知文件名伪装目录拒绝、未知条目与显式放行、缺参用法错误）。
 
 ### 单声道声学契约与下混一致性 (Processed Mono Consumers)
 

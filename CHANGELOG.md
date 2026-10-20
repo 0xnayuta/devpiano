@@ -85,6 +85,8 @@
 
 ### Fixed
 
+- **Evidence-Safe Windows Build Cleanup** — classify files and directories separately, allow only explicitly named generated state files instead of generic data suffixes, and refuse standalone evidence, user CMake presets, and linked entries unless explicitly overridden.
+
 - **Bounded Realtime Hammer Voicing Reads** — try each pending atomic voicing snapshot once, retain the previous complete audio value and retry on a later block when publication is in progress, and keep message-thread recording captures independent of audio-owned state.
 
 - **Mixed-Family Metrology Admission** — preserve detected companion-component evidence when a partial is excluded, stop static-subset fitting for mixed families, and independently reject all observed mixed candidates at the family gate. Keep missing/ambiguous-only positives and the registered budgets intact; verify the complete development matrix without consuming independent qualification or revising prior verdicts.

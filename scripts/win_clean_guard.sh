@@ -67,26 +67,27 @@ is_allowed_build_dir_name() {
 # 已知的 CMake/Ninja/MSVC/JUCE 构建产物名字。
 # 未命中者一律视为"非构建资产"（历史证据、归档、未知条目），需要显式放行。
 is_known_build_entry() {
-  case "$1" in
-    # CMake / Ninja 状态
-    .ninja_deps|.ninja_log|.ninja_*|CMakeCache.txt|CMakeFiles|cmake_install.cmake|CTestTestfile.cmake|Testing)
+  local entry="$1"
+  local name="${entry##*/}"
+
+  # 文件与目录分别识别，避免通用目录前缀放行同名证据文件。
+  [[ ! -L "${entry}" ]] || return 1
+  if [[ -d "${entry}" ]]; then
+    case "${name}" in
+      CMakeFiles|Testing|.cmake|_deps|vcpkg_installed|.vs|.cache|out|bin|obj|ipch|x64|x86|Debug|Release|RelWithDebInfo|MinSizeRel|submodules|juce_*|*_artefacts)
+        return 0 ;;
+      *)
+        return 1 ;;
+    esac
+  fi
+  [[ -f "${entry}" ]] || return 1
+
+  case "${name}" in
+    # 数据类扩展名只允许明确的生成文件名，不放行任意 JSON、日志或报告。
+    .ninja_deps|.ninja_log|CMakeCache.txt|cmake_install.cmake|CTestTestfile.cmake|compile_commands.json|build.ninja|install_manifest.txt|DartConfiguration.tcl)
       return 0 ;;
-    compile_commands.json|build.ninja|CMakeUserPresets.json|install_manifest.txt|DartConfiguration.tcl)
-      return 0 ;;
-    # CMake 子构建目录与 IDE 状态
-    .cmake|_deps|vcpkg_installed|.vs|.cache|out|bin|obj|ipch|x64|x86|Debug|Release|RelWithDebInfo|MinSizeRel)
-      return 0 ;;
-    # JUCE / 同步
-    submodules|juce_*)
-      return 0 ;;
-    # 目标产物目录
-    *_artefacts)
-      return 0 ;;
-    # 编译/链接产物
-    *.lib|*.dll|*.exe|*.pdb|*.ilk|*.obj|*.iobj|*.tlog|*.recipe|*.bin|*.a|*.so|*.dylib|*.exp|*.ipdb|*.dwo|*.pgc|*.pgd)
-      return 0 ;;
-    # 构建期文本状态
-    *.log|*.json|*.txt|*.cmake|*.ninja|*.vcxproj|*.sln|*.filters|*.user|*.db|*.cache|*.tmp|*.trace|*.suo)
+    # 编译、链接与 IDE 生成产物。
+    *.lib|*.dll|*.exe|*.pdb|*.ilk|*.obj|*.iobj|*.tlog|*.recipe|*.bin|*.a|*.so|*.dylib|*.exp|*.ipdb|*.dwo|*.pgc|*.pgd|*.vcxproj|*.sln|*.filters|*.user|*.suo)
       return 0 ;;
     *)
       return 1 ;;
@@ -204,7 +205,7 @@ shopt -s nullglob dotglob
 for entry in "${target_real}"/*; do
   name="$(basename -- "${entry}")"
   all_entries+=("${name}")
-  if ! is_known_build_entry "${name}"; then
+  if ! is_known_build_entry "${entry}"; then
     non_build_entries+=("${name}")
   fi
 done
