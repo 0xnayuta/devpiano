@@ -12,6 +12,7 @@ import argparse
 import json
 import os
 import sys
+import tempfile
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -69,13 +70,18 @@ SKIP_TRACE_DIRS = {".cmake", "Testing", "CMakeScratch", "CMakeTmp"}
 
 
 class TraceMerger:
-    """Streams trace events into a compact Chrome Tracing file."""
+    """Streams trace events into a compact Chrome Tracing file.
+
+    The final path is replaced only after the complete JSON has been written,
+    so an interrupted run cannot destroy an existing merged trace.
+    """
 
     CHUNK_SIZE = 1024
 
     def __init__(self, output_file: Path) -> None:
         self._output_file = output_file
         self._out = None
+        self._temp_path: Path | None = None
         self._buffer: list[dict] = []
         self._written = 0
         self.count = 0
@@ -85,12 +91,22 @@ class TraceMerger:
         if len(self._buffer) >= self.CHUNK_SIZE:
             self._flush()
 
+    def _ensure_open(self) -> None:
+        if self._out is not None:
+            return
+        fd, temp_name = tempfile.mkstemp(
+            prefix=f".{self._output_file.name}.",
+            suffix=".tmp",
+            dir=self._output_file.parent,
+        )
+        self._temp_path = Path(temp_name)
+        self._out = os.fdopen(fd, "w", encoding="utf-8")
+        self._out.write('{"traceEvents":[')
+
     def _flush(self) -> None:
         if not self._buffer:
             return
-        if self._out is None:
-            self._out = open(self._output_file, "w", encoding="utf-8")
-            self._out.write('{"traceEvents":[')
+        self._ensure_open()
         if self._written:
             self._out.write(",")
         chunk = json.dumps(self._buffer, separators=(",", ":"))
@@ -100,14 +116,32 @@ class TraceMerger:
         self._buffer.clear()
 
     def close(self) -> None:
+        """Finish the trace and atomically publish it.
+
+        An empty run still produces a valid empty trace so a previous merged
+        file cannot be mistaken for the result of the current run.
+        """
         self._flush()
+        self._ensure_open()
+        self._out.write("]}")
+        self._out.close()
+        self._out = None
+        assert self._temp_path is not None
+        os.replace(self._temp_path, self._output_file)
+        self._temp_path = None
+
+    def abort(self) -> None:
+        """Discard a partially written trace without touching the old file."""
         if self._out is not None:
-            self._out.write("]}")
             self._out.close()
             self._out = None
+        if self._temp_path is not None:
+            self._temp_path.unlink(missing_ok=True)
+            self._temp_path = None
 
 
-def _iter_trace_files(build_dir: Path) -> list[Path]:
+def _iter_trace_files(build_dir: Path, exclude_path: Path | None = None) -> list[Path]:
+    exclude_resolved = exclude_path.resolve() if exclude_path is not None else None
     trace_files: list[Path] = []
     for root, dirs, files in os.walk(build_dir):
         dirs[:] = [d for d in dirs if d not in SKIP_TRACE_DIRS]
@@ -116,7 +150,10 @@ def _iter_trace_files(build_dir: Path) -> list[Path]:
                 continue
             if name.startswith("compile_commands") or name.startswith("combined_"):
                 continue
-            trace_files.append(Path(root) / name)
+            trace_path = (Path(root) / name).resolve()
+            if exclude_resolved is not None and trace_path == exclude_resolved:
+                continue
+            trace_files.append(trace_path)
     trace_files.sort()
     return trace_files
 
@@ -125,11 +162,13 @@ def analyze_traces(
     build_dir: Path, merge_path: Path | None = None, min_time_ms: float = 5.0
 ) -> tuple[ProfileReport, int]:
     report = ProfileReport()
-    trace_files = _iter_trace_files(build_dir)
+    merger = TraceMerger(merge_path) if merge_path is not None else None
+    trace_files = _iter_trace_files(build_dir, merge_path)
     if not trace_files:
+        if merger is not None:
+            merger.close()
         return report, 0
 
-    merger = TraceMerger(merge_path) if merge_path is not None else None
     min_us = min_time_ms * 1000.0
     all_tu_times: list[tuple[str, float]] = []
 
@@ -200,7 +239,11 @@ def analyze_traces(
                         "args": {"name": trace_path.stem},
                     }
                 )
-    finally:
+    except Exception:
+        if merger is not None:
+            merger.abort()
+        raise
+    else:
         if merger is not None:
             merger.close()
 
