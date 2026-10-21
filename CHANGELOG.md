@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+### Changed
+
+- **Full-Open Lid Mid/Side Allpass** — replace the full-open lid's direct-plus-sparse-FIR reflection with a unity-magnitude Mid/Side allpass (`a=0.5`, `Dmid=141`, `Dside=344` at 48 kHz, sample-rate scaled), preserve the delayed reflection and tail ownership, and leave half-stick, closed lid, phase normalization, source gain, hammer voicing and register curve unchanged. This is an isolated full-open acoustic path and does not claim a subjective listening result.
+
 ## [1.4.0] - 2026-10-21
 
 Performance practice tools, fixed dual-instrument layers, keyboard zones and three-pedal control, calibrated piano tuning and voicing, and current-format persistence hardening.

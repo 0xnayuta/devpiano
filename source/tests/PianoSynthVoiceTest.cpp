@@ -4,6 +4,7 @@
 #include <complex>
 
 #include "Audio/AudioEngine.h"
+#include "Audio/LidAllpass.h"
 #include "Audio/PianoSynthVoice.h"
 
 using devpiano::audio::HammerVoicing;
@@ -11,6 +12,7 @@ using devpiano::audio::isValidHammerVoicing;
 using devpiano::audio::kHammerVoicingMaxHardnessDelta;
 using devpiano::audio::kHammerVoicingMaxRolloffDelta;
 using devpiano::audio::sampleHammerVoicing;
+using devpiano::audio::dsp::LidAllpass;
 
 // =============================================================================
 // Deterministic voice-level tests for PianoSynthVoice (Phase 12-4). The
@@ -115,6 +117,7 @@ public:
 
     void runTest() override {
         testPianoVoicing();
+        testLidAllpass();
         testRegisterVoicingCurve();
         testHammerVoicingAnchors();
         testBasicRenderingAndHarmonics();
@@ -241,6 +244,54 @@ private:
             + highBuffer.getRMSLevel(1, 0, highBuffer.getNumSamples());
         expect(lowEnergy > midEnergy * 1.15f, "rendered A0 must receive the low-register lift");
         expect(highEnergy < midEnergy, "rendered C7 must receive the high-register attenuation");
+    }
+
+    void testLidAllpass() {
+        beginTest("full-open lid allpass preserves magnitude and releases its tail");
+
+        LidAllpass allpass;
+        allpass.prepare(kSampleRate);
+        expect(!allpass.isActive(), "fresh allpass is inactive");
+
+        auto left = 1.0f;
+        auto right = 0.0f;
+        allpass.processStereo(left, right);
+        expectWithinAbsoluteError(left, 0.5f, 1e-6f, "allpass direct path is half the input");
+        expectWithinAbsoluteError(right, 0.0f, 1e-6f, "allpass preserves the opposite channel at the direct sample");
+        expect(allpass.isActive(), "impulse starts the allpass tail");
+
+        auto delayedEnergy = 0.0;
+        auto tailFinite = true;
+        for (auto i = 0; i < 20000; ++i) {
+            auto tailLeft = 0.0f;
+            auto tailRight = 0.0f;
+            allpass.processStereo(tailLeft, tailRight);
+            delayedEnergy += static_cast<double>(tailLeft) * tailLeft + static_cast<double>(tailRight) * tailRight;
+            tailFinite = tailFinite && std::isfinite(tailLeft) && std::isfinite(tailRight);
+        }
+        expect(tailFinite, "allpass tail remains finite");
+        expect(delayedEnergy > 0.0, "allpass emits delayed reflected energy");
+        expect(!allpass.isActive(), "allpass becomes inactive after its finite tail");
+
+        LidAllpass sineAllpass;
+        sineAllpass.prepare(kSampleRate);
+        auto inputEnergy = 0.0;
+        auto outputEnergy = 0.0;
+        for (auto i = 0; i < 24000; ++i) {
+            const auto sample = 0.25f
+                * std::sin(juce::MathConstants<float>::twoPi * 1000.0f * static_cast<float>(i)
+                           / static_cast<float>(kSampleRate));
+            auto outLeft = sample;
+            auto outRight = sample;
+            sineAllpass.processStereo(outLeft, outRight);
+            if (i >= 12000) {
+                inputEnergy += static_cast<double>(sample) * sample;
+                outputEnergy += static_cast<double>(outLeft) * outLeft;
+            }
+        }
+        const auto gain = std::sqrt(outputEnergy / juce::jmax(1e-30, inputEnergy));
+        expectWithinAbsoluteError(static_cast<float>(gain), 1.0f, 2e-2f,
+                                  "settled full-open allpass has unity magnitude");
     }
 
     void testHammerVoicingAnchors() {
@@ -451,9 +502,12 @@ private:
             for (auto harmonic = 2; harmonic <= 6; ++harmonic) {
                 const auto partialFreq = PianoSynthVoice::partialFrequency(96, harmonic - 1);
                 const auto magnitude = magnitudeAtFrequency(top, partialFreq, analysisWindow);
-                const auto threshold = harmonic == 6 ? 0.0001 : 0.0005;
+                // Full-open allpass uses a half-amplitude direct tap; keep a
+                // presence floor while allowing its delayed reflection phase.
+                const auto threshold = harmonic == 6 ? 0.00005 : 0.0005;
                 expect(magnitude > threshold * topFundamental,
-                       "treble harmonic " + juce::String(harmonic) + " must be present");
+                       "treble harmonic " + juce::String(harmonic) + " must be present (ratio "
+                           + juce::String(magnitude / topFundamental, 6) + ")");
             }
         }
 

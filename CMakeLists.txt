@@ -208,6 +208,7 @@ target_sources(devpiano PRIVATE
     source/Audio/OrderedMidi.h
     source/Audio/SineSynthVoice.h
     source/Audio/PianoSynthVoice.h
+    source/Audio/LidAllpass.h
     source/Audio/PianoRegisterVoicing.h
     source/Audio/PianoTuning.h
     source/Audio/PianoStyle.h
@@ -506,6 +507,7 @@ if (BUILD_TESTS)
         source/Audio/OrderedMidi.h
         source/Audio/SineSynthVoice.h
         source/Audio/PianoSynthVoice.h
+        source/Audio/LidAllpass.h
         source/Audio/PianoRegisterVoicing.h
         source/Audio/PianoTuning.h
         source/Audio/PianoStyle.h

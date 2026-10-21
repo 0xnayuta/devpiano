@@ -175,6 +175,8 @@ flowchart TD
 
 2. **琴盖开合度声学传递函数（Lid Position Acoustics）**：
    - 支持 3 种琴盖物理状态：全开（Full Open）、半开（Half Stick）、闭盖（Closed Lid）。
+   - 全开使用独立的 Mid/Side 一阶 allpass 反射：$H_q(z)=(a+z^{-D_q})/(1+a z^{-D_q})$，$a=0.5$，48 kHz 下 $D_{mid}=141$、$D_{side}=344$ 并随采样率缩放；幅频保持 unity，不引入增益或 EQ，只重新分配延迟反射能量。全开尾音在衰减后释放，不因按键结束被提前截断。
+   - 半开与闭盖保持既有低通与稀疏早期反射 FIR 路径，不随全开 allpass 改变；立即停音与声部重用仍完整重置共享输出状态；三态切换沿用既有状态语义。
 
 3. **制音器落木闷击与琴键释放机械瞬态（Damper Release & Key Thump）**：
    - 琴键释放时，制音器机械臂带动羊毛毡压回琴弦：

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "HammerVoicing.h"
+#include "LidAllpass.h"
 #include "PerspectiveProcessor.h"
 #include "Piano88KeyTable.h"
 #include "PianoRegisterVoicing.h"
@@ -772,7 +773,7 @@ public:
         juce::ScopedNoDenormals noDenormals;
         const auto isPedalActive = (voiceIndex == 0) && (pedalTransient.isActive() || sympatheticPool.isShockActive());
         auto isKeySounding = getCurrentlyPlayingNote() >= 0 && (adsrGate.isActive() || damperTransient.isActive());
-        if (!isKeySounding && !isPedalActive && !duplexPool.isActive()) {
+        if (!isKeySounding && !isPedalActive && !duplexPool.isActive() && !lidAcoustics.isActive()) {
             if (getCurrentlyPlayingNote() >= 0) {
                 lidAcoustics.reset();
                 perspectiveProcessor.reset();
@@ -800,7 +801,7 @@ public:
             if (!isKeySounding) {
                 const auto sympatheticOut = (voiceIndex == 0) ? sympatheticPool.process(0.0f) : 0.0f;
                 const auto duplexOut = duplexMix * duplexPool.process(0.0f) * noteOutputGain;
-                if (pedalSound != 0.0f || sympatheticOut != 0.0f || duplexOut != 0.0f) {
+                if (pedalSound != 0.0f || sympatheticOut != 0.0f || duplexOut != 0.0f || lidAcoustics.isActive()) {
                     auto outL = pedalSound * 0.7071f + sympatheticOut * 0.40f + duplexOut * directLeftGain;
                     auto outR = pedalSound * 0.7071f + sympatheticOut * 0.60f + duplexOut * directRightGain;
                     lidAcoustics.processStereo(outL, outR);
@@ -966,7 +967,7 @@ public:
             }
         }
         if (getCurrentlyPlayingNote() >= 0 && !adsrGate.isActive() && !damperTransient.isActive()
-            && !duplexPool.isActive()) {
+            && !duplexPool.isActive() && !lidAcoustics.isActive()) {
             duplexPool.reset();
             if (!pedalTransient.isActive() && !sympatheticPool.isShockActive()) {
                 lidAcoustics.reset();
@@ -2153,10 +2154,16 @@ public:
         float lpLeft = 0.0f;
         float lpRight = 0.0f;
         float lpCoeff = 0.0f;
+        devpiano::audio::dsp::LidAllpass fullOpenAllpass;
+        double preparedSampleRate = 0.0;
 
         void updateCoefficients(double sampleRate) noexcept {
             if (sampleRate <= 0.0) {
                 return;
+            }
+            if (preparedSampleRate <= 0.0 || std::abs(sampleRate - preparedSampleRate) > 1e-9) {
+                fullOpenAllpass.prepare(sampleRate);
+                preparedSampleRate = sampleRate;
             }
             const auto sr = static_cast<float>(sampleRate);
             const auto safeNyquist = sr * 0.480f;
@@ -2184,9 +2191,19 @@ public:
             writePos = 0;
             lpLeft = 0.0f;
             lpRight = 0.0f;
+            fullOpenAllpass.reset();
+        }
+
+        [[nodiscard]] bool isActive() const noexcept {
+            return position == LidPosition::fullOpen && fullOpenAllpass.isActive();
         }
 
         void processStereo(float& left, float& right) noexcept {
+            if (position == LidPosition::fullOpen) {
+                fullOpenAllpass.processStereo(left, right);
+                return;
+            }
+
             if (lpCoeff > 0.0f) {
                 lpLeft = (1.0f - lpCoeff) * left + lpCoeff * lpLeft;
                 lpRight = (1.0f - lpCoeff) * right + lpCoeff * lpRight;
@@ -2201,17 +2218,12 @@ public:
             const auto tap2Pos = (writePos + delaySize - 344) % delaySize;
             const auto tap3Pos = (writePos + delaySize - 507) % delaySize;
 
-            float gDirect = 0.82f;
-            float g1 = 0.10f;
-            float g2 = 0.06f;
-            float g3 = 0.04f;
+            float gDirect = 0.75f;
+            float g1 = 0.14f;
+            float g2 = 0.09f;
+            float g3 = 0.06f;
 
-            if (position == LidPosition::halfStick) {
-                gDirect = 0.75f;
-                g1 = 0.14f;
-                g2 = 0.09f;
-                g3 = 0.06f;
-            } else if (position == LidPosition::closed) {
+            if (position == LidPosition::closed) {
                 gDirect = 0.68f;
                 g1 = 0.18f;
                 g2 = 0.12f;
