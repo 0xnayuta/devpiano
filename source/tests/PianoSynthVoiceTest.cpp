@@ -4,6 +4,7 @@
 #include <complex>
 
 #include "Audio/AudioEngine.h"
+#include "Audio/HighRegisterTimbre.h"
 #include "Audio/PianoSynthVoice.h"
 
 using devpiano::audio::HammerVoicing;
@@ -11,6 +12,7 @@ using devpiano::audio::isValidHammerVoicing;
 using devpiano::audio::kHammerVoicingMaxHardnessDelta;
 using devpiano::audio::kHammerVoicingMaxRolloffDelta;
 using devpiano::audio::sampleHammerVoicing;
+using devpiano::audio::dsp::HighRegisterTimbre;
 
 // =============================================================================
 // Deterministic voice-level tests for PianoSynthVoice (Phase 12-4). The
@@ -116,6 +118,7 @@ public:
     void runTest() override {
         testPianoVoicing();
         testRegisterVoicingCurve();
+        testHighRegisterTimbre();
         testHammerVoicingAnchors();
         testBasicRenderingAndHarmonics();
         testHammerAndTransientDynamics();
@@ -237,6 +240,42 @@ private:
             + highBuffer.getRMSLevel(1, 0, highBuffer.getNumSamples());
         expect(lowEnergy > midEnergy * 1.15f, "rendered A0 must receive the low-register lift");
         expect(highEnergy < midEnergy, "rendered C7 must receive the high-register attenuation");
+    }
+
+    void testHighRegisterTimbre() {
+        beginTest("high-register timbre tilts only the upper register");
+
+        auto measureGain = [](HighRegisterTimbre& timbre, float frequency) {
+            timbre.prepare(48000.0);
+            auto inputEnergy = 0.0;
+            auto outputEnergy = 0.0;
+            for (auto i = 0; i < 48000; ++i) {
+                const auto sample
+                    = 0.25f * std::sin(2.0f * 3.14159265358979323846f * frequency * static_cast<float>(i) / 48000.0f);
+                auto left = sample;
+                auto right = sample;
+                timbre.processStereo(left, right);
+                if (i >= 24000) {
+                    inputEnergy += static_cast<double>(sample) * sample;
+                    outputEnergy += static_cast<double>(left) * left;
+                }
+            }
+            return static_cast<float>(std::sqrt(outputEnergy / juce::jmax(1e-30, inputEnergy)));
+        };
+
+        HighRegisterTimbre neutral;
+        neutral.setNote(60, 1.0f);
+        expectWithinAbsoluteError(measureGain(neutral, 1000.0f), 1.0f, 1e-6f, "notes below C6 are not filtered");
+        expect(!neutral.isActive(), "neutral register timbre is inactive");
+
+        HighRegisterTimbre bright;
+        bright.setNote(108, 1.0f);
+        expect(bright.isActive(), "C8 enables high-register timbre");
+        const auto lowGain = measureGain(bright, 1000.0f);
+        const auto highGain = measureGain(bright, 8000.0f);
+        expect(lowGain > 0.95f, "high-register tilt preserves the low-frequency body");
+        expect(highGain < 0.80f, "high-register tilt attenuates 8 kHz");
+        expect(highGain < lowGain, "high-register tilt is a high-frequency loss");
     }
 
     void testHammerVoicingAnchors() {
@@ -447,7 +486,9 @@ private:
             for (auto harmonic = 2; harmonic <= 6; ++harmonic) {
                 const auto partialFreq = PianoSynthVoice::partialFrequency(96, harmonic - 1);
                 const auto magnitude = magnitudeAtFrequency(top, partialFreq, analysisWindow);
-                const auto threshold = harmonic == 6 ? 0.0001 : 0.0005;
+                // The experimental high-register timbre intentionally tilts
+                // the top partials; keep a lower presence floor for harmonic 6.
+                const auto threshold = harmonic == 6 ? 0.00001 : 0.0005;
                 expect(magnitude > threshold * topFundamental,
                        "treble harmonic " + juce::String(harmonic) + " must be present");
             }

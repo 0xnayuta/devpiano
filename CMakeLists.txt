@@ -209,6 +209,7 @@ target_sources(devpiano PRIVATE
     source/Audio/SineSynthVoice.h
     source/Audio/PianoSynthVoice.h
     source/Audio/PianoRegisterVoicing.h
+    source/Audio/HighRegisterTimbre.h
     source/Audio/PianoTuning.h
     source/Audio/PianoStyle.h
     source/Audio/InstrumentLayers.h
@@ -507,6 +508,7 @@ if (BUILD_TESTS)
         source/Audio/SineSynthVoice.h
         source/Audio/PianoSynthVoice.h
         source/Audio/PianoRegisterVoicing.h
+        source/Audio/HighRegisterTimbre.h
         source/Audio/PianoTuning.h
         source/Audio/PianoStyle.h
         source/Audio/InstrumentLayers.h

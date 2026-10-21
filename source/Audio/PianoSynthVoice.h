@@ -1,6 +1,7 @@
 #pragma once
 
 #include "HammerVoicing.h"
+#include "HighRegisterTimbre.h"
 #include "PerspectiveProcessor.h"
 #include "Piano88KeyTable.h"
 #include "PianoRegisterVoicing.h"
@@ -453,6 +454,9 @@ public:
 
         currentPlayingMidiNote = midiNoteNumber;
         noteOutputGain = devpiano::audio::pianoRegisterLoudnessGain(midiNoteNumber);
+        highRegisterTimbre.prepare(sampleRate);
+        highRegisterTimbre.setNote(midiNoteNumber, velocity);
+        highRegisterTimbre.reset();
         const auto& params = devpiano::audio::getNoteParams(midiNoteNumber);
         // 琴槌毛毡微老化扰动与调音离散度 (Phase 32-C, Inharmonicity Jitter & Felt Ageing)
         const auto pitchJitterCents = (pianoFeltAgeingAmount > 0.0f)
@@ -701,6 +705,7 @@ public:
     }
 
     void stopNote(float velocity, bool allowTailOff) override {
+        highRegisterTimbre.reset();
         sympatheticPool.noteOffKey(currentPlayingMidiNote);
 
         if (allowTailOff) {
@@ -732,6 +737,7 @@ public:
             resonator.reset();
         }
         spruceSoundboardFilter.reset();
+        highRegisterTimbre.reset();
         sympatheticPool.reset();
         duplexPool.reset();
         lidAcoustics.reset();
@@ -801,8 +807,10 @@ public:
                 const auto sympatheticOut = (voiceIndex == 0) ? sympatheticPool.process(0.0f) : 0.0f;
                 const auto duplexOut = duplexMix * duplexPool.process(0.0f) * noteOutputGain;
                 if (pedalSound != 0.0f || sympatheticOut != 0.0f || duplexOut != 0.0f) {
-                    auto outL = pedalSound * 0.7071f + sympatheticOut * 0.40f + duplexOut * directLeftGain;
-                    auto outR = pedalSound * 0.7071f + sympatheticOut * 0.60f + duplexOut * directRightGain;
+                    auto noteTailL = sympatheticOut * 0.40f + duplexOut * directLeftGain;
+                    auto noteTailR = sympatheticOut * 0.60f + duplexOut * directRightGain;
+                    auto outL = pedalSound * 0.7071f + noteTailL;
+                    auto outR = pedalSound * 0.7071f + noteTailR;
                     lidAcoustics.processStereo(outL, outR);
                     perspectiveProcessor.processStereo(outL, outR);
 
@@ -931,6 +939,7 @@ public:
             const auto sympatheticMix = (1.0f - duplexMix) * wet * sympatheticOut;
             outLeft += 0.40f * sympatheticMix;
             outRight += 0.60f * sympatheticMix;
+            highRegisterTimbre.processStereo(outLeft, outRight);
 
             if (pedalSound != 0.0f) {
                 outLeft += pedalSound * 0.7071f;
@@ -1235,6 +1244,7 @@ public:
     float directLeftGain = 0.7071f;
     float directRightGain = 0.7071f;
     float noteOutputGain = 1.0f;
+    devpiano::audio::dsp::HighRegisterTimbre highRegisterTimbre;
 
     // 强击非线性张力音高微漂移引擎 (Phase 22-D, Bank & Sujbert 2005 JASA)
     struct PitchGlideEngine {
