@@ -15,12 +15,12 @@ struct PianoRegisterVoicingAnchor {
 };
 
 inline constexpr std::array<PianoRegisterVoicingAnchor, 8> kCalibratedPianoRegisterVoicing { {
-    { 21, 6.0f },
-    { 36, 5.0f },
-    { 48, 2.0f },
+    { 21, 10.0f },
+    { 36, 8.0f },
+    { 48, 1.0f },
     { 60, 0.0f },
-    { 72, -1.0f },
-    { 84, -2.0f },
+    { 72, 0.0f },
+    { 84, 0.0f },
     { 96, -3.0f },
     { 108, -4.0f },
 } };
