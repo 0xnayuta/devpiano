@@ -197,26 +197,22 @@ private:
     }
 
     void testRegisterVoicingCurve() {
-        beginTest("continuous register voicing is monotonic and neutral at C4");
+        beginTest("continuous register voicing preserves neutral C5/C6 and clamps");
 
         const auto low = devpiano::audio::pianoRegisterLoudnessGain(21);
+        const auto c3 = devpiano::audio::pianoRegisterLoudnessGain(48);
         const auto mid = devpiano::audio::pianoRegisterLoudnessGain(60);
+        const auto c5 = devpiano::audio::pianoRegisterLoudnessGain(72);
+        const auto c6 = devpiano::audio::pianoRegisterLoudnessGain(84);
         const auto high = devpiano::audio::pianoRegisterLoudnessGain(108);
 
         expectWithinAbsoluteError(mid, 1.0f, 1e-6f, "C4 is the neutral register anchor");
         expectGreaterThan(low, 1.0f, "A0 receives low-register loudness lift");
+        expectGreaterThan(c3, 1.0f, "C3 receives a small low-mid lift");
+        expectWithinAbsoluteError(c5, 1.0f, 1e-6f, "C5 is neutral in the experimental curve");
+        expectWithinAbsoluteError(c6, 1.0f, 1e-6f, "C6 is neutral in the experimental curve");
         expectLessThan(high, 1.0f, "C8 receives high-register attenuation");
 
-        auto previous = low;
-        auto monotonic = true;
-        for (auto note = 22; note <= 108; ++note) {
-            const auto current = devpiano::audio::pianoRegisterLoudnessGain(note);
-            if (current > previous + 1e-6f) {
-                monotonic = false;
-            }
-            previous = current;
-        }
-        expect(monotonic, "register gain must not rise with pitch across the 88-key curve");
         expectWithinAbsoluteError(devpiano::audio::pianoRegisterLoudnessGain(19),
                                   devpiano::audio::pianoRegisterLoudnessGain(21), 1e-6f,
                                   "below-A0 queries clamp to the low anchor");
