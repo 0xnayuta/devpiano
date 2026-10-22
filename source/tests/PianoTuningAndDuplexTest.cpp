@@ -18,7 +18,6 @@ struct PianoFixture {
         voice = new PianoSynthVoice();
         voice->setAdsrParameters({ 0.0002f, 0.001f, 1.0f, 0.01f });
         voice->setPianoTuning(stretch, duplex);
-        voice->setPedalNoiseLevel(0.0f);
         synth.addVoice(voice);
         synth.setCurrentPlaybackSampleRate(rate);
     }

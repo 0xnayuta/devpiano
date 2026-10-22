@@ -1,11 +1,16 @@
 #include <JuceHeader.h>
 
 #include "Audio/AudioEngine.h"
+#include "Audio/BuiltinSynthesiser.h"
 #include "Audio/PianoSynthVoice.h"
 #include "Audio/SineSynthVoice.h"
+#include "Recording/RenderPipeline.h"
+
+#include <array>
 
 // ==============================================================================
-// Phase 32-A Unit Tests: Pedal Whoosh & Resonance Shock
+// R5 whole-piano pedal acoustic tests.
+// Pedal sound is owned by BuiltinSynthesiser, not by a PianoSynthVoice slot.
 // ==============================================================================
 class PedalAcousticsTest final : public juce::UnitTest {
 public:
@@ -14,629 +19,380 @@ public:
     }
 
     void runTest() override {
-        testPedalPressGeneratesWhooshAndShockWhenSilent();
-        testIdlePedalNoiseIgnoresNoteHistory();
-        testPedalReleaseGeneratesReturnThump();
-        testPedalVelocityModulation();
-        testPedalNoiseLevelBypass();
-        testMultiVoiceExclusivity();
-        testPedalNoiseWithActiveNotes();
-        testAudioEnginePedalIntegration();
-        testPedalNoiseInMonoBufferActiveNote();
-        testIdlePedalSympatheticResonanceShock();
-        testSynthesiserIdlePedalNoise();
-        testBuiltinSynthesiserIdlePedalNoise();
-        testSostenutoCaptureEdgesAndChannels();
-        testSostenutoAndSustainReleaseOrders();
-        testSostenutoCaptureDoesNotSurviveVoiceStealing();
-        testSostenutoSameSampleOrdering();
-        testSyncCutReleasesPreviousOutputChannels();
+        testIdlePedalDoesNotOccupyVoice();
+        testEightNotesUnderPedal();
+        testStealDoesNotTruncateOwner();
+        testNoteOnDoesNotRetrigger();
+        testMultiChannelAggregationAndSequence();
+        testSameSampleOrdering();
+        testCc120Scope();
+        testCc121Scope();
+        testCc123PreservesPedal();
+        testPanicResetsAndRetriggers();
+        testSineDoesNotGetPedalAcoustics();
+        testMonoAndFiniteOutput();
+        testSampleRateReprepare();
+        testNewVoiceAfterPedalDown();
+        testExistingVoicePedalUp();
+        testChannelIsolation();
+        testVoiceReuseAcrossPedalStates();
     }
 
 private:
-    static void initialiseSostenutoSynth(devpiano::audio::BuiltinSynthesiser& synth, int voices) {
-        synth.setCurrentPlaybackSampleRate(48000.0);
-        synth.addSound(new SineSynthSound());
-        for (int i = 0; i < voices; ++i) {
-            auto* voice = new SineSynthVoice();
-            voice->setAdsrParameters({ 0.001f, 0.01f, 1.0f, 0.003f });
-            synth.addVoice(voice);
-        }
-    }
-
-    void testSostenutoCaptureEdgesAndChannels() {
-        beginTest("CC66 captures held notes once, excludes later attacks, and isolates channels");
+    struct Fixture {
+        static constexpr int kVoiceCount = 8;
         devpiano::audio::BuiltinSynthesiser synth;
-        initialiseSostenutoSynth(synth, 3);
-        synth.noteOn(1, 60, 0.8f);
-        synth.noteOn(2, 64, 0.8f);
-        synth.handleController(1, 66, 127);
-        synth.noteOn(1, 67, 0.8f);
-        synth.handleController(1, 66, 100);
-        synth.noteOff(1, 60, 0.0f, true);
-        synth.noteOff(2, 64, 0.0f, true);
-        synth.noteOff(1, 67, 0.0f, true);
-        juce::AudioBuffer<float> buffer(2, 1024);
-        buffer.clear();
-        synth.renderNextBlock(buffer, {}, 0, 1024);
-        expect(synth.getVoice(0)->isPlayingChannel(1));
-        expectEquals(synth.getVoice(0)->getCurrentlyPlayingNote(), 60);
-        expect(!synth.getVoice(1)->isVoiceActive());
-        expect(!synth.getVoice(2)->isVoiceActive());
-        expect(buffer.getRMSLevel(0, 768, 256) > 0.01f);
-        synth.handleController(1, 66, 0);
-        buffer.clear();
-        synth.renderNextBlock(buffer, {}, 0, 1024);
-        expectEquals(buffer.getMagnitude(0, 768, 256), 0.0f);
-        expect(!synth.getVoice(0)->isVoiceActive());
-    }
+        std::array<PianoSynthVoice*, kVoiceCount> voices {};
+        juce::AudioBuffer<float> buffer { 2, 512 };
 
-    void testSostenutoAndSustainReleaseOrders() {
-        beginTest("CC64 and CC66 keep captured notes until both pedals release in either order");
-        for (const auto sustainFirst : { false, true }) {
-            devpiano::audio::BuiltinSynthesiser synth;
-            initialiseSostenutoSynth(synth, 1);
-            synth.noteOn(3, 60, 0.8f);
-            synth.handleController(3, 66, 127);
-            synth.noteOff(3, 60, 0.0f, true);
-            synth.handleController(3, 64, 127);
-            synth.handleController(3, sustainFirst ? 64 : 66, 0);
-            juce::AudioBuffer<float> buffer(2, 1024);
-            buffer.clear();
-            synth.renderNextBlock(buffer, {}, 0, 1024);
-            expect(buffer.getRMSLevel(0, 768, 256) > 0.01f);
-            synth.handleController(3, sustainFirst ? 66 : 64, 0);
-            buffer.clear();
-            synth.renderNextBlock(buffer, {}, 0, 1024);
-            expectEquals(buffer.getMagnitude(0, 768, 256), 0.0f);
-            expect(!synth.getVoice(0)->isVoiceActive());
-        }
-    }
-
-    void testSostenutoCaptureDoesNotSurviveVoiceStealing() {
-        beginTest("A stolen CC66 voice does not transfer capture to its replacement");
-        devpiano::audio::BuiltinSynthesiser synth;
-        initialiseSostenutoSynth(synth, 1);
-        synth.noteOn(1, 60, 0.8f);
-        synth.handleController(1, 66, 127);
-        synth.noteOff(1, 60, 0.0f, true);
-        synth.noteOn(1, 67, 0.8f);
-        synth.handleController(1, 66, 127);
-        synth.noteOff(1, 67, 0.0f, true);
-        juce::AudioBuffer<float> buffer(2, 1024);
-        buffer.clear();
-        synth.renderNextBlock(buffer, {}, 0, 1024);
-        expectEquals(buffer.getMagnitude(0, 768, 256), 0.0f);
-        expect(!synth.getVoice(0)->isVoiceActive());
-    }
-
-    void testSostenutoSameSampleOrdering() {
-        beginTest("CC66 and NoteOn at the same sample preserve their capture order");
-        for (const auto noteFirst : { false, true }) {
-            devpiano::audio::BuiltinSynthesiser synth;
-            initialiseSostenutoSynth(synth, 1);
-            juce::MidiBuffer midi;
-            const auto note = juce::MidiMessage::noteOn(1, 60, 0.8f);
-            const auto pedal = juce::MidiMessage::controllerEvent(1, 66, 127);
-            midi.addEvent(noteFirst ? note : pedal, 0);
-            midi.addEvent(noteFirst ? pedal : note, 0);
-            midi.addEvent(juce::MidiMessage::noteOff(1, 60), 32);
-            juce::AudioBuffer<float> buffer(2, 1024);
-            buffer.clear();
-            synth.renderNextBlock(buffer, midi, 0, 1024);
-            if (noteFirst) {
-                expect(buffer.getRMSLevel(0, 768, 256) > 0.01f);
-            } else {
-                expectEquals(buffer.getMagnitude(0, 768, 256), 0.0f);
+        explicit Fixture(double sampleRate = 48000.0) {
+            synth.setCurrentPlaybackSampleRate(sampleRate);
+            synth.addSound(new PianoSynthSound());
+            for (int i = 0; i < kVoiceCount; ++i) {
+                auto* voice = new PianoSynthVoice();
+                voice->setVoiceIndex(i);
+                synth.addVoice(voice);
+                voices[static_cast<std::size_t>(i)] = voice;
             }
+            synth.setPedalAcousticsEnabled(true);
+            synth.setPedalNoiseLevel(0.8f);
         }
-    }
 
-    void testSyncCutReleasesPreviousOutputChannels() {
-        beginTest("A cross-region sync attack releases the original sustained output channel at its sample");
-        devpiano::audio::BuiltinSynthesiser synth;
-        initialiseSostenutoSynth(synth, 2);
-        devpiano::audio::SyncPedalProcessor processor;
-        processor.setPolicy(devpiano::core::SustainPolicy::syncPedal);
-        processor.setPedalDown(true);
-        juce::MidiBuffer first;
-        juce::MidiBuffer scratch;
-        first.addEvent(juce::MidiMessage::controllerEvent(2, 64, 127), 0);
-        first.addEvent(juce::MidiMessage::noteOn(2, 60, 0.8f), 0);
-        first.addEvent(juce::MidiMessage::noteOff(2, 60), 128);
-        processor.processMidiBlock(first, scratch);
-        juce::AudioBuffer<float> firstAudio(2, 512);
-        firstAudio.clear();
-        synth.renderNextBlock(firstAudio, first, 0, 512);
-        expect(firstAudio.getRMSLevel(0, 384, 128) > 0.01f);
-        processor.setPedalDown(false);
-        juce::MidiBuffer second;
-        second.addEvent(juce::MidiMessage::noteOn(5, 69, 0.8f), 37);
-        second.addEvent(juce::MidiMessage::noteOff(5, 69), 256);
-        processor.processMidiBlock(second, scratch);
-        juce::AudioBuffer<float> secondAudio(2, 2048);
-        secondAudio.clear();
-        synth.renderNextBlock(secondAudio, second, 0, 2048);
-        expect(secondAudio.getMagnitude(0, 0, 32) > 0.01f);
-        expectEquals(secondAudio.getMagnitude(0, 1792, 256), 0.0f);
-        expect(!synth.getVoice(0)->isVoiceActive());
-        expect(!synth.getVoice(1)->isVoiceActive());
-    }
-
-    static float calculateRms(const juce::AudioBuffer<float>& buffer, int channel = 0) {
-        if (buffer.getNumSamples() == 0) {
-            return 0.0f;
+        void render(int samples = 512, const juce::MidiBuffer& midi = {}) {
+            buffer.clear();
+            synth.renderNextBlock(buffer, midi, 0, samples);
         }
-        return buffer.getRMSLevel(channel, 0, buffer.getNumSamples());
-    }
+    };
 
-    static float calculatePeak(const juce::AudioBuffer<float>& buffer, int channel = 0) {
-        if (buffer.getNumSamples() == 0) {
-            return 0.0f;
-        }
+    static float peak(const juce::AudioBuffer<float>& buffer, int channel = 0) {
         return buffer.getMagnitude(channel, 0, buffer.getNumSamples());
     }
 
-    void testPedalPressGeneratesWhooshAndShockWhenSilent() {
-        beginTest("Pedal press generates air whoosh and resonance shock when silent");
-
-        PianoSynthVoice voice;
-        voice.setCurrentPlaybackSampleRate(48000.0);
-        voice.setVoiceIndex(0);
-        voice.setPedalNoiseLevel(0.8f);
-
-        // Before pedal: completely silent
-        juce::AudioBuffer<float> buffer(2, 512);
-        buffer.clear();
-        voice.renderNextBlock(buffer, 0, 512);
-        expectEquals(calculatePeak(buffer, 0), 0.0f);
-        expectEquals(calculatePeak(buffer, 1), 0.0f);
-
-        // Press pedal fully (CC 64 = 127)
-        voice.controllerMoved(64, 127);
-        expect(voice.isPedalTransientActive());
-
-        // Render the whoosh and shock block
-        buffer.clear();
-        voice.renderNextBlock(buffer, 0, 512);
-        const auto peakL = calculatePeak(buffer, 0);
-        const auto peakR = calculatePeak(buffer, 1);
-        expectGreaterThan(peakL, 0.001f);
-        expectGreaterThan(peakR, 0.001f);
-        // Peak should be reasonable, non-clipping (< 0.5)
-        expectLessThan(peakL, 0.5f);
-        expectLessThan(peakR, 0.5f);
-
-        // Render until tail decay completes (~400 ms)
-        int samplesRemaining = static_cast<int>(48000 * 0.45);
-        while (samplesRemaining > 0 && (voice.isPedalTransientActive() || voice.isSympatheticShockActive())) {
-            buffer.clear();
-            const auto block = std::min(512, samplesRemaining);
-            voice.renderNextBlock(buffer, 0, block);
-            samplesRemaining -= block;
+    static int activeVoiceCount(const Fixture& fixture) {
+        auto count = 0;
+        for (const auto* voice : fixture.voices) {
+            if (voice->isVoiceActive()) {
+                ++count;
+            }
         }
-
-        // Must decay to completely inactive
-        expect(!voice.isPedalTransientActive());
-        expect(!voice.isSympatheticShockActive());
-        buffer.clear();
-        voice.renderNextBlock(buffer, 0, 512);
-        expectEquals(calculatePeak(buffer, 0), 0.0f);
-        expectEquals(calculatePeak(buffer, 1), 0.0f);
+        return count;
     }
 
-    void testIdlePedalNoiseIgnoresNoteHistory() {
-        beginTest("Idle pedal noise is unchanged by the register of a stopped or released note");
+    static void down(devpiano::audio::BuiltinSynthesiser& synth, int channel, int value = 127) {
+        synth.handleController(channel, 64, value);
+    }
 
-        constexpr auto releaseLimitSamples = 4 * 48000;
+    static void up(devpiano::audio::BuiltinSynthesiser& synth, int channel) {
+        synth.handleController(channel, 64, 0);
+    }
 
-        const auto renderPedal = [this](int previousNote, bool allowTailOff, int channels) {
-            juce::Synthesiser synth;
-            synth.setCurrentPlaybackSampleRate(48000.0);
-            synth.addSound(new PianoSynthSound());
-            auto* voice = new PianoSynthVoice();
-            synth.addVoice(voice);
-            voice->setVoiceIndex(0);
-            voice->setPedalNoiseLevel(0.8f);
-            voice->setAdsrParameters({ 0.001f, 0.01f, 0.8f, 0.01f });
+    void testIdlePedalDoesNotOccupyVoice() {
+        beginTest("Idle pedal renders without occupying a PianoSynthVoice");
+        Fixture f;
+        down(f.synth, 1);
+        expect(f.synth.isPedalAcousticsEnabled());
+        expect(f.synth.isPedalAcousticsActive());
+        expect(f.synth.getPedalAcoustics().shockTail.isShockActive());
+        expect(!f.voices[0]->sympatheticPool.isShockActive(), "voice note pool must not receive the pedal shock");
+        expectEquals(activeVoiceCount(f), 0, "pedal must not mark a note voice active");
 
-            if (previousNote >= 0) {
-                juce::AudioBuffer<float> scratch(channels, 512);
-                synth.noteOn(1, previousNote, 0.8f);
-                scratch.clear();
-                synth.renderNextBlock(scratch, {}, 0, scratch.getNumSamples());
-                if (allowTailOff) {
-                    synth.noteOff(1, previousNote, 0.6f, true);
+        f.render();
+        expectGreaterThan(peak(f.buffer, 0), 0.001f);
+        expectGreaterThan(peak(f.buffer, 1), 0.001f);
+
+        auto remaining = 0;
+        while (f.synth.isPedalAcousticsActive() && remaining < 48000 * 2) {
+            f.render();
+            remaining += 512;
+        }
+        expect(!f.synth.isPedalAcousticsActive(), "pedal tail must reach its bounded end");
+        f.render();
+        expectEquals(peak(f.buffer, 0), 0.0f);
+    }
+
+    void testEightNotesUnderPedal() {
+        beginTest("Eight different notes consume all eight note voices under pedal");
+        Fixture f;
+        down(f.synth, 1);
+        for (int note = 60; note < 68; ++note) {
+            f.synth.noteOn(1, note, 0.8f);
+        }
+        expectEquals(activeVoiceCount(f), Fixture::kVoiceCount);
+        expect(f.synth.isPedalAcousticsActive());
+        f.render();
+        expectGreaterThan(peak(f.buffer, 0), 0.01f);
+    }
+
+    void testStealDoesNotTruncateOwner() {
+        beginTest("Voice stealing during a pedal tail does not truncate the owner");
+        Fixture f;
+        down(f.synth, 1);
+        f.render();
+        expect(f.synth.isPedalAcousticsActive());
+
+        for (int note = 60; note < 68; ++note) {
+            f.synth.noteOn(1, note, 0.8f);
+            f.render();
+        }
+        f.synth.noteOn(1, 72, 0.8f);
+        f.render();
+        expectEquals(activeVoiceCount(f), Fixture::kVoiceCount);
+        expect(f.synth.isPedalAcousticsActive(), "owner tail must outlive voice reuse");
+    }
+
+    void testNoteOnDoesNotRetrigger() {
+        beginTest("NoteOn while pedal is down does not retrigger the mechanical owner");
+        Fixture f;
+        down(f.synth, 1);
+        f.render(128);
+        const auto before = f.synth.getPedalAcoustics().mechanical.whooshSamplesRemaining;
+        f.synth.noteOn(1, 60, 0.8f);
+        const auto after = f.synth.getPedalAcoustics().mechanical.whooshSamplesRemaining;
+        expect(after <= before, "NoteOn must not restart the pedal whoosh");
+        expect(f.synth.isPedalAcousticsActive());
+    }
+
+    void testMultiChannelAggregationAndSequence() {
+        beginTest("Multi-channel pedal aggregation preserves the final channel state");
+        Fixture f;
+        down(f.synth, 1, 100);
+        down(f.synth, 2, 127);
+        expect(f.synth.isSustainPedalDown(1));
+        expect(f.synth.isSustainPedalDown(2));
+        f.render();
+        expect(f.synth.isPedalAcousticsActive());
+
+        up(f.synth, 1);
+        down(f.synth, 1, 127);
+        up(f.synth, 2);
+        expect(f.synth.isSustainPedalDown(1), "ch1 remains down after ch2 up");
+        expect(!f.synth.isSustainPedalDown(2));
+        expect(f.synth.isPedalAcousticsActive(), "aggregate down must keep the owner alive");
+
+        up(f.synth, 1);
+        expect(!f.synth.isSustainPedalDown(1));
+        expect(f.synth.isPedalAcousticsActive(), "final up must produce a release tail");
+    }
+
+    void testSameSampleOrdering() {
+        beginTest("Same-sample down/up/down is consumed in order, not deduplicated");
+        Fixture f;
+        juce::MidiBuffer midi;
+        midi.addEvent(juce::MidiMessage::controllerEvent(1, 64, 127), 0);
+        midi.addEvent(juce::MidiMessage::controllerEvent(1, 64, 0), 0);
+        midi.addEvent(juce::MidiMessage::controllerEvent(1, 64, 127), 0);
+        f.render(512, midi);
+        expect(f.synth.isSustainPedalDown(1));
+        expect(f.synth.isPedalAcousticsActive());
+    }
+
+    void testCc120Scope() {
+        beginTest("CC120 clears only its target channel and resets owner only when aggregate is up");
+        Fixture f;
+        down(f.synth, 1);
+        down(f.synth, 2);
+        f.synth.handleController(1, 120, 0);
+        expect(!f.synth.isSustainPedalDown(1));
+        expect(f.synth.isSustainPedalDown(2));
+        expect(f.synth.isPedalAcousticsActive());
+
+        f.synth.handleController(2, 120, 0);
+        expect(!f.synth.isSustainPedalDown(1));
+        expect(!f.synth.isSustainPedalDown(2));
+        expect(!f.synth.isPedalAcousticsActive(), "CC120 on last down channel must hard-clear the tail");
+
+        down(f.synth, 1);
+        expect(f.synth.isPedalAcousticsActive(), "same down value must trigger after a hard reset");
+    }
+
+    void testCc121Scope() {
+        beginTest("CC121 resets its target channel and emits one release when aggregate falls");
+        Fixture f;
+        down(f.synth, 1);
+        down(f.synth, 2);
+        f.synth.handleController(1, 121, 0);
+        expect(!f.synth.isSustainPedalDown(1));
+        expect(f.synth.isSustainPedalDown(2));
+        expect(f.synth.isPedalAcousticsActive());
+
+        up(f.synth, 2);
+        expect(!f.synth.isSustainPedalDown(1));
+        expect(!f.synth.isSustainPedalDown(2));
+        expect(f.synth.isPedalAcousticsActive(), "release tail must remain after final up");
+    }
+
+    void testCc123PreservesPedal() {
+        beginTest("CC123 releases notes but preserves pedal history and owner tail");
+        Fixture f;
+        down(f.synth, 1);
+        f.synth.noteOn(1, 60, 0.8f);
+        f.render();
+        expect(f.synth.isSustainPedalDown(1));
+        f.synth.handleController(1, 123, 0);
+        expect(f.synth.isSustainPedalDown(1), "CC123 must not clear sustain history");
+        expect(f.synth.isPedalAcousticsActive(), "CC123 must not flush the owner tail");
+    }
+
+    void testPanicResetsAndRetriggers() {
+        beginTest("Panic clears owner/control state and a repeated down triggers again");
+        Fixture f;
+        down(f.synth, 1);
+        f.render();
+        juce::MidiBuffer panic;
+        devpiano::recording::addPanicMidi(panic, 0);
+        f.render(512, panic);
+        expect(!f.synth.isPedalAcousticsActive());
+        expect(!f.synth.isSustainPedalDown(1));
+
+        down(f.synth, 1);
+        expect(f.synth.isSustainPedalDown(1));
+        expect(f.synth.isPedalAcousticsActive());
+    }
+
+    void testSineDoesNotGetPedalAcoustics() {
+        beginTest("Sine synthesizer does not receive Piano pedal acoustics");
+        devpiano::audio::BuiltinSynthesiser sine;
+        sine.setCurrentPlaybackSampleRate(48000.0);
+        sine.addSound(new SineSynthSound());
+        sine.addVoice(new SineSynthVoice());
+        expect(!sine.isPedalAcousticsEnabled());
+        sine.handleController(1, 64, 127);
+        expect(!sine.isPedalAcousticsActive());
+        juce::AudioBuffer<float> buffer(2, 512);
+        buffer.clear();
+        sine.renderNextBlock(buffer, {}, 0, 512);
+        expectEquals(peak(buffer, 0), 0.0f);
+    }
+
+    void testSampleRateReprepare() {
+        beginTest("Short pedal tail closes at 48/44.1/96 kHz and survives reprepare");
+        for (const auto rate : { 48000.0, 44100.0, 96000.0 }) {
+            beginTest("Rate " + juce::String(rate));
+            Fixture f(rate);
+            down(f.synth, 1);
+            expect(f.synth.isPedalAcousticsActive());
+            auto blocks = 0;
+            while (f.synth.isPedalAcousticsActive() && blocks < 4096) {
+                f.render();
+                ++blocks;
+            }
+            expect(!f.synth.isPedalAcousticsActive(), "bounded tail must close at " + juce::String(rate));
+            up(f.synth, 1);
+            f.synth.setCurrentPlaybackSampleRate(rate == 44100.0 ? 48000.0 : 44100.0);
+            expect(!f.synth.isPedalAcousticsActive(), "reprepare must clear old tail");
+            down(f.synth, 1);
+            expect(f.synth.isPedalAcousticsActive(), "same value must retrigger after reprepare");
+        }
+    }
+
+    static PianoSynthVoice* findVoiceForNote(Fixture& fixture, int note, int channel) {
+        for (auto* voice : fixture.voices) {
+            if (voice != nullptr && voice->getCurrentlyPlayingNote() == note && voice->isPlayingChannel(channel)) {
+                return voice;
+            }
+        }
+        return nullptr;
+    }
+
+    void testNewVoiceAfterPedalDown() {
+        beginTest("New voice after CC64 down inherits channel sustain before first audio");
+        Fixture f;
+        down(f.synth, 1);
+        f.synth.noteOn(1, 60, 0.8f);
+        auto* voice = findVoiceForNote(f, 60, 1);
+        expect(voice != nullptr);
+        if (voice != nullptr) {
+            expect(voice->isSustainPedalDown(), "JUCE voice sustain flag must inherit ch1");
+            expect(voice->sympatheticPool.pedalDown, "note-driven pool must inherit ch1 before rendering");
+        }
+        expectEquals(activeVoiceCount(f), 1);
+    }
+
+    void testExistingVoicePedalUp() {
+        beginTest("Existing voice still follows CC64 down/up after the initialization fix");
+        Fixture f;
+        f.synth.noteOn(1, 60, 0.8f);
+        down(f.synth, 1);
+        auto* voice = findVoiceForNote(f, 60, 1);
+        expect(voice != nullptr);
+        if (voice != nullptr) {
+            expect(voice->isSustainPedalDown());
+            expect(voice->sympatheticPool.pedalDown);
+        }
+        up(f.synth, 1);
+        if (voice != nullptr) {
+            expect(!voice->isSustainPedalDown());
+            expect(!voice->sympatheticPool.pedalDown);
+        }
+    }
+
+    void testChannelIsolation() {
+        beginTest("New notes inherit their own channel sustain state, not the aggregate");
+        Fixture f;
+        down(f.synth, 1);
+        up(f.synth, 2);
+        f.synth.noteOn(1, 60, 0.8f);
+        f.synth.noteOn(2, 61, 0.8f);
+        auto* ch1 = findVoiceForNote(f, 60, 1);
+        auto* ch2 = findVoiceForNote(f, 61, 2);
+        expect(ch1 != nullptr);
+        expect(ch2 != nullptr);
+        if (ch1 != nullptr) {
+            expect(ch1->isSustainPedalDown());
+            expect(ch1->sympatheticPool.pedalDown);
+        }
+        if (ch2 != nullptr) {
+            expect(!ch2->isSustainPedalDown());
+            expect(!ch2->sympatheticPool.pedalDown);
+        }
+    }
+
+    void testVoiceReuseAcrossPedalStates() {
+        beginTest("Voice reuse across pedal states does not retain the previous channel state");
+        for (const auto fromChannel : { 1, 2 }) {
+            for (const auto toChannel : { 1, 2 }) {
+                devpiano::audio::BuiltinSynthesiser synth;
+                synth.setCurrentPlaybackSampleRate(48000.0);
+                synth.addSound(new PianoSynthSound());
+                auto* voice = new PianoSynthVoice();
+                synth.addVoice(voice);
+                down(synth, 1);
+                if (fromChannel == 2) {
+                    up(synth, 2);
                 } else {
-                    synth.allNotesOff(1, false);
+                    down(synth, 2);
                 }
-                for (int rendered = 0; rendered < releaseLimitSamples && voice->isVoiceActive();
-                     rendered += scratch.getNumSamples()) {
-                    scratch.clear();
-                    synth.renderNextBlock(scratch, {}, 0, scratch.getNumSamples());
+                if (toChannel == 1) {
+                    down(synth, 1);
+                } else {
+                    up(synth, 1);
                 }
-            }
-            expect(!voice->isVoiceActive(), "The previous note must finish before the pedal event");
-
-            juce::AudioBuffer<float> output(channels, 21600);
-            output.clear();
-            juce::MidiBuffer midi;
-            midi.addEvent(juce::MidiMessage::controllerEvent(1, 64, 127), 0);
-            synth.renderNextBlock(output, midi, 0, output.getNumSamples());
-            return output;
-        };
-
-        for (const auto channels : { 1, 2 }) {
-            const auto reference = renderPedal(-1, false, channels);
-            for (const auto allowTailOff : { false, true }) {
-                for (const auto note : { 21, 108 }) {
-                    const auto output = renderPedal(note, allowTailOff, channels);
-                    auto maxDifference = 0.0f;
-                    for (int channel = 0; channel < channels; ++channel) {
-                        for (int sample = 0; sample < output.getNumSamples(); ++sample) {
-                            maxDifference = std::max(
-                                maxDifference,
-                                std::abs(output.getSample(channel, sample) - reference.getSample(channel, sample)));
-                        }
-                    }
-                    const auto context = "MIDI " + juce::String(note) + ", channels " + juce::String(channels)
-                        + (allowTailOff ? ", released" : ", stopped");
-                    expectWithinAbsoluteError(maxDifference, 0.0f, 1e-8f,
-                                              "Pedal noise must match a fresh voice: " + context);
-                }
+                // A single voice makes the steal source and target unambiguous.
+                synth.noteOn(fromChannel, 60, 0.8f);
+                expect(voice->getCurrentlyPlayingNote() == 60);
+                synth.noteOn(toChannel, 61, 0.8f);
+                expect(voice->getCurrentlyPlayingNote() == 61, "the single voice must be reused");
+                expect(voice->isPlayingChannel(toChannel));
+                expect(voice->isSustainPedalDown() == synth.isSustainPedalDown(toChannel),
+                       "voice sustain flag must match the target channel");
+                expect(voice->sympatheticPool.pedalDown == synth.isSustainPedalDown(toChannel),
+                       "voice pool pedal state must match the target channel");
             }
         }
     }
 
-    void testPedalReleaseGeneratesReturnThump() {
-        beginTest("Pedal release generates softer return thump transient");
-
-        PianoSynthVoice voice;
-        voice.setCurrentPlaybackSampleRate(48000.0);
-        voice.setVoiceIndex(0);
-        voice.setPedalNoiseLevel(0.8f);
-
-        // 1. Press pedal
-        voice.controllerMoved(64, 127);
-        juce::AudioBuffer<float> buffer(2, 512);
-        buffer.clear();
-        voice.renderNextBlock(buffer, 0, 512);
-        const auto pressPeak = calculatePeak(buffer, 0);
-
-        // Consume press decay
-        for (int i = 0; i < 20; ++i) {
-            buffer.clear();
-            voice.renderNextBlock(buffer, 0, 512);
-        }
-        expect(!voice.isPedalTransientActive());
-
-        // 2. Release pedal (CC 64 = 0)
-        voice.controllerMoved(64, 0);
-        expect(voice.isPedalTransientActive());
-
-        buffer.clear();
-        voice.renderNextBlock(buffer, 0, 512);
-        const auto releasePeak = calculatePeak(buffer, 0);
-        expectGreaterThan(releasePeak, 0.0005f);
-        // Release thump is softer than press whoosh+shock
-        expectLessThan(releasePeak, pressPeak);
-
-        // Consume release decay
-        for (int i = 0; i < 15; ++i) {
-            buffer.clear();
-            voice.renderNextBlock(buffer, 0, 512);
-        }
-        expect(!voice.isPedalTransientActive());
-    }
-
-    void testPedalVelocityModulation() {
-        beginTest("Fast pedal press produces higher energy than slow pedal press");
-
-        PianoSynthVoice voiceFast;
-        voiceFast.setCurrentPlaybackSampleRate(48000.0);
-        voiceFast.setVoiceIndex(0);
-        voiceFast.setPedalNoiseLevel(0.8f);
-
-        // Fast press: 0 -> 127 (jump = 127)
-        voiceFast.controllerMoved(64, 127);
-        juce::AudioBuffer<float> bufFast(2, 1024);
-        bufFast.clear();
-        voiceFast.renderNextBlock(bufFast, 0, 1024);
-        const auto rmsFast = calculateRms(bufFast, 0);
-
-        PianoSynthVoice voiceSlow;
-        voiceSlow.setCurrentPlaybackSampleRate(48000.0);
-        voiceSlow.setVoiceIndex(0);
-        voiceSlow.setPedalNoiseLevel(0.8f);
-
-        // Set previous value to 40, jump to 65 (small jump = 25)
-        voiceSlow.controllerMoved(64, 40);
-        voiceSlow.controllerMoved(64, 65);
-        juce::AudioBuffer<float> bufSlow(2, 1024);
-        bufSlow.clear();
-        voiceSlow.renderNextBlock(bufSlow, 0, 1024);
-        const auto rmsSlow = calculateRms(bufSlow, 0);
-
-        expectGreaterThan(rmsFast, rmsSlow);
-    }
-
-    void testPedalNoiseLevelBypass() {
-        beginTest("Setting pedalNoiseLevel to 0.0 completely silences pedal transients");
-
-        PianoSynthVoice voice;
-        voice.setCurrentPlaybackSampleRate(48000.0);
-        voice.setVoiceIndex(0);
-        voice.setPedalNoiseLevel(0.0f);
-
-        voice.controllerMoved(64, 127);
-        // Level is 0, so transient should not be active or output must be 0
-        juce::AudioBuffer<float> buffer(2, 512);
-        buffer.clear();
-        voice.renderNextBlock(buffer, 0, 512);
-        expectEquals(calculatePeak(buffer, 0), 0.0f);
-        expectEquals(calculatePeak(buffer, 1), 0.0f);
-    }
-
-    void testMultiVoiceExclusivity() {
-        beginTest("Only voice index 0 generates pedal noise when idle");
-
-        PianoSynthVoice voice0;
-        voice0.setCurrentPlaybackSampleRate(48000.0);
-        voice0.setVoiceIndex(0);
-        voice0.setPedalNoiseLevel(0.8f);
-
-        PianoSynthVoice voice1;
-        voice1.setCurrentPlaybackSampleRate(48000.0);
-        voice1.setVoiceIndex(1);
-        voice1.setPedalNoiseLevel(0.8f);
-
-        voice0.controllerMoved(64, 127);
-        voice1.controllerMoved(64, 127);
-
-        juce::AudioBuffer<float> buf0(2, 512);
-        juce::AudioBuffer<float> buf1(2, 512);
-        buf0.clear();
-        buf1.clear();
-
-        voice0.renderNextBlock(buf0, 0, 512);
-        voice1.renderNextBlock(buf1, 0, 512);
-
-        expectGreaterThan(calculatePeak(buf0, 0), 0.001f);
-        expectEquals(calculatePeak(buf1, 0), 0.0f);
-        expectEquals(calculatePeak(buf1, 1), 0.0f);
-    }
-
-    void testPedalNoiseWithActiveNotes() {
-        beginTest("Pedal transients mix cleanly without interrupting active note rendering");
-
-        juce::Synthesiser synth;
-        synth.setCurrentPlaybackSampleRate(48000.0);
-        synth.addSound(new PianoSynthSound());
-        auto* voice = new PianoSynthVoice();
-        voice->setVoiceIndex(0);
-        voice->setPedalNoiseLevel(0.6f);
-        voice->setAdsrParameters({ 0.001f, 0.2f, 0.8f, 0.3f });
-        synth.addVoice(voice);
-
-        synth.noteOn(1, 60, 0.7f);
-
-        juce::AudioBuffer<float> bufNoteOnly(2, 512);
-        bufNoteOnly.clear();
-        synth.renderNextBlock(bufNoteOnly, juce::MidiBuffer(), 0, 512);
-        const auto peakNoteOnly = calculatePeak(bufNoteOnly, 0);
-        expectGreaterThan(peakNoteOnly, 0.01f);
-
-        // Press pedal while note is singing
-        synth.handleController(1, 64, 127);
-        juce::AudioBuffer<float> bufWithPedal(2, 512);
-        bufWithPedal.clear();
-        synth.renderNextBlock(bufWithPedal, juce::MidiBuffer(), 0, 512);
-        const auto peakWithPedal = calculatePeak(bufWithPedal, 0);
-
-        expectGreaterThan(peakWithPedal, 0.01f);
-        expect(voice->isVoiceActive());
-    }
-
-    void testAudioEnginePedalIntegration() {
-        beginTest("AudioEngine: pedalNoiseLevel atomic parameter distribution and voice lifecycle");
-
-        AudioEngine engine;
-        engine.prepareToPlay(512, 48000.0);
-        engine.setMasterGain(1.0f);
-        engine.setBuiltinSynthTone(AudioEngine::BuiltinSynthTone::piano);
-        engine.setPedalNoiseLevel(0.75f);
-
-        // Atomic getter verification
-        expectWithinAbsoluteError(engine.getPedalNoiseLevel(), 0.75f, 1e-4f);
-
-        // Consume warmup blocks
-        const auto warmupBlocks = AudioEngine::calculateWarmupBlockCount(48000.0, 512);
-        juce::AudioBuffer<float> buffer(2, 512);
-        juce::AudioSourceChannelInfo info(&buffer, 0, 512);
-        for (int i = 0; i < warmupBlocks; ++i) {
-            buffer.clear();
-            engine.getNextAudioBlock(info);
-        }
-
-        // Verify clamp boundaries
-        engine.setPedalNoiseLevel(-0.5f);
-        expectWithinAbsoluteError(engine.getPedalNoiseLevel(), 0.0f, 1e-4f);
-        engine.setPedalNoiseLevel(1.8f);
-        expectWithinAbsoluteError(engine.getPedalNoiseLevel(), 1.0f, 1e-4f);
-
-        // Rebuild synth (switch tone and switch back)
-        engine.setBuiltinSynthTone(AudioEngine::BuiltinSynthTone::sine);
-        engine.setBuiltinSynthTone(AudioEngine::BuiltinSynthTone::piano);
-        engine.setPedalNoiseLevel(0.65f);
-        buffer.clear();
-        engine.getNextAudioBlock(info);
-        expectWithinAbsoluteError(engine.getPedalNoiseLevel(), 0.65f, 1e-4f);
-    }
-
-    void testPedalNoiseInMonoBufferActiveNote() {
-        beginTest("Pedal noise is included in single-channel (mono) buffers during active note playback");
-
-        juce::Synthesiser synth;
-        synth.setCurrentPlaybackSampleRate(48000.0);
-        synth.addSound(new PianoSynthSound());
-        auto* voice = new PianoSynthVoice();
-        voice->setVoiceIndex(0);
-        voice->setPedalNoiseLevel(0.8f);
-        voice->setAdsrParameters({ 0.001f, 0.2f, 0.8f, 0.3f });
-        synth.addVoice(voice);
-
-        synth.noteOn(1, 60, 0.7f);
-
-        // Render one mono block without pedal
-        juce::AudioBuffer<float> monoBufWithoutPedal(1, 512);
-        monoBufWithoutPedal.clear();
-        synth.renderNextBlock(monoBufWithoutPedal, juce::MidiBuffer(), 0, 512);
-        const auto peakWithoutPedal = calculatePeak(monoBufWithoutPedal, 0);
-        expectGreaterThan(peakWithoutPedal, 0.01f);
-
-        // Now press sustain pedal during note playback
-        synth.handleController(1, 64, 127);
-        juce::AudioBuffer<float> monoBufWithPedal(1, 512);
-        monoBufWithPedal.clear();
-        synth.renderNextBlock(monoBufWithPedal, juce::MidiBuffer(), 0, 512);
-        const auto peakWithPedal = calculatePeak(monoBufWithPedal, 0);
-
-        expectGreaterThan(peakWithPedal, 0.01f);
-        expectLessThan(peakWithPedal, 1.5f);
-
-        // Ensure samples are finite and bounded
+    void testMonoAndFiniteOutput() {
+        beginTest("Pedal owner output is finite and mono downmix is bounded");
+        Fixture f;
+        down(f.synth, 1);
+        juce::AudioBuffer<float> mono(1, 512);
+        mono.clear();
+        f.synth.renderNextBlock(mono, {}, 0, 512);
+        expectGreaterThan(peak(mono, 0), 0.0f);
+        expectLessThan(peak(mono, 0), 1.5f);
         for (int i = 0; i < 512; ++i) {
-            const auto sample = monoBufWithPedal.getSample(0, i);
-            expect(!std::isnan(sample));
-            expect(!std::isinf(sample));
+            expect(std::isfinite(mono.getSample(0, i)));
         }
-
-        synth.noteOff(1, 60, 0.5f, false);
-    }
-
-    void testIdlePedalSympatheticResonanceShock() {
-        beginTest("Idle sustain pedal press renders and decays sympathetic resonance shock beyond transient duration");
-
-        PianoSynthVoice voice;
-        voice.setCurrentPlaybackSampleRate(48000.0);
-        voice.setVoiceIndex(0);
-        voice.setPedalNoiseLevel(1.0f);
-
-        // Idle state: no note active
-        expect(!voice.isVoiceActive());
-
-        // Press sustain pedal
-        voice.controllerMoved(64, 127);
-
-        // Render first 80ms (pedalTransient whoosh + shock)
-        juce::AudioBuffer<float> buffer(2, 512);
-        int initialSamples = static_cast<int>(48000 * 0.08);
-        while (initialSamples > 0) {
-            buffer.clear();
-            const auto block = std::min(512, initialSamples);
-            voice.renderNextBlock(buffer, 0, block);
-            initialSamples -= block;
-        }
-
-        // At this point (80ms), pedalTransient whoosh (~65ms) has finished
-        expect(!voice.isPedalTransientActive());
-
-        // Render next block (sympathetic resonance shock decay)
-        // With the fix, sympathetic resonance continues to render and decay
-        buffer.clear();
-        voice.renderNextBlock(buffer, 0, 512);
-        const auto postTransientPeak = calculatePeak(buffer, 0);
-        expectGreaterThan(postTransientPeak, 0.0f);
-
-        // Render until tail decay completes (~400 ms total)
-        int tailSamples = static_cast<int>(48000 * 0.35);
-        while (tailSamples > 0) {
-            buffer.clear();
-            const auto block = std::min(512, tailSamples);
-            voice.renderNextBlock(buffer, 0, block);
-            tailSamples -= block;
-        }
-
-        // After 400+ ms, output should be completely silent and finite
-        buffer.clear();
-        voice.renderNextBlock(buffer, 0, 512);
-        expectEquals(calculatePeak(buffer, 0), 0.0f);
-        expectEquals(calculatePeak(buffer, 1), 0.0f);
-    }
-    void testSynthesiserIdlePedalNoise() {
-        beginTest("Synthesiser: idle pedal action triggers voice and renders through container without notes");
-
-        juce::Synthesiser synth;
-        synth.setCurrentPlaybackSampleRate(48000.0);
-        synth.addSound(new PianoSynthSound());
-        auto* voice = new PianoSynthVoice();
-        voice->setVoiceIndex(0);
-        voice->setPedalNoiseLevel(0.8f);
-        synth.addVoice(voice);
-
-        // Initially idle and inactive
-        expect(!voice->isVoiceActive());
-
-        // Press sustain pedal via Synthesiser (channel 1, CC 64, 127)
-        synth.handleController(1, 64, 127);
-
-        // Voice 0 must report active to Synthesiser container
-        expect(voice->isVoiceActive());
-
-        // Render audio through Synthesiser container
-        juce::AudioBuffer<float> buffer(2, 512);
-        buffer.clear();
-        synth.renderNextBlock(buffer, juce::MidiBuffer(), 0, 512);
-
-        // Must produce audible pedal acoustics
-        const auto peakL = calculatePeak(buffer, 0);
-        const auto peakR = calculatePeak(buffer, 1);
-        expectGreaterThan(peakL, 0.001f);
-        expectGreaterThan(peakR, 0.001f);
-
-        // Render out tail decay (~400 ms)
-        int tailSamples = static_cast<int>(48000 * 0.45);
-        while (tailSamples > 0) {
-            buffer.clear();
-            const auto block = std::min(512, tailSamples);
-            synth.renderNextBlock(buffer, juce::MidiBuffer(), 0, block);
-            tailSamples -= block;
-        }
-
-        // After decay completes, voice must return to inactive
-        expect(!voice->isVoiceActive());
-        buffer.clear();
-        synth.renderNextBlock(buffer, juce::MidiBuffer(), 0, 512);
-        expectEquals(calculatePeak(buffer, 0), 0.0f);
-        expectEquals(calculatePeak(buffer, 1), 0.0f);
-    }
-    void testBuiltinSynthesiserIdlePedalNoise() {
-        beginTest("BuiltinSynthesiser: idle pedal action triggers voice 0 through container without active notes");
-
-        devpiano::audio::BuiltinSynthesiser synth;
-        synth.setCurrentPlaybackSampleRate(48000.0);
-        synth.addSound(new PianoSynthSound());
-        auto* voice = new PianoSynthVoice();
-        voice->setVoiceIndex(0);
-        voice->setPedalNoiseLevel(0.8f);
-        synth.addVoice(voice);
-
-        expect(!voice->isVoiceActive());
-
-        // Press sustain pedal via BuiltinSynthesiser (channel 1, CC 64, 127)
-        synth.handleController(1, 64, 127);
-
-        // Voice 0 must report active via virtual isPlayingChannel dispatch
-        expect(voice->isVoiceActive(), "Voice 0 must become active on CC64 press via BuiltinSynthesiser");
-
-        juce::AudioBuffer<float> buffer(2, 512);
-        buffer.clear();
-        synth.renderNextBlock(buffer, juce::MidiBuffer(), 0, 512);
-
-        const auto peakL = calculatePeak(buffer, 0);
-        const auto peakR = calculatePeak(buffer, 1);
-        expectGreaterThan(peakL, 0.001f);
-        expectGreaterThan(peakR, 0.001f);
     }
 };
 

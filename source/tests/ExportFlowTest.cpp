@@ -1011,7 +1011,7 @@ public:
         first.acoustic.stretchTuningEnabled = false;
         first.acoustic.duplexResonance = 0.0f;
         first.acoustic.reverbWet = 0.08f;
-        first.acoustic.pedalNoiseLevel = 0.0f;
+        first.acoustic.pedalNoiseLevel = 0.8f;
         auto second = first;
         second.preset.uuid = juce::Uuid().toDashedString();
         second.acoustic.stretchTuningEnabled = true;
@@ -1028,6 +1028,16 @@ public:
                           juce::MidiMessage::noteOn(2, 84, 0.5f) },
                         { 401, PerformanceEventType::midi, 0, RecordingEventSource::playback,
                           juce::MidiMessage::noteOff(1, 69, 0.5f) },
+                        { 1000, PerformanceEventType::midi, 0, RecordingEventSource::playback,
+                          juce::MidiMessage::controllerEvent(1, 64, 127) },
+                        // R7: a note started after the channel sustain is already
+                        // down must use the same realtime/offline initialization.
+                        { 2000, PerformanceEventType::midi, 0, RecordingEventSource::playback,
+                          juce::MidiMessage::noteOn(1, 76, 0.5f) },
+                        { 30000, PerformanceEventType::midi, 0, RecordingEventSource::playback,
+                          juce::MidiMessage::controllerEvent(1, 64, 0) },
+                        { 45000, PerformanceEventType::midi, 0, RecordingEventSource::playback,
+                          juce::MidiMessage::noteOff(1, 76, 0.5f) },
                         { 48000, PerformanceEventType::midi, 0, RecordingEventSource::playback,
                           juce::MidiMessage::noteOff(2, 84, 0.5f) } };
         const auto target = directory.getChildFile("piano.wav");
