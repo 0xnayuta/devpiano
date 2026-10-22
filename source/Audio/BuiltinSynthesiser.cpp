@@ -68,6 +68,7 @@ void BuiltinSynthesiser::setCurrentPlaybackSampleRate(double newRate) {
                 voice->setCurrentPlaybackSampleRate(newRate);
             }
         }
+        pedalAcoustics.prepare(newRate);
     }
 }
 
@@ -104,6 +105,9 @@ void BuiltinSynthesiser::renderVoices(juce::AudioBuffer<float>& buffer, int star
         if (voice != nullptr) {
             voice->renderNextBlock(buffer, startSample, numSamples);
         }
+    }
+    if (pedalAcousticsEnabled) {
+        pedalAcoustics.renderNextBlock(buffer, startSample, numSamples);
     }
 }
 
@@ -288,7 +292,14 @@ void BuiltinSynthesiser::noteOn(int midiChannel, int midiNoteNumber, float veloc
             if (voice != nullptr) {
                 applySoftPedalToVoice(voice, midiChannel);
                 startVoice(voice, sound, midiChannel, midiNoteNumber, velocity);
-                voice->setSustainPedalDown(sustainPedalByChannel[static_cast<std::size_t>(midiChannel)]);
+                const auto sustainDown = sustainPedalByChannel[static_cast<std::size_t>(midiChannel)];
+                voice->setSustainPedalDown(sustainDown);
+                // startNote has already initialized the note-driven sympathetic
+                // pool. Synchronize its pedal gate from the target channel's
+                // single truth after start, before the first render segment.
+                if (auto* pianoVoice = dynamic_cast<PianoSynthVoice*>(voice)) {
+                    pianoVoice->setSympatheticPedalDown(sustainDown);
+                }
             }
         }
     }
@@ -307,21 +318,35 @@ void BuiltinSynthesiser::noteOff(int midiChannel, int midiNoteNumber, float velo
 }
 
 void BuiltinSynthesiser::allNotesOff(int midiChannel, bool allowTailOff) {
-    for (auto* voice : voices) {
-        if (voice != nullptr && (midiChannel <= 0 || voice->isPlayingChannel(midiChannel))) {
-            voice->setKeyDown(false);
-            voice->setSustainPedalDown(false);
-            voice->setSostenutoPedalDown(false);
-            voice->stopNote(1.0f, allowTailOff);
+    allNotesOffInternal(midiChannel, allowTailOff, false);
+}
+
+void BuiltinSynthesiser::allNotesOffInternal(int midiChannel, bool allowTailOff, bool preservePedalState) noexcept {
+    if (!preservePedalState) {
+        clearSustainState(midiChannel);
+        if (midiChannel <= 0) {
+            sostenutoPedalByChannel.fill(false);
+        } else if (midiChannel <= 16) {
+            sostenutoPedalByChannel[static_cast<std::size_t>(midiChannel)] = false;
         }
     }
 
-    if (midiChannel <= 0) {
-        sustainPedalByChannel.fill(false);
-        sostenutoPedalByChannel.fill(false);
-    } else if (midiChannel <= 16) {
-        sustainPedalByChannel[static_cast<std::size_t>(midiChannel)] = false;
-        sostenutoPedalByChannel[static_cast<std::size_t>(midiChannel)] = false;
+    for (auto* voice : voices) {
+        if (voice == nullptr || (midiChannel > 0 && !voice->isPlayingChannel(midiChannel))) {
+            continue;
+        }
+        voice->setKeyDown(false);
+        if (!preservePedalState) {
+            voice->setSustainPedalDown(false);
+            voice->setSostenutoPedalDown(false);
+            voice->stopNote(1.0f, allowTailOff);
+        } else if (!voice->isSustainPedalDown() && !voice->isSostenutoPedalDown()) {
+            stopVoice(voice, 1.0f, allowTailOff);
+        }
+    }
+
+    if (pedalAcousticsEnabled && !preservePedalState && !anySustainDown()) {
+        pedalAcoustics.reset();
     }
 }
 
@@ -339,8 +364,8 @@ void BuiltinSynthesiser::handlePitchWheel(int midiChannel, int wheelValue) {
 void BuiltinSynthesiser::handleController(int midiChannel, int controllerNumber, int controllerValue) {
     switch (controllerNumber) {
     case 64:
-        handleSustainPedal(midiChannel, controllerValue >= 64);
-        break;
+        applySustainPedal(midiChannel, controllerValue);
+        return;
     case 66:
         handleSostenutoPedal(midiChannel, controllerValue >= 64);
         break;
@@ -357,7 +382,7 @@ void BuiltinSynthesiser::handleController(int midiChannel, int controllerNumber,
     }
     case 120:
         setSoftPedalInternal(midiChannel, false, 0.0f);
-        allNotesOff(midiChannel, false);
+        allNotesOffInternal(midiChannel, false, false);
         return;
     case 121: {
         handleSustainPedal(midiChannel, false);
@@ -375,16 +400,14 @@ void BuiltinSynthesiser::handleController(int midiChannel, int controllerNumber,
         break;
     }
     case 123:
-        allNotesOff(midiChannel, true);
+        allNotesOffInternal(midiChannel, true, true);
         return;
     default:
         break;
     }
 
     for (auto* voice : voices) {
-        if (voice != nullptr
-            && (midiChannel <= 0 || voice->isPlayingChannel(midiChannel)
-                || (controllerNumber == 64 && voice == voices.getFirst()))) {
+        if (voice != nullptr && (midiChannel <= 0 || voice->isPlayingChannel(midiChannel))) {
             voice->controllerMoved(controllerNumber, controllerValue);
         }
     }
@@ -405,36 +428,90 @@ void BuiltinSynthesiser::handleSoftPedal(int midiChannel, bool isDown) {
     }
 }
 
-void BuiltinSynthesiser::handleSustainPedal(int midiChannel, bool isDown) {
-    if (midiChannel <= 0) {
-        for (std::size_t ch = 1; ch <= 16; ++ch) {
-            handleSustainPedal(static_cast<int>(ch), isDown);
-        }
-        return;
-    }
+namespace {
+[[nodiscard]] float sustainVelocity(int previousValue, int controllerValue) noexcept {
+    const auto delta = static_cast<float>(std::abs(controllerValue - previousValue));
+    return juce::jlimit(0.2f, 1.0f, delta / 127.0f);
+}
+} // namespace
 
+void BuiltinSynthesiser::applySustainPedal(int midiChannel, int controllerValue) noexcept {
     if (midiChannel > 16) {
         return;
     }
 
-    sustainPedalByChannel[static_cast<std::size_t>(midiChannel)] = isDown;
+    const auto isDown = controllerValue >= 64;
+    if (midiChannel <= 0) {
+        const auto wasDown = anySustainDown();
+        auto maxDelta = 0.0f;
+        for (int ch = 1; ch <= 16; ++ch) {
+            const auto index = static_cast<std::size_t>(ch);
+            const auto delta = static_cast<float>(std::abs(controllerValue - lastSustainControllerValues[index]));
+            maxDelta = std::max(maxDelta, delta / 127.0f);
+            sustainPedalByChannel[index] = isDown;
+            lastSustainControllerValues[index] = controllerValue;
+            updateVoiceSustainForChannel(ch, controllerValue);
+        }
+        if (pedalAcousticsEnabled && anySustainDown() != wasDown) {
+            pedalAcoustics.onSustainEdge(isDown, juce::jlimit(0.2f, 1.0f, maxDelta));
+        }
+        return;
+    }
 
-    if (isDown) {
-        for (auto* voice : voices) {
-            if (voice != nullptr && voice->isPlayingChannel(midiChannel)
-                && (voice->isKeyDown() || voice->isSostenutoPedalDown())) {
+    const auto index = static_cast<std::size_t>(midiChannel);
+    const auto wasDown = anySustainDown();
+    const auto previousValue = lastSustainControllerValues[index];
+    sustainPedalByChannel[index] = isDown;
+    lastSustainControllerValues[index] = controllerValue;
+    updateVoiceSustainForChannel(midiChannel, controllerValue);
+    if (pedalAcousticsEnabled && anySustainDown() != wasDown) {
+        pedalAcoustics.onSustainEdge(isDown, sustainVelocity(previousValue, controllerValue));
+    }
+}
+
+void BuiltinSynthesiser::updateVoiceSustainForChannel(int midiChannel, int controllerValue) noexcept {
+    const auto isDown = controllerValue >= 64;
+    for (auto* voice : voices) {
+        if (voice == nullptr || !voice->isPlayingChannel(midiChannel)) {
+            continue;
+        }
+        if (isDown) {
+            if (voice->isKeyDown() || voice->isSostenutoPedalDown()) {
                 voice->setSustainPedalDown(true);
             }
+        } else {
+            voice->setSustainPedalDown(false);
         }
-    } else {
-        for (auto* voice : voices) {
-            if (voice != nullptr && voice->isPlayingChannel(midiChannel)) {
-                voice->setSustainPedalDown(false);
-                if (!voice->isKeyDown() && !voice->isSostenutoPedalDown()) {
-                    stopVoice(voice, 1.0f, true);
-                }
-            }
+        voice->controllerMoved(64, controllerValue);
+        if (!isDown && !voice->isKeyDown() && !voice->isSostenutoPedalDown()) {
+            stopVoice(voice, 1.0f, true);
         }
+    }
+}
+
+void BuiltinSynthesiser::handleSustainPedal(int midiChannel, bool isDown) {
+    applySustainPedal(midiChannel, isDown ? 127 : 0);
+}
+
+bool BuiltinSynthesiser::anySustainDown() const noexcept {
+    for (std::size_t ch = 1; ch <= 16; ++ch) {
+        if (sustainPedalByChannel[ch]) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void BuiltinSynthesiser::clearSustainState(int midiChannel) noexcept {
+    if (midiChannel <= 0) {
+        sustainPedalByChannel.fill(false);
+        lastSustainControllerValues.fill(0);
+        return;
+    }
+    if (midiChannel <= 16) {
+        const auto index = static_cast<std::size_t>(midiChannel);
+        sustainPedalByChannel[index] = false;
+        lastSustainControllerValues[index] = 0;
     }
 }
 
@@ -586,6 +663,32 @@ juce::SynthesiserVoice* BuiltinSynthesiser::findVoiceToSteal(juce::SynthesiserSo
     }
 
     return low;
+}
+
+void BuiltinSynthesiser::setPedalAcousticsEnabled(bool enabled) noexcept {
+    pedalAcousticsEnabled = enabled;
+    if (!enabled) {
+        pedalAcoustics.reset();
+    } else if (currentPlaybackSampleRate > 0.0) {
+        pedalAcoustics.prepare(currentPlaybackSampleRate);
+    }
+}
+
+void BuiltinSynthesiser::setPedalNoiseLevel(float level) noexcept {
+    pedalAcoustics.setPedalNoiseLevel(level);
+}
+
+void BuiltinSynthesiser::setPedalTuning(Temperament temperament, double referencePitchA4,
+                                        bool stretchTuningEnabled) noexcept {
+    pedalAcoustics.setTuning(temperament, referencePitchA4, stretchTuningEnabled);
+}
+
+void BuiltinSynthesiser::setPedalLidPosition(LidPosition position) noexcept {
+    pedalAcoustics.setLidPosition(position);
+}
+
+void BuiltinSynthesiser::setPedalSoundPerspective(SoundPerspective perspective) noexcept {
+    pedalAcoustics.setSoundPerspective(perspective);
 }
 
 void BuiltinSynthesiser::setSoftPedal(int midiChannel, bool isDown, float amount) noexcept {
