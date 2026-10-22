@@ -115,7 +115,7 @@ source/
 - **`source/Audio/BuiltinSynthesiser.h/.cpp`**：
   - 实时和内置 WAV 共用乐器拥有者：逐通道 CC67 连续值在新 Piano 声部起音前提交；重复起音/释放按真实发音通道筛选，不把机械聚合监听当发音身份。头文件不包含重型 Piano 实现，具体发声初始化与 dispatch 放在 `.cpp`。
   - 纯音频所有、完全无锁的发声调度器，重写了底层语音分配与踏板调度，移除原生 JUCE 内部锁；支持零长度块原地消费同采样 MIDI 控制事件。
-- **`source/Audio/PianoSynthVoice.h` / `source/Audio/Piano88KeyTable.h` / `source/Audio/HammerVoicing.h`**：
+- **`source/Audio/PianoSynthVoice.h` / `source/Audio/PianoMainString.h` / `source/Audio/PianoMechanicalTransients.h` / `source/Audio/PianoPedalAcoustics.h` / `source/Audio/PianoLidAcoustics.h` / `source/Audio/Piano88KeyTable.h` / `source/Audio/HammerVoicing.h`**：
   - **自主研发、纯 C++ 增强模态物理建模钢琴音源**，默认发声引擎，不将参数化模态模型宣称为商业产品同等微观实现；
   - **7 大声学子系统**：覆盖琴槌（Hammer）、琴弦（String）、琴桥（Bridge）、音板（Soundboard）、琴体（Cabinet）、空气（Air）与空间（Room）；
   - **88 键连续参数化模型**（`Piano88KeyTable.h`）：刚度 $B$ 使用受控软件参考锚点、段间对数插值及高音文献外推；击弦比 $d/L$、阻尼与弦组分区仍为固定模型参数。参考软件输出不等于实琴逐键测量，不认证全域校准或初相训练最优性；
@@ -125,6 +125,8 @@ source/
   - **微观机械动作拟真**：CC64 全局交感共鸣弦池、延音踏板下踏/抬起机械扫掠呼啸（Whoosh）与共鸣冲击（Resonance Shock，受 `pedalNoiseLevel` 调节）、未踩踏板单键开放弦交感、制音器落木闷击与琴键释放机械摩擦、离键速度动态 ADSR 阻尼缩放；
   - **调律与被动段共鸣**：`PianoTuning.h` 将第一分音归一化、独立律制与 A4 锚点拉伸统一到 Piano；`DuplexResonance` 的固定双模态只由主弦驱动，0 旁路、越 Nyquist 禁用，原通道持有到尾音结束；
   - **声学风格作用域**：`PianoStyle.h` 定义固定参数化风格，由实际字段反推 Custom/风格标签。普通预设保存核心琴槌/泛音字段与新调律/共鸣，Take 快照和 WAV 消费相同参数；不改变插件、Master、音源选择、键位或全局调号；
+  - **主弦组件边界**：`PianoMainString` 拥有分音准入/安装、固定分音状态、Magic Circle 递推、双阶段衰减/Bloom、Pitch Glide/Spatial Diffusion 和主弦分音静音；`PianoSynthVoice` 保留音符身份、`triggerCounter`、ADSR、hammer/damper 瞬态、Duplex、交感、Body/Lid/Perspective、增益与整个 Voice 停止。该提取不改变算法、参数、声部数或尾音政策。R10 将 Voice 的实例 DSP/配置状态收为 private，生产消费者只使用 JUCE override 和语义 setter；既有测试通过明确 friend 观察内部状态，不提供生产可写访问器。
+  - **最终所有权地图**：`BuiltinSynthesiser` 持有 16 通道踏板真值、声部分配和唯一的 `PianoPedalAcoustics` owner；`PianoSynthVoice` 持有单音生命周期、ADSR、hammer contact/damper、每声部 note-driven sympathetic、Duplex、16 峰 Body、Lid、Perspective 和输出增益；`PianoNoteSetup` 是纯起音计算；`PianoMainString` 是主弦状态与合成；`PianoMechanicalTransients` 由 Voice 和 owner 分别组合。`AudioEngine` 继续持有 Room、Master 和层路由。以上是当前最终架构，R5/R7 的行为变化与 R0 初始基线不能混写。
   - **实时契约与性能认证边界**：递归/预计算保留产品自有路径零堆分配、零锁、零库函数三角。8 复音 CPU ≤0.7% 的长期目标与实测分别登记，不能用 Debug callback 时长比冒充数值认证；第三方 VST3 框架限制仍单列。直接声音/生命周期证据见当前迭代，完整契约见 [内置音源](features/builtin-piano-synthesis.md)。
 - **`source/Audio/PerspectiveProcessor.h`（空间声像视角处理器，Phase 31-A）**：
   - 纯数学立体声声像变换器，提供演奏者视角（Player，低音在左高音在右近场宽阔）与听众视角（Audience，声像镜像反转与中距声场凝聚）；
