@@ -207,9 +207,18 @@ target_sources(devpiano PRIVATE
     source/Audio/PlaybackIdentityTracker.h
     source/Audio/OrderedMidi.h
     source/Audio/SineSynthVoice.h
+    source/Audio/PianoDspMath.h
+    source/Audio/PianoLidAcoustics.h
+    source/Audio/PianoMainString.h
+    source/Audio/PianoMechanicalTransients.h
+    source/Audio/PianoNoteSetup.h
+    source/Audio/PianoPedalAcoustics.h
+    source/Audio/PianoSineLookupTable.h
+    source/Audio/PianoSourceLevels.h
     source/Audio/PianoSynthVoice.h
     source/Audio/PianoRegisterVoicing.h
     source/Audio/PianoTuning.h
+    source/Audio/PianoVoiceResonance.h
     source/Audio/PianoStyle.h
     source/Audio/InstrumentLayers.h
     source/Audio/BoundedDelayLine.h
@@ -505,9 +514,18 @@ if (BUILD_TESTS)
         source/Audio/PlaybackIdentityTracker.h
         source/Audio/OrderedMidi.h
         source/Audio/SineSynthVoice.h
+        source/Audio/PianoDspMath.h
+        source/Audio/PianoLidAcoustics.h
+        source/Audio/PianoMainString.h
+        source/Audio/PianoMechanicalTransients.h
+        source/Audio/PianoNoteSetup.h
+        source/Audio/PianoPedalAcoustics.h
+        source/Audio/PianoSineLookupTable.h
+        source/Audio/PianoSourceLevels.h
         source/Audio/PianoSynthVoice.h
         source/Audio/PianoRegisterVoicing.h
         source/Audio/PianoTuning.h
+        source/Audio/PianoVoiceResonance.h
         source/Audio/PianoStyle.h
         source/Audio/InstrumentLayers.h
         source/Audio/BoundedDelayLine.h
