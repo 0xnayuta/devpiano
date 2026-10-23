@@ -16,10 +16,16 @@ ContainerItem::ContainerItem(std::unique_ptr<GuiItem> itemToDecorate)
     , idealWidth { state, "ideal-width" }
     , idealHeight { state, "ideal-height" } {
     box.addListener(*this);
+    state.addListener(this);
 }
 
 ContainerItem::~ContainerItem() {
+    state.removeListener(this);
     box.removeListener(*this);
+}
+
+void ContainerItem::valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& property) {
+    forwardPropertyChange(tree, property, idealWidth, idealHeight);
 }
 
 void ContainerItem::insertChild(std::unique_ptr<GuiItem> child, int index) {

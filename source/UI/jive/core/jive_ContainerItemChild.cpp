@@ -22,6 +22,10 @@ public:
         , boxModel { item.toType<CommonGuiItem>()->boxModel } {
     }
 
+    void handlePropertyChange(juce::ValueTree& tree, const juce::Identifier& property) {
+        forwardPropertyChange(tree, property, order, width, height, idealWidth, idealHeight);
+    }
+
     template <typename FlexOrGridItem>
     void applyConstraints(FlexOrGridItem& item, juce::Rectangle<float> parentContentBounds, Orientation orientation,
                           LayoutStrategy strategy) const {
@@ -128,11 +132,11 @@ private:
     }
 
     const juce::ValueTree state;
-    const Property<int> order;
-    const Property<Length> width;
-    const Property<Length> height;
-    const Property<float> idealWidth;
-    const Property<float> idealHeight;
+    PassiveProperty<int> order;
+    PassiveProperty<Length> width;
+    PassiveProperty<Length> height;
+    PassiveProperty<float> idealWidth;
+    PassiveProperty<float> idealHeight;
     const BoxModel& boxModel;
 };
 
@@ -142,10 +146,20 @@ ContainerItem::Child::Child(std::unique_ptr<GuiItem> itemToDecorate)
     , idealWidth { state, "ideal-width" }
     , idealHeight { state, "ideal-height" } {
     getComponent()->addComponentListener(this);
+    state.addListener(this);
 }
 
 ContainerItem::Child::~Child() {
+    state.removeListener(this);
     getComponent()->removeComponentListener(this);
+}
+
+void ContainerItem::Child::valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& property) {
+    forwardPropertyChange(tree, property, idealWidth, idealHeight);
+
+    if (pimpl != nullptr) {
+        pimpl->handlePropertyChange(tree, property);
+    }
 }
 
 void ContainerItem::Child::applyConstraints(

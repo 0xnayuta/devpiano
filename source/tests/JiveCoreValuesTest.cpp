@@ -2,9 +2,11 @@
 
 #include "UI/ViewHost.h"
 #include "UI/jive/core/jive_Length.h"
+#include "UI/jive/core/jive_NormalisedProgressBar.h"
 #include "UI/jive/core/jive_Object.h"
 #include "UI/jive/core/jive_Property.h"
 #include "UI/jive/core/jive_StyleSheet.h"
+#include "UI/jive/core/jive_TextComponent.h"
 
 // ============================================================================
 /// JiveCoreValuesTest — Phase 39.5-2 value/property/object contracts.
@@ -25,6 +27,7 @@ public:
         testLengthValues();
         testTransitionReplacement();
         testBlockCoordinateExclusivity();
+        testPassiveDispatchThroughSetProperty();
         testParsedObjectParentChain();
         testStyleSheetCalculatedStateIsolation();
     }
@@ -121,6 +124,87 @@ private:
 
         if (component != nullptr) {
             expectEquals(component->getX(), 30);
+        }
+    }
+
+    void testPassiveDispatchThroughSetProperty() {
+        beginTest("Retained widgets receive property changes through the owner listener");
+
+        juce::ValueTree root("Component");
+        root.setProperty("width", 400, nullptr);
+        root.setProperty("height", 400, nullptr);
+        root.setProperty("display", "flex", nullptr);
+        root.setProperty("flex-direction", "column", nullptr);
+
+        const auto add = [&root](const juce::Identifier& type, const juce::String& id) {
+            juce::ValueTree node(type);
+            node.setProperty("id", id, nullptr);
+            node.setProperty("width", 100, nullptr);
+            node.setProperty("height", 24, nullptr);
+            root.addChild(node, -1, nullptr);
+            return node;
+        };
+
+        add("Button", "probe-btn").setProperty("text", "Probe", nullptr);
+        add("Text", "probe-text").setProperty("text", "one", nullptr);
+        add("Slider", "probe-slider");
+        add("ComboBox", "probe-combo");
+        add("ProgressBar", "probe-bar");
+
+        devpiano::ui::ViewHost host;
+        host.registerDefaultComponents();
+        expect(host.loadLayout(root, false));
+        host.setBounds(0, 0, 400, 400);
+
+        auto* button = host.find<juce::Button>("probe-btn");
+        expect(button != nullptr);
+
+        expect(host.setProperty("probe-btn", "enabled", false));
+        if (button != nullptr) {
+            expect(!button->isEnabled(), "enabled must reach the native button");
+        }
+
+        expect(host.setProperty("probe-btn", "opacity", 0.5f));
+        if (button != nullptr) {
+            expectWithinAbsoluteError(button->getAlpha(), 0.5f, 0.01f);
+        }
+
+        expect(host.setProperty("probe-btn", "toggled", true));
+        if (button != nullptr) {
+            expect(button->getToggleState(), "toggled must reach the native button");
+        }
+
+        expect(host.setProperty("probe-btn", "width", 120));
+        if (button != nullptr) {
+            expectEquals(button->getWidth(), 120);
+        }
+
+        expect(host.setProperty("probe-text", "text", "two"));
+        auto* text = host.find<jive::TextComponent>("probe-text");
+        expect(text != nullptr);
+        if (text != nullptr) {
+            expectEquals(text->getText(), juce::String("two"));
+        }
+
+        expect(host.setProperty("probe-slider", "value", "0.25"));
+        auto* slider = host.find<juce::Slider>("probe-slider");
+        expect(slider != nullptr);
+        if (slider != nullptr) {
+            expectWithinAbsoluteError(slider->getValue(), 0.25, 0.001);
+        }
+
+        expect(host.setProperty("probe-combo", "editable", true));
+        auto* combo = host.find<juce::ComboBox>("probe-combo");
+        expect(combo != nullptr);
+        if (combo != nullptr) {
+            expect(combo->isTextEditable());
+        }
+
+        expect(host.setProperty("probe-bar", "value", 0.75));
+        auto* bar = host.find<jive::NormalisedProgressBar>("probe-bar");
+        expect(bar != nullptr);
+        if (bar != nullptr) {
+            expectWithinAbsoluteError(bar->getValue(), 0.75, 0.001);
         }
     }
 

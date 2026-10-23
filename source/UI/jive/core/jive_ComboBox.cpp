@@ -39,6 +39,16 @@ ComboBox::ComboBox(std::unique_ptr<GuiItem> itemToDecorate)
     if (height.isAuto()) {
         height = 20.0f;
     }
+
+    state.addListener(this);
+}
+
+ComboBox::~ComboBox() {
+    state.removeListener(this);
+}
+
+void ComboBox::valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& property) {
+    forwardPropertyChange(tree, property, editable, tooltip, selected, width, height, focusable);
 }
 
 bool ComboBox::isContainer() const {

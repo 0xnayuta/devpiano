@@ -31,6 +31,16 @@ ProgressBar::ProgressBar(std::unique_ptr<GuiItem> itemToDecorate)
     if (height.isAuto()) {
         height = 20.0f;
     }
+
+    state.addListener(this);
+}
+
+ProgressBar::~ProgressBar() {
+    state.removeListener(this);
+}
+
+void ProgressBar::valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& property) {
+    forwardPropertyChange(tree, property, value, width, height, focusable);
 }
 
 bool ProgressBar::isContainer() const {

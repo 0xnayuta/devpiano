@@ -19,12 +19,13 @@ public:
 
 private:
     void boxModelChanged(BoxModel&) final;
+    void valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& property) override;
 
-    Property<int> order;
-    Property<float> flexGrow;
-    Property<float> flexShrink;
-    Property<float> flexBasis;
-    Property<juce::FlexItem::AlignSelf> alignSelf;
+    PassiveProperty<int> order;
+    PassiveProperty<float> flexGrow;
+    PassiveProperty<float> flexShrink;
+    PassiveProperty<float> flexBasis;
+    PassiveProperty<juce::FlexItem::AlignSelf> alignSelf;
 
     const BoxModel& box { boxModel(*this) };
     const std::unique_ptr<juce::Component> layoutDummy;

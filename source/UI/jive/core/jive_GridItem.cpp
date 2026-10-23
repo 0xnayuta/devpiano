@@ -56,6 +56,11 @@ GridItem::~GridItem() {
     box.removeListener(*this);
 }
 
+void GridItem::valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& property) {
+    ContainerItem::Child::valueTreePropertyChanged(tree, property);
+    forwardPropertyChange(tree, property, order, justifySelf, alignSelf, gridColumn, gridRow, gridArea);
+}
+
 juce::GridItem GridItem::toJuceGridItem(juce::Rectangle<float> parentContentBounds, LayoutStrategy strategy) {
     const auto key = std::make_pair(parentContentBounds, strategy);
 

@@ -93,6 +93,18 @@ Slider::Slider(std::unique_ptr<GuiItem> itemToDecorate, float defaultWidth, floa
     if (height.isAuto()) {
         height = defaultHeight;
     }
+
+    state.addListener(this);
+}
+
+Slider::~Slider() {
+    state.removeListener(this);
+}
+
+void Slider::valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& property) {
+    forwardPropertyChange(tree, property, value, min, max, mid, interval, orientation, width, height, sensitivity,
+                          isInVelocityMode, velocitySensitivity, velocityThreshold, velocityOffset, snapToMouse,
+                          focusable);
 }
 
 bool Slider::isContainer() const {

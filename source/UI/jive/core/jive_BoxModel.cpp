@@ -22,8 +22,7 @@ BoxModel::BoxModel(juce::ValueTree stateSource)
     , componentHeight { state, ids::componentHeight() }
     , padding { state, "padding" }
     , border { state, "border-width" }
-    , margin { state, "margin" }
-    , callbackLock { state, "box-model-callback-lock" } {
+    , margin { state, "margin" } {
     if (!width.exists()) {
         width.setAuto();
     }
@@ -45,7 +44,7 @@ BoxModel::BoxModel(juce::ValueTree stateSource)
 
     const auto informBoxModelChanged = [this]() { listeners.call(&Listener::boxModelChanged, *this); };
     const auto onBoxModelChanged = [this, informBoxModelChanged]() {
-        if (callbackLock.get()) {
+        if (callbackLock) {
             return;
         }
 
@@ -54,7 +53,7 @@ BoxModel::BoxModel(juce::ValueTree stateSource)
     const auto handleOnValueChange
         = [this, informBoxModelChanged](auto& property, bool updateWidth, bool updateHeight) {
               property.onValueChange = [this, informBoxModelChanged, &property, updateWidth, updateHeight] {
-                  if (callbackLock.get()) {
+                  if (callbackLock) {
                       return;
                   }
 
@@ -109,6 +108,12 @@ BoxModel::BoxModel(juce::ValueTree stateSource)
     padding.onTransitionProgressed = informBoxModelChanged;
     border.onTransitionProgressed = informBoxModelChanged;
     margin.onTransitionProgressed = informBoxModelChanged;
+
+    state.addListener(this);
+}
+
+BoxModel::~BoxModel() {
+    state.removeListener(this);
 }
 
 float BoxModel::getWidth() const {
@@ -218,6 +223,42 @@ juce::Rectangle<float> BoxModel::getMaximumBounds() const {
     };
 }
 
+juce::Rectangle<float> BoxModel::getExplicitConstraints() const {
+    auto explicitSize = juce::Rectangle<float> {
+        hasAutoWidth() ? static_cast<float>(std::numeric_limits<juce::uint16>::max()) : getWidth(),
+        hasAutoHeight() ? static_cast<float>(std::numeric_limits<juce::uint16>::max()) : getHeight(),
+    };
+
+    const auto maximum = getMaximumBounds();
+
+    // -1 表示未设置上限，保持无上限，不把它直接带进 rectangle 交集。
+    if (maximum.getWidth() >= 0.0f) {
+        explicitSize.setWidth(juce::jmin(explicitSize.getWidth(), maximum.getWidth()));
+    }
+    if (maximum.getHeight() >= 0.0f) {
+        explicitSize.setHeight(juce::jmin(explicitSize.getHeight(), maximum.getHeight()));
+    }
+
+    return explicitSize;
+}
+
+std::uint64_t BoxModel::getConstraintsVersion() const {
+    return constraintsVersion;
+}
+
+void BoxModel::valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& property) {
+    if (tree == state
+        && (property == width.id || property == height.id || property == minWidth.id || property == minHeight.id
+            || property == maxWidth.id || property == maxHeight.id || property == idealWidth.id
+            || property == idealHeight.id || property == margin.id)) {
+        // 锁内修改也必须让父布局看到输入失效。
+        constraintsVersion++;
+    }
+
+    forwardPropertyChange(tree, property, componentWidth, componentHeight, width, height, idealWidth, idealHeight,
+                          padding, border, margin, minWidth, minHeight, maxWidth, maxHeight);
+}
+
 void BoxModel::addListener(Listener& listener) const {
     const_cast<juce::ListenerList<Listener>*>(&listeners)->add(&listener);
 }
@@ -227,10 +268,11 @@ void BoxModel::removeListener(Listener& listener) const {
 }
 
 juce::Rectangle<float> BoxModel::getParentBounds() const {
-    if (state.getParent().isValid()) {
-        const Property<float> parentWidth { state.getParent(), componentWidth.id };
-        const Property<float> parentHeight { state.getParent(), componentHeight.id };
-        return { parentWidth.get(), parentHeight.get() };
+    if (const auto parent = state.getParent(); parent.isValid()) {
+        return {
+            fromVar<float>(parent[ids::componentWidth()]),
+            fromVar<float>(parent[ids::componentHeight()]),
+        };
     }
 
     return {};
@@ -250,6 +292,6 @@ void BoxModel::lock() {
 }
 
 void BoxModel::unlock() {
-    callbackLock.clear();
+    callbackLock = false;
 }
 } // namespace jive

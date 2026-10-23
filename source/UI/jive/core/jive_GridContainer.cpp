@@ -67,13 +67,9 @@ GridContainer::GridContainer(std::unique_ptr<GuiItem> itemToDecorate)
     gridAutoColumns.onValueChange = [this] { updateIdealSizeUnrestrained(); };
     gap.onValueChange = [this] { updateIdealSizeUnrestrained(); };
     gap.onTransitionProgressed = [this] { updateIdealSizeUnrestrained(); };
-
-    state.addListener(this);
 }
 
-GridContainer::~GridContainer() {
-    state.removeListener(this);
-}
+GridContainer::~GridContainer() = default;
 
 void GridContainer::layOutChildren() {
     if (layoutRecursionLock) {
@@ -136,11 +132,9 @@ static void appendChildren(GuiItem& container, juce::Grid& grid, juce::Rectangle
 }
 
 void GridContainer::valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& id) {
-    if (tree != state && tree.getParent() != state) {
-        return;
-    }
+    ContainerItem::valueTreePropertyChanged(tree, id);
 
-    if (layoutRecursionLock) {
+    if ((tree == state || tree.getParent() == state) && layoutRecursionLock) {
         static const juce::Array<juce::Identifier> propertiesForWhichChangesRequireAnotherLayOut {
             "ideal-width",
             "ideal-height",
@@ -150,6 +144,9 @@ void GridContainer::valueTreePropertyChanged(juce::ValueTree& tree, const juce::
             changesDuringLayout = true;
         }
     }
+
+    forwardPropertyChange(tree, id, justifyItems, alignItems, justifyContent, alignContent, gridAutoFlow,
+                          gridTemplateColumns, gridTemplateRows, gridTemplateAreas, gridAutoRows, gridAutoColumns, gap);
 }
 
 juce::Grid GridContainer::buildGrid(juce::Rectangle<int> bounds, LayoutStrategy strategy) {

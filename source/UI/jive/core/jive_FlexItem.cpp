@@ -71,6 +71,11 @@ FlexItem::~FlexItem() {
     box.removeListener(*this);
 }
 
+void FlexItem::valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& property) {
+    ContainerItem::Child::valueTreePropertyChanged(tree, property);
+    forwardPropertyChange(tree, property, order, flexGrow, flexShrink, flexBasis, alignSelf);
+}
+
 juce::FlexItem FlexItem::toJuceFlexItem(juce::Rectangle<float> parentContentBounds, LayoutStrategy strategy) {
     const auto key = std::make_pair(parentContentBounds, strategy);
 

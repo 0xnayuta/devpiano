@@ -14,7 +14,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 namespace jive {
-class BoxModel {
+class BoxModel : private juce::ValueTree::Listener {
 public:
     struct Listener {
         virtual ~Listener() = default;
@@ -42,6 +42,7 @@ public:
     };
 
     explicit BoxModel(juce::ValueTree sourceState);
+    ~BoxModel() override;
 
     [[nodiscard]] float getWidth() const;
     void setWidth(float newWidth);
@@ -71,31 +72,40 @@ public:
     [[nodiscard]] juce::Rectangle<float> getMinimumBounds() const;
     [[nodiscard]] juce::Rectangle<float> getMaximumBounds() const;
 
+    /** 返回显式尺寸约束；未设置 max 时保持无上限，不把负值哨兵参与交集。 */
+    [[nodiscard]] juce::Rectangle<float> getExplicitConstraints() const;
+
+    /** 父布局输入（尺寸、min/max、margin 等）的失效计数。 */
+    [[nodiscard]] std::uint64_t getConstraintsVersion() const;
+
     void addListener(Listener& listener) const;
     void removeListener(Listener& listener) const;
 
     juce::ValueTree state;
 
 private:
+    void valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& property) final;
+
     void lock();
     void unlock();
 
     juce::Rectangle<float> getParentBounds() const;
 
-    Property<Length> width;
-    Property<Length> height;
-    Property<Length> minWidth;
-    Property<Length> minHeight;
-    Property<Length> maxWidth;
-    Property<Length> maxHeight;
-    Property<float> idealWidth;
-    Property<float> idealHeight;
-    Property<float> componentWidth;
-    Property<float> componentHeight;
-    Property<juce::BorderSize<float>> padding;
-    Property<juce::BorderSize<float>> border;
-    Property<juce::BorderSize<float>> margin;
-    Property<bool> callbackLock;
+    PassiveProperty<Length> width;
+    PassiveProperty<Length> height;
+    PassiveProperty<Length> minWidth;
+    PassiveProperty<Length> minHeight;
+    PassiveProperty<Length> maxWidth;
+    PassiveProperty<Length> maxHeight;
+    PassiveProperty<float> idealWidth;
+    PassiveProperty<float> idealHeight;
+    PassiveProperty<float> componentWidth;
+    PassiveProperty<float> componentHeight;
+    PassiveProperty<juce::BorderSize<float>> padding;
+    PassiveProperty<juce::BorderSize<float>> border;
+    PassiveProperty<juce::BorderSize<float>> margin;
+    bool callbackLock = false;
+    std::uint64_t constraintsVersion = 0;
 
     juce::ListenerList<Listener> listeners;
 

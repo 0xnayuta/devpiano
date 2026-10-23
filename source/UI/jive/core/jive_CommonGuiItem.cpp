@@ -125,10 +125,19 @@ CommonGuiItem::CommonGuiItem(std::unique_ptr<GuiItem> itemToDecorate)
                             juce::roundToInt(boxModel.getOuterBounds().getHeight()));
 
     boxModel.addListener(*this);
+
+    state.addListener(this);
 }
 
 CommonGuiItem::~CommonGuiItem() {
+    state.removeListener(this);
     getComponent()->removeComponentListener(this);
+}
+
+void CommonGuiItem::valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& property) {
+    forwardPropertyChange(tree, property, name, title, id, description, tooltip, enabled, accessible, visibility,
+                          alwaysOnTop, bufferedToImage, opaque, focusable, clickingGrabsFocus, focusOutline, focusOrder,
+                          opacity, cursor, display, width, height);
 }
 
 void CommonGuiItem::componentMovedOrResized(juce::Component& componentThatWasMovedOrResized, bool /*wasMoved*/,

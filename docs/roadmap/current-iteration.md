@@ -2,7 +2,7 @@
 
 > 用途：维护当前候选阶段、恢复条件与实施顺序；项目状态和长期阶段顺序以 [roadmap](roadmap.md) 为准。
 > 归档口径：Phase 39 与 R0–R11 的任务、实施记录、验收、失败历史和证据已迁入 `docs/archive/`。本页不重复维护历史状态，也不把归档记录当作当前默认或已通过结论。
-> 当前状态：Phase 39.5（JIVE 内核精简与 JIVE v2 精准移植）**进行中**：39.5-1（基线与未用能力闭包精简）与 39.5-2（属性、对象与 Length 安全切换）已完成并通过 Windows Debug 构建、默认 CTest 与定向 UI 回归；39.5-3 至 39.5-5 未启动。Phase 39 已冻结，Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过；R0–R11 已完成并归档；Phase 40–42 及后续声学能力仍暂缓，恢复须由用户明确决定；E3 有限尾音维护任务保持独立，不受本阶段影响。
+> 当前状态：Phase 39.5（JIVE 内核精简与 JIVE v2 精准移植）**进行中**：39.5-1（基线与未用能力闭包精简）、39.5-2（属性、对象与 Length 安全切换）与 39.5-3（集中属性分发与 BoxModel 去污染）已完成并通过 Windows Debug 构建、默认 CTest 与定向 UI 回归；39.5-4 至 39.5-5 未启动。Phase 39 已冻结，Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过；R0–R11 已完成并归档；Phase 40–42 及后续声学能力仍暂缓，恢复须由用户明确决定；E3 有限尾音维护任务保持独立，不受本阶段影响。
 
 ## 0. 归档入口
 
@@ -153,7 +153,17 @@
 - **验证**:Windows Debug app/tests 构建通过;默认 `ctest` 通过(41.6 s);`JiveCoreValues` 42 项断言覆盖 px/%/auto、单位切换、transition 删除/替换、属性删除通知、Block 坐标互斥、解析父链与成对解绑、共享样式下的 calculated 隔离与替换/清空;既有 `StyleCatalog` 176、`ViewHost` 35、`LayoutGoldenTest` 391、`JiveRender` 13、`JiveModalDialog` 417、`SettingsLayoutModel` 66、`JiveTeardownOrder` 24、`ComboRebuild` 7、`FilterComboDefault` 8、`PresetComboRebuild` 9、`PluginPanelToggle` 34 全部通过。
 - **保留给 39.5-3**:属性仍为主动监听;本阶段只提供 `PassiveProperty`/`handlePropertyChange`/`forwardPropertyChange` 原语,尚未合并监听。真实 windows-mcp 表面验收仍按阶段出口执行。
 
-## 2. 后续候选阶段（暂缓）
+### 1.8 Phase 39.5-3 实施结果与验证
+
+- **完整保留面改为被动属性**:BoxModel、CommonGuiItem、ContainerItem、ContainerItem::Child(Pimpl)、Flex/Grid 容器与子项、BlockItem、Button、Slider、ComboBox、ProgressBar、Text 的保留属性均改为 `PassiveProperty`,由各 owner 的单个 `ValueTree::Listener` 固定转发;现有 `onValueChange`/`onTransitionProgressed` 继续承担具体行为,未引入动态属性表。
+- **容器继承钩子**:`ContainerItem` 与 `Child` 以 protected 方式继承监听器并提供可覆写转发入口,派生类调用基类转发后再处理自身属性,避免重复继承同一 Listener 造成歧义。
+- **BoxModel 去污染**:删除 `box-model-callback-lock` 树属性,改为实例 `bool`;`getParentBounds()` 直接读取父节点的 `component-width/height`,不再构造两个临时 `Property`;新增 `getConstraintsVersion()`,尺寸/min/max/ideal/margin 变更(包括锁内)都会递增;新增 `getExplicitConstraints()`,未设置 max 时保持无上限,不把 `-1` 哨兵带入矩形交集。
+- **Text 例外**:`line-spacing` 仍依赖祖先继承,保留其主动监听;其余 Text 属性转为被动。`StyleSelectors`、`StyleSheet` 的计算属性不在本任务范围,仍为主动监听。
+- **实测(临时探针,加载完整样式)**:主窗口 1280x720(122 个实际节点)Property 监听注册 9043 → 3957(−56%);设置 680x900(166 个节点)12004 → 3799(−68%)。owner 状态监听为 389/554(约 3.2/节点),BoxModel 监听 122/166(1/节点);不设固定 listener 总数或零开销承诺。探针与计数宏在记录后移除。
+- **验证**:Windows Debug app/tests 构建通过;默认 `ctest` 通过(28.0 s);`JiveCoreValues` 64 项断言全部通过,新增 `setProperty` 驱动路径覆盖 enabled/opacity/toggled/width、Text、Slider、ComboBox、ProgressBar;既有 `LayoutGoldenTest` 391、`StyleCatalog` 176、`ViewHost` 35、`JiveRender` 13、`JiveModalDialog` 417、`SettingsLayoutModel` 66、`JiveTeardownOrder` 24、`ComboRebuild` 7、`FilterComboDefault` 8、`FilterComboVisibilityAdaptation` 14、`PresetComboRebuild` 9、`PluginPanelToggle` 34 全部通过。
+- **未覆盖**:windows-mcp 真实表面验收、语言切换与绑定色板仍按 1.4 在阶段出口执行;本任务不重测音频/插件矩阵。
+
+## 2. 后续候选阶段(暂缓)
 
 ### Phase 40：同音弦耦合、双阶段衰减与 Una Corda 深化
 

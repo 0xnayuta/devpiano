@@ -10,9 +10,10 @@
 #include "jive_GuiItemDecorator.h"
 
 namespace jive {
-class Slider : public GuiItemDecorator, private juce::Slider::Listener {
+class Slider : public GuiItemDecorator, private juce::Slider::Listener, private juce::ValueTree::Listener {
 public:
     explicit Slider(std::unique_ptr<GuiItem> itemToDecorate);
+    ~Slider() override;
 
     bool isContainer() const override;
 
@@ -30,26 +31,27 @@ protected:
 
 private:
     void sliderValueChanged(juce::Slider* slider) override;
+    void valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& property) final;
 
     virtual juce::Slider::SliderStyle getStyleForOrientation(Orientation orientation);
 
     void updateRange();
 
-    Property<juce::String> value;
-    Property<juce::String> min;
-    Property<juce::String> max;
-    Property<juce::String> mid;
-    Property<juce::String> interval;
-    Property<Orientation> orientation;
-    Property<Length> width;
-    Property<Length> height;
-    Property<double> sensitivity;
-    Property<bool> isInVelocityMode;
-    Property<double> velocitySensitivity;
-    Property<int> velocityThreshold;
-    Property<double> velocityOffset;
-    Property<bool> snapToMouse;
-    Property<bool> focusable;
+    PassiveProperty<juce::String> value;
+    PassiveProperty<juce::String> min;
+    PassiveProperty<juce::String> max;
+    PassiveProperty<juce::String> mid;
+    PassiveProperty<juce::String> interval;
+    PassiveProperty<Orientation> orientation;
+    PassiveProperty<Length> width;
+    PassiveProperty<Length> height;
+    PassiveProperty<double> sensitivity;
+    PassiveProperty<bool> isInVelocityMode;
+    PassiveProperty<double> velocitySensitivity;
+    PassiveProperty<int> velocityThreshold;
+    PassiveProperty<double> velocityOffset;
+    PassiveProperty<bool> snapToMouse;
+    PassiveProperty<bool> focusable;
 
 #if JIVE_IS_PLUGIN_PROJECT
     std::unique_ptr<juce::SliderParameterAttachment> parameterAttachment;

@@ -10,9 +10,10 @@
 #include "jive_GuiItemDecorator.h"
 
 namespace jive {
-class ComboBox : public GuiItemDecorator, private juce::ComboBox::Listener {
+class ComboBox : public GuiItemDecorator, private juce::ComboBox::Listener, private juce::ValueTree::Listener {
 public:
     explicit ComboBox(std::unique_ptr<GuiItem> itemToDecorate);
+    ~ComboBox() override;
 
     bool isContainer() const override;
 
@@ -25,13 +26,14 @@ public:
 
 private:
     void comboBoxChanged(juce::ComboBox* box) final;
+    void valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& property) final;
 
-    Property<bool> editable;
-    Property<juce::String> tooltip;
-    Property<int> selected;
-    Property<Length> width;
-    Property<Length> height;
-    Property<bool> focusable;
+    PassiveProperty<bool> editable;
+    PassiveProperty<juce::String> tooltip;
+    PassiveProperty<int> selected;
+    PassiveProperty<Length> width;
+    PassiveProperty<Length> height;
+    PassiveProperty<bool> focusable;
 
 #if JIVE_IS_PLUGIN_PROJECT
     std::unique_ptr<juce::ComboBoxParameterAttachment> parameterAttachment;

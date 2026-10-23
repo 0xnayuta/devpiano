@@ -10,7 +10,10 @@
 #include "jive_GuiItemDecorator.h"
 
 namespace jive {
-class Button : public GuiItemDecorator, private juce::Button::Listener, private juce::ComponentListener {
+class Button : public GuiItemDecorator,
+               private juce::Button::Listener,
+               private juce::ComponentListener,
+               private juce::ValueTree::Listener {
 public:
     enum class TriggerEvent { mouseUp, mouseDown };
 
@@ -27,20 +30,21 @@ public:
 private:
     void buttonClicked(juce::Button* button) final;
     void componentParentHierarchyChanged(juce::Component& component) final;
+    void valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& property) final;
 
-    Property<bool> toggleable;
-    Property<bool> toggled;
-    Property<bool> toggleOnClick;
-    Property<int> radioGroup;
-    Property<TriggerEvent> triggerEvent;
-    Property<juce::String> tooltip;
-    Property<juce::String, Inheritance::doNotInherit, Accumulation::accumulate> text;
-    Property<juce::FlexBox::Direction> flexDirection;
-    Property<juce::FlexBox::JustifyContent> justifyContent;
-    Property<juce::BorderSize<float>> padding;
-    Property<float> minWidth;
-    Property<float> minHeight;
-    Property<bool> focusable;
+    PassiveProperty<bool> toggleable;
+    PassiveProperty<bool> toggled;
+    PassiveProperty<bool> toggleOnClick;
+    PassiveProperty<int> radioGroup;
+    PassiveProperty<TriggerEvent> triggerEvent;
+    PassiveProperty<juce::String> tooltip;
+    PassiveProperty<juce::String, Accumulation::accumulate> text;
+    PassiveProperty<juce::FlexBox::Direction> flexDirection;
+    PassiveProperty<juce::FlexBox::JustifyContent> justifyContent;
+    PassiveProperty<juce::BorderSize<float>> padding;
+    PassiveProperty<float> minWidth;
+    PassiveProperty<float> minHeight;
+    PassiveProperty<bool> focusable;
 
 #if JIVE_IS_PLUGIN_PROJECT
     std::unique_ptr<juce::ButtonParameterAttachment> parameterAttachment;

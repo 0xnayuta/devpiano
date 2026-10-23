@@ -79,11 +79,19 @@ Button::Button(std::unique_ptr<GuiItem> itemToDecorate)
 
     getButton().addListener(this);
     getButton().addComponentListener(this);
+
+    state.addListener(this);
 }
 
 Button::~Button() {
+    state.removeListener(this);
     getButton().removeComponentListener(this);
     getButton().removeListener(this);
+}
+
+void Button::valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& property) {
+    forwardPropertyChange(tree, property, toggleable, toggled, toggleOnClick, radioGroup, triggerEvent, tooltip, text,
+                          flexDirection, justifyContent, padding, minWidth, minHeight, focusable);
 }
 
 #if JIVE_IS_PLUGIN_PROJECT

@@ -12,7 +12,7 @@
 #include "jive_GuiItemDecorator.h"
 
 namespace jive {
-class Text : public GuiItemDecorator, private TextComponent::Listener {
+class Text : public GuiItemDecorator, private TextComponent::Listener, private juce::ValueTree::Listener {
 public:
     explicit Text(std::unique_ptr<GuiItem> itemToDecorate);
     ~Text() override;
@@ -32,18 +32,20 @@ public:
 
 private:
     void textFontChanged(TextComponent& text) final;
+    void valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& property) final;
 
     juce::TextLayout buildTextLayout(float maxWidth = -1.0f) const;
 
     void updateTextComponent();
 
-    Property<juce::String> text;
+    PassiveProperty<juce::String> text;
+    // line-spacing 仍需向祖先继承，保留其主动监听。
     Property<float, Inheritance::inheritFromAncestors> lineSpacing;
-    Property<juce::Justification> justification;
-    Property<juce::AttributedString::WordWrap> wordWrap;
-    Property<juce::AttributedString::ReadingDirection> direction;
-    Property<float> idealWidth;
-    Property<float> idealHeight;
+    PassiveProperty<juce::Justification> justification;
+    PassiveProperty<juce::AttributedString::WordWrap> wordWrap;
+    PassiveProperty<juce::AttributedString::ReadingDirection> direction;
+    PassiveProperty<float> idealWidth;
+    PassiveProperty<float> idealHeight;
 
 #if JIVE_IS_PLUGIN_PROJECT
     juce::RangedAudioParameter* parameter;

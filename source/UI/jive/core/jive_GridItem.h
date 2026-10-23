@@ -19,13 +19,14 @@ public:
 
 private:
     void boxModelChanged(BoxModel&) final;
+    void valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& property) override;
 
-    Property<int> order;
-    Property<juce::GridItem::JustifySelf> justifySelf;
-    Property<juce::GridItem::AlignSelf> alignSelf;
-    Property<juce::GridItem::StartAndEndProperty> gridColumn;
-    Property<juce::GridItem::StartAndEndProperty> gridRow;
-    Property<juce::String> gridArea;
+    PassiveProperty<int> order;
+    PassiveProperty<juce::GridItem::JustifySelf> justifySelf;
+    PassiveProperty<juce::GridItem::AlignSelf> alignSelf;
+    PassiveProperty<juce::GridItem::StartAndEndProperty> gridColumn;
+    PassiveProperty<juce::GridItem::StartAndEndProperty> gridRow;
+    PassiveProperty<juce::String> gridArea;
 
     const BoxModel& box { boxModel(*this) };
     std::unordered_map<ItemCacheKey, juce::GridItem> cachedItems;

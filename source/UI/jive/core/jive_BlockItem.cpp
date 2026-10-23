@@ -61,6 +61,13 @@ BlockItem::BlockItem(std::unique_ptr<GuiItem> itemToDecorate)
     updateBounds();
 }
 
+BlockItem::~BlockItem() = default;
+
+void BlockItem::valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& property) {
+    ContainerItem::Child::valueTreePropertyChanged(tree, property);
+    forwardPropertyChange(tree, property, x, y, centreX, centreY, width, height);
+}
+
 int BlockItem::calculateX() const {
     const auto parentContentBounds = boxModel(*getParent()).getContentBounds();
 

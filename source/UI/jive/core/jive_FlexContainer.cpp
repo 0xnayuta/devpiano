@@ -31,13 +31,9 @@ FlexContainer::FlexContainer(std::unique_ptr<GuiItem> itemToDecorate)
     flexJustifyContent.onValueChange = [this] { callLayoutChildrenWithRecursionLock(); };
     flexAlignItems.onValueChange = [this] { callLayoutChildrenWithRecursionLock(); };
     flexAlignContent.onValueChange = [this] { callLayoutChildrenWithRecursionLock(); };
-
-    state.addListener(this);
 }
 
-FlexContainer::~FlexContainer() {
-    state.removeListener(this);
-}
+FlexContainer::~FlexContainer() = default;
 
 void FlexContainer::layOutChildren() {
     if (layoutRecursionLock) {
@@ -114,11 +110,9 @@ static void appendChildren(GuiItem& container, juce::FlexBox& flex, juce::Rectan
 }
 
 void FlexContainer::valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& id) {
-    if (tree != state && tree.getParent() != state) {
-        return;
-    }
+    ContainerItem::valueTreePropertyChanged(tree, id);
 
-    if (layoutRecursionLock) {
+    if ((tree == state || tree.getParent() == state) && layoutRecursionLock) {
         static const juce::Array<juce::Identifier> propertiesForWhichChangesRequireAnotherLayOut {
             "ideal-width",
             "ideal-height",
@@ -128,6 +122,8 @@ void FlexContainer::valueTreePropertyChanged(juce::ValueTree& tree, const juce::
             changesDuringLayout = true;
         }
     }
+
+    forwardPropertyChange(tree, id, flexDirection, flexWrap, flexJustifyContent, flexAlignItems, flexAlignContent);
 }
 
 juce::FlexBox FlexContainer::buildFlexBox(juce::Rectangle<float> bounds, LayoutStrategy strategy) {

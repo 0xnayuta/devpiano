@@ -21,15 +21,17 @@ template <> struct hash<std::pair<juce::Rectangle<float>, jive::LayoutStrategy>>
 } // namespace std
 
 namespace jive {
-class ContainerItem : public GuiItemDecorator, private BoxModel::Listener {
+class ContainerItem : public GuiItemDecorator, protected juce::ValueTree::Listener, private BoxModel::Listener {
 public:
-    class Child : public GuiItemDecorator, private juce::ComponentListener {
+    class Child : public GuiItemDecorator, private juce::ComponentListener, protected juce::ValueTree::Listener {
     public:
         explicit Child(std::unique_ptr<GuiItem> itemToDecorate);
         ~Child() override;
 
     protected:
-        using ItemCacheKey = std::pair<juce::Rectangle<float>, jive::LayoutStrategy>;
+        using ItemCacheKey = std::pair<juce::Rectangle<float>, LayoutStrategy>;
+
+        void valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& property) override;
 
         void applyConstraints(
             std::variant<std::reference_wrapper<juce::FlexItem>, std::reference_wrapper<juce::GridItem>> flexOrGridItem,
@@ -41,8 +43,8 @@ public:
         class Pimpl;
         const std::unique_ptr<Pimpl> pimpl;
 
-        Property<float> idealWidth;
-        Property<float> idealHeight;
+        PassiveProperty<float> idealWidth;
+        PassiveProperty<float> idealHeight;
     };
 
     explicit ContainerItem(std::unique_ptr<GuiItem> itemToDecorate);
@@ -57,11 +59,13 @@ public:
 protected:
     virtual juce::Rectangle<float> calculateIdealSize(juce::Rectangle<float> constraints) const = 0;
 
+    void valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& property) override;
+
 private:
     void updateIdealSize(juce::Rectangle<float> constraints);
 
     BoxModel& box;
-    Property<float> idealWidth;
-    Property<float> idealHeight;
+    PassiveProperty<float> idealWidth;
+    PassiveProperty<float> idealHeight;
 };
 } // namespace jive

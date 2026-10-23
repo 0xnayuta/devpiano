@@ -46,10 +46,16 @@ Text::Text(std::unique_ptr<GuiItem> itemToDecorate)
 
     updateTextComponent();
     getTextComponent().addListener(*this);
+    state.addListener(this);
 }
 
 Text::~Text() {
+    state.removeListener(this);
     getTextComponent().removeListener(*this);
+}
+
+void Text::valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& property) {
+    forwardPropertyChange(tree, property, text, justification, wordWrap, direction, idealWidth, idealHeight);
 }
 
 void Text::insertChild(std::unique_ptr<GuiItem> child, int index) {
