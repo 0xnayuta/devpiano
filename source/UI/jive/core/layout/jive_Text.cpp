@@ -132,11 +132,18 @@ void Text::updateTextComponent() {
         = getTextComponent().getTextLayout(static_cast<float>(std::numeric_limits<juce::uint16>::max()));
     const juce::Point naturalSize { naturalLayout.getWidth(), naturalLayout.getHeight() };
     const auto currentLineSpacing = lineSpacing.get();
+    const auto currentWordWrap = wordWrap.get();
+    const auto currentDirection = direction.get();
+    // 自然尺寸在 65535 宽度下可能不变，但固定宽度下的换行结果会因
+    // word-wrap/direction 改变；这些输入必须触发父容器重新测高。
     const auto measurementsChanged = !juce::exactlyEqual(naturalSize.x, previousNaturalSize.x)
         || !juce::exactlyEqual(naturalSize.y, previousNaturalSize.y)
-        || !juce::exactlyEqual(currentLineSpacing, previousLineSpacing);
+        || !juce::exactlyEqual(currentLineSpacing, previousLineSpacing) || currentWordWrap != previousWordWrap
+        || currentDirection != previousDirection;
     previousNaturalSize = naturalSize;
     previousLineSpacing = currentLineSpacing;
+    previousWordWrap = currentWordWrap;
+    previousDirection = currentDirection;
 
     idealWidth = nextWholeNumberAbove(naturalSize.x);
 

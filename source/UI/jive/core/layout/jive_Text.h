@@ -46,6 +46,8 @@ private:
     PassiveProperty<float> idealHeight;
     juce::Point<float> previousNaturalSize { -1.0f, -1.0f };
     float previousLineSpacing = -1.0f;
+    juce::AttributedString::WordWrap previousWordWrap = juce::AttributedString::WordWrap::byWord;
+    juce::AttributedString::ReadingDirection previousDirection = juce::AttributedString::ReadingDirection::natural;
 
 #if JIVE_IS_PLUGIN_PROJECT
     juce::RangedAudioParameter* parameter;
