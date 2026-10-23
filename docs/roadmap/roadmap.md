@@ -16,7 +16,7 @@ devpiano 是一款基于 JUCE 的现代 C++ 电脑键盘钢琴应用，聚焦软
 - 旧配置系统 -> `ApplicationProperties` / `ValueTree` / 项目内状态模型。
 - 旧 fallback 简单发声 -> 覆盖 7 大声学子系统的自主研发增强物理建模钢琴音源（`PianoSynthVoice`）。
 
-**近期状态：内置钢琴音源结构整理（R0–R11）已完成并归档** [2026-10-23]；Phase 39 已冻结并归档（Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过）；Phase 40–42 及后续声学能力全部暂缓，恢复须由用户明确决定。R0–R11 历史见 [结构整理归档](../archive/r0-r11-physical-piano-source-refactor.md)，Phase 39 历史见 [声学基线归档](../archive/phase39-acoustic-baseline-and-voicing-calibration.md)；当前候选阶段见 [当前迭代](current-iteration.md)。
+**近期状态：内置钢琴音源结构整理（R0–R11）已完成并归档** [2026-10-23]；Phase 39 已冻结并归档（Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过）；**Phase 39.5（JIVE 内核精简与 JIVE v2 精准移植）是下一候选 UI 基础设施阶段，未启动**；Phase 40–42 及后续声学能力仍暂缓，恢复须由用户明确决定。R0–R11 历史见 [结构整理归档](../archive/r0-r11-physical-piano-source-refactor.md)，Phase 39 历史见 [声学基线归档](../archive/phase39-acoustic-baseline-and-voicing-calibration.md)；Phase 39.5 的任务拆分、事实核查与验证门禁见 [当前迭代](current-iteration.md)。
 
 **最近软件交付：Phase 38 电脑键盘分区、三踏板与固定双层** [软件交付完成，2026-10-10]；Phase 37 [已完成，2026-10-08]。原任务、直接消费者、失败记录和后续修复归属见 [Phase 37/38 完成归档](../archive/phase37-38-piano-calibration-and-keyboard-performance.md)。CPU SLA 与商业厂商/物理硬件补验不由 Debug 门禁或本次归档认证；Phase 36 归档与 AUDIT-004 实机边界保持独立。
 
@@ -382,7 +382,21 @@ Phase 35 原计划与完成勾选见 [完成计划归档](../archive/phase35-key
 
 Phase 39 的输入事实、Task 39-1/39-A/39-2/39-3/39-4/39-5 实施记录、失败候选、直接验收、依赖排期与证据边界已归档到 [Phase 39 历史归档](../archive/phase39-acoustic-baseline-and-voicing-calibration.md)。结论保持：Task 39-2 的外部参考直接验收仍为 **inconclusive**，Phase 39 不记为通过；已消费的资格、采集和判决不重放、不补批或放宽。后续外部参考校准须另立任务，现行行为以 [内置音源](../reference/features/builtin-piano-synthesis.md) 为准。
 
-> **规划冻结（2026-10-22）**：Phase 40、41、42 及“近期不排期”内容保留为未来候选，当前不实施、不排期、不作为内置钢琴结构整理的前置条件。恢复须由用户明确决定；不得因 R0/R1 的结构工作自动启动或视为进入条件已满足。
+> **规划冻结（2026-10-22）**：Phase 40、41、42 及“近期不排期”内容保留为未来候选，当前不实施、不排期、不作为内置钢琴结构整理的前置条件。恢复须由用户明确决定；不得因 R0/R1 的结构工作自动启动或视为进入条件已满足。Phase 39.5 为 UI 基础设施候选，不属于上述声学阶段冻结范围。
+
+### Phase 39.5：JIVE 内核精简与 JIVE v2 精准移植 [候选，未启动]
+
+目标：按当前产品消费者先精简内化运行时，再选择性移植 JIVE v2 的值/属性、布局与文本实现，最后整理目录。保持 `ViewHost` 业务门面、本地样式系统和主窗口显式收缩契约；不恢复外部子模块，不扩建动态 DOM。本阶段不改变 Phase 39 结论，也不作为 Phase 40–42 的进入条件。
+
+1. **Task 39.5-1（基线与闭包精简）**：修改前记录几何与性能基线；整闭包清除 Find、诊断 StringStreams、JIVE Label、Event、View/PassiveView、未用解释器扩展/结构监听和重复 Remover，以及无生产消费者的 ComboBox Option/Header/Separator 树协议；保留原生 JUCE 回调、条目管理、状态同步与组件工厂。
+2. **Task 39.5-2（值/属性安全切换）**：标识符先行，完整升级 transition 所有权与删除通知、Object 解析构造、PassiveProperty 分发和 Length 全部成员/调用方。held-object 观察必须与**本地 StyleSheet 的私有计算状态隔离**一起落地，避免 `calculated-*` 写回形成同步递归。
+3. **Task 39.5-3（集中监听与 BoxModel）**：覆盖保留的通用节点、布局子项及 widget，不把 Widget 层留为可选；复用既有回调，删除 ValueTree 锁属性与临时主动属性查询，维护真实约束失效路径；不承诺未经量测的 listener 总数或降幅。
+4. **Task 39.5-4（布局、缓存与独立行为修复）**：构建守卫、脏标记、派生通知与 `ViewHost::fitToContent/relayoutContainer` 同步切换；完善 Item/TextLayout 有界缓存和完整失效。保留显式 flex-shrink/min/max，不全局锁定固定尺寸；Flex gap 单列为绑定弹窗色板的行为修复，消除 Clear margin 双计并验收实际表面。
+5. **Task 39.5-5（目录归位与集成）**：完成 `values/geometry/style/layout` 四个职责目录的纯结构重组，更新 include、聚合头与 app/tests 共享 CMake 源列表；实现验证后同步功能契约、简短 changelog、ADR-014 现行边界及 v2 部分移植的许可证来源。目录整理不是可选性能优化。
+
+**明确不移植**：整套上游 StyleSheet/LookAndFeel、SourceFile/FileObserver、外部 XML/JSON 热重载、逐节点文件本地化、选择器/字体/渐变语法改义与内部布局属性前缀改名。保留本地圆角更新修复及无正则 TimeParser；Length 仅保留 px/%，删除未用 em/rem。默认控件行为保持，默认值写回按真实读取依赖处理，不以内部注册或测试自造输入替未用能力保留实现。
+
+**状态与验收**：候选，未启动。按可编译的完整依赖闭包推进；Windows Debug app/tests、默认 CTest、按实际注册名执行的定向风险回归及 windows-mcp 实际 UI 均须有证据。现行规划的错误裁决、固定上游参考提交、阶段出口与失败处置只在 [当前迭代](current-iteration.md) 维护；不把本次复审写成实现完成或性能认证。
 
 ### Phase 40：同音弦耦合、双阶段衰减与 Una Corda 深化[暂缓：2026-10-22 起，恢复须用户明确决定]
 
