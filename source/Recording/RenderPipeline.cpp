@@ -1,5 +1,6 @@
 #include "Recording/RenderPipeline.h"
 
+#include "Audio/OrderedMidi.h"
 #include "Audio/PianoSynthVoice.h"
 #include "Audio/SineSynthVoice.h"
 #include "Audio/TemperamentEngine.h"
@@ -113,6 +114,20 @@ void addPanicMidi(juce::MidiBuffer& midiBuffer, int sampleOffset) noexcept {
         midiBuffer.addEvent(juce::MidiMessage::allNotesOff(channel), sampleOffset);
     }
 }
+
+void appendNormalTakeEndMidi(juce::MidiBuffer& midiBuffer, int sampleOffset,
+                             devpiano::audio::PlaybackIdentityTracker& tracker) noexcept {
+    tracker.appendActiveNoteOffs(midiBuffer, sampleOffset);
+    for (auto channel = 1; channel <= 16; ++channel) {
+        devpiano::audio::appendOrderedMidi(midiBuffer, juce::MidiMessage::controllerEvent(channel, 64, 0),
+                                           sampleOffset);
+        devpiano::audio::appendOrderedMidi(midiBuffer, juce::MidiMessage::controllerEvent(channel, 66, 0),
+                                           sampleOffset);
+        devpiano::audio::appendOrderedMidi(midiBuffer, juce::MidiMessage::controllerEvent(channel, 67, 0),
+                                           sampleOffset);
+    }
+}
+
 void applyAcousticSnapshotToBuiltin(devpiano::audio::BuiltinSynthesiser& pianoSynth,
                                     devpiano::audio::BuiltinSynthesiser& sineSynth,
                                     devpiano::audio::BuiltinSynthesiser*& activeSynth,

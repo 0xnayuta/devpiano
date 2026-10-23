@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+### Fixed
+
+- **WAV Take-End Release** — replace the automatic end-of-take All Sound Off panic in both WAV exporters with identity-tracked NoteOffs and CC64/66/67 pedal release. The fixed 2.0-second tail window, explicit in-take panic, and layer/endpoint hard stops are unchanged; over-window tails can still truncate at file end.
+
 ## [1.4.0] - 2026-10-21
 
 Performance practice tools, fixed dual-instrument layers, keyboard zones and three-pedal control, calibrated piano tuning and voicing, and current-format persistence hardening.

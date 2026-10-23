@@ -21,6 +21,7 @@ namespace devpiano::exporting {
 namespace {
 
 using devpiano::recording::addPanicMidi;
+using devpiano::recording::appendNormalTakeEndMidi;
 using devpiano::recording::applyAcousticSnapshotToBuiltin;
 using devpiano::recording::applyAcousticSnapshotToReverbAndGain;
 using devpiano::recording::hasUsableRenderOptions;
@@ -176,7 +177,7 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
     juce::AudioBuffer<float> monoOutput;
 
     std::size_t eventIndex = 0;
-    auto allNotesOffSent = false;
+    auto normalEndSent = false;
     devpiano::audio::RoomReverbEngine roomReverb;
     roomReverb.setSpace(options.reverbSpace);
     roomReverb.setWetLevel(options.reverbWet);
@@ -286,11 +287,10 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
                 ++eventIndex;
             }
 
-            if (!allNotesOffSent && scaledTakeLength >= segAbsStart && scaledTakeLength < segAbsEnd) {
+            if (!normalEndSent && scaledTakeLength >= segAbsStart && scaledTakeLength < segAbsEnd) {
                 const auto offset = juce::jlimit(0, segLen - 1, static_cast<int>(scaledTakeLength - segAbsStart));
-                addPanicMidi(segmentMidiBuffer, offset);
-                identityTracker.resetOwnership();
-                allNotesOffSent = true;
+                appendNormalTakeEndMidi(segmentMidiBuffer, offset, identityTracker);
+                normalEndSent = true;
             }
             juce::AudioBuffer<float> segmentOutputBuffer(outputBuffer.getArrayOfWritePointers(), renderChannels,
                                                          segStart, segLen);

@@ -25,6 +25,7 @@ public:
         testStealDoesNotTruncateOwner();
         testNoteOnDoesNotRetrigger();
         testMultiChannelAggregationAndSequence();
+        testAllChannelNormalEndOffsDoNotRetriggerOwner();
         testSameSampleOrdering();
         testCc120Scope();
         testCc121Scope();
@@ -201,6 +202,39 @@ private:
         up(f.synth, 1);
         expect(!f.synth.isSustainPedalDown(1));
         expect(f.synth.isPedalAcousticsActive(), "final up must produce a release tail");
+    }
+
+    void testAllChannelNormalEndOffsDoNotRetriggerOwner() {
+        beginTest("Normal take-end pedal Offs aggregate once and repeated Offs do not retrigger the owner");
+        Fixture f;
+        down(f.synth, 1);
+        down(f.synth, 2);
+        f.synth.noteOn(1, 60, 0.8f);
+        f.synth.noteOn(2, 64, 0.8f);
+        f.render();
+        f.synth.noteOff(1, 60, 0.0f, true);
+        f.synth.noteOff(2, 64, 0.0f, true);
+        f.render();
+
+        juce::MidiBuffer offs;
+        for (int channel = 1; channel <= 16; ++channel) {
+            offs.addEvent(juce::MidiMessage::controllerEvent(channel, 64, 0), 0);
+            offs.addEvent(juce::MidiMessage::controllerEvent(channel, 66, 0), 0);
+            offs.addEvent(juce::MidiMessage::controllerEvent(channel, 67, 0), 0);
+        }
+        f.render(512, offs);
+        expect(!f.synth.isSustainPedalDown(1));
+        expect(!f.synth.isSustainPedalDown(2));
+        expect(f.synth.isPedalAcousticsActive(), "final aggregate up must leave a release tail");
+
+        const auto before = f.synth.getPedalAcoustics().mechanical.whooshSamplesRemaining;
+        for (int channel = 1; channel <= 16; ++channel) {
+            f.synth.handleController(channel, 64, 0);
+            f.synth.handleController(channel, 66, 0);
+            f.synth.handleController(channel, 67, 0);
+        }
+        expectEquals(f.synth.getPedalAcoustics().mechanical.whooshSamplesRemaining, before,
+                     "repeated Off on already-up channels must not restart the mechanical edge");
     }
 
     void testSameSampleOrdering() {
