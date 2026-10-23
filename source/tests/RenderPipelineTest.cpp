@@ -3,6 +3,8 @@
 #include "Recording/RecordingEngine.h"
 #include "Recording/RenderPipeline.h"
 
+#include <array>
+
 // =============================================================================
 // Tests for the shared offline render pipeline (AUDIT-REC-007): event
 // timestamp scaling / sorting, scaled take-length computation, and panic
@@ -179,6 +181,52 @@ public:
             expectEquals(static_cast<int>(tracker.noteOff(2, 60).outputPitch), 63);
             expectEquals(static_cast<int>(tracker.noteOff(2, 60).outputPitch), 65);
             expect(!tracker.noteOff(2, 60).matched);
+        });
+
+        testCase("active note-off drain releases final holders and is reusable", [&] {
+            devpiano::audio::PlaybackIdentityTracker tracker;
+            expect(tracker.noteOn(1, 60, 60).has_value());
+            expect(tracker.noteOn(1, 60, 60).has_value());
+            expect(tracker.noteOn(1, 64, 65).has_value());
+            expect(tracker.noteOn(1, 62, 62).has_value());
+            expect(tracker.noteOn(2, 60, 70).has_value());
+
+            juce::MidiBuffer notes;
+            tracker.appendActiveNoteOffs(notes, 7);
+            std::array<int, 4> counts {};
+            for (const auto metadata : notes) {
+                const auto message = metadata.getMessage();
+                expect(message.isNoteOff());
+                expectEquals(metadata.samplePosition, 7);
+                if (message.getChannel() == 1 && message.getNoteNumber() == 60) {
+                    ++counts[0];
+                } else if (message.getChannel() == 1 && message.getNoteNumber() == 62) {
+                    ++counts[1];
+                } else if (message.getChannel() == 1 && message.getNoteNumber() == 65) {
+                    ++counts[2];
+                } else if (message.getChannel() == 2 && message.getNoteNumber() == 70) {
+                    ++counts[3];
+                }
+            }
+            expectEquals(counts[0], 1, "duplicate source notes must emit only at the final holder");
+            expectEquals(counts[1], 1);
+            expectEquals(counts[2], 1);
+            expectEquals(counts[3], 1);
+            expectEquals(notes.getNumEvents(), 4);
+
+            notes.clear();
+            tracker.appendActiveNoteOffs(notes, 9);
+            expect(notes.isEmpty(), "a second drain must not emit duplicate NoteOffs");
+
+            const auto reused = tracker.noteOn(1, 70, 71);
+            expect(reused.has_value(), "drained nodes must be reusable");
+            notes.clear();
+            tracker.appendActiveNoteOffs(notes, 11);
+            expectEquals(notes.getNumEvents(), 1);
+            for (const auto metadata : notes) {
+                expectEquals(metadata.getMessage().getNoteNumber(), 71);
+                expectEquals(metadata.samplePosition, 11);
+            }
         });
 
         testCase("playback identity tracker locks transposed pitch and releases it regardless of subsequent offset",

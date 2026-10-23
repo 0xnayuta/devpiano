@@ -38,6 +38,8 @@ struct RenderTimeline {
                                                                   double tailSeconds);
 
 void addPanicMidi(juce::MidiBuffer& midiBuffer, int sampleOffset) noexcept;
+void appendNormalTakeEndMidi(juce::MidiBuffer& midiBuffer, int sampleOffset,
+                             devpiano::audio::PlaybackIdentityTracker& tracker) noexcept;
 
 void applyAcousticSnapshotToBuiltin(devpiano::audio::BuiltinSynthesiser& pianoSynth,
                                     devpiano::audio::BuiltinSynthesiser& sineSynth,

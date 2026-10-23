@@ -1,5 +1,6 @@
 #include "Recording/RenderPipeline.h"
 
+#include "Audio/OrderedMidi.h"
 #include "Audio/PianoSynthVoice.h"
 #include "Audio/SineSynthVoice.h"
 #include "Audio/TemperamentEngine.h"
@@ -25,7 +26,9 @@ bool isAcousticSnapshotValid(const devpiano::audio::AcousticSnapshot& acoustic) 
 bool hasUsableRenderOptions(const devpiano::exporting::WavExportOptions& options) noexcept {
     return isSupportedTimelineSampleRate(options.sampleRate) && options.numChannels > 0 && options.blockSize > 0
         && options.bitsPerSample > 0 && std::isfinite(options.layers.pianoGain)
-        && std::isfinite(options.layers.pluginGain) && devpiano::audio::isValidHammerVoicing(options.hammerVoicing);
+        && std::isfinite(options.layers.pluginGain) && devpiano::audio::isValidHammerVoicing(options.hammerVoicing)
+        && std::isfinite(options.tailSeconds) && options.tailSeconds >= devpiano::exporting::kMinWavTailSeconds
+        && options.tailSeconds <= devpiano::exporting::kMaxWavTailSeconds;
 }
 
 std::optional<RenderTimeline> prepareRenderTimeline(const RecordingTake& take, double targetSampleRate,
@@ -113,6 +116,20 @@ void addPanicMidi(juce::MidiBuffer& midiBuffer, int sampleOffset) noexcept {
         midiBuffer.addEvent(juce::MidiMessage::allNotesOff(channel), sampleOffset);
     }
 }
+
+void appendNormalTakeEndMidi(juce::MidiBuffer& midiBuffer, int sampleOffset,
+                             devpiano::audio::PlaybackIdentityTracker& tracker) noexcept {
+    tracker.appendActiveNoteOffs(midiBuffer, sampleOffset);
+    for (auto channel = 1; channel <= 16; ++channel) {
+        devpiano::audio::appendOrderedMidi(midiBuffer, juce::MidiMessage::controllerEvent(channel, 64, 0),
+                                           sampleOffset);
+        devpiano::audio::appendOrderedMidi(midiBuffer, juce::MidiMessage::controllerEvent(channel, 66, 0),
+                                           sampleOffset);
+        devpiano::audio::appendOrderedMidi(midiBuffer, juce::MidiMessage::controllerEvent(channel, 67, 0),
+                                           sampleOffset);
+    }
+}
+
 void applyAcousticSnapshotToBuiltin(devpiano::audio::BuiltinSynthesiser& pianoSynth,
                                     devpiano::audio::BuiltinSynthesiser& sineSynth,
                                     devpiano::audio::BuiltinSynthesiser*& activeSynth,

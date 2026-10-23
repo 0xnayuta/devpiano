@@ -18,9 +18,7 @@
 
 namespace devpiano::exporting {
 namespace {
-constexpr auto wavTailSeconds = 2.0;
-
-using devpiano::recording::addPanicMidi;
+using devpiano::recording::appendNormalTakeEndMidi;
 using devpiano::recording::applyAcousticSnapshotToBuiltin;
 using devpiano::recording::hasUsableRenderOptions;
 using devpiano::recording::initialiseOfflineSynths;
@@ -46,7 +44,7 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
         return false;
     }
 
-    auto timeline = prepareRenderTimeline(take, options.sampleRate, wavTailSeconds);
+    auto timeline = prepareRenderTimeline(take, options.sampleRate, options.tailSeconds);
     if (!timeline.has_value()) {
         DP_LOG_ERROR("[Export] WAV export rejected: invalid or unrepresentable timeline");
         return false;
@@ -125,7 +123,7 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
     auto* previousSynth = activeSynth;
 
     std::size_t eventIndex = 0;
-    auto panicSent = false;
+    auto normalEndSent = false;
 
     for (std::int64_t blockStart = 0; blockStart < totalSamples;) {
         if (progressCallback
@@ -223,11 +221,10 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
                 ++eventIndex;
             }
 
-            if (!panicSent && scaledTakeLength >= segAbsStart && scaledTakeLength < segAbsEnd) {
+            if (!normalEndSent && scaledTakeLength >= segAbsStart && scaledTakeLength < segAbsEnd) {
                 const auto offset = juce::jlimit(0, segLen - 1, static_cast<int>(scaledTakeLength - segAbsStart));
-                addPanicMidi(segmentMidiBuffer, offset);
-                identityTracker.resetOwnership();
-                panicSent = true;
+                appendNormalTakeEndMidi(segmentMidiBuffer, offset, identityTracker);
+                normalEndSent = true;
             }
             juce::AudioBuffer<float> segmentAudioBuffer(audioBuffer.getArrayOfWritePointers(), renderChannels, segStart,
                                                         segLen);

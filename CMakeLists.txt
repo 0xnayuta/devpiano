@@ -594,6 +594,8 @@ if (BUILD_TESTS)
         source/tests/AudioEngineTest.cpp
         source/tests/PerformanceFileTest.cpp
         source/tests/RenderPipelineTest.cpp
+        source/tests/ExportTailEndTest.cpp
+        source/tests/ExportTailDurationTest.cpp
         source/tests/StyleCatalogTest.cpp
         source/tests/PathEditorReproTest.cpp
         source/tests/RecordingSessionControllerTest.cpp

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Audio/OrderedMidi.h"
+
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -162,6 +164,26 @@ struct PlaybackIdentityTracker {
         }
 
         return { outPitch, shouldEmit, true };
+    }
+
+    // Emits one NoteOff per channel/output-pitch holder that is still active.
+    // The existing queues and output holders remain the only mutable truth.
+    void appendActiveNoteOffs(juce::MidiBuffer& buffer, int sampleOffset) noexcept {
+        for (auto channel = 1; channel <= 16; ++channel) {
+            for (auto pitch = 0; pitch < 128; ++pitch) {
+                for (;;) {
+                    const auto result = noteOff(channel, pitch);
+                    if (!result.matched) {
+                        break;
+                    }
+                    if (result.shouldEmit) {
+                        appendOrderedMidi(
+                            buffer, juce::MidiMessage::noteOff(channel, static_cast<int>(result.outputPitch), 0.0f),
+                            sampleOffset);
+                    }
+                }
+            }
+        }
     }
 };
 
