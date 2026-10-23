@@ -2,7 +2,7 @@
 
 > 用途：维护当前候选阶段、恢复条件与实施顺序；项目状态和长期阶段顺序以 [roadmap](roadmap.md) 为准。
 > 归档口径：Phase 39 与 R0–R11 的任务、实施记录、验收、失败历史和证据已迁入 `docs/archive/`。本页不重复维护历史状态，也不把归档记录当作当前默认或已通过结论。
-> 当前状态：Phase 39.5（JIVE 内核精简与 JIVE v2 精准移植）**已完成（2026-10-23）**：39.5-1（基线与未用能力闭包精简）、39.5-2（属性、对象与 Length 安全切换）、39.5-3（集中属性分发与 BoxModel 去污染）、39.5-4a/4b/4c/4d（构建守卫与脏标记、Item 缓存失效、TextLayout 缓存、Flex gap 修复）与 39.5-5（目录归位与最终集成）全部完成；用户人工表面验收确认无明显问题，Windows Debug app/tests、默认 CTest 与修复后的增量 clang-tidy 通过。Phase 39 已冻结，Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过；R0–R11 已完成并归档；Phase 40–42 及后续声学能力仍暂缓，恢复须由用户明确决定；E3 有限尾音维护任务保持独立，不受本阶段影响。
+> 当前状态：Phase 39.5（JIVE 内核精简与 JIVE v2 精准移植）**已完成（2026-10-23）**：39.5-1（基线与未用能力闭包精简）、39.5-2（属性、对象与 Length 安全切换）、39.5-3（集中属性分发与 BoxModel 去污染）、39.5-4a/4b/4c/4d（构建守卫与脏标记、Item 缓存失效、TextLayout 缓存、Flex gap 修复）与 39.5-5（目录归位与最终集成）全部完成；用户人工表面验收确认无明显问题，Windows Debug app/tests、默认 CTest 与修复后的增量 clang-tidy 通过；随后独立复审发现 2 个 P1 与 8 个 P2，已按 1.14 修复并重新验证。Phase 39 已冻结，Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过；R0–R11 已完成并归档；Phase 40–42 及后续声学能力仍暂缓，恢复须由用户明确决定；E3 有限尾音维护任务保持独立，不受本阶段影响。
 
 ## 0. 归档入口
 
@@ -206,6 +206,24 @@
 - **验证**:按用户要求,修复后未重复全量扫描,只对受影响 TU(`jive_Text.cpp`、`jive_BoxModel.cpp`,覆盖 `jive_Property.h`)执行增量 `tidy`,通过;Windows Debug app/tests 构建通过;默认 CTest 通过(26.9 s);工作区无残留改动。
 - **人工验收**:用户对主窗口收缩、设置语言切换、绑定色板、长消息、折叠与正常关闭等表面完成人工测试,确认无明显问题;本文不虚构逐项截图或硬件/商业插件矩阵结论。
 - **阶段结论**:Phase 39.5 的 39.5-1 至 39.5-5、静态检查修复与用户人工表面验收均已完成,阶段收口;未覆盖项仅为真实硬件设备与商业插件矩阵,不属于本阶段退出条件。
+
+### 1.14 Phase 39.5 独立复审修复(2026-10-23)
+
+独立复审对 `main` 相对 `remotes/origin/main` 的 126 文件变更执行 16 切片审查与 Windows Debug 隔离探针复核,确认 2 个 P1 与 8 个 P2;全部修复后复验。
+
+- **P1 内存安全**:
+  - `Property` 字符串 transition 容器在 progress 回调销毁 owner 时被释放;`Transitions::updateTransitions()` 在派发期间持有强引用,回调返回后不再写已释放状态。隔离探针由 `0xC0000005` 退出恢复为正常返回。
+  - `Object::syncNestedObjects()` 在删除/替换唯一拥有的嵌套对象后解引用已释放子对象;子对象析构时从父对象的裸指针集合注销,父对象析构时提前断开父链。新增无外部引用删除/替换回归。
+- **P2 行为与清理**:
+  - 移除/替换活动 transition 后显式通知消费者最终值;真实 `ViewHost` alpha 由永久 `0.705882` 恢复为 `0`。
+  - 所有 BoxModel 几何输入(含 margin/width/height/padding/border 过渡 tick)推进 `constraintsVersion`;Flex/Grid 缓存复测为最终 `80` 而非中间 `16`。
+  - 容器约束与父内容约束按零原点相交;padding 场景嵌套高度由 `178` 修正为 `161`。
+  - 收缩容器按实际内容区宽度重测并通知父级;shrink 场景高度由 `18` 修正为 `36`。
+  - `Text` 将 `word-wrap`/`reading-direction` 纳入重排条件;`byWord`→`none` 立即由 `125` 修正为 `18`。
+  - `StyleSheet` 仅在同一 style 对象属性变更时保留 calculated/transition 状态;live mutation 由立即 snap 恢复为从旧色过渡。
+  - 删除 `FlexItem` 无条件 `fprintf` 调试残留;补齐上游 v2 的 2026 copyright。
+- **回归与验证**:新增 8 项 `JiveCoreValues` 回归(transition 移除通知、回调自毁、嵌套对象删除、动画 margin、padding/shrink 测量、word-wrap 重排、同对象样式过渡);Windows Debug `JiveCoreValues` 通过(118 项),默认 CTest 1/1 通过;真实主窗口启动/关闭冒烟通过,控件树与音频状态栏正常。
+- **阶段结论**:1.13 的收口结论仍成立,但以本节修复后的代码与验证为准;未覆盖项仍为真实硬件设备与商业插件矩阵。
 
 ## 2. 后续候选阶段(暂缓)
 
