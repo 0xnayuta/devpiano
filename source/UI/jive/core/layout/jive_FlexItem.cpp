@@ -110,10 +110,6 @@ juce::FlexItem FlexItem::toJuceFlexItem(juce::Rectangle<float> parentContentBoun
     }
 
     dynamic_cast<FlexLayoutDummy&>(*layoutDummy).setStrategy(strategy);
-    std::fprintf(stderr, "[flex] exists=%d ideal=%f bounds=%fx%f strategy=%d width=%f minWidth=%f\n",
-                 static_cast<int>(flexGrow.exists()), flexGrow.calculateCurrent(), parentContentBounds.getWidth(),
-                 parentContentBounds.getHeight(), static_cast<int>(strategy), cachedItems.find(key)->second.width,
-                 cachedItems.find(key)->second.minWidth);
     return cachedItems.find(key)->second;
 }
 
