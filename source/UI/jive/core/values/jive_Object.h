@@ -25,6 +25,7 @@ public:
     Object(const Object& other);
     Object(Object&& other) noexcept;
     Object(const juce::DynamicObject& other, Object* parent = nullptr);
+    ~Object() override;
 
     void didModifyProperty(const juce::Identifier& name, const std::optional<juce::var>& value) override;
     const juce::NamedValueSet& getProperties() const;
@@ -41,6 +42,10 @@ public:
 
 private:
     class InternalListener;
+
+    /** 子对象析构时从父对象的裸指针订阅集合中注销，避免 syncNestedObjects
+        解引用已释放的子对象。 */
+    void detachNestedObject(Object& nested);
 
     mutable juce::ListenerList<Listener> listeners;
     const std::unique_ptr<Listener> internalListener;

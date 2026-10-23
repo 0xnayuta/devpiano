@@ -30,6 +30,10 @@ public:
 
 private:
     void updateTransitions() {
+        // 回调可能销毁拥有本容器的 Property；在派发期间保活，避免
+        // 回调返回后继续写入已释放的 Transition 状态。
+        const auto keepAlive = ReferenceCountedPointer { this };
+
         for (auto& [propertyName, transition] : transitions) {
             const auto progress = transition.source == transition.target ? -1.0 : transition.calculateProgress();
             const auto inProgress = transition.duration > juce::RelativeTime {} && progress >= 0.0 && progress <= 1.0;

@@ -21,7 +21,19 @@ public:
 
         for (auto* nested : observedNested) {
             nested->removeListener(*this);
+
+            // 父对象成员先于基类属性析构；提前断开父链，避免随后销毁的
+            // 子对象回调到已经析构的 InternalListener。
+            if (nested->parent == &object) {
+                nested->parent = nullptr;
+            }
         }
+
+        observedNested.clear();
+    }
+
+    void forgetNested(Object& nested) {
+        observedNested.removeAllInstancesOf(&nested);
     }
 
     void propertyChanged(Object& objectThatChanged, const juce::Identifier& propertyName) final {
@@ -114,6 +126,20 @@ Object::Object(const juce::DynamicObject& other, Object* parentObject)
     : juce::DynamicObject { withNestedJiveObjects(other, this) }
     , internalListener { std::make_unique<InternalListener>(*this) }
     , parent { parentObject } {
+}
+
+Object::~Object() {
+    // 父对象仍存活时先注销；父对象析构期间其 InternalListener 已提前
+    // 将所有子对象的 parent 置空，因此不会回调已析构的监听器。
+    if (parent != nullptr) {
+        parent->detachNestedObject(*this);
+    }
+}
+
+void Object::detachNestedObject(Object& nested) {
+    if (internalListener != nullptr) {
+        static_cast<InternalListener*>(internalListener.get())->forgetNested(nested);
+    }
 }
 
 void Object::didModifyProperty(const juce::Identifier& propertyName, const std::optional<juce::var>& newValue) {
