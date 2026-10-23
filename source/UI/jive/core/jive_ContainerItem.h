@@ -28,6 +28,10 @@ public:
         explicit Child(std::unique_ptr<GuiItem> itemToDecorate);
         ~Child() override;
 
+        // 子项的自然尺寸可能在不改变 state 的情况下变化（例如文本重排）。
+        virtual void idealSizeChanged() {
+        }
+
     protected:
         using ItemCacheKey = std::pair<juce::Rectangle<float>, LayoutStrategy>;
 
@@ -53,8 +57,12 @@ public:
     void insertChild(std::unique_ptr<GuiItem> child, int index) override;
     void setChildren(std::vector<std::unique_ptr<GuiItem>>&& newChildren) override;
 
-    void updateIdealSizeUnrestrained();
-    void updateIdealSizeWithinConstraints();
+    void updateIdealSize(bool informParentOfChanges = true, bool measureChildren = true);
+    void invalidateIdealSize();
+    void refreshLayout();
+
+    /** 按当前组件内容区测高（fitToContent 使用，宽度由调用方先写入组件）。 */
+    void updateIdealSizeWithinContentBounds();
 
 protected:
     virtual juce::Rectangle<float> calculateIdealSize(juce::Rectangle<float> constraints) const = 0;
@@ -62,10 +70,20 @@ protected:
     void valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& property) override;
 
 private:
-    void updateIdealSize(juce::Rectangle<float> constraints);
+    void boxModelChanged(BoxModel&) final;
+    void updateIdealSizeIfOutOfDate();
+    void updateChildrensIdealSizesIfOutOfDate();
+    void applyIdealSize(juce::Rectangle<float> newIdealSize, juce::Rectangle<float> constraints, bool informParent);
+    [[nodiscard]] juce::Rectangle<float> getContentConstraints() const;
+    [[nodiscard]] bool isSetupInProgress() const;
 
     BoxModel& box;
     PassiveProperty<float> idealWidth;
     PassiveProperty<float> idealHeight;
+    juce::Rectangle<float> explicitConstraintsWhenIdealSizeWasMeasured;
+    juce::Rectangle<float> constraintsWhenIdealSizeWasMeasured;
+    bool idealSizeWasLimitedByConstraints = false;
+    bool idealSizeIsOutOfDate = true;
+    bool childrenMayBeOutOfDate = true;
 };
 } // namespace jive

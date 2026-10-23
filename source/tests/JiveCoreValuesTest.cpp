@@ -1,5 +1,6 @@
 #include <JuceHeader.h>
 
+#include "UI/KeyBindingEditDialog.h"
 #include "UI/ViewHost.h"
 #include "UI/jive/core/jive_Length.h"
 #include "UI/jive/core/jive_NormalisedProgressBar.h"
@@ -28,6 +29,7 @@ public:
         testTransitionReplacement();
         testBlockCoordinateExclusivity();
         testPassiveDispatchThroughSetProperty();
+        testFlexGapFillsBindingPalette();
         testParsedObjectParentChain();
         testStyleSheetCalculatedStateIsolation();
     }
@@ -206,6 +208,36 @@ private:
         if (bar != nullptr) {
             expectWithinAbsoluteError(bar->getValue(), 0.75, 0.001);
         }
+    }
+
+    void testFlexGapFillsBindingPalette() {
+        beginTest("Flex gap keeps the binding palette evenly filled");
+
+        auto tree = KeyBindingEditDialog::makeKeyBindingEditLayout(true);
+
+        devpiano::ui::ViewHost host;
+        host.registerDefaultComponents();
+        expect(host.loadLayout(tree, true));
+        host.fitToContent(static_cast<int>(tree.getProperty("width")));
+
+        auto* palette = host.find("custom-colour-palette");
+        auto* first = host.find("colour-btn-0");
+        auto* lastSwatch = host.find("colour-btn-7");
+        auto* clear = host.find("clear-colour-btn");
+        expect(palette != nullptr && first != nullptr && lastSwatch != nullptr && clear != nullptr);
+        if (palette == nullptr || first == nullptr || lastSwatch == nullptr || clear == nullptr) {
+            return;
+        }
+
+        const auto firstBounds = palette->getLocalArea(first, first->getLocalBounds());
+        const auto lastSwatchBounds = palette->getLocalArea(lastSwatch, lastSwatch->getLocalBounds());
+        const auto clearBounds = palette->getLocalArea(clear, clear->getLocalBounds());
+
+        expectEquals(firstBounds.getX(), 0, "the first swatch must start at the palette edge");
+        expectEquals(lastSwatchBounds.getX(), 7 * (18 + 4));
+        expectEquals(clearBounds.getX() - lastSwatchBounds.getRight(), 4, "one gap between the last swatch and Clear");
+        expectEquals(clearBounds.getWidth(), 44);
+        expectEquals(clearBounds.getRight(), palette->getWidth(), "Clear must end at the palette edge");
     }
 
     void testParsedObjectParentChain() {

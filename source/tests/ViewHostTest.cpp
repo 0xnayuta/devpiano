@@ -4,6 +4,7 @@
 #include "UI/jive/DesignTokens.h"
 #include "UI/jive/LayoutModel.h"
 #include "UI/jive/StyleCatalog.h"
+#include "UI/jive/core/jive_Identifiers.h"
 
 class ViewHostTest final : public juce::UnitTest {
 public:
@@ -16,6 +17,7 @@ public:
         devpiano::ui::DesignTokens::get().reset();
 
         testLifecycleAndBasicLayout();
+        testSetupFlagIsClearedAfterLoad();
         testReloadMoveAndExternalTreeLifetime();
         testTypedComponentLookup();
         testPropertyAccessors();
@@ -45,6 +47,36 @@ public:
 
         component->setValue(0.5, juce::sendNotificationSync);
         expectEquals(host.getProperty("probe-slider", "value").toString(), component->getTextFromValue(0.5));
+    }
+
+    void testSetupFlagIsClearedAfterLoad() {
+        beginTest("ViewHost: interpretation leaves no setup flag behind");
+
+        auto tree = devpiano::ui::jive::makePluginPanelTree();
+
+        {
+            devpiano::ui::ViewHost host;
+            host.registerDefaultComponents();
+            expect(host.loadLayout(tree, true));
+        }
+
+        juce::Array<juce::ValueTree> pending { tree };
+        auto foundSetupFlag = false;
+
+        while (!pending.isEmpty()) {
+            const auto node = pending.removeAndReturn(pending.size() - 1);
+
+            if (static_cast<bool>(node[::jive::ids::setupInProgress()])) {
+                foundSetupFlag = true;
+                break;
+            }
+
+            for (auto child : node) {
+                pending.add(child);
+            }
+        }
+
+        expect(!foundSetupFlag, "setup-in-progress must be cleared across the interpreted tree");
     }
 
     void testReloadMoveAndExternalTreeLifetime() {

@@ -2,7 +2,7 @@
 
 > 用途：维护当前候选阶段、恢复条件与实施顺序；项目状态和长期阶段顺序以 [roadmap](roadmap.md) 为准。
 > 归档口径：Phase 39 与 R0–R11 的任务、实施记录、验收、失败历史和证据已迁入 `docs/archive/`。本页不重复维护历史状态，也不把归档记录当作当前默认或已通过结论。
-> 当前状态：Phase 39.5（JIVE 内核精简与 JIVE v2 精准移植）**进行中**：39.5-1（基线与未用能力闭包精简）、39.5-2（属性、对象与 Length 安全切换）与 39.5-3（集中属性分发与 BoxModel 去污染）已完成并通过 Windows Debug 构建、默认 CTest 与定向 UI 回归；39.5-4 至 39.5-5 未启动。Phase 39 已冻结，Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过；R0–R11 已完成并归档；Phase 40–42 及后续声学能力仍暂缓，恢复须由用户明确决定；E3 有限尾音维护任务保持独立，不受本阶段影响。
+> 当前状态：Phase 39.5（JIVE 内核精简与 JIVE v2 精准移植）**进行中**：39.5-1（基线与未用能力闭包精简）、39.5-2（属性、对象与 Length 安全切换）、39.5-3（集中属性分发与 BoxModel 去污染）以及 39.5-4a/4d（构建守卫与脏标记、Flex gap 修复）已完成并通过 Windows Debug 构建、默认 CTest 与定向 UI 回归；39.5-4b/4c 与 39.5-5 未启动。Phase 39 已冻结，Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过；R0–R11 已完成并归档；Phase 40–42 及后续声学能力仍暂缓，恢复须由用户明确决定；E3 有限尾音维护任务保持独立，不受本阶段影响。
 
 ## 0. 归档入口
 
@@ -162,6 +162,15 @@
 - **实测(临时探针,加载完整样式)**:主窗口 1280x720(122 个实际节点)Property 监听注册 9043 → 3957(−56%);设置 680x900(166 个节点)12004 → 3799(−68%)。owner 状态监听为 389/554(约 3.2/节点),BoxModel 监听 122/166(1/节点);不设固定 listener 总数或零开销承诺。探针与计数宏在记录后移除。
 - **验证**:Windows Debug app/tests 构建通过;默认 `ctest` 通过(28.0 s);`JiveCoreValues` 64 项断言全部通过,新增 `setProperty` 驱动路径覆盖 enabled/opacity/toggled/width、Text、Slider、ComboBox、ProgressBar;既有 `LayoutGoldenTest` 391、`StyleCatalog` 176、`ViewHost` 35、`JiveRender` 13、`JiveModalDialog` 417、`SettingsLayoutModel` 66、`JiveTeardownOrder` 24、`ComboRebuild` 7、`FilterComboDefault` 8、`FilterComboVisibilityAdaptation` 14、`PresetComboRebuild` 9、`PluginPanelToggle` 34 全部通过。
 - **未覆盖**:windows-mcp 真实表面验收、语言切换与绑定色板仍按 1.4 在阶段出口执行;本任务不重测音频/插件矩阵。
+
+### 1.9 Phase 39.5-4a/4d 实施结果与验证
+
+- **构建守卫**:`Interpreter::interpret` 用 RAII 在节点上写入 `setup-in-progress`,装饰/子节点构建期间只标记失效;结束(含异常路径)清除。顶层解释结束后只做一次根容器 `updateIdealSize()` 收敛。
+- **脏标记与约束测量**:`ContainerItem` 新增 `idealSizeIsOutOfDate` / `childrenMayBeOutOfDate` / 测量时约束快照与 `idealSizeWasLimitedByConstraints`;`updateIdealSize(informParent, measureChildren)`、`invalidateIdealSize()`、`updateIdealSizeIfOutOfDate()`、`updateChildrensIdealSizesIfOutOfDate()`、`refreshLayout()` 取代旧的 `updateIdealSizeUnrestrained/WithinConstraints`。构建期 `CommonGuiItem::boxModelChanged/childrenChanged`、`Child::componentMovedOrResized` 与 `Text` 的父级重排均按守卫延迟。
+- **门面同步**:`ViewHost::fitToContent()` 按给定宽度设置组件后调用 `updateIdealSizeWithinContentBounds()`,保留 ideal-height 与子节点 bottom/margin、根 padding/border 校正;`relayoutContainer()` 改为经由容器 `refreshLayout()` 消费脏状态,不再只调用 `layOutChildren()`。
+- **Flex gap**:`FlexContainer` 支持 `gap`(半 margin + 布局区扩展);`custom-colour-palette` 的 220px 现在精确容纳 8 个 18px 色块、7 个 4px 间距与 44px Clear,Clear 的最右边界与色板右边界重合;删除 Clear 重复的 4px 左 margin。未做全应用 margin→gap 重写。
+- **验证**:Windows Debug app/tests 构建通过;默认 `ctest` 通过(25.9 s);`JiveCoreValues` 71 项(新增色板 gap 几何:首个色块 x=0、第 8 个 x=154、Clear 176..220、单一 4px 间距);`ViewHost` 37 项(新增解释后全树无 `setup-in-progress` 残留);`LayoutGoldenTest` 391、`JiveModalDialog` 417、`SettingsLayoutModel` 66、`StyleCatalog` 176、`JiveRender` 13、`JiveTeardownOrder` 24、`ComboRebuild` 7、`FilterComboDefault` 8、`FilterComboVisibilityAdaptation` 14、`PresetComboRebuild` 9、`PluginPanelToggle` 34 全部通过。
+- **未启动**:4b(Item 缓存)与 4c(TextLayout 缓存)仍需分别实现和验证;真实 windows-mcp 表面证据仍在阶段出口补足。
 
 ## 2. 后续候选阶段(暂缓)
 

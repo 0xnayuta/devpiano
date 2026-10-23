@@ -27,6 +27,27 @@
 #include "jive_Slider.h"
 
 namespace jive {
+namespace {
+// 构建期标记：装饰链与子节点构建期间只标记尺寸失效，避免自底向上的中间态重测。
+class ScopedSetupGuard {
+public:
+    explicit ScopedSetupGuard(juce::ValueTree stateToGuard)
+        : state { std::move(stateToGuard) } {
+        state.setProperty(ids::setupInProgress(), true, nullptr);
+    }
+
+    ~ScopedSetupGuard() {
+        state.setProperty(ids::setupInProgress(), false, nullptr);
+    }
+
+    ScopedSetupGuard(const ScopedSetupGuard&) = delete;
+    ScopedSetupGuard& operator=(const ScopedSetupGuard&) = delete;
+
+private:
+    juce::ValueTree state;
+};
+} // namespace
+
 const ComponentFactory& Interpreter::getComponentFactory() const {
     return componentFactory;
 }
@@ -136,11 +157,24 @@ static std::unique_ptr<GuiItem> decorate(std::unique_ptr<GuiItem> item,
 
 std::unique_ptr<GuiItem> Interpreter::interpret(const juce::ValueTree& tree, GuiItem* const parent,
                                                 juce::AudioProcessor* pluginProcessor) const {
-    auto item = createUndecoratedItem(tree, parent);
+    std::unique_ptr<GuiItem> item;
 
-    if (item != nullptr) {
-        item = decorate(std::move(item), pluginProcessor);
-        setChildItems(*item);
+    {
+        const ScopedSetupGuard setupGuard { tree };
+        item = createUndecoratedItem(tree, parent);
+
+        if (item != nullptr) {
+            item = decorate(std::move(item), pluginProcessor);
+            setChildItems(*item);
+        }
+    }
+
+    if (item != nullptr && item->isTopLevel()) {
+        if (auto* decorator = dynamic_cast<GuiItemDecorator*>(item.get())) {
+            if (auto* container = decorator->getTopLevelDecorator().toType<ContainerItem>()) {
+                container->updateIdealSize();
+            }
+        }
     }
 
     return item;

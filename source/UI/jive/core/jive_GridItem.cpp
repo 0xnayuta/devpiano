@@ -39,7 +39,7 @@ GridItem::GridItem(std::unique_ptr<GuiItem> itemToDecorate)
 
         if (auto* containerParent
             = dynamic_cast<GuiItemDecorator&>(*getParent()).getTopLevelDecorator().toType<ContainerItem>()) {
-            containerParent->updateIdealSizeUnrestrained();
+            containerParent->updateIdealSize();
         }
     };
     order.onValueChange = updateParentLayout;

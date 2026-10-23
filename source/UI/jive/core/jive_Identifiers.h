@@ -17,6 +17,11 @@ namespace jive::ids {
     return identifier;
 }
 
+[[nodiscard]] inline const juce::Identifier& setupInProgress() {
+    static const juce::Identifier identifier { "setup-in-progress" };
+    return identifier;
+}
+
 [[nodiscard]] inline const juce::Identifier& idealWidth() {
     static const juce::Identifier identifier { "ideal-width" };
     return identifier;

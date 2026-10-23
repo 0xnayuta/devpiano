@@ -246,6 +246,10 @@ void CommonGuiItem::componentParentHierarchyChanged(juce::Component& componentTh
 void CommonGuiItem::boxModelChanged(BoxModel& boxModelThatChanged) {
     jassertquiet(&boxModelThatChanged == &boxModel);
 
+    if (static_cast<bool>(state[ids::setupInProgress()])) {
+        return;
+    }
+
     getComponent()->removeComponentListener(this);
     getComponent()->setSize(juce::roundToInt(boxModel.getWidth()), juce::roundToInt(boxModel.getHeight()));
     getComponent()->addComponentListener(this);
@@ -253,6 +257,10 @@ void CommonGuiItem::boxModelChanged(BoxModel& boxModelThatChanged) {
 }
 
 void CommonGuiItem::childrenChanged() {
+    if (static_cast<bool>(state[ids::setupInProgress()])) {
+        return;
+    }
+
     getTopLevelDecorator().callLayoutChildrenWithRecursionLock();
 }
 } // namespace jive

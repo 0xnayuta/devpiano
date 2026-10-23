@@ -57,16 +57,16 @@ GridContainer::GridContainer(std::unique_ptr<GuiItem> itemToDecorate)
     alignItems.onValueChange = [this] { callLayoutChildrenWithRecursionLock(); };
     justifyContent.onValueChange = [this] { callLayoutChildrenWithRecursionLock(); };
     alignContent.onValueChange = [this] { callLayoutChildrenWithRecursionLock(); };
-    gridAutoFlow.onValueChange = [this] { updateIdealSizeUnrestrained(); };
-    gridTemplateColumns.onValueChange = [this] { updateIdealSizeUnrestrained(); };
-    gridTemplateColumns.onTransitionProgressed = [this] { updateIdealSizeUnrestrained(); };
-    gridTemplateRows.onValueChange = [this] { updateIdealSizeUnrestrained(); };
-    gridTemplateRows.onTransitionProgressed = [this] { updateIdealSizeUnrestrained(); };
-    gridTemplateAreas.onValueChange = [this] { updateIdealSizeUnrestrained(); };
-    gridAutoRows.onValueChange = [this] { updateIdealSizeUnrestrained(); };
-    gridAutoColumns.onValueChange = [this] { updateIdealSizeUnrestrained(); };
-    gap.onValueChange = [this] { updateIdealSizeUnrestrained(); };
-    gap.onTransitionProgressed = [this] { updateIdealSizeUnrestrained(); };
+    gridAutoFlow.onValueChange = [this] { updateIdealSize(); };
+    gridTemplateColumns.onValueChange = [this] { updateIdealSize(); };
+    gridTemplateColumns.onTransitionProgressed = [this] { updateIdealSize(); };
+    gridTemplateRows.onValueChange = [this] { updateIdealSize(); };
+    gridTemplateRows.onTransitionProgressed = [this] { updateIdealSize(); };
+    gridTemplateAreas.onValueChange = [this] { updateIdealSize(); };
+    gridAutoRows.onValueChange = [this] { updateIdealSize(); };
+    gridAutoColumns.onValueChange = [this] { updateIdealSize(); };
+    gap.onValueChange = [this] { updateIdealSize(); };
+    gap.onTransitionProgressed = [this] { updateIdealSize(); };
 }
 
 GridContainer::~GridContainer() = default;

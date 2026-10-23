@@ -13,8 +13,8 @@ namespace jive {
 ContainerItem::ContainerItem(std::unique_ptr<GuiItem> itemToDecorate)
     : GuiItemDecorator { std::move(itemToDecorate) }
     , box { boxModel(*this) }
-    , idealWidth { state, "ideal-width" }
-    , idealHeight { state, "ideal-height" } {
+    , idealWidth { state, ids::idealWidth() }
+    , idealHeight { state, ids::idealHeight() } {
     box.addListener(*this);
     state.addListener(this);
 }
@@ -24,16 +24,40 @@ ContainerItem::~ContainerItem() {
     box.removeListener(*this);
 }
 
+bool ContainerItem::isSetupInProgress() const {
+    return static_cast<bool>(state[ids::setupInProgress()]);
+}
+
 void ContainerItem::valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& property) {
     forwardPropertyChange(tree, property, idealWidth, idealHeight);
+
+    const auto isOwnProperty = tree == state;
+
+    if (property == idealWidth.id || property == idealHeight.id) {
+        if (!isOwnProperty) {
+            idealSizeIsOutOfDate = true;
+        }
+        return;
+    }
+
+    if (property == ids::componentWidth() || property == ids::componentHeight()) {
+        if (isOwnProperty) {
+            idealSizeIsOutOfDate = true;
+        }
+        childrenMayBeOutOfDate = true;
+        return;
+    }
+
+    idealSizeIsOutOfDate = true;
+    childrenMayBeOutOfDate = true;
 }
 
 void ContainerItem::insertChild(std::unique_ptr<GuiItem> child, int index) {
     const auto numChildrenBefore = getChildren().size();
     GuiItemDecorator::insertChild(std::move(child), index);
 
-    if (getChildren().size() != numChildrenBefore) {
-        updateIdealSizeUnrestrained();
+    if (getChildren().size() != numChildrenBefore && !isSetupInProgress()) {
+        updateIdealSize();
     }
 }
 
@@ -43,26 +67,35 @@ void ContainerItem::setChildren(std::vector<std::unique_ptr<GuiItem>>&& newChild
         GuiItemDecorator::setChildren(std::move(newChildren));
     }
 
-    if (!getChildren().isEmpty()) {
-        updateIdealSizeUnrestrained();
+    if (!getChildren().isEmpty() && !isSetupInProgress()) {
+        updateIdealSize();
     }
 }
 
-void ContainerItem::updateIdealSizeUnrestrained() {
-    updateIdealSize({
-        static_cast<float>(std::numeric_limits<juce::uint16>::max()),
-        static_cast<float>(std::numeric_limits<juce::uint16>::max()),
-    });
+juce::Rectangle<float> ContainerItem::getContentConstraints() const {
+    auto constraints = box.getExplicitConstraints();
+
+    if (const auto* thisParent = dynamic_cast<const GuiItemDecorator*>(getParent())) {
+        if (const auto* parentContainer = thisParent->getTopLevelDecorator().toType<ContainerItem>()) {
+            constraints = constraints.getIntersection(parentContainer->getContentConstraints());
+        }
+    }
+
+    return box.getPadding().subtractedFrom(box.getBorder().subtractedFrom(constraints));
 }
 
-void ContainerItem::updateIdealSizeWithinConstraints() {
-    updateIdealSize(box.getContentBounds());
-}
+void ContainerItem::applyIdealSize(juce::Rectangle<float> newIdealSize, juce::Rectangle<float> constraints,
+                                   bool informParent) {
+    idealSizeWasLimitedByConstraints
+        = newIdealSize.getWidth() >= constraints.getWidth() || newIdealSize.getHeight() >= constraints.getHeight();
 
-void ContainerItem::updateIdealSize(juce::Rectangle<float> constraints) {
-    const auto newIdealSize = calculateIdealSize(constraints);
     const auto widthChanged = !juce::approximatelyEqual(newIdealSize.getWidth(), idealWidth.get());
     const auto heightChanged = !juce::approximatelyEqual(newIdealSize.getHeight(), idealHeight.get());
+
+    if (!(widthChanged || heightChanged)) {
+        callLayoutChildrenWithRecursionLock();
+        return;
+    }
 
     if (widthChanged && heightChanged) {
         {
@@ -72,17 +105,106 @@ void ContainerItem::updateIdealSize(juce::Rectangle<float> constraints) {
         idealHeight = newIdealSize.getHeight();
     } else if (widthChanged) {
         idealWidth = newIdealSize.getWidth();
-    } else if (heightChanged) {
-        idealHeight = newIdealSize.getHeight();
     } else {
-        callLayoutChildrenWithRecursionLock();
+        idealHeight = newIdealSize.getHeight();
     }
 
-    if ((widthChanged || heightChanged) && getParent() != nullptr) {
+    if (informParent && getParent() != nullptr && !isSetupInProgress()) {
         if (auto* containerParent
             = dynamic_cast<GuiItemDecorator&>(*getParent()).getTopLevelDecorator().toType<ContainerItem>()) {
-            containerParent->updateIdealSizeUnrestrained();
+            containerParent->updateIdealSize(true, false);
         }
+    }
+
+    callLayoutChildrenWithRecursionLock();
+}
+
+void ContainerItem::updateIdealSize(bool informParentOfChanges, bool measureChildren) {
+    if (measureChildren) {
+        updateChildrensIdealSizesIfOutOfDate();
+    }
+
+    explicitConstraintsWhenIdealSizeWasMeasured = box.getExplicitConstraints();
+
+    const auto constraints = getContentConstraints();
+
+    if (!measureChildren && constraints != constraintsWhenIdealSizeWasMeasured) {
+        childrenMayBeOutOfDate = true;
+    }
+
+    constraintsWhenIdealSizeWasMeasured = constraints;
+    idealSizeIsOutOfDate = false;
+
+    applyIdealSize(calculateIdealSize(constraints), constraints, informParentOfChanges);
+}
+
+void ContainerItem::updateIdealSizeWithinContentBounds() {
+    updateChildrensIdealSizesIfOutOfDate();
+
+    const auto constraints = box.getContentBounds();
+    explicitConstraintsWhenIdealSizeWasMeasured = box.getExplicitConstraints();
+    constraintsWhenIdealSizeWasMeasured = constraints;
+    idealSizeIsOutOfDate = false;
+
+    applyIdealSize(calculateIdealSize(constraints), constraints, false);
+}
+
+void ContainerItem::invalidateIdealSize() {
+    idealSizeIsOutOfDate = true;
+
+    for (auto* ancestor = getParent(); ancestor != nullptr; ancestor = ancestor->getParent()) {
+        if (auto* decorator = dynamic_cast<GuiItemDecorator*>(ancestor)) {
+            if (auto* container = decorator->getTopLevelDecorator().toType<ContainerItem>()) {
+                container->childrenMayBeOutOfDate = true;
+            }
+        }
+    }
+}
+
+void ContainerItem::refreshLayout() {
+    updateIdealSizeIfOutOfDate();
+    callLayoutChildrenWithRecursionLock();
+}
+
+void ContainerItem::updateIdealSizeIfOutOfDate() {
+    if (idealSizeIsOutOfDate || getContentConstraints() != constraintsWhenIdealSizeWasMeasured) {
+        updateIdealSize(false);
+        return;
+    }
+
+    if (!childrenMayBeOutOfDate) {
+        return;
+    }
+
+    updateChildrensIdealSizesIfOutOfDate();
+
+    if (idealSizeIsOutOfDate) {
+        updateIdealSize(false, false);
+    }
+}
+
+void ContainerItem::updateChildrensIdealSizesIfOutOfDate() {
+    childrenMayBeOutOfDate = false;
+
+    for (auto* child : getChildren()) {
+        if (auto* decorator = dynamic_cast<GuiItemDecorator*>(child)) {
+            if (auto* container = decorator->getTopLevelDecorator().toType<ContainerItem>()) {
+                container->updateIdealSizeIfOutOfDate();
+            }
+        }
+    }
+}
+
+void ContainerItem::boxModelChanged(BoxModel& boxModelThatChanged) {
+    if (!idealSizeWasLimitedByConstraints || boxModelThatChanged.state != state || isSetupInProgress()) {
+        return;
+    }
+
+    const auto constraints = box.getExplicitConstraints();
+
+    if (constraints.getWidth() > explicitConstraintsWhenIdealSizeWasMeasured.getWidth()
+        || constraints.getHeight() > explicitConstraintsWhenIdealSizeWasMeasured.getHeight()) {
+        updateIdealSize();
     }
 }
 } // namespace jive

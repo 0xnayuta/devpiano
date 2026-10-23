@@ -26,12 +26,14 @@ private:
     void valueTreePropertyChanged(juce::ValueTree&, const juce::Identifier&) override;
 
     juce::FlexBox buildFlexBox(juce::Rectangle<float> bounds, LayoutStrategy strategy);
+    [[nodiscard]] juce::Point<float> calculateGaps() const;
 
     PassiveProperty<juce::FlexBox::Direction> flexDirection;
     PassiveProperty<juce::FlexBox::Wrap> flexWrap;
     PassiveProperty<juce::FlexBox::JustifyContent> flexJustifyContent;
     PassiveProperty<juce::FlexBox::AlignItems> flexAlignItems;
     PassiveProperty<juce::FlexBox::AlignContent> flexAlignContent;
+    PassiveProperty<juce::Array<juce::Grid::Px>> gap;
 
     bool layoutRecursionLock = false;
     bool changesDuringLayout = false;

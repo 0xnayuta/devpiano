@@ -148,6 +148,10 @@ void Text::updateTextComponent() {
     idealWidth = nextWholeNumberAbove(
         buildTextLayout(static_cast<float>(std::numeric_limits<juce::uint16>::max())).getWidth());
 
+    if (auto* child = toType<ContainerItem::Child>()) {
+        child->idealSizeChanged();
+    }
+
     if (auto* parentItem = getParent()) {
         if (!parentItem->isContainer()) {
             getTextComponent().setAccessible(false);
@@ -155,7 +159,11 @@ void Text::updateTextComponent() {
 
         if (auto* containerParent
             = dynamic_cast<GuiItemDecorator&>(*parentItem).getTopLevelDecorator().toType<ContainerItem>()) {
-            containerParent->updateIdealSizeUnrestrained();
+            if (static_cast<bool>(state[ids::setupInProgress()])) {
+                containerParent->invalidateIdealSize();
+            } else {
+                containerParent->updateIdealSize();
+            }
         }
     }
 }

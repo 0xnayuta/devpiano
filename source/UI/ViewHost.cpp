@@ -183,7 +183,7 @@ void ViewHost::fitToContent(int width) const {
     }
 
     component->setSize(width, component->getHeight());
-    container->updateIdealSizeWithinConstraints();
+    container->updateIdealSizeWithinContentBounds();
     const auto height = static_cast<double>(rootItem->state.getProperty("ideal-height"));
     component->setSize(width, static_cast<int>(std::ceil(height)));
 
@@ -298,18 +298,20 @@ bool ViewHost::setSliderValue(const juce::String& id, double value, juce::Notifi
 }
 
 void ViewHost::relayoutContainer(const juce::String& containerId) const {
-    if (auto* item = findItem(containerId)) {
-        if (auto* flex = dynamic_cast<::jive::FlexContainer*>(item)) {
-            flex->layOutChildren();
-        } else if (auto* grid = dynamic_cast<::jive::GridContainer*>(item)) {
-            grid->layOutChildren();
-        } else if (auto* decorator = dynamic_cast<::jive::GuiItemDecorator*>(item)) {
-            if (auto* f = decorator->toType<::jive::FlexContainer>()) {
-                f->layOutChildren();
-            } else if (auto* g = decorator->toType<::jive::GridContainer>()) {
-                g->layOutChildren();
-            }
-        }
+    auto* item = findItem(containerId);
+
+    if (item == nullptr) {
+        return;
+    }
+
+    auto* decorator = dynamic_cast<::jive::GuiItemDecorator*>(item);
+
+    if (decorator == nullptr) {
+        return;
+    }
+
+    if (auto* container = decorator->getTopLevelDecorator().toType<::jive::ContainerItem>()) {
+        container->refreshLayout();
     }
 }
 
