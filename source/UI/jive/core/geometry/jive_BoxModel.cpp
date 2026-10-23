@@ -42,7 +42,13 @@ BoxModel::BoxModel(juce::ValueTree stateSource)
         componentHeight = height.get().toPixels(getParentBounds().getHeight());
     }
 
-    const auto informBoxModelChanged = [this]() { listeners.call(&Listener::boxModelChanged, *this); };
+    const auto informBoxModelChanged = [this]() {
+        // 过渡 tick 不写 ValueTree 属性；所有几何输入（含动画中的
+        // width/height/margin/padding/border）都必须推进版本号，让
+        // FlexItem/GridItem 的缓存失效。
+        ++constraintsVersion;
+        listeners.call(&Listener::boxModelChanged, *this);
+    };
     const auto onBoxModelChanged = [this, informBoxModelChanged]() {
         if (callbackLock) {
             return;
