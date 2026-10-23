@@ -131,7 +131,6 @@ private:
     void updateVoiceSustainForChannel(int midiChannel, int controllerValue) noexcept;
     void clearSustainState(int midiChannel) noexcept;
     [[nodiscard]] bool anySustainDown() const noexcept;
-    [[nodiscard]] float sustainEdgeVelocity(int midiChannel, int controllerValue) const noexcept;
 
     // allowTailOff=false is a hard stop. preservePedalState=true is used only
     // by CC123, which must honor sustain/sostenuto and must not flush the
